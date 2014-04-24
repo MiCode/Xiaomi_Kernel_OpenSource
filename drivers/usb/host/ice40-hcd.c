@@ -543,6 +543,7 @@ static int ice40_xfer_in(struct ice40_hcd *ihcd, struct urb *urb)
 	ice40_spi_reg_write(ihcd, cmd, HCMD_REG);
 
 	status = ice40_poll_xfer(ihcd, 1000);
+check_status:
 	switch (XFR_MASK(status)) {
 	case XFR_SUCCESS:
 		usb_dotoggle(udev, epnum, is_out);
@@ -575,6 +576,10 @@ static int ice40_xfer_in(struct ice40_hcd *ihcd, struct urb *urb)
 			ret = -EPROTO;
 		break;
 	case XFR_STALL:
+		status = ice40_poll_xfer(ihcd, 900);
+		/* Check if a fake STALL is reported */
+		if (XFR_MASK(status) != XFR_STALL)
+			goto check_status;
 		ret = -EPIPE;
 		break;
 	case XFR_BADLEN:
@@ -699,6 +704,7 @@ no_data:
 	ice40_spi_reg_write(ihcd, cmd, HCMD_REG);
 
 	status = ice40_poll_xfer(ihcd, 1000);
+check_status:
 	switch (XFR_MASK(status)) {
 	case XFR_SUCCESS:
 		usb_dotoggle(udev, epnum, is_out);
@@ -724,6 +730,10 @@ no_data:
 			ret = -EPROTO;
 		break;
 	case XFR_STALL:
+		status = ice40_poll_xfer(ihcd, 900);
+		/* Check if a fake STALL is reported */
+		if (XFR_MASK(status) != XFR_STALL)
+			goto check_status;
 		ret = -EPIPE;
 		break;
 	case XFR_BADLEN:
