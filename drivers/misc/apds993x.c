@@ -1240,7 +1240,8 @@ static int apds993x_enable_ps_sensor(struct i2c_client *client, int val)
 			apds993x_set_enable(client,0);
 
 			/* init threshold for proximity */
-			apds993x_set_pilt(client, 0);
+			apds993x_set_pilt(client,
+					apds993x_ps_detection_threshold);
 			apds993x_set_piht(client,
 					apds993x_ps_detection_threshold);
 			/*calirbation*/
