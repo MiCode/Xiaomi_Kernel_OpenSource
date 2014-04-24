@@ -720,7 +720,7 @@ static void apds993x_change_ps_threshold(struct i2c_client *client)
 		data->ps_detection = 0;
 
 		/* NEAR-to-FAR detection */
-		input_report_abs(data->input_dev_ps, ABS_DISTANCE, 5);
+		input_report_abs(data->input_dev_ps, ABS_DISTANCE, 1);
 		input_sync(data->input_dev_ps);
 
 		i2c_smbus_write_word_data(client,
@@ -787,7 +787,7 @@ static void apds993x_change_als_threshold(struct i2c_client *client)
 		 * from the PS
 		 */
 		/* NEAR-to-FAR detection */
-		input_report_abs(data->input_dev_ps, ABS_DISTANCE, 5);
+		input_report_abs(data->input_dev_ps, ABS_DISTANCE, 1);
 		input_sync(data->input_dev_ps);
 
 		i2c_smbus_write_word_data(client,
@@ -937,7 +937,7 @@ static void apds993x_als_polling_work_handler(struct work_struct *work)
 		 * from the PS
 		 */
 		/* NEAR-to-FAR detection */
-		input_report_abs(data->input_dev_ps, ABS_DISTANCE, 5);
+		input_report_abs(data->input_dev_ps, ABS_DISTANCE, 1);
 		input_sync(data->input_dev_ps);
 
 		i2c_smbus_write_word_data(client,
@@ -2343,7 +2343,7 @@ static int apds993x_probe(struct i2c_client *client,
 	set_bit(EV_ABS, data->input_dev_ps->evbit);
 
 	input_set_abs_params(data->input_dev_als, ABS_MISC, 0, 30000, 0, 0);
-	input_set_abs_params(data->input_dev_ps, ABS_DISTANCE, 0, 5, 0, 0);
+	input_set_abs_params(data->input_dev_ps, ABS_DISTANCE, 0, 1, 0, 0);
 
 	data->input_dev_als->name = "light";
 	data->input_dev_ps->name = "proximity";
