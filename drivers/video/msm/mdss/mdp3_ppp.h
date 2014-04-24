@@ -391,7 +391,7 @@ struct ppp_edge_rep {
 uint32_t ppp_bpp(uint32_t type);
 uint32_t ppp_src_config(uint32_t type);
 uint32_t ppp_out_config(uint32_t type);
-uint32_t ppp_pack_pattern(uint32_t type);
+uint32_t ppp_pack_pattern(uint32_t type, uint32_t yuv2rgb);
 uint32_t ppp_dst_op_reg(uint32_t type);
 uint32_t ppp_src_op_reg(uint32_t type);
 bool ppp_per_p_alpha(uint32_t type);
