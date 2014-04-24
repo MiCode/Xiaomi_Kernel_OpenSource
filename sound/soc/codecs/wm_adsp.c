@@ -197,7 +197,7 @@ static void wm_adsp_buf_free(struct list_head *list)
 /* Must remain a power of two */
 #define WM_ADSP_CAPTURE_BUFFER_SIZE      1048576
 
-#define WM_ADSP_NUM_FW 14
+#define WM_ADSP_NUM_FW 16
 
 #define WM_ADSP_FW_MBC_VSS        0
 #define WM_ADSP_FW_TX             1
@@ -213,6 +213,8 @@ static void wm_adsp_buf_free(struct list_head *list)
 #define WM_ADSP_FW_EZ2HEAR_RX     11
 #define WM_ADSP_FW_EZ2FACETALK_TX 12
 #define WM_ADSP_FW_EZ2FACETALK_RX 13
+#define WM_ADSP_FW_EZ2GROUPTALK_TX 14
+#define WM_ADSP_FW_EZ2GROUPTALK_RX 15
 
 static const char *wm_adsp_fw_text[WM_ADSP_NUM_FW] = {
 	[WM_ADSP_FW_MBC_VSS] =    "MBC/VSS",
@@ -229,6 +231,8 @@ static const char *wm_adsp_fw_text[WM_ADSP_NUM_FW] = {
 	[WM_ADSP_FW_EZ2HEAR_RX] = "Ez2Hear Rx",
 	[WM_ADSP_FW_EZ2FACETALK_TX] = "Ez2FaceTalk Tx",
 	[WM_ADSP_FW_EZ2FACETALK_RX] = "Ez2FaceTalk Rx",
+	[WM_ADSP_FW_EZ2GROUPTALK_TX] = "Ez2GroupTalk Tx",
+	[WM_ADSP_FW_EZ2GROUPTALK_RX] = "Ez2GroupTalk Rx",
 };
 
 struct wm_adsp_system_config_xm_hdr {
@@ -385,6 +389,8 @@ static struct wm_adsp_fw_defs wm_adsp_fw[WM_ADSP_NUM_FW] = {
 	[WM_ADSP_FW_EZ2HEAR_RX] = { .file = "ez2hear-rx" },
 	[WM_ADSP_FW_EZ2FACETALK_TX] = { .file = "ez2facetalk-tx" },
 	[WM_ADSP_FW_EZ2FACETALK_RX] = { .file = "ez2facetalk-rx" },
+	[WM_ADSP_FW_EZ2GROUPTALK_TX] = { .file = "ez2grouptalk-tx" },
+	[WM_ADSP_FW_EZ2GROUPTALK_RX] = { .file = "ez2grouptalk-rx" },
 };
 
 struct wm_coeff_ctl_ops {
