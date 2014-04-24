@@ -988,7 +988,6 @@ static void msm_hs_set_termios(struct uart_port *uport,
 	msm_hs_write(uport, UART_DM_IMR, 0);
 
 	MSM_HS_DBG("Entering %s\n", __func__);
-	dump_uart_hs_registers(msm_uport);
 
 	/* Clear the Rx Ready Ctl bit - This ensures that
 	* flow control lines stop the other side from sending
@@ -1120,7 +1119,6 @@ static void msm_hs_set_termios(struct uart_port *uport,
 	mutex_unlock(&msm_uport->clk_mutex);
 
 	MSM_HS_DBG("Exit %s\n", __func__);
-	dump_uart_hs_registers(msm_uport);
 	msm_hs_clock_unvote(msm_uport);
 }
 
@@ -1280,7 +1278,6 @@ static void msm_hs_submit_tx_locked(struct uart_port *uport)
 				msm_uport, flags);
 
 	MSM_HS_DBG("%s:Enqueue Tx Cmd\n", __func__);
-	dump_uart_hs_registers(msm_uport);
 }
 
 /* Start to receive the next chunk of data */
@@ -1345,7 +1342,6 @@ static void msm_hs_start_rx_locked(struct uart_port *uport)
 	msm_uport->rx.rx_cmd_queued = true;
 	wake_up(&msm_uport->rx.wait);
 	MSM_HS_DBG("%s:Enqueue Rx Cmd\n", __func__);
-	dump_uart_hs_registers(msm_uport);
 }
 
 static void flip_insert_work(struct work_struct *work)
@@ -1432,7 +1428,6 @@ static void msm_serial_hs_rx_tlet(unsigned long tlet_ptr)
 	spin_lock_irqsave(&uport->lock, flags);
 
 	MSM_HS_DBG("In %s\n", __func__);
-	dump_uart_hs_registers(msm_uport);
 
 	/* overflow is not connect to data in a FIFO */
 	if (unlikely((status & UARTDM_SR_OVERRUN_BMSK) &&
@@ -1460,7 +1455,7 @@ static void msm_serial_hs_rx_tlet(unsigned long tlet_ptr)
 	}
 
 	if (unlikely(status & UARTDM_SR_RX_BREAK_BMSK)) {
-		MSM_HS_WARN("msm_serial_hs: Rx break\n");
+		MSM_HS_DBG("msm_serial_hs: Rx break\n");
 		uport->icount.brk++;
 		error_f = 1;
 		if (!(uport->ignore_status_mask & IGNBRK)) {
@@ -1537,7 +1532,7 @@ static void msm_hs_start_tx_locked(struct uart_port *uport )
 	struct msm_hs_port *msm_uport = UARTDM_TO_MSM(uport);
 
 	if (msm_uport->clk_state != MSM_HS_CLK_ON) {
-		MSM_HS_WARN("%s: Failed.Clocks are OFF\n", __func__);
+		MSM_HS_INFO("%s: Failed.Clocks are OFF\n", __func__);
 	}
 	if ((msm_uport->tx.tx_ready_int_en == 0) &&
 		(msm_uport->tx.dma_in_flight == 0))
@@ -1615,7 +1610,6 @@ static void msm_serial_hs_tx_tlet(unsigned long tlet_ptr)
 
 	spin_unlock_irqrestore(&(msm_uport->uport.lock), flags);
 	MSM_HS_DBG("In %s()\n", __func__);
-	dump_uart_hs_registers(msm_uport);
 }
 
 /**
