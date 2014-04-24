@@ -26,7 +26,7 @@
 		reg-names = "csiphy", "csiphy_clk_mux";
 		interrupts = <0 78 0>;
 		interrupt-names = "csiphy";
-		qcom,clock-names = "camss_top_ahb_clk",
+		clock-names = "camss_top_ahb_clk",
 			"ispif_ahb_clk", "csiphy_timer_src_clk",
 			"csiphy_timer_clk";
 		qcom,clock-rates = <0 0 200000000 0>;
@@ -40,7 +40,7 @@
 		reg-names = "csiphy", "csiphy_clk_mux";
 		interrupts = <0 79 0>;
 		interrupt-names = "csiphy";
-		qcom,clock-names = "camss_top_ahb_clk",
+		clock-names = "camss_top_ahb_clk",
 			"ispif_ahb_clk", "csiphy_timer_src_clk",
 			"csiphy_timer_clk";
 		qcom,clock-rates = <0 0 200000000 0>;
@@ -55,7 +55,7 @@
 		interrupt-names = "csid";
 		qcom,csi-vdd-voltage = <1200000>;
 		qcom,mipi-csi-vdd-supply = <&pm8226_l4>;
-		qcom,clock-names = "camss_top_ahb_clk", "ispif_ahb_clk",
+		clock-names = "camss_top_ahb_clk", "ispif_ahb_clk",
 			"csi_ahb_clk", "csi_src_clk", "csi_clk",
 			"csi_phy_clk", "csi_pix_clk", "csi_rdi_clk";
 		qcom,clock-rates = <0 0 0 200000000 0 0 0 0>;
@@ -70,7 +70,7 @@
 		interrupt-names = "csid";
 		qcom,csi-vdd-voltage = <1200000>;
 		qcom,mipi-csi-vdd-supply = <&pm8226_l4>;
-		qcom,clock-names = "camss_top_ahb_clk", "ispif_ahb_clk",
+		clock-names = "camss_top_ahb_clk", "ispif_ahb_clk",
 			"csi_ahb_clk", "csi_src_clk", "csi_clk",
 			"csi_phy_clk", "csi_pix_clk", "csi_rdi_clk";
 		qcom,clock-rates = <0 0 0 200000000 0 0 0 0>;
@@ -84,7 +84,7 @@
 		reg-names = "ispif", "csi_clk_mux";
 		interrupts = <0 55 0>;
 		interrupt-names = "ispif";
-		qcom,clock-names = "ispif_ahb_clk";
+		clock-names = "ispif_ahb_clk";
 		qcom,clock-rates = <0>;
 	};
 
@@ -97,7 +97,7 @@
 		interrupts = <0 57 0>;
 		interrupt-names = "vfe";
 		vdd-supply = <&gdsc_vfe>;
-		qcom,clock-names = "camss_top_ahb_clk" , "vfe_clk_src",
+		clock-names = "camss_top_ahb_clk" , "vfe_clk_src",
 			"camss_vfe_vfe_clk", "camss_csi_vfe_clk", "iface_clk",
 			"bus_clk";
 		qcom,clock-rates = <0 266670000 0 0 0 0>;
@@ -112,7 +112,7 @@
 		interrupts = <0 59 0>;
 		interrupt-names = "jpeg";
 		vdd-supply = <&gdsc_jpeg>;
-		qcom,clock-names = "core_clk", "iface_clk", "bus_clk0",
+		clock-names = "core_clk", "iface_clk", "bus_clk0",
 			"camss_top_ahb_clk";
 		qcom,clock-rates = <266670000 0 0 0>;
 	};
@@ -134,7 +134,7 @@
 		interrupts = <0 49 0>;
 		interrupt-names = "cpp";
 		vdd-supply = <&gdsc_vfe>;
-        qcom,clock-names = "camss_top_ahb_clk", "vfe_clk_src",
+        clock-names = "camss_top_ahb_clk", "vfe_clk_src",
                            "camss_vfe_vfe_clk", "iface_clk", "cpp_core_clk",
                            "cpp_iface_clk", "cpp_bus_clk", "micro_iface_clk";
         qcom,clock-rates = <0 266670000 0 0 266670000 0 0 0>;
@@ -149,7 +149,7 @@
 		reg-names = "cci";
 		interrupts = <0 50 0>;
 		interrupt-names = "cci";
-        qcom,clock-names = "camss_top_ahb_clk", "cci_src_clk",
+        clock-names = "camss_top_ahb_clk", "cci_src_clk",
                            "cci_ahb_clk", "cci_clk";
         qcom,clock-rates = <0 19200000 0 0>;
 		gpios = <&msmgpio 29 0>,

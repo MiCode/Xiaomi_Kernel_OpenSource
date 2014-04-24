@@ -162,7 +162,7 @@ int msm_ispif_get_ahb_clk_info(struct ispif_device *ispif_dev,
 	struct device_node *of_node;
 	of_node = pdev->dev.of_node;
 
-	count = of_property_count_strings(of_node, "qcom,clock-names");
+	count = of_property_count_strings(of_node, "clock-names");
 
 	CDBG("count = %d\n", count);
 	if (count == 0) {
@@ -177,7 +177,7 @@ int msm_ispif_get_ahb_clk_info(struct ispif_device *ispif_dev,
 	}
 
 	for (i = 0; i < count; i++) {
-		rc = of_property_read_string_index(of_node, "qcom,clock-names",
+		rc = of_property_read_string_index(of_node, "clock-names",
 				i, &(ispif_8974_ahb_clk_info[i].clk_name));
 		CDBG("clock-names[%d] = %s\n",
 			 i, ispif_8974_ahb_clk_info[i].clk_name);

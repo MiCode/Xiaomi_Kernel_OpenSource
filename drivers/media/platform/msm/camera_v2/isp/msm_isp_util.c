@@ -238,7 +238,7 @@ int msm_isp_get_clk_info(struct vfe_device *vfe_dev,
 	struct device_node *of_node;
 	of_node = pdev->dev.of_node;
 
-	count = of_property_count_strings(of_node, "qcom,clock-names");
+	count = of_property_count_strings(of_node, "clock-names");
 
 	ISP_DBG("count = %d\n", count);
 	if (count == 0) {
@@ -253,7 +253,7 @@ int msm_isp_get_clk_info(struct vfe_device *vfe_dev,
 	}
 
 	for (i = 0; i < count; i++) {
-		rc = of_property_read_string_index(of_node, "qcom,clock-names",
+		rc = of_property_read_string_index(of_node, "clock-names",
 				i, &(vfe_clk_info[i].clk_name));
 		ISP_DBG("clock-names[%d] = %s\n", i, vfe_clk_info[i].clk_name);
 		if (rc < 0) {

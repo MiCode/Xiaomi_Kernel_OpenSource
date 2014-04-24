@@ -2335,7 +2335,7 @@ static int msm_cpp_get_clk_info(struct cpp_device *cpp_dev,
 	struct device_node *of_node;
 	of_node = pdev->dev.of_node;
 
-	count = of_property_count_strings(of_node, "qcom,clock-names");
+	count = of_property_count_strings(of_node, "clock-names");
 
 	CPP_DBG("count = %d\n", count);
 	if (count == 0) {
@@ -2350,7 +2350,7 @@ static int msm_cpp_get_clk_info(struct cpp_device *cpp_dev,
 	}
 
 	for (i = 0; i < count; i++) {
-		rc = of_property_read_string_index(of_node, "qcom,clock-names",
+		rc = of_property_read_string_index(of_node, "clock-names",
 				i, &(cpp_clk_info[i].clk_name));
 		CPP_DBG("clock-names[%d] = %s\n", i, cpp_clk_info[i].clk_name);
 		if (rc < 0) {

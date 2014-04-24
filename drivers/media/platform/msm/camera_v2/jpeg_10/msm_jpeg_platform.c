@@ -43,7 +43,7 @@ static int msm_jpeg_get_clk_info(struct msm_jpeg_device *jpeg_dev,
 	struct device_node *of_node;
 	of_node = pdev->dev.of_node;
 
-	count = of_property_count_strings(of_node, "qcom,clock-names");
+	count = of_property_count_strings(of_node, "clock-names");
 
 	JPEG_DBG("count = %d\n", count);
 	if (count == 0) {
@@ -58,7 +58,7 @@ static int msm_jpeg_get_clk_info(struct msm_jpeg_device *jpeg_dev,
 	}
 
 	for (i = 0; i < count; i++) {
-		rc = of_property_read_string_index(of_node, "qcom,clock-names",
+		rc = of_property_read_string_index(of_node, "clock-names",
 				i, &(jpeg_8x_clk_info[i].clk_name));
 		JPEG_DBG("clock-names[%d] = %s\n",
 			 i, jpeg_8x_clk_info[i].clk_name);
