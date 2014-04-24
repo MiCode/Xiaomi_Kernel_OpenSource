@@ -196,31 +196,40 @@ static int mdm_ssr_notify_cb(struct notifier_block *n, unsigned long code,
 		dev_err(dev->dev,
 			"SLIM %lu external_modem SSR notify cb", code);
 		/* vote for runtime-pm so that ADSP doesn't go down */
-		pm_runtime_get_sync(dev->dev);
+		msm_slim_get_ctrl(dev);
 		/*
 		 * checking framer here will wake-up ADSP and may avoid framer
 		 * handover later
 		 */
 		msm_slim_qmi_check_framer_request(dev);
 		dev->mdm.state = MSM_CTRL_DOWN;
+		msm_slim_put_ctrl(dev);
 		break;
 	case SUBSYS_AFTER_POWERUP:
 		if (dev->mdm.state != MSM_CTRL_DOWN)
 			return NOTIFY_DONE;
 		dev_err(dev->dev,
 			"SLIM %lu external_modem SSR notify cb", code);
+		/* vote for runtime-pm so that ADSP doesn't go down */
+		msm_slim_get_ctrl(dev);
 		msm_slim_qmi_check_framer_request(dev);
 		/* If NGD enumeration is lost, we will need to power us up */
 		ngd = dev->base + NGD_BASE(dev->ctrl.nr, dev->ver);
 		laddr = readl_relaxed(ngd + NGD_STATUS);
 		if (!(laddr & NGD_LADDR)) {
+			/* runtime-pm state should be consistent with HW */
+			pm_runtime_disable(dev->dev);
+			pm_runtime_set_suspended(dev->dev);
+			dev->state = MSM_CTRL_DOWN;
 			pr_err("SLIM MDM SSR (active framer on MDM) dev-down");
 			list_for_each_entry(sbdev, &ctrl->devs, dev_list)
 				slim_report_absent(sbdev);
+			ngd_slim_power_up(dev, true);
+			pm_runtime_set_active(dev->dev);
+			pm_runtime_enable(dev->dev);
 		}
-		ngd_slim_power_up(dev, true);
-		msm_slim_put_ctrl(dev);
 		dev->mdm.state = MSM_CTRL_AWAKE;
+		msm_slim_put_ctrl(dev);
 		break;
 	default:
 		break;
