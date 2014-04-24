@@ -193,6 +193,7 @@ struct qpnp_bms_chip {
 	int				ocv_at_100;
 	int				last_ocv_uv;
 	int				s2_fifo_length;
+	int				last_acc;
 	unsigned int			vadc_v0625;
 	unsigned int			vadc_v1250;
 	unsigned long			tm_sec;
@@ -680,6 +681,7 @@ fail_fsm:
 static int lookup_soc_ocv(struct qpnp_bms_chip *chip, int ocv_uv, int batt_temp)
 {
 	int soc_ocv = 0, soc_cutoff = 0, soc_final = 0;
+	int fcc, acc, soc_uuc = 0, soc_acc = 0;
 
 	soc_ocv = interpolate_pc(chip->batt_data->pc_temp_ocv_lut,
 					batt_temp, ocv_uv / 1000);
@@ -687,6 +689,32 @@ static int lookup_soc_ocv(struct qpnp_bms_chip *chip, int ocv_uv, int batt_temp)
 				batt_temp, chip->dt.cfg_v_cutoff_uv / 1000);
 
 	soc_final = (100 * (soc_ocv - soc_cutoff)) / (100 - soc_cutoff);
+
+	if (chip->batt_data->ibat_acc_lut) {
+		/* Apply  ACC logic only if we discharging */
+		if (!is_battery_charging(chip) && chip->current_now > 0) {
+			fcc = interpolate_fcc(chip->batt_data->fcc_temp_lut,
+								batt_temp);
+			acc = interpolate_acc(chip->batt_data->ibat_acc_lut,
+					batt_temp, chip->current_now / 1000);
+			if (acc <= 0) {
+				if (chip->last_acc)
+					acc = chip->last_acc;
+				else
+					acc = fcc;
+			}
+			soc_uuc = ((fcc - acc) * 100) / acc;
+			soc_acc = soc_final - soc_uuc;
+			pr_debug("fcc=%d acc=%d soc_final=%d soc_uuc=%d soc_acc=%d ibat_ma=%d\n",
+				fcc, acc, soc_final, soc_uuc,
+				soc_acc, chip->current_now / 1000);
+			soc_final = soc_acc;
+			chip->last_acc = acc;
+		} else {
+			/* charging */
+			chip->last_acc = 0;
+		}
+	}
 
 	soc_final = bound_soc(soc_final);
 
@@ -2511,6 +2539,8 @@ static int set_battery_data(struct qpnp_bms_chip *chip)
 			sizeof(struct pc_temp_ocv_lut), GFP_KERNEL);
 	batt_data->rbatt_sf_lut = devm_kzalloc(chip->dev,
 				sizeof(struct sf_lut), GFP_KERNEL);
+	batt_data->ibat_acc_lut = devm_kzalloc(chip->dev,
+				sizeof(struct ibat_temp_acc_lut), GFP_KERNEL);
 
 	batt_data->max_voltage_uv = -1;
 	batt_data->cutoff_uv = -1;
@@ -2528,6 +2558,7 @@ static int set_battery_data(struct qpnp_bms_chip *chip)
 		devm_kfree(chip->dev, batt_data->fcc_temp_lut);
 		devm_kfree(chip->dev, batt_data->pc_temp_ocv_lut);
 		devm_kfree(chip->dev, batt_data->rbatt_sf_lut);
+		devm_kfree(chip->dev, batt_data->ibat_acc_lut);
 		devm_kfree(chip->dev, batt_data);
 		return rc;
 	}
@@ -2537,9 +2568,17 @@ static int set_battery_data(struct qpnp_bms_chip *chip)
 		devm_kfree(chip->dev, batt_data->fcc_temp_lut);
 		devm_kfree(chip->dev, batt_data->pc_temp_ocv_lut);
 		devm_kfree(chip->dev, batt_data->rbatt_sf_lut);
+		devm_kfree(chip->dev, batt_data->ibat_acc_lut);
 		devm_kfree(chip->dev, batt_data);
 
 		return -EINVAL;
+	}
+
+	/* check if ibat_acc_lut is valid */
+	if (!batt_data->ibat_acc_lut->rows) {
+		pr_info("ibat_acc_lut not present\n");
+		devm_kfree(chip->dev, batt_data->ibat_acc_lut);
+		batt_data->ibat_acc_lut = NULL;
 	}
 
 	/* Override battery properties if specified in the battery profile */
