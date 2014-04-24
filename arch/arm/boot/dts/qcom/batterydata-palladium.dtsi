@@ -1,4 +1,4 @@
-/* Copyright (c) 2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -108,5 +108,14 @@ qcom,palladium-batterydata {
 				<3404 496 130 106 100>,
 				<8212 616 150 1906 134>,
 				<135251 124940 59087 49820 29672>;
+	};
+
+	qcom,ibat-acc-lut {
+		qcom,lut-col-legend = <(-20) 0 25>;
+		qcom,lut-row-legend = <0 250 500 1000>;
+		qcom,lut-data = <1470 1470 1473>,
+				<1406 1406 1430>,
+				<1247 1247 1414>,
+				<764 764 1338>;
 	};
 };
