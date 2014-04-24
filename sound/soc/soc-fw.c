@@ -105,6 +105,8 @@ static const struct snd_soc_fw_kcontrol_ops io_ops[] = {
 	{SOC_CONTROL_IO_STROBE, snd_soc_get_strobe,
 		snd_soc_put_strobe, NULL},
 
+	{SOC_CONTROL_IO_VOLSW_EXT, NULL,
+		NULL, snd_soc_info_volsw},
 	{SOC_DAPM_IO_VOLSW, snd_soc_dapm_get_volsw,
 		snd_soc_dapm_put_volsw, NULL},
 	{SOC_DAPM_IO_ENUM_DOUBLE, snd_soc_dapm_get_enum_double,
@@ -813,6 +815,7 @@ static int soc_fw_kcontrol_load(struct soc_fw *sfw, struct snd_soc_fw_hdr *hdr)
 
 		switch (SOC_CONTROL_GET_ID_INFO(control_hdr->index)) {
 		case SOC_CONTROL_TYPE_VOLSW:
+		case SOC_CONTROL_TYPE_VOLSW_EXT:
 		case SOC_CONTROL_TYPE_STROBE:
 		case SOC_CONTROL_TYPE_VOLSW_SX:
 		case SOC_CONTROL_TYPE_VOLSW_S8:
