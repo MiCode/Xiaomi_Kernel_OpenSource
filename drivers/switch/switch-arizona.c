@@ -138,6 +138,12 @@ static ssize_t arizona_extcon_show(struct device *dev,
 				   char *buf);
 DEVICE_ATTR(hp_impedance, S_IRUGO, arizona_extcon_show, NULL);
 
+inline void arizona_extcon_report(struct arizona_extcon_info *info, int state)
+{
+	switch_set_state(&info->edev, state);
+}
+EXPORT_SYMBOL_GPL(arizona_extcon_report);
+
 static const struct arizona_jd_state arizona_hpdet_acc_id;
 
 static int arizona_jds_get_mode(struct arizona_extcon_info *info)
@@ -798,10 +804,10 @@ int arizona_hpdet_reading(struct arizona_extcon_info *info, int val)
 	}
 
 	if (info->mic) {
-		switch_set_state(&info->edev, BIT_HEADSET);
+		arizona_extcon_report(info, BIT_HEADSET);
 		arizona_jds_set_state(info, &arizona_micd_button);
 	} else {
-		switch_set_state(&info->edev, BIT_HEADSET_NO_MIC);
+		arizona_extcon_report(info, BIT_HEADSET_NO_MIC);
 		arizona_jds_set_state(info, NULL);
 	}
 
@@ -1002,9 +1008,9 @@ done:
 	ret = arizona_jds_set_state(info, &arizona_hpdet_left);
 	if (ret < 0) {
 		if (info->mic)
-			switch_set_state(&info->edev, BIT_HEADSET);
+			arizona_extcon_report(info, BIT_HEADSET);
 		else
-			switch_set_state(&info->edev, BIT_HEADSET_NO_MIC);
+			arizona_extcon_report(info, BIT_HEADSET_NO_MIC);
 	}
 
 	return 0;
@@ -1028,7 +1034,7 @@ void arizona_micd_mic_timeout(struct arizona_extcon_info *info)
 
 	ret = arizona_jds_set_state(info, &arizona_hpdet_left);
 	if (ret < 0)
-		switch_set_state(&info->edev, BIT_HEADSET_NO_MIC);
+		arizona_extcon_report(info, BIT_HEADSET_NO_MIC);
 }
 EXPORT_SYMBOL_GPL(arizona_micd_mic_timeout);
 
@@ -1091,7 +1097,7 @@ static int arizona_hpdet_acc_id_reading(struct arizona_extcon_info *info,
 	} else {
 		dev_dbg(arizona->dev, "Detected headphone\n");
 
-		switch_set_state(&info->edev, BIT_HEADSET_NO_MIC);
+		arizona_extcon_report(info, BIT_HEADSET_NO_MIC);
 
 		arizona_jds_set_state(info, NULL);
 	}
@@ -1148,7 +1154,7 @@ err:
 	pm_runtime_put_autosuspend(info->dev);
 
 	/* Just report headphone */
-	switch_set_state(&info->edev, BIT_HEADSET_NO_MIC);
+	arizona_extcon_report(info, BIT_HEADSET_NO_MIC);
 
 	return ret;
 }
@@ -1425,7 +1431,7 @@ static irqreturn_t arizona_jackdet(int irq, void *data)
 					 info->micd_ranges[i].key, 0);
 		input_sync(info->input);
 
-		switch_set_state(&info->edev, BIT_NO_HEADSET);
+		arizona_extcon_report(info, BIT_NO_HEADSET);
 
 		regmap_update_bits(arizona->regmap,
 				   ARIZONA_JACK_DETECT_DEBOUNCE,
