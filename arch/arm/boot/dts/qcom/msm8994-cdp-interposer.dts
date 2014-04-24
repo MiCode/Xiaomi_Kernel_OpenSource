@@ -21,3 +21,7 @@
 	compatible = "qcom,msm8974-cdp", "qcom,msm8974", "qcom,cdp";
 	qcom,board-id = <1 3>;
 };
+
+&usb3 {
+	qcom,otg-capability;
+};
