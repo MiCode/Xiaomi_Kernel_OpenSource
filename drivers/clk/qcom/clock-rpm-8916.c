@@ -97,8 +97,9 @@ static DEFINE_CLK_BRANCH_VOTER(xo_wlan_clk, &xo_clk_src.c);
 static struct mux_clk rpm_debug_mux = {
 	.ops = &mux_reg_ops,
 	.offset = GCC_DEBUG_CLK_CTL,
-	.en_mask = BIT(16),
 	.mask = 0x1FF,
+	.en_offset = GCC_DEBUG_CLK_CTL,
+	.en_mask = BIT(16),
 	.base = &virt_base,
 	MUX_SRC_LIST(
 	{&snoc_clk.c,  0x0000},

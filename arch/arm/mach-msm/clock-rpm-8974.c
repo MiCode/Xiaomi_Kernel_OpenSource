@@ -134,8 +134,9 @@ static DEFINE_CLK_BRANCH_VOTER(cxo_lpm_clk, &cxo_clk_src.c);
 static struct mux_clk rpm_debug_mux = {
 	.ops = &mux_reg_ops,
 	.offset = GCC_DEBUG_CLK_CTL_REG,
-	.en_mask = BIT(16),
 	.mask = 0x1FF,
+	.en_offset = GCC_DEBUG_CLK_CTL_REG,
+	.en_mask = BIT(16),
 	.base = &virt_base,
 	MUX_SRC_LIST(
 	{&cnoc_clk.c, 0x0008},
