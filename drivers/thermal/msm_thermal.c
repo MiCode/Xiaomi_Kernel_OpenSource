@@ -47,6 +47,7 @@
 #define TSENS_NAME_MAX 20
 #define TSENS_NAME_FORMAT "tsens_tz_sensor%d"
 #define THERM_SECURE_BITE_CMD 8
+#define SENSOR_SCALING_FACTOR 1
 
 static struct msm_thermal_data msm_thermal_info;
 static struct delayed_work check_temp_work;
@@ -65,6 +66,7 @@ static struct completion thermal_monitor_complete;
 static int enabled;
 static int polling_enabled;
 static int rails_cnt;
+static int sensor_cnt;
 static int psm_rails_cnt;
 static int ocr_rail_cnt;
 static int limit_idx;
@@ -77,6 +79,8 @@ static int freq_table_get;
 static bool vdd_rstr_enabled;
 static bool vdd_rstr_nodes_called;
 static bool vdd_rstr_probed;
+static bool sensor_info_nodes_called;
+static bool sensor_info_probed;
 static bool psm_enabled;
 static bool psm_nodes_called;
 static bool psm_probed;
@@ -170,6 +174,13 @@ struct rail {
 	struct attribute_group attr_gp;
 };
 
+struct msm_sensor_info {
+	const char *name;
+	const char *alias;
+	const char *type;
+	uint32_t   scaling_factor;
+};
+
 struct psm_rail {
 	const char *name;
 	uint8_t init;
@@ -211,6 +222,7 @@ enum msm_temp_band {
 static struct psm_rail *psm_rails;
 static struct psm_rail *ocr_rails;
 static struct rail *rails;
+static struct msm_sensor_info *sensors;
 static struct cpu_info cpus[NR_CPUS];
 static struct threshold_info *thresh;
 static bool mx_restr_applied;
@@ -606,6 +618,30 @@ static uint32_t msm_thermal_str_to_int(const char *inp)
 		output |= inp[i] << (i * 8);
 
 	return output;
+}
+
+static ssize_t sensor_info_show(
+	struct kobject *kobj, struct kobj_attribute *attr, char *buf)
+{
+	int i;
+	ssize_t tot_size = 0, size = 0;
+
+	for (i = 0; i < sensor_cnt; i++) {
+		size = snprintf(&buf[tot_size], PAGE_SIZE - tot_size,
+			"%s:%s:%s:%d ",
+			sensors[i].type, sensors[i].name,
+			sensors[i].alias ? : "",
+			sensors[i].scaling_factor);
+		if (tot_size + size >= PAGE_SIZE) {
+			pr_err("Not enough buffer size\n");
+			break;
+		}
+		tot_size += size;
+	}
+	if (tot_size)
+		buf[tot_size - 1] = '\n';
+
+	return tot_size;
 }
 
 static struct vdd_rstr_enable vdd_rstr_en = {
@@ -3106,6 +3142,37 @@ psm_reg_exit:
 	return ret;
 }
 
+static struct kobj_attribute sensor_info_attr =
+		__ATTR_RO(sensor_info);
+static int msm_thermal_add_sensor_info_nodes(void)
+{
+	struct kobject *module_kobj = NULL;
+	int ret = 0;
+
+	if (!sensor_info_probed) {
+		sensor_info_nodes_called = true;
+		return ret;
+	}
+	if (sensor_info_probed && sensor_cnt == 0)
+		return ret;
+
+	module_kobj = kset_find_obj(module_kset, KBUILD_MODNAME);
+	if (!module_kobj) {
+		pr_err("cannot find kobject\n");
+		return -ENOENT;
+	}
+	sysfs_attr_init(&sensor_info_attr.attr);
+	ret = sysfs_create_file(module_kobj, &sensor_info_attr.attr);
+	if (ret) {
+		pr_err(
+		"cannot create sensor info kobject attribute. err:%d\n",
+		ret);
+		return ret;
+	}
+
+	return ret;
+}
+
 static int msm_thermal_add_vdd_rstr_nodes(void)
 {
 	struct kobject *module_kobj = NULL;
@@ -3486,6 +3553,75 @@ read_node_fail:
 	if (ret == -EPROBE_DEFER)
 		vdd_rstr_probed = false;
 	return ret;
+}
+
+static void probe_sensor_info(struct device_node *node,
+		struct msm_thermal_data *data, struct platform_device *pdev)
+{
+	int err = 0;
+	int i = 0;
+	char *key = NULL;
+	struct device_node *child_node = NULL;
+	struct device_node *np = NULL;
+
+	np = of_find_compatible_node(NULL, NULL, "qcom,sensor-information");
+	if (!np) {
+		dev_info(&pdev->dev,
+		"%s:unable to find DT for sensor-information.KTM continues\n",
+		__func__);
+		sensor_info_probed = true;
+		return;
+	}
+	sensor_cnt = of_get_child_count(np);
+	if (sensor_cnt == 0) {
+		err = -ENODEV;
+		goto read_node_fail;
+	}
+
+	sensors = devm_kzalloc(&pdev->dev,
+			sizeof(struct msm_sensor_info) * sensor_cnt,
+			GFP_KERNEL);
+	if (!sensors) {
+		pr_err("Fail to allocate memory for sensor_info.\n");
+		err = -ENOMEM;
+		goto read_node_fail;
+	}
+
+	for_each_child_of_node(np, child_node) {
+		key = "qcom,sensor-type";
+		err = of_property_read_string(child_node,
+				key, &sensors[i].type);
+		if (err)
+			goto read_node_fail;
+
+		key = "qcom,sensor-name";
+		err = of_property_read_string(child_node,
+				key, &sensors[i].name);
+		if (err)
+			goto read_node_fail;
+
+		key = "qcom,alias-name";
+		of_property_read_string(child_node,
+				key, &sensors[i].alias);
+
+		key = "qcom,scaling-factor";
+		err = of_property_read_u32(child_node,
+				key, &sensors[i].scaling_factor);
+		if (err) {
+			sensors[i].scaling_factor = SENSOR_SCALING_FACTOR;
+			err = 0;
+		}
+		i++;
+	}
+
+read_node_fail:
+	sensor_info_probed = true;
+	if (err) {
+		dev_info(&pdev->dev,
+		"%s:Failed reading node=%s, key=%s. err=%d. KTM continues\n",
+			__func__, np->full_name, key, err);
+		devm_kfree(&pdev->dev, sensors);
+	}
 }
 
 static int probe_ocr(struct device_node *node, struct msm_thermal_data *data,
@@ -4008,6 +4144,7 @@ static int msm_thermal_dev_probe(struct platform_device *pdev)
 	ret = probe_vdd_rstr(node, &data, pdev);
 	if (ret == -EPROBE_DEFER)
 		goto fail;
+	probe_sensor_info(node, &data, pdev);
 	ret = probe_ocr(node, &data, pdev);
 
 	/*
@@ -4021,6 +4158,10 @@ static int msm_thermal_dev_probe(struct platform_device *pdev)
 	if (vdd_rstr_nodes_called) {
 		msm_thermal_add_vdd_rstr_nodes();
 		vdd_rstr_nodes_called = false;
+	}
+	if (sensor_info_nodes_called) {
+		msm_thermal_add_sensor_info_nodes();
+		sensor_info_nodes_called = false;
 	}
 	if (ocr_nodes_called) {
 		msm_thermal_add_ocr_nodes();
@@ -4103,6 +4244,7 @@ int __init msm_thermal_late_init(void)
 		msm_thermal_add_cc_nodes();
 	msm_thermal_add_psm_nodes();
 	msm_thermal_add_vdd_rstr_nodes();
+	msm_thermal_add_sensor_info_nodes();
 	if (ocr_reg_init_defer) {
 		if (!ocr_reg_init(msm_thermal_info.pdev)) {
 			ocr_enabled = true;
