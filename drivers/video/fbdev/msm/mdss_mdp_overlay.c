@@ -3616,6 +3616,8 @@ int mdss_mdp_overlay_init(struct msm_fb_data_type *mfd)
 	}
 	mfd->mdp.private1 = mdp5_data;
 	mfd->wait_for_kickoff = true;
+	if (is_panel_split(mfd) && mdp5_data->mdata->has_dst_split)
+		mfd->split_mode = MDP_SPLIT_MODE_DST;
 
 	if (mfd->panel_info->partial_update_enabled && is_split_lm(mfd))
 		mdp5_data->mdata->has_src_split = false;

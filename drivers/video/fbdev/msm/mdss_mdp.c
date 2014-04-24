@@ -1439,6 +1439,8 @@ static ssize_t mdss_mdp_show_capabilities(struct device *dev,
 		SPRINT(" non_scalar_rgb");
 	if (mdata->has_src_split)
 		SPRINT(" src_split");
+	if (mdata->max_mixer_width)
+		SPRINT(" max_mixer_width");
 	SPRINT("\n");
 
 	return cnt;
@@ -2585,6 +2587,9 @@ static int mdss_mdp_parse_dt_misc(struct platform_device *pdev)
 		 "qcom,mdss-highest-bank-bit", &(mdata->highest_bank_bit));
 	if (rc)
 		pr_debug("Could not read optional property: highest bank bit\n");
+
+	mdata->has_dst_split = of_property_read_bool(pdev->dev.of_node,
+		 "qcom,mdss-has-dst-split");
 
 	/*
 	 * 2x factor on AB because bus driver will divide by 2
