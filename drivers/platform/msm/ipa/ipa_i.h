@@ -315,6 +315,51 @@ struct ipa_ep_cfg_status {
 };
 
 /**
+ * struct ipa_wlan_stats - Wlan stats for each wlan endpoint
+ * @rx_pkts_rcvd: Packets sent by wlan driver
+ * @rx_pkts_status_rcvd: Status packets received from ipa hw
+ * @rx_hd_processed: Data Descriptors processed by IPA Driver
+ * @rx_hd_reply: Data Descriptors recycled by wlan driver
+ * @rx_hd_rcvd: Data Descriptors sent by wlan driver
+ * @rx_pkt_leak: Packet count that are not recycled
+ * @rx_dp_fail: Packets failed to transfer to IPA HW
+ * @tx_pkts_rcvd: SKB Buffers received from ipa hw
+ * @tx_pkts_sent: SKB Buffers sent to wlan driver
+ * @tx_pkts_dropped: Dropped packets count
+ */
+struct ipa_wlan_stats {
+	u32 rx_pkts_rcvd;
+	u32 rx_pkts_status_rcvd;
+	u32 rx_hd_processed;
+	u32 rx_hd_reply;
+	u32 rx_hd_rcvd;
+	u32 rx_pkt_leak;
+	u32 rx_dp_fail;
+	u32 tx_pkts_rcvd;
+	u32 tx_pkts_sent;
+	u32 tx_pkts_dropped;
+};
+
+/**
+ * struct ipa_wlan_comm_memb - Wlan comm members
+ * @wlan_spinlock: protects wlan comm buff list and its size
+ * @ipa_tx_mul_spinlock: protects tx dp mul transfer
+ * @wlan_comm_total_cnt: wlan common skb buffers allocated count
+ * @wlan_comm_free_cnt: wlan common skb buffer free count
+ * @total_tx_pkts_freed: Recycled Buffer count
+ * @wlan_comm_desc_list: wlan common skb buffer list
+ */
+struct ipa_wlan_comm_memb {
+	spinlock_t wlan_spinlock;
+	spinlock_t ipa_tx_mul_spinlock;
+	u32 wlan_comm_total_cnt;
+	u32 wlan_comm_free_cnt;
+	u32 total_tx_pkts_freed;
+	struct list_head wlan_comm_desc_list;
+	atomic_t active_clnt_cnt;
+};
+
+/**
  * struct ipa_ep_context - IPA end point context
  * @valid: flag indicating id EP context is valid
  * @client: EP client type
@@ -356,12 +401,13 @@ struct ipa_ep_context {
 	u32 data_fifo_pipe_mem_ofst;
 	bool desc_fifo_client_allocated;
 	bool data_fifo_client_allocated;
-	u32 avail_fifo_desc;
+	atomic_t avail_fifo_desc;
 	u32 dflt_flt4_rule_hdl;
 	u32 dflt_flt6_rule_hdl;
 	bool skip_ep_cfg;
 	bool keep_ipa_awake;
 	bool resume_on_connect;
+	struct ipa_wlan_stats wstats;
 
 	/* sys MUST be the last element of this struct */
 	struct ipa_sys_context *sys;
@@ -589,20 +635,6 @@ struct ipa_stats {
 	u32 wan_aggr_close;
 };
 
-struct ipa_wlan_stats {
-	u32 rx_pkts_rcvd;
-	u32 rx_pkts_status_rcvd;
-	u32 rx_hd_processed;
-	u32 rx_hd_reply;
-	u32 rx_hd_rcvd;
-	u32 rx_pkt_leak;
-	u32 rx_dp_fail;
-	u32 tx_buf_cnt;
-	u32 tx_pkts_freed;
-	u32 tx_pkts_rcvd;
-	u32 tx_pkts_dropped;
-};
-
 struct ipa_active_clients {
 	struct mutex mutex;
 	spinlock_t spinlock;
@@ -670,6 +702,7 @@ struct ipa_controller;
  *  core version (vtable like)
  * @enable_clock_scaling: clock scaling is enabled ?
  * @curr_ipa_clk_rate: ipa_clk current rate
+ * @wcstats: wlan common buffer stats
 
  * IPA context - holds all relevant info about IPA driver and its state
  */
@@ -742,12 +775,7 @@ struct ipa_context {
 	u32 enable_clock_scaling;
 	u32 curr_ipa_clk_rate;
 
-	/* wlan related member */
-	spinlock_t wlan_spinlock;
-	spinlock_t ipa_tx_mul_spinlock;
-	u32 wlan_comm_cnt;
-	struct list_head wlan_comm_desc_list;
-	struct ipa_wlan_stats wstats;
+	struct ipa_wlan_comm_memb wc_memb;
 };
 
 /**
