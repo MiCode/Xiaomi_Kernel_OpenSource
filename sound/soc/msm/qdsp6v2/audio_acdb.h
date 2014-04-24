@@ -39,7 +39,13 @@ struct hw_delay_entry {
 	uint32_t sample_rate;
 	uint32_t delay_usec;
 };
+#define MAX_META_INFO_SIZE 1024
 
+struct meta_info_t {
+	uint32_t nKeyValue;
+	uint32_t nBufferLength;
+	uint8_t *nBuffer;
+};
 uint32_t get_voice_rx_topology(void);
 uint32_t get_voice_tx_topology(void);
 uint32_t get_adm_rx_topology(void);
@@ -65,5 +71,7 @@ int get_sidetone_cal(struct sidetone_cal *cal_data);
 int get_spk_protection_cfg(struct msm_spk_prot_cfg *prot_cfg);
 int get_aanc_cal(struct acdb_cal_block *cal_block);
 int get_hw_delay(int32_t path, struct hw_delay_entry *delay_info);
+int get_meta_info_size(uint32_t key, uint32_t *size);
+int get_meta_info(struct meta_info_t *metainfo);
 
 #endif
