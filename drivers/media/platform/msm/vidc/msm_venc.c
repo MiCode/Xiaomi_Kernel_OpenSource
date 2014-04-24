@@ -769,7 +769,7 @@ static struct msm_vidc_ctrl msm_venc_ctrls[] = {
 	{
 		.id = V4L2_CID_MPEG_VIDC_VIDEO_USELTRFRAME,
 		.name = "H264 Use LTR",
-		.type = V4L2_CTRL_TYPE_BUTTON,
+		.type = V4L2_CTRL_TYPE_INTEGER,
 		.minimum = 0,
 		.maximum = (MAX_LTR_FRAME_COUNT - 1),
 		.default_value = 0,
@@ -802,7 +802,7 @@ static struct msm_vidc_ctrl msm_venc_ctrls[] = {
 	{
 		.id = V4L2_CID_MPEG_VIDC_VIDEO_MARKLTRFRAME,
 		.name = "H264 Mark LTR",
-		.type = V4L2_CTRL_TYPE_BUTTON,
+		.type = V4L2_CTRL_TYPE_INTEGER,
 		.minimum = 0,
 		.maximum = (MAX_LTR_FRAME_COUNT - 1),
 		.default_value = 0,
@@ -2133,7 +2133,7 @@ static int try_set_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 	}
 	case V4L2_CID_MPEG_VIDC_VIDEO_USELTRFRAME:
 		property_id = HAL_CONFIG_VENC_USELTRFRAME;
-		useltr.refltr = ctrl->val;
+		useltr.refltr = (1 << ctrl->val);
 		useltr.useconstrnt = false;
 		useltr.frames = 0;
 		pdata = &useltr;
@@ -2253,7 +2253,6 @@ static int try_set_ext_ctrl(struct msm_vidc_inst *inst,
 		rc = call_hfi_op(hdev, session_set_property,
 				(void *)inst->session, property_id, pdata);
 	}
-	pr_err("Returning from %s\n", __func__);
 	return rc;
 }
 
