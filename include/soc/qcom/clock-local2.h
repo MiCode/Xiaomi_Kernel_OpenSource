@@ -116,12 +116,12 @@ static inline struct branch_clk *to_branch_clk(struct clk *clk)
  */
 struct local_vote_clk {
 	struct clk c;
-	const u32 cbcr_reg;
-	const u32 vote_reg;
-	const u32 bcr_reg;
-	const u32 en_mask;
+	u32 cbcr_reg;
+	u32 vote_reg;
+	u32 bcr_reg;
+	u32 en_mask;
 	const u32 halt_check;
-	void *const __iomem *base;
+	void * __iomem *base;
 };
 
 static inline struct local_vote_clk *to_local_vote_clk(struct clk *clk)

@@ -252,3 +252,35 @@ ocmemcx_ahb_clk: ocmemcx_ahb_clk {
 	qcom,has-sibling;
 	qcom,parent = <&mmssnoc_ahb_clk>;
 };
+
+*****************************************************************************
+
+"qcom,local-vote-clk"
+
+Some branch clocks are shared between different processors and execution environments
+(TZ, APPS, RPM, MODEM). The votes from each of these masters are logically or'd in
+hardware and control whether the clock is gated.
+
+Required Properties:
+- compatible:		Must be "qcom,local-vote-clk"
+
+- qcom,base-offset:	Offset for the branch clock registers
+
+- qcom,en-offset:	Offset for the APPS master voting register
+
+- qcom,en-bit:		Bit in the APPS master voting register to set/unset
+
+Recommended Properties:
+- qcom,parent:		See "General Optional Properties"
+
+Optional Properties:
+- qcom,bcr-offset:	Offset from the register region described in the parent
+			clock controller for the reset.
+
+gcc_bam_dma_ahb_clk: gcc_bam_dma_ahb_clk {
+	compatible = "qcom,local-vote-clk";
+	qcom,base-offset = <GCC_BAM_DMA_AHB_CBCR>;
+	qcom,en-offset = <GCC_APCS_CLOCK_BRANCH_ENA_VOTE>;
+	qcom,en-bit = <12>;
+	qcom,parent = <&pnoc_clk>;
+};

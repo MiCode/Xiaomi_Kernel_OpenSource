@@ -1544,3 +1544,50 @@ static void *cbc_dt_parser(struct device *dev, struct device_node *np)
 	return msmclk_generic_clk_init(dev, np, &branch_clk->c);
 }
 MSMCLK_PARSER(cbc_dt_parser, "qcom,cbc", 0);
+
+static void *local_vote_clk_dt_parser(struct device *dev,
+						struct device_node *np)
+{
+	struct local_vote_clk *vote_clk;
+	struct msmclk_data *drv;
+	int rc, val;
+
+	vote_clk = devm_kzalloc(dev, sizeof(*vote_clk), GFP_KERNEL);
+	if (!vote_clk) {
+		dt_err(np, "failed to alloc memory\n");
+		return ERR_PTR(-ENOMEM);
+	}
+
+	drv = msmclk_parse_phandle(dev, np->parent->phandle);
+	if (IS_ERR_OR_NULL(drv))
+		return ERR_CAST(drv);
+	vote_clk->base = &drv->base;
+
+	rc = of_property_read_u32(np, "qcom,base-offset",
+						&vote_clk->cbcr_reg);
+	if (rc) {
+		dt_err(np, "missing/incorrect qcom,base-offset dt property\n");
+		return ERR_PTR(-EINVAL);
+	}
+
+	rc = of_property_read_u32(np, "qcom,en-offset", &vote_clk->vote_reg);
+	if (rc) {
+		dt_err(np, "missing/incorrect qcom,en-offset dt property\n");
+		return ERR_PTR(-EINVAL);
+	}
+
+	rc = of_property_read_u32(np, "qcom,en-bit", &val);
+	if (rc) {
+		dt_err(np, "missing/incorrect qcom,en-bit dt property\n");
+		return ERR_PTR(-EINVAL);
+	}
+	vote_clk->en_mask = BIT(val);
+
+	vote_clk->c.ops = &clk_ops_vote;
+
+	/* Optional property */
+	of_property_read_u32(np, "qcom,bcr-offset", &vote_clk->bcr_reg);
+
+	return msmclk_generic_clk_init(dev, np, &vote_clk->c);
+}
+MSMCLK_PARSER(local_vote_clk_dt_parser, "qcom,local-vote-clk", 0);
