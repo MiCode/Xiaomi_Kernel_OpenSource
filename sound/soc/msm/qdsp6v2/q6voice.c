@@ -4345,6 +4345,9 @@ static int voice_lch_setup_vocproc(struct voice_data *v)
 	if (ret < 0)
 		pr_err("%s: voice volume failed %d\n", __func__, ret);
 
+	/* Reset lch mode when VOICE_LCH_STOP is recieved */
+	v->lch_mode = 0;
+
 	ret = voice_send_stream_mute_cmd(v,
 				VSS_IVOLUME_DIRECTION_TX,
 				v->stream_tx.stream_mute,
