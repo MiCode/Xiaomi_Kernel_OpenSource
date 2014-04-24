@@ -22,34 +22,13 @@
 #include <linux/atomic.h>
 #include <linux/msm_audio_ion.h>
 #include <linux/qdsp6v2/rtac.h>
+#include <linux/compat.h>
 #include <sound/q6asm-v2.h>
 #include <sound/q6afe-v2.h>
 #include <sound/apr_audio-v2.h>
 #include "q6voice.h"
 #include "audio_acdb.h"
 
-
-#ifndef CONFIG_RTAC
-
-void rtac_add_adm_device(u32 port_id, u32 copp_id, u32 path_id, u32 popp_id) {}
-void rtac_remove_adm_device(u32 port_id, u32 copp_id) {}
-void rtac_remove_popp_from_adm_devices(u32 popp_id) {}
-void rtac_set_adm_handle(void *handle) {}
-bool rtac_make_adm_callback(uint32_t *payload, u32 payload_size)
-	{return false; }
-void rtac_set_asm_handle(u32 session_id, void *handle) {}
-bool rtac_make_asm_callback(u32 session_id, uint32_t *payload,
-	u32 payload_size) {return false; }
-void rtac_add_voice(u32 cvs_handle, u32 cvp_handle, u32 rx_afe_port,
-	u32 tx_afe_port, u32 session_id) {}
-void rtac_remove_voice(u32 cvs_handle) {}
-void rtac_set_voice_handle(u32 mode, void *handle) {}
-bool rtac_make_voice_callback(u32 mode, uint32_t *payload,
-		u32 payload_size) {return false; }
-int rtac_clear_mapping(uint32_t cal_type)
-{return -EINVAL; }
-
-#else
 
 /* Max size of payload (buf size - apr header) */
 #define MAX_PAYLOAD_SIZE		4076
@@ -788,7 +767,7 @@ static int get_voice_index(u32 mode, u32 handle)
 /* ADM APR */
 void rtac_set_adm_handle(void *handle)
 {
-	pr_debug("%s: handle = %d\n", __func__, (unsigned int)handle);
+	pr_debug("%s: handle = %p\n", __func__, handle);
 
 	mutex_lock(&rtac_adm_apr_mutex);
 	rtac_adm_apr_data.apr_handle = handle;
@@ -844,8 +823,8 @@ u32 send_adm_apr(void *buf, u32 opcode)
 
 	if (copy_from_user(&user_buf_size, (void *)buf,
 						sizeof(user_buf_size))) {
-		pr_err("%s: Copy from user failed! buf = 0x%x\n",
-		       __func__, (unsigned int)buf);
+		pr_err("%s: Copy from user failed! buf = 0x%p\n",
+		       __func__, buf);
 		goto done;
 	}
 	if (user_buf_size <= 0) {
@@ -930,8 +909,10 @@ u32 send_adm_apr(void *buf, u32 opcode)
 	adm_params.opcode = opcode;
 
 	/* fill for out-of-band */
-	rtac_adm_buffer[5] = rtac_cal[ADM_RTAC_CAL].cal_data.paddr;
-	rtac_adm_buffer[6] = 0;
+	rtac_adm_buffer[5] =
+		lower_32_bits(rtac_cal[ADM_RTAC_CAL].cal_data.paddr);
+	rtac_adm_buffer[6] =
+		upper_32_bits(rtac_cal[ADM_RTAC_CAL].cal_data.paddr);
 	rtac_adm_buffer[7] = rtac_cal[ADM_RTAC_CAL].map_data.map_handle;
 
 	memcpy(rtac_adm_buffer, &adm_params, sizeof(adm_params));
@@ -1051,8 +1032,8 @@ u32 send_rtac_asm_apr(void *buf, u32 opcode)
 
 	if (copy_from_user(&user_buf_size, (void *)buf,
 						sizeof(user_buf_size))) {
-		pr_err("%s: Copy from user failed! buf = 0x%x\n",
-		       __func__, (unsigned int)buf);
+		pr_err("%s: Copy from user failed! buf = 0x%p\n",
+		       __func__, buf);
 		goto done;
 	}
 	if (user_buf_size <= 0) {
@@ -1137,8 +1118,10 @@ u32 send_rtac_asm_apr(void *buf, u32 opcode)
 	asm_params.opcode = opcode;
 
 	/* fill for out-of-band */
-	rtac_asm_buffer[5] = rtac_cal[ASM_RTAC_CAL].cal_data.paddr;
-	rtac_asm_buffer[6] = 0;
+	rtac_asm_buffer[5] =
+		lower_32_bits(rtac_cal[ASM_RTAC_CAL].cal_data.paddr);
+	rtac_asm_buffer[6] =
+		upper_32_bits(rtac_cal[ASM_RTAC_CAL].cal_data.paddr);
 	rtac_asm_buffer[7] = rtac_cal[ASM_RTAC_CAL].map_data.map_handle;
 
 	memcpy(rtac_asm_buffer, &asm_params, sizeof(asm_params));
@@ -1259,8 +1242,8 @@ u32 send_voice_apr(u32 mode, void *buf, u32 opcode)
 
 	if (copy_from_user(&user_buf_size, (void *)buf,
 						sizeof(user_buf_size))) {
-		pr_err("%s: Copy from user failed! buf = 0x%x\n",
-		       __func__, (unsigned int)buf);
+		pr_err("%s: Copy from user failed! buf = 0x%p\n",
+		       __func__, buf);
 		goto done;
 	}
 	if (user_buf_size <= 0) {
@@ -1347,8 +1330,10 @@ u32 send_voice_apr(u32 mode, void *buf, u32 opcode)
 
 	/* fill for out-of-band */
 	rtac_voice_buffer[5] = rtac_cal[VOICE_RTAC_CAL].map_data.map_handle;
-	rtac_voice_buffer[6] = rtac_cal[VOICE_RTAC_CAL].cal_data.paddr;
-	rtac_voice_buffer[7] = 0;
+	rtac_voice_buffer[6] =
+		lower_32_bits(rtac_cal[VOICE_RTAC_CAL].cal_data.paddr);
+	rtac_voice_buffer[7] =
+		upper_32_bits(rtac_cal[VOICE_RTAC_CAL].cal_data.paddr);
 
 	memcpy(rtac_voice_buffer, &voice_params, sizeof(voice_params));
 	atomic_set(&rtac_voice_apr_data[mode].cmd_state, 1);
@@ -1410,40 +1395,51 @@ err:
 
 
 
-static long rtac_ioctl(struct file *f,
-		unsigned int cmd, unsigned long arg)
+static long rtac_ioctl_shared(struct file *f,
+		unsigned int cmd, void *arg)
 {
-	s32 result = 0;
-	pr_debug("%s\n", __func__);
-
-	if (arg == 0) {
+	int result = 0;
+	if (!arg) {
 		pr_err("%s: No data sent to driver!\n", __func__);
 		result = -EFAULT;
 		goto done;
 	}
 
 	switch (cmd) {
-	case AUDIO_GET_RTAC_ADM_INFO:
+	case AUDIO_GET_RTAC_ADM_INFO: {
 		if (copy_to_user((void *)arg, &rtac_adm_data,
-						sizeof(rtac_adm_data)))
-			pr_err("%s: Could not copy to userspace!\n", __func__);
-		else
+						sizeof(rtac_adm_data))) {
+			pr_err("%s: copy_to_user failed for AUDIO_GET_RTAC_ADM_INFO\n",
+					__func__);
+			return -EFAULT;
+		} else {
 			result = sizeof(rtac_adm_data);
+		}
 		break;
-	case AUDIO_GET_RTAC_ADM_INFO_V2:
+	}
+	case AUDIO_GET_RTAC_ADM_INFO_V2: {
 		if (copy_to_user((void *)arg, &rtac_adm_data_v2,
-						sizeof(rtac_adm_data_v2)))
-			pr_err("%s: Could not copy to userspace!\n", __func__);
-		else
+						sizeof(rtac_adm_data_v2))) {
+			pr_err("%s: copy_to_user failed for AUDIO_GET_RTAC_ADM_INFO_V2\n",
+					__func__);
+			return -EFAULT;
+		} else {
 			result = sizeof(rtac_adm_data_v2);
+		}
 		break;
-	case AUDIO_GET_RTAC_VOICE_INFO:
+	}
+	case AUDIO_GET_RTAC_VOICE_INFO: {
 		if (copy_to_user((void *)arg, &rtac_voice_data,
-						sizeof(rtac_voice_data)))
-			pr_err("%s: Could not copy to userspace!\n", __func__);
-		else
+						sizeof(rtac_voice_data))) {
+			pr_err("%s: copy_to_user failed for AUDIO_GET_RTAC_VOICE_INFO\n",
+					__func__);
+			return -EFAULT;
+		} else {
 			result = sizeof(rtac_voice_data);
+		}
 		break;
+	}
+
 	case AUDIO_GET_RTAC_ADM_CAL:
 		result = send_adm_apr((void *)arg, ADM_CMD_GET_PP_PARAMS_V5);
 		break;
@@ -1477,17 +1473,108 @@ static long rtac_ioctl(struct file *f,
 	default:
 		pr_err("%s: Invalid IOCTL, command = %d!\n",
 		       __func__, cmd);
+		result = -EINVAL;
 	}
 done:
 	return result;
 }
 
+static long rtac_ioctl(struct file *f,
+		unsigned int cmd, unsigned long arg)
+{
+	int result = 0;
+
+	if (!arg) {
+		pr_err("%s: No data sent to driver!\n", __func__);
+		result = -EFAULT;
+	} else {
+		result = rtac_ioctl_shared(f, cmd, (void __user *)arg);
+	}
+
+	return result;
+}
+
+#ifdef CONFIG_COMPAT
+
+#define AUDIO_GET_RTAC_ADM_CAL_32 _IOWR(AUDIO_IOCTL_MAGIC, \
+			(AUDIO_MAX_ACDB_IOCTL+3), compat_uptr_t)
+#define AUDIO_SET_RTAC_ADM_CAL_32 _IOWR(AUDIO_IOCTL_MAGIC, \
+			(AUDIO_MAX_ACDB_IOCTL+4), compat_uptr_t)
+#define AUDIO_GET_RTAC_ASM_CAL_32 _IOWR(AUDIO_IOCTL_MAGIC, \
+			(AUDIO_MAX_ACDB_IOCTL+5), compat_uptr_t)
+#define AUDIO_SET_RTAC_ASM_CAL_32 _IOWR(AUDIO_IOCTL_MAGIC, \
+			(AUDIO_MAX_ACDB_IOCTL+6), compat_uptr_t)
+#define AUDIO_GET_RTAC_CVS_CAL_32 _IOWR(AUDIO_IOCTL_MAGIC, \
+			(AUDIO_MAX_ACDB_IOCTL+7), compat_uptr_t)
+#define AUDIO_SET_RTAC_CVS_CAL_32 _IOWR(AUDIO_IOCTL_MAGIC, \
+			(AUDIO_MAX_ACDB_IOCTL+8), compat_uptr_t)
+#define AUDIO_GET_RTAC_CVP_CAL_32 _IOWR(AUDIO_IOCTL_MAGIC, \
+			(AUDIO_MAX_ACDB_IOCTL+9), compat_uptr_t)
+#define AUDIO_SET_RTAC_CVP_CAL_32 _IOWR(AUDIO_IOCTL_MAGIC, \
+			(AUDIO_MAX_ACDB_IOCTL+10), compat_uptr_t)
+
+static long rtac_compat_ioctl(struct file *f,
+		unsigned int cmd, unsigned long arg)
+{
+	int result = 0;
+
+	if (!arg) {
+		pr_err("%s: No data sent to driver!\n", __func__);
+		result = -EINVAL;
+		goto done;
+	}
+
+	switch (cmd) {
+	case AUDIO_GET_RTAC_ADM_INFO:
+	case AUDIO_GET_RTAC_ADM_INFO_V2:
+	case AUDIO_GET_RTAC_VOICE_INFO:
+		result = rtac_ioctl_shared(f, cmd, compat_ptr(arg));
+		break;
+	case AUDIO_GET_RTAC_ADM_CAL_32:
+		cmd = AUDIO_GET_RTAC_ADM_CAL;
+		goto process;
+	case AUDIO_SET_RTAC_ADM_CAL_32:
+		cmd = AUDIO_SET_RTAC_ADM_CAL;
+		goto process;
+	case AUDIO_GET_RTAC_ASM_CAL_32:
+		cmd = AUDIO_GET_RTAC_ASM_CAL;
+		goto process;
+	case AUDIO_SET_RTAC_ASM_CAL_32:
+		cmd =  AUDIO_SET_RTAC_ASM_CAL;
+		goto process;
+	case AUDIO_GET_RTAC_CVS_CAL_32:
+		cmd = AUDIO_GET_RTAC_CVS_CAL;
+		goto process;
+	case AUDIO_SET_RTAC_CVS_CAL_32:
+		cmd = AUDIO_SET_RTAC_CVS_CAL;
+		goto process;
+	case AUDIO_GET_RTAC_CVP_CAL_32:
+		cmd =  AUDIO_GET_RTAC_CVP_CAL;
+		goto process;
+	case AUDIO_SET_RTAC_CVP_CAL_32:
+		cmd = AUDIO_SET_RTAC_CVP_CAL;
+process:
+		result = rtac_ioctl_shared(f, cmd, compat_ptr(arg));
+		break;
+	default:
+		result = -EINVAL;
+		pr_err("%s: Invalid IOCTL, command = %d!\n",
+		       __func__, cmd);
+		break;
+	}
+done:
+	return result;
+}
+#else
+#define rtac_compat_ioctl NULL
+#endif
 
 static const struct file_operations rtac_fops = {
 	.owner = THIS_MODULE,
 	.open = rtac_open,
 	.release = rtac_release,
 	.unlocked_ioctl = rtac_ioctl,
+	.compat_ioctl = rtac_compat_ioctl,
 };
 
 struct miscdevice rtac_misc = {
@@ -1499,7 +1586,6 @@ struct miscdevice rtac_misc = {
 static int __init rtac_init(void)
 {
 	int i = 0;
-	pr_debug("%s\n", __func__);
 
 	/* Driver */
 	atomic_set(&rtac_common.usage_count, 0);
@@ -1568,5 +1654,3 @@ module_init(rtac_init);
 
 MODULE_DESCRIPTION("SoC QDSP6v2 Real-Time Audio Calibration driver");
 MODULE_LICENSE("GPL v2");
-
-#endif
