@@ -8,25 +8,3 @@ config MSM_VPU
 		In its original version (no tunneling features) buffers are
 		received from HLOS and sent back to HLOS after VPU hardware
 		processing.
-
-config MSM_VPU_IN_VCAP
-	bool "MSM VCAP/VPU Tunneling"
-	depends on MSM_VPU && MSM_VCAP_V2 && ARCH_MPQ8092
-	---help---
-		This flag enables VCAP/VPU tunneling feature of VPU driver.
-		If enabled, VPU driver interacts with video capture. Input
-		buffers (already allocated) are received by VPU driver from
-		VCAP driver. VPU driver then maps these 'input tunneling
-		buffers' for VPU address space and send them to VPU firmware
-		for video streaming.
-
-config MSM_VPU_OUT_MDSS
-	bool "MSM VPU/MDSS Tunneling"
-	depends on MSM_VPU && FB_MSM_MDSS && ARCH_MPQ8092
-	---help---
-		This flag enables VPU/MDSS tunneling feature of VPU driver.
-		If enabled, VPU driver interacts with display. Output buffers
-		(already allocated) are received by VPU driver from user space.
-		VPU driver then maps these 'output tunneling buffers' for both
-		VPU and MDSS address spaces and send them to VPU firmware
-		for video streaming.

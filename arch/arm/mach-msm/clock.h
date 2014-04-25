@@ -53,10 +53,6 @@ extern struct clock_init_data msm8610_rumi_clock_init_data;
 extern int __init msm_gcc_8226_init(void);
 extern struct clock_init_data apq8084_clock_init_data;
 extern struct clock_init_data apq8084_rumi_clock_init_data;
-extern struct clock_init_data mpq8092_clock_init_data;
-extern struct clock_init_data mpq8092_rumi_clock_init_data;
-extern struct clock_init_data msmsamarium_clock_init_data;
-extern struct clock_init_data msmsamarium_rumi_clock_init_data;
 extern struct clock_init_data fsm9900_clock_init_data;
 extern struct clock_init_data fsm9900_dummy_clock_init_data;
 

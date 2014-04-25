@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 2007 Google, Inc.
- * Copyright (c) 2008-2013, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2008-2014, The Linux Foundation. All rights reserved.
  * Author: Brian Swetland <swetland@google.com>
  *
  * This software is licensed under the terms of the GNU General Public
@@ -29,7 +29,7 @@
 
 #if !defined(CONFIG_SPARSE_IRQ)
 
-#if defined(CONFIG_ARCH_MSM8974) || defined(CONFIG_ARCH_MPQ8092)
+#if defined(CONFIG_ARCH_MSM8974)
 #define NR_MSM_IRQS 1020 /* Should be 256 - but higher due to bug in sim */
 #define NR_GPIO_IRQS 146
 #define NR_QPNP_IRQS 32768
