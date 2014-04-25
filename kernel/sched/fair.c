@@ -1479,9 +1479,9 @@ int mostly_idle_cpu(int cpu)
 /* return cheapest cpu that can fit this task */
 static int select_best_cpu(struct task_struct *p, int target)
 {
-	int i, best_cpu = -1;
+	int i, best_cpu = -1, fallback_idle_cpu = -1;
 	int prev_cpu = task_cpu(p);
-	int cpu_cost, min_cost = INT_MAX;
+	int cpu_cost, min_cost = INT_MAX, min_idle_cpu_cost = INT_MAX;
 	int small_task = is_small_task(p);
 
 	trace_sched_task_load(p);
@@ -1501,23 +1501,31 @@ static int select_best_cpu(struct task_struct *p, int target)
 		if (!small_task && !mostly_idle_cpu(i))
 			continue;
 
-		if (!task_will_fit(p, i))
-			continue;
-
-		/* Prefer lowest cost cpu that can accommodate task */
-		cpu_cost = power_cost(p, i);
 		/* Assume power_cost() returns same number for two
 		 * cpus that are nearly same in their power
 		 * rating.
 		 */
-		if (cpu_cost < min_cost) {
-			min_cost = cpu_cost;
-			best_cpu = i;
+		cpu_cost = power_cost(p, i);
+
+		if (!task_will_fit(p, i)) {
+			if (cpu_cost < min_idle_cpu_cost) {
+				min_idle_cpu_cost = cpu_cost;
+				fallback_idle_cpu = i;
+			}
+		} else {
+			if (cpu_cost < min_cost) {
+				min_cost = cpu_cost;
+				best_cpu = i;
+			}
 		}
 	}
 
-	if (best_cpu < 0)
-		best_cpu = prev_cpu;
+	if (best_cpu < 0) {
+		if (unlikely(fallback_idle_cpu < 0))
+			best_cpu = prev_cpu;
+		else
+			best_cpu = fallback_idle_cpu;
+	}
 
 	return best_cpu;
 }
@@ -5368,10 +5376,15 @@ static bool update_sd_pick_busiest(struct lb_env *env,
 				   struct sched_group *sg,
 				   struct sg_lb_stats *sgs)
 {
+	unsigned long capacity;
+
 	if (sgs->avg_load <= sds->max_load)
 		return false;
 
-	if (sgs->sum_nr_running > sgs->group_capacity) {
+	capacity = (env->idle == CPU_NOT_IDLE) ? sgs->group_capacity :
+				cpumask_weight(sched_group_cpus(sg));
+
+	if (sgs->sum_nr_running > capacity) {
 		env->flags &= ~LBF_PWR_ACTIVE_BALANCE;
 		return true;
 	}
