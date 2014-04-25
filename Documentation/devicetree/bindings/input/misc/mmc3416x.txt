@@ -1,0 +1,34 @@
+AKM AK09911 3-axis electronic compass driver
+
+Required properties:
+
+ - compatible		: Should be "mmc,mmc3416x".
+ - reg			: i2c address of the device.
+ - vdd-supply		: Analog power supply needed to power up the device.
+ - vio-supply		: Digital IO power supply needed for IO and I2C.
+
+Optional properites:
+
+ - mmc,auto-report	: Enable auto-report mode.
+ - mmc,dir		: The direction of the ecompass sensor chip. There are 8
+	patterns of direction described as below:
+	0: Indicate the invalid pattern, The userspace will decide the pattern.
+	1: 1st pin is right down
+	2: 1st pin is left down
+	3: 1st pin is left top
+	4: 1st pin is right top
+	5: 1st pin is left down (from top view)
+	6: 1st pin is left top (from top view)
+	7: 1st pin is right top (from top view)
+	8: 1st pin is right down (from top view)
+
+ Example:
+	mmc@30 {
+			compatible = "mmc,mmc3416x";
+			reg = <0x30>;
+			vdd-supply = <&pm8110_l19>;
+			vio-supply = <&pm8110_l14>;
+			mmc,dir = <0>;
+			mmc,auto-report;
+	};
+
