@@ -311,6 +311,19 @@
 		};
 	};
 
+	qcom,msm-imem@fe87f000 {
+		compatible = "qcom,msm-imem";
+		reg = <0xfe87f000 0x1000>; /* Address and size of IMEM */
+		ranges = <0x0 0xfe87f000 0x1000>;
+		#address-cells = <1>;
+		#size-cells = <1>;
+
+		mem_dump_table@10 {
+			compatible = "qcom,msm-imem-mem_dump_table";
+			reg = <0x10 8>;
+		};
+	};
+
 	qcom,wdt@f9017000 {
 		compatible = "qcom,msm-watchdog";
 		reg = <0xf9017000 0x1000>;
