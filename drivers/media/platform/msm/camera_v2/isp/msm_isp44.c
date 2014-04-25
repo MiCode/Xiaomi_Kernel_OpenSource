@@ -291,65 +291,65 @@ static void msm_vfe44_process_violation_status(
 	if (!violation_status)
 		return;
 
-	if (violation_status == 0)
+	if (violation_status & (1 << 0))
 		pr_err("%s: camif violation\n", __func__);
-	if (violation_status == 1)
+	if (violation_status & (1 << 1))
 		pr_err("%s: black violation\n", __func__);
-	if (violation_status == 2)
+	if (violation_status & (1 << 2))
 		pr_err("%s: rolloff violation\n", __func__);
-	if (violation_status == 3)
+	if (violation_status & (1 << 3))
 		pr_err("%s: demux violation\n", __func__);
-	if (violation_status == 4)
+	if (violation_status & (1 << 4))
 		pr_err("%s: demosaic violation\n", __func__);
-	if (violation_status == 5)
+	if (violation_status & (1 << 5))
 		pr_err("%s: wb violation\n", __func__);
-	if (violation_status == 6)
+	if (violation_status & (1 << 6))
 		pr_err("%s: clf violation\n", __func__);
-	if (violation_status == 7)
+	if (violation_status & (1 << 7))
 		pr_err("%s: color correct violation\n", __func__);
-	if (violation_status == 8)
+	if (violation_status & (1 << 8))
 		pr_err("%s: rgb lut violation\n", __func__);
-	if (violation_status == 9)
+	if (violation_status & (1 << 9))
 		pr_err("%s: la violation\n", __func__);
-	if (violation_status == 10)
+	if (violation_status & (1 << 10))
 		pr_err("%s: chroma enhance violation\n", __func__);
-	if (violation_status == 11)
+	if (violation_status & (1 << 11))
 		pr_err("%s: chroma supress mce violation\n", __func__);
-	if (violation_status == 12)
+	if (violation_status & (1 << 12))
 		pr_err("%s: skin enhance violation\n", __func__);
-	if (violation_status == 13)
+	if (violation_status & (1 << 13))
 		pr_err("%s: color tranform enc violation\n", __func__);
-	if (violation_status == 14)
+	if (violation_status & (1 << 14))
 		pr_err("%s: color tranform view violation\n", __func__);
-	if (violation_status == 15)
+	if (violation_status & (1 << 15))
 		pr_err("%s: scale enc y violation\n", __func__);
-	if (violation_status == 16)
+	if (violation_status & (1 << 16))
 		pr_err("%s: scale enc cbcr violation\n", __func__);
-	if (violation_status == 17)
+	if (violation_status & (1 << 17))
 		pr_err("%s: scale view y violation\n", __func__);
-	if (violation_status == 18)
+	if (violation_status & (1 << 18))
 		pr_err("%s: scale view cbcr violation\n", __func__);
-	if (violation_status == 21)
+	if (violation_status & (1 << 21))
 		pr_err("%s: crop enc y violation\n", __func__);
-	if (violation_status == 22)
+	if (violation_status & (1 << 22))
 		pr_err("%s: crop enc cbcr violation\n", __func__);
-	if (violation_status == 23)
+	if (violation_status & (1 << 23))
 		pr_err("%s: crop view y violation\n", __func__);
-	if (violation_status == 24)
+	if (violation_status & (1 << 24))
 		pr_err("%s: crop view cbcr violation\n", __func__);
-	if (violation_status == 25)
+	if (violation_status & (1 << 25))
 		pr_err("%s: realign buf y violation\n", __func__);
-	if (violation_status == 26)
+	if (violation_status & (1 << 26))
 		pr_err("%s: realign buf cb violation\n", __func__);
-	if (violation_status == 27)
+	if (violation_status & (1 << 27))
 		pr_err("%s: realign buf cr violation\n", __func__);
-	if (violation_status == 28)
+	if (violation_status & (1 << 28))
 		pr_err("%s: ltm violation\n", __func__);
-	if (violation_status == 29)
+	if (violation_status & (1 << 29))
 		pr_err("%s: ltm cov violation\n", __func__);
-	if (violation_status == 30)
+	if (violation_status & (1 << 30))
 		pr_err("%s: abf violation\n", __func__);
-	if (violation_status == 31)
+	if (violation_status & (1 << 31))
 		pr_err("%s: bpc violation\n", __func__);
 }
 
