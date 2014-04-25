@@ -178,6 +178,14 @@ extern void msm_iommu_unmap_contig_buffer(dma_addr_t iova,
 extern int msm_register_domain(struct msm_iova_layout *layout);
 extern int msm_unregister_domain(struct iommu_domain *domain);
 
+int msm_map_dma_buf(struct dma_buf *dma_buf, struct sg_table *table,
+			int domain_num, int partition_num, unsigned long align,
+			unsigned long iova_length, ion_phys_addr_t *iova,
+			unsigned long *buffer_size,
+			unsigned long flags, unsigned long iommu_flags);
+
+void msm_unmap_dma_buf(struct sg_table *table, int domain_num,
+			int partition_num);
 #else
 static inline int ion_map_iommu(struct ion_client *client,
 			struct ion_handle *handle, int domain_num,
@@ -283,6 +291,23 @@ static inline int msm_iommu_domain_no_find(const char *name)
 {
 	return -ENODEV;
 }
+
+static inline int msm_map_dma_buf(struct dma_buf *dma_buf,
+			struct sg_table *table,
+			int domain_num, int partition_num, unsigned long align,
+			unsigned long iova_length, ion_phys_addr_t *iova,
+			unsigned long *buffer_size,
+			unsigned long flags, unsigned long iommu_flags)
+{
+	return -ENODEV;
+}
+
+static inline void msm_unmap_dma_buf(struct sg_table *table, int domain_num,
+			int partition_num)
+{
+	return;
+}
+
 #endif
 
 #endif

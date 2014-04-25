@@ -32,7 +32,7 @@ enum {
 #define iommu_map_partition(__m)        ((__m)->domain_info[0])
 
 /**
- * struct ion_iommu_map - represents a mapping of an ion buffer to an iommu
+ * struct msm_iommu_map - represents a mapping of an ion buffer to an iommu
  * @iova_addr - iommu virtual address
  * @node - rb node to exist in the buffer's tree of iommu mappings
  * @domain_info - contains the partition number and domain number
@@ -48,23 +48,22 @@ enum {
  * different domains or address ranges. All mappings will have the same
  * cacheability and security.
  */
-struct ion_iommu_map {
+struct msm_iommu_map {
 	unsigned long iova_addr;
 	struct rb_node node;
 	union {
 		int domain_info[DI_MAX];
 		uint64_t key;
 	};
-	struct ion_iommu_meta *meta;
+	struct msm_iommu_meta *meta;
 	struct kref ref;
 	int mapped_size;
 	unsigned long flags;
 };
 
 
-struct ion_iommu_meta {
+struct msm_iommu_meta {
 	struct rb_node node;
-	struct ion_handle *handle;
 	struct rb_root iommu_maps;
 	struct kref ref;
 	struct sg_table *table;
@@ -76,24 +75,24 @@ struct ion_iommu_meta {
 static struct rb_root iommu_root;
 DEFINE_MUTEX(msm_iommu_map_mutex);
 
-static void ion_iommu_meta_add(struct ion_iommu_meta *meta)
+static void msm_iommu_meta_add(struct msm_iommu_meta *meta)
 {
 	struct rb_root *root = &iommu_root;
 	struct rb_node **p = &root->rb_node;
 	struct rb_node *parent = NULL;
-	struct ion_iommu_meta *entry;
+	struct msm_iommu_meta *entry;
 
 	while (*p) {
 		parent = *p;
-		entry = rb_entry(parent, struct ion_iommu_meta, node);
+		entry = rb_entry(parent, struct msm_iommu_meta, node);
 
 		if (meta->table < entry->table) {
 			p = &(*p)->rb_left;
 		} else if (meta->table > entry->table) {
 			p = &(*p)->rb_right;
 		} else {
-			pr_err("%s: handle %p already exists\n", __func__,
-				entry->handle);
+			pr_err("%s: dma_buf %p already exists\n", __func__,
+				entry->dbuf);
 			BUG();
 		}
 	}
@@ -103,16 +102,16 @@ static void ion_iommu_meta_add(struct ion_iommu_meta *meta)
 }
 
 
-static struct ion_iommu_meta *ion_iommu_meta_lookup(struct sg_table *table)
+static struct msm_iommu_meta *msm_iommu_meta_lookup(struct sg_table *table)
 {
 	struct rb_root *root = &iommu_root;
 	struct rb_node **p = &root->rb_node;
 	struct rb_node *parent = NULL;
-	struct ion_iommu_meta *entry = NULL;
+	struct msm_iommu_meta *entry = NULL;
 
 	while (*p) {
 		parent = *p;
-		entry = rb_entry(parent, struct ion_iommu_meta, node);
+		entry = rb_entry(parent, struct msm_iommu_meta, node);
 
 		if (table < entry->table)
 			p = &(*p)->rb_left;
@@ -127,25 +126,25 @@ static struct ion_iommu_meta *ion_iommu_meta_lookup(struct sg_table *table)
 
 
 
-static void ion_iommu_add(struct ion_iommu_meta *meta,
-			struct ion_iommu_map *iommu)
+static void msm_iommu_add(struct msm_iommu_meta *meta,
+			struct msm_iommu_map *iommu)
 {
 	struct rb_node **p = &meta->iommu_maps.rb_node;
 	struct rb_node *parent = NULL;
-	struct ion_iommu_map *entry;
+	struct msm_iommu_map *entry;
 
 	while (*p) {
 		parent = *p;
-		entry = rb_entry(parent, struct ion_iommu_map, node);
+		entry = rb_entry(parent, struct msm_iommu_map, node);
 
 		if (iommu->key < entry->key) {
 			p = &(*p)->rb_left;
 		} else if (iommu->key > entry->key) {
 			p = &(*p)->rb_right;
 		} else {
-			pr_err("%s: handle %p already has mapping for domain %d and partition %d\n",
+			pr_err("%s: dma_buf %p already has mapping for domain %d and partition %d\n",
 				__func__,
-				meta->handle,
+				meta->dbuf,
 				iommu_map_domain(iommu),
 				iommu_map_partition(iommu));
 			BUG();
@@ -157,20 +156,20 @@ static void ion_iommu_add(struct ion_iommu_meta *meta,
 }
 
 
-static struct ion_iommu_map *ion_iommu_lookup(
-					struct ion_iommu_meta *meta,
+static struct msm_iommu_map *msm_iommu_lookup(
+					struct msm_iommu_meta *meta,
 					unsigned int domain_no,
 					unsigned int partition_no)
 {
 	struct rb_node **p = &meta->iommu_maps.rb_node;
 	struct rb_node *parent = NULL;
-	struct ion_iommu_map *entry;
+	struct msm_iommu_map *entry;
 	uint64_t key = domain_no;
 	key = key << 32 | partition_no;
 
 	while (*p) {
 		parent = *p;
-		entry = rb_entry(parent, struct ion_iommu_map, node);
+		entry = rb_entry(parent, struct msm_iommu_map, node);
 
 		if (key < entry->key)
 			p = &(*p)->rb_left;
@@ -183,8 +182,8 @@ static struct ion_iommu_map *ion_iommu_lookup(
 	return NULL;
 }
 
-static int ion_iommu_map_iommu(struct ion_iommu_meta *meta,
-					struct ion_iommu_map *data,
+static int msm_iommu_map_iommu(struct msm_iommu_meta *meta,
+					struct msm_iommu_map *data,
 					unsigned int domain_num,
 					unsigned int partition_num,
 					unsigned long align,
@@ -255,7 +254,7 @@ out:
 	return ret;
 }
 
-static void ion_iommu_heap_unmap_iommu(struct ion_iommu_map *data)
+static void msm_iommu_heap_unmap_iommu(struct msm_iommu_map *data)
 {
 	unsigned int domain_num;
 	unsigned int partition_num;
@@ -282,12 +281,12 @@ static void ion_iommu_heap_unmap_iommu(struct ion_iommu_map *data)
 
 
 
-static struct ion_iommu_map *__ion_iommu_map(struct ion_iommu_meta *meta,
+static struct msm_iommu_map *__msm_iommu_map(struct msm_iommu_meta *meta,
 		int domain_num, int partition_num, unsigned long align,
 		unsigned long iova_length, unsigned long flags,
 		ion_phys_addr_t *iova)
 {
-	struct ion_iommu_map *data;
+	struct msm_iommu_map *data;
 	int ret;
 
 	data = kmalloc(sizeof(*data), GFP_ATOMIC);
@@ -298,7 +297,7 @@ static struct ion_iommu_map *__ion_iommu_map(struct ion_iommu_meta *meta,
 	iommu_map_domain(data) = domain_num;
 	iommu_map_partition(data) = partition_num;
 
-	ret = ion_iommu_map_iommu(meta, data,
+	ret = msm_iommu_map_iommu(meta, data,
 						domain_num,
 						partition_num,
 						align,
@@ -312,7 +311,7 @@ static struct ion_iommu_map *__ion_iommu_map(struct ion_iommu_meta *meta,
 	*iova = data->iova_addr;
 	data->meta = meta;
 
-	ion_iommu_add(meta, data);
+	msm_iommu_add(meta, data);
 
 	return data;
 
@@ -321,32 +320,34 @@ out:
 	return ERR_PTR(ret);
 }
 
-static struct ion_iommu_meta *ion_iommu_meta_create(struct ion_client *client,
-						struct ion_handle *handle,
+static struct msm_iommu_meta *msm_iommu_meta_create(struct dma_buf *dma_buf,
 						struct sg_table *table,
 						unsigned long size)
 {
-	struct ion_iommu_meta *meta;
+	struct msm_iommu_meta *meta;
 
 	meta = kzalloc(sizeof(*meta), GFP_KERNEL);
 
 	if (!meta)
 		return ERR_PTR(-ENOMEM);
 
-	meta->handle = handle;
 	meta->table = table;
 	meta->size = size;
-	meta->dbuf = ion_share_dma_buf(client, handle);
+	/*
+	 * The caller is expected to have taken a reference to this dma_buf
+	 * before calling this function
+	 */
+	meta->dbuf = dma_buf;
 	kref_init(&meta->ref);
 	mutex_init(&meta->lock);
-	ion_iommu_meta_add(meta);
+	msm_iommu_meta_add(meta);
 
 	return meta;
 }
 
-static void ion_iommu_meta_destroy(struct kref *kref)
+static void msm_iommu_meta_destroy(struct kref *kref)
 {
-	struct ion_iommu_meta *meta = container_of(kref, struct ion_iommu_meta,
+	struct msm_iommu_meta *meta = container_of(kref, struct msm_iommu_meta,
 						ref);
 
 
@@ -355,43 +356,31 @@ static void ion_iommu_meta_destroy(struct kref *kref)
 	kfree(meta);
 }
 
-static void ion_iommu_meta_put(struct ion_iommu_meta *meta)
+static void msm_iommu_meta_put(struct msm_iommu_meta *meta)
 {
 	/*
 	 * Need to lock here to prevent race against map/unmap
 	 */
 	mutex_lock(&msm_iommu_map_mutex);
-	kref_put(&meta->ref, ion_iommu_meta_destroy);
+	kref_put(&meta->ref, msm_iommu_meta_destroy);
 	mutex_unlock(&msm_iommu_map_mutex);
 }
 
-int ion_map_iommu(struct ion_client *client, struct ion_handle *handle,
+
+static int __msm_map_iommu_common(
+			struct dma_buf *dma_buf, struct sg_table *table,
 			int domain_num, int partition_num, unsigned long align,
 			unsigned long iova_length, ion_phys_addr_t *iova,
 			unsigned long *buffer_size,
 			unsigned long flags, unsigned long iommu_flags)
+
 {
-	struct ion_iommu_map *iommu_map;
-	struct ion_iommu_meta *iommu_meta = NULL;
-	struct sg_table *table;
+	struct msm_iommu_map *iommu_map;
+	struct msm_iommu_meta *iommu_meta = NULL;
 	struct scatterlist *sg;
+	unsigned long size = 0;
 	int ret = 0;
 	int i;
-	unsigned long size = 0;
-
-	if (IS_ERR_OR_NULL(client)) {
-		pr_err("%s: client pointer is invalid\n", __func__);
-		return -EINVAL;
-	}
-	if (IS_ERR_OR_NULL(handle)) {
-		pr_err("%s: handle pointer is invalid\n", __func__);
-		return -EINVAL;
-	}
-
-	table = ion_sg_table(client, handle);
-
-	if (IS_ERR_OR_NULL(table))
-		return PTR_ERR(table);
 
 	for_each_sg(table->sgl, sg, table->nents, i)
 		size += sg->length;
@@ -431,20 +420,29 @@ int ion_map_iommu(struct ion_client *client, struct ion_handle *handle,
 		goto out;
 	}
 
-	mutex_lock(&msm_iommu_map_mutex);
-	iommu_meta = ion_iommu_meta_lookup(table);
 
-	if (!iommu_meta)
-		iommu_meta = ion_iommu_meta_create(client, handle, table, size);
-	else
+	mutex_lock(&msm_iommu_map_mutex);
+	iommu_meta = msm_iommu_meta_lookup(table);
+
+	if (!iommu_meta) {
+		iommu_meta = msm_iommu_meta_create(dma_buf, table, size);
+	} else {
+		/*
+		 * Drop the dma_buf reference here. We took the reference
+		 * during meta creation so we need to drop it if we are
+		 * just taking a reference to the meta itself.
+		 */
+		dma_buf_put(dma_buf);
 		kref_get(&iommu_meta->ref);
+	}
+
 	BUG_ON(iommu_meta->size != size);
 	mutex_unlock(&msm_iommu_map_mutex);
 
 	mutex_lock(&iommu_meta->lock);
-	iommu_map = ion_iommu_lookup(iommu_meta, domain_num, partition_num);
+	iommu_map = msm_iommu_lookup(iommu_meta, domain_num, partition_num);
 	if (!iommu_map) {
-		iommu_map = __ion_iommu_map(iommu_meta, domain_num,
+		iommu_map = __msm_iommu_map(iommu_meta, domain_num,
 					    partition_num, align, iova_length,
 					    flags, iova);
 		if (!IS_ERR_OR_NULL(iommu_map)) {
@@ -456,14 +454,14 @@ int ion_map_iommu(struct ion_client *client, struct ion_handle *handle,
 		}
 	} else {
 		if (iommu_map->flags != iommu_flags) {
-			pr_err("%s: handle %p is already mapped with iommu flags %lx, trying to map with flags %lx\n",
-				__func__, handle,
+			pr_err("%s: dma_buf %p is already mapped with iommu flags %lx, trying to map with flags %lx\n",
+				__func__, dma_buf,
 				iommu_map->flags, iommu_flags);
 			ret = -EINVAL;
 			goto out_unlock;
 		} else if (iommu_map->mapped_size != iova_length) {
-			pr_err("%s: handle %p is already mapped with length %x, trying to map with length %lx\n",
-				__func__, handle, iommu_map->mapped_size,
+			pr_err("%s: dma_buf %p is already mapped with length %x, trying to map with length %lx\n",
+				__func__, dma_buf, iommu_map->mapped_size,
 				iova_length);
 			ret = -EINVAL;
 			goto out_unlock;
@@ -480,28 +478,140 @@ out_unlock:
 	mutex_unlock(&iommu_meta->lock);
 out:
 
-	ion_iommu_meta_put(iommu_meta);
+	msm_iommu_meta_put(iommu_meta);
+	return ret;
+
+}
+
+int msm_map_dma_buf(struct dma_buf *dma_buf, struct sg_table *table,
+			int domain_num, int partition_num, unsigned long align,
+			unsigned long iova_length, ion_phys_addr_t *iova,
+			unsigned long *buffer_size,
+			unsigned long flags, unsigned long iommu_flags)
+{
+	int ret;
+
+	if (IS_ERR_OR_NULL(dma_buf)) {
+		pr_err("%s: dma_buf pointer is invalid\n", __func__);
+		return -EINVAL;
+	}
+
+	if (IS_ERR_OR_NULL(table)) {
+		pr_err("%s: table pointer is invalid\n", __func__);
+		return -EINVAL;
+	}
+
+	get_dma_buf(dma_buf);
+
+	ret = __msm_map_iommu_common(dma_buf, table, domain_num,
+			partition_num, align, iova_length, iova,
+			buffer_size, flags, iommu_flags);
+
+	if (ret)
+		dma_buf_put(dma_buf);
+
+	return ret;
+}
+
+
+int ion_map_iommu(struct ion_client *client, struct ion_handle *handle,
+			int domain_num, int partition_num, unsigned long align,
+			unsigned long iova_length, ion_phys_addr_t *iova,
+			unsigned long *buffer_size,
+			unsigned long flags, unsigned long iommu_flags)
+{
+	struct sg_table *table;
+	struct dma_buf *dma_buf;
+	int ret = 0;
+
+	if (IS_ERR_OR_NULL(client)) {
+		pr_err("%s: client pointer is invalid\n", __func__);
+		return -EINVAL;
+	}
+	if (IS_ERR_OR_NULL(handle)) {
+		pr_err("%s: handle pointer is invalid\n", __func__);
+		return -EINVAL;
+	}
+
+	table = ion_sg_table(client, handle);
+
+	if (IS_ERR(table))
+		return PTR_ERR(table);
+
+
+	dma_buf = ion_share_dma_buf(client, handle);
+	if (IS_ERR(dma_buf))
+		return PTR_ERR(dma_buf);
+
+	ret = __msm_map_iommu_common(dma_buf, table, domain_num,
+			partition_num, align, iova_length, iova,
+			buffer_size, flags, iommu_flags);
+
+	if (ret)
+		dma_buf_put(dma_buf);
+
 	return ret;
 }
 EXPORT_SYMBOL(ion_map_iommu);
 
 
-static void ion_iommu_map_release(struct kref *kref)
+static void msm_iommu_map_release(struct kref *kref)
 {
-	struct ion_iommu_map *map = container_of(kref, struct ion_iommu_map,
+	struct msm_iommu_map *map = container_of(kref, struct msm_iommu_map,
 						ref);
-	struct ion_iommu_meta *meta = map->meta;
+	struct msm_iommu_meta *meta = map->meta;
 
 	rb_erase(&map->node, &meta->iommu_maps);
-	ion_iommu_heap_unmap_iommu(map);
+	msm_iommu_heap_unmap_iommu(map);
 	kfree(map);
+}
+
+static void __msm_unmap_iommu_common(struct sg_table *table, int domain_num,
+					int partition_num)
+{
+	struct msm_iommu_map *iommu_map;
+	struct msm_iommu_meta *meta;
+
+	mutex_lock(&msm_iommu_map_mutex);
+	meta = msm_iommu_meta_lookup(table);
+	if (!meta) {
+		WARN(1, "%s: (%d,%d) was never mapped for %p\n", __func__,
+				domain_num, partition_num, table);
+		mutex_unlock(&msm_iommu_map_mutex);
+		goto out;
+
+	}
+	mutex_unlock(&msm_iommu_map_mutex);
+
+	mutex_lock(&meta->lock);
+	iommu_map = msm_iommu_lookup(meta, domain_num, partition_num);
+
+	if (!iommu_map) {
+		WARN(1, "%s: (%d,%d) was never mapped for %p\n", __func__,
+				domain_num, partition_num, table);
+		mutex_unlock(&meta->lock);
+		goto out;
+	}
+
+	kref_put(&iommu_map->ref, msm_iommu_map_release);
+	mutex_unlock(&meta->lock);
+
+	msm_iommu_meta_put(meta);
+
+out:
+	return;
+
+}
+
+void msm_unmap_dma_buf(struct sg_table *table, int domain_num,
+			int partition_num)
+{
+	return __msm_unmap_iommu_common(table, domain_num, partition_num);
 }
 
 void ion_unmap_iommu(struct ion_client *client, struct ion_handle *handle,
 			int domain_num, int partition_num)
 {
-	struct ion_iommu_map *iommu_map;
-	struct ion_iommu_meta *meta;
 	struct sg_table *table;
 
 	if (IS_ERR_OR_NULL(client)) {
@@ -515,33 +625,8 @@ void ion_unmap_iommu(struct ion_client *client, struct ion_handle *handle,
 
 	table = ion_sg_table(client, handle);
 
-	mutex_lock(&msm_iommu_map_mutex);
-	meta = ion_iommu_meta_lookup(table);
-	if (!meta) {
-		WARN(1, "%s: (%d,%d) was never mapped for %p\n", __func__,
-				domain_num, partition_num, handle);
-		mutex_unlock(&msm_iommu_map_mutex);
-		goto out;
+	__msm_unmap_iommu_common(table, domain_num, partition_num);
 
-	}
-	mutex_unlock(&msm_iommu_map_mutex);
-
-	mutex_lock(&meta->lock);
-	iommu_map = ion_iommu_lookup(meta, domain_num, partition_num);
-
-	if (!iommu_map) {
-		WARN(1, "%s: (%d,%d) was never mapped for %p\n", __func__,
-				domain_num, partition_num, handle);
-		mutex_unlock(&meta->lock);
-		goto out;
-	}
-
-	kref_put(&iommu_map->ref, ion_iommu_map_release);
-	mutex_unlock(&meta->lock);
-
-	ion_iommu_meta_put(meta);
-
-out:
 	return;
 }
 EXPORT_SYMBOL(ion_unmap_iommu);
