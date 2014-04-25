@@ -19,38 +19,6 @@
 #define KGSL_3D0_SHADER_MEMORY	"kgsl_3d0_shader_memory"
 #define KGSL_3D0_IRQ		"kgsl_3d0_irq"
 
-enum kgsl_iommu_context_id {
-	KGSL_IOMMU_CONTEXT_USER = 0,
-	KGSL_IOMMU_CONTEXT_PRIV = 1,
-};
-
-/**
- * struct kgsl_iommu_ctx - Struct holding context name and id
- * @iommu_ctx_name:	Context name
- * @ctx_id:		Iommu context ID - user or priv
- */
-struct kgsl_iommu_ctx {
-	const char *iommu_ctx_name;
-	enum kgsl_iommu_context_id ctx_id;
-};
-
-/**
- * struct kgsl_device_iommu_data - Struct holding iommu context data obtained
- * from dtsi file
- * @iommu_ctxs:		Pointer to array of struct holding context name and id
- * @iommu_ctx_count:	Number of contexts defined in the dtsi file
- * @iommu_halt_enable:	Indicates if smmu halt h/w feature is supported
- * @physstart:		Start of iommu registers physical address
- * @physend:		End of iommu registers physical address
- */
-struct kgsl_device_iommu_data {
-	const struct kgsl_iommu_ctx *iommu_ctxs;
-	int iommu_ctx_count;
-	int iommu_halt_enable;
-	unsigned int physstart;
-	unsigned int physend;
-};
-
 /**
  * struct kgsl_pwrlevel - Struct holding different pwrlevel info obtained from
  * from dtsi file
