@@ -1687,16 +1687,19 @@ static void akm_dev_poll(struct work_struct *work)
 	}
 
 	tmp = (int)((int16_t)(dat_buf[2]<<8)+((int16_t)dat_buf[1]));
-	tmp = tmp * akm->sense_conf[0] / 256 + tmp / 2;
+	tmp = tmp * akm->sense_conf[0] / 128 + tmp;
 	mag_x = tmp;
 
 	tmp = (int)((int16_t)(dat_buf[4]<<8)+((int16_t)dat_buf[3]));
-	tmp = tmp * akm->sense_conf[1] / 256 + tmp / 2;
+	tmp = tmp * akm->sense_conf[1] / 128 + tmp;
 	mag_y = tmp;
 
 	tmp = (int)((int16_t)(dat_buf[6]<<8)+((int16_t)dat_buf[5]));
-	tmp = tmp * akm->sense_conf[2] / 256 + tmp / 2;
+	tmp = tmp * akm->sense_conf[2] / 128 + tmp;
 	mag_z = tmp;
+
+	dev_dbg(&s_akm->i2c->dev, "mag_x:%d mag_y:%d mag_z:%d\n",
+			mag_x, mag_y, mag_z);
 
 	switch (akm->layout) {
 	case 0:
