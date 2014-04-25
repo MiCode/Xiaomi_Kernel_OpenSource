@@ -228,11 +228,8 @@ static int ion_pages_cache_ops(struct ion_client *client,
 			dmac_clean_range(vaddr, vaddr + length);
 		break;
 	case ION_IOC_INV_CACHES:
-		if (!vaddr)
-			dma_sync_sg_for_cpu(NULL, table->sgl,
-				table->nents, DMA_FROM_DEVICE);
-		else
-			dmac_inv_range(vaddr, vaddr + length);
+		dma_sync_sg_for_cpu(NULL, table->sgl,
+			table->nents, DMA_FROM_DEVICE);
 		break;
 	case ION_IOC_CLEAN_INV_CACHES:
 		if (!vaddr) {
