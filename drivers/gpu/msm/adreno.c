@@ -1382,6 +1382,13 @@ static int adreno_of_get_iommu(struct device_node *parent,
 		} else if (!strcmp("gfx3d_spare",
 					ctxs[ctx_index].iommu_ctx_name)) {
 			ctxs[ctx_index].ctx_id = 2;
+		/*
+		 * Context bank 2 is secure context bank if content protection
+		 * is supported
+		 */
+		} else if (!strcmp("gfx3d_secure",
+					ctxs[ctx_index].iommu_ctx_name)) {
+			ctxs[ctx_index].ctx_id = 2;
 		} else {
 			KGSL_CORE_ERR("dt: IOMMU context %s is invalid\n",
 				ctxs[ctx_index].iommu_ctx_name);

@@ -347,7 +347,19 @@ adreno_drawctxt_create(struct kgsl_device_private *dev_priv,
 		KGSL_CONTEXT_PRIORITY_MASK |
 		KGSL_CONTEXT_TYPE_MASK |
 		KGSL_CONTEXT_PWR_CONSTRAINT |
-		KGSL_CONTEXT_IFH_NOP);
+		KGSL_CONTEXT_IFH_NOP |
+		KGSL_CONTEXT_SECURE);
+
+	/*
+	 * If content protection is not enabled and secure context
+	 * is requested return error.
+	 */
+	if (!kgsl_mmu_is_secured(&dev_priv->device->mmu) &&
+			(drawctxt->base.flags & KGSL_CONTEXT_SECURE)) {
+		dev_WARN_ONCE(device->dev, 1, "Secure context not supported");
+		kfree(drawctxt);
+		return ERR_PTR(-EINVAL);
+	}
 
 	/* Always enable per-context timestamps */
 	drawctxt->base.flags |= KGSL_CONTEXT_PER_CONTEXT_TS;

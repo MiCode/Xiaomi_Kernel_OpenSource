@@ -475,6 +475,14 @@ static void a4xx_protect_init(struct kgsl_device *device)
 	adreno_set_protected_registers(device, &index, 0x40, 6);
 	adreno_set_protected_registers(device, &index, 0x80, 4);
 
+	/* Content protection registers */
+	if (kgsl_mmu_is_secured(&device->mmu)) {
+		adreno_set_protected_registers(device, &index,
+			   A4XX_RBBM_SECVID_TSB_TRUSTED_BASE, 3);
+		adreno_set_protected_registers(device, &index,
+			   A4XX_RBBM_SECVID_TRUST_CONTROL, 1);
+	}
+
 	/* CP registers */
 	adreno_set_protected_registers(device, &index, 0x200, 7);
 	adreno_set_protected_registers(device, &index, 0x580, 4);

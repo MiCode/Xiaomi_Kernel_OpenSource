@@ -489,6 +489,7 @@ int kgsl_mmu_init(struct kgsl_device *device)
 {
 	int status = 0;
 	struct kgsl_mmu *mmu = &device->mmu;
+	struct platform_device *pdev = device->pdev;
 
 	mmu->device = device;
 
@@ -508,6 +509,9 @@ int kgsl_mmu_init(struct kgsl_device *device)
 
 	kgsl_sharedmem_set(device, &mmu->setstate_memory, 0, 0,
 				mmu->setstate_memory.size);
+
+	mmu->secured = of_property_read_bool(pdev->dev.of_node,
+				"qcom,secure-context");
 
 	if (KGSL_MMU_TYPE_IOMMU == kgsl_mmu_type) {
 		mmu->mmu_ops = &iommu_ops;
@@ -551,6 +555,8 @@ kgsl_mmu_createpagetableobject(struct kgsl_mmu *mmu,
 	int status = 0;
 	struct kgsl_pagetable *pagetable = NULL;
 	unsigned long flags;
+	unsigned int ptbase, ptsize;
+	char *pool_name;
 
 	pagetable = kzalloc(sizeof(struct kgsl_pagetable), GFP_KERNEL);
 	if (pagetable == NULL)
@@ -564,17 +570,27 @@ kgsl_mmu_createpagetableobject(struct kgsl_mmu *mmu,
 	pagetable->name = name;
 	pagetable->fault_addr = 0xFFFFFFFF;
 
-	pagetable->pool = gen_pool_create(PAGE_SHIFT, -1);
-	if (pagetable->pool == NULL) {
-		KGSL_CORE_ERR("gen_pool_create(%d) failed\n",
-			      PAGE_SHIFT);
-		goto err_alloc;
+	if (mmu->secured && (KGSL_MMU_SECURE_PT == name)) {
+		ptbase = KGSL_IOMMU_SECURE_MEM_BASE;
+		ptsize = KGSL_IOMMU_SECURE_MEM_SIZE;
+		pool_name = "secured";
+	} else {
+		ptbase = mmu->pt_base;
+		ptsize = mmu->pt_size;
+		pool_name = "general";
 	}
 
-	if (gen_pool_add(pagetable->pool, mmu->pt_base,
-				mmu->pt_size, -1)) {
-		KGSL_CORE_ERR("gen_pool_add failed\n");
-		goto err_pool;
+	pagetable->pool = gen_pool_create(PAGE_SHIFT, -1);
+	if (pagetable->pool == NULL) {
+		KGSL_CORE_ERR("%s gen_pool_create(%d) failed ptname %d\n",
+					pool_name, PAGE_SHIFT, name);
+		goto err;
+	}
+
+	if (gen_pool_add(pagetable->pool, ptbase, ptsize, -1)) {
+		KGSL_CORE_ERR("%s gen_pool_add failed ptname %d\n",
+					pool_name, name);
+		goto err;
 	}
 
 	if (KGSL_MMU_TYPE_IOMMU == kgsl_mmu_type)
@@ -582,11 +598,11 @@ kgsl_mmu_createpagetableobject(struct kgsl_mmu *mmu,
 
 	pagetable->priv = pagetable->pt_ops->mmu_create_pagetable();
 	if (!pagetable->priv)
-		goto err_pool;
+		goto err;
 
 	status = kgsl_map_global_pt_entries(pagetable);
 	if (status)
-		goto err_mmu_create;
+		goto err;
 
 	spin_lock_irqsave(&kgsl_driver.ptlock, flags);
 	list_add(&pagetable->list, &kgsl_driver.pagetable_list);
@@ -597,11 +613,12 @@ kgsl_mmu_createpagetableobject(struct kgsl_mmu *mmu,
 
 	return pagetable;
 
-err_mmu_create:
-	pagetable->pt_ops->mmu_destroy_pagetable(pagetable);
-err_pool:
-	gen_pool_destroy(pagetable->pool);
-err_alloc:
+err:
+	if (pagetable->priv)
+		pagetable->pt_ops->mmu_destroy_pagetable(pagetable);
+	if (pagetable->pool)
+		gen_pool_destroy(pagetable->pool);
+
 	kfree(pagetable);
 
 	return NULL;
@@ -913,7 +930,15 @@ int kgsl_mmu_gpuaddr_in_range(struct kgsl_pagetable *pt, unsigned int gpuaddr)
 	if (KGSL_MMU_TYPE_NONE == kgsl_mmu_type)
 		return (gpuaddr != 0);
 
-	return (gpuaddr > 0 && gpuaddr < KGSL_MMU_GLOBAL_MEM_BASE);
+	if (kgsl_mmu_is_secured(pt->mmu)) {
+		if (gpuaddr >= KGSL_IOMMU_SECURE_MEM_BASE && gpuaddr <
+		(KGSL_IOMMU_SECURE_MEM_BASE + KGSL_IOMMU_SECURE_MEM_SIZE))
+			return 1;
+		else
+			return 0;
+	} else if (gpuaddr > 0 && gpuaddr < KGSL_MMU_GLOBAL_MEM_BASE)
+		return 1;
+
+	return 0;
 }
 EXPORT_SYMBOL(kgsl_mmu_gpuaddr_in_range);
-

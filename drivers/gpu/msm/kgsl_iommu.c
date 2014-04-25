@@ -740,6 +740,9 @@ static void kgsl_detach_pagetable_iommu_domain(struct kgsl_mmu *mmu)
 			if (mmu->priv_bank_table &&
 				(KGSL_IOMMU_CONTEXT_PRIV == j))
 				iommu_pt = mmu->priv_bank_table->priv;
+			if (mmu->securepagetable &&
+				(KGSL_IOMMU_CONTEXT_SECURE == j))
+				iommu_pt = mmu->securepagetable->priv;
 			if (iommu_unit->dev[j].attached) {
 				iommu_detach_device(iommu_pt->domain,
 						iommu_unit->dev[j].dev);
@@ -785,8 +788,11 @@ static int kgsl_attach_pagetable_iommu_domain(struct kgsl_mmu *mmu)
 			 * is attached to this pagetable
 			 */
 			if (mmu->priv_bank_table &&
-				(KGSL_IOMMU_CONTEXT_PRIV == j))
+					(KGSL_IOMMU_CONTEXT_PRIV == j))
 				iommu_pt = mmu->priv_bank_table->priv;
+			if (mmu->securepagetable &&
+					(KGSL_IOMMU_CONTEXT_SECURE == j))
+				iommu_pt = mmu->securepagetable->priv;
 			if (!iommu_unit->dev[j].attached) {
 				ret = iommu_attach_device(iommu_pt->domain,
 							iommu_unit->dev[j].dev);
@@ -838,7 +844,7 @@ static int _get_iommu_ctxs(struct kgsl_mmu *mmu,
 	int found_ctx;
 	int ret = 0;
 
-	for (j = 0; j < KGSL_IOMMU_MAX_DEVS_PER_UNIT; j++) {
+	for (j = 0; j < KGSL_IOMMU_CONTEXT_MAX; j++) {
 		found_ctx = 0;
 		for (i = 0; i < data->iommu_ctx_count; i++) {
 			if (j == data->iommu_ctxs[i].ctx_id) {
@@ -1324,6 +1330,8 @@ static int kgsl_iommu_init(struct kgsl_mmu *mmu)
 	int status = 0;
 	struct kgsl_iommu *iommu;
 	struct platform_device *pdev = mmu->device->pdev;
+	struct kgsl_device *device = mmu->device;
+	size_t secured_pool_sz = 0;
 
 	atomic_set(&mmu->fault, 0);
 	iommu = kzalloc(sizeof(struct kgsl_iommu), GFP_KERNEL);
@@ -1352,8 +1360,17 @@ static int kgsl_iommu_init(struct kgsl_mmu *mmu)
 						"gtcu_iface_clk") >= 0)
 		iommu->gtcu_iface_clk = clk_get(&pdev->dev, "gtcu_iface_clk");
 
+	if (mmu->secured) {
+		kgsl_regwrite(device, A4XX_RBBM_SECVID_TSB_CONTROL, 0x0);
+		kgsl_regwrite(device, A4XX_RBBM_SECVID_TSB_TRUSTED_BASE,
+					  KGSL_IOMMU_SECURE_MEM_BASE);
+		kgsl_regwrite(device, A4XX_RBBM_SECVID_TSB_TRUSTED_SIZE,
+					  KGSL_IOMMU_SECURE_MEM_SIZE);
+		secured_pool_sz = KGSL_IOMMU_SECURE_MEM_SIZE;
+	}
+
 	mmu->pt_base = KGSL_MMU_MAPPED_MEM_BASE;
-	mmu->pt_size = KGSL_MMU_MAPPED_MEM_SIZE;
+	mmu->pt_size = (KGSL_MMU_MAPPED_MEM_SIZE - secured_pool_sz);
 	mmu->use_cpu_map = mmu->pt_per_process;
 
 	status = kgsl_iommu_init_sync_lock(mmu);
@@ -1414,8 +1431,7 @@ static int kgsl_iommu_setup_defaultpagetable(struct kgsl_mmu *mmu)
 	 * switching on the 3D side for which a separate table is allocated */
 	if (msm_soc_version_supports_iommu_v0()) {
 		mmu->priv_bank_table =
-			kgsl_mmu_getpagetable(mmu,
-					KGSL_MMU_PRIV_BANK_TABLE_NAME);
+			kgsl_mmu_getpagetable(mmu, KGSL_MMU_PRIV_PT);
 		if (mmu->priv_bank_table == NULL) {
 			status = -ENOMEM;
 			goto err;
@@ -1426,6 +1442,18 @@ static int kgsl_iommu_setup_defaultpagetable(struct kgsl_mmu *mmu)
 	if (mmu->defaultpagetable == NULL) {
 		status = -ENOMEM;
 		goto err;
+	}
+
+	if (mmu->secured) {
+		mmu->securepagetable = kgsl_mmu_getpagetable(mmu,
+				KGSL_MMU_SECURE_PT);
+		/* Return error if the secure pagetable doesn't exist */
+		if (mmu->securepagetable == NULL) {
+			KGSL_DRV_ERR(mmu->device,
+			"Unable to create secure pagetable, disable content protection\n");
+			status = -ENOMEM;
+			goto err;
+		}
 	}
 	return status;
 err:
@@ -1624,11 +1652,16 @@ done:
  *
  * Return - void
  */
-static void kgsl_iommu_flush_tlb_pt_current(struct kgsl_pagetable *pt)
+static void kgsl_iommu_flush_tlb_pt_current(struct kgsl_pagetable *pt,
+				struct kgsl_memdesc *memdesc)
 {
 	int lock_taken = 0;
 	struct kgsl_device *device = pt->mmu->device;
 	struct kgsl_iommu *iommu = pt->mmu->priv;
+	unsigned int flush_flags = KGSL_MMUFLAGS_TLBFLUSH;
+
+	flush_flags |= ((kgsl_memdesc_is_secured(memdesc) ?
+			KGSL_MMUFLAGS_TLBFLUSH_SECURE : 0));
 
 	/*
 	 * Check to see if the current thread already holds the device mutex.
@@ -1646,7 +1679,7 @@ static void kgsl_iommu_flush_tlb_pt_current(struct kgsl_pagetable *pt)
 		iommu->iommu_units[0].dev[KGSL_IOMMU_CONTEXT_USER].attached &&
 		kgsl_iommu_pt_equal(pt->mmu, pt,
 		kgsl_iommu_get_current_ptbase(pt->mmu)))
-		kgsl_iommu_default_setstate(pt->mmu, KGSL_MMUFLAGS_TLBFLUSH);
+		kgsl_iommu_default_setstate(pt->mmu, flush_flags);
 
 	if (lock_taken)
 		kgsl_mutex_unlock(&device->mutex, &device->mutex_owner);
@@ -1681,7 +1714,7 @@ kgsl_iommu_unmap(struct kgsl_pagetable *pt,
 		return ret;
 	}
 
-	kgsl_iommu_flush_tlb_pt_current(pt);
+	kgsl_iommu_flush_tlb_pt_current(pt, memdesc);
 
 	return ret;
 }
@@ -1746,7 +1779,7 @@ kgsl_iommu_map(struct kgsl_pagetable *pt,
 	 */
 
 	if (ADRENO_FEATURE(adreno_dev, IOMMU_FLUSH_TLB_ON_MAP))
-		kgsl_iommu_flush_tlb_pt_current(pt);
+		kgsl_iommu_flush_tlb_pt_current(pt, NULL);
 
 	return ret;
 }
@@ -1923,9 +1956,14 @@ static int kgsl_iommu_default_setstate(struct kgsl_mmu *mmu,
 	/* Flush tlb */
 	if (flags & KGSL_MMUFLAGS_TLBFLUSH) {
 		unsigned long wait_for_flush;
+		unsigned int tlbflush_ctxt = KGSL_IOMMU_CONTEXT_USER;
 		for (i = 0; i < iommu->unit_count; i++) {
+
+			if (flags & KGSL_MMUFLAGS_TLBFLUSH_SECURE)
+				tlbflush_ctxt = KGSL_IOMMU_CONTEXT_SECURE;
+
 			KGSL_IOMMU_SET_CTX_REG(iommu, (&iommu->iommu_units[i]),
-				KGSL_IOMMU_CONTEXT_USER, TLBIALL, 1);
+				tlbflush_ctxt, TLBIALL, 1);
 			mb();
 			/*
 			 * Wait for flush to complete by polling the flush
@@ -1939,10 +1977,10 @@ static int kgsl_iommu_default_setstate(struct kgsl_mmu *mmu,
 						msecs_to_jiffies(2000);
 				KGSL_IOMMU_SET_CTX_REG(iommu,
 					(&iommu->iommu_units[i]),
-					KGSL_IOMMU_CONTEXT_USER, TLBSYNC, 0);
+					tlbflush_ctxt, TLBSYNC, 0);
 				while (KGSL_IOMMU_GET_CTX_REG(iommu,
 					(&iommu->iommu_units[i]),
-					KGSL_IOMMU_CONTEXT_USER, TLBSTATUS) &
+					tlbflush_ctxt, TLBSTATUS) &
 					(KGSL_IOMMU_CTX_TLBSTATUS_SACTIVE)) {
 					if (time_after(jiffies,
 						wait_for_flush)) {

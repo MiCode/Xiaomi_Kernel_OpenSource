@@ -1211,6 +1211,7 @@ int adreno_ringbuffer_submitcmd(struct adreno_device *adreno_dev,
 	struct kgsl_device *device = &adreno_dev->dev;
 	struct kgsl_memobj_node *ib;
 	unsigned int numibs = 0;
+	unsigned int secured_ctxt = 0;
 	unsigned int *link;
 	unsigned int *cmds;
 	struct kgsl_context *context;
@@ -1275,11 +1276,18 @@ int adreno_ringbuffer_submitcmd(struct adreno_device *adreno_dev,
 	/*
 	 * Worst case size:
 	 * 2 - start of IB identifier
+	 * 6 - secure IB start
 	 * 1 - skip preamble
 	 * 3 * numibs - 3 per IB
+	 * 6 - secure IB end
 	 * 2 - end of IB identifier
 	 */
-	cmds = link = kzalloc(sizeof(unsigned int) * (numibs * 3 + 5),
+	if (context->flags & KGSL_CONTEXT_SECURE)
+		secured_ctxt = 1;
+
+
+	cmds = link = kzalloc(sizeof(unsigned int) * (numibs * 3 + 5 +
+					(secured_ctxt ? 12 : 0)),
 				GFP_KERNEL);
 	if (!link) {
 		ret = -ENOMEM;
@@ -1288,6 +1296,15 @@ int adreno_ringbuffer_submitcmd(struct adreno_device *adreno_dev,
 
 	*cmds++ = cp_nop_packet(1);
 	*cmds++ = KGSL_START_OF_IB_IDENTIFIER;
+
+	if (secured_ctxt) {
+		*cmds++ = cp_type3_packet(CP_SET_PROTECTED_MODE, 1);
+		*cmds++ = 0;
+		*cmds++ = cp_type0_packet(A4XX_RBBM_SECVID_TRUST_CONTROL, 1);
+		*cmds++ = 1;
+		*cmds++ = cp_type3_packet(CP_SET_PROTECTED_MODE, 1);
+		*cmds++ = 1;
+	}
 
 	if (numibs) {
 		list_for_each_entry(ib, &cmdbatch->cmdlist, node) {
@@ -1308,6 +1325,15 @@ int adreno_ringbuffer_submitcmd(struct adreno_device *adreno_dev,
 			*cmds++ = ib->gpuaddr;
 			*cmds++ = ib->sizedwords;
 		}
+	}
+
+	if (secured_ctxt) {
+		*cmds++ = cp_type3_packet(CP_SET_PROTECTED_MODE, 1);
+		*cmds++ = 0;
+		*cmds++ = cp_type0_packet(A4XX_RBBM_SECVID_TRUST_CONTROL, 1);
+		*cmds++ = 0;
+		*cmds++ = cp_type3_packet(CP_SET_PROTECTED_MODE, 1);
+		*cmds++ = 1;
 	}
 
 	*cmds++ = cp_nop_packet(1);
