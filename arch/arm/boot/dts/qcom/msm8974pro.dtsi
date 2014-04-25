@@ -1749,6 +1749,19 @@
 	qcom,mdss-has-decimation;
 	qcom,mdss-ad-off = <0x0013100 0x00013300>;
 	qcom,max-bandwidth-low-kbps = <2750000>;
+	qcom,mdp-settings = <0x000002E0 0x000000E9>,
+			    <0x000002E4 0x00000055>,
+			    <0x000003AC 0xC0000CCC>,
+			    <0x000003B4 0xC0000CCC>,
+			    <0x000003BC 0x00CCCCCC>,
+			    <0x000004A8 0x0CCCC0C0>,
+			    <0x000004B0 0xCCCCC0C0>,
+			    <0x000004B8 0xCCCCC000>,
+			    <0x00011148 0x00000058>,
+			    <0x00011548 0x00000058>,
+			    <0x00011948 0x00000058>,
+			    <0x00011D48 0x00000058>,
+			    <0x00012148 0x00000058>;
 };
 
 &mdss_hdmi_tx {
