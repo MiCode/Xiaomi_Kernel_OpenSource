@@ -514,6 +514,8 @@ Required properties:
 - qcom,msm-snd-card-id : This id is used to recognize the sound card number
 - qcom,msm-codec-type : This property is used to recognize the codec type
   internal or external.
+- qcom,msm-hs-micbias-type : This property is used to recognize the headset
+  micbias type, internal or external.
 - qcom,msm-mbhc-hphl-swh: This property is used to distinguish headset HPHL
 switch type on target typically the switch type will be normally open or
 normally close, value for this property 0 for normally close and 1 for
@@ -543,6 +545,7 @@ Example:
 		qcom,msm-codec-type = "internal";
 		qcom,msm-mbhc-hphl-swh = <0>;
 		qcom,msm-mbhc-gnd-swh = <0>;
+		qcom,msm-hs-micbias-type = "internal";
 		qcom,cdc-us-euro-gpios = <&msmgpio 120 0>;
 		qcom,audio-routing =
 			"RX_BIAS", "MCLK",
