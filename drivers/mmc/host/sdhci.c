@@ -621,10 +621,6 @@ static int sdhci_adma_table_pre(struct sdhci_host *host,
 	else
 		direction = DMA_TO_DEVICE;
 
-	/*
-	 * The ADMA descriptor table is mapped further down as we
-	 * need to fill it with data first.
-	 */
 	host->align_addr = dma_map_single(mmc_dev(host->mmc),
 					  host->align_buffer,
 					  host->align_buf_sz,
@@ -726,19 +722,8 @@ static int sdhci_adma_table_pre(struct sdhci_host *host,
 					   direction);
 	}
 
-	host->adma_addr = dma_map_single(mmc_dev(host->mmc),
-					 host->adma_desc,
-					 host->adma_desc_sz,
-					 DMA_TO_DEVICE);
-	if (dma_mapping_error(mmc_dev(host->mmc), host->adma_addr))
-		goto unmap_entries;
-	BUG_ON(host->adma_addr & (host->align_bytes - 1));
-
 	return 0;
 
-unmap_entries:
-	dma_unmap_sg(mmc_dev(host->mmc), data->sg,
-		data->sg_len, direction);
 unmap_align:
 	dma_unmap_single(mmc_dev(host->mmc), host->align_addr,
 			 host->align_buf_sz, direction);
@@ -761,9 +746,6 @@ static void sdhci_adma_table_post(struct sdhci_host *host,
 		direction = DMA_FROM_DEVICE;
 	else
 		direction = DMA_TO_DEVICE;
-
-	dma_unmap_single(mmc_dev(host->mmc), host->adma_addr,
-			 host->adma_desc_sz, DMA_TO_DEVICE);
 
 	dma_unmap_single(mmc_dev(host->mmc), host->align_addr,
 			 host->align_buf_sz, direction);
@@ -3522,17 +3504,30 @@ int sdhci_add_host(struct sdhci_host *host)
 
 		pr_debug("%s: %s: dma_desc_size: %d\n",
 			mmc_hostname(host->mmc), __func__, host->adma_desc_sz);
-		host->adma_desc = kmalloc(host->adma_desc_sz,
-					  GFP_KERNEL);
+		host->adma_desc = dma_alloc_coherent(mmc_dev(host->mmc),
+						     host->adma_desc_sz, &host->adma_addr,
+						     GFP_KERNEL);
 		host->align_buffer = kmalloc(host->align_buf_sz,
 					     GFP_KERNEL);
 		if (!host->adma_desc || !host->align_buffer) {
-			kfree(host->adma_desc);
+			dma_free_coherent(mmc_dev(host->mmc), host->adma_desc_sz,
+					  host->adma_desc, host->adma_addr);
 			kfree(host->align_buffer);
 			pr_warning("%s: Unable to allocate ADMA "
 				"buffers. Falling back to standard DMA.\n",
 				mmc_hostname(mmc));
 			host->flags &= ~SDHCI_USE_ADMA;
+			host->adma_desc = NULL;
+			host->align_buffer = NULL;
+		} else if (host->adma_addr & (host->align_bytes - 1)) {
+			pr_warning("%s: unable to allocate aligned ADMA descriptor\n",
+				   mmc_hostname(mmc));
+			host->flags &= ~SDHCI_USE_ADMA;
+			dma_free_coherent(mmc_dev(host->mmc), host->adma_desc_sz,
+					  host->adma_desc, host->adma_addr);
+			kfree(host->align_buffer);
+			host->adma_desc = NULL;
+			host->align_buffer = NULL;
 		}
 	}
 
@@ -4043,7 +4038,9 @@ void sdhci_remove_host(struct sdhci_host *host, int dead)
 		regulator_put(host->vqmmc);
 	}
 
-	kfree(host->adma_desc);
+	if (host->adma_desc)
+		dma_free_coherent(mmc_dev(host->mmc), host->adma_desc_sz,
+				  host->adma_desc, host->adma_addr);
 	kfree(host->align_buffer);
 
 	host->adma_desc = NULL;
