@@ -724,6 +724,7 @@ int msm_bus_noc_hw_init(struct msm_bus_fabric_registration *pdata,
 	hw_algo->port_halt = msm_bus_noc_port_halt;
 	hw_algo->port_unhalt = msm_bus_noc_port_unhalt;
 	hw_algo->config_master = NULL;
+	hw_algo->config_limiter = NULL;
 
 	return 0;
 }

@@ -21,6 +21,7 @@
 #include <linux/clk.h>
 #include <linux/msm-bus.h>
 #include "msm_bus_core.h"
+#include <trace/events/trace_msm_bus.h>
 
 #define INDEX_MASK 0x0000FFFF
 #define PNODE_MASK 0xFFFF0000
@@ -31,6 +32,11 @@
 #define IS_NODE(n) ((n) % FABRIC_ID_KEY)
 #define SEL_FAB_CLK 1
 #define SEL_SLAVE_CLK 0
+/*
+ * To get to BIMC BW convert Hz to bytes by multiplying bus width(8),
+ * double-data-rate(2) * ddr-channels(2).
+ */
+#define GET_BIMC_BW(clk)	(clk * 8 * 2 * 2)
 
 #define BW_TO_CLK_FREQ_HZ(width, bw) \
 	msm_bus_div64(width, bw)
@@ -312,6 +318,287 @@ static uint64_t get_node_maxib(struct msm_bus_inode_info *info)
 	return maxib;
 }
 
+
+static uint64_t get_node_sumab(struct msm_bus_inode_info *info)
+{
+	int i;
+	uint64_t maxab = 0;
+
+	for (i = 0; i <= info->num_pnodes; i++)
+		maxab += info->pnode[i].bw[DUAL_CTX];
+
+	MSM_BUS_DBG("%s: Node %d numpnodes %d maxib %llu", __func__,
+		info->num_pnodes, info->node_info->id, maxab);
+	return maxab;
+}
+
+static uint64_t get_vfe_bw(void)
+{
+	int vfe_id = MSM_BUS_MASTER_VFE;
+	int iid = msm_bus_board_get_iid(vfe_id);
+	int fabid;
+	struct msm_bus_fabric_device *fabdev;
+	struct msm_bus_inode_info *info;
+	uint64_t vfe_bw = 0;
+
+	fabid = GET_FABID(iid);
+	fabdev = msm_bus_get_fabric_device(fabid);
+	info = fabdev->algo->find_node(fabdev, iid);
+
+	if (!info) {
+		MSM_BUS_ERR("%s: Can't find node %d", __func__,
+						vfe_id);
+		goto exit_get_vfe_bw;
+	}
+
+	vfe_bw = get_node_sumab(info);
+	MSM_BUS_DBG("vfe_ab %llu", vfe_bw);
+
+exit_get_vfe_bw:
+	return vfe_bw;
+}
+
+static uint64_t get_mdp_bw(void)
+{
+	int ids[] = {MSM_BUS_MASTER_MDP_PORT0, MSM_BUS_MASTER_MDP_PORT1};
+	int i;
+	uint64_t mdp_ab = 0;
+	uint32_t ff = 0;
+
+	for (i = 0; i < ARRAY_SIZE(ids); i++) {
+		int iid = msm_bus_board_get_iid(ids[i]);
+		int fabid;
+		struct msm_bus_fabric_device *fabdev;
+		struct msm_bus_inode_info *info;
+
+		fabid = GET_FABID(iid);
+		fabdev = msm_bus_get_fabric_device(fabid);
+		info = fabdev->algo->find_node(fabdev, iid);
+
+		if (!info) {
+			MSM_BUS_ERR("%s: Can't find node %d", __func__,
+								ids[i]);
+			continue;
+		}
+
+		mdp_ab += get_node_sumab(info);
+		MSM_BUS_DBG("mdp_ab %llu", mdp_ab);
+		ff = info->node_info->ff;
+	}
+
+	if (ff) {
+		mdp_ab = msm_bus_div64(2 * ff, 100 * mdp_ab);
+	} else {
+		MSM_BUS_ERR("MDP FF is 0");
+		mdp_ab = 0;
+	}
+
+
+	MSM_BUS_DBG("MDP BW %llu\n", mdp_ab);
+	return mdp_ab;
+}
+
+static uint64_t get_rt_bw(void)
+{
+	uint64_t rt_bw = 0;
+
+	rt_bw += get_mdp_bw();
+	rt_bw += get_vfe_bw();
+
+	return rt_bw;
+}
+
+static uint64_t get_avail_bw(struct msm_bus_fabric_device *fabdev)
+{
+	uint64_t fabclk_rate = 0;
+	int i;
+	uint64_t avail_bw = 0;
+	uint64_t rt_bw = get_rt_bw();
+	struct msm_bus_fabric *fabric = to_msm_bus_fabric(fabdev);
+
+	if (!rt_bw)
+		goto exit_get_avail_bw;
+
+	for (i = 0; i < NUM_CTX; i++) {
+		uint64_t ctx_rate;
+		ctx_rate =
+			fabric->info.nodeclk[i].rate;
+		fabclk_rate = max(ctx_rate, fabclk_rate);
+	}
+
+	if (!fabdev->eff_fact || !fabdev->nr_lim_thresh) {
+		MSM_BUS_ERR("Error: Eff-fact %d; nr_thresh %llu",
+				fabdev->eff_fact, fabdev->nr_lim_thresh);
+		return 0;
+	}
+
+	avail_bw = msm_bus_div64(100,
+				(GET_BIMC_BW(fabclk_rate) * fabdev->eff_fact));
+
+	if (avail_bw >= fabdev->nr_lim_thresh)
+		return 0;
+
+	MSM_BUS_DBG("%s: Total_avail_bw %llu, rt_bw %llu\n",
+		__func__, avail_bw, rt_bw);
+	trace_bus_avail_bw(avail_bw, rt_bw);
+
+	if (avail_bw < rt_bw) {
+		MSM_BUS_ERR("\n%s: ERROR avail BW %llu < MDP %llu",
+			__func__, avail_bw, rt_bw);
+		avail_bw = 0;
+		goto exit_get_avail_bw;
+	}
+	avail_bw -= rt_bw;
+
+exit_get_avail_bw:
+	return avail_bw;
+}
+
+static void program_nr_limits(struct msm_bus_fabric_device *fabdev)
+{
+	int num_nr_lim = 0;
+	int i;
+	struct msm_bus_inode_info *info[fabdev->num_nr_lim];
+	struct msm_bus_fabric *fabric = to_msm_bus_fabric(fabdev);
+
+	num_nr_lim = radix_tree_gang_lookup_tag(&fabric->fab_tree,
+			(void **)&info, fabric->fabdev.id, fabdev->num_nr_lim,
+			MASTER_NODE);
+
+	for (i = 0; i < num_nr_lim; i++)
+		fabdev->algo->config_limiter(fabdev, info[i]);
+}
+
+static int msm_bus_commit_limiter(struct device *dev, void *data)
+{
+	int ret = 0;
+	struct msm_bus_fabric_device *fabdev = to_msm_bus_fabric_device(dev);
+
+	MSM_BUS_DBG("fabid: %d\n", fabdev->id);
+	program_nr_limits(fabdev);
+	return ret;
+}
+
+static void compute_nr_limits(struct msm_bus_fabric_device *fabdev, int pnode)
+{
+	uint64_t total_ib = 0;
+	int num_nr_lim = 0;
+	uint64_t avail_bw = 0;
+	struct msm_bus_inode_info *info[fabdev->num_nr_lim];
+	struct msm_bus_fabric *fabric = to_msm_bus_fabric(fabdev);
+	int i;
+
+	num_nr_lim = radix_tree_gang_lookup_tag(&fabric->fab_tree,
+			(void **)&info, fabric->fabdev.id, fabdev->num_nr_lim,
+			MASTER_NODE);
+
+	MSM_BUS_DBG("%s: Found %d NR LIM nodes", __func__, num_nr_lim);
+	for (i = 0; i < num_nr_lim; i++)
+		total_ib += get_node_maxib(info[i]);
+
+	avail_bw = get_avail_bw(fabdev);
+	MSM_BUS_DBG("\n %s: Avail BW %llu", __func__, avail_bw);
+
+	for (i = 0; i < num_nr_lim; i++) {
+		uint32_t node_pct = 0;
+		uint64_t new_lim_bw = 0;
+		uint64_t node_max_ib = 0;
+		uint32_t node_max_ib_kB = 0;
+		uint32_t total_ib_kB = 0;
+		uint64_t bw_node;
+
+		node_max_ib = get_node_maxib(info[i]);
+		node_max_ib_kB = msm_bus_div64(1024, node_max_ib);
+		total_ib_kB = msm_bus_div64(1024, total_ib);
+		node_pct = (node_max_ib_kB * 100) / total_ib_kB;
+		bw_node = node_pct * avail_bw;
+		new_lim_bw = msm_bus_div64(100, bw_node);
+
+		/*
+		 * if limiter bw is more than the requested IB clip to
+		   requested IB.
+		*/
+		if (new_lim_bw >= node_max_ib)
+			new_lim_bw = node_max_ib;
+
+		/*
+		 * if there is a floor bw for this nr lim node and
+		 *  if there is available bw to divy up among the nr masters
+		 *  and if the nr lim masters have a non zero vote and
+		 *  if the limited bw is below the floor for this node.
+		 *    then limit this node to the floor bw.
+		 */
+		if (info[i]->node_info->floor_bw && node_max_ib && avail_bw &&
+			(new_lim_bw <= info[i]->node_info->floor_bw)) {
+			MSM_BUS_ERR("\nNode %d:Limiting BW:%llu < floor:%llu",
+				info[i]->node_info->id,	new_lim_bw,
+						info[i]->node_info->floor_bw);
+			new_lim_bw = info[i]->node_info->floor_bw;
+		}
+
+		if (new_lim_bw != info[i]->cur_lim_bw) {
+			info[i]->cur_lim_bw = new_lim_bw;
+			MSM_BUS_DBG("NodeId %d: Requested IB %llu",
+					info[i]->node_info->id, node_max_ib);
+			MSM_BUS_DBG("Limited to %llu(%d pct of Avail %llu )\n",
+					new_lim_bw, node_pct, avail_bw);
+		} else {
+			MSM_BUS_DBG("NodeId %d: No change Limited to %llu\n",
+				info[i]->node_info->id, info[i]->cur_lim_bw);
+		}
+	}
+}
+
+static void setup_nr_limits(int curr, int pnode)
+{
+	struct msm_bus_fabric_device *fabdev =
+		msm_bus_get_fabric_device(GET_FABID(curr));
+	struct msm_bus_inode_info *info;
+
+	if (!fabdev) {
+		MSM_BUS_WARN("Fabric Not yet registered. Try again\n");
+		goto exit_setup_nr_limits;
+	}
+
+	/* This logic is currently applicable to BIMC masters only */
+	if (fabdev->id != MSM_BUS_FAB_DEFAULT) {
+		MSM_BUS_ERR("Static limiting of NR masters only for BIMC\n");
+		goto exit_setup_nr_limits;
+	}
+
+	info = fabdev->algo->find_node(fabdev, curr);
+	if (!info) {
+		MSM_BUS_ERR("Cannot find node info!\n");
+		goto exit_setup_nr_limits;
+	}
+
+	compute_nr_limits(fabdev, pnode);
+exit_setup_nr_limits:
+	return;
+}
+
+static bool is_nr_lim(int id)
+{
+	struct msm_bus_fabric_device *fabdev = msm_bus_get_fabric_device
+		(GET_FABID(id));
+	struct msm_bus_inode_info *info;
+	bool ret = false;
+
+	if (!fabdev) {
+		MSM_BUS_ERR("Bus device for bus ID: %d not found!\n",
+			GET_FABID(id));
+		goto exit_is_nr_lim;
+	}
+
+	info = fabdev->algo->find_node(fabdev, id);
+	if (!info)
+		MSM_BUS_ERR("Cannot find node info %d!\n", id);
+	else if ((info->node_info->nr_lim || info->node_info->rt_mas))
+		ret = true;
+exit_is_nr_lim:
+	return ret;
+}
+
 /**
  * update_path() - Update the path with the bandwidth and clock values, as
  * requested by the client.
@@ -334,6 +621,7 @@ static int update_path(int curr, int pnode, uint64_t req_clk, uint64_t req_bw,
 {
 	int index, ret = 0;
 	struct msm_bus_inode_info *info;
+	struct msm_bus_inode_info *src_info;
 	int next_pnode;
 	int64_t add_bw = req_bw - curr_bw;
 	uint64_t bwsum = 0;
@@ -358,6 +646,7 @@ static int update_path(int curr, int pnode, uint64_t req_clk, uint64_t req_bw,
 		MSM_BUS_ERR("Cannot find node info!\n");
 		return -ENXIO;
 	}
+	src_info = info;
 
 	info->link_info.sel_bw = &info->link_info.bw[ctx];
 	info->link_info.sel_clk = &info->link_info.clk[ctx];
@@ -469,11 +758,23 @@ static int update_path(int curr, int pnode, uint64_t req_clk, uint64_t req_bw,
 		MSM_BUS_ERR("Cannot find node info!\n");
 		return -ENXIO;
 	}
+
 	/* Update slave clocks */
 	ret = fabdev->algo->update_clks(fabdev, info, index, curr_clk_hz,
 	    req_clk_hz, bwsum_hz, SEL_SLAVE_CLK, ctx, cl_active_flag);
 	if (ret)
 		MSM_BUS_ERR("Failed to update clk\n");
+
+	if ((ctx == cl_active_flag) &&
+		((src_info->node_info->nr_lim || src_info->node_info->rt_mas)))
+		setup_nr_limits(curr, pnode);
+
+	/* If freq is going down , apply the changes now before
+	 * we commit clk data.
+	 */
+	if ((req_clk < curr_clk) || (req_bw < curr_bw))
+		bus_for_each_dev(&msm_bus_type, NULL, NULL,
+					msm_bus_commit_limiter);
 	return ret;
 }
 
@@ -594,8 +895,8 @@ static int update_request_legacy(uint32_t cl, unsigned index)
 {
 	int i, ret = 0;
 	struct msm_bus_scale_pdata *pdata;
-	int pnode, src, curr, ctx;
-	uint64_t req_clk, req_bw, curr_clk, curr_bw;
+	int pnode, src = 0, curr, ctx;
+	uint64_t req_clk = 0, req_bw = 0, curr_clk = 0, curr_bw = 0;
 	struct msm_bus_client *client = (struct msm_bus_client *)cl;
 	if (IS_ERR_OR_NULL(client)) {
 		MSM_BUS_ERR("msm_bus_scale_client update req error %d\n",
@@ -674,6 +975,13 @@ static int update_request_legacy(uint32_t cl, unsigned index)
 	ctx = ACTIVE_CTX;
 	msm_bus_dbg_client_data(client->pdata, index, cl);
 	bus_for_each_dev(&msm_bus_type, NULL, NULL, msm_bus_commit_fn);
+
+	/* For NR/RT limited masters, if freq is going up , apply the changes
+	 * after we commit clk data.
+	 */
+	if (is_nr_lim(src) && ((req_clk > curr_clk) || (req_bw > curr_bw)))
+		bus_for_each_dev(&msm_bus_type, NULL, NULL,
+					msm_bus_commit_limiter);
 
 err:
 	mutex_unlock(&msm_bus_lock);
