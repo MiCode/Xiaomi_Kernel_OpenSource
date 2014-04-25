@@ -55,6 +55,8 @@
 			qcom,qport = <2>;
 			qcom,ws = <10000>;
 			qcom,mas-hw-id = <8>;
+			qcom,rt-mas;
+			qcom,ff = <100>;
 		};
 
 		mas-mdp-port1 {
@@ -68,6 +70,8 @@
 			qcom,qport = <1>;
 			qcom,ws = <10000>;
 			qcom,mas-hw-id = <8>;
+			qcom,rt-mas;
+			qcom,ff = <100>;
 		};
 
 		mas-video-p0 {
@@ -94,6 +98,7 @@
 			qcom,ws = <10000>;
 			qcom,qport = <5>;
 			qcom,mas-hw-id = <11>;
+			qcom,rt-mas;
 		};
 
 		mas-vpu {
@@ -1255,10 +1260,12 @@
 		qcom,fabclk-dual = "mem_clk";
 		qcom,fabclk-active = "mem_a_clk";
 		qcom,ntieredslaves = <0>;
-		qcom,qos-freq = <4800>;
+		qcom,qos-freq = <19200>;
 		qcom,hw-sel = "BIMC";
 		qcom,rpm-en;
 		qcom,nfab = <6>;
+		qcom,nr-lim-thresh = <1638400>;
+		qcom,eff-fact = <60>;
 
 		coresight-id = <55>;
 		coresight-name = "coresight-bimc";
@@ -1279,7 +1286,11 @@
 			qcom,mas-hw-id = <0>;
 			qcom,prio-rd = <0>;
 			qcom,prio-wr = <0>;
+			qcom,bimc,gp = <1000>;
+			qcom,bimc,thmp = <50>;
 			qcom,buswidth = <16>;
+			qcom,nr-lim;
+			qcom,floor-bw = <102400>;
 		};
 
 		mas-gfx3d {
@@ -1297,8 +1308,11 @@
 			qcom,prio-rd = <0>;
 			qcom,prio-wr = <0>;
 			qcom,prio-lvl = <0>;
+			qcom,bimc,gp = <1000>;
+			qcom,bimc,thmp = <50>;
+			qcom,nr-lim;
+			qcom,floor-bw = <102400>;
 		};
-
 
 		mas-mss-proc {
 			cell-id = <65>;
