@@ -586,6 +586,7 @@ void intel_cleanup_ring_buffer(struct intel_engine_cs *ring);
 int __must_check intel_ring_alloc_request(struct intel_engine_cs *ring,
 					  struct intel_context *ctx);
 
+int intel_ring_test_space(struct intel_engine_cs *ring, int min_space);
 int __must_check intel_ring_begin(struct intel_engine_cs *ring, int n);
 int __must_check intel_ring_cacheline_align(struct intel_engine_cs *ring);
 static inline void intel_ring_emit(struct intel_engine_cs *ring,

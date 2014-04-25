@@ -1007,16 +1007,12 @@ i915_reset_gen7_sol_offsets(struct drm_device *dev,
 			    struct intel_engine_cs *ring)
 {
 	struct drm_i915_private *dev_priv = dev->dev_private;
-	int ret, i;
+	int i;
 
 	if (!IS_GEN7(dev) || ring != &dev_priv->ring[RCS]) {
 		DRM_DEBUG("sol reset is gen7/rcs only\n");
 		return -EINVAL;
 	}
-
-	ret = intel_ring_begin(ring, 2 + (4 * 4));
-	if (ret)
-		return ret;
 
 	/* Comments in i915_reg.h indicate that a MI_LOAD_REGISTER_IMM
 	 * should be preceded by a MI_NOOP
@@ -1030,8 +1026,6 @@ i915_reset_gen7_sol_offsets(struct drm_device *dev,
 		intel_ring_emit(ring, 0);
 		intel_ring_emit(ring, MI_NOOP);
 	}
-
-	intel_ring_advance(ring);
 
 	return 0;
 }
@@ -1190,6 +1184,7 @@ int i915_gem_ringbuffer_submission_final(struct i915_execbuffer_params *params)
 	u64 exec_start, exec_len;
 	int ret, i;
 	bool watchdog_running = 0;
+	uint32_t min_space;
 
 	/* The mutex must be acquired before calling this function */
 	BUG_ON(!mutex_is_locked(&params->dev->struct_mutex));
@@ -1198,6 +1193,30 @@ int i915_gem_ringbuffer_submission_final(struct i915_execbuffer_params *params)
 		ret = -EBUSY;
 		goto early_error;
 	}
+
+	/*
+	 * It would be a bad idea to run out of space while writing commands
+	 * to the ring. One of the major aims of the scheduler is to not stall
+	 * at any point for any reason. However, doing an early exit half way
+	 * through submission could result in a partial sequence being written
+	 * which would leave the engine in an unknown state. Therefore, check in
+	 * advance that there will be enough space for the entire submission
+	 * whether emitted by the code below OR by any other functions that may
+	 * be executed before the end of final().
+	 *
+	 * NB: This test deliberately overestimates, because that's easier than
+	 * tracing every potential path that could be taken!
+	 *
+	 * Current measurements suggest that we may need to emit up to 744 bytes
+	 * (186 dwords), so this is rounded up to 256 dwords here. Then we double
+	 * that to get the free space requirement, because the block isn't allowed
+	 * to span the transition from the end to the beginning of the ring.
+	 */
+#define I915_BATCH_EXEC_MAX_LEN         256	/* max dwords emitted here	*/
+	min_space = I915_BATCH_EXEC_MAX_LEN * 2 * sizeof(uint32_t);
+	ret = intel_ring_test_space(ring, min_space);
+	if (ret)
+		goto early_error;
 
 	intel_runtime_pm_get(dev_priv);
 
@@ -1211,6 +1230,13 @@ int i915_gem_ringbuffer_submission_final(struct i915_execbuffer_params *params)
 	WARN_ON(ring->outstanding_lazy_request != NULL);
 	WARN_ON(params->request == NULL);
 	ring->outstanding_lazy_request = params->request;
+
+	ret = intel_ring_begin(ring, I915_BATCH_EXEC_MAX_LEN);
+	if (ret)
+		goto error;
+
+	/* Request matches? */
+	WARN_ON(ring->outstanding_lazy_request != params->request);
 
 	/* Start watchdog timer */
 	if (params->args_flags & I915_EXEC_ENABLE_WATCHDOG) {
@@ -1249,10 +1275,6 @@ int i915_gem_ringbuffer_submission_final(struct i915_execbuffer_params *params)
 
 	if (ring == &dev_priv->ring[RCS] &&
 			params->instp_mode != dev_priv->relative_constants_mode) {
-		ret = intel_ring_begin(ring, 4);
-		if (ret)
-			goto error;
-
 		intel_ring_emit(ring, MI_NOOP);
 		intel_ring_emit(ring, MI_LOAD_REGISTER_IMM(1));
 		intel_ring_emit(ring, INSTPM);

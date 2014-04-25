@@ -209,6 +209,30 @@ enum {
 static int intel_lr_context_pin(struct intel_engine_cs *ring,
 		struct intel_context *ctx);
 
+/* Test to see if the ring has sufficient space to submit a given piece of work
+ * without causing a stall */
+static int logical_ring_test_space(struct intel_ringbuffer *ringbuf, int min_space)
+{
+	//struct intel_engine_cs *ring = ringbuf->ring;
+	//struct drm_device *dev = ring->dev;
+	//struct drm_i915_private *dev_priv = dev->dev_private;
+
+	if (ringbuf->space < min_space) {
+		/* Need to update the actual ring space. Otherwise, the system
+		 * hangs forever testing a software copy of the space value that
+		 * never changes!
+		 */
+		//ringbuf->head  = I915_READ_HEAD(ring);
+		//ringbuf->space = intel_ring_space(ringbuf);
+		intel_ring_update_space(ringbuf);
+
+		if (ringbuf->space < min_space)
+			return -EAGAIN;
+	}
+
+	return 0;
+}
+
 /**
  * intel_sanitize_enable_execlists() - sanitize i915.enable_execlists
  * @dev: DRM device.
@@ -1419,9 +1443,34 @@ int intel_execlists_submission_final(struct i915_execbuffer_params *params)
 	u64 exec_start;
 	int ret;
 	bool watchdog_running = 0;
+	uint32_t min_space;
 
 	/* The mutex must be acquired before calling this function */
 	BUG_ON(!mutex_is_locked(&params->dev->struct_mutex));
+
+	/*
+	 * It would be a bad idea to run out of space while writing commands
+	 * to the ring. One of the major aims of the scheduler is to not stall
+	 * at any point for any reason. However, doing an early exit half way
+	 * through submission could result in a partial sequence being written
+	 * which would leave the engine in an unknown state. Therefore, check in
+	 * advance that there will be enough space for the entire submission
+	 * whether emitted by the code below OR by any other functions that may
+	 * be executed before the end of final().
+	 *
+	 * NB: This test deliberately overestimates, because that's easier than
+	 * tracing every potential path that could be taken!
+	 *
+	 * Current measurements suggest that we may need to emit up to ??? bytes
+	 * (186 dwords), so this is rounded up to 256 dwords here. Then we double
+	 * that to get the free space requirement, because the block isn't allowed
+	 * to span the transition from the end to the beginning of the ring.
+	 */
+#define I915_BATCH_EXEC_MAX_LEN         256	/* max dwords emitted here	*/
+	min_space = I915_BATCH_EXEC_MAX_LEN * 2 * sizeof(uint32_t);
+	ret = logical_ring_test_space(ringbuf, min_space);
+	if (ret)
+		return ret;
 
 	/* Assign an identifier to track this request through the hardware: */
 	WARN_ON(params->request->seqno != 0);
@@ -1433,6 +1482,13 @@ int intel_execlists_submission_final(struct i915_execbuffer_params *params)
 	WARN_ON(ring->outstanding_lazy_request != NULL);
 	WARN_ON(params->request == NULL);
 	ring->outstanding_lazy_request = params->request;
+
+	ret = intel_logical_ring_begin(ringbuf, I915_BATCH_EXEC_MAX_LEN);
+	if (ret)
+		goto error;
+
+	/* Request matches? */
+	WARN_ON(ring->outstanding_lazy_request != params->request);
 
 	/* Start watchdog timer */
 	if (params->args_flags & I915_EXEC_ENABLE_WATCHDOG) {
@@ -1466,10 +1522,6 @@ int intel_execlists_submission_final(struct i915_execbuffer_params *params)
 
 	if (ring == &dev_priv->ring[RCS] &&
 	    params->instp_mode != dev_priv->relative_constants_mode) {
-		ret = intel_logical_ring_begin(ringbuf, 4);
-		if (ret)
-			goto error;
-
 		intel_logical_ring_emit(ringbuf, MI_NOOP);
 		intel_logical_ring_emit(ringbuf, MI_LOAD_REGISTER_IMM(1));
 		intel_logical_ring_emit(ringbuf, INSTPM);
