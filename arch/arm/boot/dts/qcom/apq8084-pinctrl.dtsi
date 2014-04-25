@@ -641,7 +641,7 @@
 			label = "cnss_pins";
 			cnss_default: default {
 				drive-strength = <16>;
-				bias-pull-up;
+				bias-pull-down;
 			};
 		};
 	};

@@ -19,6 +19,7 @@ Required properties:
   - pinctrl-names: Names corresponding to the numbered pinctrl states
   - pinctrl-<n>: Pinctrl states as described in
                  bindings/pinctrl/pinctrl-bindings.txt
+  - qcom,wlan-rc-num: PCIe root complex number which WLAN chip is attached to
 
 Optional properties:
   - qcom,notify-modem-status: Boolean property to decide whether modem
@@ -37,4 +38,5 @@ Example:
         wlan-soc-swreg-supply = <&pma8084_l27>;
         pinctrl-names = "default";
         pinctrl-0 = <&cnss_default>;
+        qcom,wlan-rc-num = <0>;
     };

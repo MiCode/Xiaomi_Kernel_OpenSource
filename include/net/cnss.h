@@ -104,4 +104,5 @@ extern void *wcnss_prealloc_get(unsigned int size);
 extern int wcnss_prealloc_put(void *ptr);
 #endif
 
+extern int msm_pcie_enumerate(u32 rc_idx);
 #endif /* _NET_CNSS_H_ */

@@ -86,6 +86,7 @@ static struct cnss_fw_files FW_FILES_DEFAULT = {
 #define POWER_ON_DELAY		2000
 #define WLAN_ENABLE_DELAY	10000
 #define WLAN_RECOVERY_DELAY	1000
+#define PCIE_ENABLE_DELAY	100000
 
 #define CNSS_PINCTRL_STATE_ACTIVE "default"
 
@@ -1303,6 +1304,7 @@ static int cnss_probe(struct platform_device *pdev)
 	struct esoc_desc *desc;
 	const char *client_desc;
 	struct device *dev = &pdev->dev;
+	u32 rc_num;
 
 	if (penv)
 		return -ENODEV;
@@ -1317,7 +1319,7 @@ static int cnss_probe(struct platform_device *pdev)
 	penv->gpio_info.name = WLAN_EN_GPIO_NAME;
 	penv->gpio_info.num = 0;
 	penv->gpio_info.state = WLAN_EN_LOW;
-	penv->gpio_info.init = WLAN_EN_HIGH;
+	penv->gpio_info.init = WLAN_EN_LOW;
 	penv->gpio_info.prop = false;
 	penv->vreg_info.wlan_reg = NULL;
 	penv->vreg_info.state = VREG_OFF;
@@ -1326,6 +1328,21 @@ static int cnss_probe(struct platform_device *pdev)
 	ret = cnss_wlan_get_resources(pdev);
 	if (ret)
 		goto err_get_wlan_res;
+
+	cnss_wlan_gpio_set(&penv->gpio_info, WLAN_EN_HIGH);
+	usleep(WLAN_ENABLE_DELAY);
+
+	ret = of_property_read_u32(dev->of_node, "qcom,wlan-rc-num", &rc_num);
+	if (ret) {
+		pr_err("%s: Failed to find PCIe RC number!\n", __func__);
+		goto err_get_rc;
+	}
+
+	ret = msm_pcie_enumerate(rc_num);
+	if (ret) {
+		pr_err("%s: Failed to enable PCIe RC%x!\n", __func__, rc_num);
+		goto err_pcie_enumerate;
+	}
 
 	penv->pcie_link_state = PCIE_LINK_UP;
 
@@ -1438,6 +1455,9 @@ err_subsys_reg:
 		devm_unregister_esoc_client(&pdev->dev, penv->esoc_desc);
 
 err_esoc_reg:
+err_pcie_enumerate:
+err_get_rc:
+	cnss_wlan_gpio_set(&penv->gpio_info, WLAN_EN_LOW);
 	cnss_wlan_release_resources();
 
 err_get_wlan_res:
