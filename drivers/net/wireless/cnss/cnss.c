@@ -104,6 +104,7 @@ static struct cnss_data {
 	void *subsys_handle;
 	struct esoc_desc *esoc_desc;
 	bool notify_modem_status;
+	struct cnss_platform_cap cap;
 } *penv;
 
 
@@ -283,6 +284,7 @@ static int cnss_wlan_get_resources(struct platform_device *pdev)
 			pr_err("%s: vreg initial vote failed\n", __func__);
 			goto err_reg_enable2;
 		}
+		penv->cap.cap_flag |= CNSS_HAS_EXTERNAL_SWREG;
 	}
 
 	vreg_info->state = VREG_ON;
@@ -1275,6 +1277,19 @@ int cnss_request_bus_bandwidth(int bandwidth)
 	return ret;
 }
 EXPORT_SYMBOL(cnss_request_bus_bandwidth);
+
+int cnss_get_platform_cap(struct cnss_platform_cap *cap)
+{
+	if (!penv)
+		return -ENODEV;
+
+	if (cap)
+		*cap = penv->cap;
+
+	return 0;
+
+}
+EXPORT_SYMBOL(cnss_get_platform_cap);
 
 module_init(cnss_initialize);
 module_exit(cnss_exit);
