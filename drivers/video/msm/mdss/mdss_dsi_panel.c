@@ -664,6 +664,41 @@ static int mdss_dsi_parse_fbc_params(struct device_node *np,
 	return 0;
 }
 
+static void mdss_panel_parse_te_params(struct device_node *np,
+				       struct mdss_panel_info *panel_info)
+{
+
+	u32 tmp;
+	int rc = 0;
+	/*
+	 * TE default: dsi byte clock calculated base on 70 fps;
+	 * around 14 ms to complete a kickoff cycle if te disabled;
+	 * vclk_line base on 60 fps; write is faster than read;
+	 * init == start == rdptr;
+	 */
+	panel_info->te.tear_check_en =
+		!of_property_read_bool(np, "qcom,mdss-tear-check-disable");
+	rc = of_property_read_u32
+		(np, "qcom,mdss-tear-check-sync-cfg-height", &tmp);
+	panel_info->te.sync_cfg_height = (!rc ? tmp : 0xfff0);
+	rc = of_property_read_u32
+		(np, "qcom,mdss-tear-check-sync-init-val", &tmp);
+	panel_info->te.vsync_init_val = (!rc ? tmp : panel_info->yres);
+	rc = of_property_read_u32
+		(np, "qcom,mdss-tear-check-sync-threshold-start", &tmp);
+	panel_info->te.sync_threshold_start = (!rc ? tmp : 4);
+	rc = of_property_read_u32
+		(np, "qcom,mdss-tear-check-sync-threshold-continue", &tmp);
+	panel_info->te.sync_threshold_continue = (!rc ? tmp : 4);
+	rc = of_property_read_u32(np, "qcom,mdss-tear-check-start-pos", &tmp);
+	panel_info->te.start_pos = (!rc ? tmp : panel_info->yres);
+	rc = of_property_read_u32
+		(np, "qcom,mdss-tear-check-rd-ptr-trigger-intr", &tmp);
+	panel_info->te.rd_ptr_irq = (!rc ? tmp : panel_info->yres + 1);
+	rc = of_property_read_u32(np, "qcom,mdss-tear-check-frame-rate", &tmp);
+	panel_info->te.refx100 = (!rc ? tmp : 6000);
+}
+
 
 static int mdss_dsi_parse_reset_seq(struct device_node *np,
 		u32 rst_seq[MDSS_DSI_RST_SEQ_LEN], u32 *rst_len,
@@ -994,6 +1029,7 @@ static int mdss_panel_parse_dt(struct device_node *np,
 
 	mdss_dsi_parse_reset_seq(np, pinfo->rst_seq, &(pinfo->rst_seq_len),
 		"qcom,mdss-dsi-reset-sequence");
+	mdss_panel_parse_te_params(np, pinfo);
 
 	mdss_dsi_parse_dcs_cmds(np, &ctrl_pdata->on_cmds,
 		"qcom,mdss-dsi-on-command", "qcom,mdss-dsi-on-command-state");
