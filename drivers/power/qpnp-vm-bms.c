@@ -144,6 +144,7 @@ struct bms_dt_cfg {
 	int				cfg_low_soc_calculate_soc_ms;
 	int				cfg_low_voltage_threshold;
 	int				cfg_low_voltage_calculate_soc_ms;
+	int				cfg_low_soc_fifo_length;
 	int				cfg_calculate_soc_ms;
 	int				cfg_voltage_soc_timeout_ms;
 	int				cfg_s1_sample_interval_ms;
@@ -175,6 +176,7 @@ struct qpnp_bms_chip {
 	bool				data_ready;
 	bool				charging_while_suspended;
 	bool				in_cv_state;
+	bool				low_soc_fifo_set;
 	int				battery_status;
 	int				calculated_soc;
 	int				current_now;
@@ -190,6 +192,7 @@ struct qpnp_bms_chip {
 	int				delta_time_s;
 	int				ocv_at_100;
 	int				last_ocv_uv;
+	int				s2_fifo_length;
 	unsigned int			vadc_v0625;
 	unsigned int			vadc_v1250;
 	unsigned long			tm_sec;
@@ -590,6 +593,42 @@ static int get_fifo_length(struct qpnp_bms_chip *chip,
 	*fifo_length = val;
 
 	return 0;
+}
+
+static int set_fifo_length(struct qpnp_bms_chip *chip,
+				u8 fsm_state, u32 fifo_length)
+{
+	int rc;
+	u8 reg, mask = 0, shift = 0;
+
+	/* fifo_length of 1 is not supported due to a hardware issue */
+	if ((fifo_length <= 1) || (fifo_length > MAX_FIFO_REGS)) {
+		pr_err("Invalid FIFO length = %d\n", fifo_length);
+		return -EINVAL;
+	}
+
+	switch (fsm_state) {
+	case S1_STATE:
+		reg = FIFO_LENGTH_REG;
+		mask = S1_FIFO_LENGTH_MASK;
+		shift = 0;
+		break;
+	case S2_STATE:
+		reg = FIFO_LENGTH_REG;
+		mask = S2_FIFO_LENGTH_MASK;
+		shift = S2_FIFO_LENGTH_SHIFT;
+		break;
+	default:
+		pr_err("Invalid state %d\n", fsm_state);
+		return -EINVAL;
+	}
+
+	rc = qpnp_masked_write_base(chip, chip->base + reg, mask,
+					fifo_length << shift);
+	if (rc)
+		pr_err("Unable to set fifo length rc=%d\n", rc);
+
+	return rc;
 }
 
 static int get_fsm_state(struct qpnp_bms_chip *chip, u8 *state)
@@ -1163,6 +1202,48 @@ static void cv_voltage_check(struct qpnp_bms_chip *chip, int vbat_uv)
 	}
 }
 
+static void low_soc_check(struct qpnp_bms_chip *chip)
+{
+	int rc;
+
+	if (chip->dt.cfg_low_soc_fifo_length < 1)
+		return;
+
+	if (chip->calculated_soc <= chip->dt.cfg_low_soc_calc_threshold) {
+		if (!chip->low_soc_fifo_set) {
+			pr_debug("soc=%d (low-soc) setting fifo_length to %d\n",
+						chip->calculated_soc,
+					chip->dt.cfg_low_soc_fifo_length);
+			rc = get_fifo_length(chip, S2_STATE,
+						&chip->s2_fifo_length);
+			if (rc) {
+				pr_err("Unable to get_fifo_length rc=%d", rc);
+				return;
+			}
+			rc = set_fifo_length(chip, S2_STATE,
+					chip->dt.cfg_low_soc_fifo_length);
+			if (rc) {
+				pr_err("Unable to set_fifo_length rc=%d", rc);
+				return;
+			}
+			chip->low_soc_fifo_set = true;
+		}
+	} else {
+		if (chip->low_soc_fifo_set) {
+			pr_debug("soc=%d setting back fifo_length to %d\n",
+						chip->calculated_soc,
+						chip->s2_fifo_length);
+			rc = set_fifo_length(chip, S2_STATE,
+						chip->s2_fifo_length);
+			if (rc) {
+				pr_err("Unable to set_fifo_length rc=%d", rc);
+				return;
+			}
+			chip->low_soc_fifo_set = false;
+		}
+	}
+}
+
 static int report_eoc(struct qpnp_bms_chip *chip)
 {
 	int rc = 0;
@@ -1319,6 +1400,8 @@ static void monitor_soc_work(struct work_struct *work)
 					/* update last_soc immediately */
 					report_vm_bms_soc(chip);
 
+				/* low SOC configuration */
+				low_soc_check(chip);
 				check_eoc_condition(chip);
 				pr_debug("update bms_psy\n");
 				power_supply_changed(&chip->bms_psy);
@@ -1326,6 +1409,7 @@ static void monitor_soc_work(struct work_struct *work)
 				report_vm_bms_soc(chip);
 			}
 		}
+
 	}
 
 	mutex_unlock(&chip->last_soc_mutex);
@@ -1934,7 +2018,8 @@ static int calculate_initial_soc(struct qpnp_bms_chip *chip)
 
 static int bms_load_hw_defaults(struct qpnp_bms_chip *chip)
 {
-	u8 val, interval[2], count[2], state;
+	u8 val, state;
+	u32 interval[2], count[2], fifo[2];
 	int rc;
 
 	/* S3 OCV tolerence threshold */
@@ -2023,22 +2108,12 @@ static int bms_load_hw_defaults(struct qpnp_bms_chip *chip)
 		}
 	}
 
-	/* read S1/S2 sample interval */
-	rc = qpnp_read_wrapper(chip, interval,
-			chip->base + S1_SAMPLE_INTVL_REG, 2);
-	if (rc) {
-		pr_err("Unable to read S1_SAMPLE_INTVL_REG rc=%d\n", rc);
-		return rc;
-	}
-
-	/* read S1/S2 accumulator count threshold */
-	rc = qpnp_read_wrapper(chip, count, chip->base + S1_ACC_CNT_REG, 2);
-	if (rc) {
-		pr_err("Unable to read S1_ACC_CNT_REG rc=%d\n", rc);
-		return rc;
-	}
-	count[0] &= ACC_CNT_MASK;
-	count[1] &= ACC_CNT_MASK;
+	get_sample_interval(chip, S1_STATE, &interval[0]);
+	get_sample_interval(chip, S2_STATE, &interval[1]);
+	get_sample_count(chip, S1_STATE, &count[0]);
+	get_sample_count(chip, S2_STATE, &count[1]);
+	get_fifo_length(chip, S1_STATE, &fifo[0]);
+	get_fifo_length(chip, S2_STATE, &fifo[1]);
 
 	/* Force the BMS state to S2 at boot-up */
 	rc = get_fsm_state(chip, &state);
@@ -2057,11 +2132,10 @@ static int bms_load_hw_defaults(struct qpnp_bms_chip *chip)
 		return rc;
 	}
 
-	pr_info("s1_sample_interval=%d s2_sample_interval=%d s1_acc_threshold=%d s2_acc_threshold=%d initial_fsm_state=%d\n",
-			interval[0] * 10, interval[1] * 10,
-			count[0] ? (1 << count[0]) : 0,
-			count[1] ? (1 << count[1]) : 0,
-			chip->current_fsm_state);
+	pr_info("Sample_Interval-S1=[%d]S2=[%d]  Sample_Count-S1=[%d]S2=[%d] Fifo_Length-S1=[%d]S2=[%d] FSM_state=%d\n",
+				interval[0], interval[1], count[0],
+					count[1], fifo[0], fifo[1],
+					chip->current_fsm_state);
 
 	return 0;
 }
@@ -2592,6 +2666,8 @@ static int parse_bms_dt_properties(struct qpnp_bms_chip *chip)
 	SPMI_PROP_READ_OPTIONAL(cfg_s1_fifo_length, "s1-fifo-length", rc);
 	SPMI_PROP_READ_OPTIONAL(cfg_s2_fifo_length, "s2-fifo-length", rc);
 	SPMI_PROP_READ_OPTIONAL(cfg_s3_ocv_tol_uv, "s3-ocv-tolerence-uv", rc);
+	SPMI_PROP_READ_OPTIONAL(cfg_low_soc_fifo_length,
+						"low-soc-fifo-length", rc);
 
 	chip->dt.cfg_ignore_shutdown_soc = of_property_read_bool(
 			chip->spmi->dev.of_node, "qcom,ignore-shutdown-soc");
@@ -2609,9 +2685,10 @@ static int parse_bms_dt_properties(struct qpnp_bms_chip *chip)
 	pr_debug("r_conn=%d shutdown_soc_valid_limit=%d\n",
 					chip->dt.cfg_r_conn_mohm,
 			chip->dt.cfg_shutdown_soc_valid_limit);
-	pr_debug("ignore_shutdown_soc=%d, use_voltage_soc=%d\n",
+	pr_debug("ignore_shutdown_soc=%d, use_voltage_soc=%d low_soc_fifo_length=%d\n",
 				chip->dt.cfg_ignore_shutdown_soc,
-				chip->dt.cfg_use_voltage_soc);
+				chip->dt.cfg_use_voltage_soc,
+				chip->dt.cfg_low_soc_fifo_length);
 	pr_debug("force-s3-on-suspend=%d report-charger-eoc=%d disable-bms=%d\n",
 			chip->dt.cfg_force_s3_on_suspend,
 			chip->dt.cfg_report_charger_eoc,

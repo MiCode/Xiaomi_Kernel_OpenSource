@@ -97,6 +97,9 @@ Parent node Optional properties
 			fuel gauge is used.
 - qcom,s3-ocv-tolerence-uv : The S3 state OCV tolerence threshold in uV. The
 			LSB value is 300uV and maximum value is 76500uV.
+- qcom,low-soc-fifo-length : The fifo length (of S2 STATE) to be used at lower
+			SOCs. If this value is not specified the system uses
+			default lenght.
 
 qcom,batt-pres-status node required properties:
 - reg : offset and length of the PMIC LBC battery interface BATT_PRES_STATUS
@@ -122,6 +125,7 @@ pm8916_bms: qcom,qpnp-vm-bms {
 	qcom,low-voltage-threshold = <3420000>;
 	qcom,low-voltage-calculate-soc-ms = <1000>;
 	qcom,low-soc-calculate-soc-ms = <5000>;
+	qcom,low-soc-fifo-length = <2>;
 	qcom,calculate-soc-ms = <20000>;
 	qcom,s3-ocv-tolerence-uv = <1200>;
 	qcom,volatge-soc-timeout-ms = <60000>;
