@@ -75,7 +75,7 @@ static int msm_jpeg_get_clk_info(struct msm_jpeg_device *jpeg_dev,
 	}
 	for (i = 0; i < count; i++) {
 		jpeg_8x_clk_info[i].clk_rate =
-			(rates[i] == 0) ? -1 : rates[i];
+			(rates[i] == 0) ? (long) -1 : (long) rates[i];
 		JPEG_DBG("clk_rate[%d] = %ld\n",
 			i, jpeg_8x_clk_info[i].clk_rate);
 	}
