@@ -172,4 +172,4 @@
 	};
 };
 
-/include/ "msmzirc-regulator.dtsi"
+#include "msmzirc-regulator.dtsi"
