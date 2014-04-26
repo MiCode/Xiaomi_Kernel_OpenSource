@@ -76,6 +76,16 @@ struct synaptics_dsx_board_data {
 	unsigned char *regulator_name;
 	int (*gpio_config)(int gpio, bool configure, int dir, int state);
 	struct synaptics_dsx_cap_button_map *cap_button_map;
+	u32 panel_minx;
+	u32 panel_miny;
+	u32 panel_maxx;
+	u32 panel_maxy;
+	u32 disp_minx;
+	u32 disp_miny;
+	u32 disp_maxx;
+	u32 disp_maxy;
+	bool disable_gpios;
+	const char *fw_name;
 };
 
 #endif
