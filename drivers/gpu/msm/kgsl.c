@@ -4258,11 +4258,11 @@ int kgsl_device_platform_probe(struct kgsl_device *device)
 	if (status)
 		goto error_close_mmu;
 
-	status = kgsl_allocate_contiguous(device, &device->memstore,
-		KGSL_MEMSTORE_SIZE);
+	status = kgsl_allocate_global(device, &device->memstore,
+		KGSL_MEMSTORE_SIZE, 0);
 
 	if (status != 0) {
-		KGSL_DRV_ERR(device, "kgsl_allocate_contiguous failed %d\n",
+		KGSL_DRV_ERR(device, "kgsl_allocate_global failed %d\n",
 				status);
 		goto error_close_mmu;
 	}
@@ -4316,7 +4316,7 @@ void kgsl_device_platform_remove(struct kgsl_device *device)
 
 	idr_destroy(&device->context_idr);
 
-	kgsl_sharedmem_free(&device->memstore);
+	kgsl_free_global(&device->memstore);
 
 	kgsl_mmu_close(device);
 
