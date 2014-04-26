@@ -590,6 +590,7 @@ static int msm_cpu_status_probe(struct platform_device *pdev)
 		u32 offset;
 		int rc;
 		u32 mask;
+		bool offset_available = true;
 
 		res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 		if (!res)
@@ -599,7 +600,7 @@ static int msm_cpu_status_probe(struct platform_device *pdev)
 		rc = of_property_read_u32(pdev->dev.of_node, key, &offset);
 
 		if (rc)
-			return -ENODEV;
+			offset_available = false;
 
 		key = "qcom,sleep-status-mask";
 		rc = of_property_read_u32(pdev->dev.of_node, key, &mask);
@@ -608,7 +609,18 @@ static int msm_cpu_status_probe(struct platform_device *pdev)
 			return -ENODEV;
 
 		for_each_possible_cpu(cpu) {
-			phys_addr_t base_c = res->start + cpu * offset;
+			phys_addr_t base_c;
+
+			if (offset_available)
+				base_c = res->start + cpu * offset;
+			else {
+				res = platform_get_resource(pdev,
+							IORESOURCE_MEM, cpu);
+				if (!res)
+					return -ENODEV;
+				base_c = res->start;
+			}
+
 			msm_pm_slp_sts[cpu].base_addr =
 				devm_ioremap(&pdev->dev, base_c,
 						resource_size(res));
