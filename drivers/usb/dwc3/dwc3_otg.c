@@ -793,7 +793,11 @@ static void dwc3_otg_sm_work(struct work_struct *w)
 					break;
 				}
 			} else {
-				/* no charger registered, start peripheral */
+				/*
+				 * no charger registered, assuming SDP
+				 * and start peripheral
+				 */
+				phy->state = OTG_STATE_B_PERIPHERAL;
 				if (dwc3_otg_start_peripheral(&dotg->otg, 1)) {
 					/*
 					 * Probably set_peripheral not called
