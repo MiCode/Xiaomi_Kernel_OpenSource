@@ -57,6 +57,7 @@
 #define HAL_DEBUG_MSG_HIGH				0x00000004
 #define HAL_DEBUG_MSG_ERROR				0x00000008
 #define HAL_DEBUG_MSG_FATAL				0x00000010
+#define MAX_PROFILE_COUNT	16
 
 enum vidc_status {
 	VIDC_ERR_NONE = 0x0,
@@ -578,7 +579,7 @@ struct hal_profile_level {
 
 struct hal_profile_level_supported {
 	u32 profile_count;
-	struct hal_profile_level profile_level[1];
+	struct hal_profile_level profile_level[MAX_PROFILE_COUNT];
 };
 
 enum hal_h264_entropy {

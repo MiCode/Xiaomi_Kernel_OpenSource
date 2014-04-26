@@ -582,6 +582,11 @@ enum vidc_status hfi_process_sess_init_done_prop_read(
 			dprintk(VIDC_DBG, "prop->profile_count: %d\n",
 				prop->profile_count);
 			prop_count = prop->profile_count;
+			if (prop_count > MAX_PROFILE_COUNT) {
+				prop_count = MAX_PROFILE_COUNT;
+				dprintk(VIDC_WARN,
+					"prop count exceeds max profile count\n");
+			}
 			while (prop_count) {
 				ptr++;
 				prop_level = (struct hfi_profile_level *) ptr;
