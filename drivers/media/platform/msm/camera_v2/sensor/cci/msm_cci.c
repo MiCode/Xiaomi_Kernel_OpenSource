@@ -1210,7 +1210,8 @@ static int msm_cci_get_clk_info(struct cci_device *cci_dev,
 		return rc;
 	}
 	for (i = 0; i < count; i++) {
-		cci_clk_info[i].clk_rate = (rates[i] == 0) ? -1 : rates[i];
+		cci_clk_info[i].clk_rate = (rates[i] == 0) ?
+			(long)-1 : rates[i];
 		CDBG("%s: clk_rate[%d] = %ld\n", __func__, i,
 			cci_clk_info[i].clk_rate);
 	}

@@ -1,4 +1,4 @@
-/* Copyright (c) 2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -38,7 +38,7 @@ static struct led_classdev msm_torch_led = {
 int32_t msm_led_torch_create_classdev(struct platform_device *pdev,
 				void *data)
 {
-	int rc;
+	int32_t rc = 0;
 	struct msm_led_flash_ctrl_t *fctrl =
 		(struct msm_led_flash_ctrl_t *)data;
 

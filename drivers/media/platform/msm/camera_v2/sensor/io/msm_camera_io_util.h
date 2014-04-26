@@ -25,6 +25,12 @@
 #define NO_SET_RATE -1
 #define INIT_RATE -2
 
+struct msm_gpio_set_tbl {
+	unsigned gpio;
+	unsigned long flags;
+	uint32_t delay;
+};
+
 void msm_camera_io_w(u32 data, void __iomem *addr);
 void msm_camera_io_w_mb(u32 data, void __iomem *addr);
 u32 msm_camera_io_r(void __iomem *addr);

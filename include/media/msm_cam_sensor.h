@@ -232,31 +232,12 @@ struct msm_sensor_power_setting {
 	void *data[10];
 };
 
-#ifdef CONFIG_COMPAT
-struct msm_sensor_power_setting32 {
-	enum msm_sensor_power_seq_type_t seq_type;
-	uint16_t seq_val;
-	compat_uint_t config_val;
-	uint16_t delay;
-	compat_uptr_t data[10];
-};
-#endif
-
 struct msm_sensor_power_setting_array {
 	struct msm_sensor_power_setting *power_setting;
 	uint16_t size;
 	struct msm_sensor_power_setting *power_down_setting;
 	uint16_t size_down;
 };
-
-#ifdef CONFIG_COMPAT
-struct msm_sensor_power_setting_array32 {
-	compat_uptr_t power_setting;
-	uint16_t size;
-	compat_uptr_t power_down_setting;
-	uint16_t size_down;
-};
-#endif
 
 struct msm_sensor_id_info_t {
 	uint16_t sensor_id_reg_addr;
@@ -283,22 +264,6 @@ enum i2c_freq_mode_t {
 	I2C_CUSTOM_MODE,
 	I2C_MAX_MODES,
 };
-
-#ifdef CONFIG_COMPAT
-struct msm_camera_sensor_slave_info32 {
-	char sensor_name[32];
-	char eeprom_name[32];
-	char actuator_name[32];
-	enum msm_sensor_camera_id_t camera_id;
-	uint16_t slave_addr;
-	enum i2c_freq_mode_t i2c_freq_mode;
-	enum msm_camera_i2c_reg_addr_type addr_type;
-	struct msm_sensor_id_info_t sensor_id_info;
-	struct msm_sensor_power_setting_array32 power_setting_array;
-	uint8_t  is_init_params_valid;
-	struct msm_sensor_init_params sensor_init_params;
-};
-#endif
 
 struct msm_camera_i2c_reg_array {
 	uint16_t reg_addr;
@@ -501,6 +466,81 @@ struct msm_eeprom_cfg_data {
 		struct eeprom_get_cmm_t get_cmm_data;
 	} cfg;
 };
+
+#ifdef CONFIG_COMPAT
+struct msm_sensor_power_setting32 {
+	enum msm_sensor_power_seq_type_t seq_type;
+	uint16_t seq_val;
+	compat_uint_t config_val;
+	uint16_t delay;
+	compat_uptr_t data[10];
+};
+
+struct msm_sensor_power_setting_array32 {
+	compat_uptr_t power_setting;
+	uint16_t size;
+	compat_uptr_t power_down_setting;
+	uint16_t size_down;
+};
+
+struct msm_camera_sensor_slave_info32 {
+	char sensor_name[32];
+	char eeprom_name[32];
+	char actuator_name[32];
+	enum msm_sensor_camera_id_t camera_id;
+	uint16_t slave_addr;
+	enum i2c_freq_mode_t i2c_freq_mode;
+	enum msm_camera_i2c_reg_addr_type addr_type;
+	struct msm_sensor_id_info_t sensor_id_info;
+	struct msm_sensor_power_setting_array32 power_setting_array;
+};
+
+struct msm_camera_csid_lut_params32 {
+	uint8_t num_cid;
+	compat_uptr_t vc_cfg[MAX_CID];
+};
+
+struct msm_camera_csid_params32 {
+	uint8_t lane_cnt;
+	uint16_t lane_assign;
+	uint8_t phy_sel;
+	struct msm_camera_csid_lut_params32 lut_params;
+};
+
+struct msm_camera_csi2_params32 {
+	struct msm_camera_csid_params32 csid_params;
+	struct msm_camera_csiphy_params csiphy_params;
+};
+
+struct csid_cfg_data32 {
+	enum csid_cfg_type_t cfgtype;
+	union {
+		uint32_t csid_version;
+		compat_uptr_t csid_params;
+	} cfg;
+};
+
+struct eeprom_read_t32 {
+	compat_uptr_t dbuffer;
+	uint32_t num_bytes;
+};
+
+struct eeprom_write_t32 {
+	compat_uptr_t dbuffer;
+	uint32_t num_bytes;
+};
+
+struct msm_eeprom_cfg_data32 {
+	enum eeprom_cfg_type_t cfgtype;
+	uint8_t is_supported;
+	union {
+		char eeprom_name[MAX_SENSOR_NAME];
+		struct eeprom_get_t get_data;
+		struct eeprom_read_t32 read_data;
+		struct eeprom_write_t32 write_data;
+	} cfg;
+};
+#endif
 
 enum msm_sensor_cfg_type_t {
 	CFG_SET_SLAVE_INFO,
@@ -720,6 +760,11 @@ struct sensor_init_cfg_data {
 #define VIDIOC_MSM_CSID_IO_CFG \
 	_IOWR('V', BASE_VIDIOC_PRIVATE + 5, struct csid_cfg_data)
 
+#ifdef CONFIG_COMPAT
+#define VIDIOC_MSM_CSID_IO_CFG32 \
+	_IOWR('V', BASE_VIDIOC_PRIVATE + 5, struct csid_cfg_data32)
+#endif
+
 #define VIDIOC_MSM_ACTUATOR_CFG \
 	_IOWR('V', BASE_VIDIOC_PRIVATE + 6, struct msm_actuator_cfg_data)
 
@@ -728,6 +773,11 @@ struct sensor_init_cfg_data {
 
 #define VIDIOC_MSM_EEPROM_CFG \
 	_IOWR('V', BASE_VIDIOC_PRIVATE + 8, struct msm_eeprom_cfg_data)
+
+#ifdef CONFIG_COMPAT
+#define VIDIOC_MSM_EEPROM_CFG32 \
+	_IOWR('V', BASE_VIDIOC_PRIVATE + 8, struct msm_eeprom_cfg_data32)
+#endif
 
 #define VIDIOC_MSM_SENSOR_GET_AF_STATUS \
 	_IOWR('V', BASE_VIDIOC_PRIVATE + 9, uint32_t)

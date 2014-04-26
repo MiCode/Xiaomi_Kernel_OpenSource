@@ -731,7 +731,8 @@ static int msm_csiphy_get_clk_info(struct csiphy_device *csiphy_dev,
 		return rc;
 	}
 	for (i = 0; i < count; i++) {
-		csiphy_clk_info[i].clk_rate = (rates[i] == 0) ? -1 : rates[i];
+		csiphy_clk_info[i].clk_rate = (rates[i] == 0) ?
+				(long)-1 : rates[i];
 		CDBG("%s: clk_rate[%d] = %ld\n", __func__, i,
 			csiphy_clk_info[i].clk_rate);
 	}

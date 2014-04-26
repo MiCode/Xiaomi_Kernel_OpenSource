@@ -570,7 +570,6 @@ static long msm_sensor_subdev_do_ioctl(
 	struct v4l2_subdev *sd = vdev_to_v4l2_subdev(vdev);
 	struct sensorb_cfg_data32 *u32 =
 		(struct sensorb_cfg_data32 *)arg;
-	struct sensorb_cfg_data sensor_data;
 	switch (cmd) {
 	case VIDIOC_MSM_SENSOR_CFG32:
 		cmd = VIDIOC_MSM_SENSOR_CFG;
