@@ -78,6 +78,12 @@
 			reg = <0x100>;
 			enable-method = "qcom,arm-cortex-acc";
 			qcom,acc = <&acc0>;
+			next-level-cache = <&L2_1>;
+			L2_1: l2-cache {
+			      compatible = "arm,arch-cache";
+			      cache-level = <2>;
+			      power-domain = <&l2ccc_1>;
+			};
 		};
 
 		CPU1: cpu@101 {
@@ -86,6 +92,7 @@
 			reg = <0x101>;
 			enable-method = "qcom,arm-cortex-acc";
 			qcom,acc = <&acc1>;
+			next-level-cache = <&L2_1>;
 		};
 
 		CPU2: cpu@102 {
@@ -94,6 +101,7 @@
 			reg = <0x102>;
 			enable-method = "qcom,arm-cortex-acc";
 			qcom,acc = <&acc2>;
+			next-level-cache = <&L2_1>;
 		};
 
 		CPU3: cpu@103 {
@@ -102,6 +110,7 @@
 			reg = <0x103>;
 			enable-method = "qcom,arm-cortex-acc";
 			qcom,acc = <&acc3>;
+			next-level-cache = <&L2_1>;
 		};
 
 		CPU4: cpu@0 {
@@ -110,6 +119,12 @@
 			reg = <0x0>;
 			enable-method = "qcom,arm-cortex-acc";
 			qcom,acc = <&acc4>;
+			next-level-cache = <&L2_0>;
+			L2_0: l2-cache {
+			      compatible = "arm,arch-cache";
+			      cache-level = <2>;
+			      power-domain = <&l2ccc_0>;
+			};
 		};
 
 		CPU5: cpu@1 {
@@ -118,6 +133,7 @@
 			reg = <0x1>;
 			enable-method = "qcom,arm-cortex-acc";
 			qcom,acc = <&acc5>;
+			next-level-cache = <&L2_0>;
 		};
 
 		CPU6: cpu@2 {
@@ -126,6 +142,7 @@
 			reg = <0x2>;
 			enable-method = "qcom,arm-cortex-acc";
 			qcom,acc = <&acc6>;
+			next-level-cache = <&L2_0>;
 		};
 
 		CPU7: cpu@3 {
@@ -134,6 +151,7 @@
 			reg = <0x3>;
 			enable-method = "qcom,arm-cortex-acc";
 			qcom,acc = <&acc7>;
+			next-level-cache = <&L2_0>;
 		};
 	};
 
@@ -200,6 +218,16 @@
 	#size-cells = <1>;
 	ranges = <0 0 0 0xffffffff>;
 	compatible = "simple-bus";
+
+	l2ccc_0: clock-controller@b111000 {
+		compatible = "qcom,8916-l2ccc";
+		reg = <0x0b111000 0x1000>;
+	};
+
+	l2ccc_1: clock-controller@b011000 {
+		compatible = "qcom,8916-l2ccc";
+		reg = <0x0b011000 0x1000>;
+	};
 
 	intc: interrupt-controller@b000000 {
 		compatible = "qcom,msm-qgic2";
