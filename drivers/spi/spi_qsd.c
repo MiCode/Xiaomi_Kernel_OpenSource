@@ -1703,7 +1703,7 @@ static inline int combine_transfers(struct msm_spi *dd)
 			return xfrs_grped;
 		if (t->delay_usecs) {
 			dd->xfrs_delay_usec = t->delay_usecs;
-			dev_info(dd->dev, "SPI slave requests delay per txn :%d usecs",
+			dev_dbg(dd->dev, "SPI slave requests delay per txn :%d usecs",
 					t->delay_usecs);
 			return xfrs_grped;
 		}
