@@ -217,6 +217,14 @@
 		bosch,gpio-int1 = <&msm_gpio 112 0x2002>;
 		bosch,gpio-int2 = <&msm_gpio 114 0x2002>;
 	};
+	mmc@30 { /* Magnetic field sensor */
+		compatible = "mmc,mmc3416x";
+		reg = <0x30>;
+		vdd-supply = <&pm8916_l17>;
+		vio-supply = <&pm8916_l6>;
+		mmc,dir = <1>;
+		mmc,auto-report;
+	};
 };
 
 &usb_otg {
