@@ -1340,6 +1340,7 @@ static void arizona_micd_set_level(struct arizona *arizona, int index,
 	regmap_update_bits(arizona->regmap, reg, mask, level);
 }
 
+#ifdef CONFIG_OF
 static int arizona_extcon_get_pdata(struct arizona *arizona)
 {
 	struct arizona_pdata *pdata = &arizona->pdata;
@@ -1393,6 +1394,12 @@ static int arizona_extcon_get_pdata(struct arizona *arizona)
 
 	return 0;
 }
+#else
+static inline int arizona_extcon_get_pdata(struct arizona *arizona)
+{
+	return 0;
+}
+#endif
 
 static ssize_t arizona_extcon_show(struct device *dev,
 				   struct device_attribute *attr,
