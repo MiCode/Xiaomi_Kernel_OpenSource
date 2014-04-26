@@ -13,7 +13,6 @@
 #define pr_fmt(fmt) "MSM-SENSOR-INIT %s:%d " fmt "\n", __func__, __LINE__
 
 /* Header files */
-#include <mach/gpiomux.h>
 #include "msm_sensor_init.h"
 #include "msm_sensor_driver.h"
 #include "msm_sensor.h"
@@ -29,7 +28,7 @@
 #endif
 
 static struct msm_sensor_init_t *s_init;
-
+static struct v4l2_file_operations msm_sensor_init_v4l2_subdev_fops;
 /* Static function declaration */
 static long msm_sensor_init_subdev_ioctl(struct v4l2_subdev *sd,
 	unsigned int cmd, void *arg);
@@ -131,6 +130,34 @@ static long msm_sensor_init_subdev_ioctl(struct v4l2_subdev *sd,
 	return 0;
 }
 
+#ifdef CONFIG_COMPAT
+static long msm_sensor_init_subdev_do_ioctl(
+	struct file *file, unsigned int cmd, void *arg)
+{
+	struct video_device *vdev = video_devdata(file);
+	struct v4l2_subdev *sd = vdev_to_v4l2_subdev(vdev);
+	struct sensor_init_cfg_data32 *u32 =
+		(struct sensor_init_cfg_data32 *)arg;
+	struct sensor_init_cfg_data sensor_init_data;
+
+	switch (cmd) {
+	case VIDIOC_MSM_SENSOR_INIT_CFG32:
+		sensor_init_data.cfgtype = u32->cfgtype;
+		sensor_init_data.cfg.setting = compat_ptr(u32->cfg.setting);
+		cmd = VIDIOC_MSM_SENSOR_INIT_CFG;
+		return msm_sensor_init_subdev_ioctl(sd, cmd, &sensor_init_data);
+	default:
+		return msm_sensor_init_subdev_ioctl(sd, cmd, arg);
+	}
+}
+
+static long msm_sensor_init_subdev_fops_ioctl(
+	struct file *file, unsigned int cmd, unsigned long arg)
+{
+	return video_usercopy(file, cmd, arg, msm_sensor_init_subdev_do_ioctl);
+}
+#endif
+
 static int __init msm_sensor_init_module(void)
 {
 	/* Allocate memory for msm_sensor_init control structure */
@@ -158,6 +185,14 @@ static int __init msm_sensor_init_module(void)
 	s_init->msm_sd.sd.entity.name = s_init->msm_sd.sd.name;
 	s_init->msm_sd.close_seq = MSM_SD_CLOSE_2ND_CATEGORY | 0x6;
 	msm_sd_register(&s_init->msm_sd);
+
+	msm_sensor_init_v4l2_subdev_fops = v4l2_subdev_fops;
+#ifdef CONFIG_COMPAT
+	msm_sensor_init_v4l2_subdev_fops.compat_ioctl32 =
+		msm_sensor_init_subdev_fops_ioctl;
+#endif
+	s_init->msm_sd.sd.devnode->fops =
+		&msm_sensor_init_v4l2_subdev_fops;
 
 	init_waitqueue_head(&s_init->state_wait);
 

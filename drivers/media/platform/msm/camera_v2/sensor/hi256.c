@@ -16,7 +16,6 @@
 #define HI256_SENSOR_NAME "hi256"
 #define PLATFORM_DRIVER_NAME "msm_camera_hi256"
 
-#define CONFIG_MSMB_CAMERA_DEBUG
 #undef CDBG
 #ifdef CONFIG_MSMB_CAMERA_DEBUG
 #define CDBG(fmt, args...) pr_err(fmt, ##args)

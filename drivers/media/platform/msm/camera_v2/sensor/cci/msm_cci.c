@@ -1308,7 +1308,7 @@ cci_no_resource:
 	return 0;
 }
 
-static int __exit msm_cci_exit(struct platform_device *pdev)
+static int msm_cci_exit(struct platform_device *pdev)
 {
 	struct v4l2_subdev *subdev = platform_get_drvdata(pdev);
 	struct cci_device *cci_dev =
