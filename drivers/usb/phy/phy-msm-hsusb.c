@@ -468,6 +468,18 @@ static int msm_hsphy_set_suspend(struct usb_phy *uphy, int suspend)
 							OTGDISABLE0, 0);
 			}
 		}
+		/*
+		 * write HSPHY init value to QSCRATCH reg to set HSPHY
+		 * parameters like VBUS valid threshold, disconnect valid
+		 * threshold, DC voltage level,preempasis and rise/fall time
+		 */
+		if (override_phy_init)
+			phy->hsphy_init_seq = override_phy_init;
+		if (phy->hsphy_init_seq)
+			msm_usb_write_readback(phy->base,
+					PARAMETER_OVERRIDE_X_REG(0),
+					0x03FFFFFF,
+					phy->hsphy_init_seq & 0x03FFFFFF);
 	}
 
 	phy->suspended = !!suspend; /* double-NOT coerces to bool value */
