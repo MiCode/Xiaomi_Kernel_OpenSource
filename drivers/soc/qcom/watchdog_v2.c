@@ -43,6 +43,7 @@
 #define MAX_CPU_CTX_SIZE	512
 
 static struct workqueue_struct *wdog_wq;
+static struct msm_watchdog_data *wdog_data;
 
 struct msm_watchdog_data {
 	unsigned int __iomem phys_base;
@@ -65,6 +66,7 @@ struct msm_watchdog_data {
 	bool irq_ppi;
 	struct msm_watchdog_data __percpu **wdog_cpu_dd;
 	struct notifier_block panic_blk;
+	bool enabled;
 };
 
 /*
@@ -103,6 +105,7 @@ static int msm_watchdog_suspend(struct device *dev)
 	__raw_writel(1, wdog_dd->base + WDT0_RST);
 	__raw_writel(0, wdog_dd->base + WDT0_EN);
 	mb();
+	wdog_dd->enabled = false;
 	return 0;
 }
 
@@ -115,6 +118,7 @@ static int msm_watchdog_resume(struct device *dev)
 	__raw_writel(1, wdog_dd->base + WDT0_EN);
 	__raw_writel(1, wdog_dd->base + WDT0_RST);
 	mb();
+	wdog_dd->enabled = true;
 	return 0;
 }
 
@@ -154,6 +158,7 @@ static void wdog_disable(struct msm_watchdog_data *wdog_dd)
 	/* may be suspended after the first write above */
 	__raw_writel(0, wdog_dd->base + WDT0_EN);
 	mb();
+	wdog_dd->enabled = false;
 	pr_info("MSM Apps Watchdog deactivated.\n");
 }
 
@@ -489,6 +494,7 @@ static void init_watchdog_work(struct work_struct *work)
 	__raw_writel(1, wdog_dd->base + WDT0_EN);
 	__raw_writel(1, wdog_dd->base + WDT0_RST);
 	wdog_dd->last_pet = sched_clock();
+	wdog_dd->enabled = true;
 	error = device_create_file(wdog_dd->dev, &dev_attr_disable);
 	if (error)
 		dev_err(wdog_dd->dev, "cannot create sysfs attribute\n");
@@ -592,6 +598,7 @@ static int msm_watchdog_probe(struct platform_device *pdev)
 	INIT_WORK(&wdog_dd->init_dogwork_struct, init_watchdog_work);
 	INIT_DELAYED_WORK(&wdog_dd->dogwork_struct, pet_watchdog_work);
 	queue_work(wdog_wq, &wdog_dd->init_dogwork_struct);
+	wdog_data = wdog_dd;
 	return 0;
 err:
 	destroy_workqueue(wdog_wq);
