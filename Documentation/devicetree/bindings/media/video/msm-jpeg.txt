@@ -4,12 +4,16 @@ Required properties:
 - cell-index: jpeg hardware core index
 - compatible :
     - "qcom,jpeg"
+    - "qcom,jpeg_dma"
 - reg : offset and length of the register set of jpeg device and vbif device
     for the jpeg operating in compatible mode.
 - reg-names : should specify relevant names to each reg property defined.
 - interrupts : should contain the jpeg interrupt.
 - interrupt-names : should specify relevant names to each interrupts
   property defined.
+- clock-names : names of clocks required for the device.
+- clocks : clocks required for the device.
+- qcom, clock-rates: rates of the required clocks.
 - vdd-supply: phandle to GDSC regulator controlling JPEG core.
 
 Example:
@@ -21,5 +25,34 @@ Example:
        reg-names = "jpeg";
        interrupts = <0 60 0>;
        interrupt-names = "jpeg";
+       clock-names =  "core_clk", "iface_clk", "bus_clk0", "camss_top_ahb_clk",
+              "camss_ahb_clk";
+       clocks = <&clock_mmss clk_camss_jpeg_jpeg1_clk>,
+              <&clock_mmss clk_camss_jpeg_jpeg_ahb_clk>,
+              <&clock_mmss clk_camss_jpeg_jpeg_axi_clk>,
+              <&clock_mmss clk_camss_top_ahb_clk>,
+              <&clock_mmss clk_camss_ahb_clk>;
+       qcom,clock-rates = <266670000 0 0 0 0>;
+
        vdd-supply = <&gdsc_jpeg>;
+   };
+
+   qcom,jpeg@fdaa0000 {
+       cell-index = <3>;
+       compatible = "qcom,jpeg_dma";
+       reg = <0xfdaa0000 0x400>,
+           <0xfda60000 0xc30>;
+       reg-names = "jpeg";
+       interrupts = <0 304 0>;
+       interrupt-names = "jpeg";
+       vdd-supply = <&gdsc_jpeg>;
+       clock-names =  "core_clk", "iface_clk", "bus_clk0", "camss_top_ahb_clk",
+               "camss_ahb_clk";
+       clocks = <&clock_mmss clk_jpeg_dma_clk_src>,
+               <&clock_mmss clk_camss_jpeg_jpeg_ahb_clk>,
+               <&clock_mmss clk_camss_jpeg_jpeg_axi_clk>,
+               <&clock_mmss clk_camss_top_ahb_clk>,
+               <&clock_mmss clk_camss_ahb_clk>;
+       qcom,clock-rates = <266670000 0 0 0 0>;
+
    };
