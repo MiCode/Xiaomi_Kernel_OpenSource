@@ -35,6 +35,10 @@
 		qcom,max-bandwidth-low-kbps = <1100000>;
 		qcom,max-bandwidth-high-kbps = <1100000>;
 
+		/* VBIF QoS remapper settings*/
+		qcom,mdss-vbif-qos-rt-setting = <2 2 2 2>;
+		qcom,mdss-vbif-qos-nrt-setting = <1 1 1 1>;
+
 		qcom,mdss-mdp-reg-offset = <0x00001000>;
 		qcom,max-clk-rate = <320000000>;
 		qcom,mdss-pipe-vig-off = <0x00005000>;
@@ -77,8 +81,7 @@
 		qcom,vbif-settings = <0x004 0x00000001>,
 				     <0x0d8 0x00000707>,
 				     <0x124 0x00000003>;
-		qcom,mdp-settings = <0x11e0 0x000000aa>,
-				    <0x11e4 0x00000055>,
+		qcom,mdp-settings = <0x11e4 0x00000000>,
 				    <0x65048 0x00000058>,
 				    <0x65848 0x00000058>,
 				    <0x66048 0x00000058>;
