@@ -47,7 +47,7 @@
 #define AKM09911_VIO_MIN_UV	1750000
 #define AKM09911_VIO_MAX_UV	1950000
 
-#define STATUS_ERROR(st)		(((st)&0x19) != 0x01)
+#define STATUS_ERROR(st)		(((st)&0x09) != 0x01)
 
 struct akm_compass_data {
 	struct i2c_client	*i2c;
@@ -1662,20 +1662,25 @@ static int akm_pinctrl_init(struct akm_compass_data *s_akm)
 	return 0;
 }
 
-static void akm_dev_poll(struct work_struct *work)
+static int akm_report_data(struct akm_compass_data *akm)
 {
-	struct akm_compass_data *akm;
 	uint8_t dat_buf[AKM_SENSOR_DATA_SIZE];/* for GET_DATA */
 	int ret;
 	int mag_x, mag_y, mag_z;
 	int tmp;
+	int count = 10;
 
-	akm = container_of((struct delayed_work *)work,
-			struct akm_compass_data,  dwork);
-	ret = AKECS_GetData_Poll(akm, dat_buf, AKM_SENSOR_DATA_SIZE);
-	if (ret < 0) {
-		dev_warn(&s_akm->i2c->dev, "Get data failed\n");
-		goto exit;
+	do {
+		/* The typical time for single measurement is 7.2ms */
+		ret = AKECS_GetData_Poll(akm, dat_buf, AKM_SENSOR_DATA_SIZE);
+		if (ret == -EAGAIN)
+			usleep_range(1000, 10000);
+	} while ((ret == -EAGAIN) && (--count));
+
+	if (!count) {
+		dev_err(&akm->i2c->dev, "Timeout get valid data.\n");
+		return -EIO;
+
 	}
 
 	tmp = dat_buf[0] | dat_buf[7];
@@ -1683,7 +1688,7 @@ static void akm_dev_poll(struct work_struct *work)
 		dev_warn(&s_akm->i2c->dev, "Status error(0x%x). Reset...\n",
 			       tmp);
 		AKECS_Reset(akm, 0);
-		goto exit;
+		return -EIO;
 	}
 
 	tmp = (int)((int16_t)(dat_buf[2]<<8)+((int16_t)dat_buf[1]));
@@ -1700,6 +1705,11 @@ static void akm_dev_poll(struct work_struct *work)
 
 	dev_dbg(&s_akm->i2c->dev, "mag_x:%d mag_y:%d mag_z:%d\n",
 			mag_x, mag_y, mag_z);
+	dev_dbg(&s_akm->i2c->dev, "raw data: %d %d %d %d %d %d %d %d\n",
+			dat_buf[0], dat_buf[1], dat_buf[2], dat_buf[3],
+			dat_buf[4], dat_buf[5], dat_buf[6], dat_buf[7]);
+	dev_dbg(&s_akm->i2c->dev, "asa: %d %d %d\n", akm->sense_conf[0],
+			akm->sense_conf[1], akm->sense_conf[2]);
 
 	switch (akm->layout) {
 	case 0:
@@ -1745,10 +1755,25 @@ static void akm_dev_poll(struct work_struct *work)
 	input_report_abs(akm->input, ABS_X, mag_x);
 	input_report_abs(akm->input, ABS_Y, mag_y);
 	input_report_abs(akm->input, ABS_Z, mag_z);
-	input_report_abs(akm->input, ABS_MISC, 3);
-exit:
-	ret = AKECS_SetMode(akm, AKM_MODE_SNG_MEASURE);
+	input_sync(akm->input);
+
+	return 0;
+}
+
+static void akm_dev_poll(struct work_struct *work)
+{
+	struct akm_compass_data *akm;
+	int ret;
+
+	akm = container_of((struct delayed_work *)work,
+			struct akm_compass_data,  dwork);
+
+	ret = akm_report_data(akm);
 	if (ret < 0)
+		dev_warn(&s_akm->i2c->dev, "Failed to report data\n");
+
+	ret = AKECS_SetMode(akm, AKM_MODE_SNG_MEASURE);
+	if ((ret < 0) && (ret != -EBUSY))
 		dev_warn(&s_akm->i2c->dev, "Failed to set mode\n");
 
 	schedule_delayed_work(&akm->dwork,
