@@ -32,6 +32,15 @@
 
 #define KGSL_RBBMTIMER_CLK_FREQ	19200000
 
+/* Symbolic table for the constraint type */
+#define KGSL_CONSTRAINT_TYPES \
+	{ KGSL_CONSTRAINT_NONE, "None" }, \
+	{ KGSL_CONSTRAINT_PWRLEVEL, "Pwrlevel" }
+/* Symbolic table for the constraint sub type */
+#define KGSL_CONSTRAINT_PWRLEVEL_SUBTYPES \
+	{ KGSL_CONSTRAINT_PWR_MIN, "Min" }, \
+	{ KGSL_CONSTRAINT_PWR_MAX, "Max" }
+
 struct platform_device;
 
 struct kgsl_clk_stats {

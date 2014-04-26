@@ -748,6 +748,66 @@ TRACE_EVENT(kgsl_context_destroy,
 	)
 );
 
+TRACE_EVENT(kgsl_user_pwrlevel_constraint,
+
+	TP_PROTO(struct kgsl_device *device, unsigned int id, unsigned int type,
+		unsigned int sub_type),
+
+	TP_ARGS(device, id, type, sub_type),
+
+	TP_STRUCT__entry(
+		__string(device_name, device->name)
+		__field(unsigned int, id)
+		__field(unsigned int, type)
+		__field(unsigned int, sub_type)
+	),
+
+	TP_fast_assign(
+		__assign_str(device_name, device->name);
+		__entry->id = id;
+		__entry->type = type;
+		__entry->sub_type = sub_type;
+	),
+
+	TP_printk(
+		"d_name=%s ctx=%u constraint_type=%s constraint_subtype=%s",
+		__get_str(device_name), __entry->id,
+		__print_symbolic(__entry->type, KGSL_CONSTRAINT_TYPES),
+		__print_symbolic(__entry->sub_type,
+		KGSL_CONSTRAINT_PWRLEVEL_SUBTYPES)
+	)
+);
+
+TRACE_EVENT(kgsl_constraint,
+
+	TP_PROTO(struct kgsl_device *device, unsigned int type,
+		unsigned int value, unsigned int on),
+
+	TP_ARGS(device, type, value, on),
+
+	TP_STRUCT__entry(
+		__string(device_name, device->name)
+		__field(unsigned int, type)
+		__field(unsigned int, value)
+		__field(unsigned int, on)
+	),
+
+	TP_fast_assign(
+		__assign_str(device_name, device->name);
+		__entry->type = type;
+		__entry->value = value;
+		__entry->on = on;
+	),
+
+	TP_printk(
+		"d_name=%s constraint_type=%s constraint_value=%u status=%s",
+		__get_str(device_name),
+		__print_symbolic(__entry->type, KGSL_CONSTRAINT_TYPES),
+		__entry->value,
+		__entry->on ? "ON" : "OFF"
+	)
+);
+
 TRACE_EVENT(kgsl_mmu_pagefault,
 
 	TP_PROTO(struct kgsl_device *device, unsigned int page,
