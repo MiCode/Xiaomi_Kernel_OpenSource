@@ -28,11 +28,10 @@ Optional property:
 	When missing default to 0.
  - qcom,bam-disable : disables BAM transfer mode.
  - qcom,master-id : Master-port value used on voting for the clock path.
- - qcom,active-only  : Vote for core clock when the application processor goes
-	to active state and remove that vote when it goes to idle state. This
-	flag may improve service time of first i2c request at the expense of
-	power consumption. When this entry is not present, voting is done by the
-	runtime-pm callbacks.
+ - qcom,clk-ctl-xfer   : When present, the clocks's state (prepare_enable/
+		       unprepare_disable) is controlled by i2c-transaction's
+		       begining and ending. When missing, the clock's state
+		       is controlled by runtime-pm events.
 
 Example:
 	aliases {
