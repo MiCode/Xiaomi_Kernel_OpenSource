@@ -2217,6 +2217,7 @@ err:
 }
 EXPORT_SYMBOL_GPL(wm_adsp2_event);
 
+#ifdef CONFIG_OF
 static int wm_adsp_of_parse_caps(struct wm_adsp *adsp,
 				 struct device_node *np,
 				 struct wm_adsp_fw_defs *fw)
@@ -2362,6 +2363,12 @@ static int wm_adsp_of_parse_adsp(struct wm_adsp *adsp)
 
 	return wm_adsp_of_parse_firmware(adsp, core);
 }
+#else
+static inline int wm_adsp_of_parse_adsp(struct wm_adsp *adsp)
+{
+	return 0;
+}
+#endif
 
 int wm_adsp2_init(struct wm_adsp *adsp, bool dvfs)
 {
