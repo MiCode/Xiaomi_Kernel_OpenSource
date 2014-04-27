@@ -53,7 +53,7 @@ struct usm_mmap {
 
 static struct usm_mmap this_mmap;
 
-static void q6usm_add_mmaphdr(struct us_client *usc, struct apr_hdr *hdr,
+static void q6usm_add_mmaphdr(struct apr_hdr *hdr,
 			      uint32_t pkt_size, bool cmd_flg, u32 token)
 {
 	hdr->hdr_field = APR_HDR_FIELD(APR_MSG_TYPE_SEQ_CMD, \
@@ -68,20 +68,20 @@ static void q6usm_add_mmaphdr(struct us_client *usc, struct apr_hdr *hdr,
 	return;
 }
 
-static int q6usm_memory_map(struct us_client *usc, uint32_t buf_add, int dir,
-		     uint32_t bufsz, uint32_t bufcnt)
+static int q6usm_memory_map(uint32_t buf_add, int dir, uint32_t bufsz,
+		uint32_t bufcnt, uint32_t session, uint32_t *mem_handle)
 {
 	struct usm_cmd_memory_map_region mem_region_map;
 	int rc = 0;
 
-	if ((usc == NULL) || (usc->apr == NULL) || (this_mmap.apr == NULL)) {
+	if (this_mmap.apr == NULL) {
 		pr_err("%s: APR handle NULL\n", __func__);
 		return -EINVAL;
 	}
 
-	q6usm_add_mmaphdr(usc, &mem_region_map.hdr,
+	q6usm_add_mmaphdr(&mem_region_map.hdr,
 			  sizeof(struct usm_cmd_memory_map_region), true,
-			  ((usc->session << 8) | dir));
+			  ((session << 8) | dir));
 
 	mem_region_map.hdr.opcode = USM_CMD_SHARED_MEM_MAP_REGION;
 	mem_region_map.mempool_id = ADSP_MEMORY_MAP_SHMEM8_4K_POOL;
@@ -108,32 +108,29 @@ static int q6usm_memory_map(struct us_client *usc, uint32_t buf_add, int dir,
 		rc = -ETIME;
 		pr_err("%s: timeout. waited for memory_map\n", __func__);
 	} else {
-		struct us_port_data *port = &usc->port[dir];
-
-		*((uint32_t *)(port->ext)) = this_mmap.mem_handle;
+		*mem_handle = this_mmap.mem_handle;
 		rc = 0;
 	}
 fail_cmd:
 	return rc;
 }
 
-int q6usm_memory_unmap(struct us_client *usc, uint32_t buf_add, int dir)
+int q6usm_memory_unmap(uint32_t buf_add, int dir, uint32_t session,
+			uint32_t mem_handle)
 {
 	struct usm_cmd_memory_unmap_region mem_unmap;
-	struct us_port_data *port = &usc->port[dir];
 	int rc = 0;
 
-	if ((usc == NULL) || (usc->apr == NULL) || (this_mmap.apr == NULL)) {
+	if (this_mmap.apr == NULL) {
 		pr_err("%s: APR handle NULL\n", __func__);
 		return -EINVAL;
 	}
 
-	port = &usc->port[dir];
-	q6usm_add_mmaphdr(usc, &mem_unmap.hdr,
+	q6usm_add_mmaphdr(&mem_unmap.hdr,
 			  sizeof(struct usm_cmd_memory_unmap_region), true,
-			  ((usc->session << 8) | dir));
+			  ((session << 8) | dir));
 	mem_unmap.hdr.opcode = USM_CMD_SHARED_MEM_UNMAP_REGION;
-	mem_unmap.mem_map_handle = *((uint32_t *)(port->ext));
+	mem_unmap.mem_map_handle = mem_handle;
 
 	rc = apr_send_pkt(this_mmap.apr, (uint32_t *) &mem_unmap);
 	if (rc < 0) {
@@ -209,7 +206,8 @@ int q6usm_us_client_buf_free(unsigned int dir,
 		return 0;
 	}
 
-	rc = q6usm_memory_unmap(usc, port->phys, dir);
+	rc = q6usm_memory_unmap(port->phys, dir, usc->session,
+				*((uint32_t *)port->ext));
 	pr_debug("%s: data[%p]phys[%p][%p]\n", __func__,
 		 (void *)port->data, (void *)port->phys, (void *)&port->phys);
 	/* 4K boundary is required by the API with QDSP6 */
@@ -219,6 +217,45 @@ int q6usm_us_client_buf_free(unsigned int dir,
 	port->phys = 0;
 	port->buf_size = 0;
 	port->buf_cnt = 0;
+
+	mutex_unlock(&usc->cmd_lock);
+	return rc;
+}
+
+int q6usm_us_param_buf_free(unsigned int dir,
+			struct us_client *usc)
+{
+	struct us_port_data *port;
+	int rc = 0;
+	uint32_t size = 0;
+
+	if ((usc == NULL) ||
+		((dir != IN) && (dir != OUT)))
+		return -EINVAL;
+
+	mutex_lock(&usc->cmd_lock);
+	port = &usc->port[dir];
+	if (port == NULL) {
+		mutex_unlock(&usc->cmd_lock);
+		return -EINVAL;
+	}
+
+	if (port->param_buf == NULL) {
+		mutex_unlock(&usc->cmd_lock);
+		return 0;
+	}
+
+	rc = q6usm_memory_unmap(port->param_phys, dir, usc->session,
+				*((uint32_t *)port->param_buf_mem_handle));
+	pr_debug("%s: data[%p]phys[%p][%p]\n", __func__,
+		 (void *)port->param_buf, (void *)port->param_phys,
+		 (void *)&port->param_phys);
+	/* 4K boundary is required by the API with QDSP6 */
+	size = (port->param_buf_size + MEM_4K_OFFSET) & MEM_4K_MASK;
+	dma_free_coherent(NULL, size, port->param_buf, port->param_phys);
+	port->param_buf = NULL;
+	port->param_phys = 0;
+	port->param_buf_size = 0;
 
 	mutex_unlock(&usc->cmd_lock);
 	return rc;
@@ -240,6 +277,7 @@ void q6usm_us_client_free(struct us_client *usc)
 			continue;
 		pr_debug("%s: loopcnt = %d\n", __func__, loopcnt);
 		q6usm_us_client_buf_free(loopcnt, usc);
+		q6usm_us_param_buf_free(loopcnt, usc);
 	}
 	q6usm_session_free(usc);
 	apr_deregister(usc->apr);
@@ -279,7 +317,7 @@ struct us_client *q6usm_us_client_alloc(
 		pr_err("%s: us_client allocation failed\n", __func__);
 		return NULL;
 	}
-	p_mem_handle = kzalloc(sizeof(uint32_t) * 2, GFP_KERNEL);
+	p_mem_handle = kzalloc(sizeof(uint32_t) * 4, GFP_KERNEL);
 	if (p_mem_handle == NULL) {
 		pr_err("%s: p_mem_handle allocation failed\n", __func__);
 		kfree(usc);
@@ -320,6 +358,7 @@ struct us_client *q6usm_us_client_alloc(
 		mutex_init(&usc->port[lcnt].lock);
 		spin_lock_init(&usc->port[lcnt].dsp_lock);
 		usc->port[lcnt].ext = (void *)p_mem_handle++;
+		usc->port[lcnt].param_buf_mem_handle = (void *)p_mem_handle++;
 		pr_err("%s: usc->port[%d].ext=%p;\n",
 		       __func__, lcnt, usc->port[lcnt].ext);
 	}
@@ -372,11 +411,71 @@ int q6usm_us_client_buf_alloc(unsigned int dir,
 		 (void *)&port->phys);
 
 	size = (size + MEM_4K_OFFSET) & MEM_4K_MASK;
-	rc = q6usm_memory_map(usc, port->phys, dir, size, 1);
+	rc = q6usm_memory_map(port->phys, dir, size, 1, usc->session,
+				(uint32_t *)port->ext);
 	if (rc < 0) {
 		pr_err("%s: CMD Memory_map failed\n", __func__);
 		mutex_unlock(&usc->cmd_lock);
 		q6usm_us_client_buf_free(dir, usc);
+		q6usm_us_param_buf_free(dir, usc);
+	} else {
+		mutex_unlock(&usc->cmd_lock);
+		rc = 0;
+	}
+
+	return rc;
+}
+
+int q6usm_us_param_buf_alloc(unsigned int dir,
+			struct us_client *usc,
+			unsigned int bufsz)
+{
+	int rc = 0;
+	struct us_port_data *port = NULL;
+	unsigned int size = 0;
+
+	if ((usc == NULL) ||
+		((dir != IN) && (dir != OUT)) ||
+		(usc->session <= 0 || usc->session > SESSION_MAX)) {
+		pr_err("%s: wrong parameters: direction=%d, bufsz=%d\n",
+			__func__, dir, bufsz);
+		return -EINVAL;
+	}
+
+	mutex_lock(&usc->cmd_lock);
+
+	port = &usc->port[dir];
+
+	if (bufsz == 0) {
+		pr_debug("%s: bufsz=0, get/set param commands are forbidden\n",
+			__func__);
+		port->param_buf = NULL;
+		mutex_unlock(&usc->cmd_lock);
+		return rc;
+	}
+
+	port->param_buf = dma_alloc_coherent(NULL, bufsz,
+					&(port->param_phys), GFP_KERNEL);
+	if (port->param_buf == NULL) {
+		pr_err("%s: Parameter buffer allocation failed\n", __func__);
+		mutex_unlock(&usc->cmd_lock);
+		return -ENOMEM;
+	}
+
+	port->param_buf_size = bufsz;
+	pr_debug("%s: param_buf[%p]; param_phys[%p]; [%p]\n", __func__,
+		 (void *)port->param_buf,
+		 (void *)port->param_phys,
+		 (void *)&port->param_phys);
+
+	size = (bufsz + MEM_4K_OFFSET) & MEM_4K_MASK;
+	rc = q6usm_memory_map(port->param_phys, (IN | OUT), size, 1,
+			usc->session, (uint32_t *)port->param_buf_mem_handle);
+	if (rc < 0) {
+		pr_err("%s: CMD Memory_map failed\n", __func__);
+		mutex_unlock(&usc->cmd_lock);
+		q6usm_us_client_buf_free(dir, usc);
+		q6usm_us_param_buf_free(dir, usc);
 	} else {
 		mutex_unlock(&usc->cmd_lock);
 		rc = 0;
@@ -471,6 +570,8 @@ static int32_t q6usm_callback(struct apr_client_data *data, void *priv)
 			case USM_STREAM_CMD_SET_ENC_PARAM:
 			case USM_DATA_CMD_MEDIA_FORMAT_UPDATE:
 			case USM_SESSION_CMD_SIGNAL_DETECT_MODE:
+			case USM_STREAM_CMD_SET_PARAM:
+			case USM_STREAM_CMD_GET_PARAM:
 				if (atomic_read(&usc->cmd_state)) {
 					atomic_set(&usc->cmd_state, 0);
 					wake_up(&usc->cmd_wait);
@@ -1224,6 +1325,98 @@ int q6usm_set_us_detection(struct us_client *usc,
 		rc = -ETIME;
 		pr_err("%s: CMD_SIGNAL_DETECT_MODE: timeout=%d\n",
 		       __func__, Q6USM_TIMEOUT_JIFFIES);
+	} else
+		rc = 0;
+
+	return rc;
+}
+
+int q6usm_set_us_stream_param(int dir, struct us_client *usc,
+		uint32_t module_id, uint32_t param_id, uint32_t buf_size)
+{
+	int rc = 0;
+	struct usm_stream_cmd_set_param cmd_set_param;
+	struct us_port_data *port = NULL;
+
+	if ((usc == NULL) || (usc->apr == NULL)) {
+		pr_err("%s: APR handle NULL\n", __func__);
+		return -EINVAL;
+	}
+	port = &usc->port[dir];
+
+	q6usm_add_hdr(usc, &cmd_set_param.hdr,
+		(sizeof(cmd_set_param) - APR_HDR_SIZE), true);
+
+	cmd_set_param.hdr.opcode = USM_STREAM_CMD_SET_PARAM;
+	cmd_set_param.buf_size = buf_size;
+	cmd_set_param.buf_addr_msw = upper_32_bits(port->param_phys);
+	cmd_set_param.buf_addr_lsw = lower_32_bits(port->param_phys);
+	cmd_set_param.mem_map_handle =
+			*((uint32_t *)(port->param_buf_mem_handle));
+	cmd_set_param.module_id = module_id;
+	cmd_set_param.param_id = param_id;
+	cmd_set_param.hdr.token = 0;
+
+	rc = apr_send_pkt(usc->apr, (uint32_t *) &cmd_set_param);
+
+	if (rc < 0) {
+		pr_err("%s:write op[0x%x];rc[%d]\n",
+			__func__, cmd_set_param.hdr.opcode, rc);
+	}
+
+	rc = wait_event_timeout(usc->cmd_wait,
+				(atomic_read(&usc->cmd_state) == 0),
+				Q6USM_TIMEOUT_JIFFIES);
+	if (!rc) {
+		rc = -ETIME;
+		pr_err("%s: CMD_SET_PARAM: timeout=%d\n",
+			__func__, Q6USM_TIMEOUT_JIFFIES);
+	} else
+		rc = 0;
+
+	return rc;
+}
+
+int q6usm_get_us_stream_param(int dir, struct us_client *usc,
+		uint32_t module_id, uint32_t param_id, uint32_t buf_size)
+{
+	int rc = 0;
+	struct usm_stream_cmd_get_param cmd_get_param;
+	struct us_port_data *port = NULL;
+
+	if ((usc == NULL) || (usc->apr == NULL)) {
+		pr_err("%s: APR handle NULL\n", __func__);
+		return -EINVAL;
+	}
+	port = &usc->port[dir];
+
+	q6usm_add_hdr(usc, &cmd_get_param.hdr,
+			(sizeof(cmd_get_param) - APR_HDR_SIZE), true);
+
+	cmd_get_param.hdr.opcode = USM_STREAM_CMD_GET_PARAM;
+	cmd_get_param.buf_size = buf_size;
+	cmd_get_param.buf_addr_msw = upper_32_bits(port->param_phys);
+	cmd_get_param.buf_addr_lsw = lower_32_bits(port->param_phys);
+	cmd_get_param.mem_map_handle =
+			*((uint32_t *)(port->param_buf_mem_handle));
+	cmd_get_param.module_id = module_id;
+	cmd_get_param.param_id = param_id;
+	cmd_get_param.hdr.token = 0;
+
+	rc = apr_send_pkt(usc->apr, (uint32_t *) &cmd_get_param);
+
+	if (rc < 0) {
+		pr_err("%s:write op[0x%x];rc[%d]\n",
+			__func__, cmd_get_param.hdr.opcode, rc);
+	}
+
+	rc = wait_event_timeout(usc->cmd_wait,
+				(atomic_read(&usc->cmd_state) == 0),
+				Q6USM_TIMEOUT_JIFFIES);
+	if (!rc) {
+		rc = -ETIME;
+		pr_err("%s: CMD_GET_PARAM: timeout=%d\n",
+			__func__, Q6USM_TIMEOUT_JIFFIES);
 	} else
 		rc = 0;
 
