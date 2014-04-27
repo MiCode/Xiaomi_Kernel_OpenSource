@@ -2453,7 +2453,7 @@ int mdss_mdp_mixer_pipe_update(struct mdss_mdp_pipe *pipe,
 
 	if (params_changed) {
 		mixer->params_changed++;
-		for (i = MDSS_MDP_STAGE_BASE; i < MDSS_MDP_MAX_STAGE; i++) {
+		for (i = MDSS_MDP_STAGE_UNUSED; i < MDSS_MDP_MAX_STAGE; i++) {
 			j = i * MAX_PIPES_PER_STAGE;
 			if (pipe->is_right_blend)
 				j++;
