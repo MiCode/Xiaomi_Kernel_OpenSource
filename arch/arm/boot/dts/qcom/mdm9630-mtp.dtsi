@@ -27,6 +27,10 @@
 	};
 };
 
+&usb3 {
+	vbus_dwc3-supply = <&smb1357_otg_supply>; /* Host 5V VBUS from SMB1357 regulator */
+};
+
 &pmd9635_gpios {
 	gpio@c000 { /* GPIO 1 */
 	};
