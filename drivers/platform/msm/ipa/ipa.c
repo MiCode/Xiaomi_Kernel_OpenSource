@@ -2223,11 +2223,10 @@ static int ipa_init(const struct ipa_plat_drv_res *resource_p,
 	ipa_ctx->ipa_active_clients.cnt = 1;
 
 	/* wlan related member */
-	spin_lock_init(&ipa_ctx->wlan_spinlock);
-	spin_lock_init(&ipa_ctx->ipa_tx_mul_spinlock);
-	ipa_ctx->wlan_comm_cnt = 0;
-	INIT_LIST_HEAD(&ipa_ctx->wlan_comm_desc_list);
-	memset(&ipa_ctx->wstats, 0, sizeof(struct ipa_wlan_stats));
+	memset(&ipa_ctx->wc_memb, 0, sizeof(ipa_ctx->wc_memb));
+	spin_lock_init(&ipa_ctx->wc_memb.wlan_spinlock);
+	spin_lock_init(&ipa_ctx->wc_memb.ipa_tx_mul_spinlock);
+	INIT_LIST_HEAD(&ipa_ctx->wc_memb.wlan_comm_desc_list);
 	/*
 	 * setup an empty routing table in system memory, this will be used
 	 * to delete a routing table cleanly and safely

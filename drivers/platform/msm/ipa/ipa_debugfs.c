@@ -775,62 +775,153 @@ static ssize_t ipa_read_wstats(struct file *file, char __user *ubuf,
 		size_t count, loff_t *ppos)
 {
 
+#define HEAD_FRMT_STR "%25s\n"
 #define FRMT_STR "%25s %10u\n"
 #define FRMT_STR1 "%25s %10u\n\n"
 
 	int cnt = 0;
 	int nbytes;
+	int ipa_ep_idx;
+	enum ipa_client_type client = IPA_CLIENT_WLAN1_PROD;
+	struct ipa_ep_context *ep;
 
-	nbytes = scnprintf(dbg_buff + cnt, IPA_MAX_MSG_LEN - cnt, FRMT_STR,
-		"Rx Pkts Rcvd:", ipa_ctx->wstats.rx_pkts_rcvd);
+	do {
+		nbytes = scnprintf(dbg_buff + cnt, IPA_MAX_MSG_LEN - cnt,
+			HEAD_FRMT_STR, "Client IPA_CLIENT_WLAN1_PROD Stats:");
+		cnt += nbytes;
+
+		ipa_ep_idx = ipa_get_ep_mapping(client);
+		if (ipa_ep_idx == -1) {
+			nbytes = scnprintf(dbg_buff + cnt,
+				IPA_MAX_MSG_LEN - cnt, HEAD_FRMT_STR, "Not up");
+			cnt += nbytes;
+			break;
+		}
+
+		ep = &ipa_ctx->ep[ipa_ep_idx];
+		if (ep->valid != 1) {
+			nbytes = scnprintf(dbg_buff + cnt,
+				IPA_MAX_MSG_LEN - cnt, HEAD_FRMT_STR, "Not up");
+			cnt += nbytes;
+			break;
+		}
+
+		nbytes = scnprintf(dbg_buff + cnt, IPA_MAX_MSG_LEN - cnt,
+			FRMT_STR, "Avail Fifo Desc:",
+			atomic_read(&ep->avail_fifo_desc));
+		cnt += nbytes;
+
+		nbytes = scnprintf(dbg_buff + cnt, IPA_MAX_MSG_LEN - cnt,
+			FRMT_STR, "Rx Pkts Rcvd:", ep->wstats.rx_pkts_rcvd);
+		cnt += nbytes;
+
+		nbytes = scnprintf(dbg_buff + cnt, IPA_MAX_MSG_LEN - cnt,
+			FRMT_STR, "Rx Pkts Status Rcvd:",
+			ep->wstats.rx_pkts_status_rcvd);
+		cnt += nbytes;
+
+		nbytes = scnprintf(dbg_buff + cnt, IPA_MAX_MSG_LEN - cnt,
+			FRMT_STR, "Rx DH Rcvd:", ep->wstats.rx_hd_rcvd);
+		cnt += nbytes;
+
+		nbytes = scnprintf(dbg_buff + cnt, IPA_MAX_MSG_LEN - cnt,
+			FRMT_STR, "Rx DH Processed:",
+			ep->wstats.rx_hd_processed);
+		cnt += nbytes;
+
+		nbytes = scnprintf(dbg_buff + cnt, IPA_MAX_MSG_LEN - cnt,
+			FRMT_STR, "Rx DH Sent Back:", ep->wstats.rx_hd_reply);
+		cnt += nbytes;
+
+		nbytes = scnprintf(dbg_buff + cnt, IPA_MAX_MSG_LEN - cnt,
+			FRMT_STR, "Rx Pkt Leak:", ep->wstats.rx_pkt_leak);
+		cnt += nbytes;
+
+		nbytes = scnprintf(dbg_buff + cnt, IPA_MAX_MSG_LEN - cnt,
+			FRMT_STR1, "Rx DP Fail:", ep->wstats.rx_dp_fail);
+		cnt += nbytes;
+
+	} while (0);
+
+	client = IPA_CLIENT_WLAN1_CONS;
+	nbytes = scnprintf(dbg_buff + cnt, IPA_MAX_MSG_LEN - cnt, HEAD_FRMT_STR,
+		"Client IPA_CLIENT_WLAN1_CONS Stats:");
+	cnt += nbytes;
+	while (1) {
+		ipa_ep_idx = ipa_get_ep_mapping(client);
+		if (ipa_ep_idx == -1) {
+			nbytes = scnprintf(dbg_buff + cnt,
+				IPA_MAX_MSG_LEN - cnt, HEAD_FRMT_STR, "Not up");
+			cnt += nbytes;
+			goto nxt_clnt_cons;
+		}
+
+		ep = &ipa_ctx->ep[ipa_ep_idx];
+		if (ep->valid != 1) {
+			nbytes = scnprintf(dbg_buff + cnt,
+				IPA_MAX_MSG_LEN - cnt, HEAD_FRMT_STR, "Not up");
+			cnt += nbytes;
+			goto nxt_clnt_cons;
+		}
+
+		nbytes = scnprintf(dbg_buff + cnt, IPA_MAX_MSG_LEN - cnt,
+			FRMT_STR, "Tx Pkts Received:", ep->wstats.tx_pkts_rcvd);
+		cnt += nbytes;
+
+		nbytes = scnprintf(dbg_buff + cnt, IPA_MAX_MSG_LEN - cnt,
+			FRMT_STR, "Tx Pkts Sent:", ep->wstats.tx_pkts_sent);
+		cnt += nbytes;
+
+		nbytes = scnprintf(dbg_buff + cnt, IPA_MAX_MSG_LEN - cnt,
+			FRMT_STR1, "Tx Pkts Dropped:",
+			ep->wstats.tx_pkts_dropped);
+		cnt += nbytes;
+
+nxt_clnt_cons:
+			switch (client) {
+			case IPA_CLIENT_WLAN1_CONS:
+				client = IPA_CLIENT_WLAN2_CONS;
+				nbytes = scnprintf(dbg_buff + cnt,
+					IPA_MAX_MSG_LEN - cnt, HEAD_FRMT_STR,
+					"Client IPA_CLIENT_WLAN2_CONS Stats:");
+				cnt += nbytes;
+				continue;
+			case IPA_CLIENT_WLAN2_CONS:
+				client = IPA_CLIENT_WLAN3_CONS;
+				nbytes = scnprintf(dbg_buff + cnt,
+					IPA_MAX_MSG_LEN - cnt, HEAD_FRMT_STR,
+					"Client IPA_CLIENT_WLAN3_CONS Stats:");
+				cnt += nbytes;
+				continue;
+			case IPA_CLIENT_WLAN3_CONS:
+				client = IPA_CLIENT_WLAN4_CONS;
+				nbytes = scnprintf(dbg_buff + cnt,
+					IPA_MAX_MSG_LEN - cnt, HEAD_FRMT_STR,
+					"Client IPA_CLIENT_WLAN4_CONS Stats:");
+				cnt += nbytes;
+				continue;
+			case IPA_CLIENT_WLAN4_CONS:
+			default:
+				break;
+			}
+		break;
+	}
+
+	nbytes = scnprintf(dbg_buff + cnt, IPA_MAX_MSG_LEN - cnt,
+		"\n"HEAD_FRMT_STR, "All Wlan Consumer pipes stats:");
 	cnt += nbytes;
 
 	nbytes = scnprintf(dbg_buff + cnt, IPA_MAX_MSG_LEN - cnt, FRMT_STR,
-		"Rx Pkts Status Rcvd:", ipa_ctx->wstats.rx_pkts_status_rcvd);
+		"Tx Comm Buff Allocated:",
+		ipa_ctx->wc_memb.wlan_comm_total_cnt);
 	cnt += nbytes;
 
 	nbytes = scnprintf(dbg_buff + cnt, IPA_MAX_MSG_LEN - cnt, FRMT_STR,
-		"Rx DH Rcvd:", ipa_ctx->wstats.rx_hd_rcvd);
-	cnt += nbytes;
-
-	nbytes = scnprintf(dbg_buff + cnt, IPA_MAX_MSG_LEN - cnt, FRMT_STR,
-		"Rx DH Processed:", ipa_ctx->wstats.rx_hd_processed);
-	cnt += nbytes;
-
-	nbytes = scnprintf(dbg_buff + cnt, IPA_MAX_MSG_LEN - cnt, FRMT_STR,
-		"Rx DH Sent Back:", ipa_ctx->wstats.rx_hd_reply);
+		"Tx Comm Buff Avail:", ipa_ctx->wc_memb.wlan_comm_free_cnt);
 	cnt += nbytes;
 
 	nbytes = scnprintf(dbg_buff + cnt, IPA_MAX_MSG_LEN - cnt, FRMT_STR1,
-	 "Rx Pkt Leak:", ipa_ctx->wstats.rx_pkt_leak);
-	cnt += nbytes;
-
-	nbytes = scnprintf(dbg_buff + cnt, IPA_MAX_MSG_LEN - cnt, FRMT_STR,
-		"Rx DP Fail:", ipa_ctx->wstats.rx_dp_fail);
-	cnt += nbytes;
-
-	nbytes = scnprintf(dbg_buff + cnt, IPA_MAX_MSG_LEN - cnt, FRMT_STR,
-		"Tx Buf Total:", ipa_ctx->wlan_comm_cnt);
-	cnt += nbytes;
-
-	nbytes = scnprintf(dbg_buff + cnt, IPA_MAX_MSG_LEN - cnt, FRMT_STR,
-		"Tx Buf Cnt:", ipa_ctx->wstats.tx_buf_cnt);
-	cnt += nbytes;
-
-	nbytes = scnprintf(dbg_buff + cnt, IPA_MAX_MSG_LEN - cnt, FRMT_STR,
-		"Tx Pkts Sent:", ipa_ctx->wstats.tx_pkts_rcvd);
-	cnt += nbytes;
-
-	nbytes = scnprintf(dbg_buff + cnt, IPA_MAX_MSG_LEN - cnt, FRMT_STR,
-		"Tx Pkts Freed:", ipa_ctx->wstats.tx_pkts_freed);
-	cnt += nbytes;
-
-	nbytes = scnprintf(dbg_buff + cnt, IPA_MAX_MSG_LEN - cnt, FRMT_STR,
-		"Tx Pkts Dropped:", ipa_ctx->wstats.tx_pkts_dropped);
-	cnt += nbytes;
-
-	nbytes = scnprintf(dbg_buff + cnt, IPA_MAX_MSG_LEN - cnt, FRMT_STR,
-		"Avail Fifo Desc:", ipa_ctx->ep[19].avail_fifo_desc);
+		"Total Tx Pkts Freed:", ipa_ctx->wc_memb.total_tx_pkts_freed);
 	cnt += nbytes;
 
 	return simple_read_from_buffer(ubuf, count, ppos, dbg_buff, cnt);

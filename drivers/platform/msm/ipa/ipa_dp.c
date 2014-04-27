@@ -55,7 +55,8 @@ static int ipa_assign_policy(struct ipa_sys_connect_params *in,
 		struct ipa_sys_context *sys);
 static void ipa_cleanup_rx(struct ipa_sys_context *sys);
 static void ipa_wq_rx_avail(struct work_struct *work);
-static void ipa_allocate_wlan_rx_common_cache(u32 size);
+static void ipa_alloc_wlan_rx_common_cache(u32 size);
+static void ipa_cleanup_wlan_rx_common_cache(void);
 
 static void ipa_wq_write_done_common(struct ipa_sys_context *sys, u32 cnt)
 {
@@ -1003,8 +1004,8 @@ int ipa_setup_sys_pipe(struct ipa_sys_connect_params *sys_in, u32 *clnt_hdl)
 	ep->client_notify = sys_in->notify;
 	ep->priv = sys_in->priv;
 	ep->keep_ipa_awake = sys_in->keep_ipa_awake;
-	ep->avail_fifo_desc =
-		((sys_in->desc_fifo_sz/sizeof(struct sps_iovec))-1);
+	atomic_set(&ep->avail_fifo_desc,
+		((sys_in->desc_fifo_sz/sizeof(struct sps_iovec))-1));
 
 	result = ipa_enable_data_path(ipa_ep_idx);
 	if (result) {
@@ -1096,8 +1097,10 @@ int ipa_setup_sys_pipe(struct ipa_sys_connect_params *sys_in, u32 *clnt_hdl)
 	if (IPA_CLIENT_IS_CONS(sys_in->client))
 		ipa_replenish_rx_cache(ep->sys);
 
-	if (IPA_CLIENT_IS_WLAN_CONS(sys_in->client))
-		ipa_allocate_wlan_rx_common_cache(IPA_WLAN_COMM_RX_POOL_LOW);
+	if (IPA_CLIENT_IS_WLAN_CONS(sys_in->client)) {
+		ipa_alloc_wlan_rx_common_cache(IPA_WLAN_COMM_RX_POOL_LOW);
+		atomic_inc(&ipa_ctx->wc_memb.active_clnt_cnt);
+	}
 
 	if (!ep->skip_ep_cfg && IPA_CLIENT_IS_PROD(sys_in->client))
 		ipa_install_dflt_flt_rules(ipa_ep_idx);
@@ -1177,6 +1180,14 @@ int ipa_teardown_sys_pipe(u32 clnt_hdl)
 		ipa_cleanup_rx(ep->sys);
 
 	ipa_delete_dflt_flt_rules(clnt_hdl);
+
+	if (IPA_CLIENT_IS_WLAN_CONS(ep->client))
+		atomic_dec(&ipa_ctx->wc_memb.active_clnt_cnt);
+
+	memset(&ep->wstats, 0, sizeof(struct ipa_wlan_stats));
+
+	if (!atomic_read(&ipa_ctx->wc_memb.active_clnt_cnt))
+		ipa_cleanup_wlan_rx_common_cache();
 
 	ipa_dec_client_disable_clks();
 
@@ -1363,17 +1374,17 @@ static void ipa_replenish_wlan_rx_cache(struct ipa_sys_context *sys)
 
 	IPADBG("\n");
 
-	spin_lock_bh(&ipa_ctx->wlan_spinlock);
+	spin_lock_bh(&ipa_ctx->wc_memb.wlan_spinlock);
 	rx_len_cached = sys->len;
 
 	if (rx_len_cached < sys->rx_pool_sz) {
 		list_for_each_entry_safe(rx_pkt, tmp,
-			&ipa_ctx->wlan_comm_desc_list, link)
+			&ipa_ctx->wc_memb.wlan_comm_desc_list, link)
 		{
 			list_del(&rx_pkt->link);
 
-			if (ipa_ctx->wstats.tx_buf_cnt > 0)
-				ipa_ctx->wstats.tx_buf_cnt--;
+			if (ipa_ctx->wc_memb.wlan_comm_free_cnt > 0)
+				ipa_ctx->wc_memb.wlan_comm_free_cnt--;
 
 			INIT_LIST_HEAD(&rx_pkt->link);
 			rx_pkt->len = 0;
@@ -1392,36 +1403,65 @@ static void ipa_replenish_wlan_rx_cache(struct ipa_sys_context *sys)
 			rx_len_cached = ++sys->len;
 
 			if (rx_len_cached >= sys->rx_pool_sz) {
-				spin_unlock_bh(&ipa_ctx->wlan_spinlock);
+				spin_unlock_bh(&ipa_ctx->wc_memb.wlan_spinlock);
 				return;
 			}
 		}
 	}
-	spin_unlock_bh(&ipa_ctx->wlan_spinlock);
+	spin_unlock_bh(&ipa_ctx->wc_memb.wlan_spinlock);
 
 	if (rx_len_cached < sys->rx_pool_sz &&
-			ipa_ctx->wlan_comm_cnt < IPA_WLAN_COMM_RX_POOL_HIGH) {
+			ipa_ctx->wc_memb.wlan_comm_total_cnt <
+			 IPA_WLAN_COMM_RX_POOL_HIGH) {
 		ipa_replenish_rx_cache(sys);
-		ipa_ctx->wlan_comm_cnt += (sys->rx_pool_sz - rx_len_cached);
+		ipa_ctx->wc_memb.wlan_comm_total_cnt +=
+			(sys->rx_pool_sz - rx_len_cached);
 	}
 
 	return;
 
 fail_sps_transfer:
 	list_del(&rx_pkt->link);
-	spin_unlock_bh(&ipa_ctx->wlan_spinlock);
+	spin_unlock_bh(&ipa_ctx->wc_memb.wlan_spinlock);
 
 	return;
 }
 
-static void ipa_allocate_wlan_rx_common_cache(u32 size)
+static void ipa_cleanup_wlan_rx_common_cache(void)
+{
+	struct ipa_rx_pkt_wrapper *rx_pkt;
+	struct ipa_rx_pkt_wrapper *tmp;
+
+	list_for_each_entry_safe(rx_pkt, tmp,
+		&ipa_ctx->wc_memb.wlan_comm_desc_list, link) {
+		list_del(&rx_pkt->link);
+		dma_unmap_single(ipa_ctx->pdev, rx_pkt->data.dma_addr,
+			IPA_WLAN_COMM_RX_POOL_LOW, DMA_FROM_DEVICE);
+		dev_kfree_skb_any(rx_pkt->data.skb);
+		kmem_cache_free(ipa_ctx->rx_pkt_wrapper_cache, rx_pkt);
+		ipa_ctx->wc_memb.wlan_comm_free_cnt--;
+		ipa_ctx->wc_memb.wlan_comm_total_cnt--;
+	}
+	ipa_ctx->wc_memb.total_tx_pkts_freed = 0;
+
+	if (ipa_ctx->wc_memb.wlan_comm_free_cnt != 0)
+		IPAERR("wlan comm buff free cnt: %d\n",
+			ipa_ctx->wc_memb.wlan_comm_free_cnt);
+
+	if (ipa_ctx->wc_memb.wlan_comm_total_cnt != 0)
+		IPAERR("wlan comm buff total cnt: %d\n",
+			ipa_ctx->wc_memb.wlan_comm_total_cnt);
+
+}
+
+static void ipa_alloc_wlan_rx_common_cache(u32 size)
 {
 	void *ptr;
 	struct ipa_rx_pkt_wrapper *rx_pkt;
 	int rx_len_cached = 0;
 	gfp_t flag = GFP_NOWAIT | __GFP_NOWARN;
 
-	rx_len_cached = ipa_ctx->wlan_comm_cnt;
+	rx_len_cached = ipa_ctx->wc_memb.wlan_comm_total_cnt;
 	while (rx_len_cached < size) {
 		rx_pkt = kmem_cache_zalloc(ipa_ctx->rx_pkt_wrapper_cache,
 					   flag);
@@ -1450,10 +1490,11 @@ static void ipa_allocate_wlan_rx_common_cache(u32 size)
 			goto fail_dma_mapping;
 		}
 
-		list_add_tail(&rx_pkt->link, &ipa_ctx->wlan_comm_desc_list);
-		rx_len_cached = ++ipa_ctx->wlan_comm_cnt;
+		list_add_tail(&rx_pkt->link,
+			&ipa_ctx->wc_memb.wlan_comm_desc_list);
+		rx_len_cached = ++ipa_ctx->wc_memb.wlan_comm_total_cnt;
 
-		ipa_ctx->wstats.tx_buf_cnt++;
+		ipa_ctx->wc_memb.wlan_comm_free_cnt++;
 
 	}
 
@@ -1466,6 +1507,7 @@ fail_skb_alloc:
 fail_kmem_cache_alloc:
 	return;
 }
+
 
 /**
  * ipa_replenish_rx_cache() - Replenish the Rx packets cache.
@@ -2105,11 +2147,12 @@ static void ipa_wlan_wq_rx_common(struct ipa_sys_context *sys, u32 size)
 	skb_set_tail_pointer(rx_skb, rx_pkt_expected->len);
 	rx_skb->len = rx_pkt_expected->len;
 	rx_skb->truesize = rx_pkt_expected->len + sizeof(struct sk_buff);
-	ipa_ctx->wstats.tx_pkts_rcvd++;
+	sys->ep->wstats.tx_pkts_rcvd++;
 	if (sys->len <= IPA_WLAN_RX_POOL_SZ_LOW_WM) {
 		ipa_free_skb(&rx_pkt_expected->data);
-		ipa_ctx->wstats.tx_pkts_dropped++;
+		sys->ep->wstats.tx_pkts_dropped++;
 	} else {
+		sys->ep->wstats.tx_pkts_sent++;
 		sys->ep->client_notify(sys->ep->priv, IPA_RECEIVE,
 				(unsigned long)(&rx_pkt_expected->data));
 	}
@@ -2305,19 +2348,19 @@ static void ipa_tx_client_rx_notify_release(void *user1, int user2)
 
 	IPADBG("Received data desc anchor:%p\n", dd);
 
-	ipa_ctx->ep[ep_idx].avail_fifo_desc++;
-	ipa_ctx->wstats.rx_pkts_status_rcvd++;
+	atomic_inc(&ipa_ctx->ep[ep_idx].avail_fifo_desc);
+	ipa_ctx->ep[ep_idx].wstats.rx_pkts_status_rcvd++;
 
   /* wlan host driver waits till tx complete before unload */
 	IPADBG("ep=%d fifo_desc_free_count=%d\n",
-		ep_idx, ipa_ctx->ep[ep_idx].avail_fifo_desc);
+		ep_idx, atomic_read(&ipa_ctx->ep[ep_idx].avail_fifo_desc));
 	IPADBG("calling client notify callback with priv:%p\n",
 		ipa_ctx->ep[ep_idx].priv);
 
 	if (ipa_ctx->ep[ep_idx].client_notify) {
 		ipa_ctx->ep[ep_idx].client_notify(ipa_ctx->ep[ep_idx].priv,
 				IPA_WRITE_DONE, (unsigned long)user1);
-		ipa_ctx->wstats.rx_hd_reply++;
+		ipa_ctx->ep[ep_idx].wstats.rx_hd_reply++;
 	}
 }
 /**
@@ -2335,9 +2378,8 @@ static void ipa_tx_client_rx_pkt_status(void *user1, int user2)
 {
 	int ep_idx = user2;
 
-
-	ipa_ctx->ep[ep_idx].avail_fifo_desc++;
-	ipa_ctx->wstats.rx_pkts_status_rcvd++;
+	atomic_inc(&ipa_ctx->ep[ep_idx].avail_fifo_desc);
+	ipa_ctx->ep[ep_idx].wstats.rx_pkts_status_rcvd++;
 }
 
 
@@ -2372,9 +2414,8 @@ int ipa_tx_dp_mul(enum ipa_client_type src,
 	int ep_idx;
 
 	IPADBG("Received data desc anchor:%p\n", data_desc);
-	ipa_ctx->wstats.rx_hd_rcvd++;
 
-	spin_lock_bh(&ipa_ctx->ipa_tx_mul_spinlock);
+	spin_lock_bh(&ipa_ctx->wc_memb.ipa_tx_mul_spinlock);
 
 	ep_idx = ipa_get_ep_mapping(src);
 	if (unlikely(ep_idx == -1)) {
@@ -2388,6 +2429,7 @@ int ipa_tx_dp_mul(enum ipa_client_type src,
 		IPAERR("dest EP not valid.\n");
 		goto fail_send;
 	}
+	sys->ep->wstats.rx_hd_rcvd++;
 
 	/* Calculate the number of descriptors */
 	num_desc = 0;
@@ -2396,7 +2438,7 @@ int ipa_tx_dp_mul(enum ipa_client_type src,
 	}
 	IPADBG("Number of Data Descriptors:%d", num_desc);
 
-	if (ipa_ctx->ep[ep_idx].avail_fifo_desc < num_desc) {
+	if (atomic_read(&sys->ep->avail_fifo_desc) < num_desc) {
 		IPAERR("Insufficient data descriptors available\n");
 		goto fail_send;
 	}
@@ -2407,7 +2449,7 @@ int ipa_tx_dp_mul(enum ipa_client_type src,
 		IPADBG("Parsing data desc :%d\n", cnt);
 		cnt++;
 		((u8 *)entry->pyld_buffer)[IPA_WLAN_HDR_QMAP_ID_OFFSET] =
-			(u8)ipa_ctx->ep[ep_idx].cfg.meta.qmap_id;
+			(u8)sys->ep->cfg.meta.qmap_id;
 		desc.pyld = entry->pyld_buffer;
 		desc.len = entry->pyld_len;
 		desc.type = IPA_DATA_DESC_SKB;
@@ -2427,23 +2469,25 @@ int ipa_tx_dp_mul(enum ipa_client_type src,
 		IPADBG("calling ipa_send_one()\n");
 		if (ipa_send_one(sys, &desc, true)) {
 			IPAERR("fail to send skb\n");
-			ipa_ctx->wstats.rx_pkt_leak += (cnt-1);
-			ipa_ctx->wstats.rx_dp_fail++;
+			sys->ep->wstats.rx_pkt_leak += (cnt-1);
+			sys->ep->wstats.rx_dp_fail++;
 			goto fail_send;
 		}
 
-		ipa_ctx->ep[ep_idx].avail_fifo_desc--;
-		ipa_ctx->wstats.rx_pkts_rcvd++;
+		if (atomic_read(&sys->ep->avail_fifo_desc) >= 0)
+			atomic_dec(&sys->ep->avail_fifo_desc);
+
+		sys->ep->wstats.rx_pkts_rcvd++;
 		IPADBG("ep=%d fifo desc=%d\n",
-			ep_idx, ipa_ctx->ep[ep_idx].avail_fifo_desc);
+			ep_idx, atomic_read(&sys->ep->avail_fifo_desc));
 	}
 
-	ipa_ctx->wstats.rx_hd_processed++;
-	spin_unlock_bh(&ipa_ctx->ipa_tx_mul_spinlock);
+	sys->ep->wstats.rx_hd_processed++;
+	spin_unlock_bh(&ipa_ctx->wc_memb.ipa_tx_mul_spinlock);
 	return 0;
 
 fail_send:
-	spin_unlock_bh(&ipa_ctx->ipa_tx_mul_spinlock);
+	spin_unlock_bh(&ipa_ctx->wc_memb.ipa_tx_mul_spinlock);
 	return -EFAULT;
 
 }
@@ -2453,18 +2497,19 @@ void ipa_free_skb(struct ipa_rx_data *data)
 {
 	struct ipa_rx_pkt_wrapper *rx_pkt;
 
-	spin_lock_bh(&ipa_ctx->wlan_spinlock);
+	spin_lock_bh(&ipa_ctx->wc_memb.wlan_spinlock);
 
-	ipa_ctx->wstats.tx_pkts_freed++;
+	ipa_ctx->wc_memb.total_tx_pkts_freed++;
 	rx_pkt = container_of(data, struct ipa_rx_pkt_wrapper, data);
 
 	ipa_skb_recycle(rx_pkt->data.skb);
 	(void)skb_put(rx_pkt->data.skb, IPA_WLAN_RX_BUFF_SZ);
 
-	list_add_tail(&rx_pkt->link, &ipa_ctx->wlan_comm_desc_list);
-	ipa_ctx->wstats.tx_buf_cnt++;
+	list_add_tail(&rx_pkt->link,
+		&ipa_ctx->wc_memb.wlan_comm_desc_list);
+	ipa_ctx->wc_memb.wlan_comm_free_cnt++;
 
-	spin_unlock_bh(&ipa_ctx->wlan_spinlock);
+	spin_unlock_bh(&ipa_ctx->wc_memb.wlan_spinlock);
 }
 EXPORT_SYMBOL(ipa_free_skb);
 
