@@ -27,8 +27,8 @@
 #include "usfcdev.h"
 
 /* The driver version*/
-#define DRV_VERSION "1.6.1"
-#define USF_VERSION_ID 0x0161
+#define DRV_VERSION "1.7.1"
+#define USF_VERSION_ID 0x0171
 
 /* Standard timeout in the asynchronous ops */
 #define USF_TIMEOUT_JIFFIES (1*HZ) /* 1 sec */
@@ -36,6 +36,8 @@
 /* Undefined USF device */
 #define USF_UNDEF_DEV_ID 0xffff
 
+/* TX memory mapping flag */
+#define USF_VM_READ 1
 /* RX memory mapping flag */
 #define USF_VM_WRITE 2
 
@@ -979,6 +981,13 @@ static int __usf_set_tx_info(struct usf_type *usf,
 		return rc;
 	}
 
+	rc = q6usm_us_param_buf_alloc(OUT, usf_xx->usc,
+			config_tx->us_xx_info.max_get_set_param_buf_size);
+	if (rc) {
+		(void)q6usm_cmd(usf_xx->usc, CMD_CLOSE);
+		return rc;
+	}
+
 	rc = q6usm_enc_cfg_blk(usf_xx->usc,
 			       &usf_xx->encdec_cfg);
 	if (!rc &&
@@ -1037,6 +1046,13 @@ static int __usf_set_rx_info(struct usf_type *usf,
 				usf_xx->usc,
 				usf_xx->buffer_size,
 				usf_xx->buffer_count);
+	if (rc) {
+		(void)q6usm_cmd(usf_xx->usc, CMD_CLOSE);
+		return rc;
+	}
+
+	rc = q6usm_us_param_buf_alloc(IN, usf_xx->usc,
+			config_rx->us_xx_info.max_get_set_param_buf_size);
 	if (rc) {
 		(void)q6usm_cmd(usf_xx->usc, CMD_CLOSE);
 		return rc;
@@ -1351,6 +1367,138 @@ static int usf_get_version(unsigned long arg)
 	return rc;
 } /* usf_get_version */
 
+static int __usf_set_stream_param(struct usf_xx_type *usf_xx,
+				struct us_stream_param_type *set_stream_param,
+				int dir)
+{
+	struct us_client *usc = usf_xx->usc;
+	struct us_port_data *port = &usc->port[dir];
+	int rc = 0;
+
+	if (port->param_buf == NULL) {
+		pr_err("%s: parameter buffer is null\n",
+			__func__);
+		return -EFAULT;
+	}
+
+	if (set_stream_param->buf_size > port->param_buf_size) {
+		pr_err("%s: buf_size (%d) > maximum buf size (%d)\n",
+			__func__, set_stream_param->buf_size,
+			port->param_buf_size);
+		return -EINVAL;
+	}
+
+	if (set_stream_param->buf_size == 0) {
+		pr_err("%s: buf_size is 0\n", __func__);
+		return -EINVAL;
+	}
+
+	rc = copy_from_user(port->param_buf,
+			(uint8_t __user *) set_stream_param->pbuf,
+			set_stream_param->buf_size);
+	if (rc) {
+		pr_err("%s: copy param buf from user; rc=%d\n",
+			__func__, rc);
+		return -EFAULT;
+	}
+
+	rc = q6usm_set_us_stream_param(dir, usc, set_stream_param->module_id,
+					set_stream_param->param_id,
+					set_stream_param->buf_size);
+	if (rc) {
+		pr_err("%s: q6usm_set_us_stream_param failed; rc=%d\n",
+			__func__, rc);
+		return -EFAULT;
+	}
+
+	return rc;
+}
+
+static int usf_set_stream_param(struct usf_xx_type *usf_xx,
+				unsigned long arg, int dir)
+{
+	struct us_stream_param_type set_stream_param;
+	int rc = 0;
+
+	rc = copy_from_user(&set_stream_param,
+			(struct us_stream_param_type __user *) arg,
+			sizeof(set_stream_param));
+
+	if (rc) {
+		pr_err("%s: copy set_stream_param from user; rc=%d\n",
+			__func__, rc);
+		return -EFAULT;
+	}
+
+	return __usf_set_stream_param(usf_xx, &set_stream_param, dir);
+} /* usf_set_stream_param */
+
+static int __usf_get_stream_param(struct usf_xx_type *usf_xx,
+				struct us_stream_param_type *get_stream_param,
+				int dir)
+{
+	struct us_client *usc = usf_xx->usc;
+	struct us_port_data *port = &usc->port[dir];
+	int rc = 0;
+
+	if (port->param_buf == NULL) {
+		pr_err("%s: parameter buffer is null\n",
+			__func__);
+		return -EFAULT;
+	}
+
+	if (get_stream_param->buf_size > port->param_buf_size) {
+		pr_err("%s: buf_size (%d) > maximum buf size (%d)\n",
+			__func__, get_stream_param->buf_size,
+			port->param_buf_size);
+		return -EINVAL;
+	}
+
+	if (get_stream_param->buf_size == 0) {
+		pr_err("%s: buf_size is 0\n", __func__);
+		return -EINVAL;
+	}
+
+	rc = q6usm_get_us_stream_param(dir, usc, get_stream_param->module_id,
+					get_stream_param->param_id,
+					get_stream_param->buf_size);
+	if (rc) {
+		pr_err("%s: q6usm_get_us_stream_param failed; rc=%d\n",
+			__func__, rc);
+		return -EFAULT;
+	}
+
+	rc = copy_to_user((uint8_t __user *) get_stream_param->pbuf,
+			port->param_buf,
+			get_stream_param->buf_size);
+	if (rc) {
+		pr_err("%s: copy param buf to user; rc=%d\n",
+			__func__, rc);
+		return -EFAULT;
+	}
+
+	return rc;
+}
+
+static int usf_get_stream_param(struct usf_xx_type *usf_xx,
+				unsigned long arg, int dir)
+{
+	struct us_stream_param_type get_stream_param;
+	int rc = 0;
+
+	rc = copy_from_user(&get_stream_param,
+			(struct us_stream_param_type __user *) arg,
+			sizeof(get_stream_param));
+
+	if (rc) {
+		pr_err("%s: copy get_stream_param from user; rc=%d\n",
+			__func__, rc);
+		return -EFAULT;
+	}
+
+	return __usf_get_stream_param(usf_xx, &get_stream_param, dir);
+} /* usf_get_stream_param */
+
 static long usf_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 {
 	int rc = 0;
@@ -1483,6 +1631,26 @@ static long usf_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 		break;
 	} /* US_GET_VERSION */
 
+	case US_SET_TX_STREAM_PARAM: {
+		rc = usf_set_stream_param(&usf->usf_tx, arg, OUT);
+		break;
+	} /* US_SET_TX_STREAM_PARAM */
+
+	case US_GET_TX_STREAM_PARAM: {
+		rc = usf_get_stream_param(&usf->usf_tx, arg, OUT);
+		break;
+	} /* US_GET_TX_STREAM_PARAM */
+
+	case US_SET_RX_STREAM_PARAM: {
+		rc = usf_set_stream_param(&usf->usf_rx, arg, IN);
+		break;
+	} /* US_SET_RX_STREAM_PARAM */
+
+	case US_GET_RX_STREAM_PARAM: {
+		rc = usf_get_stream_param(&usf->usf_rx, arg, IN);
+		break;
+	} /* US_GET_RX_STREAM_PARAM */
+
 	default:
 		pr_err("%s: unsupported IOCTL command [%d]\n",
 		       __func__,
@@ -1513,6 +1681,14 @@ static long usf_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 				struct us_detect_info_type32)
 #define US_GET_VERSION32  _IOWR(USF_IOCTL_MAGIC, 9, \
 				struct us_version_info_type32)
+#define US_SET_TX_STREAM_PARAM32   _IOW(USF_IOCTL_MAGIC, 10, \
+				struct us_stream_param_type32)
+#define US_GET_TX_STREAM_PARAM32  _IOWR(USF_IOCTL_MAGIC, 11, \
+				struct us_stream_param_type32)
+#define US_SET_RX_STREAM_PARAM32   _IOW(USF_IOCTL_MAGIC, 12, \
+				struct us_stream_param_type32)
+#define US_GET_RX_STREAM_PARAM32  _IOWR(USF_IOCTL_MAGIC, 13, \
+				struct us_stream_param_type32)
 
 /* Info structure common for TX and RX */
 struct us_xx_info_type32 {
@@ -1620,6 +1796,17 @@ struct us_version_info_type32 {
 /* Size of memory for the version string */
 	uint16_t buf_size;
 /* Pointer to the memory for the version string, ptr to char */
+	compat_uptr_t pbuf;
+};
+
+struct us_stream_param_type32 {
+/* Id of module */
+	uint32_t module_id;
+/* Id of parameter */
+	uint32_t param_id;
+/* Size of memory of the parameter buffer */
+	uint32_t buf_size;
+/* Pointer to the memory of the parameter buffer */
 	compat_uptr_t pbuf;
 };
 
@@ -1859,6 +2046,58 @@ static int usf_get_version32(unsigned long arg)
 	return rc;
 } /* usf_get_version32 */
 
+static int usf_set_stream_param32(struct usf_xx_type *usf_xx,
+				unsigned long arg, int dir)
+{
+	struct us_stream_param_type32 set_stream_param32;
+	struct us_stream_param_type set_stream_param;
+	int rc = 0;
+
+	rc = copy_from_user(&set_stream_param32,
+			(struct us_stream_param_type32 __user *) arg,
+			sizeof(set_stream_param32));
+
+	if (rc) {
+		pr_err("%s: copy set_stream_param from user; rc=%d\n",
+			__func__, rc);
+		return -EFAULT;
+	}
+
+	memset(&set_stream_param, 0, sizeof(set_stream_param));
+	set_stream_param.module_id = set_stream_param32.module_id;
+	set_stream_param.param_id = set_stream_param32.param_id;
+	set_stream_param.buf_size = set_stream_param32.buf_size;
+	set_stream_param.pbuf = compat_ptr(set_stream_param32.pbuf);
+
+	return __usf_set_stream_param(usf_xx, &set_stream_param, dir);
+} /* usf_set_stream_param32 */
+
+static int usf_get_stream_param32(struct usf_xx_type *usf_xx,
+				unsigned long arg, int dir)
+{
+	struct us_stream_param_type32 get_stream_param32;
+	struct us_stream_param_type get_stream_param;
+	int rc = 0;
+
+	rc = copy_from_user(&get_stream_param32,
+			(struct us_stream_param_type32 __user *) arg,
+			sizeof(get_stream_param32));
+
+	if (rc) {
+		pr_err("%s: copy get_stream_param from user; rc=%d\n",
+			__func__, rc);
+		return -EFAULT;
+	}
+
+	memset(&get_stream_param, 0, sizeof(get_stream_param));
+	get_stream_param.module_id = get_stream_param32.module_id;
+	get_stream_param.param_id = get_stream_param32.param_id;
+	get_stream_param.buf_size = get_stream_param32.buf_size;
+	get_stream_param.pbuf = compat_ptr(get_stream_param32.pbuf);
+
+	return __usf_get_stream_param(usf_xx, &get_stream_param, dir);
+} /* usf_get_stream_param32 */
+
 static long usf_compat_ioctl(struct file *file,
 			     unsigned int cmd,
 			     unsigned long arg)
@@ -1887,7 +2126,7 @@ static long usf_compat_ioctl(struct file *file,
 		}
 
 		break;
-	} /* US_SET_TX_INFO */
+	} /* US_SET_TX_INFO32 */
 
 	case US_SET_RX_INFO32: {
 		usf_xx = &usf->usf_rx;
@@ -1901,7 +2140,7 @@ static long usf_compat_ioctl(struct file *file,
 		}
 
 		break;
-	} /* US_SET_RX_INFO */
+	} /* US_SET_RX_INFO32 */
 
 	case US_GET_TX_UPDATE32: {
 		struct usf_xx_type *usf_xx = &usf->usf_tx;
@@ -1914,7 +2153,7 @@ static long usf_compat_ioctl(struct file *file,
 			rc = -EBADFD;
 		}
 		break;
-	} /* US_GET_TX_UPDATE */
+	} /* US_GET_TX_UPDATE32 */
 
 	case US_SET_RX_UPDATE32: {
 		struct usf_xx_type *usf_xx = &usf->usf_rx;
@@ -1927,7 +2166,7 @@ static long usf_compat_ioctl(struct file *file,
 			rc = -EBADFD;
 		}
 		break;
-	} /* US_SET_RX_UPDATE */
+	} /* US_SET_RX_UPDATE32 */
 
 	case US_SET_DETECTION32: {
 		struct usf_xx_type *usf_xx = &usf->usf_tx;
@@ -1940,12 +2179,32 @@ static long usf_compat_ioctl(struct file *file,
 			rc = -EBADFD;
 		}
 		break;
-	} /* US_SET_DETECTION */
+	} /* US_SET_DETECTION32 */
 
 	case US_GET_VERSION32: {
 		rc = usf_get_version32(arg);
 		break;
-	} /* US_GET_VERSION */
+	} /* US_GET_VERSION32 */
+
+	case US_SET_TX_STREAM_PARAM32: {
+		rc = usf_set_stream_param32(&usf->usf_tx, arg, OUT);
+		break;
+	} /* US_SET_TX_STREAM_PARAM32 */
+
+	case US_GET_TX_STREAM_PARAM32: {
+		rc = usf_get_stream_param32(&usf->usf_tx, arg, OUT);
+		break;
+	} /* US_GET_TX_STREAM_PARAM32 */
+
+	case US_SET_RX_STREAM_PARAM32: {
+		rc = usf_set_stream_param32(&usf->usf_rx, arg, IN);
+		break;
+	} /* US_SET_RX_STREAM_PARAM32 */
+
+	case US_GET_RX_STREAM_PARAM32: {
+		rc = usf_get_stream_param32(&usf->usf_rx, arg, IN);
+		break;
+	} /* US_GET_RX_STREAM_PARAM32 */
 
 	default:
 		pr_err("%s: unsupported IOCTL command [%d]\n",
