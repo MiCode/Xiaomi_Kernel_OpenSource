@@ -103,6 +103,11 @@ enum device_status {
 
 #define RMI4_COORDS_ARR_SIZE 4
 
+#define F11_MAX_X		4096
+#define F11_MAX_Y		4096
+#define F12_MAX_X		65536
+#define F12_MAX_Y		65536
+
 static int synaptics_rmi4_i2c_read(struct synaptics_rmi4_data *rmi4_data,
 		unsigned short addr, unsigned char *data,
 		unsigned short length);
@@ -1445,6 +1450,16 @@ static int synaptics_rmi4_get_dt_coords(struct device *dev, char *name,
 		pdata->panel_miny = coords[1];
 		pdata->panel_maxx = coords[2];
 		pdata->panel_maxy = coords[3];
+
+		if (pdata->panel_maxx == 0 || pdata->panel_minx > 0)
+			rc = -EINVAL;
+		else if (pdata->panel_maxy == 0 || pdata->panel_miny > 0)
+			rc = -EINVAL;
+
+		if (rc) {
+			dev_err(dev, "Invalid panel resolution %d\n", rc);
+			return rc;
+		}
 	} else if (strcmp(name, "synaptics,display-coords") == 0) {
 		pdata->disp_minx = coords[0];
 		pdata->disp_miny = coords[1];
@@ -1520,6 +1535,8 @@ static int synaptics_rmi4_parse_dt(struct device *dev,
 			"synaptics,power-down");
 	rmi4_pdata->disable_gpios = of_property_read_bool(np,
 			"synaptics,disable-gpios");
+	rmi4_pdata->modify_reso = of_property_read_bool(np,
+			"synaptics,modify-reso");
 	rmi4_pdata->x_flip = of_property_read_bool(np, "synaptics,x-flip");
 	rmi4_pdata->y_flip = of_property_read_bool(np, "synaptics,y-flip");
 	rmi4_pdata->do_lockdown = of_property_read_bool(np,
@@ -1715,11 +1732,64 @@ static int synaptics_rmi4_f11_init(struct synaptics_rmi4_data *rmi4_data,
 	if (retval < 0)
 		return retval;
 
-	/* Maximum x and y */
+	/* Maximum x */
 	rmi4_data->sensor_max_x = ((control[6] & MASK_8BIT) << 0) |
-			((control[7] & MASK_4BIT) << 8);
+		((control[7] & MASK_4BIT) << 8);
+
+	if (rmi4_data->board->modify_reso) {
+		if (rmi4_data->board->panel_maxx) {
+			if (rmi4_data->board->panel_maxx >= F11_MAX_X) {
+				dev_err(&rmi4_data->i2c_client->dev,
+					"F11 max_x value out of bound.");
+				return -EINVAL;
+			}
+			if (rmi4_data->sensor_max_x !=
+				rmi4_data->board->panel_maxx) {
+				rmi4_data->sensor_max_x =
+					rmi4_data->board->panel_maxx;
+				control[6] = rmi4_data->board->panel_maxx
+					& MASK_8BIT;
+				control[7] = (rmi4_data->board->panel_maxx >> 8)
+					& MASK_4BIT;
+				retval = synaptics_rmi4_i2c_write(rmi4_data,
+					fhandler->full_addr.ctrl_base,
+					control,
+					sizeof(control));
+				if (retval < 0)
+					return retval;
+			}
+		}
+	}
+
+	/* Maximum y */
 	rmi4_data->sensor_max_y = ((control[8] & MASK_8BIT) << 0) |
-			((control[9] & MASK_4BIT) << 8);
+		((control[9] & MASK_4BIT) << 8);
+
+	if (rmi4_data->board->modify_reso) {
+		if (rmi4_data->board->panel_maxy) {
+			if (rmi4_data->board->panel_maxy >= F11_MAX_Y) {
+				dev_err(&rmi4_data->i2c_client->dev,
+					"F11 max_y value out of bound.");
+				return -EINVAL;
+			}
+			if (rmi4_data->sensor_max_y !=
+				rmi4_data->board->panel_maxy) {
+				rmi4_data->sensor_max_y =
+					rmi4_data->board->panel_maxy;
+				control[8] = rmi4_data->board->panel_maxy
+					& MASK_8BIT;
+				control[9] = (rmi4_data->board->panel_maxy >> 8)
+					& MASK_4BIT;
+				retval = synaptics_rmi4_i2c_write(rmi4_data,
+					fhandler->full_addr.ctrl_base,
+					control,
+					sizeof(control));
+				if (retval < 0)
+					return retval;
+			}
+		}
+	}
+
 	dev_dbg(&rmi4_data->i2c_client->dev,
 			"%s: Function %02x max x = %d max y = %d\n",
 			__func__, fhandler->fn_number,
@@ -1916,13 +1986,72 @@ static int synaptics_rmi4_f12_init(struct synaptics_rmi4_data *rmi4_data,
 	if (retval < 0)
 		return retval;
 
-	/* Maximum x and y */
+	/* Maximum x */
 	rmi4_data->sensor_max_x =
-			((unsigned short)ctrl_8.max_x_coord_lsb << 0) |
-			((unsigned short)ctrl_8.max_x_coord_msb << 8);
+		((unsigned short)ctrl_8.max_x_coord_lsb << 0) |
+		((unsigned short)ctrl_8.max_x_coord_msb << 8);
+
+	if (rmi4_data->board->modify_reso) {
+		if (rmi4_data->board->panel_maxx) {
+			if (rmi4_data->board->panel_maxx >= F12_MAX_X) {
+				dev_err(&rmi4_data->i2c_client->dev,
+					"F12 max_x value out of bound.");
+				return -EINVAL;
+			}
+			if (rmi4_data->sensor_max_x !=
+					rmi4_data->board->panel_maxx) {
+				rmi4_data->sensor_max_x =
+					rmi4_data->board->panel_maxx;
+				ctrl_8.max_x_coord_lsb = (unsigned char)
+					(rmi4_data->board->panel_maxx
+					& MASK_8BIT);
+				ctrl_8.max_x_coord_msb = (unsigned char)
+					((rmi4_data->board->panel_maxx >> 8)
+					& MASK_8BIT);
+				retval = synaptics_rmi4_i2c_write(rmi4_data,
+					fhandler->full_addr.ctrl_base
+						+ ctrl_8_offset,
+					ctrl_8.data,
+					sizeof(ctrl_8.data));
+				if (retval < 0)
+					return retval;
+			}
+		}
+	}
+
+	/* Maximum y */
 	rmi4_data->sensor_max_y =
-			((unsigned short)ctrl_8.max_y_coord_lsb << 0) |
-			((unsigned short)ctrl_8.max_y_coord_msb << 8);
+		((unsigned short)ctrl_8.max_y_coord_lsb << 0) |
+		((unsigned short)ctrl_8.max_y_coord_msb << 8);
+
+	if (rmi4_data->board->modify_reso) {
+		if (rmi4_data->board->panel_maxy) {
+			if (rmi4_data->board->panel_maxy >= F12_MAX_Y) {
+				dev_err(&rmi4_data->i2c_client->dev,
+					"F12 max_y value out of bound.");
+					return -EINVAL;
+			}
+			if (rmi4_data->sensor_max_y !=
+				rmi4_data->board->panel_maxy) {
+				rmi4_data->sensor_max_y =
+					rmi4_data->board->panel_maxy;
+				ctrl_8.max_y_coord_lsb = (unsigned char)
+					(rmi4_data->board->panel_maxy
+					& MASK_8BIT);
+				ctrl_8.max_y_coord_msb = (unsigned char)
+					((rmi4_data->board->panel_maxy >> 8)
+					& MASK_8BIT);
+				retval = synaptics_rmi4_i2c_write(rmi4_data,
+					fhandler->full_addr.ctrl_base
+						+ ctrl_8_offset,
+					ctrl_8.data,
+					sizeof(ctrl_8.data));
+				if (retval < 0)
+					return retval;
+			}
+		}
+	}
+
 	dev_dbg(&rmi4_data->i2c_client->dev,
 			"%s: Function %02x max x = %d max y = %d\n",
 			__func__, fhandler->fn_number,
