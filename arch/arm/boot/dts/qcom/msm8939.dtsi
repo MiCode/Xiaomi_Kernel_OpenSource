@@ -604,6 +604,24 @@
 		qcom,not-wakeup; /* Needed until RPM is fully configured */
 	};
 
+	rmtfs_sharedmem {
+		compatible = "qcom,sharedmem-uio";
+		reg = <0x8e580000 0x160000>;
+		reg-names = "rmtfs";
+	};
+
+	dsp_sharedmem {
+		compatible = "qcom,sharedmem-uio";
+		reg = <0x8e6e0000 0x20000>;
+		reg-names = "rfsa_dsp";
+	};
+
+	mdm_sharedmem {
+		compatible = "qcom,sharedmem-uio";
+		reg = <0x8e6e0000 0x20000>;
+		reg-names = "rfsa_mdm";
+	};
+
 	sdhc_1: sdhci@7824000 {
 		compatible = "qcom,sdhci-msm";
 		reg = <0x7824900 0x11c>, <0x7824000 0x800>;
