@@ -65,19 +65,9 @@ obj-$(CONFIG_SND_SOC_MSM_QDSP6V2_INTF) += qdsp6v2/
 snd-soc-msm8x10-objs := msm8x10.o
 obj-$(CONFIG_SND_SOC_MSM8X10) += snd-soc-msm8x10.o
 
-
-# for MPQ 8092 sound card driver
-obj-$(CONFIG_SND_SOC_MSM_QDSP6V2_INTF) += qdsp6v2/
-snd-soc-mpq8092-objs := mpq8092.o
-obj-$(CONFIG_SND_SOC_MPQ8092) += snd-soc-mpq8092.o
-
 #for APQ8084 sound card driver
 snd-soc-apq8084-objs := apq8084.o apq8084-i2s.o
 obj-$(CONFIG_SND_SOC_APQ8084) += snd-soc-apq8084.o
-
-#for MSM SAMARIUM sound card driver
-snd-soc-msmsamarium-objs := msmsamarium.o
-obj-$(CONFIG_SND_SOC_MSMSAMARIUM) += snd-soc-msmsamarium.o
 
 #for CPE drivers
 snd-soc-cpe-objs := msm-cpe-lsm.o

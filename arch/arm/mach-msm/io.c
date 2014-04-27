@@ -103,21 +103,6 @@ void __init msm_map_mdm9630_io(void)
 }
 #endif /* CONFIG_ARCH_MDM9630 */
 
-#ifdef CONFIG_ARCH_MPQ8092
-static struct map_desc mpq8092_io_desc[] __initdata = {
-	MSM_CHIP_DEVICE(MPM2_PSHOLD, MPQ8092),
-	MSM_CHIP_DEVICE(TLMM, MPQ8092),
-#ifdef CONFIG_DEBUG_MPQ8092_UART
-	MSM_DEVICE(DEBUG_UART),
-#endif
-};
-
-void __init msm_map_mpq8092_io(void)
-{
-	iotable_init(mpq8092_io_desc, ARRAY_SIZE(mpq8092_io_desc));
-}
-#endif /* CONFIG_ARCH_MPQ8092 */
-
 #ifdef CONFIG_ARCH_MSM8916
 static struct map_desc msm8916_io_desc[] __initdata = {
 	MSM_CHIP_DEVICE(APCS_GCC, MSM8916),
@@ -161,21 +146,6 @@ void __init msm_map_msm8610_io(void)
 	iotable_init(msm8610_io_desc, ARRAY_SIZE(msm8610_io_desc));
 }
 #endif /* CONFIG_ARCH_MSM8610 */
-
-#ifdef CONFIG_ARCH_MSMSAMARIUM
-static struct map_desc msmsamarium_io_desc[] __initdata = {
-	MSM_CHIP_DEVICE(TLMM, MSMSAMARIUM),
-	MSM_CHIP_DEVICE(MPM2_PSHOLD, MSMSAMARIUM),
-#if defined(CONFIG_DEBUG_MSMSAMARIUM_UART) || defined(CONFIG_DEBUG_MSM8974_UART)
-	MSM_DEVICE(DEBUG_UART),
-#endif
-};
-
-void __init msm_map_msmsamarium_io(void)
-{
-	iotable_init(msmsamarium_io_desc, ARRAY_SIZE(msmsamarium_io_desc));
-}
-#endif /* CONFIG_ARCH_MSMSAMARIUM */
 
 #ifdef CONFIG_ARCH_MSMZIRC
 static struct map_desc msmzirc_io_desc[] __initdata = {

@@ -13,27 +13,6 @@ config TSPP
 	and recording.
 	This can also be compiled as a loadable module.
 
-config TSPP2
-	depends on ARCH_MPQ8092
-	tristate "TSPP2 (Transport Stream Packet Processor v2) Support"
-	---help---
-	Transport Stream Packet Processor v2 is used to offload the
-	processing of MPEG transport streams from the main processor.
-	It is used to process incoming transport streams from TSIF or memory
-	input, to supports use-cases such as transport stream live play,
-	playback from memory and recording.
-	This can also be compiled as a loadable module.
-
-config ENSIGMA_UCCP_330
-	depends on ARCH_MPQ8092
-	tristate "ENSIGMA UCCP330 (Internal broadcast demodulator) Support"
-	---help---
-	Internal broadcast demodulator is used in translation of RF
-	broadcast transmitions into MPEG transport stream digital protocol.
-	The driver is a thin communication layer that allows access
-	to UCCP330 internal memory in order to support high level protocol.
-	This can also be compiled as a loadable module.
-
 config CI_BRIDGE_SPI
 	depends on SPI_QUP
 	tristate "CI Bridge SPI Driver Support"
@@ -44,24 +23,3 @@ config CI_BRIDGE_SPI
 	using the Linux SPI framework.
 
 	To compile this driver as module, choose M here.
-
-config TSC
-	depends on ARCH_MPQ8092
-	tristate "TSC (Transport Stream Controller) Support"
-	---help---
-	Transport Stream Controller is used for two major functionalities:
-	Mux: enable the routing of the MPEG transport strems from multiple
-	sources to multiple destinations.
-	CI: communication with the internal Conditional Access Module (CAM)
-	over Common Interface (CI).
-	This can also be compiled as a loadable module.
-
-config DEMOD_WRAPPER
-	depends on ARCH_MPQ8092
-	tristate "Demod Wrapper (Part of broadcast HW block) Support"
-	---help---
-	The Demod wrapper block contains HW units that
-	are responsible for navigating and filtering an analog TV or
-	digital TV signal to integrated demodulators.
-	The driver supports the operation of those units and provides
-	a way to set and configure a desired signal path.

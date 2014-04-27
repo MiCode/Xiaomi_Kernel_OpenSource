@@ -75,38 +75,6 @@ config ARCH_APQ8084
 	select PINCTRL
 	select PINCTRL_MSM_TLMM_V3
 
-config ARCH_MPQ8092
-	bool "MPQ8092"
-	select REGULATOR
-	select ARCH_MSM_KRAITMP
-	select PM_DEVFREQ
-	select MSM_DEVFREQ_CPUBW
-	select GPIO_MSM_V3
-	select ARM_GIC
-	select HAVE_ARM_ARCH_TIMER
-	select CPU_V7
-	select MSM_SCM
-	select MSM_GPIOMUX
-	select MSM_QDSP6V2_CODECS
-	select MSM_QDSP6_APRV2 if SND_SOC
-	select MEMORY_HOLE_CARVEOUT
-	select QMI_ENCDEC
-	select MIGHT_HAVE_PCI
-	select ARCH_SUPPORTS_MSI
-	select ARM_HAS_SG_CHAIN
-	select MSM_RPM_SMD
-	select REGULATOR_RPM_SMD
-	select PINCTRL
-	select PINCTRL_MSM_TLMM_V3
-	select USB_ARCH_HAS_XHCI
-	select MSM_IRQ
-	select MSM_SPM_V2
-	select MSM_L2_SPM
-	select MSM_PM if PM
-	select MSM_RPM_SMD
-	select MSM_RPM_STATS_LOG
-	select MSM_RPM_LOG
-
 config ARCH_MSM8916
 	bool "MSM8916"
 	select ARCH_MSM_CORTEXMP
@@ -285,35 +253,6 @@ config ARCH_MSM8226
 	select PINCTRL_MSM_TLMM_V3
 	select ENABLE_VMALLOC_SAVINGS
 	select MSM_IRQ
-
-config ARCH_MSMSAMARIUM
-	bool "MSMSAMARIUM"
-	select ARCH_MSM_KRAITMP
-	select GPIO_MSM_V3
-	select ARM_GIC
-	select CPU_V7
-	select HAVE_ARM_ARCH_TIMER
-	select MSM_SCM
-	select PM_DEVFREQ
-	select MSM_DEVFREQ_CPUBW
-	select MSM_PIL
-	select MSM_GPIOMUX
-	select MSM_SPM_V2
-	select MSM_L2_SPM
-	select MSM_QDSP6_APRV2
-	select MSM_QDSP6V2_CODECS
-	select MSM_PM if PM
-	select MSM_RPM_SMD
-	select REGULATOR
-	select REGULATOR_RPM_SMD
-	select REGULATOR_SPM
-	select ARM_HAS_SG_CHAIN
-	select MSM_RUN_QUEUE_STATS
-	select ARCH_WANT_KMAP_ATOMIC_FLUSH
-	select QMI_ENCDEC
-	select PINCTRL
-	select PINCTRL_MSM_TLMM_V3
-	select MSM_IRQ
 endmenu
 
 config MSM_KRAIT_TBB_ABORT_HANDLER
@@ -392,11 +331,9 @@ config PHYS_OFFSET
 	hex
 	default "0x00000000" if ARCH_MSM8974
 	default "0x00000000" if ARCH_APQ8084
-	default "0x00000000" if ARCH_MPQ8092
 	default "0x80000000" if ARCH_MSM8916
 	default "0x00000000" if ARCH_MSM8226
 	default "0x00000000" if ARCH_MSM8610
-	default "0x00000000" if ARCH_MSMSAMARIUM
 	default "0x0b600000" if ARCH_FSM9900
 	default "0x00000000" if ARCH_MDM9630
 	default "0x80000000" if ARCH_MSMZIRC
@@ -459,14 +396,6 @@ choice
 		  Say Y here if you want the debug print routines to direct
 		  their output to the serial port on MSM 8974 devices.
 
-	config DEBUG_MPQ8092_UART
-                bool "Kernel low-level debugging messages via MPQ8092 UART"
-                depends on ARCH_MPQ8092
-                select MSM_HAS_DEBUG_UART_HS_V14
-                help
-                  Say Y here if you want the debug print routines to direct
-                  their output to the serial port on MPQ8092 devices.
-
 	config DEBUG_MSM8916_UART
                 bool "Kernel low-level debugging messages via MSM8916 UART"
                 depends on ARCH_MSM8916
@@ -490,14 +419,6 @@ choice
 		help
 		  Say Y here if you want the debug print routines to direct
 		  their output to the serial port on FSM9900 devices.
-
-	config DEBUG_MSMSAMARIUM_UART
-		bool "Kernel low-level debugging messages via MSM SAMARIUM UART"
-		depends on ARCH_MSMSAMARIUM
-		select MSM_HAS_DEBUG_UART_HS_V14
-		help
-		  Say Y here if you want the debug print routines to direct
-		  their output to the serial port on MSM SAMARIUM devices.
 
 	config DEBUG_MSM8226_UART
 		bool "Kernel low-level debugging messages via MSM 8226 UART"
