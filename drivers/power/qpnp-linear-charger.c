@@ -181,6 +181,7 @@ static enum power_supply_property msm_batt_power_props[] = {
 	POWER_SUPPLY_PROP_TEMP,
 	POWER_SUPPLY_PROP_COOL_TEMP,
 	POWER_SUPPLY_PROP_WARM_TEMP,
+	POWER_SUPPLY_PROP_SYSTEM_TEMP_LEVEL,
 };
 
 static char *pm_batt_supplied_to[] = {
@@ -286,6 +287,7 @@ struct qpnp_lbc_chip {
 	int				cfg_float_charge;
 	int				charger_disabled;
 	int				prev_max_ma;
+	int				usb_psy_ma;
 	struct qpnp_lbc_irq		irqs[MAX_IRQS];
 	struct mutex			jeita_configure_lock;
 	spinlock_t			ibat_change_lock;
@@ -933,6 +935,22 @@ static int get_prop_batt_temp(struct qpnp_lbc_chip *chip)
 	return (int)results.physical;
 }
 
+static void qpnp_lbc_set_appropriate_current(struct qpnp_lbc_chip *chip)
+{
+	unsigned int chg_current = chip->usb_psy_ma;
+
+	if (chip->bat_is_cool && chip->cfg_cool_bat_chg_ma)
+		chg_current = min(chg_current, chip->cfg_cool_bat_chg_ma);
+	if (chip->bat_is_warm && chip->cfg_warm_bat_chg_ma)
+		chg_current = min(chg_current, chip->cfg_warm_bat_chg_ma);
+	if (chip->therm_lvl_sel != 0 && chip->thermal_mitigation)
+		chg_current = min(chg_current,
+			chip->thermal_mitigation[chip->therm_lvl_sel]);
+
+	pr_debug("setting charger current %d mA\n", chg_current);
+	qpnp_lbc_ibatmax_set(chip, chg_current);
+}
+
 static void qpnp_batt_external_power_changed(struct power_supply *psy)
 {
 	struct qpnp_lbc_chip *chip = container_of(psy, struct qpnp_lbc_chip,
@@ -957,9 +975,11 @@ static void qpnp_batt_external_power_changed(struct power_supply *psy)
 				&& get_prop_batt_present(chip)) {
 			if (current_ma ==  2)
 				qpnp_lbc_charger_enable(chip, CURRENT, 0);
-			qpnp_lbc_ibatmax_set(chip, QPNP_CHG_I_MAX_MIN_90);
+			chip->usb_psy_ma = QPNP_CHG_I_MAX_MIN_90;
+			qpnp_lbc_set_appropriate_current(chip);
 		} else {
-			qpnp_lbc_ibatmax_set(chip, current_ma);
+			chip->usb_psy_ma = current_ma;
+			qpnp_lbc_set_appropriate_current(chip);
 			qpnp_lbc_charger_enable(chip, CURRENT, 1);
 		}
 	}
@@ -970,32 +990,12 @@ skip_current_config:
 	power_supply_changed(&chip->batt_psy);
 }
 
-static void qpnp_lbc_set_appropriate_current(struct qpnp_lbc_chip *chip)
-{
-	unsigned int chg_current = QPNP_LBC_IBATMAX_MAX;
-	unsigned long flags;
-
-	spin_lock_irqsave(&chip->ibat_change_lock, flags);
-	if (chip->bat_is_cool)
-		chg_current = min(chg_current, chip->cfg_cool_bat_chg_ma);
-
-	if (chip->bat_is_warm)
-		chg_current = min(chg_current, chip->cfg_warm_bat_chg_ma);
-
-	if (chip->therm_lvl_sel != 0 && chip->thermal_mitigation)
-		chg_current = min(chg_current,
-			chip->thermal_mitigation[chip->therm_lvl_sel]);
-
-	pr_debug("setting charger current %d mA\n", chg_current);
-	qpnp_lbc_ibatmax_set(chip, chg_current);
-	spin_unlock_irqrestore(&chip->ibat_change_lock, flags);
-}
-
 static int qpnp_lbc_system_temp_level_set(struct qpnp_lbc_chip *chip,
 								int lvl_sel)
 {
 	int rc = 0;
 	int prev_therm_lvl;
+	unsigned long flags;
 
 	if (!chip->thermal_mitigation) {
 		pr_err("Thermal mitigation not supported\n");
@@ -1016,17 +1016,16 @@ static int qpnp_lbc_system_temp_level_set(struct qpnp_lbc_chip *chip,
 	if (lvl_sel == chip->therm_lvl_sel)
 		return 0;
 
+	spin_lock_irqsave(&chip->ibat_change_lock, flags);
 	prev_therm_lvl = chip->therm_lvl_sel;
 	chip->therm_lvl_sel = lvl_sel;
 	if (chip->therm_lvl_sel == (chip->cfg_thermal_levels - 1)) {
 		/* Disable charging if highest value selected by */
 		rc = qpnp_lbc_charger_enable(chip, THERMAL, 0);
-		if (rc < 0) {
+		if (rc < 0)
 			dev_err(chip->dev,
 				"Failed to set disable charging rc %d\n", rc);
-			return rc;
-		}
-		return rc;
+		goto out;
 	}
 
 	qpnp_lbc_set_appropriate_current(chip);
@@ -1042,7 +1041,8 @@ static int qpnp_lbc_system_temp_level_set(struct qpnp_lbc_chip *chip,
 				"Failed to enable charging rc %d\n", rc);
 		}
 	}
-
+out:
+	spin_unlock_irqrestore(&chip->ibat_change_lock, flags);
 	return rc;
 }
 
@@ -1272,6 +1272,7 @@ static void qpnp_lbc_jeita_adc_notification(enum qpnp_tm_state state, void *ctx)
 	struct qpnp_lbc_chip *chip = ctx;
 	bool bat_warm = 0, bat_cool = 0;
 	int temp;
+	unsigned long flags;
 
 	if (state >= ADC_TM_STATE_NUM) {
 		pr_err("invalid notification %d\n", state);
@@ -1284,7 +1285,7 @@ static void qpnp_lbc_jeita_adc_notification(enum qpnp_tm_state state, void *ctx)
 			state == ADC_TM_WARM_STATE ? "warm" : "cool");
 
 	if (state == ADC_TM_WARM_STATE) {
-		if (temp > chip->cfg_warm_bat_decidegc) {
+		if (temp >= chip->cfg_warm_bat_decidegc) {
 			/* Normal to warm */
 			bat_warm = true;
 			bat_cool = false;
@@ -1293,7 +1294,7 @@ static void qpnp_lbc_jeita_adc_notification(enum qpnp_tm_state state, void *ctx)
 					- HYSTERISIS_DECIDEGC;
 			chip->adc_param.state_request =
 				ADC_TM_COOL_THR_ENABLE;
-		} else if (temp >
+		} else if (temp >=
 			chip->cfg_cool_bat_decidegc + HYSTERISIS_DECIDEGC) {
 			/* Cool to normal */
 			bat_warm = false;
@@ -1307,7 +1308,7 @@ static void qpnp_lbc_jeita_adc_notification(enum qpnp_tm_state state, void *ctx)
 					ADC_TM_HIGH_LOW_THR_ENABLE;
 		}
 	} else {
-		if (temp < chip->cfg_cool_bat_decidegc) {
+		if (temp <= chip->cfg_cool_bat_decidegc) {
 			/* Normal to cool */
 			bat_warm = false;
 			bat_cool = true;
@@ -1316,7 +1317,7 @@ static void qpnp_lbc_jeita_adc_notification(enum qpnp_tm_state state, void *ctx)
 					+ HYSTERISIS_DECIDEGC;
 			chip->adc_param.state_request =
 					ADC_TM_WARM_THR_ENABLE;
-		} else if (temp < (chip->cfg_warm_bat_decidegc -
+		} else if (temp <= (chip->cfg_warm_bat_decidegc -
 					HYSTERISIS_DECIDEGC)){
 			/* Warm to normal */
 			bat_warm = false;
@@ -1332,10 +1333,12 @@ static void qpnp_lbc_jeita_adc_notification(enum qpnp_tm_state state, void *ctx)
 	}
 
 	if (chip->bat_is_cool ^ bat_cool || chip->bat_is_warm ^ bat_warm) {
+		spin_lock_irqsave(&chip->ibat_change_lock, flags);
 		chip->bat_is_cool = bat_cool;
 		chip->bat_is_warm = bat_warm;
 		qpnp_lbc_set_appropriate_vddmax(chip);
-		/* TODO: check current control in case if jeita */
+		qpnp_lbc_set_appropriate_current(chip);
+		spin_unlock_irqrestore(&chip->ibat_change_lock, flags);
 	}
 
 	pr_debug("warm %d, cool %d, low = %d deciDegC, high = %d deciDegC\n",
@@ -1627,6 +1630,7 @@ static irqreturn_t qpnp_lbc_usbin_valid_irq_handler(int irq, void *_chip)
 {
 	struct qpnp_lbc_chip *chip = _chip;
 	int usb_present;
+	unsigned long flags;
 
 	usb_present = qpnp_lbc_is_usb_chg_plugged_in(chip);
 	pr_debug("usbin-valid triggered: %d\n", usb_present);
@@ -1635,7 +1639,11 @@ static irqreturn_t qpnp_lbc_usbin_valid_irq_handler(int irq, void *_chip)
 		chip->usb_present = usb_present;
 		if (!usb_present) {
 			qpnp_lbc_charger_enable(chip, CURRENT, 0);
-			qpnp_lbc_ibatmax_set(chip, QPNP_CHG_I_MAX_MIN_90);
+			spin_lock_irqsave(&chip->ibat_change_lock, flags);
+			chip->usb_psy_ma = QPNP_CHG_I_MAX_MIN_90;
+			qpnp_lbc_set_appropriate_current(chip);
+			spin_unlock_irqrestore(&chip->ibat_change_lock,
+								flags);
 		} else {
 			qpnp_lbc_charger_enable(chip, CURRENT, 1);
 		}
