@@ -190,7 +190,10 @@ struct ice40_hcd {
 
 	struct spi_message *in_msg;
 	struct spi_transfer *in_xfr; /* size 2 */
-	u8 *in_buf; /* size 2 for reading from RBUF0 */
+	u8 *in_tx_buf0; /* Max Size 69 */
+	u8 *in_rx_buf0; /* Max Size 69 */
+	u8 *in_tx_buf1; /* size 3 for reading XFR status */
+	u8 *in_rx_buf1; /* size 3 for reading XFR status */
 
 	struct spi_message *out_msg;
 	struct spi_transfer *out_xfr; /* size 2 */
@@ -514,10 +517,14 @@ static int ice40_xfer_in(struct ice40_hcd *ihcd, struct urb *urb)
 	u8 epnum = usb_pipeendpoint(urb->pipe);
 	bool is_out = usb_pipeout(urb->pipe);
 	struct ice40_ep *iep = ep->hcpriv;
-	u8 cmd, status, len = 0, t, expected_len;
+	u8 cmd, status = 0, len = 0, t, expected_len, n_expected_len, rblen;
 	void *buf;
 	int ret;
-	bool short_packet = true;
+	bool short_packet = false;
+	int buf_num = 0;
+	bool first = true;
+	bool last = false;
+	u32 actual_len = urb->actual_length;
 
 	if (epnum == 0 && ihcd->ep0_state == STATUS_PHASE) {
 		expected_len = 0;
@@ -532,113 +539,201 @@ static int ice40_xfer_in(struct ice40_hcd *ihcd, struct urb *urb)
 
 	/*
 	 * IN transaction Handling:
-	 * - Program HCMD register to initiate the IN transaction.
-	 * - poll for completion by reading XFRST register.
-	 * - Interpret the result.
-	 * - If ACK is received and we expect some data, read RBLEN
-	 * - Read the data from RBUF
+	 * Here we use double buffering and also do the whole transfer as
+	 * single SPI message. As part of a message we will initiate a read
+	 * request to put the data in one of read buffers. Pull the data from
+	 * another read buffer (if available) which was initiated in previous
+	 * transfer and read status to check whether data we requested was
+	 * successfully put in read buffer.
+	 * Follwing is the sequence of steps for different stages of transfer
+	 * First : (a),(b),(c),(d)
+	 * Normal: (a),(e),(b),(c),(d)
+	 * Last:   (f),(e)
+	 * (a) Program HCMD register to initiate the IN transaction.
+	 * (b) Poll for completion by reading XFRST register.
+	 * (c) Interpret the result.
+	 * (d) If ACK is received and we expect some data to be placed in read
+	 *     buffer which we will read in next transfer
+	 * (e) Read the data from RBUF which was placed in previous transfer
+	 * (f) Read RBLEN_REG
 	 */
 
-	cmd = HCMD_PT(0) | HCMD_TOGV(t) | HCMD_BSEL(0) | HCMD_EP(epnum);
-	ice40_spi_reg_write(ihcd, cmd, HCMD_REG);
+	while (1) {
+		cmd = HCMD_PT(0) | HCMD_TOGV(t) | HCMD_BSEL(buf_num)
+			| HCMD_EP(epnum);
+		if (!expected_len || first) {
+			ihcd->in_tx_buf0[0] = WRITE_CMD(HCMD_REG);
+			ihcd->in_tx_buf0[1] = cmd;
+			ihcd->in_xfr[0].len = 2;  /* 2 (HCMD write) */
+		} else if (last) {
+			ihcd->in_tx_buf0[0] = READ_CMD(RBLEN_REG);
+			if (buf_num)
+				ihcd->in_tx_buf0[3] = READ_CMD(RBUF0_REG);
+			else
+				ihcd->in_tx_buf0[3] = READ_CMD(RBUF1_REG);
 
-	status = ice40_poll_xfer(ihcd, 1000);
+			/* 3 (RBLEN read)+ 66 (RBUF read) */
+			ihcd->in_xfr[0].len = 69;
+		} else {
+			ihcd->in_tx_buf0[0] = WRITE_CMD(HCMD_REG);
+			ihcd->in_tx_buf0[1] = cmd;
+			if (buf_num)
+				ihcd->in_tx_buf0[2] = READ_CMD(RBUF0_REG);
+			else
+				ihcd->in_tx_buf0[2] = READ_CMD(RBUF1_REG);
+
+			/* 2 (HCMD write)+ 66 (RBUF read) */
+			ihcd->in_xfr[0].len = 68;
+		}
+
+		ihcd->in_tx_buf1[0] = READ_CMD(XFRST_REG);
+
+		ret = spi_sync(ihcd->spi, ihcd->in_msg);
+		if (ret < 0) {
+			pr_err("SPI transfer failed\n");
+			ret = -EIO;
+			break;
+		}
+
+		/* We never read RBUF during first transfer */
+		if (!first) {
+			if (last)
+				len = ihcd->in_rx_buf0[2];
+			else
+				len = maxpacket;
+
+			/* babble condition */
+			if (len > expected_len) {
+				pr_err("overflow condition\n");
+				ret = -EOVERFLOW;
+				break;
+			}
+
+			/*
+			 * zero len packet received. nothing to read from
+			 * FIFO.
+			 */
+			if (len == 0) {
+				ret = 0;
+				break;
+			}
+			/* Copy data into urb buf from rx buf */
+			if (last)
+				memcpy(buf, &ihcd->in_rx_buf0[5], len);
+			else
+				memcpy(buf, &ihcd->in_rx_buf0[4], len);
+
+			urb->actual_length += len;
+			if ((urb->actual_length == total_len) ||
+					(len < expected_len) || short_packet) {
+				ret = 0; /* URB completed */
+				break;
+			} else {
+				ret = -EINPROGRESS; /* still pending */
+			}
+
+		}
+
+		if (expected_len)
+			expected_len = min_t(u32, maxpacket,
+					total_len - urb->actual_length);
+
+		/* During last we do not need to interpret status */
+		if (!last) {
+			status = ihcd->in_rx_buf1[2];
+
+			if (XFR_MASK(status) == XFR_BUSY)
+				status = ice40_poll_xfer(ihcd, 900);
 check_status:
-	switch (XFR_MASK(status)) {
-	case XFR_SUCCESS:
-		usb_dotoggle(udev, epnum, is_out);
-		iep->xcat_err = 0;
-		ret = 0;
-		if ((expected_len == 64) && (status & R64B))
-			short_packet = false;
-		break;
-	case XFR_NAK:
-		iep->xcat_err = 0;
-		ret = -EINPROGRESS;
-		break;
-	case XFR_TOGERR:
+			switch (XFR_MASK(status)) {
+			case XFR_SUCCESS:
+				usb_dotoggle(udev, epnum, is_out);
+				iep->xcat_err = 0;
+				ret = 0;
+				/*
+				 * if maxpacket == 64; use R64B. else read
+				 * RBLEN to figure out if it is short_packet
+				 */
+				if (maxpacket == 64) {
+					if (status & R64B)
+						short_packet = false;
+					else
+						short_packet = true;
+				} else {
+					rblen = ice40_spi_reg_read(ihcd,
+							RBLEN_REG);
+					if (rblen < maxpacket)
+						short_packet = true;
+					else
+						short_packet = false;
+				}
+				break;
+			case XFR_NAK:
+				iep->xcat_err = 0;
+				ret = -EINPROGRESS;
+				break;
+			case XFR_TOGERR:
+				/*
+				 * Peripheral had missed the previous Ack and
+				 * sent the same packet again. Ack is sent by
+				 * the hardware. As the data is received
+				 * already, ignore this event.
+				 */
+				ret = -EINPROGRESS;
+				break;
+			case XFR_PKTERR:
+			case XFR_PIDERR:
+			case XFR_WRONGPID:
+			case XFR_CRCERR:
+			case XFR_TIMEOUT:
+				if (++iep->xcat_err < 8)
+					ret = -EINPROGRESS;
+				else
+					ret = -EPROTO;
+				break;
+			case XFR_STALL:
+				status = ice40_poll_xfer(ihcd, 900);
+				/* Check if a fake STALL is reported */
+				if (XFR_MASK(status) != XFR_STALL)
+					goto check_status;
+				ret = -EPIPE;
+				break;
+			case XFR_BADLEN:
+				ret = -EOVERFLOW;
+				break;
+			default:
+				pr_err("transaction timed out\n");
+				ret = -EIO;
+			}
 		/*
-		 * Peripheral had missed the previous Ack and sent
-		 * the same packet again. Ack is sent by the hardware.
-		 * As the data is received already, ignore this
-		 * event.
+		 * Proceed further only if Ack is received and
+		 * we are expecting some data.
 		 */
-		ret = -EINPROGRESS;
-		break;
-	case XFR_PKTERR:
-	case XFR_PIDERR:
-	case XFR_WRONGPID:
-	case XFR_CRCERR:
-	case XFR_TIMEOUT:
-		if (++iep->xcat_err < 8)
-			ret = -EINPROGRESS;
+			if (ret || !expected_len)
+				break;
+		}
+
+		buf = urb->transfer_buffer + urb->actual_length;
+		t = usb_gettoggle(udev, epnum, is_out);
+		buf_num = buf_num ? 0 : 1;
+
+		first = false;
+
+		if (expected_len == maxpacket)
+			n_expected_len = min_t(u32, maxpacket, total_len -
+					(urb->actual_length + maxpacket));
 		else
-			ret = -EPROTO;
-		break;
-	case XFR_STALL:
-		status = ice40_poll_xfer(ihcd, 900);
-		/* Check if a fake STALL is reported */
-		if (XFR_MASK(status) != XFR_STALL)
-			goto check_status;
-		ret = -EPIPE;
-		break;
-	case XFR_BADLEN:
-		ret = -EOVERFLOW;
-		break;
-	default:
-		pr_err("transaction timed out\n");
-		ret = -EIO;
+			n_expected_len = 0;
+
+		if (n_expected_len == 0 || short_packet)
+			last = true;
+		else
+			last = false;
 	}
 
-	/*
-	 * Proceed further only if Ack is received and
-	 * we are expecting some data.
-	 */
-	if (ret || !expected_len)
-		goto out;
-
-	if (short_packet)
-		len = ice40_spi_reg_read(ihcd, RBLEN_REG);
-	else
-		len = 64;
-
-	/* babble condition */
-	if (len > expected_len) {
-		pr_err("overflow condition\n");
-		ret = -EOVERFLOW;
-		goto out;
-	}
-
-	/*
-	 * zero len packet received. nothing to read from
-	 * FIFO.
-	 */
-	if (len == 0) {
-		ret = 0;
-		goto out;
-	}
-
-	ihcd->in_buf[0] = READ_CMD(RBUF0_REG);
-
-	ihcd->in_xfr[1].rx_buf = buf;
-	ihcd->in_xfr[1].len = len;
-
-	ret = spi_sync(ihcd->spi, ihcd->in_msg);
-	if (ret < 0) {
-		pr_err("SPI transfer failed\n");
-		ret = -EIO;
-		goto out;
-	}
-
-	urb->actual_length += len;
-	if ((urb->actual_length == total_len) ||
-			(len < expected_len))
-		ret = 0; /* URB completed */
-	else
-		ret = -EINPROGRESS; /* still pending */
-out:
-	trace_ice40_in(epnum, xfr_status_string(status), len,
-			expected_len, ret);
+	trace_ice40_in(epnum, xfr_status_string(status),
+			urb->actual_length - actual_len,
+			total_len - actual_len, ret);
 	return ret;
 }
 
@@ -1993,11 +2088,24 @@ static int ice40_spi_init_xfrs(struct ice40_hcd *ihcd)
 	ret = ice40_spi_init_one_xfr(ihcd, DATA_IN_XFR);
 	if (ret < 0)
 		goto out;
-	ihcd->in_buf = devm_kzalloc(&ihcd->spi->dev, 2, GFP_KERNEL);
-	if (!ihcd->in_buf)
+	ihcd->in_tx_buf0 = devm_kzalloc(&ihcd->spi->dev, 69, GFP_KERNEL);
+	if (!ihcd->in_tx_buf0)
 		goto out;
-	ihcd->in_xfr[0].tx_buf = ihcd->in_buf;
-	ihcd->in_xfr[0].len = 2;
+	ihcd->in_rx_buf0 = devm_kzalloc(&ihcd->spi->dev, 69, GFP_KERNEL);
+	if (!ihcd->in_rx_buf0)
+		goto out;
+	ihcd->in_tx_buf1 = devm_kzalloc(&ihcd->spi->dev, 3, GFP_KERNEL);
+	if (!ihcd->in_tx_buf1)
+		goto out;
+	ihcd->in_rx_buf1 = devm_kzalloc(&ihcd->spi->dev, 3, GFP_KERNEL);
+	if (!ihcd->in_rx_buf1)
+		goto out;
+	ihcd->in_xfr[0].tx_buf = ihcd->in_tx_buf0;
+	ihcd->in_xfr[0].rx_buf = ihcd->in_rx_buf0;
+	ihcd->in_xfr[0].delay_usecs = 1;
+	ihcd->in_xfr[1].tx_buf = ihcd->in_tx_buf1;
+	ihcd->in_xfr[1].rx_buf = ihcd->in_rx_buf1;
+	ihcd->in_xfr[1].len = 3;
 
 	ret = ice40_spi_init_one_xfr(ihcd, DATA_OUT_XFR);
 	if (ret < 0)
