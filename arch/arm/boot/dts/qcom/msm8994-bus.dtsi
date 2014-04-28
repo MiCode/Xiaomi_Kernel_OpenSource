@@ -78,6 +78,7 @@
 			qcom,bypass-qos-prg;
 			qcom,base-name = "cnoc-base";
 			qcom,bus-type = <1>;
+			clock-names = "bus_clk", "bus_a_clk";
 			clocks = <&clock_rpm  clk_cnoc_msmbus_clk>,
 			      <&clock_rpm  clk_cnoc_msmbus_a_clk>;
 		};
