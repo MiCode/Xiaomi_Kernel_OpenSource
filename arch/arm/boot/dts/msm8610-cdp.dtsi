@@ -1,4 +1,4 @@
-/* Copyright (c) 2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -39,15 +39,15 @@
 				/* Object 6, Instance = 0 */
 				00 00 00 00 00 00
 				/* Object 38, Instance = 0 */
-				1D 03 00 1E 07 0D 00 00
+				1D 05 00 1D 0B 0D 00 00
 				/* Object 7, Instance = 0 */
-				20 08 32
+				20 0A 32
 				/* Object 8, Instance = 0 */
-				19 00 14 14 FF 00 FF 00 00 00
+				19 00 14 14 FF 00 05 00 32 19
 				/* Object 9, Instance = 0 */
 				83 00 00 13 0B 00 20 32 01 03
-				00 32 05 30 0A 05 0A 00 70 03
-				FC 01 04 2F F8 DC 00 00 40 00
+				00 0A 05 30 0A 05 0A 00 70 03
+				FC 01 04 2F 08 24 00 00 40 00
 				00 0A 00 00 02
 				/* Object 18, Instance = 0 */
 				00 00
@@ -59,16 +59,16 @@
 				00 00 00 00 00 00 00 00 00 00
 				00
 				/* Object 42, Instance = 0 */
-				00 00 00 00 00 00 00 00
+				03 19 1E 14 80 05 00 00
 				/* Object 46, Instance = 0 */
 				04 03 08 10 00 00 00 00 00
 				/* Object 47, Instance = 0 */
 				00 00 00 00 00 00 00 00 00 00
 				/* Object 48, Instance = 0 */
-				00 00 00 00 00 00 00 00 00 00
-				00 00 00 00 00 00 00 00 00 00
-				00 00 00 00 00 00 00 00 00 00
-				00 00 00 00 00 00 00 00 00 00
+				1D C0 22 00 00 00 00 00 00 00
+				20 19 00 06 06 00 00 64 04 40
+				00 00 00 05 00 2A 00 00 00 19
+				34 0C 00 00 00 00 00 00 00 00
 				00 00 00 00 00 00 00 00 00 00
 				00 00 00 00
 				/* Object 55, Instance = 0 */
