@@ -38,8 +38,8 @@
 			label = "uart-console";
 
 			uart_console_sleep: uart-console {
-				drive-strength = <16>;
-				bias-disable;
+				drive-strength = <2>;
+				bias-pull-down;
 			};
 		};
 
