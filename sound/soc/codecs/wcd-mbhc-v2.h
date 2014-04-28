@@ -26,6 +26,11 @@ enum wcd_mbhc_plug_type {
 	PLUG_TYPE_GND_MIC_SWAP,
 };
 
+enum pa_dac_ack_flags {
+	WCD_MBHC_HPHL_PA_OFF_ACK = 0,
+	WCD_MBHC_HPHR_PA_OFF_ACK,
+};
+
 struct wcd_mbhc_config {
 	bool read_fw_bin;
 	void *calibration;
@@ -59,6 +64,9 @@ struct wcd_mbhc {
 	bool gnd_swh; /*track GND switch NC / NO */
 
 	struct snd_soc_codec *codec;
+
+	/* track PA/DAC state to sync with userspace */
+	unsigned long hph_pa_dac_state;
 
 	/* impedance of hphl and hphr */
 	uint32_t zl, zr;
