@@ -673,8 +673,11 @@
 		vdd_pronto_pll-supply = <&pm8110_l10>;
 		qcom,proxy-reg-names = "vdd_pronto_pll";
 		qcom,vdd_pronto_pll-uV-uA = <1800000 18000>;
-		clock-names = "xo";
-		qcom,proxy-clock-names = "xo";
+		clock-names = "xo", "scm_core_clk", "scm_iface_clk",
+				"scm_bus_clk", "scm_core_clk_src";
+		qcom,proxy-clock-names = "xo", "scm_core_clk", "scm_iface_clk",
+					"scm_bus_clk", "scm_core_clk_src";
+		qcom,scm_core_clk_src-freq = <50000000>;
 
 		qcom,pas-id = <6>;
 		qcom,proxy-timeout-ms = <10000>;
@@ -928,9 +931,12 @@
 		vdd_cx-supply = <&pm8110_s1_corner>;
 		qcom,proxy-reg-names = "vdd_cx";
 		qcom,vdd_cx-uV-uA = <7 100000>;
-		clock-names = "bus_clk", "xo";
+		clock-names = "bus_clk", "xo", "scm_core_clk", "scm_iface_clk",
+				"scm_bus_clk", "scm_core_clk_src";
 		qcom,active-clock-names = "bus_clk";
-		qcom,proxy-clock-names = "xo";
+		qcom,proxy-clock-names = "xo", "scm_core_clk", "scm_iface_clk",
+					"scm_bus_clk", "scm_core_clk_src";
+		qcom,scm_core_clk_src-freq = <50000000>;
 
 		qcom,pas-id = <1>;
 		qcom,proxy-timeout-ms = <10000>;

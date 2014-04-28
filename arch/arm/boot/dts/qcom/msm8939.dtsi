@@ -1025,9 +1025,19 @@
 		qcom,proxy-reg-names = "vdd";
 		clocks = <&clock_gcc clk_gcc_venus0_vcodec0_clk>,
 			 <&clock_gcc clk_gcc_venus0_ahb_clk>,
-			 <&clock_gcc clk_gcc_venus0_axi_clk>;
-		clock-names = "core_clk", "iface_clk", "bus_clk";
-		qcom,proxy-clock-names = "core_clk", "iface_clk", "bus_clk";
+			 <&clock_gcc clk_gcc_venus0_axi_clk>,
+			 <&clock_gcc clk_gcc_crypto_clk>,
+			 <&clock_gcc clk_gcc_crypto_ahb_clk>,
+			 <&clock_gcc clk_gcc_crypto_axi_clk>,
+			 <&clock_gcc clk_crypto_clk_src>;
+
+		clock-names = "core_clk", "iface_clk", "bus_clk",
+				"scm_core_clk", "scm_iface_clk", "scm_bus_clk",
+				"scm_core_clk_src";
+		qcom,proxy-clock-names = "core_clk", "iface_clk", "bus_clk",
+				    "scm_core_clk", "scm_iface_clk", "scm_bus_clk",
+				    "scm_core_clk_src";
+		qcom,scm_core_clk_src = <80000000>;
 
 		qcom,pas-id = <9>;
 		qcom,proxy-timeout-ms = <5000>;

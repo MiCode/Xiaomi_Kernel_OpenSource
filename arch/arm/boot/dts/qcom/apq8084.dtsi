@@ -2982,10 +2982,13 @@
 
 		vdd-supply = <&gdsc_venus>;
 		qcom,proxy-reg-names = "vdd";
-		clock-names = "core_clk", "iface_clk",
-				"bus_clk", "mem_clk";
-		qcom,proxy-clock-names = "core_clk", "iface_clk",
-					"bus_clk", "mem_clk";
+		clock-names = "core_clk", "iface_clk", "bus_clk", "mem_clk",
+				"scm_core_clk", "scm_iface_clk", "scm_bus_clk",
+				"scm_core_clk_src";
+		qcom,proxy-clock-names = "core_clk", "iface_clk", "bus_clk",
+				"mem_clk", "scm_core_clk", "scm_iface_clk",
+				"scm_bus_clk", "scm_core_clk_src";
+		qcom,scm_core_clk_src-freq = <85710000>;
 
 		qcom,msm-bus,name = "pil-venus";
 		qcom,msm-bus,num-cases = <2>;
@@ -3008,9 +3011,12 @@
 		vdd_cx-supply = <&pma8084_s2_corner>;
 		qcom,proxy-reg-names = "vdd_cx";
 		qcom,vdd_cx-uV-uA = <7 100000>;
-		clock-names = "bus_clk", "xo";
+		clock-names = "bus_clk", "xo", "scm_core_clk", "scm_iface_clk",
+				"scm_bus_clk", "scm_core_clk_src";
 		qcom,active-clock-names = "bus_clk";
-		qcom,proxy-clock-names = "xo";
+		qcom,proxy-clock-names = "xo", "scm_core_clk", "scm_iface_clk",
+				"scm_bus_clk", "scm_core_clk_src";
+		qcom,scm_core_clk_src-freq = <85710000>;
 
 		qcom,pas-id = <1>;
 		qcom,proxy-timeout-ms = <10000>;
@@ -3782,10 +3788,15 @@
 		qcom,active-reg-names = "vdd";
 		clock-names = "core_clk", "iface_clk", "bus_clk",
 				"vdp_clk", "vdp_bus_clk", "cxo_clk",
-				"sleep_clk", "maple_bus_clk";
+				"sleep_clk", "maple_bus_clk", "scm_core_clk",
+				"scm_iface_clk", "scm_bus_clk",
+				"scm_core_clk_src";
 		qcom,proxy-clock-names = "core_clk", "iface_clk", "bus_clk",
 					"vdp_clk", "vdp_bus_clk", "cxo_clk",
-					"sleep_clk", "maple_bus_clk";
+					"sleep_clk", "maple_bus_clk",
+					"scm_core_clk", "scm_iface_clk",
+					"scm_bus_clk", "scm_core_clk_src";
+		qcom,scm_core_clk_src-freq = <85710000>;
 
 		qcom,pas-id = <10>;
 		qcom,proxy-timeout-ms = <10000>;
