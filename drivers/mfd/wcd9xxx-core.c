@@ -454,7 +454,12 @@ static const struct wcd9xxx_codec_type wcd9xxx_codecs[] = {
 	},
 	{
 		TOMTOM_MAJOR, cpu_to_le16(0x0), tomtom_devs,
-		ARRAY_SIZE(tomtom_devs), TOMTOM_NUM_IRQS, -1,
+		ARRAY_SIZE(tomtom_devs), TOMTOM_NUM_IRQS, 1,
+		WCD9XXX_SLIM_SLAVE_ADDR_TYPE_TAIKO, 0x01
+	},
+	{
+		TOMTOM_MAJOR, cpu_to_le16(0x1), tomtom_devs,
+		ARRAY_SIZE(tomtom_devs), TOMTOM_NUM_IRQS, 2,
 		WCD9XXX_SLIM_SLAVE_ADDR_TYPE_TAIKO, 0x01
 	},
 };
