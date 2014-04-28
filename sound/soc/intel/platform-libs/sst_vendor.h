@@ -26,6 +26,8 @@
 
 #define SOC_CONTROL_TYPE_SST_GAIN		100
 #define SOC_CONTROL_TYPE_SST_MUTE		101
+#define SOC_CONTROL_TYPE_SST_ALGO_PARAMS	102
+#define SOC_CONTROL_TYPE_SST_ALGO_BYPASS	103
 
 /* REVISIT: Define sst kcontrol index */
 #define SOC_CONTROL_IO_SST_GAIN\
@@ -38,6 +40,16 @@
 		SOC_CONTROL_TYPE_SST_GAIN, \
 		SOC_CONTROL_TYPE_BOOL_EXT)
 
+#define SOC_CONTROL_IO_SST_ALGO_PARAMS\
+	SOC_CONTROL_ID(SOC_CONTROL_TYPE_SST_ALGO_PARAMS, \
+		SOC_CONTROL_TYPE_SST_ALGO_PARAMS, \
+		SOC_CONTROL_TYPE_BYTES_EXT)
+
+
+#define SOC_CONTROL_IO_SST_ALGO_BYPASS\
+	SOC_CONTROL_ID(SOC_CONTROL_TYPE_SST_ALGO_PARAMS, \
+		SOC_CONTROL_TYPE_SST_ALGO_PARAMS, \
+		SOC_CONTROL_TYPE_BOOL_EXT)
 #define SND_SOC_GAIN_CONTROL_NAME 44
 
 enum sst_vendor_type {
@@ -66,6 +78,23 @@ struct sst_dfw_gain_data {
 	s16 r_gain;
 	u8 mute;
 	char pname[44];
+} __packed;
+
+enum sst_algo_kcontrol_type {
+	SST_ALGO_PARAMS,
+	SST_ALGO_BYPASS,
+};
+
+struct sst_dfw_algo_data {
+	enum sst_algo_kcontrol_type type;
+	s32 max;
+	u16 module_id;
+	u16 pipe_id;
+	u16 task_id;
+	u16 cmd_id;
+	u8 bypass;
+	char params[0];
+	/* params will be in driver's pvt structure */
 } __packed;
 
 #if 0

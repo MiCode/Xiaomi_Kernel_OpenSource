@@ -2020,7 +2020,42 @@ static int sst_map_modules_to_pipe(struct snd_soc_platform *platform)
 const struct snd_soc_fw_kcontrol_ops control_ops[] = {
 	{SOC_CONTROL_IO_SST_GAIN, sst_gain_get, sst_gain_put, snd_soc_info_volsw},
 	{SOC_CONTROL_IO_SST_MUTE, sst_gain_get, sst_gain_put, snd_soc_info_bool_ext},
+	{SOC_CONTROL_IO_SST_ALGO_PARAMS, sst_algo_control_get, sst_algo_control_set, snd_soc_info_bytes_ext},
+	{SOC_CONTROL_IO_SST_ALGO_BYPASS, sst_algo_control_get, sst_algo_control_set, snd_soc_info_bool_ext},
 };
+
+static int sst_copy_algo_control(struct snd_soc_platform *platform,
+		struct soc_bytes_ext *be, struct snd_soc_fw_bytes_ext *mbe)
+{
+	struct sst_algo_data *ac;
+	struct sst_dfw_algo_data *fw_ac = (struct sst_dfw_algo_data *)mbe->pvt_data;
+	ac = devm_kzalloc(platform->dev, sizeof(*ac), GFP_KERNEL);
+	if (!ac) {
+		pr_err("kzalloc failed\n");
+		return -ENOMEM;
+	}
+
+	/* Fill private data */
+	ac->type = fw_ac->type;
+	ac->max = fw_ac->max;
+	ac->module_id = fw_ac->module_id;
+	ac->pipe_id = fw_ac->pipe_id;
+	ac->task_id = fw_ac->task_id;
+	ac->cmd_id = fw_ac->cmd_id;
+	ac->bypass = fw_ac->bypass;
+	if (fw_ac->params) {
+		ac->params = devm_kzalloc(platform->dev, fw_ac->max, GFP_KERNEL);
+		if (ac->params == NULL) {
+			pr_err("kzalloc failed\n");
+			return -ENOMEM;
+		} else {
+			memcpy(ac->params, fw_ac->params, fw_ac->max);
+		}
+	}
+	be->pvt_data  = (char *)ac;
+	be->pvt_data_len = sizeof(struct sst_algo_data) + ac->max;
+	return 0;
+}
 
 static int sst_copy_gain_control(struct snd_soc_platform *platform,
 		struct soc_mixer_control *sm, struct snd_soc_fw_mixer_control *mc)
@@ -2076,6 +2111,10 @@ int sst_fw_kcontrol_find_io(struct snd_soc_platform *platform,
 			case SOC_CONTROL_TYPE_SST_GAIN:
 				sst_copy_gain_control(platform, (struct soc_mixer_control *)sm,
 						(struct snd_soc_fw_mixer_control *)mc);
+				break;
+			case SOC_CONTROL_TYPE_SST_ALGO_PARAMS:
+				sst_copy_algo_control(platform, (struct soc_bytes_ext *)sm,
+						(struct snd_soc_fw_bytes_ext *)mc);
 				break;
 			default:
 				break;
@@ -2196,8 +2235,6 @@ int sst_dsp_init_v2_dpcm_dfw(struct snd_soc_platform *platform)
 		pr_err("Control load failed%d\n", ret);
 		return -EINVAL;
 	}
-	snd_soc_add_platform_controls(platform, sst_algo_controls,
-			ARRAY_SIZE(sst_algo_controls));
 	snd_soc_add_platform_controls(platform, sst_slot_controls,
 			ARRAY_SIZE(sst_slot_controls));
 	snd_soc_add_platform_controls(platform, sst_mux_controls,

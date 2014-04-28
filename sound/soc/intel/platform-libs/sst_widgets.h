@@ -238,11 +238,6 @@ struct sst_gain_value {
 #define SST_GAIN_MIN_VALUE	-1440 /* in 0.1 DB units */
 #define SST_GAIN_MAX_VALUE	360
 
-enum sst_algo_kcontrol_type {
-	SST_ALGO_PARAMS,
-	SST_ALGO_BYPASS,
-};
-
 struct sst_algo_data {
 	enum sst_algo_kcontrol_type type;
 	int max;
