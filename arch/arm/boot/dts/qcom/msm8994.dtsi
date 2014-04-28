@@ -1216,3 +1216,4 @@
 #include "msm8994-ion.dtsi"
 #include "msm8994-iommu.dtsi"
 #include "msm8994-iommu-domains.dtsi"
+#include "msm8994-camera.dtsi"
