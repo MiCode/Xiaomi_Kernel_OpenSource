@@ -160,9 +160,12 @@ enum {
 	SST_SSP_LAST = SST_SSP2,
 };
 
-#define SST_NUM_SSPS		(SST_SSP_LAST + 1)	/* physical SSPs */
-#define SST_MAX_SSP_MUX		2			/* single SSP muxed between pipes */
-#define SST_MAX_SSP_DOMAINS	2			/* domains present in each pipe */
+/* physical SSPs */
+#define SST_NUM_SSPS		(SST_SSP_LAST + 1)
+/* single SSP muxed between pipes */
+#define SST_MAX_SSP_MUX		2
+/* domains present in each pipe */
+#define SST_MAX_SSP_DOMAINS	3
 
 #define SST_SSP_FM_MUX			0
 #define SST_SSP_FM_DOMAIN		0
@@ -233,4 +236,3 @@ struct sst_platform_data {
 int sst_audio_platform_init(int dev_id);
 
 #endif
-

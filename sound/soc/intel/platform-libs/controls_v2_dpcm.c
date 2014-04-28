@@ -416,9 +416,10 @@ static int sst_slot_put(struct snd_kcontrol *kcontrol,
 }
 
 /* assumes a boolean mux */
-static inline bool get_mux_state(struct sst_data *sst, unsigned int reg, unsigned int shift)
+static inline int get_mux_state(struct sst_data *sst,
+				  unsigned int reg, unsigned int shift)
 {
-	return sst_reg_read(sst, reg, shift, 1) == 1;
+	return sst_reg_read(sst, reg, shift, 2);
 }
 
 int sst_vtsv_event_get(struct snd_kcontrol *kcontrol,
@@ -1155,7 +1156,6 @@ void send_ssp_cmd(struct snd_soc_platform *platform, const char *id, bool enable
 	mux = (mux_shift == -1) ? 0 : get_mux_state(sst, SST_MUX_REG, mux_shift);
 	domain_shift = sst->pdata->domain_shift[ssp_no][mux];
 	domain = (domain_shift == -1) ? 0 : get_mux_state(sst, SST_MUX_REG, domain_shift);
-
 	config = &(sst->pdata->ssp_config)[ssp_no][mux][domain];
 	pr_debug("%s: ssp_id: %u, mux: %d, domain: %d\n", __func__,
 		 config->ssp_id, mux, domain);
@@ -1897,7 +1897,7 @@ static const struct snd_soc_dapm_route intercon[] = {
 };
 
 static const char * const sst_nb_wb_texts[] = {
-	"narrowband", "wideband",
+	"narrowband", "wideband", "a2dp"
 };
 
 static const struct snd_kcontrol_new sst_mux_controls[] = {

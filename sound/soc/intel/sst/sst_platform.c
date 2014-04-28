@@ -128,8 +128,9 @@ static const int sst_ssp_domain_shift[SST_NUM_SSPS][SST_MAX_SSP_MUX] = {
 #define SST_SSP_BT_MUX			1
 #define SST_SSP_BT_NB_DOMAIN		0
 #define SST_SSP_BT_WB_DOMAIN		1
+#define SST_SSP_BT_A2DP_DOMAIN		2
 
-/**
+/*
  * sst_ssp_config - contains SSP configuration for different UCs
  *
  * The 3-D array contains SSP configuration for different SSPs for different
@@ -139,6 +140,7 @@ static const int sst_ssp_domain_shift[SST_NUM_SSPS][SST_MAX_SSP_MUX] = {
  * The second dimension has SSP Muxing (e.g. BT/FM muxed on same SSP)
  * The third dimension has SSP domains (e.g. NB/WB for BT)
  */
+
 static const struct sst_ssp_config
 sst_ssp_configs_mrfld[SST_NUM_SSPS][SST_MAX_SSP_MUX][SST_MAX_SSP_DOMAINS] = {
 	[SST_SSP0] = {
@@ -166,14 +168,14 @@ sst_ssp_configs_mrfld[SST_NUM_SSPS][SST_MAX_SSP_MUX][SST_MAX_SSP_DOMAINS] = {
 				.bits_per_slot = 16,
 				.slots = 2,
 				.ssp_mode = SSP_MODE_MASTER,
-				.pcm_mode = SSP_PCM_MODE_NORMAL,
+				.pcm_mode = SSP_PCM_MODE_NETWORK,
 				.data_polarity = 1,
-				.duplex = SSP_DUPLEX,
-				.ssp_protocol = SSP_MODE_I2S,
-				.fs_width = 32,
+				.duplex = SSP_RX,
+				.ssp_protocol = SSP_MODE_PCM,
+				.fs_width = 1,
 				.fs_frequency = SSP_FS_48_KHZ,
 				.active_slot_map = 0x3,
-				.start_delay = 0,
+				.start_delay = 1,
 			},
 		},
 		[SST_SSP_BT_MUX] = {
@@ -205,6 +207,20 @@ sst_ssp_configs_mrfld[SST_NUM_SSPS][SST_MAX_SSP_MUX][SST_MAX_SSP_DOMAINS] = {
 				.active_slot_map = 0x1,
 				.start_delay = 1,
 			},
+			[SST_SSP_BT_A2DP_DOMAIN] = {
+				.ssp_id = SSP_BT,
+				.bits_per_slot = 16,
+				.slots = 2,
+				.ssp_mode = SSP_MODE_MASTER,
+				.pcm_mode = SSP_PCM_MODE_NETWORK,
+				.duplex = SSP_TX,
+				.ssp_protocol = SSP_MODE_PCM,
+				.fs_width = 1,
+				.fs_frequency = SSP_FS_48_KHZ,
+				.active_slot_map = 0x3,
+				.start_delay = 1,
+			},
+
 		},
 	},
 	[SST_SSP2] = {
