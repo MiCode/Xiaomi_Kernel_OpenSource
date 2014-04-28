@@ -109,7 +109,8 @@ enum mdss_mdp_ctl_index {
 #define MDSS_MDP_REG_CTL_OFFSET(ctl) (0x00600 + ((ctl) * \
 					 MDSS_MDP_CTL_ADDRESS_OFFSET))
 
-#define MDSS_MDP_REG_CTL_LAYER(lm)			((lm) * 0x004)
+#define MDSS_MDP_REG_CTL_LAYER(lm)	\
+			((lm == 5) ? (0x024) : ((lm) * 0x004))
 #define MDSS_MDP_REG_CTL_TOP				0x014
 #define MDSS_MDP_REG_CTL_FLUSH				0x018
 #define MDSS_MDP_REG_CTL_START				0x01C
