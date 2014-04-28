@@ -63,6 +63,17 @@ config DEBUG_USER
 	      8 - SIGSEGV faults
 	     16 - SIGBUS faults
 
+config FORCE_PAGES
+	bool "Force lowmem to be mapped with 4K pages"
+        help
+          There are some advanced debug features that can only be done when
+          memory is mapped with pages instead of sections. Enable this option
+          to always map lowmem pages with pages. This may have a performance
+          cost due to increased TLB pressure.
+
+          If unsure say N.
+
+
 # These options are only for real kernel hackers who want to get their hands dirty.
 config DEBUG_LL
 	bool "Kernel low-level debugging functions (read help!)"

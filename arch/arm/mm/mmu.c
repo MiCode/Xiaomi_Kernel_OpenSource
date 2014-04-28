@@ -344,11 +344,13 @@ int set_memory_##_name(unsigned long addr, int numpages) \
 	unsigned long size = PAGE_SIZE*numpages; \
 	unsigned end = start + size; \
 \
-	if (start < MODULES_VADDR || start >= MODULES_END) \
-		return -EINVAL;\
+	if (!IS_ENABLED(CONFIG_FORCE_PAGES)) { \
+		if (start < MODULES_VADDR || start >= MODULES_END) \
+			return -EINVAL;\
 \
-	if (end < MODULES_VADDR || end >= MODULES_END) \
-		return -EINVAL; \
+		if (end < MODULES_VADDR || end >= MODULES_END) \
+			return -EINVAL; \
+	} \
 \
 	apply_to_page_range(&init_mm, start, size, callback, NULL); \
 	flush_tlb_kernel_range(start, end); \
@@ -1507,6 +1509,100 @@ static void __init map_lowmem(void)
 	}
 }
 
+#ifdef CONFIG_FORCE_PAGES
+/*
+ * remap a PMD into pages
+ * We split a single pmd here none of this two pmd nonsense
+ */
+static noinline void split_pmd(pmd_t *pmd, unsigned long addr,
+				unsigned long end, unsigned long pfn,
+				const struct mem_type *type)
+{
+	pte_t *pte, *start_pte;
+
+	start_pte = early_alloc(PTE_HWTABLE_OFF + PTE_HWTABLE_SIZE);
+
+	pte = start_pte;
+
+	do {
+		set_pte_ext(pte, pfn_pte(pfn, type->prot_pte), 0);
+		pfn++;
+	} while (pte++, addr += PAGE_SIZE, addr != end);
+
+	*pmd = __pmd((__pa(start_pte) + PTE_HWTABLE_OFF) | type->prot_l1);
+	mb();
+	flush_pmd_entry(pmd);
+	flush_tlb_all();
+}
+
+/*
+ * It's significantly easier to remap as pages later after all memory is
+ * mapped. Everything is sections so all we have to do is split
+ */
+static void __init remap_pages(void)
+{
+	struct memblock_region *reg;
+
+	for_each_memblock(memory, reg) {
+		phys_addr_t phys_start = reg->base;
+		phys_addr_t phys_end = reg->base + reg->size;
+		unsigned long addr = (unsigned long)__va(phys_start);
+		unsigned long end = (unsigned long)__va(phys_end);
+		pmd_t *pmd = NULL;
+		unsigned long next;
+		unsigned long pfn = __phys_to_pfn(phys_start);
+		bool fixup = false;
+		unsigned long saved_start = addr;
+
+		if (phys_end > arm_lowmem_limit)
+			end = (unsigned long)__va(arm_lowmem_limit);
+		if (phys_start >= phys_end)
+			break;
+
+		pmd = pmd_offset(
+			pud_offset(pgd_offset(&init_mm, addr), addr), addr);
+
+#ifndef	CONFIG_ARM_LPAE
+		if (addr & SECTION_SIZE) {
+			fixup = true;
+			pmd_empty_section_gap((addr - SECTION_SIZE) & PMD_MASK);
+			pmd++;
+		}
+
+		if (end & SECTION_SIZE)
+			pmd_empty_section_gap(end);
+#endif
+
+		do {
+			next = addr + SECTION_SIZE;
+
+			if (pmd_none(*pmd) || pmd_bad(*pmd))
+				split_pmd(pmd, addr, next, pfn,
+						&mem_types[MT_MEMORY]);
+			pmd++;
+			pfn += SECTION_SIZE >> PAGE_SHIFT;
+
+		} while (addr = next, addr < end);
+
+		if (fixup) {
+			/*
+			 * Put a faulting page table here to avoid detecting no
+			 * pmd when accessing an odd section boundary. This
+			 * needs to be faulting to help catch errors and avoid
+			 * speculation
+			 */
+			pmd = pmd_off_k(saved_start);
+			pmd[0] = pmd[1] & ~1;
+		}
+	}
+}
+#else
+static void __init remap_pages(void)
+{
+
+}
+#endif
+
 /*
  * paging_init() sets up the page tables, initialises the zone memory
  * maps, and sets up the zero page, bad page and bad page tables.
@@ -1521,6 +1617,7 @@ void __init paging_init(struct machine_desc *mdesc)
 	prepare_page_table();
 	map_lowmem();
 	dma_contiguous_remap();
+	remap_pages();
 	devicemaps_init(mdesc);
 	kmap_init();
 
