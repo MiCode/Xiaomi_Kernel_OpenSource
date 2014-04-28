@@ -81,8 +81,6 @@ Parent node Optional properties
 			the fifo_update_done interrupt. Possile values - 0 to 8
 - qcom,s2-fifo-legth:	Number of FIFO's to be filled in state S2, to generate
 			the fifo_update_done interrupt. Possible values- 0 to 8
-- qcom,force-s2-in-charging: Bool property to force the BMS into S2 (CV) state
-			during charging
 - qcom,force-s3-on-suspend : Bool property to force the BMS into S3 (sleep) state
 			while entering into system suspend.
 - qcom,report-charger-eoc : Bool property to indicate if BMS needs to indicate
