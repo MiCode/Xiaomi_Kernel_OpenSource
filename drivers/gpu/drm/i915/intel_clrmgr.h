@@ -30,20 +30,24 @@
 #define _I915_CLR_MNGR_H_
 
 struct cont_brightlut {
-	short sprite_no;
+	u32 sprite_no;
 	u32 val;
 };
 
 struct hue_saturationlut {
-	short sprite_no;
+	u32 sprite_no;
 	u32 val;
 };
 /* CSC correction */
+#define CLRMGR_BASE   16
 #define CSC_MAX_COEFF_COUNT		6
 #define CLR_MGR_PARSE_MAX		128
 #define PIPECONF_GAMMA			(1<<24)
 #define GAMMA_CORRECT_MAX_COUNT 256
+#define GC_MAX_COUNT 3
 #define GAMMA_SP_MAX_COUNT		6
+#define CB_MAX_COEFF_COUNT      2
+#define HS_MAX_COEFF_COUNT      2
 /* Gamma correction defines */
 #define GAMMA_MAX_VAL			1024
 #define SHIFTBY6(val) (val<<6)
@@ -83,10 +87,11 @@ enum clrmgrfeatures {
 /* Required for sysfs entry calls */
 extern u32 csc_softlut[CSC_MAX_COEFF_COUNT];
 extern u32 gamma_softlut[GAMMA_CORRECT_MAX_COUNT];
+extern u32 gcmax_softlut[GC_MAX_COUNT];
 extern u32 gamma_sprite_softlut[GAMMA_SP_MAX_COUNT];
 
 /* Prototypes */
-int parse_clrmgr_input(uint *dest, char *src, int max, int read);
+int parse_clrmgr_input(uint *dest, char *src, int max, int *num_bytes);
 int do_intel_enable_csc(struct drm_device *dev, void *data,
 				struct drm_crtc *crtc);
 void do_intel_disable_csc(struct drm_device *dev, struct drm_crtc *crtc);
