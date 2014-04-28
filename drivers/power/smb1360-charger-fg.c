@@ -229,6 +229,7 @@ struct smb1360_chip {
 	bool				batt_full;
 	bool				resume_completed;
 	bool				irq_waiting;
+	bool				empty_soc;
 	int				workaround_flags;
 	u8				irq_cfg_mask[3];
 	int				usb_psy_ma;
@@ -611,10 +612,16 @@ static int smb1360_get_prop_batt_health(struct smb1360_chip *chip)
 static int smb1360_get_prop_batt_capacity(struct smb1360_chip *chip)
 {
 	u8 reg;
+	u32 temp = 0;
 	int rc, soc = 0;
 
 	if (chip->fake_battery_soc >= 0)
 		return chip->fake_battery_soc;
+
+	if (chip->empty_soc) {
+		pr_debug("empty_soc\n");
+		return 0;
+	}
 
 	rc = smb1360_read(chip, SHDW_FG_MSYS_SOC, &reg);
 	if (rc) {
@@ -622,6 +629,10 @@ static int smb1360_get_prop_batt_capacity(struct smb1360_chip *chip)
 		return rc;
 	}
 	soc = (100 * reg) / MAX_8_BITS;
+
+	temp = (100 * reg) % MAX_8_BITS;
+	if (temp > (MAX_8_BITS / 2))
+		soc += 1;
 
 	pr_debug("msys_soc_reg=0x%02x, fg_soc=%d batt_full = %d\n", reg,
 						soc, chip->batt_full);
@@ -1067,6 +1078,13 @@ static int chg_inhibit_handler(struct smb1360_chip *chip, u8 rt_stat)
 	return 0;
 }
 
+static int delta_soc_handler(struct smb1360_chip *chip, u8 rt_stat)
+{
+	pr_debug("SOC changed! - rt_stat = 0x%02x\n", rt_stat);
+
+	return 0;
+}
+
 static int min_soc_handler(struct smb1360_chip *chip, u8 rt_stat)
 {
 	/*
@@ -1090,8 +1108,12 @@ static int min_soc_handler(struct smb1360_chip *chip, u8 rt_stat)
 
 static int empty_soc_handler(struct smb1360_chip *chip, u8 rt_stat)
 {
-	if (rt_stat)
+	if (rt_stat) {
 		pr_warn("SOC is 0\n");
+		chip->empty_soc = true;
+	} else {
+		chip->empty_soc = false;
+	}
 
 	return 0;
 }
@@ -1238,6 +1260,7 @@ static struct irq_handler_info handlers[] = {
 		{
 			{
 				.name		= "delta_soc",
+				.smb_irq	= delta_soc_handler,
 			},
 			{
 				.name		= "chg_error",
