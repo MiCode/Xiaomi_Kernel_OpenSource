@@ -22,6 +22,7 @@
 
 #include <sound/soc.h>
 #include <sound/tlv.h>
+#include "sst_vendor.h"
 
 #define SST_MODULE_GAIN 1
 #define SST_MODULE_ALGO 2
@@ -141,12 +142,6 @@ struct sst_ids {
 	.priv = (void *)&(struct sst_ids) { .task_id = wtask, .location_id = wloc_id,	\
 					    .reg = wreg }				\
 }
-
-enum sst_gain_kcontrol_type {
-	SST_GAIN_TLV,
-	SST_GAIN_MUTE,
-	SST_GAIN_RAMP_DURATION,
-};
 
 struct sst_gain_data {
 	bool stereo;

@@ -23,6 +23,8 @@
 #include <asm/platform_sst_audio.h>
 #include <sound/soc.h>
 #include <sound/tlv.h>
+#include <linux/firmware.h>
+#include <sound/soc-fw.h>
 #include "../platform_ipc_v2.h"
 #include "../sst_platform.h"
 #include "../sst_platform_pvt.h"
@@ -1651,6 +1653,7 @@ static const struct snd_kcontrol_new sst_probe_controls[] = {
 		SST_MODULE_ID_VOLUME, path_id, instance, task_id,			\
 		sst_gain_tlv_common, gain_var)
 
+
 #define SST_NUM_GAINS 36
 static struct sst_gain_value sst_gains[SST_NUM_GAINS];
 
@@ -2014,6 +2017,88 @@ static int sst_map_modules_to_pipe(struct snd_soc_platform *platform)
 	return 0;
 }
 
+const struct snd_soc_fw_kcontrol_ops control_ops[] = {
+	{SOC_CONTROL_IO_SST_GAIN, sst_gain_get, sst_gain_put, snd_soc_info_volsw},
+	{SOC_CONTROL_IO_SST_MUTE, sst_gain_get, sst_gain_put, snd_soc_info_bool_ext},
+};
+
+static int sst_copy_gain_control(struct snd_soc_platform *platform,
+		struct soc_mixer_control *sm, struct snd_soc_fw_mixer_control *mc)
+{
+	struct sst_gain_data *mc_pvt;
+	struct sst_dfw_gain_data *gc = (struct sst_dfw_gain_data *)mc->pvt_data;
+	mc_pvt = devm_kzalloc(platform->dev, sizeof(*mc_pvt), GFP_KERNEL);
+	if (!mc_pvt) {
+		pr_err("kzalloc failed\n");
+		return -ENOMEM;
+	}
+	/* Fill private data */
+	mc_pvt->stereo = gc->stereo;
+	mc_pvt->type = gc->type;
+	/* TODO: Dynamic allocation of sst_gains BZ: 194894 */
+	mc_pvt->gain_val = &sst_gains[gc->gain_val_index];
+	mc_pvt->max = gc->max;
+	mc_pvt->min = gc->min;
+	mc_pvt->instance_id = gc->instance_id;
+	mc_pvt->module_id = gc->module_id;
+	mc_pvt->pipe_id = gc->pipe_id;
+	mc_pvt->task_id = gc->task_id;
+	strncpy(mc_pvt->pname, gc->pname, SND_SOC_GAIN_CONTROL_NAME);
+	switch (gc->type) {
+	case SST_GAIN_TLV:
+		sst_gains[gc->gain_val_index].l_gain = gc->l_gain;
+		sst_gains[gc->gain_val_index].r_gain = gc->r_gain;
+		break;
+	case SST_GAIN_MUTE:
+		sst_gains[gc->gain_val_index].mute = gc->mute;
+		break;
+	case SST_GAIN_RAMP_DURATION:
+		sst_gains[gc->gain_val_index].ramp_duration = gc->ramp_duration;
+		break;
+	}
+	sm->pvt_data  = (char *)mc_pvt;
+	sm->pvt_data_len = sizeof(*mc_pvt);
+	return 0;
+}
+int sst_fw_kcontrol_find_io(struct snd_soc_platform *platform,
+		u32 io_type, const struct snd_soc_fw_kcontrol_ops *ops,
+		int num_ops, unsigned long sm, unsigned long mc)
+{
+	int i;
+
+	pr_info("number of ops = %d %x io_type\n", num_ops, io_type);
+	for (i = 0; i < num_ops; i++) {
+		if ((SOC_CONTROL_GET_ID_PUT(ops[i].id) ==
+			SOC_CONTROL_GET_ID_PUT(io_type) && ops[i].put)
+			&& (SOC_CONTROL_GET_ID_GET(ops[i].id) ==
+			 SOC_CONTROL_GET_ID_GET(io_type) && ops[i].get)) {
+			switch (SOC_CONTROL_GET_ID_PUT(ops[i].id)) {
+			case SOC_CONTROL_TYPE_SST_GAIN:
+				sst_copy_gain_control(platform, (struct soc_mixer_control *)sm,
+						(struct snd_soc_fw_mixer_control *)mc);
+				break;
+			default:
+				break;
+			}
+		}
+	}
+
+	return 0;
+}
+
+static int sst_pvt_load(struct snd_soc_platform *platform,
+			u32 io_type, unsigned long sm, unsigned long mc)
+{
+	return sst_fw_kcontrol_find_io(platform, io_type,
+			control_ops, ARRAY_SIZE(control_ops), sm, mc);
+}
+
+static struct snd_soc_fw_platform_ops soc_fw_ops = {
+	.pvt_load = sst_pvt_load,
+	.io_ops = control_ops,
+	.io_ops_count = ARRAY_SIZE(control_ops),
+};
+
 int sst_dsp_init_v2_dpcm(struct snd_soc_platform *platform)
 {
 	int i, ret = 0;
@@ -2077,6 +2162,7 @@ int sst_dsp_init_v2_dpcm(struct snd_soc_platform *platform)
 int sst_dsp_init_v2_dpcm_dfw(struct snd_soc_platform *platform)
 {
 	int i, ret = 0;
+	const struct firmware *fw;
 	struct sst_data *sst = snd_soc_platform_get_drvdata(platform);
 
 	sst->byte_stream = devm_kzalloc(platform->dev,
@@ -2099,16 +2185,17 @@ int sst_dsp_init_v2_dpcm_dfw(struct snd_soc_platform *platform)
 			ARRAY_SIZE(intercon));
 	snd_soc_dapm_new_widgets(platform->dapm.card);
 
-	for (i = 0; i < SST_NUM_GAINS; i++) {
-		sst_gains[i].mute = SST_GAIN_MUTE_DEFAULT;
-		sst_gains[i].l_gain = SST_GAIN_VOLUME_DEFAULT;
-		sst_gains[i].r_gain = SST_GAIN_VOLUME_DEFAULT;
-		sst_gains[i].ramp_duration = SST_GAIN_RAMP_DURATION_DEFAULT;
+	ret = request_firmware(&fw, "dfw_sst.bin", platform->dev);
+	if (fw == NULL) {
+		pr_err("config firmware request failed with %d\n", ret);
+		return ret;
 	}
-
-	snd_soc_add_platform_controls(platform, sst_gain_controls,
-			ARRAY_SIZE(sst_gain_controls));
-
+	/* Index is for each config load */
+	ret = snd_soc_fw_load_platform(platform, &soc_fw_ops, fw, 0);
+	if (ret < 0) {
+		pr_err("Control load failed%d\n", ret);
+		return -EINVAL;
+	}
 	snd_soc_add_platform_controls(platform, sst_algo_controls,
 			ARRAY_SIZE(sst_algo_controls));
 	snd_soc_add_platform_controls(platform, sst_slot_controls,
