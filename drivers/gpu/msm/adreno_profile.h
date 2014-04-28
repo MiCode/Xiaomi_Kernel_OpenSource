@@ -63,27 +63,30 @@ struct adreno_profile {
 						sizeof(unsigned int))
 
 #ifdef CONFIG_DEBUG_FS
-void adreno_profile_init(struct kgsl_device *device);
-void adreno_profile_close(struct kgsl_device *device);
-int adreno_profile_process_results(struct kgsl_device *device);
-void adreno_profile_preib_processing(struct kgsl_device *device,
+void adreno_profile_init(struct adreno_device *adreno_dev);
+void adreno_profile_close(struct adreno_device *adreno_dev);
+int adreno_profile_process_results(struct  adreno_device *adreno_dev);
+void adreno_profile_preib_processing(struct adreno_device *adreno_dev,
 		struct adreno_context *drawctxt, unsigned int *cmd_flags,
 		unsigned int **rbptr);
-void adreno_profile_postib_processing(struct kgsl_device *device,
+void adreno_profile_postib_processing(struct  adreno_device *adreno_dev,
 		unsigned int *cmd_flags, unsigned int **rbptr);
 #else
-static inline void adreno_profile_init(struct kgsl_device *device) { }
-static inline void adreno_profile_close(struct kgsl_device *device) { }
-static inline int adreno_profile_process_results(struct kgsl_device *device)
+static inline void adreno_profile_init(struct adreno_device *adreno_dev) { }
+static inline void adreno_profile_close(struct adreno_device *adreno_dev) { }
+static inline int adreno_profile_process_results(
+		struct adreno_device *adreno_dev)
 {
 	return 0;
 }
 
-static inline void adreno_profile_preib_processing(struct kgsl_device *device,
+static inline void adreno_profile_preib_processing(
+		struct adreno_device *adreno_dev,
 		struct adreno_context *drawctxt, unsigned int *cmd_flags,
 		unsigned int **rbptr) { }
 
-static inline void adreno_profile_postib_processing(struct kgsl_device *device,
+static inline void adreno_profile_postib_processing(
+		struct adreno_device *adreno_dev,
 		unsigned int *cmd_flags, unsigned int **rbptr) { }
 #endif
 

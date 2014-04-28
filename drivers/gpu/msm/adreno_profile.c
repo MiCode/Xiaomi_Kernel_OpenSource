@@ -333,10 +333,10 @@ static void check_close_profile(struct adreno_profile *profile)
 	}
 }
 
-static bool results_available(struct kgsl_device *device,
+static bool results_available(struct adreno_device *adreno_dev,
 		struct adreno_profile *profile, unsigned int *shared_buf_tail)
 {
-	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
+	struct kgsl_device *device = &adreno_dev->dev;
 	unsigned int global_eop;
 	unsigned int off = profile->shared_tail;
 	unsigned int *shared_ptr = (unsigned int *)
@@ -706,7 +706,7 @@ static ssize_t profile_assignments_write(struct file *filep,
 	}
 
 	/* clear all shared buffer results */
-	adreno_profile_process_results(device);
+	adreno_profile_process_results(adreno_dev);
 
 	pbuf = buf;
 
@@ -914,7 +914,7 @@ static ssize_t profile_pipe_print(struct file *filep, char __user *ubuf,
 
 	while (1) {
 		/* process any results that are available into the log_buffer */
-		status = adreno_profile_process_results(device);
+		status = adreno_profile_process_results(adreno_dev);
 		if (status > 0) {
 			/* if we have results, print them and exit */
 			status = _pipe_print_results(adreno_dev, usr_buf, max);
@@ -1011,9 +1011,9 @@ DEFINE_SIMPLE_ATTRIBUTE(profile_enable_fops,
 			profile_enable_get,
 			profile_enable_set, "%llu\n");
 
-void adreno_profile_init(struct kgsl_device *device)
+void adreno_profile_init(struct adreno_device *adreno_dev)
 {
-	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
+	struct kgsl_device *device = &adreno_dev->dev;
 	struct adreno_profile *profile = &adreno_dev->profile;
 	struct dentry *profile_dir;
 	int ret;
@@ -1047,9 +1047,8 @@ void adreno_profile_init(struct kgsl_device *device)
 			&profile_assignments_fops);
 }
 
-void adreno_profile_close(struct kgsl_device *device)
+void adreno_profile_close(struct adreno_device *adreno_dev)
 {
-	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
 	struct adreno_profile *profile = &adreno_dev->profile;
 	struct adreno_profile_assigns_list *entry, *tmp;
 
@@ -1071,14 +1070,12 @@ void adreno_profile_close(struct kgsl_device *device)
 	}
 }
 
-int adreno_profile_process_results(struct kgsl_device *device)
+int adreno_profile_process_results(struct adreno_device *adreno_dev)
 {
-
-	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
 	struct adreno_profile *profile = &adreno_dev->profile;
 	unsigned int shared_buf_tail = profile->shared_tail;
 
-	if (!results_available(device, profile, &shared_buf_tail)) {
+	if (!results_available(adreno_dev, profile, &shared_buf_tail)) {
 		check_close_profile(profile);
 		return 0;
 	}
@@ -1101,11 +1098,10 @@ int adreno_profile_process_results(struct kgsl_device *device)
 	return 1;
 }
 
-void adreno_profile_preib_processing(struct kgsl_device *device,
+void adreno_profile_preib_processing(struct adreno_device *adreno_dev,
 		struct adreno_context *drawctxt, unsigned int *cmd_flags,
 		unsigned int **rbptr)
 {
-	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
 	struct adreno_profile *profile = &adreno_dev->profile;
 	int count = profile->assignment_count;
 	unsigned int entry_head = profile->shared_head;
@@ -1166,10 +1162,9 @@ done:
 	*rbptr = ptr;
 }
 
-void adreno_profile_postib_processing(struct kgsl_device *device,
+void adreno_profile_postib_processing(struct adreno_device *adreno_dev,
 		unsigned int *cmd_flags, unsigned int **rbptr)
 {
-	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
 	struct adreno_profile *profile = &adreno_dev->profile;
 	int count = profile->assignment_count;
 	unsigned int entry_head = profile->shared_head -

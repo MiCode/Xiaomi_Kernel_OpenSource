@@ -2195,12 +2195,13 @@ int a3xx_perfcounter_init(struct adreno_device *adreno_dev)
 
 /**
  * a3xx_protect_init() - Initializes register protection on a3xx
- * @device: Pointer to the device structure
+ * @adreno_dev: Pointer to the device structure
  * Performs register writes to enable protected access to sensitive
  * registers
  */
-static void a3xx_protect_init(struct kgsl_device *device)
+static void a3xx_protect_init(struct adreno_device *adreno_dev)
 {
+	struct kgsl_device *device = &adreno_dev->dev;
 	int index = 0;
 	struct kgsl_protected_registers *iommu_regs;
 
@@ -2208,32 +2209,32 @@ static void a3xx_protect_init(struct kgsl_device *device)
 	kgsl_regwrite(device, A3XX_CP_PROTECT_CTRL, 0x00000007);
 
 	/* RBBM registers */
-	adreno_set_protected_registers(device, &index, 0x18, 0);
-	adreno_set_protected_registers(device, &index, 0x20, 2);
-	adreno_set_protected_registers(device, &index, 0x33, 0);
-	adreno_set_protected_registers(device, &index, 0x42, 0);
-	adreno_set_protected_registers(device, &index, 0x50, 4);
-	adreno_set_protected_registers(device, &index, 0x63, 0);
-	adreno_set_protected_registers(device, &index, 0x100, 4);
+	adreno_set_protected_registers(adreno_dev, &index, 0x18, 0);
+	adreno_set_protected_registers(adreno_dev, &index, 0x20, 2);
+	adreno_set_protected_registers(adreno_dev, &index, 0x33, 0);
+	adreno_set_protected_registers(adreno_dev, &index, 0x42, 0);
+	adreno_set_protected_registers(adreno_dev, &index, 0x50, 4);
+	adreno_set_protected_registers(adreno_dev, &index, 0x63, 0);
+	adreno_set_protected_registers(adreno_dev, &index, 0x100, 4);
 
 	/* CP registers */
-	adreno_set_protected_registers(device, &index, 0x1C0, 5);
-	adreno_set_protected_registers(device, &index, 0x1EC, 1);
-	adreno_set_protected_registers(device, &index, 0x1F6, 1);
-	adreno_set_protected_registers(device, &index, 0x1F8, 2);
-	adreno_set_protected_registers(device, &index, 0x45E, 2);
-	adreno_set_protected_registers(device, &index, 0x460, 4);
+	adreno_set_protected_registers(adreno_dev, &index, 0x1C0, 5);
+	adreno_set_protected_registers(adreno_dev, &index, 0x1EC, 1);
+	adreno_set_protected_registers(adreno_dev, &index, 0x1F6, 1);
+	adreno_set_protected_registers(adreno_dev, &index, 0x1F8, 2);
+	adreno_set_protected_registers(adreno_dev, &index, 0x45E, 2);
+	adreno_set_protected_registers(adreno_dev, &index, 0x460, 4);
 
 	/* RB registers */
-	adreno_set_protected_registers(device, &index, 0xCC0, 0);
+	adreno_set_protected_registers(adreno_dev, &index, 0xCC0, 0);
 
 	/* VBIF registers */
-	adreno_set_protected_registers(device, &index, 0x3000, 6);
+	adreno_set_protected_registers(adreno_dev, &index, 0x3000, 6);
 
 	/* SMMU registers */
 	iommu_regs = kgsl_mmu_get_prot_regs(&device->mmu);
 	if (iommu_regs)
-		adreno_set_protected_registers(device, &index,
+		adreno_set_protected_registers(adreno_dev, &index,
 				iommu_regs->base, iommu_regs->range);
 }
 
@@ -2241,7 +2242,7 @@ static void a3xx_start(struct adreno_device *adreno_dev)
 {
 	struct kgsl_device *device = &adreno_dev->dev;
 
-	adreno_vbif_start(device, a3xx_vbif_platforms,
+	adreno_vbif_start(adreno_dev, a3xx_vbif_platforms,
 			ARRAY_SIZE(a3xx_vbif_platforms));
 
 	/* Make all blocks contribute to the GPU BUSY perf counter */
@@ -2293,7 +2294,7 @@ static void a3xx_start(struct adreno_device *adreno_dev)
 			(unsigned int)(adreno_dev->gmem_base >> 14));
 
 	/* Turn on protection */
-	a3xx_protect_init(device);
+	a3xx_protect_init(adreno_dev);
 
 	/* Turn on performance counters */
 	kgsl_regwrite(device, A3XX_RBBM_PERFCTR_CTL, 0x01);
