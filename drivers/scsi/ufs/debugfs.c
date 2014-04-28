@@ -600,7 +600,7 @@ static const struct file_operations ufsdbg_dump_device_desc = {
 	.read		= seq_read,
 };
 
-static ssize_t ufsdbg_power_mode_show(struct seq_file *file, void *data)
+static int ufsdbg_power_mode_show(struct seq_file *file, void *data)
 {
 	struct ufs_hba *hba = (struct ufs_hba *)file->private;
 	char *names[] = {
