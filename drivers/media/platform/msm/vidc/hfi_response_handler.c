@@ -222,12 +222,14 @@ static void hfi_process_session_error(
 	struct msm_vidc_cb_cmd_done cmd_done = {0};
 	cmd_done.device_id = device_id;
 	cmd_done.session_id = session->session_id;
+	cmd_done.status = hfi_map_err_status(pkt->event_data1);
 	dprintk(VIDC_INFO, "Received : SESSION_ERROR with event id : %d\n",
 		pkt->event_data1);
 	switch (pkt->event_data1) {
 	case HFI_ERR_SESSION_INVALID_SCALE_FACTOR:
 	case HFI_ERR_SESSION_UNSUPPORT_BUFFERTYPE:
 	case HFI_ERR_SESSION_UNSUPPORTED_SETTING:
+		cmd_done.status = VIDC_ERR_NONE;
 		dprintk(VIDC_INFO, "Non Fatal : HFI_EVENT_SESSION_ERROR\n");
 		break;
 	default:
@@ -897,11 +899,9 @@ static void hfi_process_session_init_done(
 		cmd_done.status = hfi_process_sess_init_done_prop_read(
 			pkt, &session_init_done);
 	} else if (session) {
-		dprintk(VIDC_INFO,
-			"Sess init failed: Deleting session: 0x%p 0x%p\n",
+		dprintk(VIDC_WARN,
+			"Sess init failed: 0x%p, 0x%p\n",
 			session->session_id, session);
-		list_del(&session->list);
-		kfree(session);
 	}
 	cmd_done.size = sizeof(struct vidc_hal_session_init_done);
 	callback(SESSION_INIT_DONE, &cmd_done);
