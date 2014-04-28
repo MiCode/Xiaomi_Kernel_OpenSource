@@ -237,6 +237,8 @@ static char *pm_batt_supplied_to[] = {
  * @hw_access_lock:		lock to serialize access to charger registers
  * @ibat_change_lock:		lock to serialize ibat change requests from
  *				USB and thermal.
+ * @chg_enable_lock:		lock to serialize charging enable/disable for
+ *				SOC based resume charging
  * @usb_psy:			power supply to export information to
  *				userspace
  * @bms_psy:			power supply to export information to
@@ -292,6 +294,7 @@ struct qpnp_lbc_chip {
 	struct mutex			jeita_configure_lock;
 	spinlock_t			ibat_change_lock;
 	spinlock_t			hw_access_lock;
+	spinlock_t			chg_enable_lock;
 	struct power_supply		*usb_psy;
 	struct power_supply		*bms_psy;
 	struct power_supply		batt_psy;
@@ -867,6 +870,7 @@ static int get_prop_capacity(struct qpnp_lbc_chip *chip)
 {
 	union power_supply_propval ret = {0,};
 	int soc, battery_status, charger_in;
+	unsigned long flags;
 
 	if (chip->fake_battery_soc >= 0)
 		return chip->fake_battery_soc;
@@ -875,6 +879,7 @@ static int get_prop_capacity(struct qpnp_lbc_chip *chip)
 		return DEFAULT_CAPACITY;
 
 	if (chip->bms_psy) {
+		spin_lock_irqsave(&chip->chg_enable_lock, flags);
 		chip->bms_psy->get_property(chip->bms_psy,
 				POWER_SUPPLY_PROP_CAPACITY, &ret);
 		battery_status = get_prop_batt_status(chip);
@@ -896,6 +901,7 @@ static int get_prop_capacity(struct qpnp_lbc_chip *chip)
 			qpnp_lbc_vbatdet_override(chip, OVERRIDE_0);
 			qpnp_lbc_charger_enable(chip, SOC, 1);
 		}
+		spin_unlock_irqrestore(&chip->chg_enable_lock, flags);
 
 		soc = ret.intval;
 		if (soc == 0) {
@@ -1160,11 +1166,13 @@ static int qpnp_batt_power_set_property(struct power_supply *psy,
 	struct qpnp_lbc_chip *chip = container_of(psy, struct qpnp_lbc_chip,
 								batt_psy);
 	int rc = 0;
+	unsigned long flags;
 
 	switch (psp) {
 	case POWER_SUPPLY_PROP_STATUS:
 		if (val->intval == POWER_SUPPLY_STATUS_FULL &&
 				!chip->cfg_float_charge) {
+			spin_lock_irqsave(&chip->chg_enable_lock, flags);
 			/* No override for VBAT_DET_LO comp */
 			rc = qpnp_lbc_vbatdet_override(chip, OVERRIDE_NONE);
 			if (rc)
@@ -1177,6 +1185,7 @@ static int qpnp_batt_power_set_property(struct power_supply *psy,
 						rc);
 			else
 				chip->chg_done = true;
+			spin_unlock_irqrestore(&chip->chg_enable_lock, flags);
 		}
 		break;
 	case POWER_SUPPLY_PROP_COOL_TEMP:
@@ -2027,6 +2036,7 @@ static int qpnp_lbc_probe(struct spmi_device *spmi)
 	mutex_init(&chip->jeita_configure_lock);
 	spin_lock_init(&chip->hw_access_lock);
 	spin_lock_init(&chip->ibat_change_lock);
+	spin_lock_init(&chip->chg_enable_lock);
 
 	/* Get all device-tree properties */
 	rc = qpnp_charger_read_dt_props(chip);
