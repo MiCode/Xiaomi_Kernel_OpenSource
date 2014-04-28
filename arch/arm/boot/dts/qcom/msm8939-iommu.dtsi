@@ -1,0 +1,103 @@
+/* Copyright (c) 2014, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+#include "msm-iommu-v2.dtsi"
+
+&gfx_iommu {
+	status = "ok";
+};
+
+&apps_iommu {
+	status = "ok";
+	reg = <0x1e00000 0x40000>;
+	reg-names = "iommu_base";
+
+	qcom,iommu-ctx@1e22000 {
+		interrupts = <0 53 0>;
+	};
+
+	qcom,iommu-ctx@1e23000 {
+		interrupts = <0 54 0>;
+		qcom,iommu-ctx-sids = <0x400 0x402>;
+	};
+
+	qcom,iommu-ctx@1e24000 {
+		interrupts = <0 58 0>;
+		qcom,iommu-ctx-sids = <0xc00 0xc01>;
+	};
+
+	venus_ns: qcom,iommu-ctx@1e25000 {
+		interrupts = <0 60 0>;
+	};
+
+	qcom,iommu-ctx@1e26000 {
+		interrupts = <0 61 0>;
+		qcom,iommu-ctx-sids = <0x2400 0x2402>;
+	};
+
+	qcom,iommu-ctx@1e27000 {
+		interrupts = <0 76 0>;
+	};
+
+	qcom,iommu-ctx@1e28000 {
+		interrupts = <0 77 0>;
+	};
+
+	qcom,iommu-ctx@1e29000 {
+		interrupts = <0 80 0>;
+	};
+
+	qcom,iommu-ctx@1e32000 {
+		interrupts = <0 110 0>, <0 110 0>;
+		qcom,iommu-ctx-sids = <0x2800 0x2801>;
+	};
+
+	venus_sec_pixel: qcom,iommu-ctx@1e33000 {
+		interrupts = <0 111 0>, <0 111 0>;
+	};
+
+	venus_sec_bitstream: qcom,iommu-ctx@1e34000 {
+		interrupts = <0 112 0>, <0 112 0>;
+	};
+
+	venus_sec_non_pixel: qcom,iommu-ctx@1e35000 {
+		interrupts = <0 113 0>, <0 113 0>;
+	};
+
+	venus_fw: qcom,iommu-ctx@1e36000 {
+		interrupts = <0 114 0>, <0 114 0>;
+	};
+
+	qcom,iommu-ctx@1e38000 {
+		interrupts = <0 116 0>;
+	};
+
+	qcom,iommu-ctx@1e39000 {
+		interrupts = <0 117 0>;
+	};
+
+	qcom,iommu-ctx@1e3a000 {
+		interrupts = <0 118 0>;
+	};
+
+	qcom,iommu-ctx@1e3b000 {
+		interrupts = <0 119 0>;
+	};
+
+	qcom,iommu-ctx@1e3c000 {
+		interrupts = <0 120 0>;
+	};
+
+	qcom,iommu-ctx@1e3d000 {
+		interrupts = <0 121 0>;
+	};
+};
