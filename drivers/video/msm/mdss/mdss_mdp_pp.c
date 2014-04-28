@@ -181,6 +181,7 @@ static u32 igc_limited[IGC_LUT_ENTRIES] = {
 #define MDSS_MDP_GAMUT_SIZE		0x5C
 #define MDSS_MDP_IGC_DSPP_SIZE		0x28
 #define MDSS_MDP_IGC_SSPP_SIZE		0x88
+#define MDSS_MDP_VIG_QSEED2_SHARP_SIZE	0x0C
 #define TOTAL_BLEND_STAGES		0x4
 
 #define PP_FLAGS_DIRTY_PA	0x1
@@ -930,10 +931,15 @@ static int mdss_mdp_scale_setup(struct mdss_mdp_pipe *pipe)
 	u32 filter_mode;
 	struct mdss_data_type *mdata;
 	u32 src_w, src_h;
+	u32 dcm_state = DCM_UNINIT;
 
 	pr_debug("pipe=%d, change pxl ext=%d\n", pipe->num,
 			pipe->scale.enable_pxl_ext);
 	mdata = mdss_mdp_get_mdata();
+
+	if (!pipe->mixer && !pipe->mixer->ctl && !pipe->mixer->ctl->mfd)
+		dcm_state = pipe->mixer->ctl->mfd->dcm_state;
+
 	if (mdata->mdp_rev >= MDSS_MDP_HW_REV_102 && pipe->src_fmt->is_yuv)
 		filter_mode = MDSS_MDP_SCALE_FILTER_CA;
 	else
@@ -968,12 +974,13 @@ static int mdss_mdp_scale_setup(struct mdss_mdp_pipe *pipe)
 		pipe->pp_cfg.sharp_cfg.noise_thr = SHARP_NOISE_THR_DEFAULT;
 	}
 
-	if ((pipe->src_fmt->is_yuv) &&
-		!((pipe->dst.w < src_w) || (pipe->dst.h < src_h))) {
-		pp_sharp_config(pipe->base +
-		   MDSS_MDP_REG_VIG_QSEED2_SHARP,
-		   &pipe->pp_res.pp_sts,
-		   &pipe->pp_cfg.sharp_cfg);
+	if (dcm_state != DTM_ENTER &&
+		((pipe->src_fmt->is_yuv) &&
+		!((pipe->dst.w < src_w) || (pipe->dst.h < src_h)))) {
+			pp_sharp_config(pipe->base +
+			   MDSS_MDP_REG_VIG_QSEED2_SHARP,
+			   &pipe->pp_res.pp_sts,
+			   &pipe->pp_cfg.sharp_cfg);
 	}
 
 	if ((src_h != pipe->dst.h) ||
@@ -4790,7 +4797,10 @@ static int is_valid_calib_vig_addr(char __iomem *ptr)
 		} else if (ptr == base + MDSS_MDP_REG_SSPP_SRC_OP_MODE) {
 			ret = MDP_PP_OPS_READ | MDP_PP_OPS_WRITE;
 			break;
-		} else if ((ptr == base + MDSS_MDP_REG_VIG_QSEED2_SHARP)) {
+		/* QSEED2 range */
+		} else if ((ptr >= base + MDSS_MDP_REG_VIG_QSEED2_SHARP) &&
+				(ptr <= base + MDSS_MDP_REG_VIG_QSEED2_SHARP +
+					MDSS_MDP_VIG_QSEED2_SHARP_SIZE)) {
 			ret = MDP_PP_OPS_READ | MDP_PP_OPS_WRITE;
 			break;
 		/* PA range */
