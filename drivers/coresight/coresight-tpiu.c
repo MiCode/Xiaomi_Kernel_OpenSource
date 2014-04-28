@@ -84,12 +84,6 @@ enum tpiu_set {
 	TPIU_SET_B,
 };
 
-struct tpiu_pinctrl {
-	struct pinctrl		*pctrl;
-	struct pinctrl_state	*seta_pctrl;
-	struct pinctrl_state	*setb_pctrl;
-};
-
 struct tpiu_drvdata {
 	void __iomem		*base;
 	struct device		*dev;
@@ -108,13 +102,7 @@ struct tpiu_drvdata {
 	unsigned int            reg_lpm_io;
 	unsigned int            reg_hpm_io;
 	enum tpiu_set		set;
-	struct tpiu_pinctrl	*tpiu_pctrl;
-	int			seta_gpiocnt;
-	int			*seta_gpios;
-	struct gpiomux_setting	*seta_cfgs;
-	int			setb_gpiocnt;
-	int			*setb_gpios;
-	struct gpiomux_setting	*setb_cfgs;
+	struct pinctrl		*tpiu_pctrl;
 	bool			enable;
 	bool			nidnt;
 	bool			nidnthw;  /* Can support nidnt ps sequence */
@@ -123,8 +111,6 @@ struct tpiu_drvdata {
 static int nidnt_boot_hw_detect = 1;
 module_param_named(nidnt_boot_hw_detect,
 	nidnt_boot_hw_detect, int, S_IRUGO | S_IWUSR | S_IWGRP);
-
-struct gpiomux_setting old_cfg;
 
 static void tpiu_flush_and_stop(struct tpiu_drvdata *drvdata)
 {
@@ -157,137 +143,68 @@ static void __tpiu_enable(struct tpiu_drvdata *drvdata, uint32_t portsz,
 
 static int __tpiu_enable_seta(struct tpiu_drvdata *drvdata)
 {
-	int i, ret;
+	int ret;
 	struct pinctrl *pctrl;
 	struct pinctrl_state *seta_pctrl;
 
-	if (drvdata->tpiu_pctrl) {
-		pctrl = devm_pinctrl_get(drvdata->dev);
-		if (IS_ERR(pctrl))
-			return PTR_ERR(pctrl);
-
-		seta_pctrl = pinctrl_lookup_state(pctrl, "seta-pctrl");
-		if (IS_ERR(seta_pctrl)) {
-			dev_err(drvdata->dev,
-				"pinctrl get state failed for seta\n");
-			ret = PTR_ERR(seta_pctrl);
-			goto err0;
-		}
-
-		ret = pinctrl_select_state(pctrl, seta_pctrl);
-		if (ret) {
-			dev_err(drvdata->dev,
-				"pinctrl enable state failed for seta\n");
-			goto err0;
-		}
-		drvdata->tpiu_pctrl->pctrl = pctrl;
-		drvdata->tpiu_pctrl->seta_pctrl = seta_pctrl;
-		return 0;
+	pctrl = devm_pinctrl_get(drvdata->dev);
+	if (IS_ERR(pctrl)) {
+		dev_err(drvdata->dev, "pinctrl handle failed for seta\n");
+		return PTR_ERR(pctrl);
 	}
 
-	if (!drvdata->seta_gpiocnt)
-		return -EINVAL;
-
-	for (i = 0; i < drvdata->seta_gpiocnt; i++) {
-		ret = gpio_request(drvdata->seta_gpios[i], NULL);
-		if (ret) {
-			dev_err(drvdata->dev,
-				"gpio_request failed for seta_gpio: %u\n",
-				drvdata->seta_gpios[i]);
-			goto err1;
-		}
-		ret = msm_gpiomux_write(drvdata->seta_gpios[i],
-					GPIOMUX_ACTIVE,
-					&drvdata->seta_cfgs[i],
-					&old_cfg);
-		if (ret < 0) {
-			dev_err(drvdata->dev,
-				"gpio write failed for seta_gpio: %u\n",
-				drvdata->seta_gpios[i]);
-			goto err2;
-		}
+	seta_pctrl = pinctrl_lookup_state(pctrl, "seta-pctrl");
+	if (IS_ERR(seta_pctrl)) {
+		dev_err(drvdata->dev,
+			"pinctrl get state failed for seta\n");
+		ret = PTR_ERR(seta_pctrl);
+		goto err;
 	}
+
+	ret = pinctrl_select_state(pctrl, seta_pctrl);
+	if (ret) {
+		dev_err(drvdata->dev,
+			"pinctrl enable state failed for seta\n");
+		goto err;
+	}
+
+	drvdata->tpiu_pctrl = pctrl;
 	return 0;
-err2:
-	gpio_free(drvdata->seta_gpios[i]);
-err1:
-	i--;
-	while (i >= 0) {
-		gpio_free(drvdata->seta_gpios[i]);
-		i--;
-	}
-	return ret;
-err0:
+err:
 	devm_pinctrl_put(pctrl);
 	return ret;
 }
 
 static int __tpiu_enable_setb(struct tpiu_drvdata *drvdata)
 {
-	int i, ret;
+	int ret;
 	struct pinctrl *pctrl;
 	struct pinctrl_state *setb_pctrl;
 
-	if (drvdata->tpiu_pctrl) {
-		pctrl = devm_pinctrl_get(drvdata->dev);
-		if (IS_ERR(pctrl)) {
-			ret = PTR_ERR(pctrl);
-			goto err0;
-		}
-
-		setb_pctrl = pinctrl_lookup_state(pctrl, "setb-pctrl");
-		if (IS_ERR(setb_pctrl)) {
-			dev_err(drvdata->dev,
-				"pinctrl get state failed for setb\n");
-			ret = PTR_ERR(setb_pctrl);
-			goto err0;
-		}
-
-		ret = pinctrl_select_state(pctrl, setb_pctrl);
-		if (ret) {
-			dev_err(drvdata->dev,
-				"pinctrl enable state failed for setb\n");
-			goto err0;
-		}
-
-		drvdata->tpiu_pctrl->pctrl = pctrl;
-		drvdata->tpiu_pctrl->setb_pctrl = setb_pctrl;
-		return 0;
+	pctrl = devm_pinctrl_get(drvdata->dev);
+	if (IS_ERR(pctrl)) {
+		dev_err(drvdata->dev, "pinctrl handle failed for setb\n");
+		return PTR_ERR(pctrl);
 	}
 
-	if (!drvdata->setb_gpiocnt)
-		return -EINVAL;
-
-	for (i = 0; i < drvdata->setb_gpiocnt; i++) {
-		ret = gpio_request(drvdata->setb_gpios[i], NULL);
-		if (ret) {
-			dev_err(drvdata->dev,
-				"gpio_request failed for setb_gpio: %u\n",
-				drvdata->setb_gpios[i]);
-			goto err1;
-		}
-		ret = msm_gpiomux_write(drvdata->setb_gpios[i],
-					GPIOMUX_ACTIVE,
-					&drvdata->setb_cfgs[i],
-					&old_cfg);
-		if (ret < 0) {
-			dev_err(drvdata->dev,
-				"gpio write failed for setb_gpio: %u\n",
-				drvdata->setb_gpios[i]);
-			goto err2;
-		}
+	setb_pctrl = pinctrl_lookup_state(pctrl, "setb-pctrl");
+	if (IS_ERR(setb_pctrl)) {
+		dev_err(drvdata->dev,
+			"pinctrl get state failed for setb\n");
+		ret = PTR_ERR(setb_pctrl);
+		goto err;
 	}
+
+	ret = pinctrl_select_state(pctrl, setb_pctrl);
+	if (ret) {
+		dev_err(drvdata->dev,
+			"pinctrl enable state failed for setb\n");
+		goto err;
+	}
+
+	drvdata->tpiu_pctrl = pctrl;
 	return 0;
-err2:
-	gpio_free(drvdata->setb_gpios[i]);
-err1:
-	i--;
-	while (i >= 0) {
-		gpio_free(drvdata->setb_gpios[i]);
-		i--;
-	}
-	return ret;
-err0:
+err:
 	devm_pinctrl_put(pctrl);
 	return ret;
 }
@@ -543,26 +460,12 @@ static void __tpiu_disable(struct tpiu_drvdata *drvdata)
 
 static void __tpiu_disable_seta(struct tpiu_drvdata *drvdata)
 {
-	int i;
-
-	if (drvdata->tpiu_pctrl) {
-		devm_pinctrl_put(drvdata->tpiu_pctrl->pctrl);
-	} else {
-		for (i = 0; i < drvdata->seta_gpiocnt; i++)
-			gpio_free(drvdata->seta_gpios[i]);
-	}
+	devm_pinctrl_put(drvdata->tpiu_pctrl);
 }
 
 static void __tpiu_disable_setb(struct tpiu_drvdata *drvdata)
 {
-	int i;
-
-	if (drvdata->tpiu_pctrl) {
-		devm_pinctrl_put(drvdata->tpiu_pctrl->pctrl);
-	} else {
-		for (i = 0; i < drvdata->setb_gpiocnt; i++)
-			gpio_free(drvdata->setb_gpios[i]);
-	}
+	devm_pinctrl_put(drvdata->tpiu_pctrl);
 }
 
 static void __tpiu_disable_to_mictor(struct tpiu_drvdata *drvdata)
@@ -977,9 +880,7 @@ static int tpiu_parse_of_data(struct platform_device *pdev,
 	struct device_node *reg_node = NULL;
 	struct device *dev = &pdev->dev;
 	const __be32 *prop;
-	int i, len, gpio, ret;
-	uint32_t *seta_cfgs, *setb_cfgs;
-	struct pinctrl *pctrl;
+	int len, ret;
 
 	reg_node = of_parse_phandle(node, "vdd-supply", 0);
 	if (reg_node) {
@@ -1037,155 +938,6 @@ static int tpiu_parse_of_data(struct platform_device *pdev,
 	drvdata->out_mode = TPIU_OUT_MODE_MICTOR;
 	drvdata->set = TPIU_SET_B;
 
-	pctrl = devm_pinctrl_get(dev);
-	if (!IS_ERR(pctrl)) {
-		drvdata->tpiu_pctrl = devm_kzalloc(dev,
-						   sizeof(struct tpiu_pinctrl),
-						   GFP_KERNEL);
-		if (!drvdata->tpiu_pctrl)
-			return -ENOMEM;
-		devm_pinctrl_put(pctrl);
-		goto out;
-	}
-
-	dev_err(dev, "Pinctrl failed, falling back to GPIO lib\n");
-
-	drvdata->seta_gpiocnt = of_gpio_named_count(node, "qcom,seta-gpios");
-	if (drvdata->seta_gpiocnt > 0) {
-		drvdata->seta_gpios = devm_kzalloc(dev,
-				sizeof(*drvdata->seta_gpios) *
-				drvdata->seta_gpiocnt, GFP_KERNEL);
-		if (!drvdata->seta_gpios)
-			return -ENOMEM;
-
-		for (i = 0; i < drvdata->seta_gpiocnt; i++) {
-			gpio = of_get_named_gpio(node, "qcom,seta-gpios", i);
-			if (!gpio_is_valid(gpio))
-				return gpio;
-
-			drvdata->seta_gpios[i] = gpio;
-		}
-
-		drvdata->seta_cfgs = devm_kzalloc(dev,
-				sizeof(*drvdata->seta_cfgs) *
-				drvdata->seta_gpiocnt, GFP_KERNEL);
-		if (!drvdata->seta_cfgs)
-			return -ENOMEM;
-
-		seta_cfgs = devm_kzalloc(dev, sizeof(*seta_cfgs) *
-					 drvdata->seta_gpiocnt, GFP_KERNEL);
-		if (!seta_cfgs)
-			return -ENOMEM;
-
-		ret = of_property_read_u32_array(node, "qcom,seta-gpios-func",
-						 (u32 *)seta_cfgs,
-						 drvdata->seta_gpiocnt);
-		if (ret)
-			return ret;
-
-		for (i = 0; i < drvdata->seta_gpiocnt; i++)
-			drvdata->seta_cfgs[i].func = seta_cfgs[i];
-
-		ret = of_property_read_u32_array(node, "qcom,seta-gpios-drv",
-						 (u32 *)seta_cfgs,
-						 drvdata->seta_gpiocnt);
-		if (ret)
-			return ret;
-
-		for (i = 0; i < drvdata->seta_gpiocnt; i++)
-			drvdata->seta_cfgs[i].drv = seta_cfgs[i];
-
-		ret = of_property_read_u32_array(node, "qcom,seta-gpios-pull",
-						 (u32 *)seta_cfgs,
-						 drvdata->seta_gpiocnt);
-		if (ret)
-			return ret;
-
-		for (i = 0; i < drvdata->seta_gpiocnt; i++)
-			drvdata->seta_cfgs[i].pull = seta_cfgs[i];
-
-		ret = of_property_read_u32_array(node, "qcom,seta-gpios-dir",
-						 (u32 *)seta_cfgs,
-						 drvdata->seta_gpiocnt);
-		if (ret)
-			return ret;
-
-		for (i = 0; i < drvdata->seta_gpiocnt; i++)
-			drvdata->seta_cfgs[i].dir = seta_cfgs[i];
-
-		devm_kfree(dev, seta_cfgs);
-	} else {
-		dev_err(dev, "seta gpios not specified\n");
-	}
-
-	drvdata->setb_gpiocnt = of_gpio_named_count(node, "qcom,setb-gpios");
-	if (drvdata->setb_gpiocnt > 0) {
-		drvdata->setb_gpios = devm_kzalloc(dev,
-				sizeof(*drvdata->setb_gpios) *
-				drvdata->setb_gpiocnt, GFP_KERNEL);
-		if (!drvdata->setb_gpios)
-			return -ENOMEM;
-
-		for (i = 0; i < drvdata->setb_gpiocnt; i++) {
-			gpio = of_get_named_gpio(node, "qcom,setb-gpios", i);
-			if (!gpio_is_valid(gpio))
-				return gpio;
-
-			drvdata->setb_gpios[i] = gpio;
-		}
-
-		drvdata->setb_cfgs = devm_kzalloc(dev,
-				sizeof(*drvdata->setb_cfgs) *
-				drvdata->setb_gpiocnt, GFP_KERNEL);
-		if (!drvdata->setb_cfgs)
-			return -ENOMEM;
-
-		setb_cfgs = devm_kzalloc(dev, sizeof(*setb_cfgs) *
-					 drvdata->setb_gpiocnt, GFP_KERNEL);
-		if (!setb_cfgs)
-			return -ENOMEM;
-
-		ret = of_property_read_u32_array(node, "qcom,setb-gpios-func",
-						 (u32 *)setb_cfgs,
-						 drvdata->setb_gpiocnt);
-		if (ret)
-			return ret;
-
-		for (i = 0; i < drvdata->setb_gpiocnt; i++)
-			drvdata->setb_cfgs[i].func = setb_cfgs[i];
-
-		ret = of_property_read_u32_array(node, "qcom,setb-gpios-drv",
-						 (u32 *)setb_cfgs,
-						 drvdata->setb_gpiocnt);
-		if (ret)
-			return ret;
-
-		for (i = 0; i < drvdata->setb_gpiocnt; i++)
-			drvdata->setb_cfgs[i].drv = setb_cfgs[i];
-
-		ret = of_property_read_u32_array(node, "qcom,setb-gpios-pull",
-						 (u32 *)setb_cfgs,
-						 drvdata->setb_gpiocnt);
-		if (ret)
-			return ret;
-
-		for (i = 0; i < drvdata->setb_gpiocnt; i++)
-			drvdata->setb_cfgs[i].pull = setb_cfgs[i];
-
-		ret = of_property_read_u32_array(node, "qcom,setb-gpios-dir",
-						 (u32 *)setb_cfgs,
-						 drvdata->setb_gpiocnt);
-		if (ret)
-			return ret;
-
-		for (i = 0; i < drvdata->setb_gpiocnt; i++)
-			drvdata->setb_cfgs[i].dir = setb_cfgs[i];
-
-		devm_kfree(dev, setb_cfgs);
-	} else {
-		dev_err(dev, "setb gpios not specified\n");
-	}
-out:
 	drvdata->nidnt = of_property_read_bool(pdev->dev.of_node,
 					       "qcom,nidnt");
 
@@ -1198,22 +950,16 @@ out:
 			return ret;
 
 		if (drvdata->nidnthw && nidnt_boot_hw_detect) {
-			/*
-			 * Vote for clk on since nidnt may not be enabled
-			 * hence the clk is guaranteed to be enabled.
-			 */
-			ret = clk_prepare_enable(drvdata->clk);
+			ret = __tpiu_enable_to_sdc(drvdata);
 			if (ret)
 				return ret;
-
-			ret = __tpiu_enable_to_sdc(drvdata);
 
 			/* enable and configure nidnt hardware detect */
 			coresight_nidnt_set_hwdetect_param(true);
 			coresight_nidnt_enable_hwdetect();
 		}
 	}
-	return ret;
+	return 0;
 }
 
 static int tpiu_probe(struct platform_device *pdev)
