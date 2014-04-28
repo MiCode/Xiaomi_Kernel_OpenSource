@@ -77,6 +77,10 @@
 		interrupts = <0 114 0>, <0 114 0>;
 	};
 
+	periph_rpm: qcom,iommu-ctx@1e37000 {
+		interrupts = <0 115 0>, <0 115 0>;
+	};
+
 	qcom,iommu-ctx@1e38000 {
 		interrupts = <0 116 0>;
 	};
