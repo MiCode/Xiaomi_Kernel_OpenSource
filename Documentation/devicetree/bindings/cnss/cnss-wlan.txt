@@ -17,6 +17,10 @@ Required properties:
   - wlan-en-gpio: WLAN_EN GPIO signal specified by QCA6174 specifications
   - vdd-wlan-supply: phandle to the regulator device tree node
 
+Optional properties:
+  - qcom,notify-modem-status: Boolean property to decide whether modem
+    notification should be enabled or not in this platform
+
 Example:
 
     qcom,cnss@0d400000 {
@@ -25,4 +29,5 @@ Example:
         reg-names = "ramdump";
         wlan-en-gpio = <&msmgpio 82 0>;
         vdd-wlan-supply = <&wlan_vreg>;
+        qcom,notify-modem-status;
     };
