@@ -778,7 +778,8 @@ static int calib_vadc(struct qpnp_bms_chip *chip)
 static int convert_vbatt_raw_to_uv(struct qpnp_bms_chip *chip,
 				u16 reading, bool is_pon_ocv)
 {
-	int64_t uv;
+	int64_t uv, vbatt;
+	int rc;
 
 	uv = vadc_reading_to_uv(reading, true);
 	pr_debug("%u raw converted into %lld uv\n", reading, uv);
@@ -786,10 +787,15 @@ static int convert_vbatt_raw_to_uv(struct qpnp_bms_chip *chip,
 	uv = adjust_vbatt_reading(chip, uv);
 	pr_debug("adjusted into %lld uv\n", uv);
 
-	/*
-	 * TODO: add die-temp compensation once the ADC temp.
-	 * coeffs are available
-	 */
+	vbatt = uv;
+	rc = qpnp_vbat_sns_comp_result(chip->vadc_dev, &uv, is_pon_ocv);
+	if (rc) {
+		pr_debug("Vbatt compensation failed rc = %d\n", rc);
+		uv = vbatt;
+	} else {
+		pr_debug("temp-compensated %lld into %lld uv\n", vbatt, uv);
+	}
+
 	return uv;
 }
 
