@@ -894,19 +894,22 @@ static int msm_isp_send_hw_cmd(struct vfe_device *vfe_dev,
 	}
 	case GET_MAX_CLK_RATE: {
 		int rc = 0;
+		unsigned long rate;
 
-		if (cmd_len < sizeof(unsigned long)) {
+		if (cmd_len != sizeof(__u32)) {
 			pr_err("%s:%d failed: invalid cmd len %u exp %zu\n",
 				__func__, __LINE__, cmd_len,
-				sizeof(unsigned long));
+				sizeof(__u32));
 			return -EINVAL;
 		}
-		rc = msm_isp_get_max_clk_rate(vfe_dev,
-			(unsigned long *)cfg_data);
+		rc = msm_isp_get_max_clk_rate(vfe_dev, &rate);
 		if (rc < 0) {
 			pr_err("%s:%d failed: rc %d\n", __func__, __LINE__, rc);
 			return -EINVAL;
 		}
+
+		*(__u32 *)cfg_data = (__u32)rate;
+
 		break;
 	}
 	case GET_ISP_ID: {
