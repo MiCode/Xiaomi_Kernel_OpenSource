@@ -1,0 +1,15 @@
+#
+# Near Field Communication (NFC) devices
+#
+
+config ANDROID_NFC_PN544
+
+	tristate "Enable Andorid PN544 NFC device"
+	depends on I2C
+	depends on ANDROID
+	---help---
+	   This module adds support for pn544 NFC i2c driver and
+	   its designed mainly to work with libnfc android stack
+	   If you choose to build this driver as module, choose
+	   m here. This module will be called pn544_nfc. If unsure
+	   say N.
