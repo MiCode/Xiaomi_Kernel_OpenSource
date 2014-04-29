@@ -1127,8 +1127,6 @@ struct sched_statistics {
 /* ravg represents frequency scaled cpu-demand of tasks */
 struct ravg {
 	/*
-	 * 'window_start' marks the beginning of new window
-	 *
 	 * 'mark_start' marks the beginning of an event (task waking up, task
 	 * starting to execute, task being preempted) within a window
 	 *
@@ -1143,7 +1141,7 @@ struct ravg {
 	 * 'demand' represents maximum sum seen over previous RAVG_HIST_SIZE
 	 * windows. 'demand' could drive frequency demand for tasks.
 	 */
-	u64 window_start, mark_start;
+	u64 mark_start;
 	u32 sum, demand;
 	u32 sum_history[RAVG_HIST_SIZE];
 };

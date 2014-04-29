@@ -1166,26 +1166,46 @@ static int __init set_sched_ravg_window(char *str)
 
 early_param("sched_ravg_window", set_sched_ravg_window);
 
+static inline void move_window_start(struct rq *rq, u64 wallclock)
+{
+	s64 delta;
+	int nr_windows;
+
+	delta = wallclock - rq->window_start;
+	BUG_ON(delta < 0);
+	if (delta < sched_ravg_window)
+		return;
+
+	nr_windows = div64_u64(delta, sched_ravg_window);
+	rq->window_start += (u64)nr_windows * (u64)sched_ravg_window;
+}
+
 void update_task_ravg(struct task_struct *p, struct rq *rq, int update_sum)
 {
 	u32 window_size = sched_ravg_window;
 	int new_window;
 	u64 wallclock = sched_clock();
+	u64 mark_start = p->ravg.mark_start;
+	u64 window_start;
 
-	if (is_idle_task(p) || sched_use_pelt)
+	if (sched_use_pelt || !rq->window_start)
 		return;
+
+	move_window_start(rq, wallclock);
+	window_start = rq->window_start;
 
 	do {
 		s64 delta = 0;
-		int n;
+		int n = 0;
 		u64 now = wallclock;
+		u32 sum = 0;
 
 		new_window = 0;
-		delta = now - p->ravg.window_start;
-		BUG_ON(delta < 0);
-		if (delta > window_size) {
-			p->ravg.window_start += window_size;
-			now = p->ravg.window_start;
+		if (window_start > mark_start) {
+			delta = window_start - mark_start;
+			n = div64_u64(delta, window_size);
+			window_start -= n * window_size;
+			now = window_start;
 			new_window = 1;
 		}
 
@@ -1193,8 +1213,7 @@ void update_task_ravg(struct task_struct *p, struct rq *rq, int update_sum)
 			unsigned int cur_freq = rq->cur_freq;
 			int sf;
 
-			delta = now - p->ravg.mark_start;
-			BUG_ON(delta < 0);
+			delta = now - mark_start;
 
 			if (unlikely(cur_freq > max_possible_freq ||
 				     (cur_freq == rq->max_freq &&
@@ -1207,7 +1226,8 @@ void update_task_ravg(struct task_struct *p, struct rq *rq, int update_sum)
 			delta *= sf;
 			delta >>= 10;
 			p->ravg.sum += delta;
-			WARN_ON(p->ravg.sum > window_size);
+			if (unlikely(p->ravg.sum > window_size))
+				p->ravg.sum = window_size;
 		}
 
 		if (!new_window)
@@ -1215,20 +1235,13 @@ void update_task_ravg(struct task_struct *p, struct rq *rq, int update_sum)
 
 		update_history(rq, p, p->ravg.sum, 1);
 
-		delta = wallclock - p->ravg.window_start;
-		BUG_ON(delta < 0);
-		n = div64_u64(delta, window_size);
 		if (n) {
-			if (!update_sum)
-				p->ravg.window_start = wallclock;
-			else
-				p->ravg.window_start += (u64)n *
-							 (u64)window_size;
-			BUG_ON(p->ravg.window_start > wallclock);
+			window_start += n * window_size;
 			if (update_sum)
-				update_history(rq, p, window_size, n);
+				sum = window_size;
+			update_history(rq, p, sum, n);
 		}
-		p->ravg.mark_start =  p->ravg.window_start;
+		mark_start = window_start;
 	} while (new_window);
 
 	p->ravg.mark_start = wallclock;
@@ -1260,9 +1273,52 @@ static void init_cpu_efficiency(void)
 	min_possible_efficiency = min;
 }
 
+static inline void mark_task_starting(struct task_struct *p)
+{
+	p->ravg.mark_start = sched_clock();
+}
+
+static unsigned int sync_cpu;
+static u64 sched_init_jiffy;
+static u64 sched_clock_at_init_jiffy;
+
+static inline void set_window_start(struct rq *rq)
+{
+	int cpu = cpu_of(rq);
+	struct rq *sync_rq = cpu_rq(sync_cpu);
+
+	if (likely(rq->window_start))
+		return;
+
+	if (cpu == sync_cpu) {
+		rq->window_start = sched_clock();
+		sched_init_jiffy = get_jiffies_64();
+		sched_clock_at_init_jiffy = rq->window_start;
+	} else {
+		raw_spin_unlock(&rq->lock);
+		double_rq_lock(rq, sync_rq);
+		rq->window_start = cpu_rq(sync_cpu)->window_start;
+		raw_spin_unlock(&sync_rq->lock);
+	}
+
+	rq->curr->ravg.mark_start = rq->window_start;
+}
+
+static inline void migrate_sync_cpu(int cpu)
+{
+	if (cpu == sync_cpu)
+		sync_cpu = smp_processor_id();
+}
+
 #else	/* CONFIG_SCHED_FREQ_INPUT || CONFIG_SCHED_HMP */
 
 static inline void init_cpu_efficiency(void) {}
+
+static inline void mark_task_starting(struct task_struct *p) {}
+
+static inline void set_window_start(struct rq *rq) {}
+
+static inline void migrate_sync_cpu(int cpu) {}
 
 #endif	/* CONFIG_SCHED_FREQ_INPUT || CONFIG_SCHED_HMP */
 
@@ -2388,6 +2444,7 @@ void wake_up_new_task(struct task_struct *p)
 	/* Initialize new task's runnable average */
 	init_task_runnable_average(p);
 	rq = __task_rq_lock(p);
+	mark_task_starting(p);
 	activate_task(rq, p, 0);
 	p->on_rq = TASK_ON_RQ_QUEUED;
 	trace_sched_wakeup_new(p, true);
@@ -2792,6 +2849,7 @@ void scheduler_tick(void)
 	sched_clock_tick();
 
 	raw_spin_lock(&rq->lock);
+	set_window_start(rq);
 	update_rq_clock(rq);
 	curr->sched_class->task_tick(rq, curr, 0);
 	update_cpu_load_active(rq);
@@ -5477,6 +5535,9 @@ migration_call(struct notifier_block *nfb, unsigned long action, void *hcpu)
 	switch (action & ~CPU_TASKS_FROZEN) {
 
 	case CPU_UP_PREPARE:
+		raw_spin_lock_irqsave(&rq->lock, flags);
+		set_window_start(rq);
+		raw_spin_unlock_irqrestore(&rq->lock, flags);
 		rq->calc_load_update = calc_load_update;
 		break;
 
@@ -5496,6 +5557,8 @@ migration_call(struct notifier_block *nfb, unsigned long action, void *hcpu)
 		sched_ttwu_pending();
 		/* Update our root-domain */
 		raw_spin_lock_irqsave(&rq->lock, flags);
+		migrate_sync_cpu(cpu);
+
 		if (rq->rd) {
 			BUG_ON(!cpumask_test_cpu(cpu, rq->rd->span));
 			set_rq_offline(rq);
@@ -7600,6 +7663,7 @@ void __init sched_init(void)
 		rq->efficiency = 1024;
 		rq->capacity = 1024;
 		rq->load_scale_factor = 1024;
+		rq->window_start = 0;
 #endif
 		rq->max_idle_balance_cost = sysctl_sched_migration_cost;
 		rq->cstate = 0;
