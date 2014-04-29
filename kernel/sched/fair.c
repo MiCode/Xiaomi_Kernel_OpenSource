@@ -1338,7 +1338,7 @@ void set_hmp_defaults(void)
  * Scale that in reference to a given cpu, accounting for how bad it is
  * in reference to "best cpu".
  */
-static u64 scale_task_load(u64 task_load, int cpu)
+u64 scale_task_load(u64 task_load, int cpu)
 {
 	struct rq *rq = cpu_rq(cpu);
 
@@ -1487,7 +1487,7 @@ void dec_nr_big_small_task(struct rq *rq, struct task_struct *p)
  * Walk runqueue of cpu and re-initialize 'nr_big_tasks' and 'nr_small_tasks'
  * counters.
  */
-static inline void fixup_nr_big_small_task(int cpu)
+void fixup_nr_big_small_task(int cpu)
 {
 	struct rq *rq = cpu_rq(cpu);
 	struct task_struct *p;

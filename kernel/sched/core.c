@@ -1271,6 +1271,69 @@ static inline void migrate_sync_cpu(int cpu)
 		sync_cpu = smp_processor_id();
 }
 
+unsigned long sched_get_busy(int cpu)
+{
+	struct rq *rq = cpu_rq(cpu);
+
+	/*
+	 * This function could be called in timer context, and the
+	 * current task may have been executing for a long time. Ensure
+	 * that the window stats are current by doing an update.
+	 */
+	raw_spin_lock(&rq->lock);
+	update_task_ravg(rq->curr, rq, 1);
+	raw_spin_unlock(&rq->lock);
+
+	return div64_u64(scale_task_load(rq->prev_runnable_sum, cpu),
+			  NSEC_PER_USEC);
+}
+
+void sched_set_window(u64 window_start, unsigned int window_size)
+{
+	int cpu;
+	u64 ws;
+	u64 now = get_jiffies_64();
+	int delta;
+	unsigned long flags;
+
+	delta = window_start - now; /* how many jiffies ahead */
+
+	if (delta > 0) {
+		delta /= window_size; /* # of windows to roll back */
+		delta += 1;
+		window_start -= (delta * window_size);
+	}
+
+	ws = (window_start - sched_init_jiffy); /* jiffy difference */
+	ws *= TICK_NSEC;
+	ws += sched_clock_at_init_jiffy;
+
+	BUG_ON(sched_clock() < ws);
+
+	local_irq_save(flags);
+
+	for_each_online_cpu(cpu) {
+		struct rq *rq = cpu_rq(cpu);
+		raw_spin_lock(&rq->lock);
+	}
+
+	sched_ravg_window = window_size * TICK_NSEC;
+	set_hmp_defaults();
+
+	for_each_online_cpu(cpu) {
+		struct rq *rq = cpu_rq(cpu);
+		rq->window_start = ws;
+		fixup_nr_big_small_task(cpu);
+	}
+
+	for_each_online_cpu(cpu) {
+		struct rq *rq = cpu_rq(cpu);
+		raw_spin_unlock(&rq->lock);
+	}
+
+	local_irq_restore(flags);
+}
+
 #else	/* CONFIG_SCHED_FREQ_INPUT || CONFIG_SCHED_HMP */
 
 static inline void

@@ -694,6 +694,9 @@ extern unsigned int sched_upmigrate;
 extern unsigned int sched_downmigrate;
 extern unsigned int sched_init_task_load_pelt;
 extern unsigned int sched_init_task_load_windows;
+extern void fixup_nr_big_small_task(int cpu);
+
+u64 scale_task_load(u64 load, int cpu);
 
 static inline void
 inc_cumulative_runnable_avg(struct rq *rq, struct task_struct *p)
