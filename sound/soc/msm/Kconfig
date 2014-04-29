@@ -234,6 +234,7 @@ config SND_SOC_MSM8X16
 	select SND_DYNAMIC_MINORS
 	select QTI_PP
 	select DTS_SRS_TM
+	select DOLBY_DAP
 	select MSM_QDSP6_APRV3
 	select MSM_QDSP6V2_CODECS
 	help
