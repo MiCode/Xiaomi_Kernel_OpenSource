@@ -1035,12 +1035,19 @@ static unsigned ch_read_buffer(struct smd_channel *ch, void **ptr)
 {
 	unsigned head = ch->half_ch->get_head(ch->recv);
 	unsigned tail = ch->half_ch->get_tail(ch->recv);
-	*ptr = (void *) (ch->recv_data + tail);
+	unsigned fifo_size = ch->fifo_size;
 
+	BUG_ON(fifo_size >= SZ_1M);
+	BUG_ON(head >= fifo_size);
+	BUG_ON(tail >= fifo_size);
+	BUG_ON(OVERFLOW_ADD_UNSIGNED(uintptr_t, (uintptr_t)ch->recv_data,
+								 tail));
+
+	*ptr = (void *) (ch->recv_data + tail);
 	if (tail <= head)
 		return head - tail;
 	else
-		return ch->fifo_size - tail;
+		return fifo_size - tail;
 }
 
 static int read_intr_blocked(struct smd_channel *ch)
@@ -1140,16 +1147,23 @@ static unsigned ch_write_buffer(struct smd_channel *ch, void **ptr)
 {
 	unsigned head = ch->half_ch->get_head(ch->send);
 	unsigned tail = ch->half_ch->get_tail(ch->send);
-	*ptr = (void *) (ch->send_data + head);
+	unsigned fifo_size = ch->fifo_size;
 
+	BUG_ON(fifo_size >= SZ_1M);
+	BUG_ON(head >= fifo_size);
+	BUG_ON(tail >= fifo_size);
+	BUG_ON(OVERFLOW_ADD_UNSIGNED(uintptr_t, (uintptr_t)ch->send_data,
+								head));
+
+	*ptr = (void *) (ch->send_data + head);
 	if (head < tail) {
 		return tail - head - SMD_FIFO_FULL_RESERVE;
 	} else {
 		if (tail < SMD_FIFO_FULL_RESERVE)
-			return ch->fifo_size + tail - head
+			return fifo_size + tail - head
 					- SMD_FIFO_FULL_RESERVE;
 		else
-			return ch->fifo_size - head;
+			return fifo_size - head;
 	}
 }
 
