@@ -1407,12 +1407,63 @@ static int task_will_fit(struct task_struct *p, int cpu)
 	return 0;
 }
 
-/* Return cost of running a task on given cpu */
-static inline int power_cost(struct task_struct *p, int cpu)
+struct cpu_pwr_stats __weak *get_cpu_pwr_stats(void)
 {
-	/* Todo: account cluster cost etc */
-	return cpu_rq(cpu)->capacity;
+	return NULL;
 }
+
+static unsigned int power_cost_at_freq(int cpu, unsigned int freq)
+{
+	int i = 0;
+	struct cpu_pwr_stats *per_cpu_info = get_cpu_pwr_stats();
+	struct cpu_pstate_pwr *costs;
+
+	if (!per_cpu_info || !per_cpu_info[cpu].ptable ||
+	    !sysctl_sched_enable_power_aware)
+		/* When power aware scheduling is not in use, or CPU
+		 * power data is not available, just use the CPU
+		 * capacity as a rough stand-in for real CPU power
+		 * numbers, assuming bigger CPUs are more power
+		 * hungry. */
+		return cpu_rq(cpu)->capacity;
+
+	if (!freq)
+		freq = min_max_freq;
+
+	costs = per_cpu_info[cpu].ptable;
+
+	while (costs[i].freq != 0) {
+		if (costs[i].freq >= freq ||
+		    costs[i+1].freq == 0)
+			return costs[i].power;
+		i++;
+	}
+	BUG();
+}
+
+/* Return the cost of running task p on CPU cpu. This function
+ * currently assumes that task p is the only task which will run on
+ * the CPU. */
+static unsigned int power_cost(struct task_struct *p, int cpu)
+{
+	unsigned int demand;
+
+	if (!sysctl_sched_enable_power_aware)
+		return cpu_rq(cpu)->capacity;
+
+	/* calculate % of max freq needed */
+	demand = scale_task_load(task_load(p), cpu) * 100;
+	if (sched_use_pelt)
+		demand /= p->se.avg.runnable_avg_period;
+	else
+		demand /= sched_ravg_window;
+
+	demand *= cpu_rq(cpu)->max_possible_freq;
+	demand /= 100; /* khz needed */
+
+	return power_cost_at_freq(cpu, demand);
+}
+
 
 static inline int mostly_idle_cpu(int cpu)
 {
@@ -1593,7 +1644,7 @@ static inline int find_new_hmp_ilb(int call_cpu)
 			if (!idle_cpu(i))
 				continue;
 
-			cost = power_cost(NULL, i);
+			cost = power_cost_at_freq(i, min_max_freq);
 			if (cost < min_cost) {
 				best_cpu = i;
 				min_cost = cost;
@@ -5180,7 +5231,7 @@ static inline void update_sg_lb_stats(struct lb_env *env,
 
 		trace_sched_cpu_load(cpu_rq(i), idle_cpu(i),
 				     mostly_idle_cpu(i),
-				     power_cost(NULL, i));
+				     power_cost_at_freq(i, 0));
 		nr_running = rq->nr_running;
 
 		/* Bias balancing toward cpus of our domain */
