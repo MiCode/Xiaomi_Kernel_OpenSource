@@ -20,15 +20,26 @@
 #include <linux/slab.h>
 #include <linux/qdsp6v2/apr.h>
 #include <soc/qcom/smd.h>
-#include "q6core.h"
 #include <soc/qcom/ocmem.h>
+#include "q6core.h"
+#include "audio_acdb.h"
 
 #define TIMEOUT_MS 1000
 
 struct q6core_str {
 	struct apr_svc *core_handle_q;
 	wait_queue_head_t bus_bw_req_wait;
+	wait_queue_head_t cmd_req_wait;
 	u32 bus_bw_resp_received;
+	enum cmd_flags {
+		FLAG_NONE,
+		FLAG_CMDRSP_LICENSE_RESULT
+	} cmd_resp_received_flag;
+	struct mutex cmd_lock;
+	union {
+		struct avcs_cmdrsp_get_license_validation_result
+						cmdrsp_license_result;
+	} cmd_resp_payload;
 	struct avcs_cmd_rsp_get_low_power_segments_info_t lp_ocm_payload;
 	u32 param;
 };
@@ -118,7 +129,15 @@ static int32_t aprv2_core_fn_q(struct apr_client_data *data, void *priv)
 		q6core_lcl.bus_bw_resp_received = 1;
 		wake_up(&q6core_lcl.bus_bw_req_wait);
 		break;
-
+	case AVCS_CMDRSP_GET_LICENSE_VALIDATION_RESULT:
+		payload1 = data->payload;
+		pr_debug("%s: cmd = LICENSE_VALIDATION_RESULT, result = 0x%x\n",
+				__func__, payload1[0]);
+		q6core_lcl.cmd_resp_payload.cmdrsp_license_result.result
+								= payload1[0];
+		q6core_lcl.cmd_resp_received_flag = FLAG_CMDRSP_LICENSE_RESULT;
+		wake_up(&q6core_lcl.cmd_req_wait);
+		break;
 	default:
 		pr_err("Message id from adsp core svc: %d\n", data->opcode);
 		break;
@@ -138,11 +157,151 @@ void ocm_core_open(void)
 		pr_err("%s: Unable to register CORE\n", __func__);
 }
 
+int32_t core_set_license(uint32_t key, uint32_t module_id)
+{
+	struct avcs_cmd_set_license *cmd_setl = NULL;
+	struct meta_info_t metainfo;
+	int rc = 0, paycket_size = 0;
+
+	pr_debug("%s: key:0x%x, id:0x%x\n", __func__, key, module_id);
+
+	mutex_lock(&(q6core_lcl.cmd_lock));
+
+	metainfo.nKeyValue = key;
+	metainfo.nBuffer = NULL;
+	rc = get_meta_info_size(metainfo.nKeyValue, &(metainfo.nBufferLength));
+	if (rc != 0 || metainfo.nBufferLength <= 0 ||
+		metainfo.nBufferLength > MAX_META_INFO_SIZE) {
+		pr_err("%s: error getting metainfo size, err:0x%x, size:%d\n",
+					__func__, rc, metainfo.nBufferLength);
+		goto fail_cmd1;
+	}
+
+	metainfo.nBuffer = kzalloc(metainfo.nBufferLength, GFP_KERNEL);
+	if (metainfo.nBuffer == NULL) {
+		pr_err("%s: kzalloc for metainfo failed\n", __func__);
+		rc  = -ENOMEM;
+		goto fail_cmd1;
+	}
+	rc = get_meta_info(&metainfo);
+	if (rc) {
+		pr_err("%s: error getting metainfo err:%d\n", __func__, rc);
+		goto fail_cmd2;
+	}
+
+	paycket_size = sizeof(struct avcs_cmd_set_license) +
+						metainfo.nBufferLength;
+	/*round up total paycket_size to next 4 byte boundary*/
+	paycket_size = ((paycket_size + 0x3)>>2)<<2;
+
+	cmd_setl = kzalloc(paycket_size, GFP_KERNEL);
+	if (cmd_setl == NULL) {
+		pr_err("%s: kzalloc for cmd_set_license failed\n", __func__);
+		rc  = -ENOMEM;
+		goto fail_cmd2;
+	}
+
+	ocm_core_open();
+	if (q6core_lcl.core_handle_q == NULL) {
+		pr_err("%s: apr registration for CORE failed\n", __func__);
+		rc  = -ENODEV;
+		goto fail_cmd;
+	}
+
+	cmd_setl->hdr.hdr_field = APR_HDR_FIELD(APR_MSG_TYPE_EVENT,
+				APR_HDR_LEN(APR_HDR_SIZE), APR_PKT_VER);
+	cmd_setl->hdr.pkt_size = paycket_size;
+	cmd_setl->hdr.src_port = 0;
+	cmd_setl->hdr.dest_port = 0;
+	cmd_setl->hdr.token = 0;
+	cmd_setl->hdr.opcode = AVCS_CMD_SET_LICENSE;
+	cmd_setl->id = module_id;
+	cmd_setl->overwrite = 1;
+	cmd_setl->size = metainfo.nBufferLength;
+	memcpy((uint8_t *)cmd_setl + sizeof(struct avcs_cmd_set_license),
+				metainfo.nBuffer, metainfo.nBufferLength);
+	pr_info("%s: Set license opcode=0x%x ,key=0x%x, id =0x%x, size = %d\n",
+			__func__, cmd_setl->hdr.opcode,
+			metainfo.nKeyValue, cmd_setl->id, cmd_setl->size);
+	rc = apr_send_pkt(q6core_lcl.core_handle_q, (uint32_t *)cmd_setl);
+	if (rc < 0)
+		pr_err("%s: SET_LICENSE failed op[0x%x]rc[%d]\n",
+					__func__, cmd_setl->hdr.opcode, rc);
+
+fail_cmd:
+	kfree(cmd_setl);
+fail_cmd2:
+	kfree(metainfo.nBuffer);
+fail_cmd1:
+	mutex_unlock(&(q6core_lcl.cmd_lock));
+
+	return rc;
+}
+
+int32_t core_get_license_status(uint32_t module_id)
+{
+	struct avcs_cmd_get_license_validation_result get_lvr_cmd;
+	int ret = 0;
+
+	pr_info("%s: module_id 0x%x", __func__, module_id);
+
+	mutex_lock(&(q6core_lcl.cmd_lock));
+	ocm_core_open();
+	if (q6core_lcl.core_handle_q == NULL) {
+		pr_err("%s: apr registration for CORE failed\n", __func__);
+		ret  = -ENODEV;
+		goto fail_cmd;
+	}
+
+	get_lvr_cmd.hdr.hdr_field = APR_HDR_FIELD(APR_MSG_TYPE_SEQ_CMD,
+				APR_HDR_LEN(APR_HDR_SIZE), APR_PKT_VER);
+	get_lvr_cmd.hdr.pkt_size =
+		sizeof(struct avcs_cmd_get_license_validation_result);
+
+	get_lvr_cmd.hdr.src_port = 0;
+	get_lvr_cmd.hdr.dest_port = 0;
+	get_lvr_cmd.hdr.token = 0;
+	get_lvr_cmd.hdr.opcode = AVCS_CMD_GET_LICENSE_VALIDATION_RESULT;
+	get_lvr_cmd.id = module_id;
+
+
+	ret = apr_send_pkt(q6core_lcl.core_handle_q, (uint32_t *) &get_lvr_cmd);
+	if (ret < 0) {
+		pr_err("%s: license_validation request failed, err %d\n",
+							__func__, ret);
+		ret = -EREMOTE;
+		goto fail_cmd;
+	}
+
+	q6core_lcl.cmd_resp_received_flag &= ~(FLAG_CMDRSP_LICENSE_RESULT);
+	mutex_unlock(&(q6core_lcl.cmd_lock));
+	ret = wait_event_timeout(q6core_lcl.cmd_req_wait,
+			(q6core_lcl.cmd_resp_received_flag ==
+				FLAG_CMDRSP_LICENSE_RESULT),
+				msecs_to_jiffies(TIMEOUT_MS));
+	mutex_lock(&(q6core_lcl.cmd_lock));
+	if (!ret) {
+		pr_err("%s: wait_event timeout for CMDRSP_LICENSE_RESULT\n",
+				__func__);
+		ret = -ETIME;
+		goto fail_cmd;
+	}
+	q6core_lcl.cmd_resp_received_flag &= ~(FLAG_CMDRSP_LICENSE_RESULT);
+	ret = q6core_lcl.cmd_resp_payload.cmdrsp_license_result.result;
+
+fail_cmd:
+	mutex_unlock(&(q6core_lcl.cmd_lock));
+	pr_info("%s: cmdrsp_license_result.result = 0x%x for module 0x%x\n",
+				__func__, ret, module_id);
+	return ret;
+}
+
 uint32_t core_set_dolby_manufacturer_id(int manufacturer_id)
 {
 	struct adsp_dolby_manufacturer_id payload;
 	int rc = 0;
-	pr_debug("%s manufacturer_id :%d\n", __func__, manufacturer_id);
+	pr_info("%s: manufacturer_id :%d\n", __func__, manufacturer_id);
+	mutex_lock(&(q6core_lcl.cmd_lock));
 	ocm_core_open();
 	if (q6core_lcl.core_handle_q) {
 		payload.hdr.hdr_field = APR_HDR_FIELD(APR_MSG_TYPE_EVENT,
@@ -162,6 +321,7 @@ uint32_t core_set_dolby_manufacturer_id(int manufacturer_id)
 			pr_err("%s: SET_DOLBY_MANUFACTURER_ID failed op[0x%x]rc[%d]\n",
 				__func__, payload.hdr.opcode, rc);
 	}
+	mutex_unlock(&(q6core_lcl.cmd_lock));
 	return rc;
 }
 
@@ -255,13 +415,17 @@ static int __init core_init(void)
 
 	q6core_lcl.core_handle_q = NULL;
 
+	init_waitqueue_head(&q6core_lcl.cmd_req_wait);
+	q6core_lcl.cmd_resp_received_flag = FLAG_NONE;
+	mutex_init(&q6core_lcl.cmd_lock);
+
 	return 0;
 }
 module_init(core_init);
 
 static void __exit core_exit(void)
 {
-
+	mutex_destroy(&q6core_lcl.cmd_lock);
 }
 module_exit(core_exit);
 MODULE_DESCRIPTION("ADSP core driver");
