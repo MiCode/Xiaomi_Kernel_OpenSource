@@ -207,7 +207,6 @@ static irqreturn_t handle_wake_irq(int irq, void *data)
 
 static void handle_linkdown_func(struct work_struct *work)
 {
-	int ret;
 	struct msm_pcie_dev_t *dev = container_of(work, struct msm_pcie_dev_t,
 					handle_linkdown_work);
 
@@ -254,22 +253,11 @@ static void handle_linkdown_func(struct work_struct *work)
 			}
 		}
 	} else {
-		PCIE_DBG(
-			"PCIe: No registration for linkdown of RC%d; so recover the link by RC\n",
+		pr_err(
+			"PCIe: Client driver does not have registration and this linkdown of RC%d should never happen.\n",
 			dev->rc_idx);
-
-		msm_pcie_disable(dev, PM_EXPT | PM_PIPE_CLK | PM_CLK | PM_VREG);
-		ret = msm_pcie_recover_link(dev);
-
-		if (ret) {
-			pr_err(
-				"PCIe:failed to enable RC%d again upon linkdown.\n",
-				dev->rc_idx);
-			goto out;
-		}
 	}
 
-out:
 	dev->handling_linkdown--;
 	if (dev->handling_linkdown < 0)
 		pr_err("PCIe:handling_linkdown for RC%d is %d\n",
