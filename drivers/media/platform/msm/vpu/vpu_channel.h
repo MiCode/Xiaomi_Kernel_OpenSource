@@ -33,6 +33,8 @@ struct vpu_buffer {
 	u32 valid_addresses_mask;
 	struct list_head  buffers_entry;
 
+	u32 sequence;	/* buffer sequence number */
+
 	struct vpu_plane {
 		/* use ADDR_INDEX_xxxx to get the device address */
 		u32 mapped_address[3];
