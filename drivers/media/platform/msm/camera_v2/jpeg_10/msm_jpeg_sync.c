@@ -25,7 +25,7 @@
 #include "msm_jpeg_common.h"
 
 #define JPEG_REG_SIZE 0x308
-#define JPEG_DEV_CNT 3
+#define JPEG_DEV_CNT 4
 #define JPEG_DEC_ID 2
 #define UINT32_MAX (0xFFFFFFFFU)
 
@@ -459,7 +459,8 @@ int msm_jpeg_output_buf_enqueue(struct msm_jpeg_device *pgmn_dev,
 
 	buf_p->y_buffer_addr = msm_jpeg_platform_v2p(pgmn_dev, buf_cmd.fd,
 		buf_cmd.y_len + buf_cmd.cbcr_len + buf_cmd.pln2_len,
-		&buf_p->file, &buf_p->handle, pgmn_dev->domain_num);
+		&buf_p->file, &buf_p->handle, pgmn_dev->domain_num) +
+		buf_cmd.offset + buf_cmd.y_off;
 	if (!buf_p->y_buffer_addr) {
 		JPEG_PR_ERR("%s:%d] v2p wrong\n", __func__, __LINE__);
 		kfree(buf_p);
@@ -665,7 +666,7 @@ int msm_jpeg_irq(int event, void *context, void *data)
 int __msm_jpeg_open(struct msm_jpeg_device *pgmn_dev)
 {
 	int rc;
-
+	irqreturn_t (*core_irq)(int, void *);
 	mutex_lock(&pgmn_dev->lock);
 	if (pgmn_dev->open_count) {
 		/* only open once */
@@ -677,9 +678,14 @@ int __msm_jpeg_open(struct msm_jpeg_device *pgmn_dev)
 	mutex_unlock(&pgmn_dev->lock);
 
 	msm_jpeg_core_irq_install(msm_jpeg_irq);
+	if (pgmn_dev->core_type == MSM_JPEG_CORE_CODEC)
+		core_irq = msm_jpeg_core_irq;
+	else
+		core_irq = msm_jpegdma_core_irq;
+
 	rc = msm_jpeg_platform_init(pgmn_dev->pdev,
 		&pgmn_dev->mem, &pgmn_dev->base,
-		&pgmn_dev->irq, msm_jpeg_core_irq, pgmn_dev);
+		&pgmn_dev->irq, core_irq, pgmn_dev);
 	if (rc) {
 		JPEG_PR_ERR("%s:%d] platform_init fail %d\n", __func__,
 			__LINE__, rc);
@@ -1463,7 +1469,7 @@ int __msm_jpeg_init(struct msm_jpeg_device *pgmn_dev)
 #ifdef CONFIG_MSM_IOMMU
 	int i = 0, j = 0;
 	char *iommu_name[JPEG_DEV_CNT] = {"jpeg_enc0", "jpeg_enc1",
-		"jpeg_dec"};
+		"jpeg_dec", "jpeg_dma"};
 #endif
 
 	mutex_init(&pgmn_dev->lock);
