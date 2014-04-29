@@ -1285,17 +1285,19 @@ struct sched_class {
 
 #if defined(CONFIG_SCHED_FREQ_INPUT) || defined(CONFIG_SCHED_HMP)
 extern void
-update_task_ravg(struct task_struct *p, struct rq *rq, int update_sum);
+update_task_ravg(struct task_struct *p, struct rq *rq,
+				 int update_sum, u64 wallclock);
 #else	/* CONFIG_SCHED_FREQ_INPUT || CONFIG_SCHED_HMP */
 static inline void
-update_task_ravg(struct task_struct *p, struct rq *rq, int update_sum)
+update_task_ravg(struct task_struct *p, struct rq *rq,
+				 int update_sum, u64 wallclock)
 {
 }
 #endif	/* CONFIG_SCHED_FREQ_INPUT || CONFIG_SCHED_HMP */
 
 static inline void put_prev_task(struct rq *rq, struct task_struct *prev)
 {
-	update_task_ravg(prev, rq, 1);
+	update_task_ravg(prev, rq, 1, sched_clock());
 	prev->sched_class->put_prev_task(rq, prev);
 }
 

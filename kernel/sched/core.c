@@ -1191,11 +1191,11 @@ static inline void move_window_start(struct rq *rq, u64 wallclock)
 	}
 }
 
-void update_task_ravg(struct task_struct *p, struct rq *rq, int update_sum)
+void update_task_ravg(struct task_struct *p, struct rq *rq,
+				 int update_sum, u64 wallclock)
 {
 	u32 window_size = sched_ravg_window;
 	int new_window;
-	u64 wallclock = sched_clock();
 	u64 mark_start = p->ravg.mark_start;
 	u64 window_start;
 	u32 prev_contrib = 0;
@@ -1356,7 +1356,7 @@ unsigned long sched_get_busy(int cpu)
 	 * that the window stats are current by doing an update.
 	 */
 	raw_spin_lock(&rq->lock);
-	update_task_ravg(rq->curr, rq, 1);
+	update_task_ravg(rq->curr, rq, 1, sched_clock());
 	raw_spin_unlock(&rq->lock);
 
 	return div64_u64(scale_task_load(rq->prev_runnable_sum, cpu),
@@ -1462,9 +1462,10 @@ void set_task_cpu(struct task_struct *p, unsigned int new_cpu)
 			struct rq *dest_rq = cpu_rq(new_cpu);
 
 			p->on_rq = 0;	/* Fixme */
-			update_task_ravg(p, task_rq(p), 0);
+			update_task_ravg(p, task_rq(p), 0, sched_clock());
 			p->on_rq = 1;	/* Fixme */
-			update_task_ravg(dest_rq->curr, dest_rq, 1);
+			update_task_ravg(dest_rq->curr, dest_rq,
+						 1, sched_clock());
 
 
 			src_rq->curr_runnable_sum -= p->ravg.sum;
@@ -2110,7 +2111,7 @@ try_to_wake_up(struct task_struct *p, unsigned int state, int wake_flags)
 	smp_rmb();
 
 	raw_spin_lock(&rq->lock);
-	update_task_ravg(p, rq, 0);
+	update_task_ravg(p, rq, 0, sched_clock());
 	raw_spin_unlock(&rq->lock);
 
 	p->sched_contributes_to_load = !!task_contributes_to_load(p);
@@ -2189,7 +2190,7 @@ static void try_to_wake_up_local(struct task_struct *p)
 		goto out;
 
 	if (!task_on_rq_queued(p)) {
-		update_task_ravg(p, rq, 0);
+		update_task_ravg(p, rq, 0, sched_clock());
 		ttwu_activate(rq, p, ENQUEUE_WAKEUP);
 	}
 
@@ -3145,7 +3146,7 @@ pick_next_task(struct rq *rq, struct task_struct *prev)
 		if (unlikely(!p))
 			p = idle_sched_class.pick_next_task(rq, prev);
 
-		update_task_ravg(p, rq, 0);
+		update_task_ravg(p, rq, 0, sched_clock());
 		return p;
 	}
 
@@ -3155,7 +3156,7 @@ again:
 		if (p) {
 			if (unlikely(p == RETRY_TASK))
 				goto again;
-			update_task_ravg(p, rq, 0);
+			update_task_ravg(p, rq, 0, sched_clock());
 			return p;
 		}
 	}
