@@ -1032,6 +1032,8 @@ update_history(struct rq *rq, struct task_struct *p, u32 runtime, int samples)
 	u32 max = 0, avg, demand;
 	u64 sum = 0;
 
+	p->ravg.prev_window = runtime;
+
 	/* Ignore windows where task had no activity */
 	if (!runtime)
 		return;

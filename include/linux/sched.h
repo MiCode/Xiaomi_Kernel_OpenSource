@@ -1054,9 +1054,14 @@ struct ravg {
 	 *
 	 * 'demand' represents maximum sum seen over previous RAVG_HIST_SIZE
 	 * windows. 'demand' could drive frequency demand for tasks.
+	 *
+	 * 'prev_window' is the history in the most recent window. This value
+	 * may be zero if there was no task activity in that window - that is
+	 * how this quantity differs from the most recent sample in
+	 * sum_history (empty windows are ignored in sum_history).
 	 */
 	u64 mark_start;
-	u32 sum, demand;
+	u32 sum, demand, prev_window;
 	u32 sum_history[RAVG_HIST_SIZE];
 };
 
