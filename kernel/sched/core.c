@@ -1105,6 +1105,15 @@ static inline void move_window_start(struct rq *rq, u64 wallclock)
 
 	nr_windows = div64_u64(delta, sched_ravg_window);
 	rq->window_start += (u64)nr_windows * (u64)sched_ravg_window;
+
+	if (nr_windows) {
+		if (nr_windows == 1)
+			rq->prev_runnable_sum = rq->curr_runnable_sum;
+		else
+			rq->prev_runnable_sum = 0;
+
+		rq->curr_runnable_sum = 0;
+	}
 }
 
 void update_task_ravg(struct task_struct *p, struct rq *rq, int update_sum)
@@ -1114,12 +1123,21 @@ void update_task_ravg(struct task_struct *p, struct rq *rq, int update_sum)
 	u64 wallclock = sched_clock();
 	u64 mark_start = p->ravg.mark_start;
 	u64 window_start;
+	u32 prev_contrib = 0;
+	u32 curr_contrib = 0;
 
 	if (sched_use_pelt || !rq->window_start)
 		return;
 
 	move_window_start(rq, wallclock);
 	window_start = rq->window_start;
+
+	/*
+	 * Don't bother accounting for idle task, also we would not want
+	 * to attribute its time to the aggregate RQ busy time
+	 */
+	if (is_idle_task(p))
+		return;
 
 	do {
 		s64 delta = 0;
@@ -1128,8 +1146,10 @@ void update_task_ravg(struct task_struct *p, struct rq *rq, int update_sum)
 		u32 sum = 0;
 
 		new_window = 0;
+
 		if (window_start > mark_start) {
 			delta = window_start - mark_start;
+
 			n = div64_u64(delta, window_size);
 			window_start -= n * window_size;
 			now = window_start;
@@ -1155,6 +1175,9 @@ void update_task_ravg(struct task_struct *p, struct rq *rq, int update_sum)
 			p->ravg.sum += delta;
 			if (unlikely(p->ravg.sum > window_size))
 				p->ravg.sum = window_size;
+
+			prev_contrib = curr_contrib;
+			curr_contrib = delta;
 		}
 
 		if (!new_window)
@@ -1167,11 +1190,22 @@ void update_task_ravg(struct task_struct *p, struct rq *rq, int update_sum)
 			if (update_sum)
 				sum = window_size;
 			update_history(rq, p, sum, n);
+
+			/*
+			 * We will always shift curr_contrib into
+			 * prev_contrib when tallying the remainder in
+			 * the current window on the next loop
+			 * iteration.
+			 */
+			curr_contrib = sum;
 		}
 		mark_start = window_start;
 	} while (new_window);
 
 	p->ravg.mark_start = wallclock;
+
+	rq->curr_runnable_sum += curr_contrib;
+	rq->prev_runnable_sum += prev_contrib;
 }
 
 unsigned long __weak arch_get_cpu_efficiency(int cpu)
@@ -7811,6 +7845,7 @@ void __init sched_init(void)
 #endif
 #ifdef CONFIG_SCHED_HMP
 		rq->nr_small_tasks = rq->nr_big_tasks = 0;
+		rq->curr_runnable_sum = rq->prev_runnable_sum = 0;
 #endif
 
 		INIT_LIST_HEAD(&rq->cfs_tasks);

@@ -493,6 +493,9 @@ struct rq {
 	int load_scale_factor;
 	int capacity;
 	u64 window_start;
+
+	unsigned int curr_runnable_sum;
+	unsigned int prev_runnable_sum;
 #endif
 
 #ifdef CONFIG_SCHED_HMP
