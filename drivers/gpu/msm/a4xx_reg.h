@@ -490,10 +490,6 @@ enum a4xx_rb_perfctr_rb_sel {
 #define A4XX_SP_PERFCTR_SP_SEL_9	0xecd
 #define A4XX_SP_PERFCTR_SP_SEL_10	0xece
 #define A4XX_SP_PERFCTR_SP_SEL_11	0xecf
-#define A4XX_SP_VS_PVT_MEM_ADDR		0x22e3
-#define A4XX_SP_FS_PVT_MEM_ADDR		0x22ed
-#define A4XX_SP_VS_OBJ_START		0x22e1
-#define A4XX_SP_FS_OBJ_START		0x22eb
 
 enum a4xx_sp_perfctr_sp_sel {
 	SP_FS_STAGE_BARY_INSTRUCTIONS = 0x10,
