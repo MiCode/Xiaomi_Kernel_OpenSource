@@ -672,7 +672,7 @@ int mpq_dmx_plugin_init(mpq_dmx_init dmx_init_func)
 	 * for decoder's buffers.
 	 */
 	mpq_dmx_info.ion_client =
-		msm_ion_client_create(UINT_MAX, "demux_client");
+		msm_ion_client_create("demux_client");
 	if (IS_ERR_OR_NULL(mpq_dmx_info.ion_client)) {
 		MPQ_DVB_ERR_PRINT(
 				"%s: msm_ion_client_create\n",

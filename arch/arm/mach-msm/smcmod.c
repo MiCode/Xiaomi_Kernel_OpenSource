@@ -139,7 +139,7 @@ static int smcmod_send_buf_cmd(struct smcmod_buf_req *reqp)
 		return -EINVAL;
 
 	/* create an ion client */
-	ion_clientp = msm_ion_client_create(UINT_MAX, "smcmod");
+	ion_clientp = msm_ion_client_create("smcmod");
 
 	/* check for errors */
 	if (IS_ERR_OR_NULL(ion_clientp))
@@ -269,7 +269,7 @@ static int smcmod_send_cipher_cmd(struct smcmod_cipher_req *reqp)
 		return -EINVAL;
 
 	/* create an ion client */
-	ion_clientp = msm_ion_client_create(UINT_MAX, "smcmod");
+	ion_clientp = msm_ion_client_create("smcmod");
 
 	/* check for errors */
 	if (IS_ERR_OR_NULL(ion_clientp))
@@ -413,7 +413,7 @@ static int smcmod_send_msg_digest_cmd(struct smcmod_msg_digest_req *reqp)
 		return -EINVAL;
 
 	/* create an ion client */
-	ion_clientp = msm_ion_client_create(UINT_MAX, "smcmod");
+	ion_clientp = msm_ion_client_create("smcmod");
 
 	/* check for errors */
 	if (IS_ERR_OR_NULL(ion_clientp))
@@ -530,7 +530,7 @@ static int smcmod_send_dec_cmd(struct smcmod_decrypt_req *reqp)
 		u32 args[3];
 	} rsp;
 
-	ion_clientp = msm_ion_client_create(UINT_MAX, "smcmod");
+	ion_clientp = msm_ion_client_create("smcmod");
 	if (IS_ERR_OR_NULL(ion_clientp))
 		return PTR_ERR(ion_clientp);
 

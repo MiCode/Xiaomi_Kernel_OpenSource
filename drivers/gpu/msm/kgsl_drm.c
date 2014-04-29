@@ -1,4 +1,4 @@
-/* Copyright (c) 2009-2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2009-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1324,8 +1324,7 @@ int kgsl_drm_init(struct platform_device *dev)
 	INIT_LIST_HEAD(&kgsl_mem_list);
 
 	/* Create ION Client */
-	kgsl_drm_ion_client = msm_ion_client_create(
-			0xffffffff, "kgsl_drm");
+	kgsl_drm_ion_client = msm_ion_client_create("kgsl_drm");
 	if (!kgsl_drm_ion_client) {
 		DRM_ERROR("Unable to create ION client\n");
 		return -ENOMEM;

@@ -96,12 +96,11 @@ struct ion_cma_pdata {
  *  msm_ion_client_create - allocate a client using the ion_device specified in
  *				drivers/gpu/ion/msm/msm_ion.c
  *
- * heap_mask and name are the same as ion_client_create, return values
+ * name is the same as ion_client_create, return values
  * are the same as ion_client_create.
  */
 
-struct ion_client *msm_ion_client_create(unsigned int heap_mask,
-					const char *name);
+struct ion_client *msm_ion_client_create(const char *name);
 
 /**
  * ion_handle_get_flags - get the flags for a given handle
@@ -212,8 +211,7 @@ int msm_ion_secure_buffer(struct ion_client *client, struct ion_handle *handle,
 int msm_ion_unsecure_buffer(struct ion_client *client,
 				struct ion_handle *handle);
 #else
-static inline struct ion_client *msm_ion_client_create(unsigned int heap_mask,
-					const char *name)
+static inline struct ion_client *msm_ion_client_create(const char *name)
 {
 	return ERR_PTR(-ENODEV);
 }

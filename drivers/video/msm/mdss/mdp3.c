@@ -940,7 +940,7 @@ static int mdp3_res_init(void)
 	if (rc)
 		return rc;
 
-	mdp3_res->ion_client = msm_ion_client_create(-1, mdp3_res->pdev->name);
+	mdp3_res->ion_client = msm_ion_client_create(mdp3_res->pdev->name);
 	if (IS_ERR_OR_NULL(mdp3_res->ion_client)) {
 		pr_err("msm_ion_client_create() return error (%p)\n",
 				mdp3_res->ion_client);

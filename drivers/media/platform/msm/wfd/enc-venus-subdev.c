@@ -75,7 +75,7 @@ int venc_load_fw(struct v4l2_subdev *sd)
 int venc_init(struct v4l2_subdev *sd, u32 val)
 {
 	if (!venc_ion_client)
-		venc_ion_client = msm_ion_client_create(-1, "wfd_enc_subdev");
+		venc_ion_client = msm_ion_client_create("wfd_enc_subdev");
 
 	return venc_ion_client ? 0 : -ENOMEM;
 }

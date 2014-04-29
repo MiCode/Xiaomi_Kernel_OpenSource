@@ -4565,7 +4565,7 @@ static int qseecom_probe(struct platform_device *pdev)
 	qseecom.commonlib_loaded = false;
 	qseecom.pdev = class_dev;
 	/* Create ION msm client */
-	qseecom.ion_clnt = msm_ion_client_create(-1, "qseecom-kernel");
+	qseecom.ion_clnt = msm_ion_client_create("qseecom-kernel");
 	if (qseecom.ion_clnt == NULL) {
 		pr_err("Ion client cannot be created\n");
 		rc = -ENOMEM;

@@ -300,7 +300,7 @@ static void free_ion_mem(struct smem_client *client, struct msm_smem *mem)
 static void *ion_new_client(void)
 {
 	struct ion_client *client = NULL;
-	client = msm_ion_client_create(-1, "video_client");
+	client = msm_ion_client_create("video_client");
 	if (!client)
 		dprintk(VIDC_ERR, "Failed to create smem client\n");
 	return client;
