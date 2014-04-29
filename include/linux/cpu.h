@@ -27,6 +27,19 @@ struct cpu {
 	struct device dev;
 };
 
+struct cpu_pstate_pwr {
+	unsigned int freq;
+	uint32_t power;
+};
+
+struct cpu_pwr_stats {
+	int cpu;
+	long temp;
+	struct cpu_pstate_pwr *ptable;
+	bool throttling;
+	int len;
+};
+
 extern int register_cpu(struct cpu *cpu, int num);
 extern struct device *get_cpu_device(unsigned cpu);
 extern bool cpu_is_hotpluggable(unsigned cpu);
@@ -264,6 +277,9 @@ extern void enable_nonboot_cpus(void);
 static inline int disable_nonboot_cpus(void) { return 0; }
 static inline void enable_nonboot_cpus(void) {}
 #endif /* !CONFIG_PM_SLEEP_SMP */
+
+struct cpu_pwr_stats *get_cpu_pwr_stats(void);
+void trigger_cpu_pwr_stats_calc(void);
 
 enum cpuhp_state {
 	CPUHP_OFFLINE,
