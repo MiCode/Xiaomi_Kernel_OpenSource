@@ -492,6 +492,7 @@ struct rq {
 	int efficiency; /* Differentiate cpus with different IPC capability */
 	int load_scale_factor;
 	int capacity;
+	u64 window_start;
 #endif
 
 #ifdef CONFIG_SCHED_HMP
