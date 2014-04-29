@@ -1623,8 +1623,24 @@ void set_task_cpu(struct task_struct *p, unsigned int new_cpu)
 		p->se.nr_migrations++;
 		perf_event_task_migrate(p);
 
-		if (p->state == TASK_RUNNING)
+#if defined(CONFIG_SCHED_FREQ_INPUT) || defined(CONFIG_SCHED_HMP)
+		if (p->on_rq) {
+			struct rq *src_rq = task_rq(p);
+			struct rq *dest_rq = cpu_rq(new_cpu);
+
+			p->on_rq = 0;	/* Fixme */
 			update_task_ravg(p, task_rq(p), 0);
+			p->on_rq = 1;	/* Fixme */
+			update_task_ravg(dest_rq->curr, dest_rq, 1);
+
+
+			src_rq->curr_runnable_sum -= p->ravg.sum;
+			src_rq->prev_runnable_sum -= p->ravg.prev_window;
+			dest_rq->curr_runnable_sum += p->ravg.sum;
+			dest_rq->prev_runnable_sum += p->ravg.prev_window;
+		}
+#endif
+
 	}
 
 	__set_task_cpu(p, new_cpu);
