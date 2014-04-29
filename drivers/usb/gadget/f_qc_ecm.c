@@ -117,6 +117,7 @@ static inline unsigned ecm_qc_bitrate(struct usb_gadget *g)
 
 /* Currently only one std ecm instance is supported - port index 0. */
 #define ECM_QC_NO_PORTS						1
+#define ECM_QC_DEFAULT_PORT					0
 #define ECM_QC_ACTIVE_PORT					0
 
 /* interface descriptor: */
@@ -441,19 +442,6 @@ static void ecm_qc_notify(struct f_ecm_qc *ecm)
 	ecm_qc_do_notify(ecm);
 }
 
-static int ecm_qc_bam_setup(void)
-{
-	int ret;
-
-	ret = bam_data_setup(ECM_QC_NO_PORTS);
-	if (ret) {
-		pr_err("bam_data_setup failed err: %d\n", ret);
-		return ret;
-	}
-
-	return 0;
-}
-
 static int ecm_qc_bam_connect(struct f_ecm_qc *dev)
 {
 	int ret;
@@ -462,6 +450,12 @@ static int ecm_qc_bam_connect(struct f_ecm_qc *dev)
 	struct usb_gadget *gadget = cdev->gadget;
 	enum peer_bam peer_bam = (dev->xport == USB_GADGET_XPORT_BAM2BAM_IPA) ?
 		IPA_P_BAM : A2_P_BAM;
+
+	ret = bam2bam_data_port_select(ECM_QC_DEFAULT_PORT);
+	if (ret) {
+		pr_err("ecm_qc port select failed with err:%d\n", ret);
+		return ret;
+	}
 
 	dev->bam_port.cdev = cdev;
 	dev->bam_port.func = &dev->port.func;
@@ -1031,7 +1025,6 @@ ecm_qc_unbind(struct usb_configuration *c, struct usb_function *f)
 		ecm_ipa_cleanup(ipa_params.private);
 
 	kfree(ecm);
-	bam_work_destroy();
 }
 
 /**
@@ -1056,12 +1049,6 @@ ecm_qc_bind_config(struct usb_configuration *c, u8 ethaddr[ETH_ALEN],
 
 	if (!can_support_ecm(c->cdev->gadget) || !ethaddr)
 		return -EINVAL;
-
-	status = ecm_qc_bam_setup();
-	if (status) {
-		pr_err("bam setup failed\n");
-		return status;
-	}
 
 	pr_debug("data transport type is %s\n", xport_name);
 
@@ -1152,4 +1139,19 @@ ecm_qc_bind_config(struct usb_configuration *c, u8 ethaddr[ETH_ALEN],
 	}
 
 	return status;
+}
+
+static int ecm_qc_init(void)
+{
+	int ret;
+
+	pr_debug("initialize ecm qc port instance\n");
+
+	ret = bam_data_setup(ECM_QC_NO_PORTS);
+	if (ret) {
+		pr_err("bam_data_setup failed err: %d\n", ret);
+		return ret;
+	}
+
+	return ret;
 }

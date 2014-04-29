@@ -413,20 +413,6 @@ static inline void rndis_qc_unlock(atomic_t *excl)
 }
 
 /* MSM bam support */
-
-static int rndis_qc_bam_setup(void)
-{
-	int ret;
-
-	ret = bam_data_setup(RNDIS_QC_NO_PORTS);
-	if (ret) {
-		pr_err("bam_data_setup failed err: %d\n", ret);
-		return ret;
-	}
-
-	return 0;
-}
-
 static int rndis_qc_bam_connect(struct f_rndis_qc *dev)
 {
 	int ret;
@@ -440,6 +426,12 @@ static int rndis_qc_bam_connect(struct f_rndis_qc *dev)
 	dev->bam_port.func = &dev->port.func;
 	dev->bam_port.in = dev->port.in_ep;
 	dev->bam_port.out = dev->port.out_ep;
+
+	ret = bam2bam_data_port_select(RNDIS_QC_ACTIVE_PORT);
+	if (ret) {
+		pr_err("qc rndis bam port setup failed err:%d\n", ret);
+		return ret;
+	}
 
 	/* currently we use the first connection */
 	src_connection_idx = usb_bam_get_connection_idx(gadget->name, peer_bam,
@@ -1044,7 +1036,6 @@ rndis_qc_unbind(struct usb_configuration *c, struct usb_function *f)
 	}
 
 	kfree(rndis);
-	bam_work_destroy();
 }
 
 bool is_rndis_ipa_supported(void)
@@ -1096,12 +1087,6 @@ rndis_qc_bind_config_vendor(struct usb_configuration *c, u8 ethaddr[ETH_ALEN],
 	status = rndis_init();
 	if (status < 0)
 		return status;
-
-	status = rndis_qc_bam_setup();
-	if (status) {
-		pr_err("%s: bam setup failed\n", __func__);
-		return status;
-	}
 
 	/* maybe allocate device-global string IDs */
 	if (rndis_qc_string_defs[0].id == 0) {
@@ -1317,6 +1302,12 @@ static int rndis_qc_init(void)
 	ret = misc_register(&rndis_qc_device);
 	if (ret)
 		pr_err("rndis QC driver failed to register\n");
+
+	ret = bam_data_setup(RNDIS_QC_NO_PORTS);
+	if (ret) {
+		pr_err("bam_data_setup failed err: %d\n", ret);
+		return ret;
+	}
 
 	return ret;
 }
