@@ -145,6 +145,10 @@ static int mei_txe_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
 		goto release_irq;
 	}
 
+	err = mei_txe_dma_setup(dev);
+	if (err)
+		goto release_irq;
+
 	pm_runtime_set_autosuspend_delay(&pdev->dev, MEI_TXI_RPM_TIMEOUT);
 	pm_runtime_use_autosuspend(&pdev->dev);
 
@@ -167,6 +171,8 @@ static int mei_txe_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
 	return 0;
 
 release_irq:
+
+	mei_txe_dma_unset(dev);
 
 	mei_cancel_work(dev);
 
@@ -222,6 +228,8 @@ static void mei_txe_remove(struct pci_dev *pdev)
 	free_irq(pdev->irq, dev);
 	pci_disable_msi(pdev);
 
+	mei_txe_dma_unset(dev);
+
 	pci_set_drvdata(pdev, NULL);
 
 	mei_txe_pci_iounmap(pdev, hw);
@@ -260,6 +268,7 @@ static int mei_txe_pci_resume(struct device *device)
 {
 	struct pci_dev *pdev = to_pci_dev(device);
 	struct mei_device *dev;
+	struct mei_txe_hw *hw;
 	int err;
 
 	dev = pci_get_drvdata(pdev);
@@ -286,6 +295,12 @@ static int mei_txe_pci_resume(struct device *device)
 				pdev->irq);
 		return err;
 	}
+
+	hw = to_txe_hw(dev);
+	err = mei_txe_setup_satt2(dev,
+		dma_to_phys(&dev->pdev->dev, hw->pool_paddr), hw->pool_size);
+	if (err)
+		return err;
 
 	err = mei_restart(dev);
 
