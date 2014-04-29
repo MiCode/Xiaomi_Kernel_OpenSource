@@ -25,7 +25,7 @@ Optional properties:
 		bits 6-12  PARAMETER_OVERRIDE_B
 		bits 13-19 PARAMETER_OVERRIDE_C
 		bits 20-25 PARAMETER_OVERRIDE_D
- - qcom,ext-vbus-id: If present then PHY does not handle VBUS and ID changes.
+ - qcom,ext-vbus-id: If present, indicates that the PHY does not handle VBUS and ID changes.
  - qcom,vbus-valid-override: If present, indicates VBUS pin is not connected to
    the USB PHY and the controller must rely on external VBUS notification in
    order to manually enable the D+ pull-up resistor.
@@ -96,6 +96,7 @@ Optional properties:
  - qcom,vbus-valid-override: If present, indicates VBUS pin is not connected to
    the USB PHY and the controller must rely on external VBUS notification in
    order to manually relay the notification to the SSPHY.
+ - qcom,ext-vbus-id: If present, indicates that the PHY does not handle VBUS and ID changes.
 
 Example:
 	ssphy0: ssphy@f9b38000 {
