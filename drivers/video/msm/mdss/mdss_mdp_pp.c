@@ -497,7 +497,7 @@ int mdss_mdp_csc_setup_data(u32 block, u32 blk_idx, u32 tbl_idx,
 		if (i & 0x1) {
 			val |= data->csc_mv[i] << 16;
 			writel_relaxed(val, addr);
-			addr += sizeof(u32 *);
+			addr += sizeof(u32);
 		} else {
 			val = data->csc_mv[i];
 		}
@@ -508,7 +508,7 @@ int mdss_mdp_csc_setup_data(u32 block, u32 blk_idx, u32 tbl_idx,
 	for (i = 0; i < 3; i++) {
 		writel_relaxed(data->csc_pre_bv[i], addr);
 		writel_relaxed(data->csc_post_bv[i], addr + CSC_POST_OFF);
-		addr += sizeof(u32 *);
+		addr += sizeof(u32);
 	}
 
 	addr = base + CSC_LV_OFF;
@@ -518,7 +518,7 @@ int mdss_mdp_csc_setup_data(u32 block, u32 blk_idx, u32 tbl_idx,
 
 		val = (data->csc_post_lv[i] << 8) | data->csc_post_lv[i+1];
 		writel_relaxed(val, addr + CSC_POST_OFF);
-		addr += sizeof(u32 *);
+		addr += sizeof(u32);
 	}
 
 	return ret;
