@@ -738,6 +738,7 @@ static int mxhci_hsic_bus_suspend(struct usb_hcd *hcd)
 {
 	struct mxhci_hsic_hcd *mxhci = hcd_to_hsic(hcd->primary_hcd);
 	int ret;
+	u32 stat = 0;
 
 	if (!usb_hcd_is_primary_hcd(hcd))
 		return 0;
@@ -767,14 +768,23 @@ static int mxhci_hsic_bus_suspend(struct usb_hcd *hcd)
 			msecs_to_jiffies(PHY_LPM_WAIT_TIMEOUT_MS));
 
 	if (!ret) {
+		stat = readl_relaxed(MSM_HSIC_PWR_EVENT_IRQ_STAT);
 		dev_dbg(mxhci->dev, "IN_L2_IRQ timeout\n");
 		xhci_dbg_log_event(&dbg_hsic, NULL, "IN_L2_IRQ timeout",
-			readl_relaxed(MSM_HSIC_PWR_EVENT_IRQ_STAT));
+			stat);
 		xhci_dbg_log_event(&dbg_hsic, NULL, "PORTSC",
 				readl_relaxed(MSM_HSIC_PORTSC));
 		xhci_dbg_log_event(&dbg_hsic, NULL, "PORTLI",
 				readl_relaxed(MSM_HSIC_PORTLI));
-		panic("IN_L2 power event irq timedout");
+		if (stat & LPM_IN_L2_IRQ_STAT) {
+			xhci_dbg_log_event(&dbg_hsic, NULL,
+				"MISSING IN_L2_IRQ_EVENT", stat);
+			/*clear STAT bit*/
+			writel_relaxed(stat, MSM_HSIC_PWR_EVENT_IRQ_STAT);
+			mb();
+		} else {
+			panic("IN_L2 power event irq timedout");
+		}
 	}
 
 	xhci_dbg_log_event(&dbg_hsic, NULL, "Suspend RH",
