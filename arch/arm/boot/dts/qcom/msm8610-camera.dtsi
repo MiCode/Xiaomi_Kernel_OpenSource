@@ -25,7 +25,7 @@
 		reg-names = "csiphy";
 		interrupts = <0 78 0>;
 		interrupt-names = "csiphy";
-		qcom,clock-names = "csiphy_timer_src_clk",
+		clock-names = "csiphy_timer_src_clk",
 			"csiphy_timer_clk", "csi_ahb_clk";
 		qcom,clock-rates = <200000000 0 0>;
 	};
@@ -37,7 +37,7 @@
 		reg-names = "csiphy";
 		interrupts = <0 79 0>;
 		interrupt-names = "csiphy";
-		qcom,clock-names = "csiphy_timer_src_clk",
+		clock-names = "csiphy_timer_src_clk",
 			"csiphy_timer_clk", "csi_ahb_clk";
 		qcom,clock-rates = <200000000 0 0>;
 	};
@@ -51,7 +51,7 @@
 		interrupt-names = "csid";
 		qcom,csi-vdd-voltage = <1200000>;
 		qcom,mipi-csi-vdd-supply = <&pm8110_l4>;
-		qcom,clock-names = "csi_ahb_clk", "csi_src_clk",
+		clock-names = "csi_ahb_clk", "csi_src_clk",
 			"csi_clk", "csi0phy_mux_clk", "csi1phy_mux_clk",
 			"csi0pix_mux_clk", "csi0rdi_mux_clk",
 			"csi1rdi_mux_clk", "csi2rdi_mux_clk",
@@ -70,7 +70,7 @@
 		interrupt-names = "csid";
 		qcom,csi-vdd-voltage = <1200000>;
 		qcom,mipi-csi-vdd-supply = <&pm8110_l4>;
-		qcom,clock-names = "csi_ahb_clk", "csi_src_clk",
+		clock-names = "csi_ahb_clk", "csi_src_clk",
 			"csi_clk", "csi0phy_mux_clk", "csi1phy_mux_clk",
 			"csi0pix_mux_clk", "csi0rdi_mux_clk",
 			"csi1rdi_mux_clk", "csi2rdi_mux_clk",

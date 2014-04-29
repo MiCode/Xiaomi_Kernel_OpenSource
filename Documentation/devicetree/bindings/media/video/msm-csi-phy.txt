@@ -15,7 +15,7 @@ Required properties:
 - interrupts : should contain the csiphy interrupt.
 - interrupt-names : should specify relevant names to each interrupts
   property defined.
-- qcom,clock-names: name of the clocks required for the device
+- clock-names: name of the clocks required for the device
 - qcom,clock-rates: clock rate in Hz
 	- 0 if appropriate clock is required but doesn't have to apply the rate
 
@@ -28,7 +28,7 @@ Example:
        reg-names = "csiphy";
        interrupts = <0 78 0>;
        interrupt-names = "csiphy";
-       qcom,clock-names = "camss_top_ahb_clk",
+       clock-names = "camss_top_ahb_clk",
                 "ispif_ahb_clk", "csiphy_timer_src_clk",
                 "csiphy_timer_clk";
        qcom,clock-rates = <0 0 200000000 0>;
