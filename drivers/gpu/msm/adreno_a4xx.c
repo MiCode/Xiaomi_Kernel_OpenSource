@@ -531,6 +531,14 @@ static void a4xx_start(struct adreno_device *adreno_dev)
 	kgsl_regwrite(device, A4XX_CP_DEBUG, A4XX_CP_DEBUG_DEFAULT |
 			(adreno_is_a420(adreno_dev) ? (1 << 29) : 0));
 
+	/* On A430 enable SP regfile sleep for power savings */
+	if (!adreno_is_a420(adreno_dev)) {
+		kgsl_regwrite(device, A4XX_RBBM_SP_REGFILE_SLEEP_CNTL_0,
+				0x00000441);
+		kgsl_regwrite(device, A4XX_RBBM_SP_REGFILE_SLEEP_CNTL_1,
+				0x00000441);
+	}
+
 	a4xx_enable_hwcg(device);
 	a4xx_enable_pc(adreno_dev);
 	/*
