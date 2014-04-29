@@ -52,8 +52,82 @@ static const struct platform_device_id msm_vfe_dev_id[] = {
 	{}
 };
 
+#define MAX_OVERFLOW_COUNTERS  15
+#define OVERFLOW_LENGTH 512
+#define OVERFLOW_BUFFER_LENGTH 32
 static struct msm_isp_buf_mgr vfe_buf_mgr;
+static int msm_isp_enable_debugfs(struct msm_isp_statistics *stats);
+static char *stats_str[MAX_OVERFLOW_COUNTERS] = {
+	"imgmaster0_overflow_cnt",
+	"imgmaster1_overflow_cnt",
+	"imgmaster2_overflow_cnt",
+	"imgmaster3_overflow_cnt",
+	"imgmaster4_overflow_cnt",
+	"imgmaster5_overflow_cnt",
+	"imgmaster6_overflow_cnt",
+	"be_overflow_cnt",
+	"bg_overflow_cnt",
+	"bf_overflow_cnt",
+	"awb_overflow_cnt",
+	"rs_overflow_cnt",
+	"cs_overflow_cnt",
+	"ihist_overflow_cnt",
+	"skinbhist_overflow_cnt",
+};
+static int vfe_debugfs_statistics_open(struct inode *inode, struct file *file)
+{
+	file->private_data = inode->i_private;
+	return 0;
+}
 
+static ssize_t vfe_debugfs_statistics_read(struct file *t_file, char *t_char,
+	size_t t_size_t, loff_t *t_loff_t)
+{
+	int i;
+	char name[OVERFLOW_LENGTH] = {0};
+	int *ptr;
+	char buffer[OVERFLOW_BUFFER_LENGTH] = {0};
+	struct msm_isp_statistics  *stats = (struct msm_isp_statistics *)
+		t_file->private_data;
+	ptr = (int *)(stats);
+	for (i = 0; i < MAX_OVERFLOW_COUNTERS; i++) {
+		strlcat(name, stats_str[i], sizeof(name));
+		strlcat(name, "     ", sizeof(name));
+		snprintf(buffer, sizeof(buffer), "%d", ptr[i]);
+		strlcat(name, buffer, sizeof(name));
+		strlcat(name, "\r\n", sizeof(name));
+	}
+	return simple_read_from_buffer(t_char, t_size_t,
+		t_loff_t, name, strlen(name));
+}
+
+static ssize_t vfe_debugfs_statistics_write(struct file *t_file,
+	const char *t_char, size_t t_size_t, loff_t *t_loff_t)
+{
+	struct msm_isp_statistics *stats = (struct msm_isp_statistics *)
+		t_file->private_data;
+	memset(stats, 0, sizeof(struct msm_isp_statistics));
+
+	return sizeof(struct msm_isp_statistics);
+}
+
+static const struct file_operations vfe_debugfs_error = {
+	.open = vfe_debugfs_statistics_open,
+	.read = vfe_debugfs_statistics_read,
+	.write = vfe_debugfs_statistics_write,
+};
+
+static int msm_isp_enable_debugfs(struct msm_isp_statistics *stats)
+{
+	struct dentry *debugfs_base;
+	debugfs_base = debugfs_create_dir("msm_isp", NULL);
+	if (!debugfs_base)
+		return -ENOMEM;
+	if (!debugfs_create_file("stats", S_IRUGO | S_IWUSR, debugfs_base,
+		stats, &vfe_debugfs_error))
+		return -ENOMEM;
+	return 0;
+}
 static int __devinit vfe_probe(struct platform_device *pdev)
 {
 	struct vfe_device *vfe_dev;
@@ -73,6 +147,7 @@ static int __devinit vfe_probe(struct platform_device *pdev)
 	};
 
 	vfe_dev = kzalloc(sizeof(struct vfe_device), GFP_KERNEL);
+	vfe_dev->stats = kzalloc(sizeof(struct msm_isp_statistics), GFP_KERNEL);
 	if (!vfe_dev) {
 		pr_err("%s: no enough memory\n", __func__);
 		return -ENOMEM;
@@ -144,6 +219,7 @@ static int __devinit vfe_probe(struct platform_device *pdev)
 		kfree(vfe_dev);
 		return -EINVAL;
 	}
+	msm_isp_enable_debugfs(vfe_dev->stats);
 	vfe_dev->buf_mgr->ops->register_ctx(vfe_dev->buf_mgr,
 		&vfe_dev->iommu_ctx[0], vfe_dev->hw_info->num_iommu_ctx);
 	vfe_dev->vfe_open_cnt = 0;
