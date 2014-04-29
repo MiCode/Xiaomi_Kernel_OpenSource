@@ -100,6 +100,7 @@ struct wm_adsp {
 	u32 *raw_capt_buf;
 	struct circ_buf capt_buf;
 	int capt_buf_size;
+	u32 capt_watermark;
 	struct wm_adsp_buffer_region *host_regions;
 	bool buffer_drain_pending;
 

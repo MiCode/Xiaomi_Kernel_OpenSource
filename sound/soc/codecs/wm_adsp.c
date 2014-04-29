@@ -286,6 +286,8 @@ struct wm_adsp_host_buffer {
 #define WM_ADSP_MAX_READ_SIZE          256
 #define WM_ADSP_ALG_XM_STRUCT_MAGIC    0x49aec7
 
+#define WM_ADSP_DEFAULT_WATERMARK      DIV_ROUND_UP(2048, WM_ADSP_DATA_WORD_SIZE)
+
 #define ADSP2_SYSTEM_CONFIG_XM_PTR \
 	(offsetof(struct wmfw_adsp2_id_hdr, xm) / sizeof(__be32))
 
@@ -2753,6 +2755,16 @@ int wm_adsp_stream_alloc(struct wm_adsp *adsp,
 		}
 	}
 
+	size = params->buffer.fragment_size;
+	if (size == 0) {
+		adsp->capt_watermark = WM_ADSP_DEFAULT_WATERMARK;
+		adsp_warn(adsp, "No fragment size, assuming %u",
+				adsp->capt_watermark * WM_ADSP_DATA_WORD_SIZE);
+	} else {
+		adsp->capt_watermark =
+				DIV_ROUND_UP(size, WM_ADSP_DATA_WORD_SIZE);
+	}
+
 	return 0;
 
 err_raw_capt_buf:
@@ -2826,6 +2838,14 @@ int wm_adsp_stream_start(struct wm_adsp *adsp)
 	ret = wm_adsp_populate_buffer_regions(adsp);
 	if (ret < 0)
 		return ret;
+
+	ret = wm_adsp_host_buffer_write(adsp,
+					HOST_BUFFER_FIELD(high_water_mark),
+					adsp->capt_watermark);
+	if (ret < 0)
+		return ret;
+
+	adsp_dbg(adsp, "Set watermark to %u\n", adsp->capt_watermark);
 
 	return 0;
 }
