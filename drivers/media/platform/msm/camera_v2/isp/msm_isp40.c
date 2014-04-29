@@ -484,44 +484,74 @@ static void msm_vfe40_process_error_status(struct vfe_device *vfe_dev)
 		pr_err_ratelimited("%s: violation\n", __func__);
 		msm_vfe40_process_violation_status(vfe_dev);
 	}
-	if (error_status1 & (1 << 9))
+	if (error_status1 & (1 << 9)) {
+		vfe_dev->stats->imagemaster0_overflow++;
 		pr_err_ratelimited("%s: image master 0 bus overflow\n",
 			__func__);
-	if (error_status1 & (1 << 10))
+	}
+	if (error_status1 & (1 << 10)) {
+		vfe_dev->stats->imagemaster1_overflow++;
 		pr_err_ratelimited("%s: image master 1 bus overflow\n",
 			__func__);
-	if (error_status1 & (1 << 11))
+	}
+	if (error_status1 & (1 << 11)) {
+		vfe_dev->stats->imagemaster2_overflow++;
 		pr_err_ratelimited("%s: image master 2 bus overflow\n",
 			__func__);
-	if (error_status1 & (1 << 12))
+	}
+	if (error_status1 & (1 << 12)) {
+		vfe_dev->stats->imagemaster3_overflow++;
 		pr_err_ratelimited("%s: image master 3 bus overflow\n",
 			__func__);
-	if (error_status1 & (1 << 13))
+	}
+	if (error_status1 & (1 << 13)) {
+		vfe_dev->stats->imagemaster4_overflow++;
 		pr_err_ratelimited("%s: image master 4 bus overflow\n",
 			__func__);
-	if (error_status1 & (1 << 14))
+	}
+	if (error_status1 & (1 << 14)) {
+		vfe_dev->stats->imagemaster5_overflow++;
 		pr_err_ratelimited("%s: image master 5 bus overflow\n",
 			__func__);
-	if (error_status1 & (1 << 15))
+	}
+	if (error_status1 & (1 << 15)) {
+		vfe_dev->stats->imagemaster6_overflow++;
 		pr_err_ratelimited("%s: image master 6 bus overflow\n",
 			__func__);
-	if (error_status1 & (1 << 16))
+	}
+	if (error_status1 & (1 << 16)) {
+		vfe_dev->stats->be_overflow++;
 		pr_err_ratelimited("%s: status be bus overflow\n", __func__);
-	if (error_status1 & (1 << 17))
+	}
+	if (error_status1 & (1 << 17)) {
+		vfe_dev->stats->bg_overflow++;
 		pr_err_ratelimited("%s: status bg bus overflow\n", __func__);
-	if (error_status1 & (1 << 18))
+	}
+	if (error_status1 & (1 << 18)) {
+		vfe_dev->stats->bf_overflow++;
 		pr_err_ratelimited("%s: status bf bus overflow\n", __func__);
-	if (error_status1 & (1 << 19))
+	}
+	if (error_status1 & (1 << 19)) {
+		vfe_dev->stats->awb_overflow++;
 		pr_err_ratelimited("%s: status awb bus overflow\n", __func__);
-	if (error_status1 & (1 << 20))
+	}
+	if (error_status1 & (1 << 20)) {
+		vfe_dev->stats->rs_overflow++;
 		pr_err_ratelimited("%s: status rs bus overflow\n", __func__);
-	if (error_status1 & (1 << 21))
+	}
+	if (error_status1 & (1 << 21)) {
+		vfe_dev->stats->cs_overflow++;
 		pr_err_ratelimited("%s: status cs bus overflow\n", __func__);
-	if (error_status1 & (1 << 22))
+	}
+	if (error_status1 & (1 << 22)) {
+		vfe_dev->stats->ihist_overflow++;
 		pr_err_ratelimited("%s: status ihist bus overflow\n", __func__);
-	if (error_status1 & (1 << 23))
+	}
+	if (error_status1 & (1 << 23)) {
+		vfe_dev->stats->skinbhist_overflow++;
 		pr_err_ratelimited("%s: status skin bhist bus overflow\n",
 			__func__);
+	}
 }
 
 static void msm_vfe40_read_irq_status(struct vfe_device *vfe_dev,
