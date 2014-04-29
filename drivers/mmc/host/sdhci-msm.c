@@ -2854,7 +2854,7 @@ static int __devinit sdhci_msm_probe(struct platform_device *pdev)
 	 * max. 1ms for reset completion.
 	 */
 	ret = readl_poll_timeout(msm_host->core_mem + CORE_POWER,
-			pwr, !(pwr & CORE_SW_RST), 100, 10);
+			pwr, !(pwr & CORE_SW_RST), 10, 1000);
 
 	if (ret) {
 		dev_err(&pdev->dev, "reset failed (%d)\n", ret);
