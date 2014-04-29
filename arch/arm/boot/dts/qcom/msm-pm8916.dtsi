@@ -608,5 +608,19 @@
 					  "hphr_cnp_int",
 					  "hphl_cnp_int";
 		};
+
+		pm8916_bcm: qpnp-buck-current-monitor@1800 {
+			compatible = "qcom,qpnp-buck-current-monitor";
+			reg = <0x1800 0x100>;
+			interrupts = <1 0x18 0>, <1 0x18 1>;
+			interrupt-names = "iwarning", "icritical";
+			qcom,enable-current-monitor;
+			qcom,icrit-init-threshold-pc = <90>;
+			qcom,iwarn-init-threshold-pc = <70>;
+			qcom,icrit-polling-delay-msec = <1000>;
+			qcom,iwarn-polling-delay-msec = <2000>;
+
+			status = "disabled";
+		};
 	};
 };
