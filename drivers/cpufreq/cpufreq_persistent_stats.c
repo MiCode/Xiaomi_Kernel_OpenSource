@@ -160,7 +160,7 @@ static int cpufreq_stats_create_table(unsigned int cpu,
 	struct cpu_persistent_stats *cpu_stats = &per_cpu(pcpu_stats, cpu);
 	unsigned long irq_flags;
 	struct cpufreq_frequency_table *table =
-		cpufreq_frequency_get_table(cpu);
+		cpufreq_frequency_get_table(policy->cpu);
 
 	if (unlikely(!table))
 		return -EINVAL;
