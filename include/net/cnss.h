@@ -49,6 +49,15 @@ struct cnss_wlan_driver {
 	const struct pci_device_id *id_table;
 };
 
+/* platform capabilities */
+enum cnss_platform_cap_flag {
+	CNSS_HAS_EXTERNAL_SWREG = 0x01,
+};
+
+struct cnss_platform_cap {
+	u32 cap_flag;
+};
+
 extern void cnss_device_crashed(void);
 extern void cnss_device_self_recovery(void);
 extern int cnss_get_ramdump_mem(unsigned long *address, unsigned long *size);
@@ -71,5 +80,6 @@ extern void cnss_pm_wake_lock_destroy(struct wakeup_source *ws);
 extern int cnss_set_cpus_allowed_ptr(struct task_struct *task, ulong cpu);
 extern void cnss_request_pm_qos(u32 qos_val);
 extern void cnss_remove_pm_qos(void);
+extern int cnss_get_platform_cap(struct cnss_platform_cap *cap);
 
 #endif /* _NET_CNSS_H_ */
