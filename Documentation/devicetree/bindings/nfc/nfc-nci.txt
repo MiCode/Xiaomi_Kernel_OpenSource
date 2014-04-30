@@ -9,13 +9,20 @@ Required properties:
 - qcom,dis-gpio: specific gpio for hardware reset.
 - qcom,irq-gpio: specific gpio for read interrupt.
 - qcom,clk-src: nfc clock source ("BBCLK2", "RFCLK3", "GPCLK", "GPCLK2", ...)
-- qcom,clk-src-gpio: msm gpio clock,used ony if clock source is msm gpio
-- qcom,clk-req-gpio: clk-req input gpio for MSM based clocks.
-                     not used for pmic implementation
 - interrupt-parent: Should be phandle for the interrupt controller
                     that services interrupts for this device.
 - interrupts: Nfc read interrupt,gpio-clk-req interrupt
+
+Optional properties:
+
+- qcom,clk-src-gpio: msm gpio clock,used ony if clock source is msm gpio
+- qcom,clk-req-gpio: clk-req input gpio for MSM based clocks.
+                     not used for pmic implementation
 - qcom,clk-gpio: pmic or msm gpio on which bbclk2 signal is coming.
+
+note:
+nfc with msm type clock sources (GPCLK and GPCLK 2) require qcom,clk-src-gpio and qcom,clk-req-gpio entries to work propperly.
+nfc with pmic type clock sources (BBCLK2 RFCLK3) require the qcom,clk-gpio entry to function properly.
 
 Example:
 
@@ -26,7 +33,7 @@ Example:
 			qcom,irq-gpio = <&msmgpio 77 0x00>;
 			qcom,dis-gpio = <&msmgpio 93 0x00>;
 			qcom,clk-src-gpio = <&msmgpio 78 0x00>;
-			qcom,clk-src = "GPCLK2";
+			qcom,clk-src = "BBCLK";
 			interrupt-parent = <&msmgpio>;
 			interrupts = <77 0>;
 			qcom,clk-gpio = <&msmgpio 75 0x00>;
