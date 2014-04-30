@@ -1187,7 +1187,6 @@ static void ecm_ipa_tx_timeout(struct net_device *net)
 		atomic_read(&ecm_ipa_ctx->outstanding_pkts));
 
 	net->stats.tx_errors++;
-	ipa_bam_reg_dump();
 }
 
 
