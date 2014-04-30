@@ -80,6 +80,22 @@
 		};
 	};
 
+	i2c@78b6000 { /* BLSP1 QUP2 */
+		mpu6050@68 { /* Gyroscope and accelerometer sensor combo */
+			compatible = "invn,mpu6050";
+			reg = <0x68>;
+			pinctrl-names = "mpu_default","mpu_sleep";
+			pinctrl-0 = <&mpu6050_default>;
+			pinctrl-1 = <&mpu6050_sleep>;
+			interrupt-parent = <&msm_gpio>;
+			interrupts = <115 0x2>;
+			vdd-supply = <&pm8916_l17>;
+			vlogic-supply = <&pm8916_l16>;
+			invn,gpio-int = <&msm_gpio 115 0x2>;
+			invn,place = "Portrait Down Back Side";
+		};
+	};
+
 	sound {
 		compatible = "qcom,msm8x16-audio-codec";
 		qcom,model = "msm8x16-snd-card";
