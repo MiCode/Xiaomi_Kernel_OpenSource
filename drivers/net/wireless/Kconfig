@@ -335,6 +335,15 @@ config WCNSS_REGISTER_DUMP_ON_BITE
 	 register access failures. So this feature is to enable/disable the
 	 register dump on WCNSS WDOG bite.
 
+config CNSS_MAC_BUG
+	bool "Enable/disable 0-4K memory initialization for QCA6174"
+	depends on CNSS
+	help
+	 If enabled, 0-4K memory is reserved for QCA6174 to address a MAC HW bug.
+	 MAC would do an invalid pointer fetch based on the data, that was read
+	 from 0 to 4K. So fill it with zero's; to an address for which PCIe root
+	 complex would honor the read without any errors.
+
 config CLD_LL_CORE
 	tristate "Qualcomm CORE driver for QCA6174"
 	select WIRELESS_EXT
