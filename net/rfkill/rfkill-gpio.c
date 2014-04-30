@@ -41,20 +41,28 @@ struct rfkill_gpio_data {
 	bool			clk_enabled;
 };
 
+static void rfkill_set_gpio(struct gpio_desc *desc, int value)
+{
+	if (gpiod_cansleep(desc))
+		gpiod_set_value_cansleep(desc, value);
+	else
+		gpiod_set_value(desc, value);
+}
+
 static int rfkill_gpio_set_power(void *data, bool blocked)
 {
 	struct rfkill_gpio_data *rfkill = data;
 
 	if (blocked) {
-		gpiod_set_value(rfkill->shutdown_gpio, 0);
-		gpiod_set_value(rfkill->reset_gpio, 0);
+		rfkill_set_gpio(rfkill->shutdown_gpio, 0);
+		rfkill_set_gpio(rfkill->reset_gpio, 0);
 		if (!IS_ERR(rfkill->clk) && rfkill->clk_enabled)
 			clk_disable(rfkill->clk);
 	} else {
 		if (!IS_ERR(rfkill->clk) && !rfkill->clk_enabled)
 			clk_enable(rfkill->clk);
-		gpiod_set_value(rfkill->reset_gpio, 1);
-		gpiod_set_value(rfkill->shutdown_gpio, 1);
+		rfkill_set_gpio(rfkill->reset_gpio, 1);
+		rfkill_set_gpio(rfkill->shutdown_gpio, 1);
 	}
 
 	rfkill->clk_enabled = blocked;
