@@ -935,8 +935,13 @@ int vpu_qbuf(struct vpu_client *client, struct v4l2_buffer *b)
 		ret = -EINVAL;
 	} else {
 		ret = __check_user_planes(&session->vbqueue[port], b);
-		if (!ret)
+		if (!ret) {
+			struct vpu_buffer *vpu_buf = to_vpu_buffer(
+				session->vbqueue[port].bufs[b->index]);
+			vpu_buf->sequence = b->sequence;
+
 			ret = vb2_qbuf(&session->vbqueue[port], b);
+		}
 	}
 	mutex_unlock(&session->que_lock[port]);
 
@@ -967,6 +972,8 @@ int vpu_dqbuf(struct vpu_client *client, struct v4l2_buffer *b,
 			int i;
 			struct vpu_buffer *vpu_buf = to_vpu_buffer(
 				session->vbqueue[port].bufs[b->index]);
+			b->sequence = vpu_buf->sequence;
+
 			for (i = 0; i < b->length; i++)
 				b->m.planes[i].reserved[0] =
 					vpu_buf->planes[i].data_offset;
