@@ -114,6 +114,31 @@ static const struct soc_enum mi2s_config_enum[] = {
 	SOC_ENUM_SINGLE_EXT(4, mi2s_format),
 };
 
+static u16 msm_dai_q6_max_num_slot(int frame_rate)
+{
+	/* Max num of slots is bits per frame divided
+	 * by bits per sample which is 16
+	 */
+	switch (frame_rate) {
+	case AFE_PORT_PCM_BITS_PER_FRAME_8:
+		return 0;
+	case AFE_PORT_PCM_BITS_PER_FRAME_16:
+		return 1;
+	case AFE_PORT_PCM_BITS_PER_FRAME_32:
+		return 2;
+	case AFE_PORT_PCM_BITS_PER_FRAME_64:
+		return 4;
+	case AFE_PORT_PCM_BITS_PER_FRAME_128:
+		return 8;
+	case AFE_PORT_PCM_BITS_PER_FRAME_256:
+		return 16;
+	default:
+		pr_err("%s Invalid bits per frame %d\n",
+			__func__, frame_rate);
+		return 0;
+	}
+}
+
 static int msm_dai_q6_dai_add_route(struct snd_soc_dai *dai)
 {
 	struct snd_soc_dapm_route intercon;
@@ -156,7 +181,7 @@ static int msm_dai_q6_auxpcm_hw_params(
 	struct msm_dai_q6_dai_data *dai_data = &aux_dai_data->bdai_data;
 	struct msm_dai_auxpcm_pdata *auxpcm_pdata =
 			(struct msm_dai_auxpcm_pdata *) dai->dev->platform_data;
-	int rc = 0;
+	int rc = 0, slot_mapping_copy_len = 0;
 
 	if (params_channels(params) != 1 || (params_rate(params) != 8000 &&
 	    params_rate(params) != 16000)) {
@@ -196,8 +221,26 @@ static int msm_dai_q6_auxpcm_hw_params(
 		dai_data->port_config.pcm.sample_rate = dai_data->rate;
 		dai_data->port_config.pcm.num_channels = dai_data->channels;
 		dai_data->port_config.pcm.bit_width = 16;
-		dai_data->port_config.pcm.slot_number_mapping[0] =
-					 auxpcm_pdata->mode_8k.slot;
+		if (ARRAY_SIZE(dai_data->port_config.pcm.slot_number_mapping) <=
+		    auxpcm_pdata->mode_8k.num_slots)
+			slot_mapping_copy_len =
+				ARRAY_SIZE(
+				dai_data->port_config.pcm.slot_number_mapping)
+				 * sizeof(uint16_t);
+		else
+			slot_mapping_copy_len = auxpcm_pdata->mode_8k.num_slots
+				* sizeof(uint16_t);
+
+		if (auxpcm_pdata->mode_8k.slot_mapping) {
+			memcpy(dai_data->port_config.pcm.slot_number_mapping,
+			       auxpcm_pdata->mode_8k.slot_mapping,
+			       slot_mapping_copy_len);
+		} else {
+			dev_err(dai->dev, "%s 8khz slot mapping is NULL\n",
+				__func__);
+			mutex_unlock(&aux_dai_data->rlock);
+			return -EINVAL;
+		}
 	} else {
 		dai_data->port_config.pcm.pcm_cfg_minor_version =
 				AFE_API_VERSION_PCM_CONFIG;
@@ -214,18 +257,40 @@ static int msm_dai_q6_auxpcm_hw_params(
 		dai_data->port_config.pcm.sample_rate = dai_data->rate;
 		dai_data->port_config.pcm.num_channels = dai_data->channels;
 		dai_data->port_config.pcm.bit_width = 16;
-		dai_data->port_config.pcm.slot_number_mapping[0] =
-					auxpcm_pdata->mode_16k.slot;
+		if (ARRAY_SIZE(dai_data->port_config.pcm.slot_number_mapping) <=
+		    auxpcm_pdata->mode_16k.num_slots)
+			slot_mapping_copy_len =
+				ARRAY_SIZE(
+				dai_data->port_config.pcm.slot_number_mapping)
+				 * sizeof(uint16_t);
+		else
+			slot_mapping_copy_len = auxpcm_pdata->mode_16k.num_slots
+				* sizeof(uint16_t);
+
+		if (auxpcm_pdata->mode_16k.slot_mapping) {
+			memcpy(dai_data->port_config.pcm.slot_number_mapping,
+			       auxpcm_pdata->mode_16k.slot_mapping,
+			       slot_mapping_copy_len);
+		} else {
+			dev_err(dai->dev, "%s 16khz slot mapping is NULL\n",
+				__func__);
+			mutex_unlock(&aux_dai_data->rlock);
+			return -EINVAL;
+		}
 	}
 
-	dev_dbg(dai->dev, "%s: aux_mode %x sync_src %x frame_setting %x\n",
+	dev_dbg(dai->dev, "%s: aux_mode 0x%x sync_src 0x%x frame_setting 0x%x\n",
 		__func__, dai_data->port_config.pcm.aux_mode,
 		dai_data->port_config.pcm.sync_src,
 		dai_data->port_config.pcm.frame_setting);
-	dev_dbg(dai->dev, "%s: qtype %x dout %x num_map %x\n",
+	dev_dbg(dai->dev, "%s: qtype 0x%x dout 0x%x num_map[0] 0x%x\n"
+		"num_map[1] 0x%x num_map[2] 0x%x num_map[3] 0x%x\n",
 		__func__, dai_data->port_config.pcm.quantype,
 		dai_data->port_config.pcm.ctrl_data_out_enable,
-		dai_data->port_config.pcm.slot_number_mapping[0]);
+		dai_data->port_config.pcm.slot_number_mapping[0],
+		dai_data->port_config.pcm.slot_number_mapping[1],
+		dai_data->port_config.pcm.slot_number_mapping[2],
+		dai_data->port_config.pcm.slot_number_mapping[3]);
 
 	mutex_unlock(&aux_dai_data->rlock);
 	return rc;
@@ -1493,7 +1558,9 @@ static int msm_auxpcm_dev_probe(struct platform_device *pdev)
 	struct msm_dai_auxpcm_pdata *auxpcm_pdata;
 	uint32_t val_array[RATE_MAX_NUM_OF_AUX_PCM_RATES];
 	const char *intf_name;
-	int rc = 0, i = 0;
+	int rc = 0, i = 0, len = 0;
+	const uint32_t *slot_mapping_array = NULL;
+	u32 array_length = 0;
 
 	dai_data = kzalloc(sizeof(struct msm_dai_q6_auxpcm_dai_data),
 			   GFP_KERNEL);
@@ -1560,15 +1627,87 @@ static int msm_auxpcm_dev_probe(struct platform_device *pdev)
 	auxpcm_pdata->mode_16k.quant = (u16)val_array[RATE_16KHZ];
 
 	rc = of_property_read_u32_array(pdev->dev.of_node,
-			"qcom,msm-cpudai-auxpcm-slot",
+			"qcom,msm-cpudai-auxpcm-num-slots",
 			val_array, RATE_MAX_NUM_OF_AUX_PCM_RATES);
 	if (rc) {
-		dev_err(&pdev->dev, "%s: qcom,msm-cpudai-auxpcm-slot missing in DT node\n",
+		dev_err(&pdev->dev, "%s: qcom,msm-cpudai-auxpcm-num-slots missing in DT node\n",
 			__func__);
 		goto fail_invalid_dt;
 	}
-	auxpcm_pdata->mode_8k.slot = (u16)val_array[RATE_8KHZ];
-	auxpcm_pdata->mode_16k.slot = (u16)val_array[RATE_16KHZ];
+	auxpcm_pdata->mode_8k.num_slots = (u16)val_array[RATE_8KHZ];
+
+	if (auxpcm_pdata->mode_8k.num_slots >
+	    msm_dai_q6_max_num_slot(auxpcm_pdata->mode_8k.frame)) {
+		dev_err(&pdev->dev, "%s Max slots %d greater than DT node %d\n",
+			 __func__,
+			msm_dai_q6_max_num_slot(auxpcm_pdata->mode_8k.frame),
+			auxpcm_pdata->mode_8k.num_slots);
+		rc = -EINVAL;
+		goto fail_invalid_dt;
+	}
+	auxpcm_pdata->mode_16k.num_slots = (u16)val_array[RATE_16KHZ];
+
+	if (auxpcm_pdata->mode_16k.num_slots >
+	    msm_dai_q6_max_num_slot(auxpcm_pdata->mode_16k.frame)) {
+		dev_err(&pdev->dev, "%s Max slots %d greater than DT node %d\n",
+			__func__,
+			msm_dai_q6_max_num_slot(auxpcm_pdata->mode_16k.frame),
+			auxpcm_pdata->mode_16k.num_slots);
+		rc = -EINVAL;
+		goto fail_invalid_dt;
+	}
+
+	slot_mapping_array = of_get_property(pdev->dev.of_node,
+				"qcom,msm-cpudai-auxpcm-slot-mapping", &len);
+
+	if (slot_mapping_array == NULL) {
+		dev_err(&pdev->dev, "%s slot_mapping_array is not valid\n",
+			__func__);
+		rc = -EINVAL;
+		goto fail_invalid_dt;
+	}
+
+	array_length = auxpcm_pdata->mode_8k.num_slots +
+		       auxpcm_pdata->mode_16k.num_slots;
+
+	if (len != sizeof(uint32_t) * array_length) {
+		dev_err(&pdev->dev, "%s Length is %d and expected is %zd\n",
+			__func__, len, sizeof(uint32_t) * array_length);
+		rc = -EINVAL;
+		goto fail_invalid_dt;
+	}
+
+	auxpcm_pdata->mode_8k.slot_mapping =
+					kzalloc(sizeof(uint16_t) *
+					    auxpcm_pdata->mode_8k.num_slots,
+					    GFP_KERNEL);
+	if (!auxpcm_pdata->mode_8k.slot_mapping) {
+		dev_err(&pdev->dev, "%s No mem for mode_8k slot mapping\n",
+			__func__);
+		rc = -ENOMEM;
+		goto fail_invalid_dt;
+	}
+
+	for (i = 0; i < auxpcm_pdata->mode_8k.num_slots; i++)
+		auxpcm_pdata->mode_8k.slot_mapping[i] =
+				(u16)be32_to_cpu(slot_mapping_array[i]);
+
+	auxpcm_pdata->mode_16k.slot_mapping =
+					kzalloc(sizeof(uint16_t) *
+					     auxpcm_pdata->mode_16k.num_slots,
+					     GFP_KERNEL);
+
+	if (!auxpcm_pdata->mode_16k.slot_mapping) {
+		dev_err(&pdev->dev, "%s No mem for mode_16k slot mapping\n",
+			__func__);
+		rc = -ENOMEM;
+		goto fail_invalid_16k_slot_mapping;
+	}
+
+	for (i = 0; i < auxpcm_pdata->mode_16k.num_slots; i++)
+		auxpcm_pdata->mode_16k.slot_mapping[i] =
+			(u16)be32_to_cpu(slot_mapping_array[i +
+					auxpcm_pdata->mode_8k.num_slots]);
 
 	rc = of_property_read_u32_array(pdev->dev.of_node,
 			"qcom,msm-cpudai-auxpcm-data",
@@ -1576,7 +1715,7 @@ static int msm_auxpcm_dev_probe(struct platform_device *pdev)
 	if (rc) {
 		dev_err(&pdev->dev, "%s: qcom,msm-cpudai-auxpcm-data missing in DT node\n",
 			__func__);
-		goto fail_invalid_dt;
+		goto fail_invalid_dt1;
 	}
 	auxpcm_pdata->mode_8k.data = (u16)val_array[RATE_8KHZ];
 	auxpcm_pdata->mode_16k.data = (u16)val_array[RATE_16KHZ];
@@ -1588,7 +1727,7 @@ static int msm_auxpcm_dev_probe(struct platform_device *pdev)
 		dev_err(&pdev->dev,
 			"%s: qcom,msm-cpudai-auxpcm-pcm-clk-rate missing in DT\n",
 			__func__);
-		goto fail_invalid_dt;
+		goto fail_invalid_dt1;
 	}
 	auxpcm_pdata->mode_8k.pcm_clk_rate = (int)val_array[RATE_8KHZ];
 	auxpcm_pdata->mode_16k.pcm_clk_rate = (int)val_array[RATE_16KHZ];
@@ -1639,6 +1778,10 @@ static int msm_auxpcm_dev_probe(struct platform_device *pdev)
 fail_reg_dai:
 fail_invalid_intf:
 fail_nodev_intf:
+fail_invalid_dt1:
+	kfree(auxpcm_pdata->mode_16k.slot_mapping);
+fail_invalid_16k_slot_mapping:
+	kfree(auxpcm_pdata->mode_8k.slot_mapping);
 fail_invalid_dt:
 	kfree(auxpcm_pdata);
 fail_pdata_nomem:
