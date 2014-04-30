@@ -14,7 +14,6 @@
 #include <linux/i2c.h>
 #include <linux/atomisp_platform.h>
 #include <linux/regulator/consumer.h>
-#include <asm/intel_scu_ipcutil.h>
 #include <asm/intel-mid.h>
 #include <media/v4l2-subdev.h>
 #include <linux/mfd/intel_mid_pmic.h>
@@ -22,9 +21,6 @@
 #ifdef CONFIG_VLV2_PLAT_CLK
 #include <linux/vlv2_plat_clock.h>
 #endif
-
-#include "platform_camera.h"
-#include "platform_imx134.h"
 
 /* workround - pin defined for byt */
 #define CAMERA_0_RESET 126
@@ -75,6 +71,40 @@ static int camera_reset;
 static int camera_power_down;
 static int camera_vprog1_on;
 
+/* Cloned from MCG platform_camera.c because it's small and
+ * self-contained.  All it does is maintain the V4L2 subdev hostdate
+ * pointer */
+static int camera_sensor_csi(struct v4l2_subdev *sd, u32 port,
+                        u32 lanes, u32 format, u32 bayer_order, int flag)
+{
+        struct i2c_client *client = v4l2_get_subdevdata(sd);
+        struct camera_mipi_info *csi = NULL;
+
+        if (flag) {
+                csi = kzalloc(sizeof(*csi), GFP_KERNEL);
+                if (!csi) {
+                        dev_err(&client->dev, "out of memory\n");
+                        return -ENOMEM;
+                }
+                csi->port = port;
+                csi->num_lanes = lanes;
+                csi->input_format = format;
+                csi->raw_bayer_order = bayer_order;
+                v4l2_set_subdev_hostdata(sd, (void *)csi);
+                csi->metadata_format = ATOMISP_INPUT_FORMAT_EMBEDDED;
+                csi->metadata_effective_width = NULL;
+                dev_info(&client->dev,
+                         "camera pdata: port: %d lanes: %d order: %8.8x\n",
+                         port, lanes, bayer_order);
+        } else {
+                csi = v4l2_get_subdev_hostdata(sd);
+                kfree(csi);
+        }
+
+        return 0;
+}
+
+
 /*
  * MRFLD VV primary camera sensor - IMX134 platform data
  */
@@ -93,12 +123,11 @@ static struct i2c_client *i2c_find_client_by_name(char *name)
 	return dev ? to_i2c_client(dev) : NULL;
 }
 
-static enum pmic_ids camera_pmic_probe()
+static enum pmic_ids camera_pmic_probe(void)
 {
 	/* search by client name */
 	struct i2c_client *client;
-	if (spid.hardware_id != BYT_TABLET_BLK_CRV2 ||
-		i2c_find_client_by_name(PMIC_HID_ROHM))
+	if (i2c_find_client_by_name(PMIC_HID_ROHM))
 		return PMIC_ROHM;
 
 	client = i2c_find_client_by_name(PMIC_HID_XPOWER);
@@ -211,40 +240,27 @@ static int imx134_gpio_ctrl(struct v4l2_subdev *sd, int flag)
 {
 	int ret;
 
-	if (!IS_BYT) {
-		if (camera_reset < 0) {
-			ret = camera_sensor_gpio(-1, GP_CAMERA_0_RESET,
-					GPIOF_DIR_OUT, 1);
-			if (ret < 0)
-				return ret;
-			camera_reset = ret;
-		}
-	} else {
-		/*
-		 * FIXME: WA using hardcoded GPIO value here.
-		 * The GPIO value would be provided by ACPI table, which is
-		 * not implemented currently
-		 */
-		if (camera_reset < 0) {
-			if (spid.hardware_id == BYT_TABLET_BLK_CRV2)
-				camera_reset = CAMERA_0_RESET_CRV2;
-			else
-				camera_reset = CAMERA_0_RESET;
+	/*
+	 * FIXME: WA using hardcoded GPIO value here.
+	 * The GPIO value would be provided by ACPI table, which is
+	 * not implemented currently
+	 */
+	if (camera_reset < 0) {
+		camera_reset = CAMERA_0_RESET;
 
-			ret = gpio_request(camera_reset, "camera_reset");
-			if (ret) {
-				pr_err("%s: failed to request gpio(pin %d)\n",
-				__func__, CAMERA_0_RESET);
-				return -EINVAL;
-			}
-		}
-
-		ret = gpio_direction_output(camera_reset, 1);
+		ret = gpio_request(camera_reset, "camera_reset");
 		if (ret) {
-			pr_err("%s: failed to set gpio(pin %d) direction\n",
-				__func__, camera_reset);
-			gpio_free(camera_reset);
+			pr_err("%s: failed to request gpio(pin %d)\n",
+			       __func__, CAMERA_0_RESET);
+			return -EINVAL;
 		}
+	}
+
+	ret = gpio_direction_output(camera_reset, 1);
+	if (ret) {
+		pr_err("%s: failed to set gpio(pin %d) direction\n",
+		       __func__, camera_reset);
+		gpio_free(camera_reset);
 	}
 	if (flag) {
 		gpio_set_value(camera_reset, 1);
@@ -278,10 +294,6 @@ static int imx134_flisclk_ctrl(struct v4l2_subdev *sd, int flag)
 		return vlv2_plat_configure_clock(OSC_CAM0_CLK, CLK_ON);
 	}
 	return vlv2_plat_configure_clock(OSC_CAM0_CLK, CLK_OFF);
-#elif defined(CONFIG_INTEL_SCU_IPC_UTIL)
-	static const unsigned int clock_khz = 19200;
-	return intel_scu_ipc_osc_clk(OSC_CLK_CAM0,
-			flag ? clock_khz : 0);
 #else
 	pr_err("imx134 clock is not set.\n");
 	return 0;
@@ -304,8 +316,6 @@ static int imx134_power_ctrl(struct v4l2_subdev *sd, int flag)
 						"Failed to enable regulator\n");
 				return ret;
 			}
-#elif defined(CONFIG_INTEL_SCU_IPC_UTIL)
-			ret = intel_scu_ipc_msic_vprog1(1);
 #else
 			pr_err("imx134 power is not set.\n");
 #endif
@@ -325,8 +335,6 @@ static int imx134_power_ctrl(struct v4l2_subdev *sd, int flag)
 						"Failed to enable regulator\n");
 				return ret;
 			}
-#elif defined(CONFIG_INTEL_SCU_IPC_UTIL)
-			ret = intel_scu_ipc_msic_vprog1(0);
 #else
 			pr_err("imx134 power is not set.\n");
 #endif
@@ -400,3 +408,4 @@ void *imx134_platform_data(void *info)
 #endif
 	return &imx134_sensor_platform_data;
 }
+EXPORT_SYMBOL_GPL(imx134_platform_data);

@@ -38,11 +38,13 @@
 #include <linux/string.h>
 #include <linux/slab.h>
 #include <linux/types.h>
+#include <linux/acpi.h>
 #include <media/v4l2-chip-ident.h>
 #include <media/v4l2-ctrls.h>
 #include <media/v4l2-device.h>
 #include "imx.h"
 
+void *imx134_platform_data(void *info); /* From platform_imx134.c */
 
 static enum atomisp_bayer_order imx_bayer_order_mapping[] = {
 	atomisp_bayer_order_rggb,
@@ -2234,6 +2236,11 @@ static int imx_probe(struct i2c_client *client,
 	int ret;
 	char *msr_file_name = NULL;
 
+	/* DEBUG */
+	dev_info(&client->dev, "imx_probe adapter %d addr 0x%x acpi %s\n",
+		 client->adapter->nr, client->addr,
+		 dev_name(&ACPI_COMPANION(&client->dev)->dev));
+
 	/* allocate sensor device & init sub device */
 	dev = kzalloc(sizeof(*dev), GFP_KERNEL);
 	if (!dev) {
@@ -2243,7 +2250,14 @@ static int imx_probe(struct i2c_client *client,
 
 	mutex_init(&dev->input_lock);
 
-	dev->i2c_id = id->driver_data;
+	if (id) {
+		dev->i2c_id = id->driver_data;
+	} else {
+		/* FIXME: ACPI-probed devices don't get this, need to find a
+		 * different mechanism. */
+		dev_info(&client->dev, "No i2c_device_id, defaulting to IMX134\n");
+		dev->i2c_id = IMX134_ID;
+	}
 	dev->fmt_idx = 0;
 	dev->sensor_id = IMX_ID_DEFAULT;
 	dev->vcm_driver = &imx_vcms[IMX_ID_DEFAULT];
@@ -2253,6 +2267,15 @@ static int imx_probe(struct i2c_client *client,
 	if (client->dev.platform_data) {
 		ret = imx_s_config(&dev->sd, client->irq,
 				       client->dev.platform_data);
+		if (ret)
+			goto out_free;
+	} else if (ACPI_COMPANION(&client->dev)) {
+		// If no SFI firmware, grab the platform struct
+		// directly and configure via ACPI/EFIvars instead.
+		//
+		// Works only with IMX134 for now.
+		ret = imx_s_config(&dev->sd, client->irq,
+				   imx134_platform_data(NULL));
 		if (ret)
 			goto out_free;
 	}
@@ -2318,10 +2341,18 @@ static const struct i2c_device_id imx_ids[] = {
 
 MODULE_DEVICE_TABLE(i2c, imx_ids);
 
+static struct acpi_device_id imx_acpi_match[] = {
+	{ "INTCF1B" },
+	{},
+};
+
+MODULE_DEVICE_TABLE(acpi, imx_acpi_match);
+
 static struct i2c_driver imx_driver = {
 	.driver = {
 		.owner = THIS_MODULE,
 		.name = IMX_DRIVER,
+		.acpi_match_table = ACPI_PTR(imx_acpi_match),
 	},
 	.probe = imx_probe,
 	.remove = imx_remove,
