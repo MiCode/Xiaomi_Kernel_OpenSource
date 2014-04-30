@@ -13,13 +13,6 @@
 /* Stub regulators */
 
 / {
-	pm8916_s1: regulator-s1 {
-		compatible = "qcom,stub-regulator";
-		regulator-name = "8916_s1";
-		qcom,hpm-min-load = <100000>;
-		regulator-min-microvolt = <500000>;
-		regulator-max-microvolt = <1287500>;
-	};
 
 	pm8916_s1_corner: regulator-s1-corner {
 		compatible = "qcom,stub-regulator";
@@ -35,14 +28,6 @@
 		qcom,hpm-min-load = <100000>;
 		regulator-min-microvolt = <1>;
 		regulator-max-microvolt = <7>;
-	};
-
-	pm8916_s2: regulator-s2 {
-		compatible = "qcom,stub-regulator";
-		regulator-name = "8916_s2";
-		qcom,hpm-min-load = <100000>;
-		regulator-min-microvolt = <500000>;
-		regulator-max-microvolt = <1287500>;
 	};
 
 	pm8916_s2_corner: regulator-s2-corner {
@@ -68,180 +53,208 @@
 		regulator-max-microvolt = <3>;
 	};
 
-	pm8916_s3: regulator-s3 {
+	pm8916_l3_corner: regulator-l3-corner {
 		compatible = "qcom,stub-regulator";
-		regulator-name = "8916_s3";
-		qcom,hpm-min-load = <100000>;
-		regulator-min-microvolt = <1300000>;
-		regulator-max-microvolt = <1300000>;
-	};
-
-	pm8916_s4: regulator-s4 {
-		compatible = "qcom,stub-regulator";
-		regulator-name = "8916_s4";
-		qcom,hpm-min-load = <100000>;
-		regulator-min-microvolt = <1800000>;
-		regulator-max-microvolt = <2100000>;
-	};
-
-	pm8916_l1: regulator-l1 {
-		compatible = "qcom,stub-regulator";
-		regulator-name = "8916_l1";
-		parent-supply = <&pm8916_s3>;
+		regulator-name = "8916_l3_corner";
 		qcom,hpm-min-load = <10000>;
-		regulator-min-microvolt = <1225000>;
-		regulator-max-microvolt = <1225000>;
+		regulator-min-microvolt = <1>;
+		regulator-max-microvolt = <7>;
 	};
 
-	pm8916_l2: regulator-l2 {
+	pm8916_l3_corner_ao: regulator-l3-corner-ao {
 		compatible = "qcom,stub-regulator";
-		regulator-name = "8916_l2";
-		parent-supply = <&pm8916_s3>;
+		regulator-name = "8916_l3_corner_ao";
 		qcom,hpm-min-load = <10000>;
-		regulator-min-microvolt = <1200000>;
-		regulator-max-microvolt = <1200000>;
-	};
-
-	pm8916_l3: regulator-l3 {
-		compatible = "qcom,stub-regulator";
-		regulator-name = "8916_l3";
-		parent-supply = <&pm8916_s3>;
-		qcom,hpm-min-load = <10000>;
-		regulator-min-microvolt = <1337500>;
-		regulator-max-microvolt = <1337500>;
-	};
-
-	pm8916_l4: regulator-l4 {
-		compatible = "qcom,stub-regulator";
-		regulator-name = "8916_l4";
-		parent-supply = <&pm8916_s4>;
-		qcom,hpm-min-load = <10000>;
-		regulator-min-microvolt = <2050000>;
-		regulator-max-microvolt = <2050000>;
-	};
-
-	pm8916_l5: regulator-l5 {
-		compatible = "qcom,stub-regulator";
-		regulator-name = "8916_l5";
-		parent-supply = <&pm8916_s4>;
-		qcom,hpm-min-load = <10000>;
-		regulator-min-microvolt = <1800000>;
-		regulator-max-microvolt = <1800000>;
-	};
-
-	pm8916_l6: regulator-l6 {
-		compatible = "qcom,stub-regulator";
-		regulator-name = "8916_l6";
-		parent-supply = <&pm8916_s4>;
-		qcom,hpm-min-load = <10000>;
-		regulator-min-microvolt = <1800000>;
-		regulator-max-microvolt = <1800000>;
-	};
-
-	pm8916_l7: regulator-l7 {
-		compatible = "qcom,stub-regulator";
-		regulator-name = "8916_l7";
-		parent-supply = <&pm8916_s4>;
-		qcom,hpm-min-load = <10000>;
-		regulator-min-microvolt = <1800000>;
-		regulator-max-microvolt = <1800000>;
+		regulator-min-microvolt = <1>;
+		regulator-max-microvolt = <7>;
 	};
 
 	pm8916_l7_ao: regulator-l7-ao {
 		compatible = "qcom,stub-regulator";
 		regulator-name = "8916_l7_ao";
-		parent-supply = <&pm8916_s4>;
-		qcom,hpm-min-load = <10000>;
 		regulator-min-microvolt = <1800000>;
 		regulator-max-microvolt = <1800000>;
 	};
+};
 
-	pm8916_l8: regulator-l8 {
-		compatible = "qcom,stub-regulator";
-		regulator-name = "8916_l8";
-		qcom,hpm-min-load = <10000>;
-		regulator-min-microvolt = <2850000>;
-		regulator-max-microvolt = <2900000>;
+/* QPNP controlled regulators */
+
+&spmi_bus {
+	qcom,pm8916@1 {
+		pm8916_s1: regulator@1400 {
+			status = "okay";
+			qcom,system-load = <100000>;
+			qcom,enable-time = <500>;
+			regulator-min-microvolt = <1287500>;
+			regulator-max-microvolt = <1287500>;
+			regulator-always-on;
+		};
+
+		pm8916_s2: regulator@1700 {
+			status = "okay";
+			qcom,system-load = <100000>;
+			qcom,enable-time = <500>;
+			regulator-min-microvolt = <1287500>;
+			regulator-max-microvolt = <1287500>;
+			regulator-always-on;
+		};
+
+		pm8916_s3: regulator@1a00 {
+			status = "okay";
+			qcom,system-load = <100000>;
+			qcom,enable-time = <500>;
+			regulator-min-microvolt = <1300000>;
+			regulator-max-microvolt = <1300000>;
+			regulator-always-on;
+		};
+
+		pm8916_s4: regulator@1d00 {
+			status = "okay";
+			qcom,system-load = <100000>;
+			qcom,enable-time = <500>;
+			regulator-min-microvolt = <2100000>;
+			regulator-max-microvolt = <2100000>;
+			regulator-always-on;
+		};
+
+		pm8916_l1: regulator@4000 {
+			status = "okay";
+			qcom,enable-time = <200>;
+			parent-supply = <&pm8916_s3>;
+			regulator-min-microvolt = <1225000>;
+			regulator-max-microvolt = <1225000>;
+		};
+
+		pm8916_l2: regulator@4100 {
+			status = "okay";
+			qcom,enable-time = <200>;
+			qcom,system-load = <10000>;
+			parent-supply = <&pm8916_s3>;
+			regulator-min-microvolt = <1200000>;
+			regulator-max-microvolt = <1200000>;
+			regulator-always-on;
+		};
+
+		pm8916_l3: regulator@4200 {
+			status = "okay";
+			qcom,enable-time = <200>;
+			qcom,system-load = <10000>;
+			parent-supply = <&pm8916_s3>;
+			regulator-min-microvolt = <1287500>;
+			regulator-max-microvolt = <1287500>;
+			regulator-always-on;
+		};
+
+		pm8916_l4: regulator@4300 {
+			status = "okay";
+			qcom,enable-time = <200>;
+			parent-supply = <&pm8916_s4>;
+			regulator-min-microvolt = <2050000>;
+			regulator-max-microvolt = <2050000>;
+		};
+
+		pm8916_l5: regulator@4400 {
+			status = "okay";
+			qcom,enable-time = <200>;
+			qcom,system-load = <10000>;
+			parent-supply = <&pm8916_s4>;
+			regulator-min-microvolt = <1800000>;
+			regulator-max-microvolt = <1800000>;
+			regulator-always-on;
+		};
+
+		pm8916_l6: regulator@4500 {
+			status = "okay";
+			qcom,enable-time = <200>;
+			parent-supply = <&pm8916_s4>;
+			regulator-min-microvolt = <1800000>;
+			regulator-max-microvolt = <1800000>;
+		};
+
+		pm8916_l7: regulator@4600 {
+			status = "okay";
+			qcom,enable-time = <200>;
+			parent-supply = <&pm8916_s4>;
+			regulator-min-microvolt = <1800000>;
+			regulator-max-microvolt = <1800000>;
+		};
+
+		pm8916_l8: regulator@4700 {
+			status = "okay";
+			qcom,enable-time = <200>;
+			regulator-min-microvolt = <2850000>;
+			regulator-max-microvolt = <2900000>;
+		};
+
+		pm8916_l9: regulator@4800 {
+			status = "okay";
+			qcom,enable-time = <200>;
+			regulator-min-microvolt = <3300000>;
+			regulator-max-microvolt = <3300000>;
+		};
+
+		pm8916_l10: regulator@4900 {
+			status = "okay";
+			qcom,enable-time = <200>;
+			regulator-min-microvolt = <2700000>;
+			regulator-max-microvolt = <2800000>;
+		};
+
+		pm8916_l11: regulator@4a00 {
+			status = "okay";
+			qcom,enable-time = <200>;
+			regulator-min-microvolt = <1800000>;
+			regulator-max-microvolt = <2950000>;
+		};
+
+		pm8916_l12: regulator@4b00 {
+			status = "okay";
+			qcom,enable-time = <200>;
+			regulator-min-microvolt = <1800000>;
+			regulator-max-microvolt = <2950000>;
+		};
+
+		pm8916_l13: regulator@4c00 {
+			status = "okay";
+			qcom,enable-time = <200>;
+			regulator-min-microvolt = <3075000>;
+			regulator-max-microvolt = <3075000>;
+		};
+
+		pm8916_l14: regulator@4d00 {
+			status = "okay";
+			qcom,enable-time = <200>;
+			qcom,system-load = <5000>;
+			regulator-min-microvolt = <1800000>;
+			regulator-max-microvolt = <3300000>;
+		};
+
+		pm8916_l15: regulator@4e00 {
+			status = "okay";
+			qcom,enable-time = <200>;
+			regulator-min-microvolt = <1800000>;
+			regulator-max-microvolt = <3300000>;
+		};
+
+		pm8916_l16: regulator@4f00 {
+			status = "okay";
+			qcom,enable-time = <200>;
+			regulator-min-microvolt = <1800000>;
+			regulator-max-microvolt = <3300000>;
+		};
+
+		pm8916_l17: regulator@5000 {
+			status = "okay";
+			qcom,enable-time = <200>;
+			regulator-min-microvolt = <2700000>;
+			regulator-max-microvolt = <2850000>;
+		};
+
+		pm8916_l18: regulator@5100 {
+			status = "okay";
+			qcom,enable-time = <200>;
+			regulator-min-microvolt = <2700000>;
+			regulator-max-microvolt = <2700000>;
+		};
 	};
-
-	pm8916_l9: regulator-l9 {
-		compatible = "qcom,stub-regulator";
-		regulator-name = "8916_l9";
-		qcom,hpm-min-load = <10000>;
-		regulator-min-microvolt = <3300000>;
-		regulator-max-microvolt = <3300000>;
-	};
-
-	pm8916_l10: regulator-l10 {
-		compatible = "qcom,stub-regulator";
-		regulator-name = "8916_l10";
-		qcom,hpm-min-load = <10000>;
-		regulator-min-microvolt = <2700000>;
-		regulator-max-microvolt = <2800000>;
-	};
-
-	pm8916_l11: regulator-l11 {
-		compatible = "qcom,stub-regulator";
-		regulator-name = "8916_l11";
-		qcom,hpm-min-load = <10000>;
-		regulator-min-microvolt = <1800000>;
-		regulator-max-microvolt = <2950000>;
-	};
-
-	pm8916_l12: regulator-l12 {
-		compatible = "qcom,stub-regulator";
-		regulator-name = "8916_l12";
-		qcom,hpm-min-load = <10000>;
-		regulator-min-microvolt = <1800000>;
-		regulator-max-microvolt = <2950000>;
-	};
-
-	pm8916_l13: regulator-l13 {
-		compatible = "qcom,stub-regulator";
-		regulator-name = "8916_l13";
-		qcom,hpm-min-load = <5000>;
-		regulator-min-microvolt = <3075000>;
-		regulator-max-microvolt = <3075000>;
-	};
-
-	pm8916_l14: regulator-l14 {
-		compatible = "qcom,stub-regulator";
-		regulator-name = "8916_l14";
-		qcom,hpm-min-load = <5000>;
-		regulator-min-microvolt = <1800000>;
-		regulator-max-microvolt = <3300000>;
-	};
-
-	pm8916_l15: regulator-l15 {
-		compatible = "qcom,stub-regulator";
-		regulator-name = "8916_l15";
-		qcom,hpm-min-load = <5000>;
-		regulator-min-microvolt = <1800000>;
-		regulator-max-microvolt = <3300000>;
-	};
-
-	pm8916_l16: regulator-l16 {
-		compatible = "qcom,stub-regulator";
-		regulator-name = "8916_l16";
-		qcom,hpm-min-load = <5000>;
-		regulator-min-microvolt = <1800000>;
-		regulator-max-microvolt = <3300000>;
-	};
-
-	pm8916_l17: regulator-l17 {
-		compatible = "qcom,stub-regulator";
-		regulator-name = "8916_l17";
-		qcom,hpm-min-load = <10000>;
-		regulator-min-microvolt = <2700000>;
-		regulator-max-microvolt = <2850000>;
-	};
-
-	pm8916_l18: regulator-l18 {
-		compatible = "qcom,stub-regulator";
-		regulator-name = "8916_l18";
-		qcom,hpm-min-load = <10000>;
-		regulator-min-microvolt = <2700000>;
-		regulator-max-microvolt = <2700000>;
-	};
-
 };
