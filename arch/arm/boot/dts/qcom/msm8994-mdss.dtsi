@@ -53,6 +53,11 @@
 		qcom,mdss-pipe-rgb-xin-id = <1 5 9 13>;
 		qcom,mdss-pipe-dma-xin-id = <2 10>;
 
+		qcom,mdss-has-panic-ctrl;
+		qcom,mdss-pipe-vig-panic-ctrl-offsets = <0 1 2 3>;
+		qcom,mdss-pipe-rgb-panic-ctrl-offsets = <4 5 6 7>;
+		qcom,mdss-pipe-dma-panic-ctrl-offsets = <8 9>;
+
 		/* TODO: Need to add fixed mmb for VIG */
 		qcom,mdss-pipe-rgb-fixed-mmb =	<5 0 1 8 9 10>,
 						<5 2 3 11 12 13>,
@@ -104,7 +109,9 @@
 				"core_clk", "vsync_clk";
 
 		/* These Offsets are relative to "mdp_phys" address */
-		qcom,mdp-settings = <0x011E0 0x000000A9>,
+		qcom,mdp-settings = <0x0117C 0x00005555>,
+				    <0x01184 0xC000FF00>,
+				    <0x011E0 0x000000A9>,
 				    <0x011E4 0x00000055>,
 				    <0x012AC 0xC0000CCC>,
 				    <0x012B4 0xC0000CCC>,
