@@ -38,7 +38,7 @@
 	(__height / 16) * (__width  / 16) * __fps; \
 })
 
-#define IS_CMD_VALID(cmd) ((cmd - SESSION_MSG_START) <= SESSION_MSG_END)
+#define IS_SESSION_CMD_VALID(cmd) ((cmd - SESSION_MSG_START) <= SESSION_MSG_END)
 
 struct getprop_buf {
 	struct list_head list;
@@ -438,7 +438,7 @@ static void handle_session_release_buf_done(enum command_response cmd,
 
 	if (!buf_found)
 		dprintk(VIDC_ERR, "invalid buffer received from firmware");
-	if (IS_CMD_VALID(cmd)) {
+	if (IS_SESSION_CMD_VALID(cmd)) {
 		complete(&inst->completions[SESSION_MSG_INDEX(cmd)]);
 	} else {
 		dprintk(VIDC_ERR, "Invalid inst cmd response: %d\n", cmd);
@@ -461,12 +461,7 @@ static void handle_sys_release_res_done(
 		dprintk(VIDC_ERR, "Wrong device_id received\n");
 		return;
 	}
-	if (IS_CMD_VALID(cmd)) {
-		complete(&core->completions[SYS_MSG_INDEX(cmd)]);
-	} else {
-		dprintk(VIDC_ERR, "Invalid core cmd response: %d\n", cmd);
-		return;
-	}
+	complete(&core->completions[SYS_MSG_INDEX(RELEASE_RESOURCE_DONE)]);
 }
 
 static void change_inst_state(struct msm_vidc_inst *inst,
@@ -497,7 +492,7 @@ static int signal_session_msg_receipt(enum command_response cmd,
 		dprintk(VIDC_ERR, "Invalid(%p) instance id\n", inst);
 		return -EINVAL;
 	}
-	if (IS_CMD_VALID(cmd)) {
+	if (IS_SESSION_CMD_VALID(cmd)) {
 		complete(&inst->completions[SESSION_MSG_INDEX(cmd)]);
 	} else {
 		dprintk(VIDC_ERR, "Invalid inst cmd response: %d\n", cmd);
@@ -511,7 +506,7 @@ static int wait_for_sess_signal_receipt(struct msm_vidc_inst *inst,
 {
 	int rc = 0;
 
-	if (!IS_CMD_VALID(cmd)) {
+	if (!IS_SESSION_CMD_VALID(cmd)) {
 		dprintk(VIDC_ERR, "Invalid inst cmd response: %d\n", cmd);
 		return -EINVAL;
 	}
