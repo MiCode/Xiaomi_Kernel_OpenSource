@@ -70,25 +70,9 @@ static DEFINE_VDD_REGULATORS(vdd_mmpll4, VDD_DIG_NUM, 2, vdd_mmpll4_levels,
 #define GP1_CBCR                                         (0x1900)
 #define GP1_CMD_RCGR                                     (0x1904)
 #define MMPLL0_MODE                                      (0x0000)
-#define MMPLL0_L_VAL                                     (0x0004)
-#define MMPLL0_ALPHA_VAL                                 (0x0008)
-#define MMPLL0_ALPHA_VAL_U                               (0x000C)
-#define MMPLL0_USER_CTL                                  (0x0010)
 #define MMPLL1_MODE                                      (0x0030)
-#define MMPLL1_L_VAL                                     (0x0034)
-#define MMPLL1_ALPHA_VAL                                 (0x0038)
-#define MMPLL1_ALPHA_VAL_U                               (0x003C)
-#define MMPLL1_USER_CTL                                  (0x0040)
 #define MMPLL3_MODE                                      (0x0060)
-#define MMPLL3_L_VAL                                     (0x0064)
-#define MMPLL3_ALPHA_VAL                                 (0x0068)
-#define MMPLL3_ALPHA_VAL_U                               (0x006C)
-#define MMPLL3_USER_CTL                                  (0x0070)
 #define MMPLL4_MODE                                      (0x0090)
-#define MMPLL4_L_VAL                                     (0x0094)
-#define MMPLL4_ALPHA_VAL                                 (0x0098)
-#define MMPLL4_ALPHA_VAL_U                               (0x009C)
-#define MMPLL4_USER_CTL                                  (0x00A0)
 #define MMPLL5_MODE                                      (0x00C0)
 #define MMSS_PLL_VOTE_APCS                               (0x0100)
 #define VCODEC0_CMD_RCGR                                 (0x1000)
@@ -209,10 +193,19 @@ static DEFINE_VDD_REGULATORS(vdd_mmpll4, VDD_DIG_NUM, 2, vdd_mmpll4_levels,
 #define OCMEMNOC_CMD_RCGR                                (0x5090)
 #define MMSS_DEBUG_CLK_CTL                               (0x0900)
 
-static struct alpha_pll_masks alpha_pll_masks_20nm = {
+static struct alpha_pll_masks pll_masks_p = {
 	.lock_mask = BIT(31),
-	.update_mask = BIT(22),
+	.active_mask = BIT(30),
+	.vco_mask = BM(21, 20) >> 20,
+	.vco_shift = 20,
 	.alpha_en_mask = BIT(24),
+	.output_mask = 0xf,
+};
+
+static struct alpha_pll_masks pll_masks_t = {
+	.lock_mask = BIT(31),
+	.alpha_en_mask = BIT(24),
+	.output_mask = 0xf,
 };
 
 static struct alpha_pll_vco_tbl mmpll_t_vco[] = {
@@ -230,17 +223,20 @@ DEFINE_EXT_CLK(mmsscc_xo, NULL);
 DEFINE_EXT_CLK(mmsscc_gpll0, NULL);
 DEFINE_EXT_CLK(mmsscc_mmssnoc_ahb, NULL);
 
-static struct pll_vote_clk mmpll0 = {
-	.en_reg = (void __iomem *)MMSS_PLL_VOTE_APCS,
-	.en_mask = BIT(0),
-	.status_reg = (void __iomem *)MMPLL0_MODE,
-	.status_mask = BIT(30),
+static struct alpha_pll_clk mmpll0 = {
+	.masks = &pll_masks_p,
 	.base = &virt_base,
+	.offset = MMPLL0_MODE,
+	.vco_tbl = mmpll_p_vco,
+	.num_vco = ARRAY_SIZE(mmpll_p_vco),
+	.fsm_reg_offset = MMSS_PLL_VOTE_APCS,
+	.fsm_en_mask = BIT(0),
+	.enable_config = 0x1,
 	.c = {
 		.rate = 800000000,
 		.parent = &mmsscc_xo.c,
 		.dbg_name = "mmpll0",
-		.ops = &clk_ops_pll_vote,
+		.ops = &clk_ops_fixed_alpha_pll,
 		VDD_DIG_FMAX_MAP3(LOWER, 400000000, LOW, 400000000,
 				  NOMINAL, 800000000),
 		CLK_INIT(mmpll0.c),
@@ -249,11 +245,12 @@ static struct pll_vote_clk mmpll0 = {
 DEFINE_EXT_CLK(mmpll0_out_main, &mmpll0.c);
 
 static struct alpha_pll_clk mmpll4 = {
-	.masks = &alpha_pll_masks_20nm,
+	.masks = &pll_masks_t,
 	.base = &virt_base,
 	.offset = MMPLL4_MODE,
 	.vco_tbl = mmpll_t_vco,
 	.num_vco = ARRAY_SIZE(mmpll_t_vco),
+	.enable_config = 0x1,
 	.c = {
 		.parent = &mmsscc_xo.c,
 		.rate = 930000000,
@@ -266,17 +263,20 @@ static struct alpha_pll_clk mmpll4 = {
 };
 DEFINE_EXT_CLK(mmpll4_out_main, &mmpll4.c);
 
-static struct pll_vote_clk mmpll1 = {
-	.en_reg = (void __iomem *)MMSS_PLL_VOTE_APCS,
-	.en_mask = BIT(1),
-	.status_reg = (void __iomem *)MMPLL1_MODE,
-	.status_mask = BIT(30),
+static struct alpha_pll_clk mmpll1 = {
+	.masks = &pll_masks_p,
 	.base = &virt_base,
+	.offset = MMPLL1_MODE,
+	.vco_tbl = mmpll_p_vco,
+	.num_vco = ARRAY_SIZE(mmpll_p_vco),
+	.fsm_reg_offset = MMSS_PLL_VOTE_APCS,
+	.fsm_en_mask = BIT(1),
+	.enable_config = 0x1,
 	.c = {
 		.rate = 1167000000,
 		.parent = &mmsscc_xo.c,
 		.dbg_name = "mmpll1",
-		.ops = &clk_ops_pll_vote,
+		.ops = &clk_ops_fixed_alpha_pll,
 		VDD_DIG_FMAX_MAP3(LOWER, 650000000, LOW, 650000000,
 				  NOMINAL, 1300000000),
 		CLK_INIT(mmpll1.c),
@@ -285,11 +285,12 @@ static struct pll_vote_clk mmpll1 = {
 DEFINE_EXT_CLK(mmpll1_out_main, &mmpll1.c);
 
 static struct alpha_pll_clk mmpll3 = {
-	.masks = &alpha_pll_masks_20nm,
+	.masks = &pll_masks_p,
 	.base = &virt_base,
 	.offset = MMPLL3_MODE,
 	.vco_tbl = mmpll_p_vco,
 	.num_vco = ARRAY_SIZE(mmpll_p_vco),
+	.enable_config = 0x1,
 	.c = {
 		.parent = &mmsscc_xo.c,
 		.rate = 930000000,
@@ -328,11 +329,12 @@ static struct rcg_clk axi_clk_src = {
 };
 
 static struct alpha_pll_clk mmpll5 = {
-	.masks = &alpha_pll_masks_20nm,
+	.masks = &pll_masks_p,
 	.base = &virt_base,
 	.offset = MMPLL5_MODE,
 	.vco_tbl = mmpll_p_vco,
 	.num_vco = ARRAY_SIZE(mmpll_p_vco),
+	.enable_config = 0x1,
 	.c = {
 		.parent = &mmsscc_xo.c,
 		.rate = 960000000,
@@ -2331,108 +2333,6 @@ static struct clk_lookup msm_clocks_mmss_8994[] = {
 	CLK_LIST(mmss_debug_mux),
 };
 
-static struct pll_config_regs mmpll0_regs = {
-	.l_reg = (void __iomem *)MMPLL0_L_VAL,
-	.m_reg = (void __iomem *)MMPLL0_ALPHA_VAL,
-	.n_reg = (void __iomem *)MMPLL0_ALPHA_VAL_U,
-	.config_reg = (void __iomem *)MMPLL0_USER_CTL,
-	.mode_reg = (void __iomem *)MMPLL0_MODE,
-	.base = &virt_base,
-};
-
-/* MMPLL0 at 800 MHz, main output enabled. */
-static struct pll_config mmpll0_config = {
-	.l = 41,
-	.m = 0xAAAAAAAA,
-	.n = 0xAA,
-	.vco_val = 0x2,
-	.vco_mask = BM(21, 20),
-	.pre_div_val = 0x0,
-	.pre_div_mask = BM(14, 12),
-	.post_div_val = 0x0,
-	.post_div_mask = BM(9, 8),
-	.mn_ena_val = BIT(24),
-	.mn_ena_mask = BIT(24),
-	.main_output_val = BIT(0),
-	.main_output_mask = BIT(0),
-};
-
-static struct pll_config_regs mmpll1_regs = {
-	.l_reg = (void __iomem *)MMPLL1_L_VAL,
-	.m_reg = (void __iomem *)MMPLL1_ALPHA_VAL,
-	.n_reg = (void __iomem *)MMPLL1_ALPHA_VAL_U,
-	.config_reg = (void __iomem *)MMPLL1_USER_CTL,
-	.mode_reg = (void __iomem *)MMPLL1_MODE,
-	.base = &virt_base,
-};
-
-/* MMPLL1 at 1167 MHz, main output enabled. */
-static struct pll_config mmpll1_config = {
-	.l = 60,
-	.m = 0x0,
-	.n = 0xC8,
-	.vco_val = 0x1,
-	.vco_mask = BM(21, 20),
-	.pre_div_val = 0x0,
-	.pre_div_mask = BM(14, 12),
-	.post_div_val = 0x0,
-	.post_div_mask = BM(9, 8),
-	.mn_ena_val = BIT(24),
-	.mn_ena_mask = BIT(24),
-	.main_output_val = BIT(0),
-	.main_output_mask = BIT(0),
-};
-
-static struct pll_config_regs mmpll3_regs = {
-	.l_reg = (void __iomem *)MMPLL3_L_VAL,
-	.m_reg = (void __iomem *)MMPLL3_ALPHA_VAL,
-	.n_reg = (void __iomem *)MMPLL3_ALPHA_VAL_U,
-	.config_reg = (void __iomem *)MMPLL3_USER_CTL,
-	.mode_reg = (void __iomem *)MMPLL3_MODE,
-	.base = &virt_base,
-};
-
-/* MMPLL3 at 930 MHz, main output enabled. */
-static struct pll_config mmpll3_config = {
-	.l = 48,
-	.m = 0x0,
-	.n = 0x70,
-	.vco_val = 0x2,
-	.vco_mask = BM(21, 20),
-	.pre_div_val = 0x0,
-	.pre_div_mask = BM(14, 12),
-	.post_div_val = 0x0,
-	.post_div_mask = BM(9, 8),
-	.mn_ena_val = BIT(24),
-	.mn_ena_mask = BIT(24),
-	.main_output_val = BIT(0),
-	.main_output_mask = BIT(0),
-};
-
-static struct pll_config_regs mmpll4_regs = {
-	.l_reg = (void __iomem *)MMPLL4_L_VAL,
-	.m_reg = (void __iomem *)MMPLL4_ALPHA_VAL,
-	.n_reg = (void __iomem *)MMPLL4_ALPHA_VAL_U,
-	.config_reg = (void __iomem *)MMPLL4_USER_CTL,
-	.mode_reg = (void __iomem *)MMPLL4_MODE,
-	.base = &virt_base,
-};
-
-/* MMPLL4 at 930 MHz, main output enabled. */
-static struct pll_config mmpll4_config  = {
-	.l = 48,
-	.m = 0x0,
-	.n = 0x70,
-	.pre_div_val = 0x0,
-	.pre_div_mask = BM(14, 12),
-	.post_div_val = 0x0,
-	.post_div_mask = BM(9, 8),
-	.mn_ena_val = BIT(24),
-	.mn_ena_mask = BIT(24),
-	.main_output_val = BIT(0),
-	.main_output_mask = BIT(0),
-};
-
 int msm_mmsscc_8994_probe(struct platform_device *pdev)
 {
 	struct resource *res;
@@ -2495,11 +2395,6 @@ int msm_mmsscc_8994_probe(struct platform_device *pdev)
 			dev_err(&pdev->dev, "Unable to get MMSSNOC AHB clock!");
 		return PTR_ERR(tmp);
 	}
-
-	configure_sr_hpm_lp_pll(&mmpll0_config, &mmpll0_regs, 1);
-	configure_sr_hpm_lp_pll(&mmpll1_config, &mmpll1_regs, 1);
-	configure_sr_hpm_lp_pll(&mmpll3_config, &mmpll3_regs, 0);
-	configure_sr_hpm_lp_pll(&mmpll4_config, &mmpll4_regs, 0);
 
 	rc = of_msm_clock_register(pdev->dev.of_node, msm_clocks_mmss_8994,
 				   ARRAY_SIZE(msm_clocks_mmss_8994));
