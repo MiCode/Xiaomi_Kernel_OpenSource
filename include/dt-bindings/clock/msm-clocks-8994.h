@@ -384,6 +384,11 @@
 #define clk_mdss_pclk0_clk 0x3487234a
 #define clk_mdss_pclk1_clk 0xd5804246
 
+/* clock_cpu controlled clocks */
+#define clk_cci_clk 0x96854074
+#define clk_a53_clk 0x5c9f8836
+#define clk_a57_clk 0x6c7dc3ea
+
 /* clock_debug controlled clocks */
 #define clk_gcc_debug_mux 0x8121ac15
 
