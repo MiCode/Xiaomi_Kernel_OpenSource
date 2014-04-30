@@ -527,6 +527,9 @@ static int32_t qpnp_vadc_version_check(struct qpnp_vadc_chip *dev)
 #define QPNP_VBAT_COEFF_23	3500
 #define QPNP_VBAT_COEFF_24	4360
 #define QPNP_VBAT_COEFF_25	8060
+#define QPNP_VBAT_COEFF_26	7895
+#define QPNP_VBAT_COEFF_27	5658
+#define QPNP_VBAT_COEFF_28	5760
 
 static int32_t qpnp_ocv_comp(int64_t *result,
 			struct qpnp_vadc_chip *vadc, int64_t die_temp)
@@ -618,6 +621,28 @@ static int32_t qpnp_ocv_comp(int64_t *result,
 				temp_var = QPNP_VBAT_COEFF_20;
 			else
 				temp_var = QPNP_VBAT_COEFF_21;
+			temp_var = (die_temp - 25000) * temp_var;
+			break;
+		}
+		break;
+	case QPNP_REV_ID_8916_1_0:
+	case QPNP_REV_ID_8916_1_1:
+	case QPNP_REV_ID_8916_2_0:
+		switch (vadc->id) {
+		case COMP_ID_SMIC:
+			if (die_temp < 25000)
+				temp_var = QPNP_VBAT_COEFF_26;
+			else
+				temp_var = QPNP_VBAT_COEFF_27;
+			temp_var = (die_temp - 25000) * temp_var;
+			break;
+		default:
+		case COMP_ID_GF:
+			*result -= QPNP_OCV_OFFSET_GF;
+			if (die_temp < 25000)
+				temp_var = QPNP_VBAT_COEFF_26;
+			else
+				temp_var = QPNP_VBAT_COEFF_27;
 			temp_var = (die_temp - 25000) * temp_var;
 			break;
 		}
@@ -726,6 +751,21 @@ static int32_t qpnp_vbat_sns_comp(int64_t *result,
 			*result -= QPNP_VBAT_OFFSET_GF;
 			temp_var = ((die_temp - 25000) *
 			(QPNP_VBAT_COEFF_16));
+			break;
+		}
+		break;
+	case QPNP_REV_ID_8916_1_0:
+	case QPNP_REV_ID_8916_1_1:
+	case QPNP_REV_ID_8916_2_0:
+		switch (vadc->id) {
+		case COMP_ID_SMIC:
+			temp_var = ((die_temp - 25000) *
+			(QPNP_VBAT_COEFF_28));
+			break;
+		default:
+		case COMP_ID_GF:
+			temp_var = ((die_temp - 25000) *
+			(QPNP_VBAT_COEFF_28));
 			break;
 		}
 		break;
