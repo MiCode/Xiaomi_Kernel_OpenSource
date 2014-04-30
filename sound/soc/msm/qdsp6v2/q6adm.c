@@ -1728,7 +1728,7 @@ int adm_close(int port_id, int perf_mode, int copp_idx)
 		return -EINVAL;
 	}
 
-	if ((copp_idx < 0) || (copp_idx > MAX_COPPS_PER_PORT)) {
+	if ((copp_idx < 0) || (copp_idx >= MAX_COPPS_PER_PORT)) {
 		pr_err("%s: Invalid copp idx: %d\n", __func__, copp_idx);
 		return -EINVAL;
 	}
