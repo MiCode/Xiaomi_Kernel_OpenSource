@@ -289,8 +289,6 @@
 
 		qcom,tx-gpio = <&msmgpio 112 0>;
 		qcom,rx-gpio = <&msmgpio 113 0>;
-		qcom,inject-rx-on-wakeup = <1>;
-		qcom,rx-char-to-inject = <0x18>;
 
 		qcom,wakeup_irq = <2>;
 		qcom,bam-tx-ep-pipe-index = <8>;
