@@ -503,19 +503,21 @@ static void usb_qdss_disconnect_work(struct work_struct *work)
 	pr_debug("usb_qdss_disconnect_work\n");
 	switch (dxport) {
 	case USB_GADGET_XPORT_BAM:
-		status = uninit_data(qdss->port.data);
-		if (status)
-			pr_err("%s: uninit_data error\n", __func__);
-		/* notify qdss to cancell all active transfers*/
-		if (qdss->ch.notify) {
-			qdss->ch.notify(qdss->ch.priv,
+		/*
+		 * Uninitialized init data i.e. ep specific operation.
+		 * Notify qdss to cancel all active transfers.
+		 */
+		if (qdss->ch.app_conn) {
+			status = uninit_data(qdss->port.data);
+			if (status)
+				pr_err("%s: uninit_data error\n", __func__);
+
+			if (qdss->ch.notify)
+				qdss->ch.notify(qdss->ch.priv,
 					USB_QDSS_DISCONNECT,
 					NULL,
 					NULL);
-			/*
-			 * If the app was never started,
-			 * we can skip USB BAM reset.
-			 */
+
 			status = set_qdss_data_connection(
 					qdss->cdev->gadget,
 					qdss->port.data,
