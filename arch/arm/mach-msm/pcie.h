@@ -208,6 +208,7 @@ struct msm_pcie_dev_t {
 	u32                          rc_shadow[PCIE_CONF_SPACE_DW];
 	bool                         shadow_en;
 	struct msm_pcie_register_event *event_reg;
+	bool                         power_on;
 };
 
 extern int msm_pcie_enumerate(u32 rc_idx);
