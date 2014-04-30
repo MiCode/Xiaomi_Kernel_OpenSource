@@ -3123,8 +3123,8 @@
 			uv-to-ua-numerator = <2>;
 			uv-to-ua-denominator = <1>;
 			vph-channel = <0x07>;
-			vph-high-threshold-uv = <3890000>;
-			vph-low-threshold-uv = <3690000>;
+			vph-high-threshold-uv = <3750000>;
+			vph-low-threshold-uv = <3500000>;
 			thermal-handle = <&msm_thermal_freq>;
 		};
 	};
@@ -3933,7 +3933,6 @@
 		qcom,scale-function = <0>;
 		qcom,hw-settle-time = <0>;
 		qcom,fast-avg-setup = <0>;
-		qcom,meas-interval-timer-idx = <0>;
 		qcom,btm-channel-number = <0x80>;
 	};
 };
