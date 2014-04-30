@@ -125,6 +125,13 @@ struct sk_buff *rmnet_map_deaggregate(struct sk_buff *skb,
 	skb_pull(skb, packet_len);
 	LOGD("after skbn->len = %d", skbn->len);
 
+	/* Some hardware can send us empty frames. Catch them */
+	if (ntohs(maph->pkt_len) == 0) {
+		LOGD("Dropping empty MAP frame");
+		rmnet_kfree_skb(skbn, RMNET_STATS_SKBFREE_DEAGG_DATA_LEN_0);
+		return 0;
+	}
+
 	/* Sanity check */
 	ip_byte = (skbn->data[4]) & 0xF0;
 	if (ip_byte != 0x40 && ip_byte != 0x60) {
