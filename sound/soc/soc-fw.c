@@ -1119,8 +1119,9 @@ static int soc_fw_dapm_widget_create(struct soc_fw *sfw,
 	widget.ignore_suspend = w->ignore_suspend;
 	widget.event_flags = w->event_flags;
 	widget.index = sfw->index;
+	widget.pvt_data_len = w->pvt_data_len;
 
-	sfw->pos += sizeof(struct snd_soc_fw_dapm_widget);
+	sfw->pos += (sizeof(struct snd_soc_fw_dapm_widget) + w->pvt_data_len);
 	if (w->num_kcontrols == 0) {
 		widget.num_kcontrols = 0;
 		goto widget;

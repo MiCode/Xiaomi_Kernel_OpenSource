@@ -893,6 +893,9 @@ struct snd_soc_fw_dapm_widget {
 	__u16 event_type;
 
 	__u16 num_kcontrols;
+	__le32 reserved[12]; /*Reserved for future use */
+	__le32 pvt_data_len;
+	char pvt_data[0];
 	/*
 	 * kcontrols that relate to this widget
 	 * follow here

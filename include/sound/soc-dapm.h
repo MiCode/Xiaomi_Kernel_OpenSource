@@ -227,6 +227,7 @@ struct snd_soc_dapm_widget {
 	struct list_head list;
 	struct snd_soc_dapm_context *dapm;
 
+	int pvt_data_len;			/* Len of widget specific data*/
 	void *priv;				/* widget specific data */
 	struct regulator *regulator;		/* attached regulator */
 	const struct snd_soc_pcm_stream *params; /* params for dai links */
