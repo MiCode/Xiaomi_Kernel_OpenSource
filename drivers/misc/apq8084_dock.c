@@ -16,12 +16,47 @@
 #include <linux/delay.h>
 #include <linux/gpio.h>
 #include <linux/interrupt.h>
+#include <linux/notifier.h>
 #include <linux/platform_device.h>
 #include <linux/pm_wakeup.h>
 #include <linux/workqueue.h>
 #include <linux/of.h>
 #include <linux/of_platform.h>
 #include <linux/of_gpio.h>
+#include <soc/qcom/apq8084_dock.h>
+
+static int docked;
+static BLOCKING_NOTIFIER_HEAD(dock_notifier_list);
+
+/**
+ * register_liquid_dock_notify - register dock notifier callback
+ * @nb: pointer to the notifier block for the callback events.
+ *
+ * Calls the notifier callback to when dock is inserted or removed, indicated
+ * by a boolean passed to the callback's action parameter.
+ */
+void register_liquid_dock_notify(struct notifier_block *nb)
+{
+	/* inform new client of current state */
+	if (nb && nb->notifier_call)
+		nb->notifier_call(nb, docked, NULL);
+
+	blocking_notifier_chain_register(&dock_notifier_list, nb);
+}
+EXPORT_SYMBOL(register_liquid_dock_notify);
+
+/**
+ * unregister_liquid_dock_notify - unregister a notifier callback
+ * @nb: pointer to the notifier block for the callback events.
+ *
+ * register_liquid_dock_notify() must have been previously called for this
+ * function to work properly.
+ */
+void unregister_liquid_dock_notify(struct notifier_block *nb)
+{
+	blocking_notifier_chain_unregister(&dock_notifier_list, nb);
+}
+EXPORT_SYMBOL(unregister_liquid_dock_notify);
 
 struct apq8084_dock {
 	struct device		*dev;
@@ -37,8 +72,6 @@ static void dock_detected_work(struct work_struct *w)
 {
 	struct apq8084_dock *dock = container_of(w, struct apq8084_dock,
 						 dock_work);
-	int docked;
-
 	docked = gpio_get_value(dock->dock_detect);
 	gpio_direction_output(dock->dock_enable, 0);
 
@@ -60,6 +93,8 @@ static void dock_detected_work(struct work_struct *w)
 	} else {
 		device_release_driver(&dock->usb3_pdev->dev);
 	}
+
+	blocking_notifier_call_chain(&dock_notifier_list, docked, NULL);
 
 	/* Allow system suspend */
 	pm_relax(dock->dev);
