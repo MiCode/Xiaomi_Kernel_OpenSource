@@ -128,6 +128,10 @@ CHARGE_CONTROL_LIMIT_MAX - maximum charge control limit setting
 
 ENERGY_FULL, ENERGY_EMPTY - same as above but for energy.
 
+HI_POWER, LOW_POWER - These attributes are used to indicate the
+power state of the client. This information can be used by the
+power_supply to take appropriate actions.
+
 CAPACITY - capacity in percents.
 CAPACITY_ALERT_MIN - minimum capacity alert value in percents.
 CAPACITY_ALERT_MAX - maximum capacity alert value in percents.
