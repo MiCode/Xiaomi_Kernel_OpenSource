@@ -1,4 +1,4 @@
-/* Copyright (c) 2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -131,6 +131,30 @@ static int of_batterydata_read_pc_temp_ocv_lut(struct device_node *data_node,
 	return 0;
 }
 
+static int of_batterydata_read_ibat_temp_acc_lut(struct device_node *data_node,
+			const char *name, struct ibat_temp_acc_lut *lut)
+{
+	struct device_node *node = of_find_node_by_name(data_node, name);
+	int rc;
+
+	if (!lut) {
+		pr_debug("No lut provided, skipping\n");
+		return 0;
+	} else if (!node) {
+		pr_debug("Couldn't find %s node.\n", name);
+		return 0;
+	}
+	rc = of_batterydata_read_lut(node, ACC_TEMP_COLS, ACC_IBAT_ROWS,
+			&lut->cols, &lut->rows, lut->temp, lut->ibat,
+			*lut->acc);
+	if (rc) {
+		pr_err("Failed to read %s node.\n", name);
+		return rc;
+	}
+
+	return 0;
+}
+
 static int of_batterydata_read_single_row_lut(struct device_node *data_node,
 				const char *name, struct single_row_lut *lut)
 {
@@ -219,6 +243,11 @@ static int of_batterydata_load_battery_data(struct device_node *node,
 
 	rc = of_batterydata_read_sf_lut(node, "qcom,rbatt-sf-lut",
 			batt_data->rbatt_sf_lut);
+	if (rc)
+		return rc;
+
+	rc = of_batterydata_read_ibat_temp_acc_lut(node, "qcom,ibat-acc-lut",
+						batt_data->ibat_acc_lut);
 	if (rc)
 		return rc;
 

@@ -41,6 +41,13 @@ Profile data node required subnodes:
 			resistance lookup. The units for this lookup table
 			should be degrees celsius and percent to milliohms.
 
+Profile data node optional subnodes:
+- qcom,ibat-acc-luit: A 2-dimentional lookup table that encodes temperature
+			and battery current to battery ACC (apparent charge
+			capacity). The units for this lookup table should be
+			temperature in degrees celsius, ibat in milli-amps
+			and ACC in milli-ampere-hour.
+
 Lookup table required properties:
 - qcom,lut-col-legend : An array that encodes the legend of the lookup table's
 			columns. The length of this array will determine the
@@ -163,6 +170,15 @@ qcom,palladium-batterydata {
 			<1559 457 128 105 213>,
 			<12886 1026 637 422 3269>,
 			<170899 127211 98968 88907 77102>;
+	};
+
+	qcom,ibat-acc-lut {
+		qcom,lut-col-legend = <(-20) 0 25>;
+		qcom,lut-row-legend = <0 250 500 1000>;
+		qcom,lut-data = <1470 1470 1473>,
+				<1406 1406 1430>,
+				<1247 1247 1414>,
+				<764 764 1338>;
 	};
 };
 
