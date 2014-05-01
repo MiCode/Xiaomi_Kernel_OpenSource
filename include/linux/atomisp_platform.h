@@ -220,5 +220,10 @@ struct camera_mipi_info {
 extern const struct atomisp_platform_data *atomisp_get_platform_data(void);
 extern const struct atomisp_camera_caps *atomisp_get_default_camera_caps(void);
 
+/* G-Min API */
+extern int atomisp_register_i2c_module(struct i2c_client *client,
+				       enum intel_v4l2_subdev_type type,
+				       enum atomisp_camera_port port);
+
 #endif /* ATOMISP_PLATFORM_H_ */
 #endif

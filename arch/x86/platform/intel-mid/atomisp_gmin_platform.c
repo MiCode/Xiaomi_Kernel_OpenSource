@@ -1,5 +1,24 @@
 #include <linux/module.h>
+#include <linux/i2c.h>
+#include <linux/atomisp_platform.h>
 #include <asm/spid.h>
+
+#define MAX_SUBDEVS 8
+
+/* This needs to be initialized at runtime so the various
+ * platform-checking macros in spid.h return the correct results.
+ * Either that, or we need to fix up the usage of those macros so that
+ * it's checking more appropriate runtime-detectable data. */
+struct soft_platform_id spid;
+EXPORT_SYMBOL(spid);
+
+/* Submodules use type==0 for the end-of-list marker */
+static struct intel_v4l2_subdev_table pdata_subdevs[MAX_SUBDEVS+1];
+
+static const struct atomisp_platform_data pdata = {
+    .subdevs = pdata_subdevs,
+    .spid = &spid,
+};
 
 /*
  *   struct atomisp_sensor_caps {
@@ -36,22 +55,14 @@ EXPORT_SYMBOL_GPL(atomisp_get_default_camera_caps);
  */
 const struct atomisp_platform_data *atomisp_get_platform_data(void)
 {
-    /* This gets enumerated in
-     * atomisp_pci_probe->atomisp_register_entites->atomisp_subdev_probe,
-     * which means that it's going to be needed before it's available.
-     * I think that's the only spot it's needed though.
-     *
-     * Note that it also talks about stuff like flash and motor
-     * devices, which are not going to be uniquely identifiable
-     * electronically (i.e. which flash goes with which camera?)  May
-     * really need the firmware intervention, or else duplicate with
-     * e.g.  module parameters on the subdevices... */
-    return NULL;
+    return &pdata;
 }
 EXPORT_SYMBOL_GPL(atomisp_get_platform_data);
 
 /*
- * Used in a handful of modules.  Focus motor maybe?
+ * Used in a handful of modules.  Focus motor control, I think.  Note
+ * that there is no configurability in the API, so this needs to be
+ * fixed where it is used.
  *
  * struct camera_af_platform_data {
  *     int (*power_ctrl)(struct v4l2_subdev *subdev, int flag);
@@ -63,9 +74,36 @@ const struct camera_af_platform_data *camera_get_af_platform_data(void)
 }
 EXPORT_SYMBOL_GPL(camera_get_af_platform_data);
 
-/* This needs to be initialized at runtime so the various
- * platform-checking macros in spid.h return the correct results.
- * Either that, or we need to fix up the usage of those macros so that
- * it's checking more appropriate runtime-detectable data. */
-struct soft_platform_id spid;
-EXPORT_SYMBOL(spid);
+int atomisp_register_i2c_module(struct i2c_client *client,
+                                enum intel_v4l2_subdev_type type,
+                                enum atomisp_camera_port port)
+{
+    int i;
+    struct i2c_board_info *bi;
+
+    dev_info(&client->dev, "register atomisp i2c module type %d on port %d\n", type, port);
+
+    for (i=0; i < MAX_SUBDEVS; i++)
+        if (!pdata.subdevs[i].type)
+            break;
+
+    if (pdata.subdevs[i].type)
+        return -ENOMEM;
+
+    pdata.subdevs[i].type = type;
+    pdata.subdevs[i].port = port;
+    pdata.subdevs[i].v4l2_subdev.i2c_adapter_id = client->adapter->nr;
+
+    /* Convert i2c_client to i2c_board_info */
+    bi = &pdata.subdevs[i].v4l2_subdev.board_info;
+    memcpy(bi->type, client->name, I2C_NAME_SIZE);
+    bi->flags = client->flags;
+    bi->addr = client->addr;
+    bi->irq = client->irq;
+    bi->comp_addr_count = client->comp_addr_count;
+    bi->comp_addrs = client->comp_addrs;
+    bi->irq_flags = client->irq_flags;
+
+    return 0;
+}
+EXPORT_SYMBOL_GPL(atomisp_register_i2c_module);

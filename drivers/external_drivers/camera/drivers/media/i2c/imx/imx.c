@@ -2307,6 +2307,7 @@ static int imx_probe(struct i2c_client *client,
 	}
 
 	/* Load the Noise reduction, Dead pixel registers from cpf file*/
+	/* FIXME: msr_file_name needs to come from ACPI/EFI config too */
 	if (dev->platform_data->msr_file_name != NULL)
 		msr_file_name = dev->platform_data->msr_file_name();
 	if (msr_file_name) {
@@ -2317,6 +2318,17 @@ static int imx_probe(struct i2c_client *client,
 		}
 	} else {
 		dev_warn(&client->dev, "Drvb file not present");
+	}
+
+	/* Register the atomisp platform data prior to the ISP module
+	 * load.  Ideally this would be stored as data on the
+	 * subdevices, but this API matches upstream better. */
+	/* FIXME: type and port need to come from ACPI/EFI config,
+	 * this is hard coded to FFRD8 */
+	ret = atomisp_register_i2c_module(client, RAW_CAMERA, ATOMISP_CAMERA_PORT_PRIMARY);
+	if (ret) {
+		imx_remove(client);
+		return ret;
 	}
 
 	return ret;
