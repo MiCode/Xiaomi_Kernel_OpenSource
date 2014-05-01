@@ -1060,8 +1060,9 @@ static int mdss_mdp_image_setup(struct mdss_mdp_pipe *pipe,
 	struct mdss_rect sci, dst, src;
 	bool rotation = false;
 
-	pr_debug("pnum=%d wh=%dx%d src={%d,%d,%d,%d} dst={%d,%d,%d,%d}\n",
-			pipe->num, pipe->img_width, pipe->img_height,
+	pr_debug("ctl: %d pnum=%d wh=%dx%d src={%d,%d,%d,%d} dst={%d,%d,%d,%d}\n",
+			pipe->mixer_left->ctl->num, pipe->num,
+			pipe->img_width, pipe->img_height,
 			pipe->src.x, pipe->src.y, pipe->src.w, pipe->src.h,
 			pipe->dst.x, pipe->dst.y, pipe->dst.w, pipe->dst.h);
 
@@ -1100,9 +1101,9 @@ static int mdss_mdp_image_setup(struct mdss_mdp_pipe *pipe,
 	src = pipe->src;
 
 	if ((pipe->mixer_left->type != MDSS_MDP_MIXER_TYPE_WRITEBACK) &&
-	    !pipe->mixer_left->ctl->is_video_mode &&
-	    !pipe->src_split_req)
-		mdss_mdp_crop_rect(&src, &dst, &sci);
+		!pipe->mixer_left->ctl->is_video_mode &&
+		!pipe->src_split_req)
+			mdss_mdp_crop_rect(&src, &dst, &sci);
 
 	src_size = (src.h << 16) | src.w;
 	src_xy = (src.y << 16) | src.x;
