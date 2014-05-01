@@ -299,7 +299,6 @@ config LEDS_QPNP
 
 config LEDS_MSM_GPIO_FLASH
 	tristate "Support for GPIO Flash LEDs"
-	depends on GPIO_MSM_V3
 	help
 	  This driver supports the leds functionality of GPIO Flash LED. It
 	  includes flash mode and torch mode.
