@@ -331,22 +331,25 @@
 		qcom,android-usb-uicc-nluns = /bits/ 8 <1>;
 	};
 
-	rmtfs_sharedmem {
+	qcom,rmtfs_sharedmem@0dc80000 {
 		compatible = "qcom,sharedmem-uio";
 		reg = <0x0dc80000 0x00180000>;
 		reg-names = "rmtfs";
+		qcom,client-id = <0x00000001>;
 	};
 
-	dsp_sharedmem {
+	qcom,dsp_sharedmem@0dc60000 {
 		compatible = "qcom,sharedmem-uio";
 		reg = <0x0dc60000 0x00020000>;
 		reg-names = "rfsa_dsp";
+		qcom,client-id = <0x011013ec>;
 	};
 
-	mdm_sharedmem {
+	qcom,mdm_sharedmem@0dc60000 {
 		compatible = "qcom,sharedmem-uio";
 		reg = <0x0dc60000 0x00020000>;
 		reg-names = "rfsa_mdm";
+		qcom,client-id = <0x011013ed>;
 	};
 
 	sdhc_1: sdhci@f9824900 {

@@ -1,67 +1,220 @@
 Introduction
 ============
 
-This is a new platform driver for newly introduced UIO devices
-to facilitate clients in Userspace.
+The msm_sharedmem driver would facilitate the sharing of an uncached
+contiguous physical memory between modules on peripheral processors
+(such as MPSS and ADSP) and user-space applications on Android.
+
+The memory is allocated at boot-up using DMA apis and is shared with the
+peripheral processors using a Kernel QMI service on the LA-HLOS.
+
+The driver would expose UIO devices to allow clients in user space on
+Android to map this shared memory.
+
+This memory would never be freed and any failure to allocate this memory
+would be fatal on the peripheral processors.
 
 Hardware description
 ====================
-This driver does not implement any specific hardware driver.
+
+This driver does not implement any specific hardware.
 
 Software description
 ====================
 
+The shared memory driver preallocates the required shared memory using DMA
+apis at boot-up and then allows this region of memory to be shared with the
+peripheral processors using kernel QMI service. The allocated memory would be
+designated as uncached.
+
+This memory would also be mapped to UIO devices using the UIO framework for
+user space services like remote-fs and rfsa. These services would open the
+UIO device when they start up and mmap the shared memory.
+
+When the remote-fs client or rfsa-client (running on the peripheral processors)
+requests the buffer address over QMI, the driver would return the physical
+address.
+
+
 Design
 ======
 
-The goal of this driver is to ensure there is no security lapse in the
-Userspace clients' functionality. This new driver uses the existing
-UIO framework to facilitate the clients to be able to memory map their
-respective allotted shared memory address in the client's address space.
+Kernel-Space
+------------
+Kernel shared memory driver implementation:
+-> Preallocates the memory for the shared buffers using DMA apis and designates
+   them as uncached based on the size configured in the device tree.
+-> Create UIO devices for each of the shared buffers that would be used by the
+   userspace applications.
+-> Kernel QMI service for memory sharing.
+   (listens to the requests from peripherals)
+-> When a peripheral processor makes a QMI request for the shared buffer
+   address for a particular client the driver would return the address as part
+   of the QMI response if the buffer was successfully allocated or send an
+   error response otherwise.
 
-				  |
-    Userspace			  |		Kernel space
- +--------------+	+---------------+	+---------------+
- |   Client	|	|  Shared	|	|  shrdmem_uio	|
- |		<------->    Memory	<------->  driver	|
- +--------------+	+---------------+	+---------------+
-				  |
-				  |
+User-Space
+----------
 
-The shared memory (a transport buffer) address is unique for each
-individual client and is made available to the driver via device tree.
+This driver uses the UIO framework to facilitate the clients to be able to
+memory map their respective allotted shared memory address in the client's
+address space.
 
-For a given client the probe would be called once in the shrdmem_uio driver.
-This driver would parse the device tree and register a new UIO device with kernel
-available under /dev/uioX (where X would start from zero, being serially
-incremented for the next UIO device probed)
+				|
+    user space			|		kernel space
+ +--------------+	+---------------+	+------------------+
+ |   Client	|	|    Shared	|	|  msm_sharedmem   |
+ |		<------->    Memory(UIO)<------->  driver	   |
+ +--------------+	+---------------+	+------------------+
+				|
+				|
 
-The client in Userspace would be able to access the respective UIO device
-under the sysfs entry(/sys/class/uio/uioX) upon verifying the name and version
-of the device under this sysfs node. Once verified it could access the physical
-address under /sys/class/uio/uioX/maps/map0/addr
+The shared memory (a transport buffer) address would be unique for each
+individual client.
 
-The client would request for memory mapping which would be taken care of in the
-kernel space by the UIO framework. No explicit mmap() implementation required by
-the shrdmem_uio driver.
+For a given client the probe would be called once in the msm_sharedmem
+driver. This driver would parse the device tree and register a new UIO
+device with kernel available under /dev/uioX (where X would start from
+zero, being serially incremented for the next UIO device probed)
+
+The client in user space would be able to access the respective UIO device
+under the sysfs entry(/sys/class/uio/uioX) upon verifying the name and
+version of the device under this sysfs node. After verification the client
+would mmap the dev/uioX device to use the shared buffer.
+
+The client requests for memory mapping would be taken care of in kernel space
+by the UIO framework. No explicit mmap() implementation required by the
+msm_sharedmem driver.
+
+Peripheral Processors
+---------------------
+
+Allocate shared contiguous uncached physical memory chunk from an existing
+kernel heap and share between HLOS/MPSS and HLOS/ADSP.
+
+ Peripheral Side                |                  LA KERNEL
+   (MPSS/ADSP)                Kernel/        Dynamic shared memory driver
+remote-fs/RFSA clients      QMI Service                 |
+     |                          |                       +-->Allocate the memory
+     |                          |                       |   using DMA api's
+     |                          |                       |
+     | Get buffer qmi call to   | Send message request  |
+     +------------------------->+---------------------->|
+     | the kernel service       |                       +-->Memory not
+     |                          |                       |   available
+     |                          |   error response      <--+Send error
+     |     error response       |<----------------------+   response back
+     |<-------------------------+     to QMI service    |
+     |                          |                       |
+     |                          |                       |
+     |                          |                       +-->Requested memory is
+     |                          |                       |   greater than
+     |                          |   error response      |   already allocated
+     |    error response        | <-------------------- <---+
+     | <----------------------  |    to QMI service     |
+     |                          |                       |
+     |                          |                       |
+     |                          |                       +-->Requested memory is
+     |                          | Send the address back |   available. Success!
+     |                          |<--------------------- |   Send the address.
+     |  Response over QMI       |   to peripheral       <---+
+     |<-------------------------|                       |
+     |                          |                       |
+     |                          |                       |
+     +-+Validate the address,   |                       |
+     |  add to xpu and then map |                       |
+     |  to a virtual address.   |                       |
+     |                          |                       |
+    ...                        ...                     ...
+    ...                        ...                     ...
+    ...                        ...                     ...
+     |                          |                       |
+     |(SUBSYSTEM RESTART)       |                       |
+     |                          |                       |
+     | Get buffer qmi call to   | Send message request  |
+     +------------------------->+---------------------->|
+     | the kernel service       |                       +-->Memory not
+     |                          |                       |   available
+     |                          |   error response      <--+Send error
+     |     error response       |<----------------------+   response back
+     |<-------------------------+     to QMI service    |
+     |                          |                       |
+     |                          |                       |
+     |                          |                       +-->Requested memory is
+     |                          |                       |   greater than
+     |                          |   error response      |   already allocated
+     |    error response        | <-------------------- <---+
+     | <----------------------  |    to QMI service     |
+     |                          |                       |
+     |                          |                       |
+     |                          |                       +-->Requested memory is
+     |                          | Send the address back |   available. Success!
+     |                          |<--------------------- |   Send the address.
+     |  Response over QMI       |   to peripheral       <---+
+     |<-------------------------|                       |
+     |                          |                       |
+     |                          |                       |
+     +-+Validate the address,   |                       |
+     |  add to xpu and then map |                       |
+     |  to a virtual address.   |                       |
+     |                          |                       |
+    ...                        ...                     ...
+
+MPSS:
+-> Requests memory.
+-> Restricts access to the allocated memory chunk to be shared between MPSS
+   and the HLOS using MBA api's to lock the region.
+   ** Further accesses to this memory from other images will cause faults.
+-> The MBA api or the mpss kernel memory map api runs security checks on the
+   memory pointer to make sure it doesn't overlap MPSS memory region.
+-> Virtually maps the memory in MPSS memory space for its clients use.
+
+ADSP:
+-> Requests memory.
+-> The access control for the shared memory is set by the HLOS before
+   sending the get buffer response or by the ADSP processor after the address
+   is received in the qmi response using the appropriate TZ (or SMMU/IOMMU)
+   apis.
+   ** Further accesses to this memory from other images will cause faults.
+-> The ADSP kernel api to map the address runs security checks
+   (using a securely exposed TZ list or a TZ api) on the memory pointer to
+   make sure it doesn't overlap memory regions of other existing images.
+-> Virtually maps the memory in ADSP memory space for its clients use.
+
+Dependency: DMA framework allocates memory chunks potentially in the
+order of MBs (up to 1.5 MB but it is configurable from device tree) of
+physically contiguous uncached memory.
+
+The memory is allocated at boot-up and never returned. This allocation is
+never expected to ever fail and would cause the peripheral processors
+to FATAL.
 
 Power Management
 ================
+
 Does not implement any power management.
 
 SMP/multi-core
 ==============
 
 The platform driver would be loaded/probed once per client.
-DTS files will be looked up for shared memory addresses and sizes for all the clients.
-The UIO char device will be created under /dev/uioX.
+DTS files will be looked up for shared buffer sizes for all the clients. The
+UIO char device will be created under /dev/uioX.
 
-This being one time activity for a given client it does not require SMP/multi-core safety.
+The device creation is a one time activity for a given client during the
+driver probe and does not require SMP/multi-core safety.
+Mutex locks will be used to serialize the QMI requests.
 
 Security
 ========
 
-The devices (/dev/uioX) would have permission checks for restricted access
+The devices (/dev/uioX) would have file permissions enforced for restricted
+access. Only users with system permissions be able to access these devices.
+
+If the phone is rooted, the hacker can attempt to send an invalid address from
+kernel to MPSS/ADSP. MPSS/ADSP will use apis from TZ and MBA that perform
+additional checks to make sure the memory address sent does not already exist
+in its own memory space or that of other images.
 
 Performance
 ===========
@@ -73,6 +226,8 @@ Interface
 
 This driver does not export any APIs for kernel.
 Android user space can access the shared memory by mmaping it.
+A QMI service is exposed to allow the peripheral processors to request the
+physical address of the shared memory region.
 
 Driver parameters
 =================
@@ -87,11 +242,13 @@ None.
 Dependencies
 ============
 
-The only dependency is the kernel device tree files for the
-Userspace client details.
+The driver depends on DMA apis to provide contiguous uncached memory.
+The only other dependency is the kernel device tree files for the user space
+client details.
 
 User space utilities
 ====================
+
 This driver communicates with the following user space clients/utilities:
 
 Remote File System:
@@ -103,7 +260,16 @@ Remote File System:
 Remote File System Access (QMI_RFSA):
  - Based on Qualcomm Messaging Interface (QMI)
  - This service provides access from the Hexagon processor to a High-Level
-   Operating Sytem (HLOS) file system
+   Operating System (HLOS) file system
+
+Version compatibility
+=====================
+
+MPSS and ADSP depend on the availability of this msm QMI service in the
+kernel driver. If the older HLOS image is used with the new MPSS/ADSP images
+then the clients would handle this gracefully. But if the new HLOS image
+is used with the older MPSS/ADSP images then the clients would fatal.
+
 Other
 =====
 
