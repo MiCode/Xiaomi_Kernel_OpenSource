@@ -52,10 +52,10 @@
 		qcom,cpr-voltage-floor = <1050000 1050000 1162500>;
 		vdd-apc-supply = <&pm8916_s2>;
 
-		qcom,vdd-mx-corner-map = <1050000 1150000 1287500>;
+		qcom,vdd-mx-corner-map = <4 5 7>;
 		qcom,vdd-mx-vmin-method = <4>;
-		vdd-mx-supply = <&pm8916_l3_ao>;
-		qcom,vdd-mx-vmax = <1287500>;
+		vdd-mx-supply = <&pm8916_l3_corner_ao>;
+		qcom,vdd-mx-vmax = <7>;
 
 		mem-acc-supply = <&mem_acc_vreg_corner>;
 
@@ -177,26 +177,28 @@
 	rpm-regulator-ldoa3 {
 		status = "okay";
 		pm8916_l3: regulator-l3 {
-			regulator-min-microvolt = <750000>;
+			regulator-min-microvolt = <500000>;
 			regulator-max-microvolt = <1287500>;
 			status = "okay";
 		};
 
-		pm8916_l3_ao: regulator-l3-ao {
+		pm8916_l3_corner_ao: regulator-l3-corner-ao {
 			compatible = "qcom,rpm-smd-regulator";
-			regulator-name = "8916_l3_ao";
+			regulator-name = "8916_l3_corner_ao";
 			qcom,set = <1>;
-			regulator-min-microvolt = <750000>;
-			regulator-max-microvolt = <1287500>;
+			regulator-min-microvolt = <1>;
+			regulator-max-microvolt = <7>;
+			qcom,use-voltage-corner;
 		};
 
-		pm8916_l3_so: regulator-l3-so {
+		pm8916_l3_corner_so: regulator-l3-corner-so {
 			compatible = "qcom,rpm-smd-regulator";
-			regulator-name = "8916_l3_so";
+			regulator-name = "8916_l3_corner_so";
 			qcom,set = <2>;
-			regulator-min-microvolt = <750000>;
-			regulator-max-microvolt = <1287500>;
-			qcom,init-voltage = <750000>;
+			regulator-min-microvolt = <1>;
+			regulator-max-microvolt = <7>;
+			qcom,use-voltage-corner;
+			qcom,init-voltage = <1>;
 		};
 	};
 
