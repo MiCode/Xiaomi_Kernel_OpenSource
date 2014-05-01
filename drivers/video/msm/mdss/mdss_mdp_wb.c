@@ -450,7 +450,7 @@ static struct mdss_mdp_wb_data *get_user_node(struct msm_fb_data_type *mfd,
 		goto register_fail;
 	}
 
-	pr_debug("register node mem_id=%d offset=%u addr=0x%pa len=%d\n",
+	pr_debug("register node mem_id=%d offset=%u addr=0x%pa len=%lu\n",
 		 data->memory_id, data->offset, &buf->addr, buf->len);
 
 	return node;
@@ -580,7 +580,7 @@ static int mdss_mdp_wb_dequeue(struct msm_fb_data_type *mfd,
 		memcpy(data, &node->buf_info, sizeof(*data));
 
 		buf = &node->buf_data.p[0];
-		pr_debug("found node addr=%pa len=%d\n", &buf->addr, buf->len);
+		pr_debug("found node addr=%pa len=%lu\n", &buf->addr, buf->len);
 	} else {
 		pr_debug("node is NULL, wait for next\n");
 		ret = -ENOBUFS;
