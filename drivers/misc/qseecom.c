@@ -641,7 +641,8 @@ static void __qseecom_add_bw_scale_down_timer(uint32_t duration)
 	mutex_lock(&qsee_bw_mutex);
 	qseecom.bw_scale_down_timer.expires = jiffies +
 		msecs_to_jiffies(duration);
-	add_timer(&(qseecom.bw_scale_down_timer));
+	mod_timer(&(qseecom.bw_scale_down_timer),
+		qseecom.bw_scale_down_timer.expires);
 	qseecom.timer_running = true;
 	mutex_unlock(&qsee_bw_mutex);
 }
@@ -2291,6 +2292,10 @@ int qseecom_set_bandwidth(struct qseecom_handle *handle, bool high)
 		if (!qseecom.support_bus_scaling) {
 			qsee_disable_clock_vote(handle->dev, CLK_DFAB);
 			qsee_disable_clock_vote(handle->dev, CLK_SFPB);
+		} else {
+			mutex_lock(&qsee_bw_mutex);
+			qseecom_unregister_bus_bandwidth_needs(handle->dev);
+			mutex_unlock(&qsee_bw_mutex);
 		}
 	}
 	return ret;
@@ -3403,6 +3408,13 @@ static long qseecom_ioctl(struct file *file, unsigned cmd,
 		/* Only one client allowed here at a time */
 		mutex_lock(&app_access_lock);
 		if (qseecom.support_bus_scaling) {
+			/* register bus bw in case the client doesn't do it */
+			if (!data->mode) {
+				mutex_lock(&qsee_bw_mutex);
+				__qseecom_register_bus_bandwidth_needs(
+								data, HIGH);
+				mutex_unlock(&qsee_bw_mutex);
+			}
 			ret = qseecom_scale_bus_bandwidth_timer(INACTIVE);
 			if (ret) {
 				pr_err("Failed to set bw.\n");
@@ -3435,6 +3447,12 @@ static long qseecom_ioctl(struct file *file, unsigned cmd,
 		/* Only one client allowed here at a time */
 		mutex_lock(&app_access_lock);
 		if (qseecom.support_bus_scaling) {
+			if (!data->mode) {
+				mutex_lock(&qsee_bw_mutex);
+				__qseecom_register_bus_bandwidth_needs(
+								data, HIGH);
+				mutex_unlock(&qsee_bw_mutex);
+			}
 			ret = qseecom_scale_bus_bandwidth_timer(INACTIVE);
 			if (ret) {
 				pr_err("Failed to set bw.\n");
@@ -3607,6 +3625,10 @@ static long qseecom_ioctl(struct file *file, unsigned cmd,
 		if (!qseecom.support_bus_scaling) {
 			qsee_disable_clock_vote(data, CLK_DFAB);
 			qsee_disable_clock_vote(data, CLK_SFPB);
+		} else {
+			mutex_lock(&qsee_bw_mutex);
+			qseecom_unregister_bus_bandwidth_needs(data);
+			mutex_unlock(&qsee_bw_mutex);
 		}
 		atomic_dec(&data->ioctl_count);
 		break;
@@ -4338,13 +4360,19 @@ static int qseecom_suspend(struct platform_device *pdev, pm_message_t state)
 	struct qseecom_clk *qclk;
 	qclk = &qseecom.qsee;
 
-	if (qseecom.cumulative_mode != INACTIVE) {
+	mutex_lock(&qsee_bw_mutex);
+	mutex_lock(&clk_access_lock);
+
+	if (qseecom.cumulative_mode != INACTIVE &&
+		qseecom.current_mode != INACTIVE) {
 		ret = msm_bus_scale_client_update_request(
 			qseecom.qsee_perf_client, INACTIVE);
 		if (ret)
 			pr_err("Fail to scale down bus\n");
+		else
+			qseecom.current_mode = INACTIVE;
 	}
-	mutex_lock(&clk_access_lock);
+
 	if (qclk->clk_access_cnt) {
 		if (qclk->ce_clk != NULL)
 			clk_disable_unprepare(qclk->ce_clk);
@@ -4352,12 +4380,14 @@ static int qseecom_suspend(struct platform_device *pdev, pm_message_t state)
 			clk_disable_unprepare(qclk->ce_core_clk);
 		if (qclk->ce_bus_clk != NULL)
 			clk_disable_unprepare(qclk->ce_bus_clk);
-		if (qseecom.timer_running) {
-			del_timer_sync(&(qseecom.bw_scale_down_timer));
-			qseecom.timer_running = false;
-		}
 	}
+
+	del_timer_sync(&(qseecom.bw_scale_down_timer));
+	qseecom.timer_running = false;
+
 	mutex_unlock(&clk_access_lock);
+	mutex_unlock(&qsee_bw_mutex);
+
 	return 0;
 }
 
@@ -4368,6 +4398,8 @@ static int qseecom_resume(struct platform_device *pdev)
 	struct qseecom_clk *qclk;
 	qclk = &qseecom.qsee;
 
+	mutex_lock(&qsee_bw_mutex);
+	mutex_lock(&clk_access_lock);
 	if (qseecom.cumulative_mode >= HIGH)
 		mode = HIGH;
 	else
@@ -4378,9 +4410,10 @@ static int qseecom_resume(struct platform_device *pdev)
 			qseecom.qsee_perf_client, mode);
 		if (ret)
 			pr_err("Fail to scale up bus to %d\n", mode);
+		else
+			qseecom.current_mode = mode;
 	}
 
-	mutex_lock(&clk_access_lock);
 	if (qclk->clk_access_cnt) {
 
 		ret = clk_prepare_enable(qclk->ce_core_clk);
@@ -4403,13 +4436,20 @@ static int qseecom_resume(struct platform_device *pdev)
 			qclk->clk_access_cnt = 0;
 			goto ce_bus_clk_err;
 		}
+	}
+
+	if (qclk->clk_access_cnt || qseecom.cumulative_mode) {
 		qseecom.bw_scale_down_timer.expires = jiffies +
 			msecs_to_jiffies(QSEECOM_SEND_CMD_CRYPTO_TIMEOUT);
-		add_timer(&(qseecom.bw_scale_down_timer));
+		mod_timer(&(qseecom.bw_scale_down_timer),
+				qseecom.bw_scale_down_timer.expires);
 		qseecom.timer_running = true;
-
 	}
+
 	mutex_unlock(&clk_access_lock);
+	mutex_unlock(&qsee_bw_mutex);
+
+
 	return 0;
 
 ce_bus_clk_err:
@@ -4418,6 +4458,7 @@ ce_clk_err:
 	clk_disable_unprepare(qclk->ce_core_clk);
 err:
 	mutex_unlock(&clk_access_lock);
+	mutex_unlock(&qsee_bw_mutex);
 	return -EIO;
 }
 static struct of_device_id qseecom_match[] = {
