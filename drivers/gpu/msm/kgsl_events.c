@@ -171,7 +171,7 @@ EXPORT_SYMBOL(kgsl_cancel_event);
 int kgsl_add_event(struct kgsl_device *device, struct kgsl_event_group *group,
 		unsigned int timestamp, kgsl_event_func func, void *priv)
 {
-	unsigned int queued, retired;
+	unsigned int queued;
 	struct kgsl_context *context = group->context;
 	struct kgsl_event *event;
 
@@ -214,9 +214,7 @@ int kgsl_add_event(struct kgsl_device *device, struct kgsl_event_group *group,
 	 * Check to see if the requested timestamp has already retired.  If so,
 	 * schedule the callback right away
 	 */
-	kgsl_readtimestamp(device, context, KGSL_TIMESTAMP_RETIRED, &retired);
-
-	if (timestamp_cmp(retired, timestamp) >= 0) {
+	if (kgsl_check_timestamp(device, context, timestamp)) {
 		event->result = KGSL_EVENT_RETIRED;
 		queue_work(device->events_wq, &event->work);
 		spin_unlock(&group->lock);
