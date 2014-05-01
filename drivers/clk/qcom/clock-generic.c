@@ -515,6 +515,15 @@ static int ext_set_parent(struct clk *c, struct clk *p)
 	return clk_set_parent(c->parent, p);
 }
 
+static struct clk *ext_get_parent(struct clk *c)
+{
+	struct ext_clk *ext = to_ext_clk(c);
+
+	if (!IS_ERR_OR_NULL(c->parent))
+		return c->parent;
+	return clk_get(ext->dev, ext->clk_id);
+}
+
 static enum handoff ext_handoff(struct clk *c)
 {
 	c->rate = clk_get_rate(c->parent);
@@ -528,6 +537,7 @@ struct clk_ops clk_ops_ext = {
 	.set_rate = ext_set_rate,
 	.get_rate = parent_get_rate,
 	.set_parent = ext_set_parent,
+	.get_parent = ext_get_parent,
 };
 
 
