@@ -38,7 +38,7 @@ int adreno_getproperty_compat(struct kgsl_device *device,
 
 			memset(&devinfo, 0, sizeof(devinfo));
 			devinfo.device_id = device->id + 1;
-			devinfo.chip_id = adreno_dev->chip_id;
+			devinfo.chip_id = adreno_dev->chipid;
 			devinfo.mmu_enabled = kgsl_mmu_enabled();
 			devinfo.gmem_gpubaseaddr = adreno_dev->gmem_base;
 			devinfo.gmem_sizebytes = adreno_dev->gmem_size;

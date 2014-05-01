@@ -1198,18 +1198,20 @@ static void
 adreno_identify_gpu(struct adreno_device *adreno_dev)
 {
 	const struct adreno_reg_offsets *reg_offsets;
-	struct kgsl_device_platform_data *pdata =
-		dev_get_platdata(&(adreno_dev->dev.pdev->dev));
 	struct adreno_gpudev *gpudev;
 	int i;
 
-	adreno_dev->chip_id = pdata->chipid;
+	if (kgsl_property_read_u32(&adreno_dev->dev, "qcom,chipid",
+		&adreno_dev->chipid))
+		KGSL_DRV_FATAL(&adreno_dev->dev,
+			"No GPU chip ID was specified\n");
 
-	adreno_dev->gpucore = _get_gpu_core(adreno_dev->chip_id);
+	adreno_dev->gpucore = _get_gpu_core(adreno_dev->chipid);
 
 	if (adreno_dev->gpucore == NULL)
 		KGSL_DRV_FATAL(&adreno_dev->dev, "Unknown GPU chip ID %8.8X\n",
-			adreno_dev->chip_id);
+			adreno_dev->chipid);
+
 	/*
 	 * The gmem size might be dynamic when ocmem is involved so copy it out
 	 * of the gpu device
@@ -1425,10 +1427,6 @@ static int adreno_of_get_pdata(struct platform_device *pdev)
 		ret = -ENOMEM;
 		goto err;
 	}
-
-	if (adreno_of_read_property(pdev->dev.of_node, "qcom,chipid",
-		&pdata->chipid))
-		goto err;
 
 	/* pwrlevel Data */
 	ret = adreno_of_get_pwrlevels(pdev->dev.of_node, pdata);
@@ -2392,7 +2390,7 @@ static int adreno_getproperty(struct kgsl_device *device,
 
 			memset(&devinfo, 0, sizeof(devinfo));
 			devinfo.device_id = device->id+1;
-			devinfo.chip_id = adreno_dev->chip_id;
+			devinfo.chip_id = adreno_dev->chipid;
 			devinfo.mmu_enabled = kgsl_mmu_enabled();
 			devinfo.gmem_gpubaseaddr = adreno_dev->gmem_base;
 			devinfo.gmem_sizebytes = adreno_dev->gmem_size;
@@ -3097,7 +3095,7 @@ static unsigned int adreno_gpuid(struct kgsl_device *device,
 	 * that as a parameter */
 
 	if (chipid != NULL)
-		*chipid = adreno_dev->chip_id;
+		*chipid = adreno_dev->chipid;
 
 	/* Standard KGSL gpuid format:
 	 * top word is 0x0002 for 2D or 0x0003 for 3D
