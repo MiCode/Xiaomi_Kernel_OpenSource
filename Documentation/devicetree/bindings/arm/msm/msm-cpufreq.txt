@@ -6,7 +6,14 @@ clocks.
 
 Required properties:
 - compatible:		Must be "qcom,msm-cpufreq"
-- qcom,cpufreq-table:	A list of usable CPU frequencies (KHz)
+- qcom,cpufreq-table, or qcom,cpufreq-table-<X>:
+			A list of usable CPU frequencies (KHz).
+			Use "qcom,cpufreq-table" if all CPUs in the system
+			should share same list of frequencies.
+			Use "qcom,cpufreq-table-<cpuid>" to describe
+			different CPU freq tables for different CPUs.
+			The table should be listed only for the first CPU
+			if multiple CPUs are synchronous.
 
 Optional properties:
 - clock-names:		When DT based binding of clock is available, this
