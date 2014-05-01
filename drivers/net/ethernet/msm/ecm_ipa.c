@@ -320,7 +320,7 @@ int ecm_ipa_init(struct ecm_ipa_params *params)
 	ECM_IPA_DEBUG("ecm_ipa 2 Tx and 2 Rx properties were registered\n");
 
 	netif_carrier_off(net);
-	ECM_IPA_DEBUG("set carrier off\n");
+	ECM_IPA_DEBUG("netif_carrier_off() was called\n");
 
 	netif_stop_queue(ecm_ipa_ctx->net);
 	ECM_IPA_DEBUG("netif_stop_queue() was called");
@@ -534,8 +534,9 @@ static netdev_tx_t ecm_ipa_start_xmit(struct sk_buff *skb,
 
 	net->trans_start = jiffies;
 
-	ECM_IPA_DEBUG("packet Tx, len=%d, skb->protocol=%d\n",
-		skb->len, skb->protocol);
+	ECM_IPA_DEBUG("Tx, len=%d, skb->protocol=%d, outstanding=%d\n",
+		skb->len, skb->protocol,
+		atomic_read(&ecm_ipa_ctx->outstanding_pkts));
 
 	if (unlikely(netif_queue_stopped(net))) {
 		ECM_IPA_ERROR("interface queue is stopped\n");
@@ -562,7 +563,7 @@ static netdev_tx_t ecm_ipa_start_xmit(struct sk_buff *skb,
 
 	if (atomic_read(&ecm_ipa_ctx->outstanding_pkts) >=
 					ecm_ipa_ctx->outstanding_high) {
-		ECM_IPA_DEBUG("Outstanding high (%d)- stopping\n",
+		ECM_IPA_DEBUG("outstanding high (%d)- stopping\n",
 				ecm_ipa_ctx->outstanding_high);
 		netif_stop_queue(net);
 		status = NETDEV_TX_BUSY;
@@ -1137,14 +1138,14 @@ static void ecm_ipa_tx_complete_notify(void *priv,
 	struct sk_buff *skb = (struct sk_buff *)data;
 	struct ecm_ipa_dev *ecm_ipa_ctx = priv;
 
-
 	if (!skb) {
 		ECM_IPA_ERROR("Bad SKB received from IPA driver\n");
 		return;
 	}
 
-	ECM_IPA_DEBUG("packet Tx-complete, len=%d, skb->protocol=%d\n",
-		skb->len, skb->protocol);
+	ECM_IPA_DEBUG("Tx-complete, len=%d, skb->prot=%d, outstanding=%d\n",
+			skb->len, skb->protocol,
+			atomic_read(&ecm_ipa_ctx->outstanding_pkts));
 
 	if (!ecm_ipa_ctx) {
 		ECM_IPA_ERROR("ecm_ipa_ctx is NULL pointer\n");
