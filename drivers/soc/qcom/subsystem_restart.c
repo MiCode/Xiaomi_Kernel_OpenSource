@@ -1177,9 +1177,11 @@ static struct subsys_soc_restart_order *ssr_parse_restart_orders(struct
 		}
 
 		if (num == count && tmp->count == count)
-			return tmp;
-		else if (num)
-			return ERR_PTR(-EINVAL);
+			goto err;
+		else if (num) {
+			tmp = ERR_PTR(-EINVAL);
+			goto err;
+		}
 	}
 
 	order->count = count;
@@ -1191,6 +1193,9 @@ static struct subsys_soc_restart_order *ssr_parse_restart_orders(struct
 	mutex_unlock(&ssr_order_mutex);
 
 	return order;
+err:
+	mutex_unlock(&ssr_order_mutex);
+	return tmp;
 }
 
 static int __get_gpio(struct subsys_desc *desc, const char *prop,
