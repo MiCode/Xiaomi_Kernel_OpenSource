@@ -42,6 +42,12 @@
 					__func__, ##args);\
 	} while (0)
 
+#define KGSL_LOG_FATAL(dev, lvl, fmt, args...) \
+	do { \
+		dev_crit(dev, "|%s| " fmt, __func__, ##args);\
+		BUG(); \
+	} while (0)
+
 #define KGSL_LOG_POSTMORTEM_WRITE(_dev, fmt, args...) \
 	do { dev_crit(_dev->dev, fmt, ##args); } while (0)
 
@@ -74,6 +80,8 @@ KGSL_LOG_ERR(_dev->dev, _dev->drv_log, fmt, ##args)
 KGSL_LOG_CRIT(_dev->dev, _dev->drv_log, fmt, ##args)
 #define KGSL_DRV_CRIT_RATELIMIT(_dev, fmt, args...) \
 KGSL_LOG_CRIT_RATELIMITED(_dev->dev, _dev->drv_log, fmt, ##args)
+#define KGSL_DRV_FATAL(_dev, fmt, args...) \
+KGSL_LOG_FATAL((_dev)->dev, (_dev)->drv_log, fmt, ##args)
 
 #define KGSL_CMD_INFO(_dev, fmt, args...) \
 KGSL_LOG_INFO(_dev->dev, _dev->cmd_log, fmt, ##args)

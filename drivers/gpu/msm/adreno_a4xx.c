@@ -456,15 +456,16 @@ static void a4xx_start(struct adreno_device *adreno_dev)
 	a4xx_protect_init(device);
 }
 
-int a4xx_perfcounter_enable_vbif(struct kgsl_device *device,
+int a4xx_perfcounter_enable_vbif(struct adreno_device *adreno_dev,
 				unsigned int counter,
 				unsigned int countable)
 {
-	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
-	struct adreno_perfcounters *counters = adreno_dev->gpudev->perfcounters;
+	struct kgsl_device *device = &adreno_dev->dev;
+	struct adreno_perfcounters *counters = ADRENO_PERFCOUNTERS(adreno_dev);
 	struct adreno_perfcount_register *reg;
 
-	if (counter > 3 || countable > A4XX_VBIF_PERF_CNT_SEL_MASK)
+	if (counters == NULL ||
+		(counter > 3 || countable > A4XX_VBIF_PERF_CNT_SEL_MASK))
 		return -EINVAL;
 
 	reg = &counters->groups[KGSL_PERFCOUNTER_GROUP_VBIF].regs[counter];
@@ -479,35 +480,34 @@ int a4xx_perfcounter_enable_vbif(struct kgsl_device *device,
 	return 0;
 }
 
-uint64_t a4xx_perfcounter_read_vbif(struct kgsl_device *device,
+uint64_t a4xx_perfcounter_read_vbif(struct adreno_device *adreno_dev,
 					unsigned int counter)
 {
-	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
-	struct adreno_perfcounters *counters = adreno_dev->gpudev->perfcounters;
+	struct adreno_perfcounters *counters = ADRENO_PERFCOUNTERS(adreno_dev);
 	struct adreno_perfcount_register *reg;
 	unsigned int lo = 0, hi = 0;
 
-	if (counter > 3)
+	if (counters == NULL || counter > 3)
 		return 0;
 
 	reg = &counters->groups[KGSL_PERFCOUNTER_GROUP_VBIF].regs[counter];
 
-	kgsl_regread(device, reg->offset, &lo);
-	kgsl_regread(device, reg->offset_hi, &hi);
+	kgsl_regread(&adreno_dev->dev, reg->offset, &lo);
+	kgsl_regread(&adreno_dev->dev, reg->offset_hi, &hi);
 
 	return ((((uint64_t) hi) << 32) | lo)
 		+ counters->groups[KGSL_PERFCOUNTER_GROUP_VBIF]
 				.regs[counter].value;
 }
 
-int a4xx_perfcounter_enable_vbif_pwr(struct kgsl_device *device,
+int a4xx_perfcounter_enable_vbif_pwr(struct adreno_device *adreno_dev,
 					unsigned int counter)
 {
-	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
-	struct adreno_perfcounters *counters = adreno_dev->gpudev->perfcounters;
+	struct kgsl_device *device = &adreno_dev->dev;
+	struct adreno_perfcounters *counters = ADRENO_PERFCOUNTERS(adreno_dev);
 	struct adreno_perfcount_register *reg;
 
-	if (counter > 3)
+	if (counters == NULL || counter > 3)
 		return -EINVAL;
 
 	reg = &counters->groups[KGSL_PERFCOUNTER_GROUP_VBIF_PWR].regs[counter];
@@ -527,21 +527,20 @@ int a4xx_perfcounter_enable_vbif_pwr(struct kgsl_device *device,
 	return 0;
 }
 
-uint64_t a4xx_perfcounter_read_vbif_pwr(struct kgsl_device *device,
+uint64_t a4xx_perfcounter_read_vbif_pwr(struct adreno_device *adreno_dev,
 						unsigned int counter)
 {
-	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
-	struct adreno_perfcounters *counters = adreno_dev->gpudev->perfcounters;
+	struct adreno_perfcounters *counters = ADRENO_PERFCOUNTERS(adreno_dev);
 	struct adreno_perfcount_register *reg;
 	unsigned int lo = 0, hi = 0;
 
-	 if (counter > 3)
+	 if (counters == NULL || counter > 3)
 		return 0;
 
 	reg = &counters->groups[KGSL_PERFCOUNTER_GROUP_VBIF_PWR].regs[counter];
 
-	kgsl_regread(device, reg->offset, &lo);
-	kgsl_regread(device, reg->offset_hi, &hi);
+	kgsl_regread(&adreno_dev->dev, reg->offset, &lo);
+	kgsl_regread(&adreno_dev->dev, reg->offset_hi, &hi);
 
 	return ((((uint64_t) hi) << 32) | lo)
 		+ counters->groups[KGSL_PERFCOUNTER_GROUP_VBIF_PWR]

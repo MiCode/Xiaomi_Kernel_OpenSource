@@ -473,10 +473,10 @@ void *a3xx_snapshot(struct adreno_device *adreno_dev, void *snapshot,
 	int *remain, int hang)
 {
 	struct kgsl_device *device = &adreno_dev->dev;
+	struct adreno_gpudev *gpudev = ADRENO_GPU_DEVICE(adreno_dev);
 	struct kgsl_snapshot_registers_list list;
 	struct kgsl_snapshot_registers regs[5];
-	struct adreno_snapshot_data *snap_data =
-				adreno_dev->gpudev->snapshot_data;
+	struct adreno_snapshot_data *snap_data = gpudev->snapshot_data;
 
 	list.registers = regs;
 	list.count = 0;
