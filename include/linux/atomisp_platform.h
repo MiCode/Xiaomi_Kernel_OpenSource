@@ -224,6 +224,8 @@ extern const struct atomisp_camera_caps *atomisp_get_default_camera_caps(void);
 extern int atomisp_register_i2c_module(struct i2c_client *client,
 				       enum intel_v4l2_subdev_type type,
 				       enum atomisp_camera_port port);
+int gmin_get_config_var(struct device *dev, const char *var,
+			char *out, size_t *out_len);
 
 #endif /* ATOMISP_PLATFORM_H_ */
 #endif
