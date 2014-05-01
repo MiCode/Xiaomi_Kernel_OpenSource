@@ -3,7 +3,7 @@ MSM PCIe
 MSM PCI express root complex
 
 Required properties:
-  - compatible: should be "qcom,msm-pcie"
+  - compatible: should be "qcom,msm_pcie"
   - cell-index: defines root complex ID.
   - qcom,ctrl-amt: Number of controllers.
   - #address-cells: Should provide a value of 0.
