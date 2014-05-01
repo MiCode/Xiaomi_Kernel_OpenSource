@@ -172,6 +172,8 @@ struct clk {
 	int num_fmax;
 	unsigned long rate;
 	struct clk *parent;
+	struct clk_src *parents;
+	unsigned int num_parents;
 
 	struct list_head children;
 	struct list_head siblings;

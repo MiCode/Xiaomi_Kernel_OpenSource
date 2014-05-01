@@ -27,11 +27,6 @@ struct fixed_clk {
 
 /* ==================== Mux clock ==================== */
 
-struct clk_src {
-	struct clk *src;
-	int sel;
-};
-
 struct mux_clk;
 
 struct clk_mux_ops {
@@ -81,8 +76,6 @@ static inline struct mux_clk *to_mux_clk(struct clk *c)
 {
 	return container_of(c, struct mux_clk, c);
 }
-
-int parent_to_src_sel(struct clk_src *parents, int num_parents, struct clk *p);
 
 extern struct clk_ops clk_ops_gen_mux;
 

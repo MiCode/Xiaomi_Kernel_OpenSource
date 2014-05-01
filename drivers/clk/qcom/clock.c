@@ -586,6 +586,25 @@ int clk_set_max_rate(struct clk *clk, unsigned long rate)
 }
 EXPORT_SYMBOL(clk_set_max_rate);
 
+int parent_to_src_sel(struct clk_src *parents, int num_parents, struct clk *p)
+{
+	int i;
+
+	for (i = 0; i < num_parents; i++) {
+		if (parents[i].src == p)
+			return parents[i].sel;
+	}
+
+	return -EINVAL;
+}
+EXPORT_SYMBOL(parent_to_src_sel);
+
+int clk_get_parent_sel(struct clk *c, struct clk *parent)
+{
+	return parent_to_src_sel(c->parents, c->num_parents, parent);
+}
+EXPORT_SYMBOL(clk_get_parent_sel);
+
 int clk_set_parent(struct clk *clk, struct clk *parent)
 {
 	int rc = 0;
@@ -673,7 +692,7 @@ static int __handoff_clk(struct clk *clk)
 {
 	enum handoff state = HANDOFF_DISABLED_CLK;
 	struct handoff_clk *h = NULL;
-	int rc;
+	int rc, i;
 
 	if (clk == NULL || clk->flags & CLKFLAG_INIT_DONE ||
 	    clk->flags & CLKFLAG_SKIP_HANDOFF)
@@ -704,6 +723,12 @@ static int __handoff_clk(struct clk *clk)
 	rc = __handoff_clk(clk->parent);
 	if (rc)
 		goto err;
+
+	for (i = 0; i < clk->num_parents; i++) {
+		rc = __handoff_clk(clk->parents[i].src);
+		if (rc)
+			goto err;
+	}
 
 	if (clk->ops->handoff)
 		state = clk->ops->handoff(clk);
