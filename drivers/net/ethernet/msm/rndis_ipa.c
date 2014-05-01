@@ -123,7 +123,8 @@ enum rndis_ipa_operation {
 };
 
 #define RNDIS_IPA_STATE_DEBUG(ctx) \
-	RNDIS_IPA_DEBUG("Driver state: %s", rndis_ipa_state_string(ctx->state));
+	RNDIS_IPA_DEBUG("Driver state: %s\n",\
+	rndis_ipa_state_string(ctx->state));
 
 /**
  * struct rndis_loopback_pipe - hold all information needed for
@@ -539,7 +540,7 @@ int rndis_ipa_init(struct ipa_usb_init_params *params)
 		goto fail_netdev_priv;
 	}
 	memset(rndis_ipa_ctx, 0, sizeof(*rndis_ipa_ctx));
-	RNDIS_IPA_DEBUG("rndis_ipa_ctx (private) = %p", rndis_ipa_ctx);
+	RNDIS_IPA_DEBUG("rndis_ipa_ctx (private)=%p\n", rndis_ipa_ctx);
 
 	rndis_ipa_ctx->net = net;
 	rndis_ipa_ctx->tx_filter = false;
@@ -561,7 +562,7 @@ int rndis_ipa_init(struct ipa_usb_init_params *params)
 	RNDIS_IPA_DEBUG("internal data structures were set\n");
 
 	if (!params->device_ready_notify)
-		RNDIS_IPA_DEBUG("device_ready_notify() was not supplied");
+		RNDIS_IPA_DEBUG("device_ready_notify() was not supplied\n");
 	rndis_ipa_ctx->device_ready_notify = params->device_ready_notify;
 
 	snprintf(net->name, sizeof(net->name), "%s%%d", NETDEV_NAME);
@@ -572,7 +573,7 @@ int rndis_ipa_init(struct ipa_usb_init_params *params)
 	net->watchdog_timeo = TX_TIMEOUT;
 
 	net->needed_headroom = sizeof(rndis_template_hdr);
-	RNDIS_IPA_DEBUG("Needed headroom for RNDIS header set to %d",
+	RNDIS_IPA_DEBUG("Needed headroom for RNDIS header set to %d\n",
 		net->needed_headroom);
 
 	result = rndis_ipa_debugfs_init(rndis_ipa_ctx);
@@ -730,7 +731,7 @@ int rndis_ipa_pipe_connect_notify(u32 usb_to_ipa_hdl,
 	RNDIS_IPA_DEBUG("end-points configured\n");
 
 	netif_stop_queue(rndis_ipa_ctx->net);
-	RNDIS_IPA_DEBUG("netif_stop_queue() was called");
+	RNDIS_IPA_DEBUG("netif_stop_queue() was called\n");
 
 	netif_carrier_on(rndis_ipa_ctx->net);
 	if (!netif_carrier_ok(rndis_ipa_ctx->net)) {
@@ -748,7 +749,7 @@ int rndis_ipa_pipe_connect_notify(u32 usb_to_ipa_hdl,
 	else
 		RNDIS_IPA_DEBUG("queue shall be started after open()\n");
 
-	pr_info("RNDIS_IPA NetDev pipes were connected");
+	pr_info("RNDIS_IPA NetDev pipes were connected\n");
 
 	RNDIS_IPA_LOG_EXIT();
 
@@ -793,7 +794,7 @@ static int rndis_ipa_open(struct net_device *net)
 	else
 		RNDIS_IPA_DEBUG("queue shall be started after connect()\n");
 
-	pr_info("RNDIS_IPA NetDev was opened");
+	pr_info("RNDIS_IPA NetDev was opened\n");
 
 	RNDIS_IPA_LOG_EXIT();
 
@@ -872,10 +873,10 @@ static netdev_tx_t rndis_ipa_start_xmit(struct sk_buff *skb,
 
 	if (atomic_read(&rndis_ipa_ctx->outstanding_pkts) >=
 				rndis_ipa_ctx->outstanding_high) {
-		RNDIS_IPA_DEBUG("Outstanding high boundary reached (%d)",
+		RNDIS_IPA_DEBUG("Outstanding high boundary reached (%d)\n",
 				rndis_ipa_ctx->outstanding_high);
 		netif_stop_queue(net);
-		RNDIS_IPA_DEBUG("send  queue was stopped");
+		RNDIS_IPA_DEBUG("send  queue was stopped\n");
 		status = NETDEV_TX_BUSY;
 		goto out;
 	}
@@ -935,7 +936,7 @@ static void rndis_ipa_tx_complete_notify(void *private,
 	}
 
 	if (unlikely(rndis_ipa_ctx->state != RNDIS_IPA_CONNECTED_AND_UP)) {
-		RNDIS_IPA_DEBUG("dropping Tx-complete pkt, state=%s",
+		RNDIS_IPA_DEBUG("dropping Tx-complete pkt, state=%s\n",
 			rndis_ipa_state_string(rndis_ipa_ctx->state));
 		goto out;
 	}
@@ -947,10 +948,10 @@ static void rndis_ipa_tx_complete_notify(void *private,
 	if (netif_queue_stopped(rndis_ipa_ctx->net) &&
 		atomic_read(&rndis_ipa_ctx->outstanding_pkts) <
 					(rndis_ipa_ctx->outstanding_low)) {
-		RNDIS_IPA_DEBUG("outstanding low boundary reached (%d)",
+		RNDIS_IPA_DEBUG("outstanding low boundary reached (%d)n",
 				rndis_ipa_ctx->outstanding_low);
 		netif_wake_queue(rndis_ipa_ctx->net);
-		RNDIS_IPA_DEBUG("send queue was awaken");
+		RNDIS_IPA_DEBUG("send queue was awaken\n");
 	}
 
 out:
@@ -964,7 +965,7 @@ static void rndis_ipa_tx_timeout(struct net_device *net)
 	struct rndis_ipa_dev *rndis_ipa_ctx = netdev_priv(net);
 	int outstanding = atomic_read(&rndis_ipa_ctx->outstanding_pkts);
 
-	RNDIS_IPA_ERROR("possible IPA stall was detected, %d outstanding",
+	RNDIS_IPA_ERROR("possible IPA stall was detected, %d outstanding\n",
 		outstanding);
 
 	net->stats.tx_errors++;
@@ -998,7 +999,7 @@ static void rndis_ipa_rm_notify(void *user_data, enum ipa_rm_event event,
 	}
 
 	if (event != IPA_RM_RESOURCE_GRANTED) {
-		RNDIS_IPA_ERROR("Unexceoted event receieved from RM (%d)",
+		RNDIS_IPA_ERROR("Unexceoted event receieved from RM (%d\n)",
 			event);
 		return;
 	}
@@ -1121,7 +1122,7 @@ static int rndis_ipa_stop(struct net_device *net)
 	}
 
 	netif_stop_queue(net);
-	pr_info("RNDIS_IPA NetDev queue is stopped");
+	pr_info("RNDIS_IPA NetDev queue is stopped\n");
 
 	rndis_ipa_ctx->state = next_state;
 	RNDIS_IPA_STATE_DEBUG(rndis_ipa_ctx);
@@ -1179,7 +1180,7 @@ int rndis_ipa_pipe_disconnect_notify(void *private)
 	rndis_ipa_ctx->state = next_state;
 	RNDIS_IPA_STATE_DEBUG(rndis_ipa_ctx);
 
-	pr_info("RNDIS_IPA NetDev pipes were disconnected (%d outstanding clr)",
+	pr_info("RNDIS_IPA NetDev pipes disconnected (%d outstanding clr)\n",
 		outstanding_dropped_pkts);
 
 	RNDIS_IPA_LOG_EXIT();
@@ -1235,34 +1236,34 @@ void rndis_ipa_cleanup(void *private)
 
 	retval = rndis_ipa_deregister_properties(rndis_ipa_ctx->net->name);
 	if (retval) {
-		RNDIS_IPA_ERROR("Fail to deregister Tx/Rx properties ");
+		RNDIS_IPA_ERROR("Fail to deregister Tx/Rx properties\n");
 		return;
 	}
-	RNDIS_IPA_DEBUG("deregister Tx/Rx properties was successful");
+	RNDIS_IPA_DEBUG("deregister Tx/Rx properties was successful\n");
 
 	retval = rndis_ipa_hdrs_destroy(rndis_ipa_ctx);
 	if (retval) {
-		RNDIS_IPA_ERROR("Fail to remove headers");
+		RNDIS_IPA_ERROR("Fail to remove headers\n");
 		return;
 	}
-	RNDIS_IPA_DEBUG("RNDIS headers were removed from IPA core");
+	RNDIS_IPA_DEBUG("RNDIS headers were removed from IPA core\n");
 
 	retval = rndis_ipa_destory_rm_resource(rndis_ipa_ctx);
 	if (retval) {
-		RNDIS_IPA_ERROR("Fail to clean RM");
+		RNDIS_IPA_ERROR("Fail to clean RM\n");
 		return;
 	}
-	RNDIS_IPA_DEBUG("RM was successfully destroyed");
+	RNDIS_IPA_DEBUG("RM was successfully destroyed\n");
 
 	rndis_ipa_debugfs_destroy(rndis_ipa_ctx);
-	RNDIS_IPA_DEBUG("debugfs remove was done");
+	RNDIS_IPA_DEBUG("debugfs remove was done\n");
 
 	unregister_netdev(rndis_ipa_ctx->net);
-	RNDIS_IPA_DEBUG("netdev unregistered");
+	RNDIS_IPA_DEBUG("netdev unregistered\n");
 
 	free_netdev(rndis_ipa_ctx->net);
 	rndis_ipa_ctx->state = next_state;
-	pr_info("RNDIS_IPA NetDev was cleaned");
+	pr_info("RNDIS_IPA NetDev was cleaned\n");
 
 	RNDIS_IPA_LOG_EXIT();
 
@@ -1351,7 +1352,7 @@ static int rndis_ipa_hdrs_cfg(struct rndis_ipa_dev *rndis_ipa_ctx,
 	hdrs = kzalloc(sizeof(*hdrs) + sizeof(*ipv4_hdr) + sizeof(*ipv6_hdr),
 			GFP_KERNEL);
 	if (!hdrs) {
-		RNDIS_IPA_ERROR("memory allocation fail for header-insertion");
+		RNDIS_IPA_ERROR("mem allocation fail for header-insertion\n");
 		result = -ENOMEM;
 		goto fail_mem;
 	}
@@ -1411,7 +1412,7 @@ static int rndis_ipa_hdrs_destroy(struct rndis_ipa_dev *rndis_ipa_ctx)
 	del_hdr = kzalloc(sizeof(*del_hdr) + sizeof(*ipv4) +
 			sizeof(*ipv6), GFP_KERNEL);
 	if (!del_hdr) {
-		RNDIS_IPA_ERROR("memory allocation for del_hdr failed");
+		RNDIS_IPA_ERROR("memory allocation for del_hdr failed\n");
 		return -ENOMEM;
 	}
 
@@ -1425,7 +1426,7 @@ static int rndis_ipa_hdrs_destroy(struct rndis_ipa_dev *rndis_ipa_ctx)
 
 	result = ipa_del_hdr(del_hdr);
 	if (result || ipv4->status || ipv6->status)
-		RNDIS_IPA_ERROR("ipa_del_hdr failed");
+		RNDIS_IPA_ERROR("ipa_del_hdr failed\n");
 	else
 		RNDIS_IPA_DEBUG("hdrs deletion done\n");
 
@@ -1569,7 +1570,7 @@ static int rndis_ipa_create_rm_resource(struct rndis_ipa_dev *rndis_ipa_ctx)
 		RNDIS_IPA_ERROR("Fail on ipa_rm_create_resource\n");
 		goto fail_rm_create;
 	}
-	RNDIS_IPA_DEBUG("RM client was created");
+	RNDIS_IPA_DEBUG("RM client was created\n");
 
 	profile.max_supported_bandwidth_mbps = IPA_APPS_MAX_BW_IN_MBPS;
 	ipa_rm_set_perf_profile(DRV_RESOURCE_ID, &profile);
@@ -1581,7 +1582,7 @@ static int rndis_ipa_create_rm_resource(struct rndis_ipa_dev *rndis_ipa_ctx)
 		goto fail_inactivity_timer;
 	}
 
-	RNDIS_IPA_DEBUG("rm_it client was created");
+	RNDIS_IPA_DEBUG("rm_it client was created\n");
 
 	result = ipa_rm_add_dependency(DRV_RESOURCE_ID,
 				IPA_RM_RESOURCE_USB_CONS);
@@ -1628,32 +1629,32 @@ static int rndis_ipa_destory_rm_resource(struct rndis_ipa_dev *rndis_ipa_ctx)
 	result = ipa_rm_delete_dependency(DRV_RESOURCE_ID,
 			IPA_RM_RESOURCE_USB_CONS);
 	if (result) {
-		RNDIS_IPA_ERROR("Fail to delete RNDIS/USB dependency");
+		RNDIS_IPA_ERROR("Fail to delete RNDIS/USB dependency\n");
 		goto bail;
 	}
-	RNDIS_IPA_DEBUG("RNDIS/USB dependency was successfully deleted");
+	RNDIS_IPA_DEBUG("RNDIS/USB dependency was successfully deleted\n");
 
 	result = ipa_rm_delete_dependency(IPA_RM_RESOURCE_USB_PROD,
 					IPA_RM_RESOURCE_APPS_CONS);
 	if (result) {
-		RNDIS_IPA_ERROR("Fail to delete USB/APPS dependency");
+		RNDIS_IPA_ERROR("Fail to delete USB/APPS dependency\n");
 		goto bail;
 	}
-	RNDIS_IPA_DEBUG("USB/APPS dependency was successfully deleted");
+	RNDIS_IPA_DEBUG("USB/APPS dependency was successfully deleted\n");
 
 	result = ipa_rm_inactivity_timer_destroy(DRV_RESOURCE_ID);
 	if (result) {
-		RNDIS_IPA_ERROR("Fail to destroy inactivity timer");
+		RNDIS_IPA_ERROR("Fail to destroy inactivity timern");
 		goto bail;
 	}
-	RNDIS_IPA_DEBUG("RM inactivity timer was successfully destroy");
+	RNDIS_IPA_DEBUG("RM inactivity timer was successfully destroy\n");
 
 	result = ipa_rm_delete_resource(DRV_RESOURCE_ID);
 	if (result) {
 		RNDIS_IPA_ERROR("resource deletion failed\n");
 		goto bail;
 	}
-	RNDIS_IPA_DEBUG("Netdev RM resource was successful deleted (resid:%d)",
+	RNDIS_IPA_DEBUG("Netdev RM resource was deleted (resid:%d)\n",
 		DRV_RESOURCE_ID);
 
 
@@ -1819,10 +1820,10 @@ static int rndis_ipa_ep_registers_cfg(u32 usb_to_ipa_hdl,
 
 	if (deaggr_enable) {
 		usb_to_ipa_ep_cfg = &usb_to_ipa_ep_cfg_deaggr_en;
-		RNDIS_IPA_DEBUG("deaggregation enabled");
+		RNDIS_IPA_DEBUG("deaggregation enabled\n");
 	} else {
 		usb_to_ipa_ep_cfg = &usb_to_ipa_ep_cfg_deaggr_dis;
-		RNDIS_IPA_DEBUG("deaggregation disabled");
+		RNDIS_IPA_DEBUG("deaggregation disabled\n");
 	}
 
 	usb_to_ipa_ep_cfg->deaggr.max_packet_len = max_transfer_byte_size;
@@ -1831,7 +1832,7 @@ static int rndis_ipa_ep_registers_cfg(u32 usb_to_ipa_hdl,
 		pr_err("failed to configure USB to IPA point\n");
 		return result;
 	}
-	RNDIS_IPA_DEBUG("IPA<-USB end-point configured");
+	RNDIS_IPA_DEBUG("IPA<-USB end-point configured\n");
 
 	ipa_to_usb_ep_cfg.aggr.aggr_pkt_limit = max_packet_number;
 	ipa_to_usb_ep_cfg.aggr.aggr_byte_limit =
@@ -1841,7 +1842,7 @@ static int rndis_ipa_ep_registers_cfg(u32 usb_to_ipa_hdl,
 		pr_err("failed to configure IPA to USB end-point\n");
 		return result;
 	}
-	RNDIS_IPA_DEBUG("IPA->USB end-point configured");
+	RNDIS_IPA_DEBUG("IPA->USB end-point configured\n");
 
 	return 0;
 }
@@ -2147,7 +2148,7 @@ static int rndis_ipa_debugfs_init(struct rndis_ipa_dev *rndis_ipa_ctx)
 		RNDIS_IPA_ERROR("fail to create deaggregation_enable file\n");
 		goto fail_file;
 	}
-	RNDIS_IPA_DEBUG("deaggregation disabled, reconnect to apply");
+	RNDIS_IPA_DEBUG("deaggregation disabled, reconnect to apply\n");
 
 	RNDIS_IPA_LOG_EXIT();
 
@@ -2226,11 +2227,11 @@ static ssize_t rndis_ipa_debugfs_loopback_write(struct file *file,
 	cnt = rndis_ipa_debugfs_enable_write(file,
 			buf, count, ppos);
 
-	RNDIS_IPA_DEBUG("loopback_enable was set to:%d->%d",
+	RNDIS_IPA_DEBUG("loopback_enable was set to:%d->%d\n",
 			old_state, rndis_ipa_ctx->loopback_enable);
 
 	if (old_state == rndis_ipa_ctx->loopback_enable) {
-		RNDIS_IPA_ERROR("NOP - same state");
+		RNDIS_IPA_ERROR("NOP - same state\n");
 		return cnt;
 	}
 
@@ -2286,7 +2287,7 @@ static ssize_t rndis_ipa_debugfs_enable_read(struct file *file,
 	nbytes = scnprintf(enable_str, sizeof(enable_str), "%d\n", *enable);
 	ret = simple_read_from_buffer(ubuf, count, ppos, enable_str, nbytes);
 	if (ret < 0) {
-		RNDIS_IPA_ERROR("simple_read_from_buffer problem");
+		RNDIS_IPA_ERROR("simple_read_from_buffer problem\n");
 		return ret;
 	}
 	size += ret;
