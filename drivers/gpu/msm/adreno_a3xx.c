@@ -678,35 +678,33 @@ int adreno_a3xx_pwron_fixup_init(struct adreno_device *adreno_dev)
 int a3xx_rb_init(struct adreno_device *adreno_dev,
 			 struct adreno_ringbuffer *rb)
 {
-	unsigned int *cmds, cmds_gpu;
+	unsigned int *cmds;
 	cmds = adreno_ringbuffer_allocspace(rb, NULL, 18);
 	if (cmds == NULL)
 		return -ENOMEM;
 
-	cmds_gpu = rb->buffer_desc.gpuaddr + sizeof(uint) * (rb->wptr - 18);
+	*cmds++ = cp_type3_packet(CP_ME_INIT, 17);
 
-	GSL_RB_WRITE(rb->device, cmds, cmds_gpu,
-			cp_type3_packet(CP_ME_INIT, 17));
-	GSL_RB_WRITE(rb->device, cmds, cmds_gpu, 0x000003f7);
-	GSL_RB_WRITE(rb->device, cmds, cmds_gpu, 0x00000000);
-	GSL_RB_WRITE(rb->device, cmds, cmds_gpu, 0x00000000);
-	GSL_RB_WRITE(rb->device, cmds, cmds_gpu, 0x00000000);
-	GSL_RB_WRITE(rb->device, cmds, cmds_gpu, 0x00000080);
-	GSL_RB_WRITE(rb->device, cmds, cmds_gpu, 0x00000100);
-	GSL_RB_WRITE(rb->device, cmds, cmds_gpu, 0x00000180);
-	GSL_RB_WRITE(rb->device, cmds, cmds_gpu, 0x00006600);
-	GSL_RB_WRITE(rb->device, cmds, cmds_gpu, 0x00000150);
-	GSL_RB_WRITE(rb->device, cmds, cmds_gpu, 0x0000014e);
-	GSL_RB_WRITE(rb->device, cmds, cmds_gpu, 0x00000154);
-	GSL_RB_WRITE(rb->device, cmds, cmds_gpu, 0x00000001);
-	GSL_RB_WRITE(rb->device, cmds, cmds_gpu, 0x00000000);
-	GSL_RB_WRITE(rb->device, cmds, cmds_gpu, 0x00000000);
+	*cmds++ = 0x000003f7;
+	*cmds++ = 0x00000000;
+	*cmds++ = 0x00000000;
+	*cmds++ = 0x00000000;
+	*cmds++ = 0x00000080;
+	*cmds++ = 0x00000100;
+	*cmds++ = 0x00000180;
+	*cmds++ = 0x00006600;
+	*cmds++ = 0x00000150;
+	*cmds++ = 0x0000014e;
+	*cmds++ = 0x00000154;
+	*cmds++ = 0x00000001;
+	*cmds++ = 0x00000000;
+	*cmds++ = 0x00000000;
 
 	/* Enable protected mode registers for A3XX/A4XX */
-	GSL_RB_WRITE(rb->device, cmds, cmds_gpu, 0x20000000);
+	*cmds++ = 0x20000000;
 
-	GSL_RB_WRITE(rb->device, cmds, cmds_gpu, 0x00000000);
-	GSL_RB_WRITE(rb->device, cmds, cmds_gpu, 0x00000000);
+	*cmds++ = 0x00000000;
+	*cmds++ = 0x00000000;
 
 	adreno_ringbuffer_submit(rb);
 
