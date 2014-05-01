@@ -581,7 +581,7 @@ struct adreno_gpudev {
 	void (*irq_control)(struct adreno_device *, int);
 	unsigned int (*irq_pending)(struct adreno_device *);
 	void (*irq_setup)(struct adreno_device *);
-	void * (*snapshot)(struct adreno_device *, void *, int *, int);
+	void (*snapshot)(struct adreno_device *, struct kgsl_snapshot *);
 	int (*rb_init)(struct adreno_device *, struct adreno_ringbuffer *);
 	int (*perfcounter_init)(struct adreno_device *);
 	void (*perfcounter_close)(struct adreno_device *);
@@ -689,8 +689,8 @@ void adreno_shadermem_regread(struct kgsl_device *device,
 unsigned int adreno_a3xx_rbbm_clock_ctl_default(struct adreno_device
 							*adreno_dev);
 
-void *adreno_snapshot(struct kgsl_device *device, void *snapshot, int *remain,
-		int hang);
+void adreno_snapshot(struct kgsl_device *device,
+		struct kgsl_snapshot *snapshot);
 
 void adreno_dispatcher_start(struct kgsl_device *device);
 int adreno_dispatcher_init(struct adreno_device *adreno_dev);

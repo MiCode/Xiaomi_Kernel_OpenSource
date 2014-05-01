@@ -1093,7 +1093,7 @@ static int dispatcher_do_fault(struct kgsl_device *device)
 
 	if (!test_bit(KGSL_FT_SKIP_PMDUMP, &cmdbatch->fault_policy)) {
 		adreno_fault_header(device, cmdbatch);
-		kgsl_device_snapshot(device, 1);
+		kgsl_device_snapshot(device);
 	}
 
 	kgsl_mutex_unlock(&device->mutex, &device->mutex_owner);
