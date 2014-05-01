@@ -24,6 +24,9 @@
 #define PC_TEMP_ROWS		31
 #define PC_TEMP_COLS		8
 
+#define ACC_IBAT_ROWS		4
+#define ACC_TEMP_COLS		3
+
 #define MAX_SINGLE_LUT_COLS	20
 
 #define MAX_BATT_ID_NUM		4
@@ -72,6 +75,14 @@ struct pc_temp_ocv_lut {
 	int ocv[PC_TEMP_ROWS][PC_TEMP_COLS];
 };
 
+struct ibat_temp_acc_lut {
+	int rows;
+	int cols;
+	int temp[ACC_TEMP_COLS];
+	int ibat[ACC_IBAT_ROWS];
+	int acc[ACC_IBAT_ROWS][ACC_TEMP_COLS];
+};
+
 struct batt_ids {
 	int kohm[MAX_BATT_ID_NUM];
 	int num;
@@ -115,6 +126,7 @@ struct bms_battery_data {
 	struct single_row_lut	*fcc_temp_lut;
 	struct single_row_lut	*fcc_sf_lut;
 	struct pc_temp_ocv_lut	*pc_temp_ocv_lut;
+	struct ibat_temp_acc_lut *ibat_acc_lut;
 	struct sf_lut		*pc_sf_lut;
 	struct sf_lut		*rbatt_sf_lut;
 	int			default_rbatt_mohm;
@@ -148,6 +160,8 @@ int interpolate_ocv(struct pc_temp_ocv_lut *pc_temp_ocv,
 				int batt_temp_degc, int pc);
 int interpolate_slope(struct pc_temp_ocv_lut *pc_temp_ocv,
 					int batt_temp, int pc);
+int interpolate_acc(struct ibat_temp_acc_lut *ibat_acc_lut,
+					int batt_temp, int ibat);
 int linear_interpolate(int y0, int x0, int y1, int x1, int x);
 int is_between(int left, int right, int value);
 #else
@@ -186,6 +200,11 @@ static inline int linear_interpolate(int y0, int x0, int y1, int x1, int x)
 	return -EINVAL;
 }
 static inline int is_between(int left, int right, int value)
+{
+	return -EINVAL;
+}
+static inline int interpolate_acc(struct ibat_temp_acc_lut *ibat_acc_lut,
+						int batt_temp, int ibat)
 {
 	return -EINVAL;
 }
