@@ -12,6 +12,7 @@
 #include <linux/gpio.h>
 #include <linux/delay.h>
 #include <linux/i2c.h>
+#include <linux/acpi.h>
 #include <linux/atomisp_platform.h>
 #include <linux/regulator/consumer.h>
 #include <asm/intel-mid.h>
@@ -346,11 +347,39 @@ static int imx134_power_ctrl(struct v4l2_subdev *sd, int flag)
 	return ret;
 }
 
+static int getvar_int(struct device *dev, const char *var, int def)
+{
+	char val[16];
+	size_t len = sizeof(val);
+	long result;
+	int ret;
+
+	ret = gmin_get_config_var(dev, var, val, &len);
+	val[len] = 0;
+	if (!ret)
+		ret = kstrtol(val, 0, &result);
+
+	return ret ? def : result;
+}
+
 static int imx134_csi_configure(struct v4l2_subdev *sd, int flag)
 {
-	static const int LANES = 4;
-	return camera_sensor_csi(sd, ATOMISP_CAMERA_PORT_PRIMARY, LANES,
-		ATOMISP_INPUT_FORMAT_RAW_10, atomisp_bayer_order_rggb, flag);
+	/* Default from legacy platform w/o firmware config */
+	int port = ATOMISP_CAMERA_PORT_PRIMARY;
+	int lanes = 4;
+	int format = ATOMISP_INPUT_FORMAT_RAW_10;
+	int bayer = atomisp_bayer_order_rggb;
+
+	struct i2c_client *client = v4l2_get_subdevdata(sd);
+	if (client && ACPI_COMPANION(&client->dev)) {
+		struct device *dev = &client->dev;
+		port = getvar_int(dev, "CsiPort", port);
+		lanes = getvar_int(dev, "CsiLanes", lanes);
+		format = getvar_int(dev, "CsiFmt", format);
+		bayer = getvar_int(dev, "CsiBayer", bayer);
+	}
+
+	return camera_sensor_csi(sd, port, lanes, format, bayer, flag);
 }
 
 #ifdef CONFIG_CRYSTAL_COVE
