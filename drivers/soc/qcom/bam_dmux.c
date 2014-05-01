@@ -2332,6 +2332,7 @@ static int bam_dmux_probe(struct platform_device *pdev)
 {
 	int rc;
 	struct resource *r;
+	void *subsys_h;
 
 	DBG("%s probe called\n", __func__);
 	if (bam_mux_initialized)
@@ -2440,11 +2441,21 @@ static int bam_dmux_probe(struct platform_device *pdev)
 	wake_lock_init(&bam_wakelock, WAKE_LOCK_SUSPEND, "bam_dmux_wakelock");
 	init_srcu_struct(&bam_dmux_srcu);
 
+	subsys_h = subsys_notif_register_notifier("modem", &restart_notifier);
+	if (IS_ERR(subsys_h)) {
+		destroy_workqueue(bam_mux_rx_workqueue);
+		destroy_workqueue(bam_mux_tx_workqueue);
+		rc = (int)PTR_ERR(subsys_h);
+		pr_err("%s: failed to register for ssr rc: %d\n", __func__, rc);
+		return rc;
+	}
+
 	rc = bam_ops->smsm_state_cb_register_ptr(SMSM_MODEM_STATE,
 			SMSM_A2_POWER_CONTROL,
 			bam_dmux_smsm_cb, NULL);
 
 	if (rc) {
+		subsys_notif_unregister_notifier(subsys_h, &restart_notifier);
 		destroy_workqueue(bam_mux_rx_workqueue);
 		destroy_workqueue(bam_mux_tx_workqueue);
 		pr_err("%s: smsm cb register failed, rc: %d\n", __func__, rc);
@@ -2456,6 +2467,7 @@ static int bam_dmux_probe(struct platform_device *pdev)
 			bam_dmux_smsm_ack_cb, NULL);
 
 	if (rc) {
+		subsys_notif_unregister_notifier(subsys_h, &restart_notifier);
 		destroy_workqueue(bam_mux_rx_workqueue);
 		destroy_workqueue(bam_mux_tx_workqueue);
 		bam_ops->smsm_state_cb_deregister_ptr(SMSM_MODEM_STATE,
@@ -2510,7 +2522,6 @@ static int __init bam_dmux_init(void)
 
 	rx_timer_interval = DEFAULT_POLLING_MIN_SLEEP;
 
-	subsys_notif_register_notifier("modem", &restart_notifier);
 	return platform_driver_register(&bam_dmux_driver);
 }
 
