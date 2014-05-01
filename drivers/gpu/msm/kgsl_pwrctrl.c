@@ -959,10 +959,9 @@ int kgsl_pwrctrl_init(struct kgsl_device *device)
 	int i, k, m, n = 0, result = 0;
 	unsigned int freq_i, rbbmtimer_freq;
 	struct clk *clk;
-	struct platform_device *pdev =
-		container_of(device->parentdev, struct platform_device, dev);
+	struct platform_device *pdev = device->pdev;
 	struct kgsl_pwrctrl *pwr = &device->pwrctrl;
-	struct kgsl_device_platform_data *pdata = pdev->dev.platform_data;
+	struct kgsl_device_platform_data *pdata = dev_get_platdata(&pdev->dev);
 
 	/*acquire clocks */
 	for (i = 0; i < KGSL_MAX_CLKS; i++) {
@@ -1036,7 +1035,7 @@ int kgsl_pwrctrl_init(struct kgsl_device *device)
 		&pwr->pm_qos_latency))
 		pwr->pm_qos_latency = 501;
 
-	pm_runtime_enable(device->parentdev);
+	pm_runtime_enable(&pdev->dev);
 
 	if (pdata->bus_scale_table == NULL)
 		return result;
@@ -1122,7 +1121,7 @@ void kgsl_pwrctrl_close(struct kgsl_device *device)
 
 	KGSL_PWR_INFO(device, "close device %d\n", device->id);
 
-	pm_runtime_disable(device->parentdev);
+	pm_runtime_disable(&device->pdev->dev);
 
 	if (pwr->pcl)
 		msm_bus_scale_unregister_client(pwr->pcl);
