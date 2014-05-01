@@ -428,7 +428,7 @@ int mdss_mdp_data_check(struct mdss_mdp_data *data,
 	if (!data || data->num_planes == 0)
 		return -ENOMEM;
 
-	pr_debug("srcp0=%pa len=%u frame_size=%u\n", &data->p[0].addr,
+	pr_debug("srcp0=%pa len=%lu frame_size=%u\n", &data->p[0].addr,
 		data->p[0].len, ps->total_size);
 
 	for (i = 0; i < ps->num_planes; i++) {
@@ -443,11 +443,11 @@ int mdss_mdp_data_check(struct mdss_mdp_data *data,
 			curr->addr = prev->addr + psize;
 		}
 		if (curr->len < ps->plane_size[i]) {
-			pr_err("insufficient mem=%u p=%d len=%u\n",
+			pr_err("insufficient mem=%lu p=%d len=%u\n",
 			       curr->len, i, ps->plane_size[i]);
 			return -ENOMEM;
 		}
-		pr_debug("plane[%d] addr=%pa len=%u\n", i,
+		pr_debug("plane[%d] addr=%pa len=%lu\n", i,
 				&curr->addr, curr->len);
 	}
 	data->num_planes = ps->num_planes;
@@ -532,7 +532,7 @@ int mdss_mdp_get_img(struct msmfb_data *img, struct mdss_mdp_img_data *data)
 	struct ion_client *iclient = mdss_get_ionclient();
 
 	start = &data->addr;
-	len = (unsigned long *) &data->len;
+	len = &data->len;
 	data->flags |= img->flags;
 	data->p_need = 0;
 
@@ -611,7 +611,7 @@ int mdss_mdp_get_img(struct msmfb_data *img, struct mdss_mdp_img_data *data)
 		data->addr += img->offset;
 		data->len -= img->offset;
 
-		pr_debug("mem=%d ihdl=%p buf=0x%pa len=0x%x\n", img->memory_id,
+		pr_debug("mem=%d ihdl=%p buf=0x%pa len=%lu\n", img->memory_id,
 			 data->srcp_ihdl, &data->addr, data->len);
 	} else {
 		mdss_mdp_put_img(data);
