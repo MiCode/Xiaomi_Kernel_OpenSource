@@ -716,6 +716,7 @@
 		qcom,pas-id = <9>;
 		qcom,proxy-timeout-ms = <5000>;
 		qcom,firmware-name = "venus";
+		linux,contiguous-region = <&peripheral_mem>;
 	};
 
 	qcom,mss@fc880000 {
@@ -765,6 +766,7 @@
 		qcom,proxy-timeout-ms = <10000>;
 		qcom,smem-id = <423>;
 		qcom,firmware-name = "adsp";
+		linux,contiguous-region = <&peripheral_mem>;
 	};
 
 	clock_rpm: qcom,rpmcc@fc401880 {
