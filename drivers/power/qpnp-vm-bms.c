@@ -134,7 +134,6 @@ struct bms_wakeup_source {
 struct bms_dt_cfg {
 	bool				cfg_report_charger_eoc;
 	bool				cfg_force_s3_on_suspend;
-	bool				cfg_force_s2_in_charging;
 	bool				cfg_ignore_shutdown_soc;
 	bool				cfg_use_voltage_soc;
 	int				cfg_v_cutoff_uv;
@@ -226,14 +225,6 @@ struct qpnp_bms_chip {
 };
 
 static struct qpnp_bms_chip *the_chip;
-
-static void enable_bms_irq(struct bms_irq *irq)
-{
-	if (__test_and_clear_bit(0, &irq->disabled)) {
-		enable_irq(irq->irq);
-		pr_debug("enabled irq %d\n", irq->irq);
-	}
-}
 
 static void disable_bms_irq(struct bms_irq *irq)
 {
@@ -490,26 +481,6 @@ static int force_fsm_state(struct qpnp_bms_chip *chip, u8 state)
 	usleep_range(100, 110);
 
 	pr_debug("force_mode=%d  mode_cntl_reg=%x\n", state, mode_ctl);
-
-	return 0;
-}
-
-static int set_auto_fsm_state(struct qpnp_bms_chip *chip)
-{
-	int rc;
-	u8 mode_ctl = 0xA;
-
-	rc = qpnp_secure_write_wrapper(chip, &mode_ctl,
-				chip->base + MODE_CTL_REG);
-	if (rc) {
-		pr_err("Unable to write reg=%x rc=%d\n",
-					MODE_CTL_REG, rc);
-		return rc;
-	}
-	/* delay for the FSM state to take affect in hardware */
-	usleep_range(100, 110);
-
-	pr_debug("mode_cntl_reg=%x\n", mode_ctl);
 
 	return 0;
 }
@@ -901,6 +872,9 @@ static int get_prop_bms_rbatt(struct qpnp_bms_chip *chip)
 
 static void charging_began(struct qpnp_bms_chip *chip)
 {
+	int rc;
+	u8 state;
+
 	mutex_lock(&chip->last_soc_mutex);
 
 	chip->charge_start_tm_sec = 0;
@@ -909,22 +883,27 @@ static void charging_began(struct qpnp_bms_chip *chip)
 	mutex_unlock(&chip->last_soc_mutex);
 
 	/*
-	 * Enable the state change irq to handle state
-	 * changes while charging
+	 * If the BMS state is not in S2, force it in S2. Such
+	 * a condition can only occur if we are coming out of
+	 * suspend.
 	 */
-	enable_bms_irq(&chip->fsm_state_change_irq);
-
-	if (chip->dt.cfg_force_s2_in_charging) {
+	mutex_lock(&chip->state_change_mutex);
+	rc = get_fsm_state(chip, &state);
+	if (rc)
+		pr_err("Unable to get FSM state rc=%d\n", rc);
+	if (rc || (state != S2_STATE)) {
 		pr_debug("Forcing S2 state\n");
-		mutex_lock(&chip->state_change_mutex);
-		force_fsm_state(chip, S2_STATE);
-		mutex_unlock(&chip->state_change_mutex);
+		rc = force_fsm_state(chip, S2_STATE);
+		if (rc)
+			pr_err("Unable to set FSM state rc=%d\n", rc);
 	}
+	mutex_unlock(&chip->state_change_mutex);
 }
 
 static void charging_ended(struct qpnp_bms_chip *chip)
 {
-	int status = get_battery_status(chip);
+	u8 state;
+	int rc, status = get_battery_status(chip);
 
 	mutex_lock(&chip->last_soc_mutex);
 
@@ -936,18 +915,22 @@ static void charging_ended(struct qpnp_bms_chip *chip)
 
 	mutex_unlock(&chip->last_soc_mutex);
 
-	if (chip->dt.cfg_force_s2_in_charging) {
-		pr_debug("Unforcing S2 state, setting AUTO\n");
-		mutex_lock(&chip->state_change_mutex);
-		set_auto_fsm_state(chip);
-		mutex_unlock(&chip->state_change_mutex);
-	}
-
 	/*
-	 * Disable the state change IRQ to ignore state
-	 * changes while we are not charging
+	 * If the BMS state is not in S2, force it in S2. Such
+	 * a condition can only occur if we are coming out of
+	 * suspend.
 	 */
-	disable_bms_irq(&chip->fsm_state_change_irq);
+	mutex_lock(&chip->state_change_mutex);
+	rc = get_fsm_state(chip, &state);
+	if (rc)
+		pr_err("Unable to get FSM state rc=%d\n", rc);
+	if (rc || (state != S2_STATE)) {
+		pr_debug("Forcing S2 state\n");
+		rc = force_fsm_state(chip, S2_STATE);
+		if (rc)
+			pr_err("Unable to set FSM state rc=%d\n", rc);
+	}
+	mutex_unlock(&chip->state_change_mutex);
 }
 
 static int estimate_ocv(struct qpnp_bms_chip *chip)
@@ -1951,7 +1934,7 @@ static int calculate_initial_soc(struct qpnp_bms_chip *chip)
 
 static int bms_load_hw_defaults(struct qpnp_bms_chip *chip)
 {
-	u8 val, interval[2], count[2];
+	u8 val, interval[2], count[2], state;
 	int rc;
 
 	/* S3 OCV tolerence threshold */
@@ -2056,6 +2039,17 @@ static int bms_load_hw_defaults(struct qpnp_bms_chip *chip)
 	}
 	count[0] &= ACC_CNT_MASK;
 	count[1] &= ACC_CNT_MASK;
+
+	/* Force the BMS state to S2 at boot-up */
+	rc = get_fsm_state(chip, &state);
+	if (rc)
+		pr_err("Unable to get FSM state rc=%d\n", rc);
+	if (rc || (state != S2_STATE)) {
+		pr_debug("Forcing S2 state\n");
+		rc = force_fsm_state(chip, S2_STATE);
+		if (rc)
+			pr_err("Unable to set FSM state rc=%d\n", rc);
+	}
 
 	rc = update_fsm_state(chip);
 	if (rc) {
@@ -2208,10 +2202,8 @@ static int bms_request_irqs(struct qpnp_bms_chip *chip)
 	SPMI_REQUEST_IRQ(chip, rc, fsm_state_change);
 	if (rc < 0)
 		return rc;
-	/*
-	 * Disable the state change IRQ here, it will
-	 * be enabled based on the charging status
-	 */
+
+	/* Disable the state change IRQ */
 	disable_bms_irq(&chip->fsm_state_change_irq);
 	enable_irq_wake(chip->fifo_update_done_irq.irq);
 
@@ -2276,7 +2268,6 @@ static int show_bms_config(struct seq_file *m, void *data)
 			"ignore_shutdown_soc\t=\t%d\n"
 			"shutdown_soc_valid_limit\t=\t%d\n"
 			"force_s3_on_suspend\t=\t%d\n"
-			"force_s2_in_charging\t=\t%d\n"
 			"report_charger_eoc\t=\t%d\n"
 			"s1_sample_interval_ms\t=\t%d\n"
 			"s2_sample_interval_ms\t=\t%d\n"
@@ -2297,7 +2288,6 @@ static int show_bms_config(struct seq_file *m, void *data)
 			chip->dt.cfg_ignore_shutdown_soc,
 			chip->dt.cfg_shutdown_soc_valid_limit,
 			chip->dt.cfg_force_s3_on_suspend,
-			chip->dt.cfg_force_s2_in_charging,
 			chip->dt.cfg_report_charger_eoc,
 			s1_sample_interval,
 			s2_sample_interval,
@@ -2611,8 +2601,6 @@ static int parse_bms_dt_properties(struct qpnp_bms_chip *chip)
 			chip->spmi->dev.of_node, "qcom,force-s3-on-suspend");
 	chip->dt.cfg_report_charger_eoc = of_property_read_bool(
 			chip->spmi->dev.of_node, "qcom,report-charger-eoc");
-	chip->dt.cfg_force_s2_in_charging = of_property_read_bool(
-			chip->spmi->dev.of_node, "qcom,force-s2-in-charging");
 	chip->dt.cfg_disable_bms = of_property_read_bool(
 			chip->spmi->dev.of_node, "qcom,disable-bms");
 
@@ -2624,10 +2612,9 @@ static int parse_bms_dt_properties(struct qpnp_bms_chip *chip)
 	pr_debug("ignore_shutdown_soc=%d, use_voltage_soc=%d\n",
 				chip->dt.cfg_ignore_shutdown_soc,
 				chip->dt.cfg_use_voltage_soc);
-	pr_debug("force-s3-on-suspend=%d report-charger-eoc=%d force-s2-in-charging=%d disable-bms=%d\n",
+	pr_debug("force-s3-on-suspend=%d report-charger-eoc=%d disable-bms=%d\n",
 			chip->dt.cfg_force_s3_on_suspend,
 			chip->dt.cfg_report_charger_eoc,
-			chip->dt.cfg_force_s2_in_charging,
 			chip->dt.cfg_disable_bms);
 
 	return 0;
@@ -3013,15 +3000,17 @@ static int bms_resume(struct device *dev)
 	if (!chip->charging_while_suspended) {
 		if (chip->dt.cfg_force_s3_on_suspend) {
 			/*
-			 * Update the state only if it is in S3. There is
+			 * Update the state to S2 only if we are in S3. There is
 			 * a possibility of being in S2 if we resumed on
 			 * a charger insertion
 			 */
 			mutex_lock(&chip->state_change_mutex);
-			get_fsm_state(chip, &state);
-			if (state == S3_STATE) {
-				pr_debug("Unforcing S3 state, setting AUTO state\n");
-				set_auto_fsm_state(chip);
+			rc = get_fsm_state(chip, &state);
+			if (rc)
+				pr_err("Unable to get FSM state rc=%d\n", rc);
+			if (rc || (state == S3_STATE)) {
+				pr_debug("Unforcing S3 state, setting S2 state\n");
+				force_fsm_state(chip, S2_STATE);
 			}
 			mutex_unlock(&chip->state_change_mutex);
 			/*
