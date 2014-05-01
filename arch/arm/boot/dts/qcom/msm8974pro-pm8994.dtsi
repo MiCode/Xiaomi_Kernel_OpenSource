@@ -134,6 +134,12 @@
 		vdd_dig-supply = <&pm8994_s1_corner>;
 	};
 
+	usb@f9a55000 {
+		HSUSB_VDDCX-supply = <&pm8994_s1_corner>;
+		HSUSB_1p8-supply = <&pm8994_l6>;
+		HSUSB_3p3-supply = <&pm8994_l24>;
+	};
+
 	ssusb@f9200000 {
 		/delete-property/ vbus_dwc3-supply;
 		/delete-property/ qcom,misc-ref;
