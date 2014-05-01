@@ -99,8 +99,10 @@ dtb-$(CONFIG_ARCH_FSM9900) += fsm9900-rumi.dtb \
 	fsm9900-cdp.dtb \
 	fsm9900-mtp.dtb
 dtb-$(CONFIG_ARCH_MDM9630) += mdm9630-sim.dtb \
-	mdm9630-cdp.dtb \
-	mdm9630-mtp.dtb
+	mdm9630-v1-cdp.dtb \
+	mdm9630-v1-mtp.dtb \
+	mdm9630-v2-cdp.dtb \
+	mdm9630-v2-mtp.dtb
 dtb-$(CONFIG_ARCH_MSMZIRC) += msmzirc-sim.dtb
 dtb-$(CONFIG_ARCH_APQ8084) += apq8084-v1.0-old-pwr-grid-liquid.dtb \
 	apq8084-v1.1-old-pwr-grid-liquid.dtb \

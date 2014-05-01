@@ -14,8 +14,6 @@
 
 #include "mdm9630.dtsi"
 #include "mdm9630-cdp.dtsi"
-#include "mdm9630-display.dtsi"
-#include "qpic-panel-ili-qvga.dtsi"
 
 / {
 	model = "Qualcomm Technologies, Inc. MDM 9630 CDP";
