@@ -265,7 +265,8 @@ static int alpha_pll_set_rate(struct clk *c, unsigned long rate)
 	struct alpha_pll_clk *pll = to_alpha_pll_clk(c);
 	struct alpha_pll_masks *masks = pll->masks;
 	unsigned long flags, freq_hz;
-	u32 regval, l_val, vco_val;
+	u32 regval, l_val;
+	int vco_val;
 	u64 a_val;
 
 	freq_hz = round_rate_up(pll, rate, &l_val, &a_val);
@@ -316,7 +317,8 @@ static long alpha_pll_round_rate(struct clk *c, unsigned long rate)
 {
 	struct alpha_pll_clk *pll = to_alpha_pll_clk(c);
 	struct alpha_pll_vco_tbl *v = pll->vco_tbl;
-	u32 ret, l_val;
+	int ret;
+	u32 l_val;
 	unsigned long freq_hz;
 	u64 a_val;
 	int i;
