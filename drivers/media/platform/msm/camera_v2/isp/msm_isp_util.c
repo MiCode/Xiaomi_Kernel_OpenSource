@@ -268,7 +268,8 @@ int msm_isp_get_clk_info(struct vfe_device *vfe_dev,
 		return rc;
 	}
 	for (i = 0; i < count; i++) {
-		vfe_clk_info[i].clk_rate = (rates[i] == 0) ? -1 : rates[i];
+		vfe_clk_info[i].clk_rate =
+			(rates[i] == 0) ? (long)-1 : rates[i];
 		ISP_DBG("clk_rate[%d] = %ld\n", i, vfe_clk_info[i].clk_rate);
 	}
 	vfe_dev->num_clk = count;
