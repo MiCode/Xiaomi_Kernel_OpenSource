@@ -46,6 +46,10 @@
 
 &soc {
 	qcom,mss@fc880000 {
-		status = "disabled";
+		/delete-property/ qcom,gpio-err-fatal;
+		/delete-property/ qcom,gpio-err-ready;
+		/delete-property/ qcom,gpio-proxy-unvote;
+		/delete-property/ qcom,gpio-stop-ack;
+		/delete-property/ qcom,gpio-force-stop;
 	};
 };
