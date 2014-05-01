@@ -25,6 +25,8 @@
 #include <linux/msm_rmnet.h>
 #include <linux/debugfs.h>
 #include <linux/seq_file.h>
+#include <linux/notifier.h>
+#include <linux/cpufreq.h>
 #include "u_ether.h"
 
 
@@ -68,6 +70,13 @@ MODULE_PARM_DESC(tx_stop_threshold,
  * which includes headers/data packets
  */
 #define DL_MAX_PKTS_PER_XFER	20
+
+enum ifc_state {
+	ETH_UNDEFINED,
+	ETH_STOP,
+	ETH_START,
+};
+
 struct eth_dev {
 	/* lock is held while accessing port_usb
 	 */
@@ -117,6 +126,10 @@ struct eth_dev {
 	unsigned int		loop_brk_cnt;
 	struct dentry		*uether_dent;
 	struct dentry		*uether_dfile;
+
+	enum ifc_state		state;
+	struct notifier_block	cpufreq_notifier;
+	struct work_struct	cpu_policy_w;
 };
 
 /* when sg is enabled, sg_ctx is used to track skb each usb request will
@@ -1173,6 +1186,7 @@ static int eth_open(struct net_device *net)
 	struct eth_dev	*dev = netdev_priv(net);
 	struct gether	*link;
 	bool wait_for_rx_trigger;
+	int i;
 
 	DBG(dev, "%s\n", __func__);
 
@@ -1186,6 +1200,10 @@ static int eth_open(struct net_device *net)
 	if (netif_carrier_ok(dev->net) && !wait_for_rx_trigger)
 		eth_start(dev, GFP_KERNEL);
 
+	dev->state = ETH_START;
+	for_each_online_cpu(i)
+		cpufreq_update_policy(i);
+
 	spin_lock_irq(&dev->lock);
 	if (link && link->open)
 		link->open(link);
@@ -1198,8 +1216,11 @@ static int eth_stop(struct net_device *net)
 {
 	struct eth_dev	*dev = netdev_priv(net);
 	unsigned long	flags;
+	int i;
+	enum ifc_state prev_state;
 
 	VDBG(dev, "%s\n", __func__);
+
 	netif_stop_queue(net);
 
 	DBG(dev, "stop stats: rx/tx %ld/%ld, errs %ld/%ld\n",
@@ -1247,6 +1268,14 @@ static int eth_stop(struct net_device *net)
 		}
 	}
 	spin_unlock_irqrestore(&dev->lock, flags);
+
+	prev_state = dev->state;
+	dev->state = ETH_STOP;
+
+	/* if previous state is eth_start, update cpufreq policy to normal */
+	if (prev_state == ETH_START)
+		for_each_online_cpu(i)
+			cpufreq_update_policy(i);
 
 	return 0;
 }
@@ -1445,6 +1474,39 @@ static struct device_type gadget_type = {
 	.name	= "gadget",
 };
 
+static int gether_cpufreq_notifier_cb(struct notifier_block *nfb,
+		unsigned long event, void *data)
+{
+	struct cpufreq_policy *policy = data;
+	unsigned int cpu = policy->cpu;
+	struct eth_dev	*dev = container_of(nfb, struct eth_dev,
+					cpufreq_notifier);
+
+	switch (event) {
+	case CPUFREQ_ADJUST:
+		pr_debug("%s: cpu:%u\n", __func__, cpu);
+
+		if (dev->state == ETH_START)
+			cpufreq_verify_within_limits(policy,
+					1000000, UINT_MAX);
+		else
+			cpufreq_verify_within_limits(policy,
+					policy->min, UINT_MAX);
+
+		break;
+	}
+
+	return NOTIFY_OK;
+}
+
+static void update_cpu_policy_w(struct work_struct *work)
+{
+	int i;
+
+	for_each_online_cpu(i)
+		cpufreq_update_policy(i);
+}
+
 /**
  * gether_setup_name - initialize one ethernet-over-usb link
  * @g: gadget to associated with these links
@@ -1478,6 +1540,7 @@ struct eth_dev *gether_setup_name(struct usb_gadget *g, u8 ethaddr[ETH_ALEN],
 	INIT_WORK(&dev->tx_work, process_tx_w);
 	INIT_LIST_HEAD(&dev->tx_reqs);
 	INIT_LIST_HEAD(&dev->rx_reqs);
+	INIT_WORK(&dev->cpu_policy_w, update_cpu_policy_w);
 
 	skb_queue_head_init(&dev->rx_frames);
 	skb_queue_head_init(&dev->tx_skb_q);
@@ -1522,6 +1585,11 @@ struct eth_dev *gether_setup_name(struct usb_gadget *g, u8 ethaddr[ETH_ALEN],
 		 */
 		netif_carrier_off(net);
 		uether_debugfs_init(dev, netname);
+
+		dev->cpufreq_notifier.notifier_call =
+					gether_cpufreq_notifier_cb;
+		cpufreq_register_notifier(&dev->cpufreq_notifier,
+				CPUFREQ_POLICY_NOTIFIER);
 	}
 
 	return dev;
@@ -1535,8 +1603,19 @@ struct eth_dev *gether_setup_name(struct usb_gadget *g, u8 ethaddr[ETH_ALEN],
  */
 void gether_cleanup(struct eth_dev *dev)
 {
+	int i;
+
 	if (!dev)
 		return;
+
+	/* make sure cpu boost is set to normal again */
+	dev->state = ETH_UNDEFINED;
+	cancel_work_sync(&dev->cpu_policy_w);
+	for_each_online_cpu(i)
+		cpufreq_update_policy(i);
+
+	cpufreq_unregister_notifier(&dev->cpufreq_notifier,
+				CPUFREQ_POLICY_NOTIFIER);
 
 	uether_debugfs_exit(dev);
 	unregister_netdev(dev->net);
@@ -1699,6 +1778,9 @@ void gether_disconnect(struct gether *link)
 		return;
 
 	DBG(dev, "%s\n", __func__);
+
+	dev->state = ETH_UNDEFINED;
+	queue_work(uether_wq, &dev->cpu_policy_w);
 
 	netif_stop_queue(dev->net);
 	netif_carrier_off(dev->net);
