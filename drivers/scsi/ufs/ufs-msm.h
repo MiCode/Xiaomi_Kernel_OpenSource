@@ -119,6 +119,14 @@ struct msm_ufs_phy {
 	 *	7. Wait for UFS_PHY_PCS_READY_STATUS[0] to be '1'
 	 */
 	#define MSM_UFS_PHY_QUIRK_CFG_RESTORE		(1 << 0)
+	/*
+	 * If UFS PHY power down is deasserted and power is restored to analog
+	 * circuits, the rx_sigdet can glitch. If the glitch is wide enough,
+	 * it can trigger the digital logic to think it saw a DIF-N and cause
+	 * it to exit Hibern8. Disabling the rx_sigdet during power-up masks
+	 * the glitch.
+	 */
+	#define MSM_UFS_PHY_DIS_SIGDET_BEFORE_PWR_COLLAPSE	(1 << 1)
 };
 
 struct msm_ufs_bus_vote {
