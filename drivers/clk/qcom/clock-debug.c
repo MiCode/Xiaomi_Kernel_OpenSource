@@ -35,12 +35,6 @@ static DEFINE_MUTEX(clk_list_lock);
 static struct dentry *debugfs_base;
 static u32 debug_suspend;
 
-struct clk_table {
-	struct list_head node;
-	struct clk_lookup *clocks;
-	size_t num_clocks;
-};
-
 static int clock_debug_rate_set(void *data, u64 val)
 {
 	struct clk *clock = data;
@@ -291,17 +285,16 @@ static int clock_debug_print_clock(struct clk *c, struct seq_file *m)
  */
 static void clock_debug_print_enabled_clocks(struct seq_file *m)
 {
-	struct clk_table *table;
-	int i, cnt = 0;
+	struct clk *c;
+	int cnt = 0;
 
 	if (!mutex_trylock(&clk_list_lock)) {
 		pr_err("clock-debug: Clocks are being registered. Cannot print clock state now.\n");
 		return;
 	}
 	clock_debug_output(m, 0, "Enabled clocks:\n");
-	list_for_each_entry(table, &clk_list, node) {
-		for (i = 0; i < table->num_clocks; i++)
-			cnt += clock_debug_print_clock(table->clocks[i].clk, m);
+	list_for_each_entry(c, &clk_list, list) {
+		cnt += clock_debug_print_clock(c, m);
 	}
 	mutex_unlock(&clk_list_lock);
 
@@ -387,8 +380,7 @@ static ssize_t clock_parent_write(struct file *filp,
 	struct clk *clock = filp->private_data;
 	char buf[256];
 	char *cmp;
-	struct clk_table *table;
-	int i, ret;
+	int ret;
 	struct clk *parent = NULL;
 
 	cnt = min(cnt, sizeof(buf) - 1);
@@ -398,23 +390,18 @@ static ssize_t clock_parent_write(struct file *filp,
 	cmp = strstrip(buf);
 
 	mutex_lock(&clk_list_lock);
-	list_for_each_entry(table, &clk_list, node) {
-		for (i = 0; i < table->num_clocks; i++)
-			if (!strcmp(cmp, table->clocks[i].clk->dbg_name)) {
-				parent = table->clocks[i].clk;
-				break;
-			}
-		if (parent)
+	list_for_each_entry(parent, &clk_list, list) {
+		if (!strcmp(cmp, parent->dbg_name))
 			break;
 	}
 
-	if (!parent) {
+	if (&parent->list == &clk_list) {
 		ret = -EINVAL;
 		goto err;
 	}
 
 	mutex_unlock(&clk_list_lock);
-	ret = clk_set_parent(clock, table->clocks[i].clk);
+	ret = clk_set_parent(clock, parent);
 	if (ret)
 		return ret;
 
@@ -584,56 +571,34 @@ static int clock_debug_init(void)
 
 /**
  * clock_debug_register() - Add additional clocks to clock debugfs hierarchy
- * @table: Table of clocks to create debugfs nodes for
- * @size: Size of @table
- *
+ * @list: List of clocks to create debugfs nodes for
  */
-int clock_debug_register(struct clk_lookup *table, size_t size)
+int clock_debug_register(struct clk *clk)
 {
-	struct clk_table *clk_table, *clk_table_tmp;
-	int i, ret;
+	int ret = 0;
+	struct clk *c;
 
-	mutex_lock(&clk_debug_lock);
+	mutex_lock(&clk_list_lock);
+	if (!list_empty(&clk->list))
+		goto out;
 
 	ret = clock_debug_init();
 	if (ret)
 		goto out;
 
-	clk_table = kmalloc(sizeof(*clk_table), GFP_KERNEL);
-	if (!clk_table) {
-		ret = -ENOMEM;
-		goto out;
-	}
-
-	clk_table->clocks = table;
-	clk_table->num_clocks = size;
-
 	if (IS_ERR_OR_NULL(measure)) {
-		for (i = 0; i < size; i++) {
-			if (table[i].clk->flags & CLKFLAG_MEASURE) {
-				measure = table[i].clk;
-				break;
-			}
-		}
-
+		if (clk->flags & CLKFLAG_MEASURE)
+			measure = clk;
 		if (!IS_ERR_OR_NULL(measure)) {
-			mutex_lock(&clk_list_lock);
-			list_for_each_entry(clk_table_tmp, &clk_list, node) {
-			for (i = 0; i < clk_table_tmp->num_clocks; i++)
-				clock_measure_add(clk_table_tmp->clocks[i].clk);
-			}
-			mutex_unlock(&clk_list_lock);
+			list_for_each_entry(c, &clk_list, list)
+				clock_measure_add(c);
 		}
 	}
 
-	mutex_lock(&clk_list_lock);
-	list_add_tail(&clk_table->node, &clk_list);
-	mutex_unlock(&clk_list_lock);
-
-	for (i = 0; i < size; i++)
-		clock_debug_add(table[i].clk);
+	list_add_tail(&clk->list, &clk_list);
+	clock_debug_add(clk);
 out:
-	mutex_unlock(&clk_debug_lock);
+	mutex_unlock(&clk_list_lock);
 	return ret;
 }
 
