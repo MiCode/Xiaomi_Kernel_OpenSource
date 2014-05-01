@@ -33,9 +33,6 @@ int kgsl_sharedmem_page_alloc_user(struct kgsl_memdesc *memdesc,
 				struct kgsl_pagetable *pagetable,
 				size_t size);
 
-int kgsl_sharedmem_alloc_coherent(struct kgsl_device *device,
-			struct kgsl_memdesc *memdesc, size_t size);
-
 int kgsl_cma_alloc_coherent(struct kgsl_device *device,
 			struct kgsl_memdesc *memdesc,
 			struct kgsl_pagetable *pagetable, size_t size);
@@ -233,11 +230,14 @@ static inline int
 kgsl_allocate_contiguous(struct kgsl_device *device,
 			struct kgsl_memdesc *memdesc, size_t size)
 {
-	int ret  = kgsl_sharedmem_alloc_coherent(device, memdesc, size);
+	int ret;
+
+	size = ALIGN(size, PAGE_SIZE);
+
+	ret = kgsl_cma_alloc_coherent(device, memdesc, NULL, size);
 	if (!ret && (kgsl_mmu_get_mmutype() == KGSL_MMU_TYPE_NONE))
 		memdesc->gpuaddr = memdesc->physaddr;
 
-	memdesc->flags |= (KGSL_MEMTYPE_KERNEL << KGSL_MEMTYPE_SHIFT);
 	return ret;
 }
 
