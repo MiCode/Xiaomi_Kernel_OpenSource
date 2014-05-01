@@ -1663,6 +1663,12 @@
 		qcom,irq-is-percpu;
 		interrupts = <1 7 0xf00>;
 	};
+
+	bimc_sharedmem {
+		compatible = "qcom,sharedmem-uio";
+		reg = <0x400000 0x80000>;
+		reg-names = "bimc";
+	};
 };
 
 &gdsc_venus {
