@@ -24,7 +24,9 @@
 #include <linux/skbuff.h>
 #include <linux/sched.h>
 #include <linux/ipa.h>
+#include <linux/random.h>
 #include <linux/rndis_ipa.h>
+#include <linux/workqueue.h>
 
 #define DRV_NAME "RNDIS_IPA"
 #define DEBUGFS_DIR_NAME "rndis_ipa"
@@ -49,6 +51,7 @@
 #define BAM_DMA_DESC_FIFO_SIZE \
 		(BAM_DMA_MAX_PKT_NUMBER*(sizeof(struct sps_iovec)))
 #define TX_TIMEOUT (5 * HZ)
+#define MIN_TX_ERROR_SLEEP_PERIOD 500
 
 #define RNDIS_IPA_ERROR(fmt, args...) \
 		pr_err(DRV_NAME "@%s@%d@ctx:%s: "\
@@ -165,6 +168,8 @@ struct rndis_loopback_pipe {
  * @rm_enable: flag that enable/disable Resource manager request prior to Tx
  * @loopback_enable:  flag that enable/disable USB stub loopback
  * @deaggregation_enable: enable/disable IPA HW deaggregation logic
+ * @during_xmit_error: flags that indicate that the driver is in a middle
+ *  of error handling in Tx path
  * @usb_to_ipa_loopback_pipe: usb to ipa (Rx) pipe representation for loopback
  * @ipa_to_usb_loopback_pipe: ipa to usb (Tx) pipe representation for loopback
  * @bam_dma_hdl: handle representing bam-dma, used for loopback logic
@@ -178,12 +183,14 @@ struct rndis_loopback_pipe {
  * @outstanding_high: number of outstanding packets allowed
  * @outstanding_low: number of outstanding packets which shall cause
  *  to netdev queue start (after stopped due to outstanding_high reached)
+ * @error_msec_sleep_time: number of msec for sleeping in case of Tx error
  * @state: current state of the driver
  * @host_ethaddr: holds the tethered PC ethernet address
  * @device_ethaddr: holds the device ethernet address
  * @device_ready_notify: callback supplied by USB core driver
  * This callback shall be called by the Netdev once the Netdev internal
  * state is changed to RNDIS_IPA_CONNECTED_AND_UP
+ * @xmit_error_delayed_work: work item for cases where IPA driver Tx fails
  */
 struct rndis_ipa_dev {
 	struct net_device *net;
@@ -197,6 +204,7 @@ struct rndis_ipa_dev {
 	u32 rm_enable;
 	bool loopback_enable;
 	u32 deaggregation_enable;
+	u32 during_xmit_error;
 	struct rndis_loopback_pipe usb_to_ipa_loopback_pipe;
 	struct rndis_loopback_pipe ipa_to_usb_loopback_pipe;
 	u32 bam_dma_hdl;
@@ -206,12 +214,14 @@ struct rndis_ipa_dev {
 	u32 usb_to_ipa_hdl;
 	u32 ipa_to_usb_hdl;
 	atomic_t outstanding_pkts;
-	u8 outstanding_high;
-	u8 outstanding_low;
+	u32 outstanding_high;
+	u32 outstanding_low;
+	u32 error_msec_sleep_time;
 	enum rndis_ipa_state state;
 	u8 host_ethaddr[ETH_ALEN];
 	u8 device_ethaddr[ETH_ALEN];
 	void (*device_ready_notify)(void);
+	struct delayed_work xmit_error_delayed_work;
 };
 
 /**
@@ -239,6 +249,8 @@ static void rndis_ipa_tx_timeout(struct net_device *net);
 static int rndis_ipa_stop(struct net_device *net);
 static void rndis_ipa_enable_data_path(struct rndis_ipa_dev *rndis_ipa_ctx);
 static void rndis_encapsulate_skb(struct sk_buff *skb);
+static void rndis_ipa_xmit_error(struct sk_buff *skb);
+static void rndis_ipa_xmit_error_aftercare_wq(struct work_struct *work);
 static void rndis_ipa_prepare_header_insertion(int eth_type,
 		const char *hdr_name, struct ipa_hdr_add *add_hdr,
 		const void *dst_mac, const void *src_mac);
@@ -559,6 +571,10 @@ int rndis_ipa_init(struct ipa_usb_init_params *params)
 		sizeof(rndis_ipa_ctx->device_ethaddr));
 	memcpy(rndis_ipa_ctx->host_ethaddr, params->host_ethaddr,
 		sizeof(rndis_ipa_ctx->host_ethaddr));
+	INIT_DELAYED_WORK(&rndis_ipa_ctx->xmit_error_delayed_work,
+		rndis_ipa_xmit_error_aftercare_wq);
+	rndis_ipa_ctx->error_msec_sleep_time =
+		MIN_TX_ERROR_SLEEP_PERIOD;
 	RNDIS_IPA_DEBUG("internal data structures were set\n");
 
 	if (!params->device_ready_notify)
@@ -894,6 +910,7 @@ static netdev_tx_t rndis_ipa_start_xmit(struct sk_buff *skb,
 	goto out;
 
 fail_tx_packet:
+	rndis_ipa_xmit_error(skb);
 out:
 	resource_release(rndis_ipa_ctx);
 resource_busy:
@@ -969,7 +986,6 @@ static void rndis_ipa_tx_timeout(struct net_device *net)
 		outstanding);
 
 	net->stats.tx_errors++;
-	ipa_bam_reg_dump();
 }
 
 /**
@@ -1165,6 +1181,13 @@ int rndis_ipa_pipe_disconnect_notify(void *private)
 		return -EPERM;
 	}
 
+	if (rndis_ipa_ctx->during_xmit_error) {
+		RNDIS_IPA_DEBUG("canceling xmit-error delayed work\n");
+		cancel_delayed_work_sync(
+			&rndis_ipa_ctx->xmit_error_delayed_work);
+		rndis_ipa_ctx->during_xmit_error = false;
+	}
+
 	netif_carrier_off(rndis_ipa_ctx->net);
 	RNDIS_IPA_DEBUG("carrier_off notification was sent\n");
 
@@ -1174,7 +1197,7 @@ int rndis_ipa_pipe_disconnect_notify(void *private)
 	outstanding_dropped_pkts =
 		atomic_read(&rndis_ipa_ctx->outstanding_pkts);
 
-	rndis_ipa_ctx->net->stats.tx_errors += outstanding_dropped_pkts;
+	rndis_ipa_ctx->net->stats.tx_dropped += outstanding_dropped_pkts;
 	atomic_set(&rndis_ipa_ctx->outstanding_pkts, 0);
 
 	rndis_ipa_ctx->state = next_state;
@@ -1271,6 +1294,7 @@ void rndis_ipa_cleanup(void *private)
 }
 EXPORT_SYMBOL(rndis_ipa_cleanup);
 
+
 static void rndis_ipa_enable_data_path(struct rndis_ipa_dev *rndis_ipa_ctx)
 {
 	if (rndis_ipa_ctx->device_ready_notify) {
@@ -1282,6 +1306,68 @@ static void rndis_ipa_enable_data_path(struct rndis_ipa_dev *rndis_ipa_ctx)
 
 	netif_start_queue(rndis_ipa_ctx->net);
 	RNDIS_IPA_DEBUG("netif_start_queue() was called\n");
+}
+
+static void rndis_ipa_xmit_error(struct sk_buff *skb)
+{
+	bool retval;
+	struct rndis_ipa_dev *rndis_ipa_ctx = netdev_priv(skb->dev);
+	unsigned long delay_jiffies;
+	u8 rand_dealy_msec;
+
+	RNDIS_IPA_LOG_ENTRY();
+
+	RNDIS_IPA_DEBUG("starting Tx-queue backoff\n");
+
+	netif_stop_queue(rndis_ipa_ctx->net);
+	RNDIS_IPA_DEBUG("netif_stop_queue was called\n");
+
+	skb_pull(skb, sizeof(rndis_template_hdr));
+	rndis_ipa_ctx->net->stats.tx_errors++;
+
+	get_random_bytes(&rand_dealy_msec, sizeof(rand_dealy_msec));
+	delay_jiffies = msecs_to_jiffies(
+		rndis_ipa_ctx->error_msec_sleep_time + rand_dealy_msec);
+
+	retval = schedule_delayed_work(
+		&rndis_ipa_ctx->xmit_error_delayed_work, delay_jiffies);
+	if (!retval) {
+		RNDIS_IPA_ERROR("fail to schedule delayed work\n");
+		netif_start_queue(rndis_ipa_ctx->net);
+	} else {
+		RNDIS_IPA_DEBUG("work scheduled to start Tx-queue in %d msec\n",
+			rndis_ipa_ctx->error_msec_sleep_time + rand_dealy_msec);
+		rndis_ipa_ctx->during_xmit_error = true;
+	}
+
+	RNDIS_IPA_LOG_EXIT();
+}
+
+static void rndis_ipa_xmit_error_aftercare_wq(struct work_struct *work)
+{
+	struct rndis_ipa_dev *rndis_ipa_ctx;
+	struct delayed_work *delayed_work;
+
+	RNDIS_IPA_LOG_ENTRY();
+
+	RNDIS_IPA_DEBUG("Starting queue after xmit error\n");
+
+	delayed_work = to_delayed_work(work);
+	rndis_ipa_ctx = container_of(delayed_work, struct rndis_ipa_dev,
+		xmit_error_delayed_work);
+
+	if (unlikely(rndis_ipa_ctx->state != RNDIS_IPA_CONNECTED_AND_UP)) {
+		RNDIS_IPA_ERROR("error aftercare handling in bad state (%d)",
+			rndis_ipa_ctx->state);
+		return;
+	}
+
+	rndis_ipa_ctx->during_xmit_error = false;
+
+	netif_start_queue(rndis_ipa_ctx->net);
+	RNDIS_IPA_DEBUG("netif_start_queue() was called\n");
+
+	RNDIS_IPA_LOG_EXIT();
 }
 
 /**
@@ -2019,7 +2105,7 @@ static int rndis_ipa_debugfs_init(struct rndis_ipa_dev *rndis_ipa_ctx)
 		goto fail_file;
 	}
 
-	file = debugfs_create_u8("outstanding_high", flags_read_write,
+	file = debugfs_create_u32("outstanding_high", flags_read_write,
 			rndis_ipa_ctx->directory,
 			&rndis_ipa_ctx->outstanding_high);
 	if (!file) {
@@ -2027,7 +2113,7 @@ static int rndis_ipa_debugfs_init(struct rndis_ipa_dev *rndis_ipa_ctx)
 		goto fail_file;
 	}
 
-	file = debugfs_create_u8("outstanding_low", flags_read_write,
+	file = debugfs_create_u32("outstanding_low", flags_read_write,
 			rndis_ipa_ctx->directory,
 			&rndis_ipa_ctx->outstanding_low);
 	if (!file) {
@@ -2148,7 +2234,22 @@ static int rndis_ipa_debugfs_init(struct rndis_ipa_dev *rndis_ipa_ctx)
 		RNDIS_IPA_ERROR("fail to create deaggregation_enable file\n");
 		goto fail_file;
 	}
-	RNDIS_IPA_DEBUG("deaggregation disabled, reconnect to apply\n");
+
+	file = debugfs_create_u32("error_msec_sleep_time", flags_read_write,
+			rndis_ipa_ctx->directory,
+			&rndis_ipa_ctx->error_msec_sleep_time);
+	if (!file) {
+		RNDIS_IPA_ERROR("fail to create error_msec_sleep_time file\n");
+		goto fail_file;
+	}
+
+	file = debugfs_create_bool("during_xmit_error", flags_read_only,
+			rndis_ipa_ctx->directory,
+			&rndis_ipa_ctx->during_xmit_error);
+	if (!file) {
+		RNDIS_IPA_ERROR("fail to create during_xmit_error file\n");
+		goto fail_file;
+	}
 
 	RNDIS_IPA_LOG_EXIT();
 
