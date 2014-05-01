@@ -178,9 +178,9 @@
 			label = "mas-pcie-0";
 			qcom,masterp = <13>;
 			qcom,tier = <2>;
-			qcom,qport = <10>;
 			qcom,mode = "Fixed";
 			qcom,mas-hw-id = <65>;
+			qcom,hw-sel = "NoC";
 		};
 
 		slv-ampss {
