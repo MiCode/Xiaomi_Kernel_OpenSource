@@ -1641,7 +1641,16 @@ long msm_cpp_subdev_ioctl(struct v4l2_subdev *sd,
 			pr_err("%s:%d: malloc error\n", __func__, __LINE__);
 			mutex_unlock(&cpp_dev->mutex);
 			return -EINVAL;
-		} else {
+		}
+#ifdef CONFIG_COMPAT
+		/* For compat task, source ptr is in kernel space
+		 * otherwise it is in user space*/
+		if (is_compat_task()) {
+			memcpy(u_stream_buff_info, ioctl_ptr->ioctl_ptr,
+					ioctl_ptr->len);
+		} else
+#else
+		{
 			rc = (copy_from_user(u_stream_buff_info,
 					(void __user *)ioctl_ptr->ioctl_ptr,
 					ioctl_ptr->len) ? -EFAULT : 0);
@@ -1652,7 +1661,7 @@ long msm_cpp_subdev_ioctl(struct v4l2_subdev *sd,
 				return -EINVAL;
 			}
 		}
-
+#endif
 		if (u_stream_buff_info->num_buffs == 0) {
 			pr_err("%s:%d: Invalid number of buffers\n", __func__,
 				__LINE__);
@@ -2244,8 +2253,11 @@ static long msm_cpp_subdev_fops_compat_ioctl(struct file *file,
 		kp_ioctl.ioctl_ptr = (void *)&k_cpp_buff_info;
 		if (is_compat_task()) {
 			if (kp_ioctl.len != sizeof(
-					struct msm_cpp_stream_buff_info32_t))
+				struct msm_cpp_stream_buff_info32_t))
 				return -EINVAL;
+			else
+				kp_ioctl.len =
+				  sizeof(struct msm_cpp_stream_buff_info_t);
 		}
 		cmd = VIDIOC_MSM_CPP_ENQUEUE_STREAM_BUFF_INFO;
 		break;
