@@ -1855,13 +1855,6 @@ static int msm_ufs_phy_power_on(struct msm_ufs_phy *phy)
 	if (err)
 		goto out;
 
-	writel_relaxed(0x1, phy->mmio + UFS_PHY_POWER_DOWN_CONTROL);
-	/*
-	 * Before any transactions involving PHY, ensure PHY knows that it's
-	 * analog rail is powered ON.
-	 */
-	mb();
-
 	/* vdda_pll also enables ref clock LDOs so enable it first */
 	err = msm_ufs_phy_enable_vreg(phy, &phy->vdda_pll);
 	if (err)
@@ -1870,6 +1863,20 @@ static int msm_ufs_phy_power_on(struct msm_ufs_phy *phy)
 	err = msm_ufs_enable_phy_ref_clk(phy);
 	if (err)
 		goto out_disable_pll;
+
+	writel_relaxed(0x1, phy->mmio + UFS_PHY_POWER_DOWN_CONTROL);
+	/*
+	 * Before any transactions involving PHY, ensure PHY knows that it's
+	 * analog rail is powered ON. This also ensures that PHY is out of
+	 * power collapse before enabling the SIGDET.
+	 */
+	mb();
+	if (phy->quirks & MSM_UFS_PHY_DIS_SIGDET_BEFORE_PWR_COLLAPSE) {
+		writel_relaxed(0xC0, phy->mmio + QSERDES_RX_SIGDET_CNTRL(0));
+		writel_relaxed(0xC0, phy->mmio + QSERDES_RX_SIGDET_CNTRL(1));
+		/* make sure that SIGDET is enabled before proceeding further */
+		mb();
+	}
 
 	goto out;
 
@@ -1883,7 +1890,17 @@ out:
 
 static int msm_ufs_phy_power_off(struct msm_ufs_phy *phy)
 {
+	if (phy->quirks & MSM_UFS_PHY_DIS_SIGDET_BEFORE_PWR_COLLAPSE) {
+		writel_relaxed(0x0, phy->mmio + QSERDES_RX_SIGDET_CNTRL(0));
+		writel_relaxed(0x0, phy->mmio + QSERDES_RX_SIGDET_CNTRL(1));
+		/* Ensure that SIGDET is disabled before PHY power collapse */
+		mb();
+	}
 	writel_relaxed(0x0, phy->mmio + UFS_PHY_POWER_DOWN_CONTROL);
+	/*
+	 * Ensure that PHY knows its PHY analog rail is going to be powered
+	 * down.
+	 */
 	mb();
 
 	msm_ufs_disable_phy_ref_clk(phy);
@@ -2231,10 +2248,21 @@ static int msm_ufs_suspend(struct ufs_hba *hba, enum ufs_pm_op pm_op)
 			msm_ufs_save_phy_configuration(hba);
 
 		msm_ufs_disable_phy_ref_clk(phy);
+		if (phy->quirks & MSM_UFS_PHY_DIS_SIGDET_BEFORE_PWR_COLLAPSE) {
+			writel_relaxed(0x0,
+				       phy->mmio + QSERDES_RX_SIGDET_CNTRL(0));
+			writel_relaxed(0x0,
+				       phy->mmio + QSERDES_RX_SIGDET_CNTRL(1));
+			/*
+			 * Ensure that SIGDET is disabled before PHY power
+			 * collapse
+			 */
+			mb();
+		}
 		writel_relaxed(0x0, phy->mmio + UFS_PHY_POWER_DOWN_CONTROL);
 		/*
-		 * Ensure PHY knows that PHY analog rail is going to be powered
-		 * down.
+		 * Ensure that PHY knows its PHY analog rail is going to be
+		 * powered down.
 		 */
 		mb();
 		msm_ufs_phy_disable_vreg(phy, &phy->vdda_phy);
@@ -2558,7 +2586,8 @@ static void msm_ufs_advertise_quirks(struct ufs_hba *hba)
 			      | UFSHCD_QUIRK_BROKEN_PA_RXHSUNTERMCAP
 			      | UFSHCD_QUIRK_BROKEN_LCC);
 
-		phy->quirks = MSM_UFS_PHY_QUIRK_CFG_RESTORE;
+		phy->quirks = (MSM_UFS_PHY_QUIRK_CFG_RESTORE
+			     | MSM_UFS_PHY_DIS_SIGDET_BEFORE_PWR_COLLAPSE);
 	}
 }
 
