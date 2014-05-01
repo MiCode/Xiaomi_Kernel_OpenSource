@@ -90,8 +90,8 @@ extern struct clk_freq_tbl rcg_dummy_freq;
 struct branch_clk {
 	void   (*set_rate)(struct branch_clk *, struct clk_freq_tbl *);
 	struct clk c;
-	const u32 cbcr_reg;
-	const u32 bcr_reg;
+	u32 cbcr_reg;
+	u32 bcr_reg;
 	int has_sibling;
 	u32 cur_div;
 	u32 max_div;
