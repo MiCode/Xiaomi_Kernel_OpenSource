@@ -47,7 +47,7 @@ struct adreno_ringbuffer {
 	do { \
 		*ring = data; \
 		wmb(); \
-		kgsl_cffdump_setmem(device, gpuaddr, data, 4); \
+		kgsl_cffdump_write(device, gpuaddr, data); \
 		ring++; \
 		gpuaddr += sizeof(uint); \
 	} while (0)
