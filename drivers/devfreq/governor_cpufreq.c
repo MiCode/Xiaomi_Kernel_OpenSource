@@ -255,7 +255,7 @@ static unsigned int interpolate_freq(struct devfreq *df, unsigned int cpu)
 static unsigned int cpu_to_dev_freq(struct devfreq *df, unsigned int cpu)
 {
 	struct freq_map *map = NULL;
-	unsigned int cpu_khz, freq;
+	unsigned int cpu_khz = 0, freq;
 	struct devfreq_node *n = df->data;
 
 	if (!state[cpu] || !state[cpu]->on || state[cpu]->first_cpu != cpu) {
