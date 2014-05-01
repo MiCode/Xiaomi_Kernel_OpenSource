@@ -7328,6 +7328,11 @@ static int tomtom_resume(struct device *dev)
 {
 	struct platform_device *pdev = to_platform_device(dev);
 	struct tomtom_priv *tomtom = platform_get_drvdata(pdev);
+
+	if (!tomtom) {
+		dev_err(dev, "%s: tomtom private data is NULL\n", __func__);
+		return -EINVAL;
+	}
 	dev_dbg(dev, "%s: system resume\n", __func__);
 	/* Notify */
 	wcd9xxx_resmgr_notifier_call(&tomtom->resmgr,
