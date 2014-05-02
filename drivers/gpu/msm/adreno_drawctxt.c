@@ -406,6 +406,7 @@ int adreno_drawctxt_detach(struct kgsl_context *context)
 	struct kgsl_device *device;
 	struct adreno_device *adreno_dev;
 	struct adreno_context *drawctxt;
+	struct adreno_ringbuffer *rb;
 	int ret;
 
 	if (context == NULL)
@@ -414,10 +415,11 @@ int adreno_drawctxt_detach(struct kgsl_context *context)
 	device = context->device;
 	adreno_dev = ADRENO_DEVICE(device);
 	drawctxt = ADRENO_CONTEXT(context);
+	rb = adreno_ctx_get_rb(adreno_dev, drawctxt);
 
 	/* deactivate context */
 	if (adreno_dev->drawctxt_active == drawctxt)
-		adreno_drawctxt_switch(adreno_dev, NULL, 0);
+		adreno_drawctxt_switch(adreno_dev, rb, NULL, 0);
 
 	mutex_lock(&drawctxt->mutex);
 
@@ -548,15 +550,17 @@ static int adreno_context_restore(struct adreno_device *adreno_dev,
 }
 
 /**
- * adreno_drawctxt_switch - switch the current draw context
+ * adreno_drawctxt_switch - switch the current draw context in a given RB
  * @adreno_dev - The 3D device that owns the context
+ * @rb: The ringubffer pointer on which the current context is being changed
  * @drawctxt - the 3D context to switch to
  * @flags - Flags to accompany the switch (from user space)
  *
- * Switch the current draw context
+ * Switch the current draw context in given RB
  */
 
 int adreno_drawctxt_switch(struct adreno_device *adreno_dev,
+				struct adreno_ringbuffer *rb,
 				struct adreno_context *drawctxt,
 				unsigned int flags)
 {
@@ -570,6 +574,8 @@ int adreno_drawctxt_switch(struct adreno_device *adreno_dev,
 	trace_adreno_drawctxt_switch(adreno_dev->drawctxt_active,
 		drawctxt, flags);
 
+	/* We always expect a valid rb */
+	BUG_ON(!rb);
 	/* Get a refcount to the new instance */
 	if (drawctxt) {
 		if (!_kgsl_context_get(&drawctxt->base))
