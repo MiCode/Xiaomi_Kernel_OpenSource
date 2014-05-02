@@ -151,6 +151,7 @@
 #include "msm8994-smp2p.dtsi"
 #include "msm8994-ipcrouter.dtsi"
 #include "msm8994-coresight.dtsi"
+#include "msm8994-mdss.dtsi"
 
 &soc {
 	#address-cells = <1>;
