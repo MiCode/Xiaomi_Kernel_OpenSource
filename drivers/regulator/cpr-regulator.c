@@ -1951,10 +1951,8 @@ static int cpr_init_cpr_efuse(struct platform_device *pdev,
 		int *quot = cpr_vreg->cpr_fuse_target_quot;
 		bool valid_fuse = true;
 
-		if ((quot[CPR_FUSE_CORNER_TURBO] >
-			quot[CPR_FUSE_CORNER_NORMAL]) &&
-		    (quot[CPR_FUSE_CORNER_NORMAL] >
-			quot[CPR_FUSE_CORNER_SVS])) {
+		if (quot[CPR_FUSE_CORNER_TURBO] >
+			quot[CPR_FUSE_CORNER_NORMAL]) {
 			if ((quot[CPR_FUSE_CORNER_TURBO] -
 			     quot[CPR_FUSE_CORNER_NORMAL])
 					<= CPR_FUSE_MIN_QUOT_DIFF)
