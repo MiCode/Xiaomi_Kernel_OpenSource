@@ -1257,6 +1257,8 @@
 		reg = <0xfc33c000 0x1000>,
 		      <0xfc330000 0x1000>;
 		reg-names = "etm-base","debug-base";
+
+		qcom,coresight-jtagmm-cpu = <&CPU0>;
 	};
 
 	jtag_mm1: jtagmm@fc33d000 {
@@ -1264,6 +1266,8 @@
 		reg = <0xfc33d000 0x1000>,
 		      <0xfc332000 0x1000>;
 		reg-names = "etm-base","debug-base";
+
+		qcom,coresight-jtagmm-cpu = <&CPU1>;
 	};
 
 	jtag_mm2: jtagmm@fc33e000 {
@@ -1271,6 +1275,8 @@
 		reg = <0xfc33e000 0x1000>,
 		      <0xfc334000 0x1000>;
 		reg-names = "etm-base","debug-base";
+
+		qcom,coresight-jtagmm-cpu = <&CPU2>;
 	};
 
 	jtag_mm3: jtagmm@fc33f000 {
@@ -1278,6 +1284,8 @@
 		reg = <0xfc33f000 0x1000>,
 		      <0xfc336000 0x1000>;
 		reg-names = "etm-base","debug-base";
+
+		qcom,coresight-jtagmm-cpu = <&CPU3>;
 	};
 
 	qcom,ipc-spinlock@fd484000 {

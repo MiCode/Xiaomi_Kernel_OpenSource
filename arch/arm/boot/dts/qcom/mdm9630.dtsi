@@ -404,6 +404,8 @@
 		reg = <0xfc342000 0x1000>,
 		      <0xfc340000 0x1000>;
 		reg-names = "etm-base","debug-base";
+
+		qcom,coresight-jtagmm-cpu = <&CPU0>;
 	};
 
 	qcom,msm-rtb {
