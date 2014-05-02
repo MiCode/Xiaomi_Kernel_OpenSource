@@ -28,6 +28,8 @@ static struct dentry *diag_dbgfs_dent;
 static int diag_dbgfs_table_index;
 static int diag_dbgfs_mempool_index;
 static int diag_dbgfs_usbinfo_index;
+static int diag_dbgfs_hsicinfo_index;
+static int diag_dbgfs_bridgeinfo_index;
 static int diag_dbgfs_finished;
 static int diag_dbgfs_dci_data_index;
 static int diag_dbgfs_dci_finished;
@@ -743,27 +745,92 @@ static ssize_t diag_dbgfs_read_usbinfo(struct file *file, char __user *ubuf,
 }
 
 #ifdef CONFIG_DIAGFWD_BRIDGE_CODE
+static ssize_t diag_dbgfs_read_hsicinfo(struct file *file, char __user *ubuf,
+					size_t count, loff_t *ppos)
+{
+	char *buf = NULL;
+	int ret = 0;
+	int i = 0;
+	unsigned int buf_size;
+	unsigned int bytes_remaining = 0;
+	unsigned int bytes_written = 0;
+	unsigned int bytes_in_buffer = 0;
+	struct diag_hsic_info *hsic_info = NULL;
+
+	if (diag_dbgfs_hsicinfo_index >= NUM_DIAG_USB_DEV) {
+		/* Done. Reset to prepare for future requests */
+		diag_dbgfs_hsicinfo_index = 0;
+		return 0;
+	}
+
+	buf = kzalloc(sizeof(char) * DEBUG_BUF_SIZE, GFP_KERNEL);
+	if (ZERO_OR_NULL_PTR(buf)) {
+		pr_err("diag: %s, Error allocating memory\n", __func__);
+		return -ENOMEM;
+	}
+
+	buf_size = ksize(buf);
+	bytes_remaining = buf_size;
+	for (i = diag_dbgfs_hsicinfo_index; i < NUM_HSIC_DEV; i++) {
+		hsic_info = &diag_hsic[i];
+		if (!hsic_info->enabled)
+			continue;
+		bytes_written = scnprintf(buf+bytes_in_buffer, bytes_remaining,
+			"id: %d\n"
+			"name: %s\n"
+			"bridge index: %s\n"
+			"opened: %d\n"
+			"enabled: %d\n"
+			"suspended: %d\n"
+			"mempool: %s\n"
+			"read work pending: %d\n"
+			"open work pending: %d\n"
+			"close work pending: %d\n\n",
+			hsic_info->id,
+			hsic_info->name,
+			DIAG_BRIDGE_GET_NAME(hsic_info->dev_id),
+			hsic_info->opened,
+			hsic_info->enabled,
+			hsic_info->suspended,
+			DIAG_MEMPOOL_GET_NAME(hsic_info->mempool),
+			work_pending(&hsic_info->read_work),
+			work_pending(&hsic_info->open_work),
+			work_pending(&hsic_info->close_work));
+		bytes_in_buffer += bytes_written;
+
+		/* Check if there is room to add another table entry */
+		bytes_remaining = buf_size - bytes_in_buffer;
+
+		if (bytes_remaining < bytes_written)
+			break;
+	}
+	diag_dbgfs_hsicinfo_index = i+1;
+	*ppos = 0;
+	ret = simple_read_from_buffer(ubuf, count, ppos, buf, bytes_in_buffer);
+
+	kfree(buf);
+	return ret;
+}
+
 static ssize_t diag_dbgfs_read_bridge(struct file *file, char __user *ubuf,
-				    size_t count, loff_t *ppos)
+				      size_t count, loff_t *ppos)
 {
-	char *buf;
-	int ret;
-	int i;
-	unsigned int bytes_remaining;
-	unsigned int bytes_in_buffer = 0;
-	unsigned int bytes_written;
+	char *buf = NULL;
+	int ret = 0;
+	int i = 0;
 	unsigned int buf_size;
-	int bytes_hsic_inited = 45;
-	int bytes_hsic_not_inited = 410;
+	unsigned int bytes_remaining = 0;
+	unsigned int bytes_written = 0;
+	unsigned int bytes_in_buffer = 0;
+	struct diagfwd_bridge_info *info = NULL;
 
-	buf_size = (DEBUG_BUF_SIZE < count) ? DEBUG_BUF_SIZE : count;
-
-	if (diag_dbgfs_finished) {
-		diag_dbgfs_finished = 0;
+	if (diag_dbgfs_bridgeinfo_index >= NUM_DIAG_USB_DEV) {
+		/* Done. Reset to prepare for future requests */
+		diag_dbgfs_bridgeinfo_index = 0;
 		return 0;
 	}
 
-	buf = kzalloc(sizeof(char) * buf_size, GFP_KERNEL);
+	buf = kzalloc(sizeof(char) * DEBUG_BUF_SIZE, GFP_KERNEL);
 	if (ZERO_OR_NULL_PTR(buf)) {
 		pr_err("diag: %s, Error allocating memory\n", __func__);
 		return -ENOMEM;
@@ -771,177 +838,53 @@ static ssize_t diag_dbgfs_read_bridge(struct file *file, char __user *ubuf,
 
 	buf_size = ksize(buf);
 	bytes_remaining = buf_size;
-
-	/* Only one smux for now */
-	bytes_written = scnprintf(buf+bytes_in_buffer, bytes_remaining,
-		"Values for SMUX instance: 0\n"
-		"smux ch: %d\n"
-		"smux read_buf: %p\n"
-		"smux read_len: %d\n"
-		"smux enabled %d\n"
-		"smux in busy %d\n"
-		"smux connected %d\n\n",
-		diag_smux->lcid,
-		diag_smux->read_buf,
-		diag_smux->read_len,
-		diag_smux->enabled,
-		diag_smux->in_busy,
-		diag_smux->connected);
-
-	bytes_in_buffer += bytes_written;
-	bytes_remaining = buf_size - bytes_in_buffer;
-
-	for (i = 0; i < MAX_HSIC_DATA_CH; i++) {
-		if (diag_hsic[i].hsic_inited) {
-			/* Check if there is room to add another HSIC entry */
-			if (bytes_remaining < bytes_hsic_inited)
-				break;
-			bytes_written = scnprintf(buf+bytes_in_buffer,
-							bytes_remaining,
-			"Values for HSIC Instance: %d\n"
-			"hsic ch: %d\n"
-			"hsic_inited: %d\n"
-			"hsic enabled: %d\n"
-			"hsic_opened: %d\n"
-			"hsic_suspend: %d\n"
-			"in_busy_hsic_read_on_device: %d\n"
-			"in_busy_hsic_write: %d\n"
-			"num_hsic_buf_tbl_entries: %d\n"
-			"HSIC usb_connected: %d\n"
-			"diag_read_hsic_work: %d\n\n",
-			i,
-			diag_hsic[i].hsic_ch,
-			diag_hsic[i].hsic_inited,
-			diag_hsic[i].hsic_device_enabled,
-			diag_hsic[i].hsic_device_opened,
-			diag_hsic[i].hsic_suspend,
-			diag_hsic[i].in_busy_hsic_read_on_device,
-			diag_hsic[i].in_busy_hsic_write,
-			diag_hsic[i].num_hsic_buf_tbl_entries,
-			diag_bridge[i].usb_connected,
-			work_pending(&(diag_hsic[i].diag_read_hsic_work)));
-			if (bytes_written > bytes_hsic_inited)
-				bytes_hsic_inited = bytes_written;
-		} else {
-			/* Check if there is room to add another HSIC entry */
-			if (bytes_remaining < bytes_hsic_not_inited)
-				break;
-			bytes_written = scnprintf(buf+bytes_in_buffer,
-				bytes_remaining,
-				"HSIC Instance: %d has not been initialized\n\n",
-				i);
-			if (bytes_written > bytes_hsic_not_inited)
-				bytes_hsic_not_inited = bytes_written;
-		}
-
+	for (i = diag_dbgfs_bridgeinfo_index; i < NUM_REMOTE_DEV; i++) {
+		info = &bridge_info[i];
+		if (!info->inited)
+			continue;
+		bytes_written = scnprintf(buf+bytes_in_buffer, bytes_remaining,
+			"id: %d\n"
+			"name: %s\n"
+			"type: %d\n"
+			"inited: %d\n"
+			"ctxt: %d\n"
+			"dev_ops: %p\n"
+			"dci_read_buf: %p\n"
+			"dci_read_ptr: %p\n"
+			"dci_read_len: %d\n\n",
+			info->id,
+			info->name,
+			info->type,
+			info->inited,
+			info->ctxt,
+			info->dev_ops,
+			info->dci_read_buf,
+			info->dci_read_ptr,
+			info->dci_read_len);
 		bytes_in_buffer += bytes_written;
 
+		/* Check if there is room to add another table entry */
 		bytes_remaining = buf_size - bytes_in_buffer;
-	}
 
+		if (bytes_remaining < bytes_written)
+			break;
+	}
+	diag_dbgfs_bridgeinfo_index = i+1;
 	*ppos = 0;
 	ret = simple_read_from_buffer(ubuf, count, ppos, buf, bytes_in_buffer);
 
-	diag_dbgfs_finished = 1;
 	kfree(buf);
 	return ret;
 }
 
-static ssize_t diag_dbgfs_read_bridge_dci(struct file *file, char __user *ubuf,
-					  size_t count, loff_t *ppos)
-{
-	char *buf;
-	int ret;
-	int i;
-	unsigned int bytes_remaining;
-	unsigned int bytes_in_buffer = 0;
-	unsigned int bytes_written;
-	unsigned int buf_size;
-	int bytes_hsic_inited = 45;
-	int bytes_hsic_not_inited = 410;
-
-	buf_size = (DEBUG_BUF_SIZE < count) ? DEBUG_BUF_SIZE : count;
-
-	if (diag_dbgfs_finished) {
-		diag_dbgfs_finished = 0;
-		return 0;
-	}
-
-	buf = kzalloc(sizeof(char) * buf_size, GFP_KERNEL);
-	if (ZERO_OR_NULL_PTR(buf)) {
-		pr_err("diag: %s, Error allocating memory\n", __func__);
-		return -ENOMEM;
-	}
-
-	buf_size = ksize(buf);
-	bytes_remaining = buf_size;
-
-	for (i = 0; i < MAX_HSIC_DCI_CH; i++) {
-		if (diag_hsic_dci[i].hsic_inited) {
-			/* Check if there is room to add another HSIC entry */
-			if (bytes_remaining < bytes_hsic_inited)
-				break;
-			bytes_written = scnprintf(buf+bytes_in_buffer,
-							bytes_remaining,
-			"Values for HSIC DCI Instance: %d\n"
-			"hsic ch: %d\n"
-			"hsic_inited: %d\n"
-			"hsic enabled: %d\n"
-			"hsic_opened: %d\n"
-			"hsic_suspend: %d\n"
-			"in_busy_hsic_write: %d\n"
-			"data: %p\n"
-			"data_buf: %p\n"
-			"data_len: %d\n"
-			"diag_read_hsic_work: %d\n"
-			"diag_process_hsic_work: %d\n\n",
-			i,
-			diag_hsic_dci[i].hsic_ch,
-			diag_hsic_dci[i].hsic_inited,
-			diag_hsic_dci[i].hsic_device_enabled,
-			diag_hsic_dci[i].hsic_device_opened,
-			diag_hsic_dci[i].hsic_suspend,
-			diag_hsic_dci[i].in_busy_hsic_write,
-			diag_hsic_dci[i].data,
-			diag_hsic_dci[i].data_buf,
-			diag_hsic_dci[i].data_len,
-			work_pending(&(diag_hsic_dci[i].diag_read_hsic_work)),
-			work_pending(&(diag_hsic_dci[i].
-				       diag_process_hsic_work)));
-			if (bytes_written > bytes_hsic_inited)
-				bytes_hsic_inited = bytes_written;
-		} else {
-			/* Check if there is room to add another HSIC entry */
-			if (bytes_remaining < bytes_hsic_not_inited)
-				break;
-			bytes_written = scnprintf(buf+bytes_in_buffer,
-				bytes_remaining,
-				"HSIC DCI Instance: %d has not been initialized\n\n",
-				i);
-			if (bytes_written > bytes_hsic_not_inited)
-				bytes_hsic_not_inited = bytes_written;
-		}
-
-		bytes_in_buffer += bytes_written;
-
-		bytes_remaining = buf_size - bytes_in_buffer;
-	}
-
-	*ppos = 0;
-	ret = simple_read_from_buffer(ubuf, count, ppos, buf, bytes_in_buffer);
-
-	diag_dbgfs_finished = 1;
-	kfree(buf);
-	return ret;
-}
+const struct file_operations diag_dbgfs_hsicinfo_ops = {
+	.read = diag_dbgfs_read_hsicinfo,
+};
 
 const struct file_operations diag_dbgfs_bridge_ops = {
 	.read = diag_dbgfs_read_bridge,
 };
 
-const struct file_operations diag_dbgfs_bridge_dci_ops = {
-	.read = diag_dbgfs_read_bridge_dci,
-};
 #endif
 
 const struct file_operations diag_dbgfs_status_ops = {
@@ -1021,8 +964,8 @@ int diag_debugfs_init(void)
 	if (!entry)
 		goto err;
 
-	entry = debugfs_create_file("bridge_dci", 0444, diag_dbgfs_dent, 0,
-				    &diag_dbgfs_bridge_dci_ops);
+	entry = debugfs_create_file("hsicinfo", 0444, diag_dbgfs_dent, 0,
+				    &diag_dbgfs_hsicinfo_ops);
 	if (!entry)
 		goto err;
 #endif
@@ -1030,6 +973,8 @@ int diag_debugfs_init(void)
 	diag_dbgfs_table_index = 0;
 	diag_dbgfs_mempool_index = 0;
 	diag_dbgfs_usbinfo_index = 0;
+	diag_dbgfs_hsicinfo_index = 0;
+	diag_dbgfs_bridgeinfo_index = 0;
 	diag_dbgfs_finished = 0;
 	diag_dbgfs_dci_data_index = 0;
 	diag_dbgfs_dci_finished = 0;

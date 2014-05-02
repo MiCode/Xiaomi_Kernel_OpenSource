@@ -24,6 +24,7 @@
 #include <linux/wakelock.h>
 #include <soc/qcom/smd.h>
 #include <asm/atomic.h>
+#include "diagfwd_bridge.h"
 
 /* Size of the USB buffers used for read and write*/
 #define USB_MAX_OUT_BUF 4096
@@ -43,12 +44,10 @@
 #define MODEM_DATA		0
 #define LPASS_DATA		1
 #define WCNSS_DATA		2
-#define SENSORS_DATA    3
-#define LAST_PERIPHERAL SENSORS_DATA
+#define SENSORS_DATA		3
+#define LAST_PERIPHERAL		SENSORS_DATA
 #define APPS_DATA		(LAST_PERIPHERAL + 1)
-#define HSIC_DATA		(LAST_PERIPHERAL + 2)
-#define HSIC_2_DATA		(LAST_PERIPHERAL + 3)
-#define SMUX_DATA		(LAST_PERIPHERAL + 8)
+#define REMOTE_DATA		4
 #define APPS_PROC		1
 
 #define USER_SPACE_DATA 8192
@@ -139,9 +138,6 @@
  */
 #define NUM_DCI_PERIPHERALS	(NUM_SMD_DATA_CHANNELS + 1)
 
-/* Indicates the number of processors that support DCI */
-#define NUM_DCI_PROC		2
-
 #define SMD_DATA_TYPE 0
 #define SMD_CNTL_TYPE 1
 #define SMD_DCI_TYPE 2
@@ -162,21 +158,22 @@
 /* The Maximum request size is 2k + DCI header + footer (6 bytes) */
 #define DIAG_MDM_DCI_BUF_SIZE	(2048 + 6)
 
-#define MAX_HSIC_DATA_CH	2
-#define MAX_HSIC_DCI_CH		2
-#define MAX_HSIC_CH		(MAX_HSIC_DATA_CH + MAX_HSIC_DCI_CH)
-
 #define DIAG_LOCAL_PROC	0
-#ifdef CONFIG_DIAGFWD_BRIDGE_CODE
-/* Local Processor + HSIC channels */
-#define DIAG_NUM_PROC	(1 + MAX_HSIC_DATA_CH)
-#else
+
+#ifndef CONFIG_DIAGFWD_BRIDGE_CODE
 /* Local Processor only */
 #define DIAG_NUM_PROC	1
+#else
+/* Local Processor + Remote Devices */
+#define DIAG_NUM_PROC	(1 + NUM_REMOTE_DEV)
 #endif
 
 #define DIAG_WS_DCI		0
 #define DIAG_WS_MD		1
+
+#define DIAG_DATA_TYPE		1
+#define DIAG_CNTL_TYPE		2
+#define DIAG_DCI_TYPE		3
 
 /* Maximum number of pkt reg supported at initialization*/
 extern int diag_max_reg;
@@ -407,6 +404,7 @@ struct diagchar_dev {
 	uint8_t mask_centralization[NUM_SMD_CONTROL_CHANNELS];
 	unsigned char *apps_rsp_buf;
 	unsigned char *user_space_data_buf;
+	uint8_t user_space_data_busy;
 	/* buffer for updating mask to peripherals */
 	unsigned char *buf_feature_mask_update;
 	struct mutex diag_hdlc_mutex;
@@ -456,12 +454,13 @@ struct diagchar_dev {
 	uint16_t num_event_id[NUM_SMD_CONTROL_CHANNELS];
 	uint32_t num_equip_id[NUM_SMD_CONTROL_CHANNELS];
 	uint32_t max_ssid_count[NUM_SMD_CONTROL_CHANNELS];
+#ifdef CONFIG_DIAGFWD_BRIDGE_CODE
+	/* For sending command requests in callback mode */
+	unsigned char *cb_buf;
+	int cb_buf_len;
+#endif
 };
 
-extern struct diag_bridge_dev *diag_bridge;
-extern struct diag_bridge_dci_dev *diag_bridge_dci;
-extern struct diag_hsic_dev *diag_hsic;
-extern struct diag_hsic_dci_dev *diag_hsic_dci;
 extern struct diagchar_dev *driver;
 
 extern int wrap_enabled;
@@ -470,6 +469,7 @@ extern uint16_t wrap_count;
 void diag_get_timestamp(char *time_str);
 int diag_find_polling_reg(int i);
 void check_drain_timer(void);
+int diag_get_remote(int remote_info);
 
 void diag_ws_init(void);
 void diag_ws_on_notify(void);

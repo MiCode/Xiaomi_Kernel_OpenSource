@@ -13,49 +13,54 @@
 #ifndef DIAGFWD_BRIDGE_H
 #define DIAGFWD_BRIDGE_H
 
-#include "diagfwd.h"
-
-#define MAX_BRIDGES_DATA	3
-#define MAX_BRIDGES_DCI		2
-#define HSIC_DATA_CH		0
-#define HSIC_DATA_CH_2		1
-#define HSIC_DCI_CH		0
-#define HSIC_DCI_CH_2		1
-#define SMUX			2
-
-#define DIAG_DATA_BRIDGE_IDX	0
-#define DIAG_DCI_BRIDGE_IDX	1
-#define DIAG_DATA_BRIDGE_IDX_2	2
-#define DIAG_DCI_BRIDGE_IDX_2	3
-
-int diagfwd_bridge_init(int index);
-int diagfwd_bridge_dci_init(int index);
-void diagfwd_bridge_exit(void);
-void diagfwd_bridge_dci_exit(void);
-
-/* Diag-Bridge structure, n bridges can be used at same time
- * for instance SMUX, HSIC working at same time
+/*
+ * Add Data channels at the top half and the DCI channels at the
+ * bottom half of this list.
  */
-struct diag_bridge_dev {
-	int id;
-	int usb_id;
-	char name[20];
-	int enabled;
-	struct mutex bridge_mutex;
-	int usb_connected;
-	int read_len;
-	struct workqueue_struct *wq;
+#define DIAGFWD_MDM		0
+#define DIAGFWD_SMUX		1
+#define NUM_REMOTE_DATA_DEV	2
+#define DIAGFWD_MDM_DCI		NUM_REMOTE_DATA_DEV
+#define NUM_REMOTE_DCI_DEV	(DIAGFWD_MDM_DCI - NUM_REMOTE_DATA_DEV + 1)
+#define NUM_REMOTE_DEV		(NUM_REMOTE_DATA_DEV + NUM_REMOTE_DCI_DEV)
+
+#define DIAG_BRIDGE_NAME_SZ	24
+#define DIAG_BRIDGE_GET_NAME(x)	(bridge_info[x].name)
+
+struct diag_remote_dev_ops {
+	int (*open)(int id);
+	int (*close)(int id);
+	int (*queue_read)(int id);
+	int (*write)(int id, unsigned char *buf, int len, int ctxt);
+	int (*fwd_complete)(int id, unsigned char *buf, int len, int ctxt);
 };
 
-struct diag_bridge_dci_dev {
+struct diagfwd_bridge_info {
 	int id;
-	char name[20];
-	int enabled;
-	struct mutex bridge_mutex;
-	int read_len;
-	int write_len;
-	struct workqueue_struct *wq;
-	struct work_struct read_complete_work;
+	int type;
+	int inited;
+	int ctxt;
+	char name[DIAG_BRIDGE_NAME_SZ];
+	struct diag_remote_dev_ops *dev_ops;
+	/* DCI related variables. These would be NULL for data channels */
+	void *dci_read_ptr;
+	unsigned char *dci_read_buf;
+	int dci_read_len;
+	struct workqueue_struct *dci_wq;
+	struct work_struct dci_read_work;
 };
+
+extern struct diagfwd_bridge_info bridge_info[NUM_REMOTE_DEV];
+int diagfwd_bridge_init(void);
+void diagfwd_bridge_exit(void);
+int diagfwd_bridge_write(int id, unsigned char *buf, int len);
+uint16_t diag_get_remote_device_mask(void);
+
+/* The following functions must be called by Diag remote devices only. */
+int diagfwd_bridge_register(int id, int ctxt, struct diag_remote_dev_ops *ops);
+int diag_remote_dev_open(int id);
+void diag_remote_dev_close(int id);
+int diag_remote_dev_read_done(int id, unsigned char *buf, int len);
+int diag_remote_dev_write_done(int id, unsigned char *buf, int len, int ctxt);
 
 #endif

@@ -18,7 +18,7 @@
 #include "diagchar.h"
 #include "diagfwd.h"
 #include "diagfwd_cntl.h"
-#include "diagfwd_hsic.h"
+#include "diagfwd_bridge.h"
 #include "diag_dci.h"
 #include "diagmem.h"
 #include "diag_masks.h"
@@ -679,7 +679,7 @@ void diag_update_real_time_vote(uint16_t proc, uint8_t real_time, int index)
 
 
 #ifdef CONFIG_DIAGFWD_BRIDGE_CODE
-static void diag_send_diag_mode_update_by_hsic(int index, int real_time)
+static void diag_send_diag_mode_update_remote(int token, int real_time)
 {
 	unsigned char *buf = NULL;
 	int err = 0;
@@ -688,9 +688,9 @@ static void diag_send_diag_mode_update_by_hsic(int index, int real_time)
 	int msg_size = sizeof(struct diag_ctrl_msg_diagmode);
 	uint32_t write_len = 0;
 
-	if (index < 0 || index > MAX_HSIC_DCI_CH) {
-		pr_err("diag: Invalid HSIC channel in %s, index: %d\n",
-							__func__, index);
+	if (token < 0 || token >= NUM_DCI_PROC) {
+		pr_err("diag: Invalid remote device channel in %s, token: %d\n",
+							__func__, token);
 		return;
 	}
 
@@ -700,13 +700,7 @@ static void diag_send_diag_mode_update_by_hsic(int index, int real_time)
 		return;
 	}
 
-	if (!diag_hsic_dci[index].hsic_ch) {
-		pr_debug("diag: In %s, hsic dci channel %d is not enabled.\n",
-							__func__, index);
-		return;
-	}
-
-	buf = dci_get_buffer_from_bridge(index);
+	buf = dci_get_buffer_from_bridge(token);
 	if (!buf) {
 		pr_err("diag: In %s, unable to get dci buffers to write data\n",
 			__func__);
@@ -724,16 +718,16 @@ static void diag_send_diag_mode_update_by_hsic(int index, int real_time)
 	write_len += msg_size;
 	*(buf + write_len) = CONTROL_CHAR; /* End Terminator */
 	write_len += sizeof(uint8_t);
-	err = diag_dci_write_bridge(index, buf, write_len);
+	err = diagfwd_bridge_write(TOKEN_TO_BRIDGE(token), buf, write_len);
 	if (err != write_len) {
 		pr_err("diag: cannot send nrt mode ctrl pkt, err: %d\n", err);
-		diagmem_free(driver, buf, POOL_TYPE_MDM_DCI_WRITE + index);
+		diagmem_free(driver, buf, dci_ops_tbl[token].mempool);
 	} else {
-		driver->real_time_mode[index + 1] = real_time;
+		driver->real_time_mode[token + 1] = real_time;
 	}
 }
 #else
-static inline void diag_send_diag_mode_update_by_hsic(int index, int real_time)
+static inline void diag_send_diag_mode_update_remote(int token, int real_time)
 {
 }
 #endif
@@ -756,7 +750,7 @@ void diag_real_time_work_fn(struct work_struct *work)
 				diag_send_diag_mode_update_by_smd(
 					&driver->smd_cntl[j], temp_real_time);
 		} else {
-			diag_send_diag_mode_update_by_hsic(i - 1,
+			diag_send_diag_mode_update_remote(i - 1,
 							   temp_real_time);
 		}
 	}
@@ -792,8 +786,8 @@ void diag_real_time_work_fn(struct work_struct *work)
 				diag_send_diag_mode_update_by_smd(
 					&driver->smd_cntl[j], temp_real_time);
 		} else {
-			diag_send_diag_mode_update_by_hsic(i - 1,
-								temp_real_time);
+			diag_send_diag_mode_update_remote(i - 1,
+							  temp_real_time);
 		}
 	}
 
