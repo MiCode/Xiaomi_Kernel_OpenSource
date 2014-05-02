@@ -131,6 +131,13 @@ enum msm_sensor_resolution_t {
 	MSM_SENSOR_INVALID_RES,
 };
 
+enum msm_camera_stream_type_t {
+	MSM_CAMERA_STREAM_PREVIEW,
+	MSM_CAMERA_STREAM_SNAPSHOT,
+	MSM_CAMERA_STREAM_VIDEO,
+	MSM_CAMERA_STREAM_INVALID,
+};
+
 enum sensor_sub_module_t {
 	SUB_MODULE_SENSOR,
 	SUB_MODULE_CHROMATIX,
@@ -493,6 +500,7 @@ enum msm_sensor_cfg_type_t {
 	CFG_SET_WHITE_BALANCE,
 	CFG_SET_AUTOFOCUS,
 	CFG_CANCEL_AUTOFOCUS,
+	CFG_SET_STREAM_TYPE,
 };
 
 enum msm_actuator_cfg_type_t {
