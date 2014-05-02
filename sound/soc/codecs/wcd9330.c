@@ -7061,8 +7061,6 @@ static int tomtom_codec_fll_enable(struct snd_soc_codec *codec,
 			      0xC2);
 		snd_soc_write(codec, TOMTOM_A_FLL_LOCK_DET_COUNT,
 			      0x40);
-		snd_soc_update_bits(codec, TOMTOM_A_FLL_KDCO_TUNE,
-				    0x80, 0x80);
 		snd_soc_update_bits(codec, TOMTOM_A_FLL_TEST_ENABLE,
 				    0x06, 0x06);
 	} else {
