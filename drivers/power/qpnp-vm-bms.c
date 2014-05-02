@@ -102,7 +102,7 @@
 #define MAX_OCV_TOL_THRESHOLD		(OCV_TOL_LSB_UV * 0xFF)
 #define MAX_SAMPLE_COUNT		256
 #define MAX_SAMPLE_INTERVAL		2550
-#define BMS_READ_TIMEOUT		3000
+#define BMS_READ_TIMEOUT		500
 #define BMS_DEFAULT_TEMP		250
 #define OCV_INVALID			0xFFFF
 #define SOC_INVALID			0xFF
@@ -174,7 +174,7 @@ struct qpnp_bms_chip {
 	bool				battery_full;
 	bool				bms_dev_open;
 	bool				data_ready;
-	bool				charging_while_suspended;
+	bool				apply_suspend_config;
 	bool				in_cv_state;
 	bool				low_soc_fifo_set;
 	int				battery_status;
@@ -194,6 +194,7 @@ struct qpnp_bms_chip {
 	int				last_ocv_uv;
 	int				s2_fifo_length;
 	int				last_acc;
+	int				hi_power_state;
 	unsigned int			vadc_v0625;
 	unsigned int			vadc_v1250;
 	unsigned long			tm_sec;
@@ -1473,6 +1474,37 @@ static int get_prop_bms_capacity(struct qpnp_bms_chip *chip)
 	return report_state_of_charge(chip);
 }
 
+static bool is_hi_power_state_requested(struct qpnp_bms_chip *chip)
+{
+
+	pr_debug("hi_power_state=0x%x\n", chip->hi_power_state);
+
+	if (chip->hi_power_state & VMBMS_IGNORE_ALL_BIT)
+		return false;
+	else
+		return !!chip->hi_power_state;
+
+}
+
+static int qpnp_vm_bms_config_power_state(struct qpnp_bms_chip *chip,
+				int usecase, bool hi_power_enable)
+{
+	if (usecase < 0) {
+		pr_err("Invalid power-usecase %x\n", usecase);
+		return -EINVAL;
+	}
+
+	if (hi_power_enable)
+		chip->hi_power_state |= usecase;
+	else
+		chip->hi_power_state &= ~usecase;
+
+	pr_debug("hi_power_state=%x usecase=%x hi_power_enable=%d\n",
+			chip->hi_power_state, usecase, hi_power_enable);
+
+	return 0;
+}
+
 static enum power_supply_property bms_power_props[] = {
 	POWER_SUPPLY_PROP_CAPACITY,
 	POWER_SUPPLY_PROP_STATUS,
@@ -1480,6 +1512,8 @@ static enum power_supply_property bms_power_props[] = {
 	POWER_SUPPLY_PROP_RESISTANCE_CAPACITIVE,
 	POWER_SUPPLY_PROP_CURRENT_NOW,
 	POWER_SUPPLY_PROP_VOLTAGE_OCV,
+	POWER_SUPPLY_PROP_HI_POWER,
+	POWER_SUPPLY_PROP_LOW_POWER,
 	POWER_SUPPLY_PROP_BATTERY_TYPE,
 	POWER_SUPPLY_PROP_TEMP,
 };
@@ -1491,6 +1525,8 @@ qpnp_vm_bms_property_is_writeable(struct power_supply *psy,
 	switch (psp) {
 	case POWER_SUPPLY_PROP_CURRENT_NOW:
 	case POWER_SUPPLY_PROP_VOLTAGE_OCV:
+	case POWER_SUPPLY_PROP_HI_POWER:
+	case POWER_SUPPLY_PROP_LOW_POWER:
 		return 1;
 	default:
 		break;
@@ -1538,6 +1574,12 @@ static int qpnp_vm_bms_power_get_property(struct power_supply *psy,
 			value = BMS_DEFAULT_TEMP;
 		val->intval = value;
 		break;
+	case POWER_SUPPLY_PROP_HI_POWER:
+		val->intval = is_hi_power_state_requested(chip);
+		break;
+	case POWER_SUPPLY_PROP_LOW_POWER:
+		val->intval = !is_hi_power_state_requested(chip);
+		break;
 	default:
 		return -EINVAL;
 	}
@@ -1548,6 +1590,7 @@ static int qpnp_vm_bms_power_set_property(struct power_supply *psy,
 					enum power_supply_property psp,
 					const union power_supply_propval *val)
 {
+	int rc = 0;
 	struct qpnp_bms_chip *chip = container_of(psy,
 				struct qpnp_bms_chip, bms_psy);
 
@@ -1562,10 +1605,20 @@ static int qpnp_vm_bms_power_set_property(struct power_supply *psy,
 		pr_debug("OCV = %d\n", val->intval);
 		monitor_soc_work(&chip->monitor_soc_work.work);
 		break;
+	case POWER_SUPPLY_PROP_HI_POWER:
+		rc = qpnp_vm_bms_config_power_state(chip, val->intval, true);
+		if (rc)
+			pr_err("Unable to set power-state rc=%d\n", rc);
+		break;
+	case POWER_SUPPLY_PROP_LOW_POWER:
+		rc = qpnp_vm_bms_config_power_state(chip, val->intval, false);
+		if (rc)
+			pr_err("Unable to set power-state rc=%d\n", rc);
+		break;
 	default:
 		return -EINVAL;
 	}
-	return 0;
+	return rc;
 }
 
 static void bms_new_battery_setup(struct qpnp_bms_chip *chip)
@@ -3093,10 +3146,19 @@ static void process_resume_data(struct qpnp_bms_chip *chip)
 static int bms_suspend(struct device *dev)
 {
 	struct qpnp_bms_chip *chip = dev_get_drvdata(dev);
+	bool battery_charging = is_battery_charging(chip);
+	bool hi_power_state = is_hi_power_state_requested(chip);
 
-	chip->charging_while_suspended = is_battery_charging(chip);
+	chip->apply_suspend_config = false;
+	if (!battery_charging && !hi_power_state)
+		chip->apply_suspend_config = true;
 
-	if (!chip->charging_while_suspended) {
+	pr_debug("battery_charging=%d power_state=%s hi_power_state=0x%x apply_suspend_config=%d\n",
+			battery_charging, hi_power_state ? "hi" : "low",
+				chip->hi_power_state,
+				chip->apply_suspend_config);
+
+	if (chip->apply_suspend_config) {
 		if (chip->dt.cfg_force_s3_on_suspend) {
 			pr_debug("Forcing S3 state\n");
 			mutex_lock(&chip->state_change_mutex);
@@ -3119,7 +3181,7 @@ static int bms_resume(struct device *dev)
 	unsigned long tm_now_sec;
 	struct qpnp_bms_chip *chip = dev_get_drvdata(dev);
 
-	if (!chip->charging_while_suspended) {
+	if (chip->apply_suspend_config) {
 		if (chip->dt.cfg_force_s3_on_suspend) {
 			/*
 			 * Update the state to S2 only if we are in S3. There is

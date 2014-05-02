@@ -25,4 +25,10 @@ struct qpnp_vm_bms_data {
 	unsigned int seq_num;
 };
 
+enum vmbms_power_usecase {
+	VMBMS_IGNORE_ALL_BIT = 1,
+	VMBMS_VOICE_CALL_BIT = (1 << 4),
+	VMBMS_STATIC_DISPLAY_BIT = (1 << 5),
+};
+
 #endif	/* __VM_BMS_H__ */
