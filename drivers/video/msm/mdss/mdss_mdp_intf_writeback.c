@@ -49,7 +49,7 @@ struct mdss_mdp_writeback_ctx {
 	struct mdss_mdp_format_params *dst_fmt;
 	u16 width;
 	u16 height;
-	struct mdss_mdp_img_rect dst_rect;
+	struct mdss_rect dst_rect;
 
 	u8 rot90;
 	u32 bwc_mode;
