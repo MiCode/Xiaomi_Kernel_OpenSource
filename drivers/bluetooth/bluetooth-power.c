@@ -26,9 +26,7 @@
 #include <linux/bluetooth-power.h>
 #include <linux/slab.h>
 #include <linux/regulator/consumer.h>
-#ifdef CONFIG_CNSS
 #include <net/cnss.h>
-#endif
 
 #define BT_PWR_DBG(fmt, arg...)  pr_debug("%s: " fmt "\n" , __func__ , ## arg)
 #define BT_PWR_INFO(fmt, arg...) pr_info("%s: " fmt "\n" , __func__ , ## arg)
