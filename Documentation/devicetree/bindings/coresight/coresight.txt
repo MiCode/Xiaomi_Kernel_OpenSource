@@ -104,6 +104,7 @@ Required properties:
 - coresight-name : unique descriptive name of the component
 - coresight-nr-inports : number of input ports on the component
 - coresight-cti-cpu : cpu phandle for cpu cti, required when qcom,cti-save is true
+- coresight-etm-cpu : specifies phandle for the cpu associated with the ETM device
 
 coresight-outports, coresight-child-list and coresight-child-ports lists will
 be of the same length and will have a one to one correspondence among the
@@ -278,6 +279,8 @@ Examples:
 		coresight-outports = <0>;
 		coresight-child-list = <&funnel_kpss>;
 		coresight-child-ports = <0>;
+		coresight-etm-cpu = <&CPU0>;
+
 		qcom,pc-save;
 		qcom,round-robin;
 	};

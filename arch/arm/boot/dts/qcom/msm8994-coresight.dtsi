@@ -213,6 +213,7 @@
 		coresight-outports = <0>;
 		coresight-child-list = <&funnel_apss>;
 		coresight-child-ports = <0>;
+		coresight-etm-cpu = <&CPU0>;
 
 		clocks = <&clock_rpm clk_qdss_clk>,
 			 <&clock_rpm clk_qdss_a_clk>;
@@ -230,6 +231,7 @@
 		coresight-outports = <0>;
 		coresight-child-list = <&funnel_apss>;
 		coresight-child-ports = <1>;
+		coresight-etm-cpu = <&CPU1>;
 
 		clocks = <&clock_rpm clk_qdss_clk>,
 			 <&clock_rpm clk_qdss_a_clk>;
@@ -247,6 +249,7 @@
 		coresight-outports = <0>;
 		coresight-child-list = <&funnel_apss>;
 		coresight-child-ports = <2>;
+		coresight-etm-cpu = <&CPU2>;
 
 		clocks = <&clock_rpm clk_qdss_clk>,
 			 <&clock_rpm clk_qdss_a_clk>;
@@ -264,6 +267,7 @@
 		coresight-outports = <0>;
 		coresight-child-list = <&funnel_apss>;
 		coresight-child-ports = <3>;
+		coresight-etm-cpu = <&CPU3>;
 
 		clocks = <&clock_rpm clk_qdss_clk>,
 			 <&clock_rpm clk_qdss_a_clk>;
@@ -281,6 +285,7 @@
 		coresight-outports = <0>;
 		coresight-child-list = <&funnel_apss>;
 		coresight-child-ports = <4>;
+		coresight-etm-cpu = <&CPU4>;
 
 		clocks = <&clock_rpm clk_qdss_clk>,
 			 <&clock_rpm clk_qdss_a_clk>;
@@ -298,6 +303,7 @@
 		coresight-outports = <0>;
 		coresight-child-list = <&funnel_apss>;
 		coresight-child-ports = <5>;
+		coresight-etm-cpu = <&CPU5>;
 
 		clocks = <&clock_rpm clk_qdss_clk>,
 			 <&clock_rpm clk_qdss_a_clk>;
@@ -315,6 +321,7 @@
 		coresight-outports = <0>;
 		coresight-child-list = <&funnel_apss>;
 		coresight-child-ports = <6>;
+		coresight-etm-cpu = <&CPU6>;
 
 		clocks = <&clock_rpm clk_qdss_clk>,
 			 <&clock_rpm clk_qdss_a_clk>;
@@ -332,6 +339,7 @@
 		coresight-outports = <0>;
 		coresight-child-list = <&funnel_apss>;
 		coresight-child-ports = <7>;
+		coresight-etm-cpu = <&CPU7>;
 
 		clocks = <&clock_rpm clk_qdss_clk>,
 			 <&clock_rpm clk_qdss_a_clk>;

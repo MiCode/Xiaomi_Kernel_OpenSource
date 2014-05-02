@@ -211,6 +211,7 @@
 		coresight-outports = <0>;
 		coresight-child-list = <&funnel_apss>;
 		coresight-child-ports = <0>;
+		coresight-etm-cpu = <&CPU0>;
 
 		clocks = <&clock_rpm clk_qdss_clk>,
 			 <&clock_rpm clk_qdss_a_clk>;
@@ -228,11 +229,11 @@
 		coresight-outports = <0>;
 		coresight-child-list = <&funnel_apss>;
 		coresight-child-ports = <1>;
+		coresight-etm-cpu = <&CPU1>;
 
 		clocks = <&clock_rpm clk_qdss_clk>,
 			 <&clock_rpm clk_qdss_a_clk>;
 		clock-names = "core_clk", "core_a_clk";
-
 	};
 
 	etm2: etm@85e000 {
@@ -246,6 +247,7 @@
 		coresight-outports = <0>;
 		coresight-child-list = <&funnel_apss>;
 		coresight-child-ports = <2>;
+		coresight-etm-cpu = <&CPU2>;
 
 		clocks = <&clock_rpm clk_qdss_clk>,
 			 <&clock_rpm clk_qdss_a_clk>;
@@ -263,6 +265,7 @@
 		coresight-outports = <0>;
 		coresight-child-list = <&funnel_apss>;
 		coresight-child-ports = <3>;
+		coresight-etm-cpu = <&CPU3>;
 
 		clocks = <&clock_rpm clk_qdss_clk>,
 			 <&clock_rpm clk_qdss_a_clk>;
