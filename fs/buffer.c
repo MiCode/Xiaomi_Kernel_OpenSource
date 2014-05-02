@@ -641,6 +641,8 @@ static void __set_page_dirty(struct page *page, struct address_space *mapping,
 		account_page_dirtied(page, mapping, memcg);
 		radix_tree_tag_set(&mapping->page_tree,
 				page_index(page), PAGECACHE_TAG_DIRTY);
+		/* Save the task that is dirtying this page */
+		page->tsk_dirty = current;
 	}
 	spin_unlock_irqrestore(&mapping->tree_lock, flags);
 }
