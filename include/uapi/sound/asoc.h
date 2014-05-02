@@ -775,6 +775,7 @@ enum snd_soc_dapm_type {
 #define SND_SOC_FW_DAPM_WIDGET		3
 #define SND_SOC_FW_DAI_LINK		4
 #define SND_SOC_FW_COEFF		5
+#define SND_SOC_FW_DAI			6
 
 #define SND_SOC_FW_VENDOR_FW		1000
 #define SND_SOC_FW_VENDOR_CONFIG	1001
@@ -893,4 +894,32 @@ struct snd_soc_file_coeff_data {
 	/* data here */
 } __attribute__((packed));
 
+
+
+struct snd_soc_fw_dai_caps {
+	const char stream_name[SND_SOC_FW_TEXT_SIZE];
+	__le64 formats;		/* SNDRV_PCM_FMTBIT_* */
+	__le32 rates;		/* SNDRV_PCM_RATE_* */
+	__le32 rate_min;	/* min rate */
+	__le32 rate_max;	/* max rate */
+	__le32 channels_min;	/* min channels */
+	__le32 channels_max;	/* max channels */
+	__le32 reserved[12];	/* Reserved for future use*/
+} __attribute__((packed));
+
+struct snd_soc_fw_dai_elem {
+	const char name[SND_SOC_FW_TEXT_SIZE];
+	__le32 dai_type;    /* Type used to match dais and set ops */
+	__u8 compress_dai;  /* 1 = compressed; 0 = PCM*/
+	__le32 reserved[12];/* reserved for future use */
+	__le32 pb_stream:1; /* If playback stream supported this dai */
+	__le32 cp_stream:1; /* If capture stream supported this dai */
+	struct snd_soc_fw_dai_caps playback_caps;
+	struct snd_soc_fw_dai_caps capture_caps;
+} __attribute__((packed));
+
+struct snd_soc_fw_dai_data {
+	__le32 count; /* in elems */
+/* data here */
+} __attribute__((packed));
 #endif

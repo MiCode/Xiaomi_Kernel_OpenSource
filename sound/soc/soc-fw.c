@@ -40,9 +40,10 @@
 #define SOC_FW_PASS_WIDGET	2
 #define SOC_FW_PASS_GRAPH	3
 #define SOC_FW_PASS_PINS	4
+#define SOC_FW_PASS_DAI		5
 
 #define SOC_FW_PASS_START	SOC_FW_PASS_VENDOR
-#define SOC_FW_PASS_END	SOC_FW_PASS_PINS
+#define SOC_FW_PASS_END	SOC_FW_PASS_DAI
 
 struct soc_fw {
 	const char *file;
@@ -63,6 +64,10 @@ struct soc_fw {
 	/* kcontrol operations */
 	const struct snd_soc_fw_kcontrol_ops *io_ops;
 	int io_ops_count;
+
+	/* dai operations */
+	const struct snd_soc_fw_dai_ops *dai_ops;
+	int dai_ops_count;
 
 	/* optional fw loading callbacks to component drivers */
 	union {
@@ -243,6 +248,16 @@ static int soc_fw_widget_load(struct soc_fw *sfw, struct snd_soc_dapm_widget *w)
 	return 0;
 }
 
+/* pass new dynamic dais to component driver for dai registration */
+static int soc_fw_dai_load(struct soc_fw *sfw, struct snd_soc_dai_driver *dai_drv, int n)
+{
+	if (sfw->platform && sfw->platform_ops && sfw->platform_ops->dai_load)
+		return sfw->platform_ops->dai_load(sfw->platform, dai_drv, n);
+
+	dev_dbg(sfw->dev, "ASoC: no handler specified for dai registration\n");
+
+	return 0;
+}
 /* tell the component driver that all firmware has been loaded in this request */
 static void soc_fw_complete(struct soc_fw *sfw)
 {
@@ -1101,6 +1116,108 @@ static int soc_fw_dai_link_load(struct soc_fw *sfw, struct snd_soc_fw_hdr *hdr)
 	return 0;
 }
 
+/* bind a dai to its ops */
+static int soc_fw_dai_bind_ops(unsigned int dai_type, struct snd_soc_dai_driver *dai_drv,
+		const struct snd_soc_fw_dai_ops *ops, int num_ops)
+{
+	int i;
+
+	dai_drv->ops = NULL;
+	for (i = 0; i < num_ops; i++) {
+		if (dai_type == ops[i].id) {
+			dai_drv->ops = ops[i].ops;
+			break;
+		}
+	}
+
+	return 0;
+}
+
+static inline int soc_fw_set_dai_caps(struct snd_soc_pcm_stream *stream,
+		struct	snd_soc_fw_dai_caps *caps)
+{
+	/* validate stream names */
+	if (strnlen(caps->stream_name, SND_SOC_FW_TEXT_SIZE) ==
+			SND_SOC_FW_TEXT_SIZE)
+		return -EINVAL;
+
+	stream->stream_name = caps->stream_name;
+	stream->formats = caps->formats;
+	stream->rates = caps->rates;
+	stream->rate_min = caps->rate_min;
+	stream->rate_max = caps->rate_max;
+	stream->channels_min = caps->channels_min;
+	stream->channels_max = caps->channels_max;
+	return 0;
+}
+
+static int soc_fw_ddai_load(struct soc_fw *sfw, struct snd_soc_fw_hdr *hdr)
+{
+	struct snd_soc_fw_dai_data *dai_data =
+		(struct snd_soc_fw_dai_data *)sfw->pos;
+	struct snd_soc_fw_dai_elem *elem;
+	int count = dai_data->count, i;
+	struct snd_soc_dai_driver *dai_drv;
+
+	if (sfw->pass != SOC_FW_PASS_DAI)
+		return 0;
+
+	sfw->pos += sizeof(struct snd_soc_fw_dai_data);
+	/* The following function for control count has been reused to
+	 * validate the dai count as well
+	 */
+	if (soc_fw_check_control_count(sfw,
+				sizeof(struct snd_soc_fw_dai_elem),
+				count, hdr->size)) {
+		dev_err(sfw->dev, "ASoC: invalid count %d for DAI elems\n",
+				count);
+		return -EINVAL;
+	}
+
+	dev_dbg(sfw->dev, "ASoC: adding %d DAIs\n", count);
+	dai_drv = devm_kzalloc(sfw->dev,
+			sizeof(struct snd_soc_dai_driver) * count, GFP_KERNEL);
+	if (!dai_drv) {
+		dev_err(sfw->dev, "ASoC: Mem alloc failue\n");
+		return -ENOMEM;
+	}
+	for (i = 0; i < count; i++) {
+		elem = (struct snd_soc_fw_dai_elem *)sfw->pos;
+		sfw->pos += sizeof(struct snd_soc_fw_dai_elem);
+
+		/* validate dai name */
+		if (strnlen(elem->name, SND_SOC_FW_TEXT_SIZE) ==
+				SND_SOC_FW_TEXT_SIZE) {
+			dev_err(sfw->dev, "ASoC: invalid dai name\n");
+			return -EINVAL;
+		}
+		dai_drv[i].name = elem->name;
+		dai_drv[i].compress_dai = elem->compress_dai;
+
+		if (elem->pb_stream) {
+			if (soc_fw_set_dai_caps(&dai_drv[i].playback,
+					&elem->playback_caps)) {
+				dev_err(sfw->dev, "ASoC: invalid playback stream name\n");
+				return -EINVAL;
+			}
+
+		}
+		if (elem->cp_stream) {
+			if (soc_fw_set_dai_caps(&dai_drv[i].capture,
+					&elem->capture_caps)) {
+				dev_err(sfw->dev, "ASoC: invalid capture stream name\n");
+				return -EINVAL;
+			}
+		}
+
+		soc_fw_dai_bind_ops(elem->dai_type, &dai_drv[i],
+				sfw->dai_ops, sfw->dai_ops_count);
+	}
+
+	/* Call the platform driver call back to register the dais */
+	return soc_fw_dai_load(sfw, dai_drv,  count);
+}
+
 static int soc_valid_header(struct soc_fw *sfw, struct snd_soc_fw_hdr *hdr)
 {
 	if (soc_fw_get_hdr_offset(sfw) >= sfw->fw->size)
@@ -1161,6 +1278,8 @@ static int soc_fw_load_header(struct soc_fw *sfw, struct snd_soc_fw_hdr *hdr)
 		return soc_fw_dai_link_load(sfw, hdr);
 	case SND_SOC_FW_COEFF:
 		return soc_fw_coeff_load(sfw, hdr);
+	case SND_SOC_FW_DAI:
+		return soc_fw_ddai_load(sfw, hdr);
 	default:
 		return soc_fw_vendor_load(sfw, hdr);
 	}
@@ -1247,6 +1366,8 @@ int snd_soc_fw_load_platform(struct snd_soc_platform *platform,
 	sfw.index = index;
 	sfw.io_ops = ops->io_ops;
 	sfw.io_ops_count = ops->io_ops_count;
+	sfw.dai_ops = ops->dai_ops;
+	sfw.dai_ops_count = ops->dai_ops_count;
 
 	return soc_fw_load(&sfw);
 }

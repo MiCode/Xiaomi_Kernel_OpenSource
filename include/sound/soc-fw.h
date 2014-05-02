@@ -32,6 +32,14 @@ struct snd_soc_fw_kcontrol_ops {
 };
 
 /*
+ * Dai operations - used to map dai ops structure to firmware based dais.
+ */
+struct snd_soc_fw_dai_ops {
+	u32 id;
+	struct snd_soc_dai_ops *ops;
+};
+
+/*
  * Public API - Used by component drivers to load new mixers, DAPM, vendor
  * specific data.
  */
@@ -63,6 +71,9 @@ struct snd_soc_fw_platform_ops {
 	/* external widget init - can be used to set ext funcs + pdata */
 	int (*widget_load)(struct snd_soc_platform *, struct snd_soc_dapm_widget *);
 
+	/* external dai init - can be used to set ext funcs + pdata */
+	int (*dai_load)(struct snd_soc_platform *, struct snd_soc_dai_driver *dai_drv, int n);
+
 	/* callback to handle vendor data */
 	int (*vendor_load)(struct snd_soc_platform *, struct snd_soc_fw_hdr *);
 	int (*vendor_unload)(struct snd_soc_platform *, struct snd_soc_fw_hdr *);
@@ -73,6 +84,10 @@ struct snd_soc_fw_platform_ops {
 	/* kcontrols operations */
 	const struct snd_soc_fw_kcontrol_ops *io_ops;
 	int io_ops_count;
+
+	/* dai operations */
+	const struct snd_soc_fw_dai_ops *dai_ops;
+	int dai_ops_count;
 };
 
 struct snd_soc_fw_card_ops {
