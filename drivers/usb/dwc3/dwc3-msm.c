@@ -3013,6 +3013,7 @@ static int dwc3_msm_pm_resume(struct device *dev)
 {
 	int ret = 0;
 	struct dwc3_msm *mdwc = dev_get_drvdata(dev);
+	struct dwc3 *dwc = platform_get_drvdata(mdwc->dwc3);
 
 	dev_dbg(dev, "dwc3-msm PM resume\n");
 
@@ -3034,6 +3035,9 @@ static int dwc3_msm_pm_resume(struct device *dev)
 				mdwc->ext_xceiv.notify_ext_events(
 							mdwc->otg_xceiv->otg,
 							DWC3_EVENT_XCEIV_STATE);
+
+		} else if (mdwc->scope == POWER_SUPPLY_SCOPE_SYSTEM) {
+			pm_runtime_resume(&dwc->xhci->dev);
 		}
 	}
 
