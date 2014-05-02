@@ -133,6 +133,8 @@ enum power_supply_property {
 	POWER_SUPPLY_PROP_ENERGY_EMPTY,
 	POWER_SUPPLY_PROP_ENERGY_NOW,
 	POWER_SUPPLY_PROP_ENERGY_AVG,
+	POWER_SUPPLY_PROP_HI_POWER,
+	POWER_SUPPLY_PROP_LOW_POWER,
 	POWER_SUPPLY_PROP_CAPACITY, /* in percents! */
 	POWER_SUPPLY_PROP_CAPACITY_ALERT_MIN, /* in percents! */
 	POWER_SUPPLY_PROP_CAPACITY_ALERT_MAX, /* in percents! */
@@ -269,6 +271,9 @@ extern int power_supply_set_scope(struct power_supply *psy, int scope);
 extern int power_supply_set_charge_type(struct power_supply *psy, int type);
 extern int power_supply_set_supply_type(struct power_supply *psy,
 					enum power_supply_type supply_type);
+extern int power_supply_set_hi_power_state(struct power_supply *psy, int value);
+extern int power_supply_set_low_power_state(struct power_supply *psy,
+							int value);
 extern int power_supply_is_system_supplied(void);
 extern int power_supply_register(struct device *parent,
 				 struct power_supply *psy);
@@ -305,6 +310,12 @@ static inline int power_supply_set_charge_type(struct power_supply *psy,
 							{ return -ENOSYS; }
 static inline int power_supply_set_supply_type(struct power_supply *psy,
 					enum power_supply_type supply_type)
+							{ return -ENOSYS; }
+static inline int power_supply_set_hi_power_state(struct power_supply *psy,
+							int value)
+							{ return -ENOSYS; }
+static inline int power_supply_set_low_power_state(struct power_supply *psy,
+							int value)
 							{ return -ENOSYS; }
 static inline int power_supply_is_system_supplied(void) { return -ENOSYS; }
 static inline int power_supply_register(struct device *parent,

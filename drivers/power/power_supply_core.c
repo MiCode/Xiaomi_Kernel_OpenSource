@@ -216,6 +216,40 @@ int power_supply_set_charge_type(struct power_supply *psy, int charge_type)
 }
 EXPORT_SYMBOL_GPL(power_supply_set_charge_type);
 
+/**
+ * power_supply_set_hi_power_state - set power state for power_supply
+ * @psy:	the power supply to control
+ * @value:	value to be passed to the power_supply
+ *
+ */
+int power_supply_set_hi_power_state(struct power_supply *psy, int value)
+{
+	const union power_supply_propval ret = {value, };
+
+	if (psy->set_property)
+		return psy->set_property(psy, POWER_SUPPLY_PROP_HI_POWER,
+								&ret);
+	return -ENXIO;
+}
+EXPORT_SYMBOL(power_supply_set_hi_power_state);
+
+/**
+ * power_supply_set_low_power_state - set power state for power_supply
+ * @psy:	the power supply to control
+ * @value:	value to be passed to the power_supply
+ *
+ */
+int power_supply_set_low_power_state(struct power_supply *psy, int value)
+{
+	const union power_supply_propval ret = {value, };
+
+	if (psy->set_property)
+		return psy->set_property(psy, POWER_SUPPLY_PROP_LOW_POWER,
+								&ret);
+	return -ENXIO;
+}
+EXPORT_SYMBOL(power_supply_set_low_power_state);
+
 static int __power_supply_changed_work(struct device *dev, void *data)
 {
 	struct power_supply *psy = (struct power_supply *)data;
