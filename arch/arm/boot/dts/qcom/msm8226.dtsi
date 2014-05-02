@@ -1004,7 +1004,7 @@
 		cpu-vdd-supply = <&apc_vreg_corner>;
 	};
 
-	qcom,cpubw {
+	cpubw: qcom,cpubw {
 		compatible = "qcom,cpubw";
 		qcom,cpu-mem-ports = <1 512>;
 		qcom,bw-tbl =
@@ -1012,6 +1012,15 @@
 			< 2441 /* 320 MHz */ >,
 			< 3051 /* 400 MHz */ >,
 			< 4066 /* 533 MHz */ >;
+	};
+
+	devfreq-cpufreq {
+		cpubw-cpufreq {
+			target-dev = <&cpubw>;
+			cpu-to-dev-map =
+				<  787200 1525 >,
+				< 1785600 4066 >;
+		};
 	};
 
 	qcom,msm-cpufreq@0 {

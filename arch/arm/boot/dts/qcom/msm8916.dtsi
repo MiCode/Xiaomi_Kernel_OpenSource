@@ -337,7 +337,7 @@
 			< 1190400000 7>;
 	};
 
-	qcom,cpubw {
+	cpubw: qcom,cpubw {
 		compatible = "qcom,cpubw";
 		qcom,cpu-mem-ports = <1 512>;
 		qcom,bw-tbl =
@@ -347,6 +347,17 @@
 			< 1525 /* 200 MHz */>,
 			< 3051 /* 400 MHz */>,
 			< 4066 /* 533 MHz */>;
+	};
+
+	devfreq-cpufreq {
+		cpubw-cpufreq {
+			target-dev = <&cpubw>;
+			cpu-to-dev-map =
+				 <  400000  762>,
+				 <  998400  1525>,
+				 < 1094400  3051>,
+				 < 1190400  4066>;
+		};
 	};
 
 	qcom,msm-cpufreq@0 {

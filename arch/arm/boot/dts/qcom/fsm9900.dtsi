@@ -663,7 +663,7 @@
 				"tsens_tz_sensor5", "tsens_tz_sensor6";
 	};
 
-	qcom,cpubw {
+	cpubw: qcom,cpubw {
 		compatible = "qcom,cpubw";
 		qcom,cpu-mem-ports = <1 512>, <2 512>;
 		qcom,bw-tbl =
@@ -672,6 +672,18 @@
 			< 2342 /* 307 MHz */ >,
 			< 3509 /* 460 MHz */ >,
 			< 6103 /* 800 MHz */ >;
+	};
+
+	devfreq-cpufreq {
+		cpubw-cpufreq {
+			target-dev = <&cpubw>;
+			cpu-to-dev-map =
+				<  300000  572 >,
+				<  422400 1144 >,
+				<  883200 2342 >,
+				< 1190400 3509 >,
+				< 2265600 6103 >;
+		};
 	};
 
 	qcom,msm-cpufreq {
