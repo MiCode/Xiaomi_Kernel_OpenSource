@@ -311,7 +311,7 @@ def scan_configs():
 	r'mpq*_defconfig',
         )
     arch64_pats = (
-        r'msm_defconfig',
+	r'msm*_defconfig',
         )
     for p in arch_pats:
         for n in glob.glob('arch/arm/configs/' + p):
