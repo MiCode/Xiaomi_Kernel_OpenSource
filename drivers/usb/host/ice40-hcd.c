@@ -1371,6 +1371,7 @@ static void ice40_spi_power_off(struct ice40_hcd *ihcd);
 static int ice40_bus_suspend(struct usb_hcd *hcd)
 {
 	struct ice40_hcd *ihcd = hcd_to_ihcd(hcd);
+	struct pinctrl_state *s;
 
 	trace_ice40_bus_suspend(0); /* start */
 
@@ -1396,6 +1397,10 @@ static int ice40_bus_suspend(struct usb_hcd *hcd)
 	ice40_spi_power_off(ihcd);
 	ice40_spi_clock_disable(ihcd);
 
+	s = pinctrl_lookup_state(ihcd->pinctrl, PINCTRL_STATE_SLEEP);
+	if (!IS_ERR(s))
+		pinctrl_select_state(ihcd->pinctrl, s);
+
 	trace_ice40_bus_suspend(1); /* successful */
 	pm_relax(&ihcd->spi->dev);
 	return 0;
@@ -1405,11 +1410,17 @@ static int ice40_spi_load_fw(struct ice40_hcd *ihcd);
 static int ice40_bus_resume(struct usb_hcd *hcd)
 {
 	struct ice40_hcd *ihcd = hcd_to_ihcd(hcd);
+	struct pinctrl_state *s;
 	u8 ctrl0;
 	int ret, i;
 
 	pm_stay_awake(&ihcd->spi->dev);
 	trace_ice40_bus_resume(0); /* start */
+
+	s = pinctrl_lookup_state(ihcd->pinctrl, PINCTRL_STATE_DEFAULT);
+	if (!IS_ERR(s))
+		pinctrl_select_state(ihcd->pinctrl, s);
+
 	/*
 	 * Power up the bridge chip and load the configuration file.
 	 * Re-program the previous settings. For now we need to
@@ -1549,6 +1560,8 @@ static void ice40_spi_clock_disable(struct ice40_hcd *ihcd)
 	if (ihcd->xo_clk)
 		clk_disable_unprepare(ihcd->xo_clk);
 
+	if (ihcd->clk_en_gpio)
+		gpio_direction_input(ihcd->clk_en_gpio);
 	ihcd->clocked = false;
 }
 
@@ -1597,6 +1610,12 @@ static void ice40_spi_power_off(struct ice40_hcd *ihcd)
 	if (ihcd->gpio_vcc)
 		regulator_disable(ihcd->gpio_vcc);
 
+	/*
+	 * Unused gpio should be in input mode for
+	 * low power consumption.
+	 */
+	gpio_direction_input(ihcd->vcc_en_gpio);
+	gpio_direction_input(ihcd->reset_gpio);
 	ihcd->powered = false;
 }
 
