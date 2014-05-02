@@ -738,9 +738,11 @@ int mdp3_iommu_attach(int context)
 	if (context >= MDP3_IOMMU_CTX_MAX)
 		return -EINVAL;
 
+	mutex_lock(&mdp3_res->iommu_lock);
 	context_map = mdp3_res->iommu_contexts + context;
 	if (context_map->attached) {
 		pr_warn("mdp iommu already attached\n");
+		mutex_unlock(&mdp3_res->iommu_lock);
 		return 0;
 	}
 
@@ -749,6 +751,7 @@ int mdp3_iommu_attach(int context)
 	iommu_attach_device(domain_map->domain, context_map->ctx);
 
 	context_map->attached = true;
+	mutex_unlock(&mdp3_res->iommu_lock);
 	return 0;
 }
 
@@ -761,9 +764,11 @@ int mdp3_iommu_dettach(int context)
 		context >= MDP3_IOMMU_CTX_MAX)
 		return -EINVAL;
 
+	mutex_lock(&mdp3_res->iommu_lock);
 	context_map = mdp3_res->iommu_contexts + context;
 	if (!context_map->attached) {
 		pr_warn("mdp iommu not attached\n");
+		mutex_unlock(&mdp3_res->iommu_lock);
 		return 0;
 	}
 
@@ -771,6 +776,7 @@ int mdp3_iommu_dettach(int context)
 	iommu_detach_device(domain_map->domain, context_map->ctx);
 	context_map->attached = false;
 
+	mutex_unlock(&mdp3_res->iommu_lock);
 	return 0;
 }
 
