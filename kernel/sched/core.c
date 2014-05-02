@@ -4374,14 +4374,13 @@ SYSCALL_DEFINE2(sched_setparam, pid_t, pid, struct sched_param __user *, param)
  * @pid: the pid in question.
  * @attr: structure containing the extended parameters.
  */
-SYSCALL_DEFINE3(sched_setattr, pid_t, pid, struct sched_attr __user *, uattr,
-			       unsigned int, flags)
+SYSCALL_DEFINE2(sched_setattr, pid_t, pid, struct sched_attr __user *, uattr)
 {
 	struct sched_attr attr;
 	struct task_struct *p;
 	int retval;
 
-	if (!uattr || pid < 0 || flags)
+	if (!uattr || pid < 0)
 		return -EINVAL;
 
 	if (sched_copy_attr(uattr, &attr))
@@ -4508,8 +4507,8 @@ err_size:
  * @attr: structure containing the extended parameters.
  * @size: sizeof(attr) for fwd/bwd comp.
  */
-SYSCALL_DEFINE4(sched_getattr, pid_t, pid, struct sched_attr __user *, uattr,
-		unsigned int, size, unsigned int, flags)
+SYSCALL_DEFINE3(sched_getattr, pid_t, pid, struct sched_attr __user *, uattr,
+		unsigned int, size)
 {
 	struct sched_attr attr = {
 		.size = sizeof(struct sched_attr),
@@ -4518,7 +4517,7 @@ SYSCALL_DEFINE4(sched_getattr, pid_t, pid, struct sched_attr __user *, uattr,
 	int retval;
 
 	if (!uattr || pid < 0 || size > PAGE_SIZE ||
-	    size < SCHED_ATTR_SIZE_VER0 || flags)
+	    size < SCHED_ATTR_SIZE_VER0)
 		return -EINVAL;
 
 	rcu_read_lock();
