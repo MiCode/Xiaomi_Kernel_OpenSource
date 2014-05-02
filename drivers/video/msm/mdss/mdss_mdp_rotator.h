@@ -30,8 +30,8 @@ struct mdss_mdp_rotator_session {
 
 	u16 img_width;
 	u16 img_height;
-	struct mdss_mdp_img_rect src_rect;
-	struct mdss_mdp_img_rect dst;
+	struct mdss_rect src_rect;
+	struct mdss_rect dst;
 
 	u32 bwc_mode;
 	struct mdss_mdp_pipe *pipe;
