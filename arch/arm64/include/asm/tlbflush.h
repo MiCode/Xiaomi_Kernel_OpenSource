@@ -112,11 +112,43 @@ static inline void flush_tlb_page(struct vm_area_struct *vma,
 #endif
 }
 
-/*
- * Convert calls to our calling convention.
- */
-#define flush_tlb_range(vma,start,end)	__cpu_flush_user_tlb_range(start,end,vma)
-#define flush_tlb_kernel_range(s,e)	__cpu_flush_kern_tlb_range(s,e)
+static inline void flush_tlb_range(struct vm_area_struct *vma,
+					unsigned long start, unsigned long end)
+{
+#ifdef CONFIG_ARCH_MSM8994_V1_TLBI_WA
+	asm("tlbi	vmalle1is");
+	dsb(sy);
+	isb();
+#else
+	unsigned long asid = (unsigned long)ASID(vma->vm_mm) << 48;
+	unsigned long addr;
+	start = asid | (start >> 12);
+	end = asid | (end >> 12);
+
+	dsb(ishst);
+	for (addr = start; addr < end; addr += 1 << (PAGE_SHIFT - 12))
+		asm("tlbi vae1is, %0" : : "r"(addr));
+	dsb(ish);
+#endif
+}
+
+static inline void flush_tlb_kernel_range(unsigned long start, unsigned long end)
+{
+#ifdef CONFIG_ARCH_MSM8994_V1_TLBI_WA
+	asm("tlbi	vmalle1is");
+	dsb(sy);
+	isb();
+#else
+	unsigned long addr;
+	start >>= 12;
+	end >>= 12;
+
+	dsb(ishst);
+	for (addr = start; addr < end; addr += 1 << (PAGE_SHIFT - 12))
+		asm("tlbi vaae1is, %0" : : "r"(addr));
+	dsb(ish);
+#endif
+}
 
 /*
  * On AArch64, the cache coherency is handled via the set_pte_at() function.
