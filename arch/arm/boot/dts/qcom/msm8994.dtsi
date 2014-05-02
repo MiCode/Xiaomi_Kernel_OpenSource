@@ -756,7 +756,7 @@
 		proxy-reg-names = "vdd_cx";
 		vdd_cx-uV-uA = <7 100000>;
 		clocks = <&clock_gcc clk_gcc_lpass_q6_axi_clk>,
-			 <&clock_gcc clk_cxo_pil_lpass_clk>;
+			 <&clock_rpm clk_cxo_pil_lpass_clk>;
 		clock-names = "bus_clk", "xo";
 		active-clock-names = "bus_clk";
 		proxy-clock-names = "xo";
