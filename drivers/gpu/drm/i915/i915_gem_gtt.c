@@ -1252,6 +1252,17 @@ int i915_ppgtt_init_hw(struct drm_device *dev)
 			ret = ppgtt->switch_mm(ppgtt, ring, true);
 			if (ret != 0)
 				return ret;
+
+			/*
+			 * Make sure the context switch (if one actually happened)
+			 * gets wrapped up and finished rather than hanging around
+			 * and confusing things later.
+			 */
+			if (ring->outstanding_lazy_request) {
+				ret = i915_add_request_no_flush(ring);
+				if (ret)
+					return ret;
+			}
 		}
 	}
 

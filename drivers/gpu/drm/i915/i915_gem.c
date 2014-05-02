@@ -2491,7 +2491,8 @@ static void queue_retire_work(struct drm_i915_private *dev_priv,
 
 int __i915_add_request(struct intel_engine_cs *ring,
 		       struct drm_file *file,
-		       struct drm_i915_gem_object *obj)
+		       struct drm_i915_gem_object *obj,
+		       bool flush_caches)
 {
 	struct drm_i915_private *dev_priv = ring->dev->dev_private;
 	struct drm_i915_gem_request *request;
@@ -2520,12 +2521,11 @@ int __i915_add_request(struct intel_engine_cs *ring,
 	 * is that the flush _must_ happen before the next request, no matter
 	 * what.
 	 */
-	if (i915.enable_execlists) {
-		ret = logical_ring_flush_all_caches(ringbuf);
-		if (ret)
-			goto end;
-	} else {
-		ret = intel_ring_flush_all_caches(ring);
+	if (flush_caches) {
+		if (i915.enable_execlists)
+			ret = logical_ring_flush_all_caches(ringbuf);
+		else
+			ret = intel_ring_flush_all_caches(ring);
 		if (ret)
 			goto end;
 	}
@@ -2537,15 +2537,12 @@ int __i915_add_request(struct intel_engine_cs *ring,
 	 */
 	request_ring_position = intel_ring_get_tail(ringbuf);
 
-	if (i915.enable_execlists) {
+	if (i915.enable_execlists)
 		ret = ring->emit_request(ringbuf);
-		if (ret)
-			goto end;
-	} else {
+	else
 		ret = ring->add_request(ring);
-		if (ret)
-			goto end;
-	}
+	if (ret)
+		goto end;
 
 	request->head = request_start;
 	request->tail = request_ring_position;
@@ -3137,6 +3134,8 @@ out:
  *
  * @obj: object which may be in use on another ring.
  * @to: ring we wish to use the object on. May be NULL.
+ * @add_request: do we need to add a request to track operations
+ *    submitted on ring with sync_to function
  *
  * This code is meant to abstract object synchronization with the GPU.
  * Calling with NULL implies synchronizing the object with the CPU
@@ -3146,7 +3145,7 @@ out:
  */
 int
 i915_gem_object_sync(struct drm_i915_gem_object *obj,
-		     struct intel_engine_cs *to)
+		     struct intel_engine_cs *to, bool add_request)
 {
 	struct intel_engine_cs *from;
 	u32 seqno;
@@ -3172,13 +3171,16 @@ i915_gem_object_sync(struct drm_i915_gem_object *obj,
 
 	trace_i915_gem_ring_sync_to(from, to, obj->last_read_req);
 	ret = to->semaphore.sync_to(to, from, seqno);
-	if (!ret)
+	if (!ret) {
 		/* We use last_read_req because sync_to()
 		 * might have just caused seqno wrap under
 		 * the radar.
 		 */
 		from->semaphore.sync_seqno[idx] =
 				i915_gem_request_get_seqno(obj->last_read_req);
+		if (add_request)
+			i915_add_request_no_flush(to);
+	}
 
 	return ret;
 }
@@ -3280,6 +3282,15 @@ int i915_gpu_idle(struct drm_device *dev)
 	for_each_ring(ring, dev_priv, i) {
 		if (!i915.enable_execlists) {
 			ret = i915_switch_context(ring, ring->default_context);
+			if (ret)
+				return ret;
+		}
+
+		/* Make sure the context switch (if one actually happened)
+		 * gets wrapped up and finished rather than hanging around
+		 * and confusing things later. */
+		if (ring->outstanding_lazy_request) {
+			ret = i915_add_request(ring);
 			if (ret)
 				return ret;
 		}
@@ -4149,7 +4160,7 @@ i915_gem_object_pin_to_display_plane(struct drm_i915_gem_object *obj,
 	int ret;
 
 	if (pipelined != i915_gem_request_get_ring(obj->last_read_req)) {
-		ret = i915_gem_object_sync(obj, pipelined);
+		ret = i915_gem_object_sync(obj, pipelined, true);
 		if (ret)
 			return ret;
 	}

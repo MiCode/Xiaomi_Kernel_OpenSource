@@ -220,7 +220,7 @@ static void finish_chv_huc_load(const struct firmware *fw, void *context)
 
 	req = intel_ring_get_request(ring);
 
-	ret = __i915_add_request(ring, NULL, ringbuf->obj);
+	ret = __i915_add_request(ring, NULL, ringbuf->obj, true);
 	if (ret)
 		HUC_ERROR_OUT("Failed to add request");
 

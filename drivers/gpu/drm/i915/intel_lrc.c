@@ -1256,7 +1256,7 @@ static int execlists_move_to_gpu(struct intel_ringbuffer *ringbuf,
 	list_for_each_entry(vma, vmas, exec_list) {
 		struct drm_i915_gem_object *obj = vma->obj;
 
-		ret = i915_gem_object_sync(obj, ring);
+		ret = i915_gem_object_sync(obj, ring, true);
 		if (ret)
 			return ret;
 
@@ -2755,7 +2755,7 @@ int intel_lr_context_render_state_init(struct intel_engine_cs *ring,
 
 	i915_vma_move_to_active(i915_gem_obj_to_ggtt(so.obj), ring);
 
-	ret = __i915_add_request(ring, file, so.obj);
+	ret = __i915_add_request(ring, file, so.obj, true);
 	/* intel_logical_ring_add_request moves object to inactive if it
 	 * fails */
 out:

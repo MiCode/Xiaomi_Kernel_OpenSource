@@ -439,6 +439,17 @@ int i915_gem_context_enable(struct drm_i915_private *dev_priv)
 		ret = i915_switch_context(ring, ring->default_context);
 		if (ret)
 			return ret;
+
+		/*
+		 * Make sure the context switch (if one actually happened)
+		 * gets wrapped up and finished rather than hanging around
+		 * and confusing things later.
+		 */
+		if (ring->outstanding_lazy_request) {
+			ret = i915_add_request_no_flush(ring);
+			if (ret)
+				return ret;
+		}
 	}
 
 	return 0;

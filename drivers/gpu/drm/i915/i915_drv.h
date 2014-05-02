@@ -2632,7 +2632,7 @@ static inline void i915_gem_object_unpin_pages(struct drm_i915_gem_object *obj)
 
 int __must_check i915_mutex_lock_interruptible(struct drm_device *dev);
 int i915_gem_object_sync(struct drm_i915_gem_object *obj,
-			 struct intel_engine_cs *to);
+			 struct intel_engine_cs *to, bool add_request);
 void i915_vma_move_to_active(struct i915_vma *vma,
 			     struct intel_engine_cs *ring);
 int i915_gem_dumb_create(struct drm_file *file_priv,
@@ -2712,9 +2712,12 @@ int __must_check i915_gpu_idle(struct drm_device *dev);
 int __must_check i915_gem_suspend(struct drm_device *dev);
 int __i915_add_request(struct intel_engine_cs *ring,
 		       struct drm_file *file,
-		       struct drm_i915_gem_object *batch_obj);
+		       struct drm_i915_gem_object *batch_obj,
+		       bool flush_caches);
 #define i915_add_request(ring) \
-	__i915_add_request(ring, NULL, NULL)
+	__i915_add_request(ring, NULL, NULL, true)
+#define i915_add_request_no_flush(ring) \
+	__i915_add_request(ring, NULL, NULL, false)
 int __must_check i915_wait_request(struct drm_i915_gem_request *req);
 int i915_gem_fault(struct vm_area_struct *vma, struct vm_fault *vmf);
 int __must_check
