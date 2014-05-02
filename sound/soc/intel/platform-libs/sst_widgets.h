@@ -45,7 +45,7 @@ struct sst_ids {
 	struct snd_soc_dapm_widget *parent_w;
 	struct list_head algo_list;
 	struct list_head gain_list;
-	const struct sst_pcm_format *pcm_fmt;
+	struct sst_pcm_format *pcm_fmt;
 };
 
 

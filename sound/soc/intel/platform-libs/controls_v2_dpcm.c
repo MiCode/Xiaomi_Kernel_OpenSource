@@ -1344,13 +1344,13 @@ static const struct snd_kcontrol_new sst_bt_fm_mux =
 	SST_SSP_MUX_CTL("ssp1_out", 0, SST_MUX_REG, SST_BT_FM_MUX_SHIFT, sst_bt_fm_texts,
 			sst_mux_get, sst_mux_put);
 
-static const struct sst_pcm_format aware_stream_fmt = {
+static struct sst_pcm_format aware_stream_fmt = {
 	.sample_bits = 24,
 	.rate_min = 8000,
 	.channels_max = 1,
 };
 
-static const struct sst_pcm_format vad_stream_fmt = {
+static struct sst_pcm_format vad_stream_fmt = {
 	.sample_bits = 16,
 	.rate_min = 16000,
 	.channels_max = 1,
