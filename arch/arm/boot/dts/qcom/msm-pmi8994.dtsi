@@ -373,5 +373,48 @@
 			qcom,wave-rep-cnt = <1>;
 			qcom,wave-samp-rep-cnt = <1>;
 		};
+
+		qcom,leds@d000 {
+			compatible = "qcom,leds-qpnp";
+			reg = <0xd000 0x100>;
+			label = "rgb";
+			status = "okay";
+
+			qcom,rgb_0 {
+				label = "rgb";
+				qcom,id = <3>;
+				qcom,mode = "pwm";
+				qcom,pwm-channel = <2>;
+				qcom,pwm-us = <1000>;
+				qcom,max-current = <12>;
+				qcom,default-state = "off";
+				linux,name = "red";
+				linux,default-trigger =
+					"battery-charging";
+			};
+
+			qcom,rgb_1 {
+				label = "rgb";
+				qcom,id = <4>;
+				qcom,mode = "pwm";
+				qcom,pwm-channel = <1>;
+				qcom,pwm-us = <1000>;
+				qcom,max-current = <12>;
+				qcom,default-state = "off";
+				linux,name = "green";
+				linux,default-trigger = "battery-full";
+			};
+
+			qcom,rgb_2 {
+				label = "rgb";
+				qcom,id = <5>;
+				qcom,mode = "pwm";
+				qcom,pwm-channel = <0>;
+				qcom,pwm-us = <1000>;
+				qcom,max-current = <12>;
+				qcom,default-state = "off";
+				linux,name = "blue";
+			};
+		};
 	};
 };
