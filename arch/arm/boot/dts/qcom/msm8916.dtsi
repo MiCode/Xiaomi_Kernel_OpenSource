@@ -463,19 +463,19 @@
 
 	rmtfs_sharedmem {
 		compatible = "qcom,sharedmem-uio";
-		reg = <0x8e580000 0x160000>;
+		reg = <0x86700000 0xe0000>;
 		reg-names = "rmtfs";
 	};
 
 	dsp_sharedmem {
 		compatible = "qcom,sharedmem-uio";
-		reg = <0x8e6e0000 0x20000>;
+		reg = <0x867e0000 0x20000>;
 		reg-names = "rfsa_dsp";
 	};
 
 	mdm_sharedmem {
 		compatible = "qcom,sharedmem-uio";
-		reg = <0x8e6e0000 0x20000>;
+		reg = <0x867e0000 0x20000>;
 		reg-names = "rfsa_mdm";
 	};
 
