@@ -8,6 +8,16 @@ Required properties:
  - interrupts		: Gyrometer sample interrupt to indicate new data ready.
  - vdd-supply		: Analog power supply needed to power device.
  - vlogic-supply	: Digital IO power supply needed for IO and I2C.
+ - invn,place		: The placing of the accelerometer on board. There are 8
+				patterns of placing described as below:
+				"Portrait Up": Portrait Up
+				"Landscape Right": Landscape Right
+				"Portrait Down": Portrait Down
+				"Landscape Left": Landscape Left
+				"Portrait Up Back Side": Portrait Up (back side view)
+				"Landscape Right Back Side": Landscape Right (back side view)
+				"Portrait Down Back Side": Portrait Down (back side view)
+				"Landscape Left Back Side": Landscape Left (back side view)
 
 Optional properties:
 
@@ -25,5 +35,6 @@ Example:
 			interrupts = <84 0x2>;
 			vlogic-supply = <&pm8916_l17>;
 			vdd-supply = <&pm8916_l6>;
+			invn,place = "Portrait Up";
 		};
 	};

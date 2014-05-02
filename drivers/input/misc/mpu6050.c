@@ -57,8 +57,30 @@
 #define MPU6050_RAW_ACCEL_DATA_LEN	6
 #define MPU6050_RAW_GYRO_DATA_LEN	6
 
+/* Sensitivity Scale Factor */
+#define MPU6050_ACCEL_SCALE_SHIFT_2G	4
+#define MPU6050_GYRO_SCALE_SHIFT_FS0	3
+
 #define MPU6050_DEV_NAME_ACCEL	"accelerometer"
 #define MPU6050_DEV_NAME_GYRO	"gyroscope"
+
+enum mpu6050_place {
+	MPU6050_PLACE_PU = 0,
+	MPU6050_PLACE_PR = 1,
+	MPU6050_PLACE_LD = 2,
+	MPU6050_PLACE_LL = 3,
+	MPU6050_PLACE_PU_BACK = 4,
+	MPU6050_PLACE_PR_BACK = 5,
+	MPU6050_PLACE_LD_BACK = 6,
+	MPU6050_PLACE_LL_BACK = 7,
+	MPU6050_PLACE_UNKNOWN = 8,
+	MPU6050_AXIS_REMAP_TAB_SZ = 8
+};
+
+struct mpu6050_place_name {
+	char name[32];
+	enum mpu6050_place place;
+};
 
 struct axis_data {
 	s16 x;
@@ -113,6 +135,7 @@ struct mpu6050_sensor {
 	bool use_poll;
 };
 
+/* Accelerometer information read by HAL */
 static struct sensors_classdev mpu6050_acc_cdev = {
 	.name = "MPU6050-accel",
 	.vendor = "Invensense",
@@ -131,6 +154,7 @@ static struct sensors_classdev mpu6050_acc_cdev = {
 	.sensors_poll_delay = NULL,
 };
 
+/* gyroscope information read by HAL */
 static struct sensors_classdev mpu6050_gyro_cdev = {
 	.name = "MPU6050-gyro",
 	.vendor = "Invensense",
@@ -147,6 +171,63 @@ static struct sensors_classdev mpu6050_gyro_cdev = {
 	.enabled = 0,
 	.sensors_enable = NULL,
 	.sensors_poll_delay = NULL,
+};
+
+struct sensor_axis_remap {
+	/* src means which source will be mapped to target x, y, z axis */
+	/* if an target OS axis is remapped from (-)x,
+	 * src is 0, sign_* is (-)1 */
+	/* if an target OS axis is remapped from (-)y,
+	 * src is 1, sign_* is (-)1 */
+	/* if an target OS axis is remapped from (-)z,
+	 * src is 2, sign_* is (-)1 */
+	int src_x:3;
+	int src_y:3;
+	int src_z:3;
+
+	int sign_x:2;
+	int sign_y:2;
+	int sign_z:2;
+};
+
+static const struct sensor_axis_remap
+mpu6050_accel_axis_remap_tab[MPU6050_AXIS_REMAP_TAB_SZ] = {
+	/* src_x src_y src_z  sign_x  sign_y  sign_z */
+	{  0,    1,    2,     1,      1,      1 }, /* P0 */
+	{  1,    0,    2,     1,     -1,      1 }, /* P1 */
+	{  0,    1,    2,    -1,     -1,      1 }, /* P2 */
+	{  1,    0,    2,    -1,      1,      1 }, /* P3 */
+
+	{  0,    1,    2,    -1,      1,     -1 }, /* P4 */
+	{  1,    0,    2,    -1,     -1,     -1 }, /* P5 */
+	{  0,    1,    2,     1,     -1,     -1 }, /* P6 */
+	{  1,    0,    2,     1,      1,     -1 }, /* P7 */
+};
+
+static const struct sensor_axis_remap
+mpu6050_gyro_axis_remap_tab[MPU6050_AXIS_REMAP_TAB_SZ] = {
+	/* src_x src_y src_z  sign_x  sign_y  sign_z */
+	{  0,    1,    2,    -1,      1,     -1 }, /* P0 */
+	{  1,    0,    2,    -1,     -1,     -1 }, /* P1*/
+	{  0,    1,    2,     1,     -1,     -1 }, /* P2 */
+	{  1,    0,    2,     1,      1,     -1 }, /* P3 */
+
+	{  0,    1,    2,     1,      1,      1 }, /* P4 */
+	{  1,    0,    2,     1,     -1,      1 }, /* P5 */
+	{  0,    1,    2,    -1,     -1,      1 }, /* P6 */
+	{  1,    0,    2,    -1,      1,      1 }, /* P7 */
+};
+
+static const struct mpu6050_place_name
+mpu6050_place_name2num[MPU6050_AXIS_REMAP_TAB_SZ] = {
+	{"Portrait Up", MPU6050_PLACE_PU},
+	{"Landscape Right", MPU6050_PLACE_PR},
+	{"Portrait Down", MPU6050_PLACE_LD},
+	{"Landscape Left", MPU6050_PLACE_LL},
+	{"Portrait Up Back Side", MPU6050_PLACE_PU_BACK},
+	{"Landscape Right Back Side", MPU6050_PLACE_PR_BACK},
+	{"Portrait Down Back Side", MPU6050_PLACE_LD_BACK},
+	{"Landscape Left Back Side", MPU6050_PLACE_LL_BACK},
 };
 
 static int mpu6050_power_ctl(struct mpu6050_sensor *sensor, bool on)
@@ -336,6 +417,55 @@ static void mpu6050_read_gyro_data(struct mpu6050_sensor *sensor,
 }
 
 /**
+ * mpu6050_remap_accel_data - remap accelerometer raw data to axis data
+ * @data: data needs remap
+ * @place: sensor position
+ */
+static void mpu6050_remap_accel_data(struct axis_data *data, int place)
+{
+	const struct sensor_axis_remap *remap;
+	s16 tmp[3];
+	/* sensor with place 0 needs not to be remapped */
+	if ((place <= 0) || (place >= MPU6050_AXIS_REMAP_TAB_SZ))
+		return;
+
+	remap = &mpu6050_accel_axis_remap_tab[place];
+
+	tmp[0] = data->x;
+	tmp[1] = data->y;
+	tmp[2] = data->z;
+	data->x = tmp[remap->src_x] * remap->sign_x;
+	data->y = tmp[remap->src_y] * remap->sign_y;
+	data->z = tmp[remap->src_z] * remap->sign_z;
+
+	return;
+}
+
+/**
+ * mpu6050_remap_gyro_data - remap gyroscope raw data to axis data
+ * @data: data needs remap
+ * @place: sensor position
+ */
+static void mpu6050_remap_gyro_data(struct axis_data *data, int place)
+{
+	const struct sensor_axis_remap *remap;
+	s16 tmp[3];
+	/* sensor with place 0 needs not to be remapped */
+	if ((place <= 0) || (place >= MPU6050_AXIS_REMAP_TAB_SZ))
+		return;
+
+	remap = &mpu6050_gyro_axis_remap_tab[place];
+	tmp[0] = data->rx;
+	tmp[1] = data->ry;
+	tmp[2] = data->rz;
+	data->rx = tmp[remap->src_x] * remap->sign_x;
+	data->ry = tmp[remap->src_y] * remap->sign_y;
+	data->rz = tmp[remap->src_z] * remap->sign_z;
+
+	return;
+}
+
+/**
  * mpu6050_interrupt_thread - handle an IRQ
  * @irq: interrupt numner
  * @data: the sensor
@@ -378,10 +508,14 @@ static void mpu6050_accel_work_fn(struct work_struct *work)
 				struct mpu6050_sensor, accel_poll_work);
 
 	mpu6050_read_accel_data(sensor, &sensor->axis);
+	mpu6050_remap_accel_data(&sensor->axis, sensor->pdata->place);
 
-	input_report_abs(sensor->accel_dev, ABS_X, sensor->axis.x);
-	input_report_abs(sensor->accel_dev, ABS_Y, sensor->axis.y);
-	input_report_abs(sensor->accel_dev, ABS_Z, sensor->axis.z);
+	input_report_abs(sensor->accel_dev, ABS_X,
+		(sensor->axis.x >> MPU6050_ACCEL_SCALE_SHIFT_2G));
+	input_report_abs(sensor->accel_dev, ABS_Y,
+		(sensor->axis.y >> MPU6050_ACCEL_SCALE_SHIFT_2G));
+	input_report_abs(sensor->accel_dev, ABS_Z,
+		(sensor->axis.z >> MPU6050_ACCEL_SCALE_SHIFT_2G));
 	input_sync(sensor->accel_dev);
 
 	if (sensor->use_poll)
@@ -404,10 +538,14 @@ static void mpu6050_gyro_work_fn(struct work_struct *work)
 				struct mpu6050_sensor, gyro_poll_work);
 
 	mpu6050_read_gyro_data(sensor, &sensor->axis);
+	mpu6050_remap_gyro_data(&sensor->axis, sensor->pdata->place);
 
-	input_report_abs(sensor->gyro_dev, ABS_RX, sensor->axis.rx);
-	input_report_abs(sensor->gyro_dev, ABS_RY, sensor->axis.ry);
-	input_report_abs(sensor->gyro_dev, ABS_RZ, sensor->axis.rz);
+	input_report_abs(sensor->gyro_dev, ABS_RX,
+		(sensor->axis.rx >> MPU6050_GYRO_SCALE_SHIFT_FS0));
+	input_report_abs(sensor->gyro_dev, ABS_RY,
+		(sensor->axis.ry >> MPU6050_GYRO_SCALE_SHIFT_FS0));
+	input_report_abs(sensor->gyro_dev, ABS_RZ,
+		(sensor->axis.rz >> MPU6050_GYRO_SCALE_SHIFT_FS0));
 	input_sync(sensor->gyro_dev);
 
 	if (sensor->use_poll)
@@ -735,12 +873,10 @@ static ssize_t mpu6050_gyro_attr_get_enable(struct device *dev,
 	return snprintf(buf, 4, "%d\n", sensor->cfg.gyro_enable);
 }
 
-
 /**
  * mpu6050_gyro_attr_set_enable -
  *    Set/get enable function is just needed by sensor HAL.
  */
-
 static ssize_t mpu6050_gyro_attr_set_enable(struct device *dev,
 			struct device_attribute *attr,
 			const char *buf, size_t count)
@@ -1264,10 +1400,43 @@ static int mpu6050_init_config(struct mpu6050_sensor *sensor)
 }
 
 #ifdef CONFIG_OF
+static int mpu6050_dt_get_place(struct device *dev,
+			struct mpu6050_platform_data *pdata)
+{
+	const char *place_name;
+	int rc;
+	int i;
+
+	rc = of_property_read_string(dev->of_node, "invn,place", &place_name);
+	if (rc) {
+		dev_err(dev, "Cannot get place configuration!\n");
+		return -EINVAL;
+	}
+
+	for (i = 0; i < MPU6050_AXIS_REMAP_TAB_SZ; i++) {
+		if (!strcmp(place_name, mpu6050_place_name2num[i].name)) {
+			pdata->place = mpu6050_place_name2num[i].place;
+			break;
+		}
+	}
+	if (i >= MPU6050_AXIS_REMAP_TAB_SZ) {
+		dev_warn(dev, "Invalid place parameter, use default value 0\n");
+		pdata->place = 0;
+	}
+
+	return 0;
+}
+
 static int mpu6050_parse_dt(struct device *dev,
 			struct mpu6050_platform_data *pdata)
 {
-	/* check gpio_int later, if it is invalid, just use poll */
+	int rc;
+
+	rc = mpu6050_dt_get_place(dev, pdata);
+	if (rc)
+		return rc;
+
+	/* check gpio_int later, use polling if gpio_int is invalid. */
 	pdata->gpio_int = of_get_named_gpio_flags(dev->of_node,
 				"invn,gpio-int", 0, &pdata->int_flags);
 
