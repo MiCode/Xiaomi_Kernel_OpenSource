@@ -285,8 +285,8 @@ static struct mdss_mdp_pipe *mdss_mdp_splash_get_pipe(
 }
 
 static int mdss_mdp_splash_kickoff(struct msm_fb_data_type *mfd,
-				struct mdss_mdp_img_rect *src_rect,
-				struct mdss_mdp_img_rect *dest_rect)
+				struct mdss_rect *src_rect,
+				struct mdss_rect *dest_rect)
 {
 	struct mdss_mdp_pipe *pipe;
 	struct fb_info *fbi;
@@ -406,7 +406,7 @@ static int mdss_mdp_display_splash_image(struct msm_fb_data_type *mfd)
 	struct fb_info *fbi;
 	uint32_t image_len = SPLASH_IMAGE_WIDTH * SPLASH_IMAGE_HEIGHT
 						* SPLASH_IMAGE_BPP;
-	struct mdss_mdp_img_rect src_rect, dest_rect;
+	struct mdss_rect src_rect, dest_rect;
 	struct msm_fb_splash_info *sinfo;
 
 	if (!mfd || !mfd->fbi) {
