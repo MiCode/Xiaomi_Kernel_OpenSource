@@ -971,10 +971,10 @@ static void qpnp_batt_external_power_changed(struct power_supply *psy)
 		if (current_ma == chip->prev_max_ma)
 			goto skip_current_config;
 
+		/* Disable charger in case of reset or suspend event */
 		if (current_ma <= 2 && !chip->cfg_use_fake_battery
 				&& get_prop_batt_present(chip)) {
-			if (current_ma ==  2)
-				qpnp_lbc_charger_enable(chip, CURRENT, 0);
+			qpnp_lbc_charger_enable(chip, CURRENT, 0);
 			chip->usb_psy_ma = QPNP_CHG_I_MAX_MIN_90;
 			qpnp_lbc_set_appropriate_current(chip);
 		} else {
