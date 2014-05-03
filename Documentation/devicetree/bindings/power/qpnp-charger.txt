@@ -110,6 +110,8 @@ Parent node optional properties:
 					DC and USB OVP FETs. Please note that this should only
 					be enabled in board designs with PM8941 which have DC_IN
 					and USB_IN connected via a short.
+ - qcom,ext-ovp-isns-enable-gpio	External OVP enable GPIO.
+ - qcom,ext-ovp-isns-r-ohm			External ISNS OVP resistance in ohm.
 
 Sub node required structure:
 - A qcom,chg node must be a child of an SPMI node that has specified

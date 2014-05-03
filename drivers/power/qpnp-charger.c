@@ -32,6 +32,9 @@
 #include <linux/qpnp-revid.h>
 #include <linux/android_alarm.h>
 #include <linux/spinlock.h>
+#include <linux/gpio.h>
+#include <linux/of_gpio.h>
+#include <linux/qpnp/pin.h>
 
 /* Interrupt offsets */
 #define INT_RT_STS(base)			(base + 0x10)
@@ -388,6 +391,9 @@ struct qpnp_chg_chip {
 	struct work_struct		reduce_power_stage_work;
 	bool				power_stage_workaround_running;
 	bool				power_stage_workaround_enable;
+	bool				ext_ovp_ic_gpio_enabled;
+	unsigned int			ext_ovp_isns_gpio;
+	unsigned int			usb_trim_default;
 };
 
 static void
@@ -429,6 +435,81 @@ enum usbin_health {
 	USBIN_OK,
 	USBIN_OVP,
 };
+
+static int ext_ovp_isns_present;
+module_param(ext_ovp_isns_present, int, 0444);
+static int ext_ovp_isns_r;
+module_param(ext_ovp_isns_r, int, 0444);
+
+static bool ext_ovp_isns_online;
+static long ext_ovp_isns_ua;
+#define MAX_CURRENT_LENGTH_9A	10
+#define ISNS_CURRENT_RATIO	2500
+static int ext_ovp_isns_read(char *buffer, const struct kernel_param *kp)
+{
+	int rc;
+	struct qpnp_vadc_result results;
+	struct power_supply *batt_psy = power_supply_get_by_name("battery");
+	struct qpnp_chg_chip *chip = container_of(batt_psy,
+				struct qpnp_chg_chip, batt_psy);
+
+	if (!ext_ovp_isns_present)
+		return 0;
+
+	rc = qpnp_vadc_read(chip->vadc_dev, P_MUX7_1_1, &results);
+	if (rc) {
+		pr_err("Unable to read vbat rc=%d\n", rc);
+		return 0;
+	}
+
+	pr_debug("voltage %lld uV, current: %d\n mA", results.physical,
+			((int) results.physical /
+			 (ext_ovp_isns_r / ISNS_CURRENT_RATIO)));
+
+	return snprintf(buffer, MAX_CURRENT_LENGTH_9A, "%d\n",
+			((int)results.physical /
+			 (ext_ovp_isns_r / ISNS_CURRENT_RATIO)));
+}
+
+static int ext_ovp_isns_enable(const char *val, const struct kernel_param *kp)
+{
+	int rc;
+	struct power_supply *batt_psy = power_supply_get_by_name("battery");
+	struct qpnp_chg_chip *chip = container_of(batt_psy,
+				struct qpnp_chg_chip, batt_psy);
+
+	rc = param_set_bool(val, kp);
+	if (rc) {
+		pr_err("Unable to set gpio en: %d\n", rc);
+		return rc;
+	}
+
+	if (*(bool *)kp->arg) {
+		gpio_direction_output(
+						chip->ext_ovp_isns_gpio, 1);
+		chip->ext_ovp_ic_gpio_enabled = 1;
+		pr_debug("enabled GPIO\n");
+	} else {
+		gpio_direction_output(
+						chip->ext_ovp_isns_gpio, 0);
+		chip->ext_ovp_ic_gpio_enabled = 0;
+		pr_debug("disabled GPIO\n");
+	}
+
+	return rc;
+}
+
+static struct kernel_param_ops ext_ovp_isns_ops = {
+	.get = ext_ovp_isns_read,
+};
+module_param_cb(ext_ovp_isns_ua, &ext_ovp_isns_ops, &ext_ovp_isns_ua, 0644);
+
+static struct kernel_param_ops ext_ovp_en_ops = {
+	.set = ext_ovp_isns_enable,
+	.get = param_get_bool,
+};
+module_param_cb(ext_ovp_isns_online, &ext_ovp_en_ops,
+		&ext_ovp_isns_online, 0664);
 
 static inline int
 get_bpd(const char *name)
@@ -886,6 +967,7 @@ qpnp_chg_iusb_trim_set(struct qpnp_chg_chip *chip, int trim)
 	return rc;
 }
 
+#define IOVP_USB_WALL_TRSH_MA   150
 static int
 qpnp_chg_iusbmax_set(struct qpnp_chg_chip *chip, int mA)
 {
@@ -1319,7 +1401,13 @@ qpnp_chg_usb_chg_gone_irq_handler(int irq, void *_chip)
 	if ((qpnp_chg_is_usb_chg_plugged_in(chip)
 			|| qpnp_chg_is_dc_chg_plugged_in(chip))
 			&& (usb_sts & CHG_GONE_IRQ)) {
+		if (ext_ovp_isns_present) {
+			pr_debug("EXT OVP IC ISNS disabled due to ARB WA\n");
+			gpio_direction_output(chip->ext_ovp_isns_gpio, 0);
+		}
+
 		qpnp_chg_charge_en(chip, 0);
+
 		qpnp_chg_force_run_on_batt(chip, 1);
 		schedule_delayed_work(&chip->arb_stop_work,
 			msecs_to_jiffies(ARB_STOP_WORK_MS));
@@ -1652,6 +1740,7 @@ qpnp_chg_usb_usbin_valid_irq_handler(int irq, void *_chip)
 
 			qpnp_chg_usb_suspend_enable(chip, 0);
 			qpnp_chg_iusbmax_set(chip, QPNP_CHG_I_MAX_MIN_100);
+			qpnp_chg_iusb_trim_set(chip, chip->usb_trim_default);
 			chip->prev_usb_max_ma = -EINVAL;
 			chip->aicl_settled = false;
 		} else {
@@ -1983,6 +2072,13 @@ qpnp_chg_chgr_chg_fastchg_irq_handler(int irq, void *_chip)
 			}
 			if (chip->parallel_ovp_mode)
 				switch_parallel_ovp_mode(chip, 1);
+
+			if (ext_ovp_isns_present &&
+					chip->ext_ovp_ic_gpio_enabled) {
+				pr_debug("EXT OVP IC ISNS enabled\n");
+				gpio_direction_output(
+						chip->ext_ovp_isns_gpio, 1);
+			}
 		} else {
 			if (chip->parallel_ovp_mode)
 				switch_parallel_ovp_mode(chip, 0);
@@ -2211,7 +2307,7 @@ module_param(charger_monitor, int, 0644);
 static int ext_ovp_present;
 module_param(ext_ovp_present, int, 0444);
 
-#define OVP_USB_WALL_TRSH_MA	200
+#define OVP_USB_WALL_TRSH_MA   200
 static int
 qpnp_power_get_property_mains(struct power_supply *psy,
 				  enum power_supply_property psp,
@@ -2594,12 +2690,18 @@ qpnp_batt_external_power_changed(struct power_supply *psy)
 					if (!qpnp_is_dc_higher_prio(chip))
 						qpnp_chg_idcmax_set(chip,
 							QPNP_CHG_I_MAX_MIN_100);
-					if (!ext_ovp_present)
-						qpnp_chg_iusbmax_set(chip,
-							USB_WALL_THRESHOLD_MA);
-					else
+					if (unlikely(ext_ovp_present)) {
 						qpnp_chg_iusbmax_set(chip,
 							OVP_USB_WALL_TRSH_MA);
+					} else if (unlikely(
+							ext_ovp_isns_present)) {
+						qpnp_chg_iusb_trim_set(chip, 0);
+						qpnp_chg_iusbmax_set(chip,
+							IOVP_USB_WALL_TRSH_MA);
+					} else {
+						qpnp_chg_iusbmax_set(chip,
+							USB_WALL_THRESHOLD_MA);
+					}
 			} else {
 				qpnp_chg_iusbmax_set(chip, ret.intval / 1000);
 			}
@@ -3141,6 +3243,12 @@ qpnp_chg_regulator_boost_enable(struct regulator_dev *rdev)
 
 	if (qpnp_chg_is_usb_chg_plugged_in(chip) &&
 			(chip->flags & BOOST_FLASH_WA)) {
+
+		if (ext_ovp_isns_present && chip->ext_ovp_ic_gpio_enabled) {
+			pr_debug("EXT OVP IC ISNS disabled\n");
+			gpio_direction_output(chip->ext_ovp_isns_gpio, 0);
+		}
+
 		qpnp_chg_usb_suspend_enable(chip, 1);
 
 		rc = qpnp_chg_masked_write(chip,
@@ -3256,6 +3364,11 @@ qpnp_chg_regulator_boost_disable(struct regulator_dev *rdev)
 		usleep(1000);
 
 		qpnp_chg_usb_suspend_enable(chip, 0);
+	}
+
+	if (ext_ovp_isns_present && chip->ext_ovp_ic_gpio_enabled) {
+		pr_debug("EXT OVP IC ISNS enable\n");
+		gpio_direction_output(chip->ext_ovp_isns_gpio, 1);
 	}
 
 	return rc;
@@ -4797,6 +4910,17 @@ qpnp_charger_read_dt_props(struct qpnp_chg_chip *chip)
 	ext_ovp_present = of_property_read_bool(chip->spmi->dev.of_node,
 					"qcom,ext-ovp-present");
 
+	/* Check if external IOVP part is configured */
+	chip->ext_ovp_isns_gpio = of_get_named_gpio(chip->spmi->dev.of_node,
+					"qcom,ext-ovp-isns-enable-gpio", 0);
+	if (gpio_is_valid(chip->ext_ovp_isns_gpio)) {
+		ext_ovp_isns_present = true;
+		rc = of_property_read_u32(chip->spmi->dev.of_node,
+				"qcom,ext-ovp-isns-r-ohm", &ext_ovp_isns_r);
+		if (rc)
+			return rc;
+	}
+
 	/* Get the charging-disabled property */
 	chip->charging_disabled = of_property_read_bool(chip->spmi->dev.of_node,
 					"qcom,charging-disabled");
@@ -4901,6 +5025,9 @@ qpnp_charger_probe(struct spmi_device *spmi)
 	rc = qpnp_charger_read_dt_props(chip);
 	if (rc)
 		return rc;
+
+	if (ext_ovp_isns_present)
+		chip->ext_ovp_ic_gpio_enabled = 0;
 
 	/*
 	 * Check if bat_if is set in DT and make sure VADC is present
@@ -5183,6 +5310,7 @@ qpnp_charger_probe(struct spmi_device *spmi)
 		goto unregister_dc_psy;
 	}
 
+	chip->usb_trim_default = qpnp_chg_iusb_trim_get(chip);
 	qpnp_chg_charge_en(chip, !chip->charging_disabled);
 	qpnp_chg_force_run_on_batt(chip, chip->charging_disabled);
 	qpnp_chg_set_appropriate_vddmax(chip);
