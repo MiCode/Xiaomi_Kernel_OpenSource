@@ -2172,12 +2172,12 @@ int usb_bam_connect_ipa(struct usb_bam_connect_ipa_params *ipa_params)
 	     (ctx.pipes_enabled_per_bam[cur_bam] == 0)) {
 		spin_unlock(&usb_bam_lock);
 
-		if (cur_bam != HSIC_CTRL)
+		if (cur_bam == CI_CTRL)
 			msm_hw_bam_disable(1);
 
 		sps_device_reset(ctx.h_bam[cur_bam]);
 
-		if (cur_bam != HSIC_CTRL)
+		if (cur_bam == CI_CTRL)
 			msm_hw_bam_disable(0);
 
 		/* On re-connect assume out from lpm for HOST BAM */
@@ -2759,8 +2759,14 @@ int usb_bam_a2_reset(bool to_reconnect)
 	pr_debug("%s: pipes disconnection success\n", __func__);
 	/* Reset A2 (USB/HSIC) BAM */
 	if (to_reset_bam) {
+		if (bam == CI_CTRL)
+			msm_hw_bam_disable(1);
+
 		if (sps_device_reset(ctx.h_bam[bam]))
 			pr_err("%s: BAM reset failed\n", __func__);
+
+		if (bam == CI_CTRL)
+			msm_hw_bam_disable(0);
 	}
 
 	if (!to_reconnect)

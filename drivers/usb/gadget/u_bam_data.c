@@ -630,18 +630,12 @@ static int bam_data_peer_reset_cb(void *param)
 
 	pr_debug("%s: reset by peer\n", __func__);
 
-	/* Disable BAM */
-	msm_hw_bam_disable(1);
-
 	/* Reset BAM */
 	ret = usb_bam_a2_reset(0);
 	if (ret) {
 		pr_err("%s: BAM reset failed %d\n", __func__, ret);
 		return ret;
 	}
-
-	/* Enable BAM */
-	msm_hw_bam_disable(0);
 
 	/* Unregister the peer reset callback */
 	usb_bam_register_peer_reset_cb(NULL, NULL);
