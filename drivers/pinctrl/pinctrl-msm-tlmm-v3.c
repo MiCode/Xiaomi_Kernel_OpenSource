@@ -665,7 +665,7 @@ static int msm_tlmm_v3_gp_irq_suspend(void)
 	for_each_set_bit(i, ic->enabled_irqs, num_irqs)
 		msm_tlmm_v3_set_intr_cfg_enable(ic, i, 0);
 
-	for_each_set_bit(i, ic->enabled_irqs, num_irqs)
+	for_each_set_bit(i, ic->wake_irqs, num_irqs)
 		msm_tlmm_v3_set_intr_cfg_enable(ic, i, 1);
 	mb();
 	spin_unlock_irqrestore(&ic->irq_lock, irq_flags);
