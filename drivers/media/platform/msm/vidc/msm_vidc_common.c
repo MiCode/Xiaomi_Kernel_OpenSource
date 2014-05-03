@@ -27,16 +27,15 @@
 	__rc; \
 })
 
+#define IS_VALID_DCVS_SESSION(__load, __min_load) \
+		((__load) > (__min_load))
+
 #define V4L2_EVENT_SEQ_CHANGED_SUFFICIENT \
 		V4L2_EVENT_MSM_VIDC_PORT_SETTINGS_CHANGED_SUFFICIENT
 #define V4L2_EVENT_SEQ_CHANGED_INSUFFICIENT \
 		V4L2_EVENT_MSM_VIDC_PORT_SETTINGS_CHANGED_INSUFFICIENT
 #define V4L2_EVENT_RELEASE_BUFFER_REFERENCE \
 		V4L2_EVENT_MSM_VIDC_RELEASE_BUFFER_REFERENCE
-
-#define NUM_MBS_PER_SEC(__height, __width, __fps) ({\
-	(__height / 16) * (__width  / 16) * __fps; \
-})
 
 #define IS_SESSION_CMD_VALID(cmd) ((cmd - SESSION_MSG_START) <= SESSION_MSG_END)
 
@@ -48,6 +47,9 @@ struct getprop_buf {
 static void msm_comm_generate_session_error(struct msm_vidc_inst *inst);
 static void msm_comm_generate_sys_error(struct msm_vidc_inst *inst);
 static void handle_session_error(enum command_response cmd, void *data);
+static void msm_comm_monitor_ftb(struct msm_vidc_inst *inst);
+static int msm_comm_scale_clocks_dcvs(struct msm_vidc_inst *inst, bool fbd);
+static int msm_comm_check_dcvs_supported(struct msm_vidc_inst *inst);
 
 static inline bool is_turbo_session(struct msm_vidc_inst *inst)
 {
@@ -744,6 +746,7 @@ static void handle_event_change(enum command_response cmd, void *data)
 					event_notify->width;
 			}
 		}
+		msm_comm_init_dcvs_load(inst);
 		rc = msm_vidc_check_session_supported(inst);
 		if (!rc)
 			msm_vidc_queue_v4l2_event(inst, event);
@@ -1399,6 +1402,7 @@ static void handle_fbd(enum command_response cmd, void *data)
 	enum hal_buffer buffer_type;
 	int extra_idx = 0;
 	int64_t time_usec = 0;
+	int rc = 0;
 
 	if (!response) {
 		dprintk(VIDC_ERR, "Invalid response from vidc_hal\n");
@@ -1501,6 +1505,14 @@ static void handle_fbd(enum command_response cmd, void *data)
 			break;
 		default:
 			break;
+		}
+		if (msm_vidc_dcvs_mode && inst->dcvs_mode) {
+			msm_comm_monitor_ftb(inst);
+			rc = msm_comm_scale_clocks_dcvs(inst, true);
+			if (rc)
+				dprintk(VIDC_WARN,
+					"%s: Failed to scale clocks in DCVS: %d\n",
+					__func__, rc);
 		}
 		inst->count.fbd++;
 		if (fill_buf_done->filled_len1)
@@ -1628,6 +1640,323 @@ void handle_cmd_response(enum command_response cmd, void *data)
 		dprintk(VIDC_ERR, "response unhandled\n");
 		break;
 	}
+}
+
+static inline int get_pending_bufs_fw(struct msm_vidc_inst *inst)
+{
+	int fw_out_qsize = 0;
+
+	if (!inst) {
+		dprintk(VIDC_ERR, "%s Invalid args\n", __func__);
+		return -EINVAL;
+	}
+
+	mutex_lock(&inst->lock);
+	if (inst->state >= MSM_VIDC_OPEN_DONE &&
+		inst->state < MSM_VIDC_STOP_DONE)
+		fw_out_qsize = inst->count.ftb - inst->count.fbd;
+	mutex_unlock(&inst->lock);
+
+	return fw_out_qsize;
+}
+
+static inline void msm_comm_print_dcvs_stats(struct dcvs_stats *dcvs)
+{
+	dprintk(VIDC_DBG,
+		"DCVS: Load_Low %d, Load High %d\n",
+		dcvs->load_low,
+		dcvs->load_high);
+
+	dprintk(VIDC_DBG,
+		"DCVS: ThrDispBufLow %d, ThrDispBufHigh %d\n",
+		dcvs->threshold_disp_buf_low,
+		dcvs->threshold_disp_buf_high);
+
+	dprintk(VIDC_DBG,
+		"DCVS: min_threshold %d, max_threshold %d\n",
+		dcvs->min_threshold,
+		dcvs->max_threshold);
+}
+
+void msm_comm_init_dcvs_load(struct msm_vidc_inst *inst)
+{
+	struct msm_vidc_core *core;
+	struct hal_buffer_requirements *output_buf_req;
+	struct dcvs_stats *dcvs;
+
+	dprintk(VIDC_DBG, "Init DCVS Load\n");
+
+	if (!inst || !inst->core) {
+		dprintk(VIDC_ERR, "%s Invalid args: %p\n", __func__, inst);
+		return;
+	}
+
+	core = inst->core;
+	dcvs = &inst->dcvs;
+	mutex_lock(&inst->lock);
+	dcvs->load = msm_comm_get_inst_load(inst, LOAD_CALC_NO_QUIRKS);
+	mutex_unlock(&inst->lock);
+
+	if (dcvs->load >= DCVS_NOMINAL_LOAD) {
+		dcvs->load_low = DCVS_NOMINAL_LOAD;
+		dcvs->load_high = core->resources.max_load;
+	}
+
+	mutex_lock(&inst->lock);
+	output_buf_req = get_buff_req_buffer(inst,
+		msm_comm_get_hal_output_buffer(inst));
+	mutex_unlock(&inst->lock);
+
+	if (!output_buf_req) {
+		dprintk(VIDC_ERR,
+			"%s: No buffer requirement for buffer type %x\n",
+			__func__, HAL_BUFFER_OUTPUT);
+		return;
+	}
+
+	/* calculating the min and max threshold */
+	if (output_buf_req->buffer_count_actual) {
+		dcvs->min_threshold =
+			2 * DCVS_MIN_DRAIN_RATE + DCVS_BUFFER_WITH_DEC;
+		dcvs->max_threshold =
+			output_buf_req->buffer_count_actual -
+			(DCVS_BUFFER_WITH_DEC + DCVS_BUFFER_RELEASED_DEC);
+
+	if (dcvs->max_threshold - dcvs->min_threshold <
+		DCVS_MIN_THRESHOLD_DIFF)
+		dcvs->max_threshold = dcvs->min_threshold +
+			DCVS_MIN_THRESHOLD_DIFF;
+
+	dcvs->threshold_disp_buf_low =
+		clamp(dcvs->threshold_disp_buf_low,
+				dcvs->min_threshold,
+				dcvs->max_threshold);
+
+	dcvs->threshold_disp_buf_high =
+		clamp(dcvs->threshold_disp_buf_high,
+				dcvs->min_threshold,
+				dcvs->max_threshold);
+	}
+	msm_comm_print_dcvs_stats(dcvs);
+}
+
+void msm_comm_init_dcvs(struct msm_vidc_inst *inst)
+{
+	dprintk(VIDC_DBG, "Init DCVS Struct\n");
+
+	if (!inst) {
+		dprintk(VIDC_ERR, "%s Invalid args: %p\n", __func__, inst);
+		return;
+	}
+
+	inst->dcvs = (struct dcvs_stats){ {0} };
+	inst->dcvs.threshold_disp_buf_high = DCVS_NOMINAL_THRESHOLD;
+	inst->dcvs.threshold_disp_buf_low = DCVS_TURBO_THRESHOLD;
+}
+
+static void msm_comm_monitor_ftb(struct msm_vidc_inst *inst)
+{
+	int new_ftb = 0;
+	int i;
+	struct dcvs_stats *dcvs;
+
+	if (!inst) {
+		dprintk(VIDC_ERR, "%s Invalid args: %p\n", __func__, inst);
+		return;
+	}
+
+	dcvs = &inst->dcvs;
+	/* update FTB stats only in nominal mode */
+	if (dcvs->load == dcvs->load_low) {
+		dcvs->num_ftb[dcvs->ftb_index] =
+			inst->count.ftb - dcvs->prev_ftb_count;
+		dcvs->ftb_index =
+			(dcvs->ftb_index + 1) % DCVS_FTB_WINDOW;
+		if (dcvs->ftb_counter < DCVS_FTB_WINDOW)
+			dcvs->ftb_counter++;
+	}
+	dcvs->prev_ftb_count = inst->count.ftb;
+
+	if (dcvs->load == dcvs->load_low
+		&& dcvs->change_initial_freq
+		&& dcvs->ftb_counter == DCVS_FTB_WINDOW) {
+
+		/*
+		* Low threshold =
+		* max( max(Number of FTB in stats window) + 2, 4)
+		*/
+		new_ftb = DCVS_TURBO_THRESHOLD;
+		for (i = 0; i < dcvs->ftb_counter; i++) {
+			if (dcvs->num_ftb[i] +
+				DCVS_BUFFER_WITH_DEC > new_ftb)
+				new_ftb = dcvs->num_ftb[i] +
+					DCVS_BUFFER_WITH_DEC;
+		}
+		dprintk(VIDC_PROF,
+			"DCVS: Max FTB_count for Low_thr %d\n", new_ftb);
+
+		new_ftb = clamp(new_ftb,
+						dcvs->min_threshold,
+						dcvs->max_threshold);
+		dcvs->threshold_disp_buf_low = new_ftb;
+
+		/*
+		* High Threshold =
+		* max(max(8, Low threshold + 4),
+		* round( (sumof(num_ftb[])*8)/DCVS_FTB_WINDOW)
+		*/
+		new_ftb = 0;
+		for (i = 0; i < dcvs->ftb_counter; i++)
+			new_ftb += dcvs->num_ftb[i];
+
+		new_ftb = ((new_ftb * DCVS_EMP_THRESHOLD_HIGH) /
+			DCVS_FTB_WINDOW);
+		dprintk(VIDC_PROF,
+			"DCVS: Avg FTB_count for High_Thr %d\n",
+			new_ftb);
+
+		if (dcvs->threshold_disp_buf_low +
+			DCVS_TURBO_THRESHOLD > DCVS_NOMINAL_THRESHOLD) {
+			dcvs->threshold_disp_buf_high =
+				dcvs->threshold_disp_buf_low +
+				DCVS_TURBO_THRESHOLD;
+		} else {
+			dcvs->threshold_disp_buf_high =
+				DCVS_NOMINAL_THRESHOLD;
+		}
+
+		if (new_ftb > dcvs->threshold_disp_buf_high)
+			dcvs->threshold_disp_buf_high = new_ftb;
+
+		dcvs->threshold_disp_buf_high =
+			clamp(dcvs->threshold_disp_buf_high,
+				dcvs->min_threshold,
+				dcvs->max_threshold);
+
+		/*
+		* Maintain a diff of atleast DCVS_MIN_THRESHOLD_DIFF
+		* between  Low and High Threshold
+		*/
+
+		if (dcvs->threshold_disp_buf_high -
+				dcvs->threshold_disp_buf_low <
+				DCVS_MIN_THRESHOLD_DIFF) {
+			dcvs->threshold_disp_buf_high =
+				dcvs->threshold_disp_buf_low +
+				DCVS_MIN_THRESHOLD_DIFF;
+		}
+	}
+
+	dprintk(VIDC_DBG,
+		"DCVS: threshold_low %d, threshold_high %d, load %d\n",
+		dcvs->threshold_disp_buf_low,
+		dcvs->threshold_disp_buf_high,
+		dcvs->load);
+}
+
+/*
+* In DCVS scale_clocks will be done both in qbuf and FBD
+* 1 indicates call made from fbd that lowers clock
+* 0 indicates call made from qbuf that increases clock
+* based on DCVS algorithm
+*/
+static int msm_comm_scale_clocks_dcvs(struct msm_vidc_inst *inst, bool fbd)
+{
+	int rc = 0;
+	int fw_pending_bufs = 0;
+	int total_output_buf = 0;
+	int buffers_outside_fw = 0;
+	struct msm_vidc_core *core;
+	struct hfi_device *hdev;
+	struct hal_buffer_requirements *output_buf_req;
+	struct dcvs_stats *dcvs;
+
+	if (!inst || !inst->core || !inst->core->device) {
+		dprintk(VIDC_ERR, "%s Invalid params\n", __func__);
+		return -EINVAL;
+	}
+	core = inst->core;
+	hdev = core->device;
+	dcvs = &inst->dcvs;
+	fw_pending_bufs = get_pending_bufs_fw(inst) +
+		(fbd ? 0 : 1);
+
+	mutex_lock(&inst->lock);
+	output_buf_req = get_buff_req_buffer(inst,
+		msm_comm_get_hal_output_buffer(inst));
+	mutex_unlock(&inst->lock);
+
+	if (!output_buf_req) {
+		dprintk(VIDC_ERR,
+			"%s: No buffer requirement for buffer type %x\n",
+			__func__, HAL_BUFFER_OUTPUT);
+		return -EINVAL;
+	}
+
+	/* Total number of output buffers */
+	total_output_buf = output_buf_req->buffer_count_actual;
+
+	/* Buffers outside FW are with display */
+	buffers_outside_fw = total_output_buf - fw_pending_bufs;
+
+	if (fbd) {
+		/*
+		* scale clock only after display has buffers
+		* more than high threshold
+		*/
+		if (!dcvs->change_initial_freq &&
+			buffers_outside_fw > dcvs->threshold_disp_buf_high)
+			dcvs->change_initial_freq = true;
+
+		if (buffers_outside_fw > dcvs->threshold_disp_buf_high &&
+			!dcvs->prev_freq_increased) {
+			dcvs->load = dcvs->load_low;
+			dcvs->prev_freq_lowered = true;
+		} else
+			dcvs->prev_freq_lowered = false;
+
+		if (dcvs->prev_freq_lowered) {
+			dprintk(VIDC_PROF,
+				"DCVS: fbd clock set = %d tot_output_buf = %d buffers_outside_fw %d threshold_high %d\n",
+				dcvs->load,
+				total_output_buf,
+				buffers_outside_fw,
+				dcvs->threshold_disp_buf_high);
+
+			/* HFI call to scale clock */
+			rc = call_hfi_op(hdev, scale_clocks,
+					hdev->hfi_device_data, dcvs->load);
+			if (rc)
+				dprintk(VIDC_ERR,
+					"Failed to set clock rate in FBD: %d\n",
+					rc);
+		}
+	} else {
+		if (buffers_outside_fw <= dcvs->threshold_disp_buf_low &&
+			!dcvs->prev_freq_lowered) {
+			dcvs->load = dcvs->load_high;
+			dcvs->prev_freq_increased = true;
+		} else
+			dcvs->prev_freq_increased = false;
+
+		if (dcvs->prev_freq_increased) {
+			dprintk(VIDC_PROF,
+				"DCVS: ftb clock set = %d tot_output_buf = %d buffers_outside_fw %d, threshold_low %d\n",
+				dcvs->load,
+				total_output_buf,
+				buffers_outside_fw,
+				dcvs->threshold_disp_buf_low);
+
+			/* HFI call to scale clock */
+			rc = call_hfi_op(hdev, scale_clocks,
+					hdev->hfi_device_data, dcvs->load);
+			if (rc)
+				dprintk(VIDC_ERR,
+				"Failed to set clock rate in FTB %d\n",
+				rc);
+		}
+	}
+	return rc;
 }
 
 static int msm_comm_scale_clocks(struct msm_vidc_core *core)
@@ -2758,6 +3087,26 @@ int msm_comm_qbuf(struct vb2_buffer *vb)
 				}
 				atomic_dec(&inst->get_seq_hdr_cnt);
 			} else {
+				rc = msm_comm_check_dcvs_supported(inst);
+				if (!rc) {
+					inst->dcvs_mode = true;
+					dprintk(VIDC_DBG,
+						"%s: session DCVS supported, dcvs_mode = %d\n",
+						__func__, inst->dcvs_mode);
+				} else {
+					inst->dcvs_mode = false;
+					dprintk(VIDC_DBG,
+						"%s: session DCVS not supported, dcvs_mode = %d\n",
+						__func__, inst->dcvs_mode);
+				}
+				if (msm_vidc_dcvs_mode && inst->dcvs_mode) {
+					rc = msm_comm_scale_clocks_dcvs(
+							inst, false);
+					if (rc)
+						dprintk(VIDC_ERR,
+							"%s: Failed to scale clocks in DCVS: %d\n",
+							__func__, rc);
+				}
 				rc = call_hfi_op(hdev, session_ftb,
 					(void *) inst->session, &frame_data);
 				if (!rc)
@@ -3622,6 +3971,81 @@ int msm_vidc_check_scaling_supported(struct msm_vidc_inst *inst)
 	return 0;
 }
 
+static int msm_comm_check_dcvs_supported(struct msm_vidc_inst *inst)
+{
+	int rc = 0;
+	int num_mbs_per_sec = 0;
+	u32 instance_count = 0;
+	bool codec_supported = false;
+	struct msm_vidc_inst *temp = NULL;
+	struct msm_vidc_core *core;
+	enum hal_video_codec codec;
+	struct hal_buffer_requirements *output_buf_req;
+	struct dcvs_stats *dcvs;
+
+	if (!inst || !inst->core || !inst->core->device) {
+		dprintk(VIDC_WARN, "%s: Invalid parameter\n", __func__);
+		return -EINVAL;
+	}
+
+	core = inst->core;
+	dcvs = &inst->dcvs;
+	mutex_lock(&core->lock);
+	list_for_each_entry(temp, &core->instances, list) {
+		if (temp->state >= MSM_VIDC_START_DONE &&
+			temp->state < MSM_VIDC_STOP_DONE)
+			instance_count++;
+	}
+	mutex_unlock(&core->lock);
+
+	if (instance_count == 1 && inst->session_type == MSM_VIDC_DECODER) {
+		mutex_lock(&inst->lock);
+		num_mbs_per_sec = msm_comm_get_inst_load(inst,
+			LOAD_CALC_NO_QUIRKS);
+		output_buf_req = get_buff_req_buffer(inst,
+			msm_comm_get_hal_output_buffer(inst));
+		mutex_unlock(&inst->lock);
+
+		codec = get_hal_codec_type(inst->fmts[OUTPUT_PORT]->fourcc);
+		codec_supported = (codec == HAL_VIDEO_CODEC_H264) ||
+			(codec == HAL_VIDEO_CODEC_VP8);
+		if (!(codec_supported &&
+			IS_VALID_DCVS_SESSION(num_mbs_per_sec,
+				DCVS_NOMINAL_LOAD)))
+				return -ENOTSUPP;
+
+		if (!output_buf_req) {
+			dprintk(VIDC_ERR,
+				"%s: No buffer requirement for buffer type %x\n",
+				__func__, HAL_BUFFER_OUTPUT);
+			return -EINVAL;
+		}
+		if (inst->count.ftb - dcvs->prev_ftb_count >
+			output_buf_req->buffer_count_actual)
+				dcvs->prev_ftb_count = inst->count.ftb;
+	} else {
+		rc = -ENOTSUPP;
+		/*
+		*.For multiple instance use case with 4K, clocks will be scaled
+		* as per load in streamon, but the clocks may be scaled
+		* down as DCVS is running for first playback instance
+		* Rescaling the core clock for multiple instance use case
+		*/
+		if (!dcvs->is_clock_scaled) {
+			if (!msm_comm_scale_clocks(core)) {
+				dcvs->is_clock_scaled = true;
+				dprintk(VIDC_DBG,
+					"%s: Scaled clocks = %d\n",
+					__func__, dcvs->is_clock_scaled);
+			} else {
+				dprintk(VIDC_DBG,
+					"%s: Failed to Scale clocks. Perf might be impacted\n",
+					__func__);
+			}
+		}
+	}
+	return rc;
+}
 int msm_vidc_check_session_supported(struct msm_vidc_inst *inst)
 {
 	struct msm_vidc_core_capability *capability;

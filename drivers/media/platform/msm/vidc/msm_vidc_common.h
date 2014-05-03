@@ -37,6 +37,8 @@ int msm_comm_set_output_buffers(struct msm_vidc_inst *inst);
 int msm_comm_queue_output_buffers(struct msm_vidc_inst *inst);
 int msm_comm_qbuf(struct vb2_buffer *vb);
 void msm_comm_scale_clocks_and_bus(struct msm_vidc_inst *inst);
+void msm_comm_init_dcvs(struct msm_vidc_inst *inst);
+void msm_comm_init_dcvs_load(struct msm_vidc_inst *inst);
 int msm_comm_flush(struct msm_vidc_inst *inst, u32 flags);
 int msm_comm_release_scratch_buffers(struct msm_vidc_inst *inst);
 int msm_comm_release_persist_buffers(struct msm_vidc_inst *inst);
