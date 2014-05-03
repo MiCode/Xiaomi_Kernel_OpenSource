@@ -455,6 +455,7 @@ static long rmnet_ctrl_ioctl(struct file *fp, unsigned cmd, unsigned long arg)
 	struct rmnet_ctrl_qti_port *port = container_of(fp->private_data,
 						struct rmnet_ctrl_qti_port,
 						rmnet_device);
+	struct grmnet *gr = NULL;
 	struct ep_info info;
 	int val, ret = 0;
 
@@ -464,6 +465,20 @@ static long rmnet_ctrl_ioctl(struct file *fp, unsigned cmd, unsigned long arg)
 		return -EBUSY;
 
 	switch (cmd) {
+	case FRMNET_CTRL_MODEM_OFFLINE:
+		if (port && port->port_usb)
+			gr = port->port_usb;
+
+		if (gr && gr->disconnect)
+			gr->disconnect(gr);
+		break;
+	case FRMNET_CTRL_MODEM_ONLINE:
+		if (port && port->port_usb)
+			gr = port->port_usb;
+
+		if (gr && gr->connect)
+			gr->connect(gr);
+		break;
 	case FRMNET_CTRL_GET_LINE_STATE:
 		val = atomic_read(&port->line_state);
 		ret = copy_to_user((void __user *)arg, &val, sizeof(val));
