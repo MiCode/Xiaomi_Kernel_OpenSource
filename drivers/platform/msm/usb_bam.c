@@ -3316,7 +3316,8 @@ static int usb_bam_probe(struct platform_device *pdev)
 		return ret;
 	}
 	spin_lock_init(&usb_bam_ipa_handshake_info_lock);
-	usb_bam_ipa_create_resources();
+	if (ipa_is_ready())
+		usb_bam_ipa_create_resources();
 	spin_lock_init(&usb_bam_lock);
 	probe_finished = true;
 
