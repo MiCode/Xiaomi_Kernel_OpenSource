@@ -110,6 +110,7 @@
 	qcom,lpm-levels {
 		compatible = "qcom,lpm-levels";
 		qcom,default-l2-state = "l2_cache_active";
+		qcom,allow-synced-levels;
 		#address-cells = <1>;
 		#size-cells = <0>;
 
@@ -152,7 +153,7 @@
 				qcom,ss-power = <372>;
 				qcom,energy-overhead = <738750>;
 				qcom,time-overhead = <1410>;
-				qcom,min-cpu-mode= "pc";
+				qcom,min-cpu-mode= "standalone_pc";
 				qcom,sync-mode;
 			};
 
