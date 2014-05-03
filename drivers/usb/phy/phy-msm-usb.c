@@ -786,6 +786,9 @@ static int msm_otg_set_suspend(struct usb_phy *phy, int suspend)
 	if (aca_enabled())
 		return 0;
 
+	pr_debug("%s(%d) in %s state\n", __func__, suspend,
+				usb_otg_state_string(phy->state));
+
 	/*
 	 * UDC and HCD call usb_phy_set_suspend() to enter/exit LPM
 	 * during bus suspend/resume.  Update the relevant state
@@ -801,8 +804,13 @@ static int msm_otg_set_suspend(struct usb_phy *phy, int suspend)
 		case OTG_STATE_A_HOST:
 			pr_debug("host bus suspend\n");
 			clear_bit(A_BUS_REQ, &motg->inputs);
-			if (!atomic_read(&motg->in_lpm))
+			if (!atomic_read(&motg->in_lpm)) {
 				queue_work(system_nrt_wq, &motg->sm_work);
+				/* Flush sm_work to avoid it race with
+				 * subsequent calls of set_suspend.
+				 */
+				flush_work(&motg->sm_work);
+			}
 			break;
 		case OTG_STATE_B_PERIPHERAL:
 			pr_debug("peripheral bus suspend\n");
