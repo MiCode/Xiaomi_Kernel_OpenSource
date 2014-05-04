@@ -14,3 +14,7 @@ st_magn-$(CONFIG_IIO_BUFFER) += st_magn_buffer.o
 
 obj-$(CONFIG_IIO_ST_MAGN_I2C_3AXIS) += st_magn_i2c.o
 obj-$(CONFIG_IIO_ST_MAGN_SPI_3AXIS) += st_magn_spi.o
+
+bmm050-y := bmm050_driver.o bmm050_api.o bmm050_buffer.o bmm050_trigger.o
+obj-$(CONFIG_SENSORS_BMM050)    += bmm050.o
+ccflags-$(CONFIG_SENSORS_BMM050)    += -DBMM_USE_BASIC_I2C_FUNC

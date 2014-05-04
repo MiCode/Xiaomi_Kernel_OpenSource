@@ -79,4 +79,10 @@ config IIO_ST_MAGN_SPI_3AXIS
 	depends on IIO_ST_MAGN_3AXIS
 	depends on IIO_ST_SENSORS_SPI
 
+config SENSORS_BMM050
+	tristate "BMM050 Magnetic Sensor Driver"
+	select IIO_TRIGGERED_BUFFER if IIO_BUFFER
+	depends on I2C
+	help
+	 BMM050 Magnetic Sensor Driver implemented by Bosch-Sensortec.
 endmenu
