@@ -30,6 +30,7 @@ struct modem_data {
 	void __iomem *rmb_base;
 	struct clk *xo;
 	struct pil_desc desc;
+	struct device mba_mem_dev;
 };
 
 extern struct pil_reset_ops pil_msa_mss_ops;
