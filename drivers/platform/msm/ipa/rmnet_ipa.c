@@ -500,6 +500,7 @@ static int wwan_del_ul_flt_rule_to_ipa(void)
 			sizeof(struct ipa_flt_rule_del));
 		if (ipa_del_flt_rule((struct ipa_ioc_del_flt_rule *)param)) {
 			IPAWANERR("del A7 UL filter rule(%d) failed\n", i);
+			kfree(param);
 			return -EFAULT;
 		}
 	}

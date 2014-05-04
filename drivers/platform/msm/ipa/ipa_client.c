@@ -445,7 +445,7 @@ int ipa_reset_endpoint(u32 clnt_hdl)
 	int res;
 	struct ipa_ep_context *ep;
 
-	if (clnt_hdl < 0 || clnt_hdl >= IPA_CLIENT_MAX) {
+	if (clnt_hdl >= IPA_NUM_PIPES) {
 		IPAERR("Bad parameters.\n");
 		return -EFAULT;
 	}
