@@ -1039,6 +1039,71 @@
 				qcom,vidc-partition-buffer-types = <0x480>;
 			};
 		};
+		qcom,msm-bus-clients {
+			qcom,msm-bus-client@0 {
+				qcom,msm-bus,name = "venc-core0-ddr";
+				qcom,msm-bus,num-cases = <8>;
+				qcom,msm-bus,num-paths = <1>;
+				qcom,msm-bus,vectors-KBps =
+					<63 512 0 0>,
+					<63 512 133600 302000>,
+					<63 512 402200 302000>,
+					<63 512 916600 302000>,
+					<63 512 1778400 604000>,
+					<63 512 2812400 967000>,
+					<63 512 3501800 1404000>,
+					<63 512 5567600 1496000>;
+				qcom,bus-configs = <0x1000414>;
+			};
+
+			qcom,msm-bus-client@1 {
+				qcom,msm-bus,name = "vdec-core0-ddr";
+				qcom,msm-bus,num-cases = <8>;
+				qcom,msm-bus,num-paths = <1>;
+				qcom,msm-bus,vectors-KBps =
+					<63 512 0 0>,
+					<63 512 303200 454500>,
+					<63 512 787200 454500>,
+					<63 512 1498200 454500>,
+					<63 512 2921400 909000>,
+					<63 512 4629200 1455000>,
+					<63 512 5767800 1818000>,
+					<63 512 6299000 19185000>;
+				qcom,bus-configs = <0xc000000>;
+			};
+
+			qcom,msm-bus-client@2 {
+				qcom,msm-bus,name = "vdec-core1-ddr";
+				qcom,msm-bus,num-cases = <8>;
+				qcom,msm-bus,num-paths = <1>;
+				qcom,msm-bus,vectors-KBps =
+					<63 512 0 0>,
+					<63 512 227800 303000>,
+					<63 512 593400 303000>,
+					<63 512 1142800 303000>,
+					<63 512 2177000 606000>,
+					<63 512 3417800 970000>,
+					<63 512 4245000 1212000>,
+					<63 512 4773800 1279000>;
+				qcom,bus-configs = <0x30fcfff>;
+			};
+
+			qcom,msm-bus-client@3 {
+				qcom,msm-bus,name = "venc-core2-ddr";
+				qcom,msm-bus,num-cases = <8>;
+				qcom,msm-bus,num-paths = <1>;
+				qcom,msm-bus,vectors-KBps =
+					<63 512 0 0>,
+					<63 512 178000 453000>,
+					<63 512 540000 453000>,
+					<63 512 1518000 453000>,
+					<63 512 2100000 906000>,
+					<63 512 2798000 1450500>,
+					<63 512 3262000 2106000>,
+					<63 512 8114000 2244000>;
+				qcom,bus-configs = <0x04000000>;
+			};
+		};
 	};
 
 	i2c_2: i2c@f9924000 { /* BLSP1 QUP2 */
