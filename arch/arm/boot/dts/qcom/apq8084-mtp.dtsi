@@ -183,6 +183,12 @@
 	status = "ok";
 };
 
+&uart6 {
+	qcom,inject-rx-on-wakeup;
+	qcom,rx-char-to-inject = <0xfd>;
+	status = "ok";
+};
+
 &ufsphy1 {
 	status = "ok";
 };
