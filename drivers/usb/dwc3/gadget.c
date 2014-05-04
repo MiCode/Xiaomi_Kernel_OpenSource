@@ -1520,6 +1520,7 @@ static int dwc3_gadget_run_stop(struct dwc3 *dwc, int is_on, int suspend)
 			reg &= ~DWC3_DCTL_KEEP_CONNECT;
 
 		dwc->pullups_connected = false;
+		usb_gadget_set_state(&dwc->gadget, USB_STATE_NOTATTACHED);
 	}
 
 	dwc3_writel(dwc->regs, DWC3_DCTL, reg);
@@ -2626,8 +2627,18 @@ static void dwc3_gadget_suspend_interrupt(struct dwc3 *dwc,
 {
 	enum dwc3_link_state    next = evtinfo & DWC3_LINK_STATE_MASK;
 
-	if (next == DWC3_LINK_STATE_U3)
+	if (next == DWC3_LINK_STATE_U3) {
+		/*
+		 * When first connecting the cable, even before the initial
+		 * DWC3_DEVICE_EVENT_RESET or DWC3_DEVICE_EVENT_CONNECT_DONE
+		 * events, the controller sees a DWC3_DEVICE_EVENT_SUSPEND
+		 * event. In such a case, ignore.
+		 */
+		if (dwc->gadget.state == USB_STATE_NOTATTACHED)
+			return;
+
 		dwc3_suspend_gadget(dwc);
+	}
 
 	dwc->link_state = next;
 	dwc3_trace(trace_dwc3_gadget, "link state %d", dwc->link_state);
