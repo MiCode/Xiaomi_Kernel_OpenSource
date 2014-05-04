@@ -5,12 +5,17 @@
 #include <linux/seq_file.h>
 #include <linux/utsname.h>
 
+#define ADDENDUM_LENGTH 20
+static char version_addendum[ADDENDUM_LENGTH];
+
 static int version_proc_show(struct seq_file *m, void *v)
 {
 	seq_printf(m, linux_proc_banner,
 		utsname()->sysname,
 		utsname()->release,
-		utsname()->version);
+		utsname()->version,
+		version_addendum);
+
 	return 0;
 }
 
@@ -25,6 +30,13 @@ static const struct file_operations version_proc_fops = {
 	.llseek		= seq_lseek,
 	.release	= single_release,
 };
+
+static int __init set_version_addendum(char *str)
+{
+	strncpy(version_addendum, str, ADDENDUM_LENGTH);
+	return 0;
+}
+early_param("version_addendum", set_version_addendum);
 
 static int __init proc_version_init(void)
 {
