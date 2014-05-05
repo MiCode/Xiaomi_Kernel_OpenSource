@@ -78,6 +78,16 @@
 	status = "ok";
 };
 
+#include "dsi-panel-sim-video.dtsi"
+
+&mdss_mdp {
+        qcom,mdss-pref-prim-intf = "dsi";
+};
+
+&mdss_dsi0 {
+        qcom,dsi-pref-prim-pan = <&dsi_sim_vid>;
+};
+
 &pm8916_revid {
 	status = "disabled";
 };

@@ -161,6 +161,7 @@
 #include "msm8939-iommu.dtsi"
 #include "msm8939-coresight.dtsi"
 #include "msm8939-bus.dtsi"
+#include "msm8939-mdss.dtsi"
 
 &soc {
 	#address-cells = <1>;
