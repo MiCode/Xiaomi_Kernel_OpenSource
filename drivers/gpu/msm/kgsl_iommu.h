@@ -82,6 +82,7 @@ enum kgsl_iommu_reg_map {
 	KGSL_IOMMU_CTX_TTBR0,
 	KGSL_IOMMU_CTX_TTBR1,
 	KGSL_IOMMU_CTX_FSR,
+	KGSL_IOMMU_CTX_FAR,
 	KGSL_IOMMU_CTX_TLBIALL,
 	KGSL_IOMMU_CTX_RESUME,
 	KGSL_IOMMU_CTX_TLBLKCR,
@@ -168,18 +169,6 @@ struct kgsl_device_iommu_data {
 		iommu->iommu_reg_list[KGSL_IOMMU_CTX_##REG].reg_offset +\
 		(ctx << KGSL_IOMMU_CTX_SHIFT) +				\
 		iommu->ctx_offset)
-
-#ifdef CONFIG_IOMMU_LPAE
-#define KGSL_IOMMU_GET_CTX_REG_TTBR0(iommu, iommu_unit, ctx)		\
-		KGSL_IOMMU_GET_CTX_REG_Q(iommu, iommu_unit, ctx, TTBR0)
-#define KGSL_IOMMU_SET_CTX_REG_TTBR0(iommu, iommu_unit, ctx, val)	\
-		KGSL_IOMMU_SET_CTX_REG_Q(iommu, iommu_unit, ctx, TTBR0, val)
-#else
-#define KGSL_IOMMU_GET_CTX_REG_TTBR0(iommu, iommu_unit, ctx)		\
-		KGSL_IOMMU_GET_CTX_REG(iommu, iommu_unit, ctx, TTBR0)
-#define KGSL_IOMMU_SET_CTX_REG_TTBR0(iommu, iommu_unit, ctx, val)	\
-		KGSL_IOMMU_SET_CTX_REG(iommu, iommu_unit, ctx, TTBR0, val)
-#endif
 
 /* Gets the lsb value of pagetable */
 #define KGSL_IOMMMU_PT_LSB(iommu, pt_val)				\
