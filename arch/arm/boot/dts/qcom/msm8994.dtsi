@@ -851,7 +851,80 @@
 		#clock-cells = <1>;
 	};
 
-	qcom,msm-cpufreq {
+	cci_cache: qcom,cci {
+		compatible = "devfreq-simple-dev";
+		clock-names = "devfreq_clk";
+		clocks = <&clock_cpu clk_cci_clk>;
+		governor = "cpufreq";
+		freq-tbl-khz =
+			<  150000 >,
+			<  200000 >,
+			<  249600 >,
+			<  300000 >,
+			<  384000 >,
+			<  499200 >,
+			<  600000 >;
+	};
+
+	cpubw: qcom,cpubw {
+		compatible = "qcom,cpubw";
+		qcom,cpu-mem-ports = <1 512>;
+		qcom,bw-tbl =
+			<  1525 /*  100 MHz */ >,
+			<  2288 /*  150 MHz */ >,
+			<  4577 /*  300 MHz */ >,
+			<  6103 /*  400 MHz */ >,
+			<  7110 /*  466 MHz */ >;
+	};
+
+	devfreq-cpufreq {
+		cpubw-cpufreq {
+			target-dev = <&cpubw>;
+			cpu-to-dev-map-0 =
+				<  199200 1525 >,
+				<  302400 1525 >,
+				<  384000 1525 >,
+				<  600000 2288 >,
+				<  691200 4577 >,
+				<  768000 4577 >,
+				<  844800 6103 >,
+				<  921600 6103 >,
+				<  940800 7110 >;
+			cpu-to-dev-map-4 =
+				<  199200 1525 >,
+				<  302400 1525 >,
+				<  384000 2288 >,
+				<  600000 4577 >,
+				<  691200 6103 >,
+				<  768000 6103 >,
+				<  844800 7110 >,
+				<  921600 7110 >;
+		};
+		cci-cpufreq {
+			target-dev = <&cci_cache>;
+			cpu-to-dev-map-0 =
+				<  199200 150000 >,
+				<  302400 200000 >,
+				<  384000 249600 >,
+				<  600000 300000 >,
+				<  691200 384000 >,
+				<  768000 384000 >,
+				<  844800 499200 >,
+				<  921600 600000 >,
+				<  940800 600000 >;
+			cpu-to-dev-map-4 =
+				<  199200 150000 >,
+				<  302400 200000 >,
+				<  384000 249600 >,
+				<  600000 300000 >,
+				<  691200 384000 >,
+				<  768000 499200 >,
+				<  844800 600000 >,
+				<  921600 600000 >;
+		};
+	};
+
+	msm_cpufreq: qcom,msm-cpufreq {
 		compatible = "qcom,msm-cpufreq";
 		clock-names = "cpu0_clk", "cpu1_clk", "cpu2_clk",
 				"cpu3_clk", "cpu4_clk", "cpu5_clk",
@@ -865,13 +938,17 @@
 			 <&clock_cpu clk_a57_clk>,
 			 <&clock_cpu clk_a57_clk>;
 
-		qcom,cpufreq-table =
-			<  249600 >,
-			<  300000 >,
-			<  422400 >,
-			<  652800 >,
-			<  729600 >,
-			<  883200 >;
+		qcom,governor-per-policy;
+
+		qcom,cpufreq-table-0 =
+			<  199200 >,
+			<  302400 >,
+			<  384000 >,
+			<  600000 >,
+			<  691200 >;
+
+		qcom,cpufreq-table-4 =
+			<  199200 >;
 	};
 
 	clock_cpu: qcom,cpu-clock-8994@f9015000 {
