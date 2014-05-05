@@ -20,6 +20,7 @@
 #include <linux/slab.h>
 #include <linux/mutex.h>
 #include <linux/clk.h>
+#include <linux/of.h>
 #include <linux/of_coresight.h>
 #include <linux/coresight.h>
 #include <linux/coresight-cti.h>
@@ -72,9 +73,10 @@ struct cti_drvdata {
 	struct device			*dev;
 	struct coresight_device		*csdev;
 	struct clk			*clk;
-	struct mutex			mutex;
+	spinlock_t			spinlock;
 	struct coresight_cti		cti;
 	int				refcnt;
+	bool				cti_save;
 };
 
 static LIST_HEAD(cti_list);
@@ -146,9 +148,9 @@ int coresight_cti_map_trigin(struct coresight_cti *cti, int trig, int ch)
 	if (ret)
 		return ret;
 
-	mutex_lock(&drvdata->mutex);
+	spin_lock(&drvdata->spinlock);
 	__cti_map_trigin(drvdata, trig, ch);
-	mutex_unlock(&drvdata->mutex);
+	spin_unlock(&drvdata->spinlock);
 
 	clk_disable_unprepare(drvdata->clk);
 	return 0;
@@ -196,9 +198,9 @@ int coresight_cti_map_trigout(struct coresight_cti *cti, int trig, int ch)
 	if (ret)
 		return ret;
 
-	mutex_lock(&drvdata->mutex);
+	spin_lock(&drvdata->spinlock);
 	__cti_map_trigout(drvdata, trig, ch);
-	mutex_unlock(&drvdata->mutex);
+	spin_unlock(&drvdata->spinlock);
 
 	clk_disable_unprepare(drvdata->clk);
 	return 0;
@@ -256,9 +258,9 @@ void coresight_cti_unmap_trigin(struct coresight_cti *cti, int trig, int ch)
 	if (clk_prepare_enable(drvdata->clk))
 		return;
 
-	mutex_lock(&drvdata->mutex);
+	spin_lock(&drvdata->spinlock);
 	__cti_unmap_trigin(drvdata, trig, ch);
-	mutex_unlock(&drvdata->mutex);
+	spin_unlock(&drvdata->spinlock);
 
 	clk_disable_unprepare(drvdata->clk);
 }
@@ -302,9 +304,9 @@ void coresight_cti_unmap_trigout(struct coresight_cti *cti, int trig, int ch)
 	if (clk_prepare_enable(drvdata->clk))
 		return;
 
-	mutex_lock(&drvdata->mutex);
+	spin_lock(&drvdata->spinlock);
 	__cti_unmap_trigout(drvdata, trig, ch);
-	mutex_unlock(&drvdata->mutex);
+	spin_unlock(&drvdata->spinlock);
 
 	clk_disable_unprepare(drvdata->clk);
 }
@@ -342,9 +344,9 @@ void coresight_cti_reset(struct coresight_cti *cti)
 	if (clk_prepare_enable(drvdata->clk))
 		return;
 
-	mutex_lock(&drvdata->mutex);
+	spin_lock(&drvdata->spinlock);
 	__cti_reset(drvdata);
-	mutex_unlock(&drvdata->mutex);
+	spin_unlock(&drvdata->spinlock);
 
 	clk_disable_unprepare(drvdata->clk);
 }
@@ -381,9 +383,9 @@ int coresight_cti_set_trig(struct coresight_cti *cti, int ch)
 	if (ret)
 		return ret;
 
-	mutex_lock(&drvdata->mutex);
+	spin_lock(&drvdata->spinlock);
 	ret = __cti_set_trig(drvdata, ch);
-	mutex_unlock(&drvdata->mutex);
+	spin_unlock(&drvdata->spinlock);
 
 	clk_disable_unprepare(drvdata->clk);
 	return ret;
@@ -416,9 +418,9 @@ void coresight_cti_clear_trig(struct coresight_cti *cti, int ch)
 	if (clk_prepare_enable(drvdata->clk))
 		return;
 
-	mutex_lock(&drvdata->mutex);
+	spin_lock(&drvdata->spinlock);
 	__cti_clear_trig(drvdata, ch);
-	mutex_unlock(&drvdata->mutex);
+	spin_unlock(&drvdata->spinlock);
 
 	clk_disable_unprepare(drvdata->clk);
 }
@@ -455,9 +457,9 @@ int coresight_cti_pulse_trig(struct coresight_cti *cti, int ch)
 	if (ret)
 		return ret;
 
-	mutex_lock(&drvdata->mutex);
+	spin_lock(&drvdata->spinlock);
 	ret = __cti_pulse_trig(drvdata, ch);
-	mutex_unlock(&drvdata->mutex);
+	spin_unlock(&drvdata->spinlock);
 
 	clk_disable_unprepare(drvdata->clk);
 	return ret;
@@ -498,9 +500,9 @@ int coresight_cti_enable_gate(struct coresight_cti *cti, int ch)
 	if (ret)
 		return ret;
 
-	mutex_lock(&drvdata->mutex);
+	spin_lock(&drvdata->spinlock);
 	ret = __cti_enable_gate(drvdata, ch);
-	mutex_unlock(&drvdata->mutex);
+	spin_unlock(&drvdata->spinlock);
 
 	clk_disable_unprepare(drvdata->clk);
 	return ret;
@@ -536,9 +538,9 @@ void coresight_cti_disable_gate(struct coresight_cti *cti, int ch)
 	if (clk_prepare_enable(drvdata->clk))
 		return;
 
-	mutex_lock(&drvdata->mutex);
+	spin_lock(&drvdata->spinlock);
 	__cti_disable_gate(drvdata, ch);
-	mutex_unlock(&drvdata->mutex);
+	spin_unlock(&drvdata->spinlock);
 
 	clk_disable_unprepare(drvdata->clk);
 }
@@ -968,7 +970,7 @@ static int cti_probe(struct platform_device *pdev)
 	if (!drvdata->base)
 		return -ENOMEM;
 
-	mutex_init(&drvdata->mutex);
+	spin_lock_init(&drvdata->spinlock);
 
 	drvdata->clk = devm_clk_get(dev, "core_clk");
 	if (IS_ERR(drvdata->clk))
@@ -978,6 +980,15 @@ static int cti_probe(struct platform_device *pdev)
 	if (ret)
 		return ret;
 
+	if (pdev->dev.of_node)
+		drvdata->cti_save = of_property_read_bool(pdev->dev.of_node,
+							  "qcom,cti-save");
+	if (drvdata->cti_save) {
+		ret = clk_prepare_enable(drvdata->clk);
+		if (ret)
+			return ret;
+	}
+
 	mutex_lock(&cti_lock);
 	drvdata->cti.name = ((struct coresight_platform_data *)
 			     (pdev->dev.platform_data))->name;
@@ -985,25 +996,35 @@ static int cti_probe(struct platform_device *pdev)
 	mutex_unlock(&cti_lock);
 
 	desc = devm_kzalloc(dev, sizeof(*desc), GFP_KERNEL);
-	if (!desc)
-		return -ENOMEM;
+	if (!desc) {
+		ret = -ENOMEM;
+		goto err;
+	}
 	desc->type = CORESIGHT_DEV_TYPE_NONE;
 	desc->pdata = pdev->dev.platform_data;
 	desc->dev = &pdev->dev;
 	desc->groups = cti_attr_grps;
 	desc->owner = THIS_MODULE;
 	drvdata->csdev = coresight_register(desc);
-	if (IS_ERR(drvdata->csdev))
-		return PTR_ERR(drvdata->csdev);
+	if (IS_ERR(drvdata->csdev)) {
+		ret = PTR_ERR(drvdata->csdev);
+		goto err;
+	}
 
 	dev_info(dev, "CTI initialized\n");
 	return 0;
+err:
+	if (drvdata->cti_save)
+		clk_disable_unprepare(drvdata->clk);
+	return ret;
 }
 
 static int cti_remove(struct platform_device *pdev)
 {
 	struct cti_drvdata *drvdata = platform_get_drvdata(pdev);
 
+	if (drvdata->cti_save)
+		clk_disable_unprepare(drvdata->clk);
 	coresight_unregister(drvdata->csdev);
 	return 0;
 }
