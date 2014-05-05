@@ -376,5 +376,35 @@
 				drive-strength = <2>;
 			};
 		};
+
+		cdc-pdm-lines {
+			qcom,pins = <&gp 63>, <&gp 64>, <&gp 65>,
+					<&gp 66>, <&gp 67>, <&gp 68>;
+			qcom,num-grp-pins = <6>;
+			qcom,pin-func = <1>;
+			label = "cdc-pdm-lines";
+			cdc_pdm_lines_act: pdm_lines_on {
+				drive-strength = <8>;
+				bias-pull-none;
+			};
+			cdc_pdm_lines_sus: pdm_lines_off {
+				drive-strength = <2>;
+				bias-disable;
+			};
+		};
+		cross-conn-det {
+			qcom,pins = <&gp 120>;
+			qcom,num-grp-pins = <1>;
+			qcom,pin-func = <0>;
+			label = "cross-conn-det-sw";
+			cross_conn_det_act: lines_on {
+				drive-strength = <8>;
+				bias-pull-none;
+			};
+			cross_conn_det_sus: lines_off {
+				drive-strength = <2>;
+				bias-disable;
+			};
+		};
 	};
 };
