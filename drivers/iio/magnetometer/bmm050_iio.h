@@ -27,37 +27,12 @@
 #include <linux/iio/trigger_consumer.h>
 
 
-#define BMM050_U16 unsigned short
-#define BMM050_S16 signed short
-#define BMM050_S32 signed int
-
-
-#define BMM050_BUS_WR_RETURN_TYPE char
-#define BMM050_BUS_WR_PARAM_TYPES\
-	unsigned char, unsigned char, unsigned char *, unsigned char
-#define BMM050_BUS_WR_PARAM_ORDER\
-	(device_addr, register_addr, register_data, wr_len)
 #define BMM050_BUS_WRITE_FUNC(\
 		device_addr, register_addr, register_data, wr_len)\
 	bus_write(device_addr, register_addr, register_data, wr_len)
 
-#define BMM050_BUS_RD_RETURN_TYPE char
-
-#define BMM050_BUS_RD_PARAM_TYPES\
-	unsigned char, unsigned char, unsigned char *, unsigned char
-
-#define BMM050_BUS_RD_PARAM_ORDER (device_addr, register_addr, register_data)
-
 #define BMM050_BUS_READ_FUNC(device_addr, register_addr, register_data, rd_len)\
 	bus_read(device_addr, register_addr, register_data, rd_len)
-
-
-#define BMM050_DELAY_RETURN_TYPE void
-
-#define BMM050_DELAY_PARAM_TYPES unsigned int
-
-#define BMM050_DELAY_FUNC(delay_in_msec)\
-	delay_func(delay_in_msec)
 
 #define BMM050_DELAY_POWEROFF_SUSPEND      1
 #define BMM050_DELAY_SUSPEND_SLEEP         2
@@ -69,8 +44,6 @@
 #define BMM050_DELAY_ACTIVE_POWEROFF       1
 #define BMM050_DELAY_SETTLING_TIME         2
 
-
-#define BMM050_RETURN_FUNCTION_TYPE        char
 #define BMM050_I2C_ADDRESS                 0x10
 
 /*General Info datas*/
@@ -388,7 +361,6 @@
 #define BMM050_RD_FUNC_PTR\
 	char (*bus_read)(unsigned char, unsigned char,\
 			unsigned char *, unsigned char)
-#define BMM050_MDELAY_DATA_TYPE unsigned int
 
 /*Shifting Constants*/
 #define SHIFT_RIGHT_1_POSITION                  1
@@ -422,7 +394,7 @@
 
 /* compensated output value returned if sensor had overflow */
 #define BMM050_OVERFLOW_OUTPUT       -32768
-#define BMM050_OVERFLOW_OUTPUT_S32   ((BMM050_S32)(-2147483647-1))
+#define BMM050_OVERFLOW_OUTPUT_S32   ((int)(-2147483647-1))
 #define BMM050_OVERFLOW_OUTPUT_FLOAT 0.0f
 #define BMM050_FLIP_OVERFLOW_ADCVAL  -4096
 #define BMM050_HALL_OVERFLOW_ADCVAL  -16384
@@ -464,31 +436,31 @@
 
 /*user defined Structures*/
 struct bmm050_mdata {
-	BMM050_S16 datax;
-	BMM050_S16 datay;
-	BMM050_S16 dataz;
-	BMM050_U16 resistance;
+	short datax;
+	short datay;
+	short dataz;
+	unsigned short resistance;
 };
 struct bmm050_mdata_s32 {
-	BMM050_S32 datax;
-	BMM050_S32 datay;
-	BMM050_S32 dataz;
-	BMM050_U16 resistance;
-	BMM050_U16 drdy;
+	int datax;
+	int datay;
+	int dataz;
+	unsigned short resistance;
+	unsigned short drdy;
 };
 struct bmm050_iio_mdata_s32 {
-		BMM050_S32 data;
-		BMM050_U16 drdy;
-		BMM050_U16 value_x_valid;
-		BMM050_U16 value_y_valid;
-		BMM050_U16 value_z_valid;
+		int data;
+		unsigned short drdy;
+		unsigned short value_x_valid;
+		unsigned short value_y_valid;
+		unsigned short value_z_valid;
 };
 
 struct bmm050_mdata_float {
 	float datax;
 	float datay;
 	float  dataz;
-	BMM050_U16 resistance;
+	unsigned short resistance;
 };
 
 struct bmm050 {
@@ -497,7 +469,7 @@ struct bmm050 {
 
 	BMM050_WR_FUNC_PTR;
 	BMM050_RD_FUNC_PTR;
-	void (*delay_msec)(BMM050_MDELAY_DATA_TYPE);
+	void (*delay_msec)(unsigned int);
 
 	signed char dig_x1;
 	signed char dig_y1;
@@ -505,15 +477,15 @@ struct bmm050 {
 	signed char dig_x2;
 	signed char dig_y2;
 
-	BMM050_U16 dig_z1;
-	BMM050_S16 dig_z2;
-	BMM050_S16 dig_z3;
-	BMM050_S16 dig_z4;
+	unsigned short dig_z1;
+	short dig_z2;
+	short dig_z3;
+	short dig_z4;
 
 	unsigned char dig_xy1;
 	signed char dig_xy2;
 
-	BMM050_U16 dig_xyz1;
+	unsigned short dig_xyz1;
 };
 
 /************************Start**********************************************/
@@ -579,86 +551,54 @@ void bmm_deallocate_ring(struct iio_dev *indio_dev);
 
 
 /************************End**********************************************/
-BMM050_RETURN_FUNCTION_TYPE bmm050_init(struct bmm050 *p_bmm050);
-BMM050_RETURN_FUNCTION_TYPE bmm050_read_mdataXYZ(
-		struct bmm050_mdata *mdata);
-BMM050_RETURN_FUNCTION_TYPE bmm050_read_mdataXYZ_s32(
-		struct bmm050_mdata_s32 *mdata);
+char bmm050_init(struct bmm050 *p_bmm050);
+char bmm050_read_mdataXYZ(struct bmm050_mdata *mdata);
+char bmm050_read_mdataXYZ_s32(struct bmm050_mdata_s32 *mdata);
 #ifdef ENABLE_FLOAT
-BMM050_RETURN_FUNCTION_TYPE bmm050_read_mdataXYZ_float(
-		struct bmm050_mdata_float *mdata);
+char bmm050_read_mdataXYZ_float(struct bmm050_mdata_float *mdata);
 #endif
-BMM050_RETURN_FUNCTION_TYPE bmm050_read_register(
+char bmm050_read_register(
 		unsigned char addr, unsigned char *data, unsigned char len);
-BMM050_RETURN_FUNCTION_TYPE bmm050_write_register(
+char bmm050_write_register(
 		unsigned char addr, unsigned char *data, unsigned char len);
-BMM050_RETURN_FUNCTION_TYPE bmm050_get_self_test_XYZ(
-		unsigned char *self_testxyz);
-BMM050_S16 bmm050_compensate_X(
-		BMM050_S16 mdata_x, BMM050_U16 data_R);
-BMM050_S32 bmm050_compensate_X_s32(
-		BMM050_S16 mdata_x,  BMM050_U16 data_R);
+char bmm050_get_self_test_XYZ(unsigned char *self_testxyz);
+short bmm050_compensate_X(short mdata_x, unsigned short data_R);
+int bmm050_compensate_X_s32(short mdata_x,  unsigned short data_R);
 #ifdef ENABLE_FLOAT
-float bmm050_compensate_X_float(
-		BMM050_S16 mdata_x,  BMM050_U16 data_R);
+float bmm050_compensate_X_float(short mdata_x,  unsigned short data_R);
 #endif
-BMM050_S16 bmm050_compensate_Y(
-		BMM050_S16 mdata_y, BMM050_U16 data_R);
-BMM050_S32 bmm050_compensate_Y_s32(
-		BMM050_S16 mdata_y,  BMM050_U16 data_R);
+short bmm050_compensate_Y(short mdata_y, unsigned short data_R);
+int bmm050_compensate_Y_s32(short mdata_y,  unsigned short data_R);
 #ifdef ENABLE_FLOAT
-float bmm050_compensate_Y_float(
-		BMM050_S16 mdata_y,  BMM050_U16 data_R);
+float bmm050_compensate_Y_float(short mdata_y,  unsigned short data_R);
 #endif
-BMM050_S16 bmm050_compensate_Z(
-		BMM050_S16 mdata_z,  BMM050_U16 data_R);
-BMM050_S32 bmm050_compensate_Z_s32(
-		BMM050_S16 mdata_z,  BMM050_U16 data_R);
+short bmm050_compensate_Z(short mdata_z,  unsigned short data_R);
+int bmm050_compensate_Z_s32(short mdata_z,  unsigned short data_R);
 #ifdef ENABLE_FLOAT
-float bmm050_compensate_Z_float(
-		BMM050_S16 mdata_z,  BMM050_U16 data_R);
+float bmm050_compensate_Z_float(short mdata_z,  unsigned short data_R);
 #endif
-BMM050_RETURN_FUNCTION_TYPE bmm050_get_raw_xyz(
-		struct bmm050_mdata *mdata);
-BMM050_RETURN_FUNCTION_TYPE bmm050_init_trim_registers(void);
-BMM050_RETURN_FUNCTION_TYPE bmm050_set_spi3(
-		unsigned char value);
-BMM050_RETURN_FUNCTION_TYPE bmm050_get_powermode(
-		unsigned char *mode);
-BMM050_RETURN_FUNCTION_TYPE bmm050_set_powermode(
-		unsigned char mode);
-BMM050_RETURN_FUNCTION_TYPE bmm050_set_adv_selftest(
-		unsigned char adv_selftest);
-BMM050_RETURN_FUNCTION_TYPE bmm050_get_adv_selftest(
-		unsigned char *adv_selftest);
-BMM050_RETURN_FUNCTION_TYPE bmm050_set_datarate(
-		unsigned char data_rate);
-BMM050_RETURN_FUNCTION_TYPE bmm050_get_datarate(
-		unsigned char *data_rate);
-BMM050_RETURN_FUNCTION_TYPE bmm050_set_functional_state(
-		unsigned char functional_state);
-BMM050_RETURN_FUNCTION_TYPE bmm050_get_functional_state(
-		unsigned char *functional_state);
-BMM050_RETURN_FUNCTION_TYPE bmm050_set_selftest(
-		unsigned char selftest);
-BMM050_RETURN_FUNCTION_TYPE bmm050_get_selftest(
-		unsigned char *selftest);
-BMM050_RETURN_FUNCTION_TYPE bmm050_perform_advanced_selftest(
-		BMM050_S16 *diff_z);
-BMM050_RETURN_FUNCTION_TYPE bmm050_get_repetitions_XY(
-		unsigned char *no_repetitions_xy);
-BMM050_RETURN_FUNCTION_TYPE bmm050_set_repetitions_XY(
-		unsigned char no_repetitions_xy);
-BMM050_RETURN_FUNCTION_TYPE bmm050_get_repetitions_Z(
-		unsigned char *no_repetitions_z);
-BMM050_RETURN_FUNCTION_TYPE bmm050_set_repetitions_Z(
-		unsigned char no_repetitions_z);
-BMM050_RETURN_FUNCTION_TYPE bmm050_get_presetmode(unsigned char *mode);
-BMM050_RETURN_FUNCTION_TYPE bmm050_set_presetmode(unsigned char mode);
-BMM050_RETURN_FUNCTION_TYPE bmm050_set_control_measurement_x(
-		unsigned char enable_disable);
-BMM050_RETURN_FUNCTION_TYPE bmm050_set_control_measurement_y(
-		unsigned char enable_disable);
-BMM050_RETURN_FUNCTION_TYPE bmm050_soft_reset(void);
+char bmm050_get_raw_xyz(struct bmm050_mdata *mdata);
+char bmm050_init_trim_registers(void);
+char bmm050_set_spi3(unsigned char value);
+char bmm050_get_powermode(unsigned char *mode);
+char bmm050_set_powermode(unsigned char mode);
+char bmm050_set_adv_selftest(unsigned char adv_selftest);
+char bmm050_get_adv_selftest(unsigned char *adv_selftest);
+char bmm050_set_datarate(unsigned char data_rate);
+char bmm050_get_datarate(unsigned char *data_rate);
+char bmm050_set_functional_state(unsigned char functional_state);
+char bmm050_get_functional_state(unsigned char *functional_state);
+char bmm050_set_selftest(unsigned char selftest);
+char bmm050_get_selftest(unsigned char *selftest);
+char bmm050_perform_advanced_selftest(short *diff_z);
+char bmm050_get_repetitions_XY(unsigned char *no_repetitions_xy);
+char bmm050_set_repetitions_XY(unsigned char no_repetitions_xy);
+char bmm050_get_repetitions_Z(unsigned char *no_repetitions_z);
+char bmm050_set_repetitions_Z(unsigned char no_repetitions_z);
+char bmm050_get_presetmode(unsigned char *mode);
+char bmm050_set_presetmode(unsigned char mode);
+char bmm050_set_control_measurement_x(unsigned char enable_disable);
+char bmm050_set_control_measurement_y(unsigned char enable_disable);
+char bmm050_soft_reset(void);
 
 #endif
