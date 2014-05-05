@@ -2049,6 +2049,13 @@ static int mdss_mdp_parse_dt_mixer(struct platform_device *pdev)
 				"qcom,mdss-pingpong-off");
 	nmixers = mdata->nmixers_intf + mdata->nmixers_wb;
 
+	rc = of_property_read_u32(pdev->dev.of_node,
+			"qcom,max-mixer-width", &mdata->max_mixer_width);
+	if (rc) {
+		pr_err("device tree err: failed to get max mixer width\n");
+		return -EINVAL;
+	}
+
 	if (mdata->nmixers_intf != ndspp) {
 		pr_err("device tree err: unequal no of dspp and intf mixers\n");
 		return -EINVAL;
