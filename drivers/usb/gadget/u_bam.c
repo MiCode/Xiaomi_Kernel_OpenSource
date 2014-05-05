@@ -216,17 +216,15 @@ static int gbam_alloc_requests(struct usb_ep *ep, struct list_head *head,
 	return 0;
 }
 
+/* This function should be called with port_lock_ul lock held */
 static struct sk_buff *gbam_alloc_skb_from_pool(struct gbam_port *port)
 {
 	struct bam_ch_info *d;
-	unsigned long flags;
 	struct sk_buff *skb;
 
 	if (!port)
 		return NULL;
 	d = &port->data_ch;
-
-	spin_lock_irqsave(&port->port_lock_ul, flags);
 
 	if (d->rx_skb_idle.qlen == 0) {
 		/*
@@ -248,25 +246,21 @@ static struct sk_buff *gbam_alloc_skb_from_pool(struct gbam_port *port)
 			skb_reserve(skb, BAM_MUX_HDR);
 	}
 
-	spin_unlock_irqrestore(&port->port_lock_ul, flags);
-
 	return skb;
 }
 
+/* This function should be called with port_lock_ul lock held */
 static void gbam_free_skb_to_pool(struct gbam_port *port, struct sk_buff *skb)
 {
 	struct bam_ch_info *d;
-	unsigned long flags;
 
 	if (!port)
 		return;
 	d = &port->data_ch;
 
-	spin_lock_irqsave(&port->port_lock_ul, flags);
 	skb->len = 0;
 	skb_reset_tail_pointer(skb);
 	__skb_queue_tail(&d->rx_skb_idle, skb);
-	spin_unlock_irqrestore(&port->port_lock_ul, flags);
 }
 
 static void gbam_free_rx_skb_idle_list(struct gbam_port *port)
@@ -429,9 +423,9 @@ void gbam_data_write_done(void *p, struct sk_buff *skb)
 	if (!skb)
 		return;
 
-	gbam_free_skb_to_pool(port, skb);
-
 	spin_lock_irqsave(&port->port_lock_ul, flags);
+
+	gbam_free_skb_to_pool(port, skb);
 
 	d->pending_with_bam--;
 
@@ -487,9 +481,7 @@ static void gbam_data_write_tobam(struct work_struct *w)
 			d->pending_with_bam--;
 			d->to_modem--;
 			d->tomodem_drp_cnt++;
-			spin_unlock_irqrestore(&port->port_lock_ul, flags);
 			gbam_free_skb_to_pool(port, skb);
-			spin_lock_irqsave(&port->port_lock_ul, flags);
 			break;
 		}
 		if (d->pending_with_bam > d->max_num_pkts_pending_with_bam)
@@ -563,7 +555,9 @@ gbam_epout_complete(struct usb_ep *ep, struct usb_request *req)
 	case -ECONNRESET:
 	case -ESHUTDOWN:
 		/* cable disconnection */
+		spin_lock(&port->port_lock_ul);
 		gbam_free_skb_to_pool(port, skb);
+		spin_unlock(&port->port_lock_ul);
 		req->buf = 0;
 		usb_ep_free_request(ep, req);
 		return;
@@ -572,7 +566,9 @@ gbam_epout_complete(struct usb_ep *ep, struct usb_request *req)
 			pr_err("%s: %s response error %d, %d/%d\n",
 				__func__, ep->name, status,
 				req->actual, req->length);
+		spin_lock(&port->port_lock_ul);
 		gbam_free_skb_to_pool(port, skb);
+		spin_unlock(&port->port_lock_ul);
 		break;
 	}
 
@@ -602,22 +598,24 @@ gbam_epout_complete(struct usb_ep *ep, struct usb_request *req)
 		spin_unlock(&port->port_lock_ul);
 		return;
 	}
-	spin_unlock(&port->port_lock_ul);
 
 	skb = gbam_alloc_skb_from_pool(port);
 	if (!skb) {
-		spin_lock(&port->port_lock_ul);
 		list_add_tail(&req->list, &d->rx_idle);
 		spin_unlock(&port->port_lock_ul);
 		return;
 	}
+	spin_unlock(&port->port_lock_ul);
+
 	req->buf = skb->data;
 	req->length = bam_mux_rx_req_size;
 	req->context = skb;
 
 	status = usb_ep_queue(ep, req, GFP_ATOMIC);
 	if (status) {
+		spin_lock(&port->port_lock_ul);
 		gbam_free_skb_to_pool(port, skb);
+		spin_unlock(&port->port_lock_ul);
 
 		if (printk_ratelimit())
 			pr_err("%s: data rx enqueue err %d\n",
@@ -669,9 +667,7 @@ static void gbam_start_rx(struct gbam_port *port)
 
 		req = list_first_entry(&d->rx_idle, struct usb_request, list);
 
-		spin_unlock_irqrestore(&port->port_lock_ul, flags);
 		skb = gbam_alloc_skb_from_pool(port);
-		spin_lock_irqsave(&port->port_lock_ul, flags);
 		if (!skb)
 			break;
 		list_del(&req->list);
@@ -683,9 +679,7 @@ static void gbam_start_rx(struct gbam_port *port)
 		ret = usb_ep_queue(ep, req, GFP_ATOMIC);
 		spin_lock_irqsave(&port->port_lock_ul, flags);
 		if (ret) {
-			spin_unlock_irqrestore(&port->port_lock_ul, flags);
 			gbam_free_skb_to_pool(port, skb);
-			spin_lock_irqsave(&port->port_lock_ul, flags);
 
 			if (printk_ratelimit())
 				pr_err("%s: rx queue failed %d\n",
