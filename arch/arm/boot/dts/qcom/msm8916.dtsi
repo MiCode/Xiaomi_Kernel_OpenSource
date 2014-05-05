@@ -85,7 +85,7 @@
 			linux,reserve-contiguous-region;
 			linux,reserve-region;
 			linux,remove-completely;
-			reg = <0x0 0x8e200000 0x0 0x0900000>;
+			reg = <0x0 0x86000000 0x0 0x0800000>;
 			label = "external_image_mem";
 		};
 
@@ -93,7 +93,7 @@
 			linux,reserve-contiguous-region;
 			linux,reserve-region;
 			linux,remove-completely;
-			reg = <0x0 0x88800000 0x0 0x05a00000>;
+			reg = <0x0 0x86800000 0x0 0x04e00000>;
 			label = "modem_adsp_mem";
 		};
 
@@ -101,14 +101,8 @@
 			linux,reserve-contiguous-region;
 			linux,reserve-region;
 			linux,remove-completely;
-			reg = <0x0 0x8eb00000 0x0 0x0600000>;
+			reg = <0x0 0x8b600000 0x0 0x0600000>;
 			label = "peripheral_mem";
-		};
-
-		venus_mem: venus_region@0 {
-			linux,reserve-contiguous-region;
-			reg = <0 0x8f100000 0 0x0500000>;
-			label = "venus_mem";
 		};
 
 		secure_mem: secure_region@0 {
@@ -117,10 +111,11 @@
 			label = "secure_mem";
 		};
 
-		qseecom_mem: qseecom_region@0 {
+		venus_qseecom_mem: venus_qseecom_region@0 {
                         linux,reserve-contiguous-region;
-			reg = <0 0 0 0xd00000>;
-			label = "qseecom_mem";
+			linux,memory-limit = <0x90000000>;
+			reg = <0 0 0 0x1200000>;
+			label = "venus_qseecom_mem";
 		};
 
 		audio_mem: audio_region@0 {
@@ -1481,7 +1476,7 @@
 		qcom,pas-id = <9>;
 		qcom,proxy-timeout-ms = <5000>;
 		qcom,firmware-name = "venus";
-		linux,contiguous-region = <&venus_mem>;
+		linux,contiguous-region = <&venus_qseecom_mem>;
 	};
 
 	qcom,msm-thermal {
