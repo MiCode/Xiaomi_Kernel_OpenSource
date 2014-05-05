@@ -132,6 +132,7 @@
 			qcom,adc-bit-resolution = <15>;
 			qcom,adc-vdd-reference = <1800>;
 			qcom,vadc-poll-eoc;
+			qcom,pmic-revid = <&pm8916_revid>;
 
 			chan@8 {
 				label = "die_temp";
