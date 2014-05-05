@@ -281,7 +281,7 @@
 			/* sleep state */
 			ice40_sleep: sleep {
 				drive-strength = <2>;
-				bias-disable;
+				bias-pull-down;
 			};
 		};
 
