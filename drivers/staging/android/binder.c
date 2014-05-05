@@ -3330,16 +3330,19 @@ static int binder_node_release(struct binder_node *node, int refs)
 
 	hlist_for_each_entry(ref, &node->refs, node_entry) {
 		refs++;
-		if (ref->death) {
-			death++;
-			if (list_empty(&ref->death->work.entry)) {
-				ref->death->work.type = BINDER_WORK_DEAD_BINDER;
-				list_add_tail(&ref->death->work.entry,
-						&ref->proc->todo);
-				wake_up_interruptible(&ref->proc->wait);
-			} else
-				BUG();
-		}
+
+		if (!ref->death)
+			continue;
+
+		death++;
+
+		if (list_empty(&ref->death->work.entry)) {
+			ref->death->work.type = BINDER_WORK_DEAD_BINDER;
+			list_add_tail(&ref->death->work.entry,
+				      &ref->proc->todo);
+			wake_up_interruptible(&ref->proc->wait);
+		} else
+			BUG();
 	}
 
 	binder_debug(BINDER_DEBUG_DEAD_BINDER,
