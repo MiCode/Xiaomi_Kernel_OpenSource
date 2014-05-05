@@ -316,5 +316,37 @@
 				bias-disable;
 			};
 		};
+
+		apds99xx_int_pin {
+			/* Ambient light and proximity sensor apds9930 and apds9900 */
+			qcom,pins = <&gp 113>;
+			qcom,pin-func = <0>;
+			qcom,num-grp-pins = <1>;
+			label = "apds99xx-irq";
+			apds99xx_default: apds99xx_default {
+				drive-strength = <6>;
+				bias-pull-up;
+			};
+			apds99xx_sleep: apds99xx_sleep {
+				drive-strength = <2>;
+				bias-pull-down;
+			};
+		};
+
+		mpu6050_int_pin {
+			/* Gyroscope and accelerometer sensor combo */
+			qcom,pins = <&gp 115>;
+			qcom,pin-func = <0>;
+			qcom,num-grp-pins = <1>;
+			label = "mpu6050-irq";
+			mpu6050_default: mpu6050_default {
+				drive-strength = <6>;
+				bias-pull-up;
+			};
+			mpu6050_sleep: mpu6050_sleep {
+				drive-strength = <2>;
+				bias-pull-down;
+			};
+		};
 	};
 };
