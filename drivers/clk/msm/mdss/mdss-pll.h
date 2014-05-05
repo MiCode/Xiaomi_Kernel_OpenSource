@@ -60,6 +60,9 @@ struct mdss_pll_resources {
 	/* HW recommended delay during configuration of vco clock rate */
 	u32		vco_delay;
 
+	/* Ref-count of the PLL resources */
+	u32		resource_ref_cnt;
+
 	/*
 	 * Keep track to resource status to avoid updating same status for the
 	 * pll from different paths
