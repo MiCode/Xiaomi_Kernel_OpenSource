@@ -58,6 +58,7 @@
 #define QSERDES_COM_DIV_FRAC_START1		0xF8
 #define QSERDES_COM_DIV_FRAC_START2		0xFC
 
+#define QSERDES_COM_PLL_VCOTAIL_EN		0x004
 #define QSERDES_COM_DIV_FRAC_START3		0x100
 #define QSERDES_COM_DEC_START2			0x104
 #define QSERDES_COM_PLL_CRCTRL			0x10C
@@ -108,6 +109,7 @@ struct msm_ssphy_qmp {
 	bool			cable_connected;
 	bool			in_suspend;
 	bool			ext_vbus_id;
+	bool			override_pll_cal;
 };
 
 static inline char *get_cable_status_str(struct msm_ssphy_qmp *phy)
@@ -287,6 +289,9 @@ static int msm_ssphy_qmp_init(struct usb_phy *uphy)
 	writel_relaxed(0x01, phy->base + PCIE_USB3_PHY_POWER_DOWN_CONTROL);
 
 	writel_relaxed(0x08, phy->base + QSERDES_COM_SYSCLK_EN_SEL_TXBAND);
+
+	if (phy->override_pll_cal)
+		writel_relaxed(0xE1, phy->base + QSERDES_COM_PLL_VCOTAIL_EN);
 	writel_relaxed(0x82, phy->base + QSERDES_COM_DEC_START1);
 	writel_relaxed(0x03, phy->base + QSERDES_COM_DEC_START2);
 	writel_relaxed(0xD5, phy->base + QSERDES_COM_DIV_FRAC_START1);
@@ -310,7 +315,10 @@ static int msm_ssphy_qmp_init(struct usb_phy *uphy)
 
 	/* Calibration Settings */
 	writel_relaxed(0x90, phy->base + QSERDES_COM_RESETSM_CNTRL);
-	writel_relaxed(0x05, phy->base + QSERDES_COM_RESETSM_CNTRL2);
+	if (phy->override_pll_cal)
+		writel_relaxed(0x07, phy->base + QSERDES_COM_RESETSM_CNTRL2);
+	else
+		writel_relaxed(0x05, phy->base + QSERDES_COM_RESETSM_CNTRL2);
 
 	writel_relaxed(0x20, phy->base + QSERDES_COM_RES_CODE_START_SEG1);
 	writel_relaxed(0x77, phy->base + QSERDES_COM_RES_CODE_CAL_CSR);
@@ -617,6 +625,11 @@ static int msm_ssphy_qmp_probe(struct platform_device *pdev)
 
 	if (of_property_read_bool(dev->of_node, "qcom,vbus-valid-override"))
 		phy->phy.flags |= PHY_VBUS_VALID_OVERRIDE;
+
+	phy->override_pll_cal = of_property_read_bool(dev->of_node,
+					"qcom,override-pll-calibration");
+	if (phy->override_pll_cal)
+		dev_dbg(dev, "Override PHY PLL calibration is enabled.\n");
 
 	phy->phy.dev			= dev;
 	phy->phy.init			= msm_ssphy_qmp_init;
