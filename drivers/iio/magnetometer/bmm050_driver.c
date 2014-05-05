@@ -25,6 +25,7 @@
 #include <linux/slab.h>
 #include <linux/delay.h>
 #include <linux/of.h>
+#include <linux/acpi.h>
 #ifdef CONFIG_HAS_EARLYSUSPEND
 #include <linux/earlysuspend.h>
 #endif
@@ -1500,10 +1501,17 @@ static const struct i2c_device_id bmm_id[] = {
 };
 MODULE_DEVICE_TABLE(i2c, bmm_id);
 
+static const struct acpi_device_id bmm050_acpi_match[] = {
+	{ "BMM0050", 0 },
+	{ },
+};
+MODULE_DEVICE_TABLE(acpi, bmm050_acpi_match);
+
 static struct i2c_driver bmm_driver = {
 	.driver = {
 		.owner = THIS_MODULE,
 		.name = SENSOR_NAME,
+		.acpi_match_table = ACPI_PTR(bmm050_acpi_match),
 	},
 	.class = I2C_CLASS_HWMON,
 	.id_table = bmm_id,
