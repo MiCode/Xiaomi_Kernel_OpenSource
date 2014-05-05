@@ -31,6 +31,8 @@ struct msm_thermal_ioctl_dev {
 static int msm_thermal_major;
 static struct class *thermal_class;
 static struct msm_thermal_ioctl_dev *msm_thermal_dev;
+static unsigned int freq_table_len[NR_CPUS], freq_table_set[NR_CPUS];
+static unsigned int *freq_table_ptr[NR_CPUS];
 
 static int msm_thermal_ioctl_open(struct inode *node, struct file *filep)
 {
@@ -96,12 +98,94 @@ static long validate_and_copy(unsigned int *cmd, unsigned long *arg,
 		}
 		break;
 	default:
-		ret = -ENOTTY;
-		goto validate_exit;
 		break;
 	}
 
 validate_exit:
+	return ret;
+}
+
+static long msm_thermal_process_freq_table_req(struct msm_thermal_ioctl *query,
+		unsigned long *arg)
+{
+	long ret = 0;
+	uint32_t table_idx, idx = 0, cluster_id = query->clock_freq.cluster_num;
+	struct clock_plan_arg *clock_freq = &(query->clock_freq);
+
+	if (!freq_table_len[cluster_id]) {
+		ret = msm_thermal_get_freq_plan_size(cluster_id,
+			&freq_table_len[cluster_id]);
+		if (ret) {
+			pr_err("%s: Cluster%d freq table length get err:%ld\n",
+				KBUILD_MODNAME, cluster_id, ret);
+			goto process_freq_exit;
+		}
+		if (!freq_table_len[cluster_id]) {
+			pr_err("%s: Cluster%d freq table empty\n",
+				KBUILD_MODNAME, cluster_id);
+			ret = -EAGAIN;
+			goto process_freq_exit;
+		}
+
+		freq_table_set[cluster_id] = freq_table_len[cluster_id]
+						/ MSM_IOCTL_FREQ_SIZE;
+		if (freq_table_len[cluster_id] % MSM_IOCTL_FREQ_SIZE)
+			freq_table_set[cluster_id]++;
+
+		if (!freq_table_ptr[cluster_id]) {
+			freq_table_ptr[cluster_id] = kzalloc(
+				sizeof(unsigned int) *
+				freq_table_len[cluster_id], GFP_KERNEL);
+			if (!freq_table_ptr[cluster_id]) {
+				pr_err("%s: memory alloc failed\n",
+						KBUILD_MODNAME);
+				freq_table_len[cluster_id] = 0;
+				ret = -ENOMEM;
+				goto process_freq_exit;
+			}
+		}
+		ret = msm_thermal_get_cluster_freq_plan(cluster_id,
+			freq_table_ptr[cluster_id]);
+		if (ret) {
+			pr_err("%s: Error getting frequency table. err:%ld\n",
+					KBUILD_MODNAME, ret);
+			freq_table_len[cluster_id] = 0;
+			freq_table_set[cluster_id] = 0;
+			kfree(freq_table_ptr[cluster_id]);
+			freq_table_ptr[cluster_id] = NULL;
+			goto process_freq_exit;
+		}
+	}
+
+	if (!clock_freq->freq_table_len) {
+		clock_freq->freq_table_len = freq_table_len[cluster_id];
+		goto copy_and_return;
+	}
+	if (clock_freq->set_idx >= freq_table_set[cluster_id]) {
+		pr_err("%s: Invalid freq table set%d for cluster%d\n",
+			KBUILD_MODNAME, clock_freq->set_idx,
+			cluster_id);
+		ret = -EINVAL;
+		goto process_freq_exit;
+	}
+
+	table_idx = MSM_IOCTL_FREQ_SIZE * clock_freq->set_idx;
+	for (; table_idx < freq_table_len[cluster_id]
+		&& idx < MSM_IOCTL_FREQ_SIZE; idx++, table_idx++) {
+		clock_freq->freq_table[idx] =
+			freq_table_ptr[cluster_id][table_idx];
+	}
+	clock_freq->freq_table_len = idx;
+
+copy_and_return:
+	ret = copy_to_user((void __user *)(*arg), query,
+		sizeof(struct msm_thermal_ioctl));
+	if (ret) {
+		pr_err("%s: copy_to_user error:%ld.\n", KBUILD_MODNAME, ret);
+		goto process_freq_exit;
+	}
+
+process_freq_exit:
 	return ret;
 }
 
@@ -125,6 +209,17 @@ static long msm_thermal_ioctl_process(struct file *filep, unsigned int cmd,
 	case MSM_THERMAL_SET_CPU_MIN_FREQUENCY:
 		ret = msm_thermal_set_frequency(query.cpu_freq.cpu_num,
 			query.cpu_freq.freq_req, false);
+		break;
+	case MSM_THERMAL_SET_CLUSTER_MAX_FREQUENCY:
+		ret = msm_thermal_set_cluster_freq(query.cpu_freq.cpu_num,
+			query.cpu_freq.freq_req, true);
+		break;
+	case MSM_THERMAL_SET_CLUSTER_MIN_FREQUENCY:
+		ret = msm_thermal_set_cluster_freq(query.cpu_freq.cpu_num,
+			query.cpu_freq.freq_req, false);
+		break;
+	case MSM_THERMAL_GET_CLUSTER_FREQUENCY_PLAN:
+		ret = msm_thermal_process_freq_table_req(&query, &arg);
 		break;
 	default:
 		ret = -ENOTTY;
@@ -218,6 +313,7 @@ ioctl_init_exit:
 
 void msm_thermal_ioctl_cleanup()
 {
+	uint32_t idx = 0;
 	dev_t thermal_dev = MKDEV(msm_thermal_major, 0);
 
 	if (!msm_thermal_dev) {
@@ -226,6 +322,8 @@ void msm_thermal_ioctl_cleanup()
 		return;
 	}
 
+	for (; idx < num_possible_cpus(); idx++)
+		kfree(freq_table_ptr[idx]);
 	device_destroy(thermal_class, thermal_dev);
 	class_destroy(thermal_class);
 	cdev_del(&msm_thermal_dev->char_dev);
