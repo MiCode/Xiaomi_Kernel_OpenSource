@@ -167,6 +167,10 @@ static int resource_request(struct ecm_ipa_dev *ecm_ipa_ctx);
 static void resource_release(struct ecm_ipa_dev *ecm_ipa_ctx);
 static netdev_tx_t ecm_ipa_start_xmit(struct sk_buff *skb,
 					struct net_device *net);
+static int ecm_ipa_debugfs_stall_open(struct inode *inode,
+	struct file *file);
+static ssize_t ecm_ipa_debugfs_stall_write(struct file *file,
+		const char __user *buf, size_t count, loff_t *ppos);
 static int ecm_ipa_debugfs_atomic_open(struct inode *inode, struct file *file);
 static ssize_t ecm_ipa_debugfs_enable_write_dma(struct file *file,
 		const char __user *buf, size_t count, loff_t *ppos);
@@ -207,6 +211,11 @@ const struct file_operations ecm_ipa_debugfs_dma_ops = {
 const struct file_operations ecm_ipa_debugfs_atomic_ops = {
 	.open = ecm_ipa_debugfs_atomic_open,
 	.read = ecm_ipa_debugfs_atomic_read,
+};
+
+const struct file_operations ecm_ipa_debugfs_stall_ops = {
+	.open = ecm_ipa_debugfs_stall_open,
+	.write = ecm_ipa_debugfs_stall_write,
 };
 
 static void ecm_ipa_msg_free_cb(void *buff, u32 len, u32 type)
@@ -1185,6 +1194,44 @@ static void ecm_ipa_tx_timeout(struct net_device *net)
 	net->stats.tx_errors++;
 }
 
+static int ecm_ipa_debugfs_stall_open(struct inode *inode,
+	struct file *file)
+{
+	ECM_IPA_LOG_ENTRY();
+
+	ECM_IPA_LOG_EXIT();
+
+	return 0;
+}
+
+static ssize_t ecm_ipa_debugfs_stall_write(struct file *file,
+		const char __user *buf, size_t count, loff_t *ppos)
+{
+	u32 cmdq_cfg_mmio_phy = 0xFD4E3038;
+	void *cmdq_cfg_mmio_virt;
+	int result;
+	bool val = 0;
+
+	ECM_IPA_LOG_ENTRY();
+
+	file->private_data = &val;
+	result = ecm_ipa_debugfs_enable_write(file, buf, count, ppos);
+
+	cmdq_cfg_mmio_virt = ioremap(cmdq_cfg_mmio_phy, sizeof(u32));
+	if (!cmdq_cfg_mmio_virt) {
+		ECM_IPA_ERROR("fail on mmio for cmdq_cfg_mmio_phy=0x%x",
+			cmdq_cfg_mmio_phy);
+		return result;
+	}
+
+	iowrite32(val, cmdq_cfg_mmio_virt);
+	ECM_IPA_DEBUG("Value %d was written to cfgq", val);
+
+	ECM_IPA_LOG_EXIT();
+
+	return result;
+
+}
 
 static int ecm_ipa_debugfs_atomic_open(struct inode *inode, struct file *file)
 {
@@ -1282,6 +1329,7 @@ static int ecm_ipa_debugfs_init(struct ecm_ipa_dev *ecm_ipa_ctx)
 {
 	const mode_t flags_read_write = S_IRUGO | S_IWUGO;
 	const mode_t flags_read_only = S_IRUGO;
+	const mode_t flags_write_only = S_IWUGO;
 	struct dentry *file;
 
 	ECM_IPA_LOG_ENTRY();
@@ -1336,6 +1384,14 @@ static int ecm_ipa_debugfs_init(struct ecm_ipa_dev *ecm_ipa_ctx)
 			ecm_ipa_ctx, &ecm_ipa_debugfs_atomic_ops);
 	if (!file) {
 		ECM_IPA_ERROR("could not create outstanding file\n");
+		goto fail_file;
+	}
+
+	file = debugfs_create_file("stall_ipa_rx_proc", flags_write_only,
+			ecm_ipa_ctx->directory,
+			ecm_ipa_ctx, &ecm_ipa_debugfs_stall_ops);
+	if (!file) {
+		ECM_IPA_ERROR("could not create stall_ipa_rx_proc file\n");
 		goto fail_file;
 	}
 
