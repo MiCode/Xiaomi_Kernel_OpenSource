@@ -1147,6 +1147,15 @@ static int cnss_probe(struct platform_device *pdev)
 		}
 	}
 
+#ifdef CONFIG_CNSS_MAC_BUG
+	/* 0-4K memory is reserved for QCA6174 to address a MAC HW bug.
+	 * MAC would do an invalid pointer fetch based on the data
+	 * that was read from 0 to 4K. So fill it with zero's (to an
+	 * address for which PCIe RC honored the read without any errors).
+	 */
+	memset(phys_to_virt(0), 0, SZ_4K);
+#endif
+
 	pr_info("cnss: Platform driver probed successfully.\n");
 	return ret;
 
