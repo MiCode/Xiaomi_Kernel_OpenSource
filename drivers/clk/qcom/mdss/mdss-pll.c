@@ -29,6 +29,7 @@
 int mdss_pll_resource_enable(struct mdss_pll_resources *pll_res, bool enable)
 {
 	int rc = 0;
+	int changed = 0;
 	if (!pll_res) {
 		pr_err("Invalid input parameters\n");
 		return -EINVAL;
@@ -44,11 +45,27 @@ int mdss_pll_resource_enable(struct mdss_pll_resources *pll_res, bool enable)
 		return rc;
 	}
 
-	rc = mdss_pll_util_resource_enable(pll_res, enable);
-	if (rc)
-		pr_err("Resource update failed rc=%d\n", rc);
-	else
-		pll_res->resource_enable = enable;
+	if (enable) {
+		if (pll_res->resource_ref_cnt == 0)
+			changed++;
+		pll_res->resource_ref_cnt++;
+	} else {
+		if (pll_res->resource_ref_cnt) {
+			pll_res->resource_ref_cnt--;
+			if (pll_res->resource_ref_cnt == 0)
+				changed++;
+		} else {
+			pr_err("PLL Resources already OFF\n");
+		}
+	}
+
+	if (changed) {
+		rc = mdss_pll_util_resource_enable(pll_res, enable);
+		if (rc)
+			pr_err("Resource update failed rc=%d\n", rc);
+		else
+			pll_res->resource_enable = enable;
+	}
 
 	return rc;
 }
