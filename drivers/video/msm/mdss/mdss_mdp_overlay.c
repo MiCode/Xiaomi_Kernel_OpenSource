@@ -287,7 +287,7 @@ int mdss_mdp_overlay_req_check(struct msm_fb_data_type *mfd,
 		src_w = req->src_rect.w >> req->horz_deci;
 		src_h = req->src_rect.h >> req->vert_deci;
 
-		if (src_w > MAX_MIXER_WIDTH) {
+		if (src_w > mdata->max_mixer_width) {
 			pr_err("invalid source width=%d HDec=%d\n",
 					req->src_rect.w, req->horz_deci);
 			return -EINVAL;
@@ -487,7 +487,8 @@ int mdss_mdp_overlay_pipe_setup(struct msm_fb_data_type *mfd,
 		return -EOPNOTSUPP;
 	}
 
-	if ((req->dst_rect.w > MAX_DST_W) || (req->dst_rect.h > MAX_DST_H)) {
+	if ((req->dst_rect.w > mdata->max_mixer_width) ||
+		(req->dst_rect.h > MAX_DST_H)) {
 		pr_err("exceeded max mixer supported resolution %dx%d\n",
 				req->dst_rect.w, req->dst_rect.h);
 		return -EOVERFLOW;
@@ -1735,6 +1736,7 @@ static void mdss_mdp_overlay_pan_display(struct msm_fb_data_type *mfd)
 	struct mdss_mdp_pipe *pipe;
 	struct fb_info *fbi;
 	struct mdss_overlay_private *mdp5_data;
+	struct mdss_data_type *mdata = mfd_to_mdata(mfd);
 	u32 offset;
 	int bpp, ret;
 
@@ -1808,7 +1810,7 @@ static void mdss_mdp_overlay_pan_display(struct msm_fb_data_type *mfd)
 	pipe->has_buf = 1;
 	mdss_mdp_pipe_unmap(pipe);
 
-	if (fbi->var.xres > MAX_MIXER_WIDTH || mfd->split_display) {
+	if (fbi->var.xres > mdata->max_mixer_width || mfd->split_display) {
 		ret = mdss_mdp_overlay_get_fb_pipe(mfd, &pipe,
 					   MDSS_MDP_MIXER_MUX_RIGHT);
 		if (ret) {

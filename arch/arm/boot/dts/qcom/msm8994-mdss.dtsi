@@ -33,6 +33,7 @@
 		qcom,mdss-ib-factor = <6 5>;		/* 1.2 times  */
 		qcom,mdss-clk-factor = <105 100>;	/* 1.05 times */
 
+		qcom,max-mixer-width = <2048>;
 		qcom,mdss-mdp-reg-offset = <0x00001000>;
 		qcom,max-bandwidth-low-kbps = <6000000>;
 		qcom,max-bandwidth-high-kbps = <6000000>;

@@ -1444,6 +1444,7 @@ int mdss_mdp_ctl_setup(struct mdss_mdp_ctl *ctl)
 	struct mdss_mdp_ctl *split_ctl;
 	u32 width, height;
 	int split_fb;
+	u32 max_mixer_width;
 
 	if (!ctl || !ctl->panel_data) {
 		pr_err("invalid ctl handle\n");
@@ -1454,16 +1455,17 @@ int mdss_mdp_ctl_setup(struct mdss_mdp_ctl *ctl)
 
 	width = ctl->panel_data->panel_info.xres;
 	height = ctl->panel_data->panel_info.yres;
+	max_mixer_width = ctl->mdata->max_mixer_width;
 
 	split_fb = (ctl->mfd->split_fb_left &&
 		    ctl->mfd->split_fb_right &&
-		    (ctl->mfd->split_fb_left <= MAX_MIXER_WIDTH) &&
-		    (ctl->mfd->split_fb_right <= MAX_MIXER_WIDTH)) ? 1 : 0;
-	pr_debug("max=%d xres=%d left=%d right=%d\n", MAX_MIXER_WIDTH,
+		    (ctl->mfd->split_fb_left <= max_mixer_width) &&
+		    (ctl->mfd->split_fb_right <= max_mixer_width)) ? 1 : 0;
+	pr_debug("max=%d xres=%d left=%d right=%d\n", max_mixer_width,
 		 width, ctl->mfd->split_fb_left, ctl->mfd->split_fb_right);
 
-	if ((split_ctl && (width > MAX_MIXER_WIDTH)) ||
-			(width > (2 * MAX_MIXER_WIDTH))) {
+	if ((split_ctl && (width > max_mixer_width)) ||
+			(width > (2 * max_mixer_width))) {
 		pr_err("Unsupported panel resolution: %dx%d\n", width, height);
 		return -ENOTSUPP;
 	}
@@ -1475,7 +1477,7 @@ int mdss_mdp_ctl_setup(struct mdss_mdp_ctl *ctl)
 	if (!ctl->mixer_left) {
 		ctl->mixer_left =
 			mdss_mdp_mixer_alloc(ctl, MDSS_MDP_MIXER_TYPE_INTF,
-			 ((width > MAX_MIXER_WIDTH) || split_fb), 0);
+			 ((width > max_mixer_width) || split_fb), 0);
 		if (!ctl->mixer_left) {
 			pr_err("unable to allocate layer mixer\n");
 			return -ENOMEM;
@@ -1488,7 +1490,7 @@ int mdss_mdp_ctl_setup(struct mdss_mdp_ctl *ctl)
 
 	if (split_fb)
 		width = ctl->mfd->split_fb_left;
-	else if (width > MAX_MIXER_WIDTH)
+	else if (width > max_mixer_width)
 		width /= 2;
 
 	ctl->mixer_left->width = width;
@@ -1695,7 +1697,7 @@ int mdss_mdp_ctl_split_display_setup(struct mdss_mdp_ctl *ctl,
 	if (!ctl || !pdata)
 		return -ENODEV;
 
-	if (pdata->panel_info.xres > MAX_MIXER_WIDTH) {
+	if (pdata->panel_info.xres > ctl->mdata->max_mixer_width) {
 		pr_err("Unsupported second panel resolution: %dx%d\n",
 				pdata->panel_info.xres, pdata->panel_info.yres);
 		return -ENOTSUPP;

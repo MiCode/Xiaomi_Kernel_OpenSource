@@ -223,6 +223,10 @@ Bus Scaling Data:
 				is determined by the line width, bytes per pixel and
 				scaling ratio, this number shall be included in prefill bandwidth
 				calculation.
+- qcom,max-mixer-width:	Specify maximum MDP mixer width that the device supports.
+				This is a mandatory property, if not specified then
+				mdp probe will fail.
+
 Optional properties:
 - batfet-supply :	Phandle for battery FET regulator device node.
 - vdd-cx-supply :	Phandle for vdd CX regulator device node.
@@ -445,7 +449,7 @@ Example:
 
 		qcom,max-bandwidth-low-kbps = <2300000>;
 		qcom,max-bandwidth-high-kbps = <3000000>;
-
+		qcom,max-mixer-width = <2048>;
 		qcom,max-clk-rate = <320000000>;
 		qcom,vbif-settings = <0x0004 0x00000001>,
 				     <0x00D8 0x00000707>;
