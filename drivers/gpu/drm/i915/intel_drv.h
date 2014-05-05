@@ -372,12 +372,29 @@ struct intel_mmio_flip {
 	u32 ring_id;
 };
 
+struct intel_disp_reg {
+	u32 pfit_control;
+	u32 pipesrc;
+	u32 stride;
+	u32 pos;
+	u32 tileoff;
+	u32 linoff;
+	u32 size;
+	u32 cntr;
+	u32 surf;
+	u32 dspcntr;
+	u32 spacntr;
+	u32 spbcntr;
+};
+
 struct intel_crtc {
 	struct drm_crtc base;
 	enum pipe pipe;
 	enum plane plane;
 	bool rotate180;
 	u8 lut_r[256], lut_g[256], lut_b[256];
+	u32 flags;
+	__u32 z_order;
 	/*
 	 * Whether the crtc and the connected output pipeline is active. Implies
 	 * that crtc->enabled is set, i.e. the current mode configuration has
@@ -387,6 +404,7 @@ struct intel_crtc {
 	unsigned long enabled_power_domains;
 	bool primary_enabled; /* is the primary plane (partially) visible? */
 	bool lowfreq_avail;
+	bool pri_update;
 	struct intel_overlay *overlay;
 
 	struct intel_unpin_work *unpin_work;
@@ -434,6 +452,7 @@ struct intel_crtc {
 
 	/* panel fitter status flag */
 	bool	pfit_en_status;
+	struct intel_disp_reg reg;
 
 	/* per-pipe watermark state */
 	struct {
@@ -466,6 +485,9 @@ struct intel_plane {
 	int max_downscale;
 	bool rotate180;
 	u32 lut_r[1024], lut_g[1024], lut_b[1024];
+	u32 flags;
+	__u32 z_order;
+	__u32 rrb2_enable;
 	int crtc_x, crtc_y;
 	unsigned int crtc_w, crtc_h;
 	uint32_t src_x, src_y;
@@ -481,6 +503,8 @@ struct intel_plane {
 	struct intel_plane_wm_parameters wm;
 	/* Added for deffered plane disable*/
 	struct work_struct work;
+	struct intel_disp_reg reg;
+	bool pri_update;
 
 	void (*update_plane)(struct drm_plane *plane,
 			     struct drm_crtc *crtc,

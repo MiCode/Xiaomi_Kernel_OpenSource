@@ -2356,6 +2356,40 @@ out:
 	return ret;
 }
 
+/*
+ * drm_mode_setdisplay - set up or tear down display planes
+ * @dev: DRM device
+ * @data: ioctl data*
+ * @file_priv: DRM file info
+ *
+ * Set plane info, including placement, fb, scaling, page flip and other
+ * factors.
+ */
+DEFINE_MUTEX(setdisp_lock);
+int drm_mode_setdisplay(struct drm_device *dev, void *data,
+			struct drm_file *file_priv)
+{
+	struct drm_mode_set_display *disp_req = data;
+	struct drm_mode_object *obj;
+	struct drm_crtc *crtc;
+	int ret = -EINVAL;
+
+	obj = drm_mode_object_find(dev,
+		disp_req->crtc_id, DRM_MODE_OBJECT_CRTC);
+	if (!obj) {
+		DRM_ERROR("failed to get object");
+		return -EINVAL;
+	}
+	crtc = obj_to_crtc(obj);
+	mutex_lock(&setdisp_lock);
+	if (crtc->funcs->set_display == NULL)
+		goto out;
+	ret = crtc->funcs->set_display(crtc, disp_req, file_priv);
+out:
+	mutex_unlock(&setdisp_lock);
+	return ret;
+}
+
 /**
  * drm_mode_set_config_internal - helper to call ->set_config
  * @set: modeset config to set

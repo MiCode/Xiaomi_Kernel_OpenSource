@@ -1643,6 +1643,14 @@ struct drm_i915_private {
 	struct work_struct hdmi_audio_wq;
 #endif
 
+	/* Atomicity fixes */
+	u32 pfit_pipe;
+	bool atomic_update;
+	bool pri_update;
+	u32 dspcntr;
+	bool wait_vbl;
+	u32 vblcount;
+
 	bool is_first_modeset;
 	bool maxfifo_enabled;
 	bool is_tiled;
