@@ -441,6 +441,7 @@ int mdss_mdp_rotator_setup(struct msm_fb_data_type *mfd,
 	struct mdss_overlay_private *mdp5_data = mfd_to_mdp5_data(mfd);
 	struct mdss_mdp_rotator_session *rot = NULL;
 	struct mdss_mdp_format_params *fmt;
+	struct mdss_data_type *mdata = mfd_to_mdata(mfd);
 	u32 bwc_enabled;
 	int ret = 0;
 
@@ -520,7 +521,7 @@ int mdss_mdp_rotator_setup(struct msm_fb_data_type *mfd,
 	if (rot->flags & MDP_ROT_90)
 		swap(rot->dst.w, rot->dst.h);
 
-	if (rot->src_rect.w > MAX_MIXER_WIDTH) {
+	if (rot->src_rect.w > mdata->max_mixer_width) {
 		struct mdss_mdp_rotator_session *tmp;
 		u32 width;
 
@@ -535,7 +536,7 @@ int mdss_mdp_rotator_setup(struct msm_fb_data_type *mfd,
 		pr_debug("setting up split rotation src=%dx%d\n",
 			rot->src_rect.w, rot->src_rect.h);
 
-		if (width > (MAX_MIXER_WIDTH * 2)) {
+		if (width > (mdata->max_mixer_width * 2)) {
 			pr_err("unsupported source width %d\n", width);
 			ret = -EOVERFLOW;
 			goto rot_err;
