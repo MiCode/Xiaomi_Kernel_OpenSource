@@ -1,4 +1,4 @@
-/* Copyright (c) 2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -96,6 +96,27 @@
 #define PM8110_V2P0_REV4	0x02
 #define PM8110_V2P0_TYPE	0x51
 #define PM8110_V2P0_SUBTYPE	0x05
+
+#define PM8916_V1P0_REV1	0x00
+#define PM8916_V1P0_REV2	0x00
+#define PM8916_V1P0_REV3	0x00
+#define PM8916_V1P0_REV4	0x01
+#define PM8916_V1P0_TYPE	0x51
+#define PM8916_V1P0_SUBTYPE	0x0B
+
+#define PM8916_V1P1_REV1	0x00
+#define PM8916_V1P1_REV2	0x00
+#define PM8916_V1P1_REV3	0x01
+#define PM8916_V1P1_REV4	0x01
+#define PM8916_V1P1_TYPE	0x51
+#define PM8916_V1P1_SUBTYPE	0x0B
+
+#define PM8916_V2P0_REV1	0x00
+#define PM8916_V2P0_REV2	0x00
+#define PM8916_V2P0_REV3	0x00
+#define PM8916_V2P0_REV4	0x02
+#define PM8916_V2P0_TYPE	0x51
+#define PM8916_V2P0_SUBTYPE	0x0B
 
 struct pmic_revid_data {
 	u8	rev1;
