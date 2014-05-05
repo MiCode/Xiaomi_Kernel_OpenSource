@@ -2902,21 +2902,12 @@ static int smb_parse_dt(struct smb135x_chg *chip)
 {
 	int rc;
 	struct device_node *node = chip->dev->of_node;
-	const struct of_device_id *match;
 	const char *dc_psy_type;
 
 	if (!node) {
 		dev_err(chip->dev, "device tree info. missing\n");
 		return -EINVAL;
 	}
-
-	match = of_match_node(smb135x_match_table, node);
-	if (match == NULL) {
-		dev_err(chip->dev, "device tree match not found\n");
-		return -EINVAL;
-	}
-
-	chip->usb_current_arr_size = (int)match->data;
 
 	rc = of_property_read_u32(node, "qcom,float-voltage-mv",
 						&chip->vfloat_mv);
