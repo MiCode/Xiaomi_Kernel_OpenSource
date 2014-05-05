@@ -197,8 +197,7 @@ static inline size_t
 kgsl_memdesc_mmapsize(const struct kgsl_memdesc *memdesc)
 {
 	size_t size = memdesc->size;
-	if (kgsl_memdesc_use_cpu_map(memdesc) &&
-		kgsl_memdesc_has_guard_page(memdesc))
+	if (kgsl_memdesc_has_guard_page(memdesc))
 		size += SZ_4K;
 	return size;
 }
