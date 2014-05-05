@@ -1272,6 +1272,7 @@ si_chip_hostif(si_t *sih)
 
 	case BCM4350_CHIP_ID:
 	case BCM4354_CHIP_ID:
+	case BCM4356_CHIP_ID:
 	case BCM43556_CHIP_ID:
 	case BCM43558_CHIP_ID:
 	case BCM43566_CHIP_ID:
@@ -2620,6 +2621,7 @@ si_is_sprom_available(si_t *sih)
 			!(sih->chipst & CST4335_SFLASH_MASK));
 	case BCM4350_CHIP_ID:
 	case BCM4354_CHIP_ID:
+	case BCM4356_CHIP_ID:
 	case BCM43556_CHIP_ID:
 	case BCM43558_CHIP_ID:
 	case BCM43566_CHIP_ID:

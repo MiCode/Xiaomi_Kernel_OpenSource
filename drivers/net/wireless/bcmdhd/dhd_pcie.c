@@ -399,6 +399,7 @@ dhdpcie_dongle_attach(dhd_bus_t *bus)
 		case BCM4335_CHIP_ID:
 			bus->dongle_ram_base = CR4_4335_RAM_BASE;
 			break;
+		case BCM4356_CHIP_ID:
 		case BCM4354_CHIP_ID:
 		case BCM4350_CHIP_ID:
 			bus->dongle_ram_base = CR4_4350_RAM_BASE;
@@ -2408,6 +2409,10 @@ dhdpcie_chipmatch(uint16 vendor, uint16 device)
 
 	if ((device == BCM4354_D11AC_ID) || (device == BCM4354_D11AC2G_ID) ||
 		(device == BCM4354_D11AC5G_ID) || (device == BCM4354_CHIP_ID))
+		return 0;
+
+	if ((device == BCM4356_D11AC_ID) || (device == BCM4356_D11AC2G_ID) ||
+		(device == BCM4356_D11AC5G_ID) || (device == BCM4356_CHIP_ID))
 		return 0;
 
 	if ((device == BCM4345_D11AC_ID) || (device == BCM4345_D11AC2G_ID) ||

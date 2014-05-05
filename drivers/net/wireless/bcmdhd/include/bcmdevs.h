@@ -223,6 +223,9 @@
 #define BCM4354_D11AC2G_ID	0x43e0		/* 4354 802.11ac 2.4G device */
 #define BCM4354_D11AC5G_ID	0x43e1		/* 4354 802.11ac 5G device */
 
+#define BCM4356_D11AC_ID	0x43ec		/* 4356 802.11ac dualband device */
+#define BCM4356_D11AC2G_ID	0x43ed		/* 4356 802.11ac 2.4G device */
+#define BCM4356_D11AC5G_ID	0x43ee		/* 4356 802.11ac 5G device */
 
 #define	BCMGPRS_UART_ID		0x4333		/* Uart id used by 4306/gprs card */
 #define	BCMGPRS2_UART_ID	0x4344		/* Uart id used by 4306/gprs card */
@@ -332,6 +335,7 @@
 #define BCM43342_CHIP_ID	43342		/* 43342 chipcommon chipid */
 #define BCM4350_CHIP_ID		0x4350          /* 4350 chipcommon chipid */
 #define BCM4354_CHIP_ID		0x4354          /* 4354 chipcommon chipid */
+#define BCM4356_CHIP_ID		0x4356          /* 4356 chipcommon chipid */
 #define BCM43556_CHIP_ID	0xAA24          /* 43556 chipcommon chipid */
 #define BCM43558_CHIP_ID	0xAA26          /* 43558 chipcommon chipid */
 #define BCM43566_CHIP_ID	0xAA2E          /* 43566 chipcommon chipid */
@@ -339,6 +343,7 @@
 #define BCM43569_CHIP_ID	0xAA31          /* 43569 chipcommon chipid */
 #define BCM4350_CHIP(chipid)	((CHIPID(chipid) == BCM4350_CHIP_ID) || \
 				(CHIPID(chipid) == BCM4354_CHIP_ID) || \
+				(CHIPID(chipid) == BCM4356_CHIP_ID) || \
 				(CHIPID(chipid) == BCM43556_CHIP_ID) || \
 				(CHIPID(chipid) == BCM43558_CHIP_ID) || \
 				(CHIPID(chipid) == BCM43566_CHIP_ID) || \
