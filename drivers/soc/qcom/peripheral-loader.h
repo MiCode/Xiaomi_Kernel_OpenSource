@@ -44,6 +44,7 @@ struct pil_desc {
 	unsigned int proxy_unvote_irq;
 	void * (*map_fw_mem)(phys_addr_t phys, size_t size, void *data);
 	void (*unmap_fw_mem)(void *virt, void *data);
+	void *map_data;
 };
 
 /**
