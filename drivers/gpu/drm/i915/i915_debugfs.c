@@ -1702,8 +1702,8 @@ static int i915_dpst_status(struct seq_file *m, void *unused)
 
 	mutex_lock(&dev_priv->dpst.ioctl_lock);
 
-	blm_hist_ctl = I915_READ(BLM_HIST_CTL);
-	blm_hist_guard = I915_READ(BLM_HIST_GUARD);
+	blm_hist_ctl = I915_READ(dev_priv->dpst.reg.blm_hist_ctl);
+	blm_hist_guard = I915_READ(dev_priv->dpst.reg.blm_hist_guard);
 
 	seq_printf(m, "histogram logic: %s\n",
 		   blm_hist_ctl & IE_HISTOGRAM_ENABLE ?
@@ -1728,7 +1728,7 @@ static int i915_dpst_status(struct seq_file *m, void *unused)
 	for (i = 0; i < DPST_DIET_ENTRY_COUNT; i++) {
 		if (i % columns == 0)
 			seq_printf(m, "\nbins %02d-%02d:", i, i + columns - 1);
-		seq_printf(m, "%10x", I915_READ(BLM_HIST_BIN));
+		seq_printf(m, "%10x", I915_READ(dev_priv->dpst.reg.blm_hist_bin));
 	}
 	seq_puts(m, "\n");
 
