@@ -22,20 +22,18 @@
 
 &cci {
 
-	actuator0: qcom,actuator@6e {
-		cell-index = <3>;
-		reg = <0x6c>;
+	actuator0: qcom,actuator@0 {
+		cell-index = <0>;
+		reg = <0x0>;
 		compatible = "qcom,actuator";
 		qcom,cci-master = <0>;
+		cam_vaf-supply = <&pm8916_l10>;
+		qcom,cam-vreg-name = "cam_vaf";
+		qcom,cam-vreg-type = <0>;
+		qcom,cam-vreg-min-voltage = <2850000>;
+		qcom,cam-vreg-max-voltage = <2850000>;
+		qcom,cam-vreg-op-mode = <80000>;
 	};
-
-	actuator1: qcom,actuator@36 {
-		cell-index = <1>;
-		reg = <0x36>;
-		compatible = "qcom,actuator";
-		qcom,cci-master = <0>;
-	};
-
 
 	qcom,camera@78 {
 		compatible = "ovti,ov5645";
