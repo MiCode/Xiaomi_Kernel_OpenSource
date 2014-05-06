@@ -10,7 +10,7 @@ Required properties :
             HSUSB OTG expects "core_irq" which is IRQ line from CORE and
             optional ones are described in next section.
 - qcom,hsusb-otg-phy-type: PHY type can be one of
-            1 - Chipidea 45nm PHY
+            1 - Chipidea 45nm PHY (obsolete)
 	    2 - Synopsis 28nm PHY
 - qcom,hsusb-otg-mode: Operational mode. Can be one of
             1 - Peripheral only mode

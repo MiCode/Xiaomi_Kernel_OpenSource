@@ -98,7 +98,7 @@ enum otg_control_type {
  */
 enum msm_usb_phy_type {
 	INVALID_PHY = 0,
-	CI_45NM_INTEGRATED_PHY,
+	CI_45NM_INTEGRATED_PHY, /* not supported */
 	SNPS_28NM_INTEGRATED_PHY,
 };
 
