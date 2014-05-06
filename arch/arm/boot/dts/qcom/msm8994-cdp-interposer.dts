@@ -22,8 +22,22 @@
 	qcom,board-id = <1 3>;
 };
 
+&usb_otg {
+	qcom,dp-manual-pullup;
+	qcom,hsusb-otg-otg-control = <2>;
+	status = "ok";
+};
+
 &usb3 {
-	qcom,otg-capability;
+	status = "disabled";
+};
+
+&hsphy {
+	status = "disabled";
+};
+
+&ssphy {
+	status = "disabled";
 };
 
 &sdhc_1 {
