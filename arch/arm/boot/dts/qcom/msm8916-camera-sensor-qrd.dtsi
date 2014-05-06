@@ -10,16 +10,6 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  */
-&soc {
-	led_flash0: qcom,camera-led-flash {
-		cell-index = <0>;
-		compatible = "qcom,camera-led-flash";
-		qcom,flash-type = <1>;
-		qcom,flash-source = <&flash_lm3642>;
-		qcom,torch-source = <&flash_lm3642>;
-	};
-};
-
 &cci {
 	actuator0: qcom,actuator@6e {
 		cell-index = <3>;
@@ -36,7 +26,7 @@
 		qcom,csid-sd-index = <0>;
 		qcom,mount-angle = <90>;
 		qcom,actuator-src = <&actuator0>;
-		qcom,led-flash-src = <&led_flash0>;
+		qcom,led-flash-src = <&flash_lm3642>;
 		cam_vaf-supply = <&pm8916_l10>;
 		qcom,cam-vreg-name = "cam_vaf";
 		qcom,cam-vreg-type = <1>;
