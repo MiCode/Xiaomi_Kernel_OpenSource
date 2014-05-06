@@ -398,13 +398,13 @@
       pinctrl-2 = <&qdsd_cmd_swduart &qdsd_data0_swduart
                   &qdsd_data1_swduart &qdsd_data2_swduart
                   &qdsd_data3_swduart>;
-      pinctrl-4 = <&qdsd_clk_swdtrc &qdsd_cmd_swdtrc
+      pinctrl-3 = <&qdsd_clk_swdtrc &qdsd_cmd_swdtrc
                   &qdsd_data0_swdtrc &qdsd_data1_swdtrc
                   &qdsd_data2_swdtrc &qdsd_data3_swdtrc>;
-      pinctrl-5 = <&qdsd_cmd_jtag &qdsd_data0_jtag
+      pinctrl-4 = <&qdsd_cmd_jtag &qdsd_data0_jtag
                   &qdsd_data1_jtag &qdsd_data2_jtag
                   &qdsd_data3_jtag>;
-      pinctrl-6 = <&qdsd_clk_spmi &qdsd_cmd_spmi
+      pinctrl-5 = <&qdsd_clk_spmi &qdsd_cmd_spmi
                   &qdsd_data0_spmi &qdsd_data3_spmi>;
 };
 
