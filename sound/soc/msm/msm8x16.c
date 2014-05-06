@@ -50,6 +50,7 @@ static int msm_btsco_rate = BTSCO_RATE_8KHZ;
 static int msm_btsco_ch = 1;
 
 static int msm_ter_mi2s_tx_ch = 1;
+static int msm_pri_mi2s_rx_ch = 1;
 
 static int msm_proxy_rx_ch = 2;
 
@@ -242,6 +243,22 @@ static const struct snd_soc_dapm_widget msm8x16_dapm_widgets[] = {
 static char const *rx_bit_format_text[] = {"S16_LE", "S24_LE"};
 static const char *const ter_mi2s_tx_ch_text[] = {"One", "Two"};
 
+static int msm_pri_rx_be_hw_params_fixup(struct snd_soc_pcm_runtime *rtd,
+				struct snd_pcm_hw_params *params)
+{
+	struct snd_interval *rate = hw_param_interval(params,
+					SNDRV_PCM_HW_PARAM_RATE);
+
+	struct snd_interval *channels = hw_param_interval(params,
+					SNDRV_PCM_HW_PARAM_CHANNELS);
+
+	pr_debug("%s()\n", __func__);
+	rate->min = rate->max = 48000;
+	channels->min = channels->max = msm_pri_mi2s_rx_ch;
+
+	return 0;
+}
+
 static int msm_be_hw_params_fixup(struct snd_soc_pcm_runtime *rtd,
 				struct snd_pcm_hw_params *params)
 {
@@ -350,6 +367,24 @@ static int msm_tx_be_hw_params_fixup(struct snd_soc_pcm_runtime *rtd,
 	channels->min = channels->max = msm_ter_mi2s_tx_ch;
 
 	return 0;
+}
+
+static int msm_pri_mi2s_rx_ch_get(struct snd_kcontrol *kcontrol,
+	struct snd_ctl_elem_value *ucontrol)
+{
+	pr_debug("%s: msm_pri_mi2s_rx_ch  = %d\n", __func__,
+		 msm_pri_mi2s_rx_ch);
+	ucontrol->value.integer.value[0] = msm_pri_mi2s_rx_ch - 1;
+	return 0;
+}
+
+static int msm_pri_mi2s_rx_ch_put(struct snd_kcontrol *kcontrol,
+	struct snd_ctl_elem_value *ucontrol)
+{
+	msm_pri_mi2s_rx_ch = ucontrol->value.integer.value[0] + 1;
+
+	pr_debug("%s: msm_pri_mi2s_rx_ch = %d\n", __func__, msm_pri_mi2s_rx_ch);
+	return 1;
 }
 
 static int msm_ter_mi2s_tx_ch_get(struct snd_kcontrol *kcontrol,
@@ -551,6 +586,8 @@ static const struct snd_kcontrol_new msm_snd_controls[] = {
 			mi2s_rx_bit_format_get, mi2s_rx_bit_format_put),
 	SOC_ENUM_EXT("MI2S_TX Channels", msm_snd_enum[1],
 			msm_ter_mi2s_tx_ch_get, msm_ter_mi2s_tx_ch_put),
+	SOC_ENUM_EXT("MI2S_RX Channels", msm_snd_enum[1],
+			msm_pri_mi2s_rx_ch_get, msm_pri_mi2s_rx_ch_put),
 
 };
 
@@ -1154,7 +1191,7 @@ static struct snd_soc_dai_link msm8x16_dai[] = {
 		.no_pcm = 1,
 		.be_id = MSM_BACKEND_DAI_PRI_MI2S_RX,
 		.init = &msm_audrx_init,
-		.be_hw_params_fixup = msm_be_hw_params_fixup,
+		.be_hw_params_fixup = msm_pri_rx_be_hw_params_fixup,
 		.ops = &msm8x16_mi2s_be_ops,
 		.ignore_suspend = 1,
 	},
