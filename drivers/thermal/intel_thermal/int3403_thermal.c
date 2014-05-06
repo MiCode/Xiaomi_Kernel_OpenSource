@@ -28,18 +28,23 @@
 #define KELVIN_OFFSET	2732
 #define MILLI_CELSIUS_TO_DECI_KELVIN(t, off) (((t) / 100) + (off))
 
-#define ACPI_INT3403_CLASS		"int3403"
-#define ACPI_INT3403_FILE_STATE		"state"
-
 struct int3403_sensor {
 	struct thermal_zone_device *tzone;
 	unsigned long *thresholds;
 };
 
+struct int3403_priv {
+	struct platform_device *pdev;
+	struct acpi_device *adev;
+	unsigned long long type;
+	void *priv;
+};
+
 static int sys_get_curr_temp(struct thermal_zone_device *tzone,
 				unsigned long *temp)
 {
-	struct acpi_device *device = tzone->devdata;
+	struct int3403_priv *priv = tzone->devdata;
+	struct acpi_device *device = priv->adev;
 	unsigned long long tmp;
 	acpi_status status;
 
@@ -55,7 +60,8 @@ static int sys_get_curr_temp(struct thermal_zone_device *tzone,
 static int sys_get_trip_hyst(struct thermal_zone_device *tzone,
 		int trip, unsigned long *temp)
 {
-	struct acpi_device *device = tzone->devdata;
+	struct int3403_priv *priv = tzone->devdata;
+	struct acpi_device *device = priv->adev;
 	unsigned long long hyst;
 	acpi_status status;
 
@@ -71,9 +77,11 @@ static int sys_get_trip_hyst(struct thermal_zone_device *tzone,
 static int sys_get_trip_temp(struct thermal_zone_device *tzone,
 		int trip, unsigned long *temp)
 {
-	struct acpi_device *device = tzone->devdata;
-	struct int3403_sensor *obj = acpi_driver_data(device);
+	struct int3403_priv *priv = tzone->devdata;
+	struct int3403_sensor *obj = priv->priv;
 
+	if (priv->type != INT3403_TYPE_SENSOR|| !obj)
+		return -EINVAL;
 	/*
 	 * get_trip_temp is a mandatory callback but
 	 * PATx method doesn't return any value, so return
@@ -96,11 +104,12 @@ static int sys_get_trip_type(struct thermal_zone_device *thermal,
 int sys_set_trip_temp(struct thermal_zone_device *tzone, int trip,
 							unsigned long temp)
 {
-	struct acpi_device *device = tzone->devdata;
+	struct int3403_priv *priv = tzone->devdata;
+	struct acpi_device *device = priv->adev;
+	struct int3403_sensor *obj = priv->priv;
 	acpi_status status;
 	char name[10];
 	int ret = 0;
-	struct int3403_sensor *obj = acpi_driver_data(device);
 
 	snprintf(name, sizeof(name), "PAT%d", trip);
 	if (acpi_has_method(device->handle, name)) {
@@ -127,17 +136,17 @@ static struct thermal_zone_device_ops tzone_ops = {
 	.get_trip_hyst =  sys_get_trip_hyst,
 };
 
-static void acpi_thermal_notify(acpi_handle handle,
+static void int3403_notify(acpi_handle handle,
 		u32 event, void *data)
 {
-	struct acpi_device *device = data;
+	struct int3403_priv *priv = data;
 	struct int3403_sensor *obj;
 
-	if (!device)
+	if (!priv)
 		return;
 
-	obj = acpi_driver_data(device);
-	if (!obj)
+	obj = priv->priv;
+	if (priv->type != INT3403_TYPE_SENSOR || !obj)
 		return;
 
 	switch (event) {
@@ -147,45 +156,33 @@ static void acpi_thermal_notify(acpi_handle handle,
 		thermal_zone_device_update(obj->tzone);
 		break;
 	default:
-		dev_err(&device->dev, "Unsupported event [0x%x]\n", event);
+		dev_err(&priv->pdev->dev, "Unsupported event [0x%x]\n", event);
 		break;
 	}
 }
 
-static int acpi_int3403_add(struct platform_device *pdev)
+static int int3403_sensor_add(struct int3403_priv *priv)
 {
-	struct acpi_device *device = ACPI_COMPANION(&(pdev->dev));
 	int result = 0;
-	unsigned long long ptyp;
 	acpi_status status;
 	struct int3403_sensor *obj;
 	unsigned long long trip_cnt;
 	int trip_mask = 0;
 
-	if (!device)
-		return -EINVAL;
-
-	status = acpi_evaluate_integer(device->handle, "PTYP", NULL, &ptyp);
-	if (ACPI_FAILURE(status))
-		return -EINVAL;
-
-	if (ptyp != INT3403_TYPE_SENSOR)
-		return -EINVAL;
-
-	obj = devm_kzalloc(&device->dev, sizeof(*obj), GFP_KERNEL);
+	obj = devm_kzalloc(&priv->pdev->dev, sizeof(*obj), GFP_KERNEL);
 	if (!obj)
 		return -ENOMEM;
 
-	device->driver_data = obj;
+	priv->priv = obj;
 
-	status = acpi_evaluate_integer(device->handle, "PATC", NULL,
+	status = acpi_evaluate_integer(priv->adev->handle, "PATC", NULL,
 						&trip_cnt);
 	if (ACPI_FAILURE(status))
 		trip_cnt = 0;
 
 	if (trip_cnt) {
 		/* We have to cache, thresholds can't be readback */
-		obj->thresholds = devm_kzalloc(&device->dev,
+		obj->thresholds = devm_kzalloc(&priv->pdev->dev,
 					sizeof(*obj->thresholds) * trip_cnt,
 					GFP_KERNEL);
 		if (!obj->thresholds) {
@@ -195,8 +192,8 @@ static int acpi_int3403_add(struct platform_device *pdev)
 		trip_mask = BIT(trip_cnt) - 1;
 	}
 
-	obj->tzone = thermal_zone_device_register(acpi_device_bid(device),
-				trip_cnt, trip_mask, device, &tzone_ops,
+	obj->tzone = thermal_zone_device_register(acpi_device_bid(priv->adev),
+				trip_cnt, trip_mask, priv, &tzone_ops,
 				NULL, 0, 0);
 	if (IS_ERR(obj->tzone)) {
 		result = PTR_ERR(obj->tzone);
@@ -204,9 +201,9 @@ static int acpi_int3403_add(struct platform_device *pdev)
 		goto err_free_obj;
 	}
 
-	result = acpi_install_notify_handler(device->handle,
-			ACPI_DEVICE_NOTIFY, acpi_thermal_notify,
-			(void *)device);
+	result = acpi_install_notify_handler(priv->adev->handle,
+			ACPI_DEVICE_NOTIFY, int3403_notify,
+			(void *)priv);
 	if (result)
 		goto err_free_obj;
 
@@ -220,27 +217,84 @@ static int acpi_int3403_add(struct platform_device *pdev)
 	return result;
 }
 
-static int acpi_int3403_remove(struct platform_device *pdev)
+static int int3403_sensor_remove(struct int3403_priv *priv)
 {
-	struct acpi_device *device = ACPI_COMPANION(&pdev->dev);
-	struct int3403_sensor *obj;
+	struct int3403_sensor *obj = priv->priv;
 
-	obj = acpi_driver_data(device);
 	thermal_zone_device_unregister(obj->tzone);
-
+	kfree(obj->thresholds);
+	kfree(obj);
 	return 0;
 }
 
-ACPI_MODULE_NAME("int3403");
+static int int3403_add(struct platform_device *pdev)
+{
+	struct int3403_priv *priv;
+	int result = 0;
+	acpi_status status;
+
+	priv = devm_kzalloc(&pdev->dev, sizeof(struct int3403_priv),
+			    GFP_KERNEL);
+	if (priv)
+		return -ENOMEM;
+
+	priv->pdev = pdev;
+	priv->adev = ACPI_COMPANION(&(pdev->dev));
+	if (!priv->adev) {
+		result = -EINVAL;
+		goto err;
+	}
+
+	status = acpi_evaluate_integer(priv->adev->handle, "PTYP",
+				       NULL, &priv->type);
+	if (ACPI_FAILURE(status)) {
+		result = -EINVAL;
+		goto err;
+	}
+
+	platform_set_drvdata(pdev, priv);
+	switch (priv->type) {
+	case INT3403_TYPE_SENSOR:
+		result = int3403_sensor_add(priv);
+		break;
+	default:
+		result = -EINVAL;
+	}
+
+	if (result)
+		goto err;
+	return result;
+
+err:
+	kfree(priv);
+	return result;
+}
+
+static int int3403_remove(struct platform_device *pdev)
+{
+	struct int3403_priv *priv = platform_get_drvdata(pdev);
+
+	switch(priv->type) {
+	case INT3403_TYPE_SENSOR:
+		int3403_sensor_remove(priv);
+		break;
+	default:
+		break;
+	}	
+
+	kfree(priv);
+	return 0;
+}
+
 static const struct acpi_device_id int3403_device_ids[] = {
 	{"INT3403", 0},
 	{"", 0},
 };
 MODULE_DEVICE_TABLE(acpi, int3403_device_ids);
 
-static struct platform_driver acpi_int3403_driver = {
-	.probe = acpi_int3403_add,
-	.remove = acpi_int3403_remove,
+static struct platform_driver int3403_driver = {
+	.probe = int3403_add,
+	.remove = int3403_remove,
 	.driver = {
 		.name = "INT3403",
 		.owner  = THIS_MODULE,
@@ -248,7 +302,7 @@ static struct platform_driver acpi_int3403_driver = {
 	},
 };
 
-module_platform_driver(acpi_int3403_driver);
+module_platform_driver(int3403_driver);
 
 MODULE_AUTHOR("Srinivas Pandruvada <srinivas.pandruvada@linux.intel.com>");
 MODULE_LICENSE("GPL v2");
