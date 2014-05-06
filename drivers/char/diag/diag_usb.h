@@ -17,6 +17,7 @@
 #include <linux/usb/usbdiag.h>
 #endif
 #include "diagchar.h"
+#include "diag_mux.h"
 
 #define DIAG_USB_LOCAL		0
 #define DIAG_USB_LOCAL_LAST	1
@@ -36,14 +37,6 @@
 #define DIAG_USB_GET_NAME(x)	(diag_usb[x].name)
 
 #define DIAG_USB_MODE		0
-
-struct diag_mux_ops {
-	int (*open)(int id, int mode);
-	int (*close)(int id, int mode);
-	int (*read_done)(unsigned char *buf, int len, int id);
-	int (*write_done)(unsigned char *buf, int len, int buf_ctx,
-			  int id);
-};
 
 struct diag_usb_info {
 	int id;

@@ -228,11 +228,6 @@ struct bindpkt_params {
 	uint32_t client_id;
 };
 
-struct diag_write_device {
-	void *buf;
-	int length;
-};
-
 struct diag_client_map {
 	char name[20];
 	int pid;
@@ -351,8 +346,6 @@ struct diagchar_dev {
 	int *data_ready;
 	int num_clients;
 	int polling_reg_flag;
-	struct diag_write_device *buf_tbl;
-	unsigned int buf_tbl_size;
 	int use_device_tree;
 	int supports_separate_cmdrsp;
 	int supports_apps_hdlc_encoding;

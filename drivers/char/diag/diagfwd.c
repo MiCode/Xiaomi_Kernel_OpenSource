@@ -38,6 +38,7 @@
 #include "diag_dci.h"
 #include "diag_masks.h"
 #include "diag_usb.h"
+#include "diag_mux.h"
 
 #define STM_CMD_VERSION_OFFSET	4
 #define STM_CMD_MASK_OFFSET	5
@@ -53,7 +54,6 @@
 int diag_debug_buf_idx;
 unsigned char diag_debug_buf[1024];
 /* Number of entries in table of buffers */
-static unsigned int buf_tbl_size = 10;
 struct diag_master_table entry;
 int wrap_enabled;
 uint16_t wrap_count;
@@ -364,7 +364,7 @@ int diag_process_smd_read_data(struct diag_smd_info *smd_info, void *buf,
 		!driver->separate_cmdrsp[smd_info->peripheral]) {
 		pr_debug("diag, In %s, received data on non-designated command channel: %d\n",
 			__func__, smd_info->peripheral);
-		goto fail_return;
+		return 0;
 	}
 
 	if (!smd_info->encode_hdlc) {
@@ -415,21 +415,13 @@ int diag_process_smd_read_data(struct diag_smd_info *smd_info, void *buf,
 	if (write_length > 0) {
 		spin_lock_irqsave(&smd_info->in_busy_lock, flags);
 		*in_busy_ptr = 1;
-		err = diag_device_write(write_buf, write_length,
-					smd_info->peripheral, ctxt);
+		err = diag_mux_write(DIAG_LOCAL_PROC, write_buf, write_length,
+				     ctxt);
 		if (err) {
 			pr_err_ratelimited("diag: In %s, diag_device_write error: %d\n",
 					   __func__, err);
 		}
 		spin_unlock_irqrestore(&smd_info->in_busy_lock, flags);
-	}
-
-	if (err) {
-fail_return:
-		if (smd_info->type == SMD_DATA_TYPE &&
-		    driver->logging_mode == MEMORY_DEVICE_MODE) {
-			diag_ws_on_copy_fail(DIAG_WS_MD);
-		}
 	}
 
 	return 0;
@@ -664,10 +656,6 @@ void diag_smd_send_req(struct diag_smd_info *smd_info)
 		}
 
 		if (total_recd > 0) {
-			if (smd_info->type == SMD_DATA_TYPE &&
-			    driver->logging_mode == MEMORY_DEVICE_MODE)
-				diag_ws_on_read(DIAG_WS_MD, total_recd);
-
 			if (!buf) {
 				pr_err("diag: In %s, SMD peripheral: %d, Out of diagmem for Modem\n",
 					__func__, smd_info->peripheral);
@@ -768,8 +756,8 @@ void encode_rsp_and_send(int buf_length)
 	enc.dest_last = (void *)(rsp_ptr + HDLC_OUT_BUF_SIZE - 1);
 	diag_hdlc_encode(&send, &enc);
 	driver->encoded_rsp_len = (int)(enc.dest - (void *)rsp_ptr);
-	err = diag_device_write(rsp_ptr, driver->encoded_rsp_len, APPS_DATA,
-				driver->rsp_buf_ctxt);
+	err = diag_mux_write(DIAG_LOCAL_PROC, rsp_ptr, driver->encoded_rsp_len,
+			     driver->rsp_buf_ctxt);
 	if (err) {
 		pr_err("diag: In %s, Unable to write to device, err: %d\n",
 			__func__, err);
@@ -779,14 +767,6 @@ void encode_rsp_and_send(int buf_length)
 	}
 	memset(driver->apps_rsp_buf, '\0', APPS_BUF_SIZE);
 
-}
-
-int diag_device_write(void *buf, int len, int data_type, int ctxt)
-{
-	if ((data_type < MODEM_DATA) || (data_type > APPS_DATA))
-		return -EINVAL;
-
-	return diag_usb_write(DIAG_USB_LOCAL, buf, len, ctxt);
 }
 
 void diag_update_pkt_buffer(unsigned char *buf, int type)
@@ -1413,7 +1393,6 @@ static void diag_smd_reset_buf(struct diag_smd_info *smd_info, int num)
 
 }
 
-#ifdef CONFIG_DIAG_OVER_USB
 static int diagfwd_mux_open(int id, int mode)
 {
 	int i;
@@ -1431,6 +1410,16 @@ static int diagfwd_mux_open(int id, int mode)
 		driver->rsp_buf_busy = 0;
 		spin_unlock_irqrestore(&driver->rsp_buf_busy_lock, flags);
 	}
+	switch (mode) {
+	case DIAG_USB_MODE:
+		driver->usb_connected = 1;
+		break;
+	case DIAG_MEMORY_DEVICE_MODE:
+		break;
+	default:
+		return -EINVAL;
+	}
+
 	diag_reset_smd_data(RESET_AND_QUEUE);
 	for (i = 0; i < NUM_SMD_CONTROL_CHANNELS; i++) {
 		/* Poll SMD CNTL channels to check for data */
@@ -1446,26 +1435,31 @@ static int diagfwd_mux_close(int id, int mode)
 	unsigned long flags;
 	struct diag_smd_info *smd_info = NULL;
 
-	driver->usb_connected = 0;
-	if (driver->logging_mode == USB_MODE) {
-		for (i = 0; i < NUM_SMD_DATA_CHANNELS; i++) {
-			smd_info = &driver->smd_data[i];
+	switch (mode) {
+	case DIAG_USB_MODE:
+		driver->usb_connected = 0;
+		break;
+	case DIAG_MEMORY_DEVICE_MODE:
+		break;
+	default:
+		return -EINVAL;
+	}
+
+	for (i = 0; i < NUM_SMD_DATA_CHANNELS; i++) {
+		smd_info = &driver->smd_data[i];
+		spin_lock_irqsave(&smd_info->in_busy_lock, flags);
+		smd_info->in_busy_1 = 1;
+		smd_info->in_busy_2 = 1;
+		spin_unlock_irqrestore(&smd_info->in_busy_lock, flags);
+	}
+
+	if (driver->supports_separate_cmdrsp) {
+		for (i = 0; i < NUM_SMD_CMD_CHANNELS; i++) {
+			smd_info = &driver->smd_cmd[i];
 			spin_lock_irqsave(&smd_info->in_busy_lock, flags);
 			smd_info->in_busy_1 = 1;
 			smd_info->in_busy_2 = 1;
 			spin_unlock_irqrestore(&smd_info->in_busy_lock, flags);
-		}
-
-		if (driver->supports_separate_cmdrsp) {
-			for (i = 0; i < NUM_SMD_CMD_CHANNELS; i++) {
-				smd_info = &driver->smd_cmd[i];
-				spin_lock_irqsave(&smd_info->in_busy_lock,
-						  flags);
-				smd_info->in_busy_1 = 1;
-				smd_info->in_busy_2 = 1;
-				spin_unlock_irqrestore(&smd_info->in_busy_lock,
-						       flags);
-			}
 		}
 	}
 	queue_work(driver->diag_real_time_wq,
@@ -1479,6 +1473,7 @@ static int diagfwd_mux_read_done(unsigned char *buf, int len, int ctxt)
 		return -EINVAL;
 
 	diag_process_hdlc(buf, len);
+	diag_mux_queue_read(ctxt);
 	return 0;
 }
 
@@ -1503,6 +1498,15 @@ static int diagfwd_mux_write_done(unsigned char *buf, int len, int buf_ctxt,
 		if (peripheral >= 0 && peripheral < NUM_SMD_DATA_CHANNELS) {
 			smd_info = &driver->smd_data[peripheral];
 			diag_smd_reset_buf(smd_info, num);
+			/*
+			 * Flush any work that is currently pending on the data
+			 * channels. This will ensure that the next read is not
+			 * missed.
+			 */
+			if (driver->logging_mode == MEMORY_DEVICE_MODE) {
+				flush_workqueue(smd_info->wq);
+				wake_up(&driver->smd_wait_q);
+			}
 		} else if (peripheral == APPS_DATA) {
 			diagmem_free(driver, (unsigned char *)buf,
 				     POOL_TYPE_HDLC);
@@ -1542,7 +1546,6 @@ static struct diag_mux_ops diagfwd_mux_ops = {
 	.read_done = diagfwd_mux_read_done,
 	.write_done = diagfwd_mux_write_done
 };
-#endif /* DIAG OVER USB */
 
 void diag_smd_notify(void *ctxt, unsigned event)
 {
@@ -2020,12 +2023,6 @@ int diagfwd_init(void)
 	driver->use_device_tree = has_device_tree();
 	for (i = 0; i < DIAG_NUM_PROC; i++)
 		driver->real_time_mode[i] = 1;
-	/*
-	 * The number of entries in table of buffers
-	 * should not be any smaller than hdlc poolsize.
-	 */
-	driver->buf_tbl_size = (buf_tbl_size < driver->poolsize_hdlc) ?
-				driver->poolsize_hdlc : buf_tbl_size;
 	driver->supports_separate_cmdrsp = device_supports_separate_cmdrsp();
 	driver->supports_apps_hdlc_encoding = 1;
 	mutex_init(&driver->diag_hdlc_mutex);
@@ -2082,12 +2079,6 @@ int diagfwd_init(void)
 		   GFP_KERNEL)) == NULL)
 		goto err;
 	kmemleak_not_leak(driver->client_map);
-	if (driver->buf_tbl == NULL)
-			driver->buf_tbl = kzalloc(driver->buf_tbl_size *
-			  sizeof(struct diag_write_device), GFP_KERNEL);
-	if (driver->buf_tbl == NULL)
-		goto err;
-	kmemleak_not_leak(driver->buf_tbl);
 	if (driver->data_ready == NULL &&
 	     (driver->data_ready = kzalloc(driver->num_clients * sizeof(int)
 							, GFP_KERNEL)) == NULL)
@@ -2120,7 +2111,7 @@ int diagfwd_init(void)
 	driver->diag_wq = create_singlethread_workqueue("diag_wq");
 	if (!driver->diag_wq)
 		goto err;
-	ret = diag_usb_register(DIAG_USB_LOCAL, POOL_TYPE_USB_APPS,
+	ret = diag_mux_register(DIAG_LOCAL_PROC, DIAG_LOCAL_PROC,
 				&diagfwd_mux_ops);
 	if (ret) {
 		pr_err("diag: Unable to register with USB, err: %d\n", ret);
@@ -2146,7 +2137,6 @@ err:
 	kfree(driver->encoded_rsp_buf);
 	kfree(driver->hdlc_buf);
 	kfree(driver->client_map);
-	kfree(driver->buf_tbl);
 	kfree(driver->data_ready);
 	kfree(driver->table);
 	kfree(driver->pkt_buf);
@@ -2178,7 +2168,6 @@ void diagfwd_exit(void)
 	kfree(driver->encoded_rsp_buf);
 	kfree(driver->hdlc_buf);
 	kfree(driver->client_map);
-	kfree(driver->buf_tbl);
 	kfree(driver->data_ready);
 	kfree(driver->table);
 	kfree(driver->pkt_buf);

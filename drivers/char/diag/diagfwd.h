@@ -38,7 +38,6 @@ int diag_smd_write(struct diag_smd_info *smd_info, void *buf, int len);
 void diag_process_hdlc(void *data, unsigned len);
 void diag_smd_send_req(struct diag_smd_info *smd_info);
 long diagchar_ioctl(struct file *, unsigned int, unsigned long);
-int diag_device_write(void *buf, int len, int data_type, int ctxt);
 int mask_request_validate(unsigned char mask_buf[]);
 void diag_clear_reg(int);
 int chk_config_get_id(void);
