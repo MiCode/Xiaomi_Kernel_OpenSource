@@ -334,8 +334,8 @@ static int mdss_mdp_splash_kickoff(struct msm_fb_data_type *mfd,
 	 *    buffer boundry
 	 */
 	use_single_pipe =
-		!mfd->split_display ||
-		(mfd->split_display &&
+		!is_split_lm(mfd) ||
+		(is_split_lm(mfd) &&
 		((dest_rect->x + dest_rect->w) < mfd->split_fb_left ||
 		dest_rect->x > mfd->split_fb_left)) ||
 		(mdata->has_src_split &&

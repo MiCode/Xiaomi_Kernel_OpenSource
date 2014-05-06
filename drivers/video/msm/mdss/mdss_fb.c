@@ -280,7 +280,7 @@ static inline int mdss_fb_validate_split(int left, int right,
 	u32 panel_xres = mfd->panel_info->xres;
 	/* more validate condition could be added if needed */
 	if (left && right) {
-		if (mfd->split_display)
+		if (is_panel_split(mfd))
 			panel_xres *= 2;
 
 		if (panel_xres == left + right) {
@@ -289,7 +289,7 @@ static inline int mdss_fb_validate_split(int left, int right,
 			rc = 0;
 		}
 	} else {
-		if (mfd->split_display) {
+		if (is_panel_split(mfd)) {
 			mfd->split_fb_left = mfd->split_fb_right = panel_xres;
 			rc = 0;
 		} else {
@@ -615,8 +615,9 @@ static int mdss_fb_probe(struct platform_device *pdev)
 	mfd->fb_imgType = MDP_RGBA_8888;
 
 	mfd->pdev = pdev;
+	mfd->split_mode = MDP_SPLIT_MODE_NONE;
 	if (pdata->next)
-		mfd->split_display = true;
+		mfd->split_mode = MDP_SPLIT_MODE_LM;
 	mfd->mdp = *mdp_instance;
 	INIT_LIST_HEAD(&mfd->proc_list);
 
@@ -1596,7 +1597,7 @@ static int mdss_fb_register(struct msm_fb_data_type *mfd)
 	}
 
 	var->xres = panel_info->xres;
-	if (mfd->split_display)
+	if (is_panel_split(mfd))
 		var->xres *= 2;
 
 	fix->type = panel_info->is_3d_panel;
