@@ -561,7 +561,7 @@ int __init fan53555_regulator_init(void)
 	return i2c_add_driver(&fan53555_regulator_driver);
 }
 EXPORT_SYMBOL(fan53555_regulator_init);
-module_init(fan53555_regulator_init);
+arch_initcall(fan53555_regulator_init);
 
 static void __exit fan53555_regulator_exit(void)
 {
