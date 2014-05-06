@@ -952,6 +952,21 @@ static struct snd_soc_dai_link mdm9630_dai[] = {
 		/* this dainlink has playback support */
 		.be_id = MSM_FRONTEND_DAI_MULTIMEDIA2,
 	},
+	{
+		.name = "MDM9630 Media6",
+		.stream_name = "MultiMedia6",
+		.cpu_dai_name   = "MultiMedia6",
+		.platform_name  = "msm-pcm-loopback",
+		.dynamic = 1,
+		.codec_dai_name = "snd-soc-dummy-dai",
+		.codec_name = "snd-soc-dummy",
+		.trigger = {SND_SOC_DPCM_TRIGGER_POST,
+			    SND_SOC_DPCM_TRIGGER_POST},
+		.ignore_suspend = 1,
+		.no_host_mode = SND_SOC_DAI_LINK_NO_HOST,
+		/* this dainlink has playback support */
+		.be_id = MSM_FRONTEND_DAI_MULTIMEDIA6,
+	},
 	/* Backend DAI Links */
 	{
 		.name = LPASS_BE_PRI_MI2S_RX,
