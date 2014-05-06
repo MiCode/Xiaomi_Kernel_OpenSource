@@ -21,12 +21,12 @@
 		qcom,num-grp-pins = <1>;
 		label = "akm_reset_pin";
 		akm_default: akm_default {
-			  drive-strength = <16>;
-			  bias-pull-up;
+			drive-strength = <6>;
+			bias-pull-up;
 		};
 		akm_sleep: akm_sleep {
-			   drive-strength = <16>;
-			   bias-pull-down;
+			drive-strength = <2>;
+			bias-pull-down;
 		};
 	};
 
@@ -35,8 +35,12 @@
 		qcom,num-grp-pins = <1>;
 		label = "lis3dh_int_pin";
 		lis3dh_int1_default: int1_default {
-			  drive-strength = <6>;
-			  bias-pull-up;
+			drive-strength = <6>;
+			bias-pull-down;
+		};
+		lis3dh_int1_sleep: int1_sleep {
+			drive-strength = <2>;
+			bias-pull-down;
 		};
 	};
 
@@ -91,8 +95,9 @@
 	st@18 {
 		compatible = "st,lis3dh";
 		reg = <0x18>;
-		pinctrl-names = "default";
+		pinctrl-names = "lis3dh_default","lis3dh_sleep";
 		pinctrl-0 = <&lis3dh_int1_default>;
+		pinctrl-1 = <&lis3dh_int1_sleep>;
 		interrupt-parent = <&msm_gpio>;
 		vdd-supply = <&pm8916_l17>;
 		vddio-supply = <&pm8916_l6>;

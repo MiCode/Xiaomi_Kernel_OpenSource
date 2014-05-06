@@ -4,6 +4,10 @@ Required properties:
 
  - compatible					: Should be "avago,apds9930" or "avago,apds9900".
  - reg							: i2c slave address of the device.
+ - pinctrl-names				: The pinctrl configration names of this sensor driver. Should be
+					"default" and "sleep".
+ - pinctrl-0					: Should specify pin control groups used for this controller.
+ - pinctrl-1					: Should specify pin control groups used for this controller.
  - interrupt-parent				: Parent of interrupt.
  - interupts					: L/P sample interrupt to indicate new data ready.
  - vdd-supply					: Power supply needed to power up the device.
@@ -26,6 +30,9 @@ Required properties:
 	 avago@39 {
 		 compatible = "avago,apds9930";
 		 reg = <0x39>;
+		 pinctrl-names = "default","sleep";
+		 pinctrl-0 = <&apds99xx_default>;
+		 pinctrl-1 = <&apds99xx_sleep>;
 		 interrupt-parent = <&msmgpio>;
 		 interrupts = <80 0x2>;
 		 vdd-supply = <&pm8110_l19>;
