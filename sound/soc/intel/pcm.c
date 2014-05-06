@@ -512,8 +512,6 @@ static int sst_media_prepare(struct snd_pcm_substream *substream,
 	ret_val = sst_platform_alloc_stream(substream, dai->platform);
 	if (ret_val <= 0)
 		return ret_val;
-	snprintf(substream->pcm->id, sizeof(substream->pcm->id),
-			"%d", stream->stream_info.str_id);
 
 	ret_val = sst_platform_init_stream(substream);
 	if (ret_val)
