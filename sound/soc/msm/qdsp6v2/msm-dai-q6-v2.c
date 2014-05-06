@@ -2065,8 +2065,8 @@ static int msm_mi2s_get_port_id(u32 mi2s_id, int stream, u16 *port_id)
 		case MSM_QUAT_MI2S:
 			*port_id = AFE_PORT_ID_QUATERNARY_MI2S_RX;
 			break;
-		case MSM_SEC_MI2S_VIBRA:
-			*port_id = AFE_PORT_ID_SECONDARY_MI2S_RX_VIBRA;
+		case MSM_SEC_MI2S_SD1:
+			*port_id = AFE_PORT_ID_SECONDARY_MI2S_RX_SD1;
 			break;
 		break;
 		default:
@@ -2459,8 +2459,8 @@ static struct snd_soc_dai_driver msm_dai_q6_mi2s_dai[] = {
 	},
 	{
 		.playback = {
-			.stream_name = "Secondary MI2S Playback Vibra",
-			.aif_name = "SEC_MI2S_RX_VIBRA",
+			.stream_name = "Secondary MI2S Playback SD1",
+			.aif_name = "SEC_MI2S_RX_SD1",
 			.rates = SNDRV_PCM_RATE_48000 | SNDRV_PCM_RATE_8000 |
 			SNDRV_PCM_RATE_16000,
 			.formats = SNDRV_PCM_FMTBIT_S16_LE,
@@ -2634,7 +2634,7 @@ static int msm_dai_q6_mi2s_dev_probe(struct platform_device *pdev)
 	dev_dbg(&pdev->dev, "dev name %s dev id %x\n", dev_name(&pdev->dev),
 		mi2s_intf);
 
-	if ((mi2s_intf < MSM_PRIM_MI2S || mi2s_intf > MSM_SEC_MI2S_VIBRA)
+	if ((mi2s_intf < MSM_PRIM_MI2S || mi2s_intf > MSM_SEC_MI2S_SD1)
 		|| (mi2s_intf >= ARRAY_SIZE(msm_dai_q6_mi2s_dai))) {
 		dev_err(&pdev->dev,
 			"%s: Invalid MI2S ID %u from Device Tree\n",
