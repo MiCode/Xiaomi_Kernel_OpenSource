@@ -16,6 +16,8 @@ Required properties:
 
 - compatible : "qcom,msm-watchdog"
 - reg : offset and length of the register set for the watchdog block.
+- reg-names : names corresponding to each reg property value.
+	"wdt-base" - physical base address of watchdog timer registers
 - interrupts : should contain bark and bite irq numbers
 - qcom,pet-time : Non zero time interval at which watchdog should be pet in ms.
 - qcom,bark-time : Non zero timeout value for a watchdog bark in ms.
@@ -29,6 +31,7 @@ Example:
 	qcom,wdt@f9017000 {
 		compatible = "qcom,msm-watchdog";
 		reg = <0xf9017000 0x1000>;
+		reg-names = "wdt-base";
 		interrupts = <0 3 0>, <0 4 0>;
 		qcom,bark-time = <11000>;
 		qcom,pet-time = <10000>;

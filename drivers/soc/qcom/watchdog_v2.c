@@ -524,14 +524,14 @@ static int msm_wdog_dt_to_pdata(struct platform_device *pdev,
 					struct msm_watchdog_data *pdata)
 {
 	struct device_node *node = pdev->dev.of_node;
-	struct resource *wdog_resource;
+	struct resource *res;
 	int ret;
 
-	wdog_resource = platform_get_resource(pdev, IORESOURCE_MEM, 0);
-	if (!wdog_resource)
+	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "wdt-base");
+	if (!res)
 		return -ENODEV;
-	pdata->size = resource_size(wdog_resource);
-	pdata->phys_base = wdog_resource->start;
+	pdata->size = resource_size(res);
+	pdata->phys_base = res->start;
 	if (unlikely(!(devm_request_mem_region(&pdev->dev, pdata->phys_base,
 					       pdata->size, "msm-watchdog")))) {
 
@@ -594,6 +594,7 @@ static int msm_watchdog_probe(struct platform_device *pdev)
 	ret = msm_wdog_dt_to_pdata(pdev, wdog_dd);
 	if (ret)
 		goto err;
+
 	wdog_dd->dev = &pdev->dev;
 	platform_set_drvdata(pdev, wdog_dd);
 	cpumask_clear(&wdog_dd->alive_mask);
