@@ -407,11 +407,11 @@ static struct sk_buff *rndis_add_header(struct gether *port,
 	struct sk_buff *skb2;
 	struct rndis_packet_msg_type *header = NULL;
 	struct f_rndis *rndis = func_to_rndis(&port->func);
+	struct usb_composite_dev *cdev = port->func.config->cdev;
 
-	if (rndis->port.multi_pkt_xfer) {
+	if (rndis->port.multi_pkt_xfer || cdev->gadget->sg_supported) {
 		if (port->header) {
 			header = port->header;
-			memset(header, 0, sizeof(*header));
 			header->MessageType = cpu_to_le32(RNDIS_MSG_PACKET);
 			header->MessageLength = cpu_to_le32(skb->len +
 							sizeof(*header));
@@ -422,6 +422,7 @@ static struct sk_buff *rndis_add_header(struct gether *port,
 						header->DataLength);
 			return skb;
 		} else {
+			dev_kfree_skb_any(skb);
 			pr_err("RNDIS header is NULL.\n");
 			return NULL;
 		}
@@ -506,6 +507,7 @@ static void rndis_response_complete(struct usb_ep *ep, struct usb_request *req)
 	}
 }
 
+#define MAX_PKTS_PER_XFER	10
 static void rndis_command_complete(struct usb_ep *ep, struct usb_request *req)
 {
 	struct f_rndis			*rndis = req->context;
@@ -528,6 +530,27 @@ static void rndis_command_complete(struct usb_ep *ep, struct usb_request *req)
 	buf = (rndis_init_msg_type *)req->buf;
 
 	if (buf->MessageType == RNDIS_MSG_INIT) {
+		if (cdev->gadget->sg_supported) {
+			rndis->port.dl_max_xfer_size = buf->MaxTransferSize;
+			gether_update_dl_max_xfer_size(&rndis->port,
+					rndis->port.dl_max_xfer_size);
+
+			/* if SG is enabled multiple packets can be put
+			 * together too quickly. However, module param
+			 * is not honored.
+			 */
+			rndis->port.dl_max_pkts_per_xfer = MAX_PKTS_PER_XFER;
+
+			/* rndis spec does not specify max packets per xfer
+			 * but just to be consistent update it with 10
+			 * packets
+			 */
+			gether_update_dl_max_pkts_per_xfer(&rndis->port,
+						MAX_PKTS_PER_XFER);
+
+			return;
+		}
+
 		if (buf->MaxTransferSize > 2048)
 			rndis->port.multi_pkt_xfer = 1;
 		else
