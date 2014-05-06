@@ -23,6 +23,7 @@
 #include <linux/pm_runtime.h>
 #include <linux/slimbus/slimbus.h>
 #include <soc/qcom/subsystem_notif.h>
+#include <soc/qcom/apq8084_dock.h>
 #include <sound/core.h>
 #include <sound/soc.h>
 #include <sound/soc-dapm.h>
@@ -411,6 +412,23 @@ static void apq8084_liquid_ext_spk_power_amp_enable(u32 on)
 			on ? "Enable" : "Disable");
 }
 
+static void apq8084_liquid_route_aud_dock_dev(void)
+{
+	struct apq8084_liquid_dock_dev *dock_dev = apq8084_liquid_dock_dev;
+	struct snd_soc_dapm_context *dapm = dock_dev->dapm;
+
+	mutex_lock(&dapm->codec->mutex);
+
+	/* Turn off external amp to turn off liquid spkr */
+	if ((apq8084_ext_spk_pamp & LO_1_SPK_AMP) &&
+		(apq8084_ext_spk_pamp & LO_3_SPK_AMP) &&
+		(apq8084_ext_spk_pamp & LO_2_SPK_AMP) &&
+		(apq8084_ext_spk_pamp & LO_4_SPK_AMP))
+		apq8084_liquid_ext_spk_power_amp_enable(0);
+
+	mutex_unlock(&dapm->codec->mutex);
+}
+
 static void apq8084_liquid_docking_irq_work(struct work_struct *work)
 {
 	struct apq8084_liquid_dock_dev *dock_dev =
@@ -446,14 +464,71 @@ static irqreturn_t apq8084_liquid_docking_irq_handler(int irq, void *dev)
 	return IRQ_HANDLED;
 }
 
+static int apq8084_liquid_dock_notify_handler(struct notifier_block *this,
+					unsigned long dock_event,
+					void *unused)
+{
+	int err = 0;
+
+	/* plug in docking speaker+plug in device OR unplug one of them */
+	u32 dock_plug_irq_flags = IRQF_TRIGGER_RISING | IRQF_TRIGGER_FALLING |
+					IRQF_SHARED;
+
+	if (dock_event) {
+		err = gpio_request(apq8084_liquid_dock_dev->dock_plug_gpio,
+					   "dock-plug-det-irq");
+		if (err) {
+			pr_err("%s: fail request dock-plug-det-irq err = %d\n",
+				__func__, err);
+			goto exit;
+		}
+
+		apq8084_liquid_dock_dev->dock_plug_det =
+			gpio_get_value(apq8084_liquid_dock_dev->dock_plug_gpio);
+		if (apq8084_liquid_dock_dev->dock_plug_det)
+			apq8084_liquid_route_aud_dock_dev();
+		apq8084_liquid_dock_dev->dock_plug_irq =
+			gpio_to_irq(apq8084_liquid_dock_dev->dock_plug_gpio);
+
+		err = request_irq(apq8084_liquid_dock_dev->dock_plug_irq,
+				  apq8084_liquid_docking_irq_handler,
+				  dock_plug_irq_flags,
+				  "liquid_dock_plug_irq",
+				  apq8084_liquid_dock_dev);
+		if (err < 0) {
+			pr_err("%s: Request Irq Failed err = %d\n",
+				__func__, err);
+			goto out;
+		}
+
+		INIT_WORK(
+			&apq8084_liquid_dock_dev->irq_work,
+			apq8084_liquid_docking_irq_work);
+	} else {
+		if (apq8084_liquid_dock_dev->dock_plug_gpio)
+			gpio_free(apq8084_liquid_dock_dev->dock_plug_gpio);
+
+		if (apq8084_liquid_dock_dev->dock_plug_irq)
+			free_irq(apq8084_liquid_dock_dev->dock_plug_irq,
+				 apq8084_liquid_dock_dev);
+	}
+	return NOTIFY_OK;
+
+out:
+	gpio_free(apq8084_liquid_dock_dev->dock_plug_gpio);
+exit:
+	return NOTIFY_DONE;
+}
+
+static struct notifier_block apq8084_liquid_docking_notifier = {
+	.notifier_call  = apq8084_liquid_dock_notify_handler,
+};
+
 static int apq8084_liquid_init_docking(struct snd_soc_dapm_context *dapm)
 {
 	int ret = 0;
 	int dock_plug_gpio = 0;
 
-	/* plug in docking speaker+plug in device OR unplug one of them */
-	u32 dock_plug_irq_flags = IRQF_TRIGGER_RISING | IRQF_TRIGGER_FALLING |
-					IRQF_SHARED;
 	dock_plug_gpio = of_get_named_gpio(spdev->dev.of_node,
 					   "qcom,dock-plug-det-irq", 0);
 
@@ -467,45 +542,10 @@ static int apq8084_liquid_init_docking(struct snd_soc_dapm_context *dapm)
 		}
 
 		apq8084_liquid_dock_dev->dock_plug_gpio = dock_plug_gpio;
-
-		ret = gpio_request(apq8084_liquid_dock_dev->dock_plug_gpio,
-					   "dock-plug-det-irq");
-		if (ret) {
-			pr_err("%s:failed request apq8084_liquid_dock_plug_gpio.\n",
-				__func__);
-			ret = -EINVAL;
-			goto out;
-		}
-
-		apq8084_liquid_dock_dev->dock_plug_det =
-			gpio_get_value(apq8084_liquid_dock_dev->dock_plug_gpio);
-		apq8084_liquid_dock_dev->dock_plug_irq =
-			gpio_to_irq(apq8084_liquid_dock_dev->dock_plug_gpio);
-
 		apq8084_liquid_dock_dev->dapm = dapm;
 
-		ret = request_irq(apq8084_liquid_dock_dev->dock_plug_irq,
-				  apq8084_liquid_docking_irq_handler,
-				  dock_plug_irq_flags,
-				  "liquid_dock_plug_irq",
-				  apq8084_liquid_dock_dev);
-		if (ret < 0) {
-			pr_err("%s: Request Irq Failed err = %d\n",
-				__func__, ret);
-			goto out2;
-		}
-
-		INIT_WORK(
-			&apq8084_liquid_dock_dev->irq_work,
-			apq8084_liquid_docking_irq_work);
+		register_liquid_dock_notify(&apq8084_liquid_docking_notifier);
 	}
-	return 0;
-
-out2:
-	gpio_free(apq8084_liquid_dock_dev->dock_plug_gpio);
-out:
-	kfree(apq8084_liquid_dock_dev);
-	apq8084_liquid_dock_dev = NULL;
 exit:
 	return ret;
 }
@@ -4365,14 +4405,8 @@ static int apq8084_asoc_machine_remove(struct platform_device *pdev)
 	if (gpio_is_valid(ext_spk_amp_gpio))
 		gpio_free(ext_spk_amp_gpio);
 
+	unregister_liquid_dock_notify(&apq8084_liquid_docking_notifier);
 	if (apq8084_liquid_dock_dev != NULL) {
-		if (apq8084_liquid_dock_dev->dock_plug_gpio)
-			gpio_free(apq8084_liquid_dock_dev->dock_plug_gpio);
-
-		if (apq8084_liquid_dock_dev->dock_plug_irq)
-			free_irq(apq8084_liquid_dock_dev->dock_plug_irq,
-				 apq8084_liquid_dock_dev);
-
 		kfree(apq8084_liquid_dock_dev);
 		apq8084_liquid_dock_dev = NULL;
 	}
