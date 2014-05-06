@@ -1514,6 +1514,10 @@ static int qpnp_regulator_match(struct qpnp_regulator *vreg)
 		}
 	}
 
+	if (rc)
+		vreg_err(vreg, "unsupported regulator: type=0x%02X, subtype=0x%02X, dig major rev=0x%02X\n",
+			type, subtype, dig_major_rev);
+
 	return rc;
 }
 
@@ -1895,10 +1899,8 @@ static int qpnp_regulator_probe(struct spmi_device *spmi)
 	dev_set_drvdata(&spmi->dev, vreg);
 
 	rc = qpnp_regulator_match(vreg);
-	if (rc) {
-		vreg_err(vreg, "regulator type unknown, rc=%d\n", rc);
+	if (rc)
 		goto bail;
-	}
 
 	if (is_dt && rdesc->ops) {
 		/* Fill in ops and mode masks when using device tree. */
