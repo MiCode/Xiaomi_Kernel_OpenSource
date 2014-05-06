@@ -6700,6 +6700,8 @@ dhdsdio_chipmatch(uint16 chipid)
 		return TRUE;
 	if (chipid == BCM4354_CHIP_ID)
 		return TRUE;
+	if (chipid == BCM4356_CHIP_ID)
+		return TRUE;
 	return FALSE;
 }
 
