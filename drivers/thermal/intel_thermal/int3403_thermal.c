@@ -33,6 +33,11 @@
 struct int3403_sensor {
 	struct thermal_zone_device *tzone;
 	unsigned long *thresholds;
+	unsigned long 	crit_temp;
+	int		crit_trip_id;
+	unsigned long 	psv_temp;
+	int		psv_trip_id;
+
 };
 
 struct int3403_performance_state {
@@ -100,12 +105,19 @@ static int sys_get_trip_temp(struct thermal_zone_device *tzone,
 
 	if (priv->type != INT3403_TYPE_SENSOR|| !obj)
 		return -EINVAL;
-	/*
-	 * get_trip_temp is a mandatory callback but
-	 * PATx method doesn't return any value, so return
-	 * cached value, which was last set from user space.
-	 */
-	*temp = obj->thresholds[trip];
+
+	if (trip == obj->crit_trip_id)
+		*temp = obj->crit_temp;
+	else if (trip == obj->psv_trip_id)
+		*temp = obj->psv_temp;
+	else {
+		/*
+		 * get_trip_temp is a mandatory callback but
+		 * PATx method doesn't return any value, so return
+		 * cached value, which was last set from user space
+		 */
+		*temp = obj->thresholds[trip];
+	}
 
 	return 0;
 }
@@ -113,8 +125,14 @@ static int sys_get_trip_temp(struct thermal_zone_device *tzone,
 static int sys_get_trip_type(struct thermal_zone_device *thermal,
 		int trip, enum thermal_trip_type *type)
 {
+	struct int3403_priv *priv = thermal->devdata;
+	struct int3403_sensor *obj = priv->priv;
+
 	/* Mandatory callback, may not mean much here */
-	*type = THERMAL_TRIP_PASSIVE;
+	if (trip == obj->crit_trip_id)
+		*type = THERMAL_TRIP_CRITICAL;
+	else
+		*type = THERMAL_TRIP_PASSIVE;
 
 	return 0;
 }
@@ -179,6 +197,34 @@ static void int3403_notify(acpi_handle handle,
 	}
 }
 
+static int sys_get_trip_crt(struct acpi_device *device, unsigned long *temp)
+{
+	unsigned long long crt;
+	acpi_status status;
+
+	status = acpi_evaluate_integer(device->handle, "_CRT", NULL, &crt);
+	if (ACPI_FAILURE(status))
+		return -EIO;
+
+	*temp = DECI_KELVIN_TO_MILLI_CELSIUS(crt, KELVIN_OFFSET);
+
+	return 0;
+}
+
+static int sys_get_trip_psv(struct acpi_device *device, unsigned long *temp)
+{
+	unsigned long long psv;
+	acpi_status status;
+
+	status = acpi_evaluate_integer(device->handle, "_PSV", NULL, &psv);
+	if (ACPI_FAILURE(status))
+		return -EIO;
+
+	*temp = DECI_KELVIN_TO_MILLI_CELSIUS(psv, KELVIN_OFFSET);
+
+	return 0;
+}
+
 static int int3403_sensor_add(struct int3403_priv *priv)
 {
 	int result = 0;
@@ -209,6 +255,14 @@ static int int3403_sensor_add(struct int3403_priv *priv)
 		}
 		trip_mask = BIT(trip_cnt) - 1;
 	}
+
+	obj->psv_trip_id = -1;
+	if (!sys_get_trip_psv(priv->adev, &obj->psv_temp))
+		obj->psv_trip_id = trip_cnt++;
+
+	obj->crit_trip_id = -1;
+	if (!sys_get_trip_crt(priv->adev, &obj->crit_temp))
+		obj->crit_trip_id = trip_cnt++;
 
 	obj->tzone = thermal_zone_device_register(acpi_device_bid(priv->adev),
 				trip_cnt, trip_mask, priv, &tzone_ops,
