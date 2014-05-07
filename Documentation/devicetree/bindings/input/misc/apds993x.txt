@@ -9,16 +9,16 @@ Required properties:
  - vdd-supply					: Power supply needed to power up the device.
  - vio-supply					: IO power supply needed for IO and I2C.
  - avago,irq-gpio				: The gpio pin for the interrupt.
- - avago,ps_threshold			: The threshold adc value for proximity sensor
+ - avago,ps-threshold			: The threshold adc value for proximity sensor
 				to trigger away interrupt.
- - avago,ps_hysteresis_threshold: The hysteresis threshold adc value for
+ - avago,ps-hysteresis-threshold: The hysteresis threshold adc value for
 				proximity sensor to trigger  close interrupt.
- - avago,ps_pulse				: The proximity pulse that the LDR will generate.
- - avago,ps_gain				: The proximity gain of the sensor.
- - avago,als_B					: Tuning value of COE_B parameter.
- - avago,als_C					: Tuning value of COE_C parameter.
- - avago,als_D					: Tuning value of COE_D parameter.
- - avago,ga_value				: Tuning value of the gain for light sensor.
+ - avago,ps-pulse				: The proximity pulse that the LDR will generate.
+ - avago,ps-gain				: The proximity gain of the sensor.
+ - avago,als-B					: Tuning value of COE_B parameter.
+ - avago,als-C					: Tuning value of COE_C parameter.
+ - avago,als-D					: Tuning value of COE_D parameter.
+ - avago,ga-value				: Tuning value of the gain for light sensor.
 
  Example:
 

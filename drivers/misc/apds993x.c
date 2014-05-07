@@ -2160,59 +2160,59 @@ static int sensor_parse_dt(struct device *dev,
 	pdata->irq_gpio = rc;
 
 	/* ps tuning data*/
-	rc = of_property_read_u32(np, "avago,ps_threshold", &tmp);
+	rc = of_property_read_u32(np, "avago,ps-threshold", &tmp);
 	if (rc) {
-		dev_err(dev, "Unable to read ps_threshold\n");
+		dev_err(dev, "Unable to read ps threshold\n");
 		return rc;
 	}
 	pdata->prox_threshold = tmp;
 
-	rc = of_property_read_u32(np, "avago,ps_hysteresis_threshold", &tmp);
+	rc = of_property_read_u32(np, "avago,ps-hysteresis-threshold", &tmp);
 	 if (rc) {
-		dev_err(dev, "Unable to read ps_hysteresis_threshold\n");
+		dev_err(dev, "Unable to read ps hysteresis threshold\n");
 		return rc;
 	}
 	pdata->prox_hsyteresis_threshold = tmp;
 
-	rc = of_property_read_u32(np, "avago,ps_pulse", &tmp);
+	rc = of_property_read_u32(np, "avago,ps-pulse", &tmp);
 	if (rc) {
-		dev_err(dev, "Unable to read ps_pulse\n");
+		dev_err(dev, "Unable to read ps pulse\n");
 		return rc;
 	}
 	pdata->prox_pulse = tmp;
 
-	rc = of_property_read_u32(np, "avago,ps_pgain", &tmp);
+	rc = of_property_read_u32(np, "avago,ps-pgain", &tmp);
 	if (rc) {
-		dev_err(dev, "Unable to read ps_pgain\n");
+		dev_err(dev, "Unable to read ps pgain\n");
 		return rc;
 	}
 	pdata->prox_gain = tmp;
 
 	/* ALS tuning value */
-	rc = of_property_read_u32(np, "avago,als_B", &tmp);
+	rc = of_property_read_u32(np, "avago,als-B", &tmp);
 	if (rc) {
-		dev_err(dev, "Unable to read apds993x_coe_b\n");
+		dev_err(dev, "Unable to read apds993x coefficient b\n");
 		return rc;
 	}
 	pdata->als_B = tmp;
 
-	rc = of_property_read_u32(np, "avago,als_C", &tmp);
+	rc = of_property_read_u32(np, "avago,als-C", &tmp);
 	if (rc) {
-		dev_err(dev, "Unable to read apds993x_coe_c\n");
+		dev_err(dev, "Unable to read apds993x coefficient c\n");
 		return rc;
 	}
 	pdata->als_C = tmp;
 
-	rc = of_property_read_u32(np, "avago,als_D", &tmp);
+	rc = of_property_read_u32(np, "avago,als-D", &tmp);
 	if (rc) {
-		dev_err(dev, "Unable to read apds993x_coe_d\n");
+		dev_err(dev, "Unable to read apds993x coefficient d\n");
 		return rc;
 	}
 	pdata->als_D = tmp;
 
-	rc = of_property_read_u32(np, "avago,ga_value", &tmp);
+	rc = of_property_read_u32(np, "avago,ga-value", &tmp);
 	if (rc) {
-		dev_err(dev, "Unable to read ga_value\n");
+		dev_err(dev, "Unable to read gain value\n");
 		return rc;
 	}
 	pdata->ga_value = tmp;
