@@ -1526,10 +1526,7 @@ static int qpnp_charger_read_dt_props(struct qpnp_lbc_chip *chip)
 	OF_PROP_READ(chip, cfg_hot_batt_p, "batt-hot-percentage", rc, 1);
 	OF_PROP_READ(chip, cfg_cold_batt_p, "batt-cold-percentage", rc, 1);
 	OF_PROP_READ(chip, cfg_batt_weak_voltage_uv, "vbatweak-uv", rc, 1);
-	OF_PROP_READ(chip, cfg_charger_detect_eoc, "charger-detect-eoc", rc,
-			1);
 	OF_PROP_READ(chip, cfg_soc_resume_limit, "resume-soc", rc, 1);
-	OF_PROP_READ(chip, cfg_float_charge, "float-charge", rc, 1);
 	if (rc) {
 		pr_err("Error reading optional property rc=%d\n", rc);
 		return rc;
@@ -1592,6 +1589,16 @@ static int qpnp_charger_read_dt_props(struct qpnp_lbc_chip *chip)
 	chip->cfg_disable_follow_on_reset =
 			of_property_read_bool(chip->spmi->dev.of_node,
 					"qcom,disable-follow-on-reset");
+
+	/* Get the float charging property */
+	chip->cfg_float_charge =
+			of_property_read_bool(chip->spmi->dev.of_node,
+					"qcom,float-charge");
+
+	/* Get the charger EOC detect property */
+	chip->cfg_charger_detect_eoc =
+			of_property_read_bool(chip->spmi->dev.of_node,
+					"qcom,charger-detect-eoc");
 
 	/* Disable charging when faking battery values */
 	if (chip->cfg_use_fake_battery)
