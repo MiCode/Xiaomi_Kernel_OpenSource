@@ -211,13 +211,13 @@
 		bosch,gpio-int2 = <&msm_gpio 114 0x2002>;
 	};
 
-	mmc@30 { /* Magnetic field sensor */
-		compatible = "mmc,mmc3416x";
+	memsic@30 { /* Magnetic field sensor */
+		compatible = "memsic,mmc3416x";
 		reg = <0x30>;
 		vdd-supply = <&pm8916_l17>;
 		vio-supply = <&pm8916_l6>;
-		mmc,dir = <1>;
-		mmc,auto-report;
+		memsic,dir = "obverse-x-axis-forward";
+		memsic,auto-report;
 	};
 
 	mpu6050@68 {
