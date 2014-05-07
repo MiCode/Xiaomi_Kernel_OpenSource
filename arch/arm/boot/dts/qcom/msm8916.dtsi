@@ -1317,13 +1317,20 @@
 		qcom,iris-vddpa-supply   = <&pm8916_l9>;
 		qcom,iris-vdddig-supply  = <&pm8916_l5>;
 
-		pinctrl-names = "wcnss_default", "wcnss_sleep";
+		pinctrl-names = "wcnss_default", "wcnss_sleep",
+						"wcnss_gpio_default";
 		pinctrl-0 = <&wcnss_default>;
 		pinctrl-1 = <&wcnss_sleep>;
+		pinctrl-2 = <&wcnss_gpio_default>;
+
+		gpios = <&msm_gpio 40 0>, <&msm_gpio 41 0>, <&msm_gpio 42 0>,
+					<&msm_gpio 43 0>, <&msm_gpio 44 0>;
 
 		clocks = <&clock_rpm clk_xo_wlan_clk>,
-			 <&clock_rpm clk_rf_clk2>;
-		clock-names = "xo", "rf_clk";
+			 <&clock_rpm clk_rf_clk2>,
+			 <&clock_debug clk_gcc_debug_mux>,
+			 <&clock_gcc clk_wcnss_m_clk>;
+		clock-names = "xo", "rf_clk", "measure", "wcnss_debug";
 
 		qcom,has-autodetect-xo;
 		qcom,wlan-rx-buff-count = <512>;
