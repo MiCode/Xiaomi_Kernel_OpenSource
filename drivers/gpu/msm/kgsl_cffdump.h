@@ -52,6 +52,7 @@ void kgsl_cffdump_memory_base(struct kgsl_device *device, unsigned int base,
 			      unsigned int range, unsigned int gmemsize);
 
 void kgsl_cffdump_hang(struct kgsl_device *device);
+void kgsl_cffdump_debugfs_create(struct kgsl_device *device);
 int kgsl_cff_dump_enable_set(void *data, u64 val);
 int kgsl_cff_dump_enable_get(void *data, u64 *val);
 int kgsl_cffdump_capture_ib_desc(struct kgsl_device *device,
@@ -143,6 +144,11 @@ static inline void kgsl_cffdump_memory_base(struct kgsl_device *device,
 }
 
 static inline void kgsl_cffdump_hang(struct kgsl_device *device)
+{
+	return;
+}
+
+static inline void kgsl_cffdump_debugfs_create(struct kgsl_device *device)
 {
 	return;
 }

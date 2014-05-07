@@ -744,3 +744,12 @@ done:
 	return ret;
 }
 EXPORT_SYMBOL(kgsl_cffdump_capture_ib_desc);
+
+DEFINE_SIMPLE_ATTRIBUTE(kgsl_cff_dump_enable_fops, kgsl_cff_dump_enable_get,
+			kgsl_cff_dump_enable_set, "%llu\n");
+
+void kgsl_cffdump_debugfs_create(struct kgsl_device *device)
+{
+	debugfs_create_file("cff_dump", 0644, device->d_debugfs, device,
+			    &kgsl_cff_dump_enable_fops);
+}
