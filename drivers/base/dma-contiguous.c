@@ -560,6 +560,7 @@ unsigned long dma_alloc_from_contiguous(struct device *dev, int count,
 		pageno = bitmap_find_next_zero_area(cma->bitmap, cma->count,
 						    start, count, mask);
 		if (pageno >= cma->count) {
+			pfn = 0;
 			mutex_unlock(&cma->lock);
 			break;
 		}
