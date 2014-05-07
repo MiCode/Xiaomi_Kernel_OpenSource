@@ -114,6 +114,7 @@ static int32_t afe_callback(struct apr_client_data *data, void *priv)
 			apr_reset(this_afe.apr);
 			atomic_set(&this_afe.state, 0);
 			this_afe.apr = NULL;
+			rtac_set_afe_handle(this_afe.apr);
 		}
 		/* send info to user */
 		if (this_afe.task == NULL)
@@ -129,19 +130,24 @@ static int32_t afe_callback(struct apr_client_data *data, void *priv)
 			 data->payload_size);
 	if (data->opcode == AFE_PORT_CMDRSP_GET_PARAM_V2) {
 		u8 *payload = data->payload;
+
+		if (rtac_make_afe_callback(data->payload, data->payload_size))
+			return 0;
+
 		if ((data->payload_size < sizeof(this_afe.calib_data))
 			|| !payload || (data->token >= AFE_MAX_PORTS)) {
-			pr_err("%s size %d payload %p token %d\n",
-			__func__, data->payload_size, payload, data->token);
+			pr_err("%s: Error: size %d payload %p token %d\n",
+				__func__, data->payload_size,
+				payload, data->token);
 			return -EINVAL;
 		}
 		memcpy(&this_afe.calib_data, payload,
 			   sizeof(this_afe.calib_data));
 		if (!this_afe.calib_data.status) {
 			atomic_set(&this_afe.state, 0);
-			pr_err("%s rest %d state %x\n" , __func__
-			, this_afe.calib_data.res_cfg.r0_cali_q24,
-			this_afe.calib_data.res_cfg.th_vi_ca_state);
+			pr_err("%s rest %d state %x\n" , __func__,
+				this_afe.calib_data.res_cfg.r0_cali_q24,
+				this_afe.calib_data.res_cfg.th_vi_ca_state);
 		} else
 			atomic_set(&this_afe.state, -1);
 		wake_up(&this_afe.wait[data->token]);
@@ -160,9 +166,12 @@ static int32_t afe_callback(struct apr_client_data *data, void *priv)
 					__func__, payload[0], payload[1]);
 			}
 			switch (payload[0]) {
+			case AFE_PORT_CMD_SET_PARAM_V2:
+				if (rtac_make_afe_callback(payload,
+					data->payload_size))
+					return 0;
 			case AFE_PORT_CMD_DEVICE_STOP:
 			case AFE_PORT_CMD_DEVICE_START:
-			case AFE_PORT_CMD_SET_PARAM_V2:
 			case AFE_PSEUDOPORT_CMD_START:
 			case AFE_PSEUDOPORT_CMD_STOP:
 			case AFE_SERVICE_CMD_SHARED_MEM_MAP_REGIONS:
@@ -366,6 +375,7 @@ int afe_q6_interface_prepare(void)
 			pr_err("%s: Unable to register AFE\n", __func__);
 			ret = -ENODEV;
 		}
+		rtac_set_afe_handle(this_afe.apr);
 	}
 	return ret;
 }
@@ -1962,6 +1972,7 @@ int afe_loopback_gain(u16 port_id, u16 volume)
 			ret = -ENODEV;
 			return ret;
 		}
+		rtac_set_afe_handle(this_afe.apr);
 	}
 
 	if (q6audio_validate_port(port_id) < 0) {
@@ -2383,6 +2394,7 @@ int afe_cmd_memory_map(phys_addr_t dma_addr_p, u32 dma_buf_sz)
 			ret = -ENODEV;
 			return ret;
 		}
+		rtac_set_afe_handle(this_afe.apr);
 	}
 
 	cmd_size = sizeof(struct afe_service_cmd_shared_mem_map_regions) \
@@ -2474,6 +2486,7 @@ int afe_cmd_memory_map_nowait(int port_id, phys_addr_t dma_addr_p,
 			ret = -ENODEV;
 			return ret;
 		}
+		rtac_set_afe_handle(this_afe.apr);
 	}
 	index = q6audio_get_port_index(port_id);
 	if (q6audio_validate_port(port_id) < 0)
@@ -2587,6 +2600,7 @@ int afe_cmd_memory_unmap(u32 mem_map_handle)
 			ret = -ENODEV;
 			return ret;
 		}
+		rtac_set_afe_handle(this_afe.apr);
 	}
 
 	mregion.hdr.hdr_field = APR_HDR_FIELD(APR_MSG_TYPE_SEQ_CMD,
@@ -2630,6 +2644,7 @@ int afe_cmd_memory_unmap_nowait(u32 mem_map_handle)
 			ret = -ENODEV;
 			return ret;
 		}
+		rtac_set_afe_handle(this_afe.apr);
 	}
 
 	mregion.hdr.hdr_field = APR_HDR_FIELD(APR_MSG_TYPE_SEQ_CMD,
@@ -2667,6 +2682,7 @@ int afe_register_get_events(u16 port_id,
 			ret = -ENODEV;
 			return ret;
 		}
+		rtac_set_afe_handle(this_afe.apr);
 	}
 	if ((port_id == RT_PROXY_DAI_002_RX) ||
 		(port_id == RT_PROXY_DAI_001_TX))
@@ -2715,6 +2731,7 @@ int afe_unregister_get_events(u16 port_id)
 			ret = -ENODEV;
 			return ret;
 		}
+		rtac_set_afe_handle(this_afe.apr);
 	}
 
 	if ((port_id == RT_PROXY_DAI_002_RX) ||
@@ -3013,6 +3030,7 @@ int afe_dtmf_generate_rx(int64_t duration_in_ms,
 			ret = -ENODEV;
 			return ret;
 		}
+		rtac_set_afe_handle(this_afe.apr);
 	}
 
 	pr_debug("dur=%lld: hfreq=%d lfreq=%d gain=%d portid=%x\n",
@@ -3571,21 +3589,21 @@ int afe_spk_prot_get_calib_data(struct afe_spkr_prot_get_vi_calib *calib_resp)
 		goto fail_cmd;
 	}
 	index = q6audio_get_port_index(port);
-	calib_resp->get_param.hdr.hdr_field =
+	calib_resp->hdr.hdr_field =
 	APR_HDR_FIELD(APR_MSG_TYPE_SEQ_CMD,
 	APR_HDR_LEN(APR_HDR_SIZE), APR_PKT_VER);
-	calib_resp->get_param.hdr.pkt_size = sizeof(*calib_resp);
-	calib_resp->get_param.hdr.src_port = 0;
-	calib_resp->get_param.hdr.dest_port = 0;
-	calib_resp->get_param.hdr.token = index;
-	calib_resp->get_param.hdr.opcode =  AFE_PORT_CMD_GET_PARAM_V2;
+	calib_resp->hdr.pkt_size = sizeof(*calib_resp);
+	calib_resp->hdr.src_port = 0;
+	calib_resp->hdr.dest_port = 0;
+	calib_resp->hdr.token = index;
+	calib_resp->hdr.opcode =  AFE_PORT_CMD_GET_PARAM_V2;
 	calib_resp->get_param.mem_map_handle = 0;
 	calib_resp->get_param.module_id = AFE_MODULE_FB_SPKR_PROT_VI_PROC;
 	calib_resp->get_param.param_id = AFE_PARAM_ID_CALIB_RES_CFG;
 	calib_resp->get_param.payload_address_lsw = 0;
 	calib_resp->get_param.payload_address_msw = 0;
 	calib_resp->get_param.payload_size = sizeof(*calib_resp)
-		- sizeof(calib_resp->get_param);
+		- sizeof(calib_resp->get_param) - sizeof(calib_resp->hdr);
 	calib_resp->get_param.port_id = q6audio_get_port_id(port);
 	calib_resp->pdata.module_id = AFE_MODULE_FB_SPKR_PROT_VI_PROC;
 	calib_resp->pdata.param_id = AFE_PARAM_ID_CALIB_RES_CFG;
@@ -4065,6 +4083,76 @@ static int afe_init_cal_data(void)
 err:
 	afe_delete_cal_data();
 	return ret;
+}
+
+int afe_map_rtac_block(struct rtac_cal_block_data *cal_block)
+{
+	int	result = 0;
+	pr_debug("%s:\n", __func__);
+
+	if (cal_block == NULL) {
+		pr_err("%s: cal_block is NULL!\n",
+			__func__);
+		result = -EINVAL;
+		goto done;
+	}
+
+	if (cal_block->cal_data.paddr == 0) {
+		pr_debug("%s: No address to map!\n",
+			__func__);
+		result = -EINVAL;
+		goto done;
+	}
+
+	if (cal_block->map_data.map_size == 0) {
+		pr_debug("%s: map size is 0!\n",
+			__func__);
+		result = -EINVAL;
+		goto done;
+	}
+
+	result = afe_cmd_memory_map(cal_block->cal_data.paddr,
+		cal_block->map_data.map_size);
+	if (result < 0) {
+		pr_err("%s: afe_cmd_memory_map failed for addr = 0x%pa, size = %d, err %d\n",
+			__func__, &cal_block->cal_data.paddr,
+			cal_block->map_data.map_size, result);
+		return result;
+	}
+	cal_block->map_data.map_handle = this_afe.mmap_handle;
+
+done:
+	return result;
+}
+
+int afe_unmap_rtac_block(uint32_t *mem_map_handle)
+{
+	int	result = 0;
+	pr_debug("%s:\n", __func__);
+
+	if (mem_map_handle == NULL) {
+		pr_err("%s: Map handle is NULL, nothing to unmap\n",
+			__func__);
+		goto done;
+	}
+
+	if (*mem_map_handle == 0) {
+		pr_debug("%s: Map handle is 0, nothing to unmap\n",
+			__func__);
+		goto done;
+	}
+
+	result = afe_cmd_memory_unmap(*mem_map_handle);
+	if (result) {
+		pr_err("%s: AFE memory unmap failed %d, handle 0x%x\n",
+		     __func__, result, *mem_map_handle);
+		goto done;
+	} else {
+		*mem_map_handle = 0;
+	}
+
+done:
+	return result;
 }
 
 static int __init afe_init(void)

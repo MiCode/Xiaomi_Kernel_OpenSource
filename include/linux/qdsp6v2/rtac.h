@@ -23,6 +23,7 @@ enum {
 	ADM_RTAC_CAL,
 	ASM_RTAC_CAL,
 	VOICE_RTAC_CAL,
+	AFE_RTAC_CAL,
 	MAX_RTAC_BLOCKS
 };
 
@@ -61,5 +62,6 @@ void rtac_set_voice_handle(u32 mode, void *handle);
 bool rtac_make_voice_callback(u32 mode, uint32_t *payload, u32 payload_size);
 void rtac_copy_voice_payload_to_user(void *payload, u32 payload_size);
 int rtac_clear_mapping(uint32_t cal_type);
-
+bool rtac_make_afe_callback(uint32_t *payload, u32 payload_size);
+void rtac_set_afe_handle(void *handle);
 #endif

@@ -2318,12 +2318,10 @@ u32                  mem_map_handle;
  * stream.
  */
 struct afe_port_cmd_get_param_v2 {
-
-	struct apr_hdr hdr;
-u16                  port_id;
+	u16 port_id;
 /* Port interface and direction (Rx or Tx) to start. */
 
-	u16                  payload_size;
+	u16 payload_size;
 /* Maximum data size of the parameter ID/module ID combination.
  * This is a multiple of four bytes
  * Supported values: > 0
@@ -2354,12 +2352,12 @@ u16                  port_id;
  */
 
 
-	u32                  module_id;
+	u32 module_id;
 /* ID of the module to be queried.
  * Supported values: Valid module ID
  */
 
-	u32                  param_id;
+	u32 param_id;
 /* ID of the parameter to be queried.
  * Supported values: Valid parameter ID
  */
@@ -6802,6 +6800,7 @@ struct afe_spkr_prot_config_command {
 } __packed;
 
 struct afe_spkr_prot_get_vi_calib {
+	struct apr_hdr hdr;
 	struct afe_port_cmd_get_param_v2 get_param;
 	struct afe_port_param_data_v2 pdata;
 	struct asm_calib_res_cfg res_cfg;
