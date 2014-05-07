@@ -120,3 +120,8 @@
 		qcom,thermal-node;
 	};
 };
+
+&ehci {
+	status = "ok";
+	qcom,usb2-enable-uicc;
+};
