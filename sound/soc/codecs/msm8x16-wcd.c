@@ -142,6 +142,7 @@ struct msm8x16_wcd_priv {
 	bool clock_active;
 	bool config_mode_active;
 	bool spk_boost_set;
+	bool ear_pa_boost_set;
 	struct on_demand_supply on_demand_list[ON_DEMAND_SUPPLIES_MAX];
 	/* mbhc module */
 	struct wcd_mbhc mbhc;
@@ -711,6 +712,32 @@ static int msm8x16_wcd_codec_enable_charge_pump(struct snd_soc_dapm_widget *w,
 	return 0;
 }
 
+static int msm8x16_wcd_ear_pa_boost_get(struct snd_kcontrol *kcontrol,
+				struct snd_ctl_elem_value *ucontrol)
+{
+	struct snd_soc_codec *codec = snd_kcontrol_chip(kcontrol);
+	struct msm8x16_wcd_priv *msm8x16_wcd = snd_soc_codec_get_drvdata(codec);
+
+	ucontrol->value.integer.value[0] =
+		(msm8x16_wcd->ear_pa_boost_set ? 1 : 0);
+	dev_dbg(codec->dev, "%s: msm8x16_wcd->ear_pa_boost_set = %d\n",
+			__func__, msm8x16_wcd->ear_pa_boost_set);
+	return 0;
+}
+
+static int msm8x16_wcd_ear_pa_boost_set(struct snd_kcontrol *kcontrol,
+				struct snd_ctl_elem_value *ucontrol)
+{
+	struct snd_soc_codec *codec = snd_kcontrol_chip(kcontrol);
+	struct msm8x16_wcd_priv *msm8x16_wcd = snd_soc_codec_get_drvdata(codec);
+
+	dev_dbg(codec->dev, "%s: ucontrol->value.integer.value[0] = %ld\n",
+		__func__, ucontrol->value.integer.value[0]);
+	msm8x16_wcd->ear_pa_boost_set =
+		(ucontrol->value.integer.value[0] ? true : false);
+	return 0;
+}
+
 static int msm8x16_wcd_pa_gain_get(struct snd_kcontrol *kcontrol,
 				struct snd_ctl_elem_value *ucontrol)
 {
@@ -1072,6 +1099,12 @@ static int msm8x16_wcd_put_iir_band_audio_mixer(
 	return 0;
 }
 
+static const char * const msm8x16_wcd_ear_pa_boost_ctrl_text[] = {
+		"DISABLE", "ENABLE"};
+static const struct soc_enum msm8x16_wcd_ear_pa_boost_ctl_enum[] = {
+		SOC_ENUM_SINGLE_EXT(2, msm8x16_wcd_ear_pa_boost_ctrl_text),
+};
+
 static const char * const msm8x16_wcd_ear_pa_gain_text[] = {
 		"POS_6_DB", "POS_1P5_DB"};
 static const struct soc_enum msm8x16_wcd_ear_pa_gain_enum[] = {
@@ -1112,6 +1145,9 @@ static const struct soc_enum cf_rxmix3_enum =
 	SOC_ENUM_SINGLE(MSM8X16_WCD_A_CDC_RX3_B4_CTL, 0, 3, cf_text);
 
 static const struct snd_kcontrol_new msm8x16_wcd_snd_controls[] = {
+
+	SOC_ENUM_EXT("EAR PA Boost", msm8x16_wcd_ear_pa_boost_ctl_enum[0],
+		msm8x16_wcd_ear_pa_boost_get, msm8x16_wcd_ear_pa_boost_set),
 
 	SOC_ENUM_EXT("EAR PA Gain", msm8x16_wcd_ear_pa_gain_enum[0],
 		msm8x16_wcd_pa_gain_get, msm8x16_wcd_pa_gain_put),
@@ -1661,6 +1697,32 @@ static int msm8x16_wcd_codec_enable_dig_clk(struct snd_soc_dapm_widget *w,
 			snd_soc_update_bits(codec,
 					MSM8X16_WCD_A_ANALOG_CURRENT_LIMIT,
 					0x03, 0x03);
+		} else if (msm8x16_wcd->ear_pa_boost_set) {
+			snd_soc_update_bits(codec,
+					MSM8X16_WCD_A_ANALOG_SEC_ACCESS,
+					0xA5, 0xA5);
+			snd_soc_update_bits(codec,
+					MSM8X16_WCD_A_ANALOG_PERPH_RESET_CTL3,
+					0x07, 0x07);
+			snd_soc_update_bits(codec,
+					MSM8X16_WCD_A_ANALOG_BYPASS_MODE,
+					0x80, 0x80);
+			snd_soc_update_bits(codec,
+					MSM8X16_WCD_A_ANALOG_BYPASS_MODE,
+					0x40, 0x40);
+			snd_soc_update_bits(codec,
+					MSM8X16_WCD_A_DIGITAL_CDC_DIG_CLK_CTL,
+					0x20, 0x20);
+			snd_soc_update_bits(codec,
+					MSM8X16_WCD_A_ANALOG_BOOST_EN_CTL,
+					0x9F, 0x9F);
+			usleep_range(CODEC_DELAY_1_MS, CODEC_DELAY_1_1_MS);
+			snd_soc_update_bits(codec,
+					MSM8X16_WCD_A_ANALOG_BOOST_EN_CTL,
+					0x40, 0x40);
+			snd_soc_update_bits(codec,
+					MSM8X16_WCD_A_ANALOG_CURRENT_LIMIT,
+					0x03, 0x03);
 		} else {
 			snd_soc_update_bits(codec, w->reg, 1<<w->shift,
 					1<<w->shift);
@@ -1683,6 +1745,25 @@ static int msm8x16_wcd_codec_enable_dig_clk(struct snd_soc_dapm_widget *w,
 			snd_soc_update_bits(codec,
 					MSM8X16_WCD_A_ANALOG_PERPH_RESET_CTL3,
 					0x07, 0x0);
+		} else if (msm8x16_wcd->ear_pa_boost_set) {
+			snd_soc_update_bits(codec,
+					MSM8X16_WCD_A_ANALOG_SEC_ACCESS,
+					0xA5, 0x00);
+			snd_soc_update_bits(codec,
+					MSM8X16_WCD_A_ANALOG_PERPH_RESET_CTL3,
+					0x07, 0x00);
+			snd_soc_update_bits(codec,
+					MSM8X16_WCD_A_ANALOG_BYPASS_MODE,
+					0xC0, 0x00);
+			snd_soc_update_bits(codec,
+					MSM8X16_WCD_A_DIGITAL_CDC_DIG_CLK_CTL,
+					0x20, 0x00);
+			snd_soc_update_bits(codec,
+					MSM8X16_WCD_A_ANALOG_BOOST_EN_CTL,
+					0xDF, 0x00);
+			snd_soc_update_bits(codec,
+					MSM8X16_WCD_A_ANALOG_CURRENT_LIMIT,
+					0x03, 0x00);
 		} else {
 			snd_soc_update_bits(codec, w->reg, 1<<w->shift, 0x00);
 		}
