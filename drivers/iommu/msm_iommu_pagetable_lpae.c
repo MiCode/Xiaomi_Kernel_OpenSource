@@ -572,7 +572,6 @@ static void __msm_iommu_pagetable_unmap_range(struct msm_iommu_pt *pt, u32 va,
 	u32 sl_offset;
 	u64 *sl_table;
 	u64 *tl_table;
-	u32 sl_start, sl_end;
 	u32 tl_start, tl_end;
 	u32 redirect = pt->redirect;
 
@@ -606,31 +605,15 @@ static void __msm_iommu_pagetable_unmap_range(struct msm_iommu_pt *pt, u32 va,
 			type = *sl_pte & FLSL_PTE_TYPE_MASK;
 
 			if (type == FLSL_TYPE_BLOCK) {
-				sl_start = sl_offset;
-				sl_end = (left_to_unmap / SZ_2M) + sl_start;
+				*sl_pte = 0;
 
-				if (sl_end > NUM_TL_PTE)
-					sl_end = NUM_TL_PTE;
-
-				entries = sl_end - sl_start;
-
-				memset(sl_table + sl_start, 0,
-				       entries * sizeof(*sl_pte));
-
-				clean_pte(sl_table + sl_start,
-					  sl_table + sl_end, redirect);
-
-				/* If we just unmapped the whole table, don't
-				 * bother seeing if there are still used
-				 * entries left.
-				 */
-				check = ((sl_end - sl_start) != NUM_SL_PTE);
+				clean_pte(sl_pte, sl_pte + 1, redirect);
 
 				free_table(fl_pte, sl_table, NUM_SL_PTE,
-					   redirect, check);
+					   redirect, 1);
 
-				offset += entries * SZ_2M;
-				va += entries * SZ_2M;
+				offset += SZ_2M;
+				va += SZ_2M;
 			} else if (type == FLSL_TYPE_TABLE) {
 				u32 tbl_freed;
 
