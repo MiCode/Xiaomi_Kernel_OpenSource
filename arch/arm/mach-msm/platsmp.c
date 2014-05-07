@@ -10,7 +10,7 @@
 
 #include <linux/init.h>
 #include <linux/kernel.h>
-#include <linux/init.h>
+#include <linux/bitops.h>
 #include <linux/cpumask.h>
 #include <linux/delay.h>
 #include <linux/interrupt.h>
@@ -374,10 +374,32 @@ static int cold_boot_flags[] __initdata = {
 	SCM_FLAG_COLDBOOT_CPU3,
 };
 
+static void __init msm_platform_smp_prepare_cpus_mc(unsigned int max_cpus)
+{
+	int cpu, map;
+	u32 aff0_mask = 0;
+	u32 aff1_mask = 0;
+	u32 aff2_mask = 0;
+
+	for_each_present_cpu(cpu) {
+		map = cpu_logical_map(cpu);
+		aff0_mask |= BIT(MPIDR_AFFINITY_LEVEL(map, 0));
+		aff1_mask |= BIT(MPIDR_AFFINITY_LEVEL(map, 1));
+		aff2_mask |= BIT(MPIDR_AFFINITY_LEVEL(map, 2));
+	}
+
+	if (scm_set_boot_addr_mc(virt_to_phys(msm_secondary_startup),
+		aff0_mask, aff1_mask, aff2_mask, SCM_FLAG_COLDBOOT_MC))
+		pr_warn("Failed to set CPU boot address\n");
+}
+
 static void __init msm_platform_smp_prepare_cpus(unsigned int max_cpus)
 {
 	int cpu, map;
 	unsigned int flags = 0;
+
+	if (scm_is_mc_boot_available())
+		return msm_platform_smp_prepare_cpus_mc(max_cpus);
 
 	for_each_present_cpu(cpu) {
 		map = cpu_logical_map(cpu);
