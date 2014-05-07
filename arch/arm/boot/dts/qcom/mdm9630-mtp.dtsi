@@ -39,9 +39,11 @@
 	};
 
 	gpio@c200 { /* GPIO 3 */
+		status = "ok";
 	};
 
 	gpio@c300 { /* GPIO 4 */
+		status = "ok";
 	};
 
 	gpio@c400 { /* GPIO 5 */
@@ -53,12 +55,15 @@
 
 &pmd9635_mpps {
 	mpp@a000 { /* MPP 1 */
+		status = "ok";
 	};
 
 	mpp@a100 { /* MPP 2 */
+		status = "ok";
 	};
 
 	mpp@a200 { /* MPP 3 */
+		status = "ok";
 	};
 
 	mpp@a300 { /* MPP 4 */
@@ -68,6 +73,7 @@
 		qcom,master-en = <1>;
 		qcom,src-sel = <0>; /* Function constant */
 		qcom,invert = <1>;
+		status = "ok";
 	};
 
 	mpp@a400 { /* MPP 5 */
@@ -80,6 +86,7 @@
 		qcom,master-en = <1>;
 		qcom,src-sel = <0>; /* Function constant */
 		qcom,invert = <1>;
+		status = "ok";
 	};
 };
 
