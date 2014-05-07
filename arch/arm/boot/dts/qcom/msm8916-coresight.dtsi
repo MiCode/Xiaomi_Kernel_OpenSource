@@ -518,7 +518,7 @@
 	};
 
 	fuse: fuse@5e01c {
-		compatible = "arm,coresight-fuse";
+		compatible = "arm,coresight-fuse-v2";
 		reg = <0x5e01c 0x8>,
 		      <0x58040 0x4>,
 		      <0x5e00c 0x4>;
