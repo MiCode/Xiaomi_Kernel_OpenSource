@@ -1060,6 +1060,7 @@ int diag_send_data(struct diag_master_table entry, unsigned char *buf,
 					 int len, int type)
 {
 	int success = 1;
+	int err = 0;
 	driver->pkt_length = len;
 
 	/* If the process_id corresponds to an apps process */
@@ -1086,16 +1087,11 @@ int diag_send_data(struct diag_master_table entry, unsigned char *buf,
 						index < NUM_SMD_CMD_CHANNELS) ?
 						&driver->smd_cmd[index] :
 						&driver->smd_data[index];
-
-				if (smd_info->ch) {
-					mutex_lock(&smd_info->smd_ch_mutex);
-					smd_write(smd_info->ch, buf, len);
-					mutex_unlock(&smd_info->smd_ch_mutex);
-				} else {
-					pr_err("diag: In %s, smd channel %d not open, peripheral: %d, type: %d\n",
-						__func__, index,
-						smd_info->peripheral,
-						smd_info->type);
+				err = diag_smd_write(smd_info, buf, len);
+				if (err) {
+					pr_err("diag: In %s, unable to write to smd, peripheral: %d, type: %d, err: %d\n",
+						__func__, smd_info->peripheral,
+						smd_info->type, err);
 				}
 			} else {
 				pr_alert("diag: In %s, incorrect channel: %d",
@@ -1716,6 +1712,7 @@ void diag_process_hdlc(void *data, unsigned len)
 {
 	struct diag_hdlc_decode_type hdlc;
 	int ret, type = 0, crc_chk = 0;
+	int err = 0;
 
 	mutex_lock(&driver->diag_hdlc_mutex);
 
@@ -1777,14 +1774,13 @@ void diag_process_hdlc(void *data, unsigned len)
 		if (chk_apps_only()) {
 			diag_send_error_rsp(hdlc.dest_idx);
 		} else { /* APQ 8060, Let Q6 respond */
-			if (driver->smd_data[LPASS_DATA].ch) {
-				mutex_lock(&driver->smd_data[LPASS_DATA].
-								smd_ch_mutex);
-				smd_write(driver->smd_data[LPASS_DATA].ch,
-						driver->hdlc_buf,
-						hdlc.dest_idx - 3);
-				mutex_unlock(&driver->smd_data[LPASS_DATA].
-								smd_ch_mutex);
+			err = diag_smd_write(&driver->smd_data[LPASS_DATA],
+					     driver->hdlc_buf,
+					     hdlc.dest_idx - 3);
+			if (err) {
+				pr_err("diag: In %s, unable to write to smd, peripheral: %d, type: %d, err: %d\n",
+				       __func__, LPASS_DATA, SMD_DATA_TYPE,
+				       err);
 			}
 		}
 		type = 0;
@@ -1800,10 +1796,12 @@ void diag_process_hdlc(void *data, unsigned len)
 	if ((driver->smd_data[MODEM_DATA].ch) && (ret) && (type) &&
 						(hdlc.dest_idx > 3)) {
 		APPEND_DEBUG('g');
-		mutex_lock(&driver->smd_data[MODEM_DATA].smd_ch_mutex);
-		smd_write(driver->smd_data[MODEM_DATA].ch,
-					driver->hdlc_buf, hdlc.dest_idx - 3);
-		mutex_unlock(&driver->smd_data[MODEM_DATA].smd_ch_mutex);
+		err = diag_smd_write(&driver->smd_data[MODEM_DATA],
+				     driver->hdlc_buf, hdlc.dest_idx - 3);
+		if (err) {
+			pr_err("diag: In %s, unable to write to smd, peripheral: %d, type: %d, err: %d\n",
+			       __func__, MODEM_DATA, SMD_DATA_TYPE, err);
+		}
 		APPEND_DEBUG('h');
 #ifdef DIAG_DEBUG
 		printk(KERN_INFO "writing data to SMD, pkt length %d\n", len);
@@ -2488,6 +2486,43 @@ err:
 		destroy_workqueue(smd_info->wq);
 
 	return -ENOMEM;
+}
+
+int diag_smd_write(struct diag_smd_info *smd_info, void *buf, int len)
+{
+	int write_len = 0;
+	int retry_count = 0;
+	int max_retries = 3;
+
+	if (!smd_info || !buf || len <= 0) {
+		pr_err_ratelimited("diag: In %s, invalid params, smd_info: %p, buf: %p, len: %d\n",
+				   __func__, smd_info, buf, len);
+		return -EINVAL;
+	}
+
+	if (!smd_info->ch)
+		return -ENODEV;
+
+	do {
+		mutex_lock(&smd_info->smd_ch_mutex);
+		write_len = smd_write(smd_info->ch, buf, len);
+		mutex_unlock(&smd_info->smd_ch_mutex);
+		if (write_len == len)
+			break;
+		/*
+		 * The channel maybe busy - the FIFO can be full. Retry after
+		 * sometime. The value of 10000 was chosen emprically as the
+		 * optimal value for the peripherals to read data from the SMD
+		 * channel.
+		 */
+		usleep_range(10000, 10100);
+		retry_count++;
+	} while (retry_count < max_retries);
+
+	if (write_len != len)
+		return -ENOMEM;
+
+	return 0;
 }
 
 int diagfwd_init(void)

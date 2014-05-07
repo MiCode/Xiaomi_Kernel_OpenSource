@@ -2868,7 +2868,8 @@ int diag_dci_deinit_client(struct diag_dci_client_tbl *entry)
 int diag_dci_write_proc(int peripheral, int pkt_type, char *buf, int len)
 {
 	struct diag_smd_info *smd_info = NULL;
-	int wr_size = 0, retry = 0, err = -EAGAIN, timer = 0, i;
+	int i;
+	int err = 0;
 
 	if (!buf || (peripheral < 0 || peripheral > NUM_SMD_DCI_CHANNELS)
 								|| len < 0) {
@@ -2897,28 +2898,13 @@ int diag_dci_write_proc(int peripheral, int pkt_type, char *buf, int len)
 	if (!smd_info || !smd_info->ch)
 		return -EINVAL;
 
-	while (retry < 3) {
-		mutex_lock(&smd_info->smd_ch_mutex);
-		wr_size = smd_write(smd_info->ch, buf, len);
-		if (wr_size == len) {
-			pr_debug("diag: successfully wrote pkt_type %d of len %d to %d in trial %d",
-					pkt_type, len, peripheral, (retry+1));
-			err = DIAG_DCI_NO_ERROR;
-			mutex_unlock(&smd_info->smd_ch_mutex);
-			break;
-		}
-		pr_debug("diag: cannot write pkt_type %d of len %d to %d in trial %d",
-					pkt_type, len, peripheral, (retry+1));
-		retry++;
-		mutex_unlock(&smd_info->smd_ch_mutex);
-
-		/*
-		 * Sleep for sometime before retrying. The delay of 2000 was
-		 * determined empirically as best value to use.
-		 */
-		for (timer = 0; timer < 5; timer++)
-			usleep(2000);
+	err = diag_smd_write(smd_info, buf, len);
+	if (err) {
+		pr_err("diag: In %s, unable to write to smd, peripheral: %d, type: %d, len: %d, err: %d\n",
+		       __func__, smd_info->peripheral,
+		       smd_info->type, len, err);
 	}
+
 	return err;
 }
 
