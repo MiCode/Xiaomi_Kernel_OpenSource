@@ -407,6 +407,9 @@ static int pil_msa_auth_modem_mdt(struct pil_desc *pil, const u8 *metadata,
 	}
 
 	dma_free_coherent(pil->dev, size, mdata_virt, mdata_phys);
+
+	if (ret && drv->q6)
+		pil_mss_shutdown(pil);
 	return ret;
 }
 
@@ -493,6 +496,7 @@ struct pil_reset_ops pil_msa_mss_ops_selfauth = {
 	.proxy_unvote = pil_mss_remove_proxy_votes,
 	.verify_blob = pil_msa_mba_verify_blob,
 	.auth_and_reset = pil_msa_mba_auth,
+	.deinit_image = pil_mss_shutdown,
 	.shutdown = pil_mss_shutdown,
 };
 
