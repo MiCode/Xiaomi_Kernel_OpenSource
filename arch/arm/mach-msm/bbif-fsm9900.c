@@ -26,6 +26,7 @@
 #include <linux/of.h>
 #include <linux/of_device.h>
 #include <linux/regulator/consumer.h>
+#include <linux/clk.h>
 
 #include <linux/fsm_rfic.h>
 
@@ -280,6 +281,29 @@ static long bbif_ioctl(struct file *file,
 				BBIF_BBRX_CONFIG_BASE + param.adc_number*4);
 		}
 		break;
+
+	case BBIF_IOCTL_SET_ADC_CLK:
+		{
+			unsigned int rate;
+
+			if (copy_from_user(&rate, argp, sizeof(unsigned int))) {
+				pr_err("%s: Invalid rate %d\n", __func__, rate);
+				return -EFAULT;
+			}
+
+			switch (rate) {
+			case 1:
+				mpll10_326_clk_init();
+				break;
+			case 2:
+				mpll10_345_clk_init();
+				break;
+			default:
+				pr_err("%s: Unknown ADC RATE\n", __func__);
+				break;
+			}
+		}
+	break;
 
 	default:
 		pr_err("%s: Invalid IOCTL\n", __func__);
