@@ -309,10 +309,12 @@ static rx_handler_result_t rmnet_map_ingress_handler(struct sk_buff *skb,
 	int rc, co = 0;
 
 	if (config->ingress_data_format & RMNET_INGRESS_FORMAT_DEAGGREGATION) {
+		trace_rmnet_start_deaggregation(skb);
 		while ((skbn = rmnet_map_deaggregate(skb, config)) != 0) {
 			_rmnet_map_ingress_handler(skbn, config);
 			co++;
 		}
+		trace_rmnet_end_deaggregation(skb, co);
 		LOGD("De-aggregated %d packets", co);
 		rmnet_stats_deagg_pkts(co);
 		rmnet_kfree_skb(skb, RMNET_STATS_SKBFREE_MAPINGRESS_AGGBUF);

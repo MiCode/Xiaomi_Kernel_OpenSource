@@ -71,6 +71,135 @@ DEFINE_EVENT(rmnet_handler_template, __rmnet_deliver_skb,
 	TP_ARGS(skb)
 );
 
+DECLARE_EVENT_CLASS(rmnet_tc_fc_template,
+
+	TP_PROTO(u32 tcm_handle, int qdisc_len, int is_enable),
+
+	TP_ARGS(tcm_handle, qdisc_len, is_enable),
+
+	TP_STRUCT__entry(
+		__field(u32, handle)
+		__field(int, qlen)
+		__field(int, enable)
+	),
+
+	TP_fast_assign(
+		__entry->handle = tcm_handle;
+		__entry->qlen = qdisc_len;
+		__entry->enable = is_enable;
+	),
+
+	TP_printk("tcm_handle=%d qdisc length=%d flow %s",
+		__entry->handle, __entry->qlen,
+		__entry->enable ? "enable" : "disable")
+)
+
+DEFINE_EVENT(rmnet_tc_fc_template, rmnet_fc_qmi,
+
+	TP_PROTO(u32 tcm_handle, int qdisc_len, int is_enable),
+
+	TP_ARGS(tcm_handle, qdisc_len, is_enable)
+);
+
+DEFINE_EVENT(rmnet_tc_fc_template, rmnet_fc_map,
+
+	TP_PROTO(u32 tcm_handle, int qdisc_len, int is_enable),
+
+	TP_ARGS(tcm_handle, qdisc_len, is_enable)
+);
+
+DECLARE_EVENT_CLASS(rmnet_aggregation_template,
+
+	TP_PROTO(struct sk_buff *skb, int num_agg_pakcets),
+
+	TP_ARGS(skb, num_agg_pakcets),
+
+	TP_STRUCT__entry(
+		__field(void *, skbaddr)
+		__field(unsigned int, len)
+		__string(name, skb->dev->name)
+		__field(int, num)
+	),
+
+	TP_fast_assign(
+		__entry->skbaddr = skb;
+		__entry->len = skb->len;
+		__assign_str(name, skb->dev->name);
+		__entry->num = num_agg_pakcets;
+	),
+
+	TP_printk("dev=%s skbaddr=%p len=%u agg_count: %d",
+		__get_str(name), __entry->skbaddr, __entry->len, __entry->num)
+)
+
+DEFINE_EVENT(rmnet_aggregation_template, rmnet_map_aggregate,
+
+	TP_PROTO(struct sk_buff *skb, int num_agg_pakcets),
+
+	TP_ARGS(skb, num_agg_pakcets)
+);
+
+DEFINE_EVENT(rmnet_aggregation_template, rmnet_map_flush_packet_queue,
+
+	TP_PROTO(struct sk_buff *skb, int num_agg_pakcets),
+
+	TP_ARGS(skb, num_agg_pakcets)
+);
+
+TRACE_EVENT(rmnet_start_aggregation,
+
+	TP_PROTO(struct sk_buff *skb),
+
+	TP_ARGS(skb),
+
+	TP_STRUCT__entry(
+		__string(name, skb->dev->name)
+	),
+
+	TP_fast_assign(
+		__assign_str(name, skb->dev->name);
+	),
+
+	TP_printk("dev: %s, aggregated first packet", __get_str(name))
+)
+
+TRACE_EVENT(rmnet_start_deaggregation,
+
+	TP_PROTO(struct sk_buff *skb),
+
+	TP_ARGS(skb),
+
+	TP_STRUCT__entry(
+		__string(name, skb->dev->name)
+	),
+
+	TP_fast_assign(
+		__assign_str(name, skb->dev->name);
+	),
+
+	TP_printk("dev: %s, deaggregated first packet", __get_str(name))
+)
+
+TRACE_EVENT(rmnet_end_deaggregation,
+
+	TP_PROTO(struct sk_buff *skb, int num_deagg_packets),
+
+	TP_ARGS(skb, num_deagg_packets),
+
+	TP_STRUCT__entry(
+		__string(name, skb->dev->name)
+		__field(int, num)
+	),
+
+	TP_fast_assign(
+		__assign_str(name, skb->dev->name);
+		__entry->num = num_deagg_packets;
+	),
+
+	TP_printk("dev: %s, deaggregate end count: %d",
+		__get_str(name), __entry->num)
+)
+
 #endif /* _RMNET_DATA_TRACE_H_ */
 
 /* This part must be outside protection */
