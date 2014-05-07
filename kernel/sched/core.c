@@ -91,6 +91,7 @@
 #include <trace/events/sched.h>
 
 ATOMIC_NOTIFIER_HEAD(migration_notifier_head);
+ATOMIC_NOTIFIER_HEAD(load_alert_notifier_head);
 
 void start_bandwidth_timer(struct hrtimer *period_timer, ktime_t period)
 {
@@ -1018,6 +1019,29 @@ unsigned int __read_mostly sched_use_pelt;
 unsigned int max_possible_efficiency = 1024;
 unsigned int min_possible_efficiency = 1024;
 
+__read_mostly unsigned int sysctl_sched_task_migrate_notify_pct = 25;
+unsigned int sched_task_migrate_notify;
+
+int sched_migrate_notify_proc_handler(struct ctl_table *table, int write,
+				      void __user *buffer, size_t *lenp,
+				      loff_t *ppos)
+{
+	int ret;
+	unsigned int *data = (unsigned int *)table->data;
+
+	ret = proc_dointvec_minmax(table, write, buffer, lenp, ppos);
+	if (ret || !write)
+		return ret;
+
+	if (*data > 100)
+		return -EINVAL;
+
+	sched_task_migrate_notify = div64_u64((u64)*data *
+					      (u64)max_task_load(), 100);
+
+	return 0;
+}
+
 /*
  * Called when new window is starting for a task, to record cpu usage over
  * recently concluded window(s). Normally 'samples' should be 1. It can be > 1
@@ -1396,21 +1420,46 @@ void set_task_cpu(struct task_struct *p, unsigned int new_cpu)
 		atomic_notifier_call_chain(&task_migration_notifier, 0, &tmn);
 
 #if defined(CONFIG_SCHED_FREQ_INPUT) || defined(CONFIG_SCHED_HMP)
-		if (p->on_rq) {
+		if (p->on_rq || p->state == TASK_WAKING) {
 			struct rq *src_rq = task_rq(p);
 			struct rq *dest_rq = cpu_rq(new_cpu);
 
-			p->on_rq = 0;	/* Fixme */
-			update_task_ravg(p, task_rq(p), 0, sched_clock());
-			p->on_rq = 1;	/* Fixme */
+			/* In the wakeup case the task has already had
+			 * its statisics updated (and the RQ is not locked). */
+			if (p->state != TASK_WAKING) {
+				p->on_rq = 0;	/* todo */
+				update_task_ravg(p, task_rq(p), 0,
+						 sched_clock());
+				p->on_rq = 1;	/* todo */
+			}
+
+			if (p->state == TASK_WAKING)
+				double_rq_lock(src_rq, dest_rq);
+
 			update_task_ravg(dest_rq->curr, dest_rq,
-						 1, sched_clock());
+					 1, sched_clock());
 
 
 			src_rq->curr_runnable_sum -= p->ravg.sum;
 			src_rq->prev_runnable_sum -= p->ravg.prev_window;
 			dest_rq->curr_runnable_sum += p->ravg.sum;
 			dest_rq->prev_runnable_sum += p->ravg.prev_window;
+
+			if (p->state == TASK_WAKING)
+				double_rq_unlock(src_rq, dest_rq);
+
+			/* Is p->ravg.prev_window significant? Trigger a load
+			   alert notifier if so. */
+			if (p->ravg.prev_window > sched_task_migrate_notify &&
+			    !cpumask_test_cpu(new_cpu,
+					     &src_rq->freq_domain_cpumask)) {
+				atomic_notifier_call_chain(
+					&load_alert_notifier_head, 0,
+					(void *)task_cpu(p));
+				atomic_notifier_call_chain(
+					&load_alert_notifier_head, 0,
+					(void *)new_cpu);
+			}
 		}
 #endif
 
@@ -7675,6 +7724,8 @@ static int cpufreq_notifier_policy(struct notifier_block *nb,
 		return 0;
 
 	for_each_cpu(i, policy->related_cpus) {
+		cpumask_copy(&cpu_rq(i)->freq_domain_cpumask,
+			     policy->related_cpus);
 		cpu_rq(i)->min_freq = policy->min;
 		cpu_rq(i)->max_freq = policy->max;
 		cpu_rq(i)->max_possible_freq = policy->cpuinfo.max_freq;

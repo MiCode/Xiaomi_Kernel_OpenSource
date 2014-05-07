@@ -43,6 +43,8 @@ extern unsigned int sysctl_sched_window_stats_policy;
 extern unsigned int sysctl_sched_init_task_load_pct;
 #endif
 
+extern unsigned int sysctl_sched_task_migrate_notify_pct;
+
 #ifdef CONFIG_SCHED_HMP
 extern unsigned int sysctl_sched_enable_hmp_task_placement;
 extern unsigned int sysctl_sched_mostly_idle_nr_run;
@@ -85,6 +87,9 @@ int sched_proc_update_handler(struct ctl_table *table, int write,
 		void __user *buffer, size_t *length,
 		loff_t *ppos);
 #endif
+
+extern int sched_migrate_notify_proc_handler(struct ctl_table *table,
+		int write, void __user *buffer, size_t *lenp, loff_t *ppos);
 
 extern int sched_hmp_proc_update_handler(struct ctl_table *table,
 		int write, void __user *buffer, size_t *lenp, loff_t *ppos);
