@@ -21,6 +21,8 @@
 #include <linux/platform_device.h>
 
 #define INT3403_TYPE_SENSOR		0x03
+#define INT3403_TYPE_CHARGER		0x0B
+#define INT3403_TYPE_BATTERY		0x0C
 #define INT3403_PERF_CHANGED_EVENT	0x80
 #define INT3403_THERMAL_EVENT		0x90
 
@@ -31,6 +33,22 @@
 struct int3403_sensor {
 	struct thermal_zone_device *tzone;
 	unsigned long *thresholds;
+};
+
+struct int3403_performance_state {
+	u64 performance;
+	u64 power;
+	u64 latency;
+	u64 linear;
+	u64 control;
+	u64 raw_performace;
+	char *raw_unit;
+	int reserved;
+};
+
+struct int3403_cdev {
+	struct thermal_cooling_device *cdev;
+	unsigned long max_state;
 };
 
 struct int3403_priv {
@@ -227,6 +245,101 @@ static int int3403_sensor_remove(struct int3403_priv *priv)
 	return 0;
 }
 
+/* INT3403 Cooling devices */
+static int int3403_get_max_state(struct thermal_cooling_device *cdev,
+				 unsigned long *state)
+{
+	struct int3403_priv *priv = cdev->devdata;
+	struct int3403_cdev *obj = priv->priv;
+
+	*state = obj->max_state;
+	return 0;
+}
+
+static int int3403_get_cur_state(struct thermal_cooling_device *cdev,
+				 unsigned long *state)
+{
+	struct int3403_priv *priv = cdev->devdata;
+	unsigned long long level;
+	acpi_status status;
+
+	status = acpi_evaluate_integer(priv->adev->handle, "PPPC", NULL, &level);
+	if (ACPI_SUCCESS(status)) {
+		*state = level;
+		return 0;
+	} else
+		return -EINVAL;
+}
+
+static int
+int3403_set_cur_state(struct thermal_cooling_device *cdev, unsigned long state)
+{
+	struct int3403_priv *priv = cdev->devdata;
+	acpi_status status;
+
+	status = acpi_execute_simple_method(priv->adev->handle, "SPPC", state);
+	if (ACPI_SUCCESS(status))
+		return 0;
+	else
+		return -EINVAL;
+}
+
+static const struct thermal_cooling_device_ops int3403_cooling_ops = {
+	.get_max_state = int3403_get_max_state,
+	.get_cur_state = int3403_get_cur_state,
+	.set_cur_state = int3403_set_cur_state,
+};
+
+static int int3403_cdev_add(struct int3403_priv *priv)
+{
+	int result = 0;
+	acpi_status status;
+	struct int3403_cdev *obj;
+	struct acpi_buffer buf = { ACPI_ALLOCATE_BUFFER, NULL };
+	union acpi_object *p;
+
+	obj = devm_kzalloc(&priv->pdev->dev, sizeof(*obj), GFP_KERNEL);
+        if (!obj)
+                return -ENOMEM;
+
+	status = acpi_evaluate_object(priv->adev->handle, "PPSS", NULL, &buf);
+	if (ACPI_FAILURE(status)) {
+		result = -ENODEV;
+		goto end;
+	}
+
+	p = buf.pointer;
+	if (!p || (p->type != ACPI_TYPE_PACKAGE)) {
+		printk("Invalid PPSS data\n");
+		result = -EFAULT;
+		goto end;
+	}
+
+	obj->max_state = p->package.count - 1;
+	obj->cdev =
+		thermal_cooling_device_register(acpi_device_bid(priv->adev),
+				priv, &int3403_cooling_ops);
+	if (IS_ERR(obj->cdev))
+		result = PTR_ERR(obj->cdev);
+
+	priv->priv = obj;
+
+	/* TODO: add ACPI notification support */
+end:
+	if (result)
+		kfree(obj);
+	return result;
+}
+
+static int int3403_cdev_remove(struct int3403_priv *priv)
+{
+	struct int3403_cdev *obj = priv->priv;
+
+	thermal_cooling_device_unregister(obj->cdev);
+	kfree(priv->priv);
+	return 0;
+}
+
 static int int3403_add(struct platform_device *pdev)
 {
 	struct int3403_priv *priv;
@@ -235,7 +348,7 @@ static int int3403_add(struct platform_device *pdev)
 
 	priv = devm_kzalloc(&pdev->dev, sizeof(struct int3403_priv),
 			    GFP_KERNEL);
-	if (priv)
+	if (!priv)
 		return -ENOMEM;
 
 	priv->pdev = pdev;
@@ -256,6 +369,10 @@ static int int3403_add(struct platform_device *pdev)
 	switch (priv->type) {
 	case INT3403_TYPE_SENSOR:
 		result = int3403_sensor_add(priv);
+		break;
+	case INT3403_TYPE_CHARGER:
+	case INT3403_TYPE_BATTERY:
+		result = int3403_cdev_add(priv);
 		break;
 	default:
 		result = -EINVAL;
@@ -278,6 +395,10 @@ static int int3403_remove(struct platform_device *pdev)
 	case INT3403_TYPE_SENSOR:
 		int3403_sensor_remove(priv);
 		break;
+	case INT3403_TYPE_CHARGER:
+	case INT3403_TYPE_BATTERY:
+		int3403_cdev_remove(priv);
+		break;
 	default:
 		break;
 	}	
@@ -296,7 +417,7 @@ static struct platform_driver int3403_driver = {
 	.probe = int3403_add,
 	.remove = int3403_remove,
 	.driver = {
-		.name = "INT3403",
+		.name = "int3403 thermal",
 		.owner  = THIS_MODULE,
 		.acpi_match_table = int3403_device_ids,
 	},
