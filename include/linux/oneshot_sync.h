@@ -15,4 +15,44 @@
 
 #include <uapi/linux/oneshot_sync.h>
 
+struct oneshot_sync_timeline;
+struct sync_fence;
+
+#ifdef CONFIG_ONESHOT_SYNC
+
+struct oneshot_sync_timeline *oneshot_timeline_create(const char *name);
+
+void oneshot_timeline_destroy(struct oneshot_sync_timeline *);
+
+struct sync_fence *oneshot_fence_create(struct oneshot_sync_timeline *,
+					const char *name);
+
+int oneshot_fence_signal(struct oneshot_sync_timeline *, struct sync_fence *);
+
+#else
+
+static inline struct oneshot_sync_timeline *
+oneshot_timeline_create(const char *name)
+{
+	return NULL;
+}
+
+void oneshot_timeline_destroy(struct oneshot_sync_timeline *timeline)
+{
+}
+
+struct sync_fence *oneshot_fence_create(struct oneshot_sync_timeline *timeline,
+					const char *name)
+{
+	return NULL;
+}
+
+int oneshot_fence_signal(struct oneshot_sync_timeline *timeline,
+			struct sync_fence *fence)
+{
+	return -EINVAL;
+}
+
+#endif
+
 #endif /* LINUX_ONESHOT_SYNC_H */
