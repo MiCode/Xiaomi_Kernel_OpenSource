@@ -190,6 +190,12 @@ config INPUT_KEYRESET
 	---help---
 	  Say Y here if you want to reboot when some keys are pressed;
 
+config INPUT_KEYCOMBO
+	bool "Key combo"
+	depends on INPUT
+	---help---
+	  Say Y here if you want to take action when some keys are pressed;
+
 comment "Input Device Drivers"
 
 source "drivers/input/keyboard/Kconfig"
