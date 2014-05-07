@@ -1908,6 +1908,8 @@ int msm_pcie_pm_control(enum msm_pcie_pm_opt pm_opt, u32 busnr, void *user,
 		}
 		if (!(options & MSM_PCIE_CONFIG_LINKDOWN))
 			msm_pcie_dev[rc_idx].user_suspend = true;
+
+		mutex_lock(&msm_pcie_dev[rc_idx].recovery_lock);
 		ret = msm_pcie_pm_suspend(dev, user, data, options);
 		if (ret) {
 			pr_err(
@@ -1915,6 +1917,7 @@ int msm_pcie_pm_control(enum msm_pcie_pm_opt pm_opt, u32 busnr, void *user,
 				rc_idx);
 			msm_pcie_dev[rc_idx].user_suspend = false;
 		}
+		mutex_unlock(&msm_pcie_dev[rc_idx].recovery_lock);
 		break;
 	case MSM_PCIE_RESUME:
 		PCIE_DBG("User of RC%d requests to resume the link\n", rc_idx);
