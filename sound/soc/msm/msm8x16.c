@@ -192,6 +192,8 @@ struct cdc_pdm_pinctrl_info {
 	struct pinctrl_state *cdc_pdm_act;
 	struct pinctrl_state *cross_conn_det_sus;
 	struct pinctrl_state *cross_conn_det_act;
+	struct pinctrl_state *ext_pa_sus;
+	struct pinctrl_state *ext_pa_act;
 };
 
 struct ext_cdc_tlmm_pinctrl_info {
@@ -621,6 +623,9 @@ static void msm_mi2s_snd_shutdown(struct snd_pcm_substream *substream)
 			pr_err("%s:clock disable failed\n", __func__);
 		pinctrl_select_state(pinctrl_info.pinctrl,
 					pinctrl_info.cdc_pdm_sus);
+		if (pdata->ext_pa)
+			pinctrl_select_state(pinctrl_info.pinctrl,
+					pinctrl_info.ext_pa_sus);
 	} else {
 
 		ret = pinctrl_select_state(ext_cdc_pinctrl_info.pinctrl,
@@ -636,8 +641,60 @@ static void msm_mi2s_snd_shutdown(struct snd_pcm_substream *substream)
 		}
 		ret = ext_mi2s_clk_ctl(substream, false);
 	}
-
 }
+
+static int conf_int_codec_mux(struct msm8916_asoc_mach_data *pdata)
+{
+	int ret = 0;
+	int val = 0;
+	void __iomem *vaddr = NULL;
+
+	/* configure the Primary, Sec and Tert mux for Mi2S interface
+	 * slave select to invalid state, for machine mode this
+	 * should move to HW, I do not like to do it here
+	 */
+	vaddr = ioremap(LPASS_CSR_GP_IO_MUX_SPKR_CTL , 4);
+	if (!vaddr) {
+		pr_err("%s ioremap failure for addr %x",
+				__func__, LPASS_CSR_GP_IO_MUX_SPKR_CTL);
+		return -ENOMEM;
+	}
+	val = ioread32(vaddr);
+	val = val | 0x00030300;
+	if (pdata->ext_pa) {
+		/* enable sec MI2S interface to TLMM GPIO */
+		val = val | 0x0004007E;
+		pr_debug("%s: mux configuration = %x\n", __func__, val);
+		ret = pinctrl_select_state(pinctrl_info.pinctrl,
+					pinctrl_info.ext_pa_act);
+		if (ret < 0) {
+			pr_err("%s: Failed to configure the ext pa gpio's\n",
+						__func__);
+			iounmap(vaddr);
+			return ret;
+		}
+	}
+	iowrite32(val, vaddr);
+	iounmap(vaddr);
+	vaddr = ioremap(LPASS_CSR_GP_IO_MUX_MIC_CTL , 4);
+	if (!vaddr) {
+		pr_err("%s ioremap failure for addr %x",
+				__func__, LPASS_CSR_GP_IO_MUX_MIC_CTL);
+		return -ENOMEM;
+	}
+	val = ioread32(vaddr);
+	val = val | 0x00200000;
+	vaddr = ioremap(LPASS_CSR_GP_IO_MUX_MIC_CTL , 4);
+	if (!vaddr) {
+		pr_err("%s ioremap failure for addr %x",
+				__func__, LPASS_CSR_GP_IO_MUX_MIC_CTL);
+		return -ENOMEM;
+	}
+	iowrite32(val, vaddr);
+	iounmap(vaddr);
+	return ret;
+}
+
 
 static int msm_mi2s_snd_startup(struct snd_pcm_substream *substream)
 {
@@ -654,37 +711,12 @@ static int msm_mi2s_snd_startup(struct snd_pcm_substream *substream)
 		 substream->name, substream->stream);
 
 	if (!pdata->codec_type) {
-		/* configure the Primary, Sec and Tert mux for Mi2S interface
-		 * slave select to invalid state, for machine mode this
-		 * should move to HW, I do not like to do it here
-		 */
-		vaddr = ioremap(LPASS_CSR_GP_IO_MUX_SPKR_CTL , 4);
-		if (!vaddr) {
-			pr_err("%s ioremap failure for addr %x",
-					__func__, LPASS_CSR_GP_IO_MUX_SPKR_CTL);
-			return -ENOMEM;
+		ret = conf_int_codec_mux(pdata);
+		if (ret < 0) {
+			pr_err("%s: failed to conf internal codec mux\n",
+					__func__);
+			return ret;
 		}
-		val = ioread32(vaddr);
-		val = val | 0x00030300;
-		iowrite32(val, vaddr);
-		iounmap(vaddr);
-		vaddr = ioremap(LPASS_CSR_GP_IO_MUX_MIC_CTL , 4);
-		if (!vaddr) {
-			pr_err("%s ioremap failure for addr %x",
-					__func__, LPASS_CSR_GP_IO_MUX_MIC_CTL);
-			return -ENOMEM;
-		}
-		val = ioread32(vaddr);
-		iounmap(vaddr);
-		val = val | 0x00200000;
-		vaddr = ioremap(LPASS_CSR_GP_IO_MUX_MIC_CTL , 4);
-		if (!vaddr) {
-			pr_err("%s ioremap failure for addr %x",
-					__func__, LPASS_CSR_GP_IO_MUX_MIC_CTL);
-			return -ENOMEM;
-		}
-		iowrite32(val, vaddr);
-		iounmap(vaddr);
 		ret =  msm8x16_enable_codec_ext_clk(codec, 1, true);
 		if (ret < 0) {
 			pr_err("failed to enable mclk\n");
@@ -1588,9 +1620,11 @@ static int msm8x16_asoc_machine_probe(struct platform_device *pdev)
 {
 	struct snd_soc_card *card;
 	struct msm8916_asoc_mach_data *pdata = NULL;
+	struct pinctrl *pinctrl;
 	const char *card_dev_id = "qcom,msm-snd-card-id";
 	const char *codec_type = "qcom,msm-codec-type";
 	const char *hs_micbias_type = "qcom,msm-hs-micbias-type";
+	const char *ext_pa = "qcom,msm-ext-pa";
 	const char *ptr = NULL;
 	const char *type = NULL;
 	int ret, id;
@@ -1656,6 +1690,39 @@ static int msm8x16_asoc_machine_probe(struct platform_device *pdev)
 		dev_dbg(&pdev->dev, "%s: dev name %s, id:%d\n", __func__,
 			 card->name, pdev->id);
 		pdata->codec_type = 0;
+		ret = of_property_read_u32(pdev->dev.of_node, ext_pa, &id);
+		if (ret) {
+			dev_err(&pdev->dev,
+				"%s: missing %s in dt node\n",
+				__func__, ext_pa);
+			goto err;
+		}
+		pdata->ext_pa = id;
+		if (pdata->ext_pa) {
+			pinctrl = devm_pinctrl_get(&pdev->dev);
+			if (IS_ERR(pinctrl)) {
+				pr_err("%s: Unable to get pinctrl handle\n",
+					__func__);
+				return -EINVAL;
+			}
+			pinctrl_info.pinctrl = pinctrl;
+			/* get pinctrl handle for ext_pa */
+			pinctrl_info.ext_pa_sus = pinctrl_lookup_state(pinctrl,
+							"cdc_ext_pa_sus");
+			if (IS_ERR(pinctrl_info.ext_pa_sus)) {
+				pr_err("%s: Unable to get pinctrl disable handle\n",
+								  __func__);
+				return -EINVAL;
+			}
+			/* get pinctrl handle for ext_pa */
+			pinctrl_info.ext_pa_act = pinctrl_lookup_state(pinctrl,
+							"cdc_ext_pa_act");
+			if (IS_ERR(pinctrl_info.ext_pa_act)) {
+				pr_err("%s: Unable to get pinctrl disable handle\n",
+								  __func__);
+				return -EINVAL;
+			}
+		}
 	}
 
 	ret = of_property_read_string(pdev->dev.of_node,
