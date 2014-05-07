@@ -2016,3 +2016,38 @@ int msm_pcie_deregister_event(struct msm_pcie_register_event *reg)
 	return ret;
 }
 EXPORT_SYMBOL(msm_pcie_deregister_event);
+
+int msm_pcie_recover_config(struct pci_dev *dev)
+{
+	int ret = 0;
+	struct msm_pcie_dev_t *pcie_dev;
+
+	PCIE_DBG("\n");
+
+	if (dev) {
+		pcie_dev = PCIE_BUS_PRIV_DATA(dev);
+		PCIE_DBG("Recovery for the link of RC%d\n", pcie_dev->rc_idx);
+	} else {
+		pr_err("PCIe: the input pci dev is NULL.\n");
+		return -ENODEV;
+	}
+
+	if (msm_pcie_confirm_linkup(pcie_dev)) {
+		PCIE_DBG("Recover config space of RC%d and its EP\n",
+				pcie_dev->rc_idx);
+		pcie_dev->shadow_en = false;
+		PCIE_DBG("Recover RC%d\n", pcie_dev->rc_idx);
+		msm_pcie_cfg_recover(pcie_dev, true);
+		PCIE_DBG("Recover EP of RC%d\n", pcie_dev->rc_idx);
+		msm_pcie_cfg_recover(pcie_dev, false);
+		pcie_dev->shadow_en = true;
+	} else {
+		pr_err(
+			"PCIe: the link of RC%d is not up yet; can't recover config space.\n",
+			pcie_dev->rc_idx);
+		ret = -ENODEV;
+	}
+
+	return ret;
+}
+EXPORT_SYMBOL(msm_pcie_recover_config);
