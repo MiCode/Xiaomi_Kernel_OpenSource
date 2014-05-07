@@ -209,6 +209,20 @@ struct msm_vfe_axi_stream_cfg_update_info {
 	struct msm_vfe_axi_plane_cfg plane_cfg[MAX_PLANES_PER_STREAM];
 };
 
+struct msm_vfe_axi_halt_cmd {
+	uint32_t stop_camif;
+	uint32_t overflow_detected;
+};
+
+struct msm_vfe_axi_reset_cmd {
+	uint32_t blocking;
+	unsigned long frame_id;
+};
+
+struct msm_vfe_axi_restart_cmd {
+	uint32_t enable_camif;
+};
+
 struct msm_vfe_axi_stream_update_cmd {
 	uint32_t num_streams;
 	enum msm_vfe_axi_stream_update_type update_type;
@@ -410,6 +424,11 @@ struct msm_isp_stream_ack {
 	uint32_t handle;
 };
 
+struct msm_isp_error_info {
+	/* 1 << msm_isp_event_idx */
+	uint32_t error_mask;
+};
+
 struct msm_isp_event_data {
 	/*Wall clock except for buffer divert events
 	 *which use monotonic clock
@@ -422,6 +441,7 @@ struct msm_isp_event_data {
 	union {
 		struct msm_isp_stats_event stats;
 		struct msm_isp_buf_event buf_done;
+		struct msm_isp_error_info error_info;
 	} u; /* union can have max 52 bytes */
 };
 
@@ -490,5 +510,14 @@ struct msm_isp_event_data {
 
 #define VIDIOC_MSM_ISP_UPDATE_STATS_STREAM \
 	_IOWR('V', BASE_VIDIOC_PRIVATE+16, struct msm_vfe_axi_stream_update_cmd)
+
+#define VIDIOC_MSM_ISP_AXI_HALT \
+	_IOWR('V', BASE_VIDIOC_PRIVATE+17, struct msm_vfe_axi_halt_cmd)
+
+#define VIDIOC_MSM_ISP_AXI_RESET \
+	_IOWR('V', BASE_VIDIOC_PRIVATE+18, struct msm_vfe_axi_reset_cmd)
+
+#define VIDIOC_MSM_ISP_AXI_RESTART \
+	_IOWR('V', BASE_VIDIOC_PRIVATE+19, struct msm_vfe_axi_restart_cmd)
 
 #endif /* __MSMB_ISP__ */

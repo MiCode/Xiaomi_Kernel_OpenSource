@@ -1,4 +1,4 @@
-/* Copyright (c) 2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -37,11 +37,23 @@ int msm_isp_axi_check_stream_state(
 	struct vfe_device *vfe_dev,
 	struct msm_vfe_axi_stream_cfg_cmd *stream_cfg_cmd);
 
+void msm_isp_calculate_framedrop(
+	struct msm_vfe_axi_shared_data *axi_data,
+	struct msm_vfe_axi_stream_request_cmd *stream_cfg_cmd);
+void msm_isp_reset_framedrop(struct vfe_device *vfe_dev,
+	struct msm_vfe_axi_stream *stream_info);
+
 int msm_isp_request_axi_stream(struct vfe_device *vfe_dev, void *arg);
 int msm_isp_cfg_axi_stream(struct vfe_device *vfe_dev, void *arg);
 int msm_isp_release_axi_stream(struct vfe_device *vfe_dev, void *arg);
 int msm_isp_update_axi_stream(struct vfe_device *vfe_dev, void *arg);
 void msm_isp_axi_cfg_update(struct vfe_device *vfe_dev);
+int msm_isp_axi_halt(struct vfe_device *vfe_dev,
+	struct msm_vfe_axi_halt_cmd *halt_cmd);
+int msm_isp_axi_reset(struct vfe_device *vfe_dev,
+	struct msm_vfe_axi_reset_cmd *reset_cmd);
+int msm_isp_axi_restart(struct vfe_device *vfe_dev,
+	struct msm_vfe_axi_restart_cmd *restart_cmd);
 
 void msm_isp_axi_stream_update(struct vfe_device *vfe_dev);
 

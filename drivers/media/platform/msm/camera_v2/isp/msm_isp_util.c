@@ -628,6 +628,21 @@ static long msm_isp_ioctl_unlocked(struct v4l2_subdev *sd,
 		rc = msm_isp_cfg_axi_stream(vfe_dev, arg);
 		mutex_unlock(&vfe_dev->core_mutex);
 		break;
+	case VIDIOC_MSM_ISP_AXI_HALT:
+		mutex_lock(&vfe_dev->core_mutex);
+		rc = msm_isp_axi_halt(vfe_dev, arg);
+		mutex_unlock(&vfe_dev->core_mutex);
+		break;
+	case VIDIOC_MSM_ISP_AXI_RESET:
+		mutex_lock(&vfe_dev->core_mutex);
+		rc = msm_isp_axi_reset(vfe_dev, arg);
+		mutex_unlock(&vfe_dev->core_mutex);
+		break;
+	case VIDIOC_MSM_ISP_AXI_RESTART:
+		mutex_lock(&vfe_dev->core_mutex);
+		rc = msm_isp_axi_restart(vfe_dev, arg);
+		mutex_unlock(&vfe_dev->core_mutex);
+		break;
 	case VIDIOC_MSM_ISP_INPUT_CFG:
 		mutex_lock(&vfe_dev->core_mutex);
 		rc = msm_isp_cfg_input(vfe_dev, arg);
@@ -1279,6 +1294,81 @@ static inline void msm_isp_update_error_info(struct vfe_device *vfe_dev,
 	vfe_dev->error_info.error_count++;
 }
 
+static void msm_isp_process_overflow_irq(
+	struct vfe_device *vfe_dev,
+	uint32_t *irq_status0, uint32_t *irq_status1)
+{
+	uint32_t overflow_mask;
+
+	/*Mask out all other irqs if recovery is started*/
+	if (atomic_read(&vfe_dev->error_info.overflow_state) != NO_OVERFLOW) {
+		uint32_t halt_restart_mask0, halt_restart_mask1;
+		vfe_dev->hw_info->vfe_ops.core_ops.
+		get_halt_restart_mask(&halt_restart_mask0,
+			&halt_restart_mask1);
+		*irq_status0 &= halt_restart_mask0;
+		*irq_status1 &= halt_restart_mask1;
+
+		return;
+	}
+
+	/*Check if any overflow bit is set*/
+	vfe_dev->hw_info->vfe_ops.core_ops.
+		get_overflow_mask(&overflow_mask);
+	overflow_mask &= *irq_status1;
+
+	if (overflow_mask) {
+		struct msm_isp_event_data error_event;
+		ISP_DBG("%s: Bus overflow detected: 0x%x, start recovery!\n",
+				__func__, overflow_mask);
+		atomic_set(&vfe_dev->error_info.overflow_state,
+				OVERFLOW_DETECTED);
+		/*Store current IRQ mask*/
+		vfe_dev->hw_info->vfe_ops.core_ops.get_irq_mask(vfe_dev,
+			&vfe_dev->error_info.overflow_recover_irq_mask0,
+			&vfe_dev->error_info.overflow_recover_irq_mask1);
+
+		/*Halt the hardware & Clear all other IRQ mask*/
+		vfe_dev->hw_info->vfe_ops.axi_ops.halt(vfe_dev, 0);
+
+		/*Stop CAMIF Immediately*/
+		vfe_dev->hw_info->vfe_ops.core_ops.
+			update_camif_state(vfe_dev, DISABLE_CAMIF_IMMEDIATELY);
+
+		/*Update overflow state*/
+		*irq_status0 = 0;
+		*irq_status1 = 0;
+
+		error_event.frame_id =
+			vfe_dev->axi_data.src_info[VFE_PIX_0].frame_id;
+		error_event.u.error_info.error_mask = 1 << ISP_WM_BUS_OVERFLOW;
+		msm_isp_send_event(vfe_dev,
+			ISP_EVENT_WM_BUS_OVERFLOW, &error_event);
+	}
+}
+
+void msm_isp_reset_burst_count_and_frame_drop(
+	struct vfe_device *vfe_dev, struct msm_vfe_axi_stream *stream_info)
+{
+	struct msm_vfe_axi_stream_request_cmd stream_cfg_cmd;
+	if (stream_info->state != ACTIVE ||
+		stream_info->stream_type != BURST_STREAM) {
+		return;
+	}
+	if (stream_info->stream_type == BURST_STREAM &&
+		stream_info->num_burst_capture != 0) {
+		stream_cfg_cmd.burst_count =
+			stream_info->num_burst_capture;
+		stream_cfg_cmd.frame_skip_pattern =
+			stream_info->frame_skip_pattern;
+		stream_cfg_cmd.init_frame_drop =
+			stream_info->init_frame_drop;
+		msm_isp_calculate_framedrop(&vfe_dev->axi_data,
+			&stream_cfg_cmd);
+		msm_isp_reset_framedrop(vfe_dev, stream_info);
+	}
+}
+
 irqreturn_t msm_isp_process_irq(int irq_num, void *data)
 {
 	unsigned long flags;
@@ -1295,6 +1385,10 @@ irqreturn_t msm_isp_process_irq(int irq_num, void *data)
 			__func__);
 		return IRQ_HANDLED;
 	}
+
+	msm_isp_process_overflow_irq(vfe_dev,
+		&irq_status0, &irq_status1);
+
 	vfe_dev->hw_info->vfe_ops.core_ops.
 		get_error_mask(&error_mask0, &error_mask1);
 	error_mask0 &= irq_status0;
@@ -1365,6 +1459,12 @@ void msm_isp_do_tasklet(unsigned long data)
 			irq_status0, irq_status1);
 		irq_ops->process_halt_irq(vfe_dev,
 			irq_status0, irq_status1);
+		if (atomic_read(&vfe_dev->error_info.overflow_state)
+			!= NO_OVERFLOW) {
+			pr_err("%s: Recovery in processing, Ignore IRQs!!!\n",
+				__func__);
+			continue;
+		}
 		irq_ops->process_camif_irq(vfe_dev,
 			irq_status0, irq_status1, &ts);
 		irq_ops->process_axi_irq(vfe_dev,
@@ -1435,7 +1535,10 @@ int msm_isp_open_node(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh)
 		return -EBUSY;
 	}
 
-	rc = vfe_dev->hw_info->vfe_ops.core_ops.reset_hw(vfe_dev);
+	memset(&vfe_dev->error_info, 0, sizeof(vfe_dev->error_info));
+	atomic_set(&vfe_dev->error_info.overflow_state, NO_OVERFLOW);
+
+	rc = vfe_dev->hw_info->vfe_ops.core_ops.reset_hw(vfe_dev, 1, 1);
 	if (rc <= 0) {
 		pr_err("%s: reset timeout\n", __func__);
 		vfe_dev->hw_info->vfe_ops.core_ops.release_hw(vfe_dev);
@@ -1455,7 +1558,6 @@ int msm_isp_open_node(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh)
 	memset(&vfe_dev->axi_data, 0, sizeof(struct msm_vfe_axi_shared_data));
 	memset(&vfe_dev->stats_data, 0,
 		sizeof(struct msm_vfe_stats_shared_data));
-	memset(&vfe_dev->error_info, 0, sizeof(vfe_dev->error_info));
 	vfe_dev->axi_data.hw_info = vfe_dev->hw_info->axi_hw_info;
 	vfe_dev->taskletq_idx = 0;
 	vfe_dev->vt_enable = 0;
@@ -1485,7 +1587,7 @@ int msm_isp_close_node(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh)
 {
 	long rc;
 	struct vfe_device *vfe_dev = v4l2_get_subdevdata(sd);
-	ISP_DBG("%s\n", __func__);
+	ISP_DBG("%s E\n", __func__);
 	mutex_lock(&vfe_dev->realtime_mutex);
 	mutex_lock(&vfe_dev->core_mutex);
 
@@ -1503,7 +1605,7 @@ int msm_isp_close_node(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh)
 		return 0;
 	}
 
-	rc = vfe_dev->hw_info->vfe_ops.axi_ops.halt(vfe_dev);
+	rc = vfe_dev->hw_info->vfe_ops.axi_ops.halt(vfe_dev, 1);
 	if (rc <= 0)
 		pr_err("%s: halt timeout rc=%ld\n", __func__, rc);
 
