@@ -78,9 +78,12 @@ Example:
         pinctrl-names = "wcnss_default", "wcnss_sleep";
         pinctrl-0 = <&wcnss_default>;
         pinctrl-1 = <&wcnss_sleep>;
+        pinctrl-2 = <&wcnss_gpio_default>;
 
         clocks = <&clock_rpm clk_xo_wlan_clk>,
-                   <&clock_rpm clk_rf_clk2>;
-        clock-names = "xo", "rf_clk";
+                   <&clock_rpm clk_rf_clk2>,
+                   <&clock_debug clk_gcc_debug_mux>,
+                   <&clock_gcc clk_wcnss_m_clk>;
+        clock-names = "xo", "rf_clk", "measure", "wcnss_debug";
 	qcom,wcnss-pm = <11 21 1200 1 1>;
     };

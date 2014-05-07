@@ -49,6 +49,7 @@
 
 #define WCNSS_PINCTRL_STATE_DEFAULT "wcnss_default"
 #define WCNSS_PINCTRL_STATE_SLEEP "wcnss_sleep"
+#define WCNSS_PINCTRL_GPIO_STATE_DEFAULT "wcnss_gpio_default"
 
 /* module params */
 #define WCNSS_CONFIG_UNSPECIFIED (-1)
@@ -197,6 +198,8 @@ static DEFINE_SPINLOCK(reg_spinlock);
 
 #define FW_CALDATA_CAPABLE() \
 	((penv->fw_major >= 1) && (penv->fw_minor >= 5) ? 1 : 0)
+
+static int wcnss_pinctrl_set_state(bool active);
 
 struct smd_msg_hdr {
 	unsigned int msg_type;
@@ -394,8 +397,10 @@ static struct {
 	u16 unsafe_ch_list[WCNSS_MAX_CH_NUM];
 	void *wcnss_notif_hdle;
 	struct pinctrl *pinctrl;
-	struct pinctrl_state *gpio_state_active;
-	struct pinctrl_state *gpio_state_suspend;
+	struct pinctrl_state *wcnss_5wire_active;
+	struct pinctrl_state *wcnss_5wire_suspend;
+	struct pinctrl_state *wcnss_gpio_active;
+	int gpios[WCNSS_WLAN_MAX_GPIO];
 	int use_pinctrl;
 	u8 is_shutdown;
 } *penv = NULL;
@@ -798,6 +803,177 @@ void wcnss_pronto_log_debug_regs(void)
 EXPORT_SYMBOL(wcnss_pronto_log_debug_regs);
 
 #ifdef CONFIG_WCNSS_REGISTER_DUMP_ON_BITE
+
+static int wcnss_gpio_set_state(bool is_enable)
+{
+	struct pinctrl_state *pin_state;
+	int ret;
+	int i;
+
+	if (!is_enable) {
+		for (i = 0; i < WCNSS_WLAN_MAX_GPIO; i++) {
+			if (gpio_is_valid(penv->gpios[i]))
+				gpio_free(penv->gpios[i]);
+		}
+
+		return 0;
+	}
+
+	pin_state = penv->wcnss_gpio_active;
+	if (!IS_ERR_OR_NULL(pin_state)) {
+		ret = pinctrl_select_state(penv->pinctrl, pin_state);
+		if (ret < 0) {
+			pr_err("%s: can not set gpio pins err: %d\n",
+						__func__, ret);
+			goto pinctrl_set_err;
+		}
+
+	} else {
+		pr_err("%s: invalid gpio pinstate err: %lu\n",
+					__func__, PTR_ERR(pin_state));
+		goto pinctrl_set_err;
+	}
+
+	for (i = WCNSS_WLAN_DATA2; i <= WCNSS_WLAN_DATA0; i++) {
+		ret = gpio_request_one(penv->gpios[i],
+					GPIOF_DIR_IN, NULL);
+		if (ret) {
+			pr_err("%s: request failed for gpio:%d\n",
+						__func__, penv->gpios[i]);
+			i--;
+			goto gpio_req_err;
+		}
+	}
+
+	for (i = WCNSS_WLAN_SET; i <= WCNSS_WLAN_CLK; i++) {
+		ret = gpio_request_one(penv->gpios[i],
+					GPIOF_OUT_INIT_LOW, NULL);
+		if (ret) {
+			pr_err("%s: request failed for gpio:%d\n",
+						__func__, penv->gpios[i]);
+			i--;
+			goto gpio_req_err;
+		}
+	}
+
+	return 0;
+
+gpio_req_err:
+	for (; i >= WCNSS_WLAN_DATA2; --i)
+		gpio_free(penv->gpios[i]);
+
+pinctrl_set_err:
+	return -EINVAL;
+}
+
+static u32 wcnss_rf_read_reg(u32 rf_reg_addr)
+{
+	int count = 0;
+	u32 rf_cmd_and_addr = 0;
+	u32 rf_data_received = 0;
+	u32 rf_bit = 0;
+
+	if (wcnss_gpio_set_state(true))
+		return 0;
+
+	/* Reset the signal if it is already being used. */
+	gpio_set_value(penv->gpios[WCNSS_WLAN_SET], 0);
+	gpio_set_value(penv->gpios[WCNSS_WLAN_CLK], 0);
+
+	/* We start with cmd_set high penv->gpio_base + WCNSS_WLAN_SET = 1. */
+	gpio_set_value(penv->gpios[WCNSS_WLAN_SET], 1);
+
+	gpio_direction_output(penv->gpios[WCNSS_WLAN_DATA0], 1);
+	gpio_direction_output(penv->gpios[WCNSS_WLAN_DATA1], 1);
+	gpio_direction_output(penv->gpios[WCNSS_WLAN_DATA2], 1);
+
+	gpio_set_value(penv->gpios[WCNSS_WLAN_DATA0], 0);
+	gpio_set_value(penv->gpios[WCNSS_WLAN_DATA1], 0);
+	gpio_set_value(penv->gpios[WCNSS_WLAN_DATA2], 0);
+
+	/* Prepare command and RF register address that need to sent out. */
+	rf_cmd_and_addr  = (((WLAN_RF_READ_REG_CMD) |
+		(rf_reg_addr << WLAN_RF_REG_ADDR_START_OFFSET)) &
+		WLAN_RF_READ_CMD_MASK);
+	/* Send 15 bit RF register address */
+	for (count = 0; count < WLAN_RF_PREPARE_CMD_DATA; count++) {
+		gpio_set_value(penv->gpios[WCNSS_WLAN_CLK], 0);
+
+		rf_bit = (rf_cmd_and_addr & 0x1);
+		gpio_set_value(penv->gpios[WCNSS_WLAN_DATA0],
+							rf_bit ? 1 : 0);
+		rf_cmd_and_addr = (rf_cmd_and_addr >> 1);
+
+		rf_bit = (rf_cmd_and_addr & 0x1);
+		gpio_set_value(penv->gpios[WCNSS_WLAN_DATA1], rf_bit ? 1 : 0);
+		rf_cmd_and_addr = (rf_cmd_and_addr >> 1);
+
+		rf_bit = (rf_cmd_and_addr & 0x1);
+		gpio_set_value(penv->gpios[WCNSS_WLAN_DATA2], rf_bit ? 1 : 0);
+		rf_cmd_and_addr = (rf_cmd_and_addr >> 1);
+
+		/* Send the data out penv->gpio_base + WCNSS_WLAN_CLK = 1 */
+		gpio_set_value(penv->gpios[WCNSS_WLAN_CLK], 1);
+	}
+
+	/* Pull down the clock signal */
+	gpio_set_value(penv->gpios[WCNSS_WLAN_CLK], 0);
+
+	/* Configure data pins to input IO pins */
+	gpio_direction_input(penv->gpios[WCNSS_WLAN_DATA0]);
+	gpio_direction_input(penv->gpios[WCNSS_WLAN_DATA1]);
+	gpio_direction_input(penv->gpios[WCNSS_WLAN_DATA2]);
+
+	for (count = 0; count < WLAN_RF_CLK_WAIT_CYCLE; count++) {
+		gpio_set_value(penv->gpios[WCNSS_WLAN_CLK], 1);
+		gpio_set_value(penv->gpios[WCNSS_WLAN_CLK], 0);
+	}
+
+	rf_bit = 0;
+	/* Read 16 bit RF register value */
+	for (count = 0; count < WLAN_RF_READ_DATA; count++) {
+		gpio_set_value(penv->gpios[WCNSS_WLAN_CLK], 1);
+		gpio_set_value(penv->gpios[WCNSS_WLAN_CLK], 0);
+
+		rf_bit = gpio_get_value(penv->gpios[WCNSS_WLAN_DATA0]);
+		rf_data_received |= (rf_bit << (count * WLAN_RF_DATA_LEN
+					+ WLAN_RF_DATA0_SHIFT));
+
+		if (count != 5) {
+			rf_bit = gpio_get_value(penv->gpios[WCNSS_WLAN_DATA1]);
+			rf_data_received |= (rf_bit << (count * WLAN_RF_DATA_LEN
+						+ WLAN_RF_DATA1_SHIFT));
+
+			rf_bit = gpio_get_value(penv->gpios[WCNSS_WLAN_DATA2]);
+			rf_data_received |= (rf_bit << (count * WLAN_RF_DATA_LEN
+						+ WLAN_RF_DATA2_SHIFT));
+		}
+	}
+
+	gpio_set_value(penv->gpios[WCNSS_WLAN_SET], 0);
+	wcnss_gpio_set_state(false);
+	wcnss_pinctrl_set_state(true);
+
+	return rf_data_received;
+}
+
+static void wcnss_log_iris_regs(void)
+{
+	int i;
+	u32 reg_val;
+	u32 regs_array[] = {
+		0x04, 0x05, 0x11, 0x1e, 0x40, 0x48,
+		0x49, 0x4b, 0x00, 0x01, 0x4d};
+
+	pr_info("%s: IRIS Registers [address] : value\n", __func__);
+
+	for (i = 0; i < ARRAY_SIZE(regs_array); i++) {
+		reg_val = wcnss_rf_read_reg(regs_array[i]);
+
+		pr_info("[0x%08x] : 0x%08x\n", regs_array[i], reg_val);
+	}
+}
+
 void wcnss_log_debug_regs_on_bite(void)
 {
 	struct platform_device *pdev = wcnss_get_platform_device();
@@ -812,16 +988,27 @@ void wcnss_log_debug_regs_on_bite(void)
 	wcnss_debug_mux = clk_get(&pdev->dev, "wcnss_debug");
 
 	if (!IS_ERR(measure) && !IS_ERR(wcnss_debug_mux)) {
-		if (clk_set_parent(measure, wcnss_debug_mux))
+		if (clk_set_parent(measure, wcnss_debug_mux)) {
+			pr_err("Setting measure clk parent failed\n");
 			return;
+		}
+
+		if (clk_prepare_enable(measure)) {
+			pr_err("measure clk enable failed\n");
+			return;
+		}
 
 		clk_rate = clk_get_rate(measure);
 		pr_debug("wcnss: clock frequency is: %luHz\n", clk_rate);
 
-		if (clk_rate)
+		if (clk_rate) {
 			wcnss_pronto_log_debug_regs();
-		else
+		} else {
 			pr_err("clock frequency is zero, cannot access PMU or other registers\n");
+			wcnss_log_iris_regs();
+		}
+
+		clk_disable_unprepare(measure);
 	}
 }
 #endif
@@ -928,8 +1115,8 @@ wcnss_pinctrl_set_state(bool active)
 
 	pr_debug("%s: Set GPIO state : %d\n", __func__, active);
 
-	pin_state = active ? penv->gpio_state_active
-			: penv->gpio_state_suspend;
+	pin_state = active ? penv->wcnss_5wire_active
+			: penv->wcnss_5wire_suspend;
 
 	if (!IS_ERR_OR_NULL(pin_state)) {
 		ret = pinctrl_select_state(penv->pinctrl, pin_state);
@@ -952,6 +1139,9 @@ wcnss_pinctrl_set_state(bool active)
 static int
 wcnss_pinctrl_init(struct platform_device *pdev)
 {
+	struct device_node *node = pdev->dev.of_node;
+	int i;
+
 	/* Get pinctrl if target uses pinctrl */
 	penv->pinctrl = devm_pinctrl_get(&pdev->dev);
 
@@ -960,22 +1150,34 @@ wcnss_pinctrl_init(struct platform_device *pdev)
 		return PTR_ERR(penv->pinctrl);
 	}
 
-	penv->gpio_state_active
+	penv->wcnss_5wire_active
 		= pinctrl_lookup_state(penv->pinctrl,
 			WCNSS_PINCTRL_STATE_DEFAULT);
 
-	if (IS_ERR_OR_NULL(penv->gpio_state_active)) {
+	if (IS_ERR_OR_NULL(penv->wcnss_5wire_active)) {
 		pr_err("%s: can not get default pinstate\n", __func__);
-		return PTR_ERR(penv->gpio_state_active);
+		return PTR_ERR(penv->wcnss_5wire_active);
 	}
 
-	penv->gpio_state_suspend
+	penv->wcnss_5wire_suspend
 		= pinctrl_lookup_state(penv->pinctrl,
 			WCNSS_PINCTRL_STATE_SLEEP);
 
-	if (IS_ERR_OR_NULL(penv->gpio_state_suspend)) {
+	if (IS_ERR_OR_NULL(penv->wcnss_5wire_suspend)) {
 		pr_warn("%s: can not get sleep pinstate\n", __func__);
-		return PTR_ERR(penv->gpio_state_suspend);
+		return PTR_ERR(penv->wcnss_5wire_suspend);
+	}
+
+	penv->wcnss_gpio_active = pinctrl_lookup_state(penv->pinctrl,
+					WCNSS_PINCTRL_GPIO_STATE_DEFAULT);
+	if (IS_ERR_OR_NULL(penv->wcnss_gpio_active))
+		pr_warn("%s: can not get gpio default pinstate\n", __func__);
+
+	for (i = 0; i < WCNSS_WLAN_MAX_GPIO; i++) {
+		penv->gpios[i] = of_get_gpio(node, i);
+		if (penv->gpios[i] < 0)
+			pr_warn("%s: Fail to get 5wire gpio: %d\n",
+							__func__, i);
 	}
 
 	return 0;
