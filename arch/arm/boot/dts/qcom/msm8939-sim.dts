@@ -149,3 +149,11 @@
 &qcom_seecom {
 	status = "okay";
 };
+
+&ncp6335d {
+	status = "disabled";
+};
+
+&fan53555 {
+	status = "disabled";
+};
