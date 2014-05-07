@@ -745,6 +745,8 @@ err_deinit_image:
 	if (ret && desc->ops->deinit_image)
 		desc->ops->deinit_image(desc);
 err_boot:
+	if (ret && desc->proxy_unvote_irq)
+		disable_irq(desc->proxy_unvote_irq);
 	pil_proxy_unvote(desc, ret);
 release_fw:
 	release_firmware(fw);
