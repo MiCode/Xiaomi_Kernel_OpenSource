@@ -5,6 +5,10 @@ obj-$(CONFIG_GMIN_INTEL_MID) += intel_mid_pcihelpers.o platform_imx134.o atomisp
 obj-$(CONFIG_GMIN_INTEL_MID) += platform_ov2722.o
 obj-$(CONFIG_GMIN_INTEL_MID) += platform_byt_regulator.o
 
+obj-$(CONFIG_GMIN_INTEL_MID) += intel_mid_pcihelpers.o platform_imx134.o atomisp_gmin_platform.o
+
+obj-$(subst m,y,$(CONFIG_VIDEO_GC2235)) += device_libs/platform_gc2235.o
+
 # SFI specific code
 ifdef CONFIG_X86_INTEL_MID
 obj-$(CONFIG_SFI) += sfi.o device_libs/
