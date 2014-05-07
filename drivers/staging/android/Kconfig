@@ -125,6 +125,12 @@ config ONESHOT_SYNC
 	  sync objects created by this driver may be signaled in any order
 	  without changing the state of other sync objects on the timeline.
 
+config ONESHOT_SYNC_USER
+	bool "Userspace API for ONESHOT_SYNC"
+	depends on SYNC
+	help
+	  Provide a userspace API for creating oneshot sync objects.
+
 source "drivers/staging/android/ion/Kconfig"
 
 endif # if ANDROID
