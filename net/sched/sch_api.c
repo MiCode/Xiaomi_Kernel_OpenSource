@@ -1080,10 +1080,11 @@ static int tc_get_qdisc(struct sk_buff *skb, struct nlmsghdr *n)
 /*
  * enable/disable flow on qdisc.
  */
-void
+int
 tc_qdisc_flow_control(struct net_device *dev, u32 tcm_handle, int enable_flow)
 {
 	struct Qdisc *q;
+	int qdisc_len = 0;
 	struct __qdisc_change_req {
 		struct nlattr attr;
 		struct tc_prio_qopt data;
@@ -1100,9 +1101,11 @@ tc_qdisc_flow_control(struct net_device *dev, u32 tcm_handle, int enable_flow)
 
 	/* call registered change function */
 	if (q) {
+		qdisc_len = q->q.qlen;
 		if (q->ops->change(q, &(req.attr)) != 0)
 			pr_err("tc_qdisc_flow_control: qdisc change failed");
 	}
+	return qdisc_len;
 }
 EXPORT_SYMBOL(tc_qdisc_flow_control);
 
