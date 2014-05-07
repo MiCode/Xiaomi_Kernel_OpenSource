@@ -122,6 +122,7 @@
 		qcom,model = "msm8x16-snd-card";
 		qcom,msm-snd-card-id = <0>;
 		qcom,msm-codec-type = "internal";
+		qcom,msm-ext-pa = <0>;
 		qcom,msm-mbhc-hphl-swh = <0>;
 		qcom,msm-mbhc-gnd-swh = <0>;
 		qcom,msm-hs-micbias-type = "internal";
@@ -136,9 +137,13 @@
 			"AMIC2", "MIC BIAS Internal2",
 			"AMIC3", "MIC BIAS Internal3";
 		pinctrl-names = "cdc_pdm_lines_act",
-				"cdc_pdm_lines_sus";
+				"cdc_pdm_lines_sus",
+				"cdc_ext_pa_act",
+				"cdc_ext_pa_sus";
 		pinctrl-0 = <&cdc_pdm_lines_act>;
 		pinctrl-1 = <&cdc_pdm_lines_sus>;
+		pinctrl-2 = <&cdc_ext_pa_act &cdc_ext_pa_ws_act>;
+		pinctrl-3 = <&cdc_ext_pa_sus &cdc_ext_pa_ws_sus>;
 	};
 	sound-9306 {
 		compatible = "qcom,msm8x16-tapan-snd-card";
