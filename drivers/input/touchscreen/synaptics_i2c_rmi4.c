@@ -181,6 +181,9 @@ static ssize_t synaptics_rmi4_flipy_show(struct device *dev,
 static ssize_t synaptics_rmi4_flipy_store(struct device *dev,
 		struct device_attribute *attr, const char *buf, size_t count);
 
+static int synaptics_rmi4_capacitance_button_map(
+				struct synaptics_rmi4_data *rmi4_data,
+				struct synaptics_rmi4_fn *fhandler);
 
 struct synaptics_rmi4_f01_device_status {
 	union {
@@ -1479,7 +1482,8 @@ static int synaptics_rmi4_parse_dt_children(struct device *dev,
 {
 	struct synaptics_rmi4_device_info *rmi = &(rmi4_data->rmi4_mod_info);
 	struct device_node *node = dev->of_node, *child;
-	int rc;
+	int rc = 0;
+	struct synaptics_rmi4_fn *fhandler = NULL;
 
 	for_each_child_of_node(node, child) {
 		rc = of_property_read_u32(child, "synaptics,package-id",
@@ -1515,15 +1519,42 @@ static int synaptics_rmi4_parse_dt_children(struct device *dev,
 		if (rc && (rc != -EINVAL))
 			return rc;
 
+		rc = synaptics_rmi4_get_button_map(dev, "synaptics,button-map",
+				rmi4_pdata, child);
+		if (rc < 0) {
+			dev_err(dev, "Unable to read key codes\n");
+			return rc;
+		}
+
+		mutex_lock(&rmi->support_fn_list_mutex);
+		if (!list_empty(&rmi->support_fn_list)) {
+			list_for_each_entry(fhandler,
+					&rmi->support_fn_list, link) {
+				if (fhandler->fn_number == SYNAPTICS_RMI4_F1A)
+					break;
+			}
+		}
+		mutex_unlock(&rmi->support_fn_list_mutex);
+
+		if (fhandler != NULL && fhandler->fn_number ==
+					SYNAPTICS_RMI4_F1A) {
+			rc = synaptics_rmi4_capacitance_button_map(rmi4_data,
+								fhandler);
+			if (rc < 0) {
+				dev_err(dev, "Fail to register F1A %d\n", rc);
+				return rc;
+			}
+		}
 		break;
 	}
+
 	return 0;
 }
 
 static int synaptics_rmi4_parse_dt(struct device *dev,
 				struct synaptics_rmi4_platform_data *rmi4_pdata)
 {
-	struct device_node *np = dev->of_node, *child;
+	struct device_node *np = dev->of_node;
 	struct property *prop;
 	u32 temp_val, num_buttons;
 	u32 button_map[MAX_NUMBER_OF_BUTTONS];
@@ -1578,7 +1609,7 @@ static int synaptics_rmi4_parse_dt(struct device *dev,
 					"synaptics,detect-device");
 
 	if (rmi4_pdata->detect_device)
-		goto parse_button_map_for_children;
+		return 0;
 
 	prop = of_find_property(np, "synaptics,button-map", NULL);
 	if (prop) {
@@ -1613,17 +1644,7 @@ static int synaptics_rmi4_parse_dt(struct device *dev,
 			return -EINVAL;
 		}
 	}
-	return 0;
 
-parse_button_map_for_children:
-	for_each_child_of_node(np, child) {
-		rc = synaptics_rmi4_get_button_map(dev, "synaptics,button-map",
-				rmi4_pdata, child);
-		if (rc < 0) {
-			dev_err(dev, "Unable to read key codes\n");
-			return rc;
-		}
-	}
 	return 0;
 }
 #else
