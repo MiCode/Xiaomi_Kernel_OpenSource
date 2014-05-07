@@ -650,6 +650,8 @@ struct rq {
 	 * max_possible_freq = maximum supported by hardware
 	 */
 	unsigned int cur_freq, max_freq, min_freq, max_possible_freq;
+	struct cpumask freq_domain_cpumask;
+
 	u64 cumulative_runnable_avg;
 	int efficiency; /* Differentiate cpus with different IPC capability */
 	int load_scale_factor;
@@ -961,7 +963,7 @@ static inline u64 scale_task_load(u64 load, int cpu)
 	return load;
 }
 #endif
-
+unsigned int max_task_load(void);
 
 static inline void
 inc_cumulative_runnable_avg(struct rq *rq, struct task_struct *p)
