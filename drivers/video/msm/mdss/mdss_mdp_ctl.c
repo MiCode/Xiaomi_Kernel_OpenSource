@@ -2749,7 +2749,8 @@ int mdss_mdp_display_commit(struct mdss_mdp_ctl *ctl, void *arg)
 		}
 	}
 
-	mdss_mdp_ctl_notify(ctl, MDP_NOTIFY_FRAME_READY);
+	if (!ctl->shared_lock)
+		mdss_mdp_ctl_notify(ctl, MDP_NOTIFY_FRAME_READY);
 
 	if (ctl->wait_pingpong)
 		ctl->wait_pingpong(ctl, NULL);
