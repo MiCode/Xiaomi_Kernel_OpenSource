@@ -934,6 +934,21 @@ static int gc2235_enum_mbus_fmt(struct v4l2_subdev *sd,
 	return 0;
 }
 
+static int getvar_int(struct device *dev, const char *var, int def)
+{
+	char val[16];
+	size_t len = sizeof(val);
+	long result;
+	int ret;
+
+	ret = gmin_get_config_var(dev, var, val, &len);
+	val[len] = 0;
+	if (!ret)
+		ret = kstrtol(val, 0, &result);
+
+	return ret ? def : result;
+}
+
 static int gc2235_s_config(struct v4l2_subdev *sd,
 			   int irq, void *platform_data)
 {
@@ -986,6 +1001,22 @@ static int gc2235_s_config(struct v4l2_subdev *sd,
 	ret = power_down(sd);
 	if (ret) {
 		dev_err(&client->dev, "gc2235 power-off err.\n");
+		goto fail_csi_cfg;
+	}
+
+	/* Register the atomisp platform data prior to the ISP module
+	 * load.  Ideally this would be stored as data on the
+	 * subdevices, but this API matches upstream better. */
+	/* FIXME: type and port need to come from ACPI/EFI config,
+	 * this is hard coded to FFRD8 */
+	ret = atomisp_register_i2c_module(sd, client,
+					  getvar_int(&client->dev, "CamType",
+						     RAW_CAMERA),
+					  getvar_int(&client->dev, "CsiPort",
+						     ATOMISP_CAMERA_PORT_PRIMARY));
+	if (ret) {
+		dev_err(&client->dev,
+			"gc2235 atomisp_register_i2c_module failed.\n");
 		goto fail_csi_cfg;
 	}
 	mutex_unlock(&dev->input_lock);
