@@ -399,14 +399,6 @@ static void __mdss_mdp_cmd_ulps_work(struct work_struct *work)
 		return;
 	}
 
-	mutex_lock(&ctx->clk_mtx);
-	if (ctx->clk_enabled) {
-		mutex_unlock(&ctx->clk_mtx);
-		pr_warn("Cannot enter ulps mode if DSI clocks are on\n");
-		return;
-	}
-	mutex_unlock(&ctx->clk_mtx);
-
 	if (!ctx->panel_on) {
 		pr_err("Panel is off. skipping ULPS configuration\n");
 		return;
