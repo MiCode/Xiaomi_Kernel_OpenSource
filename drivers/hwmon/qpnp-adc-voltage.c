@@ -1087,11 +1087,6 @@ int32_t qpnp_vadc_conv_seq_request(struct qpnp_vadc_chip *vadc,
 
 	mutex_lock(&vadc->adc->adc_lock);
 
-	if (vadc->vadc_poll_eoc) {
-		pr_debug("requesting vadc eoc stay awake\n");
-		pm_stay_awake(vadc->dev);
-	}
-
 	if (!vadc->vadc_init_calib) {
 		rc = qpnp_vadc_version_check(vadc);
 		if (rc)
@@ -1225,11 +1220,6 @@ int32_t qpnp_vadc_conv_seq_request(struct qpnp_vadc_chip *vadc,
 		vadc->adc->adc_prop, vadc->adc->amux_prop->chan_prop, result);
 
 fail_unlock:
-	if (vadc->vadc_poll_eoc) {
-		pr_debug("requesting vadc eoc stay awake\n");
-		pm_relax(vadc->dev);
-	}
-
 	mutex_unlock(&vadc->adc->adc_lock);
 
 	return rc;
@@ -1565,8 +1555,6 @@ static int qpnp_vadc_remove(struct spmi_device *spmi)
 	}
 	hwmon_device_unregister(vadc->vadc_hwmon);
 	list_del(&vadc->list);
-	if (vadc->vadc_poll_eoc)
-		pm_relax(vadc->dev);
 	dev_set_drvdata(&spmi->dev, NULL);
 
 	return 0;
@@ -1578,10 +1566,33 @@ static const struct of_device_id qpnp_vadc_match_table[] = {
 	{}
 };
 
+static int qpnp_vadc_suspend_noirq(struct device *dev)
+{
+	struct qpnp_vadc_chip *vadc = dev_get_drvdata(dev);
+	u8 status = 0;
+
+	if (vadc->vadc_poll_eoc) {
+		qpnp_vadc_read_reg(vadc, QPNP_VADC_STATUS1, &status);
+		status &= QPNP_VADC_STATUS1_REQ_STS_EOC_MASK;
+		pr_debug("vadc conversion status=%d\n", status);
+		if (status != QPNP_VADC_STATUS1_EOC) {
+			pr_err(
+				"Aborting suspend, adc conversion requested while suspending\n");
+			return -EBUSY;
+		}
+	}
+	return 0;
+}
+
+static const struct dev_pm_ops qpnp_vadc_pm_ops = {
+	.suspend_noirq	= qpnp_vadc_suspend_noirq,
+};
+
 static struct spmi_driver qpnp_vadc_driver = {
 	.driver		= {
 		.name	= "qcom,qpnp-vadc",
 		.of_match_table = qpnp_vadc_match_table,
+		.pm		= &qpnp_vadc_pm_ops,
 	},
 	.probe		= qpnp_vadc_probe,
 	.remove		= qpnp_vadc_remove,
