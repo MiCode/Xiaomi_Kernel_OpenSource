@@ -1462,6 +1462,15 @@ u32 bam_pipe_timer_get_count(void *base, u32 pipe)
 	return bam_read_reg(base, P_TIMER, pipe);
 }
 
+/* halt and un-halt a pipe */
+void bam_pipe_halt(void *base, u32 pipe, bool halt)
+{
+	if (halt)
+		bam_write_reg_field(base, P_HALT, pipe, P_HALT_P_HALT, 1);
+	else
+		bam_write_reg_field(base, P_HALT, pipe, P_HALT_P_HALT, 0);
+}
+
 /* output the content of BAM-level registers */
 void print_bam_reg(void *virt_addr)
 {
