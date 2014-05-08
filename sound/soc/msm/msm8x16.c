@@ -1649,7 +1649,10 @@ static int msm8x16_asoc_machine_probe(struct platform_device *pdev)
 			goto err;
 		}
 		card = &bear_cards[pdev->id];
+		bear_cards[pdev->id].name = dev_name(&pdev->dev);
 		dev_info(&pdev->dev, "default codec configured\n");
+		dev_dbg(&pdev->dev, "%s: dev name %s, id:%d\n", __func__,
+			 card->name, pdev->id);
 		pdata->codec_type = 0;
 	}
 
