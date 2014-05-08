@@ -185,17 +185,6 @@
 			  bias-pull-up;
 		};
 	};
-
-	mpu6050_int_pin {
-		qcom,pins = <&gp 115>;
-		qcom,pin-func = <0>;
-		qcom,num-grp-pins = <1>;
-		label = "mpu6050-irq";
-		mpu6050_default: mpu6050_default {
-			drive-strength = <6>;
-			bias-pull-up;
-		};
-	};
 };
 
 &i2c_0 { /* BLSP1 QUP2 */
@@ -236,13 +225,15 @@
 	mpu6050@68 {
 		compatible = "invn,mpu6050";
 		reg = <0x68>;
-		pinctrl-names = "default";
+		pinctrl-names = "mpu_default","mpu_sleep";
 		pinctrl-0 = <&mpu6050_default>;
+		pinctrl-1 = <&mpu6050_sleep>;
 		interrupt-parent = <&msm_gpio>;
 		interrupts = <115 0x2>;
 		vdd-supply = <&pm8916_l17>;
 		vlogic-supply = <&pm8916_l16>;
 		invn,gpio-int = <&msm_gpio 115 0x2>;
+		invn,place = "Portrait Up Back Side";
 	};
 };
 
