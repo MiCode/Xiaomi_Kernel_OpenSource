@@ -853,9 +853,11 @@ static long msm_actuator_subdev_do_ioctl(
 	struct msm_actuator_cfg_data32 *u32 =
 		(struct msm_actuator_cfg_data32 *)arg;
 	struct msm_actuator_cfg_data actuator_data;
+	void *parg = arg;
 
 	switch (cmd) {
 	case VIDIOC_MSM_ACTUATOR_CFG32:
+		cmd = VIDIOC_MSM_ACTUATOR_CFG;
 		switch (u32->cfgtype) {
 		case CFG_SET_ACTUATOR_INFO:
 			actuator_data.cfgtype = u32->cfgtype;
@@ -917,6 +919,7 @@ static long msm_actuator_subdev_do_ioctl(
 				.region_params = compat_ptr(
 				u32->cfg.set_info.af_tuning_params
 				.region_params);
+			parg = &actuator_data;
 			break;
 		case CFG_SET_DEFAULT_FOCUS:
 		case CFG_MOVE_FOCUS:
@@ -938,14 +941,15 @@ static long msm_actuator_subdev_do_ioctl(
 
 			actuator_data.cfg.move.ringing_params =
 				compat_ptr(u32->cfg.move.ringing_params);
+			parg = &actuator_data;
 			break;
 		default:
-			return msm_actuator_subdev_ioctl(sd, cmd, arg);
+			actuator_data.cfgtype = u32->cfgtype;
+			parg = &actuator_data;
+			break;
 		}
-	default:
-		return msm_actuator_subdev_ioctl(sd, cmd, arg);
 	}
-	return msm_actuator_subdev_ioctl(sd, cmd, &msm_actuator_subdev_ioctl);
+	return msm_actuator_subdev_ioctl(sd, cmd, parg);
 }
 
 static long msm_actuator_subdev_fops_ioctl(struct file *file, unsigned int cmd,
