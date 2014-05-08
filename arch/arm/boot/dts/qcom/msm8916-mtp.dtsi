@@ -91,7 +91,7 @@
 
 	sound {
 		compatible = "qcom,msm8x16-audio-codec";
-		qcom,model = "msm8x16-snd-card";
+		qcom,model = "msm8x16-snd-card-mtp";
 		qcom,msm-snd-card-id = <0>;
 		qcom,msm-codec-type = "internal";
 		qcom,msm-mbhc-hphl-swh = <0>;
