@@ -180,6 +180,7 @@ struct qseecom_control {
 	struct work_struct bw_inactive_req_ws;
 	struct cdev cdev;
 	bool timer_running;
+	bool no_clock_support;
 };
 
 struct qseecom_client_handle {
@@ -611,6 +612,9 @@ static int qseecom_scale_bus_bandwidth(struct qseecom_dev_handle *data,
 	int32_t ret = 0;
 	int32_t req_mode;
 
+	if (qseecom.no_clock_support)
+		return 0;
+
 	ret = copy_from_user(&req_mode, argp, sizeof(req_mode));
 	if (ret) {
 		pr_err("copy_from_user failed\n");
@@ -629,6 +633,9 @@ static int qseecom_scale_bus_bandwidth(struct qseecom_dev_handle *data,
 
 static void __qseecom_add_bw_scale_down_timer(uint32_t duration)
 {
+	if (qseecom.no_clock_support)
+		return;
+
 	mutex_lock(&qsee_bw_mutex);
 	qseecom.bw_scale_down_timer.expires = jiffies +
 		msecs_to_jiffies(duration);
@@ -2503,6 +2510,9 @@ static int __qseecom_enable_clk(enum qseecom_ce_hw_instance ce)
 	int rc = 0;
 	struct qseecom_clk *qclk;
 
+	if (qseecom.no_clock_support)
+		return 0;
+
 	if (ce == CLK_QSEE)
 		qclk = &qseecom.qsee;
 	else
@@ -2554,6 +2564,9 @@ static void __qseecom_disable_clk(enum qseecom_ce_hw_instance ce)
 {
 	struct qseecom_clk *qclk;
 
+	if (qseecom.no_clock_support)
+		return;
+
 	if (ce == CLK_QSEE)
 		qclk = &qseecom.qsee;
 	else
@@ -2583,6 +2596,9 @@ static int qsee_vote_for_clock(struct qseecom_dev_handle *data,
 {
 	int ret = 0;
 	struct qseecom_clk *qclk;
+
+	if (qseecom.no_clock_support)
+		return 0;
 
 	qclk = &qseecom.qsee;
 	if (!qseecom.qsee_perf_client)
@@ -2666,6 +2682,9 @@ static void qsee_disable_clock_vote(struct qseecom_dev_handle *data,
 	struct qseecom_clk *qclk;
 
 	qclk = &qseecom.qsee;
+
+	if (qseecom.no_clock_support)
+		return;
 	if (!qseecom.qsee_perf_client)
 		return;
 
@@ -4362,7 +4381,8 @@ static int __qseecom_init_clk(enum qseecom_ce_hw_instance ce)
 		pr_warn("Unable to get CE core src clk, set to NULL\n");
 		qclk->ce_core_src_clk = NULL;
 	}
-
+	if (qseecom.no_clock_support)
+		return 0;
 	/* Get CE core clk */
 	qclk->ce_core_clk = clk_get(pdev, core_clk);
 	if (IS_ERR(qclk->ce_core_clk)) {
@@ -4595,6 +4615,16 @@ static int qseecom_probe(struct platform_device *pdev)
 			qseecom.ce_info.qsee_ce_hw_instance);
 		}
 
+		qseecom.no_clock_support =
+				of_property_read_bool((&pdev->dev)->of_node,
+						"qcom,no-clock-support");
+		if (!qseecom.no_clock_support) {
+			pr_info("qseecom clocks handled by other subsystem\n");
+		} else {
+			pr_info("no-clock-support=0x%x",
+			qseecom.no_clock_support);
+		}
+
 		qseecom.qsee.instance = qseecom.ce_info.qsee_ce_hw_instance;
 		qseecom.ce_drv.instance = qseecom.ce_info.hlos_ce_hw_instance;
 
@@ -4757,6 +4787,9 @@ static int qseecom_suspend(struct platform_device *pdev, pm_message_t state)
 	struct qseecom_clk *qclk;
 	qclk = &qseecom.qsee;
 
+	if (qseecom.no_clock_support)
+		return 0;
+
 	mutex_lock(&qsee_bw_mutex);
 	mutex_lock(&clk_access_lock);
 
@@ -4795,6 +4828,8 @@ static int qseecom_resume(struct platform_device *pdev)
 	struct qseecom_clk *qclk;
 	qclk = &qseecom.qsee;
 
+	if (qseecom.no_clock_support)
+		return 0;
 	mutex_lock(&qsee_bw_mutex);
 	mutex_lock(&clk_access_lock);
 	if (qseecom.cumulative_mode >= HIGH)
@@ -4850,9 +4885,11 @@ static int qseecom_resume(struct platform_device *pdev)
 	return 0;
 
 ce_bus_clk_err:
-	clk_disable_unprepare(qclk->ce_clk);
+	if (qclk->ce_clk)
+		clk_disable_unprepare(qclk->ce_clk);
 ce_clk_err:
-	clk_disable_unprepare(qclk->ce_core_clk);
+	if (qclk->ce_core_clk)
+		clk_disable_unprepare(qclk->ce_core_clk);
 err:
 	mutex_unlock(&clk_access_lock);
 	mutex_unlock(&qsee_bw_mutex);
