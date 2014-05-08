@@ -115,7 +115,6 @@ void adreno_ringbuffer_submit(struct adreno_ringbuffer *rb);
 void kgsl_cp_intrcallback(struct kgsl_device *device);
 
 unsigned int *adreno_ringbuffer_allocspace(struct adreno_ringbuffer *rb,
-						struct adreno_context *context,
 						unsigned int numcmds);
 
 void adreno_ringbuffer_read_pfp_ucode(struct kgsl_device *device);
