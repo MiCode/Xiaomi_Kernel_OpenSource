@@ -984,6 +984,16 @@ config SENSORS_QPNP_ADC_CURRENT
 	  configuration that include reading the external/internal Rsense, CSP_EX,
 	  CSN_EX pair along with the gain and offset calibration.
 
+config SENSORS_QPNP_CURRENT_MONITOR
+	tristate "Support for QPNP SMPS current monitor"
+	depends on SPMI
+	help
+	  This is the current monitor driver for QPNP ULT HF SMPS.
+
+	  The driver provides sysfs interface to configure the current
+	  thresholds and gives notification to user-space via sysfs if
+	  buck's load current crosses the threshold.
+
 config SENSORS_PC87360
 	tristate "National Semiconductor PC87360 family"
 	depends on !PPC
