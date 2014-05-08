@@ -47,6 +47,8 @@
 #include <linux/of_gpio.h>
 #include <mach/gpiomux.h>
 
+#define	MPU3050_DEV_NAME_GYRO	"gyroscope"
+
 #define MPU3050_AUTO_DELAY	1000
 
 #define MPU3050_MIN_VALUE	-32768
@@ -553,9 +555,9 @@ static void mpu3050_input_work_fn(struct work_struct *work)
 
 	mpu3050_read_xyz(sensor->client, &axis);
 
-	input_report_abs(sensor->idev, ABS_X, axis.x);
-	input_report_abs(sensor->idev, ABS_Y, axis.y);
-	input_report_abs(sensor->idev, ABS_Z, axis.z);
+	input_report_abs(sensor->idev, ABS_RX, axis.x);
+	input_report_abs(sensor->idev, ABS_RY, axis.y);
+	input_report_abs(sensor->idev, ABS_RZ, axis.z);
 	input_sync(sensor->idev);
 
 	if (sensor->use_poll)
@@ -745,15 +747,15 @@ static int mpu3050_probe(struct i2c_client *client,
 		goto err_class_sysfs;
 	}
 
-	idev->name = "MPU3050";
+	idev->name = MPU3050_DEV_NAME_GYRO;
 	idev->id.bustype = BUS_I2C;
 
 	input_set_capability(idev, EV_ABS, ABS_MISC);
-	input_set_abs_params(idev, ABS_X,
+	input_set_abs_params(idev, ABS_RX,
 			     MPU3050_MIN_VALUE, MPU3050_MAX_VALUE, 0, 0);
-	input_set_abs_params(idev, ABS_Y,
+	input_set_abs_params(idev, ABS_RY,
 			     MPU3050_MIN_VALUE, MPU3050_MAX_VALUE, 0, 0);
-	input_set_abs_params(idev, ABS_Z,
+	input_set_abs_params(idev, ABS_RZ,
 			     MPU3050_MIN_VALUE, MPU3050_MAX_VALUE, 0, 0);
 
 	input_set_drvdata(idev, sensor);
