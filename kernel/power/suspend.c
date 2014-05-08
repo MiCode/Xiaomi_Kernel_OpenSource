@@ -428,3 +428,13 @@ int pm_suspend(suspend_state_t state)
 	return error;
 }
 EXPORT_SYMBOL(pm_suspend);
+
+bool pm_suspend_debug = 0;
+EXPORT_SYMBOL(pm_suspend_debug);
+
+static int __init pm_suspend_debug_enable(char *str)
+{
+        pm_suspend_debug = 1;
+        return 1;
+}
+__setup("pm_suspend_debug", pm_suspend_debug_enable);

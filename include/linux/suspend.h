@@ -465,4 +465,11 @@ static inline void page_key_write(void *address) {}
 
 #endif /* !CONFIG_ARCH_SAVE_PAGE_KEYS */
 
+extern bool pm_suspend_debug;
+#define pm_suspend_dbg(fmt, arg...)                                     \
+do {                                                                    \
+        if (pm_suspend_debug)                                           \
+                printk(KERN_INFO fmt, ##arg);				\
+} while (0)
+
 #endif /* _LINUX_SUSPEND_H */

@@ -996,7 +996,13 @@ static int dpm_suspend_noirq(pm_message_t state)
 		get_device(dev);
 		mutex_unlock(&dpm_list_mtx);
 
+		pm_suspend_dbg("PM: device[%s] driver[%s] suspend noirq enter\n",
+			dev_name(dev), dev_driver_string(dev));
+
 		error = device_suspend_noirq(dev, state);
+
+		pm_suspend_dbg("PM: device[%s] driver[%s] suspend noirq exit\n",
+			dev_name(dev), dev_driver_string(dev));
 
 		mutex_lock(&dpm_list_mtx);
 		if (error) {
@@ -1324,7 +1330,13 @@ int dpm_suspend(pm_message_t state)
 		get_device(dev);
 		mutex_unlock(&dpm_list_mtx);
 
+		pm_suspend_dbg("PM: device[%s] driver[%s] suspend enter\n",
+			dev_name(dev), dev_driver_string(dev));
+
 		error = device_suspend(dev);
+
+		pm_suspend_dbg("PM: device %s driver [%s] suspend exit\n",
+			dev_name(dev), dev_driver_string(dev));
 
 		mutex_lock(&dpm_list_mtx);
 		if (error) {
@@ -1431,7 +1443,13 @@ int dpm_prepare(pm_message_t state)
 		get_device(dev);
 		mutex_unlock(&dpm_list_mtx);
 
+		pm_suspend_dbg("PM: device[%s] driver[%s] suspend prepare enter\n",
+			dev_name(dev), dev_driver_string(dev));
+
 		error = device_prepare(dev, state);
+
+		pm_suspend_dbg("PM: device[%s] driver[%s] suspend prepare exit\n",
+			dev_name(dev), dev_driver_string(dev));
 
 		mutex_lock(&dpm_list_mtx);
 		if (error) {
