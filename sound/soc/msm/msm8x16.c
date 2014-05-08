@@ -65,6 +65,7 @@ static struct wcd_mbhc_config mbhc_cfg = {
 	.detect_extn_cable = true,
 	.mono_stero_detection = false,
 	.swap_gnd_mic = NULL,
+	.hs_ext_micbias = false,
 };
 
 static struct wcd9xxx_mbhc_config wcd9xxx_mbhc_cfg = {
@@ -1587,7 +1588,9 @@ static int msm8x16_asoc_machine_probe(struct platform_device *pdev)
 	struct msm8916_asoc_mach_data *pdata = NULL;
 	const char *card_dev_id = "qcom,msm-snd-card-id";
 	const char *codec_type = "qcom,msm-codec-type";
+	const char *hs_micbias_type = "qcom,msm-hs-micbias-type";
 	const char *ptr = NULL;
+	const char *type = NULL;
 	int ret, id;
 
 	pdata = devm_kzalloc(&pdev->dev,
@@ -1649,6 +1652,22 @@ static int msm8x16_asoc_machine_probe(struct platform_device *pdev)
 		dev_info(&pdev->dev, "default codec configured\n");
 		pdata->codec_type = 0;
 	}
+
+	ret = of_property_read_string(pdev->dev.of_node,
+		hs_micbias_type, &type);
+	if (ret) {
+		dev_err(&pdev->dev, "%s: missing %s in dt node\n",
+			__func__, hs_micbias_type);
+		goto err;
+	}
+	if (!strcmp(type, "external")) {
+		dev_dbg(&pdev->dev, "Headset is using external micbias\n");
+		mbhc_cfg.hs_ext_micbias = true;
+	} else {
+		dev_dbg(&pdev->dev, "Headset is using internal micbias\n");
+		mbhc_cfg.hs_ext_micbias = false;
+	}
+
 	/* initialize the mclk */
 	pdata->digital_cdc_clk.i2s_cfg_minor_version =
 					AFE_API_VERSION_I2S_CONFIG;

@@ -588,10 +588,12 @@ static void wcd_mbhc_swch_irq_handler(struct wcd_mbhc *mbhc)
 			0x20, (!detection_type << 5));
 
 	if ((mbhc->current_plug == MBHC_PLUG_TYPE_NONE) && detection_type) {
-		/* Enable Tx2 RBias */
-		snd_soc_update_bits(codec,
-				MSM8X16_WCD_A_ANALOG_MICB_1_INT_RBIAS,
-				0x10, 0x10);
+		if (!mbhc->mbhc_cfg->hs_ext_micbias)
+			/* Enable Tx2 RBias if the headset
+			 * is using internal micbias*/
+			snd_soc_update_bits(codec,
+					MSM8X16_WCD_A_ANALOG_MICB_1_INT_RBIAS,
+					0x10, 0x10);
 		/* Remove pull down on MIC BIAS2 */
 		snd_soc_update_bits(codec,
 				 MSM8X16_WCD_A_ANALOG_MICB_2_EN,
