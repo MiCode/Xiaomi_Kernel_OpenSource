@@ -28,6 +28,7 @@
 #include <linux/init.h>
 #include <linux/kmod.h>
 #include <linux/device.h>
+#include <linux/acpi.h>
 #include <linux/delay.h>
 #include <linux/slab.h>
 #include <linux/i2c.h>
@@ -1234,6 +1235,15 @@ static int gc2235_probe(struct i2c_client *client,
 				       client->dev.platform_data);
 		if (ret)
 			goto out_free;
+	} else if (ACPI_COMPANION(&client->dev)) {
+		/*
+		 * If no SFI firmware, grab the platform struct
+		 * directly and configure via ACPI/EFIvars instead
+		 */
+		ret = gc2235_s_config(&dev->sd, client->irq,
+				      gc2235_platform_data(NULL));
+		if (ret)
+			goto out_free;
 	}
 
 	dev->sd.flags |= V4L2_SUBDEV_FL_HAS_DEVNODE;
@@ -1252,11 +1262,19 @@ out_free:
 	return ret;
 }
 
+
+static struct acpi_device_id gc2235_acpi_match[] = {
+	{""},
+	{},
+};
+MODULE_DEVICE_TABLE(acpi, gc2235_acpi_match);
+
 MODULE_DEVICE_TABLE(i2c, gc2235_id);
 static struct i2c_driver gc2235_driver = {
 	.driver = {
 		.owner = THIS_MODULE,
 		.name = GC2235_NAME,
+		.acpi_match_table = ACPI_PTR(gc2235_acpi_match),
 	},
 	.probe = gc2235_probe,
 	.remove = gc2235_remove,

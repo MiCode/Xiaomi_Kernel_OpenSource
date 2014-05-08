@@ -119,6 +119,8 @@
 #define GC2235_START_STREAMING		0x91
 #define GC2235_STOP_STREAMING		0x0
 
+void *gc2235_platform_data(void *info);
+
 struct regval_list {
 	u16 reg_num;
 	u8 value;
