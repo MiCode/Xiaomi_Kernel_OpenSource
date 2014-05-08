@@ -37,6 +37,9 @@
 
 #define ARRAY_INDEX_FROM_ADDR(base, addr) ((addr) - (base))
 
+/* Offset relative to QSCRATCH_RAM1_REG */
+#define QSCRATCH_CGCTL_REG_OFFSET	0x1c
+
 enum usb_bam_sm {
 	USB_BAM_SM_INIT = 0,
 	USB_BAM_SM_PLUG_NOTIFIED,
@@ -321,7 +324,7 @@ static void usb_bam_set_inactivity_timer(enum usb_ctrl bam)
 
 static int connect_pipe(u8 idx, u32 *usb_pipe_idx)
 {
-	int ret, ram1_value;
+	int ret;
 	enum usb_ctrl bam;
 	struct usb_bam_sps_type usb_bam_sps = ctx.usb_bam_sps;
 	struct sps_pipe **pipe = &(usb_bam_sps.sps_pipes[idx]);
@@ -410,13 +413,20 @@ static int connect_pipe(u8 idx, u32 *usb_pipe_idx)
 		 */
 		bam = pipe_connect->bam_type;
 
-		if (bam == CI_CTRL)
-			ram1_value = 0x4;
-		else
-			ram1_value = 0x7;
+		pr_debug("Configuring QSCRATCH RAM for %s\n",
+				bam_enable_strings[bam]);
+		if (bam == CI_CTRL) {
+			writel_relaxed(0x4, ctx.qscratch_ram1_reg);
+			/* Enable only RAM13 Master clock */
+			writel_relaxed(0x10, ctx.qscratch_ram1_reg +
+					QSCRATCH_CGCTL_REG_OFFSET);
+		} else if (bam == DWC3_CTRL) {
+			writel_relaxed(0x7, ctx.qscratch_ram1_reg);
+			/* Enable RAM11-RAM13 Master clock */
+			writel_relaxed(0x18, ctx.qscratch_ram1_reg +
+					QSCRATCH_CGCTL_REG_OFFSET);
+		}
 
-		pr_debug("Writing 0x%x to QSCRATCH_RAM1\n", ram1_value);
-		writel_relaxed(ram1_value, ctx.qscratch_ram1_reg);
 		/* fall through */
 	case OCI_MEM:
 		if (pipe_connect->mem_type == OCI_MEM)
@@ -735,6 +745,8 @@ static int disconnect_pipe(u8 idx)
 	case USB_PRIVATE_MEM:
 		pr_debug("Freeing private memory used by BAM PIPE\n");
 		writel_relaxed(0x0, ctx.qscratch_ram1_reg);
+		writel_relaxed(0x0, ctx.qscratch_ram1_reg +
+				QSCRATCH_CGCTL_REG_OFFSET);
 		clk_disable_unprepare(ctx.mem_clk);
 		clk_disable_unprepare(ctx.mem_iface_clk);
 	case OCI_MEM:
