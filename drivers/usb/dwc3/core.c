@@ -997,6 +997,8 @@ static int dwc3_probe(struct platform_device *pdev)
 
 	dwc->nominal_elastic_buffer = device_property_read_bool(dev,
 				"snps,nominal-elastic-buffer");
+	dwc->usb3_u1u2_disable = device_property_read_bool(dev,
+				"snps,usb3-u1u2-disable");
 
 	if (pdata) {
 		dwc->maximum_speed = pdata->maximum_speed;

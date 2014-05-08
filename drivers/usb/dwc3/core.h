@@ -797,6 +797,7 @@ struct dwc3_scratchpad_array {
  * 	2	- No de-emphasis
  * 	3	- Reserved
  * @err_evt_seen: previous event in queue was erratic error
+ * @usb3_u1u2_disable: if true, disable U1U2 low power modes in Superspeed mode.
  * @in_lpm: indicates if controller is in low power mode (no clocks)
  */
 struct dwc3 {
@@ -945,6 +946,7 @@ struct dwc3 {
 
 	unsigned		nominal_elastic_buffer:1;
 	unsigned		err_evt_seen:1;
+	unsigned		usb3_u1u2_disable:1;
 
 	struct dwc3_gadget_events	dbg_gadget_events;
 
