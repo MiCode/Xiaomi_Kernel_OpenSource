@@ -1169,10 +1169,7 @@ static int nfc_parse_dt(struct device *dev, struct qca199x_platform_data *pdata)
 	r = of_property_read_string(np, "qcom,clk-src", &pdata->clk_src_name);
 
 	if (strcmp(pdata->clk_src_name, "GPCLK2")) {
-		r = of_property_read_u32(np, "qcom,clk-gpio",
-					&pdata->clkreq_gpio);
-		if (r)
-			return -EINVAL;
+		pdata->clkreq_gpio = of_get_named_gpio(np, "qcom,clk-gpio", 0);
 	}
 
 	if ((!strcmp(pdata->clk_src_name, "GPCLK")) ||
@@ -1186,6 +1183,7 @@ static int nfc_parse_dt(struct device *dev, struct qca199x_platform_data *pdata)
 			if ((!gpio_is_valid(pdata->irq_gpio_clk_req)))
 				return -EINVAL;
 	}
+
 	if (r)
 		return -EINVAL;
 	return r;
@@ -1196,7 +1194,6 @@ static int qca199x_probe(struct i2c_client *client,
 {
 	int r = 0;
 	int irqn = 0;
-	struct device_node *node = client->dev.of_node;
 	struct qca199x_platform_data *platform_data;
 	struct qca199x_dev *qca199x_dev;
 
@@ -1348,9 +1345,6 @@ static int qca199x_probe(struct i2c_client *client,
 	}
 
 	if (strcmp(platform_data->clk_src_name, "GPCLK2")) {
-		platform_data->clkreq_gpio =
-			of_get_named_gpio(node, "qcom,clk-gpio", 0);
-
 		if (gpio_is_valid(platform_data->clkreq_gpio)) {
 			r = gpio_request(platform_data->clkreq_gpio,
 				"nfc_clkreq_gpio");
