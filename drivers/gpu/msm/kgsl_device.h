@@ -528,6 +528,7 @@ struct kgsl_context {
  * @kobj: Pointer to a kobj for the sysfs directory for this process
  * @debug_root: Pointer to the debugfs root for this process
  * @stats: Memory allocation statistics for this process
+ * @syncsource_idr: sync sources created by this process
  */
 struct kgsl_process_private {
 	unsigned long priv;
@@ -551,6 +552,8 @@ struct kgsl_process_private {
 		unsigned int cur;
 		unsigned int max;
 	} stats[KGSL_MEM_ENTRY_MAX];
+
+	struct idr syncsource_idr;
 };
 
 /**

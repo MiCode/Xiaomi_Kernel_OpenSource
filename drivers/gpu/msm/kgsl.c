@@ -774,6 +774,7 @@ static void kgsl_destroy_process_private(struct kref *kref)
 		debugfs_remove_recursive(private->debug_root);
 
 	idr_destroy(&private->mem_idr);
+	idr_destroy(&private->syncsource_idr);
 	kgsl_mmu_putpagetable(private->pagetable);
 
 	kfree(private);
@@ -879,6 +880,8 @@ kgsl_get_process_private(struct kgsl_device *device)
 	private->mem_rb = RB_ROOT;
 	idr_init(&private->mem_idr);
 
+	idr_init(&private->syncsource_idr);
+
 	if ((!private->pagetable) && kgsl_mmu_enabled()) {
 		unsigned long pt_name;
 
@@ -934,13 +937,24 @@ static int kgsl_release(struct inode *inodep, struct file *filep)
 	struct kgsl_process_private *private = dev_priv->process_priv;
 	struct kgsl_device *device = dev_priv->device;
 	struct kgsl_context *context;
+	struct kgsl_syncsource *syncsource;
 	struct kgsl_mem_entry *entry;
 	int next = 0;
 
 	filep->private_data = NULL;
 
+	next = 0;
+	while (1) {
+		syncsource = idr_get_next(&private->syncsource_idr, &next);
+
+		if (syncsource == NULL)
+			break;
+		kgsl_syncsource_put(syncsource);
+		next = next + 1;
+	}
 	kgsl_mutex_lock(&device->mutex, &device->mutex_owner);
 
+	next = 0;
 	while (1) {
 		read_lock(&device->context_lock);
 		context = idr_get_next(&device->context_idr, &next);
@@ -3482,6 +3496,14 @@ static const struct kgsl_ioctl kgsl_ioctl_funcs[] = {
 			kgsl_ioctl_gpumem_sync_cache, 0),
 	KGSL_IOCTL_FUNC(IOCTL_KGSL_GPUMEM_SYNC_CACHE_BULK,
 			kgsl_ioctl_gpumem_sync_cache_bulk, 0),
+	KGSL_IOCTL_FUNC(IOCTL_KGSL_SYNCSOURCE_CREATE,
+			kgsl_ioctl_syncsource_create, 0),
+	KGSL_IOCTL_FUNC(IOCTL_KGSL_SYNCSOURCE_DESTROY,
+			kgsl_ioctl_syncsource_destroy, 0),
+	KGSL_IOCTL_FUNC(IOCTL_KGSL_SYNCSOURCE_CREATE_FENCE,
+			kgsl_ioctl_syncsource_create_fence, 0),
+	KGSL_IOCTL_FUNC(IOCTL_KGSL_SYNCSOURCE_SIGNAL_FENCE,
+			kgsl_ioctl_syncsource_signal_fence, 0),
 };
 
 long kgsl_ioctl_helper(struct file *filep, unsigned int cmd,
