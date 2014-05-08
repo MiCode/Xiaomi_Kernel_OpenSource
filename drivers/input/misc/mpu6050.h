@@ -209,12 +209,14 @@ struct mpu_chip_config {
  *  @gpio_int:		interrupt GPIO.
  *  @int_flags:		interrupt pin control flags.
  *  @use_int:		use interrupt mode instead of polling data.
+ *  @place:			sensor place number.
  */
 struct mpu6050_platform_data {
 	int gpio_en;
 	int gpio_int;
 	u32 int_flags;
 	bool use_int;
+	u8 place;
 };
 
 #endif /* __MPU6050_H__ */
