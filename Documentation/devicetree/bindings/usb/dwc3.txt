@@ -16,6 +16,7 @@ Optional properties:
  - tx-fifo-resize: determines if the FIFO *has* to be reallocated.
  - snps,nominal-elastic-buffer: When set, the nominal elastic buffer setting
 	is used. By default, the half-full setting is used.
+ - snps,usb3-u1u2-disable: If present, disable u1u2 low power modes for DWC3 core controller in SS mode.
  - snps,bus-suspend-enable: If present then controller supports low power mode
 	during bus suspend.
 
@@ -27,4 +28,5 @@ dwc3@4a030000 {
 	interrupts = <0 92 4>
 	usb-phy = <&usb2_phy>, <&usb3,phy>;
 	tx-fifo-resize;
+	snps,usb3-u1u2-disable;
 };

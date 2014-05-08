@@ -780,6 +780,7 @@ struct dwc3_scratchpad_array {
  * @start_config_issued: true when StartConfig command has been issued
  * @three_stage_setup: set if we perform a three phase setup
  * @err_evt_seen: previous event in queue was erratic error
+ * @usb3_u1u2_disable: if true, disable U1U2 low power modes in Superspeed mode.
  */
 struct dwc3 {
 	struct usb_ctrlrequest	*ctrl_req;
@@ -897,6 +898,7 @@ struct dwc3 {
 
 	unsigned		nominal_elastic_buffer:1;
 	unsigned		err_evt_seen:1;
+	unsigned		usb3_u1u2_disable:1;
 	unsigned		enable_bus_suspend:1;
 
 	struct dwc3_gadget_events	dbg_gadget_events;
