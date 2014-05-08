@@ -1223,5 +1223,20 @@
 				output-low;
 			};
 		};
+
+		mpu6050_int_pin {
+			qcom,pins = <&gp 115>;
+			qcom,pin-func = <0>;
+			qcom,num-grp-pins = <1>;
+			label = "mpu6050-irq";
+			mpu6050_default: mpu6050_default {
+				drive-strength = <6>;
+				bias-pull-up;
+			};
+			mpu6050_sleep: mpu6050_sleep {
+				drive-strength = <2>;
+				bias-pull-down;
+			};
+		};
 	};
 };
