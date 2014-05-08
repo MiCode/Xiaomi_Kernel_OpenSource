@@ -2951,6 +2951,78 @@ static int i915_wa_registers(struct seq_file *m, void *unused)
 	return 0;
 }
 
+static int i915_scheduler_info(struct seq_file *m, void *unused)
+{
+	struct drm_info_node *node = (struct drm_info_node *) m->private;
+	struct drm_device *dev = node->minor->dev;
+	struct drm_i915_private *dev_priv = dev->dev_private;
+	struct i915_scheduler   *scheduler = dev_priv->scheduler;
+	struct i915_scheduler_stats *stats = scheduler->stats;
+	struct i915_scheduler_stats_nodes node_stats[I915_NUM_RINGS];
+	struct intel_engine_cs *ring;
+	char   str[50 * (I915_NUM_RINGS + 1)], name[50], *ptr;
+	int ret, i, r;
+
+	ret = mutex_lock_interruptible(&dev->mode_config.mutex);
+	if (ret)
+		return ret;
+
+#define PRINT_VAR(name, fmt, var)					\
+	do {								\
+		sprintf(str, "%-22s", name);				\
+		ptr = str + strlen(str);				\
+		for_each_ring(ring, dev_priv, r) {			\
+			sprintf(ptr, " %10" fmt, var);			\
+			ptr += strlen(ptr);				\
+		}							\
+		seq_printf(m, "%s\n", str);				\
+	} while (0)
+
+	PRINT_VAR("Ring name:",             "s", dev_priv->ring[r].name);
+	PRINT_VAR("  Ring seqno",           "d", ring->get_seqno(ring, false));
+	seq_putc(m, '\n');
+
+	seq_puts(m, "Batch submissions:\n");
+	PRINT_VAR("  Queued",               "u", stats[r].queued);
+	PRINT_VAR("  Submitted",            "u", stats[r].submitted);
+	PRINT_VAR("  Completed",            "u", stats[r].completed);
+	PRINT_VAR("  Expired",              "u", stats[r].expired);
+	seq_putc(m, '\n');
+
+	seq_puts(m, "Flush counts:\n");
+	PRINT_VAR("  By object",            "u", stats[r].flush_obj);
+	PRINT_VAR("  By request",           "u", stats[r].flush_req);
+	PRINT_VAR("  Blanket",              "u", stats[r].flush_all);
+	PRINT_VAR("  Entries bumped",       "u", stats[r].flush_bump);
+	PRINT_VAR("  Entries submitted",    "u", stats[r].flush_submit);
+	seq_putc(m, '\n');
+
+	seq_puts(m, "Miscellaneous:\n");
+	PRINT_VAR("  ExecEarly retry",      "u", stats[r].exec_early);
+	PRINT_VAR("  ExecFinal requeue",    "u", stats[r].exec_again);
+	PRINT_VAR("  ExecFinal killed",     "u", stats[r].exec_dead);
+	PRINT_VAR("  Fence wait",           "u", stats[r].fence_wait);
+	PRINT_VAR("  Hung flying",          "u", stats[r].kill_flying);
+	PRINT_VAR("  Hung queued",          "u", stats[r].kill_queued);
+	seq_putc(m, '\n');
+
+	seq_puts(m, "Queue contents:\n");
+	for_each_ring(ring, dev_priv, i)
+		i915_scheduler_query_stats(ring, node_stats + ring->id);
+
+	for (i = 0; i < (i915_sqs_MAX + 1); i++) {
+		sprintf(name, "  %s", i915_scheduler_queue_status_str(i));
+		PRINT_VAR(name, "d", node_stats[r].counts[i]);
+	}
+	seq_putc(m, '\n');
+
+#undef PRINT_VAR
+
+	mutex_unlock(&dev->mode_config.mutex);
+
+	return 0;
+}
+
 struct pipe_crc_info {
 	const char *name;
 	struct drm_device *dev;
@@ -4909,6 +4981,7 @@ static const struct drm_info_list i915_debugfs_list[] = {
 	{"i915_runtime_pm_info", i915_runtime_pm_info, 0},
 	{"i915_display_info", i915_display_info, 0},
 	{"i915_wa_registers", i915_wa_registers, 0},
+	{"i915_scheduler_info", i915_scheduler_info, 0},
 };
 #define I915_DEBUGFS_ENTRIES ARRAY_SIZE(i915_debugfs_list)
 

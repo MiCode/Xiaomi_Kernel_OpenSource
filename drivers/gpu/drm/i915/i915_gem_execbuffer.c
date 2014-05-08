@@ -1784,6 +1784,8 @@ pre_mutex_err:
 	if (args->flags & I915_EXEC_REQUEST_FENCE)
 		args->rsvd2 = (__u64) -1;
 
+	dev_priv->scheduler->stats[ring->id].exec_early++;
+
 	return ret;
 }
 

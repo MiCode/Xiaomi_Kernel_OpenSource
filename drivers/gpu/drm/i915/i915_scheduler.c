@@ -117,6 +117,9 @@ const char *i915_scheduler_queue_status_str(
 	case i915_sqs_dead:
 	return "Dead";
 
+	case i915_sqs_MAX:
+	return "Invalid";
+
 	default:
 	break;
 	}
@@ -212,11 +215,13 @@ int i915_scheduler_queue_execbuffer(struct i915_scheduler_queue_entry *qe)
 		int ret;
 
 		qe->scheduler_index = scheduler->index++;
+		scheduler->stats[qe->params.ring->id].queued++;
 
 		trace_i915_scheduler_queue(qe->params.ring, qe);
 
 		scheduler->flags[qe->params.ring->id] |= i915_sf_submitting;
 		ret = dev_priv->gt.do_execfinal(&qe->params);
+		scheduler->stats[qe->params.ring->id].submitted++;
 		scheduler->flags[qe->params.ring->id] &= ~i915_sf_submitting;
 
 		/* Need to release the objects: */
@@ -244,6 +249,8 @@ int i915_scheduler_queue_execbuffer(struct i915_scheduler_queue_entry *qe)
 		if (qe->params.fence_wait)
 			sync_fence_put(qe->params.fence_wait);
 #endif
+
+		scheduler->stats[qe->params.ring->id].expired++;
 
 		return ret;
 	}
@@ -355,6 +362,8 @@ int i915_scheduler_queue_execbuffer(struct i915_scheduler_queue_entry *qe)
 	else
 		not_flying = i915_scheduler_count_flying(scheduler, ring) <
 							 scheduler->min_flying;
+
+	scheduler->stats[ring->id].queued++;
 
 	trace_i915_scheduler_queue(ring, node);
 	trace_i915_scheduler_node_state_change(ring, node);
@@ -500,10 +509,12 @@ void i915_scheduler_kill_all(struct drm_device *dev)
 
 			case I915_SQS_CASE_FLYING:
 				i915_scheduler_node_kill(node);
+				scheduler->stats[r].kill_flying++;
 			break;
 
 			case I915_SQS_CASE_QUEUED:
 				i915_scheduler_node_kill_queued(node);
+				scheduler->stats[r].kill_queued++;
 			break;
 
 			default:
@@ -574,6 +585,7 @@ static void i915_scheduler_seqno_complete(struct intel_engine_cs *ring, uint32_t
 		/* Node was in flight so mark it as complete. */
 		node->status = i915_sqs_complete;
 		trace_i915_scheduler_node_state_change(ring, node);
+		scheduler->stats[ring->id].completed++;
 		got_changes = true;
 	}
 
@@ -689,6 +701,7 @@ static int i915_scheduler_remove(struct intel_engine_cs *ring)
 
 		list_del(&node->link);
 		list_add(&node->link, &remove);
+		scheduler->stats[ring->id].expired++;
 
 		/* Strip the dependency info while the mutex is still locked */
 		i915_scheduler_remove_dependent(scheduler, node);
@@ -944,6 +957,35 @@ int i915_scheduler_dump_locked(struct intel_engine_cs *ring, const char *msg)
 	return 0;
 }
 
+int i915_scheduler_query_stats(struct intel_engine_cs *ring,
+			       struct i915_scheduler_stats_nodes *stats)
+{
+	struct drm_i915_private *dev_priv = ring->dev->dev_private;
+	struct i915_scheduler   *scheduler = dev_priv->scheduler;
+	struct i915_scheduler_queue_entry  *node;
+	unsigned long   flags;
+
+	memset(stats, 0x00, sizeof(*stats));
+
+	spin_lock_irqsave(&scheduler->lock, flags);
+
+	list_for_each_entry(node, &scheduler->node_queue[ring->id], link) {
+		if (node->status >= i915_sqs_MAX) {
+			DRM_DEBUG_DRIVER("Invalid node state: %d! [uniq = %d, seqno = %d]\n",
+					 node->status, node->params.request->uniq, node->params.request->seqno);
+
+			stats->counts[i915_sqs_MAX]++;
+			continue;
+		}
+
+		stats->counts[node->status]++;
+	}
+
+	spin_unlock_irqrestore(&scheduler->lock, flags);
+
+	return 0;
+}
+
 int i915_scheduler_flush_request(struct drm_i915_gem_request *req,
 				 bool is_locked)
 {
@@ -980,16 +1022,21 @@ int i915_scheduler_flush_request(struct drm_i915_gem_request *req,
 
 	spin_lock_irqsave(&scheduler->lock, flags);
 
+	scheduler->stats[ring_id].flush_req++;
+
 	i915_scheduler_priority_bump_clear(scheduler);
 
 	flush_count = i915_scheduler_priority_bump(scheduler,
 			    req->scheduler_qe, scheduler->priority_level_max);
+	scheduler->stats[ring_id].flush_bump += flush_count;
 
 	spin_unlock_irqrestore(&scheduler->lock, flags);
 
 	if (flush_count) {
 		DRM_DEBUG_DRIVER("<%s> Bumped %d entries\n", req->ring->name, flush_count);
 		flush_count = i915_scheduler_submit_max_priority(req->ring, is_locked);
+		if (flush_count > 0)
+			scheduler->stats[ring_id].flush_submit += flush_count;
 	}
 
 	return flush_count;
@@ -1016,6 +1063,8 @@ int i915_scheduler_flush(struct intel_engine_cs *ring, bool is_locked)
 
 	BUG_ON(is_locked && (scheduler->flags[ring->id] & i915_sf_submitting));
 
+	scheduler->stats[ring->id].flush_all++;
+
 	do {
 		found = false;
 		spin_lock_irqsave(&scheduler->lock, flags);
@@ -1030,6 +1079,7 @@ int i915_scheduler_flush(struct intel_engine_cs *ring, bool is_locked)
 
 		if (found) {
 			ret = i915_scheduler_submit(ring, is_locked);
+			scheduler->stats[ring->id].flush_submit++;
 			if (ret < 0)
 				return ret;
 
@@ -1322,6 +1372,8 @@ static int i915_scheduler_pop_from_queue_locked(struct intel_engine_cs *ring,
 		spin_unlock_irqrestore(&scheduler->lock, *flags);
 		i915_scheduler_async_fence_wait(ring->dev, fence_wait);
 		spin_lock_irqsave(&scheduler->lock, *flags);
+
+		scheduler->stats[ring->id].fence_wait++;
 #else
 		BUG_ON(true);
 #endif
@@ -1373,6 +1425,8 @@ int i915_scheduler_submit(struct intel_engine_cs *ring, bool was_locked)
 		 * list. So add it back in and mark it as in flight. */
 		i915_scheduler_fly_node(node);
 
+		scheduler->stats[ring->id].submitted++;
+
 		scheduler->flags[ring->id] |= i915_sf_submitting;
 		spin_unlock_irqrestore(&scheduler->lock, flags);
 		ret = dev_priv->gt.do_execfinal(&node->params);
@@ -1391,6 +1445,7 @@ int i915_scheduler_submit(struct intel_engine_cs *ring, bool was_locked)
 			case ENOENT:
 				/* Fatal errors. Kill the node. */
 				requeue = -1;
+				scheduler->stats[ring->id].exec_dead++;
 			break;
 
 			case EAGAIN:
@@ -1400,12 +1455,14 @@ int i915_scheduler_submit(struct intel_engine_cs *ring, bool was_locked)
 			case ERESTARTSYS:
 			case EINTR:
 				/* Supposedly recoverable errors. */
+				scheduler->stats[ring->id].exec_again++;
 			break;
 
 			default:
 				DRM_DEBUG_DRIVER("<%s> Got unexpected error from execfinal(): %d!\n",
 						 ring->name, ret);
 				/* Assume it is recoverable and hope for the best. */
+				scheduler->stats[ring->id].exec_again++;
 			break;
 			}
 

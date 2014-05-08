@@ -80,6 +80,33 @@ const char *i915_qe_state_str(struct i915_scheduler_queue_entry *node);
 #define I915_SCHEDULER_FLUSH_REQUEST(req, locked)                           \
 	i915_scheduler_flush_request(req, locked)
 
+struct i915_scheduler_stats_nodes {
+	uint32_t	counts[i915_sqs_MAX + 1];
+};
+
+struct i915_scheduler_stats {
+	/* Batch buffer counts: */
+	uint32_t            queued;
+	uint32_t            submitted;
+	uint32_t            completed;
+	uint32_t            expired;
+
+	/* Other stuff: */
+	uint32_t            flush_obj;
+	uint32_t            flush_req;
+	uint32_t            flush_all;
+	uint32_t            flush_bump;
+	uint32_t            flush_submit;
+
+	uint32_t            exec_early;
+	uint32_t            exec_again;
+	uint32_t            exec_dead;
+	uint32_t            kill_flying;
+	uint32_t            kill_queued;
+
+	uint32_t            fence_wait;
+};
+
 struct i915_scheduler {
 	struct list_head    node_queue[I915_NUM_RINGS];
 	uint32_t            flags[I915_NUM_RINGS];
@@ -91,6 +118,9 @@ struct i915_scheduler {
 	uint32_t            priority_level_preempt;
 	uint32_t            min_flying;
 	uint32_t            file_queue_max;
+
+	/* Statistics: */
+	struct i915_scheduler_stats     stats[I915_NUM_RINGS];
 };
 
 /* Flag bits for i915_scheduler::flags */
@@ -129,6 +159,8 @@ int         i915_scheduler_dump(struct intel_engine_cs *ring,
 int         i915_scheduler_dump_all(struct drm_device *dev, const char *msg);
 bool        i915_scheduler_is_request_tracked(struct drm_i915_gem_request *req,
 					      bool *completed, bool *busy);
+int         i915_scheduler_query_stats(struct intel_engine_cs *ring,
+				       struct i915_scheduler_stats_nodes *stats);
 bool        i915_scheduler_file_queue_is_full(struct drm_file *file);
 
 #endif  /* _I915_SCHEDULER_H_ */
