@@ -1,0 +1,46 @@
+QPNP PMIC BUCK current monitoring
+
+QPNP PMIC BUCK provides two current limiting interrupts INT1(icritical) and
+INT2(iwarn), which gets trigger whenever buck load current crosses the
+programmed threshold (INT1/INT2 interrupt triggers whenever load current
+crosses INT1_CURRENT/INT2_CURRENT threshold respectively).
+These interrupts are used for MSM current throttling.
+
+[PMIC BUCK current monitor Device Declarations]
+
+Required properties:
+- compatible : should be "qcom,qpnp-buck-current-monitor".
+- reg : offset and length of the PMIC Aribter register map.
+- interrupts : Specifies critical and warning interrupt.
+- interrupt-names : Should contain "iwarn", "icritical".
+
+Optional properties:
+- qcom,icrit-init-threshold-pc :   Initial critical current threshold in
+				percentage of maximum rated current (3 Amps).
+				If this	value is not specified default is 90%
+				of rated current.
+- qcom,iwarn-init-threshold-pc :   Initial warning current threshold in
+				percentage of maximum rated current (3 Amps).
+				If this value is not specified default is 70%
+				of rated current.
+- qcom,icrit-polling-delay-msec : Delay for polling RT status register for
+				  ICRIT interrupt.
+- qcom,iwarn-polling-delay-msec : Delay for polling RT status register for
+				  IWARN interrupt.
+- qcom,enable-current-monitor : Enable current monitor. If this property is
+				not specified buck will not generate current
+				limiting interrupts unless explictly enabled
+				from user-space.
+
+Example:
+	qpnp-buck-current-monitor@1800 {
+			compatible = "qcom,qpnp-buck-current-monitor";
+			reg = <0x1800 0x100>;
+			interrupts = <1 0x18 0>, <1 0x18 1>;
+			interrupt-names = "iwarning", "icritical";
+			qcom,icrit-init-threshold-pc = <90>;
+			qcom,iwarn-init-threshold-pc = <70>;
+			qcom,icrit-polling-delay-msec = <1000>;
+			qcom,iwarn-polling-delay-msec = <2000>;
+			qcom,enable-current-monitor;
+	};
