@@ -232,6 +232,14 @@ static void __iomem *virt_bases[N_BASES];
 #define GPLL4_CONFIG_CTL                 0x1DD4
 #define GPLL4_TEST_CTL                   0x1DD8
 #define GPLL4_STATUS                     0x1DDC
+#define MMPLL10_PLL_MODE                 0x2140
+#define MMPLL10_PLL_L_VAL                0x2144
+#define MMPLL10_PLL_M_VAL                0x2148
+#define MMPLL10_PLL_N_VAL                0x214C
+#define MMPLL10_PLL_USER_CTL             0x2150
+#define MMPLL10_PLL_CONFIG_CTL           0x2154
+#define MMPLL10_PLL_TEST_CTL             0x2158
+#define MMPLL10_PLL_STATUS               0x215C
 #define PCIE_0_BCR                       0x1AC0
 #define PCIE_0_PHY_BCR                   0x1B00
 #define PCIE_0_CFG_AHB_CBCR              0x1B0C
@@ -345,6 +353,7 @@ static void __iomem *virt_bases[N_BASES];
 #define gpll0_source_val 1
 #define gpll1_source_val 2
 #define gpll4_source_val 5
+#define mmpll10_source_val 1
 #define gnd_source_val	5
 #define sdcc1_gnd_source_val 6
 #define pcie_pipe_source_val 2
@@ -2385,6 +2394,19 @@ static struct branch_clk gcc_emac1_sys_clk = {
 	},
 };
 
+static struct pll_clk mmpll10_clk_src = {
+	.mode_reg = (void __iomem *)MMPLL10_PLL_MODE,
+	.status_reg = (void __iomem *)MMPLL10_PLL_STATUS,
+	.base = &virt_bases[GCC_BASE],
+	.c = {
+		.parent = &xo_clk_src.c,
+		.dbg_name = "mmpll10_pll_clk_src",
+		.rate = 345600000,
+		.ops = &clk_ops_local_pll,
+		CLK_INIT(mmpll10_clk_src.c),
+	},
+};
+
 static DEFINE_CLK_MEASURE(l2_m_clk);
 static DEFINE_CLK_MEASURE(krait0_m_clk);
 static DEFINE_CLK_MEASURE(krait1_m_clk);
@@ -2822,6 +2844,31 @@ static struct clk_lookup fsm_clocks_9900[] = {
 
 };
 
+static struct pll_config_regs mmpll10_regs = {
+	.l_reg = (void __iomem *)MMPLL10_PLL_L_VAL,
+	.m_reg = (void __iomem *)MMPLL10_PLL_M_VAL,
+	.n_reg = (void __iomem *)MMPLL10_PLL_N_VAL,
+	.config_reg = (void __iomem *)MMPLL10_PLL_USER_CTL,
+	.mode_reg = (void __iomem *)MMPLL10_PLL_MODE,
+	.base = &virt_bases[GCC_BASE],
+};
+
+/* PLL4 at 345.6 MHz, main output enabled.*/
+static struct pll_config mmpll10_config = {
+	.m = 0,
+	.n = 1,
+	.vco_val = 0,
+	.vco_mask = BM(29, 28),
+	.pre_div_val = 0x0,
+	.pre_div_mask = BM(14, 12),
+	.post_div_val = BIT(8),
+	.post_div_mask = BM(9, 8),
+	.mn_ena_val = BIT(24),
+	.mn_ena_mask = BIT(24),
+	.main_output_val = BIT(0),
+	.main_output_mask = BIT(0),
+};
+
 static struct pll_config_regs gpll4_regs __initdata = {
 	.l_reg = (void __iomem *)GPLL4_L,
 	.m_reg = (void __iomem *)GPLL4_M,
@@ -2836,7 +2883,7 @@ static struct pll_config gpll4_config __initdata = {
 	.l = 0x1e,
 	.m = 0x0,
 	.n = 0x1,
-	.vco_val = 0x1,
+	.vco_val = 0,
 	.vco_mask = BM(21, 20),
 	.pre_div_val = 0x0,
 	.pre_div_mask = BM(14, 12),
@@ -2971,3 +3018,14 @@ struct clock_init_data fsm9900_dummy_clock_init_data __initdata = {
 	.size = ARRAY_SIZE(fsm_clocks_dummy),
 };
 
+void mpll10_326_clk_init(void)
+{
+	mmpll10_config.l = 0x11;
+	configure_sr_hpm_lp_pll(&mmpll10_config, &mmpll10_regs, 1);
+}
+
+void mpll10_345_clk_init(void)
+{
+	mmpll10_config.l = 0x12;
+	configure_sr_hpm_lp_pll(&mmpll10_config, &mmpll10_regs, 1);
+}
