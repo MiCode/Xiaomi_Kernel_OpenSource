@@ -481,6 +481,26 @@ static void msm_cpp_poll(void __iomem *cpp_base, u32 val)
 		pr_err("Poll failed: expect: 0x%x\n", val);
 }
 
+static void msm_cpp_poll_rx_empty(void __iomem *cpp_base)
+{
+	uint32_t tmp, retry = 0;
+
+	tmp = msm_camera_io_r(cpp_base + MSM_CPP_MICRO_FIFO_RX_STAT);
+	while (((tmp & 0x2) != 0x0) && (retry++ < MSM_CPP_POLL_RETRIES)) {
+		/*Below usleep values are chosen based on experiments
+		and this was the smallest number which works. This
+		sleep is needed to leave enough time for Microcontroller
+		to read rx fifo.*/
+		usleep_range(200, 300);
+		tmp = msm_camera_io_r(cpp_base + MSM_CPP_MICRO_FIFO_RX_STAT);
+	}
+
+	if (retry < MSM_CPP_POLL_RETRIES)
+		CPP_LOW("Poll rx empty\n");
+	else
+		pr_err("Poll rx empty failed\n");
+}
+
 void cpp_release_ion_client(struct kref *ref)
 {
 	struct cpp_device *cpp_dev = container_of(ref,
@@ -883,8 +903,11 @@ static void cpp_load_fw(struct cpp_device *cpp_dev, char *fw_name_bin)
 		msm_cpp_write(MSM_CPP_START_ADDRESS, cpp_dev->base);
 
 		if (ptr_bin) {
+			msm_cpp_poll_rx_empty(cpp_dev->base);
 			for (i = 0; i < fw->size/4; i++) {
 				msm_cpp_write(*ptr_bin, cpp_dev->base);
+				if (i % MSM_CPP_RX_FIFO_LEVEL == 0)
+					msm_cpp_poll_rx_empty(cpp_dev->base);
 				ptr_bin++;
 			}
 		}
@@ -1255,7 +1278,10 @@ static int msm_cpp_send_frame_to_hardware(struct cpp_device *cpp_dev,
 
 		msm_cpp_write(0x6, cpp_dev->base);
 		msm_cpp_dump_frame_cmd(process_frame);
+		msm_cpp_poll_rx_empty(cpp_dev->base);
 		for (i = 0; i < process_frame->msg_len; i++) {
+			if (i % MSM_CPP_RX_FIFO_LEVEL == 0)
+				msm_cpp_poll_rx_empty(cpp_dev->base);
 			if ((induce_error) && (i == 1)) {
 				pr_err("Induce error\n");
 				msm_cpp_write(process_frame->cpp_cmd_msg[i]-1,
