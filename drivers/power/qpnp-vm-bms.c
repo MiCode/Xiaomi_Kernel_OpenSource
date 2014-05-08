@@ -112,6 +112,7 @@
 #define OCV_UNINITIALIZED		0xFFFF
 #define VBATT_ERROR_MARGIN		20000
 #define CV_DROP_MARGIN			10000
+#define MIN_OCV_UV			2000000
 
 #define QPNP_VM_BMS_DEV_NAME		"qcom,qpnp-vm-bms"
 
@@ -884,7 +885,7 @@ static void convert_and_store_ocv(struct qpnp_bms_chip *chip,
 static int read_and_update_ocv(struct qpnp_bms_chip *chip, int batt_temp,
 							bool is_pon_ocv)
 {
-	int rc;
+	int rc, ocv_uv;
 	u16 ocv_data = 0;
 
 	/* read the BMS h/w OCV */
@@ -895,12 +896,15 @@ static int read_and_update_ocv(struct qpnp_bms_chip *chip, int batt_temp,
 		return -ENXIO;
 	}
 
-	if (chip->last_ocv_raw == OCV_UNINITIALIZED) {
-		/* first time */
-		chip->last_ocv_raw = ocv_data;
-		convert_and_store_ocv(chip, batt_temp, is_pon_ocv);
-	} else if (chip->last_ocv_raw != ocv_data) {
-		/* a new OCV generated */
+	/* check if OCV is within limits */
+	ocv_uv = convert_vbatt_raw_to_uv(chip, ocv_data, is_pon_ocv);
+	if (ocv_uv < MIN_OCV_UV) {
+		pr_err("OCV too low or invalid (%d)- rejecting it\n", ocv_uv);
+		return 0;
+	}
+
+	if ((chip->last_ocv_raw == OCV_UNINITIALIZED) ||
+			(chip->last_ocv_raw != ocv_data)) {
 		pr_debug("new OCV!\n");
 		chip->last_ocv_raw = ocv_data;
 		convert_and_store_ocv(chip, batt_temp, is_pon_ocv);
@@ -1773,7 +1777,7 @@ static void bms_new_battery_setup(struct qpnp_bms_chip *chip)
 	/* delay for the BMS hardware to reset its state */
 	msleep(200);
 	rc |= qpnp_masked_write_base(chip, chip->base + EN_CTL_REG,
-							BMS_EN_BIT, 1);
+						BMS_EN_BIT, BMS_EN_BIT);
 	/* delay for the BMS hardware to re-start */
 	msleep(200);
 	if (rc)
@@ -2247,7 +2251,7 @@ static int calculate_initial_soc(struct qpnp_bms_chip *chip)
 
 static int bms_load_hw_defaults(struct qpnp_bms_chip *chip)
 {
-	u8 val, state;
+	u8 val, state, bms_en = 0;
 	u32 interval[2], count[2], fifo[2];
 	int rc;
 
@@ -2355,14 +2359,20 @@ static int bms_load_hw_defaults(struct qpnp_bms_chip *chip)
 			pr_err("Unable to set FSM state rc=%d\n", rc);
 	}
 
+	rc = qpnp_read_wrapper(chip, &bms_en, chip->base + BMS_EN_BIT, 1);
+	if (rc) {
+		pr_err("Unable to read BMS_EN state rc=%d\n", rc);
+		return rc;
+	}
+
 	rc = update_fsm_state(chip);
 	if (rc) {
 		pr_err("Unable to read FSM state rc=%d\n", rc);
 		return rc;
 	}
 
-	pr_info("Sample_Interval-S1=[%d]S2=[%d]  Sample_Count-S1=[%d]S2=[%d] Fifo_Length-S1=[%d]S2=[%d] FSM_state=%d\n",
-				interval[0], interval[1], count[0],
+	pr_info("BMS_EN=%d Sample_Interval-S1=[%d]S2=[%d]  Sample_Count-S1=[%d]S2=[%d] Fifo_Length-S1=[%d]S2=[%d] FSM_state=%d\n",
+				!!bms_en, interval[0], interval[1], count[0],
 					count[1], fifo[0], fifo[1],
 					chip->current_fsm_state);
 
