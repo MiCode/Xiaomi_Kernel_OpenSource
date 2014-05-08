@@ -166,7 +166,7 @@ static enum msm_pm_time_stats_id msm_pm_retention(bool from_idle)
 
 	clk_disable(cpu_clk);
 
-	ret = msm_spm_set_low_power_mode(MSM_SPM_MODE_POWER_RETENTION, false);
+	ret = msm_spm_set_low_power_mode(MSM_SPM_MODE_RETENTION, false);
 	WARN_ON(ret);
 
 	msm_arch_idle();
