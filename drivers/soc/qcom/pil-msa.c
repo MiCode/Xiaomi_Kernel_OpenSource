@@ -335,6 +335,7 @@ err_power:
 int pil_mss_reset_load_mba(struct pil_desc *pil)
 {
 	struct q6v5_data *drv = container_of(pil, struct q6v5_data, desc);
+	struct modem_data *md = dev_get_drvdata(pil->dev);
 	const struct firmware *fw;
 	char fw_name_legacy[10] = "mba.b00";
 	char fw_name[10] = "mba.mbn";
@@ -353,7 +354,9 @@ int pil_mss_reset_load_mba(struct pil_desc *pil)
 		return ret;
 	}
 
-	mba_virt = dma_alloc_coherent(pil->dev, MBA_SIZE, &mba_phys,
+	md->mba_mem_dev.coherent_dma_mask =
+		DMA_BIT_MASK(sizeof(dma_addr_t) * 8);
+	mba_virt = dma_alloc_coherent(&md->mba_mem_dev, MBA_SIZE, &mba_phys,
 					GFP_KERNEL);
 	if (!mba_virt) {
 		dev_err(pil->dev, "MBA metadata buffer allocation failed\n");
@@ -381,7 +384,8 @@ int pil_mss_reset_load_mba(struct pil_desc *pil)
 	return 0;
 
 err_mss_reset:
-	dma_free_coherent(pil->dev, MBA_SIZE, drv->mba_virt, drv->mba_phys);
+	dma_free_coherent(&md->mba_mem_dev, MBA_SIZE, drv->mba_virt,
+				drv->mba_phys);
 err_dma_alloc:
 	release_firmware(fw);
 	return ret;
@@ -396,8 +400,10 @@ static int pil_msa_auth_modem_mdt(struct pil_desc *pil, const u8 *metadata,
 	s32 status;
 	int ret;
 
+	drv->mba_mem_dev.coherent_dma_mask =
+		DMA_BIT_MASK(sizeof(dma_addr_t) * 8);
 	/* Make metadata physically contiguous and 4K aligned. */
-	mdata_virt = dma_alloc_coherent(pil->dev, size, &mdata_phys,
+	mdata_virt = dma_alloc_coherent(&drv->mba_mem_dev, size, &mdata_phys,
 					GFP_KERNEL);
 	if (!mdata_virt) {
 		dev_err(pil->dev, "MBA metadata buffer allocation failed\n");
@@ -424,7 +430,7 @@ static int pil_msa_auth_modem_mdt(struct pil_desc *pil, const u8 *metadata,
 		ret = -EINVAL;
 	}
 
-	dma_free_coherent(pil->dev, size, mdata_virt, mdata_phys);
+	dma_free_coherent(&drv->mba_mem_dev, size, mdata_virt, mdata_phys);
 
 	if (ret) {
 		modem_log_rmb_regs(drv->rmb_base);
@@ -491,8 +497,8 @@ static int pil_msa_mba_auth(struct pil_desc *pil)
 
 	if (drv->q6 && drv->q6->mba_virt)
 		/* Reclaim MBA memory. */
-		dma_free_coherent(pil->dev, MBA_SIZE, drv->q6->mba_virt,
-							drv->q6->mba_phys);
+		dma_free_coherent(&drv->mba_mem_dev, MBA_SIZE,
+					drv->q6->mba_virt, drv->q6->mba_phys);
 	if (ret)
 		modem_log_rmb_regs(drv->rmb_base);
 	return ret;
