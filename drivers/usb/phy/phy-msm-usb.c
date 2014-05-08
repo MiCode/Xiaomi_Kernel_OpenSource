@@ -804,7 +804,8 @@ static int msm_otg_set_suspend(struct usb_phy *phy, int suspend)
 		case OTG_STATE_A_HOST:
 			pr_debug("host bus suspend\n");
 			clear_bit(A_BUS_REQ, &motg->inputs);
-			if (!atomic_read(&motg->in_lpm)) {
+			if (!atomic_read(&motg->in_lpm) &&
+					!test_bit(ID, &motg->inputs)) {
 				queue_work(system_nrt_wq, &motg->sm_work);
 				/* Flush sm_work to avoid it race with
 				 * subsequent calls of set_suspend.
