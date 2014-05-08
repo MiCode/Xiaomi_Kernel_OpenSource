@@ -255,8 +255,19 @@ static const struct adreno_vbif_data a420_vbif[] = {
 	{0, 0},
 };
 
+static const struct adreno_vbif_data a430_vbif[] = {
+	{ A4XX_VBIF_GATE_OFF_WRREQ_EN, 0x00000001 },
+	{ A4XX_VBIF_IN_RD_LIM_CONF0, 0x18181818 },
+	{ A4XX_VBIF_IN_RD_LIM_CONF1, 0x00000018 },
+	{ A4XX_VBIF_IN_WR_LIM_CONF0, 0x18181818 },
+	{ A4XX_VBIF_IN_WR_LIM_CONF1, 0x00000018 },
+	{ A4XX_VBIF_ROUND_ROBIN_QOS_ARB, 0x00000003 },
+	{0, 0},
+};
+
 static const struct adreno_vbif_platform a4xx_vbif_platforms[] = {
 	{ adreno_is_a420, a420_vbif },
+	{ adreno_is_a430, a430_vbif },
 };
 
 /*
