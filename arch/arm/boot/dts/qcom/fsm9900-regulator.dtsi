@@ -255,21 +255,3 @@
 
 };
 
-&soc {
-	pcie0_power_en_vreg: pcie0_power_en_vreg {
-		compatible = "regulator-fixed";
-		regulator-name = "pcie0_power_en_vreg";
-		startup-delay-us = <4000>;
-		enable-active-high;
-		gpio = <&pma8084_gpios 16 0>;
-		regulator-boot-on;
-	};
-	pcie1_power_en_vreg: pcie1_power_en_vreg {
-		compatible = "regulator-fixed";
-		regulator-name = "pcie1_power_en_vreg";
-		startup-delay-us = <4000>;
-		enable-active-high;
-		gpio = <&pma8084_gpios 22 0>;
-		regulator-boot-on;
-	};
-};
