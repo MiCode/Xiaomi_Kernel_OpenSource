@@ -386,8 +386,10 @@ static int _ringbuffer_bootstrap_ucode(struct adreno_ringbuffer *rb,
 	adreno_writereg(adreno_dev, ADRENO_REG_CP_ME_CNTL, 0);
 
 	cmds = adreno_ringbuffer_allocspace(rb, NULL, bootstrap_size);
+	if (IS_ERR(cmds))
+		return PTR_ERR(cmds);
 	if (cmds == NULL)
-			return -ENOMEM;
+		return -ENOSPC;
 
 	/* Construct the packet that bootsraps the ucode */
 	*cmds++ = cp_type3_packet(CP_BOOTSTRAP_UCODE, (bootstrap_size - 1));
@@ -780,7 +782,6 @@ adreno_ringbuffer_addcmds(struct adreno_ringbuffer *rb,
 		total_sizedwords += 9;
 
 	ringcmds = adreno_ringbuffer_allocspace(rb, drawctxt, total_sizedwords);
-
 	if (IS_ERR(ringcmds))
 		return PTR_ERR(ringcmds);
 	if (ringcmds == NULL)
