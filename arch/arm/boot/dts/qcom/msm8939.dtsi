@@ -175,18 +175,6 @@
 		<0x0b002000 0x1000>;
 	};
 
-	msmgpio: gpio@1000000 {
-		compatible = "qcom,msm-gpio";
-		gpio-controller;
-		#gpio-cells = <2>;
-		interrupt-controller;
-		#interrupt-cells = <2>;
-		reg = <0x1000000 0x300000>;
-		ngpio = <122>;
-		interrupts = <0 208 0>;
-		qcom,direct-connect-irqs = <29>;
-	};
-
 	acc0:clock-controller@b088000 {
 		compatible = "qcom,arm-cortex-acc";
 		reg = <0x0b088000 0x1000>;
