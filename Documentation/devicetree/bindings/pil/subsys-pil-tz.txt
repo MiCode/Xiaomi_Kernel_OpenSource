@@ -13,17 +13,17 @@ Optional properties:
 - reg:		      Pairs of physical base addresses and region sizes of
 		      memory mapped registers.
 - interrupts:	      Subsystem to Apps watchdog bite interrupt.
-- vdd_'reg'-supply:   Reference to the regulator that supplies the corresponding
-		      'reg' domain.
-- proxy-reg-names:    Names of the regulators that need to be turned on/off
-		      during proxy voting/unvoting.
-- active-reg-names:   Names of the regulators that need to be turned on for the
-		      subsystem to run. Turned off when the subsystem is shutdown.
-- vdd_'reg'-uV-uA:    Voltage and current values for the 'reg' regulator.
-- proxy-clock-names:  Names of the clocks that need to be turned on/off during
-		      proxy voting/unvoting.
-- active-clock-names: Names of the clocks that need to be turned on for the
-		      subsystem to run. Turned off when the subsystem is shutdown.
+- vdd_'reg'-supply: Reference to the regulator that supplies the corresponding
+		    'reg' domain.
+- qcom,proxy-reg-names: Names of the regulators that need to be turned on/off
+			during proxy voting/unvoting.
+- qcom,active-reg-names: Names of the regulators that need to be turned on for the
+			subsystem to run. Turned off when the subsystem is shutdown.
+- qcom,vdd_'reg'-uV-uA:    Voltage and current values for the 'reg' regulator.
+- qcom,proxy-clock-names:  Names of the clocks that need to be turned on/off during
+			   proxy voting/unvoting.
+- qcom,active-clock-names: Names of the clocks that need to be turned on for the
+			   subsystem to run. Turned off when the subsystem is shutdown.
 - clock-names:	      Names of all the clocks that are accessed by the subsystem.
 - qcom,msm-bus,name:  Name of the bus client for the subsystem.
 - qcom,msm-bus,num-cases: Number of use-cases.
@@ -53,10 +53,10 @@ Example:
 		      <0xfdc80000 0x400>;
 
 		vdd-supply = <&gdsc_venus>;
-		proxy-reg-names = "vdd";
+		qcom,proxy-reg-names = "vdd";
 		clock-names = "core_clk", "iface_clk",
 				"bus_clk", "mem_clk";
-		proxy-clock-names = "core_clk", "iface_clk",
+		qcom,proxy-clock-names = "core_clk", "iface_clk",
 					"bus_clk", "mem_clk";
 
 		qcom,msm-bus,name = "pil-venus";
@@ -77,16 +77,15 @@ Example:
 		reg = <0xfe200000 0x00100>,
 		      <0xfd485100 0x00010>,
 		      <0xfc4016c0 0x00004>;
-		vdd_cx-supply = <&pm8841_s2_corner>;
 
 		interrupts = <0 162 1>;
 
 		vdd_cx-supply = <&pm8841_s2_corner>;
-		proxy-reg-names = "vdd_cx";
-		vdd_cx-uV-uA = <7 100000>;
+		qcom,proxy-reg-names = "vdd_cx";
+		qcom,vdd_cx-uV-uA = <7 100000>;
 		clock-names = "bus_clk", "xo";
-		active-clock-names = "bus_clk";
-		proxy-clock-names = "xo";
+		qcom,active-clock-names = "bus_clk";
+		qcom,proxy-clock-names = "xo";
 
 		qcom,smem-id = <423>;
 		qcom,pas-id = <1>;
