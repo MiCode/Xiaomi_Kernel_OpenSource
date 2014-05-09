@@ -307,6 +307,27 @@ Optional properties:
 					left, top, width, height alignments and minimum width and
 					height values
 - qcom,esd-check-enabled:		Boolean used to enable ESD recovery feature.
+- qcom,mdss-dsi-panel-status-command:	A byte stream formed by multiple dcs packets based on
+					qcom dsi controller protocol, to read the panel status.
+					This value is used to kick in the ESD recovery.
+					byte 0: dcs data type
+					byte 1: set to indicate this is an individual packet
+						 (no chain)
+					byte 2: virtual channel number
+					byte 3: expect ack from client (dcs read command)
+					byte 4: wait number of specified ms after dcs command
+						 transmitted
+					byte 5, 6: 16 bits length in network byte order
+					byte 7 and beyond: number byte of payload
+- qcom,mdss-dsi-panel-status-command-mode:
+					String that specifies the ctrl state for reading the panel status.
+					"dsi_lp_mode" = DSI low power mode
+					"dsi_hs_mode" = DSI high speed mode
+- qcom,mdss-dsi-panel-status-check-mode:Specifies the panel status check method for ESD recovery.
+					"bta_check" = Uses BTA to check the panel status
+					"reg_read" = Reads panel status register to check the panel status
+- qcom,mdss-dsi-panel-status-value:	Specifies the value of the panel status register when the panel is
+					in good state.
 
 Note, if a given optional qcom,* binding is not present, then the driver will configure
 the default values specified.
@@ -414,5 +435,9 @@ Example:
 		qcom,ulps-enabled;
 		qcom,panel-roi-alignment = <4 4 2 2 20 20>;
 		qcom,esd-check-enabled;
+		qcom,mdss-dsi-panel-status-command = [06 01 00 01 05 00 02 0A 08];
+		qcom,mdss-dsi-panel-status-command-state = "dsi_lp_mode";
+		qcom,mdss-dsi-panel-status-check-mode = "reg_read";
+		qcom,mdss-dsi-panel-status-value = <0x9c>;
 	};
 };
