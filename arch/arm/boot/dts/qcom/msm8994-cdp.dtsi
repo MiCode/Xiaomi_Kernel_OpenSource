@@ -289,6 +289,13 @@
 
 
 	};
+
+	sound {
+		qcom,model = "msm8994-tomtom-cdp-snd-card";
+		qcom,cdc-micbias2-headset-only;
+		qcom,us-euro-gpios = <&pm8994_mpps 2 0>;
+		qcom,mbhc-audio-jack-type = "6-pole-jack";
+	};
 };
 
 &pm8994_gpios {
@@ -351,6 +358,12 @@
 		cdc-vdd-spkdrv-supply = <&pmi8994_boost>;
 		qcom,cdc-vdd-spkdrv-voltage = <5000000 5000000>;
 		qcom,cdc-vdd-spkdrv-current = <600000>;
-		qcom,cdc-on-demand-supplies = "cdc-vdd-spkdrv";
+
+		cdc-vdd-spkdrv-2-supply = <&pmi8994_boost>;
+		qcom,cdc-vdd-spkdrv-2-voltage = <5000000 5000000>;
+		qcom,cdc-vdd-spkdrv-2-current = <600000>;
+
+		qcom,cdc-on-demand-supplies = "cdc-vdd-spkdrv",
+					      "cdc-vdd-spkdrv-2";
 	};
 };
