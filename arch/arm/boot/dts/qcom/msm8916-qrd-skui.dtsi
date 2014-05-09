@@ -208,6 +208,7 @@
 		avago,als_D = <142>;
 		avago,ga_value = <48>;
 	};
+
 	bosch@18 { /* Accelerometer sensor */
 		compatible = "bosch,bma2x2";
 		reg = <0x18>;
@@ -235,6 +236,15 @@
 		vlogic-supply = <&pm8916_l16>;
 		invn,gpio-int = <&msm_gpio 115 0x2>;
 		invn,place = "Portrait Up Back Side";
+	};
+
+	mmc@30 { /* Magnetic field sensor */
+		compatible = "mmc,mmc3416x";
+		reg = <0x30>;
+		vdd-supply = <&pm8916_l17>;
+		vio-supply = <&pm8916_l6>;
+		mmc,dir = <1>;
+		mmc,auto-report;
 	};
 };
 
