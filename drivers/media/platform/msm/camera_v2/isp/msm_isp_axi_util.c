@@ -1078,8 +1078,8 @@ static int msm_isp_update_stream_bandwidth(struct vfe_device *vfe_dev)
 	if (num_pix_streams > 0)
 		total_pix_bandwidth = total_pix_bandwidth /
 			num_pix_streams * (num_pix_streams - 1) +
-			axi_data->src_info[VFE_PIX_0].pixel_clock *
-			ISP_DEFAULT_FORMAT_FACTOR / ISP_Q2;
+			((unsigned long)axi_data->src_info[VFE_PIX_0].
+			pixel_clock) * ISP_DEFAULT_FORMAT_FACTOR / ISP_Q2;
 	total_bandwidth = total_pix_bandwidth + total_rdi_bandwidth;
 
 	rc = msm_isp_update_bandwidth(ISP_VFE0 + vfe_dev->pdev->id,
@@ -1311,7 +1311,7 @@ static int msm_isp_stop_axi_stream(struct vfe_device *vfe_dev,
 		if (camif_update == DISABLE_CAMIF_IMMEDIATELY) {
 			vfe_dev->hw_info->vfe_ops.axi_ops.halt(vfe_dev);
 		}
-		vfe_dev->hw_info->vfe_ops.core_ops.reset_hw(vfe_dev, ISP_RST_SOFT);
+		vfe_dev->hw_info->vfe_ops.core_ops.reset_hw(vfe_dev, ISP_RST_HARD);
 		vfe_dev->hw_info->vfe_ops.core_ops.init_hw_reg(vfe_dev);
 	}
 

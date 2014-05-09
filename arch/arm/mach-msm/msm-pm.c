@@ -799,17 +799,19 @@ int msm_cpu_pm_enter_sleep(enum msm_pm_sleep_mode mode, bool from_idle)
 		pr_info("CPU%u: %s mode:%d\n",
 			smp_processor_id(), __func__, mode);
 
-	time = sched_clock();
+	if (from_idle)
+		time = sched_clock();
+
 	if (execute[mode])
 		exit_stat = execute[mode](from_idle);
-	time = sched_clock() - time;
-	if (from_idle)
+
+	if (from_idle) {
+		time = sched_clock() - time;
 		msm_pm_ftrace_lpm_exit(smp_processor_id(), mode, collapsed);
-	else
-		exit_stat = MSM_PM_STAT_SUSPEND;
-	if (exit_stat >= 0)
-		msm_pm_add_stat(exit_stat, time);
-	do_div(time, 1000);
+		if (exit_stat >= 0)
+			msm_pm_add_stat(exit_stat, time);
+	}
+
 	return collapsed;
 }
 

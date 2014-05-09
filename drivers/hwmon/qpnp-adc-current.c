@@ -340,48 +340,8 @@ static int32_t qpnp_iadc_read_conversion_result(struct qpnp_iadc_chip *iadc,
 	return 0;
 }
 
-#define QPNP_IADC_PM8941_3_1_REV2	3
-#define QPNP_IADC_PM8941_3_1_REV3	2
-#define QPNP_IADC_PM8026_1_REV2		1
-#define QPNP_IADC_PM8026_1_REV3		2
-#define QPNP_IADC_PM8026_2_REV2		4
-#define QPNP_IADC_PM8026_2_REV3		2
-#define QPNP_IADC_PM8110_1_REV2		2
-#define QPNP_IADC_PM8110_1_REV3		2
-
-#define QPNP_IADC_REV_ID_8941_3_1	1
-#define QPNP_IADC_REV_ID_8026_1_0	2
-#define QPNP_IADC_REV_ID_8026_2_0	3
-#define QPNP_IADC_REV_ID_8110_1_0	4
-
-static void qpnp_temp_comp_version_check(struct qpnp_iadc_chip *iadc,
-						int32_t *version)
-{
-	if ((iadc->iadc_comp.revision_dig_major ==
-			QPNP_IADC_PM8941_3_1_REV2) &&
-			(iadc->iadc_comp.revision_ana_minor ==
-			QPNP_IADC_PM8941_3_1_REV3))
-		*version = QPNP_IADC_REV_ID_8941_3_1;
-	else if ((iadc->iadc_comp.revision_dig_major ==
-			QPNP_IADC_PM8026_1_REV2) &&
-			(iadc->iadc_comp.revision_ana_minor ==
-			QPNP_IADC_PM8026_1_REV3))
-		*version = QPNP_IADC_REV_ID_8026_1_0;
-	else if ((iadc->iadc_comp.revision_dig_major ==
-			QPNP_IADC_PM8026_2_REV2) &&
-			(iadc->iadc_comp.revision_ana_minor ==
-			QPNP_IADC_PM8026_2_REV3))
-		*version = QPNP_IADC_REV_ID_8026_2_0;
-	else if ((iadc->iadc_comp.revision_dig_major ==
-			QPNP_IADC_PM8110_1_REV2) &&
-			(iadc->iadc_comp.revision_ana_minor ==
-			QPNP_IADC_PM8110_1_REV3))
-		*version = QPNP_IADC_REV_ID_8110_1_0;
-	else
-		*version = -EINVAL;
-
-	return;
-}
+#define QPNP_IADC_PM8026_2_REV2	4
+#define QPNP_IADC_PM8026_2_REV3	2
 
 #define QPNP_COEFF_1					969000
 #define QPNP_COEFF_2					32
@@ -408,15 +368,19 @@ static void qpnp_temp_comp_version_check(struct qpnp_iadc_chip *iadc,
 #define QPNP_COEFF_22					5000000
 #define QPNP_COEFF_23					3722500
 #define QPNP_COEFF_24					84
+#define QPNP_COEFF_25					33
+#define QPNP_COEFF_26					22
+#define QPNP_COEFF_27					53
+#define QPNP_COEFF_28					48
 
 static int32_t qpnp_iadc_comp(int64_t *result, struct qpnp_iadc_chip *iadc,
 							int64_t die_temp)
 {
 	int64_t temp_var = 0, sys_gain_coeff = 0, old;
 	int32_t coeff_a = 0, coeff_b = 0;
-	int32_t version;
+	int version = 0;
 
-	qpnp_temp_comp_version_check(iadc, &version);
+	version = qpnp_adc_get_revid_version(iadc->dev);
 	if (version == -EINVAL)
 		return 0;
 
@@ -431,7 +395,7 @@ static int32_t qpnp_iadc_comp(int64_t *result, struct qpnp_iadc_chip *iadc,
 				iadc->iadc_comp.sys_gain;
 
 	switch (version) {
-	case QPNP_IADC_REV_ID_8941_3_1:
+	case QPNP_REV_ID_8941_3_1:
 		switch (iadc->iadc_comp.id) {
 		case COMP_ID_GF:
 			if (!iadc->iadc_comp.ext_rsense) {
@@ -470,7 +434,60 @@ static int32_t qpnp_iadc_comp(int64_t *result, struct qpnp_iadc_chip *iadc,
 			break;
 		}
 		break;
-	case QPNP_IADC_REV_ID_8026_1_0:
+	case QPNP_REV_ID_8026_2_1:
+	case QPNP_REV_ID_8026_2_2:
+		/* pm8026 rev 2.1 and 2.2 */
+		switch (iadc->iadc_comp.id) {
+		case COMP_ID_GF:
+			if (!iadc->iadc_comp.ext_rsense) {
+				/* internal rsense */
+				if (*result < 0) {
+					/* charge */
+					coeff_a = 0;
+					coeff_b = 0;
+				} else {
+					coeff_a = QPNP_COEFF_25;
+					coeff_b = 0;
+				}
+			} else {
+				if (*result < 0) {
+					/* charge */
+					coeff_a = 0;
+					coeff_b = 0;
+				} else {
+					/* discharge */
+					coeff_a = 0;
+					coeff_b = 0;
+				}
+			}
+			break;
+		case COMP_ID_TSMC:
+		default:
+			if (!iadc->iadc_comp.ext_rsense) {
+				/* internal rsense */
+				if (*result < 0) {
+					/* charge */
+					coeff_a = 0;
+					coeff_b = 0;
+				} else {
+					coeff_a = QPNP_COEFF_26;
+					coeff_b = 0;
+				}
+			} else {
+				if (*result < 0) {
+					/* charge */
+					coeff_a = 0;
+					coeff_b = 0;
+				} else {
+					/* discharge */
+					coeff_a = 0;
+					coeff_b = 0;
+				}
+			}
+			break;
+		}
+		break;
+	case QPNP_REV_ID_8026_1_0:
 		/* pm8026 rev 1.0 */
 		switch (iadc->iadc_comp.id) {
 		case COMP_ID_GF:
@@ -522,7 +539,7 @@ static int32_t qpnp_iadc_comp(int64_t *result, struct qpnp_iadc_chip *iadc,
 			break;
 		}
 		break;
-	case QPNP_IADC_REV_ID_8110_1_0:
+	case QPNP_REV_ID_8110_1_0:
 		/* pm8110 rev 1.0 */
 		switch (iadc->iadc_comp.id) {
 		case COMP_ID_GF:
@@ -554,8 +571,41 @@ static int32_t qpnp_iadc_comp(int64_t *result, struct qpnp_iadc_chip *iadc,
 			break;
 		}
 		break;
+	case QPNP_REV_ID_8110_2_0:
+		die_temp -= 25000;
+		/* pm8110 rev 2.0 */
+		switch (iadc->iadc_comp.id) {
+		case COMP_ID_GF:
+			if (!iadc->iadc_comp.ext_rsense) {
+				/* internal rsense */
+				if (*result < 0) {
+					/* charge */
+					coeff_a = 0;
+					coeff_b = 0;
+				} else {
+					coeff_a = QPNP_COEFF_27;
+					coeff_b = 0;
+				}
+			}
+			break;
+		case COMP_ID_SMIC:
+		default:
+			if (!iadc->iadc_comp.ext_rsense) {
+				/* internal rsense */
+				if (*result < 0) {
+					/* charge */
+					coeff_a = 0;
+					coeff_b = 0;
+				} else {
+					coeff_a = QPNP_COEFF_28;
+					coeff_b = 0;
+				}
+			}
+			break;
+		}
+		break;
 	default:
-	case QPNP_IADC_REV_ID_8026_2_0:
+	case QPNP_REV_ID_8026_2_0:
 		/* pm8026 rev 1.0 */
 		coeff_a = 0;
 		coeff_b = 0;
@@ -578,7 +628,8 @@ static int32_t qpnp_iadc_comp(int64_t *result, struct qpnp_iadc_chip *iadc,
 		temp_var = div64_s64(temp_var * sys_gain_coeff, 1000000);
 		*result = div64_s64(*result * 1000, temp_var);
 	}
-	pr_debug("%lld compensated into %lld\n", old, *result);
+	pr_debug("%lld compensated into %lld, a: %d, b: %d, sys_gain: %lld\n",
+			old, *result, coeff_a, coeff_b, sys_gain_coeff);
 
 	return 0;
 }
@@ -844,9 +895,10 @@ int32_t qpnp_iadc_calibrate_for_trim(struct qpnp_iadc_chip *iadc,
 							bool batfet_closed)
 {
 	uint8_t rslt_lsb, rslt_msb;
-	int32_t rc = 0;
+	int32_t rc = 0, version = 0;
 	uint16_t raw_data;
 	uint32_t mode_sel = 0;
+	bool iadc_offset_ch_batfet_check;
 
 	if (qpnp_iadc_is_valid(iadc) < 0)
 		return -EPROBE_DEFER;
@@ -868,13 +920,22 @@ int32_t qpnp_iadc_calibrate_for_trim(struct qpnp_iadc_chip *iadc,
 	iadc->adc->calib.gain_raw = raw_data;
 
 	/*
-	 * there is a features in the BMS where if the batfet is opened
-	 * the BMS reads from INTERNAL_RSENSE (channel 0) actually go to
+	 * there is a features on PM8941 in the BMS where if the batfet is
+	 * opened the BMS reads from INTERNAL_RSENSE (channel 0) actually go to
 	 * OFFSET_CALIBRATION_CSP_CSN (channel 5). Hence if batfet is opened
 	 * we have to calibrate based on OFFSET_CALIBRATION_CSP_CSN even for
 	 * internal rsense.
 	 */
-	if (!batfet_closed || iadc->external_rsense) {
+	version = qpnp_adc_get_revid_version(iadc->dev);
+	if ((version == QPNP_REV_ID_8941_3_1) ||
+			(version == QPNP_REV_ID_8941_3_0) ||
+			(version == QPNP_REV_ID_8941_2_0))
+		iadc_offset_ch_batfet_check = true;
+	else
+		iadc_offset_ch_batfet_check = false;
+
+	if ((iadc_offset_ch_batfet_check && !batfet_closed) ||
+						(iadc->external_rsense)) {
 		/* external offset calculation */
 		rc = qpnp_iadc_configure(iadc, OFFSET_CALIBRATION_CSP_CSN,
 						&raw_data, mode_sel);
@@ -1140,10 +1201,12 @@ int32_t qpnp_iadc_read(struct qpnp_iadc_chip *iadc,
 		result->result_uv = -result->result_uv;
 		result_current = -result_current;
 	}
+	result_current *= -1;
 	rc = qpnp_iadc_comp_result(iadc, &result_current);
 	if (rc < 0)
 		pr_err("Error during compensating the IADC\n");
 	rc = 0;
+	result_current *= -1;
 
 	result->result_ua = (int32_t) result_current;
 fail:
