@@ -46,6 +46,17 @@ config VIDEO_M10MO_FAKE_SFI_TABLE
 
 	  Not needed if device IFWI already has M10MO in the SFI table.
 
+config VIDEO_GC0339
+       tristate "Galaxy gc0339 sensor support"
+       depends on I2C && VIDEO_V4L2
+       ---help---
+         This is a Video4Linux2 sensor-level driver for the OVT
+         GC0339 camera.
+
+         GC0339 is a 0.3M sensor.
+
+         It currently only works with the atomisp driver.
+
 config VIDEO_GC2235
        tristate "Galaxy gc2235 sensor support"
        depends on I2C && VIDEO_V4L2
@@ -203,5 +214,4 @@ config VIDEO_LM3559
 
          To compile this driver as a module, choose M here: the
          module will be called lm3559
-
 
