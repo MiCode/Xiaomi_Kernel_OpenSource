@@ -41,6 +41,7 @@ linux	Linux-specific binding
 kionix	Kionix Inc.
 marvell	Marvell Technology Group Ltd.
 maxim	Maxim Integrated Products
+memsic	MEMSIC, Inc
 mosaixtech	Mosaix Technologies, Inc.
 national	National Semiconductor
 nintendo	Nintendo
