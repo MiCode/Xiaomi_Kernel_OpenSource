@@ -167,6 +167,7 @@
 #define SHDW_FG_MSYS_SOC		0x61
 #define SHDW_FG_CAPACITY		0x62
 #define SHDW_FG_VTG_NOW			0x69
+#define SHDW_FG_CURR_NOW		0x6B
 #define SHDW_FG_BATT_TEMP		0x6D
 
 /* Constants */
@@ -517,6 +518,7 @@ static enum power_supply_property smb1360_battery_properties[] = {
 	POWER_SUPPLY_PROP_CAPACITY,
 	POWER_SUPPLY_PROP_CHARGE_FULL_DESIGN,
 	POWER_SUPPLY_PROP_VOLTAGE_NOW,
+	POWER_SUPPLY_PROP_CURRENT_NOW,
 	POWER_SUPPLY_PROP_TEMP,
 	POWER_SUPPLY_PROP_SYSTEM_TEMP_LEVEL,
 };
@@ -694,6 +696,26 @@ static int smb1360_get_prop_voltage_now(struct smb1360_chip *chip)
 	temp = div_u64(temp * 5000, 0x7FFF);
 
 	pr_debug("reg[0]=0x%02x reg[1]=0x%02x voltage=%d\n",
+				reg[0], reg[1], temp * 1000);
+
+	return temp * 1000;
+}
+
+static int smb1360_get_prop_current_now(struct smb1360_chip *chip)
+{
+	u8 reg[2];
+	int rc, temp = 0;
+
+	rc = smb1360_read_bytes(chip, SHDW_FG_CURR_NOW, reg, 2);
+	if (rc) {
+		pr_err("Failed to read SHDW_FG_CURR_NOW rc=%d\n", rc);
+		return rc;
+	}
+
+	temp = ((s8)reg[1] << 8) | reg[0];
+	temp = div_s64(temp * 2500, 0x7FFF);
+
+	pr_debug("reg[0]=0x%02x reg[1]=0x%02x current=%d\n",
 				reg[0], reg[1], temp * 1000);
 
 	return temp * 1000;
@@ -933,6 +955,9 @@ static int smb1360_battery_get_property(struct power_supply *psy,
 		break;
 	case POWER_SUPPLY_PROP_VOLTAGE_NOW:
 		val->intval = smb1360_get_prop_voltage_now(chip);
+		break;
+	case POWER_SUPPLY_PROP_CURRENT_NOW:
+		val->intval = smb1360_get_prop_current_now(chip);
 		break;
 	case POWER_SUPPLY_PROP_TEMP:
 		val->intval = smb1360_get_prop_batt_temp(chip);
