@@ -30,7 +30,7 @@ regions might depend on the board configuration and devices used on the
 target system.
 
 Parameters for each memory region can be encoded into the device tree
-wit the following convention:
+with the following convention:
 
 (name): region@(base-address) {
 	reg = <(baseaddr) (size)>;
