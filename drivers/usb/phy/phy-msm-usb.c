@@ -528,9 +528,6 @@ static void msm_usb_phy_reset(struct msm_otg *motg)
 {
 	u32 val;
 
-	if (motg->pdata->phy_type != SNPS_28NM_INTEGRATED_PHY)
-		return;
-
 	/* Assert USB PHY_PON */
 	val =  readl_relaxed(motg->usb_phy_ctrl_reg);
 	val &= ~PHY_POR_BIT_MASK;
@@ -945,30 +942,6 @@ phcd_retry:
 		motg->ui_enabled = 1;
 		enable_irq(motg->irq);
 		return -EBUSY;
-	}
-
-	/*
-	 * Chipidea 45-nm PHY suspend sequence:
-	 *
-	 * Interrupt Latch Register auto-clear feature is not present
-	 * in all PHY versions. Latch register is clear on read type.
-	 * Clear latch register to avoid spurious wakeup from
-	 * low power mode (LPM).
-	 *
-	 * PHY comparators are disabled when PHY enters into low power
-	 * mode (LPM). Keep PHY comparators ON in LPM only when we expect
-	 * VBUS/Id notifications from USB PHY. Otherwise turn off USB
-	 * PHY comparators. This save significant amount of power.
-	 *
-	 * PLL is not turned off when PHY enters into low power mode (LPM).
-	 * Disable PLL for maximum power savings.
-	 */
-
-	if (motg->pdata->phy_type == CI_45NM_INTEGRATED_PHY) {
-		ulpi_read(phy, 0x14);
-		if (pdata->otg_control == OTG_PHY_CONTROL)
-			ulpi_write(phy, 0x01, 0x30);
-		ulpi_write(phy, 0x08, 0x09);
 	}
 
 	if (motg->caps & ALLOW_VDD_MIN_WITH_RETENTION_DISABLED) {
@@ -1986,9 +1959,6 @@ static bool msm_chg_aca_detect(struct msm_otg *motg)
 	if (!aca_enabled())
 		goto out;
 
-	if (motg->pdata->phy_type == CI_45NM_INTEGRATED_PHY)
-		goto out;
-
 	int_sts = ulpi_read(phy, 0x87);
 	switch (int_sts & 0x1C) {
 	case 0x08:
@@ -2162,10 +2132,6 @@ static bool msm_chg_check_secondary_det(struct msm_otg *motg)
 	bool ret = false;
 
 	switch (motg->pdata->phy_type) {
-	case CI_45NM_INTEGRATED_PHY:
-		chg_det = ulpi_read(phy, 0x34);
-		ret = chg_det & (1 << 4);
-		break;
 	case SNPS_28NM_INTEGRATED_PHY:
 		chg_det = ulpi_read(phy, 0x87);
 		ret = chg_det & 1;
@@ -2179,29 +2145,8 @@ static bool msm_chg_check_secondary_det(struct msm_otg *motg)
 static void msm_chg_enable_secondary_det(struct msm_otg *motg)
 {
 	struct usb_phy *phy = &motg->phy;
-	u32 chg_det;
 
 	switch (motg->pdata->phy_type) {
-	case CI_45NM_INTEGRATED_PHY:
-		chg_det = ulpi_read(phy, 0x34);
-		/* Turn off charger block */
-		chg_det |= ~(1 << 1);
-		ulpi_write(phy, chg_det, 0x34);
-		udelay(20);
-		/* control chg block via ULPI */
-		chg_det &= ~(1 << 3);
-		ulpi_write(phy, chg_det, 0x34);
-		/* put it in host mode for enabling D- source */
-		chg_det &= ~(1 << 2);
-		ulpi_write(phy, chg_det, 0x34);
-		/* Turn on chg detect block */
-		chg_det &= ~(1 << 1);
-		ulpi_write(phy, chg_det, 0x34);
-		udelay(20);
-		/* enable chg detection */
-		chg_det &= ~(1 << 0);
-		ulpi_write(phy, chg_det, 0x34);
-		break;
 	case SNPS_28NM_INTEGRATED_PHY:
 		/*
 		 * Configure DM as current source, DP as current sink
@@ -2223,10 +2168,6 @@ static bool msm_chg_check_primary_det(struct msm_otg *motg)
 	bool ret = false;
 
 	switch (motg->pdata->phy_type) {
-	case CI_45NM_INTEGRATED_PHY:
-		chg_det = ulpi_read(phy, 0x34);
-		ret = chg_det & (1 << 4);
-		break;
 	case SNPS_28NM_INTEGRATED_PHY:
 		chg_det = ulpi_read(phy, 0x87);
 		ret = chg_det & 1;
@@ -2243,15 +2184,8 @@ static bool msm_chg_check_primary_det(struct msm_otg *motg)
 static void msm_chg_enable_primary_det(struct msm_otg *motg)
 {
 	struct usb_phy *phy = &motg->phy;
-	u32 chg_det;
 
 	switch (motg->pdata->phy_type) {
-	case CI_45NM_INTEGRATED_PHY:
-		chg_det = ulpi_read(phy, 0x34);
-		/* enable chg detection */
-		chg_det &= ~(1 << 0);
-		ulpi_write(phy, chg_det, 0x34);
-		break;
 	case SNPS_28NM_INTEGRATED_PHY:
 		/*
 		 * Configure DP as current source, DM as current sink
@@ -2272,10 +2206,6 @@ static bool msm_chg_check_dcd(struct msm_otg *motg)
 	bool ret = false;
 
 	switch (motg->pdata->phy_type) {
-	case CI_45NM_INTEGRATED_PHY:
-		line_state = ulpi_read(phy, 0x15);
-		ret = !(line_state & 1);
-		break;
 	case SNPS_28NM_INTEGRATED_PHY:
 		line_state = ulpi_read(phy, 0x87);
 		ret = line_state & 2;
@@ -2289,14 +2219,8 @@ static bool msm_chg_check_dcd(struct msm_otg *motg)
 static void msm_chg_disable_dcd(struct msm_otg *motg)
 {
 	struct usb_phy *phy = &motg->phy;
-	u32 chg_det;
 
 	switch (motg->pdata->phy_type) {
-	case CI_45NM_INTEGRATED_PHY:
-		chg_det = ulpi_read(phy, 0x34);
-		chg_det &= ~(1 << 5);
-		ulpi_write(phy, chg_det, 0x34);
-		break;
 	case SNPS_28NM_INTEGRATED_PHY:
 		ulpi_write(phy, 0x10, 0x86);
 		break;
@@ -2308,15 +2232,8 @@ static void msm_chg_disable_dcd(struct msm_otg *motg)
 static void msm_chg_enable_dcd(struct msm_otg *motg)
 {
 	struct usb_phy *phy = &motg->phy;
-	u32 chg_det;
 
 	switch (motg->pdata->phy_type) {
-	case CI_45NM_INTEGRATED_PHY:
-		chg_det = ulpi_read(phy, 0x34);
-		/* Turn on D+ current source */
-		chg_det |= (1 << 5);
-		ulpi_write(phy, chg_det, 0x34);
-		break;
 	case SNPS_28NM_INTEGRATED_PHY:
 		/* Data contact detection enable */
 		ulpi_write(phy, 0x10, 0x85);
@@ -2329,7 +2246,7 @@ static void msm_chg_enable_dcd(struct msm_otg *motg)
 static void msm_chg_block_on(struct msm_otg *motg)
 {
 	struct usb_phy *phy = &motg->phy;
-	u32 func_ctrl, chg_det;
+	u32 func_ctrl;
 
 	/* put the controller in non-driving mode */
 	func_ctrl = ulpi_read(phy, ULPI_FUNC_CTRL);
@@ -2338,16 +2255,6 @@ static void msm_chg_block_on(struct msm_otg *motg)
 	ulpi_write(phy, func_ctrl, ULPI_FUNC_CTRL);
 
 	switch (motg->pdata->phy_type) {
-	case CI_45NM_INTEGRATED_PHY:
-		chg_det = ulpi_read(phy, 0x34);
-		/* control chg block via ULPI */
-		chg_det &= ~(1 << 3);
-		ulpi_write(phy, chg_det, 0x34);
-		/* Turn on chg detect block */
-		chg_det &= ~(1 << 1);
-		ulpi_write(phy, chg_det, 0x34);
-		udelay(20);
-		break;
 	case SNPS_28NM_INTEGRATED_PHY:
 		/* disable DP and DM pull down resistors */
 		ulpi_write(phy, 0x6, 0xC);
@@ -2366,15 +2273,9 @@ static void msm_chg_block_on(struct msm_otg *motg)
 static void msm_chg_block_off(struct msm_otg *motg)
 {
 	struct usb_phy *phy = &motg->phy;
-	u32 func_ctrl, chg_det;
+	u32 func_ctrl;
 
 	switch (motg->pdata->phy_type) {
-	case CI_45NM_INTEGRATED_PHY:
-		chg_det = ulpi_read(phy, 0x34);
-		/* Turn off charger block */
-		chg_det |= ~(1 << 1);
-		ulpi_write(phy, chg_det, 0x34);
-		break;
 	case SNPS_28NM_INTEGRATED_PHY:
 		/* Clear charger detecting control bits */
 		ulpi_write(phy, 0x3F, 0x86);
@@ -4904,22 +4805,18 @@ static int msm_otg_probe(struct platform_device *pdev)
 		dev_dbg(&pdev->dev, "mode debugfs file is"
 			"not available\n");
 
-	if (motg->pdata->phy_type == SNPS_28NM_INTEGRATED_PHY) {
-		if (motg->pdata->otg_control == OTG_PMIC_CONTROL &&
+	if (motg->pdata->otg_control == OTG_PMIC_CONTROL &&
 			(!(motg->pdata->mode == USB_OTG) ||
 			 motg->pdata->pmic_id_irq || motg->ext_id_irq))
-			motg->caps = ALLOW_PHY_POWER_COLLAPSE |
-				ALLOW_PHY_RETENTION;
+		motg->caps = ALLOW_PHY_POWER_COLLAPSE | ALLOW_PHY_RETENTION;
 
-		if (motg->pdata->otg_control == OTG_PHY_CONTROL)
-			motg->caps = ALLOW_PHY_RETENTION |
-				ALLOW_PHY_REGULATORS_LPM;
+	if (motg->pdata->otg_control == OTG_PHY_CONTROL)
+		motg->caps = ALLOW_PHY_RETENTION | ALLOW_PHY_REGULATORS_LPM;
 
-		if (motg->pdata->mpm_dpshv_int || motg->pdata->mpm_dmshv_int)
-			motg->caps |= ALLOW_HOST_PHY_RETENTION;
-			device_create_file(&pdev->dev,
-					&dev_attr_dpdm_pulldown_enable);
-	}
+	if (motg->pdata->mpm_dpshv_int || motg->pdata->mpm_dmshv_int)
+		motg->caps |= ALLOW_HOST_PHY_RETENTION;
+
+	device_create_file(&pdev->dev, &dev_attr_dpdm_pulldown_enable);
 
 	if (motg->pdata->enable_lpm_on_dev_suspend)
 		motg->caps |= ALLOW_LPM_ON_DEV_SUSPEND;
@@ -5085,10 +4982,9 @@ static int msm_otg_remove(struct platform_device *pdev)
 	usb_remove_phy(phy);
 	free_irq(motg->irq, motg);
 
-	if ((motg->pdata->phy_type == SNPS_28NM_INTEGRATED_PHY) &&
-		(motg->pdata->mpm_dpshv_int || motg->pdata->mpm_dmshv_int))
-			device_remove_file(&pdev->dev,
-					&dev_attr_dpdm_pulldown_enable);
+	if (motg->pdata->mpm_dpshv_int || motg->pdata->mpm_dmshv_int)
+		device_remove_file(&pdev->dev,
+				&dev_attr_dpdm_pulldown_enable);
 	if (motg->pdata->otg_control == OTG_PHY_CONTROL &&
 		motg->pdata->mpm_otgsessvld_int)
 		msm_mpm_enable_pin(motg->pdata->mpm_otgsessvld_int, 0);
