@@ -39,6 +39,7 @@
 		qcom,soft-vfloat-comp-disabled;
 		therm-bias-supply = <&pma8084_lvs2>;
 		qcom,thermal-mitigation = <1500 700 600 0>;
+		qcom,charging-disabled;
 	};
 };
 
