@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -10,21 +10,9 @@
  * GNU General Public License for more details.
  */
 
-/dts-v1/;
-
 #include "fsm9900.dtsi"
 
 / {
-	model = "Qualcomm Technologies, Inc. FSM9900 MTP";
-	compatible = "qcom,fsm9900-mtp", "qcom,fsm9900", "qcom,mtp";
-	qcom,msm-id = <188 0x10000>,
-		      <189 0x10000>,
-		      <190 0x10000>,
-		      <191 0x10000>,
-		      <192 0x10000>,
-		      <193 0x10000>;
-	qcom,board-id = <0x00ffff08 0>;
-
 	aliases {
 		serial0 = &uart0;
 	};
@@ -49,27 +37,19 @@
 		vdd-blow-supply = <&pma8084_lvs1>;
 	};
 
-	emac0:qcom,emac@feb20000 {
-		status = "ok";
-	};
-
 	emac1:qcom,emac@feb00000 {
-		qcom,no-external-phy;
 		status = "ok";
 	};
 
 	pcie0: qcom,pcie@fc520000 {
 		qcom,ext-ref-clk;
-		qcom,ep-latency = <1000>;
 		status = "ok";
 	};
 
 	pcie1: qcom,pcie@fc528000 {
 		qcom,ext-ref-clk;
-		qcom,ep-latency = <1000>;
 		status = "ok";
 	};
-
 };
 
 &sdhc_1 {
