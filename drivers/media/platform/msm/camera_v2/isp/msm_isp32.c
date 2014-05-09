@@ -271,34 +271,62 @@ static void msm_vfe32_process_error_status(struct vfe_device *vfe_dev)
 		pr_err("%s: violation\n", __func__);
 		msm_vfe32_process_violation_status(vfe_dev);
 	}
-	if (error_status1 & BIT(8))
+	if (error_status1 & BIT(8)) {
+		vfe_dev->stats->imagemaster0_overflow++;
 		pr_err("%s: image master 0 bus overflow\n", __func__);
-	if (error_status1 & BIT(9))
+	}
+	if (error_status1 & BIT(9)) {
+		vfe_dev->stats->imagemaster1_overflow++;
 		pr_err("%s: image master 1 bus overflow\n", __func__);
-	if (error_status1 & BIT(10))
+	}
+	if (error_status1 & BIT(10)) {
+		vfe_dev->stats->imagemaster2_overflow++;
 		pr_err("%s: image master 2 bus overflow\n", __func__);
-	if (error_status1 & BIT(11))
+	}
+	if (error_status1 & BIT(11)) {
+		vfe_dev->stats->imagemaster3_overflow++;
 		pr_err("%s: image master 3 bus overflow\n", __func__);
-	if (error_status1 & BIT(12))
+	}
+	if (error_status1 & BIT(12)) {
+		vfe_dev->stats->imagemaster4_overflow++;
 		pr_err("%s: image master 4 bus overflow\n", __func__);
-	if (error_status1 & BIT(13))
+	}
+	if (error_status1 & BIT(13)) {
+		vfe_dev->stats->imagemaster5_overflow++;
 		pr_err("%s: image master 5 bus overflow\n", __func__);
-	if (error_status1 & BIT(14))
+	}
+	if (error_status1 & BIT(14)) {
+		vfe_dev->stats->imagemaster6_overflow++;
 		pr_err("%s: image master 6 bus overflow\n", __func__);
-	if (error_status1 & BIT(15))
+	}
+	if (error_status1 & BIT(15)) {
+		vfe_dev->stats->bg_overflow++;
 		pr_err("%s: status ae/bg bus overflow\n", __func__);
-	if (error_status1 & BIT(16))
+	}
+	if (error_status1 & BIT(16)) {
+		vfe_dev->stats->bf_overflow++;
 		pr_err("%s: status af/bf bus overflow\n", __func__);
-	if (error_status1 & BIT(17))
+	}
+	if (error_status1 & BIT(17)) {
+		vfe_dev->stats->awb_overflow++;
 		pr_err("%s: status awb bus overflow\n", __func__);
-	if (error_status1 & BIT(18))
+	}
+	if (error_status1 & BIT(18)) {
+		vfe_dev->stats->rs_overflow++;
 		pr_err("%s: status rs bus overflow\n", __func__);
-	if (error_status1 & BIT(19))
+	}
+	if (error_status1 & BIT(19)) {
+		vfe_dev->stats->cs_overflow++;
 		pr_err("%s: status cs bus overflow\n", __func__);
-	if (error_status1 & BIT(20))
+	}
+	if (error_status1 & BIT(20)) {
+		vfe_dev->stats->ihist_overflow++;
 		pr_err("%s: status ihist bus overflow\n", __func__);
-	if (error_status1 & BIT(21))
+	}
+	if (error_status1 & BIT(21)) {
+		vfe_dev->stats->skinbhist_overflow++;
 		pr_err("%s: status skin bhist bus overflow\n", __func__);
+	}
 	if (error_status1 & BIT(22))
 		pr_err("%s: axi error\n", __func__);
 }
