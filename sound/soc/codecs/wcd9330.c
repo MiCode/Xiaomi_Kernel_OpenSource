@@ -3626,7 +3626,21 @@ static int tomtom_lineout_dac_event(struct snd_soc_dapm_widget *w,
 static int tomtom_spk_dac_event(struct snd_soc_dapm_widget *w,
 	struct snd_kcontrol *kcontrol, int event)
 {
+	struct snd_soc_codec *codec = w->codec;
+
 	pr_debug("%s %s %d\n", __func__, w->name, event);
+
+	switch (event) {
+	case SND_SOC_DAPM_PRE_PMU:
+		snd_soc_update_bits(codec, WCD9XXX_A_CDC_CLK_OTHR_CTL,
+							0x80, 0x80);
+		break;
+	case SND_SOC_DAPM_POST_PMD:
+		if ((snd_soc_read(codec, w->reg) & 0x03) == 0)
+			snd_soc_update_bits(codec, WCD9XXX_A_CDC_CLK_OTHR_CTL,
+							0x80, 0x00);
+		break;
+	}
 	return 0;
 }
 
@@ -5702,10 +5716,10 @@ static const struct snd_soc_dapm_widget tomtom_dapm_widgets[] = {
 	SND_SOC_DAPM_SWITCH("LINEOUT4 DAC GROUND", SND_SOC_NOPM, 0, 0,
 				&lineout4_ground_switch),
 
-	SND_SOC_DAPM_DAC_E("SPK DAC", NULL, SND_SOC_NOPM, 0, 0,
+	SND_SOC_DAPM_DAC_E("SPK DAC", NULL, TOMTOM_A_CDC_BOOST_TRGR_EN, 0, 0,
 			   tomtom_spk_dac_event,
 			   SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMD),
-	SND_SOC_DAPM_DAC_E("SPK2 DAC", NULL, SND_SOC_NOPM, 0, 0,
+	SND_SOC_DAPM_DAC_E("SPK2 DAC", NULL, TOMTOM_A_CDC_BOOST_TRGR_EN, 1, 0,
 			   tomtom_spk_dac_event,
 			   SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMD),
 
