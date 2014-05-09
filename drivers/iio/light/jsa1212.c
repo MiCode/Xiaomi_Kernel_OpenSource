@@ -24,6 +24,7 @@
 #include <linux/mutex.h>
 #include <linux/slab.h>
 #include <linux/acpi.h>
+#include <linux/gpio/consumer.h>
 
 #include <linux/iio/iio.h>
 #include <linux/iio/sysfs.h>
@@ -169,6 +170,7 @@ struct jsa1212_data {
 	u8 als_rng_idx;
 	unsigned long flags;
 	unsigned long state_flags; /* Caches chip state before suspend */
+	int gpio_irq;
 };
 
 /* ALS range idx to val mapping */
@@ -1067,12 +1069,64 @@ static int jsa1212_chip_init(struct jsa1212_data *data)
 	data->pxs_prst_val = JSA1212_INT_PXS_PRST_1CONV;
 	data->flags = 0x00;
 	data->als_rng_idx = JSA1212_ALS_RNG_0_2048;
+	data->gpio_irq = -1;
 
 	return 0;
 
 chip_init_err:
 	dev_err(&data->client->dev, "Chip init err\n");
 	return ret;
+}
+
+static int jsa1212_acpi_gpio_probe(struct i2c_client *client,
+				struct jsa1212_data *data)
+{
+	const struct acpi_device_id *id;
+	struct device *dev;
+	struct gpio_desc *gpio;
+	int ret;
+
+	if (!client)
+		return -EINVAL;
+
+	dev = &client->dev;
+
+	if (!ACPI_HANDLE(dev))
+		return -ENODEV;
+
+	id = acpi_match_device(dev->driver->acpi_match_table, dev);
+
+	if (!id)
+		return -ENODEV;
+
+	/* ALS/proximity event gpio interrupt pin */
+	gpio = devm_gpiod_get_index(dev, "jsa1212_int", 0);
+
+	if (IS_ERR(gpio)) {
+		dev_err(dev, "acpi gpio get index failed\n");
+		return PTR_ERR(gpio);
+	}
+
+	ret = gpiod_direction_input(gpio);
+
+	if (ret)
+		return ret;
+
+	ret = gpiod_to_irq(gpio);
+
+	if (ret < 0)
+		return ret;
+
+	data->gpio_irq = ret;
+
+	/* update client irq if invalid */
+	if (client->irq < 0)
+		client->irq = data->gpio_irq;
+
+	dev_dbg(dev, "gpio probe sucess gpio:%d irq:%d\n",
+				desc_to_gpio(gpio), data->gpio_irq);
+
+	return 0;
 }
 
 static int jsa1212_probe(struct i2c_client *client,
@@ -1107,7 +1161,12 @@ static int jsa1212_probe(struct i2c_client *client,
 	if (ret < 0)
 		return ret;
 
-	if (client->irq) {
+	ret = jsa1212_acpi_gpio_probe(client, jsa1212_data);
+
+	if (ret)
+		dev_info(&client->dev, "acpi gpio probe failed (%d)\n", ret);
+
+	if (client->irq > 0) {
 		indio_dev->info = &jsa1212_info;
 
 		ret = devm_request_threaded_irq(&client->dev, client->irq,
