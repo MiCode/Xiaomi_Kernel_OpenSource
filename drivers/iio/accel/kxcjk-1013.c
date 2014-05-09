@@ -21,6 +21,7 @@
 #include <linux/slab.h>
 #include <linux/string.h>
 #include <linux/acpi.h>
+#include <linux/gpio/consumer.h>
 #include <linux/iio/iio.h>
 #include <linux/iio/sysfs.h>
 #include <linux/iio/buffer.h>
@@ -67,6 +68,7 @@ struct kxcjk1013_data {
 	struct mutex mutex;
 	char *buff;
 	atomic_t power_state;
+	int gpio_irq;
 };
 
 enum kxcjk1013_axis {
@@ -393,6 +395,57 @@ static const struct iio_trigger_ops kxcjk1013_trigger_ops = {
 	.owner = THIS_MODULE,
 };
 
+static int kxcjk1013_acpi_gpio_probe(struct i2c_client *client,
+				struct kxcjk1013_data *data)
+{
+	const struct acpi_device_id *id;
+	struct device *dev;
+	struct gpio_desc *gpio;
+	int ret;
+
+	if (!client)
+		return -EINVAL;
+
+	dev = &client->dev;
+
+	if (!ACPI_HANDLE(dev))
+		return -ENODEV;
+
+	id = acpi_match_device(dev->driver->acpi_match_table, dev);
+
+	if (!id)
+		return -ENODEV;
+
+	/* data ready gpio interrupt pin */
+	gpio = devm_gpiod_get_index(dev, "kxcjk1013_int", 0);
+
+	if (IS_ERR(gpio)) {
+		dev_err(dev, "acpi gpio get index failed\n");
+		return PTR_ERR(gpio);
+	}
+
+	ret = gpiod_direction_input(gpio);
+
+	if (ret)
+		return ret;
+
+	ret = gpiod_to_irq(gpio);
+
+	if (ret < 0)
+		return ret;
+
+	data->gpio_irq = ret;
+
+	/* Update client irq if its invalid */
+	if (client->irq < 0)
+		client->irq = data->gpio_irq;
+
+	dev_dbg(dev, "GPIO resource, no:%d irq:%d\n", desc_to_gpio(gpio),
+					data->gpio_irq);
+
+	return 0;
+}
+
 static int kxcjk1013_probe(struct i2c_client *client,
 		const struct i2c_device_id *id)
 {
@@ -422,7 +475,12 @@ static int kxcjk1013_probe(struct i2c_client *client,
 	indio_dev->modes = INDIO_DIRECT_MODE;
 	indio_dev->info = &kxcjk1013_info;
 
-	if (!client->irq) {
+	ret = kxcjk1013_acpi_gpio_probe(client, data);
+
+	if (ret)
+		dev_info(&client->dev, "acpi gpio probe failed (%d)\n", ret);
+
+	if (client->irq < 0) {
 		kxcjk1013_chip_setup_interrupt(data, false);
 		goto skip_setup_trigger;
 	}
@@ -520,7 +578,7 @@ static SIMPLE_DEV_PM_OPS(kxcjk1013_pm_ops, kxcjk1013_suspend, NULL);
 #endif
 
 static const struct acpi_device_id kx_acpi_match[] = {
-	{"KXCJK1013", 0},
+	{"KXCJ1013", 0},
 	{ },
 };
 MODULE_DEVICE_TABLE(acpi, kx_acpi_match);
