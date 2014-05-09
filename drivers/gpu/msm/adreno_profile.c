@@ -1100,6 +1100,7 @@ void adreno_profile_preib_processing(struct kgsl_device *device,
 	struct adreno_ringbuffer *rb = &adreno_dev->ringbuffer;
 	unsigned int rbcmds[3] = { cp_nop_packet(2),
 		KGSL_NOP_IB_IDENTIFIER, KGSL_NOP_IB_IDENTIFIER };
+	unsigned int *ptr = *rbptr;
 
 	*cmd_flags &= ~KGSL_CMD_FLAGS_PROFILE;
 
@@ -1145,9 +1146,11 @@ void adreno_profile_preib_processing(struct kgsl_device *device,
 
 done:
 	/* write the ibdesc to the ringbuffer */
-	*(*rbptr++) = rbcmds[0];
-	*(*rbptr++) = rbcmds[1];
-	*(*rbptr++) = rbcmds[2];
+	*ptr++ = rbcmds[0];
+	*ptr++ = rbcmds[1];
+	*ptr++ = rbcmds[2];
+
+	*rbptr = ptr;
 }
 
 void adreno_profile_postib_processing(struct kgsl_device *device,
@@ -1160,6 +1163,7 @@ void adreno_profile_postib_processing(struct kgsl_device *device,
 		SIZE_SHARED_ENTRY(count);
 	unsigned int rbcmds[3] = { cp_nop_packet(2),
 		KGSL_NOP_IB_IDENTIFIER, KGSL_NOP_IB_IDENTIFIER };
+	unsigned int *ptr = *rbptr;
 
 	if (!adreno_profile_assignments_ready(profile))
 		goto done;
@@ -1172,9 +1176,11 @@ void adreno_profile_postib_processing(struct kgsl_device *device,
 
 done:
 	/* write the ibdesc to the ringbuffer */
-	*(*rbptr++) = rbcmds[0];
-	*(*rbptr++) = rbcmds[1];
-	*(*rbptr++) = rbcmds[2];
+	*ptr++ = rbcmds[0];
+	*ptr++ = rbcmds[1];
+	*ptr++ = rbcmds[2];
+
+	*rbptr = ptr;
 
 	/* reset the sync flag */
 	*cmd_flags &= ~KGSL_CMD_FLAGS_PROFILE;
