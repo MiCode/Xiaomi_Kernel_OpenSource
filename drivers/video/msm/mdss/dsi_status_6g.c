@@ -73,7 +73,7 @@ void mdss_check_dsi_ctrl_status(struct work_struct *work, uint32_t interval)
 		mutex_unlock(&mdp5_data->ov_lock);
 		if (ctl->shared_lock)
 			mutex_unlock(ctl->shared_lock);
-		pr_err("%s: DSI turning off, avoiding BTA status check\n",
+		pr_err("%s: DSI turning off, avoiding panel status check\n",
 							__func__);
 		return;
 	}
