@@ -1,4 +1,6 @@
 * Voice Service binding
+Provides an interface to access voice services
+exposed by DSP over APR interface.
 
 Required properties:
 - compatible : "qcom,msm-voice-svc"
