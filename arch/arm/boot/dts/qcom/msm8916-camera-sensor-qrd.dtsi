@@ -29,10 +29,10 @@
 		qcom,led-flash-src = <&flash_lm3642>;
 		cam_vaf-supply = <&pm8916_l10>;
 		qcom,cam-vreg-name = "cam_vaf";
-		qcom,cam-vreg-type = <1>;
-		qcom,cam-vreg-min-voltage = <0>;
-		qcom,cam-vreg-max-voltage = <0>;
-		qcom,cam-vreg-op-mode = <0>;
+		qcom,cam-vreg-type = <0>;
+		qcom,cam-vreg-min-voltage = <2800000>;
+		qcom,cam-vreg-max-voltage = <2800000>;
+		qcom,cam-vreg-op-mode = <100000>;
 		pinctrl-names = "cam_default", "cam_suspend";
 		pinctrl-0 = <&cam_sensor_mclk0_default &cam_sensor_rear_default>;
 		pinctrl-1 = <&cam_sensor_mclk0_sleep &cam_sensor_rear_sleep>;
