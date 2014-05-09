@@ -89,6 +89,9 @@
 			qcom,fab-dev;
 			qcom,bypass-qos-prg;
 			qcom,virt-dev;
+			clock-names = "bus_clk", "bus_a_clk";
+			clocks = <&clock_rpm  clk_ocmemgx_msmbus_clk>,
+			      <&clock_rpm  clk_ocmemgx_msmbus_a_clk >;
 		};
 
 
@@ -765,7 +768,7 @@
 			label = "mas-oxili-ocmem";
 			qcom,bus-dev = <&fab_ovirt>;
 			qcom,buswidth = <32>;
-			qcom,connections = <&slv_ocmem>;
+			qcom,connections = <&slv_ocmem_gfx>;
 			qcom,ap-owned;
 		};
 
@@ -776,7 +779,7 @@
 			qcom,bus-dev = <&fab_ovirt>;
 			qcom,buswidth = <32>;
 			qcom,connections = <&slv_ocmem>;
-			qcom,mas-rpm-id = <ICBID_MASTER_VIDEO_OCMEM>;
+			qcom,ap-owned;
 		};
 
 
@@ -785,7 +788,13 @@
 			label = "slv-ocmem";
 			qcom,bus-dev = <&fab_ovirt>;
 			qcom,buswidth = <32>;
-			qcom,slv-rpm-id = <ICBID_SLAVE_OCMEM>;
+		};
+
+		slv_ocmem_gfx: slv-ocmem-gfx {
+			cell-id = <MSM_BUS_SLAVE_OCMEM_GFX>;
+			label = "slv-ocmem-gfx";
+			qcom,bus-dev = <&fab_ovirt>;
+			qcom,buswidth = <32>;
 		};
 
 
