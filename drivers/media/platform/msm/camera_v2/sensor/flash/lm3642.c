@@ -33,6 +33,7 @@ static struct i2c_driver lm3642_i2c_driver;
 
 static struct msm_camera_i2c_reg_array lm3642_init_array[] = {
 	{0x0A, 0x00},
+	{0x08, 0x07},
 	{0x09, 0x19},
 };
 
