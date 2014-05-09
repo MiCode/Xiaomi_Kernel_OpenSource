@@ -149,6 +149,12 @@ struct arizona_pdata {
 	/** Callback notifying HPDET result */
 	void (*hpdet_cb)(unsigned int measurement);
 
+	/** Use HPDETL to check for moisture, this value specifies the
+	 * threshold impedance in ohms above which it will be considered
+	 * a false detection
+	 */
+	int hpdet_moisture_imp;
+
 	/** Use software comparison to determine mic presence */
 	bool micd_software_compare;
 

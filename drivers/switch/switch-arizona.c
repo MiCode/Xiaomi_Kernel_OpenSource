@@ -144,6 +144,7 @@ inline void arizona_extcon_report(struct arizona_extcon_info *info, int state)
 }
 EXPORT_SYMBOL_GPL(arizona_extcon_report);
 
+static const struct arizona_jd_state arizona_hpdet_moisture;
 static const struct arizona_jd_state arizona_hpdet_acc_id;
 
 static int arizona_jds_get_mode(struct arizona_extcon_info *info)
@@ -786,6 +787,33 @@ void arizona_hpdet_stop(struct arizona_extcon_info *info)
 }
 EXPORT_SYMBOL_GPL(arizona_hpdet_stop);
 
+static int arizona_hpdet_moisture_start(struct arizona_extcon_info *info)
+{
+	int ret;
+
+	ret = arizona_hpdet_start(info);
+
+	arizona_extcon_do_magic(info, 0);
+
+	return ret;
+}
+
+static int arizona_hpdet_moisture_reading(struct arizona_extcon_info *info,
+					  int val)
+{
+	struct arizona *arizona = info->arizona;
+
+	if (val < arizona->pdata.hpdet_moisture_imp) {
+		arizona_jds_set_state(info, &arizona_micd_microphone);
+	} else {
+		dev_warn(arizona->dev,
+			 "Jack detection due to moisture, ignoring\n");
+		arizona_jds_set_state(info, NULL);
+	}
+
+	return 0;
+}
+
 int arizona_hpdet_reading(struct arizona_extcon_info *info, int val)
 {
 	struct arizona *arizona = info->arizona;
@@ -1005,7 +1033,10 @@ int arizona_micd_mic_reading(struct arizona_extcon_info *info, int val)
 done:
 	pm_runtime_mark_last_busy(info->dev);
 
-	ret = arizona_jds_set_state(info, &arizona_hpdet_left);
+	if (arizona->pdata.hpdet_moisture_imp)
+		ret = arizona_jds_set_state(info, &arizona_hpdet_right);
+	else
+		ret = arizona_jds_set_state(info, &arizona_hpdet_left);
 	if (ret < 0) {
 		if (info->mic)
 			arizona_extcon_report(info, BIT_HEADSET);
@@ -1028,11 +1059,15 @@ EXPORT_SYMBOL_GPL(arizona_micd_mic_timeout_ms);
 
 void arizona_micd_mic_timeout(struct arizona_extcon_info *info)
 {
+	struct arizona *arizona = info->arizona;
 	int ret;
 
 	dev_dbg(info->arizona->dev, "MICD timed out, reporting HP\n");
 
-	ret = arizona_jds_set_state(info, &arizona_hpdet_left);
+	if (arizona->pdata.hpdet_moisture_imp)
+		ret = arizona_jds_set_state(info, &arizona_hpdet_right);
+	else
+		ret = arizona_jds_set_state(info, &arizona_hpdet_left);
 	if (ret < 0)
 		arizona_extcon_report(info, BIT_HEADSET_NO_MIC);
 }
@@ -1304,6 +1339,13 @@ static irqreturn_t arizona_micdet(int irq, void *data)
 	return IRQ_HANDLED;
 }
 
+static const struct arizona_jd_state arizona_hpdet_moisture = {
+	.mode = ARIZONA_ACCDET_MODE_HPL,
+	.start = arizona_hpdet_moisture_start,
+	.reading = arizona_hpdet_moisture_reading,
+	.stop = arizona_hpdet_stop,
+};
+
 const struct arizona_jd_state arizona_hpdet_left = {
 	.mode = ARIZONA_ACCDET_MODE_HPL,
 	.start = arizona_hpdet_start,
@@ -1311,6 +1353,14 @@ const struct arizona_jd_state arizona_hpdet_left = {
 	.stop = arizona_hpdet_stop,
 };
 EXPORT_SYMBOL_GPL(arizona_hpdet_left);
+
+const struct arizona_jd_state arizona_hpdet_right = {
+	.mode = ARIZONA_ACCDET_MODE_HPR,
+	.start = arizona_hpdet_start,
+	.reading = arizona_hpdet_reading,
+	.stop = arizona_hpdet_stop,
+};
+EXPORT_SYMBOL_GPL(arizona_hpdet_right);
 
 const struct arizona_jd_state arizona_micd_button = {
 	.mode = ARIZONA_ACCDET_MODE_MIC,
@@ -1409,6 +1459,9 @@ static irqreturn_t arizona_jackdet(int irq, void *data)
 			if (arizona->pdata.custom_jd)
 				arizona_jds_set_state(info,
 						      arizona->pdata.custom_jd);
+			else if (arizona->pdata.hpdet_moisture_imp)
+				arizona_jds_set_state(info,
+						      &arizona_hpdet_moisture);
 			else
 				arizona_jds_set_state(info,
 						      &arizona_micd_microphone);
@@ -1545,6 +1598,9 @@ static int arizona_extcon_get_pdata(struct arizona *arizona)
 
 	arizona_of_read_u32(arizona, "wlf,fixed-hpdet-imp", false,
 			    &pdata->fixed_hpdet_imp);
+
+	arizona_of_read_u32(arizona, "wlf,hpdet-moisture-imp", false,
+			    &pdata->hpdet_moisture_imp);
 
 	return 0;
 }
