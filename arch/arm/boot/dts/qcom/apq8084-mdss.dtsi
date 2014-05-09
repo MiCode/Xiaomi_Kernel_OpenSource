@@ -160,6 +160,7 @@
 			<0xfd922b00 0x2b0>,
 			<0xfd828000 0x108>;
 		reg-names = "dsi_ctrl", "dsi_phy", "mmss_misc_phys";
+		gdsc-supply = <&gdsc_mdss>;
 		vdda-supply = <&pma8084_l2>;
 		vdd-supply = <&pma8084_l22>;
 		vddio-supply = <&pma8084_l12>;
@@ -174,6 +175,20 @@
 			00 00 00 00 0a 00 00 01 97
 			00 00 00 00 0f 00 00 01 97
 			00 c0 00 00 00 00 00 01 bb];
+
+		qcom,core-supply-entries {
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			qcom,core-supply-entry@0 {
+				reg = <0>;
+				qcom,supply-name = "gdsc";
+				qcom,supply-min-voltage = <0>;
+				qcom,supply-max-voltage = <0>;
+				qcom,supply-enable-load = <0>;
+				qcom,supply-disable-load = <0>;
+			};
+		};
 
 		qcom,ctrl-supply-entries {
 			#address-cells = <1>;
@@ -223,6 +238,7 @@
 			<0xfd923100 0x2b0>,
 			<0xfd828000 0x108>;
 		reg-names = "dsi_ctrl", "dsi_phy", "mmss_misc_phys";
+		gdsc-supply = <&gdsc_mdss>;
 		vdda-supply = <&pma8084_l2>;
 		vdd-supply = <&pma8084_l22>;
 		vddio-supply = <&pma8084_l12>;
@@ -237,6 +253,20 @@
 			00 00 00 00 0a 00 00 01 97
 			00 00 00 00 0f 00 00 01 97
 			00 c0 00 00 00 00 00 01 bb];
+
+		qcom,core-supply-entries {
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			qcom,core-supply-entry@0 {
+				reg = <0>;
+				qcom,supply-name = "gdsc";
+				qcom,supply-min-voltage = <0>;
+				qcom,supply-max-voltage = <0>;
+				qcom,supply-enable-load = <0>;
+				qcom,supply-disable-load = <0>;
+			};
+		};
 
 		qcom,ctrl-supply-entries {
 			#address-cells = <1>;
