@@ -134,6 +134,8 @@
 #define MODE_CMD	41
 #define RESET_ID	2
 
+#define FEATURE_MASK_LEN	2
+
 /*
  * The status bit masks when received in a signal handler are to be
  * used in conjunction with the peripheral list bit mask to determine the
@@ -405,7 +407,6 @@ struct diagchar_dev {
 	struct diag_ctrl_event_mask *event_mask;
 	struct diag_ctrl_log_mask *log_mask;
 	struct diag_ctrl_msg_mask *msg_mask;
-	struct diag_ctrl_feature_mask *feature_mask;
 	struct mutex log_mask_mutex;
 	/* Members for Sending response */
 	unsigned char *encoded_rsp_buf;
@@ -421,6 +422,7 @@ struct diagchar_dev {
 	int rcvd_feature_mask[NUM_SMD_CONTROL_CHANNELS];
 	int separate_cmdrsp[NUM_SMD_CONTROL_CHANNELS];
 	unsigned char *usb_buf_out;
+	uint8_t peripheral_feature[NUM_SMD_CONTROL_CHANNELS][FEATURE_MASK_LEN];
 	unsigned char *apps_rsp_buf;
 	unsigned char *user_space_data_buf;
 	/* buffer for updating mask to peripherals */

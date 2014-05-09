@@ -37,20 +37,22 @@
 #define DIAG_CTRL_MSG_DCI_CONNECTION_STATUS	20
 #define DIAG_CTRL_MSG_LAST DIAG_CTRL_MSG_DCI_CONNECTION_STATUS
 
-/* Denotes that we support sending/receiving the feature mask */
-#define F_DIAG_INT_FEATURE_MASK		0x01
-/* Denotes that we support responding to "Log on Demand" */
-#define F_DIAG_LOG_ON_DEMAND_RSP_ON_MASTER	0x04
 /*
- * Supports dedicated main request/response on
- * new Data Rx and DCI Rx channels
+ * Feature Mask Definitions: Feature mask is used to sepcify Diag features
+ * supported by the Apps processor
+ *
+ * F_DIAG_FEATURE_MASK_SUPPORT - Denotes we support sending and receiving
+ *                               feature masks
+ * F_DIAG_LOG_ON_DEMAND_APPS - Apps responds to Log on Demand request
+ * F_DIAG_REQ_RSP_SUPPORT - Apps supported dedicated request response Channel
+ * F_DIAG_APPS_HDLC_ENCODE - HDLC encoding is done on the forward channel
+ * F_DIAG_STM - Denotes Apps supports Diag over STM
  */
-#define F_DIAG_REQ_RSP_CHANNEL		0x10
-/* Denotes we support diag over stm */
-#define F_DIAG_OVER_STM			0x02
-
- /* Perform hdlc encoding of data coming from smd channel */
-#define F_DIAG_HDLC_ENCODE_IN_APPS_MASK	0x40
+#define F_DIAG_FEATURE_MASK_SUPPORT		0
+#define F_DIAG_LOG_ON_DEMAND_APPS		2
+#define F_DIAG_REQ_RSP_SUPPORT			4
+#define F_DIAG_APPS_HDLC_ENCODE			6
+#define F_DIAG_STM				9
 
 #define ENABLE_SEPARATE_CMDRSP	1
 #define DISABLE_SEPARATE_CMDRSP	0
@@ -67,13 +69,20 @@
 
 #define DIAG_MODE_PKT_LEN	36
 
+struct diag_ctrl_pkt_header_t {
+	uint32_t pkt_id;
+	uint32_t len;
+};
+
 struct cmd_code_range {
 	uint16_t cmd_code_lo;
 	uint16_t cmd_code_hi;
 	uint32_t data;
 };
 
-struct diag_ctrl_msg {
+struct diag_ctrl_cmd_reg {
+	uint32_t pkt_id;
+	uint32_t len;
 	uint32_t version;
 	uint16_t cmd_code;
 	uint16_t subsysid;
