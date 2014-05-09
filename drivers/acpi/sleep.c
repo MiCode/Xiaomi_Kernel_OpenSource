@@ -580,10 +580,16 @@ static int acpi_suspend_state_valid(suspend_state_t pm_state)
 	switch (pm_state) {
 	case PM_SUSPEND_ON:
 	case PM_SUSPEND_STANDBY:
-	case PM_SUSPEND_MEM:
 		acpi_state = acpi_suspend_states[pm_state];
 
 		return sleep_states[acpi_state];
+	case PM_SUSPEND_MEM:
+		acpi_state = acpi_suspend_states[pm_state];
+		/*
+		 * S3 is supported via PM_SUSPEND_MEM,
+		 * as well as low power S0idle
+		 */
+		return sleep_states[acpi_state] || low_power_s0idle;
 	default:
 		return 0;
 	}
