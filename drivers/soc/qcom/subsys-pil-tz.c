@@ -340,11 +340,11 @@ static int of_read_regs(struct device *dev, struct reg_info **regs_ref,
 
 		/*
 		 * Read the voltage and current values for the corresponding
-		 * regulator. The device tree property name is "regulator_name"
-		 * + "-uV-uA".
+		 * regulator. The device tree property name is "qcom," +
+		 *  "regulator_name" + "-uV-uA".
 		 */
 		rc = snprintf(reg_uV_uA_name, ARRAY_SIZE(reg_uV_uA_name),
-			 "%s-uV-uA", reg_name);
+			 "qcom,%s-uV-uA", reg_name);
 		if (rc < strlen(reg_name) + 6) {
 			dev_err(dev, "Failed to hold reg_uV_uA_name\n");
 			return -EINVAL;
@@ -397,28 +397,28 @@ static int piltz_resc_init(struct platform_device *pdev, struct pil_tz_data *d)
 	int len, count, rc;
 	struct device *dev = &pdev->dev;
 
-	count = of_read_clocks(dev, &d->clks, "active-clock-names");
+	count = of_read_clocks(dev, &d->clks, "qcom,active-clock-names");
 	if (count < 0) {
 		dev_err(dev, "Failed to setup clocks.\n");
 		return count;
 	}
 	d->clk_count = count;
 
-	count = of_read_clocks(dev, &d->proxy_clks, "proxy-clock-names");
+	count = of_read_clocks(dev, &d->proxy_clks, "qcom,proxy-clock-names");
 	if (count < 0) {
 		dev_err(dev, "Failed to setup proxy clocks.\n");
 		return count;
 	}
 	d->proxy_clk_count = count;
 
-	count = of_read_regs(dev, &d->regs, "active-reg-names");
+	count = of_read_regs(dev, &d->regs, "qcom,active-reg-names");
 	if (count < 0) {
 		dev_err(dev, "Failed to setup regulators.\n");
 		return count;
 	}
 	d->reg_count = count;
 
-	count = of_read_regs(dev, &d->proxy_regs, "proxy-reg-names");
+	count = of_read_regs(dev, &d->proxy_regs, "qcom,proxy-reg-names");
 	if (count < 0) {
 		dev_err(dev, "Failed to setup proxy regulators.\n");
 		return count;

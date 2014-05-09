@@ -336,7 +336,7 @@ static int venus_notifier_cb(struct notifier_block *this, unsigned long code,
 			return ret;
 
 		ret = of_property_read_string(data->pdev->dev.of_node,
-				"proxy-reg-names", &venus_data->reg_name);
+				"qcom,proxy-reg-names", &venus_data->reg_name);
 		if (ret)
 			return ret;
 

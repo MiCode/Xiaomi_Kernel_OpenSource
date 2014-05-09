@@ -2981,10 +2981,10 @@
 		reg = <0xfdce0000 0x4000>;
 
 		vdd-supply = <&gdsc_venus>;
-		proxy-reg-names = "vdd";
+		qcom,proxy-reg-names = "vdd";
 		clock-names = "core_clk", "iface_clk",
 				"bus_clk", "mem_clk";
-		proxy-clock-names = "core_clk", "iface_clk",
+		qcom,proxy-clock-names = "core_clk", "iface_clk",
 					"bus_clk", "mem_clk";
 
 		qcom,msm-bus,name = "pil-venus";
@@ -3006,11 +3006,11 @@
 		interrupts = <0 162 1>;
 
 		vdd_cx-supply = <&pma8084_s2_corner>;
-		proxy-reg-names = "vdd_cx";
-		vdd_cx-uV-uA = <7 100000>;
+		qcom,proxy-reg-names = "vdd_cx";
+		qcom,vdd_cx-uV-uA = <7 100000>;
 		clock-names = "bus_clk", "xo";
-		active-clock-names = "bus_clk";
-		proxy-clock-names = "xo";
+		qcom,active-clock-names = "bus_clk";
+		qcom,proxy-clock-names = "xo";
 
 		qcom,pas-id = <1>;
 		qcom,proxy-timeout-ms = <10000>;
@@ -3777,12 +3777,12 @@
 
 		vdd-proxy-supply = <&gdsc_vpu>;
 		vdd-supply = <&gdsc_vpu>;
-		proxy-reg-names = "vdd-proxy";
-		active-reg-names = "vdd";
+		qcom,proxy-reg-names = "vdd-proxy";
+		qcom,active-reg-names = "vdd";
 		clock-names = "core_clk", "iface_clk", "bus_clk",
 				"vdp_clk", "vdp_bus_clk", "cxo_clk",
 				"sleep_clk", "maple_bus_clk";
-		proxy-clock-names = "core_clk", "iface_clk", "bus_clk",
+		qcom,proxy-clock-names = "core_clk", "iface_clk", "bus_clk",
 					"vdp_clk", "vdp_bus_clk", "cxo_clk",
 					"sleep_clk", "maple_bus_clk";
 
