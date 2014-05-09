@@ -1505,6 +1505,11 @@ static int qpnp_vm_bms_config_power_state(struct qpnp_bms_chip *chip,
 	return 0;
 }
 
+static int get_prop_bms_current_now(struct qpnp_bms_chip *chip)
+{
+	return chip->current_now;
+}
+
 static enum power_supply_property bms_power_props[] = {
 	POWER_SUPPLY_PROP_CAPACITY,
 	POWER_SUPPLY_PROP_STATUS,
@@ -1560,7 +1565,7 @@ static int qpnp_vm_bms_power_get_property(struct power_supply *psy,
 			val->intval += chip->dt.cfg_r_conn_mohm;
 		break;
 	case POWER_SUPPLY_PROP_CURRENT_NOW:
-		val->intval = chip->current_now;
+		val->intval = get_prop_bms_current_now(chip);
 		break;
 	case POWER_SUPPLY_PROP_BATTERY_TYPE:
 		val->strval = chip->batt_data->battery_type;
