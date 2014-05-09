@@ -495,13 +495,45 @@ static int msm_mi2s_snd_startup(struct snd_pcm_substream *substream)
 	return ret;
 }
 
+static void *def_msm8x16_wcd_mbhc_cal(void)
+{
+	void *msm8x16_wcd_cal;
+	struct wcd_mbhc_btn_detect_cfg *btn_cfg;
+	u16 *btn_low, *btn_high;
+
+	msm8x16_wcd_cal = kzalloc(sizeof(struct wcd_mbhc_btn_detect_cfg),
+					GFP_KERNEL);
+	if (!msm8x16_wcd_cal) {
+		pr_err("%s: out of memory\n", __func__);
+		return NULL;
+	}
+
+	btn_cfg = WCD_MBHC_CAL_BTN_DET_PTR(msm8x16_wcd_cal);
+	btn_cfg->num_btn = WCD_MBHC_DEF_BUTTONS;
+	btn_low = btn_cfg->_v_btn_low;
+	btn_high = btn_cfg->_v_btn_high;
+
+	btn_low[0] = 0;
+	btn_high[0] = 25;
+	btn_low[1] = 25;
+	btn_high[1] = 50;
+	btn_low[2] = 50;
+	btn_high[2] = 75;
+	btn_low[3] = 75;
+	btn_high[3] = 112;
+	btn_low[4] = 112;
+	btn_high[4] = 137;
+
+	return msm8x16_wcd_cal;
+}
+
 static int msm_audrx_init(struct snd_soc_pcm_runtime *rtd)
 {
 
 	struct snd_soc_codec *codec = rtd->codec;
 	struct snd_soc_dapm_context *dapm = &codec->dapm;
 	struct snd_soc_dai *cpu_dai = rtd->cpu_dai;
-	int ret = 0;
+	int ret = -ENOMEM;
 
 	pr_debug("%s(),dev_name%s\n", __func__, dev_name(cpu_dai->dev));
 
@@ -528,7 +560,15 @@ static int msm_audrx_init(struct snd_soc_pcm_runtime *rtd)
 
 	snd_soc_dapm_sync(dapm);
 
-	ret = msm8x16_wcd_hs_detect(codec, &mbhc_cfg);
+	mbhc_cfg.calibration = def_msm8x16_wcd_mbhc_cal();
+	if (mbhc_cfg.calibration) {
+		ret = msm8x16_wcd_hs_detect(codec, &mbhc_cfg);
+		if (ret) {
+			pr_err("%s: msm8x16_wcd_hs_detect failed\n", __func__);
+			kfree(mbhc_cfg.calibration);
+			return ret;
+		}
+	}
 
 	return ret;
 }

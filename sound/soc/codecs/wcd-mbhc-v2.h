@@ -16,6 +16,7 @@
 
 #define TOMBAK_MBHC_NC	0
 #define TOMBAK_MBHC_NO	1
+#define WCD_MBHC_DEF_BUTTONS 5
 
 enum wcd_mbhc_plug_type {
 	PLUG_TYPE_INVALID = -1,
@@ -30,6 +31,17 @@ enum pa_dac_ack_flags {
 	WCD_MBHC_HPHL_PA_OFF_ACK = 0,
 	WCD_MBHC_HPHR_PA_OFF_ACK,
 };
+
+enum wcd_mbhc_btn_det_mem {
+	WCD_MBHC_BTN_DET_V_BTN_LOW,
+	WCD_MBHC_BTN_DET_V_BTN_HIGH
+};
+
+struct wcd_mbhc_btn_detect_cfg {
+	u8 num_btn;
+	s16 _v_btn_low[WCD_MBHC_DEF_BUTTONS];
+	s16 _v_btn_high[WCD_MBHC_DEF_BUTTONS];
+} __packed;
 
 struct wcd_mbhc_config {
 	bool read_fw_bin;
@@ -81,6 +93,10 @@ struct wcd_mbhc {
 	/* Holds codec specific interrupt mapping */
 	const struct wcd_mbhc_intr *intr_ids;
 };
+
+#define WCD_MBHC_CAL_BTN_DET_PTR(cali) ( \
+	    (struct wcd_mbhc_btn_detect_cfg *) cali)
+
 int wcd_mbhc_start(struct wcd_mbhc *mbhc,
 		       struct wcd_mbhc_config *mbhc_cfg);
 void wcd_mbhc_stop(struct wcd_mbhc *mbhc);
