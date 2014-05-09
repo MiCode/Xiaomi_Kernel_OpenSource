@@ -32,11 +32,11 @@ Required properties:
 Optional properties:
 - label:		        	A string used to describe the controller used.
 
-- qcom,platform-supply-entry<1..n>:	A node that lists the elements of the supply. There
-					can be more than one instance of this binding,
-					in which case the entry would be appended with
-					the supply entry index.
-					e.g. qcom,platform-supply-entry1
+- qcom,ctrl-supply-entries:		A node that lists the elements of the supply used by the
+					DSI controller and PHY. There can be more than one instance
+					of this binding, in which case the entry would be appended
+					with the supply entry index.
+					e.g. qcom,ctrl-supply-entry@0
 					-- qcom,supply-name: name of the supply (vdd/vdda/vddio)
 					-- qcom,supply-min-voltage: minimum voltage level (uV)
 					-- qcom,supply-max-voltage: maximum voltage level (uV)
@@ -46,6 +46,12 @@ Optional properties:
 					-- qcom,supply-post-on-sleep: time to sleep (ms) after turning on
 					-- qcom,supply-pre-off-sleep: time to sleep (ms) before turning off
 					-- qcom,supply-post-off-sleep: time to sleep (ms) after turning off
+- qcom,panel-supply-entries:		A node that lists the elements of the supply used to
+					power the DSI panel. There can be more than one instance
+					of this binding, in which case the entry would be appended
+					with the supply entry index. For a detailed description of
+					fields in the supply entry, refer to the qcom,ctrl-supply-entries
+					binding above.
 - qcom,platform-enable-gpio:		Specifies the panel lcd/display enable gpio.
 - qcom,platform-reset-gpio:		Specifies the panel reset gpio.
 - qcom,platform-te-gpio:		Specifies the gpio used for TE.
@@ -91,37 +97,53 @@ Example:
 		qcom,platform-enable-gpio = <&msmgpio 58 1>;
 		qcom,platform-bklight-en-gpio = <&msmgpio 86 0>;
 		qcom,platform-mode-gpio = <&msmgpio 7 0>;
-		qcom,platform-supply-entry1 {
-			qcom,supply-name = "vdd";
-			qcom,supply-min-voltage = <2800000>;
-			qcom,supply-max-voltage = <2800000>;
-			qcom,supply-enable-load = <100000>;
-			qcom,supply-disable-load = <100>;
-			qcom,supply-pre-on-sleep = <0>;
-			qcom,supply-post-on-sleep = <20>;
-			qcom,supply-pre-off-sleep = <0>;
-			qcom,supply-post-off-sleep = <20>;
+
+		qcom,ctrl-supply-entries {
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			qcom,ctrl-supply-entry@0 {
+				reg = <0>;
+				qcom,supply-name = "vdda";
+				qcom,supply-min-voltage = <1200000>;
+				qcom,supply-max-voltage = <1200000>;
+				qcom,supply-enable-load = <100000>;
+				qcom,supply-disable-load = <100>;
+				qcom,supply-pre-on-sleep = <0>;
+				qcom,supply-post-on-sleep = <20>;
+				qcom,supply-pre-off-sleep = <0>;
+				qcom,supply-post-off-sleep = <0>;
+			};
 		};
-		qcom,platform-supply-entry2 {
-			qcom,supply-name = "vddio";
-			qcom,supply-min-voltage = <1800000>;
-			qcom,supply-max-voltage = <1800000>;
-			qcom,supply-enable-load = <100000>;
-			qcom,supply-disable-load = <100>;
-			qcom,supply-pre-on-sleep = <0>;
-			qcom,supply-post-on-sleep = <30>;
-			qcom,supply-pre-off-sleep = <0>;
-			qcom,supply-post-off-sleep = <30>;
-		};
-		qcom,platform-supply-entry3 {
-			qcom,supply-name = "vdda";
-			qcom,supply-min-voltage = <1200000>;
-			qcom,supply-max-voltage = <1200000>;
-			qcom,supply-enable-load = <100000>;
-			qcom,supply-disable-load = <100>;
-			qcom,supply-pre-on-sleep = <0>;
-			qcom,supply-post-on-sleep = <20>;
-			qcom,supply-pre-off-sleep = <0>;
-			qcom,supply-post-off-sleep = <30>;
+
+		qcom,panel-supply-entries {
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			qcom,panel-supply-entry@0 {
+				reg = <0>;
+				qcom,supply-name = "vdd";
+				qcom,supply-min-voltage = <2800000>;
+				qcom,supply-max-voltage = <2800000>;
+				qcom,supply-enable-load = <100000>;
+				qcom,supply-disable-load = <100>;
+				qcom,supply-pre-on-sleep = <0>;
+				qcom,supply-post-on-sleep = <0>;
+				qcom,supply-pre-off-sleep = <0>;
+				qcom,supply-post-off-sleep = <0>;
+			};
+
+			qcom,panel-supply-entry@1 {
+				reg = <1>;
+				qcom,supply-name = "vddio";
+				qcom,supply-min-voltage = <1800000>;
+				qcom,supply-max-voltage = <1800000>;
+				qcom,supply-enable-load = <100000>;
+				qcom,supply-disable-load = <100>;
+				qcom,supply-pre-on-sleep = <0>;
+				qcom,supply-post-on-sleep = <0>;
+				qcom,supply-pre-off-sleep = <0>;
+				qcom,supply-post-off-sleep = <0>;
+			};
 		};
         };
