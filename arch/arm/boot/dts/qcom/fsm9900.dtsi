@@ -1339,7 +1339,6 @@
 		gdsc-vdd-supply = <&gdsc_pcie_0>;
 		vreg-1.8-supply = <&pma8084_l12>;
 		vreg-0.9-supply = <&pma8084_l3>;
-		vreg-3.3-supply = <&pcie0_power_en_vreg>;
 		qcom,vreg-0.9-voltage-level = <950000 950000 24000>;
 
 		clock-names = "pcie_0_pipe_clk", "pcie_0_ref_clk_src",
@@ -1398,7 +1397,6 @@
 		gdsc-vdd-supply = <&gdsc_pcie_1>;
 		vreg-1.8-supply = <&pma8084_l12>;
 		vreg-0.9-supply = <&pma8084_l3>;
-		vreg-3.3-supply = <&pcie1_power_en_vreg>;
 		qcom,vreg-0.9-voltage-level = <950000 950000 24000>;
 
 		clock-names = "pcie_1_pipe_clk", "pcie_1_ref_clk_src",
