@@ -258,7 +258,7 @@ static const struct iio_info ak09911_info = {
 };
 
 static const struct acpi_device_id ak_acpi_match[] = {
-	{"AK09911", 0},
+	{"AK009911", 0},
 	{ },
 };
 MODULE_DEVICE_TABLE(acpi, ak_acpi_match);
