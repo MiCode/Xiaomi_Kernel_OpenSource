@@ -24,6 +24,7 @@
 #include <linux/kernel.h>
 #include <linux/types.h>
 #include <linux/i2c.h>
+#include <linux/acpi.h>
 #include <linux/delay.h>
 #include <linux/videodev2.h>
 #include <linux/spinlock.h>
@@ -108,6 +109,8 @@
 #define GC0339_BIN_FACTOR_MAX			3
 
 #define REG_VER1 0
+
+void *gc0339_platform_data(void *info);
 
 struct regval_list {
 	u16 reg_num;

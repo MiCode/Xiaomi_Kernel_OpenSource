@@ -34,7 +34,6 @@
 #include <linux/gpio.h>
 #include <linux/moduleparam.h>
 #include <media/v4l2-device.h>
-#include <media/v4l2-chip-ident.h>
 #include <linux/io.h>
 
 #include "gc0339.h"
@@ -174,7 +173,6 @@ static int __gc0339_buf_reg_array(struct i2c_client *client,
 				  const struct gc0339_reg *next)
 {
 	int size;
-	u16 *data16;
 
 	switch (next->type) {
 	case GC0339_8BIT:
@@ -1442,6 +1440,15 @@ static int gc0339_probe(struct i2c_client *client,
 				       client->dev.platform_data);
 		if (ret)
 			goto out_free;
+	} else if (ACPI_COMPANION(&client->dev)) {
+		/*
+		 * If no SFI firmware, grab the platform struct
+		 * directly and configure via ACPI/EFIvars instead
+		 */
+		ret = gc0339_s_config(&dev->sd, client->irq,
+				      gc0339_platform_data(NULL));
+		if (ret)
+			goto out_free;
 	}
 
 	dev->sd.flags |= V4L2_SUBDEV_FL_HAS_DEVNODE;
@@ -1462,11 +1469,18 @@ out_free:
 	return ret;
 }
 
+static struct acpi_device_id gc0339_acpi_match[] = {
+	{""},
+	{},
+};
+MODULE_DEVICE_TABLE(acpi, gc0339_acpi_match);
+
 MODULE_DEVICE_TABLE(i2c, gc0339_id);
 static struct i2c_driver gc0339_driver = {
 	.driver = {
 		.owner = THIS_MODULE,
 		.name = GC0339_NAME,
+		.acpi_match_table = ACPI_PTR(gc0339_acpi_match),
 	},
 	.probe = gc0339_probe,
 	.remove = gc0339_remove,

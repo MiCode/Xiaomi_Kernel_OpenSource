@@ -12,14 +12,12 @@
 
 #include <linux/gpio.h>
 #include <linux/delay.h>
+#include <linux/acpi.h>
 #include <linux/atomisp_platform.h>
-#include <asm/intel_scu_ipcutil.h>
 #include <asm/intel-mid.h>
 #include <media/v4l2-subdev.h>
 #include <linux/mfd/intel_mid_pmic.h>
 #include <linux/vlv2_plat_clock.h>
-#include "platform_camera.h"
-#include "platform_gc0339.h"
 
 /* workround - pin defined for byt */
 #define CAMERA_0_RESET 126
@@ -78,87 +76,78 @@ EXPORT_SYMBOL_GPL(camera_set_pmic_power);
 /*
  * GC0339 platform data
  */
+/*
+ * Cloned from MCG platform_camera.c because it's small and
+ * self-contained.  All it does is maintain the V4L2 subdev hostdate
+ * pointer
+ */
+static int camera_sensor_csi(struct v4l2_subdev *sd, u32 port,
+			     u32 lanes, u32 format, u32 bayer_order, int flag)
+{
+        struct i2c_client *client = v4l2_get_subdevdata(sd);
+        struct camera_mipi_info *csi = NULL;
+
+        if (flag) {
+                csi = kzalloc(sizeof(*csi), GFP_KERNEL);
+                if (!csi) {
+                        dev_err(&client->dev, "out of memory\n");
+                        return -ENOMEM;
+                }
+                csi->port = port;
+                csi->num_lanes = lanes;
+                csi->input_format = format;
+                csi->raw_bayer_order = bayer_order;
+                v4l2_set_subdev_hostdata(sd, (void *)csi);
+                csi->metadata_format = ATOMISP_INPUT_FORMAT_EMBEDDED;
+                csi->metadata_effective_width = NULL;
+                dev_info(&client->dev,
+                         "camera pdata: port: %d lanes: %d order: %8.8x\n",
+                         port, lanes, bayer_order);
+        } else {
+                csi = v4l2_get_subdev_hostdata(sd);
+                kfree(csi);
+        }
+
+	return 0;
+}
 
 static int gc0339_gpio_ctrl(struct v4l2_subdev *sd, int flag)
 {
 	int ret;
 	int pin;
 
-#if 0
-if (flag == 0)
-	return 0;
-#endif
-
-	if (intel_mid_identify_cpu() != INTEL_MID_CPU_CHIP_VALLEYVIEW2) {
-		if (camera_reset < 0) {
-			ret = camera_sensor_gpio(-1, GP_CAMERA_0_RESET,
-					GPIOF_DIR_OUT, 1);
-			if (ret < 0)
-				return ret;
-			camera_reset = ret;
+	/*
+	 * FIXME: WA using hardcoded GPIO value here.
+	 * The GPIO value would be provided by ACPI table, which is
+	 * not implemented currently.
+	 */
+	pin = CAMERA_0_RESET;
+	if (camera_reset < 0) {
+		ret = gpio_request(pin, "camera_0_reset");
+		if (ret) {
+			pr_err("%s: failed to request gpio(pin %d)\n",
+			       __func__, pin);
+			return ret;
 		}
-
-		if (camera_power_down < 0) {
-			ret = camera_sensor_gpio(-1, GP_CAMERA_0_POWER_DOWN,
-					GPIOF_DIR_OUT, 0);
-			if (ret < 0)
-				return ret;
-			camera_power_down = ret;
-		}
-	} else {
-		/*
-		 * FIXME: WA using hardcoded GPIO value here.
-		 * The GPIO value would be provided by ACPI table, which is
-		 * not implemented currently.
-		 */
-		pin = CAMERA_0_RESET;
-		if (camera_reset < 0) {
-			ret = gpio_request(pin, "camera_0_reset");
-			if (ret) {
-				pr_err("%s: failed to request gpio(pin %d)\n",
-					__func__, pin);
-				return ret;
-			}
-			camera_reset = pin;
-#if 0
-			pr_info("output reset %d\n", flag ? 1 : 0);
-			ret = gpio_direction_output(pin, flag ? 1 : 0);
-			if (ret) {
-				pr_err("%s: failed to set gpio(pin %d) direction\n",
-					__func__, pin);
-				gpio_free(pin);
-				return ret;
-			}
-#endif
-		}
-
-		/*
-		 * FIXME: WA using hardcoded GPIO value here.
-		 * The GPIO value would be provided by ACPI table, which is
-		 * not implemented currently.
-		 */
-		pin = CAMERA_0_PWDN;
-		if (camera_power_down < 0) {
-			ret = gpio_request(pin, "camera_0_power");
-			if (ret) {
-				pr_err("%s: failed to request gpio(pin %d)\n",
-					__func__, pin);
-				return ret;
-			}
-			camera_power_down = pin;
-#if 0
-			pr_info("output pwn %d\n", 0);//flag ? 0 : 1);
-			ret = gpio_direction_output(pin, 0);//flag ? 0 : 1);
-			if (ret) {
-				pr_err("%s: failed to set gpio(pin %d) direction\n",
-					__func__, pin);
-				gpio_free(pin);
-				return ret;
-			}
-#endif
-		}
-
+		camera_reset = pin;
 	}
+
+	/*
+	 * FIXME: WA using hardcoded GPIO value here.
+	 * The GPIO value would be provided by ACPI table, which is
+	 * not implemented currently.
+	 */
+	pin = CAMERA_0_PWDN;
+	if (camera_power_down < 0) {
+		ret = gpio_request(pin, "camera_0_power");
+		if (ret) {
+			pr_err("%s: failed to request gpio(pin %d)\n",
+			       __func__, pin);
+			return ret;
+		}
+		camera_power_down = pin;
+	}
+
 	if (flag) {
 		pr_info("pull low reset\n");
 		gpio_set_value(camera_reset, 0);
@@ -181,17 +170,8 @@ if (flag == 0)
 
 static int gc0339_flisclk_ctrl(struct v4l2_subdev *sd, int flag)
 {
-	static const unsigned int clock_khz = 19200;
 	int ret = 0;
 
-#if 0
-	if (flag == 0)
-		return 0;
-#endif
-
-	if (intel_mid_identify_cpu() != INTEL_MID_CPU_CHIP_VALLEYVIEW2)
-		return intel_scu_ipc_osc_clk(OSC_CLK_CAM0,
-					     flag ? clock_khz : 0);
 #ifdef CONFIG_VLV2_PLAT_CLK
 	if (flag) {
 		pr_info("mclk enable\n");
@@ -212,16 +192,8 @@ static int gc0339_power_ctrl(struct v4l2_subdev *sd, int flag)
 {
 	int ret = 0;
 
-#if 0
-	if (flag == 0)
-		return 0;
-#endif
-
 	if (flag) {
 		if (camera_vprog1_on != 1) {
-			if (intel_mid_identify_cpu() !=
-			    INTEL_MID_CPU_CHIP_VALLEYVIEW2)
-				ret = intel_scu_ipc_msic_vprog1(1);
 #ifdef CONFIG_CRYSTAL_COVE
 			pr_info("1 disable 1V8\n");
 			ret = camera_set_pmic_power(CAMERA_1P8V, false);
@@ -237,7 +209,7 @@ static int gc0339_power_ctrl(struct v4l2_subdev *sd, int flag)
 			 * VRF not implemented for BTY, so call this
 			 * as WAs
 			 */
-			 pr_info("enable 1V8\n");
+			pr_info("enable 1V8\n");
 			ret = camera_set_pmic_power(CAMERA_1P8V, true);
 			if (ret)
 				return ret;
@@ -252,9 +224,6 @@ static int gc0339_power_ctrl(struct v4l2_subdev *sd, int flag)
 		}
 	} else {
 		if (camera_vprog1_on != 0) {
-			if (intel_mid_identify_cpu() !=
-			    INTEL_MID_CPU_CHIP_VALLEYVIEW2)
-				ret = intel_scu_ipc_msic_vprog1(0);
 #ifdef CONFIG_CRYSTAL_COVE
 			pr_info("disable 1V8\n");
 			ret = camera_set_pmic_power(CAMERA_1P8V, false);
