@@ -24,6 +24,17 @@
 #include "sleep.h"
 
 static u8 sleep_states[ACPI_S_STATE_COUNT];
+/*
+ * Platform architectures may support hardware power management
+ * models other than the traditional ACPI Sleep/Resume model.
+ * These are typically implemented in proprietary hardware and
+ * are capable of delivering low-latency, connected idle while
+ * saving as much energy as ACPI Sleep states. To support the
+ * diversity of hardware implementations
+ */
+static u8 low_power_s0idle;
+char	*s0idle_str = "S0idle";
+#define	ACPI_S_STATE_STR_LEN	32
 
 static void acpi_sleep_tts_switch(u32 acpi_state)
 {
@@ -80,6 +91,11 @@ static bool acpi_sleep_state_supported(u8 sleep_state)
 	return ACPI_SUCCESS(status) && (!acpi_gbl_reduced_hardware
 		|| (acpi_gbl_FADT.sleep_control.address
 			&& acpi_gbl_FADT.sleep_status.address));
+}
+
+static bool acpi_low_power_s0idle_supported(void)
+{
+	return acpi_gbl_FADT.flags & ACPI_FADT_LOW_POWER_S0;
 }
 
 #ifdef CONFIG_ACPI_SLEEP
@@ -619,6 +635,9 @@ static void acpi_sleep_suspend_setup(void)
 		if (acpi_sleep_state_supported(i))
 			sleep_states[i] = 1;
 
+	if (acpi_low_power_s0idle_supported())
+		low_power_s0idle = 1;
+
 	suspend_set_ops(old_suspend_ordering ?
 		&acpi_suspend_ops_old : &acpi_suspend_ops);
 }
@@ -794,7 +813,7 @@ static void acpi_power_off(void)
 
 int __init acpi_sleep_init(void)
 {
-	char supported[ACPI_S_STATE_COUNT * 3 + 1];
+	char supported[ACPI_S_STATE_STR_LEN];
 	char *pos = supported;
 	int i;
 
@@ -816,8 +835,11 @@ int __init acpi_sleep_init(void)
 		if (sleep_states[i])
 			pos += sprintf(pos, " S%d", i);
 	}
-	pr_info(PREFIX "(supports%s)\n", supported);
 
+	if (low_power_s0idle)
+		pos += sprintf(pos, " %s", s0idle_str);
+
+	pr_info(PREFIX "(supports%s)\n", supported);
 	/*
 	 * Register the tts_notifier to reboot notifier list so that the _TTS
 	 * object can also be evaluated when the system enters S5.
