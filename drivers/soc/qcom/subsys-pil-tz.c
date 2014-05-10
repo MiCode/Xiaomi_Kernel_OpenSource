@@ -265,9 +265,21 @@ static int of_read_clocks(struct device *dev, struct clk ***clks_ref,
 
 	for (i = 0; i < clk_count; i++) {
 		const char *clock_name;
+		char clock_freq_name[50];
+		u32 clock_rate = XO_FREQ;
+
 		of_property_read_string_index(dev->of_node,
 					      propname, i,
 					      &clock_name);
+		snprintf(clock_freq_name, ARRAY_SIZE(clock_freq_name),
+						"qcom,%s-freq", clock_name);
+		if (of_find_property(dev->of_node, clock_freq_name, &len))
+			if (of_property_read_u32(dev->of_node, clock_freq_name,
+								&clock_rate)) {
+				dev_err(dev, "Failed to read %s clock's freq\n",
+							clock_freq_name);
+				return -EINVAL;
+			}
 
 		clks[i] = devm_clk_get(dev, clock_name);
 		if (IS_ERR(clks[i])) {
@@ -281,7 +293,7 @@ static int of_read_clocks(struct device *dev, struct clk ***clks_ref,
 		/* Make sure rate-settable clocks' rates are set */
 		if (clk_get_rate(clks[i]) == 0)
 			clk_set_rate(clks[i], clk_round_rate(clks[i],
-								XO_FREQ));
+								clock_rate));
 	}
 
 	*clks_ref = clks;

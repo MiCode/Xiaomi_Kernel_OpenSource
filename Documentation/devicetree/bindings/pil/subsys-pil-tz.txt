@@ -27,6 +27,9 @@ Optional properties:
 - active-clock-names: Names of the clocks that need to be turned on for the
 		      subsystem to run. Turned off when the subsystem is shutdown.
 - clock-names:	      Names of all the clocks that are accessed by the subsystem.
+- qcom,<clock-name>-freq: Frequency to be set for that clock in Hz. If the property
+			  isn't added for a clock, then the default clock frequency
+			  would be set to 19200000 Hz.
 - qcom,msm-bus,name:  Name of the bus client for the subsystem.
 - qcom,msm-bus,num-cases: Number of use-cases.
 - qcom,msm-bus,num-paths: Number of paths.
