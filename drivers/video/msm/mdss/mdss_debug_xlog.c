@@ -36,6 +36,10 @@ struct mdss_dbg_xlog {
 	int first;
 	int last;
 	spinlock_t xlock;
+	struct dentry *xlog;
+	u32 xlog_enable;
+	u32 panic_on_err;
+	u32 enable_reg_dump;
 } mdss_dbg_xlog;
 
 static int mdss_xlog_dump_open(struct inode *inode, struct file *file)
@@ -62,35 +66,33 @@ int mdss_create_xlog_debug(struct mdss_debug_data *mdd)
 {
 	spin_lock_init(&mdss_dbg_xlog.xlock);
 
-	mdd->logd.xlog = debugfs_create_dir("xlog", mdd->root);
-	if (IS_ERR_OR_NULL(mdd->logd.xlog)) {
+	mdss_dbg_xlog.xlog = debugfs_create_dir("xlog", mdd->root);
+	if (IS_ERR_OR_NULL(mdss_dbg_xlog.xlog)) {
 		pr_err("debugfs_create_dir fail, error %ld\n",
-		       PTR_ERR(mdd->logd.xlog));
-		mdd->logd.xlog = NULL;
+		       PTR_ERR(mdss_dbg_xlog.xlog));
+		mdss_dbg_xlog.xlog = NULL;
 		return -ENODEV;
 	}
-	debugfs_create_file("dump", 0644, mdd->logd.xlog, NULL,
+	debugfs_create_file("dump", 0644, mdss_dbg_xlog.xlog, NULL,
 						&mdss_xlog_fops);
-	debugfs_create_bool("enable", 0644, mdd->logd.xlog,
-			    &mdd->logd.xlog_enable);
-	debugfs_create_bool("panic", 0644, mdd->logd.xlog,
-			    &mdd->logd.panic_on_err);
-	debugfs_create_bool("reg_dump", 0644, mdd->logd.xlog,
-			    &mdd->logd.enable_reg_dump);
+	debugfs_create_bool("enable", 0644, mdss_dbg_xlog.xlog,
+			    &mdss_dbg_xlog.xlog_enable);
+	debugfs_create_bool("panic", 0644, mdss_dbg_xlog.xlog,
+			    &mdss_dbg_xlog.panic_on_err);
+	debugfs_create_bool("reg_dump_in_log", 0644, mdss_dbg_xlog.xlog,
+			    &mdss_dbg_xlog.enable_reg_dump);
 	return 0;
 }
 
 void mdss_xlog(const char *name, ...)
 {
-	struct mdss_data_type *mdata = mdss_mdp_get_mdata();
-	struct mdss_debug_data *mdd = mdata->debug_inf.debug_data;
 	unsigned long flags;
 	int i, val = 0;
 	va_list args;
 	struct tlog *log;
 	ktime_t time;
 
-	if (!mdd->logd.xlog_enable)
+	if (!mdss_dbg_xlog.xlog_enable)
 		return;
 
 	spin_lock_irqsave(&mdss_dbg_xlog.xlock, flags);
@@ -124,15 +126,13 @@ void mdss_xlog(const char *name, ...)
 
 void mdss_xlog_dump(void)
 {
-	struct mdss_data_type *mdata = mdss_mdp_get_mdata();
-	struct mdss_debug_data *mdd = mdata->debug_inf.debug_data;
 	int i, n, d_cnt, off;
 	unsigned long flags;
 	unsigned long rem_nsec;
 	struct tlog *log;
 	char xlog_buf[MDSS_XLOG_BUF_MAX];
 
-	if (!mdd->logd.xlog_enable)
+	if (!mdss_dbg_xlog.xlog_enable)
 		return;
 
 	spin_lock_irqsave(&mdss_dbg_xlog.xlock, flags);
@@ -165,7 +165,7 @@ void mdss_xlog_tout_handler(const char *name, ...)
 	va_list args;
 	char *blk_name = NULL;
 
-	if (!mdd->logd.xlog_enable)
+	if (!mdss_dbg_xlog.xlog_enable)
 		return;
 
 	va_start(args, name);
@@ -179,7 +179,7 @@ void mdss_xlog_tout_handler(const char *name, ...)
 
 			if (blk_base->name &&
 				!strcmp(blk_base->name, blk_name) &&
-				mdd->logd.enable_reg_dump) {
+				mdss_dbg_xlog.enable_reg_dump) {
 				pr_info("\n%s  :   =========%s DUMP=========\n",
 						__func__, blk_base->name);
 				mdss_dump_reg(blk_base->base,
@@ -194,6 +194,6 @@ void mdss_xlog_tout_handler(const char *name, ...)
 	MDSS_XLOG(0xffff, 0xffff, 0xffff, 0xffff, 0xffff);
 	mdss_xlog_dump();
 
-	if (dead && mdd->logd.panic_on_err)
+	if (dead && mdss_dbg_xlog.panic_on_err)
 		panic(name);
 }

@@ -55,18 +55,10 @@ struct mdss_debug_base {
 	struct list_head head;
 };
 
-struct debug_log {
-	struct dentry *xlog;
-	u32 xlog_enable;
-	u32 panic_on_err;
-	u32 enable_reg_dump;
-};
-
 struct mdss_debug_data {
 	struct dentry *root;
 	struct dentry *perf;
 	struct list_head base_list;
-	struct debug_log logd;
 };
 
 #define DEFINE_MDSS_DEBUGFS_SEQ_FOPS(__prefix)				\
