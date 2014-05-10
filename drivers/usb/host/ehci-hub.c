@@ -329,8 +329,6 @@ int ehci_bus_suspend(struct usb_hcd *hcd)
 	if (!ehci->susp_sof_bug)
 		ehci_halt(ehci); /* turn off now-idle HC */
 
-	ehci->rh_state = EHCI_RH_SUSPENDED;
-
 	spin_lock_irq(&ehci->lock);
 	if (ehci->enabled_hrtimer_events & BIT(EHCI_HRTIMER_POLL_DEAD))
 		ehci_handle_controller_death(ehci);
