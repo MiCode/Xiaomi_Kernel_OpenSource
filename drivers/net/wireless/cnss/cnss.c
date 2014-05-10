@@ -792,6 +792,12 @@ void cnss_flush_delayed_work(void *dwork)
 }
 EXPORT_SYMBOL(cnss_flush_delayed_work);
 
+void cnss_get_monotonic_boottime(struct timespec *ts)
+{
+	get_monotonic_boottime(ts);
+}
+EXPORT_SYMBOL(cnss_get_monotonic_boottime);
+
 int cnss_get_ramdump_mem(unsigned long *address, unsigned long *size)
 {
 	struct resource *res;
