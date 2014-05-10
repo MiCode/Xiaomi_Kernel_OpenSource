@@ -1066,7 +1066,7 @@ static int jsa1212_chip_init(struct jsa1212_data *data)
 	data->als_thresh[JSA1212_THRESH_HIGH] = JSA1212_ALS_TH_MAX;
 	data->pxs_thresh[JSA1212_THRESH_LOW] = JSA1212_PXS_TH_MIN;
 	data->pxs_thresh[JSA1212_THRESH_HIGH] = JSA1212_PXS_TH_MAX;
-	data->als_prst_val = JSA1212_INT_ALS_PRST_1CONV;
+	data->als_prst_val = JSA1212_INT_ALS_PRST_4CONV;
 	data->pxs_prst_val = JSA1212_INT_PXS_PRST_1CONV;
 	data->flags = 0x00;
 	data->als_rng_idx = JSA1212_ALS_RNG_0_2048;
