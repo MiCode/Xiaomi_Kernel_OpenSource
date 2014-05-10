@@ -128,7 +128,13 @@ void msm_ipc_router_xprt_notify(struct msm_ipc_router_xprt *xprt,
 				unsigned event,
 				void *data);
 
-
+/**
+ * create_pkt() - Create a Router packet
+ * @data: SKB queue to be contained inside the packet.
+ *
+ * @return: pointer to packet on success, NULL on failure.
+ */
+struct rr_packet *create_pkt(struct sk_buff_head *data);
 struct rr_packet *clone_pkt(struct rr_packet *pkt);
 void release_pkt(struct rr_packet *pkt);
 

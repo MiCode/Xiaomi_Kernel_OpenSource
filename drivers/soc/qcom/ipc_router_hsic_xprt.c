@@ -310,25 +310,13 @@ static void hsic_xprt_read_data(struct work_struct *work)
 		pdata = hsic_xprtp->pdev->dev.platform_data;
 		mutex_unlock(&hsic_xprtp->ss_reset_lock);
 		while (!hsic_xprtp->in_pkt) {
-			hsic_xprtp->in_pkt = kzalloc(sizeof(struct rr_packet),
-						     GFP_KERNEL);
+			hsic_xprtp->in_pkt = create_pkt(NULL);
 			if (hsic_xprtp->in_pkt)
 				break;
 			IPC_RTR_ERR("%s: packet allocation failure\n",
 								__func__);
 			msleep(100);
 		}
-		while (!hsic_xprtp->in_pkt->pkt_fragment_q) {
-			hsic_xprtp->in_pkt->pkt_fragment_q =
-				kmalloc(sizeof(struct sk_buff_head),
-					GFP_KERNEL);
-			if (hsic_xprtp->in_pkt->pkt_fragment_q)
-				break;
-			IPC_RTR_ERR("%s: Couldn't alloc pkt_fragment_q\n",
-				__func__);
-			msleep(100);
-		}
-		skb_queue_head_init(hsic_xprtp->in_pkt->pkt_fragment_q);
 		D("%s: Allocated rr_packet\n", __func__);
 
 		while (!skb) {

@@ -288,25 +288,12 @@ static void smd_xprt_read_data(struct work_struct *work)
 	while ((pkt_size = smd_cur_packet_size(smd_xprtp->channel)) &&
 		smd_read_avail(smd_xprtp->channel)) {
 		if (!smd_xprtp->is_partial_in_pkt) {
-			smd_xprtp->in_pkt = kzalloc(sizeof(struct rr_packet),
-						    GFP_KERNEL);
+			smd_xprtp->in_pkt = create_pkt(NULL);
 			if (!smd_xprtp->in_pkt) {
 				IPC_RTR_ERR("%s: Couldn't alloc rr_packet\n",
 					__func__);
 				return;
 			}
-
-			smd_xprtp->in_pkt->pkt_fragment_q =
-				kmalloc(sizeof(struct sk_buff_head),
-					GFP_KERNEL);
-			if (!smd_xprtp->in_pkt->pkt_fragment_q) {
-				IPC_RTR_ERR(
-				"%s: Couldn't alloc pkt_fragment_q\n",
-					__func__);
-				kfree(smd_xprtp->in_pkt);
-				return;
-			}
-			skb_queue_head_init(smd_xprtp->in_pkt->pkt_fragment_q);
 			smd_xprtp->is_partial_in_pkt = 1;
 			D("%s: Allocated rr_packet\n", __func__);
 		}

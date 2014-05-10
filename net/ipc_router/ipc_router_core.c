@@ -329,6 +329,12 @@ fail_clone:
 	return NULL;
 }
 
+/**
+ * create_pkt() - Create a Router packet
+ * @data: SKB queue to be contained inside the packet.
+ *
+ * @return: pointer to packet on success, NULL on failure.
+ */
 struct rr_packet *create_pkt(struct sk_buff_head *data)
 {
 	struct rr_packet *pkt;
@@ -340,9 +346,21 @@ struct rr_packet *create_pkt(struct sk_buff_head *data)
 		return NULL;
 	}
 
-	pkt->pkt_fragment_q = data;
-	skb_queue_walk(pkt->pkt_fragment_q, temp_skb)
-		pkt->length += temp_skb->len;
+	if (data) {
+		pkt->pkt_fragment_q = data;
+		skb_queue_walk(pkt->pkt_fragment_q, temp_skb)
+			pkt->length += temp_skb->len;
+	} else {
+		pkt->pkt_fragment_q = kmalloc(sizeof(struct sk_buff_head),
+					      GFP_KERNEL);
+		if (!pkt->pkt_fragment_q) {
+			IPC_RTR_ERR("%s: Couldn't alloc pkt_fragment_q\n",
+				    __func__);
+			kfree(pkt);
+			return NULL;
+		}
+		skb_queue_head_init(pkt->pkt_fragment_q);
+	}
 	return pkt;
 }
 
