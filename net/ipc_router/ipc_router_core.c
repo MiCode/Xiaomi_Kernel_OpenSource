@@ -964,7 +964,7 @@ struct msm_ipc_port *msm_ipc_router_create_raw_port(void *endpoint,
 		return NULL;
 	}
 
-	spin_lock_init(&port_ptr->port_lock);
+	mutex_init(&port_ptr->port_lock_lhb1);
 	INIT_LIST_HEAD(&port_ptr->port_rx_q);
 	mutex_init(&port_ptr->port_rx_q_lock_lhb3);
 	init_waitqueue_head(&port_ptr->port_rx_wait_q);
@@ -2231,7 +2231,6 @@ int msm_ipc_router_register_server(struct msm_ipc_port *port_ptr,
 				   struct msm_ipc_addr *name)
 {
 	struct msm_ipc_server *server;
-	unsigned long flags;
 	union rr_control_msg ctl;
 
 	if (!port_ptr || !name)
@@ -2271,19 +2270,18 @@ int msm_ipc_router_register_server(struct msm_ipc_port *port_ptr,
 	up_write(&server_list_lock_lha2);
 	broadcast_ctl_msg(&ctl);
 	broadcast_ctl_msg_locally(&ctl);
-	spin_lock_irqsave(&port_ptr->port_lock, flags);
+	mutex_lock(&port_ptr->port_lock_lhb1);
 	port_ptr->type = SERVER_PORT;
 	port_ptr->mode_info.mode = MULTI_LINK_MODE;
 	port_ptr->port_name.service = server->name.service;
 	port_ptr->port_name.instance = server->name.instance;
-	spin_unlock_irqrestore(&port_ptr->port_lock, flags);
+	mutex_unlock(&port_ptr->port_lock_lhb1);
 	return 0;
 }
 
 int msm_ipc_router_unregister_server(struct msm_ipc_port *port_ptr)
 {
 	struct msm_ipc_server *server;
-	unsigned long flags;
 	union rr_control_msg ctl;
 
 	if (!port_ptr)
@@ -2324,9 +2322,9 @@ int msm_ipc_router_unregister_server(struct msm_ipc_port *port_ptr)
 	up_write(&server_list_lock_lha2);
 	broadcast_ctl_msg(&ctl);
 	broadcast_ctl_msg_locally(&ctl);
-	spin_lock_irqsave(&port_ptr->port_lock, flags);
+	mutex_lock(&port_ptr->port_lock_lhb1);
 	port_ptr->type = CLIENT_PORT;
-	spin_unlock_irqrestore(&port_ptr->port_lock, flags);
+	mutex_unlock(&port_ptr->port_lock_lhb1);
 	return 0;
 }
 
@@ -3156,13 +3154,12 @@ static int dump_control_ports(char *buf, int max)
 static int dump_local_ports(char *buf, int max)
 {
 	int i = 0, j;
-	unsigned long flags;
 	struct msm_ipc_port *port_ptr;
 
 	down_read(&local_ports_lock_lha2);
 	for (j = 0; j < LP_HASH_SIZE; j++) {
 		list_for_each_entry(port_ptr, &local_ports[j], list) {
-			spin_lock_irqsave(&port_ptr->port_lock, flags);
+			mutex_lock(&port_ptr->port_lock_lhb1);
 			i += scnprintf(buf + i, max - i, "Node_id: 0x%08x\n",
 				       port_ptr->this_port.node_id);
 			i += scnprintf(buf + i, max - i, "Port_id: 0x%08x\n",
@@ -3175,7 +3172,7 @@ static int dump_local_ports(char *buf, int max)
 				       port_ptr->num_tx_bytes);
 			i += scnprintf(buf + i, max - i, "# bytes rx'd %ld\n",
 				       port_ptr->num_rx_bytes);
-			spin_unlock_irqrestore(&port_ptr->port_lock, flags);
+			mutex_unlock(&port_ptr->port_lock_lhb1);
 			i += scnprintf(buf + i, max - i, "\n");
 		}
 	}

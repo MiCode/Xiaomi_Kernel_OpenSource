@@ -81,7 +81,7 @@ struct comm_mode_info {
  * @port_name: Contains service & instance info if the port hosts a service.
  * @type: Type of the port - Client, Service, Control or Security Config.
  * @flags: Flags to identify the port state.
- * @port_lock: Lock to protect access to the port information.
+ * @port_lock_lhb1: Lock to protect access to the port information.
  * @mode_info: Communication mode of the port owner.
  * @port_rx_q: Receive queue where incoming messages are queued.
  * @port_rx_q_lock_lhb3: Lock to protect access to the port's rx_q.
@@ -107,7 +107,7 @@ struct msm_ipc_port {
 	struct msm_ipc_port_name port_name;
 	uint32_t type;
 	unsigned flags;
-	spinlock_t port_lock;
+	struct mutex port_lock_lhb1;
 	struct comm_mode_info mode_info;
 
 	struct list_head port_rx_q;
