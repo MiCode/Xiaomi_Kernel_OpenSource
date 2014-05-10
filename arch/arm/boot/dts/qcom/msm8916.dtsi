@@ -456,6 +456,7 @@
 			qcom,data-fifo-size = <0x600>;
 			qcom,descriptor-fifo-offset = <0x600>;
 			qcom,descriptor-fifo-size = <0x200>;
+			qcom,reset-bam-on-connect;
 		};
 	};
 
