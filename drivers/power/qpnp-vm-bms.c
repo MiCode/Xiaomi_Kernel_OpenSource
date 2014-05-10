@@ -223,6 +223,8 @@ struct qpnp_bms_chip {
 	struct cdev			bms_cdev;
 	struct qpnp_vm_bms_data		bms_data;
 	struct qpnp_vadc_chip		*vadc_dev;
+	struct qpnp_adc_tm_chip		*adc_tm_dev;
+	struct qpnp_adc_tm_btm_param	vbat_monitor_params;
 	struct bms_irq			fifo_update_done_irq;
 	struct bms_irq			fsm_state_change_irq;
 	struct power_supply		bms_psy;
@@ -1201,6 +1203,105 @@ static int report_state_of_charge(struct qpnp_bms_chip *chip)
 	return soc;
 }
 
+static void btm_notify_vbat(enum qpnp_tm_state state, void *ctx)
+{
+	struct qpnp_bms_chip *chip = ctx;
+	int vbat_uv;
+	int rc;
+
+	rc = get_battery_voltage(chip, &vbat_uv);
+	if (rc) {
+		pr_err("error reading vbat_sns adc channel=%d, rc=%d\n",
+							VBAT_SNS, rc);
+		goto out;
+	}
+
+	pr_debug("vbat is at %d, state is at %d\n", vbat_uv, state);
+
+	if (state == ADC_TM_LOW_STATE) {
+		pr_debug("low voltage btm notification triggered\n");
+		if (vbat_uv <= (chip->vbat_monitor_params.low_thr
+					+ VBATT_ERROR_MARGIN)) {
+			if (!bms_wake_active(&chip->vbms_lv_wake_source))
+				bms_stay_awake(&chip->vbms_lv_wake_source);
+
+			chip->vbat_monitor_params.state_request =
+						ADC_TM_HIGH_THR_ENABLE;
+		} else {
+			pr_debug("faulty btm trigger, discarding\n");
+			goto out;
+		}
+	} else if (state == ADC_TM_HIGH_STATE) {
+		pr_debug("high voltage btm notification triggered\n");
+		if (vbat_uv > chip->vbat_monitor_params.high_thr) {
+			chip->vbat_monitor_params.state_request =
+						ADC_TM_LOW_THR_ENABLE;
+			if (bms_wake_active(&chip->vbms_lv_wake_source))
+				bms_relax(&chip->vbms_lv_wake_source);
+		} else {
+			pr_debug("faulty btm trigger, discarding\n");
+			goto out;
+		}
+	} else {
+		pr_debug("unknown voltage notification state: %d\n", state);
+		goto out;
+	}
+
+	if (chip->bms_psy_registered)
+		power_supply_changed(&chip->bms_psy);
+
+out:
+	qpnp_adc_tm_channel_measure(chip->adc_tm_dev,
+					&chip->vbat_monitor_params);
+}
+
+static int reset_vbat_monitoring(struct qpnp_bms_chip *chip)
+{
+	int rc;
+
+	chip->vbat_monitor_params.state_request = ADC_TM_HIGH_LOW_THR_DISABLE;
+	rc = qpnp_adc_tm_channel_measure(chip->adc_tm_dev,
+						&chip->vbat_monitor_params);
+	if (rc) {
+		pr_err("tm disable failed: %d\n", rc);
+		return rc;
+	}
+
+	if (bms_wake_active(&chip->vbms_lv_wake_source))
+		bms_relax(&chip->vbms_lv_wake_source);
+
+	return 0;
+}
+
+static int setup_vbat_monitoring(struct qpnp_bms_chip *chip)
+{
+	int rc;
+
+	chip->vbat_monitor_params.low_thr =
+					chip->dt.cfg_low_voltage_threshold;
+	chip->vbat_monitor_params.high_thr =
+					chip->dt.cfg_low_voltage_threshold
+					+ VBATT_ERROR_MARGIN;
+	chip->vbat_monitor_params.state_request = ADC_TM_LOW_THR_ENABLE;
+	chip->vbat_monitor_params.channel = VBAT_SNS;
+	chip->vbat_monitor_params.btm_ctx = chip;
+	chip->vbat_monitor_params.timer_interval = ADC_MEAS1_INTERVAL_1S;
+	chip->vbat_monitor_params.threshold_notification = &btm_notify_vbat;
+	pr_debug("set low thr to %d and high to %d\n",
+			chip->vbat_monitor_params.low_thr,
+			chip->vbat_monitor_params.high_thr);
+
+	rc = qpnp_adc_tm_channel_measure(chip->adc_tm_dev,
+						&chip->vbat_monitor_params);
+	if (rc) {
+		pr_err("adc-tm setup failed: %d\n", rc);
+		return rc;
+	}
+
+	pr_debug("vbat monitoring setup complete\n");
+	return 0;
+}
+
 static void very_low_voltage_check(struct qpnp_bms_chip *chip, int vbat_uv)
 {
 	if (!bms_wake_active(&chip->vbms_lv_wake_source)
@@ -1677,9 +1778,11 @@ static void battery_insertion_check(struct qpnp_bms_chip *chip)
 			if (present) {
 				/* new battery inserted */
 				bms_new_battery_setup(chip);
+				setup_vbat_monitoring(chip);
 				pr_debug("New battery inserted!\n");
 			} else {
 				/* battery removed */
+				reset_vbat_monitoring(chip);
 				pr_debug("Battery removed\n");
 			}
 		}
@@ -2812,6 +2915,17 @@ static int bms_get_adc(struct qpnp_bms_chip *chip,
 			pr_err("vadc not found - defer probe rc=%d\n", rc);
 		else
 			pr_err("vadc property missing, rc=%d\n", rc);
+
+		return rc;
+	}
+
+	chip->adc_tm_dev = qpnp_get_adc_tm(&spmi->dev, "bms");
+	if (IS_ERR(chip->adc_tm_dev)) {
+		rc = PTR_ERR(chip->adc_tm_dev);
+		if (rc == -EPROBE_DEFER)
+			pr_err("adc-tm not found - defer probe rc=%d\n", rc);
+		else
+			pr_err("adc-tm property missing, rc=%d\n", rc);
 	}
 
 	return rc;
@@ -2924,14 +3038,14 @@ static int qpnp_vm_bms_probe(struct spmi_device *spmi)
 	rc = set_battery_data(chip);
 	if (rc) {
 		pr_err("Unable to read battery data %d\n", rc);
-		return rc;
+		goto fail_init;
 	}
 
 	/* set the battery profile */
 	rc = config_battery_data(chip->batt_data);
 	if (rc) {
 		pr_err("Unable to config battery data %d\n", rc);
-		return rc;
+		goto fail_init;
 	}
 
 	wakeup_source_init(&chip->vbms_lv_wake_source.source, "vbms_lv_wake");
@@ -2944,10 +3058,19 @@ static int qpnp_vm_bms_probe(struct spmi_device *spmi)
 	bms_init_defaults(chip);
 	bms_load_hw_defaults(chip);
 
+	if (is_battery_present(chip)) {
+		rc = setup_vbat_monitoring(chip);
+		if (rc) {
+			pr_err("fail to configure vbat monitoring rc=%d\n",
+					rc);
+			goto fail_setup;
+		}
+	}
+
 	rc = bms_request_irqs(chip);
 	if (rc) {
 		pr_err("error requesting bms irqs, rc = %d\n", rc);
-		return rc;
+		goto fail_irq;
 	}
 
 	battery_insertion_check(chip);
@@ -3040,7 +3163,19 @@ fail_psy:
 	unregister_chrdev_region(chip->dev_no, 1);
 fail_bms_device:
 	chip->bms_psy_registered = false;
+fail_irq:
+	reset_vbat_monitoring(chip);
+fail_setup:
+	wakeup_source_trash(&chip->vbms_lv_wake_source.source);
+	wakeup_source_trash(&chip->vbms_cv_wake_source.source);
+	wakeup_source_trash(&chip->vbms_soc_wake_source.source);
+fail_init:
+	mutex_destroy(&chip->bms_data_mutex);
+	mutex_destroy(&chip->last_soc_mutex);
+	mutex_destroy(&chip->state_change_mutex);
+	mutex_destroy(&chip->bms_device_mutex);
 	the_chip = NULL;
+
 	return rc;
 }
 
@@ -3053,8 +3188,13 @@ static int qpnp_vm_bms_remove(struct spmi_device *spmi)
 	device_destroy(chip->bms_class, chip->dev_no);
 	cdev_del(&chip->bms_cdev);
 	unregister_chrdev_region(chip->dev_no, 1);
+	reset_vbat_monitoring(chip);
+	wakeup_source_trash(&chip->vbms_lv_wake_source.source);
+	wakeup_source_trash(&chip->vbms_cv_wake_source.source);
+	wakeup_source_trash(&chip->vbms_soc_wake_source.source);
 	mutex_destroy(&chip->bms_data_mutex);
 	mutex_destroy(&chip->last_soc_mutex);
+	mutex_destroy(&chip->state_change_mutex);
 	mutex_destroy(&chip->bms_device_mutex);
 	power_supply_unregister(&chip->bms_psy);
 	dev_set_drvdata(&spmi->dev, NULL);
