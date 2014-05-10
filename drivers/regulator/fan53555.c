@@ -48,6 +48,7 @@
 #define DIE_ID		0x0F	/* ID1 */
 #define DIE_REV		0x0F	/* ID2 */
 #define DIE_13_REV	0x0F	/* DIE Revsion ID of 13 option */
+#define DIE_23_REV	0x0C	/* DIE Revision ID of 23 option */
 
 /* Control bit definitions */
 #define CTL_OUTPUT_DISCHG	(1 << 7)
@@ -189,6 +190,9 @@ static struct regulator_ops fan53555_regulator_disable_suspend_ops = {
  * For 13 option:
  * 13 option, its DIE ID is 0x00 and DIE_REV is 0x0F.
  * VOUT = 0.80V + NSELx * 10mV, from 0.80 to 1.43V.
+ * For 23 option:
+ * 23 option, its DIE ID is 0x00 and DIE_REV is 0x0C.
+ * VOUT = 0.60V + NSELx * 12.5mV, from 0.60 to 1.3875V.
  * */
 static int fan53555_device_setup(struct fan53555_device_info *di,
 				struct fan53555_platform_data *pdata)
@@ -215,6 +219,10 @@ static int fan53555_device_setup(struct fan53555_device_info *di,
 		if (di->chip_rev == DIE_13_REV) {
 			di->vsel_min = 800000;
 			di->vsel_step = 10000;
+			break;
+		} else if (di->chip_rev == DIE_23_REV) {
+			di->vsel_min = 600000;
+			di->vsel_step = 12500;
 			break;
 		}
 	case FAN53555_CHIP_ID_01:
