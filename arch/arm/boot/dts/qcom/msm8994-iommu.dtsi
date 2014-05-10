@@ -336,11 +336,11 @@
 	};
 
 	qcom,iommu-ctx@fdb19000 {
-		qcom,iommu-ctx-sids = <2>;
+		qcom,iommu-ctx-sids = <>;
 	};
 
 	qcom,iommu-ctx@fdb1a000 {
-		qcom,iommu-ctx-sids = <>;
+		qcom,iommu-ctx-sids = <2>;
 	};
 };
 
