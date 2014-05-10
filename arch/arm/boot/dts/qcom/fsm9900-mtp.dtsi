@@ -1,0 +1,74 @@
+/* Copyright (c) 2014, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+#include "fsm9900.dtsi"
+
+/ {
+	aliases {
+		serial0 = &uart0;
+	};
+};
+
+&soc {
+	uart0: serial@f9960000 {
+		status = "ok";
+	};
+
+	uim0: qcom,uim@f995d000 {
+		status = "ok";
+		qcom,uim-1v8;
+	};
+
+	qcom,wdt@f9017000 {
+		status = "disabled";
+	};
+
+	qcom,qfpfuse@fc4b8000 {
+		status = "ok";
+		vdd-blow-supply = <&pma8084_lvs1>;
+	};
+
+	emac0:qcom,emac@feb20000 {
+		status = "ok";
+	};
+
+	emac1:qcom,emac@feb00000 {
+		status = "ok";
+	};
+
+	pcie0: qcom,pcie@fc520000 {
+		qcom,ep-latency = <1000>;
+		status = "ok";
+	};
+
+	pcie1: qcom,pcie@fc528000 {
+		qcom,ep-latency = <1000>;
+		status = "ok";
+	};
+};
+
+&sdhc_1 {
+	vdd-supply = <&pma8084_l20>;
+	qcom,vdd-voltage-level = <2950000 2950000>;
+	qcom,vdd-current-level = <200 500000>;
+
+	vdd-io-supply = <&pma8084_s4>;
+	qcom,vdd-io-always-on;
+	qcom,vdd-io-voltage-level = <1800000 1800000>;
+	qcom,vdd-io-current-level = <200 154000>;
+
+	qcom,clk-rates = <400000 20000000 25000000 50000000 100000000 200000000>;
+	qcom,bus-speed-mode = "HS200_1p8v", "DDR_1p8v";
+	qcom,nonremovable;
+
+	status = "ok";
+};
