@@ -3,6 +3,7 @@
 #include <linux/dmi.h>
 #include <linux/efi.h>
 #include <linux/acpi.h>
+#include <linux/platform_device.h>
 #include <linux/atomisp_platform.h>
 #include <asm/spid.h>
 
@@ -202,3 +203,18 @@ int gmin_get_config_var(struct device *dev, const char *var, char *out, size_t *
 	return ret == EFI_SUCCESS ? 0 : -EINVAL;
 }
 EXPORT_SYMBOL_GPL(gmin_get_config_var);
+
+static int __init gmin_plat_init(void)
+{
+	/* BYT-T output clock driver required by the MIPI-CSI
+	 * camera modules */
+	if (IS_ERR(platform_device_register_simple("vlv2_plat_clk",
+						   -1, NULL, 0)))
+	{
+		pr_err("Failed to register vlv2_plat_clk device");
+		return -ENODEV;
+	}
+	return 0;
+}
+
+device_initcall(gmin_plat_init);
