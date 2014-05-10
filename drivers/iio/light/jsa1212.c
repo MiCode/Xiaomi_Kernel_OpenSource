@@ -767,6 +767,7 @@ static int jsa1212_read_raw(struct iio_dev *indio_dev,
 			ret = -EINVAL;
 			break;
 		}
+		break;
 	default:
 		ret = -EINVAL;
 		break;
