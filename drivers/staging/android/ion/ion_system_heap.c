@@ -64,13 +64,15 @@ struct ion_system_heap {
 
 struct page_info {
 	struct page *page;
+	bool from_pool;
 	unsigned int order;
 	struct list_head list;
 };
 
 static struct page *alloc_buffer_page(struct ion_system_heap *heap,
 				      struct ion_buffer *buffer,
-				      unsigned long order)
+				      unsigned long order,
+				      bool *from_pool)
 {
 	bool cached = ion_buffer_cached(buffer);
 	struct page *page;
@@ -80,7 +82,7 @@ static struct page *alloc_buffer_page(struct ion_system_heap *heap,
 		pool = heap->uncached_pools[order_to_index(order)];
 	else
 		pool = heap->cached_pools[order_to_index(order)];
-	page = ion_page_pool_alloc(pool);
+	page = ion_page_pool_alloc(pool, from_pool);
 	if (!page)
 		return 0;
 
@@ -114,6 +116,7 @@ static struct page_info *alloc_largest_available(struct ion_system_heap *heap,
 	struct page *page;
 	struct page_info *info;
 	int i;
+	bool from_pool;
 
 	for (i = 0; i < num_orders; i++) {
 		if (size < order_to_size(orders[i]))
@@ -121,7 +124,7 @@ static struct page_info *alloc_largest_available(struct ion_system_heap *heap,
 		if (max_order < orders[i])
 			continue;
 
-		page = alloc_buffer_page(heap, buffer, orders[i]);
+		page = alloc_buffer_page(heap, buffer, orders[i], &from_pool);
 		if (!page)
 			continue;
 
@@ -129,6 +132,7 @@ static struct page_info *alloc_largest_available(struct ion_system_heap *heap,
 		if (info) {
 			info->page = page;
 			info->order = orders[i];
+			info->from_pool = from_pool;
 		}
 		return info;
 	}
