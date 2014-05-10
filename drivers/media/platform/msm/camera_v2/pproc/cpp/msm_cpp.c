@@ -2341,11 +2341,18 @@ static long msm_cpp_subdev_fops_compat_ioctl(struct file *file,
 	case VIDIOC_MSM_CPP_POP_STREAM_BUFFER32:
 		cmd = VIDIOC_MSM_CPP_POP_STREAM_BUFFER;
 		break;
+	case VIDIOC_MSM_CPP_IOMMU_ATTACH32:
+		cmd = VIDIOC_MSM_CPP_IOMMU_ATTACH;
+		break;
+	case VIDIOC_MSM_CPP_IOMMU_DETACH32:
+		cmd = VIDIOC_MSM_CPP_IOMMU_DETACH;
+		break;
 	case MSM_SD_SHUTDOWN:
 		cmd = MSM_SD_SHUTDOWN;
 		break;
 	default:
-		pr_debug("%s: unsupported compat type :%d\n", __func__, cmd);
+		pr_err_ratelimited("%s: unsupported compat type :%d\n",
+				__func__, cmd);
 		break;
 	}
 
@@ -2358,6 +2365,8 @@ static long msm_cpp_subdev_fops_compat_ioctl(struct file *file,
 	case VIDIOC_MSM_CPP_SET_CLOCK:
 	case VIDIOC_MSM_CPP_QUEUE_BUF:
 	case VIDIOC_MSM_CPP_POP_STREAM_BUFFER:
+	case VIDIOC_MSM_CPP_IOMMU_ATTACH:
+	case VIDIOC_MSM_CPP_IOMMU_DETACH:
 	case MSM_SD_SHUTDOWN:
 		rc = v4l2_subdev_call(sd, core, ioctl, cmd, &kp_ioctl);
 		break;
@@ -2365,7 +2374,8 @@ static long msm_cpp_subdev_fops_compat_ioctl(struct file *file,
 	case VIDIOC_MSM_CPP_GET_EVENTPAYLOAD:
 		break;
 	default:
-		pr_debug("%s: unsupported compat type :%d\n", __func__, cmd);
+		pr_err_ratelimited("%s: unsupported compat type :%d\n",
+				__func__, cmd);
 		break;
 	}
 

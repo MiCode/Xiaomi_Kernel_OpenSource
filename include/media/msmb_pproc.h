@@ -345,6 +345,12 @@ struct msm_pproc_queue_buf_info32_t {
 #define VIDIOC_MSM_CPP_POP_STREAM_BUFFER32 \
 	_IOWR('V', BASE_VIDIOC_PRIVATE + 17, struct msm_camera_v4l2_ioctl32_t)
 
+#define VIDIOC_MSM_CPP_IOMMU_ATTACH32 \
+	_IOWR('V', BASE_VIDIOC_PRIVATE + 18, struct msm_camera_v4l2_ioctl32_t)
+
+#define VIDIOC_MSM_CPP_IOMMU_DETACH32 \
+	_IOWR('V', BASE_VIDIOC_PRIVATE + 19, struct msm_camera_v4l2_ioctl32_t)
+
 struct msm_camera_v4l2_ioctl32_t {
 	uint32_t id;
 	uint32_t len;
