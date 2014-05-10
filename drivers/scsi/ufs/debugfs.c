@@ -693,7 +693,9 @@ static ssize_t ufsdbg_power_mode_write(struct file *file,
 		__func__, pwr_mode.gear_rx, pwr_mode.gear_tx, pwr_mode.lane_rx,
 		pwr_mode.lane_tx, pwr_mode.pwr_rx, pwr_mode.pwr_tx);
 
+	pm_runtime_get_sync(hba->dev);
 	ret = ufshcd_config_pwr_mode(hba, &pwr_mode);
+	pm_runtime_put_sync(hba->dev);
 	if (ret == -EBUSY)
 		dev_err(hba->dev,
 			"%s: ufshcd_config_pwr_mode failed: system is busy, try again\n",
