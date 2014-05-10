@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011-2013, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2011-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -446,37 +446,29 @@ static void krait_pmu_enable_event(struct perf_event *event)
 	/* Disable counter */
 	armv7_pmnc_disable_counter(idx);
 
-	/*
-	 * Set event (if destined for PMNx counters)
-	 * We don't need to set the event if it's a cycle count
-	 */
-	if (idx != ARMV7_IDX_CYCLE_COUNTER) {
-		val = hwc->config_base;
-		val &= KRAIT_EVENT_MASK;
+	val = hwc->config_base;
+	val &= KRAIT_EVENT_MASK;
 
-		if (val < 0x40) {
-			armv7_pmnc_write_evtsel(idx, hwc->config_base);
-		} else {
-			ev_num = get_krait_evtinfo(val, &evtinfo);
+	/* set event for ARM-architected events, and filter for CC */
+	if ((val < 0x40) || (idx == ARMV7_IDX_CYCLE_COUNTER)) {
+		armv7_pmnc_write_evtsel(idx, hwc->config_base);
+	} else {
+		ev_num = get_krait_evtinfo(val, &evtinfo);
 
-			if (ev_num == -EINVAL)
-				goto krait_out;
+		if (ev_num == -EINVAL)
+			goto krait_out;
 
-			/* Restore Mode-exclusion bits */
-			ev_num |= (hwc->config_base & KRAIT_MODE_EXCL_MASK);
+		/* Restore Mode-exclusion bits */
+		ev_num |= (hwc->config_base & KRAIT_MODE_EXCL_MASK);
 
-			/*
-			 * Set event (if destined for PMNx counters)
-			 * We don't need to set the event if it's a cycle count
-			 */
-			armv7_pmnc_write_evtsel(idx, ev_num);
-			val = 0x0;
-			asm volatile("mcr p15, 0, %0, c9, c15, 0" : :
-				"r" (val));
-			val = evtinfo.group_setval;
-			gr = evtinfo.groupcode;
-			krait_evt_setup(gr, val, evtinfo.armv7_evt_type);
-		}
+		/* Set event (if destined for PMNx counters) */
+		armv7_pmnc_write_evtsel(idx, ev_num);
+		val = 0x0;
+		asm volatile("mcr p15, 0, %0, c9, c15, 0" : :
+			     "r" (val));
+		val = evtinfo.group_setval;
+		gr = evtinfo.groupcode;
+		krait_evt_setup(gr, val, evtinfo.armv7_evt_type);
 	}
 
 	/* Enable interrupt for this counter */
