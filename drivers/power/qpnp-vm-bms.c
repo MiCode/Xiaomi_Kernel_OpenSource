@@ -61,6 +61,9 @@
 #define S2_MODE_MASK			BMS_MASK(3, 2)
 #define S3_MODE_MASK			BMS_MASK(1, 0)
 
+#define DATA_CTL1_REG			0x42
+#define MASTER_HOLD_BIT			BIT(0)
+
 #define DATA_CTL2_REG			0x43
 #define FIFO_CNT_SD_CLR_BIT		BIT(2)
 #define ACC_DATA_SD_CLR_BIT		BIT(1)
@@ -461,6 +464,21 @@ static bool is_battery_present(struct qpnp_bms_chip *chip)
 	return false;
 }
 
+static int master_hold_control(struct qpnp_bms_chip *chip, bool enable)
+{
+	u8 reg = 0;
+	int rc;
+
+	reg = enable ? MASTER_HOLD_BIT : 0;
+
+	rc = qpnp_secure_write_wrapper(chip, &reg,
+				chip->base + DATA_CTL1_REG);
+	if (rc)
+		pr_err("Unable to write reg=%x rc=%d\n", DATA_CTL1_REG, rc);
+
+	return rc;
+}
+
 static int force_fsm_state(struct qpnp_bms_chip *chip, u8 state)
 {
 	int rc;
@@ -485,7 +503,7 @@ static int force_fsm_state(struct qpnp_bms_chip *chip, u8 state)
 		return rc;
 	}
 	/* delay for the FSM state to take affect in hardware */
-	usleep_range(100, 110);
+	usleep_range(500, 600);
 
 	pr_debug("force_mode=%d  mode_cntl_reg=%x\n", state, mode_ctl);
 
@@ -627,10 +645,18 @@ static int set_fifo_length(struct qpnp_bms_chip *chip,
 		return -EINVAL;
 	}
 
+	rc = master_hold_control(chip, true);
+	if (rc)
+		pr_err("Unable to apply master_hold rc=%d\n", rc);
+
 	rc = qpnp_masked_write_base(chip, chip->base + reg, mask,
 					fifo_length << shift);
 	if (rc)
 		pr_err("Unable to set fifo length rc=%d\n", rc);
+
+	rc = master_hold_control(chip, false);
+	if (rc)
+		pr_err("Unable to apply master_hold rc=%d\n", rc);
 
 	return rc;
 }
@@ -1345,6 +1371,8 @@ static void low_soc_check(struct qpnp_bms_chip *chip)
 	if (chip->dt.cfg_low_soc_fifo_length < 1)
 		return;
 
+	mutex_lock(&chip->state_change_mutex);
+
 	if (chip->calculated_soc <= chip->dt.cfg_low_soc_calc_threshold) {
 		if (!chip->low_soc_fifo_set) {
 			pr_debug("soc=%d (low-soc) setting fifo_length to %d\n",
@@ -1354,13 +1382,13 @@ static void low_soc_check(struct qpnp_bms_chip *chip)
 						&chip->s2_fifo_length);
 			if (rc) {
 				pr_err("Unable to get_fifo_length rc=%d", rc);
-				return;
+				goto low_soc_exit;
 			}
 			rc = set_fifo_length(chip, S2_STATE,
 					chip->dt.cfg_low_soc_fifo_length);
 			if (rc) {
 				pr_err("Unable to set_fifo_length rc=%d", rc);
-				return;
+				goto low_soc_exit;
 			}
 			chip->low_soc_fifo_set = true;
 		}
@@ -1373,11 +1401,14 @@ static void low_soc_check(struct qpnp_bms_chip *chip)
 						chip->s2_fifo_length);
 			if (rc) {
 				pr_err("Unable to set_fifo_length rc=%d", rc);
-				return;
+				goto low_soc_exit;
 			}
 			chip->low_soc_fifo_set = false;
 		}
 	}
+
+low_soc_exit:
+	mutex_unlock(&chip->state_change_mutex);
 }
 
 static int report_eoc(struct qpnp_bms_chip *chip)
@@ -1861,6 +1892,10 @@ static int read_and_populate_fifo_data(struct qpnp_bms_chip *chip)
 	pr_debug("fifo_count=%d\n", fifo_count);
 	if (!fifo_count) {
 		pr_debug("No data in FIFO\n");
+		return 0;
+	} else if (fifo_count > MAX_FIFO_REGS) {
+		pr_err("Invalid fifo-length %d rejecting data\n", fifo_count);
+		chip->bms_data.num_fifo = 0;
 		return 0;
 	}
 
