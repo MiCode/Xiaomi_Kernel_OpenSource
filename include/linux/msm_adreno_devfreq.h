@@ -42,6 +42,7 @@ struct devfreq_msm_adreno_tz_data {
 		uint64_t *ib;
 	} bus;
 	unsigned int device_id;
+	bool is_64;
 };
 
 #endif
