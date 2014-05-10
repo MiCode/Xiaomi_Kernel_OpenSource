@@ -248,8 +248,10 @@ static int tz_start(struct devfreq *devfreq)
 	ret = scm_call(SCM_SVC_DCVS, TZ_INIT_ID, tz_pwrlevels,
 			sizeof(tz_pwrlevels), NULL, 0);
 
-	if (ret != 0)
+	if (ret != 0) {
 		pr_err(TAG "tz_init failed\n");
+		return ret;
+	}
 
 	/* Set up the cut-over percentages for the bus calculation. */
 	if (priv->bus.num) {
