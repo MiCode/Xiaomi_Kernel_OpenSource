@@ -39,6 +39,24 @@ struct pm_sleep_state pm_states[PM_SUSPEND_MAX] = {
 
 static const struct platform_suspend_ops *suspend_ops;
 
+void (*sc_dev_state)(void *);
+EXPORT_SYMBOL(sc_dev_state);
+void (*nc_dev_state)(void *);
+EXPORT_SYMBOL(nc_dev_state);
+
+void pm_suspend_dev_state(void)
+{
+	if (!pm_suspend_debug)
+		return;
+	else {
+		if (sc_dev_state)
+			sc_dev_state(NULL);
+		if (nc_dev_state)
+			nc_dev_state(NULL);
+	}
+}
+EXPORT_SYMBOL(pm_suspend_dev_state);
+
 static bool need_suspend_ops(suspend_state_t state)
 {
 	return !!(state > PM_SUSPEND_FREEZE);
