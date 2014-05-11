@@ -180,13 +180,10 @@ static int msm_cpufreq_init(struct cpufreq_policy *policy)
 	int cur_freq;
 	int index;
 	int ret = 0;
-	struct cpufreq_frequency_table *table;
+	struct cpufreq_frequency_table *table = freq_table;
 	struct cpufreq_work_struct *cpu_work = NULL;
 	int cpu;
 
-	table = cpufreq_frequency_get_table(policy->cpu);
-	if (table == NULL)
-		return -ENODEV;
 	/*
 	 * In some SoC, some cores are clocked by same source, and their
 	 * frequencies can not be changed independently. Find all other
@@ -233,6 +230,7 @@ static int msm_cpufreq_init(struct cpufreq_policy *policy)
 	pr_debug("cpufreq: cpu%d init at %d switching to %d\n",
 			policy->cpu, cur_freq, table[index].frequency);
 	policy->cur = table[index].frequency;
+	cpufreq_frequency_table_get_attr(table, policy->cpu);
 
 	return 0;
 }
@@ -441,10 +439,6 @@ static int __init msm_cpufreq_probe(struct platform_device *pdev)
 	ret = cpufreq_parse_dt(dev);
 	if (ret)
 		return ret;
-
-	for_each_possible_cpu(cpu) {
-		cpufreq_frequency_table_get_attr(freq_table, cpu);
-	}
 
 	/* Use per-policy governor tunable for some targets */
 	if (of_property_read_bool(dev->of_node, "qcom,governor-per-policy"))
