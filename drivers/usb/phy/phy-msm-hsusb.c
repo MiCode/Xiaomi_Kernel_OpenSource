@@ -128,6 +128,7 @@ struct msm_hsphy {
 	/* Using external VBUS/ID notification */
 	bool			ext_vbus_id;
 	int			num_ports;
+	bool			cable_connected;
 };
 
 static int msm_hsusb_config_vdd(struct msm_hsphy *phy, int high)
@@ -398,13 +399,13 @@ static int msm_hsphy_set_suspend(struct usb_phy *uphy, int suspend)
 					(OTGSESSVLDHV_INTEN | IDHV_INTEN));
 		}
 		/* can turn off regulators if disconnected in device mode */
-		if (!host && !chg_connected) {
+		if (!host && !phy->cable_connected) {
 			if (phy->ext_vbus_id)
 				msm_hsusb_ldo_enable(phy, 0);
 			msm_hsusb_config_vdd(phy, 0);
 		}
 	} else {
-		if (!host && !chg_connected) {
+		if (!host && !phy->cable_connected) {
 			msm_hsusb_config_vdd(phy, 1);
 			if (phy->ext_vbus_id)
 				msm_hsusb_ldo_enable(phy, 1);
@@ -491,6 +492,8 @@ static int msm_hsphy_notify_connect(struct usb_phy *uphy,
 {
 	struct msm_hsphy *phy = container_of(uphy, struct msm_hsphy, phy);
 
+	phy->cable_connected = true;
+
 	if (uphy->flags & PHY_HOST_MODE)
 		return 0;
 
@@ -530,6 +533,8 @@ static int msm_hsphy_notify_disconnect(struct usb_phy *uphy,
 				       enum usb_device_speed speed)
 {
 	struct msm_hsphy *phy = container_of(uphy, struct msm_hsphy, phy);
+
+	phy->cable_connected = false;
 
 	if (uphy->flags & PHY_HOST_MODE)
 		return 0;
