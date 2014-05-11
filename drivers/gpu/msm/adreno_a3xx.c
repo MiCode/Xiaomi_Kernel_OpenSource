@@ -2045,6 +2045,7 @@ int a3xx_perfcounter_init(struct adreno_device *adreno_dev)
 static void a3xx_protect_init(struct kgsl_device *device)
 {
 	int index = 0;
+	struct kgsl_protected_registers *iommu_regs;
 
 	/* enable access protection to privileged registers */
 	kgsl_regwrite(device, A3XX_CP_PROTECT_CTRL, 0x00000007);
@@ -2073,7 +2074,10 @@ static void a3xx_protect_init(struct kgsl_device *device)
 	adreno_set_protected_registers(device, &index, 0x3000, 6);
 
 	/* SMMU registers */
-	adreno_set_protected_registers(device, &index, 0x4000, 14);
+	iommu_regs = kgsl_mmu_get_prot_regs(&device->mmu);
+	if (iommu_regs)
+		adreno_set_protected_registers(device, &index,
+				iommu_regs->base, iommu_regs->range);
 }
 
 static void a3xx_start(struct adreno_device *adreno_dev)

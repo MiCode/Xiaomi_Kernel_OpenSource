@@ -112,6 +112,8 @@ struct kgsl_mmu_ops {
 	int (*mmu_hw_halt_supported)(struct kgsl_mmu *mmu, int iommu_unit_num);
 	int (*mmu_set_pf_policy)(struct kgsl_mmu *mmu, unsigned int pf_policy);
 	void (*mmu_set_pagefault)(struct kgsl_mmu *mmu);
+	struct kgsl_protected_registers *(*mmu_get_prot_regs)
+			(struct kgsl_mmu *mmu);
 };
 
 struct kgsl_mmu_pt_ops {
@@ -420,6 +422,15 @@ static inline void kgsl_mmu_set_pagefault(struct kgsl_mmu *mmu)
 {
 	if (mmu->mmu_ops && mmu->mmu_ops->mmu_set_pagefault)
 		return mmu->mmu_ops->mmu_set_pagefault(mmu);
+}
+
+static inline struct kgsl_protected_registers *kgsl_mmu_get_prot_regs
+						(struct kgsl_mmu *mmu)
+{
+	if (mmu->mmu_ops && mmu->mmu_ops->mmu_get_prot_regs)
+		return mmu->mmu_ops->mmu_get_prot_regs(mmu);
+	else
+		return NULL;
 }
 
 #endif /* __KGSL_MMU_H */

@@ -525,6 +525,16 @@ struct kgsl_snapshot {
 	size_t mempool_size;
 };
 
+/**
+ * struct kgsl_protected_registers - Protected register range
+ * @base: Offset of the range to be protected
+ * @range: Range (# of registers = 2 ** range)
+ */
+struct kgsl_protected_registers {
+	unsigned int base;
+	int range;
+};
+
 struct kgsl_device *kgsl_get_device(int dev_idx);
 
 static inline void kgsl_process_add_stats(struct kgsl_process_private *priv,
