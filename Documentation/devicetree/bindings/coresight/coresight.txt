@@ -120,6 +120,7 @@ Optional properties:
 - coresight-child-ports : list of input port numbers of the children
 - coresight-default-sink : represents the default compile time CoreSight sink
 - coresight-ctis : list of ctis that this component interacts with
+- qcom,cti-save : boolean, indicating cti context needs to be saved and restored
 - qcom,pc-save : program counter save implemented
 - qcom,blk-size : block size for tmc-etr to usb transfers
 - qcom,memory-size : size of coherent memory to be allocated for tmc-etr buffer
