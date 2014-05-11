@@ -298,10 +298,29 @@ static long div_round_rate(struct clk *c, unsigned long rate)
 	return __div_round_rate(&d->data, rate, c->parent, NULL, NULL);
 }
 
+static int _find_safe_div(struct clk *c, unsigned long rate)
+{
+	struct div_clk *d = to_div_clk(c);
+	struct div_data *data = &d->data;
+	unsigned long fast = max(rate, c->rate);
+	unsigned int numer = data->is_half_divider ? 2 : 1;
+	int i, safe_div = 0;
+
+	if (!d->safe_freq)
+		return 0;
+
+	/* Find the max safe freq that is lesser than fast */
+	for (i = data->max_div; i >= data->min_div; i--)
+		if (mult_frac(d->safe_freq, numer, i) <= fast)
+			safe_div = i;
+
+	return safe_div ?: -EINVAL;
+}
+
 static int div_set_rate(struct clk *c, unsigned long rate)
 {
 	struct div_clk *d = to_div_clk(c);
-	int div, rc = 0;
+	int safe_div, div, rc = 0;
 	long rrate, old_prate, new_prate;
 	struct div_data *data = &d->data;
 
@@ -315,10 +334,24 @@ static int div_set_rate(struct clk *c, unsigned long rate)
 	 * !d->ops and return an error. __div_round_rate() ensures div ==
 	 * d->div if !d->ops.
 	 */
-	if (div > data->div)
-		rc = d->ops->set_div(d, div);
-	if (rc)
-		return rc;
+
+	safe_div = _find_safe_div(c, rate);
+	if (d->safe_freq && safe_div < 0) {
+		pr_err("No safe div on %s for transitioning from %lu to %lu\n",
+			c->dbg_name, c->rate, rate);
+		return -EINVAL;
+	}
+
+	safe_div = max(safe_div, div);
+
+	if (safe_div > data->div) {
+		rc = d->ops->set_div(d, safe_div);
+		if (rc) {
+			pr_err("Failed to set div %d on %s\n", safe_div,
+				c->dbg_name);
+			return rc;
+		}
+	}
 
 	old_prate = clk_get_rate(c->parent);
 	rc = clk_set_rate(c->parent, new_prate);
@@ -326,6 +359,8 @@ static int div_set_rate(struct clk *c, unsigned long rate)
 		goto set_rate_fail;
 
 	if (div < data->div)
+		rc = d->ops->set_div(d, div);
+	else if (div < safe_div)
 		rc = d->ops->set_div(d, div);
 	if (rc)
 		goto div_dec_fail;
@@ -338,7 +373,7 @@ div_dec_fail:
 	WARN(clk_set_rate(c->parent, old_prate),
 		"Set rate failed for %s. Also in bad state!\n", c->dbg_name);
 set_rate_fail:
-	if (div > data->div)
+	if (safe_div > data->div)
 		WARN(d->ops->set_div(d, data->div),
 			"Set rate failed for %s. Also in bad state!\n",
 			c->dbg_name);
