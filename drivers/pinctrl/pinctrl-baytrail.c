@@ -34,6 +34,7 @@
 #include <linux/io.h>
 #include <linux/pm_runtime.h>
 #include <linux/pinctrl/pinctrl.h>
+#include <linux/suspend.h>
 
 /* memory mapped register offsets */
 #define BYT_CONF0_REG		0x000
@@ -326,6 +327,8 @@ static void byt_gpio_irq_handler(unsigned irq, struct irq_desc *desc)
 	u32 pending;
 	unsigned virq;
 	int looplimit = 0;
+
+	pm_suspend_dbg("baytrail pinctrl irq occurs, num %d\n", irq);
 
 	/* check from GPIO controller which pin triggered the interrupt */
 	for (base = 0; base < vg->chip.ngpio; base += 32) {
