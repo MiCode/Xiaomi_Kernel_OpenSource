@@ -371,6 +371,10 @@ static bool reset_ep_after_lpm(void)
 	return dbm_data->dbm_reset_ep_after_lpm;
 }
 
+static bool l1_lpm_interrupt(void)
+{
+	return true;
+}
 
 
 static int msm_dbm_probe(struct platform_device *pdev)
@@ -424,6 +428,7 @@ static int msm_dbm_probe(struct platform_device *pdev)
 	dbm->enable = enable;
 	dbm->ep_soft_reset = usb_ep_soft_reset;
 	dbm->reset_ep_after_lpm = reset_ep_after_lpm;
+	dbm->l1_lpm_interrupt = l1_lpm_interrupt;
 
 	platform_set_drvdata(pdev, dbm);
 

@@ -90,6 +90,12 @@ struct dbm {
 	/* Check whether the USB DBM requires ep reset after lpm suspend */
 	bool (*reset_ep_after_lpm)(void);
 
+	/*
+	 * Indicates whether the DBM notifies the software about the need to
+	 * come out of L1 state by interrupt
+	 */
+	bool (*l1_lpm_interrupt)(void);
+
 };
 
 struct dbm *usb_get_dbm_by_phandle(struct device *dev,
@@ -180,12 +186,18 @@ static inline int dbm_ep_soft_reset(struct dbm *dbm, u8 usb_ep,
 	return dbm->ep_soft_reset(usb_ep, enter_reset);
 }
 
-
 static inline bool dbm_reset_ep_after_lpm(struct dbm *dbm)
 {
 	/* Default (backward compatible) setting is false */
 	CHECK_DBM_PTR_BOOL(dbm, reset_ep_after_lpm, false);
 	return dbm->reset_ep_after_lpm();
+}
+
+static inline bool dbm_l1_lpm_interrupt(struct dbm *dbm)
+{
+	/* Default (backward compatible) setting is false */
+	CHECK_DBM_PTR_BOOL(dbm, l1_lpm_interrupt, false);
+	return dbm->l1_lpm_interrupt();
 }
 
 #endif /* __DBM_H */
