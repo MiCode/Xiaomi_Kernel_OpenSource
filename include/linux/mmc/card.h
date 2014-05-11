@@ -457,6 +457,7 @@ struct mmc_fixup {
 #define CID_MANFID_SAMSUNG	0x15
 #define CID_MANFID_KINGSTON	0x70
 #define CID_MANFID_HYNIX	0x90
+#define CID_MANFID_NUMONYX_MICRON 0xfe
 
 #define END_FIXUP { 0 }
 
