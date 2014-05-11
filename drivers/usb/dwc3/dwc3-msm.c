@@ -228,6 +228,9 @@ struct dwc3_msm {
 #define USB_SSPHY_1P8_VOL_MAX		1800000 /* uV */
 #define USB_SSPHY_1P8_HPM_LOAD		23000	/* uA */
 
+#define DSTS_CONNECTSPD_SS		0x4
+
+
 static struct usb_ext_notification *usb_ext;
 
 static void dwc3_pwr_event_handler(struct dwc3_msm *mdwc);
@@ -327,6 +330,14 @@ static inline void dwc3_msm_write_readback(void *base, u32 offset,
 	if (tmp != val)
 		pr_err("%s: write: %x to QSCRATCH: %x FAILED\n",
 			__func__, val, offset);
+}
+
+static inline bool dwc3_msm_is_superspeed(struct dwc3_msm *mdwc)
+{
+	u8 speed;
+
+	speed = dwc3_msm_read_reg(mdwc->base, DWC3_DSTS) & DWC3_DSTS_CONNECTSPD;
+	return !!(speed & DSTS_CONNECTSPD_SS);
 }
 
 /**
@@ -617,7 +628,7 @@ static int dwc3_msm_ep_queue(struct usb_ep *ep,
 	bool disable_wb;
 	bool internal_mem;
 	bool ioc;
-	u8 speed;
+	bool superspeed;
 
 	if (!(request->udc_priv & MSM_SPS_MODE)) {
 		/* Not SPS mode, call original queue */
@@ -716,8 +727,8 @@ static int dwc3_msm_ep_queue(struct usb_ep *ep,
 		return ret;
 	}
 
-	speed = dwc3_readl(dwc->regs, DWC3_DSTS) & DWC3_DSTS_CONNECTSPD;
-	dbm_set_speed(mdwc->dbm, speed >> 2);
+	superspeed = dwc3_msm_is_superspeed(mdwc);
+	dbm_set_speed(mdwc->dbm, (u8)superspeed);
 
 	return 0;
 }
