@@ -1248,7 +1248,6 @@ ufshcd_send_uic_cmd(struct ufs_hba *hba, struct uic_command *uic_cmd)
 	unsigned long flags;
 
 	ufshcd_hold(hba, false);
-	pm_runtime_get_sync(hba->dev);
 	mutex_lock(&hba->uic_cmd_mutex);
 	spin_lock_irqsave(hba->host->host_lock, flags);
 	ret = __ufshcd_send_uic_cmd(hba, uic_cmd);
@@ -1257,7 +1256,6 @@ ufshcd_send_uic_cmd(struct ufs_hba *hba, struct uic_command *uic_cmd)
 		ret = ufshcd_wait_for_uic_cmd(hba, uic_cmd);
 
 	mutex_unlock(&hba->uic_cmd_mutex);
-	pm_runtime_put_sync(hba->dev);
 	ufshcd_release(hba);
 	return ret;
 }
@@ -2598,7 +2596,6 @@ int ufshcd_uic_pwr_ctrl(struct ufs_hba *hba, struct uic_command *cmd)
 	int retries = POWER_MODE_RETRIES;
 
 	ufshcd_hold(hba, false);
-	pm_runtime_get_sync(hba->dev);
 	mutex_lock(&hba->uic_cmd_mutex);
 	init_completion(&uic_async_done);
 
@@ -2667,7 +2664,6 @@ out:
 	hba->uic_async_done = NULL;
 	spin_unlock_irqrestore(hba->host->host_lock, flags);
 	mutex_unlock(&hba->uic_cmd_mutex);
-	pm_runtime_put_sync(hba->dev);
 	ufshcd_release(hba);
 	return ret;
 }
