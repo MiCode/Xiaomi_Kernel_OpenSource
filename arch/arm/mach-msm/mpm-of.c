@@ -531,6 +531,7 @@ void msm_mpm_enter_sleep(uint32_t sclk_count, bool from_idle,
 void msm_mpm_exit_sleep(bool from_idle)
 {
 	unsigned long pending;
+	uint32_t *enabled_intr;
 	int i;
 	int k;
 
@@ -539,12 +540,16 @@ void msm_mpm_exit_sleep(bool from_idle)
 		return;
 	}
 
+	enabled_intr = from_idle ? msm_mpm_enabled_irq :
+						msm_mpm_wake_irq;
+
 	for (i = 0; i < MSM_MPM_REG_WIDTH; i++) {
 		pending = msm_mpm_read(MSM_MPM_REG_STATUS, i);
+		pending &= enabled_intr[i];
 
 		if (MSM_MPM_DEBUG_PENDING_IRQ & msm_mpm_debug_mask)
-			pr_info("%s: pending.%d: 0x%08lx", __func__,
-					i, pending);
+			pr_info("%s: enabled_intr pending.%d: 0x%08x 0x%08lx\n",
+				__func__, i, enabled_intr[i], pending);
 
 		k = find_first_bit(&pending, 32);
 		while (k < 32) {
@@ -678,7 +683,8 @@ static int __devinit msm_mpm_dev_probe(struct platform_device *pdev)
 		return -ENXIO;
 	}
 	ret = devm_request_irq(&pdev->dev, dev->mpm_ipc_irq, msm_mpm_irq,
-			IRQF_TRIGGER_RISING, pdev->name, msm_mpm_irq);
+			IRQF_TRIGGER_RISING | IRQF_NO_SUSPEND, pdev->name,
+			msm_mpm_irq);
 
 	if (ret) {
 		pr_info("%s(): request_irq failed errno: %d\n", __func__, ret);

@@ -45,8 +45,7 @@ static inline int smc_fastcall(void *fc_generic, size_t size)
 #define MC_VM_UNMAP
 #endif
 
-
-#if defined(CONFIG_ARCH_MSM8974) || defined(CONFIG_ARCH_MSM8226)
+#if defined (CONFIG_ARCH_MSM8974) || defined (CONFIG_ARCH_MSM8226)
 /* Perform clock enable/disable */
 #define MC_CRYPTO_CLOCK_MANAGEMENT
 #endif

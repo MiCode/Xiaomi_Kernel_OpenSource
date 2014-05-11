@@ -61,7 +61,7 @@
 #define QSEE_CE_CLK_100MHZ		100000000
 
 #define QSEECOM_MAX_SG_ENTRY	512
-#define QSEECOM_DISK_ENCRYTPION_KEY_ID 0
+#define QSEECOM_INVALID_KEY_ID  0xff
 
 /* Save partition image hash for authentication check */
 #define	SCM_SAVE_PARTITION_HASH_ID	0x01
@@ -172,6 +172,7 @@ struct qseecom_control {
 	struct work_struct bw_inactive_req_ws;
 	struct cdev cdev;
 	bool timer_running;
+	bool uclient_shutdown_app;
 };
 
 struct qseecom_client_handle {
@@ -223,8 +224,22 @@ struct qseecom_sg_entry {
 	uint32_t len;
 };
 
-uint8_t *key_id_array[QSEECOM_KEY_ID_SIZE] = {
-	"Disk Encryption"
+struct qseecom_key_id_usage_desc {
+	uint8_t desc[QSEECOM_KEY_ID_SIZE];
+};
+
+static struct qseecom_key_id_usage_desc key_id_array[] = {
+	{
+		.desc = "Undefined Usage Index",
+	},
+
+	{
+		.desc = "Full Disk Encryption",
+	},
+
+	{
+		.desc = "Per File Encryption",
+	},
 };
 
 /* Function proto types */
@@ -971,6 +986,7 @@ static int qseecom_load_app(struct qseecom_dev_handle *data, void __user *argp)
 		(char *)(load_img_req.img_name));
 	}
 	data->client.app_id = app_id;
+	data->type = QSEECOM_CLIENT_APP;
 	load_img_req.app_id = app_id;
 	if (copy_to_user(argp, &load_img_req, sizeof(load_img_req))) {
 		pr_err("copy_to_user failed\n");
@@ -1008,7 +1024,8 @@ static int qseecom_unmap_ion_allocated_memory(struct qseecom_dev_handle *data)
 	return ret;
 }
 
-static int qseecom_unload_app(struct qseecom_dev_handle *data)
+static int qseecom_unload_app(struct qseecom_dev_handle *data,
+				bool uclient_release)
 {
 	unsigned long flags;
 	int ret = 0;
@@ -1020,17 +1037,24 @@ static int qseecom_unload_app(struct qseecom_dev_handle *data)
 	if (data->client.app_id > 0) {
 		spin_lock_irqsave(&qseecom.registered_app_list_lock, flags);
 		list_for_each_entry(ptr_app, &qseecom.registered_app_list_head,
-								list) {
+									list) {
 			if (ptr_app->app_id == data->client.app_id) {
 				found_app = true;
-				if (ptr_app->ref_cnt == 1) {
+				if ((uclient_release) &&
+					(!qseecom.uclient_shutdown_app)) {
+					ptr_app->ref_cnt = 0;
 					unload = true;
 					break;
 				} else {
-					ptr_app->ref_cnt--;
-					pr_debug("Can't unload app(%d) inuse\n",
-							ptr_app->app_id);
-					break;
+					if (ptr_app->ref_cnt == 1) {
+						unload = true;
+						break;
+					} else {
+						ptr_app->ref_cnt--;
+						pr_debug("Can't unload app(%d) inuse\n",
+						ptr_app->app_id);
+						break;
+					}
 				}
 			}
 		}
@@ -1038,7 +1062,7 @@ static int qseecom_unload_app(struct qseecom_dev_handle *data)
 								flags);
 		if (found_app == false) {
 			pr_err("Cannot find app with id = %d\n",
-						data->client.app_id);
+					data->client.app_id);
 			return -EINVAL;
 		}
 	}
@@ -1062,7 +1086,7 @@ static int qseecom_unload_app(struct qseecom_dev_handle *data)
 				&resp, sizeof(resp));
 		if (ret) {
 			pr_err("scm_call to unload app (id = %d) failed\n",
-							req.app_id);
+								req.app_id);
 			return -EFAULT;
 		} else {
 			pr_warn("App id %d now unloaded\n", req.app_id);
@@ -1071,7 +1095,7 @@ static int qseecom_unload_app(struct qseecom_dev_handle *data)
 			ret = __qseecom_process_incomplete_cmd(data, &resp);
 			if (ret) {
 				pr_err("process_incomplete_cmd fail err: %d\n",
-						ret);
+									ret);
 				return ret;
 			}
 		}
@@ -2039,7 +2063,7 @@ int qseecom_shutdown_app(struct qseecom_handle **handle)
 	if (!found_handle)
 		pr_err("Unable to find the handle, exiting\n");
 	else
-		ret = qseecom_unload_app(data);
+		ret = qseecom_unload_app(data, false);
 
 	if (qseecom.support_bus_scaling) {
 		mutex_lock(&qsee_bw_mutex);
@@ -2731,13 +2755,13 @@ static int __qseecom_generate_and_save_key(struct qseecom_dev_handle *data,
 	case QSEOS_RESULT_SUCCESS:
 		break;
 	case QSEOS_RESULT_FAIL_KEY_ID_EXISTS:
-		pr_debug("process_incomplete_cmd return Key ID exists.\n");
+		pr_debug("Key ID exists.\n");
 		break;
 	case QSEOS_RESULT_INCOMPLETE:
 		ret = __qseecom_process_incomplete_cmd(data, &resp);
 		if (ret) {
 			if (resp.result == QSEOS_RESULT_FAIL_KEY_ID_EXISTS) {
-				pr_debug("process_incomplete_cmd return Key ID exists.\n");
+				pr_debug("Key ID exists.\n");
 				ret = 0;
 			} else {
 				pr_err("process_incomplete_cmd FAILED, resp.result %d\n",
@@ -2889,8 +2913,6 @@ static int __qseecom_update_current_key_user_info(
 	if (ret) {
 		pr_err("scm call to update key userinfo failed : %d\n", ret);
 		__qseecom_disable_clk(CLK_QSEE);
-		if (qseecom.qsee.instance != qseecom.ce_drv.instance)
-			__qseecom_disable_clk(CLK_CE_DRV);
 		return -EFAULT;
 	}
 
@@ -2948,7 +2970,7 @@ static int qseecom_create_key(struct qseecom_dev_handle *data,
 	memset((void *)generate_key_ireq.key_id, 0, QSEECOM_KEY_ID_SIZE);
 	memset((void *)generate_key_ireq.hash32, 0, QSEECOM_HASH_SIZE);
 	memcpy((void *)generate_key_ireq.key_id,
-			(void *)key_id_array[create_key_req.usage - 1],
+			(void *)key_id_array[create_key_req.usage].desc,
 			QSEECOM_KEY_ID_SIZE);
 	memcpy((void *)generate_key_ireq.hash32,
 			(void *)create_key_req.hash32, QSEECOM_HASH_SIZE);
@@ -2970,8 +2992,8 @@ static int qseecom_create_key(struct qseecom_dev_handle *data,
 	memset((void *)set_key_ireq.key_id, 0, QSEECOM_KEY_ID_SIZE);
 	memset((void *)set_key_ireq.hash32, 0, QSEECOM_HASH_SIZE);
 	memcpy((void *)set_key_ireq.key_id,
-			(void *)key_id_array[create_key_req.usage - 1],
-				QSEECOM_KEY_ID_SIZE);
+		(void *)key_id_array[create_key_req.usage].desc,
+		QSEECOM_KEY_ID_SIZE);
 	memcpy((void *)set_key_ireq.hash32, (void *)create_key_req.hash32,
 				QSEECOM_HASH_SIZE);
 
@@ -3016,19 +3038,22 @@ static int qseecom_wipe_key(struct qseecom_dev_handle *data,
 		return -EINVAL;
 	}
 
-	delete_key_ireq.flags = flags;
-	delete_key_ireq.qsee_command_id = QSEOS_DELETE_KEY;
-	memset((void *)delete_key_ireq.key_id, 0, QSEECOM_KEY_ID_SIZE);
-	memcpy((void *)delete_key_ireq.key_id,
-			(void *)key_id_array[wipe_key_req.usage - 1],
+	if (wipe_key_req.wipe_key_flag) {
+		delete_key_ireq.flags = flags;
+		delete_key_ireq.qsee_command_id = QSEOS_DELETE_KEY;
+		memset((void *)delete_key_ireq.key_id, 0, QSEECOM_KEY_ID_SIZE);
+		memcpy((void *)delete_key_ireq.key_id,
+			(void *)key_id_array[wipe_key_req.usage].desc,
 			QSEECOM_KEY_ID_SIZE);
-	memset((void *)delete_key_ireq.hash32, 0, QSEECOM_HASH_SIZE);
+		memset((void *)delete_key_ireq.hash32, 0, QSEECOM_HASH_SIZE);
 
-	ret = __qseecom_delete_saved_key(data, wipe_key_req.usage,
+		ret = __qseecom_delete_saved_key(data, wipe_key_req.usage,
 					&delete_key_ireq);
-	if (ret) {
-		pr_err("Failed to delete key from ssd storage: %d\n", ret);
-		return -EFAULT;
+		if (ret) {
+			pr_err("Failed to delete key from ssd storage: %d\n",
+				ret);
+			return -EFAULT;
+		}
 	}
 
 	clear_key_ireq.qsee_command_id = QSEOS_SET_KEY;
@@ -3037,7 +3062,7 @@ static int qseecom_wipe_key(struct qseecom_dev_handle *data,
 	clear_key_ireq.flags = flags;
 	clear_key_ireq.pipe_type = QSEOS_PIPE_ENC|QSEOS_PIPE_ENC_XTS;
 	for (i = 0; i < QSEECOM_KEY_ID_SIZE; i++)
-			clear_key_ireq.key_id[i] = 0xff;
+		clear_key_ireq.key_id[i] = QSEECOM_INVALID_KEY_ID;
 	memset((void *)clear_key_ireq.hash32, 0, QSEECOM_HASH_SIZE);
 
 	ret = __qseecom_set_clear_ce_key(data, wipe_key_req.usage,
@@ -3076,8 +3101,9 @@ static int qseecom_update_key_user_info(struct qseecom_dev_handle *data,
 	memset(ireq.key_id, 0, QSEECOM_KEY_ID_SIZE);
 	memset((void *)ireq.current_hash32, 0, QSEECOM_HASH_SIZE);
 	memset((void *)ireq.new_hash32, 0, QSEECOM_HASH_SIZE);
-	memcpy(ireq.key_id, key_id_array[update_key_req.usage - 1],
-						QSEECOM_KEY_ID_SIZE);
+	memcpy((void *)ireq.key_id,
+		(void *)key_id_array[update_key_req.usage].desc,
+		QSEECOM_KEY_ID_SIZE);
 	memcpy((void *)ireq.current_hash32,
 		(void *)update_key_req.current_hash32, QSEECOM_HASH_SIZE);
 	memcpy((void *)ireq.new_hash32,
@@ -3359,7 +3385,8 @@ static long qseecom_ioctl(struct file *file, unsigned cmd,
 		pr_debug("UNLOAD_APP: qseecom_addr = 0x%x\n", (u32)data);
 		mutex_lock(&app_access_lock);
 		atomic_inc(&data->ioctl_count);
-		ret = qseecom_unload_app(data);
+		qseecom.uclient_shutdown_app = true;
+		ret = qseecom_unload_app(data, false);
 		atomic_dec(&data->ioctl_count);
 		mutex_unlock(&app_access_lock);
 		if (ret)
@@ -3656,7 +3683,13 @@ static int qseecom_release(struct inode *inode, struct file *file)
 			ret = qseecom_unregister_listener(data);
 			break;
 		case QSEECOM_CLIENT_APP:
-			ret = qseecom_unload_app(data);
+			ret = qseecom_unload_app(data, true);
+			if (ret) {
+				pr_err("Close failed\n");
+				return ret;
+			} else {
+				qseecom.uclient_shutdown_app = false;
+			}
 			break;
 		case QSEECOM_SECURE_SERVICE:
 		case QSEECOM_GENERIC:
@@ -4061,7 +4094,7 @@ static int __devinit qseecom_remove(struct platform_device *pdev)
 			goto exit_free_kc_handle;
 
 		list_del(&kclient->list);
-		ret = qseecom_unload_app(kclient->handle->dev);
+		ret = qseecom_unload_app(kclient->handle->dev, false);
 		if (!ret) {
 			kzfree(kclient->handle->dev);
 			kzfree(kclient->handle);

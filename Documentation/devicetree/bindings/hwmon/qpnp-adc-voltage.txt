@@ -22,6 +22,9 @@ NOTE: Atleast one Channel node is required.
 
 Optional properties:
 - qcom,vadc-poll-eoc: Use polling instead of interrupts for End of Conversion completion.
+- qcom,pmic-revid : Phandle pointing to the revision peripheral node. Use it to query the
+		    PMIC type and revision for applying the appropriate temperature
+		    compensation parameters.
 
 Client required property:
 - qcom,<consumer name>-vadc : The phandle to the corresponding vadc device.
