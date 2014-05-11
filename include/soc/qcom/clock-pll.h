@@ -51,6 +51,15 @@ struct pll_config_masks {
 	u32 vco_mask;
 	u32 mn_en_mask;
 	u32 main_output_mask;
+	u32 early_output_mask;
+};
+
+struct pll_config_vals {
+	u32 post_div_masked;
+	u32 pre_div_masked;
+	u32 config_ctl_val;
+	u32 alpha_val;
+	bool enable_mn;
 };
 
 #define PLL_FREQ_END	(UINT_MAX-1)
@@ -102,6 +111,7 @@ static inline struct pll_vote_clk *to_pll_vote_clk(struct clk *c)
  *   or user_ctl register depending on targets
  * @status_reg: status register, contains the lock detection bit
  * @masks: masks used for settings in config_reg
+ * @vals: configuration values to be written to PLL registers
  * @freq_tbl: pll freq table
  * @c: clk
  * @base: pointer to base address of ioremapped registers.
@@ -111,11 +121,20 @@ struct pll_clk {
 	void __iomem *const l_reg;
 	void __iomem *const m_reg;
 	void __iomem *const n_reg;
+	void __iomem *const alpha_reg;
 	void __iomem *const config_reg;
+	void __iomem *const config_ctl_reg;
 	void __iomem *const status_reg;
 
 	struct pll_config_masks masks;
+	struct pll_config_vals vals;
 	struct pll_freq_tbl *freq_tbl;
+
+	unsigned long src_rate;
+	unsigned long min_rate;
+	unsigned long max_rate;
+
+	bool inited;
 
 	struct clk c;
 	void *const __iomem *base;
@@ -123,6 +142,7 @@ struct pll_clk {
 
 extern struct clk_ops clk_ops_local_pll;
 extern struct clk_ops clk_ops_sr2_pll;
+extern struct clk_ops clk_ops_variable_rate_pll;
 
 static inline struct pll_clk *to_pll_clk(struct clk *c)
 {

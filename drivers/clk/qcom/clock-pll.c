@@ -33,6 +33,7 @@
 #define PLL_M_REG(x)		(*(x)->base + (unsigned long) (x)->m_reg)
 #define PLL_N_REG(x)		(*(x)->base + (unsigned long) (x)->n_reg)
 #define PLL_CONFIG_REG(x)	(*(x)->base + (unsigned long) (x)->config_reg)
+#define PLL_ALPHA_REG(x)	(*(x)->base + (unsigned long) (x)->alpha_reg)
 #define PLL_CFG_ALT_REG(x)	(*(x)->base + (unsigned long) \
 							(x)->config_alt_reg)
 #define PLL_CFG_CTL_REG(x)	(*(x)->base + (unsigned long) \
@@ -204,6 +205,43 @@ static int sr2_pll_clk_enable(struct clk *c)
 	return ret;
 }
 
+static void __variable_rate_pll_init(struct clk *c)
+{
+	struct pll_clk *pll = to_pll_clk(c);
+	u32 regval;
+
+	regval = readl_relaxed(PLL_CONFIG_REG(pll));
+
+	if (pll->masks.post_div_mask) {
+		regval &= ~pll->masks.post_div_mask;
+		regval |= pll->vals.post_div_masked;
+	}
+
+	if (pll->masks.pre_div_mask) {
+		regval &= ~pll->masks.pre_div_mask;
+		regval |= pll->vals.pre_div_masked;
+	}
+
+	if (pll->vals.enable_mn)
+		regval |= pll->masks.mn_en_mask;
+	else
+		regval &= ~pll->masks.mn_en_mask;
+
+	writel_relaxed(regval, PLL_CONFIG_REG(pll));
+	writel_relaxed(pll->vals.alpha_val, PLL_ALPHA_REG(pll));
+	writel_relaxed(pll->vals.config_ctl_val, PLL_CFG_CTL_REG(pll));
+
+	pll->inited = true;
+}
+
+static int variable_rate_pll_clk_enable(struct clk *c)
+{
+	if (unlikely(!to_pll_clk(c)->inited))
+		__variable_rate_pll_init(c);
+
+	return sr2_pll_clk_enable(c);
+}
+
 static void __pll_clk_enable_reg(void __iomem *mode_reg)
 {
 	u32 mode = readl_relaxed(mode_reg);
@@ -349,6 +387,76 @@ static int local_pll_clk_set_rate(struct clk *c, unsigned long rate)
 	return 0;
 }
 
+static enum handoff variable_rate_pll_handoff(struct clk *c)
+{
+	struct pll_clk *pll = to_pll_clk(c);
+	u32 mode = readl_relaxed(PLL_MODE_REG(pll));
+	u32 mask = PLL_BYPASSNL | PLL_RESET_N | PLL_OUTCTRL;
+	u32 lval;
+
+	pll->src_rate = clk_get_rate(c->parent);
+
+	if ((mode & mask) != mask)
+		return HANDOFF_DISABLED_CLK;
+
+	lval = readl_relaxed(PLL_L_REG(pll));
+
+	c->rate = pll->src_rate * lval;
+
+	if (c->rate > pll->max_rate || c->rate < pll->min_rate) {
+		WARN(1, "%s: Out of spec PLL", c->dbg_name);
+		return HANDOFF_DISABLED_CLK;
+	}
+
+	return HANDOFF_ENABLED_CLK;
+}
+
+static long variable_rate_pll_round_rate(struct clk *c, unsigned long rate)
+{
+	struct pll_clk *pll = to_pll_clk(c);
+
+	if (!pll->src_rate)
+		return 0;
+
+	if (rate < pll->min_rate)
+		rate = pll->min_rate;
+	if (rate > pll->max_rate)
+		rate = pll->max_rate;
+
+	return min(pll->max_rate,
+			DIV_ROUND_UP(rate, pll->src_rate) * pll->src_rate);
+}
+
+/*
+ * For optimization reasons, assumes no downstream clocks are actively using
+ * it.
+ */
+static int variable_rate_pll_set_rate(struct clk *c, unsigned long rate)
+{
+	struct pll_clk *pll = to_pll_clk(c);
+	unsigned long flags;
+	u32 l_val;
+
+	if (rate != variable_rate_pll_round_rate(c, rate))
+		return -EINVAL;
+
+	l_val = rate / pll->src_rate;
+
+	spin_lock_irqsave(&c->lock, flags);
+
+	if (c->count)
+		c->ops->disable(c);
+
+	writel_relaxed(l_val, PLL_L_REG(pll));
+
+	if (c->count)
+		c->ops->enable(c);
+
+	spin_unlock_irqrestore(&c->lock, flags);
+
+	return 0;
+}
+
 int sr_pll_clk_enable(struct clk *c)
 {
 	u32 mode;
@@ -426,6 +534,27 @@ out:
 	return ret;
 }
 
+
+static void __iomem *variable_rate_pll_list_registers(struct clk *c, int n,
+				struct clk_register_data **regs, u32 *size)
+{
+	struct pll_clk *pll = to_pll_clk(c);
+	static struct clk_register_data data[] = {
+		{"MODE", 0x0},
+		{"L", 0x4},
+		{"ALPHA", 0x8},
+		{"USER_CTL", 0x10},
+		{"CONFIG_CTL", 0x14},
+		{"STATUS", 0x1C},
+	};
+	if (n)
+		return ERR_PTR(-EINVAL);
+
+	*regs = data;
+	*size = ARRAY_SIZE(data);
+	return PLL_MODE_REG(pll);
+}
+
 static void __iomem *local_pll_clk_list_registers(struct clk *c, int n,
 				struct clk_register_data **regs, u32 *size)
 {
@@ -464,6 +593,15 @@ struct clk_ops clk_ops_sr2_pll = {
 	.round_rate = local_pll_clk_round_rate,
 	.handoff = local_pll_clk_handoff,
 	.list_registers = local_pll_clk_list_registers,
+};
+
+struct clk_ops clk_ops_variable_rate_pll = {
+	.enable = variable_rate_pll_clk_enable,
+	.disable = local_pll_clk_disable,
+	.set_rate = variable_rate_pll_set_rate,
+	.round_rate = variable_rate_pll_round_rate,
+	.handoff = variable_rate_pll_handoff,
+	.list_registers = variable_rate_pll_list_registers,
 };
 
 static DEFINE_SPINLOCK(soft_vote_lock);
