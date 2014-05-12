@@ -1294,6 +1294,9 @@ static int32_t q6asm_callback(struct apr_client_data *data, void *priv)
 				ac->cb(data->opcode, data->token,
 					(uint32_t *)data->payload, ac->priv);
 		apr_reset(ac->apr);
+		if (ac->cb)
+			ac->cb(data->opcode, data->token,
+				data->payload, ac->priv);
 		ac->apr = NULL;
 		return 0;
 	}
