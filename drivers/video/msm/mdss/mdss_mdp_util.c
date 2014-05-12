@@ -320,7 +320,7 @@ int mdss_mdp_get_rau_strides(u32 w, u32 h,
 }
 
 int mdss_mdp_get_plane_sizes(u32 format, u32 w, u32 h,
-			     struct mdss_mdp_plane_sizes *ps, u32 bwc_mode)
+	struct mdss_mdp_plane_sizes *ps, u32 bwc_mode, bool rotation)
 {
 	struct mdss_mdp_format_params *fmt;
 	int i, rc;
@@ -374,9 +374,19 @@ int mdss_mdp_get_plane_sizes(u32 format, u32 w, u32 h,
 			u8 hmap[] = { 1, 2, 1, 2 };
 			u8 vmap[] = { 1, 1, 2, 2 };
 			u8 horiz, vert, stride_align, height_align;
+			u32 chroma_samp;
 
-			horiz = hmap[fmt->chroma_sample];
-			vert = vmap[fmt->chroma_sample];
+			chroma_samp = fmt->chroma_sample;
+
+			if (rotation) {
+				if (chroma_samp == MDSS_MDP_CHROMA_H2V1)
+					chroma_samp = MDSS_MDP_CHROMA_H1V2;
+				else if (chroma_samp == MDSS_MDP_CHROMA_H1V2)
+					chroma_samp = MDSS_MDP_CHROMA_H2V1;
+			}
+
+			horiz = hmap[chroma_samp];
+			vert = vmap[chroma_samp];
 
 			switch (format) {
 			case MDP_Y_CR_CB_GH2V2:

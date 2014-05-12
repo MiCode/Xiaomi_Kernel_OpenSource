@@ -688,7 +688,7 @@ int mdss_mdp_pipe_queue_data(struct mdss_mdp_pipe *pipe,
 int mdss_mdp_data_check(struct mdss_mdp_data *data,
 			struct mdss_mdp_plane_sizes *ps);
 int mdss_mdp_get_plane_sizes(u32 format, u32 w, u32 h,
-			     struct mdss_mdp_plane_sizes *ps, u32 bwc_mode);
+	     struct mdss_mdp_plane_sizes *ps, u32 bwc_mode, bool rotation);
 int mdss_mdp_get_rau_strides(u32 w, u32 h, struct mdss_mdp_format_params *fmt,
 			       struct mdss_mdp_plane_sizes *ps);
 void mdss_mdp_data_calc_offset(struct mdss_mdp_data *data, u16 x, u16 y,
