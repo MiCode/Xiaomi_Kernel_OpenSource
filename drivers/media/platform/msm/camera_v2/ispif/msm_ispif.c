@@ -967,6 +967,11 @@ static void msm_ispif_release(struct ispif_device *ispif)
 {
 	BUG_ON(!ispif);
 
+	if (!ispif->base) {
+		pr_err("%s: ispif base is NULL\n", __func__);
+		return;
+	}
+
 	if (ispif->ispif_state != ISPIF_POWER_UP) {
 		pr_err("%s: ispif invalid state %d\n", __func__,
 			ispif->ispif_state);
