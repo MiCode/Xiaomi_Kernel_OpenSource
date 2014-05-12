@@ -2207,7 +2207,7 @@ static int clamp_soc_based_on_voltage(struct qpnp_bms_chip *chip, int soc)
 		pr_err("adc vbat failed err = %d\n", rc);
 		return soc;
 	}
-	if (soc == 0 && vbat_uv > chip->v_cutoff_uv) {
+	if (soc <= 0 && vbat_uv > chip->v_cutoff_uv) {
 		pr_debug("clamping soc to 1, vbat (%d) > cutoff (%d)\n",
 						vbat_uv, chip->v_cutoff_uv);
 		return 1;
