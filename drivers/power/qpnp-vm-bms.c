@@ -1680,6 +1680,8 @@ static int qpnp_vm_bms_power_get_property(struct power_supply *psy,
 				struct qpnp_bms_chip, bms_psy);
 	int value = 0, rc;
 
+	val->intval = 0;
+
 	switch (psp) {
 	case POWER_SUPPLY_PROP_CAPACITY:
 		val->intval = get_prop_bms_capacity(chip);
