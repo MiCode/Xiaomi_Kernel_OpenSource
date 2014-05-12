@@ -813,8 +813,6 @@ static void _usb_bam_suspend_core(enum usb_ctrl bam_type, bool disconnect)
 	spin_lock(&usb_bam_ipa_handshake_info_lock);
 	info[bam_type].lpm_wait_handshake = false;
 	info[bam_type].lpm_wait_pipes = 0;
-	if (disconnect)
-		pm_runtime_put_noidle(usb_device);
 
 	if (info[bam_type].pending_lpm) {
 		info[bam_type].pending_lpm = 0;
