@@ -138,6 +138,11 @@ enum msm_cpu {
 	MSM_CPU_SAMARIUM,
 };
 
+struct msm_soc_info {
+	enum msm_cpu generic_soc_type;
+	char *soc_id_string;
+};
+
 enum pmic_model {
 	PMIC_MODEL_PM8058	= 13,
 	PMIC_MODEL_PM8028	= 14,
