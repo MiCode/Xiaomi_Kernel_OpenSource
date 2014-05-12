@@ -774,6 +774,7 @@ void msm_fd_hw_unmap_buffer(struct msm_fd_buf_handle *buf)
 
 	buf->fd = -1;
 	buf->pool = NULL;
+	buf->handle = NULL;
 }
 
 /*
