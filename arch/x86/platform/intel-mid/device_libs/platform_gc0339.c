@@ -40,8 +40,9 @@ enum camera_pmic_pin {
 };
 
 
-static int camera_reset;
-static int camera_power_down;
+static struct gpio_desc *camera_reset;
+static struct gpio_desc *camera_power_down;
+
 static int camera_vprog1_on;
 
 #ifdef CONFIG_CRYSTAL_COVE
@@ -113,59 +114,57 @@ static int camera_sensor_csi(struct v4l2_subdev *sd, u32 port,
 
 static int gc0339_gpio_ctrl(struct v4l2_subdev *sd, int flag)
 {
+	struct i2c_client *client = v4l2_get_subdevdata(sd);
+	struct device *dev = &client->dev;
 	int ret;
-	int pin;
 
-	/*
-	 * FIXME: WA using hardcoded GPIO value here.
-	 * The GPIO value would be provided by ACPI table, which is
-	 * not implemented currently.
-	 */
-	pin = CAMERA_0_RESET;
-	if (camera_reset < 0) {
-		ret = gpio_request(pin, "camera_0_reset");
-		if (ret) {
-			pr_err("%s: failed to request gpio(pin %d)\n",
-			       __func__, pin);
-			return ret;
+	if (!camera_reset) {
+		camera_reset = gpiod_get_index(dev, "camera_0_reset", 0);
+		if (IS_ERR(camera_reset)) {
+			dev_err(dev, "%s: gpiod_get_index(camera_0_reset) failed\n",
+				__func__);
+			ret = PTR_ERR(camera_reset);
+			goto err_camera_reset;
 		}
-		camera_reset = pin;
 	}
 
-	/*
-	 * FIXME: WA using hardcoded GPIO value here.
-	 * The GPIO value would be provided by ACPI table, which is
-	 * not implemented currently.
-	 */
-	pin = CAMERA_0_PWDN;
-	if (camera_power_down < 0) {
-		ret = gpio_request(pin, "camera_0_power");
-		if (ret) {
-			pr_err("%s: failed to request gpio(pin %d)\n",
-			       __func__, pin);
-			return ret;
+	if (!camera_power_down) {
+		camera_power_down = gpiod_get_index(dev,
+						    "camera_0_power_down", 1);
+		if (IS_ERR(camera_power_down)) {
+			pr_err("%s: gpiod_get_index(camera_power_down) failed\n",
+			       __func__);
+			ret = PTR_ERR(camera_power_down);
+			goto err_power_down;
 		}
-		camera_power_down = pin;
 	}
 
 	if (flag) {
 		pr_info("pull low reset\n");
-		gpio_set_value(camera_reset, 0);
+		gpiod_set_value(camera_reset, 0);
 		msleep(5);
 		pr_info("pull high reset\n");
-		gpio_set_value(camera_reset, 1);
+		gpiod_set_value(camera_reset, 1);
 		msleep(10);
 		pr_info("pull low pwn\n");
-		gpio_set_value(camera_power_down, 0);
+		gpiod_set_value(camera_power_down, 0);
 		msleep(10);
 	} else {
 		pr_info("pull high pwn\n");
-		gpio_set_value(camera_power_down, 1);
+		gpiod_set_value(camera_power_down, 1);
 		pr_info("pull low reset\n");
-		gpio_set_value(camera_reset, 0);
+		gpiod_set_value(camera_reset, 0);
 	}
 
 	return 0;
+
+err_camera_reset:
+	camera_reset = NULL;
+	return ret;
+
+err_power_down:
+	camera_power_down = NULL;
+	return ret;
 }
 
 static int gc0339_flisclk_ctrl(struct v4l2_subdev *sd, int flag)
@@ -256,8 +255,8 @@ static struct camera_sensor_platform_data gc0339_sensor_platform_data = {
 
 void *gc0339_platform_data(void *info)
 {
-	camera_reset = -1;
-	camera_power_down = -1;
+	camera_reset = NULL;
+	camera_power_down = NULL;
 	camera_vprog1_on = -1;
 
 	return &gc0339_sensor_platform_data;
