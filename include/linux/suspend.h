@@ -466,6 +466,7 @@ static inline void page_key_write(void *address) {}
 #endif /* !CONFIG_ARCH_SAVE_PAGE_KEYS */
 
 extern bool pm_suspend_debug;
+extern void pm_suspend_dev_state(void);
 #define pm_suspend_dbg(fmt, arg...)                                     \
 do {                                                                    \
         if (pm_suspend_debug)                                           \
