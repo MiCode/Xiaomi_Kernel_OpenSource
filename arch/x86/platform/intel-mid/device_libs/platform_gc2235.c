@@ -70,8 +70,9 @@ enum pmic_ids {
 static enum pmic_ids pmic_id;
 #endif
 
-static int camera_reset;
-static int camera_power_down;
+static struct gpio_desc *camera_reset;
+static struct gpio_desc *camera_power_down;
+
 static int camera_vprog1_on;
 
 /*
@@ -243,73 +244,71 @@ static int camera_pmic_set(bool flag)
 
 static int gc2235_gpio_ctrl(struct v4l2_subdev *sd, int flag)
 {
+        struct i2c_client *client = v4l2_get_subdevdata(sd);
+	struct device *dev = &client->dev;
 	int ret;
-	int pin;
 
-	/*
-	 * FIXME: WA using hardcoded GPIO value here.
-	 * The GPIO value would be provided by ACPI table, which is
-	 * not implemented currently.
-	 */
-	if (camera_reset < 0) {
-		pin = CAMERA_0_RESET;
-		ret = gpio_request(pin, "camera_0_reset");
-		if (ret) {
-			pr_err("%s: failed to request gpio(pin %d)\n",
-			       __func__, pin);
-			return ret;
+	if (!camera_reset) {
+		camera_reset = gpiod_get_index(dev, "camera_0_reset", 0);
+		if (IS_ERR(camera_reset)) {
+			dev_err(dev, "%s: gpiod_get_index(camera_0_reset) failed\n",
+				__func__);
+			ret = PTR_ERR(camera_reset);
+			goto err_camera_reset;
 		}
 	}
 
-	camera_reset = pin;
-	ret = gpio_direction_output(pin, 1);
+	ret = gpiod_direction_output(camera_reset, 1);
 	if (ret) {
-		pr_err("%s: failed to set gpio(pin %d) direction\n",
-		       __func__, pin);
-		gpio_free(pin);
-		return ret;
+		pr_err("%s: failed to set gpio direction\n", __func__);
+		gpiod_put(camera_reset);
+		goto err_camera_reset;
 	}
 
-	/*
-	 * FIXME: WA using hardcoded GPIO value here.
-	 * The GPIO value would be provided by ACPI table, which is
-	 * not implemented currently.
-	 */
-	pin = CAMERA_0_PWDN;
-	if (camera_power_down < 0) {
-		ret = gpio_request(pin, "camera_0_power");
-		if (ret) {
-			pr_err("%s: failed to request gpio(pin %d)\n",
-			       __func__, pin);
-			return ret;
+	if (!camera_power_down) {
+		camera_power_down = gpiod_get_index(dev,
+						    "camera_0_power_down", 1);
+		if (IS_ERR(camera_power_down)) {
+			pr_err("%s: gpiod_get_index(camera_power_down) failed\n",
+			       __func__);
+			ret = PTR_ERR(camera_power_down);
+			goto err_power_down;
 		}
 	}
-	camera_power_down = pin;
-	ret = gpio_direction_output(pin, 0);
+
+	ret = gpiod_direction_output(camera_power_down, 0);
 	if (ret) {
-		pr_err("%s: failed to set gpio(pin %d) direction\n",
-		       __func__, pin);
-		gpio_free(pin);
-		return ret;
+		pr_err("%s: failed to set gpio direction\n",
+		       __func__);
+		gpiod_put(camera_power_down);
+		goto err_power_down;
 	}
 
 	if (flag) {
-		gpio_set_value(camera_reset, 0);
-		gpio_set_value(camera_power_down, 1);
+		gpiod_set_value(camera_reset, 0);
+		gpiod_set_value(camera_power_down, 1);
 		usleep_range(1000, 2000);
-		gpio_set_value(camera_reset, 1);
+		gpiod_set_value(camera_reset, 1);
 	} else {
-		gpio_set_value(camera_power_down, 0);
-		gpio_free(camera_power_down);
+		gpiod_set_value(camera_power_down, 0);
+		gpiod_put(camera_power_down);
 
-		gpio_set_value(camera_reset, 0);
-		gpio_free(camera_reset);
+		gpiod_set_value(camera_reset, 0);
+		gpiod_put(camera_reset);
 
-		camera_reset = -1;
-		camera_power_down = -1;
+		camera_reset = NULL;
+		camera_power_down = NULL;
 	}
 
 	return 0;
+
+err_camera_reset:
+	camera_reset = NULL;
+	return ret;
+
+err_power_down:
+	camera_power_down = NULL;
+	return ret;
 }
 
 static int gc2235_flisclk_ctrl(struct v4l2_subdev *sd, int flag)
@@ -437,8 +436,8 @@ static struct camera_sensor_platform_data gc2235_sensor_platform_data = {
 
 void *gc2235_platform_data(void *info)
 {
-	camera_reset = -1;
-	camera_power_down = -1;
+	camera_reset = NULL;
+	camera_power_down = NULL;
 #ifdef CONFIG_CRYSTAL_COVE
 	pmic_id = PMIC_MAX;
 #endif
