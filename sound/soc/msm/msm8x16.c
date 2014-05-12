@@ -20,7 +20,6 @@
 #include <linux/qpnp/clkdiv.h>
 #include <linux/io.h>
 #include <linux/module.h>
-#include <linux/timer.h>
 #include <linux/workqueue.h>
 #include <linux/sched.h>
 #include <sound/core.h>
@@ -234,7 +233,7 @@ static int msm8x16_mclk_event(struct snd_soc_dapm_widget *w,
 static const struct snd_soc_dapm_widget msm8x16_dapm_widgets[] = {
 
 	SND_SOC_DAPM_SUPPLY("MCLK",  SND_SOC_NOPM, 0, 0,
-	msm8x16_mclk_event, SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMD),
+	msm8x16_mclk_event, SND_SOC_DAPM_POST_PMD),
 	SND_SOC_DAPM_MIC("Handset Mic", NULL),
 	SND_SOC_DAPM_MIC("Headset Mic", NULL),
 	SND_SOC_DAPM_MIC("Secondary Mic", NULL),
@@ -521,17 +520,16 @@ static int msm8x16_enable_codec_ext_clk(struct snd_soc_codec *codec,
 			msm8x16_wcd_mclk_enable(codec, 1, dapm);
 		}
 	} else {
-		if (atomic_dec_return(&pdata->mclk_rsc_ref) == 0) {
-			mutex_lock(&pdata->cdc_mclk_mutex);
-			cancel_delayed_work_sync(&pdata->enable_mclk_work);
-			pdata->digital_cdc_clk.clk_val = 0;
-			afe_set_digital_codec_core_clock(
-					AFE_PORT_ID_PRIMARY_MI2S_RX,
-					&pdata->digital_cdc_clk);
-			atomic_set(&pdata->dis_work_mclk, false);
-			mutex_unlock(&pdata->cdc_mclk_mutex);
-			msm8x16_wcd_mclk_enable(codec, 0, dapm);
-		}
+		mutex_lock(&pdata->cdc_mclk_mutex);
+		atomic_set(&pdata->mclk_rsc_ref, 0);
+		cancel_delayed_work_sync(&pdata->enable_mclk_work);
+		pdata->digital_cdc_clk.clk_val = 0;
+		afe_set_digital_codec_core_clock(
+				AFE_PORT_ID_PRIMARY_MI2S_RX,
+				&pdata->digital_cdc_clk);
+		atomic_set(&pdata->dis_work_mclk, false);
+		mutex_unlock(&pdata->cdc_mclk_mutex);
+		msm8x16_wcd_mclk_enable(codec, 0, dapm);
 	}
 	return ret;
 }
@@ -596,6 +594,13 @@ static int msm8x16_mclk_event(struct snd_soc_dapm_widget *w,
 			      struct snd_kcontrol *kcontrol, int event)
 {
 	pr_debug("%s: event = %d\n", __func__, event);
+	switch (event) {
+	case SND_SOC_DAPM_POST_PMD:
+		return msm8x16_enable_codec_ext_clk(w->codec, 0, true);
+	default:
+		return -EINVAL;
+	}
+
 	return 0;
 }
 
@@ -616,9 +621,6 @@ static void msm_mi2s_snd_shutdown(struct snd_pcm_substream *substream)
 			pr_err("%s:clock disable failed\n", __func__);
 		pinctrl_select_state(pinctrl_info.pinctrl,
 					pinctrl_info.cdc_pdm_sus);
-		ret = msm8x16_enable_codec_ext_clk(codec, 0, true);
-		if (ret < 0)
-			pr_err("failed to disable the mclk\n");
 	} else {
 
 		ret = pinctrl_select_state(ext_cdc_pinctrl_info.pinctrl,
@@ -981,7 +983,7 @@ static struct snd_soc_dai_link msm8x16_dai[] = {
 	},
 	/* Hostless PCM purpose */
 	{/* hw:x,5 */
-		.name = "Primary MI2S RX Hostless",
+		.name = "Primary MI2S_RX Hostless",
 		.stream_name = "Primary MI2S_RX Hostless",
 		.cpu_dai_name = "PRI_MI2S_RX_HOSTLESS",
 		.platform_name	= "msm-pcm-hostless",
