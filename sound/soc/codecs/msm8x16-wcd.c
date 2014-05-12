@@ -68,6 +68,8 @@
 #define MSM8X16_WCD_A_ANALOG_RX_HPHL_REG_VIRT 0x300
 #define MSM8X16_WCD_A_ANALOG_RX_HPHR_REG_VIRT 0x350
 
+#define ADSP_STATE_READY_TIMEOUT_MS 50
+
 enum {
 	AIF1_PB = 0,
 	AIF1_CAP,
@@ -190,7 +192,6 @@ struct msm8x16_wcd_spmi msm8x16_wcd_modules[MAX_MSM8X16_WCD_DEVICE];
 static void *modem_state_notifier;
 
 static struct snd_soc_codec *registered_codec;
-#define ADSP_STATE_READY_TIMEOUT_MS 500
 
 static int get_spmi_msm8x16_wcd_device_info(u16 *reg,
 			struct msm8x16_wcd_spmi **msm8x16_wcd)
@@ -3021,6 +3022,18 @@ static struct regulator *wcd8x16_wcd_codec_find_regulator(
 static int msm8x16_wcd_device_down(struct snd_soc_codec *codec)
 {
 	dev_dbg(codec->dev, "%s: device down!\n", __func__);
+	msm8x16_wcd_write(codec,
+		MSM8X16_WCD_A_ANALOG_TX_1_EN, 0x3);
+	msm8x16_wcd_write(codec,
+		MSM8X16_WCD_A_ANALOG_TX_2_EN, 0x3);
+	msm8x16_wcd_write(codec,
+		MSM8X16_WCD_A_ANALOG_RX_HPH_L_PA_DAC_CTL, 0x20);
+	msm8x16_wcd_write(codec,
+		MSM8X16_WCD_A_ANALOG_RX_HPH_R_PA_DAC_CTL, 0x20);
+	msm8x16_wcd_write(codec,
+		MSM8X16_WCD_A_ANALOG_RX_EAR_CTL, 0x12);
+	msm8x16_wcd_write(codec,
+		MSM8X16_WCD_A_ANALOG_SPKR_DAC_CTL, 0x93);
 
 	msm8x16_wcd_write(codec, MSM8X16_WCD_A_DIGITAL_PERPH_RESET_CTL4, 0x1);
 	msm8x16_wcd_write(codec, MSM8X16_WCD_A_ANALOG_PERPH_RESET_CTL4, 0x1);
@@ -3031,6 +3044,24 @@ static int msm8x16_wcd_device_down(struct snd_soc_codec *codec)
 static int msm8x16_wcd_device_up(struct snd_soc_codec *codec)
 {
 	dev_dbg(codec->dev, "%s: device up!\n", __func__);
+
+	msm8x16_wcd_write(codec,
+		MSM8X16_WCD_A_ANALOG_TX_1_EN,
+		MSM8X16_WCD_A_ANALOG_TX_1_EN__POR);
+	msm8x16_wcd_write(codec,
+		MSM8X16_WCD_A_ANALOG_TX_2_EN,
+		MSM8X16_WCD_A_ANALOG_TX_2_EN__POR);
+	msm8x16_wcd_write(codec,
+		MSM8X16_WCD_A_ANALOG_RX_HPH_L_PA_DAC_CTL,
+		MSM8X16_WCD_A_ANALOG_RX_HPH_L_PA_DAC_CTL__POR);
+	msm8x16_wcd_write(codec,
+		MSM8X16_WCD_A_ANALOG_RX_HPH_R_PA_DAC_CTL,
+		MSM8X16_WCD_A_ANALOG_RX_HPH_R_PA_DAC_CTL__POR);
+	msm8x16_wcd_write(codec,
+		MSM8X16_WCD_A_ANALOG_RX_EAR_CTL,
+		MSM8X16_WCD_A_ANALOG_RX_EAR_CTL___POR);
+	msm8x16_wcd_write(codec,
+		MSM8X16_WCD_A_ANALOG_SPKR_DAC_CTL, 0x03);
 
 	snd_soc_card_change_online_state(codec->card, 1);
 	/* delay is required to make sure sound card state updated */
@@ -3060,6 +3091,14 @@ static int modem_state_callback(struct notifier_block *nb, unsigned long value,
 		dev_dbg(registered_codec->dev,
 			"ADSP is about to power up. bring up codec\n");
 
+		if (!q6core_is_adsp_ready()) {
+			dev_dbg(registered_codec->dev,
+				"ADSP isn't ready\n");
+		} else {
+			pr_err("%s: DSP is ready\n", __func__);
+			goto success;
+		}
+
 		timeout = jiffies +
 			  msecs_to_jiffies(ADSP_STATE_READY_TIMEOUT_MS);
 		while (!(timedout = time_after(jiffies, timeout))) {
@@ -3069,6 +3108,7 @@ static int modem_state_callback(struct notifier_block *nb, unsigned long value,
 			} else {
 				dev_dbg(registered_codec->dev,
 					"ADSP is ready\n");
+success:
 				msm8x16_wcd_device_up(registered_codec);
 				break;
 			}
