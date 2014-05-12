@@ -401,6 +401,7 @@ static struct irq_chip byt_irqchip = {
 	.irq_set_type = byt_irq_type,
 	.irq_startup = byt_irq_startup,
 	.irq_shutdown = byt_irq_shutdown,
+	.flags = IRQCHIP_SKIP_SET_WAKE,
 };
 
 static void byt_gpio_irq_init_hw(struct byt_gpio *vg)
