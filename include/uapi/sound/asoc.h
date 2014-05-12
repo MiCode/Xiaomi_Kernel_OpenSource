@@ -889,6 +889,9 @@ struct snd_soc_fw_dapm_widget {
 	__u8 ignore_suspend;	/* kept enabled over suspend */
 	__u8 padding[2];
 
+	__u16 event_flags;
+	__u16 event_type;
+
 	/* kcontrols that relate to this widget */
 	struct snd_soc_fw_kcontrol kcontrol;
 	/* controls follow here */

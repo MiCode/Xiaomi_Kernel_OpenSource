@@ -359,6 +359,30 @@ static int soc_fw_kcontrol_bind_io(u32 io_type, struct snd_kcontrol_new *k,
 	return 0;
 }
 
+int snd_soc_fw_widget_bind_event(u16 event_type, struct snd_soc_dapm_widget *w,
+		const struct snd_soc_fw_widget_events *events, int num_events)
+{
+	int i;
+
+	w->event = NULL;
+
+	if (event_type == 0) {
+		pr_debug("ASoC: No event type registered\n");
+		return 0;
+	}
+
+	for (i = 0; i < num_events; i++) {
+		if (event_type == events[i].type) {
+			w->event = events[i].event_handler;
+			break;
+		}
+	}
+	if (!w->event)
+		return 1;
+	return 0;
+}
+EXPORT_SYMBOL_GPL(snd_soc_fw_widget_bind_event);
+
 /* optionally pass new dynamic kcontrol to component driver. */
 static int soc_fw_init_kcontrol(struct soc_fw *sfw, struct snd_kcontrol_new *k)
 {
@@ -1093,6 +1117,7 @@ static int soc_fw_dapm_widget_create(struct soc_fw *sfw,
 	widget.on_val = w->invert ? 0 : 1;
 	widget.off_val = w->invert ? 1 : 0;
 	widget.ignore_suspend = w->ignore_suspend;
+	widget.event_flags = w->event_flags;
 	widget.index = sfw->index;
 
 	sfw->pos += sizeof(struct snd_soc_fw_dapm_widget);

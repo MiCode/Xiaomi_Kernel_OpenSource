@@ -39,6 +39,12 @@ struct snd_soc_fw_dai_ops {
 	struct snd_soc_dai_ops *ops;
 };
 
+struct snd_soc_fw_widget_events {
+	u16 type;
+	int (*event_handler)(struct snd_soc_dapm_widget *w,
+			struct snd_kcontrol *k, int event);
+};
+
 /*
  * Public API - Used by component drivers to load new mixers, DAPM, vendor
  * specific data.
@@ -124,6 +130,9 @@ static inline const void *snd_soc_fw_get_data(struct snd_soc_fw_hdr *hdr)
 
 	return ptr + sizeof(*hdr);
 }
+
+int snd_soc_fw_widget_bind_event(u16 event_type, struct snd_soc_dapm_widget *w,
+		const struct snd_soc_fw_widget_events *events, int num_events);
 
 /* Firmware loading for component drivers */
 int snd_soc_fw_load_card(struct snd_soc_card *card,
