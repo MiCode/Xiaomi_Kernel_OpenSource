@@ -36,8 +36,11 @@
 #include <media/v4l2-device.h>
 #include <media/v4l2-chip-ident.h>
 #include <linux/io.h>
+#include <linux/acpi.h>
 
 #include "ov2722.h"
+
+void *ov2722_platform_data(void *info);
 
 /* i2c read/write stuff */
 static int ov2722_read_reg(struct i2c_client *client,
@@ -1371,11 +1374,30 @@ static int __ov2722_init_ctrl_handler(struct ov2722_device *dev)
 
 	return 0;
 }
+
+static int getvar_int(struct device *dev, const char *var, int def)
+{
+	char val[16];
+	size_t len = sizeof(val);
+	long result;
+	int ret;
+
+	ret = gmin_get_config_var(dev, var, val, &len);
+	val[len] = 0;
+	if (!ret)
+		ret = kstrtol(val, 0, &result);
+
+	return ret ? def : result;
+}
+
 static int ov2722_probe(struct i2c_client *client,
 			const struct i2c_device_id *id)
 {
 	struct ov2722_device *dev;
+	void *ovpdev;
 	int ret;
+
+	printk("\0010ANDY %s:%d\n", __func__, __LINE__);
 
 	dev = kzalloc(sizeof(*dev), GFP_KERNEL);
 	if (!dev) {
@@ -1388,12 +1410,14 @@ static int ov2722_probe(struct i2c_client *client,
 	dev->fmt_idx = 0;
 	v4l2_i2c_subdev_init(&(dev->sd), client, &ov2722_ops);
 
-	if (client->dev.platform_data) {
-		ret = ov2722_s_config(&dev->sd, client->irq,
-				       client->dev.platform_data);
-		if (ret)
-			goto out_free;
-	}
+	ovpdev = client->dev.platform_data;
+	if (config_enabled(CONFIG_GMIN_INTEL_MID) &&
+	    ACPI_COMPANION(&client->dev))
+		ovpdev = ov2722_platform_data(NULL);
+
+	ret = ov2722_s_config(&dev->sd, client->irq, ovpdev);
+	if (ret)
+		goto out_free;
 
 	ret = __ov2722_init_ctrl_handler(dev);
 	if (ret)
@@ -1408,6 +1432,14 @@ static int ov2722_probe(struct i2c_client *client,
 	if (ret)
 		ov2722_remove(client);
 
+	ret = atomisp_register_i2c_module(&dev->sd, client,
+					  getvar_int(&client->dev, "CamType",
+						     RAW_CAMERA),
+					  getvar_int(&client->dev, "CsiPort",
+						     ATOMISP_CAMERA_PORT_SECONDARY));
+
+	printk("\0010ANDY %s:%d\n", __func__, __LINE__);
+
 	return ret;
 
 out_ctrl_handler_free:
@@ -1420,10 +1452,20 @@ out_free:
 }
 
 MODULE_DEVICE_TABLE(i2c, ov2722_id);
+
+static struct acpi_device_id ov2722_acpi_match[] = {
+	{ "INT33FB" },
+	{},
+};
+
+MODULE_DEVICE_TABLE(acpi, ov2722_acpi_match);
+
+
 static struct i2c_driver ov2722_driver = {
 	.driver = {
 		.owner = THIS_MODULE,
 		.name = OV2722_NAME,
+		.acpi_match_table = ACPI_PTR(ov2722_acpi_match),
 	},
 	.probe = ov2722_probe,
 	.remove = ov2722_remove,

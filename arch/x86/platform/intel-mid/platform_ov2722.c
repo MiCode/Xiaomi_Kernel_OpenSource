@@ -15,7 +15,6 @@
 #include <linux/i2c.h>
 #include <linux/atomisp_platform.h>
 #include <linux/regulator/consumer.h>
-#include <asm/intel_scu_ipcutil.h>
 #include <asm/intel-mid.h>
 #include <media/v4l2-subdev.h>
 #include <linux/mfd/intel_mid_pmic.h>
@@ -23,9 +22,6 @@
 #ifdef CONFIG_VLV2_PLAT_CLK
 #include <linux/vlv2_plat_clock.h>
 #endif
-
-#include "platform_camera.h"
-#include "platform_ov2722.h"
 
 /* workround - pin defined for byt */
 #define CAMERA_1_RESET 127
@@ -99,12 +95,11 @@ static struct i2c_client *i2c_find_client_by_name(char *name)
 	return dev ? to_i2c_client(dev) : NULL;
 }
 
-static enum pmic_ids camera_pmic_probe()
+static enum pmic_ids camera_pmic_probe(void)
 {
 	/* search by client name */
 	struct i2c_client *client;
-	if (spid.hardware_id != BYT_TABLET_BLK_CRV2 ||
-		i2c_find_client_by_name(PMIC_HID_ROHM))
+	if (i2c_find_client_by_name(PMIC_HID_ROHM))
 		return PMIC_ROHM;
 
 	client = i2c_find_client_by_name(PMIC_HID_XPOWER);
@@ -219,6 +214,7 @@ static int ov2722_gpio_ctrl(struct v4l2_subdev *sd, int flag)
 	int pin;
 
 	if (!IS_BYT && !IS_CHT) {
+#ifndef CONFIG_GMIN_INTEL_MID
 		if (gp_camera1_power_down < 0) {
 			ret = camera_sensor_gpio(-1, GP_CAMERA_1_POWER_DOWN,
 					GPIOF_DIR_OUT, 1);
@@ -234,15 +230,14 @@ static int ov2722_gpio_ctrl(struct v4l2_subdev *sd, int flag)
 				return ret;
 			gp_camera1_reset = ret;
 		}
+#endif
 	} else {
 		/*
 		 * FIXME: WA using hardcoded GPIO value here.
 		 * The GPIO value would be provided by ACPI table, which is
 		 * not implemented currently.
 		 */
-		if (spid.hardware_id == BYT_TABLET_BLK_CRV2)
-			pin = CAMERA_1_RESET_CRV2;
-		else if (IS_CHT)
+		if (IS_CHT)
 			pin = CAMERA_1_RESET_CHT;
 		else
 			pin = CAMERA_1_RESET;
@@ -283,12 +278,7 @@ static int ov2722_gpio_ctrl(struct v4l2_subdev *sd, int flag)
 		}
 		gp_camera1_power_down = pin;
 
-		if (spid.hardware_id == BYT_TABLET_BLK_8PR0 ||
-		    spid.hardware_id == BYT_TABLET_BLK_8PR1 ||
-		    spid.hardware_id == BYT_TABLET_BLK_CRV2)
-			ret = gpio_direction_output(pin, 0);
-		else
-			ret = gpio_direction_output(pin, 1);
+		ret = gpio_direction_output(pin, 0);
 
 		if (ret) {
 			pr_err("%s: failed to set gpio(pin %d) direction\n",
@@ -298,24 +288,13 @@ static int ov2722_gpio_ctrl(struct v4l2_subdev *sd, int flag)
 		}
 	}
 	if (flag) {
-		if (spid.hardware_id == BYT_TABLET_BLK_8PR0 ||
-		    spid.hardware_id == BYT_TABLET_BLK_8PR1 ||
-		    spid.hardware_id == BYT_TABLET_BLK_CRV2)
-			gpio_set_value(gp_camera1_power_down, 0);
-		else
-			gpio_set_value(gp_camera1_power_down, 1);
-
+		gpio_set_value(gp_camera1_power_down, 0);
 		gpio_set_value(gp_camera1_reset, 0);
 		msleep(20);
 		gpio_set_value(gp_camera1_reset, 1);
 	} else {
 		gpio_set_value(gp_camera1_reset, 0);
-		if (spid.hardware_id == BYT_TABLET_BLK_8PR0 ||
-		    spid.hardware_id == BYT_TABLET_BLK_8PR1 ||
-		    spid.hardware_id == BYT_TABLET_BLK_CRV2)
-			gpio_set_value(gp_camera1_power_down, 1);
-		else
-			gpio_set_value(gp_camera1_power_down, 0);
+		gpio_set_value(gp_camera1_power_down, 1);
 	}
 
 	return 0;
@@ -358,6 +337,8 @@ static int ov2722_power_ctrl(struct v4l2_subdev *sd, int flag)
 	 * remove pmic power control when VRF is ready.
 	 */
 #ifdef CONFIG_CRYSTAL_COVE
+	/* Disabled for BYT-based G-Min currently pending upstream fixup */
+#ifndef CONFIG_GMIN_INTEL_MID
 	if (IS_CHT) {
 		if (flag) {
 			if (!camera_vprog1_on) {
@@ -389,6 +370,7 @@ static int ov2722_power_ctrl(struct v4l2_subdev *sd, int flag)
 		}
 		return ret;
 	}
+#endif
 #endif
 	if (flag) {
 		if (!camera_vprog1_on) {
@@ -433,8 +415,35 @@ static int ov2722_power_ctrl(struct v4l2_subdev *sd, int flag)
 
 static int ov2722_csi_configure(struct v4l2_subdev *sd, int flag)
 {
-	return camera_sensor_csi(sd, ATOMISP_CAMERA_PORT_SECONDARY, 1,
-		ATOMISP_INPUT_FORMAT_RAW_10, atomisp_bayer_order_grbg, flag);
+        struct i2c_client *client = v4l2_get_subdevdata(sd);
+	u32 port = ATOMISP_CAMERA_PORT_SECONDARY;
+	u32 lanes = 1;
+	u32 format = ATOMISP_INPUT_FORMAT_RAW_10;
+	u32 bayer_order = atomisp_bayer_order_grbg;
+        struct camera_mipi_info *csi = NULL;
+
+        if (flag) {
+                csi = kzalloc(sizeof(*csi), GFP_KERNEL);
+                if (!csi) {
+                        dev_err(&client->dev, "out of memory\n");
+                        return -ENOMEM;
+                }
+                csi->port = port;
+                csi->num_lanes = lanes;
+                csi->input_format = format;
+                csi->raw_bayer_order = bayer_order;
+                v4l2_set_subdev_hostdata(sd, (void *)csi);
+                csi->metadata_format = ATOMISP_INPUT_FORMAT_EMBEDDED;
+                csi->metadata_effective_width = NULL;
+                dev_info(&client->dev,
+                         "camera pdata: port: %d lanes: %d order: %8.8x\n",
+                         port, lanes, bayer_order);
+        } else {
+                csi = v4l2_get_subdev_hostdata(sd);
+                kfree(csi);
+        }
+
+        return 0;
 }
 
 #ifdef CONFIG_CRYSTAL_COVE
@@ -497,3 +506,4 @@ void *ov2722_platform_data(void *info)
 #endif
 	return &ov2722_sensor_platform_data;
 }
+EXPORT_SYMBOL_GPL(ov2722_platform_data);
