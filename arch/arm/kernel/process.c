@@ -381,7 +381,12 @@ static void show_data(unsigned long addr, int nbytes, const char *name)
 		printk("%04lx ", (unsigned long)p & 0xffff);
 		for (j = 0; j < 8; j++) {
 			u32	data;
-			if (probe_kernel_address(p, data)) {
+			/*
+			 * vmalloc addresses may point to
+			 * memory-mapped peripherals
+			 */
+			if (is_vmalloc_addr(p) ||
+			    probe_kernel_address(p, data)) {
 				printk(" ********");
 			} else {
 				printk(" %08x", data);
