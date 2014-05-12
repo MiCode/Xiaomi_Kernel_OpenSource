@@ -113,6 +113,7 @@ int mdp3_ctrl_notify(struct mdp3_session_data *ses, int event)
 static void mdp3_dispatch_dma_done(struct work_struct *work)
 {
 	struct mdp3_session_data *session;
+	int cnt = 0;
 
 	pr_debug("%s\n", __func__);
 	session = container_of(work, struct mdp3_session_data,
@@ -120,7 +121,13 @@ static void mdp3_dispatch_dma_done(struct work_struct *work)
 	if (!session)
 		return;
 
-	mdp3_ctrl_notify(session, MDP_NOTIFY_FRAME_DONE);
+	cnt = atomic_read(&session->dma_done_cnt);
+
+	while (cnt > 0) {
+		mdp3_ctrl_notify(session, MDP_NOTIFY_FRAME_DONE);
+		atomic_dec(&session->dma_done_cnt);
+		cnt--;
+	}
 }
 
 static void mdp3_dispatch_clk_off(struct work_struct *work)
@@ -156,6 +163,7 @@ void vsync_notify_handler(void *arg)
 void dma_done_notify_handler(void *arg)
 {
 	struct mdp3_session_data *session = (struct mdp3_session_data *)arg;
+	atomic_inc(&session->dma_done_cnt);
 	schedule_work(&session->dma_done_work);
 	complete(&session->dma_completion);
 }
@@ -681,6 +689,7 @@ static int mdp3_ctrl_off(struct msm_fb_data_type *mfd)
 	mdp3_batfet_ctrl(false);
 	mdp3_session->vsync_enabled = 0;
 	atomic_set(&mdp3_session->vsync_countdown, 0);
+	atomic_set(&mdp3_session->dma_done_cnt, 0);
 	mdp3_session->clk_on = 0;
 	mdp3_session->in_splash_screen = 0;
 off_error:
