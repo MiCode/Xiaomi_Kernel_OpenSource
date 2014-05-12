@@ -152,8 +152,12 @@ static int __cfg80211_leave_mesh(struct cfg80211_registered_device *rdev,
 		return -ENOTCONN;
 
 	err = rdev->ops->leave_mesh(&rdev->wiphy, dev);
-	if (!err)
+	if (!err) {
 		wdev->mesh_id_len = 0;
+		if (rdev->ops->set_qos_map) {
+			rdev->ops->set_qos_map(&rdev->wiphy, dev, NULL);
+		}
+	}
 	return err;
 }
 
