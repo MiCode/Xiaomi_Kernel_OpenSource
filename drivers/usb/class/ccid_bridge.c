@@ -36,6 +36,10 @@
 #define CCID_CONTROL_TIMEOUT 500 /* msec */
 #define CCID_BRIDGE_MSG_TIMEOUT 1000 /* msec */
 
+static unsigned ccid_bulk_msg_timeout = CCID_BRIDGE_MSG_TIMEOUT;
+module_param_named(bulk_msg_timeout, ccid_bulk_msg_timeout, uint, 0644);
+MODULE_PARM_DESC(bulk_msg_timeout, "Bulk message timeout (msecs)");
+
 struct ccid_bridge {
 	struct usb_device *udev;
 	struct usb_interface *intf;
@@ -304,7 +308,7 @@ static ssize_t ccid_bridge_write(struct file *fp, const char __user *ubuf,
 
 	ret = wait_event_interruptible_timeout(ccid->write_wq,
 			ccid->write_result != 0,
-			msecs_to_jiffies(CCID_BRIDGE_MSG_TIMEOUT));
+			msecs_to_jiffies(ccid_bulk_msg_timeout));
 	if (!ret || ret == -ERESTARTSYS) { /* timedout or interrupted */
 		usb_kill_urb(ccid->writeurb);
 		if (!ret)
@@ -375,7 +379,7 @@ static ssize_t ccid_bridge_read(struct file *fp, char __user *ubuf,
 
 	ret = wait_event_interruptible_timeout(ccid->read_wq,
 			ccid->read_result != 0,
-			msecs_to_jiffies(CCID_BRIDGE_MSG_TIMEOUT));
+			msecs_to_jiffies(ccid_bulk_msg_timeout));
 	if (!ret || ret == -ERESTARTSYS) { /* timedout or interrupted */
 		usb_kill_urb(ccid->readurb);
 		if (!ret)
