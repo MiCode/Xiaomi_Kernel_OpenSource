@@ -28,6 +28,7 @@
 #include <sound/pcm.h>
 #include <sound/initval.h>
 #include <sound/control.h>
+#include <sound/timer.h>
 
 #include "msm-pcm-q6-v2.h"
 #include "msm-pcm-routing-v2.h"
@@ -199,6 +200,18 @@ static void event_handler(uint32_t opcode,
 		}
 	}
 	break;
+	case RESET_EVENTS:
+		pr_debug("%s RESET_EVENTS\n", __func__);
+		atomic_inc(&prtd->out_count);
+		prtd->reset_event = true;
+		if (atomic_read(&prtd->start))
+			snd_pcm_period_elapsed(substream);
+		else if (substream->timer_running)
+			snd_timer_interrupt(substream->timer, 1);
+		wake_up(&the_locks.eos_wait);
+		wake_up(&the_locks.write_wait);
+		wake_up(&the_locks.read_wait);
+		break;
 	default:
 		pr_debug("Not Supported Event opcode[0x%x]\n", opcode);
 		break;
@@ -453,12 +466,22 @@ static int msm_pcm_playback_copy(struct snd_pcm_substream *substream, int a,
 	fbytes = frames_to_bytes(runtime, frames);
 	pr_debug("%s: prtd->out_count = %d\n",
 				__func__, atomic_read(&prtd->out_count));
+	if (prtd->reset_event == true) {
+		pr_err("%s: In SSR return ENETRESET before wait\n", __func__);
+		return -ENETRESET;
+	}
+
 	ret = wait_event_timeout(the_locks.write_wait,
 			(atomic_read(&prtd->out_count)), 5 * HZ);
 	if (!ret) {
 		pr_err("%s: wait_event_timeout failed\n", __func__);
 		goto fail;
 	}
+	if (prtd->reset_event == true) {
+		pr_err("%s: In SSR return ENETRESET after wait\n", __func__);
+		return -ENETRESET;
+	}
+
 
 	if (!atomic_read(&prtd->out_count)) {
 		pr_err("%s: pcm stopped out_count 0\n", __func__);
@@ -547,12 +570,22 @@ static int msm_pcm_capture_copy(struct snd_pcm_substream *substream,
 	pr_debug("hw_ptr %d\n", (int)runtime->status->hw_ptr);
 	pr_debug("avail_min %d\n", (int)runtime->control->avail_min);
 
+	if (prtd->reset_event == true) {
+		pr_err("%s: In SSR return ENETRESET before wait\n", __func__);
+		return -ENETRESET;
+	}
+
 	ret = wait_event_timeout(the_locks.read_wait,
 			(atomic_read(&prtd->in_count)), 5 * HZ);
 	if (!ret) {
 		pr_debug("%s: wait_event_timeout failed\n", __func__);
 		goto fail;
 	}
+	if (prtd->reset_event == true) {
+		pr_err("%s: In SSR return ENETRESET after wait\n", __func__);
+		return -ENETRESET;
+	}
+
 	if (!atomic_read(&prtd->in_count)) {
 		pr_debug("%s: pcm stopped in_count 0\n", __func__);
 		return 0;
