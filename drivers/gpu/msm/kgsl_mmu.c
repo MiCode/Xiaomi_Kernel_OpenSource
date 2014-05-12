@@ -64,7 +64,6 @@ static void pagetable_remove_sysfs_objects(struct kgsl_pagetable *pagetable);
  * devices so the global pt entry list needs to be driver wide too
  */
 static struct kgsl_global_pt_entries {
-	struct gen_pool *global_pool;
 	unsigned int offset;
 	struct kgsl_memdesc *entries[KGSL_MAX_GLOBAL_PT_ENTRIES];
 	int count;
@@ -701,7 +700,6 @@ int
 kgsl_mmu_get_gpuaddr(struct kgsl_pagetable *pagetable,
 			struct kgsl_memdesc *memdesc)
 {
-	struct gen_pool *pool = NULL;
 	int size;
 	int page_align = ilog2(PAGE_SIZE);
 
@@ -727,8 +725,6 @@ kgsl_mmu_get_gpuaddr(struct kgsl_pagetable *pagetable,
 	size = memdesc->size;
 	if (kgsl_memdesc_has_guard_page(memdesc))
 		size += PAGE_SIZE;
-
-	pool = pagetable->pool;
 
 	if (KGSL_MMU_TYPE_IOMMU == kgsl_mmu_get_mmutype()) {
 		/* Allocate aligned virtual addresses for iommu. This allows
