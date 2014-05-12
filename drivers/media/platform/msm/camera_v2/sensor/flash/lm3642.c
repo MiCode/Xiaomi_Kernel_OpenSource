@@ -17,8 +17,6 @@
 #include "msm_led_flash.h"
 
 #define FLASH_NAME "ti,lm3642"
-#define CAM_FLASH_PINCTRL_STATE_SLEEP "cam_flash_suspend"
-#define CAM_FLASH_PINCTRL_STATE_DEFAULT "cam_flash_default"
 
 #define CONFIG_MSMB_CAMERA_DEBUG
 #ifdef CONFIG_MSMB_CAMERA_DEBUG
@@ -53,11 +51,6 @@ static struct msm_camera_i2c_reg_array lm3642_high_array[] = {
 	{0x0A, 0x23},
 };
 
-static void __exit msm_flash_lm3642_i2c_remove(void)
-{
-	i2c_del_driver(&lm3642_i2c_driver);
-	return;
-}
 
 static const struct of_device_id lm3642_i2c_trigger_dt_match[] = {
 	{.compatible = "ti,lm3642"},
@@ -65,52 +58,42 @@ static const struct of_device_id lm3642_i2c_trigger_dt_match[] = {
 };
 
 MODULE_DEVICE_TABLE(of, lm3642_i2c_trigger_dt_match);
-
-static const struct i2c_device_id flash_i2c_id[] = {
-	{"ti,lm3642", (kernel_ulong_t)&fctrl},
-	{ }
-};
-
 static const struct i2c_device_id lm3642_i2c_id[] = {
 	{FLASH_NAME, (kernel_ulong_t)&fctrl},
 	{ }
 };
-static int msm_flash_pinctrl_init(struct msm_led_flash_ctrl_t *ctrl)
+
+static void msm_led_torch_brightness_set(struct led_classdev *led_cdev,
+				enum led_brightness value)
 {
-	struct msm_pinctrl_info *flash_pctrl = NULL;
-	flash_pctrl = &ctrl->pinctrl_info;
-	if (flash_pctrl->use_pinctrl != true) {
-		pr_err("%s: %d PINCTRL is not enables in Flash driver node\n",
-			__func__, __LINE__);
-		return 0;
+	if (value > LED_OFF) {
+		if(fctrl.func_tbl->flash_led_low)
+			fctrl.func_tbl->flash_led_low(&fctrl);
+	} else {
+		if(fctrl.func_tbl->flash_led_off)
+			fctrl.func_tbl->flash_led_off(&fctrl);
 	}
-	flash_pctrl->pinctrl = devm_pinctrl_get(&ctrl->pdev->dev);
+};
 
-	if (IS_ERR_OR_NULL(flash_pctrl->pinctrl)) {
-		pr_err("%s:%d Getting pinctrl handle failed\n",
-			__func__, __LINE__);
-		return -EINVAL;
-	}
-	flash_pctrl->gpio_state_active = pinctrl_lookup_state(
-					       flash_pctrl->pinctrl,
-					       CAM_FLASH_PINCTRL_STATE_DEFAULT);
+static struct led_classdev msm_torch_led = {
+	.name			= "torch-light",
+	.brightness_set	= msm_led_torch_brightness_set,
+	.brightness		= LED_OFF,
+};
 
-	if (IS_ERR_OR_NULL(flash_pctrl->gpio_state_active)) {
-		pr_err("%s:%d Failed to get the active state pinctrl handle\n",
-			__func__, __LINE__);
-		return -EINVAL;
+static int32_t msm_lm3642_torch_create_classdev(struct device *dev ,
+				void *data)
+{
+	int rc;
+	msm_led_torch_brightness_set(&msm_torch_led, LED_OFF);
+	rc = led_classdev_register(dev, &msm_torch_led);
+	if (rc) {
+		pr_err("Failed to register led dev. rc = %d\n", rc);
+		return rc;
 	}
-	flash_pctrl->gpio_state_suspend = pinctrl_lookup_state(
-						flash_pctrl->pinctrl,
-						CAM_FLASH_PINCTRL_STATE_SLEEP);
 
-	if (IS_ERR_OR_NULL(flash_pctrl->gpio_state_suspend)) {
-		pr_err("%s:%d Failed to get the suspend state pinctrl handle\n",
-				__func__, __LINE__);
-		return -EINVAL;
-	}
 	return 0;
-}
+};
 
 int msm_flash_lm3642_led_init(struct msm_led_flash_ctrl_t *fctrl)
 {
@@ -122,27 +105,6 @@ int msm_flash_lm3642_led_init(struct msm_led_flash_ctrl_t *fctrl)
 	flashdata = fctrl->flashdata;
 	power_info = &flashdata->power_info;
 
-	msm_flash_pinctrl_init(fctrl);
-
-	rc = msm_camera_request_gpio_table(
-		power_info->gpio_conf->cam_gpio_req_tbl,
-		power_info->gpio_conf->cam_gpio_req_tbl_size, 1);
-	if (rc < 0) {
-		pr_err("%s: request gpio failed\n", __func__);
-		return rc;
-	}
-
-	if (fctrl->pinctrl_info.use_pinctrl == true) {
-		pr_err("%s:%d PC:: flash pins setting to active state",
-				__func__, __LINE__);
-		rc = pinctrl_select_state(fctrl->pinctrl_info.pinctrl,
-				fctrl->pinctrl_info.gpio_state_active);
-		if (rc)
-			pr_err("%s:%d cannot set pin to active state",
-					__func__, __LINE__);
-	}
-
-	msleep(20);
 	gpio_set_value_cansleep(
 		power_info->gpio_conf->gpio_num_info->
 		gpio_num[SENSOR_GPIO_FL_NOW],
@@ -176,23 +138,13 @@ int msm_flash_lm3642_led_release(struct msm_led_flash_ctrl_t *fctrl)
 		power_info->gpio_conf->gpio_num_info->
 		gpio_num[SENSOR_GPIO_FL_NOW],
 		GPIO_OUT_LOW);
-
-	rc = msm_camera_request_gpio_table(
-		power_info->gpio_conf->cam_gpio_req_tbl,
-		power_info->gpio_conf->cam_gpio_req_tbl_size, 0);
-	if (rc < 0) {
-		pr_err("%s: request gpio failed\n", __func__);
-		return rc;
+	if (fctrl->flash_i2c_client && fctrl->reg_setting) {
+		rc = fctrl->flash_i2c_client->i2c_func_tbl->i2c_write_table(
+			fctrl->flash_i2c_client,
+			fctrl->reg_setting->release_setting);
+		if (rc < 0)
+			pr_err("%s:%d failed\n", __func__, __LINE__);
 	}
-
-	if (fctrl->pinctrl_info.use_pinctrl == true) {
-		rc = pinctrl_select_state(fctrl->pinctrl_info.pinctrl,
-				fctrl->pinctrl_info.gpio_state_suspend);
-		if (rc)
-			pr_err("%s:%d cannot set pin to suspend state",
-				__func__, __LINE__);
-	}
-
 	return 0;
 }
 
@@ -283,19 +235,74 @@ int msm_flash_lm3642_led_high(struct msm_led_flash_ctrl_t *fctrl)
 static int msm_flash_lm3642_i2c_probe(struct i2c_client *client,
 		const struct i2c_device_id *id)
 {
+	struct msm_camera_sensor_board_info *flashdata = NULL;
+	struct msm_camera_power_ctrl_t *power_info = NULL;
+	int rc = 0 ;
 	LM3642_DBG("%s entry\n", __func__);
 	if (!id) {
 		pr_err("msm_flash_lm3642_i2c_probe: id is NULL");
 		id = lm3642_i2c_id;
 	}
+	rc = msm_flash_i2c_probe(client, id);
 
-	return msm_flash_i2c_probe(client, id);
+	flashdata = fctrl.flashdata;
+	power_info = &flashdata->power_info;
+
+	rc = msm_camera_request_gpio_table(
+		power_info->gpio_conf->cam_gpio_req_tbl,
+		power_info->gpio_conf->cam_gpio_req_tbl_size, 1);
+	if (rc < 0) {
+		pr_err("%s: request gpio failed\n", __func__);
+		return rc;
+	}
+
+	if (fctrl.pinctrl_info.use_pinctrl == true) {
+		pr_err("%s:%d PC:: flash pins setting to active state",
+				__func__, __LINE__);
+		rc = pinctrl_select_state(fctrl.pinctrl_info.pinctrl,
+				fctrl.pinctrl_info.gpio_state_active);
+		if (rc)
+			pr_err("%s:%d cannot set pin to active state",
+					__func__, __LINE__);
+	}
+
+	if (!rc)
+		msm_lm3642_torch_create_classdev(&(client->dev),NULL);
+	return rc;
 }
+
+static int msm_flash_lm3642_i2c_remove(struct i2c_client *client)
+{
+	struct msm_camera_sensor_board_info *flashdata = NULL;
+	struct msm_camera_power_ctrl_t *power_info = NULL;
+	int rc = 0 ;
+	LM3642_DBG("%s entry\n", __func__);
+	flashdata = fctrl.flashdata;
+	power_info = &flashdata->power_info;
+
+	rc = msm_camera_request_gpio_table(
+		power_info->gpio_conf->cam_gpio_req_tbl,
+		power_info->gpio_conf->cam_gpio_req_tbl_size, 0);
+	if (rc < 0) {
+		pr_err("%s: request gpio failed\n", __func__);
+		return rc;
+	}
+
+	if (fctrl.pinctrl_info.use_pinctrl == true) {
+		rc = pinctrl_select_state(fctrl.pinctrl_info.pinctrl,
+				fctrl.pinctrl_info.gpio_state_suspend);
+		if (rc)
+			pr_err("%s:%d cannot set pin to suspend state",
+				__func__, __LINE__);
+	}
+	return rc;
+}
+
 
 static struct i2c_driver lm3642_i2c_driver = {
 	.id_table = lm3642_i2c_id,
 	.probe  = msm_flash_lm3642_i2c_probe,
-	.remove = __exit_p(msm_flash_lm3642_i2c_remove),
+	.remove = msm_flash_lm3642_i2c_remove,
 	.driver = {
 		.name = FLASH_NAME,
 		.owner = THIS_MODULE,
@@ -303,11 +310,19 @@ static struct i2c_driver lm3642_i2c_driver = {
 	},
 };
 
-static int __init msm_flash_lm3642_i2c_add_driver(void)
+static int __init msm_flash_lm3642_init(void)
 {
 	LM3642_DBG("%s entry\n", __func__);
 	return i2c_add_driver(&lm3642_i2c_driver);
 }
+
+static void __exit msm_flash_lm3642_exit(void)
+{
+	LM3642_DBG("%s entry\n", __func__);
+	i2c_del_driver(&lm3642_i2c_driver);
+	return;
+}
+
 
 static struct msm_camera_i2c_client lm3642_i2c_client = {
 	.addr_type = MSM_CAMERA_I2C_BYTE_ADDR,
@@ -377,7 +392,7 @@ static struct msm_led_flash_ctrl_t fctrl = {
 	.func_tbl = &lm3642_func_tbl,
 };
 
-module_init(msm_flash_lm3642_i2c_add_driver);
-module_exit(msm_flash_lm3642_i2c_remove);
+module_init(msm_flash_lm3642_init);
+module_exit(msm_flash_lm3642_exit);
 MODULE_DESCRIPTION("lm3642 FLASH");
 MODULE_LICENSE("GPL v2");
