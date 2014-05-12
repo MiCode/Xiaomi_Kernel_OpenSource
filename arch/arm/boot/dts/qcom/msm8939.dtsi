@@ -12,6 +12,7 @@
 
 #include "skeleton64.dtsi"
 #include <dt-bindings/clock/msm-clocks-8936.h>
+#include <dt-bindings/clock/msm-cpu-clocks-8939.h>
 
 / {
 	model = "Qualcomm Technologies, Inc. MSM8939";
@@ -761,6 +762,38 @@
 			<  300000000 2>,
 			<  800000000 3>;
 		#clock-cells = <1>;
+	};
+
+	qcom,msm-cpufreq {
+		compatible = "qcom,msm-cpufreq";
+		clock-names = "cpu0_clk", "cpu1_clk", "cpu2_clk",
+				"cpu3_clk", "cpu4_clk", "cpu5_clk",
+				"cpu6_clk", "cpu7_clk";
+		clocks = <&clock_cpu clk_a53ssmux_bc>,
+			 <&clock_cpu clk_a53ssmux_bc>,
+			 <&clock_cpu clk_a53ssmux_bc>,
+			 <&clock_cpu clk_a53ssmux_bc>,
+			 <&clock_cpu clk_a53ssmux_lc>,
+			 <&clock_cpu clk_a53ssmux_lc>,
+			 <&clock_cpu clk_a53ssmux_lc>,
+			 <&clock_cpu clk_a53ssmux_lc>;
+
+		qcom,cpufreq-table-0 =
+			 <  200000 >,
+			 <  345600 >,
+			 <  400000 >,
+			 <  422400 >,
+			 <  499200 >,
+			 <  533330 >,
+			 <  652800 >,
+			 <  800000 >,
+			 < 1113600 >,
+			 < 1267200 >;
+		qcom,cpufreq-table-4 =
+			 <  200000 >,
+			 <  249600 >,
+			 <  400000 >,
+			 <  499200 >;
 	};
 
 	qcom_tzlog: tz-log@8600720 {
