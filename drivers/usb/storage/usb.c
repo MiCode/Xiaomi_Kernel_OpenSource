@@ -842,6 +842,7 @@ static void quiesce_and_remove_host(struct us_data *us)
 
 	/* If the device is really gone, cut short reset delays */
 	if (us->pusb_dev->state == USB_STATE_NOTATTACHED) {
+		pm_suspend_ignore_children(&us->pusb_intf->dev, true);
 		set_bit(US_FLIDX_DISCONNECTING, &us->dflags);
 		wake_up(&us->delay_wait);
 	}
