@@ -59,16 +59,22 @@
 #define KXCJK1013_REG_CTRL1_BIT_GSEL1	BIT(4)
 #define KXCJK1013_REG_CTRL1_BIT_GSEL0	BIT(3)
 #define KXCJK1013_REG_CTRL1_BIT_WUFE	BIT(1)
+#define KXCJK1013_REG_INT_REG1_BIT_IEA	BIT(4)
+#define KXCJK1013_REG_INT_REG1_BIT_IEN	BIT(5)
 
+#define KXCJK1013_DATA_MASK_12_BIT	0x0FFF
+
+#define KXCJK1013_MAX_STARTUP_TIME	100000
 
 struct kxcjk1013_data {
 	struct i2c_client *client;
 	struct iio_trigger *trig;
 	bool	trig_mode;
 	struct mutex mutex;
-	char *buff;
+	s16 buffer[3];
 	atomic_t power_state;
 	int gpio_irq;
+	u8 odr_bits;
 };
 
 enum kxcjk1013_axis {
@@ -90,6 +96,15 @@ struct {
 			{6, 25, 0x0B}, {12, 5, 0}, {25, 0, 0x01},
 			{50, 0, 0x02}, {100, 0, 0x03}, {200, 0, 0x04},
 			{400, 0, 0x05}, {800, 0, 0x06}, {1600, 0, 0x07} };
+
+/* Refer to section 4 of the specification */
+struct {
+	int odr_bits;
+	int usec;
+} odr_start_up_times[] = { {0x08, 100000}, {0x09, 100000}, {0x0A, 100000},
+			{0x0B, 100000}, { 0, 80000}, {0x01, 41000},
+			{0x02, 21000}, {0x03, 11000}, {0x04, 6400},
+			{0x05, 3900}, {0x06, 2700}, {0x07, 2100} };
 
 static int kxcjk1013_set_mode(struct kxcjk1013_data *data,
 			      enum kxcjk1013_mode mode)
@@ -115,6 +130,44 @@ static int kxcjk1013_set_mode(struct kxcjk1013_data *data,
 	}
 
 	return 0;
+}
+
+static int kxcjk1013_chip_setup_polarity(struct kxcjk1013_data *data,
+					  bool active_high)
+{
+	int ret;
+
+	ret = i2c_smbus_read_byte_data(data->client, KXCJK1013_REG_INT_CTRL1);
+	if (ret < 0) {
+		dev_err(&data->client->dev, "Error reading reg_int_ctrl1\n");
+		return ret;
+	}
+
+	if (active_high)
+		ret |= KXCJK1013_REG_INT_REG1_BIT_IEA;
+	else
+		ret &= ~KXCJK1013_REG_INT_REG1_BIT_IEA;
+
+	ret = i2c_smbus_write_byte_data(data->client, KXCJK1013_REG_INT_CTRL1,
+					ret);
+	if (ret < 0) {
+		dev_err(&data->client->dev, "Error writing reg_int_ctrl1\n");
+		return ret;
+	}
+
+	return ret;
+}
+static int kxcjk1013_chip_ack_intr(struct kxcjk1013_data *data)
+{
+	int ret;
+
+	ret = i2c_smbus_read_byte_data(data->client, KXCJK1013_REG_INT_REL);
+	if (ret < 0) {
+		dev_err(&data->client->dev, "Error writing reg_int_ctrl1\n");
+		return ret;
+	}
+
+	return ret;
 }
 
 static int kxcjk1013_chip_init(struct kxcjk1013_data *data)
@@ -146,6 +199,21 @@ static int kxcjk1013_chip_init(struct kxcjk1013_data *data)
 
 	ret = i2c_smbus_write_byte_data(data->client,
 					KXCJK1013_REG_CTRL1, ret);
+	if (ret < 0) {
+		dev_err(&data->client->dev, "Error reading reg_ctrl\n");
+		return ret;
+	}
+
+
+	ret = i2c_smbus_read_byte_data(data->client, KXCJK1013_REG_DATA_CTRL);
+	if (ret < 0) {
+		dev_err(&data->client->dev, "Error reading data_ctrl\n");
+		return ret;
+	}
+	data->odr_bits = ret;
+
+	/* Active high interrupt */
+	ret = kxcjk1013_chip_setup_polarity(data, true);
 
 	return ret;
 }
@@ -156,6 +224,24 @@ static int kxcjk1013_chip_setup_interrupt(struct kxcjk1013_data *data,
 	int ret;
 
 	kxcjk1013_set_mode(data, STANDBY);
+
+	ret = i2c_smbus_read_byte_data(data->client, KXCJK1013_REG_INT_CTRL1);
+	if (ret < 0) {
+		dev_err(&data->client->dev, "Error reading reg_int_ctrl1\n");
+		return ret;
+	}
+	if (status)
+		ret |= KXCJK1013_REG_INT_REG1_BIT_IEN;
+	else
+		ret &= ~KXCJK1013_REG_INT_REG1_BIT_IEN;
+
+	ret = i2c_smbus_write_byte_data(data->client, KXCJK1013_REG_INT_CTRL1,
+					ret);
+	if (ret < 0) {
+		dev_err(&data->client->dev, "Error writing reg_int_ctrl1\n");
+		return ret;
+	}
+
 	ret = i2c_smbus_read_byte_data(data->client, KXCJK1013_REG_CTRL1);
 	if (ret < 0) {
 		dev_err(&data->client->dev, "Error reading who_am_i\n");
@@ -209,22 +295,17 @@ static int kxcjk1013_set_odr(struct kxcjk1013_data *data, int val, int val2)
 		return ret;
 	}
 
+	data->odr_bits = odr_bits;
+
 	return 0;
 }
 
 static int kxcjk1013_get_odr(struct kxcjk1013_data *data, int *val, int *val2)
 {
-	int ret;
 	int i;
 
-	ret = i2c_smbus_read_byte_data(data->client, KXCJK1013_REG_DATA_CTRL);
-	if (ret < 0) {
-		dev_err(&data->client->dev, "Error reading data_ctrl\n");
-		return ret;
-	}
-
-	for (i = 0; ARRAY_SIZE(samp_freq_table); ++i) {
-		if (samp_freq_table[i].odr_bits == ret) {
+	for (i = 0; i < ARRAY_SIZE(samp_freq_table); ++i) {
+		if (samp_freq_table[i].odr_bits == data->odr_bits) {
 			*val = samp_freq_table[i].val;
 			*val2 = samp_freq_table[i].val2 * 1000;
 			return IIO_VAL_INT_PLUS_MICRO;
@@ -240,11 +321,28 @@ static int kxcjk1013_get_acc_reg(struct kxcjk1013_data *data, int axis)
 	int ret;
 
 	ret = i2c_smbus_read_word_data(data->client, reg);
-	if (ret < 0)
+	if (ret < 0) {
 		dev_err(&data->client->dev,
 			"failed to read accel_%c registers\n", 'x' + axis);
+		return ret;
+	}
+
+	ret &= KXCJK1013_DATA_MASK_12_BIT;
 
 	return ret;
+}
+
+static int kxcjk1013_get_startup_times(struct kxcjk1013_data *data)
+{
+	int i;
+
+	for (i = 0; i < ARRAY_SIZE(odr_start_up_times); ++i) {
+		if (odr_start_up_times[i].odr_bits == data->odr_bits)
+			return odr_start_up_times[i].usec;
+
+	}
+
+	return KXCJK1013_MAX_STARTUP_TIME;
 }
 
 static int kxcjk1013_read_raw(struct iio_dev *indio_dev,
@@ -260,8 +358,15 @@ static int kxcjk1013_read_raw(struct iio_dev *indio_dev,
 		if (iio_buffer_enabled(indio_dev))
 			ret = -EBUSY;
 		else {
+			int sleep_val;
+
 			kxcjk1013_set_mode(data, OPERATION);
 			atomic_inc(&data->power_state);
+			sleep_val = kxcjk1013_get_startup_times(data);
+			if (sleep_val < 20000)
+				usleep_range(sleep_val, 20000);
+			else
+				msleep_interruptible(sleep_val/1000);
 			ret = kxcjk1013_get_acc_reg(data, chan->scan_index);
 			if (atomic_dec_and_test(&data->power_state))
 				kxcjk1013_set_mode(data, STANDBY);
@@ -289,14 +394,19 @@ static int kxcjk1013_write_raw(struct iio_dev *indio_dev,
 		struct iio_chan_spec const *chan, int val, int val2, long mask)
 {
 	struct kxcjk1013_data *data = iio_priv(indio_dev);
+	int ret;
 
 	switch (mask) {
 	case IIO_CHAN_INFO_SAMP_FREQ:
-		return kxcjk1013_set_odr(data, val, val2);
+		mutex_lock(&data->mutex);
+		ret = kxcjk1013_set_odr(data, val, val2);
+		mutex_unlock(&data->mutex);
 		break;
 	default:
-		return -EINVAL;
+		ret = -EINVAL;
 	}
+
+	return ret;
 }
 
 static IIO_CONST_ATTR_SAMP_FREQ_AVAIL(
@@ -358,12 +468,14 @@ static irqreturn_t kxcjk1013_trigger_handler(int irq, void *p)
 			mutex_unlock(&data->mutex);
 			goto err;
 		}
-		((s16 *)data->buff)[i++] = ret;
+		((s16 *)data->buffer)[i++] = ret;
 	}
+
+	kxcjk1013_chip_ack_intr(data);
 
 	mutex_unlock(&data->mutex);
 
-	iio_push_to_buffers_with_timestamp(indio_dev, data->buff, time_ns);
+	iio_push_to_buffers_with_timestamp(indio_dev, data->buffer, time_ns);
 err:
 	iio_trigger_notify_done(indio_dev->trig);
 
