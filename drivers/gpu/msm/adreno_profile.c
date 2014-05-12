@@ -824,6 +824,9 @@ static int _pipe_print_results(struct adreno_device *adreno_dev,
 		total_size += size;
 
 		for (i = 0; i < cnt; i++) {
+			unsigned int start_lo, start_hi;
+			unsigned int end_lo, end_hi;
+
 			grp_name = adreno_perfcounter_get_name(
 					adreno_dev, (*log_ptr >> 16) & 0xffff);
 
@@ -842,12 +845,17 @@ static int _pipe_print_results(struct adreno_device *adreno_dev,
 
 			cnt_reg = *log_ptr & 0xffff;
 			log_buf_wrapinc(profile->log_buffer, &log_ptr);
-			pc_start = *((unsigned long long *) log_ptr);
+			start_lo = *log_ptr;
 			log_buf_wrapinc(profile->log_buffer, &log_ptr);
+			start_hi = *log_ptr;
 			log_buf_wrapinc(profile->log_buffer, &log_ptr);
-			pc_end = *((unsigned long long *) log_ptr);
+			end_lo = *log_ptr;
 			log_buf_wrapinc(profile->log_buffer, &log_ptr);
+			end_hi = *log_ptr;
 			log_buf_wrapinc(profile->log_buffer, &log_ptr);
+
+			pc_start = (((uint64_t) start_hi) << 32) | start_lo;
+			pc_end = (((uint64_t) end_hi) << 32) | end_lo;
 
 			len = snprintf(pipe_cntr_buf,
 					sizeof(pipe_cntr_buf) - 1,
