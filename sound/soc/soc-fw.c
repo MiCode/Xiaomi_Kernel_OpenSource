@@ -246,16 +246,17 @@ static int soc_fw_vendor_load(struct soc_fw *sfw, struct snd_soc_fw_hdr *hdr)
 
 /* optionally pass new dynamic widget to component driver. mainly for external
  widgets where we can assign private data/ops */
-static int soc_fw_widget_load(struct soc_fw *sfw, struct snd_soc_dapm_widget *w)
+static int soc_fw_widget_load(struct soc_fw *sfw, struct snd_soc_dapm_widget *w,
+		struct snd_soc_fw_dapm_widget *fw_w)
 {
 	if (sfw->codec && sfw->codec_ops && sfw->codec_ops->widget_load)
-		return sfw->codec_ops->widget_load(sfw->codec, w);
+		return sfw->codec_ops->widget_load(sfw->codec, w, fw_w);
 
 	if (sfw->platform && sfw->platform_ops && sfw->platform_ops->widget_load)
-		return sfw->platform_ops->widget_load(sfw->platform, w);
+		return sfw->platform_ops->widget_load(sfw->platform, w, fw_w);
 
 	if (sfw->card && sfw->card_ops && sfw->card_ops->widget_load)
-		return sfw->card_ops->widget_load(sfw->card, w);
+		return sfw->card_ops->widget_load(sfw->card, w, fw_w);
 
 	dev_dbg(sfw->dev, "ASoC: no handler specified for ext widget %s\n",
 		w->name);
@@ -1171,7 +1172,7 @@ static int soc_fw_dapm_widget_create(struct soc_fw *sfw,
 	}
 
 widget:
-	ret = soc_fw_widget_load(sfw, &widget);
+	ret = soc_fw_widget_load(sfw, &widget, w);
 		if (ret < 0)
 			goto hdr_err;
 

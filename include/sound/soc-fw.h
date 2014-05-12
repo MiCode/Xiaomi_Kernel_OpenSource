@@ -55,7 +55,8 @@ struct snd_soc_fw_codec_ops {
 	int (*control_load)(struct snd_soc_codec *, struct snd_kcontrol_new *);
 
 	/* external widget init - can be used to set ext funcs + pdata */
-	int (*widget_load)(struct snd_soc_codec *, struct snd_soc_dapm_widget *);
+	int (*widget_load)(struct snd_soc_codec *, struct snd_soc_dapm_widget *,
+				struct snd_soc_fw_dapm_widget *);
 
 	/* callback to handle vendor data */
 	int (*vendor_load)(struct snd_soc_codec *, struct snd_soc_fw_hdr *);
@@ -78,7 +79,8 @@ struct snd_soc_fw_platform_ops {
 	int (*control_load)(struct snd_soc_platform *, struct snd_kcontrol_new *);
 
 	/* external widget init - can be used to set ext funcs + pdata */
-	int (*widget_load)(struct snd_soc_platform *, struct snd_soc_dapm_widget *);
+	int (*widget_load)(struct snd_soc_platform *, struct snd_soc_dapm_widget *,
+			struct snd_soc_fw_dapm_widget *);
 
 	/* external dai init - can be used to set ext funcs + pdata */
 	int (*dai_load)(struct snd_soc_platform *, struct snd_soc_dai_driver *dai_drv, int n);
@@ -107,7 +109,8 @@ struct snd_soc_fw_card_ops {
 	int (*control_load)(struct snd_soc_card *, struct snd_kcontrol_new *);
 
 	/* external widget init - can be used to set ext funcs + pdata */
-	int (*widget_load)(struct snd_soc_card *, struct snd_soc_dapm_widget *);
+	int (*widget_load)(struct snd_soc_card *, struct snd_soc_dapm_widget *,
+			struct snd_soc_fw_dapm_widget *);
 
 	/* callback to handle vendor data */
 	int (*vendor_load)(struct snd_soc_card *, struct snd_soc_fw_hdr *);
