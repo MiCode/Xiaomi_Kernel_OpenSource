@@ -158,7 +158,7 @@ struct dwc3_msm {
 	bool			resume_pending;
 	atomic_t                pm_suspended;
 	int			hs_phy_irq;
-	bool			lpm_irq_seen;
+	bool			hs_phy_irq_seen;
 	struct delayed_work	resume_work;
 	struct work_struct	restart_usb_work;
 	struct work_struct	usb_block_reset_work;
@@ -1738,9 +1738,9 @@ static int dwc3_msm_resume(struct dwc3_msm *mdwc)
 	msm_bam_notify_lpm_resume(DWC3_CTRL);
 
 	/* match disable_irq call from isr */
-	if (mdwc->lpm_irq_seen && mdwc->hs_phy_irq) {
+	if (mdwc->hs_phy_irq_seen && mdwc->hs_phy_irq) {
 		enable_irq(mdwc->hs_phy_irq);
-		mdwc->lpm_irq_seen = false;
+		mdwc->hs_phy_irq_seen = false;
 	}
 	/* Disable wakeup capable for HS_PHY IRQ, if enabled */
 	if (mdwc->hs_phy_irq &&
@@ -1953,7 +1953,7 @@ static irqreturn_t msm_dwc3_irq(int irq, void *data)
 
 	if (atomic_read(&dwc->in_lpm)) {
 		dev_dbg(mdwc->dev, "%s received in LPM\n", __func__);
-		mdwc->lpm_irq_seen = true;
+		mdwc->hs_phy_irq_seen = true;
 		disable_irq_nosync(irq);
 		queue_delayed_work(system_nrt_wq, &mdwc->resume_work, 0);
 	} else {
