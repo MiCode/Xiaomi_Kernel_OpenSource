@@ -1505,7 +1505,6 @@ static int calculate_soc_from_voltage(struct qpnp_bms_chip *chip)
 	return 0;
 }
 
-#define SLEEP_RECALC_INTERVAL	3
 static void monitor_soc_work(struct work_struct *work)
 {
 	struct qpnp_bms_chip *chip = container_of(work,
@@ -1516,16 +1515,9 @@ static void monitor_soc_work(struct work_struct *work)
 	bms_stay_awake(&chip->vbms_soc_wake_source);
 
 	calculate_delta_time(&chip->tm_sec, &chip->delta_time_s);
+	pr_debug("elapsed_time=%d\n", chip->delta_time_s);
 
 	mutex_lock(&chip->last_soc_mutex);
-
-	pr_debug("elapsed_time=%d\n", chip->delta_time_s);
-	if (chip->delta_time_s * 1000 >
-		chip->dt.cfg_calculate_soc_ms * SLEEP_RECALC_INTERVAL) {
-		chip->last_soc_unbound = true;
-		pr_debug("last_soc unbound because elapsed time=%d\n",
-						chip->delta_time_s);
-	}
 
 	if (!is_battery_present(chip)) {
 		/* if battery is not preset report 100% SOC */
@@ -1578,11 +1570,16 @@ static void monitor_soc_work(struct work_struct *work)
 		}
 
 	}
+	/*
+	 * schedule the work only if last_soc has not caught up with
+	 * the calculated soc or if we are using voltage based soc
+	 */
+	if ((chip->last_soc != chip->calculated_soc) ||
+					chip->dt.cfg_use_voltage_soc)
+		schedule_delayed_work(&chip->monitor_soc_work,
+			msecs_to_jiffies(get_calculation_delay_ms(chip)));
 
 	mutex_unlock(&chip->last_soc_mutex);
-
-	schedule_delayed_work(&chip->monitor_soc_work,
-			msecs_to_jiffies(get_calculation_delay_ms(chip)));
 
 	bms_relax(&chip->vbms_soc_wake_source);
 }
@@ -1742,7 +1739,7 @@ static int qpnp_vm_bms_power_set_property(struct power_supply *psy,
 		cancel_delayed_work_sync(&chip->monitor_soc_work);
 		chip->last_ocv_uv = val->intval;
 		pr_debug("OCV = %d\n", val->intval);
-		monitor_soc_work(&chip->monitor_soc_work.work);
+		schedule_delayed_work(&chip->monitor_soc_work, 0);
 		break;
 	case POWER_SUPPLY_PROP_HI_POWER:
 		rc = qpnp_vm_bms_config_power_state(chip, val->intval, true);
