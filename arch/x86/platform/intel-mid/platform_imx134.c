@@ -247,17 +247,31 @@ static int imx134_gpio_ctrl(struct v4l2_subdev *sd, int flag)
 	 * not implemented currently
 	 */
 	if (camera_reset < 0) {
-		camera_reset = CAMERA_0_RESET;
+		struct i2c_client *client = v4l2_get_subdevdata(sd);
+		if(config_enabled(CONFIG_GMIN_INTEL_MID) &&
+		   ACPI_COMPANION(&client->dev)) {
+			struct gpio_desc *gd = gpiod_get_index(&client->dev, "", 0);
+			if (gd) {
+				camera_reset = desc_to_gpio(gd);
+				gpiod_put(gd);
+			}
+		}
+
+		if (camera_reset < 0)
+			camera_reset = CAMERA_0_RESET;
 
 		ret = gpio_request(camera_reset, "camera_reset");
 		if (ret) {
 			pr_err("%s: failed to request gpio(pin %d)\n",
-			       __func__, CAMERA_0_RESET);
+			       __func__, camera_reset);
 			return -EINVAL;
 		}
+
+		ret = gpio_direction_output(camera_reset, flag);
+		if (ret)
+			return ret;
 	}
 
-	ret = gpio_direction_output(camera_reset, 1);
 	if (ret) {
 		pr_err("%s: failed to set gpio(pin %d) direction\n",
 		       __func__, camera_reset);
@@ -276,9 +290,6 @@ static int imx134_gpio_ctrl(struct v4l2_subdev *sd, int flag)
 		gpio_set_value(camera_reset, 0);
 		/* 1us - Falling time of REGEN after XCLR H -> L */
 		udelay(1);
-
-		gpio_free(camera_reset);
-		camera_reset = -1;
 	}
 
 	return 0;
