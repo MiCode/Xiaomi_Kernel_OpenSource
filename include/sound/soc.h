@@ -908,6 +908,8 @@ struct soc_enum {
 	struct snd_kcontrol *dcontrol;
 	int index;
 
+	unsigned int pvt_data_len;
+	char *pvt_data;
 	void *dapm;
 };
 

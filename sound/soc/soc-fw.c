@@ -671,14 +671,14 @@ static int soc_fw_denum_create(struct soc_fw *sfw, unsigned int count,
 
 	for (i = 0; i < count; i++) {
 		ec = (struct snd_soc_fw_enum_control *)sfw->pos;
-		sfw->pos += sizeof(struct snd_soc_fw_enum_control);
+		sfw->pos += (sizeof(struct snd_soc_fw_enum_control) + ec->pvt_data_len);
 
 		/* validate kcontrol */
 		if (strnlen(ec->hdr.name, SND_SOC_FW_TEXT_SIZE) ==
 			SND_SOC_FW_TEXT_SIZE)
 			return -EINVAL;
 
-		se = kzalloc(sizeof(*se), GFP_KERNEL);
+		se = kzalloc((sizeof(*se) + ec->pvt_data_len), GFP_KERNEL);
 		if (!se)
 			return -ENOMEM;
 
@@ -697,6 +697,10 @@ static int soc_fw_denum_create(struct soc_fw *sfw, unsigned int count,
 		se->items = ec->items;
 		se->mask = ec->mask;
 		se->index = sfw->index;
+		se->pvt_data_len = ec->pvt_data_len;
+		if (ec->pvt_data_len)
+			soc_fw_init_pvt_data(sfw, ec->hdr.index, (unsigned long)se, (unsigned long)ec);
+
 		INIT_LIST_HEAD(&se->list);
 
 		switch (SOC_CONTROL_GET_ID_INFO(ec->hdr.index)) {
@@ -965,7 +969,7 @@ static struct snd_kcontrol_new *soc_fw_dapm_widget_denum_create(struct soc_fw *s
 	int i, err, ext;
 
 	ec = (struct snd_soc_fw_enum_control *)sfw->pos;
-	sfw->pos += sizeof(struct snd_soc_fw_enum_control);
+	sfw->pos += (sizeof(struct snd_soc_fw_enum_control) + ec->pvt_data_len);
 
 	/* validate kcontrol */
 	if (strnlen(ec->hdr.name, SND_SOC_FW_TEXT_SIZE) ==
@@ -976,7 +980,7 @@ static struct snd_kcontrol_new *soc_fw_dapm_widget_denum_create(struct soc_fw *s
 	if (!kc)
 		return NULL;
 
-	se = kzalloc(sizeof(*se), GFP_KERNEL);
+	se = kzalloc((sizeof(*se) + ec->pvt_data_len), GFP_KERNEL);
 	if (!se)
 		goto err_se;
 
@@ -994,6 +998,9 @@ static struct snd_kcontrol_new *soc_fw_dapm_widget_denum_create(struct soc_fw *s
 	se->items = ec->items;
 	se->mask = ec->mask;
 	se->index = sfw->index;
+	se->pvt_data_len = ec->pvt_data_len;
+	if (se->pvt_data_len)
+		soc_fw_init_pvt_data(sfw, ec->hdr.index, (unsigned long)se, (unsigned long)ec);
 
 	switch (SOC_CONTROL_GET_ID_INFO(ec->hdr.index)) {
 	case SOC_CONTROL_TYPE_ENUM:

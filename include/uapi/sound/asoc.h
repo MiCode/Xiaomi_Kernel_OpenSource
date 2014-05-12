@@ -843,6 +843,9 @@ struct snd_soc_fw_enum_control {
 	__le32 mask;
 	char texts[SND_SOC_FW_NUM_TEXTS][SND_SOC_FW_TEXT_SIZE];
 	__le32 values[SND_SOC_FW_NUM_TEXTS * SND_SOC_FW_TEXT_SIZE / 4];
+	__le32 reserved[12]; /* Reserved for future use */
+	__le32 pvt_data_len;
+	char pvt_data[0];
 } __attribute__((packed));
 
 
