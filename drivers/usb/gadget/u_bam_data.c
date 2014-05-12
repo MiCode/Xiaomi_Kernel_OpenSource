@@ -910,6 +910,27 @@ static void bam2bam_data_connect_work(struct work_struct *w)
 					d->dst_pipe_type);
 		}
 
+		/* Upadate BAM specific attributes in usb_request */
+		if (gadget_is_dwc3(gadget)) {
+			sps_params = MSM_SPS_MODE | MSM_DISABLE_WB
+				| MSM_PRODUCER | d->src_pipe_idx;
+			d->rx_req->length = 32*1024;
+		} else {
+			sps_params = (SPS_PARAMS_SPS_MODE | d->src_pipe_idx |
+				MSM_VENDOR_ID) & ~SPS_PARAMS_TBE;
+		}
+		d->rx_req->udc_priv = sps_params;
+
+		if (gadget_is_dwc3(gadget)) {
+			sps_params = MSM_SPS_MODE | MSM_DISABLE_WB
+						| d->dst_pipe_idx;
+			d->tx_req->length = 32*1024;
+		} else {
+			sps_params = (SPS_PARAMS_SPS_MODE | d->dst_pipe_idx |
+				MSM_VENDOR_ID) & ~SPS_PARAMS_TBE;
+		}
+		d->tx_req->udc_priv = sps_params;
+
 		if (d->func_type == USB_FUNC_MBIM) {
 			connect_params.ipa_usb_pipe_hdl =
 				d->ipa_params.prod_clnt_hdl;
@@ -957,6 +978,7 @@ static void bam2bam_data_connect_work(struct work_struct *w)
 			is_ipa_rndis_net_on = true;
 		}
 	} else { /* transport type is USB_GADGET_XPORT_BAM2BAM */
+		/* Upadate BAM specific attributes in usb_request */
 		usb_bam_reset_complete();
 		/* Setup BAM connection and fetch USB PIPE index */
 		ret = usb_bam_connect(d->src_connection_idx, &d->src_pipe_idx);
@@ -969,26 +991,14 @@ static void bam2bam_data_connect_work(struct work_struct *w)
 			pr_err("usb_bam_connect (dst) failed: err:%d\n", ret);
 			return;
 		}
-	}
-	/* Upadate BAM specific attributes in usb_request */
-	if (gadget_is_dwc3(gadget)) {
-		sps_params = MSM_SPS_MODE | MSM_DISABLE_WB | MSM_PRODUCER |
-				d->src_pipe_idx;
-		d->rx_req->length = 32*1024;
-	} else {
-		sps_params = (SPS_PARAMS_SPS_MODE | d->src_pipe_idx |
-			MSM_VENDOR_ID) & ~SPS_PARAMS_TBE;
-	}
-	d->rx_req->udc_priv = sps_params;
 
-	if (gadget_is_dwc3(gadget)) {
-		sps_params = MSM_SPS_MODE | MSM_DISABLE_WB | d->dst_pipe_idx;
-		d->tx_req->length = 32*1024;
-	} else {
+		sps_params = (SPS_PARAMS_SPS_MODE | d->src_pipe_idx |
+				MSM_VENDOR_ID) & ~SPS_PARAMS_TBE;
+		d->rx_req->udc_priv = sps_params;
 		sps_params = (SPS_PARAMS_SPS_MODE | d->dst_pipe_idx |
-			MSM_VENDOR_ID) & ~SPS_PARAMS_TBE;
+				MSM_VENDOR_ID) & ~SPS_PARAMS_TBE;
+		d->tx_req->udc_priv = sps_params;
 	}
-	d->tx_req->udc_priv = sps_params;
 
 	/* queue in & out requests */
 	if (d->trans == USB_GADGET_XPORT_BAM2BAM ||
