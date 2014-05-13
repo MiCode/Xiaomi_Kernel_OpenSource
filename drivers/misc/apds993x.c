@@ -1948,8 +1948,10 @@ static int apds993x_suspend(struct device *dev)
 	data = dev_get_drvdata(dev);
 	pdata = data->platform_data;
 
-	if (data->irq)
+	if (data->irq) {
+		irq_set_irq_wake(data->irq, 0);
 		disable_irq(data->irq);
+	}
 
 	cancel_delayed_work_sync(&data->dwork);
 #ifdef ALS_POLLING_ENABLED
@@ -1979,8 +1981,10 @@ static int apds993x_resume(struct device *dev)
 	if (data->enable_als_sensor)
 		apds993x_als_set_enable(&data->als_cdev, 1);
 
-	if (data->irq)
+	if (data->irq) {
 		enable_irq(data->irq);
+		irq_set_irq_wake(data->irq, 1);
+	}
 
 	return 0;
 }
@@ -1990,9 +1994,6 @@ static int sensor_regulator_configure(struct apds993x_data *data, bool on)
 	int rc;
 
 	if (!on) {
-		rc = sensor_regulator_power_on(data, on);
-		if (rc)
-			return rc;
 
 		if (regulator_count_voltages(data->vdd) > 0)
 			regulator_set_voltage(data->vdd, 0,
@@ -2042,9 +2043,6 @@ static int sensor_regulator_configure(struct apds993x_data *data, bool on)
 				goto reg_vio_put;
 			}
 		}
-		rc = sensor_regulator_power_on(data, on);
-		if (rc)
-			goto reg_vio_put;
 	}
 
 	return 0;
