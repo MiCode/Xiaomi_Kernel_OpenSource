@@ -268,6 +268,14 @@ extern char ___assert_task_state[1 - 2*!!(
 /* Task command name length */
 #define TASK_COMM_LEN 16
 
+enum task_event {
+	PUT_PREV_TASK   = 0,
+	PICK_NEXT_TASK  = 1,
+	TASK_WAKE       = 2,
+	TASK_MIGRATE    = 3,
+	TASK_UPDATE     = 4,
+};
+
 #include <linux/spinlock.h>
 
 /*
