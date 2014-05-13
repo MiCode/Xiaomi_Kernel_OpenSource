@@ -26,6 +26,7 @@
 #include <linux/dma-mapping.h>
 #include <linux/mm.h>
 #include <linux/debugfs.h>
+#include <linux/workqueue.h>
 
 #include <linux/usb/ch9.h>
 #include <linux/usb/gadget.h>
@@ -913,6 +914,7 @@ struct dwc3 {
 	const char		*hsphy_interface;
 
 	void (*notify_event)	(struct dwc3 *, unsigned);
+	struct work_struct	wakeup_work;
 
 	unsigned		delayed_status:1;
 	unsigned		ep0_bounced:1;
