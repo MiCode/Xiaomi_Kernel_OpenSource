@@ -50,7 +50,7 @@
 
 static int msm_spi_pm_resume_runtime(struct device *device);
 static int msm_spi_pm_suspend_runtime(struct device *device);
-
+static inline void msm_spi_dma_unmap_buffers(struct msm_spi *dd);
 
 static inline int msm_spi_configure_gsbi(struct msm_spi *dd,
 					struct platform_device *pdev)
@@ -134,6 +134,40 @@ static inline void msm_spi_free_gpios(struct msm_spi *dd)
 		}
 	}
 }
+
+static inline int msm_spi_request_cs_gpio(struct msm_spi *dd)
+{
+	int cs_num;
+	int rc;
+
+	cs_num = dd->cur_msg->spi->chip_select;
+	if ((!(dd->cur_msg->spi->mode & SPI_LOOP)) &&
+		(!(dd->cs_gpios[cs_num].valid)) &&
+		(dd->cs_gpios[cs_num].gpio_num >= 0)) {
+		rc = gpio_request(dd->cs_gpios[cs_num].gpio_num,
+				spi_cs_rsrcs[cs_num]);
+		if (rc) {
+			dev_err(dd->dev,
+				"gpio_request for pin %d failed,error %d\n",
+				dd->cs_gpios[cs_num].gpio_num, rc);
+			return rc;
+		}
+		dd->cs_gpios[cs_num].valid = 1;
+	}
+	return 0;
+}
+
+static inline void msm_spi_free_cs_gpio(struct msm_spi *dd)
+{
+	int cs_num;
+
+	cs_num = dd->cur_msg->spi->chip_select;
+	if (dd->cs_gpios[cs_num].valid) {
+		gpio_free(dd->cs_gpios[cs_num].gpio_num);
+		dd->cs_gpios[cs_num].valid = 0;
+	}
+}
+
 
 /**
  * msm_spi_clk_max_rate: finds the nearest lower rate for a clk
@@ -785,115 +819,188 @@ static void msm_spi_bam_flush(struct msm_spi *dd)
 	msm_spi_bam_pipe_flush(dd, SPI_BAM_PRODUCER_PIPE);
 }
 
+static int
+msm_spi_bam_process_rx(struct msm_spi *dd, u32 *bytes_to_send, u32 desc_cnt)
+{
+	int ret = 0;
+	u32 data_xfr_size = 0, rem_bc = 0;
+	u32 prod_flags = 0;
+
+	rem_bc = dd->cur_rx_transfer->len - dd->bam.curr_rx_bytes_recvd;
+	data_xfr_size = (rem_bc < *bytes_to_send) ? rem_bc : *bytes_to_send;
+
+	/*
+	 * set flags for last descriptor only
+	 */
+	if ((desc_cnt == 1)
+		|| (*bytes_to_send == data_xfr_size))
+		prod_flags = (dd->write_buf)
+			? 0 : (SPS_IOVEC_FLAG_EOT | SPS_IOVEC_FLAG_NWD);
+
+	/*
+	 * enqueue read buffer in BAM
+	 */
+	ret = sps_transfer_one(dd->bam.prod.handle,
+			dd->cur_rx_transfer->rx_dma
+				+ dd->bam.curr_rx_bytes_recvd,
+			data_xfr_size, dd, prod_flags);
+	if (ret < 0) {
+		dev_err(dd->dev,
+		"%s: Failed to queue producer BAM transfer",
+		__func__);
+		return ret;
+	}
+
+	dd->bam.curr_rx_bytes_recvd += data_xfr_size;
+	*bytes_to_send -= data_xfr_size;
+	dd->bam.bam_rx_len -= data_xfr_size;
+
+	if (!(dd->cur_rx_transfer->len - dd->bam.curr_rx_bytes_recvd)) {
+		struct spi_transfer *t = dd->cur_rx_transfer;
+		struct spi_transfer *next;
+		if (t->transfer_list.next != &dd->cur_msg->transfers) {
+			next = list_entry(t->transfer_list.next,
+					struct spi_transfer,
+					transfer_list);
+			dd->read_buf  = next->rx_buf;
+			dd->cur_rx_transfer = next;
+			dd->bam.curr_rx_bytes_recvd = 0;
+		}
+	}
+	return data_xfr_size;
+}
+
+static int
+msm_spi_bam_process_tx(struct msm_spi *dd, u32 *bytes_to_send, u32 desc_cnt)
+{
+	int ret = 0;
+	u32 data_xfr_size = 0, rem_bc = 0;
+	u32 cons_flags = 0;
+
+	rem_bc = dd->cur_tx_transfer->len - dd->bam.curr_tx_bytes_sent;
+	data_xfr_size = (rem_bc < *bytes_to_send) ? rem_bc : *bytes_to_send;
+
+	/*
+	 * set flags for last descriptor only
+	*/
+	if ((desc_cnt == 1)
+		|| (*bytes_to_send == data_xfr_size))
+		cons_flags = SPS_IOVEC_FLAG_EOT | SPS_IOVEC_FLAG_NWD;
+
+	/*
+	 * enqueue write buffer in BAM
+	 */
+	ret = sps_transfer_one(dd->bam.cons.handle,
+			dd->cur_tx_transfer->tx_dma
+				+ dd->bam.curr_tx_bytes_sent,
+			data_xfr_size, dd, cons_flags);
+	if (ret < 0) {
+		dev_err(dd->dev,
+		"%s: Failed to queue consumer BAM transfer",
+		__func__);
+		return ret;
+	}
+
+	dd->bam.curr_tx_bytes_sent	+= data_xfr_size;
+	*bytes_to_send	-= data_xfr_size;
+	dd->bam.bam_tx_len -= data_xfr_size;
+
+	if (!(dd->cur_tx_transfer->len - dd->bam.curr_tx_bytes_sent)) {
+		struct spi_transfer *t = dd->cur_tx_transfer;
+		struct spi_transfer *next;
+		if (t->transfer_list.next != &dd->cur_msg->transfers) {
+			next = list_entry(t->transfer_list.next,
+					struct spi_transfer,
+					transfer_list);
+			dd->write_buf = next->tx_buf;
+			dd->cur_tx_transfer = next;
+			dd->bam.curr_tx_bytes_sent = 0;
+		}
+	}
+	return data_xfr_size;
+}
+
+
 /**
  * msm_spi_bam_begin_transfer: transfer dd->tx_bytes_remaining bytes
  * using BAM.
  * @brief BAM can transfer SPI_MAX_TRFR_BTWN_RESETS byte at a single
  * transfer. Between transfer QUP must change to reset state. A loop is
- * issuing a single BAM transfer at a time. If another tsranfer is
- * required, it waits for the trasfer to finish, then moving to reset
- * state, and back to run state to issue the next transfer.
- * The function dose not wait for the last transfer to end, or if only
- * a single transfer is required, the function dose not wait for it to
- * end.
- * @timeout max time in jiffies to wait for a transfer to finish.
+ * issuing a single BAM transfer at a time.
  * @return zero on success
  */
 static int
-msm_spi_bam_begin_transfer(struct msm_spi *dd, u32 timeout, u8 bpw)
+msm_spi_bam_begin_transfer(struct msm_spi *dd)
 {
-	u32 bytes_to_send, bytes_sent, n_words_xfr, cons_flags, prod_flags;
-	int ret;
-	/*
-	 * QUP must move to reset mode every 64K-1 bytes of transfer
-	 * (counter is 16 bit)
-	 */
-	if (dd->tx_bytes_remaining > SPI_MAX_TRFR_BTWN_RESETS) {
-		/* assert chip select unconditionally */
-		u32 spi_ioc = readl_relaxed(dd->base + SPI_IO_CONTROL);
-		if (!(spi_ioc & SPI_IO_C_FORCE_CS))
-			writel_relaxed(spi_ioc | SPI_IO_C_FORCE_CS,
-				dd->base + SPI_IO_CONTROL);
+	u32 tx_bytes_to_send = 0, rx_bytes_to_recv = 0;
+	u32 n_words_xfr;
+	s32 ret = 0;
+	u32 prod_desc_cnt = SPI_BAM_MAX_DESC_NUM - 1;
+	u32 cons_desc_cnt = SPI_BAM_MAX_DESC_NUM - 1;
+	u32 byte_count = 0;
+
+
+	rx_bytes_to_recv = min_t(u32, dd->bam.bam_rx_len,
+				SPI_MAX_TRFR_BTWN_RESETS);
+	tx_bytes_to_send = min_t(u32, dd->bam.bam_tx_len,
+				SPI_MAX_TRFR_BTWN_RESETS);
+	n_words_xfr = DIV_ROUND_UP(rx_bytes_to_recv,
+				dd->bytes_per_word);
+
+	msm_spi_set_mx_counts(dd, n_words_xfr);
+	ret = msm_spi_set_state(dd, SPI_OP_STATE_RUN);
+	if (ret < 0) {
+		dev_err(dd->dev,
+			"%s: Failed to set QUP state to run",
+			__func__);
+		goto xfr_err;
 	}
 
-	/* Following flags are required since we are waiting on all transfers */
-	cons_flags = SPS_IOVEC_FLAG_EOT | SPS_IOVEC_FLAG_NWD;
-	/*
-	 * on a balanced transaction, BAM will set the flags on the producer
-	 * pipe based on the flags set on the consumer pipe
-	 */
-	prod_flags = (dd->write_buf) ? 0 : cons_flags;
-
-	while (dd->tx_bytes_remaining > 0) {
-		bytes_sent = dd->cur_transfer->len - dd->tx_bytes_remaining;
-		bytes_to_send = min_t(u32, dd->tx_bytes_remaining
-						, SPI_MAX_TRFR_BTWN_RESETS);
-		n_words_xfr = DIV_ROUND_UP(bytes_to_send
-						, dd->bytes_per_word);
-
-		msm_spi_set_mx_counts(dd, n_words_xfr);
-
-		ret = msm_spi_set_state(dd, SPI_OP_STATE_RUN);
-		if (ret < 0) {
-			dev_err(dd->dev,
-				"%s: Failed to set QUP state to run",
-				__func__);
-			goto xfr_err;
+	while ((rx_bytes_to_recv + tx_bytes_to_send) &&
+		((cons_desc_cnt + prod_desc_cnt) > 0)) {
+		if (dd->read_buf && (prod_desc_cnt > 0)) {
+			ret = msm_spi_bam_process_rx(dd, &rx_bytes_to_recv,
+							prod_desc_cnt);
+			if (ret < 0)
+				goto xfr_err;
+			prod_desc_cnt--;
 		}
 
-		/* enqueue read buffer in BAM */
-		if (dd->read_buf) {
-			ret = sps_transfer_one(dd->bam.prod.handle,
-				dd->cur_transfer->rx_dma + bytes_sent,
-				bytes_to_send, dd, prod_flags);
-			if (ret < 0) {
-				dev_err(dd->dev,
-				"%s: Failed to queue producer BAM transfer",
-				__func__);
+		if (dd->write_buf && (cons_desc_cnt > 0)) {
+			ret = msm_spi_bam_process_tx(dd, &tx_bytes_to_send,
+							cons_desc_cnt);
+			if (ret < 0)
 				goto xfr_err;
-			}
+			cons_desc_cnt--;
 		}
-
-		/* enqueue write buffer in BAM */
-		if (dd->write_buf) {
-			ret = sps_transfer_one(dd->bam.cons.handle,
-				dd->cur_transfer->tx_dma + bytes_sent,
-				bytes_to_send, dd, cons_flags);
-			if (ret < 0) {
-				dev_err(dd->dev,
-				"%s: Failed to queue consumer BAM transfer",
-				__func__);
-				goto xfr_err;
-			}
-		}
-
-		dd->tx_bytes_remaining -= bytes_to_send;
-
-		/* move to reset state after SPI_MAX_TRFR_BTWN_RESETS */
-		if (dd->tx_bytes_remaining > 0) {
-			if (!wait_for_completion_timeout(
-				&dd->transfer_complete, timeout)) {
-				dev_err(dd->dev,
-					"%s: SPI transaction timeout",
-					__func__);
-				dd->cur_msg->status = -EIO;
-				ret = -EIO;
-				goto xfr_err;
-			}
-			ret = msm_spi_set_state(dd, SPI_OP_STATE_RESET);
-			if (ret < 0) {
-				dev_err(dd->dev,
-					"%s: Failed to set QUP state to reset",
-					__func__);
-				goto xfr_err;
-			}
-			init_completion(&dd->transfer_complete);
-		}
+		byte_count += ret;
 	}
+
+	dd->tx_bytes_remaining -= min_t(u32, byte_count,
+						SPI_MAX_TRFR_BTWN_RESETS);
 	return 0;
-
 xfr_err:
 	return ret;
+}
+
+static int
+msm_spi_bam_next_transfer(struct msm_spi *dd)
+{
+	if (dd->mode != SPI_BAM_MODE)
+		return 0;
+
+	if (dd->tx_bytes_remaining > 0) {
+		init_completion(&dd->transfer_complete);
+		if (msm_spi_set_state(dd, SPI_OP_STATE_RESET))
+			return 0;
+		if ((msm_spi_bam_begin_transfer(dd)) < 0) {
+			dev_err(dd->dev, "%s: BAM transfer setup failed\n",
+				__func__);
+			return 0;
+		}
+		return 1;
+	}
+	return 0;
 }
 
 static void msm_spi_setup_dm_transfer(struct msm_spi *dd)
@@ -1098,6 +1205,16 @@ static int msm_spi_dm_send_next(struct msm_spi *dd)
 	return 0;
 }
 
+static int msm_spi_dma_send_next(struct msm_spi *dd)
+{
+	int ret = 0;
+	if (dd->mode == SPI_DMOV_MODE)
+		ret = msm_spi_dm_send_next(dd);
+	if (dd->mode == SPI_BAM_MODE)
+		ret = msm_spi_bam_next_transfer(dd);
+	return ret;
+}
+
 static inline void msm_spi_ack_transfer(struct msm_spi *dd)
 {
 	writel_relaxed(SPI_OP_MAX_INPUT_DONE_FLAG |
@@ -1297,14 +1414,14 @@ static irqreturn_t msm_spi_error_irq(int irq, void *dev_id)
 }
 
 /**
- * msm_spi_dma_map_buffers: prepares buffer for DMA transfer
+ * msm_spi_dmov_map_buffers: prepares buffer for DMA transfer
  * @return zero on success or negative error code
  *
  * calls dma_map_single() on the read/write buffers, effectively invalidating
  * their cash entries. for For WR-WR and WR-RD transfers, allocates temporary
  * buffer and copy the data to/from the client buffers
  */
-static int msm_spi_dma_map_buffers(struct msm_spi *dd)
+static int msm_spi_dmov_map_buffers(struct msm_spi *dd)
 {
 	struct device *dev;
 	struct spi_transfer *first_xfr;
@@ -1323,7 +1440,7 @@ static int msm_spi_dma_map_buffers(struct msm_spi *dd)
 	 * For WR-WR and WR-RD transfers, we allocate our own temporary
 	 * buffer and copy the data to/from the client buffers.
 	 */
-	if (dd->multi_xfr) {
+	if (!dd->qup_ver && dd->multi_xfr) {
 		dd->temp_buf = kzalloc(dd->cur_msg_len,
 				       GFP_KERNEL | __GFP_DMA);
 		if (!dd->temp_buf)
@@ -1381,6 +1498,70 @@ static int msm_spi_dma_map_buffers(struct msm_spi *dd)
 error:
 	kfree(dd->temp_buf);
 	dd->temp_buf = NULL;
+	return ret;
+}
+
+static int msm_spi_bam_map_buffers(struct msm_spi *dd)
+{
+	int ret = -EINVAL;
+	struct device *dev;
+	struct spi_transfer *first_xfr;
+	struct spi_transfer *nxt_xfr;
+	void *tx_buf, *rx_buf;
+	u32 tx_len, rx_len;
+	int num_xfrs_grped = dd->num_xfrs_grped;
+
+	dev = &dd->cur_msg->spi->dev;
+	first_xfr = dd->cur_transfer;
+
+	do {
+		tx_buf = (void *)first_xfr->tx_buf;
+		rx_buf = first_xfr->rx_buf;
+		tx_len = rx_len = first_xfr->len;
+		if (tx_buf != NULL) {
+			first_xfr->tx_dma = dma_map_single(dev, tx_buf,
+							tx_len, DMA_TO_DEVICE);
+			if (dma_mapping_error(NULL, first_xfr->tx_dma)) {
+				ret = -ENOMEM;
+				goto error;
+			}
+		}
+
+		if (rx_buf != NULL) {
+			first_xfr->rx_dma = dma_map_single(dev, rx_buf,	rx_len,
+							DMA_FROM_DEVICE);
+			if (dma_mapping_error(NULL, first_xfr->rx_dma)) {
+				if (tx_buf != NULL)
+					dma_unmap_single(NULL,
+							first_xfr->tx_dma,
+							tx_len, DMA_TO_DEVICE);
+				ret = -ENOMEM;
+				goto error;
+			}
+		}
+
+		nxt_xfr = list_entry(first_xfr->transfer_list.next,
+				struct spi_transfer, transfer_list);
+
+		if (nxt_xfr == NULL)
+			break;
+		num_xfrs_grped--;
+		first_xfr = nxt_xfr;
+	} while (num_xfrs_grped > 0);
+
+	return 0;
+error:
+	msm_spi_dma_unmap_buffers(dd);
+	return ret;
+}
+
+static int msm_spi_dma_map_buffers(struct msm_spi *dd)
+{
+	int ret = 0;
+	if (dd->mode == SPI_DMOV_MODE)
+		ret = msm_spi_dmov_map_buffers(dd);
+	else if (dd->mode == SPI_BAM_MODE)
+		ret = msm_spi_bam_map_buffers(dd);
 	return ret;
 }
 
@@ -1455,21 +1636,39 @@ unmap_end:
 static void msm_spi_bam_unmap_buffers(struct msm_spi *dd)
 {
 	struct device *dev;
+	int num_xfrs_grped = dd->num_xfrs_grped;
+	struct spi_transfer *first_xfr;
+	struct spi_transfer *nxt_xfr;
+	void *tx_buf, *rx_buf;
+	u32  tx_len, rx_len;
+
+	dev = &dd->cur_msg->spi->dev;
+	first_xfr = dd->cur_transfer;
 
 	 /* mapped by client */
 	if (dd->cur_msg->is_dma_mapped)
 		return;
 
-	dev = &dd->cur_msg->spi->dev;
-	if (dd->cur_transfer->rx_buf)
-		dma_unmap_single(dev, dd->cur_transfer->rx_dma,
-				dd->cur_transfer->len,
-				DMA_FROM_DEVICE);
+	do {
+		tx_buf = (void *)first_xfr->tx_buf;
+		rx_buf = first_xfr->rx_buf;
+		tx_len = rx_len = first_xfr->len;
+		if (tx_buf != NULL)
+			dma_unmap_single(dev, first_xfr->tx_dma,
+					tx_len, DMA_TO_DEVICE);
 
-	if (dd->cur_transfer->tx_buf)
-		dma_unmap_single(dev, dd->cur_transfer->tx_dma,
-				dd->cur_transfer->len,
-				DMA_TO_DEVICE);
+		if (rx_buf != NULL)
+			dma_unmap_single(dev, first_xfr->rx_dma,
+					rx_len, DMA_FROM_DEVICE);
+
+		nxt_xfr = list_entry(first_xfr->transfer_list.next,
+				struct spi_transfer, transfer_list);
+
+		if (nxt_xfr == NULL)
+			break;
+		num_xfrs_grped--;
+		first_xfr = nxt_xfr;
+	} while (num_xfrs_grped > 0);
 }
 
 static inline void msm_spi_dma_unmap_buffers(struct msm_spi *dd)
@@ -1506,7 +1705,8 @@ msm_spi_use_dma(struct msm_spi *dd, struct spi_transfer *tr, u8 bpw)
 	if (dd->cur_msg_len < 3*dd->input_block_size)
 		return false;
 
-	if (dd->multi_xfr && !dd->read_len && !dd->write_len)
+	if ((dd->qup_ver != SPI_QUP_VERSION_BFAM) &&
+		dd->multi_xfr && !dd->read_len && !dd->write_len)
 		return false;
 
 	if (dd->qup_ver == SPI_QUP_VERSION_NONE) {
@@ -1688,11 +1888,17 @@ static void msm_spi_process_transfer(struct msm_spi *dd)
 
 	msm_spi_set_transfer_mode(dd, bpw, read_count);
 	msm_spi_set_mx_counts(dd, read_count);
-	if ((dd->mode == SPI_BAM_MODE) || (dd->mode == SPI_DMOV_MODE))
+	if (dd->mode == SPI_DMOV_MODE) {
 		if (msm_spi_dma_map_buffers(dd) < 0) {
 			pr_err("Mapping DMA buffers\n");
 			return;
+			}
+	} else if (dd->mode == SPI_BAM_MODE) {
+			if (msm_spi_dma_map_buffers(dd) < 0) {
+				pr_err("Mapping DMA buffers\n");
+				return;
 		}
+	}
 	msm_spi_set_qup_io_modes(dd);
 	msm_spi_set_spi_config(dd, bpw);
 	msm_spi_set_qup_config(dd, bpw);
@@ -1712,7 +1918,7 @@ static void msm_spi_process_transfer(struct msm_spi *dd)
 			goto transfer_end;
 		msm_spi_start_write(dd, read_count);
 	} else if (dd->mode == SPI_BAM_MODE) {
-		if ((msm_spi_bam_begin_transfer(dd, timeout, bpw)) < 0)
+		if ((msm_spi_bam_begin_transfer(dd)) < 0)
 			dev_err(dd->dev, "%s: BAM transfer setup failed\n",
 				__func__);
 	}
@@ -1749,9 +1955,10 @@ static void msm_spi_process_transfer(struct msm_spi *dd)
 					msm_spi_bam_flush(dd);
 				break;
 		}
-	} while (msm_spi_dm_send_next(dd));
+	} while (msm_spi_dma_send_next(dd));
 
-	msm_spi_udelay(dd->cur_transfer->delay_usecs);
+	msm_spi_udelay(dd->xfrs_delay_usec);
+
 transfer_end:
 	msm_spi_dma_unmap_buffers(dd);
 	dd->mode = SPI_MODE_NONE;
@@ -1803,26 +2010,6 @@ static void get_transfer_length(struct msm_spi *dd)
 		dd->multi_xfr = 1;
 }
 
-static inline int combine_transfers(struct msm_spi *dd)
-{
-	struct spi_transfer *t = dd->cur_transfer;
-	struct spi_transfer *nxt;
-	int xfrs_grped = 1;
-
-	dd->cur_msg_len = dd->cur_transfer->len;
-	while (t->transfer_list.next != &dd->cur_msg->transfers) {
-		nxt = list_entry(t->transfer_list.next,
-				 struct spi_transfer,
-				 transfer_list);
-		if (t->cs_change != nxt->cs_change)
-			return xfrs_grped;
-		dd->cur_msg_len += nxt->len;
-		xfrs_grped++;
-		t = nxt;
-	}
-	return xfrs_grped;
-}
-
 static inline void write_force_cs(struct msm_spi *dd, bool set_flag)
 {
 	u32 spi_ioc;
@@ -1839,122 +2026,124 @@ static inline void write_force_cs(struct msm_spi *dd, bool set_flag)
 		writel_relaxed(spi_ioc, dd->base + SPI_IO_CONTROL);
 }
 
+static inline int combine_transfers(struct msm_spi *dd)
+{
+	struct spi_transfer *t = dd->cur_transfer;
+	struct spi_transfer *nxt;
+	int xfrs_grped = 1;
+	dd->xfrs_delay_usec = 0;
+
+	dd->bam.bam_rx_len = dd->bam.bam_tx_len = 0;
+
+	dd->cur_msg_len = dd->cur_transfer->len;
+
+	if (dd->cur_transfer->tx_buf)
+		dd->bam.bam_tx_len += dd->cur_transfer->len;
+	if (dd->cur_transfer->rx_buf)
+		dd->bam.bam_rx_len += dd->cur_transfer->len;
+
+	while (t->transfer_list.next != &dd->cur_msg->transfers) {
+		nxt = list_entry(t->transfer_list.next,
+				 struct spi_transfer,
+				 transfer_list);
+		if (t->cs_change != nxt->cs_change)
+			return xfrs_grped;
+		if (t->delay_usecs) {
+			dd->xfrs_delay_usec = t->delay_usecs;
+			dev_info(dd->dev, "SPI slave requests delay per txn :%d usecs",
+					t->delay_usecs);
+			return xfrs_grped;
+		}
+		if (nxt->tx_buf)
+			dd->bam.bam_tx_len += nxt->len;
+		if (nxt->rx_buf)
+			dd->bam.bam_rx_len += nxt->len;
+
+		dd->cur_msg_len += nxt->len;
+		xfrs_grped++;
+		t = nxt;
+	}
+
+	if (1 == xfrs_grped)
+		dd->xfrs_delay_usec = dd->cur_transfer->delay_usecs;
+
+	return xfrs_grped;
+}
+
 static void msm_spi_process_message(struct msm_spi *dd)
 {
 	int xfrs_grped = 0;
-	int cs_num;
 	int rc;
-	bool xfer_delay = false;
-	struct spi_transfer *tr;
 
+	dd->num_xfrs_grped = 0;
+	dd->bam.curr_rx_bytes_recvd = dd->bam.curr_tx_bytes_sent = 0;
 	dd->write_xfr_cnt = dd->read_xfr_cnt = 0;
-	cs_num = dd->cur_msg->spi->chip_select;
-	if ((!(dd->cur_msg->spi->mode & SPI_LOOP)) &&
-		(!(dd->cs_gpios[cs_num].valid)) &&
-		(dd->cs_gpios[cs_num].gpio_num >= 0)) {
-		rc = gpio_request(dd->cs_gpios[cs_num].gpio_num,
-				spi_cs_rsrcs[cs_num]);
-		if (rc) {
-			dev_err(dd->dev, "gpio_request for pin %d failed with "
-				"error %d\n", dd->cs_gpios[cs_num].gpio_num,
-				rc);
-			return;
-		}
-		dd->cs_gpios[cs_num].valid = 1;
-	}
+	rc = msm_spi_request_cs_gpio(dd);
+	if (rc)
+		return;
 
-	list_for_each_entry(tr,
-				&dd->cur_msg->transfers,
-				transfer_list) {
-		if (tr->delay_usecs) {
-			dev_info(dd->dev, "SPI slave requests delay per txn :%d",
-					tr->delay_usecs);
-			xfer_delay = true;
-			break;
-		}
-	}
-
-	/* Don't combine xfers if delay is needed after every xfer */
-	if (dd->qup_ver || xfer_delay) {
-		if (dd->qup_ver)
-			write_force_cs(dd, 0);
-		list_for_each_entry(dd->cur_transfer,
-				&dd->cur_msg->transfers,
-				transfer_list) {
-			struct spi_transfer *t = dd->cur_transfer;
-			struct spi_transfer *nxt;
-
-			if (t->transfer_list.next != &dd->cur_msg->transfers) {
-				nxt = list_entry(t->transfer_list.next,
+	dd->cur_transfer = list_first_entry(&dd->cur_msg->transfers,
 						struct spi_transfer,
 						transfer_list);
 
-				if (dd->qup_ver &&
-					t->cs_change == nxt->cs_change)
-					write_force_cs(dd, 1);
-				else if (dd->qup_ver)
-					write_force_cs(dd, 0);
-			}
+	get_transfer_length(dd);
+	if (dd->qup_ver || (dd->multi_xfr && !dd->read_len && !dd->write_len)) {
 
-			dd->cur_msg_len = dd->cur_transfer->len;
-			msm_spi_process_transfer(dd);
-		}
-	} else {
-		dd->cur_transfer = list_first_entry(&dd->cur_msg->transfers,
-						    struct spi_transfer,
-						    transfer_list);
-		get_transfer_length(dd);
-		if (dd->multi_xfr && !dd->read_len && !dd->write_len) {
-			/*
-			 * Handling of multi-transfers.
-			 * FIFO mode is used by default
-			 */
-			list_for_each_entry(dd->cur_transfer,
-					    &dd->cur_msg->transfers,
-					    transfer_list) {
-				if (!dd->cur_transfer->len)
-					goto error;
-				if (xfrs_grped) {
-					xfrs_grped--;
-					continue;
-				} else {
-					dd->read_len = dd->write_len = 0;
-					xfrs_grped = combine_transfers(dd);
-				}
+		if (dd->qup_ver)
+			write_force_cs(dd, 0);
 
-				dd->cur_tx_transfer = dd->cur_transfer;
-				dd->cur_rx_transfer = dd->cur_transfer;
-				msm_spi_process_transfer(dd);
+		/*
+		 * Handling of multi-transfers.
+		 * FIFO mode is used by default
+		 */
+		list_for_each_entry(dd->cur_transfer,
+					&dd->cur_msg->transfers,
+					transfer_list) {
+			if (!dd->cur_transfer->len)
+				goto error;
+			if (xfrs_grped) {
 				xfrs_grped--;
-			}
-		} else {
-			/* Handling of a single transfer or
-			 * WR-WR or WR-RD transfers
-			 */
-			if ((!dd->cur_msg->is_dma_mapped) &&
-			    (msm_spi_use_dma(dd, dd->cur_transfer,
-					dd->cur_transfer->bits_per_word))) {
-				/* Mapping of DMA buffers */
-				int ret = msm_spi_dma_map_buffers(dd);
-				if (ret < 0) {
-					dd->cur_msg->status = ret;
-					goto error;
-				}
+				continue;
+			} else {
+				dd->read_len = dd->write_len = 0;
+				xfrs_grped = combine_transfers(dd);
+				dd->num_xfrs_grped = xfrs_grped;
+				if (dd->qup_ver)
+					write_force_cs(dd, 1);
 			}
 
 			dd->cur_tx_transfer = dd->cur_transfer;
 			dd->cur_rx_transfer = dd->cur_transfer;
 			msm_spi_process_transfer(dd);
+			if (dd->qup_ver && !dd->xfrs_delay_usec)
+				write_force_cs(dd, 0);
+			xfrs_grped--;
 		}
+	} else {
+		/* Handling of a single transfer or
+		 * WR-WR or WR-RD transfers
+		 */
+		if ((!dd->cur_msg->is_dma_mapped) &&
+			(msm_spi_use_dma(dd, dd->cur_transfer,
+				dd->cur_transfer->bits_per_word))) {
+			/* Mapping of DMA buffers */
+			int ret = msm_spi_dma_map_buffers(dd);
+			if (ret < 0) {
+				dd->cur_msg->status = ret;
+				goto error;
+			}
+		}
+
+		dd->cur_tx_transfer = dd->cur_transfer;
+		dd->cur_rx_transfer = dd->cur_transfer;
+		dd->num_xfrs_grped = 1;
+		msm_spi_process_transfer(dd);
 	}
 
 	return;
 
 error:
-	if (dd->cs_gpios[cs_num].valid) {
-		gpio_free(dd->cs_gpios[cs_num].gpio_num);
-		dd->cs_gpios[cs_num].valid = 0;
-	}
+	msm_spi_free_cs_gpio(dd);
 }
 
 /**
