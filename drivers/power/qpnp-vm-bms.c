@@ -1097,6 +1097,59 @@ static int scale_soc_while_chg(struct qpnp_bms_chip *chip, int chg_time_sec,
 	return scaled_soc;
 }
 
+static int report_eoc(struct qpnp_bms_chip *chip)
+{
+	int rc = 0;
+	union power_supply_propval ret = {0,};
+
+	if (chip->batt_psy == NULL)
+		chip->batt_psy = power_supply_get_by_name("battery");
+	if (chip->batt_psy) {
+		rc = chip->batt_psy->get_property(chip->batt_psy,
+				POWER_SUPPLY_PROP_STATUS, &ret);
+		if (ret.intval != POWER_SUPPLY_STATUS_FULL) {
+			pr_debug("Report EOC to charger\n");
+			ret.intval = POWER_SUPPLY_STATUS_FULL;
+			rc = chip->batt_psy->set_property(chip->batt_psy,
+					POWER_SUPPLY_PROP_STATUS, &ret);
+			if (rc)
+				pr_err("Unable to set 'STATUS' rc=%d\n", rc);
+		}
+	} else {
+		pr_err("battery psy not registered\n");
+	}
+
+	return rc;
+}
+
+static void check_eoc_condition(struct qpnp_bms_chip *chip)
+{
+	/*
+	 * Store the OCV value at 100. If the new ocv is greater than
+	 * ocv_at_100 (battery settles), update ocv_at_100. Else
+	 * if the SOC drops, reset ocv_at_100.
+	 */
+	if (chip->ocv_at_100 == -EINVAL) {
+		if (chip->last_soc == 100) {
+			chip->ocv_at_100 = chip->last_ocv_uv;
+			pr_debug("Battery FULL\n");
+			if (chip->dt.cfg_report_charger_eoc)
+				report_eoc(chip);
+		}
+	} else {
+		if (chip->last_ocv_uv >= chip->ocv_at_100) {
+			pr_debug("new_ocv(%d) > ocv_at_100(%d) maintaining SOC to 100\n",
+					chip->last_ocv_uv, chip->ocv_at_100);
+			chip->ocv_at_100 = chip->last_ocv_uv;
+			chip->last_soc = 100;
+		} else if (chip->last_soc != 100) {
+			pr_debug("SOC dropped (%d) discarding ocv_at_100\n",
+							chip->calculated_soc);
+			chip->ocv_at_100 = -EINVAL;
+		}
+	}
+}
+
 static int report_voltage_based_soc(struct qpnp_bms_chip *chip)
 {
 	pr_debug("Reported voltage based soc = %d\n",
@@ -1195,7 +1248,10 @@ static int report_vm_bms_soc(struct qpnp_bms_chip *chip)
 	if (chip->last_soc != soc && !chip->last_soc_unbound)
 		chip->last_soc_change_sec = last_change_sec;
 
-	chip->last_soc = bound_soc(soc);
+	if (bound_soc(soc) != chip->last_soc) {
+		chip->last_soc = bound_soc(soc);
+		check_eoc_condition(chip);
+	}
 
 	pr_debug("last_soc=%d calculated_soc=%d soc=%d time_since_last_change=%d\n",
 			chip->last_soc, chip->calculated_soc,
@@ -1415,59 +1471,6 @@ low_soc_exit:
 	mutex_unlock(&chip->state_change_mutex);
 }
 
-static int report_eoc(struct qpnp_bms_chip *chip)
-{
-	int rc = 0;
-	union power_supply_propval ret = {0,};
-
-	if (chip->batt_psy == NULL)
-		chip->batt_psy = power_supply_get_by_name("battery");
-	if (chip->batt_psy) {
-		rc = chip->batt_psy->get_property(chip->batt_psy,
-				POWER_SUPPLY_PROP_STATUS, &ret);
-		if (ret.intval != POWER_SUPPLY_STATUS_FULL) {
-			pr_debug("Report EOC to charger\n");
-			ret.intval = POWER_SUPPLY_STATUS_FULL;
-			rc = chip->batt_psy->set_property(chip->batt_psy,
-					POWER_SUPPLY_PROP_STATUS, &ret);
-			if (rc)
-				pr_err("Unable to set 'STATUS' rc=%d\n", rc);
-		}
-	} else {
-		pr_err("battery psy not registered\n");
-	}
-
-	return rc;
-}
-
-static void check_eoc_condition(struct qpnp_bms_chip *chip)
-{
-	/*
-	 * Store the OCV value at 100. If the new ocv is greater than
-	 * ocv_at_100 (battery settles), update ocv_at_100. Else
-	 * if the SOC drops, reset ocv_at_100.
-	 */
-	if (chip->ocv_at_100 == -EINVAL) {
-		if (chip->calculated_soc == 100) {
-			chip->ocv_at_100 = chip->last_ocv_uv;
-			pr_debug("Battery FULL\n");
-			if (chip->dt.cfg_report_charger_eoc)
-				report_eoc(chip);
-		}
-	} else {
-		if (chip->last_ocv_uv >= chip->ocv_at_100) {
-			pr_debug("new_ocv(%d) > ocv_at_100(%d) maintaining SOC to 100\n",
-					chip->last_ocv_uv, chip->ocv_at_100);
-			chip->ocv_at_100 = chip->last_ocv_uv;
-			chip->calculated_soc = 100;
-		} else if (chip->calculated_soc != 100) {
-			pr_debug("SOC dropped (%d) discarding ocv_at_100\n",
-							chip->calculated_soc);
-			chip->ocv_at_100 = -EINVAL;
-		}
-	}
-}
-
 static int calculate_soc_from_voltage(struct qpnp_bms_chip *chip)
 {
 	int voltage_range_uv, voltage_remaining_uv, voltage_based_soc;
@@ -1565,7 +1568,6 @@ static void monitor_soc_work(struct work_struct *work)
 
 				/* low SOC configuration */
 				low_soc_check(chip);
-				check_eoc_condition(chip);
 				pr_debug("update bms_psy\n");
 				power_supply_changed(&chip->bms_psy);
 			} else {
