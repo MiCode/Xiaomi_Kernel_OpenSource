@@ -98,6 +98,9 @@ static ssize_t fwu_sysfs_store_image(struct file *data_file,
 		struct kobject *kobj, struct bin_attribute *attributes,
 		char *buf, loff_t pos, size_t count);
 
+static ssize_t fwu_sysfs_force_reflash_store(struct device *dev,
+		struct device_attribute *attr, const char *buf, size_t count);
+
 static ssize_t fwu_sysfs_do_reflash_store(struct device *dev,
 		struct device_attribute *attr, const char *buf, size_t count);
 
@@ -109,6 +112,9 @@ static ssize_t fwu_sysfs_read_config_store(struct device *dev,
 
 static ssize_t fwu_sysfs_config_area_store(struct device *dev,
 		struct device_attribute *attr, const char *buf, size_t count);
+
+static ssize_t fwu_sysfs_image_name_show(struct device *dev,
+		struct device_attribute *attr, char *buf);
 
 static ssize_t fwu_sysfs_image_name_store(struct device *dev,
 		struct device_attribute *attr, const char *buf, size_t count);
@@ -288,8 +294,11 @@ static struct bin_attribute dev_attr_data = {
 
 
 static struct device_attribute attrs[] = {
-	__ATTR(doreflash, S_IWUGO,
-			synaptics_rmi4_show_error,
+	__ATTR(force_update_fw, S_IWUSR | S_IWGRP,
+			NULL,
+			fwu_sysfs_force_reflash_store),
+	__ATTR(update_fw, S_IWUSR | S_IWGRP,
+			NULL,
 			fwu_sysfs_do_reflash_store),
 	__ATTR(writeconfig, S_IWUGO,
 			synaptics_rmi4_show_error,
@@ -300,8 +309,8 @@ static struct device_attribute attrs[] = {
 	__ATTR(configarea, S_IWUGO,
 			synaptics_rmi4_show_error,
 			fwu_sysfs_config_area_store),
-	__ATTR(fw_name, S_IWUGO,
-			synaptics_rmi4_show_error,
+	__ATTR(fw_name, S_IRUGO | S_IWUSR | S_IWGRP,
+			fwu_sysfs_image_name_show,
 			fwu_sysfs_image_name_store),
 	__ATTR(imagesize, S_IWUGO,
 			synaptics_rmi4_show_error,
@@ -1481,6 +1490,44 @@ static ssize_t fwu_sysfs_store_image(struct file *data_file,
 	return count;
 }
 
+static ssize_t fwu_sysfs_force_reflash_store(struct device *dev,
+		struct device_attribute *attr, const char *buf, size_t count)
+{
+	int retval;
+	unsigned int input;
+	struct synaptics_rmi4_data *rmi4_data = fwu->rmi4_data;
+
+	if (sscanf(buf, "%u", &input) != 1) {
+		retval = -EINVAL;
+		goto exit;
+	}
+
+	if (input != 1) {
+		retval = -EINVAL;
+		goto exit;
+	}
+
+	if (LOCKDOWN)
+		fwu->do_lockdown = true;
+
+	fwu->force_update = true;
+	retval = synaptics_dsx_fw_updater(fwu->ext_data_source);
+	if (retval < 0) {
+		dev_err(rmi4_data->pdev->dev.parent,
+				"%s: Failed to do reflash\n",
+				__func__);
+		goto exit;
+	}
+
+	retval = count;
+exit:
+	kfree(fwu->ext_data_source);
+	fwu->ext_data_source = NULL;
+	fwu->force_update = FORCE_UPDATE;
+	fwu->do_lockdown = DO_LOCKDOWN;
+	return retval;
+}
+
 static ssize_t fwu_sysfs_do_reflash_store(struct device *dev,
 		struct device_attribute *attr, const char *buf, size_t count)
 {
@@ -1594,6 +1641,16 @@ static ssize_t fwu_sysfs_config_area_store(struct device *dev,
 	fwu->config_area = config_area;
 
 	return count;
+}
+
+static ssize_t fwu_sysfs_image_name_show(struct device *dev,
+		struct device_attribute *attr, char *buf)
+{
+	if (strnlen(fwu->rmi4_data->fw_name, SYNA_FW_NAME_MAX_LEN) > 0)
+		return snprintf(buf, PAGE_SIZE, "%s\n",
+					fwu->rmi4_data->fw_name);
+	else
+		return snprintf(buf, PAGE_SIZE, "No firmware name given\n");
 }
 
 static ssize_t fwu_sysfs_image_name_store(struct device *dev,
