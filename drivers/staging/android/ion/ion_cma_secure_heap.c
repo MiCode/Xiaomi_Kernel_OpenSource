@@ -613,7 +613,7 @@ static void *ion_secure_cma_map_kernel(struct ion_heap *heap,
 {
 	pr_info("%s: kernel mapping from secure heap %s disallowed\n",
 		__func__, heap->name);
-	return NULL;
+	return ERR_PTR(-EINVAL);
 }
 
 static void ion_secure_cma_unmap_kernel(struct ion_heap *heap,
