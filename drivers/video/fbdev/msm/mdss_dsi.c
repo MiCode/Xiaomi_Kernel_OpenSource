@@ -959,11 +959,104 @@ int mdss_dsi_cont_splash_on(struct mdss_panel_data *pdata)
 	return ret;
 }
 
-static int mdss_dsi_dfps_config(struct mdss_panel_data *pdata, int new_fps)
+static void __mdss_dsi_update_video_mode_total(struct mdss_panel_data *pdata,
+		int new_fps)
+{
+	u32 hsync_period, vsync_period;
+	u32 new_dsi_v_total, current_dsi_v_total;
+	struct mdss_dsi_ctrl_pdata *ctrl_pdata = NULL;
+
+	if (pdata == NULL) {
+		pr_err("%s Invalid pdata\n", __func__);
+		return;
+	}
+
+	ctrl_pdata = container_of(pdata, struct mdss_dsi_ctrl_pdata,
+			panel_data);
+	if (ctrl_pdata == NULL) {
+		pr_err("%s Invalid ctrl_pdata\n", __func__);
+		return;
+	}
+
+	vsync_period =
+		mdss_panel_get_vtotal(&pdata->panel_info);
+	hsync_period =
+		mdss_panel_get_htotal(&pdata->panel_info, true);
+	current_dsi_v_total =
+		MIPI_INP((ctrl_pdata->ctrl_base) + 0x2C);
+	new_dsi_v_total =
+		((vsync_period - 1) << 16) | (hsync_period - 1);
+
+	MIPI_OUTP((ctrl_pdata->ctrl_base) + 0x2C,
+			(current_dsi_v_total | 0x8000000));
+	if (new_dsi_v_total & 0x8000000) {
+		MIPI_OUTP((ctrl_pdata->ctrl_base) + 0x2C,
+				new_dsi_v_total);
+	} else {
+		MIPI_OUTP((ctrl_pdata->ctrl_base) + 0x2C,
+				(new_dsi_v_total | 0x8000000));
+		MIPI_OUTP((ctrl_pdata->ctrl_base) + 0x2C,
+				(new_dsi_v_total & 0x7ffffff));
+	}
+	ctrl_pdata->panel_data.panel_info.mipi.frame_rate = new_fps;
+
+}
+
+static int __mdss_dsi_dfps_update_clks(struct mdss_panel_data *pdata,
+		int new_fps)
 {
 	int rc = 0;
 	struct mdss_dsi_ctrl_pdata *ctrl_pdata = NULL;
 	u32 dsi_ctrl;
+
+	if (pdata == NULL) {
+		pr_err("%s Invalid pdata\n", __func__);
+		return -EINVAL;
+	}
+
+	ctrl_pdata = container_of(pdata, struct mdss_dsi_ctrl_pdata,
+			panel_data);
+	if (ctrl_pdata == NULL) {
+		pr_err("%s Invalid ctrl_pdata\n", __func__);
+		return -EINVAL;
+	}
+
+	rc = mdss_dsi_clk_div_config
+		(&ctrl_pdata->panel_data.panel_info, new_fps);
+	if (rc) {
+		pr_err("%s: unable to initialize the clk dividers\n",
+				__func__);
+		return rc;
+	}
+	ctrl_pdata->pclk_rate =
+		pdata->panel_info.mipi.dsi_pclk_rate;
+	ctrl_pdata->byte_clk_rate =
+		pdata->panel_info.clk_rate / 8;
+
+	if (pdata->panel_info.dfps_update
+			== DFPS_IMMEDIATE_CLK_UPDATE_MODE) {
+		dsi_ctrl = MIPI_INP((ctrl_pdata->ctrl_base) +
+				0x0004);
+		pdata->panel_info.mipi.frame_rate = new_fps;
+		dsi_ctrl &= ~0x2;
+		MIPI_OUTP((ctrl_pdata->ctrl_base) + 0x0004,
+				dsi_ctrl);
+		mdss_dsi_controller_cfg(true, pdata);
+		mdss_dsi_clk_ctrl(ctrl_pdata, DSI_ALL_CLKS, 0);
+		mdss_dsi_clk_ctrl(ctrl_pdata, DSI_ALL_CLKS, 1);
+		dsi_ctrl |= 0x2;
+		MIPI_OUTP((ctrl_pdata->ctrl_base) + 0x0004,
+				dsi_ctrl);
+	}
+
+	return rc;
+}
+
+static int mdss_dsi_dfps_config(struct mdss_panel_data *pdata, int new_fps)
+{
+	int rc = 0;
+	struct mdss_dsi_ctrl_pdata *ctrl_pdata = NULL;
+	struct mdss_dsi_ctrl_pdata *sctrl_pdata = NULL;
 
 	pr_debug("%s+:\n", __func__);
 
@@ -981,59 +1074,39 @@ static int mdss_dsi_dfps_config(struct mdss_panel_data *pdata, int new_fps)
 		return -EINVAL;
 	}
 
+	/*
+	 * DFPS registers were already programmed while programming
+	 * the first controller(DSI0). Ignore DSI1 reguest.
+	 */
+	if (mdss_dsi_is_slave_ctrl(ctrl_pdata)) {
+		pr_debug("%s DFPS already updated.\n", __func__);
+		return rc;
+	}
+
+	sctrl_pdata = mdss_dsi_get_slave_ctrl();
+
 	if (new_fps !=
 		ctrl_pdata->panel_data.panel_info.mipi.frame_rate) {
 		if (pdata->panel_info.dfps_update
 			== DFPS_IMMEDIATE_PORCH_UPDATE_MODE) {
-			u32 hsync_period, vsync_period;
-			u32 new_dsi_v_total, current_dsi_v_total;
-			vsync_period =
-				mdss_panel_get_vtotal(&pdata->panel_info);
-			hsync_period =
-				mdss_panel_get_htotal(&pdata->panel_info, true);
-			current_dsi_v_total =
-				MIPI_INP((ctrl_pdata->ctrl_base) + 0x2C);
-			new_dsi_v_total =
-				((vsync_period - 1) << 16) | (hsync_period - 1);
-			MIPI_OUTP((ctrl_pdata->ctrl_base) + 0x2C,
-				(current_dsi_v_total | 0x8000000));
-			if (new_dsi_v_total & 0x8000000) {
-				MIPI_OUTP((ctrl_pdata->ctrl_base) + 0x2C,
-					new_dsi_v_total);
-			} else {
-				MIPI_OUTP((ctrl_pdata->ctrl_base) + 0x2C,
-					(new_dsi_v_total | 0x8000000));
-				MIPI_OUTP((ctrl_pdata->ctrl_base) + 0x2C,
-					(new_dsi_v_total & 0x7ffffff));
-			}
-			pdata->panel_info.mipi.frame_rate = new_fps;
-		} else {
-			rc = mdss_dsi_clk_div_config
-				(&ctrl_pdata->panel_data.panel_info, new_fps);
-			if (rc) {
-				pr_err("%s: unable to initialize the clk dividers\n",
-								__func__);
-				return rc;
-			}
-			ctrl_pdata->pclk_rate =
-				pdata->panel_info.mipi.dsi_pclk_rate;
-			ctrl_pdata->byte_clk_rate =
-				pdata->panel_info.clk_rate / 8;
 
-			if (pdata->panel_info.dfps_update
-					== DFPS_IMMEDIATE_CLK_UPDATE_MODE) {
-				dsi_ctrl = MIPI_INP((ctrl_pdata->ctrl_base) +
-						    0x0004);
-				pdata->panel_info.mipi.frame_rate = new_fps;
-				dsi_ctrl &= ~0x2;
-				MIPI_OUTP((ctrl_pdata->ctrl_base) + 0x0004,
-								dsi_ctrl);
-				mdss_dsi_controller_cfg(true, pdata);
-				mdss_dsi_clk_ctrl(ctrl_pdata, DSI_ALL_CLKS, 0);
-				mdss_dsi_clk_ctrl(ctrl_pdata, DSI_ALL_CLKS, 1);
-				dsi_ctrl |= 0x2;
-				MIPI_OUTP((ctrl_pdata->ctrl_base) + 0x0004,
-								dsi_ctrl);
+			__mdss_dsi_update_video_mode_total(pdata, new_fps);
+			if (sctrl_pdata) {
+				pr_debug("%s Updating slave ctrl DFPS\n",
+						__func__);
+				__mdss_dsi_update_video_mode_total(
+						&sctrl_pdata->panel_data,
+						new_fps);
+			}
+
+		} else {
+			rc = __mdss_dsi_dfps_update_clks(pdata, new_fps);
+			if (!rc && sctrl_pdata) {
+				pr_debug("%s Updating slave ctrl DFPS\n",
+						__func__);
+				rc = __mdss_dsi_dfps_update_clks(
+						&sctrl_pdata->panel_data,
+						new_fps);
 			}
 		}
 	} else {
