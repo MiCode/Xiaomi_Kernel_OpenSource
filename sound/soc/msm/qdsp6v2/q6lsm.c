@@ -37,6 +37,7 @@
 #define LSM_ALIGN_BOUNDARY 512
 #define LSM_SAMPLE_RATE 16000
 #define QLSM_PARAM_ID_MINOR_VERSION 1
+static int lsm_afe_port;
 
 enum {
 	CMD_STATE_CLEARED = 0,
@@ -574,6 +575,16 @@ exit:
 	return rc;
 }
 
+void set_lsm_port(int lsm_port)
+{
+	lsm_afe_port = lsm_port;
+}
+
+int get_lsm_port()
+{
+	return lsm_afe_port;
+}
+
 int q6lsm_register_sound_model(struct lsm_client *client,
 			       enum lsm_detection_mode mode,
 			       bool detectfailure)
@@ -591,7 +602,7 @@ int q6lsm_register_sound_model(struct lsm_client *client,
 		return -EINVAL;
 	}
 	client->mode |= detectfailure << 2;
-	client->connect_to_port = AFE_PORT_ID_SLIMBUS_MULTI_CHAN_5_TX;
+	client->connect_to_port = get_lsm_port();
 
 	rc = q6lsm_set_params(client);
 	if (rc < 0) {
