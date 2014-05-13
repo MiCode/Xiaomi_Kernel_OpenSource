@@ -28,6 +28,7 @@
 		qcom,model = "apq8084-taiko-liquid-snd-card";
 
 		qcom,audio-routing =
+			"AIF4 VI", "MCLK",
 			"RX_BIAS", "MCLK",
 			"LDO_H", "MCLK",
 			"Lineout_1 amp", "LINEOUT1",
