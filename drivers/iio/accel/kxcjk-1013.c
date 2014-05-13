@@ -327,7 +327,6 @@ static int kxcjk1013_get_acc_reg(struct kxcjk1013_data *data, int axis)
 		return ret;
 	}
 
-	ret &= KXCJK1013_DATA_MASK_12_BIT;
 
 	return ret;
 }
@@ -433,7 +432,7 @@ static const struct attribute_group kxcjk1013_attrs_group = {
 		.sign = 's',						\
 		.realbits = 12,						\
 		.storagebits = 16,					\
-		.shift = 0,						\
+		.shift = 4,						\
 	},								\
 }
 
@@ -465,10 +464,11 @@ static irqreturn_t kxcjk1013_trigger_handler(int irq, void *p)
 			 indio_dev->masklength) {
 		ret = kxcjk1013_get_acc_reg(data, bit);
 		if (ret < 0) {
+			kxcjk1013_chip_ack_intr(data);
 			mutex_unlock(&data->mutex);
 			goto err;
 		}
-		((s16 *)data->buffer)[i++] = ret;
+		data->buffer[i++] = ret;
 	}
 
 	kxcjk1013_chip_ack_intr(data);
