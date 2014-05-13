@@ -99,6 +99,7 @@ struct acdb_data {
 	/* Av sync delay info */
 	struct hw_delay hw_delay_rx;
 	struct hw_delay hw_delay_tx;
+	struct meta_info_t metainfo;
 };
 
 static struct acdb_data		acdb_data;
@@ -967,6 +968,103 @@ done:
 	return result;
 }
 
+static int store_meta_info(void *arg)
+{
+	int result = 0;
+
+	result = copy_from_user((void *)&(acdb_data.metainfo.nKeyValue),
+				(void *)arg, sizeof(uint32_t));
+	if (result) {
+		pr_err("ACDB=> %s failed to copy metaInfo Key: result=%d\n",
+			__func__, result);
+		result = -EFAULT;
+		goto done;
+	}
+	result = copy_from_user((void *)&(acdb_data.metainfo.nBufferLength),
+		(void *)(arg + sizeof(uint32_t)), sizeof(uint32_t));
+	if (result) {
+		pr_err("ACDB=> %s failed to copy metaInfo size: result=%d\n",
+			__func__, result);
+		result = -EFAULT;
+		goto done;
+	}
+	if (acdb_data.metainfo.nBufferLength > MAX_META_INFO_SIZE) {
+		pr_err("ACDB=> %s metaInfo size too large (%d)\n",
+			__func__, acdb_data.metainfo.nBufferLength);
+		result = -EFAULT;
+		goto done;
+
+	}
+	if (acdb_data.metainfo.nBuffer != NULL) {
+		pr_err("ACDB=> %s metaInfo already there\n",
+			__func__);
+		result = -EEXIST;
+		goto done;
+	}
+	acdb_data.metainfo.nBuffer =
+			kmalloc(acdb_data.metainfo.nBufferLength, GFP_KERNEL);
+	if (acdb_data.metainfo.nBuffer == NULL) {
+		pr_err("%s : Failed to allocate metaInfo\n",
+			__func__);
+		result = -ENOMEM;
+		goto done;
+	}
+
+	result = copy_from_user((void *)(acdb_data.metainfo.nBuffer),
+		 (void *)(*(uint32_t **)(arg + sizeof(uint32_t)*2)),
+		 acdb_data.metainfo.nBufferLength);
+
+	if (result) {
+		pr_err("ACDB=> %s failed to copy metaInfo : result=%d\n",
+			__func__, result);
+		kfree(acdb_data.metainfo.nBuffer);
+		result = -EFAULT;
+		goto done;
+	}
+
+done:
+	return result;
+}
+
+int get_meta_info_size(uint32_t key, uint32_t *size)
+{
+	int result = 0;
+
+	mutex_lock(&acdb_data.acdb_mutex);
+	if (key == acdb_data.metainfo.nKeyValue)
+		*size = acdb_data.metainfo.nBufferLength;
+	else
+		result = -EINVAL;
+
+	mutex_unlock(&acdb_data.acdb_mutex);
+
+	return result;
+}
+
+int get_meta_info(struct meta_info_t *metainfo)
+{
+	int result = 0;
+
+	if (metainfo == NULL || metainfo->nBuffer == NULL) {
+		pr_err("ACDB=> NULL pointer sent to %s\n", __func__);
+		result = -EINVAL;
+		goto done;
+	}
+	mutex_lock(&acdb_data.acdb_mutex);
+	if (metainfo->nKeyValue == acdb_data.metainfo.nKeyValue &&
+	    metainfo->nBufferLength == acdb_data.metainfo.nBufferLength &&
+	    acdb_data.metainfo.nBuffer  != NULL)
+		memcpy(metainfo->nBuffer, acdb_data.metainfo.nBuffer,
+			acdb_data.metainfo.nBufferLength);
+	else {
+		pr_err("ACDB=> wrong data %s\n", __func__);
+		result = -EINVAL;
+	}
+	mutex_unlock(&acdb_data.acdb_mutex);
+done:
+	return result;
+}
+
 int get_spk_protection_cfg(struct msm_spk_prot_cfg *prot_cfg)
 {
 	int result = 0;
@@ -1053,6 +1151,7 @@ static int acdb_open(struct inode *inode, struct file *f)
 
 	acdb_data.valid_adm_custom_top = 1;
 	acdb_data.valid_asm_custom_top = 1;
+	acdb_data.metainfo.nBuffer  = NULL;
 	acdb_data.usage_count++;
 	mutex_unlock(&acdb_data.acdb_mutex);
 
@@ -1368,6 +1467,9 @@ static long acdb_ioctl(struct file *f,
 	case AUDIO_SET_HW_DELAY_TX:
 		result = store_hw_delay(TX_CAL, (void *)arg);
 		goto done;
+	case AUDIO_SET_META_INFO:
+		result = store_meta_info((void *)arg);
+		goto done;
 	}
 
 	if (copy_from_user(&size, (void *) arg, sizeof(size))) {
@@ -1525,6 +1627,8 @@ static int acdb_release(struct inode *inode, struct file *f)
 		result = -EBUSY;
 		goto done;
 	}
+	if (acdb_data.metainfo.nBuffer != NULL)
+		kfree(acdb_data.metainfo.nBuffer);
 
 	result = deregister_memory();
 done:
