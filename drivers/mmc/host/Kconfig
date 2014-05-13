@@ -93,6 +93,21 @@ config MMC_SDHCI_ACPI
 
 	  If unsure, say N.
 
+config MMC_SDHCI_ACPI_FORCE_POWER_ON
+	bool "Force Power On through ACPI methods"
+	depends on MMC_SDHCI_ACPI
+	help
+	  This forces the controller and all connected devices to
+	  power on before probing. This is done using ACPI.
+
+	  Some devices may have separate enabling lines that are
+	  controlled through GPIO. By calling the ACPI _PS0 method,
+	  these devices will be powered on and enabled before
+	  probing. This is to ensure all devices connected can be
+	  seen by the controller.
+
+	  If unsure, say N.
+
 config MMC_SDHCI_PLTFM
 	tristate "SDHCI platform and OF driver helper"
 	depends on MMC_SDHCI
