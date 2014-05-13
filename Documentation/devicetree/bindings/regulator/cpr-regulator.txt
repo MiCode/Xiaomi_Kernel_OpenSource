@@ -18,17 +18,22 @@ Required properties:
 				"efuse_addr"
 - regulator-name:		A string used to describe the regulator
 - interrupts:			Interrupt line from RBCPR to interrupt controller.
-- regulator-min-microvolt:	Minimum corner value as min constraint, which
-				should be 1 for SVS corner
-- regulator-max-microvolt:	Maximum corner value as max constraint, which
-				should be 4 for SUPER_TURBO or 3 for TURBO
-- qcom,cpr-voltage-ceiling:	Ceiling voltages of SVS, NOM and TURBO corners respectively
-- qcom,cpr-voltage-floor:	Floor voltages of SVS, NOM and TURBO corners respectively
-				The ceiling voltages for each of above two
-				properties may look like this:
-				  0 (SVS voltage):		1050000 uV
-				  1 (NORMAL voltage):		1150000 uV
-				  2 (TURBO voltage):		1275000 uV
+- qcom,cpr-fuse-corners:	Number of fuse corners present.  Many other properties
+				are sized based upon this value.
+- regulator-min-microvolt:	Minimum corner value which should be 1 to
+				represent the lowest supported corner.
+- regulator-max-microvolt:	Maximum corner value which should be equal to
+				qcom,cpr-fuse-corners if consumers request fuse
+				corners or the length of qcom,cpr-corner-map if
+				consumers request virtual corners.
+- qcom,cpr-voltage-ceiling:	Array of ceiling voltages in microvolts for fuse
+				corners ordered from lowest voltage corner to highest
+				voltage corner.  This property must be of length
+				defined by qcom,cpr-fuse-corners.
+- qcom,cpr-voltage-floor:	Array of floor voltages in microvolts for fuse
+				corners ordered from lowest voltage corner to highest
+				voltage corner.  This property must be of length
+				defined by qcom,cpr-fuse-corners.
 - vdd-apc-supply:		Regulator to supply VDD APC power
 - qcom,vdd-apc-step-up-limit:	Limit of vdd-apc-supply steps for scaling up.
 - qcom,vdd-apc-step-down-limit:	Limit of vdd-apc-supply steps for scaling down.
@@ -52,17 +57,20 @@ Required properties:
 				index and value like this:
 				 [0] => the fuse row number
 				 [1] => fuse reading method, 0 for direct reading or 1 for SCM reading
-- qcom,cpr-fuse-target-quot:	Array of bit positions in fuse for Target Quotient of all corners.
-				It should have index and value like this:
-				  [0] => bit position of the LSB bit for SVS target quotient
-				  [1] => bit position of the LSB bit for NOMINAL target quotient
-				  [2] => bit position of the LSB bit for TURBO target quotient
-- qcom,cpr-fuse-ro-sel:		Array of bit positions in fuse for RO select of all corners.
-				It should have index and value like this:
-				  [0] => bit position of the LSB bit for SVS RO select bits
-				  [1] => bit position of the LSB bit for NOMINAL RO select bits
-				  [2] => bit position of the LSB bit for TURBO RO select bits
-
+- qcom,cpr-fuse-target-quot:	Array of bit positions in the primary CPR fuse row defined
+				by qcom,cpr-fuse-row for the target quotients of each
+				fuse corner.  Each bit position corresponds to the LSB
+				of the quotient parameter.  The elements in the array
+				are ordered from lowest voltage corner to highest voltage
+				corner.  This property must be of length defined by
+				qcom,cpr-fuse-corners.
+- qcom,cpr-fuse-ro-sel:		Array of bit positions in the primary CPR fuse row defined
+				by qcom,cpr-fuse-row for the ring oscillator selection for each
+				fuse corner.  Each bit position corresponds to the LSB
+				of the RO select parameter.  The elements in the array
+				are ordered from lowest voltage corner to highest voltage
+				corner.  This property must be of length defined by
+				qcom,cpr-fuse-corners.
 
 Optional properties:
 - vdd-mx-supply:		Regulator to supply memory power as dependency
@@ -78,19 +86,23 @@ Optional properties:
 				  3 => equal to qcom,vdd-mx-vmax
 				  4 => equal to VDD_APC corner mapped vdd-mx voltage
 				This is required when vdd-mx-supply is present.
-- qcom,vdd-mx-corner-map:	Array of 3 elements which defines the mapping from VDD_APC
+- qcom,vdd-mx-corner-map:	Array of integers which defines the mapping from VDD_APC
 				fuse voltage corners to vdd-mx-supply voltages.
-				The 3 elements with index[0..2] are:
-				[0] => voltage to set for vdd-mx when VDD_APC is running at SVS corner
-				[1] => voltage to set for vdd-mx when VDD_APC is running at NOM corner
-				[2] => voltage to set for vdd-mx when VDD_APC is running at TURBO corner
-				This is required when the qcom,vdd-mx-vmin-method property has a value of 4.
-- qcom,pvs-voltage-table: 	Array of triples in which each triple indicates the initial voltage
-				of the PVS bin in SVS, NOM and Turbo corner in microvolts.
-				The location or 0-based index of an triple in the
-				list corresponds to the bin number.
-				A given cpr-regulator device must have either qcom,pvs-voltage-table specified
-				or qcom,cpr-fuse-init-voltage (and its associated properties).
+				Each element is a voltage to request from vdd-mx
+				for the corresponding fuse corner.  The elements
+				in the array are ordered from lowest voltage corner
+				to highest voltage corner.  This property must be
+				of length defined by qcom,cpr-fuse-corners.
+				This is required when the qcom,vdd-mx-vmin-method
+				property has a value of 4.
+- qcom,pvs-voltage-table: 	Array of N-tuples in which each tuple specifies the
+				initial voltage in microvolts of the PVS bin for each
+				fuse voltage corner.  The location or 0-based index
+				of a tuple in the list corresponds to the PVS bin number.
+				Each tuple must be of length defined by qcom,cpr-fuse-corners.
+				A given cpr-regulator device must have either
+				qcom,pvs-voltage-table specified or
+				qcom,cpr-fuse-init-voltage (and its associated properties).
 - qcom,pvs-fuse-redun-sel:	Array of 5 elements to indicate where to read the bits, what value to
 				compare with in order to decide if the redundant PVS fuse bits would be
 				used instead of the original bits and method to read fuse row, reading
@@ -139,17 +151,19 @@ Optional properties:
 				 [0] => the redundant fuse row number
 				 [1] => the value to indicate reading the fuse row directly or using SCM
 				This property is required if qcom,cpr-fuse-redun-sel is present.
-- qcom,cpr-fuse-redun-target-quot:	Array of bit positions in fuse for redundant Target Quotient of all corners.
-				It should have index and value like this:
-				  [0] => bit position of the LSB bit for redundant SVS target quotient
-				  [1] => bit position of the LSB bit for redundant NOMINAL target quotient
-				  [2] => bit position of the LSB bit for redundant TURBO target quotient
+- qcom,cpr-fuse-redun-target-quot:	Array of bit positions in the redundant CPR fuse row defined
+				by qcom,cpr-fuse-redun-row for the target quotients of each
+				fuse corner.  Each bit position corresponds to the LSB
+				of the quotient parameter.  The elements in the array
+				are ordered from lowest voltage corner to highest voltage corner.
+				This property must be of length defined by qcom,cpr-fuse-corners.
 				This property is required if qcom,cpr-fuse-redun-sel is present.
-- qcom,cpr-fuse-redun-ro-sel:	Array of bit positions in eFuse for redundant RO select.
-				It should have index and value like this:
-				  [0] => bit position of the LSB bit for redundant SVS RO select bits
-				  [1] => bit position of the LSB bit for redundant NOMINAL RO select bits
-				  [2] => bit position of the LSB bit for redundant TURBO RO select bits
+- qcom,cpr-fuse-redun-ro-sel:	Array of bit positions in the redundant CPR fuse row defined
+				by qcom,cpr-fuse-redun-row for the ring oscillator select of each
+				fuse corner.  Each bit position corresponds to the LSB of the RO
+				select parameter.  The elements in the array are ordered from
+				lowest voltage corner to highest voltage corner.
+				This property must be of length defined by qcom,cpr-fuse-corners.
 				This property is required if qcom,cpr-fuse-redun-sel is present.
 - qcom,cpr-fuse-redun-bp-cpr-disable:	Redundant bit position of the bit to indicate if CPR should be disable
 - qcom,cpr-fuse-redun-bp-scheme:	Redundant bit position of the bit to indicate if it's a global/local scheme
@@ -157,13 +171,11 @@ Optional properties:
 					is present, and vise versa.
 - qcom,cpr-fuse-bp-cpr-disable:	Bit position of the bit to indicate if CPR should be disabled
 - qcom,cpr-fuse-bp-scheme:     Bit position of the bit to indicate if it's a global/local scheme
-- qcom,cpr-fuse-target-quot-size:	Array of bit size in the CPR fuse for the target quotient of all corners.
-					The elements with index[0..2] are:
-					  [0] => bit size of the SVS target quotient
-					  [1] => bit size of the NOMINAL target quotient
-					  [2] => bit size of the TURBO target quotient
-					If this property is not present, then all target quotient fuse values
-					are assumed to be the default length of 12 bits.
+- qcom,cpr-fuse-target-quot-size:	Array of target quotient parameter bit sizes in the primary
+				or redundant CPR fuse row for each fuse corner.  The elements in the
+				array are ordered from lowest voltage corner to highest voltage corner.
+				If this property is not present, then all target quotient fuse values
+				are assumed to be the default length of 12 bits.
 - qcom,cpr-enable:		Present: CPR enabled by default.
 				Not Present: CPR disable by default.
 - qcom,cpr-fuse-cond-min-volt-sel:	Array of 5 elements to indicate where to read the bits,  what value to
@@ -179,7 +191,7 @@ Optional properties:
 				the value in 4th element, then set the apc voltage for all parts running
 				at each voltage corner to be not lower than the voltage defined
 				using "qcom,cpr-cond-min-voltage".
-- qcom,cpr-cond-min-voltage:	Minimum voltage in microvolts for SVS, NOM and TURBO mode if the fuse bits
+- qcom,cpr-cond-min-voltage:	Minimum voltage in microvolts allowed for cpr-regulator output if the fuse bits
 				defined in qcom,cpr-fuse-cond-min-volt-sel have not been programmed with the
 				expected data. This is required if cpr-fuse-cond-min-volt-sel is present.
 - qcom,cpr-fuse-uplift-sel: 	Array of 5 elements to indicate where to read the bits, what value to
@@ -207,39 +219,39 @@ Optional properties:
 - qcom,cpr-uplift-max-volt:	Maximum voltage in microvolts used for pvs voltage uplift workaround to limit
 				the maximum pvs voltage.
 				This is required if cpr-fuse-uplift-disable-sel is present.
-- qcom,cpr-uplift-quotient:	Three numbers used for pvs voltage uplift workaround to be added to the target
-				quotient for each corner.
-				The 3 quotient increment with index[0..2] are:
-				[0]: => for SVS corner target quotient;
-				[1]: => for NORM corner target quotient;
-				[2]: => for TURBO corner target quotient;
-				This is required if cpr-fuse-uplift-disable-sel is present.
+- qcom,cpr-uplift-quotient:	Array of target quotient increments to add to the fused quotients of each
+				fuse corner as part of the PVS voltage uplift workaround.
+				The elements in the array are ordered from lowest voltage
+				corner to highest voltage corner.  This property must be of
+				length defined by qcom,cpr-fuse-corners.  This is required
+				if cpr-fuse-uplift-disable-sel is present.
 - qcom,cpr-uplift-speed-bin:	The speed bin value corresponding to one type of processor which needs to apply the
 				pvs voltage uplift workaround.
 				This is required if cpr-fuse-uplift-disable-sel is present.
-- qcom,cpr-quotient-adjustment:	Array of three elements of CPR quotient adjustments for each corner.
-				The 3 quotient adjustments with index[0..2] are:
-				[0] => amount to add to the SVS quotient
-				[1] => amount to add to the NORM quotient
-				[2] => amount to add to the TURBO quotient
-				If this property is specified, then the quotient adjustment values are added to the target
-				quotient values read from fuses before writing them into the CPR GCNT target control registers.
+- qcom,cpr-quotient-adjustment:	Array of target quotient adjustments to add to the fused quotients of each
+				fuse corner.  The elements in the array are ordered from lowest voltage
+				corner to highest voltage corner.  This property must be of length defined
+				by qcom,cpr-fuse-corners.  If this property is specified, then the quotient
+				adjustment values are added to the target quotient values read from fuses
+				before writing them into the CPR GCNT target control registers.
 				This property can be used to add static margin to the voltage rail managed by the CPR controller.
 - vdd-apc-optional-prim-supply:	Present: Regulator of highest priority to supply VDD APC power
 				Not Present: No such regulator.
 - vdd-apc-optional-sec-supply:	Present: Regulator of second highest priority to supply VDD APC power.
 				Not Present: No such regulator.
-- qcom,cpr-speed-bin-max-corners: Array of quintuples in which each quintuple maps a CPU speed bin and PVS version to
-				the maximum virtual voltage corner corresponding to the SVS, NORMAL and TURBO corners.
-				The 5 elements in one quintuple are:
-				[0]: => the speed bin of the CPU.
-				[1]: => the PVS version of the CPU. If device does't have PVS version fuse, set the value to 0.
-				[2]: => the max virtual voltage corner value corresponding to SVS corner for this speed bin.
-				[3]: => the max virtual voltage corner value corresponding to NORMAL corner for this speed bin.
-				[4]: => the max virtual voltage corner value corresponding to TURBO corner for this speed bin.
+- qcom,cpr-speed-bin-max-corners: Array of (N+2)-tuples in which each tuple maps a CPU speed bin and PVS version to
+				the maximum virtual voltage corner corresponding to each fuse corner.  The value N
+				corresponds to the number of fuse corners specified by qcom,cpr-fuse-corners.
+				The elements in one tuple are:
+				[0]: =>		the speed bin of the CPU.
+				[1]: =>		the PVS version of the CPU. If device does't have PVS version fuse,
+						set the value to 0.
+				[2 - N+1]: =>	the max virtual voltage corner value corresponding each fuse corner
+						for this speed bin ordered from lowest voltage corner to highest
+						voltage corner.
 				No CPR target quotient scaling is applied on chips which have a speed bin + PVS version
-				pair that does not appear in one of the quintuples in this property. If the property is
-				specified, then quotient scaling is enabled for the TURBO corner. If this property is
+				pair that does not appear in one of the tuples in this property. If the property is
+				specified, then quotient scaling is enabled for the highest voltage corner. If this property is
 				not specified, then no quotient scaling can take place.
 - qcom,cpr-corner-map:		Array of elements of fuse corner value for each virtual corner.
 				The location or 1-based index of an element in the list corresponds to
@@ -262,13 +274,13 @@ Optional properties:
 - qcom,cpr-quot-adjust-scaling-factor-max: The maximum allowed CPR target quotient scaling factor to use when
 				calculating the quotient adjustment for a given virtual voltage corner. It
 				corresponds to 'scaling' in this equation:
-				quot_adjust = (freq_turbo - freq_corner) * scaling / 1000.
+				quot_adjust = (freq_max - freq_corner) * scaling / 1000.
 				This property is required if qcom,cpr-speed-bin-max-corners is present.
 - qcom,cpr-fuse-init-voltage:	Array of quadruples in which each quadruple specifies a fuse location to
-				read in order to get an initial voltage for the SVS, NORMAL, or TURBO fuse
-				corner. The fuse values are encoded as voltage steps higher or lower than
-				the voltages defined in qcom,cpr-voltage-ceiling. Each step corresponds
-				to the voltage defined by the qcom,cpr-init-voltage-step property.
+				read in order to get an initial voltage for a fuse corner. The fuse values
+				are encoded as voltage steps higher or lower than the voltages defined in
+				qcom,cpr-voltage-ceiling. Each step corresponds to the voltage defined by
+				the qcom,cpr-init-voltage-step property.
 				The 4 elements in one quadruple are:
 				[0]: => the fuse row number of the bits
 				[1]: => LSB bit position of the bits
@@ -292,6 +304,7 @@ Example:
 		reg-names = "rbcpr", "efuse_addr";
 		interrupts = <0 15 0>;
 		regulator-name = "apc_corner";
+		qcom,cpr-fuse-corners = <3>;
 		regulator-min-microvolt = <1>;
 		regulator-max-microvolt = <12>;
 
