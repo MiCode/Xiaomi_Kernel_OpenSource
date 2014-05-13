@@ -55,6 +55,7 @@
 #define APDS993X_COE_C	70	/* 0.70 without glass window */
 #define APDS993X_COE_D	142	/* 1.42 without glass window */
 #define APDS993X_DF	52
+#define ALS_MAX_RANGE	60000
 
 /* Change History
  *
@@ -268,7 +269,7 @@ static struct sensors_classdev sensors_light_cdev = {
 	.version = 1,
 	.handle = SENSORS_LIGHT_HANDLE,
 	.type = SENSOR_TYPE_LIGHT,
-	.max_range = "30000",
+	.max_range = "60000",
 	.resolution = "0.0125",
 	.sensor_power = "0.20",
 	.min_delay = 0, /* in microseconds */
@@ -662,7 +663,7 @@ static int LuxCalculation(struct i2c_client *client, int ch0data, int ch1data)
 
 	if (ch0data >= apds993x_als_res_tb[data->als_atime_index] ||
 	    ch1data >= apds993x_als_res_tb[data->als_atime_index]) {
-		luxValue = 30*1000;
+		luxValue = data->als_prev_lux;
 		return luxValue;
 	}
 
@@ -762,17 +763,16 @@ static void apds993x_change_als_threshold(struct i2c_client *client)
 	luxValue = LuxCalculation(client, ch0data, ch1data);
 
 	if (luxValue >= 0) {
-		luxValue = (luxValue < 30000) ? luxValue : 30000;
+		luxValue = (luxValue < ALS_MAX_RANGE)
+					? luxValue : ALS_MAX_RANGE;
 		data->als_prev_lux = luxValue;
 	} else {
 		/* don't report, the lux is invalid value */
 		lux_is_valid = 0;
 		luxValue = data->als_prev_lux;
-		if (data->als_reduce) {
+		if (data->als_reduce)
 			lux_is_valid = 1;
 			/* report anyway since this is the lowest gain */
-			luxValue = 30000;
-		}
 	}
 
 	/*
@@ -912,17 +912,16 @@ static void apds993x_als_polling_work_handler(struct work_struct *work)
 	luxValue = LuxCalculation(client, ch0data, ch1data);
 
 	if (luxValue >= 0) {
-		luxValue = luxValue<30000 ? luxValue : 30000;
+		luxValue = (luxValue < ALS_MAX_RANGE)
+					? luxValue : ALS_MAX_RANGE;
 		data->als_prev_lux = luxValue;
 	} else {
 		/* don't report, this is invalid lux value */
 		lux_is_valid = 0;
 		luxValue = data->als_prev_lux;
-		if (data->als_reduce) {
+		if (data->als_reduce)
 			lux_is_valid = 1;
 			/* report anyway since this is the lowest gain */
-			luxValue = 30000;
-		}
 	}
 	/*
 	pr_info("%s: lux=%d ch0data=%d ch1data=%d pdata=%d delay=%d again=%d "
@@ -2428,7 +2427,7 @@ static int apds993x_probe(struct i2c_client *client,
 	set_bit(EV_ABS, data->input_dev_als->evbit);
 	set_bit(EV_ABS, data->input_dev_ps->evbit);
 
-	input_set_abs_params(data->input_dev_als, ABS_MISC, 0, 30000, 0, 0);
+	input_set_abs_params(data->input_dev_als, ABS_MISC, 0, 60000, 0, 0);
 	input_set_abs_params(data->input_dev_ps, ABS_DISTANCE, 0, 1, 0, 0);
 
 	data->input_dev_als->name = "light";
