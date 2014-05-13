@@ -141,6 +141,7 @@ static int crystal_cove_init(void)
 {
 	pr_debug("Crystal Cove: ID 0x%02X, VERSION 0x%02X\n",
 		 intel_soc_pmic_readb(CHIPID), intel_soc_pmic_readb(CHIPVER));
+	intel_pmic_install_handlers(&crystal_cove_pmic);
 	return 0;
 }
 

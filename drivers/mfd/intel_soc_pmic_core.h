@@ -51,6 +51,16 @@ struct intel_pmic_irqregmap {
 	struct intel_pmic_regmap	ack;
 };
 
+struct acpi_lpat {
+	int tmp;
+	int raw;
+};
+
+struct intel_pmic_opregion {
+	struct acpi_lpat *lpat;
+	int lpat_count;
+};
+
 struct intel_soc_pmic {
 	const char			*label;
 	struct device			*dev;
@@ -68,10 +78,12 @@ struct intel_soc_pmic {
 	int				(*writeb)(int, u8);
 	struct intel_pmic_irqregmap	*irq_regmap;
 	struct mfd_cell			*cell_dev;
+	struct intel_pmic_opregion	*opregion;
 };
 
 int intel_pmic_add(struct intel_soc_pmic *chip);
 int intel_pmic_remove(struct intel_soc_pmic *chip);
+void intel_pmic_install_handlers(struct intel_soc_pmic *);
 
 extern struct intel_soc_pmic crystal_cove_pmic;
 extern struct intel_soc_pmic dollar_cove_pmic;
