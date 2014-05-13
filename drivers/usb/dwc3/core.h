@@ -868,6 +868,8 @@ struct dwc3 {
 	bool			hsphy_auto_suspend_disable;
 	bool			enable_suspend_event;
 	struct dwc3_gadget_events	dbg_gadget_events;
+
+	atomic_t		in_lpm;
 };
 
 /* -------------------------------------------------------------------------- */
