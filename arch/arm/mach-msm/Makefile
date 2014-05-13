@@ -51,7 +51,6 @@ obj-$(CONFIG_MSM_PM) += ext-buck-control.o
 
 CFLAGS_msm_vibrator.o += -Idrivers/staging/android
 
-obj-$(CONFIG_MSM_RMT_STORAGE_CLIENT) += rmt_storage_client.o
 obj-$(CONFIG_MSM_LPM_TEST) += test-lpm.o
 obj-$(CONFIG_MSM_TZ_LOG) += tz_log.o
 obj-$(CONFIG_MSM_BUSPM_DEV) += msm-buspm-dev.o

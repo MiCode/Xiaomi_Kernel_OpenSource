@@ -660,22 +660,6 @@ config MSM_RPC_LOOPBACK_XPRT
 	  Support for routing RPC messages between APPS clients
 	  and APPS servers.  Helps in testing APPS RPC framework.
 
-config MSM_RMT_STORAGE_CLIENT
-	depends on (ARCH_MSM && MSM_ONCRPCROUTER)
-	default n
-	bool "Remote Storage RPC client"
-	help
-	  Provide RPC mechanism for remote processors to access storage
-	  device on apps processor.
-
-config MSM_RMT_STORAGE_CLIENT_STATS
-	depends on (MSM_RMT_STORAGE_CLIENT && DEBUG_FS)
-	default n
-	bool "Remote storage RPC client performance statistics"
-	help
-	  Collects performance statistics and shows this information
-	  through a debugfs file rmt_storage_stats.
-
 if CPU_FREQ_MSM
 
 config MSM_CPU_FREQ_SET_MIN_MAX
