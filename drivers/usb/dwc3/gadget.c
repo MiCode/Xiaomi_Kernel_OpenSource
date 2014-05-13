@@ -39,6 +39,7 @@
 #include "io.h"
 
 static void dwc3_gadget_wakeup_interrupt(struct dwc3 *dwc);
+static int dwc3_gadget_wakeup_int(struct dwc3 *dwc);
 
 /**
  * dwc3_gadget_set_test_mode - Enables USB2 Test Modes
@@ -1168,6 +1169,39 @@ static int __dwc3_gadget_ep_queue(struct dwc3_ep *dep, struct dwc3_request *req)
 	return 0;
 }
 
+static int dwc3_gadget_wakeup(struct usb_gadget *g)
+{
+	struct dwc3		*dwc = gadget_to_dwc(g);
+	unsigned long		flags;
+	int			ret = 0;
+
+	spin_lock_irqsave(&dwc->lock, flags);
+
+	if (atomic_read(&dwc->in_lpm)) {
+		schedule_work(&dwc->wakeup_work);
+		pr_debug("Core is in low-power mode. Scheduling wakeup work.\n");
+		ret = -EBUSY;
+	} else {
+		pr_debug("Core is active. Initiating remote wakeup.\n");
+		ret = dwc3_gadget_wakeup_int(dwc);
+		if (ret)
+			pr_err("Remote wakeup failed. ret = %d\n", ret);
+		else
+			pr_debug("Remote wake up succeeded.\n");
+	}
+
+	spin_unlock_irqrestore(&dwc->lock, flags);
+
+	return ret;
+}
+
+static inline enum dwc3_link_state dwc3_get_link_state(struct dwc3 *dwc)
+{
+	u32 reg;
+	reg = dwc3_readl(dwc->regs, DWC3_DSTS);
+	return DWC3_DSTS_USBLNKST(reg);
+}
+
 static int dwc3_gadget_ep_queue(struct usb_ep *ep, struct usb_request *request,
 	gfp_t gfp_flags)
 {
@@ -1385,21 +1419,40 @@ static int dwc3_gadget_get_frame(struct usb_gadget *g)
 	return DWC3_DSTS_SOFFN(reg);
 }
 
-static int dwc3_gadget_wakeup(struct usb_gadget *g)
+static void dwc3_gadget_wakeup_work(struct work_struct *w)
 {
-	struct dwc3		*dwc = gadget_to_dwc(g);
-
-	unsigned long		timeout;
+	struct dwc3		*dwc;
 	unsigned long		flags;
+	int			ret;
+
+	dwc = container_of(w, struct dwc3, wakeup_work);
+
+	spin_lock_irqsave(&dwc->lock, flags);
+
+	if (atomic_read(&dwc->in_lpm)) {
+		spin_unlock_irqrestore(&dwc->lock, flags);
+		pm_runtime_get_sync(dwc->dev);
+		spin_lock_irqsave(&dwc->lock, flags);
+	}
+
+	ret = dwc3_gadget_wakeup_int(dwc);
+
+	if (ret)
+		pr_err("Remote wakeup failed. ret = %d.\n", ret);
+	else
+		pr_debug("Remote wakeup succeeded.\n");
+
+	spin_unlock_irqrestore(&dwc->lock, flags);
+}
+
+static int dwc3_gadget_wakeup_int(struct dwc3 *dwc)
+{
+	u32			timeout = 0;
 	bool			link_recover_only = false;
 
 	u32			reg;
-
 	int			ret = 0;
-
 	u8			link_state;
-
-	spin_lock_irqsave(&dwc->lock, flags);
 
 	/*
 	 * According to the Databook Remote wakeup request should
@@ -1407,9 +1460,7 @@ static int dwc3_gadget_wakeup(struct usb_gadget *g)
 	 *
 	 * We can check that via USB Link State bits in DSTS register.
 	 */
-	reg = dwc3_readl(dwc->regs, DWC3_DSTS);
-
-	link_state = DWC3_DSTS_USBLNKST(reg);
+	link_state = dwc3_get_link_state(dwc);
 
 	switch (link_state) {
 	case DWC3_LINK_STATE_RX_DET:	/* in HS, means Early Suspend */
@@ -1443,21 +1494,21 @@ static int dwc3_gadget_wakeup(struct usb_gadget *g)
 	}
 
 	/* poll until Link State changes to ON */
-	timeout = jiffies + msecs_to_jiffies(100);
 
-	spin_unlock_irqrestore(&dwc->lock, flags);
-	while (!time_after(jiffies, timeout)) {
+	do {
 		reg = dwc3_readl(dwc->regs, DWC3_DSTS);
 
 		/* in HS, means ON */
 		if (DWC3_DSTS_USBLNKST(reg) == DWC3_LINK_STATE_U0)
 			break;
-	}
-	spin_lock_irqsave(&dwc->lock, flags);
+		udelay(10);
+		timeout++;
+	} while (timeout < 10000);
 
 	if (DWC3_DSTS_USBLNKST(reg) != DWC3_LINK_STATE_U0) {
 		dev_err(dwc->dev, "failed to send remote wakeup\n");
 		ret = -EINVAL;
+		goto out;
 	}
 
 	/*
@@ -1470,7 +1521,6 @@ static int dwc3_gadget_wakeup(struct usb_gadget *g)
 	if (!link_recover_only)
 		dwc3_gadget_wakeup_interrupt(dwc);
 out:
-	spin_unlock_irqrestore(&dwc->lock, flags);
 
 	return ret;
 }
@@ -3019,6 +3069,8 @@ static irqreturn_t dwc3_interrupt(int irq, void *_dwc)
 int dwc3_gadget_init(struct dwc3 *dwc)
 {
 	int					ret;
+
+	INIT_WORK(&dwc->wakeup_work, dwc3_gadget_wakeup_work);
 
 	dwc->ctrl_req = dma_alloc_coherent(dwc->dev, sizeof(*dwc->ctrl_req),
 			&dwc->ctrl_req_addr, GFP_KERNEL);

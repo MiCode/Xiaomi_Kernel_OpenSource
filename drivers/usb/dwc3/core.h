@@ -26,6 +26,7 @@
 #include <linux/dma-mapping.h>
 #include <linux/mm.h>
 #include <linux/debugfs.h>
+#include <linux/workqueue.h>
 
 #include <linux/usb/ch9.h>
 #include <linux/usb/gadget.h>
@@ -879,6 +880,7 @@ struct dwc3 {
 	u8			test_mode_nr;
 
 	void (*notify_event)	(struct dwc3 *, unsigned);
+	struct work_struct	wakeup_work;
 
 	unsigned		delayed_status:1;
 	unsigned		ep0_bounced:1;
