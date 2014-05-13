@@ -38,6 +38,7 @@
 #include "msm-dolby-dap-config.h"
 #include "q6voice.h"
 #include "q6core.h"
+#include "sound/q6lsm.h"
 
 #define EC_PORT_ID_PRIMARY_MI2S_TX    1
 #define EC_PORT_ID_SECONDARY_MI2S_TX  2
@@ -69,11 +70,13 @@ enum {
 #define SLIMBUS_3_TX_TEXT "SLIMBUS_3_TX"
 #define SLIMBUS_4_TX_TEXT "SLIMBUS_4_TX"
 #define SLIMBUS_5_TX_TEXT "SLIMBUS_5_TX"
+#define TERT_MI2S_TX_TEXT "TERT_MI2S_TX"
 #define LSM_FUNCTION_TEXT "LSM Function"
 static const char * const mad_audio_mux_text[] = {
 	"None",
 	SLIMBUS_0_TX_TEXT, SLIMBUS_1_TX_TEXT, SLIMBUS_2_TX_TEXT,
-	SLIMBUS_3_TX_TEXT, SLIMBUS_4_TX_TEXT, SLIMBUS_5_TX_TEXT
+	SLIMBUS_3_TX_TEXT, SLIMBUS_4_TX_TEXT, SLIMBUS_5_TX_TEXT,
+	TERT_MI2S_TX_TEXT
 };
 
 
@@ -870,9 +873,38 @@ static int msm_routing_lsm_mux_put(struct snd_kcontrol *kcontrol,
 	struct snd_soc_dapm_widget *widget = wlist->widgets[0];
 	struct soc_enum *e = (struct soc_enum *)kcontrol->private_value;
 	int mux = ucontrol->value.enumerated.item[0];
+	int lsm_port = AFE_PORT_ID_SLIMBUS_MULTI_CHAN_5_TX;
 
 	pr_debug("%s: LSM enable %ld\n", __func__,
-		 ucontrol->value.integer.value[0]);
+			ucontrol->value.integer.value[0]);
+	switch (ucontrol->value.integer.value[0]) {
+	case 1:
+		lsm_port = AFE_PORT_ID_SLIMBUS_MULTI_CHAN_0_TX;
+		break;
+	case 2:
+		lsm_port = AFE_PORT_ID_SLIMBUS_MULTI_CHAN_1_TX;
+		break;
+	case 3:
+		lsm_port = AFE_PORT_ID_SLIMBUS_MULTI_CHAN_2_TX;
+		break;
+	case 4:
+		lsm_port = AFE_PORT_ID_SLIMBUS_MULTI_CHAN_3_TX;
+		break;
+	case 5:
+		lsm_port = AFE_PORT_ID_SLIMBUS_MULTI_CHAN_4_TX;
+		break;
+	case 6:
+		lsm_port = AFE_PORT_ID_SLIMBUS_MULTI_CHAN_5_TX;
+		break;
+	case 7:
+		lsm_port = AFE_PORT_ID_TERTIARY_MI2S_TX;
+		break;
+	default:
+		pr_err("Default lsm port");
+		break;
+	}
+	set_lsm_port(lsm_port);
+
 	if (ucontrol->value.integer.value[0]) {
 		lsm_mux_slim_port = ucontrol->value.integer.value[0];
 		snd_soc_dapm_mux_update_power(widget, kcontrol, mux, e);
@@ -900,6 +932,12 @@ static int msm_routing_lsm_func_get(struct snd_kcontrol *kcontrol,
 	if (i-- == ARRAY_SIZE(mad_audio_mux_text)) {
 		WARN(1, "Invalid id name %s\n", kcontrol->id.name);
 		return -EINVAL;
+	}
+
+	/*Check for Tertiary TX port*/
+	if (!strcmp(kcontrol->id.name, mad_audio_mux_text[7])) {
+		ucontrol->value.integer.value[0] = MADSWAUDIO;
+		return 0;
 	}
 
 	port_id = i * 2 + 1 + SLIMBUS_0_RX;
@@ -967,6 +1005,12 @@ static int msm_routing_lsm_func_put(struct snd_kcontrol *kcontrol,
 	default:
 		WARN(1, "Unknown\n");
 		return -EINVAL;
+	}
+
+	/*Check for Tertiary TX port*/
+	if (!strcmp(kcontrol->id.name, mad_audio_mux_text[7])) {
+		port_id = AFE_PORT_ID_TERTIARY_MI2S_TX;
+		mad_type = MAD_SW_AUDIO;
 	}
 
 	pr_debug("%s: port_id 0x%x, mad_type %d\n", __func__, port_id,
@@ -2765,6 +2809,8 @@ static const struct snd_kcontrol_new lsm_function[] = {
 		     msm_routing_lsm_func_get, msm_routing_lsm_func_put),
 	SOC_ENUM_EXT(SLIMBUS_5_TX_TEXT" "LSM_FUNCTION_TEXT, lsm_func_enum,
 		     msm_routing_lsm_func_get, msm_routing_lsm_func_put),
+	SOC_ENUM_EXT(TERT_MI2S_TX_TEXT" "LSM_FUNCTION_TEXT, lsm_func_enum,
+		    msm_routing_lsm_func_get, msm_routing_lsm_func_put),
 };
 
 static const char * const aanc_slim_0_rx_text[] = {
@@ -3890,6 +3936,7 @@ static const struct snd_soc_dapm_route intercon[] = {
 	{"LSM1 MUX", "SLIMBUS_3_TX", "SLIMBUS_3_TX"},
 	{"LSM1 MUX", "SLIMBUS_4_TX", "SLIMBUS_4_TX"},
 	{"LSM1 MUX", "SLIMBUS_5_TX", "SLIMBUS_5_TX"},
+	{"LSM1 MUX", "TERT_MI2S_TX", "TERT_MI2S_TX"},
 	{"LSM1_UL_HL", NULL, "LSM1 MUX"},
 
 	{"LSM2 MUX", "SLIMBUS_0_TX", "SLIMBUS_0_TX"},
@@ -3897,6 +3944,7 @@ static const struct snd_soc_dapm_route intercon[] = {
 	{"LSM2 MUX", "SLIMBUS_3_TX", "SLIMBUS_3_TX"},
 	{"LSM2 MUX", "SLIMBUS_4_TX", "SLIMBUS_4_TX"},
 	{"LSM2 MUX", "SLIMBUS_5_TX", "SLIMBUS_5_TX"},
+	{"LSM2 MUX", "TERT_MI2S_TX", "TERT_MI2S_TX"},
 	{"LSM2_UL_HL", NULL, "LSM2 MUX"},
 
 
@@ -3905,6 +3953,7 @@ static const struct snd_soc_dapm_route intercon[] = {
 	{"LSM3 MUX", "SLIMBUS_3_TX", "SLIMBUS_3_TX"},
 	{"LSM3 MUX", "SLIMBUS_4_TX", "SLIMBUS_4_TX"},
 	{"LSM3 MUX", "SLIMBUS_5_TX", "SLIMBUS_5_TX"},
+	{"LSM3 MUX", "TERT_MI2S_TX", "TERT_MI2S_TX"},
 	{"LSM3_UL_HL", NULL, "LSM3 MUX"},
 
 
@@ -3913,6 +3962,7 @@ static const struct snd_soc_dapm_route intercon[] = {
 	{"LSM4 MUX", "SLIMBUS_3_TX", "SLIMBUS_3_TX"},
 	{"LSM4 MUX", "SLIMBUS_4_TX", "SLIMBUS_4_TX"},
 	{"LSM4 MUX", "SLIMBUS_5_TX", "SLIMBUS_5_TX"},
+	{"LSM4 MUX", "TERT_MI2S_TX", "TERT_MI2S_TX"},
 	{"LSM4_UL_HL", NULL, "LSM4 MUX"},
 
 	{"LSM5 MUX", "SLIMBUS_0_TX", "SLIMBUS_0_TX"},
@@ -3920,6 +3970,7 @@ static const struct snd_soc_dapm_route intercon[] = {
 	{"LSM5 MUX", "SLIMBUS_3_TX", "SLIMBUS_3_TX"},
 	{"LSM5 MUX", "SLIMBUS_4_TX", "SLIMBUS_4_TX"},
 	{"LSM5 MUX", "SLIMBUS_5_TX", "SLIMBUS_5_TX"},
+	{"LSM5 MUX", "TERT_MI2S_TX", "TERT_MI2S_TX"},
 	{"LSM5_UL_HL", NULL, "LSM5 MUX"},
 
 	{"LSM6 MUX", "SLIMBUS_0_TX", "SLIMBUS_0_TX"},

@@ -181,6 +181,7 @@ int q6lsm_register_sound_model(struct lsm_client *client,
 			       bool detectfailure);
 int q6lsm_deregister_sound_model(struct lsm_client *client);
 int q6lsm_set_kw_sensitivity_level(struct lsm_client *client,
-				   u16 minkeyword, u16 minuser);
-
+				u16 minkeyword, u16 minuser);
+void set_lsm_port(int);
+int get_lsm_port(void);
 #endif /* __Q6LSM_H__ */
