@@ -209,6 +209,50 @@ int msm_pcie_get_debug_mask(void)
 	return msm_pcie_debug_mask;
 }
 
+bool msm_pcie_confirm_linkup(struct msm_pcie_dev_t *dev,
+						bool check_sw_stts,
+						bool check_ep)
+{
+	u32 val;
+
+	if (check_sw_stts && (dev->link_status != MSM_PCIE_LINK_ENABLED)) {
+		PCIE_DBG(dev, "PCIe: The link of RC %d is not enabled.\n",
+			dev->rc_idx);
+		return false;
+	}
+
+	if (!(readl_relaxed(dev->dm_core + 0x80) & BIT(29))) {
+		PCIE_DBG(dev, "PCIe: The link of RC %d is not up.\n",
+			dev->rc_idx);
+		return false;
+	}
+
+	val = readl_relaxed(dev->dm_core);
+	PCIE_DBG(dev, "PCIe: device ID and vender ID of RC %d are 0x%x.\n",
+		dev->rc_idx, val);
+	if (val == PCIE_LINK_DOWN) {
+		PCIE_ERR(dev,
+			"PCIe: The link of RC %d is not really up; device ID and vender ID of RC %d are 0x%x.\n",
+			dev->rc_idx, dev->rc_idx, val);
+		return false;
+	}
+
+	if (check_ep) {
+		val = readl_relaxed(dev->conf);
+		PCIE_DBG(dev,
+			"PCIe: device ID and vender ID of EP of RC %d are 0x%x.\n",
+			dev->rc_idx, val);
+		if (val == PCIE_LINK_DOWN) {
+			PCIE_ERR(dev,
+				"PCIe: The link of RC %d is not really up; device ID and vender ID of EP of RC %d are 0x%x.\n",
+				dev->rc_idx, dev->rc_idx, val);
+			return false;
+		}
+	}
+
+	return true;
+}
+
 void msm_pcie_cfg_recover(struct msm_pcie_dev_t *dev, bool rc)
 {
 	int i;
@@ -1201,10 +1245,12 @@ int msm_pcie_enable(struct msm_pcie_dev_t *dev, u32 options)
 	do {
 		usleep_range(LINK_UP_TIMEOUT_US_MIN, LINK_UP_TIMEOUT_US_MAX);
 		val =  readl_relaxed(dev->elbi + PCIE20_ELBI_SYS_STTS);
-	} while (!(val & XMLH_LINK_UP) &&
-		(link_check_count++ < LINK_UP_CHECK_MAX_COUNT));
+	} while ((!(val & XMLH_LINK_UP) ||
+		!msm_pcie_confirm_linkup(dev, false, false))
+		&& (link_check_count++ < LINK_UP_CHECK_MAX_COUNT));
 
-	if (val & XMLH_LINK_UP)
+	if ((val & XMLH_LINK_UP) &&
+		msm_pcie_confirm_linkup(dev, false, false))
 		PCIE_DBG(dev, "Link is up after %d checkings\n",
 			link_check_count);
 	else
@@ -1213,7 +1259,9 @@ int msm_pcie_enable(struct msm_pcie_dev_t *dev, u32 options)
 
 	retries = 0;
 
-	while (!(val & XMLH_LINK_UP) && (retries < MAX_LINK_RETRIES)) {
+	while ((!(val & XMLH_LINK_UP) ||
+		!msm_pcie_confirm_linkup(dev, false, false))
+		&& (retries < MAX_LINK_RETRIES)) {
 		PCIE_ERR(dev, "RC%d:No. %ld:LTSSM_STATE:0x%x\n", dev->rc_idx,
 			retries + 1, (val >> 0xC) & 0x1f);
 		gpio_set_value(dev->gpio[MSM_PCIE_GPIO_PERST].num,
@@ -1230,7 +1278,8 @@ int msm_pcie_enable(struct msm_pcie_dev_t *dev, u32 options)
 
 	PCIE_DBG(dev, "number of link training retries: %ld\n", retries);
 
-	if (val & XMLH_LINK_UP) {
+	if ((val & XMLH_LINK_UP) &&
+		msm_pcie_confirm_linkup(dev, false, false)) {
 		PCIE_INFO(dev, "PCIe RC%d link initialized\n", dev->rc_idx);
 	} else {
 		PCIE_INFO(dev, "PCIe: Assert the reset of endpoint of RC%d.\n",
@@ -2170,7 +2219,7 @@ int msm_pcie_recover_config(struct pci_dev *dev)
 		return -ENODEV;
 	}
 
-	if (msm_pcie_confirm_linkup(pcie_dev)) {
+	if (msm_pcie_confirm_linkup(pcie_dev, true, true)) {
 		PCIE_DBG(pcie_dev,
 			"Recover config space of RC%d and its EP\n",
 			pcie_dev->rc_idx);

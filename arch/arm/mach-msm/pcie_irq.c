@@ -188,7 +188,7 @@ static void handle_wake_func(struct work_struct *work)
 				"PCIe: The link status of RC%d is up. Check if it is really up.\n",
 					dev->rc_idx);
 
-			if (msm_pcie_confirm_linkup(dev)) {
+			if (msm_pcie_confirm_linkup(dev, false, true)) {
 				PCIE_DBG(dev,
 					"PCIe: The link status of RC%d is really up; so ignore wake IRQ.\n",
 					dev->rc_idx);
@@ -307,7 +307,7 @@ static void handle_linkdown_func(struct work_struct *work)
 
 	mutex_lock(&dev->recovery_lock);
 
-	if (msm_pcie_confirm_linkup(dev))
+	if (msm_pcie_confirm_linkup(dev, true, true))
 		PCIE_DBG(dev,
 			"PCIe: The link status of RC%d is up now, indicating recovery has been done.\n",
 			dev->rc_idx);

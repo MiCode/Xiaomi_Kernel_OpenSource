@@ -239,25 +239,10 @@ extern void msm_pcie_config_msi_controller(struct msm_pcie_dev_t *dev);
 extern int32_t msm_pcie_irq_init(struct msm_pcie_dev_t *dev);
 extern void msm_pcie_irq_deinit(struct msm_pcie_dev_t *dev);
 extern int msm_pcie_get_debug_mask(void);
+extern bool msm_pcie_confirm_linkup(struct msm_pcie_dev_t *dev,
+			bool check_sw_stts, bool check_ep);
 
 extern void pcie_phy_init(struct msm_pcie_dev_t *dev);
 extern bool pcie_phy_is_ready(struct msm_pcie_dev_t *dev);
-
-static inline bool msm_pcie_confirm_linkup(struct msm_pcie_dev_t *dev)
-{
-	if (dev->link_status != MSM_PCIE_LINK_ENABLED)
-		return false;
-
-	if (!(readl_relaxed(dev->dm_core + 0x80) & BIT(29)))
-		return false;
-
-	if (readl_relaxed(dev->dm_core) == PCIE_LINK_DOWN)
-		return false;
-
-	if (readl_relaxed(dev->conf) == PCIE_LINK_DOWN)
-		return false;
-
-	return true;
-}
 
 #endif
