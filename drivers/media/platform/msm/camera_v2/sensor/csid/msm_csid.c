@@ -544,8 +544,8 @@ static int32_t msm_csid_cmd32(struct csid_device *csid_dev, void __user *arg)
 	CDBG("%s cfgtype = %d\n", __func__, cdata->cfgtype);
 	switch (cdata->cfgtype) {
 	case CSID_INIT:
-		local_arg.cfg.csid_version  = arg32->cfg.csid_version;
 		rc = msm_csid_init(csid_dev, &cdata->cfg.csid_version);
+		arg32->cfg.csid_version = local_arg.cfg.csid_version;
 		CDBG("%s csid version 0x%x\n", __func__,
 			cdata->cfg.csid_version);
 		break;
