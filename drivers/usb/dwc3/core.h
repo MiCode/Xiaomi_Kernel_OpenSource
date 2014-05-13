@@ -900,6 +900,8 @@ struct dwc3 {
 	unsigned		enable_bus_suspend:1;
 
 	struct dwc3_gadget_events	dbg_gadget_events;
+
+	atomic_t		in_lpm;
 };
 
 /* -------------------------------------------------------------------------- */
