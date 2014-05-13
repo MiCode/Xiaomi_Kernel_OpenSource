@@ -591,6 +591,28 @@ struct emac_tpd_ring {
 	u32 last_produce_idx;
 };
 
+#define EMAC_HWTXTSTAMP_FIFO_DEPTH          8
+#define EMAC_TX_POLL_HWTXTSTAMP_THRESHOLD   EMAC_HWTXTSTAMP_FIFO_DEPTH
+
+/* HW tx timestamp */
+struct emac_hwtxtstamp {
+	u32 ts_idx;
+	u32 sec;
+	u32 ns;
+};
+
+struct emac_tx_tstamp_stats {
+	u32 tx;
+	u32 rx;
+	u32 deliver;
+	u32 drop;
+	u32 lost;
+	u32 timeout;
+	u32 sched;
+	u32 poll;
+	u32 tx_poll;
+};
+
 /* tx queue */
 struct emac_tx_queue {
 	struct device         *dev;     /* device for dma mapping */
@@ -638,6 +660,13 @@ struct emac_adapter {
 
 	struct emac_hw hw;
 	struct emac_hw_stats hw_stats;
+
+	/* tx timestamping queue */
+	struct sk_buff_head         hwtxtstamp_pending_queue;
+	struct sk_buff_head         hwtxtstamp_ready_queue;
+	struct work_struct          hwtxtstamp_task;
+	spinlock_t                  hwtxtstamp_lock; /* lock for hwtxtstamp */
+	struct emac_tx_tstamp_stats hwtxtstamp_stats;
 
 	struct work_struct emac_task;
 	struct timer_list  emac_timer;

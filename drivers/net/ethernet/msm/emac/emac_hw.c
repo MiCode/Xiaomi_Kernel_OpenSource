@@ -1496,3 +1496,20 @@ void emac_hw_set_mac_addr(struct emac_hw *hw, u8 *addr)
 	emac_reg_w32(hw, EMAC, EMAC_MAC_STA_ADDR1, sta);
 	wmb();
 }
+
+/* Read one entry from the HW tx timestamp FIFO */
+bool emac_hw_read_tx_tstamp(struct emac_hw *hw, struct emac_hwtxtstamp *ts)
+{
+	u32 ts_idx;
+
+	ts_idx = emac_reg_r32(hw, EMAC_CSR, EMAC_EMAC_WRAPPER_TX_TS_INX);
+
+	if (ts_idx & EMAC_WRAPPER_TX_TS_EMPTY)
+		return false;
+
+	ts->ns = emac_reg_r32(hw, EMAC_CSR, EMAC_EMAC_WRAPPER_TX_TS_LO);
+	ts->sec = emac_reg_r32(hw, EMAC_CSR, EMAC_EMAC_WRAPPER_TX_TS_HI);
+	ts->ts_idx = ts_idx & EMAC_WRAPPER_TX_TS_INX_BMSK;
+
+	return true;
+}
