@@ -59,6 +59,9 @@ struct mdss_mdp_writeback_ctx {
 
 	spinlock_t wb_lock;
 	struct list_head vsync_handlers;
+
+	ktime_t start_time;
+	ktime_t end_time;
 };
 
 static struct mdss_mdp_writeback_ctx wb_ctx_list[MDSS_MDP_MAX_WRITEBACK] = {
@@ -528,6 +531,7 @@ static int mdss_mdp_wb_wait4comp(struct mdss_mdp_ctl *ctl, void *arg)
 {
 	struct mdss_mdp_writeback_ctx *ctx;
 	int rc = 0;
+	u64 rot_time;
 
 	ctx = (struct mdss_mdp_writeback_ctx *) ctl->priv_data;
 	if (!ctx) {
@@ -549,6 +553,7 @@ static int mdss_mdp_wb_wait4comp(struct mdss_mdp_ctl *ctl, void *arg)
 		WARN(1, "writeback kickoff timed out (%d) ctl=%d\n",
 						rc, ctl->num);
 	} else {
+		ctx->end_time = ktime_get();
 		mdss_mdp_ctl_notify(ctl, MDP_NOTIFY_FRAME_DONE);
 		rc = 0;
 	}
@@ -563,6 +568,14 @@ static int mdss_mdp_wb_wait4comp(struct mdss_mdp_ctl *ctl, void *arg)
 	ctl->perf_release_ctl_bw = true;
 
 	ctx->comp_cnt--;
+
+	if (!rc) {
+		rot_time = (u64)ktime_to_us(ctx->end_time) -
+				(u64)ktime_to_us(ctx->start_time);
+		pr_debug("ctx%d type:%d xin_id:%d intf_num:%d took %llu microsecs\n",
+			ctx->wb_num, ctx->type, ctx->xin_id,
+				ctx->intf_num, rot_time);
+	}
 
 	return rc;
 }
@@ -629,8 +642,12 @@ static int mdss_mdp_writeback_display(struct mdss_mdp_ctl *ctl, void *arg)
 	mdss_mdp_irq_enable(ctx->intr_type, ctx->intf_num);
 
 	mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_ON, false);
+	ctx->start_time = ktime_get();
 	mdss_mdp_ctl_write(ctl, MDSS_MDP_REG_CTL_START, 1);
 	wmb();
+
+	pr_debug("ctx%d type:%d xin_id:%d intf_num:%d start\n",
+		ctx->wb_num, ctx->type, ctx->xin_id, ctx->intf_num);
 
 	ctx->comp_cnt++;
 
