@@ -221,6 +221,9 @@ struct lis3dh_acc_data {
 	struct i2c_client *client;
 	struct lis3dh_acc_platform_data *pdata;
 	struct sensors_classdev cdev;
+	struct pinctrl *pinctrl;
+	struct pinctrl_state *pin_default;
+	struct pinctrl_state *pin_sleep;
 
 	struct mutex lock;
 	struct delayed_work input_work;
@@ -513,11 +516,6 @@ static void lis3dh_acc_device_power_off(struct lis3dh_acc_data *acc)
 	if (err < 0)
 		dev_err(&acc->client->dev, "soft power off failed: %d\n", err);
 
-	if (gpio_is_valid(acc->pdata->gpio_int1))
-		disable_irq_nosync(acc->irq1);
-	if (gpio_is_valid(acc->pdata->gpio_int2))
-		disable_irq_nosync(acc->irq2);
-
 	lis3dh_acc_config_regulator(acc, false);
 
 	if (acc->hw_initialized) {
@@ -540,10 +538,6 @@ static int lis3dh_acc_device_power_on(struct lis3dh_acc_data *acc)
 		return err;
 	}
 
-	if (gpio_is_valid(acc->pdata->gpio_int1))
-		enable_irq(acc->irq1);
-	if (gpio_is_valid(acc->pdata->gpio_int2))
-		enable_irq(acc->irq2);
 
 	msleep(20);
 
@@ -774,6 +768,10 @@ static int lis3dh_acc_enable(struct lis3dh_acc_data *acc)
 	int err;
 
 	if (!atomic_cmpxchg(&acc->enabled, 0, 1)) {
+		if (pinctrl_select_state(acc->pinctrl, acc->pin_default))
+			dev_err(&acc->client->dev,
+				"Can't select pinctrl default state\n");
+
 		err = lis3dh_acc_device_power_on(acc);
 		if (err < 0) {
 			atomic_set(&acc->enabled, 0);
@@ -791,6 +789,9 @@ static int lis3dh_acc_disable(struct lis3dh_acc_data *acc)
 	if (atomic_cmpxchg(&acc->enabled, 1, 0)) {
 		cancel_delayed_work_sync(&acc->input_work);
 		lis3dh_acc_device_power_off(acc);
+		if (pinctrl_select_state(acc->pinctrl, acc->pin_sleep))
+			dev_err(&acc->client->dev,
+				"Can't select pinctrl sleep state\n");
 	}
 
 	return 0;
@@ -1300,6 +1301,33 @@ static void lis3dh_acc_input_cleanup(struct lis3dh_acc_data *acc)
 	input_free_device(acc->input_dev);
 }
 
+static int lis3dh_pinctrl_init(struct lis3dh_acc_data *acc)
+{
+	struct i2c_client *client = acc->client;
+
+	acc->pinctrl = devm_pinctrl_get(&client->dev);
+	if (IS_ERR_OR_NULL(acc->pinctrl)) {
+		dev_err(&client->dev, "Failed to get pinctrl\n");
+		return PTR_ERR(acc->pinctrl);
+	}
+
+	acc->pin_default =
+		pinctrl_lookup_state(acc->pinctrl, "lis3dh_default");
+	if (IS_ERR_OR_NULL(acc->pin_default)) {
+		dev_err(&client->dev, "Failed to look up default state\n");
+		return PTR_ERR(acc->pin_default);
+	}
+
+	acc->pin_sleep =
+		pinctrl_lookup_state(acc->pinctrl, "lis3dh_sleep");
+	if (IS_ERR_OR_NULL(acc->pin_sleep)) {
+		dev_err(&client->dev, "Failed to look up sleep state\n");
+		return PTR_ERR(acc->pin_sleep);
+	}
+
+	return 0;
+}
+
 #ifdef CONFIG_OF
 static int lis3dh_parse_dt(struct device *dev,
 			struct lis3dh_acc_platform_data *pdata)
@@ -1454,6 +1482,18 @@ static int lis3dh_acc_probe(struct i2c_client *client,
 		goto exit_kfree_pdata;
 	}
 
+	/* initialize pinctrl */
+	err = lis3dh_pinctrl_init(acc);
+	if (err) {
+		dev_err(&client->dev, "Can't initialize pinctrl\n");
+			goto exit_kfree_pdata;
+	}
+	err = pinctrl_select_state(acc->pinctrl, acc->pin_default);
+	if (err) {
+		dev_err(&client->dev,
+			"Can't select pinctrl default state\n");
+		goto exit_kfree_pdata;
+	}
 
 	if (acc->pdata->init) {
 		err = acc->pdata->init();
@@ -1578,6 +1618,10 @@ static int lis3dh_acc_probe(struct i2c_client *client,
 		}
 		disable_irq_nosync(acc->irq2);
 	}
+
+	if (pinctrl_select_state(acc->pinctrl, acc->pin_sleep))
+		dev_err(&client->dev,
+			"Can't select pinctrl sleep state\n");
 
 	mutex_unlock(&acc->lock);
 

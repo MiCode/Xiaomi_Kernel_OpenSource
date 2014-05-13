@@ -214,6 +214,9 @@ struct apds993x_data {
 	struct regulator *vio;
 	struct sensors_classdev als_cdev;
 	struct sensors_classdev ps_cdev;
+	struct pinctrl *pinctrl;
+	struct pinctrl_state *pin_default;
+	struct pinctrl_state *pin_sleep;
 
 	struct apds993x_platform_data *platform_data;
 	int irq;
@@ -2097,9 +2100,22 @@ static int sensor_regulator_power_on(struct apds993x_data *data, bool on)
 
 static int sensor_platform_hw_power_on(bool on)
 {
+	int err;
+
 	if (pdev_data == NULL)
 		return -ENODEV;
 
+	if (!IS_ERR_OR_NULL(pdev_data->pinctrl)) {
+		if (on)
+			err = pinctrl_select_state(pdev_data->pinctrl,
+				pdev_data->pin_default);
+		else
+			err = pinctrl_select_state(pdev_data->pinctrl,
+				pdev_data->pin_sleep);
+		if (err)
+			dev_err(&pdev_data->client->dev,
+				"Can't select pinctrl state\n");
+	}
 	sensor_regulator_power_on(pdev_data, on);
 
 	return 0;
@@ -2151,6 +2167,33 @@ static void sensor_platform_hw_exit(void)
 
 	if (gpio_is_valid(data->platform_data->irq_gpio))
 		gpio_free(data->platform_data->irq_gpio);
+}
+
+static int apds993x_pinctrl_init(struct apds993x_data *data)
+{
+	struct i2c_client *client = data->client;
+
+	data->pinctrl = devm_pinctrl_get(&client->dev);
+	if (IS_ERR_OR_NULL(data->pinctrl)) {
+		dev_err(&client->dev, "Failed to get pinctrl\n");
+		return PTR_ERR(data->pinctrl);
+	}
+
+	data->pin_default =
+		pinctrl_lookup_state(data->pinctrl, "default");
+	if (IS_ERR_OR_NULL(data->pin_default)) {
+		dev_err(&client->dev, "Failed to look up default state\n");
+		return PTR_ERR(data->pin_default);
+	}
+
+	data->pin_sleep =
+		pinctrl_lookup_state(data->pinctrl, "sleep");
+	if (IS_ERR_OR_NULL(data->pin_sleep)) {
+		dev_err(&client->dev, "Failed to look up sleep state\n");
+		return PTR_ERR(data->pin_sleep);
+	}
+
+	return 0;
 }
 
 static int sensor_parse_dt(struct device *dev,
@@ -2300,6 +2343,19 @@ static int apds993x_probe(struct i2c_client *client,
 	data->client = client;
 	apds993x_i2c_client = client;
 
+	/* initialize pinctrl */
+	err = apds993x_pinctrl_init(data);
+	if (err) {
+		dev_err(&client->dev, "Can't initialize pinctrl\n");
+			goto exit_kfree;
+	}
+	err = pinctrl_select_state(data->pinctrl, data->pin_default);
+	if (err) {
+		dev_err(&client->dev,
+			"Can't select pinctrl default state\n");
+		goto exit_kfree;
+	}
+
 	/* h/w initialization */
 	if (pdata->init)
 		err = pdata->init();
@@ -2344,14 +2400,14 @@ static int apds993x_probe(struct i2c_client *client,
 	err = apds993x_init_client(client);
 	if (err) {
 		pr_err("%s: Failed to init apds993x\n", __func__);
-		goto exit_kfree;
+		goto exit_uninit;
 	}
 
 	err = request_irq(data->irq, apds993x_interrupt, IRQF_TRIGGER_FALLING,
 				APDS993X_DRV_NAME, (void *)client);
 	if (err < 0) {
 		pr_err("%s: Could not allocate APDS993X_INT !\n", __func__);
-		goto exit_kfree;
+		goto exit_uninit;
 	}
 
 	irq_set_irq_wake(client->irq, 1);
@@ -2456,12 +2512,12 @@ exit_free_dev_ps:
 exit_free_dev_als:
 exit_free_irq:
 	free_irq(data->irq, client);
-exit_kfree:
+exit_uninit:
 	if (pdata->power_on)
 		pdata->power_on(false);
 	if (pdata->exit)
 		pdata->exit();
-
+exit_kfree:
 	kfree(data);
 	pdev_data = NULL;
 exit:
