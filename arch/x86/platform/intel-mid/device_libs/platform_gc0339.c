@@ -34,9 +34,46 @@
 #define VPROG_ENABLE 0x3
 #define VPROG_DISABLE 0x2
 #endif
+
+enum camera_pmic_pin {
+        CAMERA_1P8V,
+        CAMERA_2P8V,
+        CAMERA_POWER_NUM,
+};
+
+
 static int camera_reset;
 static int camera_power_down;
 static int camera_vprog1_on;
+
+#ifdef CONFIG_CRYSTAL_COVE
+/*
+ * WA for BTY as simple VRF management
+ */
+int camera_set_pmic_power(enum camera_pmic_pin pin, bool flag)
+{
+        u8 reg_addr[CAMERA_POWER_NUM] = {VPROG_1P8V, VPROG_2P8V};
+        u8 reg_value[2] = {VPROG_DISABLE, VPROG_ENABLE};
+        int val;
+        static DEFINE_MUTEX(mutex_power);
+        int ret = 0;
+
+        if (pin >= CAMERA_POWER_NUM)
+                return -EINVAL;
+
+        mutex_lock(&mutex_power);
+        val = intel_mid_pmic_readb(reg_addr[pin]) & 0x3;
+
+        if ((flag && (val == VPROG_DISABLE)) ||
+                (!flag && (val == VPROG_ENABLE)))
+                ret = intel_mid_pmic_writeb(reg_addr[pin], reg_value[flag]);
+
+        mutex_unlock(&mutex_power);
+        return ret;
+}
+EXPORT_SYMBOL_GPL(camera_set_pmic_power);
+#endif
+
 
 /*
  * GC0339 platform data
