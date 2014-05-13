@@ -797,6 +797,7 @@ struct dwc3_scratchpad_array {
  * 	2	- No de-emphasis
  * 	3	- Reserved
  * @err_evt_seen: previous event in queue was erratic error
+ * @in_lpm: indicates if controller is in low power mode (no clocks)
  */
 struct dwc3 {
 	struct usb_ctrlrequest	*ctrl_req;
@@ -946,6 +947,8 @@ struct dwc3 {
 	unsigned		err_evt_seen:1;
 
 	struct dwc3_gadget_events	dbg_gadget_events;
+
+	atomic_t		in_lpm;
 };
 
 /* -------------------------------------------------------------------------- */
