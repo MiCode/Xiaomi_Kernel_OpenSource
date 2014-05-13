@@ -209,6 +209,7 @@ struct spmi_pmic_arb_dev {
 	u32			mapping_table[SPMI_MAPPING_TABLE_LEN];
 	const struct spmi_pmic_arb_ver *ver;
 	u8			*ppid_2_chnl_tbl;
+	u32			prev_prtcl_irq_stat;
 };
 
 static struct spmi_pmic_arb_dev *the_pmic_arb;
@@ -337,6 +338,37 @@ static u32 spmi_pic_acc_en_rd(struct spmi_pmic_arb_dev *dev,
 	return val;
 }
 
+static void pmic_arb_save_stat_before_txn(struct spmi_pmic_arb_dev *dev)
+{
+	dev->prev_prtcl_irq_stat =
+		readl_relaxed(dev->cnfg + PMIC_ARB_PROTOCOL_IRQ_STATUS);
+}
+
+static int pmic_arb_diagnosis(struct spmi_pmic_arb_dev *dev, u32 status)
+{
+	if (status & PMIC_ARB_STATUS_DENIED) {
+		dev_err(dev->dev,
+		    "wait_for_done: transaction denied by SPMI master (0x%x)\n",
+		    status);
+		return -EPERM;
+	}
+
+	if (status & PMIC_ARB_STATUS_FAILURE) {
+		dev_err(dev->dev,
+		    "wait_for_done: transaction failed (0x%x)\n", status);
+		return -EIO;
+	}
+
+	if (status & PMIC_ARB_STATUS_DROPPED) {
+		dev_err(dev->dev,
+		    "wait_for_done: transaction dropped pmic-arb busy (0x%x)\n",
+		    status);
+		return -EAGAIN;
+	}
+
+	return 0;
+}
+
 static int pmic_arb_wait_for_done(struct spmi_pmic_arb_dev *dev,
 					void __iomem *base, u8 sid, u16 addr)
 {
@@ -347,34 +379,13 @@ static int pmic_arb_wait_for_done(struct spmi_pmic_arb_dev *dev,
 	while (timeout--) {
 		status = readl_relaxed(base + offset);
 
-		if (status & PMIC_ARB_STATUS_DONE) {
-			if (status & PMIC_ARB_STATUS_DENIED) {
-				dev_err(dev->dev,
-					"%s: transaction denied (0x%x)\n",
-					__func__, status);
-				return -EPERM;
-			}
+		if (status & PMIC_ARB_STATUS_DONE)
+			return pmic_arb_diagnosis(dev, status);
 
-			if (status & PMIC_ARB_STATUS_FAILURE) {
-				dev_err(dev->dev,
-					"%s: transaction failed (0x%x)\n",
-					__func__, status);
-				return -EIO;
-			}
-
-			if (status & PMIC_ARB_STATUS_DROPPED) {
-				dev_err(dev->dev,
-					"%s: transaction dropped (0x%x)\n",
-					__func__, status);
-				return -EIO;
-			}
-
-			return 0;
-		}
 		udelay(1);
 	}
 
-	dev_err(dev->dev, "%s: timeout, status 0x%x\n", __func__, status);
+	dev_err(dev->dev, "wait_for_done:: timeout, status 0x%x\n", status);
 	return -ETIMEDOUT;
 }
 
@@ -404,17 +415,36 @@ pa_write_data(struct spmi_pmic_arb_dev *dev, u8 *buf, u32 reg, u8 bc)
 	pmic_arb_write(dev, reg, data);
 }
 
-static void pmic_arb_dbg_dump_regs(struct spmi_pmic_arb_dev *pmic_arb, int ret,
-								const char *msg)
+static void pmic_arb_dbg_err_dump(struct spmi_pmic_arb_dev *pmic_arb, int ret,
+		const char *msg, u8 opc, u8 sid, u16 addr, u8 bc, u8 *buf)
 {
-	u32 irq = readl_relaxed(pmic_arb->cnfg + PMIC_ARB_PROTOCOL_IRQ_STATUS);
+	u32 irq_stat  = readl_relaxed(pmic_arb->cnfg +
+						PMIC_ARB_PROTOCOL_IRQ_STATUS);
 	u32 geni_stat = readl_relaxed(pmic_arb->cnfg +
 				pmic_arb->ver->regs[PMIC_ARB_GENI_STATUS]);
 	u32 geni_ctrl = readl_relaxed(pmic_arb->cnfg +
 				pmic_arb->ver->regs[PMIC_ARB_GENI_CTRL]);
-	dev_err(pmic_arb->dev,
-	"err:%d on %s PROTOCOL_IRQ_STATUS:0x%x GENI_STATUS:0x%x GENI_CTRL:0x%x\n",
-		ret, msg, irq, geni_stat, geni_ctrl);
+
+	bc += 1; /* actual byte count */
+
+	if (buf)
+		dev_err(pmic_arb->dev,
+		"error:%d on data %s  opcode:0x%x sid:%d addr:0x%x bc:%d buf:%*phC\n",
+			ret, msg, opc, sid, addr, bc, bc, buf);
+	else
+		dev_err(pmic_arb->dev,
+		"error:%d on non-data-cmd opcode:0x%x sid:%d\n",
+			ret, opc, sid);
+
+	if (irq_stat != pmic_arb->prev_prtcl_irq_stat)
+		dev_err(pmic_arb->dev,
+			"PROTOCOL_IRQ_STATUS before:0x%x after:0x%x GENI_STATUS:0x%x GENI_CTRL:0x%x\n",
+			irq_stat, pmic_arb->prev_prtcl_irq_stat, geni_stat,
+			geni_ctrl);
+	else if (geni_stat || geni_ctrl)
+		dev_err(pmic_arb->dev,
+			"GENI_STATUS:0x%x GENI_CTRL:0x%x\n",
+			geni_stat, geni_ctrl);
 }
 
 static int
@@ -431,13 +461,14 @@ pmic_arb_non_data_cmd_v1(struct spmi_pmic_arb_dev *pmic_arb, u8 opc, u8 sid)
 	cmd = (opc << 27) | ((sid & 0xf) << 20);
 
 	spin_lock_irqsave(&pmic_arb->lock, flags);
+	pmic_arb_save_stat_before_txn(pmic_arb);
 	pmic_arb_write(pmic_arb, chnl_ofst + PMIC_ARB_CMD, cmd);
 	/* sid and addr are don't-care for pmic_arb_wait_for_done() HW-v1 */
 	rc = pmic_arb_wait_for_done(pmic_arb, pmic_arb->wrbase, 0, 0);
 	spin_unlock_irqrestore(&pmic_arb->lock, flags);
 
 	if (rc)
-		pmic_arb_dbg_dump_regs(pmic_arb, rc, "cmd");
+		pmic_arb_dbg_err_dump(pmic_arb, rc, "cmd", opc, sid, 0, 0, 0);
 	return rc;
 }
 
@@ -516,6 +547,7 @@ static int pmic_arb_read_cmd(struct spmi_controller *ctrl,
 	cmd = pmic_arb->ver->fmt_cmd(opc, sid, addr, bc);
 
 	spin_lock_irqsave(&pmic_arb->lock, flags);
+	pmic_arb_save_stat_before_txn(pmic_arb);
 
 	pmic_arb_set_rd_cmd(pmic_arb, chnl_ofst + PMIC_ARB_CMD, cmd);
 	rc = pmic_arb_wait_for_done(pmic_arb, pmic_arb->rdbase, sid, addr);
@@ -533,7 +565,8 @@ static int pmic_arb_read_cmd(struct spmi_controller *ctrl,
 done:
 	spin_unlock_irqrestore(&pmic_arb->lock, flags);
 	if (rc)
-		pmic_arb_dbg_dump_regs(pmic_arb, rc, "read_cmd");
+		pmic_arb_dbg_err_dump(pmic_arb, rc, "read", opc, sid, addr, bc,
+									buf);
 	return rc;
 }
 
@@ -571,6 +604,7 @@ static int pmic_arb_write_cmd(struct spmi_controller *ctrl,
 
 	/* Write data to FIFOs */
 	spin_lock_irqsave(&pmic_arb->lock, flags);
+	pmic_arb_save_stat_before_txn(pmic_arb);
 	pa_write_data(pmic_arb, buf, chnl_ofst + PMIC_ARB_WDATA0,
 							min_t(u8, bc, 3));
 
@@ -585,7 +619,9 @@ static int pmic_arb_write_cmd(struct spmi_controller *ctrl,
 	spin_unlock_irqrestore(&pmic_arb->lock, flags);
 
 	if (rc)
-		pmic_arb_dbg_dump_regs(pmic_arb, rc, "write_cmd");
+		pmic_arb_dbg_err_dump(pmic_arb, rc, "write", opc, sid, addr, bc,
+									buf);
+
 	return rc;
 }
 
@@ -764,7 +800,9 @@ periph_interrupt(struct spmi_pmic_arb_dev *pmic_arb, u8 apid, bool show)
 	int i;
 
 	if (!is_apid_valid(pmic_arb, apid)) {
-		dev_err(pmic_arb->dev, "unknown peripheral id 0x%x\n", ppid);
+		dev_err(pmic_arb->dev,
+		"periph_interrupt(apid:0x%x sid:0x%x pid:0x%x) unknown peripheral\n",
+			apid, sid, pid);
 		/* return IRQ_NONE; */
 	}
 
