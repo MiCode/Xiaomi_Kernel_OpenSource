@@ -2846,7 +2846,7 @@ static int msm8x10_wcd_enable_mbhc_micbias(struct snd_soc_codec *codec,
 		rc = snd_soc_dapm_force_enable_pin(&codec->dapm,
 			DAPM_MICBIAS_EXTERNAL_STANDALONE);
 	else {
-		if (msm8x10_wcd->micb_en_count > 0) {
+		if (msm8x10_wcd->micb_en_count > 1) {
 			msm8x10_wcd->micb_en_count--;
 			pr_debug("%s micb_en_count : %d", __func__,
 					msm8x10_wcd->micb_en_count);
