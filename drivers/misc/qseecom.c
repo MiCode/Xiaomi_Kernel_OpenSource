@@ -756,6 +756,12 @@ static int __qseecom_process_incomplete_cmd(struct qseecom_dev_handle *data,
 			pr_err("Listener Svc %d does not exist\n", lstnr);
 			return -EINVAL;
 		}
+
+		if (!ptr_svc->ihandle) {
+			pr_err("Client handle is not initialized\n");
+			return -EINVAL;
+		}
+
 		if (ptr_svc->svc.listener_id != lstnr) {
 			pr_warning("Service requested for does on exist\n");
 			return -ERESTARTSYS;
@@ -1276,6 +1282,11 @@ static int qseecom_send_service_cmd(struct qseecom_dev_handle *data,
 		return -EINVAL;
 	}
 
+	if (!data || !data->client.ihandle) {
+		pr_err("Client or client handle is not initialized\n");
+		return -EINVAL;
+	}
+
 	if (data->client.sb_virt == NULL) {
 		pr_err("sb_virt null\n");
 		return -EINVAL;
@@ -1445,6 +1456,11 @@ static int __qseecom_send_cmd(struct qseecom_dev_handle *data,
 		pr_debug("resp_buf. Required: %u, Available: %zu\n",
 				reqd_len_sb_in, data->client.sb_length);
 		return -ENOMEM;
+	}
+
+	if (!data || !data->client.ihandle) {
+		pr_err("Client or client handle is not initialized\n");
+		return -EINVAL;
 	}
 
 	send_data_req.qsee_cmd_id = QSEOS_CLIENT_SEND_DATA_COMMAND;
@@ -3514,6 +3530,11 @@ static int __qseecom_qteec_issue_cmd(struct qseecom_dev_handle *data,
 	int ret = 0;
 	uint32_t reqd_len_sb_in = 0;
 
+	if (!data || !data->client.ihandle) {
+		pr_err("Client or client handle is not initialized\n");
+		return -EINVAL;
+	}
+
 	ret  = __qseecom_qteec_validate_msg(data, req);
 	if (ret)
 		return ret;
@@ -3606,6 +3627,11 @@ static int qseecom_qteec_invoke_modfd_cmd(struct qseecom_dev_handle *data,
 	if (ret) {
 		pr_err("copy_from_user failed\n");
 		return ret;
+	}
+
+	if (!data || !data->client.ihandle) {
+		pr_err("Client or client handle is not initialized\n");
+		return -EINVAL;
 	}
 
 	ret = __qseecom_qteec_validate_msg(data,
