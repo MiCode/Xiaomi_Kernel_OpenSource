@@ -447,6 +447,8 @@ static int qpnp_lbc_charger_enable(struct qpnp_lbc_chip *chip, int reason,
 	u8 reg_val;
 	int rc = 0;
 
+	pr_debug("reason=%d requested_enable=%d disabled_status=%d\n",
+					reason, enable, disabled);
 	if (enable)
 		disabled &= ~reason;
 	else
@@ -1476,12 +1478,21 @@ static int qpnp_lbc_usb_path_init(struct qpnp_lbc_chip *chip)
 		}
 	}
 
-	rc = qpnp_lbc_charger_enable(chip, USER,
-					!chip->cfg_charging_disabled);
-	if (rc)
-		pr_err("Failed to %s charging rc=%d\n",
-			chip->cfg_charging_disabled ? "disable" : "enable",
-			rc);
+	if (chip->cfg_charging_disabled) {
+		rc = qpnp_lbc_charger_enable(chip, USER, 0);
+		if (rc)
+			pr_err("Failed to disable charging rc=%d\n", rc);
+	} else {
+		/*
+		 * Enable charging explictly,
+		 * because not sure the default behavior.
+		 */
+		reg_val = CHG_ENABLE;
+		rc = qpnp_lbc_masked_write(chip, chip->chgr_base + CHG_CTRL_REG,
+					CHG_EN_MASK, reg_val);
+		if (rc)
+			pr_err("Failed to enable charger rc=%d\n", rc);
+	}
 
 	return rc;
 }
