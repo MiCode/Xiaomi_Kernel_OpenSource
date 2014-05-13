@@ -702,6 +702,14 @@ int32_t msm_sensor_driver_probe(void *setting)
 	s_ctrl->is_probe_succeed = 1;
 
 	/*
+	 * Update the subdevice id of flash-src based on availability in kernel.
+	 */
+	if (slave_info->is_flash_supported == 0) {
+		s_ctrl->sensordata->sensor_info->
+			subdev_id[SUB_MODULE_LED_FLASH] = -1;
+	}
+
+	/*
 	 * Create /dev/videoX node, comment for now until dummy /dev/videoX
 	 * node is created and used by HAL
 	 */

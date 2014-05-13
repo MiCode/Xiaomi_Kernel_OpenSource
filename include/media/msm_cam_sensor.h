@@ -400,6 +400,7 @@ struct msm_camera_sensor_slave_info {
 	struct msm_sensor_power_setting_array power_setting_array;
 	uint8_t  is_init_params_valid;
 	struct msm_sensor_init_params sensor_init_params;
+	uint8_t is_flash_supported;
 };
 
 struct sensorb_cfg_data {
