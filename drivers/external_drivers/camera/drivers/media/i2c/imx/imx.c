@@ -19,7 +19,6 @@
  *
  */
 #include <asm/intel-mid.h>
-#include <linux/atomisp_platform.h>
 #include <linux/bitops.h>
 #include <linux/device.h>
 #include <linux/delay.h>
@@ -42,6 +41,7 @@
 #include <media/v4l2-chip-ident.h>
 #include <media/v4l2-ctrls.h>
 #include <media/v4l2-device.h>
+#include <linux/atomisp_gmin_platform.h>
 #include "imx.h"
 
 void *imx134_platform_data(void *info); /* From platform_imx134.c */
@@ -2228,21 +2228,6 @@ static int __imx_init_ctrl_handler(struct imx_device *dev)
 	return 0;
 }
 
-static int getvar_int(struct device *dev, const char *var, int def)
-{
-	char val[16];
-	size_t len = sizeof(val);
-	long result;
-	int ret;
-
-	ret = gmin_get_config_var(dev, var, val, &len);
-	val[len] = 0;
-	if (!ret)
-		ret = kstrtol(val, 0, &result);
-
-	return ret ? def : result;
-}
-
 static int imx_probe(struct i2c_client *client,
 			 const struct i2c_device_id *id)
 {
@@ -2250,11 +2235,9 @@ static int imx_probe(struct i2c_client *client,
 	struct camera_mipi_info *imx_info = NULL;
 	int ret;
 	char *msr_file_name = NULL;
+	struct camera_sensor_platform_data *pdata = NULL;
 
-	/* DEBUG */
-	dev_info(&client->dev, "imx_probe adapter %d addr 0x%x acpi %s\n",
-		 client->adapter->nr, client->addr,
-		 dev_name(&ACPI_COMPANION(&client->dev)->dev));
+
 
 	/* allocate sensor device & init sub device */
 	dev = kzalloc(sizeof(*dev), GFP_KERNEL);
@@ -2276,21 +2259,20 @@ static int imx_probe(struct i2c_client *client,
 
 	v4l2_i2c_subdev_init(&(dev->sd), client, &imx_ops);
 
-	if (client->dev.platform_data) {
-		ret = imx_s_config(&dev->sd, client->irq,
-				       client->dev.platform_data);
-		if (ret)
-			goto out_free;
-	} else if (ACPI_COMPANION(&client->dev)) {
-		// If no SFI firmware, grab the platform struct
-		// directly and configure via ACPI/EFIvars instead.
-		//
-		// Works only with IMX134 for now.
-		ret = imx_s_config(&dev->sd, client->irq,
-				   imx134_platform_data(NULL));
-		if (ret)
-			goto out_free;
+	pdata = client->dev.platform_data;
+	if (!pdata || ACPI_COMPANION(&client->dev))
+		pdata = imx134_platform_data(NULL);
+
+	if (!pdata) {
+		v4l2_err(client, "No imx platform data\n");
+		ret = -EINVAL;
+		goto out_free;
 	}
+
+	ret = imx_s_config(&dev->sd, client->irq, pdata);
+	if (ret)
+		goto out_free;
+
 	imx_info = v4l2_get_subdev_hostdata(&dev->sd);
 
 	/*
@@ -2320,8 +2302,8 @@ static int imx_probe(struct i2c_client *client,
 
 	/* Load the Noise reduction, Dead pixel registers from cpf file*/
 	/* FIXME: msr_file_name needs to come from ACPI/EFI config too */
-	if (dev->platform_data->msr_file_name != NULL)
-		msr_file_name = dev->platform_data->msr_file_name();
+	if (pdata->msr_file_name != NULL)
+		msr_file_name = pdata->msr_file_name();
 	if (msr_file_name) {
 		ret = load_msr_list(client, msr_file_name, &dev->fw);
 		if (ret) {

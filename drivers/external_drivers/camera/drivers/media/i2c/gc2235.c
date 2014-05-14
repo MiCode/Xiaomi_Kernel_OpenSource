@@ -37,6 +37,7 @@
 #include <media/v4l2-device.h>
 #include <media/v4l2-chip-ident.h>
 #include <linux/io.h>
+#include <linux/atomisp_gmin_platform.h>
 
 #include "gc2235.h"
 
@@ -934,21 +935,6 @@ static int gc2235_enum_mbus_fmt(struct v4l2_subdev *sd,
 	return 0;
 }
 
-static int getvar_int(struct device *dev, const char *var, int def)
-{
-	char val[16];
-	size_t len = sizeof(val);
-	long result;
-	int ret;
-
-	ret = gmin_get_config_var(dev, var, val, &len);
-	val[len] = 0;
-	if (!ret)
-		ret = kstrtol(val, 0, &result);
-
-	return ret ? def : result;
-}
-
 static int gc2235_s_config(struct v4l2_subdev *sd,
 			   int irq, void *platform_data)
 {
@@ -1009,7 +995,7 @@ static int gc2235_s_config(struct v4l2_subdev *sd,
 	 * subdevices, but this API matches upstream better. */
 	/* FIXME: type and port need to come from ACPI/EFI config,
 	 * this is hard coded to FFRD8 */
-	ret = atomisp_register_i2c_module(sd, client,
+	ret = atomisp_register_i2c_module(sd, client, platform_data,
 					  getvar_int(&client->dev, "CamType",
 						     RAW_CAMERA),
 					  getvar_int(&client->dev, "CsiPort",

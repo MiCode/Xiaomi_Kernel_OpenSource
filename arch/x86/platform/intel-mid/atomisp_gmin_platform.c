@@ -120,6 +120,7 @@ int atomisp_register_i2c_module(struct i2c_client *client,
 	bi->comp_addr_count = client->comp_addr_count;
 	bi->comp_addrs = client->comp_addrs;
 	bi->irq_flags = client->irq_flags;
+	bi->platform_data = plat_data;
 
 	return 0;
 }

@@ -37,6 +37,7 @@
 #include <media/v4l2-chip-ident.h>
 #include <linux/io.h>
 #include <linux/acpi.h>
+#include <linux/atomisp_gmin_platform.h>
 
 #include "ov2722.h"
 
@@ -1375,21 +1376,6 @@ static int __ov2722_init_ctrl_handler(struct ov2722_device *dev)
 	return 0;
 }
 
-static int getvar_int(struct device *dev, const char *var, int def)
-{
-	char val[16];
-	size_t len = sizeof(val);
-	long result;
-	int ret;
-
-	ret = gmin_get_config_var(dev, var, val, &len);
-	val[len] = 0;
-	if (!ret)
-		ret = kstrtol(val, 0, &result);
-
-	return ret ? def : result;
-}
-
 static int ov2722_probe(struct i2c_client *client,
 			const struct i2c_device_id *id)
 {
@@ -1432,7 +1418,7 @@ static int ov2722_probe(struct i2c_client *client,
 	if (ret)
 		ov2722_remove(client);
 
-	ret = atomisp_register_i2c_module(&dev->sd, client,
+	ret = atomisp_register_i2c_module(&dev->sd, client, ovpdev,
 					  getvar_int(&client->dev, "CamType",
 						     RAW_CAMERA),
 					  getvar_int(&client->dev, "CsiPort",
