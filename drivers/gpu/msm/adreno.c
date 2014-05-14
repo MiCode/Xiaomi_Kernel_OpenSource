@@ -1108,7 +1108,7 @@ static int adreno_iommu_setstate(struct kgsl_device *device,
 	int num_iommu_units;
 	struct kgsl_context *context;
 	struct adreno_context *adreno_ctx = NULL;
-	struct adreno_ringbuffer *rb = &adreno_dev->ringbuffer;
+	struct adreno_ringbuffer *rb = ADRENO_CURRENT_RINGBUFFER(adreno_dev);
 	unsigned int result;
 
 	if (adreno_use_default_setstate(adreno_dev)) {
@@ -1603,7 +1603,7 @@ int adreno_probe(struct platform_device *pdev)
 #endif
 out:
 	if (status) {
-		adreno_ringbuffer_close(&adreno_dev->ringbuffer);
+		adreno_ringbuffer_close(adreno_dev);
 		kgsl_device_platform_remove(device);
 		device->pdev = NULL;
 	}
@@ -1632,7 +1632,7 @@ static int adreno_remove(struct platform_device *pdev)
 	kgsl_pwrscale_close(device);
 
 	adreno_dispatcher_close(adreno_dev);
-	adreno_ringbuffer_close(&adreno_dev->ringbuffer);
+	adreno_ringbuffer_close(adreno_dev);
 	adreno_perfcounter_close(adreno_dev);
 	kgsl_device_platform_remove(device);
 
@@ -1804,7 +1804,7 @@ static int _adreno_start(struct adreno_device *adreno_dev)
 
 	adreno_perfcounter_start(adreno_dev);
 
-	status = adreno_ringbuffer_cold_start(&adreno_dev->ringbuffer);
+	status = adreno_ringbuffer_cold_start(adreno_dev);
 	if (status)
 		goto error_irq_off;
 
@@ -1912,7 +1912,7 @@ static int adreno_stop(struct kgsl_device *device)
 	adreno_dev->drawctxt_active = NULL;
 
 	adreno_dispatcher_stop(adreno_dev);
-	adreno_ringbuffer_stop(&adreno_dev->ringbuffer);
+	adreno_ringbuffer_stop(adreno_dev);
 
 	kgsl_mmu_stop(&device->mmu);
 
@@ -2664,7 +2664,7 @@ static int adreno_soft_reset(struct kgsl_device *device)
 	adreno_dev->drawctxt_active = NULL;
 
 	/* Stop the ringbuffer */
-	adreno_ringbuffer_stop(&adreno_dev->ringbuffer);
+	adreno_ringbuffer_stop(adreno_dev);
 
 	if (kgsl_pwrctrl_isenabled(device))
 		adreno_irqctrl(adreno_dev, 0);
@@ -2708,9 +2708,9 @@ static int adreno_soft_reset(struct kgsl_device *device)
 	 */
 
 	if (ADRENO_FEATURE(adreno_dev, ADRENO_WARM_START))
-		ret = adreno_ringbuffer_warm_start(&adreno_dev->ringbuffer);
+		ret = adreno_ringbuffer_warm_start(adreno_dev);
 	else
-		ret = adreno_ringbuffer_cold_start(&adreno_dev->ringbuffer);
+		ret = adreno_ringbuffer_cold_start(adreno_dev);
 
 	if (!ret)
 		device->reset_counter++;
@@ -2728,12 +2728,12 @@ static int adreno_soft_reset(struct kgsl_device *device)
 bool adreno_isidle(struct kgsl_device *device)
 {
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
-	unsigned int rptr;
+	int i;
 
 	if (!kgsl_pwrctrl_isenabled(device))
 		return true;
 
-	rptr = adreno_get_rptr(&adreno_dev->ringbuffer);
+	adreno_get_rptr(ADRENO_CURRENT_RINGBUFFER(adreno_dev));
 
 	/*
 	 * wptr is updated when we add commands to ringbuffer, add a barrier
@@ -2741,7 +2741,17 @@ bool adreno_isidle(struct kgsl_device *device)
 	 */
 	smp_mb();
 
-	if (rptr == adreno_dev->ringbuffer.wptr)
+	/*
+	 * ringbuffer is truly idle when all ringbuffers read and write
+	 * pointers are equal
+	 */
+	for (i = 0; i < adreno_dev->num_ringbuffers; i++) {
+		if (adreno_dev->ringbuffers[i].rptr !=
+			adreno_dev->ringbuffers[i].wptr)
+			break;
+	}
+
+	if (i == adreno_dev->num_ringbuffers)
 		return adreno_hw_isidle(device);
 
 	return false;
@@ -2999,7 +3009,7 @@ static int adreno_readtimestamp(struct kgsl_device *device,
 		struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
 
 		*timestamp = adreno_context_timestamp(context,
-				&adreno_dev->ringbuffer);
+				ADRENO_CURRENT_RINGBUFFER(adreno_dev));
 		break;
 	}
 	case KGSL_TIMESTAMP_CONSUMED:
