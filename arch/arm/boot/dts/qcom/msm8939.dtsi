@@ -1591,6 +1591,7 @@
 
 #include "msm-pm8916.dtsi"
 #include "msm8939-regulator.dtsi"
+#include "msm8939-pm.dtsi"
 
 &pm8916_vadc {
 	chan@0 {
