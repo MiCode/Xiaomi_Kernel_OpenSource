@@ -93,6 +93,8 @@ static bool cx_phase_ctrl_enabled;
 static bool vdd_mx_enabled;
 static bool therm_reset_enabled;
 static bool online_core;
+static bool cluster_info_probed;
+static bool cluster_info_nodes_called;
 static int *tsens_id_map;
 static DEFINE_MUTEX(vdd_rstr_mutex);
 static DEFINE_MUTEX(psm_mutex);
@@ -125,6 +127,15 @@ enum sensor_id_type {
 	THERM_ID_MAX_NR,
 };
 
+struct cluster_info {
+	int cluster_id;
+	uint32_t entity_count;
+	struct cluster_info *child_entity_ptr;
+	struct cluster_info *parent_ptr;
+	cpumask_t cluster_cores;
+	bool sync_cluster;
+};
+
 struct cpu_info {
 	uint32_t cpu;
 	const char *sensor_type;
@@ -140,6 +151,7 @@ struct cpu_info {
 	uint32_t limited_max_freq;
 	uint32_t limited_min_freq;
 	bool freq_thresh_clear;
+	struct cluster_info *parent_ptr;
 };
 
 struct threshold_info;
@@ -215,6 +227,7 @@ static struct rail *rails;
 static struct cpu_info cpus[NR_CPUS];
 static struct threshold_info *thresh;
 static bool mx_restr_applied;
+static struct cluster_info *core_ptr;
 
 struct vdd_rstr_enable {
 	struct kobj_attribute ko_attr;
@@ -320,6 +333,248 @@ static int  msm_thermal_cpufreq_callback(struct notifier_block *nfb,
 static struct notifier_block msm_thermal_cpufreq_notifier = {
 	.notifier_call = msm_thermal_cpufreq_callback,
 };
+
+static int * __init get_sync_cluster(struct device *dev, int *cnt)
+{
+	int *sync_cluster = NULL, cluster_cnt = 0, ret = 0;
+	char *key = "qcom,synchronous-cluster-id";
+
+	if (!of_get_property(dev->of_node, key, &cluster_cnt)
+		|| cluster_cnt <= 0 || !core_ptr)
+		return NULL;
+
+	cluster_cnt /= sizeof(__be32);
+	if (cluster_cnt > core_ptr->entity_count) {
+		pr_err("Invalid cluster count:%d\n", cluster_cnt);
+		return NULL;
+	}
+	sync_cluster = devm_kzalloc(dev, sizeof(int) * cluster_cnt, GFP_KERNEL);
+	if (!sync_cluster) {
+		pr_err("Memory alloc failed\n");
+		return NULL;
+	}
+
+	ret = of_property_read_u32_array(dev->of_node, key, sync_cluster,
+			cluster_cnt);
+	if (ret) {
+		pr_err("Error in reading property:%s. err:%d\n", key, ret);
+		devm_kfree(dev, sync_cluster);
+		return NULL;
+	}
+	*cnt = cluster_cnt;
+
+	return sync_cluster;
+}
+
+static void update_cpu_datastructure(struct cluster_info *cluster_ptr,
+		int *sync_cluster, int sync_cluster_cnt)
+{
+	int i = 0;
+	bool is_sync_cluster = false;
+
+	for (i = 0; (sync_cluster) && (i < sync_cluster_cnt); i++) {
+		if (cluster_ptr->cluster_id != sync_cluster[i])
+			continue;
+		is_sync_cluster = true;
+		break;
+	}
+
+	cluster_ptr->sync_cluster = is_sync_cluster;
+	pr_debug("Cluster ID:%d Sync cluster:%s Sibling mask:%lu\n",
+		cluster_ptr->cluster_id, is_sync_cluster ? "Yes" : "No",
+		*cluster_ptr->cluster_cores.bits);
+	for_each_cpu_mask(i, cluster_ptr->cluster_cores) {
+		cpus[i].parent_ptr = cluster_ptr;
+	}
+}
+
+static ssize_t cluster_info_show(
+	struct kobject *kobj, struct kobj_attribute *attr, char *buf)
+{
+	uint32_t i = 0;
+	ssize_t tot_size = 0, size = 0;
+
+	for (; i < core_ptr->entity_count; i++) {
+		struct cluster_info *cluster_ptr =
+				&core_ptr->child_entity_ptr[i];
+
+		size = snprintf(&buf[tot_size], PAGE_SIZE - tot_size,
+			"%d:%lu:%d ", cluster_ptr->cluster_id,
+			*cluster_ptr->cluster_cores.bits,
+			cluster_ptr->sync_cluster);
+		if ((tot_size + size) >= PAGE_SIZE) {
+			pr_err("Not enough buffer size");
+			break;
+		}
+		tot_size += size;
+	}
+
+	return tot_size;
+}
+
+static struct kobj_attribute cluster_info_attr = __ATTR_RO(cluster_info);
+static int create_cpu_topology_sysfs(void)
+{
+	int ret = 0;
+	struct kobject *module_kobj = NULL;
+
+	if (!cluster_info_probed) {
+		cluster_info_nodes_called = true;
+		return ret;
+	}
+	if (!core_ptr)
+		return ret;
+
+	module_kobj = kset_find_obj(module_kset, KBUILD_MODNAME);
+	if (!module_kobj) {
+		pr_err("cannot find kobject\n");
+		return -ENODEV;
+	}
+
+	sysfs_attr_init(&cluster_info_attr.attr);
+	ret = sysfs_create_file(module_kobj, &cluster_info_attr.attr);
+	if (ret) {
+		pr_err("cannot create cluster info attr group. err:%d\n", ret);
+		return ret;
+	}
+
+	return ret;
+}
+
+static int get_device_tree_cluster_info(struct device *dev, int *cluster_id,
+			cpumask_t *cluster_cpus)
+{
+	int i, cluster_cnt = 0, ret = 0;
+	uint32_t val = 0;
+	char *key = "qcom,synchronous-cluster-map";
+
+	if (!of_get_property(dev->of_node, key, &cluster_cnt)
+		|| cluster_cnt <= 0) {
+		pr_debug("Property %s not defined.\n", key);
+		return -ENODEV;
+	}
+	if (cluster_cnt % (sizeof(__be32) * 2)) {
+		pr_err("Invalid number(%d) of entry for %s\n",
+				cluster_cnt, key);
+		return -EINVAL;
+	}
+	cluster_cnt /= (sizeof(__be32) * 2);
+
+	for (i = 0; i < cluster_cnt; i++) {
+		ret = of_property_read_u32_index(dev->of_node, key,
+							i * 2, &val);
+		if (ret) {
+			pr_err("Error reading index%d\n", i * 2);
+			return -EINVAL;
+		}
+		cluster_id[i] = val;
+
+		of_property_read_u32_index(dev->of_node, key, i * 2 + 1, &val);
+		if (ret) {
+			pr_err("Error reading index%d\n", i * 2 + 1);
+			return -EINVAL;
+		}
+		*cluster_cpus[i].bits = val;
+	}
+
+	return cluster_cnt;
+}
+
+static int get_kernel_cluster_info(int *cluster_id, cpumask_t *cluster_cpus)
+{
+	uint32_t _cpu, cluster_index, cluster_cnt;
+
+	for (_cpu = 0, cluster_cnt = 0; _cpu < num_possible_cpus(); _cpu++) {
+		if (topology_physical_package_id(_cpu) < 0) {
+			pr_err("CPU%d topology not initialized.\n", _cpu);
+			return -ENODEV;
+		}
+		/* Do not use the sibling cpumask from topology module.
+		** kernel topology module updates the sibling cpumask
+		** only when the cores are brought online for the first time.
+		** KTM figures out the sibling cpumask using the
+		** cluster and core ID mapping.
+		*/
+		for (cluster_index = 0; cluster_index < num_possible_cpus();
+			cluster_index++) {
+			if (cluster_id[cluster_index] == -1) {
+				cluster_id[cluster_index] =
+					topology_physical_package_id(_cpu);
+				*cluster_cpus[cluster_index].bits = 0;
+				cpumask_set_cpu(_cpu,
+					&cluster_cpus[cluster_index]);
+				cluster_cnt++;
+				break;
+			}
+			if (cluster_id[cluster_index] ==
+				topology_physical_package_id(_cpu)) {
+				cpumask_set_cpu(_cpu,
+					&cluster_cpus[cluster_index]);
+				break;
+			}
+		}
+	}
+
+	return cluster_cnt;
+}
+
+static void update_cpu_topology(struct device *dev)
+{
+	int cluster_id[NR_CPUS] = {[0 ... NR_CPUS-1] = -1};
+	cpumask_t cluster_cpus[NR_CPUS];
+	uint32_t i, j;
+	int cluster_cnt, cpu, sync_cluster_cnt = 0;
+	struct cluster_info *temp_ptr = NULL;
+	int *sync_cluster_id = NULL;
+
+	cluster_info_probed = true;
+	cluster_cnt = get_kernel_cluster_info(cluster_id, cluster_cpus);
+	if (cluster_cnt <= 0) {
+		cluster_cnt = get_device_tree_cluster_info(dev, cluster_id,
+						cluster_cpus);
+		if (cluster_cnt <= 0) {
+			core_ptr = NULL;
+			pr_debug("Cluster Info not defined. KTM continues.\n");
+			return;
+		}
+	}
+
+	core_ptr = devm_kzalloc(dev, sizeof(struct cluster_info), GFP_KERNEL);
+	if (!core_ptr) {
+		pr_err("Memory alloc failed\n");
+		return;
+	}
+	core_ptr->parent_ptr = NULL;
+	core_ptr->entity_count = cluster_cnt;
+	core_ptr->cluster_id = -1;
+	core_ptr->sync_cluster = false;
+	temp_ptr = devm_kzalloc(dev, sizeof(struct cluster_info) * cluster_cnt,
+					GFP_KERNEL);
+	if (!temp_ptr) {
+		pr_err("Memory alloc failed\n");
+		devm_kfree(dev, core_ptr);
+		core_ptr = NULL;
+		return;
+	}
+
+	sync_cluster_id = get_sync_cluster(dev, &sync_cluster_cnt);
+
+	for (i = 0; i < cluster_cnt; i++) {
+		pr_debug("Cluster_ID:%d CPU's:%lu\n", cluster_id[i],
+				*cluster_cpus[i].bits);
+		temp_ptr[i].cluster_id = cluster_id[i];
+		temp_ptr[i].parent_ptr = core_ptr;
+		temp_ptr[i].cluster_cores = cluster_cpus[i];
+		j = 0;
+		for_each_cpu_mask(cpu, cluster_cpus[i])
+			j++;
+		temp_ptr[i].entity_count = j;
+		temp_ptr[i].child_entity_ptr = NULL;
+		update_cpu_datastructure(&temp_ptr[i], sync_cluster_id,
+				sync_cluster_cnt);
+	}
+	core_ptr->child_entity_ptr = temp_ptr;
+}
 
 /* If freq table exists, then we can send freq request */
 static int check_freq_table(void)
@@ -4028,6 +4283,8 @@ static int msm_thermal_dev_probe(struct platform_device *pdev)
 		goto fail;
 	ret = probe_ocr(node, &data, pdev);
 
+	update_cpu_topology(&pdev->dev);
+
 	/*
 	 * In case sysfs add nodes get called before probe function.
 	 * Need to make sure sysfs node is created again
@@ -4043,6 +4300,10 @@ static int msm_thermal_dev_probe(struct platform_device *pdev)
 	if (ocr_nodes_called) {
 		msm_thermal_add_ocr_nodes();
 		ocr_nodes_called = false;
+	}
+	if (cluster_info_nodes_called) {
+		create_cpu_topology_sysfs();
+		cluster_info_nodes_called = false;
 	}
 	msm_thermal_ioctl_init();
 	ret = msm_thermal_init(&data);
@@ -4129,6 +4390,7 @@ int __init msm_thermal_late_init(void)
 	}
 	msm_thermal_add_mx_nodes();
 	interrupt_mode_init();
+	create_cpu_topology_sysfs();
 	return 0;
 }
 late_initcall(msm_thermal_late_init);
