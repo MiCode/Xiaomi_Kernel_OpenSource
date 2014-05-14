@@ -28,6 +28,7 @@ enum dump_client_type {
 	MSM_TMC0_REG, /* TMC_ETR */
 	MSM_TMC1_REG, /* TMC_ETF */
 	MSM_LOG_BUF,
+	MSM_LOG_BUF_FIRST_IDX,
 	MAX_NUM_CLIENTS,
 };
 
@@ -61,7 +62,7 @@ static inline uint32_t msm_dump_table_version(void)
 #define MSM_DUMP_MINOR(val)		(val & 0xFFFFF)
 
 
-#define MAX_NUM_ENTRIES		0x110
+#define MAX_NUM_ENTRIES		0x120
 
 enum msm_dump_data_ids {
 	MSM_DUMP_DATA_CPU_CTX = 0x00,
@@ -73,6 +74,8 @@ enum msm_dump_data_ids {
 	MSM_DUMP_DATA_OCMEM = 0xE0,
 	MSM_DUMP_DATA_TMC_ETF = 0xF0,
 	MSM_DUMP_DATA_TMC_REG = 0x100,
+	MSM_DUMP_DATA_LOG_BUF = 0x110,
+	MSM_DUMP_DATA_LOG_BUF_FIRST_IDX = 0x111,
 	MSM_DUMP_DATA_MAX = MAX_NUM_ENTRIES,
 };
 
