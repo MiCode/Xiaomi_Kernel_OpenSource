@@ -115,6 +115,18 @@ static void uether_debugfs_exit(struct eth_dev *dev);
 
 #define DEFAULT_QLEN	2	/* double buffering by default */
 
+/*
+ * Usually downlink rates are higher than uplink rates and it
+ * deserve higher number of requests. For CAT-6 data rates of
+ * 300Mbps (~30 packets per milli-sec) 40 usb request may not
+ * be sufficient. At this rate and with interrupt moderation
+ * of interconnect, data can be very bursty. tx_qmult is the
+ * additional multipler on qmult.
+ */
+static unsigned int tx_qmult = 1;
+module_param(tx_qmult, uint, 0644);
+MODULE_PARM_DESC(tx_qmult, "Additional queue length multiplier for tx");
+
 /* for dual-speed hardware, use deeper queues at high/super speed */
 static inline int qlen(struct usb_gadget *gadget, unsigned qmult)
 {
@@ -418,7 +430,7 @@ static int alloc_requests(struct eth_dev *dev, struct gether *link, unsigned n)
 
 	spin_lock(&dev->req_lock);
 	if (link->in_ep) {
-		status = prealloc(&dev->tx_reqs, link->in_ep, n);
+		status = prealloc(&dev->tx_reqs, link->in_ep, n * tx_qmult);
 			if (status < 0)
 			goto fail;
 	}
