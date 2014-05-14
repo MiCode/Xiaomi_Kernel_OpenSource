@@ -1037,7 +1037,8 @@ static void bam2bam_data_connect_work(struct work_struct *w)
 
 	/* Don't queue the transfers yet, only after network stack is up */
 	if (d->trans == USB_GADGET_XPORT_BAM2BAM_IPA &&
-		d->func_type == USB_FUNC_RNDIS) {
+		(d->func_type == USB_FUNC_RNDIS ||
+		d->func_type == USB_FUNC_ECM)) {
 		pr_debug("%s: Not starting now, waiting for network notify",
 			__func__);
 		return;
