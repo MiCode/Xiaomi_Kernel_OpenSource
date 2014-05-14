@@ -103,6 +103,7 @@ Optional driver parameters:
 - qcom,restart-group: List of subsystems that will need to restart together.
 - qcom,mdm-dual-link: Boolean indicates wheter both links can used for
 		communication.
+- qcom,ssctl-instance-id: Instance id used by the subsystem to connect with the SSCTL service.
 
 Example:
 	mdm0: qcom,mdm0 {
@@ -138,4 +139,5 @@ Example:
                 qcom,ramdump-timeout-ms = <120000>;
                 qcom,vddmin-modes  = "normal";
                 qcom,vddmin-drive-strength = <8>;
+		qcom,ssctl-instance-id = <10>;
         };
