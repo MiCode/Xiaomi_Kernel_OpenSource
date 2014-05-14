@@ -18,6 +18,7 @@
 #include <asm/intel-mid.h>
 #include <media/v4l2-subdev.h>
 #include <linux/mfd/intel_mid_pmic.h>
+#include <linux/atomisp_gmin_platform.h>
 
 #ifdef CONFIG_VLV2_PLAT_CLK
 #include <linux/vlv2_plat_clock.h>
@@ -74,41 +75,6 @@ static struct gpio_desc *camera_reset;
 static struct gpio_desc *camera_power_down;
 
 static int camera_vprog1_on;
-
-/*
- * Cloned from MCG platform_camera.c because it's small and
- * self-contained.  All it does is maintain the V4L2 subdev hostdate
- * pointer
- */
-static int camera_sensor_csi(struct v4l2_subdev *sd, u32 port,
-			     u32 lanes, u32 format, u32 bayer_order, int flag)
-{
-        struct i2c_client *client = v4l2_get_subdevdata(sd);
-        struct camera_mipi_info *csi = NULL;
-
-        if (flag) {
-                csi = kzalloc(sizeof(*csi), GFP_KERNEL);
-                if (!csi) {
-                        dev_err(&client->dev, "out of memory\n");
-                        return -ENOMEM;
-                }
-                csi->port = port;
-                csi->num_lanes = lanes;
-                csi->input_format = format;
-                csi->raw_bayer_order = bayer_order;
-                v4l2_set_subdev_hostdata(sd, (void *)csi);
-                csi->metadata_format = ATOMISP_INPUT_FORMAT_EMBEDDED;
-                csi->metadata_effective_width = NULL;
-                dev_info(&client->dev,
-                         "camera pdata: port: %d lanes: %d order: %8.8x\n",
-                         port, lanes, bayer_order);
-        } else {
-                csi = v4l2_get_subdev_hostdata(sd);
-                kfree(csi);
-        }
-
-	return 0;
-}
 
 /*
  * BYT_CR2.1 primary camera sensor - GC2235 platform data

@@ -13,11 +13,13 @@
 #include <linux/gpio.h>
 #include <linux/delay.h>
 #include <linux/i2c.h>
+#include <linux/acpi.h>
 #include <linux/atomisp_platform.h>
 #include <linux/regulator/consumer.h>
 #include <asm/intel-mid.h>
 #include <media/v4l2-subdev.h>
 #include <linux/mfd/intel_mid_pmic.h>
+#include <linux/atomisp_gmin_platform.h>
 
 #ifdef CONFIG_VLV2_PLAT_CLK
 #include <linux/vlv2_plat_clock.h>
@@ -415,35 +417,22 @@ static int ov2722_power_ctrl(struct v4l2_subdev *sd, int flag)
 
 static int ov2722_csi_configure(struct v4l2_subdev *sd, int flag)
 {
+	/* Default from legacy platform w/o firmware config */
+	int port = ATOMISP_CAMERA_PORT_SECONDARY;
+	int lanes = 1;
+	int format = ATOMISP_INPUT_FORMAT_RAW_10;
+	int bayer = atomisp_bayer_order_grbg;
+
         struct i2c_client *client = v4l2_get_subdevdata(sd);
-	u32 port = ATOMISP_CAMERA_PORT_SECONDARY;
-	u32 lanes = 1;
-	u32 format = ATOMISP_INPUT_FORMAT_RAW_10;
-	u32 bayer_order = atomisp_bayer_order_grbg;
-        struct camera_mipi_info *csi = NULL;
+	if (client && ACPI_COMPANION(&client->dev)) {
+		struct device *dev = &client->dev;
+		port = getvar_int(dev, "CsiPort", port);
+		lanes = getvar_int(dev, "CsiLanes", lanes);
+		format = getvar_int(dev, "CsiFmt", format);
+		bayer = getvar_int(dev, "CsiBayer", bayer);
+	}
 
-        if (flag) {
-                csi = kzalloc(sizeof(*csi), GFP_KERNEL);
-                if (!csi) {
-                        dev_err(&client->dev, "out of memory\n");
-                        return -ENOMEM;
-                }
-                csi->port = port;
-                csi->num_lanes = lanes;
-                csi->input_format = format;
-                csi->raw_bayer_order = bayer_order;
-                v4l2_set_subdev_hostdata(sd, (void *)csi);
-                csi->metadata_format = ATOMISP_INPUT_FORMAT_EMBEDDED;
-                csi->metadata_effective_width = NULL;
-                dev_info(&client->dev,
-                         "camera pdata: port: %d lanes: %d order: %8.8x\n",
-                         port, lanes, bayer_order);
-        } else {
-                csi = v4l2_get_subdev_hostdata(sd);
-                kfree(csi);
-        }
-
-        return 0;
+	return camera_sensor_csi(sd, port, lanes, format, bayer, flag);
 }
 
 #ifdef CONFIG_CRYSTAL_COVE
