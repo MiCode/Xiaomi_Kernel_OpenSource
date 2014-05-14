@@ -48,6 +48,7 @@ static char *descriptions =
 	"23 msm: perf: Fix cpu id logic in tracectr notifier\n"
 	"24 msm: perf: tracectr: Initialize cnts after hotplug\n"
 	"25 Perf: Reset pmu after hotplug\n"
+	"26 msm: perf: set filter bits for cycle counter on krait\n"
 ;
 
 static ssize_t desc_read(struct file *fp, char __user *buf,
