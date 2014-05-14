@@ -25,7 +25,7 @@
 #define MSM_SEC_MI2S  1
 #define MSM_TERT_MI2S 2
 #define MSM_QUAT_MI2S  3
-#define MSM_SEC_MI2S_VIBRA  4
+#define MSM_SEC_MI2S_SD1  4
 
 struct msm_dai_auxpcm_config {
 	u16 mode;
