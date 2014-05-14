@@ -37,8 +37,8 @@ enum subsys_id {
 #ifdef CONFIG_MSM_SYSMON_COMM
 int sysmon_send_event(const char *dest_ss, const char *event_ss,
 				enum subsys_notif_type notif);
-int sysmon_get_reason(enum subsys_id dest_ss, char *buf, size_t len);
-int sysmon_send_shutdown(enum subsys_id dest_ss);
+int sysmon_get_reason(const char *dest_ss, char *buf, size_t len);
+int sysmon_send_shutdown(const char *dest_ss);
 #else
 static inline int sysmon_send_event(const char *dest_ss,
 				    const char *event_ss,
@@ -46,12 +46,12 @@ static inline int sysmon_send_event(const char *dest_ss,
 {
 	return 0;
 }
-static inline int sysmon_get_reason(enum subsys_id dest_ss, char *buf,
+static inline int sysmon_get_reason(const char *dest_ss, char *buf,
 				    size_t len)
 {
 	return 0;
 }
-static inline int sysmon_send_shutdown(enum subsys_id dest_ss)
+static inline int sysmon_send_shutdown(const char *dest_ss)
 {
 	return 0;
 }
