@@ -641,6 +641,7 @@ static void tx_complete(struct usb_ep *ep, struct usb_request *req)
 	struct net_device *net;
 	struct usb_request *new_req;
 	struct usb_ep *in;
+	int n = 1;
 	int length;
 	int retval;
 
@@ -666,34 +667,34 @@ static void tx_complete(struct usb_ep *ep, struct usb_request *req)
 	case -ESHUTDOWN:		/* disconnect etc */
 		break;
 	case 0:
-		if (req->num_sgs) {
-			struct sg_ctx *sg_ctx = req->context;
-			int n = skb_queue_len(&sg_ctx->skbs);
-
-			dev->net->stats.tx_bytes += req->length;
-			dev->net->stats.tx_packets += n;
-			dev->tx_aggr_cnt[n-1]++;
-
-			skb_queue_purge(&sg_ctx->skbs);
-
-			spin_lock(&dev->req_lock);
-			list_add_tail(&req->list, &dev->tx_reqs);
-			spin_unlock(&dev->req_lock);
-
-			queue_work(uether_tx_wq, &dev->tx_work);
-
-			return;
-		}
-
 		if (!req->zero)
 			dev->net->stats.tx_bytes += req->length-1;
 		else
 			dev->net->stats.tx_bytes += req->length;
 	}
-	dev->net->stats.tx_packets++;
+
+	if (req->num_sgs) {
+		struct sg_ctx *sg_ctx = req->context;
+
+		n = skb_queue_len(&sg_ctx->skbs);
+		dev->tx_aggr_cnt[n-1]++;
+
+		/* sg_ctx is only accessible here, can use lock-free version */
+		__skb_queue_purge(&sg_ctx->skbs);
+	}
+
+	dev->net->stats.tx_packets += n;
 
 	spin_lock(&dev->req_lock);
 	list_add_tail(&req->list, &dev->tx_reqs);
+
+	if (req->num_sgs) {
+		if (!req->status)
+			queue_work(uether_tx_wq, &dev->tx_work);
+
+		spin_unlock(&dev->req_lock);
+		return;
+	}
 
 	if (dev->port_usb->multi_pkt_xfer && !req->context) {
 		dev->no_tx_req_used--;
