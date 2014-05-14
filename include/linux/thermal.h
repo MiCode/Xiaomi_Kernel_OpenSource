@@ -282,6 +282,7 @@ struct thermal_instance *get_thermal_instance(struct thermal_zone_device *,
 void thermal_cdev_update(struct thermal_cooling_device *);
 void thermal_notify_framework(struct thermal_zone_device *, int);
 
+int sensor_get_temp(uint32_t sensor_id, long *temp);
 int sensor_get_id(char *name);
 int sensor_set_trip(uint32_t sensor_id, struct sensor_threshold *threshold);
 int sensor_cancel_trip(uint32_t sensor_id, struct sensor_threshold *threshold);
