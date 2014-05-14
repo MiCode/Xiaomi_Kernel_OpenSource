@@ -494,6 +494,16 @@ static struct msm_camera_i2c_reg_conf ov5645_stop_settings[] = {
 	{0x3008, 0x42,},
 };
 
+static struct msm_camera_i2c_reg_conf ov5645_enable_aec_settings[] = {
+	{0x3503, 0x00,},
+	{0x3406, 0x00,},
+};
+
+static struct msm_camera_i2c_reg_conf ov5645_disable_aec_settings[] = {
+	{0x3503, 0x07,},
+	{0x3406, 0x01,},
+};
+
 static const struct i2c_device_id ov5645_i2c_id[] = {
 	{OV5645_SENSOR_NAME, (kernel_ulong_t)&ov5645_s_ctrl},
 	{ }
@@ -661,6 +671,25 @@ int32_t ov5645_sensor_config(struct msm_sensor_ctrl_t *s_ctrl,
 			MSM_CAMERA_I2C_BYTE_DATA);
 		break;
 	case CFG_SET_START_STREAM:
+		if (s_ctrl->camera_stream_type != MSM_CAMERA_STREAM_SNAPSHOT) {
+			rc = s_ctrl->sensor_i2c_client->i2c_func_tbl->
+				i2c_write_conf_tbl(
+				s_ctrl->sensor_i2c_client, ov5645_enable_aec_settings,
+				ARRAY_SIZE(ov5645_enable_aec_settings),
+				MSM_CAMERA_I2C_BYTE_DATA);
+		} else {
+			rc = s_ctrl->sensor_i2c_client->i2c_func_tbl->
+				i2c_write_conf_tbl(
+				s_ctrl->sensor_i2c_client, ov5645_disable_aec_settings,
+				ARRAY_SIZE(ov5645_disable_aec_settings),
+				MSM_CAMERA_I2C_BYTE_DATA);
+		}
+		if (rc) {
+			pr_err("%s:%d failed\n", __func__, __LINE__);
+			rc = -EFAULT;
+			break;
+		}
+
 		rc = s_ctrl->sensor_i2c_client->i2c_func_tbl->
 			i2c_write_conf_tbl(
 			s_ctrl->sensor_i2c_client, ov5645_start_settings,
@@ -859,6 +888,17 @@ int32_t ov5645_sensor_config(struct msm_sensor_ctrl_t *s_ctrl,
 		}
 		break;
 		}
+	case CFG_SET_STREAM_TYPE: {
+		enum msm_camera_stream_type_t stream_type = MSM_CAMERA_STREAM_INVALID;
+		if (copy_from_user(&stream_type, (void *)cdata->cfg.setting,
+			sizeof(enum msm_camera_stream_type_t))) {
+			pr_err("%s:%d failed\n", __func__, __LINE__);
+			rc = -EFAULT;
+			break;
+		}
+		s_ctrl->camera_stream_type = stream_type;
+		break;
+	}
 	case CFG_SET_SATURATION:
 		break;
 	case CFG_SET_CONTRAST:
