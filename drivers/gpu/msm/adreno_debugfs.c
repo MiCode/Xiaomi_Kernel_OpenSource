@@ -1,4 +1,4 @@
-/* Copyright (c) 2002,2008-2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2002,2008-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -20,9 +20,6 @@
 #include "kgsl.h"
 #include "adreno.h"
 #include "kgsl_cffdump.h"
-
-DEFINE_SIMPLE_ATTRIBUTE(kgsl_cff_dump_enable_fops, kgsl_cff_dump_enable_get,
-			kgsl_cff_dump_enable_set, "%llu\n");
 
 static int _active_count_get(void *data, u64 *val)
 {
@@ -46,8 +43,8 @@ void adreno_debugfs_init(struct kgsl_device *device)
 	if (!device->d_debugfs || IS_ERR(device->d_debugfs))
 		return;
 
-	debugfs_create_file("cff_dump", 0644, device->d_debugfs, device,
-			    &kgsl_cff_dump_enable_fops);
+	kgsl_cffdump_debugfs_create(device);
+
 	debugfs_create_u32("wait_timeout", 0644, device->d_debugfs,
 		&adreno_dev->wait_timeout);
 	debugfs_create_u32("ib_check", 0644, device->d_debugfs,
