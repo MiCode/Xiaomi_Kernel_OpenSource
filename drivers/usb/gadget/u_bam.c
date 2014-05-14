@@ -1279,8 +1279,24 @@ static void gbam2bam_connect_work(struct work_struct *w)
 				return;
 			}
 
+			if (!port) {
+				pr_err("%s: UL: Port is NULL.", __func__);
+				return;
+			}
+
+			spin_lock_irqsave(&port->port_lock_ul, flags);
+			/* check if USB cable is disconnected or not */
+			if (!port->port_usb) {
+				pr_debug("%s: UL: cable is disconnected.\n",
+								 __func__);
+				spin_unlock_irqrestore(&port->port_lock_ul,
+								flags);
+				return;
+			}
+
 			configure_data_fifo(d->src_bam_idx, port->port_usb->out,
 						d->src_pipe_type);
+			spin_unlock_irqrestore(&port->port_lock_ul, flags);
 		}
 
 		/* Remove support for UL using system-to-IPA towards DL */
@@ -1312,8 +1328,24 @@ static void gbam2bam_connect_work(struct work_struct *w)
 				return;
 			}
 
+			if (!port) {
+				pr_err("%s: DL: Port is NULL.", __func__);
+				return;
+			}
+
+			spin_lock_irqsave(&port->port_lock_dl, flags);
+			/* check if USB cable is disconnected or not */
+			if (!port->port_usb) {
+				pr_debug("%s: DL: cable is disconnected.\n",
+								__func__);
+				spin_unlock_irqrestore(&port->port_lock_dl,
+								flags);
+				return;
+			}
+
 			configure_data_fifo(d->dst_bam_idx, port->port_usb->in,
 						d->dst_pipe_type);
+			spin_unlock_irqrestore(&port->port_lock_dl, flags);
 		}
 
 		gqti_ctrl_update_ipa_pipes(port->port_usb, port->port_num,
