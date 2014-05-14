@@ -55,12 +55,17 @@
 #define WLAN_SWREG_NAME		"wlan-soc-swreg"
 #define WLAN_EN_GPIO_NAME	"wlan-en-gpio"
 #define PM_OPTIONS		0
+#define PM_OPTIONS_SUSPEND_LINK_DOWN \
+	(MSM_PCIE_CONFIG_NO_CFG_RESTORE | MSM_PCIE_CONFIG_LINKDOWN)
+#define PM_OPTIONS_RESUME_LINK_DOWN \
+	(MSM_PCIE_CONFIG_NO_CFG_RESTORE)
 
 #define SOC_SWREG_VOLT_MAX	1200000
 #define SOC_SWREG_VOLT_MIN	1200000
 
 #define POWER_ON_DELAY		2000
 #define WLAN_ENABLE_DELAY	10000
+#define WLAN_RECOVERY_DELAY	1000
 
 struct cnss_wlan_gpio_info {
 	char *name;
@@ -92,6 +97,7 @@ static struct cnss_data {
 	struct cnss_wlan_vreg_info vreg_info;
 	struct cnss_wlan_gpio_info gpio_info;
 	bool pcie_link_state;
+	bool pcie_link_down_ind;
 	struct pci_saved_state *saved_state;
 	u16 revision_id;
 	struct cnss_fw_files fw_files;
@@ -105,6 +111,8 @@ static struct cnss_data {
 	struct esoc_desc *esoc_desc;
 	bool notify_modem_status;
 	struct cnss_platform_cap cap;
+	struct msm_pcie_register_event event_reg;
+	bool recovery_in_progress;
 } *penv;
 
 
@@ -514,7 +522,7 @@ static int cnss_wlan_pci_resume(struct pci_dev *pdev)
 	if (!wdriver)
 		goto out;
 
-	if (wdriver->resume)
+	if (wdriver->resume && !penv->pcie_link_down_ind)
 		ret = wdriver->resume(pdev);
 
 out:
@@ -535,6 +543,20 @@ struct pci_driver cnss_wlan_pci_driver = {
 	.suspend  = cnss_wlan_pci_suspend,
 	.resume   = cnss_wlan_pci_resume,
 };
+
+void recovery_work_handler(struct work_struct *recovery)
+{
+	cnss_device_self_recovery();
+}
+
+DECLARE_WORK(recovery_work, recovery_work_handler);
+
+void cnss_pci_link_down_cb(struct msm_pcie_notify *notify)
+{
+	penv->pcie_link_down_ind = true;
+	pr_err("PCI link down, schedule recovery\n");
+	schedule_work(&recovery_work);
+}
 
 int cnss_wlan_register_driver(struct cnss_wlan_driver *driver)
 {
@@ -626,6 +648,18 @@ again:
 		}
 	}
 
+	penv->event_reg.events = MSM_PCIE_EVENT_LINKDOWN;
+	penv->event_reg.user = pdev;
+	penv->event_reg.mode = MSM_PCIE_TRIGGER_CALLBACK;
+	penv->event_reg.callback = cnss_pci_link_down_cb;
+	penv->event_reg.options = MSM_PCIE_CONFIG_NO_RECOVERY;
+	ret = msm_pcie_register_event(&penv->event_reg);
+	if (ret) {
+		pr_err("%s: PCI link down detect register failed %d\n",
+				__func__, ret);
+		ret = 0;
+	}
+
 	if (penv->notify_modem_status && wdrv->modem_status)
 		wdrv->modem_status(pdev, penv->modem_current_status);
 
@@ -699,6 +733,9 @@ void cnss_wlan_unregister_driver(struct cnss_wlan_driver *driver)
 		}
 		penv->pcie_link_state = PCIE_LINK_DOWN;
 	}
+
+	msm_pcie_deregister_event(&penv->event_reg);
+	penv->pcie_link_down_ind = false;
 
 cut_power:
 	penv->driver = NULL;
@@ -848,25 +885,32 @@ static int cnss_shutdown(const struct subsys_desc *subsys, bool force_stop)
 	vreg_info = &penv->vreg_info;
 	gpio_info = &penv->gpio_info;
 
-	if (wdrv && wdrv->shutdown)
-		wdrv->shutdown(pdev);
-
 	if (!pdev) {
 		ret = -EINVAL;
 		goto cut_power;
 	}
 
-	if (penv->pcie_link_state) {
+	if (wdrv && wdrv->shutdown)
+		wdrv->shutdown(pdev);
+
+	if (penv->pcie_link_state && !penv->pcie_link_down_ind) {
 		pci_save_state(pdev);
 		penv->saved_state = pci_store_saved_state(pdev);
-
 		if (msm_pcie_pm_control(MSM_PCIE_SUSPEND,
 					cnss_get_pci_dev_bus_number(pdev),
 					NULL, NULL, PM_OPTIONS)) {
 			pr_debug("cnss: Failed to shutdown PCIe link!\n");
 			ret = -EFAULT;
 		}
-
+		penv->pcie_link_state = PCIE_LINK_DOWN;
+	} else if (penv->pcie_link_state && penv->pcie_link_down_ind) {
+		if (msm_pcie_pm_control(MSM_PCIE_SUSPEND,
+				cnss_get_pci_dev_bus_number(pdev),
+				NULL, NULL, PM_OPTIONS_SUSPEND_LINK_DOWN)) {
+			pr_debug("cnss: Failed to shutdown PCIe link!\n");
+			ret = -EFAULT;
+		}
+		penv->saved_state = NULL;
 		penv->pcie_link_state = PCIE_LINK_DOWN;
 	}
 
@@ -890,61 +934,79 @@ static int cnss_powerup(const struct subsys_desc *subsys)
 	if (!penv)
 		return -ENODEV;
 
-	if (penv->driver) {
-		wdrv = penv->driver;
-		pdev = penv->pdev;
-		vreg_info = &penv->vreg_info;
-		gpio_info = &penv->gpio_info;
+	if (!penv->driver)
+		goto out;
 
-		ret = cnss_wlan_vreg_set(vreg_info, VREG_ON);
-		if (ret) {
-			pr_err("cnss: Failed to set WLAN VREG_ON!\n");
-			goto err_wlan_vreg_on;
-		}
+	wdrv = penv->driver;
+	pdev = penv->pdev;
+	vreg_info = &penv->vreg_info;
+	gpio_info = &penv->gpio_info;
 
-		usleep(POWER_ON_DELAY);
-		cnss_wlan_gpio_set(gpio_info, WLAN_EN_HIGH);
-		usleep(WLAN_ENABLE_DELAY);
-
-		if (!pdev) {
-			pr_err("%d: invalid pdev\n", __LINE__);
-			goto err_pcie_link_up;
-		}
-
-		if (!penv->pcie_link_state) {
-			ret = msm_pcie_pm_control(MSM_PCIE_RESUME,
-					  cnss_get_pci_dev_bus_number(pdev),
-					  NULL, NULL, PM_OPTIONS);
-
-			if (ret) {
-				pr_err("cnss: Failed to bring-up PCIe link!\n");
-				goto err_pcie_link_up;
-			}
-
-			penv->pcie_link_state = PCIE_LINK_UP;
-		}
-
-		if (wdrv && wdrv->reinit) {
-			if (penv->saved_state)
-				pci_load_and_free_saved_state(pdev,
-					&penv->saved_state);
-
-			pci_restore_state(pdev);
-
-			ret = wdrv->reinit(pdev, penv->id);
-			if (ret) {
-				pr_err("%d: Failed to do reinit\n", __LINE__);
-				goto err_wlan_reinit;
-			}
-		} else {
-			pr_err("%d: wdrv->reinit is invalid\n", __LINE__);
-			goto err_pcie_link_up;
-		}
-
-		if (penv->notify_modem_status && wdrv->modem_status)
-			wdrv->modem_status(pdev, penv->modem_current_status);
+	ret = cnss_wlan_vreg_set(vreg_info, VREG_ON);
+	if (ret) {
+		pr_err("cnss: Failed to set WLAN VREG_ON!\n");
+		goto err_wlan_vreg_on;
 	}
 
+	usleep(POWER_ON_DELAY);
+	cnss_wlan_gpio_set(gpio_info, WLAN_EN_HIGH);
+	usleep(WLAN_ENABLE_DELAY);
+
+	if (!pdev) {
+		pr_err("%d: invalid pdev\n", __LINE__);
+		goto err_pcie_link_up;
+	}
+
+	if (!penv->pcie_link_state && !penv->pcie_link_down_ind) {
+		ret = msm_pcie_pm_control(MSM_PCIE_RESUME,
+				  cnss_get_pci_dev_bus_number(pdev),
+				  NULL, NULL, PM_OPTIONS);
+
+		if (ret) {
+			pr_err("cnss: Failed to bring-up PCIe link!\n");
+			goto err_pcie_link_up;
+		}
+		penv->pcie_link_state = PCIE_LINK_UP;
+
+	} else if (!penv->pcie_link_state && penv->pcie_link_down_ind) {
+		ret = msm_pcie_pm_control(MSM_PCIE_RESUME,
+			cnss_get_pci_dev_bus_number(pdev),
+			NULL, NULL, PM_OPTIONS_RESUME_LINK_DOWN);
+
+		if (ret) {
+			pr_err("cnss: Failed to bring-up PCIe link!\n");
+			goto err_pcie_link_up;
+		}
+		penv->pcie_link_state = PCIE_LINK_UP;
+		ret = msm_pcie_recover_config(penv->pdev);
+		if (ret) {
+			pr_err("cnss: PCI link failed to recover\n");
+			goto err_pcie_link_up;
+		}
+		penv->pcie_link_down_ind = false;
+	}
+
+	if (wdrv && wdrv->reinit) {
+		if (penv->saved_state)
+			pci_load_and_free_saved_state(pdev,
+				&penv->saved_state);
+
+		pci_restore_state(pdev);
+
+		ret = wdrv->reinit(pdev, penv->id);
+		if (ret) {
+			pr_err("%d: Failed to do reinit\n", __LINE__);
+			goto err_wlan_reinit;
+		}
+	} else {
+		pr_err("%d: wdrv->reinit is invalid\n", __LINE__);
+			goto err_pcie_link_up;
+	}
+
+	if (penv->notify_modem_status && wdrv->modem_status)
+		wdrv->modem_status(pdev, penv->modem_current_status);
+
+out:
 	return ret;
 
 err_wlan_reinit:
@@ -1008,9 +1070,16 @@ static void cnss_crash_shutdown(const struct subsys_desc *subsys)
 
 void cnss_device_self_recovery(void)
 {
+	if (penv->recovery_in_progress) {
+		pr_err("cnss: Recovery already in progress\n");
+		return;
+	}
+
+	penv->recovery_in_progress = true;
 	cnss_shutdown(NULL, false);
-	usleep(1000);
+	usleep(WLAN_RECOVERY_DELAY);
 	cnss_powerup(NULL);
+	penv->recovery_in_progress = false;
 }
 EXPORT_SYMBOL(cnss_device_self_recovery);
 
