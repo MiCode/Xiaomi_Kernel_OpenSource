@@ -114,6 +114,8 @@ struct bam_data_port {
 	bool                            is_connected;
 	unsigned			port_num;
 	spinlock_t			port_lock_ul;
+	spinlock_t			port_lock;
+	unsigned int                    ref_count;
 	struct data_port		*port_usb;
 	struct bam_data_ch_info		data_ch;
 
@@ -652,13 +654,18 @@ static void bam2bam_data_disconnect_work(struct work_struct *w)
 	struct bam_data_port *port =
 			container_of(w, struct bam_data_port, disconnect_w);
 	struct bam_data_ch_info *d = &port->data_ch;
-	int ret;
 	void *priv;
+	unsigned long flags;
+	int ret;
 
 	if (!port->is_connected) {
 		pr_info("%s: Already disconnected. Bailing out.\n", __func__);
 		return;
 	}
+
+	spin_lock_irqsave(&port->port_lock, flags);
+	port->is_connected = false;
+	spin_unlock_irqrestore(&port->port_lock, flags);
 
 	if (d->trans == USB_GADGET_XPORT_BAM2BAM_IPA) {
 		if (d->src_pipe_type == USB_BAM_PIPE_BAM2BAM)
@@ -682,7 +689,6 @@ static void bam2bam_data_disconnect_work(struct work_struct *w)
 
 	}
 
-	port->is_connected = false;
 	pr_debug("Disconnect workqueue done (port %p)\n", port);
 }
 /*
@@ -707,6 +713,34 @@ static void configure_usb_data_fifo(u8 idx, struct usb_ep *ep,
 					data_fifo.size,
 					bam_info.usb_bam_pipe_idx);
 	}
+}
+
+/* Start RX transfers according to pipe_type */
+static inline int bam_data_start_rx_transfers(struct bam_data_ch_info *d,
+				struct bam_data_port *port)
+{
+	int ret;
+
+
+	if (d->trans == USB_GADGET_XPORT_BAM2BAM ||
+		d->src_pipe_type == USB_BAM_PIPE_BAM2BAM) {
+		bam_data_start_endless_rx(port);
+	} else {
+		/*
+		 * The use-case of UL (OUT) ports using sys2bam is based on
+		 * partial reuse of the system-to-bam_demux code. The following
+		 * lines perform the branching out of the standard bam2bam flow
+		 * on the USB side of the UL channel
+		 */
+		ret = _bam_data_start_io(port, false);
+		if (ret) {
+			pr_err("%s: _bam_data_start_io, ret %d", __func__, ret);
+			return ret;
+		}
+		bam_data_start_rx(port);
+	}
+
+	return 0;
 }
 
 static void bam2bam_data_connect_work(struct work_struct *w)
@@ -930,6 +964,7 @@ static void bam2bam_data_connect_work(struct work_struct *w)
 				MSM_VENDOR_ID) & ~SPS_PARAMS_TBE;
 		}
 		d->tx_req->udc_priv = sps_params;
+		port->is_connected = true;
 
 		if (d->func_type == USB_FUNC_MBIM) {
 			connect_params.ipa_usb_pipe_hdl =
@@ -1000,22 +1035,16 @@ static void bam2bam_data_connect_work(struct work_struct *w)
 		d->tx_req->udc_priv = sps_params;
 	}
 
-	/* queue in & out requests */
-	if (d->trans == USB_GADGET_XPORT_BAM2BAM ||
-		d->src_pipe_type == USB_BAM_PIPE_BAM2BAM)
-		bam_data_start_endless_rx(port);
-	else {
-		/* The use-case of UL (OUT) ports using sys2bam is based on
-		 * partial reuse of the system-to-bam_demux code. The following
-		 * lines perform the branching out of the standard bam2bam flow
-		 * on the USB side of the UL channel
-		 */
-		if (_bam_data_start_io(port, false)) {
-			pr_err("%s: _bam_data_start_io\n", __func__);
-			return;
-		}
-		bam_data_start_rx(port);
+	/* Don't queue the transfers yet, only after network stack is up */
+	if (d->trans == USB_GADGET_XPORT_BAM2BAM_IPA &&
+		d->func_type == USB_FUNC_RNDIS) {
+		pr_debug("%s: Not starting now, waiting for network notify",
+			__func__);
+		return;
 	}
+
+	/* queue in & out requests */
+	bam_data_start_rx_transfers(d, port);
 	bam_data_start_endless_tx(port);
 
 	/* Register for peer reset callback if USB_GADGET_XPORT_BAM2BAM */
@@ -1030,8 +1059,60 @@ static void bam2bam_data_connect_work(struct work_struct *w)
 		}
 	}
 
-	port->is_connected = true;
 	pr_debug("Connect workqueue done (port %p)", port);
+}
+
+/*
+ * Called when IPA triggers us that the network interface is up.
+ *  Starts the transfers on bulk endpoints.
+ * (optimization reasons, the pipes and bam with IPA are already connected)
+ */
+void bam_data_start_rx_tx(u8 port_num)
+{
+	struct bam_data_port	*port;
+	struct bam_data_ch_info	*d;
+	unsigned long flags;
+
+	pr_debug("%s: Triggered: starting tx, rx", __func__);
+
+	/* queue in & out requests */
+	port = bam2bam_data_ports[port_num];
+	if (!port) {
+		pr_err("%s: port is NULL, can't start tx, rx", __func__);
+		return;
+	}
+
+	spin_lock_irqsave(&port->port_lock_ul, flags);
+	if (!port->port_usb || !port->port_usb->in->driver_data
+		|| !port->port_usb->out->driver_data) {
+		pr_err("%s: Can't start tx, rx, ep not enabled", __func__);
+		spin_unlock_irqrestore(&port->port_lock_ul, flags);
+		return;
+	}
+	d = &port->data_ch;
+	spin_unlock_irqrestore(&port->port_lock_ul, flags);
+
+	spin_lock_irqsave(&port->port_lock, flags);
+	if (!d->rx_req || !d->tx_req) {
+		pr_err("%s: No request d->rx_req=%p, d->tx_req=%p", __func__,
+			d->rx_req, d->tx_req);
+		goto out;
+	}
+	if (!port->is_connected) {
+		pr_debug("%s: pipes are disconnected", __func__);
+		goto out;
+	}
+
+	/* queue in & out requests */
+	pr_debug("%s: Starting rx", __func__);
+	if (bam_data_start_rx_transfers(d, port))
+		goto out;
+
+	pr_debug("%s: Starting tx", __func__);
+	bam_data_start_endless_tx(port);
+
+out:
+	spin_unlock_irqrestore(&port->port_lock, flags);
 }
 
 static int bam2bam_data_port_alloc(int portno)
@@ -1064,6 +1145,7 @@ int bam2bam_data_port_select(int portno)
 	port->is_connected = false;
 
 	spin_lock_init(&port->port_lock_ul);
+	spin_lock_init(&port->port_lock);
 	INIT_WORK(&port->connect_w, bam2bam_data_connect_work);
 	INIT_WORK(&port->disconnect_w, bam2bam_data_disconnect_work);
 	INIT_WORK(&port->suspend_w, bam2bam_data_suspend_work);
@@ -1110,7 +1192,7 @@ void bam_data_disconnect(struct data_port *gr, u8 port_num)
 	struct bam_data_port	*port;
 	struct bam_data_ch_info	*d;
 
-	pr_debug("dev:%p port#%d\n", gr, port_num);
+	pr_debug("dev:%p port number:%d\n", gr, port_num);
 
 	if (port_num >= n_bam2bam_data_ports) {
 		pr_err("invalid bam2bam portno#%d\n", port_num);
