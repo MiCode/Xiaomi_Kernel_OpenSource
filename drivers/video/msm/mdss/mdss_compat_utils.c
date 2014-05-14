@@ -2295,6 +2295,8 @@ static int __from_user_mdp_overlay(struct mdp_overlay *ov,
 	    put_user(data, &ov->transp_mask) ||
 	    get_user(data, &ov32->flags) ||
 	    put_user(data, &ov->flags) ||
+	    get_user(data, &ov32->pipe_type) ||
+	    put_user(data, &ov->pipe_type) ||
 	    get_user(data, &ov32->id) ||
 	    put_user(data, &ov->id) ||
 	    get_user(data, &ov32->priority) ||
