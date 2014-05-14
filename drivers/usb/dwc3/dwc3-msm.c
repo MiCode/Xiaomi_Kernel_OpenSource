@@ -14,6 +14,7 @@
 #include <linux/module.h>
 #include <linux/kernel.h>
 #include <linux/slab.h>
+#include <linux/cpu.h>
 #include <linux/platform_device.h>
 #include <linux/dma-mapping.h>
 #include <linux/pm_runtime.h>
@@ -50,6 +51,11 @@
 #include "gadget.h"
 #include "dbm.h"
 #include "debug.h"
+
+/* cpu to fix usb interrupt */
+static int cpu_to_affin;
+module_param(cpu_to_affin, int, S_IRUGO|S_IWUSR);
+MODULE_PARM_DESC(cpu_to_affin, "affin usb irq to this cpu");
 
 /* ADC threshold values */
 static int adc_low_threshold = 700;
@@ -201,6 +207,9 @@ struct dwc3_msm {
 	bool power_collapse; /* power collapse on cable disconnect */
 	bool power_collapse_por; /* perform POR sequence after power collapse */
 	bool enable_suspend_event;
+
+	unsigned int		irq_to_affin;
+	struct notifier_block	dwc3_cpu_notifier;
 };
 
 #define USB_HSPHY_3P3_VOL_MIN		3050000 /* uV */
@@ -2163,6 +2172,22 @@ static irqreturn_t dwc3_pmic_id_irq(int irq, void *data)
 	return IRQ_HANDLED;
 }
 
+static int dwc3_cpu_notifier_cb(struct notifier_block *nfb,
+		unsigned long action, void *hcpu)
+{
+	uint32_t cpu = (uintptr_t)hcpu;
+	struct dwc3_msm *mdwc =
+			container_of(nfb, struct dwc3_msm, dwc3_cpu_notifier);
+
+	if (cpu == cpu_to_affin && action == CPU_ONLINE) {
+		pr_debug("%s: cpu online:%u irq:%d\n", __func__,
+				cpu_to_affin, mdwc->irq_to_affin);
+		irq_set_affinity(mdwc->irq_to_affin, get_cpu_mask(cpu));
+	}
+
+	return NOTIFY_OK;
+}
+
 static void dwc3_adc_notification(enum qpnp_tm_state state, void *ctx)
 {
 	struct dwc3_msm *mdwc = ctx;
@@ -2902,6 +2927,12 @@ static int dwc3_msm_probe(struct platform_device *pdev)
 			dev_err(&pdev->dev, "Fail to setup dwc3 setup cdev\n");
 	}
 
+	mdwc->irq_to_affin = platform_get_irq(mdwc->dwc3, 0);
+	mdwc->dwc3_cpu_notifier.notifier_call = dwc3_cpu_notifier_cb;
+
+	if (cpu_to_affin)
+		register_cpu_notifier(&mdwc->dwc3_cpu_notifier);
+
 	device_init_wakeup(mdwc->dev, 1);
 	pm_stay_awake(mdwc->dev);
 	dwc3_msm_debugfs_init(mdwc);
@@ -2972,6 +3003,9 @@ static int dwc3_msm_remove_children(struct device *dev, void *data)
 static int dwc3_msm_remove(struct platform_device *pdev)
 {
 	struct dwc3_msm	*mdwc = platform_get_drvdata(pdev);
+
+	if (cpu_to_affin)
+		unregister_cpu_notifier(&mdwc->dwc3_cpu_notifier);
 
 	pm_runtime_disable(mdwc->dev);
 	pm_runtime_set_suspended(mdwc->dev);
