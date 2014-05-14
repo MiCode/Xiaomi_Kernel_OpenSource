@@ -42,6 +42,8 @@
 				  SND_JACK_BTN_2 | SND_JACK_BTN_3 | \
 				  SND_JACK_BTN_4)
 #define OCP_ATTEMPT 1
+#define HS_DETECT_PLUG_TIME_MS (3 * 1000)
+#define MBHC_BUTTON_PRESS_THRESHOLD_MIN 250
 
 #define WCD_MBHC_RSC_LOCK(mbhc)			\
 {							\
@@ -88,6 +90,34 @@ static void wcd_program_btn_threshold(const struct wcd_mbhc *mbhc)
 		reg_addr++;
 	}
 }
+
+/* should be called under interrupt context that hold suspend */
+static void wcd_schedule_hs_detect_plug(struct wcd_mbhc *mbhc,
+					    struct work_struct *work)
+{
+	pr_debug("%s: scheduling correct_swch_plug\n", __func__);
+	WCD_MBHC_RSC_ASSERT_LOCKED(mbhc);
+	mbhc->hs_detect_work_stop = false;
+	wcd9xxx_spmi_lock_sleep();
+	schedule_work(work);
+}
+
+/* called under codec_resource_lock acquisition */
+static void wcd_cancel_hs_detect_plug(struct wcd_mbhc *mbhc,
+					 struct work_struct *work)
+{
+	pr_debug("%s: Canceling correct_plug_swch\n", __func__);
+	mbhc->hs_detect_work_stop = true;
+	WCD_MBHC_RSC_UNLOCK(mbhc);
+	if (cancel_work_sync(work)) {
+		pr_debug("%s: correct_plug_swch is canceled\n",
+			 __func__);
+		wcd9xxx_spmi_unlock_sleep();
+	}
+	WCD_MBHC_RSC_LOCK(mbhc);
+}
+
+
 
 static void wcd_mbhc_jack_report(struct wcd_mbhc *mbhc,
 				struct snd_soc_jack *jack, int status, int mask)
@@ -427,8 +457,10 @@ static void wcd_mbhc_report_plug(struct wcd_mbhc *mbhc, int insertion,
 			mbhc->current_plug = MBHC_PLUG_TYPE_HEADPHONE;
 		else if (jack_type == SND_JACK_UNSUPPORTED)
 			mbhc->current_plug = MBHC_PLUG_TYPE_GND_MIC_SWAP;
-		else if (jack_type == SND_JACK_HEADSET)
+		else if (jack_type == SND_JACK_HEADSET) {
 			mbhc->current_plug = MBHC_PLUG_TYPE_HEADSET;
+			mbhc->jiffies_atreport = jiffies;
+		}
 		else if (jack_type == SND_JACK_LINEOUT)
 			mbhc->current_plug = MBHC_PLUG_TYPE_HIGH_HPH;
 
@@ -498,6 +530,53 @@ static void wcd_mbhc_find_plug_and_report(struct wcd_mbhc *mbhc,
 	pr_debug("%s: leave\n", __func__);
 }
 
+static void wcd_correct_swch_plug(struct work_struct *work)
+{
+	struct wcd_mbhc *mbhc;
+	struct snd_soc_codec *codec;
+	enum wcd_mbhc_plug_type plug_type = MBHC_PLUG_TYPE_INVALID;
+	unsigned long timeout;
+	u16 result2;
+	bool wrk_complete = false;
+
+	pr_debug("%s: enter\n", __func__);
+
+	mbhc = container_of(work, struct wcd_mbhc, correct_plug_swch);
+	codec = mbhc->codec;
+
+	timeout = jiffies + msecs_to_jiffies(HS_DETECT_PLUG_TIME_MS);
+	while (!time_after(jiffies, timeout)) {
+		if (mbhc->hs_detect_work_stop) {
+			pr_debug("%s: stop requested\n", __func__);
+			return;
+		}
+		/* allow sometime and re-check stop requested again */
+		msleep(200);
+		if (mbhc->hs_detect_work_stop) {
+			pr_debug("%s: stop requested\n", __func__);
+			return;
+		}
+		result2 = snd_soc_read(codec,
+				MSM8X16_WCD_A_ANALOG_MBHC_ZDET_ELECT_RESULT);
+		pr_debug("%s: result2 = %x\n", __func__, result2);
+		if (result2 == 1) {
+			pr_debug("%s: cable is extension cable\n", __func__);
+			wrk_complete = true;
+		} else {
+			pr_debug("%s: cable is headset\n", __func__);
+			plug_type = MBHC_PLUG_TYPE_HEADSET;
+			wcd_mbhc_find_plug_and_report(mbhc, plug_type);
+			return;
+		}
+	}
+	if (wrk_complete == true)
+		plug_type = MBHC_PLUG_TYPE_HIGH_HPH;
+	else
+		plug_type = MBHC_PLUG_TYPE_INVALID;
+	wcd_mbhc_find_plug_and_report(mbhc, plug_type);
+	pr_debug("%s: leave\n", __func__);
+}
+
 /* called under codec_resource_lock acquisition */
 static void wcd_mbhc_detect_plug_type(struct wcd_mbhc *mbhc)
 {
@@ -509,6 +588,11 @@ static void wcd_mbhc_detect_plug_type(struct wcd_mbhc *mbhc)
 
 	pr_debug("%s: enter\n", __func__);
 	WCD_MBHC_RSC_ASSERT_LOCKED(mbhc);
+
+	/* Enable micbias */
+	snd_soc_update_bits(codec,
+			MSM8X16_WCD_A_ANALOG_MICB_2_EN,
+			0x80, 0x80);
 	/*
 	 * Wait for 50msec for FSM to complete its task.
 	 * wakeup if btn pres intr occurs
@@ -530,34 +614,38 @@ static void wcd_mbhc_detect_plug_type(struct wcd_mbhc *mbhc)
 		 * Micbias and schmitt trigger (HPHL-HPHR)
 		 * needs to be enabled.
 		 */
-		snd_soc_update_bits(codec,
-				MSM8X16_WCD_A_ANALOG_MICB_2_EN,
-				0x80, 0x80);
-		snd_soc_update_bits(codec,
+		pr_debug("%s: result1 %x, result2 %x\n", __func__,
+						result1, result2);
+		if (!(result2 & 0x01)) {
+			snd_soc_update_bits(codec,
 				MSM8X16_WCD_A_ANALOG_MBHC_DET_CTL_2,
 				0x6, 0x2);
-		/* read reg MBHC_RESULT_2 value with cross connection bit */
-		swap_res = snd_soc_read(codec,
+			/*
+			 * read reg MBHC_RESULT_2 value with cross
+			 * connection bit
+			 */
+			swap_res = snd_soc_read(codec,
 				MSM8X16_WCD_A_ANALOG_MBHC_ZDET_ELECT_RESULT);
-		if (!result1 && !(swap_res & 0x04)) {
-			plug_type = PLUG_TYPE_GND_MIC_SWAP;
-			pr_debug("%s: Cross connection identified", __func__);
-			goto eu_us_switch;
-		} else {
-			pr_debug("%s: No Cross connection found", __func__);
-		}
+			pr_debug("%s: swap_res %x\n", __func__, swap_res);
 
-		/* Disable micbias and schmitt trigger */
-		snd_soc_update_bits(codec,
-			MSM8X16_WCD_A_ANALOG_MBHC_DET_CTL_2,
-			0x6, 0x0);
-		snd_soc_update_bits(codec,
-			MSM8X16_WCD_A_ANALOG_MICB_2_EN,
-			0x80, 0x00);
-		if (!result1 && !result2)
+			if (!result1 && !(swap_res & 0x04)) {
+				plug_type = MBHC_PLUG_TYPE_GND_MIC_SWAP;
+				pr_debug("%s: Cross connection identified\n",
+								__func__);
+				goto eu_us_switch;
+			} else {
+				pr_debug("%s: No Cross connection found\n",
+								__func__);
+			}
+			/* Disable micbias and schmitt trigger */
+			snd_soc_update_bits(codec,
+				MSM8X16_WCD_A_ANALOG_MBHC_DET_CTL_2,
+				0x6, 0x0);
+		}
+		if (!result1 && !(result2 & 0x01))
 			plug_type = MBHC_PLUG_TYPE_HEADSET;
 		else if (!result1 && (result2 & 0x01))
-			plug_type = PLUG_TYPE_HIGH_HPH;
+			plug_type = MBHC_PLUG_TYPE_HIGH_HPH;
 		else {
 			plug_type = MBHC_PLUG_TYPE_INVALID;
 			goto exit;
@@ -578,20 +666,23 @@ eu_us_switch:
 			pr_debug("%s: US_EU gpio present, flip switch\n",
 				__func__);
 			if (mbhc->mbhc_cfg->swap_gnd_mic(codec))
-				plug_type = PLUG_TYPE_HEADSET;
+				plug_type = MBHC_PLUG_TYPE_HEADSET;
 		}
 		/* Disable micbias and schmitt trigger */
 		snd_soc_update_bits(codec,
 			MSM8X16_WCD_A_ANALOG_MBHC_DET_CTL_2,
 			0x6, 0x0);
-		snd_soc_update_bits(codec,
-			MSM8X16_WCD_A_ANALOG_MICB_2_EN,
-			0x80, 0x00);
 	}
-
+	snd_soc_update_bits(codec,
+		MSM8X16_WCD_A_ANALOG_MICB_2_EN,
+		0x80, 0x00);
 	pr_debug("%s: Valid plug found, plug type is %d\n",
 			 __func__, plug_type);
-	wcd_mbhc_find_plug_and_report(mbhc, plug_type);
+	if (plug_type != MBHC_PLUG_TYPE_HIGH_HPH &&
+			plug_type != MBHC_PLUG_TYPE_INVALID)
+		wcd_mbhc_find_plug_and_report(mbhc, plug_type);
+	else
+		wcd_schedule_hs_detect_plug(mbhc, &mbhc->correct_plug_swch);
 exit:
 	pr_debug("%s: leave\n", __func__);
 }
@@ -613,6 +704,7 @@ static void wcd_mbhc_swch_irq_handler(struct wcd_mbhc *mbhc)
 	/* Set the detection type appropriately */
 	snd_soc_update_bits(codec, MSM8X16_WCD_A_ANALOG_MBHC_DET_CTL_1,
 			0x20, (!detection_type << 5));
+	wcd_cancel_hs_detect_plug(mbhc, &mbhc->correct_plug_swch);
 
 	if ((mbhc->current_plug == MBHC_PLUG_TYPE_NONE) && detection_type) {
 		if (!mbhc->mbhc_cfg->hs_ext_micbias)
@@ -687,7 +779,6 @@ static irqreturn_t wcd_mbhc_mech_plug_detect_irq(int irq, void *data)
 		wcd_mbhc_swch_irq_handler(mbhc);
 		wcd9xxx_spmi_unlock_sleep();
 	}
-
 	pr_debug("%s: leave %d\n", __func__, r);
 	return r;
 }
@@ -769,12 +860,21 @@ irqreturn_t wcd_mbhc_btn_press_handler(int irq, void *data)
 	struct snd_soc_codec *codec = mbhc->codec;
 	u16 result1;
 	int mask;
+	unsigned long msec_val;
 
 	pr_debug("%s: enter\n", __func__);
 	WCD_MBHC_RSC_LOCK(mbhc);
 	/* send event to sw intr handler*/
 	mbhc->is_btn_press = true;
 	wake_up_interruptible(&mbhc->wait_btn_press);
+
+	msec_val = jiffies_to_msecs(jiffies - mbhc->jiffies_atreport);
+	pr_debug("%s: msec_val = %ld\n", __func__, msec_val);
+	if (msec_val < MBHC_BUTTON_PRESS_THRESHOLD_MIN) {
+		pr_debug("%s: Too short, ignore button press\n", __func__);
+		goto done;
+	}
+
 	/* If switch interrupt already kicked in, ignore button press */
 	if (mbhc->in_swch_irq_handler) {
 		pr_debug("%s: Swtich level changed, ignore button press\n",
@@ -791,7 +891,7 @@ irqreturn_t wcd_mbhc_btn_press_handler(int irq, void *data)
 	result1 = snd_soc_read(codec, MSM8X16_WCD_A_ANALOG_MBHC_BTN_RESULT);
 	mask = wcd_mbhc_get_button_mask(result1);
 	mbhc->buttons_pressed |= mask;
-	pr_debug("%s: Reporting btn press\n", __func__);
+	pr_debug("%s: Reporting btn press result1 =%d\n", __func__, result1);
 	wcd_mbhc_jack_report(mbhc, &mbhc->button_jack,
 			mbhc->buttons_pressed, mbhc->buttons_pressed);
 done:
@@ -922,6 +1022,8 @@ static int wcd_mbhc_initialise(struct wcd_mbhc *mbhc)
 			0x08, 0x08);
 	/* Program Button threshold registers */
 	wcd_program_btn_threshold(mbhc);
+
+	INIT_WORK(&mbhc->correct_plug_swch, wcd_correct_swch_plug);
 	/* enable the WCD MBHC IRQ's */
 	wcd9xxx_spmi_enable_irq(mbhc->intr_ids->mbhc_sw_intr);
 	wcd9xxx_spmi_enable_irq(mbhc->intr_ids->mbhc_btn_press_intr);
