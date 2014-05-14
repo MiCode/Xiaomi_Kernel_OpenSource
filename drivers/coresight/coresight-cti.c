@@ -77,12 +77,18 @@ struct cti_state {
 	unsigned int ctiouten[CTI_MAX_TRIGGERS];
 };
 
+struct cti_pctrl {
+	struct pinctrl			*pctrl;
+	int				trig;
+};
+
 struct cti_drvdata {
 	void __iomem			*base;
 	struct device			*dev;
 	struct coresight_device		*csdev;
 	struct clk			*clk;
 	spinlock_t			spinlock;
+	struct mutex			mutex;
 	struct coresight_cti		cti;
 	int				refcnt;
 	int				cpu;
@@ -90,7 +96,9 @@ struct cti_drvdata {
 	bool				cti_hwclk;
 	bool				cti_ack_atomic;
 	bool				l2_off;
-	struct cti_state	*state;
+	struct cti_state		*state;
+	struct cti_pctrl		*gpio_trigin;
+	struct cti_pctrl		*gpio_trigout;
 };
 
 static LIST_HEAD(cti_list);
@@ -127,6 +135,98 @@ static void cti_enable(struct cti_drvdata *drvdata)
 	cti_writel(drvdata, 0x1, CTICONTROL);
 
 	CTI_LOCK(drvdata);
+}
+
+int cti_trigin_gpio_enable(struct cti_drvdata *drvdata)
+{
+	int ret;
+	struct pinctrl *pctrl;
+	struct pinctrl_state *pctrl_state;
+
+	if (drvdata->gpio_trigin->pctrl)
+		return 0;
+
+	pctrl = devm_pinctrl_get(drvdata->dev);
+	if (IS_ERR(pctrl)) {
+		dev_err(drvdata->dev, "pinctrl get failed\n");
+		return PTR_ERR(pctrl);
+	}
+
+	pctrl_state = pinctrl_lookup_state(pctrl, "cti-trigin-pctrl");
+	if (IS_ERR(pctrl_state)) {
+		dev_err(drvdata->dev,
+			"pinctrl get state failed\n");
+		ret = PTR_ERR(pctrl_state);
+		goto err;
+	}
+
+	ret = pinctrl_select_state(pctrl, pctrl_state);
+	if (ret) {
+		dev_err(drvdata->dev,
+			"pinctrl enable state failed\n");
+		goto err;
+	}
+
+	drvdata->gpio_trigin->pctrl = pctrl;
+	return 0;
+err:
+	devm_pinctrl_put(pctrl);
+	return ret;
+}
+
+int cti_trigout_gpio_enable(struct cti_drvdata *drvdata)
+{
+	int ret;
+	struct pinctrl *pctrl;
+	struct pinctrl_state *pctrl_state;
+
+	if (drvdata->gpio_trigout->pctrl)
+		return 0;
+
+	pctrl = devm_pinctrl_get(drvdata->dev);
+	if (IS_ERR(pctrl)) {
+		dev_err(drvdata->dev, "pinctrl get failed\n");
+		return PTR_ERR(pctrl);
+	}
+
+	pctrl_state = pinctrl_lookup_state(pctrl, "cti-trigout-pctrl");
+	if (IS_ERR(pctrl_state)) {
+		dev_err(drvdata->dev,
+			"pinctrl get state failed\n");
+		ret = PTR_ERR(pctrl_state);
+		goto err;
+	}
+
+	ret = pinctrl_select_state(pctrl, pctrl_state);
+	if (ret) {
+		dev_err(drvdata->dev,
+			"pinctrl enable state failed\n");
+		goto err;
+	}
+
+	drvdata->gpio_trigout->pctrl = pctrl;
+	return 0;
+err:
+	devm_pinctrl_put(pctrl);
+	return ret;
+}
+
+void cti_trigin_gpio_disable(struct cti_drvdata *drvdata)
+{
+	if (!drvdata->gpio_trigin->pctrl)
+		return;
+
+	devm_pinctrl_put(drvdata->gpio_trigin->pctrl);
+	drvdata->gpio_trigin->pctrl = NULL;
+}
+
+void cti_trigout_gpio_disable(struct cti_drvdata *drvdata)
+{
+	if (!drvdata->gpio_trigout->pctrl)
+		return;
+
+	devm_pinctrl_put(drvdata->gpio_trigout->pctrl);
+	drvdata->gpio_trigout->pctrl = NULL;
 }
 
 static void __cti_map_trigin(struct cti_drvdata *drvdata, int trig, int ch)
@@ -167,21 +267,39 @@ int coresight_cti_map_trigin(struct coresight_cti *cti, int trig, int ch)
 
 	drvdata = to_cti_drvdata(cti);
 
+	mutex_lock(&drvdata->mutex);
+
+	if (drvdata->gpio_trigin->trig == trig) {
+		ret = cti_trigin_gpio_enable(drvdata);
+		if (ret)
+			goto err0;
+	}
+
 	ret = clk_prepare_enable(drvdata->clk);
 	if (ret)
-		return ret;
+		goto err1;
 
 	spin_lock_irqsave(&drvdata->spinlock, flag);
 
 	ret = cti_cpu_verify_access(drvdata);
 	if (ret)
-		goto err;
+		goto err2;
 
 	__cti_map_trigin(drvdata, trig, ch);
-err:
+
 	spin_unlock_irqrestore(&drvdata->spinlock, flag);
 
 	clk_disable_unprepare(drvdata->clk);
+
+	mutex_unlock(&drvdata->mutex);
+	return 0;
+err2:
+	spin_unlock_irqrestore(&drvdata->spinlock, flag);
+	clk_disable_unprepare(drvdata->clk);
+err1:
+	cti_trigin_gpio_disable(drvdata);
+err0:
+	mutex_unlock(&drvdata->mutex);
 	return ret;
 }
 EXPORT_SYMBOL(coresight_cti_map_trigin);
@@ -224,21 +342,39 @@ int coresight_cti_map_trigout(struct coresight_cti *cti, int trig, int ch)
 
 	drvdata = to_cti_drvdata(cti);
 
+	mutex_lock(&drvdata->mutex);
+
+	if (drvdata->gpio_trigout->trig == trig) {
+		ret = cti_trigout_gpio_enable(drvdata);
+		if (ret)
+			goto err0;
+	}
+
 	ret = clk_prepare_enable(drvdata->clk);
 	if (ret)
-		return ret;
+		goto err1;
 
 	spin_lock_irqsave(&drvdata->spinlock, flag);
 
 	ret = cti_cpu_verify_access(drvdata);
 	if (ret)
-		goto err;
+		goto err2;
 
 	__cti_map_trigout(drvdata, trig, ch);
-err:
+
 	spin_unlock_irqrestore(&drvdata->spinlock, flag);
 
 	clk_disable_unprepare(drvdata->clk);
+
+	mutex_unlock(&drvdata->mutex);
+	return 0;
+err2:
+	spin_unlock_irqrestore(&drvdata->spinlock, flag);
+	clk_disable_unprepare(drvdata->clk);
+err1:
+	cti_trigout_gpio_disable(drvdata);
+err0:
+	mutex_unlock(&drvdata->mutex);
 	return ret;
 }
 EXPORT_SYMBOL(coresight_cti_map_trigout);
@@ -292,6 +428,8 @@ void coresight_cti_unmap_trigin(struct coresight_cti *cti, int trig, int ch)
 
 	drvdata = to_cti_drvdata(cti);
 
+	mutex_lock(&drvdata->mutex);
+
 	if (clk_prepare_enable(drvdata->clk))
 		return;
 
@@ -301,10 +439,20 @@ void coresight_cti_unmap_trigin(struct coresight_cti *cti, int trig, int ch)
 		goto err;
 
 	__cti_unmap_trigin(drvdata, trig, ch);
-err:
+
 	spin_unlock_irqrestore(&drvdata->spinlock, flag);
 
 	clk_disable_unprepare(drvdata->clk);
+
+	if (drvdata->gpio_trigin->trig == trig)
+		cti_trigin_gpio_disable(drvdata);
+
+	mutex_unlock(&drvdata->mutex);
+	return;
+err:
+	spin_unlock_irqrestore(&drvdata->spinlock, flag);
+	clk_disable_unprepare(drvdata->clk);
+	mutex_unlock(&drvdata->mutex);
 }
 EXPORT_SYMBOL(coresight_cti_unmap_trigin);
 
@@ -344,6 +492,8 @@ void coresight_cti_unmap_trigout(struct coresight_cti *cti, int trig, int ch)
 
 	drvdata = to_cti_drvdata(cti);
 
+	mutex_lock(&drvdata->mutex);
+
 	if (clk_prepare_enable(drvdata->clk))
 		return;
 
@@ -353,10 +503,20 @@ void coresight_cti_unmap_trigout(struct coresight_cti *cti, int trig, int ch)
 		goto err;
 
 	__cti_unmap_trigout(drvdata, trig, ch);
-err:
+
 	spin_unlock_irqrestore(&drvdata->spinlock, flag);
 
 	clk_disable_unprepare(drvdata->clk);
+
+	if (drvdata->gpio_trigout->trig == trig)
+		cti_trigout_gpio_disable(drvdata);
+
+	mutex_unlock(&drvdata->mutex);
+	return;
+err:
+	spin_unlock_irqrestore(&drvdata->spinlock, flag);
+	clk_disable_unprepare(drvdata->clk);
+	mutex_unlock(&drvdata->mutex);
 }
 EXPORT_SYMBOL(coresight_cti_unmap_trigout);
 
@@ -384,11 +544,14 @@ void coresight_cti_reset(struct coresight_cti *cti)
 {
 	struct cti_drvdata *drvdata;
 	unsigned long flag;
+	int trig;
 
 	if (IS_ERR_OR_NULL(cti))
 		return;
 
 	drvdata = to_cti_drvdata(cti);
+
+	mutex_lock(&drvdata->mutex);
 
 	if (clk_prepare_enable(drvdata->clk))
 		return;
@@ -399,10 +562,24 @@ void coresight_cti_reset(struct coresight_cti *cti)
 		goto err;
 
 	__cti_reset(drvdata);
-err:
+
 	spin_unlock_irqrestore(&drvdata->spinlock, flag);
 
 	clk_disable_unprepare(drvdata->clk);
+
+	for (trig = 0; trig < CTI_MAX_TRIGGERS; trig++) {
+		if (drvdata->gpio_trigin->trig == trig)
+			cti_trigin_gpio_disable(drvdata);
+		if (drvdata->gpio_trigout->trig == trig)
+			cti_trigout_gpio_disable(drvdata);
+	}
+
+	mutex_unlock(&drvdata->mutex);
+	return;
+err:
+	spin_unlock_irqrestore(&drvdata->spinlock, flag);
+	clk_disable_unprepare(drvdata->clk);
+	mutex_unlock(&drvdata->mutex);
 }
 EXPORT_SYMBOL(coresight_cti_reset);
 
@@ -1116,6 +1293,7 @@ static const struct attribute_group *cti_attr_grps[] = {
 static int cti_probe(struct platform_device *pdev)
 {
 	int ret, cpu;
+	int trig;
 	struct device *dev = &pdev->dev;
 	struct coresight_platform_data *pdata;
 	struct cti_drvdata *drvdata;
@@ -1150,6 +1328,8 @@ static int cti_probe(struct platform_device *pdev)
 
 	spin_lock_init(&drvdata->spinlock);
 
+	mutex_init(&drvdata->mutex);
+
 	drvdata->clk = devm_clk_get(dev, "core_clk");
 	if (IS_ERR(drvdata->clk))
 		return PTR_ERR(drvdata->clk);
@@ -1157,6 +1337,36 @@ static int cti_probe(struct platform_device *pdev)
 	ret = clk_set_rate(drvdata->clk, CORESIGHT_CLK_RATE_TRACE);
 	if (ret)
 		return ret;
+
+	drvdata->gpio_trigin = devm_kzalloc(dev, sizeof(struct cti_pctrl),
+					    GFP_KERNEL);
+	if (!drvdata->gpio_trigin)
+		return -ENOMEM;
+
+	drvdata->gpio_trigin->trig = -1;
+	if (pdev->dev.of_node) {
+		ret = of_property_read_u32(pdev->dev.of_node,
+					   "qcom,cti-gpio-trigin", &trig);
+		if (!ret)
+			drvdata->gpio_trigin->trig = trig;
+		else if (ret != -EINVAL)
+			return ret;
+	}
+
+	drvdata->gpio_trigout = devm_kzalloc(dev, sizeof(struct cti_pctrl),
+					     GFP_KERNEL);
+	if (!drvdata->gpio_trigout)
+		return -ENOMEM;
+
+	drvdata->gpio_trigout->trig = -1;
+	if (pdev->dev.of_node) {
+		ret = of_property_read_u32(pdev->dev.of_node,
+					   "qcom,cti-gpio-trigout", &trig);
+		if (!ret)
+			drvdata->gpio_trigout->trig = trig;
+		else if (ret != -EINVAL)
+			return ret;
+	}
 
 	if (pdev->dev.of_node) {
 		drvdata->cti_ack_atomic =

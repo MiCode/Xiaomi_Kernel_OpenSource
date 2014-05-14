@@ -126,6 +126,8 @@ Optional properties:
 		   registers to be saved and restored
 - qcom,cti-ack-atomic : boolean, indicating cti interrupt acknowledgement needs
 			to be done in atomic context
+- qcom,cti-gpio-trigin : cti trigger input driven by gpio
+- qcom,cti-gpio-trigout : cti trigger output sent to gpio
 - qcom,pc-save : program counter save implemented
 - qcom,blk-size : block size for tmc-etr to usb transfers
 - qcom,memory-size : size of coherent memory to be allocated for tmc-etr buffer
@@ -169,6 +171,11 @@ Optional properties:
 		    for tpiu component
 - nidnt-gpio : specifies gpio for NIDnT hardware detection
 - nidnt-gpio-polarity : specifies gpio polarity for NIDnT hardware detection
+- pinctrl-names : names corresponding to the numbered pinctrl. The allowed
+		  names are subset of the following: cti-trigin-pctrl,
+		  cti-trigout-pctrl. Used for cti component
+- pinctrl-<n>: list of pinctrl phandles for the different pinctrl states. Refer
+	       to "Documentation/devicetree/bindings/pinctrl/pinctrl-bindings.txt".
 
 Examples:
 
@@ -277,6 +284,10 @@ Examples:
 		coresight-id = <15>;
 		coresight-name = "coresight-cti0";
 		coresight-nr-inports = <0>;
+
+		qcom,cti-gpio-trigout = <1>;
+		pinctrl-names = "cti-trigout-pctrl";
+		pinctrl-0 = <&trigout_a>;
 	};
 
 	cti1: cti@fc309000 {
