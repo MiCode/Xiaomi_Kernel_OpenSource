@@ -1547,6 +1547,7 @@ static int msm_pcie_probe(struct platform_device *pdev)
 	msm_pcie_dev[rc_idx].handling_linkdown = 0;
 	msm_pcie_dev[rc_idx].recovery_pending = false;
 	msm_pcie_dev[rc_idx].linkdown_counter = 0;
+	msm_pcie_dev[rc_idx].suspending = false;
 	msm_pcie_dev[rc_idx].wake_counter = 0;
 	msm_pcie_dev[rc_idx].power_on = false;
 	memcpy(msm_pcie_dev[rc_idx].vreg, msm_pcie_vreg_info,
@@ -1708,6 +1709,7 @@ static int msm_pcie_pm_suspend(struct pci_dev *dev,
 	int ret_l23;
 	struct msm_pcie_dev_t *pcie_dev = PCIE_BUS_PRIV_DATA(dev);
 
+	pcie_dev->suspending = true;
 	PCIE_DBG("RC%d\n", pcie_dev->rc_idx);
 
 	if (dev && !(options & MSM_PCIE_CONFIG_NO_CFG_RESTORE)) {
@@ -1717,6 +1719,7 @@ static int msm_pcie_pm_suspend(struct pci_dev *dev,
 	if (ret) {
 		pr_err("PCIe: fail to save state of RC%d:%d.\n",
 			pcie_dev->rc_idx, ret);
+		pcie_dev->suspending = false;
 		return ret;
 	}
 
@@ -1793,6 +1796,7 @@ static int msm_pcie_pm_resume(struct pci_dev *dev,
 			pcie_dev->rc_idx);
 		return ret;
 	} else {
+		pcie_dev->suspending = false;
 		PCIE_DBG("dev->bus->number = %d dev->bus->primary = %d\n",
 			 dev->bus->number, dev->bus->primary);
 

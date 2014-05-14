@@ -203,6 +203,7 @@ struct msm_pcie_dev_t {
 	struct mutex                 recovery_lock;
 	struct mutex                 linkdown_lock;
 	ulong                        linkdown_counter;
+	bool                         suspending;
 	ulong                        wake_counter;
 	u32			     ep_shadow[PCIE_CONF_SPACE_DW];
 	u32                          rc_shadow[PCIE_CONF_SPACE_DW];

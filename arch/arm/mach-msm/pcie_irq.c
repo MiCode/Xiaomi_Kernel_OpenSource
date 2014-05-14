@@ -278,6 +278,10 @@ static irqreturn_t handle_linkdown_irq(int irq, void *data)
 		PCIE_DBG(
 			"PCIe:Linkdown IRQ for RC%d when the link is not enabled\n",
 			dev->rc_idx);
+	} else if (dev->suspending) {
+		PCIE_DBG(
+			"PCIe:the link of RC%d is suspending.\n",
+			dev->rc_idx);
 	} else {
 		dev->link_status = MSM_PCIE_LINK_DISABLED;
 		dev->shadow_en = false;
