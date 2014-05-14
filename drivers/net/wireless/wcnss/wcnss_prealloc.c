@@ -1,4 +1,4 @@
-/* Copyright (c) 2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012,2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -29,6 +29,18 @@ static struct wcnss_prealloc wcnss_allocs[] = {
 	{0, 8  * 1024, NULL},
 	{0, 8  * 1024, NULL},
 	{0, 8  * 1024, NULL},
+	{0, 8  * 1024, NULL},
+	{0, 8  * 1024, NULL},
+	{0, 8  * 1024, NULL},
+	{0, 8  * 1024, NULL},
+	{0, 16 * 1024, NULL},
+	{0, 16 * 1024, NULL},
+	{0, 16 * 1024, NULL},
+	{0, 16 * 1024, NULL},
+	{0, 16 * 1024, NULL},
+	{0, 16 * 1024, NULL},
+	{0, 16 * 1024, NULL},
+	{0, 16 * 1024, NULL},
 	{0, 32 * 1024, NULL},
 	{0, 32 * 1024, NULL},
 	{0, 32 * 1024, NULL},
@@ -36,6 +48,9 @@ static struct wcnss_prealloc wcnss_allocs[] = {
 	{0, 32 * 1024, NULL},
 	{0, 32 * 1024, NULL},
 	{0, 32 * 1024, NULL},
+	{0, 32 * 1024, NULL},
+	{0, 64 * 1024, NULL},
+	{0, 64 * 1024, NULL},
 	{0, 64 * 1024, NULL},
 	{0, 64 * 1024, NULL},
 };
@@ -107,3 +122,19 @@ int wcnss_prealloc_put(void *ptr)
 	return 0;
 }
 EXPORT_SYMBOL(wcnss_prealloc_put);
+
+static int __init wcnss_pre_alloc_init(void)
+{
+	return wcnss_prealloc_init();
+}
+
+static void __exit wcnss_pre_alloc_exit(void)
+{
+	wcnss_prealloc_deinit();
+}
+
+module_init(wcnss_pre_alloc_init);
+module_exit(wcnss_pre_alloc_exit);
+
+MODULE_LICENSE("GPL v2");
+MODULE_DESCRIPTION(DEVICE "WCNSS Prealloc Driver");
