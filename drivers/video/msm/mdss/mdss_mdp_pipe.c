@@ -567,6 +567,42 @@ static void mdss_mdp_qos_vbif_remapper_setup(struct mdss_data_type *mdata,
 	mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_OFF, false);
 }
 
+/**
+ * mdss_mdp_fixed_qos_arbiter_setup - Program the RT/NRT registers based on
+ *              real or non real time clients
+ * @mdata:      Pointer to the global mdss data structure.
+ * @pipe:       Pointer to source pipe struct to get xin id's.
+ * @is_realtime:        To determine if pipe's client is real or
+ *                      non real time.
+ */
+static void mdss_mdp_fixed_qos_arbiter_setup(struct mdss_data_type *mdata,
+		struct mdss_mdp_pipe *pipe, bool is_realtime)
+{
+	u32 mask, reg_val;
+
+	if (!mdata->has_fixed_qos_arbiter_enabled)
+		return;
+
+	mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_ON, false);
+	mutex_lock(&mdata->reg_lock);
+	reg_val = readl_relaxed(mdata->vbif_base + MDSS_VBIF_FIXED_SORT_EN);
+	mask = 0x1 << pipe->xin_id;
+	reg_val |= mask;
+
+	/* Enable the fixed sort for the client */
+	writel_relaxed(reg_val, mdata->vbif_base + MDSS_VBIF_FIXED_SORT_EN);
+	reg_val = readl_relaxed(mdata->vbif_base + MDSS_VBIF_FIXED_SORT_SEL0);
+	mask = 0x1 << (pipe->xin_id * 2);
+	if (is_realtime)
+		reg_val &= ~mask;
+	else
+		reg_val |= mask;
+	/* Set the fixed_sort regs as per RT/NRT client */
+	writel_relaxed(reg_val, mdata->vbif_base + MDSS_VBIF_FIXED_SORT_SEL0);
+	mutex_unlock(&mdata->reg_lock);
+	mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_OFF, false);
+}
+
 static struct mdss_mdp_pipe *mdss_mdp_pipe_init(struct mdss_mdp_mixer *mixer,
 	u32 type, u32 off, struct mdss_mdp_pipe *left_blend_pipe)
 {
@@ -657,6 +693,7 @@ static struct mdss_mdp_pipe *mdss_mdp_pipe_init(struct mdss_mdp_mixer *mixer,
 		is_realtime = !((mixer->ctl->intf_num == MDSS_MDP_NO_INTF)
 				|| mixer->rotator_mode);
 		mdss_mdp_qos_vbif_remapper_setup(mdata, pipe, is_realtime);
+		mdss_mdp_fixed_qos_arbiter_setup(mdata, pipe, is_realtime);
 	} else if (pipe_share) {
 		/*
 		 * when there is no dedicated wfd blk, DMA pipe can be
