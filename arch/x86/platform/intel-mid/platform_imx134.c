@@ -325,21 +325,6 @@ static int imx134_power_ctrl(struct v4l2_subdev *sd, int flag)
 	return ret;
 }
 
-static int getvar_int(struct device *dev, const char *var, int def)
-{
-	char val[16];
-	size_t len = sizeof(val);
-	long result;
-	int ret;
-
-	ret = gmin_get_config_var(dev, var, val, &len);
-	val[len] = 0;
-	if (!ret)
-		ret = kstrtol(val, 0, &result);
-
-	return ret ? def : result;
-}
-
 static int imx134_csi_configure(struct v4l2_subdev *sd, int flag)
 {
 	/* Default from legacy platform w/o firmware config */

@@ -217,6 +217,22 @@ int gmin_get_config_var(struct device *dev, const char *var, char *out, size_t *
 }
 EXPORT_SYMBOL_GPL(gmin_get_config_var);
 
+int getvar_int(struct device *dev, const char *var, int def)
+{
+	char val[16];
+	size_t len = sizeof(val);
+	long result;
+	int ret;
+
+	ret = gmin_get_config_var(dev, var, val, &len);
+	val[len] = 0;
+	if (!ret)
+		ret = kstrtol(val, 0, &result);
+
+	return ret ? def : result;
+}
+EXPORT_SYMBOL_GPL(getvar_int);
+
 /*
  * Cloned from MCG platform_camera.c because it's small and
  * self-contained.  All it does is maintain the V4L2 subdev hostdate
