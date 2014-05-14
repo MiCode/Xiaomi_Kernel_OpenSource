@@ -52,4 +52,5 @@ struct mdss_panel_cfg *mdp3_panel_intf_type(int intf_val);
 
 int mdp3_panel_get_boot_cfg(void);
 
+void msm_dsi_sw_reset(void);
 #endif /* DSI_V2_H */
