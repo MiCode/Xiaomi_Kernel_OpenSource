@@ -13,17 +13,15 @@
 #include <linux/gpio.h>
 #include <linux/delay.h>
 #include <linux/atomisp_platform.h>
-#include <asm/intel_scu_ipcutil.h>
 #include <asm/intel-mid.h>
 #include <media/v4l2-subdev.h>
-#include <linux/mfd/intel_mid_pmic.h>
+#include <linux/mfd/intel_soc_pmic.h>
 
 #ifdef CONFIG_VLV2_PLAT_CLK
 #include <linux/vlv2_plat_clock.h>
 #endif
 
-#include "platform_camera.h"
-#include "platform_ov5693.h"
+#include <linux/atomisp_gmin_platform.h>
 
 /* workround - pin defined for byt */
 #define CAMERA_0_RESET	126
@@ -32,12 +30,48 @@
 #define OSC_CAM0_CLK 0x0
 #define CLK_19P2MHz 0x1
 #endif
-#ifdef CONFIG_CRYSTAL_COVE
+
 #define VPROG_2P8V 0x66
 #define VPROG_1P8V 0x5D
-#endif
+
 static int camera_vprog1_on;
 static int camera_reset;
+
+/* workaround - code duplication from platform_gc0339.c start -->*/
+#define VPROG_ENABLE 0x3
+#define VPROG_DISABLE 0x2
+
+enum camera_pmic_pin {
+        CAMERA_1P8V,
+        CAMERA_2P8V,
+        CAMERA_POWER_NUM,
+};
+/*
+ * WA for BTY as simple VRF management
+ */
+static int camera_set_pmic_power(enum camera_pmic_pin pin, bool flag)
+{
+        u8 reg_addr[CAMERA_POWER_NUM] = {VPROG_1P8V, VPROG_2P8V};
+        u8 reg_value[2] = {VPROG_DISABLE, VPROG_ENABLE};
+        int val;
+        static DEFINE_MUTEX(mutex_power);
+        int ret = 0;
+
+        if (pin >= CAMERA_POWER_NUM)
+                return -EINVAL;
+
+        mutex_lock(&mutex_power);
+        val = intel_soc_pmic_readb(reg_addr[pin]) & 0x3;
+
+        if ((flag && (val == VPROG_DISABLE)) ||
+                (!flag && (val == VPROG_ENABLE)))
+                ret = intel_soc_pmic_writeb(reg_addr[pin], reg_value[flag]);
+
+        mutex_unlock(&mutex_power);
+        return ret;
+}
+/* <-- end */
+
 
 /*
  * OV5693 platform data
@@ -97,9 +131,6 @@ static int ov5693_flisclk_ctrl(struct v4l2_subdev *sd, int flag)
 	}
 	vlv2_plat_configure_clock(OSC_CAM0_CLK, flag);
 	return 0;
-#elif defined(CONFIG_INTEL_SCU_IPC_UTIL)
-	return intel_scu_ipc_osc_clk(OSC_CLK_CAM0,
-				     flag ? clock_khz : 0);
 #else
 	pr_err("ov5693 clock is not set.\n");
 	return 0;
@@ -128,7 +159,6 @@ static int ov5693_power_ctrl(struct v4l2_subdev *sd, int flag)
 
 	if (flag) {
 		if (!camera_vprog1_on) {
-#ifdef CONFIG_CRYSTAL_COVE
 			/*
 			 * This should call VRF APIs.
 			 *
@@ -137,11 +167,6 @@ static int ov5693_power_ctrl(struct v4l2_subdev *sd, int flag)
 			 */
 			camera_set_pmic_power(CAMERA_2P8V, true);
 			camera_set_pmic_power(CAMERA_1P8V, true);
-#elif defined(CONFIG_INTEL_SCU_IPC_UTIL)
-			ret = intel_scu_ipc_msic_vprog1(1);
-#else
-			pr_err("ov5693 power is not set.\n");
-#endif
 			/* enable 1.8v power */
 			gpio_set_value(pin, 1);
 
@@ -150,14 +175,8 @@ static int ov5693_power_ctrl(struct v4l2_subdev *sd, int flag)
 		}
 	} else {
 		if (camera_vprog1_on) {
-#ifdef CONFIG_CRYSTAL_COVE
 			camera_set_pmic_power(CAMERA_2P8V, false);
 			camera_set_pmic_power(CAMERA_1P8V, false);
-#elif defined(CONFIG_INTEL_SCU_IPC_UTIL)
-			ret = intel_scu_ipc_msic_vprog1(0);
-#else
-			pr_err("ov5693 power is not set.\n");
-#endif
 			/* disable 1.8v power */
 			gpio_set_value(pin, 0);
 			camera_vprog1_on = 0;
