@@ -146,6 +146,7 @@ struct wcd9xxx_codec_dai_data {
 	u16 grph;				/* slimbus group handle */
 	unsigned long ch_mask;
 	wait_queue_head_t dai_wait;
+	bool bus_down_in_recovery;
 };
 
 #define WCD9XXX_CH(xport, xshift) \
