@@ -14,11 +14,13 @@
 #define __ASM_ARCH_MSM_PCIE_H
 
 #include <linux/types.h>
+#include <linux/pci.h>
 
 enum msm_pcie_config {
 	MSM_PCIE_CONFIG_INVALID = 0,
 	MSM_PCIE_CONFIG_NO_CFG_RESTORE = 0x1,
 	MSM_PCIE_CONFIG_LINKDOWN = 0x2,
+	MSM_PCIE_CONFIG_NO_RECOVERY = 0x4,
 };
 
 enum msm_pcie_pm_opt {
@@ -91,4 +93,14 @@ int msm_pcie_register_event(struct msm_pcie_register_event *reg);
  * Return: 0 on success, negative value on error
  */
 int msm_pcie_deregister_event(struct msm_pcie_register_event *reg);
+
+/**
+ * msm_pcie_recover_config - recover config space.
+ * @dev:	pci device structure
+ *
+ * This function recovers the config space of both RC and Endpoint.
+ *
+ * Return: 0 on success, negative value on error
+ */
+int msm_pcie_recover_config(struct pci_dev *dev);
 #endif
