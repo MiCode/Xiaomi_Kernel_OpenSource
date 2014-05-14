@@ -23,19 +23,30 @@
 #define AK8963_REG_TS1		0x0D
 #define AK8963_REG_TS2		0x0E
 #define AK8963_REG_I2CDIS	0x0F
-
 #define AK8963_FUSE_ASAX	0x10
 #define AK8963_FUSE_ASAY	0x11
 #define AK8963_FUSE_ASAZ	0x12
 
-#define AK8963_MODE_SNG_MEASURE		0x11
-#define AK8963_MODE_SELF_TEST		0x18
+#define AK8963_MODE_POWERDOWN			0x00
+#define AK8963_MODE_SNG_MEASURE		0x01
+#define AK8963_MODE_CONT1_MEASURE	0x02
+#define AK8963_MODE_EXT_TRIG_MEASURE	0x04
+#define AK8963_MODE_CONT2_MEASURE	0x06
+#define AK8963_MODE_SELF_TEST			0x08
 #define AK8963_MODE_FUSE_ACCESS		0x0F
-#define AK8963_MODE_POWERDOWN		0x00
+
+#define AKM8963_BIT_OP_14					0x00
+#define AKM8963_BIT_OP_16					0x10
+
 #define AK8963_RESET_DATA			0x01
 
 #define AK8963_REGS_SIZE		13
 #define AK8963_WIA_VALUE		0x48
+
+#define AKM8963_ST1_DRDY				0x01
+#define AKM8963_ST1_DOR					0x02
+#define AKM8963_ST2_HOLF				0x08
+#define AKM8963_ST2_BITM				0x10
 
 /* To avoid device dependency, convert to general name */
 #define AKM_I2C_NAME			"akm8963"
@@ -61,7 +72,7 @@
 #define AKM_MODE_SELF_TEST		AK8963_MODE_SELF_TEST
 #define AKM_MODE_FUSE_ACCESS	AK8963_MODE_FUSE_ACCESS
 #define AKM_MODE_POWERDOWN		AK8963_MODE_POWERDOWN
-#define AKM_RESET_DATA			AK8963_RESET_DATA
+#define AKM_RESET_DATA				AK8963_RESET_DATA
 
 #define ACC_DATA_FLAG		0
 #define MAG_DATA_FLAG		1
@@ -91,8 +102,13 @@
 
 struct akm8963_platform_data {
 	char layout;
+	int	auto_report;
 	int gpio_DRDY;
-	int gpio_RSTN;
+	int gpio_rstn;
+	int gpio_int;
+	unsigned int int_flags;
+	bool use_int;
+
 };
 
 #endif
