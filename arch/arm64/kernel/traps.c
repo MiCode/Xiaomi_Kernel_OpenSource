@@ -41,6 +41,8 @@
 #include <asm/stacktrace.h>
 #include <asm/exception.h>
 #include <asm/system_misc.h>
+#include <asm/esr.h>
+#include <asm/edac.h>
 
 static const char *handler[]= {
 	"Synchronous Abort",
@@ -484,6 +486,12 @@ asmlinkage void bad_mode(struct pt_regs *regs, int reason, unsigned int esr)
 	info.si_errno = 0;
 	info.si_code  = ILL_ILLOPC;
 	info.si_addr  = pc;
+
+	if (esr >> ESR_ELx_EC_SHIFT == ESR_ELx_EC_SERROR) {
+		pr_crit("System error detected. ESR.ISS = %08x\n",
+			esr & 0xffffff);
+		arm64_check_cache_ecc(NULL);
+	}
 
 	arm64_notify_die("Oops - bad mode", regs, &info, 0);
 }
