@@ -2164,6 +2164,19 @@ static int kgsl_iommu_set_pf_policy(struct kgsl_mmu *mmu,
 	return ret;
 }
 
+struct kgsl_protected_registers *kgsl_iommu_get_prot_regs(struct kgsl_mmu *mmu)
+{
+	static struct kgsl_protected_registers iommuv1_regs = { 0x4000, 14 };
+	static struct kgsl_protected_registers iommuv2_regs = { 0x2800, 10 };
+
+	if (msm_soc_version_supports_iommu_v0())
+		return NULL;
+	if (kgsl_msm_supports_iommu_v2())
+		return &iommuv2_regs;
+	else
+		return &iommuv1_regs;
+}
+
 struct kgsl_mmu_ops iommu_ops = {
 	.mmu_init = kgsl_iommu_init,
 	.mmu_close = kgsl_iommu_close,
@@ -2189,6 +2202,7 @@ struct kgsl_mmu_ops iommu_ops = {
 	.mmu_sync_lock = kgsl_iommu_sync_lock,
 	.mmu_sync_unlock = kgsl_iommu_sync_unlock,
 	.mmu_set_pf_policy = kgsl_iommu_set_pf_policy,
+	.mmu_get_prot_regs = kgsl_iommu_get_prot_regs
 };
 
 struct kgsl_mmu_pt_ops iommu_pt_ops = {
