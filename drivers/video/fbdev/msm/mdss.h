@@ -122,6 +122,7 @@ struct mdss_data_type {
 	u32 irq_buzy;
 	u32 has_bwc;
 	u32 has_decimation;
+	bool has_fixed_qos_arbiter_enabled;
 	bool has_panic_ctrl;
 	u32 wfd_mode;
 	u32 has_no_lut_read;

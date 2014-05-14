@@ -614,4 +614,7 @@ enum mdss_mdp_pingpong_index {
 
 #define MDSS_VBIF_QOS_REMAP_BASE	0x020
 #define MDSS_VBIF_QOS_REMAP_ENTRIES	0x4
+
+#define MDSS_VBIF_FIXED_SORT_EN	0x30
+#define MDSS_VBIF_FIXED_SORT_SEL0	0x34
 #endif
