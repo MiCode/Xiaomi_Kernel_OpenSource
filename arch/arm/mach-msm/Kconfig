@@ -179,7 +179,6 @@ config ARCH_MSMZIRC
 config ARCH_MSM8610
 	bool "MSM8610"
 	select ARM_GIC
-	select GIC_SECURE
 	select ARCH_MSM_CORTEXMP
 	select CPU_V7
 	select MSM_SCM
@@ -219,7 +218,6 @@ config ARCH_MSM8610
 config ARCH_MSM8226
 	bool "MSM8226"
 	select ARM_GIC
-	select GIC_SECURE
 	select ARCH_MSM_CORTEXMP
 	select CPU_V7
 	select MSM_SCM
