@@ -457,12 +457,10 @@ int ipa_rm_resource_delete(struct ipa_rm_resource *resource)
 						resource,
 						consumer);
 			}
-			ipa_rm_peers_list_delete(resource->peers_list);
 		}
 
 		ipa_rm_resource_producer_delete(
 				(struct ipa_rm_resource_prod *) resource);
-		kfree((struct ipa_rm_resource_prod *) resource);
 	} else if (resource->type == IPA_RM_CONSUMER) {
 		if (resource->peers_list) {
 			list_size = ipa_rm_peers_list_get_size(
@@ -478,10 +476,10 @@ int ipa_rm_resource_delete(struct ipa_rm_resource *resource)
 							producer,
 							resource);
 			}
-			ipa_rm_peers_list_delete(resource->peers_list);
 		}
-		kfree((struct ipa_rm_resource_cons *) resource);
 	}
+	ipa_rm_peers_list_delete(resource->peers_list);
+	kfree(resource);
 	return result;
 }
 
