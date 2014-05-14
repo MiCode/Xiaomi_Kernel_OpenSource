@@ -1284,5 +1284,15 @@
 				bias-pull-down;
 			};
 		};
+		ak8963_int_pin {
+			qcom,pins = <&gp 69>;
+			qcom,pin-func = <0>;
+			qcom,num-grp-pins = <1>;
+			label = "ak8963-irq";
+			ak8963_default: ak8963_default {
+				drive-strength = <6>;
+				bias-pull-up;
+			};
+		};
 	};
 };
