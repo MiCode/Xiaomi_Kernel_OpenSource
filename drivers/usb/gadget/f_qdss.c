@@ -961,6 +961,7 @@ void usb_qdss_close(struct usb_qdss_ch *ch)
 	struct f_qdss *qdss = ch->priv_usb;
 	struct usb_gadget *gadget = qdss->cdev->gadget;
 	unsigned long flags;
+	int status;
 
 	pr_debug("usb_qdss_close\n");
 
@@ -971,6 +972,19 @@ void usb_qdss_close(struct usb_qdss_ch *ch)
 	ch->app_conn = 0;
 	spin_unlock_irqrestore(&d_lock, flags);
 
+	if (qdss->usb_connected) {
+		status = uninit_data(qdss->port.data);
+		if (status)
+			pr_err("%s: uninit_data error\n", __func__);
+
+		status = set_qdss_data_connection(
+				gadget,
+				qdss->port.data,
+				qdss->port.data->address,
+				0);
+		if (status)
+			pr_err("%s:qdss_disconnect error\n", __func__);
+	}
 	if (gadget_is_dwc3(gadget))
 		msm_dwc3_restart_usb_session(gadget);
 }
