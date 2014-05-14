@@ -42,6 +42,9 @@
 #define INIT_UDELAY		200
 #define MAX_UDELAY		2000
 
+/* Number of jiffies for a full thermal cycle */
+#define TH_HZ			20
+
 struct clk_pair {
 	const char *name;
 	uint map;
@@ -204,6 +207,18 @@ void kgsl_pwrctrl_pwrlevel_change(struct kgsl_device *device,
 	 * constraints, etc
 	 */
 	new_level = _adjust_pwrlevel(pwr, new_level, &pwr->constraint);
+
+	/*
+	 * If thermal cycling is required and the new level hits the
+	 * thermal limit, kick off the cycling.
+	 */
+	if ((pwr->thermal_cycle == CYCLE_ENABLE) &&
+			(new_level == pwr->thermal_pwrlevel)) {
+		pwr->thermal_cycle = CYCLE_ACTIVE;
+		mod_timer(&pwr->thermal_timer, jiffies +
+				(TH_HZ - pwr->thermal_timeout));
+		pwr->thermal_highlow = 1;
+	}
 
 	if (new_level == old_level)
 		return;
@@ -462,8 +477,29 @@ static ssize_t kgsl_pwrctrl_max_gpuclk_store(struct device *dev,
 
 	mutex_lock(&device->mutex);
 	level = _get_nearest_pwrlevel(pwr, val);
-	if (level < 0)
-		goto done;
+	/* If the requested power level is not supported by hw, try cycling */
+	if (level < 0) {
+		unsigned int hfreq, diff, udiff, i;
+		if ((val < pwr->pwrlevels[pwr->num_pwrlevels - 1].gpu_freq) ||
+			(val > pwr->pwrlevels[0].gpu_freq))
+			goto done;
+		/* Find the neighboring frequencies */
+		for (i = 0; i < pwr->num_pwrlevels - 1; i++) {
+			if ((pwr->pwrlevels[i].gpu_freq > val) &&
+				(pwr->pwrlevels[i + 1].gpu_freq < val)) {
+				level = i;
+				break;
+			}
+		}
+		hfreq = pwr->pwrlevels[i].gpu_freq;
+		diff =  hfreq - pwr->pwrlevels[i + 1].gpu_freq;
+		udiff = hfreq - val;
+		pwr->thermal_timeout = (udiff * TH_HZ) / diff;
+		pwr->thermal_cycle = CYCLE_ENABLE;
+	} else {
+		pwr->thermal_cycle = CYCLE_DISABLE;
+		del_timer_sync(&pwr->thermal_timer);
+	}
 
 	pwr->thermal_pwrlevel = (unsigned int) level;
 
@@ -482,11 +518,21 @@ static ssize_t kgsl_pwrctrl_max_gpuclk_show(struct device *dev,
 
 	struct kgsl_device *device = kgsl_device_from_dev(dev);
 	struct kgsl_pwrctrl *pwr;
+	unsigned int freq;
 	if (device == NULL)
 		return 0;
 	pwr = &device->pwrctrl;
-	return snprintf(buf, PAGE_SIZE, "%d\n",
-			pwr->pwrlevels[pwr->thermal_pwrlevel].gpu_freq);
+	freq = pwr->pwrlevels[pwr->thermal_pwrlevel].gpu_freq;
+	/* Calculate the effective frequency if we're cycling */
+	if (pwr->thermal_cycle) {
+		unsigned int hfreq = freq;
+		unsigned int lfreq = pwr->pwrlevels[pwr->
+				thermal_pwrlevel + 1].gpu_freq;
+		freq = pwr->thermal_timeout * (lfreq / TH_HZ) +
+			(TH_HZ - pwr->thermal_timeout) * (hfreq / TH_HZ);
+	}
+
+	return snprintf(buf, PAGE_SIZE, "%d\n", freq);
 }
 
 static ssize_t kgsl_pwrctrl_gpuclk_store(struct device *dev,
@@ -1039,6 +1085,55 @@ void kgsl_pwrctrl_irq(struct kgsl_device *device, int state)
 }
 EXPORT_SYMBOL(kgsl_pwrctrl_irq);
 
+/**
+ * kgsl_thermal_cycle() - Work function for thermal timer.
+ * @work: The input work
+ *
+ * This function is called for work that is queued by the thermal
+ * timer.  It cycles to the alternate thermal frequency.
+ */
+static void kgsl_thermal_cycle(struct work_struct *work)
+{
+	struct kgsl_pwrctrl *pwr = container_of(work, struct kgsl_pwrctrl,
+						thermal_cycle_ws);
+	struct kgsl_device *device = container_of(pwr, struct kgsl_device,
+							pwrctrl);
+
+	if (device == NULL)
+		return;
+
+	mutex_lock(&device->mutex);
+	if (pwr->thermal_cycle == CYCLE_ACTIVE) {
+		if (pwr->thermal_highlow)
+			kgsl_pwrctrl_pwrlevel_change(device,
+					pwr->thermal_pwrlevel);
+		else
+			kgsl_pwrctrl_pwrlevel_change(device,
+					pwr->thermal_pwrlevel + 1);
+	}
+	mutex_unlock(&device->mutex);
+}
+
+void kgsl_thermal_timer(unsigned long data)
+{
+	struct kgsl_device *device = (struct kgsl_device *) data;
+
+	/* Keep the timer running consistently despite processing time */
+	if (device->pwrctrl.thermal_highlow) {
+		mod_timer(&device->pwrctrl.thermal_timer,
+					jiffies +
+					device->pwrctrl.thermal_timeout);
+		device->pwrctrl.thermal_highlow = 0;
+	} else {
+		mod_timer(&device->pwrctrl.thermal_timer,
+					jiffies + (TH_HZ -
+					device->pwrctrl.thermal_timeout));
+		device->pwrctrl.thermal_highlow = 1;
+	}
+	/* Have work run in a non-interrupt context. */
+	queue_work(device->work_queue, &device->pwrctrl.thermal_cycle_ws);
+}
+
 int kgsl_pwrctrl_init(struct kgsl_device *device)
 {
 	int i, k, m, set_bus = 1, n = 0, result = 0;
@@ -1202,6 +1297,10 @@ int kgsl_pwrctrl_init(struct kgsl_device *device)
 		}
 	}
 	pwr->pwrlevels[0].bus_max = i - 1;
+
+	INIT_WORK(&pwr->thermal_cycle_ws, kgsl_thermal_cycle);
+	setup_timer(&pwr->thermal_timer, kgsl_thermal_timer,
+			(unsigned long) device);
 
 	return result;
 
@@ -1470,6 +1569,10 @@ _slumber(struct kgsl_device *device)
 	case KGSL_STATE_NAP:
 	case KGSL_STATE_SLEEP:
 		del_timer_sync(&device->idle_timer);
+		if (device->pwrctrl.thermal_cycle == CYCLE_ACTIVE) {
+			device->pwrctrl.thermal_cycle = CYCLE_ENABLE;
+			del_timer_sync(&device->pwrctrl.thermal_timer);
+		}
 		/* make sure power is on to stop the device*/
 		kgsl_pwrctrl_enable(device);
 		device->ftbl->suspend_context(device);
