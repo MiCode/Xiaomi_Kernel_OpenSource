@@ -383,9 +383,22 @@ static int gc2235_platform_deinit(void)
 
 static int gc2235_csi_configure(struct v4l2_subdev *sd, int flag)
 {
-	static const int LANES = 2;
-	return camera_sensor_csi(sd, ATOMISP_CAMERA_PORT_PRIMARY, LANES,
-		ATOMISP_INPUT_FORMAT_RAW_10, atomisp_bayer_order_grbg, flag);
+	/* Default from legacy platform w/o firmware config */
+	int port = ATOMISP_CAMERA_PORT_PRIMARY;
+	int lanes = 2;
+	int format = ATOMISP_INPUT_FORMAT_RAW_10;
+	int bayer = atomisp_bayer_order_grbg;
+
+	struct i2c_client *client = v4l2_get_subdevdata(sd);
+	if (client && ACPI_COMPANION(&client->dev)) {
+		struct device *dev = &client->dev;
+		port = getvar_int(dev, "CsiPort", port);
+		lanes = getvar_int(dev, "CsiLanes", lanes);
+		format = getvar_int(dev, "CsiFmt", format);
+		bayer = getvar_int(dev, "CsiBayer", bayer);
+	}
+
+	return camera_sensor_csi(sd, port, lanes, format, bayer, flag);
 }
 
 static struct camera_sensor_platform_data gc2235_sensor_platform_data = {
