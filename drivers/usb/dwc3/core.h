@@ -481,7 +481,7 @@ struct dwc3_ep_events {
 #define DWC3_EP_DIRECTION_TX	true
 #define DWC3_EP_DIRECTION_RX	false
 
-#define DWC3_TRB_NUM		32
+#define DWC3_TRB_NUM		1024
 #define DWC3_TRB_MASK		(DWC3_TRB_NUM - 1)
 
 /**
