@@ -578,15 +578,20 @@ void msm_dsi_op_mode_config(int mode, struct mdss_panel_data *pdata)
 	pr_debug("msm_dsi_op_mode_config\n");
 
 	dsi_ctrl = MIPI_INP(ctrl_base + DSI_CTRL);
-	/*If Video enabled, Keep Video and Cmd mode ON */
 
-
-	dsi_ctrl &= ~0x06;
-
-	if (mode == DSI_VIDEO_MODE)
-		dsi_ctrl |= 0x02;
+	if (dsi_ctrl & DSI_VIDEO_MODE_EN)
+		dsi_ctrl &= ~(DSI_CMD_MODE_EN|DSI_EN);
 	else
-		dsi_ctrl |= 0x04;
+		dsi_ctrl &= ~(DSI_CMD_MODE_EN|DSI_VIDEO_MODE_EN|DSI_EN);
+
+	if (mode == DSI_VIDEO_MODE) {
+		dsi_ctrl |= (DSI_VIDEO_MODE_EN|DSI_EN);
+	} else {		/* command mode */
+		dsi_ctrl |= (DSI_CMD_MODE_EN|DSI_EN);
+		/*For Video mode panel, keep Video and Cmd mode ON */
+		if (pdata->panel_info.type == MIPI_VIDEO_PANEL)
+			dsi_ctrl |= DSI_VIDEO_MODE_EN;
+	}
 
 	pr_debug("%s: dsi_ctrl=%x\n", __func__, dsi_ctrl);
 
@@ -1070,13 +1075,15 @@ static int msm_dsi_on(struct mdss_panel_data *pdata)
 
 	mutex_lock(&ctrl_pdata->mutex);
 
-	ret = msm_dss_enable_vreg(
-		ctrl_pdata->power_data.vreg_config,
-		ctrl_pdata->power_data.num_vreg, 1);
-	if (ret) {
-		pr_err("%s: DSI power on failed\n", __func__);
-		mutex_unlock(&ctrl_pdata->mutex);
-		return ret;
+	if (!pdata->panel_info.dynamic_switch_pending) {
+		ret = msm_dss_enable_vreg(
+			ctrl_pdata->power_data.vreg_config,
+			ctrl_pdata->power_data.num_vreg, 1);
+		if (ret) {
+			pr_err("%s: DSI power on failed\n", __func__);
+			mutex_unlock(&ctrl_pdata->mutex);
+			return ret;
+		}
 	}
 
 	msm_dsi_ahb_ctrl(1);
@@ -1194,11 +1201,13 @@ static int msm_dsi_off(struct mdss_panel_data *pdata)
 	msm_dsi_phy_off(dsi_host_private->dsi_base);
 	msm_dsi_ahb_ctrl(0);
 
-	ret = msm_dss_enable_vreg(
-		ctrl_pdata->power_data.vreg_config,
-		ctrl_pdata->power_data.num_vreg, 0);
-	if (ret) {
-		pr_err("%s: Panel power off failed\n", __func__);
+	if (!pdata->panel_info.dynamic_switch_pending) {
+		ret = msm_dss_enable_vreg(
+			ctrl_pdata->power_data.vreg_config,
+			ctrl_pdata->power_data.num_vreg, 0);
+		if (ret) {
+			pr_err("%s: Panel power off failed\n", __func__);
+		}
 	}
 	dsi_host_private->clk_count = 0;
 	dsi_host_private->dsi_on = 0;
