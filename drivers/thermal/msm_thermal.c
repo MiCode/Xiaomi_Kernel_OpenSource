@@ -1028,22 +1028,24 @@ static int therm_get_temp(uint32_t id, enum sensor_id_type type, long *temp)
 
 	switch (type) {
 	case THERM_ZONE_ID:
-		tsens_dev.sensor_num = tsens_id_map[id];
+		ret = sensor_get_temp(id, temp);
+		if (ret) {
+			pr_err("Unable to read thermal zone sensor:%d\n", id);
+			goto get_temp_exit;
+		}
 		break;
 	case THERM_TSENS_ID:
 		tsens_dev.sensor_num = id;
+		ret = tsens_get_temp(&tsens_dev, temp);
+		if (ret) {
+			pr_err("Unable to read TSENS sensor:%d\n",
+				tsens_dev.sensor_num);
+			goto get_temp_exit;
+		}
 		break;
 	default:
 		pr_err("Invalid type\n");
 		ret = -EINVAL;
-		goto get_temp_exit;
-		break;
-	}
-
-	ret = tsens_get_temp(&tsens_dev, temp);
-	if (ret) {
-		pr_err("Unable to read TSENS sensor:%d\n",
-			tsens_dev.sensor_num);
 		goto get_temp_exit;
 	}
 
@@ -1057,7 +1059,7 @@ static int set_threshold(uint32_t zone_id,
 	int i = 0, ret = 0;
 	long temp;
 
-	if ((!threshold) || (zone_id >= max_tsens_num)) {
+	if (!threshold) {
 		pr_err("Invalid input\n");
 		ret = -EINVAL;
 		goto set_threshold_exit;
