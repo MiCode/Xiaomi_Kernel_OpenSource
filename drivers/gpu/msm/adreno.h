@@ -171,6 +171,7 @@ struct adreno_dispatcher {
 
 enum adreno_dispatcher_flags {
 	ADRENO_DISPATCHER_POWER = 0,
+	ADRENO_DISPATCHER_ACTIVE = 1,
 };
 
 struct adreno_gpudev;

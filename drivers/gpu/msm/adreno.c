@@ -317,6 +317,11 @@ static int adreno_perfcounter_start(struct adreno_device *adreno_dev)
 					KGSL_PERFCOUNTER_BROKEN)
 				continue;
 
+			/*
+			 * The GPU has to be idle before calling the perfcounter
+			 * enable function, but since this function is called
+			 * during start we already know the GPU is idle
+			 */
 			if (gpudev->perfcounter_enable)
 				ret = gpudev->perfcounter_enable(adreno_dev, i,
 					j, group->regs[j].countable);
@@ -602,6 +607,10 @@ int adreno_perfcounter_get(struct adreno_device *adreno_dev,
 	if (empty == -1)
 		return -EBUSY;
 
+	ret = adreno_idle(&adreno_dev->dev);
+	if (ret)
+		return ret;
+
 	/* enable the new counter */
 	ret = gpudev->perfcounter_enable(adreno_dev, groupid, empty, countable);
 	if (ret)
@@ -689,6 +698,11 @@ static inline void adreno_perfcounter_restore(struct adreno_device *adreno_dev)
 {
 	struct adreno_gpudev *gpudev = ADRENO_GPU_DEVICE(adreno_dev);
 
+	/*
+	 * The GPU needs to be idle before writing the perfcounter select
+	 * registers. Since this function gets called during start/resume we
+	 * know the GPU is already idle so we don't need to stop it
+	 */
 	if (gpudev->perfcounter_restore)
 		gpudev->perfcounter_restore(adreno_dev);
 }
@@ -1785,13 +1799,11 @@ static int _adreno_start(struct adreno_device *adreno_dev)
 	kgsl_pwrctrl_irq(device, KGSL_PWRFLAGS_ON);
 	adreno_irqctrl(adreno_dev, 1);
 
+	adreno_perfcounter_start(adreno_dev);
+
 	status = adreno_ringbuffer_cold_start(&adreno_dev->ringbuffer);
 	if (status)
 		goto error_irq_off;
-
-	status = adreno_perfcounter_start(adreno_dev);
-	if (status)
-		goto error_rb_stop;
 
 	/* Start the dispatcher */
 	adreno_dispatcher_start(device);
@@ -1802,8 +1814,6 @@ static int _adreno_start(struct adreno_device *adreno_dev)
 
 	return 0;
 
-error_rb_stop:
-	adreno_ringbuffer_stop(&adreno_dev->ringbuffer);
 error_irq_off:
 	kgsl_pwrctrl_irq(device, KGSL_PWRFLAGS_OFF);
 
