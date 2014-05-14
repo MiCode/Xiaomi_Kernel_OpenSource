@@ -20,8 +20,6 @@ Required Properties:
 - regulator-max-microvolt:	Maximum voltage in microvolts supported by this
 				regulator.
 - regulator-ramp-delay:		The slew rate of the regulator, in uV/us.
-				Supported values are 64000, 32000, 16000,
-				8000, 4000, 2000, 1000 and 500.
 
 Optional Properties:
 - fairchild,vsel-gpio:		Present: GPIO connects to the VSEL pin and set
