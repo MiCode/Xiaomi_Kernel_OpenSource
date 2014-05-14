@@ -35,11 +35,7 @@
 #define MSM_CCI_DRV_NAME "msm_cci"
 
 #undef CDBG
-#ifdef CONFIG_MSMB_CAMERA_DEBUG
 #define CDBG(fmt, args...) pr_debug(fmt, ##args)
-#else
-#define CDBG(fmt, args...) do {} while (0)
-#endif
 
 /* Max bytes that can be read per CCI read transaction */
 #define CCI_READ_MAX 12
