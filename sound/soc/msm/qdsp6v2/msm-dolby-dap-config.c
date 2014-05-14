@@ -1004,6 +1004,27 @@ int msm_dolby_dap_security_control_put(struct snd_kcontrol *kcontrol,
 	return 0;
 }
 
+int msm_dolby_dap_license_control_get(struct snd_kcontrol *kcontrol,
+				struct snd_ctl_elem_value *ucontrol)
+{
+	ucontrol->value.integer.value[0] =
+			core_get_license_status(DOLBY_DS1_LICENSE_ID);
+	return 0;
+}
+
+int msm_dolby_dap_license_control_put(struct snd_kcontrol *kcontrol,
+				struct snd_ctl_elem_value *ucontrol)
+{
+	return core_set_license(ucontrol->value.integer.value[0],
+						DOLBY_DS1_LICENSE_ID);
+}
+
+static const struct snd_kcontrol_new dolby_license_controls[] = {
+	SOC_SINGLE_MULTI_EXT("DS1 License", SND_SOC_NOPM, 0,
+	0xFFFFFFFF, 0, 1, msm_dolby_dap_license_control_get,
+	msm_dolby_dap_license_control_put),
+};
+
 static const struct snd_kcontrol_new dolby_security_controls[] = {
 	SOC_SINGLE_MULTI_EXT("DS1 Security", SND_SOC_NOPM, 0,
 	0xFFFFFFFF, 0, 1, msm_dolby_dap_security_control_get,
@@ -1036,6 +1057,10 @@ static const struct snd_kcontrol_new dolby_dap_param_end_point_controls[] = {
 
 void msm_dolby_dap_add_controls(struct snd_soc_platform *platform)
 {
+	snd_soc_add_platform_controls(platform,
+				dolby_license_controls,
+			ARRAY_SIZE(dolby_license_controls));
+
 	snd_soc_add_platform_controls(platform,
 				dolby_security_controls,
 			ARRAY_SIZE(dolby_security_controls));
