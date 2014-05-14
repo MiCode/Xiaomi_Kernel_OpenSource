@@ -27,12 +27,11 @@
 
 	qcom,iommu-ctx@1e23000 {
 		interrupts = <0 54 0>;
-		qcom,iommu-ctx-sids = <0x400 0x402>;
 	};
 
 	qcom,iommu-ctx@1e24000 {
 		interrupts = <0 58 0>;
-		qcom,iommu-ctx-sids = <0xc00 0xc01>;
+		qcom,iommu-ctx-sids = <0xc00 0x2800>;
 	};
 
 	venus_ns: qcom,iommu-ctx@1e25000 {
@@ -41,7 +40,7 @@
 
 	qcom,iommu-ctx@1e26000 {
 		interrupts = <0 61 0>;
-		qcom,iommu-ctx-sids = <0x2400 0x2402>;
+		qcom,iommu-ctx-sids = <0x2400>;
 	};
 
 	qcom,iommu-ctx@1e27000 {
@@ -58,7 +57,7 @@
 
 	qcom,iommu-ctx@1e32000 {
 		interrupts = <0 110 0>, <0 110 0>;
-		qcom,iommu-ctx-sids = <0x2800 0x2801>;
+		qcom,iommu-ctx-sids = <0xc01 0x2801>;
 	};
 
 	venus_sec_pixel: qcom,iommu-ctx@1e33000 {
