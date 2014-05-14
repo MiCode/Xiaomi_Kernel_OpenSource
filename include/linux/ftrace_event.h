@@ -379,4 +379,7 @@ perf_trace_buf_submit(void *raw_data, int size, int rctx, u64 addr,
 }
 #endif
 
+#define FTRACE_EVENT_ENABLED(name)					\
+	((event_##name).flags & (1 << (TRACE_EVENT_FL_WAS_ENABLED_BIT)))\
+
 #endif /* _LINUX_FTRACE_EVENT_H */
