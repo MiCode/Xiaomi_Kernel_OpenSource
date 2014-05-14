@@ -371,6 +371,42 @@ int msm_isp_axi_check_stream_state(
 	return rc;
 }
 
+void msm_isp_update_framedrop_rdi_reg(struct vfe_device *vfe_dev, int flag)
+{
+	int i;
+	struct msm_vfe_axi_shared_data *axi_data = &vfe_dev->axi_data;
+	struct msm_vfe_axi_stream *stream_info;
+	int stream_src;
+
+	for (i = 0; i < MAX_NUM_STREAM; i++) {
+		stream_info = &axi_data->stream_info[i];
+		if (stream_info->state != ACTIVE)
+			continue;
+
+		stream_src = stream_info->stream_src - VFE_SRC_MAX + 1;
+		if (!((1 << stream_src) & flag))
+			continue;
+
+		if (stream_info->runtime_framedrop_update) {
+			stream_info->runtime_init_frame_drop--;
+			if (stream_info->runtime_init_frame_drop == 0) {
+				stream_info->runtime_framedrop_update = 0;
+				vfe_dev->hw_info->vfe_ops.axi_ops.
+				cfg_framedrop(vfe_dev, stream_info);
+			}
+		}
+		if (stream_info->stream_type == BURST_STREAM) {
+			stream_info->runtime_burst_frame_count--;
+			if (stream_info->runtime_burst_frame_count == 0) {
+				vfe_dev->hw_info->vfe_ops.axi_ops.
+				cfg_framedrop(vfe_dev, stream_info);
+				vfe_dev->hw_info->vfe_ops.core_ops.
+				 reg_update(vfe_dev);
+			}
+		}
+	}
+}
+
 void msm_isp_update_framedrop_reg(struct vfe_device *vfe_dev)
 {
 	int i;

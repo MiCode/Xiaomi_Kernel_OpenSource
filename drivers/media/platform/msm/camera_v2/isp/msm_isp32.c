@@ -329,23 +329,41 @@ static void msm_vfe32_process_reg_update(struct vfe_device *vfe_dev,
 	uint32_t irq_status0, uint32_t irq_status1,
 	struct msm_isp_timestamp *ts)
 {
+	int flag_rdi = 0;
+	int flag_pix = 0;
+
 	if (!(irq_status0 & 0x20) && !(irq_status1 & 0x1C000000))
 		return;
 
-	if (irq_status0 & BIT(5))
+	if (irq_status0 & BIT(5)) {
+		flag_pix = 1;
 		msm_isp_sof_notify(vfe_dev, VFE_PIX_0, ts);
-	if (irq_status1 & BIT(26))
+	}
+	if (irq_status1 & BIT(26)) {
+		flag_rdi = (1 << VFE_RAW_0) | flag_rdi;
 		msm_isp_sof_notify(vfe_dev, VFE_RAW_0, ts);
-	if (irq_status1 & BIT(27))
+	}
+	if (irq_status1 & BIT(27)) {
+		flag_rdi = (1 << VFE_RAW_1) | flag_rdi;
 		msm_isp_sof_notify(vfe_dev, VFE_RAW_1, ts);
-	if (irq_status1 & BIT(28))
+	}
+	if (irq_status1 & BIT(28)) {
+		flag_rdi = (1 << VFE_RAW_2) | flag_rdi;
 		msm_isp_sof_notify(vfe_dev, VFE_RAW_2, ts);
+	}
 
 	if (vfe_dev->axi_data.stream_update)
 		msm_isp_axi_stream_update(vfe_dev);
+
 	if (atomic_read(&vfe_dev->stats_data.stats_update))
 		msm_isp_stats_stream_update(vfe_dev);
-	msm_isp_update_framedrop_reg(vfe_dev);
+
+	if (flag_rdi)
+		msm_isp_update_framedrop_rdi_reg(vfe_dev, flag_rdi);
+
+	if (flag_pix)
+		msm_isp_update_framedrop_reg(vfe_dev);
+
 	msm_isp_update_error_frame_count(vfe_dev);
 
 	vfe_dev->hw_info->vfe_ops.core_ops.
@@ -466,6 +484,8 @@ static void msm_vfe32_cfg_framedrop(struct vfe_device *vfe_dev,
 	struct msm_vfe_axi_stream *stream_info)
 {
 	uint32_t framedrop_pattern = 0, framedrop_period = 0;
+	uint32_t rdi_reg_cfg;
+	int32_t val = 0;
 
 	if (stream_info->runtime_init_frame_drop == 0) {
 		framedrop_pattern = stream_info->framedrop_pattern;
@@ -488,6 +508,32 @@ static void msm_vfe32_cfg_framedrop(struct vfe_device *vfe_dev,
 		msm_camera_io_w(framedrop_period, vfe_dev->vfe_base + 0x518);
 		msm_camera_io_w(framedrop_pattern, vfe_dev->vfe_base + 0x51C);
 		msm_camera_io_w(framedrop_pattern, vfe_dev->vfe_base + 0x520);
+	} else if (stream_info->stream_src == RDI_INTF_0 ||
+			stream_info->stream_src == RDI_INTF_1 ||
+			stream_info->stream_src == RDI_INTF_2) {
+		if (stream_info->runtime_init_frame_drop) {
+			rdi_reg_cfg = msm_camera_io_r(
+			vfe_dev->vfe_base +
+			VFE32_RDI_BASE(stream_info->stream_src - VFE_SRC_MAX));
+			val = ((stream_info->runtime_init_frame_drop + 1) << 20)
+							| 0x1000000;
+			rdi_reg_cfg |= val;
+			msm_camera_io_w(rdi_reg_cfg, vfe_dev->vfe_base +
+			VFE32_RDI_BASE(stream_info->stream_src - VFE_SRC_MAX));
+		} else if (0 == stream_info->runtime_init_frame_drop) {
+			rdi_reg_cfg = msm_camera_io_r(
+			vfe_dev->vfe_base +
+			VFE32_RDI_BASE(stream_info->stream_src - VFE_SRC_MAX));
+			if (stream_info->framedrop_period == 0 ||
+				stream_info->framedrop_period == 1)
+				rdi_reg_cfg = 0xFE0FFFFF & rdi_reg_cfg;
+			else
+				rdi_reg_cfg = 0xFF0FFFFF & rdi_reg_cfg;
+			val = stream_info->framedrop_period << 20;
+			rdi_reg_cfg = rdi_reg_cfg | val;
+			msm_camera_io_w(rdi_reg_cfg, vfe_dev->vfe_base +
+			VFE32_RDI_BASE(stream_info->stream_src - VFE_SRC_MAX));
+		}
 	}
 	msm_camera_io_w_mb(0x1, vfe_dev->vfe_base + 0x260);
 }
