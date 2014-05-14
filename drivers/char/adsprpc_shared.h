@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -88,7 +88,7 @@ do {\
 
 struct remote_buf {
 	void *pv;		/* buffer pointer */
-	int len;		/* length of buffer */
+	ssize_t len;		/* length of buffer */
 };
 
 union remote_arg {
@@ -108,17 +108,17 @@ struct fastrpc_ioctl_invoke_fd {
 };
 
 struct fastrpc_ioctl_munmap {
-	uint32_t vaddrout;	/* address to unmap */
-	int  size;		/* size */
+	uintptr_t vaddrout;	/* address to unmap */
+	ssize_t size;		/* size */
 };
 
 
 struct fastrpc_ioctl_mmap {
-	int fd;			/* ion fd */
-	uint32_t flags;		/* flags for dsp to map with */
-	uint32_t vaddrin;	/* optional virtual address */
-	int  size;		/* size */
-	uint32_t vaddrout;	/* dsps virtual address */
+	int fd;				/* ion fd */
+	uint32_t flags;			/* flags for dsp to map with */
+	uintptr_t __user *vaddrin;	/* optional virtual address */
+	ssize_t size;			/* size */
+	uintptr_t vaddrout;		/* dsps virtual address */
 };
 
 struct smq_null_invoke {
@@ -128,8 +128,8 @@ struct smq_null_invoke {
 };
 
 struct smq_phy_page {
-	uint32_t addr;		/* physical address */
-	uint32_t size;		/* size of contiguous region */
+	ion_phys_addr_t addr;	/* physical address */
+	ssize_t size;		/* size of contiguous region */
 };
 
 struct smq_invoke_buf {
@@ -165,12 +165,6 @@ static inline struct smq_phy_page *smq_phy_page_start(uint32_t sc,
 {
 	int nTotal = REMOTE_SCALARS_INBUFS(sc) + REMOTE_SCALARS_OUTBUFS(sc);
 	return (struct smq_phy_page *)(&buf[nTotal]);
-}
-
-static inline int smq_invoke_buf_size(uint32_t sc, int nPages)
-{
-	struct smq_phy_page *start = smq_phy_page_start(sc, 0);
-	return (int)(&(start[nPages]));
 }
 
 #endif
