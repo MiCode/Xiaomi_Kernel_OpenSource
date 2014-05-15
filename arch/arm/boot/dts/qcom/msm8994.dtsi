@@ -854,14 +854,14 @@
 		clock-names = "cpu0_clk", "cpu1_clk", "cpu2_clk",
 				"cpu3_clk", "cpu4_clk", "cpu5_clk",
 				"cpu6_clk", "cpu7_clk";
-		clocks = <&clock_gcc clk_a53_clk>,
-			 <&clock_gcc clk_a53_clk>,
-			 <&clock_gcc clk_a53_clk>,
-			 <&clock_gcc clk_a53_clk>,
-			 <&clock_gcc clk_a57_clk>,
-			 <&clock_gcc clk_a57_clk>,
-			 <&clock_gcc clk_a57_clk>,
-			 <&clock_gcc clk_a57_clk>;
+		clocks = <&clock_cpu clk_a53_clk>,
+			 <&clock_cpu clk_a53_clk>,
+			 <&clock_cpu clk_a53_clk>,
+			 <&clock_cpu clk_a53_clk>,
+			 <&clock_cpu clk_a57_clk>,
+			 <&clock_cpu clk_a57_clk>,
+			 <&clock_cpu clk_a57_clk>,
+			 <&clock_cpu clk_a57_clk>;
 
 		qcom,cpufreq-table =
 			<  249600 >,
@@ -870,6 +870,34 @@
 			<  652800 >,
 			<  729600 >,
 			<  883200 >;
+	};
+
+	clock_cpu: qcom,cpu-clock-8994@f9015000 {
+		compatible = "qcom,cpu-clock-8994";
+		reg = <0xf9015000 0x1000>,
+		      <0xf9016000 0x1000>,
+		      <0xf9011000 0x1000>,
+		      <0xf900d000 0x1000>,
+		      <0xf900f000 0x1000>,
+		      <0xf9112000 0x1000>;
+		reg-names = "c0_pll", "c1_pll", "cci_pll", "c0_mux", "c1_mux", "cci_mux";
+		vdd-a53-supply = <&apc0_vreg_corner>;
+		vdd-a57-supply = <&apc1_vreg_corner>;
+		vdd-dig-supply = <&pm8994_s1_corner_ao>;
+		qcom,a53-speedbin0-v0 =
+			<         0 0>,
+			< 249600000 1>,
+			< 499200000 2>,
+			< 940800000 3>;
+		qcom,a57-speedbin0-v0 =
+			<         0 0>,
+			< 249600000 1>,
+			< 499200000 2>,
+			< 921600000 3>;
+		clock-names = "xo_ao", "aux_clk";
+		clocks = <&clock_rpm clk_cxo_clk_src_ao>,
+			 <&clock_gcc clk_gpll0_ao>;
+		#clock-cells = <1>;
 	};
 
 	ocmem: qcom,ocmem@fdd00000 {
