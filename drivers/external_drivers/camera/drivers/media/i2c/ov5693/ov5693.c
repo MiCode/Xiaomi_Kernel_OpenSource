@@ -25,6 +25,7 @@
 #include <linux/gpio.h>
 #include <linux/init.h>
 #include <linux/i2c.h>
+#include <linux/acpi.h>
 #include <linux/io.h>
 #include <linux/kernel.h>
 #include <linux/kmod.h>
@@ -1385,6 +1386,7 @@ static int ov5693_probe(struct i2c_client *client,
 	struct ov5693_device *dev;
 	int i;
 	int ret;
+	void *pdata = client->dev.platform_data;
 
 	dev = devm_kzalloc(&client->dev, sizeof(*dev), GFP_KERNEL);
 	if (!dev) {
@@ -1403,9 +1405,17 @@ static int ov5693_probe(struct i2c_client *client,
 
 	v4l2_i2c_subdev_init(&(dev->sd), client, &ov5693_ops);
 
-	if (client->dev.platform_data) {
+	if (!pdata && ACPI_COMPANION(&client->dev)) {
+		/*
+		 * If no SFI firmware, try to grab the platform struct
+		 * directly and configure via ACPI/EFIvars instead
+		 */
+		pdata = ov5693_platform_data(NULL);
+	}
+
+	if(pdata) {
 		ret = ov5693_s_config(&dev->sd, client->irq,
-				       client->dev.platform_data);
+				       pdata);
 		if (ret)
 			goto out_free;
 	}
@@ -1456,11 +1466,19 @@ out_free:
 	return ret;
 }
 
+static struct acpi_device_id ov5693_acpi_match[] = {
+	{"INT33BE"},
+	{},
+};
+
+MODULE_DEVICE_TABLE(acpi, ov5693_acpi_match);
 MODULE_DEVICE_TABLE(i2c, ov5693_id);
+
 static struct i2c_driver ov5693_driver = {
 	.driver = {
 		.owner = THIS_MODULE,
 		.name = OV5693_NAME,
+		.acpi_match_table = ACPI_PTR(ov5693_acpi_match),
 	},
 	.probe = ov5693_probe,
 	.remove = ov5693_remove,

@@ -114,6 +114,8 @@
 #define OV5693_START_STREAMING			0x01
 #define OV5693_STOP_STREAMING			0x00
 
+void *ov5693_platform_data(void *info);
+
 struct ov5693_vcm {
 	int (*power_up)(struct v4l2_subdev *sd);
 	int (*power_down)(struct v4l2_subdev *sd);

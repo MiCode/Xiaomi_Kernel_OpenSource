@@ -205,3 +205,5 @@ void *ov5693_platform_data(void *info)
 	camera_reset = -1;
 	return &ov5693_sensor_platform_data;
 }
+
+EXPORT_SYMBOL_GPL(ov5693_platform_data);
