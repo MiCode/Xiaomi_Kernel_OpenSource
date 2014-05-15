@@ -1021,12 +1021,12 @@
 		reg = <0x1de0000 0x4000>;
 
 		vdd-supply = <&gdsc_venus>;
-		proxy-reg-names = "vdd";
+		qcom,proxy-reg-names = "vdd";
 		clocks = <&clock_gcc clk_gcc_venus0_vcodec0_clk>,
 			 <&clock_gcc clk_gcc_venus0_ahb_clk>,
 			 <&clock_gcc clk_gcc_venus0_axi_clk>;
 		clock-names = "core_clk", "iface_clk", "bus_clk";
-		proxy-clock-names = "core_clk", "iface_clk", "bus_clk";
+		qcom,proxy-clock-names = "core_clk", "iface_clk", "bus_clk";
 
 		qcom,pas-id = <9>;
 		qcom,proxy-timeout-ms = <5000>;
