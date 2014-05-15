@@ -130,6 +130,7 @@ static const struct snd_soc_dapm_widget msm8x16_dapm_widgets[] = {
 
 static char const *rx_bit_format_text[] = {"S16_LE", "S24_LE"};
 static const char *const ter_mi2s_tx_ch_text[] = {"One", "Two"};
+static const char *const loopback_mclk_text[] = {"DISABLE", "ENABLE"};
 
 static int msm_pri_rx_be_hw_params_fixup(struct snd_soc_pcm_runtime *rtd,
 				struct snd_pcm_hw_params *params)
@@ -200,6 +201,54 @@ static int mi2s_rx_bit_format_put(struct snd_kcontrol *kcontrol,
 	}
 	return 0;
 }
+
+static int loopback_mclk_get(struct snd_kcontrol *kcontrol,
+	struct snd_ctl_elem_value *ucontrol)
+{
+	return 0;
+}
+
+static int loopback_mclk_put(struct snd_kcontrol *kcontrol,
+	struct snd_ctl_elem_value *ucontrol)
+{
+	int ret = -EINVAL;
+	struct msm8916_asoc_mach_data *pdata = NULL;
+	struct snd_soc_codec *codec = snd_kcontrol_chip(kcontrol);
+
+	pdata = snd_soc_card_get_drvdata(codec->card);
+
+	switch (ucontrol->value.integer.value[0]) {
+	case 1:
+		pdata->digital_cdc_clk.clk_val = 9600000;
+		ret = afe_set_digital_codec_core_clock(
+				AFE_PORT_ID_PRIMARY_MI2S_RX,
+				&pdata->digital_cdc_clk);
+		if (ret < 0) {
+			pr_err("%s: failed to enable the MCLK: %d\n",
+					__func__, ret);
+			break;
+		}
+		msm8x16_wcd_mclk_enable(codec, 1, true);
+		break;
+	case 0:
+		pdata->digital_cdc_clk.clk_val = 0;
+		ret = afe_set_digital_codec_core_clock(
+				AFE_PORT_ID_PRIMARY_MI2S_RX,
+				&pdata->digital_cdc_clk);
+		if (ret < 0) {
+			pr_err("%s: failed to disable the MCLK: %d\n",
+					__func__, ret);
+			break;
+		}
+		msm8x16_wcd_mclk_enable(codec, 0, true);
+		break;
+	default:
+		pr_err("%s: Unexpected input value\n", __func__);
+		break;
+	}
+	return ret;
+}
+
 static int msm_btsco_be_hw_params_fixup(struct snd_soc_pcm_runtime *rtd,
 					struct snd_pcm_hw_params *params)
 {
@@ -390,6 +439,7 @@ static int msm8x16_enable_codec_ext_clk(struct snd_soc_codec *codec,
 static const struct soc_enum msm_snd_enum[] = {
 	SOC_ENUM_SINGLE_EXT(2, rx_bit_format_text),
 	SOC_ENUM_SINGLE_EXT(2, ter_mi2s_tx_ch_text),
+	SOC_ENUM_SINGLE_EXT(2, loopback_mclk_text),
 };
 
 static const struct snd_kcontrol_new msm_snd_controls[] = {
@@ -399,6 +449,8 @@ static const struct snd_kcontrol_new msm_snd_controls[] = {
 			msm_ter_mi2s_tx_ch_get, msm_ter_mi2s_tx_ch_put),
 	SOC_ENUM_EXT("MI2S_RX Channels", msm_snd_enum[1],
 			msm_pri_mi2s_rx_ch_get, msm_pri_mi2s_rx_ch_put),
+	SOC_ENUM_EXT("Loopback MCLK", msm_snd_enum[2],
+			loopback_mclk_get, loopback_mclk_put),
 
 };
 
