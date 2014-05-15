@@ -1465,6 +1465,8 @@ struct bma2x2_data {
 	struct regulator *vdd;
 	struct regulator *vio;
 	bool power_enabled;
+	unsigned char bandwidth;
+	unsigned char range;
 #ifdef CONFIG_HAS_EARLYSUSPEND
 	struct early_suspend early_suspend;
 #endif
@@ -1498,12 +1500,17 @@ static void bma2x2_early_suspend(struct early_suspend *h);
 static void bma2x2_late_resume(struct early_suspend *h);
 #endif
 
+static int bma2x2_open_init(struct i2c_client *client,
+			struct bma2x2_data *data);
 static int bma2x2_set_mode(struct i2c_client *client, u8 mode);
 static int bma2x2_get_mode(struct i2c_client *client, u8 *mode);
 static int bma2x2_get_fifo_mode(struct i2c_client *client, u8 *fifo_mode);
 static int bma2x2_set_fifo_mode(struct i2c_client *client, u8 fifo_mode);
 static int bma2x2_normal_to_suspend(struct bma2x2_data *bma2x2,
 				unsigned char data1, unsigned char data2);
+static int bma2x2_store_state(struct i2c_client *client,
+			struct bma2x2_data *data);
+static int bma2x2_power_ctl(struct bma2x2_data *data, bool on);
 
 static struct sensors_classdev sensors_cdev = {
 		.name = "bma2x2-accel",
@@ -5076,6 +5083,13 @@ static void bma2x2_set_enable(struct device *dev, int enable)
 	mutex_lock(&bma2x2->enable_mutex);
 	if (enable) {
 		if (pre_enable == 0) {
+			if (bma2x2_power_ctl(bma2x2, true)) {
+				dev_err(dev, "power failed\n");
+				goto mutex_exit;
+			}
+			RESET_DELAY();
+			if (bma2x2_open_init(client, bma2x2))
+				goto mutex_exit;
 			bma2x2_set_mode(bma2x2->bma2x2_client,
 					BMA2X2_MODE_NORMAL);
 #ifndef CONFIG_BMA_ENABLE_NEWDATA_INT
@@ -5087,14 +5101,23 @@ static void bma2x2_set_enable(struct device *dev, int enable)
 
 	} else {
 		if (pre_enable == 1) {
+			if (bma2x2_store_state(client, bma2x2) < 0) {
+				dev_err(dev, "set state failed\n");
+				goto mutex_exit;
+			}
 			bma2x2_set_mode(bma2x2->bma2x2_client,
 					BMA2X2_MODE_SUSPEND);
 #ifndef CONFIG_BMA_ENABLE_NEWDATA_INT
 			cancel_delayed_work_sync(&bma2x2->work);
 #endif
 			atomic_set(&bma2x2->enable, 0);
+			if (bma2x2_power_ctl(bma2x2, false)) {
+				dev_err(dev, "power failed\n");
+				goto mutex_exit;
+			}
 		}
 	}
+mutex_exit:
 	mutex_unlock(&bma2x2->enable_mutex);
 
 }
@@ -6756,6 +6779,37 @@ static void bma2x2_sig_motion_disable(struct bma2x2_data *data)
 }
 #endif
 
+static int bma2x2_open_init(struct i2c_client *client,
+			struct bma2x2_data *data)
+{
+	int err;
+	if (bma2x2_soft_reset(client) < 0) {
+		dev_err(&client->dev,
+			"i2c bus write error, pls check HW connection\n");
+		err = -EINVAL;
+		bma2x2_power_ctl(data, false);
+		return err;
+	}
+	RESET_DELAY();
+	/* read and check chip id */
+	if (bma2x2_check_chip_id(client, data) < 0) {
+		err = -EINVAL;
+		bma2x2_power_ctl(data, false);
+		return err;
+	}
+	err = bma2x2_set_bandwidth(client, data->bandwidth);
+	if (err < 0) {
+		dev_err(&client->dev, "init bandwidth error\n");
+		return err;
+	}
+	err = bma2x2_set_range(client, data->range);
+	if (err < 0) {
+		dev_err(&client->dev, "init bandwidth error\n");
+		return err;
+	}
+	return 0;
+}
+
 static int bma2x2_probe(struct i2c_client *client,
 		const struct i2c_device_id *id)
 {
@@ -6818,27 +6872,14 @@ static int bma2x2_probe(struct i2c_client *client,
 		goto deinit_power_exit;
 	}
 
-	/* do soft reset */
-	RESET_DELAY();
-	if (bma2x2_soft_reset(client) < 0) {
-		dev_err(&client->dev,
-			"i2c bus write error, pls check HW connection\n");
-		err = -EINVAL;
-		goto disable_power_exit;
-	}
-	RESET_DELAY();
-	/* read and check chip id */
-	if (bma2x2_check_chip_id(client, data) < 0) {
-		err = -EINVAL;
-		goto disable_power_exit;
-	}
-
 	mutex_init(&data->value_mutex);
 	mutex_init(&data->mode_mutex);
 	mutex_init(&data->enable_mutex);
-	bma2x2_set_bandwidth(client, BMA2X2_BW_SET);
-	bma2x2_set_range(client, BMA2X2_RANGE_SET);
-
+	data->bandwidth = BMA2X2_BW_SET;
+	data->range = BMA2X2_RANGE_SET;
+	err = bma2x2_open_init(client, data);
+	if (err < 0)
+		goto deinit_power_exit;
 #if defined(BMA2X2_ENABLE_INT1) || defined(BMA2X2_ENABLE_INT2)
 
 	pdata = client->dev.platform_data;
@@ -7110,6 +7151,7 @@ static int bma2x2_probe(struct i2c_client *client,
 
 	dev_notice(&client->dev, "BMA2x2 driver probe successfully");
 
+	bma2x2_power_ctl(data, false);
 	return 0;
 
 remove_bst_acc_sysfs_exit:
@@ -7155,8 +7197,6 @@ free_input_interrupt_dev_exit:
 free_input_dev_exit:
 	input_free_device(dev);
 free_irq_exit:
-disable_power_exit:
-	bma2x2_power_ctl(data, false);
 deinit_power_exit:
 	bma2x2_power_deinit(data);
 free_i2c_clientdata_exit:
@@ -7256,37 +7296,33 @@ void bma2x2_shutdown(struct i2c_client *client)
 	mutex_unlock(&data->enable_mutex);
 }
 
+static int bma2x2_store_state(struct i2c_client *client,
+				struct bma2x2_data *data)
+{
+	int err;
+	err = bma2x2_get_bandwidth(client, &(data->bandwidth));
+	if (err < 0) {
+		dev_err(&client->dev, "get state bandwidth failed\n");
+		return err;
+	}
+	err = bma2x2_get_range(client, &(data->range));
+	if (err < 0) {
+		dev_err(&client->dev, "get state range failed\n");
+		return err;
+	}
+	return err;
+}
+
 #ifdef CONFIG_PM
 static int bma2x2_suspend(struct i2c_client *client, pm_message_t mesg)
 {
-	struct bma2x2_data *data = i2c_get_clientdata(client);
-
-	mutex_lock(&data->enable_mutex);
-	if (atomic_read(&data->enable) == 1) {
-		bma2x2_set_mode(data->bma2x2_client, BMA2X2_MODE_SUSPEND);
-#ifndef CONFIG_BMA_ENABLE_NEWDATA_INT
-		cancel_delayed_work_sync(&data->work);
-#endif
-	}
-	mutex_unlock(&data->enable_mutex);
-
+	bma2x2_set_enable(&client->dev, 0);
 	return 0;
 }
 
 static int bma2x2_resume(struct i2c_client *client)
 {
-	struct bma2x2_data *data = i2c_get_clientdata(client);
-
-	mutex_lock(&data->enable_mutex);
-	if (atomic_read(&data->enable) == 1) {
-		bma2x2_set_mode(data->bma2x2_client, BMA2X2_MODE_NORMAL);
-#ifndef CONFIG_BMA_ENABLE_NEWDATA_INT
-		schedule_delayed_work(&data->work,
-				msecs_to_jiffies(atomic_read(&data->delay)));
-#endif
-	}
-	mutex_unlock(&data->enable_mutex);
-
+	bma2x2_set_enable(&client->dev, 1);
 	return 0;
 }
 
