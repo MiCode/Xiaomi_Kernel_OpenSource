@@ -66,6 +66,11 @@ module_param(tx_stop_threshold, uint, S_IRUGO | S_IWUSR);
 MODULE_PARM_DESC(tx_stop_threshold,
 	"Threashold to stop network queue");
 
+static unsigned int min_cpu_freq;
+module_param(min_cpu_freq, uint, S_IRUGO | S_IWUSR);
+MODULE_PARM_DESC(min_cpu_freq,
+	"to set minimum cpu frquency to when ethernet ifc is active");
+
 /* this refers to max number sgs per transfer
  * which includes headers/data packets
  */
@@ -1497,16 +1502,16 @@ static int gether_cpufreq_notifier_cb(struct notifier_block *nfb,
 	struct eth_dev	*dev = container_of(nfb, struct eth_dev,
 					cpufreq_notifier);
 
+	if (!min_cpu_freq)
+		return NOTIFY_OK;
+
 	switch (event) {
 	case CPUFREQ_ADJUST:
 		pr_debug("%s: cpu:%u\n", __func__, cpu);
 
 		if (dev->state == ETH_START)
 			cpufreq_verify_within_limits(policy,
-					1000000, UINT_MAX);
-		else
-			cpufreq_verify_within_limits(policy,
-					policy->min, UINT_MAX);
+					min_cpu_freq, UINT_MAX);
 
 		break;
 	}
