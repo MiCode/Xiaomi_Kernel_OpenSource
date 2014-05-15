@@ -648,6 +648,17 @@
 		qcom,sensor-id = <0 1 2 3 5 6 7 8 9>;
 	};
 
+	slim_msm: slim@77c0000 {
+		cell-index = <1>;
+		compatible = "qcom,slim-ngd";
+		reg = <0x77c0000 0x2C000>,
+		      <0x7784000 0x2A000>;
+		reg-names = "slimbus_physical", "slimbus_bam_physical";
+		interrupts = <0 163 0>, <0 165 0>;
+		interrupt-names = "slimbus_irq", "slimbus_bam_irq";
+		qcom,ea-pc = <0x140>;
+	};
+
 	clock_rpm: qcom,rpmcc@1874000 {
 		compatible = "qcom,rpmcc-8936";
 		reg = <0x1874000 0x4>;
