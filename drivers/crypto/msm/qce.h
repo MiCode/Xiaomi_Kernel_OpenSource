@@ -166,6 +166,13 @@ struct qce_req {
 	unsigned int  flags;
 };
 
+struct qce_pm_table {
+	int (*suspend)(void *handle);
+	int (*resume)(void *handle);
+};
+
+extern struct qce_pm_table qce_pm_table;
+
 void *qce_open(struct platform_device *pdev, int *rc);
 int qce_close(void *handle);
 int qce_aead_req(void *handle, struct qce_req *req);

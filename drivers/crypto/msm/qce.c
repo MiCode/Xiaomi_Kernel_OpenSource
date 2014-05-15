@@ -1,6 +1,6 @@
 /* Qualcomm Crypto Engine driver.
  *
- * Copyright (c) 2010-2013, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2010-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -422,7 +422,7 @@ static void _byte_stream_to_net_words(uint32_t *iv, unsigned char *b,
 {
 	unsigned n;
 
-	n = len  / sizeof(uint32_t) ;
+	n = len  / sizeof(uint32_t);
 	for (; n > 0; n--) {
 		*iv =  ((*b << 24)      & 0xff000000) |
 				(((*(b+1)) << 16) & 0xff0000)   |
@@ -436,12 +436,12 @@ static void _byte_stream_to_net_words(uint32_t *iv, unsigned char *b,
 	if (n == 3) {
 		*iv = ((*b << 24) & 0xff000000) |
 				(((*(b+1)) << 16) & 0xff0000)   |
-				(((*(b+2)) << 8) & 0xff00)     ;
+				(((*(b+2)) << 8) & 0xff00);
 	} else if (n == 2) {
 		*iv = ((*b << 24) & 0xff000000) |
-				(((*(b+1)) << 16) & 0xff0000)   ;
+				(((*(b+1)) << 16) & 0xff0000);
 	} else if (n == 1) {
-		*iv = ((*b << 24) & 0xff000000) ;
+		*iv = ((*b << 24) & 0xff000000);
 	}
 }
 
@@ -1819,7 +1819,7 @@ static void _f8_ce_out_call_back(struct msm_dmov_cmd *cmd_ptr,
 	}
 };
 
-static int _ce_f9_setup(struct qce_device *pce_dev, struct qce_f9_req * req)
+static int _ce_f9_setup(struct qce_device *pce_dev, struct qce_f9_req *req)
 {
 	uint32_t cfg;
 	uint32_t ikey[OTA_KEY_SIZE/sizeof(uint32_t)];
@@ -1846,7 +1846,7 @@ static int _ce_f9_setup(struct qce_device *pce_dev, struct qce_f9_req * req)
 	if (req->algorithm == QCE_OTA_ALGO_KASUMI)
 		cfg |= (CRYPTO_AUTH_SIZE_UIA1 << CRYPTO_AUTH_SIZE);
 	else
-		cfg |= (CRYPTO_AUTH_SIZE_UIA2 << CRYPTO_AUTH_SIZE) ;
+		cfg |= (CRYPTO_AUTH_SIZE_UIA2 << CRYPTO_AUTH_SIZE);
 
 	if (req->direction == QCE_OTA_DIR_DOWNLINK)
 		cfg |= 1 << CRYPTO_F9_DIRECTION;
@@ -1885,7 +1885,7 @@ static int _ce_f8_setup(struct qce_device *pce_dev, struct qce_f8_req *req,
 	if (req->algorithm == QCE_OTA_ALGO_KASUMI)
 		cfg |= (CRYPTO_ENCR_KEY_SZ_UEA1 << CRYPTO_ENCR_KEY_SZ);
 	else
-		cfg |= (CRYPTO_ENCR_KEY_SZ_UEA2 << CRYPTO_ENCR_KEY_SZ) ;
+		cfg |= (CRYPTO_ENCR_KEY_SZ_UEA2 << CRYPTO_ENCR_KEY_SZ);
 	if (key_stream_mode)
 		cfg |= 1 << CRYPTO_F8_KEYSTREAM_ENABLE;
 	if (req->direction == QCE_OTA_DIR_DOWNLINK)
@@ -1931,6 +1931,9 @@ static int _ce_f8_setup(struct qce_device *pce_dev, struct qce_f8_req *req,
 	mb();
 	return 0;
 };
+
+struct qce_pm_table qce_pm_table = {NULL, NULL};
+EXPORT_SYMBOL(qce_pm_table);
 
 int qce_aead_req(void *handle, struct qce_req *q_req)
 {
@@ -2555,7 +2558,7 @@ int qce_f8_multi_pkt_req(void *handle, struct qce_f8_multi_pkt_req *mreq,
 	rc = _ce_f8_setup(pce_dev, req, false, num_pkt, cipher_start,
 			cipher_size);
 	if (rc)
-		goto bad ;
+		goto bad;
 
 	/* setup for callback, and issue command to adm */
 	pce_dev->areq = cookie;
