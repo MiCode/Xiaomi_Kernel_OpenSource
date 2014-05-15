@@ -617,4 +617,10 @@ enum mdss_mdp_pingpong_index {
 
 #define MDSS_VBIF_FIXED_SORT_EN	0x30
 #define MDSS_VBIF_FIXED_SORT_SEL0	0x34
+
+#define MDSS_MDP_REG_TRAFFIC_SHAPER_EN			BIT(31)
+#define MDSS_MDP_REG_TRAFFIC_SHAPER_RD_CLIENT(num)	(0x030 + (num * 4))
+#define MDSS_MDP_REG_TRAFFIC_SHAPER_WR_CLIENT(num)	(0x060 + (num * 4))
+#define MDSS_MDP_REG_TRAFFIC_SHAPER_FIXPOINT_FACTOR	4
+
 #endif
