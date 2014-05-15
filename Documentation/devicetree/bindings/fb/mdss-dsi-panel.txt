@@ -306,6 +306,7 @@ Optional properties:
 - qcom,panel-roi-alignment:		Specifies the panel ROI alignment restrictions on its
 					left, top, width, height alignments and minimum width and
 					height values
+- qcom,esd-check-enabled:		Boolean used to enable ESD recovery feature.
 
 Note, if a given optional qcom,* binding is not present, then the driver will configure
 the default values specified.
@@ -412,5 +413,6 @@ Example:
 		mdss-dsi-tx-eot-append;
 		qcom,ulps-enabled;
 		qcom,panel-roi-alignment = <4 4 2 2 20 20>;
+		qcom,esd-check-enabled;
 	};
 };
