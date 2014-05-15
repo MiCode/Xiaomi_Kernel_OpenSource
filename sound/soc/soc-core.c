@@ -867,13 +867,15 @@ static int soc_bind_dai_link(struct snd_soc_card *card, int num)
 		if (dai_link->cpu_of_node &&
 		    (cpu_dai->dev->of_node != dai_link->cpu_of_node))
 			continue;
-		if (dai_link->cpu_name &&
-		    strcmp(dev_name(cpu_dai->dev), dai_link->cpu_name))
-			continue;
-		if (dai_link->cpu_dai_name &&
-		    strcmp(cpu_dai->name, dai_link->cpu_dai_name))
-			continue;
 
+		if (dai_link->cpu_name) {
+		    if (strcmp(dev_name(cpu_dai->dev), dai_link->cpu_name))
+			continue;
+}
+		if (dai_link->cpu_dai_name) {
+		    if (strcmp(cpu_dai->name, dai_link->cpu_dai_name))
+			continue;
+}
 		rtd->cpu_dai = cpu_dai;
 	}
 
@@ -900,11 +902,9 @@ static int soc_bind_dai_link(struct snd_soc_card *card, int num)
 		 * this CODEC
 		 */
 		list_for_each_entry(codec_dai, &dai_list, list) {
-			if (codec->dev == codec_dai->dev &&
-				!strcmp(codec_dai->name,
-					dai_link->codec_dai_name)) {
-
-				rtd->codec_dai = codec_dai;
+			if (codec->dev == codec_dai->dev) {
+				if (!strcmp(codec_dai->name, dai_link->codec_dai_name))
+					rtd->codec_dai = codec_dai;
 			}
 		}
 
@@ -1465,8 +1465,14 @@ static int soc_probe_link_dais(struct snd_soc_card *card, int num, int order)
 						codec2codec_close_delayed_work);
 
 			/* link the DAI widgets */
-			play_w = codec_dai->playback_widget;
-			capture_w = cpu_dai->capture_widget;
+			if (!dai_link->dsp_loopback) {
+				play_w = codec_dai->playback_widget;
+				capture_w = cpu_dai->capture_widget;
+			} else {
+				play_w = codec_dai->playback_widget;
+				capture_w = cpu_dai->playback_widget;
+			}
+
 			if (play_w && capture_w) {
 				ret = snd_soc_dapm_new_pcm(card, dai_link->params,
 						   capture_w, play_w);
@@ -1477,8 +1483,14 @@ static int soc_probe_link_dais(struct snd_soc_card *card, int num, int order)
 				}
 			}
 
-			play_w = cpu_dai->playback_widget;
-			capture_w = codec_dai->capture_widget;
+			if (!dai_link->dsp_loopback) {
+				play_w = cpu_dai->playback_widget;
+				capture_w = codec_dai->capture_widget;
+			} else {
+				play_w = cpu_dai->capture_widget;
+				capture_w = codec_dai->capture_widget;
+			}
+
 			if (play_w && capture_w) {
 				ret = snd_soc_dapm_new_pcm(card, dai_link->params,
 						   capture_w, play_w);
@@ -3340,6 +3352,19 @@ out:
 	return ret;
 }
 EXPORT_SYMBOL_GPL(snd_soc_bytes_put);
+
+int snd_soc_info_bytes_ext(struct snd_kcontrol *kcontrol,
+			struct snd_ctl_elem_info *ucontrol)
+{
+	struct snd_soc_codec *codec = snd_kcontrol_chip(kcontrol);
+	struct soc_bytes_ext *params = (void *)kcontrol->private_value;
+
+	ucontrol->type = SNDRV_CTL_ELEM_TYPE_BYTES;
+	ucontrol->count = params->max;
+
+	return 0;
+}
+EXPORT_SYMBOL_GPL(snd_soc_info_bytes_ext);
 
 /**
  * snd_soc_info_xr_sx - signed multi register info callback

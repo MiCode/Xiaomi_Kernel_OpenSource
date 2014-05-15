@@ -293,7 +293,15 @@ int snd_pcm_update_state(struct snd_pcm_substream *substream,
 			return -EPIPE;
 		}
 	} else {
-		if (avail >= runtime->stop_threshold) {
+		snd_pcm_uframes_t actual_avail;
+		if (avail < runtime->soc_delay)
+			actual_avail = avail;
+		else
+			actual_avail = avail - runtime->soc_delay;
+		if (actual_avail  >= runtime->stop_threshold) {
+			snd_printd(KERN_ERR  "avail > stop_threshold!!\n");
+			snd_printd(KERN_ERR  "actual_avail %ld, avail %ld, soc_delay %ld!!\n",
+					actual_avail, avail,  runtime->soc_delay);
 			xrun(substream);
 			return -EPIPE;
 		}
@@ -454,9 +462,9 @@ static int snd_pcm_update_hw_ptr0(struct snd_pcm_substream *substream,
 	if (runtime->hw.info & SNDRV_PCM_INFO_BATCH)
 		goto no_jiffies_check;
 	hdelta = delta;
-	if (hdelta < runtime->delay)
+	if (hdelta < (runtime->delay + runtime->soc_delay))
 		goto no_jiffies_check;
-	hdelta -= runtime->delay;
+	hdelta -= (runtime->delay + runtime->soc_delay);
 	jdelta = curr_jiffies - runtime->hw_ptr_jiffies;
 	if (((hdelta * HZ) / runtime->rate) > jdelta + HZ/100) {
 		delta = jdelta /

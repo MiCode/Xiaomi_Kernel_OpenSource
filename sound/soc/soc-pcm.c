@@ -482,6 +482,8 @@ static int soc_pcm_close(struct snd_pcm_substream *substream)
 	if (!codec_dai->active)
 		codec_dai->rate = 0;
 
+	snd_soc_dai_digital_mute(cpu_dai, 1, substream->stream);
+
 	if (cpu_dai->driver->ops->shutdown)
 		cpu_dai->driver->ops->shutdown(substream, cpu_dai);
 
@@ -590,6 +592,7 @@ static int soc_pcm_prepare(struct snd_pcm_substream *substream)
 			SND_SOC_DAPM_STREAM_START);
 
 	snd_soc_dai_digital_mute(codec_dai, 0, substream->stream);
+	snd_soc_dai_digital_mute(cpu_dai, 0, substream->stream);
 
 out:
 	mutex_unlock(&rtd->pcm_mutex);
@@ -2177,15 +2180,37 @@ int soc_new_pcm(struct snd_soc_pcm_runtime *rtd, int num)
 	int ret = 0, playback = 0, capture = 0;
 
 	if (rtd->dai_link->dynamic || rtd->dai_link->no_pcm) {
-		playback = rtd->dai_link->dpcm_playback;
-		capture = rtd->dai_link->dpcm_capture;
+
+		if ((cpu_dai->driver->playback.channels_min) &&
+			(cpu_dai->driver->capture.channels_min)) {
+				if (rtd->dai_link->playback_count)
+					playback = rtd->dai_link->playback_count;
+				else
+					playback = 1;
+
+				if (rtd->dai_link->capture_count)
+					capture = rtd->dai_link->capture_count;
+				else
+					capture = 1;
+		} else {
+			playback = rtd->dai_link->dpcm_playback;
+			capture = rtd->dai_link->dpcm_capture;
+		}
+
 	} else {
 		if (codec_dai->driver->playback.channels_min &&
 		    cpu_dai->driver->playback.channels_min)
-			playback = 1;
+			if (rtd->dai_link->playback_count)
+				playback = rtd->dai_link->playback_count;
+			else
+				playback = 1;
 		if (codec_dai->driver->capture.channels_min &&
-		    cpu_dai->driver->capture.channels_min)
-			capture = 1;
+		    cpu_dai->driver->capture.channels_min) {
+			if (rtd->dai_link->capture_count)
+				capture = rtd->dai_link->capture_count;
+			else
+				capture = 1;
+		}
 	}
 
 	if (rtd->dai_link->playback_only) {

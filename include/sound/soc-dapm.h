@@ -382,6 +382,11 @@ int dapm_regulator_event(struct snd_soc_dapm_widget *w,
 			 struct snd_kcontrol *kcontrol, int event);
 int dapm_clock_event(struct snd_soc_dapm_widget *w,
 			 struct snd_kcontrol *kcontrol, int event);
+bool dapm_kcontrol_set_value(const struct snd_kcontrol *kcontrol,
+	unsigned int value);
+unsigned int dapm_kcontrol_get_value(const struct snd_kcontrol *kcontrol);
+struct snd_soc_dapm_widget_list *dapm_kcontrol_get_wlist(
+	const struct snd_kcontrol *kcontrol);
 
 /* dapm controls */
 int snd_soc_dapm_put_volsw(struct snd_kcontrol *kcontrol,

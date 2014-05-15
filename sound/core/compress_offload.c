@@ -408,6 +408,7 @@ static unsigned int snd_compr_poll(struct file *f, poll_table *wait)
 			retval = snd_compr_get_poll(stream);
 		break;
 	default:
+		pr_err("poll returns err!...\n");
 		if (stream->direction == SND_COMPRESS_PLAYBACK)
 			retval = POLLOUT | POLLWRNORM | POLLERR;
 		else
@@ -667,7 +668,7 @@ static int snd_compr_start(struct snd_compr_stream *stream)
 	return retval;
 }
 
-static int snd_compr_stop(struct snd_compr_stream *stream)
+int snd_compr_stop(struct snd_compr_stream *stream)
 {
 	int retval;
 
@@ -682,6 +683,7 @@ static int snd_compr_stop(struct snd_compr_stream *stream)
 	}
 	return retval;
 }
+EXPORT_SYMBOL(snd_compr_stop);
 
 static int snd_compress_wait_for_drain(struct snd_compr_stream *stream)
 {

@@ -247,7 +247,6 @@ static int copy_ctl_value_from_user(struct snd_card *card,
 	} else {
 		size = get_elem_size(type, count);
 		if (size < 0) {
-			printk(KERN_ERR "snd_ioctl32_ctl_elem_value: unknown type %d\n", type);
 			return -EINVAL;
 		}
 		if (copy_from_user(data->value.bytes.data,
@@ -405,7 +404,6 @@ static inline long snd_ctl_ioctl_compat(struct file *file, unsigned int cmd, uns
 	ctl = file->private_data;
 	if (snd_BUG_ON(!ctl || !ctl->card))
 		return -ENXIO;
-
 	switch (cmd) {
 	case SNDRV_CTL_IOCTL_PVERSION:
 	case SNDRV_CTL_IOCTL_CARD_INFO:
