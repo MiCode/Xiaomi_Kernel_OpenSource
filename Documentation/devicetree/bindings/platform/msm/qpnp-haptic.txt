@@ -1,0 +1,71 @@
+QPNP Haptic
+
+QPNP (Qualcomm Technologies Plug N Play) Haptic is a peripheral on
+Qualcomm Technologies PMICs.  The PMIC is connected to Host processor
+via SPMI bus.
+
+This device can be operated in four modes - direct, buffer,
+pwm(pulse width modulation) and audio.
+
+Required Properties:
+ - compatible: must be "qcom,qpnp-haptic"
+ - reg: address of device
+ - qcom,actuator-type: must be one of "erm" or "lra"
+ - qcom,play-mode : must be one of "buffer", "direct", "pwm" or "audio"
+
+Optional Properties:
+ - qcom,timeout-ms: timeout in ms.
+ - qcom,vmax-mv : maximum output voltage in milli volts
+ - qcom,ilim-ma : maximum output current limit threshold in milli amps
+ - qcom,int-pwm-freq-khz : frequency for internal pwm
+ - qcom,brake-pattern : 4 byte active brake pattern. Each pattern represents
+		2-bit amplitude control 0x00: 0, 0x01: vmax/4, 0x02: vmax/2,
+		0x03: vmax. Default values are 0x00.
+ - qcom,sc-deb-cycles : short circuit debounce in internal pwm switching clock cycles
+ - qcom,use-play-irq : boolean, use this if the device uses irq for play
+ - qcom,use-sc-irq : boolean, use this if the device uses irq for play
+ - interrupts:	Specifies the interrupt associated with Haptics. The available
+		interrupts are play and short circuit. The values for play and
+		short circuit are <0x3 0xc0 0x0> and <0x3 0xc0 0x1>.
+ - interrupt-names: Specify the interrupt names associated with interrupts. Must be
+		    one of "play-irq" or "sc-irq"
+
+Optional properties for buffer play mode:
+ - qcom,wave-samples : 8 byte buffer representing the wave. The bits in each sample
+		are represented as follows- bit 0: reserved, bits 1 to 5: amplitude
+		of the waveform, bit 6: over drive and bit 7: direction.
+ - qcom,wave-shape : must be "sine" or "square"
+ - qcom,wave-rep-cnt : repetition count for wave form
+ - qcom,wave-samp-rep-cnt : repetition count for each sample of wave
+ - qcom,wave-play-rate-us : duration at which each sample to be played in micro seconds
+
+Required properties for pwm play mode:
+ - qcom,pwm-channel: pwm channel the led will operate on
+ - qcom,period-us: pwm period in us
+ - qcom,duty-us: pwm duty cycle in us
+
+Optional properties for pwm play mode:
+ - qcom,ext-pwm-freq-khz : frequency for external pwm in kilo HZ
+
+Example:
+		qcom,haptic@c000 {
+			compatible = "qcom,qpnp-haptic";
+			reg = <0xc000 0x100>;
+			interrupts = <0x3 0xc0 0x0>,
+				     <0x3 0xc0 0x1>;
+			interrupt-names = "sc-irq", "play-irq";
+			qcom,play-mode = "direct";
+			qcom,wave-play-rate-us = <5263>;
+			qcom,actuator-type = "lra";
+			qcom,wave-shape = "square";
+			qcom,vmax-mv = <2000>;
+			qcom,ilim-ma = <800>;
+			qcom,sc-deb-cycles = <8>;
+			qcom,int-pwm-freq-khz = <505>;
+			qcom,brake-pattern = [00 00 03 03];
+			qcom,use-play-irq;
+			qcom,use-sc-irq;
+			qcom,wave-samples = [3e 3e 3e 3e 3e 3e 3e 3e];
+			qcom,wave-rep-cnt = <1>;
+			qcom,wave-samp-rep-cnt = <1>;
+		};

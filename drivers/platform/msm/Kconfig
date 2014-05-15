@@ -189,4 +189,12 @@ config MSM_UIM_HSL
 	  If you say yes to this option, support will be included for the
 	  built-in UIM interface on Qualcomm MSM family processors.
 
+config QPNP_HAPTIC
+	tristate "Haptic support for QPNP PMIC"
+	depends on OF_SPMI
+	help
+	  This option enables device driver support for the Haptic
+	  on the Qualcomm Technologies' QPNP PMICs. It uses the android
+	  timed-output framework.
+
 endmenu
