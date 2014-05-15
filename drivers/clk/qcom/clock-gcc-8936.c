@@ -34,6 +34,9 @@
 
 enum {
 	GCC_BASE,
+	APCS_C0_PLL_BASE,
+	APCS_C1_PLL_BASE,
+	APCS_CCI_PLL_BASE,
 	N_BASES,
 };
 
@@ -265,6 +268,30 @@ static void __iomem *virt_dbgbase;
 #define BIMC_GFX_CBCR					0x31024
 #define BIMC_GPU_CBCR					0x31040
 
+#define APCS_CCI_PLL_MODE				0x00000
+#define APCS_CCI_PLL_L_VAL				0x00004
+#define APCS_CCI_PLL_M_VAL				0x00008
+#define APCS_CCI_PLL_N_VAL				0x0000C
+#define APCS_CCI_PLL_USER_CTL				0x00010
+#define APCS_CCI_PLL_CONFIG_CTL				0x00014
+#define APCS_CCI_PLL_STATUS				0x0001C
+
+#define APCS_C0_PLL_MODE				0x00000
+#define APCS_C0_PLL_L_VAL				0x00004
+#define APCS_C0_PLL_M_VAL				0x00008
+#define APCS_C0_PLL_N_VAL				0x0000C
+#define APCS_C0_PLL_USER_CTL				0x00010
+#define APCS_C0_PLL_CONFIG_CTL				0x00014
+#define APCS_C0_PLL_STATUS				0x0001C
+
+#define APCS_C1_PLL_MODE				0x00000
+#define APCS_C1_PLL_L_VAL				0x00004
+#define APCS_C1_PLL_M_VAL				0x00008
+#define APCS_C1_PLL_N_VAL				0x0000C
+#define APCS_C1_PLL_USER_CTL				0x00010
+#define APCS_C1_PLL_CONFIG_CTL				0x00014
+#define APCS_C1_PLL_STATUS				0x0001C
+
 /* Mux source select values */
 #define gcc_xo_source_val		0
 #define gpll0_out_main_source_val	1
@@ -292,6 +319,17 @@ static void __iomem *virt_dbgbase;
 		.d_val = ~(n),\
 		.div_src_val = BVAL(4, 0, (int)FIXDIV(div)) \
 			| BVAL(10, 8, s##_source_val), \
+	}
+
+#define F_APCS_PLL(f, l, m, n, pre_div, post_div, vco) \
+	{ \
+		.freq_hz = (f), \
+		.l_val = (l), \
+		.m_val = (m), \
+		.n_val = (n), \
+		.pre_div_val = BVAL(12, 12, (pre_div)), \
+		.post_div_val = BVAL(9, 8, (post_div)), \
+		.vco_val = BVAL(29, 28, (vco)), \
 	}
 
 #define F_MDSS(f, s, div, m, n) \
@@ -350,6 +388,159 @@ DEFINE_EXT_CLK(xo_a_clk, NULL);
 DEFINE_EXT_CLK(rpm_debug_clk, NULL);
 
 DEFINE_CLK_DUMMY(wcnss_m_clk, 0);
+
+enum vdd_sr2_pll_levels {
+	VDD_SR2_PLL_OFF,
+	VDD_SR2_PLL_SVS,
+	VDD_SR2_PLL_NOM,
+	VDD_SR2_PLL_TUR,
+	VDD_SR2_PLL_NUM,
+};
+
+static int vdd_sr2_levels[] = {
+	0,	 RPM_REGULATOR_CORNER_NONE,		/* VDD_SR2_PLL_OFF */
+	1800000, RPM_REGULATOR_CORNER_SVS_SOC,		/* VDD_SR2_PLL_SVS */
+	1800000, RPM_REGULATOR_CORNER_NORMAL,		/* VDD_SR2_PLL_NOM */
+	1800000, RPM_REGULATOR_CORNER_SUPER_TURBO,	/* VDD_SR2_PLL_TUR */
+};
+
+static DEFINE_VDD_REGULATORS(vdd_sr2_pll, VDD_SR2_PLL_NUM, 2,
+				vdd_sr2_levels, NULL);
+
+enum vdd_hf_pll_levels {
+	VDD_HF_PLL_OFF,
+	VDD_HF_PLL_SVS,
+	VDD_HF_PLL_NOM,
+	VDD_HF_PLL_TUR,
+	VDD_HF_PLL_NUM,
+};
+
+static int vdd_hf_levels[] = {
+	0,	 RPM_REGULATOR_CORNER_NONE,		/* VDD_HF_PLL_OFF */
+	1800000, RPM_REGULATOR_CORNER_SVS_SOC,		/* VDD_HF_PLL_SVS */
+	1800000, RPM_REGULATOR_CORNER_NORMAL,		/* VDD_HF_PLL_NOM */
+	1800000, RPM_REGULATOR_CORNER_SUPER_TURBO,	/* VDD_HF_PLL_TUR */
+};
+static DEFINE_VDD_REGULATORS(vdd_hf_pll, VDD_HF_PLL_NUM, 2,
+				vdd_hf_levels, NULL);
+
+static struct pll_freq_tbl apcs_cci_pll_freq[] = {
+	F_APCS_PLL(403200000, 21, 0x0, 0x1, 0x0, 0x0, 0x0),
+	F_APCS_PLL(595200000, 31, 0x0, 0x1, 0x0, 0x0, 0x0),
+};
+
+static struct pll_clk a53ss_cci_pll = {
+	.mode_reg = (void __iomem *)APCS_CCI_PLL_MODE,
+	.l_reg = (void __iomem *)APCS_CCI_PLL_L_VAL,
+	.m_reg = (void __iomem *)APCS_CCI_PLL_M_VAL,
+	.n_reg = (void __iomem *)APCS_CCI_PLL_N_VAL,
+	.config_reg = (void __iomem *)APCS_CCI_PLL_USER_CTL,
+	.status_reg = (void __iomem *)APCS_CCI_PLL_STATUS,
+	.freq_tbl = apcs_cci_pll_freq,
+	.masks = {
+		.vco_mask = BM(29, 28),
+		.pre_div_mask = BIT(12),
+		.post_div_mask = BM(9, 8),
+		.mn_en_mask = BIT(24),
+		.main_output_mask = BIT(0),
+	},
+	.base = &virt_bases[APCS_CCI_PLL_BASE],
+	.c = {
+		.parent = &xo_a_clk.c,
+		.dbg_name = "a53ss_cci_pll",
+		.ops = &clk_ops_sr2_pll,
+		.vdd_class = &vdd_sr2_pll,
+		.fmax = (unsigned long [VDD_SR2_PLL_NUM]) {
+			[VDD_SR2_PLL_SVS] = 1000000000,
+			[VDD_SR2_PLL_NOM] = 1900000000,
+		},
+		.num_fmax = VDD_SR2_PLL_NUM,
+		CLK_INIT(a53ss_cci_pll.c),
+	},
+};
+
+static struct pll_freq_tbl apcs_c0_pll_freq[] = {
+	F_APCS_PLL(998400000,  52, 0x0, 0x1, 0x0, 0x0, 0x0),
+};
+
+static struct pll_clk a53ss_c0_pll = {
+	.mode_reg = (void __iomem *)APCS_C0_PLL_MODE,
+	.l_reg = (void __iomem *)APCS_C0_PLL_L_VAL,
+	.m_reg = (void __iomem *)APCS_C0_PLL_M_VAL,
+	.n_reg = (void __iomem *)APCS_C0_PLL_N_VAL,
+	.config_reg = (void __iomem *)APCS_C0_PLL_USER_CTL,
+	.status_reg = (void __iomem *)APCS_C0_PLL_STATUS,
+	.freq_tbl = apcs_c0_pll_freq,
+	.masks = {
+		.vco_mask = BM(29, 28),
+		.pre_div_mask = BIT(12),
+		.post_div_mask = BM(9, 8),
+		.mn_en_mask = BIT(24),
+		.main_output_mask = BIT(0),
+	},
+	.base = &virt_bases[APCS_C0_PLL_BASE],
+	.c = {
+		.parent = &xo_a_clk.c,
+		.dbg_name = "a53ss_c0_pll",
+		.ops = &clk_ops_sr2_pll,
+		.vdd_class = &vdd_sr2_pll,
+		.fmax = (unsigned long [VDD_SR2_PLL_NUM]) {
+			[VDD_SR2_PLL_SVS] = 1000000000,
+			[VDD_SR2_PLL_NOM] = 1900000000,
+		},
+		.num_fmax = VDD_SR2_PLL_NUM,
+		CLK_INIT(a53ss_c0_pll.c),
+	},
+};
+
+static struct pll_freq_tbl apcs_c1_pll_freq[] = {
+	F_APCS_PLL( 652800000, 34, 0x0, 0x1, 0x0, 0x0, 0x0),
+	F_APCS_PLL( 691200000, 36, 0x0, 0x1, 0x0, 0x0, 0x0),
+	F_APCS_PLL( 729600000, 38, 0x0, 0x1, 0x0, 0x0, 0x0),
+	F_APCS_PLL( 806400000, 42, 0x0, 0x1, 0x0, 0x0, 0x0),
+	F_APCS_PLL( 844800000, 44, 0x0, 0x1, 0x0, 0x0, 0x0),
+	F_APCS_PLL( 883200000, 46, 0x0, 0x1, 0x0, 0x0, 0x0),
+	F_APCS_PLL( 960000000, 50, 0x0, 0x1, 0x0, 0x0, 0x0),
+	F_APCS_PLL( 998400000, 52, 0x0, 0x1, 0x0, 0x0, 0x0),
+	F_APCS_PLL(1036800000, 54, 0x0, 0x1, 0x0, 0x0, 0x0),
+	F_APCS_PLL(1113600000, 58, 0x0, 0x1, 0x0, 0x0, 0x0),
+	F_APCS_PLL(1190400000, 62, 0x0, 0x1, 0x0, 0x0, 0x0),
+	F_APCS_PLL(1267200000, 66, 0x0, 0x1, 0x0, 0x0, 0x0),
+	F_APCS_PLL(1344000000, 70, 0x0, 0x1, 0x0, 0x0, 0x0),
+	F_APCS_PLL(1420800000, 74, 0x0, 0x1, 0x0, 0x0, 0x0),
+	F_APCS_PLL(1497600000, 78, 0x0, 0x1, 0x0, 0x0, 0x0),
+	F_APCS_PLL(1536000000, 80, 0x0, 0x1, 0x0, 0x0, 0x0),
+};
+
+static struct pll_clk a53ss_c1_pll = {
+	.mode_reg = (void __iomem *)APCS_C1_PLL_MODE,
+	.l_reg = (void __iomem *)APCS_C1_PLL_L_VAL,
+	.m_reg = (void __iomem *)APCS_C1_PLL_M_VAL,
+	.n_reg = (void __iomem *)APCS_C1_PLL_N_VAL,
+	.config_reg = (void __iomem *)APCS_C1_PLL_USER_CTL,
+	.status_reg = (void __iomem *)APCS_C1_PLL_STATUS,
+	.freq_tbl = apcs_c1_pll_freq,
+	.masks = {
+		.vco_mask = BM(29, 28),
+		.pre_div_mask = BIT(12),
+		.post_div_mask = BM(9, 8),
+		.mn_en_mask = BIT(24),
+		.main_output_mask = BIT(0),
+	},
+	.base = &virt_bases[APCS_C1_PLL_BASE],
+	.c = {
+		.parent = &xo_a_clk.c,
+		.dbg_name = "a53ss_c1_pll",
+		.ops = &clk_ops_sr2_pll,
+		.vdd_class = &vdd_hf_pll,
+		.fmax = (unsigned long [VDD_HF_PLL_NUM]) {
+			[VDD_HF_PLL_SVS] = 1000000000,
+			[VDD_HF_PLL_NOM] = 2000000000,
+		},
+		.num_fmax = VDD_HF_PLL_NUM,
+		CLK_INIT(a53ss_c1_pll.c),
+	},
+};
 
 static unsigned int soft_vote_gpll0;
 
@@ -2852,6 +3043,9 @@ static struct clk_lookup msm_clocks_lookup[] = {
 	CLK_LIST(gpll4_out_main),
 	CLK_LIST(gpll6),
 	CLK_LIST(gpll6_out_main),
+	CLK_LIST(a53ss_c0_pll),
+	CLK_LIST(a53ss_c1_pll),
+	CLK_LIST(a53ss_cci_pll),
 
 	/* RCGs */
 	CLK_LIST(apss_ahb_clk_src),
@@ -3018,25 +3212,50 @@ static struct clk_lookup msm_clocks_gcc_8936_crypto[] = {
 	CLK_LOOKUP_OF("core_clk_src", crypto_clk_src,      "scm"),
 };
 
+/* Please note that the order of reg-names is important */
+static int get_memory(struct platform_device *pdev)
+{
+	int i, count;
+	const char *str;
+	struct resource *res;
+	struct device *dev = &pdev->dev;
+
+	count = of_property_count_strings(dev->of_node, "reg-names");
+	if (count != N_BASES) {
+		dev_err(dev, "missing reg-names property, expected %d strings\n",
+				N_BASES);
+		return -EINVAL;
+	}
+
+	for (i = 0; i < count; i++) {
+		of_property_read_string_index(dev->of_node, "reg-names", i,
+						&str);
+		res = platform_get_resource_byname(pdev, IORESOURCE_MEM, str);
+		if (!res) {
+			dev_err(dev, "Unable to retrieve register base.\n");
+			return -ENOMEM;
+		}
+
+		virt_bases[i] = devm_ioremap(dev, res->start,
+							resource_size(res));
+		if (!virt_bases[i]) {
+			dev_err(dev, "Failed to map in CC registers.\n");
+			return -ENOMEM;
+		}
+	}
+
+	return 0;
+}
+
 static int msm_gcc_probe(struct platform_device *pdev)
 {
-	struct resource *res;
 	struct clk *tmp_clk;
 	int ret;
 	u32 regval;
 
-	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "cc_base");
-	if (!res) {
-		dev_err(&pdev->dev, "Register base not defined\n");
-		return -ENOMEM;
-	}
-
-	virt_bases[GCC_BASE] = devm_ioremap(&pdev->dev, res->start,
-							resource_size(res));
-	if (!virt_bases[GCC_BASE]) {
-		dev_err(&pdev->dev, "Failed to ioremap CC registers\n");
-		return -ENOMEM;
-	}
+	ret = get_memory(pdev);
+	if (ret)
+		return ret;
 
 	vdd_dig.regulator[0] = devm_regulator_get(&pdev->dev, "vdd_dig");
 	if (IS_ERR(vdd_dig.regulator[0])) {
@@ -3044,6 +3263,42 @@ static int msm_gcc_probe(struct platform_device *pdev)
 			dev_err(&pdev->dev,
 				"Unable to get vdd_dig regulator!!!\n");
 		return PTR_ERR(vdd_dig.regulator[0]);
+	}
+
+	vdd_sr2_pll.regulator[0] = devm_regulator_get(&pdev->dev,
+							"vdd_sr2_pll");
+	if (IS_ERR(vdd_sr2_pll.regulator[0])) {
+		if (PTR_ERR(vdd_sr2_pll.regulator[0]) != -EPROBE_DEFER)
+			dev_err(&pdev->dev,
+				"Unable to get vdd_sr2_pll regulator!!!\n");
+		return PTR_ERR(vdd_sr2_pll.regulator[0]);
+	}
+
+	vdd_sr2_pll.regulator[1] = devm_regulator_get(&pdev->dev,
+							"vdd_sr2_dig");
+	if (IS_ERR(vdd_sr2_pll.regulator[1])) {
+		if (PTR_ERR(vdd_sr2_pll.regulator[1]) != -EPROBE_DEFER)
+			dev_err(&pdev->dev,
+				"Unable to get vdd_sr2_dig regulator!!!\n");
+		return PTR_ERR(vdd_sr2_pll.regulator[1]);
+	}
+
+	vdd_hf_pll.regulator[0] = devm_regulator_get(&pdev->dev,
+							"vdd_hf_pll");
+	if (IS_ERR(vdd_hf_pll.regulator[0])) {
+		if (PTR_ERR(vdd_hf_pll.regulator[0]) != -EPROBE_DEFER)
+			dev_err(&pdev->dev,
+				"Unable to get vdd_sr2_pll regulator!!!\n");
+		return PTR_ERR(vdd_hf_pll.regulator[0]);
+	}
+
+	vdd_hf_pll.regulator[1] = devm_regulator_get(&pdev->dev,
+							"vdd_hf_dig");
+	if (IS_ERR(vdd_hf_pll.regulator[1])) {
+		if (PTR_ERR(vdd_hf_pll.regulator[1]) != -EPROBE_DEFER)
+			dev_err(&pdev->dev,
+				"Unable to get vdd_hf_dig regulator!!!\n");
+		return PTR_ERR(vdd_hf_pll.regulator[1]);
 	}
 
 	tmp_clk = gcc_xo.c.parent = devm_clk_get(&pdev->dev, "xo");
