@@ -349,6 +349,7 @@
 	qcom,mdss-dsi-bl-pmic-bank-select = <0>;
 	qcom,mdss-dsi-pwm-gpio = <&pm8916_mpps 4 0>;
 	qcom,cont-splash-enabled;
+	qcom,esd-check-enabled;
 };
 
 &dsi_nt35590_720_cmd {
@@ -357,6 +358,7 @@
 	qcom,mdss-dsi-bl-pmic-bank-select = <0>;
 	qcom,mdss-dsi-pwm-gpio = <&pm8916_mpps 4 0>;
 	qcom,cont-splash-enabled;
+	qcom,esd-check-enabled;
 };
 
 &pmx_mdss {

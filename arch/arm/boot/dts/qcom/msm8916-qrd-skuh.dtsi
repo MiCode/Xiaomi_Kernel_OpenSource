@@ -225,6 +225,7 @@
 
 &dsi_innolux_720p_video {
 	qcom,cont-splash-enabled;
+	qcom,esd-check-enabled;
 };
 
 &soc {
