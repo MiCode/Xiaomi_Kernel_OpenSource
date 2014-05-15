@@ -441,6 +441,7 @@ struct tomtom_priv {
 
 	bool spkr_pa_widget_on;
 	struct regulator *spkdrv_reg;
+	struct regulator *spkdrv2_reg;
 
 	bool mbhc_started;
 
@@ -3281,6 +3282,54 @@ static int tomtom_codec_enable_vdd_spkr(struct snd_soc_dapm_widget *w,
 	return ret;
 }
 
+static int tomtom_codec_enable_vdd_spkr2(struct snd_soc_dapm_widget *w,
+				       struct snd_kcontrol *kcontrol, int event)
+{
+	int ret = 0;
+	struct snd_soc_codec *codec = w->codec;
+	struct tomtom_priv *priv = snd_soc_codec_get_drvdata(codec);
+
+	pr_debug("%s: %d %s\n", __func__, event, w->name);
+
+	/*
+	 * If on-demand voltage regulators of spkr1 and spkr2 has been derived
+	 * from same power rail then same on-demand voltage regulator can be
+	 * used by both spkr1 and spkr2, if a separate device tree entry has
+	 * not been defined for on-demand voltage regulator for spkr2.
+	 */
+	if (!priv->spkdrv2_reg) {
+		if (priv->spkdrv_reg) {
+			priv->spkdrv2_reg = priv->spkdrv_reg;
+		} else {
+			WARN_ONCE(!priv->spkdrv2_reg,
+					"SPKDRV2 supply %s isn't defined\n",
+					WCD9XXX_VDD_SPKDRV2_NAME);
+			return 0;
+		}
+	}
+
+	switch (event) {
+	case SND_SOC_DAPM_PRE_PMU:
+		if (priv->spkdrv2_reg) {
+			ret = regulator_enable(priv->spkdrv2_reg);
+			if (ret)
+				pr_err("%s: Failed to enable spkdrv2_reg %s ret:%d\n",
+				       __func__, WCD9XXX_VDD_SPKDRV2_NAME, ret);
+		}
+		break;
+	case SND_SOC_DAPM_POST_PMD:
+		if (priv->spkdrv2_reg) {
+			ret = regulator_disable(priv->spkdrv2_reg);
+			if (ret)
+				pr_err("%s: Failed to disable spkdrv2_reg %s ret:%d\n",
+				       __func__, WCD9XXX_VDD_SPKDRV2_NAME, ret);
+		}
+		break;
+	}
+
+	return ret;
+}
+
 static int tomtom_codec_enable_interpolator(struct snd_soc_dapm_widget *w,
 	struct snd_kcontrol *kcontrol, int event)
 {
@@ -3979,7 +4028,7 @@ static const struct snd_soc_dapm_route audio_map[] = {
 
 	{"SPK2 PA", NULL, "SPK2 DAC"},
 	{"SPK2 DAC", NULL, "RX8 MIX1"},
-	{"SPK2 DAC", NULL, "VDD_SPKDRV"},
+	{"SPK2 DAC", NULL, "VDD_SPKDRV2"},
 
 	{"CLASS_H_DSM MUX", "DSM_HPHL_RX1", "RX1 CHAIN"},
 
@@ -5814,6 +5863,10 @@ static const struct snd_soc_dapm_widget tomtom_dapm_widgets[] = {
 			    tomtom_codec_enable_vdd_spkr,
 			    SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMD),
 
+	SND_SOC_DAPM_SUPPLY("VDD_SPKDRV2", SND_SOC_NOPM, 0, 0,
+			    tomtom_codec_enable_vdd_spkr2,
+			    SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMD),
+
 	SND_SOC_DAPM_MIXER("RX1 MIX1", SND_SOC_NOPM, 0, 0, NULL, 0),
 	SND_SOC_DAPM_MIXER("RX2 MIX1", SND_SOC_NOPM, 0, 0, NULL, 0),
 	SND_SOC_DAPM_MIXER("RX7 MIX1", SND_SOC_NOPM, 0, 0, NULL, 0),
@@ -7425,7 +7478,9 @@ static int tomtom_codec_probe(struct snd_soc_codec *codec)
 	}
 
 	tomtom->spkdrv_reg = tomtom_codec_find_regulator(codec,
-						       WCD9XXX_VDD_SPKDRV_NAME);
+					       WCD9XXX_VDD_SPKDRV_NAME);
+	tomtom->spkdrv2_reg = tomtom_codec_find_regulator(codec,
+					       WCD9XXX_VDD_SPKDRV2_NAME);
 
 	ptr = kmalloc((sizeof(tomtom_rx_chs) +
 		       sizeof(tomtom_tx_chs)), GFP_KERNEL);
@@ -7517,6 +7572,7 @@ static int tomtom_codec_remove(struct snd_soc_codec *codec)
 	wcd9xxx_resmgr_deinit(&tomtom->resmgr);
 
 	tomtom->spkdrv_reg = NULL;
+	tomtom->spkdrv2_reg = NULL;
 
 	devm_kfree(codec->dev, tomtom);
 	return 0;
