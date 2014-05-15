@@ -1560,7 +1560,13 @@ static void vlv_update_drain_latency(struct drm_device *dev)
 				DDL_PLANEA_PRECISION_32 :
 				DDL_PLANEA_PRECISION_64;
 
-		I915_WRITE_BITS(VLV_DDL1, planea_prec | planea_dl, 0x000000ff);
+		if (dev_priv->pf_change_status[PIPE_A] & BPP_CHANGED_PRIMARY) {
+			dev_priv->pf_change_status[PIPE_A] |=
+				(planea_prec | planea_dl);
+		} else {
+			I915_WRITE_BITS(VLV_DDL1, planea_prec | planea_dl,
+				0x000000ff);
+		}
 	} else
 		I915_WRITE_BITS(VLV_DDL1, 0x0000, 0x000000ff);
 
@@ -1590,7 +1596,13 @@ static void vlv_update_drain_latency(struct drm_device *dev)
 				DRAIN_LATENCY_PRECISION_32) ?
 				DDL_PLANEB_PRECISION_32 :
 				DDL_PLANEB_PRECISION_64;
-		I915_WRITE_BITS(VLV_DDL2, planeb_prec | planeb_dl, 0x000000ff);
+		if (dev_priv->pf_change_status[PIPE_B] & BPP_CHANGED_PRIMARY) {
+			dev_priv->pf_change_status[PIPE_B] |=
+				(planeb_prec | planeb_dl);
+		} else {
+			I915_WRITE_BITS(VLV_DDL2, planeb_prec |
+					planeb_dl, 0x000000ff);
+		}
 	} else
 		I915_WRITE_BITS(VLV_DDL2, 0x0000, 0x000000ff);
 
@@ -3179,8 +3191,14 @@ static void valleyview_update_sprite_wm(struct drm_plane *plane,
 					DDL_SPRITEB_PRECISION_64;
 		}
 
-		I915_WRITE_BITS(VLV_DDL(intel_plane->pipe),
+		if (dev_priv->pf_change_status[intel_plane->pipe] &
+			(BPP_CHANGED_SPRITEA | BPP_CHANGED_SPRITEB)) {
+			dev_priv->pf_change_status[intel_plane->pipe] |=
+					(sprite_prec | (sprite_dl << shift));
+		} else {
+			I915_WRITE_BITS(VLV_DDL(intel_plane->pipe),
 				sprite_prec | (sprite_dl << shift), mask);
+		}
 	} else
 		I915_WRITE_BITS(VLV_DDL(intel_plane->pipe), 0x00, mask);
 
