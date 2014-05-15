@@ -755,6 +755,7 @@ int mdss_mdp_wb_ioctl_handler(struct msm_fb_data_type *mfd, u32 cmd, void *arg);
 int mdss_mdp_get_ctl_mixers(u32 fb_num, u32 *mixer_id);
 u32 mdss_mdp_get_mixercfg(struct mdss_mdp_mixer *mixer);
 u32 mdss_mdp_fb_stride(u32 fb_index, u32 xres, int bpp);
+void mdss_check_dsi_ctrl_status(struct work_struct *work, uint32_t interval);
 
 int mdss_panel_register_done(struct mdss_panel_data *pdata);
 int mdss_mdp_limited_lut_igc_config(struct mdss_mdp_ctl *ctl);
