@@ -107,8 +107,10 @@ int msm_flash_led_init(struct msm_led_flash_ctrl_t *fctrl)
 	if (fctrl->flash_device_type == MSM_CAMERA_PLATFORM_DEVICE) {
 		rc = fctrl->flash_i2c_client->i2c_func_tbl->i2c_util(
 			fctrl->flash_i2c_client, MSM_CCI_INIT);
-		if (rc < 0)
+		if (rc < 0) {
 			pr_err("cci_init failed\n");
+			return rc;
+		}
 	}
 
 	rc = msm_camera_request_gpio_table(
