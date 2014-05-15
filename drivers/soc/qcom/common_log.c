@@ -15,30 +15,75 @@
 #include <linux/kernel.h>
 #include <linux/init.h>
 #include <linux/kallsyms.h>
+#include <linux/slab.h>
 #include <soc/qcom/memory_dump.h>
 
-static void __init common_log_register(void)
+static void __init common_log_register_log_buf(void)
 {
-	struct msm_client_dump dump;
 	char **log_bufp;
 	uint32_t *log_buf_lenp;
+	uint32_t *fist_idxp;
+	struct msm_client_dump dump_log_buf, dump_first_idx;
+	struct msm_dump_entry entry_log_buf, entry_first_idx;
+	struct msm_dump_data *dump_data;
 
 	log_bufp = (char **)kallsyms_lookup_name("log_buf");
 	log_buf_lenp = (uint32_t *)kallsyms_lookup_name("log_buf_len");
 	if (!log_bufp || !log_buf_lenp) {
-		pr_err("%s: Symbol log_buf not found!\n", __func__);
+		pr_err("Unable to find log_buf by kallsyms!\n");
 		return;
 	}
-	dump.id = MSM_LOG_BUF;
-	dump.start_addr = virt_to_phys(*log_bufp);
-	dump.end_addr = virt_to_phys(*log_bufp + *log_buf_lenp);
-	if (msm_dump_tbl_register(&dump))
-		pr_err("%s: Could not register log_buf.\n", __func__);
+	fist_idxp = (uint32_t *)kallsyms_lookup_name("log_first_idx");
+	if (MSM_DUMP_MAJOR(msm_dump_table_version()) == 1) {
+		dump_log_buf.id = MSM_LOG_BUF;
+		dump_log_buf.start_addr = virt_to_phys(*log_bufp);
+		dump_log_buf.end_addr = virt_to_phys(*log_bufp + *log_buf_lenp);
+		if (msm_dump_tbl_register(&dump_log_buf))
+			pr_err("Unable to register %d.\n", dump_log_buf.id);
+		dump_first_idx.id = MSM_LOG_BUF_FIRST_IDX;
+		if (fist_idxp) {
+			dump_first_idx.start_addr = virt_to_phys(fist_idxp);
+			if (msm_dump_tbl_register(&dump_first_idx))
+				pr_err("Unable to register %d.\n",
+							dump_first_idx.id);
+		}
+	} else {
+		dump_data = kzalloc(sizeof(struct msm_dump_data),
+						GFP_KERNEL);
+		if (!dump_data) {
+			pr_err("Unable to alloc data space.\n");
+			return;
+		}
+		dump_data->len = *log_buf_lenp;
+		dump_data->addr = virt_to_phys(*log_bufp);
+		entry_log_buf.id = MSM_DUMP_DATA_LOG_BUF;
+		entry_log_buf.addr = virt_to_phys(dump_data);
+		if (msm_dump_data_register(MSM_DUMP_TABLE_APPS,
+							&entry_log_buf)) {
+			kfree(dump_data);
+			pr_err("Unable to register %d.\n", entry_log_buf.id);
+		}
+		if (fist_idxp) {
+			dump_data = kzalloc(sizeof(struct msm_dump_data),
+							GFP_KERNEL);
+			if (!dump_data) {
+				pr_err("Unable to alloc data space.\n");
+				return;
+			}
+			dump_data->addr = virt_to_phys(fist_idxp);
+			entry_first_idx.id = MSM_DUMP_DATA_LOG_BUF_FIRST_IDX;
+			entry_first_idx.addr = virt_to_phys(dump_data);
+			if (msm_dump_data_register(MSM_DUMP_TABLE_APPS,
+						&entry_first_idx))
+				pr_err("Unable to register %d.\n",
+						entry_first_idx.id);
+		}
+	}
 }
 
 static int __init msm_common_log_init(void)
 {
-	common_log_register();
+	common_log_register_log_buf();
 	return 0;
 }
 late_initcall(msm_common_log_init);
