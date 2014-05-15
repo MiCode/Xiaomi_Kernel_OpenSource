@@ -55,4 +55,6 @@ void u_bam_data_start_rndis_ipa(void);
 
 void u_bam_data_stop_rndis_ipa(void);
 
+void bam_data_start_rx_tx(u8 port_num);
+
 #endif /* __U_BAM_DATA_H */
