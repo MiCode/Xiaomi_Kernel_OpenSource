@@ -1,0 +1,41 @@
+
+config SND_BYT_MACHINE
+	tristate "SOC Machine Audio driver for Intel Baytrail MID platform"
+	depends on X86
+	select SND_SOC_RT5640
+	select SND_SST_PLATFORM
+	select SND_SST_MACHINE
+	select SND_INTEL_SST
+	select SND_HWDEP
+	default n
+
+	help
+	  This adds support for ASoC machine driver for Intel(R) MID Baytrail platform
+          used as alsa device in audio substem in Intel(R) MID devices
+          Say Y if you have such a device
+          If unsure select "N".
+
+config SND_INTEL_SST
+       tristate
+
+config SND_SST_PLATFORM
+	tristate
+
+config SND_SOC_COMMS_SSP
+	depends on SND_INTEL_MID_I2S
+	tristate "Use ASOC framework to drive AudioComms SSP BT and Modem"
+	help
+	  Sound SOC cards usually used for BT VOIP and MODEM MIXING use cases.
+	  This will add devices for these uses cases in the list of alsa cards.
+	  Say Y if you need these sound cards (BT chipset or Modem present).
+	  Requires to enable the INTEL_MID_I2S low level SSP I2S driver.
+
+config SST_DPCM
+	bool "Use DPCM based Machine Audio driver"
+	default n
+	help
+	  This adds an option to enable the DPCM based machine driver
+
+config SND_SST_MACHINE
+	tristate
+
