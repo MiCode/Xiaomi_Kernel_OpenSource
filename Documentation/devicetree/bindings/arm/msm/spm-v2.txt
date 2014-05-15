@@ -12,9 +12,13 @@ Required properties
 
 - compatible: "qcom,spm-v2"
 - reg: The physical address and the size of the SPM's memory mapped registers
-- qcom, core-id: The core id the SPM block is attached to.
+- qcom,cpu: phandle for the CPU that the SPM block is attached to. On targets
+	that dont support CPU phandles the driver would support qcom,core-id.
+	This field is required on only for SPMs that control the CPU.
+- qcom, core-id: This property will be deprecated once all targets start
+	supporting CPU phandles. This field will be used to identify SPMs
+	that control the CPU.
 	{0..n} for cores {0..n}
-	{0xffff} for L2
 - qcom,saw2-ver-reg: The location of the version register
 - qcom,saw2-cfg: SAW2 configuration register
 - qcom,saw2-avs-ctl: The AVS control register
@@ -25,6 +29,8 @@ Required properties
 - qcom,saw2-spm-ctl: The SPM control register
 - qcom,saw2-vctl-timeout-us: The timeout value to wait for voltage to change
 	after sending the voltage command to the PMIC
+- qcom,name: The name with which a SPM device is identified by the power
+management code.
 
 Optional properties
 

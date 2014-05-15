@@ -16,6 +16,7 @@
 		#address-cells = <1>;
 		#size-cells = <1>;
 		reg = <0xf9089000 0x1000>;
+		qcom,name = "core0";
 		qcom,core-id = <0>;
 		qcom,saw2-ver-reg = <0xfd0>;
 		qcom,saw2-cfg = <0x00>;
@@ -33,6 +34,7 @@
 		#address-cells = <1>;
 		#size-cells = <1>;
 		reg = <0xf9099000 0x1000>;
+		qcom,name = "core1";
 		qcom,core-id = <1>;
 		qcom,saw2-ver-reg = <0xfd0>;
 		qcom,saw2-cfg = <0x00>;
@@ -50,6 +52,7 @@
 		#address-cells = <1>;
 		#size-cells = <1>;
 		reg = <0xf90a9000 0x1000>;
+		qcom,name = "core2";
 		qcom,core-id = <2>;
 		qcom,saw2-ver-reg = <0xfd0>;
 		qcom,saw2-cfg = <0x00>;
@@ -67,6 +70,7 @@
 		#address-cells = <1>;
 		#size-cells = <1>;
 		reg = <0xf90b9000 0x1000>;
+		qcom,name = "core3";
 		qcom,core-id = <3>;
 		qcom,saw2-ver-reg = <0xfd0>;
 		qcom,saw2-cfg = <0x00>;
@@ -84,6 +88,7 @@
 		#address-cells = <1>;
 		#size-cells = <1>;
 		reg = <0xf9012000 0x1000>;
+		qcom,name = "l2";
 		qcom,core-id = <0xffff>; /* L2/APCS SAW */
 		qcom,saw2-ver-reg = <0xfd0>;
 		qcom,saw2-cfg = <0x14>;

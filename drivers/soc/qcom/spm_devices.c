@@ -20,6 +20,7 @@
 #include <linux/of.h>
 #include <linux/of_address.h>
 #include <linux/platform_device.h>
+#include <linux/err.h>
 #include <soc/qcom/spm.h>
 #include "spm_driver.h"
 
@@ -27,11 +28,12 @@ struct msm_spm_power_modes {
 	uint32_t mode;
 	bool notify_rpm;
 	uint32_t start_addr;
-
 };
 
 struct msm_spm_device {
+	struct list_head list;
 	bool initialized;
+	const char *name;
 	struct msm_spm_driver_data reg_data;
 	struct msm_spm_power_modes *modes;
 	uint32_t num_modes;
@@ -44,7 +46,8 @@ struct msm_spm_vdd_info {
 	int err;
 };
 
-static struct msm_spm_device msm_spm_l2_device;
+static LIST_HEAD(spm_list);
+static struct msm_spm_device *msm_spm_l2_device;
 static DEFINE_PER_CPU_SHARED_ALIGNED(struct msm_spm_device, msm_cpu_spm_device);
 static bool msm_spm_L2_apcs_master;
 
@@ -54,7 +57,7 @@ static void msm_spm_smp_set_vdd(void *data)
 	struct msm_spm_vdd_info *info = (struct msm_spm_vdd_info *)data;
 
 	if (msm_spm_L2_apcs_master)
-		dev = &msm_spm_l2_device;
+		dev = msm_spm_l2_device;
 	else
 		dev = &per_cpu(msm_cpu_spm_device, info->cpu);
 
@@ -81,7 +84,7 @@ int msm_spm_probe_done(void)
 	struct msm_spm_device *dev;
 	int cpu;
 
-	if (msm_spm_L2_apcs_master && !msm_spm_l2_device.initialized) {
+	if (msm_spm_L2_apcs_master && !msm_spm_l2_device) {
 		return -EPROBE_DEFER;
 	} else {
 		for_each_possible_cpu(cpu) {
@@ -149,7 +152,7 @@ unsigned int msm_spm_get_vdd(unsigned int cpu)
 	struct msm_spm_device *dev;
 
 	if (msm_spm_L2_apcs_master)
-		dev = &msm_spm_l2_device;
+		dev = msm_spm_l2_device;
 	else
 		dev = &per_cpu(msm_cpu_spm_device, cpu);
 	return dev->cpu_vdd;
@@ -317,28 +320,25 @@ int __init msm_spm_init(struct msm_spm_platform_data *data, int nr_devs)
 	return ret;
 }
 
+struct msm_spm_device *msm_spm_get_device_by_name(const char *name)
+{
+	struct list_head *list;
+
+	list_for_each(list, &spm_list) {
+		struct msm_spm_device *dev
+			= list_entry(list, typeof(*dev), list);
+		if (dev->name && !strcmp(dev->name, name))
+			return dev;
+	}
+	return ERR_PTR(-ENODEV);
+}
+
+int msm_spm_config_low_power_mode(struct msm_spm_device *dev,
+		unsigned int mode, bool notify_rpm)
+{
+	return msm_spm_dev_set_low_power_mode(dev, mode, notify_rpm);
+}
 #ifdef CONFIG_MSM_L2_SPM
-
-/**
- * msm_spm_l2_set_low_power_mode(): Configure L2 SPM start address
- *                                  for low power mode
- * @mode: SPM LPM mode to enter
- * @notify_rpm: Notify RPM in this mode
- */
-int msm_spm_l2_set_low_power_mode(unsigned int mode, bool notify_rpm)
-{
-	return msm_spm_dev_set_low_power_mode(
-			&msm_spm_l2_device, mode, notify_rpm);
-}
-EXPORT_SYMBOL(msm_spm_l2_set_low_power_mode);
-
-void msm_spm_l2_reinit(void)
-{
-	if (!msm_spm_l2_device.initialized)
-		return;
-	msm_spm_drv_reinit(&msm_spm_l2_device.reg_data);
-}
-EXPORT_SYMBOL(msm_spm_l2_reinit);
 
 /**
  * msm_spm_apcs_set_phase(): Set number of SMPS phases.
@@ -346,9 +346,9 @@ EXPORT_SYMBOL(msm_spm_l2_reinit);
  */
 int msm_spm_apcs_set_phase(unsigned int phase_cnt)
 {
-	if (!msm_spm_l2_device.initialized)
+	if (!msm_spm_l2_device || !msm_spm_l2_device->initialized)
 		return -ENXIO;
-	return msm_spm_drv_set_pmic_data(&msm_spm_l2_device.reg_data,
+	return msm_spm_drv_set_pmic_data(&msm_spm_l2_device->reg_data,
 			MSM_SPM_PMIC_PHASE_PORT, phase_cnt);
 }
 EXPORT_SYMBOL(msm_spm_apcs_set_phase);
@@ -359,22 +359,65 @@ EXPORT_SYMBOL(msm_spm_apcs_set_phase);
  */
 int msm_spm_enable_fts_lpm(uint32_t mode)
 {
-	if (!msm_spm_l2_device.initialized)
+	if (!msm_spm_l2_device || !msm_spm_l2_device->initialized)
 		return -ENXIO;
-	return msm_spm_drv_set_pmic_data(&msm_spm_l2_device.reg_data,
+	return msm_spm_drv_set_pmic_data(&msm_spm_l2_device->reg_data,
 			MSM_SPM_PMIC_PFM_PORT, mode);
 }
 EXPORT_SYMBOL(msm_spm_enable_fts_lpm);
 
-/**
- * msm_spm_l2_init(): Board initialization function
- * @data: SPM target specific register configuration
- */
-int __init msm_spm_l2_init(struct msm_spm_platform_data *data)
-{
-	return msm_spm_dev_init(&msm_spm_l2_device, data);
-}
 #endif
+
+static int get_cpu_id(struct device_node *node)
+{
+	struct device_node *cpu_node;
+	u32 cpu;
+	int ret = -EINVAL;
+	char *key = "qcom,cpu";
+
+	cpu_node = of_parse_phandle(node, key, 0);
+	if (cpu_node) {
+		for_each_possible_cpu(cpu) {
+			if (of_get_cpu_node(cpu, NULL) == cpu_node)
+				return cpu;
+		}
+	} else {
+		char *key = "qcom,core-id";
+
+		ret = of_property_read_u32(node, key, &cpu);
+		if (!ret)
+			return cpu;
+	}
+	return ret;
+}
+
+static struct msm_spm_device *msm_spm_get_device(struct platform_device *pdev)
+{
+	struct msm_spm_device *dev = NULL;
+	const char *val = NULL;
+	char *key = "qcom,name";
+	int cpu = get_cpu_id(pdev->dev.of_node);
+
+	if ((cpu >= 0) && cpu < num_possible_cpus()) {
+		dev = &per_cpu(msm_cpu_spm_device, cpu);
+	} else {
+		dev = devm_kzalloc(&pdev->dev, sizeof(struct msm_spm_device),
+				GFP_KERNEL);
+		msm_spm_l2_device = dev;
+	}
+	if (!dev)
+		return NULL;
+
+	if (of_property_read_string(pdev->dev.of_node, key, &val)) {
+		pr_err("%s(): Cannot find a required node key:%s\n",
+				__func__, key);
+		return NULL;
+	}
+	dev->name = val;
+	list_add(&dev->list, &spm_list);
+
+	return dev;
+}
 
 static int msm_spm_dev_probe(struct platform_device *pdev)
 {
@@ -432,23 +475,6 @@ static int msm_spm_dev_probe(struct platform_device *pdev)
 	memset(&modes, 0,
 		(MSM_SPM_MODE_NR - 2) * sizeof(struct msm_spm_seq_entry));
 
-	key = "qcom,core-id";
-	ret = of_property_read_u32(node, key, &val);
-	if (ret)
-		goto fail;
-	cpu = val;
-
-	/*
-	 * Device with id 0..NR_CPUS are SPM for apps cores
-	 * Device with id 0xFFFF is for L2 SPM.
-	 */
-	if (cpu >= 0 && cpu < num_possible_cpus())
-		dev = &per_cpu(msm_cpu_spm_device, cpu);
-	else if (cpu == 0xffff)
-		dev = &msm_spm_l2_device;
-	else
-		return ret;
-
 	key = "qcom,saw2-ver-reg";
 	ret = of_property_read_u32(node, key, &val);
 	if (ret)
@@ -482,8 +508,12 @@ static int msm_spm_dev_probe(struct platform_device *pdev)
 	key = "qcom,pfm-port";
 	of_property_read_u32(node, key, &spm_data.pfm_port);
 
+	dev = msm_spm_get_device(pdev);
+	if (!dev)
+		return -EINVAL;
+
 	/* optional */
-	if (dev == &msm_spm_l2_device) {
+	if (dev == msm_spm_l2_device) {
 		key = "qcom,L2-spm-is-apcs-master";
 		msm_spm_L2_apcs_master =
 			of_property_read_bool(pdev->dev.of_node, key);
@@ -504,6 +534,9 @@ static int msm_spm_dev_probe(struct platform_device *pdev)
 			continue;
 		modes[mode_count].mode = mode_of_data[i].id;
 		modes[mode_count].notify_rpm = mode_of_data[i].notify_rpm;
+		pr_debug("%s(): dev: %s cmd:%s, mode:%d rpm:%d\n", __func__,
+				dev->name, key, modes[mode_count].mode,
+				modes[mode_count].notify_rpm);
 		mode_count++;
 	}
 
@@ -511,6 +544,7 @@ static int msm_spm_dev_probe(struct platform_device *pdev)
 	spm_data.num_modes = mode_count;
 
 	ret = msm_spm_dev_init(dev, &spm_data);
+	platform_set_drvdata(pdev, dev);
 
 	if (ret < 0)
 		pr_warn("%s():failed core-id:%u ret:%d\n", __func__, cpu, ret);
@@ -523,6 +557,13 @@ fail:
 	return -EFAULT;
 }
 
+static int msm_spm_dev_remove(struct platform_device *pdev)
+{
+	struct msm_spm_device *dev = platform_get_drvdata(pdev);
+	list_del(&dev->list);
+	return 0;
+}
+
 static struct of_device_id msm_spm_match_table[] = {
 	{.compatible = "qcom,spm-v2"},
 	{},
@@ -530,6 +571,7 @@ static struct of_device_id msm_spm_match_table[] = {
 
 static struct platform_driver msm_spm_device_driver = {
 	.probe = msm_spm_dev_probe,
+	.remove = msm_spm_dev_remove,
 	.driver = {
 		.name = "spm-v2",
 		.owner = THIS_MODULE,
