@@ -1134,6 +1134,21 @@ static int cnss_probe(struct platform_device *pdev)
 	penv->pldev = pdev;
 	penv->esoc_desc = NULL;
 
+	penv->gpio_info.name = WLAN_EN_GPIO_NAME;
+	penv->gpio_info.num = 0;
+	penv->gpio_info.state = WLAN_EN_LOW;
+	penv->gpio_info.init = WLAN_EN_HIGH;
+	penv->gpio_info.prop = false;
+	penv->vreg_info.wlan_reg = NULL;
+	penv->vreg_info.state = VREG_OFF;
+	penv->pci_register_again = false;
+
+	ret = cnss_wlan_get_resources(pdev);
+	if (ret)
+		goto err_get_wlan_res;
+
+	penv->pcie_link_state = PCIE_LINK_UP;
+
 	penv->notify_modem_status =
 		of_property_read_bool(dev->of_node,
 				      "qcom,notify-modem-status");
@@ -1191,20 +1206,6 @@ static int cnss_probe(struct platform_device *pdev)
 		goto err_ramdump_create;
 	}
 
-	penv->gpio_info.name = WLAN_EN_GPIO_NAME;
-	penv->gpio_info.num = 0;
-	penv->gpio_info.state = WLAN_EN_LOW;
-	penv->gpio_info.init = WLAN_EN_HIGH;
-	penv->gpio_info.prop = false;
-	penv->vreg_info.wlan_reg = NULL;
-	penv->vreg_info.state = VREG_OFF;
-	penv->pci_register_again = false;
-
-	ret = cnss_wlan_get_resources(pdev);
-	if (ret)
-		goto err_get_wlan_res;
-
-	penv->pcie_link_state = PCIE_LINK_UP;
 	ret = pci_register_driver(&cnss_wlan_pci_driver);
 	if (ret)
 		goto err_pci_reg;
@@ -1240,9 +1241,6 @@ err_bus_reg:
 	pci_unregister_driver(&cnss_wlan_pci_driver);
 
 err_pci_reg:
-	cnss_wlan_release_resources();
-
-err_get_wlan_res:
 	destroy_ramdump_device(penv->ramdump_dev);
 
 err_ramdump_create:
@@ -1259,6 +1257,9 @@ err_subsys_reg:
 		devm_unregister_esoc_client(&pdev->dev, penv->esoc_desc);
 
 err_esoc_reg:
+	cnss_wlan_release_resources();
+
+err_get_wlan_res:
 	penv = NULL;
 
 	return ret;
