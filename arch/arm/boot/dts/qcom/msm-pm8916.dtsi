@@ -211,8 +211,8 @@
 			qcom,warm-bat-mv = <4100>;
 			qcom,ibatmax-warm-ma = <360>;
 			qcom,ibatmax-cool-ma = <360>;
-			qcom,batt-hot-percentage = <35>;
-			qcom,batt-cold-percentage = <70>;
+			qcom,batt-hot-percentage = <25>;
+			qcom,batt-cold-percentage = <80>;
 			qcom,tchg-mins = <152>;
 			qcom,resume-soc = <99>;
 			qcom,chg-vadc = <&pm8916_vadc>;
