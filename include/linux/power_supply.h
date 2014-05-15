@@ -269,6 +269,7 @@ extern int power_supply_set_online(struct power_supply *psy, bool enable);
 extern int power_supply_set_health_state(struct power_supply *psy, int health);
 extern int power_supply_set_present(struct power_supply *psy, bool enable);
 extern int power_supply_set_scope(struct power_supply *psy, int scope);
+extern int power_supply_set_usb_otg(struct power_supply *psy, int otg);
 extern int power_supply_set_charge_type(struct power_supply *psy, int type);
 extern int power_supply_set_supply_type(struct power_supply *psy,
 					enum power_supply_type supply_type);
@@ -305,6 +306,8 @@ static inline int power_supply_set_present(struct power_supply *psy,
 							{ return -ENOSYS; }
 static inline int power_supply_set_scope(struct power_supply *psy,
 							int scope)
+							{ return -ENOSYS; }
+static inline int power_supply_set_usb_otg(struct power_supply *psy, int otg)
 							{ return -ENOSYS; }
 static inline int power_supply_set_charge_type(struct power_supply *psy,
 							int type)
