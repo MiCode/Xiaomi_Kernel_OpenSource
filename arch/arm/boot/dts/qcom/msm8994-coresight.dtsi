@@ -485,6 +485,10 @@
 		clocks = <&clock_rpm clk_qdss_clk>,
 			 <&clock_rpm clk_qdss_a_clk>;
 		clock-names = "core_clk", "core_a_clk";
+
+		qcom,cti-gpio-trigout = <2>;
+		pinctrl-names = "cti-trigout-pctrl";
+		pinctrl-0 = <&trigout_a>;
 	};
 
 	cti7: cti@fc317000 {
@@ -513,6 +517,10 @@
 		clocks = <&clock_rpm clk_qdss_clk>,
 			 <&clock_rpm clk_qdss_a_clk>;
 		clock-names = "core_clk", "core_a_clk";
+
+		qcom,cti-gpio-trigout = <4>;
+		pinctrl-names = "cti-trigout-pctrl";
+		pinctrl-0 = <&trigout_c>;
 	};
 
 	cti_cpu0: cti@fb820000 {
