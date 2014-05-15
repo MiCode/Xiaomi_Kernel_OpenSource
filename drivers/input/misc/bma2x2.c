@@ -5087,9 +5087,10 @@ static void bma2x2_set_enable(struct device *dev, int enable)
 				dev_err(dev, "power failed\n");
 				goto mutex_exit;
 			}
-			RESET_DELAY();
-			if (bma2x2_open_init(client, bma2x2))
+			if (bma2x2_open_init(client, bma2x2) < 0) {
+				dev_err(dev, "set init failed\n");
 				goto mutex_exit;
+			}
 			bma2x2_set_mode(bma2x2->bma2x2_client,
 					BMA2X2_MODE_NORMAL);
 #ifndef CONFIG_BMA_ENABLE_NEWDATA_INT
@@ -6783,20 +6784,6 @@ static int bma2x2_open_init(struct i2c_client *client,
 			struct bma2x2_data *data)
 {
 	int err;
-	if (bma2x2_soft_reset(client) < 0) {
-		dev_err(&client->dev,
-			"i2c bus write error, pls check HW connection\n");
-		err = -EINVAL;
-		bma2x2_power_ctl(data, false);
-		return err;
-	}
-	RESET_DELAY();
-	/* read and check chip id */
-	if (bma2x2_check_chip_id(client, data) < 0) {
-		err = -EINVAL;
-		bma2x2_power_ctl(data, false);
-		return err;
-	}
 	err = bma2x2_set_bandwidth(client, data->bandwidth);
 	if (err < 0) {
 		dev_err(&client->dev, "init bandwidth error\n");
@@ -6872,14 +6859,29 @@ static int bma2x2_probe(struct i2c_client *client,
 		goto deinit_power_exit;
 	}
 
+	RESET_DELAY();
+	if (bma2x2_soft_reset(client) < 0) {
+		dev_err(&client->dev,
+			"i2c bus write error, pls check HW connection\n");
+		err = -EINVAL;
+		goto disable_power_exit;
+	}
+	RESET_DELAY();
+	/* read and check chip id */
+	if (bma2x2_check_chip_id(client, data) < 0) {
+		err = -EINVAL;
+		goto disable_power_exit;
+	}
 	mutex_init(&data->value_mutex);
 	mutex_init(&data->mode_mutex);
 	mutex_init(&data->enable_mutex);
 	data->bandwidth = BMA2X2_BW_SET;
 	data->range = BMA2X2_RANGE_SET;
 	err = bma2x2_open_init(client, data);
-	if (err < 0)
-		goto deinit_power_exit;
+	if (err < 0) {
+		err = -EINVAL;
+		goto disable_power_exit;
+	}
 #if defined(BMA2X2_ENABLE_INT1) || defined(BMA2X2_ENABLE_INT2)
 
 	pdata = client->dev.platform_data;
@@ -7197,6 +7199,8 @@ free_input_interrupt_dev_exit:
 free_input_dev_exit:
 	input_free_device(dev);
 free_irq_exit:
+disable_power_exit:
+		bma2x2_power_ctl(data, false);
 deinit_power_exit:
 	bma2x2_power_deinit(data);
 free_i2c_clientdata_exit:
