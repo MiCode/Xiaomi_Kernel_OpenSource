@@ -22,6 +22,8 @@ Optional properties:
 		Should be specified in pairs (min, max), units uV
   - qca,bt-vdd-ldo-voltage-level: specifies VDD LDO voltage levels for supply.
 		Should be specified in pairs (min, max), units uV
+  - qca,bt-vdd-xtal-voltage-level: specifies VDD XTAL voltage levels for supply.
+                Should be specified in pairs (min, max), units uV
 
 Example:
   bt-ar3002 {
@@ -29,7 +31,9 @@ Example:
     qca,bt-reset-gpio = <&pm8941_gpios 34 0>;
     qca,bt-vdd-io-supply = <&pm8941_s3>;
     qca,bt-vdd-pa-supply = <&pm8941_l19>;
+    qca,bt-vdd-xtal-supply = <&pm8994_l30>;
     qca,bt-chip-pwd-supply = <&ath_chip_pwd_l>;
     qca,bt-vdd-io-voltage-level = <1800000 1800000>;
     qca,bt-vdd-pa-voltage-level = <2900000 2900000>;
+    qca,bt-vdd-xtal-voltage-level = <1800000 1800000>;
   };
