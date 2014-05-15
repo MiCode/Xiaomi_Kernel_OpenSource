@@ -591,13 +591,6 @@ void mdss_mdp_irq_disable_nosync(u32 intr_type, u32 intf_num)
 	}
 }
 
-static inline struct clk *mdss_mdp_get_clk(u32 clk_idx)
-{
-	if (clk_idx < MDSS_MAX_CLK)
-		return mdss_res->mdp_clk[clk_idx];
-	return NULL;
-}
-
 static int mdss_mdp_clk_update(u32 clk_idx, u32 enable)
 {
 	int ret = -ENODEV;
@@ -2543,6 +2536,8 @@ static int mdss_mdp_parse_dt_misc(struct platform_device *pdev)
 	}
 
 	mdss_mdp_parse_vbif_qos(pdev);
+	mdata->traffic_shaper_en = of_property_read_bool(pdev->dev.of_node,
+		 "qcom,mdss-traffic-shaper-enabled");
 
 	return 0;
 }

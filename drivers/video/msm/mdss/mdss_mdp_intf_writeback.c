@@ -435,6 +435,95 @@ static void mdss_mdp_writeback_intr_done(void *arg)
 	complete_all(&ctx->wb_comp);
 }
 
+static bool mdss_mdp_traffic_shaper_helper(struct mdss_mdp_ctl *ctl,
+					 struct mdss_mdp_writeback_ctx *ctx,
+					 bool enable)
+{
+	struct mdss_data_type *mdata = mdss_mdp_get_mdata();
+	bool traffic_shaper_enabled = false;
+	struct mdss_mdp_mixer *mixer = ctl->mixer_left;
+	int i;
+	u32 clk_rate;
+	u64 bw_rate;
+
+	if (!mixer)
+		return traffic_shaper_enabled;
+
+	/* currently only for rotator pipes */
+	if (!mixer->rotator_mode)
+		return traffic_shaper_enabled;
+
+	for (i = 0; i < MDSS_MDP_MAX_STAGE; i++) {
+		struct mdss_mdp_pipe *pipe;
+		struct mdss_mdp_perf_params perf;
+		u32 traffic_shaper;
+		pipe = mixer->stage_pipe[i];
+
+		if (pipe == NULL)
+			continue;
+
+		if (enable) {
+			if (mdss_mdp_perf_calc_pipe(pipe, &perf, &mixer->roi,
+				false))
+				continue;
+
+			clk_rate = max(mdss_mdp_get_mdp_clk_rate(ctl->mdata),
+					perf.mdp_clk_rate);
+			ctl->traffic_shaper_mdp_clk = clk_rate;
+			bw_rate = perf.bw_overlap;
+
+			/*
+			 * Bandwidth vote accounts for both read and write
+			 * rotator, divide by 2 to get only the write bandwidth.
+			 */
+			do_div(bw_rate, 2);
+
+			/*
+			 * Calculating bytes per clock in 4.4 form
+			 * allowing up to 1/16 granularity.
+			 */
+			do_div(bw_rate,
+				(clk_rate >>
+				 MDSS_MDP_REG_TRAFFIC_SHAPER_FIXPOINT_FACTOR));
+
+			traffic_shaper = lower_32_bits(bw_rate) + 1;
+			traffic_shaper |= MDSS_MDP_REG_TRAFFIC_SHAPER_EN;
+			traffic_shaper_enabled = true;
+
+			pr_debug("pnum=%d inum:%d bw=%lld clk_rate=%u shaper=0x%x ena:%d\n",
+				pipe->num, ctx->intf_num, perf.bw_overlap,
+				clk_rate, traffic_shaper, enable);
+
+		} else {
+			traffic_shaper = 0;
+
+			pr_debug("inum:%d shaper=0x%x, ena:%d\n",
+				ctx->intf_num, traffic_shaper, enable);
+		}
+
+		writel_relaxed(traffic_shaper, mdata->mdp_base +
+			MDSS_MDP_REG_TRAFFIC_SHAPER_WR_CLIENT(ctx->intf_num));
+	}
+
+	return traffic_shaper_enabled;
+}
+
+static void mdss_mdp_traffic_shaper(struct mdss_mdp_ctl *ctl,
+		struct mdss_mdp_writeback_ctx *ctx, bool enable)
+{
+	bool traffic_shaper_enabled = 0;
+
+	if (ctl->power_on) {
+		traffic_shaper_enabled = mdss_mdp_traffic_shaper_helper
+			(ctl, ctx, enable);
+	}
+
+	ctl->traffic_shaper_enabled = traffic_shaper_enabled;
+
+	pr_debug("traffic shapper ctl:%d ena:%d\n", ctl->num,
+		ctl->traffic_shaper_enabled);
+}
+
 static int mdss_mdp_wb_wait4comp(struct mdss_mdp_ctl *ctl, void *arg)
 {
 	struct mdss_mdp_writeback_ctx *ctx;
@@ -463,6 +552,10 @@ static int mdss_mdp_wb_wait4comp(struct mdss_mdp_ctl *ctl, void *arg)
 		mdss_mdp_ctl_notify(ctl, MDP_NOTIFY_FRAME_DONE);
 		rc = 0;
 	}
+
+	/* once operation is done, disable traffic shaper */
+	if (ctl->traffic_shaper_enabled)
+		mdss_mdp_traffic_shaper(ctl, ctx, false);
 
 	mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_OFF, false); /* clock off */
 
@@ -514,6 +607,10 @@ static int mdss_mdp_writeback_display(struct mdss_mdp_ctl *ctl, void *arg)
 	wb_args = (struct mdss_mdp_writeback_arg *) arg;
 	if (!wb_args)
 		return -ENOENT;
+
+	if (ctx->type == MDSS_MDP_WRITEBACK_TYPE_ROTATOR
+			&& ctl->mdata->traffic_shaper_en)
+		mdss_mdp_traffic_shaper(ctl, ctx, true);
 
 	ret = mdss_mdp_writeback_addr_setup(ctx, wb_args->data);
 	if (ret) {
