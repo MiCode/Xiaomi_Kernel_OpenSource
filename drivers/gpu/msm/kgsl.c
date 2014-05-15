@@ -504,7 +504,7 @@ EXPORT_SYMBOL(kgsl_context_init);
  * has requested for it to be destroyed. The context itself may
  * exist a bit longer until its reference count goes to zero.
  * Other code referencing the context can detect that it has been
- * detached by checking the KGSL_CONTEXT_DETACHED bit in
+ * detached by checking the KGSL_CONTEXT_PRIV_DETACHED bit in
  * context->priv.
  */
 int kgsl_context_detach(struct kgsl_context *context)
@@ -519,7 +519,7 @@ int kgsl_context_detach(struct kgsl_context *context)
 	 * the context before it gets fully removed, and to make sure
 	 * we don't try to detach twice.
 	 */
-	if (test_and_set_bit(KGSL_CONTEXT_DETACHED, &context->priv))
+	if (test_and_set_bit(KGSL_CONTEXT_PRIV_DETACHED, &context->priv))
 		return -EINVAL;
 
 	trace_kgsl_context_detach(context->device, context);

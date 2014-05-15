@@ -77,16 +77,16 @@
 #define SIZE_PIPE_ENTRY(cnt) (50 + (cnt) * 62)
 #define SIZE_LOG_ENTRY(cnt) (6 + (cnt) * 5)
 
-static struct adreno_context_type ctxt_type_table[] = {ADRENO_DRAWCTXT_TYPES};
+static struct adreno_context_type ctxt_type_table[] = {KGSL_CONTEXT_TYPES};
 
 static const char *get_api_type_str(unsigned int type)
 {
 	int i;
 	for (i = 0; i < ARRAY_SIZE(ctxt_type_table) - 1; i++) {
 		if (ctxt_type_table[i].type == type)
-			break;
+			return ctxt_type_table[i].str;
 	}
-	return ctxt_type_table[i].str;
+	return "UNKNOWN";
 }
 
 static inline void _create_ib_ref(struct kgsl_memdesc *memdesc,

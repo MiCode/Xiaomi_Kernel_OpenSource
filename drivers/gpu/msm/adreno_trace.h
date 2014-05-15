@@ -42,7 +42,7 @@ TRACE_EVENT(adreno_cmdbatch_queued,
 		"ctx=%u ts=%u queued=%u flags=%s",
 			__entry->id, __entry->timestamp, __entry->queued,
 			__entry->flags ? __print_flags(__entry->flags, "|",
-				ADRENO_CMDBATCH_FLAGS) : "none"
+						KGSL_CMDBATCH_FLAGS) : "none"
 	)
 );
 

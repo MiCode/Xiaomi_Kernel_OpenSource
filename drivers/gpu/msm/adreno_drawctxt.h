@@ -15,24 +15,12 @@
 
 #include "adreno_pm4types.h"
 
-/* Symbolic table for the adreno draw context type */
-#define ADRENO_DRAWCTXT_TYPES \
-	{ KGSL_CONTEXT_TYPE_ANY, "any" }, \
-	{ KGSL_CONTEXT_TYPE_GL, "GL" }, \
-	{ KGSL_CONTEXT_TYPE_CL, "CL" }, \
-	{ KGSL_CONTEXT_TYPE_C2D, "C2D" }, \
-	{ KGSL_CONTEXT_TYPE_RS, "RS" }, \
-	{ KGSL_CONTEXT_TYPE_UNKNOWN, "UNKNOWN" }
-
 struct adreno_context_type {
 	unsigned int type;
 	const char *str;
 };
 
 #define ADRENO_CONTEXT_CMDQUEUE_SIZE 128
-
-#define ADRENO_CONTEXT_STATE_ACTIVE 0
-#define ADRENO_CONTEXT_STATE_INVALID 1
 
 struct kgsl_device;
 struct adreno_device;
@@ -44,8 +32,6 @@ struct kgsl_context;
  * @timestamp: Last issued context-specific timestamp
  * @internal_timestamp: Global timestamp of the last issued command
  *			NOTE: guarded by device->mutex, not drawctxt->mutex!
- * @state: Current state of the context
- * @priv: Internal flags
  * @type: Context type (GL, CL, RS)
  * @mutex: Mutex to protect the cmdqueue
  * @cmdqueue: Queue of command batches waiting to be dispatched for this context
@@ -62,8 +48,6 @@ struct adreno_context {
 	struct kgsl_context base;
 	unsigned int timestamp;
 	unsigned int internal_timestamp;
-	int state;
-	unsigned long priv;
 	unsigned int type;
 	struct mutex mutex;
 
@@ -93,7 +77,7 @@ struct adreno_context {
 	fault tolerance.
  */
 enum adreno_context_priv {
-	ADRENO_CONTEXT_FAULT = 0,
+	ADRENO_CONTEXT_FAULT = KGSL_CONTEXT_PRIV_DEVICE_SPECIFIC,
 	ADRENO_CONTEXT_GPU_HANG,
 	ADRENO_CONTEXT_GPU_HANG_FT,
 	ADRENO_CONTEXT_SKIP_EOF,
