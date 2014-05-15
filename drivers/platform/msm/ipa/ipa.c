@@ -2352,6 +2352,12 @@ static int ipa_init(const struct ipa_plat_drv_res *resource_p,
 	}
 
 	ipa_debugfs_init();
+	result = ipa_wdi_init();
+	if (result)
+		IPAERR(":wdi init failed (%d)\n", -result);
+	else
+		IPADBG(":wdi init ok\n");
+
 	ipa_dec_client_disable_clks();
 
 	pr_info("IPA driver initialization was successful.\n");

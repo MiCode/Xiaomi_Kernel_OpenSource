@@ -304,6 +304,15 @@ Common Registers
 #define IPA_ENDP_INIT_HDR_METADATA_n_OFST(n) (0x00000270 + 0x4 * (n))
 #define IPA_ENDP_INIT_HDR_METADATA_n_MUX_ID_BMASK 0xFF0000
 #define IPA_ENDP_INIT_HDR_METADATA_n_MUX_ID_SHFT 0x10
+
+#define IPA_IRQ_EE_UC_n_OFFS(n) (0x0000101c + 0x1000 * (n))
+#define IPA_IRQ_EE_UC_n_RMSK 0x1
+#define IPA_IRQ_EE_UC_n_MAXn 3
+#define IPA_IRQ_EE_UC_n_INT_BMSK 0x1
+#define IPA_IRQ_EE_UC_n_INT_SHFT 0x0
+
+#define IPA_UC_MAILBOX_m_n_OFFS(m, n) (0x0003a000 + 0x80 * (m) + 0x4 * (n))
+
 #endif
 
 

@@ -106,6 +106,10 @@ static void ipa_wq_write_done_status(int src_pipe)
 	u32 cnt;
 
 	WARN_ON(src_pipe >= IPA_NUM_PIPES);
+
+	if (!ipa_ctx->ep[src_pipe].status.status_en)
+		return;
+
 	sys = ipa_ctx->ep[src_pipe].sys;
 	if (!sys) {
 		IPAERR("null sys pipe src %d\n", src_pipe);
@@ -2083,9 +2087,11 @@ void ipa_lan_rx_cb(void *priv, enum ipa_dp_evt_type evt, unsigned long data)
 	struct ipa_hw_pkt_status *status;
 	struct ipa_ep_context *ep;
 	unsigned int src_pipe;
+	u32 metadata;
 
 	status = (struct ipa_hw_pkt_status *)rx_skb->data;
 	src_pipe = status->endp_src_idx;
+	metadata = status->metadata;
 	ep = &ipa_ctx->ep[src_pipe];
 	if (unlikely(src_pipe >= IPA_NUM_PIPES ||
 		!ep->valid ||
@@ -2100,6 +2106,7 @@ void ipa_lan_rx_cb(void *priv, enum ipa_dp_evt_type evt, unsigned long data)
 				IPA_LAN_RX_HEADER_LENGTH);
 	else
 		skb_pull(rx_skb, IPA_PKT_STATUS_SIZE);
+	*(u8 *)rx_skb->cb = (metadata >> 16) & 0xFF;
 	ep->client_notify(ep->priv, IPA_RECEIVE, (unsigned long)(rx_skb));
 }
 
