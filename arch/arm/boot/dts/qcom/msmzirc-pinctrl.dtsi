@@ -12,17 +12,16 @@
 
 &soc {
 	tlmm_pinmux: pinctrl@1000000 {
-		compatible = "qcom,msm-tlmm-v4";
+		compatible = "qcom,msm-tlmm-msmzirc", "qcom,msm-tlmm-8916";
 		reg = <0x1000000 0x300000>;
 		interrupts = <0 208 0>;
 
 		/* General purpose pins */
 		gp: gp {
-			qcom,pin-type-gp;
 			qcom,num-pins = <100>;
 			#qcom,pin-cells = <1>;
 			msm_gpio: msm_gpio {
-				compatible = "qcom,msm-tlmmv4-gp-intc";
+				compatible = "qcom,msm-tlmm-gp";
 				gpio-controller;
 				#gpio-cells = <2>;
 				interrupt-controller;

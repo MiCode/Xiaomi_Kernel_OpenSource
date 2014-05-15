@@ -12,7 +12,7 @@
 
 &soc {
 	tlmm_pinmux: pinctrl@fd510000 {
-		compatible = "qcom,msm-tlmm-v3";
+		compatible = "qcom,msm-tlmm-9630", "qcom,msm-tlmm-8974";
 		reg = <0xfd510000 0x4000>;
 
 		/*General purpose pins*/
@@ -21,7 +21,7 @@
 			qcom,num-pins = <90>;
 			#qcom,pin-cells = <1>;
 			msm_gpio: msm_gpio {
-				compatible = "qcom,msm-tlmmv3-gp-intc";
+				compatible = "qcom,msm-tlmm-gp";
 				gpio-controller;
 				#gpio-cells = <2>;
 				#interrupt-cells = <2>;
@@ -46,7 +46,6 @@
 
 		/* SDC pin type */
 		sdc: sdc {
-			qcom,pin-type-sdc;
 			/* 0-3 for sdc1 4-6 for sdc2 */
 			qcom,num-pins = <7>;
 			/* Order of pins */

@@ -8,21 +8,31 @@ different types, encapsulating different functions and having differing register
 semantics.
 
  Required Properties:
- - compatible: should be one of the following.
-   - "qcom,msm-tlmm-v3": for MSM with TLMM version 3.
-   - "qcom,msm-tlmm-v4": for MSM with TLMM version 4.
+ - compatible: identifies TLMM hardware version. should be in following format.
+   - "qcom,msm-tlmm-<soc number>"
+     e.g.) "qcom,msm-tlmm-8974"
+           - Denotes compatible with msm8974 TLMM only.
+     e.g.) "qcom,msm-tlmm-8226", "qcom,msm-tlmm-8974"
+           - Denotes compatible with msm8226 TLMM best but still compatible
+	     with msm8974.
 
  - reg: Base address of the pin controller hardware module and length of
    the address space it occupies.
 
 - Pin types as child nodes: Pin types supported by a particular controller
-  instance are represented as child nodes of the controller node. Each
-  pin type node must contain following properties:
+			    instance are represented as child nodes of the
+			    controller node.  This is optional.
+
+  Each pin type nodes' name must be unique and one of followings. Also each pin
+  type nodes can be present only when the specific pin type is supported by
+  SoC's TLMM :
+  - gp : General purpose pins
+  - sdc : SDC pins
+  - qdsc : QDSC pins
+
+  Each pin type node must contain following properties:
 
    Required Properties
-   - qcom,pin-type-*: identifies the pin type. Pin types supported are
-			qcom,pin-type-gp: General purpose
-			qcom,pin-type-sdc: SDC
    - #qcom,pin-cells: number of cells in the pin type specifier.
    - qcom,num-pins: number of pins of given type present on the MSM.
    Optional: A pintype may support gpio operations. In that case, a pintype
@@ -39,9 +49,8 @@ semantics.
    - #gpio-cells: Should be two. The first cell is the pin number and the
 			second cell is used to specify optional parameters
    - #interrupt-controller: Can be used as an interrupt controller
-   - compatible: identifies the interrupt controller feature version.
-			- "qcom,msm-tlmmv3-gp-intc": TLMM V3 interrupt chip.
-			- "qcom,msm-tlmmv4-gp-intc": TLMM V4 interrupt chip.
+   - compatible: identifies the interrupt controller.
+			- This should be "qcom,msm-tlmm-gp".
    - num_irqs: number of pins that can be used as an interrupt source.
    - apps_id: if present, override the default core id for given TLMM block.
    - #interrupt-cells: Should be two. The first cell is the pin number used as
@@ -100,26 +109,25 @@ semantics.
   pin configuration should use the bindings listed in the "pinctrl-bindings txt"
   file.
 
-  For TLMMv3, in case of SDC pintype, we model it as containing 6 pins. 3 each
-  for SDC1 and SDC2. Pins 0-2 corresponds to clock, data and command lines of
+  In case of SDC pintype, we model it as containing 6 pins. 3 each for SDC1 and
+  SDC2. Pins 0-2 corresponds to clock, data and command lines of
   SDC1 and Pins 3-5 correspond to clock, data and command lines of SDC2.
 
   Example 1: A pin-controller node with pin types
 
 	pinctrl@fd5110000 {
-		compatible = "qcom,msm-tlmm-v3";
+		compatible = "qcom,msm-tlmm-8974";
 		reg = <0xfd5110000 0x4000>;
 
 		/* General purpose pin type */
 		gp: gp {
-			qcom,pin-type-gp;
 			qcom,num-pins = <117>;
 			#qcom,pin-cells = <1>;
 			/* Supports Gpio controller */
 			msm_gpio: msm_gpio {
 				#gpio-controller;
 				#gpio-cells = <2>;
-				compatible = "msm_tlmm_v3_gpio";
+				compatible = "qcom,msm-tlmm-gp";
 				#interrupt-controller;
 				#interrupt-cells <2>;
 				num_irqs = <117>;
@@ -128,7 +136,6 @@ semantics.
 		};
 		/* Sdc pin type */
 		sdc: sdc {
-			qcom,pin-type-sdc;
 			qcom,num-pins = <6>;
 			#qcom,pin-cells = <1>;
 		};

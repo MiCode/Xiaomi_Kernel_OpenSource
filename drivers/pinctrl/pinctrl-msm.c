@@ -120,7 +120,7 @@ static void msm_pmx_prg_fn(struct pinctrl_dev *pctldev, unsigned selector,
 		pinfo = pindesc[pin].pin_info;
 		pin = pin - pinfo->pin_start;
 		func = dd->pin_grps[group].func;
-		pinfo->prg_func(pin, func, pinfo->reg_base, enable);
+		pinfo->prg_func(pin, func, enable, pinfo);
 	}
 }
 
@@ -150,7 +150,7 @@ static int msm_pmx_gpio_request(struct pinctrl_dev *pctldev,
 	pindesc = dd->msm_pindesc;
 	pinfo = pindesc[pin].pin_info;
 	/* All TLMM versions use function 0 for gpio function */
-	pinfo->prg_func(pin, 0, pinfo->reg_base, true);
+	pinfo->prg_func(pin, 0, true, pinfo);
 	return 0;
 }
 
@@ -174,7 +174,7 @@ static int msm_pconf_prg(struct pinctrl_dev *pctldev, unsigned int pin,
 	pindesc = dd->msm_pindesc;
 	pinfo = pindesc[pin].pin_info;
 	pin = pin - pinfo->pin_start;
-	return pinfo->prg_cfg(pin, config, pinfo->reg_base, rw);
+	return pinfo->prg_cfg(pin, config, rw, pinfo);
 }
 
 static int msm_pconf_set(struct pinctrl_dev *pctldev, unsigned int pin,
@@ -571,8 +571,9 @@ static bool msm_pintype_supports_irq(struct msm_pintype_info *pinfo)
 {
 	struct device_node *pt_node;
 
-	if (!pinfo->init_irq)
+	if (!pinfo->node)
 		return false;
+
 	for_each_child_of_node(pinfo->node, pt_node) {
 		if (of_find_property(pt_node, "interrupt-controller", NULL)) {
 			pinfo->irq_chip->node = pt_node;
@@ -588,7 +589,6 @@ static int msm_pinctrl_dt_parse_pintype(struct device_node *dev_node,
 	struct device_node *pt_node;
 	struct msm_pindesc *msm_pindesc;
 	struct msm_pintype_info *pintype, *pinfo;
-	void __iomem **ptype_base;
 	u32 num_pins, pinfo_entries, curr_pins;
 	int i, ret;
 	uint total_pins = 0;
@@ -600,9 +600,7 @@ static int msm_pinctrl_dt_parse_pintype(struct device_node *dev_node,
 	for_each_child_of_node(dev_node, pt_node) {
 		for (i = 0; i < pinfo_entries; i++) {
 			pintype = &pinfo[i];
-			/* Check if node is pintype node */
-			if (!of_find_property(pt_node, pintype->prop_name,
-									NULL))
+			if (strcmp(pt_node->name, pintype->name))
 				continue;
 			of_node_get(pt_node);
 			pintype->node = pt_node;
@@ -611,14 +609,13 @@ static int msm_pinctrl_dt_parse_pintype(struct device_node *dev_node,
 								&num_pins);
 			if (ret) {
 				dev_err(dd->dev, "num pins not specified\n");
-				return ret;
+				goto fail;
 			}
 			/* determine pin number range for given pin type */
 			pintype->num_pins = num_pins;
 			pintype->pin_start = curr_pins;
 			pintype->pin_end = curr_pins + num_pins;
-			ptype_base = &pintype->reg_base;
-			pintype->set_reg_base(ptype_base, dd->base);
+			pintype->set_reg_base(dd->base, pintype);
 			total_pins += num_pins;
 			curr_pins += num_pins;
 		}
@@ -628,7 +625,7 @@ static int msm_pinctrl_dt_parse_pintype(struct device_node *dev_node,
 						total_pins, GFP_KERNEL);
 	if (!dd->msm_pindesc) {
 		dev_err(dd->dev, "Unable to allocate msm pindesc");
-		goto alloc_fail;
+		goto fail;
 	}
 
 	dd->num_pins = total_pins;
@@ -645,7 +642,7 @@ static int msm_pinctrl_dt_parse_pintype(struct device_node *dev_node,
 		msm_populate_pindesc(pintype, msm_pindesc);
 	}
 	return 0;
-alloc_fail:
+fail:
 	for (i = 0; i < pinfo_entries; i++) {
 		pintype = &pinfo[i];
 		if (pintype->node)
@@ -820,16 +817,10 @@ struct irq_chip mpm_tlmm_irq_extn = {
 };
 
 struct msm_irq_of_info msm_tlmm_irq[] = {
-#ifdef CONFIG_PINCTRL_MSM_TLMM_V3
+#ifdef CONFIG_PINCTRL_MSM_TLMM
 	{
-		.compat = "qcom,msm-tlmmv3-gp-intc",
-		.irq_init = msm_tlmm_v3_of_irq_init,
-	},
-#endif
-#ifdef CONFIG_PINCTRL_MSM_TLMM_V4
-	{
-		.compat = "qcom,msm-tlmmv4-gp-intc",
-		.irq_init = msm_tlmm_v4_of_irq_init,
+		.compat = "qcom,msm-tlmm-gp",
+		.irq_init = msm_tlmm_of_gp_irq_init,
 	},
 #endif
 };
