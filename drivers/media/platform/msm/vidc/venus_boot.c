@@ -65,7 +65,7 @@
 #define VENUS_WRAPPER_CLOCK_CONFIG			0x4
 #define VENUS_WRAPPER_CPU_CLOCK_CONFIG			0x2000
 
-#define VENUS_REGION_START				0x07500000
+#define VENUS_REGION_START				0x0F500000
 #define VENUS_REGION_SIZE				0x00500000
 
 static const char * const clk_names[] = {
