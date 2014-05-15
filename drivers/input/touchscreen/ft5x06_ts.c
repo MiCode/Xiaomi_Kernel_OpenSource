@@ -104,6 +104,7 @@
 #define FT5316_ID		0x0A
 #define FT5306I_ID		0x55
 #define FT6X06_ID		0x06
+#define FT6X36_ID		0x36
 
 #define FT_UPGRADE_AA		0xAA
 #define FT_UPGRADE_55		0x55
@@ -117,10 +118,22 @@
 #define FT_FW_FILE_SUB_MIN_VER(x) 0
 #define FT_FW_FILE_VENDOR_ID(x)	((x)->data[(x)->size - 1])
 
-#define FT_FW_CHECK(x)		\
+#define FT_FW_FILE_MAJ_VER_FT6X36(x)	((x)->data[0x10a])
+#define FT_FW_FILE_VENDOR_ID_FT6X36(x)	((x)->data[0x108])
+
+/**
+* Application data verification will be run before upgrade flow.
+* Firmware image stores some flags with negative and positive value
+* in corresponding addresses, we need pick them out do some check to
+* make sure the application data is valid.
+*/
+#define FT_FW_CHECK(x, ts_data) \
+	(ts_data->family_id == FT6X36_ID ? \
+	(((x)->data[0x104] ^ (x)->data[0x105]) == 0xFF \
+	&& ((x)->data[0x106] ^ (x)->data[0x107]) == 0xFF) : \
 	(((x)->data[(x)->size - 8] ^ (x)->data[(x)->size - 6]) == 0xFF \
-	&& (((x)->data[(x)->size - 7] ^ (x)->data[(x)->size - 5]) == 0xFF \
-	&& (((x)->data[(x)->size - 3] ^ (x)->data[(x)->size - 4]) == 0xFF)))
+	&& ((x)->data[(x)->size - 7] ^ (x)->data[(x)->size - 5]) == 0xFF \
+	&& ((x)->data[(x)->size - 3] ^ (x)->data[(x)->size - 4]) == 0xFF))
 
 #define FT_MAX_TRIES		5
 #define FT_RETRY_DLY		20
@@ -793,7 +806,8 @@ static int ft5x06_fw_upgrade_start(struct i2c_client *client,
 	for (i = 0, j = 0; i < FT_UPGRADE_LOOP; i++) {
 		msleep(FT_EARSE_DLY_MS);
 		/* reset - write 0xaa and 0x55 to reset register */
-		if (ts_data->family_id == FT6X06_ID)
+		if (ts_data->family_id == FT6X06_ID
+			|| ts_data->family_id == FT6X36_ID)
 			reset_reg = FT_RST_CMD_REG2;
 		else
 			reset_reg = FT_RST_CMD_REG1;
@@ -1003,10 +1017,15 @@ static int ft5x06_fw_upgrade(struct device *dev, bool force)
 		goto rel_fw;
 	}
 
-	fw_file_maj = FT_FW_FILE_MAJ_VER(fw);
+	if (data->family_id == FT6X36_ID) {
+		fw_file_maj = FT_FW_FILE_MAJ_VER_FT6X36(fw);
+		fw_file_vendor_id = FT_FW_FILE_VENDOR_ID_FT6X36(fw);
+	} else {
+		fw_file_maj = FT_FW_FILE_MAJ_VER(fw);
+		fw_file_vendor_id = FT_FW_FILE_VENDOR_ID(fw);
+	}
 	fw_file_min = FT_FW_FILE_MIN_VER(fw);
 	fw_file_sub_min = FT_FW_FILE_SUB_MIN_VER(fw);
-	fw_file_vendor_id = FT_FW_FILE_VENDOR_ID(fw);
 
 	dev_info(dev, "Current firmware: %d.%d.%d", data->fw_ver[0],
 				data->fw_ver[1], data->fw_ver[2]);
@@ -1026,7 +1045,7 @@ static int ft5x06_fw_upgrade(struct device *dev, bool force)
 	}
 
 	/* start firmware upgrade */
-	if (FT_FW_CHECK(fw)) {
+	if (FT_FW_CHECK(fw, data)) {
 		rc = ft5x06_fw_upgrade_start(data->client, fw->data, fw->size);
 		if (rc < 0)
 			dev_err(dev, "update failed (%d). try later...\n", rc);

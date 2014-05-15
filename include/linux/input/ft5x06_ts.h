@@ -3,7 +3,7 @@
  * FocalTech ft5x06 TouchScreen driver header file.
  *
  * Copyright (c) 2010  Focal tech Ltd.
- * Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -22,6 +22,7 @@
 #define FT5X16_ID		0x0A
 #define FT5X36_ID		0x14
 #define FT6X06_ID		0x06
+#define FT6X36_ID       0x36
 
 struct fw_upgrade_info {
 	bool auto_cal;
