@@ -82,51 +82,58 @@
 
 		frame@b021000 {
 			frame-number = <0>;
-			interrupts = <0 8 0x4>,
-				     <0 7 0x4>;
+			interrupts = <0 7 0x4>,
+				     <0 6 0x4>;
 			reg = <0xb021000 0x1000>,
 			      <0xb022000 0x1000>;
 		};
 
 		frame@b023000 {
 			frame-number = <1>;
-			interrupts = <0 9 0x4>;
+			interrupts = <0 8 0x4>;
 			reg = <0xb023000 0x1000>;
 			status = "disabled";
 		};
 
 		frame@b024000 {
 			frame-number = <2>;
-			interrupts = <0 10 0x4>;
+			interrupts = <0 9 0x4>;
 			reg = <0xb024000 0x1000>;
 			status = "disabled";
 		};
 
 		frame@b025000 {
 			frame-number = <3>;
-			interrupts = <0 11 0x4>;
+			interrupts = <0 10 0x4>;
 			reg = <0xb025000 0x1000>;
 			status = "disabled";
 		};
 
 		frame@b026000 {
 			frame-number = <4>;
-			interrupts = <0 12 0x4>;
+			interrupts = <0 11 0x4>;
 			reg = <0xb026000 0x1000>;
 			status = "disabled";
 		};
 
 		frame@b027000 {
 			frame-number = <5>;
-			interrupts = <0 13 0x4>;
+			interrupts = <0 12 0x4>;
 			reg = <0xb027000 0x1000>;
 			status = "disabled";
 		};
 
 		frame@b028000 {
 			frame-number = <6>;
-			interrupts = <0 14 0x4>;
+			interrupts = <0 13 0x4>;
 			reg = <0xb028000 0x1000>;
+			status = "disabled";
+		};
+
+		frame@b029000 {
+			frame-number = <7>;
+			interrupts = <0 14 0x4>;
+			reg = <0xb029000 0x1000>;
 			status = "disabled";
 		};
 	};
