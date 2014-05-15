@@ -35,6 +35,8 @@
 #include <linux/v4l2-mediabus.h>
 
 #include <linux/atomisp_platform.h>
+#include <linux/atomisp_gmin_platform.h>
+
 #include "ad5823.h"
 
 #define OV5693_NAME		"ov5693"

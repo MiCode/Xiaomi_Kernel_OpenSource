@@ -1075,6 +1075,21 @@ static int ov5693_s_config(struct v4l2_subdev *sd,
 		dev_err(&client->dev, "ov5693 power-off err.\n");
 		goto fail_csi_cfg;
 	}
+
+	/* Register the atomisp platform data prior to the ISP module
+	 * load.  Ideally this would be stored as data on the
+	 * subdevices, but this API matches upstream better. */
+	ret = atomisp_register_i2c_module(sd, client, platform_data,
+					  getvar_int(&client->dev, "CamType",
+						     RAW_CAMERA),
+					  getvar_int(&client->dev, "CsiPort",
+						     ATOMISP_CAMERA_PORT_PRIMARY));
+	if (ret) {
+		dev_err(&client->dev,
+			"ov5693 atomisp_register_i2c_module failed.\n");
+		goto fail_csi_cfg;
+	}
+
 	mutex_unlock(&dev->input_lock);
 
 	return 0;
