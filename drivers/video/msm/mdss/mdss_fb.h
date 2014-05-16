@@ -141,9 +141,15 @@ struct msm_mdp_interface {
 					/ (2 * max_bright);\
 					} while (0)
 
+struct mdss_fb_file_info {
+	struct file *file;
+	struct list_head list;
+};
+
 struct mdss_fb_proc_info {
 	int pid;
 	u32 ref_cnt;
+	struct list_head file_list;
 	struct list_head list;
 };
 
