@@ -68,6 +68,14 @@ do {									\
 
 #define to_cti_drvdata(c) container_of(c, struct cti_drvdata, cti)
 
+struct cti_state {
+	unsigned int cticontrol;
+	unsigned int ctiappset;
+	unsigned int ctigate;
+	unsigned int ctiinen[CTI_MAX_TRIGGERS];
+	unsigned int ctiouten[CTI_MAX_TRIGGERS];
+};
+
 struct cti_drvdata {
 	void __iomem			*base;
 	struct device			*dev;
@@ -77,6 +85,7 @@ struct cti_drvdata {
 	struct coresight_cti		cti;
 	int				refcnt;
 	bool				cti_save;
+	struct cti_state	*state;
 };
 
 static LIST_HEAD(cti_list);
@@ -1047,6 +1056,14 @@ static int cti_probe(struct platform_device *pdev)
 		ret = clk_prepare_enable(drvdata->clk);
 		if (ret)
 			return ret;
+
+		drvdata->state = devm_kzalloc(dev,
+						sizeof(struct cti_state),
+						GFP_KERNEL);
+		if (!drvdata->state) {
+			ret = -ENOMEM;
+			goto err;
+		}
 	}
 
 	mutex_lock(&cti_lock);
@@ -1088,6 +1105,79 @@ static int cti_remove(struct platform_device *pdev)
 	coresight_unregister(drvdata->csdev);
 	return 0;
 }
+
+void coresight_cti_ctx_save(void)
+{
+	struct cti_drvdata *drvdata;
+	struct coresight_cti *cti;
+	int trig;
+
+	list_for_each_entry(cti, &cti_list, link) {
+		drvdata = to_cti_drvdata(cti);
+		if (!drvdata->cti_save)
+			continue;
+
+		spin_lock(&drvdata->spinlock);
+		if (drvdata->cti_save) {
+			drvdata->state->cticontrol =
+				cti_readl(drvdata, CTICONTROL);
+			drvdata->state->ctiappset =
+				cti_readl(drvdata, CTIAPPSET);
+			drvdata->state->ctigate =
+				cti_readl(drvdata, CTIGATE);
+			for (trig = 0;
+			     trig < CTI_MAX_TRIGGERS;
+			     trig++) {
+				drvdata->state->ctiinen[trig] =
+					cti_readl(drvdata, CTIINEN(trig));
+				drvdata->state->ctiouten[trig] =
+					cti_readl(drvdata, CTIOUTEN(trig));
+			}
+		}
+		spin_unlock(&drvdata->spinlock);
+	}
+}
+EXPORT_SYMBOL(coresight_cti_ctx_save);
+
+void coresight_cti_ctx_restore(void)
+{
+	struct cti_drvdata *drvdata;
+	struct coresight_cti *cti;
+	int trig;
+
+	list_for_each_entry(cti, &cti_list, link) {
+		drvdata = to_cti_drvdata(cti);
+		if (!drvdata->cti_save)
+			continue;
+
+		spin_lock(&drvdata->spinlock);
+		if (drvdata->cti_save) {
+			CTI_UNLOCK(drvdata);
+			cti_writel(drvdata,
+				   drvdata->state->ctiappset,
+				   CTIAPPSET);
+			cti_writel(drvdata,
+				   drvdata->state->ctigate,
+				   CTIGATE);
+			for (trig = 0;
+			     trig < CTI_MAX_TRIGGERS;
+			     trig++) {
+				cti_writel(drvdata,
+					   drvdata->state->ctiinen[trig],
+				CTIINEN(trig));
+				cti_writel(drvdata,
+					   drvdata->state->ctiouten[trig],
+					   CTIOUTEN(trig));
+			}
+			cti_writel(drvdata,
+				   drvdata->state->cticontrol,
+				   CTICONTROL);
+			CTI_LOCK(drvdata);
+		}
+		spin_unlock(&drvdata->spinlock);
+	}
+}
+EXPORT_SYMBOL(coresight_cti_ctx_restore);
 
 static struct of_device_id cti_match[] = {
 	{.compatible = "arm,coresight-cti"},
