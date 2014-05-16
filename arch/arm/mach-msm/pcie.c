@@ -1671,7 +1671,6 @@ static int __init pcie_init(void)
 		msm_pcie_dev[i].cfg_access = true;
 		mutex_init(&msm_pcie_dev[i].setup_lock);
 		mutex_init(&msm_pcie_dev[i].recovery_lock);
-		mutex_init(&msm_pcie_dev[i].linkdown_lock);
 	}
 
 	ret = platform_driver_register(&msm_pcie_driver);
@@ -1827,10 +1826,12 @@ void msm_pcie_fixup_resume(struct pci_dev *dev)
 		return;
 	}
 
+	mutex_lock(&pcie_dev->recovery_lock);
 	ret = msm_pcie_pm_resume(dev, NULL, NULL, 0);
 	if (ret)
 		pr_err("PCIe: RC%d got failure in fixup resume:%d.\n",
 			pcie_dev->rc_idx, ret);
+	mutex_unlock(&pcie_dev->recovery_lock);
 }
 DECLARE_PCI_FIXUP_RESUME(PCIE_VENDOR_ID_RCP, PCIE_DEVICE_ID_RCP,
 				 msm_pcie_fixup_resume);
@@ -1852,10 +1853,12 @@ void msm_pcie_fixup_resume_early(struct pci_dev *dev)
 		return;
 	}
 
+	mutex_lock(&pcie_dev->recovery_lock);
 	ret = msm_pcie_pm_resume(dev, NULL, NULL, 0);
 	if (ret)
 		pr_err("PCIe: RC%d got failure in resume:%d.\n",
 			pcie_dev->rc_idx, ret);
+	mutex_unlock(&pcie_dev->recovery_lock);
 }
 DECLARE_PCI_FIXUP_RESUME_EARLY(PCIE_VENDOR_ID_RCP, PCIE_DEVICE_ID_RCP,
 				 msm_pcie_fixup_resume_early);
@@ -1912,10 +1915,10 @@ int msm_pcie_pm_control(enum msm_pcie_pm_opt pm_opt, u32 busnr, void *user,
 				rc_idx, msm_pcie_dev[rc_idx].link_status);
 			break;
 		}
-		if (!(options & MSM_PCIE_CONFIG_LINKDOWN))
+		if (!(options & MSM_PCIE_CONFIG_LINKDOWN)) {
 			msm_pcie_dev[rc_idx].user_suspend = true;
-
-		mutex_lock(&msm_pcie_dev[rc_idx].recovery_lock);
+			mutex_lock(&msm_pcie_dev[rc_idx].recovery_lock);
+		}
 		ret = msm_pcie_pm_suspend(dev, user, data, options);
 		if (ret) {
 			pr_err(
@@ -1923,7 +1926,8 @@ int msm_pcie_pm_control(enum msm_pcie_pm_opt pm_opt, u32 busnr, void *user,
 				rc_idx);
 			msm_pcie_dev[rc_idx].user_suspend = false;
 		}
-		mutex_unlock(&msm_pcie_dev[rc_idx].recovery_lock);
+		if (!(options & MSM_PCIE_CONFIG_LINKDOWN))
+			mutex_unlock(&msm_pcie_dev[rc_idx].recovery_lock);
 		break;
 	case MSM_PCIE_RESUME:
 		PCIE_DBG("User of RC%d requests to resume the link\n", rc_idx);
@@ -1934,12 +1938,16 @@ int msm_pcie_pm_control(enum msm_pcie_pm_opt pm_opt, u32 busnr, void *user,
 				rc_idx, msm_pcie_dev[rc_idx].link_status);
 			break;
 		}
+		if (!(options & MSM_PCIE_CONFIG_LINKDOWN))
+			mutex_lock(&msm_pcie_dev[rc_idx].recovery_lock);
 		ret = msm_pcie_pm_resume(dev, user, data, options);
 		if (ret)
 			pr_err("PCIe: RC%d: user failed to resume the link.\n",
 				rc_idx);
 		else
 			msm_pcie_dev[rc_idx].user_suspend = false;
+		if (!(options & MSM_PCIE_CONFIG_LINKDOWN))
+			mutex_unlock(&msm_pcie_dev[rc_idx].recovery_lock);
 		break;
 	default:
 		pr_err("PCIe: RC%d: unsupported pm operation:%d.\n",

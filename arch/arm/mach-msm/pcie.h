@@ -201,7 +201,6 @@ struct msm_pcie_dev_t {
 	int                          handling_linkdown;
 	bool                         recovery_pending;
 	struct mutex                 recovery_lock;
-	struct mutex                 linkdown_lock;
 	ulong                        linkdown_counter;
 	bool                         suspending;
 	ulong                        wake_counter;
