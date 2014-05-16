@@ -1828,9 +1828,20 @@ void msm_pcie_fixup_resume(struct pci_dev *dev)
 
 	mutex_lock(&pcie_dev->recovery_lock);
 	ret = msm_pcie_pm_resume(dev, NULL, NULL, 0);
-	if (ret)
+	if (ret) {
 		pr_err("PCIe: RC%d got failure in fixup resume:%d.\n",
 			pcie_dev->rc_idx, ret);
+
+		if (pcie_dev->event_reg && pcie_dev->event_reg->callback &&
+			(pcie_dev->event_reg->events &
+				MSM_PCIE_EVENT_WAKE_RECOVERY)) {
+			pcie_dev->recovery_pending = true;
+			PCIE_DBG(
+				"PCIe: wait for wake IRQ to recover the link for RC%d\n",
+				pcie_dev->rc_idx);
+		}
+	}
+
 	mutex_unlock(&pcie_dev->recovery_lock);
 }
 DECLARE_PCI_FIXUP_RESUME(PCIE_VENDOR_ID_RCP, PCIE_DEVICE_ID_RCP,
@@ -1855,9 +1866,19 @@ void msm_pcie_fixup_resume_early(struct pci_dev *dev)
 
 	mutex_lock(&pcie_dev->recovery_lock);
 	ret = msm_pcie_pm_resume(dev, NULL, NULL, 0);
-	if (ret)
+	if (ret) {
 		pr_err("PCIe: RC%d got failure in resume:%d.\n",
 			pcie_dev->rc_idx, ret);
+
+		if (pcie_dev->event_reg && pcie_dev->event_reg->callback &&
+			(pcie_dev->event_reg->events &
+				MSM_PCIE_EVENT_WAKE_RECOVERY)) {
+			pcie_dev->recovery_pending = true;
+			PCIE_DBG(
+				"PCIe: wait for wake IRQ to recover the link for RC%d\n",
+				pcie_dev->rc_idx);
+		}
+	}
 	mutex_unlock(&pcie_dev->recovery_lock);
 }
 DECLARE_PCI_FIXUP_RESUME_EARLY(PCIE_VENDOR_ID_RCP, PCIE_DEVICE_ID_RCP,
@@ -1941,11 +1962,14 @@ int msm_pcie_pm_control(enum msm_pcie_pm_opt pm_opt, u32 busnr, void *user,
 		if (!(options & MSM_PCIE_CONFIG_LINKDOWN))
 			mutex_lock(&msm_pcie_dev[rc_idx].recovery_lock);
 		ret = msm_pcie_pm_resume(dev, user, data, options);
-		if (ret)
+		if (ret) {
 			pr_err("PCIe: RC%d: user failed to resume the link.\n",
 				rc_idx);
-		else
+		} else {
 			msm_pcie_dev[rc_idx].user_suspend = false;
+			msm_pcie_dev[rc_idx].recovery_pending = false;
+		}
+
 		if (!(options & MSM_PCIE_CONFIG_LINKDOWN))
 			mutex_unlock(&msm_pcie_dev[rc_idx].recovery_lock);
 		break;
