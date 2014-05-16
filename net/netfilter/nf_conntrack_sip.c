@@ -72,16 +72,6 @@ static struct ctl_table sip_sysctl_tbl[] = {
 	{}
 };
 
-static struct ctl_path sip_sysctls_path[] = {
-	{
-		.procname  = "net",
-	},
-	{
-		.procname  = "netfilter",
-	},
-	{}
-};
-
 static int string_len(const struct nf_conn *ct, const char *dptr,
 		      const char *limit, int *shift)
 {
@@ -1646,8 +1636,8 @@ static int __init nf_conntrack_sip_init(void)
 	int i, ret;
 
 	NF_CT_HELPER_BUILD_BUG_ON(sizeof(struct nf_ct_sip_master));
-	sip_sysctl_header = register_sysctl_paths(sip_sysctls_path,
-						  sip_sysctl_tbl);
+	sip_sysctl_header = register_net_sysctl(&init_net, "net/netfilter",
+						sip_sysctl_tbl);
 	if (!sip_sysctl_header)
 		pr_debug("nf_ct_sip:Unable to register SIP systbl\n");
 
