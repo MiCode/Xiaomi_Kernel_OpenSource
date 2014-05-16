@@ -20,8 +20,13 @@
  * are mapped into all pagetables.
  */
 #define KGSL_GLOBAL_PT_SIZE	SZ_4M
-#define KGSL_IOMMU_GLOBAL_MEM_BASE	0xf8000000
+#define KGSL_MMU_GLOBAL_MEM_BASE	0xf8000000
 
+/* Virtual memory range to map non-kgsl allocations */
+#define KGSL_MMU_MAPPED_MEM_BASE	KGSL_SVM_UPPER_BOUND
+#define KGSL_MMU_MAPPED_MEM_SIZE	(KGSL_MMU_GLOBAL_MEM_BASE -	\
+					KGSL_MMU_MAPPED_MEM_BASE -	\
+					SZ_1M)
 /* defconfig option for disabling per process pagetables */
 #ifdef CONFIG_KGSL_PER_PROCESS_PAGE_TABLE
 #define KGSL_MMU_USE_PER_PROCESS_PT true
@@ -145,8 +150,6 @@ struct kgsl_mmu {
 	unsigned long pt_size;
 	bool pt_per_process;
 	bool use_cpu_map;
-	unsigned long global_pt_base;
-	size_t global_pt_size;
 };
 
 extern struct kgsl_mmu_ops iommu_ops;
@@ -362,31 +365,6 @@ static inline int kgsl_mmu_is_perprocess(struct kgsl_mmu *mmu)
 static inline int kgsl_mmu_use_cpu_map(struct kgsl_mmu *mmu)
 {
 	return mmu->use_cpu_map;
-}
-
-/*
- * kgsl_mmu_base_addr() - Get gpu virtual address base.
- * @mmu: the mmu
- *
- * Returns the start address of the allocatable gpu
- * virtual address space. Other mappings that mirror
- * the CPU address space are possible outside this range.
- */
-static inline unsigned int kgsl_mmu_get_base_addr(struct kgsl_mmu *mmu)
-{
-	return mmu->pt_base;
-}
-
-/*
- * kgsl_mmu_get_ptsize() - Get gpu pagetable size
- * @mmu: the mmu
- *
- * Returns the usable size of the gpu allocatable
- * address space.
- */
-static inline unsigned int kgsl_mmu_get_ptsize(struct kgsl_mmu *mmu)
-{
-	return mmu->pt_size;
 }
 
 static inline int kgsl_mmu_sync_lock(struct kgsl_mmu *mmu,

@@ -1341,13 +1341,6 @@ static int kgsl_iommu_init(struct kgsl_mmu *mmu)
 	if (!iommu)
 		return -ENOMEM;
 
-	/*
-	 * These are constant for all cases so set them early so
-	 * kgsl_set_register_map() can use them
-	 */
-	mmu->global_pt_base = KGSL_IOMMU_GLOBAL_MEM_BASE;
-	mmu->global_pt_size = KGSL_GLOBAL_PT_SIZE;
-
 	mmu->priv = iommu;
 	status = kgsl_get_iommu_ctxt(mmu);
 	if (status)
@@ -1370,25 +1363,9 @@ static int kgsl_iommu_init(struct kgsl_mmu *mmu)
 						"gtcu_iface_clk") >= 0)
 		iommu->gtcu_iface_clk = clk_get(&pdev->dev, "gtcu_iface_clk");
 
-	/*
-	 * For IOMMU per-process pagetables, the allocatable range
-	 * and the kernel global range must both be outside
-	 * the userspace address range. There is a 1Mb gap
-	 * between these address ranges to make overrun
-	 * detection easier.
-	 * For the shared pagetable case use 2GB and because
-	 * mirroring the CPU address space is not possible and
-	 * we're better off with extra room.
-	 */
-	if (mmu->pt_per_process) {
-		mmu->pt_base = KGSL_PER_PROCESS_PT_BASE;
-		mmu->pt_size = KGSL_PER_PROCESS_PT_SIZE;
-		mmu->use_cpu_map = true;
-	} else {
-		mmu->pt_base = KGSL_PAGETABLE_BASE;
-		mmu->pt_size = SZ_2G;
-		mmu->use_cpu_map = false;
-	}
+	mmu->pt_base = KGSL_MMU_MAPPED_MEM_BASE;
+	mmu->pt_size = KGSL_MMU_MAPPED_MEM_SIZE;
+	mmu->use_cpu_map = mmu->pt_per_process;
 
 	status = kgsl_iommu_init_sync_lock(mmu);
 	if (status)
