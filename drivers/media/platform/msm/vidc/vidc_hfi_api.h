@@ -59,6 +59,10 @@
 #define HAL_DEBUG_MSG_FATAL				0x00000010
 #define MAX_PROFILE_COUNT	16
 
+#define HAL_MAX_MATRIX_COEFFS 9
+#define HAL_MAX_BIAS_COEFFS 3
+#define HAL_MAX_LIMIT_COEFFS 6
+
 enum vidc_status {
 	VIDC_ERR_NONE = 0x0,
 	VIDC_ERR_FAIL = 0x80000000,
@@ -203,6 +207,7 @@ enum hal_property {
 	HAL_PARAM_VENC_DISABLE_RC_TIMESTAMP,
 	HAL_PARAM_VENC_ENABLE_INITIAL_QP,
 	HAL_PARAM_VENC_SEARCH_RANGE,
+	HAL_PARAM_VPE_COLOR_SPACE_CONVERSION,
 };
 
 enum hal_domain {
@@ -861,6 +866,12 @@ struct hal_vc1e_perf_cfg_type {
 		u32 x_subsampled;
 		u32 y_subsampled;
 	} i_frame, p_frame, b_frame;
+};
+
+struct hal_vpe_color_space_conversion {
+	u32 csc_matrix[HAL_MAX_MATRIX_COEFFS];
+	u32 csc_bias[HAL_MAX_BIAS_COEFFS];
+	u32 csc_limit[HAL_MAX_LIMIT_COEFFS];
 };
 
 enum vidc_resource_id {

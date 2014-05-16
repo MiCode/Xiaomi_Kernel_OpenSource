@@ -609,6 +609,10 @@ struct hfi_h264_vui_timing_info {
 #define HFI_COLOR_FORMAT_RGB888				(HFI_COMMON_BASE + 0xC)
 #define HFI_COLOR_FORMAT_BGR888				(HFI_COMMON_BASE + 0xD)
 
+#define HFI_MAX_MATRIX_COEFFS 9
+#define HFI_MAX_BIAS_COEFFS 3
+#define HFI_MAX_LIMIT_COEFFS 6
+
 struct hfi_uncompressed_format_select {
 	u32 buffer_type;
 	u32 format;
@@ -652,6 +656,12 @@ struct hfi_codec_supported {
 struct hfi_properties_supported {
 	u32 num_properties;
 	u32 rg_properties[1];
+};
+
+struct hfi_vpe_color_space_conversion {
+	u32 csc_matrix[HFI_MAX_MATRIX_COEFFS];
+	u32 csc_bias[HFI_MAX_BIAS_COEFFS];
+	u32 csc_limit[HFI_MAX_LIMIT_COEFFS];
 };
 
 #define HFI_ROTATE_NONE					(HFI_COMMON_BASE + 0x1)
