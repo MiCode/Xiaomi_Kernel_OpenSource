@@ -217,32 +217,3 @@ Example MSM HSUSB EHCI controller device node :
 		qcom,vdd-voltage-level = <1 2 3 5 7>;
 		qcom,usb2-enable-uicc;
 	};
-
-ANDROID USB:
-
-Required properties:
-- compatible: should be "qcom,android-usb"
-
-Optional properties :
-- reg  : offset and length of memory region that is used by device to
-  update USB PID and serial numbers used by bootloader in DLOAD mode.
-- qcom,android-usb-swfi-latency : value to be used by device to vote
-  for DMA latency in microsecs.
-- qcom,streaming-func : add list of usb function name. If mention usb function
-  is being enable as part of USB composition, streaming mode is enable with
-  usb device controller to get better throughput. NOTE: Inverted CRC and
-  turnaround timeout is observed on enabling streaming. Hence it is required
-  to see these errors and number of erros on enabling this at USB level to make
-  final decision to enable this feature or not.
-- qcom,android-usb-cdrom : if this property is present then device creates
-  a new LUN as CD-ROM.
-- qcom,android-usb-uicc-nluns : Number of mass storage LUNs (8 bits) required
-  for the UICC card.
-Example Android USB device node :
-	android_usb@fc42b0c8 {
-		compatible = "qcom,android-usb";
-		reg = <0xfc42b0c8 0xc8>;
-		qcom,android-usb-swfi-latency = <1>;
-		qcom,streaming-func = "rndis","mtp";
-		qcom,android-usb-uicc-nluns = /bits/ 8 <1>;
-	};
