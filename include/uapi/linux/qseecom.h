@@ -18,7 +18,7 @@
 struct qseecom_register_listener_req {
 	uint32_t listener_id; /* in */
 	int32_t ifd_data_fd; /* in */
-	uint32_t virt_sb_base; /* in */
+	void *virt_sb_base; /* in */
 	uint32_t sb_size; /* in */
 };
 
@@ -95,7 +95,7 @@ struct qseecom_load_img_req {
 
 struct qseecom_set_sb_mem_param_req {
 	int32_t ifd_data_fd; /* in */
-	uint32_t virt_sb_base; /* in */
+	void *virt_sb_base; /* in */
 	uint32_t sb_len; /* in */
 };
 
@@ -202,6 +202,10 @@ struct qseecom_qteec_modfd_req {
 	struct qseecom_ion_fd_info ifd_data[MAX_ION_FD];
 };
 
+struct file;
+
+extern long qseecom_ioctl(struct file *file,
+					unsigned cmd, unsigned long arg);
 
 #define QSEECOM_IOC_MAGIC    0x97
 
