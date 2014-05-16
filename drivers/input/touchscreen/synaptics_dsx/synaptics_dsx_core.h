@@ -25,6 +25,7 @@
 #define SYNAPTICS_DSX_DRIVER_VERSION 0x2001
 
 #include <linux/version.h>
+#include <linux/debugfs.h>
 
 #if defined(CONFIG_FB)
 #include <linux/notifier.h>
@@ -236,6 +237,7 @@ struct synaptics_rmi4_data {
 #elif defined(CONFIG_HAS_EARLYSUSPEND)
 	struct early_suspend early_suspend;
 #endif
+	struct dentry *dir;
 	unsigned char current_page;
 	unsigned char button_0d_enabled;
 	unsigned char full_pm_cycle;

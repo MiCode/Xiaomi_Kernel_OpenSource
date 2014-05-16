@@ -33,6 +33,7 @@
 #endif
 
 #define INPUT_PHYS_NAME "synaptics_dsx/input0"
+#define DEBUGFS_DIR_NAME "ts_debug"
 
 #ifdef KERNEL_ABOVE_2_6_38
 #define TYPE_B_PROTOCOL
@@ -363,7 +364,29 @@ static struct device_attribute attrs[] = {
 			synaptics_rmi4_suspend_store),
 };
 
+static int synaptics_rmi4_debug_suspend_set(void *_data, u64 val)
+{
+	struct synaptics_rmi4_data *rmi4_data = _data;
 
+	if (val)
+		synaptics_rmi4_suspend(&rmi4_data->input_dev->dev);
+	else
+		synaptics_rmi4_resume(&rmi4_data->input_dev->dev);
+
+	return 0;
+}
+
+static int synaptics_rmi4_debug_suspend_get(void *_data, u64 *val)
+{
+	struct synaptics_rmi4_data *rmi4_data = _data;
+
+	*val = rmi4_data->suspended;
+
+	return 0;
+}
+
+DEFINE_SIMPLE_ATTRIBUTE(debug_suspend_fops, synaptics_rmi4_debug_suspend_get,
+			synaptics_rmi4_debug_suspend_set, "%lld\n");
 
 static ssize_t synaptics_rmi4_full_pm_cycle_show(struct device *dev,
 		struct device_attribute *attr, char *buf)
@@ -2774,6 +2797,7 @@ static int synaptics_rmi4_probe(struct platform_device *pdev)
 	struct synaptics_rmi4_data *rmi4_data;
 	const struct synaptics_dsx_hw_interface *hw_if;
 	const struct synaptics_dsx_board_data *bdata;
+	struct dentry *temp;
 
 	hw_if = pdev->dev.platform_data;
 	if (!hw_if) {
@@ -2909,6 +2933,25 @@ static int synaptics_rmi4_probe(struct platform_device *pdev)
 			&exp_data.work,
 			msecs_to_jiffies(EXP_FN_WORK_DELAY_MS));
 
+	rmi4_data->dir = debugfs_create_dir(DEBUGFS_DIR_NAME, NULL);
+	if (rmi4_data->dir == NULL || IS_ERR(rmi4_data->dir)) {
+		retval = rmi4_data->dir ? PTR_ERR(rmi4_data->dir) : -EIO;
+		dev_err(&pdev->dev,
+			"%s: Failed to create debugfs directory, rc = %d\n",
+			__func__, retval);
+		goto err_create_debugfs_dir;
+	}
+
+	temp = debugfs_create_file("suspend", S_IRUSR | S_IWUSR, rmi4_data->dir,
+					rmi4_data, &debug_suspend_fops);
+	if (temp == NULL || IS_ERR(temp)) {
+		retval = temp ? PTR_ERR(temp) : -EIO;
+		dev_err(&pdev->dev,
+			"%s: Failed to create suspend debugfs file, rc = %d\n",
+			__func__, retval);
+		goto err_create_debugfs_file;
+	}
+
 	for (attr_count = 0; attr_count < ARRAY_SIZE(attrs); attr_count++) {
 		retval = sysfs_create_file(&rmi4_data->input_dev->dev.kobj,
 				&attrs[attr_count].attr);
@@ -2927,12 +2970,15 @@ err_sysfs:
 		sysfs_remove_file(&rmi4_data->input_dev->dev.kobj,
 				&attrs[attr_count].attr);
 	}
-
+err_create_debugfs_file:
+	debugfs_remove_recursive(rmi4_data->dir);
+err_create_debugfs_dir:
 	cancel_delayed_work_sync(&exp_data.work);
 	flush_workqueue(exp_data.workqueue);
 	destroy_workqueue(exp_data.workqueue);
 
 	synaptics_rmi4_irq_enable(rmi4_data, false);
+	free_irq(rmi4_data->irq, rmi4_data);
 
 err_enable_irq:
 #if defined(CONFIG_FB)
@@ -3003,6 +3049,7 @@ static int synaptics_rmi4_remove(struct platform_device *pdev)
 				&attrs[attr_count].attr);
 	}
 
+	debugfs_remove_recursive(rmi4_data->dir);
 	cancel_delayed_work_sync(&exp_data.work);
 	flush_workqueue(exp_data.workqueue);
 	destroy_workqueue(exp_data.workqueue);
