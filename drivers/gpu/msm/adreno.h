@@ -1137,8 +1137,12 @@ static inline void adreno_set_protected_registers(struct kgsl_device *device,
 	unsigned int val;
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
 
-	/* There are only 16 registers available */
-	BUG_ON(*index >= 16);
+	/* A430 has 24 registers (yay!).  Everything else has 16 (boo!) */
+
+	if (adreno_is_a430(adreno_dev))
+		BUG_ON(*index >= 24);
+	else
+		BUG_ON(*index >= 16);
 
 	val = 0x60000000 | ((mask_len & 0x1F) << 24) | ((reg << 2) & 0xFFFFF);
 
