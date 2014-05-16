@@ -35,64 +35,64 @@
 			device_type = "cpu";
 			compatible = "arm,cortex-a53";
 			reg = <0x0>;
-			enable-method = "spin-table";
-			cpu-release-addr = <0x0 0x06000000>;
+			enable-method = "qcom,arm-cortex-acc";
+			qcom,acc = <&acc0>;
 		};
 
 		cpu@1 {
 			device_type = "cpu";
 			compatible = "arm,cortex-a53";
 			reg = <0x1>;
-			enable-method = "spin-table";
-			cpu-release-addr = <0x0 0x06000000>;
+			enable-method = "qcom,arm-cortex-acc";
+			qcom,acc = <&acc1>;
 		};
 
 		cpu@2 {
 			device_type = "cpu";
 			compatible = "arm,cortex-a53";
 			reg = <0x2>;
-			enable-method = "spin-table";
-			cpu-release-addr = <0x0 0x06000000>;
+			enable-method = "qcom,arm-cortex-acc";
+			qcom,acc = <&acc2>;
 		};
 
 		cpu@3 {
 			device_type = "cpu";
 			compatible = "arm,cortex-a53";
 			reg = <0x3>;
-			enable-method = "spin-table";
-			cpu-release-addr = <0x0 0x06000000>;
+			enable-method = "qcom,arm-cortex-acc";
+			qcom,acc = <&acc3>;
 		};
 
 		cpu@100 {
 			device_type = "cpu";
 			compatible = "arm,cortex-a57";
 			reg = <0x100>;
-			enable-method = "spin-table";
-			cpu-release-addr = <0x0 0x06000000>;
+			enable-method = "qcom,arm-cortex-acc";
+			qcom,acc = <&acc4>;
 		};
 
 		cpu@101 {
 			device_type = "cpu";
 			compatible = "arm,cortex-a57";
 			reg = <0x101>;
-			enable-method = "spin-table";
-			cpu-release-addr = <0x0 0x06000000>;
+			enable-method = "qcom,arm-cortex-acc";
+			qcom,acc = <&acc5>;
 		};
 
 		cpu@102 {
 			device_type = "cpu";
 			compatible = "arm,cortex-a57";
 			reg = <0x102>;
-			enable-method = "spin-table";
-			cpu-release-addr = <0x0 0x06000000>;
+			enable-method = "qcom,arm-cortex-acc";
+			qcom,acc = <&acc6>;
 		};
 
 		cpu@103 {
 			device_type = "cpu";
 			compatible = "arm,cortex-a57";
 			reg = <0x103>;
-			enable-method = "spin-table";
-			cpu-release-addr = <0x0 0x06000000>;
+			enable-method = "qcom,arm-cortex-acc";
+			qcom,acc = <&acc7>;
 		};
 	};
 
@@ -158,6 +158,54 @@
 	#size-cells = <1>;
 	ranges = <0 0 0 0xffffffff>;
 	compatible = "simple-bus";
+
+	acc0:clock-controller@f908b004 {
+		compatible = "qcom,arm-cortex-acc";
+		reg = <0xf908b000 0x1000>,
+		      <0xf900b000 0x1000>;
+	};
+
+	acc1:clock-controller@f909b004 {
+		compatible = "qcom,arm-cortex-acc";
+		reg = <0xf909b000 0x1000>,
+		      <0xf900b000 0x1000>;
+	};
+
+	acc2:clock-controller@f90ab004 {
+		compatible = "qcom,arm-cortex-acc";
+		reg = <0xf90ab000 0x1000>,
+		      <0xf900b000 0x1000>;
+	};
+
+	acc3:clock-controller@f90bb004 {
+		compatible = "qcom,arm-cortex-acc";
+		reg = <0xf90bb000 0x1000>,
+		      <0xf900b000 0x1000>;
+	};
+
+	acc4:clock-controller@f90cb004 {
+		compatible = "qcom,arm-cortex-acc";
+		reg = <0xf90cb000 0x1000>,
+		      <0xf900b000 0x1000>;
+	};
+
+	acc5:clock-controller@f90db004 {
+		compatible = "qcom,arm-cortex-acc";
+		reg = <0xf90db000 0x1000>,
+		      <0xf900b000 0x1000>;
+	};
+
+	acc6:clock-controller@f90eb004 {
+		compatible = "qcom,arm-cortex-acc";
+		reg = <0xf90eb000 0x1000>,
+		      <0xf900b000 0x1000>;
+	};
+
+	acc7:clock-controller@f90fb004 {
+		compatible = "qcom,arm-cortex-acc";
+		reg = <0xf90fb000 0x1000>,
+		      <0xf900b000 0x1000>;
+	};
 
 	intc: interrupt-controller@f9000000 {
 		compatible = "qcom,msm-qgic2";
