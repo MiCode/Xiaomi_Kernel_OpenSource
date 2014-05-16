@@ -182,10 +182,12 @@ struct sst_gain_value {
 	.tlv.p = (tlv_array), \
 	.info = sst_gain_ctl_info,\
 	.get = xhandler_get, .put = xhandler_put, \
-	.private_value = (unsigned long)&(struct sst_gain_mixer_control) \
-	{ .stereo = true, .max = xmax, .min = xmin, .type = SST_GAIN_TLV, \
-	  .module_id = xmod, .pipe_id = xpipe, .task_id = xtask,\
-	  .instance_id = xinstance, .gain_val = xgain_val, .pname = xpname}
+	.private_value = (unsigned long)&(struct soc_mixer_control) \
+	{ .reg = xmin, .rreg = xmax, .min = xmin, .max = xmax,\
+		.pvt_data = (char *)&(struct sst_gain_mixer_control)\
+		{ .stereo = true, .max = xmax, .min = xmin, .type = SST_GAIN_TLV, \
+		.module_id = xmod, .pipe_id = xpipe, .task_id = xtask,\
+		.instance_id = xinstance, .gain_val = xgain_val, .pname = xpname} }
 
 #define SST_GAIN_KCONTROL_INT(xname, xhandler_get, xhandler_put, \
 			      xmod, xpipe, xinstance, xtask, xtype, xgain_val, \
@@ -193,20 +195,23 @@ struct sst_gain_value {
 	.iface = SNDRV_CTL_ELEM_IFACE_MIXER, .name = xname, \
 	.info = sst_gain_ctl_info, \
 	.get = xhandler_get, .put = xhandler_put, \
-	.private_value = (unsigned long)&(struct sst_gain_mixer_control) \
-	{ .stereo = false, .max = xmax, .min = xmin, .type = xtype, \
-	  .module_id = xmod, .pipe_id = xpipe, .task_id = xtask,\
-	  .instance_id = xinstance, .gain_val = xgain_val, .pname =  xpname}
+	.private_value = (unsigned long)&(struct soc_mixer_control) \
+	{ .min = xmin, .max = xmax,\
+		.pvt_data = (char *)&(struct sst_gain_mixer_control)\
+		{ .stereo = false, .max = xmax, .min = xmin, .type = xtype, \
+		.module_id = xmod, .pipe_id = xpipe, .task_id = xtask,\
+		.instance_id = xinstance, .gain_val = xgain_val, .pname =  xpname} }
 
 #define SST_GAIN_KCONTROL_BOOL(xname, xhandler_get, xhandler_put,\
 			       xmod, xpipe, xinstance, xtask, xgain_val, xpname) \
 	.iface = SNDRV_CTL_ELEM_IFACE_MIXER, .name = xname, \
 	.info = snd_soc_info_bool_ext, \
 	.get = xhandler_get, .put = xhandler_put, \
-	.private_value = (unsigned long)&(struct sst_gain_mixer_control) \
-	{ .stereo = false, .type = SST_GAIN_MUTE, \
-	  .module_id = xmod, .pipe_id = xpipe, .task_id = xtask,\
-	  .instance_id = xinstance, .gain_val = xgain_val, .pname = xpname}
+	.private_value = (unsigned long)&(struct soc_mixer_control) \
+	{ .pvt_data = (char *)&(struct sst_gain_mixer_control)\
+		{ .stereo = false, .type = SST_GAIN_MUTE, \
+		.module_id = xmod, .pipe_id = xpipe, .task_id = xtask,\
+		.instance_id = xinstance, .gain_val = xgain_val, .pname = xpname} }
 
 #define SST_CONTROL_NAME(xpname, xmname, xinstance, xtype) \
 	xpname " " xmname " " #xinstance " " xtype

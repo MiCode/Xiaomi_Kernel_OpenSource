@@ -476,7 +476,8 @@ static int sst_algo_control_set(struct snd_kcontrol *kcontrol,
 static int sst_gain_ctl_info(struct snd_kcontrol *kcontrol,
 	struct snd_ctl_elem_info *uinfo)
 {
-	struct sst_gain_mixer_control *mc = (void *)kcontrol->private_value;
+	struct soc_mixer_control *sm = (void *) kcontrol->private_value;
+	struct sst_gain_mixer_control *mc = (struct sst_gain_mixer_control *)sm->pvt_data;
 
 	uinfo->type = SNDRV_CTL_ELEM_TYPE_INTEGER;
 	uinfo->count = mc->stereo ? 2 : 1;
@@ -529,7 +530,8 @@ static void sst_send_gain_cmd(struct sst_data *sst, struct sst_gain_value *gv,
 static int sst_gain_get(struct snd_kcontrol *kcontrol,
 			struct snd_ctl_elem_value *ucontrol)
 {
-	struct sst_gain_mixer_control *mc = (void *)kcontrol->private_value;
+	struct soc_mixer_control *sm = (void *) kcontrol->private_value;
+	struct sst_gain_mixer_control *mc = (struct sst_gain_mixer_control *)sm->pvt_data;
 	struct sst_gain_value *gv = mc->gain_val;
 
 	switch (mc->type) {
@@ -555,7 +557,8 @@ static int sst_gain_put(struct snd_kcontrol *kcontrol,
 {
 	struct snd_soc_platform *platform = snd_kcontrol_chip(kcontrol);
 	struct sst_data *sst = snd_soc_platform_get_drvdata(platform);
-	struct sst_gain_mixer_control *mc = (void *)kcontrol->private_value;
+	struct soc_mixer_control *sm = (void *) kcontrol->private_value;
+	struct sst_gain_mixer_control *mc = (struct sst_gain_mixer_control *)sm->pvt_data;
 	struct sst_gain_value *gv = mc->gain_val;
 
 	switch (mc->type) {
@@ -668,6 +671,7 @@ static int fill_swm_input(struct swm_input_ids *swm_input, unsigned int reg)
 
 static void sst_set_pipe_gain(struct sst_ids *ids, struct sst_data *sst, int mute)
 {
+	struct soc_mixer_control *sm;
 	struct sst_gain_mixer_control *mc;
 	struct sst_gain_value *gv;
 	struct module *gain = NULL;
@@ -676,7 +680,8 @@ static void sst_set_pipe_gain(struct sst_ids *ids, struct sst_data *sst, int mut
 		struct snd_kcontrol *kctl = gain->kctl;
 
 		pr_debug("control name=%s\n", kctl->id.name);
-		mc = (void *)kctl->private_value;
+		sm = (void *)kctl->private_value;
+		mc = (struct sst_gain_mixer_control *)sm->pvt_data;
 		gv = mc->gain_val;
 
 		sst_send_gain_cmd(sst, gv, mc->task_id,
@@ -1887,7 +1892,8 @@ static int sst_fill_module_list(struct snd_kcontrol *kctl,
 	}
 
 	if (type == SST_MODULE_GAIN) {
-		struct sst_gain_mixer_control *mc = (void *)kctl->private_value;
+		struct soc_mixer_control *sm = (void *) kctl->private_value;
+		struct sst_gain_mixer_control *mc = (struct sst_gain_mixer_control *)sm->pvt_data;
 
 		mc->w = w;
 		module->kctl = kctl;
@@ -1934,7 +1940,8 @@ static int sst_fill_widget_module_info(struct snd_soc_dapm_widget *w,
 			ret = sst_fill_module_list(kctl, w, SST_MODULE_ALGO);
 		else if (strstr(kctl->id.name, "mute") &&
 			 !strncmp(kctl->id.name, w->name, index)) {
-			struct sst_gain_mixer_control *mc = (void *)kctl->private_value;
+			struct soc_mixer_control *sm = (void *) kctl->private_value;
+			struct sst_gain_mixer_control *mc = (struct sst_gain_mixer_control *)sm->pvt_data;
 			mc->w = w;
 		} else if (strstr(kctl->id.name, "interleaver") &&
 			 !strncmp(kctl->id.name, w->name, index)) {
