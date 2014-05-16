@@ -168,6 +168,7 @@ int esoc_clink_register_ssr(struct esoc_clink *esoc_clink)
 		return PTR_ERR(subsys_name);
 	snprintf(subsys_name, len, "esoc%d", esoc_clink->id);
 	esoc_clink->subsys.name = subsys_name;
+	esoc_clink->dev.of_node = esoc_clink->np;
 	esoc_clink->subsys.dev = &esoc_clink->dev;
 	esoc_clink->subsys_dev = subsys_register(&esoc_clink->subsys);
 	if (IS_ERR(esoc_clink->subsys_dev)) {
