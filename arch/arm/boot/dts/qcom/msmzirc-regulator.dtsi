@@ -197,4 +197,10 @@
 		regulator-min-microvolt = <950000>;
 		regulator-max-microvolt = <950000>;
 	};
+
+	spi_eth_vreg: spi_eth_phy_vreg {
+		compatible = "regulator-fixed";
+		regulator-name = "ethernet_phy";
+		regulator-always-on;
+	};
 };
