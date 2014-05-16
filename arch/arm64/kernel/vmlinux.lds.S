@@ -21,7 +21,7 @@
 #endif
 
 OUTPUT_ARCH(aarch64)
-ENTRY(stext)
+ENTRY(_text)
 
 jiffies = jiffies_64;
 
