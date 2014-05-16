@@ -249,3 +249,9 @@ config MSM_GEMINI
 	depends on MSMB_CAMERA && (ARCH_MSM7X30 || ARCH_MSM8X60 || ARCH_MSM8960)
 	---help---
 	  Enables support for the Gemini JPEG encoder engine for 8x60.
+
+config MSM_FD
+	 tristate "Qualcomm MSM FD face detection engine support"
+	 depends on MSMB_CAMERA
+	 ---help---
+	    Enables support for the MSM FD face detection engine.
