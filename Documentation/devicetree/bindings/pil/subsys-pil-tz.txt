@@ -60,10 +60,14 @@ Example:
 
 		vdd-supply = <&gdsc_venus>;
 		qcom,proxy-reg-names = "vdd";
-		clock-names = "core_clk", "iface_clk",
-				"bus_clk", "mem_clk";
-		qcom,proxy-clock-names = "core_clk", "iface_clk",
-					"bus_clk", "mem_clk";
+		clock-names = "core_clk", "iface_clk", "bus_clk", "mem_clk",
+				"scm_core_clk", "scm_iface_clk", "scm_bus_clk",
+				"scm_core_clk_src";
+		qcom,proxy-clock-names = "core_clk", "iface_clk", "bus_clk",
+					"mem_clk", "scm_core_clk",
+					"scm_iface_clk", "scm_bus_clk",
+					"scm_core_clk_src";
+		qcom,scm_core_clk_src-freq = <50000000>;
 
 		qcom,msm-bus,name = "pil-venus";
 		qcom,msm-bus,num-cases = <2>;
@@ -89,9 +93,12 @@ Example:
 		vdd_cx-supply = <&pm8841_s2_corner>;
 		qcom,proxy-reg-names = "vdd_cx";
 		qcom,vdd_cx-uV-uA = <7 100000>;
-		clock-names = "bus_clk", "xo";
+		clock-names = "bus_clk", "xo", "scm_core_clk", "scm_iface_clk",
+				"scm_bus_clk", "scm_core_clk_src";
 		qcom,active-clock-names = "bus_clk";
-		qcom,proxy-clock-names = "xo";
+		qcom,proxy-clock-names = "xo", "scm_core_clk", "scm_iface_clk",
+					"scm_bus_clk", "scm_core_clk_src";
+		qcom,scm_core_clk_src-freq = <50000000>;
 
 		qcom,smem-id = <423>;
 		qcom,pas-id = <1>;

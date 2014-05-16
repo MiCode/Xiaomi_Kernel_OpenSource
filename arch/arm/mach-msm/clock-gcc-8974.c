@@ -2463,10 +2463,22 @@ static struct clk_lookup msm_clocks_gcc_8974[] = {
 	CLK_LOOKUP_OF("bus_clk",      gcc_ce1_axi_clk,     "mcd"),
 	CLK_LOOKUP_OF("core_clk_src", ce1_clk_src,         "mcd"),
 
-	CLK_LOOKUP_OF("core_clk",     gcc_ce1_clk,         "scm"),
-	CLK_LOOKUP_OF("iface_clk",    gcc_ce1_ahb_clk,     "scm"),
-	CLK_LOOKUP_OF("bus_clk",      gcc_ce1_axi_clk,     "scm"),
-	CLK_LOOKUP_OF("core_clk_src", ce1_clk_src,         "scm"),
+	/* Crypto clocks */
+	CLK_LOOKUP_OF("scm_core_clk", gcc_ce1_clk, "fe200000.qcom,lpass"),
+	CLK_LOOKUP_OF("scm_iface_clk", gcc_ce1_ahb_clk, "fe200000.qcom,lpass"),
+	CLK_LOOKUP_OF("scm_bus_clk", gcc_ce1_axi_clk, "fe200000.qcom,lpass"),
+	CLK_LOOKUP_OF("scm_core_clk_src", ce1_clk_src, "fe200000.qcom,lpass"),
+
+	CLK_LOOKUP_OF("scm_core_clk", gcc_ce1_clk, "fb21b000.qcom,pronto"),
+	CLK_LOOKUP_OF("scm_iface_clk", gcc_ce1_ahb_clk,
+						"fb21b000.qcom,pronto"),
+	CLK_LOOKUP_OF("scm_bus_clk",  gcc_ce1_axi_clk, "fb21b000.qcom,pronto"),
+	CLK_LOOKUP_OF("scm_core_clk_src", ce1_clk_src, "fb21b000.qcom,pronto"),
+
+	CLK_LOOKUP_OF("scm_core_clk", gcc_ce1_clk, "fdce0000.qcom,venus"),
+	CLK_LOOKUP_OF("scm_iface_clk", gcc_ce1_ahb_clk, "fdce0000.qcom,venus"),
+	CLK_LOOKUP_OF("scm_bus_clk", gcc_ce1_axi_clk, "fdce0000.qcom,venus"),
+	CLK_LOOKUP_OF("scm_core_clk_src", ce1_clk_src, "fdce0000.qcom,venus"),
 
 	CLK_LOOKUP_OF("core_clk", gcc_gp1_clk, ""),
 	CLK_LOOKUP_OF("core_clk", gcc_gp2_clk, ""),

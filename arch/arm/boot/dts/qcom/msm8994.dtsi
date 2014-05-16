@@ -777,14 +777,16 @@
 		vdd-supply = <&gdsc_venus>;
 		qcom,proxy-reg-names = "vdd";
 		clock-names = "core_clk", "iface_clk",
-			      "bus_clk", "mem_clk";
+			      "bus_clk", "mem_clk", "scm_ce1_clk";
 		qcom,proxy-clock-names = "core_clk", "iface_clk",
-				    "bus_clk", "mem_clk";
+				    "bus_clk", "mem_clk", "scm_ce1_clk";
+		qcom,scm_ce1_clk-freq = <85710000>;
 
 		clocks = <&clock_mmss clk_venus0_vcodec0_clk>,
 			<&clock_mmss clk_venus0_ahb_clk>,
 			<&clock_mmss clk_venus0_axi_clk>,
-			<&clock_mmss clk_venus0_ocmemnoc_clk>;
+			<&clock_mmss clk_venus0_ocmemnoc_clk>,
+			<&clock_rpm clk_ce1_clk>;
 
 		qcom,msm-bus,name = "pil-venus";
 		qcom,msm-bus,num-cases = <2>;
@@ -836,11 +838,14 @@
 		vdd_cx-supply = <&pm8994_s1_corner>;
 		qcom,proxy-reg-names = "vdd_cx";
 		qcom,vdd_cx-uV-uA = <7 100000>;
+
 		clocks = <&clock_gcc clk_gcc_lpass_q6_axi_clk>,
-			 <&clock_rpm clk_cxo_pil_lpass_clk>;
-		clock-names = "bus_clk", "xo";
+			 <&clock_rpm clk_cxo_pil_lpass_clk>,
+			 <&clock_rpm clk_ce1_clk>;
+		clock-names = "bus_clk", "xo", "scm_ce1_clk";
 		qcom,active-clock-names = "bus_clk";
-		qcom,proxy-clock-names = "xo";
+		qcom,proxy-clock-names = "xo", "scm_ce1_clk";
+		qcom,scm_ce1_clk-freq = <85710000>;
 
 		qcom,pas-id = <1>;
 		qcom,proxy-timeout-ms = <10000>;
