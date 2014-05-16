@@ -153,6 +153,11 @@ static uint32_t msm_bus_dbg_register_client(void)
 		msm_bus_dbg_unregister_client(clstate.cl);
 	}
 
+	current_vectors[0].src = init_vectors[0].src;
+	requested_vectors[0].src = init_vectors[0].src;
+	current_vectors[0].dst = init_vectors[0].dst;
+	requested_vectors[0].dst = init_vectors[0].dst;
+
 	if (!clstate.enable) {
 		MSM_BUS_DBG("Enable bit not set, skipping registration: cl "
 			"%d\n",	clstate.cl);
@@ -161,13 +166,9 @@ static uint32_t msm_bus_dbg_register_client(void)
 
 	if (clstate.cl) {
 		MSM_BUS_DBG("Client  registered, skipping registration\n");
-		return 0;
+		return clstate.cl;
 	}
 
-	current_vectors[0].src = init_vectors[0].src;
-	requested_vectors[0].src = init_vectors[0].src;
-	current_vectors[0].dst = init_vectors[0].dst;
-	requested_vectors[0].dst = init_vectors[0].dst;
 	MSM_BUS_DBG("Registering shell client\n");
 	ret = msm_bus_scale_register_client(&shell_client);
 	return ret;
