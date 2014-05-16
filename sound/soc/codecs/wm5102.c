@@ -1956,6 +1956,13 @@ static int wm5102_codec_probe(struct snd_soc_codec *codec)
 static int wm5102_codec_remove(struct snd_soc_codec *codec)
 {
 	struct wm5102_priv *priv = snd_soc_codec_get_drvdata(codec);
+	struct arizona *arizona = priv->core.arizona;
+
+	irq_set_irq_wake(arizona->irq, 0);
+	arizona_free_irq(arizona, ARIZONA_IRQ_DSP_IRQ1, priv);
+	regmap_update_bits(arizona->regmap, ARIZONA_IRQ2_STATUS_3_MASK,
+				 ARIZONA_IM_DRC1_SIG_DET_EINT2,
+				 ARIZONA_IM_DRC1_SIG_DET_EINT2);
 
 	priv->core.arizona->dapm = NULL;
 
