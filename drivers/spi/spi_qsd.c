@@ -1783,14 +1783,6 @@ static int msm_spi_transfer_one_message(struct spi_master *master,
 	dd->transfer_pending = 1;
 	dd->cur_msg = msg;
 	spin_unlock_irqrestore(&dd->queue_lock, flags);
-	/*
-	 * Counter-part of system-suspend when runtime-pm is not enabled.
-	 * This way, resume can be left empty and device will be put in
-	 * active mode only if client requests anything on the bus
-	 */
-	if (!pm_runtime_enabled(dd->dev))
-		msm_spi_pm_resume_runtime(dd->dev);
-
 	if (dd->suspended || !msm_spi_is_valid_state(dd)) {
 		dev_err(dd->dev, "%s: SPI operational state not valid\n",
 			__func__);
@@ -1824,8 +1816,23 @@ static int msm_spi_transfer_one_message(struct spi_master *master,
 static int msm_spi_prepare_transfer_hardware(struct spi_master *master)
 {
 	struct msm_spi	*dd = spi_master_get_devdata(master);
+	int resume_state = 0;
 
-	pm_runtime_get_sync(dd->dev);
+	resume_state = pm_runtime_get_sync(dd->dev);
+	if (resume_state < 0)
+		return resume_state;
+	/*
+	 * Counter-part of system-suspend when runtime-pm is not enabled.
+	 * This way, resume can be left empty and device will be put in
+	 * active mode only if client requests anything on the bus
+	 */
+	if (!pm_runtime_enabled(dd->dev))
+		resume_state = msm_spi_pm_resume_runtime(dd->dev);
+	if (resume_state < 0)
+		return resume_state;
+	if (dd->suspended)
+		return -EBUSY;
+
 	return 0;
 }
 
