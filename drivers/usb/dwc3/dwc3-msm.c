@@ -135,6 +135,7 @@ struct dwc3_msm {
 	struct clk		*sleep_clk;
 	struct clk		*hsphy_sleep_clk;
 	struct clk		*utmi_clk;
+	struct clk		*phy_com_reset;
 	unsigned int		utmi_clk_rate;
 	struct clk		*utmi_clk_src;
 	struct regulator	*dwc3_gdsc;
@@ -1637,6 +1638,13 @@ static int dwc3_msm_resume(struct dwc3_msm *mdwc)
 	if (mdwc->lpm_flags & MDWC3_POWER_COLLAPSE) {
 		dev_dbg(mdwc->dev, "%s: exit power collapse\n", __func__);
 		dwc3_msm_config_gdsc(mdwc, 1);
+
+		clk_reset(mdwc->phy_com_reset, CLK_RESET_ASSERT);
+		clk_reset(mdwc->core_clk, CLK_RESET_ASSERT);
+		/* HW requires a short delay for reset to take place properly */
+		usleep_range(1000, 1200);
+		clk_reset(mdwc->core_clk, CLK_RESET_DEASSERT);
+		clk_reset(mdwc->phy_com_reset, CLK_RESET_DEASSERT);
 	}
 
 	clk_prepare_enable(mdwc->utmi_clk);
@@ -2620,6 +2628,21 @@ static int dwc3_msm_probe(struct platform_device *pdev)
 
 	mdwc->enable_suspend_event = of_property_read_bool(node,
 				"qcom,suspend_event_enable");
+
+	if (mdwc->power_collapse) {
+		/*
+		 * Resetting this clock is required in order to properly
+		 * recover from power collapse
+		 */
+		mdwc->phy_com_reset = devm_clk_get(&pdev->dev, "phy_com_reset");
+		if (IS_ERR(mdwc->phy_com_reset)) {
+			ret = PTR_ERR(mdwc->phy_com_reset);
+			dev_err(&pdev->dev,
+				"%s unable to get phy_com_reset clock, ret=%d\n",
+				__func__, ret);
+			goto disable_ref_clk;
+		}
+	}
 
 	/*
 	 * DWC3 has separate IRQ line for OTG events (ID/BSV) and for
