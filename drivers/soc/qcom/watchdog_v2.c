@@ -24,6 +24,7 @@
 #include <linux/percpu.h>
 #include <linux/of.h>
 #include <linux/cpu.h>
+#include <linux/cpu_pm.h>
 #include <linux/platform_device.h>
 #include <soc/qcom/scm.h>
 #include <soc/qcom/memory_dump.h>
@@ -46,6 +47,8 @@
 
 static struct workqueue_struct *wdog_wq;
 static struct msm_watchdog_data *wdog_data;
+
+static int cpu_idle_pc_state[NR_CPUS];
 
 struct msm_watchdog_data {
 	unsigned int __iomem phys_base;
@@ -87,6 +90,14 @@ module_param(enable, int, 0);
  */
 static long WDT_HZ = 32765;
 module_param(WDT_HZ, long, 0);
+
+/*
+ * On the kernel command line specify
+ * watchdog_v2.ipi_opt_en=1 to enable the watchdog ipi ping
+ * optimization. By default it is turned off
+ */
+static int ipi_opt_en;
+module_param(ipi_opt_en, int, 0);
 
 static void pet_watchdog_work(struct work_struct *work);
 static void init_watchdog_work(struct work_struct *work);
@@ -281,8 +292,11 @@ static void ping_other_cpus(struct msm_watchdog_data *wdog_dd)
 	int cpu;
 	cpumask_clear(&wdog_dd->alive_mask);
 	smp_mb();
-	for_each_cpu(cpu, cpu_online_mask)
-		smp_call_function_single(cpu, keep_alive_response, wdog_dd, 1);
+	for_each_cpu(cpu, cpu_online_mask) {
+		if (!cpu_idle_pc_state[cpu])
+			smp_call_function_single(cpu, keep_alive_response,
+						 wdog_dd, 1);
+	}
 }
 
 static void pet_watchdog_work(struct work_struct *work)
@@ -305,11 +319,38 @@ static void pet_watchdog_work(struct work_struct *work)
 				&wdog_dd->dogwork_struct, delay_time);
 }
 
+static int wdog_cpu_pm_notify(struct notifier_block *self,
+			      unsigned long action, void *v)
+{
+	int cpu;
+
+	cpu = raw_smp_processor_id();
+
+	switch (action) {
+	case CPU_PM_ENTER:
+		cpu_idle_pc_state[cpu] = 1;
+		break;
+	case CPU_PM_ENTER_FAILED:
+	case CPU_PM_EXIT:
+		cpu_idle_pc_state[cpu] = 0;
+		break;
+	}
+
+	return NOTIFY_OK;
+}
+
+static struct notifier_block wdog_cpu_pm_nb = {
+	.notifier_call = wdog_cpu_pm_notify,
+};
+
 static int msm_watchdog_remove(struct platform_device *pdev)
 {
 	struct wdog_disable_work_data work_data;
 	struct msm_watchdog_data *wdog_dd =
 			(struct msm_watchdog_data *)platform_get_drvdata(pdev);
+
+	if (ipi_opt_en)
+		cpu_pm_unregister_notifier(&wdog_cpu_pm_nb);
 
 	mutex_lock(&wdog_dd->disable_lock);
 	if (enable) {
@@ -512,6 +553,8 @@ static void init_watchdog_work(struct work_struct *work)
 		dev_err(wdog_dd->dev, "cannot create sysfs attribute\n");
 	if (wdog_dd->irq_ppi)
 		enable_percpu_irq(wdog_dd->bark_irq, 0);
+	if (ipi_opt_en)
+		cpu_pm_register_notifier(&wdog_cpu_pm_nb);
 	dev_info(wdog_dd->dev, "MSM Watchdog Initialized\n");
 	return;
 }
@@ -619,13 +662,13 @@ static int msm_watchdog_probe(struct platform_device *pdev)
 	if (ret)
 		goto err;
 
+	wdog_data = wdog_dd;
 	wdog_dd->dev = &pdev->dev;
 	platform_set_drvdata(pdev, wdog_dd);
 	cpumask_clear(&wdog_dd->alive_mask);
 	INIT_WORK(&wdog_dd->init_dogwork_struct, init_watchdog_work);
 	INIT_DELAYED_WORK(&wdog_dd->dogwork_struct, pet_watchdog_work);
 	queue_work(wdog_wq, &wdog_dd->init_dogwork_struct);
-	wdog_data = wdog_dd;
 	return 0;
 err:
 	destroy_workqueue(wdog_wq);
