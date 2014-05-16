@@ -193,6 +193,15 @@
 		<0x0b002000 0x1000>;
 	};
 
+	wcd9xxx_intc: wcd9xxx_irq {
+		compatible = "qcom,wcd9xxx-irq";
+		interrupt-controller;
+		#interrupt-cells = <1>;
+		interrupt-parent = <&intc>;
+		interrupts = <0 68 0>;
+		interrupt-names = "cdc-int";
+	};
+
 	restart@4ab000 {
 		compatible = "qcom,pshold";
 		reg = <0x4ab000 0x4>;
@@ -891,6 +900,13 @@
 			qcom,msm-mi2s-tx-lines = <0>;
 		};
 
+		qcom,msm-dai-q6-mi2s-quat {
+			compatible = "qcom,msm-dai-q6-mi2s";
+			qcom,msm-dai-q6-mi2s-dev-id = <3>;
+			qcom,msm-mi2s-rx-lines = <1>;
+			qcom,msm-mi2s-tx-lines = <2>;
+		};
+
 		qcom,msm-dai-q6-mi2s-tert {
 			compatible = "qcom,msm-dai-q6-mi2s";
 			qcom,msm-dai-q6-mi2s-dev-id = <2>;
@@ -1358,6 +1374,68 @@
 		qcom,bam-pipe-idx-cons = <6>;
 		qcom,bam-pipe-idx-prod = <7>;
 		qcom,master-id = <86>;
+		wcd9xxx_codec@14 {
+			compatible = "qcom,wcd9xxx-i2c";
+			reg = <0x0d>;
+			qcom,cdc-reset-gpio = <&msm_gpio 67 0>;
+			interrupt-parent = <&wcd9xxx_intc>;
+			interrupts = <0 1 2 3 4 5 6>, <7 8 9 10 11 12 13>,
+						 <14 15 16 17 18 19 20>, <21 22 23 24 25 26 27 28>;
+
+			cdc-vdd-buck-supply = <&pm8916_s4>;
+			qcom,cdc-vdd-buck-voltage = <1800000 2150000>;
+			qcom,cdc-vdd-buck-current = <650000>;
+
+			cdc-vdd-h-supply = <&pm8916_l15>;
+			qcom,cdc-vdd-h-voltage = <1800000 1800000>;
+			qcom,cdc-vdd-h-current = <25000>;
+
+			cdc-vdd-px-supply = <&pm8916_l6>;
+			qcom,cdc-vdd-px-voltage = <1800000 1800000>;
+			qcom,cdc-vdd-px-current = <25000>;
+
+			cdc-vdd-cx-supply = <&pm8916_l2>;
+			qcom,cdc-vdd-cx-voltage = <1200000 1200000>;
+			qcom,cdc-vdd-cx-current = <2000>;
+
+			cdc-vdd-buckhelper-supply = <&pm8916_l15>;
+			qcom,cdc-vdd-buckhelper-voltage = <1775000 2125000>;
+			qcom,cdc-vdd-buckhelper-current = <10000>;
+
+			qcom,cdc-static-supplies = "cdc-vdd-h",
+						   "cdc-vdd-px",
+						   "cdc-vdd-cx";
+
+			qcom,cdc-cp-supplies = "cdc-vdd-buck",
+						"cdc-vdd-buckhelper";
+
+			qcom,cdc-micbias-ldoh-v = <0x3>;
+			qcom,cdc-micbias-cfilt1-mv = <1800>;
+			qcom,cdc-micbias-cfilt2-mv = <2700>;
+			qcom,cdc-micbias-cfilt3-mv = <1800>;
+
+			qcom,cdc-micbias1-cfilt-sel = <0x0>;
+			qcom,cdc-micbias2-cfilt-sel = <0x1>;
+			qcom,cdc-micbias3-cfilt-sel = <0x2>;
+
+			qcom,cdc-mclk-clk-rate = <9600000>;
+		};
+
+		wcd9xxx_codec@77 {
+			compatible = "qcom,wcd9xxx-i2c";
+			reg = <0x77>;
+		};
+
+		wcd9xxx_codec@66 {
+			compatible = "qcom,wcd9xxx-i2c";
+			reg = <0x66>;
+		};
+
+		wcd9xxx_codec@55 {
+			compatible = "qcom,wcd9xxx-i2c";
+			reg = <0x55>;
+		};
+
 	};
 
 	i2c_5: i2c@78b9000 { /* BLSP1 QUP5 */
