@@ -127,9 +127,12 @@ static int kgsl_map_global_pt_entries(struct kgsl_pagetable *pagetable)
 	int i, ret = 0;
 
 	for (i = 0; !ret && i < KGSL_MAX_GLOBAL_PT_ENTRIES; i++) {
-		if (kgsl_global_pt_entries.entries[i])
+		if (kgsl_global_pt_entries.entries[i]) {
 			ret = kgsl_mmu_map(pagetable,
 				kgsl_global_pt_entries.entries[i]);
+			if (ret)
+				break;
+		}
 	}
 
 	if (ret)
@@ -227,20 +230,6 @@ int kgsl_add_global_pt_entry(struct kgsl_device *device,
 	return 0;
 }
 EXPORT_SYMBOL(kgsl_add_global_pt_entry);
-
-static int kgsl_setup_pt(struct kgsl_pagetable *pt)
-{
-	int status;
-
-	/* Map the global registers into the pagetable */
-	status = kgsl_map_global_pt_entries(pt);
-
-	if (status) {
-		kgsl_unmap_global_pt_entries(pt);
-		return status;
-	}
-	return 0;
-}
 
 static void _kgsl_destroy_pagetable(struct kgsl_pagetable *pagetable)
 {
@@ -569,15 +558,16 @@ EXPORT_SYMBOL(kgsl_mmu_init);
 int kgsl_mmu_start(struct kgsl_device *device)
 {
 	struct kgsl_mmu *mmu = &device->mmu;
+	int ret = 0;
 
 	if (kgsl_mmu_type == KGSL_MMU_TYPE_NONE) {
 		/* Setup gpuaddr of global mappings */
 		if (!mmu->setstate_memory.gpuaddr)
-			kgsl_setup_pt(NULL);
-		return 0;
-	} else {
-		return mmu->mmu_ops->mmu_start(mmu);
-	}
+			ret = kgsl_map_global_pt_entries(NULL);
+	} else
+		ret = mmu->mmu_ops->mmu_start(mmu);
+
+	return ret;
 }
 EXPORT_SYMBOL(kgsl_mmu_start);
 
@@ -623,7 +613,7 @@ kgsl_mmu_createpagetableobject(struct kgsl_mmu *mmu,
 	if (!pagetable->priv)
 		goto err_pool;
 
-	status = kgsl_setup_pt(pagetable);
+	status = kgsl_map_global_pt_entries(pagetable);
 	if (status)
 		goto err_mmu_create;
 
