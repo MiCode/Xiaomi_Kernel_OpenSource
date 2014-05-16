@@ -17,7 +17,9 @@
 #include <linux/types.h>
 #include <linux/wait.h>
 #include <linux/msm_ion.h>
+#include <linux/dma-mapping.h>
 #include <sound/lsm_params.h>
+#include <linux/mfd/wcd9xxx/wcd9xxx-slimslave.h>
 
 enum {
 	CMD_INIT_STATE = 0,
@@ -30,6 +32,40 @@ struct wcd_cpe_afe_port_cfg {
 	u16 bit_width;
 	u16 num_channels;
 	u32 sample_rate;
+};
+
+enum wcd_cpe_lab_thread {
+	MSM_LSM_LAB_THREAD_STOP,
+	MSM_LSM_LAB_THREAD_RUNNING,
+	MSM_LSM_LAB_THREAD_ERROR,
+};
+
+struct wcd_cpe_data_pcm_buf {
+	u8 *mem;
+	phys_addr_t phys;
+};
+
+struct wcd_cpe_lab_hw_params {
+	u16 sample_rate;
+	u16 sample_size;
+	u32 buf_sz;
+	u32 period_count;
+};
+
+struct wcd_cpe_lsm_lab {
+	bool lab_enable;
+	void *slim_handle;
+	void *core_handle;
+	atomic_t in_count;
+	u32 dma_write;
+	u32 buf_idx;
+	u32 pcm_size;
+	enum wcd_cpe_lab_thread thread_status;
+	struct cpe_lsm_session *lsm_s;
+	struct snd_pcm_substream *substream;
+	struct wcd_cpe_lab_hw_params hw_params;
+	struct wcd_cpe_data_pcm_buf *pcm_buf;
+	wait_queue_head_t period_wait;
 };
 
 struct cpe_lsm_session {
@@ -52,6 +88,8 @@ struct cpe_lsm_session {
 	u16 cmd_err_code;
 	u8 id;
 	u8 num_confidence_levels;
+	struct task_struct *lsm_lab_thread;
+	struct wcd_cpe_lsm_lab lab;
 };
 
 struct wcd_cpe_afe_ops {
@@ -107,6 +145,23 @@ struct wcd_cpe_lsm_ops {
 	int (*lsm_stop) (void *core_handle,
 			 struct cpe_lsm_session *);
 
+	int (*lsm_lab_control)(void *core_handle,
+			       struct cpe_lsm_session *session,
+			       u32 bufsz, u32 bufcnt,
+			       bool enable);
+
+	int (*lsm_lab_stop)(void *core_handle, struct cpe_lsm_session *session);
+
+	int (*lsm_lab_data_channel_open)(void *core_handle,
+				       struct cpe_lsm_session *session);
+	int (*lsm_lab_data_channel_read_status)(void *core_handle,
+					struct cpe_lsm_session *session,
+					phys_addr_t phys, u32 *len);
+
+	int (*lsm_lab_data_channel_read)(void *core_handle,
+				struct cpe_lsm_session *session,
+				phys_addr_t phys, u8 *mem,
+				u32 read_len);
 };
 
 int wcd_cpe_get_lsm_ops(struct wcd_cpe_lsm_ops *);

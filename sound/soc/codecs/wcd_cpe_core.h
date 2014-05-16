@@ -12,12 +12,16 @@
 
 #include "wcd_cpe_services.h"
 
+#define WCD_CPE_LAB_MAX_LATENCY 250
+#define WCD_CPE_MAD_SLIM_CHANNEL 140
 struct wcd_cpe_cdc_cb {
 	/* codec provided callback to enable RCO */
 	int (*cdc_clk_en) (struct snd_soc_codec *, bool);
 
 	/* callback for FLL setup for codec */
 	int (*cpe_clk_en) (struct snd_soc_codec *, bool);
+	int (*cdc_ext_clk)(struct snd_soc_codec *codec, int enable, bool dapm);
+	int (*slimtx_lab_en)(struct snd_soc_codec *codec, int event);
 };
 
 struct wcd_cpe_core {

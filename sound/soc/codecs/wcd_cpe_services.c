@@ -158,6 +158,8 @@ struct cpe_svc_tgt_abstraction {
 	const struct cpe_svc_hw_cfg *(*tgt_get_cpe_info) (void);
 	enum cpe_svc_result (*tgt_deinit)
 				(struct cpe_svc_tgt_abstraction *param);
+	enum cpe_svc_result (*tgt_voice_tx_lab)
+				(bool);
 	u8 *inbox;
 	u8 *outbox;
 };
@@ -1466,6 +1468,36 @@ static enum cpe_svc_result cpe_tgt_tomtom_reset(void)
 	return rc;
 }
 
+enum cpe_svc_result cpe_tgt_tomtom_voicetx(bool enable)
+{
+	enum cpe_svc_result rc = CPE_SVC_SUCCESS;
+	u8 val = 0;
+
+	if (enable)
+		val = 0x02;
+	else
+		val = 0x00;
+	rc = cpe_update_bits(TOMTOM_A_SVASS_CFG,
+			     0x02, val);
+	val = 0;
+	cpe_register_read(TOMTOM_A_SVASS_CFG, &val);
+	return rc;
+}
+
+enum cpe_svc_result cpe_svc_toggle_lab(void *cpe_handle, bool enable)
+{
+
+	struct cpe_info *t_info = (struct cpe_info *)cpe_handle;
+
+	if (!t_info)
+		t_info = cpe_default_handle;
+
+	if (t_info->tgt)
+		return t_info->tgt->tgt_voice_tx_lab(enable);
+	else
+		return CPE_SVC_INVALID_HANDLE;
+}
+
 static enum cpe_svc_result cpe_tgt_tomtom_read_mailbox(u8 *buffer,
 	size_t size)
 {
@@ -1754,6 +1786,7 @@ static enum cpe_svc_result cpe_tgt_tomtom_init(
 		param->tgt_set_debug_mode = cpe_tgt_tomtom_set_debug_mode;
 		param->tgt_get_cpe_info = cpe_tgt_tomtom_get_cpe_info;
 		param->tgt_deinit = cpe_tgt_tomtom_deinit;
+		param->tgt_voice_tx_lab = cpe_tgt_tomtom_voicetx;
 
 		param->inbox = kzalloc(TOMTOM_A_SVASS_SPE_INBOX_SIZE,
 				       GFP_KERNEL);
