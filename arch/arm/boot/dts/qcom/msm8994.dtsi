@@ -1449,22 +1449,24 @@
 			<0xe0020 0x5555556>,
 			<0xe0024 0x5555556>,
 			<0x80124 0x3>;
+		qcom,ocmem-size = <524288>; /* 512 * 1024*/
 		qcom,max-hw-load = <1281600>; /* Full 4k @ 30 + 1080p @ 30 */
 		qcom,clock-names = "core_clk", "core0_clk", "core1_clk", "core2_clk",
-			"iface_clk", "bus_clk";
+			"iface_clk", "bus_clk", "mem_clk";
 		clock-names = "core_clk", "core0_clk", "core1_clk", "core2_clk",
-			"iface_clk", "bus_clk";
+			"iface_clk", "bus_clk", "mem_clk";
 		venus-supply = <&gdsc_venus>;
 		venus-core0-supply = <&gdsc_venus_core0>;
 		venus-core1-supply = <&gdsc_venus_core1>;
 		venus-core2-supply = <&gdsc_venus_core2>;
-		qcom,clock-configs = <0x3 0x0 0x0 0x0 0x0 0x0>;
+		qcom,clock-configs = <0x3 0x0 0x0 0x0 0x0 0x0 0x0>;
 		clocks = <&clock_mmss clk_venus0_vcodec0_clk>,
 			<&clock_mmss clk_venus0_core0_vcodec_clk>,
 			<&clock_mmss clk_venus0_core1_vcodec_clk>,
 			<&clock_mmss clk_venus0_core2_vcodec_clk>,
 			<&clock_mmss clk_venus0_ahb_clk>,
-			<&clock_mmss clk_venus0_axi_clk>;
+			<&clock_mmss clk_venus0_axi_clk>,
+			<&clock_mmss clk_venus0_ocmemnoc_clk>;
 		qcom,load-freq-tbl = <979200 465000000>,
 			<783360 465000000>,
 			<489600 266670000>,
@@ -1554,6 +1556,68 @@
 					<63 512 3262000 2106000>,
 					<63 512 8114000 2244000>;
 				qcom,bus-configs = <0x04000000>;
+			};
+			qcom,msm-bus-client@4 {
+				qcom,msm-bus,name = "venc-core1-ocmem";
+				qcom,msm-bus,num-cases = <8>;
+				qcom,msm-bus,num-paths = <1>;
+				qcom,msm-bus,vectors-KBps =
+					<68 604 0 0>,
+					<68 604 138000 76000>,
+					<68 604 414000 228000>,
+					<68 604 940000 1034000>,
+					<68 604 1880000 2068000>,
+					<68 604 3574000 1966000>,
+					<68 604 3812000 2097000>,
+					<68 604 4467000 2457000>;
+				qcom,bus-configs = <0x10000414>;
+			};
+			qcom,msm-bus-client@5 {
+				qcom,msm-bus,name = "venc-core2-ocmem";
+				qcom,msm-bus,num-cases = <8>;
+				qcom,msm-bus,num-paths = <1>;
+				qcom,msm-bus,vectors-KBps =
+					<68 604 0 0>,
+					<68 604 142000 79000>,
+					<68 604 428000 236000>,
+					<68 604 1128000 621000>,
+					<68 604 20050000 1103000>,
+					<68 604 40800000 2244000>,
+					<68 604 46970000 2584000>,
+					<68 604 5101000 2806000>;
+				qcom,bus-configs = <0x04000000>;
+			};
+
+			qcom,msm-bus-client@6 {
+				qcom,msm-bus,name = "vdec-core0-ocmem";
+				qcom,msm-bus,num-cases = <8>;
+				qcom,msm-bus,num-paths = <1>;
+				qcom,msm-bus,vectors-KBps =
+					<68 604 0 0>,
+					<68 604 158000 95000>,
+					<68 604 401000 241000>,
+					<68 604 734000 441000>,
+					<68 604 1469000 881000>,
+					<68 604 2350000 1410000>,
+					<68 604 2507000 1504000>,
+					<68 604 2938000 1763000>;
+				qcom,bus-configs = <0xc000000>;
+			};
+
+			qcom,msm-bus-client@7 {
+				qcom,msm-bus,name = "vdec-core1-ocmem";
+				qcom,msm-bus,num-cases = <8>;
+				qcom,msm-bus,num-paths = <1>;
+				qcom,msm-bus,vectors-KBps =
+					<68 604 0 0>,
+					<68 604 176000 106000>,
+					<68 604 456000 274000>,
+					<68 604 864000 519000>,
+					<68 604 1729000 1038000>,
+					<68 604 2747000 16480000>,
+					<68 604 2930000 17580000>,
+					<68 604 3433000 2060000>;
+				qcom,bus-configs = <0x30fcfff>;
 			};
 		};
 	};
