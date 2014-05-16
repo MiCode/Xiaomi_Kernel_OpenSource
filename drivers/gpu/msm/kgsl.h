@@ -105,6 +105,8 @@ struct kgsl_driver {
 		unsigned int page_alloc_max;
 		unsigned int coherent;
 		unsigned int coherent_max;
+		unsigned int secure;
+		unsigned int secure_max;
 		unsigned int mapped;
 		unsigned int mapped_max;
 	} stats;

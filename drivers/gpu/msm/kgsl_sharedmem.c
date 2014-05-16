@@ -17,6 +17,7 @@
 #include <linux/slab.h>
 #include <linux/kmemleak.h>
 #include <linux/highmem.h>
+#include <soc/qcom/scm.h>
 
 #include "kgsl.h"
 #include "kgsl_sharedmem.h"
@@ -24,6 +25,20 @@
 #include "kgsl_device.h"
 
 static DEFINE_MUTEX(kernel_map_global_lock);
+
+struct cp2_mem_chunks {
+	unsigned int chunk_list;
+	unsigned int chunk_list_size;
+	unsigned int chunk_size;
+} __attribute__ ((__packed__));
+
+struct cp2_lock_req {
+	struct cp2_mem_chunks chunks;
+	unsigned int mem_usage;
+	unsigned int lock;
+} __attribute__ ((__packed__));
+
+#define MEM_PROTECT_LOCK_ID2     0x0A
 
 /* An attribute for showing per-process memory statistics */
 struct kgsl_mem_entry_attribute {
@@ -228,6 +243,10 @@ static ssize_t kgsl_drv_memstat_show(struct device *dev,
 		val = kgsl_driver.stats.coherent;
 	else if (!strncmp(attr->attr.name, "coherent_max", 12))
 		val = kgsl_driver.stats.coherent_max;
+	else if (!strcmp(attr->attr.name, "secure"))
+		val = kgsl_driver.stats.secure;
+	else if (!strcmp(attr->attr.name, "secure_max"))
+		val = kgsl_driver.stats.secure_max;
 	else if (!strncmp(attr->attr.name, "mapped", 6))
 		val = kgsl_driver.stats.mapped;
 	else if (!strncmp(attr->attr.name, "mapped_max", 10))
@@ -265,6 +284,8 @@ static DEVICE_ATTR(page_alloc, 0444, kgsl_drv_memstat_show, NULL);
 static DEVICE_ATTR(page_alloc_max, 0444, kgsl_drv_memstat_show, NULL);
 static DEVICE_ATTR(coherent, 0444, kgsl_drv_memstat_show, NULL);
 static DEVICE_ATTR(coherent_max, 0444, kgsl_drv_memstat_show, NULL);
+static DEVICE_ATTR(secure, 0444, kgsl_drv_memstat_show, NULL);
+static DEVICE_ATTR(secure_max, 0444, kgsl_drv_memstat_show, NULL);
 static DEVICE_ATTR(mapped, 0444, kgsl_drv_memstat_show, NULL);
 static DEVICE_ATTR(mapped_max, 0444, kgsl_drv_memstat_show, NULL);
 static DEVICE_ATTR(full_cache_threshold, 0644,
@@ -278,6 +299,8 @@ static const struct device_attribute *drv_attr_list[] = {
 	&dev_attr_page_alloc_max,
 	&dev_attr_coherent,
 	&dev_attr_coherent_max,
+	&dev_attr_secure,
+	&dev_attr_secure_max,
 	&dev_attr_mapped,
 	&dev_attr_mapped_max,
 	&dev_attr_full_cache_threshold,
@@ -871,3 +894,67 @@ err:
 	return result;
 }
 EXPORT_SYMBOL(kgsl_cma_alloc_coherent);
+
+int kgsl_cma_alloc_secure(struct kgsl_device *device,
+			struct kgsl_memdesc *memdesc, size_t size)
+{
+	int result = 0;
+	struct cp2_lock_req request;
+	unsigned int resp;
+	struct kgsl_pagetable *pagetable = device->mmu.securepagetable;
+
+	if (size == 0)
+		return -EINVAL;
+
+	memdesc->size = ALIGN(size, SZ_1M);
+	memdesc->pagetable = pagetable;
+	memdesc->ops = &kgsl_cma_ops;
+	memdesc->dev = device->dev->parent;
+
+	memdesc->hostptr = dma_alloc_coherent(memdesc->dev, size,
+					&memdesc->physaddr, GFP_KERNEL);
+
+	if (memdesc->hostptr == NULL) {
+		result = -ENOMEM;
+		goto err;
+	}
+
+	result = memdesc_sg_phys(memdesc, memdesc->physaddr, size);
+	if (result)
+		goto err;
+
+	/*
+	 * Flush the phys addr range before sending the memory to the
+	 * secure environment to ensure the data is actually present
+	 * in RAM
+	 */
+	dmac_flush_range((void *)memdesc->physaddr,
+			(void *)memdesc->physaddr + memdesc->size);
+
+	request.chunks.chunk_list = memdesc->physaddr;
+	request.chunks.chunk_list_size = 1;
+	request.chunks.chunk_size = memdesc->size;
+	request.mem_usage = 0;
+	request.lock = 1;
+
+	kmap_flush_unused();
+	kmap_atomic_flush_unused();
+	result = scm_call(SCM_SVC_MP, MEM_PROTECT_LOCK_ID2,
+			&request, sizeof(request), &resp, sizeof(resp));
+
+	if (result) {
+		KGSL_DRV_ERR(device, "Secure buffer allocation failed\n");
+		goto err;
+	}
+
+	/* Record statistics */
+	KGSL_STATS_ADD(size, kgsl_driver.stats.secure,
+		       kgsl_driver.stats.secure_max);
+
+err:
+	if (result)
+		kgsl_sharedmem_free(memdesc);
+
+	return result;
+}
+EXPORT_SYMBOL(kgsl_cma_alloc_secure);

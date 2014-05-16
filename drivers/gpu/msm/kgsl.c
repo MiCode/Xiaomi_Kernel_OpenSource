@@ -3262,7 +3262,16 @@ _gpumem_alloc(struct kgsl_device_private *dev_priv,
 		| KGSL_CACHEMODE_MASK
 		| KGSL_MEMTYPE_MASK
 		| KGSL_MEMALIGN_MASK
-		| KGSL_MEMFLAGS_USE_CPU_MAP;
+		| KGSL_MEMFLAGS_USE_CPU_MAP
+		| KGSL_MEMFLAGS_SECURE;
+
+	/* If content protection is not enabled force memory to be nonsecure */
+	if (!kgsl_mmu_is_secured(&dev_priv->device->mmu) &&
+			(flags & KGSL_MEMFLAGS_SECURE)) {
+		dev_WARN_ONCE(dev_priv->device->dev, 1,
+				"Secure memory not supported");
+		return -EINVAL;
+	}
 
 	/* Cap the alignment bits to the highest number we can handle */
 
