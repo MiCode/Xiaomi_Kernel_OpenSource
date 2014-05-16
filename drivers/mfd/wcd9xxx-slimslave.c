@@ -14,6 +14,31 @@
 #include <linux/mfd/wcd9xxx/wcd9xxx-slimslave.h>
 #include <linux/mfd/wcd9xxx/wcd9xxx_registers.h>
 
+#define WCD_SLIM_INVALID_SAMPLE_RATE(r) \
+	((r/4000)%4)
+
+struct wcd9xxx_slim_master_prop {
+	u16 chanh;
+	u16 grph;
+	u32 ph1;
+	struct slim_ch prop;
+};
+
+struct slim_session {
+	struct completion sb_comp;
+	void *handle;
+};
+
+struct wcd9xxx_master_cfg {
+	struct wcd9xxx_slim_master_prop *slim_cfg;
+	u16 sample_rate;
+	u16 sample_size;
+	u32 ref_count;
+	struct slim_session slim_s;
+	struct mutex lock;
+};
+static struct wcd9xxx_master_cfg slim_tx_master;
+
 struct wcd9xxx_slim_sch {
 	u16 rx_port_ch_reg_base;
 	u16 port_tx_cfg_reg_base;
@@ -105,7 +130,8 @@ int wcd9xxx_init_slimslave(struct wcd9xxx *wcd9xxx, u8 wcd9xxx_pgd_la,
 		pr_err("Not able to allocate memory for %d slimbus tx ports\n",
 			wcd9xxx->num_tx_port);
 	}
-
+	mutex_init(&slim_tx_master.lock);
+	init_completion(&slim_tx_master.slim_s.sb_comp);
 	return 0;
 err:
 	return ret;
@@ -537,3 +563,271 @@ int wcd9xxx_tx_vport_validation(u32 table, u32 port_id,
 	return ret;
 }
 EXPORT_SYMBOL_GPL(wcd9xxx_tx_vport_validation);
+
+int wcd9xxx_slim_ch_master_open(struct wcd9xxx *wcd9xxx,
+		u16 rate, u16 bit_sz, void **handle, u16 slim_channel)
+{
+	int rc = 0;
+	struct wcd9xxx_master_cfg *tx_master;
+	struct wcd9xxx_slim_master_prop *slim_cfg;
+	struct slim_ch *prop;
+
+	pr_debug("%s: rate 0x%x bit_sz 0x%x\n",
+		 __func__, rate, bit_sz);
+
+	if (wcd9xxx == NULL || handle == NULL) {
+		pr_err("%s: Invalid params, wcd9xxx(%p) handle(%p)\n",
+			__func__, wcd9xxx, handle);
+		return -EINVAL;
+	}
+
+	if (WCD_SLIM_INVALID_SAMPLE_RATE(rate)) {
+		pr_err("%s: Invalid sample rate 0x%x\n",
+			__func__, rate);
+		return -EINVAL;
+	}
+
+	tx_master = &slim_tx_master;
+	tx_master->ref_count++;
+	if (tx_master->ref_count > 1) {
+		pr_err("%s: Slim channel already open, ref_count = %u\n",
+			__func__, tx_master->ref_count);
+		return -EINVAL;
+	}
+	slim_cfg = kzalloc(sizeof(struct wcd9xxx_slim_master_prop),
+			   GFP_KERNEL);
+	if (slim_cfg == NULL) {
+		pr_err("%s:Memory allocation for slim_cfg fail\n",
+		       __func__);
+		return -ENOMEM;
+	}
+
+	mutex_lock(&tx_master->lock);
+	tx_master->sample_rate = rate;
+	tx_master->sample_size = bit_sz;
+	tx_master->slim_cfg = slim_cfg;
+	prop = &slim_cfg->prop;
+	prop->prot = SLIM_AUTO_ISO;
+	prop->baser = SLIM_RATE_4000HZ;
+	prop->dataf = SLIM_CH_DATAF_NOT_DEFINED;
+	prop->auxf = SLIM_CH_AUXF_NOT_APPLICABLE;
+	prop->ratem = tx_master->sample_rate/4000;
+	prop->sampleszbits = bit_sz;
+	rc = slim_query_ch(wcd9xxx->slim, slim_channel,
+			   &(slim_cfg->chanh));
+	if (rc) {
+		pr_err("%s:Err query ch ret:%d, chanh:0x%x\n", __func__ ,
+			rc, slim_cfg->chanh);
+		goto fail;
+	}
+	rc = slim_define_ch(wcd9xxx->slim, &(slim_cfg->prop),
+			   &(slim_cfg->chanh), 1,
+			   true, &(slim_cfg->grph));
+	if (rc) {
+		pr_err("%s:Err slim_define_ch ch ret:%d, grph:0x%x\n",
+		       __func__, rc, slim_cfg->grph);
+		goto fail;
+	}
+	rc = slim_alloc_mgrports(wcd9xxx->slim,
+				 SLIM_REQ_DEFAULT, 1,
+				 &(slim_cfg->ph1),
+				 sizeof(slim_cfg->ph1));
+	if (rc) {
+		pr_err("%s:alloc mgr port:ret:%d\n", __func__, rc);
+		goto fail;
+	}
+	*handle = (struct wcd9xxx_master_cfg *)tx_master;
+	tx_master->slim_s.handle = *handle;
+	init_completion(&tx_master->slim_s.sb_comp);
+	pr_debug("%s: Handle %p slim_cfg->ph1 %x slim grp handle %x\n"
+		 "chanh %x\n", __func__, tx_master->slim_s.handle,
+		 tx_master->slim_cfg->ph1, tx_master->slim_cfg->grph,
+		 tx_master->slim_cfg->chanh);
+	mutex_unlock(&tx_master->lock);
+	pr_debug("%s: Handle %p slim_cfg->ph1 %x slim grp\n"
+		 "handle %x chanh %x ref count %x\n",
+		 __func__, tx_master->slim_s.handle,
+		 tx_master->slim_cfg->ph1,
+		 tx_master->slim_cfg->grph,
+		 tx_master->slim_cfg->chanh,
+		 tx_master->ref_count);
+	return 0;
+fail:
+	mutex_unlock(&tx_master->lock);
+	kfree(slim_cfg);
+	slim_control_ch(wcd9xxx->slim, slim_cfg->grph, SLIM_CH_REMOVE, true);
+return rc;
+}
+EXPORT_SYMBOL(wcd9xxx_slim_ch_master_open);
+
+int wcd9xxx_slim_ch_master_close(struct wcd9xxx *wcd9xxx, void **handle)
+{
+
+	int rc = 0, err = 0;
+	struct wcd9xxx_master_cfg *tx_master;
+	struct wcd9xxx_slim_master_prop *slim_cfg;
+
+	if (wcd9xxx == NULL || handle == NULL) {
+		pr_err("%s: Invalid params, wcd9xxx(%p) handle(%p)\n",
+			__func__, wcd9xxx, handle);
+		return -EINVAL;
+	}
+
+	tx_master = &slim_tx_master;
+	if (*handle != tx_master->slim_s.handle) {
+		pr_err("%s: handle(%p) not matching slim_hdl(%p)\n",
+			__func__, *handle, tx_master->slim_s.handle);
+		return -EINVAL;
+	}
+
+	mutex_lock(&tx_master->lock);
+	slim_cfg = tx_master->slim_cfg;
+	rc = slim_control_ch(wcd9xxx->slim, slim_cfg->grph,
+			     SLIM_CH_REMOVE, true);
+	if (rc) {
+		pr_err("%s:dealloc mgrport returned :%d\n",
+		       __func__, rc);
+		err = rc;
+	}
+	rc  = slim_dealloc_mgrports(wcd9xxx->slim, &slim_cfg->ph1, 1);
+	if (rc) {
+		pr_err("%s:dealloc mgrport returned :%d\n",
+			__func__, rc);
+		if (!err)
+			err = rc;
+	}
+	rc = slim_dealloc_ch(wcd9xxx->slim, slim_cfg->chanh);
+	if (rc) {
+		pr_err("%s:dealloc ch ret:%d, chanh:0x%x\n",
+		       __func__, rc, slim_cfg->chanh);
+		if (!err)
+			err = rc;
+	}
+	if (err) {
+		rc = err;
+		goto fail;
+	}
+	tx_master->slim_s.handle = NULL;
+	tx_master->ref_count--;
+	*handle = NULL;
+fail:
+	mutex_unlock(&tx_master->lock);
+	kfree(tx_master->slim_cfg);
+	pr_err("%s: rc = %x", __func__, rc);
+	return rc;
+}
+EXPORT_SYMBOL(wcd9xxx_slim_ch_master_close);
+
+int wcd9xxx_slim_ch_master_status(struct wcd9xxx *wcd9xxx, void *handle,
+				  phys_addr_t phys, u32 *len)
+{
+	int rc = 0;
+	struct wcd9xxx_master_cfg *tx_master;
+	struct wcd9xxx_slim_master_prop *slim_cfg;
+	struct completion *sb_comp;
+
+	if (wcd9xxx == NULL || len == NULL) {
+		pr_err("%s: Invlaid len/wcd9xxx pointer\n",
+		       __func__);
+		return -EINVAL;
+	}
+	tx_master = &slim_tx_master;
+	if (handle != tx_master->slim_s.handle) {
+		pr_err("%s: handle(%p) not matching slim_hdl(%p)\n",
+			__func__, handle, tx_master->slim_s.handle);
+		return -EINVAL;
+	}
+	mutex_lock(&tx_master->lock);
+	slim_cfg = tx_master->slim_cfg;
+	sb_comp = &tx_master->slim_s.sb_comp;
+	rc = wait_for_completion_timeout(sb_comp, (2 * (HZ/10)));
+	rc = slim_port_get_xfer_status(wcd9xxx->slim, slim_cfg->ph1,
+				       &phys, len);
+	if (rc || *len == 0) {
+		pr_err("%s: Get Xfer status rc %x, len %x\n",
+		       __func__, rc, *(len));
+	}
+	mutex_unlock(&tx_master->lock);
+return rc;
+}
+EXPORT_SYMBOL(wcd9xxx_slim_ch_master_status);
+
+int wcd9xxx_slim_ch_master_enable_read(struct wcd9xxx *wcd9xxx, void *handle)
+{
+	int rc = 0;
+	struct wcd9xxx_master_cfg *tx_master;
+	struct wcd9xxx_slim_master_prop *slim_cfg;
+	pr_debug("%s:handle = %p\n", __func__, handle);
+
+	if (wcd9xxx == NULL || handle == NULL) {
+		pr_err("%s: Invalid params, wcd9xxx(%p) handle(%p)\n",
+			__func__, wcd9xxx, handle);
+		return -EINVAL;
+	}
+
+	tx_master = &slim_tx_master;
+	if (handle != tx_master->slim_s.handle) {
+		pr_err("%s: handle(%p) not matching slim_hdl(%p)\n",
+			__func__, handle, tx_master->slim_s.handle);
+		return -EINVAL;
+	}
+	mutex_lock(&tx_master->lock);
+	slim_cfg = tx_master->slim_cfg;
+	rc = slim_connect_sink(wcd9xxx->slim,
+			       &slim_cfg->ph1, 1 ,
+			       slim_cfg->chanh);
+	if (rc) {
+		pr_err("%s:connect src ret:%d\n", __func__, rc);
+		goto error_exit;
+	}
+	rc = slim_control_ch(wcd9xxx->slim, slim_cfg->grph,
+			     SLIM_CH_ACTIVATE, true);
+	if (rc) {
+		pr_err("%s:activate ch ret:%d\n", __func__, rc);
+		goto error_exit;
+	}
+	mutex_unlock(&tx_master->lock);
+	return 0;
+error_exit:
+	mutex_unlock(&tx_master->lock);
+	/*Client has to close if error, do not clean up here*/
+	return rc;
+}
+EXPORT_SYMBOL(wcd9xxx_slim_ch_master_enable_read);
+
+int wcd9xxx_slim_ch_master_read(struct wcd9xxx *wcd9xxx, void *handle,
+				phys_addr_t phys, u8 *mem,
+				u32 read_len)
+{
+	int rc = 0;
+	struct wcd9xxx_master_cfg *tx_master;
+	struct wcd9xxx_slim_master_prop *slim_cfg;
+	struct completion *sb_comp;
+
+	pr_debug("%s: handle %p len %x\n",
+		  __func__, handle, read_len);
+
+	if (wcd9xxx == NULL || handle == NULL) {
+		pr_err("%s: Invlaid handle/wcd9xxx pointer\n", __func__);
+		return -EINVAL;
+	}
+
+	tx_master = &slim_tx_master;
+	if (handle != tx_master->slim_s.handle) {
+		pr_err("%s: handle(%p) not matching slim_hdl(%p)\n",
+			__func__, handle, tx_master->slim_s.handle);
+		return -EINVAL;
+	}
+	mutex_lock(&tx_master->lock);
+	slim_cfg = tx_master->slim_cfg;
+	sb_comp = &tx_master->slim_s.sb_comp;
+	rc = slim_port_xfer(wcd9xxx->slim, slim_cfg->ph1,
+			    phys, read_len, sb_comp);
+	if (rc) {
+		pr_err("%s:Slimbus master read failure rc %d\n",
+		       __func__, rc);
+	}
+	mutex_unlock(&tx_master->lock);
+	return rc;
+}
+EXPORT_SYMBOL(wcd9xxx_slim_ch_master_read);
