@@ -176,6 +176,16 @@ Optional properties:
 				array are ordered from lowest voltage corner to highest voltage corner.
 				If this property is not present, then all target quotient fuse values
 				are assumed to be the default length of 12 bits.
+- qcom,cpr-fuse-target-quot-scale:	Array of doubles which defines the scaling coefficients to decode
+				the target quotients of each fuse corner.  The first element in each
+				double represents the offset to add to the scaled quotient.  The second
+				element represents the multiplier to scale the quotient by.  For example,
+				given a tuple <A B>, quot_decoded = A + (B * quot_raw).
+				The doubles in the array are ordered from lowest voltage corner to highest
+				voltage corner.  This property must contain a number of doubles equal to
+				the value of qcom,cpr-fuse-corners.  If this property is not present,
+				then all target quotient parameters are assumed to have an offset of 0
+				and a multiplier of 1 (i.e. no decoding needed).
 - qcom,cpr-enable:		Present: CPR enabled by default.
 				Not Present: CPR disable by default.
 - qcom,cpr-fuse-cond-min-volt-sel:	Array of 5 elements to indicate where to read the bits,  what value to
@@ -410,6 +420,10 @@ Example:
 				<1 1 2 4 12>,
 				<2 1 2 4 10>,
 				<5 1 2 4 14>;
+		qcom,cpr-fuse-target-quot-scale =
+				<0 1>,
+				<0 1>,
+				<0 1>;
 		qcom,cpr-quot-adjust-scaling-factor-max = <650>;
 		qcom,cpr-fuse-init-voltage =
 				<27 36 6 0>,
