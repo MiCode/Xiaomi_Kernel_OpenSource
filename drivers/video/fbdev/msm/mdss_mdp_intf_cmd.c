@@ -42,6 +42,7 @@ struct mdss_mdp_cmd_ctx {
 	int rdptr_enabled;
 	struct mutex clk_mtx;
 	spinlock_t clk_lock;
+	spinlock_t koff_lock;
 	struct work_struct clk_work;
 	struct delayed_work pc_work;
 	struct work_struct pp_done_work;
@@ -186,6 +187,7 @@ static inline void mdss_mdp_cmd_clk_on(struct mdss_mdp_cmd_ctx *ctx)
 {
 	unsigned long flags;
 	struct mdss_data_type *mdata = mdss_mdp_get_mdata();
+	int irq_en;
 
 	if (!ctx->panel_on)
 		return;
@@ -217,10 +219,13 @@ static inline void mdss_mdp_cmd_clk_on(struct mdss_mdp_cmd_ctx *ctx)
 		mdss_mdp_hist_intr_setup(&mdata->hist_intr, MDSS_IRQ_RESUME);
 	}
 	spin_lock_irqsave(&ctx->clk_lock, flags);
-	if (!ctx->rdptr_enabled)
-		mdss_mdp_irq_enable(MDSS_MDP_IRQ_PING_PONG_RD_PTR, ctx->pp_num);
+	irq_en =  !ctx->rdptr_enabled;
 	ctx->rdptr_enabled = VSYNC_EXPIRE_TICK;
 	spin_unlock_irqrestore(&ctx->clk_lock, flags);
+
+	if (irq_en)
+		mdss_mdp_irq_enable(MDSS_MDP_IRQ_PING_PONG_RD_PTR, ctx->pp_num);
+
 	mutex_unlock(&ctx->clk_mtx);
 }
 
@@ -305,7 +310,7 @@ static void mdss_mdp_cmd_underflow_recovery(void *data)
 
 	if (!ctx->ctl)
 		return;
-	spin_lock_irqsave(&ctx->clk_lock, flags);
+	spin_lock_irqsave(&ctx->koff_lock, flags);
 	if (atomic_read(&ctx->koff_cnt)) {
 		mdss_mdp_ctl_reset(ctx->ctl);
 		pr_debug("%s: intf_num=%d\n", __func__,
@@ -315,7 +320,7 @@ static void mdss_mdp_cmd_underflow_recovery(void *data)
 						ctx->pp_num);
 		complete_all(&ctx->pp_comp);
 	}
-	spin_unlock_irqrestore(&ctx->clk_lock, flags);
+	spin_unlock_irqrestore(&ctx->koff_lock, flags);
 }
 
 static void mdss_mdp_cmd_pingpong_done(void *arg)
@@ -338,8 +343,10 @@ static void mdss_mdp_cmd_pingpong_done(void *arg)
 		if (tmp->enabled && tmp->cmd_post_flush)
 			tmp->vsync_handler(ctl, vsync_time);
 	}
-	mdss_mdp_irq_disable_nosync(MDSS_MDP_IRQ_PING_PONG_COMP, ctx->pp_num);
+	spin_unlock(&ctx->clk_lock);
 
+	spin_lock(&ctx->koff_lock);
+	mdss_mdp_irq_disable_nosync(MDSS_MDP_IRQ_PING_PONG_COMP, ctx->pp_num);
 	complete_all(&ctx->pp_comp);
 	MDSS_XLOG(ctl->num, atomic_read(&ctx->koff_cnt), ctx->clk_enabled,
 					ctx->rdptr_enabled);
@@ -363,7 +370,7 @@ static void mdss_mdp_cmd_pingpong_done(void *arg)
 			ctl->num, ctl->intf_num, ctx->pp_num,
 				atomic_read(&ctx->koff_cnt));
 
-	spin_unlock(&ctx->clk_lock);
+	spin_unlock(&ctx->koff_lock);
 }
 
 static void pingpong_done_work(struct work_struct *work)
@@ -524,10 +531,10 @@ static int mdss_mdp_cmd_wait4pingpong(struct mdss_mdp_ctl *ctl, void *arg)
 
 	pdata = ctl->panel_data;
 
-	spin_lock_irqsave(&ctx->clk_lock, flags);
+	spin_lock_irqsave(&ctx->koff_lock, flags);
 	if (atomic_read(&ctx->koff_cnt) > 0)
 		need_wait = 1;
-	spin_unlock_irqrestore(&ctx->clk_lock, flags);
+	spin_unlock_irqrestore(&ctx->koff_lock, flags);
 
 	ctl->roi_bkup.w = ctl->width;
 	ctl->roi_bkup.h = ctl->height;
@@ -699,11 +706,15 @@ int mdss_mdp_cmd_kickoff(struct mdss_mdp_ctl *ctl, void *arg)
 	MDSS_XLOG(ctl->num, ctl->roi.x, ctl->roi.y, ctl->roi.w,
 						ctl->roi.h);
 
-	spin_lock_irqsave(&ctx->clk_lock, flags);
+	spin_lock_irqsave(&ctx->koff_lock, flags);
 	atomic_inc(&ctx->koff_cnt);
-	if (sctx)
+	INIT_COMPLETION(ctx->pp_comp);
+	if (sctx) {
 		atomic_inc(&sctx->koff_cnt);
-	spin_unlock_irqrestore(&ctx->clk_lock, flags);
+		INIT_COMPLETION(sctx->pp_comp);
+	}
+	spin_unlock_irqrestore(&ctx->koff_lock, flags);
+
 	trace_mdp_cmd_kickoff(ctl->num, atomic_read(&ctx->koff_cnt));
 
 	mdss_mdp_cmd_clk_on(ctx);
@@ -719,13 +730,11 @@ int mdss_mdp_cmd_kickoff(struct mdss_mdp_ctl *ctl, void *arg)
 
 	mdss_mdp_cmd_set_sync_ctx(ctl, sctl);
 
-	INIT_COMPLETION(ctx->pp_comp);
 	mdss_mdp_irq_enable(MDSS_MDP_IRQ_PING_PONG_COMP, ctx->pp_num);
-	if (sctx) {
-		INIT_COMPLETION(sctx->pp_comp);
+	if (sctx)
 		mdss_mdp_irq_enable(MDSS_MDP_IRQ_PING_PONG_COMP, sctx->pp_num);
-	}
-	mdss_mdp_ctl_write(ctl, MDSS_MDP_REG_CTL_START, 1);
+
+	mdss_mdp_ctl_write(ctl, MDSS_MDP_REG_CTL_START, 1);	/* Kickoff */
 
 	mdss_mdp_ctl_perf_set_transaction_status(ctl,
 		PERF_SW_COMMIT_STATE, PERF_STATUS_DONE);
@@ -869,6 +878,7 @@ int mdss_mdp_cmd_start(struct mdss_mdp_ctl *ctl)
 	init_completion(&ctx->pp_comp);
 	init_completion(&ctx->stop_comp);
 	spin_lock_init(&ctx->clk_lock);
+	spin_lock_init(&ctx->koff_lock);
 	mutex_init(&ctx->clk_mtx);
 	INIT_WORK(&ctx->clk_work, clk_ctrl_work);
 	INIT_DELAYED_WORK(&ctx->pc_work, __mdss_mdp_cmd_pc_work);
