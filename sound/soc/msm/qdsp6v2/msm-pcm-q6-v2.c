@@ -462,6 +462,7 @@ static int msm_pcm_trigger(struct snd_pcm_substream *substream, int cmd)
 static int msm_pcm_open(struct snd_pcm_substream *substream)
 {
 	struct snd_pcm_runtime *runtime = substream->runtime;
+	struct snd_soc_pcm_runtime *soc_prtd = substream->private_data;
 	struct msm_audio *prtd;
 	int ret = 0;
 
@@ -478,6 +479,8 @@ static int msm_pcm_open(struct snd_pcm_substream *substream)
 		kfree(prtd);
 		return -ENOMEM;
 	}
+
+	prtd->audio_client->dev = soc_prtd->platform->dev;
 
 	if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK)
 		runtime->hw = msm_pcm_hardware_playback;
