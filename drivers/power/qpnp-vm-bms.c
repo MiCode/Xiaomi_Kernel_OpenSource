@@ -1164,7 +1164,7 @@ static int report_voltage_based_soc(struct qpnp_bms_chip *chip)
 static int report_vm_bms_soc(struct qpnp_bms_chip *chip)
 {
 	int soc, soc_change;
-	int time_since_last_change_sec, charge_time_sec = 0;
+	int time_since_last_change_sec = 0, charge_time_sec = 0;
 	unsigned long last_change_sec;
 	bool charging;
 
@@ -1566,15 +1566,14 @@ static void monitor_soc_work(struct work_struct *work)
 					/* update last_soc immediately */
 					report_vm_bms_soc(chip);
 
-				/* low SOC configuration */
-				low_soc_check(chip);
 				pr_debug("update bms_psy\n");
 				power_supply_changed(&chip->bms_psy);
 			} else {
 				report_vm_bms_soc(chip);
 			}
 		}
-
+		/* low SOC configuration */
+		low_soc_check(chip);
 	}
 	/*
 	 * schedule the work only if last_soc has not caught up with
@@ -2223,7 +2222,9 @@ static int calculate_initial_soc(struct qpnp_bms_chip *chip)
 								batt_temp);
 		} else {
 			chip->last_ocv_uv = chip->shutdown_ocv;
-			chip->calculated_soc = chip->shutdown_soc;
+			chip->last_soc = chip->shutdown_soc;
+			chip->calculated_soc = lookup_soc_ocv(chip,
+						chip->shutdown_ocv, batt_temp);
 			pr_debug("Using shutdown SOC\n");
 		}
 	} else {
@@ -2234,7 +2235,9 @@ static int calculate_initial_soc(struct qpnp_bms_chip *chip)
 			(abs(shutdown_soc - chip->calculated_soc) <
 				chip->dt.cfg_shutdown_soc_valid_limit)) {
 			chip->last_ocv_uv = chip->shutdown_ocv;
-			chip->calculated_soc = chip->shutdown_soc;
+			chip->last_soc = chip->shutdown_soc;
+			chip->calculated_soc = lookup_soc_ocv(chip,
+						chip->shutdown_ocv, batt_temp);
 			pr_debug("Using shutdown SOC\n");
 		} else {
 			pr_debug("Using PON SOC\n");
@@ -2243,9 +2246,9 @@ static int calculate_initial_soc(struct qpnp_bms_chip *chip)
 	/* store the start-up OCV for voltage-based-soc */
 	chip->voltage_soc_uv = chip->last_ocv_uv;
 
-	pr_info("warm_reset=%d est_ocv=%d  shutdown_soc_invalid=%d shutdown_ocv=%d shutdown_soc=%d calculated_soc=%d last_ocv_uv=%d\n",
+	pr_info("warm_reset=%d est_ocv=%d  shutdown_soc_invalid=%d shutdown_ocv=%d shutdown_soc=%d last_soc=%d calculated_soc=%d last_ocv_uv=%d\n",
 		chip->warm_reset, est_ocv, shutdown_soc_invalid,
-		chip->shutdown_ocv, chip->shutdown_soc,
+		chip->shutdown_ocv, chip->shutdown_soc, chip->last_soc,
 		chip->calculated_soc, chip->last_ocv_uv);
 
 	return 0;
@@ -2361,7 +2364,7 @@ static int bms_load_hw_defaults(struct qpnp_bms_chip *chip)
 			pr_err("Unable to set FSM state rc=%d\n", rc);
 	}
 
-	rc = qpnp_read_wrapper(chip, &bms_en, chip->base + BMS_EN_BIT, 1);
+	rc = qpnp_read_wrapper(chip, &bms_en, chip->base + EN_CTL_REG, 1);
 	if (rc) {
 		pr_err("Unable to read BMS_EN state rc=%d\n", rc);
 		return rc;
@@ -3184,8 +3187,7 @@ static int qpnp_vm_bms_probe(struct spmi_device *spmi)
 			pr_err("Couldn't create bms_status debug file\n");
 	}
 
-	schedule_delayed_work(&chip->monitor_soc_work,
-			msecs_to_jiffies(get_calculation_delay_ms(chip)));
+	schedule_delayed_work(&chip->monitor_soc_work, 0);
 
 	/*
 	 * schedule a work to check if the userspace vmbms module
