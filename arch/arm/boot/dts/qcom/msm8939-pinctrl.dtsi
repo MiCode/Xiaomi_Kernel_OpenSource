@@ -265,5 +265,54 @@
 				bias-pull-up;
 			};
 		};
+
+		/* add pingrp for touchscreen */
+		pmx_ts_int_active {
+			qcom,pins = <&gp 13>;
+			qcom,pin-func = <0>;
+			qcom,num-grp-pins = <1>;
+			label = "pmx_ts_int_active";
+
+			ts_int_active: ts_int_active {
+				drive-strength = <16>;
+				bias-pull-up;
+			};
+		};
+
+		pmx_ts_int_suspend {
+			qcom,pins = <&gp 13>;
+			qcom,pin-func = <0>;
+			qcom,num-grp-pins = <1>;
+			label = "pmx_ts_int_suspend";
+
+			ts_int_suspend: ts_int_suspend {
+				drive-strength = <16>;
+				bias-disable;
+			};
+		};
+
+		pmx_ts_reset_active {
+			qcom,pins = <&gp 12>;
+			qcom,pin-func = <0>;
+			qcom,num-grp-pins = <1>;
+			label = "pmx_ts_reset_active";
+
+			ts_reset_active: ts_reset_active {
+				drive-strength = <16>;
+				bias-pull-up;
+			};
+		};
+
+		pmx_ts_reset_suspend {
+			qcom,pins = <&gp 12>;
+			qcom,pin-func = <0>;
+			qcom,num-grp-pins = <1>;
+			label = "pmx_ts_reset_suspend";
+
+			ts_reset_suspend: ts_reset_suspend {
+				drive-strength = <16>;
+				bias-disable;
+			};
+		};
 	};
 };
