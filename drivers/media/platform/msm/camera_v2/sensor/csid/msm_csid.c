@@ -51,11 +51,11 @@ static struct msm_cam_clk_info csid_clk_info[CSID_NUM_CLK_MAX];
 static struct msm_cam_clk_info csid_clk_src_info[CSID_NUM_CLK_MAX];
 
 static struct camera_vreg_t csid_vreg_info[] = {
-	{"qcom,mipi-csi-vdd", REG_LDO, 0, 0, 12000},
+	{"qcom,mipi-csi-vdd", 0, 0, 12000},
 };
 
 static struct camera_vreg_t csid_8960_vreg_info[] = {
-	{"mipi_csi_vdd", REG_LDO, 1200000, 1200000, 20000},
+	{"mipi_csi_vdd", 1200000, 1200000, 20000},
 };
 #ifdef CONFIG_COMPAT
 static struct v4l2_file_operations msm_csid_v4l2_subdev_fops;
