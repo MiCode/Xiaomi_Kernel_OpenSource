@@ -36,7 +36,7 @@
 		/* Clock levels */
 		qcom,mdss-clk-levels = <92310000 100000000
 				    133330000 177780000 200000000>;
-
+		qcom,max-mixer-width = <2048>;
 		qcom,mdss-mdp-reg-offset = <0x00000100>;
 		qcom,max-bandwidth-low-kbps = <1100000>;
 		qcom,max-bandwidth-high-kbps = <1660000>;
