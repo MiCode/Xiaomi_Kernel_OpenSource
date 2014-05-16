@@ -604,6 +604,7 @@ static int32_t qpnp_ocv_comp(int64_t *result,
 					QPNP_VBAT_COEFF_25;
 			break;
 		}
+		break;
 	case QPNP_REV_ID_8110_2_0:
 		switch (vadc->id) {
 		case COMP_ID_SMIC:
@@ -739,6 +740,7 @@ static int32_t qpnp_vbat_sns_comp(int64_t *result,
 			temp_var = 0;
 			break;
 		}
+		break;
 	case QPNP_REV_ID_8110_2_0:
 		switch (vadc->id) {
 		case COMP_ID_SMIC:
