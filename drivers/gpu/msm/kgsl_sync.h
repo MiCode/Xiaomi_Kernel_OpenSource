@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -52,7 +52,7 @@ static inline int kgsl_add_fence_event(struct kgsl_device *device,
 	return -EINVAL;
 }
 
-static int kgsl_sync_timeline_create(struct kgsl_context *context)
+static inline int kgsl_sync_timeline_create(struct kgsl_context *context)
 {
 	context->timeline = NULL;
 	return 0;
