@@ -391,13 +391,15 @@ static void sst_send_algo_cmd(struct sst_data *sst,
 static void sst_find_and_send_pipe_algo(struct sst_data *sst,
 					const char *pipe, struct sst_ids *ids)
 {
+	struct soc_bytes_ext *sb;
 	struct sst_algo_control *bc;
 	struct module *algo = NULL;
 
 	pr_debug("Enter: %s, widget=%s\n", __func__, pipe);
 
 	list_for_each_entry(algo, &ids->algo_list, node) {
-		bc = (void *)algo->kctl->private_value;
+		sb = (void *) algo->kctl->private_value;
+		bc = (struct sst_algo_control *)sb->pvt_data;
 
 		pr_debug("Found algo control name=%s pipe=%s\n", algo->kctl->id.name, pipe);
 		sst_send_algo_cmd(sst, bc);
@@ -407,7 +409,8 @@ static void sst_find_and_send_pipe_algo(struct sst_data *sst,
 int sst_algo_bytes_ctl_info(struct snd_kcontrol *kcontrol,
 			    struct snd_ctl_elem_info *uinfo)
 {
-	struct sst_algo_control *bc = (void *)kcontrol->private_value;
+	struct soc_bytes_ext *sb = (void *) kcontrol->private_value;
+	struct sst_algo_control *bc = (struct sst_algo_control *)sb->pvt_data;
 	struct snd_soc_platform *platform = snd_kcontrol_chip(kcontrol);
 
 	uinfo->type = SNDRV_CTL_ELEM_TYPE_BYTES;
@@ -427,7 +430,8 @@ int sst_algo_bytes_ctl_info(struct snd_kcontrol *kcontrol,
 static int sst_algo_control_get(struct snd_kcontrol *kcontrol,
 				struct snd_ctl_elem_value *ucontrol)
 {
-	struct sst_algo_control *bc = (void *)kcontrol->private_value;
+	struct soc_bytes_ext *sb = (void *) kcontrol->private_value;
+	struct sst_algo_control *bc = (struct sst_algo_control *)sb->pvt_data;
 
 	switch (bc->type) {
 	case SST_ALGO_PARAMS:
@@ -451,7 +455,8 @@ static int sst_algo_control_set(struct snd_kcontrol *kcontrol,
 {
 	struct snd_soc_platform *platform = snd_kcontrol_chip(kcontrol);
 	struct sst_data *sst = snd_soc_platform_get_drvdata(platform);
-	struct sst_algo_control *bc = (void *)kcontrol->private_value;
+	struct soc_bytes_ext *sb = (void *) kcontrol->private_value;
+	struct sst_algo_control *bc = (struct sst_algo_control *)sb->pvt_data;
 
 	pr_debug("in %s control_name=%s\n", __func__, kcontrol->id.name);
 	switch (bc->type) {
@@ -1137,13 +1142,15 @@ static int sst_tone_generator_event(struct snd_soc_dapm_widget *w,
 	if (SND_SOC_DAPM_EVENT_ON(event)) {
 		int len;
 		struct module *algo;
+		struct soc_bytes_ext *sb;
 		struct sst_algo_control *bc;
 		struct sst_cmd_set_params *cmd;
 
 		algo = list_first_entry(&ids->algo_list, struct module, node);
 		if (algo == NULL)
 			return -EINVAL;
-		bc = (void *)algo->kctl->private_value;
+		sb = (void *)algo->kctl->private_value;
+		bc = (struct sst_algo_control *)sb->pvt_data;
 		len = sizeof(cmd->dst) + sizeof(cmd->command_id) + bc->max;
 
 		cmd = kzalloc(len, GFP_KERNEL);
@@ -1899,7 +1906,8 @@ static int sst_fill_module_list(struct snd_kcontrol *kctl,
 		module->kctl = kctl;
 		list_add_tail(&module->node, &ids->gain_list);
 	} else if (type == SST_MODULE_ALGO) {
-		struct sst_algo_control *bc = (void *)kctl->private_value;
+		struct soc_bytes_ext *sb = (void *) kctl->private_value;
+		struct sst_algo_control *bc = (struct sst_algo_control *)sb->pvt_data;
 
 		bc->w = w;
 		module->kctl = kctl;

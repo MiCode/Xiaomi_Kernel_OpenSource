@@ -262,9 +262,11 @@ struct sst_algo_control {
 
 /* size of the control = size of params + size of length field */
 #define SST_ALGO_CTL_VALUE(xcount, xtype, xpipe, xmod, xtask, xcmd)			\
-	(struct sst_algo_control){							\
-		.max = xcount + sizeof(u16), .type = xtype, .module_id = xmod,			\
-		.pipe_id = xpipe, .task_id = xtask, .cmd_id = xcmd,			\
+	(struct soc_bytes_ext) {.max = xcount + sizeof(u16),							\
+		.pvt_data = (char *) &(struct sst_algo_control)				\
+		{.max = xcount + sizeof(u16), .type = xtype, .module_id = xmod,		\
+			.pipe_id = xpipe, .task_id = xtask, .cmd_id = xcmd,		\
+		}									\
 	}
 
 #define SST_ALGO_KCONTROL(xname, xcount, xmod, xpipe,					\
