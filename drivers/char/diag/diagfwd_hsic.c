@@ -287,10 +287,14 @@ static void diag_hsic_read_complete_callback(void *ctxt, char *buf,
 			 * appropriate device, e.g. USB MDM channel
 			 */
 			diag_bridge[index].write_len = actual_size;
+			if (driver->logging_mode == MEMORY_DEVICE_MODE)
+				diag_ws_on_notify();
 			err = diag_device_write((void *)buf, index+HSIC_DATA,
 									NULL);
 			/* If an error, return buffer to the pool */
 			if (err) {
+				if (driver->logging_mode == MEMORY_DEVICE_MODE)
+					diag_ws_release();
 				diagmem_free(driver, buf, index +
 							POOL_TYPE_HSIC);
 				if (__ratelimit(&rl))
@@ -344,7 +348,7 @@ static void diag_hsic_dci_read_complete_callback(void *ctxt, char *buf,
 		if (!buf) {
 			pr_err("diag: Out of diagmem for HSIC\n");
 		} else {
-			diag_dci_try_activate_wakeup_source();
+			diag_ws_on_notify();
 			diag_hsic_dci[index].data_len = actual_size;
 			diag_hsic_dci[index].data_buf = buf;
 			memcpy(diag_hsic_dci[index].data, buf, actual_size);

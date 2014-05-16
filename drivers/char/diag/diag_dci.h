@@ -258,9 +258,6 @@ uint8_t diag_dci_get_cumulative_real_time(int token);
 int diag_dci_set_real_time(struct diag_dci_client_tbl *entry,
 			   uint8_t real_time);
 int diag_dci_copy_health_stats(struct diag_dci_health_stats_proc *stats_proc);
-/* Functions related to DCI wakeup sources */
-void diag_dci_try_activate_wakeup_source(void);
-void diag_dci_try_deactivate_wakeup_source(void);
 int diag_dci_write_proc(int peripheral, int pkt_type, char *buf, int len);
 
 #ifdef CONFIG_DIAGFWD_BRIDGE_CODE
