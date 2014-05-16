@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2013, The Linux Foundation. All rights reserved
+/* Copyright (c) 2011-2014, The Linux Foundation. All rights reserved
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -4209,10 +4209,17 @@ static int iris_vidioc_s_ctrl(struct file *file, void *priv,
 	case V4L2_CID_PRIVATE_IRIS_RIVA_POKE:
 		if (radio->riva_data_req.cmd_params.length <=
 		    MAX_RIVA_PEEK_RSP_SIZE) {
+#ifdef CONFIG_COMPAT
+			retval = copy_from_user(
+					radio->riva_data_req.data,
+					(void *)(__s64)ctrl->value,
+					radio->riva_data_req.cmd_params.length);
+#else
 			retval = copy_from_user(
 					radio->riva_data_req.data,
 					(void *)ctrl->value,
 					radio->riva_data_req.cmd_params.length);
+#endif
 			if (retval != 0) {
 				retval = -retval;
 				goto END;
@@ -5094,6 +5101,9 @@ static const struct v4l2_ioctl_ops iris_ioctl_ops = {
 static const struct v4l2_file_operations iris_fops = {
 	.owner = THIS_MODULE,
 	.unlocked_ioctl = video_ioctl2,
+#ifdef CONFIG_COMPAT
+	.compat_ioctl32 = v4l2_compat_ioctl32,
+#endif
 	.release        = iris_fops_release,
 };
 
