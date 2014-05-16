@@ -84,6 +84,9 @@ Optional properties:
 - qcom,clock-names: an array of clocks that the driver is supposed to be
   manipulating. The clocks names here correspond to the clock names used in
   clk_get(<name>).
+- clock-names: an array of clocks that the driver is supposed to be
+  manipulating. The clocks names here correspond to the clock names used in
+  clk_get(<name>).
 - qcom,clock-configs = an array of bitmaps of clocks' configurations. The index
   of the bitmap corresponds to the clock at the same index in qcom,clock-names.
   The bitmaps describes the actions that the device needs to take regarding the
@@ -118,6 +121,7 @@ Example:
 			<0x80178 0x00001FFF>;
 		qcom,max-hw-load = <1224450>; /* 4k @ 30 + 1080p @ 30*/
 		qcom,clock-names = "foo_clk", "bar_clk", "baz_clk";
+		clock-names = "foo_clk", "bar_clk", "baz_clk";
 		qcom,clock-properties = <0x3 0x1 0x0>;
 		qcom,buffer-type-tz-usage-table = <0x1 0x1>,
 						<0x1fe 0x2>;

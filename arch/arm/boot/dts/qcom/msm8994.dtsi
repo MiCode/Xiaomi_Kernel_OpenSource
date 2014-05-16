@@ -998,9 +998,21 @@
 			<0xe0024 0x5555556>,
 			<0x80124 0x3>;
 		qcom,max-hw-load = <1281600>; /* Full 4k @ 30 + 1080p @ 30 */
-		qcom,clock-names = "core_clk", "core0_clk", "core1_clk", "iface_clk", "bus_clk",
-			"mem_clk";
+		qcom,clock-names = "core_clk", "core0_clk", "core1_clk", "core2_clk",
+			"iface_clk", "bus_clk";
+		clock-names = "core_clk", "core0_clk", "core1_clk", "core2_clk",
+			"iface_clk", "bus_clk";
+		venus-supply = <&gdsc_venus>;
+		venus-core0-supply = <&gdsc_venus_core0>;
+		venus-core1-supply = <&gdsc_venus_core1>;
+		venus-core2-supply = <&gdsc_venus_core2>;
 		qcom,clock-configs = <0x3 0x0 0x0 0x0 0x0 0x0>;
+		clocks = <&clock_mmss clk_venus0_vcodec0_clk>,
+			<&clock_mmss clk_venus0_core0_vcodec_clk>,
+			<&clock_mmss clk_venus0_core1_vcodec_clk>,
+			<&clock_mmss clk_venus0_core2_vcodec_clk>,
+			<&clock_mmss clk_venus0_ahb_clk>,
+			<&clock_mmss clk_venus0_axi_clk>;
 		qcom,load-freq-tbl = <979200 465000000>,
 			<783360 465000000>,
 			<489600 266670000>,
