@@ -224,14 +224,14 @@
 		synaptics@20 {
 			compatible = "synaptics,dsx";
 			reg = <0x20>;
-			interrupt-parent = <&msmgpio>;
+			interrupt-parent = <&msm_gpio>;
 			interrupts = <61 0x2008>;
 			vdd-supply = <&pm8994_l14>;
 			avdd-supply = <&pm8994_l22>;
 			synaptics,display-coords = <0 0 1599 2559>;
 			synaptics,panel-coords = <0 0 1599 2703>;
-			synaptics,reset-gpio = <&msmgpio 60 0x00>;
-			synaptics,irq-gpio = <&msmgpio 61 0x2008>;
+			synaptics,reset-gpio = <&msm_gpio 60 0x00>;
+			synaptics,irq-gpio = <&msm_gpio 61 0x2008>;
 			synaptics,disable-gpios;
 		};
 	};
