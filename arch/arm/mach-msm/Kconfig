@@ -174,6 +174,7 @@ config ARCH_MSMZIRC
 	select MSM_CORTEX_A7
 	select PINCTRL
 	select PINCTRL_MSM_TLMM_V4
+	select USE_PINCTRL_IRQ
 	select MSM_IRQ
 
 config ARCH_MSM8610
