@@ -1256,6 +1256,7 @@ static const struct acpi_device_id jsa1212_acpi_match[] = {
 	{"JSA1212", 0},
 	{ },
 };
+MODULE_DEVICE_TABLE(acpi, jsa1212_acpi_match);
 
 static const struct i2c_device_id jsa1212_id[] = {
 	{ "jsa1212", 0 },
