@@ -2191,7 +2191,8 @@ static struct clk_lookup msm_clocks_9630[] = {
 	CLK_LOOKUP("xo", cxo_dwc3_clk.c, "f9200000.ssusb"),
 	CLK_LOOKUP("phy_sleep_clk", gcc_usb2b_phy_sleep_clk.c,
 		   "f9200000.ssusb"),
-
+	CLK_LOOKUP("phy_com_reset",  gcc_usb3_phy_com_reset.c,
+		"f9200000.ssusb"),
 	CLK_LOOKUP("core_clk", qpic_clk.c, "f9ac0000.qcom,nand"),
 	CLK_LOOKUP("", qpic_a_clk.c, ""),
 };
