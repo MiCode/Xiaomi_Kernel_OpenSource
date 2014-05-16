@@ -65,9 +65,6 @@
 #define MAX_ON_DEMAND_SUPPLY_NAME_LENGTH	64
 #define TOMBAK_MCLK_CLK_9P6MHZ			9600000
 
-#define MSM8X16_WCD_A_ANALOG_RX_HPHL_REG_VIRT 0x300
-#define MSM8X16_WCD_A_ANALOG_RX_HPHR_REG_VIRT 0x350
-
 enum {
 	AIF1_PB = 0,
 	AIF1_CAP,
@@ -434,10 +431,6 @@ static int msm8x16_wcd_write(struct snd_soc_codec *codec, unsigned int reg,
 	if (reg == SND_SOC_NOPM)
 		return 0;
 
-	if (reg == MSM8X16_WCD_A_ANALOG_RX_HPHL_REG_VIRT ||
-		reg == MSM8X16_WCD_A_ANALOG_RX_HPHR_REG_VIRT)
-			return 0;
-
 	BUG_ON(reg > MSM8X16_WCD_MAX_REGISTER);
 	if (!msm8x16_wcd_volatile(codec, reg)) {
 		ret = snd_soc_cache_write(codec, reg, value);
@@ -459,9 +452,6 @@ static unsigned int msm8x16_wcd_read(struct snd_soc_codec *codec,
 
 	BUG_ON(reg > MSM8X16_WCD_MAX_REGISTER);
 
-	if (reg == MSM8X16_WCD_A_ANALOG_RX_HPHL_REG_VIRT ||
-		reg == MSM8X16_WCD_A_ANALOG_RX_HPHR_REG_VIRT)
-			return 0;
 	if (!msm8x16_wcd_volatile(codec, reg) &&
 	    msm8x16_wcd_readable(codec, reg) &&
 		reg < codec->driver->reg_cache_size) {
@@ -1505,14 +1495,19 @@ static const struct snd_kcontrol_new ear_pa_switch[] = {
 		MSM8X16_WCD_A_ANALOG_RX_EAR_CTL, 5, 1, 0)
 };
 
-static const struct snd_kcontrol_new hphl_switch[] = {
-	SOC_DAPM_SINGLE("Switch",
-		MSM8X16_WCD_A_ANALOG_RX_HPHL_REG_VIRT, 7, 1, 0)
+static const char * const hph_text[] = {
+	"ZERO", "Switch",
 };
 
-static const struct snd_kcontrol_new hphr_switch[] = {
-	SOC_DAPM_SINGLE("Switch",
-		MSM8X16_WCD_A_ANALOG_RX_HPHR_REG_VIRT, 7, 1, 0)
+static const struct soc_enum hph_enum =
+	SOC_ENUM_SINGLE(0, 0, ARRAY_SIZE(hph_text), hph_text);
+
+static const struct snd_kcontrol_new hphl_mux[] = {
+	SOC_DAPM_ENUM_VIRT("HPHL", hph_enum)
+};
+
+static const struct snd_kcontrol_new hphr_mux[] = {
+	SOC_DAPM_ENUM_VIRT("HPHR", hph_enum)
 };
 
 static const struct snd_kcontrol_new spkr_switch[] = {
@@ -2707,8 +2702,8 @@ static const struct snd_soc_dapm_widget msm8x16_wcd_dapm_widgets[] = {
 		SND_SOC_DAPM_POST_PMU | SND_SOC_DAPM_PRE_PMD |
 		SND_SOC_DAPM_POST_PMD),
 
-	SND_SOC_DAPM_MIXER("HPHL", SND_SOC_NOPM, 0, 0,
-		hphl_switch, ARRAY_SIZE(hphl_switch)),
+	SND_SOC_DAPM_VIRT_MUX("HPHL", SND_SOC_NOPM, 0, 0,
+		hphl_mux),
 
 	SND_SOC_DAPM_MIXER_E("HPHL DAC",
 		MSM8X16_WCD_A_ANALOG_RX_HPH_L_PA_DAC_CTL, 3, 0, NULL,
@@ -2722,8 +2717,8 @@ static const struct snd_soc_dapm_widget msm8x16_wcd_dapm_widgets[] = {
 		SND_SOC_DAPM_POST_PMU | SND_SOC_DAPM_PRE_PMD |
 		SND_SOC_DAPM_POST_PMD),
 
-	SND_SOC_DAPM_MIXER("HPHR", SND_SOC_NOPM, 0, 0,
-		hphr_switch, ARRAY_SIZE(hphr_switch)),
+	SND_SOC_DAPM_VIRT_MUX("HPHR", SND_SOC_NOPM, 0, 0,
+		hphr_mux),
 
 	SND_SOC_DAPM_MIXER_E("HPHR DAC",
 		MSM8X16_WCD_A_ANALOG_RX_HPH_R_PA_DAC_CTL, 3, 0, NULL,
@@ -2828,13 +2823,12 @@ static const struct snd_soc_dapm_widget msm8x16_wcd_dapm_widgets[] = {
 		msm8x16_wcd_codec_enable_charge_pump, SND_SOC_DAPM_PRE_PMU |
 		SND_SOC_DAPM_POST_PMU | SND_SOC_DAPM_POST_PMD),
 
-	SND_SOC_DAPM_SUPPLY("RX_BIAS", MSM8X16_WCD_A_ANALOG_RX_HPHL_REG_VIRT,
-		0, 0,
-		msm8x16_wcd_codec_enable_rx_bias, SND_SOC_DAPM_PRE_PMU |
-		SND_SOC_DAPM_POST_PMD),
+	SND_SOC_DAPM_SUPPLY("RX_BIAS", SND_SOC_NOPM,
+		0, 0, msm8x16_wcd_codec_enable_rx_bias,
+		SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMD),
 
 	SND_SOC_DAPM_SUPPLY("SPK_RX_BIAS",
-		MSM8X16_WCD_A_ANALOG_RX_HPHL_REG_VIRT, 0, 0,
+		SND_SOC_NOPM, 0, 0,
 		msm8x16_wcd_codec_enable_rx_bias, SND_SOC_DAPM_PRE_PMU |
 		SND_SOC_DAPM_POST_PMD),
 
