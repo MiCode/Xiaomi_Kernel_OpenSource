@@ -3254,12 +3254,12 @@ static int synaptics_rmi4_probe(struct i2c_client *client,
 		retval = synpatics_rmi4_pinctrl_select(rmi4_data, true);
 		if (retval < 0)
 			goto err_gpio_config;
-	}
-
-	retval = synaptics_rmi4_gpio_configure(rmi4_data, true);
-	if (retval < 0) {
-		dev_err(&client->dev, "Failed to configure gpios\n");
-		goto pinctrl_sleep;
+	} else {
+		retval = synaptics_rmi4_gpio_configure(rmi4_data, true);
+		if (retval < 0) {
+			dev_err(&client->dev, "Failed to configure gpios\n");
+			goto pinctrl_sleep;
+		}
 	}
 
 	init_waitqueue_head(&rmi4_data->wait);
@@ -3952,12 +3952,13 @@ static int synaptics_rmi4_suspend(struct device *dev)
 								 false);
 			if (retval < 0)
 				dev_err(dev, "Cannot get idle pinctrl state\n");
-		}
-
-		retval = synaptics_rmi4_gpio_configure(rmi4_data, false);
-		if (retval < 0) {
-			dev_err(dev, "failed to put gpios in suspend state\n");
-			goto err_gpio_configure;
+		} else {
+			retval = synaptics_rmi4_gpio_configure(rmi4_data,
+								 false);
+			if (retval < 0) {
+				dev_err(dev, "failed to put gpios in suspend state\n");
+				goto err_gpio_configure;
+			}
 		}
 	}
 	rmi4_data->suspended = true;
@@ -4016,12 +4017,13 @@ static int synaptics_rmi4_resume(struct device *dev)
 			retval = synpatics_rmi4_pinctrl_select(rmi4_data, true);
 			if (retval < 0)
 				dev_err(dev, "Cannot get default pinctrl state\n");
-		}
-
-		retval = synaptics_rmi4_gpio_configure(rmi4_data, true);
-		if (retval < 0) {
-			dev_err(dev, "Failed to put gpios in active state\n");
-			goto err_gpio_configure;
+			msleep(rmi4_data->board->reset_delay);
+		} else {
+			retval = synaptics_rmi4_gpio_configure(rmi4_data, true);
+			if (retval < 0) {
+				dev_err(dev, "Failed to put gpios in active state\n");
+				goto err_gpio_configure;
+			}
 		}
 	}
 
@@ -4049,9 +4051,9 @@ err_check_configuration:
 								false);
 			if (retval < 0)
 				dev_err(dev, "Cannot get idle pinctrl state\n");
+		} else {
+			synaptics_rmi4_gpio_configure(rmi4_data, false);
 		}
-
-		synaptics_rmi4_gpio_configure(rmi4_data, false);
 	}
 	synaptics_rmi4_regulator_lpm(rmi4_data, true);
 	wake_up(&rmi4_data->wait);
