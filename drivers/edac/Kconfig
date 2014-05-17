@@ -368,4 +368,23 @@ config EDAC_OCTEON_PCI
 	  Support for error detection and correction on the
 	  Cavium Octeon family of SOCs.
 
+config EDAC_CORTEX_ARM64
+	depends on EDAC_MM_EDAC && ARM64
+	bool "ARM Cortex A53/A57 L1/L2 Caches"
+	help
+	   Support for error detection and correction on the
+	   ARM Cortex A53 and A57 CPUs. For debugging issues having to do with
+	   stability and overall system health, you should probably say 'Y'
+	   here.
+
+config EDAC_CORTEX_ARM64_PANIC_ON_UE
+	depends on EDAC_CORTEX_ARM64
+	bool "Panic on uncorrectable errors"
+	help
+	   Forcibly cause a kernel panic if an uncorrectable error (UE) is
+	   detected. This can reduce debugging times on hardware which may be
+	   operating at voltages or frequencies outside normal specification.
+
+	   For production builds, you should should probably say 'N' here.
+
 endif # EDAC

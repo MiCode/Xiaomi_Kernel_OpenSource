@@ -13,6 +13,12 @@
 #ifndef ASM_EDAC_H
 #define ASM_EDAC_H
 
+#ifdef CONFIG_EDAC_CORTEX_ARM64
+void arm64_erp_local_dbe_handler(void);
+#else
+static inline void arm64_erp_local_dbe_handler(void) { }
+#endif
+
 static inline void atomic_scrub(void *addr, int size)
 {
 	return;
