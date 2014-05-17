@@ -12,5 +12,5 @@ obj-$(CONFIG_DEVFREQ_GOV_MSM_CACHE_HWMON)	+= governor_cache_hwmon.o
 
 # DEVFREQ Drivers
 obj-$(CONFIG_ARM_EXYNOS4_BUS_DEVFREQ)	+= exynos4_bus.o
-obj-$(CONFIG_MSM_DEVFREQ_CPUBW)		+= devfreq_cpubw.o
+obj-$(CONFIG_MSM_DEVFREQ_DEVBW)		+= devfreq_devbw.o
 obj-$(CONFIG_DEVFREQ_SIMPLE_DEV)	+= devfreq_simple_dev.o
