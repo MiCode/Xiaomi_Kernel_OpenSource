@@ -1061,9 +1061,14 @@ int a3xx_perfcounter_enable(struct adreno_device *adreno_dev,
 	}
 	reg = &(counters->groups[group].regs[counter]);
 
+	if (adreno_is_a4xx(adreno_dev))
+		gpudev->disable_pc(adreno_dev);
 	/* Select the desired perfcounter */
 	kgsl_regwrite(&adreno_dev->dev, reg->select, countable);
 	counters->groups[group].regs[counter].value = 0;
+
+	if (adreno_is_a4xx(adreno_dev))
+		gpudev->enable_pc(adreno_dev);
 
 	return 0;
 }
