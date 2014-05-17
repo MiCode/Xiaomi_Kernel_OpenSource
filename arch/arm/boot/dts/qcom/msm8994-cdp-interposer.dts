@@ -52,3 +52,13 @@
 	qcom,clk-rates = <400000 20000000 25000000 50000000 100000000 192000000 384000000>;
 	qcom,bus-speed-mode = "HS400_1p8v", "HS200_1p8v", "DDR_1p8v";
 };
+
+&soc {
+	i2c@f9924000 {
+		synaptics@20 {
+			interrupt-parent = <&msmgpio>;
+			synaptics,reset-gpio = <&msmgpio 60 0x00>;
+			synaptics,irq-gpio = <&msmgpio 61 0x2008>;
+		};
+	};
+};
