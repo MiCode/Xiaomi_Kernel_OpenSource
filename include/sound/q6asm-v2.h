@@ -418,4 +418,9 @@ int q6asm_stream_send_meta_data(struct audio_client *ac, uint32_t stream_id,
 /* Get current ASM topology */
 int q6asm_get_asm_topology(void);
 
+int q6asm_send_mtmx_strtr_window(struct audio_client *ac,
+		struct asm_session_mtmx_strtr_param_window_v2_t *window_param,
+		uint32_t param_id);
+
+
 #endif /* __Q6_ASM_H__ */
