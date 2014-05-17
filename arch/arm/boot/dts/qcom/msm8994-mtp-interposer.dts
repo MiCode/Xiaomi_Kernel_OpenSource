@@ -21,6 +21,10 @@
 	compatible = "qcom,msm8974-cdp", "qcom,msm8974", "qcom,mtp";
 	qcom,board-id = <8 3>;
 
+	aliases {
+		serial0 = &blsp1_uart1;
+	};
+
 	qcom,mss@fc880000 {
 		status = "disabled";
 	};
@@ -28,6 +32,10 @@
 	qcom,pronto@fb21b000 {
 		status = "disabled";
 	};
+};
+
+&blsp1_uart1 {
+	status = "ok";
 };
 
 &usb_otg {

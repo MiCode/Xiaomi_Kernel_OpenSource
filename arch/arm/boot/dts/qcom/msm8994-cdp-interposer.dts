@@ -20,6 +20,14 @@
 	model = "Qualcomm Technologies, Inc. MSM 8974Pro-AC MSM8994 Interposer CDP";
 	compatible = "qcom,msm8974-cdp", "qcom,msm8974", "qcom,cdp";
 	qcom,board-id = <1 3>;
+
+	aliases {
+		serial0 = &blsp1_uart1;
+	};
+};
+
+&blsp1_uart1 {
+	status = "ok";
 };
 
 &usb_otg {
