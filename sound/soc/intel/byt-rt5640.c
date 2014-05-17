@@ -119,7 +119,7 @@ static struct snd_soc_dai_link byt_rt5640_dais[] = {
 		.stream_name = "Audio",
 		.cpu_dai_name = "baytrail-pcm-audio",
 		.codec_dai_name = "rt5640-aif1",
-		.codec_name = "i2c-10EC5640:00:1c",
+		.codec_name = "i2c-10EC5640:00",
 		.platform_name = "baytrail-pcm-audio",
 		.dai_fmt = SND_SOC_DAIFMT_I2S | SND_SOC_DAIFMT_NB_NF |
 			   SND_SOC_DAIFMT_CBS_CFS,
