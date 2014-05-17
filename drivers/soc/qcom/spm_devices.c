@@ -437,7 +437,7 @@ static struct msm_spm_device *msm_spm_get_device(struct platform_device *pdev)
 
 	if ((cpu >= 0) && cpu < num_possible_cpus()) {
 		dev = &per_cpu(msm_cpu_spm_device, cpu);
-	} else {
+	} else if (cpu == 0xffff) {
 		dev = devm_kzalloc(&pdev->dev, sizeof(struct msm_spm_device),
 				GFP_KERNEL);
 		msm_spm_l2_device = dev;
