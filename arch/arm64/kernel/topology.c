@@ -20,6 +20,8 @@
 #include <linux/of.h>
 #include <linux/sched.h>
 
+#include <asm/cputype.h>
+#include <asm/smp_plat.h>
 #include <asm/topology.h>
 
 static int __init get_cpu_for_node(struct device_node *node)
@@ -220,10 +222,8 @@ static void update_siblings_masks(unsigned int cpuid)
 	int cpu;
 
 	if (cpuid_topo->cluster_id == -1) {
-		/*
-		 * DT does not contain topology information for this cpu.
-		 */
-		pr_debug("CPU%u: No topology information configured\n", cpuid);
+		/* No topology information for this cpu ?! */
+		pr_err("CPU%u: No topology information configured\n", cpuid);
 		return;
 	}
 
@@ -249,6 +249,44 @@ static void update_siblings_masks(unsigned int cpuid)
 
 void store_cpu_topology(unsigned int cpuid)
 {
+	struct cpu_topology *cpuid_topo = &cpu_topology[cpuid];
+	u64 mpidr;
+
+	if (cpuid_topo->cluster_id != -1)
+		goto topology_populated;
+
+	mpidr = read_cpuid_mpidr();
+
+	/* Create cpu topology mapping based on MPIDR. */
+	if (mpidr & MPIDR_UP_BITMASK) {
+		/* Uniprocessor system */
+		cpuid_topo->thread_id  = -1;
+		cpuid_topo->core_id    = MPIDR_AFFINITY_LEVEL(mpidr, 0);
+		cpuid_topo->cluster_id = 0;
+	} else if (mpidr & MPIDR_MT_BITMASK) {
+		/* Multiprocessor system : Multi-threads per core */
+		cpuid_topo->thread_id  = MPIDR_AFFINITY_LEVEL(mpidr, 0);
+		cpuid_topo->core_id    = MPIDR_AFFINITY_LEVEL(mpidr, 1);
+		cpuid_topo->cluster_id =
+			((mpidr & MPIDR_AFF_MASK(2)) >> mpidr_hash.shift_aff[2] |
+			 (mpidr & MPIDR_AFF_MASK(3)) >> mpidr_hash.shift_aff[3])
+			>> mpidr_hash.shift_aff[1] >> mpidr_hash.shift_aff[0];
+	} else {
+		/* Multiprocessor system : Single-thread per core */
+		cpuid_topo->thread_id  = -1;
+		cpuid_topo->core_id    = MPIDR_AFFINITY_LEVEL(mpidr, 0);
+		cpuid_topo->cluster_id =
+			((mpidr & MPIDR_AFF_MASK(1)) >> mpidr_hash.shift_aff[1] |
+			 (mpidr & MPIDR_AFF_MASK(2)) >> mpidr_hash.shift_aff[2] |
+			 (mpidr & MPIDR_AFF_MASK(3)) >> mpidr_hash.shift_aff[3])
+			>> mpidr_hash.shift_aff[0];
+	}
+
+	pr_debug("CPU%u: cluster %d core %d thread %d mpidr %llx\n",
+		 cpuid, cpuid_topo->cluster_id, cpuid_topo->core_id,
+		 cpuid_topo->thread_id, mpidr);
+
+topology_populated:
 	update_siblings_masks(cpuid);
 }
 
