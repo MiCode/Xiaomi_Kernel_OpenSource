@@ -104,13 +104,13 @@ static const int ep_mapping[2][IPA_CLIENT_MAX] = {
 	[IPA_2_0][IPA_CLIENT_HSIC1_CONS]         = -1,
 	[IPA_2_0][IPA_CLIENT_WLAN1_CONS]         = 14,
 	[IPA_2_0][IPA_CLIENT_HSIC2_CONS]         = -1,
-	[IPA_2_0][IPA_CLIENT_USB2_CONS]          = 16,
+	[IPA_2_0][IPA_CLIENT_USB2_CONS]          = -1,
 	[IPA_2_0][IPA_CLIENT_WLAN2_CONS]         = 16,
 	[IPA_2_0][IPA_CLIENT_HSIC3_CONS]         = -1,
-	[IPA_2_0][IPA_CLIENT_USB3_CONS]          = 17,
+	[IPA_2_0][IPA_CLIENT_USB3_CONS]          = -1,
 	[IPA_2_0][IPA_CLIENT_WLAN3_CONS]         = 17,
 	[IPA_2_0][IPA_CLIENT_HSIC4_CONS]         = -1,
-	[IPA_2_0][IPA_CLIENT_USB4_CONS]          = 18,
+	[IPA_2_0][IPA_CLIENT_USB4_CONS]          = -1,
 	[IPA_2_0][IPA_CLIENT_WLAN4_CONS]         = 18,
 	[IPA_2_0][IPA_CLIENT_HSIC5_CONS]         = -1,
 	[IPA_2_0][IPA_CLIENT_USB_CONS]           = 15,
@@ -287,9 +287,6 @@ int ipa_get_clients_from_rm_resource(
 	switch (resource) {
 	case IPA_RM_RESOURCE_USB_CONS:
 		clients->names[i++] = IPA_CLIENT_USB_CONS;
-		clients->names[i++] = IPA_CLIENT_USB2_CONS;
-		clients->names[i++] = IPA_CLIENT_USB3_CONS;
-		clients->names[i++] = IPA_CLIENT_USB4_CONS;
 		clients->length = i;
 		break;
 	case IPA_RM_RESOURCE_WLAN_CONS:
@@ -330,9 +327,6 @@ bool ipa_should_pipe_be_suspended(enum ipa_client_type client)
 		return false;
 
 	if (client == IPA_CLIENT_USB_CONS   ||
-	    client == IPA_CLIENT_USB2_CONS  ||
-	    client == IPA_CLIENT_USB3_CONS  ||
-	    client == IPA_CLIENT_USB4_CONS  ||
 	    client == IPA_CLIENT_WLAN1_CONS ||
 	    client == IPA_CLIENT_WLAN2_CONS ||
 	    client == IPA_CLIENT_WLAN3_CONS ||
@@ -376,7 +370,8 @@ int ipa_suspend_resource_sync(enum ipa_rm_resource_name resource)
 			res = -EINVAL;
 			continue;
 		}
-		if (ipa_should_pipe_be_suspended(client) &&
+		if (ipa_ctx->ep[ipa_ep_idx].client == client &&
+		    ipa_should_pipe_be_suspended(client) &&
 		    ipa_ctx->ep[ipa_ep_idx].valid) {
 			/* suspend endpoint */
 			memset(&suspend, 0, sizeof(suspend));
@@ -437,7 +432,8 @@ int ipa_suspend_resource_no_block(enum ipa_rm_resource_name resource)
 			res = -EINVAL;
 			continue;
 		}
-		if (ipa_should_pipe_be_suspended(client) &&
+		if (ipa_ctx->ep[ipa_ep_idx].client == client &&
+		    ipa_should_pipe_be_suspended(client) &&
 		    ipa_ctx->ep[ipa_ep_idx].valid) {
 			/* suspend endpoint */
 			memset(&suspend, 0, sizeof(suspend));
@@ -490,7 +486,8 @@ int ipa_resume_resource(enum ipa_rm_resource_name resource)
 			res = -EINVAL;
 			continue;
 		}
-		if (ipa_should_pipe_be_suspended(client)) {
+		if (ipa_ctx->ep[ipa_ep_idx].client == client &&
+		    ipa_should_pipe_be_suspended(client)) {
 			if (ipa_ctx->ep[ipa_ep_idx].valid) {
 				memset(&suspend, 0, sizeof(suspend));
 				suspend.ipa_ep_suspend = false;
