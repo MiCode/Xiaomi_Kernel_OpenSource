@@ -473,6 +473,7 @@ struct dwc3_ep_events {
 	unsigned int	epcmdcomplete;
 	unsigned int	cmdcmplt;
 	unsigned int	unknown_event;
+	unsigned int	total;
 };
 
 #define DWC3_EP_FLAG_STALLED	(1 << 0)
@@ -506,6 +507,8 @@ struct dwc3_ep_events {
  * @direction: true for TX, false for RX
  * @stream_capable: true when streams are enabled
  * @dbg_ep_events: different events counter for endpoint
+ * @dbg_ep_events_diff: differential events counter for endpoint
+ * @dbg_ep_events_ts: timestamp for previous event counters
  */
 struct dwc3_ep {
 	struct usb_ep		endpoint;
@@ -543,6 +546,8 @@ struct dwc3_ep {
 	unsigned		direction:1;
 	unsigned		stream_capable:1;
 	struct dwc3_ep_events	dbg_ep_events;
+	struct dwc3_ep_events	dbg_ep_events_diff;
+	struct timespec		dbg_ep_events_ts;
 };
 
 enum dwc3_phy {
