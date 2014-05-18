@@ -2570,6 +2570,19 @@ struct asm_amrwbplus_cfg {
 	u32  amr_lsf_idx;
 } __packed;
 
+struct asm_flac_cfg {
+	u32 sample_rate;
+	u32 ext_sample_rate;
+	u32 min_frame_size;
+	u32 max_frame_size;
+	u16 stream_info_present;
+	u16 min_blk_size;
+	u16 max_blk_size;
+	u16 ch_cfg;
+	u16 sample_size;
+	u16 md5_sum;
+};
+
 struct asm_softpause_params {
 	u32 enable;
 	u32 period;
@@ -2913,6 +2926,73 @@ struct asm_aac_enc_cfg_v2 {
  * Native mode indicates that encoding must be performed with the
  * sampling rate at the input.
  * The sampling rate must not change during encoding.
+ */
+
+} __packed;
+
+struct asm_flac_fmt_blk_v2 {
+	struct apr_hdr hdr;
+	struct asm_data_cmd_media_fmt_update_v2 fmtblk;
+
+	u16 is_stream_info_present;
+/* Specifies whether stream information is present in the FLAC format
+ * block.
+ *
+ * Supported values:
+ * - 0 -- Stream information is not present in this message
+ * - 1 -- Stream information is present in this message
+ *
+ * When set to 1, the FLAC bitstream was successfully parsed by the
+ * client, and other fields in the FLAC format block can be read by the
+ * decoder to get metadata stream information.
+ */
+
+	u16 num_channels;
+/* Number of channels for decoding.
+ * Supported values: 1 to 2
+ */
+
+	u16 min_blk_size;
+/* Minimum block size (in samples) used in the stream. It must be less
+ * than or equal to max_blk_size.
+ */
+
+	u16 max_blk_size;
+/* Maximum block size (in samples) used in the stream. If the
+ * minimum block size equals the maximum block size, a fixed block
+ * size stream is implied.
+ */
+
+	u16 md5_sum[8];
+/* MD5 signature array of the unencoded audio data. This allows the
+ * decoder to determine if an error exists in the audio data, even when
+ * the error does not result in an invalid bitstream.
+ */
+
+	u32 sample_rate;
+/* Number of samples per second.
+ * Supported values: 8000 to 48000 Hz
+ */
+
+	u32 min_frame_size;
+/* Minimum frame size used in the stream.
+ * Supported values:
+ * - > 0 bytes
+ * - 0 -- The value is unknown
+ */
+
+	u32 max_frame_size;
+/* Maximum frame size used in the stream.
+ * Supported values:
+ * -- > 0 bytes
+ * -- 0 . The value is unknown
+ */
+
+	u16 sample_size;
+/* Bits per sample.Supported values: 8, 16 */
+
+	u16 reserved;
+/* Clients must set this field to zero
  */
 
 } __packed;
@@ -3321,6 +3401,8 @@ struct asm_amrwbplus_fmt_blk_v2 {
 #define ASM_MEDIA_FMT_EAC3_DEC                   0x00010C3C
 #define ASM_MEDIA_FMT_DTS                    0x00010D88
 #define ASM_MEDIA_FMT_MP2                    0x00010DE9
+#define ASM_MEDIA_FMT_FLAC                   0x00010C16
+
 
 /* Media format ID for adaptive transform acoustic coding. This
  * ID is used by the #ASM_STREAM_CMD_OPEN_WRITE_COMPRESSED command
