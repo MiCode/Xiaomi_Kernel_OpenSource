@@ -33,9 +33,22 @@
 /* PMIC Arbiter configuration registers */
 #define PMIC_ARB_VERSION		0x0000
 #define PMIC_ARB_INT_EN			0x0004
-#define PMIC_ARB_GENI_CTRL		0x0024
-#define PMIC_ARB_GENI_STATUS		0x0028
 #define PMIC_ARB_PROTOCOL_IRQ_STATUS	(0x700 + 0x820)
+
+enum {
+	PMIC_ARB_GENI_CTRL,
+	PMIC_ARB_GENI_STATUS,
+};
+
+u32 pmic_arb_regs_v1[] = {
+	[PMIC_ARB_GENI_CTRL]	= 0x0024,
+	[PMIC_ARB_GENI_STATUS]	= 0x0028,
+};
+
+u32 pmic_arb_regs_v2[] = {
+	[PMIC_ARB_GENI_CTRL]	= 0x0028,
+	[PMIC_ARB_GENI_STATUS]	= 0x002C,
+};
 
 /* Offset per chnnel-register type */
 #define PMIC_ARB_CMD		(0x00)
@@ -159,6 +172,7 @@ struct spmi_pmic_arb_ver {
 	phys_addr_t	(*acc_enable)(u8 n);
 	phys_addr_t	(*irq_status)(u8 n);
 	phys_addr_t	(*irq_clear)(u8 n);
+	u32 *regs;
 };
 
 /*
@@ -394,8 +408,10 @@ static void pmic_arb_dbg_dump_regs(struct spmi_pmic_arb_dev *pmic_arb, int ret,
 								const char *msg)
 {
 	u32 irq = readl_relaxed(pmic_arb->cnfg + PMIC_ARB_PROTOCOL_IRQ_STATUS);
-	u32 geni_stat = readl_relaxed(pmic_arb->cnfg + PMIC_ARB_GENI_STATUS);
-	u32 geni_ctrl = readl_relaxed(pmic_arb->cnfg + PMIC_ARB_GENI_CTRL);
+	u32 geni_stat = readl_relaxed(pmic_arb->cnfg +
+				pmic_arb->ver->regs[PMIC_ARB_GENI_STATUS]);
+	u32 geni_ctrl = readl_relaxed(pmic_arb->cnfg +
+				pmic_arb->ver->regs[PMIC_ARB_GENI_CTRL]);
 	dev_err(pmic_arb->dev,
 	"err:%d on %s PROTOCOL_IRQ_STATUS:0x%x GENI_STATUS:0x%x GENI_CTRL:0x%x\n",
 		ret, msg, irq, geni_stat, geni_ctrl);
@@ -455,6 +471,7 @@ static const struct spmi_pmic_arb_ver spmi_pmic_arb_v1 = {
 	.acc_enable		= pmic_arb_acc_enable_v1,
 	.irq_status		= pmic_arb_irq_status_v1,
 	.irq_clear		= pmic_arb_irq_clear_v1,
+	.regs			= pmic_arb_regs_v1,
 };
 
 static const struct spmi_pmic_arb_ver spmi_pmic_arb_v2 = {
@@ -465,6 +482,7 @@ static const struct spmi_pmic_arb_ver spmi_pmic_arb_v2 = {
 	.acc_enable		= pmic_arb_acc_enable_v2,
 	.irq_status		= pmic_arb_irq_status_v2,
 	.irq_clear		= pmic_arb_irq_clear_v2,
+	.regs			= pmic_arb_regs_v2,
 };
 
 static int pmic_arb_read_cmd(struct spmi_controller *ctrl,
