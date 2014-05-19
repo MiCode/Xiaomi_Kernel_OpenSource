@@ -111,6 +111,8 @@ static int pmic_i2c_remove(struct i2c_client *i2c)
 static const struct i2c_device_id pmic_i2c_id[] = {
 	{ "crystal_cove", (kernel_ulong_t)&crystal_cove_pmic},
 	{ "dollar_cove", (kernel_ulong_t)&dollar_cove_pmic},
+	{ "INT33F4", (kernel_ulong_t)&dollar_cove_pmic},
+	{ "INT33F4:00", (kernel_ulong_t)&dollar_cove_pmic},
 	{ "INT33FD", (kernel_ulong_t)&crystal_cove_pmic},
 	{ "INT33FD:00", (kernel_ulong_t)&crystal_cove_pmic},
 	{ }
