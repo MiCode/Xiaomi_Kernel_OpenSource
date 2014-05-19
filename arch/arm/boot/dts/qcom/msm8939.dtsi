@@ -40,7 +40,39 @@
 	cpus {
 		#address-cells = <1>;
 		#size-cells = <0>;
-		cpu@100 {
+		cpu-map {
+			cluster0 {
+				core0 {
+					cpu = <&CPU4>;
+				};
+				core1 {
+					cpu = <&CPU5>;
+				};
+				core2 {
+					cpu = <&CPU6>;
+				};
+				core3 {
+					cpu = <&CPU7>;
+				};
+			};
+
+			cluster1 {
+				core0 {
+					cpu = <&CPU0>;
+				};
+				core1 {
+					cpu = <&CPU1>;
+				};
+				core2 {
+					cpu = <&CPU2>;
+				};
+				core3 {
+					cpu = <&CPU3>;
+				};
+			};
+		};
+
+		CPU0: cpu@100 {
 			device_type = "cpu";
 			compatible = "arm,cortex-a53";
 			reg = <0x100>;
@@ -48,7 +80,7 @@
 			qcom,acc = <&acc0>;
 		};
 
-		cpu@101 {
+		CPU1: cpu@101 {
 			device_type = "cpu";
 			compatible = "arm,cortex-a53";
 			reg = <0x101>;
@@ -56,7 +88,7 @@
 			qcom,acc = <&acc1>;
 		};
 
-		cpu@102 {
+		CPU2: cpu@102 {
 			device_type = "cpu";
 			compatible = "arm,cortex-a53";
 			reg = <0x102>;
@@ -64,7 +96,7 @@
 			qcom,acc = <&acc2>;
 		};
 
-		cpu@103 {
+		CPU3: cpu@103 {
 			device_type = "cpu";
 			compatible = "arm,cortex-a53";
 			reg = <0x103>;
@@ -72,7 +104,7 @@
 			qcom,acc = <&acc3>;
 		};
 
-		cpu@0 {
+		CPU4: cpu@0 {
 			device_type = "cpu";
 			compatible = "arm,cortex-a53";
 			reg = <0x0>;
@@ -80,7 +112,7 @@
 			qcom,acc = <&acc4>;
 		};
 
-		cpu@1 {
+		CPU5: cpu@1 {
 			device_type = "cpu";
 			compatible = "arm,cortex-a53";
 			reg = <0x1>;
@@ -88,7 +120,7 @@
 			qcom,acc = <&acc5>;
 		};
 
-		cpu@2 {
+		CPU6: cpu@2 {
 			device_type = "cpu";
 			compatible = "arm,cortex-a53";
 			reg = <0x2>;
@@ -96,7 +128,7 @@
 			qcom,acc = <&acc6>;
 		};
 
-		cpu@3 {
+		CPU7: cpu@3 {
 			device_type = "cpu";
 			compatible = "arm,cortex-a53";
 			reg = <0x3>;
