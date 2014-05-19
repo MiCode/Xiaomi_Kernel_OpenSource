@@ -108,7 +108,7 @@ static int mdss_mdp_splash_iommu_attach(struct msm_fb_data_type *mfd)
 {
 	struct iommu_domain *domain;
 	struct mdss_overlay_private *mdp5_data = mfd_to_mdp5_data(mfd);
-	int rc;
+	int rc, ret;
 
 	/*
 	 * iommu dynamic attach for following conditions.
@@ -138,9 +138,9 @@ static int mdss_mdp_splash_iommu_attach(struct msm_fb_data_type *mfd)
 	if (rc) {
 		pr_debug("iommu memory mapping failed rc=%d\n", rc);
 	} else {
-		rc = mdss_iommu_attach(mdss_res);
-		if (rc) {
-			pr_debug("mdss iommu attach failed\n");
+		ret = mdss_iommu_ctrl(1);
+		if (IS_ERR_VALUE(ret)) {
+			pr_err("mdss iommu attach failed\n");
 			iommu_unmap(domain, mdp5_data->splash_mem_addr,
 						mdp5_data->splash_mem_size);
 		} else {
@@ -155,6 +155,7 @@ static void mdss_mdp_splash_unmap_splash_mem(struct msm_fb_data_type *mfd)
 {
 	struct iommu_domain *domain;
 	struct mdss_overlay_private *mdp5_data = mfd_to_mdp5_data(mfd);
+	int ret;
 
 	if (mfd->splash_info.iommu_dynamic_attached) {
 		domain = msm_get_iommu_domain(mdss_get_iommu_domain(
@@ -166,6 +167,10 @@ static void mdss_mdp_splash_unmap_splash_mem(struct msm_fb_data_type *mfd)
 
 		iommu_unmap(domain, mdp5_data->splash_mem_addr,
 						mdp5_data->splash_mem_size);
+		ret = mdss_iommu_ctrl(0);
+		if (IS_ERR_VALUE(ret))
+			pr_err("mdss iommu dettach failed\n");
+
 		mfd->splash_info.iommu_dynamic_attached = false;
 	}
 }
@@ -245,12 +250,6 @@ int mdss_mdp_splash_cleanup(struct msm_fb_data_type *mfd,
 	}
 
 	mdss_mdp_footswitch_ctrl_splash(0);
-	if (!is_mdss_iommu_attached()) {
-		rc = mdss_iommu_attach(mdss_res);
-		if (rc)
-			pr_err("iommu attach failed rc=%d\n", rc);
-	}
-
 end:
 	return rc;
 }
