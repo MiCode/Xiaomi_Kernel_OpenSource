@@ -814,17 +814,22 @@ int32_t qpnp_adc_scale_default(struct qpnp_vadc_chip *vadc,
 		return -EINVAL;
 
 	scale_voltage = (adc_code -
-		chan_properties->adc_graph[CALIB_ABSOLUTE].adc_gnd)
-		* chan_properties->adc_graph[CALIB_ABSOLUTE].dx;
+		chan_properties->adc_graph[chan_properties->calib_type].adc_gnd)
+		* chan_properties->adc_graph[chan_properties->calib_type].dx;
 	if (scale_voltage < 0) {
 		negative_offset = 1;
 		scale_voltage = -scale_voltage;
 	}
 	do_div(scale_voltage,
-		chan_properties->adc_graph[CALIB_ABSOLUTE].dy);
+		chan_properties->adc_graph[chan_properties->calib_type].dy);
 	if (negative_offset)
 		scale_voltage = -scale_voltage;
-	scale_voltage += chan_properties->adc_graph[CALIB_ABSOLUTE].dx;
+
+	if (chan_properties->calib_type == CALIB_ABSOLUTE)
+		scale_voltage +=
+		chan_properties->adc_graph[chan_properties->calib_type].dx;
+	else
+		scale_voltage *= 1000;
 
 	if (scale_voltage < 0) {
 		if (adc_properties->bipolar) {
@@ -1190,6 +1195,7 @@ int32_t qpnp_adc_get_devicetree_data(struct spmi_device *spmi,
 		adc_channel_list[i].adc_scale_fn = post_scaling;
 		adc_channel_list[i].hw_settle_time = hw_settle_time;
 		adc_channel_list[i].fast_avg_setup = fast_avg_setup;
+		adc_channel_list[i].calib_type = calib_type;
 		i++;
 	}
 
