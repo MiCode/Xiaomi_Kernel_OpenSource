@@ -63,15 +63,6 @@
 		};
 	};
 
-	timer {
-		compatible = "arm,armv7-timer";
-		interrupts = <1 2 0xf08>,
-			     <1 3 0xf08>,
-			     <1 4 0xf08>,
-			     <1 1 0xf08>;
-		clock-frequency = <19200000>;
-	};
-
 	timer@b020000 {
 		#address-cells = <1>;
 		#size-cells = <1>;
