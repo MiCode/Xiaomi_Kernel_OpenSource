@@ -294,6 +294,12 @@ Optional properties:
 					--> Sleep value (in ms)
 - qcom,partial-update-enabled:		Boolean used to enable partial
 					panel update for command mode panels.
+- qcom,mdss-dsi-horizontal-line-idle:	List of width ranges (EC - SC) in pixels indicating
+					additional idle time in dsi clock cycles that is needed
+					to compensate for smaller line width.
+- qcom,partial-update-roi-merge:	Boolean indicates roi combination is need
+					and function has been provided for dcs
+					2A/2B command.
 - qcom,mdss-dsi-lp11-init:		Boolean used to enable the DSI clocks and data lanes (low power 11)
 					before issuing hardware reset line.
 - qcom,mdss-dsi-init-delay-us:		Delay in microseconds(us) before performing any DSI activity in lp11
@@ -451,5 +457,8 @@ Example:
 		qcom,video-to-cmd-mode-switch-commands = [15 01 00 00 00 00 02 C2 0B
 						15 01 00 00 00 00 02 C2 08];
 		qcom,cmd-to-video-mode-switch-commands = [15 01 00 00 00 00 02 C2 03];
+		qcom,mdss-dsi-horizontal-line-idle = <0 40 256>,
+						<40 120 128>,
+						<128 240 64>;
 	};
 };
