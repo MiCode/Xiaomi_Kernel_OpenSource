@@ -475,7 +475,7 @@ static int mdss_mdp_writeback_display(struct mdss_mdp_ctl *ctl, void *arg)
 {
 	struct mdss_mdp_writeback_ctx *ctx;
 	struct mdss_mdp_writeback_arg *wb_args;
-	u32 flush_bits, val, off;
+	u32 flush_bits, val, bit_off, reg_off;
 	int ret;
 
 	if (!ctl || !ctl->mdata)
@@ -496,11 +496,16 @@ static int mdss_mdp_writeback_display(struct mdss_mdp_ctl *ctl, void *arg)
 			ctx->wr_lim = ctl->mdata->rotator_ot_limit;
 		else
 			ctx->wr_lim = MDSS_DEFAULT_OT_SETTING;
-		off = (ctx->xin_id % 4) * 8;
-		val = readl_relaxed(ctl->mdata->vbif_base + VBIF_WR_LIM_CONF);
-		val &= ~(0xFF << off);
-		val |= (ctx->wr_lim) << off;
-		writel_relaxed(val, ctl->mdata->vbif_base + VBIF_WR_LIM_CONF);
+
+		reg_off = (ctx->xin_id / 4) * 4;
+		bit_off = (ctx->xin_id % 4) * 8;
+
+		val = readl_relaxed(ctl->mdata->vbif_base + VBIF_WR_LIM_CONF +
+			reg_off);
+		val &= ~(0xFF << bit_off);
+		val |= (ctx->wr_lim) << bit_off;
+		writel_relaxed(val, ctl->mdata->vbif_base + VBIF_WR_LIM_CONF +
+			reg_off);
 	}
 
 	wb_args = (struct mdss_mdp_writeback_arg *) arg;
