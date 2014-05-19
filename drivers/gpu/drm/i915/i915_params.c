@@ -46,7 +46,7 @@ struct i915_params i915 __read_mostly = {
 	.reset = true,
 	.invert_brightness = 0,
 	.disable_display = 0,
-	.enable_cmd_parser = 1,
+	.enable_cmd_parser = 0,
 	.disable_vtd_wa = 0,
 };
 
