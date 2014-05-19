@@ -587,7 +587,9 @@ static int msm_pcm_probe(struct platform_device *pdev)
 {
 	int rc;
 	bool destroy_cvd = false;
+	bool vote_bms = false;
 	const char *is_destroy_cvd = "qcom,destroy-cvd";
+	const char *is_vote_bms = "qcom,vote-bms";
 
 	if (!is_voc_initialized()) {
 		pr_debug("%s: voice module not initialized yet, deferring probe()\n",
@@ -616,7 +618,10 @@ static int msm_pcm_probe(struct platform_device *pdev)
 						is_destroy_cvd);
 	voc_set_destroy_cvd_flag(destroy_cvd);
 
-	pr_debug("%s: dev name %s\n", __func__, dev_name(&pdev->dev));
+	vote_bms = of_property_read_bool(pdev->dev.of_node,
+					 is_vote_bms);
+	voc_set_vote_bms_flag(vote_bms);
+
 	rc = snd_soc_register_platform(&pdev->dev,
 				       &msm_soc_platform);
 
