@@ -2771,16 +2771,13 @@ int mdss_mdp_display_commit(struct mdss_mdp_ctl *ctl, void *arg)
 				!mdss_mdp_ctl_perf_get_transaction_status(sctl);
 	}
 
-	if (sctl && !ctl->valid_roi && sctl->valid_roi) {
-		/*
-		 * Seperate kickoff on DSI1 is needed only when we have
-		 * ONLY right half updating on a dual DSI panel
-		 */
+	mdss_mdp_ctl_perf_set_transaction_status(ctl,
+			PERF_SW_COMMIT_STATE, PERF_STATUS_BUSY);
+
+	if (sctl && sctl->roi.w && sctl->roi.h) {
+		/* left + right*/
 		mdss_mdp_ctl_perf_set_transaction_status(sctl,
-				PERF_SW_COMMIT_STATE, PERF_STATUS_BUSY);
-	} else {
-		mdss_mdp_ctl_perf_set_transaction_status(ctl,
-				PERF_SW_COMMIT_STATE, PERF_STATUS_BUSY);
+			PERF_SW_COMMIT_STATE, PERF_STATUS_BUSY);
 	}
 
 	if (is_bw_released || ctl->force_screen_state ||
