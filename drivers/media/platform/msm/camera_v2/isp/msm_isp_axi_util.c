@@ -463,6 +463,8 @@ void msm_isp_sof_notify(struct vfe_device *vfe_dev,
 		pr_debug("%s: frame id %d\n", __func__,
 			vfe_dev->axi_data.frame_id[session_id]);
 	}
+
+	vfe_dev->hw_info->vfe_ops.core_ops.vbif_clear_counters(vfe_dev);
 }
 
 void msm_isp_calculate_framedrop(
@@ -1288,6 +1290,8 @@ static int msm_isp_start_axi_stream(struct vfe_device *vfe_dev,
 	msm_isp_update_stream_bandwidth(vfe_dev);
 	vfe_dev->hw_info->vfe_ops.axi_ops.reload_wm(vfe_dev, wm_reload_mask);
 	vfe_dev->hw_info->vfe_ops.core_ops.reg_update(vfe_dev);
+
+	vfe_dev->hw_info->vfe_ops.core_ops.init_vbif_counters(vfe_dev);
 
 	msm_isp_update_camif_output_count(vfe_dev, stream_cfg_cmd);
 	msm_isp_update_rdi_output_count(vfe_dev, stream_cfg_cmd);
