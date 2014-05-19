@@ -26,20 +26,20 @@ static const struct atomisp_platform_data pdata = {
 };
 
 /*
- *   struct atomisp_sensor_caps {
- *       int stream_num;
- *   };
- *   struct atomisp_camera_caps {
- *       int sensor_num;
- *       struct atomisp_sensor_caps sensor[MAX_SENSORS_PER_PORT];
- *   };
+ * Legacy/stub behavior copied from upstream platform_camera.c.  The
+ * atomisp driver relies on these values being non-NULL in a few
+ * places, even though they are hard-coded in all current
+ * implementations.
  */
 const struct atomisp_camera_caps *atomisp_get_default_camera_caps(void)
 {
-	/* This is near-legacy.  The camera_caps field is ultimately used
-	 * only in two spots in atomisp_cmd, one checks if it's ==1 and
-	 * the other if it's <2 (is 0 legal?). */
-	return NULL;
+	static const struct atomisp_camera_caps caps = {
+		.sensor_num = 1,
+		.sensor = {
+			{ .stream_num = 1, },
+		},
+	};
+	return &caps;
 }
 EXPORT_SYMBOL_GPL(atomisp_get_default_camera_caps);
 
