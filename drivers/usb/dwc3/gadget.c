@@ -1515,6 +1515,7 @@ static int dwc3_gadget_wakeup(struct usb_gadget *g)
 
 	unsigned long		timeout;
 	unsigned long		flags;
+	bool			link_recover_only = false;
 
 	u32			reg;
 
@@ -1538,6 +1539,12 @@ static int dwc3_gadget_wakeup(struct usb_gadget *g)
 	case DWC3_LINK_STATE_RX_DET:	/* in HS, means Early Suspend */
 	case DWC3_LINK_STATE_U3:	/* in HS, means SUSPEND */
 		break;
+	case DWC3_LINK_STATE_U1:
+		if (dwc->gadget.speed != USB_SPEED_SUPER) {
+			link_recover_only = true;
+			break;
+		}
+		/* Intentional fallthrough */
 	default:
 		dev_dbg(dwc->dev, "can't wakeup from link state %d\n",
 				link_state);
@@ -1584,7 +1591,8 @@ static int dwc3_gadget_wakeup(struct usb_gadget *g)
 	 * the device is back at U0 state, it is required that
 	 * the resume sequence is initiated by SW.
 	 */
-	dwc3_gadget_wakeup_interrupt(dwc);
+	if (!link_recover_only)
+		dwc3_gadget_wakeup_interrupt(dwc);
 out:
 	spin_unlock_irqrestore(&dwc->lock, flags);
 
