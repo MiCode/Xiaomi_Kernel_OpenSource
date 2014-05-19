@@ -2022,6 +2022,20 @@ const struct snd_soc_fw_kcontrol_ops control_ops[] = {
 	{SOC_CONTROL_IO_SST_MUTE, sst_gain_get, sst_gain_put, snd_soc_info_bool_ext},
 	{SOC_CONTROL_IO_SST_ALGO_PARAMS, sst_algo_control_get, sst_algo_control_set, snd_soc_info_bytes_ext},
 	{SOC_CONTROL_IO_SST_ALGO_BYPASS, sst_algo_control_get, sst_algo_control_set, snd_soc_info_bool_ext},
+	{SOC_CONTROL_IO_SST_MIX, sst_mix_get, sst_mix_put, snd_soc_info_volsw},
+	{SOC_CONTROL_IO_SST_MUX, sst_mux_get, sst_mux_put, snd_soc_info_enum_double},
+};
+
+const struct snd_soc_fw_widget_events sst_widget_ops[] = {
+	{SST_HOSTLESS_STREAM, sst_hostless_stream_event},
+	{SST_SET_BE_MODULE, sst_set_be_modules},
+	{SST_SET_MEDIA_PATH, sst_set_media_path},
+	{SST_SET_MEDIA_LOOP, sst_set_media_loop},
+	{SST_SET_TONE_GEN, sst_tone_generator_event},
+	{SST_SET_SPEECH_PATH, sst_set_speech_path},
+	{SST_SET_SWM, sst_swm_mixer_event},
+	{SST_SET_LINKED_PATH, sst_set_linked_pipe},
+	{SST_SET_GENERIC_MODULE_EVENT, sst_generic_modules_event},
 };
 
 static int sst_copy_algo_control(struct snd_soc_platform *platform,
@@ -2125,6 +2139,50 @@ int sst_fw_kcontrol_find_io(struct snd_soc_platform *platform,
 	return 0;
 }
 
+static int sst_widget_load(struct snd_soc_platform *platform,
+		struct snd_soc_dapm_widget *w, struct snd_soc_fw_dapm_widget *fw_w)
+{
+	int ret;
+	struct sst_ids *ids;
+	struct sst_dfw_ids *dfw_ids = (struct sst_dfw_ids *)fw_w->pvt_data;
+
+	if (!fw_w->pvt_data_len)
+		goto bind_event;
+
+	ids = devm_kzalloc(platform->dev, sizeof(*ids), GFP_KERNEL);
+
+	if (!ids)
+		return -ENOMEM;
+
+	w->priv = (void *)ids;
+	ids->location_id = dfw_ids->location_id;
+	ids->module_id = dfw_ids->module_id;
+	ids->task_id = dfw_ids->task_id;
+	ids->format = dfw_ids->format;
+	ids->reg = dfw_ids->reg;
+	ids->pcm_fmt = devm_kzalloc(platform->dev,
+			sizeof(struct sst_pcm_format), GFP_KERNEL);
+	if (!ids->pcm_fmt)
+		return -ENOMEM;
+	ids->pcm_fmt->sample_bits = dfw_ids->sample_bits;
+	ids->pcm_fmt->rate_min = dfw_ids->rate_min;
+	ids->pcm_fmt->rate_max = dfw_ids->rate_max;
+	ids->pcm_fmt->channels_min = dfw_ids->channels_min;
+	ids->pcm_fmt->channels_max = dfw_ids->channels_max;
+
+bind_event:
+	ret = snd_soc_fw_widget_bind_event(fw_w->event_type, w,
+			sst_widget_ops, ARRAY_SIZE(sst_widget_ops));
+	if (ret) {
+		pr_err("%s: No matching event handlers found for %d\n",
+					__func__, fw_w->event_type);
+		return -EINVAL;
+	}
+
+
+	return 0;
+}
+
 static int sst_pvt_load(struct snd_soc_platform *platform,
 			u32 io_type, unsigned long sm, unsigned long mc)
 {
@@ -2133,6 +2191,7 @@ static int sst_pvt_load(struct snd_soc_platform *platform,
 }
 
 static struct snd_soc_fw_platform_ops soc_fw_ops = {
+	.widget_load = sst_widget_load,
 	.pvt_load = sst_pvt_load,
 	.io_ops = control_ops,
 	.io_ops_count = ARRAY_SIZE(control_ops),
@@ -2217,12 +2276,6 @@ int sst_dsp_init_v2_dpcm_dfw(struct snd_soc_platform *platform)
 		pr_err("%s: kzalloc failed\n", __func__);
 		return -ENOMEM;
 	}
-
-	snd_soc_dapm_new_controls(&platform->dapm, sst_dapm_widgets,
-			ARRAY_SIZE(sst_dapm_widgets));
-	snd_soc_dapm_add_routes(&platform->dapm, intercon,
-			ARRAY_SIZE(intercon));
-	snd_soc_dapm_new_widgets(platform->dapm.card);
 
 	ret = request_firmware(&fw, "dfw_sst.bin", platform->dev);
 	if (fw == NULL) {

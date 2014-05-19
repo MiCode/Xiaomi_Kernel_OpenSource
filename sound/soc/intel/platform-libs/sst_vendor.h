@@ -28,6 +28,8 @@
 #define SOC_CONTROL_TYPE_SST_MUTE		101
 #define SOC_CONTROL_TYPE_SST_ALGO_PARAMS	102
 #define SOC_CONTROL_TYPE_SST_ALGO_BYPASS	103
+#define SOC_CONTROL_TYPE_SST_MUX			104
+#define SOC_CONTROL_TYPE_SST_MIX			106
 
 /* REVISIT: Define sst kcontrol index */
 #define SOC_CONTROL_IO_SST_GAIN\
@@ -50,7 +52,34 @@
 	SOC_CONTROL_ID(SOC_CONTROL_TYPE_SST_ALGO_PARAMS, \
 		SOC_CONTROL_TYPE_SST_ALGO_PARAMS, \
 		SOC_CONTROL_TYPE_BOOL_EXT)
+
+#define SOC_CONTROL_IO_SST_MIX\
+	SOC_CONTROL_ID(SOC_CONTROL_TYPE_SST_MIX, \
+		SOC_CONTROL_TYPE_SST_MIX, \
+		SOC_CONTROL_TYPE_VOLSW)
+
+#define SOC_CONTROL_IO_SST_MUX\
+	SOC_CONTROL_ID(SOC_CONTROL_TYPE_SST_MUX, \
+		SOC_CONTROL_TYPE_SST_MUX, \
+		SOC_CONTROL_TYPE_SST_MUX)
+
 #define SND_SOC_GAIN_CONTROL_NAME 44
+
+/* Event types goes here */
+/* Reserve event type 0 for no event handlers */
+enum sst_event_types {
+	SST_EVENT_TYPE_NONE = 0,
+	SST_HOSTLESS_STREAM,
+	SST_SET_BE_MODULE,
+	SST_SET_MEDIA_PATH,
+	SST_SET_MEDIA_LOOP,
+	SST_SET_TONE_GEN,
+	SST_SET_SPEECH_PATH,
+	SST_SET_SWM,
+	SST_EVENT_AWARE,
+	SST_SET_LINKED_PATH,
+	SST_SET_GENERIC_MODULE_EVENT,
+};
 
 enum sst_vendor_type {
 	SND_SOC_FW_SST_CONTROLS = 0x1000,
@@ -95,6 +124,20 @@ struct sst_dfw_algo_data {
 	u8 bypass;
 	char params[0];
 	/* params will be in driver's pvt structure */
+} __packed;
+
+struct sst_dfw_ids {
+	u32 sample_bits;        /* sst_pcm_format->sample_bits */
+	u32 rate_min;           /* sst_pcm_format-> rate_min */
+	u32 rate_max;           /* sst_pcm_format->rate_max */
+	u32 channels_min;       /* sst_pcm_format->channels_min */
+	u32 channels_max;       /* sst_pcm_format->channels_max */
+	u16 location_id;
+	u16 module_id;
+	u8  task_id;
+	u8  format;             /* stereo/mono */
+	u8  reg;
+	const char parent_wname[44];
 } __packed;
 
 #if 0
