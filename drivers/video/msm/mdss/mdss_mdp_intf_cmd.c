@@ -182,6 +182,7 @@ static inline void mdss_mdp_cmd_clk_on(struct mdss_mdp_cmd_ctx *ctx)
 {
 	unsigned long flags;
 	struct mdss_data_type *mdata = mdss_mdp_get_mdata();
+	int rc;
 
 	if (!ctx->panel_on)
 		return;
@@ -193,7 +194,12 @@ static inline void mdss_mdp_cmd_clk_on(struct mdss_mdp_cmd_ctx *ctx)
 		ctx->clk_enabled = 1;
 		if (cancel_delayed_work_sync(&ctx->ulps_work))
 			pr_debug("deleted pending ulps work\n");
-
+		rc = mdss_iommu_ctrl(1);
+		if (IS_ERR_VALUE(rc)) {
+			pr_err("IOMMU attach failed\n");
+			mutex_unlock(&ctx->clk_mtx);
+			return;
+		}
 		mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_ON, false);
 
 		if (ctx->ulps) {
@@ -236,6 +242,7 @@ static inline void mdss_mdp_cmd_clk_off(struct mdss_mdp_cmd_ctx *ctx)
 		mdss_mdp_hist_intr_setup(&mdata->hist_intr, MDSS_IRQ_SUSPEND);
 		mdss_mdp_ctl_intf_event
 			(ctx->ctl, MDSS_EVENT_PANEL_CLK_CTRL, (void *)0);
+		mdss_iommu_ctrl(0);
 		mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_OFF, false);
 		if (ctx->panel_on)
 			schedule_delayed_work(&ctx->ulps_work, ULPS_ENTER_TIME);
