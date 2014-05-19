@@ -32,6 +32,7 @@ Required properties:
 Optional properties:
 - label:		        	A string used to describe the controller used.
 
+- vcca-supply:				Phandle for vcca regulator device node.
 - qcom,ctrl-supply-entries:		A node that lists the elements of the supply used by the
 					DSI controller and PHY. There can be more than one instance
 					of this binding, in which case the entry would be appended
@@ -83,6 +84,7 @@ Example:
 		vdd-supply = <&pm8226_l15>;
 		vddio-supply = <&pm8226_l8>;
 		vdda-supply = <&pm8226_l4>;
+		vcca-supply = <&pm8226_l28>;
 		qcom,dsi-pref-prim-pan = <&dsi_tosh_720_vid>;
 		qcom,platform-strength-ctrl = [ff 06];
 		qcom,platform-bist-ctrl = [00 00 b1 ff 00 00];
