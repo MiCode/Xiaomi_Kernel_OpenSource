@@ -176,7 +176,6 @@
 		i2c-pwr-supply = <&pm8916_l6>;
 		pinctrl-names = "default";
 		pinctrl-0 = <&tps65132_en_default>;
-		status = "disabled";
 
 		regulators {
 			tps65132_pos: pos-boost {
