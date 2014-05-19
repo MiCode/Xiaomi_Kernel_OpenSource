@@ -69,16 +69,6 @@ static ctl_table sip_sysctl_tbl[] = {
 	{}
 };
 
-static struct ctl_path sip_sysctls_path[] = {
-	{
-		.procname  = "net",
-	},
-	{
-		.procname  = "netfilter",
-	},
-	{}
-};
-
 unsigned int (*nf_nat_sip_hook)(struct sk_buff *skb, unsigned int protoff,
 				unsigned int dataoff, const char **dptr,
 				unsigned int *datalen) __read_mostly;
@@ -1714,7 +1704,7 @@ static int __init nf_conntrack_sip_init(void)
 {
 	int i, j, ret;
 
-	sip_sysctl_header = register_sysctl_paths(sip_sysctls_path,
+	sip_sysctl_header = register_net_sysctl(&init_net, "net/netfilter",
 						sip_sysctl_tbl);
 	if (!sip_sysctl_header)
 		pr_debug("nf_ct_sip:Unable to register SIP systbl\n");
