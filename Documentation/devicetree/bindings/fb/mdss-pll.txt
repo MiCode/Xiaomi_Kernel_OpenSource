@@ -16,6 +16,7 @@ Required properties:
 
 Optional properties:
 - label:	       	A string used to describe the driver used.
+- vcca-supply:		Phandle for vcca regulator device node.
 
 - qcom,platform-supply-entries:	A node that lists the elements of the supply. There
 				can be more than one instance of this binding,
@@ -43,6 +44,7 @@ Example:
 		reg-names = "pll_base";
 		gdsc-supply = <&gdsc_mdss>;
 		vddio-supply = <&pm8941_l12>;
+		vcca-supply = <&pm8941_l28>;
 
 		clock-names = "mdp_core_clk", "iface_clk", "bus_clk";
 		clock-rate = <0>, <0>, <0>;
