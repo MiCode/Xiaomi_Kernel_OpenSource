@@ -19,6 +19,12 @@ enum {
 };
 
 /* Transition slew rate limiting from a low to high voltage.
+ * The slew rate values listed in this table are based on
+ * 10 mV voltage scaling step. The actual slew rate has a
+ * relationship between the slew rate based on 10 mV as its
+ * voltage scaling step size and the actual voltage step size.
+ * The formula for calculating the actual slew rate is:
+ * actual_slew_rate = 10mv_based_slew_rate * scaling_step_size_mv / 10mV.
  * -----------------------
  *   Bin |Slew Rate(mV/uS)
  * ------|----------------
