@@ -74,5 +74,6 @@ int intel_pmic_add(struct intel_soc_pmic *chip);
 int intel_pmic_remove(struct intel_soc_pmic *chip);
 
 extern struct intel_soc_pmic crystal_cove_pmic;
+extern struct intel_soc_pmic dollar_cove_pmic;
 
 #endif	/* __INTEL_SOC_PMIC_CORE_H__ */
