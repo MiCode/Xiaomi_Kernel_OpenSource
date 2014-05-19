@@ -367,3 +367,11 @@
 		regulator-max-microvolt = <2700000>;
 	};
 };
+
+&ncp6335d {
+	status = "disabled";
+};
+
+&fan53555 {
+	status = "disabled";
+};
