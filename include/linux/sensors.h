@@ -1,4 +1,4 @@
-/* Copyright (c) 2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -96,6 +96,7 @@ struct sensors_classdev {
 					unsigned int enabled);
 	int	(*sensors_poll_delay)(struct sensors_classdev *sensors_cdev,
 					unsigned int delay_msec);
+	int	(*sensors_self_test)(struct sensors_classdev *sensors_cdev);
 };
 
 extern int sensors_classdev_register(struct device *parent,
