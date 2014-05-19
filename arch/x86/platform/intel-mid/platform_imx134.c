@@ -17,7 +17,7 @@
 #include <linux/regulator/consumer.h>
 #include <asm/intel-mid.h>
 #include <media/v4l2-subdev.h>
-#include <linux/mfd/intel_mid_pmic.h>
+#include <linux/mfd/intel_soc_pmic.h>
 #include <linux/atomisp_gmin_platform.h>
 
 #ifdef CONFIG_VLV2_PLAT_CLK
@@ -33,7 +33,6 @@
 #define CLK_ON	0x1
 #define CLK_OFF	0x2
 #endif
-#ifdef CONFIG_CRYSTAL_COVE
 #define ALDO1_SEL_REG	0x28
 #define ALDO1_CTRL3_REG	0x13
 #define ALDO1_2P8V	0x16
@@ -68,7 +67,6 @@ enum pmic_ids {
 };
 
 static enum pmic_ids pmic_id;
-#endif
 static int camera_reset;
 static int camera_power_down;
 static int camera_vprog1_on;
@@ -76,7 +74,6 @@ static int camera_vprog1_on;
 /*
  * MRFLD VV primary camera sensor - IMX134 platform data
  */
-#ifdef CONFIG_CRYSTAL_COVE
 static int match_name(struct device *dev, void *data)
 {
 	const char *name = data;
@@ -132,35 +129,35 @@ static int camera_pmic_set(bool flag)
 			break;
 		case PMIC_XPOWER:
 			/* ALDO1 */
-			ret = intel_mid_pmic_writeb(ALDO1_SEL_REG, ALDO1_2P8V);
+			ret = intel_soc_pmic_writeb(ALDO1_SEL_REG, ALDO1_2P8V);
 			if (ret)
 				return ret;
 
 			/* PMIC Output CTRL 3 for ALDO1 */
-			val = intel_mid_pmic_readb(ALDO1_CTRL3_REG);
+			val = intel_soc_pmic_readb(ALDO1_CTRL3_REG);
 			val |= (1 << ALDO1_CTRL3_SHIFT);
-			ret = intel_mid_pmic_writeb(ALDO1_CTRL3_REG, val);
+			ret = intel_soc_pmic_writeb(ALDO1_CTRL3_REG, val);
 			if (ret)
 				return ret;
 
 			/* ELDO2 */
-			ret = intel_mid_pmic_writeb(ELDO2_SEL_REG, ELDO2_1P8V);
+			ret = intel_soc_pmic_writeb(ELDO2_SEL_REG, ELDO2_1P8V);
 			if (ret)
 				return ret;
 
 			/* PMIC Output CTRL 2 for ELDO2 */
-			val = intel_mid_pmic_readb(ELDO2_CTRL2_REG);
+			val = intel_soc_pmic_readb(ELDO2_CTRL2_REG);
 			val |= (1 << ELDO2_CTRL2_SHIFT);
-			ret = intel_mid_pmic_writeb(ELDO2_CTRL2_REG, val);
+			ret = intel_soc_pmic_writeb(ELDO2_CTRL2_REG, val);
 			break;
 		case PMIC_TI:
 			/* LDO9 */
-			ret = intel_mid_pmic_writeb(LDO9_REG, LDO9_2P8V_ON);
+			ret = intel_soc_pmic_writeb(LDO9_REG, LDO9_2P8V_ON);
 			if (ret)
 				return ret;
 
 			/* LDO10 */
-			ret = intel_mid_pmic_writeb(LDO10_REG, LDO10_1P8V_ON);
+			ret = intel_soc_pmic_writeb(LDO10_REG, LDO10_1P8V_ON);
 			if (ret)
 				return ret;
 			break;
@@ -175,24 +172,24 @@ static int camera_pmic_set(bool flag)
 			ret += regulator_disable(v1p8_reg);
 			break;
 		case PMIC_XPOWER:
-			val = intel_mid_pmic_readb(ALDO1_CTRL3_REG);
+			val = intel_soc_pmic_readb(ALDO1_CTRL3_REG);
 			val &= ~(1 << ALDO1_CTRL3_SHIFT);
-			ret = intel_mid_pmic_writeb(ALDO1_CTRL3_REG, val);
+			ret = intel_soc_pmic_writeb(ALDO1_CTRL3_REG, val);
 			if (ret)
 				return ret;
 
-			val = intel_mid_pmic_readb(ELDO2_CTRL2_REG);
+			val = intel_soc_pmic_readb(ELDO2_CTRL2_REG);
 			val &= ~(1 << ELDO2_CTRL2_SHIFT);
-			ret = intel_mid_pmic_writeb(ELDO2_CTRL2_REG, val);
+			ret = intel_soc_pmic_writeb(ELDO2_CTRL2_REG, val);
 			break;
 		case PMIC_TI:
 			/* LDO9 */
-			ret = intel_mid_pmic_writeb(LDO9_REG, LDO9_2P8V_OFF);
+			ret = intel_soc_pmic_writeb(LDO9_REG, LDO9_2P8V_OFF);
 			if (ret)
 				return ret;
 
 			/* LDO10 */
-			ret = intel_mid_pmic_writeb(LDO10_REG, LDO10_1P8V_OFF);
+			ret = intel_soc_pmic_writeb(LDO10_REG, LDO10_1P8V_OFF);
 			if (ret)
 				return ret;
 			break;
@@ -202,7 +199,6 @@ static int camera_pmic_set(bool flag)
 	}
 	return ret;
 }
-#endif
 
 static int imx134_gpio_ctrl(struct v4l2_subdev *sd, int flag)
 {
@@ -281,23 +277,17 @@ static int imx134_flisclk_ctrl(struct v4l2_subdev *sd, int flag)
 
 static int imx134_power_ctrl(struct v4l2_subdev *sd, int flag)
 {
-#ifdef CONFIG_CRYSTAL_COVE
 	struct i2c_client *client = v4l2_get_subdevdata(sd);
-#endif
 	int ret = 0;
 
 	if (flag) {
 		if (!camera_vprog1_on) {
-#ifdef CONFIG_CRYSTAL_COVE
 			ret = camera_pmic_set(flag);
 			if (ret) {
 				dev_err(&client->dev,
 						"Failed to enable regulator\n");
 				return ret;
 			}
-#else
-			pr_err("imx134 power is not set.\n");
-#endif
 			if (!ret) {
 				/* imx1x5 VDIG rise to XCLR release */
 				usleep_range(1000, 1200);
@@ -307,16 +297,12 @@ static int imx134_power_ctrl(struct v4l2_subdev *sd, int flag)
 		}
 	} else {
 		if (camera_vprog1_on) {
-#ifdef CONFIG_CRYSTAL_COVE
 			ret = camera_pmic_set(flag);
 			if (ret) {
 				dev_err(&client->dev,
 						"Failed to enable regulator\n");
 				return ret;
 			}
-#else
-			pr_err("imx134 power is not set.\n");
-#endif
 			if (!ret)
 				camera_vprog1_on = 0;
 			return ret;
@@ -345,7 +331,6 @@ static int imx134_csi_configure(struct v4l2_subdev *sd, int flag)
 	return camera_sensor_csi(sd, port, lanes, format, bayer, flag);
 }
 
-#ifdef CONFIG_CRYSTAL_COVE
 static int imx134_platform_init(struct i2c_client *client)
 {
 	pmic_id = camera_pmic_probe();
@@ -378,26 +363,21 @@ static int imx134_platform_deinit(void)
 
 	return 0;
 }
-#endif
 
 static struct camera_sensor_platform_data imx134_sensor_platform_data = {
 	.gpio_ctrl      = imx134_gpio_ctrl,
 	.flisclk_ctrl   = imx134_flisclk_ctrl,
 	.power_ctrl     = imx134_power_ctrl,
 	.csi_cfg        = imx134_csi_configure,
-#ifdef CONFIG_CRYSTAL_COVE
 	.platform_init = imx134_platform_init,
 	.platform_deinit = imx134_platform_deinit,
-#endif
 };
 
 void *imx134_platform_data(void *info)
 {
 	camera_reset = -1;
 	camera_power_down = -1;
-#ifdef CONFIG_CRYSTAL_COVE
 	pmic_id = PMIC_MAX;
-#endif
 	return &imx134_sensor_platform_data;
 }
 EXPORT_SYMBOL_GPL(imx134_platform_data);

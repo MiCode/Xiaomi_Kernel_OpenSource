@@ -24,7 +24,7 @@
 #include <linux/regulator/intel_crystal_cove_pmic.h>
 #include <linux/regulator/machine.h>
 
-#include <linux/mfd/intel_mid_pmic.h>
+#include <linux/mfd/intel_soc_pmic.h>
 
 /* Intel Voltage cntrl register parameters*/
 #define REG_ENA_STATUS_MASK	0x01
@@ -76,10 +76,10 @@ static int intel_pmic_reg_is_enabled(struct regulator_dev *rdev)
 	struct intel_pmic_info *pmic_info = rdev_get_drvdata(rdev);
 	int reg_value;
 
-	reg_value = intel_mid_pmic_readb(pmic_info->pmic_reg);
+	reg_value = intel_soc_pmic_readb(pmic_info->pmic_reg);
 	if (reg_value < 0) {
 		dev_err(&rdev->dev,
-			"intel_mid_pmic_readb returns error %08x\n", reg_value);
+			"intel_soc_pmic_readb returns error %08x\n", reg_value);
 		return reg_value;
 	}
 
@@ -99,14 +99,14 @@ static int intel_pmic_reg_enable(struct regulator_dev *rdev)
 	struct intel_pmic_info *pmic_info = rdev_get_drvdata(rdev);
 	int reg_value;
 
-	reg_value = intel_mid_pmic_readb(pmic_info->pmic_reg);
+	reg_value = intel_soc_pmic_readb(pmic_info->pmic_reg);
 	if (reg_value < 0) {
 		dev_err(&rdev->dev,
-			"intel_mid_pmic_readb returns error %08x\n", reg_value);
+			"intel_soc_pmic_readb returns error %08x\n", reg_value);
 		return reg_value;
 	}
 
-	return intel_mid_pmic_writeb(pmic_info->pmic_reg,
+	return intel_soc_pmic_writeb(pmic_info->pmic_reg,
 				(reg_value | REG_ON | REG_CNT_ENBL));
 }
 /**
@@ -120,14 +120,14 @@ static int intel_pmic_reg_disable(struct regulator_dev *rdev)
 	struct intel_pmic_info *pmic_info = rdev_get_drvdata(rdev);
 	int reg_value;
 
-	reg_value = intel_mid_pmic_readb(pmic_info->pmic_reg);
+	reg_value = intel_soc_pmic_readb(pmic_info->pmic_reg);
 	if (reg_value < 0) {
 		dev_err(&rdev->dev,
-			"intel_mid_pmic_readb returns error %08x\n", reg_value);
+			"intel_soc_pmic_readb returns error %08x\n", reg_value);
 		return reg_value;
 	}
 
-	return intel_mid_pmic_writeb(pmic_info->pmic_reg,
+	return intel_soc_pmic_writeb(pmic_info->pmic_reg,
 				((reg_value | REG_CNT_ENBL) & REG_OFF));
 }
 /**
@@ -159,10 +159,10 @@ static int intel_pmic_reg_getvoltage(struct regulator_dev *rdev)
 	u8  vsel;
 	int reg_value;
 
-	reg_value = intel_mid_pmic_readb(pmic_info->pmic_reg);
+	reg_value = intel_soc_pmic_readb(pmic_info->pmic_reg);
 	if (reg_value < 0) {
 		dev_err(&rdev->dev,
-			"intel_mid_pmic_readb returns error %08x\n", reg_value);
+			"intel_soc_pmic_readb returns error %08x\n", reg_value);
 		return reg_value;
 	}
 	vsel = (reg_value & REG_VSEL_MASK) >> VSEL_SHIFT;
@@ -199,17 +199,17 @@ static int intel_pmic_reg_setvoltage(struct regulator_dev *rdev, int min_uV,
 			continue;
 
 		*selector = vsel;
-		reg_value = intel_mid_pmic_readb(pmic_info->pmic_reg);
+		reg_value = intel_soc_pmic_readb(pmic_info->pmic_reg);
 		if (reg_value < 0) {
 			dev_err(&rdev->dev,
-			"intel_mid_pmic_readb returns error %08x\n", reg_value);
+			"intel_soc_pmic_readb returns error %08x\n", reg_value);
 			return reg_value;
 		}
 		reg_value &= ~REG_VSEL_MASK;
 		reg_value |= vsel << VSEL_SHIFT;
 		dev_dbg(&rdev->dev,
 			"intel_pmic_reg_setvoltage voltage: %u uV\n", uV);
-		return intel_mid_pmic_writeb(pmic_info->pmic_reg, reg_value);
+		return intel_soc_pmic_writeb(pmic_info->pmic_reg, reg_value);
 	}
 	return -EINVAL;
 }

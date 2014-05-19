@@ -19,6 +19,8 @@
 #define __INTEL_SOC_PMIC_H__
 
 #define	INTEL_PMIC_IRQBASE	456
+#define INTEL_NGPIO_SCORE	102
+#define INTEL_NGPIO_NCORE	28
 
 int intel_soc_pmic_readb(int reg);
 int intel_soc_pmic_writeb(int reg, u8 val);
