@@ -1138,6 +1138,7 @@ static int msm_pcm_prepare(struct snd_pcm_substream *substream)
 	struct snd_pcm_runtime *runtime = substream->runtime;
 	struct hpcm_drv *prtd = runtime->private_data;
 	struct dai_data *dai_data = NULL;
+	struct tap_point *tp = NULL;
 
 	pr_debug("%s, %s\n", __func__, substream->pcm->id);
 	mutex_lock(&prtd->lock);
@@ -1162,14 +1163,16 @@ static int msm_pcm_prepare(struct snd_pcm_substream *substream)
 	 */
 	voc_register_hpcm_evt_cb(hpcm_notify_evt_processing, &hpcm_drv);
 
-	ret = hpcm_start_vocpcm(substream->pcm->id, prtd,
-				hpcm_get_tappoint_data(substream->pcm->id,
-						       prtd));
-	if (ret) {
-		pr_err("error sending start cmd err=%d\n", ret);
-		goto done;
+	tp = hpcm_get_tappoint_data(substream->pcm->id, prtd);
+	if (tp != NULL) {
+		ret = hpcm_start_vocpcm(substream->pcm->id, prtd, tp);
+		if (ret) {
+			pr_err("error sending start cmd err=%d\n", ret);
+			goto done;
+		}
+	} else {
+		pr_err("%s tp is NULL\n", __func__);
 	}
-
 done:
 	mutex_unlock(&prtd->lock);
 	return ret;
