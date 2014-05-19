@@ -32,6 +32,7 @@ enum msm_pcie_event {
 	MSM_PCIE_EVENT_INVALID = 0,
 	MSM_PCIE_EVENT_LINKDOWN = 0x1,
 	MSM_PCIE_EVENT_LINKUP = 0x2,
+	MSM_PCIE_EVENT_WAKEUP = 0x4,
 };
 
 enum msm_pcie_trigger {
