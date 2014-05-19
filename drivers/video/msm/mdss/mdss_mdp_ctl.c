@@ -341,7 +341,7 @@ static inline bool mdss_mdp_is_single_pipe_per_mixer(
 	int cnt = 0;
 	int i;
 
-	for (i = 0; i < MDSS_MDP_MAX_STAGE; i++) {
+	for (i = 0; i < MAX_PIPES_PER_LM; i++) {
 		struct mdss_mdp_pipe *pipe = mixer->stage_pipe[i];
 		if (pipe) {
 			cnt++;
