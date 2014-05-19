@@ -31,6 +31,8 @@ static struct wcnss_prealloc wcnss_allocs[] = {
 	{0, 8  * 1024, NULL},
 	{0, 8  * 1024, NULL},
 	{0, 8  * 1024, NULL},
+	{0, 8  * 1024, NULL},
+	{0, 8  * 1024, NULL},
 	{0, 12 * 1024, NULL},
 	{0, 12 * 1024, NULL},
 	{0, 12 * 1024, NULL},
@@ -63,6 +65,12 @@ static struct wcnss_prealloc wcnss_allocs[] = {
 	{0, 12 * 1024, NULL},
 	{0, 12 * 1024, NULL},
 	{0, 12 * 1024, NULL},
+	{0, 12 * 1024, NULL},
+	{0, 12 * 1024, NULL},
+	{0, 12 * 1024, NULL},
+	{0, 12 * 1024, NULL},
+	{0, 16 * 1024, NULL},
+	{0, 16 * 1024, NULL},
 	{0, 16 * 1024, NULL},
 	{0, 16 * 1024, NULL},
 	{0, 16 * 1024, NULL},
@@ -124,7 +132,6 @@ void *wcnss_prealloc_get(unsigned int size)
 		}
 	}
 	spin_unlock_irqrestore(&alloc_lock, flags);
-	WARN_ON(1);
 	pr_err("wcnss: %s: prealloc not available for size: %d\n",
 			__func__, size);
 
