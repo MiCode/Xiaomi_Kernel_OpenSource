@@ -27,6 +27,7 @@
 #include <linux/gpio.h>
 #include <linux/of_gpio.h>
 #include <linux/pinctrl/consumer.h>
+#include <linux/interrupt.h>
 #include "coresight-priv.h"
 #include "coresight-nidnt.h"
 
@@ -143,6 +144,8 @@ int coresight_nidnt_config_swoverride(enum nidnt_debug_mode mode)
 		return -EPERM;
 
 	ret = coresight_nidnt_setup_pinctrl(nidnt_drvdata, mode);
+	if (ret < 0)
+		return ret;
 
 	spin_lock(&nidnt_drvdata->spinlock);
 
@@ -160,7 +163,7 @@ int coresight_nidnt_config_swoverride(enum nidnt_debug_mode mode)
 
 	spin_unlock(&nidnt_drvdata->spinlock);
 
-	return ret;
+	return 0;
 }
 EXPORT_SYMBOL(coresight_nidnt_config_swoverride);
 
@@ -191,7 +194,7 @@ void coresight_nidnt_set_hwdetect_param(bool val)
 }
 EXPORT_SYMBOL(coresight_nidnt_set_hwdetect_param);
 
-static int __coresight_nidnt_enable_hwdetect(struct nidnt_drvdata
+static void __coresight_nidnt_enable_hwdetect(struct nidnt_drvdata
 					     *nidnt_drvdata)
 {
 	unsigned int regval;
@@ -209,22 +212,18 @@ static int __coresight_nidnt_enable_hwdetect(struct nidnt_drvdata
 	nidnt_writel(nidnt_drvdata, regval, TLMM_QDSD_TIMEOUT_VALUE_CTL);
 
 	spin_unlock(&nidnt_drvdata->spinlock);
-
-	return 0;
 }
 
 int coresight_nidnt_enable_hwdetect(void)
 {
-	int ret = 0;
-
 	if (!nidnt_drvdata->nidnt_hwdetect_enable)
 		return -EPERM;
 
 	coresight_nidnt_config_hwdetect(nidnt_drvdata);
 	/* Enable the TLMM debug mode for nidnt detect.*/
-	ret = __coresight_nidnt_enable_hwdetect(nidnt_drvdata);
+	__coresight_nidnt_enable_hwdetect(nidnt_drvdata);
 
-	return ret;
+	return 0;
 }
 EXPORT_SYMBOL(coresight_nidnt_enable_hwdetect);
 
