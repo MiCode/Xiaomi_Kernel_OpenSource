@@ -20,6 +20,11 @@
 #define DSI_PHY_PLL_UNIPHY_PLL_TEST_CFG		(0x0068)
 #define DSI_PHY_PLL_UNIPHY_PLL_CAL_CFG1		(0x0070)
 
+/* Register offsets for 20nm PHY PLL */
+#define MMSS_DSI_PHY_PLL_PLL_CNTRL		(0x0014)
+#define MMSS_DSI_PHY_PLL_PLL_BKG_KVCO_CAL_EN	(0x002C)
+#define MMSS_DSI_PHY_PLL_PLLLOCK_CMP_EN		(0x009C)
+
 struct lpfr_cfg {
 	unsigned long vco_rate;
 	u32 r;
@@ -47,6 +52,8 @@ static inline struct dsi_pll_vco_clk *to_vco_clk(struct clk *clk)
 
 int dsi_pll_clock_register_hpm(struct platform_device *pdev,
 				struct mdss_pll_resources *pll_res);
+int dsi_pll_clock_register_20nm(struct platform_device *pdev,
+				struct mdss_pll_resources *pll_res);
 int dsi_pll_clock_register_lpm(struct platform_device *pdev,
 				struct mdss_pll_resources *pll_res);
 
@@ -61,10 +68,30 @@ int digital_get_div(struct div_clk *clk);
 int analog_set_div(struct div_clk *clk, int div);
 int analog_get_div(struct div_clk *clk);
 int dsi_pll_lock_status(struct mdss_pll_resources *dsi_pll_res);
+void pll_20nm_dsi_phy_ctrl_config
+		(struct mdss_pll_resources *dsi_pll_res, int off);
 int vco_set_rate(struct dsi_pll_vco_clk *vco, unsigned long rate);
 unsigned long vco_get_rate(struct clk *c);
 long vco_round_rate(struct clk *c, unsigned long rate);
 enum handoff vco_handoff(struct clk *c);
 int vco_prepare(struct clk *c);
 void vco_unprepare(struct clk *c);
+
+/* APIs for 20nm PHY PLL */
+int pll_20nm_vco_set_rate(struct dsi_pll_vco_clk *vco, unsigned long rate);
+long pll_20nm_vco_round_rate(struct clk *c, unsigned long rate);
+enum handoff pll_20nm_vco_handoff(struct clk *c);
+int pll_20nm_vco_prepare(struct clk *c);
+void pll_20nm_vco_unprepare(struct clk *c);
+int dsi_20nm_pll_lock_status(struct mdss_pll_resources *dsi_pll_res);
+
+int set_bypass_lp_div_mux_sel(struct mux_clk *clk, int sel);
+int get_bypass_lp_div_mux_sel(struct mux_clk *clk);
+int fixed_hr_oclk2_set_div(struct div_clk *clk, int div);
+int fixed_hr_oclk2_get_div(struct div_clk *clk);
+int hr_oclk3_set_div(struct div_clk *clk, int div);
+int hr_oclk3_get_div(struct div_clk *clk);
+int ndiv_set_div(struct div_clk *clk, int div);
+int ndiv_get_div(struct div_clk *clk);
+
 #endif
