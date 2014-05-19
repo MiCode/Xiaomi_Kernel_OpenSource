@@ -115,6 +115,8 @@ struct arizona {
 	int clk32k_ref;
 
 	struct snd_soc_dapm_context *dapm;
+
+	struct mutex reg_setting_lock;
 };
 
 int arizona_clk32k_enable(struct arizona *arizona);

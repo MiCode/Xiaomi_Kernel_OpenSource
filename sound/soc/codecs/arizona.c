@@ -715,14 +715,13 @@ static int arizona_update_input(struct arizona* arizona, bool enable)
 		return 0;
 	}
 
+	mutex_lock(&arizona->reg_setting_lock);
+	regmap_write(arizona->regmap, 0x80,  0x3);
+
 	if (enable) {
-		regmap_write(arizona->regmap, 0x80,  0x3);
 		regmap_write(arizona->regmap, 0x3A6, 0x5555);
 		regmap_write(arizona->regmap, 0x3A5, 0x3);
-		regmap_write(arizona->regmap, 0x80,  0x0);
 	} else {
-		regmap_write(arizona->regmap, 0x80,  0x3);
-
 		regmap_read(arizona->regmap, 0x3A5, &val);
 		if (val) {
 			msleep(10);
@@ -730,9 +729,10 @@ static int arizona_update_input(struct arizona* arizona, bool enable)
 			regmap_write(arizona->regmap, 0x3A6, 0x0);
 			msleep(5);
 		}
-
-		regmap_write(arizona->regmap, 0x80,  0x0);
 	}
+
+	regmap_write(arizona->regmap, 0x80,  0x0);
+	mutex_unlock(&arizona->reg_setting_lock);
 
 	return 0;
 }
@@ -1463,6 +1463,7 @@ static int arizona_hw_params_rate(struct snd_pcm_substream *substream,
 {
 	struct snd_soc_codec *codec = dai->codec;
 	struct arizona_priv *priv = snd_soc_codec_get_drvdata(codec);
+	struct arizona *arizona = priv->arizona;
 	struct arizona_dai_priv *dai_priv = &priv->dai[dai->id - 1];
 	int base = dai->driver->base;
 	int i, sr_val;
@@ -1484,12 +1485,14 @@ static int arizona_hw_params_rate(struct snd_pcm_substream *substream,
 	switch (priv->arizona->type) {
 	case WM5102:
 		if (priv->arizona->pdata.ultrasonic_response) {
+			mutex_lock(&arizona->reg_setting_lock);
 			snd_soc_write(codec, 0x80, 0x3);
 			if (params_rate(params) >= 176400)
 				snd_soc_write(codec, 0x4dd, 0x1);
 			else
 				snd_soc_write(codec, 0x4dd, 0x0);
 			snd_soc_write(codec, 0x80, 0x0);
+			mutex_unlock(&arizona->reg_setting_lock);
 		}
 		break;
 	default:

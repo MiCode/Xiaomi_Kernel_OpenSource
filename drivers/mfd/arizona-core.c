@@ -1041,6 +1041,7 @@ static bool arizona_florida_get_input_state(struct arizona* arizona)
 
 void arizona_florida_clear_input(struct arizona *arizona)
 {
+	mutex_lock(&arizona->reg_setting_lock);
 	regmap_write(arizona->regmap, 0x80, 0x3);
 
 	if (arizona_florida_get_input_state(arizona)) {
@@ -1066,6 +1067,7 @@ void arizona_florida_clear_input(struct arizona *arizona)
 	}
 
 	regmap_write(arizona->regmap, 0x80, 0x0);
+	mutex_unlock(&arizona->reg_setting_lock);
 }
 EXPORT_SYMBOL_GPL(arizona_florida_clear_input);
 
@@ -1080,6 +1082,7 @@ int arizona_dev_init(struct arizona *arizona)
 
 	dev_set_drvdata(arizona->dev, arizona);
 	mutex_init(&arizona->clk_lock);
+	mutex_init(&arizona->reg_setting_lock);
 
 	if (dev_get_platdata(arizona->dev))
 		memcpy(&arizona->pdata, dev_get_platdata(arizona->dev),
