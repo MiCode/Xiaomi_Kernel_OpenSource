@@ -625,8 +625,13 @@ struct log_field {
 #define  KGSL_FT_TEMP_DISABLE             5
 #define  KGSL_FT_THROTTLE                 6
 #define  KGSL_FT_SKIPCMD                  7
-#define  KGSL_FT_DEFAULT_POLICY (BIT(KGSL_FT_REPLAY) + BIT(KGSL_FT_SKIPCMD) \
-				+ BIT(KGSL_FT_THROTTLE))
+#define  KGSL_FT_DEFAULT_POLICY (BIT(KGSL_FT_REPLAY) + \
+	BIT(KGSL_FT_SKIPCMD) + BIT(KGSL_FT_THROTTLE))
+#define KGSL_FT_POLICY_MASK (BIT(KGSL_FT_OFF) + \
+	BIT(KGSL_FT_REPLAY) + BIT(KGSL_FT_SKIPIB) \
+	+ BIT(KGSL_FT_SKIPFRAME) + BIT(KGSL_FT_DISABLE) + \
+	BIT(KGSL_FT_TEMP_DISABLE) + BIT(KGSL_FT_THROTTLE) + \
+	BIT(KGSL_FT_SKIPCMD))
 
 /* This internal bit is used to skip the PM dump on replayed command batches */
 #define  KGSL_FT_SKIP_PMDUMP              31
