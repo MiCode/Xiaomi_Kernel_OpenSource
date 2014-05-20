@@ -316,9 +316,8 @@ static void a4xx_regulator_enable(struct adreno_device *adreno_dev)
 	if (adreno_is_a420(adreno_dev))
 		return;
 
-	kgsl_regread(device, A4XX_RBBM_POWER_CNTL_IP, &reg);
-	reg = (reg & ~SP_TP_PWR_ON_MASK);
-	kgsl_regwrite(device, A4XX_RBBM_POWER_CNTL_IP, reg);
+	/* Set the default register values; set SW_COLLAPSE to 0 */
+	kgsl_regwrite(device, A4XX_RBBM_POWER_CNTL_IP, 0x778000);
 	do {
 		udelay(5);
 		kgsl_regread(device, A4XX_RBBM_POWER_STATUS, &reg);
@@ -338,7 +337,7 @@ static void a4xx_enable_pc(struct adreno_device *adreno_dev)
 		return;
 
 	kgsl_regread(device, A4XX_RBBM_POWER_CNTL_IP, &reg);
-	reg = (reg & ~SP_TP_PWR_COLLAPSE_MASK) | 0x2;
+	reg = (reg & ~SP_TP_PWR_COLLAPSE_MASK);
 	kgsl_regwrite(device, A4XX_RBBM_POWER_CNTL_IP, reg);
 	kgsl_regwrite(device, A4XX_CP_POWER_COLLAPSE_CNTL, 0x00400010);
 	trace_adreno_sp_tp((unsigned long) __builtin_return_address(0));
