@@ -401,3 +401,12 @@
 		<&clock_mmss clk_fd_ahb_clk>;
 	clock-names = "core_clk", "iface_clk";
 };
+
+&cpp_iommu {
+	status = "ok";
+	vdd-supply = <&gdsc_cpp>;
+	qcom,iommu-enable-halt;
+	clocks = <&clock_mmss clk_camss_vfe_cpp_axi_clk>,
+		<&clock_mmss clk_camss_vfe_cpp_ahb_clk>;
+	clock-names = "core_clk", "iface_clk";
+};
