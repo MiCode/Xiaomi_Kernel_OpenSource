@@ -2999,6 +2999,11 @@ functions_store(struct device *pdev, struct device_attribute *attr,
 					ffs_enabled = 1;
 				continue;
 			}
+
+			if (!strcmp(name, "rndis") &&
+				!strcmp(strim(rndis_transports), "BAM2BAM_IPA"))
+				name = "rndis_qc";
+
 			err = android_enable_function(dev, conf, name);
 			if (err)
 				pr_err("android_usb: Cannot enable '%s' (%d)",
