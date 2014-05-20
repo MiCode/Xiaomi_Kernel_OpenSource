@@ -40,6 +40,8 @@
 #define MPU6050_VDD_MAX_UV	3400000
 #define MPU6050_VLOGIC_MIN_UV	1800000
 #define MPU6050_VLOGIC_MAX_UV	1800000
+#define MPU6050_VI2C_MIN_UV	1750000
+#define MPU6050_VI2C_MAX_UV	1950000
 
 #define MPU6050_ACCEL_MIN_VALUE	-32768
 #define MPU6050_ACCEL_MAX_VALUE	32767
@@ -126,6 +128,7 @@ struct mpu6050_sensor {
 	struct delayed_work gyro_poll_work;
 	struct regulator *vlogic;
 	struct regulator *vdd;
+	struct regulator *vi2c;
 	struct mpu_reg_map reg;
 	struct mpu_chip_config cfg;
 	struct axis_data axis;
@@ -133,6 +136,7 @@ struct mpu6050_sensor {
 	u32 accel_poll_ms;
 	int enable_gpio;
 	bool use_poll;
+	bool power_enabled;
 };
 
 /* Accelerometer information read by HAL */
@@ -232,9 +236,9 @@ mpu6050_place_name2num[MPU6050_AXIS_REMAP_TAB_SZ] = {
 
 static int mpu6050_power_ctl(struct mpu6050_sensor *sensor, bool on)
 {
-	int rc;
+	int rc = 0;
 
-	if (on) {
+	if (on && (!sensor->power_enabled)) {
 		rc = regulator_enable(sensor->vdd);
 		if (rc) {
 			dev_err(&sensor->client->dev,
@@ -250,12 +254,22 @@ static int mpu6050_power_ctl(struct mpu6050_sensor *sensor, bool on)
 			return rc;
 		}
 
+		rc = regulator_enable(sensor->vi2c);
+		if (rc) {
+			dev_err(&sensor->client->dev,
+				"Regulator vi2c enable failed rc=%d\n", rc);
+			regulator_disable(sensor->vlogic);
+			regulator_disable(sensor->vdd);
+			return rc;
+		}
+
 		if (gpio_is_valid(sensor->enable_gpio)) {
 			udelay(POWER_EN_DELAY_US);
 			gpio_set_value(sensor->enable_gpio, 1);
 		}
 		msleep(POWER_UP_TIME_MS);
-	} else {
+		sensor->power_enabled = true;
+	} else if (!on && (sensor->power_enabled)) {
 		if (gpio_is_valid(sensor->enable_gpio)) {
 			udelay(POWER_EN_DELAY_US);
 			gpio_set_value(sensor->enable_gpio, 0);
@@ -274,7 +288,23 @@ static int mpu6050_power_ctl(struct mpu6050_sensor *sensor, bool on)
 			dev_err(&sensor->client->dev,
 				"Regulator vlogic disable failed rc=%d\n", rc);
 			rc = regulator_enable(sensor->vdd);
+			return rc;
 		}
+
+		rc = regulator_disable(sensor->vi2c);
+		if (rc) {
+			dev_err(&sensor->client->dev,
+				"Regulator vi2c disable failed rc=%d\n", rc);
+			if (regulator_enable(sensor->vi2c) ||
+					regulator_enable(sensor->vdd))
+				return -EIO;
+		}
+
+		sensor->power_enabled = false;
+	} else {
+		dev_warn(&sensor->client->dev,
+				"Ignore power status change from %d to %d\n",
+				on, sensor->power_enabled);
 	}
 	return rc;
 }
@@ -319,8 +349,34 @@ static int mpu6050_power_init(struct mpu6050_sensor *sensor)
 			goto reg_vlogic_put;
 		}
 	}
+
+	sensor->vi2c = regulator_get(&sensor->client->dev, "vi2c");
+	if (IS_ERR(sensor->vi2c)) {
+		ret = PTR_ERR(sensor->vi2c);
+		dev_err(&sensor->client->dev,
+			"Regulator get failed vi2c ret=%d\n", ret);
+		goto reg_vlogic_set_vtg;
+	}
+
+	if (regulator_count_voltages(sensor->vi2c) > 0) {
+		ret = regulator_set_voltage(sensor->vi2c,
+				MPU6050_VI2C_MIN_UV,
+				MPU6050_VI2C_MAX_UV);
+		if (ret) {
+			dev_err(&sensor->client->dev,
+			"Regulator set_vtg failed vi2c ret=%d\n", ret);
+			goto reg_vi2c_put;
+		}
+	}
+
+
 	return 0;
 
+reg_vi2c_put:
+	regulator_put(sensor->vi2c);
+reg_vlogic_set_vtg:
+	if (regulator_count_voltages(sensor->vlogic) > 0)
+		regulator_set_voltage(sensor->vlogic, 0, MPU6050_VLOGIC_MAX_UV);
 reg_vlogic_put:
 	regulator_put(sensor->vlogic);
 reg_vdd_set_vtg:
@@ -520,7 +576,7 @@ static void mpu6050_accel_work_fn(struct work_struct *work)
 
 	if (sensor->use_poll)
 		schedule_delayed_work(&sensor->accel_poll_work,
-			msecs_to_jiffies(sensor->gyro_poll_ms));
+			msecs_to_jiffies(sensor->accel_poll_ms));
 }
 
 /**
@@ -757,12 +813,106 @@ static int mpu6050_gyro_enable(struct mpu6050_sensor *sensor, bool on)
 	return 0;
 }
 
+/**
+ * mpu6050_restore_context - update the sensor register context
+ */
+
+static int mpu6050_restore_context(struct mpu6050_sensor *sensor)
+{
+	struct mpu_reg_map *reg;
+	struct i2c_client *client;
+	int ret;
+	u8 data;
+
+	client = sensor->client;
+	reg = &sensor->reg;
+
+	ret = i2c_smbus_write_byte_data(client, reg->gyro_config,
+			sensor->cfg.fsr << GYRO_CONFIG_FSR_SHIFT);
+	if (ret < 0) {
+		dev_err(&client->dev, "update fsr failed.\n");
+		goto exit;
+	}
+
+	ret = i2c_smbus_write_byte_data(client, reg->lpf, sensor->cfg.lpf);
+	if (ret < 0) {
+		dev_err(&client->dev, "update lpf failed.\n");
+		goto exit;
+	}
+
+	ret = i2c_smbus_write_byte_data(client, reg->accel_config,
+			(ACCEL_FS_02G << ACCL_CONFIG_FSR_SHIFT));
+	if (ret < 0) {
+		dev_err(&client->dev, "update accel_fs failed.\n");
+		goto exit;
+	}
+
+	ret = i2c_smbus_read_byte_data(client, reg->fifo_en);
+	if (ret < 0) {
+		dev_err(&client->dev, "read fifo_en failed.\n");
+		goto exit;
+	}
+
+	data = (u8)ret;
+
+	if (sensor->cfg.accel_fifo_enable) {
+		ret = i2c_smbus_write_byte_data(client, reg->fifo_en,
+				data |= BIT_ACCEL_FIFO);
+		if (ret < 0) {
+			dev_err(&client->dev, "write accel_fifo_enabled failed.\n");
+			goto exit;
+		}
+	}
+
+	if (sensor->cfg.gyro_fifo_enable) {
+		ret = i2c_smbus_write_byte_data(client, reg->fifo_en,
+				data |= BIT_GYRO_FIFO);
+		if (ret < 0) {
+			dev_err(&client->dev, "write accel_fifo_enabled failed.\n");
+			goto exit;
+		}
+	}
+
+	ret = mpu6050_set_lpa_freq(sensor, sensor->cfg.lpa_freq);
+	if (ret < 0) {
+		dev_err(&client->dev, "set lpa_freq failed.\n");
+		goto exit;
+	}
+
+	ret = i2c_smbus_write_byte_data(client, reg->sample_rate_div,
+			ODR_DLPF_ENA / INIT_FIFO_RATE - 1);
+	if (ret < 0) {
+		dev_err(&client->dev, "set lpa_freq failed.\n");
+		goto exit;
+	}
+
+	dev_dbg(&client->dev, "restore context finished\n");
+
+exit:
+	return ret;
+}
+
 static int mpu6050_gyro_set_enable(struct mpu6050_sensor *sensor, bool enable)
 {
 	int ret = 0;
 
 	mutex_lock(&sensor->op_lock);
 	if (enable) {
+		if (!sensor->cfg.enable) {
+			ret = mpu6050_power_ctl(sensor, true);
+			if (ret < 0) {
+				dev_err(&sensor->client->dev,
+						"Failed to power up mpu6050\n");
+				goto exit;
+			}
+			ret = mpu6050_restore_context(sensor);
+			if (ret < 0) {
+				dev_err(&sensor->client->dev,
+						"Failed to restore context\n");
+				goto exit;
+			}
+		}
+
 		ret = mpu6050_gyro_enable(sensor, true);
 		if (ret) {
 			dev_err(&sensor->client->dev,
@@ -788,6 +938,15 @@ static int mpu6050_gyro_set_enable(struct mpu6050_sensor *sensor, bool enable)
 			cancel_delayed_work_sync(&sensor->gyro_poll_work);
 		else
 			disable_irq(sensor->client->irq);
+
+		if (!sensor->cfg.enable) {
+			ret = mpu6050_power_ctl(sensor, false);
+			if (ret < 0) {
+				dev_err(&sensor->client->dev,
+					"Failed to set power off mpu6050");
+				goto exit;
+			}
+		}
 	}
 
 exit:
@@ -993,6 +1152,22 @@ static int mpu6050_accel_set_enable(struct mpu6050_sensor *sensor, bool enable)
 
 	mutex_lock(&sensor->op_lock);
 	if (enable) {
+		if (!sensor->cfg.enable) {
+			ret = mpu6050_power_ctl(sensor, true);
+			if (ret < 0) {
+				dev_err(&sensor->client->dev,
+					"Failed to set power up mpu6050");
+				goto exit;
+			}
+
+			ret = mpu6050_restore_context(sensor);
+			if (ret < 0) {
+				dev_err(&sensor->client->dev,
+					"Failed to restore context");
+				goto exit;
+			}
+		}
+
 		ret = mpu6050_accel_enable(sensor, true);
 		if (ret) {
 			dev_err(&sensor->client->dev,
@@ -1018,6 +1193,15 @@ static int mpu6050_accel_set_enable(struct mpu6050_sensor *sensor, bool enable)
 				"Fail to disable accel engine ret=%d\n", ret);
 			ret = -EBUSY;
 			goto exit;
+		}
+
+		if (!sensor->cfg.enable) {
+			ret = mpu6050_power_ctl(sensor, false);
+			if (ret < 0) {
+				dev_err(&sensor->client->dev,
+					"Failed to set power off mpu6050");
+				goto exit;
+			}
 		}
 	}
 
@@ -1699,8 +1883,17 @@ static int mpu6050_probe(struct i2c_client *client,
 		ret = -EINVAL;
 		goto err_remove_accel_cdev;
 	}
-	return 0;
 
+	ret = mpu6050_power_ctl(sensor, false);
+	if (ret) {
+		dev_err(&client->dev,
+				"Power off mpu6050 failed\n");
+		goto err_remove_gyro_cdev;
+	}
+
+	return 0;
+err_remove_gyro_cdev:
+	sensors_classdev_unregister(&sensor->gyro_cdev);
 err_remove_accel_cdev:
 	 sensors_classdev_unregister(&sensor->accel_cdev);
 err_remove_gyro_sysfs:
@@ -1778,13 +1971,35 @@ static int mpu6050_suspend(struct device *dev)
 {
 	struct i2c_client *client = to_i2c_client(dev);
 	struct mpu6050_sensor *sensor = i2c_get_clientdata(client);
+	int ret = 0;
 
+	mutex_lock(&sensor->op_lock);
 	if (!sensor->use_poll)
 		disable_irq(client->irq);
+	else {
+		if (sensor->cfg.gyro_enable)
+			cancel_delayed_work_sync(&sensor->gyro_poll_work);
 
-	mpu6050_set_power_mode(sensor, false);
+		if (sensor->cfg.accel_enable)
+			cancel_delayed_work_sync(&sensor->accel_poll_work);
+	}
 
-	return 0;
+
+	if (sensor->cfg.enable) {
+		mpu6050_set_power_mode(sensor, false);
+		ret = mpu6050_power_ctl(sensor, false);
+		if (ret < 0) {
+			dev_err(&client->dev, "Power off mpu6050 failed\n");
+			goto exit;
+		}
+	}
+
+	dev_dbg(&client->dev, "suspended\n");
+
+exit:
+	mutex_unlock(&sensor->op_lock);
+
+	return ret;
 }
 
 /**
@@ -1797,13 +2012,57 @@ static int mpu6050_resume(struct device *dev)
 {
 	struct i2c_client *client = to_i2c_client(dev);
 	struct mpu6050_sensor *sensor = i2c_get_clientdata(client);
+	int ret = 0;
 
-	mpu6050_set_power_mode(sensor, true);
+	if (sensor->cfg.enable) {
+		ret = mpu6050_power_ctl(sensor, true);
+		if (ret < 0) {
+			dev_err(&client->dev, "Power off mpu6050 failed\n");
+			goto exit;
+		}
+
+		ret = mpu6050_restore_context(sensor);
+		if (ret < 0) {
+			dev_err(&client->dev, "Failed to restore context\n");
+			goto exit;
+		}
+
+		mpu6050_set_power_mode(sensor, true);
+	}
+
+	if (sensor->cfg.gyro_enable) {
+		ret = mpu6050_gyro_enable(sensor, true);
+		if (ret < 0) {
+			dev_err(&client->dev, "Failed to enable gyro\n");
+			goto exit;
+		}
+
+		if (sensor->use_poll) {
+			schedule_delayed_work(&sensor->gyro_poll_work,
+				msecs_to_jiffies(sensor->gyro_poll_ms));
+		}
+	}
+
+	if (sensor->cfg.accel_enable) {
+		ret = mpu6050_accel_enable(sensor, true);
+		if (ret < 0) {
+			dev_err(&client->dev, "Failed to enable accel\n");
+			goto exit;
+		}
+
+		if (sensor->use_poll) {
+			schedule_delayed_work(&sensor->accel_poll_work,
+				msecs_to_jiffies(sensor->accel_poll_ms));
+		}
+	}
 
 	if (!sensor->use_poll)
 		enable_irq(client->irq);
 
-	return 0;
+	dev_dbg(&client->dev, "resumed\n");
+
+exit:
+	return ret;
 }
 #endif
 
