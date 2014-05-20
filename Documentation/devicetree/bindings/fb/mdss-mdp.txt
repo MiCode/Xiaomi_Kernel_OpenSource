@@ -247,6 +247,11 @@ Optional properties:
 				pipes which have no scaling support.
 - qcom,mdss-has-decimation: Boolean property to indicate the presence of
 			    decimation feature in fetch.
+- qcom,mdss-has-fixed-qos-arbiter-enabled: Boolean property to indicate the
+			    presence of rt/nrt feature. This feature enables
+			    increased performance by prioritizing the real time
+			    (rt) traffic over non real time (nrt) traffic to
+			    access the memory.
 - qcom,mdss-has-source-split: Boolean property to indicate if source split
 			      feature is available or not.
 - qcom,mdss-ad-off:		Array of offset addresses for the available
@@ -475,6 +480,7 @@ Example:
 		qcom,mdss-has-non-scalar-rgb;
 		qcom,mdss-has-bwc;
 		qcom,mdss-has-decimation;
+		qcom,mdss-has-fixed-qos-arbiter-enabled;
 		qcom,mdss-has-source-split;
 		qcom,mdss-wfd-mode = "intf";
 		qcom,mdss-no-lut-read;
