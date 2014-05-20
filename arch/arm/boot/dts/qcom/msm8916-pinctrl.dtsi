@@ -30,6 +30,39 @@
 				num_irqs = <122>;
 			};
 		};
+
+		ext-cdc-tlmm-lines {
+			qcom,pins = <&gp 116>, <&gp 112>, <&gp 117>,
+						<&gp 118>, <&gp 119>;
+			qcom,num-grp-pins = <5>;
+			qcom,pin-func = <1>;
+			label = "ext-cdc-tlmm-lines";
+			ext_cdc_tlmm_lines_act: tlmm_lines_on {
+				drive-strength = <8>;
+				bias-pull-none;
+			};
+			ext_cdc_tlmm_lines_sus: tlmm_lines_off {
+				drive-strength = <2>;
+				bias-disable;
+			};
+		};
+
+		ext-codec-lines {
+			qcom,pins = <&gp 67>;
+			qcom,num-grp-pins = <1>;
+			qcom,pin-func = <0>;
+			label = "ext-codec-lines";
+			ext_codec_lines_act: lines_on {
+				drive-strength = <8>;
+				bias-disable;
+				output-high;
+			};
+			ext_codec_lines_sus: lines_off {
+				drive-strength = <2>;
+				bias-disable;
+			};
+		};
+
 		cdc-pdm-lines {
 			qcom,pins = <&gp 63>, <&gp 64>, <&gp 65>,
 					<&gp 66>, <&gp 67>, <&gp 68>;

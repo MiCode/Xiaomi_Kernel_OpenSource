@@ -154,6 +154,45 @@
 		pinctrl-0 = <&cdc_pdm_lines_act>;
 		pinctrl-1 = <&cdc_pdm_lines_sus>;
 	};
+
+	sound-9306 {
+		compatible = "qcom,msm8x16-audio-codec";
+		qcom,model = "msm8x16-tapan-snd-card";
+		qcom,msm-snd-card-id = <1>;
+		qcom,msm-codec-type = "external";
+		qcom,tapan-mclk-clk-freq = <9600000>;
+		qcom,prim-auxpcm-gpio-clk  = <&msm_gpio 63 0>;
+		qcom,prim-auxpcm-gpio-sync = <&msm_gpio 64 0>;
+		qcom,prim-auxpcm-gpio-din  = <&msm_gpio 65 0>;
+		qcom,prim-auxpcm-gpio-dout = <&msm_gpio 66 0>;
+		qcom,prim-auxpcm-gpio-set = "prim-gpio-prim";
+		qcom,tapan-codec-9302;
+		pinctrl-names = "ext_cdc_tlmm_lines_act",
+				"ext_cdc_tlmm_lines_sus";
+		pinctrl-0 = <&ext_cdc_tlmm_lines_act>;
+		pinctrl-1 = <&ext_cdc_tlmm_lines_sus>;
+		qcom,audio-routing =
+			"RX_BIAS", "MCLK",
+			"LDO_H", "MCLK",
+			"SPK_OUT", "MCLK",
+			"SPK_OUT", "EXT_VDD_SPKR",
+			"AMIC1", "MIC BIAS1 Internal1",
+			"MIC BIAS1 Internal1", "Handset Mic",
+			"AMIC2", "MIC BIAS2 External",
+			"MIC BIAS2 External", "Headset Mic",
+			"AMIC4", "MIC BIAS2 External",
+			"MIC BIAS2 External", "ANCRight Headset Mic",
+			"AMIC5", "MIC BIAS2 External",
+			"MIC BIAS2 External", "ANCLeft Headset Mic",
+			"DMIC1", "MIC BIAS1 External",
+			"MIC BIAS1 External", "Digital Mic1",
+			"DMIC2", "MIC BIAS1 External",
+			"MIC BIAS1 External", "Digital Mic2",
+			"DMIC3", "MIC BIAS3 External",
+			"MIC BIAS3 External", "Digital Mic3",
+			"DMIC4", "MIC BIAS3 External",
+			"MIC BIAS3 External", "Digital Mic4";
+	};
 };
 
 &blsp1_uart2 {
