@@ -11,6 +11,7 @@
  */
 
 #include "msm8994-pinctrl.dtsi"
+#include "msm8994-camera-sensor-cdp.dtsi"
 
 &sdhc_1 {
 	vdd-supply = <&pm8994_l20>;
