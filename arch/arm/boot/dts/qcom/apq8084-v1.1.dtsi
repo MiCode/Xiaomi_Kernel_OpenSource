@@ -18,5 +18,5 @@
 
 &pil_lpass {
 	clock-names = "xo";
-	/delete-property/ active-clock-names;
+	/delete-property/ qcom,active-clock-names;
 };
