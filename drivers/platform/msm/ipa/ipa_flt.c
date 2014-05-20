@@ -131,9 +131,9 @@ static int ipa_generate_hw_rule_from_eq(
 	}
 
 	if (num_ihl_offset_meq_32) {
-		*buf = ipa_write_8(attrib->ihl_offset_meq_32[0].offset, *buf);
-		*buf = ipa_write_32(attrib->ihl_offset_meq_32[0].mask, *buf);
-		*buf = ipa_write_32(attrib->ihl_offset_meq_32[0].value, *buf);
+		*buf = ipa_write_8(attrib->ihl_offset_meq_32[1].offset, *buf);
+		*buf = ipa_write_32(attrib->ihl_offset_meq_32[1].mask, *buf);
+		*buf = ipa_write_32(attrib->ihl_offset_meq_32[1].value, *buf);
 		*buf = ipa_pad_to_32(*buf);
 		num_ihl_offset_meq_32--;
 	}
