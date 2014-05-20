@@ -59,11 +59,13 @@
 #define CPP_FW_VERSION_1_2_0	0x10020000
 #define CPP_FW_VERSION_1_4_0	0x10040000
 #define CPP_FW_VERSION_1_6_0	0x10060000
+#define CPP_FW_VERSION_1_8_0	0x10080000
 
 /* stripe information offsets in frame command */
 #define STRIPE_BASE_FW_1_2_0	130
 #define STRIPE_BASE_FW_1_4_0	140
 #define STRIPE_BASE_FW_1_6_0	464
+#define STRIPE_BASE_FW_1_8_0	493
 
 
 /* dump the frame command before writing to the hardware */
@@ -555,7 +557,7 @@ static irqreturn_t msm_cpp_irq(int irq_num, void *data)
 	struct cpp_device *cpp_dev = data;
 	struct msm_cpp_tasklet_queue_cmd *queue_cmd;
 	irq_status = msm_camera_io_r(cpp_dev->base + MSM_CPP_MICRO_IRQGEN_STAT);
-	CPP_DBG("status: 0x%x\n", irq_status);
+
 	if (irq_status & 0x8) {
 		tx_level = msm_camera_io_r(cpp_dev->base +
 			MSM_CPP_MICRO_FIFO_TX_STAT) >> 2;
@@ -1382,6 +1384,7 @@ static int msm_cpp_cfg_frame(struct cpp_device *cpp_dev,
 	struct msm_queue_cmd *frame_qcmd = NULL;
 	uint32_t *cpp_frame_msg;
 	unsigned long in_phyaddr, out_phyaddr0, out_phyaddr1;
+	unsigned long tnr_scratch_buffer0, tnr_scratch_buffer1;
 	uint16_t num_stripes = 0;
 	struct msm_buf_mngr_info buff_mgr_info, dup_buff_mgr_info;
 	int32_t stripe_base = 0;
@@ -1471,32 +1474,84 @@ static int msm_cpp_cfg_frame(struct cpp_device *cpp_dev,
 		CPP_DBG("out_phyaddr1= %08x\n", (uint32_t)out_phyaddr1);
 	}
 
-	num_stripes = ((cpp_frame_msg[12] >> 20) & 0x3FF) +
-		((cpp_frame_msg[12] >> 10) & 0x3FF) +
-		(cpp_frame_msg[12] & 0x3FF);
+	if ((cpp_dev->fw_version & 0xffff0000) != CPP_FW_VERSION_1_8_0) {
+		num_stripes = ((cpp_frame_msg[12] >> 20) & 0x3FF) +
+			((cpp_frame_msg[12] >> 10) & 0x3FF) +
+			(cpp_frame_msg[12] & 0x3FF);
 
-	if ((cpp_dev->fw_version & 0xffff0000) == CPP_FW_VERSION_1_2_0) {
-		stripe_base = STRIPE_BASE_FW_1_2_0;
-	} else if ((cpp_dev->fw_version & 0xffff0000) == CPP_FW_VERSION_1_4_0) {
-		stripe_base = STRIPE_BASE_FW_1_4_0;
-	} else if ((cpp_dev->fw_version & 0xffff0000) == CPP_FW_VERSION_1_6_0) {
-		stripe_base = STRIPE_BASE_FW_1_6_0;
+		if ((cpp_dev->fw_version & 0xffff0000) ==
+			CPP_FW_VERSION_1_2_0) {
+			stripe_base = STRIPE_BASE_FW_1_2_0;
+		} else if ((cpp_dev->fw_version & 0xffff0000) ==
+			CPP_FW_VERSION_1_4_0) {
+			stripe_base = STRIPE_BASE_FW_1_4_0;
+		} else if ((cpp_dev->fw_version & 0xffff0000) ==
+			CPP_FW_VERSION_1_6_0) {
+			stripe_base = STRIPE_BASE_FW_1_6_0;
+		} else {
+			pr_err("invalid fw version %08x", cpp_dev->fw_version);
+			goto phyaddr_err;
+		}
+
+		for (i = 0; i < num_stripes; i++) {
+			cpp_frame_msg[stripe_base + 5 + i*27] +=
+				(uint32_t) in_phyaddr;
+			cpp_frame_msg[stripe_base + 11 + i * 27] +=
+				(uint32_t) out_phyaddr0;
+			cpp_frame_msg[stripe_base + 12 + i * 27] +=
+				(uint32_t) out_phyaddr1;
+			cpp_frame_msg[stripe_base + 13 + i * 27] +=
+				(uint32_t) out_phyaddr0;
+			cpp_frame_msg[stripe_base + 14 + i * 27] +=
+				(uint32_t) out_phyaddr1;
+		}
 	} else {
-		pr_err("invalid fw version %08x", cpp_dev->fw_version);
-		goto phyaddr_err;
-	}
+		tnr_scratch_buffer0 = msm_cpp_fetch_buffer_info(cpp_dev,
+			&new_frame->tnr_scratch_buffer_info[0],
+			((new_frame->identity >> 16) & 0xFFFF),
+			(new_frame->identity & 0xFFFF),
+			&new_frame->tnr_scratch_buffer_info[0].fd);
+		if (!tnr_scratch_buffer0) {
+			pr_err("error getting scratch buffer physical address\n");
+			rc = -EINVAL;
+			goto phyaddr_err;
+		}
 
-	for (i = 0; i < num_stripes; i++) {
-		cpp_frame_msg[stripe_base + 5 + i*27] +=
-			(uint32_t) in_phyaddr;
-		cpp_frame_msg[stripe_base + 11 + i * 27] +=
-			(uint32_t) out_phyaddr0;
-		cpp_frame_msg[stripe_base + 12 + i * 27] +=
-			(uint32_t) out_phyaddr1;
-		cpp_frame_msg[stripe_base + 13 + i * 27] +=
-			(uint32_t) out_phyaddr0;
-		cpp_frame_msg[stripe_base + 14 + i * 27] +=
-			(uint32_t) out_phyaddr1;
+		tnr_scratch_buffer1 = msm_cpp_fetch_buffer_info(cpp_dev,
+			&new_frame->tnr_scratch_buffer_info[1],
+			((new_frame->identity >> 16) & 0xFFFF),
+			(new_frame->identity & 0xFFFF),
+			&new_frame->tnr_scratch_buffer_info[1].fd);
+		if (!tnr_scratch_buffer1) {
+			pr_err("error getting scratch buffer physical address\n");
+			rc = -EINVAL;
+			goto phyaddr_err;
+		}
+		num_stripes = ((cpp_frame_msg[9] >> 20) & 0x3FF) +
+			((cpp_frame_msg[9] >> 10) & 0x3FF) +
+			(cpp_frame_msg[9] & 0x3FF);
+
+		stripe_base = STRIPE_BASE_FW_1_8_0;
+
+		for (i = 0; i < num_stripes; i++) {
+
+			cpp_frame_msg[stripe_base + 8 + i * 48] +=
+				(uint32_t) in_phyaddr;
+			cpp_frame_msg[stripe_base + 14 + i * 48] +=
+				(uint32_t) tnr_scratch_buffer0;
+			cpp_frame_msg[stripe_base + 20 + i * 48] +=
+				(uint32_t) out_phyaddr0;
+			cpp_frame_msg[stripe_base + 21 + i * 48] +=
+				(uint32_t) out_phyaddr1;
+			cpp_frame_msg[stripe_base + 22 + i * 48] +=
+				(uint32_t) out_phyaddr0;
+			cpp_frame_msg[stripe_base + 23 + i * 48] +=
+				(uint32_t) out_phyaddr1;
+			cpp_frame_msg[stripe_base + 30 + i * 48] +=
+				(uint32_t) tnr_scratch_buffer1;
+		}
+
+		cpp_frame_msg[10] = out_phyaddr0 - in_phyaddr;
 	}
 
 	frame_qcmd = kzalloc(sizeof(struct msm_queue_cmd), GFP_KERNEL);
@@ -1751,7 +1806,7 @@ long msm_cpp_subdev_ioctl(struct v4l2_subdev *sd,
 
 		if (cmd != VIDIOC_MSM_CPP_APPEND_STREAM_BUFF_INFO) {
 			cpp_dev->stream_cnt++;
-			pr_err("stream_cnt:%d\n", cpp_dev->stream_cnt);
+			CPP_DBG("stream_cnt:%d\n", cpp_dev->stream_cnt);
 		}
 		break;
 	}
@@ -2554,15 +2609,23 @@ static int cpp_probe(struct platform_device *pdev)
 		goto iommu_err;
 	}
 
-	cpp_dev->iommu_ctx = msm_iommu_get_ctx("cpp");
-	if (IS_ERR(cpp_dev->iommu_ctx)) {
-		pr_err("%s: cannot get iommu_ctx\n", __func__);
-		rc = -EPROBE_DEFER;
+	if (msm_cpp_get_clk_info(cpp_dev, pdev) < 0) {
+		pr_err("msm_cpp_get_clk_info() failed\n");
 		goto iommu_err;
 	}
 
-	if (msm_cpp_get_clk_info(cpp_dev, pdev) < 0) {
-		pr_err("msm_cpp_get_clk_info() failed\n");
+	rc = cpp_init_hardware(cpp_dev);
+	if (rc < 0)
+		goto cpp_probe_init_error;
+
+	if (cpp_dev->hw_info.cpp_hw_version == CPP_HW_VERSION_5_0_0)
+		cpp_dev->iommu_ctx = msm_iommu_get_ctx("cpp_2");
+	else
+		cpp_dev->iommu_ctx = msm_iommu_get_ctx("cpp");
+
+	if (IS_ERR(cpp_dev->iommu_ctx)) {
+		pr_err("%s: cannot get iommu_ctx\n", __func__);
+		rc = -EPROBE_DEFER;
 		goto iommu_err;
 	}
 
@@ -2580,10 +2643,6 @@ static int cpp_probe(struct platform_device *pdev)
 	cpp_dev->msm_sd.sd.devnode->fops = &msm_cpp_v4l2_subdev_fops;
 	cpp_dev->msm_sd.sd.entity.revision = cpp_dev->msm_sd.sd.devnode->num;
 	cpp_dev->state = CPP_STATE_BOOT;
-
-	rc = cpp_init_hardware(cpp_dev);
-	if (rc < 0)
-		goto cpp_probe_init_error;
 
 	msm_camera_io_w(0x0, cpp_dev->base +
 					   MSM_CPP_MICRO_IRQGEN_MASK);
