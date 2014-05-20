@@ -20,3 +20,11 @@
 	clock-names = "xo";
 	/delete-property/ active-clock-names;
 };
+
+&pcie0 {
+	qcom,aux-clk-sync;
+};
+
+&pcie1 {
+	qcom,aux-clk-sync;
+};
