@@ -57,7 +57,8 @@ static int mdss_mdp_overlay_free_fb_pipe(struct msm_fb_data_type *mfd);
 static int mdss_mdp_overlay_fb_parse_dt(struct msm_fb_data_type *mfd);
 static int mdss_mdp_overlay_off(struct msm_fb_data_type *mfd);
 static void __overlay_kickoff_requeue(struct msm_fb_data_type *mfd);
-
+static int __mdss_mdp_overlay_check_zorder(struct mdss_data_type *mdata,
+	struct mdp_overlay *req);
 static inline bool is_ov_right_blend(struct mdp_rect *left_blend,
 	struct mdp_rect *right_blend, u32 left_lm_w)
 {
@@ -266,7 +267,7 @@ int mdss_mdp_overlay_req_check(struct msm_fb_data_type *mfd,
 		min_dst_size = 2;
 	}
 
-	if (req->z_order >= MDSS_MDP_MAX_STAGE) {
+	if (__mdss_mdp_overlay_check_zorder(mdata, req)) {
 		pr_err("zorder %d out of range\n", req->z_order);
 		return -ERANGE;
 	}
@@ -399,6 +400,17 @@ int mdss_mdp_overlay_req_check(struct msm_fb_data_type *mfd,
 	}
 
 	return 0;
+}
+
+static int __mdss_mdp_overlay_check_zorder(struct mdss_data_type *mdata,
+	struct mdp_overlay *req) {
+	int max_target_zorder = MDSS_MDP_STAGE_4;
+	switch (mdata->mdp_rev) {
+	case MDSS_MDP_HW_REV_105:
+		max_target_zorder = MDSS_MDP_MAX_STAGE;
+		break;
+	}
+	return (req->z_order >= max_target_zorder) ? -EINVAL : 0;
 }
 
 static int __mdp_pipe_tune_perf(struct mdss_mdp_pipe *pipe,
