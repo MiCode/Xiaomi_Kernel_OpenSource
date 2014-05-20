@@ -1,4 +1,4 @@
-/* Copyright (c) 2009-2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2009-2012, 2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1609,7 +1609,6 @@ struct msm_camera_csi_lane_params {
 
 struct camera_vreg_t {
 	const char *reg_name;
-	enum camera_vreg_type type;
 	int min_voltage;
 	int max_voltage;
 	int op_mode;

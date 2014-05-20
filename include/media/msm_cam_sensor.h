@@ -373,7 +373,6 @@ struct msm_sensor_info_t {
 
 struct camera_vreg_t {
 	const char *reg_name;
-	enum camera_vreg_type type;
 	int min_voltage;
 	int max_voltage;
 	int op_mode;

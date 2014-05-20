@@ -260,7 +260,7 @@ int msm_camera_config_vreg(struct device *dev, struct camera_vreg_t *cam_vreg,
 				reg_ptr[j] = NULL;
 				goto vreg_get_fail;
 			}
-			if (curr_vreg->type == REG_LDO) {
+			if (regulator_count_voltages(reg_ptr[j]) > 0) {
 				rc = regulator_set_voltage(
 					reg_ptr[j],
 					curr_vreg->min_voltage,
@@ -295,7 +295,7 @@ int msm_camera_config_vreg(struct device *dev, struct camera_vreg_t *cam_vreg,
 				j = i;
 			curr_vreg = &cam_vreg[j];
 			if (reg_ptr[j]) {
-				if (curr_vreg->type == REG_LDO) {
+				if (regulator_count_voltages(reg_ptr[j]) > 0) {
 					if (curr_vreg->op_mode >= 0) {
 						regulator_set_optimum_mode(
 							reg_ptr[j], 0);
@@ -312,11 +312,11 @@ int msm_camera_config_vreg(struct device *dev, struct camera_vreg_t *cam_vreg,
 	return 0;
 
 vreg_unconfig:
-if (curr_vreg->type == REG_LDO)
+if (regulator_count_voltages(reg_ptr[j]) > 0)
 	regulator_set_optimum_mode(reg_ptr[j], 0);
 
 vreg_set_opt_mode_fail:
-if (curr_vreg->type == REG_LDO)
+if (regulator_count_voltages(reg_ptr[j]) > 0)
 	regulator_set_voltage(reg_ptr[j], 0,
 		curr_vreg->max_voltage);
 
@@ -486,7 +486,7 @@ int msm_camera_config_single_vreg(struct device *dev,
 			*reg_ptr = NULL;
 			goto vreg_get_fail;
 		}
-		if (cam_vreg->type == REG_LDO) {
+		if (regulator_count_voltages(*reg_ptr) > 0) {
 			rc = regulator_set_voltage(
 				*reg_ptr, cam_vreg->min_voltage,
 				cam_vreg->max_voltage);
@@ -516,7 +516,7 @@ int msm_camera_config_single_vreg(struct device *dev,
 		if (*reg_ptr) {
 			CDBG("%s disable %s\n", __func__, cam_vreg->reg_name);
 			regulator_disable(*reg_ptr);
-			if (cam_vreg->type == REG_LDO) {
+			if (regulator_count_voltages(*reg_ptr) > 0) {
 				if (cam_vreg->op_mode >= 0)
 					regulator_set_optimum_mode(*reg_ptr, 0);
 				regulator_set_voltage(
@@ -529,11 +529,11 @@ int msm_camera_config_single_vreg(struct device *dev,
 	return 0;
 
 vreg_unconfig:
-if (cam_vreg->type == REG_LDO)
+if (regulator_count_voltages(*reg_ptr) > 0)
 	regulator_set_optimum_mode(*reg_ptr, 0);
 
 vreg_set_opt_mode_fail:
-if (cam_vreg->type == REG_LDO)
+if (regulator_count_voltages(*reg_ptr) > 0)
 	regulator_set_voltage(*reg_ptr, 0, cam_vreg->max_voltage);
 
 vreg_set_voltage_fail:

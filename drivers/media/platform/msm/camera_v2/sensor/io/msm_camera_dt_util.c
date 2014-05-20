@@ -928,18 +928,6 @@ int msm_camera_get_dt_vreg_data(struct device_node *of_node,
 		goto ERROR1;
 	}
 
-	rc = of_property_read_u32_array(of_node, "qcom,cam-vreg-type",
-		vreg_array, count);
-	if (rc < 0) {
-		pr_err("%s failed %d\n", __func__, __LINE__);
-		goto ERROR2;
-	}
-	for (i = 0; i < count; i++) {
-		vreg[i].type = vreg_array[i];
-		CDBG("%s cam_vreg[%d].type = %d\n", __func__, i,
-			vreg[i].type);
-	}
-
 	rc = of_property_read_u32_array(of_node, "qcom,cam-vreg-min-voltage",
 		vreg_array, count);
 	if (rc < 0) {
