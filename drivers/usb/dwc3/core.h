@@ -759,6 +759,9 @@ struct dwc3_scratchpad_array {
  * @root: debugfs root folder pointer
  * @tx_fifo_size: Available RAM size for TX fifo allocation
  * @err_evt_seen: previous event in queue was erratic error
+ * @ssphy_clear_auto_suspend_on_disconnect: if true, clear ssphy autosuspend bit
+ *	during disconnect and set it after device is configured.
+ * @usb3_u1u2_disable: if true, disable U1U2 low power modes in Superspeed mode.
  */
 struct dwc3 {
 	struct usb_ctrlrequest	*ctrl_req;
@@ -866,6 +869,8 @@ struct dwc3 {
 	bool			core_reset_after_phy_init;
 	bool			err_evt_seen;
 	bool			hsphy_auto_suspend_disable;
+	bool			ssphy_clear_auto_suspend_on_disconnect;
+	bool			usb3_u1u2_disable;
 	bool			enable_suspend_event;
 	struct dwc3_gadget_events	dbg_gadget_events;
 };

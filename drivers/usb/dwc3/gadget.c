@@ -1881,7 +1881,8 @@ void dwc3_gadget_restart(struct dwc3 *dwc)
 	/* automatic phy suspend only on recent versions */
 	if (dwc->revision >= DWC3_REVISION_194A) {
 		dwc3_gadget_usb2_phy_suspend(dwc, true);
-		dwc3_gadget_usb3_phy_suspend(dwc, true);
+		if (!dwc->ssphy_clear_auto_suspend_on_disconnect)
+			dwc3_gadget_usb3_phy_suspend(dwc, true);
 	}
 
 	__dwc3_gadget_start(dwc);
@@ -2571,6 +2572,9 @@ static void dwc3_gadget_reset_interrupt(struct dwc3 *dwc)
 		dwc3_gadget_usb3_phy_suspend(dwc, false);
 	}
 
+	if (dwc->ssphy_clear_auto_suspend_on_disconnect)
+		dwc3_gadget_usb3_phy_suspend(dwc, false);
+
 	if (dotg && dotg->otg.phy)
 		usb_phy_set_power(dotg->otg.phy, 0);
 
@@ -3172,7 +3176,8 @@ int dwc3_gadget_init(struct dwc3 *dwc)
 		 * enabled before setting run/stop bit.
 		 */
 		dwc3_gadget_usb2_phy_suspend(dwc, false);
-		dwc3_gadget_usb3_phy_suspend(dwc, true);
+		if (!dwc->ssphy_clear_auto_suspend_on_disconnect)
+			dwc3_gadget_usb3_phy_suspend(dwc, true);
 	}
 
 	ret = usb_add_gadget_udc(dwc->dev, &dwc->gadget);
