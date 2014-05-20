@@ -197,6 +197,8 @@ struct msm_iommu_ctx_drvdata {
 	unsigned int secure_context;
 	int asid;
 	int attach_count;
+	u32 sid_mask[MAX_NUM_SMR];
+	unsigned int n_sid_mask;
 };
 
 enum dump_reg {

@@ -653,6 +653,7 @@ static int program_m2v_table(struct device *dev, void __iomem *base)
 {
 	struct msm_iommu_ctx_drvdata *ctx_drvdata = dev_get_drvdata(dev);
 	u32 *sids = ctx_drvdata->sids;
+	u32 *sid_mask = ctx_drvdata->sid_mask;
 	unsigned int ctx = ctx_drvdata->num;
 	int num = 0, i, smt_size;
 	int len = ctx_drvdata->nsid;
@@ -666,7 +667,7 @@ static int program_m2v_table(struct device *dev, void __iomem *base)
 		BUG_ON(num >= smt_size);
 
 		SET_SMR_VALID(base, num, 1);
-		SET_SMR_MASK(base, num, 0);
+		SET_SMR_MASK(base, num, sid_mask[i]);
 		SET_SMR_ID(base, num, sids[i]);
 
 		SET_S2CR_N(base, num, 0);
