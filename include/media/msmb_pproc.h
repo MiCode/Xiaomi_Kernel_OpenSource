@@ -30,16 +30,21 @@ enum msm_vpe_frame_type {
 };
 
 struct msm_cpp_frame_strip_info {
-	int scale_v_en;
-	int scale_h_en;
+	uint32_t scale_v_en;
+	uint32_t scale_h_en;
 
-	int upscale_v_en;
-	int upscale_h_en;
+	uint32_t upscale_v_en;
+	uint32_t upscale_h_en;
 
-	int src_start_x;
-	int src_end_x;
-	int src_start_y;
-	int src_end_y;
+	int32_t src_start_x;
+	uint32_t src_end_x;
+	int32_t src_start_y;
+	uint32_t src_end_y;
+
+	int32_t temporal_src_start_x;
+	uint32_t temporal_src_end_x;
+	int32_t temporal_src_start_y;
+	uint32_t temporal_src_end_y;
 
 	/* Padding is required for upscaler because it does not
 	 * pad internally like other blocks, also needed for rotation
@@ -47,44 +52,77 @@ struct msm_cpp_frame_strip_info {
 	 * Padding is done such that all the extra padded pixels
 	 * are on the right and bottom
 	 */
-	int pad_bottom;
-	int pad_top;
-	int pad_right;
-	int pad_left;
+	uint32_t pad_bottom;
+	uint32_t pad_top;
+	uint32_t pad_right;
+	uint32_t pad_left;
 
-	int v_init_phase;
-	int h_init_phase;
-	int h_phase_step;
-	int v_phase_step;
+	uint32_t v_init_phase;
+	uint32_t h_init_phase;
+	uint32_t h_phase_step;
+	uint32_t v_phase_step;
 
-	int prescale_crop_width_first_pixel;
-	int prescale_crop_width_last_pixel;
-	int prescale_crop_height_first_line;
-	int prescale_crop_height_last_line;
+	uint32_t spatial_denoise_crop_width_first_pixel;
+	uint32_t spatial_denoise_crop_width_last_pixel;
+	uint32_t spatial_denoise_crop_height_first_line;
+	uint32_t spatial_denoise_crop_height_last_line;
 
-	int postscale_crop_height_first_line;
-	int postscale_crop_height_last_line;
-	int postscale_crop_width_first_pixel;
-	int postscale_crop_width_last_pixel;
+	uint32_t sharpen_crop_height_first_line;
+	uint32_t sharpen_crop_height_last_line;
+	uint32_t sharpen_crop_width_first_pixel;
+	uint32_t sharpen_crop_width_last_pixel;
 
-	int dst_start_x;
-	int dst_end_x;
-	int dst_start_y;
-	int dst_end_y;
+	uint32_t temporal_denoise_crop_width_first_pixel;
+	uint32_t temporal_denoise_crop_width_last_pixel;
+	uint32_t temporal_denoise_crop_height_first_line;
+	uint32_t temporal_denoise_crop_height_last_line;
 
-	int bytes_per_pixel;
-	unsigned int source_address;
-	unsigned int destination_address;
-	unsigned int compl_destination_address;
+	uint32_t prescaler_spatial_denoise_crop_width_first_pixel;
+	uint32_t prescaler_spatial_denoise_crop_width_last_pixel;
+	uint32_t prescaler_spatial_denoise_crop_height_first_line;
+	uint32_t prescaler_spatial_denoise_crop_height_last_line;
+
+	uint32_t state_crop_width_first_pixel;
+	uint32_t state_crop_width_last_pixel;
+	uint32_t state_crop_height_first_line;
+	uint32_t state_crop_height_last_line;
+
+	int32_t dst_start_x;
+	uint32_t dst_end_x;
+	int32_t dst_start_y;
+	uint32_t dst_end_y;
+
+	int32_t temporal_dst_start_x;
+	uint32_t temporal_dst_end_x;
+	int32_t temporal_dst_start_y;
+	uint32_t temporal_dst_end_y;
+
+	uint32_t input_bytes_per_pixel;
+	uint32_t output_bytes_per_pixel;
+	uint32_t temporal_bytes_per_pixel;
+
+	unsigned int source_address[2];
+	unsigned int destination_address[2];
+	/* source_address[1] is used for CbCR planar
+	 * to CbCr interleaved conversion
+	 */
+	unsigned int temporal_source_address[2];
+	/* destination_address[1] is used for CbCr interleved
+	 * to CbCr planar conversion
+	 */
+	unsigned int temporal_destination_address[2];
 	unsigned int src_stride;
 	unsigned int dst_stride;
-	int rotate_270;
-	int horizontal_flip;
-	int vertical_flip;
-	int scale_output_width;
-	int scale_output_height;
-	int prescale_crop_en;
-	int postscale_crop_en;
+	uint32_t rotate_270;
+	uint32_t horizontal_flip;
+	uint32_t vertical_flip;
+	uint32_t scale_output_width;
+	uint32_t scale_output_height;
+	uint32_t spatial_denoise_crop_en;
+	uint32_t sharpen_crop_en;
+	uint32_t temporal_denoise_crop_en;
+	uint32_t prescaler_spatial_denoise_crop_en;
+	uint32_t state_crop_en;
 };
 
 struct msm_cpp_buffer_info_t {
@@ -282,6 +320,7 @@ struct msm_cpp_frame_info32_t {
 	uint32_t duplicate_identity;
 	struct msm_cpp_buffer_info_t input_buffer_info;
 	struct msm_cpp_buffer_info_t output_buffer_info[2];
+	struct msm_cpp_buffer_info_t tnr_scratch_buffer_info[2];
 };
 
 struct msm_cpp_stream_buff_info32_t {
