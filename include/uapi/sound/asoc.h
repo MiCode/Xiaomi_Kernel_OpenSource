@@ -892,9 +892,11 @@ struct snd_soc_fw_dapm_widget {
 	__u16 event_flags;
 	__u16 event_type;
 
-	/* kcontrols that relate to this widget */
-	struct snd_soc_fw_kcontrol kcontrol;
-	/* controls follow here */
+	__u16 num_kcontrols;
+	/*
+	 * kcontrols that relate to this widget
+	 * follow here
+	 */
 } __attribute__((packed));
 
 /*

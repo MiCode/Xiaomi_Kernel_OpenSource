@@ -1121,14 +1121,14 @@ static int soc_fw_dapm_widget_create(struct soc_fw *sfw,
 	widget.index = sfw->index;
 
 	sfw->pos += sizeof(struct snd_soc_fw_dapm_widget);
-	if (w->kcontrol.count == 0) {
+	if (w->num_kcontrols == 0) {
 		widget.num_kcontrols = 0;
 		goto widget;
 	}
 
 	control_hdr = (struct snd_soc_fw_control_hdr *)sfw->pos;
 	dev_dbg(sfw->dev, "ASoC: widget %s has %d controls of type %x\n",
-		w->name, w->kcontrol.count, control_hdr->index);
+		w->name, w->num_kcontrols, control_hdr->index);
 
 	switch (SOC_CONTROL_GET_ID_INFO(control_hdr->index)) {
 	case SOC_CONTROL_TYPE_VOLSW:
@@ -1140,7 +1140,7 @@ static int soc_fw_dapm_widget_create(struct soc_fw *sfw,
 	case SOC_CONTROL_TYPE_BOOL_EXT:
 	case SOC_CONTROL_TYPE_RANGE:
 	case SOC_DAPM_TYPE_VOLSW:
-		widget.num_kcontrols = w->kcontrol.count;
+		widget.num_kcontrols = w->num_kcontrols;
 		widget.kcontrol_news = soc_fw_dapm_widget_dmixer_create(sfw,
 			widget.num_kcontrols);
 		if (!widget.kcontrol_news) {
