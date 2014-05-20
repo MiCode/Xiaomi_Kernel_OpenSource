@@ -155,6 +155,7 @@
 #define clk_usb30_mock_utmi_clk_src 0xa024a976
 #define clk_usb3_phy_aux_clk_src 0x15eec63c
 #define clk_usb_hs_system_clk_src 0x28385546
+#define clk_gcc_qusb2_phy_reset 0x3ce5fa84
 #define clk_gcc_usb3_phy_reset 0x03d559f1
 #define clk_gcc_usb3phy_phy_reset 0xb1a4f885
 #define clk_gpll0_out_mmsscc 0x0ded70aa
