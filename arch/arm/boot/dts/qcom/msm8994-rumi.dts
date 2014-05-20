@@ -117,3 +117,7 @@
 &etm7 {
 	status = "disabled";
 };
+
+&tpiu {
+	status = "disabled";
+};
