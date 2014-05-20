@@ -355,3 +355,7 @@
 		     &setb_8 &setb_9 &setb_10 &setb_11 &setb_12 &setb_13
 		     &setb_14 &setb_15 &setb_16 &setb_17 &setb_18>;
 };
+
+&blsp2_uart2 {
+	status = "ok";
+};

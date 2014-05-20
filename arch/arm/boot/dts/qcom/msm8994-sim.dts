@@ -238,7 +238,7 @@
 	qcom,fw-bias = <0xf500000>;
 };
 
-&blsp1_uart2 {
+&blsp2_uart2 {
 	status = "ok";
 };
 
