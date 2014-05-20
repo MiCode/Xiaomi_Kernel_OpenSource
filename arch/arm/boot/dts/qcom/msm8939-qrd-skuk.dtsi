@@ -45,6 +45,18 @@
 			  bias-pull-down;
 		};
 	};
+
+	tps65132-en-pin {
+		qcom,pins = <&gp 97>, <&gp 98>;
+		qcom,num-grp-pins = <2>;
+		label = "tps65132_en_pins";
+		qcom,pin-func = <0>;
+
+		tps65132_en_default: en-default {
+			drive-strength = <2>;
+			bias-disable;
+		};
+	};
 };
 
 &i2c_0 { /* BLSP1 QUP2 */
@@ -106,6 +118,37 @@
 		vlogic-supply = <&pm8916_l16>;
 		invn,gpio-int = <&msm_gpio 115 0x2002>;
 		invn,place = "Portrait Down Back Side";
+	};
+
+	tps65132@3e {
+		compatible = "ti,tps65132";
+		reg = <0x3e>;
+		i2c-pwr-supply = <&pm8916_l6>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&tps65132_en_default>;
+		status = "disabled";
+
+		regulators {
+			tps65132_pos: pos-boost {
+				regulator-name = "tps65132-pos";
+				regulator-min-microvolt = <5800000>;
+				regulator-max-microvolt = <5800000>;
+				ti,discharge-enable;
+				ti,enable-time = <800>;
+				ti,current-limit = <200000>;
+				ti,en-gpio = <&msm_gpio 97 0>;
+			};
+
+			tps65132_neg: neg-boost {
+				regulator-name = "tps65132-neg";
+				regulator-min-microvolt = <5800000>;
+				regulator-max-microvolt = <5800000>;
+				ti,discharge-enable;
+				ti,enable-time = <800>;
+				ti,current-limit = <40000>;
+				ti,en-gpio = <&msm_gpio 98 0>;
+			};
+		};
 	};
 };
 
