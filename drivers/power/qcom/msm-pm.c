@@ -309,12 +309,7 @@ static int ramp_up_first_cpu(int cpu, int saved_rate)
 		pr_info("CPU%u: %s: restore clock rate\n",
 				cpu, __func__);
 
-	if (l2_clk) {
-		rc = clk_enable(l2_clk);
-		if (rc)
-			pr_err("%s(): Error restoring l2 clk\n",
-					__func__);
-	}
+	clk_enable(l2_clk);
 
 	if (cpu_clk) {
 		int ret = clk_enable(cpu_clk);
@@ -827,8 +822,11 @@ static int msm_pm_clk_init(struct platform_device *pdev)
 		return 0;
 
 	l2_clk = devm_clk_get(&pdev->dev, "l2_clk");
+	if (IS_ERR(l2_clk))
+		pr_warn("%s: Could not get l2_clk (-%ld)\n", __func__,
+			PTR_ERR(l2_clk));
 
-	return PTR_RET(l2_clk);
+	return 0;
 }
 
 static int msm_cpu_pm_probe(struct platform_device *pdev)
