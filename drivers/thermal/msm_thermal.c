@@ -138,6 +138,8 @@ struct cluster_info {
 	int freq_idx_high;
 	cpumask_t cluster_cores;
 	bool sync_cluster;
+	uint32_t limited_max_freq;
+	uint32_t limited_min_freq;
 };
 
 struct cpu_info {
@@ -251,6 +253,9 @@ enum ocr_request {
 	OPTIMUM_CURRENT_NR,
 };
 
+#define SYNC_CORE(_cpu) \
+	(core_ptr && cpus[_cpu].parent_ptr->sync_cluster)
+
 #define VDD_RES_RO_ATTRIB(_rail, ko_attr, j, _name) \
 	ko_attr.attr.name = __stringify(_name); \
 	ko_attr.attr.mode = 0444; \
@@ -315,11 +320,19 @@ static int  msm_thermal_cpufreq_callback(struct notifier_block *nfb,
 		unsigned long event, void *data)
 {
 	struct cpufreq_policy *policy = data;
-	uint32_t max_freq_req = cpus[policy->cpu].limited_max_freq;
-	uint32_t min_freq_req = cpus[policy->cpu].limited_min_freq;
+	uint32_t max_freq_req, min_freq_req;
 
 	switch (event) {
 	case CPUFREQ_INCOMPATIBLE:
+		if (SYNC_CORE(policy->cpu)) {
+			max_freq_req =
+				cpus[policy->cpu].parent_ptr->limited_max_freq;
+			min_freq_req =
+				cpus[policy->cpu].parent_ptr->limited_min_freq;
+		} else {
+			max_freq_req = cpus[policy->cpu].limited_max_freq;
+			min_freq_req = cpus[policy->cpu].limited_min_freq;
+		}
 		pr_debug("mitigating CPU%d to freq max: %u min: %u\n",
 		policy->cpu, max_freq_req, min_freq_req);
 
@@ -337,6 +350,18 @@ static int  msm_thermal_cpufreq_callback(struct notifier_block *nfb,
 static struct notifier_block msm_thermal_cpufreq_notifier = {
 	.notifier_call = msm_thermal_cpufreq_callback,
 };
+
+static void update_cpu_freq(int cpu)
+{
+	int ret = 0;
+
+	if (cpu_online(cpu)) {
+		ret = cpufreq_update_policy(cpu);
+		if (ret)
+			pr_err("Unable to update policy for cpu:%d. err:%d\n",
+				cpu, ret);
+	}
+}
 
 static int * __init get_sync_cluster(struct device *dev, int *cnt)
 {
@@ -569,6 +594,8 @@ static void update_cpu_topology(struct device *dev)
 		temp_ptr[i].cluster_id = cluster_id[i];
 		temp_ptr[i].parent_ptr = core_ptr;
 		temp_ptr[i].cluster_cores = cluster_cpus[i];
+		temp_ptr[i].limited_max_freq = UINT_MAX;
+		temp_ptr[i].limited_min_freq = 0;
 		temp_ptr[i].freq_idx = 0;
 		temp_ptr[i].freq_idx_low = 0;
 		temp_ptr[i].freq_idx_high = 0;
@@ -658,6 +685,92 @@ release_and_exit:
 	return ret;
 }
 
+static void update_cluster_freq(void)
+{
+	int online_cpu = -1;
+	struct cluster_info *cluster_ptr = NULL;
+	uint32_t _cluster = 0, _cpu = 0, max = UINT_MAX, min = 0;
+
+	if (!core_ptr)
+		return;
+
+	for (; _cluster < core_ptr->entity_count; _cluster++, _cpu = 0,
+			online_cpu = -1, max = UINT_MAX, min = 0) {
+		/*
+		** If a cluster is synchronous, go over the frequency limits
+		** of each core in that cluster and aggregate the minimum
+		** and maximum frequencies. After aggregating, request for
+		** frequency update on the first online core in that cluster.
+		** Cpufreq driver takes care of updating the frequency of
+		** other cores in a synchronous cluster.
+		*/
+		cluster_ptr = &core_ptr->child_entity_ptr[_cluster];
+
+		if (!cluster_ptr->sync_cluster)
+			continue;
+		for_each_cpu_mask(_cpu, cluster_ptr->cluster_cores) {
+			if (online_cpu == -1 && cpu_online(_cpu))
+				online_cpu = _cpu;
+			max = min(max, cpus[_cpu].limited_max_freq);
+			min = max(min, cpus[_cpu].limited_min_freq);
+		}
+		if (cluster_ptr->limited_max_freq == max
+			&& cluster_ptr->limited_min_freq == min)
+			continue;
+		cluster_ptr->limited_max_freq = max;
+		cluster_ptr->limited_min_freq = min;
+		if (online_cpu != -1)
+			update_cpu_freq(online_cpu);
+	}
+}
+
+static void do_cluster_freq_ctrl(long temp)
+{
+	uint32_t _cluster = 0;
+	int _cpu = -1, freq_idx = 0;
+	bool mitigate = false;
+	struct cluster_info *cluster_ptr = NULL;
+
+	if (temp >= msm_thermal_info.limit_temp_degC)
+		mitigate = true;
+	else if (temp < msm_thermal_info.limit_temp_degC -
+		 msm_thermal_info.temp_hysteresis_degC)
+		mitigate = false;
+	else
+		return;
+
+	get_online_cpus();
+	for (; _cluster < core_ptr->entity_count; _cluster++) {
+		cluster_ptr = &core_ptr->child_entity_ptr[_cluster];
+		if (mitigate)
+			freq_idx = max_t(int, cluster_ptr->freq_idx_low,
+				(cluster_ptr->freq_idx
+				- msm_thermal_info.bootup_freq_step));
+		else
+			freq_idx = min_t(int, cluster_ptr->freq_idx_high,
+				(cluster_ptr->freq_idx
+				+ msm_thermal_info.bootup_freq_step));
+		if (freq_idx == cluster_ptr->freq_idx)
+			continue;
+
+		cluster_ptr->freq_idx = freq_idx;
+		for_each_cpu_mask(_cpu, cluster_ptr->cluster_cores) {
+			if (!(msm_thermal_info.bootup_freq_control_mask
+				& BIT(_cpu)))
+				continue;
+			pr_info("Limiting CPU%d max frequency to %u. Temp:%ld\n"
+				, _cpu
+				, cluster_ptr->freq_table[freq_idx].frequency
+				, temp);
+			cpus[_cpu].limited_max_freq =
+				cluster_ptr->freq_table[freq_idx].frequency;
+		}
+	}
+	if (_cpu != -1)
+		update_cluster_freq();
+	put_online_cpus();
+}
+
 /* If freq table exists, then we can send freq request */
 static int check_freq_table(void)
 {
@@ -701,22 +814,11 @@ static int check_freq_table(void)
 	return 0;
 }
 
-static void update_cpu_freq(int cpu)
-{
-	int ret = 0;
-
-	if (cpu_online(cpu)) {
-		ret = cpufreq_update_policy(cpu);
-		if (ret)
-			pr_err("Unable to update policy for cpu:%d. err:%d\n",
-				cpu, ret);
-	}
-}
-
 static int update_cpu_min_freq_all(uint32_t min)
 {
-	uint32_t cpu = 0;
+	uint32_t cpu = 0, _cluster = 0;
 	int ret = 0;
+	struct cluster_info *cluster_ptr = NULL;
 
 	if (!freq_table_get) {
 		ret = check_freq_table();
@@ -726,7 +828,16 @@ static int update_cpu_min_freq_all(uint32_t min)
 		}
 	}
 	/* If min is larger than allowed max */
-	min = min(min, table[limit_idx_high].frequency);
+	if (core_ptr) {
+		for (; _cluster < core_ptr->entity_count; _cluster++) {
+			cluster_ptr = &core_ptr->child_entity_ptr[_cluster];
+			min = min(min,
+				cluster_ptr->freq_table[
+				cluster_ptr->freq_idx_high].frequency);
+		}
+	} else {
+		min = min(min, table[limit_idx_high].frequency);
+	}
 
 	pr_debug("Requesting min freq:%u for all CPU's\n", min);
 	if (freq_mitigation_task) {
@@ -736,8 +847,10 @@ static int update_cpu_min_freq_all(uint32_t min)
 		get_online_cpus();
 		for_each_possible_cpu(cpu) {
 			cpus[cpu].limited_min_freq = min;
-			update_cpu_freq(cpu);
+			if (!SYNC_CORE(cpu))
+				update_cpu_freq(cpu);
 		}
+		update_cluster_freq();
 		put_online_cpus();
 	}
 
@@ -2077,6 +2190,9 @@ static void do_freq_control(long temp)
 	uint32_t cpu = 0;
 	uint32_t max_freq = cpus[cpu].limited_max_freq;
 
+	if (core_ptr)
+		return do_cluster_freq_ctrl(temp);
+
 	if (temp >= msm_thermal_info.limit_temp_degC) {
 		if (limit_idx == limit_idx_low)
 			return;
@@ -2109,8 +2225,10 @@ static void do_freq_control(long temp)
 		pr_info("Limiting CPU%d max frequency to %u. Temp:%ld\n",
 			cpu, max_freq, temp);
 		cpus[cpu].limited_max_freq = max_freq;
-		update_cpu_freq(cpu);
+		if (!SYNC_CORE(cpu))
+			update_cpu_freq(cpu);
 	}
+	update_cluster_freq();
 	put_online_cpus();
 }
 
@@ -2311,7 +2429,8 @@ static __ref int do_freq_mitigation(void *data)
 
 			cpus[cpu].limited_max_freq = max_freq_req;
 			cpus[cpu].limited_min_freq = min_freq_req;
-			update_cpu_freq(cpu);
+			if (!SYNC_CORE(cpu))
+				update_cpu_freq(cpu);
 reset_threshold:
 			if (freq_mitigation_enabled &&
 				cpus[cpu].freq_thresh_clear) {
@@ -2321,6 +2440,7 @@ reset_threshold:
 				cpus[cpu].freq_thresh_clear = false;
 			}
 		}
+		update_cluster_freq();
 		put_online_cpus();
 	}
 	return ret;
@@ -2994,8 +3114,10 @@ static void __ref disable_msm_thermal(void)
 		pr_info("Max frequency reset for CPU%d\n", cpu);
 		cpus[cpu].limited_max_freq = UINT_MAX;
 		cpus[cpu].limited_min_freq = 0;
-		update_cpu_freq(cpu);
+		if (!SYNC_CORE(cpu))
+			update_cpu_freq(cpu);
 	}
+	update_cluster_freq();
 	put_online_cpus();
 }
 
