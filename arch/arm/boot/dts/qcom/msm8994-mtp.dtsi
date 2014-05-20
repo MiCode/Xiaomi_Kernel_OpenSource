@@ -303,3 +303,12 @@
 		qcom,src-sel = <0>;
 	};
 };
+
+&pmi8994_mpps {
+	mpp@a300 { /* MPP 4 */
+		/* WLED FET */
+		qcom,mode = <1>;
+		qcom,vin-sel = <2>;
+		qcom,master-en = <1>;
+	};
+};
