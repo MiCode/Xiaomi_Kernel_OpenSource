@@ -25,10 +25,22 @@ static inline int __init msm_tlmm_of_irq_init(struct device_node *node,
 {
 	return 0;
 }
-#else
+#elif defined(CONFIG_PINCTRL_MSM_TLMM)
 int __init msm_tlmm_of_irq_init(struct device_node *node,
 					struct device_node *parent);
 extern struct irq_chip mpm_tlmm_irq_extn;
+static inline int __init msm_gpio_of_init(struct device_node *node,
+					struct device_node *parent)
+{
+	return 0;
+}
+#else
+static inline int __init msm_tlmm_of_irq_init(struct device_node *node,
+					      struct device_node *parent)
+{
+	return 0;
+}
+
 static inline int __init msm_gpio_of_init(struct device_node *node,
 					struct device_node *parent)
 {
