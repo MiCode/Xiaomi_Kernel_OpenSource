@@ -224,7 +224,7 @@ static int gc2235_gpio_ctrl(struct v4l2_subdev *sd, int flag)
 		}
 	}
 
-	ret = gpiod_direction_output(camera_reset, 1);
+	ret = gpiod_direction_output(camera_reset, 0);
 	if (ret) {
 		pr_err("%s: failed to set gpio direction\n", __func__);
 		gpiod_put(camera_reset);
@@ -242,7 +242,7 @@ static int gc2235_gpio_ctrl(struct v4l2_subdev *sd, int flag)
 		}
 	}
 
-	ret = gpiod_direction_output(camera_power_down, 0);
+	ret = gpiod_direction_output(camera_power_down, 1);
 	if (ret) {
 		pr_err("%s: failed to set gpio direction\n",
 		       __func__);
@@ -251,12 +251,10 @@ static int gc2235_gpio_ctrl(struct v4l2_subdev *sd, int flag)
 	}
 
 	if (flag) {
-		gpiod_set_value(camera_reset, 0);
-		gpiod_set_value(camera_power_down, 1);
-		usleep_range(1000, 2000);
+		gpiod_set_value(camera_power_down, 0);
 		gpiod_set_value(camera_reset, 1);
 	} else {
-		gpiod_set_value(camera_power_down, 0);
+		gpiod_set_value(camera_power_down, 1);
 		gpiod_put(camera_power_down);
 
 		gpiod_set_value(camera_reset, 0);
