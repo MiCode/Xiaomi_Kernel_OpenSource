@@ -159,6 +159,16 @@ config QCA1530
 	  To compile this driver as a module, choose M here: the module
 	  will be called qca1530.
 
+config PFT
+	bool "Per-File-Tagger driver"
+	default n
+	help
+		This driver is used for tagging enterprise files.
+		It is part of the Per-File-Encryption (PFE) feature.
+		The driver is tagging files when created by
+		registered application.
+		Tagged files are encrypted using the dm-req-crypt driver.
+
 config MSM_SPSS
 	tristate "MSM SPSS driver"
 	default n
