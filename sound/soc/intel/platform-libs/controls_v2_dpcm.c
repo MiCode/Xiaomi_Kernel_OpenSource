@@ -2024,6 +2024,12 @@ const struct snd_soc_fw_kcontrol_ops control_ops[] = {
 	{SOC_CONTROL_IO_SST_ALGO_BYPASS, sst_algo_control_get, sst_algo_control_set, snd_soc_info_bool_ext},
 	{SOC_CONTROL_IO_SST_MIX, sst_mix_get, sst_mix_put, snd_soc_info_volsw},
 	{SOC_CONTROL_IO_SST_MUX, sst_mux_get, sst_mux_put, snd_soc_info_enum_double},
+	{SOC_CONTROL_IO_SST_BYTE, sst_byte_control_get, sst_byte_control_set,
+						snd_soc_info_enum_double},
+	{SOC_CONTROL_IO_SST_MODE, sst_mode_get, sst_mode_put,
+						snd_soc_info_enum_double},
+	/*{SOC_CONTROL_IO_SST_VOICE_MODE, sst_mode_get, sst_voice_mode_put,
+						snd_soc_info_enum_double},*/
 };
 
 const struct snd_soc_fw_widget_events sst_widget_ops[] = {
@@ -2290,10 +2296,6 @@ int sst_dsp_init_v2_dpcm_dfw(struct snd_soc_platform *platform)
 	}
 	snd_soc_add_platform_controls(platform, sst_slot_controls,
 			ARRAY_SIZE(sst_slot_controls));
-	snd_soc_add_platform_controls(platform, sst_mux_controls,
-			ARRAY_SIZE(sst_mux_controls));
-	snd_soc_add_platform_controls(platform, sst_debug_controls,
-			ARRAY_SIZE(sst_debug_controls));
 	snd_soc_add_platform_controls(platform, sst_vad_enroll,
 			ARRAY_SIZE(sst_vad_enroll));
 
