@@ -139,18 +139,6 @@ Optional properties:
 				units being uA. Here <supply> can be "vdd" for
 				SD card vdd supply or "vdd-io" for SD I/O vdd
 				supply.
-- qcom,seta-gpios : specifies gpios included in set A that are routed to the
-		    mictor connector. Used for tpiu component
-- qcom,seta-gpios-func : active function select for set A gpios
-- qcom,seta-gpios-drv : active drive strength for set A gpios
-- qcom,seta-gpios-pull : active pull configuration for set A gpios
-- qcom,seta-gpios-dir : active direction for set A gpios
-- qcom,setb-gpios : specifies gpios included in set B that are routed to the
-		    mictor connector. Used for tpiu component
-- qcom,setb-gpios-func : active function select for set B gpios
-- qcom,setb-gpios-drv : active drive strength for set B gpios
-- qcom,setb-gpios-pull : active pull configuration for set B gpios
-- qcom,setb-gpios-dir : active direction for set B gpios
 - qcom,hwevent-clks : list of clocks required by hardware event driver
 - qcom,byte-cntr-absent : specifies if the byte counter feature is absent on
 			  the device. Only relevant in case of tmc-etr device.
