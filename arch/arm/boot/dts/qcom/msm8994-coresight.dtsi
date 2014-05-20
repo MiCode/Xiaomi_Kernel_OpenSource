@@ -529,6 +529,7 @@
 		clock-names = "core_clk", "core_a_clk";
 
 		qcom,cti-ack-atomic;
+		qcom,cti-save;
 	};
 
 	cti_cpu1: cti@fb920000 {
@@ -545,6 +546,7 @@
 		clock-names = "core_clk", "core_a_clk";
 
 		qcom,cti-ack-atomic;
+		qcom,cti-save;
 	};
 
 	cti_cpu2: cti@fba20000 {
@@ -561,6 +563,7 @@
 		clock-names = "core_clk", "core_a_clk";
 
 		qcom,cti-ack-atomic;
+		qcom,cti-save;
 	};
 
 	cti_cpu3: cti@fbb2000 {
@@ -577,6 +580,7 @@
 		clock-names = "core_clk", "core_a_clk";
 
 		qcom,cti-ack-atomic;
+		qcom,cti-save;
 	};
 
 	cti_cpu4: cti@fbc20000 {
@@ -593,6 +597,7 @@
 		clock-names = "core_clk", "core_a_clk";
 
 		qcom,cti-ack-atomic;
+		qcom,cti-save;
 	};
 
 	cti_cpu5: cti@fbd20000 {
@@ -609,6 +614,7 @@
 		clock-names = "core_clk", "core_a_clk";
 
 		qcom,cti-ack-atomic;
+		qcom,cti-save;
 	};
 
 	cti_cpu6: cti@fbe20000 {
@@ -625,6 +631,7 @@
 		clock-names = "core_clk", "core_a_clk";
 
 		qcom,cti-ack-atomic;
+		qcom,cti-save;
 	};
 
 	cti_cpu7: cti@fbf2000 {
@@ -641,6 +648,7 @@
 		clock-names = "core_clk", "core_a_clk";
 
 		qcom,cti-ack-atomic;
+		qcom,cti-save;
 	};
 
 	cti_video_cpu0: cti@fc338000 {
