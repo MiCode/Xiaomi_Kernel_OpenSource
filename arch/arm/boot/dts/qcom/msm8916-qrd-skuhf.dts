@@ -19,3 +19,9 @@
 	compatible = "qcom,msm8916-qrd-skuhf", "qcom,msm8916-qrd", "qcom,msm8916", "qcom,qrd";
 	qcom,board-id = <0x11000b 0> , <0x11000b 4>;
 };
+
+&soc {
+	gpio-leds {
+		status = "disabled";
+	};
+};
