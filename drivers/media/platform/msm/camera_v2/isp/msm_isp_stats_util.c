@@ -76,6 +76,7 @@ void msm_isp_process_stats_irq(struct vfe_device *vfe_dev,
 	struct msm_isp_stats_event *stats_event = &buf_event.u.stats;
 	struct msm_isp_buffer *done_buf;
 	struct msm_vfe_stats_stream *stream_info = NULL;
+	uint32_t session_id = vfe_dev->axi_data.src_info[VFE_PIX_0].session_id;
 	uint32_t pingpong_status;
 	uint32_t comp_stats_type_mask = 0, atomic_stats_mask = 0;
 	uint32_t stats_comp_mask = 0, stats_irq_mask = 0;
@@ -116,7 +117,7 @@ void msm_isp_process_stats_irq(struct vfe_device *vfe_dev,
 		memset(&buf_event, 0, sizeof(struct msm_isp_event_data));
 		buf_event.timestamp = ts->event_time;
 		buf_event.frame_id =
-			vfe_dev->axi_data.src_info[VFE_PIX_0].frame_id;
+			vfe_dev->axi_data.frame_id[session_id];
 		buf_event.input_intf = VFE_PIX_0;
 		pingpong_status = vfe_dev->hw_info->
 			vfe_ops.stats_ops.get_pingpong_status(vfe_dev);
@@ -134,7 +135,7 @@ void msm_isp_process_stats_irq(struct vfe_device *vfe_dev,
 					vfe_dev->buf_mgr, done_buf->bufq_handle,
 					done_buf->buf_idx, &ts->buf_time,
 					vfe_dev->axi_data.
-					src_info[VFE_PIX_0].frame_id);
+					frame_id[session_id]);
 				if (rc != 0)
 					continue;
 

@@ -1084,7 +1084,9 @@ static uint32_t msm_vfe32_stats_get_comp_mask(uint32_t irq_status0,
 
 static uint32_t msm_vfe32_stats_get_frame_id(struct vfe_device *vfe_dev)
 {
-	return vfe_dev->axi_data.src_info[VFE_PIX_0].frame_id;
+	uint32_t session_id = 0;
+	session_id = vfe_dev->axi_data.src_info[VFE_PIX_0].session_id;
+	return vfe_dev->axi_data.frame_id[session_id];
 }
 
 static int msm_vfe32_get_platform_data(struct vfe_device *vfe_dev)

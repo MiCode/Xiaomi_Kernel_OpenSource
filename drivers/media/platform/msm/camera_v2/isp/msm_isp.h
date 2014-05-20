@@ -320,6 +320,7 @@ struct msm_vfe_src_info {
 	enum msm_vfe_inputmux input_mux;
 	uint32_t width;
 	long pixel_clock;
+	uint32_t session_id;
 	uint32_t input_format;/*V4L2 pix format with bayer pattern*/
 };
 
@@ -328,7 +329,7 @@ enum msm_wm_ub_cfg_type {
 	MSM_WM_UB_EQUAL_SLICING,
 	MSM_WM_UB_CFG_MAX_NUM
 };
-
+#define MAX_SESSIONS 5
 struct msm_vfe_axi_shared_data {
 	struct msm_vfe_axi_hardware_info *hw_info;
 	struct msm_vfe_axi_stream stream_info[MAX_NUM_STREAM];
@@ -345,6 +346,9 @@ struct msm_vfe_axi_shared_data {
 	enum msm_isp_camif_update_state pipeline_update;
 	struct msm_vfe_src_info src_info[VFE_SRC_MAX];
 	uint16_t stream_handle_cnt;
+	uint16_t current_frame_src_mask[MAX_SESSIONS];
+	uint16_t session_frame_src_mask[MAX_SESSIONS];
+	unsigned int  frame_id[MAX_SESSIONS];
 	uint32_t event_mask;
 };
 
