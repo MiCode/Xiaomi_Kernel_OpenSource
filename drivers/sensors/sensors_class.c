@@ -1,4 +1,4 @@
-/* Copyright (c) 2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -176,6 +176,24 @@ static ssize_t sensors_delay_show(struct device *dev,
 			sensors_cdev->delay_msec);
 }
 
+static ssize_t sensors_test_show(struct device *dev,
+		struct device_attribute *attr, char *buf)
+{
+	struct sensors_classdev *sensors_cdev = dev_get_drvdata(dev);
+	int ret;
+
+	if (sensors_cdev->sensors_self_test == NULL) {
+		dev_err(dev, "Invalid sensor class self test handle\n");
+		return -EINVAL;
+	}
+
+	ret = sensors_cdev->sensors_self_test(sensors_cdev);
+	if (ret)
+		dev_warn(dev, "self test failed.(%d)\n", ret);
+
+	return snprintf(buf, PAGE_SIZE, "%s\n",
+			ret ? "fail" : "pass");
+}
 
 static struct device_attribute sensors_class_attrs[] = {
 	__ATTR(name, 0444, sensors_name_show, NULL),
@@ -191,6 +209,7 @@ static struct device_attribute sensors_class_attrs[] = {
 	__ATTR(fifo_max_event_count, 0444, sensors_fifo_max_show, NULL),
 	__ATTR(enable, 0664, sensors_enable_show, sensors_enable_store),
 	__ATTR(poll_delay, 0664, sensors_delay_show, sensors_delay_store),
+	__ATTR(self_test, 0440, sensors_test_show, NULL),
 	__ATTR_NULL,
 };
 
