@@ -37,6 +37,8 @@
 #define WDT0_BARK_TIME	0x10
 #define WDT0_BITE_TIME	0x14
 
+#define WDOG_ABSENT	0
+
 #define MASK_SIZE		32
 #define SCM_SET_REGSAVE_CMD	0x2
 #define SCM_SVC_SEC_WDOG_DIS	0x7
@@ -49,6 +51,7 @@ struct msm_watchdog_data {
 	unsigned int __iomem phys_base;
 	size_t size;
 	void __iomem *base;
+	void __iomem *wdog_absent_base;
 	struct device *dev;
 	unsigned int pet_time;
 	unsigned int bark_time;
@@ -455,6 +458,13 @@ static void init_watchdog_work(struct work_struct *work)
 	u64 timeout;
 	int ret;
 
+	/*
+	 * Disable the watchdog for cluster 1 so that cluster 0 watchdog will
+	 * be mapped to the entire sub-system.
+	 */
+	if (wdog_dd->wdog_absent_base)
+		__raw_writel(2, wdog_dd->wdog_absent_base + WDOG_ABSENT);
+
 	if (wdog_dd->irq_ppi) {
 		wdog_dd->wdog_cpu_dd = alloc_percpu(struct msm_watchdog_data *);
 		if (!wdog_dd->wdog_cpu_dd) {
@@ -545,6 +555,20 @@ static int msm_wdog_dt_to_pdata(struct platform_device *pdev,
 		dev_err(&pdev->dev, "%s cannot map wdog register space\n",
 				__func__);
 		return -ENXIO;
+	}
+
+	res = platform_get_resource_byname(pdev, IORESOURCE_MEM,
+					   "wdt-absent-base");
+	if (res) {
+		pdata->wdog_absent_base  = devm_ioremap(&pdev->dev, res->start,
+							 resource_size(res));
+		if (!pdata->wdog_absent_base) {
+			dev_err(&pdev->dev,
+				"cannot map wdog absent register space\n");
+			return -ENXIO;
+		}
+	} else {
+		dev_info(&pdev->dev, "wdog absent resource not present\n");
 	}
 
 	pdata->bark_irq = platform_get_irq(pdev, 0);
