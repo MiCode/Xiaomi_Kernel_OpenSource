@@ -39,6 +39,7 @@ struct module;
  * @powerup: Start a subsystem
  * @crash_shutdown: Shutdown a subsystem when the system crashes (can't sleep)
  * @ramdump: Collect a ramdump of the subsystem
+ * @free_memory: Free the memory associated with this subsystem
  * @is_not_loadable: Indicate if subsystem firmware is not loadable via pil
  * framework
  * @no_auth: Set if subsystem does not rely on PIL to authenticate and bring
@@ -60,6 +61,7 @@ struct subsys_desc {
 	int (*powerup)(const struct subsys_desc *desc);
 	void (*crash_shutdown)(const struct subsys_desc *desc);
 	int (*ramdump)(int, const struct subsys_desc *desc);
+	void (*free_memory)(const struct subsys_desc *desc);
 	irqreturn_t (*err_fatal_handler) (int irq, void *dev_id);
 	irqreturn_t (*stop_ack_handler) (int irq, void *dev_id);
 	irqreturn_t (*wdog_bite_handler) (int irq, void *dev_id);
