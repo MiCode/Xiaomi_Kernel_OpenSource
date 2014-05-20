@@ -162,7 +162,7 @@ void check_drain_timer(void)
 
 	if (!timer_in_progress) {
 		timer_in_progress = 1;
-		ret = mod_timer(&drain_timer, jiffies + msecs_to_jiffies(500));
+		ret = mod_timer(&drain_timer, jiffies + msecs_to_jiffies(200));
 	}
 }
 

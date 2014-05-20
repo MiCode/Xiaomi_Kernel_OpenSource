@@ -128,7 +128,7 @@ static void dci_check_drain_timer(void)
 {
 	if (!dci_timer_in_progress) {
 		dci_timer_in_progress = 1;
-		 mod_timer(&dci_drain_timer, jiffies + msecs_to_jiffies(500));
+		 mod_timer(&dci_drain_timer, jiffies + msecs_to_jiffies(200));
 	}
 }
 
