@@ -1846,14 +1846,6 @@ static int krait_pdn_probe(struct platform_device *pdev)
 
 	/* global initializtion */
 	glb_init(pvreg->apcs_gcc_base);
-	/* auto mode initialization */
-	if (pvreg->force_auto_mode) {
-		rc = msm_spm_enable_fts_lpm(PMIC_FTS_MODE_AUTO);
-		if (rc) {
-			dev_err(dev, "failed to force AUTO, rc=%d\n", rc);
-			return rc;
-		}
-	}
 
 	rc = of_platform_populate(node, NULL, NULL, dev);
 	if (rc) {
