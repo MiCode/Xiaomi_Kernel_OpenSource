@@ -226,6 +226,9 @@ sh_css_load_firmware(const char *fw_data,
 #if (!defined HRT_CSIM && !defined HRT_RTL)
 		IA_CSS_ERROR("CSS code version (%s) and firmware version (%s) mismatch!",
 				file_header->version, release_version);
+		pr_err("ISP firmware version mismatch, got %s, want %s\n",
+		       file_header->version, release_version);
+		WARN_ON(1);
 		return IA_CSS_ERR_VERSION_MISMATCH;
 #endif
 	} else {
