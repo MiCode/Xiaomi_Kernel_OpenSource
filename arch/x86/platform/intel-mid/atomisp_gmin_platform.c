@@ -140,11 +140,21 @@ static const struct gmin_cfg_var ffrd8_vars[] = {
 	{},
 };
 
+static const struct gmin_cfg_var mrd7_vars[] = {
+	{ "INT33F8:00_CamType",  "1" },
+	{ "INT33F8:00_CsiPort",  "1" },
+	{ "INT33F8:00_CsiLanes", "2" },
+	{ "INT33F8:00_CsiFmt",   "13" },
+	{ "INT33F8:00_CsiBayer", "0" },
+	{},
+};
+
 static const struct {
 	const char *dmi_board_name;
 	const struct gmin_cfg_var *vars;
 } hard_vars[] = {
 	{ "BYT-T FFD8", ffrd8_vars },
+	{ "TABLET", mrd7_vars },
 };
 
 
