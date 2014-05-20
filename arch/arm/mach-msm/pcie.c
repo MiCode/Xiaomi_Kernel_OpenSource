@@ -1840,6 +1840,19 @@ void msm_pcie_fixup_resume(struct pci_dev *dev)
 				"PCIe: wait for wake IRQ to recover the link for RC%d\n",
 				pcie_dev->rc_idx);
 		}
+
+		if (pcie_dev->event_reg && pcie_dev->event_reg->callback &&
+			(pcie_dev->event_reg->events &
+				MSM_PCIE_EVENT_NO_ACCESS)) {
+			struct msm_pcie_notify *notify =
+					&pcie_dev->event_reg->notify;
+			notify->event = MSM_PCIE_EVENT_NO_ACCESS;
+			notify->user = pcie_dev->event_reg->user;
+			PCIE_DBG(
+				"PCIe: notify client not to access the EP of RC%d\n",
+				pcie_dev->rc_idx);
+			pcie_dev->event_reg->callback(notify);
+		}
 	}
 
 	mutex_unlock(&pcie_dev->recovery_lock);
@@ -1877,6 +1890,19 @@ void msm_pcie_fixup_resume_early(struct pci_dev *dev)
 			PCIE_DBG(
 				"PCIe: wait for wake IRQ to recover the link for RC%d\n",
 				pcie_dev->rc_idx);
+		}
+
+		if (pcie_dev->event_reg && pcie_dev->event_reg->callback &&
+			(pcie_dev->event_reg->events &
+				MSM_PCIE_EVENT_NO_ACCESS)) {
+			struct msm_pcie_notify *notify =
+					&pcie_dev->event_reg->notify;
+			notify->event = MSM_PCIE_EVENT_NO_ACCESS;
+			notify->user = pcie_dev->event_reg->user;
+			PCIE_DBG(
+				"PCIe: notify client not to access the EP of RC%d\n",
+				pcie_dev->rc_idx);
+			pcie_dev->event_reg->callback(notify);
 		}
 	}
 	mutex_unlock(&pcie_dev->recovery_lock);
