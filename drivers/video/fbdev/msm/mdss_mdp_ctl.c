@@ -2250,7 +2250,8 @@ static void mdss_mdp_mixer_setup(struct mdss_mdp_ctl *master_ctl,
 	int i;
 	int stage, screen_state, outsize;
 	u32 off, blend_op, blend_stage, mpq_num;
-	u32 mixercfg = 0, mixer_op_mode = 0, bg_alpha_enable = 0;
+	u32 mixercfg = 0, mixer_op_mode = 0, bg_alpha_enable = 0,
+	    mixercfg_extn = 0;
 	u32 fg_alpha = 0, bg_alpha = 0;
 	struct mdss_mdp_pipe *pipe;
 	struct mdss_mdp_ctl *ctl = NULL;
@@ -2318,6 +2319,12 @@ static void mdss_mdp_mixer_setup(struct mdss_mdp_ctl *master_ctl,
 		blend_stage = stage - MDSS_MDP_STAGE_0;
 		off = MDSS_MDP_REG_LM_BLEND_OFFSET(blend_stage);
 
+		/*
+		 * Account for additional blending stages
+		 * from MDP v1.5 onwards
+		 */
+		if (blend_stage > 3)
+			off += MDSS_MDP_REG_LM_BLEND_STAGE4;
 		blend_op = (MDSS_MDP_BLEND_FG_ALPHA_FG_CONST |
 			    MDSS_MDP_BLEND_BG_ALPHA_BG_CONST);
 		fg_alpha = pipe->alpha;
@@ -2389,8 +2396,25 @@ static void mdss_mdp_mixer_setup(struct mdss_mdp_ctl *master_ctl,
 			pipe->num == MDSS_MDP_SSPP_RGB3) {
 			/* Add 2 to account for Cursor & Border bits */
 			mixercfg |= stage << ((3 * pipe->num)+2);
-		} else {
+		} else if (stage < MDSS_MDP_STAGE_6) {
 			mixercfg |= stage << (3 * pipe->num);
+		} else {
+			/*
+			 * The ctl layer extension bits are ordered
+			 * VIG0-3, RGB0-3, DMA0-1
+			 */
+			if (pipe->num < MDSS_MDP_SSPP_RGB0)
+				mixercfg_extn |= BIT(pipe->num << 1);
+			else if (pipe->num >= MDSS_MDP_SSPP_RGB0  &&
+					pipe->num < MDSS_MDP_SSPP_DMA0)
+				mixercfg_extn |= BIT((pipe->num + 1) << 1);
+			else if (pipe->num >= MDSS_MDP_SSPP_DMA0 &&
+					pipe->num < MDSS_MDP_SSPP_VIG3)
+				mixercfg_extn |= BIT((pipe->num + 2) << 1);
+			else if (pipe->num == MDSS_MDP_SSPP_VIG3)
+				mixercfg_extn |= BIT(6);
+			else
+				mixercfg_extn |= BIT(14);
 		}
 
 		trace_mdp_sspp_change(pipe);
@@ -2427,6 +2451,9 @@ update_mixer:
 	mdp_mixer_write(mixer, MDSS_MDP_REG_LM_OP_MODE, mixer_op_mode);
 	off = __mdss_mdp_ctl_get_mixer_off(mixer);
 	mdss_mdp_ctl_write(ctl, off, mixercfg);
+	/* Program ctl layer extension bits */
+	mdss_mdp_ctl_write(ctl, off + MDSS_MDP_REG_CTL_LAYER_EXTN_OFFSET,
+		mixercfg_extn);
 }
 
 int mdss_mdp_mixer_addr_setup(struct mdss_data_type *mdata,
