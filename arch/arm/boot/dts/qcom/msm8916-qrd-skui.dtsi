@@ -210,6 +210,7 @@
 		interrupts = <115 0x2>;
 		vdd-supply = <&pm8916_l17>;
 		vlogic-supply = <&pm8916_l16>;
+		vi2c-supply = <&pm8916_l6>;
 		invn,gpio-int = <&msm_gpio 115 0x2>;
 		invn,place = "Portrait Up Back Side";
 	};

@@ -55,6 +55,8 @@
 #define BIT_I2C_MST_EN		0x20
 #define BIT_FIFO_EN		0x40
 #define BIT_DMP_EN		0x80
+#define BIT_ACCEL_FIFO		0x08
+#define BIT_GYRO_FIFO		0x70
 
 #define REG_PWR_MGMT_1		0x6B
 #define BIT_H_RESET		0x80
