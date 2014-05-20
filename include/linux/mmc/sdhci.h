@@ -113,39 +113,37 @@ struct sdhci_host {
  * be called twice.
  */
 #define SDHCI_QUIRK2_SLOW_INT_CLR			(1<<2)
-/* Ignore CMD CRC errors for tuning commands */
-#define SDHCI_QUIRK2_IGNORE_CMDCRC_FOR_TUNING		(1<<3)
 /*
  * If the base clock can be scalable, then there should be no further
  * clock dividing as the input clock itself will be scaled down to
  * required frequency.
  */
-#define SDHCI_QUIRK2_ALWAYS_USE_BASE_CLOCK		(1<<4)
+#define SDHCI_QUIRK2_ALWAYS_USE_BASE_CLOCK		(1<<3)
 /*
  * Dont use the max_discard_to in sdhci driver so that the maximum discard
  * unit gets picked by the mmc queue. Otherwise, it takes a long time for
  * secure discard kind of operations to complete.
  */
-#define SDHCI_QUIRK2_USE_MAX_DISCARD_SIZE		(1<<5)
+#define SDHCI_QUIRK2_USE_MAX_DISCARD_SIZE		(1<<4)
 /*
  * Ignore data timeout error for R1B commands as there will be no
  * data associated and the busy timeout value for these commands
  * could be lager than the maximum timeout value that controller
  * can handle.
  */
-#define SDHCI_QUIRK2_IGNORE_DATATOUT_FOR_R1BCMD		(1<<6)
+#define SDHCI_QUIRK2_IGNORE_DATATOUT_FOR_R1BCMD		(1<<5)
 /*
  * The preset value registers are not properly initialized by
  * some hardware and hence preset value must not be enabled for
  * such controllers.
  */
-#define SDHCI_QUIRK2_BROKEN_PRESET_VALUE		(1<<7)
+#define SDHCI_QUIRK2_BROKEN_PRESET_VALUE		(1<<6)
 /*
  * Some controllers define the usage of 0xF in data timeout counter
  * register (0x2E) which is actually a reserved bit as per
  * specification.
  */
-#define SDHCI_QUIRK2_USE_RESERVED_MAX_TIMEOUT		(1<<8)
+#define SDHCI_QUIRK2_USE_RESERVED_MAX_TIMEOUT		(1<<7)
 /*
  * This is applicable for controllers that advertize timeout clock
  * value in capabilities register (bit 5-0) as just 50MHz whereas the
@@ -158,7 +156,7 @@ struct sdhci_host {
  * will be used in such cases to avoid controller mulplication when timeout is
  * calculated based on the base clock.
  */
-#define SDHCI_QUIRK2_DIVIDE_TOUT_BY_4 (1 << 9)
+#define SDHCI_QUIRK2_DIVIDE_TOUT_BY_4 (1 << 8)
 
 /*
  * Some SDHC controllers are unable to handle data-end bit error in
