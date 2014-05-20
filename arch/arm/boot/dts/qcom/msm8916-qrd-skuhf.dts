@@ -24,4 +24,11 @@
 	gpio-leds {
 		status = "disabled";
 	};
+
+	i2c@78b9000 { /* BLSP1 QUP5 */
+		synaptics@70 {
+			vdd-supply = <&pm8916_l17>;
+			vcc_i2c-supply = <&pm8916_l6>;
+		};
+	};
 };
