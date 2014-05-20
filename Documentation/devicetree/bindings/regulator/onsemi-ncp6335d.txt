@@ -35,6 +35,12 @@ Optional Properties:
 - onnn,vsel-gpio:		Present: GPIO connects to the VSEL pin and set the
 				VSEL pin according to device tree flag.
 				Not Present: No GPIO is connected to vsel pin.
+- pinctrl-names:		The state name of the VSEL pin configuration.
+				Only support: "default"
+- pinctrl-0:			The phandles of the pin configuration node in
+				pinctrl for VSEL pin.
+				For details of pinctrl properties, please refer to:
+				"Documentation/devicetree/bindings/pinctrl/pinctrl-bindings.txt"
 - onnn,sleep-enable:		Present: Forced in sleep mode when EN and VSEL
 				pins are low.
 				Not Present: Low quiescent current mode when EN and VSEL
@@ -55,6 +61,8 @@ Example:
 			onnn,step-size = <10000>;
 			onnn,min-slew-ns = <333>;
 			onnn,max-slew-ns = <2666>;
+			pintrl-names = "default";
+			pinctrl-0 = <&ext_buck_vsel_default>;
 
 			regulator-min-microvolt = <1050000>;
 			regulator-max-microvolt = <1350000>;
