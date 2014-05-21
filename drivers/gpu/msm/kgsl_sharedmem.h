@@ -163,6 +163,17 @@ static inline int kgsl_memdesc_is_global(const struct kgsl_memdesc *memdesc)
 }
 
 /*
+ * kgsl_memdesc_is_secured - is this a secure buffer?
+ * @memdesc: the memdesc
+ *
+ * Returns true if this is a secure mapping, false otherwise
+ */
+static inline bool kgsl_memdesc_is_secured(const struct kgsl_memdesc *memdesc)
+{
+	return memdesc && (memdesc->priv & KGSL_MEMDESC_SECURE);
+}
+
+/*
  * kgsl_memdesc_has_guard_page - is the last page a guard page?
  * @memdesc - the memdesc
  *

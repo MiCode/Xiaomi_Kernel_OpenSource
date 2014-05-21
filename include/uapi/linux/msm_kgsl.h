@@ -46,6 +46,7 @@
 #define KGSL_CONTEXT_PRIORITY_UNDEF     0
 
 #define KGSL_CONTEXT_IFH_NOP            0x00010000
+#define KGSL_CONTEXT_SECURE             0x00020000
 
 #define KGSL_CONTEXT_TYPE_MASK          0x01F00000
 #define KGSL_CONTEXT_TYPE_SHIFT         20
@@ -83,6 +84,9 @@
 /* General allocation hints */
 #define KGSL_MEMFLAGS_GPUREADONLY 0x01000000
 #define KGSL_MEMFLAGS_USE_CPU_MAP 0x10000000
+
+/* Memory is secure */
+#define KGSL_MEMFLAGS_SECURE      0x00000008
 
 /* Memory caching hints */
 #define KGSL_CACHEMODE_MASK 0x0C000000

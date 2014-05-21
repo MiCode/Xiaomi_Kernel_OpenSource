@@ -105,14 +105,14 @@ enum kgsl_iommu_units {
 	KGSL_IOMMU_MAX_UNITS = 2,
 };
 
-/* Max number of iommu contexts per IOMMU unit */
-#define KGSL_IOMMU_MAX_DEVS_PER_UNIT 2
 /* Max number of iommu clks per IOMMU unit */
 #define KGSL_IOMMU_MAX_CLKS 4
 
 enum kgsl_iommu_context_id {
 	KGSL_IOMMU_CONTEXT_USER = 0,
 	KGSL_IOMMU_CONTEXT_PRIV = 1,
+	KGSL_IOMMU_CONTEXT_SECURE = 2,
+	KGSL_IOMMU_CONTEXT_MAX = 3,
 };
 
 /**
@@ -217,7 +217,7 @@ struct kgsl_iommu_device {
  * @clks: iommu unit clks
  */
 struct kgsl_iommu_unit {
-	struct kgsl_iommu_device dev[KGSL_IOMMU_MAX_DEVS_PER_UNIT];
+	struct kgsl_iommu_device dev[KGSL_IOMMU_CONTEXT_MAX];
 	unsigned int dev_count;
 	struct kgsl_memdesc reg_map;
 	unsigned int ahb_base;

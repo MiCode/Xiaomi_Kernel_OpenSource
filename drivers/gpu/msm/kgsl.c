@@ -287,6 +287,7 @@ kgsl_mem_entry_track_gpuaddr(struct kgsl_process_private *process,
 	int ret = 0;
 	struct rb_node **node;
 	struct rb_node *parent = NULL;
+	struct kgsl_pagetable *pagetable = process->pagetable;
 
 	assert_spin_locked(&process->mem_lock);
 	/*
@@ -307,9 +308,14 @@ kgsl_mem_entry_track_gpuaddr(struct kgsl_process_private *process,
 		 * For external allocations use mmu gen pool to assign
 		 * virtual address
 		 */
-		if (KGSL_MEMFLAGS_USERMEM_MASK & entry->memdesc.flags)
-			ret = kgsl_mmu_get_gpuaddr(process->pagetable,
-						&entry->memdesc);
+		if (KGSL_MEMFLAGS_USERMEM_MASK & entry->memdesc.flags) {
+			/* Get secured buffer gpuaddr from secured pool */
+			if (kgsl_memdesc_is_secured(&entry->memdesc))
+				pagetable = pagetable->mmu->securepagetable;
+			ret = kgsl_mmu_get_gpuaddr(pagetable, &entry->memdesc);
+		}
+		if ((kgsl_memdesc_is_secured(&entry->memdesc)) && (ret))
+			goto done;
 		if (-ENOMEM == ret) {
 			unsigned long gpuaddr = 0;
 			size_t size = entry->memdesc.size;
@@ -361,7 +367,7 @@ kgsl_mem_entry_untrack_gpuaddr(struct kgsl_process_private *process,
 	assert_spin_locked(&process->mem_lock);
 	if (entry->memdesc.gpuaddr) {
 		if (KGSL_MEMFLAGS_USERMEM_MASK & entry->memdesc.flags)
-			kgsl_mmu_put_gpuaddr(process->pagetable,
+			kgsl_mmu_put_gpuaddr(entry->memdesc.pagetable,
 					&entry->memdesc);
 		rb_erase(&entry->node, &entry->priv->mem_rb);
 	}
@@ -386,6 +392,7 @@ kgsl_mem_entry_attach_process(struct kgsl_mem_entry *entry,
 	int id;
 	int ret;
 	struct kgsl_process_private *process = dev_priv->process_priv;
+	struct kgsl_pagetable *pagetable;
 
 	ret = kgsl_process_private_get(process);
 	if (!ret)
@@ -414,7 +421,14 @@ kgsl_mem_entry_attach_process(struct kgsl_mem_entry *entry,
 		goto err_put_proc_priv;
 	/* map the memory after unlocking if gpuaddr has been assigned */
 	if (entry->memdesc.gpuaddr) {
-		ret = kgsl_mmu_map(process->pagetable, &entry->memdesc);
+		/* if a secured buffer map it to secure global pagetable */
+		if (kgsl_memdesc_is_secured(&entry->memdesc))
+			pagetable = process->pagetable->mmu->securepagetable;
+		else
+			pagetable = process->pagetable;
+
+		entry->memdesc.pagetable = pagetable;
+		ret = kgsl_mmu_map(pagetable, &entry->memdesc);
 		if (ret)
 			kgsl_mem_entry_detach_process(entry);
 	}
@@ -434,7 +448,7 @@ static void kgsl_mem_entry_detach_process(struct kgsl_mem_entry *entry)
 		return;
 
 	/* Unmap here so that below we can call kgsl_mmu_put_gpuaddr */
-	kgsl_mmu_unmap(entry->priv->pagetable, &entry->memdesc);
+	kgsl_mmu_unmap(entry->memdesc.pagetable, &entry->memdesc);
 
 	spin_lock(&entry->priv->mem_lock);
 
@@ -2880,7 +2894,29 @@ long kgsl_ioctl_map_user_mem(struct kgsl_device_private *dev_priv,
 	param->flags &= KGSL_MEMFLAGS_GPUREADONLY
 			| KGSL_MEMTYPE_MASK
 			| KGSL_MEMALIGN_MASK
-			| KGSL_MEMFLAGS_USE_CPU_MAP;
+			| KGSL_MEMFLAGS_USE_CPU_MAP
+			| KGSL_MEMFLAGS_SECURE;
+
+	/*
+	 * If content protection is not enabled and secure buffer
+	 * is requested to be mapped return error.
+	 */
+	if (!kgsl_mmu_is_secured(&dev_priv->device->mmu) &&
+			(param->flags & KGSL_MEMFLAGS_SECURE)) {
+		dev_WARN_ONCE(dev_priv->device->dev, 1,
+				"Secure buffer not supported");
+		return -EINVAL;
+	}
+
+	if (param->flags & KGSL_MEMFLAGS_SECURE) {
+		entry->memdesc.priv |= KGSL_MEMDESC_SECURE;
+		if (!IS_ALIGNED(entry->memdesc.size, SZ_1M)) {
+			KGSL_DRV_ERR(dev_priv->device,
+				 "Secure buffer size %zx must be %x aligned",
+				 entry->memdesc.size, SZ_1M);
+			return -EINVAL;
+		}
+	}
 
 	entry->memdesc.flags = param->flags;
 
