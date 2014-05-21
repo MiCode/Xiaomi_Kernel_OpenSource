@@ -1054,18 +1054,6 @@ static inline unsigned int adreno_gpu_fault(struct adreno_device *adreno_dev)
 }
 
 /**
- * adreno_gpu_halt() - Return the halt status of GPU
- * @adreno_dev: A pointer to the adreno_device to query
- *
- * Return the halt request value
- */
-static inline unsigned int adreno_gpu_halt(struct adreno_device *adreno_dev)
-{
-	smp_rmb();
-	return atomic_read(&adreno_dev->halt);
-}
-
-/**
  * adreno_set_gpu_fault() - Set the current fault status of the GPU
  * @adreno_dev: A pointer to the adreno_device to set
  * @state: fault state to set
@@ -1079,17 +1067,6 @@ static inline void adreno_set_gpu_fault(struct adreno_device *adreno_dev,
 	smp_wmb();
 }
 
-/**
- * adreno_set_gpu_halt() - Set the halt request
- * @adreno_dev: A pointer to the adreno_device to set
- * @state: Value to set
- */
-static inline void adreno_set_gpu_halt(struct adreno_device *adreno_dev,
-	int state)
-{
-	atomic_set(&adreno_dev->halt, state);
-	smp_wmb();
-}
 
 /**
  * adreno_clear_gpu_fault() - Clear the GPU fault register
@@ -1103,6 +1080,47 @@ static inline void adreno_clear_gpu_fault(struct adreno_device *adreno_dev)
 	atomic_set(&adreno_dev->dispatcher.fault, 0);
 	smp_wmb();
 }
+
+/**
+ * adreno_gpu_halt() - Return the GPU halt refcount
+ * @adreno_dev: A pointer to the adreno_device
+ */
+static inline int adreno_gpu_halt(struct adreno_device *adreno_dev)
+{
+	smp_rmb();
+	return atomic_read(&adreno_dev->halt);
+}
+
+
+/**
+ * adreno_clear_gpu_halt() - Clear the GPU halt refcount
+ * @adreno_dev: A pointer to the adreno_device
+ */
+static inline void adreno_clear_gpu_halt(struct adreno_device *adreno_dev)
+{
+	atomic_set(&adreno_dev->halt, 0);
+	smp_wmb();
+}
+
+/**
+ * adreno_get_gpu_halt() - Increment GPU halt refcount
+ * @adreno_dev: A pointer to the adreno_device
+ */
+static inline void adreno_get_gpu_halt(struct adreno_device *adreno_dev)
+{
+	atomic_inc(&adreno_dev->halt);
+}
+
+/**
+ * adreno_put_gpu_halt() - Decrement GPU halt refcount
+ * @adreno_dev: A pointer to the adreno_device
+ */
+static inline void adreno_put_gpu_halt(struct adreno_device *adreno_dev)
+{
+	if (atomic_dec_return(&adreno_dev->halt) < 0)
+		BUG();
+}
+
 
 /*
  * adreno_vbif_start() - Program VBIF registers, called in device start

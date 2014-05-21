@@ -1914,6 +1914,8 @@ static int _adreno_start(struct adreno_device *adreno_dev)
 	if (status)
 		goto error_irq_off;
 
+	adreno_clear_gpu_halt(adreno_dev);
+
 	/* Start the dispatcher */
 	adreno_dispatcher_start(device);
 
