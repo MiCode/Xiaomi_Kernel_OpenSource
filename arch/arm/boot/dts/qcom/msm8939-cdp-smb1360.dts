@@ -19,3 +19,31 @@
 	compatible = "qcom,msm8939-cdp", "qcom,msm8939", "qcom,cdp";
 	qcom,board-id = <1 1>;
 };
+
+&i2c_4 {
+	smb1360_otg_supply: smb1360-chg-fg@14 {
+		compatible = "qcom,smb1360-chg-fg";
+		reg = <0x14>;
+		status = "disabled";
+		interrupt-parent = <&msm_gpio>;
+		interrupts = <62 8>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&smb_int_default>;
+		qcom,chg-inhibit-disabled;
+		qcom,float-voltage-mv = <4200>;
+		qcom,iterm-ma = <100>;
+		qcom,recharge-thresh-mv = <100>;
+		qcom,thermal-mitigation = <1500 700 600 0>;
+		regulator-name = "smb1360_otg_vreg";
+	};
+};
+
+&pm8916_chg {
+	status = "disabled";
+	qcom,use-external-charger;
+};
+
+&pm8916_bms {
+	status = "disabled";
+	qcom,disable-bms;
+};
