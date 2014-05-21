@@ -1023,6 +1023,8 @@ static int i915_getparam(struct drm_device *dev, void *data,
 		break;
 	case I915_PARAM_CMD_PARSER_VERSION:
 		value = i915_cmd_parser_get_version();
+		/* Adjust the parser version for Android */
+		value |= (value << 16);
 		break;
 	case I915_PARAM_EU_COUNT:
 		value = INTEL_INFO(dev)->eu_total;
