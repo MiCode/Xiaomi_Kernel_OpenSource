@@ -116,8 +116,8 @@ unsigned long swiotlb_nr_tbl(void)
 }
 EXPORT_SYMBOL_GPL(swiotlb_nr_tbl);
 
-/* default to 64MB */
-#define IO_TLB_DEFAULT_SIZE (64UL<<20)
+/* default to 1MB */
+#define IO_TLB_DEFAULT_SIZE SZ_1M
 unsigned long swiotlb_size_or_default(void)
 {
 	unsigned long size;
