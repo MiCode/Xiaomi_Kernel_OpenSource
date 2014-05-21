@@ -10,13 +10,13 @@
  * GNU General Public License for more details.
  */
 
-#include "mdm9630.dtsi"
+/dts-v1/;
+
+#include "mdm9630-v2-gf.dtsi"
+#include "mdm9630-cdp.dtsi"
 
 / {
-	qcom,msm-id = <0xbb 0x20000>, <0xe3 0x20000>, <0xe4 0x20000>,
-		      <0xe5 0x20000>, <0xe6 0x20000>, <0xe7 0x20000>;
-};
-
-&ssphy0 {
-	qcom,override-pll-calibration;
+	model = "Qualcomm Technologies, Inc. MDM 9630 v2 CDP";
+	compatible = "qcom,mdm9630-cdp", "qcom,mdm9630", "qcom,cdp";
+	qcom,board-id = <1 0>;
 };
