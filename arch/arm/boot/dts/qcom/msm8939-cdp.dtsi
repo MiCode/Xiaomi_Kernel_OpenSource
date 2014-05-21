@@ -12,6 +12,7 @@
 
 #include "msm8939.dtsi"
 #include "msm8939-pinctrl.dtsi"
+#include "msm8939-camera-sensor-cdp.dtsi"
 
 &soc {
 	gpio_keys {
