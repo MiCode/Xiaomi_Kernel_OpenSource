@@ -285,7 +285,8 @@ int dsi_pll_clock_register_lpm(struct platform_device *pdev,
 	byte_mux_clk_ops = clk_ops_gen_mux;
 	byte_mux_clk_ops.prepare = dsi_pll_mux_prepare;
 
-	if (pll_res->target_id == MDSS_PLL_TARGET_8916) {
+	if (pll_res->target_id == MDSS_PLL_TARGET_8916 ||
+		pll_res->target_id == MDSS_PLL_TARGET_8939) {
 		rc = of_msm_clock_register(pdev->dev.of_node,
 			mdss_dsi_pllcc_8916, ARRAY_SIZE(mdss_dsi_pllcc_8916));
 		if (rc) {
