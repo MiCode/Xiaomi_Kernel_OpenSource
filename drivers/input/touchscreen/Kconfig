@@ -992,10 +992,10 @@ config TOUCHSCREEN_SYNAPTICS_DSX_FW_UPDATE
 
 config SECURE_TOUCH
 	bool "Secure Touch"
-	depends on TOUCHSCREEN_ATMEL_MXT
+	depends on (TOUCHSCREEN_ATMEL_MXT || TOUCHSCREEN_SYNAPTICS_I2C_RMI4 || \
+	  TOUCHSCREEN_SYNAPTICS_DSX_I2C_v21)
 	help
-	  Say Y here to enable Secure Touch support in the Atmel MXT
-	  driver.
+	  Say Y here to enable Secure Touch in supported drivers.
 
 	  If unsure, say N.
 

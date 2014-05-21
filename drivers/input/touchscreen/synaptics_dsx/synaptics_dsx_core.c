@@ -5,6 +5,7 @@
  *
  * Copyright (C) 2012 Alexandra Chin <alexandra.chin@tw.synaptics.com>
  * Copyright (C) 2012 Scott Lin <scott.lin@tw.synaptics.com>
+ * Copyright (c) 2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -30,6 +31,10 @@
 #include "synaptics_dsx_core.h"
 #ifdef KERNEL_ABOVE_2_6_38
 #include <linux/input/mt.h>
+#endif
+#if defined(CONFIG_SECURE_TOUCH)
+#include <linux/errno.h>
+#include <asm/system.h>
 #endif
 
 #define INPUT_PHYS_NAME "synaptics_dsx/input0"
@@ -133,6 +138,19 @@ static ssize_t synaptics_rmi4_0dbutton_store(struct device *dev,
 
 static ssize_t synaptics_rmi4_suspend_store(struct device *dev,
 		struct device_attribute *attr, const char *buf, size_t count);
+
+static irqreturn_t synaptics_rmi4_irq(int irq, void *data);
+
+#if defined(CONFIG_SECURE_TOUCH)
+static ssize_t synaptics_secure_touch_enable_show(struct device *dev,
+		struct device_attribute *attr, char *buf);
+
+static ssize_t synaptics_secure_touch_enable_store(struct device *dev,
+		struct device_attribute *attr, const char *buf, size_t count);
+
+static ssize_t synaptics_secure_touch_show(struct device *dev,
+		struct device_attribute *attr, char *buf);
+#endif
 
 struct synaptics_rmi4_f01_device_status {
 	union {
@@ -362,6 +380,14 @@ static struct device_attribute attrs[] = {
 	__ATTR(suspend, S_IWUGO,
 			synaptics_rmi4_show_error,
 			synaptics_rmi4_suspend_store),
+#if defined(CONFIG_SECURE_TOUCH)
+	__ATTR(secure_touch_enable, (S_IRUGO | S_IWUGO),
+			synaptics_secure_touch_enable_show,
+			synaptics_secure_touch_enable_store),
+	__ATTR(secure_touch, S_IRUGO ,
+			synaptics_secure_touch_show,
+			NULL),
+#endif
 };
 
 static int synaptics_rmi4_debug_suspend_set(void *_data, u64 val)
@@ -387,6 +413,174 @@ static int synaptics_rmi4_debug_suspend_get(void *_data, u64 *val)
 
 DEFINE_SIMPLE_ATTRIBUTE(debug_suspend_fops, synaptics_rmi4_debug_suspend_get,
 			synaptics_rmi4_debug_suspend_set, "%lld\n");
+
+#if defined(CONFIG_SECURE_TOUCH)
+static void synaptics_secure_touch_init(struct synaptics_rmi4_data *data)
+{
+	init_completion(&data->st_powerdown);
+	init_completion(&data->st_irq_processed);
+}
+static void synaptics_secure_touch_notify(struct synaptics_rmi4_data *rmi4_data)
+{
+	sysfs_notify(&rmi4_data->input_dev->dev.kobj, NULL, "secure_touch");
+}
+static irqreturn_t synaptics_filter_interrupt(
+	struct synaptics_rmi4_data *rmi4_data)
+{
+	if (atomic_read(&rmi4_data->st_enabled)) {
+		if (atomic_cmpxchg(&rmi4_data->st_pending_irqs, 0, 1) == 0) {
+			synaptics_secure_touch_notify(rmi4_data);
+			wait_for_completion_interruptible(
+				&rmi4_data->st_irq_processed);
+		}
+		return IRQ_HANDLED;
+	}
+	return IRQ_NONE;
+}
+static void synaptics_secure_touch_stop(
+	struct synaptics_rmi4_data *rmi4_data,
+	int blocking)
+{
+	if (atomic_read(&rmi4_data->st_enabled)) {
+		atomic_set(&rmi4_data->st_pending_irqs, -1);
+		synaptics_secure_touch_notify(rmi4_data);
+		if (blocking)
+			wait_for_completion_interruptible(
+				&rmi4_data->st_powerdown);
+	}
+}
+#else
+static void synaptics_secure_touch_init(struct synaptics_rmi4_data *rmi4_data)
+{
+}
+static irqreturn_t synaptics_filter_interrupt(
+	struct synaptics_rmi4_data *rmi4_data)
+{
+	return IRQ_NONE;
+}
+static void synaptics_secure_touch_stop(
+	struct synaptics_rmi4_data *rmi4_data,
+	int blocking)
+{
+}
+#endif
+
+#if defined(CONFIG_SECURE_TOUCH)
+static ssize_t synaptics_secure_touch_enable_show(struct device *dev,
+				struct device_attribute *attr, char *buf)
+{
+	struct synaptics_rmi4_data *rmi4_data = dev_get_drvdata(dev);
+	return scnprintf(
+		buf,
+		PAGE_SIZE,
+		"%d",
+		atomic_read(&rmi4_data->st_enabled));
+}
+/*
+ * Accept only "0" and "1" valid values.
+ * "0" will reset the st_enabled flag, then wake up the reading process and
+ * the interrupt handler.
+ * The bus driver is notified via pm_runtime that it is not required to stay
+ * awake anymore.
+ * It will also make sure the queue of events is emptied in the controller,
+ * in case a touch happened in between the secure touch being disabled and
+ * the local ISR being ungated.
+ * "1" will set the st_enabled flag and clear the st_pending_irqs flag.
+ * The bus driver is requested via pm_runtime to stay awake.
+ */
+static ssize_t synaptics_secure_touch_enable_store(struct device *dev,
+				    struct device_attribute *attr,
+				    const char *buf, size_t count)
+{
+	struct synaptics_rmi4_data *rmi4_data = dev_get_drvdata(dev);
+	unsigned long value;
+	int err = 0;
+
+	if (count > 2)
+		return -EINVAL;
+
+	err = kstrtoul(buf, 10, &value);
+	if (err != 0)
+		return err;
+
+	err = count;
+
+	switch (value) {
+	case 0:
+		if (atomic_read(&rmi4_data->st_enabled) == 0)
+			break;
+
+		synaptics_rmi4_bus_put(rmi4_data);
+		atomic_set(&rmi4_data->st_enabled, 0);
+		synaptics_secure_touch_notify(rmi4_data);
+		complete(&rmi4_data->st_irq_processed);
+		synaptics_rmi4_irq(rmi4_data->irq, rmi4_data);
+		complete(&rmi4_data->st_powerdown);
+
+		break;
+	case 1:
+		if (atomic_read(&rmi4_data->st_enabled)) {
+			err = -EBUSY;
+			break;
+		}
+
+		synchronize_irq(rmi4_data->irq);
+
+		if (synaptics_rmi4_bus_get(rmi4_data) < 0) {
+			dev_err(
+				rmi4_data->pdev->dev.parent,
+				"synaptics_rmi4_bus_get failed\n");
+			err = -EIO;
+			break;
+		}
+
+		INIT_COMPLETION(rmi4_data->st_powerdown);
+		INIT_COMPLETION(rmi4_data->st_irq_processed);
+		atomic_set(&rmi4_data->st_enabled, 1);
+		atomic_set(&rmi4_data->st_pending_irqs,  0);
+		break;
+	default:
+		dev_err(
+			rmi4_data->pdev->dev.parent,
+			"unsupported value: %lu\n", value);
+		err = -EINVAL;
+		break;
+	}
+	return err;
+}
+
+/*
+ * This function returns whether there are pending interrupts, or
+ * other error conditions that need to be signaled to the userspace library,
+ * according tot he following logic:
+ * - st_enabled is 0 if secure touch is not enabled, returning -EBADF
+ * - st_pending_irqs is -1 to signal that secure touch is in being stopped,
+ *   returning -EINVAL
+ * - st_pending_irqs is 1 to signal that there is a pending irq, returning
+ *   the value "1" to the sysfs read operation
+ * - st_pending_irqs is 0 (only remaining case left) if the pending interrupt
+ *   has been processed, so the interrupt handler can be allowed to continue.
+ */
+static ssize_t synaptics_secure_touch_show(struct device *dev,
+				    struct device_attribute *attr, char *buf)
+{
+	struct synaptics_rmi4_data *rmi4_data = dev_get_drvdata(dev);
+	int val = 0;
+	if (atomic_read(&rmi4_data->st_enabled) == 0)
+		return -EBADF;
+
+	if (atomic_cmpxchg(&rmi4_data->st_pending_irqs, -1, 0) == -1)
+		return -EINVAL;
+
+	if (atomic_cmpxchg(&rmi4_data->st_pending_irqs, 1, 0) == 1)
+		val = 1;
+	else
+		complete(&rmi4_data->st_irq_processed);
+
+	return scnprintf(buf, PAGE_SIZE, "%u", val);
+
+}
+#endif
 
 static ssize_t synaptics_rmi4_full_pm_cycle_show(struct device *dev,
 		struct device_attribute *attr, char *buf)
@@ -1121,6 +1315,9 @@ static void synaptics_rmi4_sensor_report(struct synaptics_rmi4_data *rmi4_data)
 static irqreturn_t synaptics_rmi4_irq(int irq, void *data)
 {
 	struct synaptics_rmi4_data *rmi4_data = data;
+
+	if (IRQ_HANDLED == synaptics_filter_interrupt(data))
+		return IRQ_HANDLED;
 
 	if (!rmi4_data->touch_stopped)
 		synaptics_rmi4_sensor_report(rmi4_data);
@@ -2963,6 +3160,9 @@ static int synaptics_rmi4_probe(struct platform_device *pdev)
 		}
 	}
 
+	synaptics_secure_touch_init(rmi4_data);
+	synaptics_secure_touch_stop(rmi4_data, 1);
+
 	return retval;
 
 err_sysfs:
@@ -3202,13 +3402,18 @@ static int fb_notifier_callback(struct notifier_block *self,
 	struct synaptics_rmi4_data *rmi4_data =
 		container_of(self, struct synaptics_rmi4_data, fb_notif);
 
-	if (evdata && evdata->data && event == FB_EVENT_BLANK &&
-		rmi4_data) {
-		blank = evdata->data;
-		if (*blank == FB_BLANK_UNBLANK)
-			synaptics_rmi4_resume(&(rmi4_data->input_dev->dev));
-		else if (*blank == FB_BLANK_POWERDOWN)
-			synaptics_rmi4_suspend(&(rmi4_data->input_dev->dev));
+	if (evdata && evdata->data && rmi4_data) {
+		if (event == FB_EARLY_EVENT_BLANK)
+			synaptics_secure_touch_stop(rmi4_data, 0);
+		else if (event == FB_EVENT_BLANK) {
+			blank = evdata->data;
+			if (*blank == FB_BLANK_UNBLANK)
+				synaptics_rmi4_resume(
+					&(rmi4_data->input_dev->dev));
+			else if (*blank == FB_BLANK_POWERDOWN)
+				synaptics_rmi4_suspend(
+					&(rmi4_data->input_dev->dev));
+		}
 	}
 
 	return 0;
@@ -3236,6 +3441,8 @@ static void synaptics_rmi4_early_suspend(struct early_suspend *h)
 	} else {
 		rmi4_data->staying_awake = false;
 	}
+
+	synaptics_secure_touch_stop(rmi4_data, 0);
 
 	rmi4_data->touch_stopped = true;
 	synaptics_rmi4_irq_enable(rmi4_data, false);
@@ -3275,6 +3482,8 @@ static void synaptics_rmi4_late_resume(struct early_suspend *h)
 
 	if (rmi4_data->staying_awake)
 		return;
+
+	synaptics_secure_touch_stop(rmi4_data, 0);
 
 	if (rmi4_data->full_pm_cycle)
 		synaptics_rmi4_resume(&(rmi4_data->input_dev->dev));
@@ -3327,6 +3536,8 @@ static int synaptics_rmi4_suspend(struct device *dev)
 
 	if (rmi4_data->suspended)
 		return 0;
+
+	synaptics_secure_touch_stop(rmi4_data, 1);
 
 	if (!rmi4_data->sensor_sleep) {
 		rmi4_data->touch_stopped = true;
@@ -3386,6 +3597,8 @@ static int synaptics_rmi4_resume(struct device *dev)
 
 	if (!rmi4_data->suspended)
 		return 0;
+
+	synaptics_secure_touch_stop(rmi4_data, 1);
 
 	synaptics_dsx_regulator_enable(rmi4_data, true);
 
