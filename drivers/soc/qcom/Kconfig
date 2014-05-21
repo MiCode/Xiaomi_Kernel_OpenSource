@@ -433,6 +433,14 @@ config MAXIMUM_CURRENT_THROTTLING
 	  turn on/off CPU based current throttling by setting the
 	  credit/upper limit in the CPU registers.
 
+config MSM_CPU_PWR_CTL
+	bool "Cpu subsystem power control"
+	depends on SMP && (ARM || ARM64)
+	default y
+	help
+	  Provides routines to power on cpu rails and l2 cache
+	  controller during coldboot.
+
 source "drivers/soc/qcom/memshare/Kconfig"
 
 endif # ARCH_MSM
