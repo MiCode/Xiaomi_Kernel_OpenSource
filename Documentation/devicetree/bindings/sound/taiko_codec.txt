@@ -228,6 +228,10 @@ Optional properties:
  - qcom,cdc-vdd-spkdrv-voltage: spkdrv supply voltage level min and max in mV.
  - qcom,cdc-vdd-spkdrv-current: spkdrv supply max current in mA.
 
+ - cdc-vdd-spkdrv-2-supply: phandle of spkdrv2 supply's regulator device tree node.
+ - qcom,cdc-vdd-spkdrv-2-voltage: spkdrv2 supply voltage level min and max in mV.
+ - qcom,cdc-vdd-spkdrv-2-current: spkdrv2 supply max current in mA.
+
  - qcom,cdc-on-demand-supplies: List of supplies which can be enabled
 				dynamically.
 				Supplies in this list are off by default.
@@ -289,7 +293,16 @@ i2c@f9925000 {
 					   "cdc-vddcx-1",
 					   "cdc-vddcx-2";
 
-		com,cdc-on-demand-supplies = "cdc-vdd-spkdrv";
+		cdc-vdd-spkdrv-supply = <&pmi8994_boost>;
+		qcom,cdc-vdd-spkdrv-voltage = <5000000 5000000>;
+		qcom,cdc-vdd-spkdrv-current = <600000>;
+
+		cdc-vdd-spkdrv-2-supply = <&pmi8994_boost>;
+		qcom,cdc-vdd-spkdrv-2-voltage = <5000000 5000000>;
+		qcom,cdc-vdd-spkdrv-2-current = <600000>;
+
+		qcom,cdc-on-demand-supplies = "cdc-vdd-spkdrv",
+					      "cdc-vdd-spkdrv-2";
 
 		qcom,cdc-micbias-ldoh-v = <0x3>;
 		qcom,cdc-micbias-cfilt1-mv = <1800>;
