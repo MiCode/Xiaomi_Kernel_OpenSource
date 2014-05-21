@@ -226,9 +226,6 @@ void msm_pcm_routing_dereg_phy_stream(int fedai_id, int stream_type);
 
 int msm_routing_check_backend_enabled(int fedai_id);
 
-uint32_t get_adm_rx_topology(void);
-
-uint32_t get_adm_tx_topology(void);
 
 void msm_pcm_routing_get_bedai_info(int be_idx,
 				    struct msm_pcm_routing_bdai_data *bedai);

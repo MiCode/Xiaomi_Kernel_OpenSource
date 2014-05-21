@@ -38,11 +38,18 @@
 #include <sound/apr_audio-v2.h>
 #include <sound/q6asm-v2.h>
 #include <sound/q6audio-v2.h>
-
-#include "audio_acdb.h"
+#include "audio_cal_utils.h"
 
 #define TRUE        0x01
 #define FALSE       0x00
+
+enum {
+	ASM_TOPOLOGY_CAL = 0,
+	ASM_CUSTOM_TOP_CAL,
+	ASM_AUDSTRM_CAL,
+	ASM_RTAC_APR_CAL,
+	ASM_MAX_CAL_TYPES
+};
 
 /* TODO, combine them together */
 static DEFINE_MUTEX(session_lock);
@@ -81,6 +88,7 @@ void *q6asm_mmap_apr_reg(void);
 static int q6asm_is_valid_session(struct apr_client_data *data, void *priv);
 
 /* for ASM custom topology */
+static struct cal_type_data *cal_data[ASM_MAX_CAL_TYPES];
 static struct audio_buffer common_buf[2];
 static struct audio_client common_client;
 static int set_custom_topology;
@@ -349,6 +357,7 @@ int q6asm_mmap_apr_dereg(void)
 	c = atomic_sub_return(1, &this_mmap.ref_cnt);
 	if (c == 0) {
 		apr_deregister(this_mmap.apr);
+		common_client.mmap_apr = NULL;
 		pr_debug("%s: APR De-Register common port\n", __func__);
 	} else if (c < 0) {
 		pr_err("%s: APR Common Port Already Closed\n", __func__);
@@ -381,72 +390,186 @@ static void q6asm_session_free(struct audio_client *ac)
 	return;
 }
 
-void send_asm_custom_topology(struct audio_client *ac)
+static int q6asm_map_cal_memory(struct cal_block_data *cal_block)
 {
-	struct acdb_cal_block		cal_block;
-	struct cmd_set_topologies	asm_top;
-	struct asm_buffer_node		*buf_node = NULL;
-	struct list_head		*ptr, *next;
-	int				result;
-	int				size = 4096;
+	int			result = 0;
+	struct asm_buffer_node	*buf_node = NULL;
+	struct list_head	*ptr, *next;
 
-	if (!set_custom_topology)
-		return;
+	if (cal_block == NULL) {
+		pr_err("%s: cal_block is NULL!\n",
+			__func__);
+		result = -EINVAL;
+		goto done;
+	}
 
-	get_asm_custom_topology(&cal_block);
-	if (cal_block.cal_size == 0) {
-		pr_debug("%s: no cal to send addr= 0x%pa\n",
-				__func__, &cal_block.cal_paddr);
-		return;
+	if (cal_block->cal_data.paddr == 0) {
+		pr_debug("%s: No address to map!\n",
+			__func__);
+		result = -EINVAL;
+		goto done;
 	}
 
 	common_client.mmap_apr = q6asm_mmap_apr_reg();
-	common_client.apr = common_client.mmap_apr;
 	if (common_client.mmap_apr == NULL) {
 		pr_err("%s: q6asm_mmap_apr_reg failed\n",
 			__func__);
 		result = -EPERM;
-		goto mmap_fail;
+		goto done;
 	}
-	/* Only call this once */
-	set_custom_topology = 0;
+	common_client.apr = common_client.mmap_apr;
+	if (cal_block->map_data.map_size == 0) {
+		pr_debug("%s: map size is 0!\n",
+			__func__);
+		result = -EINVAL;
+		goto done;
+	}
 
-	/* Use first asm buf to map memory */
+	/* Use second asm buf to map memory */
 	if (common_client.port[IN].buf == NULL) {
 		pr_err("%s: common buf is NULL\n",
 			__func__);
-		goto err_map;
+		result = -EINVAL;
+		goto done;
 	}
-	common_client.port[IN].buf->phys = cal_block.cal_paddr;
+
+	common_client.port[IN].buf->phys = cal_block->cal_data.paddr;
 
 	result = q6asm_memory_map_regions(&common_client,
-						IN, size, 1, 1);
+			IN, cal_block->map_data.map_size, 1, 1);
 	if (result < 0) {
 		pr_err("%s: mmap did not work! addr = 0x%pa, size = %zd\n",
-			__func__, &cal_block.cal_paddr,
-			cal_block.cal_size);
-		goto err_map;
+			__func__,
+			&cal_block->cal_data.paddr,
+			cal_block->map_data.map_size);
+		goto done;
 	}
 
 	list_for_each_safe(ptr, next,
-			&common_client.port[IN].mem_map_handle) {
+		&common_client.port[IN].mem_map_handle) {
 		buf_node = list_entry(ptr, struct asm_buffer_node,
 					list);
-		if (buf_node->buf_phys_addr == cal_block.cal_paddr) {
-			topology_map_handle =  buf_node->mmap_hdl;
+		if (buf_node->buf_phys_addr == cal_block->cal_data.paddr) {
+			cal_block->map_data.q6map_handle =  buf_node->mmap_hdl;
 			break;
 		}
 	}
+done:
+	return result;
+}
 
+static void remap_cal_data(struct cal_block_data *cal_block)
+{
+	int ret = 0;
+
+	if ((cal_block->map_data.map_size > 0) &&
+		(cal_block->map_data.q6map_handle == 0)) {
+
+		ret = q6asm_map_cal_memory(cal_block);
+		if (ret < 0) {
+			pr_err("%s: mmap did not work! size = %zd\n",
+				__func__, cal_block->map_data.map_size);
+			goto done;
+		}
+	}
+done:
+	return;
+}
+
+static int q6asm_unmap_cal_memory(struct cal_block_data *cal_block)
+{
+	int			result = 0;
+	int			result2 = 0;
+
+	if (cal_block == NULL) {
+		pr_err("%s: cal_block is NULL!\n",
+			__func__);
+		result = -EINVAL;
+		goto done;
+	}
+
+	if (cal_block->map_data.q6map_handle == 0) {
+		pr_debug("%s: No address to unmap!\n",
+			__func__);
+		result = -EINVAL;
+		goto done;
+	}
+
+	if (common_client.mmap_apr == NULL) {
+		common_client.mmap_apr = q6asm_mmap_apr_reg();
+		if (common_client.mmap_apr == NULL) {
+			pr_err("%s: q6asm_mmap_apr_reg failed\n",
+				__func__);
+			result = -EPERM;
+			goto done;
+		}
+	}
+
+	result2 = q6asm_memory_unmap_regions(&common_client, IN);
+	if (result2 < 0) {
+		pr_err("%s: unmap failed, err %d\n",
+			__func__, result2);
+		result = result2;
+	}
+
+	cal_block->map_data.q6map_handle = 0;
+done:
+	return result;
+}
+
+void q6asm_unmap_cal_data(int cal_type, struct cal_block_data *cal_block)
+{
+	int ret = 0;
+
+	if ((cal_block->map_data.map_size > 0) &&
+		(cal_block->map_data.q6map_handle != 0)) {
+
+		ret = q6asm_unmap_cal_memory(cal_block);
+		if (ret < 0) {
+			pr_err("%s: unmap did not work! size = %zd\n",
+				__func__, cal_block->map_data.map_size);
+			goto done;
+		}
+	}
+done:
+	return;
+}
+
+void send_asm_custom_topology(struct audio_client *ac)
+{
+	struct cal_block_data		*cal_block = NULL;
+	struct cmd_set_topologies	asm_top;
+	int				result;
+
+	if (cal_data[ASM_CUSTOM_TOP_CAL] == NULL)
+		goto done;
+
+	mutex_lock(&cal_data[ASM_CUSTOM_TOP_CAL]->lock);
+	if (!set_custom_topology)
+		goto unlock;
+	set_custom_topology = 0;
+
+	cal_block = cal_utils_get_only_cal_block(cal_data[ASM_CUSTOM_TOP_CAL]);
+	if (cal_block == NULL)
+		goto unlock;
+
+	if (cal_block->cal_data.size == 0) {
+		pr_debug("%s: No cal to send!\n", __func__);
+		goto unlock;
+	}
+
+	pr_debug("%s: Sending cal_index %d\n", __func__, ASM_CUSTOM_TOP_CAL);
+
+	remap_cal_data(cal_block);
 	q6asm_add_hdr_custom_topology(ac, &asm_top.hdr,
 				      APR_PKT_SIZE(APR_HDR_SIZE,
 					sizeof(asm_top)), TRUE);
 	atomic_set(&ac->cmd_state, 1);
 	asm_top.hdr.opcode = ASM_CMD_ADD_TOPOLOGIES;
-	asm_top.payload_addr_lsw = lower_32_bits(cal_block.cal_paddr);
-	asm_top.payload_addr_msw = upper_32_bits(cal_block.cal_paddr);
-	asm_top.mem_map_handle = topology_map_handle;
-	asm_top.payload_size = cal_block.cal_size;
+	asm_top.payload_addr_lsw = lower_32_bits(cal_block->cal_data.paddr);
+	asm_top.payload_addr_msw = upper_32_bits(cal_block->cal_data.paddr);
+	asm_top.mem_map_handle = cal_block->map_data.q6map_handle;
+	asm_top.payload_size = cal_block->cal_data.size;
 
 	 pr_debug("%s: Sending ASM_CMD_ADD_TOPOLOGIES payload = 0x%x, size = %d, map handle = 0x%x\n",
 		__func__, asm_top.payload_addr_lsw,
@@ -454,25 +577,28 @@ void send_asm_custom_topology(struct audio_client *ac)
 
 	result = apr_send_pkt(ac->apr, (uint32_t *) &asm_top);
 	if (result < 0) {
+
 		pr_err("%s: Set topologies failed payload = 0x%pa\n",
-			__func__, &cal_block.cal_paddr);
-		goto err_unmap;
+			__func__, &cal_block->cal_data.paddr);
+		goto unmap;
+
 	}
 
 	result = wait_event_timeout(ac->cmd_wait,
 			(atomic_read(&ac->cmd_state) == 0), 5*HZ);
 	if (!result) {
-		pr_err("%s: Set topologies failed payload = 0x%pa\n",
-			__func__, &cal_block.cal_paddr);
-		goto err_unmap;
+
+		pr_err("%s: Set topologies failed after timedout payload = 0x%pa\n",
+			__func__, &cal_block->cal_data.paddr);
+		goto unmap;
 	}
-	return;
-err_unmap:
-	q6asm_memory_unmap_regions(ac, IN);
-err_map:
-	q6asm_mmap_apr_dereg();
-	set_custom_topology = 1;
-mmap_fail:
+unmap:
+	result = q6asm_unmap_cal_memory(cal_block);
+	if (result < 0)
+		pr_debug("%s: unmap cal failed!\n", __func__);
+unlock:
+	mutex_unlock(&cal_data[ASM_CUSTOM_TOP_CAL]->lock);
+done:
 	return;
 }
 
@@ -528,7 +654,8 @@ int q6asm_map_rtac_block(struct rtac_cal_block_data *cal_block)
 			OUT, cal_block->map_data.map_size, 1, 1);
 	if (result < 0) {
 		pr_err("%s: mmap did not work! addr = 0x%pa, size = %d\n",
-			__func__, &cal_block->cal_data.paddr,
+			__func__,
+			&cal_block->cal_data.paddr,
 			cal_block->map_data.map_size);
 		goto done;
 	}
@@ -541,14 +668,6 @@ int q6asm_map_rtac_block(struct rtac_cal_block_data *cal_block)
 			cal_block->map_data.map_handle =  buf_node->mmap_hdl;
 			break;
 		}
-	}
-
-	result = q6asm_mmap_apr_dereg();
-	if (result < 0) {
-		pr_err("%s: q6asm_mmap_apr_dereg failed, err %d\n",
-			__func__, result);
-	} else {
-		common_client.mmap_apr = NULL;
 	}
 done:
 	return result;
@@ -597,52 +716,7 @@ int q6asm_unmap_rtac_block(uint32_t *mem_map_handle)
 		pr_err("%s: q6asm_mmap_apr_dereg failed, err %d\n",
 			__func__, result2);
 		result = result2;
-	} else {
-		common_client.mmap_apr = NULL;
 	}
-done:
-	return result;
-}
-
-int q6asm_unmap_cal_blocks(void)
-{
-	int	result = 0;
-	int	result2 = 0;
-	pr_debug("%s\n", __func__);
-
-	if (topology_map_handle == 0)
-		goto done;
-
-	if (common_client.mmap_apr == NULL) {
-		common_client.mmap_apr = q6asm_mmap_apr_reg();
-		if (common_client.mmap_apr == NULL) {
-			pr_err("%s: q6asm_mmap_apr_reg failed\n",
-				__func__);
-			result = -EPERM;
-			goto done;
-		}
-	}
-
-	result2 = q6asm_memory_unmap_regions(&common_client, IN);
-	if (result2 < 0) {
-		pr_err("%s: unmap failed, err %d\n",
-			__func__, result2);
-		result = result2;
-	} else {
-		topology_map_handle = 0;
-	}
-
-	result2 = q6asm_mmap_apr_dereg();
-	if (result2 < 0) {
-		pr_err("%s: q6asm_mmap_apr_dereg failed, err %d\n",
-			__func__, result2);
-		result = result2;
-	} else {
-		common_client.mmap_apr = NULL;
-	}
-
-	set_custom_topology = 0;
-
 done:
 	return result;
 }
@@ -819,6 +893,7 @@ void *q6asm_mmap_apr_reg(void)
 		}
 	}
 	atomic_inc(&this_mmap.ref_cnt);
+
 	return this_mmap.apr;
 fail:
 	return NULL;
@@ -1146,8 +1221,13 @@ static int32_t q6asm_srvc_callback(struct apr_client_data *data, void *priv)
 			}
 			pr_debug("%s:Clearing custom topology\n", __func__);
 		}
-		reset_custom_topology_flags();
+		this_mmap.apr = NULL;
+
+		cal_utils_clear_cal_block_q6maps(ASM_MAX_CAL_TYPES, cal_data);
+		common_client.mmap_apr = NULL;
+		mutex_lock(&cal_data[ASM_CUSTOM_TOP_CAL]->lock);
 		set_custom_topology = 1;
+		mutex_unlock(&cal_data[ASM_CUSTOM_TOP_CAL]->lock);
 		topology_map_handle = 0;
 		rtac_clear_mapping(ASM_RTAC_CAL);
 		return 0;
@@ -1158,11 +1238,22 @@ static int32_t q6asm_srvc_callback(struct apr_client_data *data, void *priv)
 		pr_debug("%s: session[%d] already freed\n", __func__, sid);
 		return 0;
 	}
-	pr_debug("%s:ptr0[0x%x]ptr1[0x%x]opcode[0x%x] token[0x%x]payload_s[%d] src[%d] dest[%d]sid[%d]dir[%d]\n",
-		__func__, payload[0], payload[1], data->opcode, data->token,
-		data->payload_size, data->src_port, data->dest_port, sid, dir);
-	pr_debug("%s:Payload = [0x%x] status[0x%x]\n",
+
+	if (data->payload_size > sizeof(int)) {
+		pr_debug("%s:ptr0[0x%x]ptr1[0x%x]opcode[0x%x] token[0x%x]payload_s[%d] src[%d] dest[%d]sid[%d]dir[%d]\n",
+			__func__, payload[0], payload[1], data->opcode,
+			data->token, data->payload_size, data->src_port,
+			data->dest_port, sid, dir);
+		pr_debug("%s:Payload = [0x%x] status[0x%x]\n",
 			__func__, payload[0], payload[1]);
+	} else if (data->payload_size == sizeof(int)) {
+		pr_debug("%s:ptr0[0x%x]opcode[0x%x] token[0x%x]payload_s[%d] src[%d] dest[%d]sid[%d]dir[%d]\n",
+			__func__, payload[0], data->opcode,
+			data->token, data->payload_size, data->src_port,
+			data->dest_port, sid, dir);
+		pr_debug("%s:Payload = [0x%x]\n",
+			__func__, payload[0]);
+	}
 
 	if (data->opcode == APR_BASIC_RSP_RESULT) {
 		switch (payload[0]) {
@@ -1201,8 +1292,8 @@ static int32_t q6asm_srvc_callback(struct apr_client_data *data, void *priv)
 
 	switch (data->opcode) {
 	case ASM_CMDRSP_SHARED_MEM_MAP_REGIONS:{
-		pr_debug("%s:PL#0[0x%x]PL#1 [0x%x] dir=%x s_id=%x\n",
-				__func__, payload[0], payload[1], dir, sid);
+		pr_debug("%s:PL#0[0x%x] dir=%x s_id=%x\n",
+				__func__, payload[0], dir, sid);
 		spin_lock_irqsave(&port->dsp_lock, dsp_flags);
 		if (atomic_read(&ac->cmd_state)) {
 			ac->port[dir].tmp_hdl = payload[0];
@@ -1772,9 +1863,7 @@ static int __q6asm_open_read(struct audio_client *ac,
 	/* Stream prio : High, provide meta info with encoded frames */
 	open.src_endpointype = ASM_END_POINT_DEVICE_MATRIX;
 
-	open.preprocopo_id = get_asm_topology();
-	if (open.preprocopo_id == 0)
-		open.preprocopo_id = ASM_STREAM_POSTPROC_TOPO_ID_NONE;
+	open.preprocopo_id = q6asm_get_asm_topology();
 	open.bits_per_sample = bits_per_sample;
 	open.mode_flags = 0x0;
 
@@ -1889,9 +1978,7 @@ static int __q6asm_open_write(struct audio_client *ac, uint32_t format,
 	open.sink_endpointype = ASM_END_POINT_DEVICE_MATRIX;
 	open.bits_per_sample = bits_per_sample;
 
-	open.postprocopo_id = get_asm_topology();
-	if (open.postprocopo_id == 0)
-		open.postprocopo_id = ASM_STREAM_POSTPROC_TOPO_ID_NONE;
+	open.postprocopo_id = q6asm_get_asm_topology();
 
 	switch (format) {
 	case FORMAT_LINEAR_PCM:
@@ -1988,9 +2075,7 @@ int q6asm_open_read_write(struct audio_client *ac,
 	open.mode_flags = BUFFER_META_ENABLE;
 	open.bits_per_sample = 16;
 	/* source endpoint : matrix */
-	open.postprocopo_id = get_asm_topology();
-	if (open.postprocopo_id == 0)
-		open.postprocopo_id = ASM_STREAM_POSTPROC_TOPO_ID_NONE;
+	open.postprocopo_id = q6asm_get_asm_topology();
 
 	switch (wr_format) {
 	case FORMAT_LINEAR_PCM:
@@ -2099,9 +2184,7 @@ int q6asm_open_loopback_v2(struct audio_client *ac, uint16_t bits_per_sample)
 	open.src_endpointype = 0;
 	open.sink_endpointype = 0;
 	/* source endpoint : matrix */
-	open.postprocopo_id = get_asm_topology();
-	if (open.postprocopo_id == 0)
-		open.postprocopo_id = DEFAULT_POPP_TOPOLOGY;
+	open.postprocopo_id = q6asm_get_asm_topology();
 	open.bits_per_sample = bits_per_sample;
 	open.reserved = 0;
 
@@ -4232,7 +4315,7 @@ int q6asm_send_audio_effects_params(struct audio_client *ac, char *params,
 	     params_length;
 	asm_params = kzalloc(sz, GFP_KERNEL);
 	if (!asm_params) {
-		pr_err("%s, adm params memory alloc failed", __func__);
+		pr_err("%s, asm params memory alloc failed", __func__);
 		return -ENOMEM;
 	}
 	q6asm_add_hdr_async(ac, &hdr, (sizeof(struct apr_hdr) +
@@ -4611,6 +4694,187 @@ int q6asm_get_apr_service_id(int session_id)
 	return ((struct apr_svc *)session[session_id]->apr)->id;
 }
 
+int q6asm_get_asm_topology(void)
+{
+	int				topology = DEFAULT_POPP_TOPOLOGY;
+	struct cal_block_data		*cal_block = NULL;
+	pr_debug("%s\n", __func__);
+
+	if (cal_data[ASM_TOPOLOGY_CAL] == NULL)
+		goto done;
+
+	mutex_lock(&cal_data[ASM_TOPOLOGY_CAL]->lock);
+	cal_block = cal_utils_get_only_cal_block(cal_data[ASM_TOPOLOGY_CAL]);
+	if (cal_block == NULL)
+		goto unlock;
+
+	topology = ((struct audio_cal_info_asm_top *)
+		cal_block->cal_info)->topology;
+unlock:
+	mutex_unlock(&cal_data[ASM_TOPOLOGY_CAL]->lock);
+done:
+	pr_debug("%s: Using topology %d\n", __func__, topology);
+	return topology;
+}
+
+
+static int get_cal_type_index(int32_t cal_type)
+{
+	int ret = -EINVAL;
+
+	switch (cal_type) {
+	case ASM_TOPOLOGY_CAL_TYPE:
+		ret = ASM_TOPOLOGY_CAL;
+		break;
+	case ASM_CUST_TOPOLOGY_CAL_TYPE:
+		ret = ASM_CUSTOM_TOP_CAL;
+		break;
+	case ASM_AUDSTRM_CAL_TYPE:
+		ret = ASM_AUDSTRM_CAL;
+		break;
+	case ASM_RTAC_APR_CAL_TYPE:
+		ret = ASM_RTAC_APR_CAL;
+		break;
+	default:
+		pr_err("%s: invalid cal type %d!\n", __func__, cal_type);
+	}
+	return ret;
+}
+
+static int q6asm_alloc_cal(int32_t cal_type,
+				size_t data_size, void *data)
+{
+	int				ret = 0;
+	int				cal_index;
+	pr_debug("%s\n", __func__);
+
+	cal_index = get_cal_type_index(cal_type);
+	if (cal_index < 0) {
+		pr_err("%s: could not get cal index %d!\n",
+			__func__, cal_index);
+		ret = -EINVAL;
+		goto done;
+	}
+
+	ret = cal_utils_alloc_cal(data_size, data,
+		cal_data[cal_index], 0, NULL);
+	if (ret < 0) {
+		pr_err("%s: cal_utils_alloc_block failed, ret = %d, cal type = %d!\n",
+			__func__, ret, cal_type);
+		ret = -EINVAL;
+		goto done;
+	}
+done:
+	return ret;
+}
+
+static int q6asm_dealloc_cal(int32_t cal_type,
+				size_t data_size, void *data)
+{
+	int				ret = 0;
+	int				cal_index;
+	pr_debug("%s\n", __func__);
+
+	cal_index = get_cal_type_index(cal_type);
+	if (cal_index < 0) {
+		pr_err("%s: could not get cal index %d!\n",
+			__func__, cal_index);
+		ret = -EINVAL;
+		goto done;
+	}
+
+	ret = cal_utils_dealloc_cal(data_size, data,
+		cal_data[cal_index]);
+	if (ret < 0) {
+		pr_err("%s: cal_utils_dealloc_block failed, ret = %d, cal type = %d!\n",
+			__func__, ret, cal_type);
+		ret = -EINVAL;
+		goto done;
+	}
+done:
+	return ret;
+}
+
+static int q6asm_set_cal(int32_t cal_type,
+			size_t data_size, void *data)
+{
+	int				ret = 0;
+	int				cal_index;
+	pr_debug("%s\n", __func__);
+
+	cal_index = get_cal_type_index(cal_type);
+	if (cal_index < 0) {
+		pr_err("%s: could not get cal index %d!\n",
+			__func__, cal_index);
+		ret = -EINVAL;
+		goto done;
+	}
+
+	ret = cal_utils_set_cal(data_size, data,
+		cal_data[cal_index], 0, NULL);
+	if (ret < 0) {
+		pr_err("%s: cal_utils_set_cal failed, ret = %d, cal type = %d!\n",
+			__func__, ret, cal_type);
+		ret = -EINVAL;
+		goto done;
+	}
+
+	if (cal_index == ASM_CUSTOM_TOP_CAL) {
+		mutex_lock(&cal_data[ASM_CUSTOM_TOP_CAL]->lock);
+		set_custom_topology = 1;
+		mutex_unlock(&cal_data[ASM_CUSTOM_TOP_CAL]->lock);
+	}
+done:
+	return ret;
+}
+
+static void q6asm_delete_cal_data(void)
+{
+	pr_debug("%s\n", __func__);
+	cal_utils_destroy_cal_types(ASM_MAX_CAL_TYPES, cal_data);
+
+	return;
+}
+
+static int q6asm_init_cal_data(void)
+{
+	int ret = 0;
+	struct cal_type_info	cal_type_info[] = {
+		{{ASM_TOPOLOGY_CAL_TYPE,
+		{NULL, NULL, NULL,
+		q6asm_set_cal, NULL, NULL} },
+		{NULL, NULL, cal_utils_match_only_block} },
+
+		{{ASM_CUST_TOPOLOGY_CAL_TYPE,
+		{q6asm_alloc_cal, q6asm_dealloc_cal, NULL,
+		q6asm_set_cal, NULL, NULL} },
+		{NULL, NULL, cal_utils_match_ion_map} },
+
+		{{ASM_AUDSTRM_CAL_TYPE,
+		{q6asm_alloc_cal, q6asm_dealloc_cal, NULL,
+		q6asm_set_cal, NULL, NULL} },
+		{NULL, NULL, cal_utils_match_ion_map} },
+
+		{{ASM_RTAC_APR_CAL_TYPE,
+		{NULL, NULL, NULL, NULL, NULL, NULL} },
+		{NULL, NULL, cal_utils_match_only_block} }
+	};
+	pr_debug("%s\n", __func__);
+
+	ret = cal_utils_create_cal_types(ASM_MAX_CAL_TYPES, cal_data,
+		cal_type_info);
+	if (ret < 0) {
+		pr_err("%s: could not create cal type!\n",
+			__func__);
+		ret = -EINVAL;
+		goto err;
+	}
+
+	return ret;
+err:
+	q6asm_delete_cal_data();
+	return ret;
+}
 
 static int q6asm_is_valid_session(struct apr_client_data *data, void *priv)
 {
@@ -4665,9 +4929,18 @@ static int __init q6asm_init(void)
 	atomic_set(&common_client.cmd_state, 0);
 	atomic_set(&common_client.nowait_cmd_cnt, 0);
 
+	if (q6asm_init_cal_data())
+		pr_err("%s: could not init cal data!\n", __func__);
+
 	config_debug_fs_init();
 
 	return 0;
 }
 
+static void __exit q6asm_exit(void)
+{
+	q6asm_delete_cal_data();
+}
+
 device_initcall(q6asm_init);
+__exitcall(q6asm_exit);
