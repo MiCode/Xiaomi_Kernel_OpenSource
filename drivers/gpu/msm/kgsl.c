@@ -2272,7 +2272,7 @@ static struct kgsl_cmdbatch *_kgsl_cmdbatch_create(struct kgsl_device *device,
 	if (IS_ERR(cmdbatch))
 		return cmdbatch;
 
-	if (!(flags & KGSL_CMDBATCH_SYNC)) {
+	if (!(flags & (KGSL_CMDBATCH_SYNC | KGSL_CMDBATCH_MARKER))) {
 		struct kgsl_ibdesc ibdesc;
 		void  __user *uptr = (void  __user *) cmdlist;
 
@@ -2332,7 +2332,7 @@ static long kgsl_ioctl_rb_issueibcmds(struct kgsl_device_private *dev_priv,
 	long result = -EINVAL;
 
 	/* The legacy functions don't support synchronization commands */
-	if (param->flags & KGSL_CMDBATCH_SYNC)
+	if ((param->flags & (KGSL_CMDBATCH_SYNC | KGSL_CMDBATCH_MARKER)))
 		return -EINVAL;
 
 	/* Get the context */
@@ -2392,14 +2392,21 @@ static long kgsl_ioctl_submit_commands(struct kgsl_device_private *dev_priv,
 
 	long result = -EINVAL;
 
-	/* The number of IBs are completely ignored for sync commands */
-	if (!(param->flags & KGSL_CMDBATCH_SYNC)) {
-		if (param->numcmds == 0 || param->numcmds > KGSL_MAX_NUMIBS)
-			return -EINVAL;
-	} else if (param->numcmds != 0) {
+	/*
+	 * The SYNC bit is supposed to identify a dummy sync object so warn the
+	 * user if they specified any IBs with it.  A MARKER command can either
+	 * have IBs or not but if the command has 0 IBs it is automatically
+	 * assumed to be a marker.  If none of the above make sure that the user
+	 * specified a sane number of IBs
+	 */
+
+	if ((param->flags & KGSL_CMDBATCH_SYNC) && param->numcmds)
 		KGSL_DEV_ERR_ONCE(device,
 			"Commands specified with the SYNC flag.  They will be ignored\n");
-	}
+	else if (param->numcmds > KGSL_MAX_NUMIBS)
+		return -EINVAL;
+	else if (!(param->flags & KGSL_CMDBATCH_SYNC) && param->numcmds == 0)
+		param->flags |= KGSL_CMDBATCH_MARKER;
 
 	context = kgsl_context_get_owner(dev_priv, param->context_id);
 	if (context == NULL)

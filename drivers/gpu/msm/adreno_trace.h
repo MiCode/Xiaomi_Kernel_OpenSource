@@ -51,17 +51,21 @@ DECLARE_EVENT_CLASS(adreno_cmdbatch_template,
 	TP_STRUCT__entry(
 		__field(unsigned int, id)
 		__field(unsigned int, timestamp)
-		__field(unsigned int, inflight)
+		__field(int, inflight)
+		__field(unsigned int, flags)
 	),
 	TP_fast_assign(
 		__entry->id = cmdbatch->context->id;
 		__entry->timestamp = cmdbatch->timestamp;
 		__entry->inflight = inflight;
+		__entry->flags = cmdbatch->flags;
 	),
 	TP_printk(
-		"ctx=%u ts=%u inflight=%u",
+		"ctx=%u ts=%u inflight=%d flags=%s",
 			__entry->id, __entry->timestamp,
-			__entry->inflight
+			__entry->inflight,
+			__entry->flags ? __print_flags(__entry->flags, "|",
+							{ KGSL_CMDBATCH_MARKER, "MARKER" }) : "none"
 	)
 );
 
@@ -76,22 +80,26 @@ TRACE_EVENT(adreno_cmdbatch_retired,
 	TP_STRUCT__entry(
 		__field(unsigned int, id)
 		__field(unsigned int, timestamp)
-		__field(unsigned int, inflight)
+		__field(int, inflight)
 		__field(unsigned int, recovery)
+		__field(unsigned int, flags)
 	),
 	TP_fast_assign(
 		__entry->id = cmdbatch->context->id;
 		__entry->timestamp = cmdbatch->timestamp;
 		__entry->inflight = inflight;
 		__entry->recovery = cmdbatch->fault_recovery;
+		__entry->flags = cmdbatch->flags;
 	),
 	TP_printk(
-		"ctx=%u ts=%u inflight=%u recovery=%s",
+		"ctx=%u ts=%u inflight=%d recovery=%s flags=%s",
 			__entry->id, __entry->timestamp,
 			__entry->inflight,
 			__entry->recovery ?
 				__print_flags(__entry->recovery, "|",
-				ADRENO_FT_TYPES) : "none"
+				ADRENO_FT_TYPES) : "none",
+			__entry->flags ? __print_flags(__entry->flags, "|",
+				{ KGSL_CMDBATCH_MARKER, "MARKER" }) : "none"
 	)
 );
 
