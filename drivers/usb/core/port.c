@@ -83,8 +83,6 @@ static int usb_port_runtime_resume(struct device *dev)
 		return -EINVAL;
 
 	usb_autopm_get_interface(intf);
-	set_bit(port1, hub->busy_bits);
-
 	retval = usb_hub_set_port_power(hdev, hub, port1, true);
 	if (port_dev->child && !retval) {
 		/*
@@ -101,7 +99,6 @@ static int usb_port_runtime_resume(struct device *dev)
 		retval = 0;
 	}
 
-	clear_bit(port1, hub->busy_bits);
 	usb_autopm_put_interface(intf);
 	return retval;
 }
@@ -123,11 +120,9 @@ static int usb_port_runtime_suspend(struct device *dev)
 		return -EAGAIN;
 
 	usb_autopm_get_interface(intf);
-	set_bit(port1, hub->busy_bits);
 	retval = usb_hub_set_port_power(hdev, hub, port1, false);
 	usb_clear_port_feature(hdev, port1, USB_PORT_FEAT_C_CONNECTION);
-	usb_clear_port_feature(hdev, port1,	USB_PORT_FEAT_C_ENABLE);
-	clear_bit(port1, hub->busy_bits);
+	usb_clear_port_feature(hdev, port1, USB_PORT_FEAT_C_ENABLE);
 	usb_autopm_put_interface(intf);
 	return retval;
 }
@@ -164,7 +159,7 @@ int usb_hub_create_port_device(struct usb_hub *hub, int port1)
 	port_dev->dev.groups = port_dev_group;
 	port_dev->dev.type = &usb_port_device_type;
 	dev_set_name(&port_dev->dev, "port%d", port1);
-
+	mutex_init(&port_dev->status_lock);
 	retval = device_register(&port_dev->dev);
 	if (retval)
 		goto error_register;

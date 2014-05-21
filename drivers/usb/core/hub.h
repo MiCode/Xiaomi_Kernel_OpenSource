@@ -45,8 +45,6 @@ struct usb_hub {
 	unsigned long		event_bits[1];	/* status change bitmask */
 	unsigned long		change_bits[1];	/* ports with logical connect
 							status change */
-	unsigned long		busy_bits[1];	/* ports being reset or
-							resumed */
 	unsigned long		removed_bits[1]; /* ports with a "removed"
 							device present */
 	unsigned long		wakeup_bits[1];	/* ports that have signaled
@@ -82,6 +80,7 @@ struct usb_hub {
  * @dev: generic device interface
  * @port_owner: port's owner
  * @connect_type: port's connect type
+ * @status_lock: synchronize port_event() vs usb_port_{suspend|resume}
  * @portnum: port index num based one
  * @power_is_on: port's power state
  * @did_runtime_put: port has done pm_runtime_put().
@@ -91,6 +90,7 @@ struct usb_port {
 	struct device dev;
 	struct dev_state *port_owner;
 	enum usb_port_connect_type connect_type;
+	struct mutex status_lock;
 	u8 portnum;
 	unsigned power_is_on:1;
 	unsigned did_runtime_put:1;
