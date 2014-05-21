@@ -25,8 +25,6 @@
 #include <linux/platform_device.h>
 #include <linux/of_platform.h>
 #include <linux/cpu_pm.h>
-#include <linux/remote_spinlock.h>
-#include <linux/msm_remote_spinlock.h>
 #include <linux/msm-bus.h>
 #include <soc/qcom/avs.h>
 #include <soc/qcom/spm.h>
@@ -84,29 +82,7 @@ static struct msm_pm_sleep_status_data *msm_pm_slp_sts;
 DEFINE_PER_CPU(struct clk *, cpu_clks);
 static struct clk *l2_clk;
 
-static int cpu_count;
-static DEFINE_SPINLOCK(cpu_cnt_lock);
-#define SCM_HANDOFF_LOCK_ID "S:7"
-static remote_spinlock_t scm_handoff_lock;
-
 static void __iomem *msm_pc_debug_counters;
-
-/*
- * Default the l2 flush flag to OFF so the caches are flushed during power
- * collapse unless the explicitly voted by lpm driver.
- */
-static enum msm_pm_l2_scm_flag msm_pm_flush_l2_flag = MSM_SCM_L2_OFF;
-
-void msm_pm_set_l2_flush_flag(enum msm_pm_l2_scm_flag flag)
-{
-	msm_pm_flush_l2_flag = flag;
-}
-EXPORT_SYMBOL(msm_pm_set_l2_flush_flag);
-
-static enum msm_pm_l2_scm_flag msm_pm_get_l2_flush_flag(void)
-{
-	return msm_pm_flush_l2_flag;
-}
 
 static cpumask_t retention_cpus;
 static DEFINE_SPINLOCK(retention_lock);
@@ -218,27 +194,9 @@ static bool msm_pm_pc_hotplug(void)
 int msm_pm_collapse(unsigned long unused)
 {
 	uint32_t cpu = smp_processor_id();
-	enum msm_pm_l2_scm_flag flag = MSM_SCM_L2_ON;
+	enum msm_pm_l2_scm_flag flag;
 
-	spin_lock(&cpu_cnt_lock);
-	cpu_count++;
-	if (cpu_count == num_online_cpus())
-		flag = msm_pm_get_l2_flush_flag();
-
-	pr_debug("cpu:%d cores_in_pc:%d L2 flag: %d\n",
-			cpu, cpu_count, flag);
-
-	/*
-	 * The scm_handoff_lock will be release by the secure monitor.
-	 * It is used to serialize power-collapses from this point on,
-	 * so that both Linux and the secure context have a consistent
-	 * view regarding the number of running cpus (cpu_count).
-	 *
-	 * It must be acquired before releasing cpu_cnt_lock.
-	 */
-	remote_spin_lock_rlock_id(&scm_handoff_lock,
-				  REMOTE_SPINLOCK_TID_START + cpu);
-	spin_unlock(&cpu_cnt_lock);
+	flag = lpm_cpu_pre_pc_cb(cpu);
 
 	if (flag == MSM_SCM_L2_OFF)
 		flush_cache_all();
@@ -292,12 +250,6 @@ static bool __ref msm_pm_spm_power_collapse(
 		!cpu_suspend(0) : msm_pm_pc_hotplug();
 #endif
 
-	if (save_cpu_regs) {
-		spin_lock(&cpu_cnt_lock);
-		cpu_count--;
-		BUG_ON(cpu_count > num_online_cpus());
-		spin_unlock(&cpu_cnt_lock);
-	}
 	msm_jtag_restore_state();
 
 	if (collapsed)
@@ -334,7 +286,7 @@ static enum msm_pm_time_stats_id msm_pm_power_collapse_standalone(
 	avs_set_avsdscr(avsdscr);
 	avs_set_avscsr(avscsr);
 	return collapsed ? MSM_PM_STAT_IDLE_STANDALONE_POWER_COLLAPSE :
-			MSM_PM_STAT_IDLE_FAILED_STANDALONE_POWER_COLLAPSE;
+		MSM_PM_STAT_IDLE_FAILED_STANDALONE_POWER_COLLAPSE;
 }
 
 static int ramp_down_last_cpu(int cpu)
@@ -421,7 +373,7 @@ static enum msm_pm_time_stats_id msm_pm_power_collapse(bool from_idle)
 	if (MSM_PM_DEBUG_POWER_COLLAPSE & msm_pm_debug_mask)
 		pr_info("CPU%u: %s: return\n", cpu, __func__);
 	return collapsed ? MSM_PM_STAT_IDLE_POWER_COLLAPSE :
-			MSM_PM_STAT_IDLE_FAILED_POWER_COLLAPSE;
+		MSM_PM_STAT_IDLE_FAILED_POWER_COLLAPSE;
 }
 /******************************************************************************
  * External Idle/Suspend Functions
@@ -491,13 +443,16 @@ static enum msm_pm_time_stats_id (*execute[MSM_PM_SLEEP_MODE_NR])(bool idle) = {
  * @mode - sleep mode to enter
  * @from_idle - bool to indicate that the mode is exercised during idle/suspend
  *
+ * returns none
+ *
  * The code should be with interrupts disabled and on the core on which the
  * low power is to be executed.
+ *
  */
 void msm_cpu_pm_enter_sleep(enum msm_pm_sleep_mode mode, bool from_idle)
 {
 	int64_t time = 0;
-	enum msm_pm_time_stats_id exit_stat = -1;
+	enum msm_pm_time_stats_id exit_stat = 0;
 	unsigned int cpu = smp_processor_id();
 
 	if ((!from_idle  && cpu_online(cpu))
@@ -516,7 +471,6 @@ void msm_cpu_pm_enter_sleep(enum msm_pm_sleep_mode mode, bool from_idle)
 		if (exit_stat >= 0)
 			msm_pm_add_stat(exit_stat, time);
 	}
-
 }
 
 /**
@@ -904,13 +858,6 @@ static int msm_cpu_pm_probe(struct platform_device *pdev)
 	} else {
 		msm_pc_debug_counters = 0;
 		msm_pc_debug_counters_phys = 0;
-	}
-
-	ret = remote_spin_lock_init(&scm_handoff_lock, SCM_HANDOFF_LOCK_ID);
-	if (ret) {
-		pr_err("%s: Failed initializing scm_handoff_lock (%d)\n",
-			__func__, ret);
-		return ret;
 	}
 
 	if (pdev->dev.of_node) {
