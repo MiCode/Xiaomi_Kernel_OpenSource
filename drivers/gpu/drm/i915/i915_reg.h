@@ -303,6 +303,8 @@
 #define   MI_BATCH_NON_SECURE_HSW	(1<<13)
 #define MI_BATCH_BUFFER_START	MI_INSTR(0x31, 0)
 #define   MI_BATCH_GTT		    (2<<6) /* aliased with (1<<7) on gen4 */
+#define   MI_BATCH_2ND_LEVEL_HSW    (1<<22)
+#define   MI_BATCH_ADD_OFFSET_HSW   (1<<16)
 #define MI_BATCH_BUFFER_START_GEN8	MI_INSTR(0x31, 1)
 
 
