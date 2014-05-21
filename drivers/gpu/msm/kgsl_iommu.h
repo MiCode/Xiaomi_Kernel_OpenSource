@@ -99,10 +99,16 @@ struct kgsl_iommu_register_list {
  * Max number of iommu units that the gpu core can have
  * On APQ8064, KGSL can control a maximum of 2 IOMMU units.
  */
-#define KGSL_IOMMU_MAX_UNITS 2
+enum kgsl_iommu_units {
+	KGSL_IOMMU_UNIT_0 = 0,
+	KGSL_IOMMU_UNIT_1 = 1,
+	KGSL_IOMMU_MAX_UNITS = 2,
+};
 
 /* Max number of iommu contexts per IOMMU unit */
 #define KGSL_IOMMU_MAX_DEVS_PER_UNIT 2
+/* Max number of iommu clks per IOMMU unit */
+#define KGSL_IOMMU_MAX_CLKS 4
 
 enum kgsl_iommu_context_id {
 	KGSL_IOMMU_CONTEXT_USER = 0,
@@ -183,7 +189,6 @@ struct kgsl_device_iommu_data {
  * are on, else the clocks are off
  * fault: Flag when set indicates that this iommu device has caused a page
  * fault
- * @clk_enable_count: The ref count of clock enable calls
  */
 struct kgsl_iommu_device {
 	struct device *dev;
@@ -193,7 +198,6 @@ struct kgsl_iommu_device {
 	bool clk_enabled;
 	struct kgsl_device *kgsldev;
 	int fault;
-	atomic_t clk_enable_count;
 };
 
 /*
@@ -209,6 +213,8 @@ struct kgsl_iommu_device {
  * @iommu_halt_enable: Valid only on IOMMU-v1, when set indicates that the iommu
  * unit supports halting of the IOMMU, which can be enabled while programming
  * the IOMMU registers for synchronization
+ * @clk_enable_count: The ref count of clock enable calls
+ * @clks: iommu unit clks
  */
 struct kgsl_iommu_unit {
 	struct kgsl_iommu_device dev[KGSL_IOMMU_MAX_DEVS_PER_UNIT];
@@ -216,6 +222,8 @@ struct kgsl_iommu_unit {
 	struct kgsl_memdesc reg_map;
 	unsigned int ahb_base;
 	int iommu_halt_enable;
+	atomic_t clk_enable_count;
+	struct clk *clks[KGSL_IOMMU_MAX_CLKS];
 };
 
 /*
@@ -267,13 +275,13 @@ struct kgsl_iommu_pt {
  * struct kgsl_iommu_disable_clk_param - Parameter struct for disble clk event
  * @mmu: The mmu pointer
  * @rb_level: the rb level in which the timestamp of the event belongs to
- * @ctx_id: The IOMMU context whose clock is to be turned off
+ * @unit: The IOMMU unit whose clock is to be turned off
  * @ts: Timestamp on which clock is to be disabled
  */
 struct kgsl_iommu_disable_clk_param {
 	struct kgsl_mmu *mmu;
 	int rb_level;
-	int ctx_id;
+	int unit;
 	unsigned int ts;
 };
 
