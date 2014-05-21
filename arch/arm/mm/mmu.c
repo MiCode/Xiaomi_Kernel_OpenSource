@@ -1519,8 +1519,25 @@ static noinline void split_pmd(pmd_t *pmd, unsigned long addr,
 				const struct mem_type *type)
 {
 	pte_t *pte, *start_pte;
+	pmd_t *base_pmd;
 
-	start_pte = early_alloc(PTE_HWTABLE_OFF + PTE_HWTABLE_SIZE);
+	base_pmd = pmd_offset(
+			pud_offset(pgd_offset(&init_mm, addr), addr), addr);
+
+	if (pmd_none(*base_pmd) || pmd_bad(*base_pmd)) {
+		start_pte = early_alloc(PTE_HWTABLE_OFF + PTE_HWTABLE_SIZE);
+#ifndef CONFIG_ARM_LPAE
+		/*
+		 * Following is needed when new pte is allocated for pmd[1]
+		 * cases, which may happen when base (start) address falls
+		 * under pmd[1].
+		 */
+		if (addr & SECTION_SIZE)
+			start_pte += pte_index(addr);
+#endif
+	} else {
+		start_pte = pte_offset_kernel(base_pmd, addr);
+	}
 
 	pte = start_pte;
 
