@@ -47,6 +47,7 @@
 #define HSIC_DBG1_REG					0x38
 
 struct msm_hsic_per *the_mhsic;
+static u64 msm_hsic_peripheral_dma_mask = DMA_BIT_MASK(32);
 
 struct msm_hsic_per {
 	struct device		*dev;
@@ -637,6 +638,29 @@ static struct ci13xxx_udc_driver ci13xxx_msm_udc_hsic_driver = {
 	.notify_event		= ci13xxx_msm_hsic_notify_event,
 };
 
+struct ci13xxx_platform_data *msm_hsic_peripheral_dt_to_pdata(
+					struct platform_device *pdev)
+{
+	struct device_node *node = pdev->dev.of_node;
+	struct ci13xxx_platform_data *pdata;
+	u32 core_id;
+	int ret;
+
+	pdata = devm_kzalloc(&pdev->dev, sizeof(*pdata), GFP_KERNEL);
+	if (!pdata) {
+		dev_err(&pdev->dev, "unable to allocate platform data\n");
+		return NULL;
+	}
+
+	ret = of_property_read_u32(node, "qcom,hsic-usb-core-id", &core_id);
+	if (ret)
+		dev_err(&pdev->dev, "hsic usb core id is not provided.\n");
+	else
+		pdata->usb_core_id = (u8)core_id;
+
+	return pdata;
+}
+
 static int msm_hsic_probe(struct platform_device *pdev)
 {
 	struct resource *res;
@@ -646,12 +670,22 @@ static int msm_hsic_probe(struct platform_device *pdev)
 
 	dev_dbg(&pdev->dev, "msm-hsic probe\n");
 
+	if (pdev->dev.of_node) {
+		dev_dbg(&pdev->dev, "device tree enabled\n");
+		pdev->dev.platform_data = msm_hsic_peripheral_dt_to_pdata(pdev);
+	}
+
 	if (!pdev->dev.platform_data) {
 		dev_err(&pdev->dev, "No platform data given. Bailing out\n");
 		return -ENODEV;
-	} else {
-		pdata = pdev->dev.platform_data;
 	}
+
+	if (!pdev->dev.dma_mask)
+		pdev->dev.dma_mask = &msm_hsic_peripheral_dma_mask;
+	if (!pdev->dev.coherent_dma_mask)
+		pdev->dev.coherent_dma_mask = DMA_BIT_MASK(32);
+
+	pdata = pdev->dev.platform_data;
 
 	mhsic = kzalloc(sizeof(struct msm_hsic_per), GFP_KERNEL);
 	if (!mhsic) {
@@ -774,6 +808,12 @@ static int hsic_msm_remove(struct platform_device *pdev)
 	return 0;
 }
 
+static const struct of_device_id hsic_peripheral_dt_match[] = {
+	{ .compatible = "qcom,hsic-peripheral",
+	},
+	{}
+};
+
 static struct platform_driver msm_hsic_peripheral_driver = {
 	.probe	= msm_hsic_probe,
 	.remove	= hsic_msm_remove,
@@ -782,6 +822,7 @@ static struct platform_driver msm_hsic_peripheral_driver = {
 #ifdef CONFIG_PM
 		.pm = &msm_hsic_dev_pm_ops,
 #endif
+		.of_match_table = hsic_peripheral_dt_match,
 	},
 };
 
