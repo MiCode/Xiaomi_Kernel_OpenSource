@@ -1516,7 +1516,6 @@ static int msm8x16_wcd_codec_enable_adc(struct snd_soc_dapm_widget *w,
 	case SND_SOC_DAPM_POST_PMU:
 		snd_soc_update_bits(codec, adc_reg, 1 << init_bit_shift, 0x00);
 		usleep_range(CODEC_DELAY_1_MS, CODEC_DELAY_1_1_MS);
-		snd_soc_update_bits(codec, w->reg, 0x30, 0x30);
 		break;
 	case SND_SOC_DAPM_POST_PMD:
 		msm8x16_wcd_codec_enable_adc_block(codec, 0);
@@ -1529,7 +1528,6 @@ static int msm8x16_wcd_codec_enable_adc(struct snd_soc_dapm_widget *w,
 			snd_soc_update_bits(codec,
 				MSM8X16_WCD_A_DIGITAL_CDC_CONN_TX2_CTL,
 				0x03, 0x02);
-		snd_soc_update_bits(codec, w->reg, 0x30, 0x00);
 
 		break;
 	}
