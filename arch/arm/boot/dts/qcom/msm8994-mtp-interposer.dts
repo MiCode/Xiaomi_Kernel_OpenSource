@@ -14,6 +14,16 @@
 /dts-v1/;
 
 #include "msm8974pro-pm8994.dtsi"
+&soc {
+	/*
+	 * This workaround is needed as 8974 config fails to build
+	 * due to the missing blsp2_uart2 label refernce with interposer.
+	 * The dummy node needs to be defined before the msm8994-mtp.dtsi
+	 * is included as that file has a reference to the blsp2_uart2 label
+	 */
+	blsp2_uart2: uart@f995e000 {
+	};
+};
 #include "msm8994-mtp.dtsi"
 
 / {

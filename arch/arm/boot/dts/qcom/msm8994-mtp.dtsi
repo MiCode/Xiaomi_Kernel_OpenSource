@@ -312,3 +312,7 @@
 		qcom,master-en = <1>;
 	};
 };
+
+&blsp2_uart2 {
+	status = "ok";
+};

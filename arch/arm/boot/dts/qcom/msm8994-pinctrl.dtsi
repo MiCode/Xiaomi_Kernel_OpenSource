@@ -43,22 +43,22 @@
 			};
 		};
 
-		blsp1_uart2_active {
-			qcom,pins = <&gp 4>, <&gp 5>, <&gp 6>, <&gp 7>;
+		blsp2_uart2_active {
+			qcom,pins = <&gp 45>, <&gp 46>, <&gp 47>, <&gp 48>;
 			qcom,num-grp-pins = <4>;
 			qcom,pin-func = <2>;
-		        label = "blsp1_uart2_active";
+		        label = "blsp2_uart2_active";
 			hsuart_active: default {
 				drive-strength = <16>;
 				bias-disable;
 			};
 		};
 
-		blsp1_uart2_sleep {
-			qcom,pins = <&gp 4>, <&gp 5>, <&gp 6>, <&gp 7>;
+		blsp2_uart2_sleep {
+			qcom,pins = <&gp 45>, <&gp 46>, <&gp 47>, <&gp 48>;
 			qcom,num-grp-pins = <4>;
 			qcom,pin-func = <0>;
-		        label = "blsp1_uart2_sleep";
+		        label = "blsp2_uart2_sleep";
 			hsuart_sleep: sleep {
 				drive-strength = <2>;
 				bias-disable;
