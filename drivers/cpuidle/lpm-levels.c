@@ -34,6 +34,7 @@
 #include <soc/qcom/pm.h>
 #include <soc/qcom/rpm-notifier.h>
 #include <soc/qcom/event_timer.h>
+#include <soc/qcom/lpm-stats.h>
 #include <asm/cputype.h>
 #include <asm/arch_timer.h>
 #include <asm/cacheflush.h>
@@ -69,7 +70,6 @@ struct lpm_debug {
 static struct lpm_cluster *lpm_root_node;
 static DEFINE_PER_CPU(struct lpm_cluster*, cpu_cluster);
 static bool suspend_in_progress;
-static int64_t suspend_time;
 static struct hrtimer lpm_hrtimer;
 static struct lpm_debug *lpm_debug;
 static phys_addr_t lpm_debug_phys;
@@ -443,6 +443,7 @@ static int cluster_configure(struct lpm_cluster *cluster, int idx,
 		msm_mpm_enter_sleep((uint32_t)us, from_idle, &nextcpu);
 	}
 	cluster->last_level = idx;
+	lpm_stats_cluster_enter(cluster->stats, idx);
 	spin_unlock(&cluster->sync_lock);
 	return 0;
 
@@ -534,6 +535,8 @@ static void cluster_unprepare(struct lpm_cluster *cluster,
 	if (!first_cpu || cluster->last_level == cluster->default_level)
 		goto unlock_return;
 
+	lpm_stats_cluster_exit(cluster->stats, cluster->last_level, true);
+
 	level = &cluster->levels[cluster->last_level];
 	if (level->notify_rpm) {
 		msm_rpm_exit_sleep();
@@ -544,6 +547,7 @@ static void cluster_unprepare(struct lpm_cluster *cluster,
 			cluster->num_childs_in_sync.bits[0],
 			cluster->child_cpus.bits[0], from_idle);
 
+	last_level = cluster->last_level;
 	cluster->last_level = cluster->default_level;
 
 	for (i = 0; i < cluster->ndevices; i++) {
@@ -596,6 +600,7 @@ static int lpm_cpuidle_enter(struct cpuidle_device *dev,
 {
 	struct lpm_cluster *cluster = per_cpu(cpu_cluster, dev->cpu);
 	int64_t time = ktime_to_ns(ktime_get());
+	bool success = true;
 	int idx = cpu_power_select(dev, cluster->cpu, &index);
 	const struct cpumask *cpumask = get_cpu_mask(dev->cpu);
 
@@ -606,7 +611,9 @@ static int lpm_cpuidle_enter(struct cpuidle_device *dev,
 	cpu_prepare(cluster, idx, true);
 
 	cluster_prepare(cluster, cpumask, idx, true);
-	msm_cpu_pm_enter_sleep(cluster->cpu->levels[idx].mode, true);
+	lpm_stats_cpu_enter(idx);
+	success = msm_cpu_pm_enter_sleep(cluster->cpu->levels[idx].mode, true);
+	lpm_stats_cpu_exit(idx, success);
 	cluster_unprepare(cluster, cpumask, idx, true);
 	cpu_unprepare(cluster, idx, true);
 
@@ -708,27 +715,69 @@ static int cluster_cpuidle_register(struct lpm_cluster *cl)
 	return 0;
 }
 
+static void register_cpu_lpm_stats(struct lpm_cpu *cpu,
+		struct lpm_cluster *parent)
+{
+	const char **level_name;
+	int i;
+
+	level_name = kzalloc(cpu->nlevels * sizeof(*level_name), GFP_KERNEL);
+
+	if (!level_name)
+		return;
+
+	for (i = 0; i < cpu->nlevels; i++)
+		level_name[i] = cpu->levels[i].name;
+
+	lpm_stats_config_level("cpu", level_name, cpu->nlevels,
+			parent->stats, &parent->child_cpus);
+}
+
+static void register_cluster_lpm_stats(struct lpm_cluster *cl,
+		struct lpm_cluster *parent)
+{
+	const char **level_name;
+	int i;
+	struct lpm_cluster *child;
+
+	if (!cl)
+		return;
+
+	level_name = kzalloc(cl->nlevels * sizeof(*level_name), GFP_KERNEL);
+
+	if (!level_name)
+		return;
+
+	for (i = 0; i < cl->nlevels; i++)
+		level_name[i] = cl->levels[i].level_name;
+
+	cl->stats = lpm_stats_config_level(cl->cluster_name, level_name,
+			cl->nlevels, parent ? parent->stats : NULL, NULL);
+
+	kfree(level_name);
+
+	if (cl->cpu) {
+		register_cpu_lpm_stats(cl->cpu, cl);
+		return;
+	}
+
+	list_for_each_entry(child, &cl->child, list)
+		register_cluster_lpm_stats(child, cl);
+}
+
 static int lpm_suspend_prepare(void)
 {
-	struct timespec ts;
-
-	getnstimeofday(&ts);
-	suspend_time = timespec_to_ns(&ts);
 	suspend_in_progress = true;
 	msm_mpm_suspend_prepare();
+	lpm_stats_suspend_enter();
 
 	return 0;
 }
 
 static void lpm_suspend_wake(void)
 {
-	struct timespec ts;
-
-	getnstimeofday(&ts);
-	suspend_time = timespec_to_ns(&ts) - suspend_time;
-	msm_pm_add_stat(MSM_PM_STAT_SUSPEND, suspend_time);
 	msm_mpm_suspend_wake();
-	suspend_in_progress = false;
+	lpm_stats_suspend_exit();
 }
 
 static int lpm_suspend_enter(suspend_state_t state)
@@ -816,6 +865,7 @@ static int lpm_probe(struct platform_device *pdev)
 	size = num_dbg_elements * sizeof(struct lpm_debug);
 	lpm_debug = dma_alloc_coherent(&pdev->dev, size,
 			&lpm_debug_phys, GFP_KERNEL);
+	register_cluster_lpm_stats(lpm_root_node, NULL);
 
 	ret = cluster_cpuidle_register(lpm_root_node);
 	if (ret) {

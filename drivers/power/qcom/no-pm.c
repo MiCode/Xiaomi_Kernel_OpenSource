@@ -21,6 +21,9 @@ void arch_idle(void)
 	cpu_do_idle();
 }
 
-void msm_cpu_pm_enter_sleep(enum msm_pm_sleep_mode mode, bool from_idle) {}
+bool msm_cpu_pm_enter_sleep(enum msm_pm_sleep_mode mode, bool from_idle)
+{
+	return false;
+}
 
 void msm_pm_enable_retention(bool enable) {}
