@@ -23,6 +23,10 @@
 		qca,bt-vdd-io-voltage-level = <1800000 1800000>;
 		qca,bt-vdd-xtal-voltage-level = <1800000 1800000>;
 	};
+
+	silabs,silabs-fm {
+		compatible = "silabs,silabs-fm";
+	};
 };
 
 &sdhc_1 {
@@ -572,4 +576,22 @@
 
 &qcom_cedev {
 	status = "okay";
+};
+
+&i2c_5 {
+	silabs4705@11 { /* SiLabs FM chip, slave id 0x11*/
+		status = "ok";
+		compatible = "silabs,si4705";
+		reg = <0x11>;
+		vdd-supply = <&pm8994_s4>;
+		pinctrl-names = "pmx_fm_active","pmx_fm_suspend";
+		pinctrl-0 = <&fm_int_active &fm_rst_active>;
+		pinctrl-1 = <&fm_int_suspend &fm_rst_suspend>;
+		silabs,reset-gpio = <&msm_gpio 62 0>;
+		silabs,int-gpio = <&msm_gpio 9 0>;
+		silabs,status-gpio = <&msm_gpio 11 0>;
+		interrupt-parent = <&msm_gpio>;
+		interrupts = <9 2>;
+		interrupt-names = "silabs_fm_int";
+	};
 };

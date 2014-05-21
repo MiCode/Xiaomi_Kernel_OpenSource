@@ -238,6 +238,71 @@
 			};
 		};
 
+		pmx_i2c_5 {
+			qcom,pins = <&gp 83>, <&gp 84>; /* SDA, SCL */
+			qcom,num-grp-pins = <2>;
+			qcom,pin-func = <3>;
+			label = "pmx_i2c_5";
+
+			i2c_5_active: i2c_5_active {
+				drive-strength = <2>;
+				bias-disable;
+			};
+
+			i2c_5_sleep: i2c_5_sleep {
+				drive-strength = <2>;
+				bias-disable;
+			};
+		};
+
+		pmx_fm_int_active {
+			qcom,pins = <&gp 9>;
+			qcom,pin-func = <0>;
+			qcom,num-grp-pins = <1>;
+			label = "pmx_fm_int_active";
+
+			fm_int_active: fm_int_active {
+				drive-strength = <16>;
+				bias-pull-up;
+			};
+		};
+
+		pmx_fm_int_suspend {
+			qcom,pins = <&gp 9>;
+			qcom,pin-func = <0>;
+			qcom,num-grp-pins = <1>;
+			label = "pmx_fm_int_suspend";
+
+			fm_int_suspend: fm_int_suspend {
+				drive-strength = <16>;
+				bias-pull-up;
+			};
+		};
+
+		pmx_fm_rst_active {
+			qcom,pins = <&gp 62>;
+			qcom,pin-func = <0>;
+			qcom,num-grp-pins = <1>;
+			label = "pmx_fm_rst_active";
+
+			fm_rst_active: fm_rst_active {
+				drive-strength = <16>;
+				bias-pull-down;
+			};
+		};
+
+		pmx_fm_rst_suspend {
+			qcom,pins = <&gp 62>;
+			qcom,pin-func = <0>;
+			qcom,num-grp-pins = <1>;
+			label = "pmx_fm_rst_suspend";
+
+			fm_rst_suspend: fm_rst_suspend {
+				drive-strength = <16>;
+				bias-pull-down;
+			};
+		};
+
 		pmx_i2c_6 {
 			qcom,pins = <&gp 28>, <&gp 27>; /* SDA, SCL */
 			qcom,num-grp-pins = <2>;
