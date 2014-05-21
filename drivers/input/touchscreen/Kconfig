@@ -955,4 +955,17 @@ config TOUCHSCREEN_ZFORCE
 	  To compile this driver as a module, choose M here: the
 	  module will be called zforce_ts.
 
+config TOUCHSCREEN_FOCALTECH_FT5X06
+	tristate "FOCALTECH FT5X06 touchscreen"
+	depends on I2C
+	default n
+	help
+	  Say Y here if you have a FocalTech ft5x06 series
+	  touchscreen chip.
+
+	  If unsure, say N.
+
+	  To compile this driver as a module, Choose M here: the
+	  module will be called ft5x06_ts.
+
 endif
