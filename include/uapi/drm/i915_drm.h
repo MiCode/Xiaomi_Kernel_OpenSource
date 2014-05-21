@@ -284,6 +284,7 @@ struct csc_coeff {
 #define DRM_I915_GEM_ACCESS_USERDATA	0x3c
 #define DRM_I915_SET_PLANE_ALPHA	0x3d
 #define DRM_I915_PERFMON		0x3e
+#define DRM_I915_CMD_PARSER_APPEND	0x3f
 
 #define DRM_IOCTL_I915_INIT		DRM_IOW( DRM_COMMAND_BASE + DRM_I915_INIT, drm_i915_init_t)
 #define DRM_IOCTL_I915_FLUSH		DRM_IO ( DRM_COMMAND_BASE + DRM_I915_FLUSH)
@@ -358,6 +359,9 @@ struct csc_coeff {
 					struct drm_i915_perfmon)
 #define DRM_IOCTL_I915_SET_CSC DRM_IOWR(DRM_COMMAND_BASE + DRM_I915_SET_CSC, \
 		struct csc_coeff)
+#define DRM_IOCTL_I915_CMD_PARSER_APPEND	\
+		DRM_IOW (DRM_COMMAND_BASE + DRM_I915_CMD_PARSER_APPEND, \
+		struct drm_i915_cmd_parser_append)
 
 /* Allow drivers to submit batchbuffers directly to hardware, relying
  * on the security mechanisms provided by hardware.
@@ -1288,4 +1292,102 @@ struct dpst_initialize_context {
 		struct dpst_histogram_status_legacy	hist_status_legacy;
 	};
 };
+
+/*
+ * A command that requires special handling by the command parser.
+ */
+struct drm_i915_cmd_descriptor {
+	/*
+	 * Flags describing how the command parser processes the command.
+	 *
+	 * CMD_DESC_FIXED: The command has a fixed length if this is set,
+	 *                 a length mask if not set
+	 * CMD_DESC_SKIP: The command is allowed but does not follow the
+	 *                standard length encoding for the opcode range in
+	 *                which it falls
+	 * CMD_DESC_REJECT: The command is never allowed
+	 * CMD_DESC_REGISTER: The command should be checked against the
+	 *                    register whitelist for the appropriate ring
+	 * CMD_DESC_MASTER: The command is allowed if the submitting process
+	 *                  is the DRM master
+	 */
+	__u32 flags;
+#define CMD_DESC_FIXED    (1<<0)
+#define CMD_DESC_SKIP     (1<<1)
+#define CMD_DESC_REJECT   (1<<2)
+#define CMD_DESC_REGISTER (1<<3)
+#define CMD_DESC_BITMASK  (1<<4)
+#define CMD_DESC_MASTER   (1<<5)
+
+	/*
+	 * The command's unique identification bits and the bitmask to get them.
+	 * This isn't strictly the opcode field as defined in the spec and may
+	 * also include type, subtype, and/or subop fields.
+	 */
+	struct {
+		__u32 value;
+		__u32 mask;
+	} cmd;
+
+	/*
+	 * The command's length. The command is either fixed length (i.e. does
+	 * not include a length field) or has a length field mask. The flag
+	 * CMD_DESC_FIXED indicates a fixed length. Otherwise, the command has
+	 * a length mask. All command entries in a command table must include
+	 * length information.
+	 */
+	union {
+		__u32 fixed;
+		__u32 mask;
+	} length;
+
+	/*
+	 * Describes where to find a register address in the command to check
+	 * against the ring's register whitelist. Only valid if flags has the
+	 * CMD_DESC_REGISTER bit set.
+	 */
+	struct {
+		__u32 offset;
+		__u32 mask;
+	} reg;
+
+#define MAX_CMD_DESC_BITMASKS 3
+	/*
+	 * Describes command checks where a particular dword is masked and
+	 * compared against an expected value. If the command does not match
+	 * the expected value, the parser rejects it. Only valid if flags has
+	 * the CMD_DESC_BITMASK bit set. Only entries where mask is non-zero
+	 * are valid.
+	 *
+	 * If the check specifies a non-zero condition_mask then the parser
+	 * only performs the check when the bits specified by condition_mask
+	 * are non-zero.
+	 */
+	struct {
+		__u32 offset;
+		__u32 mask;
+		__u32 expected;
+		__u32 condition_offset;
+		__u32 condition_mask;
+	} bits[MAX_CMD_DESC_BITMASKS];
+};
+
+/*
+ * Add command checks or whitelisted registers to the command parser. Root-only.
+ */
+struct drm_i915_cmd_parser_append {
+	/* The ring who's structures are to be updated; use I915_EXEC_* bits */
+	__u32 ring;
+
+	/* Array of drm_i915_cmd_descriptor structs and count of structs */
+	__u32 cmd_count;
+	__u64 cmds;
+
+	/* Array of register offsets and count of registers */
+	__u64 regs;
+	__u32 reg_count;
+
+	__u32 pad;
+};
+
 #endif /* _UAPI_I915_DRM_H_ */

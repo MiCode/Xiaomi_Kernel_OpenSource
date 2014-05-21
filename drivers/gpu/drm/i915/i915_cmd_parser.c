@@ -26,6 +26,7 @@
  */
 
 #include "i915_drv.h"
+#include "i915_drm.h"
 
 /**
  * DOC: batch buffer command parser
@@ -765,12 +766,30 @@ find_cmd(struct intel_engine_cs *ring,
 	 u32 cmd_header,
 	 struct drm_i915_cmd_descriptor *default_desc)
 {
+	struct drm_i915_private *dev_priv = ring->dev->dev_private;
 	const struct drm_i915_cmd_descriptor *desc;
 	u32 mask;
 
 	desc = find_cmd_in_table(ring, cmd_header);
 	if (desc)
 		return desc;
+
+	if (dev_priv->append_cmd_table[ring->id]) {
+		const struct drm_i915_cmd_table *table =
+			dev_priv->append_cmd_table[ring->id];
+		int i;
+
+		for (i = 0; i < table->count; i++) {
+			const struct drm_i915_cmd_descriptor *desc =
+				&table->table[i];
+			unsigned int masked_cmd = desc->cmd.mask & cmd_header;
+			unsigned int masked_value =
+				desc->cmd.value & desc->cmd.mask;
+
+			if (masked_cmd == masked_value)
+				return desc;
+		}
+	}
 
 	mask = ring->get_cmd_length_mask(cmd_header);
 	if (!mask)
@@ -892,15 +911,27 @@ static bool check_cmd(const struct intel_engine_cs *ring,
 
 		if (!valid_reg(ring->reg_table,
 			       ring->reg_count, reg_addr)) {
-			if (!is_master ||
-			    !valid_reg(ring->master_reg_table,
-				       ring->master_reg_count,
+			struct drm_i915_private *dev_priv =
+				ring->dev->dev_private;
+			unsigned int *append_table =
+				dev_priv->append_reg[ring->id].table;
+			int append_count =
+				dev_priv->append_reg[ring->id].count;
+
+			if (!append_table ||
+			    !valid_reg(append_table,
+				       append_count,
 				       reg_addr)) {
-				DRM_DEBUG_DRIVER("CMD: Rejected register 0x%08X in command: 0x%08X (ring=%d)\n",
-						 reg_addr,
-						 *cmd,
-						 ring->id);
-				return false;
+				if (!is_master ||
+				    !valid_reg(ring->master_reg_table,
+					       ring->master_reg_count,
+					       reg_addr)) {
+					DRM_DEBUG_DRIVER("CMD: Rejected register 0x%08X in command: 0x%08X (ring=%d)\n",
+							 reg_addr,
+							 *cmd,
+							 ring->id);
+					return false;
+				}
 			}
 		}
 	}
@@ -1056,4 +1087,180 @@ int i915_cmd_parser_get_version(void)
 	 *    hardware parsing enabled (so does not allow new use cases).
 	 */
 	return 1;
+}
+
+static void cleanup_append_cmd_table(struct drm_i915_private *dev_priv,
+				     int ring_id)
+{
+	if (dev_priv->append_cmd_table[ring_id]) {
+		const struct drm_i915_cmd_descriptor *table =
+			dev_priv->append_cmd_table[ring_id]->table;
+
+		drm_free_large((void *)table);
+		drm_free_large((void *)dev_priv->append_cmd_table[ring_id]);
+
+		dev_priv->append_cmd_table[ring_id] = NULL;
+	}
+}
+
+static void cleanup_append_reg_table(struct drm_i915_private *dev_priv,
+				     int ring_id)
+{
+	if (dev_priv->append_reg[ring_id].table) {
+		drm_free_large((void *)dev_priv->append_reg[ring_id].table);
+
+		dev_priv->append_reg[ring_id].table = NULL;
+		dev_priv->append_reg[ring_id].count = 0;
+	}
+}
+
+void i915_cmd_parser_cleanup(struct drm_i915_private *dev_priv)
+{
+	int i;
+
+	for (i = 0; i < I915_NUM_RINGS; i++) {
+		cleanup_append_cmd_table(dev_priv, i);
+		cleanup_append_reg_table(dev_priv, i);
+	}
+}
+
+static int append_cmds(struct drm_i915_private *dev_priv,
+		       int ring_id,
+		       struct drm_i915_cmd_parser_append *args)
+{
+	struct drm_i915_cmd_table *cmd_table;
+	int ret;
+
+	cmd_table = drm_malloc_ab(sizeof(*cmd_table), 1);
+	if (!cmd_table)
+		return -ENOMEM;
+
+	cmd_table->count = args->cmd_count;
+	cmd_table->table = drm_malloc_ab(sizeof(*cmd_table->table),
+					 args->cmd_count);
+	if (!cmd_table) {
+		drm_free_large(cmd_table);
+		return -ENOMEM;
+	}
+
+	ret = copy_from_user((void *)cmd_table->table,
+			     (struct drm_i915_cmd_descriptor __user *)
+			     (uintptr_t)args->cmds,
+			     sizeof(*cmd_table->table) * args->cmd_count);
+	if (ret) {
+		drm_free_large((void *)cmd_table->table);
+		drm_free_large(cmd_table);
+		return -EFAULT;
+	}
+
+	dev_priv->append_cmd_table[ring_id] = cmd_table;
+
+	return 0;
+}
+
+static int append_regs(struct drm_i915_private *dev_priv,
+		       int ring_id,
+		       struct drm_i915_cmd_parser_append *args)
+{
+	unsigned int *regs;
+	int ret;
+
+	regs = drm_malloc_ab(sizeof(*regs), args->reg_count);
+	if (!regs)
+		return -ENOMEM;
+
+	ret = copy_from_user(regs,
+			     (unsigned int __user *)(uintptr_t)args->regs,
+			     sizeof(*regs) * args->reg_count);
+	if (ret) {
+		drm_free_large(regs);
+		return -EFAULT;
+	}
+
+	dev_priv->append_reg[ring_id].table = regs;
+	dev_priv->append_reg[ring_id].count = args->reg_count;
+
+	return 0;
+}
+
+int i915_cmd_parser_append_ioctl(struct drm_device *dev, void *data,
+				 struct drm_file *file_priv)
+{
+	struct drm_i915_private *dev_priv = dev->dev_private;
+	struct drm_i915_cmd_parser_append *args = data;
+	struct intel_engine_cs *ring = NULL;
+	int ret = 0;
+
+	mutex_lock(&dev->struct_mutex);
+
+	/* This ioctl has DRM_ROOT_ONLY set but the code to check that flag in
+	 * drm_ioctl is/was removed from the VLV kernel. To be sure, check for
+	 * the appropriate permission here.
+	 */
+	if (!capable(CAP_SYS_ADMIN)) {
+		DRM_DEBUG("CMD: append from non-root user\n");
+		ret = -EACCES;
+		goto out;
+	}
+
+	if ((args->cmd_count < 1 && args->reg_count < 1) ||
+	    (!args->cmds && !args->regs)) {
+		DRM_DEBUG("CMD: append with invalid lists cmd=(0x%llx, %d) reg=(0x%llx, %d)\n",
+			  args->cmds, args->cmd_count,
+			  args->regs, args->reg_count);
+		ret = -EINVAL;
+		goto out;
+	}
+
+	switch (args->ring & I915_EXEC_RING_MASK) {
+	case I915_EXEC_DEFAULT:
+	case I915_EXEC_RENDER:
+		ring = &dev_priv->ring[RCS];
+		break;
+	case I915_EXEC_BSD:
+		ring = &dev_priv->ring[VCS];
+		break;
+	case I915_EXEC_BLT:
+		ring = &dev_priv->ring[BCS];
+		break;
+	case I915_EXEC_VEBOX:
+		ring = &dev_priv->ring[VECS];
+		break;
+	default:
+		DRM_DEBUG("CMD: append with unknown ring: %d\n",
+			  (int)(args->ring & I915_EXEC_RING_MASK));
+		ret = -EINVAL;
+		goto out;
+	}
+
+	if (args->cmds) {
+		if (dev_priv->append_cmd_table[ring->id]) {
+			DRM_ERROR("CMD: append cmd was already sent\n");
+			ret = -EEXIST;
+		} else {
+			ret = append_cmds(dev_priv, ring->id, args);
+		}
+
+		if (ret)
+			goto out;
+	}
+
+	if (args->regs) {
+		if (dev_priv->append_reg[ring->id].table) {
+			DRM_ERROR("CMD: append reg was already sent\n");
+			ret = -EEXIST;
+		} else {
+			ret = append_regs(dev_priv, ring->id, args);
+			if (ret)
+				cleanup_append_cmd_table(dev_priv, ring->id);
+		}
+
+		if (ret)
+			goto out;
+	}
+
+out:
+	mutex_unlock(&dev->struct_mutex);
+
+	return ret;
 }
