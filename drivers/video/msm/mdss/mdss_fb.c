@@ -92,6 +92,8 @@ static int mdss_fb_ioctl(struct fb_info *info, unsigned int cmd,
 			 unsigned long arg);
 static int mdss_fb_fbmem_ion_mmap(struct fb_info *info,
 		struct vm_area_struct *vma);
+static int mdss_fb_alloc_fb_ion_memory(struct msm_fb_data_type *mfd,
+		size_t size);
 static void mdss_fb_release_fences(struct msm_fb_data_type *mfd);
 static int __mdss_fb_sync_buf_done_callback(struct notifier_block *p,
 		unsigned long val, void *data);
@@ -1123,11 +1125,11 @@ void mdss_fb_free_fb_ion_memory(struct msm_fb_data_type *mfd)
 	}
 
 	ion_free(mfd->fb_ion_client, mfd->fb_ion_handle);
+	mfd->fb_ion_handle = NULL;
 }
 
-int mdss_fb_alloc_fb_ion_memory(struct msm_fb_data_type *mfd)
+int mdss_fb_alloc_fb_ion_memory(struct msm_fb_data_type *mfd, size_t fb_size)
 {
-	size_t size;
 	unsigned long buf_size;
 	int rc;
 	void *vaddr;
@@ -1145,10 +1147,8 @@ int mdss_fb_alloc_fb_ion_memory(struct msm_fb_data_type *mfd)
 		}
 	}
 
-	size = mfd->fbi->fix.line_length * mfd->fbi->var.yres * MDSS_FB_NUM;
-	pr_debug("size for mmap = %d", (int) size);
-
-	mfd->fb_ion_handle = ion_alloc(mfd->fb_ion_client, size, SZ_4K,
+	pr_debug("size for mmap = %zu", fb_size);
+	mfd->fb_ion_handle = ion_alloc(mfd->fb_ion_client, fb_size, SZ_4K,
 			ION_HEAP(ION_SYSTEM_HEAP_ID), 0);
 	if (IS_ERR_OR_NULL(mfd->fb_ion_handle)) {
 		pr_err("unable to alloc fbmem from ion - %ld\n",
@@ -1181,11 +1181,11 @@ int mdss_fb_alloc_fb_ion_memory(struct msm_fb_data_type *mfd)
 		goto fb_mmap_failed;
 	}
 
-	pr_debug("alloc 0x%zuB vaddr = %p (%pa iova) for fb%d\n", size, vaddr,
-			&mfd->iova, mfd->index);
+	pr_debug("alloc 0x%zuB vaddr = %p (%pa iova) for fb%d\n", fb_size,
+			vaddr, &mfd->iova, mfd->index);
 
 	mfd->fbi->screen_base = (char *) vaddr;
-	mfd->fbi->fix.smem_len = size;
+	mfd->fbi->fix.smem_len = fb_size;
 
 	return rc;
 
@@ -1232,7 +1232,7 @@ static int mdss_fb_fbmem_ion_mmap(struct fb_info *info,
 	}
 
 	if (!mfd->fbi->screen_base) {
-		rc = mdss_fb_alloc_fb_ion_memory(mfd);
+		rc = mdss_fb_alloc_fb_ion_memory(mfd, fb_size);
 		if (rc < 0) {
 			pr_err("fb mmap failed!!!!");
 			return rc;
@@ -1292,6 +1292,69 @@ static int mdss_fb_fbmem_ion_mmap(struct fb_info *info,
 	return rc;
 }
 
+/*
+ * mdss_fb_physical_mmap() - Custom fb mmap() function for MSM driver.
+ *
+ * @info -  Framebuffer info.
+ * @vma  -  VM area which is part of the process virtual memory.
+ *
+ * This framebuffer mmap function differs from standard mmap() function as
+ * map to framebuffer memory from the CMA memory which is allocated during
+ * bootup.
+ *
+ * Return: virtual address is returned through vma
+ */
+static int mdss_fb_physical_mmap(struct fb_info *info,
+		struct vm_area_struct *vma)
+{
+	/* Get frame buffer memory range. */
+	unsigned long start = info->fix.smem_start;
+	u32 len = PAGE_ALIGN((start & ~PAGE_MASK) + info->fix.smem_len);
+	unsigned long off = vma->vm_pgoff << PAGE_SHIFT;
+
+	if (!start) {
+		pr_warn("No framebuffer memory is allocated\n");
+		return -ENOMEM;
+	}
+
+	/* Set VM flags. */
+	start &= PAGE_MASK;
+	if ((vma->vm_end <= vma->vm_start) ||
+	    (off >= len) ||
+	    ((vma->vm_end - vma->vm_start) > (len - off)))
+		return -EINVAL;
+	off += start;
+	if (off < start)
+		return -EINVAL;
+	vma->vm_pgoff = off >> PAGE_SHIFT;
+	/* This is an IO map - tell maydump to skip this VMA */
+	vma->vm_flags |= VM_IO;
+
+	/* Remap the frame buffer I/O range */
+	if (io_remap_pfn_range(vma, vma->vm_start, off >> PAGE_SHIFT,
+			       vma->vm_end - vma->vm_start,
+			       vma->vm_page_prot))
+		return -EAGAIN;
+
+	return 0;
+}
+
+static int mdss_fb_mmap(struct fb_info *info, struct vm_area_struct *vma)
+{
+	struct msm_fb_data_type *mfd = (struct msm_fb_data_type *)info->par;
+	int rc = 0;
+
+	if (!info->fix.smem_start && !mfd->fb_ion_handle)
+		rc = mdss_fb_fbmem_ion_mmap(info, vma);
+	else
+		rc = mdss_fb_physical_mmap(info, vma);
+
+	if (rc < 0)
+		pr_err("fb mmap failed with rc = %d", rc);
+
+	return rc;
+}
+
 static struct fb_ops mdss_fb_ops = {
 	.owner = THIS_MODULE,
 	.fb_open = mdss_fb_open,
@@ -1304,14 +1367,89 @@ static struct fb_ops mdss_fb_ops = {
 #ifdef CONFIG_COMPAT
 	.fb_compat_ioctl = mdss_fb_compat_ioctl,
 #endif
-	.fb_mmap = mdss_fb_fbmem_ion_mmap,
+	.fb_mmap = mdss_fb_mmap,
 };
+
+static int mdss_fb_alloc_fbmem_iommu(struct msm_fb_data_type *mfd, int dom)
+{
+	void *virt = NULL;
+	phys_addr_t phys = 0;
+	size_t size = 0;
+	struct platform_device *pdev = mfd->pdev;
+	int rc = 0;
+	struct device_node *fbmem_pnode = NULL;
+
+	if (!pdev || !pdev->dev.of_node) {
+		pr_err("Invalid device node\n");
+		return -ENODEV;
+	}
+
+	fbmem_pnode = of_parse_phandle(pdev->dev.of_node,
+		"linux,contiguous-region", 0);
+	if (!fbmem_pnode) {
+		pr_debug("fbmem is not reserved for %s\n", pdev->name);
+		mfd->fbi->screen_base = NULL;
+		mfd->fbi->fix.smem_start = 0;
+		mfd->fbi->fix.smem_len = 0;
+		return 0;
+	} else {
+		const u32 *addr;
+		u64 len;
+
+		addr = of_get_address(fbmem_pnode, 0, &len, NULL);
+		if (!addr) {
+			pr_err("fbmem size is not specified\n");
+			of_node_put(fbmem_pnode);
+			return -EINVAL;
+		}
+		size = (size_t)len;
+		of_node_put(fbmem_pnode);
+	}
+
+	pr_debug("%s frame buffer reserve_size=0x%zx\n", __func__, size);
+
+	if (size < PAGE_ALIGN(mfd->fbi->fix.line_length *
+			      mfd->fbi->var.yres_virtual))
+		pr_warn("reserve size is smaller than framebuffer size\n");
+
+	virt = dma_alloc_coherent(&pdev->dev, size, &phys, GFP_KERNEL);
+	if (!virt) {
+		pr_err("unable to alloc fbmem size=%zx\n", size);
+		return -ENOMEM;
+	}
+
+	if (MDSS_LPAE_CHECK(phys)) {
+		pr_warn("fb mem phys %pa > 4GB is not supported.\n", &phys);
+		dma_free_coherent(&pdev->dev, size, &virt, GFP_KERNEL);
+		return -ERANGE;
+	}
+
+	rc = msm_iommu_map_contig_buffer(phys, dom, 0, size, SZ_4K, 0,
+					    &mfd->iova);
+	if (rc)
+		pr_warn("Cannot map fb_mem %pa to IOMMU. rc=%d\n", &phys, rc);
+
+	pr_debug("alloc 0x%zxB @ (%pa phys) (0x%p virt) (%pa iova) for fb%d\n",
+		 size, &phys, virt, &mfd->iova, mfd->index);
+
+	mfd->fbi->screen_base = virt;
+	mfd->fbi->fix.smem_start = phys;
+	mfd->fbi->fix.smem_len = size;
+
+	return 0;
+}
 
 static int mdss_fb_alloc_fbmem(struct msm_fb_data_type *mfd)
 {
 
 	if (mfd->mdp.fb_mem_alloc_fnc) {
 		return mfd->mdp.fb_mem_alloc_fnc(mfd);
+	} else if (mfd->mdp.fb_mem_get_iommu_domain) {
+		int dom = mfd->mdp.fb_mem_get_iommu_domain();
+		if (dom >= 0)
+			return mdss_fb_alloc_fbmem_iommu(mfd, dom);
+		else
+			return -ENOMEM;
 	} else {
 		pr_err("no fb memory allocator function defined\n");
 		return -ENOMEM;
@@ -1814,7 +1952,8 @@ static int mdss_fb_release_all(struct fb_info *info, bool release_all)
 					mfd->index, task->comm, pid);
 		}
 
-		mdss_fb_free_fb_ion_memory(mfd);
+		if (mfd->fb_ion_handle)
+			mdss_fb_free_fb_ion_memory(mfd);
 
 		ret = mdss_fb_blank_sub(FB_BLANK_POWERDOWN, info,
 			mfd->op_enable);
