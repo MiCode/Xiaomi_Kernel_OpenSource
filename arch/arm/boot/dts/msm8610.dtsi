@@ -895,6 +895,9 @@
 		qcom,hotplug-temp-hysteresis = <20>;
 		qcom,cpu-sensors = "tsens_tz_sensor5", "tsens_tz_sensor5",
 				"tsens_tz_sensor5", "tsens_tz_sensor5";
+		qcom,default-temp = <80>;
+		qcom,efuse-data = <0xfc4b8000 0x1000 23 30 0x3>;
+		qcom,efuse-temperature-map = <0x1 70>;
 		qcom,vdd-restriction-temp = <5>;
 		qcom,vdd-restriction-temp-hysteresis = <10>;
 		vdd-dig-supply = <&pm8110_s1_floor_corner>;
