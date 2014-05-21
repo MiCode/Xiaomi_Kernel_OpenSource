@@ -795,6 +795,7 @@ static int msm_ocmem_probe(struct platform_device *pdev)
 	struct device   *dev = &pdev->dev;
 	struct clk *ocmem_core_clk = NULL;
 	struct clk *ocmem_iface_clk = NULL;
+	int rc;
 
 	ocmem_core_clk = devm_clk_get(dev, "core_clk");
 
@@ -835,10 +836,25 @@ static int msm_ocmem_probe(struct platform_device *pdev)
 
 	platform_set_drvdata(pdev, ocmem_pdata);
 
+	rc = ocmem_enable_core_clock();
+
+	if (rc < 0)
+		goto core_clk_fail;
+
+	rc = ocmem_enable_iface_clock();
+
+	if (rc < 0)
+		goto iface_clk_fail;
+
 	/* Parameter to be updated based on TZ */
 	/* Allow the OCMEM CSR to be programmed */
-	if (ocmem_enable_sec_program(OCMEM_SECURE_DEV_ID))
+	if (ocmem_restore_sec_program(OCMEM_SECURE_DEV_ID)) {
+		ocmem_disable_iface_clock();
+		ocmem_disable_core_clock();
 		return -EBUSY;
+	}
+	ocmem_disable_iface_clock();
+	ocmem_disable_core_clock();
 
 	if (ocmem_debugfs_init(pdev))
 		dev_err(dev, "ocmem: No debugfs node available\n");
@@ -866,6 +882,11 @@ static int msm_ocmem_probe(struct platform_device *pdev)
 	probe_done = true;
 	dev_dbg(dev, "initialized successfully\n");
 	return 0;
+
+iface_clk_fail:
+	ocmem_disable_core_clock();
+core_clk_fail:
+	return rc;
 }
 
 static int msm_ocmem_remove(struct platform_device *pdev)
