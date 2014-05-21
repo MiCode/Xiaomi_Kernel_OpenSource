@@ -857,6 +857,7 @@
 	qcom,msm-pcm-voice {
 		compatible = "qcom,msm-pcm-voice";
 		qcom,destroy-cvd;
+		qcom,vote-bms;
 	};
 
 	qcom,msm-stub-codec {
