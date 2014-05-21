@@ -41,9 +41,9 @@ struct kgsl_context;
  * @wq: Workqueue structure for contexts to sleep pending room in the queue
  * @waiting: Workqueue structure for contexts waiting for a timestamp or event
  * @queued: Number of commands queued in the cmdqueue
- * @ops: Context switch functions for this context.
  * @fault_policy: GFT fault policy set in cmdbatch_skip_cmd();
  * @debug_root: debugfs entry for this context.
+ * @inflight_timestamp: The last timestamp that was queued on this context
  */
 struct adreno_context {
 	struct kgsl_context base;
@@ -64,6 +64,7 @@ struct adreno_context {
 	int queued;
 	unsigned int fault_policy;
 	struct dentry *debug_root;
+	unsigned int inflight_timestamp;
 };
 
 /**
