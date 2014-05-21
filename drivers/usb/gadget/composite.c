@@ -2225,6 +2225,7 @@ static const struct usb_gadget_driver composite_driver_template = {
 int usb_composite_probe(struct usb_composite_driver *driver)
 {
 	struct usb_gadget_driver *gadget_driver;
+	u8 core_id;
 
 	if (!driver || !driver->dev || !driver->bind)
 		return -EINVAL;
@@ -2232,6 +2233,7 @@ int usb_composite_probe(struct usb_composite_driver *driver)
 	if (!driver->name)
 		driver->name = "composite";
 
+	core_id = driver->gadget_driver.usb_core_id;
 	driver->gadget_driver = composite_driver_template;
 	gadget_driver = &driver->gadget_driver;
 
@@ -2239,6 +2241,11 @@ int usb_composite_probe(struct usb_composite_driver *driver)
 	gadget_driver->driver.name = driver->name;
 	gadget_driver->max_speed = driver->max_speed;
 
+	if (core_id)
+		gadget_driver->usb_core_id = core_id;
+
+	pr_debug("%s(): gadget_driver->usb_core_id:%d\n", __func__,
+					gadget_driver->usb_core_id);
 	return usb_gadget_probe_driver(gadget_driver);
 }
 EXPORT_SYMBOL_GPL(usb_composite_probe);
