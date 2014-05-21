@@ -18,7 +18,7 @@
 #include <linux/regulator/consumer.h>
 #include <asm/intel-mid.h>
 #include <media/v4l2-subdev.h>
-#include <linux/mfd/intel_mid_pmic.h>
+#include <linux/mfd/intel_soc_pmic.h>
 #include <linux/atomisp_gmin_platform.h>
 
 #ifdef CONFIG_VLV2_PLAT_CLK
