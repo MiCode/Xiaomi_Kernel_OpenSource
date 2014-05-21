@@ -15,8 +15,12 @@
 #include <linux/init.h>
 #include <soc/qcom/scm-boot.h>
 #include <asm/cacheflush.h>
+#include <asm/cputype.h>
+#include <asm/smp_plat.h>
 #include "idle.h"
 #include "pm-boot.h"
+
+#define CPU_INDEX(cluster, cpu) (cluster * MAX_CPUS_PER_CLUSTER + cpu)
 
 static void (*msm_pm_boot_before_pc)(unsigned int cpu, unsigned long entry);
 static void (*msm_pm_boot_after_pc)(unsigned int cpu);
@@ -43,13 +47,20 @@ static int msm_pm_tz_boot_init(void)
 		return scm_set_boot_addr(virt_to_phys(msm_pm_boot_entry), flag);
 	}
 }
-
 static void msm_pm_write_boot_vector(unsigned int cpu, unsigned long address)
 {
-	msm_pm_boot_vector[cpu] = address;
-	dmac_clean_range((void *)&msm_pm_boot_vector[cpu],
-			(void *)(&msm_pm_boot_vector[cpu] +
-				sizeof(msm_pm_boot_vector[cpu])));
+	uint32_t clust_id = MPIDR_AFFINITY_LEVEL(cpu_logical_map(cpu), 1);
+	uint32_t cpu_id = MPIDR_AFFINITY_LEVEL(cpu_logical_map(cpu), 0);
+	unsigned long *start_address;
+	unsigned long *end_address;
+
+	if (clust_id >= MAX_NUM_CLUSTER || cpu_id >= MAX_CPUS_PER_CLUSTER)
+		BUG();
+
+	msm_pm_boot_vector[CPU_INDEX(clust_id, cpu_id)] = address;
+	start_address = &msm_pm_boot_vector[CPU_INDEX(clust_id, cpu_id)];
+	end_address = &msm_pm_boot_vector[CPU_INDEX(clust_id, cpu_id + 1)];
+	dmac_clean_range((void *)start_address, (void *)end_address);
 }
 
 static void msm_pm_config_tz_before_pc(unsigned int cpu,
