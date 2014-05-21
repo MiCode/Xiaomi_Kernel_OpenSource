@@ -29,6 +29,13 @@
 
 #define DMA_PREP_CIRCULAR_LIST		(1 << 10)
 
+#define SST_MAX_DMA_LEN		4095
+#define SST_MAX_DMA_LEN_MRFLD	131071 /* 2^17 - 1 */
+
+#define MRFL_INSTANCE_SPI3	3
+#define MRFL_INSTANCE_SPI5	5
+#define MRFL_INSTANCE_SPI6	6
+
 /*DMA mode configurations*/
 enum intel_mid_dma_mode {
 	LNW_DMA_PER_TO_MEM = 0, /*periphral to memory configuration*/
@@ -73,4 +80,7 @@ struct intel_mid_dma_slave {
 	struct dma_slave_config		dma_slave;
 };
 
+struct device *intel_mid_get_acpi_dma(const char *hid);
+dma_addr_t intel_dma_get_src_addr(struct dma_chan *chan);
+dma_addr_t intel_dma_get_dst_addr(struct dma_chan *chan);
 #endif /*__INTEL_MID_DMA_H__*/
