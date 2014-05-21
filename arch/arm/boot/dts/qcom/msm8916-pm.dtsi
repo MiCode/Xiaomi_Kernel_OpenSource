@@ -120,26 +120,26 @@
 			qcom,cpu-mode@0 {
 				qcom,mode = "wfi";
 				qcom,latency-us = <1>;
-				qcom,ss-power = <530>;
-				qcom,energy-overhead = <52800>;
-				qcom,time-overhead = <100>;
+				qcom,ss-power = <560>;
+				qcom,energy-overhead = <12000>;
+				qcom,time-overhead = <20>;
 			};
 
 			qcom,cpu-mode@1 {
 				qcom,mode = "standalone_pc";
-				qcom,latency-us = <500>;
-				qcom,ss-power = <410>;
-				qcom,energy-overhead = <603400>;
-				qcom,time-overhead = <1200>;
+				qcom,latency-us = <180>;
+				qcom,ss-power = <550>;
+				qcom,energy-overhead = <160000>;
+				qcom,time-overhead = <280>;
 				qcom,use-broadcast-timer;
 			};
 
 			qcom,cpu-mode@2 {
 				qcom,mode = "pc";
-				qcom,latency-us = <550>;
-				qcom,ss-power = <372>;
-				qcom,energy-overhead = <700000>;
-				qcom,time-overhead = <1410>;
+				qcom,latency-us = <230>;
+				qcom,ss-power = <535>;
+				qcom,energy-overhead = <200000>;
+				qcom,time-overhead = <330>;
 				qcom,use-broadcast-timer;
 			};
 		};
@@ -149,30 +149,30 @@
 
 			qcom,system-mode@0 {
 				qcom,l2 = "l2_cache_gdhs";
-				qcom,latency-us = <700>;
-				qcom,ss-power = <372>;
-				qcom,energy-overhead = <738750>;
-				qcom,time-overhead = <1410>;
+				qcom,latency-us = <240>;
+				qcom,ss-power = <530>;
+				qcom,energy-overhead = <210000>;
+				qcom,time-overhead = <350>;
 				qcom,min-cpu-mode= "standalone_pc";
 				qcom,sync-mode;
 			};
 
 			qcom,system-mode@1 {
 				qcom,l2 = "l2_cache_pc_no_rpm";
-				qcom,latency-us = <1000>;
-				qcom,ss-power = <315>;
-				qcom,energy-overhead = <1027150>;
-				qcom,time-overhead = <2400>;
+				qcom,latency-us = <900>;
+				qcom,ss-power = <490>;
+				qcom,energy-overhead = <900000>;
+				qcom,time-overhead = <1450>;
 				qcom,min-cpu-mode= "pc";
 				qcom,sync-mode;
 			};
 
 			qcom,system-mode@2 {
 				qcom,l2 = "l2_cache_pc";
-				qcom,latency-us = <12700>;
-				qcom,ss-power = <315>;
-				qcom,energy-overhead = <1027150>;
-				qcom,time-overhead = <2400>;
+				qcom,latency-us = <10900>;
+				qcom,ss-power = <490>;
+				qcom,energy-overhead = <950000>;
+				qcom,time-overhead = <1450>;
 				qcom,min-cpu-mode= "pc";
 				qcom,send-rpm-sleep-set;
 				qcom,sync-mode;
