@@ -535,6 +535,8 @@ static void a4xx_start(struct adreno_device *adreno_dev)
 	/* Tune the hystersis counters for SP and CP idle detection */
 	kgsl_regwrite(device, A4XX_RBBM_SP_HYST_CNT, 0x10);
 	kgsl_regwrite(device, A4XX_RBBM_WAIT_IDLE_CLOCKS_CTL, 0x10);
+	if (adreno_is_a430(adreno_dev))
+		kgsl_regwrite(device, A4XX_RBBM_WAIT_IDLE_CLOCKS_CTL2, 0x30);
 
 	/*
 	 * Enable the RBBM error reporting bits.  This lets us get
