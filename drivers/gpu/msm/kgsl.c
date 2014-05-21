@@ -3268,6 +3268,9 @@ kgsl_ioctl_sharedmem_flush_cache(struct kgsl_device_private *dev_priv,
 	return ret;
 }
 
+/* The largest allowable alignment for a GPU object is 32MB */
+#define KGSL_MAX_ALIGN (32 * SZ_1M)
+
 /*
  * The common parts of kgsl_ioctl_gpumem_alloc and kgsl_ioctl_gpumem_alloc_id.
  */
@@ -3294,11 +3297,13 @@ _gpumem_alloc(struct kgsl_device_private *dev_priv,
 	/* Cap the alignment bits to the highest number we can handle */
 
 	align = (flags & KGSL_MEMALIGN_MASK) >> KGSL_MEMALIGN_SHIFT;
-	if (align >= 32) {
-		KGSL_CORE_ERR("Alignment too big, restricting to 2^31\n");
+	if (align >= ilog2(KGSL_MAX_ALIGN)) {
+		KGSL_CORE_ERR("Alignment too large; restricting to %dK\n",
+			KGSL_MAX_ALIGN >> 10);
 
 		flags &= ~KGSL_MEMALIGN_MASK;
-		flags |= (31 << KGSL_MEMALIGN_SHIFT) & KGSL_MEMALIGN_MASK;
+		flags |= (ilog2(KGSL_MAX_ALIGN) << KGSL_MEMALIGN_SHIFT) &
+			KGSL_MEMALIGN_MASK;
 	}
 
 	entry = kgsl_mem_entry_create();
