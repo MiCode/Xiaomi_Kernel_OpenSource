@@ -18,6 +18,7 @@
 #include <linux/err.h>
 
 #include "kgsl.h"
+#include "kgsl_sharedmem.h"
 #include "adreno.h"
 #include "adreno_ringbuffer.h"
 #include "adreno_trace.h"
@@ -167,62 +168,133 @@ static int _check_context_queue(struct adreno_context *drawctxt)
 }
 
 /**
+ * _retire_marker() - Retire a marker command batch without sending it to the
+ * hardware
+ * @cmdbatch: Pointer to the cmdbatch to retire
+ *
+ * In some cases marker commands can be retired by the software without going to
+ * the GPU.  In those cases, update the memstore from the CPU, kick off the
+ * event engine to handle expired events and destroy the command batch.
+ */
+static void _retire_marker(struct kgsl_cmdbatch *cmdbatch)
+{
+	struct kgsl_context *context = cmdbatch->context;
+	struct kgsl_device *device = context->device;
+
+	/*
+	 * Write the start and end timestamp to the memstore to keep the
+	 * accounting sane
+	 */
+	kgsl_sharedmem_writel(device, &device->memstore,
+		KGSL_MEMSTORE_OFFSET(context->id, soptimestamp),
+		cmdbatch->timestamp);
+
+	kgsl_sharedmem_writel(device, &device->memstore,
+		KGSL_MEMSTORE_OFFSET(context->id, eoptimestamp),
+		cmdbatch->timestamp);
+
+
+	/* Retire pending GPU events for the object */
+	kgsl_process_event_group(device, &context->events);
+
+	trace_adreno_cmdbatch_retired(cmdbatch, -1);
+	kgsl_cmdbatch_destroy(cmdbatch);
+}
+
+/*
+ * return true if this is a marker command and the dependent timestamp has
+ * retired
+ */
+static bool _marker_expired(struct kgsl_cmdbatch *cmdbatch)
+{
+	return (cmdbatch->flags & KGSL_CMDBATCH_MARKER) &&
+		kgsl_check_timestamp(cmdbatch->device, cmdbatch->context,
+			cmdbatch->marker_timestamp);
+}
+
+static inline void _pop_cmdbatch(struct adreno_context *drawctxt)
+{
+	drawctxt->cmdqueue_head = CMDQUEUE_NEXT(drawctxt->cmdqueue_head,
+		ADRENO_CONTEXT_CMDQUEUE_SIZE);
+	drawctxt->queued--;
+}
+
+static struct kgsl_cmdbatch *_get_cmdbatch(struct adreno_context *drawctxt)
+{
+	struct kgsl_cmdbatch *cmdbatch = NULL;
+	bool pending = false;
+
+	if (drawctxt->cmdqueue_head == drawctxt->cmdqueue_tail)
+		return NULL;
+
+	cmdbatch = drawctxt->cmdqueue[drawctxt->cmdqueue_head];
+
+	/* Check to see if this is a marker we can skip over */
+	if (cmdbatch->flags & KGSL_CMDBATCH_MARKER) {
+		if (_marker_expired(cmdbatch)) {
+			_pop_cmdbatch(drawctxt);
+			_retire_marker(cmdbatch);
+
+			/* Get the next thing in the queue */
+			return _get_cmdbatch(drawctxt);
+		}
+
+		/*
+		 * If the marker isn't expired but the SKIP bit is set
+		 * then there are real commands following this one in
+		 * the queue.  This means that we need to dispatch the
+		 * command so that we can keep the timestamp accounting
+		 * correct.  If skip isn't set then we block this queue
+		 * until the dependent timestamp expires
+		 */
+
+		if (!test_bit(CMDBATCH_FLAG_SKIP, &cmdbatch->priv))
+			pending = true;
+	}
+
+	spin_lock(&cmdbatch->lock);
+	if (!list_empty(&cmdbatch->synclist))
+		pending = true;
+	spin_unlock(&cmdbatch->lock);
+
+	/*
+	 * If changes are pending and the canary timer hasn't been
+	 * started yet, start it
+	 */
+	if (pending) {
+		/*
+		 * If syncpoints are pending start the canary timer if
+		 * it hasn't already been started
+		 */
+		if (!timer_pending(&cmdbatch->timer))
+			mod_timer(&cmdbatch->timer, jiffies + (5 * HZ));
+
+		return ERR_PTR(-EAGAIN);
+	}
+
+	/*
+	 * Otherwise, delete the timer to make sure it is good
+	 * and dead before queuing the buffer
+	 */
+	del_timer_sync(&cmdbatch->timer);
+
+	_pop_cmdbatch(drawctxt);
+	return cmdbatch;
+}
+
+/**
  * adreno_dispatcher_get_cmdbatch() - Get a new command from a context queue
  * @drawctxt: Pointer to the adreno draw context
  *
  * Dequeue a new command batch from the context list
  */
-static inline struct kgsl_cmdbatch *adreno_dispatcher_get_cmdbatch(
+static struct kgsl_cmdbatch *adreno_dispatcher_get_cmdbatch(
 		struct adreno_context *drawctxt)
 {
-	struct kgsl_cmdbatch *cmdbatch = NULL;
-	int pending;
+	struct kgsl_cmdbatch *cmdbatch;
 
 	spin_lock(&drawctxt->lock);
-	if (drawctxt->cmdqueue_head != drawctxt->cmdqueue_tail) {
-		cmdbatch = drawctxt->cmdqueue[drawctxt->cmdqueue_head];
-
-		/*
-		 * Don't dequeue a cmdbatch that is still waiting for other
-		 * events
-		 */
-
-		spin_lock(&cmdbatch->lock);
-		pending = list_empty(&cmdbatch->synclist) ? 0 : 1;
-
-		/*
-		 * If changes are pending and the canary timer hasn't been
-		 * started yet, start it
-		 */
-		if (pending) {
-			/*
-			 * If syncpoints are pending start the canary timer if
-			 * it hasn't already been started
-			 */
-			if (!timer_pending(&cmdbatch->timer))
-				mod_timer(&cmdbatch->timer, jiffies + (5 * HZ));
-			spin_unlock(&cmdbatch->lock);
-		} else {
-			/*
-			 * Otherwise, delete the timer to make sure it is good
-			 * and dead before queuing the buffer
-			 */
-			spin_unlock(&cmdbatch->lock);
-			del_timer_sync(&cmdbatch->timer);
-		}
-
-		if (pending) {
-			cmdbatch = ERR_PTR(-EAGAIN);
-			goto done;
-		}
-
-		drawctxt->cmdqueue_head =
-			CMDQUEUE_NEXT(drawctxt->cmdqueue_head,
-			ADRENO_CONTEXT_CMDQUEUE_SIZE);
-		drawctxt->queued--;
-	}
-
-done:
+	cmdbatch = _get_cmdbatch(drawctxt);
 	spin_unlock(&drawctxt->lock);
 
 	return cmdbatch;
@@ -361,7 +433,7 @@ static int sendcmd(struct adreno_device *adreno_dev,
 		return ret;
 	}
 
-	trace_adreno_cmdbatch_submitted(cmdbatch, dispatcher->inflight);
+	trace_adreno_cmdbatch_submitted(cmdbatch, (int) dispatcher->inflight);
 
 	dispatcher->cmdqueue[dispatcher->tail] = cmdbatch;
 	dispatcher->tail = (dispatcher->tail + 1) %
@@ -735,6 +807,32 @@ int adreno_dispatcher_queue_cmd(struct adreno_device *adreno_dev,
 
 	cmdbatch->timestamp = *timestamp;
 
+	if (cmdbatch->flags & KGSL_CMDBATCH_MARKER) {
+
+		/*
+		 * See if we can fastpath this thing - if nothing is queued
+		 * and nothing is inflight retire without bothering the GPU
+		 */
+
+		if (!drawctxt->queued && kgsl_check_timestamp(cmdbatch->device,
+			cmdbatch->context, drawctxt->queued_timestamp)) {
+			trace_adreno_cmdbatch_queued(cmdbatch,
+				drawctxt->queued);
+
+			_retire_marker(cmdbatch);
+			spin_unlock(&drawctxt->lock);
+			return 0;
+		}
+
+		/*
+		 * Remember the last queued timestamp - the marker will block
+		 * until that timestamp is expired (unless another command
+		 * comes along and forces the marker to execute)
+		 */
+
+		cmdbatch->marker_timestamp = drawctxt->queued_timestamp;
+	}
+
 	/* SYNC commands have timestamp 0 and will get optimized out anyway */
 	if (!(cmdbatch->flags & KGSL_CONTEXT_SYNC))
 		drawctxt->queued_timestamp = *timestamp;
@@ -753,6 +851,24 @@ int adreno_dispatcher_queue_cmd(struct adreno_device *adreno_dev,
 	drawctxt->cmdqueue[drawctxt->cmdqueue_tail] = cmdbatch;
 	drawctxt->cmdqueue_tail = (drawctxt->cmdqueue_tail + 1) %
 		ADRENO_CONTEXT_CMDQUEUE_SIZE;
+
+	/*
+	 * If this is a real command then we need to force any markers queued
+	 * before it to dispatch to keep time linear - set the skip bit so
+	 * the commands get NOPed.
+	 */
+
+	if (!(cmdbatch->flags & KGSL_CMDBATCH_MARKER)) {
+		unsigned int i = drawctxt->cmdqueue_head;
+
+		while (i != drawctxt->cmdqueue_tail) {
+			if (drawctxt->cmdqueue[i]->flags & KGSL_CMDBATCH_MARKER)
+				set_bit(CMDBATCH_FLAG_SKIP,
+					&drawctxt->cmdqueue[i]->priv);
+
+			i = CMDQUEUE_NEXT(i, ADRENO_CONTEXT_CMDQUEUE_SIZE);
+		}
+	}
 
 	drawctxt->queued++;
 	trace_adreno_cmdbatch_queued(cmdbatch, drawctxt->queued);
@@ -1460,7 +1576,7 @@ static void adreno_dispatcher_work(struct work_struct *work)
 			}
 
 			trace_adreno_cmdbatch_retired(cmdbatch,
-				dispatcher->inflight - 1);
+				(int) (dispatcher->inflight - 1));
 
 			/* Reduce the number of inflight command batches */
 			dispatcher->inflight--;

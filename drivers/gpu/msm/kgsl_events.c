@@ -56,16 +56,21 @@ static void _kgsl_event_worker(struct work_struct *work)
 }
 
 /**
- * retire_events() - Handle all the retired events in a group
+ * kgsl_process_event_group() - Handle all the retired events in a group
  * @device: Pointer to a KGSL device
  * @group: Pointer to a GPU events group to process
  */
-static void retire_events(struct kgsl_device *device,
+void kgsl_process_event_group(struct kgsl_device *device,
 		struct kgsl_event_group *group)
 {
 	struct kgsl_event *event, *tmp;
 	unsigned int timestamp;
-	struct kgsl_context *context = group->context;
+	struct kgsl_context *context;
+
+	if (group == NULL)
+		return;
+
+	context = group->context;
 
 	_kgsl_context_get(context);
 
@@ -91,6 +96,7 @@ out:
 	spin_unlock(&group->lock);
 	kgsl_context_put(context);
 }
+EXPORT_SYMBOL(kgsl_process_event_group);
 
 /**
  * kgsl_cancel_events_timestamp() - Cancel pending events for a given timestamp
@@ -244,7 +250,7 @@ void kgsl_process_events(struct work_struct *work)
 
 	read_lock(&group_lock);
 	list_for_each_entry(group, &group_list, group)
-		retire_events(device, group);
+		kgsl_process_event_group(device, group);
 	read_unlock(&group_lock);
 }
 EXPORT_SYMBOL(kgsl_process_events);
