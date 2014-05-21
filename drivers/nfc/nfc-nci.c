@@ -39,6 +39,7 @@ struct qca199x_platform_data {
 	unsigned int	clk_req_irq_num;
 	unsigned int dis_gpio;
 	unsigned int clkreq_gpio;
+	unsigned int pwrreq_gpio;
 	unsigned int reg;
 	const char *clk_src_name;
 	unsigned int clk_src_gpio;
@@ -1207,6 +1208,8 @@ static int nfc_parse_dt(struct device *dev, struct qca199x_platform_data *pdata)
 
 	r = of_property_read_string(np, "qcom,clk-src", &pdata->clk_src_name);
 
+	pdata->pwrreq_gpio = of_get_named_gpio(np, "qcom,pwr-req-gpio", 0);
+
 	if (strcmp(pdata->clk_src_name, "GPCLK2")) {
 		pdata->clkreq_gpio = of_get_named_gpio(np, "qcom,clk-gpio", 0);
 	}
@@ -1225,6 +1228,22 @@ static int nfc_parse_dt(struct device *dev, struct qca199x_platform_data *pdata)
 
 	if (r)
 		return -EINVAL;
+	return r;
+}
+
+static inline int gpio_input_init(const struct device * const dev,
+			const int gpio, const char * const gpio_name)
+{
+	int r = gpio_request(gpio, gpio_name);
+	if (r) {
+		dev_err(dev, "unable to request gpio [%d]\n", gpio);
+		return r;
+	}
+
+	r = gpio_direction_input(gpio);
+	if (r)
+		dev_err(dev, "unable to set direction for gpio [%d]\n", gpio);
+
 	return r;
 }
 
@@ -1414,6 +1433,15 @@ static int qca199x_probe(struct i2c_client *client,
 			goto err_clk;
 		else
 			goto err_irq_clk;
+	}
+
+	if (gpio_is_valid(platform_data->pwrreq_gpio)) {
+		r = gpio_input_init(&client->dev, platform_data->pwrreq_gpio,
+			"pwrreq_gpio");
+		if (r)
+			gpio_free(platform_data->pwrreq_gpio);
+	} else {
+		dev_dbg(&client->dev, "pwrreq gpio not provided");
 	}
 
 	if (strcmp(platform_data->clk_src_name, "GPCLK2")) {
