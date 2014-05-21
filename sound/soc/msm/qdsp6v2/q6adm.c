@@ -601,7 +601,7 @@ int adm_get_params(int port_id, int copp_idx, uint32_t module_id,
 {
 	struct adm_cmd_get_pp_params_v5 *adm_params = NULL;
 	int sz, rc = 0, i = 0;
-	int port_idx;
+	int port_idx, idx;
 	int *params_data = (int *)params;
 
 	port_id = afe_convert_virtual_to_portid(port_id);
@@ -658,8 +658,16 @@ int adm_get_params(int port_id, int copp_idx, uint32_t module_id,
 		rc = -EINVAL;
 		goto adm_get_param_return;
 	}
+
+	idx = ADM_GET_PARAMETER_LENGTH * copp_idx;
+
+	if (adm_get_parameters[idx] < 0) {
+		pr_err("%s: Size is invalid %d\n", __func__,
+			adm_get_parameters[idx]);
+		rc = -EINVAL;
+		goto adm_get_param_return;
+	}
 	if (params_data) {
-		int idx = ADM_GET_PARAMETER_LENGTH*copp_idx;
 		for (i = 0; i < adm_get_parameters[idx]; i++)
 			params_data[i] = adm_get_parameters[1+i+idx];
 
@@ -708,7 +716,7 @@ void adm_get_multi_ch_map(char *channel_map)
 static int32_t adm_callback(struct apr_client_data *data, void *priv)
 {
 	uint32_t *payload;
-	int i, j, port_idx, copp_idx;
+	int i, j, port_idx, copp_idx, idx;
 
 	if (data == NULL) {
 		pr_err("%s: data paramter is null\n", __func__);
@@ -882,16 +890,23 @@ static int32_t adm_callback(struct apr_client_data *data, void *priv)
 			if (rtac_make_adm_callback(payload,
 					data->payload_size))
 				break;
-			if (data->payload_size > (4 * sizeof(uint32_t))) {
-				int idx = ADM_GET_PARAMETER_LENGTH*copp_idx;
-				adm_get_parameters[idx] = payload[3];
-				pr_debug("%s: GET_PP PARAM:received parameter length: 0x%x\n",
-						__func__,
-						adm_get_parameters[0]);
-				/* storing param size then params */
-				for (i = 0; i < payload[3]; i++)
-					adm_get_parameters[idx+1+i] =
+
+			idx = ADM_GET_PARAMETER_LENGTH * copp_idx;
+			if (payload[0] == 0) {
+				if (data->payload_size >
+				    (4 * sizeof(uint32_t))) {
+					adm_get_parameters[idx] = payload[3];
+					pr_debug("GET_PP PARAM:received parameter length: 0x%x\n",
+						adm_get_parameters[idx]);
+					/* storing param size then params */
+					for (i = 0; i < payload[3]; i++)
+						adm_get_parameters[idx+1+i] =
 								payload[4+i];
+				}
+			} else {
+				adm_get_parameters[idx] = -1;
+				pr_err("%s: GET_PP_PARAMS failed, setting size to %d\n",
+					__func__, adm_get_parameters[idx]);
 			}
 			atomic_set(&this_adm.copp.stat[port_idx][copp_idx], 1);
 			wake_up(&this_adm.copp.wait[port_idx][copp_idx]);
