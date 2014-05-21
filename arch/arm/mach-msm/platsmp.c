@@ -19,6 +19,7 @@
 #include <soc/qcom/spm.h>
 #include <soc/qcom/pm.h>
 #include <soc/qcom/scm-boot.h>
+#include <soc/qcom/cpu_pwr_ctl.h>
 
 #include <asm/cacheflush.h>
 #include <asm/cputype.h>
@@ -300,19 +301,20 @@ static int __cpuinit msm8916_boot_secondary(unsigned int cpu,
 static int __cpuinit msm8936_boot_secondary(unsigned int cpu,
 						struct task_struct *idle)
 {
+	int ret = 0;
+
 	pr_debug("Starting secondary CPU %d\n", cpu);
 
 	if (per_cpu(cold_boot_done, cpu) == false) {
-		u32 mpidr = cpu_logical_map(cpu);
-		u32 apcs_base = MPIDR_AFFINITY_LEVEL(mpidr, 1) ?
-				0xb088000 : 0xb188000;
-		if (of_board_is_sim())
-			release_secondary_sim(apcs_base,
-				MPIDR_AFFINITY_LEVEL(mpidr, 0));
-		else if (!of_board_is_rumi())
-			arm_release_secondary(apcs_base,
-				MPIDR_AFFINITY_LEVEL(mpidr, 0));
-
+		if (of_board_is_sim()) {
+			ret = msm_unclamp_secondary_arm_cpu_sim(cpu);
+			if (ret)
+				return ret;
+		} else if (!of_board_is_rumi()) {
+			ret = msm_unclamp_secondary_arm_cpu(cpu);
+			if (ret)
+				return ret;
+		}
 		per_cpu(cold_boot_done, cpu) = true;
 	}
 	return release_from_pen(cpu);
