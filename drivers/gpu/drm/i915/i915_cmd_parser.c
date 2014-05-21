@@ -1077,11 +1077,6 @@ int i915_parse_cmds(struct intel_engine_cs *ring,
 		cmd += length;
 	}
 
-	if (oacontrol_set) {
-		DRM_DEBUG_DRIVER("CMD: batch set OACONTROL but did not clear it\n");
-		ret = -EINVAL;
-	}
-
 	if (cmd >= batch_end) {
 		DRM_DEBUG_DRIVER("CMD: Got to the end of the buffer w/o a BBE cmd!\n");
 		ret = -EINVAL;
