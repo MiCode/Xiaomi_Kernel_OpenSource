@@ -1899,3 +1899,9 @@
 	qcom,clk-rates = <400000 20000000 25000000 50000000 100000000 192000000 384000000>;
 	qcom,bus-speed-mode = "HS400_1p8v", "HS200_1p8v", "DDR_1p8v";
 };
+
+&usb3 {
+	dwc3@f9200000 {
+		snps,usb3-u1u2-disable;
+	};
+};
