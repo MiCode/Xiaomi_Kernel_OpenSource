@@ -549,7 +549,6 @@ void diag_send_diag_mode_update_by_smd(struct diag_smd_info *smd_info,
 		pr_err("diag: ch invalid, feature update on proc %d\n",
 				smd_info->peripheral);
 	}
-	process_lock_enabling(&data->nrt_lock, real_time);
 
 	mutex_unlock(&driver->diag_cntl_mutex);
 }

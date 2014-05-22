@@ -288,6 +288,44 @@ static ssize_t diag_dbgfs_read_dcistats(struct file *file,
 	return bytes_written;
 }
 
+static ssize_t diag_dbgfs_read_power(struct file *file, char __user *ubuf,
+				     size_t count, loff_t *ppos)
+{
+	char *buf;
+	int ret;
+	unsigned int buf_size;
+
+	buf = kzalloc(sizeof(char) * DEBUG_BUF_SIZE, GFP_KERNEL);
+	if (!buf) {
+		pr_err("diag: %s, Error allocating memory\n", __func__);
+		return -ENOMEM;
+	}
+
+	buf_size = ksize(buf);
+	ret = scnprintf(buf, buf_size,
+		"DCI reference count: %d\n"
+		"DCI copy count: %d\n"
+		"DCI Client Count: %d\n\n"
+		"Memory Device reference count: %d\n"
+		"Memory Device copy count: %d\n"
+		"Logging mode: %d\n\n"
+		"Wakeup source active count: %lu\n"
+		"Wakeup source relax count: %lu\n\n",
+		driver->dci_ws.ref_count,
+		driver->dci_ws.copy_count,
+		driver->num_dci_client,
+		driver->md_ws.ref_count,
+		driver->md_ws.copy_count,
+		driver->logging_mode,
+		driver->diag_dev->power.wakeup->active_count,
+		driver->diag_dev->power.wakeup->relax_count);
+
+	ret = simple_read_from_buffer(ubuf, count, ppos, buf, ret);
+
+	kfree(buf);
+	return ret;
+}
+
 static ssize_t diag_dbgfs_read_workpending(struct file *file,
 				char __user *ubuf, size_t count, loff_t *ppos)
 {
@@ -786,6 +824,10 @@ const struct file_operations diag_dbgfs_dcistats_ops = {
 	.read = diag_dbgfs_read_dcistats,
 };
 
+const struct file_operations diag_dbgfs_power_ops = {
+	.read = diag_dbgfs_read_power,
+};
+
 int diag_debugfs_init(void)
 {
 	struct dentry *entry = NULL;
@@ -816,6 +858,11 @@ int diag_debugfs_init(void)
 
 	entry = debugfs_create_file("dci_stats", 0444, diag_dbgfs_dent, 0,
 				    &diag_dbgfs_dcistats_ops);
+	if (!entry)
+		goto err;
+
+	entry = debugfs_create_file("power", 0444, diag_dbgfs_dent, 0,
+				    &diag_dbgfs_power_ops);
 	if (!entry)
 		goto err;
 
