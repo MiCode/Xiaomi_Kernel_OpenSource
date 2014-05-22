@@ -68,20 +68,34 @@ static int nop_set_suspend(struct usb_phy *x, int suspend)
 	return 0;
 }
 
-static void nop_reset_set(struct usb_phy_gen_xceiv *nop, int asserted)
+static void nop_func_set(struct usb_phy_gen_xceiv *nop, struct gpio_desc *gpio,
+			 int asserted, int wait)
 {
-	if (IS_ERR(nop->gpio_reset))
+	if (IS_ERR(gpio))
 		return;
 
-	gpiod_set_value_cansleep(nop->gpio_reset, asserted);
+	gpiod_set_value_cansleep(gpio, asserted);
 
-	if (!asserted)
+	if (wait)
 		usleep_range(10000, 20000);
+}
+
+static inline void nop_reset_set(struct usb_phy_gen_xceiv *nop, int asserted)
+{
+	nop_func_set(nop, nop->gpio_reset, asserted, !asserted);
+}
+
+static inline void nop_cs_set(struct usb_phy_gen_xceiv *nop, int asserted)
+{
+	nop_func_set(nop, nop->gpio_cs, asserted, asserted);
 }
 
 int usb_gen_phy_init(struct usb_phy *phy)
 {
 	struct usb_phy_gen_xceiv *nop = dev_get_drvdata(phy->dev);
+
+	/* Assert CS */
+	nop_cs_set(nop, 1);
 
 	if (!IS_ERR(nop->vcc)) {
 		if (regulator_enable(nop->vcc))
@@ -112,6 +126,9 @@ void usb_gen_phy_shutdown(struct usb_phy *phy)
 		if (regulator_disable(nop->vcc))
 			dev_err(phy->dev, "Failed to disable power\n");
 	}
+
+	/* De-assert CS */
+	nop_cs_set(nop, 0);
 }
 EXPORT_SYMBOL_GPL(usb_gen_phy_shutdown);
 
@@ -201,6 +218,15 @@ int usb_phy_gen_create_phy(struct device *dev, struct usb_phy_gen_xceiv *nop,
 			return -EPROBE_DEFER;
 		}
 		dev_info(dev, "No RESET GPIO is available\n");
+	}
+
+	nop->gpio_cs = devm_gpiod_get_index(dev, "cs", 1);
+	if (IS_ERR(nop->gpio_cs)) {
+		if (PTR_ERR(nop->gpio_cs) == -EPROBE_DEFER) {
+			dev_err(dev, "Error requesting CS GPIO\n");
+			return -EPROBE_DEFER;
+		}
+		dev_info(dev, "No CS GPIO is available\n");
 	}
 
 	nop->dev		= dev;

@@ -9,6 +9,7 @@ struct usb_phy_gen_xceiv {
 	struct clk *clk;
 	struct regulator *vcc;
 	struct gpio_desc *gpio_reset;
+	struct gpio_desc *gpio_cs;
 };
 
 int usb_gen_phy_init(struct usb_phy *phy);
