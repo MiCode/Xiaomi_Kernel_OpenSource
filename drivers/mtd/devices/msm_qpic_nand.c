@@ -1366,7 +1366,6 @@ static void msm_nand_prep_rw_cmd_desc(struct mtd_oob_ops *ops,
 	uint32_t rdata;
 	/* read_location register parameters */
 	uint32_t offset, size, last_read;
-	static uint32_t prev_rdata;
 
 	cmd = *curr_cmd;
 	if (curr_cw == args->start_sector) {
@@ -1425,14 +1424,11 @@ static void msm_nand_prep_rw_cmd_desc(struct mtd_oob_ops *ops,
 			rdata = (offset << 0) | (size << 16) |
 				(last_read << 31);
 
-			if (prev_rdata != rdata) {
-				msm_nand_prep_ce(cmd,
-						MSM_NAND_READ_LOCATION_0(info),
-						WRITE,
-						rdata, 0);
-				cmd++;
-				prev_rdata = rdata;
-			}
+			msm_nand_prep_ce(cmd,
+					MSM_NAND_READ_LOCATION_0(info),
+					WRITE,
+					rdata, 0);
+			cmd++;
 		}
 		if (curr_cw == (args->cwperpage - 1) && ops->oobbuf) {
 			offset = 512 - ((args->cwperpage - 1) << 2);
@@ -1455,8 +1451,6 @@ static void msm_nand_prep_rw_cmd_desc(struct mtd_oob_ops *ops,
 			cmd++;
 		}
 	}
-	if (curr_cw == (args->cwperpage - 1))
-		prev_rdata = 0;
 sub_exec_cmd:
 	msm_nand_prep_ce(cmd, MSM_NAND_EXEC_CMD(info), WRITE, data->exec,
 			SPS_IOVEC_FLAG_NWD);
