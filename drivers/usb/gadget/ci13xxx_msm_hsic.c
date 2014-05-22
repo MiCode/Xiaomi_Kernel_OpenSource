@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -29,7 +29,6 @@
 #include <linux/usb/msm_hsusb.h>
 
 #include <mach/msm_iomap.h>
-#include <mach/msm_xo.h>
 #include <mach/rpm-regulator.h>
 
 #include "ci13xxx_udc.c"
@@ -62,7 +61,6 @@ struct msm_hsic_per {
 	int					irq;
 	atomic_t			in_lpm;
 	struct wake_lock	wlock;
-	struct msm_xo_voter	*xo_handle;
 	struct workqueue_struct *wq;
 	struct work_struct	suspend_w;
 	struct msm_hsic_peripheral_platform_data *pdata;
@@ -390,11 +388,6 @@ static int msm_hsic_suspend(struct msm_hsic_per *mhsic)
 	clk_disable_unprepare(mhsic->cal_clk);
 	clk_disable_unprepare(mhsic->alt_core_clk);
 
-	ret = msm_xo_mode_vote(mhsic->xo_handle, MSM_XO_MODE_OFF);
-	if (ret)
-		dev_err(mhsic->dev, "%s failed to devote for TCXO %d\n"
-				, __func__, ret);
-
 	none_vol = vdd_val[mhsic->vdd_type][VDD_NONE];
 	max_vol = vdd_val[mhsic->vdd_type][VDD_MAX];
 
@@ -434,11 +427,6 @@ static int msm_hsic_resume(struct msm_hsic_per *mhsic)
 	if (ret < 0)
 		dev_err(mhsic->dev,
 			"unable to set nominal vddcx voltage (no VDD MIN)\n");
-
-	ret = msm_xo_mode_vote(mhsic->xo_handle, MSM_XO_MODE_ON);
-	if (ret)
-		dev_err(mhsic->dev, "%s failed to vote for TCXO %d\n",
-				__func__, ret);
 
 	if (!mhsic->pdata->core_clk_always_on_workaround || !mhsic->connected) {
 		clk_prepare_enable(mhsic->iface_clk);
@@ -702,37 +690,22 @@ static int msm_hsic_probe(struct platform_device *pdev)
 	if (!mhsic->regs) {
 		dev_err(&pdev->dev, "ioremap failed\n");
 		ret = -ENOMEM;
-		goto unmap;
+		goto error;
 	}
 	dev_info(&pdev->dev, "HSIC Peripheral regs = %p\n", mhsic->regs);
-
-	mhsic->xo_handle = msm_xo_get(MSM_XO_TCXO_D0, "hsic_peripheral");
-	if (IS_ERR(mhsic->xo_handle)) {
-		dev_err(&pdev->dev, "%s not able to get the handle "
-			"to vote for TCXO\n", __func__);
-		ret = PTR_ERR(mhsic->xo_handle);
-		goto unmap;
-	}
-
-	ret = msm_xo_mode_vote(mhsic->xo_handle, MSM_XO_MODE_ON);
-	if (ret) {
-		dev_err(&pdev->dev, "%s failed to vote for TCXO %d\n",
-				__func__, ret);
-		goto free_xo_handle;
-	}
 
 	ret = msm_hsic_enable_clocks(pdev, mhsic, true);
 
 	if (ret) {
 		dev_err(&pdev->dev, "msm_hsic_enable_clocks failed\n");
 		ret = -ENODEV;
-		goto deinit_clocks;
+		goto unmap;
 	}
 	ret = msm_hsic_init_vddcx(mhsic, 1);
 	if (ret) {
 		dev_err(&pdev->dev, "unable to initialize VDDCX\n");
 		ret = -ENODEV;
-		goto deinit_vddcx;
+		goto deinit_clocks;
 	}
 
 	ret = msm_hsic_reset(mhsic);
@@ -774,9 +747,6 @@ deinit_vddcx:
 	msm_hsic_init_vddcx(mhsic, 0);
 deinit_clocks:
 	msm_hsic_enable_clocks(pdev, mhsic, 0);
-	msm_xo_mode_vote(mhsic->xo_handle, MSM_XO_MODE_OFF);
-free_xo_handle:
-	msm_xo_put(mhsic->xo_handle);
 unmap:
 	iounmap(mhsic->regs);
 error:
@@ -795,7 +765,6 @@ static int hsic_msm_remove(struct platform_device *pdev)
 
 	msm_hsic_init_vddcx(mhsic, 0);
 	msm_hsic_enable_clocks(pdev, mhsic, 0);
-	msm_xo_put(mhsic->xo_handle);
 	wake_lock_destroy(&mhsic->wlock);
 	destroy_workqueue(mhsic->wq);
 	udc_remove();
