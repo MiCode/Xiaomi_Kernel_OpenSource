@@ -140,7 +140,7 @@ static const struct regulator_desc arizona_micsupp = {
 	.linear_ranges = arizona_micsupp_ranges,
 	.n_linear_ranges = ARRAY_SIZE(arizona_micsupp_ranges),
 
-	.enable_time = 3000,
+	.enable_time = 6000,
 
 	.owner = THIS_MODULE,
 };
