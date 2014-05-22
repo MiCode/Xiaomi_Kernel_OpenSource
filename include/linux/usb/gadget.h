@@ -562,6 +562,7 @@ struct usb_gadget {
 	u8                  usb_core_id;
 	bool                streaming_enabled;
 	bool                remote_wakeup;
+	void				*private;
 };
 #define work_to_gadget(w)	(container_of((w), struct usb_gadget, work))
 
