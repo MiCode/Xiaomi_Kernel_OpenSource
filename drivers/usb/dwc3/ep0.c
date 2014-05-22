@@ -332,12 +332,24 @@ static struct dwc3_ep *dwc3_wIndex_to_dep(struct dwc3 *dwc, __le16 wIndex_le)
 static void dwc3_ep0_status_cmpl(struct usb_ep *ep, struct usb_request *req)
 {
 }
+
+static int dwc3_ep0_delegate_req(struct dwc3 *dwc, struct usb_ctrlrequest *ctrl)
+{
+	int ret;
+
+	spin_unlock(&dwc->lock);
+	ret = dwc->gadget_driver->setup(&dwc->gadget, ctrl);
+	spin_lock(&dwc->lock);
+	return ret;
+}
+
 /*
  * ch 9.4.5
  */
 static int dwc3_ep0_handle_status(struct dwc3 *dwc,
 		struct usb_ctrlrequest *ctrl)
 {
+	int ret;
 	struct dwc3_ep		*dep;
 	u32			recip;
 	u32			reg;
@@ -367,6 +379,10 @@ static int dwc3_ep0_handle_status(struct dwc3 *dwc,
 		 * Function Remote Wake Capable	D0
 		 * Function Remote Wakeup	D1
 		 */
+
+		ret = dwc3_ep0_delegate_req(dwc, ctrl);
+		if (ret)
+			return ret;
 		break;
 
 	case USB_RECIP_ENDPOINT:
@@ -480,6 +496,9 @@ static int dwc3_ep0_handle_feature(struct dwc3 *dwc,
 			if (wIndex & USB_INTRF_FUNC_SUSPEND_RW)
 				/* XXX enable remote wakeup */
 				;
+			ret = dwc3_ep0_delegate_req(dwc, ctrl);
+			if (ret)
+				return ret;
 			break;
 		default:
 			return -EINVAL;
@@ -539,16 +558,6 @@ static int dwc3_ep0_set_address(struct dwc3 *dwc, struct usb_ctrlrequest *ctrl)
 		usb_gadget_set_state(&dwc->gadget, USB_STATE_DEFAULT);
 
 	return 0;
-}
-
-static int dwc3_ep0_delegate_req(struct dwc3 *dwc, struct usb_ctrlrequest *ctrl)
-{
-	int ret;
-
-	spin_unlock(&dwc->lock);
-	ret = dwc->gadget_driver->setup(&dwc->gadget, ctrl);
-	spin_lock(&dwc->lock);
-	return ret;
 }
 
 static int dwc3_ep0_set_config(struct dwc3 *dwc, struct usb_ctrlrequest *ctrl)
