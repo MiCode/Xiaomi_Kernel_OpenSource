@@ -251,6 +251,21 @@ static int ep_config(u8 usb_ep, u8 bam_pipe, bool producer, bool disable_wb,
 }
 
 /**
+ * Return number of configured DBM endpoints.
+ */
+static int get_num_of_eps_configured(void)
+{
+	int i;
+	int count = 0;
+
+	for (i = 0; i < dbm_data->dbm_num_eps; i++)
+		if (dbm_data->ep_num_mapping[i])
+			count++;
+
+	return count;
+}
+
+/**
  * Configure a USB DBM ep to work in normal mode.
  *
  * @usb_ep - USB ep number.
@@ -279,29 +294,21 @@ static int ep_unconfig(u8 usb_ep)
 	/* Reset the dbm endpoint */
 	ep_soft_reset(dbm_ep, true);
 	/*
-	 * 10 usec delay is required before deasserting DBM endpoint reset
-	 * according to hardware programming guide.
+	 * The necessary delay between asserting and deasserting the dbm ep
+	 * reset is based on the number of active endpoints. If there is more
+	 * than one endpoint, a 1 msec delay is required. Otherwise, a shorter
+	 * delay will suffice.
+	 *
+	 * As this function can be called in atomic context, sleeping variants
+	 * for delay are not possible - albeit a 1ms delay.
 	 */
-	udelay(10);
+	if (get_num_of_eps_configured() > 1)
+		udelay(1000);
+	else
+		udelay(10);
 	ep_soft_reset(dbm_ep, false);
 
 	return 0;
-}
-
-/**
- * Return number of configured DBM endpoints.
- *
- */
-static int get_num_of_eps_configured(void)
-{
-	int i;
-	int count = 0;
-
-	for (i = 0; i < dbm_data->dbm_num_eps; i++)
-		if (dbm_data->ep_num_mapping[i])
-			count++;
-
-	return count;
 }
 
 /**
