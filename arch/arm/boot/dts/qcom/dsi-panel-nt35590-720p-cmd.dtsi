@@ -534,5 +534,6 @@
 		qcom,mdss-pan-physical-width-dimension = <59>;
 		qcom,mdss-pan-physical-height-dimension = <104>;
 		qcom,partial-update-enabled;
+		qcom,panel-roi-alignment = <2 2 2 2 0 0>;
 	};
 };
