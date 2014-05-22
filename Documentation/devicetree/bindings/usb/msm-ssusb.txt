@@ -23,6 +23,9 @@ Optional properties :
     "hs_phy_irq" : Interrupt from HSPHY for asynchronous events in LPM.
 	This is not used if wakeup events are received externally (e.g. PMIC)
     "pmic_id_irq" : Interrupt from PMIC for external ID pin notification.
+    "pwr_event_irq" : Interrupt to controller for asynchronous events in LPM.
+	Used for SS-USB power events. This is not used if wakeup events are
+	received externally (e.g. PMIC)
 - qcom,otg-capability: If present then depend on PMIC for VBUS notifications,
   otherwise depend on PHY.
 - qcom,suspend_event_enable: If present then suspend interrupt event is enabled.
