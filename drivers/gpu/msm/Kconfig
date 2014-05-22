@@ -8,6 +8,7 @@ config MSM_KGSL
 	select DEVFREQ_GOV_SIMPLE_ONDEMAND
 	select DEVFREQ_GOV_PERFORMANCE
 	select DEVFREQ_GOV_MSM_ADRENO_TZ
+	select DEVFREQ_GOV_MSM_GPUBW_MON
 	---help---
 	  3D graphics driver. Required to use hardware accelerated
 	  OpenGL ES 2.0 and 1.1.

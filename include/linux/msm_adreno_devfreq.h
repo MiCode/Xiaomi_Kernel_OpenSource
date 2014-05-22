@@ -48,6 +48,18 @@ struct devfreq_msm_adreno_tz_data {
 
 struct msm_adreno_extended_profile {
 	struct devfreq_msm_adreno_tz_data *private_data;
+	struct devfreq *bus_devfreq;
+	struct workqueue_struct *partner_wq;
+	struct work_struct partner_start_event_ws;
+	struct work_struct partner_stop_event_ws;
+	struct work_struct partner_suspend_event_ws;
+	struct work_struct partner_resume_event_ws;
+	struct devfreq_dev_profile profile;
+};
+
+struct msm_busmon_extended_profile {
+	u32 flag;
+	struct devfreq_msm_adreno_tz_data *private_data;
 	struct devfreq_dev_profile profile;
 };
 
