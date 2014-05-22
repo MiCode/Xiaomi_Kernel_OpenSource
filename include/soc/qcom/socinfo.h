@@ -54,6 +54,8 @@
 
 #define early_machine_is_msm8610()	\
 	of_flat_dt_is_compatible(of_get_flat_dt_root(), "qcom,msm8610")
+#define early_machine_is_msmferrum()	\
+	of_flat_dt_is_compatible(of_get_flat_dt_root(), "qcom,msmferrum")
 #define early_machine_is_msm8916()	\
 	of_flat_dt_is_compatible(of_get_flat_dt_root(), "qcom,msm8916")
 #define early_machine_is_msm8936()	\
@@ -91,6 +93,7 @@
 #define machine_is_msm8926()		0
 
 #define early_machine_is_msm8610()	0
+#define early_machine_is_msmferrum()	0
 #define early_machine_is_msm8916()	0
 #define early_machine_is_msm8936()	0
 #define early_machine_is_msm8939()	0
@@ -135,6 +138,7 @@ enum msm_cpu {
 	MSM_CPU_8627,
 	MSM_CPU_8625,
 	MSM_CPU_9625,
+	MSM_CPU_FERRUM,
 	MSM_CPU_8916,
 	MSM_CPU_8936,
 	MSM_CPU_8939,
@@ -482,6 +486,18 @@ static inline int cpu_is_msm8974pro_ac(void)
 
 	BUG_ON(cpu == MSM_CPU_UNKNOWN);
 	return cpu == MSM_CPU_8974PRO_AC;
+#else
+	return 0;
+#endif
+}
+
+static inline int cpu_is_msmferrum(void)
+{
+#ifdef CONFIG_ARCH_MSMFERRUM
+	enum msm_cpu cpu = socinfo_get_msm_cpu();
+
+	BUG_ON(cpu == MSM_CPU_UNKNOWN);
+	return cpu == MSM_CPU_FERRUM;
 #else
 	return 0;
 #endif
