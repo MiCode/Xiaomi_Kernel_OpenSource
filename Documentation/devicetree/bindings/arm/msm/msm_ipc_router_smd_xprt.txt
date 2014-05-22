@@ -11,6 +11,7 @@ Required properties:
 
 Optional properties:
 -qcom,fragmented-data:	Indicate the SMD transport supports fragmented data
+-qcom,disable-pil-loading: Disable PIL Loading of the remote subsystem
 
 Example:
 	qcom,ipc_router_modem_xprt {
@@ -20,6 +21,7 @@ Example:
 		qcom,xprt-linkid = <1>;
 		qcom,xprt-version = <1>;
 		qcom,fragmented-data;
+		qcom,disable-pil-loading;
 	};
 
 	qcom,ipc_router_q6_xprt {
