@@ -606,7 +606,7 @@ static int arizona_hpdet_read(struct arizona_extcon_info *info)
 	return val;
 }
 
-static const struct reg_default low_impedance_patch[] = {
+static const struct reg_default wm5110_low_impedance_patch[] = {
 	{ 0x460, 0x0C21 },
 	{ 0x461, 0xA000 },
 	{ 0x462, 0x0C41 },
@@ -641,7 +641,7 @@ static const struct reg_default low_impedance_patch[] = {
 	{ 0x483, 0x0021 },
 };
 
-static const struct reg_default normal_impedance_patch[] = {
+static const struct reg_default wm5110_normal_impedance_patch[] = {
 	{ 0x460, 0x0C40 },
 	{ 0x461, 0xA000 },
 	{ 0x462, 0x0C42 },
@@ -676,6 +676,18 @@ static const struct reg_default normal_impedance_patch[] = {
 	{ 0x483, 0x0021 },
 };
 
+static const struct reg_default wm1814_low_impedance_patch[] = {
+	{ 0x46C, 0x0C01 },
+	{ 0x46E, 0x0C01 },
+	{ 0x470, 0x0C01 },
+};
+
+static const struct reg_default wm1814_normal_impedance_patch[] = {
+	{ 0x46C, 0x0801 },
+	{ 0x46E, 0x0801 },
+	{ 0x470, 0x0801 },
+};
+
 int arizona_wm5110_tune_headphone(struct arizona_extcon_info *info,
 				  int reading)
 {
@@ -697,8 +709,8 @@ int arizona_wm5110_tune_headphone(struct arizona_extcon_info *info,
 				   ARIZONA_HP1_SHORT_CIRCUIT_CTRL,
 				   ARIZONA_HP1_SC_ENA_MASK, 0);
 
-		patch = low_impedance_patch;
-		size = ARRAY_SIZE(low_impedance_patch);
+		patch = wm5110_low_impedance_patch;
+		size = ARRAY_SIZE(wm5110_low_impedance_patch);
 	} else {
 		if (info->hp_imp_level == HP_NORMAL_IMPEDANCE)
 			return 0;
@@ -710,8 +722,49 @@ int arizona_wm5110_tune_headphone(struct arizona_extcon_info *info,
 				   ARIZONA_HP1_SC_ENA_MASK,
 				   ARIZONA_HP1_SC_ENA_MASK);
 
-		patch = normal_impedance_patch;
-		size = ARRAY_SIZE(normal_impedance_patch);
+		patch = wm5110_normal_impedance_patch;
+		size = ARRAY_SIZE(wm5110_normal_impedance_patch);
+	}
+
+	for (i = 0; i < size; ++i) {
+		ret = regmap_write(arizona->regmap,
+				   patch[i].reg, patch[i].def);
+		if (ret != 0)
+			dev_warn(arizona->dev,
+				 "Failed to write headphone patch: %x <= %x\n",
+				 patch[i].reg, patch[i].def);
+	}
+
+	return 0;
+}
+
+int arizona_wm1814_tune_headphone(struct arizona_extcon_info *info,
+				  int reading)
+{
+	struct arizona *arizona = info->arizona;
+	const struct reg_default *patch;
+	int i, ret, size;
+
+	if (reading <= ARIZONA_HP_SHORT_IMPEDANCE) {
+		/* Headphones are always off here so just mark them */
+		dev_warn(arizona->dev, "Possible HP short, disabling\n");
+		return 0;
+	} else if (reading < 15) {
+		if (info->hp_imp_level == HP_LOW_IMPEDANCE)
+			return 0;
+
+		info->hp_imp_level = HP_LOW_IMPEDANCE;
+
+		patch = wm1814_low_impedance_patch;
+		size = ARRAY_SIZE(wm1814_low_impedance_patch);
+	} else {
+		if (info->hp_imp_level == HP_NORMAL_IMPEDANCE)
+			return 0;
+
+		info->hp_imp_level = HP_NORMAL_IMPEDANCE;
+
+		patch = wm1814_normal_impedance_patch;
+		size = ARRAY_SIZE(wm1814_normal_impedance_patch);
 	}
 
 	for (i = 0; i < size; ++i) {
@@ -743,6 +796,10 @@ int arizona_hpdet_start(struct arizona_extcon_info *info)
 		switch (arizona->type) {
 		case WM5110:
 			arizona_wm5110_tune_headphone(info, imp);
+			info->arizona->hp_impedance = imp;
+			break;
+		case WM1814:
+			arizona_wm1814_tune_headphone(info, imp);
 			info->arizona->hp_impedance = imp;
 			break;
 		default:
@@ -870,6 +927,9 @@ int arizona_hpdet_reading(struct arizona_extcon_info *info, int val)
 	switch (arizona->type) {
 	case WM5110:
 		arizona_wm5110_tune_headphone(info, arizona->hp_impedance);
+		break;
+	case WM1814:
+		arizona_wm1814_tune_headphone(info, arizona->hp_impedance);
 		break;
 	default:
 		break;
@@ -1578,6 +1638,9 @@ static irqreturn_t arizona_jackdet(int irq, void *data)
 		switch (arizona->type) {
 		case WM5110:
 			arizona_wm5110_tune_headphone(info, ARIZONA_HP_Z_OPEN);
+			break;
+		case WM1814:
+			arizona_wm1814_tune_headphone(info, ARIZONA_HP_Z_OPEN);
 			break;
 		default:
 			break;
