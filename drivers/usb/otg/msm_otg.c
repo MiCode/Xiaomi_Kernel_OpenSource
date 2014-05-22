@@ -4074,7 +4074,16 @@ msm_otg_ext_chg_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 		} else {
 			motg->ext_chg_active = false;
 			complete(&motg->ext_chg_wait);
-			pm_runtime_put(motg->phy.dev);
+			/*
+			 * If usb cable is disconnected and then userspace
+			 * calls ioctl to unblock low power mode, make sure
+			 * otg_sm work for usb disconnect is processed first
+			 * followed by decrementing the PM usage counters.
+			 */
+			flush_work(&motg->sm_work);
+			pm_runtime_put_noidle(motg->phy.dev);
+			motg->pm_done = 1;
+			pm_runtime_suspend(motg->phy.dev);
 		}
 		break;
 	case MSM_USB_EXT_CHG_VOLTAGE_INFO:
