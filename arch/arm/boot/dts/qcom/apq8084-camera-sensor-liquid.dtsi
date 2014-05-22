@@ -41,6 +41,8 @@
 		qcom,gpio-req-tbl-flags = <0 0>;
 		qcom,gpio-req-tbl-label = "FLASH_EN",
 			"FLASH_NOW";
+		qcom,max-current = <750>;
+		qcom,max-duration = <1600>;
 	};
 
 	eeprom0: qcom,eeprom@20 {
