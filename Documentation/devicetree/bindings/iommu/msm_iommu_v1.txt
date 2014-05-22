@@ -71,6 +71,8 @@ Optional properties:
   the same property except this is for IOMMU with LPAE support.
 - qcom,iommu-lpae-bfb-data : See description for qcom,iommu-bfb-data. This is
   the same property except this is for IOMMU with LPAE support.
+- qcom,iommu-sid-mask : List of mask values to map the unique stream ids to
+  the Stream Mapping Table entries.
 
 Example:
 
@@ -92,6 +94,7 @@ Example:
 			reg = <0xfda6c000 0x1000>;
 			interrupts = <0 70 0>;
 			qcom,iommu-ctx-sids = <0 2>;
+			qcom,iommu-sid-mask = <0 0xf>;
 			label = "ctx_0";
 		};
 		qcom,iommu-ctx@fda6d000 {
