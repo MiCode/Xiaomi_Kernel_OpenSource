@@ -162,6 +162,7 @@ static void handle_wake_func(struct work_struct *work)
 				dev->rc_idx);
 			dev->event_reg->callback(notify);
 		}
+		return;
 	} else {
 		int waiting_cycle = 0;
 		usleep_range(LINKDOWN_INIT_WAITING_US_MIN,
