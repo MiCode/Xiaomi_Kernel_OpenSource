@@ -157,14 +157,12 @@ static struct pll_clk a57_pll0 = {
 		.early_output_mask = BIT(3),
 	},
 	.vals = {
-		.post_div_masked = 0x300,
+		.post_div_masked = 0x100,
 		.pre_div_masked = 0x0,
 		.config_ctl_val = 0x000D6968,
 	},
 	.min_rate = 1209600000,
 	.max_rate = 1996800000,
-	/* FIXME: Simulation hack */
-	.inited = true,
 	.base = &vbases[C1_PLL_BASE],
 	.c = {
 		.parent = &xo_ao.c,
@@ -198,8 +196,6 @@ static struct pll_clk a57_pll1 = {
 	.src_rate = 19200000,
 	.min_rate = 1209600000,
 	.max_rate = 1996800000,
-	/* FIXME: Simulation hack */
-	.inited = true,
 	.base = &vbases[C1_PLL_BASE],
 	.c = {
 		.parent = &xo_ao.c,
@@ -225,14 +221,12 @@ static struct pll_clk a53_pll0 = {
 		.early_output_mask = BIT(3),
 	},
 	.vals = {
-		.post_div_masked = 0x300,
+		.post_div_masked = 0x100,
 		.pre_div_masked = 0x0,
 		.config_ctl_val = 0x000D6968,
 	},
 	.min_rate = 1209600000,
 	.max_rate = 1996800000,
-	/* FIXME: Simulation hack */
-	.inited = true,
 	.base = &vbases[C0_PLL_BASE],
 	.c = {
 		.parent = &xo_ao.c,
@@ -266,8 +260,6 @@ static struct pll_clk a53_pll1 = {
 	.src_rate = 19200000,
 	.min_rate = 1209600000,
 	.max_rate = 1996800000,
-	/* FIXME: Simulation hack */
-	.inited = true,
 	.base = &vbases[C0_PLL_BASE],
 	.c = {
 		.parent = &xo_ao.c,
@@ -872,32 +864,6 @@ static void perform_v1_fixup(void)
 	regval = readl_relaxed(vbases[ALIAS1_GLB_BASE] + MUX_OFFSET);
 	regval |= BIT(6);
 	writel_relaxed(regval, vbases[ALIAS1_GLB_BASE] + MUX_OFFSET);
-
-	/* Set the main/aux output divider on the A53 secondary PLL to 4 */
-	regval = readl_relaxed(vbases[C0_PLL_BASE] + C0_PLLA_USER_CTL);
-	regval &= ~BM(9, 8);
-	regval |= (0x3 << 8);
-	writel_relaxed(regval, vbases[C0_PLL_BASE] + C0_PLLA_USER_CTL);
-
-	/* Set the main/aux output divider on the A57 secondary PLL to 4 */
-	regval = readl_relaxed(vbases[C1_PLL_BASE] + C1_PLLA_USER_CTL);
-	regval &= ~BM(9, 8);
-	regval |= (0x3 << 8);
-	writel_relaxed(regval, vbases[C1_PLL_BASE] + C1_PLLA_USER_CTL);
-
-	/* FIXME:Simulation hack */
-	/* Set the main/aux output divider on the A53 primary PLL to 2 */
-	regval = readl_relaxed(vbases[C0_PLL_BASE] + C0_PLL_USER_CTL);
-	regval &= ~BM(9, 8);
-	regval |= (0x1 << 8);
-	writel_relaxed(regval, vbases[C0_PLL_BASE] + C0_PLL_USER_CTL);
-
-	/* FIXME:Simulation hack */
-	/* Set the main/aux output divider on the A57 primary PLL to 2 */
-	regval = readl_relaxed(vbases[C1_PLL_BASE] + C1_PLL_USER_CTL);
-	regval &= ~BM(9, 8);
-	regval |= (0x1 << 8);
-	writel_relaxed(regval, vbases[C1_PLL_BASE] + C1_PLL_USER_CTL);
 
 	a53_pll1.c.ops->set_rate(&a53_pll1.c, 1593600000);
 	a57_pll1.c.ops->set_rate(&a57_pll1.c, 1593600000);
