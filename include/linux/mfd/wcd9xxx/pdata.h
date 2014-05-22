@@ -142,7 +142,7 @@ struct wcd9xxx_ocp_setting {
 	unsigned int	hph_ocp_limit:3; /* Headphone OCP current limit */
 };
 
-#define WCD9XXX_MAX_REGULATOR	8
+#define WCD9XXX_MAX_REGULATOR	9
 /*
  *      format : TABLA_<POWER_SUPPLY_PIN_NAME>_CUR_MAX
  *
@@ -158,6 +158,7 @@ struct wcd9xxx_ocp_setting {
 #define  WCD9XXX_VDDD_CDC_A_CUR_MAX       5000
 
 #define WCD9XXX_VDD_SPKDRV_NAME "cdc-vdd-spkdrv"
+#define WCD9XXX_VDD_SPKDRV2_NAME "cdc-vdd-spkdrv-2"
 
 struct wcd9xxx_regulator {
 	const char *name;
