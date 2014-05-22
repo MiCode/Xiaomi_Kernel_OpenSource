@@ -1385,7 +1385,7 @@ static irqreturn_t batt_pres_handler(int irq, void *_chip)
 	u8 reg = 0;
 
 	smbchg_read(chip, &reg, chip->bat_if_base + RT_STS, 1);
-	chip->batt_present = !!(reg & BAT_MISSING_BIT);
+	chip->batt_present = !(reg & BAT_MISSING_BIT);
 	pr_debug("triggered: 0x%02x\n", reg);
 	if (chip->psy_registered)
 		power_supply_changed(&chip->batt_psy);
