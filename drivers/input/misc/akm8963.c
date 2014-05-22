@@ -41,6 +41,8 @@
 #define AKM_DRDY_TIMEOUT_MS		100
 #define AKM_BASE_NUM			10
 
+#define AKM_IS_MAG_DATA_ENABLED() (akm->enable_flag & (1 << MAG_DATA_FLAG))
+
 /* POWER SUPPLY VOLTAGE RANGE */
 #define AKM8963_VDD_MIN_UV	2000000
 #define AKM8963_VDD_MAX_UV	3300000
@@ -52,6 +54,12 @@
 				!= AKM8963_ST1_DRDY)
 #define REG_CNTL1_MODE(reg_cntl1)	(reg_cntl1 & 0x0F)
 
+/* Save last device state for power down */
+struct akm_sensor_state {
+	bool power_on;
+	uint8_t mode;
+};
+
 struct akm_compass_data {
 	struct i2c_client	*i2c;
 	struct input_dev	*input;
@@ -59,8 +67,11 @@ struct akm_compass_data {
 	struct class		*compass;
 	struct pinctrl		*pinctrl;
 	struct pinctrl_state	*pin_default;
+	struct pinctrl_state	*pin_sleep;
 	struct sensors_classdev	cdev;
 	struct delayed_work	dwork;
+	struct mutex		op_mutex;
+
 
 	wait_queue_head_t	drdy_wq;
 	wait_queue_head_t	open_wq;
@@ -92,6 +103,7 @@ struct akm_compass_data {
 	bool	use_poll;
 	struct	regulator		*vdd;
 	struct	regulator		*vio;
+	struct	akm_sensor_state		state;
 	struct	akm8963_platform_data	*pdata;
 };
 
@@ -114,6 +126,8 @@ static struct sensors_classdev sensors_cdev = {
 };
 
 static struct akm_compass_data *s_akm;
+
+static int akm_compass_power_set(struct akm_compass_data *data, bool on);
 
 /***** I2C I/O function ***********************************************/
 static int akm_i2c_rxdata(
@@ -326,7 +340,7 @@ static int AKECS_SetMode(
 				"%s: Unknown mode(%d).", __func__, mode);
 		return -EINVAL;
 	}
-
+	akm->state.mode = mode;
 	return err;
 }
 
@@ -836,7 +850,7 @@ static void akm_compass_sysfs_update_status(
 static int akm_enable_set(struct sensors_classdev *sensors_cdev,
 		unsigned int enable)
 {
-
+	int ret = 0;
 	struct akm_compass_data *akm = container_of(sensors_cdev,
 			struct akm_compass_data, cdev);
 
@@ -846,6 +860,16 @@ static int akm_enable_set(struct sensors_classdev *sensors_cdev,
 	mutex_unlock(&akm->val_mutex);
 
 	akm_compass_sysfs_update_status(akm);
+
+	mutex_lock(&akm->op_mutex);
+	if (enable) {
+		ret = akm_compass_power_set(akm, true);
+		if (ret) {
+			dev_err(&akm->i2c->dev,
+				"Power on fail! ret=%d\n", ret);
+			goto exit;
+		}
+	}
 
 	if (akm->use_poll && akm->pdata->auto_report) {
 		if (enable) {
@@ -865,7 +889,18 @@ static int akm_enable_set(struct sensors_classdev *sensors_cdev,
 			disable_irq(akm->i2c->irq);
 	}
 
-	return 0;
+	if (!enable) {
+		ret = akm_compass_power_set(akm, false);
+		if (ret) {
+			dev_err(&akm->i2c->dev,
+				"Power off fail! ret=%d\n", ret);
+			goto exit;
+		}
+	}
+
+exit:
+	mutex_unlock(&akm->op_mutex);
+	return ret;
 }
 
 static ssize_t akm_compass_sysfs_enable_show(
@@ -884,6 +919,7 @@ static ssize_t akm_compass_sysfs_enable_store(
 	struct akm_compass_data *akm, char const *buf, size_t count, int pos)
 {
 	long en = 0;
+	int ret = 0;
 
 	if (NULL == buf)
 		return -EINVAL;
@@ -896,6 +932,14 @@ static ssize_t akm_compass_sysfs_enable_store(
 
 	en = en ? 1 : 0;
 
+	mutex_lock(&akm->op_mutex);
+	ret = akm_compass_power_set(akm, en);
+	if (ret) {
+		dev_err(&akm->i2c->dev,
+			"Fail to configure device power!\n");
+		goto exit;
+	}
+
 	mutex_lock(&akm->val_mutex);
 	akm->enable_flag &= ~(1<<pos);
 	akm->enable_flag |= ((uint32_t)(en))<<pos;
@@ -903,7 +947,9 @@ static ssize_t akm_compass_sysfs_enable_store(
 
 	akm_compass_sysfs_update_status(akm);
 
-	return count;
+exit:
+	mutex_unlock(&akm->op_mutex);
+	return ret ? ret : count;
 }
 
 /***** Acceleration ***/
@@ -1394,6 +1440,25 @@ work_func_none:
 static int akm_compass_suspend(struct device *dev)
 {
 	struct akm_compass_data *akm = dev_get_drvdata(dev);
+	int ret = 0;
+
+	if (AKM_IS_MAG_DATA_ENABLED() &&
+		akm->use_poll &&
+		akm->pdata->auto_report)
+		cancel_delayed_work_sync(&akm->dwork);
+
+	akm->state.power_on = akm->power_enabled;
+	if (akm->state.power_on) {
+		akm_compass_power_set(akm, false);
+		/* Clear status */
+		akm->is_busy = 0;
+		atomic_set(&akm->drdy, 0);
+	}
+
+	ret = pinctrl_select_state(akm->pinctrl, akm->pin_sleep);
+	if (ret)
+		dev_err(dev, "Can't select pinctrl state\n");
+
 	dev_dbg(&akm->i2c->dev, "suspended\n");
 
 	return 0;
@@ -1402,9 +1467,37 @@ static int akm_compass_suspend(struct device *dev)
 static int akm_compass_resume(struct device *dev)
 {
 	struct akm_compass_data *akm = dev_get_drvdata(dev);
+	int ret = 0;
+
+	ret = pinctrl_select_state(akm->pinctrl, akm->pin_default);
+	if (ret)
+		dev_err(dev, "Can't select pinctrl state\n");
+
+	if (akm->state.power_on) {
+		ret = akm_compass_power_set(akm, true);
+		if (ret) {
+			dev_err(dev, "Sensor power resume fail!\n");
+			goto exit;
+		}
+
+		ret = AKECS_SetMode(akm, akm->state.mode);
+		if (ret) {
+			dev_err(dev, "Sensor state resume fail!\n");
+			goto exit;
+		}
+
+		if (AKM_IS_MAG_DATA_ENABLED() &&
+			akm->use_poll &&
+			akm->pdata->auto_report)
+			schedule_delayed_work(&akm->dwork,
+				(unsigned long)nsecs_to_jiffies64(
+				akm->delay[MAG_DATA_FLAG]));
+	}
 	dev_dbg(&akm->i2c->dev, "resumed\n");
 
+exit:
 	return 0;
+
 }
 
 static int akm8963_i2c_check_device(
@@ -1443,14 +1536,11 @@ static int akm8963_i2c_check_device(
 	return err;
 }
 
-static int akm_compass_power_init(struct akm_compass_data *data, bool on)
+static int akm_compass_power_set(struct akm_compass_data *data, bool on)
 {
-	int rc;
+	int rc = 0;
 
 	if (!on && data->power_enabled) {
-		if (regulator_count_voltages(data->vdd) > 0)
-			regulator_set_voltage(data->vdd, 0, AKM8963_VDD_MAX_UV);
-
 		rc = regulator_disable(data->vdd);
 		if (rc) {
 			dev_err(&data->i2c->dev,
@@ -1458,22 +1548,73 @@ static int akm_compass_power_init(struct akm_compass_data *data, bool on)
 			goto err_vdd_disable;
 		}
 
-		regulator_put(data->vdd);
-
-		if (regulator_count_voltages(data->vio) > 0)
-			regulator_set_voltage(data->vio, 0, AKM8963_VIO_MAX_UV);
-
 		rc = regulator_disable(data->vio);
 		if (rc) {
 			dev_err(&data->i2c->dev,
 				"Regulator vio disable failed rc=%d\n", rc);
 			goto err_vio_disable;
 		}
+		data->power_enabled = false;
+		return rc;
+	} else if (on && !data->power_enabled) {
+		rc = regulator_enable(data->vdd);
+		if (rc) {
+			dev_err(&data->i2c->dev,
+				"Regulator vdd enable failed rc=%d\n", rc);
+			goto err_vdd_enable;
+		}
+
+		rc = regulator_enable(data->vio);
+		if (rc) {
+			dev_err(&data->i2c->dev,
+				"Regulator vio enable failed rc=%d\n", rc);
+			goto err_vio_enable;
+		}
+		data->power_enabled = true;
+
+		/*
+		 * The max time for the power supply rise time is 50ms.
+		 * Use 80ms to make sure it meets the requirements.
+		 */
+		msleep(80);
+		return rc;
+	} else {
+		dev_warn(&data->i2c->dev,
+				"Power on=%d. enabled=%d\n",
+				on, data->power_enabled);
+		return rc;
+	}
+
+err_vio_enable:
+	regulator_disable(data->vio);
+err_vdd_enable:
+	return rc;
+
+err_vio_disable:
+	if (regulator_enable(data->vdd))
+		dev_warn(&data->i2c->dev, "Regulator vdd enable failed\n");
+err_vdd_disable:
+	return rc;
+}
+
+static int akm_compass_power_init(struct akm_compass_data *data, bool on)
+{
+	int rc;
+
+	if (!on) {
+		if (regulator_count_voltages(data->vdd) > 0)
+			regulator_set_voltage(data->vdd, 0,
+				AKM8963_VDD_MAX_UV);
+
+		regulator_put(data->vdd);
+
+		if (regulator_count_voltages(data->vio) > 0)
+			regulator_set_voltage(data->vio, 0,
+				AKM8963_VIO_MAX_UV);
 
 		regulator_put(data->vio);
 
-		data->power_enabled = false;
-	} else if (on && !data->power_enabled) {
+	} else {
 		data->vdd = regulator_get(&data->i2c->dev, "vdd");
 		if (IS_ERR(data->vdd)) {
 			rc = PTR_ERR(data->vdd);
@@ -1484,89 +1625,42 @@ static int akm_compass_power_init(struct akm_compass_data *data, bool on)
 
 		if (regulator_count_voltages(data->vdd) > 0) {
 			rc = regulator_set_voltage(data->vdd,
-					AKM8963_VDD_MIN_UV, AKM8963_VDD_MAX_UV);
+				AKM8963_VDD_MIN_UV, AKM8963_VDD_MAX_UV);
 			if (rc) {
 				dev_err(&data->i2c->dev,
 					"Regulator set failed vdd rc=%d\n",
 					rc);
-				goto err_reg_vdd_set;
+				goto reg_vdd_put;
 			}
 		}
 
-		rc = regulator_enable(data->vdd);
-		if (rc) {
-			dev_err(&data->i2c->dev,
-				"Regulator enable vdd failed rc=%d\n", rc);
-			goto err_vdd_enable;
-		}
 		data->vio = regulator_get(&data->i2c->dev, "vio");
 		if (IS_ERR(data->vio)) {
 			rc = PTR_ERR(data->vio);
 			dev_err(&data->i2c->dev,
 				"Regulator get failed vio rc=%d\n", rc);
-			goto err_reg_vio_get;
+			goto reg_vdd_set;
 		}
 
 		if (regulator_count_voltages(data->vio) > 0) {
 			rc = regulator_set_voltage(data->vio,
-					AKM8963_VIO_MIN_UV, AKM8963_VIO_MAX_UV);
+				AKM8963_VIO_MIN_UV, AKM8963_VIO_MAX_UV);
 			if (rc) {
 				dev_err(&data->i2c->dev,
 				"Regulator set failed vio rc=%d\n", rc);
-				goto err_reg_vio_set;
+				goto reg_vio_put;
 			}
 		}
-		rc = regulator_enable(data->vio);
-		if (rc) {
-			dev_err(&data->i2c->dev,
-				"Regulator enable vio failed rc=%d\n", rc);
-			goto err_vio_enable;
-		}
-
-		data->power_enabled = true;
-		/*
-		 * The max time for the power supply rise time is 50ms.
-		 * Use 80ms to make sure it meets the requirements.
-		 */
-
-		msleep(80);
-	} else {
-		dev_warn(&data->i2c->dev,
-				"Power on=%d. enabled=%d\n",
-				on, data->power_enabled);
-		return rc;
 	}
 
 	return 0;
 
-err_vio_disable:
-	if (regulator_count_voltages(data->vio) > 0)
-		regulator_set_voltage(data->vio,
-				AKM8963_VIO_MIN_UV, AKM8963_VIO_MAX_UV);
-	data->vdd = regulator_get(&data->i2c->dev, "vdd");
-	if (IS_ERR(data->vdd)) {
-		dev_err(&data->i2c->dev,
-				"Regulator get failed vdd rc=%d\n", rc);
-		return rc;
-	}
-err_vdd_disable:
-	if (regulator_count_voltages(data->vdd) > 0)
-		regulator_set_voltage(data->vdd,
-				AKM8963_VDD_MIN_UV, AKM8963_VDD_MAX_UV);
-	return rc;
-
-err_vio_enable:
-	if (regulator_count_voltages(data->vio) > 0)
-		regulator_set_voltage(data->vio, 0, AKM8963_VIO_MAX_UV);
-err_reg_vio_set:
+reg_vio_put:
 	regulator_put(data->vio);
-err_reg_vio_get:
-	if (regulator_disable(data->vdd))
-		dev_warn(&data->i2c->dev, "Regulator vdd disable failed\n");
-err_vdd_enable:
+reg_vdd_set:
 	if (regulator_count_voltages(data->vdd) > 0)
 		regulator_set_voltage(data->vdd, 0, AKM8963_VDD_MAX_UV);
-err_reg_vdd_set:
+reg_vdd_put:
 	regulator_put(data->vdd);
 	return rc;
 }
@@ -1631,6 +1725,13 @@ static int akm8963_pinctrl_init(struct akm_compass_data *s_akm)
 	if (IS_ERR_OR_NULL(s_akm->pin_default)) {
 		dev_err(&client->dev, "Failed to look up default state\n");
 		return PTR_ERR(s_akm->pin_default);
+	}
+
+	s_akm->pin_sleep = pinctrl_lookup_state(s_akm->pinctrl,
+			"ak8963_sleep");
+	if (IS_ERR_OR_NULL(s_akm->pin_sleep)) {
+		dev_err(&client->dev, "Failed to look up sleep state\n");
+		return PTR_ERR(s_akm->pin_sleep);
 	}
 
 	return 0;
@@ -1778,6 +1879,7 @@ int akm8963_compass_probe(
 	mutex_init(&s_akm->sensor_mutex);
 	mutex_init(&s_akm->accel_mutex);
 	mutex_init(&s_akm->val_mutex);
+	mutex_init(&s_akm->op_mutex);
 
 	atomic_set(&s_akm->active, 0);
 	atomic_set(&s_akm->drdy, 0);
@@ -1833,6 +1935,10 @@ int akm8963_compass_probe(
 	err = akm_compass_power_init(s_akm, true);
 	if (err < 0)
 		goto err_devm;
+
+	err = akm_compass_power_set(s_akm, true);
+	if (err < 0)
+		goto err_compass_pwr_init;
 
 	/* Pull up the reset pin */
 	AKECS_Reset(s_akm, 1);
@@ -1917,6 +2023,11 @@ int akm8963_compass_probe(
 		dev_err(&i2c->dev, "class device create failed: %d\n", err);
 		goto remove_sysfs;
 	}
+
+	err = akm_compass_power_set(s_akm, false);
+	if (err)
+		dev_err(&i2c->dev,
+			"Fail to disable power after probe: %d\n", err);
 
 	dev_info(&i2c->dev, "successfully probed.");
 	return 0;
