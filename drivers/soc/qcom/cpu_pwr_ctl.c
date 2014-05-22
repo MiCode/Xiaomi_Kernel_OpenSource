@@ -31,6 +31,7 @@
 /* CPU power domain register offsets */
 #define CPU_PWR_CTL		0x4
 #define CPU_PWR_GATE_CTL	0x14
+#define LDO_BHS_PWR_CTL		0x28
 
 /* L2 power domain register offsets */
 #define L2_PWR_CTL_OVERRIDE	0xc
@@ -208,6 +209,114 @@ static int power_on_l2_cache(struct device_node *l2ccc_node)
 	}
 	pr_err("Compat string not found for L2CCC node\n");
 	return -EIO;
+}
+
+int msm8994_unclamp_secondary_arm_cpu(unsigned int cpu)
+{
+
+	int ret = 0;
+	struct device_node *cpu_node, *acc_node, *l2_node, *l2ccc_node;
+	void __iomem *acc_reg, *ldo_bhs_reg;
+
+	cpu_node = of_get_cpu_node(cpu, NULL);
+	if (!cpu_node)
+		return -ENODEV;
+
+	acc_node = of_parse_phandle(cpu_node, "qcom,acc", 0);
+	if (!acc_node) {
+			ret = -ENODEV;
+			goto out_acc;
+	}
+
+	l2_node = of_parse_phandle(cpu_node, "next-level-cache", 0);
+	if (!l2_node) {
+		ret = -ENODEV;
+		goto out_l2;
+	}
+
+	l2ccc_node = of_parse_phandle(l2_node, "power-domain", 0);
+	if (!l2ccc_node) {
+		ret = -ENODEV;
+		goto out_l2;
+	}
+
+	/*
+	 * Ensure L2-cache of the CPU is powered on before
+	 * unclamping cpu power rails.
+	 */
+
+	ret = power_on_l2_cache(l2ccc_node);
+	if (ret) {
+		pr_err("L2 cache power up failed for CPU%d\n", cpu);
+		goto out_l2ccc;
+	}
+
+	ldo_bhs_reg = of_iomap(acc_node, 0);
+	if (!ldo_bhs_reg) {
+		ret = -ENOMEM;
+		goto out_bhs_reg;
+	}
+
+	acc_reg = of_iomap(acc_node, 1);
+	if (!acc_reg) {
+		ret = -ENOMEM;
+		goto out_acc_reg;
+	}
+
+	/* Bypass LDO */
+	writel_relaxed(0x00000001, ldo_bhs_reg + LDO_BHS_PWR_CTL);
+	mb();
+	udelay(2);
+
+	/* Assert head switch enable few */
+	writel_relaxed(0x00000001, acc_reg + CPU_PWR_GATE_CTL);
+	mb();
+	udelay(2);
+
+	/* Assert head switch enable rest */
+	writel_relaxed(0x00000003, acc_reg + CPU_PWR_GATE_CTL);
+	mb();
+	udelay(2);
+
+	/* De-assert coremem clamp. This is asserted by default */
+	writel_relaxed(0x00000079, acc_reg + CPU_PWR_CTL);
+	mb();
+
+	/* Close coremem array gdhs */
+	writel_relaxed(0x0000007D, acc_reg + CPU_PWR_CTL);
+	mb();
+	udelay(2);
+
+	/* De-assert clamp */
+	writel_relaxed(0x0000003D, acc_reg + CPU_PWR_CTL);
+	mb();
+
+	/* De-assert clamp */
+	writel_relaxed(0x0000003C, acc_reg + CPU_PWR_CTL);
+	mb();
+	udelay(2);
+
+	/* De-assert core0 reset */
+	writel_relaxed(0x0000000C, acc_reg + CPU_PWR_CTL);
+	mb();
+
+	/* Assert PWRDUP */
+	writel_relaxed(0x0000008C, acc_reg + CPU_PWR_CTL);
+	mb();
+
+	iounmap(acc_reg);
+out_acc_reg:
+	iounmap(ldo_bhs_reg);
+out_bhs_reg:
+	of_node_put(l2ccc_node);
+out_l2ccc:
+	of_node_put(l2_node);
+out_l2:
+	of_node_put(acc_node);
+out_acc:
+	of_node_put(cpu_node);
+
+	return ret;
 }
 
 int msm_unclamp_secondary_arm_cpu(unsigned int cpu)
