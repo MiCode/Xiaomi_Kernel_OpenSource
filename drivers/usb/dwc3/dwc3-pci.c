@@ -93,6 +93,36 @@ err1:
 	return ret;
 }
 
+#define GP_RWREG1			0xa0
+#define GP_RWREG1_ULPI_REFCLK_DISABLE	(1 << 17)
+static void dwc3_pci_enable_ulpi_refclock(struct pci_dev *pci)
+{
+	void __iomem	*reg;
+	struct resource	res;
+	struct device	*dev = &pci->dev;
+	u32 		value;
+
+	res.start	= pci_resource_start(pci, 1);
+	res.end 	= pci_resource_end(pci, 1);
+	res.name	= "dwc_usb3_bar1";
+	res.flags	= IORESOURCE_MEM;
+
+	reg = devm_ioremap_resource(dev, &res);
+	if (IS_ERR(reg)) {
+		dev_err(dev, "cannot check GP_RWREG1 to assert ulpi refclock\n");
+		return;
+	}
+
+	value = readl(reg + GP_RWREG1);
+	if (!(value & GP_RWREG1_ULPI_REFCLK_DISABLE))
+		return; /* ULPI refclk already enabled */
+
+	/* Let's clear ULPI refclk disable */
+	dev_warn(dev, "ULPI refclock is disable from the BIOS, let's try to enable it\n");
+	value &= ~GP_RWREG1_ULPI_REFCLK_DISABLE;
+	writel(value, reg + GP_RWREG1);
+}
+
 static int dwc3_pci_probe(struct pci_dev *pci,
 		const struct pci_device_id *id)
 {
@@ -156,6 +186,13 @@ static int dwc3_pci_probe(struct pci_dev *pci,
 	dwc3->dev.dma_parms = dev->dma_parms;
 	dwc3->dev.parent = dev;
 	glue->dwc3 = dwc3;
+
+	/*
+	 * HACK: we found an issue when enabling DWC3 controller where the
+	 * refclock to the phy is not being enabled.
+	 * We need an extra step to make sure such clock is enabled.
+	 */
+	dwc3_pci_enable_ulpi_refclock(pci);
 
 	ret = platform_device_add(dwc3);
 	if (ret) {
