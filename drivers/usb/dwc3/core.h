@@ -873,6 +873,8 @@ struct dwc3 {
 	bool			usb3_u1u2_disable;
 	bool			enable_suspend_event;
 	struct dwc3_gadget_events	dbg_gadget_events;
+
+	atomic_t		in_lpm;
 };
 
 /* -------------------------------------------------------------------------- */

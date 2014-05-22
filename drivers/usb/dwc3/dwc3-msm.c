@@ -157,7 +157,6 @@ struct dwc3_msm {
 	struct dwc3_ext_xceiv	ext_xceiv;
 	bool			resume_pending;
 	atomic_t                pm_suspended;
-	atomic_t		in_lpm;
 	int			hs_phy_irq;
 	bool			lpm_irq_seen;
 	struct delayed_work	resume_work;
@@ -843,10 +842,11 @@ static void dwc3_restart_usb_work(struct work_struct *w)
 {
 	struct dwc3_msm *mdwc = container_of(w, struct dwc3_msm,
 						restart_usb_work);
+	struct dwc3 *dwc = platform_get_drvdata(mdwc->dwc3);
 
 	dev_dbg(mdwc->dev, "%s\n", __func__);
 
-	if (atomic_read(&mdwc->in_lpm) || !mdwc->otg_xceiv) {
+	if (atomic_read(&dwc->in_lpm) || !mdwc->otg_xceiv) {
 		dev_err(mdwc->dev, "%s failed!!!\n", __func__);
 		return;
 	}
@@ -1481,6 +1481,7 @@ static int dwc3_msm_suspend(struct dwc3_msm *mdwc)
 	bool can_suspend_ssphy;
 	bool device_bus_suspend;
 	bool cable_connected = mdwc->vbus_active;
+	struct dwc3 *dwc = platform_get_drvdata(mdwc->dwc3);
 
 	dev_dbg(mdwc->dev, "%s: entering lpm. usb_lpm_override:%d\n",
 					 __func__, usb_lpm_override);
@@ -1491,7 +1492,7 @@ static int dwc3_msm_suspend(struct dwc3_msm *mdwc)
 		return -EPERM;
 	}
 
-	if (atomic_read(&mdwc->in_lpm)) {
+	if (atomic_read(&dwc->in_lpm)) {
 		dev_dbg(mdwc->dev, "%s: Already suspended\n", __func__);
 		return 0;
 	}
@@ -1566,6 +1567,11 @@ static int dwc3_msm_suspend(struct dwc3_msm *mdwc)
 						DWC3_GUSB2PHYCFG_SUSPHY);
 	}
 
+	/*
+	 * Marking in LPM before disabling the clocks in order to avoid a
+	 * potential race condition with pwr_event_irq.
+	 */
+	atomic_set(&dwc->in_lpm, 1);
 	usb_phy_set_suspend(mdwc->hs_phy, 1);
 
 	/* make sure above writes are completed before turning off clocks */
@@ -1597,7 +1603,6 @@ static int dwc3_msm_suspend(struct dwc3_msm *mdwc)
 	}
 
 	pm_relax(mdwc->dev);
-	atomic_set(&mdwc->in_lpm, 1);
 
 	dev_info(mdwc->dev, "DWC3 in low power mode\n");
 
@@ -1623,11 +1628,12 @@ static int dwc3_msm_resume(struct dwc3_msm *mdwc)
 	bool dcp;
 	bool host_bus_suspend;
 	bool resume_from_core_clk_off = false;
+	struct dwc3 *dwc = platform_get_drvdata(mdwc->dwc3);
 
 	dev_dbg(mdwc->dev, "%s: exiting lpm\n", __func__);
 	dbg_event(0xFF, "Controller Resume", 0);
 
-	if (!atomic_read(&mdwc->in_lpm)) {
+	if (!atomic_read(&dwc->in_lpm)) {
 		dev_dbg(mdwc->dev, "%s: Already resumed\n", __func__);
 		return 0;
 	}
@@ -1727,7 +1733,7 @@ static int dwc3_msm_resume(struct dwc3_msm *mdwc)
 
 	if (resume_from_core_clk_off)
 		usb_phy_set_suspend(mdwc->ss_phy, 0);
-	atomic_set(&mdwc->in_lpm, 0);
+	atomic_set(&dwc->in_lpm, 0);
 
 	msm_bam_notify_lpm_resume(DWC3_CTRL);
 
@@ -1781,10 +1787,11 @@ static void dwc3_resume_work(struct work_struct *w)
 {
 	struct dwc3_msm *mdwc = container_of(w, struct dwc3_msm,
 							resume_work.work);
+	struct dwc3 *dwc = platform_get_drvdata(mdwc->dwc3);
 
 	dev_dbg(mdwc->dev, "%s: dwc3 resume work\n", __func__);
 	/* handle any event that was queued while work was already running */
-	if (!atomic_read(&mdwc->in_lpm)) {
+	if (!atomic_read(&dwc->in_lpm)) {
 		dev_dbg(mdwc->dev, "%s: notifying xceiv event\n", __func__);
 		if (mdwc->otg_xceiv) {
 			dwc3_wait_for_ext_chg_done(mdwc);
@@ -1873,6 +1880,7 @@ static ssize_t dwc3_connect_write(struct file *file, const char __user *ubuf,
 {
 	struct seq_file *s = file->private_data;
 	struct dwc3_msm *mdwc = s->private;
+	struct dwc3 *dwc = platform_get_drvdata(mdwc->dwc3);
 	char buf[8];
 
 	memset(buf, 0x00, sizeof(buf));
@@ -1890,7 +1898,7 @@ static ssize_t dwc3_connect_write(struct file *file, const char __user *ubuf,
 	mdwc->ext_xceiv.bsv = debug_bsv;
 	mdwc->ext_xceiv.id = debug_id ? DWC3_ID_FLOAT : DWC3_ID_GROUND;
 
-	if (atomic_read(&mdwc->in_lpm)) {
+	if (atomic_read(&dwc->in_lpm)) {
 		dev_dbg(mdwc->dev, "%s: calling resume_work\n", __func__);
 		dwc3_resume_work(&mdwc->resume_work.work);
 	} else {
@@ -1941,8 +1949,9 @@ error:
 static irqreturn_t msm_dwc3_irq(int irq, void *data)
 {
 	struct dwc3_msm *mdwc = data;
+	struct dwc3 *dwc = platform_get_drvdata(mdwc->dwc3);
 
-	if (atomic_read(&mdwc->in_lpm)) {
+	if (atomic_read(&dwc->in_lpm)) {
 		dev_dbg(mdwc->dev, "%s received in LPM\n", __func__);
 		mdwc->lpm_irq_seen = true;
 		disable_irq_nosync(irq);
@@ -1957,6 +1966,7 @@ static irqreturn_t msm_dwc3_irq(int irq, void *data)
 static irqreturn_t msm_dwc3_pwr_irq(int irq, void *data)
 {
 	struct dwc3_msm *mdwc = data;
+	struct dwc3 *dwc = platform_get_drvdata(mdwc->dwc3);
 
 	dev_dbg(mdwc->dev, "%s received\n", __func__);
 	/*
@@ -1965,7 +1975,7 @@ static irqreturn_t msm_dwc3_pwr_irq(int irq, void *data)
 	 * After re-enabling the clocks, dwc3_msm_resume will call
 	 * dwc3_pwr_event_handler to handle all other power events
 	 */
-	if (atomic_read(&mdwc->in_lpm)) {
+	if (atomic_read(&dwc->in_lpm)) {
 		/* bail out if system resume in process, else initiate RESUME */
 		if (atomic_read(&mdwc->pm_suspended))
 			mdwc->resume_pending = true;
@@ -3181,11 +3191,12 @@ static int dwc3_msm_pm_suspend(struct device *dev)
 {
 	int ret = 0;
 	struct dwc3_msm *mdwc = dev_get_drvdata(dev);
+	struct dwc3 *dwc = platform_get_drvdata(mdwc->dwc3);
 
 	dev_dbg(dev, "dwc3-msm PM suspend\n");
 
 	flush_delayed_work(&mdwc->resume_work);
-	if (!atomic_read(&mdwc->in_lpm)) {
+	if (!atomic_read(&dwc->in_lpm)) {
 		dev_err(mdwc->dev, "Abort PM suspend!! (USB is outside LPM)\n");
 		return -EBUSY;
 	}
