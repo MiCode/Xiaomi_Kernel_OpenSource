@@ -1,0 +1,13 @@
+comment "Driver for Silicon Image SiI6031 MHL/USB switch (Stark)"
+
+config SII6031_MHL_SWITCH
+	bool "SIMG GPIO support"
+	depends on GPIOLIB
+	default y
+	help
+          yes links this driver.
+          This driver is required by Qualcomm APQ8074 platform
+          with modified usb otg driver (msm_otg.c) for SiI6031 switch.
+
+          If unsure, say N.
+
