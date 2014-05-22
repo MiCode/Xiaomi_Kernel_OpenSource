@@ -693,7 +693,7 @@ static int update_request_adhoc(uint32_t cl, unsigned int index)
 	int lnode, src, curr, dest;
 	uint64_t req_clk, req_bw, curr_clk, curr_bw;
 	struct msm_bus_client *client;
-	const char *test_cl = "test-client";
+	const char *test_cl = "Null";
 	bool log_transaction = false;
 
 	mutex_lock(&msm_bus_adhoc_lock);
