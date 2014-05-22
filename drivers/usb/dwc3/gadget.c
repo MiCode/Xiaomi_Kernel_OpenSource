@@ -657,7 +657,8 @@ static int dwc3_gadget_ep_enable(struct usb_ep *ep,
 	int				ret;
 
 	if (!ep || !desc || desc->bDescriptorType != USB_DT_ENDPOINT) {
-		pr_debug("dwc3: invalid parameters\n");
+		pr_debug("dwc3: invalid parameters. ep=%p, desc=%p, DT=%d\n",
+			ep, desc, desc ? desc->bDescriptorType : 0);
 		return -EINVAL;
 	}
 
@@ -1514,6 +1515,20 @@ out:
 	return ret;
 }
 
+static int dwc_gadget_func_wakeup(struct usb_gadget *g, int interface_id)
+{
+	int ret = 0;
+	struct dwc3 *dwc = gadget_to_dwc(g);
+
+	if (!g || (g->speed != USB_SPEED_SUPER))
+		return -ENOTSUPP;
+
+	ret = dwc3_send_gadget_generic_command(dwc,
+		DWC3_DGCMD_XMIT_FUNCTION, interface_id);
+
+	return ret;
+}
+
 static int dwc3_gadget_set_selfpowered(struct usb_gadget *g,
 		int is_selfpowered)
 {
@@ -1806,6 +1821,7 @@ static int dwc3_gadget_stop(struct usb_gadget *g)
 static const struct usb_gadget_ops dwc3_gadget_ops = {
 	.get_frame		= dwc3_gadget_get_frame,
 	.wakeup			= dwc3_gadget_wakeup,
+	.func_wakeup		= dwc_gadget_func_wakeup,
 	.set_selfpowered	= dwc3_gadget_set_selfpowered,
 	.pullup			= dwc3_gadget_pullup,
 	.udc_start		= dwc3_gadget_start,
