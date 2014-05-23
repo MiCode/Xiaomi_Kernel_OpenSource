@@ -1171,70 +1171,6 @@ static int msm_vdec_queue_setup(struct vb2_queue *q,
 	return rc;
 }
 
-static int msm_vdec_queue_output_buffers(struct msm_vidc_inst *inst)
-{
-	struct internal_buf *binfo;
-	struct hfi_device *hdev;
-	struct msm_smem *handle;
-	struct vidc_frame_data frame_data = {0};
-	struct hal_buffer_requirements *output_buf, *extradata_buf;
-	int rc = 0;
-
-	if (!inst || !inst->core || !inst->core->device) {
-		dprintk(VIDC_ERR, "%s invalid parameters\n", __func__);
-		return -EINVAL;
-	}
-
-	hdev = inst->core->device;
-
-	output_buf = get_buff_req_buffer(inst, HAL_BUFFER_OUTPUT);
-	if (!output_buf) {
-		dprintk(VIDC_DBG,
-			"This output buffer not required, buffer_type: %x\n",
-			HAL_BUFFER_OUTPUT);
-		return 0;
-	}
-	dprintk(VIDC_DBG,
-		"output: num = %d, size = %d\n",
-		output_buf->buffer_count_actual,
-		output_buf->buffer_size);
-
-	extradata_buf = get_buff_req_buffer(inst, HAL_BUFFER_EXTRADATA_OUTPUT);
-	if (!extradata_buf) {
-		dprintk(VIDC_DBG,
-			"This extradata buffer not required, buffer_type: %x\n",
-			HAL_BUFFER_EXTRADATA_OUTPUT);
-		return 0;
-	}
-
-	hdev = inst->core->device;
-
-	mutex_lock(&inst->lock);
-	if (!list_empty(&inst->outputbufs)) {
-		list_for_each_entry(binfo, &inst->outputbufs, list) {
-			if (!binfo) {
-				dprintk(VIDC_ERR, "Invalid parameter\n");
-				mutex_unlock(&inst->lock);
-				return -EINVAL;
-			}
-			handle = binfo->handle;
-			frame_data.alloc_len = output_buf->buffer_size;
-			frame_data.filled_len = 0;
-			frame_data.offset = 0;
-			frame_data.device_addr = handle->device_addr;
-			frame_data.flags = 0;
-			frame_data.extradata_addr = handle->device_addr +
-				output_buf->buffer_size;
-			frame_data.buffer_type = HAL_BUFFER_OUTPUT;
-			rc = call_hfi_op(hdev, session_ftb,
-					(void *) inst->session, &frame_data);
-			binfo->buffer_ownership = FIRMWARE;
-		}
-	}
-	mutex_unlock(&inst->lock);
-	return 0;
-}
-
 static inline int start_streaming(struct msm_vidc_inst *inst)
 {
 	int rc = 0;
@@ -1285,7 +1221,7 @@ static inline int start_streaming(struct msm_vidc_inst *inst)
 	}
 	if (msm_comm_get_stream_output_mode(inst) ==
 		HAL_VIDEO_DECODER_SECONDARY) {
-		rc = msm_vdec_queue_output_buffers(inst);
+		rc = msm_comm_queue_output_buffers(inst);
 		if (rc) {
 			dprintk(VIDC_ERR,
 				"Failed to queue output buffers: %d\n", rc);
