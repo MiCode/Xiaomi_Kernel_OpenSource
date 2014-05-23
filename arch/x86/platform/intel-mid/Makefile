@@ -7,6 +7,7 @@ obj-$(CONFIG_GMIN_INTEL_MID) += platform_byt_regulator.o
 
 obj-$(CONFIG_GMIN_INTEL_MID) += intel_mid_pcihelpers.o platform_imx134.o atomisp_gmin_platform.o
 
+obj-$(subst m,y,$(CONFIG_VIDEO_MT9M114)) += device_libs/platform_mt9m114.o
 obj-$(subst m,y,$(CONFIG_VIDEO_GC2235)) += device_libs/platform_gc2235.o
 obj-$(subst m,y,$(CONFIG_VIDEO_GC0339)) += device_libs/platform_gc0339.o
 obj-$(subst m,y,$(CONFIG_VIDEO_OV5693)) += device_libs/platform_ov5693.o
