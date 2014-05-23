@@ -754,6 +754,9 @@ static void do_cluster_freq_ctrl(long temp)
 	get_online_cpus();
 	for (; _cluster < core_ptr->entity_count; _cluster++) {
 		cluster_ptr = &core_ptr->child_entity_ptr[_cluster];
+		if (!cluster_ptr->freq_table)
+			continue;
+
 		if (mitigate)
 			freq_idx = max_t(int, cluster_ptr->freq_idx_low,
 				(cluster_ptr->freq_idx
@@ -831,10 +834,11 @@ static int update_cpu_min_freq_all(uint32_t min)
 	uint32_t cpu = 0, _cluster = 0;
 	int ret = 0;
 	struct cluster_info *cluster_ptr = NULL;
+	bool valid_table = false;
 
 	if (!freq_table_get) {
 		ret = check_freq_table();
-		if (ret) {
+		if (ret && !core_ptr) {
 			pr_err("Fail to get freq table. err:%d\n", ret);
 			return ret;
 		}
@@ -843,10 +847,15 @@ static int update_cpu_min_freq_all(uint32_t min)
 	if (core_ptr) {
 		for (; _cluster < core_ptr->entity_count; _cluster++) {
 			cluster_ptr = &core_ptr->child_entity_ptr[_cluster];
+			if (!cluster_ptr->freq_table)
+				continue;
+			valid_table = true;
 			min = min(min,
 				cluster_ptr->freq_table[
 				cluster_ptr->freq_idx_high].frequency);
 		}
+		if (!valid_table)
+			return ret;
 	} else {
 		min = min(min, table[limit_idx_high].frequency);
 	}
@@ -2125,7 +2134,7 @@ static int do_vdd_restriction(void)
 		return ret;
 
 	if (usefreq && !freq_table_get) {
-		if (check_freq_table())
+		if (check_freq_table() && !core_ptr)
 			return ret;
 	}
 
@@ -2228,6 +2237,8 @@ static void do_freq_control(long temp)
 
 	if (core_ptr)
 		return do_cluster_freq_ctrl(temp);
+	if (!freq_table_get)
+		return;
 
 	if (temp >= msm_thermal_info.limit_temp_degC) {
 		if (limit_idx == limit_idx_low)
@@ -2288,11 +2299,13 @@ static void check_temp(struct work_struct *work)
 	do_cx_phase_cond();
 	do_ocr();
 
-	if (!freq_table_get) {
-		ret = check_freq_table();
-		if (ret)
-			goto reschedule;
-	}
+	/*
+	** All mitigation involving CPU frequency should be
+	** placed below this check. The mitigation following this
+	** frequency table check, should be able to handle the failure case.
+	*/
+	if (!freq_table_get)
+		check_freq_table();
 
 	do_vdd_restriction();
 	do_freq_control(temp);
