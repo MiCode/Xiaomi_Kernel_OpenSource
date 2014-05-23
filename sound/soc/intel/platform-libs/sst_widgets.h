@@ -248,7 +248,7 @@ enum sst_algo_kcontrol_type {
 	SST_ALGO_BYPASS,
 };
 
-struct sst_algo_control {
+struct sst_algo_data {
 	enum sst_algo_kcontrol_type type;
 	int max;
 	u16 module_id;
@@ -263,7 +263,7 @@ struct sst_algo_control {
 /* size of the control = size of params + size of length field */
 #define SST_ALGO_CTL_VALUE(xcount, xtype, xpipe, xmod, xtask, xcmd)			\
 	(struct soc_bytes_ext) {.max = xcount + sizeof(u16),							\
-		.pvt_data = (char *) &(struct sst_algo_control)				\
+		.pvt_data = (char *) &(struct sst_algo_data)				\
 		{.max = xcount + sizeof(u16), .type = xtype, .module_id = xmod,		\
 			.pipe_id = xpipe, .task_id = xtask, .cmd_id = xcmd,		\
 		}									\
