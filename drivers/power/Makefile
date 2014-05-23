@@ -56,6 +56,7 @@ obj-$(CONFIG_BATTERY_BQ27541)	+= bq27541_fuelgauger.o
 obj-$(CONFIG_BATTERY_BQ28400)	+= bq28400_battery.o
 obj-$(CONFIG_SMB137B_CHARGER)   += smb137b.o
 obj-$(CONFIG_SMB137C_CHARGER)	+= smb137c-charger.o
+obj-$(CONFIG_SMB358_CHARGER)	+= smb358-charger.o
 obj-$(CONFIG_PM8XXX_CCADC)	+= pm8xxx-ccadc.o
 obj-$(CONFIG_PM8921_BMS)	+= pm8921-bms.o
 obj-$(CONFIG_QPNP_BMS)		+= qpnp-bms.o
