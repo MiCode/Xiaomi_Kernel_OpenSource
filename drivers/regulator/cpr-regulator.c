@@ -197,6 +197,7 @@ struct cpr_regulator {
 	bool				vreg_enabled;
 	int				corner;
 	int				ceiling_max;
+	struct dentry			*debugfs;
 
 	/* eFuse parameters */
 	phys_addr_t	efuse_addr;
@@ -270,10 +271,8 @@ struct cpr_regulator {
 #define CPR_DEBUG_MASK_API	BIT(1)
 
 static int cpr_debug_enable = CPR_DEBUG_MASK_IRQ;
-static int cpr_enable;
-static struct cpr_regulator *the_cpr;
 #if defined(CONFIG_DEBUG_FS)
-static struct dentry *cpr_debugfs_entry;
+static struct dentry *cpr_debugfs_base;
 #endif
 
 module_param_named(debug_enable, cpr_debug_enable, int, S_IRUGO | S_IWUSR);
@@ -386,7 +385,7 @@ static u64 cpr_read_efuse_param(struct cpr_regulator *cpr_vreg, int row_start,
 
 static bool cpr_is_allowed(struct cpr_regulator *cpr_vreg)
 {
-	if (cpr_vreg->cpr_fuse_disable || !cpr_enable)
+	if (cpr_vreg->cpr_fuse_disable || !cpr_vreg->enable)
 		return false;
 	else
 		return true;
@@ -535,60 +534,6 @@ static void cpr_corner_switch(struct cpr_regulator *cpr_vreg, int corner)
 
 	cpr_corner_restore(cpr_vreg, corner);
 }
-
-/* Module parameter ops */
-static int cpr_enable_param_set(const char *val, const struct kernel_param *kp)
-{
-	int rc;
-	int old_cpr_enable;
-
-	if (!the_cpr) {
-		pr_err("the_cpr = NULL\n");
-		return -ENXIO;
-	}
-
-	mutex_lock(&the_cpr->cpr_mutex);
-
-	old_cpr_enable = cpr_enable;
-	rc = param_set_int(val, kp);
-	if (rc) {
-		pr_err("param_set_int: rc = %d\n", rc);
-		goto _exit;
-	}
-
-	cpr_debug("%d -> %d [corner=%d, fuse_corner=%d]\n",
-		  old_cpr_enable, cpr_enable, the_cpr->corner,
-		  the_cpr->corner_map[the_cpr->corner]);
-
-	if (the_cpr->cpr_fuse_disable) {
-		/* Already disabled */
-		pr_info("CPR disabled by fuse\n");
-		goto _exit;
-	}
-
-	if ((old_cpr_enable != cpr_enable) && the_cpr->corner) {
-		if (cpr_enable) {
-			cpr_ctl_disable(the_cpr);
-			cpr_irq_clr(the_cpr);
-			cpr_corner_restore(the_cpr, the_cpr->corner);
-			cpr_ctl_enable(the_cpr, the_cpr->corner);
-		} else {
-			cpr_ctl_disable(the_cpr);
-			cpr_irq_set(the_cpr, 0);
-		}
-	}
-
-_exit:
-	mutex_unlock(&the_cpr->cpr_mutex);
-	return 0;
-}
-
-static struct kernel_param_ops cpr_enable_ops = {
-	.set = cpr_enable_param_set,
-	.get = param_get_int,
-};
-
-module_param_cb(cpr_enable, &cpr_enable_ops, &cpr_enable, S_IRUGO | S_IWUSR);
 
 static int cpr_apc_set(struct cpr_regulator *cpr_vreg, u32 new_volt)
 {
@@ -2093,7 +2038,7 @@ static int cpr_init_cpr_efuse(struct platform_device *pdev,
 	if (disable_fuse_valid) {
 		cpr_vreg->cpr_fuse_disable =
 					(fuse_bits_2 >> bp_cpr_disable) & 0x01;
-		pr_info("disable = %d\n", cpr_vreg->cpr_fuse_disable);
+		pr_info("CPR disable fuse = %d\n", cpr_vreg->cpr_fuse_disable);
 	} else {
 		cpr_vreg->cpr_fuse_disable = false;
 	}
@@ -2148,8 +2093,8 @@ static int cpr_init_cpr_efuse(struct platform_device *pdev,
 
 	cpr_vreg->cpr_fuse_bits = fuse_bits;
 	if (!cpr_vreg->cpr_fuse_bits) {
-		cpr_vreg->cpr_fuse_disable = 1;
-		pr_err("cpr_fuse_bits = 0: set cpr_fuse_disable = 1\n");
+		cpr_vreg->cpr_fuse_disable = true;
+		pr_err("cpr_fuse_bits == 0; permanently disabling CPR\n");
 	} else {
 		/*
 		 * Check if the target quotients for the highest two fuse
@@ -2169,8 +2114,8 @@ static int cpr_init_cpr_efuse(struct platform_device *pdev,
 		}
 
 		if (!valid_fuse) {
-			cpr_vreg->cpr_fuse_disable = 1;
-			pr_err("invalid quotient values\n");
+			cpr_vreg->cpr_fuse_disable = true;
+			pr_err("invalid quotient values; permanently disabling CPR\n");
 		}
 	}
 
@@ -2260,7 +2205,6 @@ static int cpr_init_cpr_parameters(struct platform_device *pdev,
 
 	/* Init module parameter with the DT value */
 	cpr_vreg->enable = of_property_read_bool(of_node, "qcom,cpr-enable");
-	cpr_enable = (int) cpr_vreg->enable;
 	pr_info("CPR is %s by default.\n",
 		cpr_vreg->enable ? "enabled" : "disabled");
 
@@ -2549,49 +2493,127 @@ static int cpr_mem_acc_init(struct platform_device *pdev,
 
 #if defined(CONFIG_DEBUG_FS)
 
-static ssize_t cpr_debugfs_read(struct file *file, char __user *buff,
+static int cpr_enable_set(void *data, u64 val)
+{
+	struct cpr_regulator *cpr_vreg = data;
+	bool old_cpr_enable;
+
+	if (!cpr_vreg) {
+		pr_err("cpr-regulator pointer missing\n");
+		return -ENXIO;
+	}
+
+	mutex_lock(&cpr_vreg->cpr_mutex);
+
+	old_cpr_enable = cpr_vreg->enable;
+	cpr_vreg->enable = val;
+
+	if (old_cpr_enable == cpr_vreg->enable)
+		goto _exit;
+
+	if (cpr_vreg->enable && cpr_vreg->cpr_fuse_disable) {
+		pr_info("%s: CPR permanently disabled due to fuse values\n",
+			cpr_vreg->rdesc.name);
+		cpr_vreg->enable = false;
+		goto _exit;
+	}
+
+	cpr_debug("%s: %s CPR [corner=%d, fuse_corner=%d]\n",
+		cpr_vreg->rdesc.name,
+		cpr_vreg->enable ? "enabling" : "disabling",
+		cpr_vreg->corner, cpr_vreg->corner_map[cpr_vreg->corner]);
+
+	if (cpr_vreg->corner) {
+		if (cpr_vreg->enable) {
+			cpr_ctl_disable(cpr_vreg);
+			cpr_irq_clr(cpr_vreg);
+			cpr_corner_restore(cpr_vreg, cpr_vreg->corner);
+			cpr_ctl_enable(cpr_vreg, cpr_vreg->corner);
+		} else {
+			cpr_ctl_disable(cpr_vreg);
+			cpr_irq_set(cpr_vreg, 0);
+		}
+	}
+
+_exit:
+	mutex_unlock(&cpr_vreg->cpr_mutex);
+
+	return 0;
+}
+
+static int cpr_enable_get(void *data, u64 *val)
+{
+	struct cpr_regulator *cpr_vreg = data;
+
+	if (!cpr_vreg) {
+		pr_err("cpr-regulator pointer missing\n");
+		return -ENXIO;
+	}
+
+	*val = cpr_vreg->enable;
+
+	return 0;
+}
+DEFINE_SIMPLE_ATTRIBUTE(cpr_enable_fops, cpr_enable_get, cpr_enable_set,
+			"%llu\n");
+
+static int cpr_debug_info_open(struct inode *inode, struct file *file)
+{
+	file->private_data = inode->i_private;
+
+	return 0;
+}
+
+static ssize_t cpr_debug_info_read(struct file *file, char __user *buff,
 				size_t count, loff_t *ppos)
 {
-	char *debugfs_buf = kmalloc(PAGE_SIZE, GFP_KERNEL);
+	struct cpr_regulator *cpr_vreg = file->private_data;
+	char *debugfs_buf;
 	ssize_t len, ret = 0;
 	u32 gcnt, ro_sel, ctl, irq_status, reg, error_steps;
 	u32 step_dn, step_up, error, error_lt0, busy;
 	int fuse_corner;
 
+	if (!cpr_vreg) {
+		pr_err("cpr-regulator pointer missing\n");
+		return -ENXIO;
+	}
+
+	debugfs_buf = kmalloc(PAGE_SIZE, GFP_KERNEL);
 	if (!debugfs_buf)
 		return -ENOMEM;
 
-	mutex_lock(&the_cpr->cpr_mutex);
+	mutex_lock(&cpr_vreg->cpr_mutex);
 
-	fuse_corner = the_cpr->corner_map[the_cpr->corner];
+	fuse_corner = cpr_vreg->corner_map[cpr_vreg->corner];
 
 	len = snprintf(debugfs_buf + ret, PAGE_SIZE - ret,
-			"corner = %d, current_volt = %d uV\n",
-			the_cpr->corner, the_cpr->last_volt[the_cpr->corner]);
+		"corner = %d, current_volt = %d uV\n",
+		cpr_vreg->corner, cpr_vreg->last_volt[cpr_vreg->corner]);
 	ret += len;
 
 	len = snprintf(debugfs_buf + ret, PAGE_SIZE - ret,
 			"fuse_corner = %d, current_volt = %d uV\n",
-			fuse_corner, the_cpr->last_volt[the_cpr->corner]);
+			fuse_corner, cpr_vreg->last_volt[cpr_vreg->corner]);
 	ret += len;
 
-	ro_sel = the_cpr->cpr_fuse_ro_sel[fuse_corner];
-	gcnt = cpr_read(the_cpr, REG_RBCPR_GCNT_TARGET(ro_sel));
+	ro_sel = cpr_vreg->cpr_fuse_ro_sel[fuse_corner];
+	gcnt = cpr_read(cpr_vreg, REG_RBCPR_GCNT_TARGET(ro_sel));
 	len = snprintf(debugfs_buf + ret, PAGE_SIZE - ret,
 			"rbcpr_gcnt_target (%u) = 0x%02X\n", ro_sel, gcnt);
 	ret += len;
 
-	ctl = cpr_read(the_cpr, REG_RBCPR_CTL);
+	ctl = cpr_read(cpr_vreg, REG_RBCPR_CTL);
 	len = snprintf(debugfs_buf + ret, PAGE_SIZE - ret,
 			"rbcpr_ctl = 0x%02X\n", ctl);
 	ret += len;
 
-	irq_status = cpr_read(the_cpr, REG_RBIF_IRQ_STATUS);
+	irq_status = cpr_read(cpr_vreg, REG_RBIF_IRQ_STATUS);
 	len = snprintf(debugfs_buf + ret, PAGE_SIZE - ret,
 			"rbcpr_irq_status = 0x%02X\n", irq_status);
 	ret += len;
 
-	reg = cpr_read(the_cpr, REG_RBCPR_RESULT_0);
+	reg = cpr_read(cpr_vreg, REG_RBCPR_RESULT_0);
 	len = snprintf(debugfs_buf + ret, PAGE_SIZE - ret,
 			"rbcpr_result_0 = 0x%02X\n", reg);
 	ret += len;
@@ -2626,38 +2648,87 @@ static ssize_t cpr_debugfs_read(struct file *file, char __user *buff,
 	len = snprintf(debugfs_buf + ret, PAGE_SIZE - ret,
 			", busy = %u]\n", busy);
 	ret += len;
-	mutex_unlock(&the_cpr->cpr_mutex);
-
+	mutex_unlock(&cpr_vreg->cpr_mutex);
 
 	ret = simple_read_from_buffer(buff, count, ppos, debugfs_buf, ret);
 	kfree(debugfs_buf);
 	return ret;
 }
 
-static const struct file_operations cpr_debugfs_fops = {
-	.read = cpr_debugfs_read,
+static const struct file_operations cpr_debug_info_fops = {
+	.open = cpr_debug_info_open,
+	.read = cpr_debug_info_read,
 };
 
-static void cpr_debugfs_init(void)
+static void cpr_debugfs_init(struct cpr_regulator *cpr_vreg)
 {
-	cpr_debugfs_entry = debugfs_create_file("debug_info", 0444,
-						the_cpr->rdev->debugfs, NULL,
-						&cpr_debugfs_fops);
-	if (!cpr_debugfs_entry)
-		pr_err("cpr_irq_debugfs_entry creation failed.\n");
+	struct dentry *temp;
+
+	if (!cpr_vreg->rdesc.name) {
+		pr_err("Could not create debugfs nodes since regulator name is missing\n");
+		return;
+	}
+
+	if (IS_ERR_OR_NULL(cpr_debugfs_base)) {
+		pr_err("Could not create debugfs nodes for %s since base directory is missing\n",
+			cpr_vreg->rdesc.name);
+		return;
+	}
+
+	cpr_vreg->debugfs = debugfs_create_dir(cpr_vreg->rdesc.name,
+						cpr_debugfs_base);
+	if (IS_ERR_OR_NULL(cpr_vreg->debugfs)) {
+		pr_err("debugfs directory creation for %s failed\n",
+			cpr_vreg->rdesc.name);
+		return;
+	}
+
+	temp = debugfs_create_file("debug_info", S_IRUGO, cpr_vreg->debugfs,
+					cpr_vreg, &cpr_debug_info_fops);
+	if (IS_ERR_OR_NULL(temp)) {
+		pr_err("debug_info node creation for %s failed\n",
+			cpr_vreg->rdesc.name);
+		return;
+	}
+
+	temp = debugfs_create_file("cpr_enable", S_IRUGO | S_IWUSR,
+			cpr_vreg->debugfs, cpr_vreg, &cpr_enable_fops);
+	if (IS_ERR_OR_NULL(temp)) {
+		pr_err("cpr_enable node creation for %s failed\n",
+			cpr_vreg->rdesc.name);
+		return;
+	}
 }
 
-static void cpr_debugfs_remove(void)
+static void cpr_debugfs_remove(struct cpr_regulator *cpr_vreg)
 {
-	debugfs_remove(cpr_debugfs_entry);
+	debugfs_remove_recursive(cpr_vreg->debugfs);
+}
+
+static void cpr_debugfs_base_init(void)
+{
+	cpr_debugfs_base = debugfs_create_dir("cpr-regulator", NULL);
+	if (IS_ERR_OR_NULL(cpr_debugfs_base))
+		pr_err("cpr-regulator debugfs base directory creation failed\n");
+}
+
+static void cpr_debugfs_base_remove(void)
+{
+	debugfs_remove_recursive(cpr_debugfs_base);
 }
 
 #else
 
-static void cpr_debugfs_init(void)
+static void cpr_debugfs_init(struct cpr_regulator *cpr_vreg)
 {}
 
-static void cpr_debugfs_remove(void)
+static void cpr_debugfs_remove(struct cpr_regulator *cpr_vreg)
+{}
+
+static void cpr_debugfs_base_init(void)
+{}
+
+static void cpr_debugfs_base_remove(void)
 {}
 
 #endif
@@ -2736,6 +2807,12 @@ static int cpr_regulator_probe(struct platform_device *pdev)
 
 	cpr_efuse_free(cpr_vreg);
 
+	/*
+	 * Ensure that enable state accurately reflects the case in which CPR
+	 * is permanently disabled.
+	 */
+	cpr_vreg->enable &= !cpr_vreg->cpr_fuse_disable;
+
 	mutex_init(&cpr_vreg->cpr_mutex);
 
 	rdesc			= &cpr_vreg->rdesc;
@@ -2758,8 +2835,7 @@ static int cpr_regulator_probe(struct platform_device *pdev)
 	}
 
 	platform_set_drvdata(pdev, cpr_vreg);
-	the_cpr = cpr_vreg;
-	cpr_debugfs_init();
+	cpr_debugfs_init(cpr_vreg);
 
 	return 0;
 
@@ -2781,7 +2857,7 @@ static int cpr_regulator_remove(struct platform_device *pdev)
 		}
 
 		cpr_apc_exit(cpr_vreg);
-		cpr_debugfs_remove();
+		cpr_debugfs_remove(cpr_vreg);
 		regulator_unregister(cpr_vreg->rdev);
 	}
 
@@ -2820,6 +2896,7 @@ int __init cpr_regulator_init(void)
 	else
 		initialized = true;
 
+	cpr_debugfs_base_init();
 	return platform_driver_register(&cpr_regulator_driver);
 }
 EXPORT_SYMBOL(cpr_regulator_init);
@@ -2827,6 +2904,7 @@ EXPORT_SYMBOL(cpr_regulator_init);
 static void __exit cpr_regulator_exit(void)
 {
 	platform_driver_unregister(&cpr_regulator_driver);
+	cpr_debugfs_base_remove();
 }
 
 MODULE_DESCRIPTION("CPR regulator driver");
