@@ -1397,7 +1397,7 @@ enum cmi_api_result cmi_send_msg(void *message)
 
 	msg->payload = kzalloc(msg->size, GFP_ATOMIC);
 	if (!msg->payload) {
-		pr_err("%s: no memory for cmi payload, sz = %d\n",
+		pr_err("%s: no memory for cmi payload, sz = %zd\n",
 			__func__, msg->size);
 		kfree(msg);
 		return CPE_SVC_NO_MEMORY;
@@ -1536,7 +1536,7 @@ static enum cpe_svc_result cpe_get_mem_addr(struct cpe_info *t_info,
 
 	address = mem_seg->cpe_addr - offset;
 	if (address + mem_seg->size > mem_sz) {
-		pr_err("%s: wrong size %u, start adress %x, mem_type %u\n",
+		pr_err("%s: wrong size %zu, start adress %x, mem_type %u\n",
 			__func__, mem_seg->size, address, mem_type);
 		return CPE_SVC_INVALID_HANDLE;
 	}

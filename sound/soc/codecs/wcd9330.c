@@ -2847,7 +2847,7 @@ static int tomtom_codec_config_mad(struct snd_soc_codec *codec)
 	}
 
 	if (fw->size < sizeof(struct mad_audio_cal)) {
-		pr_err("%s: incorrect firmware size %u\n", __func__, fw->size);
+		pr_err("%s: incorrect firmware size %zu\n", __func__, fw->size);
 		release_firmware(fw);
 		return -ENOMEM;
 	}
@@ -3494,7 +3494,7 @@ static int tomtom_codec_enable_anc(struct snd_soc_dapm_widget *w,
 
 		/* First number is the number of register writes */
 		anc_head = (struct wcd9xxx_anc_header *)(fw->data);
-		anc_ptr = (u32 *)((u32)fw->data +
+		anc_ptr = (u32 *)(fw->data +
 				  sizeof(struct wcd9xxx_anc_header));
 		anc_size_remaining = fw->size -
 				     sizeof(struct wcd9xxx_anc_header);
@@ -4741,8 +4741,8 @@ static int tomtom_get_channel_map(struct snd_soc_dai *dai,
 	case AIF2_PB:
 	case AIF3_PB:
 		if (!rx_slot || !rx_num) {
-			pr_err("%s: Invalid rx_slot %d or rx_num %d\n",
-				 __func__, (u32) rx_slot, (u32) rx_num);
+			pr_err("%s: Invalid rx_slot %p or rx_num %p\n",
+				 __func__, rx_slot, rx_num);
 			return -EINVAL;
 		}
 		list_for_each_entry(ch, &tomtom_p->dai[dai->id].wcd9xxx_ch_list,
@@ -4760,8 +4760,8 @@ static int tomtom_get_channel_map(struct snd_soc_dai *dai,
 	case AIF4_VIFEED:
 	case AIF4_MAD_TX:
 		if (!tx_slot || !tx_num) {
-			pr_err("%s: Invalid tx_slot %d or tx_num %d\n",
-				 __func__, (u32) tx_slot, (u32) tx_num);
+			pr_err("%s: Invalid tx_slot %p or tx_num %p\n",
+				 __func__, tx_slot, tx_num);
 			return -EINVAL;
 		}
 		list_for_each_entry(ch, &tomtom_p->dai[dai->id].wcd9xxx_ch_list,
