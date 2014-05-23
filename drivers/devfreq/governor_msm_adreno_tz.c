@@ -275,10 +275,18 @@ static int tz_start(struct devfreq *devfreq)
 	int i, out, ret;
 	unsigned int version;
 
-	if (devfreq->data == NULL) {
-		pr_err(TAG "data is required for this governor\n");
-		return -EINVAL;
-	}
+	struct msm_adreno_extended_profile *ext_profile = container_of(
+					(devfreq->profile),
+					struct msm_adreno_extended_profile,
+					profile);
+
+	/*
+	 * Assuming that we have only one instance of the adreno device
+	 * connected to this governor,
+	 * can safely restore the pointer to the governor private data
+	 * from the container of the device profile
+	 */
+	devfreq->data = ext_profile->private_data;
 
 	priv = devfreq->data;
 	priv->nb.notifier_call = tz_notify;
@@ -326,6 +334,8 @@ static int tz_stop(struct devfreq *devfreq)
 	struct devfreq_msm_adreno_tz_data *priv = devfreq->data;
 
 	kgsl_devfreq_del_notifier(devfreq->dev.parent, &priv->nb);
+	/* leaving the governor and cleaning the pointer to private data */
+	devfreq->data = NULL;
 	return 0;
 }
 
