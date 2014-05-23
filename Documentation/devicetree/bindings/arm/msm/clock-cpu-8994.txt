@@ -15,6 +15,7 @@ Required properties:
 			"c1_mux", "cci_mux"
 - vdd-a53-supply:	The regulator powering the A53 cluster
 - vdd-a57-supply:	The regulator powering the A57 cluster
+- vdd-cci-supply:	The regulator powering the CCI cluster
 - vdd-pll-supply:	The regulator powering the cluster PLLs
 - qcom,a5X-speedbinY-vZ:
 			A table of CPU frequency (Hz) to voltage (corner)
@@ -29,6 +30,10 @@ Required properties:
 			the right table is picked from multiple possible tables.
 			 'X' is 3 or 7 depending on whether the table is for the
 			A53 or A57 cluster.
+- qcom,cci-speedbinY-vZ:
+			Similar to the qcom,a5X-speedbinY-vZ property described
+			above, except this frequency to voltage table is applied
+			to the clock for the CCI.
 Example:
 	clock_cpu: qcom,cpu-clock-8994@f9015000 {
 		compatible = "qcom,cpu-clock-8994";
@@ -51,6 +56,11 @@ Example:
 			< 384000000 1>,
 			< 787200000 2>,
 			<1785600000 3>;
+		qcom,cci-speedbin0-v0 =
+			<         0 0>,
+			< 150000000 1>,
+			< 300000000 2>,
+			< 600000000 3>;
 		clock-names = "xo", "aux_clk";
 		clocks = <&clock_rpm clk_cxo_clk_src>,
 			 <&clock_gcc clk_gpll0_ao>;

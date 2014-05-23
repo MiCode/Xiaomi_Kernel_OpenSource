@@ -674,6 +674,8 @@ static struct mux_clk cci_hf_mux = {
 	},
 };
 
+DEFINE_VDD_REGS_INIT(vdd_cci, 1);
+
 static struct div_clk cci_clk = {
 	.data = {
 		.min_div = 1,
@@ -687,6 +689,7 @@ static struct div_clk cci_clk = {
 	.shift = 5,
 	.c = {
 		.parent = &cci_hf_mux.c,
+		.vdd_class = &vdd_cci,
 		.dbg_name = "cci_clk",
 		.ops = &clk_ops_div,
 		CLK_INIT(cci_clk.c),
@@ -820,6 +823,13 @@ static int cpu_clock_8994_resources_init(struct platform_device *pdev)
 		return PTR_ERR(vdd_a57.regulator[0]);
 	}
 
+	vdd_cci.regulator[0] = devm_regulator_get(&pdev->dev, "vdd-cci");
+	if (IS_ERR(vdd_cci.regulator[0])) {
+		if (PTR_ERR(vdd_cci.regulator[0]) != -EPROBE_DEFER)
+			dev_err(&pdev->dev, "Unable to get the cci vreg\n");
+		return PTR_ERR(vdd_cci.regulator[0]);
+	}
+
 	c = devm_clk_get(&pdev->dev, "xo_ao");
 	if (IS_ERR(c)) {
 		if (PTR_ERR(c) != -EPROBE_DEFER)
@@ -903,6 +913,12 @@ static int cpu_clock_8994_driver_probe(struct platform_device *pdev)
 	ret = of_get_fmax_vdd_class(pdev, &a57_clk.c, "qcom,a57-speedbin0-v0");
 	if (ret) {
 		dev_err(&pdev->dev, "Can't get speed bin for a57\n");
+		return ret;
+	}
+
+	ret = of_get_fmax_vdd_class(pdev, &cci_clk.c, "qcom,cci-speedbin0-v0");
+	if (ret) {
+		dev_err(&pdev->dev, "Can't get speed bin for cci\n");
 		return ret;
 	}
 
