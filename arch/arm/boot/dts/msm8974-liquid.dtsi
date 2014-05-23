@@ -446,25 +446,6 @@
                 qca,wifi-chip-pwd-supply = <&ath_chip_pwd_l>;
         };
 
-	qcom,pronto@fb21b000 {
-		status = "disabled";
-	};
-
-	qcom,iris-fm {
-		status = "disabled";
-	};
-
-	qcom,wcnss-wlan@fb000000 {
-		status = "disabled";
-	};
-
-	qcom,smd-wcnss {
-		status = "disabled";
-	};
-
-	qcom,smsm-wcnss {
-		status = "disabled";
-	};
 };
 
 &pm8941_l19 {
