@@ -133,8 +133,13 @@ static int mdss_fb_compat_buf_sync(struct fb_info *info, unsigned int cmd,
 		return -EFAULT;
 	if (copy_in_user(compat_ptr(buf_sync32->retire_fen_fd),
 			buf_sync->retire_fen_fd,
-			sizeof(int)))
-		return -EFAULT;
+			sizeof(int))) {
+		if (buf_sync->flags & MDP_BUF_SYNC_FLAG_RETIRE_FENCE)
+			return -EFAULT;
+		else
+			pr_debug("%s: no retire fence fd for wb\n",
+				__func__);
+	}
 
 	return ret;
 }
