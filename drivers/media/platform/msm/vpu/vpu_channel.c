@@ -428,12 +428,17 @@ static void on_buffer_done(struct vpu_channel_hal *phal,
 				if ((i < packet->num_out_buf) &&
 						(phdr->status == 0)) {
 
-					/* store EOS info if present */
+					/* store buffer flags info */
 					if (pinfo->flag & BUFFER_PKT_FLAG_EOS) {
 						pr_debug("out EOS buf #%d\n",
 							vb->vb.v4l2_buf.index);
 						vb->vb.v4l2_buf.flags |=
 							V4L2_QCOM_BUF_FLAG_EOS;
+					}
+					if (pinfo->flag &
+						BUFFER_PKT_FLAG_CDS_ENABLE) {
+						vb->vb.v4l2_buf.flags |=
+						V4L2_BUF_FLAG_CDS_ENABLE;
 					}
 
 					vb->vb.v4l2_buf.timestamp.tv_sec =
@@ -1305,6 +1310,13 @@ static void vpu_buf_to_ipc_buf_info(struct vpu_buffer *vb, bool input,
 		if (vb->vb.v4l2_buf.flags & V4L2_QCOM_BUF_FLAG_EOS) {
 			pr_debug("in EOS buf #%d\n", vb->vb.v4l2_buf.index);
 			flag |= BUFFER_PKT_FLAG_EOS;
+		}
+
+		/* set chroma downsample bit if present */
+		if (vb->vb.v4l2_buf.flags & V4L2_BUF_FLAG_CDS_ENABLE) {
+			pr_debug("in CDS enable buf #%d\n",
+					vb->vb.v4l2_buf.index);
+			flag |= BUFFER_PKT_FLAG_CDS_ENABLE;
 		}
 	}
 

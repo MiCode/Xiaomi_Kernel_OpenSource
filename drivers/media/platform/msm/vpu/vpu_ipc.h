@@ -431,6 +431,9 @@ struct vpu_ipc_buffer_meta_data_t {
 /* Bits: 26-27 - Number of future buffers */
 #define BUFFER_PKT_FLAG_FUTURE_BUFFER_NUM_MASK      0x0C000000
 #define BUFFER_PKT_FLAG_FUTURE_BUFFER_NUM_SHIFT     26
+/* Bits: 28 - Chroma down sampling */
+#define BUFFER_PKT_FLAG_CDS_ENABLE                  0x10000000
+#define BUFFER_PKT_FLAG_CDS_SHIFT                   28
 
 /*
  * VPU_IPC_CMD_SESSION_SET_BUFFERS, VPU_IPC_CMD_SESSION_PROCESS_BUFFERS
