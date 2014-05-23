@@ -375,7 +375,7 @@ int kgsl_cmdbatch_create_compat(struct kgsl_device *device, unsigned int flags,
 {
 	int ret = 0, i;
 
-	if (!(flags & KGSL_CMDBATCH_SYNC)) {
+	if (!(flags & (KGSL_CMDBATCH_SYNC | KGSL_CMDBATCH_MARKER))) {
 		struct kgsl_ibdesc_compat ibdesc32;
 		struct kgsl_ibdesc ibdesc;
 		void __user *uptr = cmdlist;
