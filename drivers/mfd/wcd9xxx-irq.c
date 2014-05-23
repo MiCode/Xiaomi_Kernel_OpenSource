@@ -32,6 +32,10 @@
 
 #define WCD9XXX_SYSTEM_RESUME_TIMEOUT_MS 100
 
+#ifndef NO_IRQ
+#define NO_IRQ	(-1)
+#endif
+
 #ifdef CONFIG_OF
 struct wcd9xxx_irq_drv_data {
 	struct irq_domain *domain;
@@ -498,7 +502,7 @@ int wcd9xxx_request_irq(struct wcd9xxx_core_resource *wcd9xxx_res,
 	 * ARM needs us to explicitly flag the IRQ as valid
 	 * and will set them noprobe when we do so.
 	 */
-#ifdef CONFIG_ARM
+#if defined(CONFIG_ARM) || defined(CONFIG_ARM64)
 	set_irq_flags(virq, IRQF_VALID);
 #else
 	set_irq_noprobe(virq);
