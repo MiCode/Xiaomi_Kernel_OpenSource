@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -37,6 +37,7 @@ static int debug_log(struct ipc_log_context *ilctxt,
 		     char *buff, int size, int cont)
 {
 	int i = 0;
+	int ret;
 
 	if (size < MAX_MSG_DECODED_SIZE) {
 		pr_err("%s: buffer size %d < %d\n", __func__, size,
@@ -46,9 +47,10 @@ static int debug_log(struct ipc_log_context *ilctxt,
 	do {
 		i = ipc_log_extract(ilctxt, buff, size - 1);
 		if (cont && i == 0) {
-			wait_for_completion_interruptible(&ilctxt->read_avail);
-			if (signal_pending(current))
-				break;
+			ret = wait_for_completion_interruptible(
+				&ilctxt->read_avail);
+			if (ret < 0)
+				return ret;
 		}
 	} while (cont && i == 0);
 
