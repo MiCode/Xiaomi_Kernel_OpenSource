@@ -587,6 +587,7 @@ enum a4xx_vfd_perfctr_vfd_sel {
 };
 
 /* VBIF registers */
+#define A4XX_VBIF_VERSION			0x3000
 #define A4XX_VBIF_CLKON				0x3001
 #define A4XX_VBIF_CLKON_FORCE_ON_TESTBUS_MASK	0x1
 #define A4XX_VBIF_CLKON_FORCE_ON_TESTBUS_SHIFT	0x1
