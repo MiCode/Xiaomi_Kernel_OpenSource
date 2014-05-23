@@ -650,8 +650,9 @@ struct i2c_msm_ctrl {
 	int                        noise_rjct_scl;
 	int                        noise_rjct_sda;
 	struct i2c_msm_v2_platform_data *pdata;
-	enum msm_i2c_power_state    pwr_state;
-	struct mutex                 mlock;
+	enum msm_i2c_power_state   pwr_state;
+	atomic_t		   is_ctrl_active;
+	struct mutex               mlock;
 };
 
 #endif  /* _I2C_MSM_V2_H */
