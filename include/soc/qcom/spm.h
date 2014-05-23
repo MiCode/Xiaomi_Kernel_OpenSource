@@ -30,7 +30,7 @@ int msm_spm_set_low_power_mode(unsigned int mode, bool notify_rpm);
 int msm_spm_probe_done(void);
 int msm_spm_set_vdd(unsigned int cpu, unsigned int vlevel);
 unsigned int msm_spm_get_vdd(unsigned int cpu);
-int msm_spm_turn_on_cpu_rail(unsigned long base, unsigned int cpu);
+int msm_spm_turn_on_cpu_rail(void __iomem *base, unsigned int val, int cpu);
 struct msm_spm_device *msm_spm_get_device_by_name(const char *name);
 int msm_spm_config_low_power_mode(struct msm_spm_device *dev,
 		unsigned int mode, bool notify_rpm);
@@ -76,7 +76,8 @@ static inline unsigned int msm_spm_get_vdd(unsigned int cpu)
 	return 0;
 }
 
-static inline int msm_spm_turn_on_cpu_rail(unsigned long base, unsigned int cpu)
+static inline int msm_spm_turn_on_cpu_rail(void __iomem *base,
+		unsigned int val, int cpu)
 {
 	return -ENOSYS;
 }

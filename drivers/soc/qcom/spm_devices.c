@@ -25,6 +25,8 @@
 #include <soc/qcom/spm.h>
 #include "spm_driver.h"
 
+#define VDD_DEFAULT 0xDEADF00D
+
 struct msm_spm_power_modes {
 	uint32_t mode;
 	bool notify_rpm;
@@ -214,6 +216,7 @@ static int msm_spm_dev_init(struct msm_spm_device *dev,
 	int i, ret = -ENOMEM;
 	uint32_t offset = 0;
 
+	dev->cpu_vdd = VDD_DEFAULT;
 	dev->num_modes = data->num_modes;
 	dev->modes = kmalloc(
 			sizeof(struct msm_spm_power_modes) * dev->num_modes,
@@ -254,40 +257,33 @@ spm_failed_malloc:
 
 /**
  * msm_spm_turn_on_cpu_rail(): Power on cpu rail before turning on core
- * @base: core 0's base SAW address
- * @cpu: core id
+ * @base: The SAW VCTL register which would set the voltage up.
+ * @val: The value to be set on the rail
+ * @cpu: The cpu for this with rail is being powered on
  */
-int msm_spm_turn_on_cpu_rail(unsigned long base, unsigned int cpu)
+int msm_spm_turn_on_cpu_rail(void __iomem *base, unsigned int val, int cpu)
 {
-	uint32_t val = 0;
-	uint32_t timeout = 512; /* delay for voltage to settle on the core */
-	void *reg = NULL;
-
-	if (cpu == 0 || cpu >= num_possible_cpus())
-		return -EINVAL;
-
-	reg = ioremap_nocache(base + (cpu * 0x10000), SZ_4K);
-	if (!reg)
-		return -ENOMEM;
-
-	reg += 0x1C;
+	uint32_t timeout = 2000; /* delay for voltage to settle on the core */
+	struct msm_spm_device *dev = per_cpu(cpu_vctl_device, cpu);
 
 	/*
-	 * Set FTS2 type CPU supply regulator to 1.15 V. This assumes that the
-	 * regulator is already configured in LV range.
+	 * If clock drivers have already set up the voltage,
+	 * do not overwrite that value.
 	 */
-	val = 0x40000E6;
-	writel_relaxed(val, reg);
+	if (dev && (dev->cpu_vdd != VDD_DEFAULT))
+		return 0;
+
+	/* Set the CPU supply regulator voltage */
+	val = (val & 0xFF);
+	writel_relaxed(val, base);
 	mb();
 	udelay(timeout);
 
-	/* Enable CPU supply regulator */
-	val = 0x2030080;
-	writel_relaxed(val, reg);
+	/* Enable the CPU supply regulator*/
+	val = 0x30080;
+	writel_relaxed(val, base);
 	mb();
 	udelay(timeout);
-
-	iounmap(reg);
 
 	return 0;
 }
