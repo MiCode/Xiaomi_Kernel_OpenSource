@@ -2254,24 +2254,18 @@ static irqreturn_t i2c_msm_qup_isr(int irq, void *devid)
 	u32  clr_flds   = 0;
 	bool dump_details    = false;
 	bool log_event       = false;
-	bool spurious_irq    = false;
 	bool signal_complete = false;
 
 	i2c_msm_prof_evnt_add(ctrl, MSM_PROF, i2c_msm_prof_dump_irq_begn,
 								irq, 0, 0);
 
-	if (pm_runtime_suspended(ctrl->dev)) {
-		dev_info(ctrl->dev,
-				"irq:%d when PM suspended\n", irq);
-		spurious_irq = true;
+	if (!atomic_read(&ctrl->is_ctrl_active)) {
+		dev_info(ctrl->dev, "irq:%d when PM suspended\n", irq);
+		return IRQ_NONE;
 	}
 
 	if (!ctrl->xfer.msgs) {
 		dev_info(ctrl->dev, "irq:%d when no active transfer\n", irq);
-		spurious_irq = true;
-	}
-
-	if (spurious_irq) {
 		writel_relaxed(QUP_STATE_RESET, base + QUP_STATE);
 		/* Ensure that state is written before ISR exits */
 		wmb();
@@ -2848,7 +2842,8 @@ i2c_msm_frmwrk_xfer(struct i2c_adapter *adap, struct i2c_msg msgs[], int num)
 		i2c_msm_prof_evnt_dump(ctrl);
 
 	/* mark end of transfer */
-	xfer->msg_cnt = 0;
+	xfer->msg_cnt	= 0;
+	xfer->msgs	= NULL;
 	mutex_unlock(&ctrl->mlock);
 	return ret;
 }
@@ -3417,6 +3412,7 @@ static int  i2c_msm_pm_resume_impl(struct device *dev)
 	enable_irq(ctrl->rsrcs.irq);
 	(*ctrl->ver.init)(ctrl);
 	ctrl->pwr_state = MSM_I2C_PM_ACTIVE;
+	atomic_set(&ctrl->is_ctrl_active, 1);
 	return 0;
 }
 
@@ -3435,6 +3431,7 @@ static int i2c_msm_pm_sys_suspend_noirq(struct device *dev)
 	mutex_lock(&ctrl->mlock);
 	ctrl->pwr_state = MSM_I2C_PM_SYS_SUSPENDED;
 	mutex_unlock(&ctrl->mlock);
+	atomic_set(&ctrl->is_ctrl_active, 0);
 
 	if (curr_state == MSM_I2C_PM_ACTIVE) {
 		ret = i2c_msm_pm_suspend_impl(dev);
@@ -3466,6 +3463,7 @@ static int i2c_msm_pm_sys_resume_noirq(struct device *dev)
 	 */
 	i2c_msm_dbg(ctrl, MSM_DBG, "pm_sys_noirq: resuming...");
 	ctrl->pwr_state = MSM_I2C_PM_SUSPENDED;
+	atomic_set(&ctrl->is_ctrl_active, 0);
 	return  0;
 }
 #endif
@@ -3490,6 +3488,7 @@ static int i2c_msm_pm_rt_suspend(struct device *dev)
 	i2c_msm_dbg(ctrl, MSM_DBG, "pm_runtime: suspending...");
 	ret = i2c_msm_pm_suspend_impl(dev);
 	ctrl->pwr_state = MSM_I2C_PM_SUSPENDED;
+	atomic_set(&ctrl->is_ctrl_active, 0);
 	return ret;
 }
 
@@ -3536,6 +3535,7 @@ static void i2c_msm_pm_suspend_adptr(struct i2c_msm_ctrl *ctrl)
 		i2c_msm_pm_suspend_clk(ctrl);
 	i2c_msm_pm_suspend_impl(ctrl->dev);
 	ctrl->pwr_state = MSM_I2C_PM_SUSPENDED;
+	atomic_set(&ctrl->is_ctrl_active, 0);
 }
 #endif
 
@@ -3605,6 +3605,7 @@ static int i2c_msm_probe(struct platform_device *pdev)
 	ctrl->dbgfs.force_xfer_mode = I2C_MSM_XFER_MODE_NONE;
 	mutex_init(&ctrl->mlock);
 	ctrl->pwr_state = MSM_I2C_PM_SUSPENDED;
+	atomic_set(&ctrl->is_ctrl_active, 0);
 
 	if (!pdev->dev.of_node) {
 		dev_err(&pdev->dev, "error: null device-tree node");
@@ -3700,6 +3701,7 @@ static int i2c_msm_remove(struct platform_device *pdev)
 	mutex_lock(&ctrl->mlock);
 	ctrl->pwr_state = MSM_I2C_PM_SYS_SUSPENDED;
 	mutex_unlock(&ctrl->mlock);
+	atomic_set(&ctrl->is_ctrl_active, 0);
 
 	i2c_msm_pm_suspend_impl(ctrl->dev);
 	mutex_destroy(&ctrl->mlock);
