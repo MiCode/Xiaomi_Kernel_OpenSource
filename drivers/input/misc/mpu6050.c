@@ -29,7 +29,6 @@
 #include <linux/gpio.h>
 #include <linux/regulator/consumer.h>
 #include <linux/of_gpio.h>
-#include <mach/gpiomux.h>
 #include <linux/sensors.h>
 #include "mpu6050.h"
 
