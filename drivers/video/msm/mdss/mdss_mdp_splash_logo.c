@@ -264,7 +264,7 @@ static struct mdss_mdp_pipe *mdss_mdp_splash_get_pipe(
 	uint32_t image_size = SPLASH_IMAGE_WIDTH * SPLASH_IMAGE_HEIGHT
 						* SPLASH_IMAGE_BPP;
 
-	ret = mdss_mdp_overlay_pipe_setup(mfd, req, &pipe, NULL);
+	ret = mdss_mdp_overlay_pipe_setup(mfd, req, &pipe, NULL, true);
 	if (ret)
 		return NULL;
 
