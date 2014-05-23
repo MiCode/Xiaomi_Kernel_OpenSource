@@ -525,6 +525,9 @@ static int handle_rmv_server(struct qmi_handle *handle,
 	struct msm_ipc_addr *svc_addr;
 	unsigned long flags;
 
+	if (unlikely(!handle->dest_info))
+		return 0;
+
 	svc_addr = (struct msm_ipc_addr *)(handle->dest_info);
 	if (svc_addr->addr.port_addr.node_id == ctl_msg->srv.node_id &&
 	    svc_addr->addr.port_addr.port_id == ctl_msg->srv.port_id) {
