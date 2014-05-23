@@ -309,7 +309,11 @@ static int __qseecom_set_sb_memory(struct qseecom_registered_listener_list *svc,
 
 	/* Get the physical address of the ION BUF */
 	ret = ion_phys(qseecom.ion_clnt, svc->ihandle, &pa, &svc->sb_length);
-
+	if (ret) {
+		pr_err("Cannot get phys_addr for the Ion Client, ret = %d\n",
+			ret);
+		return ret;
+	}
 	/* Populate the structure for sending scm call to load image */
 	svc->sb_virt = (char *) ion_map_kernel(qseecom.ion_clnt, svc->ihandle);
 	svc->sb_phys = pa;
@@ -697,6 +701,12 @@ static int qseecom_set_client_mem_param(struct qseecom_dev_handle *data,
 	}
 	/* Get the physical address of the ION BUF */
 	ret = ion_phys(qseecom.ion_clnt, data->client.ihandle, &pa, &len);
+	if (ret) {
+
+		pr_err("Cannot get phys_addr for the Ion Client, ret = %d\n",
+			ret);
+		return ret;
+	}
 	/* Populate the structure for sending scm call to load image */
 	data->client.sb_virt = (char *) ion_map_kernel(qseecom.ion_clnt,
 							data->client.ihandle);
@@ -911,6 +921,11 @@ static int qseecom_load_app(struct qseecom_dev_handle *data, void __user *argp)
 
 		/* Get the physical address of the ION BUF */
 		ret = ion_phys(qseecom.ion_clnt, ihandle, &pa, &len);
+		if (ret) {
+			pr_err("Cannot get phys_addr for the Ion Client, ret = %d\n",
+				ret);
+			return ret;
+		}
 
 		/* Populate the structure for sending scm call to load image */
 		memcpy(load_req.app_name, load_img_req.img_name,
@@ -2003,6 +2018,12 @@ int qseecom_start_app(struct qseecom_handle **handle,
 
 	/* Get the physical address of the ION BUF */
 	ret = ion_phys(qseecom.ion_clnt, data->client.ihandle, &pa, &len);
+	if (ret) {
+		pr_err("Cannot get phys_addr for the Ion Client, ret = %d\n",
+			ret);
+		goto err;
+	}
+
 	/* Populate the structure for sending scm call to load image */
 	data->client.sb_virt = (char *) ion_map_kernel(qseecom.ion_clnt,
 							data->client.ihandle);
@@ -2521,7 +2542,11 @@ static int qseecom_load_external_elf(struct qseecom_dev_handle *data,
 
 	/* Get the physical address of the ION BUF */
 	ret = ion_phys(qseecom.ion_clnt, ihandle, &pa, &len);
-
+	if (ret) {
+		pr_err("Cannot get phys_addr for the Ion Client, ret = %d\n",
+			ret);
+		return ret;
+	}
 	/* Populate the structure for sending scm call to load image */
 	load_req.qsee_cmd_id = QSEOS_LOAD_EXTERNAL_ELF_COMMAND;
 	load_req.mdt_len = load_img_req.mdt_len;
