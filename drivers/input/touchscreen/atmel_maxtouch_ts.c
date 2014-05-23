@@ -34,6 +34,16 @@
 #include <linux/of_gpio.h>
 #include <linux/of_irq.h>
 
+#if defined(CONFIG_FB)
+#include <linux/notifier.h>
+#include <linux/fb.h>
+
+#elif defined(CONFIG_HAS_EARLYSUSPEND)
+#include <linux/earlysuspend.h>
+/* Early-suspend level */
+#define MXT_SUSPEND_LEVEL 1
+#endif
+
 /* Configuration file */
 #define MXT_CFG_MAGIC		"OBP_RAW V1"
 
@@ -225,6 +235,13 @@ struct t9_range {
 #define MXT_BOOTLOADER_ID_1386E		0x10
 #define MXT_BOOTLOADER_ID_1664S		0x14
 
+/* recommended voltage specifications */
+#define MXT_VDD_VTG_MIN_UV	1800000
+#define MXT_VDD_VTG_MAX_UV	1800000
+#define MXT_AVDD_VTG_MIN_UV	2700000
+#define MXT_AVDD_VTG_MAX_UV	3300000
+#define MXT_XVDD_VTG_MIN_UV	2700000
+#define MXT_XVDD_VTG_MAX_UV	10000000
 
 struct mxt_info {
 	u8 family_id;
@@ -248,6 +265,9 @@ struct mxt_object {
 struct mxt_data {
 	struct i2c_client *client;
 	struct input_dev *input_dev;
+	struct pinctrl *ts_pinctrl;
+	struct pinctrl_state *gpio_state_active;
+	struct pinctrl_state *gpio_state_suspend;
 	char phys[64];		/* device physical location */
 	struct mxt_platform_data *pdata;
 	struct mxt_object *object_table;
@@ -284,9 +304,15 @@ struct mxt_data {
 	bool use_regulator;
 	struct regulator *reg_vdd;
 	struct regulator *reg_avdd;
+	struct regulator *reg_xvdd;
 	char *fw_name;
 	char *cfg_name;
 
+#if defined(CONFIG_FB)
+	struct notifier_block fb_notif;
+#elif defined(CONFIG_HAS_EARLYSUSPEND)
+	struct early_suspend early_suspend;
+#endif
 	/* Cached parameters from object table */
 	u16 T5_address;
 	u8 T5_msg_size;
@@ -2157,25 +2183,93 @@ static int mxt_read_t9_resolution(struct mxt_data *data)
 	return 0;
 }
 
+static int mxt_pinctrl_init(struct mxt_data *data)
+{
+	int error;
+
+	/* Get pinctrl if target uses pinctrl */
+	data->ts_pinctrl = devm_pinctrl_get((&data->client->dev));
+	if (IS_ERR_OR_NULL(data->ts_pinctrl)) {
+		dev_dbg(&data->client->dev,
+			"Device does not use pinctrl\n");
+		error = PTR_ERR(data->ts_pinctrl);
+		data->ts_pinctrl = NULL;
+		return error;
+	}
+
+	data->gpio_state_active
+		= pinctrl_lookup_state(data->ts_pinctrl, "pmx_ts_active");
+	if (IS_ERR_OR_NULL(data->gpio_state_active)) {
+		dev_dbg(&data->client->dev,
+			"Can not get ts default pinstate\n");
+		error = PTR_ERR(data->gpio_state_active);
+		data->ts_pinctrl = NULL;
+		return error;
+	}
+
+	data->gpio_state_suspend
+		= pinctrl_lookup_state(data->ts_pinctrl, "pmx_ts_suspend");
+	if (IS_ERR_OR_NULL(data->gpio_state_suspend)) {
+		dev_dbg(&data->client->dev,
+			"Can not get ts sleep pinstate\n");
+		error = PTR_ERR(data->gpio_state_suspend);
+		data->ts_pinctrl = NULL;
+		return error;
+	}
+
+	return 0;
+}
+
+static int mxt_pinctrl_select(struct mxt_data *data, bool on)
+{
+	struct pinctrl_state *pins_state;
+	int error;
+
+	pins_state = on ? data->gpio_state_active
+		: data->gpio_state_suspend;
+	if (!IS_ERR_OR_NULL(pins_state)) {
+		error = pinctrl_select_state(data->ts_pinctrl, pins_state);
+		if (error) {
+			dev_err(&data->client->dev,
+				"can not set %s pins\n",
+				on ? "pmx_ts_active" : "pmx_ts_suspend");
+			return error;
+		}
+	} else {
+		dev_err(&data->client->dev,
+			"not a valid '%s' pinstate\n",
+				on ? "pmx_ts_active" : "pmx_ts_suspend");
+	}
+
+	return 0;
+}
+
 static int mxt_gpio_enable(struct mxt_data *data, bool enable)
 {
-	int rc;
+	const struct mxt_platform_data *pdata = data->pdata;
+	int error;
+
+	if (data->ts_pinctrl) {
+		error = mxt_pinctrl_select(data, enable);
+		if (error < 0)
+			return error;
+	}
 
 	if (enable) {
-		if (gpio_is_valid(data->pdata->gpio_irq)) {
-			rc = gpio_request(data->pdata->gpio_irq,
+		if (gpio_is_valid(pdata->gpio_irq)) {
+			error = gpio_request(pdata->gpio_irq,
 				"maxtouch_gpio_irq");
-			if (rc) {
+			if (error) {
 				dev_err(&data->client->dev,
-					"unable to request gpio [%d]\n",
-					data->pdata->gpio_irq);
-				return rc;
+					"unable to request %d gpio(%d)\n",
+					pdata->gpio_irq, error);
+				return error;
 			}
-			rc = gpio_direction_input(data->pdata->gpio_irq);
-			if (rc) {
+			error = gpio_direction_input(pdata->gpio_irq);
+			if (error) {
 				dev_err(&data->client->dev,
-					"unable to set dir for gpio [%d]\n",
-					data->pdata->gpio_irq);
+					"unable to set dir for %d gpio(%d)\n",
+					data->pdata->gpio_irq, error);
 				goto err_free_irq;
 			}
 
@@ -2184,28 +2278,28 @@ static int mxt_gpio_enable(struct mxt_data *data, bool enable)
 			return -EINVAL;
 		}
 
-		if (gpio_is_valid(data->pdata->gpio_reset)) {
-			rc = gpio_request(data->pdata->gpio_reset,
+		if (gpio_is_valid(pdata->gpio_reset)) {
+			error = gpio_request(pdata->gpio_reset,
 				"maxtouch_gpio_reset");
-			if (rc) {
+			if (error) {
 				dev_err(&data->client->dev,
-					"unable to request gpio [%d]\n",
-					data->pdata->gpio_reset);
+					"unable to request %d gpio(%d)\n",
+					pdata->gpio_reset, error);
 				goto err_free_irq;
 			}
-			rc = gpio_direction_output(data->pdata->gpio_reset, 0);
-			if (rc) {
+			error = gpio_direction_output(pdata->gpio_reset, 0);
+			if (error) {
 				dev_err(&data->client->dev,
-					"unable to set dir for gpio [%d]\n",
-					data->pdata->gpio_reset);
+					"unable to set dir for %d gpio(%d)\n",
+					pdata->gpio_reset, error);
 				goto err_free_reset;
 			}
 			msleep(MXT_REGULATOR_DELAY);
-			rc = gpio_direction_output(data->pdata->gpio_reset, 1);
-			if (rc) {
+			error = gpio_direction_output(pdata->gpio_reset, 1);
+			if (error) {
 				dev_err(&data->client->dev,
-					"unable to set dir for gpio [%d]\n",
-					data->pdata->gpio_reset);
+					"unable to set dir for %d gpio(%d)\n",
+					pdata->gpio_reset, error);
 				goto err_free_reset;
 			}
 		} else {
@@ -2213,40 +2307,85 @@ static int mxt_gpio_enable(struct mxt_data *data, bool enable)
 				"reset gpio not provided\n");
 			goto err_free_irq;
 		}
+
+		if (gpio_is_valid(pdata->gpio_i2cmode)) {
+			error = gpio_request(pdata->gpio_i2cmode,
+				"maxtouch_gpio_i2cmode");
+			if (error) {
+				dev_err(&data->client->dev,
+					"unable to request %d gpio (%d)\n",
+					pdata->gpio_i2cmode, error);
+				goto err_free_reset;
+			}
+			error = gpio_direction_output(pdata->gpio_i2cmode, 1);
+			if (error) {
+				dev_err(&data->client->dev,
+					"unable to set dir for %d gpio (%d)\n",
+					pdata->gpio_i2cmode, error);
+				goto err_free_i2cmode;
+			}
+		} else {
+			dev_info(&data->client->dev,
+				"i2cmode gpio is not used\n");
+		}
 	} else {
-		if (gpio_is_valid(data->pdata->gpio_irq))
-			gpio_free(data->pdata->gpio_irq);
-		if (gpio_is_valid(data->pdata->gpio_reset))
-			gpio_free(data->pdata->gpio_reset);
+		if (gpio_is_valid(pdata->gpio_irq))
+			gpio_free(pdata->gpio_irq);
+
+		if (gpio_is_valid(pdata->gpio_reset)) {
+			gpio_set_value(pdata->gpio_reset, 1);
+			gpio_free(pdata->gpio_reset);
+		}
+
+		if (gpio_is_valid(pdata->gpio_i2cmode)) {
+			gpio_set_value(pdata->gpio_i2cmode, 0);
+			gpio_free(pdata->gpio_i2cmode);
+		}
 	}
 
 	return 0;
 
+err_free_i2cmode:
+	if (gpio_is_valid(pdata->gpio_i2cmode)) {
+		gpio_set_value(pdata->gpio_i2cmode, 0);
+		gpio_free(pdata->gpio_i2cmode);
+	}
 err_free_reset:
-	if (gpio_is_valid(data->pdata->gpio_reset))
-		gpio_free(data->pdata->gpio_reset);
+	if (gpio_is_valid(pdata->gpio_reset)) {
+		gpio_set_value(pdata->gpio_reset, 1);
+		gpio_free(pdata->gpio_reset);
+	}
 err_free_irq:
-	if (gpio_is_valid(data->pdata->gpio_irq))
-		gpio_free(data->pdata->gpio_irq);
-	return rc;
+	if (gpio_is_valid(pdata->gpio_irq))
+		gpio_free(pdata->gpio_irq);
+	return error;
 }
 
 static int mxt_regulator_enable(struct mxt_data *data)
 {
-	int rc;
+	int error;
 	gpio_set_value(data->pdata->gpio_reset, 0);
 
-	rc = regulator_enable(data->reg_vdd);
-	if (rc) {
+	error = regulator_enable(data->reg_vdd);
+	if (error) {
 		dev_err(&data->client->dev,
-			"Regulator vdd enable failed, rc=%d\n", rc);
-		return rc;
+			"vdd enable failed, error=%d\n", error);
+		return error;
 	}
-	rc = regulator_enable(data->reg_avdd);
-	if (rc) {
+	error = regulator_enable(data->reg_avdd);
+	if (error) {
 		dev_err(&data->client->dev,
-			"Regulator avdd enable failed, rc=%d\n", rc);
-		return rc;
+			"avdd enable failed, error=%d\n", error);
+		goto err_dis_vdd;
+	}
+
+	if (!IS_ERR(data->reg_xvdd)) {
+		error = regulator_enable(data->reg_xvdd);
+		if (error) {
+			dev_err(&data->client->dev,
+				"xvdd enable failed, error=%d\n", error);
+			goto err_dis_avdd;
+		}
 	}
 	msleep(MXT_REGULATOR_DELAY);
 
@@ -2255,12 +2394,20 @@ static int mxt_regulator_enable(struct mxt_data *data)
 	mxt_wait_for_completion(data, &data->bl_completion, MXT_POWERON_DELAY);
 
 	return 0;
+
+err_dis_avdd:
+	regulator_disable(data->reg_avdd);
+err_dis_vdd:
+	regulator_disable(data->reg_vdd);
+	return error;
 }
 
 static void mxt_regulator_disable(struct mxt_data *data)
 {
 	regulator_disable(data->reg_vdd);
 	regulator_disable(data->reg_avdd);
+	if (!IS_ERR(data->reg_xvdd))
+		regulator_disable(data->reg_xvdd);
 }
 
 static int mxt_probe_regulators(struct mxt_data *data)
@@ -2283,11 +2430,44 @@ static int mxt_probe_regulators(struct mxt_data *data)
 		goto fail;
 	}
 
+	if (regulator_count_voltages(data->reg_vdd) > 0) {
+		error = regulator_set_voltage(data->reg_vdd,
+				MXT_VDD_VTG_MIN_UV, MXT_VDD_VTG_MAX_UV);
+		if (error) {
+			dev_err(&data->client->dev,
+				"vdd set_vtg failed err=%d\n", error);
+			goto fail;
+		}
+	}
+
 	data->reg_avdd = regulator_get(dev, "avdd");
 	if (IS_ERR(data->reg_avdd)) {
 		error = PTR_ERR(data->reg_avdd);
 		dev_err(dev, "Error %d getting avdd regulator\n", error);
 		goto fail_release;
+	}
+
+	if (regulator_count_voltages(data->reg_avdd) > 0) {
+		error = regulator_set_voltage(data->reg_avdd,
+				MXT_AVDD_VTG_MIN_UV, MXT_AVDD_VTG_MAX_UV);
+		if (error) {
+			dev_err(&data->client->dev,
+				"avdd set_vtg failed err=%d\n", error);
+			goto fail_release;
+		}
+	}
+
+	data->reg_xvdd = regulator_get(dev, "xvdd");
+	if (IS_ERR(data->reg_xvdd)) {
+		dev_info(dev, "xvdd regulator is not used\n");
+	} else {
+		if (regulator_count_voltages(data->reg_xvdd) > 0) {
+			error = regulator_set_voltage(data->reg_xvdd,
+				MXT_XVDD_VTG_MIN_UV, MXT_XVDD_VTG_MAX_UV);
+			if (error)
+				dev_err(&data->client->dev,
+					"xvdd set_vtg failed err=%d\n", error);
+		}
 	}
 
 	data->use_regulator = true;
@@ -2301,12 +2481,15 @@ static int mxt_probe_regulators(struct mxt_data *data)
 	return 0;
 
 fail_release_all:
+	if (!IS_ERR(data->reg_xvdd))
+		regulator_put(data->reg_xvdd);
 	regulator_put(data->reg_avdd);
 fail_release:
 	regulator_put(data->reg_vdd);
 fail:
 	data->reg_vdd = NULL;
 	data->reg_avdd = NULL;
+	data->reg_xvdd = NULL;
 	data->use_regulator = false;
 	return error;
 }
@@ -2394,18 +2577,20 @@ static void mxt_start(struct mxt_data *data)
 	if (!data->suspended || data->in_bootloader)
 		return;
 
-	if (data->use_regulator) {
-		mxt_regulator_enable(data);
-	} else {
-		/* Discard any messages still in message buffer from before
-		 * chip went to sleep */
-		mxt_process_messages_until_invalid(data);
+	/* enable gpios */
+	mxt_gpio_enable(data, true);
 
-		mxt_set_t7_power_cfg(data, MXT_POWER_CFG_RUN);
+	/* enable regulators */
+	mxt_regulator_enable(data);
 
-		/* Recalibrate since chip has been in deep sleep */
-		mxt_t6_command(data, MXT_COMMAND_CALIBRATE, 1, false);
-	}
+	/* Discard any messages still in message buffer from before
+	 * chip went to sleep */
+	mxt_process_messages_until_invalid(data);
+
+	mxt_set_t7_power_cfg(data, MXT_POWER_CFG_RUN);
+
+	/* Recalibrate since chip has been in deep sleep */
+	mxt_t6_command(data, MXT_COMMAND_CALIBRATE, 1, false);
 
 	mxt_acquire_irq(data);
 	data->enable_reporting = true;
@@ -2436,10 +2621,14 @@ static void mxt_stop(struct mxt_data *data)
 	data->enable_reporting = false;
 	disable_irq(data->irq);
 
-	if (data->use_regulator)
-		mxt_regulator_disable(data);
-	else
-		mxt_set_t7_power_cfg(data, MXT_POWER_CFG_DEEPSLEEP);
+	/* put in deep sleep */
+	mxt_set_t7_power_cfg(data, MXT_POWER_CFG_DEEPSLEEP);
+
+	/* disable regulators */
+	mxt_regulator_disable(data);
+
+	/* disable gpios */
+	mxt_gpio_enable(data, false);
 
 	mxt_reset_slots(data);
 	data->suspended = true;
@@ -3217,7 +3406,7 @@ static int mxt_get_dt_coords(struct device *dev, char *name,
 	struct property *prop;
 	struct device_node *np = dev->of_node;
 	size_t coords_size;
-	int rc;
+	int error;
 
 	prop = of_find_property(np, name, NULL);
 	if (!prop)
@@ -3231,10 +3420,10 @@ static int mxt_get_dt_coords(struct device *dev, char *name,
 		return -EINVAL;
 	}
 
-	rc = of_property_read_u32_array(np, name, coords, coords_size);
-	if (rc && (rc != -EINVAL)) {
+	error = of_property_read_u32_array(np, name, coords, coords_size);
+	if (error && (error != -EINVAL)) {
 		dev_err(dev, "Unable to read %s\n", name);
-		return rc;
+		return error;
 	}
 
 	if (strcmp(name, "atmel,panel-coords") == 0) {
@@ -3255,20 +3444,94 @@ static int mxt_get_dt_coords(struct device *dev, char *name,
 	return 0;
 }
 
+#ifdef CONFIG_PM_SLEEP
+static int mxt_suspend(struct device *dev)
+{
+	struct mxt_data *data = dev_get_drvdata(dev);
+	struct input_dev *input_dev = data->input_dev;
+
+	mutex_lock(&input_dev->mutex);
+
+	if (input_dev->users)
+		mxt_stop(data);
+
+	mutex_unlock(&input_dev->mutex);
+
+	return 0;
+}
+
+static int mxt_resume(struct device *dev)
+{
+	struct mxt_data *data = dev_get_drvdata(dev);
+	struct input_dev *input_dev = data->input_dev;
+
+	mutex_lock(&input_dev->mutex);
+
+	if (input_dev->users)
+		mxt_start(data);
+
+	mutex_unlock(&input_dev->mutex);
+
+	return 0;
+}
+
+#if defined(CONFIG_FB)
+static int fb_notifier_callback(struct notifier_block *self,
+				 unsigned long event, void *data)
+{
+	struct fb_event *evdata = data;
+	int *blank;
+	struct mxt_data *mxt_dev_data =
+		container_of(self, struct mxt_data, fb_notif);
+
+	if (evdata && evdata->data && mxt_dev_data && mxt_dev_data->client) {
+			blank = evdata->data;
+			if (*blank == FB_BLANK_UNBLANK)
+				mxt_resume(&mxt_dev_data->client->dev);
+			else if (*blank == FB_BLANK_POWERDOWN)
+				mxt_suspend(&mxt_dev_data->client->dev);
+	}
+
+	return 0;
+}
+#elif defined(CONFIG_HAS_EARLYSUSPEND)
+static void mxt_early_suspend(struct early_suspend *h)
+{
+	struct mxt_data *data = container_of(h, struct mxt_data,
+						early_suspend);
+	mxt_suspend(&data->client->dev);
+}
+
+static void mxt_late_resume(struct early_suspend *h)
+{
+	struct mxt_data *data = container_of(h, struct mxt_data,
+						early_suspend);
+	mxt_resume(&data->client->dev);
+}
+#endif
+
+static const struct dev_pm_ops mxt_pm_ops = {
+#if (!defined(CONFIG_FB) && !defined(CONFIG_HAS_EARLYSUSPEND))
+	.suspend	= mxt_suspend,
+	.resume		= mxt_resume,
+#endif
+};
+#endif
+
 static int mxt_parse_dt(struct device *dev, struct mxt_platform_data *pdata)
 {
-	int rc;
+	int error;
 	u32 temp_val;
 	struct device_node *np = dev->of_node;
 	struct property *prop;
 
-	rc = mxt_get_dt_coords(dev, "atmel,panel-coords", pdata);
-	if (rc)
-		return rc;
+	error = mxt_get_dt_coords(dev, "atmel,panel-coords", pdata);
+	if (error)
+		return error;
 
-	rc = mxt_get_dt_coords(dev, "atmel,display-coords", pdata);
-	if (rc)
-		return rc;
+	error = mxt_get_dt_coords(dev, "atmel,display-coords", pdata);
+	if (error)
+		return error;
 
 	/* reset, irq gpio info */
 	pdata->gpio_reset = of_get_named_gpio_flags(np, "atmel,reset-gpio",
@@ -3277,11 +3540,13 @@ static int mxt_parse_dt(struct device *dev, struct mxt_platform_data *pdata)
 	pdata->gpio_irq = of_get_named_gpio_flags(np, "atmel,irq-gpio",
 				0, &temp_val);
 	pdata->irqflags = temp_val;
+	pdata->gpio_i2cmode = of_get_named_gpio_flags(np, "atmel,i2cmode-gpio",
+				0, &temp_val);
 
-	rc = of_property_read_u32(np, "atmel,bl-addr", &temp_val);
-	if (rc && (rc != -EINVAL))
+	error = of_property_read_u32(np, "atmel,bl-addr", &temp_val);
+	if (error && (error != -EINVAL))
 		dev_err(dev, "Unable to read bootloader address\n");
-	else if (rc != -EINVAL)
+	else if (error != -EINVAL)
 		pdata->bl_addr = (u8) temp_val;
 
 	/* keycodes for keyarray object*/
@@ -3293,11 +3558,12 @@ static int mxt_parse_dt(struct device *dev, struct mxt_platform_data *pdata)
 		if (!pdata->key_codes)
 			return -ENOMEM;
 		if ((prop->length/sizeof(u32)) == MXT_KEYARRAY_MAX_KEYS) {
-			rc = of_property_read_u32_array(np, "atmel,key-codes",
-				pdata->key_codes, MXT_KEYARRAY_MAX_KEYS);
-			if (rc) {
+			error = of_property_read_u32_array(np,
+				"atmel,key-codes", pdata->key_codes,
+				MXT_KEYARRAY_MAX_KEYS);
+			if (error) {
 				dev_err(dev, "Unable to read key codes\n");
-				return rc;
+				return error;
 			}
 		} else
 			return -EINVAL;
@@ -3361,6 +3627,10 @@ static int mxt_probe(struct i2c_client *client,
 	init_completion(&data->crc_completion);
 	mutex_init(&data->debug_msg_lock);
 
+	error = mxt_pinctrl_init(data);
+	if (error)
+		dev_info(&client->dev, "No pinctrl support\n");
+
 	error = mxt_gpio_enable(data, true);
 	if (error) {
 		dev_err(&client->dev, "Failed to configure gpios\n");
@@ -3408,8 +3678,28 @@ static int mxt_probe(struct i2c_client *client,
 		goto err_remove_sysfs_group;
 	}
 
+#if defined(CONFIG_FB)
+	data->fb_notif.notifier_call = fb_notifier_callback;
+
+	error = fb_register_client(&data->fb_notif);
+
+	if (error) {
+		dev_err(&client->dev, "Unable to register fb_notifier: %d\n",
+			error);
+		goto err_free_irq;
+	}
+#elif defined(CONFIG_HAS_EARLYSUSPEND)
+	data->early_suspend.level = EARLY_SUSPEND_LEVEL_BLANK_SCREEN +
+						MXT_SUSPEND_LEVEL;
+	data->early_suspend.suspend = mxt_early_suspend;
+	data->early_suspend.resume = mxt_late_resume;
+	register_early_suspend(&data->early_suspend);
+#endif
+
 	return 0;
 
+err_free_irq:
+	free_irq(data->irq, data);
 err_remove_sysfs_group:
 	sysfs_remove_group(&client->dev.kobj, &mxt_attr_group);
 err_free_object:
@@ -3431,9 +3721,16 @@ static int mxt_remove(struct i2c_client *client)
 		sysfs_remove_bin_file(&client->dev.kobj,
 				      &data->mem_access_attr);
 
+#if defined(CONFIG_FB)
+	fb_unregister_client(&data->fb_notif);
+#elif defined(CONFIG_HAS_EARLYSUSPEND)
+	unregister_early_suspend(&data->early_suspend);
+#endif
 	sysfs_remove_group(&client->dev.kobj, &mxt_attr_group);
 	free_irq(data->irq, data);
 	mxt_regulator_disable(data);
+	if (!IS_ERR(data->reg_xvdd))
+		regulator_put(data->reg_xvdd);
 	regulator_put(data->reg_avdd);
 	regulator_put(data->reg_vdd);
 	mxt_free_object_table(data);
@@ -3443,42 +3740,6 @@ static int mxt_remove(struct i2c_client *client)
 
 	return 0;
 }
-
-#ifdef CONFIG_PM_SLEEP
-static int mxt_suspend(struct device *dev)
-{
-	struct i2c_client *client = to_i2c_client(dev);
-	struct mxt_data *data = i2c_get_clientdata(client);
-	struct input_dev *input_dev = data->input_dev;
-
-	mutex_lock(&input_dev->mutex);
-
-	if (input_dev->users)
-		mxt_stop(data);
-
-	mutex_unlock(&input_dev->mutex);
-
-	return 0;
-}
-
-static int mxt_resume(struct device *dev)
-{
-	struct i2c_client *client = to_i2c_client(dev);
-	struct mxt_data *data = i2c_get_clientdata(client);
-	struct input_dev *input_dev = data->input_dev;
-
-	mutex_lock(&input_dev->mutex);
-
-	if (input_dev->users)
-		mxt_start(data);
-
-	mutex_unlock(&input_dev->mutex);
-
-	return 0;
-}
-#endif
-
-static SIMPLE_DEV_PM_OPS(mxt_pm_ops, mxt_suspend, mxt_resume);
 
 static void mxt_shutdown(struct i2c_client *client)
 {
@@ -3509,7 +3770,9 @@ static struct i2c_driver mxt_driver = {
 	.driver = {
 		.name	= "atmel_maxtouch_ts",
 		.owner	= THIS_MODULE,
+#ifdef CONFIG_PM_SLEEP
 		.pm	= &mxt_pm_ops,
+#endif
 		.of_match_table = mxt_match_table,
 	},
 	.probe		= mxt_probe,
