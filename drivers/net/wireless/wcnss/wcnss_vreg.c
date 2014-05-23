@@ -31,6 +31,7 @@ static LIST_HEAD(power_on_lock_list);
 static DEFINE_MUTEX(list_lock);
 static DEFINE_SEMAPHORE(wcnss_power_on_lock);
 static int auto_detect;
+static int is_power_on;
 
 #define RIVA_PMU_OFFSET         0x28
 #define PRONTO_PMU_OFFSET       0x1004
@@ -558,8 +559,8 @@ int wcnss_wlan_power(struct device *dev,
 	int rc = 0;
 	enum wcnss_hw_type hw_type = wcnss_hardware_type();
 
+	down(&wcnss_power_on_lock);
 	if (on) {
-		down(&wcnss_power_on_lock);
 		/* RIVA regulator settings */
 		rc = wcnss_core_vregs_on(dev, hw_type,
 			cfg->is_pronto_vt);
@@ -577,15 +578,18 @@ int wcnss_wlan_power(struct device *dev,
 				WCNSS_WLAN_SWITCH_ON, iris_xo_set);
 		if (rc)
 			goto fail_iris_xo;
-		up(&wcnss_power_on_lock);
 
-	} else {
+		is_power_on = true;
+
+	}  else if (is_power_on) {
+		is_power_on = false;
 		configure_iris_xo(dev, cfg,
 				WCNSS_WLAN_SWITCH_OFF, NULL);
 		wcnss_iris_vregs_off(hw_type, cfg->is_pronto_vt);
 		wcnss_core_vregs_off(hw_type, cfg->is_pronto_vt);
 	}
 
+	up(&wcnss_power_on_lock);
 	return rc;
 
 fail_iris_xo:
