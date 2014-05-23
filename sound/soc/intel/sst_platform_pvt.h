@@ -78,6 +78,7 @@ enum ssp_port {
 int sst_platform_clv_init(struct snd_soc_platform *platform);
 int sst_dsp_init(struct snd_soc_platform *platform);
 int sst_dsp_init_v2_dpcm(struct snd_soc_platform *platform);
+int sst_dsp_init_v2_dpcm_dfw(struct snd_soc_platform *platform);
 int sst_send_pipe_gains(struct snd_soc_dai *dai, int stream, int mute);
 void send_ssp_cmd(struct snd_soc_platform *platform, const char *id, bool enable);
 void sst_handle_vb_timer(struct snd_soc_platform *platform, bool enable);

@@ -812,12 +812,18 @@ static int sst_pcm_new(struct snd_soc_pcm_runtime *rtd)
 static int sst_soc_probe(struct snd_soc_platform *platform)
 {
 	int ret = 0;
+	struct sst_data *sst;
 
 	pr_debug("Enter:%s\n", __func__);
 
 #ifdef CONFIG_SST_DPCM
-	if (dpcm_enable == 1)
+	sst = snd_soc_platform_get_drvdata(platform);
+	if (dpcm_enable == 1) {
+		if (sst->pdata->dfw_enable == 1)
+			ret = sst_dsp_init_v2_dpcm_dfw(platform);
+		else
 			ret = sst_dsp_init_v2_dpcm(platform);
+	}
 #endif
 	if (ret)
 		pr_err("Dsp init failed: %d\n", ret);

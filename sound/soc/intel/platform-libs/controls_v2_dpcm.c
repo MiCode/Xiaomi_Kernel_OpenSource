@@ -2073,3 +2073,61 @@ int sst_dsp_init_v2_dpcm(struct snd_soc_platform *platform)
 
 	return ret;
 }
+
+int sst_dsp_init_v2_dpcm_dfw(struct snd_soc_platform *platform)
+{
+	int i, ret = 0;
+	struct sst_data *sst = snd_soc_platform_get_drvdata(platform);
+
+	sst->byte_stream = devm_kzalloc(platform->dev,
+					SST_MAX_BIN_BYTES, GFP_KERNEL);
+	if (!sst->byte_stream) {
+		pr_err("%s: kzalloc failed\n", __func__);
+		return -ENOMEM;
+	}
+	sst->widget = devm_kzalloc(platform->dev,
+				   SST_NUM_WIDGETS * sizeof(*sst->widget),
+				   GFP_KERNEL);
+	if (!sst->widget) {
+		pr_err("%s: kzalloc failed\n", __func__);
+		return -ENOMEM;
+	}
+
+	snd_soc_dapm_new_controls(&platform->dapm, sst_dapm_widgets,
+			ARRAY_SIZE(sst_dapm_widgets));
+	snd_soc_dapm_add_routes(&platform->dapm, intercon,
+			ARRAY_SIZE(intercon));
+	snd_soc_dapm_new_widgets(platform->dapm.card);
+
+	for (i = 0; i < SST_NUM_GAINS; i++) {
+		sst_gains[i].mute = SST_GAIN_MUTE_DEFAULT;
+		sst_gains[i].l_gain = SST_GAIN_VOLUME_DEFAULT;
+		sst_gains[i].r_gain = SST_GAIN_VOLUME_DEFAULT;
+		sst_gains[i].ramp_duration = SST_GAIN_RAMP_DURATION_DEFAULT;
+	}
+
+	snd_soc_add_platform_controls(platform, sst_gain_controls,
+			ARRAY_SIZE(sst_gain_controls));
+
+	snd_soc_add_platform_controls(platform, sst_algo_controls,
+			ARRAY_SIZE(sst_algo_controls));
+	snd_soc_add_platform_controls(platform, sst_slot_controls,
+			ARRAY_SIZE(sst_slot_controls));
+	snd_soc_add_platform_controls(platform, sst_mux_controls,
+			ARRAY_SIZE(sst_mux_controls));
+	snd_soc_add_platform_controls(platform, sst_debug_controls,
+			ARRAY_SIZE(sst_debug_controls));
+	snd_soc_add_platform_controls(platform, sst_vad_enroll,
+			ARRAY_SIZE(sst_vad_enroll));
+
+	/* initialize the names of the probe points */
+	for (i = 0; i < ARRAY_SIZE(sst_probes); i++)
+		sst_probe_enum_texts[i] = sst_probes[i].name;
+
+	snd_soc_add_platform_controls(platform, sst_probe_controls,
+			ARRAY_SIZE(sst_probe_controls));
+
+	ret = sst_map_modules_to_pipe(platform);
+
+	return ret;
+}

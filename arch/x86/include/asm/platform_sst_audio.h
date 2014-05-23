@@ -230,6 +230,7 @@ struct sst_platform_data {
 	int mux_shift[SST_NUM_SSPS];
 	const int domain_shift[SST_NUM_SSPS][SST_MAX_SSP_MUX];
 	const struct sst_ssp_config ssp_config[SST_NUM_SSPS][SST_MAX_SSP_MUX][SST_MAX_SSP_DOMAINS];
+	int dfw_enable;
 };
 
 int sst_audio_platform_init(int dev_id);
