@@ -266,6 +266,10 @@ Fudge Factors:			Fudge factors are used to boost demand for
 				FUDGE(x, a, b) = ((x * a) / b)
 - qcom,mdss-ib-factor:		This fudge factor is applied to calculated ib
 				values in default conditions.
+- qcom,mdss-ib-factor-overlap:	This fudge factor is applied to calculated ib
+				values when the overlap bandwidth is the
+				predominant value compared to prefill bandwidth
+				value.
 - qcom,mdss-clk-factor:		This fudge factor is applied to calculated mdp
 				clk rate in default conditions.
 - qcom,mdss-highest-bank-bit: Property to indicate tile format as opposed to usual
