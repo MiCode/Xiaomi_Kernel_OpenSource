@@ -897,6 +897,9 @@ static int wcd_mbhc_initialise(struct wcd_mbhc *mbhc)
 	struct snd_soc_codec *codec = mbhc->codec;
 
 	pr_debug("%s: enter\n", __func__);
+	/* Bring the digital block out of reset */
+	snd_soc_update_bits(codec, MSM8X16_WCD_A_DIGITAL_CDC_RST_CTL,
+			0x80, 0x80);
 	snd_soc_write(codec, MSM8X16_WCD_A_ANALOG_MBHC_DET_CTL_1, 0xB4);
 	/* enable HS detection */
 	snd_soc_write(codec, MSM8X16_WCD_A_ANALOG_MBHC_DET_CTL_2, 0xE8);
@@ -1084,9 +1087,6 @@ int wcd_mbhc_init(struct wcd_mbhc *mbhc, struct snd_soc_codec *codec,
 		goto err_hphr_ocp_irq;
 	}
 	wcd9xxx_spmi_disable_irq(mbhc->intr_ids->hph_right_ocp);
-	/* Bring the digital block out of reset */
-	snd_soc_update_bits(codec, MSM8X16_WCD_A_DIGITAL_CDC_RST_CTL,
-			0x80, 0x80);
 
 	pr_debug("%s: leave ret %d\n", __func__, ret);
 	return ret;
