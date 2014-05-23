@@ -2320,6 +2320,20 @@ static int msm_audrx_init(struct snd_soc_pcm_runtime *rtd)
 			pr_err("%s: sysfs_create_group failed\n", __func__);
 			kobject_del(cpe_priv.cpe_load_kobj);
 		}
+
+		err = msm_snd_enable_codec_ext_clk(rtd->codec, 1, false);
+		if (IS_ERR_VALUE(err)) {
+			pr_err("%s: Failed to enable mclk, err = 0x%x\n",
+				__func__, err);
+			goto out;
+		}
+		tomtom_enable_qfuse_sensing(rtd->codec);
+		err = msm_snd_enable_codec_ext_clk(rtd->codec, 0, false);
+		if (IS_ERR_VALUE(err)) {
+			pr_err("%s: Failed to disable mclk, err = 0x%x\n",
+				__func__, err);
+			goto out;
+		}
 	} else
 		taiko_event_register(apq8084_codec_event_cb, rtd->codec);
 
