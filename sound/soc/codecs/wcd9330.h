@@ -117,4 +117,5 @@ extern void tomtom_register_ext_clk_cb(
 	int (*get_ext_clk_cnt) (void),
 	struct snd_soc_codec *codec);
 extern int tomtom_enable_cpe(struct snd_soc_codec *codec);
+extern int tomtom_enable_qfuse_sensing(struct snd_soc_codec *codec);
 #endif

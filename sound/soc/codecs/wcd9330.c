@@ -7388,6 +7388,20 @@ int tomtom_enable_cpe(struct snd_soc_codec *codec)
 }
 EXPORT_SYMBOL(tomtom_enable_cpe);
 
+int tomtom_enable_qfuse_sensing(struct snd_soc_codec *codec)
+{
+	snd_soc_write(codec, TOMTOM_A_QFUSE_CTL, 0x03);
+	/*
+	 * 5ms sleep required after enabling qfuse control
+	 * before checking the status.
+	 */
+	usleep_range(5000, 5500);
+	if ((snd_soc_read(codec, TOMTOM_A_QFUSE_STATUS) & (0x03)) != 0x03)
+		WARN(1, "%s: Qfuse sense is not complete\n", __func__);
+	return 0;
+}
+EXPORT_SYMBOL(tomtom_enable_qfuse_sensing);
+
 static int tomtom_codec_probe(struct snd_soc_codec *codec)
 {
 	struct wcd9xxx *control;
