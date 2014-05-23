@@ -2175,6 +2175,17 @@ static int mdss_mdp_parse_dt_misc(struct platform_device *pdev)
 	mdss_mdp_parse_dt_fudge_factors(pdev, "qcom,mdss-ib-factor",
 		&mdata->ib_factor);
 
+	/*
+	 * Set overlap ib value equal to ib by default. This value can
+	 * be tuned in device tree to be different from ib.
+	 * This factor apply when the max bandwidth per pipe
+	 * is the overlap BW.
+	 */
+	mdata->ib_factor_overlap.numer = mdata->ib_factor.numer;
+	mdata->ib_factor_overlap.denom = mdata->ib_factor.denom;
+	mdss_mdp_parse_dt_fudge_factors(pdev, "qcom,mdss-ib-factor-overlap",
+		&mdata->ib_factor_overlap);
+
 	mdata->clk_factor.numer = 1;
 	mdata->clk_factor.denom = 1;
 	mdss_mdp_parse_dt_fudge_factors(pdev, "qcom,mdss-clk-factor",
