@@ -50,6 +50,12 @@ static DEFINE_PER_CPU(struct pmu_hw_events, cpu_hw_events);
 
 /* Set at runtime when we know what CPU type we are. */
 static struct arm_pmu *cpu_pmu;
+static int msm_pmu_use_irq = 1;
+
+void arm64_pmu_irq_handled_externally(void)
+{
+	msm_pmu_use_irq = 0;
+}
 
 int
 armpmu_get_max_events(void)
@@ -386,8 +392,10 @@ armpmu_release_hardware(struct arm_pmu *armpmu)
 		return;
 
 	if (irq_is_percpu(irq)) {
-		on_each_cpu(armpmu_disable_percpu_irq, &irq, 1);
-		free_percpu_irq(irq, &cpu_hw_events);
+		if (msm_pmu_use_irq) {
+			on_each_cpu(armpmu_disable_percpu_irq, &irq, 1);
+			free_percpu_irq(irq, &cpu_hw_events);
+		}
 	} else {
 		for (i = 0; i < irqs; ++i) {
 			if (!cpumask_test_and_clear_cpu(i, &armpmu->active_irqs))
@@ -428,6 +436,11 @@ armpmu_reserve_hardware(struct arm_pmu *armpmu)
 	if (irq <= 0) {
 		pr_err("failed to get valid irq for PMU device\n");
 		return -ENODEV;
+	}
+
+	if (!msm_pmu_use_irq) {
+		pr_info("EDAC driver requests for the PMU interrupt\n");
+		goto out;
 	}
 
 	if (irq_is_percpu(irq)) {
@@ -474,6 +487,7 @@ armpmu_reserve_hardware(struct arm_pmu *armpmu)
 		}
 	}
 
+out:
 	return 0;
 }
 
@@ -1068,7 +1082,7 @@ static void armv8pmu_disable_event(struct hw_perf_event *hwc, int idx)
 	raw_spin_unlock_irqrestore(&events->pmu_lock, flags);
 }
 
-static irqreturn_t armv8pmu_handle_irq(int irq_num, void *dev)
+irqreturn_t armv8pmu_handle_irq(int irq_num, void *dev)
 {
 	u32 pmovsr;
 	struct perf_sample_data data;
@@ -1247,6 +1261,9 @@ static u32 __init armv8pmu_read_num_pmnc_events(void)
 	/* Read the nb of CNTx counters supported from PMNC */
 	nb_cnt = (armv8pmu_pmcr_read() >> ARMV8_PMCR_N_SHIFT) & ARMV8_PMCR_N_MASK;
 
+#ifdef CONFIG_EDAC_CORTEX_ARM64
+	nb_cnt -= 1;
+#endif
 	/* Add the CPU cycles counter and return */
 	return nb_cnt + 1;
 }
