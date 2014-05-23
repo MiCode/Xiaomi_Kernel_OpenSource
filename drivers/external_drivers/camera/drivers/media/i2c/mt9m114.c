@@ -28,6 +28,8 @@
 #include <linux/init.h>
 #include <linux/kmod.h>
 #include <linux/device.h>
+#include <linux/acpi.h>
+#include <linux/atomisp_gmin_platform.h>
 #include <linux/fs.h>
 #include <linux/init.h>
 #include <linux/slab.h>
@@ -519,7 +521,7 @@ static int power_down(struct v4l2_subdev *sd)
 	/* gpio ctrl */
 	ret = dev->platform_data->gpio_ctrl(sd, 0);
 	if (ret)
-		dev_err(&client->dev, "gpio failed 1\n");
+		dev_err(&client->dev, "gpio failed\n");
 
 	/* power control */
 	ret = dev->platform_data->power_ctrl(sd, 0);
@@ -1041,8 +1043,8 @@ static int mt9m114_detect(struct mt9m114_device *dev, struct i2c_client *client)
 	return 0;
 }
 
-static int
-mt9m114_s_config(struct v4l2_subdev *sd, int irq, void *platform_data)
+static int mt9m114_s_config(struct v4l2_subdev *sd,
+			    int irq, void *platform_data)
 {
 	struct mt9m114_device *dev = to_mt9m114_sensor(sd);
 	struct i2c_client *client = v4l2_get_subdevdata(sd);
@@ -1052,51 +1054,80 @@ mt9m114_s_config(struct v4l2_subdev *sd, int irq, void *platform_data)
 		return -ENODEV;
 
 	dev->platform_data =
-	    (struct camera_sensor_platform_data *)platform_data;
+		(struct camera_sensor_platform_data *)platform_data;
 
+	mutex_lock(&dev->input_lock);
 	if (dev->platform_data->platform_init) {
 		ret = dev->platform_data->platform_init(client);
 		if (ret) {
 			v4l2_err(client, "mt9m114 platform init err\n");
-			return ret;
+			goto platform_init_failed;
 		}
 	}
-	ret = mt9m114_s_power(sd, 1);
+
+	/**
+	 * Power off, and on in the future. This is to ensure
+	 * a correct power on sequence for the module.
+	 */
+	ret = power_down(sd);
 	if (ret) {
-		v4l2_err(client, "mt9m114 power-up err");
-		return ret;
+		v4l2_err(client, "mt9m114 power-off err\n");
+		goto fail_power_off;
 	}
 
-	/* config & detect sensor */
-	ret = mt9m114_detect(dev, client);
+	ret = power_up(sd);
 	if (ret) {
-		v4l2_err(client, "mt9m114_detect err s_config.\n");
-		goto fail_detect;
+		v4l2_err(client, "mt9m114 power-on err\n");
+		goto fail_power_on;
 	}
 
 	ret = dev->platform_data->csi_cfg(sd, 1);
 	if (ret)
 		goto fail_csi_cfg;
-
-	ret = mt9m114_set_suspend(sd);
+	/* config & detect sensor */
+	ret = mt9m114_detect(dev, client);
 	if (ret) {
-		v4l2_err(client, "mt9m114 suspend err");
-		return ret;
+		v4l2_err(client, "mt9m114_detect err s_config.\n");
+		goto fail_csi_cfg;
 	}
 
-	ret = mt9m114_s_power(sd, 0);
+	/* Turn off sensor after probe. */
+	ret = power_down(sd);
 	if (ret) {
-		v4l2_err(client, "mt9m114 power down err");
-		return ret;
+		v4l2_err(client, "mt9m114 power off err.\n");
+		goto fail_csi_cfg;
 	}
+
+	/* Register the atomisp platform data prior to the ISP module
+	 * loads. Ideally this would be stored as data in the
+	 * subdevice, but this API matches upstream better. */
+	/* FIXME: type and port should come from ACPI/EFI
+	 * This is hard coded to FFRD8. */
+	ret = atomisp_register_i2c_module(sd, client, platform_data,
+					  getvar_int(&client->dev, "CamType",
+						     RAW_CAMERA),
+					  getvar_int(&client->dev, "CsiPort",
+						     ATOMISP_CAMERA_PORT_PRIMARY));
+	if (ret) {
+		dev_err(&client->dev,
+			"MT9M144 atomisp_register_i2c_module failed.\n");
+		goto fail_csi_cfg;
+	}
+
+	mutex_unlock(&dev->input_lock);
 
 	return 0;
 
 fail_csi_cfg:
 	dev->platform_data->csi_cfg(sd, 0);
-fail_detect:
-	mt9m114_s_power(sd, 0);
+fail_power_on:
+	power_down(sd);
 	dev_err(&client->dev, "sensor power-gating failed\n");
+fail_power_off:
+	if (dev->platform_data->platform_deinit)
+		dev->platform_data->platform_deinit();
+platform_init_failed:
+	mutex_unlock(&dev->input_lock);
 	return ret;
 }
 
@@ -1461,33 +1492,52 @@ static int mt9m114_probe(struct i2c_client *client,
 		return -ENOMEM;
 	}
 
+	mutex_init(&dev->input_lock);
+
+	dev->fmt_idx = 0;
 	v4l2_i2c_subdev_init(&dev->sd, client, &mt9m114_ops);
 	if (client->dev.platform_data) {
 		ret = mt9m114_s_config(&dev->sd, client->irq,
 				       client->dev.platform_data);
-		if (ret) {
-			v4l2_device_unregister_subdev(&dev->sd);
-			kfree(dev);
-			return ret;
-		}
+		if (ret)
+			goto out_free;
+	} else if (ACPI_COMPANION(&client->dev)) {
+		/*
+		 * If no SFI firmware, grab the platform struct
+		 * directly and configure via ACPI/EFIvars instead
+		 */
+		ret = mt9m114_s_config(&dev->sd, client->irq,
+				       mt9m114_platform_data NULL);
+		if (ret)
+			goto out_free;
 	}
 
-	/*TODO add format code here*/
 	dev->sd.flags |= V4L2_SUBDEV_FL_HAS_DEVNODE;
 	dev->pad.flags = MEDIA_PAD_FL_SOURCE;
+	dev->format.code = V4L2_MBUS_FMT_SBGGR10_1X10;
+	dev->sd.entity.type = MEDIA_ENT_T_V4L2_SUBDEV_SENSOR;
 
 	/* REVISIT: Do we need media controller? */
 	ret = media_entity_init(&dev->sd.entity, 1, &dev->pad, 0);
-	if (ret) {
+	if (ret)
 		mt9m114_remove(client);
-		return ret;
-	}
 
 	/* set res index to be invalid */
 	dev->res = -1;
 
-	return 0;
+	return ret;
+out_free:
+	v4l2_device_unregister_subdev(&dev->sd);
+	kfree(dev);
+	return ret;
 }
+
+static struct acpi_device_id mt9m114_acpi_match[] = {
+	{"APTN1040"},
+	{},
+};
+
+MODULE_DEVICE_TABLE(acpi, mt9m114_acpi_match);
 
 MODULE_DEVICE_TABLE(i2c, mt9m114_id);
 

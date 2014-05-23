@@ -207,6 +207,8 @@ struct misensor_fwreg {
 	u32	val7;
 };
 
+void *mt9m114_platform_data(void *info);
+
 struct regval_list {
 	u16 reg_num;
 	u8 value;
@@ -216,8 +218,10 @@ struct mt9m114_device {
 	struct v4l2_subdev sd;
 	struct media_pad pad;
 	struct v4l2_mbus_framefmt format;
+	struct mutex input_lock;
 
 	struct camera_sensor_platform_data *platform_data;
+	int fmt_idx;
 	int real_model_id;
 	int nctx;
 	int power;
