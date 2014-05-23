@@ -148,7 +148,7 @@ enum sst_gain_kcontrol_type {
 	SST_GAIN_RAMP_DURATION,
 };
 
-struct sst_gain_mixer_control {
+struct sst_gain_data {
 	bool stereo;
 	enum sst_gain_kcontrol_type type;
 	struct sst_gain_value *gain_val;
@@ -184,7 +184,7 @@ struct sst_gain_value {
 	.get = xhandler_get, .put = xhandler_put, \
 	.private_value = (unsigned long)&(struct soc_mixer_control) \
 	{ .reg = xmin, .rreg = xmax, .min = xmin, .max = xmax,\
-		.pvt_data = (char *)&(struct sst_gain_mixer_control)\
+		.pvt_data = (char *)&(struct sst_gain_data)\
 		{ .stereo = true, .max = xmax, .min = xmin, .type = SST_GAIN_TLV, \
 		.module_id = xmod, .pipe_id = xpipe, .task_id = xtask,\
 		.instance_id = xinstance, .gain_val = xgain_val, .pname = xpname} }
@@ -197,7 +197,7 @@ struct sst_gain_value {
 	.get = xhandler_get, .put = xhandler_put, \
 	.private_value = (unsigned long)&(struct soc_mixer_control) \
 	{ .min = xmin, .max = xmax,\
-		.pvt_data = (char *)&(struct sst_gain_mixer_control)\
+		.pvt_data = (char *)&(struct sst_gain_data)\
 		{ .stereo = false, .max = xmax, .min = xmin, .type = xtype, \
 		.module_id = xmod, .pipe_id = xpipe, .task_id = xtask,\
 		.instance_id = xinstance, .gain_val = xgain_val, .pname =  xpname} }
@@ -208,7 +208,7 @@ struct sst_gain_value {
 	.info = snd_soc_info_bool_ext, \
 	.get = xhandler_get, .put = xhandler_put, \
 	.private_value = (unsigned long)&(struct soc_mixer_control) \
-	{ .pvt_data = (char *)&(struct sst_gain_mixer_control)\
+	{ .pvt_data = (char *)&(struct sst_gain_data)\
 		{ .stereo = false, .type = SST_GAIN_MUTE, \
 		.module_id = xmod, .pipe_id = xpipe, .task_id = xtask,\
 		.instance_id = xinstance, .gain_val = xgain_val, .pname = xpname} }
