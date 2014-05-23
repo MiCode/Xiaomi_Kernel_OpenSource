@@ -318,7 +318,7 @@
 		compatible = "qca,ar3002";
 		qca,bt-reset-gpio = <&pm8941_gpios 34 0>;
 		qca,bt-chip-pwd-supply = <&ath_chip_pwd_l>;
-		qca,bt-vdd-io-supply = <&pm8941_l10>;
+		qca,bt-vdd-io-supply = <&pm8941_s3>;
 		qca,bt-vdd-pa-supply = <&pm8941_l19>;
 	};
 
@@ -446,18 +446,6 @@
                 qca,wifi-chip-pwd-supply = <&ath_chip_pwd_l>;
         };
 
-};
-
-&pm8941_l19 {
-	regulator-min-microvolt = <3300000>;
-	regulator-max-microvolt = <3300000>;
-	qcom,init-voltage = <3300000>;
-};
-
-&pm8941_l10 {
-	regulator-min-microvolt = <1800000>;
-	regulator-max-microvolt = <1800000>;
-	qcom,init-voltage = <1800000>;
 };
 
 &mdss_fb0 {
