@@ -22,13 +22,8 @@
 #include "msm.h"
 #include "msm_camera_io_util.h"
 
-/*#define CONFIG_MSM_ISP_DBG*/
 #undef CDBG
-#ifdef CONFIG_MSM_ISP_DBG
-#define CDBG(fmt, args...) pr_err(fmt, ##args)
-#else
-#define CDBG(fmt, args...) do { } while (0)
-#endif
+#define CDBG(fmt, args...) pr_debug(fmt, ##args)
 
 #define STATS_IDX_BF_SCALE  0
 #define STATS_IDX_BE        1

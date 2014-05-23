@@ -19,13 +19,8 @@
 #include "msm_sd.h"
 
 /* Logging macro */
-/*#define CONFIG_MSMB_CAMERA_DEBUG*/
 #undef CDBG
-#ifdef CONFIG_MSMB_CAMERA_DEBUG
-#define CDBG(fmt, args...) pr_err(fmt, ##args)
-#else
-#define CDBG(fmt, args...) do { } while (0)
-#endif
+#define CDBG(fmt, args...) pr_debug(fmt, ##args)
 
 static struct msm_sensor_init_t *s_init;
 static struct v4l2_file_operations msm_sensor_init_v4l2_subdev_fops;
@@ -187,7 +182,7 @@ static int __init msm_sensor_init_module(void)
 	s_init->msm_sd.close_seq = MSM_SD_CLOSE_2ND_CATEGORY | 0x6;
 	ret = msm_sd_register(&s_init->msm_sd);
 	if (ret) {
-		CDBG("%s: msm_sd_register error = %d\n", __func__, rc);
+		CDBG("%s: msm_sd_register error = %d\n", __func__, ret);
 		goto error;
 	}
 

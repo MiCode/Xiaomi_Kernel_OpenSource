@@ -42,11 +42,8 @@
 #define CSID_NUM_CLK_MAX  16
 
 #undef CDBG
-#ifdef CONFIG_MSMB_CAMERA_DEBUG
-#define CDBG(fmt, args...) pr_err(fmt, ##args)
-#else
-#define CDBG(fmt, args...) do { } while (0)
-#endif
+#define CDBG(fmt, args...) pr_debug(fmt, ##args)
+
 static struct msm_cam_clk_info csid_clk_info[CSID_NUM_CLK_MAX];
 static struct msm_cam_clk_info csid_clk_src_info[CSID_NUM_CLK_MAX];
 

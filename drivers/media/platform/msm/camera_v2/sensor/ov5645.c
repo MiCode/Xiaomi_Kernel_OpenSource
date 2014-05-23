@@ -17,14 +17,8 @@
 #define PLATFORM_DRIVER_NAME "msm_camera_ov5645"
 #define ov5645_obj ov5645_##obj
 
-/*#define CONFIG_MSMB_CAMERA_DEBUG*/
 #undef CDBG
-#ifdef CONFIG_MSMB_CAMERA_DEBUG
-#define CDBG(fmt, args...) pr_err(fmt, ##args)
-#else
-#define CDBG(fmt, args...) do { } while (0)
-#endif
-
+#define CDBG(fmt, args...) pr_debug(fmt, ##args)
 
 DEFINE_MSM_MUTEX(ov5645_mut);
 static struct msm_sensor_ctrl_t ov5645_s_ctrl;

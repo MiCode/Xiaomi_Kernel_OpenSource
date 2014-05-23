@@ -20,11 +20,7 @@
 DEFINE_MSM_MUTEX(gc0339_mut);
 
 #undef CDBG
-#ifdef CONFIG_MSMB_CAMERA_DEBUG
-#define CDBG(fmt, args...) pr_err(fmt, ##args)
-#else
-#define CDBG(fmt, args...) do { } while (0)
-#endif
+#define CDBG(fmt, args...) pr_debug(fmt, ##args)
 
 
 static struct msm_sensor_ctrl_t gc0339_s_ctrl;

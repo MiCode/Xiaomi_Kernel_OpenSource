@@ -17,12 +17,7 @@
 #define PLATFORM_DRIVER_NAME "msm_camera_hi256"
 
 #undef CDBG
-#ifdef CONFIG_MSMB_CAMERA_DEBUG
-#define CDBG(fmt, args...) pr_err(fmt, ##args)
-#else
-#define CDBG(fmt, args...) do { } while (0)
-#endif
-
+#define CDBG(fmt, args...) pr_debug(fmt, ##args)
 
 DEFINE_MSM_MUTEX(hi256_mut);
 static struct msm_sensor_ctrl_t hi256_s_ctrl;

@@ -14,13 +14,8 @@
 #include "msm_cci.h"
 #include "msm_camera_io_util.h"
 
-
 #undef CDBG
-#ifdef CONFIG_MSMB_CAMERA_DEBUG
-#define CDBG(fmt, args...) pr_err(fmt, ##args)
-#else
-#define CDBG(fmt, args...) do { } while (0)
-#endif
+#define CDBG(fmt, args...) pr_debug(fmt, ##args)
 
 #define SP1628_SENSOR_NAME "sp1628"
 DEFINE_MSM_MUTEX(sp1628_mut);

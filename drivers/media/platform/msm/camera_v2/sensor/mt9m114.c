@@ -17,13 +17,8 @@
 #define PLATFORM_DRIVER_NAME "msm_camera_mt9m114"
 #define mt9m114_obj mt9m114_##obj
 
-/*#define CONFIG_MSMB_CAMERA_DEBUG*/
 #undef CDBG
-#ifdef CONFIG_MSMB_CAMERA_DEBUG
-#define CDBG(fmt, args...) pr_err(fmt, ##args)
-#else
-#define CDBG(fmt, args...) do { } while (0)
-#endif
+#define CDBG(fmt, args...) pr_debug(fmt, ##args)
 
 /* Sysctl registers */
 #define MT9M114_COMMAND_REGISTER                0x0080

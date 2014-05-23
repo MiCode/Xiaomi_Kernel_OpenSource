@@ -575,7 +575,7 @@ int msm_isp_request_axi_stream(struct vfe_device *vfe_dev, void *arg)
 			stream_info->stream_src == IDEAL_RAW) {
 			if (stream_info->stream_src == CAMIF_RAW &&
 				io_format != stream_info->output_format)
-				pr_warn("%s: Overriding input format\n",
+				pr_debug("%s: Overriding input format\n",
 					__func__);
 
 			io_format = stream_info->output_format;
@@ -819,7 +819,7 @@ static void msm_isp_get_done_buf(struct vfe_device *vfe_dev,
 	for (i = 0; i < stream_info->num_planes; i++) {
 		if (pingpong_bit !=
 			(~(pingpong_status >> stream_info->wm[i]) & 0x1)) {
-			pr_warn("%s: Write master ping pong mismatch. Status: 0x%x\n",
+			pr_debug("%s: Write master ping pong mismatch. Status: 0x%x\n",
 				__func__, pingpong_status);
 		}
 	}
