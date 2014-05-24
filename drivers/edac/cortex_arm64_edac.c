@@ -24,6 +24,7 @@
 #include <linux/slab.h>
 #include <linux/workqueue.h>
 #include <linux/percpu.h>
+#include <soc/qcom/cti-pmu-irq.h>
 
 #include <asm/cputype.h>
 
@@ -655,8 +656,10 @@ static irqreturn_t arm64_sbe_handler(int irq, void *drvdata)
 	u32 pmovsr, cntr;
 	struct erp_local_data errdata;
 	unsigned long flags;
-	int overflow = 0;
+	int overflow = 0, ret = IRQ_HANDLED;
 	int cpu = raw_smp_processor_id();
+
+	msm_cti_pmu_irq_ack(cpu);
 
 	errdata.drv = *((struct erp_drvdata **)drvdata);
 	cntr = errdata.drv->mem_perf_counter;
@@ -672,10 +675,10 @@ static irqreturn_t arm64_sbe_handler(int irq, void *drvdata)
 		arm64_erp_local_handler(&errdata);
 		sbe_enable_event(errdata.drv);
 	} else {
-		return armv8pmu_handle_irq(irq, NULL);
+		ret = armv8pmu_handle_irq(irq, NULL);
 	}
 
-	return IRQ_HANDLED;
+	return ret;
 }
 
 static int request_erp_irq(struct platform_device *pdev, const char *propname,
@@ -842,6 +845,7 @@ static int arm64_cpu_erp_probe(struct platform_device *pdev)
 	drv->mem_perf_counter = arm64_pmu_get_last_counter();
 	cpu_pm_register_notifier(&(drv->nb));
 	arm64_pmu_irq_handled_externally();
+	schedule_on_each_cpu(msm_enable_cti_pmu_workaround);
 	on_each_cpu(sbe_enable_event, drv, 1);
 	on_each_cpu(arm64_enable_pmu_irq, &sbe_irq, 1);
 
