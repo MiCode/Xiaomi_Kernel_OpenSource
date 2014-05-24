@@ -11,6 +11,7 @@
  */
 
 #include "msm8939-qrd.dtsi"
+#include "dsi-panel-nt35596-1080p-skuk-video.dtsi"
 
 / {
 	model = "Qualcomm Technologies, Inc. MSM8939 QRD SKUK";
@@ -218,4 +219,54 @@
        pinctrl-names = "default";
        pinctrl-0 = <&usbid_default>;
        vbus_otg-supply = <&smb1360_otg_supply>;
+};
+
+&mdss_mdp {
+	qcom,mdss-pref-prim-intf = "dsi";
+};
+
+&pmx_mdss {
+	qcom,num-grp-pins = <2>;
+	qcom,pins = <&gp 1>, <&gp 25>;
+};
+
+&mdss_dsi0 {
+	qcom,dsi-pref-prim-pan = <&dsi_nt35596_1080p_skuk_video>;
+	pinctrl-names = "mdss_default", "mdss_sleep";
+	pinctrl-0 = <&mdss_dsi_active>;
+	pinctrl-1 = <&mdss_dsi_suspend>;
+
+	qcom,platform-reset-gpio = <&msm_gpio 25 0>;
+	qcom,platform-bklight-en-gpio = <&msm_gpio 1 0>;
+
+	vsp-supply = <&tps65132_pos>;
+	vsn-supply = <&tps65132_neg>;
+
+	qcom,ctrl-supply-entries {
+		/delete-node/ qcom,ctrl-supply-entry@0;
+	};
+
+	qcom,panel-supply-entries {
+		/delete-node/qcom,panel-supply-entry@0;
+		qcom,panel-supply-entry@2 {
+			qcom,supply-name = "vsp";
+			qcom,supply-min-voltage = <5800000>;
+			qcom,supply-max-voltage = <5800000>;
+			qcom,supply-enable-load = <200>;
+			qcom,supply-disable-load = <0>;
+		};
+		qcom,panel-supply-entry@3 {
+			qcom,supply-name = "vsn";
+			qcom,supply-min-voltage = <5800000>;
+			qcom,supply-max-voltage = <5800000>;
+			qcom,supply-enable-load = <40>;
+			qcom,supply-disable-load = <0>;
+		};
+	};
+
+};
+
+&dsi_nt35596_1080p_skuk_video {
+	qcom,cont-splash-enabled;
+	qcom,esd-check-enabled;
 };
