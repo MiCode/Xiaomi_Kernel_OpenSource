@@ -737,6 +737,7 @@ struct msm_camera_led_cfg_t {
 	enum msm_camera_led_config_t cfgtype;
 	uint32_t torch_current;
 	uint32_t flash_current[MAX_LED_TRIGGERS];
+	uint32_t flash_duration[MAX_LED_TRIGGERS];
 };
 
 /* sensor init structures and enums */

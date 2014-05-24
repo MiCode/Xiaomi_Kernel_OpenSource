@@ -38,7 +38,8 @@ Optional properties:
     -pm8941_torch
 - qcom,slave-id : should contain i2c slave address, device id address
     and expected id read value.
-
+- qcom,max-current: Max current in mA supported by flash
+- qcom,max-duration: Max duration in milliseconds the flash can glow.
 Example:
 
 qcom,led-flash@60 {
@@ -57,4 +58,6 @@ qcom,led-flash@60 {
 		qcom,gpio-req-tbl-flags = <0 0>;
 		qcom,gpio-req-tbl-label = "FLASH_EN",
 			"FLASH_NOW";
+		qcom,max-current = <750>;
+		qcom,max-duration = <1600>;
 	};

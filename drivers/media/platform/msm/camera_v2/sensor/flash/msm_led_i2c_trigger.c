@@ -44,6 +44,7 @@ int32_t msm_led_i2c_trigger_config(struct msm_led_flash_ctrl_t *fctrl,
 	void *data)
 {
 	int rc = 0;
+	int i = 0;
 	struct msm_camera_led_cfg_t *cfg = (struct msm_camera_led_cfg_t *)data;
 	CDBG("called led_state %d\n", cfg->cfgtype);
 
@@ -56,6 +57,12 @@ int32_t msm_led_i2c_trigger_config(struct msm_led_flash_ctrl_t *fctrl,
 	case MSM_CAMERA_LED_INIT:
 		if (fctrl->func_tbl->flash_led_init)
 			rc = fctrl->func_tbl->flash_led_init(fctrl);
+		for (i = 0; i < MAX_LED_TRIGGERS; i++) {
+			cfg->flash_current[i] =
+				fctrl->flash_max_current[i];
+			cfg->flash_duration[i] =
+				fctrl->flash_max_duration[i];
+		}
 		break;
 
 	case MSM_CAMERA_LED_RELEASE:
@@ -416,6 +423,50 @@ static int32_t msm_led_get_dt_data(struct device_node *of_node,
 				pr_err("%s failed %d\n", __func__, __LINE__);
 				goto ERROR6;
 			}
+		}
+
+		/* Read the max current for an LED if present */
+		if (of_get_property(of_node, "qcom,max-current", &count)) {
+			count /= sizeof(uint32_t);
+
+			if (count > MAX_LED_TRIGGERS) {
+				pr_err("failed\n");
+				rc = -EINVAL;
+				goto ERROR8;
+			}
+
+			rc = of_property_read_u32_array(of_node,
+				"qcom,max-current",
+				fctrl->flash_max_current, count);
+			if (rc < 0) {
+				pr_err("%s failed %d\n", __func__, __LINE__);
+				goto ERROR8;
+			}
+
+			for (; count < MAX_LED_TRIGGERS; count++)
+				fctrl->flash_max_current[count] = 0;
+		}
+
+		/* Read the max duration for an LED if present */
+		if (of_get_property(of_node, "qcom,max-duration", &count)) {
+			count /= sizeof(uint32_t);
+
+			if (count > MAX_LED_TRIGGERS) {
+				pr_err("failed\n");
+				rc = -EINVAL;
+				goto ERROR8;
+			}
+
+			rc = of_property_read_u32_array(of_node,
+				"qcom,max-duration",
+				fctrl->flash_max_duration, count);
+			if (rc < 0) {
+				pr_err("%s failed %d\n", __func__, __LINE__);
+				goto ERROR8;
+			}
+
+			for (; count < MAX_LED_TRIGGERS; count++)
+				fctrl->flash_max_duration[count] = 0;
 		}
 
 		flashdata->slave_info =
