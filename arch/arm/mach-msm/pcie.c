@@ -1504,6 +1504,13 @@ static int msm_pcie_probe(struct platform_device *pdev)
 		"AUX clock is %s synchronous to Core clock.\n",
 		msm_pcie_dev[rc_idx].aux_clk_sync ? "" : "not");
 
+	msm_pcie_dev[rc_idx].ep_wakeirq =
+		of_property_read_bool((&pdev->dev)->of_node,
+				"qcom,ep-wakeirq");
+	PCIE_DBG(&msm_pcie_dev[rc_idx],
+		"PCIe: EP of RC%d does %s assert wake when it is up.\n",
+		rc_idx, msm_pcie_dev[rc_idx].ep_wakeirq ? "" : "not");
+
 	msm_pcie_dev[rc_idx].n_fts = 0;
 	ret = of_property_read_u32((&pdev->dev)->of_node,
 				"qcom,n-fts",
@@ -1613,6 +1620,14 @@ static int msm_pcie_probe(struct platform_device *pdev)
 		msm_pcie_release_resources(&msm_pcie_dev[rc_idx]);
 		msm_pcie_gpio_deinit(&msm_pcie_dev[rc_idx]);
 		goto decrease_rc_num;
+	}
+
+	if (msm_pcie_dev[rc_idx].ep_wakeirq) {
+		PCIE_DBG(&msm_pcie_dev[rc_idx],
+			"PCIe: RC%d will be enumerated upon WAKE signal from Endpoint.\n",
+			rc_idx);
+		mutex_unlock(&pcie_drv.drv_lock);
+		return 0;
 	}
 
 	ret = msm_pcie_enumerate(rc_idx);
