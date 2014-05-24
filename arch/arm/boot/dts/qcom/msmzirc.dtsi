@@ -11,6 +11,7 @@
  */
 
 #include "skeleton.dtsi"
+#include <dt-bindings/clock/msm-clocks-zirc.h>
 
 / {
 	model = "Qualcomm Technologies, Inc. MSM ZIRC";
@@ -134,6 +135,11 @@
 	};
 
 	clock_gcc: qcom,gcc@1800000 {
+		compatible = "qcom,dummycc";
+		#clock-cells = <1>;
+	};
+
+	clock_rpm: qcom,rpmcc@1800000 {
 		compatible = "qcom,dummycc";
 		#clock-cells = <1>;
 	};
