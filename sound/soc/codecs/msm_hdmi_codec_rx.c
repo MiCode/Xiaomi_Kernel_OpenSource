@@ -84,7 +84,7 @@ static int msm_hdmi_audio_codec_rx_dai_startup(
 		struct snd_pcm_substream *substream,
 		struct snd_soc_dai *dai)
 {
-	int rv;
+	int rv = 0;
 	struct msm_hdmi_audio_codec_rx_data *codec_data =
 			dev_get_drvdata(dai->codec->dev);
 
@@ -92,7 +92,13 @@ static int msm_hdmi_audio_codec_rx_dai_startup(
 		codec_data->hdmi_core_pdev, 1);
 	if (IS_ERR_VALUE(rv)) {
 		dev_err(dai->dev,
-			"%s() HDMI core is not ready\n", __func__);
+			"%s() HDMI core is not ready (rv = %d)\n",
+			__func__, rv);
+	} else if (!rv) {
+		dev_err(dai->dev,
+			"%s() HDMI cable is not connected (ret val = %d)\n",
+			__func__, rv);
+		rv = -EAGAIN;
 	}
 
 	return rv;
@@ -116,8 +122,14 @@ static int msm_hdmi_audio_codec_rx_dai_hw_params(
 		codec_data->hdmi_core_pdev, 1);
 	if (IS_ERR_VALUE(rv)) {
 		dev_err(dai->dev,
-			"%s() HDMI core is not ready\n", __func__);
+			"%s() HDMI core is not ready (rv = %d)\n",
+			__func__, rv);
 		return rv;
+	} else if (!rv) {
+		dev_err(dai->dev,
+			"%s() HDMI cable is not connected (rv = %d)\n",
+			__func__, rv);
+		return -EAGAIN;
 	}
 
 	switch (num_channels) {
