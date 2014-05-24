@@ -61,6 +61,33 @@
 		  "%s: BCL should have acquired\n", __func__); \
 }
 
+static void wcd_program_btn_threshold(const struct wcd_mbhc *mbhc)
+{
+	struct wcd_mbhc_btn_detect_cfg *btn_det;
+	struct snd_soc_codec *codec = mbhc->codec;
+	struct snd_soc_card *card = codec->card;
+	u16 i;
+	u32 course, fine, reg_val;
+	u16 reg_addr = MSM8X16_WCD_A_ANALOG_MBHC_BTN0_ZDETL_CTL;
+
+	if (mbhc->mbhc_cfg->calibration == NULL) {
+		dev_err(card->dev, "%s: calibration data is NULL\n", __func__);
+		return;
+	}
+
+	btn_det = WCD_MBHC_CAL_BTN_DET_PTR(mbhc->mbhc_cfg->calibration);
+
+	for (i = 0; i <  btn_det->num_btn; i++) {
+		course = (btn_det->_v_btn_high[i] / 100);
+		fine = ((btn_det->_v_btn_high[i] % 100) / 12);
+		reg_val = (course << 5) | (fine << 2);
+		snd_soc_update_bits(codec, reg_addr, 0xFC, reg_val);
+		pr_debug("%s: course: %d fine: %d reg_addr: %x reg_val: %x\n",
+				__func__, course, fine, reg_addr, reg_val);
+		reg_addr++;
+	}
+}
+
 static void wcd_mbhc_jack_report(struct wcd_mbhc *mbhc,
 				struct snd_soc_jack *jack, int status, int mask)
 {
@@ -597,26 +624,6 @@ static void wcd_mbhc_swch_irq_handler(struct wcd_mbhc *mbhc)
 		snd_soc_update_bits(codec,
 				 MSM8X16_WCD_A_ANALOG_MICB_2_EN,
 				0x20, 0x00);
-		/*
-		 * Set button ref values actually the values
-		 * should be taken from the config data through
-		 * ACDB
-		 */
-		snd_soc_update_bits(codec,
-			MSM8X16_WCD_A_ANALOG_MBHC_BTN0_ZDETL_CTL,
-				0xFC, 0x08);
-		snd_soc_update_bits(codec,
-			MSM8X16_WCD_A_ANALOG_MBHC_BTN1_ZDETM_CTL,
-				0xFC, 0x10);
-		snd_soc_update_bits(codec,
-			MSM8X16_WCD_A_ANALOG_MBHC_BTN2_ZDETH_CTL,
-				0xFC, 0x18);
-		snd_soc_update_bits(codec,
-			MSM8X16_WCD_A_ANALOG_MBHC_BTN3_CTL,
-				0xFC, 0x24);
-		snd_soc_update_bits(codec,
-			MSM8X16_WCD_A_ANALOG_MBHC_BTN4_CTL,
-				0xFC, 0x2C);
 		/* Enable HW FSM and current source */
 		snd_soc_update_bits(codec,
 				MSM8X16_WCD_A_ANALOG_MBHC_FSM_CTL,
@@ -909,6 +916,8 @@ static int wcd_mbhc_initialise(struct wcd_mbhc *mbhc)
 	snd_soc_update_bits(codec,
 			MSM8X16_WCD_A_DIGITAL_CDC_DIG_CLK_CTL,
 			0x08, 0x08);
+	/* Program Button threshold registers */
+	wcd_program_btn_threshold(mbhc);
 	/* enable the WCD MBHC IRQ's */
 	wcd9xxx_enable_irq(mbhc->intr_ids->mbhc_sw_intr);
 	wcd9xxx_enable_irq(mbhc->intr_ids->mbhc_btn_press_intr);
