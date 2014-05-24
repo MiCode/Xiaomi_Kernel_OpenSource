@@ -528,12 +528,14 @@ static int msm_cpe_lsm_ioctl(struct snd_pcm_substream *substream,
 		if (lab_sess->lab_enable == true &&
 			lab_sess->thread_status != MSM_LSM_LAB_THREAD_STOP) {
 			rc = 1;
-			rc = kthread_stop(session->lsm_lab_thread);
+			atomic_inc(&lab_sess->abort_read);
 			wake_up(&lab_sess->period_wait);
+			rc = kthread_stop(session->lsm_lab_thread);
 			pr_debug("%s: Thread stop rc%x\n", __func__, rc);
 			rc = lsm_ops->lsm_lab_stop(cpe->core_handle, session);
 			if (rc)
-				pr_err("%s: Lab stop failed\n", __func__);
+				pr_err("%s: Lab stop status %d\n",
+				       __func__, rc);
 		} else {
 			pr_err("%s:Stop Lab failed\n", __func__);
 			return -EINVAL;
@@ -761,6 +763,7 @@ static int msm_cpe_lsm_ioctl(struct snd_pcm_substream *substream,
 				if (lab_sess->lab_enable == true &&
 					event_status->status ==
 					LSM_VOICE_WAKEUP_STATUS_DETECTED) {
+					atomic_set(&lab_sess->abort_read, 0);
 					pr_debug("%s: KW detected,\n"
 					"scheduling LAB thread\n", __func__);
 					lsm_ops->lsm_lab_data_channel_open(
@@ -1031,7 +1034,13 @@ static int msm_cpe_lsm_copy(struct snd_pcm_substream *substream, int a,
 	session = lsm_d->lsm_session;
 	lab_s = &session->lab;
 	rc = wait_event_timeout(lab_s->period_wait,
-			(atomic_read(&lab_s->in_count)), (2 * HZ));
+			(atomic_read(&lab_s->in_count) ||
+			atomic_read(&lab_s->abort_read)),
+			(2 * HZ));
+	if (atomic_read(&lab_s->abort_read)) {
+		pr_debug("%s: LSM LAB Abort read\n", __func__);
+		return -EIO;
+	}
 	if (lab_s->thread_status != MSM_LSM_LAB_THREAD_RUNNING) {
 		pr_err("%s: Lab stopped\n", __func__);
 		return -EIO;
