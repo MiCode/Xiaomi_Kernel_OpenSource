@@ -2021,16 +2021,16 @@ static void wm_adsp2_boot_work(struct work_struct *work)
 		ret = regmap_read(dsp->regmap,
 				  dsp->base + ADSP2_CLOCKING, &val);
 		if (ret != 0) {
-			dev_err(dsp->dev, "Failed to read clocking: %d\n", ret);
+			adsp_err(dsp, "Failed to read clocking: %d\n", ret);
 			return;
 		}
 
 		if ((val & ADSP2_CLK_SEL_MASK) >= 3) {
 			ret = regulator_enable(dsp->dvfs);
 			if (ret != 0) {
-				dev_err(dsp->dev,
-					"Failed to enable supply: %d\n",
-					ret);
+				adsp_err(dsp,
+					 "Failed to enable supply: %d\n",
+					 ret);
 				return;
 			}
 
@@ -2038,9 +2038,9 @@ static void wm_adsp2_boot_work(struct work_struct *work)
 						    1800000,
 						    1800000);
 			if (ret != 0) {
-				dev_err(dsp->dev,
-					"Failed to raise supply: %d\n",
-					ret);
+				adsp_err(dsp,
+					 "Failed to raise supply: %d\n",
+					 ret);
 				return;
 			}
 		}
@@ -2190,15 +2190,15 @@ int wm_adsp2_event(struct snd_soc_dapm_widget *w,
 			ret = regulator_set_voltage(dsp->dvfs, 1200000,
 						    1800000);
 			if (ret != 0)
-				dev_warn(dsp->dev,
-					 "Failed to lower supply: %d\n",
-					 ret);
+				adsp_warn(dsp,
+					  "Failed to lower supply: %d\n",
+					  ret);
 
 			ret = regulator_disable(dsp->dvfs);
 			if (ret != 0)
-				dev_err(dsp->dev,
-					"Failed to enable supply: %d\n",
-					ret);
+				adsp_err(dsp,
+					 "Failed to enable supply: %d\n",
+					 ret);
 		}
 
 		list_for_each_entry(ctl, &dsp->ctl_list, list)
@@ -2322,9 +2322,9 @@ static int wm_adsp_of_parse_firmware(struct wm_adsp *adsp,
 		ret = of_property_read_string(fw, "wlf,wmfw-file",
 					      &adsp->firmwares[i].file);
 		if (ret < 0) {
-			dev_err(adsp->dev,
-				"Firmware filename missing/malformed: %d\n",
-				ret);
+			adsp_err(adsp,
+				 "Firmware filename missing/malformed: %d\n",
+				 ret);
 			return ret;
 		}
 
@@ -2358,9 +2358,9 @@ static int wm_adsp_of_parse_adsp(struct wm_adsp *adsp)
 	while ((core = of_get_next_child(np, core)) != NULL) {
 		ret = of_property_read_u32(core, "reg", &addr);
 		if (ret < 0) {
-			dev_err(adsp->dev,
-				"Failed to get ADSP base address: %d\n",
-				ret);
+			adsp_err(adsp,
+				 "Failed to get ADSP base address: %d\n",
+				 ret);
 			return ret;
 		}
 
@@ -2407,28 +2407,25 @@ int wm_adsp2_init(struct wm_adsp *adsp, bool dvfs, struct mutex *fw_lock)
 		adsp->dvfs = devm_regulator_get(adsp->dev, "DCVDD");
 		if (IS_ERR(adsp->dvfs)) {
 			ret = PTR_ERR(adsp->dvfs);
-			dev_err(adsp->dev, "Failed to get DCVDD: %d\n", ret);
+			adsp_err(adsp, "Failed to get DCVDD: %d\n", ret);
 			return ret;
 		}
 
 		ret = regulator_enable(adsp->dvfs);
 		if (ret != 0) {
-			dev_err(adsp->dev, "Failed to enable DCVDD: %d\n",
-				ret);
+			adsp_err(adsp, "Failed to enable DCVDD: %d\n", ret);
 			return ret;
 		}
 
 		ret = regulator_set_voltage(adsp->dvfs, 1200000, 1800000);
 		if (ret != 0) {
-			dev_err(adsp->dev, "Failed to initialise DVFS: %d\n",
-				ret);
+			adsp_err(adsp, "Failed to initialise DVFS: %d\n", ret);
 			return ret;
 		}
 
 		ret = regulator_disable(adsp->dvfs);
 		if (ret != 0) {
-			dev_err(adsp->dev, "Failed to disable DCVDD: %d\n",
-				ret);
+			adsp_err(adsp, "Failed to disable DCVDD: %d\n", ret);
 			return ret;
 		}
 	}
