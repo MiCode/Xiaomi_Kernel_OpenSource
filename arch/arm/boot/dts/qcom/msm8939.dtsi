@@ -1638,3 +1638,5 @@
 		qcom,btm-channel-number = <0x68>;
 	};
 };
+
+#include "msm8939-gpu.dtsi"
