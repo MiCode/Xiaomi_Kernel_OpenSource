@@ -78,21 +78,6 @@ struct msm_auxpcm_ctrl {
 };
 
 struct msm8994_asoc_mach_data {
-	struct msm_auxpcm_ctrl *pri_auxpcm_ctrl;
-};
-
-struct msm_auxpcm_gpio {
-	unsigned gpio_no;
-	const char *gpio_name;
-};
-
-struct msm_auxpcm_ctrl {
-	struct msm_auxpcm_gpio *pin_data;
-	u32 cnt;
-	void __iomem *mux;
-};
-
-struct msm8994_asoc_mach_data {
 	int mclk_gpio;
 	u32 mclk_freq;
 	int us_euro_gpio;
@@ -107,13 +92,13 @@ static int msm8994_auxpcm_rate = 8000;
 
 static struct platform_device *spdev;
 static int ext_us_amp_gpio = -1;
+static int msm8994_spk_control = 1;
 static int msm_slim_0_rx_ch = 1;
 static int msm_slim_0_tx_ch = 1;
 
 static int msm_btsco_rate = SAMPLING_RATE_8KHZ;
 static int msm_btsco_ch = 1;
 static int msm_hdmi_rx_ch = 2;
-static int slim0_rx_sample_rate = SAMPLING_RATE_48KHZ;
 static int msm_proxy_rx_ch = 2;
 static int hdmi_rx_sample_rate = SAMPLING_RATE_48KHZ;
 
@@ -187,11 +172,6 @@ static struct wcd9xxx_mbhc_config mbhc_cfg = {
 	.use_vddio_meas = true,
 	.enable_anc_mic_detect = false,
 	.hw_jack_type = FOUR_POLE_JACK,
-};
-
-static struct snd_soc_ops msm_pri_auxpcm_be_ops = {
-	.startup = msm_prim_auxpcm_startup,
-	.shutdown = msm_prim_auxpcm_shutdown,
 };
 
 static inline int param_is_mask(int p)
@@ -282,7 +262,7 @@ static void msm8994_ext_us_amp_enable(u32 on)
 	else
 		gpio_direction_output(ext_us_amp_gpio, 0);
 
-	pr_debug("%s: US Emitter GPIO enable:%s\n"__func__,
+	pr_debug("%s: US Emitter GPIO enable:%s\n", __func__,
 			on ? "Enable" : "Disable");
 }
 
@@ -885,6 +865,7 @@ static void msm_prim_auxpcm_shutdown(struct snd_pcm_substream *substream)
 	if (atomic_dec_return(&prim_auxpcm_rsc_ref) == 0)
 		msm_aux_pcm_free_gpios(auxpcm_ctrl);
 }
+
 static struct snd_soc_ops msm_pri_auxpcm_be_ops = {
 	.startup = msm_prim_auxpcm_startup,
 	.shutdown = msm_prim_auxpcm_shutdown,
@@ -2518,7 +2499,6 @@ static int msm8994_asoc_machine_probe(struct platform_device *pdev)
 	struct msm8994_asoc_mach_data *pdata;
 	int ret;
 	const char *auxpcm_pri_gpio_set = NULL;
-	const char *mbhc_audio_jack_type = NULL;
 	struct resource	*pri_muxsel;
 	struct resource	*sec_muxsel;
 
