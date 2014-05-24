@@ -1019,13 +1019,13 @@ static int __alloc_ocmem(void *dev, unsigned long size, bool locked)
 	struct ocmem_buf *ocmem_buffer;
 	struct venus_hfi_device *device = dev;
 
+	if (device && !device->res->ocmem_size)
+		return rc;
 	if (!device || !size) {
 		dprintk(VIDC_ERR, "%s Invalid param, core: %p, size: %lu\n",
 			__func__, device, size);
 		return -EINVAL;
 	}
-	if (!device->res->ocmem_size)
-		return rc;
 
 	ocmem_buffer = device->resources.ocmem.buf;
 	if (!ocmem_buffer ||
