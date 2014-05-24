@@ -1174,6 +1174,8 @@ static int kgsl_set_register_map(struct kgsl_mmu *mmu)
 	struct kgsl_iommu *iommu = mmu->device->mmu.priv;
 	struct kgsl_iommu_unit *iommu_unit;
 	int i = 0, ret = 0;
+	struct kgsl_device *device = mmu->device;
+	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
 
 	for (; i < pdata->iommu_count; i++) {
 		struct kgsl_device_iommu_data data = pdata->iommu_data[i];
@@ -1209,7 +1211,11 @@ static int kgsl_set_register_map(struct kgsl_mmu *mmu)
 			iommu_unit->iommu_halt_enable = 1;
 
 		if (kgsl_msm_supports_iommu_v2())
-			iommu_unit->ahb_base = KGSL_IOMMU_V2_AHB_BASE;
+			if (adreno_is_a405(adreno_dev)) {
+				iommu_unit->ahb_base =
+					KGSL_IOMMU_V2_AHB_BASE_A405;
+			} else
+				iommu_unit->ahb_base = KGSL_IOMMU_V2_AHB_BASE;
 		else
 			iommu_unit->ahb_base =
 				data.physstart - mmu->device->reg_phys;
@@ -2146,12 +2152,19 @@ static void kgsl_iommu_set_pagefault(struct kgsl_mmu *mmu)
 struct kgsl_protected_registers *kgsl_iommu_get_prot_regs(struct kgsl_mmu *mmu)
 {
 	static struct kgsl_protected_registers iommuv1_regs = { 0x4000, 14 };
-	static struct kgsl_protected_registers iommuv2_regs = { 0x2800, 10 };
+	static struct kgsl_protected_registers iommuv2_regs;
 
 	if (msm_soc_version_supports_iommu_v0())
 		return NULL;
-	if (kgsl_msm_supports_iommu_v2())
+	if (kgsl_msm_supports_iommu_v2()) {
+
+		struct kgsl_iommu *iommu = mmu->priv;
+
+		/* For V2 there is only one instance of iommu */
+		iommuv2_regs.base = iommu->iommu_units[0].ahb_base >> 2;
+		iommuv2_regs.range = 10;
 		return &iommuv2_regs;
+	}
 	else
 		return &iommuv1_regs;
 }

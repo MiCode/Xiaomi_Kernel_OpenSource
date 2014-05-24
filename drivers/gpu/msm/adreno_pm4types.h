@@ -153,6 +153,13 @@
 /* Write register, ignoring context state for context sensitive registers */
 #define CP_REG_WR_NO_CTXT  0x78
 
+/*
+ * for A4xx
+ * Write to register with address that does not fit into type-0 pkt
+ */
+#define CP_WIDE_REG_WRITE           0x74
+
+
 /* PFP waits until the FIFO between the PFP and the ME is empty */
 #define CP_WAIT_FOR_ME		0x13
 
