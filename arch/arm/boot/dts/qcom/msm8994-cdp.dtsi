@@ -375,6 +375,14 @@
 	};
 };
 
+&pmi8994_mpps {
+	mpp@a300 { /* MPP 4 */
+		/* WLED FET */
+		qcom,mode = <1>;
+		qcom,master-en = <1>;
+	};
+};
+
 &slim_msm {
 	tomtom_codec {
 		cdc-vdd-spkdrv-supply = <&pmi8994_boost>;
