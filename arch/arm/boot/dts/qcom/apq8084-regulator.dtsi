@@ -242,6 +242,7 @@
 			qcom,init-voltage = <1800000>;
 			proxy-supply = <&pma8084_l12>;
 			qcom,proxy-consumer-enable;
+			qcom,proxy-consumer-current = <10000>;
 			status = "okay";
 		};
 		pma8084_l12_ao: regulator-l12-ao {
