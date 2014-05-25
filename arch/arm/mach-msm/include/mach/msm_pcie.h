@@ -34,6 +34,7 @@ enum msm_pcie_event {
 	MSM_PCIE_EVENT_LINKUP = 0x2,
 	MSM_PCIE_EVENT_WAKEUP = 0x4,
 	MSM_PCIE_EVENT_WAKE_RECOVERY = 0x8,
+	MSM_PCIE_EVENT_NO_ACCESS = 0x10,
 };
 
 enum msm_pcie_trigger {
