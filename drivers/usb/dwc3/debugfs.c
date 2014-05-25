@@ -60,6 +60,9 @@
 	.offset	= DWC3_ ##nm - DWC3_GLOBALS_REGS_START,	\
 }
 
+#define ep_event_rate(ev, c, p, dt)	\
+	((dt) ? ((c.ev - p.ev) * (MSEC_PER_SEC)) / (dt) : 0)
+
 static const struct debugfs_reg32 dwc3_regs[] = {
 	dump_register(GSBUSCFG0),
 	dump_register(GSBUSCFG1),
@@ -1048,6 +1051,7 @@ static ssize_t dwc3_store_int_events(struct file *file,
 	struct seq_file *s = file->private_data;
 	struct dwc3 *dwc = s->private;
 	struct dwc3_ep *dep;
+	struct timespec ts;
 
 	if (ubuf == NULL) {
 		pr_err("[%s] EINVAL\n", __func__);
@@ -1062,9 +1066,12 @@ static ssize_t dwc3_store_int_events(struct file *file,
 	spin_lock_irqsave(&dwc->lock, flags);
 
 	pr_debug("%s(): clearing debug interrupt buffers\n", __func__);
+	ts = current_kernel_time();
 	for (i = 0; i < DWC3_ENDPOINTS_NUM; i++) {
 		dep = dwc->eps[i];
 		memset(&dep->dbg_ep_events, 0, sizeof(dep->dbg_ep_events));
+		memset(&dep->dbg_ep_events_diff, 0, sizeof(dep->dbg_ep_events));
+		dep->dbg_ep_events_ts = ts;
 	}
 	memset(&dwc->dbg_gadget_events, 0, sizeof(dwc->dbg_gadget_events));
 
@@ -1081,6 +1088,9 @@ static int dwc3_gadget_int_events_show(struct seq_file *s, void *unused)
 	struct dwc3_gadget_events *dbg_gadget_events;
 	struct dwc3_ep *dep;
 	int i;
+	struct timespec ts_delta;
+	struct timespec ts_current;
+	u32 ts_delta_ms;
 
 	spin_lock_irqsave(&dwc->lock, flags);
 	dbg_gadget_events = &dwc->dbg_gadget_events;
@@ -1088,25 +1098,63 @@ static int dwc3_gadget_int_events_show(struct seq_file *s, void *unused)
 	for (i = 0; i < DWC3_ENDPOINTS_NUM; i++) {
 		dep = dwc->eps[i];
 
-		if (dep == NULL)
+		if (dep == NULL || !(dep->flags & DWC3_EP_ENABLED))
 			continue;
 
-		seq_printf(s, "\n\n===== dbg_ep_events for EP(%d) =====\n", i);
-		seq_printf(s, "xfercomplete:%u\n xfernotready:%u\n",
-				dep->dbg_ep_events.xfercomplete,
-				dep->dbg_ep_events.xfernotready);
-		seq_printf(s, "control_data:%u\n control_status:%u\n",
-				dep->dbg_ep_events.control_data,
-				dep->dbg_ep_events.control_status);
-		seq_printf(s, "xferinprogress:%u\n rxtxfifoevent:%u\n",
-				dep->dbg_ep_events.xferinprogress,
-				dep->dbg_ep_events.rxtxfifoevent);
-		seq_printf(s, "streamevent:%u\n epcmdcomplt:%u\n",
-				dep->dbg_ep_events.streamevent,
-				dep->dbg_ep_events.epcmdcomplete);
-		seq_printf(s, "cmdcmplt:%u\n unknown:%u\n",
-				dep->dbg_ep_events.cmdcmplt,
-				dep->dbg_ep_events.unknown_event);
+		ts_current = current_kernel_time();
+		ts_delta = timespec_sub(ts_current, dep->dbg_ep_events_ts);
+		ts_delta_ms = ts_delta.tv_nsec / NSEC_PER_MSEC +
+			ts_delta.tv_sec * MSEC_PER_SEC;
+
+		seq_printf(s, "\n\n===== dbg_ep_events for EP(%d) %s =====\n",
+			i, dep->name);
+		seq_printf(s, "xfercomplete:%u @ %luHz\n",
+			dep->dbg_ep_events.xfercomplete,
+			ep_event_rate(xfercomplete, dep->dbg_ep_events,
+				dep->dbg_ep_events_diff, ts_delta_ms));
+		seq_printf(s, "xfernotready:%u @ %luHz\n",
+			dep->dbg_ep_events.xfernotready,
+			ep_event_rate(xfernotready, dep->dbg_ep_events,
+				dep->dbg_ep_events_diff, ts_delta_ms));
+		seq_printf(s, "control_data:%u @ %luHz\n",
+			dep->dbg_ep_events.control_data,
+			ep_event_rate(control_data, dep->dbg_ep_events,
+				dep->dbg_ep_events_diff, ts_delta_ms));
+		seq_printf(s, "control_status:%u @ %luHz\n",
+			dep->dbg_ep_events.control_status,
+			ep_event_rate(control_status, dep->dbg_ep_events,
+				dep->dbg_ep_events_diff, ts_delta_ms));
+		seq_printf(s, "xferinprogress:%u @ %luHz\n",
+			dep->dbg_ep_events.xferinprogress,
+			ep_event_rate(xferinprogress, dep->dbg_ep_events,
+				dep->dbg_ep_events_diff, ts_delta_ms));
+		seq_printf(s, "rxtxfifoevent:%u @ %luHz\n",
+			dep->dbg_ep_events.rxtxfifoevent,
+			ep_event_rate(rxtxfifoevent, dep->dbg_ep_events,
+				dep->dbg_ep_events_diff, ts_delta_ms));
+		seq_printf(s, "streamevent:%u @ %luHz\n",
+			dep->dbg_ep_events.streamevent,
+			ep_event_rate(streamevent, dep->dbg_ep_events,
+				dep->dbg_ep_events_diff, ts_delta_ms));
+		seq_printf(s, "epcmdcomplt:%u @ %luHz\n",
+			dep->dbg_ep_events.epcmdcomplete,
+			ep_event_rate(epcmdcomplete, dep->dbg_ep_events,
+				dep->dbg_ep_events_diff, ts_delta_ms));
+		seq_printf(s, "cmdcmplt:%u @ %luHz\n",
+			dep->dbg_ep_events.cmdcmplt,
+			ep_event_rate(cmdcmplt, dep->dbg_ep_events,
+				dep->dbg_ep_events_diff, ts_delta_ms));
+		seq_printf(s, "unknown:%u @ %luHz\n",
+			dep->dbg_ep_events.unknown_event,
+			ep_event_rate(unknown_event, dep->dbg_ep_events,
+				dep->dbg_ep_events_diff, ts_delta_ms));
+		seq_printf(s, "total:%u @ %luHz\n",
+			dep->dbg_ep_events.total,
+			ep_event_rate(total, dep->dbg_ep_events,
+				dep->dbg_ep_events_diff, ts_delta_ms));
+
+		dep->dbg_ep_events_ts = ts_current;
+		dep->dbg_ep_events_diff = dep->dbg_ep_events;
 	}
 
 	seq_puts(s, "\n=== dbg_gadget events ==\n");
