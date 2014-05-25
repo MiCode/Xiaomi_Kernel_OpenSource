@@ -482,10 +482,15 @@ static int __dwc3_msm_dbm_ep_reset(struct dwc3_msm *mdwc, struct dwc3_ep *dep)
 	}
 
 	/*
-	 * 10 usec delay is required before deasserting DBM endpoint reset
-	 * according to hardware programming guide.
+	 * The necessary delay between asserting and deasserting the dbm ep
+	 * reset is based on the number of active endpoints. If there is more
+	 * than one endpoint, a 1 msec delay is required. Otherwise, a shorter
+	 * delay will suffice.
 	 */
-	udelay(10);
+	if (dbm_get_num_of_eps_configured(mdwc->dbm) > 1)
+		usleep_range(1000, 1200);
+	else
+		udelay(10);
 	ret = dbm_ep_soft_reset(mdwc->dbm, dep->number, false);
 	if (ret) {
 		dev_err(mdwc->dev, "%s: failed to deassert dbm ep reset\n",
