@@ -10,20 +10,24 @@
  * GNU General Public License for more details.
  */
 
-/dts-v1/;
-
-#include "msmferrum.dtsi"
-#include "msmferrum-pinctrl.dtsi"
-
-/ {
-	model = "Qualcomm Technologies, Inc. MSMFERRUM RUMI";
-	compatible = "qcom,msmferrum-rumi", "qcom,msmferrum", "qcom,rumi";
-	qcom,board-id= <15 0>;
-};
-
 &soc {
-	timer {
-		clock-frequency = <5000000>;
+	tlmm_pinmux: pinctrl@1000000 {
+		compatible = "qcom,msm-tlmm-ferrum", "qcom,msm-tlmm-8916";
+		reg = <0x1000000 0x300000>;
+		interrupts = <0 208 0>;
+
+		/*General purpose pins*/
+		gp: gp {
+			qcom,num-pins = <113>;
+			#qcom,pin-cells = <1>;
+			msm_gpio: msm_gpio {
+				compatible = "qcom,msm-tlmm-gp";
+				gpio-controller;
+				#gpio-cells = <2>;
+				interrupt-controller;
+				#interrupt-cells = <2>;
+				num_irqs = <113>;
+			};
+		};
 	};
 };
-
