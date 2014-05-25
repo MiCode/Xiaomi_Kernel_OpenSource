@@ -1883,6 +1883,8 @@
 		qcom,temp-hysteresis = <10>;
 		qcom,therm-reset-temp = <115>;
 		qcom,freq-step = <2>;
+		qcom,online-hotplug-core;
+		qcom,synchronous-cluster-id = <0 1>;
 	};
 
 	qcom,bcl {
