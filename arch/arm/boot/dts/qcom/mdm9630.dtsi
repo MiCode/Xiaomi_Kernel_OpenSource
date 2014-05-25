@@ -512,6 +512,7 @@
 				snps,nominal-elastic-buffer;
 				snps,core-reset-after-phy-init;
 				snps,hsphy-auto-suspend-disable;
+				snps,hird_thresh = <0x10>;
 		};
         };
 
