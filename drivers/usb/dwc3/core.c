@@ -117,17 +117,28 @@ void dwc3_set_mode(struct dwc3 *dwc, u32 mode)
  * PHY initialization and reset
  * @dwc: pointer to our context structure
  */
-static void dwc3_core_soft_reset_after_phy_init(struct dwc3 *dwc)
+static int dwc3_core_soft_reset_after_phy_init(struct dwc3 *dwc)
 {
 	u32		reg;
+	int		ret;
 
 	/* Reset PHYs */
 	usb_phy_reset(dwc->usb3_phy);
 	usb_phy_reset(dwc->usb2_phy);
 
 	/* Bring up PHYs */
-	usb_phy_init(dwc->usb2_phy);
-	usb_phy_init(dwc->usb3_phy);
+	ret = usb_phy_init(dwc->usb2_phy);
+	if (ret) {
+		pr_err("%s: usb_phy_init(dwc->usb2_phy) returned %d\n",
+				__func__, ret);
+		return ret;
+	}
+	ret = usb_phy_init(dwc->usb3_phy);
+	if (ret) {
+		pr_err("%s: usb_phy_init(dwc->usb3_phy) returned %d\n",
+				__func__, ret);
+		return ret;
+	}
 
 	/* Put Core in Reset */
 	reg = dwc3_readl(dwc->regs, DWC3_GCTL);
@@ -142,15 +153,18 @@ static void dwc3_core_soft_reset_after_phy_init(struct dwc3 *dwc)
 	dwc3_writel(dwc->regs, DWC3_GCTL, reg);
 
 	dwc3_notify_event(dwc, DWC3_CONTROLLER_POST_RESET_EVENT);
+
+	return 0;
 }
 
 /**
  * dwc3_core_soft_reset - Issues core soft reset and PHY reset
  * @dwc: pointer to our context structure
  */
-static void dwc3_core_soft_reset(struct dwc3 *dwc)
+static int dwc3_core_soft_reset(struct dwc3 *dwc)
 {
 	u32		reg;
+	int		ret;
 
 	if (dwc->core_reset_after_phy_init)
 		return dwc3_core_soft_reset_after_phy_init(dwc);
@@ -161,8 +175,18 @@ static void dwc3_core_soft_reset(struct dwc3 *dwc)
 	dwc3_writel(dwc->regs, DWC3_GCTL, reg);
 
 	/* Bring up PHYs */
-	usb_phy_init(dwc->usb2_phy);
-	usb_phy_init(dwc->usb3_phy);
+	ret = usb_phy_init(dwc->usb2_phy);
+	if (ret) {
+		pr_err("%s: usb_phy_init(dwc->usb2_phy) returned %d\n",
+				__func__, ret);
+		return ret;
+	}
+	ret = usb_phy_init(dwc->usb3_phy);
+	if (ret) {
+		pr_err("%s: usb_phy_init(dwc->usb3_phy) returned %d\n",
+				__func__, ret);
+		return ret;
+	}
 
 	dwc3_notify_event(dwc, DWC3_CONTROLLER_RESET_EVENT);
 
@@ -196,6 +220,8 @@ static void dwc3_core_soft_reset(struct dwc3 *dwc)
 	dwc3_writel(dwc->regs, DWC3_GCTL, reg);
 
 	dwc3_notify_event(dwc, DWC3_CONTROLLER_POST_RESET_EVENT);
+
+	return 0;
 }
 
 /**
@@ -407,7 +433,9 @@ static int dwc3_core_init(struct dwc3 *dwc)
 		cpu_relax();
 	} while (true);
 
-	dwc3_core_soft_reset(dwc);
+	ret = dwc3_core_soft_reset(dwc);
+	if (ret)
+		goto err0;
 
 	reg = dwc3_readl(dwc->regs, DWC3_GCTL);
 	reg &= ~DWC3_GCTL_SCALEDOWN_MASK;
@@ -908,13 +936,24 @@ static int dwc3_resume(struct device *dev)
 {
 	struct dwc3	*dwc = dev_get_drvdata(dev);
 	unsigned long	flags;
+	int		ret;
 
 	/* Check if platform glue driver handling PM, if not then handle here */
 	if(!dwc3_notify_event(dwc, DWC3_CORE_PM_RESUME_EVENT))
 		return 0;
 
-	usb_phy_init(dwc->usb3_phy);
-	usb_phy_init(dwc->usb2_phy);
+	ret = usb_phy_init(dwc->usb3_phy);
+	if (ret) {
+		pr_err("%s: usb_phy_init(dwc->usb3_phy) returned %d\n",
+				__func__, ret);
+		return ret;
+	}
+	ret = usb_phy_init(dwc->usb2_phy);
+	if (ret) {
+		pr_err("%s: usb_phy_init(dwc->usb2_phy) returned %d\n",
+				__func__, ret);
+		return ret;
+	}
 	msleep(100);
 
 	spin_lock_irqsave(&dwc->lock, flags);
