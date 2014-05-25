@@ -335,93 +335,6 @@ static int check_bufsize_for_encoding(struct diag_smd_info *smd_info, void *buf,
 	return buf_size;
 }
 
-void process_lock_enabling(struct diag_nrt_wake_lock *lock, int real_time)
-{
-	unsigned long read_lock_flags;
-
-	spin_lock_irqsave(&lock->read_spinlock, read_lock_flags);
-	if (real_time)
-		lock->enabled = 0;
-	else
-		lock->enabled = 1;
-	lock->ref_count = 0;
-	lock->copy_count = 0;
-	wake_unlock(&lock->read_lock);
-	spin_unlock_irqrestore(&lock->read_spinlock, read_lock_flags);
-}
-
-void process_lock_on_notify(struct diag_nrt_wake_lock *lock)
-{
-	unsigned long read_lock_flags;
-
-	spin_lock_irqsave(&lock->read_spinlock, read_lock_flags);
-	/*
-	 * Do not work with ref_count here in case
-	 * of spurious interrupt
-	 */
-	if (lock->enabled && !wake_lock_active(&lock->read_lock))
-		wake_lock(&lock->read_lock);
-	spin_unlock_irqrestore(&lock->read_spinlock, read_lock_flags);
-}
-
-void process_lock_on_read(struct diag_nrt_wake_lock *lock, int pkt_len)
-{
-	unsigned long read_lock_flags;
-
-	spin_lock_irqsave(&lock->read_spinlock, read_lock_flags);
-	if (lock->enabled) {
-		if (pkt_len > 0) {
-			/*
-			 * We have an data that is read that
-			 * needs to be processed, make sure the
-			 * processor does not go to sleep
-			 */
-			lock->ref_count++;
-			if (!wake_lock_active(&lock->read_lock))
-				wake_lock(&lock->read_lock);
-		} else {
-			/*
-			 * There was no data associated with the
-			 * read from the smd, unlock the wake lock
-			 * if it is not needed.
-			 */
-			if (lock->ref_count < 1) {
-				if (wake_lock_active(&lock->read_lock))
-					wake_unlock(&lock->read_lock);
-				lock->ref_count = 0;
-				lock->copy_count = 0;
-			}
-		}
-	}
-	spin_unlock_irqrestore(&lock->read_spinlock, read_lock_flags);
-}
-
-void process_lock_on_copy(struct diag_nrt_wake_lock *lock)
-{
-	unsigned long read_lock_flags;
-
-	spin_lock_irqsave(&lock->read_spinlock, read_lock_flags);
-	if (lock->enabled)
-		lock->copy_count++;
-	spin_unlock_irqrestore(&lock->read_spinlock, read_lock_flags);
-}
-
-void process_lock_on_copy_complete(struct diag_nrt_wake_lock *lock)
-{
-	unsigned long read_lock_flags;
-
-	spin_lock_irqsave(&lock->read_spinlock, read_lock_flags);
-	if (lock->enabled) {
-		lock->ref_count -= lock->copy_count;
-		if (lock->ref_count < 1) {
-			wake_unlock(&lock->read_lock);
-			lock->ref_count = 0;
-		}
-		lock->copy_count = 0;
-	}
-	spin_unlock_irqrestore(&lock->read_spinlock, read_lock_flags);
-}
-
 /* Process the data read from the smd data channel */
 int diag_process_smd_read_data(struct diag_smd_info *smd_info, void *buf,
 			       int total_recd)
@@ -437,10 +350,9 @@ int diag_process_smd_read_data(struct diag_smd_info *smd_info, void *buf,
 	 */
 	if ((smd_info->type == SMD_CMD_TYPE) &&
 		!driver->separate_cmdrsp[smd_info->peripheral]) {
-		/* This print is for debugging */
-		pr_err("diag, In %s, received data on non-designated command channel: %d\n",
+		pr_debug("diag, In %s, received data on non-designated command channel: %d\n",
 			__func__, smd_info->peripheral);
-		return 0;
+		goto fail_return;
 	}
 
 	/* If the data is already hdlc encoded */
@@ -510,6 +422,14 @@ int diag_process_smd_read_data(struct diag_smd_info *smd_info, void *buf,
 				spin_unlock_irqrestore(&smd_info->in_busy_lock,
 						       flags);
 			}
+		}
+	}
+
+	if (err) {
+fail_return:
+		if (smd_info->type == SMD_DATA_TYPE &&
+		    driver->logging_mode == MEMORY_DEVICE_MODE) {
+			diag_ws_on_copy_fail(DIAG_WS_MD);
 		}
 	}
 
@@ -651,9 +571,8 @@ void diag_smd_send_req(struct diag_smd_info *smd_info)
 		buf_size = smd_info->buf_in_1_size;
 	}
 
-	if (!buf && (smd_info->type == SMD_DCI_TYPE ||
-					smd_info->type == SMD_DCI_CMD_TYPE))
-		diag_dci_try_deactivate_wakeup_source();
+	if (!buf)
+		goto fail_return;
 
 	if (smd_info->ch && buf) {
 		int required_size = 0;
@@ -745,14 +664,11 @@ void diag_smd_send_req(struct diag_smd_info *smd_info)
 
 		}
 
-		if (pkt_len == 0 && (smd_info->type == SMD_DCI_TYPE ||
-					smd_info->type == SMD_DCI_CMD_TYPE))
-			diag_dci_try_deactivate_wakeup_source();
-
-		if (!driver->real_time_mode && smd_info->type == SMD_DATA_TYPE)
-			process_lock_on_read(&smd_info->nrt_lock, pkt_len);
-
 		if (total_recd > 0) {
+			if (smd_info->type == SMD_DATA_TYPE &&
+			    driver->logging_mode == MEMORY_DEVICE_MODE)
+				diag_ws_on_read(DIAG_WS_MD, total_recd);
+
 			if (!buf) {
 				pr_err("diag: In %s, SMD peripheral: %d, Out of diagmem for Modem\n",
 					__func__, smd_info->peripheral);
@@ -771,6 +687,8 @@ void diag_smd_send_req(struct diag_smd_info *smd_info)
 					diag_smd_notify(smd_info,
 							SMD_EVENT_DATA);
 			}
+		} else {
+			goto fail_return;
 		}
 	} else if (smd_info->ch && !buf &&
 		(driver->logging_mode == MEMORY_DEVICE_MODE)) {
@@ -780,8 +698,9 @@ void diag_smd_send_req(struct diag_smd_info *smd_info)
 
 fail_return:
 	if (smd_info->type == SMD_DCI_TYPE ||
-					smd_info->type == SMD_DCI_CMD_TYPE)
-		diag_dci_try_deactivate_wakeup_source();
+	    smd_info->type == SMD_DCI_CMD_TYPE ||
+	    driver->logging_mode == MEMORY_DEVICE_MODE)
+		diag_ws_release();
 	return;
 }
 
@@ -2189,17 +2108,19 @@ void diag_smd_notify(void *ctxt, unsigned event)
 			diag_dci_notify_client(smd_info->peripheral_mask,
 					      DIAG_STATUS_OPEN, DCI_LOCAL_PROC);
 		}
-	} else if (event == SMD_EVENT_DATA && !driver->real_time_mode &&
-					smd_info->type == SMD_DATA_TYPE) {
-		process_lock_on_notify(&smd_info->nrt_lock);
+	} else if (event == SMD_EVENT_DATA) {
+		if ((smd_info->type == SMD_DCI_TYPE) ||
+		    (smd_info->type == SMD_DCI_CMD_TYPE) ||
+		    (smd_info->type == SMD_DATA_TYPE &&
+		     driver->logging_mode == MEMORY_DEVICE_MODE)) {
+			diag_ws_on_notify();
+		}
 	}
 
 	wake_up(&driver->smd_wait_q);
 
 	if (smd_info->type == SMD_DCI_TYPE ||
 					smd_info->type == SMD_DCI_CMD_TYPE) {
-		if (event == SMD_EVENT_DATA)
-			diag_dci_try_activate_wakeup_source();
 		queue_work(driver->diag_dci_wq,
 				&(smd_info->diag_read_smd_work));
 	} else if (smd_info->type == SMD_DATA_TYPE) {
@@ -2335,10 +2256,8 @@ int device_supports_separate_cmdrsp(void)
 
 void diag_smd_destructor(struct diag_smd_info *smd_info)
 {
-	if (smd_info->type == SMD_DATA_TYPE) {
-		wake_lock_destroy(&smd_info->nrt_lock.read_lock);
+	if (smd_info->type == SMD_DATA_TYPE)
 		destroy_workqueue(smd_info->wq);
-	}
 
 	if (smd_info->ch)
 		smd_close(smd_info->ch);
@@ -2559,30 +2478,6 @@ int diag_smd_constructor(struct diag_smd_info *smd_info, int peripheral,
 	default:
 		pr_err("diag: In %s, unknown type, type: %d\n", __func__, type);
 		goto err;
-	}
-
-	smd_info->nrt_lock.enabled = 0;
-	smd_info->nrt_lock.ref_count = 0;
-	smd_info->nrt_lock.copy_count = 0;
-	if (type == SMD_DATA_TYPE) {
-		spin_lock_init(&smd_info->nrt_lock.read_spinlock);
-
-		switch (peripheral) {
-		case MODEM_DATA:
-			wake_lock_init(&smd_info->nrt_lock.read_lock,
-				WAKE_LOCK_SUSPEND, "diag_nrt_modem_read");
-			break;
-		case LPASS_DATA:
-			wake_lock_init(&smd_info->nrt_lock.read_lock,
-				WAKE_LOCK_SUSPEND, "diag_nrt_lpass_read");
-			break;
-		case WCNSS_DATA:
-			wake_lock_init(&smd_info->nrt_lock.read_lock,
-				WAKE_LOCK_SUSPEND, "diag_nrt_wcnss_read");
-			break;
-		default:
-			break;
-		}
 	}
 
 	return 0;
