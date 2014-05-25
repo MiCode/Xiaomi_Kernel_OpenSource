@@ -261,7 +261,7 @@
 #define DWC3_DCTL_LSFTRST	(1 << 29)
 
 #define DWC3_DCTL_HIRD_THRES_MASK	(0x1f << 24)
-#define DWC3_DCTL_HIRD_THRES(n)	((n) << 24)
+#define DWC3_DCTL_HIRD_THRES(n)	(((n) << 24) & DWC3_DCTL_HIRD_THRES_MASK)
 
 #define DWC3_DCTL_APPL1RES	(1 << 23)
 
@@ -781,6 +781,8 @@ struct dwc3_scratchpad_array {
  * @three_stage_setup: set if we perform a three phase setup
  * @err_evt_seen: previous event in queue was erratic error
  * @usb3_u1u2_disable: if true, disable U1U2 low power modes in Superspeed mode.
+ * @hird_thresh: value to configure in DCTL[HIRD_Thresh]
+ * @in_lpm: if 1, indicates that the controller is in low power mode (no clocks)
  */
 struct dwc3 {
 	struct usb_ctrlrequest	*ctrl_req;
@@ -903,6 +905,7 @@ struct dwc3 {
 
 	struct dwc3_gadget_events	dbg_gadget_events;
 
+	u8			hird_thresh;
 	atomic_t		in_lpm;
 };
 
