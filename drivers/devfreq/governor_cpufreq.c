@@ -282,7 +282,7 @@ static unsigned int cpu_to_dev_freq(struct devfreq *df, unsigned int cpu)
 	freq = map->target_freq;
 
 out:
-	pr_debug("CPU%u: %d -> dev: %u\n", cpu, cpu_khz, freq);
+	dev_dbg(df->dev.parent, "CPU%u: %d -> dev: %u\n", cpu, cpu_khz, freq);
 	return freq;
 }
 
