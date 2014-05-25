@@ -497,6 +497,7 @@
 		reg-names = "rbcpr", "rbcpr_clk", "efuse_addr";
 		interrupts = <0 16 0>;
 		regulator-name = "apc0_corner";
+		qcom,cpr-fuse-corners = <3>;
 		regulator-min-microvolt = <1>;
 		regulator-max-microvolt = <3>;
 
@@ -540,6 +541,7 @@
 		reg-names = "rbcpr", "rbcpr_clk", "efuse_addr";
 		interrupts = <0 19 0>;
 		regulator-name = "apc1_corner";
+		qcom,cpr-fuse-corners = <3>;
 		regulator-min-microvolt = <1>;
 		regulator-max-microvolt = <3>;
 

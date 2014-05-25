@@ -35,6 +35,7 @@
 		reg-names = "rbcpr", "rbcpr_clk", "efuse_addr";
 		interrupts = <0 15 0>;
 		regulator-name = "apc_corner";
+		qcom,cpr-fuse-corners = <3>;
 
 		qcom,pvs-fuse-redun-sel = <22 24 3 2 0>;
 		qcom,pvs-fuse = <22 6 5 0>;
