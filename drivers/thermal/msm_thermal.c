@@ -132,6 +132,10 @@ struct cluster_info {
 	uint32_t entity_count;
 	struct cluster_info *child_entity_ptr;
 	struct cluster_info *parent_ptr;
+	struct cpufreq_frequency_table *freq_table;
+	int freq_idx;
+	int freq_idx_low;
+	int freq_idx_high;
 	cpumask_t cluster_cores;
 	bool sync_cluster;
 };
@@ -565,6 +569,10 @@ static void update_cpu_topology(struct device *dev)
 		temp_ptr[i].cluster_id = cluster_id[i];
 		temp_ptr[i].parent_ptr = core_ptr;
 		temp_ptr[i].cluster_cores = cluster_cpus[i];
+		temp_ptr[i].freq_idx = 0;
+		temp_ptr[i].freq_idx_low = 0;
+		temp_ptr[i].freq_idx_high = 0;
+		temp_ptr[i].freq_table = NULL;
 		j = 0;
 		for_each_cpu_mask(cpu, cluster_cpus[i])
 			j++;
@@ -576,20 +584,121 @@ static void update_cpu_topology(struct device *dev)
 	core_ptr->child_entity_ptr = temp_ptr;
 }
 
+static int init_cluster_freq_table(void)
+{
+	uint32_t _cluster = 0, _cpu = 0, table_len = 0, idx = 0;
+	int ret = 0;
+	struct cluster_info *cluster_ptr = NULL;
+	struct cpufreq_policy *policy = NULL;
+	struct cpufreq_frequency_table *freq_table_ptr = NULL;
+
+	for (; _cluster < core_ptr->entity_count; _cluster++, table_len = 0,
+		(policy && freq_table_ptr) ? cpufreq_cpu_put(policy) : 0,
+		policy = NULL, freq_table_ptr = NULL) {
+		cluster_ptr = &core_ptr->child_entity_ptr[_cluster];
+		if (cluster_ptr->freq_table)
+			continue;
+
+		for_each_cpu_mask(_cpu, cluster_ptr->cluster_cores) {
+			policy = cpufreq_cpu_get(_cpu);
+			if (!policy)
+				continue;
+			freq_table_ptr = cpufreq_frequency_get_table(
+						policy->cpu);
+			if (!freq_table_ptr) {
+				cpufreq_cpu_put(policy);
+				continue;
+			} else {
+				break;
+			}
+		}
+		if (!freq_table_ptr) {
+			pr_debug("Error reading cluster%d cpufreq table\n",
+				cluster_ptr->cluster_id);
+			ret = -EAGAIN;
+			continue;
+		}
+
+		while (freq_table_ptr[table_len].frequency
+			!= CPUFREQ_TABLE_END)
+			table_len++;
+
+		cluster_ptr->freq_idx_low = 0;
+		cluster_ptr->freq_idx_high = cluster_ptr->freq_idx =
+				table_len - 1;
+		if (cluster_ptr->freq_idx_high < 0
+			|| (cluster_ptr->freq_idx_high
+			< cluster_ptr->freq_idx_low)) {
+			cluster_ptr->freq_idx = cluster_ptr->freq_idx_low =
+				cluster_ptr->freq_idx_high = 0;
+			WARN(1, "Cluster%d frequency table length:%d\n",
+				cluster_ptr->cluster_id, table_len);
+			ret = -EINVAL;
+			goto release_and_exit;
+		}
+		cluster_ptr->freq_table = devm_kzalloc(
+			&msm_thermal_info.pdev->dev,
+			sizeof(struct cpufreq_frequency_table) * table_len,
+			GFP_KERNEL);
+		if (!cluster_ptr->freq_table) {
+			pr_err("memory alloc failed\n");
+			cluster_ptr->freq_idx = cluster_ptr->freq_idx_low =
+				cluster_ptr->freq_idx_high = 0;
+			ret = -ENOMEM;
+			goto release_and_exit;
+		}
+		for (idx = 0; idx < table_len; idx++)
+			cluster_ptr->freq_table[idx].frequency =
+				freq_table_ptr[idx].frequency;
+	}
+
+	return ret;
+release_and_exit:
+	cpufreq_cpu_put(policy);
+	return ret;
+}
+
 /* If freq table exists, then we can send freq request */
 static int check_freq_table(void)
 {
 	int ret = 0;
-	struct cpufreq_frequency_table *table = NULL;
+	uint32_t i = 0;
+	static bool invalid_table;
+
+	if (invalid_table)
+		return -EINVAL;
+	if (freq_table_get)
+		return 0;
+
+	if (core_ptr) {
+		ret = init_cluster_freq_table();
+		if (!ret)
+			freq_table_get = 1;
+		else if (ret == -EINVAL)
+			invalid_table = true;
+		return ret;
+	}
 
 	table = cpufreq_frequency_get_table(0);
 	if (!table) {
 		pr_debug("error reading cpufreq table\n");
 		return -EINVAL;
 	}
+	while (table[i].frequency != CPUFREQ_TABLE_END)
+		i++;
+
+	limit_idx_low = 0;
+	limit_idx_high = limit_idx = i - 1;
+	if (limit_idx_high < 0 || limit_idx_high < limit_idx_low) {
+		invalid_table = true;
+		table = NULL;
+		limit_idx_low = limit_idx_high = limit_idx = 0;
+		WARN(1, "CPU0 frequency table length:%d\n", i);
+		return -EINVAL;
+	}
 	freq_table_get = 1;
 
-	return ret;
+	return 0;
 }
 
 static void update_cpu_freq(int cpu)
@@ -1222,28 +1331,6 @@ static int vdd_restriction_apply_all(int en)
 	 */
 	if (fail_cnt)
 		return -EFAULT;
-	return ret;
-}
-
-static int msm_thermal_get_freq_table(void)
-{
-	int ret = 0;
-	int i = 0;
-
-	table = cpufreq_frequency_get_table(0);
-	if (table == NULL) {
-		pr_err("error reading cpufreq table\n");
-		ret = -EINVAL;
-		goto fail;
-	}
-
-	while (table[i].frequency != CPUFREQ_TABLE_END)
-		i++;
-
-	limit_idx_low = 0;
-	limit_idx_high = limit_idx = i - 1;
-	BUG_ON(limit_idx_high <= 0 || limit_idx_high <= limit_idx_low);
-fail:
 	return ret;
 }
 
@@ -2029,7 +2116,6 @@ static void do_freq_control(long temp)
 
 static void check_temp(struct work_struct *work)
 {
-	static int limit_init;
 	long temp = 0;
 	int ret = 0;
 
@@ -2048,12 +2134,10 @@ static void check_temp(struct work_struct *work)
 	do_cx_phase_cond();
 	do_ocr();
 
-	if (!limit_init) {
-		ret = msm_thermal_get_freq_table();
+	if (!freq_table_get) {
+		ret = check_freq_table();
 		if (ret)
 			goto reschedule;
-		else
-			limit_init = 1;
 	}
 
 	do_vdd_restriction();
