@@ -23,6 +23,9 @@ Optional properties :
   a new LUN as CD-ROM.
 - qcom,android-usb-uicc-nluns : Number of mass storage LUNs (8 bits) required
   for the UICC card.
+- qcom,usb-core-id: Index to refer USB hardware core to bind android gadget driver
+  with UDC if multiple USB peripheral controllers are present. If unspecified,
+  core is set to zero by default.
 Example Android USB device node :
 	android_usb@fc42b0c8 {
 		compatible = "qcom,android-usb";
@@ -30,4 +33,5 @@ Example Android USB device node :
 		qcom,android-usb-swfi-latency = <1>;
 		qcom,streaming-func = "rndis","mtp";
 		qcom,android-usb-uicc-nluns = /bits/ 8 <1>;
+		qcom,usb-core-id = <1>;
 	};
