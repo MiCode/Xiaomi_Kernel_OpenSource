@@ -1220,7 +1220,7 @@ static int cpr_pvs_per_corner_init(struct device_node *of_node,
 {
 	u64 efuse_bits;
 	int i, size, sign, steps, step_size_uv, rc;
-	u32 *fuse_sel, *tmp;
+	u32 *fuse_sel, *tmp, *ref_uv;
 	struct property *prop;
 
 	prop = of_find_property(of_node, "qcom,cpr-fuse-init-voltage", NULL);
@@ -1252,6 +1252,24 @@ static int cpr_pvs_per_corner_init(struct device_node *of_node,
 		kfree(fuse_sel);
 		return rc;
 	}
+
+	ref_uv = kzalloc((cpr_vreg->num_fuse_corners + 1) * sizeof(*ref_uv),
+			GFP_KERNEL);
+	if (!ref_uv) {
+		pr_err("Could not allocate memory for reference voltages\n");
+		kfree(fuse_sel);
+		return -ENOMEM;
+	}
+
+	rc = of_property_read_u32_array(of_node, "qcom,cpr-init-voltage-ref",
+		&ref_uv[CPR_FUSE_CORNER_MIN], cpr_vreg->num_fuse_corners);
+	if (rc < 0) {
+		pr_err("read qcom,cpr-init-voltage-ref failed, rc = %d\n", rc);
+		kfree(fuse_sel);
+		kfree(ref_uv);
+		return rc;
+	}
+
 	tmp = fuse_sel;
 	for (i = CPR_FUSE_CORNER_MIN; i <= cpr_vreg->num_fuse_corners; i++) {
 		efuse_bits = cpr_read_efuse_param(cpr_vreg, fuse_sel[0],
@@ -1259,8 +1277,8 @@ static int cpr_pvs_per_corner_init(struct device_node *of_node,
 		sign = (efuse_bits & (1 << (fuse_sel[2] - 1))) ? -1 : 1;
 		steps = efuse_bits & ((1 << (fuse_sel[2] - 1)) - 1);
 		pr_debug("corner %d: sign = %d, steps = %d\n", i, sign, steps);
-		cpr_vreg->pvs_corner_v[i] = cpr_vreg->ceiling_volt[i] +
-					sign * steps * step_size_uv;
+		cpr_vreg->pvs_corner_v[i] =
+				ref_uv[i] + sign * steps * step_size_uv;
 		cpr_vreg->pvs_corner_v[i] = DIV_ROUND_UP(
 				cpr_vreg->pvs_corner_v[i],
 				cpr_vreg->step_volt) *
@@ -1280,6 +1298,7 @@ static int cpr_pvs_per_corner_init(struct device_node *of_node,
 		fuse_sel += 4;
 	}
 	kfree(tmp);
+	kfree(ref_uv);
 
 	return 0;
 }

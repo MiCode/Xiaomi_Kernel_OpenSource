@@ -532,6 +532,7 @@
 					<138  0 6 0>,
 					<138  6 6 0>,
 					<138 12 6 0>;
+		qcom,cpr-init-voltage-ref = <900000 1000000 1115000>;
 		qcom,cpr-init-voltage-step = <10000>;
 	};
 
@@ -576,6 +577,7 @@
 					<138 54 6 0>,
 					<138 60 6 0>,
 					<139  2 6 0>;
+		qcom,cpr-init-voltage-ref = <900000 1000000 1115000>;
 		qcom,cpr-init-voltage-step = <10000>;
 	};
 };
