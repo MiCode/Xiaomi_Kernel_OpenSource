@@ -27,7 +27,7 @@
 #include "u_bam_data.h"
 
 #define BAM2BAM_DATA_N_PORTS	1
-#define BAM_DATA_RX_Q_SIZE	16
+#define BAM_DATA_RX_Q_SIZE	128
 #define BAM_DATA_MUX_RX_REQ_SIZE  2048   /* Must be 1KB aligned */
 #define BAM_DATA_PENDING_LIMIT	220
 
