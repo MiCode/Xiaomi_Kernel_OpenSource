@@ -525,14 +525,18 @@
 		qcom,cpr-apc-volt-step = <5000>;
 
 		qcom,cpr-fuse-row = <137 0>;
-		qcom,cpr-fuse-target-quot = <31 42 53>;
-		qcom,cpr-fuse-target-quot-size = <11 11 11>;
+		qcom,cpr-fuse-target-quot = <39 47 55>;
+		qcom,cpr-fuse-target-quot-size = <8 8 8>;
+		qcom,cpr-fuse-target-quot-scale =
+					<0 10>,
+					<0 10>,
+					<0 10>;
 		qcom,cpr-fuse-ro-sel = <82 82 82>;
 		qcom,cpr-fuse-init-voltage =
 					<138  0 6 0>,
 					<138  6 6 0>,
 					<138 12 6 0>;
-		qcom,cpr-init-voltage-ref = <900000 1000000 1115000>;
+		qcom,cpr-init-voltage-ref = <900000 1000000 1225000>;
 		qcom,cpr-init-voltage-step = <10000>;
 	};
 
@@ -570,14 +574,18 @@
 		qcom,cpr-apc-volt-step = <5000>;
 
 		qcom,cpr-fuse-row = <138 0>;
-		qcom,cpr-fuse-target-quot = <21 32 43>;
-		qcom,cpr-fuse-target-quot-size = <11 11 11>;
+		qcom,cpr-fuse-target-quot = <29 37 45>;
+		qcom,cpr-fuse-target-quot-size = <8 8 8>;
+		qcom,cpr-fuse-target-quot-scale =
+					<0 10>,
+					<0 10>,
+					<0 10>;
 		qcom,cpr-fuse-ro-sel = <72 72 72>;
 		qcom,cpr-fuse-init-voltage =
 					<138 54 6 0>,
 					<138 60 6 0>,
 					<139  2 6 0>;
-		qcom,cpr-init-voltage-ref = <900000 1000000 1115000>;
+		qcom,cpr-init-voltage-ref = <900000 1000000 1225000>;
 		qcom,cpr-init-voltage-step = <10000>;
 	};
 };
