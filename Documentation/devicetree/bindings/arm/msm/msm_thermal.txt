@@ -91,6 +91,14 @@ Optional properties
 - qcom,online-hotplug-core: This property should be defined in targets where
 			KTM should online cores, which are hotplugged due to
 			thermal condition.
+- qcom,synchronous-cluster-id: This property specifies an array of synchronous cluster-ID's.
+			This property will be used by KTM to optimize the synchronous
+			cluster frequency update.
+- qcom,synchronous-cluster-map: This property specifies an array of cluster-ID and its
+			associated cpumask value pair. This property should be defined
+			in targets where the kernel topology module is not present.
+			In the older kernel version, where the kernel topology module is
+			not available, KTM gets the mapping information from this property.
 
 Optional child nodes
 - qcom,pmic-opt-curr-temp: Threshold temperature for requesting optimum current (request
@@ -256,6 +264,14 @@ Example:
 		qcom,mx-retention-min = <710000>;
 		vdd-mx-supply = <&pma8084_s1>;
 		qcom,online-hotplug-core;
+		qcom,synchronous-cluster-id = <0 1>; /* Indicates cluster 0 and 1 are synchronous */
+		qcom,synchronous-cluster-map =  <0 0x0F>,
+						<1 0xF0>; /* <cluster-ID, cpumask>. */
+		/* The 0x0F is a bitmap indicating that
+		** core 0, 1, 2, 3 belongs to cluster ID 0.
+		** The 0xF0 is a bitmap indicating that core 4, 5, 6, 7
+		** belongs to cluster ID 1.
+		*/
 
 		qcom,vdd-dig-rstr{
 			qcom,vdd-rstr-reg = "vdd-dig";
