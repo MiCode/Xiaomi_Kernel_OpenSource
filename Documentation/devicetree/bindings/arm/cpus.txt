@@ -181,6 +181,7 @@ nodes to be present and contain the properties described below.
 			     "spin-table"
 			     "psci"
 			     "qcom,arm-cortex-acc"
+			     "qcom,8994-arm-cortex-acc"
 			# On ARM 32-bit systems this property is optional and
 			  can be one of:
 			    "qcom,gcc-msm8660"

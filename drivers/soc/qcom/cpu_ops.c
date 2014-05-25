@@ -140,6 +140,25 @@ static int msm_cpu_boot(unsigned int cpu)
 	return secondary_pen_release(cpu);
 }
 
+static int msm8994_cpu_boot(unsigned int cpu)
+{
+	int ret = 0;
+
+	if (per_cpu(cold_boot_done, cpu) == false) {
+		if (of_board_is_sim()) {
+			ret = msm_unclamp_secondary_arm_cpu_sim(cpu);
+			if (ret)
+				return ret;
+		} else {
+			ret = msm8994_unclamp_secondary_arm_cpu(cpu);
+			if (ret)
+				return ret;
+		}
+		per_cpu(cold_boot_done, cpu) = true;
+	}
+	return secondary_pen_release(cpu);
+}
+
 void msm_cpu_postboot(void)
 {
 	/*
@@ -186,3 +205,16 @@ static const struct cpu_operations msm_cortex_a_ops = {
 	.cpu_suspend       = msm_pm_collapse,
 };
 CPU_METHOD_OF_DECLARE(msm_cortex_a_ops, &msm_cortex_a_ops);
+
+static const struct cpu_operations msm8994_cortex_a_ops = {
+	.name		= "qcom,8994-arm-cortex-acc",
+	.cpu_init	= msm_cpu_init,
+	.cpu_prepare	= msm_cpu_prepare,
+	.cpu_boot	= msm8994_cpu_boot,
+	.cpu_postboot	= msm_cpu_postboot,
+#ifdef CONFIG_HOTPLUG_CPU
+	.cpu_die        = msm_wfi_cpu_die,
+#endif
+	.cpu_suspend       = msm_pm_collapse,
+};
+CPU_METHOD_OF_DECLARE(msm8994_cortex_a_ops, &msm8994_cortex_a_ops);
