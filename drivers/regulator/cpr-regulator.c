@@ -1886,6 +1886,11 @@ free_arrays:
 	return rc;
 }
 
+struct cpr_quot_scale {
+	u32 offset;
+	u32 multiplier;
+};
+
 static int cpr_init_cpr_efuse(struct platform_device *pdev,
 				     struct cpr_regulator *cpr_vreg)
 {
@@ -1903,6 +1908,7 @@ static int cpr_init_cpr_efuse(struct platform_device *pdev,
 	u64 fuse_bits, fuse_bits_2;
 	u32 *quot_adjust;
 	u32 *target_quot_size;
+	struct cpr_quot_scale *quot_scale;
 
 	len = cpr_vreg->num_fuse_corners + 1;
 
@@ -1910,9 +1916,10 @@ static int cpr_init_cpr_efuse(struct platform_device *pdev,
 	bp_ro_sel = kzalloc(len * sizeof(*bp_ro_sel), GFP_KERNEL);
 	quot_adjust = kzalloc(len * sizeof(*quot_adjust), GFP_KERNEL);
 	target_quot_size = kzalloc(len * sizeof(*target_quot_size), GFP_KERNEL);
+	quot_scale = kzalloc(len * sizeof(*quot_scale), GFP_KERNEL);
 
 	if (bp_target_quot == NULL || bp_ro_sel == NULL || quot_adjust == NULL
-	    || target_quot_size == NULL) {
+	    || target_quot_size == NULL || quot_scale == NULL) {
 		pr_err("Could not allocate memory for fuse parsing arrays\n");
 		rc = -ENOMEM;
 		goto error;
@@ -1971,6 +1978,38 @@ static int cpr_init_cpr_efuse(struct platform_device *pdev,
 		for (i = CPR_FUSE_CORNER_MIN; i <= cpr_vreg->num_fuse_corners;
 		     i++)
 			target_quot_size[i] = CPR_FUSE_TARGET_QUOT_BITS;
+	}
+
+	if (of_property_read_bool(of_node, "qcom,cpr-fuse-target-quot-scale")) {
+		for (i = 0; i < cpr_vreg->num_fuse_corners; i++) {
+			rc = of_property_read_u32_index(of_node,
+				"qcom,cpr-fuse-target-quot-scale", i * 2,
+				&quot_scale[i + CPR_FUSE_CORNER_MIN].offset);
+			if (rc < 0) {
+				pr_err("error while reading qcom,cpr-fuse-target-quot-scale: rc=%d\n",
+					rc);
+				goto error;
+			}
+
+			rc = of_property_read_u32_index(of_node,
+				"qcom,cpr-fuse-target-quot-scale", i * 2 + 1,
+			       &quot_scale[i + CPR_FUSE_CORNER_MIN].multiplier);
+			if (rc < 0) {
+				pr_err("error while reading qcom,cpr-fuse-target-quot-scale: rc=%d\n",
+					rc);
+				goto error;
+			}
+		}
+	} else {
+		/*
+		 * In the default case, target quotients require no scaling so
+		 * use offset = 0, multiplier = 1.
+		 */
+		for (i = CPR_FUSE_CORNER_MIN; i <= cpr_vreg->num_fuse_corners;
+		     i++) {
+			quot_scale[i].offset = 0;
+			quot_scale[i].multiplier = 1;
+		}
 	}
 
 	rc = of_property_read_u32_array(of_node, ro_sel_str,
@@ -2075,6 +2114,9 @@ static int cpr_init_cpr_efuse(struct platform_device *pdev,
 			= cpr_read_efuse_param(cpr_vreg, cpr_fuse_row[0],
 				bp_target_quot[i], target_quot_size[i],
 				cpr_fuse_row[1]);
+		/* Unpack the target quotient by scaling. */
+		cpr_vreg->cpr_fuse_target_quot[i] *= quot_scale[i].multiplier;
+		cpr_vreg->cpr_fuse_target_quot[i] += quot_scale[i].offset;
 		pr_info("Corner[%d]: ro_sel = %d, target quot = %d\n", i,
 			cpr_vreg->cpr_fuse_ro_sel[i],
 			cpr_vreg->cpr_fuse_target_quot[i]);
@@ -2138,6 +2180,7 @@ error:
 	kfree(bp_ro_sel);
 	kfree(quot_adjust);
 	kfree(target_quot_size);
+	kfree(quot_scale);
 
 	return rc;
 }
