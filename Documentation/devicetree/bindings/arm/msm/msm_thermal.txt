@@ -88,6 +88,9 @@ Optional properties
 - <consumer_supply_name>-supply = <&phandle_of_regulator>: consumer_supply_name
 			is the name that's defined in thermal driver.
 			phandle_of_regulator is defined by reuglator device tree.
+- qcom,online-hotplug-core: This property should be defined in targets where
+			KTM should online cores, which are hotplugged due to
+			thermal condition.
 
 Optional child nodes
 - qcom,pmic-opt-curr-temp: Threshold temperature for requesting optimum current (request
@@ -251,7 +254,8 @@ Example:
 		qcom,mx-restriction-temp = <5>;
 		qcom,mx-restriction-temp-hysteresis = <10>;
 		qcom,mx-retention-min = <710000>;
-		vdd-mx-supply = <&pma8084_s1>
+		vdd-mx-supply = <&pma8084_s1>;
+		qcom,online-hotplug-core;
 
 		qcom,vdd-dig-rstr{
 			qcom,vdd-rstr-reg = "vdd-dig";
