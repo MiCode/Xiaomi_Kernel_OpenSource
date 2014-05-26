@@ -31,6 +31,7 @@
 #include <linux/msm_remote_spinlock.h>
 #include <linux/dma-mapping.h>
 #include <linux/coresight-cti.h>
+#include <linux/moduleparam.h>
 #include <soc/qcom/spm.h>
 #include <soc/qcom/pm.h>
 #include <soc/qcom/rpm-notifier.h>
@@ -68,7 +69,8 @@ struct lpm_debug {
 	uint32_t arg4;
 };
 
-static struct lpm_cluster *lpm_root_node;
+struct lpm_cluster *lpm_root_node;
+
 static DEFINE_PER_CPU(struct lpm_cluster*, cpu_cluster);
 static bool suspend_in_progress;
 static struct hrtimer lpm_hrtimer;
@@ -253,7 +255,7 @@ static int cpu_power_select(struct cpuidle_device *dev,
 		enum msm_pm_sleep_mode mode = level->mode;
 		bool allow;
 
-		allow = msm_pm_sleep_mode_allow(dev->cpu, mode, true);
+		allow = lpm_cpu_mode_allow(dev->cpu, mode, true);
 
 		if (!allow)
 			continue;
@@ -374,7 +376,7 @@ static int cluster_select(struct lpm_cluster *cluster, bool from_idle)
 		struct lpm_cluster_level *level = &cluster->levels[i];
 		struct power_params *pwr_params = &level->pwr;
 
-		if (!level->available)
+		if (!lpm_cluster_mode_allow(cluster, i, from_idle))
 			continue;
 
 		if (level->last_core_only &&
@@ -801,7 +803,7 @@ static int lpm_suspend_enter(suspend_state_t state)
 	for (idx = lpm_cpu->nlevels - 1; idx >= 0; idx--) {
 		struct lpm_cpu_level *level = &lpm_cpu->levels[idx];
 
-		if (msm_pm_sleep_mode_allow(cpu, level->mode, false))
+		if (lpm_cpu_mode_allow(cpu, level->mode, false))
 			break;
 	}
 	if (idx < 0) {
@@ -829,6 +831,7 @@ static int lpm_probe(struct platform_device *pdev)
 	int size;
 	struct lpm_cluster *p = NULL;
 	int cpu;
+	struct kobject *module_kobj = NULL;
 
 	lpm_root_node = lpm_of_parse_cluster(pdev);
 
@@ -880,6 +883,21 @@ static int lpm_probe(struct platform_device *pdev)
 	ret = cluster_cpuidle_register(lpm_root_node);
 	if (ret) {
 		pr_err("%s()Failed to register with cpuidle framework\n",
+				__func__);
+		goto failed;
+	}
+
+	module_kobj = kset_find_obj(module_kset, KBUILD_MODNAME);
+	if (!module_kobj) {
+		pr_err("%s: cannot find kobject for module %s\n",
+			__func__, KBUILD_MODNAME);
+		ret = -ENOENT;
+		goto failed;
+	}
+
+	ret = create_cluster_lvl_nodes(lpm_root_node, module_kobj);
+	if (ret) {
+		pr_err("%s(): Failed to create cluster level nodes\n",
 				__func__);
 		goto failed;
 	}
@@ -972,10 +990,10 @@ void lpm_cpu_hotplug_enter(unsigned int cpu)
 	int i;
 	int idx = -1;
 
-	if (msm_pm_sleep_mode_allow(cpu, MSM_PM_SLEEP_MODE_POWER_COLLAPSE,
+	if (lpm_cpu_mode_allow(cpu, MSM_PM_SLEEP_MODE_POWER_COLLAPSE,
 				false))
 		mode = MSM_PM_SLEEP_MODE_POWER_COLLAPSE;
-	else if (msm_pm_sleep_mode_allow(cpu,
+	else if (lpm_cpu_mode_allow(cpu,
 			MSM_PM_SLEEP_MODE_POWER_COLLAPSE_STANDALONE, false))
 		mode = MSM_PM_SLEEP_MODE_POWER_COLLAPSE_STANDALONE;
 	else
