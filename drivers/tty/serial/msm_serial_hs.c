@@ -2506,10 +2506,10 @@ static void msm_hs_get_pinctrl_configs(struct uart_port *uport)
 		msm_uport->use_pinctrl = true;
 
 		set_state = pinctrl_lookup_state(msm_uport->pinctrl,
-						"hsuart_active");
+						PINCTRL_STATE_DEFAULT);
 		if (IS_ERR_OR_NULL(set_state)) {
 			dev_err(uport->dev,
-				"pinctrl lookup failed for hsuart_active");
+				"pinctrl lookup failed for default state");
 			goto pinctrl_fail;
 		}
 
@@ -2518,10 +2518,10 @@ static void msm_hs_get_pinctrl_configs(struct uart_port *uport)
 		msm_uport->gpio_state_active = set_state;
 
 		set_state = pinctrl_lookup_state(msm_uport->pinctrl,
-						"hsuart_sleep");
+						PINCTRL_STATE_SLEEP);
 		if (IS_ERR_OR_NULL(set_state)) {
 			dev_err(uport->dev,
-				"pinctrl lookup failed for hsuart_sleep");
+				"pinctrl lookup failed for sleep state");
 			goto pinctrl_fail;
 		}
 
