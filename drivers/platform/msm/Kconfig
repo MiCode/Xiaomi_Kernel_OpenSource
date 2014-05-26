@@ -120,6 +120,16 @@ config MSM_AVTIMER
 		This driver gets the Q6 out of power collapsed state and
 		exposes ioctl control to read avtimer tick.
 
+config PFT
+	bool "Per-File-Tagger driver"
+	default n
+	help
+		This driver is used for tagging enterprise files.
+		It is part of the Per-File-Encryption (PFE) feature.
+		The driver is tagging files when created by
+		registered application.
+		Tagged files are encrypted using the dm-req-crypt driver.
+
 config SSM
 	tristate "Qualcomm Secure Service Module"
 	depends on QSEECOM
