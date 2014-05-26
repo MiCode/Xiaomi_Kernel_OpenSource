@@ -406,7 +406,7 @@ static int spkr_drv_wrnd_param_set(const char *val,
 	int ret, old;
 	struct tapan_priv *priv;
 
-	priv = (struct tapan_priv *)atomic_read(&kp_tapan_priv);
+	priv = (struct tapan_priv *)(unsigned long)atomic_read(&kp_tapan_priv);
 	if (!priv) {
 		pr_debug("%s: codec isn't yet registered\n", __func__);
 		return 0;
@@ -2154,7 +2154,7 @@ static int tapan_codec_enable_anc(struct snd_soc_dapm_widget *w,
 
 		/* First number is the number of register writes */
 		anc_head = (struct wcd9xxx_anc_header *)(fw->data);
-		anc_ptr = (u32 *)((u32)fw->data +
+		anc_ptr = (u32 *)(fw->data +
 				  sizeof(struct wcd9xxx_anc_header));
 		anc_size_remaining = fw->size -
 				     sizeof(struct wcd9xxx_anc_header);
@@ -3547,8 +3547,8 @@ static int tapan_get_channel_map(struct snd_soc_dai *dai,
 	case AIF2_PB:
 	case AIF3_PB:
 		if (!rx_slot || !rx_num) {
-			pr_err("%s: Invalid rx_slot %d or rx_num %d\n",
-				 __func__, (u32) rx_slot, (u32) rx_num);
+			pr_err("%s: Invalid rx_slot %p or rx_num %p\n",
+				 __func__, rx_slot, rx_num);
 			return -EINVAL;
 		}
 		list_for_each_entry(ch, &tapan_p->dai[dai->id].wcd9xxx_ch_list,
@@ -3564,8 +3564,8 @@ static int tapan_get_channel_map(struct snd_soc_dai *dai,
 	case AIF2_CAP:
 	case AIF3_CAP:
 		if (!tx_slot || !tx_num) {
-			pr_err("%s: Invalid tx_slot %d or tx_num %d\n",
-				 __func__, (u32) tx_slot, (u32) tx_num);
+			pr_err("%s: Invalid tx_slot %p or tx_num %p\n",
+				 __func__, tx_slot, tx_num);
 			return -EINVAL;
 		}
 		list_for_each_entry(ch, &tapan_p->dai[dai->id].wcd9xxx_ch_list,

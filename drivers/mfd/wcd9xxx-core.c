@@ -64,6 +64,40 @@ struct wcd9xxx_i2c {
 	int mod_id;
 };
 
+struct pinctrl_info {
+	struct pinctrl *pinctrl;
+	struct pinctrl_state *extncodec_sus;
+	struct pinctrl_state *extncodec_act;
+};
+
+static struct pinctrl_info pinctrl_info;
+
+static int extcodec_get_pinctrl(struct device *dev)
+{
+	struct pinctrl *pinctrl;
+
+	pinctrl = pinctrl_get(dev);
+	if (IS_ERR(pinctrl)) {
+		pr_err("%s: Unable to get pinctrl handle\n", __func__);
+		return -EINVAL;
+	}
+	pinctrl_info.pinctrl = pinctrl;
+	/* get all the states handles from Device Tree */
+	pinctrl_info.extncodec_sus = pinctrl_lookup_state(pinctrl, "suspend");
+	if (IS_ERR(pinctrl_info.extncodec_sus)) {
+		pr_err("%s: Unable to get pinctrl disable state handle, err: %ld\n",
+				__func__, PTR_ERR(pinctrl_info.extncodec_sus));
+		return -EINVAL;
+	}
+	pinctrl_info.extncodec_act = pinctrl_lookup_state(pinctrl, "active");
+	if (IS_ERR(pinctrl_info.extncodec_act)) {
+		pr_err("%s: Unable to get pinctrl disable state handle, err: %ld\n",
+				__func__, PTR_ERR(pinctrl_info.extncodec_act));
+		return -EINVAL;
+	}
+	return 0;
+}
+
 static int wcd9xxx_dt_parse_vreg_info(struct device *dev,
 				      struct wcd9xxx_regulator *vreg,
 				      const char *vreg_name, bool ondemand);
@@ -512,7 +546,8 @@ static int wcd9xxx_reset(struct wcd9xxx *wcd9xxx)
 {
 	int ret;
 
-	if (wcd9xxx->reset_gpio && wcd9xxx->slim_device_bootup) {
+	if (wcd9xxx->reset_gpio && wcd9xxx->slim_device_bootup
+			&& !wcd9xxx->use_pinctrl) {
 		ret = gpio_request(wcd9xxx->reset_gpio, "CDC_RESET");
 		if (ret) {
 			pr_err("%s: Failed to request gpio %d\n", __func__,
@@ -522,10 +557,32 @@ static int wcd9xxx_reset(struct wcd9xxx *wcd9xxx)
 		}
 	}
 	if (wcd9xxx->reset_gpio) {
-		gpio_direction_output(wcd9xxx->reset_gpio, 0);
-		msleep(20);
-		gpio_direction_output(wcd9xxx->reset_gpio, 1);
-		msleep(20);
+		if (wcd9xxx->use_pinctrl) {
+			/* Reset the CDC PDM TLMM pins to a default state */
+			ret = pinctrl_select_state(pinctrl_info.pinctrl,
+				pinctrl_info.extncodec_act);
+			if (ret != 0) {
+				pr_err("%s: Failed to enable gpio pins; ret=%d\n",
+						__func__, ret);
+				return ret;
+			}
+			gpio_set_value_cansleep(wcd9xxx->reset_gpio, 0);
+			msleep(20);
+			gpio_set_value_cansleep(wcd9xxx->reset_gpio, 1);
+			msleep(20);
+			ret = pinctrl_select_state(pinctrl_info.pinctrl,
+					pinctrl_info.extncodec_sus);
+			if (ret != 0) {
+				pr_err("%s: Failed to suspend reset pins, ret: %d\n",
+						__func__, ret);
+				return ret;
+			}
+		} else {
+			gpio_direction_output(wcd9xxx->reset_gpio, 0);
+			msleep(20);
+			gpio_direction_output(wcd9xxx->reset_gpio, 1);
+			msleep(20);
+		}
 	}
 	return 0;
 }
@@ -533,8 +590,11 @@ static int wcd9xxx_reset(struct wcd9xxx *wcd9xxx)
 static void wcd9xxx_free_reset(struct wcd9xxx *wcd9xxx)
 {
 	if (wcd9xxx->reset_gpio) {
-		gpio_free(wcd9xxx->reset_gpio);
-		wcd9xxx->reset_gpio = 0;
+		if (!wcd9xxx->use_pinctrl) {
+			gpio_free(wcd9xxx->reset_gpio);
+			wcd9xxx->reset_gpio = 0;
+		} else
+			pinctrl_put(pinctrl_info.pinctrl);
 	}
 }
 
@@ -1235,6 +1295,12 @@ static int wcd9xxx_i2c_probe(struct i2c_client *client,
 			ret = -EINVAL;
 			goto fail;
 		}
+		ret = extcodec_get_pinctrl(&client->dev);
+		if (ret < 0)
+			wcd9xxx->use_pinctrl = false;
+		else
+			wcd9xxx->use_pinctrl = true;
+
 		if (i2c_check_functionality(client->adapter,
 					    I2C_FUNC_I2C) == 0) {
 			dev_dbg(&client->dev, "can't talk I2C?\n");

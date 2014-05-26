@@ -524,6 +524,7 @@ normally open.
 switch type on target typically the switch type will be normally open or
 normally close, value for this property 0 for normally close and 1 for
 normally open.
+- qcom,audio-routing : A list of the connections between audio components.
 - pinctrl-names : Pincntrl entries to configure the PDM gpio lines and
 		  cross connection switch gpio accordingly
 - pinctrl-0 : This explains the active state of the PDM gpio lines
@@ -532,6 +533,14 @@ normally open.
 	      gpio lines
 - pinctrl-3 : This explains the suspend state of the cross connection
               gpio lines
+- qcom,tapan-mclk-clk-freq : Tapan mclk Freq in Hz.
+- qcom,prim-auxpcm-gpio-clk  : GPIO on which Primary AUXPCM clk signal is coming.
+- qcom,prim-auxpcm-gpio-sync : GPIO on which Primary AUXPCM SYNC signal is coming.
+- qcom,prim-auxpcm-gpio-din  : GPIO on which Primary AUXPCM DIN signal is coming.
+- qcom,prim-auxpcm-gpio-dout : GPIO on which Primary AUXPCM DOUT signal is coming.
+- qcom,prim-auxpcm-gpio-set : set of GPIO lines used for Primary AUXPCM port
+- qcom,tapan-codec-9302: Indicates that this device node is for WCD9302 audio
+			    codec.
 
 Optional Properties:
 - qcom,us-euro-gpios : GPIO on which gnd/mic swap signal is coming.
@@ -564,6 +573,13 @@ Example:
 		pinctrl-1 = <&cdc_pdm_lines_sus>;
 		pinctrl-2 = <&cross_conn_det_act>;
 		pinctrl-3 = <&cross_conn_det_sus>;
+		qcom,tapan-mclk-clk-freq = <9600000>;
+		qcom,prim-auxpcm-gpio-clk  = <&msm_gpio 63 0>;
+		qcom,prim-auxpcm-gpio-sync = <&msm_gpio 64 0>;
+		qcom,prim-auxpcm-gpio-din  = <&msm_gpio 65 0>;
+		qcom,prim-auxpcm-gpio-dout = <&msm_gpio 66 0>;
+		qcom,prim-auxpcm-gpio-set = "prim-gpio-prim";
+		qcom,tapan-codec-9302;
 	};
 
 * MSM8974 ASoC Machine driver
