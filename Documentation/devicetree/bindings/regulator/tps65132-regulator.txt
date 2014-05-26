@@ -19,6 +19,8 @@ Optional properties:
 			pinctrl for EN-pins.
 			For details of pinctrl properties, please refer to:
 			"Documentation/devicetree/bindings/pinctrl/pinctrl-bindings.txt"
+  - ti,en-gpio-lpm:	A boolean flag to indicate if the enable pin is configured
+			to low power mode (LPM) when the output is disabled.
 
 Regulator child node required properties:
   - regulator-name:	A string used as a descriptive name for the regulator
