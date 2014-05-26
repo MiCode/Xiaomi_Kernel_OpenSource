@@ -1049,12 +1049,18 @@ error:
 	/* Unregister tty platform devices */
 	for_each_child_of_node(pdev->dev.of_node, node) {
 
-		key = "qcom,smdtty-dev-idx";
-		ret = of_property_read_u32(node, key, &idx);
-		if (ret || idx >= MAX_SMD_TTYS)
+		ret = of_alias_get_id(node, "smd");
+		SMD_TTY_INFO("%s:Removing smd%d\n", __func__, ret);
+
+		if (ret < 0 || ret >= MAX_SMD_TTYS)
 			goto out;
-		if (smd_tty[idx].device_ptr)
+		idx = ret;
+
+		if (smd_tty[idx].device_ptr) {
+			device_remove_file(smd_tty[idx].device_ptr,
+						&dev_attr_open_timeout);
 			tty_unregister_device(smd_tty_driver, idx);
+		}
 	}
 out:
 	tty_unregister_driver(smd_tty_driver);
