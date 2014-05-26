@@ -91,6 +91,7 @@
 #include "msm_iomap-8974.h"
 #include "msm_iomap-8084.h"
 #include "msm_iomap-8916.h"
+#include "msm_iomap-ferrum.h"
 #include "msm_iomap-8226.h"
 #include "msm_iomap-8610.h"
 #include "msm_iomap-9630.h"

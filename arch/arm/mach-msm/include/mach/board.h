@@ -646,6 +646,7 @@ void apq8084_init_gpiomux(void);
 void msm9625_init_gpiomux(void);
 void mdm9630_init_gpiomux(void);
 void msm_map_msm8916_io(void);
+void msm_map_msmferrum_io(void);
 void msm_map_msm8226_io(void);
 void msm8226_init_irq(void);
 void msm8226_init_gpiomux(void);
