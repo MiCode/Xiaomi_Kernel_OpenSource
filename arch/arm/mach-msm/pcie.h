@@ -15,6 +15,7 @@
 
 #include <linux/clk.h>
 #include <linux/compiler.h>
+#include <linux/ipc_logging.h>
 #include <linux/platform_device.h>
 #include <linux/regulator/consumer.h>
 #include <linux/types.h>
@@ -36,9 +37,25 @@
 
 #define PCIE_MSI_NR_IRQS 256
 
-#define PCIE_DBG(x...) do {              \
+#define PCIE_LOG_PAGES (50)
+
+#define PCIE_DBG(dev, fmt, arg...) do {			 \
+	if ((dev) && (dev)->ipc_log)   \
+		ipc_log_string((dev)->ipc_log, "%s: " fmt, __func__, arg); \
 	if (msm_pcie_get_debug_mask())   \
-		pr_alert(x);              \
+		pr_alert("%s: " fmt, __func__, arg);              \
+	} while (0)
+
+#define PCIE_INFO(dev, fmt, arg...) do {			 \
+	if ((dev) && (dev)->ipc_log)   \
+		ipc_log_string((dev)->ipc_log, "%s: " fmt, __func__, arg); \
+	pr_info("%s: " fmt, __func__, arg);  \
+	} while (0)
+
+#define PCIE_ERR(dev, fmt, arg...) do {			 \
+	if ((dev) && (dev)->ipc_log)   \
+		ipc_log_string((dev)->ipc_log, "%s: " fmt, __func__, arg); \
+	pr_err("%s: " fmt, __func__, arg);  \
 	} while (0)
 
 #define PCIE_BUS_PRIV_DATA(pdev) \
@@ -209,6 +226,7 @@ struct msm_pcie_dev_t {
 	bool                         shadow_en;
 	struct msm_pcie_register_event *event_reg;
 	bool                         power_on;
+	void                         *ipc_log;
 };
 
 extern int msm_pcie_enumerate(u32 rc_idx);
