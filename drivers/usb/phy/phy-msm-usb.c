@@ -3382,10 +3382,12 @@ static void msm_otg_set_vbus_state(int online)
 
 	if (online) {
 		pr_debug("PMIC: BSV set\n");
-		set_bit(B_SESS_VLD, &motg->inputs);
+		if (test_and_set_bit(B_SESS_VLD, &motg->inputs) && init)
+			return;
 	} else {
 		pr_debug("PMIC: BSV clear\n");
-		clear_bit(B_SESS_VLD, &motg->inputs);
+		if (!test_and_clear_bit(B_SESS_VLD, &motg->inputs) && init)
+			return;
 	}
 
 	/* do not queue state m/c work if id is grounded */
