@@ -29,6 +29,7 @@
 #include <mach/rpm-regulator.h>
 #include <mach/msm_iomap.h>
 #include <linux/debugfs.h>
+#include <asm/unaligned.h>
 
 #include "xhci.h"
 
@@ -115,6 +116,7 @@ struct mxhci_hsic_hcd {
 	bool			xhci_remove_flag;
 	bool			phy_in_lpm_flag;
 	bool			xhci_shutdown_flag;
+	bool			port_connect;
 	int			strobe;
 	int			data;
 	int			host_ready;
@@ -976,6 +978,35 @@ void mxhci_hsic_shutdown(struct usb_hcd *hcd)
 	wake_up(&mxhci->phy_in_lpm_wq);
 	if (!mxhci->in_lpm)
 		xhci_shutdown(hcd);
+
+}
+
+int mxhci_hsic_hub_control(struct usb_hcd *hcd, u16 typeReq, u16 wValue,
+		u16 wIndex, char *buf, u16 wLength)
+{
+	struct mxhci_hsic_hcd *mxhci = hcd_to_hsic(hcd->primary_hcd);
+	int ret = 0;
+	u32 status;
+
+	ret = xhci_hub_control(hcd, typeReq, wValue, wIndex, buf, wLength);
+
+	status = get_unaligned_le32(buf);
+
+	if (typeReq == GetPortStatus) {
+		if (mxhci->port_connect) {
+			if (status & ((USB_PORT_STAT_C_CONNECTION << 16) |
+					(USB_PORT_STAT_C_ENABLE << 16))) {
+				xhci_dbg_log_event(&dbg_hsic, NULL,
+						"spurious port change", status);
+				return -ENODEV;
+			}
+		} else if (status & (USB_PORT_STAT_C_CONNECTION << 16)) {
+			xhci_dbg_log_event(&dbg_hsic, NULL,  "port connect",
+					status);
+			mxhci->port_connect = true;
+		}
+	}
+	return ret;
 }
 
 static struct hc_driver mxhci_hsic_hc_driver = {
@@ -1020,7 +1051,7 @@ static struct hc_driver mxhci_hsic_hc_driver = {
 	.get_frame_number =	xhci_get_frame,
 
 	/* Root hub support */
-	.hub_control =		xhci_hub_control,
+	.hub_control =		mxhci_hsic_hub_control,
 	.hub_status_data =	xhci_hub_status_data,
 	.bus_suspend =		mxhci_hsic_bus_suspend,
 	.bus_resume =		mxhci_hsic_bus_resume,
