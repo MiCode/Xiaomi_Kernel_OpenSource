@@ -408,6 +408,7 @@ struct ipa_ep_context {
 	bool keep_ipa_awake;
 	bool resume_on_connect;
 	struct ipa_wlan_stats wstats;
+	u32 wdi_state;
 
 	/* sys MUST be the last element of this struct */
 	struct ipa_sys_context *sys;
@@ -644,6 +645,17 @@ struct ipa_active_clients {
 
 struct ipa_controller;
 
+struct ipa_wdi_ctx {
+	bool uc_loaded;
+	bool uc_failed;
+	struct IpaHwSharedMemWdiMapping_t *ipa_sram_mmio;
+	struct mutex lock;
+	struct completion cmd_rsp;
+	u32 pending_cmd;
+	u32 last_resp;
+	struct dma_pool *dma_pool;
+};
+
 /**
  * struct ipa_context - IPA context
  * @class: pointer to the struct class
@@ -776,6 +788,7 @@ struct ipa_context {
 	u32 curr_ipa_clk_rate;
 
 	struct ipa_wlan_comm_memb wc_memb;
+	struct ipa_wdi_ctx wdi;
 };
 
 /**
@@ -996,5 +1009,7 @@ int ipa_tag_aggr_force_close(int pipe_num);
 void ipa_active_clients_lock(void);
 int ipa_active_clients_trylock(void);
 void ipa_active_clients_unlock(void);
+int ipa_wdi_init(void);
+int ipa_write_qmapid_wdi_pipe(u32 clnt_hdl, u8 qmap_id);
 
 #endif /* _IPA_I_H_ */

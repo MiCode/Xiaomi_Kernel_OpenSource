@@ -2955,6 +2955,10 @@ int ipa_write_qmap_id(struct ipa_ioc_write_qmapid *param_in)
 		result = ipa_cfg_ep_metadata(ipa_ep_idx, &meta);
 	} else if (param_in->client == IPA_CLIENT_WLAN1_PROD) {
 		ipa_ctx->ep[ipa_ep_idx].cfg.meta = meta;
+		result = ipa_write_qmapid_wdi_pipe(ipa_ep_idx, meta.qmap_id);
+		if (result)
+			IPAERR("qmap_id %d write failed on ep=%d\n",
+					meta.qmap_id, ipa_ep_idx);
 		result = 0;
 	}
 

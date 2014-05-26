@@ -733,6 +733,65 @@ struct ipa_tx_suspend_irq_data {
 typedef void (*ipa_irq_handler_t)(enum ipa_irq_type interrupt,
 				void *private_data,
 				void *interrupt_data);
+
+/**
+ * struct  ipa_wdi_ul_params - WDI_RX configuration
+ * @rdy_ring_base_pa: physical address of the base of the Rx ring (containing
+ * Rx buffers)
+ * @rdy_ring_size: size of the Rx ring in bytes
+ * @rdy_ring_rp_pa: physical address of the location through which IPA uc is
+ * expected to communicate about the Read pointer into the Rx Ring
+ */
+struct ipa_wdi_ul_params {
+	phys_addr_t rdy_ring_base_pa;
+	u32 rdy_ring_size;
+	phys_addr_t rdy_ring_rp_pa;
+};
+
+/**
+ * struct  ipa_wdi_dl_params - WDI_TX configuration
+ * @comp_ring_base_pa: physical address of the base of the Tx completion ring
+ * @comp_ring_size: size of the Tx completion ring in bytes
+ * @ce_ring_base_pa: physical address of the base of the Copy Engine Source
+ * Ring
+ * @ce_door_bell_pa: physical address of the doorbell that the IPA uC has to
+ * write into to trigger the copy engine
+ * @ce_ring_size: Copy Engine Ring size in bytes
+ * @num_tx_buffers: Number of pkt buffers allocated
+ */
+struct ipa_wdi_dl_params {
+	phys_addr_t comp_ring_base_pa;
+	u32 comp_ring_size;
+	phys_addr_t ce_ring_base_pa;
+	phys_addr_t ce_door_bell_pa;
+	u32 ce_ring_size;
+	u32 num_tx_buffers;
+};
+
+/**
+ * struct  ipa_wdi_in_params - information provided by WDI client
+ * @sys: IPA EP configuration info
+ * @ul: WDI_RX configuration info
+ * @dl: WDI_TX configuration info
+ */
+struct ipa_wdi_in_params {
+	struct ipa_sys_connect_params sys;
+	union {
+		struct ipa_wdi_ul_params ul;
+		struct ipa_wdi_dl_params dl;
+	} u;
+};
+
+/**
+ * struct  ipa_wdi_out_params - information provided to WDI client
+ * @uc_door_bell_pa: physical address of IPA uc doorbell
+ * @clnt_hdl: opaque handle assigned to client
+ */
+struct ipa_wdi_out_params {
+	phys_addr_t uc_door_bell_pa;
+	u32 clnt_hdl;
+};
+
 #ifdef CONFIG_IPA
 
 /*
@@ -887,6 +946,14 @@ void ipa_free_skb(struct ipa_rx_data *);
 int ipa_setup_sys_pipe(struct ipa_sys_connect_params *sys_in, u32 *clnt_hdl);
 
 int ipa_teardown_sys_pipe(u32 clnt_hdl);
+
+int ipa_connect_wdi_pipe(struct ipa_wdi_in_params *in,
+		struct ipa_wdi_out_params *out);
+int ipa_disconnect_wdi_pipe(u32 clnt_hdl);
+int ipa_enable_wdi_pipe(u32 clnt_hdl);
+int ipa_disable_wdi_pipe(u32 clnt_hdl);
+int ipa_resume_wdi_pipe(u32 clnt_hdl);
+int ipa_suspend_wdi_pipe(u32 clnt_hdl);
 
 /*
  * Resource manager
@@ -1422,6 +1489,37 @@ static inline int ipa_add_interrupt_handler(enum ipa_irq_type interrupt,
 }
 
 static inline int ipa_remove_interrupt_handler(enum ipa_irq_type interrupt)
+{
+	return -EPERM;
+}
+
+static inline int ipa_connect_wdi_pipe(struct ipa_wdi_in_params *in,
+		struct ipa_wdi_out_params *out)
+{
+	return -EPERM;
+}
+
+static inline int ipa_disconnect_wdi_pipe(u32 clnt_hdl)
+{
+	return -EPERM;
+}
+
+static inline int ipa_enable_wdi_pipe(u32 clnt_hdl)
+{
+	return -EPERM;
+}
+
+static inline int ipa_disable_wdi_pipe(u32 clnt_hdl)
+{
+	return -EPERM;
+}
+
+static inline int ipa_resume_wdi_pipe(u32 clnt_hdl)
+{
+	return -EPERM;
+}
+
+static inline int ipa_suspend_wdi_pipe(u32 clnt_hdl)
 {
 	return -EPERM;
 }
