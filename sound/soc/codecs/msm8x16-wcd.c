@@ -671,6 +671,7 @@ static int msm8x16_wcd_codec_enable_charge_pump(struct snd_soc_dapm_widget *w,
 		struct snd_kcontrol *kcontrol, int event)
 {
 	struct snd_soc_codec *codec = w->codec;
+	struct msm8x16_wcd_priv *msm8x16_wcd = snd_soc_codec_get_drvdata(codec);
 
 	dev_dbg(codec->dev, "%s: event = %d\n", __func__, event);
 	switch (event) {
@@ -693,10 +694,17 @@ static int msm8x16_wcd_codec_enable_charge_pump(struct snd_soc_dapm_widget *w,
 			snd_soc_update_bits(codec,
 					MSM8X16_WCD_A_DIGITAL_CDC_DIG_CLK_CTL,
 					0x80, 0x00);
-		else
+		else {
 			snd_soc_update_bits(codec,
 					MSM8X16_WCD_A_DIGITAL_CDC_DIG_CLK_CTL,
-					0xC0, 0x00);
+					0x40, 0x00);
+			if (msm8x16_wcd->rx_bias_count == 0)
+				snd_soc_update_bits(codec,
+					MSM8X16_WCD_A_DIGITAL_CDC_DIG_CLK_CTL,
+					0x80, 0x00);
+			dev_dbg(codec->dev, "%s: rx_bias_count = %d\n",
+					__func__, msm8x16_wcd->rx_bias_count);
+		}
 		break;
 	}
 	return 0;
@@ -2002,35 +2010,21 @@ static int msm8x16_wcd_codec_enable_rx_bias(struct snd_soc_dapm_widget *w,
 	switch (event) {
 	case SND_SOC_DAPM_PRE_PMU:
 		msm8x16_wcd->rx_bias_count++;
-		if (msm8x16_wcd->rx_bias_count == 1) {
-			if (!(strcmp(w->name, "SPK_RX_BIAS"))) {
-				snd_soc_update_bits(codec,
-					MSM8X16_WCD_A_ANALOG_RX_COM_BIAS_DAC,
-					0x81, 0x80);
-			} else {
-				snd_soc_update_bits(codec,
+		if (msm8x16_wcd->rx_bias_count == 1)
+			snd_soc_update_bits(codec,
 					MSM8X16_WCD_A_ANALOG_RX_COM_BIAS_DAC,
 					0x81, 0x81);
-			}
-		}
 		break;
 	case SND_SOC_DAPM_POST_PMD:
 		msm8x16_wcd->rx_bias_count--;
-		if (msm8x16_wcd->rx_bias_count == 0) {
-			if (!(strcmp(w->name, "SPK_RX_BIAS"))) {
-				snd_soc_update_bits(codec,
+		if (msm8x16_wcd->rx_bias_count == 0)
+			snd_soc_update_bits(codec,
 					MSM8X16_WCD_A_ANALOG_RX_COM_BIAS_DAC,
 					0x81, 0x00);
-			} else {
-				snd_soc_update_bits(codec,
-					MSM8X16_WCD_A_ANALOG_RX_COM_BIAS_DAC,
-					0x81, 0x00);
-			}
-		}
 		break;
 	}
-	dev_dbg(codec->dev, "%s bias_count = %d\n", __func__,
-			msm8x16_wcd->rx_bias_count);
+	dev_dbg(codec->dev, "%s rx_bias_count = %d\n",
+			__func__, msm8x16_wcd->rx_bias_count);
 	return 0;
 }
 
