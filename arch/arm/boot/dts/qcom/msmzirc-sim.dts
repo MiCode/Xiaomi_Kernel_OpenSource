@@ -27,3 +27,15 @@
 	pinctrl-0 = <&uart_console_sleep>;
 };
 
+&spi_0 {
+	ethernet-switch@0 {
+		compatible = "simtec,ks8851";
+		interrupt-parent = <&msm_gpio>;
+		reg = <0>;
+		spi-max-frequency = <2400000>;
+		interrupts = <88 0>;
+		vdd-io-supply = <&spi_eth_vreg>;
+		vdd-phy-supply = <&spi_eth_vreg>;
+		rst-gpio = <&msm_gpio 89 0>;
+	};
+};

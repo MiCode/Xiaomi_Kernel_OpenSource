@@ -19,6 +19,10 @@
 		      <237 0x10000>, <238 0x10000>;
 	interrupt-parent = <&intc>;
 
+	aliases {
+		spi0 = &spi_0;
+	};
+
 	soc: soc { };
 };
 
@@ -168,6 +172,29 @@
 
 		status = "disabled";
 	};
+
+	spi_0: spi@78b5000 { /* BLSP1 QUP1 */
+		compatible = "qcom,spi-qup-v2";
+		#address-cells = <1>;
+		#size-cells = <0>;
+		reg-names = "spi_physical", "spi_bam_physical";
+		reg = <0x78b5000 0x600>,
+		      <0x7884000 0x23000>;
+		interrupt-names = "spi_irq", "spi_bam_irq";
+		interrupts = <0 95 0>, <0 238 0>;
+		spi-max-frequency = <50000000>;
+		pinctrl-names = "default", "sleep";
+		pinctrl-0 = <&spi0_default &spi0_cs0_active>;
+		pinctrl-1 = <&spi0_sleep &spi0_cs0_sleep>;
+		clocks = <&clock_gcc 0x8caa5b4f>,
+			 <&clock_gcc 0x759a76b0>;
+		clock-names = "iface_clk", "core_clk";
+		qcom,infinite-mode = <0>;
+		qcom,use-pinctrl;
+		qcom,ver-reg-exists;
+		qcom,master-id = <86>;
+        };
+
 };
 
 #include "msmzirc-regulator.dtsi"
