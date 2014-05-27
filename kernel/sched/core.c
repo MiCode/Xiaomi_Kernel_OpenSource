@@ -3410,7 +3410,7 @@ void get_iowait_load(unsigned long *nr_waiters, unsigned long *load)
 	*load = rq->load.weight;
 }
 
-#ifdef CONFIG_SMP
+#if defined(CONFIG_SMP) && !defined(CONFIG_SCHED_HMP)
 
 /*
  * sched_exec - execve() is a valuable balancing opportunity, because at
