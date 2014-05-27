@@ -393,8 +393,10 @@ int ssbi_read(struct device *dev, u16 addr, u8 *buf, int len)
 	unsigned long flags;
 	int ret;
 
+	ret = -1;
 	spin_lock_irqsave(&ssbi->lock, flags);
-	ret = ssbi->read(ssbi, addr, buf, len);
+	if (ssbi)
+		ret = ssbi->read(ssbi, addr, buf, len);
 	spin_unlock_irqrestore(&ssbi->lock, flags);
 
 	return ret;
@@ -407,8 +409,10 @@ int ssbi_write(struct device *dev, u16 addr, u8 *buf, int len)
 	unsigned long flags;
 	int ret;
 
+	ret = -1;
 	spin_lock_irqsave(&ssbi->lock, flags);
-	ret = ssbi->write(ssbi, addr, buf, len);
+	if (ssbi)
+		ret = ssbi->write(ssbi, addr, buf, len);
 	spin_unlock_irqrestore(&ssbi->lock, flags);
 
 	return ret;
