@@ -1251,6 +1251,10 @@ int adm_open(int port_id, int path, int rate, int channel_mode, int topology,
 		if (perf_mode == ULTRA_LOW_LATENCY_PCM_MODE) {
 			open.topology_id = NULL_COPP_TOPOLOGY;
 			rate = ULL_SUPPORTED_SAMPLE_RATE;
+		} else if (perf_mode == LOW_LATENCY_PCM_MODE) {
+			if ((open.topology_id == DOLBY_ADM_COPP_TOPOLOGY_ID) ||
+			    (open.topology_id == SRS_TRUMEDIA_TOPOLOGY_ID))
+				open.topology_id = DEFAULT_COPP_TOPOLOGY;
 		}
 
 		open.dev_num_channel = channel_mode & 0x00FF;
