@@ -3254,7 +3254,7 @@ static void update_cpu_load_active(struct rq *this_rq)
 	calc_load_account_active(this_rq);
 }
 
-#ifdef CONFIG_SMP
+#if defined(CONFIG_SMP) && !defined(CONFIG_SCHED_HMP)
 
 /*
  * sched_exec - execve() is a valuable balancing opportunity, because at
