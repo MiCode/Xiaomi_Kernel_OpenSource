@@ -8,11 +8,18 @@ CCI.
 Parent device name shall be "devfreq-cpufreq".
 
 Required child device properties:
-- cpu-to-dev-map:	A list of tuples where each tuple consists of a
+- cpu-to-dev-map, or cpu-to-dev-map-<X>:
+			A list of tuples where each tuple consists of a
 			CPU frequency (KHz) and the corresponding device
 			frequency. CPU frequencies not listed in the table
 			will use the device frequency that corresponds to the
 			next rounded up CPU frequency.
+			Use "cpu-to-dev-map" if all CPUs in the system should
+			share same mapping.
+			Use cpu-to-dev-map-<cpuid> to describe different
+			mappings for different CPUs. The property should be
+			listed only for the first CPU if multiple CPUs are
+			synchronous.
 - target-dev:		Phandle to device that this mapping applies to.
 
 Example:
