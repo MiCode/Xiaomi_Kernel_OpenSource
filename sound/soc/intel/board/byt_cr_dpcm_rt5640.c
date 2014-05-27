@@ -500,7 +500,7 @@ static inline struct snd_soc_codec *byt_get_codec(struct snd_soc_card *card)
 	struct snd_soc_codec *codec;
 
 	list_for_each_entry(codec, &card->codec_dev_list, card_list) {
-		if (!strstr(codec->name, "i2c-10EC5640:00:1c")) {
+		if (!strstr(codec->name, "i2c-10EC5640:00")) {
 			pr_debug("codec was %s", codec->name);
 			continue;
 		} else {
@@ -854,7 +854,7 @@ static struct snd_soc_dai_link byt_dailink[] = {
 		.cpu_dai_name = "ssp2-port",
 		.platform_name = "sst-platform",
 		.codec_dai_name = "rt5640-aif1",
-		.codec_name = "i2c-10EC5640:00:1c",
+		.codec_name = "i2c-10EC5640:00",
 		.dai_fmt = SND_SOC_DAIFMT_DSP_B | SND_SOC_DAIFMT_IB_NF
 						| SND_SOC_DAIFMT_CBS_CFS,
 		.params = &byt_dai_params,
@@ -888,7 +888,7 @@ static struct snd_soc_dai_link byt_dailink[] = {
 		.platform_name = "sst-platform",
 		.no_pcm = 1,
 		.codec_dai_name = "rt5640-aif1",
-		.codec_name = "i2c-10EC5640:00:1c",
+		.codec_name = "i2c-10EC5640:00",
 		.be_hw_params_fixup = byt_codec_fixup,
 		.ignore_suspend = 1,
 		.ops = &byt_be_ssp2_ops,
