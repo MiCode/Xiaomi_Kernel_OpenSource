@@ -130,8 +130,11 @@ EXPORT_SYMBOL(pil_q6v5_make_proxy_votes);
 void pil_q6v5_remove_proxy_votes(struct pil_desc *pil)
 {
 	struct q6v5_data *drv = container_of(pil, struct q6v5_data, desc);
-	if (drv->vreg_pll)
+
+	if (drv->vreg_pll) {
 		regulator_disable(drv->vreg_pll);
+		regulator_set_optimum_mode(drv->vreg_pll, 0);
+	}
 	regulator_disable(drv->vreg_cx);
 	regulator_set_optimum_mode(drv->vreg_cx, 0);
 	regulator_set_voltage(drv->vreg_cx, RPM_REGULATOR_CORNER_NONE,
