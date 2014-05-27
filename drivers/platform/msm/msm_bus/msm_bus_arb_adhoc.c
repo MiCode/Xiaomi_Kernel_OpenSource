@@ -229,6 +229,10 @@ static int prune_path(struct list_head *route_list, int dest, int src)
 			kfree(del_node);
 		}
 	}
+	search_node = list_entry(route_list->next,
+				struct bus_search_type , link);
+	kfree(search_node);
+
 
 exit_prune_path:
 	return lnode_hop;
