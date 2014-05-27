@@ -236,6 +236,66 @@ void oneshot_timeline_destroy(struct oneshot_sync_timeline *timeline)
 }
 EXPORT_SYMBOL(oneshot_timeline_destroy);
 
+struct sync_fence *oneshot_fence_create(struct oneshot_sync_timeline *timeline,
+					const char *name)
+{
+	struct sync_fence *fence = NULL;
+	struct oneshot_sync_pt *pt = NULL;
+
+	pt = oneshot_pt_create(timeline);
+	if (pt == NULL)
+		return NULL;
+
+	fence = sync_fence_create(name, &pt->sync_pt);
+	if (fence == NULL) {
+		sync_pt_free(&pt->sync_pt);
+		return NULL;
+	}
+
+	pt->state->orig_fence = fence;
+
+	return fence;
+}
+EXPORT_SYMBOL(oneshot_fence_create);
+
+int oneshot_fence_signal(struct oneshot_sync_timeline *timeline,
+			struct sync_fence *fence)
+{
+	int ret = -EINVAL;
+	struct oneshot_sync_state *state = NULL;
+	bool signaled = false;
+
+	if (timeline == NULL || fence == NULL)
+		return -EINVAL;
+
+	spin_lock(&timeline->lock);
+	list_for_each_entry(state, &timeline->state_list, node) {
+		/*
+		 * If we have the point from this fence on our list,
+		 * this is is the original fence we created, so signal it.
+		 */
+		if (state->orig_fence == fence) {
+			/* ignore attempts to signal multiple times */
+			if (!state->signaled) {
+				state->signaled = true;
+				signaled = true;
+			}
+			ret = 0;
+			break;
+		}
+	}
+	spin_unlock(&timeline->lock);
+	if (ret == -EINVAL)
+		pr_debug("fence: %p not from this timeline\n", fence);
+
+	if (signaled)
+		sync_timeline_signal(&timeline->obj);
+	return ret;
+}
+EXPORT_SYMBOL(oneshot_fence_signal);
+
+#ifdef CONFIG_ONESHOT_SYNC_USER
+
 static int oneshot_open(struct inode *inode, struct file *file)
 {
 	struct oneshot_sync_timeline *timeline = NULL;
@@ -261,28 +321,6 @@ static int oneshot_release(struct inode *inode, struct file *file)
 
 	return 0;
 }
-
-struct sync_fence *oneshot_fence_create(struct oneshot_sync_timeline *timeline,
-					const char *name)
-{
-	struct sync_fence *fence = NULL;
-	struct oneshot_sync_pt *pt = NULL;
-
-	pt = oneshot_pt_create(timeline);
-	if (pt == NULL)
-		return NULL;
-
-	fence = sync_fence_create(name, &pt->sync_pt);
-	if (fence == NULL) {
-		sync_pt_free(&pt->sync_pt);
-		return NULL;
-	}
-
-	pt->state->orig_fence = fence;
-
-	return fence;
-}
-EXPORT_SYMBOL(oneshot_fence_create);
 
 static long oneshot_ioctl_fence_create(struct oneshot_sync_timeline *timeline,
 				 unsigned long arg)
@@ -324,41 +362,7 @@ out:
 	return ret;
 }
 
-int oneshot_fence_signal(struct oneshot_sync_timeline *timeline,
-			struct sync_fence *fence)
-{
-	int ret = -EINVAL;
-	struct oneshot_sync_state *state = NULL;
-	bool signaled = false;
 
-	if (timeline == NULL || fence == NULL)
-		return -EINVAL;
-
-	spin_lock(&timeline->lock);
-	list_for_each_entry(state, &timeline->state_list, node) {
-		/*
-		 * If we have the point from this fence on our list,
-		 * this is is the original fence we created, so signal it.
-		 */
-		if (state->orig_fence == fence) {
-			/* ignore attempts to signal multiple times */
-			if (!state->signaled) {
-				state->signaled = true;
-				signaled = true;
-			}
-			ret = 0;
-			break;
-		}
-	}
-	spin_unlock(&timeline->lock);
-	if (ret == -EINVAL)
-		pr_debug("fence: %p not from this timeline\n", fence);
-
-	if (signaled)
-		sync_timeline_signal(&timeline->obj);
-	return ret;
-}
-EXPORT_SYMBOL(oneshot_fence_signal);
 
 static long oneshot_ioctl_fence_signal(struct oneshot_sync_timeline *timeline,
 				 unsigned long arg)
@@ -422,5 +426,7 @@ static void __exit oneshot_remove(void)
 
 module_init(oneshot_init);
 module_exit(oneshot_remove);
+
+#endif /* CONFIG_ONESHOT_SYNC_USER */
 MODULE_LICENSE("GPL v2");
 
