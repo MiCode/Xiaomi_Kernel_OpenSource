@@ -5290,6 +5290,7 @@ static void intel_gen6_powersave_work(struct work_struct *work)
 void intel_enable_gt_powersave(struct drm_device *dev)
 {
 	struct drm_i915_private *dev_priv = dev->dev_private;
+	u32 val;
 
 	if (IS_IRONLAKE_M(dev)) {
 		mutex_lock(&dev->struct_mutex);
@@ -5298,6 +5299,16 @@ void intel_enable_gt_powersave(struct drm_device *dev)
 		intel_init_emon(dev);
 		mutex_unlock(&dev->struct_mutex);
 	} else if (IS_GEN6(dev) || IS_GEN7(dev) || IS_BROADWELL(dev)) {
+		/* Do not enable turbo in BDW C (or older) steppings */
+		if (IS_BROADWELL(dev)) {
+			pci_read_config_dword(dev->pdev, GEN8_SRID_0_2_0_PCI, &val);
+			DRM_DEBUG_DRIVER("Stepping revision ID = 0x%x\n",  val);
+			if ((val >> 16) <= 4) {
+				WARN(1, "Cannot enable Turbo! Expect low performance\n");
+				return;
+			}
+		}
+
 		/*
 		 * PCU communication is slow and this doesn't need to be
 		 * done at any specific time, so do this out of our fast path

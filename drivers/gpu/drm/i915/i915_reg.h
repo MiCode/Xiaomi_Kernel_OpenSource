@@ -116,6 +116,8 @@
 #define  GEN6_GRDOM_MEDIA		(1 << 2)
 #define  GEN6_GRDOM_BLT			(1 << 3)
 
+#define GEN8_SRID_0_2_0_PCI		0xf8
+
 #define RING_PP_DIR_BASE(ring)		((ring)->mmio_base+0x228)
 #define RING_PP_DIR_BASE_READ(ring)	((ring)->mmio_base+0x518)
 #define RING_PP_DIR_DCLV(ring)		((ring)->mmio_base+0x220)
