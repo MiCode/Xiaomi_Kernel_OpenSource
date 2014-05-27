@@ -23,9 +23,6 @@
 
 #include <linux/atomisp_gmin_platform.h>
 
-/* workround - pin defined for byt */
-#define CAMERA_0_RESET	126
-#define CAMERA_1P8_EN	128
 #ifdef CONFIG_VLV2_PLAT_CLK
 #define OSC_CAM0_CLK 0x0
 #define CLK_19P2MHz 0x1
@@ -35,7 +32,7 @@
 #define VPROG_1P8V 0x5D
 
 static int camera_vprog1_on;
-static int camera_reset;
+static struct gpio_desc *camera_reset;
 
 /* workaround - code duplication from platform_gc0339.c start -->*/
 #define VPROG_ENABLE 0x3
@@ -79,37 +76,39 @@ static int camera_set_pmic_power(enum camera_pmic_pin pin, bool flag)
 
 static int ov5693_gpio_ctrl(struct v4l2_subdev *sd, int flag)
 {
+	struct i2c_client *client = v4l2_get_subdevdata(sd);
+	struct device *dev = &client->dev;
 	int ret;
-	int pin;
 
-	/*
-	 * FIXME: WA using hardcoded GPIO value here.
-	 * The GPIO value would be provided by ACPI table, which is
-	 * not implemented currently.
-	 */
-	pin = CAMERA_0_RESET;
-	if (camera_reset < 0) {
-		ret = gpio_request(pin, "camera_0_reset");
-		if (ret) {
-			pr_err("%s: failed to request gpio(pin %d)\n",
-				__func__, pin);
-			return ret;
+	if (!camera_reset) {
+		camera_reset = gpiod_get_index(dev, "camera_0_reset", 0);
+		if (IS_ERR(camera_reset)) {
+			dev_err(dev, "%s: failed to get camera reset pin\n",
+				__func__);
+			ret = PTR_ERR(camera_reset);
+			goto err;
 		}
-		camera_reset = pin;
-		ret = gpio_direction_output(camera_reset, 1);
+
+		ret = gpiod_direction_output(camera_reset, 1);
 		if (ret) {
-			pr_err("%s: failed to set gpio(pin %d) direction\n",
-				__func__, camera_reset);
-			gpio_free(camera_reset);
-			return ret;
+			pr_err("%s: failed to set camera reset gpio direction\n",
+				__func__);
+			gpiod_put(camera_reset);
+			goto err;
 		}
 	}
+
 	if (flag)
-		gpio_set_value(camera_reset, 1);
+		gpiod_set_value(camera_reset, 1);
 	else
-		gpio_set_value(camera_reset, 0);
+		gpiod_set_value(camera_reset, 0);
 
 	return 0;
+
+err:
+	camera_reset = NULL;
+	return ret;
+
 }
 
 /*
@@ -142,20 +141,25 @@ static int ov5693_flisclk_ctrl(struct v4l2_subdev *sd, int flag)
  */
 static int ov5693_power_ctrl(struct v4l2_subdev *sd, int flag)
 {
-	int ret = 0;
-	int pin = CAMERA_1P8_EN;
+	struct gpio_desc *camera_v1p8_en;
+        struct i2c_client *client = v4l2_get_subdevdata(sd);
+        struct device *dev = &client->dev;
+        int ret;
 
-	ret = gpio_request(pin, "camera_v1p8_en");
-	if (ret) {
-		pr_err("Request camera_v1p8_en failed.\n");
-		gpio_free(pin);
-		ret = gpio_request(pin, "camera_v1p8_en");
-		if (ret) {
-			pr_err("Request camera_v1p8_en still failed.\n");
-			return ret;
-		}
+	camera_v1p8_en = gpiod_get_index(dev, "camera_v1p8_en", 1);
+	if (IS_ERR(camera_v1p8_en)) {
+		dev_err(dev,"Request camera_v1p8_en failed.\n");
+		ret = PTR_ERR(camera_v1p8_en);
+		return ret;
 	}
-	gpio_direction_output(pin, 0);
+
+        ret = gpiod_direction_output(camera_v1p8_en, 1);
+        if (ret) {
+               pr_err("%s: failed to set camera_v1p8 gpio direction\n",
+                                __func__);
+               gpiod_put(camera_v1p8_en);
+               return ret;
+        }
 
 	if (flag) {
 		if (!camera_vprog1_on) {
@@ -168,7 +172,7 @@ static int ov5693_power_ctrl(struct v4l2_subdev *sd, int flag)
 			camera_set_pmic_power(CAMERA_2P8V, true);
 			camera_set_pmic_power(CAMERA_1P8V, true);
 			/* enable 1.8v power */
-			gpio_set_value(pin, 1);
+			gpiod_set_value(camera_v1p8_en, 1);
 
 			camera_vprog1_on = 1;
 			usleep_range(10000, 11000);
@@ -178,12 +182,12 @@ static int ov5693_power_ctrl(struct v4l2_subdev *sd, int flag)
 			camera_set_pmic_power(CAMERA_2P8V, false);
 			camera_set_pmic_power(CAMERA_1P8V, false);
 			/* disable 1.8v power */
-			gpio_set_value(pin, 0);
+			gpiod_set_value(camera_v1p8_en, 0);
 			camera_vprog1_on = 0;
 		}
 	}
 
-	gpio_free(pin);
+	gpiod_put(camera_v1p8_en);
 	return 0;
 }
 
@@ -202,7 +206,7 @@ static struct camera_sensor_platform_data ov5693_sensor_platform_data = {
 
 void *ov5693_platform_data(void *info)
 {
-	camera_reset = -1;
+	camera_reset = NULL;
 	return &ov5693_sensor_platform_data;
 }
 
