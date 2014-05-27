@@ -180,8 +180,15 @@
 			linux,reserve-contiguous-region;
 			linux,reserve-region;
 			linux,remove-completely;
-			reg = <0x0 0x8ea00000 0x0 0x0b00000>;
+			reg = <0x0 0x8ea00000 0x0 0x0600000>;
 			label = "peripheral_mem";
+		};
+
+		venus_mem: venus_region@0 {
+			linux,reserve-contiguous-region;
+			linux,memory-limit = <0x90000000>;
+			reg = <0 0 0 0x0500000>;
+			label = "venus_mem";
 		};
 
 		secure_mem: secure_region@0 {
@@ -1283,6 +1290,7 @@
 		qcom,pas-id = <9>;
 		qcom,proxy-timeout-ms = <5000>;
 		qcom,firmware-name = "venus";
+		linux,contiguous-region = <&venus_mem>;
 	};
 
 	qcom,mss@4080000 {
@@ -1322,6 +1330,7 @@
 
 		/* GPIO output to mss */
 		qcom,gpio-force-stop = <&smp2pgpio_ssr_smp2p_1_out 0 0>;
+		linux,contiguous-region = <&modem_adsp_mem>;
 	};
 
 	qcom,msm-pcm {
