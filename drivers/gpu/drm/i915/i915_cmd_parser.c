@@ -141,6 +141,23 @@ static const struct drm_i915_cmd_descriptor common_cmds[] = {
 	      }},						       ),
 };
 
+static const struct drm_i915_cmd_descriptor valleyview_common_cmds[] = {
+	CMD(  MI_NOOP,                          SMI,    F,  1,      S  ),
+	CMD(  MI_USER_INTERRUPT,                SMI,    F,  1,      R  ),
+	CMD(  MI_WAIT_FOR_EVENT,                SMI,    F,  1,      M  ),
+	CMD(  MI_ARB_CHECK,                     SMI,    F,  1,      S  ),
+	CMD(  MI_REPORT_HEAD,                   SMI,    F,  1,      S  ),
+	CMD(  MI_SUSPEND_FLUSH,                 SMI,    F,  1,      S  ),
+	CMD(  MI_SEMAPHORE_MBOX,                SMI,   !F,  0xFF,   R  ),
+	CMD(  MI_STORE_DWORD_INDEX,             SMI,   !F,  0xFF,   R  ),
+	CMD(  MI_LOAD_REGISTER_IMM(1),          SMI,   !F,  0xFF,   W,
+	      .reg = { .offset = 1, .mask = 0x007FFFFC }               ),
+	CMD(  MI_STORE_REGISTER_MEM(1),         SMI,   !F,  0xFF,   W,
+	      .reg = { .offset = 1, .mask = 0x007FFFFC },	       ),
+	CMD(  MI_LOAD_REGISTER_MEM,             SMI,   !F,  0xFF,   W,
+	      .reg = { .offset = 1, .mask = 0x007FFFFC },	       ),
+};
+
 static const struct drm_i915_cmd_descriptor render_cmds[] = {
 	CMD(  MI_FLUSH,                         SMI,    F,  1,      S  ),
 	CMD(  MI_ARB_ON_OFF,                    SMI,    F,  1,      R  ),
@@ -203,6 +220,46 @@ static const struct drm_i915_cmd_descriptor render_cmds[] = {
 
 static const struct drm_i915_cmd_descriptor ivb_render_cmds[] = {
 	CMD(  MI_BATCH_BUFFER_START,            SMI,   !F,  0xFF,   R  ),
+};
+
+static const struct drm_i915_cmd_descriptor valleyview_render_cmds[] = {
+	CMD(  MI_FLUSH,                         SMI,    F,  1,      S  ),
+	CMD(  MI_ARB_ON_OFF,                    SMI,    F,  1,      R  ),
+	CMD(  MI_PREDICATE,                     SMI,    F,  1,      S  ),
+	CMD(  MI_TOPOLOGY_FILTER,               SMI,    F,  1,      S  ),
+	CMD(  MI_DISPLAY_FLIP,                  SMI,   !F,  0xFF,   R  ),
+	CMD(  MI_SET_CONTEXT,                   SMI,   !F,  0xFF,   R  ),
+	CMD(  MI_URB_CLEAR,                     SMI,   !F,  0xFF,   S  ),
+	CMD(  MI_STORE_DWORD_IMM,               SMI,   !F,  0x3F,   S  ),
+	CMD(  MI_UPDATE_GTT,                    SMI,   !F,  0xFF,   R  ),
+	CMD(  MI_CLFLUSH,                       SMI,   !F,  0x3FF,  S  ),
+	CMD(  MI_REPORT_PERF_COUNT,             SMI,   !F,  0x3F,   S  ),
+	CMD(  MI_CONDITIONAL_BATCH_BUFFER_END,  SMI,   !F,  0xFF,   S  ),
+	CMD(  MI_BATCH_BUFFER_START,            SMI,   !F,  0xFF,   R  ),
+	CMD(  GFX_OP_3DSTATE_VF_STATISTICS,     S3D,    F,  1,      S  ),
+	CMD(  PIPELINE_SELECT,                  S3D,    F,  1,      S  ),
+	CMD(  MEDIA_VFE_STATE,			S3D,   !F,  0xFFFF, B,
+	      .bits = {{
+			.offset = 2,
+			.mask = MEDIA_VFE_STATE_MMIO_ACCESS_MASK,
+			.expected = 0,
+	      }},						       ),
+	CMD(  GPGPU_OBJECT,                     S3D,   !F,  0xFF,   S  ),
+	CMD(  GPGPU_WALKER,                     S3D,   !F,  0xFF,   S  ),
+	CMD(  GFX_OP_3DSTATE_SO_DECL_LIST,      S3D,   !F,  0x1FF,  S  ),
+	CMD(  GFX_OP_PIPE_CONTROL(5),           S3D,   !F,  0xFF,   B,
+	      .bits = {{
+			.offset = 1,
+			.mask = (PIPE_CONTROL_MMIO_WRITE | PIPE_CONTROL_NOTIFY),
+			.expected = 0,
+	      },
+	      {
+			.offset = 1,
+		        .mask = PIPE_CONTROL_STORE_DATA_INDEX,
+			.expected = 0,
+			.condition_offset = 1,
+			.condition_mask = PIPE_CONTROL_POST_SYNC_OP_MASK,
+	      }},						       ),
 };
 
 static const struct drm_i915_cmd_descriptor hsw_render_cmds[] = {
@@ -287,6 +344,33 @@ static const struct drm_i915_cmd_descriptor video_cmds[] = {
 	CMD(  MFX_WAIT,                         SMFX,   F,  1,      S  ),
 };
 
+static const struct drm_i915_cmd_descriptor valleyview_video_cmds[] = {
+	CMD(  MI_ARB_ON_OFF,                    SMI,    F,  1,      R  ),
+	CMD(  MI_STORE_DWORD_IMM,               SMI,   !F,  0xFF,   S  ),
+	CMD(  MI_UPDATE_GTT,                    SMI,   !F,  0x3F,   R  ),
+	CMD(  MI_FLUSH_DW,                      SMI,   !F,  0x3F,   B,
+	      .bits = {{
+			.offset = 0,
+			.mask = MI_FLUSH_DW_NOTIFY,
+			.expected = 0,
+	      },
+	      {
+			.offset = 0,
+			.mask = MI_FLUSH_DW_STORE_INDEX,
+			.expected = 0,
+			.condition_offset = 0,
+			.condition_mask = MI_FLUSH_DW_OP_MASK,
+	      }},						       ),
+	CMD(  MI_BATCH_BUFFER_START,            SMI,   !F,  0xFF,   S  ),
+	CMD(  MI_CONDITIONAL_BATCH_BUFFER_END,  SMI,   !F,  0xFF,   S  ),
+	/*
+	 * MFX_WAIT doesn't fit the way we handle length for most commands.
+	 * It has a length field but it uses a non-standard length bias.
+	 * It is always 1 dword though, so just treat it as fixed length.
+	 */
+	CMD(  MFX_WAIT,                         SMFX,   F,  1,      S  ),
+};
+
 static const struct drm_i915_cmd_descriptor vecs_cmds[] = {
 	CMD(  MI_ARB_ON_OFF,                    SMI,    F,  1,      R  ),
 	CMD(  MI_STORE_DWORD_IMM,               SMI,   !F,  0xFF,   B,
@@ -323,6 +407,28 @@ static const struct drm_i915_cmd_descriptor vecs_cmds[] = {
 			.mask = MI_GLOBAL_GTT,
 			.expected = 0,
 	      }},						       ),
+};
+
+static const struct drm_i915_cmd_descriptor valleyview_blt_cmds[] = {
+	CMD(  MI_DISPLAY_FLIP,                  SMI,   !F,  0xFF,   R  ),
+	CMD(  MI_STORE_DWORD_IMM,               SMI,   !F,  0x3FF,  S  ),
+	CMD(  MI_UPDATE_GTT,                    SMI,   !F,  0x3F,   R  ),
+	CMD(  MI_FLUSH_DW,                      SMI,   !F,  0x3F,   B,
+	      .bits = {{
+			.offset = 0,
+			.mask = MI_FLUSH_DW_NOTIFY,
+			.expected = 0,
+	      },
+	      {
+			.offset = 0,
+			.mask = MI_FLUSH_DW_STORE_INDEX,
+			.expected = 0,
+			.condition_offset = 0,
+			.condition_mask = MI_FLUSH_DW_OP_MASK,
+	      }},						       ),
+	CMD(  MI_BATCH_BUFFER_START,            SMI,   !F,  0xFF,   R  ),
+	CMD(  COLOR_BLT,                        S2D,   !F,  0x3F,   S  ),
+	CMD(  SRC_COPY_BLT,                     S2D,   !F,  0x3F,   S  ),
 };
 
 static const struct drm_i915_cmd_descriptor blt_cmds[] = {
@@ -382,6 +488,11 @@ static const struct drm_i915_cmd_table gen7_render_cmds[] = {
 	{ ivb_render_cmds, ARRAY_SIZE(ivb_render_cmds) },
 };
 
+static const struct drm_i915_cmd_table vlv_render_ring_cmds[] = {
+	{ valleyview_common_cmds, ARRAY_SIZE(valleyview_common_cmds) },
+	{ valleyview_render_cmds, ARRAY_SIZE(valleyview_render_cmds) },
+};
+
 static const struct drm_i915_cmd_table hsw_render_ring_cmds[] = {
 	{ common_cmds, ARRAY_SIZE(common_cmds) },
 	{ render_cmds, ARRAY_SIZE(render_cmds) },
@@ -393,6 +504,11 @@ static const struct drm_i915_cmd_table gen7_video_cmds[] = {
 	{ video_cmds, ARRAY_SIZE(video_cmds) },
 };
 
+static const struct drm_i915_cmd_table vlv_video_cmds[] = {
+	{ valleyview_common_cmds, ARRAY_SIZE(valleyview_common_cmds) },
+	{ valleyview_video_cmds, ARRAY_SIZE(valleyview_video_cmds) },
+};
+
 static const struct drm_i915_cmd_table hsw_vebox_cmds[] = {
 	{ common_cmds, ARRAY_SIZE(common_cmds) },
 	{ vecs_cmds, ARRAY_SIZE(vecs_cmds) },
@@ -401,6 +517,11 @@ static const struct drm_i915_cmd_table hsw_vebox_cmds[] = {
 static const struct drm_i915_cmd_table gen7_blt_cmds[] = {
 	{ common_cmds, ARRAY_SIZE(common_cmds) },
 	{ blt_cmds, ARRAY_SIZE(blt_cmds) },
+};
+
+static const struct drm_i915_cmd_table vlv_blt_cmds[] = {
+	{ valleyview_common_cmds, ARRAY_SIZE(valleyview_common_cmds) },
+	{ valleyview_blt_cmds, ARRAY_SIZE(valleyview_blt_cmds) },
 };
 
 static const struct drm_i915_cmd_table hsw_blt_ring_cmds[] = {
@@ -671,6 +792,9 @@ int i915_cmd_parser_init_ring(struct intel_engine_cs *ring)
 			cmd_tables = hsw_render_ring_cmds;
 			cmd_table_count =
 				ARRAY_SIZE(hsw_render_ring_cmds);
+		} else if (IS_VALLEYVIEW(ring->dev)) {
+			cmd_tables = vlv_render_ring_cmds;
+			cmd_table_count = ARRAY_SIZE(vlv_render_ring_cmds);
 		} else {
 			cmd_tables = gen7_render_cmds;
 			cmd_table_count = ARRAY_SIZE(gen7_render_cmds);
@@ -690,14 +814,23 @@ int i915_cmd_parser_init_ring(struct intel_engine_cs *ring)
 		ring->get_cmd_length_mask = gen7_render_get_cmd_length_mask;
 		break;
 	case VCS:
-		cmd_tables = gen7_video_cmds;
-		cmd_table_count = ARRAY_SIZE(gen7_video_cmds);
+		if (IS_VALLEYVIEW(ring->dev)) {
+			cmd_tables = vlv_video_cmds;
+			cmd_table_count = ARRAY_SIZE(vlv_video_cmds);
+		} else {
+			cmd_tables = gen7_video_cmds;
+			cmd_table_count = ARRAY_SIZE(gen7_video_cmds);
+		}
+
 		ring->get_cmd_length_mask = gen7_bsd_get_cmd_length_mask;
 		break;
 	case BCS:
 		if (IS_HASWELL(ring->dev)) {
 			cmd_tables = hsw_blt_ring_cmds;
 			cmd_table_count = ARRAY_SIZE(hsw_blt_ring_cmds);
+		} else if (IS_VALLEYVIEW(ring->dev)) {
+			cmd_tables = vlv_blt_cmds;
+			cmd_table_count = ARRAY_SIZE(vlv_blt_cmds);
 		} else {
 			cmd_tables = gen7_blt_cmds;
 			cmd_table_count = ARRAY_SIZE(gen7_blt_cmds);
@@ -883,14 +1016,6 @@ finish:
 bool i915_needs_cmd_parser(struct intel_engine_cs *ring)
 {
 	if (!ring->needs_cmd_parser)
-		return false;
-
-	/*
-	 * XXX: VLV is Gen7 and therefore has cmd_tables, but has PPGTT
-	 * disabled. That will cause all of the parser's PPGTT checks to
-	 * fail. For now, disable parsing when PPGTT is off.
-	 */
-	if (USES_PPGTT(ring->dev))
 		return false;
 
 	return (i915.enable_cmd_parser == 1);
