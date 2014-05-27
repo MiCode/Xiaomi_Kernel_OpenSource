@@ -3131,12 +3131,89 @@ static int msm8x16_wcd_codec_remove(struct snd_soc_codec *codec)
 	return 0;
 }
 
+int msm8x16_wcd_suspend(struct snd_soc_codec *codec)
+{
+	struct msm8916_asoc_mach_data *pdata = NULL;
+
+	pdata = snd_soc_card_get_drvdata(codec->card);
+	pr_debug("%s: mclk cnt = %d, dis_work_mclk = %d\n",
+			__func__, atomic_read(&pdata->mclk_rsc_ref),
+			atomic_read(&pdata->dis_work_mclk));
+	pr_debug("%s: mclk_act  = %d\n", __func__,
+			atomic_read(&pdata->mclk_act));
+	mutex_lock(&pdata->cdc_mclk_mutex);
+	if ((atomic_read(&pdata->dis_work_mclk) == true) ||
+		(atomic_read(&pdata->mclk_rsc_ref) > 0)) {
+		pdata->digital_cdc_clk.clk_val = 0;
+		afe_set_digital_codec_core_clock(
+					AFE_PORT_ID_PRIMARY_MI2S_RX,
+					&pdata->digital_cdc_clk);
+		/*
+		 * set mclk activity to resource as
+		 * it will get updated accordingly going further in this
+		 * function.
+		 */
+		atomic_set(&pdata->mclk_act, MCLK_SUS_RSC);
+		if (atomic_read(&pdata->dis_work_mclk) == true) {
+			cancel_delayed_work_sync(
+					&pdata->enable_mclk_work);
+			atomic_set(&pdata->mclk_act, MCLK_SUS_DIS);
+			atomic_set(&pdata->dis_work_mclk, false);
+		}
+	} else
+		/*
+		 * mark no activity on mclk in this suspend
+		 */
+		atomic_set(&pdata->mclk_act, MCLK_SUS_NO_ACT);
+	mutex_unlock(&pdata->cdc_mclk_mutex);
+	return 0;
+}
+
+int msm8x16_wcd_resume(struct snd_soc_codec *codec)
+{
+	struct msm8916_asoc_mach_data *pdata = NULL;
+
+	pdata = snd_soc_card_get_drvdata(codec->card);
+	pr_debug("%s: mclk cnt = %d, dis_work_mclk = %d\n",
+			__func__, atomic_read(&pdata->mclk_rsc_ref),
+			atomic_read(&pdata->dis_work_mclk));
+	pr_debug("%s: mclk_act = %d\n", __func__,
+			atomic_read(&pdata->mclk_act));
+	if (atomic_read(&pdata->mclk_act) == MCLK_SUS_NO_ACT)
+		/*
+		 * no activity in suspend just return
+		 */
+		return 0;
+	mutex_lock(&pdata->cdc_mclk_mutex);
+	if ((atomic_read(&pdata->dis_work_mclk) == false) ||
+		(atomic_read(&pdata->mclk_rsc_ref) > 0)) {
+		pdata->digital_cdc_clk.clk_val = pdata->mclk_freq;
+		afe_set_digital_codec_core_clock(
+					AFE_PORT_ID_PRIMARY_MI2S_RX,
+					&pdata->digital_cdc_clk);
+		if (atomic_read(&pdata->mclk_act) == MCLK_SUS_DIS) {
+			/*
+			 * MCLK activity marked as the disabled during suspend
+			 * this indicated MCLK was enabled to read and write the
+			 * AHB bus.
+			 */
+			atomic_set(&pdata->dis_work_mclk, true);
+			schedule_delayed_work(&pdata->enable_mclk_work, 50);
+		}
+	}
+	mutex_unlock(&pdata->cdc_mclk_mutex);
+	return 0;
+}
+
 static struct snd_soc_codec_driver soc_codec_dev_msm8x16_wcd = {
 	.probe	= msm8x16_wcd_codec_probe,
 	.remove	= msm8x16_wcd_codec_remove,
 
 	.read = msm8x16_wcd_read,
 	.write = msm8x16_wcd_write,
+
+	.suspend = msm8x16_wcd_suspend,
+	.resume = msm8x16_wcd_resume,
 
 	.readable_register = msm8x16_wcd_readable,
 	.volatile_register = msm8x16_wcd_volatile,

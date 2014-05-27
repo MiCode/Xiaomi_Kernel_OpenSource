@@ -39,6 +39,13 @@
 	(((reg >= 0x200) && (reg <= 0x4FF)) ? 1 : 0)
 #define MSM8X16_WCD_IS_TOMBAK_REG(reg) \
 	(((reg >= 0x000) && (reg <= 0x1FF)) ? 1 : 0)
+/*
+ * MCLK activity indicators during suspend and resume call
+ */
+#define MCLK_SUS_DIS	1
+#define MCLK_SUS_RSC	2
+#define MCLK_SUS_NO_ACT	3
+
 extern const u8 msm8x16_wcd_reg_readable[MSM8X16_WCD_CACHE_SIZE];
 extern const u8 msm8x16_wcd_reg_readonly[MSM8X16_WCD_CACHE_SIZE];
 extern const u8 msm8x16_wcd_reset_reg_defaults[MSM8X16_WCD_CACHE_SIZE];
@@ -124,6 +131,7 @@ struct msm8916_asoc_mach_data {
 	int mclk_freq;
 	atomic_t mclk_rsc_ref;
 	atomic_t dis_work_mclk;
+	atomic_t mclk_act;
 	struct mutex cdc_mclk_mutex;
 	struct delayed_work enable_mclk_work;
 	struct afe_digital_clk_cfg digital_cdc_clk;
