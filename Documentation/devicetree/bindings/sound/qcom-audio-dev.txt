@@ -526,6 +526,8 @@ Required properties:
 - qcom,msm-ext-pa : This property is used to inform machine driver about
   the connection of external PA over secondary MI2S interface, val 0 external
   PA is not there, Val 1 external PA is connected.
+- qcom,msm-mclk-freq : This property is used to inform machine driver about
+mclk frequency needs to be configured for internal and external PA.
 - qcom,msm-mbhc-hphl-swh: This property is used to distinguish headset HPHL
 switch type on target typically the switch type will be normally open or
 normally close, value for this property 0 for normally close and 1 for
@@ -563,6 +565,7 @@ Example:
 		qcom,msm-snd-card-id = <0>;
 		qcom,msm-codec-type = "internal";
 		qcom,msm-ext-pa = <0>;
+		qcom,msm-mclk-freq = <12288000>;
 		qcom,msm-mbhc-hphl-swh = <0>;
 		qcom,msm-mbhc-gnd-swh = <0>;
 		qcom,msm-hs-micbias-type = "internal";

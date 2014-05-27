@@ -121,6 +121,7 @@ struct msm8916_asoc_mach_data {
 	int codec_type;
 	int ext_pa;
 	int us_euro_gpio;
+	int mclk_freq;
 	atomic_t mclk_rsc_ref;
 	atomic_t dis_work_mclk;
 	struct mutex cdc_mclk_mutex;
