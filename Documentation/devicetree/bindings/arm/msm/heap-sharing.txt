@@ -1,0 +1,18 @@
+* Memory Share Driver (MEMSHARE)
+
+The Memshare driver implements a Kernel QMI service on the
+LA-APSS, which is responsible for providing contiguous physical
+memory to MPSS for use cases when the modem requires additional
+memory (e.g. GPS).
+
+Required properties for Memshare
+
+-Root Node-
+
+- compatible:	Must be "qcom,memshare"
+
+Example:
+
+qcom,memshare {
+	compatible = "qcom,memshare";
+};
