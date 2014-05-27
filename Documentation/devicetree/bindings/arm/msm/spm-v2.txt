@@ -27,7 +27,7 @@ Required properties
 - qcom,saw2-spm-dly: Provides the values for the SPM delay command in the SPM
 	sequence
 - qcom,saw2-spm-ctl: The SPM control register
-- qcom,saw2-vctl-timeout-us: The timeout value to wait for voltage to change
+- qcom,vctl-timeout-us: The timeout value in us to wait for voltage to change
 	after sending the voltage command to the PMIC
 - qcom,name: The name with which a SPM device is identified by the power
 management code.
