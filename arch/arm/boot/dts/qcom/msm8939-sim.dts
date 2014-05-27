@@ -24,6 +24,7 @@
 &usb_otg {
 	interrupts = <0 134 0>;
 	interrupt-names = "core_irq";
+	qcom,hsusb-otg-otg-control = <1>;
 };
 
 &blsp1_uart2 {
