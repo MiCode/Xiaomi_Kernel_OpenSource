@@ -108,19 +108,9 @@ int cpubw_target(struct device *dev, unsigned long *freq, u32 flags)
 	return set_bw(*freq, gov_ab);
 }
 
-static struct devfreq_governor_data gov_data[] = {
-	{ .name = "performance" },
-	{ .name = "powersave" },
-	{ .name = "userspace" },
-	{ .name = "cpufreq" },
-	{ .name = "cpubw_hwmon", .data = &gov_ab },
-};
-
 struct devfreq_dev_profile cpubw_profile = {
 	.polling_ms = 50,
 	.target = cpubw_target,
-	.governor_data = gov_data,
-	.num_governor_data = ARRAY_SIZE(gov_data),
 };
 
 #define PROP_PORTS "qcom,cpu-mem-ports"
@@ -188,7 +178,7 @@ static int __init cpubw_probe(struct platform_device *pdev)
 		return -ENODEV;
 	}
 
-	df = devfreq_add_device(dev, &cpubw_profile, "cpufreq", NULL);
+	df = devfreq_add_device(dev, &cpubw_profile, "cpufreq", &gov_ab);
 	if (IS_ERR(df)) {
 		msm_bus_scale_unregister_client(bus_client);
 		return PTR_ERR(df);
