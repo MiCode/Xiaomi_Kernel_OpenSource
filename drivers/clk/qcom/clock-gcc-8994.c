@@ -85,6 +85,7 @@ static DEFINE_VDD_REGULATORS(vdd_dig, VDD_DIG_NUM, 1, vdd_corner, NULL);
 #define USB_HS_SYSTEM_CMD_RCGR                           (0x0490)
 #define USB2_HS_PHY_BCR                                  (0x04A8)
 #define USB2_HS_PHY_SLEEP_CBCR                           (0x04AC)
+#define QUSB2_PHY_BCR                                    (0x04B8)
 #define USB_PHY_CFG_AHB2PHY_CBCR                         (0x1A84)
 #define SDCC1_APPS_CMD_RCGR                              (0x04D0)
 #define SDCC1_APPS_CBCR                                  (0x04C4)
@@ -1356,6 +1357,16 @@ static struct rcg_clk usb_hs_system_clk_src = {
 		VDD_DIG_FMAX_MAP3(LOWER, 19200000, LOW, 60000000,
 				  NOMINAL, 75000000),
 		CLK_INIT(usb_hs_system_clk_src.c),
+	},
+};
+
+static struct reset_clk gcc_qusb2_phy_reset = {
+	.reset_reg = QUSB2_PHY_BCR,
+	.base = &virt_base,
+	.c = {
+		.dbg_name = "gcc_qusb2_phy_reset",
+		.ops = &clk_ops_rst,
+		CLK_INIT(gcc_qusb2_phy_reset.c),
 	},
 };
 
@@ -2678,6 +2689,7 @@ static struct clk_lookup msm_clocks_gcc_8994[] = {
 	CLK_LIST(usb30_mock_utmi_clk_src),
 	CLK_LIST(usb3_phy_aux_clk_src),
 	CLK_LIST(usb_hs_system_clk_src),
+	CLK_LIST(gcc_qusb2_phy_reset),
 	CLK_LIST(gcc_usb3_phy_reset),
 	CLK_LIST(gcc_usb3phy_phy_reset),
 	CLK_LIST(gpll0_out_mmsscc),
