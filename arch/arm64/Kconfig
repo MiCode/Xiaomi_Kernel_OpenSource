@@ -50,6 +50,7 @@ config ARM64
 	select RTC_LIB
 	select SPARSE_IRQ
 	select SYSCTL_EXCEPTION_TRACE
+	select MSM_JTAGV8 if CORESIGHT_ETMV4
 	help
 	  ARM 64-bit (AArch64) Linux support.
 
