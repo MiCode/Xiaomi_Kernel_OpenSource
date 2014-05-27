@@ -211,8 +211,10 @@ struct msm_fb_data_type {
 	/* for non-blocking */
 	struct task_struct *disp_thread;
 	atomic_t commits_pending;
+	atomic_t kickoff_pending;
 	wait_queue_head_t commit_wait_q;
 	wait_queue_head_t idle_wait_q;
+	wait_queue_head_t kickoff_wait_q;
 	bool shutdown_pending;
 
 	struct msm_fb_splash_info splash_info;
@@ -228,6 +230,7 @@ struct msm_fb_data_type {
 	struct list_head proc_list;
 	struct ion_client *fb_ion_client;
 	struct ion_handle *fb_ion_handle;
+	u32 wait_for_kickoff;
 };
 
 static inline void mdss_fb_update_notify_update(struct msm_fb_data_type *mfd)
