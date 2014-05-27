@@ -26,6 +26,8 @@
 #include "msm_bus_adhoc.h"
 
 #define DEFAULT_QOS_FREQ	19200
+#define DEFAULT_UTIL_FACT	100
+#define DEFAULT_VRAIL_COMP	100
 
 static int get_qos_mode(struct platform_device *pdev,
 			struct device_node *node, const char *qos_mode)
@@ -143,6 +145,22 @@ static struct msm_bus_fab_device_type *get_fab_device_info(
 	if (ret) {
 		dev_dbg(&pdev->dev, "Bus qos freq is missing\n");
 		fab_dev->qos_freq = DEFAULT_QOS_FREQ;
+	}
+
+	ret = of_property_read_u32(dev_node, "qcom,util-fact",
+						&fab_dev->util_fact);
+	if (ret) {
+		dev_info(&pdev->dev, "Util-fact is missing, default to %d\n",
+				DEFAULT_UTIL_FACT);
+		fab_dev->util_fact = DEFAULT_UTIL_FACT;
+	}
+
+	ret = of_property_read_u32(dev_node, "qcom,vrail-comp",
+						&fab_dev->vrail_comp);
+	if (ret) {
+		dev_info(&pdev->dev, "Vrail-comp is missing, default to %d\n",
+				DEFAULT_VRAIL_COMP);
+		fab_dev->vrail_comp = DEFAULT_VRAIL_COMP;
 	}
 
 	return fab_dev;

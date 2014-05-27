@@ -51,6 +51,8 @@ struct msm_bus_fab_device_type {
 	uint32_t base_offset;
 	uint32_t qos_freq;
 	uint32_t qos_off;
+	uint32_t util_fact;
+	uint32_t vrail_comp;
 	struct msm_bus_noc_ops noc_ops;
 	enum msm_bus_hw_sel bus_type;
 	bool bypass_qos_prg;
