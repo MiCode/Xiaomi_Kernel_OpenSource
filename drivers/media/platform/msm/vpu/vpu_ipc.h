@@ -219,7 +219,8 @@ enum vpu_ipc_flush {
  *		as part of acknowledgment message
  * sid:		unique ID associated with a session (only valid for session
  *		event)
- * port_id:	ID of the port (input/output) that command applies to
+ * port_id:	ID of the port (input/output) that command applies to (value
+ *		from enum vpu_ipc_channel_port)
  * flags:	bit 0:  indication of need for acknowledgment from FW
  *		bit 1-31: reserved
  */
@@ -238,7 +239,8 @@ struct vpu_ipc_cmd_header_packet {
  * msg_id:	session or System message type
  * status:	return status from FW
  * trans_id:	see vpu_ipc_cmd_header_packet.trans_id
- * port_id:	ID of the port (input/output) that message applies to
+ * port_id:	ID of the port (input/output) that command applies to (value
+ *		from enum vpu_ipc_channel_port)
  * sid:		unique ID associated with a session (only valid for session
  *		event)
  */

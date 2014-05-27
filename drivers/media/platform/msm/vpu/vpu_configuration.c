@@ -1229,7 +1229,8 @@ static int __configure_input_port(struct vpu_dev_session *session)
 
 	translate_input_format_to_hfi(&session->port_info[INPUT_PORT],
 			&in_param);
-	ret = vpu_hw_session_s_input_params(session->id, &in_param);
+	ret = vpu_hw_session_s_input_params(session->id,
+			translate_port_id(INPUT_PORT), &in_param);
 	if (ret) {
 		pr_err("Failed to set input port config\n");
 		return ret;
@@ -1253,31 +1254,32 @@ static int __configure_input_port(struct vpu_dev_session *session)
 	return 0;
 }
 
-static int __configure_output_port(struct vpu_dev_session *session)
+static int __configure_output_port(struct vpu_dev_session *session, int port)
 {
 	struct vpu_prop_session_output out_param;
 	int ret = 0;
 
-	translate_output_format_to_hfi(&session->port_info[OUTPUT_PORT],
+	translate_output_format_to_hfi(&session->port_info[port],
 			&out_param);
-	ret = vpu_hw_session_s_output_params(session->id, &out_param);
+	ret = vpu_hw_session_s_output_params(session->id,
+			translate_port_id(port), &out_param);
 	if (ret) {
-		pr_err("Failed to set output port config\n");
+		pr_err("Failed to set output port %d config\n", port);
 		return ret;
 	}
 
-	if (session->port_info[OUTPUT_PORT].destination
+	if (session->port_info[port].destination
 					!= VPU_OUTPUT_TYPE_HOST) {
 		struct vpu_data_pkt out_dest_ch;
 		memset(&out_dest_ch, 0, sizeof(out_dest_ch));
 		out_dest_ch.payload[0] = translate_output_destination_ch(
-				session->port_info[OUTPUT_PORT].destination);
+				session->port_info[port].destination);
 		out_dest_ch.size = sizeof(out_dest_ch);
 		ret = vpu_hw_session_s_property(session->id,
 				VPU_PROP_SESSION_SINK_CONFIG,
 				&out_dest_ch, sizeof(out_dest_ch));
 		if (ret) {
-			pr_err("Failed to set port 1 dest ch\n");
+			pr_err("Failed to set port %d dest ch\n", port);
 			return ret;
 		}
 	}
@@ -1315,9 +1317,15 @@ int commit_initial_config(struct vpu_dev_session *session)
 	if (ret)
 		return ret;
 
-	ret = __configure_output_port(session);
+	ret = __configure_output_port(session, OUTPUT_PORT);
 	if (ret)
 		return ret;
+
+	if (session->dual_output) {
+		ret = __configure_output_port(session, OUTPUT_PORT2);
+		if (ret)
+			return ret;
+	}
 
 	ret = __do_commit(session, CH_COMMIT_AT_ONCE, 1);
 	if (ret)
@@ -1342,8 +1350,8 @@ int commit_port_config(struct vpu_dev_session *session,	int port, int new_load)
 		if (ret)
 			return ret;
 
-	} else if (port == OUTPUT_PORT) {
-		ret = __configure_output_port(session);
+	} else if (port == OUTPUT_PORT || port == OUTPUT_PORT2) {
+		ret = __configure_output_port(session, port);
 		if (ret)
 			return ret;
 	} else {

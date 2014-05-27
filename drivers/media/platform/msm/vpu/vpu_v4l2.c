@@ -87,15 +87,21 @@ static unsigned int v4l2_vpu_poll(struct file *file,
 		return mask | POLLERR;
 
 	/* poll input queue */
-	if (req_events & (POLLOUT | POLLWRNORM)) {
+	if ((req_events & (POLLOUT | POLLWRNORM)) && !client->uses_output2) {
 		poll_wait(file, &session->vbqueue[INPUT_PORT].done_wq, wait);
 		mask |= __poll_vb2_queue(client, INPUT_PORT);
 	}
 
-	/* poll output queue */
-	if (req_events & (POLLIN | POLLRDNORM)) {
+	/* poll first output queue */
+	if ((req_events & (POLLIN | POLLRDNORM)) && !client->uses_output2) {
 		poll_wait(file, &session->vbqueue[OUTPUT_PORT].done_wq, wait);
 		mask |= __poll_vb2_queue(client, OUTPUT_PORT);
+	}
+
+	/* poll second output queue */
+	if ((req_events & (POLLIN | POLLRDNORM)) && client->uses_output2) {
+		poll_wait(file, &session->vbqueue[OUTPUT_PORT2].done_wq, wait);
+		mask |= __poll_vb2_queue(client, OUTPUT_PORT2);
 	}
 
 	return mask;
@@ -129,6 +135,11 @@ static long v4l2_vpu_private_ioctls(struct file *file, void *fh,
 		pr_debug("Received ioctl VPU_ATTACH_TO_SESSION\n");
 		session_num = *((unsigned *)arg);
 		ret = vpu_attach_client(client, session_num);
+		break;
+
+	case VPU_CREATE_OUTPUT2:
+		pr_debug("Received ioctl VPU_CREATE_OUTPUT2\n");
+		ret = vpu_dual_output(client);
 		break;
 
 	case VPU_COMMIT_CONFIGURATION:
@@ -215,7 +226,7 @@ static int v4l2_vpu_s_fmt(struct file *file, void *fh, struct v4l2_format *f)
 {
 	struct vpu_client *client = get_vpu_client(file->private_data);
 	pr_debug("Received ioctl VIDIOC_S_FMT on port %d\n",
-			get_port_number(f->type));
+			get_port_number(client, f->type));
 
 	return vpu_set_fmt(client, f);
 }
@@ -224,7 +235,7 @@ static int v4l2_vpu_try_fmt(struct file *file, void *fh, struct v4l2_format *f)
 {
 	struct vpu_client *client = get_vpu_client(file->private_data);
 	pr_debug("Received ioctl VIDIOC_TRY_FMT on port %d\n",
-				get_port_number(f->type));
+			get_port_number(client, f->type));
 
 	return vpu_try_fmt(client, f);
 }
@@ -241,7 +252,7 @@ static int v4l2_vpu_s_crop(struct file *file, void *fh,
 {
 	struct vpu_client *client = get_vpu_client(file->private_data);
 	pr_debug("Received ioctl VIDIOC_S_CROP on port %d\n",
-			get_port_number(c->type));
+			get_port_number(client, c->type));
 
 	return vpu_set_region_of_intereset(client, c);
 }
@@ -286,14 +297,13 @@ static int v4l2_vpu_reqbufs(struct file *file, void *fh,
 	if (!session)
 		return -EPERM;
 
-	port = get_port_number(rb->type);
+	port = get_port_number(client, rb->type);
 	if (port < 0) {
 		pr_err("Invalid type %d\n", rb->type);
 		return -EINVAL;
 	}
 
-	pr_debug("Received ioctl VIDIOC_REQBUFS on port %d\n",
-			get_port_number(rb->type));
+	pr_debug("Received ioctl VIDIOC_REQBUFS on port %d\n", port);
 
 	port_ops = &client->session->port_info[port].port_ops;
 	if (port_ops->set_buf_num)
@@ -314,14 +324,13 @@ static int v4l2_vpu_qbuf(struct file *file, void *fh, struct v4l2_buffer *b)
 	if (!session)
 		return -EPERM;
 
-	port = get_port_number(b->type);
+	port = get_port_number(client, b->type);
 	if (port < 0) {
 		pr_err("Invalid type %d\n", b->type);
 		return -EINVAL;
 	}
 
-	pr_debug("Received ioctl VIDIOC_QBUF on port %d\n",
-			get_port_number(b->type));
+	pr_debug("Received ioctl VIDIOC_QBUF on port %d\n", port);
 
 	port_ops = &client->session->port_info[port].port_ops;
 	if (port_ops->set_buf)
@@ -334,7 +343,7 @@ static int v4l2_vpu_dqbuf(struct file *file, void *fh, struct v4l2_buffer *b)
 {
 	struct vpu_client *client = get_vpu_client(file->private_data);
 	pr_debug("Received ioctl VIDIOC_DQBUF on port %d\n",
-			get_port_number(b->type));
+			get_port_number(client, b->type));
 
 	return vpu_dqbuf(client, b, file->f_flags & O_NONBLOCK);
 }
@@ -343,7 +352,7 @@ static int v4l2_vpu_streamon(struct file *file, void *fh, enum v4l2_buf_type i)
 {
 	struct vpu_client *client = get_vpu_client(file->private_data);
 	pr_debug("Received ioctl VIDIOC_STREAMON on port %d\n",
-			get_port_number(i));
+			get_port_number(client, i));
 
 	return vpu_streamon(client, i);
 }
@@ -352,7 +361,7 @@ static int v4l2_vpu_streamoff(struct file *file, void *fh, enum v4l2_buf_type i)
 {
 	struct vpu_client *client = get_vpu_client(file->private_data);
 	pr_debug("Received ioctl VIDIOC_STREAMOFF on port %d\n",
-			get_port_number(i));
+			get_port_number(client, i));
 
 	return vpu_streamoff(client, i);
 }
@@ -469,7 +478,7 @@ static void deinit_vpu_sessions(struct vpu_dev_core *core)
 
 static int init_vpu_sessions(struct vpu_dev_core *core)
 {
-	int ret = 0, i;
+	int ret = 0, i, j;
 	struct vpu_dev_session *session = 0;
 
 	for (i = 0; i < VPU_NUM_SESSIONS; i++) {
@@ -484,17 +493,23 @@ static int init_vpu_sessions(struct vpu_dev_core *core)
 		mutex_init(&session->lock);
 		INIT_LIST_HEAD(&session->clients_list);
 
-		mutex_init(&session->que_lock[INPUT_PORT]);
-		mutex_init(&session->que_lock[OUTPUT_PORT]);
-		INIT_LIST_HEAD(&session->pending_list[INPUT_PORT]);
-		INIT_LIST_HEAD(&session->pending_list[OUTPUT_PORT]);
+		for (j = 0; j < NUM_VPU_PORTS; j++) {
 
-		ret = vpu_vb2_queue_init(&session->vbqueue[INPUT_PORT],
-				V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE, session);
-		ret |= vpu_vb2_queue_init(&session->vbqueue[OUTPUT_PORT],
-				V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE, session);
-		if (ret)
-			goto err_free_mem;
+			mutex_init(&session->que_lock[j]);
+			INIT_LIST_HEAD(&session->pending_list[j]);
+
+			if (j == INPUT_PORT)
+				ret = vpu_vb2_queue_init(&session->vbqueue[j],
+					V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE,
+					session);
+			else
+				ret = vpu_vb2_queue_init(&session->vbqueue[j],
+					V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE,
+					session);
+
+			if (ret)
+				goto err_free_mem;
+		}
 
 		core->sessions[i] = session;
 	}

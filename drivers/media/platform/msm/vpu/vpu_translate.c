@@ -23,6 +23,13 @@
 /*
  * Translations between API parameters and HFI configuration parameters *
  */
+u32 translate_port_id(u32 port)
+{
+	if (port >= INPUT_PORT && port <= OUTPUT_PORT2)
+		return port + 1;
+	else
+		return VPU_IPC_PORT_UNUSED;
+}
 
 static void __trans_resolution_to_hfi(const struct v4l2_pix_format_mplane *fmt,
 		struct frame_resolution *resolution)

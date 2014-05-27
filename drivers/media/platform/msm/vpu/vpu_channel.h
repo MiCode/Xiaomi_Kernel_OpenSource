@@ -205,9 +205,9 @@ int vpu_hw_session_resume(u32 sid);
  * Set input/output port configuration. Channel *does not* commit new settings.
  * return 0 on success, -ve value on failure
  */
-int vpu_hw_session_s_input_params(u32 sid,
+int vpu_hw_session_s_input_params(u32 sid, u32 port_id,
 		const struct vpu_prop_session_input *inp);
-int vpu_hw_session_s_output_params(u32 sid,
+int vpu_hw_session_s_output_params(u32 sid, u32 port_id,
 		const struct vpu_prop_session_output *outp);
 
 /*
@@ -215,9 +215,9 @@ int vpu_hw_session_s_output_params(u32 sid,
  * Channel copies current hardware configuration into *param.
  * return 0 on success, -ve value on failure
  */
-int vpu_hw_session_g_input_params(u32 sid,
+int vpu_hw_session_g_input_params(u32 sid, u32 port_id,
 		struct vpu_prop_session_input *inp);
-int vpu_hw_session_g_output_params(u32 sid,
+int vpu_hw_session_g_output_params(u32 sid, u32 port_id,
 		struct vpu_prop_session_output *outp);
 
 /**
@@ -291,8 +291,8 @@ int vpu_hw_session_commit(u32 sid, enum commit_type type, u32 load,
 /* register session buffers
  * pass a list of buffers to session for use in tunnel case
  */
-int vpu_hw_session_register_buffers(u32 sid, bool input,
-				struct vpu_buffer *vb, u32 num);
+int vpu_hw_session_register_buffers(u32 sid, u32 port_id,
+		struct vpu_buffer *vb, u32 num);
 
 /*
  * release session buffers
@@ -305,19 +305,19 @@ enum release_buf_type {
 	CH_RELEASE_OUT_BUF,
 	CH_RELEASE_NR_BUF
 };
-int vpu_hw_session_release_buffers(u32 sid, enum release_buf_type);
+int vpu_hw_session_release_buffers(u32 sid, u32 port_id, enum release_buf_type);
 
 /*
  * fill an output buffer
  * pass an empty output buffer to the session
  */
-int vpu_hw_session_fill_buffer(u32 sid, struct vpu_buffer*);
+int vpu_hw_session_fill_buffer(u32 sid, u32 port_id, struct vpu_buffer*);
 
 /*
  * empty an input buffer
  * pass a filled input buffer to the session to process
  */
-int vpu_hw_session_empty_buffer(u32 sid, struct vpu_buffer*);
+int vpu_hw_session_empty_buffer(u32 sid, u32 port_id, struct vpu_buffer*);
 
 /*
  * session flush
@@ -330,7 +330,7 @@ enum flush_buf_type {
 	CH_FLUSH_OUT_BUF,
 	CH_FLUSH_ALL_BUF
 };
-int vpu_hw_session_flush(u32 sid, enum flush_buf_type);
+int vpu_hw_session_flush(u32 sid, u32 port_id, enum flush_buf_type);
 
 
 #ifdef CONFIG_DEBUG_FS

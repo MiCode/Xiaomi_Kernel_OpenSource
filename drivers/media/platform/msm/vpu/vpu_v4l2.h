@@ -39,23 +39,26 @@
 #define get_vpu_client(val)  container_of(val, struct vpu_client, vfh)
 
 
+enum vpu_session_port_types {
+	PORT_TYPE_INPUT = 0,
+	PORT_TYPE_OUTPUT,
+	NUM_VPU_PORT_TYPES
+};
+
 enum vpu_session_ports {
 	INPUT_PORT = 0,
 	OUTPUT_PORT,
+	OUTPUT_PORT2,
 	NUM_VPU_PORTS
 };
 
 enum vpu_port_streaming_flags {
-	INPUT_STREAMING = (0x1 << INPUT_PORT),
-	OUTPUT_STREAMING = (0x1 << OUTPUT_PORT),
-	ALL_STREAMING = (0x1 << NUM_VPU_PORTS) - 1,
+	INPUT_STREAMING = (0x1 << PORT_TYPE_INPUT),
+	OUTPUT_STREAMING = (0x1 << PORT_TYPE_OUTPUT),
+	ALL_STREAMING = (0x1 << NUM_VPU_PORT_TYPES) - 1,
 };
 
 #define COMMITED 1
-
-#define get_port_number(type)     \
-	((type == V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE)  ? INPUT_PORT  : \
-	((type == V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE) ? OUTPUT_PORT : -1))
 
 enum vpu_client_type {
 	VPU_USERSPACE_CLIENT = 0,
@@ -159,6 +162,9 @@ struct vpu_dev_session {
 
 	/* load in bits per second (bps)*/
 	u32 load;
+
+	/* session has dual outputs */
+	bool dual_output;
 };
 
 /* client specific data struct */
@@ -174,7 +180,45 @@ struct vpu_client {
 
 	/* If client is attached, points to attached session */
 	struct vpu_dev_session  *session;
+
+	bool uses_output2; /* client uses second output port */
 };
+
+
+/* Buffer type to port index / port type conversions */
+#define get_port_type(type)     \
+	(((type) == V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE)  ? PORT_TYPE_INPUT  : \
+	(((type) == V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE) ? PORT_TYPE_OUTPUT : \
+							-1))
+
+static inline int get_port_number(struct vpu_client *client,
+		enum v4l2_buf_type type)
+{
+	int port_type = get_port_type(type);
+
+	if (!client || port_type < 0)
+		return -EINVAL;
+	else if (port_type == PORT_TYPE_INPUT)
+		return INPUT_PORT;
+	else if (port_type == PORT_TYPE_OUTPUT && !client->uses_output2)
+		return OUTPUT_PORT;
+	else
+		return OUTPUT_PORT2;
+}
+
+static inline int get_queue_port_number(struct vb2_queue *vbq)
+{
+	struct vpu_dev_session *session = vb2_get_drv_priv(vbq);
+
+	if (vbq == &session->vbqueue[INPUT_PORT])
+		return INPUT_PORT;
+	else if (vbq == &session->vbqueue[OUTPUT_PORT])
+		return OUTPUT_PORT;
+	else if (vbq == &session->vbqueue[OUTPUT_PORT2])
+		return OUTPUT_PORT2;
+	else
+		return -EINVAL;
+}
 
 
 #endif /* _H_VPU_V4L2_H_ */
