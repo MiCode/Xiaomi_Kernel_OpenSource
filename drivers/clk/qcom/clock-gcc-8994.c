@@ -287,7 +287,7 @@ static struct pll_vote_clk gpll4 = {
 		CLK_INIT(gpll4.c),
 	},
 };
-DEFINE_EXT_CLK(gpll4_out_main, &gpll4.c);
+DEFINE_FIXED_SLAVE_DIV_CLK(gpll4_out_main, 4, &gpll4.c);
 
 static struct clk_freq_tbl ftbl_ufs_axi_clk_src[] = {
 	F(  50000000, gpll0_out_main,   12,    0,     0),
@@ -1202,9 +1202,9 @@ static struct clk_freq_tbl ftbl_sdcc1_apps_clk_src[] = {
 	F(  20000000, gpll0_out_main,   15,    1,     2),
 	F(  25000000, gpll0_out_main,   12,    1,     2),
 	F(  50000000, gpll0_out_main,   12,    0,     0),
-	F(  96000000, gpll4_out_main,   16,    0,     0),
-	F( 192000000, gpll4_out_main,    8,    0,     0),
-	F( 384000000, gpll4_out_main,    4,    0,     0),
+	F( 100000000, gpll0_out_main,    6,    0,     0),
+	F( 192000000, gpll4_out_main,    2,    0,     0),
+	F( 384000000, gpll4_out_main,    1,    0,     0),
 	F_END
 };
 
