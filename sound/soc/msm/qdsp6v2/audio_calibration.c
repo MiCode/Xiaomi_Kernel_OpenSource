@@ -355,7 +355,7 @@ static long audio_cal_shared_ioctl(struct file *file, unsigned int cmd,
 {
 	int				ret = 0;
 	int32_t				size;
-	struct audio_cal_basic		*data;
+	struct audio_cal_basic		*data = NULL;
 	pr_debug("%s\n", __func__);
 
 	switch (cmd) {
@@ -458,9 +458,9 @@ static long audio_cal_shared_ioctl(struct file *file, unsigned int cmd,
 	}
 
 unlock:
-	kfree(data);
 	mutex_unlock(&audio_cal.cal_mutex[data->hdr.cal_type]);
 done:
+	kfree(data);
 	return ret;
 }
 
