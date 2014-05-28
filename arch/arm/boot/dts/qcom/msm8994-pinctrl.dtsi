@@ -28,6 +28,7 @@
 				interrupt-controller;
 				#interrupt-cells = <2>;
 				qcom,direct-connect-irqs = <8>;
+				num_irqs = <146>;
 			};
 		};
 
