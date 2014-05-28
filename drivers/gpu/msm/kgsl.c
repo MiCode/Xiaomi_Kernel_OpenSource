@@ -29,6 +29,7 @@
 #include <linux/mman.h>
 #include <linux/sort.h>
 #include <linux/security.h>
+#include <linux/compat.h>
 #include <asm/cacheflush.h>
 
 #include "kgsl.h"
