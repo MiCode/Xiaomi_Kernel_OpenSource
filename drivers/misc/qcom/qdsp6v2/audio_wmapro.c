@@ -198,6 +198,12 @@ static int audio_open(struct inode *inode, struct file *file)
 		return -ENOMEM;
 	}
 
+	rc = audio_aio_open(audio, file);
+	if (rc < 0) {
+		pr_err("%s: audio_aio_open rc=%d\n",
+			__func__, rc);
+		goto fail;
+	}
 	/* open in T/NT mode */
 	if ((file->f_mode & FMODE_WRITE) && (file->f_mode & FMODE_READ)) {
 		rc = q6asm_open_read_write(audio->ac, FORMAT_LINEAR_PCM,
@@ -224,11 +230,6 @@ static int audio_open(struct inode *inode, struct file *file)
 	} else {
 		pr_err("Not supported mode\n");
 		rc = -EACCES;
-		goto fail;
-	}
-	rc = audio_aio_open(audio, file);
-	if (rc < 0) {
-		pr_err("audio_aio_open rc=%d\n", rc);
 		goto fail;
 	}
 
