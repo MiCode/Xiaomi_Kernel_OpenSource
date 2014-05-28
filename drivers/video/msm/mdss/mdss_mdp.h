@@ -92,6 +92,7 @@ enum mdss_mdp_pipe_type {
 	MDSS_MDP_PIPE_TYPE_VIG,
 	MDSS_MDP_PIPE_TYPE_RGB,
 	MDSS_MDP_PIPE_TYPE_DMA,
+	MDSS_MDP_PIPE_TYPE_CURSOR,
 };
 
 enum mdss_mdp_block_type {
