@@ -1519,6 +1519,8 @@ int arizona_dev_exit(struct arizona *arizona)
 {
 	pm_runtime_disable(arizona->dev);
 
+	regulator_disable(arizona->dcvdd);
+
 	mfd_remove_devices(arizona->dev);
 	arizona_free_irq(arizona, ARIZONA_IRQ_UNDERCLOCKED, arizona);
 	arizona_free_irq(arizona, ARIZONA_IRQ_OVERCLOCKED, arizona);
@@ -1526,7 +1528,7 @@ int arizona_dev_exit(struct arizona *arizona)
 	arizona_irq_exit(arizona);
 	if (arizona->pdata.reset)
 		gpio_set_value_cansleep(arizona->pdata.reset, 0);
-	regulator_disable(arizona->dcvdd);
+
 	regulator_bulk_disable(ARRAY_SIZE(arizona->core_supplies),
 			       arizona->core_supplies);
 	return 0;
