@@ -272,7 +272,7 @@ static ssize_t ccid_bridge_write(struct file *fp, const char __user *ubuf,
 	char *kbuf;
 	ktime_t start_t, delta_t;
 
-	pr_debug("called with %d", count);
+	pr_debug("called with %zu", count);
 
 	if (!ccid->intf) {
 		pr_debug("intf is not active");
@@ -360,7 +360,7 @@ static ssize_t ccid_bridge_read(struct file *fp, char __user *ubuf,
 	char *kbuf;
 	ktime_t start_t, delta_t;
 
-	pr_debug("called with %d", count);
+	pr_debug("called with %zu", count);
 	if (!ccid->intf) {
 		pr_debug("intf is not active");
 		return -ENODEV;
