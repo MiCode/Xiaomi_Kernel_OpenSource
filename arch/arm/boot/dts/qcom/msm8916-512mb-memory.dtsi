@@ -1,0 +1,57 @@
+/* Copyright (c) 2014, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+#include "msm8916-512mb-ion.dtsi"
+
+/ {
+	memory {
+		#address-cells = <2>;
+		#size-cells = <2>;
+
+		external_image_mem: external_image__region@0 {
+			linux,reserve-contiguous-region;
+			linux,reserve-region;
+			linux,remove-completely;
+			reg = <0x0 0x86000000 0x0 0x0800000>;
+			label = "external_image_mem";
+		};
+
+		modem_adsp_mem: modem_adsp_region@0 {
+			linux,reserve-contiguous-region;
+			linux,reserve-region;
+			linux,remove-completely;
+			reg = <0x0 0x86800000 0x0 0x04e00000>;
+			label = "modem_adsp_mem";
+		};
+
+		peripheral_mem: pheripheral_region@0 {
+			linux,reserve-contiguous-region;
+			linux,reserve-region;
+			linux,remove-completely;
+			reg = <0x0 0x8b600000 0x0 0x0600000>;
+			label = "peripheral_mem";
+		};
+
+		venus_qseecom_mem: venus_qseecom_region@0 {
+			linux,reserve-contiguous-region;
+			linux,memory-limit = <0x90000000>;
+			reg = <0 0 0 0x600000>;
+			label = "venus_qseecom_mem";
+		};
+
+		audio_mem: audio_region@0 {
+			linux,reserve-contiguous-region;
+			reg = <0 0 0 0x314000>;
+			label = "audio_mem";
+		};
+	};
+};
