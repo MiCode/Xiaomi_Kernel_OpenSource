@@ -1088,13 +1088,16 @@ static int mdss_mdp_debug_init(struct mdss_data_type *mdata)
 	return 0;
 }
 
-static void mdss_mdp_max_zorder_init(struct mdss_data_type *mdata)
+static void mdss_mdp_hw_rev_caps_init(struct mdss_data_type *mdata)
 {
-	mdata->max_target_zorder = MDSS_MDP_STAGE_4;
 	switch (mdata->mdp_rev) {
 	case MDSS_MDP_HW_REV_105:
 		mdata->max_target_zorder = MDSS_MDP_MAX_STAGE;
+		mdata->max_cursor_size = 128;
 		break;
+	default:
+		mdata->max_target_zorder = MDSS_MDP_STAGE_4;
+		mdata->max_cursor_size = 64;
 	}
 }
 
@@ -1106,7 +1109,7 @@ static void mdss_hw_rev_init(struct mdss_data_type *mdata)
 	mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_ON);
 	mdata->mdp_rev = MDSS_REG_READ(mdata, MDSS_REG_HW_VERSION);
 	pr_info_once("MDP Rev=%x\n", mdata->mdp_rev);
-	mdss_mdp_max_zorder_init(mdata);
+	mdss_mdp_hw_rev_caps_init(mdata);
 	mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_OFF);
 }
 
@@ -1375,6 +1378,7 @@ static ssize_t mdss_mdp_show_capabilities(struct device *dev,
 	SPRINT("vig_pipes=%d\n", mdata->nvig_pipes);
 	SPRINT("dma_pipes=%d\n", mdata->ndma_pipes);
 	SPRINT("blending_stages=%d\n", mdata->max_target_zorder);
+	SPRINT("cursor_pipes=%d\n", mdata->ncursor_pipes);
 	SPRINT("smp_count=%d\n", mdata->smp_mb_cnt);
 	SPRINT("smp_size=%d\n", mdata->smp_mb_size);
 	SPRINT("smp_mb_per_pipe=%d\n", mdata->smp_mb_per_pipe);
@@ -1805,7 +1809,7 @@ error:
 static int mdss_mdp_parse_dt_pipe(struct platform_device *pdev)
 {
 	u32 npipes, dma_off;
-	int rc = 0;
+	int rc = 0, i;
 	u32 nfids = 0, setup_cnt = 0, len, nxids = 0;
 	u32 *offsets = NULL, *ftch_id = NULL, *xin_id = NULL;
 	u32 sw_reset_offset = 0;
@@ -1821,6 +1825,8 @@ static int mdss_mdp_parse_dt_pipe(struct platform_device *pdev)
 				"qcom,mdss-pipe-rgb-off");
 	mdata->ndma_pipes = mdss_mdp_parse_dt_prop_len(pdev,
 				"qcom,mdss-pipe-dma-off");
+	mdata->ncursor_pipes = mdss_mdp_parse_dt_prop_len(pdev,
+				"qcom,mdss-pipe-cursor-off");
 
 	npipes = mdata->nvig_pipes + mdata->nrgb_pipes + mdata->ndma_pipes;
 
@@ -2057,9 +2063,43 @@ static int mdss_mdp_parse_dt_pipe(struct platform_device *pdev)
 				mdata->dma_pipes, mdata->ndma_pipes);
 	}
 
+	if (mdata->ncursor_pipes) {
+		mdata->cursor_pipes = devm_kzalloc(&mdata->pdev->dev,
+			sizeof(struct mdss_mdp_pipe) * mdata->nvig_pipes,
+			GFP_KERNEL);
+
+		if (!mdata->cursor_pipes) {
+			pr_err("no mem for cursor_pipes: kzalloc fail\n");
+			rc = -ENOMEM;
+			goto cursor_alloc_fail;
+		}
+		rc = mdss_mdp_parse_dt_handler(pdev,
+			"qcom,mdss-pipe-cursor-off", offsets,
+			mdata->ncursor_pipes);
+		if (rc)
+			goto parse_fail;
+
+		rc = mdss_mdp_parse_dt_handler(pdev,
+			"qcom,mdss-pipe-dma-xin-id", xin_id,
+			mdata->ncursor_pipes);
+		if (rc)
+			goto parse_fail;
+		/* set the fetch id to an invalid value */
+		for (i = 0; i < mdata->ncursor_pipes; i++)
+			ftch_id[i] = -1;
+		rc = mdss_mdp_pipe_addr_setup(mdata, mdata->cursor_pipes,
+			offsets, ftch_id, xin_id, MDSS_MDP_PIPE_TYPE_CURSOR,
+			MDSS_MDP_SSPP_CURSOR0, mdata->ncursor_pipes, 0);
+		if (rc)
+			goto parse_fail;
+		pr_info("dedicated vp cursors detected, num=%d\n",
+			mdata->ncursor_pipes);
+	}
 	goto parse_done;
 
 parse_fail:
+	kfree(mdata->cursor_pipes);
+cursor_alloc_fail:
 	kfree(mdata->dma_pipes);
 dma_alloc_fail:
 	kfree(mdata->rgb_pipes);

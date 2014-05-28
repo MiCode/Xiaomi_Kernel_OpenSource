@@ -2353,6 +2353,9 @@ static void mdss_mdp_mixer_setup(struct mdss_mdp_ctl *master_ctl,
 			pipe->num == MDSS_MDP_SSPP_RGB3) {
 			/* Add 2 to account for Cursor & Border bits */
 			mixercfg = 1 << ((3 * pipe->num)+2);
+		} else if (pipe->type == MDSS_MDP_PIPE_TYPE_CURSOR) {
+			mixercfg_extn = BIT(20 + (6 *
+					(pipe->num - MDSS_MDP_SSPP_CURSOR0)));
 		} else {
 			mixercfg = 1 << (3 * pipe->num);
 		}
@@ -2452,6 +2455,9 @@ static void mdss_mdp_mixer_setup(struct mdss_mdp_ctl *master_ctl,
 			pipe->num == MDSS_MDP_SSPP_RGB3) {
 			/* Add 2 to account for Cursor & Border bits */
 			mixercfg |= stage << ((3 * pipe->num)+2);
+		} else if (pipe->type == MDSS_MDP_PIPE_TYPE_CURSOR) {
+			mixercfg_extn |= stage << (20 + (6 *
+					(pipe->num - MDSS_MDP_SSPP_CURSOR0)));
 		} else if (stage < MDSS_MDP_STAGE_6) {
 			mixercfg |= stage << (3 * pipe->num);
 		} else {
@@ -2730,6 +2736,8 @@ int mdss_mdp_mixer_pipe_update(struct mdss_mdp_pipe *pipe,
 	else if (pipe->num == MDSS_MDP_SSPP_VIG3 ||
 			pipe->num == MDSS_MDP_SSPP_RGB3)
 		ctl->flush_bits |= BIT(pipe->num) << 10;
+	else if (pipe->type == MDSS_MDP_PIPE_TYPE_CURSOR)
+		ctl->flush_bits |= BIT(22 + pipe->num - MDSS_MDP_SSPP_CURSOR0);
 	else /* RGB/VIG 0-2 pipes */
 		ctl->flush_bits |= BIT(pipe->num);
 

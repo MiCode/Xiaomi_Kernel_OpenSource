@@ -247,6 +247,19 @@ int mdss_mdp_overlay_req_check(struct msm_fb_data_type *mfd,
 		return -ERANGE;
 	}
 
+	/*
+	 * Cursor overlays are only supported for targets
+	 * with dedicated cursors within VP
+	 */
+	if ((req->pipe_type == MDSS_MDP_PIPE_TYPE_CURSOR) &&
+		((req->z_order != mdata->max_target_zorder) ||
+		 !mdata->ncursor_pipes ||
+		 (req->src_rect.w > mdata->max_cursor_size))) {
+		pr_err("Inccorect cursor overlay cursor_pipes=%d zorder=%d\n",
+			mdata->ncursor_pipes, req->z_order);
+		return -EINVAL;
+	}
+
 	if (req->src.width > MAX_IMG_WIDTH ||
 	    req->src.height > MAX_IMG_HEIGHT ||
 	    req->src_rect.w < min_src_size || req->src_rect.h < min_src_size ||
@@ -578,6 +591,9 @@ int mdss_mdp_overlay_pipe_setup(struct msm_fb_data_type *mfd,
 		case PIPE_TYPE_DMA:
 			pipe_type = MDSS_MDP_PIPE_TYPE_DMA;
 			break;
+		case PIPE_TYPE_CURSOR:
+			pipe_type = MDSS_MDP_PIPE_TYPE_CURSOR;
+			break;
 		case PIPE_TYPE_AUTO:
 		default:
 			if (req->flags & MDP_OV_PIPE_FORCE_DMA)
@@ -775,6 +791,9 @@ int mdss_mdp_overlay_pipe_setup(struct msm_fb_data_type *mfd,
 	req->priority = pipe->priority;
 	pipe->req_data = *req;
 
+	if (pipe->type == MDSS_MDP_PIPE_TYPE_CURSOR)
+		goto cursor_done;
+
 	if (pipe->flags & MDP_OVERLAY_PP_CFG_EN) {
 		memcpy(&pipe->pp_cfg, &req->overlay_pp_cfg,
 					sizeof(struct mdp_overlay_pp_params));
@@ -867,6 +886,7 @@ int mdss_mdp_overlay_pipe_setup(struct msm_fb_data_type *mfd,
 		goto exit_fail;
 	}
 
+cursor_done:
 	pipe->params_changed++;
 	pipe->has_buf = 0;
 
