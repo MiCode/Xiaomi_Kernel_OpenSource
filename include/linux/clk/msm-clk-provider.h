@@ -56,7 +56,7 @@ static inline void clk_debug_print_hw(struct clk *clk, struct seq_file *f) {}
 
 #define CLK_WARN(clk, cond, fmt, ...) do {				\
 	clk_debug_print_hw(clk, NULL);					\
-	WARN(cond, "%s: " fmt, (clk)->dbg_name, ##__VA_ARGS__);		\
+	WARN(cond, "%s: " fmt, clk_name(clk), ##__VA_ARGS__);		\
 } while (0)
 
 /**
@@ -243,4 +243,10 @@ extern int of_clk_add_provider(struct device_node *np,
 			void *data);
 extern void of_clk_del_provider(struct device_node *np);
 
+static inline const char *clk_name(struct clk *c)
+{
+	if (IS_ERR_OR_NULL(c))
+		return "(null)";
+	return c->dbg_name;
+};
 #endif
