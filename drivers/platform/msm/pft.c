@@ -49,6 +49,7 @@
 #include <linux/slab.h>
 #include <linux/module.h>
 #include <linux/fs.h>
+#include <linux/cdev.h>
 #include <linux/sched.h>
 #include <linux/uaccess.h>
 #include <linux/cred.h>
@@ -90,7 +91,7 @@
 #define PFT_REQUESTED_MAJOR	213
 
 /* PFT driver name */
-#define PFT_DEVICE_NAME	"pft"
+#define DEVICE_NAME	"pft"
 
 /* Maximum registered applications */
 #define PFT_MAX_APPS	1000
@@ -143,6 +144,9 @@ struct pft_file_info {
  * after the key is removed from the encryption hardware.
  */
 struct pft_device {
+	struct cdev cdev;
+	dev_t device_no;
+	struct class *driver_class;
 	int open_count;
 	int major;
 	enum pft_state state;
@@ -214,11 +218,11 @@ static char *inode_to_filename(struct inode *inode)
 }
 
 /**
- * ptf_set_response() - set response error code.
+ * pft_set_response() - set response error code.
  *
  * @error_code: The error code to return on response.
  */
-static inline void ptf_set_response(u32 error_code)
+static inline void pft_set_response(u32 error_code)
 {
 	pft_dev->response.error_code = error_code;
 }
@@ -1316,13 +1320,13 @@ static int pft_set_state(struct pft_command *command, int size)
 
 	if (size != expected_size) {
 		pr_err("Invalid buffer size\n");
-		ptf_set_response(PFT_CMD_RESP_INVALID_CMD_PARAMS);
+		pft_set_response(PFT_CMD_RESP_INVALID_CMD_PARAMS);
 		return -EINVAL;
 	}
 
 	if (state >= PFT_STATE_MAX_INDEX) {
 		pr_err("Invalid state %d\n", command->set_state.state);
-		ptf_set_response(PFT_CMD_RESP_INVALID_STATE);
+		pft_set_response(PFT_CMD_RESP_INVALID_STATE);
 		return 0;
 	}
 
@@ -1337,11 +1341,11 @@ static int pft_set_state(struct pft_command *command, int size)
 	case PFT_STATE_KEY_LOADED:
 	case PFT_STATE_KEY_REMOVED:
 		pft_dev->state = command->set_state.state;
-		ptf_set_response(PFT_CMD_RESP_SUCCESS);
+		pft_set_response(PFT_CMD_RESP_SUCCESS);
 		break;
 	default:
 		pr_err("Invalid state %d\n", command->set_state.state);
-		ptf_set_response(PFT_CMD_RESP_INVALID_STATE);
+		pft_set_response(PFT_CMD_RESP_INVALID_STATE);
 		break;
 	}
 
@@ -1394,14 +1398,14 @@ static int pft_set_inplace_file(struct pft_command *command, int size)
 	if (size != expected_size) {
 		pr_err("invalid command size %d expected %d.\n",
 		       size, expected_size);
-		ptf_set_response(PFT_CMD_RESP_INVALID_CMD_PARAMS);
+		pft_set_response(PFT_CMD_RESP_INVALID_CMD_PARAMS);
 		return -EINVAL;
 	}
 
 	if (pft_dev->state != (u32) PFT_STATE_KEY_LOADED) {
 		pr_err("Key not loaded, state [%d], In-place-encryption is not allowed.\n",
 		       pft_dev->state);
-		ptf_set_response(PFT_CMD_RESP_GENERAL_ERROR);
+		pft_set_response(PFT_CMD_RESP_GENERAL_ERROR);
 		return 0;
 	}
 
@@ -1410,7 +1414,7 @@ static int pft_set_inplace_file(struct pft_command *command, int size)
 		pr_err("file %s in-place-encryption in progress.\n",
 		       file_to_filename(pft_dev->inplace_file));
 		/* @todo - use new error code */
-		ptf_set_response(PFT_CMD_RESP_INPLACE_FILE_IS_OPEN);
+		pft_set_response(PFT_CMD_RESP_INPLACE_FILE_IS_OPEN);
 		return 0;
 	}
 
@@ -1419,14 +1423,14 @@ static int pft_set_inplace_file(struct pft_command *command, int size)
 
 	if (filp == NULL) {
 		pr_err("failed to find file by fd %d.\n", fd);
-		ptf_set_response(PFT_CMD_RESP_GENERAL_ERROR);
+		pft_set_response(PFT_CMD_RESP_GENERAL_ERROR);
 		return 0;
 	}
 
 	/* Verify the file is not already open by other than PFM */
 	if (!filp->f_path.dentry || !filp->f_path.dentry->d_inode) {
 		pr_err("failed to get inode of inplace-file.\n");
-		ptf_set_response(PFT_CMD_RESP_GENERAL_ERROR);
+		pft_set_response(PFT_CMD_RESP_GENERAL_ERROR);
 		return 0;
 	}
 
@@ -1435,7 +1439,7 @@ static int pft_set_inplace_file(struct pft_command *command, int size)
 	if (writecount > 1) {
 		pr_err("file %s is opened %d times for write.\n",
 		       file_to_filename(filp), writecount);
-		ptf_set_response(PFT_CMD_RESP_GENERAL_ERROR);
+		pft_set_response(PFT_CMD_RESP_INPLACE_FILE_IS_OPEN);
 		return 0;
 	}
 
@@ -1448,7 +1452,7 @@ static int pft_set_inplace_file(struct pft_command *command, int size)
 	if (pft_is_encrypted_file(filp->f_dentry)) {
 		pr_err("file %s is already encrypted.\n",
 		       file_to_filename(filp));
-		ptf_set_response(PFT_CMD_RESP_GENERAL_ERROR);
+		pft_set_response(PFT_CMD_RESP_GENERAL_ERROR);
 		return 0;
 	}
 
@@ -1469,11 +1473,11 @@ static int pft_set_inplace_file(struct pft_command *command, int size)
 	if (!rc) {
 		pr_debug("tagged file %s to be encrypted.\n",
 			 file_to_filename(pft_dev->inplace_file));
-		ptf_set_response(PFT_CMD_RESP_SUCCESS);
+		pft_set_response(PFT_CMD_RESP_SUCCESS);
 	} else {
 		pr_err("failed to tag file %s for encryption.\n",
 			file_to_filename(pft_dev->inplace_file));
-		ptf_set_response(PFT_CMD_RESP_GENERAL_ERROR);
+		pft_set_response(PFT_CMD_RESP_GENERAL_ERROR);
 	}
 
 	return 0;
@@ -1500,7 +1504,7 @@ static int pft_update_reg_apps(struct pft_command *command, int size)
 	if (items_count > PFT_MAX_APPS) {
 		pr_err("Number of apps [%d] > max apps [%d]\n",
 		       items_count , PFT_MAX_APPS);
-		ptf_set_response(PFT_CMD_RESP_INVALID_CMD_PARAMS);
+		pft_set_response(PFT_CMD_RESP_INVALID_CMD_PARAMS);
 		return -EINVAL;
 	}
 
@@ -1512,7 +1516,7 @@ static int pft_update_reg_apps(struct pft_command *command, int size)
 	if (size != expected_size) {
 		pr_err("invalid command size %d expected %d.\n",
 		       size, expected_size);
-		ptf_set_response(PFT_CMD_RESP_INVALID_CMD_PARAMS);
+		pft_set_response(PFT_CMD_RESP_INVALID_CMD_PARAMS);
 		return -EINVAL;
 	}
 
@@ -1534,7 +1538,7 @@ static int pft_update_reg_apps(struct pft_command *command, int size)
 
 	if (!buf) {
 		pr_err("malloc failure\n");
-		ptf_set_response(PFT_CMD_RESP_GENERAL_ERROR);
+		pft_set_response(PFT_CMD_RESP_GENERAL_ERROR);
 		mutex_unlock(&pft_dev->lock);
 		return 0;
 	}
@@ -1544,7 +1548,7 @@ static int pft_update_reg_apps(struct pft_command *command, int size)
 	pr_debug("uid_count = %d\n", pft_dev->uid_count);
 	for (i = 0; i < pft_dev->uid_count; i++)
 		pft_dev->uid_table[i] = command->update_app_list.table[i];
-	ptf_set_response(PFT_CMD_RESP_SUCCESS);
+	pft_set_response(PFT_CMD_RESP_SUCCESS);
 	mutex_unlock(&pft_dev->lock);
 
 	return 0;
@@ -1584,7 +1588,7 @@ static int pft_handle_command(void *buf, int buf_size)
 		break;
 	default:
 		pr_err("Invalid command_op_code %u\n", command->opcode);
-		ptf_set_response(PFT_CMD_RESP_INVALID_COMMAND);
+		pft_set_response(PFT_CMD_RESP_INVALID_COMMAND);
 		return 0;
 	}
 
@@ -1707,12 +1711,71 @@ static const struct file_operations fops = {
 	.release = pft_device_release,
 };
 
+static int __init pft_register_chardev(void)
+{
+	int rc;
+	unsigned baseminor = 0;
+	unsigned count = 1;
+	struct device *class_dev;
+
+	rc = alloc_chrdev_region(&pft_dev->device_no, baseminor, count,
+				 DEVICE_NAME);
+	if (rc < 0) {
+		pr_err("alloc_chrdev_region failed %d\n", rc);
+		return rc;
+	}
+
+	pft_dev->driver_class = class_create(THIS_MODULE, DEVICE_NAME);
+	if (IS_ERR(pft_dev->driver_class)) {
+		rc = -ENOMEM;
+		pr_err("class_create failed %d\n", rc);
+		goto exit_unreg_chrdev_region;
+	}
+
+	class_dev = device_create(pft_dev->driver_class, NULL,
+				  pft_dev->device_no, NULL,
+				  DEVICE_NAME);
+	if (!class_dev) {
+		pr_err("class_device_create failed %d\n", rc);
+		rc = -ENOMEM;
+		goto exit_destroy_class;
+	}
+
+	cdev_init(&pft_dev->cdev, &fops);
+	pft_dev->cdev.owner = THIS_MODULE;
+
+	rc = cdev_add(&pft_dev->cdev, MKDEV(MAJOR(pft_dev->device_no), 0), 1);
+	if (rc < 0) {
+		pr_err("cdev_add failed %d\n", rc);
+		goto exit_destroy_device;
+	}
+
+	return 0;
+
+exit_destroy_device:
+	device_destroy(pft_dev->driver_class, pft_dev->device_no);
+exit_destroy_class:
+	class_destroy(pft_dev->driver_class);
+exit_unreg_chrdev_region:
+	unregister_chrdev_region(pft_dev->device_no, 1);
+	return rc;
+}
+
+static void __exit pft_unregister_chrdev(void)
+{
+	cdev_del(&pft_dev->cdev);
+	device_destroy(pft_dev->driver_class, pft_dev->device_no);
+	class_destroy(pft_dev->driver_class);
+	unregister_chrdev_region(pft_dev->device_no, 1);
+
+}
+
 static void __exit pft_exit(void)
 {
 	if (pft_dev == NULL)
 		return;
 
-	unregister_chrdev(pft_dev->major, PFT_DEVICE_NAME);
+	pft_unregister_chrdev();
 
 	kfree(pft_dev->uid_table);
 	kfree(pft_dev);
@@ -1720,6 +1783,7 @@ static void __exit pft_exit(void)
 
 static int __init pft_init(void)
 {
+	int ret;
 	struct pft_device *dev = NULL;
 
 	dev = kzalloc(sizeof(struct pft_device), GFP_KERNEL);
@@ -1732,14 +1796,13 @@ static int __init pft_init(void)
 	INIT_LIST_HEAD(&dev->open_file_list);
 	mutex_init(&dev->lock);
 
-	dev->major = register_chrdev(PFT_REQUESTED_MAJOR, PFT_DEVICE_NAME,
-				     &fops);
-	if (IS_ERR_VALUE(dev->major)) {
-		pr_err("Registering the character device with major %d failed with %d\n",
-		       PFT_REQUESTED_MAJOR, dev->major);
+	pft_dev = dev;
+
+	ret = pft_register_chardev();
+	if (ret) {
+		pr_err("create character device failed.\n");
 		goto fail;
 	}
-	pft_dev = dev;
 
 	pr_info("Drivr initialized successfully %s %s.n", __DATE__, __TIME__);
 
