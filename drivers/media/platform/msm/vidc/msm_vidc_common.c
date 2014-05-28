@@ -3779,28 +3779,37 @@ struct msm_smem *msm_comm_smem_alloc(struct msm_vidc_inst *inst,
 			size_t size, u32 align, u32 flags,
 			enum hal_buffer buffer_type, int map_kernel)
 {
-	if (!inst) {
+	struct msm_smem *m = NULL;
+
+	if (!inst || !inst->core) {
 		dprintk(VIDC_ERR, "%s: invalid inst: %p\n", __func__, inst);
 		return NULL;
 	}
+	mutex_lock(&inst->core->lock);
 	if (power_on_for_smem(inst))
-		return NULL;
+		goto err_power_on;
 
-	return msm_smem_alloc(inst->mem_client, size, align,
+	m = msm_smem_alloc(inst->mem_client, size, align,
 				flags, buffer_type, map_kernel);
+err_power_on:
+	mutex_unlock(&inst->core->lock);
+	return m;
 }
 
 void msm_comm_smem_free(struct msm_vidc_inst *inst, struct msm_smem *mem)
 {
-	if (!inst || !mem) {
+	if (!inst || !inst->core || !mem) {
 		dprintk(VIDC_ERR,
 			"%s: invalid params: %p %p\n", __func__, inst, mem);
 		return;
 	}
+	mutex_lock(&inst->core->lock);
 	if (power_on_for_smem(inst))
-		return;
+		goto err_power_on;
 
-	return msm_smem_free(inst->mem_client, mem);
+	msm_smem_free(inst->mem_client, mem);
+err_power_on:
+	mutex_unlock(&inst->core->lock);
 }
 
 int msm_comm_smem_cache_operations(struct msm_vidc_inst *inst,
@@ -3817,15 +3826,21 @@ int msm_comm_smem_cache_operations(struct msm_vidc_inst *inst,
 struct msm_smem *msm_comm_smem_user_to_kernel(struct msm_vidc_inst *inst,
 			int fd, u32 offset, enum hal_buffer buffer_type)
 {
-	if (!inst) {
+	struct msm_smem *m = NULL;
+
+	if (!inst || !inst->core) {
 		dprintk(VIDC_ERR, "%s: invalid inst: %p\n", __func__, inst);
 		return NULL;
 	}
+	mutex_lock(&inst->core->lock);
 	if (power_on_for_smem(inst))
-		return NULL;
+		goto err_power_on;
 
-	return msm_smem_user_to_kernel(inst->mem_client,
+	m = msm_smem_user_to_kernel(inst->mem_client,
 			fd, offset, buffer_type);
+err_power_on:
+	mutex_unlock(&inst->core->lock);
+	return m;
 }
 
 int msm_comm_smem_get_domain_partition(struct msm_vidc_inst *inst,
