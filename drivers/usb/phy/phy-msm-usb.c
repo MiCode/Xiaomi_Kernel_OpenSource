@@ -2470,6 +2470,11 @@ static void msm_chg_detect_work(struct work_struct *w)
 		if (aca_enabled())
 			udelay(100);
 		msm_chg_enable_aca_intr(motg);
+
+		/* Enable VDP_SRC in case of DCP charger */
+		if (motg->chg_type == USB_DCP_CHARGER)
+			ulpi_write(phy, 0x2, 0x85);
+
 		dev_dbg(phy->dev, "chg_type = %s\n",
 			chg_to_string(motg->chg_type));
 		queue_work(system_nrt_wq, &motg->sm_work);
@@ -2672,8 +2677,6 @@ static void msm_otg_sm_work(struct work_struct *w)
 			case USB_CHG_STATE_DETECTED:
 				switch (motg->chg_type) {
 				case USB_DCP_CHARGER:
-					/* Enable VDP_SRC */
-					ulpi_write(otg->phy, 0x2, 0x85);
 					/* fall through */
 				case USB_PROPRIETARY_CHARGER:
 					msm_otg_notify_charger(motg,
@@ -3855,6 +3858,30 @@ static int otg_power_set_property_usb(struct power_supply *psy,
 		break;
 	case POWER_SUPPLY_PROP_TYPE:
 		psy->type = val->intval;
+
+		switch (psy->type) {
+		case POWER_SUPPLY_TYPE_USB:
+			motg->chg_type = USB_SDP_CHARGER;
+			break;
+		case POWER_SUPPLY_TYPE_USB_DCP:
+			motg->chg_type = USB_DCP_CHARGER;
+			break;
+		case POWER_SUPPLY_TYPE_USB_CDP:
+			motg->chg_type = USB_CDP_CHARGER;
+			break;
+		case POWER_SUPPLY_TYPE_USB_ACA:
+			motg->chg_type = USB_PROPRIETARY_CHARGER;
+			break;
+		default:
+			motg->chg_type = USB_INVALID_CHARGER;
+			break;
+		}
+
+		if (motg->chg_type != USB_INVALID_CHARGER)
+			motg->chg_state = USB_CHG_STATE_DETECTED;
+
+		dev_dbg(motg->phy.dev, "%s: charger type = %s\n", __func__,
+			chg_to_string(motg->chg_type));
 		break;
 	case POWER_SUPPLY_PROP_HEALTH:
 		motg->usbin_health = val->intval;
