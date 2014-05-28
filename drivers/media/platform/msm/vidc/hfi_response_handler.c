@@ -1229,6 +1229,15 @@ static void hfi_process_session_abort_done(msm_vidc_callback callback,
 	callback(SESSION_ABORT_DONE, &cmd_done);
 }
 
+static void hfi_process_sys_idle(msm_vidc_callback callback,
+		u32 device_id, struct hal_session *session,
+		struct hfi_msg_sys_idle_packet *pkt)
+{
+	struct msm_vidc_cb_cmd_done cmd_done = {0};
+	cmd_done.device_id = device_id;
+	callback(SYS_IDLE, &cmd_done);
+}
+
 static void hfi_process_session_get_seq_hdr_done(msm_vidc_callback callback,
 		u32 device_id, struct hal_session *session,
 	struct hfi_msg_session_get_sequence_header_done_packet *pkt)
@@ -1419,6 +1428,9 @@ u32 hfi_process_msg_packet(msm_vidc_callback callback, u32 device_id,
 			(session_pkt_func_def)hfi_process_session_abort_done;
 		break;
 	case HFI_MSG_SYS_IDLE:
+		sys_pkt_func =
+			(sys_pkt_func_def)hfi_process_sys_idle;
+		break;
 	case HFI_MSG_SYS_PC_PREP_DONE:
 		break;
 	default:

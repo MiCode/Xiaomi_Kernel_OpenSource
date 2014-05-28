@@ -272,7 +272,7 @@ static int msm_comm_vote_bus(struct msm_vidc_core *core)
 	mutex_unlock(&core->lock);
 
 	rc = call_hfi_op(hdev, vote_bus, hdev->hfi_device_data, vote_data,
-			vote_data_count);
+			vote_data_count, core->idle_time.fb_err_level);
 	if (rc)
 		dprintk(VIDC_ERR, "Failed to scale bus: %d\n", rc);
 
@@ -946,6 +946,30 @@ static void handle_session_flush(enum command_response cmd, void *data)
 		msm_vidc_queue_v4l2_event(inst, V4L2_EVENT_MSM_VIDC_FLUSH_DONE);
 	} else {
 		dprintk(VIDC_ERR, "Failed to get valid response for flush\n");
+	}
+}
+
+static void handle_sys_idle(enum command_response cmd, void *data)
+{
+	struct msm_vidc_cb_cmd_done *response = data;
+	struct msm_vidc_core *core = NULL;
+
+	if (response) {
+		core = get_vidc_core(response->device_id);
+		dprintk(VIDC_DBG, "SYS_IDLE received for core %p\n", core);
+		if (core && core->resources.dynamic_bw_update) {
+			struct timeval tv;
+			mutex_lock(&core->lock);
+			do_gettimeofday(&tv);
+			core->idle_time.start_idle_time =
+				(tv.tv_sec * 1000000 + (tv.tv_usec));
+			dprintk(VIDC_DBG, "%s: start_idle_time %llu us\n",
+				__func__,
+				core->idle_time.start_idle_time);
+			core->idle_time.core_in_idle = true;
+			mutex_unlock(&core->lock);
+		} else
+			dprintk(VIDC_ERR, "Core is NULL when sys_idle rxed\n");
 	}
 }
 
@@ -1623,6 +1647,9 @@ void handle_cmd_response(enum command_response cmd, void *data)
 		break;
 	case SESSION_RELEASE_BUFFER_DONE:
 		handle_session_release_buf_done(cmd, data);
+		break;
+	case SYS_IDLE:
+		handle_sys_idle(cmd, data);
 		break;
 	default:
 		dprintk(VIDC_ERR, "response unhandled\n");
@@ -2588,6 +2615,67 @@ exit:
 				inst->state, state);
 	return rc;
 }
+
+int msm_comm_compute_idle_time(struct msm_vidc_inst *inst)
+{
+	u64 curr_time = 0;
+	struct timeval tv;
+	int j = 0;
+	u32 idx = 0;
+	int rc = 0;
+	struct msm_vidc_idle_time *idle_time;
+	struct msm_vidc_core *core;
+
+	if (!inst || !inst->core) {
+		dprintk(VIDC_ERR, "%s invalid parameters\n", __func__);
+		return -EINVAL;
+	}
+	core = inst->core;
+	mutex_lock(&core->lock);
+	do_gettimeofday(&tv);
+	curr_time = (tv.tv_sec * 1000000 + tv.tv_usec);
+	idle_time = &inst->core->idle_time;
+	idx = idle_time->idx;
+
+	if (idle_time->core_in_idle) {
+		idle_time->core_idle_times[idx] =
+			(curr_time - idle_time->start_idle_time);
+	} else {
+		idle_time->core_idle_times[idx] = 0;
+	}
+	idle_time->array_size++;
+	if (idle_time->array_size > IDLE_TIME_WINDOW_SIZE)
+		idle_time->array_size = IDLE_TIME_WINDOW_SIZE;
+
+	for (j = 0; j < idle_time->array_size; j++)
+		idle_time->avg_idle_time +=
+			idle_time->core_idle_times[j];
+
+	do_div(idle_time->avg_idle_time, idle_time->array_size);
+	idle_time->core_in_idle = 0;
+	idle_time->idx++;
+	idle_time->idx %= IDLE_TIME_WINDOW_SIZE;
+	dprintk(VIDC_DBG, "%s:core_idle_times %llu us avg_idle_time %llu us\n",
+		__func__,
+		idle_time->core_idle_times[idx],
+		idle_time->avg_idle_time);
+	mutex_unlock(&core->lock);
+
+	if (idle_time->avg_idle_time == 0)
+		idle_time->fb_err_level = 3;
+	else
+		idle_time->fb_err_level = 0;
+
+	if (idle_time->fb_err_level != idle_time->prev_fb_err_level) {
+		idle_time->prev_fb_err_level = idle_time->fb_err_level;
+		if (msm_comm_vote_bus(core)) {
+			dprintk(VIDC_WARN,
+			"Failed to scale DDR bus. Performance might be impacted\n");
+		}
+	}
+	return rc;
+}
+
 int msm_comm_qbuf(struct vb2_buffer *vb)
 {
 	int rc = 0;
@@ -2717,6 +2805,8 @@ int msm_comm_qbuf(struct vb2_buffer *vb)
 				frame_data.filled_len, frame_data.offset,
 				frame_data.timestamp, frame_data.flags,
 				vb->v4l2_buf.index);
+			if (core->resources.dynamic_bw_update)
+				msm_comm_compute_idle_time(inst);
 			rc = call_hfi_op(hdev, session_etb, (void *)
 					inst->session, &frame_data);
 			if (!rc)
@@ -2744,6 +2834,8 @@ int msm_comm_qbuf(struct vb2_buffer *vb)
 				&frame_data.device_addr, frame_data.alloc_len,
 				frame_data.buffer_type, frame_data.timestamp,
 				frame_data.flags, vb->v4l2_buf.index);
+			if (core->resources.dynamic_bw_update)
+				msm_comm_compute_idle_time(inst);
 			if (atomic_read(&inst->get_seq_hdr_cnt) &&
 			   inst->session_type == MSM_VIDC_ENCODER) {
 				seq_hdr.seq_hdr = vb->v4l2_planes[0].

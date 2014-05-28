@@ -741,7 +741,7 @@ static bool venus_hfi_bus_supports_session(unsigned long sessions_supported,
 }
 
 static int venus_hfi_vote_buses(void *dev, struct vidc_bus_vote_data *data,
-		int num_data)
+		int num_data, u32 fb_error_level)
 {
 	struct {
 		struct bus_info *bus;
@@ -1046,7 +1046,7 @@ static int __alloc_ocmem(void *dev, unsigned long size, bool locked)
 		}
 
 		rc = venus_hfi_vote_buses(device, device->bus_load,
-				device->res->bus_set.count);
+				device->res->bus_set.count, 0);
 		if (rc) {
 			dprintk(VIDC_ERR,
 					"Failed to scale buses after setting ocmem: %d\n",
@@ -1327,7 +1327,7 @@ static inline int venus_hfi_power_on(struct venus_hfi_device *device)
 	}
 
 	rc = venus_hfi_vote_buses(device, device->bus_load,
-			device->res->bus_set.count);
+			device->res->bus_set.count, 0);
 	if (rc) {
 		dprintk(VIDC_ERR, "Failed to scale buses\n");
 		goto err_vote_buses;
@@ -3917,7 +3917,7 @@ static int venus_hfi_resurrect_fw(void *dev)
 
 
 	rc = venus_hfi_vote_buses(device, device->bus_load,
-			device->res->bus_set.count);
+			device->res->bus_set.count, 0);
 	if (rc) {
 		dprintk(VIDC_ERR, "Failed to scale buses\n");
 		goto exit;
