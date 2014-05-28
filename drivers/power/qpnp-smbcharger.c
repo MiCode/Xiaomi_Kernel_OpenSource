@@ -1742,6 +1742,17 @@ static int smbchg_hw_init(struct smbchg_chip *chip)
 	}
 
 	/*
+	 * use the analog sensors instead of the fuelgauge adcs so that
+	 * tcc detection works without trimmed parts
+	 */
+	rc = smbchg_sec_masked_write(chip, chip->chgr_base + CHGR_CFG1,
+			TERM_I_SRC_BIT | RECHG_THRESHOLD_SRC_BIT, 0);
+	if (rc < 0) {
+		dev_err(chip->dev, "Couldn't set chgr_cfg2 rc=%d\n", rc);
+		return rc;
+	}
+
+	/*
 	 * control USB suspend via command bits and set correct 100/500mA
 	 * polarity on the usb current
 	 */
