@@ -59,6 +59,8 @@
 #define CHG_IBATTERM_EN_REG			0x5B
 #define CHG_USB_ENUM_T_STOP_REG			0x4E
 #define CHG_TCHG_MAX_EN_REG			0x60
+#define CHG_TCHG_MAX_EN_BIT			BIT(7)
+#define CHG_TCHG_MAX_MASK			LBC_MASK(6, 0)
 #define CHG_TCHG_MAX_REG			0x61
 #define CHG_WDOG_EN_REG				0x65
 #define CHG_PERPH_RESET_CTRL3_REG		0xDA
@@ -693,27 +695,26 @@ static int qpnp_lbc_tchg_max_set(struct qpnp_lbc_chip *chip, int minutes)
 	minutes = clamp(minutes, QPNP_LBC_TCHG_MIN, QPNP_LBC_TCHG_MAX);
 
 	/* Disable timer */
-	rc = qpnp_lbc_write(chip, chip->chgr_base + CHG_TCHG_MAX_EN_REG,
-				&reg_val, 1);
+	rc = qpnp_lbc_masked_write(chip, chip->chgr_base + CHG_TCHG_MAX_EN_REG,
+						CHG_TCHG_MAX_EN_BIT, 0);
 	if (rc) {
 		pr_err("Failed to write tchg_max_en rc=%d\n", rc);
 		return rc;
 	}
 
-	reg_val = minutes / QPNP_LBC_TCHG_STEP - 1;
+	reg_val = (minutes / QPNP_LBC_TCHG_STEP) - 1;
 
 	pr_debug("TCHG_MAX=%d mins setting %x\n", minutes, reg_val);
-	rc = qpnp_lbc_write(chip, chip->chgr_base + CHG_TCHG_MAX_REG,
-				&reg_val, 1);
+	rc = qpnp_lbc_masked_write(chip, chip->chgr_base + CHG_TCHG_MAX_REG,
+						CHG_TCHG_MAX_MASK, reg_val);
 	if (rc) {
-		pr_err("Failed to write tchg_max_en rc=%d\n", rc);
+		pr_err("Failed to write tchg_max_reg rc=%d\n", rc);
 		return rc;
 	}
 
 	/* Enable timer */
-	reg_val = 1;
-	rc = qpnp_lbc_write(chip, chip->chgr_base + CHG_TCHG_MAX_EN_REG,
-				&reg_val, 1);
+	rc = qpnp_lbc_masked_write(chip, chip->chgr_base + CHG_TCHG_MAX_EN_REG,
+				CHG_TCHG_MAX_EN_BIT, CHG_TCHG_MAX_EN_BIT);
 	if (rc) {
 		pr_err("Failed to write tchg_max_en rc=%d\n", rc);
 		return rc;
@@ -1385,10 +1386,13 @@ static int qpnp_lbc_chg_init(struct qpnp_lbc_chip *chip)
 		pr_err("Failed to set ibat_safe rc=%d\n", rc);
 		return rc;
 	}
-	rc = qpnp_lbc_tchg_max_set(chip, chip->cfg_tchg_mins);
-	if (rc) {
-		pr_err("Failed to set tchg_mins rc=%d\n", rc);
-		return rc;
+
+	if (of_property_read_bool(chip->spmi->dev.of_node, "qcom,tchg-mins")) {
+		rc = qpnp_lbc_tchg_max_set(chip, chip->cfg_tchg_mins);
+		if (rc) {
+			pr_err("Failed to set tchg_mins rc=%d\n", rc);
+			return rc;
+		}
 	}
 
 	/*
