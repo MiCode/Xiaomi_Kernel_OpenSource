@@ -40,6 +40,7 @@
 #include <linux/lnw_gpio.h>
 #include <linux/delay.h>
 #include <linux/acpi.h>
+#include <linux/dmi.h>
 #include <asm/intel-mid.h>
 #include <asm/platform_sst_audio.h>
 #include <asm/platform_sst.h>
@@ -500,14 +501,42 @@ static ssize_t sst_sysfs_set_recovery(struct device *dev,
 static DEVICE_ATTR(audio_recovery, S_IRUGO | S_IWUSR,
 			sst_sysfs_get_recovery, sst_sysfs_set_recovery);
 
+static const struct dmi_system_id dmi_machine_table[] = {
+	{
+		/*  INTEL MRD7 */
+		.ident = "MRD7",
+		.matches = {
+			DMI_MATCH(DMI_BOARD_NAME, "TABLET"),
+			DMI_MATCH(DMI_BOARD_VERSION, "MRD 7"),
+		},
+		.driver_data = (void*)"ssp0",
+	},
+	{
+		/*  ASUS T100 */
+		.ident = "T100",
+		.matches = {
+			DMI_MATCH(DMI_BOARD_NAME, "T100TA"),
+			DMI_MATCH(DMI_BOARD_VERSION, "1.0"),
+		},
+		.driver_data = (void*)"ssp2",
+	},
+	{ }
+};
+
 int sst_request_firmware_async(struct intel_sst_drv *ctx)
 {
 	int ret = 0;
-
+	const struct dmi_system_id* dmi_machine;
+pr_err("DORIAN: Enter %s\n", __func__);
+	dmi_machine = dmi_first_match(dmi_machine_table);
+	if (!dmi_machine) {
+		pr_err("%s: Unsupported machine!\n", __func__);
+		return -ENOENT;	
+	}
+pr_err("DORIAN: %s\n", (const char*)dmi_machine->driver_data);
 	snprintf(ctx->firmware_name, sizeof(ctx->firmware_name),
-			"%s%04x%s", "fw_sst_",
-			ctx->pci_id, ".bin");
-	pr_debug("Requesting FW %s now...\n", ctx->firmware_name);
+			"fw_sst_%04x_%s.bin", ctx->pci_id, (const char*)dmi_machine->driver_data);
+	pr_err("Requesting FW %s now...\n", ctx->firmware_name);
 
 	trace_sst_fw_download("Request firmware async", ctx->sst_state);
 

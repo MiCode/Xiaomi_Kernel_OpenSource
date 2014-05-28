@@ -557,7 +557,7 @@ struct intel_sst_drv {
 	/* Holder for firmware name. Due to async call it needs to be
 	 * persistent till worker thread gets called
 	 */
-	char firmware_name[20];
+	char firmware_name[30];
 };
 
 extern struct intel_sst_drv *sst_drv_ctx;

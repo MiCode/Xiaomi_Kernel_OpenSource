@@ -29,6 +29,7 @@
 #include <linux/slab.h>
 #include <linux/vlv2_plat_clock.h>
 #include <linux/input.h>
+#include <linux/dmi.h>
 #include <asm/intel-mid.h>
 #include <asm/platform_byt_audio.h>
 #include <sound/pcm.h>
@@ -464,36 +465,6 @@ static void byt_enable_hs_button_events(struct work_struct *work)
 	rt5640_enable_ovcd_interrupt(codec, true);
 }
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 static inline struct snd_soc_codec *byt_get_codec(struct snd_soc_card *card)
 {
 	bool found = false;
@@ -561,10 +532,8 @@ static const struct snd_soc_dapm_widget byt_dapm_widgets[] = {
 static const struct snd_soc_dapm_route byt_audio_map[] = {
 	{"IN2P", NULL, "Headset Mic"},
 	{"IN2N", NULL, "Headset Mic"},
-	{"IN1P", NULL, "micbias1"},
 	{"LDO2", NULL, "Int Mic"},
 	{"micbias1", NULL, "Int Mic"},
-
 	{"Headphone", NULL, "HPOL"},
 	{"Headphone", NULL, "HPOR"},
 	{"Ext Spk", NULL, "SPOLP"},
@@ -582,6 +551,14 @@ static const struct snd_soc_dapm_route byt_audio_map[] = {
 	{"codec_in0", NULL, "ssp2 Rx"},
 	{"codec_in1", NULL, "ssp2 Rx"},
 	{"ssp2 Rx", NULL, "AIF1 Capture"},
+};
+
+static const struct snd_soc_dapm_route byt_audio_map_mrd7[] = {
+	{"IN3P", NULL, "micbias1"},
+};
+
+static const struct snd_soc_dapm_route byt_audio_map_t100[] = {
+	{"IN1P", NULL, "micbias1"},
 };
 
 static const struct snd_kcontrol_new byt_mc_controls[] = {
@@ -940,8 +917,18 @@ static int snd_byt_poweroff(struct device *dev)
 #endif
 
 /* SoC card */
-static struct snd_soc_card snd_soc_card_byt = {
-	.name = "baytrailcraudio",
+static struct snd_soc_card snd_soc_card_byt_mrd7 = {
+	.name = "bytcr-rt5640-mrd7",
+	.dai_link = byt_dailink,
+	.num_links = ARRAY_SIZE(byt_dailink),
+	.set_bias_level = byt_set_bias_level,
+	.dapm_widgets = byt_dapm_widgets,
+	.num_dapm_widgets = ARRAY_SIZE(byt_dapm_widgets),
+	.dapm_routes = byt_audio_map,
+	.num_dapm_routes = ARRAY_SIZE(byt_audio_map),
+};
+static struct snd_soc_card snd_soc_card_byt_t100 = {
+	.name = "bytcr-rt5642-t100",
 	.dai_link = byt_dailink,
 	.num_links = ARRAY_SIZE(byt_dailink),
 	.set_bias_level = byt_set_bias_level,
@@ -951,19 +938,69 @@ static struct snd_soc_card snd_soc_card_byt = {
 	.num_dapm_routes = ARRAY_SIZE(byt_audio_map),
 };
 
+enum board_id {
+	BOARD_UNSUPPORTED = -1,
+	BOARD_MRD7 = 0,
+	BOARD_T100 = 1,
+};
+
+static enum board_id get_board_id(void)
+{
+	static const struct dmi_system_id dmi_machine_table[] = {
+		{
+			/*  INTEL MRD7 */
+			.ident = "MRD7",
+			.matches = {
+				DMI_MATCH(DMI_BOARD_NAME, "TABLET"),
+				DMI_MATCH(DMI_BOARD_VERSION, "MRD 7"),
+			},
+		},
+		{
+			/*  ASUS T100 */
+			.ident = "T100",
+			.matches = {
+				DMI_MATCH(DMI_BOARD_NAME, "T100TA"),
+				DMI_MATCH(DMI_BOARD_VERSION, "1.0"),
+			},
+		},
+		{ }
+	};
+	const struct dmi_system_id* dmi_machine;
+
+	dmi_machine = dmi_first_match(dmi_machine_table);
+	if (!dmi_machine) {
+		pr_err("Unsupported machine!\n");
+		return -ENOENT;	
+	}
+
+	if (!strncmp(dmi_machine->ident, "MRD7", 4)) {
+		pr_err("%s: Machine is MRD7\n", __func__);
+		return BOARD_MRD7;
+	} else if (!strncmp(dmi_machine->ident, "T100", 4)) {
+		pr_err("%s: Machine is T100\n", __func__);
+		return BOARD_T100;
+	}
+
+	return BOARD_UNSUPPORTED;
+}
+
 static int snd_byt_mc_probe(struct platform_device *pdev)
 {
 	int ret_val = 0;
 	struct byt_mc_private *drv;
 	int codec_gpio;
+	struct snd_soc_card *card;
+	const struct snd_soc_dapm_route *routes;
+	enum board_id bid;
 
 	pr_debug("Entry %s\n", __func__);
-	pr_err("My log1\n");
+
 	drv = devm_kzalloc(&pdev->dev, sizeof(*drv), GFP_ATOMIC);
 	if (!drv) {
-		pr_err("allocation failed\n");
+		pr_err("Allocation failed!\n");
 		return -ENOMEM;
 	}
+
 	/* get the codec -> SoC GPIO */
 	/* FIXME: Hard coding this to 86. This should come from DSDT. Currently
 	   there is not ACPI entry for machine driver */
@@ -988,16 +1025,42 @@ static int snd_byt_mc_probe(struct platform_device *pdev)
 	drv->num_jack_gpios = 1;
 	drv->use_soc_jd_gpio = false;
 
-	/* register the soc card */
-	snd_soc_card_byt.dev = &pdev->dev;
-	snd_soc_card_set_drvdata(&snd_soc_card_byt, drv);
+	bid = get_board_id();
+	switch (bid) {
+	case BOARD_MRD7:
+		card = &snd_soc_card_byt_mrd7;
+		routes = &byt_audio_map_mrd7[0];
+		break;
+	case BOARD_T100:
+		card = &snd_soc_card_byt_t100;
+		routes = &byt_audio_map_t100[0];
+		break;
+	default:
+		return -EINVAL;
+	}
 
-	ret_val = snd_soc_register_card(&snd_soc_card_byt);
+	/* register the soc card */
+	card->dev = &pdev->dev;
+	snd_soc_card_set_drvdata(card, drv);
+	ret_val = snd_soc_register_card(card);
 	if (ret_val) {
 		pr_err("snd_soc_register_card failed %d\n", ret_val);
 		return ret_val;
 	}
-	platform_set_drvdata(pdev, &snd_soc_card_byt);
+	platform_set_drvdata(pdev, card);
+
+	ret_val = snd_soc_dapm_add_routes(&card->dapm, routes, 1);
+	if (ret_val) {
+		pr_err("%s: Failed to add board-specific routes!\n", __func__);
+		return ret_val;
+	}
+
+	if (bid == BOARD_MRD7) {
+		pr_err("%s: Setting special-bit for MRD7-board.\n", __func__);
+		snd_soc_update_bits(byt_get_codec(card), RT5640_JD_CTRL,
+				RT5640_JD_MASK, RT5640_JD_JD1_IN4P);
+	}
+
 	pr_info("%s successful\n", __func__);
 	return ret_val;
 }
@@ -1063,11 +1126,13 @@ static struct platform_driver snd_byt_mc_driver = {
 static int __init snd_byt_driver_init(void)
 {
 	int ret;
+
 	ret = platform_driver_register(&snd_byt_mc_driver);
 	if (ret)
 		pr_err("Fail to register Baytrail Machine driver byt_rt5640\n");
 	else
 		pr_info("Baytrail Machine Driver byt_rt5640 registerd\n");
+
 	return ret;
 }
 late_initcall(snd_byt_driver_init);
