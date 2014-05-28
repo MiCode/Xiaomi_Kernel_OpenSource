@@ -1533,7 +1533,8 @@ out_free:
 }
 
 static struct acpi_device_id mt9m114_acpi_match[] = {
-	{"APTN1040"},
+	{ "APTN1040" },
+	{ "INT33F0" },
 	{},
 };
 
