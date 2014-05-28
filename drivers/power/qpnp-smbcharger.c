@@ -2135,6 +2135,7 @@ static int smbchg_request_irqs(struct smbchg_chip *chip)
 					"chg-inhibit", chg_inhibit_handler, rc);
 			REQUEST_IRQ(chip, spmi_resource, chip->recharge_irq,
 					"chg-rechg-thr", recharge_handler, rc);
+			enable_irq_wake(chip->chg_term_irq);
 			break;
 		case SMBCHG_BAT_IF_SUBTYPE:
 			REQUEST_IRQ(chip, spmi_resource, chip->batt_hot_irq,
@@ -2149,6 +2150,12 @@ static int smbchg_request_irqs(struct smbchg_chip *chip)
 					"batt-missing", batt_pres_handler, rc);
 			REQUEST_IRQ(chip, spmi_resource, chip->vbat_low_irq,
 					"batt-low", vbat_low_handler, rc);
+			enable_irq_wake(chip->batt_hot_irq);
+			enable_irq_wake(chip->batt_warm_irq);
+			enable_irq_wake(chip->batt_cool_irq);
+			enable_irq_wake(chip->batt_cold_irq);
+			enable_irq_wake(chip->batt_missing_irq);
+			enable_irq_wake(chip->vbat_low_irq);
 			break;
 		case SMBCHG_USB_CHGPTH_SUBTYPE:
 			REQUEST_IRQ(chip, spmi_resource, chip->usbin_uv_irq,
@@ -2156,10 +2163,13 @@ static int smbchg_request_irqs(struct smbchg_chip *chip)
 			REQUEST_IRQ(chip, spmi_resource, chip->src_detect_irq,
 					"usbin-src-det",
 					src_detect_handler, rc);
+			enable_irq_wake(chip->usbin_uv_irq);
+			enable_irq_wake(chip->src_detect_irq);
 			break;
 		case SMBCHG_DC_CHGPTH_SUBTYPE:
 			REQUEST_IRQ(chip, spmi_resource, chip->dcin_uv_irq,
 					"dcin-uv", dcin_uv_handler, rc);
+			enable_irq_wake(chip->dcin_uv_irq);
 			break;
 		case SMBCHG_MISC_SUBTYPE:
 			REQUEST_IRQ(chip, spmi_resource, chip->power_ok_irq,
@@ -2170,6 +2180,8 @@ static int smbchg_request_irqs(struct smbchg_chip *chip)
 					chip->safety_timeout_irq,
 					"safety-timeout",
 					safety_timeout_handler, rc);
+			enable_irq_wake(chip->chg_hot_irq);
+			enable_irq_wake(chip->safety_timeout_irq);
 			break;
 		case SMBCHG_OTG_SUBTYPE:
 			break;
