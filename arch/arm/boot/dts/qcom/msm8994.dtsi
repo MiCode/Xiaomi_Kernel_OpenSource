@@ -2175,6 +2175,26 @@
 	qcom,bcl {
 		compatible = "qcom,bcl";
 	};
+
+	cnss: qcom,cnss@0d400000 {
+		compatible = "qcom,cnss";
+		reg = <0x0d400000 0x200000>;
+		reg-names = "ramdump";
+		wlan-en-gpio = <&msm_gpio 113 0>;
+		vdd-wlan-supply = <&bt_vreg>;
+		qcom,notify-modem-status;
+		pinctrl-names = "default";
+		pinctrl-0 = <&cnss_default>;
+
+		qcom,msm-bus,name = "msm-cnss";
+		qcom,msm-bus,num-cases = <4>;
+		qcom,msm-bus,num-paths = <1>;
+		qcom,msm-bus,vectors-KBps =
+					  <45 512 0 0>,           /* No vote */
+					  <45 512 6250 200000>,   /* 50 Mbps */
+					  <45 512 25000 200000>,  /* 200 Mbps */
+					  <45 512 100000 200000>; /* 800 Mbps */
+	};
 };
 
 &gdsc_usb30 {
