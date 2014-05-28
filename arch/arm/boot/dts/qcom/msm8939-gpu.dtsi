@@ -67,6 +67,9 @@
 		coresight-child-list = <&funnel_in0>;
 		coresight-child-ports = <4>;
 
+		/* CPU latency parameter */
+		qcom,pm-qos-latency = <701>;
+
 		/* Power levels */
 		qcom,gpu-pwrlevels {
 			#address-cells = <1>;
@@ -90,7 +93,7 @@
 
 			qcom,gpu-pwrlevel@2 {
 				reg = <2>;
-				qcom,gpu-freq = <200000000>;
+				qcom,gpu-freq = <220000000>;
 				qcom,bus-freq = <1>;
 				qcom,io-fraction = <100>;
 			};
