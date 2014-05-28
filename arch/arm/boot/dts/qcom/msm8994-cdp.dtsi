@@ -383,6 +383,10 @@
 	};
 };
 
+&pmi8994_charger {
+	qcom,charging-disabled;
+};
+
 &slim_msm {
 	tomtom_codec {
 		cdc-vdd-spkdrv-supply = <&pmi8994_boost>;
