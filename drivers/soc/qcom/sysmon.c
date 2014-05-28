@@ -20,11 +20,13 @@
 #include <linux/string.h>
 #include <linux/completion.h>
 #include <linux/platform_device.h>
+#include <linux/slab.h>
 #include <soc/qcom/hsic_sysmon.h>
 #include <soc/qcom/sysmon.h>
 #include <soc/qcom/subsystem_notif.h>
 #include <soc/qcom/smd.h>
 
+#define NAME_LENGTH	20
 #define TX_BUF_SIZE	50
 #define RX_BUF_SIZE	500
 #define TIMEOUT_MS	5000
@@ -42,15 +44,9 @@ struct sysmon_subsys {
 	char			rx_buf[RX_BUF_SIZE];
 	enum transports		transport;
 	struct device		*dev;
-};
-
-static struct sysmon_subsys subsys[SYSMON_NUM_SS] = {
-	[SYSMON_SS_MODEM].transport     = TRANSPORT_SMD,
-	[SYSMON_SS_LPASS].transport     = TRANSPORT_SMD,
-	[SYSMON_SS_WCNSS].transport     = TRANSPORT_SMD,
-	[SYSMON_SS_DSPS].transport      = TRANSPORT_SMD,
-	[SYSMON_SS_Q6FW].transport      = TRANSPORT_SMD,
-	[SYSMON_SS_EXT_MODEM].transport = TRANSPORT_HSIC,
+	char			name[NAME_LENGTH];
+	int			pid;
+	struct list_head	list;
 };
 
 static const char *notif_name[SUBSYS_NOTIF_TYPE_COUNT] = {
@@ -60,19 +56,16 @@ static const char *notif_name[SUBSYS_NOTIF_TYPE_COUNT] = {
 	[SUBSYS_AFTER_POWERUP]   = "after_powerup",
 };
 
-struct enum_name_map {
-	int id;
-	const char name[50];
+static const char *subsys_name[SYSMON_NUM_SS] = {
+	[SYSMON_SS_WCNSS] = "wcnss",
+	[SYSMON_SS_MODEM] = "modem",
+	[SYSMON_SS_LPASS] = "adsp",
+	[SYSMON_SS_Q6FW] = "modem_fw",
+	[SYSMON_SS_EXT_MODEM] = "esoc0",
 };
 
-static struct enum_name_map map[SYSMON_NUM_SS] = {
-	{SYSMON_SS_WCNSS, "wcnss"},
-	{SYSMON_SS_MODEM, "modem"},
-	{SYSMON_SS_LPASS, "adsp"},
-	{SYSMON_SS_Q6FW, "modem_fw"},
-	{SYSMON_SS_EXT_MODEM, "esoc0"},
-	{SYSMON_SS_DSPS, "dsps"},
-};
+static LIST_HEAD(sysmon_list);
+static DEFINE_MUTEX(sysmon_list_lock);
 
 static int sysmon_send_smd(struct sysmon_subsys *ss, const char *tx_buf,
 			   size_t len)
@@ -149,15 +142,14 @@ int sysmon_send_event(const char *dest_ss, const char *event_ss,
 {
 
 	char tx_buf[TX_BUF_SIZE];
-	int ret, i;
-	struct sysmon_subsys *ss = NULL;
+	int ret;
+	struct sysmon_subsys *tmp, *ss = NULL;
 
-	for (i = 0; i < ARRAY_SIZE(map); i++) {
-		if (!strcmp(map[i].name, dest_ss)) {
-			ss = &subsys[map[i].id];
-			break;
-		}
-	}
+	mutex_lock(&sysmon_list_lock);
+	list_for_each_entry(tmp, &sysmon_list, list)
+		if (!strcmp(tmp->name, dest_ss))
+			ss = tmp;
+	mutex_unlock(&sysmon_list_lock);
 
 	if (ss == NULL)
 		return -EINVAL;
@@ -198,18 +190,17 @@ out:
  */
 int sysmon_send_shutdown(const char *dest_ss)
 {
-	struct sysmon_subsys *ss = NULL;
+	struct sysmon_subsys *tmp, *ss = NULL;
 	const char tx_buf[] = "system:shutdown";
 	const char expect[] = "system:ack";
 	size_t prefix_len = ARRAY_SIZE(expect) - 1;
-	int i, ret;
+	int ret;
 
-	for (i = 0; i < ARRAY_SIZE(map); i++) {
-		if (!strcmp(map[i].name, dest_ss)) {
-			ss = &subsys[map[i].id];
-			break;
-		}
-	}
+	mutex_lock(&sysmon_list_lock);
+	list_for_each_entry(tmp, &sysmon_list, list)
+		if (!strcmp(tmp->name, dest_ss))
+			ss = tmp;
+	mutex_unlock(&sysmon_list_lock);
 
 	if (ss == NULL)
 		return -EINVAL;
@@ -244,18 +235,17 @@ out:
  */
 int sysmon_get_reason(const char *dest_ss, char *buf, size_t len)
 {
-	struct sysmon_subsys *ss = NULL;
+	struct sysmon_subsys *tmp, *ss = NULL;
 	const char tx_buf[] = "ssr:retrieve:sfr";
 	const char expect[] = "ssr:return:";
 	size_t prefix_len = ARRAY_SIZE(expect) - 1;
-	int i, ret;
+	int ret;
 
-	for (i = 0; i < ARRAY_SIZE(map); i++) {
-		if (!strcmp(map[i].name, dest_ss)) {
-			ss = &subsys[map[i].id];
-			break;
-		}
-	}
+	mutex_lock(&sysmon_list_lock);
+	list_for_each_entry(tmp, &sysmon_list, list)
+		if (!strcmp(tmp->name, dest_ss))
+			ss = tmp;
+	mutex_unlock(&sysmon_list_lock);
 
 	if (ss == NULL || buf == NULL || len == 0)
 		return -EINVAL;
@@ -308,46 +298,58 @@ static int sysmon_probe(struct platform_device *pdev)
 	if (pdev->id < 0 || pdev->id >= SYSMON_NUM_SS)
 		return -ENODEV;
 
-	ss = &subsys[pdev->id];
+	ss = devm_kzalloc(&pdev->dev, sizeof(*ss), GFP_KERNEL);
+	if (!ss)
+		return -ENOMEM;
+
 	mutex_init(&ss->lock);
-
-	switch (ss->transport) {
-	case TRANSPORT_SMD:
-		if (pdev->id >= SMD_NUM_TYPE)
-			return -EINVAL;
-
-		ret = smd_named_open_on_edge("sys_mon", pdev->id, &ss->chan, ss,
-					     sysmon_smd_notify);
-		if (ret) {
-			pr_err("SMD open failed\n");
-			return ret;
-		}
-
-		smd_disable_read_intr(ss->chan);
-		break;
-	case TRANSPORT_HSIC:
-		if (pdev->id < SMD_NUM_TYPE)
-			return -EINVAL;
-
+	if (pdev->id == SYSMON_SS_EXT_MODEM) {
+		ss->transport = TRANSPORT_HSIC;
 		ret = hsic_sysmon_open(HSIC_SYSMON_DEV_EXT_MODEM);
 		if (ret) {
 			pr_err("HSIC open failed\n");
 			return ret;
 		}
-		break;
-	default:
+	} else if (pdev->id < SMD_NUM_TYPE) {
+		if (subsys_name[pdev->id] == NULL)
+			return -EINVAL;
+		ss->transport = TRANSPORT_SMD;
+		ret = smd_named_open_on_edge("sys_mon", pdev->id, &ss->chan,
+						ss, sysmon_smd_notify);
+		if (ret) {
+			pr_err("SMD open failed\n");
+			return ret;
+		}
+		smd_disable_read_intr(ss->chan);
+	} else
 		return -EINVAL;
-	}
-	ss->dev = &pdev->dev;
 
+	ss->dev = &pdev->dev;
+	ss->pid = pdev->id;
+	strlcpy(ss->name, subsys_name[pdev->id], ARRAY_SIZE(ss->name));
+
+	mutex_lock(&sysmon_list_lock);
+	INIT_LIST_HEAD(&ss->list);
+	list_add_tail(&ss->list, &sysmon_list);
+	mutex_unlock(&sysmon_list_lock);
 	return 0;
 }
 
 static int sysmon_remove(struct platform_device *pdev)
 {
-	struct sysmon_subsys *ss = &subsys[pdev->id];
+	struct sysmon_subsys *sysmon, *tmp, *ss = NULL;
 
-	ss->dev = NULL;
+	mutex_lock(&sysmon_list_lock);
+	list_for_each_entry_safe(sysmon, tmp, &sysmon_list, list) {
+		if (sysmon->pid == pdev->id) {
+			ss = sysmon;
+			list_del(&ss->list);
+		}
+	}
+	mutex_unlock(&sysmon_list_lock);
+
+	if (ss == NULL)
+		return -EINVAL;
 
 	mutex_lock(&ss->lock);
 	switch (ss->transport) {
