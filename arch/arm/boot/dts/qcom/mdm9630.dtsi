@@ -24,6 +24,17 @@
 		sdhc2 = &sdhc_2; /* SDC2 SD card slot */
 	};
 
+	cpus {
+		#size-cells = <0>;
+		#address-cells = <1>;
+
+		CPU0: cpu@0 {
+			device_type = "cpu";
+			compatible = "arm,cortex-a7";
+			reg = <0x0>;
+		};
+	};
+
 	memory {
 		audio_mem: audio_region@0 {
 			linux,reserve-contiguous-region;
