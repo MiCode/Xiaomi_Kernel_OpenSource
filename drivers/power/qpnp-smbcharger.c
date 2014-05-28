@@ -759,7 +759,7 @@ static int smbchg_set_high_usb_chg_current(struct smbchg_chip *chip,
 	int i, rc;
 	u8 usb_cur_val;
 
-	for (i = ARRAY_SIZE(usb_current_table); i >= 0; i--) {
+	for (i = ARRAY_SIZE(usb_current_table) - 1; i >= 0; i--) {
 		if (current_ma >= usb_current_table[i])
 			break;
 	}
@@ -809,8 +809,6 @@ static int smbchg_set_usb_current_max(struct smbchg_chip *chip,
 							int current_ma)
 {
 	int rc;
-
-	current_ma = calc_thermal_limited_current(chip, current_ma);
 
 	if (!chip->batt_present) {
 		pr_info_ratelimited("Ignoring usb current->%d, battery is absent\n",
@@ -872,8 +870,7 @@ static int smbchg_set_usb_current_max(struct smbchg_chip *chip,
 
 	rc = smbchg_set_high_usb_chg_current(chip, current_ma);
 out:
-	dev_dbg(chip->dev, "usb current set to %d mA\n",
-			chip->usb_max_current_ma);
+	pr_debug("usb current set to %d mA\n", chip->usb_max_current_ma);
 	if (rc < 0)
 		dev_err(chip->dev,
 			"Couldn't set %dmA rc = %d\n", current_ma, rc);
