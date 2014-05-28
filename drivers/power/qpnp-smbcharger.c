@@ -101,6 +101,7 @@ struct smbchg_chip {
 	int				chg_term_irq;
 	int				taper_irq;
 	int				recharge_irq;
+	int				fastchg_irq;
 	int				safety_timeout_irq;
 	int				power_ok_irq;
 	int				dcin_uv_irq;
@@ -1398,6 +1399,17 @@ static irqreturn_t vbat_low_handler(int irq, void *_chip)
 	return IRQ_HANDLED;
 }
 
+static irqreturn_t fastchg_handler(int irq, void *_chip)
+{
+	struct smbchg_chip *chip = _chip;
+
+	pr_debug("p2f triggered\n");
+	if (chip->psy_registered)
+		power_supply_changed(&chip->batt_psy);
+
+	return IRQ_HANDLED;
+}
+
 static irqreturn_t chg_hot_handler(int irq, void *_chip)
 {
 	pr_warn_ratelimited("chg hot\n");
@@ -2135,7 +2147,10 @@ static int smbchg_request_irqs(struct smbchg_chip *chip)
 					"chg-inhibit", chg_inhibit_handler, rc);
 			REQUEST_IRQ(chip, spmi_resource, chip->recharge_irq,
 					"chg-rechg-thr", recharge_handler, rc);
+			REQUEST_IRQ(chip, spmi_resource, chip->fastchg_irq,
+					"chg-p2f-thr", fastchg_handler, rc);
 			enable_irq_wake(chip->chg_term_irq);
+			enable_irq_wake(chip->fastchg_irq);
 			break;
 		case SMBCHG_BAT_IF_SUBTYPE:
 			REQUEST_IRQ(chip, spmi_resource, chip->batt_hot_irq,
