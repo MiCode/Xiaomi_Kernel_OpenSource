@@ -279,6 +279,10 @@
 #define H1TPD_PROD_IDX_SHFT                                           0
 
 /* EMAC_EMAC_WRAPPER_CSR1 */
+#define TX_INDX_FIFO_SYNC_RST                                  0x800000
+#define TX_TS_FIFO_SYNC_RST                                    0x400000
+#define RX_TS_FIFO2_SYNC_RST                                   0x200000
+#define RX_TS_FIFO1_SYNC_RST                                   0x100000
 #define TX_TS_ENABLE                                            0x10000
 #define DIS_1588_CLKS                                             0x800
 #define FREQ_MODE                                                 0x200

@@ -18,6 +18,10 @@
 #include "emac_hw.h"
 #include "emac_ptp.h"
 
+#define TS_TX_FIFO_SYNC_RST (TX_INDX_FIFO_SYNC_RST | TX_TS_FIFO_SYNC_RST)
+#define TS_RX_FIFO_SYNC_RST (RX_TS_FIFO1_SYNC_RST  | RX_TS_FIFO2_SYNC_RST)
+#define TS_FIFO_SYNC_RST    (TS_TX_FIFO_SYNC_RST | TS_RX_FIFO_SYNC_RST)
+
 static inline u32 clk_to_ptp_inc_value(u32 clk)
 {
 	u32 ns = 1000000000/clk;
@@ -44,7 +48,8 @@ static int emac_hw_1588_core_disable(struct emac_hw *hw)
 			  DIS_1588_CLKS, DIS_1588_CLKS);
 	emac_reg_update32(hw, EMAC_CSR, EMAC_EMAC_WRAPPER_CSR10,
 			  DIS_1588, DIS_1588);
-	emac_reg_update32(hw, EMAC_1588, EMAC_P1588_CTRL_REG, 0, BYPASS_O);
+	emac_reg_update32(hw, EMAC_1588, EMAC_P1588_CTRL_REG,
+			  BYPASS_O, BYPASS_O);
 	emac_reg_w32(hw, EMAC_1588, EMAC_P1588_PTP_EXPANDED_INT_MASK, 0);
 	wmb();
 
@@ -97,6 +102,14 @@ static int emac_hw_1588_core_enable(struct emac_hw *hw,
 	wmb();
 
 	v = emac_reg_r32(hw, EMAC_1588, EMAC_P1588_PTP_EXPANDED_INT_STATUS);
+
+	/* Reset the timestamp FIFO */
+	emac_reg_update32(hw, EMAC_CSR, EMAC_EMAC_WRAPPER_CSR1,
+			  TS_FIFO_SYNC_RST, TS_FIFO_SYNC_RST);
+	wmb();
+	emac_reg_update32(hw, EMAC_CSR, EMAC_EMAC_WRAPPER_CSR1,
+			  TS_FIFO_SYNC_RST, 0);
+	wmb();
 
 	SET_HW_FLAG(PTP_EN);
 	return 0;
@@ -282,6 +295,15 @@ int emac_tstamp_ioctl(struct net_device *netdev, struct ifreq *ifr, int cmd)
 	case HWTSTAMP_TX_ON:
 		if (CHK_HW_FLAG(TS_TX_EN))
 			break;
+
+		/* Reset the TX timestamp FIFO */
+		emac_reg_update32(hw, EMAC_CSR, EMAC_EMAC_WRAPPER_CSR1,
+				  TS_TX_FIFO_SYNC_RST, TS_TX_FIFO_SYNC_RST);
+		wmb();
+		emac_reg_update32(hw, EMAC_CSR, EMAC_EMAC_WRAPPER_CSR1,
+				  TS_TX_FIFO_SYNC_RST, 0);
+		wmb();
+
 		emac_reg_update32(hw, EMAC_CSR, EMAC_EMAC_WRAPPER_CSR1,
 				  TX_TS_ENABLE, TX_TS_ENABLE);
 		wmb();
@@ -299,6 +321,15 @@ int emac_tstamp_ioctl(struct net_device *netdev, struct ifreq *ifr, int cmd)
 		cfg.rx_filter = HWTSTAMP_FILTER_ALL;
 		if (CHK_HW_FLAG(TS_RX_EN))
 			break;
+
+		/* Reset the RX timestamp FIFO */
+		emac_reg_update32(hw, EMAC_CSR, EMAC_EMAC_WRAPPER_CSR1,
+				  TS_RX_FIFO_SYNC_RST, TS_RX_FIFO_SYNC_RST);
+		wmb();
+		emac_reg_update32(hw, EMAC_CSR, EMAC_EMAC_WRAPPER_CSR1,
+				  TS_RX_FIFO_SYNC_RST, 0);
+		wmb();
+
 		SET_HW_FLAG(TS_RX_EN);
 		break;
 	}
