@@ -203,6 +203,7 @@ static DEFINE_SPINLOCK(reg_spinlock);
 #define	WCNSS_VBATT_LEVEL_IND         (WCNSS_CTRL_MSG_START + 8)
 #define	WCNSS_BUILD_VER_REQ           (WCNSS_CTRL_MSG_START + 9)
 #define	WCNSS_BUILD_VER_RSP           (WCNSS_CTRL_MSG_START + 10)
+#define	WCNSS_PM_CONFIG_REQ           (WCNSS_CTRL_MSG_START + 11)
 
 /* max 20mhz channel count */
 #define WCNSS_MAX_CH_NUM			45
@@ -377,6 +378,7 @@ static struct {
 	struct delayed_work wcnss_work;
 	struct delayed_work vbatt_work;
 	struct work_struct wcnssctrl_version_work;
+	struct work_struct wcnss_pm_config_work;
 	struct work_struct wcnssctrl_nvbin_dnld_work;
 	struct work_struct wcnssctrl_rx_work;
 	struct wake_lock wcnss_wake_lock;
@@ -945,6 +947,7 @@ static void wcnss_smd_notify_event(void *data, unsigned int event)
 		pr_debug("wcnss: opening WCNSS SMD channel :%s",
 				WCNSS_CTRL_CHANNEL);
 		schedule_work(&penv->wcnssctrl_version_work);
+		schedule_work(&penv->wcnss_pm_config_work);
 
 		break;
 
@@ -1800,6 +1803,52 @@ static void wcnss_send_version_req(struct work_struct *worker)
 	return;
 }
 
+static void wcnss_send_pm_config(struct work_struct *worker)
+{
+	struct smd_msg_hdr *hdr;
+	unsigned char *msg = NULL;
+	int rc, prop_len;
+	u32 *payload;
+
+	if (!of_find_property(penv->pdev->dev.of_node,
+				"qcom,wcnss-pm", &prop_len))
+		return;
+
+	msg = kmalloc((sizeof(struct smd_msg_hdr) + prop_len), GFP_KERNEL);
+
+	if (NULL == msg) {
+		pr_err("wcnss: %s: failed to allocate memory\n", __func__);
+		return;
+	}
+
+	payload = (u32 *)(msg + sizeof(struct smd_msg_hdr));
+
+	prop_len /= sizeof(int);
+
+	rc = of_property_read_u32_array(penv->pdev->dev.of_node,
+			"qcom,wcnss-pm", payload, prop_len);
+	if (rc < 0) {
+		pr_err("wcnss: property read failed\n");
+		kfree(msg);
+		return;
+	}
+
+	pr_debug("%s:size=%d: <%d, %d, %d, %d, %d>\n", __func__,
+			prop_len, *payload, *(payload+1), *(payload+2),
+			*(payload+3), *(payload+4));
+
+	hdr = (struct smd_msg_hdr *)msg;
+	hdr->msg_type = WCNSS_PM_CONFIG_REQ;
+	hdr->msg_len = sizeof(struct smd_msg_hdr) + prop_len;
+
+	rc = wcnss_smd_tx(msg, hdr->msg_len);
+	if (rc < 0)
+		pr_err("wcnss: smd tx failed\n");
+
+	kfree(msg);
+	return;
+}
+
 static DECLARE_RWSEM(wcnss_pm_sem);
 
 static void wcnss_nvbin_dnld(void)
@@ -2234,6 +2283,7 @@ wcnss_trigger_config(struct platform_device *pdev)
 	}
 	INIT_WORK(&penv->wcnssctrl_rx_work, wcnssctrl_rx_handler);
 	INIT_WORK(&penv->wcnssctrl_version_work, wcnss_send_version_req);
+	INIT_WORK(&penv->wcnss_pm_config_work, wcnss_send_pm_config);
 	INIT_WORK(&penv->wcnssctrl_nvbin_dnld_work, wcnss_nvbin_dnld_main);
 
 	wake_lock_init(&penv->wcnss_wake_lock, WAKE_LOCK_SUSPEND, "wcnss");
