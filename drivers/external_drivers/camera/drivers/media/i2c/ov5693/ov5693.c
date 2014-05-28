@@ -1052,6 +1052,15 @@ static int ov5693_s_config(struct v4l2_subdev *sd,
 
 	dev->platform_data = platform_data;
 
+	if (dev->platform_data->platform_init) {
+		ret = dev->platform_data->platform_init(client);
+		if (ret) {
+			mutex_unlock(&dev->input_lock);
+			dev_err(&client->dev, "ov5693 platform init err\n");
+			return ret;
+		}
+	}
+
 	ret = power_up(sd);
 	if (ret) {
 		dev_err(&client->dev, "ov5693 power-up err.\n");
@@ -1099,6 +1108,8 @@ fail_csi_cfg:
 fail_power_on:
 	power_down(sd);
 	dev_err(&client->dev, "sensor power-gating failed\n");
+	if (dev->platform_data->platform_deinit)
+		dev->platform_data->platform_deinit();
 	mutex_unlock(&dev->input_lock);
 	return ret;
 }
@@ -1391,6 +1402,9 @@ static int ov5693_remove(struct i2c_client *client)
 	v4l2_device_unregister_subdev(sd);
 	media_entity_cleanup(&dev->sd.entity);
 	devm_kfree(&client->dev, dev);
+
+	if (dev->platform_data->platform_deinit)
+		dev->platform_data->platform_deinit();
 
 	return 0;
 }
