@@ -1329,6 +1329,14 @@ unsigned int __read_mostly sysctl_sched_downmigrate_pct = 60;
  */
 int __read_mostly sysctl_sched_upmigrate_min_nice = 15;
 
+/*
+ * Scheduler boost is a mechanism to temporarily place tasks on CPUs
+ * with higher capacity than those where a task would have normally
+ * ended up with their load characteristics. Any entity enabling
+ * boost is responsible for disabling it as well.
+ */
+unsigned int sysctl_sched_boost;
+
 static inline int available_cpu_capacity(int cpu)
 {
 	struct rq *rq = cpu_rq(cpu);
@@ -1384,6 +1392,11 @@ u64 scale_task_load(u64 task_load, int cpu)
 static inline int is_big_task(struct task_struct *p)
 {
 	unsigned int load = task_load(p);
+	int nice = TASK_NICE(p);
+
+	/* Todo: Provide cgroup-based control as well? */
+	if (nice > sysctl_sched_upmigrate_min_nice)
+		return 0;
 
 	load = scale_task_load(load, task_cpu(p));
 
@@ -1427,6 +1440,60 @@ int mostly_idle_cpu(int cpu)
 		&& rq->nr_running <= sysctl_sched_mostly_idle_nr_run);
 }
 
+static int boost_refcount;
+static DEFINE_SPINLOCK(boost_lock);
+static DEFINE_MUTEX(boost_mutex);
+
+static inline int sched_boost(void)
+{
+	return boost_refcount > 0;
+}
+
+int sched_set_boost(int enable)
+{
+	unsigned long flags;
+	int ret = 0;
+
+	spin_lock_irqsave(&boost_lock, flags);
+
+	if (enable == 1) {
+		boost_refcount++;
+	} else if (!enable) {
+		if (boost_refcount >= 1)
+			boost_refcount--;
+		else
+			ret = -EINVAL;
+	} else {
+		ret = -EINVAL;
+	}
+
+	spin_unlock_irqrestore(&boost_lock, flags);
+
+	return ret;
+}
+
+int sched_boost_handler(struct ctl_table *table, int write,
+		void __user *buffer, size_t *lenp,
+		loff_t *ppos)
+{
+	int ret;
+
+	mutex_lock(&boost_mutex);
+	if (!write)
+		sysctl_sched_boost = sched_boost();
+
+	ret = proc_dointvec(table, write, buffer, lenp, ppos);
+	if (ret || !write)
+		goto done;
+
+	ret = (sysctl_sched_boost <= 1) ?
+		sched_set_boost(sysctl_sched_boost) : -EINVAL;
+
+done:
+	mutex_unlock(&boost_mutex);
+	return ret;
+}
+
 /*
  * Task will fit on a cpu if it's bandwidth consumption on that cpu
  * will be less than sched_upmigrate. A big task that was previously
@@ -1449,13 +1516,19 @@ static int task_will_fit(struct task_struct *p, int cpu)
 			 rq->capacity == max_capacity)
 		return 1;
 
-	load = scale_task_load(task_load(p), cpu);
+	if (sched_boost()) {
+		if (rq->capacity > prev_rq->capacity)
+			return 1;
 
-	if (prev_rq->capacity > rq->capacity)
-		upmigrate = sched_downmigrate;
+	} else {
+		load = scale_task_load(task_load(p), cpu);
 
-	if (load < upmigrate)
-		return 1;
+		if (prev_rq->capacity > rq->capacity)
+			upmigrate = sched_downmigrate;
+
+		if (load < upmigrate)
+			return 1;
+	}
 
 	return 0;
 }
@@ -1617,7 +1690,7 @@ static int select_best_cpu(struct task_struct *p, int target)
 
 void inc_nr_big_small_task(struct rq *rq, struct task_struct *p)
 {
-	if (!task_will_fit(p, cpu_of(rq)))
+	if (is_big_task(p))
 		rq->nr_big_tasks++;
 	else if (is_small_task(p))
 		rq->nr_small_tasks++;
@@ -1625,7 +1698,7 @@ void inc_nr_big_small_task(struct rq *rq, struct task_struct *p)
 
 void dec_nr_big_small_task(struct rq *rq, struct task_struct *p)
 {
-	if (!task_will_fit(p, cpu_of(rq)))
+	if (is_big_task(p))
 		rq->nr_big_tasks--;
 	else if (is_small_task(p))
 		rq->nr_small_tasks--;
