@@ -1863,15 +1863,6 @@ int akm8963_compass_probe(
 	/* set i2c data */
 	i2c_set_clientdata(i2c, s_akm);
 
-	/* initialize pinctrl */
-	if (!akm8963_pinctrl_init(s_akm)) {
-		err = pinctrl_select_state(s_akm->pinctrl, s_akm->pin_default);
-		if (err) {
-			dev_err(&i2c->dev, "Can't select pinctrl state\n");
-			goto err_devm;
-		}
-	}
-
 	/**** initialize variables in akm_compass_data *****/
 	init_waitqueue_head(&s_akm->drdy_wq);
 	init_waitqueue_head(&s_akm->open_wq);
@@ -1945,16 +1936,25 @@ int akm8963_compass_probe(
 
 	err = akm8963_i2c_check_device(i2c);
 	if (err < 0)
-		goto err_compass_pwr_init;
+		goto err_compass_pwr_off;
 
 	/***** input *****/
 	err = akm_compass_input_init(&s_akm->input);
 	if (err) {
 		dev_err(&i2c->dev,
 				"%s: input_dev register failed", __func__);
-		goto err_compass_pwr_init;
+		goto err_compass_pwr_off;
 	}
 	input_set_drvdata(s_akm->input, s_akm);
+
+	/* initialize pinctrl */
+	if (!akm8963_pinctrl_init(s_akm)) {
+		err = pinctrl_select_state(s_akm->pinctrl, s_akm->pin_default);
+		if (err) {
+			dev_err(&i2c->dev, "Can't select pinctrl state\n");
+			goto err_compass_pwr_off;
+		}
+	}
 
 	if ((s_akm->pdata->use_int) &&
 		gpio_is_valid(s_akm->pdata->gpio_int)) {
@@ -2043,6 +2043,8 @@ err_gpio_free:
 	if ((s_akm->pdata->use_int) &&
 		(gpio_is_valid(s_akm->pdata->gpio_int)))
 		gpio_free(s_akm->pdata->gpio_int);
+err_compass_pwr_off:
+	akm_compass_power_set(s_akm, false);
 err_compass_pwr_init:
 	akm_compass_power_init(s_akm, false);
 err_devm:
@@ -2055,8 +2057,10 @@ static int akm8963_compass_remove(struct i2c_client *i2c)
 {
 	struct akm_compass_data *akm = i2c_get_clientdata(i2c);
 
+	if (akm_compass_power_set(akm, false))
+		dev_err(&i2c->dev, "power off failed.\n");
 	if (akm_compass_power_init(akm, false))
-		dev_err(&i2c->dev, "power deinit failed.");
+		dev_err(&i2c->dev, "power deinit failed.\n");
 	remove_sysfs_interfaces(akm);
 	if (akm->i2c->irq)
 		free_irq(akm->i2c->irq, akm);
