@@ -550,8 +550,12 @@ static void cnss_wlan_pci_remove(struct pci_dev *pdev)
 static int cnss_wlan_pci_suspend(struct pci_dev *pdev, pm_message_t state)
 {
 	int ret = 0;
-	struct cnss_wlan_driver *wdriver = penv->driver;
+	struct cnss_wlan_driver *wdriver;
 
+	if (!penv)
+		goto out;
+
+	wdriver = penv->driver;
 	if (!wdriver)
 		goto out;
 
@@ -565,8 +569,12 @@ out:
 static int cnss_wlan_pci_resume(struct pci_dev *pdev)
 {
 	int ret = 0;
-	struct cnss_wlan_driver *wdriver = penv->driver;
+	struct cnss_wlan_driver *wdriver;
 
+	if (!penv)
+		goto out;
+
+	wdriver = penv->driver;
 	if (!wdriver)
 		goto out;
 
