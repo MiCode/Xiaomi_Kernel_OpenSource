@@ -95,6 +95,14 @@ struct msm_mpm_device_data {
 };
 static struct msm_mpm_device_data msm_mpm_dev_data;
 
+struct mpm_of {
+	char *pkey;
+	char *map;
+	char name[MAX_DOMAIN_NAME];
+	struct irq_chip *chip;
+	int (*get_max_irqs)(struct irq_domain *d);
+};
+
 static struct clk *xo_clk;
 static bool xo_enabled;
 static bool msm_mpm_in_suspend;
@@ -775,39 +783,34 @@ static inline int __init mpm_irq_domain_legacy_size(struct irq_domain *d)
 	return d->revmap_data.legacy.size;
 }
 
+static const struct mpm_of mpm_of_map[MSM_MPM_NR_IRQ_DOMAINS] = {
+	{
+		"qcom,gic-parent",
+		"qcom,gic-map",
+		"gic",
+		&gic_arch_extn,
+		mpm_irq_domain_linear_size,
+	},
+	{
+		"qcom,gpio-parent",
+		"qcom,gpio-map",
+		"gpio",
+#if (defined(CONFIG_USE_PINCTRL_IRQ) && defined(CONFIG_PINCTRL_MSM_TLMM))
+		&mpm_tlmm_irq_extn,
+#elif defined(CONFIG_GPIO_MSM_V3)
+		&msm_gpio_irq_extn,
+#else
+		NULL,
+#endif
+		mpm_irq_domain_legacy_size,
+	},
+};
+
 static void __init __of_mpm_init(struct device_node *node)
 {
 	const __be32 *list;
 
-	struct mpm_of {
-		char *pkey;
-		char *map;
-		char name[MAX_DOMAIN_NAME];
-		struct irq_chip *chip;
-		int (*get_max_irqs)(struct irq_domain *d);
-	};
 	int i;
-
-	struct mpm_of mpm_of_map[MSM_MPM_NR_IRQ_DOMAINS] = {
-		{
-			"qcom,gic-parent",
-			"qcom,gic-map",
-			"gic",
-			&gic_arch_extn,
-			mpm_irq_domain_linear_size,
-		},
-		{
-			"qcom,gpio-parent",
-			"qcom,gpio-map",
-			"gpio",
-	#ifdef CONFIG_USE_PINCTRL_IRQ
-			&mpm_tlmm_irq_extn,
-	#else
-			&msm_gpio_irq_extn,
-	#endif
-			mpm_irq_domain_legacy_size,
-		},
-	};
 
 	if (msm_mpm_initialized & MSM_MPM_IRQ_MAPPING_DONE) {
 		pr_warn("%s(): MPM driver mapping exists\n", __func__);
@@ -913,11 +916,13 @@ static void __init __of_mpm_init(struct device_node *node)
 
 failed_malloc:
 	for (i = 0; i < MSM_MPM_NR_IRQ_DOMAINS; i++) {
-		mpm_of_map[i].chip->irq_mask = NULL;
-		mpm_of_map[i].chip->irq_unmask = NULL;
-		mpm_of_map[i].chip->irq_disable = NULL;
-		mpm_of_map[i].chip->irq_set_type = NULL;
-		mpm_of_map[i].chip->irq_set_wake = NULL;
+		if (mpm_of_map[i].chip) {
+			mpm_of_map[i].chip->irq_mask = NULL;
+			mpm_of_map[i].chip->irq_unmask = NULL;
+			mpm_of_map[i].chip->irq_disable = NULL;
+			mpm_of_map[i].chip->irq_set_type = NULL;
+			mpm_of_map[i].chip->irq_set_wake = NULL;
+		}
 
 		kfree(unlisted_irqs[i].enabled_irqs);
 		kfree(unlisted_irqs[i].wakeup_irqs);
