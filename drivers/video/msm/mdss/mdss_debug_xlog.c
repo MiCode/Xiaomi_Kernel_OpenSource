@@ -25,7 +25,7 @@
 #define MDSS_XLOG_BUF_MAX 512
 
 struct tlog {
-	u32 tick;
+	u64 tick;
 	const char *name;
 	u32 data[MDSS_XLOG_MAX_DATA];
 	u32 data_cnt;
@@ -98,7 +98,7 @@ void mdss_xlog(const char *name, ...)
 	time = ktime_get();
 
 	log = &mdss_dbg_xlog.logs[mdss_dbg_xlog.first];
-	log->tick = ktime_to_us(time);
+	log->tick = local_clock();
 	log->name = name;
 	log->data_cnt = 0;
 
@@ -128,6 +128,7 @@ void mdss_xlog_dump(void)
 	struct mdss_debug_data *mdd = mdata->debug_inf.debug_data;
 	int i, n, d_cnt, off;
 	unsigned long flags;
+	unsigned long rem_nsec;
 	struct tlog *log;
 	char xlog_buf[MDSS_XLOG_BUF_MAX];
 
@@ -138,8 +139,10 @@ void mdss_xlog_dump(void)
 	i = mdss_dbg_xlog.first;
 	for (n = 0; n < MDSS_XLOG_ENTRY; n++) {
 		log = &mdss_dbg_xlog.logs[i];
-		off = snprintf(xlog_buf, MDSS_XLOG_BUF_MAX, "%-32s => %08d: ",
-							log->name, log->tick);
+		rem_nsec = do_div(log->tick, 1000000000);
+		off = snprintf(xlog_buf, MDSS_XLOG_BUF_MAX,
+				"%-32s => [%5llu.%06lu]: ", log->name,
+					log->tick, rem_nsec / 1000);
 		for (d_cnt = 0; d_cnt < log->data_cnt;) {
 			off += snprintf((xlog_buf + off),
 					(MDSS_XLOG_BUF_MAX - off),
