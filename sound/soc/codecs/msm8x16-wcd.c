@@ -2858,23 +2858,7 @@ static const struct snd_soc_dapm_widget msm8x16_wcd_dapm_widgets[] = {
 };
 
 static const struct msm8x16_wcd_reg_mask_val msm8x16_wcd_reg_defaults[] = {
-	/*
-	MSM8X16_WCD_REG_VAL(MSM8X16_WCD_A_ANALOG_RX_EAR_CTL, 0x05),
-	MSM8X16_WCD_REG_VAL(MSM8X16_WCD_A_CDC_RX1_B5_CTL, 0x78),
-	MSM8X16_WCD_REG_VAL(MSM8X16_WCD_A_CDC_RX2_B5_CTL, 0x78),
-	MSM8X16_WCD_REG_VAL(MSM8X16_WCD_A_CDC_RX3_B5_CTL, 0x78),
-	MSM8X16_WCD_REG_VAL(MSM8X16_WCD_A_CDC_RX1_B6_CTL, 0xA0),
-	MSM8X16_WCD_REG_VAL(MSM8X16_WCD_A_CDC_RX2_B6_CTL, 0xA0),
-	MSM8X16_WCD_REG_VAL(MSM8X16_WCD_A_CDC_RX3_B6_CTL, 0x80),
-	MSM8X16_WCD_REG_VAL(MSM8X16_WCD_A_ANALOG_RX_HPH_BIAS_PA, 0x7A),
-	MSM8X16_WCD_REG_VAL(MSM8X16_WCD_A_RX_EAR_BIAS_PA, 0x76),
-	MSM8X16_WCD_REG_VAL(MSM8X16_WCD_A_BIAS_CURR_CTL_2, 0x04),
-	MSM8X16_WCD_REG_VAL(MSM8X16_WCD_A_MICB_CFILT_1_VAL, 0x60),
-	MSM8X16_WCD_REG_VAL(MSM8X16_WCD_A_ANALOG_MICB_1_EN, 0x83),
-	MSM8X16_WCD_REG_VAL(MSM8X16_WCD_A_ANALOG_TX_1_EN, 0x32),
-	MSM8X16_WCD_REG_VAL(MSM8X16_WCD_A_ANALOG_TX_2_EN, 0x32),
-	MSM8X16_WCD_REG_VAL(MSM8X16_WCD_A_DIGITAL_CDC_DIG_CLK_CTL, 0x10),
-	*/
+	MSM8X16_WCD_REG_VAL(MSM8X16_WCD_A_ANALOG_SPKR_DAC_CTL, 0x03)
 };
 
 static void msm8x16_wcd_update_reg_defaults(struct snd_soc_codec *codec)
@@ -2896,23 +2880,6 @@ static const struct msm8x16_wcd_reg_mask_val
 	{MSM8X16_WCD_A_ANALOG_RX_COM_OCP_COUNT, 0xFF, 0xFF},
 	{MSM8X16_WCD_A_ANALOG_RX_HPH_L_TEST, 0x40, 0x40},
 	{MSM8X16_WCD_A_ANALOG_RX_HPH_R_TEST, 0x40, 0x40},
-/*
-	* Initialize gain registers to use register gain *
-
-	*enable HPF filter for TX paths *
-	{MSM8X16_WCD_A_CDC_TX1_MUX_CTL, 0x8, 0x0},
-	{MSM8X16_WCD_A_CDC_TX2_MUX_CTL, 0x8, 0x0},
-
-	* config Decimator for DMIC CLK_MODE_1(3.2Mhz@9.6Mhz mclk) *
-	{MSM8X16_WCD_A_CDC_TX1_DMIC_CTL, 0x7, 0x1},
-	{MSM8X16_WCD_A_CDC_TX2_DMIC_CTL, 0x7, 0x1},
-
-	* config DMIC clk to CLK_MODE_1 (3.2Mhz@9.6Mhz mclk) *
-	{MSM8X16_WCD_A_CDC_CLK_DMIC_B1_CTL, 0xEE, 0x22},
-
-	* Disable REF_EN for MSM8X16_WCD_A_ANALOG_SPKR_DAC_CTL *
-	{MSM8X16_WCD_A_ANALOG_SPKR_DAC_CTL, 0x04, 0x00},
-*/
 };
 
 static void msm8x16_wcd_codec_init_reg(struct snd_soc_codec *codec)
@@ -2961,17 +2928,41 @@ static int msm8x16_wcd_device_down(struct snd_soc_codec *codec)
 
 static int msm8x16_wcd_device_up(struct snd_soc_codec *codec)
 {
+	struct msm8x16_wcd_priv *msm8x16_wcd_priv =
+		snd_soc_codec_get_drvdata(codec);
+	u32 reg;
 	dev_dbg(codec->dev, "%s: device up!\n", __func__);
+
+	mutex_lock(&codec->mutex);
+
+	for (reg = 0; reg < ARRAY_SIZE(msm8x16_wcd_reset_reg_defaults); reg++)
+		if (msm8x16_wcd_reg_readable[reg])
+			msm8x16_wcd_write(codec,
+				reg, msm8x16_wcd_reset_reg_defaults[reg]);
+
+	if (codec->reg_def_copy) {
+		pr_debug("%s: Update ASOC cache", __func__);
+		kfree(codec->reg_cache);
+		codec->reg_cache = kmemdup(codec->reg_def_copy,
+						codec->reg_size, GFP_KERNEL);
+		if (!codec->reg_cache) {
+			pr_err("%s: Cache update failed!\n", __func__);
+			mutex_unlock(&codec->mutex);
+			return -ENOMEM;
+		}
+	}
 
 	snd_soc_card_change_online_state(codec->card, 1);
 	/* delay is required to make sure sound card state updated */
 	usleep_range(5000, 5100);
 
-	mutex_lock(&codec->mutex);
-
 	msm8x16_wcd_bringup(codec);
 	msm8x16_wcd_codec_init_reg(codec);
 	msm8x16_wcd_update_reg_defaults(codec);
+
+	wcd_mbhc_stop(&msm8x16_wcd_priv->mbhc);
+	wcd_mbhc_start(&msm8x16_wcd_priv->mbhc,
+			msm8x16_wcd_priv->mbhc.mbhc_cfg);
 
 	mutex_unlock(&codec->mutex);
 
