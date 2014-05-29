@@ -55,6 +55,10 @@
 	status = "ok";
 };
 
+&pcie1 {
+	qcom,ep-wakeirq;
+};
+
 &mhi {
 	esoc-names = "mdm";
 	esoc-0 = <&mdm1>;

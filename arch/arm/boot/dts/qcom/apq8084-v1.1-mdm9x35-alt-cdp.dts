@@ -48,6 +48,10 @@
 	status = "ok";
 };
 
+&pcie1 {
+	qcom,ep-wakeirq;
+};
+
 &cnss {
 	esoc-names = "modem_wlan";
 	esoc-0 = <&mdm1>;
