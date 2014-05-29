@@ -58,7 +58,7 @@ int msm_audio_ion_alloc(const char *name, struct ion_client **client,
 		pr_err("%s: Invalid params\n", __func__);
 		return -EINVAL;
 	}
-	*client = msm_audio_ion_client_create(UINT_MAX, name);
+	*client = msm_audio_ion_client_create(name);
 	if (IS_ERR_OR_NULL((void *)(*client))) {
 		pr_err("%s: ION create client for AUDIO failed\n", __func__);
 		goto err;
@@ -133,7 +133,7 @@ int msm_audio_ion_import(const char *name, struct ion_client **client,
 		return -EPROBE_DEFER;
 	}
 
-	*client = msm_audio_ion_client_create(UINT_MAX, name);
+	*client = msm_audio_ion_client_create(name);
 	if (IS_ERR_OR_NULL((void *)(*client))) {
 		pr_err("%s: ION create client for AUDIO failed\n", __func__);
 		rc = -EINVAL;
@@ -312,12 +312,11 @@ bool msm_audio_ion_is_smmu_available(void)
 }
 
 /* move to static section again */
-struct ion_client *msm_audio_ion_client_create(unsigned int heap_mask,
-					const char *name)
+struct ion_client *msm_audio_ion_client_create(const char *name)
 {
 	struct ion_client *pclient = NULL;
 	/*IOMMU group and domain are moved to probe()*/
-	pclient = msm_ion_client_create(heap_mask, name);
+	pclient = msm_ion_client_create(name);
 	return pclient;
 }
 

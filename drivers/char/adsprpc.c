@@ -881,8 +881,7 @@ static int fastrpc_init(void)
 	context_list_ctor(&me->clst);
 	for (i = 0; i < RPC_HASH_SZ; ++i)
 		INIT_HLIST_HEAD(&me->htbl[i]);
-	me->iclient = msm_ion_client_create(ION_HEAP_CARVEOUT_MASK,
-						DEVICE_NAME);
+	me->iclient = msm_ion_client_create(DEVICE_NAME);
 	VERIFY(err, 0 == IS_ERR_OR_NULL(me->iclient));
 	if (err)
 		goto bail;

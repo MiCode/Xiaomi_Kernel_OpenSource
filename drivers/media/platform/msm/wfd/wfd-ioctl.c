@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1712,7 +1712,7 @@ static int __wfd_probe(struct platform_device *pdev)
 
 	pdev->dev.platform_data = (void *) wfd_dev;
 
-	ion_client = msm_ion_client_create(-1, "wfd");
+	ion_client = msm_ion_client_create("wfd");
 
 	rc = wfd_stats_setup();
 	if (rc) {

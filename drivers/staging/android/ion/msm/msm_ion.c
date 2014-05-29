@@ -105,8 +105,7 @@ static struct ion_heap_desc ion_heap_meta[] = {
 };
 #endif
 
-struct ion_client *msm_ion_client_create(unsigned int heap_mask,
-					const char *name)
+struct ion_client *msm_ion_client_create(const char *name)
 {
 	/*
 	 * The assumption is that if there is a NULL device, the ion

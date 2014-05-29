@@ -593,7 +593,7 @@ static void *__vpu_mem_create_client(struct vpu_platform_resources *res)
 		return NULL;
 	}
 
-	ion_client = msm_ion_client_create(-1, "VPU");
+	ion_client = msm_ion_client_create("VPU");
 	if (IS_ERR(ion_client)) {
 		pr_err("ION client creation failed\n");
 		kfree(mem_client);

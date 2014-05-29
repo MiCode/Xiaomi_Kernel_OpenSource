@@ -1327,8 +1327,7 @@ int audio_aio_open(struct q6audio_aio *audio, struct file *file)
 			goto cleanup;
 		}
 	}
-	audio->client = msm_audio_ion_client_create(UINT_MAX,
-						    "Audio_Dec_Client");
+	audio->client = msm_audio_ion_client_create("Audio_Dec_Client");
 	if (IS_ERR_OR_NULL(audio->client)) {
 		pr_err("Unable to create ION client\n");
 		rc = -ENOMEM;

@@ -362,7 +362,7 @@ static int msm_fd_open(struct file *file)
 		goto error_vb2_queue_init;
 	}
 
-	ctx->mem_pool.client = msm_ion_client_create(-1, MSM_FD_DRV_NAME);
+	ctx->mem_pool.client = msm_ion_client_create(MSM_FD_DRV_NAME);
 	if (IS_ERR_OR_NULL(ctx->mem_pool.client)) {
 		dev_err(device->dev, "Error ion client create\n");
 		goto error_ion_client_create;

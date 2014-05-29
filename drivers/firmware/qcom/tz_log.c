@@ -561,7 +561,7 @@ static void tzdbg_register_qsee_log_buf(void)
 	int ret = 0;
 
 	/* Create ION msm client */
-	g_ion_clnt = msm_ion_client_create(ION_HEAP_CARVEOUT_MASK, "qsee_log");
+	g_ion_clnt = msm_ion_client_create("qsee_log");
 	if (g_ion_clnt == NULL) {
 		pr_err("%s: Ion client cannot be created\n", __func__);
 		return;
