@@ -50,6 +50,8 @@ Optional Properties:
     support L1ss.
   - qcom,n-fts: The number of fast training sequences sent when the link state
     is changed from L0s to L0.
+  - qcom,ep-wakeirq: The endpoint will issue wake signal when it is up, and the
+    root complex has the capability to enumerate the endpoint for this case.
   - qcom,msi-gicm-addr: MSI address for GICv2m.
   - qcom,msi-gicm-base: MSI IRQ base for GICv2m.
   - qcom,ext-ref-clk: The reference clock is external.
@@ -121,6 +123,7 @@ Example:
 		qcom,l1ss-supported;
 		qcom,aux-clk-sync;
 		qcom,n-fts = <0x50>;
+		qcom,ep-wakeirq;
 		qcom,msi-gicm-addr = <0xf9040040>;
 		qcom,msi-gicm-base = <0x160>;
 		qcom,ext-ref-clk;

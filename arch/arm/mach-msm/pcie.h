@@ -210,6 +210,7 @@ struct msm_pcie_dev_t {
 	uint32_t                     n_fts;
 	bool                         ext_ref_clk;
 	uint32_t                     ep_latency;
+	bool                         ep_wakeirq;
 
 	uint32_t                     rc_idx;
 	bool                         enumerated;
