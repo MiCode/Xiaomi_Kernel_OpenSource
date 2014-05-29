@@ -44,6 +44,11 @@
 	#clock-cells = <1>;
 };
 
+&clock_cpu {
+	compatible = "qcom,dummycc";
+	#clock-cells = <1>;
+};
+
 &sdhc_1 {
 	vdd-supply = <&pm8994_l20>;
 	qcom,vdd-voltage-level = <2950000 2950000>;
