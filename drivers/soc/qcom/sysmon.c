@@ -187,7 +187,7 @@ out:
 /**
  * sysmon_send_shutdown() - send shutdown command to a
  * subsystem.
- * @dest_ss:	ID of subsystem to send to.
+ * @dest_ss:	String name of the subsystem to send to.
  *
  * Returns 0 for success, -EINVAL for an invalid destination, -ENODEV if
  * the SMD transport channel is not open, -ETIMEDOUT if the destination
@@ -196,19 +196,26 @@ out:
  *
  * If CONFIG_MSM_SYSMON_COMM is not defined, always return success (0).
  */
-int sysmon_send_shutdown(enum subsys_id dest_ss)
+int sysmon_send_shutdown(const char *dest_ss)
 {
-	struct sysmon_subsys *ss = &subsys[dest_ss];
+	struct sysmon_subsys *ss = NULL;
 	const char tx_buf[] = "system:shutdown";
 	const char expect[] = "system:ack";
 	size_t prefix_len = ARRAY_SIZE(expect) - 1;
-	int ret;
+	int i, ret;
+
+	for (i = 0; i < ARRAY_SIZE(map); i++) {
+		if (!strcmp(map[i].name, dest_ss)) {
+			ss = &subsys[map[i].id];
+			break;
+		}
+	}
+
+	if (ss == NULL)
+		return -EINVAL;
 
 	if (ss->dev == NULL)
 		return -ENODEV;
-
-	if (dest_ss < 0 || dest_ss >= SYSMON_NUM_SS)
-		return -EINVAL;
 
 	mutex_lock(&ss->lock);
 	ret = sysmon_send_msg(ss, tx_buf, ARRAY_SIZE(tx_buf));
@@ -224,7 +231,7 @@ out:
 
 /**
  * sysmon_get_reason() - Retrieve failure reason from a subsystem.
- * @dest_ss:	ID of subsystem to query
+ * @dest_ss:	String name of the subsystem to query
  * @buf:	Caller-allocated buffer for the returned NUL-terminated reason
  * @len:	Length of @buf
  *
@@ -235,20 +242,26 @@ out:
  *
  * If CONFIG_MSM_SYSMON_COMM is not defined, always return success (0).
  */
-int sysmon_get_reason(enum subsys_id dest_ss, char *buf, size_t len)
+int sysmon_get_reason(const char *dest_ss, char *buf, size_t len)
 {
-	struct sysmon_subsys *ss = &subsys[dest_ss];
+	struct sysmon_subsys *ss = NULL;
 	const char tx_buf[] = "ssr:retrieve:sfr";
 	const char expect[] = "ssr:return:";
 	size_t prefix_len = ARRAY_SIZE(expect) - 1;
-	int ret;
+	int i, ret;
+
+	for (i = 0; i < ARRAY_SIZE(map); i++) {
+		if (!strcmp(map[i].name, dest_ss)) {
+			ss = &subsys[map[i].id];
+			break;
+		}
+	}
+
+	if (ss == NULL || buf == NULL || len == 0)
+		return -EINVAL;
 
 	if (ss->dev == NULL)
 		return -ENODEV;
-
-	if (dest_ss < 0 || dest_ss >= SYSMON_NUM_SS ||
-	    buf == NULL || len == 0)
-		return -EINVAL;
 
 	mutex_lock(&ss->lock);
 	ret = sysmon_send_msg(ss, tx_buf, ARRAY_SIZE(tx_buf));

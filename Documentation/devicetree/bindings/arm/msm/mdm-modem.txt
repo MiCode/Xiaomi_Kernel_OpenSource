@@ -86,8 +86,6 @@ Optional driver parameters:
 		particular target.
 - qcom,image-upgrade-supported: boolean flag to indicate if software upgrade is supported.
 - qcom,support-shutdown: boolean flag to indicate if graceful shutdown is supported.
-- qcom,sysmon-subsys-id: system monitor id for the external modem. This id is used to
-		send system monitor messages to the external modem.
 - qcom,vddmin-drive-strength: drive strength in milliamps of the ap2mdm-vddmin gpio.
 		The ap2mdm_vddmin gpio is controlled by the RPM processor. It is pulled low
 		to indicate to the external modem that the apps processor has entered vddmin
@@ -140,5 +138,4 @@ Example:
                 qcom,ramdump-timeout-ms = <120000>;
                 qcom,vddmin-modes  = "normal";
                 qcom,vddmin-drive-strength = <8>;
-		qcom,sysmon-subsys-id = <19>;
         };
