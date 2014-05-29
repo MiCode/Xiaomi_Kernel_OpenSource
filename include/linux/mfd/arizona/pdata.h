@@ -158,6 +158,12 @@ struct arizona_pdata {
 	 */
 	int hpdet_moisture_imp;
 
+	/**
+	 * Channel to use for headphone detection, valid values are 0 for
+	 * left and 1 for right
+	 */
+	int hpdet_channel;
+
 	/** Use software comparison to determine mic presence */
 	bool micd_software_compare;
 
