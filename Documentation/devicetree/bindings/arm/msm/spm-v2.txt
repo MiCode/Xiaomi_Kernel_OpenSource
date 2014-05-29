@@ -50,12 +50,12 @@ Optional properties
 	proc won't inform the RPM.
 - qcom,saw2-spm-cmd-pc: The Power Collapse command sequence
 - qcom,saw2-spm-cmd-gdhs: L2 GDHS command sequence
-- qcom,L2-spm-is-apcs-master: Boolean indicates if the target uses L2 SAW to
-	control the gang rail. If this is not specified the driver assumes
-	that the cpus run with their own separate rails and each cpu's spm
-	talks to its regulator.
+- qcom,cpu-vctl-mask: Mask of cpus, whose voltage the spm device can control.
+	Depricated: Replaced with cpu-vctl-list when cpu phandles are available.
+- qcom,cpu-vctl-list: List of cpu node phandles, whose voltage the spm device
+	can control.
 
-Example:
+Example 1:
 	qcom,spm@f9089000 {
 		compatible = "qcom,spm-v2";
 		#address-cells = <1>;
@@ -70,6 +70,7 @@ Example:
 		qcom,saw2-avs-dly= <0>;
 		qcom,saw2-spm-dly= <0x20000400>;
 		qcom,saw2-spm-ctl = <0x1>;
+		qcom,cpu-vctl-mask = <0xf>;
 		qcom,saw2-spm-cmd-wfi = [03 0b 0f];
 		qcom,saw2-spm-cmd-spc = [00 20 50 80 60 70 10 92
 				a0 b0 03 68 70 3b 92 a0 b0
@@ -78,3 +79,26 @@ Example:
 				a0 b0 82 10 30 02 22 30 0f];
 	};
 
+Example 2:
+	qcom,spm@f9089000 {
+		compatible = "qcom,spm-v2";
+		#address-cells = <1>;
+		#size-cells = <1>;
+		reg = <0xf9089000 0x1000>;
+		qcom,core-id = <0>;
+		qcom,saw2-ver-reg = <0xfd0>;
+		qcom,saw2-cfg = <0x1b>;
+		qcom,saw2-avs-ctl = <0>;
+		qcom,saw2-avs-hysteresis = <0>;
+		qcom,saw2-avs-limit = <0>;
+		qcom,saw2-avs-dly= <0>;
+		qcom,saw2-spm-dly= <0x20000400>;
+		qcom,saw2-spm-ctl = <0x1>;
+		qcom,cpu-vctl-list = <&CPU0 &CPU1 &CPU2 &CPU3>;
+		qcom,saw2-spm-cmd-wfi = [03 0b 0f];
+		qcom,saw2-spm-cmd-spc = [00 20 50 80 60 70 10 92
+				a0 b0 03 68 70 3b 92 a0 b0
+				82 2b 50 10 30 02 22 30 0f];
+		qcom,saw2-spm-cmd-pc = [00 20 10 92 a0 b0 07 3b 92
+				a0 b0 82 10 30 02 22 30 0f];
+	};
