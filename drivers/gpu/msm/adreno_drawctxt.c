@@ -198,7 +198,7 @@ static int adreno_drawctxt_wait_global(struct adreno_device *adreno_dev,
 
 	trace_adreno_drawctxt_wait_start(KGSL_MEMSTORE_GLOBAL, timestamp);
 
-	ret = kgsl_add_event(device, &device->global_events, timestamp,
+	ret = kgsl_add_event(device, &adreno_dev->cur_rb->event, timestamp,
 		global_wait_callback, (void *) drawctxt);
 	if (ret) {
 		kgsl_context_put(context);
@@ -224,8 +224,8 @@ static int adreno_drawctxt_wait_global(struct adreno_device *adreno_dev,
 	kgsl_mutex_lock(&device->mutex, &device->mutex_owner);
 
 	if (ret)
-		kgsl_cancel_events_timestamp(device, &device->global_events,
-			timestamp);
+		kgsl_cancel_events_timestamp(device,
+			&adreno_dev->cur_rb->event, timestamp);
 
 done:
 	trace_adreno_drawctxt_wait_done(KGSL_MEMSTORE_GLOBAL, timestamp, ret);

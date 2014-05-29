@@ -534,6 +534,7 @@ kgsl_iommu_disable_clk_on_ts(struct kgsl_mmu *mmu,
 				unsigned int ts, int unit)
 {
 	struct kgsl_iommu_disable_clk_param *param;
+	struct kgsl_iommu *iommu = mmu->priv;
 
 	param = kzalloc(sizeof(*param), GFP_KERNEL);
 	if (!param)
@@ -543,7 +544,7 @@ kgsl_iommu_disable_clk_on_ts(struct kgsl_mmu *mmu,
 	param->unit = unit;
 	param->ts = ts;
 
-	if (kgsl_add_event(mmu->device, &mmu->device->iommu_events,
+	if (kgsl_add_event(mmu->device, &iommu->events,
 			ts, kgsl_iommu_clk_disable_event, param)) {
 		KGSL_DRV_ERR(mmu->device,
 			"Failed to add IOMMU disable clk event\n");
@@ -1342,6 +1343,8 @@ static int kgsl_iommu_init(struct kgsl_mmu *mmu)
 	if (!iommu)
 		return -ENOMEM;
 
+	kgsl_add_event_group(&iommu->events, NULL, "iommu");
+
 	mmu->priv = iommu;
 	status = kgsl_get_iommu_ctxt(mmu);
 	if (status)
@@ -1412,6 +1415,8 @@ static int kgsl_iommu_init(struct kgsl_mmu *mmu)
 
 done:
 	if (status) {
+		if (iommu)
+			kgsl_del_event_group(&iommu->events);
 		kfree(iommu);
 		mmu->priv = NULL;
 	}
@@ -1818,6 +1823,7 @@ static void kgsl_iommu_pagefault_resume(struct kgsl_mmu *mmu)
 
 static void kgsl_iommu_stop(struct kgsl_mmu *mmu)
 {
+	struct kgsl_iommu *iommu = mmu->priv;
 	/*
 	 *  stop device mmu
 	 *
@@ -1828,8 +1834,7 @@ static void kgsl_iommu_stop(struct kgsl_mmu *mmu)
 	mmu->hwpagetable = NULL;
 
 	kgsl_iommu_pagefault_resume(mmu);
-	/* switch off MMU clocks and cancel any events it has queued */
-	kgsl_cancel_events(mmu->device, &mmu->device->iommu_events);
+	kgsl_cancel_events(mmu->device, &iommu->events);
 }
 
 static int kgsl_iommu_close(struct kgsl_mmu *mmu)
@@ -1860,6 +1865,8 @@ static int kgsl_iommu_close(struct kgsl_mmu *mmu)
 	kgsl_free(iommu->sync_lock_desc.sg);
 	memset(&iommu->sync_lock_desc, 0, sizeof(iommu->sync_lock_desc));
 	iommu->sync_lock_vars = NULL;
+
+	kgsl_del_event_group(&iommu->events);
 
 	kfree(iommu);
 

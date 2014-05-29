@@ -14,6 +14,7 @@
 #define __KGSL_IOMMU_H
 
 #include <linux/qcom_iommu.h>
+#include "kgsl.h"
 
 /* Pagetable virtual base */
 #define KGSL_IOMMU_CTX_OFFSET_V0	0
@@ -247,6 +248,7 @@ struct kgsl_iommu_unit {
  * variables are located
  * @sync_lock_initialized: True if the sync_lock feature is enabled
  * @gtcu_iface_clk: The gTCU AHB Clock connected to SMMU
+ * @events: The event group for iommu events
  */
 struct kgsl_iommu {
 	struct kgsl_iommu_unit iommu_units[KGSL_IOMMU_MAX_UNITS];
@@ -260,6 +262,7 @@ struct kgsl_iommu {
 	unsigned int sync_lock_offset;
 	bool sync_lock_initialized;
 	struct clk *gtcu_iface_clk;
+	struct kgsl_event_group events;
 };
 
 /*

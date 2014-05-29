@@ -203,51 +203,6 @@ long kgsl_ioctl_helper(struct file *filep, unsigned int cmd,
 			const struct kgsl_ioctl *ioctl_funcs,
 			unsigned int array_size, unsigned long arg);
 
-typedef void (*kgsl_event_func)(struct kgsl_device *, struct kgsl_context *,
-		void *, int);
-
-/**
- * struct kgsl_event - KGSL GPU timestamp event
- * @device: Pointer to the KGSL device that owns the event
- * @context: Pointer to the context that owns the event
- * @timestamp: Timestamp for the event to expire
- * @func: Callback function for for the event when it expires
- * @priv: Private data passed to the callback function
- * @node: List node for the kgsl_event_group list
- * @created: Jiffies when the event was created
- * @work: Work struct for dispatching the callback
- * @result: KGSL event result type to pass to the callback
- */
-struct kgsl_event {
-	struct kgsl_device *device;
-	struct kgsl_context *context;
-	unsigned int timestamp;
-	kgsl_event_func func;
-	void *priv;
-	struct list_head node;
-	unsigned int created;
-	struct work_struct work;
-	int result;
-};
-
-/**
- * struct event_group - A list of GPU events
- * @context: Pointer to the active context for the events
- * @lock: Spinlock for protecting the list
- * @events: List of active GPU events
- * @group: Node for the master group list
- * @processed: Last processed timestamp
- * @name: String name for the group (for the debugfs file)
- */
-struct kgsl_event_group {
-	struct kgsl_context *context;
-	spinlock_t lock;
-	struct list_head events;
-	struct list_head group;
-	unsigned int processed;
-	char name[64];
-};
-
 /* Flag to mark the memobj_node as a preamble */
 #define MEMOBJ_PREAMBLE BIT(0)
 /* Flag to mark that the memobj_node should not go to the hadrware */
@@ -432,9 +387,6 @@ struct kgsl_device {
 	int reset_counter; /* Track how many GPU core resets have occured */
 	int cff_dump_enable;
 	struct workqueue_struct *events_wq;
-
-	struct kgsl_event_group global_events;
-	struct kgsl_event_group iommu_events;
 };
 
 
