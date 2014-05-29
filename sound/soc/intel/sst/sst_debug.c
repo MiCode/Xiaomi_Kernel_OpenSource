@@ -311,8 +311,8 @@ static ssize_t sst_debug_sram_ia_lpe_mbox_read(struct file *file,
 	if (ret)
 		return ret;
 	ret = copy_sram_to_user_buffer(user_buf, count, ppos, IA_LPE_MAILBOX_DUMP_SZ,
-				       (u32 *)(drv->mailbox + SST_MAILBOX_SEND),
-				       SST_MAILBOX_SEND);
+			       (u32 *)(drv->ipc_mailbox + SST_MAILBOX_SEND),
+			       SST_MAILBOX_SEND);
 	sst_pm_runtime_put(drv);
 	return ret;
 }
@@ -335,8 +335,8 @@ static ssize_t sst_debug_sram_lpe_ia_mbox_read(struct file *file,
 		return ret;
 
 	ret = copy_sram_to_user_buffer(user_buf, count, ppos, LPE_IA_MAILBOX_DUMP_SZ,
-				       (u32 *)(drv->mailbox + drv->mailbox_recv_offset),
-				       drv->mailbox_recv_offset);
+		       (u32 *)(drv->ipc_mailbox + drv->mailbox_recv_offset),
+		       drv->mailbox_recv_offset);
 	sst_pm_runtime_put(drv);
 	return ret;
 }
