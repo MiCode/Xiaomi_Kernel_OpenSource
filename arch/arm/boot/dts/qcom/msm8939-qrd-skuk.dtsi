@@ -105,7 +105,7 @@
 
 		tps65132_en_default: en-default {
 			drive-strength = <2>;
-			bias-disable;
+			bias-pull-down;
 		};
 	};
 };
@@ -176,6 +176,7 @@
 		compatible = "ti,tps65132";
 		reg = <0x3e>;
 		i2c-pwr-supply = <&pm8916_l6>;
+		ti,en-gpio-lpm;
 		pinctrl-names = "default";
 		pinctrl-0 = <&tps65132_en_default>;
 
