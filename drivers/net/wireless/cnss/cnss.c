@@ -26,12 +26,12 @@
 #include <linux/sched.h>
 #include <linux/pm_qos.h>
 #include <linux/esoc_client.h>
+#include <linux/pinctrl/consumer.h>
 #include <soc/qcom/subsystem_restart.h>
 #include <soc/qcom/subsystem_notif.h>
 #include <soc/qcom/ramdump.h>
 #include <linux/msm-bus.h>
 #include <linux/msm-bus-board.h>
-#include <mach/gpiomux.h>
 #include <mach/msm_pcie.h>
 #include <net/cnss.h>
 #define subsys_to_drv(d) container_of(d, struct cnss_data, subsys_desc)
@@ -83,12 +83,16 @@ static struct cnss_fw_files FW_FILES_DEFAULT = {
 #define WLAN_ENABLE_DELAY	10000
 #define WLAN_RECOVERY_DELAY	1000
 
+#define CNSS_PINCTRL_STATE_ACTIVE "default"
+
 struct cnss_wlan_gpio_info {
 	char *name;
 	u32 num;
 	bool state;
 	bool init;
 	bool prop;
+	struct pinctrl *pinctrl;
+	struct pinctrl_state *gpio_state_default;
 };
 
 struct cnss_wlan_vreg_info {
@@ -267,6 +271,29 @@ static void cnss_wlan_gpio_set(struct cnss_wlan_gpio_info *info, bool state)
 		 info->name, info->state ? "enabled" : "disabled");
 }
 
+static int cnss_pinctrl_init(struct cnss_wlan_gpio_info *gpio_info,
+	struct platform_device *pdev)
+{
+	int ret;
+	gpio_info->pinctrl = devm_pinctrl_get(&pdev->dev);
+	if (IS_ERR_OR_NULL(gpio_info->pinctrl)) {
+		pr_err("%s: Failed to get pinctrl!\n", __func__);
+		return PTR_ERR(gpio_info->pinctrl);
+	}
+
+	gpio_info->gpio_state_default = pinctrl_lookup_state(gpio_info->pinctrl,
+		CNSS_PINCTRL_STATE_ACTIVE);
+	if (IS_ERR_OR_NULL(gpio_info->gpio_state_default)) {
+		pr_err("%s: Can not get active pin state!\n", __func__);
+		return PTR_ERR(gpio_info->gpio_state_default);
+	}
+
+	ret = pinctrl_select_state(gpio_info->pinctrl,
+		gpio_info->gpio_state_default);
+
+	return ret;
+}
+
 static int cnss_wlan_get_resources(struct platform_device *pdev)
 {
 	int ret = 0;
@@ -339,6 +366,12 @@ static int cnss_wlan_get_resources(struct platform_device *pdev)
 		goto err_get_gpio;
 	}
 
+	ret = cnss_pinctrl_init(gpio_info, pdev);
+	if (ret) {
+		pr_err("%s: pinctrl init failed!\n", __func__);
+		goto err_pinctrl_init;
+	}
+
 	ret = cnss_wlan_gpio_init(gpio_info);
 
 	if (ret) {
@@ -350,6 +383,7 @@ end:
 	return ret;
 
 err_gpio_init:
+err_pinctrl_init:
 err_get_gpio:
 	if (vreg_info->soc_swreg)
 		regulator_disable(vreg_info->soc_swreg);

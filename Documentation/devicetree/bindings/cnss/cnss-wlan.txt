@@ -16,6 +16,9 @@ Required properties:
   - reg-names: Names of the memory regions defined in reg entry
   - wlan-en-gpio: WLAN_EN GPIO signal specified by QCA6174 specifications
   - vdd-wlan-supply: phandle to the regulator device tree node
+  - pinctrl-names: Names corresponding to the numbered pinctrl states
+  - pinctrl-<n>: Pinctrl states as described in
+                 bindings/pinctrl/pinctrl-bindings.txt
 
 Optional properties:
   - qcom,notify-modem-status: Boolean property to decide whether modem
@@ -32,4 +35,6 @@ Example:
         vdd-wlan-supply = <&wlan_vreg>;
         qcom,notify-modem-status;
         wlan-soc-swreg-supply = <&pma8084_l27>;
+        pinctrl-names = "default";
+        pinctrl-0 = <&cnss_default>;
     };
