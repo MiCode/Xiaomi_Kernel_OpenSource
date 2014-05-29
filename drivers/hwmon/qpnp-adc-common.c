@@ -512,6 +512,44 @@ static const struct qpnp_vadc_map_pt adcmap_smb_batt_therm[] = {
 	{790,	186}
 };
 
+/* Voltage to temperature */
+static const struct qpnp_vadc_map_pt adcmap_ncp03wf683[] = {
+	{1742,	-40},
+	{1718,	-35},
+	{1687,	-30},
+	{1647,	-25},
+	{1596,	-20},
+	{1534,	-15},
+	{1459,	-10},
+	{1372,	-5},
+	{1275,	0},
+	{1169,	5},
+	{1058,	10},
+	{945,	15},
+	{834,	20},
+	{729,	25},
+	{630,	30},
+	{541,	35},
+	{461,	40},
+	{392,	45},
+	{332,	50},
+	{280,	55},
+	{236,	60},
+	{199,	65},
+	{169,	70},
+	{142,	75},
+	{121,	80},
+	{102,	85},
+	{87,	90},
+	{74,	95},
+	{64,	100},
+	{55,	105},
+	{47,	110},
+	{40,	115},
+	{35,	120},
+	{30,	125}
+};
+
 static int32_t qpnp_adc_map_voltage_temp(const struct qpnp_vadc_map_pt *pts,
 		uint32_t tablesize, int32_t input, int64_t *output)
 {
@@ -964,6 +1002,25 @@ int32_t qpnp_adc_tm_scale_therm_voltage_pu2(struct qpnp_vadc_chip *chip,
 	return 0;
 }
 EXPORT_SYMBOL(qpnp_adc_tm_scale_therm_voltage_pu2);
+
+int32_t qpnp_adc_scale_therm_ncp03(struct qpnp_vadc_chip *chip,
+		int32_t adc_code,
+		const struct qpnp_adc_properties *adc_properties,
+		const struct qpnp_vadc_chan_properties *chan_properties,
+		struct qpnp_vadc_result *adc_chan_result)
+{
+	int64_t therm_voltage = 0;
+
+	therm_voltage = qpnp_adc_scale_ratiometric_calib(adc_code,
+			adc_properties, chan_properties);
+
+	qpnp_adc_map_voltage_temp(adcmap_ncp03wf683,
+		ARRAY_SIZE(adcmap_ncp03wf683),
+		therm_voltage, &adc_chan_result->physical);
+
+	return 0;
+}
+EXPORT_SYMBOL(qpnp_adc_scale_therm_ncp03);
 
 int32_t qpnp_adc_scale_batt_id(struct qpnp_vadc_chip *chip,
 		int32_t adc_code,
