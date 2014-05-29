@@ -141,8 +141,6 @@ module_param_call(stop_on_user_error, binder_set_stop_on_user_error,
 			binder_stop_on_user_error = 2; \
 	} while (0)
 
-#define align_helper(ptr)	    ALIGN(ptr, sizeof(void *))
-
 enum binder_stat_types {
 	BINDER_STAT_PROC,
 	BINDER_STAT_THREAD,
@@ -1245,7 +1243,7 @@ static void binder_transaction_buffer_release(struct binder_proc *proc,
 	if (buffer->target_node)
 		binder_dec_node(buffer->target_node, 1, 0);
 
-	offp = (size_t *)(buffer->data + align_helper(buffer->data_size));
+	offp = (size_t *)(buffer->data + ALIGN(buffer->data_size, sizeof(void *)));
 	if (failed_at)
 		off_end = failed_at;
 	else
@@ -1482,7 +1480,7 @@ static void binder_transaction(struct binder_proc *proc,
 	if (target_node)
 		binder_inc_node(target_node, 1, 0, NULL);
 
-	offp = (size_t *)(t->buffer->data + align_helper(tr->data_size));
+	offp = (size_t *)(t->buffer->data + ALIGN(tr->data_size, sizeof(void *)));
 
 	if (copy_from_user(t->buffer->data, tr->data.ptr.buffer, tr->data_size)) {
 		binder_user_error("%d:%d got transaction with invalid data ptr\n",
@@ -2408,7 +2406,8 @@ retry:
 		tr.data.ptr.buffer = (void *)t->buffer->data +
 					proc->user_buffer_offset;
 		tr.data.ptr.offsets = tr.data.ptr.buffer +
-					align_helper(t->buffer->data_size);
+					ALIGN(t->buffer->data_size,
+					    sizeof(void *));
 
 		if (binder_copy_to_user(cmd, &tr, &ptr, sizeof(struct binder_transaction_data)))
 			return -EFAULT;
