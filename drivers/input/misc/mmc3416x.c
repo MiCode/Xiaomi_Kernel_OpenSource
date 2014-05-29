@@ -47,8 +47,9 @@
 #define MMC3416X_DELAY_SET_MS	75
 #define MMC3416X_DELAY_RESET_MS	75
 
-#define MMC3416X_RETRY_COUNT	3
+#define MMC3416X_RETRY_COUNT	10
 #define MMC3416X_DEFAULT_INTERVAL_MS	100
+#define MMC3416X_TIMEOUT_SET_MS	15000
 
 #define MMC3416X_PRODUCT_ID	0x06
 
@@ -78,7 +79,7 @@ static char *mmc3416x_dir[MMC3416X_DIR_COUNT] = {
 	[REVERSE_X_AXIS_FORWARD] = "reverse-x-axis-forward",
 	[REVERSE_X_AXIS_RIGHTWARD] = "reverse-x-axis-rightward",
 	[REVERSE_X_AXIS_BACKWARD] = "reverse-x-axis-backward",
-	[REVERSE_X_AXIS_LEFTWARD] = "everse-x-axis-leftward",
+	[REVERSE_X_AXIS_LEFTWARD] = "reverse-x-axis-leftward",
 };
 
 static s8 mmc3416x_rotation_matrix[MMC3416X_DIR_COUNT][9] = {
@@ -115,8 +116,8 @@ struct mmc3416x_data {
 	int			auto_report;
 	int			enable;
 	int			poll_interval;
-	int			flip;
 	int			power_enabled;
+	unsigned long		timeout;
 };
 
 static struct sensors_classdev sensors_cdev = {
@@ -144,49 +145,53 @@ static int mmc3416x_read_xyz(struct mmc3416x_data *memsic,
 	unsigned char data[6];
 	unsigned int status;
 	struct mmc3416x_vec tmp;
-	int rc;
+	int rc = 0;
 
 	mutex_lock(&memsic->ecompass_lock);
 
-	rc = regmap_write(memsic->regmap, MMC3416X_REG_CTRL,
-			MMC3416X_CTRL_REFILL);
-	if (rc) {
-		dev_err(&memsic->i2c->dev, "write reg %d failed.(%d)\n",
-				MMC3416X_REG_CTRL, rc);
-		goto exit;
+	/* mmc3416x need to be set periodly to avoid overflow */
+	if (time_after(jiffies, memsic->timeout)) {
+		rc = regmap_write(memsic->regmap, MMC3416X_REG_CTRL,
+				MMC3416X_CTRL_REFILL);
+		if (rc) {
+			dev_err(&memsic->i2c->dev, "write reg %d failed at %d.(%d)\n",
+					MMC3416X_REG_CTRL, __LINE__, rc);
+			goto exit;
+		}
+
+		/* Time from refill cap to SET */
+		msleep(MMC3416X_DELAY_SET_MS);
+
+		rc = regmap_write(memsic->regmap, MMC3416X_REG_CTRL,
+				MMC3416X_CTRL_SET);
+		if (rc) {
+			dev_err(&memsic->i2c->dev, "write reg %d failed at %d.(%d)\n",
+					MMC3416X_REG_CTRL, __LINE__, rc);
+			goto exit;
+		}
+
+		/* Wait time to complete SET/RESET */
+		usleep_range(1000, 1500);
+		memsic->timeout = jiffies +
+			msecs_to_jiffies(MMC3416X_TIMEOUT_SET_MS);
+
+		dev_dbg(&memsic->i2c->dev, "mmc3416x reset is done\n");
+
+		/* Re-send the TM command */
+		rc = regmap_write(memsic->regmap, MMC3416X_REG_CTRL,
+				MMC3416X_CTRL_TM);
+		if (rc) {
+			dev_err(&memsic->i2c->dev, "write reg %d failed at %d.(%d)\n",
+					MMC3416X_REG_CTRL, __LINE__, rc);
+			goto exit;
+		}
 	}
-
-	/* Time from refill cap to SET/RESET. */
-	msleep(memsic->flip ? MMC3416X_DELAY_RESET_MS : MMC3416X_DELAY_SET_MS);
-
-	rc = regmap_write(memsic->regmap, MMC3416X_REG_CTRL,
-			memsic->flip ? MMC3416X_CTRL_RESET : MMC3416X_CTRL_SET);
-	if (rc) {
-		dev_err(&memsic->i2c->dev, "write reg %d failed.(%d)\n",
-				MMC3416X_REG_CTRL, rc);
-		goto exit;
-
-	}
-
-	/* Wait time to complete SET/RESET */
-	usleep_range(1000, 1500);
-
-	/* send TM cmd before read */
-	rc = regmap_write(memsic->regmap, MMC3416X_REG_CTRL, MMC3416X_CTRL_TM);
-	if (rc) {
-		dev_err(&memsic->i2c->dev, "write reg %d failed.(%d)\n",
-				MMC3416X_REG_CTRL, rc);
-		goto exit;
-	}
-
-	/* wait TM done for coming data read */
-	msleep(MMC3416X_DELAY_TM_MS);
 
 	/* Read MD */
 	rc = regmap_read(memsic->regmap, MMC3416X_REG_DS, &status);
 	if (rc) {
-		dev_err(&memsic->i2c->dev, "read reg %d failed.(%d)\n",
-				MMC3416X_REG_DS, rc);
+		dev_err(&memsic->i2c->dev, "read reg %d failed at %d.(%d)\n",
+				MMC3416X_REG_DS, __LINE__, rc);
 		goto exit;
 
 	}
@@ -195,8 +200,8 @@ static int mmc3416x_read_xyz(struct mmc3416x_data *memsic,
 		/* Read MD again*/
 		rc = regmap_read(memsic->regmap, MMC3416X_REG_DS, &status);
 		if (rc) {
-			dev_err(&memsic->i2c->dev, "read reg %d failed.(%d)\n",
-					MMC3416X_REG_DS, rc);
+			dev_err(&memsic->i2c->dev, "read reg %d failed at %d.(%d)\n",
+					MMC3416X_REG_DS, __LINE__, rc);
 			goto exit;
 
 		}
@@ -215,44 +220,30 @@ static int mmc3416x_read_xyz(struct mmc3416x_data *memsic,
 	/* read xyz raw data */
 	rc = regmap_bulk_read(memsic->regmap, MMC3416X_REG_DATA, data, 6);
 	if (rc) {
-		dev_err(&memsic->i2c->dev, "read reg %d failed.(%d)\n",
-				MMC3416X_REG_DS, rc);
+		dev_err(&memsic->i2c->dev, "read reg %d failed at %d.(%d)\n",
+				MMC3416X_REG_DS, __LINE__, rc);
 		goto exit;
 	}
 
-	tmp.x = ((int32_t)data[1]) << 8 | (int32_t)data[0];
-	tmp.y = ((int32_t)data[3]) << 8 | (int32_t)data[2];
-	tmp.z = ((int32_t)data[5]) << 8 | (int32_t)data[4];
+	tmp.x = (((u8)data[1]) << 8 | (u8)data[0]) - 32768;
+	tmp.y = (((u8)data[3]) << 8 | (u8)data[2]) - 32768;
+	tmp.z = (((u8)data[5]) << 8 | (u8)data[4]) - 32768;
 
 	dev_dbg(&memsic->i2c->dev, "raw data:%d %d %d %d %d %d",
 			data[0], data[1], data[2], data[3], data[4], data[5]);
 	dev_dbg(&memsic->i2c->dev, "raw x:%d y:%d z:%d\n", tmp.x, tmp.y, tmp.z);
 
-	if ((memsic->last.x == 0) && (memsic->last.y == 0) &&
-			(memsic->last.z == 0)) {
-		memsic->last = tmp;
-		memsic->flip = true;
-		rc = -EAGAIN;
-		goto exit;
-	}
-
-	if (memsic->flip) {
-		vec->x = (memsic->last.x - tmp.x) / 2;
-		vec->y = (memsic->last.y - tmp.y) / 2;
-		vec->z = -(memsic->last.z - tmp.z) / 2;
-	} else {
-		vec->x = (tmp.x - memsic->last.x) / 2;
-		vec->y = (tmp.y - memsic->last.y) / 2;
-		vec->z = -(tmp.z - memsic->last.z) / 2;
-	}
-
-	dev_dbg(&memsic->i2c->dev, "cal x:%d y:%d z:%d\n",
-			vec->x, vec->y, vec->z);
-
-	memsic->last = tmp;
-	memsic->flip = !(memsic->flip);
+	vec->x = tmp.x;
+	vec->y = tmp.y;
+	vec->z = -tmp.z;
 
 exit:
+	/* send TM cmd before read */
+	if (regmap_write(memsic->regmap, MMC3416X_REG_CTRL, MMC3416X_CTRL_TM)) {
+		dev_warn(&memsic->i2c->dev, "write reg %d failed at %d.(%d)\n",
+				MMC3416X_REG_CTRL, __LINE__, rc);
+	}
+
 	mutex_unlock(&memsic->ecompass_lock);
 	return rc;
 }
@@ -270,8 +261,7 @@ static void mmc3416x_poll(struct work_struct *work)
 
 	ret = mmc3416x_read_xyz(memsic, &vec);
 	if (ret) {
-		if (ret != -EAGAIN)
-			dev_warn(&memsic->i2c->dev, "read xyz failed\n");
+		dev_warn(&memsic->i2c->dev, "read xyz failed\n");
 		goto exit;
 	}
 
@@ -540,17 +530,29 @@ static int mmc3416x_parse_dt(struct i2c_client *client,
 static int mmc3416x_set_enable(struct sensors_classdev *sensors_cdev,
 		unsigned int enable)
 {
+	int rc = 0;
 	struct mmc3416x_data *memsic = container_of(sensors_cdev,
 			struct mmc3416x_data, cdev);
 
 	mutex_lock(&memsic->ops_lock);
 
 	if (enable && (!memsic->enable)) {
-		if (mmc3416x_power_set(memsic, true)) {
+		rc = mmc3416x_power_set(memsic, true);
+		if (rc) {
 			dev_err(&memsic->i2c->dev, "Power up failed\n");
 			goto exit;
 		}
 
+		/* send TM cmd before read */
+		rc = regmap_write(memsic->regmap, MMC3416X_REG_CTRL,
+				MMC3416X_CTRL_TM);
+		if (rc) {
+			dev_err(&memsic->i2c->dev, "write reg %d failed.(%d)\n",
+					MMC3416X_REG_CTRL, rc);
+			goto exit;
+		}
+
+		memsic->timeout = jiffies;
 		if (memsic->auto_report)
 			schedule_delayed_work(&memsic->dwork,
 				msecs_to_jiffies(memsic->poll_interval));
@@ -569,7 +571,7 @@ static int mmc3416x_set_enable(struct sensors_classdev *sensors_cdev,
 
 exit:
 	mutex_unlock(&memsic->ops_lock);
-	return 0;
+	return rc;
 }
 
 static int mmc3416x_set_poll_delay(struct sensors_classdev *sensors_cdev,
