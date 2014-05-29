@@ -288,6 +288,7 @@ static struct qpnp_adc_tm_reverse_scale_fn adc_tm_rscale_fn[] = {
 	[SCALE_RPMIC_THERM] = {qpnp_adc_scale_millidegc_pmic_voltage_thr},
 	[SCALE_R_SMB_BATT_THERM] = {qpnp_adc_smb_btm_rscaler},
 	[SCALE_R_ABSOLUTE] = {qpnp_adc_absolute_rthr},
+	[SCALE_QRD_SKUH_RBATT_THERM] = {qpnp_adc_qrd_skuh_btm_scaler},
 };
 
 static int32_t qpnp_adc_tm_read_reg(struct qpnp_adc_tm_chip *chip,
