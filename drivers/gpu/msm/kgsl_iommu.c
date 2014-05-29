@@ -1497,7 +1497,7 @@ static void kgsl_iommu_lock_rb_in_tlb(struct kgsl_mmu *mmu)
 	if (!iommu->sync_lock_initialized)
 		return;
 
-	rb = &adreno_dev->ringbuffer;
+	rb = ADRENO_CURRENT_RINGBUFFER(adreno_dev);
 	num_tlb_entries = rb->buffer_desc.size / PAGE_SIZE;
 
 	for (i = 0; i < iommu->unit_count; i++) {

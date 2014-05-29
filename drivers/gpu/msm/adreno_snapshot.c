@@ -214,7 +214,7 @@ static size_t snapshot_rb(struct kgsl_device *device, void *snapshot,
 	struct kgsl_snapshot_rb *header = snapshot;
 	unsigned int *data = snapshot + sizeof(*header);
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
-	struct adreno_ringbuffer *rb = &adreno_dev->ringbuffer;
+	struct adreno_ringbuffer *rb = ADRENO_CURRENT_RINGBUFFER(adreno_dev);
 	unsigned int rptr, *rbptr, ibbase;
 	phys_addr_t ptbase;
 	int index, i;

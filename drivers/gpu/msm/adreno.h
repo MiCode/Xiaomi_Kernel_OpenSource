@@ -31,6 +31,8 @@
 #define DEVICE_3D_NAME "kgsl-3d"
 #define DEVICE_3D0_NAME "kgsl-3d0"
 
+#define ADRENO_PRIORITY_MAX_RB_LEVELS	4
+
 /* ADRENO_DEVICE - Given a kgsl_device return the adreno device struct */
 #define ADRENO_DEVICE(device) \
 		container_of(device, struct adreno_device, dev)
@@ -243,7 +245,9 @@ struct adreno_device {
 	unsigned int *pm4_fw;
 	size_t pm4_fw_size;
 	unsigned int pm4_fw_version;
-	struct adreno_ringbuffer ringbuffer;
+	struct adreno_ringbuffer ringbuffers[ADRENO_PRIORITY_MAX_RB_LEVELS];
+	int num_ringbuffers;
+	struct adreno_ringbuffer *cur_rb;
 	unsigned int wait_timeout;
 	unsigned int ib_check_level;
 	unsigned int fast_hang_detect;
@@ -1235,9 +1239,11 @@ static inline unsigned int
 adreno_get_rptr(struct adreno_ringbuffer *rb)
 {
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(rb->device);
-	unsigned int result;
-	adreno_readreg(adreno_dev, ADRENO_REG_CP_RB_RPTR, &result);
-	return result;
+	if (adreno_dev->cur_rb == rb) {
+		adreno_readreg(adreno_dev, ADRENO_REG_CP_RB_RPTR, &(rb->rptr));
+		rmb();
+	}
+	return rb->rptr;
 }
 
 #endif /*__ADRENO_H */

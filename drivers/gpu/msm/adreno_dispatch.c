@@ -95,15 +95,16 @@ static inline bool _isidle(struct kgsl_device *device)
 	if (!kgsl_pwrctrl_isenabled(device))
 		goto ret;
 
-	kgsl_readtimestamp(device, NULL, KGSL_TIMESTAMP_RETIRED, &ts);
+	/* If GPU HW status is not idle then return false */
+	if (!adreno_hw_isidle(device))
+		return false;
 
-	/* If GPU HW status is idle return true */
-	if (adreno_hw_isidle(device) ||
-			(ts == adreno_dev->ringbuffer.global_ts))
-		goto ret;
-
-	return false;
-
+	for (i = 0; i < adreno_dev->num_ringbuffers; i++) {
+		kgsl_readtimestamp(device, NULL,
+				KGSL_TIMESTAMP_RETIRED, &ts);
+		if (ts != adreno_dev->ringbuffers[i].global_ts)
+			return false;
+	}
 ret:
 	for (i = 0; i < FT_DETECT_REGS_COUNT; i++)
 		fault_detect_regs[i] = 0;

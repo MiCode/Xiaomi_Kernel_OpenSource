@@ -1105,7 +1105,7 @@ void adreno_profile_preib_processing(struct kgsl_device *device,
 	int count = profile->assignment_count;
 	unsigned int entry_head = profile->shared_head;
 	unsigned int *shared_ptr;
-	struct adreno_ringbuffer *rb = &adreno_dev->ringbuffer;
+	struct adreno_ringbuffer *rb = ADRENO_CURRENT_RINGBUFFER(adreno_dev);
 	unsigned int rbcmds[3] = { cp_nop_packet(2),
 		KGSL_NOP_IB_IDENTIFIER, KGSL_NOP_IB_IDENTIFIER };
 	unsigned int *ptr = *rbptr;
