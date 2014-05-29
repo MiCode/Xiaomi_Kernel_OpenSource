@@ -122,7 +122,10 @@ const unsigned char MAX_SINR_SAMPLES = 0xFF;
 #define RDS_PS0_XFR_MODE 0x01
 #define RDS_PS0_LEN 6
 #define RX_REPEATE_BYTE_OFFSET 5
-
+#define FM_SPUR_TBL_SIZE 240
+#define SPUR_DATA_LEN 16
+#define ENTRIES_EACH_CMD 15
+#define SPUR_DATA_INDEX 2
 #define FM_AF_LIST_MAX_SIZE   200
 #define AF_LIST_MAX     (FM_AF_LIST_MAX_SIZE / 4) /* Each AF frequency consist
 							of sizeof(int) bytes */
@@ -229,6 +232,8 @@ void radio_hci_event_packet(struct radio_hci_dev *hdev, struct sk_buff *skb);
 #define HCI_OCF_FM_GET_FEATURE_LIST         0x0005
 #define HCI_OCF_FM_DO_CALIBRATION           0x0006
 #define HCI_OCF_FM_SET_CALIBRATION          0x0007
+#define HCI_OCF_FM_SET_SPUR_TABLE           0x0008
+#define HCI_OCF_FM_GET_SPUR_TABLE           0x0009
 
 /*HCI Status parameters commands*/
 #define HCI_OCF_FM_READ_GRP_COUNTERS        0x0001
@@ -725,6 +730,7 @@ enum iris_buf_t {
 	IRIS_BUF_CAL_DATA,
 	IRIS_BUF_RT_PLUS,
 	IRIS_BUF_ERT,
+	IRIS_BUF_SPUR,
 	IRIS_BUF_MAX,
 };
 
@@ -862,6 +868,11 @@ struct hci_cc_do_calibration_rsp {
 	__u8 data[MAX_CALIB_SIZE];
 } __packed;
 
+struct hci_fm_set_spur_table_req {
+	__u8 mode;
+	__u8 no_of_freqs_entries;
+	u8 spur_data[FM_SPUR_TBL_SIZE];
+} __packed;
 /* Low Power mode*/
 #define SIG_LEVEL_INTR  (1 << 0)
 #define RDS_SYNC_INTR   (1 << 1)
