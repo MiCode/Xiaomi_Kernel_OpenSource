@@ -588,4 +588,12 @@
 		qcom,cpr-init-voltage-ref = <900000 1000000 1225000>;
 		qcom,cpr-init-voltage-step = <10000>;
 	};
+
+	bt_vreg: bt_vreg {
+		compatible = "regulator-fixed";
+		regulator-name = "bt_vreg";
+		startup-delay-us = <4000>;
+		enable-active-high;
+		gpio = <&pm8994_gpios 9 0>;
+	};
 };
