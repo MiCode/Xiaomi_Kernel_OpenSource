@@ -59,16 +59,17 @@ static int __secure_tz_reset_entry2(unsigned int *scm_data, u32 size_scm_data,
 					bool is_64)
 {
 	int ret;
-	spin_lock(&tz_lock);
 	/* sync memory before sending the commands to tz*/
 	__iowmb();
-	if (!is_64)
+	if (!is_64) {
+		spin_lock(&tz_lock);
 		ret = scm_call_atomic2(SCM_SVC_IO, TZ_RESET_ID, scm_data[0],
 					scm_data[1]);
-	else
+		spin_unlock(&tz_lock);
+	} else {
 		ret = scm_call(SCM_SVC_DCVS, TZ_RESET_ID_64, scm_data,
 				size_scm_data, NULL, 0);
-	spin_unlock(&tz_lock);
+	}
 	return ret;
 }
 
@@ -76,18 +77,18 @@ static int __secure_tz_update_entry3(unsigned int *scm_data, u32 size_scm_data,
 					int *val, u32 size_val, bool is_64)
 {
 	int ret;
-	spin_lock(&tz_lock);
 	/* sync memory before sending the commands to tz*/
 	__iowmb();
 	if (!is_64) {
+		spin_lock(&tz_lock);
 		ret = scm_call_atomic3(SCM_SVC_IO, TZ_UPDATE_ID,
 					scm_data[0], scm_data[1], scm_data[2]);
+		spin_unlock(&tz_lock);
 		*val = ret;
 	} else {
 		ret = scm_call(SCM_SVC_DCVS, TZ_UPDATE_ID_64, scm_data,
 				size_scm_data, val, size_val);
 	}
-	spin_unlock(&tz_lock);
 	return ret;
 }
 
