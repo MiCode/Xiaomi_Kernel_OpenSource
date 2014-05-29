@@ -360,12 +360,12 @@ int msm_spm_config_low_power_mode(struct msm_spm_device *dev,
 
 /**
  * msm_spm_apcs_set_phase(): Set number of SMPS phases.
- * phase_cnt: Number of phases to be set active
+ * @cpu: cpu which is requesting the change in number of phases.
+ * @phase_cnt: Number of phases to be set active
  */
-int msm_spm_apcs_set_phase(unsigned int phase_cnt)
+int msm_spm_apcs_set_phase(int cpu, unsigned int phase_cnt)
 {
-	struct msm_spm_device *dev = per_cpu(cpu_vctl_device,
-			raw_smp_processor_id());
+	struct msm_spm_device *dev = per_cpu(cpu_vctl_device, cpu);
 
 	if (!dev)
 		return -ENXIO;
@@ -377,12 +377,12 @@ EXPORT_SYMBOL(msm_spm_apcs_set_phase);
 
 /** msm_spm_enable_fts_lpm() : Enable FTS to switch to low power
  *                             when the cores are in low power modes
+ * @cpu: cpu that is entering low power mode.
  * @mode: The mode configuration for FTS
  */
-int msm_spm_enable_fts_lpm(uint32_t mode)
+int msm_spm_enable_fts_lpm(int cpu, uint32_t mode)
 {
-	struct msm_spm_device *dev = per_cpu(cpu_vctl_device,
-			raw_smp_processor_id());
+	struct msm_spm_device *dev = per_cpu(cpu_vctl_device, cpu);
 
 	if (!dev)
 		return -ENXIO;
