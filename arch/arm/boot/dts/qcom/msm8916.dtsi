@@ -406,7 +406,6 @@
 		qcom,hsusb-otg-phy-type = <2>;
 		qcom,hsusb-otg-mode = <1>;
 		qcom,hsusb-otg-otg-control = <2>;
-		qcom,ahb-async-bridge-bypass;
 		qcom,dp-manual-pullup;
 
 		qcom,msm-bus,name = "usb2";
@@ -429,7 +428,6 @@
 		reg = <0x086000c8 0xc8>;
 		qcom,android-usb-swfi-latency = <1>;
 		qcom,android-usb-uicc-nluns = /bits/ 8 <1>;
-		qcom,streaming-func = "rmnet";
 	};
 
 	rmtfs_sharedmem {
