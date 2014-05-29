@@ -1177,9 +1177,11 @@ static int msm_compr_ioctl_shared(struct snd_pcm_substream *substream,
 		prtd->cmd_interrupt = 0;
 		return rc;
 	default:
+		pr_err("%s: Invalid ioctl %d\n", __func__, cmd);
+		rc = -ENOTTY;
 		break;
 	}
-	return snd_pcm_lib_ioctl(substream, cmd, arg);
+	return rc;
 }
 
 static int msm_compr_ioctl(struct snd_pcm_substream *substream,
