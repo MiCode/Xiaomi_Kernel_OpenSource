@@ -20,6 +20,8 @@
 #include <linux/pinctrl/machine.h>
 #include <linux/platform_device.h>
 
+#define MSM_PINTYPE_SDC_REGS_MAX 10
+
 /**
  * struct msm_pin_group: group of pins having the same pinmux function.
  * @name: name of the pin group.
@@ -82,6 +84,31 @@ struct msm_tlmm_irq_chip {
 	irqreturn_t (*handler)(int irq, struct msm_tlmm_irq_chip *ic);
 };
 
+enum msm_pintype {
+	MSM_PINTYPE_GP,
+	MSM_PINTYPE_SDC,
+	MSM_PINTYPE_QDSD,
+	MSM_PINTYPE_MAX,
+};
+
+/**
+ * struct msm_pintype_data: contains SoC specific pintype info.
+ * @reg_base_offset : current pin type's base register offset.
+ * @gp_reg_size : delta between a register to next one for pintype gp.
+ * @sdc_reg_offsets : sdc pins' register offset from the base address in array.
+ *		      offset array consists of
+ *		      [SDC1 CLK, SDC1 CMD, SDC1 DATA, SDC1 RCLK,
+ *		       SDC2 CLK, SDC2 CMD, SDC2 DATA,
+ *		       SDC3 CLK, SDC3 CMD, SDC3 DATA]
+ */
+struct msm_pintype_data {
+	unsigned long reg_base_offset;
+	union {
+		u32 gp_reg_size;
+		s32 sdc_reg_offsets[MSM_PINTYPE_SDC_REGS_MAX];
+	};
+};
+
 /**
  * struct msm_pintype_info: represent a pin type supported by the TLMM.
  * @prg_cfg: helper to program a given config for a pintype.
@@ -100,17 +127,18 @@ struct msm_tlmm_irq_chip {
  * @supports_gpio: pintype supports gpio function.
  * @grange: pins that map to gpios.
  * @node: device node for the pintype.
+ * @pintype_data: SoC specific pintype data.
  */
 struct msm_pintype_info {
-	int (*prg_cfg)(uint pin_no, unsigned long *config, void *reg_data,
-								bool rw);
-	void (*prg_func)(uint pin_no, u32 func, void *reg_data, bool enable);
-	void (*set_reg_base)(void __iomem **ptype_base,
-						void __iomem *tlmm_base);
+	int (*prg_cfg)(uint pin_no, unsigned long *config,
+		       bool rw, const struct msm_pintype_info *pinfo);
+	void (*prg_func)(uint pin_no, u32 func, bool enable,
+			 const struct msm_pintype_info *pinfo);
 	int (*init_irq)(int irq, struct msm_pintype_info *pinfo,
-						struct device *tlmm_dev);
+			struct device *tlmm_dev);
+	void (*set_reg_base)(void __iomem *tlmm_base,
+			     struct msm_pintype_info *pinfo);
 	void __iomem *reg_base;
-	const char *prop_name;
 	const char *name;
 	u32 num_pins;
 	int pin_start;
@@ -120,6 +148,7 @@ struct msm_pintype_info {
 	bool supports_gpio;
 	struct pinctrl_gpio_range grange;
 	struct device_node *node;
+	const struct msm_pintype_data *pintype_data;
 };
 
 /**
@@ -161,20 +190,11 @@ struct msm_tlmm_desc {
 int msm_pinctrl_probe(struct platform_device *pdev,
 					struct msm_tlmm_desc *tlmm_info);
 #ifdef CONFIG_USE_PINCTRL_IRQ
-#ifdef CONFIG_PINCTRL_MSM_TLMM_V3
-extern int msm_tlmm_v3_of_irq_init(struct device_node *np, struct irq_chip *ic);
+#ifdef CONFIG_PINCTRL_MSM_TLMM
+extern int msm_tlmm_of_gp_irq_init(struct device_node *np, struct irq_chip *ic);
 #else
-static inline int msm_tlmm_v3_of_irq_init(struct device_node *np,
-							struct irq_chip *ic)
-{
-	return -EIO;
-}
-#endif
-#ifdef CONFIG_PINCTRL_MSM_TLMM_V4
-extern int msm_tlmm_v4_of_irq_init(struct device_node *np, struct irq_chip *ic);
-#else
-static inline int msm_tlmm_v4_of_irq_init(struct device_node *np,
-							struct irq_chip *ic)
+static inline int msm_tlmm_of_gp_irq_init(struct device_node *np,
+					  struct irq_chip *ic)
 {
 	return -EIO;
 }

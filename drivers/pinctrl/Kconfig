@@ -168,16 +168,9 @@ config USE_PINCTRL_IRQ
 	 attributes to be configured, prior to configuring them as
 	 interrupt triggers.
 
-config PINCTRL_MSM_TLMM_V3
-	bool "MSM TLMMv3 pinctrl driver"
+config PINCTRL_MSM_TLMM
+	bool "MSM TLMM pinctrl driver"
 	depends on OF && ARCH_MSM
-	select PINMUX
-	select GENERIC_PINCONF
-
-config PINCTRL_MSM_TLMM_V4
-	bool "MSM TLMMv4 pinctrl driver"
-	depends on OF && ARCH_MSM
-	bool
 	select PINMUX
 	select GENERIC_PINCONF
 

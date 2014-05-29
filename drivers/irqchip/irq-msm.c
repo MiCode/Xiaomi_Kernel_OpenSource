@@ -42,8 +42,7 @@ static int __init irq_msm_gpio_init(struct device_node *node,
 }
 
 #ifdef CONFIG_USE_PINCTRL_IRQ
-IRQCHIP_DECLARE(tlmmv3_irq, "qcom,msm-tlmmv3-gp-intc", irq_msm_gpio_init);
-IRQCHIP_DECLARE(tlmmv4_irq, "qcom,msm-tlmmv4-gp-intc", irq_msm_gpio_init);
+IRQCHIP_DECLARE(tlmmv3_irq, "qcom,msm-tlmm-gp", irq_msm_gpio_init);
 #else
 IRQCHIP_DECLARE(tlmm_irq, "qcom,msm-gpio", irq_msm_gpio_init);
 #endif
