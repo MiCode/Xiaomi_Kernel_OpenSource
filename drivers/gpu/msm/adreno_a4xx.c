@@ -353,6 +353,25 @@ static void a4xx_regulator_enable(struct adreno_device *adreno_dev)
 }
 
 /*
+ * a4xx_regulator_disable() - Disable any necessary HW regulators
+ * @adreno_dev: The adreno device pointer
+ *
+ * Some HW blocks may need their regulators explicitly disabled
+ * on a power down to prevent current spikes.  Clocks must be on
+ * during this call.
+ */
+static void a4xx_regulator_disable(struct adreno_device *adreno_dev)
+{
+	struct kgsl_device *device = &adreno_dev->dev;
+	if (adreno_is_a420(adreno_dev))
+		return;
+
+	/* Set the default register values; set SW_COLLAPSE to 1 */
+	kgsl_regwrite(device, A4XX_RBBM_POWER_CNTL_IP, 0x778001);
+	trace_adreno_sp_tp((unsigned long) __builtin_return_address(0));
+}
+
+/*
  * a4xx_enable_pc() - Enable the SP/TP block power collapse
  * @adreno_dev: The adreno device pointer
  */
@@ -1427,4 +1446,5 @@ struct adreno_gpudev adreno_a4xx_gpudev = {
 	.enable_pc = a4xx_enable_pc,
 	.disable_pc = a4xx_disable_pc,
 	.regulator_enable = a4xx_regulator_enable,
+	.regulator_disable = a4xx_regulator_disable,
 };
