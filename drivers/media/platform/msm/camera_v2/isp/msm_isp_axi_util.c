@@ -442,11 +442,19 @@ void msm_isp_sof_notify(struct vfe_device *vfe_dev,
 	uint32_t session_id;
 
 	session_id = vfe_dev->axi_data.src_info[frame_src].session_id;
+	if (!(vfe_dev->axi_data.session_frame_src_mask[session_id]
+		& (1 << frame_src))) {
+		pr_err("%s: Ignoring the Sof for the sourece INTF %d\n",
+			__func__, (1 << frame_src));
+		return;
+	}
 	vfe_dev->axi_data.current_frame_src_mask[session_id] |=
 		(1 << frame_src);
-	pr_debug("%s: current mask 0x%X , session mask 0x%X\n", __func__,
+	pr_debug("%s: current mask 0x%X , session mask 0x%X, session_id %d\n",
+		 __func__,
 		vfe_dev->axi_data.current_frame_src_mask[session_id],
-		vfe_dev->axi_data.session_frame_src_mask[session_id]);
+		vfe_dev->axi_data.session_frame_src_mask[session_id],
+		session_id);
 	if ((vfe_dev->axi_data.current_frame_src_mask[session_id] ==
 		vfe_dev->axi_data.session_frame_src_mask[session_id])) {
 		vfe_dev->axi_data.current_frame_src_mask[session_id] = 0;
@@ -1296,7 +1304,6 @@ static int msm_isp_start_axi_stream(struct vfe_device *vfe_dev,
 		vfe_dev->hw_info->vfe_ops.core_ops.
 			update_camif_state(vfe_dev, camif_update);
 	}
-
 	if (vfe_dev->axi_data.src_info[VFE_RAW_0].raw_stream_count > 0)
 		vfe_dev->axi_data.src_info[VFE_RAW_0].frame_id = 0;
 	else if (vfe_dev->axi_data.src_info[VFE_RAW_1].raw_stream_count > 0)
@@ -1358,23 +1365,24 @@ static int msm_isp_stop_axi_stream(struct vfe_device *vfe_dev,
 			wait_for_complete = 1;
 		}
 		session_id = stream_info->session_id;
+		session_mask = vfe_dev->axi_data.
+			session_frame_src_mask[session_id];
 		if (SRC_TO_INTF(stream_info->stream_src) == VFE_PIX_0) {
 			if ((vfe_dev->axi_data.
 				src_info[SRC_TO_INTF(stream_info->stream_src)].
 				pix_stream_count <= 1) && (vfe_dev->axi_data.
 				src_info[SRC_TO_INTF(stream_info->stream_src)].
-				raw_stream_count <= 1))
-				session_mask =
-				vfe_dev->axi_data.
-				session_frame_src_mask[stream_info->session_id]
-				& ~(1 << SRC_TO_INTF(stream_info->stream_src));
-			else
-				skip_session_mask_update = 1;
+				raw_stream_count <= 1)) {
+					session_mask &=
+						~(1 << SRC_TO_INTF(
+						stream_info->stream_src));
+					if (stream_info->stream_type ==
+						BURST_STREAM)
+						skip_session_mask_update = 1;
+				}
 		} else {
-			session_mask =
-				vfe_dev->axi_data.
-				session_frame_src_mask[stream_info->session_id]
-				& ~(1 << SRC_TO_INTF(stream_info->stream_src));
+			session_mask &=
+				~(1 << SRC_TO_INTF(stream_info->stream_src));
 		}
 
 	}
