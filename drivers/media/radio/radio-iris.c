@@ -1645,7 +1645,7 @@ static int hci_fm_set_cal_req_proc(struct radio_hci_dev *hdev,
 	opcode = hci_opcode_pack(HCI_OGF_FM_COMMON_CTRL_CMD_REQ,
 		HCI_OCF_FM_SET_CALIBRATION);
 	return radio_hci_send_cmd(hdev, opcode,
-		sizeof(hci_fm_set_cal_req_proc), cal_req);
+		sizeof(struct hci_fm_set_cal_req_proc), cal_req);
 }
 
 static int hci_fm_do_cal_req(struct radio_hci_dev *hdev,
