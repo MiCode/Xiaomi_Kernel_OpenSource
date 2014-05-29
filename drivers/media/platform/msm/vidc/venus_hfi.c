@@ -741,7 +741,7 @@ static bool venus_hfi_bus_supports_session(unsigned long sessions_supported,
 }
 
 static int venus_hfi_vote_buses(void *dev, struct vidc_bus_vote_data *data,
-		int num_data, u32 fb_error_level)
+		int num_data, int requested_level)
 {
 	struct {
 		struct bus_info *bus;

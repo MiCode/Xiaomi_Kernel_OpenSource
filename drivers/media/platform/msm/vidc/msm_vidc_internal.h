@@ -196,6 +196,17 @@ struct msm_vidc_core_capability {
 	enum buffer_mode_type buffer_mode[MAX_PORT_NUM];
 };
 
+struct msm_vidc_idle_stats {
+	bool idle;
+	u32 fb_err_level;
+	u32 prev_fb_err_level;
+	ktime_t start_time;
+	ktime_t avg_idle_time;
+	u32 last_sample_index;
+	u32 sample_count;
+	ktime_t samples[IDLE_TIME_WINDOW_SIZE];
+};
+
 struct msm_vidc_core {
 	struct list_head list;
 	struct mutex lock;
@@ -211,7 +222,7 @@ struct msm_vidc_core {
 	struct msm_vidc_platform_resources resources;
 	u32 enc_codec_supported;
 	u32 dec_codec_supported;
-	struct msm_vidc_idle_time idle_time;
+	struct msm_vidc_idle_stats idle_stats;
 };
 
 struct msm_vidc_inst {
