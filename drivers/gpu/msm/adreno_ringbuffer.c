@@ -498,7 +498,6 @@ static void _ringbuffer_setup_common(struct adreno_ringbuffer *rb)
 static int _ringbuffer_start_common(struct adreno_ringbuffer *rb)
 {
 	int status;
-	int i;
 	struct kgsl_device *device = rb->device;
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
 	struct adreno_gpudev *gpudev = ADRENO_GPU_DEVICE(adreno_dev);
@@ -513,11 +512,6 @@ static int _ringbuffer_start_common(struct adreno_ringbuffer *rb)
 
 	/* idle device to validate ME INIT */
 	status = adreno_spin_idle(device);
-
-	if (status == 0) {
-		for (i = 0; i < adreno_dev->num_ringbuffers; i++)
-			adreno_dev->ringbuffers[i].flags |= KGSL_FLAGS_STARTED;
-	}
 
 	return status;
 }
@@ -536,9 +530,6 @@ int adreno_ringbuffer_warm_start(struct adreno_device *adreno_dev)
 	int status;
 	struct adreno_ringbuffer *rb = ADRENO_CURRENT_RINGBUFFER(adreno_dev);
 	struct kgsl_device *device = rb->device;
-
-	if (rb->flags & KGSL_FLAGS_STARTED)
-		return 0;
 
 	_ringbuffer_setup_common(rb);
 
@@ -580,8 +571,6 @@ int adreno_ringbuffer_cold_start(struct adreno_device *adreno_dev)
 	int status;
 	struct adreno_ringbuffer *rb = ADRENO_CURRENT_RINGBUFFER(adreno_dev);
 
-	if (rb->flags & KGSL_FLAGS_STARTED)
-		return 0;
 
 	_ringbuffer_setup_common(rb);
 
@@ -629,19 +618,6 @@ int adreno_ringbuffer_cold_start(struct adreno_device *adreno_dev)
 	status = _ringbuffer_start_common(rb);
 
 	return status;
-}
-
-static void _adreno_ringbuffer_stop(struct adreno_ringbuffer *rb)
-{
-	rb->flags &= ~KGSL_FLAGS_STARTED;
-}
-
-void adreno_ringbuffer_stop(struct adreno_device *adreno_dev)
-{
-	int i;
-
-	for (i = 0; i < adreno_dev->num_ringbuffers; i++)
-		_adreno_ringbuffer_stop(&(adreno_dev->ringbuffers[i]));
 }
 
 static int _adreno_ringbuffer_init(struct adreno_device *adreno_dev,

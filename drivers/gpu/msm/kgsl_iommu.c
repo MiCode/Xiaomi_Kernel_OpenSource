@@ -1283,19 +1283,17 @@ static int kgsl_iommu_setstate(struct kgsl_mmu *mmu,
 {
 	int ret = 0;
 
-	if (mmu->flags & KGSL_FLAGS_STARTED) {
-		/* page table not current, then setup mmu to use new
-		 *  specified page table
-		 */
-		if (mmu->hwpagetable != pagetable) {
-			unsigned int flags = 0;
-			mmu->hwpagetable = pagetable;
-			flags |= kgsl_mmu_pt_get_flags(mmu->hwpagetable,
-							mmu->device->id) |
-							KGSL_MMUFLAGS_TLBFLUSH;
-			ret = kgsl_setstate(mmu, context_id,
-				KGSL_MMUFLAGS_PTUPDATE | flags);
-		}
+	/* page table not current, then setup mmu to use new
+	 *  specified page table
+	 */
+	if (mmu->hwpagetable != pagetable) {
+		unsigned int flags = 0;
+		mmu->hwpagetable = pagetable;
+		flags |= kgsl_mmu_pt_get_flags(mmu->hwpagetable,
+						mmu->device->id) |
+						KGSL_MMUFLAGS_TLBFLUSH;
+		ret = kgsl_setstate(mmu, context_id,
+			KGSL_MMUFLAGS_PTUPDATE | flags);
 	}
 
 	return ret;
@@ -1580,9 +1578,6 @@ static int kgsl_iommu_start(struct kgsl_mmu *mmu)
 	int sctlr_val = 0;
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(mmu->device);
 
-	if (mmu->flags & KGSL_FLAGS_STARTED)
-		return 0;
-
 	if (mmu->defaultpagetable == NULL) {
 		status = kgsl_iommu_setup_defaultpagetable(mmu);
 		if (status)
@@ -1645,7 +1640,6 @@ static int kgsl_iommu_start(struct kgsl_mmu *mmu)
 				cp_nop_packet(1));
 
 	kgsl_iommu_disable_clk(mmu, KGSL_IOMMU_MAX_UNITS);
-	mmu->flags |= KGSL_FLAGS_STARTED;
 
 done:
 	return status;
@@ -1828,16 +1822,12 @@ static void kgsl_iommu_stop(struct kgsl_mmu *mmu)
 	 *  stop device mmu
 	 *
 	 *  call this with the global lock held
+	 *  detach iommu attachment
 	 */
-	if (mmu->flags & KGSL_FLAGS_STARTED) {
-		/* detach iommu attachment */
-		kgsl_detach_pagetable_iommu_domain(mmu);
-		mmu->hwpagetable = NULL;
+	kgsl_detach_pagetable_iommu_domain(mmu);
+	mmu->hwpagetable = NULL;
 
-		mmu->flags &= ~KGSL_FLAGS_STARTED;
-
-		kgsl_iommu_pagefault_resume(mmu);
-	}
+	kgsl_iommu_pagefault_resume(mmu);
 	/* switch off MMU clocks and cancel any events it has queued */
 	kgsl_cancel_events(mmu->device, &mmu->device->iommu_events);
 }
