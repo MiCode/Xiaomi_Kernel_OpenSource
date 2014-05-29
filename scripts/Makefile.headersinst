@@ -124,7 +124,7 @@ endif
 # Recursion
 .PHONY: $(subdirs)
 $(subdirs):
-	$(Q)$(MAKE) $(hdr-inst)=$(obj)/$@ dst=$(_dst)/$@
+	$(Q)$(MAKE) $(hdr-inst)=$(obj)/$@ dst=$(_dst)/$(subst drivers/staging,usr/include/linux/staging,$@)
 
 targets := $(wildcard $(sort $(targets)))
 cmd_files := $(wildcard \
