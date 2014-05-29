@@ -115,6 +115,7 @@ static struct cnss_data {
 	bool recovery_in_progress;
 	struct wakeup_source ws;
 	uint32_t recovery_count;
+	enum cnss_driver_status driver_status;
 } *penv;
 
 
@@ -611,17 +612,33 @@ again:
 		}
 	}
 
-	if (!penv->pcie_link_state) {
+	if (!penv->pcie_link_state && !penv->pcie_link_down_ind) {
 		ret = msm_pcie_pm_control(MSM_PCIE_RESUME,
 					  cnss_get_pci_dev_bus_number(pdev),
 					  NULL, NULL, PM_OPTIONS);
-
 		if (ret) {
 			pr_err("PCIe link bring-up failed\n");
 			goto err_pcie_link_up;
 		}
 		penv->pcie_link_state = PCIE_LINK_UP;
+	} else if (!penv->pcie_link_state && penv->pcie_link_down_ind) {
+
+		ret = msm_pcie_pm_control(MSM_PCIE_RESUME,
+				cnss_get_pci_dev_bus_number(pdev),
+				NULL, NULL, PM_OPTIONS_RESUME_LINK_DOWN);
+
+		if (ret) {
+			pr_err("PCIe link bring-up failed (link down option)\n");
+			goto err_pcie_link_up;
+		}
+		ret = msm_pcie_recover_config(pdev);
+		if (ret) {
+			pr_err("cnss: PCI link failed to recover\n");
+			goto err_pcie_recover;
+		}
+		penv->pcie_link_down_ind = false;
 	}
+	penv->pcie_link_state = PCIE_LINK_UP;
 
 	if (wdrv->probe) {
 		if (penv->saved_state)
@@ -670,6 +687,7 @@ again:
 err_wlan_probe:
 	pci_save_state(pdev);
 	penv->saved_state = pci_store_saved_state(pdev);
+err_pcie_recover:
 	msm_pcie_pm_control(MSM_PCIE_SUSPEND,
 			    cnss_get_pci_dev_bus_number(pdev),
 			    NULL, NULL, PM_OPTIONS);
@@ -723,21 +741,30 @@ void cnss_wlan_unregister_driver(struct cnss_wlan_driver *driver)
 	if (wdrv->remove)
 		wdrv->remove(pdev);
 
-	if (penv->pcie_link_state) {
+	if (penv->pcie_link_state && !penv->pcie_link_down_ind) {
 		pci_save_state(pdev);
 		penv->saved_state = pci_store_saved_state(pdev);
 
 		if (msm_pcie_pm_control(MSM_PCIE_SUSPEND,
 					cnss_get_pci_dev_bus_number(pdev),
 					NULL, NULL, PM_OPTIONS)) {
-			pr_debug("Failed to shutdown PCIe link\n");
+			pr_err("Failed to shutdown PCIe link\n");
 			return;
 		}
-		penv->pcie_link_state = PCIE_LINK_DOWN;
+	} else if (penv->pcie_link_state && penv->pcie_link_down_ind) {
+		penv->saved_state = NULL;
+
+		if (msm_pcie_pm_control(MSM_PCIE_SUSPEND,
+				cnss_get_pci_dev_bus_number(pdev),
+				NULL, NULL, PM_OPTIONS_SUSPEND_LINK_DOWN)) {
+			pr_err("Failed to shutdown PCIe link (with linkdown option)\n");
+			return;
+		}
 	}
+	penv->pcie_link_state = PCIE_LINK_DOWN;
+	penv->driver_status = CNSS_UNINITIALIZED;
 
 	msm_pcie_deregister_event(&penv->event_reg);
-	penv->pcie_link_down_ind = false;
 
 cut_power:
 	penv->driver = NULL;
@@ -882,6 +909,7 @@ static int cnss_shutdown(const struct subsys_desc *subsys, bool force_stop)
 	if (!penv)
 		return -ENODEV;
 
+	penv->recovery_in_progress = true;
 	wdrv = penv->driver;
 	pdev = penv->pdev;
 	vreg_info = &penv->vreg_info;
@@ -1009,6 +1037,7 @@ static int cnss_powerup(const struct subsys_desc *subsys)
 		wdrv->modem_status(pdev, penv->modem_current_status);
 
 out:
+	penv->recovery_in_progress = false;
 	return ret;
 
 err_wlan_reinit:
@@ -1079,7 +1108,10 @@ void cnss_device_self_recovery(void)
 		pr_err("cnss: Recovery already in progress\n");
 		return;
 	}
-
+	if (penv->driver_status == CNSS_LOAD_UNLOAD) {
+		pr_err("cnss: load unload in progress\n");
+		return;
+	}
 	penv->recovery_count++;
 	penv->recovery_in_progress = true;
 	cnss_pm_wake_lock(&penv->ws);
@@ -1386,6 +1418,12 @@ int cnss_get_platform_cap(struct cnss_platform_cap *cap)
 
 }
 EXPORT_SYMBOL(cnss_get_platform_cap);
+
+void cnss_set_driver_status(enum cnss_driver_status driver_status)
+{
+	penv->driver_status = driver_status;
+}
+EXPORT_SYMBOL(cnss_set_driver_status);
 
 module_init(cnss_initialize);
 module_exit(cnss_exit);

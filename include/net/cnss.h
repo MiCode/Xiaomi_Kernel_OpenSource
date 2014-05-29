@@ -62,6 +62,13 @@ struct cnss_platform_cap {
 	u32 cap_flag;
 };
 
+/* WLAN driver status */
+enum cnss_driver_status {
+	CNSS_UNINITIALIZED,
+	CNSS_INITIALIZED,
+	CNSS_LOAD_UNLOAD
+};
+
 extern void cnss_device_crashed(void);
 extern void cnss_device_self_recovery(void);
 extern int cnss_get_ramdump_mem(unsigned long *address, unsigned long *size);
@@ -86,6 +93,7 @@ extern int cnss_set_cpus_allowed_ptr(struct task_struct *task, ulong cpu);
 extern void cnss_request_pm_qos(u32 qos_val);
 extern void cnss_remove_pm_qos(void);
 extern int cnss_get_platform_cap(struct cnss_platform_cap *cap);
+extern void cnss_set_driver_status(enum cnss_driver_status driver_status);
 
 #ifdef CONFIG_WCNSS_MEM_PRE_ALLOC
 extern void *wcnss_prealloc_get(unsigned int size);
