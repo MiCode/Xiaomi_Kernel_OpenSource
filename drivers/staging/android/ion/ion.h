@@ -216,8 +216,8 @@ static inline void ion_reserve(struct ion_platform_data *data)
 
 }
 
-static inline struct ion_client *ion_client_create(struct ion_device *dev,
-				     unsigned int heap_mask, const char *name)
+static inline struct ion_client *ion_client_create(
+	struct ion_device *dev, unsigned int heap_id_mask, const char *name)
 {
 	return ERR_PTR(-ENODEV);
 }
@@ -226,7 +226,7 @@ static inline void ion_client_destroy(struct ion_client *client) { }
 
 static inline struct ion_handle *ion_alloc(struct ion_client *client,
 					size_t len, size_t align,
-					unsigned int heap_mask,
+					unsigned int heap_id_mask,
 					unsigned int flags)
 {
 	return ERR_PTR(-ENODEV);
