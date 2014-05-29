@@ -79,9 +79,18 @@ config DEVFREQ_GOV_MSM_ADRENO_TZ
 	  Sets the frequency using a "on-demand" algorithm.
 	  This governor is unlikely to be useful for other devices.
 
+config MSM_BIMC_BWMON
+	tristate "MSM BIMC Bandwidth monitor hardware"
+	depends on ARCH_MSM
+	help
+	  The BIMC Bandwidth monitor hardware allows for monitoring the
+	  traffic coming from each master port connected to the BIMC. It also
+	  has the capability to raise an IRQ when the count exceeds a
+	  programmable limit.
+
 config DEVFREQ_GOV_MSM_BW_HWMON
 	tristate "HW monitor based governor for device BW"
-	depends on ARCH_MSM_KRAIT
+	depends on ARCH_MSM_KRAIT || ARCH_MSM_BIMC_BWMON
 	help
 	  HW monitor based governor for device to DDR bandwidth voting.
 
