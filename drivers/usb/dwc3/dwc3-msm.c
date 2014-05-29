@@ -113,6 +113,10 @@ MODULE_PARM_DESC(usb_lpm_override, "Override no_suspend_resume with USB");
 #define PWR_EVNT_IRQ_MASK_REG    (QSCRATCH_REG_OFFSET + 0x5C)
 #define HS_PHY_CTRL_COMMON_REG	(QSCRATCH_REG_OFFSET + 0xEC)
 
+#define PWR_EVNT_POWERDOWN_IN_P3_MASK		BIT(2)
+#define PWR_EVNT_POWERDOWN_OUT_P3_MASK		BIT(3)
+#define PWR_EVNT_LPM_IN_L2_MASK			BIT(4)
+#define PWR_EVNT_LPM_OUT_L2_MASK		BIT(5)
 #define PWR_EVNT_LPM_OUT_L1_MASK		BIT(13)
 
 /* TZ SCM parameters */
@@ -188,10 +192,13 @@ struct dwc3_msm {
 	bool			ext_inuse;
 	enum dwc3_id_state	id_state;
 	unsigned long		lpm_flags;
-#define MDWC3_PHY_REF_AND_CORECLK_OFF	BIT(0)
+#define MDWC3_PHY_REF_CLK_OFF		BIT(0)
 #define MDWC3_TCXO_SHUTDOWN		BIT(1)
 #define MDWC3_ASYNC_IRQ_WAKE_CAPABILITY	BIT(2)
-#define MDWC3_POWER_COLLAPSE		BIT(7)
+#define MDWC3_POWER_COLLAPSE		BIT(3)
+#define MDWC3_CORECLK_OFF		BIT(4)
+#define MDWC3_PHY_REF_AND_CORECLK_OFF	\
+			(MDWC3_PHY_REF_CLK_OFF | MDWC3_CORECLK_OFF)
 
 	u32 qscratch_ctl_val;
 	dev_t ext_chg_dev;
@@ -213,6 +220,7 @@ struct dwc3_msm {
 	struct notifier_block	dwc3_cpu_notifier;
 
 	int  pwr_event_irq;
+	atomic_t                in_p3;
 };
 
 #define USB_HSPHY_3P3_VOL_MIN		3050000 /* uV */
@@ -1079,6 +1087,7 @@ static void dwc3_msm_qscratch_reg_init(struct dwc3_msm *mdwc)
 static void dwc3_msm_notify_event(struct dwc3 *dwc, unsigned event)
 {
 	struct dwc3_msm *mdwc = dev_get_drvdata(dwc->dev->parent);
+	u32 mask;
 
 	if (dwc->revision < DWC3_REVISION_230A)
 		return;
@@ -1110,6 +1119,22 @@ static void dwc3_msm_notify_event(struct dwc3 *dwc, unsigned event)
 		break;
 	case DWC3_CONTROLLER_POST_INITIALIZATION_EVENT:
 		usb_phy_post_init(mdwc->ss_phy);
+		break;
+	case DWC3_CONTROLLER_CONNDONE_EVENT:
+		dev_dbg(mdwc->dev, "DWC3_CONTROLLER_CONNDONE_EVENT received\n");
+		mask = PWR_EVNT_POWERDOWN_IN_P3_MASK;
+		/*
+		 * Add power event if the dbm indicates coming out of L1 by
+		 * interrupt
+		 */
+		if (mdwc->dbm && dbm_l1_lpm_interrupt(mdwc->dbm))
+			mask |= PWR_EVNT_LPM_OUT_L1_MASK;
+
+		dwc3_msm_write_reg(mdwc->base, PWR_EVNT_IRQ_MASK_REG,
+			dwc3_msm_read_reg(mdwc->base, PWR_EVNT_IRQ_MASK_REG) |
+			mask);
+		atomic_set(&mdwc->in_p3, 0);
+		atomic_set(&dwc->in_lpm, 0);
 		break;
 	default:
 		dev_dbg(mdwc->dev, "unknown dwc3 event\n");
@@ -1176,11 +1201,6 @@ static void dwc3_block_reset_usb_work(struct work_struct *w)
 
 	dwc3_msm_write_reg(mdwc->base, DWC3_DEVTEN, reg);
 
-	/* Add power event if the dbm indicates coming out of L1 by interrupt */
-	if (mdwc->dbm && dbm_l1_lpm_interrupt(mdwc->dbm))
-		dwc3_msm_write_reg_field(mdwc->base,
-					PWR_EVNT_IRQ_MASK_REG,
-					PWR_EVNT_LPM_OUT_L1_MASK, 1);
 }
 
 static void dwc3_chg_enable_secondary_det(struct dwc3_msm *mdwc)
@@ -1476,6 +1496,79 @@ static void dwc3_msm_power_collapse_por(struct dwc3_msm *mdwc)
 	udelay(100);
 }
 
+static int dwc3_msm_prepare_suspend(struct dwc3_msm *mdwc)
+{
+	unsigned long timeout;
+	u32 reg = 0;
+
+	if (dwc3_msm_is_superspeed(mdwc)) {
+		if (!atomic_read(&mdwc->in_p3)) {
+			dev_err(mdwc->dev,
+				"Not in P3, stoping LPM sequence\n");
+			return -EPERM;
+		}
+	} else {
+		/* Clear previous L2 events */
+		dwc3_msm_write_reg(mdwc->base, PWR_EVNT_IRQ_STAT_REG,
+			PWR_EVNT_LPM_IN_L2_MASK |
+			PWR_EVNT_LPM_OUT_L2_MASK);
+
+		/* Prepare HSPHY for suspend */
+		dwc3_msm_write_reg(mdwc->base,
+			DWC3_GUSB2PHYCFG(0),
+			dwc3_msm_read_reg(mdwc->base,
+			DWC3_GUSB2PHYCFG(0)) |
+			DWC3_GUSB2PHYCFG_ENBLSLPM |
+			DWC3_GUSB2PHYCFG_SUSPHY);
+
+		/* Wait for PHY to go into L2 */
+		timeout = jiffies + msecs_to_jiffies(5);
+		while (!time_after(jiffies, timeout)) {
+			reg = dwc3_msm_read_reg(mdwc->base,
+				PWR_EVNT_IRQ_STAT_REG);
+			if (reg & PWR_EVNT_LPM_IN_L2_MASK)
+				break;
+		}
+		if (!(reg & PWR_EVNT_LPM_IN_L2_MASK)) {
+			dev_err(mdwc->dev,
+				"could not transition HS PHY to L2\n");
+			return -EPERM;
+		}
+	}
+
+	return 0;
+}
+
+static void dwc3_msm_wake_interrupt_enable(struct dwc3_msm *mdwc, bool on)
+{
+	u32 irq_mask;
+
+	if (!mdwc->pwr_event_irq)
+		return;
+
+	if (on) {
+		if (dwc3_msm_is_superspeed(mdwc))
+			dwc3_msm_write_reg_field(mdwc->base,
+					PWR_EVNT_IRQ_MASK_REG,
+					PWR_EVNT_POWERDOWN_OUT_P3_MASK, 1);
+		else
+			dwc3_msm_write_reg_field(mdwc->base,
+					PWR_EVNT_IRQ_MASK_REG,
+					PWR_EVNT_LPM_OUT_L2_MASK, 1);
+	} else {
+		static const u32 pwr_events = PWR_EVNT_POWERDOWN_OUT_P3_MASK |
+					      PWR_EVNT_LPM_OUT_L2_MASK;
+
+		/* Disable P3 and L2 OUT events */
+		irq_mask = dwc3_msm_read_reg(mdwc->base, PWR_EVNT_IRQ_MASK_REG);
+		irq_mask &= ~pwr_events;
+		dwc3_msm_write_reg(mdwc->base, PWR_EVNT_IRQ_MASK_REG, irq_mask);
+
+		/* Clear the P3 and L2 OUT status */
+		dwc3_msm_write_reg(mdwc->base, PWR_EVNT_IRQ_STAT_REG,
+				   pwr_events);
+	}
+}
 
 static int dwc3_msm_suspend(struct dwc3_msm *mdwc)
 {
@@ -1558,26 +1651,28 @@ static int dwc3_msm_suspend(struct dwc3_msm *mdwc)
 		dwc3_msm_write_reg(mdwc->base, QSCRATCH_CTRL_REG,
 			mdwc->qscratch_ctl_val);
 
-	if (can_suspend_ssphy) {
-		usb_phy_set_suspend(mdwc->ss_phy, 1);
-		usleep_range(1000, 1200);
-		clk_disable_unprepare(mdwc->ref_clk);
+	if (dwc->softconnect && cable_connected) {
+		ret = dwc3_msm_prepare_suspend(mdwc);
+		if (ret)
+			return ret;
 	}
 
-	/* Prepare HSPHY for suspend */
-	if (host_bus_suspend) {
-		dwc3_msm_write_reg(mdwc->base, DWC3_GUSB2PHYCFG(0),
-			dwc3_msm_read_reg(mdwc->base, DWC3_GUSB2PHYCFG(0)) |
-						DWC3_GUSB2PHYCFG_ENBLSLPM |
-						DWC3_GUSB2PHYCFG_SUSPHY);
-	}
+	/* Enable wakeup from LPM */
+	dwc3_msm_wake_interrupt_enable(mdwc, true);
 
 	/*
 	 * Marking in LPM before disabling the clocks in order to avoid a
 	 * potential race condition with pwr_event_irq.
 	 */
 	atomic_set(&dwc->in_lpm, 1);
+
 	usb_phy_set_suspend(mdwc->hs_phy, 1);
+	if (can_suspend_ssphy) {
+		usb_phy_set_suspend(mdwc->ss_phy, 1);
+		usleep_range(1000, 1200);
+		clk_disable_unprepare(mdwc->ref_clk);
+		mdwc->lpm_flags |= MDWC3_PHY_REF_CLK_OFF;
+	}
 
 	/* make sure above writes are completed before turning off clocks */
 	wmb();
@@ -1594,7 +1689,7 @@ static int dwc3_msm_suspend(struct dwc3_msm *mdwc)
 
 	if (can_suspend_ssphy) {
 		clk_disable_unprepare(mdwc->core_clk);
-		mdwc->lpm_flags |= MDWC3_PHY_REF_AND_CORECLK_OFF;
+		mdwc->lpm_flags |= MDWC3_CORECLK_OFF;
 		/* USB PHY no more requires TCXO */
 		clk_disable_unprepare(mdwc->xo_clk);
 		mdwc->lpm_flags |= MDWC3_TCXO_SHUTDOWN;
@@ -1609,8 +1704,6 @@ static int dwc3_msm_suspend(struct dwc3_msm *mdwc)
 
 	pm_relax(mdwc->dev);
 
-	dev_info(mdwc->dev, "DWC3 in low power mode\n");
-
 	if (mdwc->hs_phy_irq) {
 		/*
 		 * with DCP or during cable disconnect, we dont require wakeup
@@ -1624,6 +1717,7 @@ static int dwc3_msm_suspend(struct dwc3_msm *mdwc)
 		enable_irq(mdwc->hs_phy_irq);
 	}
 
+	dev_info(mdwc->dev, "DWC3 in low power mode\n");
 	return 0;
 }
 
@@ -1634,6 +1728,7 @@ static int dwc3_msm_resume(struct dwc3_msm *mdwc)
 	bool host_bus_suspend;
 	bool resume_from_core_clk_off = false;
 	struct dwc3 *dwc = platform_get_drvdata(mdwc->dwc3);
+	bool cable_connected = mdwc->vbus_active;
 
 	dev_dbg(mdwc->dev, "%s: exiting lpm\n", __func__);
 	dbg_event(0xFF, "Controller Resume", 0);
@@ -1692,18 +1787,20 @@ static int dwc3_msm_resume(struct dwc3_msm *mdwc)
 
 	clk_prepare_enable(mdwc->utmi_clk);
 
-	if (mdwc->lpm_flags & MDWC3_PHY_REF_AND_CORECLK_OFF)
+	if (mdwc->lpm_flags & MDWC3_PHY_REF_CLK_OFF) {
 		clk_prepare_enable(mdwc->ref_clk);
+		mdwc->lpm_flags &= ~MDWC3_PHY_REF_CLK_OFF;
+	}
 	usleep_range(1000, 1200);
 
 	clk_prepare_enable(mdwc->iface_clk);
-	if (mdwc->lpm_flags & MDWC3_PHY_REF_AND_CORECLK_OFF) {
+	if (mdwc->lpm_flags & MDWC3_CORECLK_OFF) {
 		clk_prepare_enable(mdwc->core_clk);
-		mdwc->lpm_flags &= ~MDWC3_PHY_REF_AND_CORECLK_OFF;
+		mdwc->lpm_flags &= ~MDWC3_CORECLK_OFF;
 	}
 
 	usb_phy_set_suspend(mdwc->hs_phy, 0);
-	if (!host_bus_suspend) {
+	if (!host_bus_suspend && !cable_connected) {
 		/* Reset UTMI HSPHY interface */
 		dwc3_msm_write_reg(mdwc->base, DWC3_GUSB2PHYCFG(0),
 			dwc3_msm_read_reg(mdwc->base, DWC3_GUSB2PHYCFG(0)) |
@@ -1741,7 +1838,15 @@ static int dwc3_msm_resume(struct dwc3_msm *mdwc)
 	atomic_set(&dwc->in_lpm, 0);
 
 	msm_bam_notify_lpm_resume(DWC3_CTRL);
+	/* disable wakeup from LPM */
+	if (mdwc->pwr_event_irq)
+		dwc3_msm_wake_interrupt_enable(mdwc, false);
 
+	/* Disable HSPHY auto suspend */
+	dwc3_msm_write_reg(mdwc->base, DWC3_GUSB2PHYCFG(0),
+		dwc3_msm_read_reg(mdwc->base, DWC3_GUSB2PHYCFG(0)) &
+				~(DWC3_GUSB2PHYCFG_ENBLSLPM |
+					DWC3_GUSB2PHYCFG_SUSPHY));
 	/* match disable_irq call from isr */
 	if (mdwc->hs_phy_irq_seen && mdwc->hs_phy_irq) {
 		enable_irq(mdwc->hs_phy_irq);
@@ -1972,6 +2077,7 @@ static irqreturn_t msm_dwc3_pwr_irq(int irq, void *data)
 {
 	struct dwc3_msm *mdwc = data;
 	struct dwc3 *dwc = platform_get_drvdata(mdwc->dwc3);
+	u32 reg;
 
 	dev_dbg(mdwc->dev, "%s received\n", __func__);
 	/*
@@ -1981,14 +2087,31 @@ static irqreturn_t msm_dwc3_pwr_irq(int irq, void *data)
 	 * dwc3_pwr_event_handler to handle all other power events
 	 */
 	if (atomic_read(&dwc->in_lpm)) {
+		/*
+		 * If we get this interrupt while in LPM, we know the trigger
+		 * is OUT_P3 or OUT_L2. Clearing these bits happens in
+		 * msm_resume after the clocks are enabled.
+		 */
+		atomic_set(&mdwc->in_p3, 0);
 		/* bail out if system resume in process, else initiate RESUME */
 		if (atomic_read(&mdwc->pm_suspended))
 			mdwc->resume_pending = true;
 		else
-			pm_runtime_get(mdwc->dev);
+			pm_runtime_get(&mdwc->dwc3->dev);
 
 		return IRQ_HANDLED;
 	}
+
+	reg = dwc3_msm_read_reg(mdwc->base, PWR_EVNT_IRQ_STAT_REG);
+	if (reg & PWR_EVNT_POWERDOWN_OUT_P3_MASK)
+		atomic_set(&mdwc->in_p3, 0);
+	if (reg & PWR_EVNT_POWERDOWN_IN_P3_MASK)
+		atomic_set(&mdwc->in_p3, 1);
+
+	dwc3_msm_write_reg(mdwc->base, PWR_EVNT_IRQ_STAT_REG,
+		PWR_EVNT_POWERDOWN_OUT_P3_MASK |
+		PWR_EVNT_POWERDOWN_IN_P3_MASK |
+		PWR_EVNT_LPM_OUT_L2_MASK);
 
 	return IRQ_WAKE_THREAD;
 }
@@ -2900,9 +3023,6 @@ static int dwc3_msm_probe(struct platform_device *pdev)
 				ret = -EINVAL;
 				goto disable_ref_clk;
 			}
-			dwc3_msm_write_reg_field(mdwc->base,
-					PWR_EVNT_IRQ_MASK_REG,
-					PWR_EVNT_LPM_OUT_L1_MASK, 1);
 		}
 	}
 
