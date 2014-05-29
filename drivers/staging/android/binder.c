@@ -145,11 +145,6 @@ module_param_call(stop_on_user_error, binder_set_stop_on_user_error,
 #define deref_helper(ptr)	    (*(typeof(size_t *))ptr)
 #define size_helper(x)		    sizeof(x)
 
-static inline struct flat_binder_object *copy_flat_binder_object(void __user *ptr)
-{
-	return (struct flat_binder_object *)ptr;
-}
-
 enum binder_stat_types {
 	BINDER_STAT_PROC,
 	BINDER_STAT_THREAD,
@@ -1266,7 +1261,7 @@ static void binder_transaction_buffer_release(struct binder_proc *proc,
 			 debug_id, deref_helper(offp), buffer->data_size);
 			continue;
 		}
-		fp = copy_flat_binder_object(buffer->data + deref_helper(offp));
+		fp = (struct flat_binder_object *)(buffer->data + deref_helper(offp));
 		switch (fp->type) {
 		case BINDER_TYPE_BINDER:
 		case BINDER_TYPE_WEAK_BINDER: {
@@ -1520,7 +1515,7 @@ static void binder_transaction(struct binder_proc *proc,
 			return_error = BR_FAILED_REPLY;
 			goto err_bad_offset;
 		}
-		fp = copy_flat_binder_object(t->buffer->data + deref_helper(offp));
+		fp = (struct flat_binder_object *)(t->buffer->data + deref_helper(offp));
 		switch (fp->type) {
 		case BINDER_TYPE_BINDER:
 		case BINDER_TYPE_WEAK_BINDER: {
