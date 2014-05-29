@@ -3635,7 +3635,6 @@ bool dhd_update_fw_nv_path(dhd_info_t *dhdinfo)
 
 	/* clear the path in module parameter */
 	firmware_path[0] = '\0';
-	nvram_path[0] = '\0';
 
 	if (dhdinfo->fw_path[0] == '\0') {
 		DHD_ERROR(("firmware path not found\n"));
