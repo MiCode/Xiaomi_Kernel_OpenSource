@@ -184,6 +184,8 @@ static DEFINE_VDD_REGULATORS(vdd_mmpll4, VDD_DIG_NUM, 2, vdd_mmpll4_levels,
 #define FD_AXI_CBCR                                      (0x3B70)
 #define FD_AHB_CBCR                                      (0x3B74)
 #define OXILI_GFX3D_CBCR                                 (0x4028)
+#define RBBMTIMER_CMD_RCGR                               (0x4090)
+#define OXILI_RBBMTIMER_CBCR                             (0x40B0)
 #define OXILICX_AHB_CBCR                                 (0x403C)
 #define OCMEMCX_OCMEMNOC_CBCR                            (0x4058)
 #define MMSS_MISC_AHB_CBCR                               (0x502C)
@@ -1130,6 +1132,25 @@ static struct rcg_clk vsync_clk_src = {
 	},
 };
 
+static struct clk_freq_tbl ftbl_rbbmtimer_clk_src[] = {
+	F_MM(  19200000,        mmsscc_xo,    1,    0,     0),
+	F_END
+};
+
+static struct rcg_clk rbbmtimer_clk_src = {
+	.cmd_rcgr_reg = RBBMTIMER_CMD_RCGR,
+	.set_rate = set_rate_hid,
+	.freq_tbl = ftbl_rbbmtimer_clk_src,
+	.current_freq = &rcg_dummy_freq,
+	.base = &virt_base,
+	.c = {
+		.dbg_name = "rbbmtimer_clk_src",
+		.ops = &clk_ops_rcg,
+		VDD_DIG_FMAX_MAP1(LOWER, 19200000),
+		CLK_INIT(rbbmtimer_clk_src.c),
+	},
+};
+
 static struct branch_clk camss_ahb_clk = {
 	.cbcr_reg = CAMSS_AHB_CBCR,
 	.has_sibling = 1,
@@ -1979,6 +2000,18 @@ static struct branch_clk oxili_gfx3d_clk = {
 	},
 };
 
+static struct branch_clk oxili_rbbmtimer_clk = {
+	.cbcr_reg = OXILI_RBBMTIMER_CBCR,
+	.has_sibling = 0,
+	.base = &virt_base,
+	.c = {
+		.dbg_name = "oxili_rbbmtimer_clk",
+		.parent = &rbbmtimer_clk_src.c,
+		.ops = &clk_ops_branch,
+		CLK_INIT(oxili_rbbmtimer_clk.c),
+	},
+};
+
 static struct branch_clk oxilicx_ahb_clk = {
 	.cbcr_reg = OXILICX_AHB_CBCR,
 	.has_sibling = 1,
@@ -2175,6 +2208,7 @@ static struct mux_clk mmss_debug_mux = {
 		{ &camss_vfe_cpp_ahb_clk.c, 0x003b },
 		{ &camss_vfe_vfe_ahb_clk.c, 0x003c },
 		{ &camss_vfe_vfe_axi_clk.c, 0x003d },
+		{ &oxili_rbbmtimer_clk.c, 0x003e },
 		{ &camss_csi_vfe0_clk.c, 0x003f },
 		{ &camss_csi_vfe1_clk.c, 0x0040 },
 		{ &camss_csi0_clk.c, 0x0041 },
@@ -2258,6 +2292,7 @@ static struct clk_lookup msm_clocks_mmss_8994[] = {
 	CLK_LIST(esc1_clk_src),
 	CLK_LIST(hdmi_clk_src),
 	CLK_LIST(vsync_clk_src),
+	CLK_LIST(rbbmtimer_clk_src),
 	CLK_LIST(camss_ahb_clk),
 	CLK_LIST(camss_cci_cci_ahb_clk),
 	CLK_LIST(camss_cci_cci_clk),
@@ -2325,6 +2360,7 @@ static struct clk_lookup msm_clocks_mmss_8994[] = {
 	CLK_LIST(mmss_s0_axi_clk),
 	CLK_LIST(ocmemcx_ocmemnoc_clk),
 	CLK_LIST(oxili_gfx3d_clk),
+	CLK_LIST(oxili_rbbmtimer_clk),
 	CLK_LIST(oxilicx_ahb_clk),
 	CLK_LIST(venus0_ahb_clk),
 	CLK_LIST(venus0_axi_clk),
