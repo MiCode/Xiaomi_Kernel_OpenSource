@@ -3131,9 +3131,66 @@ static int msm8x16_wcd_codec_remove(struct snd_soc_codec *codec)
 	return 0;
 }
 
+static int msm8x16_wcd_enable_static_supplies_to_optimum(
+				struct msm8x16_wcd *msm8x16,
+				struct msm8x16_wcd_pdata *pdata)
+{
+	int i;
+	int ret = 0;
+
+	for (i = 0; i < msm8x16->num_of_supplies; i++) {
+		if (pdata->regulator[i].ondemand)
+			continue;
+		if (regulator_count_voltages(msm8x16->supplies[i].consumer) <=
+			0)
+			continue;
+
+		ret = regulator_set_voltage(msm8x16->supplies[i].consumer,
+			pdata->regulator[i].min_uv,
+			pdata->regulator[i].max_uv);
+		if (ret) {
+			dev_err(msm8x16->dev,
+				"Setting volt failed for regulator %s err %d\n",
+				msm8x16->supplies[i].supply, ret);
+		}
+
+		ret = regulator_set_optimum_mode(msm8x16->supplies[i].consumer,
+			pdata->regulator[i].optimum_ua);
+		dev_dbg(msm8x16->dev, "Regulator %s set optimum mode\n",
+			 msm8x16->supplies[i].supply);
+	}
+
+	return ret;
+}
+
+static int msm8x16_wcd_disable_static_supplies_to_optimum(
+			struct msm8x16_wcd *msm8x16,
+			struct msm8x16_wcd_pdata *pdata)
+{
+	int i;
+	int ret = 0;
+
+	for (i = 0; i < msm8x16->num_of_supplies; i++) {
+		if (pdata->regulator[i].ondemand)
+			continue;
+		if (regulator_count_voltages(msm8x16->supplies[i].consumer) <=
+			0)
+			continue;
+		regulator_set_voltage(msm8x16->supplies[i].consumer, 0,
+			pdata->regulator[i].max_uv);
+		regulator_set_optimum_mode(msm8x16->supplies[i].consumer, 0);
+		dev_dbg(msm8x16->dev, "Regulator %s set optimum mode\n",
+				 msm8x16->supplies[i].supply);
+	}
+
+	return ret;
+}
+
 int msm8x16_wcd_suspend(struct snd_soc_codec *codec)
 {
 	struct msm8916_asoc_mach_data *pdata = NULL;
+	struct msm8x16_wcd *msm8x16 = codec->control_data;
+	struct msm8x16_wcd_pdata *msm8x16_pdata = msm8x16->dev->platform_data;
 
 	pdata = snd_soc_card_get_drvdata(codec->card);
 	pr_debug("%s: mclk cnt = %d, dis_work_mclk = %d\n",
@@ -3165,6 +3222,7 @@ int msm8x16_wcd_suspend(struct snd_soc_codec *codec)
 		 * mark no activity on mclk in this suspend
 		 */
 		atomic_set(&pdata->mclk_act, MCLK_SUS_NO_ACT);
+	msm8x16_wcd_disable_static_supplies_to_optimum(msm8x16, msm8x16_pdata);
 	mutex_unlock(&pdata->cdc_mclk_mutex);
 	return 0;
 }
@@ -3172,8 +3230,11 @@ int msm8x16_wcd_suspend(struct snd_soc_codec *codec)
 int msm8x16_wcd_resume(struct snd_soc_codec *codec)
 {
 	struct msm8916_asoc_mach_data *pdata = NULL;
+	struct msm8x16_wcd *msm8x16 = codec->control_data;
+	struct msm8x16_wcd_pdata *msm8x16_pdata = msm8x16->dev->platform_data;
 
 	pdata = snd_soc_card_get_drvdata(codec->card);
+	msm8x16_wcd_enable_static_supplies_to_optimum(msm8x16, msm8x16_pdata);
 	pr_debug("%s: mclk cnt = %d, dis_work_mclk = %d\n",
 			__func__, atomic_read(&pdata->mclk_rsc_ref),
 			atomic_read(&pdata->dis_work_mclk));
