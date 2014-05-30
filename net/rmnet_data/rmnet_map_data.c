@@ -25,6 +25,7 @@
 #include "rmnet_map.h"
 #include "rmnet_data_private.h"
 #include "rmnet_data_stats.h"
+#include "rmnet_data_trace.h"
 
 RMNET_LOG_MODULE(RMNET_DATA_LOGMASK_MAPD);
 
@@ -151,7 +152,7 @@ static void rmnet_map_flush_packet_queue(struct work_struct *work)
 	struct rmnet_phys_ep_conf_s *config;
 	unsigned long flags;
 	struct sk_buff *skb;
-	int rc;
+	int rc, agg_count = 0;
 
 	skb = 0;
 	real_work = (struct agg_work *)work;
@@ -165,6 +166,7 @@ static void rmnet_map_flush_packet_queue(struct work_struct *work)
 			if (config->agg_count > 1)
 				LOGL("Agg count: %d", config->agg_count);
 			skb = config->agg_skb;
+			agg_count = config->agg_count;
 			config->agg_skb = 0;
 		}
 		config->agg_state = RMNET_MAP_AGG_IDLE;
@@ -176,6 +178,7 @@ static void rmnet_map_flush_packet_queue(struct work_struct *work)
 
 	spin_unlock_irqrestore(&config->agg_lock, flags);
 	if (skb) {
+		trace_rmnet_map_flush_packet_queue(skb, agg_count);
 		rc = dev_queue_xmit(skb);
 		rmnet_stats_queue_xmit(rc, RMNET_STATS_QUEUE_XMIT_AGG_TIMEOUT);
 	}
@@ -197,7 +200,7 @@ void rmnet_map_aggregate(struct sk_buff *skb,
 	struct agg_work *work;
 	unsigned long flags;
 	struct sk_buff *agg_skb;
-	int size, rc;
+	int size, rc, agg_count = 0;
 
 
 	if (!skb || !config)
@@ -218,12 +221,14 @@ new_packet:
 			config->agg_count = 0;
 			spin_unlock_irqrestore(&config->agg_lock, flags);
 			rmnet_stats_agg_pkts(1);
+			trace_rmnet_map_aggregate(skb, 0);
 			rc = dev_queue_xmit(skb);
 			rmnet_stats_queue_xmit(rc,
 				RMNET_STATS_QUEUE_XMIT_AGG_CPY_EXP_FAIL);
 			return;
 		}
 		config->agg_count = 1;
+		trace_rmnet_start_aggregation(skb);
 		rmnet_kfree_skb(skb, RMNET_STATS_SKBFREE_AGG_CPY_EXPAND);
 		goto schedule;
 	}
@@ -233,9 +238,11 @@ new_packet:
 		if (config->agg_count > 1)
 			LOGL("Agg count: %d", config->agg_count);
 		agg_skb = config->agg_skb;
+		agg_count = config->agg_count;
 		config->agg_skb = 0;
 		config->agg_count = 0;
 		spin_unlock_irqrestore(&config->agg_lock, flags);
+		trace_rmnet_map_aggregate(skb, agg_count);
 		rc = dev_queue_xmit(agg_skb);
 		rmnet_stats_queue_xmit(rc,
 					RMNET_STATS_QUEUE_XMIT_AGG_FILL_BUFFER);
