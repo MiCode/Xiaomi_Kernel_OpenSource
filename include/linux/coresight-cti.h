@@ -1,4 +1,4 @@
-/* Copyright (c) 2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -40,6 +40,8 @@ extern void coresight_cti_clear_trig(struct coresight_cti *cti, int ch);
 extern int coresight_cti_pulse_trig(struct coresight_cti *cti, int ch);
 extern int coresight_cti_enable_gate(struct coresight_cti *cti, int ch);
 extern void coresight_cti_disable_gate(struct coresight_cti *cti, int ch);
+extern void coresight_cti_ctx_save(void);
+extern void coresight_cti_ctx_restore(void);
 #else
 static inline struct coresight_cti *coresight_cti_get(const char *name)
 {
@@ -77,6 +79,8 @@ static inline int coresight_cti_enable_gate(struct coresight_cti *cti, int ch)
 }
 static inline void coresight_cti_disable_gate(struct coresight_cti *cti, int ch)
 {}
+static inline void coresight_cti_ctx_save(void){}
+static inline void coresight_cti_ctx_restore(void){}
 #endif
 
 #endif
