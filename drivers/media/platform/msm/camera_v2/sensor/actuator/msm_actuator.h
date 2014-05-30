@@ -29,6 +29,11 @@
 
 struct msm_actuator_ctrl_t;
 
+enum msm_actuator_state_t {
+	ACTUATOR_POWER_DOWN,
+	ACTUATOR_POWER_UP,
+};
+
 struct msm_actuator_func_tbl {
 	int32_t (*actuator_i2c_write_b_af)(struct msm_actuator_ctrl_t *,
 			uint8_t,
@@ -95,6 +100,7 @@ struct msm_actuator_ctrl_t {
 	enum cci_i2c_master_t cci_master;
 	uint32_t subdev_id;
 	struct msm_actuator_vreg vreg_cfg;
+	enum msm_actuator_state_t actuator_state;
 };
 
 #endif
