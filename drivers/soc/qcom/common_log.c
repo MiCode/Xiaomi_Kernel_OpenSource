@@ -18,6 +18,43 @@
 #include <linux/slab.h>
 #include <soc/qcom/memory_dump.h>
 
+#define MISC_DUMP_DATA_LEN		4096
+
+void register_misc_dump(void)
+{
+	void *misc_buf;
+	int ret;
+	struct msm_dump_entry dump_entry;
+	struct msm_dump_data *misc_data;
+
+	if (MSM_DUMP_MAJOR(msm_dump_table_version()) > 1) {
+		misc_data = kzalloc(sizeof(struct msm_dump_data), GFP_KERNEL);
+		if (!misc_data) {
+			pr_err("misc dump data structure allocation failed\n");
+			return;
+		}
+		misc_buf = kzalloc(MISC_DUMP_DATA_LEN, GFP_KERNEL);
+		if (!misc_buf) {
+			pr_err("misc buffer space allocation failed\n");
+			goto err0;
+		}
+		misc_data->addr = virt_to_phys(misc_buf);
+		misc_data->len = MISC_DUMP_DATA_LEN;
+		dump_entry.id = MSM_DUMP_DATA_MISC;
+		dump_entry.addr = virt_to_phys(misc_data);
+		ret = msm_dump_data_register(MSM_DUMP_TABLE_APPS, &dump_entry);
+		if (ret) {
+			pr_err("Registering misc dump region failed\n");
+			goto err1;
+		}
+		return;
+err1:
+		kfree(misc_buf);
+err0:
+		kfree(misc_data);
+	}
+}
+
 static void __init common_log_register_log_buf(void)
 {
 	char **log_bufp;
@@ -84,6 +121,7 @@ static void __init common_log_register_log_buf(void)
 static int __init msm_common_log_init(void)
 {
 	common_log_register_log_buf();
+	register_misc_dump();
 	return 0;
 }
 late_initcall(msm_common_log_init);
