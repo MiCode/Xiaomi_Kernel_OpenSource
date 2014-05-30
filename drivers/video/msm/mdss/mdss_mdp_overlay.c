@@ -3136,8 +3136,10 @@ static int mdss_mdp_overlay_on(struct msm_fb_data_type *mfd)
 		rc = mdss_mdp_overlay_start(mfd);
 		if (rc)
 			goto error_pm;
-		if (mfd->panel_info->type != WRITEBACK_PANEL)
+		if (mfd->panel_info->type != WRITEBACK_PANEL) {
+			atomic_inc(&mfd->mdp_sync_pt_data.commit_cnt);
 			rc = mdss_mdp_overlay_kickoff(mfd, NULL);
+		}
 	} else {
 		rc = mdss_mdp_ctl_setup(mdp5_data->ctl);
 		if (rc)
