@@ -238,36 +238,56 @@ static int msm_hsic_enable_clocks(struct platform_device *pdev,
 	if (IS_ERR(mhsic->iface_clk)) {
 		dev_err(mhsic->dev, "failed to get iface_clk\n");
 		ret = PTR_ERR(mhsic->iface_clk);
-		goto put_iface_clk;
+		goto error_enable_clocks;
 	}
 
 	mhsic->core_clk = clk_get(&pdev->dev, "core_clk");
 	if (IS_ERR(mhsic->core_clk)) {
 		dev_err(mhsic->dev, "failed to get core_clk\n");
 		ret = PTR_ERR(mhsic->core_clk);
-		goto put_core_clk;
+		goto put_iface_clk;
 	}
+
+	ret = clk_set_rate(mhsic->core_clk,
+			clk_round_rate(mhsic->core_clk, LONG_MAX));
+	if (ret)
+		dev_err(mhsic->dev, "failed to set core_clk rate\n");
 
 	mhsic->phy_clk = clk_get(&pdev->dev, "phy_clk");
 	if (IS_ERR(mhsic->phy_clk)) {
 		dev_err(mhsic->dev, "failed to get phy_clk\n");
 		ret = PTR_ERR(mhsic->phy_clk);
-		goto put_phy_clk;
+		goto put_core_clk;
 	}
+
+	ret = clk_set_rate(mhsic->phy_clk,
+			clk_round_rate(mhsic->phy_clk, LONG_MAX));
+	if (ret)
+		dev_err(mhsic->dev, "failed to set phy_clk rate\n");
 
 	mhsic->alt_core_clk = clk_get(&pdev->dev, "alt_core_clk");
 	if (IS_ERR(mhsic->alt_core_clk)) {
 		dev_err(mhsic->dev, "failed to get alt_core_clk\n");
 		ret = PTR_ERR(mhsic->alt_core_clk);
-		goto put_alt_core_clk;
+		goto put_phy_clk;
 	}
+
+	ret = clk_set_rate(mhsic->alt_core_clk,
+			clk_round_rate(mhsic->alt_core_clk, LONG_MAX));
+	if (ret)
+		dev_err(mhsic->dev, "failed to set alt_core_clk rate\n");
 
 	mhsic->cal_clk = clk_get(&pdev->dev, "cal_clk");
 	if (IS_ERR(mhsic->cal_clk)) {
 		dev_err(mhsic->dev, "failed to get cal_clk\n");
 		ret = PTR_ERR(mhsic->cal_clk);
-		goto put_cal_clk;
+		goto put_alt_core_clk;
 	}
+
+	ret = clk_set_rate(mhsic->cal_clk,
+			clk_round_rate(mhsic->cal_clk, LONG_MAX));
+	if (ret)
+		dev_err(mhsic->dev, "failed to set cal_clk rate\n");
 
 	clk_prepare_enable(mhsic->iface_clk);
 	clk_prepare_enable(mhsic->core_clk);
@@ -283,7 +303,7 @@ put_clocks:
 	clk_disable_unprepare(mhsic->phy_clk);
 	clk_disable_unprepare(mhsic->alt_core_clk);
 	clk_disable_unprepare(mhsic->cal_clk);
-put_cal_clk:
+
 	clk_put(mhsic->cal_clk);
 put_alt_core_clk:
 	clk_put(mhsic->alt_core_clk);
@@ -293,6 +313,7 @@ put_core_clk:
 	clk_put(mhsic->core_clk);
 put_iface_clk:
 	clk_put(mhsic->iface_clk);
+error_enable_clocks:
 
 	return ret;
 }
