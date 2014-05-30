@@ -936,6 +936,16 @@
 		qcom,master-id = <84>;
 	};
 
+	clock_gcc: qcom,gcc@fc400000 {
+		compatible = "qcom,gcc-8084";
+		reg = <0xfc400000 0x4000>,
+			<0xfd8c0000 0x40000>,
+			<0xf9011000 0x1000>;
+		reg-names = "cc_base", "mmss_base", "apcs_base";
+		vdd_dig-supply = <&pma8084_s2_corner>;
+		#clock-cells = <1>;
+	};
+
 	clock_krait: qcom,clock-krait@f9016000 {
 		compatible = "qcom,clock-krait-8974";
 		reg = <0xf9016000 0x20>,

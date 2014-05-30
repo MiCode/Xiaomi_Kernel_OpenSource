@@ -28,3 +28,7 @@
 &pcie1 {
 	qcom,aux-clk-sync;
 };
+
+&clock_gcc {
+	compatible = "qcom,gcc-8084-v1.1";
+};

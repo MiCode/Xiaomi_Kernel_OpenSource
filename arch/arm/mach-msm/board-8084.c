@@ -63,10 +63,7 @@ void __init apq8084_add_drivers(void)
 	rpm_smd_regulator_driver_init();
 	msm_spm_device_init();
 	krait_power_init();
-	if (of_board_is_rumi())
-		msm_clock_init(&apq8084_rumi_clock_init_data);
-	else
-		msm_clock_init(&apq8084_clock_init_data);
+	msm_gcc_8084_init();
 }
 
 static void __init apq8084_map_io(void)
