@@ -219,6 +219,13 @@ config ACPI_THERMAL
 	  To compile this driver as a module, choose M here:
 	  the module will be called thermal.
 
+config ACPI_THERMAL_REL
+       tristate "ACPI thermal relationship"
+       depends on ACPI && THERMAL
+       help
+	ACPI 4.0 introduced thermal realtionship tables for active and passive
+	cooling. Enable this to expose these tables to drivers and userspace.
+
 config ACPI_NUMA
 	bool "NUMA support"
 	depends on NUMA
