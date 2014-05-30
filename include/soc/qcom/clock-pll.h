@@ -44,8 +44,10 @@ struct pll_freq_tbl {
  * @vco_mask: mask for vco bits location
  * @mn_en_mask: ORed with pll config register to enable the mn counter
  * @main_output_mask: ORed with pll config register to enable the main output
+ * @apc_pdn_mask: ORed with pll config register to enable/disable APC PDN
  */
 struct pll_config_masks {
+	u32 apc_pdn_mask;
 	u32 post_div_mask;
 	u32 pre_div_mask;
 	u32 vco_mask;

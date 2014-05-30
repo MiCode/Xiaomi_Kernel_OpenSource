@@ -169,6 +169,9 @@ static int sr2_pll_clk_enable(struct clk *c)
 
 	spin_lock_irqsave(&pll_reg_lock, flags);
 
+	if (pll->masks.apc_pdn_mask)
+		mode &= ~pll->masks.apc_pdn_mask;
+
 	/* Disable PLL bypass mode. */
 	mode |= PLL_BYPASSNL;
 	writel_relaxed(mode, PLL_MODE_REG(pll));
@@ -284,10 +287,11 @@ static int local_pll_clk_enable(struct clk *c)
 	return 0;
 }
 
-static void __pll_clk_disable_reg(void __iomem *mode_reg)
+static void __pll_clk_disable_reg(void __iomem *mode_reg, u32 apc_pdn_mask)
 {
 	u32 mode = readl_relaxed(mode_reg);
 	mode &= ~PLL_MODE_MASK;
+	mode |= apc_pdn_mask;
 	writel_relaxed(mode, mode_reg);
 }
 
@@ -301,7 +305,7 @@ static void local_pll_clk_disable(struct clk *c)
 	 * the bypass mode, and assert the reset.
 	 */
 	spin_lock_irqsave(&pll_reg_lock, flags);
-	__pll_clk_disable_reg(PLL_MODE_REG(pll));
+	__pll_clk_disable_reg(PLL_MODE_REG(pll), pll->masks.apc_pdn_mask);
 	spin_unlock_irqrestore(&pll_reg_lock, flags);
 }
 
