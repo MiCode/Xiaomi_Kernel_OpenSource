@@ -58,6 +58,7 @@ struct msm_hsic_per {
 	struct clk			*cal_clk;
 	struct regulator	*hsic_vddcx;
 	bool				async_int;
+	struct regulator        *hsic_gdsc;
 	void __iomem		*regs;
 	int					irq;
 	atomic_t			in_lpm;
@@ -197,6 +198,30 @@ static int msm_hsic_phy_reset(struct msm_hsic_per *mhsic)
 	 */
 	mb();
 	dev_dbg(mhsic->dev, "phy_reset: success\n");
+
+	return 0;
+}
+
+static int msm_hsic_config_gdsc(struct platform_device *pdev,
+			struct msm_hsic_per *mhsic, bool enable)
+{
+	int ret = 0;
+
+	if (!mhsic->hsic_gdsc) {
+		mhsic->hsic_gdsc = devm_regulator_get(&pdev->dev, "GDSC");
+		if (IS_ERR(mhsic->hsic_gdsc))
+			return 0;
+	}
+
+	if (enable) {
+		ret = regulator_enable(mhsic->hsic_gdsc);
+		if (ret) {
+			dev_err(mhsic->dev, "unable to enable hsic gdsc\n");
+			return ret;
+		}
+	} else {
+		regulator_disable(mhsic->hsic_gdsc);
+	}
 
 	return 0;
 }
@@ -728,12 +753,18 @@ static int msm_hsic_probe(struct platform_device *pdev)
 	}
 	dev_info(&pdev->dev, "HSIC Peripheral regs = %p\n", mhsic->regs);
 
+	ret = msm_hsic_config_gdsc(pdev, mhsic, true);
+	if (ret) {
+		dev_err(&pdev->dev, "unable to configure hsic gdsc\n");
+		goto unmap;
+	}
+
 	ret = msm_hsic_enable_clocks(pdev, mhsic, true);
 
 	if (ret) {
 		dev_err(&pdev->dev, "msm_hsic_enable_clocks failed\n");
 		ret = -ENODEV;
-		goto unmap;
+		goto unconfig_gdsc;
 	}
 	ret = msm_hsic_init_vddcx(mhsic, 1);
 	if (ret) {
@@ -781,6 +812,8 @@ deinit_vddcx:
 	msm_hsic_init_vddcx(mhsic, 0);
 deinit_clocks:
 	msm_hsic_enable_clocks(pdev, mhsic, 0);
+unconfig_gdsc:
+	msm_hsic_config_gdsc(pdev, mhsic, false);
 unmap:
 	iounmap(mhsic->regs);
 error:
