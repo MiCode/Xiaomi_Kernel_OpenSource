@@ -841,6 +841,8 @@ static int arizona_of_get_micbias(struct arizona *arizona,
 static int arizona_of_get_core_pdata(struct arizona *arizona)
 {
 	struct arizona_pdata *pdata = &arizona->pdata;
+	u32 out_mono[ARRAY_SIZE(pdata->out_mono)];
+	int i;
 
 	pdata->reset = arizona_of_get_named_gpio(arizona, "wlf,reset", true);
 
@@ -863,6 +865,11 @@ static int arizona_of_get_core_pdata(struct arizona *arizona)
 
 	arizona_of_read_u32_array(arizona, "wlf,inmode", false,
 				  pdata->inmode, ARRAY_SIZE(pdata->inmode));
+
+	arizona_of_read_u32_array(arizona, "wlf,out-mono", false,
+				  out_mono, ARRAY_SIZE(out_mono));
+	for (i = 0; i < ARRAY_SIZE(pdata->out_mono); ++i)
+		pdata->out_mono[i] = !!out_mono[i];
 
 	arizona_of_read_u32(arizona, "wlf,wm5102t-output-pwr", false,
 				&pdata->wm5102t_output_pwr);

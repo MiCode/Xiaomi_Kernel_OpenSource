@@ -104,6 +104,9 @@ Optional properties:
     specified. 0 indicates Differential, 1 indicates Single Ended and 2
     indicates a digital microphone.
 
+  - wlf,out-mono : Mono bit for each output, must contain six cells if
+    specified. A non-zero value indicates the corresponding output is mono.
+
   - wlf,use-jd-gpio : Use GPIO input for jack detection.
   - wlf,usr-jd-gpio-nopull : Internal pull on GPIO is disabled when used for
     jack detection.
