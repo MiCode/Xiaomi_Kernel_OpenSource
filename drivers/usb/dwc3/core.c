@@ -37,6 +37,7 @@
 #include <linux/usb/gadget.h>
 #include <linux/usb/of.h>
 #include <linux/usb/otg.h>
+#include <linux/usb/ulpi.h>
 
 #include "platform_data.h"
 #include "core.h"
@@ -55,6 +56,85 @@ void dwc3_set_mode(struct dwc3 *dwc, u32 mode)
 	reg &= ~(DWC3_GCTL_PRTCAPDIR(DWC3_GCTL_PRTCAP_OTG));
 	reg |= DWC3_GCTL_PRTCAPDIR(mode);
 	dwc3_writel(dwc->regs, DWC3_GCTL, reg);
+}
+
+#define GUSB2PHYCFG0                            0xc200
+#define GUSB2PHYCFG_SUS_PHY                     0x40
+#define GUSB2PHYCFG_PHYSOFTRST (1 << 31)
+#define GUSB2PHYCFG_ULPI_AUTO_RESUME (1 << 15)
+
+#define EXTEND_ULPI_REGISTER_ACCESS_MASK        0xC0
+#define GUSB2PHYACC0    0xc280
+#define GUSB2PHYACC0_DISULPIDRVR  (1 << 26)
+#define GUSB2PHYACC0_NEWREGREQ  (1 << 25)
+#define GUSB2PHYACC0_VSTSDONE  (1 << 24)
+#define GUSB2PHYACC0_VSTSBSY  (1 << 23)
+#define GUSB2PHYACC0_REGWR  (1 << 22)
+#define GUSB2PHYACC0_REGADDR(v)  ((v & 0x3F) << 16)
+#define GUSB2PHYACC0_EXTREGADDR(v)  ((v & 0x3F) << 8)
+#define GUSB2PHYACC0_VCTRL(v)  ((v & 0xFF) << 8)
+#define GUSB2PHYACC0_REGDATA(v)  (v & 0xFF)
+#define GUSB2PHYACC0_REGDATA_MASK  0xFF
+
+static int ulpi_read(struct dwc3 *dwc, u32 reg)
+{
+	u32 val32 = 0, count = 200;
+	u8 val, tmp;
+
+	reg &= 0xFF;
+
+	while (count) {
+		if (dwc3_readl(dwc->regs, GUSB2PHYACC0) & GUSB2PHYACC0_VSTSBSY)
+			udelay(5);
+		else
+			break;
+
+		count--;
+	}
+
+	if (!count) {
+		dev_err(dwc->dev, "USB2 PHY always busy!!\n");
+		return -EBUSY;
+	}
+
+	count = 200;
+	/* Determine if use extend registers access */
+	if (reg & EXTEND_ULPI_REGISTER_ACCESS_MASK) {
+		dev_dbg(dwc->dev, "Access extend registers 0x%x\n", reg);
+		val32 = GUSB2PHYACC0_NEWREGREQ
+			| GUSB2PHYACC0_REGADDR(ULPI_ACCESS_EXTENDED)
+			| GUSB2PHYACC0_VCTRL(reg);
+	} else {
+		dev_dbg(dwc->dev, "Access normal registers 0x%x\n", reg);
+		val32 = GUSB2PHYACC0_NEWREGREQ | GUSB2PHYACC0_REGADDR(reg)
+			| GUSB2PHYACC0_VCTRL(0x00);
+	}
+	dwc3_writel(dwc->regs, GUSB2PHYACC0, val32);
+
+	while (count) {
+		if (dwc3_readl(dwc->regs, GUSB2PHYACC0) & GUSB2PHYACC0_VSTSDONE) {
+			val = dwc3_readl(dwc->regs, GUSB2PHYACC0) &
+				GUSB2PHYACC0_REGDATA_MASK;
+			dev_dbg(dwc->dev, "%s - reg 0x%x data 0x%x\n",
+					__func__, reg, val);
+			goto cleanup;
+		}
+
+		count--;
+	}
+	dev_err(dwc->dev, "%s read PHY data failed.\n", __func__);
+
+	return -ETIMEDOUT;
+
+cleanup:
+	/* Clear GUSB2PHYACC0[16:21] before return.
+	 * Otherwise, it will cause PHY can't in workable
+	 * state. This is one dwc3 controller silicon bug. */
+	tmp = dwc3_readl(dwc->regs, GUSB2PHYACC0);
+	dwc3_writel(dwc->regs, GUSB2PHYACC0, tmp &
+			~GUSB2PHYACC0_REGADDR(0x3F));
+	return val;
+
 }
 
 /**
@@ -100,7 +180,12 @@ static void dwc3_core_soft_reset(struct dwc3 *dwc)
 	reg = dwc3_readl(dwc->regs, DWC3_GCTL);
 	reg &= ~DWC3_GCTL_CORESOFTRESET;
 	dwc3_writel(dwc->regs, DWC3_GCTL, reg);
-}
+
+	if (ulpi_read(dwc, ULPI_VENDOR_ID_LOW) < 0)
+		dev_err(dwc->dev, "ULPI not working after DCTL soft reset\n");
+	else
+		dev_info(dwc->dev, "ULPI is working well");
+ }
 
 /**
  * dwc3_free_one_event_buffer - Frees one event buffer
