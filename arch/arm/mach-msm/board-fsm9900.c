@@ -18,6 +18,7 @@
 #include <linux/of_platform.h>
 #include <linux/memory.h>
 #include <linux/clk/msm-clk-provider.h>
+#include <linux/uio_driver.h>
 #include <asm/mach/map.h>
 #include <asm/mach/arch.h>
 #include <mach/board.h>
@@ -34,10 +35,68 @@
 #define FSM9900_MAC1_FUSE_PHYS	0xFC4B8448
 #define FSM9900_MAC_FUSE_SIZE	0x10
 
+#define FSM9900_QDSP6_0_DEBUG_DUMP_PHYS	0x25200000
+#define FSM9900_QDSP6_1_DEBUG_DUMP_PHYS	0x25280000
+#define FSM9900_QDSP6_2_DEBUG_DUMP_PHYS	0x25300000
+#define FSM9900_QDSP6_3_DEBUG_DUMP_PHYS	0x25380000
+#define FSM9900_SCLTE_DEBUG_DUMP_PHYS	0x25180000
+
+#define FSM9900_UIO_VERSION "1.0"
+
 static struct of_dev_auxdata fsm9900_auxdata_lookup[] __initdata = {
 	OF_DEV_AUXDATA("qcom,sdhci-msm", 0xF9824900, "msm_sdcc.1", NULL),
 	OF_DEV_AUXDATA("qcom,sdhci-msm", 0xF98A4900, "msm_sdcc.2", NULL),
 	{}
+};
+
+static struct uio_info fsm9900_uio_info[] = {
+	{
+		.name = "fsm9900-uio",
+		.version = FSM9900_UIO_VERSION,
+	},
+};
+
+static struct resource fsm9900_uio_resources[] = {
+	{
+		.start = FSM9900_QDSP6_0_DEBUG_DUMP_PHYS,
+		.end   = FSM9900_QDSP6_0_DEBUG_DUMP_PHYS + SZ_512K - 1,
+		.name  = "qdsp6_0_debug_dump",
+		.flags = IORESOURCE_MEM,
+	},
+	{
+		.start = FSM9900_QDSP6_1_DEBUG_DUMP_PHYS,
+		.end   = FSM9900_QDSP6_1_DEBUG_DUMP_PHYS + SZ_512K - 1,
+		.name  = "qdsp6_1_debug_dump",
+		.flags = IORESOURCE_MEM,
+	},
+	{
+		.start = FSM9900_QDSP6_2_DEBUG_DUMP_PHYS,
+		.end   = FSM9900_QDSP6_2_DEBUG_DUMP_PHYS + SZ_512K - 1,
+		.name  = "qdsp6_2_debug_dump",
+		.flags = IORESOURCE_MEM,
+	},
+	{
+		.start = FSM9900_QDSP6_3_DEBUG_DUMP_PHYS,
+		.end   = FSM9900_QDSP6_3_DEBUG_DUMP_PHYS + SZ_512K - 1,
+		.name  = "qdsp6_3_debug_dump",
+		.flags = IORESOURCE_MEM,
+	},
+	{
+		.start = FSM9900_SCLTE_DEBUG_DUMP_PHYS,
+		.end   = FSM9900_SCLTE_DEBUG_DUMP_PHYS + SZ_512K - 1,
+		.name  = "sclte_debug_dump",
+		.flags = IORESOURCE_MEM,
+	},
+};
+
+static struct platform_device fsm9900_uio_device = {
+	.name = "uio_pdrv",
+	.id = -1,
+	.dev = {
+		.platform_data = &fsm9900_uio_info
+	},
+	.num_resources = 5,
+	.resource = fsm9900_uio_resources,
 };
 
 static const char mac_addr_prop_name[] = "mac-address";
@@ -59,6 +118,7 @@ void __init fsm9900_add_drivers(void)
 		msm_clock_init(&fsm9900_dummy_clock_init_data);
 	else
 		msm_clock_init(&fsm9900_clock_init_data);
+	platform_device_register(&fsm9900_uio_device);
 }
 
 static void __init fsm9900_map_io(void)
