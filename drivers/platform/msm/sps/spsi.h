@@ -226,6 +226,9 @@ void print_bam_pipe_desc_fifo(void *, u32, u32);
 /* output BAM_TEST_BUS_REG */
 void print_bam_test_bus_reg(void *, u32);
 
+/* halt and un-halt a pipe */
+void bam_pipe_halt(void *, u32, bool);
+
 /**
  * Translate physical to virtual address
  *

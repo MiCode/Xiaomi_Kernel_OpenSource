@@ -1478,7 +1478,7 @@ int sps_flow_on(struct sps_pipe *h)
 {
 	struct sps_pipe *pipe = h;
 	struct sps_bam *bam;
-	int result;
+	int result = 0;
 
 	SPS_DBG2("sps:%s.", __func__);
 
@@ -1491,8 +1491,8 @@ int sps_flow_on(struct sps_pipe *h)
 	if (bam == NULL)
 		return SPS_ERROR;
 
-	/* Enable the pipe data flow */
-	result = sps_rm_state_change(pipe, SPS_STATE_ENABLE);
+	bam_pipe_halt(bam->base, pipe->pipe_index, false);
+
 	sps_bam_unlock(bam);
 
 	return result;
@@ -1507,7 +1507,7 @@ int sps_flow_off(struct sps_pipe *h, enum sps_flow_off mode)
 {
 	struct sps_pipe *pipe = h;
 	struct sps_bam *bam;
-	int result;
+	int result = 0;
 
 	SPS_DBG2("sps:%s.", __func__);
 
@@ -1520,8 +1520,8 @@ int sps_flow_off(struct sps_pipe *h, enum sps_flow_off mode)
 	if (bam == NULL)
 		return SPS_ERROR;
 
-	/* Disable the pipe data flow */
-	result = sps_rm_state_change(pipe, SPS_STATE_DISABLE);
+	bam_pipe_halt(bam->base, pipe->pipe_index, true);
+
 	sps_bam_unlock(bam);
 
 	return result;
