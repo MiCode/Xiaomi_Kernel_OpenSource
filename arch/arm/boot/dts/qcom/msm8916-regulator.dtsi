@@ -251,6 +251,15 @@
 			regulator-max-microvolt = <1800000>;
 			qcom,init-voltage = <1800000>;
 		};
+
+		pm8916_l7_so: regulator-l7-so {
+			compatible = "qcom,rpm-smd-regulator";
+			regulator-name = "8916_l7_so";
+			qcom,set = <2>;
+			regulator-min-microvolt = <1800000>;
+			regulator-max-microvolt = <1800000>;
+			qcom,init-enable = <0>;
+		};
 	};
 
 	rpm-regulator-ldoa8 {
