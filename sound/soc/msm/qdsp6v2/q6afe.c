@@ -669,6 +669,7 @@ static void remap_cal_data(struct cal_block_data *cal_block, int cal_index)
 		atomic_set(&this_afe.mem_map_cal_index, cal_index);
 		ret = afe_cmd_memory_map(cal_block->cal_data.paddr,
 				cal_block->map_data.map_size);
+		atomic_set(&this_afe.mem_map_cal_index, -1);
 		if (ret < 0) {
 			pr_err("%s: mmap did not work! addr = 0x%pa, size = %zd\n",
 				__func__,
@@ -3959,6 +3960,7 @@ static int afe_map_cal_data(int32_t cal_type,
 	atomic_set(&this_afe.mem_map_cal_index, cal_index);
 	ret = afe_cmd_memory_map(cal_block->cal_data.paddr,
 			cal_block->map_data.map_size);
+	atomic_set(&this_afe.mem_map_cal_index, -1);
 	if (ret < 0) {
 		pr_err("%s: mmap did not work! addr = 0x%pa, size = %zd\n",
 			__func__,
@@ -3992,6 +3994,7 @@ static int afe_unmap_cal_data(int32_t cal_type,
 	atomic_set(&this_afe.mem_map_cal_index, cal_index);
 	ret = afe_cmd_memory_unmap_nowait(
 		cal_block->map_data.q6map_handle);
+	atomic_set(&this_afe.mem_map_cal_index, -1);
 	if (ret < 0) {
 		pr_err("%s: unmap did not work! cal_type %i\n",
 			__func__, cal_index);
