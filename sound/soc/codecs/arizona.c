@@ -1595,6 +1595,47 @@ static int arizona_sr_vals[] = {
 	512000,
 };
 
+int arizona_put_sample_rate_enum(struct snd_kcontrol *kcontrol,
+				 struct snd_ctl_elem_value *ucontrol)
+{
+	struct snd_soc_codec *codec = snd_kcontrol_chip(kcontrol);
+	struct arizona *arizona = dev_get_drvdata(codec->dev->parent);
+	struct soc_enum *e = (struct soc_enum *)kcontrol->private_value;
+	unsigned int val;
+	unsigned int flag;
+	int ret;
+
+	ret = snd_soc_put_value_enum_double(kcontrol, ucontrol);
+	if (ret == 0)
+		return 0;	/* register value wasn't changed */
+
+	val = e->values[ucontrol->value.enumerated.item[0]];
+
+	switch (e->reg) {
+	case ARIZONA_SAMPLE_RATE_2:
+		flag = ARIZONA_DVFS_SR2_RQ;
+		break;
+
+	case ARIZONA_SAMPLE_RATE_3:
+		flag = ARIZONA_DVFS_SR3_RQ;
+		break;
+
+	default:
+		return ret;
+	}
+
+	if (arizona_sr_vals[val] >= 88200) {
+		ret = arizona_dvfs_up(arizona, flag);
+		if (ret != 0)
+			dev_err(codec->dev, "Failed to raise DVFS %d\n", ret);
+	} else {
+		ret = arizona_dvfs_down(arizona, flag);
+	}
+
+	return ret;
+}
+EXPORT_SYMBOL_GPL(arizona_put_sample_rate_enum);
+
 static int arizona_startup(struct snd_pcm_substream *substream,
 			   struct snd_soc_dai *dai)
 {

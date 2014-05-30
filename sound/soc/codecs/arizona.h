@@ -183,6 +183,14 @@ extern int arizona_mixer_values[ARIZONA_NUM_MIXER_INPUTS];
 	ARIZONA_MIXER_ROUTES(name " Preloader", name "L"), \
 	ARIZONA_MIXER_ROUTES(name " Preloader", name "R")
 
+#define ARIZONA_SAMPLE_RATE_CONTROL(name, domain) \
+	SOC_VALUE_ENUM(name, arizona_sample_rate[(domain) - 2])
+
+#define ARIZONA_SAMPLE_RATE_CONTROL_DVFS(name, domain)        \
+	SOC_ENUM_EXT(name, arizona_sample_rate[(domain) - 2], \
+			snd_soc_get_value_enum_double,        \
+			arizona_put_sample_rate_enum)
+
 #define ARIZONA_RATE_ENUM_SIZE 4
 #define ARIZONA_SAMPLE_RATE_ENUM_SIZE 14
 #define ARIZONA_OUT_RATE_ENUM_SIZE 3
@@ -230,6 +238,9 @@ extern int arizona_hp_ev(struct snd_soc_dapm_widget *w,
 extern int arizona_anc_ev(struct snd_soc_dapm_widget *w,
 			  struct snd_kcontrol *kcontrol,
 			  int event);
+
+extern int arizona_put_sample_rate_enum(struct snd_kcontrol *kcontrol,
+					struct snd_ctl_elem_value *ucontrol);
 
 extern int arizona_set_sysclk(struct snd_soc_codec *codec, int clk_id,
 			      int source, unsigned int freq, int dir);
