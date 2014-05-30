@@ -424,6 +424,8 @@
 		clocks = <&clock_rpm clk_qdss_clk>,
 			 <&clock_rpm clk_qdss_a_clk>;
 		clock-names = "core_clk", "core_a_clk";
+
+		qcom,cti-save;
 	};
 
 	cti_cpu1: cti@859000 {
@@ -437,6 +439,8 @@
 		clocks = <&clock_rpm clk_qdss_clk>,
 			 <&clock_rpm clk_qdss_a_clk>;
 		clock-names = "core_clk", "core_a_clk";
+
+		qcom,cti-save;
 	};
 
 	cti_cpu2: cti@85a000 {
@@ -450,6 +454,8 @@
 		clocks = <&clock_rpm clk_qdss_clk>,
 			 <&clock_rpm clk_qdss_a_clk>;
 		clock-names = "core_clk", "core_a_clk";
+
+		qcom,cti-save;
 	};
 
 	cti_cpu3: cti@85b000 {
@@ -463,6 +469,8 @@
 		clocks = <&clock_rpm clk_qdss_clk>,
 			 <&clock_rpm clk_qdss_a_clk>;
 		clock-names = "core_clk", "core_a_clk";
+
+		qcom,cti-save;
 	};
 
 	cti_video_cpu0: cti@830000 {
