@@ -324,6 +324,36 @@ adreno_drawctxt_create(struct kgsl_device_private *dev_priv,
 	struct adreno_context *drawctxt;
 	struct kgsl_device *device = dev_priv->device;
 	int ret;
+	unsigned long local;
+
+	local = *flags & (KGSL_CONTEXT_PREAMBLE |
+		KGSL_CONTEXT_NO_GMEM_ALLOC |
+		KGSL_CONTEXT_PER_CONTEXT_TS |
+		KGSL_CONTEXT_USER_GENERATED_TS |
+		KGSL_CONTEXT_NO_FAULT_TOLERANCE |
+		KGSL_CONTEXT_CTX_SWITCH |
+		KGSL_CONTEXT_PRIORITY_MASK |
+		KGSL_CONTEXT_TYPE_MASK |
+		KGSL_CONTEXT_PWR_CONSTRAINT |
+		KGSL_CONTEXT_IFH_NOP |
+		KGSL_CONTEXT_SECURE);
+
+	/* Check for errors before trying to initialize */
+
+	/* We no longer support legacy context switching */
+	if ((local & KGSL_CONTEXT_PREAMBLE) == 0 ||
+		(local & KGSL_CONTEXT_NO_GMEM_ALLOC) == 0) {
+		KGSL_DEV_ERR_ONCE(device,
+			"legacy context switch not supported\n");
+		return ERR_PTR(-EINVAL);
+	}
+
+	/* Make sure that our target can support secure contexts if requested */
+	if (!kgsl_mmu_is_secured(&dev_priv->device->mmu) &&
+			(local & KGSL_CONTEXT_SECURE)) {
+		KGSL_DEV_ERR_ONCE(device, "Secure context not supported\n");
+		return ERR_PTR(-EINVAL);
+	}
 
 	drawctxt = kzalloc(sizeof(struct adreno_context), GFP_KERNEL);
 
@@ -338,28 +368,7 @@ adreno_drawctxt_create(struct kgsl_device_private *dev_priv,
 
 	drawctxt->timestamp = 0;
 
-	drawctxt->base.flags = *flags & (KGSL_CONTEXT_PREAMBLE |
-		KGSL_CONTEXT_NO_GMEM_ALLOC |
-		KGSL_CONTEXT_PER_CONTEXT_TS |
-		KGSL_CONTEXT_USER_GENERATED_TS |
-		KGSL_CONTEXT_NO_FAULT_TOLERANCE |
-		KGSL_CONTEXT_CTX_SWITCH |
-		KGSL_CONTEXT_PRIORITY_MASK |
-		KGSL_CONTEXT_TYPE_MASK |
-		KGSL_CONTEXT_PWR_CONSTRAINT |
-		KGSL_CONTEXT_IFH_NOP |
-		KGSL_CONTEXT_SECURE);
-
-	/*
-	 * If content protection is not enabled and secure context
-	 * is requested return error.
-	 */
-	if (!kgsl_mmu_is_secured(&dev_priv->device->mmu) &&
-			(drawctxt->base.flags & KGSL_CONTEXT_SECURE)) {
-		dev_WARN_ONCE(device->dev, 1, "Secure context not supported");
-		kfree(drawctxt);
-		return ERR_PTR(-EINVAL);
-	}
+	drawctxt->base.flags = local;
 
 	/* Always enable per-context timestamps */
 	drawctxt->base.flags |= KGSL_CONTEXT_PER_CONTEXT_TS;
@@ -378,15 +387,6 @@ adreno_drawctxt_create(struct kgsl_device_private *dev_priv,
 	 */
 	plist_node_init(&drawctxt->pending, drawctxt->base.priority);
 
-	if ((drawctxt->base.flags & KGSL_CONTEXT_PREAMBLE) == 0 ||
-		  (drawctxt->base.flags & KGSL_CONTEXT_NO_GMEM_ALLOC) == 0) {
-		KGSL_DEV_ERR_ONCE(device,
-				"legacy context switch not supported\n");
-		ret = -EINVAL;
-		goto err;
-
-	}
-
 	kgsl_sharedmem_writel(device, &device->memstore,
 			KGSL_MEMSTORE_OFFSET(drawctxt->base.id, soptimestamp),
 			0);
@@ -399,9 +399,6 @@ adreno_drawctxt_create(struct kgsl_device_private *dev_priv,
 	/* copy back whatever flags we dediced were valid */
 	*flags = drawctxt->base.flags;
 	return &drawctxt->base;
-err:
-	kgsl_context_detach(&drawctxt->base);
-	return ERR_PTR(ret);
 }
 
 /**
