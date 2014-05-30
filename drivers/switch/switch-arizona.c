@@ -808,7 +808,9 @@ static int arizona_hpdet_moisture_reading(struct arizona_extcon_info *info,
 {
 	struct arizona *arizona = info->arizona;
 
-	if (val < arizona->pdata.hpdet_moisture_imp) {
+	if (val < 0) {
+		return val;
+	} else if (val < arizona->pdata.hpdet_moisture_imp) {
 		arizona_jds_set_state(info, &arizona_micd_microphone);
 	} else {
 		dev_warn(arizona->dev,
@@ -822,6 +824,9 @@ static int arizona_hpdet_moisture_reading(struct arizona_extcon_info *info,
 int arizona_hpdet_reading(struct arizona_extcon_info *info, int val)
 {
 	struct arizona *arizona = info->arizona;
+
+	if (val < 0)
+		return val;
 
 	arizona->hp_impedance = val;
 
@@ -926,6 +931,9 @@ int arizona_micd_button_reading(struct arizona_extcon_info *info,
 	struct arizona *arizona = info->arizona;
 	int lvl, i, key;
 
+	if (val < 0)
+		return val;
+
 	if (val & MICD_LVL_0_TO_7) {
 		dev_dbg(arizona->dev, "Mic button detected\n");
 
@@ -996,6 +1004,9 @@ int arizona_micd_mic_reading(struct arizona_extcon_info *info, int val)
 {
 	struct arizona *arizona = info->arizona;
 	int ret;
+
+	if (val < 0)
+		return val;
 
 	/* Due to jack detect this should never happen */
 	if (!(val & ARIZONA_MICD_STS)) {
@@ -1087,6 +1098,9 @@ static int arizona_hpdet_acc_id_reading(struct arizona_extcon_info *info,
 {
 	struct arizona *arizona = info->arizona;
 	int id_gpio = arizona->pdata.hpdet_id_gpio;
+
+	if (reading < 0)
+		return reading;
 
 	/*
 	 * When we're using HPDET for accessory identification we need
