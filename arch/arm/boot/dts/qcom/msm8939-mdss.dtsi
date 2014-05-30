@@ -77,6 +77,7 @@
 		qcom,mdss-has-non-scalar-rgb;
 		qcom,mdss-has-decimation;
 		qcom,mdss-has-fixed-qos-arbiter-enabled;
+		qcom,mdss-has-dst-split;
 
 		vdd-cx-supply = <&pm8916_s1_corner>;
 		clocks = <&clock_gcc clk_gcc_mdss_ahb_clk>,
