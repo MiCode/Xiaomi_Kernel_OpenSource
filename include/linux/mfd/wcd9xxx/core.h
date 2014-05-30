@@ -44,6 +44,10 @@
 #define TAPAN_IS_1_0(ver) \
 	((ver == TAPAN_VERSION_1_0) ? 1 : 0)
 
+#define TOMBAK_VERSION_1_0	0
+#define TOMBAK_IS_1_0(ver) \
+	((ver == TOMBAK_VERSION_1_0) ? 1 : 0)
+
 enum wcd9xxx_slim_slave_addr_type {
 	WCD9XXX_SLIM_SLAVE_ADDR_TYPE_TABLA,
 	WCD9XXX_SLIM_SLAVE_ADDR_TYPE_TAIKO,
