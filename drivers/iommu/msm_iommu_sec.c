@@ -110,7 +110,7 @@ struct msm_cp_pool_size {
 struct msm_scm_fault_regs_dump {
 	uint32_t dump_size;
 	uint32_t dump_data[SEC_DUMP_SIZE];
-} __packed;
+} __aligned(cache_line_size());
 
 void msm_iommu_sec_set_access_ops(struct iommu_access_ops *access_ops)
 {
@@ -135,10 +135,11 @@ static int msm_iommu_dump_fault_regs(int smmu_id, int cb_num,
 	req_info.buff = virt_to_phys(regs);
 	req_info.len = sizeof(*regs);
 
+	dmac_clean_range(regs, regs + 1);
 	ret = scm_call(SCM_SVC_UTIL, IOMMU_DUMP_SMMU_FAULT_REGS,
 		&req_info, sizeof(req_info), &resp, 1);
 
-	dmac_inv_range(regs, regs + sizeof(*regs));
+	dmac_inv_range(regs, regs + 1);
 
 	return ret;
 }
