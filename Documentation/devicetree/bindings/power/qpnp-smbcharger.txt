@@ -154,6 +154,11 @@ Optional Properties:
 - qcom,soft-vfloat-comp-disabled	Set this property when the battery is
 					powered via external source and could
 					go above the float voltage.
+- qcom,parallel-usb-min-current-ma	Minimum current drawn by the primary
+					charger before enabling the parallel
+					charger if one exists. Do not define
+					this property if no parallel chargers
+					exist.
 
 Example:
 	qcom,qpnp-smbcharger {

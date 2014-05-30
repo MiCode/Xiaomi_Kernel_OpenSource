@@ -42,6 +42,13 @@ struct smbchg_regulator {
 	struct regulator_dev	*rdev;
 };
 
+struct parallel_usb_cfg {
+	struct power_supply		*psy;
+	int				min_current_thr_ma;
+	int				current_max_ma;
+	bool				avail;
+};
+
 struct smbchg_chip {
 	struct device			*dev;
 	struct spmi_device		*spmi;
@@ -71,6 +78,7 @@ struct smbchg_chip {
 	bool				bmd_algo_disabled;
 	bool				soft_vfloat_comp_disabled;
 	bool				chg_enabled;
+	struct parallel_usb_cfg		parallel;
 
 	/* status variables */
 	int				usb_suspended;
@@ -107,6 +115,7 @@ struct smbchg_chip {
 	int				dcin_uv_irq;
 	int				usbin_uv_irq;
 	int				src_detect_irq;
+	int				aicl_done_irq;
 	int				chg_inhibit_irq;
 
 	/* psy */
@@ -119,7 +128,7 @@ struct smbchg_chip {
 	const char			*battery_psy_name;
 	bool				psy_registered;
 
-	struct smbchg_regulator	otg_vreg;
+	struct smbchg_regulator		otg_vreg;
 	struct delayed_work		wireless_insertion_work;
 	struct work_struct		usb_set_online_work;
 	spinlock_t			sec_access_lock;
@@ -654,6 +663,113 @@ enum enable_reason {
 	REASON_THERMAL = BIT(4),
 };
 
+static struct power_supply *get_parallel_psy(struct smbchg_chip *chip)
+{
+	if (chip->parallel.psy)
+		return chip->parallel.psy;
+	chip->parallel.psy = power_supply_get_by_name("usb-parallel");
+	if (!chip->parallel.psy)
+		pr_debug("parallel charger not found\n");
+	return chip->parallel.psy;
+}
+
+#define ICL_STS_1_REG			0x7
+#define ICL_STS_2_REG			0x9
+#define ICL_STS_MASK			0x1F
+#define AICL_STS_BIT			BIT(5)
+#define USBIN_SUSPEND_STS_BIT		BIT(3)
+#define USBIN_ACTIVE_PWR_SRC_BIT	BIT(1)
+static void smbchg_parallel_usb_determine_current(struct smbchg_chip *chip)
+{
+	struct power_supply *parallel_psy;
+	int current_limit_ma, parallel_cl_ma, total_current_ma;
+	int new_parallel_cl_ma, rc;
+	u8 reg;
+
+	parallel_psy = get_parallel_psy(chip);
+	if (!parallel_psy)
+		return;
+
+	rc = smbchg_read(chip, &reg,
+			chip->usb_chgpth_base + ICL_STS_2_REG, 1);
+	if (rc) {
+		pr_err("Could not read usb icl sts 2: %d\n", rc);
+		return;
+	}
+
+	/*
+	 * If the usbin is suspended or not the active power src, then this
+	 * was triggered from DCIN AICL. Retrun silently if this is the case.
+	 */
+	if (!!(reg & USBIN_SUSPEND_STS_BIT) ||
+				!(reg & USBIN_ACTIVE_PWR_SRC_BIT)) {
+		pr_debug("USB not active power source: %02x\n", reg);
+		return;
+	}
+
+	rc = smbchg_read(chip, &reg,
+			chip->usb_chgpth_base + ICL_STS_1_REG, 1);
+	if (rc) {
+		pr_err("Could not read usb icl sts 1: %d\n", rc);
+		return;
+	}
+
+	reg &= ICL_STS_MASK;
+	if (reg >= ARRAY_SIZE(usb_current_table)) {
+		pr_warn("invalid AICL value: %02x\n", reg);
+		return;
+	}
+
+	parallel_cl_ma = chip->parallel.current_max_ma;
+	if (parallel_cl_ma <= SUSPEND_CURRENT_MA)
+		parallel_cl_ma = 0;
+
+	current_limit_ma = usb_current_table[reg];
+	total_current_ma = current_limit_ma + parallel_cl_ma;
+
+	/*
+	 * if the total available current is less than the minimum threshold
+	 * to enable parallel charging, set the current limit to 0 to disable
+	 * the parallel charge path.
+	 *
+	 * otherwise, set the parallel charge path's input current limit (ICL)
+	 * to the total current / 2
+	 */
+	if (total_current_ma <= chip->parallel.min_current_thr_ma)
+		new_parallel_cl_ma = 0;
+	else
+		new_parallel_cl_ma = total_current_ma / 2;
+
+	if (new_parallel_cl_ma == 0)
+		new_parallel_cl_ma = SUSPEND_CURRENT_MA;
+	if (new_parallel_cl_ma < chip->parallel.current_max_ma
+			|| chip->parallel.current_max_ma <= SUSPEND_CURRENT_MA)
+		chip->parallel.current_max_ma = new_parallel_cl_ma;
+	pr_debug("ICL at %d. Setting Parallel ICL at %d\n",
+			current_limit_ma, chip->parallel.current_max_ma);
+
+	mutex_lock(&chip->usb_en_lock);
+	if (!chip->usb_suspended)
+		power_supply_set_current_limit(parallel_psy,
+					chip->parallel.current_max_ma * 1000);
+	mutex_unlock(&chip->usb_en_lock);
+}
+
+static void smbchg_parallel_usb_en(struct smbchg_chip *chip, bool enable)
+{
+	struct power_supply *parallel_psy;
+
+	parallel_psy = get_parallel_psy(chip);
+	if (!parallel_psy)
+		return;
+
+	power_supply_set_current_limit(parallel_psy,
+			enable ? chip->parallel.current_max_ma * 1000
+			: (SUSPEND_CURRENT_MA * 1000));
+	pr_debug("parallel charger %s\n",
+			enable ? "unsuspended" : "suspended");
+}
+
 static void smbchg_usb_update_online_work(struct work_struct *work)
 {
 	struct smbchg_chip *chip = container_of(work,
@@ -687,6 +803,9 @@ static int smbchg_usb_en(struct smbchg_chip *chip, bool enable,
 	/* avoid unnecessary spmi interactions if nothing changed */
 	if (!!suspended == !!chip->usb_suspended)
 		goto out;
+
+	if (chip->parallel.avail)
+		smbchg_parallel_usb_en(chip, suspended == 0);
 
 	rc = smbchg_usb_suspend(chip, suspended != 0);
 	if (rc < 0) {
@@ -1514,6 +1633,8 @@ static irqreturn_t dcin_uv_handler(int irq, void *_chip)
 
 static void handle_usb_removal(struct smbchg_chip *chip)
 {
+	struct power_supply *parallel_psy;
+
 	if (chip->usb_psy) {
 		pr_debug("setting usb psy type = %d\n",
 				POWER_SUPPLY_TYPE_UNKNOWN);
@@ -1523,11 +1644,20 @@ static void handle_usb_removal(struct smbchg_chip *chip)
 		power_supply_set_present(chip->usb_psy, chip->usb_present);
 		schedule_work(&chip->usb_set_online_work);
 	}
+	if (chip->parallel.avail) {
+		parallel_psy = get_parallel_psy(chip);
+		if (parallel_psy) {
+			power_supply_set_present(parallel_psy, false);
+			chip->parallel.current_max_ma = SUSPEND_CURRENT_MA;
+			disable_irq_wake(chip->aicl_done_irq);
+		}
+	}
 }
 
 #define IDEV_STS	0x8
 static void handle_usb_insertion(struct smbchg_chip *chip)
 {
+	struct power_supply *parallel_psy;
 	u8 reg = 0;
 	int rc;
 	char *usb_type_name = "null";
@@ -1547,6 +1677,14 @@ static void handle_usb_insertion(struct smbchg_chip *chip)
 		pr_debug("setting usb psy present = %d\n", chip->usb_present);
 		power_supply_set_present(chip->usb_psy, chip->usb_present);
 		schedule_work(&chip->usb_set_online_work);
+	}
+	if (chip->parallel.avail) {
+		chip->parallel.current_max_ma = SUSPEND_CURRENT_MA;
+		parallel_psy = get_parallel_psy(chip);
+		if (parallel_psy) {
+			power_supply_set_present(parallel_psy, true);
+			enable_irq_wake(chip->aicl_done_irq);
+		}
 	}
 }
 
@@ -1590,6 +1728,21 @@ static irqreturn_t src_detect_handler(int irq, void *_chip)
 		handle_usb_insertion(chip);
 	}
 
+	return IRQ_HANDLED;
+}
+
+/**
+ * aicl_done_handler() - called when the usb AICL algorithm is finished
+ *			and a current is set.
+ */
+static irqreturn_t aicl_done_handler(int irq, void *_chip)
+{
+	struct smbchg_chip *chip = _chip;
+	bool usb_present = is_usb_present(chip);
+
+	pr_debug("aicl_done triggered\n");
+	if (chip->parallel.avail && usb_present)
+		smbchg_parallel_usb_determine_current(chip);
 	return IRQ_HANDLED;
 }
 
@@ -1965,11 +2118,11 @@ do {									\
 	if (retval)							\
 		break;							\
 	if (optional)							\
-		chip->prop = -EINVAL;					\
+		prop = -EINVAL;						\
 									\
 	retval = of_property_read_u32(chip->spmi->dev.of_node,		\
 					"qcom," dt_property	,	\
-					&chip->prop);			\
+					&prop);				\
 									\
 	if ((retval == -EINVAL) && optional)				\
 		retval = 0;						\
@@ -1990,10 +2143,10 @@ static int smb_parse_dt(struct smbchg_chip *chip)
 	}
 
 	/* read optional u32 properties */
-	OF_PROP_READ(chip, iterm_ma, "iterm-ma", rc, 1);
-	OF_PROP_READ(chip, vfloat_mv, "float-voltage-mv", rc, 1);
-	OF_PROP_READ(chip, safety_time, "charging-timeout-mins", rc, 1);
-	OF_PROP_READ(chip, prechg_safety_time, "precharging-timeout-mins",
+	OF_PROP_READ(chip, chip->iterm_ma, "iterm-ma", rc, 1);
+	OF_PROP_READ(chip, chip->vfloat_mv, "float-voltage-mv", rc, 1);
+	OF_PROP_READ(chip, chip->safety_time, "charging-timeout-mins", rc, 1);
+	OF_PROP_READ(chip, chip->prechg_safety_time, "precharging-timeout-mins",
 			rc, 1);
 	if (chip->safety_time != -EINVAL &&
 		(chip->safety_time > chg_time[ARRAY_SIZE(chg_time) - 1])) {
@@ -2008,7 +2161,11 @@ static int smb_parse_dt(struct smbchg_chip *chip)
 						chip->prechg_safety_time);
 		return -EINVAL;
 	}
-	OF_PROP_READ(chip, resume_delta_mv, "resume-delta-mv", rc, 1);
+	OF_PROP_READ(chip, chip->resume_delta_mv, "resume-delta-mv", rc, 1);
+	OF_PROP_READ(chip, chip->parallel.min_current_thr_ma,
+			"parallel-usb-min-current-ma", rc, 1);
+	if (chip->parallel.min_current_thr_ma != -EINVAL)
+		chip->parallel.avail = true;
 
 	/* read boolean configuration properties */
 	chip->bmd_algo_disabled = of_property_read_bool(node,
@@ -2047,7 +2204,8 @@ static int smb_parse_dt(struct smbchg_chip *chip)
 			chip->dc_psy_type = POWER_SUPPLY_TYPE_WIRELESS;
 	}
 	if (chip->dc_psy_type != -EINVAL) {
-		OF_PROP_READ(chip, dc_target_current_ma, "dc-psy-ma", rc, 0);
+		OF_PROP_READ(chip, chip->dc_target_current_ma,
+				"dc-psy-ma", rc, 0);
 		if (rc)
 			return rc;
 		if (chip->dc_target_current_ma < DC_MA_MIN
@@ -2109,9 +2267,10 @@ do {									\
 		dev_err(chip->dev, "Unable to get " irq_name " irq\n");	\
 		return -ENXIO;						\
 	}								\
-	rc = devm_request_irq(chip->dev, irq_num, irq_handler,		\
-			IRQF_TRIGGER_RISING | IRQF_TRIGGER_FALLING,	\
-			irq_name, chip);				\
+	rc = devm_request_threaded_irq(chip->dev,			\
+			irq_num, NULL, irq_handler,			\
+			IRQF_TRIGGER_RISING | IRQF_TRIGGER_FALLING	\
+			| IRQF_ONESHOT, irq_name, chip);		\
 	if (rc < 0) {							\
 		dev_err(chip->dev, "Unable to request " irq_name " irq: %d\n",\
 				rc);					\
@@ -2190,6 +2349,9 @@ static int smbchg_request_irqs(struct smbchg_chip *chip)
 			REQUEST_IRQ(chip, spmi_resource, chip->src_detect_irq,
 					"usbin-src-det",
 					src_detect_handler, rc);
+			REQUEST_IRQ(chip, spmi_resource, chip->aicl_done_irq,
+					"aicl-done",
+					aicl_done_handler, rc);
 			enable_irq_wake(chip->usbin_uv_irq);
 			enable_irq_wake(chip->src_detect_irq);
 			break;
