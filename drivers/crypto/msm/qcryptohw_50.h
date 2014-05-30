@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -142,6 +142,9 @@
 #define CRYPTO_CNTR2_IV2_REG			0x1A214
 #define CRYPTO_CNTR3_IV3_REG			0x1A218
 
+#define CRYPTO_CNTR_MASK_REG0			0x1A23C
+#define CRYPTO_CNTR_MASK_REG1			0x1A238
+#define CRYPTO_CNTR_MASK_REG2			0x1A234
 #define CRYPTO_CNTR_MASK_REG			0x1A21C
 
 #define CRYPTO_ENCR_CCM_INT_CNTR0_REG		0x1A220
