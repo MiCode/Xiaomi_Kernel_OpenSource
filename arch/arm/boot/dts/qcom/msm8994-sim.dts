@@ -24,7 +24,7 @@
 	qcom,board-id = <16 0>;
 };
 
-&uartblsp1dm2 {
+&blsp1_uart3 {
 	status = "ok";
 	pinctrl-names = "default";
 	pinctrl-0 = <&uart_console_sleep>;
