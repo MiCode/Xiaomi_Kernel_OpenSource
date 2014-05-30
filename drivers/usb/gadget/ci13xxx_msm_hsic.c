@@ -36,9 +36,6 @@
 #define MSM_USB_BASE	(mhsic->regs)
 
 #define ULPI_IO_TIMEOUT_USEC			(10 * 1000)
-#define USB_PHY_VDD_DIG_VOL_NONE		0 /*uV */
-#define USB_PHY_VDD_DIG_VOL_MIN			1045000 /* uV */
-#define USB_PHY_VDD_DIG_VOL_MAX			1320000 /* uV */
 #define LINK_RESET_TIMEOUT_USEC			(250 * 1000)
 #define PHY_SUSPEND_TIMEOUT_USEC		(500 * 1000)
 #define PHY_RESUME_TIMEOUT_USEC			(100 * 1000)
@@ -56,8 +53,9 @@ struct msm_hsic_per {
 	struct clk			*alt_core_clk;
 	struct clk			*phy_clk;
 	struct clk			*cal_clk;
-	struct regulator	*hsic_vddcx;
+	struct regulator	*hsic_vdd;
 	bool				async_int;
+	int			vdd_val[3];
 	struct regulator        *hsic_gdsc;
 	void __iomem		*regs;
 	int					irq;
@@ -70,65 +68,67 @@ struct msm_hsic_per {
 	bool connected;
 };
 
-static const int vdd_val[VDD_TYPE_MAX][VDD_VAL_MAX] = {
-		{   /* VDD_CX CORNER Voting */
-			[VDD_NONE]	= RPM_VREG_CORNER_NONE,
-			[VDD_MIN]	= RPM_VREG_CORNER_NOMINAL,
-			[VDD_MAX]	= RPM_VREG_CORNER_HIGH,
-		},
-		{   /* VDD_CX Voltage Voting */
-			[VDD_NONE]	= USB_PHY_VDD_DIG_VOL_NONE,
-			[VDD_MIN]	= USB_PHY_VDD_DIG_VOL_MIN,
-			[VDD_MAX]	= USB_PHY_VDD_DIG_VOL_MAX,
-		},
-};
+#define NONE 0
+#define MIN  1
+#define MAX  2
 
-static int msm_hsic_init_vddcx(struct msm_hsic_per *mhsic, int init)
+static int msm_hsic_init_vdd(struct msm_hsic_per *mhsic, int init)
 {
 	int ret = 0;
-	int none_vol, min_vol, max_vol;
 
-	if (!mhsic->hsic_vddcx) {
-		mhsic->vdd_type = VDDCX_CORNER;
-		mhsic->hsic_vddcx = devm_regulator_get(mhsic->dev,
-			"hsic_vdd_dig");
-		if (IS_ERR(mhsic->hsic_vddcx)) {
-			mhsic->hsic_vddcx = devm_regulator_get(mhsic->dev,
-				"HSIC_VDDCX");
-			if (IS_ERR(mhsic->hsic_vddcx)) {
-				dev_err(mhsic->dev, "unable to get hsic vddcx\n");
-				return PTR_ERR(mhsic->hsic_vddcx);
+	if (!mhsic->hsic_vdd) {
+		mhsic->hsic_vdd = devm_regulator_get(mhsic->dev, "vdd");
+		if (IS_ERR(mhsic->hsic_vdd)) {
+			dev_err(mhsic->dev, "unable to get hsic vdd\n");
+				return PTR_ERR(mhsic->hsic_vdd);
 			}
-			mhsic->vdd_type = VDDCX;
-		}
 	}
 
-	none_vol = vdd_val[mhsic->vdd_type][VDD_NONE];
-	min_vol = vdd_val[mhsic->vdd_type][VDD_MIN];
-	max_vol = vdd_val[mhsic->vdd_type][VDD_MAX];
+	if (mhsic->dev->of_node) {
+		ret = of_property_read_u32_array(mhsic->dev->of_node,
+			"qcom,vdd-voltage-level",
+			mhsic->vdd_val, ARRAY_SIZE(mhsic->vdd_val));
+
+		if (ret == -EINVAL)
+			dev_err(mhsic->dev, "invalid vdd-level.\n");
+		else if (ret == -ENODATA)
+			dev_err(mhsic->dev, "no data for vdd-level.\n");
+		else if (ret == -EOVERFLOW)
+			dev_err(mhsic->dev, "overflow with vdd-level.\n");
+
+		if (ret)
+			return ret;
+	} else {
+		dev_err(mhsic->dev, "vdd config is not provided.\n");
+		return -EINVAL;
+	}
 
 	if (!init)
 		goto disable_reg;
 
-	ret = regulator_set_voltage(mhsic->hsic_vddcx, min_vol, max_vol);
+	dev_dbg(mhsic->dev, "vdd[NONE]:%d vdd[MIN]:%d vdd[MAX]:%d\n",
+		mhsic->vdd_val[NONE], mhsic->vdd_val[MIN], mhsic->vdd_val[MAX]);
+
+	ret = regulator_set_voltage(mhsic->hsic_vdd, mhsic->vdd_val[MIN],
+							mhsic->vdd_val[MAX]);
 	if (ret) {
-		dev_err(mhsic->dev, "unable to set the voltage"
-				"for hsic vddcx\n");
+		dev_err(mhsic->dev, "unable to set the voltage for hsic vdd\n");
 		goto reg_set_voltage_err;
 	}
 
-	ret = regulator_enable(mhsic->hsic_vddcx);
+	ret = regulator_enable(mhsic->hsic_vdd);
 	if (ret) {
-		dev_err(mhsic->dev, "unable to enable hsic vddcx\n");
+		dev_err(mhsic->dev, "unable to enable hsic vddx\n");
 		goto reg_enable_err;
 	}
 
 	return 0;
 
 disable_reg:
-	regulator_disable(mhsic->hsic_vddcx);
+	regulator_disable(mhsic->hsic_vdd);
 reg_enable_err:
-	regulator_set_voltage(mhsic->hsic_vddcx, none_vol, max_vol);
+	regulator_set_voltage(mhsic->hsic_vdd, mhsic->vdd_val[NONE],
+						mhsic->vdd_val[MAX]);
 reg_set_voltage_err:
 
 	return ret;
@@ -362,7 +362,6 @@ static int msm_hsic_suspend(struct msm_hsic_per *mhsic)
 {
 	int cnt = 0, ret;
 	u32 val;
-	int none_vol, max_vol;
 
 	if (atomic_read(&mhsic->in_lpm)) {
 		dev_dbg(mhsic->dev, "%s called while in lpm\n", __func__);
@@ -414,12 +413,10 @@ static int msm_hsic_suspend(struct msm_hsic_per *mhsic)
 	clk_disable_unprepare(mhsic->cal_clk);
 	clk_disable_unprepare(mhsic->alt_core_clk);
 
-	none_vol = vdd_val[mhsic->vdd_type][VDD_NONE];
-	max_vol = vdd_val[mhsic->vdd_type][VDD_MAX];
-
-	ret = regulator_set_voltage(mhsic->hsic_vddcx, none_vol, max_vol);
+	ret = regulator_set_voltage(mhsic->hsic_vdd, mhsic->vdd_val[NONE],
+							mhsic->vdd_val[MAX]);
 	if (ret < 0)
-		dev_err(mhsic->dev, "unable to set vddcx voltage for VDD MIN\n");
+		dev_err(mhsic->dev, "unable to set vdd voltage for VDD MIN\n");
 
 	if (device_may_wakeup(mhsic->dev))
 		enable_irq_wake(mhsic->irq);
@@ -437,7 +434,6 @@ static int msm_hsic_resume(struct msm_hsic_per *mhsic)
 {
 	int cnt = 0, ret;
 	unsigned temp;
-	int min_vol, max_vol;
 
 	if (!atomic_read(&mhsic->in_lpm)) {
 		dev_dbg(mhsic->dev, "%s called while not in lpm\n", __func__);
@@ -446,10 +442,8 @@ static int msm_hsic_resume(struct msm_hsic_per *mhsic)
 
 	wake_lock(&mhsic->wlock);
 
-	min_vol = vdd_val[mhsic->vdd_type][VDD_MIN];
-	max_vol = vdd_val[mhsic->vdd_type][VDD_MAX];
-
-	ret = regulator_set_voltage(mhsic->hsic_vddcx, min_vol, max_vol);
+	ret = regulator_set_voltage(mhsic->hsic_vdd, mhsic->vdd_val[MIN],
+							mhsic->vdd_val[MAX]);
 	if (ret < 0)
 		dev_err(mhsic->dev,
 			"unable to set nominal vddcx voltage (no VDD MIN)\n");
@@ -766,7 +760,7 @@ static int msm_hsic_probe(struct platform_device *pdev)
 		ret = -ENODEV;
 		goto unconfig_gdsc;
 	}
-	ret = msm_hsic_init_vddcx(mhsic, 1);
+	ret = msm_hsic_init_vdd(mhsic, 1);
 	if (ret) {
 		dev_err(&pdev->dev, "unable to initialize VDDCX\n");
 		ret = -ENODEV;
@@ -809,7 +803,7 @@ static int msm_hsic_probe(struct platform_device *pdev)
 udc_remove:
 	udc_remove();
 deinit_vddcx:
-	msm_hsic_init_vddcx(mhsic, 0);
+	msm_hsic_init_vdd(mhsic, 0);
 deinit_clocks:
 	msm_hsic_enable_clocks(pdev, mhsic, 0);
 unconfig_gdsc:
@@ -830,7 +824,7 @@ static int hsic_msm_remove(struct platform_device *pdev)
 	pm_runtime_disable(&pdev->dev);
 	pm_runtime_set_suspended(&pdev->dev);
 
-	msm_hsic_init_vddcx(mhsic, 0);
+	msm_hsic_init_vdd(mhsic, 0);
 	msm_hsic_enable_clocks(pdev, mhsic, 0);
 	wake_lock_destroy(&mhsic->wlock);
 	destroy_workqueue(mhsic->wq);
