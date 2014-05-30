@@ -1917,6 +1917,19 @@ out:
 	return ret;
 }
 
+static int soc_pcm_compat_ioctl(struct snd_pcm_substream *substream,
+		     unsigned int cmd, void *arg)
+{
+	struct snd_soc_pcm_runtime *rtd = substream->private_data;
+	struct snd_soc_platform *platform = rtd->platform;
+
+	if (platform->driver->ops->compat_ioctl)
+		return platform->driver->ops->compat_ioctl(substream,
+			cmd, arg);
+	pr_debug("%s: compat mode not supported\n", __func__);
+	return -ENOIOCTLCMD;
+}
+
 static int soc_pcm_ioctl(struct snd_pcm_substream *substream,
 		     unsigned int cmd, void *arg)
 {
@@ -2345,6 +2358,7 @@ int soc_new_pcm(struct snd_soc_pcm_runtime *rtd, int num)
 		rtd->ops.close		= dpcm_fe_dai_close;
 		rtd->ops.pointer	= soc_pcm_pointer;
 		rtd->ops.ioctl		= soc_pcm_ioctl;
+		rtd->ops.compat_ioctl   = soc_pcm_compat_ioctl;
 	} else {
 		rtd->ops.open		= soc_pcm_open;
 		rtd->ops.hw_params	= soc_pcm_hw_params;
@@ -2354,6 +2368,7 @@ int soc_new_pcm(struct snd_soc_pcm_runtime *rtd, int num)
 		rtd->ops.close		= soc_pcm_close;
 		rtd->ops.pointer	= soc_pcm_pointer;
 		rtd->ops.ioctl		= soc_pcm_ioctl;
+		rtd->ops.ioctl          = soc_pcm_compat_ioctl;
 	}
 
 	if (platform->driver->ops) {
