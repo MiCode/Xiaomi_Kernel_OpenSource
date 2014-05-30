@@ -841,9 +841,6 @@ static int hw_usb_reset(void)
 	/* ESS flushes only at end?!? */
 	hw_cwrite(CAP_ENDPTFLUSH,    ~0, ~0);   /* flush all EPs */
 
-	/* clear setup token semaphores */
-	hw_cwrite(CAP_ENDPTSETUPSTAT, 0,  0);   /* writes its content */
-
 	/* clear complete status */
 	hw_cwrite(CAP_ENDPTCOMPLETE,  0,  0);   /* writes its content */
 
