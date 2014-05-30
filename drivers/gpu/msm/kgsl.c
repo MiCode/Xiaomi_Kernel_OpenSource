@@ -580,6 +580,7 @@ EXPORT_SYMBOL(kgsl_context_init);
 int kgsl_context_detach(struct kgsl_context *context)
 {
 	int ret;
+	struct kgsl_device *device;
 
 	if (context == NULL)
 		return -EINVAL;
@@ -592,16 +593,21 @@ int kgsl_context_detach(struct kgsl_context *context)
 	if (test_and_set_bit(KGSL_CONTEXT_PRIV_DETACHED, &context->priv))
 		return -EINVAL;
 
-	trace_kgsl_context_detach(context->device, context);
+	device = context->device;
 
+	trace_kgsl_context_detach(device, context);
+
+	/* we need to hold device mutex to detach */
+	kgsl_mutex_lock(&device->mutex, &device->mutex_owner);
 	ret = context->device->ftbl->drawctxt_detach(context);
+	kgsl_mutex_unlock(&device->mutex, &device->mutex_owner);
 
 	/*
 	 * Cancel all pending events after the device-specific context is
 	 * detached, to avoid possibly freeing memory while it is still
 	 * in use by the GPU.
 	 */
-	kgsl_cancel_events(context->device, &context->events);
+	kgsl_cancel_events(device, &context->events);
 
 	/* Remove the event group from the list */
 	kgsl_del_event_group(&context->events);
@@ -938,6 +944,8 @@ error:
 static int kgsl_close_device(struct kgsl_device *device)
 {
 	int result = 0;
+
+	kgsl_mutex_lock(&device->mutex, &device->mutex_owner);
 	device->open_count--;
 	if (device->open_count == 0) {
 
@@ -952,6 +960,7 @@ static int kgsl_close_device(struct kgsl_device *device)
 		result = device->ftbl->stop(device);
 		kgsl_pwrctrl_change_state(device, KGSL_STATE_INIT);
 	}
+	kgsl_mutex_unlock(&device->mutex, &device->mutex_owner);
 	return result;
 
 }
@@ -978,7 +987,6 @@ static int kgsl_release(struct inode *inodep, struct file *filep)
 		kgsl_syncsource_put(syncsource);
 		next = next + 1;
 	}
-	kgsl_mutex_lock(&device->mutex, &device->mutex_owner);
 
 	next = 0;
 	while (1) {
@@ -1028,7 +1036,6 @@ static int kgsl_release(struct inode *inodep, struct file *filep)
 	}
 
 	result = kgsl_close_device(device);
-	kgsl_mutex_unlock(&device->mutex, &device->mutex_owner);
 
 	kfree(dev_priv);
 
@@ -1041,6 +1048,8 @@ static int kgsl_release(struct inode *inodep, struct file *filep)
 static int kgsl_open_device(struct kgsl_device *device)
 {
 	int result = 0;
+
+	kgsl_mutex_lock(&device->mutex, &device->mutex_owner);
 	if (device->open_count == 0) {
 		/*
 		 * active_cnt special case: we are starting up for the first
@@ -1071,6 +1080,7 @@ err:
 	if (result)
 		atomic_dec(&device->active_cnt);
 
+	kgsl_mutex_unlock(&device->mutex, &device->mutex_owner);
 	return result;
 }
 
@@ -1084,11 +1094,6 @@ static int kgsl_open(struct inode *inodep, struct file *filep)
 	device = kgsl_get_minor(minor);
 	BUG_ON(device == NULL);
 
-	if (filep->f_flags & O_EXCL) {
-		KGSL_DRV_ERR(device, "O_EXCL not allowed\n");
-		return -EBUSY;
-	}
-
 	result = pm_runtime_get_sync(&device->pdev->dev);
 	if (result < 0) {
 		KGSL_DRV_ERR(device,
@@ -1101,18 +1106,15 @@ static int kgsl_open(struct inode *inodep, struct file *filep)
 	dev_priv = kzalloc(sizeof(struct kgsl_device_private), GFP_KERNEL);
 	if (dev_priv == NULL) {
 		result = -ENOMEM;
-		goto err_pmruntime;
+		goto err;
 	}
 
 	dev_priv->device = device;
 	filep->private_data = dev_priv;
 
-	kgsl_mutex_lock(&device->mutex, &device->mutex_owner);
-
 	result = kgsl_open_device(device);
 	if (result)
-		goto err_freedevpriv;
-	kgsl_mutex_unlock(&device->mutex, &device->mutex_owner);
+		goto err;
 
 	/*
 	 * Get file (per process) private struct. This must be done
@@ -1121,29 +1123,17 @@ static int kgsl_open(struct inode *inodep, struct file *filep)
 	 */
 	dev_priv->process_priv = kgsl_get_process_private(device);
 	if (dev_priv->process_priv ==  NULL) {
+		kgsl_close_device(device);
 		result = -ENOMEM;
-		goto err_stop;
+		goto err;
 	}
 
-
-	return result;
-
-err_stop:
-	kgsl_mutex_lock(&device->mutex, &device->mutex_owner);
-	device->open_count--;
-	if (device->open_count == 0) {
-		/* make sure power is on to stop the device */
-		kgsl_pwrctrl_enable(device);
-		device->ftbl->stop(device);
-		kgsl_pwrctrl_change_state(device, KGSL_STATE_INIT);
-		atomic_dec(&device->active_cnt);
+err:
+	if (result) {
+		filep->private_data = NULL;
+		kfree(dev_priv);
+		pm_runtime_put(&device->pdev->dev);
 	}
-err_freedevpriv:
-	kgsl_mutex_unlock(&device->mutex, &device->mutex_owner);
-	filep->private_data = NULL;
-	kfree(dev_priv);
-err_pmruntime:
-	pm_runtime_put(&device->pdev->dev);
 	return result;
 }
 
@@ -2365,8 +2355,6 @@ long kgsl_ioctl_cmdstream_freememontimestamp_ctxtid(
 	if (param->type != KGSL_TIMESTAMP_RETIRED)
 		return -EINVAL;
 
-	kgsl_mutex_lock(&device->mutex, &device->mutex_owner);
-
 	context = kgsl_context_get_owner(dev_priv, param->context_id);
 	if (context == NULL)
 		goto out;
@@ -2401,7 +2389,6 @@ long kgsl_ioctl_cmdstream_freememontimestamp_ctxtid(
 
 out:
 	kgsl_context_put(context);
-	kgsl_mutex_unlock(&device->mutex, &device->mutex_owner);
 	return result;
 }
 
@@ -2430,17 +2417,14 @@ long kgsl_ioctl_drawctxt_destroy(struct kgsl_device_private *dev_priv,
 					unsigned int cmd, void *data)
 {
 	struct kgsl_drawctxt_destroy *param = data;
-	struct kgsl_device *device = dev_priv->device;
 	struct kgsl_context *context;
 	long result;
 
-	kgsl_mutex_lock(&device->mutex, &device->mutex_owner);
 	context = kgsl_context_get_owner(dev_priv, param->drawctxt_id);
 
 	result = kgsl_context_detach(context);
 
 	kgsl_context_put(context);
-	kgsl_mutex_unlock(&device->mutex, &device->mutex_owner);
 	return result;
 }
 

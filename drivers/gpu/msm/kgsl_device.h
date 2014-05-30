@@ -891,21 +891,18 @@ static inline int kgsl_sysfs_store(const char *buf, unsigned int *ptr)
 }
 
 /**
- * kgsl_mutex_lock() -- try to acquire the mutex if current thread does not
- *                      already own it
+ * kgsl_mutex_lock() -- mutex_lock() wrapper
  * @mutex: mutex to lock
  * @owner: current mutex owner
+ *
  */
 static inline int kgsl_mutex_lock(struct mutex *mutex, atomic64_t *owner)
 {
-
-	if (atomic64_read(owner) != (long)current) {
-		mutex_lock(mutex);
-		atomic64_set(owner, (long)current);
-		/* Barrier to make sure owner is updated */
-		smp_wmb();
-		return 0;
-	}
+	/*
+	 * owner is no longer used, but the interface must remain the same
+	 * for now.
+	 */
+	mutex_lock(mutex);
 	return 1;
 }
 
@@ -916,7 +913,6 @@ static inline int kgsl_mutex_lock(struct mutex *mutex, atomic64_t *owner)
  */
 static inline void kgsl_mutex_unlock(struct mutex *mutex, atomic64_t *owner)
 {
-	atomic64_set(owner, 0);
 	mutex_unlock(mutex);
 }
 
