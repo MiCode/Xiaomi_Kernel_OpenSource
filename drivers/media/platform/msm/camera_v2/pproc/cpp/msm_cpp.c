@@ -227,7 +227,7 @@ static struct msm_cpp_buff_queue_info_t *msm_cpp_get_buff_queue_entry(
 
 static unsigned long msm_cpp_get_phy_addr(struct cpp_device *cpp_dev,
 	struct msm_cpp_buff_queue_info_t *buff_queue_info, uint32_t buff_index,
-	uint8_t native_buff, int *fd)
+	uint8_t native_buff, int32_t *fd)
 {
 	unsigned long phy_add = 0;
 	struct list_head *buff_head;
@@ -323,7 +323,7 @@ static void msm_cpp_dequeue_buffer_info(struct cpp_device *cpp_dev,
 
 static unsigned long msm_cpp_fetch_buffer_info(struct cpp_device *cpp_dev,
 	struct msm_cpp_buffer_info_t *buffer_info, uint32_t session_id,
-	uint32_t stream_id, int *fd)
+	uint32_t stream_id, int32_t *fd)
 {
 	unsigned long phy_addr = 0;
 	struct msm_cpp_buff_queue_info_t *buff_queue_info;
@@ -1332,6 +1332,7 @@ static struct msm_cpp_frame_info_t *msm_cpp_get_frame(
 	int32_t rc = 0;
 
 	new_frame = kzalloc(sizeof(struct msm_cpp_frame_info_t), GFP_KERNEL);
+
 	if (!new_frame) {
 		pr_err("Insufficient memory\n");
 		rc = -ENOMEM;
