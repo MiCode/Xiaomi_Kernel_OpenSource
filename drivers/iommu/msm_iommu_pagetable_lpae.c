@@ -154,7 +154,10 @@ void msm_iommu_pagetable_free_tables(struct msm_iommu_pt *pt, unsigned long va,
 		u32 entry;
 		u64 *sl_pte_shadow;
 
-		sl_pte_shadow = pt->sl_table_shadow[fl_offset] + sl_offset;
+		sl_pte_shadow = pt->sl_table_shadow[fl_offset];
+		if (!sl_pte_shadow)
+			break;
+		sl_pte_shadow += sl_offset;
 		entry = *sl_pte_shadow;
 		tl_table_va = __va(((*sl_pte_shadow) & ~0xFFF));
 
