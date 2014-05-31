@@ -84,7 +84,8 @@ static DEFINE_VDD_REGULATORS(vdd_dig, VDD_DIG_NUM, 1, vdd_corner, NULL);
 #define C1_PLLA_CONFIG_CTL 0x54
 #define C1_PLLA_STATUS     0x5C
 
-#define MUX_OFFSET		0x54
+#define GLB_CLK_DIAG	0x1C
+#define MUX_OFFSET	0x54
 
 /* 8994 V1 clock tree - Note that aux source is 600 Mhz, not 300.
  *  ___________		            ____
@@ -598,6 +599,68 @@ static struct cpu_clk_8994 a57_clk = {
 	},
 };
 
+DEFINE_FIXED_SLAVE_DIV_CLK(a53_div_clk, 1, &a53_clk.c);
+DEFINE_FIXED_SLAVE_DIV_CLK(a57_div_clk, 1, &a57_clk.c);
+
+static struct mux_clk a53_debug_mux = {
+	.offset = GLB_CLK_DIAG,
+	.ops = &mux_reg_ops,
+	.mask = 0x3F,
+	.shift = 12,
+	MUX_REC_SRC_LIST(
+		&a53_div_clk.c,
+	),
+	MUX_SRC_LIST(
+		{&a53_div_clk.c, 0},
+	),
+	.base = &vbases[ALIAS0_GLB_BASE],
+	.c = {
+		.dbg_name = "a53_debug_mux",
+		.ops = &clk_ops_gen_mux,
+		CLK_INIT(a53_debug_mux.c),
+	},
+};
+
+static struct mux_clk a57_debug_mux = {
+	.offset = GLB_CLK_DIAG,
+	.ops = &mux_reg_ops,
+	.mask = 0x3F,
+	.shift = 12,
+	MUX_REC_SRC_LIST(
+		&a57_div_clk.c,
+	),
+	MUX_SRC_LIST(
+		{&a57_div_clk.c, 0},
+	),
+	.base = &vbases[ALIAS1_GLB_BASE],
+	.c = {
+		.dbg_name = "a57_debug_mux",
+		.ops = &clk_ops_gen_mux,
+		CLK_INIT(a57_debug_mux.c),
+	},
+};
+
+static struct mux_clk cpu_debug_mux = {
+	.offset = 0x120,
+	.ops = &mux_reg_ops,
+	.mask = 0x1,
+	.shift = 0,
+	MUX_SRC_LIST(
+		{&a53_debug_mux.c, 0},
+		{&a57_debug_mux.c, 1},
+	),
+	MUX_REC_SRC_LIST(
+		&a53_debug_mux.c,
+		&a57_debug_mux.c,
+	),
+	.base = &vbases[CCI_BASE],
+	.c = {
+		.dbg_name = "cpu_debug_mux",
+		.ops = &clk_ops_gen_mux,
+		CLK_INIT(cpu_debug_mux.c),
+	},
+};
+
 static struct clk *logical_cpu_to_clk(int cpu)
 {
 	struct device_node *cpu_node = of_get_cpu_node(cpu, NULL);
@@ -729,6 +792,10 @@ static struct clk_lookup cpu_clocks_8994[] = {
 	CLK_LIST(cci_lf_mux),
 	CLK_LIST(xo_ao),
 	CLK_LIST(sys_apcsaux_clk),
+
+	CLK_LIST(a53_debug_mux),
+	CLK_LIST(a57_debug_mux),
+	CLK_LIST(cpu_debug_mux),
 };
 
 static int of_get_fmax_vdd_class(struct platform_device *pdev, struct clk *c,
