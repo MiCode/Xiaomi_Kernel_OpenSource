@@ -46,6 +46,9 @@
 #define AVTIMER_LSW_PHY_ADDR 0xFE053008
 #define AVTIMER_MSW_PHY_ADDR_8916 0x7706010
 #define AVTIMER_LSW_PHY_ADDR_8916 0x770600C
+#define AVTIMER_MODE_CTL_PHY_ADDR_8916 0x7706040
+/*AVTimer h/w is configured to generate 27Mhz ticks*/
+#define AVTIMER_TICK_SCALER_8916 27
 #define AVTIMER_ITERATION_CTR 16
 
 #define VFE_PING_FLAG 0xFFFFFFFF
@@ -515,6 +518,8 @@ struct vfe_device {
 	uint8_t vt_enable;
 	void __iomem *p_avtimer_msw;
 	void __iomem *p_avtimer_lsw;
+	void __iomem *p_avtimer_ctl;
+	uint8_t avtimer_scaler;
 	uint8_t ignore_error;
 	struct msm_isp_statistics *stats;
 	struct msm_vbif_cntrs vbif_cntrs;

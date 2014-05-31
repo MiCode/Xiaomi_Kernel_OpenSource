@@ -11,8 +11,10 @@
  */
 #include <linux/io.h>
 #include <media/v4l2-subdev.h>
+#include <asm/div64.h>
 #include "msm_isp_util.h"
 #include "msm_isp_axi_util.h"
+#include "msm_camera_io_util.h"
 
 #define SRC_TO_INTF(src) \
 	((src < RDI_INTF_0) ? VFE_PIX_0 : \
@@ -551,7 +553,7 @@ void msm_isp_start_avtimer(void)
 int msm_isp_request_axi_stream(struct vfe_device *vfe_dev, void *arg)
 {
 	int rc = 0, i;
-	uint32_t io_format = 0;
+	uint32_t io_format = 0, avtimer_scaler = 0;
 	struct msm_vfe_axi_stream_request_cmd *stream_cfg_cmd = arg;
 	struct msm_vfe_axi_stream *stream_info;
 
@@ -609,6 +611,17 @@ int msm_isp_request_axi_stream(struct vfe_device *vfe_dev, void *arg)
 				ioremap(AVTIMER_LSW_PHY_ADDR_8916, 4);
 			vfe_dev->p_avtimer_msw =
 				ioremap(AVTIMER_MSW_PHY_ADDR_8916, 4);
+			vfe_dev->p_avtimer_ctl =
+				ioremap(AVTIMER_MODE_CTL_PHY_ADDR_8916, 4);
+			if (vfe_dev->p_avtimer_ctl) {
+				avtimer_scaler =
+					msm_camera_io_r(vfe_dev->p_avtimer_ctl);
+				/*If bit 2 is set, it indicates AVTimer
+				  ticks are scaled*/
+				if (avtimer_scaler & 0x00000002)
+					vfe_dev->avtimer_scaler =
+						AVTIMER_TICK_SCALER_8916;
+			}
 		} else {
 			vfe_dev->p_avtimer_lsw =
 				ioremap(AVTIMER_LSW_PHY_ADDR, 4);
@@ -879,6 +892,30 @@ buf_error:
 	return rc;
 }
 
+static inline void msm_isp_get_vt_tstamp(struct vfe_device *vfe_dev,
+	struct msm_isp_timestamp *time_stamp)
+{
+	uint32_t avtimer_msw_1st = 0, avtimer_lsw = 0;
+	uint32_t avtimer_msw_2nd = 0;
+	uint64_t av_timer_tick = 0;
+
+	if (!vfe_dev->p_avtimer_msw || !vfe_dev->p_avtimer_lsw) {
+		pr_err("%s: ioremap failed\n", __func__);
+		return;
+	}
+
+	do {
+		avtimer_msw_1st = msm_camera_io_r(vfe_dev->p_avtimer_msw);
+		avtimer_lsw = msm_camera_io_r(vfe_dev->p_avtimer_lsw);
+		avtimer_msw_2nd = msm_camera_io_r(vfe_dev->p_avtimer_msw);
+	} while (avtimer_msw_1st != avtimer_msw_2nd);
+	av_timer_tick = ((uint64_t)avtimer_msw_1st << 32) | avtimer_lsw;
+	do_div(av_timer_tick, vfe_dev->avtimer_scaler);
+	avtimer_lsw = do_div(av_timer_tick, USEC_PER_SEC);
+	time_stamp->vt_time.tv_sec = (uint32_t)(av_timer_tick);
+	time_stamp->vt_time.tv_usec = avtimer_lsw;
+}
+
 static void msm_isp_process_done_buf(struct vfe_device *vfe_dev,
 	struct msm_vfe_axi_stream *stream_info, struct msm_isp_buffer *buf,
 	struct msm_isp_timestamp *ts)
@@ -894,8 +931,10 @@ static void msm_isp_process_done_buf(struct vfe_device *vfe_dev,
 	memset(&buf_event, 0, sizeof(buf_event));
 
 	if (buf && ts) {
-		if (vfe_dev->vt_enable)
+		if (vfe_dev->vt_enable) {
+			msm_isp_get_vt_tstamp(vfe_dev, ts);
 			time_stamp = &ts->vt_time;
+		}
 		else
 			time_stamp = &ts->buf_time;
 
