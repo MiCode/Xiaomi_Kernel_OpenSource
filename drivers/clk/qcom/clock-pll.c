@@ -166,6 +166,7 @@ static int sr2_pll_clk_enable(struct clk *c)
 	struct pll_clk *pll = to_pll_clk(c);
 	int ret = 0, count;
 	u32 mode = readl_relaxed(PLL_MODE_REG(pll));
+	u32 lockmask = pll->masks.lock_mask ?: PLL_LOCKED_BIT;
 
 	spin_lock_irqsave(&pll_reg_lock, flags);
 
@@ -189,12 +190,12 @@ static int sr2_pll_clk_enable(struct clk *c)
 
 	/* Wait for pll to lock. */
 	for (count = ENABLE_WAIT_MAX_LOOPS; count > 0; count--) {
-		if (readl_relaxed(PLL_STATUS_REG(pll)) & PLL_LOCKED_BIT)
+		if (readl_relaxed(PLL_STATUS_REG(pll)) & lockmask)
 			break;
 		udelay(1);
 	}
 
-	if (!(readl_relaxed(PLL_STATUS_REG(pll)) & PLL_LOCKED_BIT))
+	if (!(readl_relaxed(PLL_STATUS_REG(pll)) & lockmask))
 		pr_err("PLL %s didn't lock after enabling it!\n", c->dbg_name);
 
 	/* Enable PLL output. */

@@ -45,6 +45,7 @@ struct pll_freq_tbl {
  * @mn_en_mask: ORed with pll config register to enable the mn counter
  * @main_output_mask: ORed with pll config register to enable the main output
  * @apc_pdn_mask: ORed with pll config register to enable/disable APC PDN
+ * @lock_mask: Mask that indicates that the PLL has locked
  */
 struct pll_config_masks {
 	u32 apc_pdn_mask;
@@ -54,6 +55,7 @@ struct pll_config_masks {
 	u32 mn_en_mask;
 	u32 main_output_mask;
 	u32 early_output_mask;
+	u32 lock_mask;
 };
 
 struct pll_config_vals {
