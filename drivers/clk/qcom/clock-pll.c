@@ -226,6 +226,12 @@ static void __variable_rate_pll_init(struct clk *c)
 		regval |= pll->vals.pre_div_masked;
 	}
 
+	if (pll->masks.main_output_mask)
+		regval |= pll->masks.main_output_mask;
+
+	if (pll->masks.early_output_mask)
+		regval |= pll->masks.early_output_mask;
+
 	if (pll->vals.enable_mn)
 		regval |= pll->masks.mn_en_mask;
 	else
