@@ -640,7 +640,6 @@ static void __tmc_etb_dump(struct tmc_drvdata *drvdata)
 	char *hdr;
 	char *bufp;
 	uint32_t read_data;
-	int i;
 
 	memwidth = BMVAL(tmc_readl(drvdata, CORESIGHT_DEVID), 8, 10);
 	if (memwidth == TMC_MEM_INTF_WIDTH_32BITS)
@@ -654,16 +653,22 @@ static void __tmc_etb_dump(struct tmc_drvdata *drvdata)
 
 	bufp = drvdata->buf;
 	while (1) {
-		for (i = 0; i < memwords; i++) {
-			read_data = tmc_readl_no_log(drvdata, TMC_RRD);
-			if (read_data == 0xFFFFFFFF)
-				goto out;
-			memcpy(bufp, &read_data, BYTES_PER_WORD);
-			bufp += BYTES_PER_WORD;
+		read_data = tmc_readl_no_log(drvdata, TMC_RRD);
+		if (read_data == 0xFFFFFFFF)
+			goto out;
+		if ((bufp - drvdata->buf) >= drvdata->size) {
+			dev_err(drvdata->dev, "ETF-ETB end marker missing\n");
+			goto out;
 		}
+		memcpy(bufp, &read_data, BYTES_PER_WORD);
+		bufp += BYTES_PER_WORD;
 	}
 
 out:
+	if ((bufp - drvdata->buf) % (memwords * BYTES_PER_WORD))
+		dev_dbg(drvdata->dev, "ETF-ETB data is not %lx bytes aligned\n",
+			(unsigned long) memwords * BYTES_PER_WORD);
+
 	if (drvdata->aborting) {
 		hdr = drvdata->buf - PAGE_SIZE;
 		*(uint32_t *)(hdr + TMC_ETFETB_DUMP_MAGIC_OFF) =
