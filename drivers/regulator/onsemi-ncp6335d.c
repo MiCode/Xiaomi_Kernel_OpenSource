@@ -23,6 +23,7 @@
 #include <linux/of.h>
 #include <linux/of_gpio.h>
 #include <linux/regmap.h>
+#include <linux/debugfs.h>
 #include <linux/regulator/onsemi-ncp6335d.h>
 #include <linux/string.h>
 
@@ -68,6 +69,9 @@ struct ncp6335d_info {
 	unsigned int min_voltage;
 	unsigned int min_slew_ns;
 	unsigned int max_slew_ns;
+	unsigned int peek_poke_address;
+
+	struct dentry *debug_root;
 };
 
 static void dump_registers(struct ncp6335d_info *dd,
@@ -509,6 +513,38 @@ static struct ncp6335d_platform_data *
 	return pdata;
 }
 
+static int get_reg(void *data, u64 *val)
+{
+	struct ncp6335d_info *dd = data;
+	int rc;
+	unsigned int temp = 0;
+
+	rc = regmap_read(dd->regmap, dd->peek_poke_address, &temp);
+	if (rc < 0)
+		dev_err(dd->dev, "Couldn't read reg %x rc = %d\n",
+				dd->peek_poke_address, rc);
+	else
+		*val = temp;
+
+	return rc;
+}
+
+static int set_reg(void *data, u64 val)
+{
+	struct ncp6335d_info *dd = data;
+	int rc;
+	unsigned int temp = 0;
+
+	temp = (unsigned int) val;
+	rc = regmap_write(dd->regmap, dd->peek_poke_address, temp);
+	if (rc < 0)
+		dev_err(dd->dev, "Couldn't write 0x%02x to 0x%02x rc= %d\n",
+			dd->peek_poke_address, temp, rc);
+
+	return rc;
+}
+DEFINE_SIMPLE_ATTRIBUTE(poke_poke_debug_ops, get_reg, set_reg, "0x%02llx\n");
+
 static int ncp6335d_regulator_probe(struct i2c_client *client,
 					const struct i2c_device_id *id)
 {
@@ -584,6 +620,28 @@ static int ncp6335d_regulator_probe(struct i2c_client *client,
 		return PTR_ERR(dd->regulator);
 	}
 
+	dd->debug_root = debugfs_create_dir("ncp6335x", NULL);
+	if (!dd->debug_root)
+		dev_err(&client->dev, "Couldn't create debug dir\n");
+
+	if (dd->debug_root) {
+		struct dentry *ent;
+
+		ent = debugfs_create_x32("address", S_IFREG | S_IWUSR | S_IRUGO,
+					  dd->debug_root,
+					  &(dd->peek_poke_address));
+		if (!ent)
+			dev_err(&client->dev, "Couldn't create address debug file rc = %d\n",
+									rc);
+
+		ent = debugfs_create_file("data", S_IFREG | S_IWUSR | S_IRUGO,
+					  dd->debug_root, dd,
+					  &poke_poke_debug_ops);
+		if (!ent)
+			dev_err(&client->dev, "Couldn't create data debug file rc = %d\n",
+									rc);
+	}
+
 	return 0;
 }
 
@@ -592,6 +650,8 @@ static int ncp6335d_regulator_remove(struct i2c_client *client)
 	struct ncp6335d_info *dd = i2c_get_clientdata(client);
 
 	regulator_unregister(dd->regulator);
+
+	debugfs_remove_recursive(dd->debug_root);
 
 	return 0;
 }
