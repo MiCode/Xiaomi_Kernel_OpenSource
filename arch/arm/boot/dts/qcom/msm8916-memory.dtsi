@@ -49,7 +49,7 @@
 
 		venus_qseecom_mem: venus_qseecom_region@0 {
 			linux,reserve-contiguous-region;
-			linux,memory-limit = <90000000>;
+			linux,memory-limit = <0x90000000>;
 			reg = <0 0 0 0x1200000>;
 			label = "venus_qseecom_mem";
 		};
