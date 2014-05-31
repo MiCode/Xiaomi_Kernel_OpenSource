@@ -907,7 +907,7 @@ static void dwc3_otg_sm_work(struct work_struct *w)
 		} else {
 			dev_dbg(phy->dev, "still in a_host state. Resuming root hub.\n");
 			pm_runtime_resume(&dotg->dwc->xhci->dev);
-			pm_runtime_put(phy->dev);
+			pm_runtime_put_noidle(phy->dev);
 		}
 		break;
 
