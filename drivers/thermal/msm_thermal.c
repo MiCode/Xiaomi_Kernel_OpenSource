@@ -2565,6 +2565,125 @@ init_freq_thread:
 	}
 }
 
+int msm_thermal_get_freq_plan_size(uint32_t cluster, unsigned int *table_len)
+{
+	uint32_t i = 0;
+	struct cluster_info *cluster_ptr = NULL;
+
+	if (!core_ptr) {
+		pr_err("Topology ptr not initialized\n");
+		return -ENODEV;
+	}
+	if (!table_len) {
+		pr_err("Invalid input\n");
+		return -EINVAL;
+	}
+	if (!freq_table_get)
+		check_freq_table();
+
+	for (; i < core_ptr->entity_count; i++) {
+		cluster_ptr = &core_ptr->child_entity_ptr[i];
+		if (cluster_ptr->cluster_id == cluster) {
+			if (!cluster_ptr->freq_table) {
+				pr_err("Cluster%d clock plan not initialized\n",
+						cluster);
+				return -EINVAL;
+			}
+			*table_len = cluster_ptr->freq_idx_high + 1;
+			return 0;
+		}
+	}
+
+	pr_err("Invalid cluster ID:%d\n", cluster);
+	return -EINVAL;
+}
+
+int msm_thermal_get_cluster_freq_plan(uint32_t cluster, unsigned int *table_ptr)
+{
+	uint32_t i = 0;
+	struct cluster_info *cluster_ptr = NULL;
+
+	if (!core_ptr) {
+		pr_err("Topology ptr not initialized\n");
+		return -ENODEV;
+	}
+	if (!table_ptr) {
+		pr_err("Invalid input\n");
+		return -EINVAL;
+	}
+	if (!freq_table_get)
+		check_freq_table();
+
+	for (; i < core_ptr->entity_count; i++) {
+		cluster_ptr = &core_ptr->child_entity_ptr[i];
+		if (cluster_ptr->cluster_id == cluster)
+			break;
+	}
+	if (i == core_ptr->entity_count) {
+		pr_err("Invalid cluster ID:%d\n", cluster);
+		return -EINVAL;
+	}
+	if (!cluster_ptr->freq_table) {
+		pr_err("Cluster%d clock plan not initialized\n", cluster);
+		return -EINVAL;
+	}
+
+	for (i = 0; i <= cluster_ptr->freq_idx_high; i++)
+		table_ptr[i] = cluster_ptr->freq_table[i].frequency;
+
+	return 0;
+}
+
+int msm_thermal_set_cluster_freq(uint32_t cluster, uint32_t freq, bool is_max)
+{
+	int ret = 0;
+	uint32_t i = 0;
+	struct cluster_info *cluster_ptr = NULL;
+	bool notify = false;
+
+	if (!core_ptr) {
+		pr_err("Topology ptr not initialized\n");
+		return -ENODEV;
+	}
+
+	for (; i < core_ptr->entity_count; i++) {
+		cluster_ptr = &core_ptr->child_entity_ptr[i];
+		if (cluster_ptr->cluster_id != cluster)
+			continue;
+		if (!cluster_ptr->sync_cluster) {
+			pr_err("Cluster%d is not synchronous\n", cluster);
+			return -EINVAL;
+		} else {
+			pr_debug("Update Cluster%d %s frequency to %d\n",
+				cluster, (is_max) ? "max" : "min", freq);
+			break;
+		}
+	}
+	if (i == core_ptr->entity_count) {
+		pr_err("Invalid cluster ID:%d\n", cluster);
+		return -EINVAL;
+	}
+
+	for_each_cpu_mask(i, cluster_ptr->cluster_cores) {
+		uint32_t *freq_ptr = (is_max) ? &cpus[i].user_max_freq
+					: &cpus[i].user_min_freq;
+		if (*freq_ptr == freq)
+			continue;
+		notify = true;
+		*freq_ptr = freq;
+	}
+
+	if (freq_mitigation_task) {
+		if (notify)
+			complete(&freq_mitigation_complete);
+	} else {
+		pr_err("Frequency mitigation task is not initialized\n");
+		return -ESRCH;
+	}
+
+	return ret;
+}
+
 int msm_thermal_set_frequency(uint32_t cpu, uint32_t freq, bool is_max)
 {
 	int ret = 0;
