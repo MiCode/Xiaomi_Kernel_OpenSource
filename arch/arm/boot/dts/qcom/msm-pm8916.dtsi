@@ -213,7 +213,7 @@
 			qcom,ibatmax-cool-ma = <360>;
 			qcom,batt-hot-percentage = <25>;
 			qcom,batt-cold-percentage = <80>;
-			qcom,tchg-mins = <152>;
+			qcom,tchg-mins = <232>;
 			qcom,resume-soc = <99>;
 			qcom,chg-vadc = <&pm8916_vadc>;
 			qcom,chg-adc_tm = <&pm8916_adc_tm>;
