@@ -36,6 +36,7 @@ struct clock_init_data {
 
 int msm_clock_init(struct clock_init_data *data);
 int find_vdd_level(struct clk *clk, unsigned long rate);
+extern struct list_head orphan_clk_list;
 
 #ifdef CONFIG_DEBUG_FS
 int clock_debug_register(struct clk *clk);

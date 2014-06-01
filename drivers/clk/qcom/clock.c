@@ -42,7 +42,7 @@ struct handoff_vdd {
 static LIST_HEAD(handoff_vdd_list);
 
 static DEFINE_MUTEX(msm_clock_init_lock);
-static LIST_HEAD(orphan_clk_list);
+LIST_HEAD(orphan_clk_list);
 
 /* Find the voltage level required for a given rate. */
 int find_vdd_level(struct clk *clk, unsigned long rate)
