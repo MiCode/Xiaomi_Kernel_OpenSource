@@ -202,7 +202,7 @@ struct ice40_hcd {
 	u8 *out_rx_buf1; /* size 3 for reading XFR status */
 };
 
-#define FIRMWARE_LOAD_RETRIES 3
+#define FIRMWARE_LOAD_RETRIES 8
 
 static char fw_name[16] = "ice40.bin";
 module_param_string(fw, fw_name, sizeof(fw_name), S_IRUGO | S_IWUSR);
