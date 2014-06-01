@@ -1380,16 +1380,6 @@ static struct reset_clk gcc_usb3_phy_reset = {
 	},
 };
 
-static struct reset_clk gcc_usb3phy_phy_reset = {
-	.reset_reg = USB3PHY_PHY_BCR,
-	.base = &virt_base,
-	.c = {
-		.dbg_name = "gcc_usb3phy_phy_reset",
-		.ops = &clk_ops_rst,
-		CLK_INIT(gcc_usb3phy_phy_reset.c),
-	},
-};
-
 static struct gate_clk gpll0_out_mmsscc = {
 	.en_reg = APCS_CLOCK_BRANCH_ENA_VOTE,
 	.en_mask = BIT(26),
@@ -2440,6 +2430,7 @@ static struct branch_clk gcc_usb3_phy_aux_clk = {
 
 static struct branch_clk gcc_usb3_phy_pipe_clk = {
 	.cbcr_reg = USB3_PHY_PIPE_CBCR,
+	.bcr_reg = USB3PHY_PHY_BCR,
 	.has_sibling = 1,
 	.base = &virt_base,
 	.c = {
@@ -2691,7 +2682,6 @@ static struct clk_lookup msm_clocks_gcc_8994[] = {
 	CLK_LIST(usb_hs_system_clk_src),
 	CLK_LIST(gcc_qusb2_phy_reset),
 	CLK_LIST(gcc_usb3_phy_reset),
-	CLK_LIST(gcc_usb3phy_phy_reset),
 	CLK_LIST(gpll0_out_mmsscc),
 	CLK_LIST(pcie_0_phy_ldo),
 	CLK_LIST(pcie_1_phy_ldo),
