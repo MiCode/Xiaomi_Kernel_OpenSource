@@ -1,4 +1,4 @@
-/* Copyright (c) 2010-2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2010-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -92,8 +92,8 @@ struct ota_qce_dev {
 	struct tasklet_struct done_tasklet;
 	struct ota_dev_control *podev;
 	uint32_t unit;
-	u32 total_req;
-	u32 err_req;
+	u64 total_req;
+	u64 err_req;
 };
 
 #define OTA_MAGIC 0x4f544143
@@ -125,18 +125,18 @@ static struct ota_dev_control qcota_dev = {
 #define DEBUG_MAX_RW_BUF 1024
 
 struct qcota_stat {
-	u32 f8_req;
-	u32 f8_mp_req;
-	u32 f8_v_mp_req;
-	u32 f9_req;
-	u32 f8_op_success;
-	u32 f8_op_fail;
-	u32 f8_mp_op_success;
-	u32 f8_mp_op_fail;
-	u32 f8_v_mp_op_success;
-	u32 f8_v_mp_op_fail;
-	u32 f9_op_success;
-	u32 f9_op_fail;
+	u64 f8_req;
+	u64 f8_mp_req;
+	u64 f8_v_mp_req;
+	u64 f9_req;
+	u64 f8_op_success;
+	u64 f8_op_fail;
+	u64 f8_mp_op_success;
+	u64 f8_mp_op_fail;
+	u64 f8_v_mp_op_success;
+	u64 f8_v_mp_op_fail;
+	u64 f9_op_success;
+	u64 f9_op_fail;
 };
 static struct qcota_stat _qcota_stat;
 static struct dentry *_debug_dent;
@@ -434,7 +434,7 @@ static long qcota_ioctl(struct file *file,
 	uint8_t *user_dst;
 	uint8_t *k_buf = NULL;
 	struct ota_async_req areq;
-	uint32_t total;
+	uint32_t total, temp;
 	struct qcota_stat *pstat;
 	int i;
 	uint8_t *p = NULL;
@@ -548,11 +548,11 @@ static long qcota_ioctl(struct file *file,
 		if (__copy_from_user(&areq.req.f8_mp_req, (void __user *)arg,
 				     sizeof(struct qce_f8_multi_pkt_req)))
 			return -EFAULT;
-		if (areq.req.f8_mp_req.qce_f8_req.data_len <
-			(areq.req.f8_mp_req.cipher_start +
-				 areq.req.f8_mp_req.cipher_size))
+		temp = areq.req.f8_mp_req.qce_f8_req.data_len;
+		if (temp < (uint32_t) areq.req.f8_mp_req.cipher_start +
+				 areq.req.f8_mp_req.cipher_size)
 			return -EINVAL;
-		total = areq.req.f8_mp_req.num_pkt *
+		total = (uint32_t) areq.req.f8_mp_req.num_pkt *
 				areq.req.f8_mp_req.qce_f8_req.data_len;
 
 		user_src = areq.req.f8_mp_req.qce_f8_req.data_in;
@@ -796,43 +796,43 @@ static int _disp_stats(void)
 			"\nQualcomm OTA crypto accelerator Statistics:\n");
 
 	len += scnprintf(_debug_read_buf + len, DEBUG_MAX_RW_BUF - len - 1,
-			"   F8 request             : %d\n",
+			"   F8 request                      : %llu\n",
 					pstat->f8_req);
 	len += scnprintf(_debug_read_buf + len, DEBUG_MAX_RW_BUF - len - 1,
-			"   F8 operation success   : %d\n",
+			"   F8 operation success            : %llu\n",
 					pstat->f8_op_success);
 	len += scnprintf(_debug_read_buf + len, DEBUG_MAX_RW_BUF - len - 1,
-			"   F8 operation fail      : %d\n",
+			"   F8 operation fail               : %llu\n",
 					pstat->f8_op_fail);
 
 	len += scnprintf(_debug_read_buf + len, DEBUG_MAX_RW_BUF - len - 1,
-			"   F8 MP request          : %d\n",
+			"   F8 MP request                   : %llu\n",
 					pstat->f8_mp_req);
 	len += scnprintf(_debug_read_buf + len, DEBUG_MAX_RW_BUF - len - 1,
-			"   F8 MP operation success: %d\n",
+			"   F8 MP operation success         : %llu\n",
 					pstat->f8_mp_op_success);
 	len += scnprintf(_debug_read_buf + len, DEBUG_MAX_RW_BUF - len - 1,
-			"   F8 MP operation fail   : %d\n",
+			"   F8 MP operation fail            : %llu\n",
 					pstat->f8_mp_op_fail);
 
 	len += scnprintf(_debug_read_buf + len, DEBUG_MAX_RW_BUF - len - 1,
-			"   F8 Variable MP request          : %d\n",
+			"   F8 Variable MP request          : %llu\n",
 					pstat->f8_v_mp_req);
 	len += scnprintf(_debug_read_buf + len, DEBUG_MAX_RW_BUF - len - 1,
-			"   F8 Variable MP operation success: %d\n",
+			"   F8 Variable MP operation success: %llu\n",
 					pstat->f8_v_mp_op_success);
 	len += scnprintf(_debug_read_buf + len, DEBUG_MAX_RW_BUF - len - 1,
-			"   F8 Variable MP operation fail   : %d\n",
+			"   F8 Variable MP operation fail   : %llu\n",
 					pstat->f8_v_mp_op_fail);
 
 	len += scnprintf(_debug_read_buf + len, DEBUG_MAX_RW_BUF - len - 1,
-			"   F9 request             : %d\n",
+			"   F9 request                      : %llu\n",
 					pstat->f9_req);
 	len += scnprintf(_debug_read_buf + len, DEBUG_MAX_RW_BUF - len - 1,
-			"   F9 operation success   : %d\n",
+			"   F9 operation success            : %llu\n",
 					pstat->f9_op_success);
 	len += scnprintf(_debug_read_buf + len, DEBUG_MAX_RW_BUF - len - 1,
-			"   F9 operation fail      : %d\n",
+			"   F9 operation fail               : %llu\n",
 					pstat->f9_op_fail);
 
 	spin_lock_irqsave(&podev->lock, flags);
@@ -841,14 +841,14 @@ static int _disp_stats(void)
 		len += scnprintf(
 			_debug_read_buf + len,
 			DEBUG_MAX_RW_BUF - len - 1,
-			"   Engine %d Req          : %d\n",
+			"   Engine %4d Req                 : %llu\n",
 			p->unit,
 			p->total_req
 		);
 		len += scnprintf(
 			_debug_read_buf + len,
 			DEBUG_MAX_RW_BUF - len - 1,
-			"   Engine %d Req Error    : %d\n",
+			"   Engine %4d Req Error           : %llu\n",
 			p->unit,
 			p->err_req
 		);
