@@ -871,31 +871,21 @@ static void perform_v1_fixup(void)
 	 * 3. Configure the PLL to generate 1.5936 GHz.
 	 */
 	a53_pll1.c.ops->disable(&a53_pll1.c);
-	a57_pll1.c.ops->disable(&a57_pll1.c);
 
 	/* Set the divider on the PLL1 input to the A53 LF MUX (div 2) */
 	regval = readl_relaxed(vbases[ALIAS0_GLB_BASE] + MUX_OFFSET);
 	regval |= BIT(6);
 	writel_relaxed(regval, vbases[ALIAS0_GLB_BASE] + MUX_OFFSET);
 
-	/* Set the divider on the PLL1 input to the A57 LF MUX (div 2) */
-	regval = readl_relaxed(vbases[ALIAS1_GLB_BASE] + MUX_OFFSET);
-	regval |= BIT(6);
-	writel_relaxed(regval, vbases[ALIAS1_GLB_BASE] + MUX_OFFSET);
-
 	a53_pll1.c.ops->set_rate(&a53_pll1.c, 1593600000);
-	a57_pll1.c.ops->set_rate(&a57_pll1.c, 1593600000);
 
 	a53_pll1.c.rate = 1593600000;
-	a57_pll1.c.rate = 1593600000;
 
-	/* Enable the A53 and A57 secondary PLLs */
+	/* Enable the A53 secondary PLL */
 	a53_pll1.c.ops->enable(&a53_pll1.c);
-	a57_pll1.c.ops->enable(&a57_pll1.c);
 
-	/* Select the "safe" parent on the secondary muxes */
+	/* Select the "safe" parent on the secondary mux */
 	__cpu_mux_set_sel(&a53_lf_mux, 1);
-	__cpu_mux_set_sel(&a57_lf_mux, 1);
 }
 
 static int cpu_clock_8994_driver_probe(struct platform_device *pdev)
