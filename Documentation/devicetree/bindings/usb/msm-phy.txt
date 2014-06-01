@@ -95,6 +95,8 @@ Required properties:
    microvolts or a value corresponding to voltage corner
 
 Optional properties:
+ - reg: An address and length of the AHB2PHY CSR register set. If specified, must
+   be the second entry after the base register.
  - qcom,vbus-valid-override: If present, indicates VBUS pin is not connected to
    the USB PHY and the controller must rely on external VBUS notification in
    order to manually relay the notification to the SSPHY.

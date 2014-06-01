@@ -45,6 +45,9 @@
 #define PCIE_USB3_PHY_REVISION_ID2		0x738
 #define PCIE_USB3_PHY_REVISION_ID3		0x73C
 
+/* AHB2PHY register offsets */
+#define PERIPH_SS_AHB2PHY_TOP_CFG		0x10
+
 #define INIT_MAX_TIME_USEC			1000
 
 /* PCIE_USB3_PHY_AUTONOMOUS_MODE_CTRL bits */
@@ -170,6 +173,7 @@ static const struct qmp_reg_val qmp_override_pll[] = {
 struct msm_ssphy_qmp {
 	struct usb_phy		phy;
 	void __iomem		*base;
+	void __iomem		*ahb2phy;
 	struct regulator	*vdd;
 	struct regulator	*vdda18;
 	int			vdd_levels[3]; /* none, low, high */
@@ -379,6 +383,10 @@ static int msm_ssphy_qmp_init(struct usb_phy *uphy)
 			revid);
 		return -ENODEV;
 	}
+
+	/* Configure AHB2PHY for one wait state reads/writes */
+	if (phy->ahb2phy)
+		writel_relaxed(0x11, phy->ahb2phy + PERIPH_SS_AHB2PHY_TOP_CFG);
 
 	writel_relaxed(0x01, phy->base + PCIE_USB3_PHY_POWER_DOWN_CONTROL);
 
@@ -625,15 +633,15 @@ static int msm_ssphy_qmp_probe(struct platform_device *pdev)
 		return -ENOMEM;
 
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
-	if (!res) {
-		dev_err(dev, "missing memory base resource\n");
-		return -ENODEV;
-	}
+	phy->base = devm_ioremap_resource(dev, res);
+	if (IS_ERR(phy->base))
+		return PTR_ERR(phy->base);
 
-	phy->base = devm_ioremap_nocache(dev, res->start, resource_size(res));
-	if (!phy->base) {
-		dev_err(dev, "ioremap failed\n");
-		return -ENODEV;
+	res = platform_get_resource(pdev, IORESOURCE_MEM, 1);
+	if (res) {
+		phy->ahb2phy = devm_ioremap_resource(dev, res);
+		if (IS_ERR(phy->ahb2phy))
+			return PTR_ERR(phy->ahb2phy);
 	}
 
 	ret = of_property_read_u32_array(dev->of_node, "qcom,vdd-voltage-level",
