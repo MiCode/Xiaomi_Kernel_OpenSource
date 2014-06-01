@@ -43,7 +43,7 @@ struct ipc_log_page {
  * @write_avail:  Number of bytes available to write in all pages
  * @dent:  Debugfs node for run-time log extraction
  * @dfunc_info_list:  List of deserialization functions
- * @ipc_log_context_lock:  Lock for entire structure
+ * @context_lock_lhb1:  Lock for entire structure
  * @read_avail:  Completed when new data is added to the log
  */
 struct ipc_log_context {
@@ -59,7 +59,7 @@ struct ipc_log_context {
 	uint32_t write_avail;
 	struct dentry *dent;
 	struct list_head dfunc_info_list;
-	spinlock_t ipc_log_context_lock;
+	spinlock_t context_lock_lhb1;
 	struct completion read_avail;
 };
 
