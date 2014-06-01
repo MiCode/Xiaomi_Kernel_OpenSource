@@ -726,6 +726,9 @@ bool pft_allow_merge_bio(struct bio *bio1, struct bio *bio2)
 	bool is_inplace = false; /* N.A. */
 	int ret;
 
+	if (!pft_is_ready())
+		return true;
+
 	ret = pft_get_key_index(pft_bio_get_inode(bio1), &key_index1,
 				&is_encrypted1, &is_inplace);
 	if (ret)
@@ -1283,20 +1286,16 @@ static void pft_close_opened_enc_files(void)
 {
 	struct pft_file_info *tmp = NULL;
 	struct list_head *pos = NULL;
+	struct list_head *next = NULL;
 
-	mutex_lock(&pft_dev->lock);
-	list_for_each(pos, &pft_dev->open_file_list) {
+	list_for_each_safe(pos, next, &pft_dev->open_file_list) {
 		struct file *filp;
 		tmp = list_entry(pos, struct pft_file_info, list);
 		filp = tmp->file;
-		pr_debug("file %s\n is being closed",
-			 file_to_filename(filp));
-		pft_sync_file(filp);
+		pr_debug("closing file %s.\n", file_to_filename(filp));
+		/* filp_close() eventually calls pft_file_close() */
 		filp_close(filp, NULL);
-		list_del(&tmp->list);
-		kfree(tmp);
 	}
-	mutex_unlock(&pft_dev->lock);
 }
 
 /**
