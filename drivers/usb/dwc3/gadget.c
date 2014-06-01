@@ -1668,6 +1668,22 @@ static int dwc3_gadget_pullup(struct usb_gadget *g, int is_on)
 		return 0;
 	}
 
+	/*
+	 * This insures that the core is not in LPM during the pullup
+	 * on/off toggling.
+	 */
+	spin_unlock_irqrestore(&dwc->lock, flags);
+	if (atomic_read(&dwc->in_lpm) && !is_on) {
+		pm_runtime_get_sync(dwc->dev);
+		dwc->disable_during_lpm = true;
+	}
+
+	if (is_on && dwc->disable_during_lpm) {
+		pm_runtime_put_sync(dwc->dev);
+		dwc->disable_during_lpm = false;
+	}
+	spin_lock_irqsave(&dwc->lock, flags);
+
 	ret = dwc3_gadget_run_stop(dwc, is_on, false);
 
 	spin_unlock_irqrestore(&dwc->lock, flags);
