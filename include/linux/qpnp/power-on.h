@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -40,12 +40,15 @@ enum pon_trigger_source {
  * %PON_POWER_OFF_WARM_RESET:	Reset the MSM but not all PMIC peripherals
  * %PON_POWER_OFF_SHUTDOWN:	Shutdown the MSM and PMIC completely
  * %PON_POWER_OFF_HARD_RESET:	Reset the MSM and all PMIC peripherals
+ * %PON_POWER_OFF_UVLO:		Reset the MSM due but not all the PMIC
+ *				peripherals due to under voltage lock out
 };
  */
 enum pon_power_off_type {
 	PON_POWER_OFF_WARM_RESET	= 0x01,
 	PON_POWER_OFF_SHUTDOWN		= 0x04,
 	PON_POWER_OFF_HARD_RESET	= 0x07,
+	PON_POWER_OFF_UVLO		= 0x0D,
 };
 
 #ifdef CONFIG_QPNP_POWER_ON
