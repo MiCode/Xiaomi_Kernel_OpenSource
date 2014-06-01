@@ -81,6 +81,60 @@
 			debounce-interval = <15>;
 		};
 	};
+
+	i2c@78b6000 { /* BLSP1 QUP2 */
+		mpu6050@68 { /* Gyroscope and accelerometer sensor combo */
+			compatible = "invn,mpu6050";
+			reg = <0x68>;
+			pinctrl-names = "mpu_default","mpu_sleep";
+			pinctrl-0 = <&mpu6050_default>;
+			pinctrl-1 = <&mpu6050_sleep>;
+			interrupt-parent = <&msm_gpio>;
+			interrupts = <115 0x2>;
+			vdd-supply = <&pm8916_l17>;
+			vlogic-supply = <&pm8916_l16>;
+			vi2c-supply = <&pm8916_l6>;
+			invn,gpio-int = <&msm_gpio 115 0x2>;
+			invn,place = "Portrait Down Back Side";
+		};
+
+		avago@39 { /* Ambient light and proximity sensor */
+			compatible = "avago,apds9900";
+			reg = <0x39>;
+			pinctrl-names = "default","sleep";
+			pinctrl-0 = <&apds99xx_default>;
+			pinctrl-1 = <&apds99xx_sleep>;
+			interrupt-parent = <&msm_gpio>;
+			interrupts = <113 0x2002>;
+			vdd-supply = <&pm8916_l17>;
+			vio-supply = <&pm8916_l6>;
+			avago,irq-gpio = <&msm_gpio 113 0x2002>;
+			avago,ps-threshold = <600>;
+			avago,ps-hysteresis-threshold = <500>;
+			avago,ps-pulse = <8>;
+			avago,ps-pgain = <0>;
+			avago,als-B = <223>;
+			avago,als-C = <70>;
+			avago,als-D = <142>;
+			avago,ga-value = <48>;
+		};
+
+		akm@c {
+			compatible = "ak,ak8963";
+			reg = <0x0c>;
+			pinctrl-names = "ak8963_default", "ak8963_sleep";
+			pinctrl-0 = <&ak8963_default>;
+			pinctrl-1 = <&ak8963_sleep>;
+			interrupt-parent = <&msm_gpio>;
+			interrupts = <69 0x2>;
+			vdd-supply = <&pm8916_l17>;
+			vio-supply = <&pm8916_l6>;
+			ak,layout = <0x6>;
+			ak,auto-report;
+		};
+
+	};
+
 	sound {
 		compatible = "qcom,msm8x16-audio-codec";
 		qcom,model = "msm8939-snd-card";
