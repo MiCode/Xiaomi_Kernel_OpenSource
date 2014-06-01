@@ -155,6 +155,7 @@ static struct pll_clk a57_pll0 = {
 		.mn_en_mask = BIT(24),
 		.main_output_mask = BIT(0),
 		.early_output_mask = BIT(3),
+		.apc_pdn_mask = BIT(24),
 	},
 	.vals = {
 		.post_div_masked = 0x100,
@@ -186,6 +187,7 @@ static struct pll_clk a57_pll1 = {
 		.mn_en_mask = BIT(24),
 		.main_output_mask = BIT(0),
 		.early_output_mask = BIT(3),
+		.apc_pdn_mask = BIT(24),
 	},
 	.vals = {
 		.post_div_masked = 0x300,
@@ -219,6 +221,7 @@ static struct pll_clk a53_pll0 = {
 		.mn_en_mask = BIT(24),
 		.main_output_mask = BIT(0),
 		.early_output_mask = BIT(3),
+		.apc_pdn_mask = BIT(24),
 	},
 	.vals = {
 		.post_div_masked = 0x100,
@@ -250,6 +253,7 @@ static struct pll_clk a53_pll1 = {
 		.mn_en_mask = BIT(24),
 		.main_output_mask = BIT(0),
 		.early_output_mask = BIT(3),
+		.apc_pdn_mask = BIT(24),
 	},
 	.vals = {
 		.post_div_masked = 0x300,
