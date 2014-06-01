@@ -12,6 +12,7 @@
 
 #include <linux/module.h>
 #include <linux/init.h>
+#include <linux/debugfs.h>
 #include <linux/kernel.h>
 #include <linux/errno.h>
 #include <linux/slab.h>
@@ -142,6 +143,8 @@ struct qpnp_pon {
 	u32 dbc;
 	int pon_trigger_reason;
 	int pon_power_off_reason;
+	u32 uvlo;
+	struct dentry *debugfs;
 };
 
 static struct qpnp_pon *sys_reset_dev;
@@ -1251,6 +1254,65 @@ free_input_dev:
 	return rc;
 }
 
+#if defined(CONFIG_DEBUG_FS)
+
+static int qpnp_pon_debugfs_uvlo_get(void *data, u64 *val)
+{
+	struct qpnp_pon *pon = (struct qpnp_pon *) data;
+
+	*val = pon->uvlo;
+
+	return 0;
+}
+
+static int qpnp_pon_debugfs_uvlo_set(void *data, u64 val)
+{
+	struct qpnp_pon *pon = (struct qpnp_pon *) data;
+
+	if (pon->pon_trigger_reason == PON_SMPL ||
+		pon->pon_power_off_reason == PON_POWER_OFF_UVLO)
+		panic("An UVLO was occurred.\n");
+	pon->uvlo = val;
+
+	return 0;
+}
+
+DEFINE_SIMPLE_ATTRIBUTE(qpnp_pon_debugfs_uvlo_fops, qpnp_pon_debugfs_uvlo_get,
+			qpnp_pon_debugfs_uvlo_set, "0x%02llx\n");
+
+static void qpnp_pon_debugfs_init(struct spmi_device *spmi)
+{
+	struct qpnp_pon *pon = dev_get_drvdata(&spmi->dev);
+	struct dentry *ent;
+
+	pon->debugfs = debugfs_create_dir(dev_name(&spmi->dev), NULL);
+	if (!pon->debugfs) {
+		dev_err(&pon->spmi->dev, "Unable to create debugfs directory\n");
+	} else {
+		ent = debugfs_create_file("uvlo_panic",
+				S_IFREG | S_IWUSR | S_IRUGO,
+				pon->debugfs, pon, &qpnp_pon_debugfs_uvlo_fops);
+		if (!ent)
+			dev_err(&pon->spmi->dev, "Unable to create uvlo_panic debugfs file.\n");
+	}
+}
+
+static void qpnp_pon_debugfs_remove(struct spmi_device *spmi)
+{
+	struct qpnp_pon *pon = dev_get_drvdata(&spmi->dev);
+
+	debugfs_remove_recursive(pon->debugfs);
+}
+
+#else
+
+static void qpnp_pon_debugfs_init(struct spmi_device *spmi)
+{}
+
+static void qpnp_pon_debugfs_remove(struct spmi_device *spmi)
+{}
+#endif
+
 static int qpnp_pon_probe(struct spmi_device *spmi)
 {
 	struct qpnp_pon *pon;
@@ -1441,6 +1503,7 @@ static int qpnp_pon_probe(struct spmi_device *spmi)
 		return rc;
 	}
 
+	qpnp_pon_debugfs_init(spmi);
 	return rc;
 }
 
@@ -1454,7 +1517,7 @@ static int qpnp_pon_remove(struct spmi_device *spmi)
 
 	if (pon->pon_input)
 		input_unregister_device(pon->pon_input);
-
+	qpnp_pon_debugfs_remove(spmi);
 	return 0;
 }
 
