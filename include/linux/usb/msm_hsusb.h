@@ -191,6 +191,19 @@ enum usb_vdd_value {
 };
 
 /**
+ * Maintain state for hvdcp external charger status
+ * DEFAULT	This is used when DCP is detected
+ * ACTIVE	This is used when ioctl is called to block LPM
+ * INACTIVE	This is used when ioctl is called to unblock LPM
+ */
+
+enum usb_ext_chg_status {
+	DEFAULT = 1,
+	ACTIVE,
+	INACTIVE,
+};
+
+/**
  * Supported USB controllers
  */
 enum usb_ctrl {
@@ -495,7 +508,7 @@ struct msm_otg {
 	struct class *ext_chg_class;
 	struct device *ext_chg_device;
 	bool ext_chg_opened;
-	bool ext_chg_active;
+	enum usb_ext_chg_status ext_chg_active;
 	struct completion ext_chg_wait;
 	struct pinctrl *phy_pinctrl;
 	int ui_enabled;
