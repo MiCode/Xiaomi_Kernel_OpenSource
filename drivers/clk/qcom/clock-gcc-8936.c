@@ -297,7 +297,7 @@ static void __iomem *virt_dbgbase;
 #define xo_a_clk_source_val		0
 #define gpll0_out_main_source_val	1
 #define gpll0_out_aux_source_val	5
-#define gpll0_usbfs_source_val		2
+#define gpll0_misc_source_val		2
 #define gpll1_out_main_source_val	1
 #define gpll2_out_main_source_val	2
 #define gpll2_out_aux_source_val	3
@@ -582,7 +582,7 @@ static struct pll_vote_clk gpll0_ao = {
 
 DEFINE_EXT_CLK(gpll0_out_main, &gpll0.c);
 DEFINE_EXT_CLK(gpll0_out_aux, &gpll0.c);
-DEFINE_EXT_CLK(gpll0_usbfs, &gpll0.c);
+DEFINE_EXT_CLK(gpll0_misc, &gpll0.c);
 
 static struct pll_vote_clk gpll1 = {
 	.en_reg = (void __iomem *)APCS_GPLL_ENA_VOTE,
@@ -1056,7 +1056,7 @@ static struct rcg_clk blsp1_uart2_apps_clk_src = {
 
 static struct clk_freq_tbl ftbl_gcc_camss_cci_clk[] = {
 	F(  19200000,	      gcc_xo,   1,	  0,	0),
-	F(  37500000,         gcc_xo,   1,    3,    64),
+	F(  37500000,         gpll0_misc,   1,    3,    64),
 	F_END
 };
 
@@ -1543,7 +1543,7 @@ static struct rcg_clk usb_fs_ic_clk_src = {
 };
 
 static struct clk_freq_tbl ftbl_gcc_usb_fs_system_clk[] = {
-	F(  64000000,	   gpll0_usbfs,  12.5,	  0,	0),
+	F(  64000000,	   gpll0_misc,  12.5,	  0,	0),
 	F_END
 };
 
@@ -3043,7 +3043,7 @@ static struct clk_lookup msm_clocks_lookup[] = {
 	CLK_LIST(gpll0_ao),
 	CLK_LIST(gpll0_out_main),
 	CLK_LIST(gpll0_out_aux),
-	CLK_LIST(gpll0_usbfs),
+	CLK_LIST(gpll0_misc),
 	CLK_LIST(gpll1),
 	CLK_LIST(gpll1_out_main),
 	CLK_LIST(gpll2),
