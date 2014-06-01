@@ -278,6 +278,8 @@
 #define clk_jpeg1_clk_src 0xee282bdf
 #define clk_jpeg2_clk_src 0x5ad927f3
 #define clk_csi2phytimer_clk_src 0x62ffea9c
+#define clk_pclk0_clk_src 0xccac1f35
+#define clk_pclk1_clk_src 0x090f68ac
 #define clk_fd_core_clk_src 0xe4799ab7
 #define clk_mdp_clk_src 0x6dc1f8f1
 #define clk_ocmemnoc_clk_src 0x20297054
@@ -292,8 +294,11 @@
 #define clk_mclk3_clk_src 0x2bfbb714
 #define clk_csi0phytimer_clk_src 0xc8a309be
 #define clk_csi1phytimer_clk_src 0x7c0fe23a
+#define clk_byte0_clk_src 0x75cc885b
+#define clk_byte1_clk_src 0x63c2c955
 #define clk_esc0_clk_src 0xb41d7c38
 #define clk_esc1_clk_src 0x3b0afa42
+#define clk_extpclk_clk_src 0xb2c31abd
 #define clk_hdmi_clk_src 0xb40aeea9
 #define clk_vsync_clk_src 0xecb43940
 #define clk_rbbmtimer_clk_src 0x17649ecc
@@ -353,11 +358,16 @@
 #define clk_fd_core_uar_clk 0x7e624e15
 #define clk_mdss_ahb_clk 0x684ccb41
 #define clk_mdss_axi_clk 0xcc07d687
+#define clk_mdss_byte0_clk 0xf5a03f64
+#define clk_mdss_byte1_clk 0xb8c7067d
 #define clk_mdss_esc0_clk 0x28cafbe6
 #define clk_mdss_esc1_clk 0xc22c6883
+#define clk_mdss_extpclk_clk 0xfa5aadb0
 #define clk_mdss_hdmi_ahb_clk 0x01cef516
 #define clk_mdss_hdmi_clk 0x097a6de9
 #define clk_mdss_mdp_clk 0x618336ac
+#define clk_mdss_pclk0_clk 0x3487234a
+#define clk_mdss_pclk1_clk 0xd5804246
 #define clk_mdss_vsync_clk 0x42a022d3
 #define clk_mmss_misc_ahb_clk 0xea30b0e7
 #define clk_mmss_mmssnoc_axi_clk 0x63753a4b
@@ -374,18 +384,6 @@
 #define clk_venus0_core1_vcodec_clk 0x6324869c
 #define clk_venus0_core2_vcodec_clk 0x24fa20a3
 #define clk_mmss_debug_mux 0xe646ffda
-
-/* clock_mdss controlled clocks */
-#define clk_pclk0_clk_src 0xccac1f35
-#define clk_pclk1_clk_src 0x090f68ac
-#define clk_byte0_clk_src 0x75cc885b
-#define clk_byte1_clk_src 0x63c2c955
-#define clk_extpclk_clk_src 0xb2c31abd
-#define clk_mdss_byte0_clk 0xf5a03f64
-#define clk_mdss_byte1_clk 0xb8c7067d
-#define clk_mdss_extpclk_clk 0xfa5aadb0
-#define clk_mdss_pclk0_clk 0x3487234a
-#define clk_mdss_pclk1_clk 0xd5804246
 
 /* clock_cpu controlled clocks */
 #define clk_a57_pll0 0xd01177bc
