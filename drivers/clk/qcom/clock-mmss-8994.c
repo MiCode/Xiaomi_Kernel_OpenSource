@@ -2159,6 +2159,7 @@ static struct mux_clk mmss_debug_mux = {
 	.ops = &debug_mux_ops,
 	MUX_SRC_LIST(
 		{ &mmsscc_mmssnoc_ahb.c, 0x0001 },
+		{ &oxili_gfx3d_clk.c, 0x000d },
 		{ &mmss_misc_ahb_clk.c, 0x0003 },
 		{ &mmss_mmssnoc_axi_clk.c, 0x0004 },
 		{ &mmss_s0_axi_clk.c, 0x0005 },
@@ -2432,6 +2433,14 @@ int msm_mmsscc_8994_probe(struct platform_device *pdev)
 	if (IS_ERR(tmp)) {
 		if (PTR_ERR(tmp) != -EPROBE_DEFER)
 			dev_err(&pdev->dev, "Unable to get MMSSNOC AHB clock!");
+		return PTR_ERR(tmp);
+	}
+
+	tmp = oxili_gfx3d_clk.c.parent =
+				devm_clk_get(&pdev->dev, "oxili_gfx3d_clk");
+	if (IS_ERR(tmp)) {
+		if (PTR_ERR(tmp) != -EPROBE_DEFER)
+			dev_err(&pdev->dev, "Unable to get oxili_gfx3d clock!");
 		return PTR_ERR(tmp);
 	}
 
