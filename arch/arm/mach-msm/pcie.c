@@ -1717,7 +1717,7 @@ static int __init pcie_init(void)
 	for (i = 0; i < MAX_RC_NUM; i++) {
 		snprintf(rc_name, MAX_RC_NAME_LEN, "pcie%d", i);
 		msm_pcie_dev[i].ipc_log =
-			ipc_log_context_create(PCIE_LOG_PAGES, rc_name);
+			ipc_log_context_create(PCIE_LOG_PAGES, rc_name, 0);
 		if (msm_pcie_dev[i].ipc_log == NULL)
 			pr_err("%s: unable to create IPC log context for %s\n",
 				__func__, rc_name);

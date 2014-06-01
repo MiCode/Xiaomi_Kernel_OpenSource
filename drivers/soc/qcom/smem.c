@@ -1462,7 +1462,7 @@ int __init msm_smem_init(void)
 
 	registered = true;
 
-	smem_ipc_log_ctx = ipc_log_context_create(NUM_LOG_PAGES, "smem");
+	smem_ipc_log_ctx = ipc_log_context_create(NUM_LOG_PAGES, "smem", 0);
 	if (!smem_ipc_log_ctx) {
 		pr_err("%s: unable to create logging context\n", __func__);
 		msm_smem_debug_mask = 0;

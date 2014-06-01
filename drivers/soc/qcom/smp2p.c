@@ -1917,7 +1917,7 @@ static int __init msm_smp2p_init(void)
 		in_list[i].smem_edge_in = NULL;
 	}
 
-	log_ctx = ipc_log_context_create(NUM_LOG_PAGES, "smp2p");
+	log_ctx = ipc_log_context_create(NUM_LOG_PAGES, "smp2p", 0);
 	if (!log_ctx)
 		SMP2P_ERR("%s: unable to create log context\n", __func__);
 
