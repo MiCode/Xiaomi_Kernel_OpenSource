@@ -188,6 +188,7 @@ struct msm_ssphy_qmp {
 	bool			in_suspend;
 	bool			ext_vbus_id;
 	bool			override_pll_cal;
+	bool			switch_pipe_clk_src;
 };
 
 static inline char *get_cable_status_str(struct msm_ssphy_qmp *phy)
@@ -312,13 +313,15 @@ static int msm_ssphy_qmp_init_clocks(struct msm_ssphy_qmp *phy)
 		goto disable_cfg_ahb_clk;
 	}
 
-	/*
-	 * Before PHY is initilized we must first use the xo clock
-	 * as the source clock for the gcc_usb3_pipe_clk in 19.2MHz
-	 * After PHY initilization we will set the rate again to 125MHz.
-	 */
-	clk_set_rate(phy->pipe_clk, 19200000);
-	clk_prepare_enable(phy->pipe_clk);
+	if (phy->switch_pipe_clk_src) {
+		/*
+		 * Before PHY is initilized we must first use the xo clock
+		 * as the source clock for the gcc_usb3_pipe_clk in 19.2MHz
+		 * After PHY initilization we will set the rate again to 125MHz.
+		 */
+		clk_set_rate(phy->pipe_clk, 19200000);
+		clk_prepare_enable(phy->pipe_clk);
+	} /* otherwise pipe_clk must be enabled after initialization */
 
 	phy->phy_com_reset = devm_clk_get(phy->phy.dev, "phy_com_reset");
 	if (IS_ERR(phy->phy_com_reset))
@@ -403,6 +406,10 @@ static int msm_ssphy_qmp_init(struct usb_phy *uphy)
 	writel_relaxed(0x00, phy->base + PCIE_USB3_PHY_SW_RESET);
 	writel_relaxed(0x03, phy->base + PCIE_USB3_PHY_START);
 
+	if (!phy->switch_pipe_clk_src)
+		/* this clock wasn't enabled before, enable it now */
+		clk_prepare_enable(phy->pipe_clk);
+
 	/* Wait for PHY initialization to be done */
 	do {
 		if (readl_relaxed(phy->base + PCIE_USB3_PHY_PCS_STATUS) &
@@ -419,12 +426,13 @@ static int msm_ssphy_qmp_init(struct usb_phy *uphy)
 
 	/*
 	 * After PHY initilization above, the PHY is generating
-	 * the usb3_pipe_clk in 125MHz. Therefore now we can (and need)
-	 * to switch the gcc_usb3_pipe_clk to 125MHz as well, so
-	 * the gcc_usb3_pipe_clk is sourced now from the usb3_pipe3_clk
+	 * the usb3_pipe_clk in 125MHz. Therefore now we can (if needed)
+	 * switch the gcc_usb3_pipe_clk to 125MHz as well, so the
+	 * gcc_usb3_pipe_clk is sourced now from the usb3_pipe3_clk
 	 * instead of from the xo clock.
 	 */
-	clk_set_rate(phy->pipe_clk, 125000000);
+	if (phy->switch_pipe_clk_src)
+		clk_set_rate(phy->pipe_clk, 125000000);
 
 	return 0;
 }
@@ -691,6 +699,9 @@ static int msm_ssphy_qmp_probe(struct platform_device *pdev)
 					"qcom,override-pll-calibration");
 	if (phy->override_pll_cal)
 		dev_dbg(dev, "Override PHY PLL calibration is enabled.\n");
+
+	phy->switch_pipe_clk_src = !of_property_read_bool(dev->of_node,
+					"qcom,no-pipe-clk-switch");
 
 	phy->phy.dev			= dev;
 	phy->phy.init			= msm_ssphy_qmp_init;

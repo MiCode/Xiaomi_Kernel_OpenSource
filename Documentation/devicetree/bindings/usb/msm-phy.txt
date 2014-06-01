@@ -99,6 +99,8 @@ Optional properties:
    the USB PHY and the controller must rely on external VBUS notification in
    order to manually relay the notification to the SSPHY.
  - qcom,ext-vbus-id: If present, indicates that the PHY does not handle VBUS and ID changes.
+ - qcom,no-pipe-clk-switch: If present, indicates that the pipe_clk does not need
+   to switch sources between the XO and the PHY PIPE clock output.
 
 Example:
 	ssphy0: ssphy@f9b38000 {
