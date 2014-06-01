@@ -212,9 +212,6 @@
 		clocks = <&clock_rpm clk_qdss_clk>,
 			 <&clock_rpm clk_qdss_a_clk>;
 		clock-names = "core_clk", "core_a_clk";
-
-		qcom,pc-save;
-		qcom,round-robin;
 	};
 
 	etm1: etm@fb940000 {
@@ -232,9 +229,6 @@
 		clocks = <&clock_rpm clk_qdss_clk>,
 			 <&clock_rpm clk_qdss_a_clk>;
 		clock-names = "core_clk", "core_a_clk";
-
-		qcom,pc-save;
-		qcom,round-robin;
 	};
 
 	etm2: etm@fba40000 {
@@ -252,9 +246,6 @@
 		clocks = <&clock_rpm clk_qdss_clk>,
 			 <&clock_rpm clk_qdss_a_clk>;
 		clock-names = "core_clk", "core_a_clk";
-
-		qcom,pc-save;
-		qcom,round-robin;
 	};
 
 	etm3: etm@fbb40000 {
@@ -272,9 +263,6 @@
 		clocks = <&clock_rpm clk_qdss_clk>,
 			 <&clock_rpm clk_qdss_a_clk>;
 		clock-names = "core_clk", "core_a_clk";
-
-		qcom,pc-save;
-		qcom,round-robin;
 	};
 
 	etm4: etm@fbc40000 {
@@ -292,9 +280,6 @@
 		clocks = <&clock_rpm clk_qdss_clk>,
 			 <&clock_rpm clk_qdss_a_clk>;
 		clock-names = "core_clk", "core_a_clk";
-
-		qcom,pc-save;
-		qcom,round-robin;
 	};
 
 	etm5: etm@fbd40000 {
@@ -312,9 +297,6 @@
 		clocks = <&clock_rpm clk_qdss_clk>,
 			 <&clock_rpm clk_qdss_a_clk>;
 		clock-names = "core_clk", "core_a_clk";
-
-		qcom,pc-save;
-		qcom,round-robin;
 	};
 
 	etm6: etm@fbe40000 {
@@ -332,9 +314,6 @@
 		clocks = <&clock_rpm clk_qdss_clk>,
 			 <&clock_rpm clk_qdss_a_clk>;
 		clock-names = "core_clk", "core_a_clk";
-
-		qcom,pc-save;
-		qcom,round-robin;
 	};
 
 	etm7: etm@fbf40000 {
@@ -352,9 +331,6 @@
 		clocks = <&clock_rpm clk_qdss_clk>,
 			 <&clock_rpm clk_qdss_a_clk>;
 		clock-names = "core_clk", "core_a_clk";
-
-		qcom,pc-save;
-		qcom,round-robin;
 	};
 
 	audio_etm0 {
