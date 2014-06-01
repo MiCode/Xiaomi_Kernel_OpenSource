@@ -1410,8 +1410,11 @@ free_bam_ports:
 
 static int bam_data_wake_cb(void *param)
 {
+	int ret;
 	struct bam_data_port *port = (struct bam_data_port *)param;
 	struct data_port *d_port = port->port_usb;
+	struct usb_gadget *gadget;
+	struct usb_function *func;
 
 	pr_debug("%s: woken up by peer\n", __func__);
 
@@ -1425,12 +1428,40 @@ static int bam_data_wake_cb(void *param)
 		return -ENODEV;
 	}
 
-	if (!d_port->cdev->gadget) {
+	gadget = d_port->cdev->gadget;
+	if (!gadget) {
 		pr_err("FAILED: d_port->cdev->gadget == NULL");
 		return -ENODEV;
 	}
 
-	return usb_gadget_wakeup(d_port->cdev->gadget);
+	func = d_port->func;
+
+	/*
+	 * In Super-Speed mode, remote wakeup is not allowed for suspended
+	 * functions which have been disallowed by the host to issue Funtion
+	 * Remote Wakeup.
+	 * Note - We deviate here from the USB 3.0 spec and allow
+	 * non-suspended functions to issue remote-wakeup even if they were not
+	 * allowed to do so by the host. This is done in order to support non
+	 * fully USB 3.0 compatible hosts.
+	 */
+	if ((gadget->speed == USB_SPEED_SUPER) && (func->func_is_suspended) &&
+		!func->func_wakeup_allowed)
+		return -ENOTSUPP;
+
+	ret = usb_gadget_wakeup(gadget);
+	if (ret) {
+		pr_err("Failed to wake up the USB core. ret=%d", ret);
+		return ret;
+	}
+
+	if (gadget->speed == USB_SPEED_SUPER) {
+		ret = usb_func_wakeup(func);
+		if (ret)
+			return ret;
+	}
+
+	return 0;
 }
 
 static void bam_data_start(void *param, enum usb_bam_pipe_dir dir)

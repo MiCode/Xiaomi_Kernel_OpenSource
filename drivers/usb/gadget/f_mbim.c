@@ -707,7 +707,7 @@ static void fmbim_ctrl_response_available(struct f_mbim *dev)
 	event->wLength = cpu_to_le16(0);
 	spin_unlock_irqrestore(&dev->lock, flags);
 
-	ret = usb_ep_queue(dev->not_port.notify,
+	ret = usb_func_ep_queue(&dev->function, dev->not_port.notify,
 			   req, GFP_ATOMIC);
 	if (ret) {
 		atomic_dec(&dev->not_port.notify_count);
@@ -912,7 +912,9 @@ static void mbim_do_notify(struct f_mbim *mbim)
 		}
 
 		spin_unlock(&mbim->lock);
-		status = usb_ep_queue(mbim->not_port.notify, req, GFP_ATOMIC);
+		status = usb_func_ep_queue(&mbim->function,
+				mbim->not_port.notify,
+				req, GFP_ATOMIC);
 		spin_lock(&mbim->lock);
 		if (status) {
 			atomic_dec(&mbim->not_port.notify_count);
@@ -935,11 +937,12 @@ static void mbim_do_notify(struct f_mbim *mbim)
 	pr_debug("queue request: notify_count = %d\n",
 		atomic_read(&mbim->not_port.notify_count));
 	spin_unlock(&mbim->lock);
-	status = usb_ep_queue(mbim->not_port.notify, req, GFP_ATOMIC);
+	status = usb_func_ep_queue(&mbim->function, mbim->not_port.notify, req,
+			GFP_ATOMIC);
 	spin_lock(&mbim->lock);
 	if (status) {
 		atomic_dec(&mbim->not_port.notify_count);
-		pr_err("usb_ep_queue failed, err: %d\n", status);
+		pr_err("usb_func_ep_queue failed, err: %d\n", status);
 	}
 }
 
@@ -1258,6 +1261,7 @@ mbim_setup(struct usb_function *f, const struct usb_ctrlrequest *ctrl)
 		req->zero = (value < w_length);
 		req->length = value;
 		value = usb_ep_queue(cdev->gadget->ep0, req, GFP_ATOMIC);
+
 		if (value < 0) {
 			pr_err("queueing req failed: %02x.%02x, err %d\n",
 				ctrl->bRequestType,
@@ -1335,6 +1339,8 @@ static int mbim_set_alt(struct usb_function *f, unsigned intf, unsigned alt)
 	struct f_mbim		*mbim = func_to_mbim(f);
 	struct usb_composite_dev *cdev = mbim->cdev;
 	int ret = 0;
+
+	pr_debug("intf=%u, alt=%u\n", intf, alt);
 
 	/* Control interface has only altsetting 0 */
 	if (intf == mbim->ctrl_id) {
@@ -1474,6 +1480,7 @@ static void mbim_disable(struct usb_function *f)
 
 	pr_info("SET DEVICE OFFLINE\n");
 	atomic_set(&mbim->online, 0);
+	mbim->data_alt_int = 0;
 
 	mbim->not_port.notify_state = MBIM_NOTIFY_NONE;
 
@@ -1502,14 +1509,33 @@ static void mbim_disable(struct usb_function *f)
 
 static void mbim_suspend(struct usb_function *f)
 {
+	bool remote_wakeup_allowed;
 	struct f_mbim	*mbim = func_to_mbim(f);
 
 	pr_info("mbim suspended\n");
 
 	pr_debug("%s(): remote_wakeup:%d\n:", __func__,
 			mbim->cdev->gadget->remote_wakeup);
-	if (mbim->cdev->gadget->remote_wakeup ||
-			(mbim->cdev->gadget->speed == USB_SPEED_SUPER)) {
+
+	/* If the function is in Function Suspend state, avoid suspending the
+	 * MBIM function again.
+	 */
+	if ((mbim->cdev->gadget->speed == USB_SPEED_SUPER) &&
+		f->func_is_suspended)
+		return;
+
+	if (mbim->cdev->gadget->speed == USB_SPEED_SUPER)
+		remote_wakeup_allowed = f->func_wakeup_allowed;
+	else
+		remote_wakeup_allowed = mbim->cdev->gadget->remote_wakeup;
+
+	/* MBIM data interface is up only when alt setting is set to 1. */
+	if (mbim->data_alt_int == 0) {
+		pr_debug("MBIM data interface is not opened. Returning\n");
+		return;
+	}
+
+	if (remote_wakeup_allowed) {
 		bam_data_suspend(MBIM_ACTIVE_PORT);
 	} else {
 		/*
@@ -1519,27 +1545,112 @@ static void mbim_suspend(struct usb_function *f)
 		 * the BAM disconnect API. This lets us restore this info when
 		 * the USB bus is resumed.
 		 */
-		mbim->in_ep_desc_backup  = mbim->bam_port.in->desc;
-		mbim->out_ep_desc_backup = mbim->bam_port.out->desc;
+		if (mbim->bam_port.in->desc)
+			mbim->in_ep_desc_backup  = mbim->bam_port.in->desc;
+
+		if (mbim->bam_port.out->desc)
+			mbim->out_ep_desc_backup = mbim->bam_port.out->desc;
+
+		pr_debug("in_ep_desc_backup = %p, out_ep_desc_backup = %p",
+			mbim->in_ep_desc_backup, mbim->out_ep_desc_backup);
+
 		mbim_bam_disconnect(mbim);
 	}
 }
 
 static void mbim_resume(struct usb_function *f)
 {
+	bool remote_wakeup_allowed;
 	struct f_mbim	*mbim = func_to_mbim(f);
 
 	pr_info("mbim resumed\n");
 
-	if (mbim->cdev->gadget->remote_wakeup ||
-			(mbim->cdev->gadget->speed == USB_SPEED_SUPER)) {
+	/*
+	 * If the function is in USB3 Function Suspend state, resume is
+	 * canceled. In this case resume is done by a Function Resume request.
+	 */
+	if ((mbim->cdev->gadget->speed == USB_SPEED_SUPER) &&
+		f->func_is_suspended)
+		return;
+
+	if (mbim->cdev->gadget->speed == USB_SPEED_SUPER)
+		remote_wakeup_allowed = f->func_wakeup_allowed;
+	else
+		remote_wakeup_allowed = mbim->cdev->gadget->remote_wakeup;
+
+	/* MBIM data interface is up only when alt setting is set to 1. */
+	if (mbim->data_alt_int == 0) {
+		pr_debug("MBIM data interface is not opened. Returning\n");
+		return;
+	}
+
+	if (remote_wakeup_allowed) {
 		bam_data_resume(MBIM_ACTIVE_PORT);
 	} else {
 		/* Restore endpoint descriptors info. */
 		mbim->bam_port.in->desc  = mbim->in_ep_desc_backup;
 		mbim->bam_port.out->desc = mbim->out_ep_desc_backup;
+
+		pr_debug("in_ep_desc_backup = %p, out_ep_desc_backup = %p",
+			mbim->in_ep_desc_backup, mbim->out_ep_desc_backup);
+
 		mbim_bam_connect(mbim);
 	}
+}
+
+static int mbim_func_suspend(struct usb_function *f, unsigned char options)
+{
+	enum {
+		MBIM_FUNC_SUSPEND_MASK   = 0x1,
+		MBIM_FUNC_WAKEUP_EN_MASK = 0x2
+	};
+
+	bool func_wakeup_allowed;
+	struct f_mbim	*mbim = func_to_mbim(f);
+
+	if (f == NULL)
+		return -EINVAL;
+
+	pr_debug("Got Function Suspend(%u) command for %s function\n",
+		options, f->name ? f->name : "");
+
+	/* Function Suspend is supported by Super Speed devices only */
+	if (mbim->cdev->gadget->speed != USB_SPEED_SUPER)
+		return -ENOTSUPP;
+
+	func_wakeup_allowed =
+		((options & MBIM_FUNC_WAKEUP_EN_MASK) != 0);
+
+	if (options & MBIM_FUNC_SUSPEND_MASK) {
+		f->func_wakeup_allowed = func_wakeup_allowed;
+		if (!f->func_is_suspended) {
+			mbim_suspend(f);
+			f->func_is_suspended = true;
+		}
+	} else {
+		if (f->func_is_suspended) {
+			f->func_is_suspended = false;
+			mbim_resume(f);
+		}
+		f->func_wakeup_allowed = func_wakeup_allowed;
+	}
+
+	return 0;
+}
+
+static int mbim_get_status(struct usb_function *f)
+{
+	enum {
+		MBIM_STS_FUNC_WAKEUP_CAP_SHIFT  = 0,
+		MBIM_STS_FUNC_WAKEUP_EN_SHIFT   = 1
+	};
+
+	unsigned remote_wakeup_enabled_bit;
+	const unsigned remote_wakeup_capable_bit = 1;
+
+	remote_wakeup_enabled_bit = f->func_wakeup_allowed ? 1 : 0;
+	return (remote_wakeup_enabled_bit << MBIM_STS_FUNC_WAKEUP_EN_SHIFT) |
+		(remote_wakeup_capable_bit << MBIM_STS_FUNC_WAKEUP_CAP_SHIFT);
 }
 
 /*---------------------- function driver setup/binding ---------------------*/
@@ -1790,6 +1901,8 @@ int mbim_bind_config(struct usb_configuration *c, unsigned portno,
 	mbim->function.setup = mbim_setup;
 	mbim->function.disable = mbim_disable;
 	mbim->function.suspend = mbim_suspend;
+	mbim->function.func_suspend = mbim_func_suspend;
+	mbim->function.get_status = mbim_get_status;
 	mbim->function.resume = mbim_resume;
 	mbim->xport = str_to_xport(xport_name);
 
