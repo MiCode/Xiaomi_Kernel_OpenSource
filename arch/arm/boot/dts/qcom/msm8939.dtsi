@@ -215,6 +215,8 @@
 #include "msm8939-bus.dtsi"
 #include "msm8939-mdss.dtsi"
 #include "msm8939-iommu-domains.dtsi"
+#include "msm8939-camera.dtsi"
+
 &soc {
 	#address-cells = <1>;
 	#size-cells = <1>;
