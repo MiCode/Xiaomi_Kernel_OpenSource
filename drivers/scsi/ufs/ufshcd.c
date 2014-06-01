@@ -6466,19 +6466,15 @@ static struct devfreq_simple_ondemand_data ufshcd_ondemand_data = {
 	.simple_scaling = 1,
 };
 
-static const struct devfreq_governor_data ufshcd_governors[] = {
-	{ .name = "simple_ondemand", .data = &ufshcd_ondemand_data },
-};
+static void *gov_data = &ufshcd_ondemand_data;
+#else
+static void *gov_data;
 #endif
 
 static struct devfreq_dev_profile ufs_devfreq_profile = {
 	.polling_ms	= 100,
 	.target		= ufshcd_devfreq_target,
 	.get_dev_status	= ufshcd_devfreq_get_dev_status,
-#if IS_ENABLED(CONFIG_DEVFREQ_GOV_SIMPLE_ONDEMAND)
-	.governor_data = ufshcd_governors,
-	.num_governor_data = ARRAY_SIZE(ufshcd_governors),
-#endif
 };
 static void ufshcd_clkscaling_init_sysfs(struct ufs_hba *hba)
 {
@@ -6604,7 +6600,7 @@ int ufshcd_init(struct ufs_hba *hba, void __iomem *mmio_base, unsigned int irq)
 
 	if (ufshcd_is_clkscaling_supported(hba)) {
 		hba->devfreq = devfreq_add_device(dev, &ufs_devfreq_profile,
-						   "simple_ondemand", NULL);
+						  "simple_ondemand", gov_data);
 		if (IS_ERR(hba->devfreq)) {
 			dev_err(hba->dev, "Unable to register with devfreq %ld\n",
 					PTR_ERR(hba->devfreq));
