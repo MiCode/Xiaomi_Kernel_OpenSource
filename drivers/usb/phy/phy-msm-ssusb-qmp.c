@@ -295,7 +295,7 @@ static int msm_ssphy_qmp_init_clocks(struct msm_ssphy_qmp *phy)
 		ret = PTR_ERR(phy->aux_clk);
 		return ret;
 	}
-	clk_set_rate(phy->aux_clk, 1000000);
+	clk_set_rate(phy->aux_clk, clk_round_rate(phy->aux_clk, ULONG_MAX));
 	clk_prepare_enable(phy->aux_clk);
 
 	phy->cfg_ahb_clk = devm_clk_get(phy->phy.dev, "cfg_ahb_clk");
