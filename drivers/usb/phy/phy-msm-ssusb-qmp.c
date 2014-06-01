@@ -405,7 +405,7 @@ static int msm_ssphy_qmp_init(struct usb_phy *uphy)
 			usleep(1);
 		else
 			break;
-	} while (init_timeout_usec--);
+	} while (--init_timeout_usec);
 
 	if (!init_timeout_usec) {
 		dev_err(uphy->dev, "QMP PHY initialization timeout\n");
