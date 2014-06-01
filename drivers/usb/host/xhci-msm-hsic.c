@@ -1009,6 +1009,18 @@ int mxhci_hsic_hub_control(struct usb_hcd *hcd, u16 typeReq, u16 wValue,
 	return ret;
 }
 
+void mxhci_hsic_udev_enum_done(struct usb_hcd *hcd)
+{
+	struct mxhci_hsic_hcd *mxhci = hcd_to_hsic(hcd->primary_hcd);
+
+	if (mxhci->host_ready) {
+		/* after device enum lower host ready gpio */
+		gpio_direction_output(mxhci->host_ready, 0);
+		xhci_dbg_log_event(&dbg_hsic, NULL,  "host ready set low",
+					gpio_get_value(mxhci->host_ready));
+	}
+}
+
 static struct hc_driver mxhci_hsic_hc_driver = {
 	.description =		"xhci-hcd",
 	.product_desc =		"Qualcomm xHCI Host Controller using HSIC",
@@ -1060,6 +1072,7 @@ static struct hc_driver mxhci_hsic_hc_driver = {
 	.log_urb =		xhci_hsic_log_urb,
 
 	.set_autosuspend_delay = mxhci_hsic_set_autosuspend_delay,
+	.udev_enum_done =	mxhci_hsic_udev_enum_done,
 };
 
 static ssize_t config_imod_store(struct device *pdev,

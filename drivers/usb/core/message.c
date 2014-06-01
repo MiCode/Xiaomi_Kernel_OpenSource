@@ -1874,6 +1874,8 @@ free_interfaces:
 		return ret;
 	}
 	usb_set_device_state(dev, USB_STATE_CONFIGURED);
+	if (dev->parent && hcd->driver->udev_enum_done)
+		hcd->driver->udev_enum_done(hcd);
 
 	if (cp->string == NULL &&
 			!(dev->quirks & USB_QUIRK_CONFIG_INTF_STRINGS))
