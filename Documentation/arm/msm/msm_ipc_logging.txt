@@ -66,34 +66,71 @@ event log size will be defined as 256 bytes.
 Log Space
 ----------
 
-Each context will have an associated log space, which is dynamically
-allocated from the kernel memory-space. The log space is organized as a
-list of kernel memory pages. Each page contains header information which
-is used to differentiate the log kernel page from the other kernel pages.
+Each context (Figure 1) has an associated log space, which is dynamically
+allocated from the kernel memory-space. The log space is organized as a list of
+1 or more kernel memory pages. Each page (Figure 2) contains header information
+which is used to differentiate the log kernel page from the other kernel pages.
 
-	      0 ---------------------------------
-		|     magic_no = 0x52784425     |
-		---------------------------------
-		|    nmagic_no = 0xAD87BBDA     |
-		---------------------------------
-		|            log_id             |
-                ---------------------------------
-		|           page_num            |
-		---------------------------------
-		|  read_offset  | write_offset  |
-		---------------------------------
-		|        next/prev page         |
-		---------------------------------
-		|				|
-		|             Data		|
-		|		.		|
-		|		.		|
-		|		.		|
-		|				|
-		--------------------------------- PAGE_SIZE - 1
 
-This approach will support extracting the logs either from the memory dumps
-or from the live targets using DEBUGFS.
+      0 ---------------------------------
+        |     magic_no = 0x25874452     |
+        ---------------------------------
+        |    nmagic_no = 0x52784425     |
+        ---------------------------------
+        |            version            |
+        ---------------------------------
+        |          user_version         |
+        ---------------------------------
+        |            log_id             |
+        ---------------------------------
+        |          header_size          |
+        ---------------------------------
+        |                               |
+        |                               |
+        |       name [20 chars]         |
+        |                               |
+        |                               |
+        ---------------------------------
+        |    run-time data structures   |
+        ---------------------------------
+         Figure 1 - Log Context Structure
+
+
+        31                             0
+      0 ---------------------------------
+        |     magic_no = 0x52784425     |
+        ---------------------------------
+        |    nmagic_no = 0xAD87BBDA     |
+        ---------------------------------
+        |1|         page_num            |
+        ---------------------------------
+        |  read_offset  | write_offset  |
+        ---------------------------------
+        |            log_id             |
+        ---------------------------------
+        |     start_time low word       |
+        |     start_time high word      |
+        ---------------------------------
+        |       end_time low word       |
+        |       end_time high word      |
+        ---------------------------------
+        |         context offset        |
+        ---------------------------------
+        |    run-time data structures   |
+        .            . . .              .
+        ---------------------------------
+        |                               |
+        |           Log Data            |
+        .              .                .
+        .              .                .
+        |                               |
+        --------------------------------- PAGE_SIZE - 1
+            Figure 2 - Log Page Structure
+
+In addition to extracting logs at runtime through DebugFS, IPC Logging has been
+designed to allow extraction of logs from a memory dump.  The magic numbers,
+timestamps, and context offset are all added to support the memory-dump
+extraction use case.
 
 Design
 ======
