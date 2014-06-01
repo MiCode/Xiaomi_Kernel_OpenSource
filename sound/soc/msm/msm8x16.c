@@ -657,15 +657,27 @@ static const struct snd_kcontrol_new msm_snd_controls[] = {
 static int msm8x16_mclk_event(struct snd_soc_dapm_widget *w,
 			      struct snd_kcontrol *kcontrol, int event)
 {
+	struct msm8916_asoc_mach_data *pdata = NULL;
+
+	pdata = snd_soc_card_get_drvdata(w->codec->card);
 	pr_debug("%s: event = %d\n", __func__, event);
 	switch (event) {
 	case SND_SOC_DAPM_POST_PMD:
-		return msm8x16_enable_codec_ext_clk(w->codec, 0, true);
+		pr_debug("%s: mclk_res_ref = %d\n",
+			__func__, atomic_read(&pdata->mclk_rsc_ref));
+		if (!pdata->codec_type) {
+			if (atomic_read(&pdata->mclk_rsc_ref) == 0) {
+				pr_debug("%s: disabling MCLK\n", __func__);
+				msm8x16_enable_codec_ext_clk(w->codec, 0, true);
+				pinctrl_select_state(pinctrl_info.pinctrl,
+						pinctrl_info.cdc_pdm_sus);
+			}
+		}
+		break;
 	default:
 		pr_err("%s: invalid DAPM event %d\n", __func__, event);
 		return -EINVAL;
 	}
-
 	return 0;
 }
 
@@ -685,12 +697,12 @@ static void msm_mi2s_snd_shutdown(struct snd_pcm_substream *substream)
 		if (ret < 0)
 			pr_err("%s:clock disable failed; ret=%d\n", __func__,
 					ret);
-		pinctrl_select_state(pinctrl_info.pinctrl,
-					pinctrl_info.cdc_pdm_sus);
-		ret = msm8x16_enable_codec_ext_clk(codec, 0, true);
-		if (ret < 0)
-			pr_err("%s: failed to disable the mclk; ret=%d\n",
-					__func__, ret);
+		if (atomic_read(&pdata->mclk_rsc_ref) > 0) {
+			atomic_dec(&pdata->mclk_rsc_ref);
+			pr_debug("%s: decrementing mclk_res_ref %d\n",
+					__func__,
+					atomic_read(&pdata->mclk_rsc_ref));
+		}
 	} else {
 		ret = pinctrl_select_state(ext_cdc_pinctrl_info.pinctrl,
 					ext_cdc_pinctrl_info.tlmm_act);
