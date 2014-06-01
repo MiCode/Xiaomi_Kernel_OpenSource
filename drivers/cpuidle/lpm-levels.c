@@ -690,6 +690,7 @@ static int cluster_cpuidle_register(struct lpm_cluster *cl)
 {
 	int i = 0, ret = 0;
 	unsigned cpu;
+	struct lpm_cluster *p = NULL;
 
 	if (!cl->cpu) {
 		struct lpm_cluster *n;
@@ -724,6 +725,18 @@ static int cluster_cpuidle_register(struct lpm_cluster *cl)
 	cl->drv->safe_state_index = 0;
 	for_each_cpu(cpu, &cl->child_cpus)
 		per_cpu(cpu_cluster, cpu) = cl;
+
+	for_each_possible_cpu(cpu) {
+		if (cpu_online(cpu))
+			continue;
+		p = per_cpu(cpu_cluster, cpu);
+		while (p) {
+			spin_lock(&p->sync_lock);
+			cpumask_set_cpu(cpu, &p->num_childs_in_sync);
+			spin_unlock(&p->sync_lock);
+			p = p->parent;
+		}
+	}
 	ret = cpuidle_register_cpu(cl->drv, &cl->child_cpus);
 
 	if (ret) {
@@ -836,8 +849,6 @@ static int lpm_probe(struct platform_device *pdev)
 {
 	int ret;
 	int size;
-	struct lpm_cluster *p = NULL;
-	int cpu;
 	struct kobject *module_kobj = NULL;
 
 	lpm_root_node = lpm_of_parse_cluster(pdev);
@@ -849,18 +860,6 @@ static int lpm_probe(struct platform_device *pdev)
 
 	if (print_parsed_dt)
 		cluster_dt_walkthrough(lpm_root_node);
-
-	for_each_possible_cpu(cpu) {
-		if (cpu_online(cpu))
-			continue;
-		p = per_cpu(cpu_cluster, cpu);
-		while (p) {
-			spin_lock(&p->sync_lock);
-			cpumask_set_cpu(cpu, &p->num_childs_in_sync);
-			spin_unlock(&p->sync_lock);
-			p = p->parent;
-		}
-	}
 
 	/*
 	 * Register hotplug notifier before broadcast time to ensure there
