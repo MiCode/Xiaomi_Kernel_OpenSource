@@ -225,6 +225,8 @@ struct emac_hw {
 	enum emac_ptp_clk_mode  ptp_clk_mode;
 	u32                     rtc_ref_clkrate;
 	spinlock_t              ptp_lock;
+	u32                     tstamp_rx_offset;
+	u32                     tstamp_tx_offset;
 
 	u32                 irq_mod;
 	u32                 preamble;

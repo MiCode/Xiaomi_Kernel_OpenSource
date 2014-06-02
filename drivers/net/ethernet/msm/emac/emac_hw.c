@@ -1455,12 +1455,8 @@ void emac_hw_start_mac(struct emac_hw *hw)
 		     (INT_RD_CLR_EN | LPW_MODE |
 		      IRQ_MODERATOR_EN | IRQ_MODERATOR2_EN));
 
-	if (CHK_HW_FLAG(PTP_CAP)) {
-		if (hw->link_speed == EMAC_LINK_SPEED_1GB_FULL)
-			emac_ptp_set_linkspeed(hw, emac_mac_speed_1000);
-		else
-			emac_ptp_set_linkspeed(hw, emac_mac_speed_10_100);
-	}
+	if (CHK_HW_FLAG(PTP_CAP))
+		emac_ptp_set_linkspeed(hw, hw->link_speed);
 
 	emac_hw_config_mac_ctrl(hw);
 
