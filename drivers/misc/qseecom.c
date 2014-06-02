@@ -1245,8 +1245,8 @@ int __qseecom_process_fsm_key_svc_cmd(struct qseecom_dev_handle *data_ptr,
 
 	reqd_len_sb_in = req_ptr->cmd_req_len + req_ptr->resp_len;
 	if (reqd_len_sb_in > data_ptr->client.sb_length) {
-		pr_debug("Not enough memory to fit cmd_buf and resp_buf. ");
-		pr_debug("Required: %u, Available: %zu\n",
+		pr_err("Not enough memory to fit cmd_buf and resp_buf. ");
+		pr_err("Required: %u, Available: %zu\n",
 				reqd_len_sb_in, data_ptr->client.sb_length);
 		return -ENOMEM;
 	}
@@ -1331,6 +1331,7 @@ static int qseecom_send_service_cmd(struct qseecom_dev_handle *data,
 	case QSEOS_FSM_LTE_DELETE_KEYS:
 	case QSEOS_FSM_IKE_CMD_SIGN:
 	case QSEOS_FSM_IKE_CMD_PROV_KEY:
+	case QSEOS_FSM_IKE_CMD_ENCRYPT_PRIVATE_KEY:
 		send_req_ptr = &send_fsm_key_svc_ireq;
 		req_buf_size = sizeof(send_fsm_key_svc_ireq);
 		if (__qseecom_process_fsm_key_svc_cmd(data, &req,
