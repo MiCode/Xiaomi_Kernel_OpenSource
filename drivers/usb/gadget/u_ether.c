@@ -128,6 +128,7 @@ struct eth_dev {
 	/* stats */
 	unsigned long		tx_throttle;
 	unsigned int		tx_aggr_cnt[DL_MAX_PKTS_PER_XFER];
+	unsigned int		tx_pkts_rcvd;
 	unsigned int		loop_brk_cnt;
 	struct dentry		*uether_dent;
 	struct dentry		*uether_dfile;
@@ -687,9 +688,9 @@ static void tx_complete(struct usb_ep *ep, struct usb_request *req)
 		break;
 	case 0:
 		if (!req->zero)
-			dev->net->stats.tx_bytes += req->length-1;
+			dev->net->stats.tx_bytes += req->actual-1;
 		else
-			dev->net->stats.tx_bytes += req->length;
+			dev->net->stats.tx_bytes += req->actual;
 	}
 
 	if (req->num_sgs) {
@@ -1027,6 +1028,7 @@ static netdev_tx_t eth_start_xmit(struct sk_buff *skb,
 		/* ignores USB_CDC_PACKET_TYPE_DIRECTED */
 	}
 
+	dev->tx_pkts_rcvd++;
 	if (dev->gadget->sg_supported) {
 		skb_queue_tail(&dev->tx_skb_q, skb);
 		if (dev->tx_skb_q.qlen > tx_stop_threshold) {
@@ -1897,13 +1899,15 @@ static int uether_stat_show(struct seq_file *s, void *unused)
 	int i;
 
 	if (dev) {
-		seq_printf(s, "tx_throttle = %lu\n aggr count:",
+		seq_printf(s, "tx_qlen=%u tx_throttle = %lu\n aggr count:",
+					dev->tx_skb_q.qlen,
 					dev->tx_throttle);
 		for (i = 0; i < DL_MAX_PKTS_PER_XFER; i++)
 			seq_printf(s, "%u\t", dev->tx_aggr_cnt[i]);
 
-		seq_printf(s, "\nloop_brk_cnt = %u",
-					dev->loop_brk_cnt);
+		seq_printf(s, "\nloop_brk_cnt = %u\n tx_pkts_rcvd=%u\n",
+					dev->loop_brk_cnt,
+					dev->tx_pkts_rcvd);
 	}
 
 	return ret;
