@@ -123,6 +123,7 @@ struct msm_ipc_port {
 	spinlock_t restart_lock;
 	wait_queue_head_t restart_wait;
 
+	void *rport_info;
 	void *endpoint;
 	void (*notify)(unsigned event, void *oob_data,
 		       size_t oob_data_len, void *priv);
