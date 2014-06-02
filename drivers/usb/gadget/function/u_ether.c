@@ -103,6 +103,7 @@ struct eth_dev {
 	u8			dev_mac[ETH_ALEN];
 	unsigned long		tx_throttle;
 	unsigned long		rx_throttle;
+	unsigned int		tx_pkts_rcvd;
 	struct dentry		*uether_dent;
 	struct dentry		*uether_dfile;
 };
@@ -599,9 +600,9 @@ static void tx_complete(struct usb_ep *ep, struct usb_request *req)
 		break;
 	case 0:
 		if (!req->zero)
-			dev->net->stats.tx_bytes += req->length-1;
+			dev->net->stats.tx_bytes += req->actual-1;
 		else
-			dev->net->stats.tx_bytes += req->length;
+			dev->net->stats.tx_bytes += req->actual;
 
 
 	}
@@ -782,6 +783,7 @@ static netdev_tx_t eth_start_xmit(struct sk_buff *skb,
 		/* ignores USB_CDC_PACKET_TYPE_DIRECTED */
 	}
 
+	dev->tx_pkts_rcvd++;
 	/*
 	 * no buffer copies needed, unless the network stack did it
 	 * or the hardware can't use skb buffers.
@@ -1715,6 +1717,7 @@ static int uether_stat_show(struct seq_file *s, void *unused)
 
 	if (dev) {
 		seq_printf(s, "tx_throttle = %lu\n", dev->tx_throttle);
+		seq_printf(s, "tx_pkts_rcvd=%u\n", dev->tx_pkts_rcvd);
 		seq_printf(s, "rx_throttle = %lu\n", dev->rx_throttle);
 	}
 	return ret;
