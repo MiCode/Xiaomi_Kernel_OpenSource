@@ -191,6 +191,9 @@
 #define clk_gcc_bimc_gpu_clk			0x19922503
 #define clk_gcc_bimc_gfx_clk			0x3edd69ad
 
+#define clk_pixel_clk_src                       0x8b6f83d8
+#define clk_byte_clk_src                        0x3a911c53
+
 /* clock_rpm controlled clocks */
 #define clk_pcnoc_clk				0xc1296d0f
 #define clk_pcnoc_a_clk				0x9bcffee4
