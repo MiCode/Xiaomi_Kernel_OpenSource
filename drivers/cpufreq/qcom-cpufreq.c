@@ -438,6 +438,10 @@ static int __init msm_cpufreq_probe(struct platform_device *pdev)
 	}
 	hotplug_ready = true;
 
+	/* Use per-policy governor tunable for some targets */
+	if (of_property_read_bool(dev->of_node, "qcom,governor-per-policy"))
+		msm_cpufreq_driver.flags |= CPUFREQ_HAVE_GOVERNOR_PER_POLICY;
+
 	/* Parse commong cpufreq table for all CPUs */
 	ftbl = cpufreq_parse_dt(dev, "qcom,cpufreq-table", 0);
 	if (!IS_ERR(ftbl)) {
@@ -482,10 +486,6 @@ static int __init msm_cpufreq_probe(struct platform_device *pdev)
 		}
 		per_cpu(freq_table, cpu) = ftbl;
 	}
-
-	/* Use per-policy governor tunable for some targets */
-	if (of_property_read_bool(dev->of_node, "qcom,governor-per-policy"))
-		msm_cpufreq_driver.flags |= CPUFREQ_HAVE_GOVERNOR_PER_POLICY;
 
 	return 0;
 }
