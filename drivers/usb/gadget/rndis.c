@@ -1001,7 +1001,9 @@ void rndis_free_response(int configNr, u8 *buf)
 {
 	rndis_resp_t *r;
 	struct list_head *act, *tmp;
+	unsigned long flags;
 
+	spin_lock_irqsave(&rndis_per_dev_params[configNr].lock, flags);
 	list_for_each_safe(act, tmp,
 			&(rndis_per_dev_params[configNr].resp_queue))
 	{
@@ -1014,15 +1016,18 @@ void rndis_free_response(int configNr, u8 *buf)
 			kfree(r);
 		}
 	}
+	spin_unlock_irqrestore(&rndis_per_dev_params[configNr].lock, flags);
 }
 
 u8 *rndis_get_next_response(int configNr, u32 *length)
 {
 	rndis_resp_t *r;
 	struct list_head *act, *tmp;
+	unsigned long flags;
 
 	if (!length) return NULL;
 
+	spin_lock_irqsave(&rndis_per_dev_params[configNr].lock, flags);
 	list_for_each_safe(act, tmp,
 			&(rndis_per_dev_params[configNr].resp_queue))
 	{
@@ -1030,9 +1035,12 @@ u8 *rndis_get_next_response(int configNr, u32 *length)
 		if (!r->send) {
 			r->send = 1;
 			*length = r->length;
+			spin_unlock_irqrestore(
+				&rndis_per_dev_params[configNr].lock, flags);
 			return r->buf;
 		}
 	}
+	spin_unlock_irqrestore(&rndis_per_dev_params[configNr].lock, flags);
 
 	return NULL;
 }
@@ -1040,6 +1048,7 @@ u8 *rndis_get_next_response(int configNr, u32 *length)
 static rndis_resp_t *rndis_add_response(int configNr, u32 length)
 {
 	rndis_resp_t *r;
+	unsigned long flags;
 
 	/* NOTE: this gets copied into ether.c USB_BUFSIZ bytes ... */
 	r = kmalloc(sizeof(rndis_resp_t) + length, GFP_ATOMIC);
@@ -1049,8 +1058,10 @@ static rndis_resp_t *rndis_add_response(int configNr, u32 length)
 	r->length = length;
 	r->send = 0;
 
+	spin_lock_irqsave(&rndis_per_dev_params[configNr].lock, flags);
 	list_add_tail(&r->list,
 		&(rndis_per_dev_params[configNr].resp_queue));
+	spin_unlock_irqrestore(&rndis_per_dev_params[configNr].lock, flags);
 	return r;
 }
 
@@ -1261,6 +1272,7 @@ int rndis_init(void)
 			return -EIO;
 		}
 #endif
+		spin_lock_init(&(rndis_per_dev_params[i].lock));
 		rndis_per_dev_params[i].confignr = i;
 		rndis_per_dev_params[i].used = 0;
 		rndis_per_dev_params[i].state = RNDIS_UNINITIALIZED;
