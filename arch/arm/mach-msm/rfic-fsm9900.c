@@ -45,6 +45,20 @@
 #define GENI_ARB_MISC_CONFIG_ADDR	  0x3004
 #define GENI_ARB_CHNL_CONFIG_ADDDR	  0x3804
 
+#define PVC_INTF_EN	0x1
+#define PVC_INTF_CTL	0x3008
+#define PVC_PORT_EN	0x3
+#define PVC_PORT_CTL	0x3200
+#define ARB_PRI_VAL	0x3f
+#define SSBI_ARB_PRI	0x3100
+#define PVC_ADDR1	0x3400
+#define PVC_ADDR2	0x3404
+
+#define FTR_RXGAIN_REG1  0xB8
+#define FTR_RXGAIN_REG2  0xB9
+#define WTR_RXGAIN_REG1  0x80
+#define WTR_RXGAIN_REG2  0x81
+#define MTR_RXGAIN_REG   0x7E
 /*
  * FTR8700, WTR1605  RFIC
  */
@@ -79,6 +93,8 @@
 #define PDM_WORD	0x8000
 #define MSM_MAX_GPIO    32
 
+#define RF_MAX_WF_SIZE  0xA00000
+
 uint8_t rfbid;
 void __iomem *grfc_base;
 void __iomem *pdm_base;
@@ -105,7 +121,7 @@ struct ftr_dev_file_info {
 	int ftrid;
 };
 
-int nDev;
+int n_dev;
 /*
  * File interface
  */
@@ -394,6 +410,7 @@ static long ftr_ioctl(struct file *file,
 	case RFIC_IOCTL_SET_WFM:
 		{
 			struct rfic_wfm_param param;
+			unsigned int p_sum;
 
 			if (pdfi->ftrid != 0)
 				return -EINVAL;
@@ -401,7 +418,16 @@ static long ftr_ioctl(struct file *file,
 			if (copy_from_user(&param, argp, sizeof(param)))
 				return -EFAULT;
 
-			if (param.offset + param.num > 0xA00000)
+			/* Check for integer overflow */
+			if (param.offset > UINT_MAX - param.num)
+				return -EINVAL;
+
+			p_sum = param.offset + param.num;
+
+			if (p_sum < param.offset || p_sum < param.num)
+				return -EINVAL;
+
+			if (p_sum  >  RF_MAX_WF_SIZE)
 				return -EINVAL;
 
 			if (copy_from_user(wf_base + param.offset,
@@ -792,6 +818,29 @@ void pdm_mtr_enable(void)
 	__raw_writel(0xb2, pdm_base + PDM_2_1_CTL + 4);
 }
 
+void rfic_pvc_enable(void __iomem *pvc_addr, int rfic)
+{
+	writel_relaxed(PVC_INTF_EN, pvc_addr + PVC_INTF_CTL);
+	writel_relaxed(PVC_PORT_EN, pvc_addr + PVC_PORT_CTL);
+	writel_relaxed(ARB_PRI_VAL, pvc_addr + SSBI_ARB_PRI);
+	switch (rfic) {
+	case 1:
+		writel_relaxed(FTR_RXGAIN_REG1, pvc_addr + PVC_ADDR1);
+		writel_relaxed(FTR_RXGAIN_REG2, pvc_addr + PVC_ADDR2);
+		break;
+	case 2:
+		writel_relaxed(WTR_RXGAIN_REG1, pvc_addr + PVC_ADDR1);
+		writel_relaxed(WTR_RXGAIN_REG2, pvc_addr + PVC_ADDR2);
+		break;
+	case 3:
+		writel_relaxed(MTR_RXGAIN_REG, pvc_addr + PVC_ADDR1);
+		break;
+	default:
+		pr_err("%s: Unsupported RFIC\n", __func__);
+		break;
+	}
+}
+
 
 static int ftr_probe(struct platform_device *pdev)
 {
@@ -807,13 +856,13 @@ static int ftr_probe(struct platform_device *pdev)
 
 	mutex_lock(&rficlock);
 
-	if (nDev >= RFIC_DEVICE_NUM) {
-		pr_warn("%s: Invalid devices %d\n", __func__, nDev);
+	if (n_dev >= RFIC_DEVICE_NUM) {
+		pr_warn("%s: Invalid devices %d\n", __func__, n_dev);
 		mutex_unlock(&rficlock);
 		return -EINVAL;
 	}
 
-	if (!nDev) {
+	if (!n_dev) {
 		rfbid = rf_interface_id();
 		if ((rfbid != 0xff) && (rfbid != 0))
 			rfbid = rfbid & RF_TYPE_48;
@@ -900,30 +949,36 @@ static int ftr_probe(struct platform_device *pdev)
 
 	}
 
-	ptr = ftr_dev_info + nDev;
+	ptr = ftr_dev_info + n_dev;
 	ptr->dev = &pdev->dev;
 
-	if ((nDev >= 1)  && (nDev <= 7)) {
+	if ((n_dev >= 1)  && (n_dev <= 7)) {
 		struct ssbi *ssbi =
 		platform_get_drvdata(to_platform_device(pdev->dev.parent));
-		if ((rfbid > RF_TYPE_48) && (nDev <= 4)) {
+		if ((rfbid > RF_TYPE_48) && (n_dev <= 4)) {
 			ssbi->controller_type =
 				FSM_SBI_CTRL_GENI_SSBI2_ARBITER;
 			set_ssbi_mode_2(ssbi->base);
 			pr_debug("%s: SSBI2 = 0x%x\n", __func__,
 				ssbi->controller_type);
+			rfic_pvc_enable(ssbi->base, 3);
 		} else {
 			ssbi->controller_type =
 				FSM_SBI_CTRL_GENI_SSBI_ARBITER;
 			set_ssbi_mode_1(ssbi->base);
 			pr_debug("%s: SSBI1 = 0x%x\n", __func__,
 				ssbi->controller_type);
+			if ((n_dev == 1) || (n_dev == 2))
+				rfic_pvc_enable(ssbi->base, 1);
+			if ((n_dev == 3) && (rfbid > RF_TYPE_16)
+					&& (rfbid < RF_TYPE_32))
+				rfic_pvc_enable(ssbi->base, 2);
 		}
 		platform_set_drvdata(to_platform_device(pdev->dev.parent),
 				ssbi);
 	}
 
-	if ((rfbid > RF_TYPE_16) && (rfbid < RF_TYPE_48) && (nDev == 1)) {
+	if ((rfbid > RF_TYPE_16) && (rfbid < RF_TYPE_48) && (n_dev == 1)) {
 		ssbi_write(pdev->dev.parent, 0xff, &version, 1);
 		ssbi_read(pdev->dev.parent, 0x2, &version, 1);
 		pr_info("%s: FTR1 Version = %02x\n", __func__, version);
@@ -937,7 +992,7 @@ static int ftr_probe(struct platform_device *pdev)
 		ptr->busselect[MISC_BUS] = 0x00000800;
 		ptr->busselect[RX_BUS] = 0x00001800;
 	} else if ((rfbid > RF_TYPE_16) && (rfbid < RF_TYPE_48) &&
-		(nDev == 2)) {
+		(n_dev == 2)) {
 		ssbi_write(pdev->dev.parent, 0xff, &version, 1);
 		ssbi_read(pdev->dev.parent, 0x2, &version, 1);
 		pr_info("%s: FTR2 Version = %02x\n", __func__, version);
@@ -955,25 +1010,25 @@ static int ftr_probe(struct platform_device *pdev)
 	mutex_init(&ptr->lock);
 
 	if (rfbid < RF_TYPE_48) {
-		ret = misc_register(ftr_misc_dev + nDev);
+		ret = misc_register(ftr_misc_dev + n_dev);
 
 		if (ret < 0) {
-			misc_deregister(ftr_misc_dev + nDev);
+			misc_deregister(ftr_misc_dev + n_dev);
 			mutex_unlock(&rficlock);
 			return ret;
 		}
 	} else {
-		ret = misc_register(mtr_misc_dev + nDev);
+		ret = misc_register(mtr_misc_dev + n_dev);
 
 		if (ret < 0) {
-			misc_deregister(mtr_misc_dev + nDev);
+			misc_deregister(mtr_misc_dev + n_dev);
 			mutex_unlock(&rficlock);
 			return ret;
 		}
 	}
 
-	nDev++;
-	pr_debug("%s: num_of_ssbi_devices = %d\n", __func__, nDev);
+	n_dev++;
+	pr_debug("%s: num_of_ssbi_devices = %d\n", __func__, n_dev);
 	mutex_unlock(&rficlock);
 
 	return of_platform_populate(np, NULL, NULL, &pdev->dev);
@@ -1014,7 +1069,7 @@ int __init ftr_init(void)
 {
 	int rc;
 
-	nDev = 0;
+	n_dev = 0;
 	mutex_init(&rficlock);
 	pr_debug("%s: rfic-fsm9900 driver init\n",  __func__);
 	rc = platform_driver_register(&ftr_driver);
