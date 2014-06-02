@@ -374,10 +374,10 @@ static int mdm_cmd_exe(enum esoc_cmd cmd, struct esoc_clink *esoc)
 		 * to prevent the mdm from immediately powering back on
 		 * after the shutdown
 		 */
-		mdm_power_down(mdm);
-		mdm_update_gpio_configs(mdm, GPIO_UPDATE_BOOTING_CONFIG);
 		gpio_set_value(MDM_GPIO(mdm, AP2MDM_STATUS), 0);
 		esoc_clink_queue_request(ESOC_REQ_SHUTDOWN, esoc);
+		mdm_power_down(mdm);
+		mdm_update_gpio_configs(mdm, GPIO_UPDATE_BOOTING_CONFIG);
 		break;
 	case ESOC_RESET:
 		mdm_toggle_soft_reset(mdm);
