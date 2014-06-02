@@ -32,7 +32,11 @@
 #include <soc/qcom/ramdump.h>
 #include <linux/msm-bus.h>
 #include <linux/msm-bus-board.h>
+#ifdef CONFIG_PCI_MSM
+#include <linux/msm_pcie.h>
+#else
 #include <mach/msm_pcie.h>
+#endif
 #include <net/cnss.h>
 #define subsys_to_drv(d) container_of(d, struct cnss_data, subsys_desc)
 
