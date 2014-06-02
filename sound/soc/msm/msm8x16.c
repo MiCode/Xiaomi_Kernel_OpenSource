@@ -580,6 +580,7 @@ static int msm8x16_enable_codec_ext_clk(struct snd_soc_codec *codec,
 			msm8x16_wcd_mclk_enable(codec, 1, dapm);
 		}
 	} else {
+		msm8x16_wcd_mclk_enable(codec, 0, dapm);
 		mutex_lock(&pdata->cdc_mclk_mutex);
 		atomic_set(&pdata->mclk_rsc_ref, 0);
 		cancel_delayed_work_sync(&pdata->enable_mclk_work);
@@ -589,7 +590,6 @@ static int msm8x16_enable_codec_ext_clk(struct snd_soc_codec *codec,
 				&pdata->digital_cdc_clk);
 		atomic_set(&pdata->dis_work_mclk, false);
 		mutex_unlock(&pdata->cdc_mclk_mutex);
-		msm8x16_wcd_mclk_enable(codec, 0, dapm);
 	}
 	return ret;
 }
