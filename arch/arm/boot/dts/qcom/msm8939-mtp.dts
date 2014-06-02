@@ -17,5 +17,5 @@
 / {
 	model = "Qualcomm Technologies, Inc. MSM 8939 MTP";
 	compatible = "qcom,msm8939-mtp", "qcom,msm8939", "qcom,mtp";
-	qcom,board-id = <8 0>;
+	qcom,board-id = <8 1>;
 };
