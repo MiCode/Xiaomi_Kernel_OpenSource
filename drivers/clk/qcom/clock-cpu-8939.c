@@ -34,13 +34,13 @@ DEFINE_VDD_REGS_INIT(vdd_cpu_lc, 1);
 DEFINE_VDD_REGS_INIT(vdd_cpu_cci, 1);
 
 enum {
-	A53SS_MUX_LC,
 	A53SS_MUX_BC,
+	A53SS_MUX_LC,
 	A53SS_MUX_CCI,
 	A53SS_MUX_NUM,
 };
 
-const char *mux_names[] = { "c0", "c1", "cci"};
+const char *mux_names[] = { "c1", "c0", "cci"};
 
 static struct mux_div_clk a53ssmux_bc = {
 	.ops = &rcg_mux_div_ops,
@@ -108,8 +108,8 @@ static struct clk_lookup cpu_clocks_8939[] = {
 	CLK_LIST(a53ssmux_cci),
 };
 
-static struct mux_div_clk *a53ssmux[] = {&a53ssmux_lc,
-						&a53ssmux_bc, &a53ssmux_cci};
+static struct mux_div_clk *a53ssmux[] = {&a53ssmux_bc,
+						&a53ssmux_lc, &a53ssmux_cci};
 
 static int of_get_fmax_vdd_class(struct platform_device *pdev, struct clk *c,
 								char *prop_name)
@@ -294,7 +294,7 @@ static void config_pll(int mux_id)
 
 static int clock_a53_probe(struct platform_device *pdev)
 {
-	int speed_bin, version, rc, cpu, mux_id;
+	int speed_bin, version, rc, cpu, mux_id, rate;
 	char prop_name[] = "qcom,speedX-bin-vX-XXX";
 
 	get_speed_bin(pdev, &speed_bin, &version);
@@ -335,7 +335,10 @@ static int clock_a53_probe(struct platform_device *pdev)
 		return rc;
 	}
 
-	for (mux_id = 0; mux_id < A53SS_MUX_NUM; mux_id++) {
+	rate = clk_get_rate(&a53ssmux[A53SS_MUX_CCI]->c);
+	clk_set_rate(&a53ssmux[A53SS_MUX_CCI]->c, rate);
+
+	for (mux_id = 0; mux_id < A53SS_MUX_CCI; mux_id++) {
 		/* Force a PLL reconfiguration */
 		config_pll(mux_id);
 	}
