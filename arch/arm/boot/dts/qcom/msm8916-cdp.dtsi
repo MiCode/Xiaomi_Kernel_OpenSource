@@ -203,6 +203,7 @@
 		qcom,msm-ext-pa = <0>;
 		qcom,msm-mbhc-hphl-swh = <0>;
 		qcom,msm-mbhc-gnd-swh = <0>;
+		qcom,msm-mclk-freq = <9600000>;
 		qcom,msm-hs-micbias-type = "internal";
 		qcom,audio-routing =
 			"RX_BIAS", "MCLK",

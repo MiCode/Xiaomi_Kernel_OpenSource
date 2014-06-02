@@ -43,7 +43,7 @@
 
 #define WCD9XXX_MBHC_DEF_BUTTONS 8
 #define WCD9XXX_MBHC_DEF_RLOADS 5
-#define TAIKO_EXT_CLK_RATE 9600000
+#define DEFAULT_MCLK_RATE 9600000
 
 static int msm_btsco_rate = BTSCO_RATE_8KHZ;
 static int msm_btsco_ch = 1;
@@ -72,7 +72,7 @@ static struct wcd9xxx_mbhc_config wcd9xxx_mbhc_cfg = {
 	.calibration = NULL,
 	.micbias = MBHC_MICBIAS2,
 	.anc_micbias = MBHC_MICBIAS2,
-	.mclk_rate = TAIKO_EXT_CLK_RATE,
+	.mclk_rate = DEFAULT_MCLK_RATE,
 	.gpio = 0,
 	.gpio_irq = 0,
 	.gpio_level_insert = 0,
@@ -569,7 +569,8 @@ static int msm8x16_enable_codec_ext_clk(struct snd_soc_codec *codec,
 				cancel_delayed_work_sync(
 					&pdata->enable_mclk_work);
 			} else {
-				pdata->digital_cdc_clk.clk_val = 9600000;
+				pdata->digital_cdc_clk.clk_val =
+							pdata->mclk_freq;
 				afe_set_digital_codec_core_clock(
 						AFE_PORT_ID_PRIMARY_MI2S_RX,
 						&pdata->digital_cdc_clk);
@@ -1814,6 +1815,7 @@ static int msm8x16_asoc_machine_probe(struct platform_device *pdev)
 	const char *codec_type = "qcom,msm-codec-type";
 	const char *hs_micbias_type = "qcom,msm-hs-micbias-type";
 	const char *ext_pa = "qcom,msm-ext-pa";
+	const char *mclk = "qcom,msm-mclk-freq";
 	const char *ptr = NULL;
 	const char *type = NULL;
 	int ret, id;
@@ -1845,6 +1847,15 @@ static int msm8x16_asoc_machine_probe(struct platform_device *pdev)
 		ret = -EINVAL;
 		goto err;
 	}
+
+	ret = of_property_read_u32(pdev->dev.of_node, mclk, &id);
+	if (ret) {
+		dev_err(&pdev->dev,
+			"%s: missing %s in dt node\n", __func__, card_dev_id);
+		id = DEFAULT_MCLK_RATE;
+	}
+	pdata->mclk_freq = id;
+
 	ret = of_property_read_string(pdev->dev.of_node, codec_type, &ptr);
 	if (ret) {
 		dev_err(&pdev->dev,
@@ -1933,7 +1944,7 @@ static int msm8x16_asoc_machine_probe(struct platform_device *pdev)
 	/* initialize the mclk */
 	pdata->digital_cdc_clk.i2s_cfg_minor_version =
 					AFE_API_VERSION_I2S_CONFIG;
-	pdata->digital_cdc_clk.clk_val = 9600000;
+	pdata->digital_cdc_clk.clk_val = pdata->mclk_freq;
 	pdata->digital_cdc_clk.clk_root = 5;
 	pdata->digital_cdc_clk.reserved = 0;
 	ret = cdc_pdm_get_pinctrl(pdev);
