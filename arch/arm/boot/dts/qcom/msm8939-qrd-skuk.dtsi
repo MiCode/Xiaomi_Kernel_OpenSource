@@ -123,7 +123,7 @@
 		vio-supply = <&pm8916_l6>;
 		avago,irq-gpio = <&msm_gpio 113 0x2002>;
 		avago,ps-threshold = <600>;
-		avago,ps-hysteresis_threshold = <500>;
+		avago,ps-hysteresis-threshold = <500>;
 		avago,ps-pulse = <8>;
 		avago,ps-pgain = <0>;
 		avago,als-B = <223>;
@@ -167,6 +167,7 @@
 		interrupts = <115 0x2002>;
 		vdd-supply = <&pm8916_l17>;
 		vlogic-supply = <&pm8916_l16>;
+		vi2c-supply = <&pm8916_l6>;
 		invn,gpio-int = <&msm_gpio 115 0x2002>;
 		invn,place = "Portrait Down Back Side";
 	};
