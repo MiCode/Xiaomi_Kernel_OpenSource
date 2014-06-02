@@ -454,3 +454,15 @@
 &blsp2_uart2 {
 	status = "ok";
 };
+
+&usb3 {
+	status = "ok";
+};
+
+&hsphy0 {
+	status = "ok";
+};
+
+&ssphy0 {
+	status = "ok";
+};

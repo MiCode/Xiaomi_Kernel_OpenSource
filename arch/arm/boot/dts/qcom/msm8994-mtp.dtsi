@@ -449,3 +449,15 @@
 	 pinctrl-names = "default";
 	 pinctrl-0 = <&uart_console_sleep>;
 };
+
+&usb3 {
+	status = "ok";
+};
+
+&hsphy0 {
+	status = "ok";
+};
+
+&ssphy0 {
+	status = "ok";
+};

@@ -975,8 +975,9 @@
 		#interrupt-cells = <1>;
 		interrupt-map-mask = <0x0 0xffffffff>;
 		interrupt-map = <0x0 0 &intc 0 133 0
+				 0x0 1 &intc 0 180 0
 				 0x0 1 &spmi_bus 0x0 0x0 0x9 0x0>;
-		interrupt-names = "hs_phy_irq", "pmic_id_irq";
+		interrupt-names = "hs_phy_irq", "pwr_event_irq", "pmic_id_irq";
 
 		USB3_GDSC-supply = <&gdsc_usb30>;
 		qcom,dwc-usb3-msm-tx-fifo-size = <29696>;
@@ -990,6 +991,9 @@
 		qcom,msm-bus,vectors-KBps =
 				<61 512 0 0>,
 				<61 512 240000 960000>;
+
+		qcom,reset_hsphy_sleep_clk_on_init;
+		qcom,utmi-clk-rate = <60000000>;
 
 		clocks = <&clock_gcc clk_gcc_usb30_master_clk>,
 			 <&clock_gcc clk_gcc_sys_noc_usb3_axi_clk>,
@@ -1009,7 +1013,7 @@
 			interrupt-names = "irq", "otg_irq";
 			tx-fifo-resize;
 			usb-phy = <&hsphy0>, <&ssphy0>;
-			core_reset_after_phy_init;
+			snps,core-reset-after-phy-init;
 		};
 	};
 
@@ -1024,22 +1028,27 @@
 		qcom,vdd-voltage-level = <1 5 7>;
 		qcom,ext-vbus-id;
 		qcom,vbus-valid-override;
+		qcom,set-pllbtune;
 	};
 
 	ssphy0: ssphy@f9b38000 {
 		compatible = "qcom,usb-ssphy-qmp";
 		status = "disabled";
-		reg = <0xf9b38000 0x16c>;
+		reg = <0xf9b38000 0x800>,
+			<0xf9b3e000 0x3ff>;
 		vdd-supply = <&pm8994_s2_corner>;
 		vdda18-supply = <&pm8994_l6>;
 		qcom,vdd-voltage-level = <1 5 7>;
 		qcom,vbus-valid-override;
+		qcom,no-pipe-clk-switch;
 
 		clocks = <&clock_gcc clk_gcc_usb3_phy_aux_clk>,
 			 <&clock_gcc clk_gcc_usb3_phy_pipe_clk>,
 			 <&clock_gcc clk_gcc_usb_phy_cfg_ahb2phy_clk>,
-			 <&clock_gcc clk_gcc_usb3_phy_reset>;
-		clock-names = "aux_clk", "pipe_clk", "cfg_ahb_clk", "phy_reset";
+			 <&clock_gcc clk_gcc_usb3_phy_reset>,
+			 <&clock_gcc clk_usb_ss_phy_ldo>;
+		clock-names = "aux_clk", "pipe_clk", "cfg_ahb_clk", "phy_reset",
+				"ldo_clk";
 	};
 
 	dbm_1p5: dbm@f92f8000 {
