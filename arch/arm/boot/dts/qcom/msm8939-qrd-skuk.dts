@@ -22,7 +22,6 @@
 	smb1360_otg_supply: smb1360-chg-fg@14 {
 		compatible = "qcom,smb1360-chg-fg";
 		reg = <0x14>;
-		status = "disabled";
 		interrupt-parent = <&msm_gpio>;
 		interrupts = <62 8>;
 		pinctrl-names = "default";
@@ -37,11 +36,11 @@
 };
 
 &pm8916_chg {
-	status = "disabled";
+	status = "ok";
 	qcom,use-external-charger;
 };
 
 &pm8916_bms {
-	status = "disabled";
+	status = "ok";
 	qcom,disable-bms;
 };
