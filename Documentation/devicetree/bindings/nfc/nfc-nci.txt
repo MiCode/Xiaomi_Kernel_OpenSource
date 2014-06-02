@@ -15,6 +15,7 @@ Required properties:
 
 Optional properties:
 
+- qcom,pwr-req-gpio: pmic gpio to vote for power to be supplied to the uicc
 - qcom,clk-src-gpio: msm gpio clock,used ony if clock source is msm gpio
 - qcom,clk-req-gpio: clk-req input gpio for MSM based clocks.
                      not used for pmic implementation
