@@ -1645,23 +1645,16 @@ static int msm8x16_wcd_codec_enable_dig_clk(struct snd_soc_dapm_widget *w,
 					0x07, 0x07);
 			snd_soc_update_bits(codec,
 					MSM8X16_WCD_A_ANALOG_BYPASS_MODE,
+					0x40, 0x40);
+			snd_soc_update_bits(codec,
+					MSM8X16_WCD_A_ANALOG_BYPASS_MODE,
 					0x80, 0x80);
 			snd_soc_update_bits(codec,
 					MSM8X16_WCD_A_ANALOG_BYPASS_MODE,
-					0x40, 0x40);
-			snd_soc_update_bits(codec,
-					MSM8X16_WCD_A_DIGITAL_CDC_DIG_CLK_CTL,
-					0x20, 0x20);
+					0x02, 0x02);
 			snd_soc_update_bits(codec,
 					MSM8X16_WCD_A_ANALOG_BOOST_EN_CTL,
-					0x9F, 0x9F);
-			usleep_range(CODEC_DELAY_1_MS, CODEC_DELAY_1_1_MS);
-			snd_soc_update_bits(codec,
-					MSM8X16_WCD_A_ANALOG_BOOST_EN_CTL,
-					0x40, 0x40);
-			snd_soc_update_bits(codec,
-					MSM8X16_WCD_A_ANALOG_CURRENT_LIMIT,
-					0x03, 0x03);
+					0xDF, 0xDF);
 		} else {
 			snd_soc_update_bits(codec, w->reg, 1<<w->shift,
 					1<<w->shift);
@@ -1686,23 +1679,17 @@ static int msm8x16_wcd_codec_enable_dig_clk(struct snd_soc_dapm_widget *w,
 					0x07, 0x0);
 		} else if (msm8x16_wcd->ear_pa_boost_set) {
 			snd_soc_update_bits(codec,
-					MSM8X16_WCD_A_ANALOG_SEC_ACCESS,
-					0xA5, 0x00);
-			snd_soc_update_bits(codec,
-					MSM8X16_WCD_A_ANALOG_PERPH_RESET_CTL3,
-					0x07, 0x00);
+					MSM8X16_WCD_A_ANALOG_BOOST_EN_CTL,
+					0x80, 0x00);
 			snd_soc_update_bits(codec,
 					MSM8X16_WCD_A_ANALOG_BYPASS_MODE,
-					0xC0, 0x00);
+					0x80, 0x00);
 			snd_soc_update_bits(codec,
-					MSM8X16_WCD_A_DIGITAL_CDC_DIG_CLK_CTL,
-					0x20, 0x00);
+					MSM8X16_WCD_A_ANALOG_BYPASS_MODE,
+					0x02, 0x00);
 			snd_soc_update_bits(codec,
-					MSM8X16_WCD_A_ANALOG_BOOST_EN_CTL,
-					0xDF, 0x00);
-			snd_soc_update_bits(codec,
-					MSM8X16_WCD_A_ANALOG_CURRENT_LIMIT,
-					0x03, 0x00);
+					MSM8X16_WCD_A_ANALOG_BYPASS_MODE,
+					0x40, 0x00);
 		} else {
 			snd_soc_update_bits(codec, w->reg, 1<<w->shift, 0x00);
 		}
