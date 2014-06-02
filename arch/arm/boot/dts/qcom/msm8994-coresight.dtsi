@@ -343,7 +343,7 @@
 		reg-names = "etm-base";
 
 		coresight-id = <17>;
-		coresight-name = "coresight-a57-etm7";
+		coresight-name = "coresight-etm7";
 		coresight-nr-inports = <0>;
 		coresight-outports = <0>;
 		coresight-child-list = <&funnel_apss>;
