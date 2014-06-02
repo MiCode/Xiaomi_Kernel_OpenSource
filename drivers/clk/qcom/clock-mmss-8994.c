@@ -675,7 +675,7 @@ static struct rcg_clk pclk0_clk_src = {
 
 static struct clk_freq_tbl ftbl_pclk1_clk_src[] = {
 	{
-		.div_src_val = BVAL(10, 8, dsi1phypll_mm_source_val)
+		.div_src_val = BVAL(10, 8, dsi0phypll_mm_source_val)
 				| BVAL(4, 0, 0),
 	},
 	F_END
