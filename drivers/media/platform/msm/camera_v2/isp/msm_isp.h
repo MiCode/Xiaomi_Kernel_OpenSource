@@ -351,6 +351,7 @@ struct msm_vfe_src_info {
 	long pixel_clock;
 	uint32_t session_id;
 	uint32_t input_format;/*V4L2 pix format with bayer pattern*/
+	uint32_t last_updt_frm_id;
 };
 
 enum msm_wm_ub_cfg_type {
