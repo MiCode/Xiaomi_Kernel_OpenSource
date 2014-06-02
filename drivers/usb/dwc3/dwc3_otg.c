@@ -463,8 +463,10 @@ static void dwc3_ext_event_notify(struct usb_otg *otg,
 			}
 		}
 	} else if (event == DWC3_EVENT_XCEIV_STATE) {
-		if (pm_runtime_status_suspended(phy->dev)) {
-			dev_warn(phy->dev, "PHY_STATE event in LPM!!!!\n");
+		if (pm_runtime_status_suspended(phy->dev) ||
+			atomic_read(&phy->dev->power.usage_count) == 0) {
+			dev_dbg(phy->dev, "ext XCEIV_STATE while runtime_status=%d\n",
+				phy->dev->power.runtime_status);
 			ret = pm_runtime_get(phy->dev);
 			if (ret < 0)
 				dev_warn(phy->dev, "pm_runtime_get failed!!\n");
