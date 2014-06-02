@@ -16,7 +16,10 @@
 / {
 	model = "Qualcomm Technologies, Inc. MSM8916";
 	compatible = "qcom,msm8916";
-	qcom,msm-id = <206 0>;
+	qcom,msm-id =	<206 0>,
+			<248 0>,
+			<249 0>,
+			<250 0>;
 
 	interrupt-parent = <&intc>;
 	aliases {
