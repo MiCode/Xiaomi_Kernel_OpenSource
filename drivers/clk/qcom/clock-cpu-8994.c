@@ -1071,6 +1071,10 @@ int __init cpu_clock_8994_init_a57(void)
 
 	__cpu_mux_set_sel(&a57_lf_mux, safe_sel);
 
+	/* Set the cached mux selections to match what was programmed above. */
+	a57_lf_mux.en_mask = safe_sel;
+	a57_hf_mux.en_mask = lfmux_sel;
+
 	iounmap(vbases[ALIAS1_GLB_BASE]);
 	iounmap(vbases[C1_PLL_BASE]);
 
