@@ -158,6 +158,7 @@
 #define clk_gcc_qusb2_phy_reset 0x3ce5fa84
 #define clk_gcc_usb3_phy_reset 0x03d559f1
 #define clk_gpll0_out_mmsscc 0x0ded70aa
+#define clk_gpll0_out_msscc 0x7d794829
 #define clk_pcie_0_phy_ldo 0x1d30d092
 #define clk_pcie_1_phy_ldo 0x63474b42
 #define clk_ufs_phy_ldo 0x98111fee

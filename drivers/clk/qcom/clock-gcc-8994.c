@@ -1393,6 +1393,19 @@ static struct gate_clk gpll0_out_mmsscc = {
 	},
 };
 
+static struct gate_clk gpll0_out_msscc = {
+	.en_reg = APCS_CLOCK_BRANCH_ENA_VOTE,
+	.en_mask = BIT(27),
+	.delay_us = 1,
+	.base = &virt_base,
+	.c = {
+		.parent = &gpll0_out_main.c,
+		.dbg_name = "gpll0_out_msscc",
+		.ops = &clk_ops_gate,
+		CLK_INIT(gpll0_out_msscc.c),
+	},
+};
+
 static struct gate_clk pcie_0_phy_ldo = {
 	.en_reg = PCIE_0_PHY_LDO_EN,
 	.en_mask = BIT(0),
@@ -2683,6 +2696,7 @@ static struct clk_lookup msm_clocks_gcc_8994[] = {
 	CLK_LIST(gcc_qusb2_phy_reset),
 	CLK_LIST(gcc_usb3_phy_reset),
 	CLK_LIST(gpll0_out_mmsscc),
+	CLK_LIST(gpll0_out_msscc),
 	CLK_LIST(pcie_0_phy_ldo),
 	CLK_LIST(pcie_1_phy_ldo),
 	CLK_LIST(ufs_phy_ldo),
