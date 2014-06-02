@@ -338,6 +338,10 @@ struct msm_otg_platform_data {
  * @regs: ioremapped register base address.
  * @inputs: OTG state machine inputs(Id, SessValid etc).
  * @sm_work: OTG state machine work.
+ * @pm_suspended: OTG device is system(PM) suspended.
+ * @pm_notify: Notifier to receive system wide PM transition events.
+		It is used to defer wakeup events processing until
+		system is RESUMED.
  * @in_lpm: indicates low power mode (LPM) state.
  * @async_int: IRQ line on which ASYNC interrupt arrived in LPM.
  * @cur_power: The amount of mA available from downstream port.
@@ -401,6 +405,7 @@ struct msm_otg {
 	struct work_struct sm_work;
 	bool sm_work_pending;
 	atomic_t pm_suspended;
+	struct notifier_block pm_notify;
 	atomic_t in_lpm;
 	int async_int;
 	unsigned cur_power;
