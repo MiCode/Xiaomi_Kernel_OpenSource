@@ -1262,7 +1262,10 @@
 #define BOSCH_SENSOR_PLACE_UNKNOWN (-1)
 /*! Bosch sensor remapping table size P0~P7*/
 #define MAX_AXIS_REMAP_TAB_SZ 8
-
+#define BOSCH_SENSOR_PLANE	0
+#define BOSCH_SENSOR_UP	1
+#define BOSCH_SENSOR_DOWN	2
+#define RETRY_TIME	50
 /*!
  * @brief:BMI058 feature
  *  macro definition
@@ -1511,6 +1514,7 @@ static int bma2x2_normal_to_suspend(struct bma2x2_data *bma2x2,
 static int bma2x2_store_state(struct i2c_client *client,
 			struct bma2x2_data *data);
 static int bma2x2_power_ctl(struct bma2x2_data *data, bool on);
+static int bma2x2_eeprom_prog(struct i2c_client *client);
 
 static struct sensors_classdev sensors_cdev = {
 		.name = "bma2x2-accel",
@@ -1528,6 +1532,7 @@ static struct sensors_classdev sensors_cdev = {
 		.delay_msec = POLL_DEFAULT_INTERVAL_MS, /* in millisecond */
 		.sensors_enable = NULL,
 		.sensors_poll_delay = NULL,
+		.sensors_self_test = NULL,
 };
 
 /*Remapping for BMA2X2*/
@@ -5164,6 +5169,197 @@ static int bma2x2_cdev_poll_delay(struct sensors_classdev *sensors_cdev,
 	return 0;
 }
 
+#ifdef CONFIG_SENSORS_BMI058
+static int bma2x2_select_chanel(struct i2c_client *client)
+{
+	unsigned char data_ore[3] = { BOSCH_SENSOR_PLANE };
+	signed char tmp;
+	int error, i;
+	int timeout;
+	struct bma2x2_data *bma2x2 = i2c_get_clientdata(client);
+	unsigned char bmi058_channel_tb = {BMI058_OFFSET_TRIGGER_X,
+			BMI058_OFFSET_TRIGGER_Y, BMI058_OFFSET_TRIGGER_Z};
+
+	if (bma2x2->pdata->place > 3 && bma2x2->pdata->place < 8)
+		data_ore[2] = BOSCH_SENSOR_DOWN;
+	else if (bma2x2->pdata->place >= 0 && bma2x2->pdata->place < 4)
+		data_ore[2] = BOSCH_SENSOR_UP;
+	else {
+		dev_err(&client->dev, "unknown sensor place\n");
+		return -EINVAL;
+	}
+	for (i = 0; i < 3; i++) {
+		if (bma2x2_set_offset_target(client, bmi058_channel_tb[i],
+					(unsigned char)data_ore[i]) < 0) {
+			dev_err(&client->dev,
+					"set offset target error\n");
+			return -EINVAL;
+		}
+		if (bma2x2_set_cal_trigger(bma2x2->bma2x2_client,
+					(i + 1)) < 0) {
+			dev_err(&client->dev,
+					"read calibration state error\n");
+			return -EINVAL;
+		}
+		timeout = 0;
+		do {
+			WAIT_CAL_READY();
+			error = bma2x2_get_cal_ready(bma2x2->bma2x2_client,
+					&tmp);
+			if (error < 0) {
+				dev_err(&client->dev,
+						"read cal_ready error\n");
+				return error;
+			}
+			timeout++;
+			if (timeout == RETRY_TIME) {
+				dev_err(&client->dev,
+					"get fast calibration ready error\n");
+				return -EINVAL;
+			};
+
+		} while (tmp == 0);
+	}
+	return 0;
+}
+#else
+static int bma2x2_select_chanel(struct i2c_client *client)
+{
+	unsigned char data_ore[3] = { BOSCH_SENSOR_PLANE };
+	signed char tmp;
+	int error, i;
+	int timeout;
+	struct bma2x2_data *bma2x2 = i2c_get_clientdata(client);
+	unsigned char channel_tab[] = {BMA2X2_OFFSET_TRIGGER_X,
+			BMA2X2_OFFSET_TRIGGER_Y, BMA2X2_OFFSET_TRIGGER_Z};
+
+	if (bma2x2->pdata->place > 3 && bma2x2->pdata->place < 8)
+		data_ore[2] = BOSCH_SENSOR_DOWN;
+	else if (bma2x2->pdata->place >= 0 && bma2x2->pdata->place < 4)
+		data_ore[2] = BOSCH_SENSOR_UP;
+	else {
+		dev_err(&client->dev, "unknown sensor place\n");
+		return -EINVAL;
+	}
+	for (i = 0; i < 3; i++) {
+		if (bma2x2_set_offset_target(client, channel_tab[i],
+			(unsigned char)data_ore[i]) < 0) {
+			dev_err(&client->dev,
+					"set offset target error\n");
+			return -EINVAL;
+		}
+		if (bma2x2_set_cal_trigger(bma2x2->bma2x2_client,
+					(i + 1)) < 0) {
+			dev_err(&client->dev,
+					"read calibration state error\n");
+			return -EINVAL;
+		}
+		timeout = 0;
+		do {
+			WAIT_CAL_READY();
+			error = bma2x2_get_cal_ready(bma2x2->bma2x2_client,
+					&tmp);
+			if (error < 0) {
+				dev_err(&client->dev,
+						"read cal_ready error\n");
+				return error;
+			}
+			timeout++;
+			if (timeout == RETRY_TIME) {
+				dev_err(&client->dev,
+					"get fast calibration ready error\n");
+				return -EINVAL;
+			};
+
+		} while (tmp == 0);
+	}
+	return 0;
+}
+#endif
+
+static int bma2x2_self_calibration_xyz(struct sensors_classdev *sensors_cdev)
+{
+	int error;
+	struct bma2x2_data *data = container_of(sensors_cdev,
+					struct bma2x2_data, cdev);
+	struct i2c_client *client = data->bma2x2_client;
+	error = bma2x2_select_chanel(client);
+	if (error < 0) {
+		dev_err(&client->dev, "xyz calibration error\n");
+		return error;
+	}
+	dev_dbg(&client->dev, "xyz axis fast calibration finished\n");
+	error = bma2x2_eeprom_prog(client);
+	if (error < 0) {
+		dev_err(&client->dev, "wirte calibration to eeprom failed\n");
+		return error;
+	}
+
+	return error;
+}
+
+static int bma2x2_eeprom_prog(struct i2c_client *client)
+{
+	int res = 0, timeout = 0;
+	unsigned char databuf;
+	res = bma2x2_smbus_read_byte(client, BMA2X2_EEPROM_CTRL_REG,
+					&databuf);
+	if (res < 0) {
+		dev_err(&client->dev, "read eeprom control reg error1\n");
+		return res;
+	}
+	databuf |= 0x01;
+	res = bma2x2_smbus_write_byte(client, BMA2X2_EEPROM_CTRL_REG,
+					&databuf);
+	if (res < 0) {
+		dev_err(&client->dev, "write eeprom control reg error1\n");
+		return res;
+	}
+
+	res = bma2x2_smbus_read_byte(client, BMA2X2_EEPROM_CTRL_REG,
+					&databuf);
+	if (res < 0) {
+		dev_err(&client->dev, "read eeprom control reg error2\n");
+		return res;
+	}
+	databuf |= 0x02;
+	res = bma2x2_smbus_write_byte(client, BMA2X2_EEPROM_CTRL_REG,
+					&databuf);
+	if (res < 0) {
+		dev_err(&client->dev, "write eeprom control reg error2\n");
+		return res;
+	}
+	do {
+		WAIT_CAL_READY();
+		res = bma2x2_smbus_read_byte(client, BMA2X2_EEPROM_CTRL_REG,
+					&databuf);
+		if (res < 0) {
+			dev_err(&client->dev, "read nvm_rdy error\n");
+			return res;
+		}
+		databuf = (databuf >> 2) & 0x01;
+		if (++timeout == 50) {
+			dev_err(&client->dev, "check nvm_rdy time out\n");
+			break;
+		}
+	} while (databuf == 0);
+
+	res = bma2x2_smbus_read_byte(client, BMA2X2_EEPROM_CTRL_REG,
+					&databuf);
+	if (res < 0) {
+		dev_err(&client->dev, "read eeprom control reg error3\n");
+		return res;
+	}
+	databuf |= 0xFE;
+	res = bma2x2_smbus_write_byte(client, BMA2X2_EEPROM_CTRL_REG,
+					&databuf);
+	if (res < 0) {
+		dev_err(&client->dev, "write eeprom control reg error3\n");
+		return res;
+	}
+	return res;
+}
+
 static ssize_t bma2x2_fast_calibration_x_show(struct device *dev,
 		struct device_attribute *attr, char *buf)
 {
@@ -7144,6 +7340,7 @@ static int bma2x2_probe(struct i2c_client *client,
 	data->cdev.delay_msec = pdata->poll_interval;
 	data->cdev.sensors_enable = bma2x2_cdev_enable;
 	data->cdev.sensors_poll_delay = bma2x2_cdev_poll_delay;
+	data->cdev.sensors_self_test = bma2x2_self_calibration_xyz;
 	err = sensors_classdev_register(&client->dev, &data->cdev);
 	if (err) {
 		dev_err(&client->dev, "create class device file failed!\n");
