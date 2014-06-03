@@ -343,7 +343,7 @@ static struct task_struct *select_bad_process(unsigned int *ppoints,
  * State information includes task's pid, uid, tgid, vm size, rss, nr_ptes,
  * swapents, oom_score_adj value, and name.
  */
-static void dump_tasks(const struct mem_cgroup *memcg, const nodemask_t *nodemask)
+void dump_tasks(const struct mem_cgroup *memcg, const nodemask_t *nodemask)
 {
 	struct task_struct *p;
 	struct task_struct *task;
