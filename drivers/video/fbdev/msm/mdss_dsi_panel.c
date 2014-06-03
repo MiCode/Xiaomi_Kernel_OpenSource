@@ -392,8 +392,13 @@ static int mdss_dsi_set_col_page_addr(struct mdss_panel_data *pdata)
 	p_roi = &pinfo->roi;
 	c_roi = &ctrl->roi;
 
-	if (!mdss_rect_cmp(c_roi, p_roi)) {
-			pr_debug("%s: ndx=%d x=%d y=%d w=%d h=%d\n",
+	/*
+	 * if broadcase mode enable or roi had changed
+	 * then do col_page update
+	 */
+	if (mdss_dsi_broadcast_mode_enabled() ||
+				!mdss_rect_cmp(c_roi, p_roi)) {
+		pr_debug("%s: ndx=%d x=%d y=%d w=%d h=%d\n",
 				__func__, ctrl->ndx, p_roi->x,
 				p_roi->y, p_roi->w, p_roi->h);
 
@@ -402,7 +407,8 @@ static int mdss_dsi_set_col_page_addr(struct mdss_panel_data *pdata)
 			/* no new frame update */
 			pr_debug("%s: ctrl=%d, no partial roi set\n",
 						__func__, ctrl->ndx);
-			return 0;
+			if (!mdss_dsi_broadcast_mode_enabled())
+				return 0;
 		}
 
 		roi = *c_roi;
