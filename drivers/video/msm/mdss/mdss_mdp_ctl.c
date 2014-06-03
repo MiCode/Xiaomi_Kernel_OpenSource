@@ -2979,6 +2979,17 @@ int mdss_mdp_display_commit(struct mdss_mdp_ctl *ctl, void *arg)
 
 	mdss_mdp_xlog_mixer_reg(ctl);
 
+	if (ctl->panel_data &&
+			ctl->panel_data->panel_info.partial_update_enabled) {
+		/*
+		 * update roi of panel_info which will be
+		 * used by dsi to set col_page addr of panel
+		 */
+		ctl->panel_data->panel_info.roi = ctl->roi;
+		if (sctl && sctl->panel_data)
+			sctl->panel_data->panel_info.roi = sctl->roi;
+	}
+
 	if (sctl && !ctl->valid_roi && sctl->valid_roi) {
 		/*
 		 * Seperate kickoff on DSI1 is needed only when we have

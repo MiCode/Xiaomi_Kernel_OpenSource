@@ -614,24 +614,10 @@ static void mdss_mdp_cmd_set_sync_ctx(
 
 static int mdss_mdp_cmd_set_partial_roi(struct mdss_mdp_ctl *ctl)
 {
-	struct mdss_mdp_ctl *sctl = NULL;
-	struct mdss_rect *roi;
 	int rc = 0;
 
 	if (!ctl->panel_data->panel_info.partial_update_enabled)
 		return rc;
-
-	sctl = mdss_mdp_get_split_ctl(ctl);
-
-	/* save roi to pinfo which used by dsi controller */
-	roi = &ctl->panel_data->panel_info.roi;
-	*roi = ctl->roi;
-
-	if (sctl) {
-		/* save roi to pinfo whcih used by dsi controller */
-		roi = &sctl->panel_data->panel_info.roi;
-		*roi = sctl->roi;
-	}
 
 	/* set panel col and page addr */
 	rc = mdss_mdp_ctl_intf_event(ctl,
