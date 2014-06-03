@@ -34,7 +34,7 @@
 #define CLK_ON	0x01
 #define CLK_OFF	0x02
 #endif
-#ifdef CONFIG_CRYSTAL_COVE
+#ifdef CONFIG_REGULATOR_CRYSTAL_COVE
 #define ALDO1_SEL_REG	0x28
 #define ALDO1_CTRL3_REG	0x13
 #define ALDO1_2P8V	0x16
@@ -80,7 +80,7 @@ static int camera_vprog1_on;
  * BYT_CR2.1 primary camera sensor - GC2235 platform data
  */
 
-#ifdef CONFIG_CRYSTAL_COVE
+#ifdef CONFIG_REGULATOR_CRYSTAL_COVE
 static int match_name(struct device *dev, void *data)
 {
 	const char *name = data;
@@ -136,35 +136,35 @@ static int camera_pmic_set(bool flag)
 			break;
 		case PMIC_XPOWER:
 			/* ALDO1 */
-			ret = intel_mid_pmic_writeb(ALDO1_SEL_REG, ALDO1_2P8V);
+			ret = intel_soc_pmic_writeb(ALDO1_SEL_REG, ALDO1_2P8V);
 			if (ret)
 				return ret;
 
 			/* PMIC Output CTRL 3 for ALDO1 */
-			val = intel_mid_pmic_readb(ALDO1_CTRL3_REG);
+			val = intel_soc_pmic_readb(ALDO1_CTRL3_REG);
 			val |= (1 << ALDO1_CTRL3_SHIFT);
-			ret = intel_mid_pmic_writeb(ALDO1_CTRL3_REG, val);
+			ret = intel_soc_pmic_writeb(ALDO1_CTRL3_REG, val);
 			if (ret)
 				return ret;
 
 			/* ELDO2 */
-			ret = intel_mid_pmic_writeb(ELDO2_SEL_REG, ELDO2_1P8V);
+			ret = intel_soc_pmic_writeb(ELDO2_SEL_REG, ELDO2_1P8V);
 			if (ret)
 				return ret;
 
 			/* PMIC Output CTRL 2 for ELDO2 */
-			val = intel_mid_pmic_readb(ELDO2_CTRL2_REG);
+			val = intel_soc_pmic_readb(ELDO2_CTRL2_REG);
 			val |= (1 << ELDO2_CTRL2_SHIFT);
-			ret = intel_mid_pmic_writeb(ELDO2_CTRL2_REG, val);
+			ret = intel_soc_pmic_writeb(ELDO2_CTRL2_REG, val);
 			break;
 		case PMIC_TI:
 			/* LDO9 */
-			ret = intel_mid_pmic_writeb(LDO9_REG, LDO9_2P8V_ON);
+			ret = intel_soc_pmic_writeb(LDO9_REG, LDO9_2P8V_ON);
 			if (ret)
 				return ret;
 
 			/* LDO10 */
-			ret = intel_mid_pmic_writeb(LDO10_REG, LDO10_1P8V_ON);
+			ret = intel_soc_pmic_writeb(LDO10_REG, LDO10_1P8V_ON);
 			if (ret)
 				return ret;
 			break;
@@ -179,24 +179,24 @@ static int camera_pmic_set(bool flag)
 			ret += regulator_disable(v1p8_reg);
 			break;
 		case PMIC_XPOWER:
-			val = intel_mid_pmic_readb(ALDO1_CTRL3_REG);
+			val = intel_soc_pmic_readb(ALDO1_CTRL3_REG);
 			val &= ~(1 << ALDO1_CTRL3_SHIFT);
-			ret = intel_mid_pmic_writeb(ALDO1_CTRL3_REG, val);
+			ret = intel_soc_pmic_writeb(ALDO1_CTRL3_REG, val);
 			if (ret)
 				return ret;
 
-			val = intel_mid_pmic_readb(ELDO2_CTRL2_REG);
+			val = intel_soc_pmic_readb(ELDO2_CTRL2_REG);
 			val &= ~(1 << ELDO2_CTRL2_SHIFT);
-			ret = intel_mid_pmic_writeb(ELDO2_CTRL2_REG, val);
+			ret = intel_soc_pmic_writeb(ELDO2_CTRL2_REG, val);
 			break;
 		case PMIC_TI:
 			/* LDO9 */
-			ret = intel_mid_pmic_writeb(LDO9_REG, LDO9_2P8V_OFF);
+			ret = intel_soc_pmic_writeb(LDO9_REG, LDO9_2P8V_OFF);
 			if (ret)
 				return ret;
 
 			/* LDO10 */
-			ret = intel_mid_pmic_writeb(LDO10_REG, LDO10_1P8V_OFF);
+			ret = intel_soc_pmic_writeb(LDO10_REG, LDO10_1P8V_OFF);
 			if (ret)
 				return ret;
 			break;
@@ -296,12 +296,12 @@ static int mt9m114_flisclk_ctrl(struct v4l2_subdev *sd, int flag)
 
 static int mt9m114_power_ctrl(struct v4l2_subdev *sd, int flag)
 {
-#ifdef CONFIG_CRYSTAL_COVE
+#ifdef CONFIG_REGULATOR_CRYSTAL_COVE
 	struct i2c_client *client = v4l2_get_subdevdata(sd);
 #endif
 	int ret = 0;
 
-#ifdef CONFIG_CRYSTAL_COVE
+#ifdef CONFIG_REGULATOR_CRYSTAL_COVE
 	if (!v1p8_reg || !v2p8_reg) {
 		dev_err(&client->dev, "not avaiable regulator\n");
 		return -EINVAL;
@@ -310,7 +310,7 @@ static int mt9m114_power_ctrl(struct v4l2_subdev *sd, int flag)
 
 	if (flag) {
 		if (!camera_vprog1_on) {
-#ifdef CONFIG_CRYSTAL_COVE
+#ifdef CONFIG_REGULATOR_CRYSTAL_COVE
 			ret = camera_pmic_set(flag);
 			if (ret) {
 				dev_err(&client->dev,
@@ -327,7 +327,7 @@ static int mt9m114_power_ctrl(struct v4l2_subdev *sd, int flag)
 		}
 	} else {
 		if (camera_vprog1_on) {
-#ifdef CONFIG_CRYSTAL_COVE
+#ifdef CONFIG_REGULATOR_CRYSTAL_COVE
 			ret = camera_pmic_set(flag);
 			if (ret) {
 				dev_err(&client->dev,
@@ -345,7 +345,7 @@ static int mt9m114_power_ctrl(struct v4l2_subdev *sd, int flag)
 	return ret;
 }
 
-#ifdef CONFIG_CRYSTAL_COVE
+#ifdef CONFIG_REGULATOR_CRYSTAL_COVE
 static int mt9m114_platform_init(struct i2c_client *client)
 {
 	pmic_id = camera_pmic_probe();
@@ -405,7 +405,7 @@ static struct camera_sensor_platform_data mt9m114_sensor_platform_data = {
 	.flisclk_ctrl   = mt9m114_flisclk_ctrl,
 	.power_ctrl     = mt9m114_power_ctrl,
 	.csi_cfg        = mt9m114_csi_configure,
-#ifdef CONFIG_CRYSTAL_COVE
+#ifdef CONFIG_REGULATOR_CRYSTAL_COVE
 	.platform_init = mt9m114_platform_init,
 	.platform_deinit = mt9m114_platform_deinit,
 #endif
@@ -416,7 +416,7 @@ void *mt9m114_platform_data(void *info)
 {
 	camera_reset = NULL;
 	camera_power_down = NULL;
-#ifdef CONFIG_CRYSTAL_COVE
+#ifdef CONFIG_REGULATOR_CRYSTAL_COVE
 	pmic_id = PMIC_MAX;
 #endif
 
