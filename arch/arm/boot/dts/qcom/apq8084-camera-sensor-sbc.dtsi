@@ -210,6 +210,7 @@
 	};
 
 	qcom,camera@2 {
+		cell-index = <2>;
 		compatible = "qcom,camera";
 		reg = <0x02>;
 		qcom,csiphy-sd-index = <2>;
