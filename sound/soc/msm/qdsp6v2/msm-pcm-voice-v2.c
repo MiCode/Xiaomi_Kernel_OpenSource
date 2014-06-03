@@ -556,6 +556,7 @@ static struct snd_pcm_ops msm_pcm_ops = {
 	.prepare		= msm_pcm_prepare,
 	.trigger		= msm_pcm_trigger,
 	.ioctl			= msm_pcm_ioctl,
+	.compat_ioctl		= msm_pcm_ioctl,
 };
 
 
