@@ -38,7 +38,7 @@
 		/* VBIF QoS remapper settings*/
 		qcom,mdss-vbif-qos-rt-setting = <2 2 2 2>;
 		qcom,mdss-vbif-qos-nrt-setting = <1 1 1 1>;
-		qcom,max-mixer-width = <2048>;
+		qcom,max-mixer-width = <2560>;
 		qcom,mdss-mdp-reg-offset = <0x00001000>;
 		qcom,max-clk-rate = <320000000>;
 		qcom,mdss-pipe-vig-off = <0x00005000>;
