@@ -112,9 +112,10 @@ static void print_flags(struct seq_file *s, const struct flag_entry *table,
 static void cmdbatch_print(struct seq_file *s, struct kgsl_cmdbatch *cmdbatch)
 {
 	struct kgsl_cmdbatch_sync_event *sync_event;
+	unsigned long flags;
 
 	/* print fences first, since they block this cmdbatch */
-	spin_lock(&cmdbatch->lock);
+	spin_lock_irqsave(&cmdbatch->lock, flags);
 
 	list_for_each_entry(sync_event, &cmdbatch->synclist, node) {
 		/*
@@ -127,7 +128,7 @@ static void cmdbatch_print(struct seq_file *s, struct kgsl_cmdbatch *cmdbatch)
 		seq_puts(s, "\n");
 	}
 
-	spin_unlock(&cmdbatch->lock);
+	spin_unlock_irqrestore(&cmdbatch->lock, flags);
 
 	/* if this flag is set, there won't be an IB */
 	if (cmdbatch->flags & KGSL_CONTEXT_SYNC)
