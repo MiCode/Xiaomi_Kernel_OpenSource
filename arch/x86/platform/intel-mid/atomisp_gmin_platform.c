@@ -236,9 +236,10 @@ int getvar_int(struct device *dev, const char *var, int def)
 	int ret;
 
 	ret = gmin_get_config_var(dev, var, val, &len);
-	val[len] = 0;
-	if (!ret)
+	if (!ret) {
+		val[len] = 0;
 		ret = kstrtol(val, 0, &result);
+	}
 
 	return ret ? def : result;
 }
