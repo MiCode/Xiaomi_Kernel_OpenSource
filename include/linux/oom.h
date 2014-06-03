@@ -113,6 +113,9 @@ static inline bool task_will_free_mem(struct task_struct *task)
 		!(task->signal->flags & SIGNAL_GROUP_COREDUMP);
 }
 
+extern void dump_tasks(struct mem_cgroup *memcg,
+		const nodemask_t *nodemask);
+
 /* sysctls */
 extern int sysctl_oom_dump_tasks;
 extern int sysctl_oom_kill_allocating_task;
