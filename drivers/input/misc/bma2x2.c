@@ -6265,116 +6265,116 @@ static void bma2x2_tap_timeout_handle(unsigned long data)
 }
 #endif
 
-static DEVICE_ATTR(range, S_IRUGO|S_IWUSR|S_IWGRP|S_IWOTH,
+static DEVICE_ATTR(range, S_IRUSR|S_IRGRP|S_IWUSR,
 		bma2x2_range_show, bma2x2_range_store);
-static DEVICE_ATTR(bandwidth, S_IRUGO|S_IWUSR|S_IWGRP|S_IWOTH,
+static DEVICE_ATTR(bandwidth, S_IRUSR|S_IRGRP|S_IWUSR,
 		bma2x2_bandwidth_show, bma2x2_bandwidth_store);
-static DEVICE_ATTR(op_mode, S_IRUGO|S_IWUSR|S_IWGRP|S_IWOTH,
+static DEVICE_ATTR(op_mode, S_IRUSR|S_IRGRP|S_IWUSR,
 		bma2x2_mode_show, bma2x2_mode_store);
-static DEVICE_ATTR(value, S_IRUGO,
+static DEVICE_ATTR(value, S_IRUSR|S_IRGRP,
 		bma2x2_value_show, NULL);
-static DEVICE_ATTR(value_cache, S_IRUGO,
+static DEVICE_ATTR(value_cache, S_IRUSR|S_IRGRP,
 		bma2x2_value_cache_show, NULL);
-static DEVICE_ATTR(delay, S_IRUGO|S_IWUSR|S_IWGRP|S_IWOTH,
+static DEVICE_ATTR(delay, S_IRUSR|S_IRGRP|S_IWUSR|S_IWGRP,
 		bma2x2_delay_show, bma2x2_delay_store);
-static DEVICE_ATTR(enable, S_IRUGO|S_IWUSR|S_IWGRP|S_IWOTH,
+static DEVICE_ATTR(enable, S_IRUSR|S_IRGRP|S_IWUSR|S_IWGRP,
 		bma2x2_enable_show, bma2x2_enable_store);
-static DEVICE_ATTR(SleepDur, S_IRUGO|S_IWUSR|S_IWGRP,
+static DEVICE_ATTR(SleepDur, S_IRUSR|S_IRGRP|S_IWUSR,
 		bma2x2_SleepDur_show, bma2x2_SleepDur_store);
-static DEVICE_ATTR(fast_calibration_x, S_IRUGO|S_IWUSR|S_IWGRP|S_IWOTH,
+static DEVICE_ATTR(fast_calibration_x, S_IRUSR|S_IRGRP|S_IWUSR,
 		bma2x2_fast_calibration_x_show,
 		bma2x2_fast_calibration_x_store);
-static DEVICE_ATTR(fast_calibration_y, S_IRUGO|S_IWUSR|S_IWGRP|S_IWOTH,
+static DEVICE_ATTR(fast_calibration_y, S_IRUSR|S_IRGRP|S_IWUSR,
 		bma2x2_fast_calibration_y_show,
 		bma2x2_fast_calibration_y_store);
-static DEVICE_ATTR(fast_calibration_z, S_IRUGO|S_IWUSR|S_IWGRP|S_IWOTH,
+static DEVICE_ATTR(fast_calibration_z, S_IRUSR|S_IRGRP|S_IWUSR,
 		bma2x2_fast_calibration_z_show,
 		bma2x2_fast_calibration_z_store);
-static DEVICE_ATTR(fifo_mode, S_IRUGO|S_IWUSR|S_IWGRP|S_IWOTH,
+static DEVICE_ATTR(fifo_mode, S_IRUSR|S_IRGRP|S_IWUSR,
 		bma2x2_fifo_mode_show, bma2x2_fifo_mode_store);
-static DEVICE_ATTR(fifo_framecount, S_IRUGO|S_IWUSR|S_IWGRP|S_IWOTH,
+static DEVICE_ATTR(fifo_framecount, S_IRUSR|S_IRGRP|S_IWUSR,
 		bma2x2_fifo_framecount_show, bma2x2_fifo_framecount_store);
-static DEVICE_ATTR(fifo_trig, S_IRUGO|S_IWUSR|S_IWGRP|S_IWOTH,
+static DEVICE_ATTR(fifo_trig, S_IRUSR|S_IRGRP|S_IWUSR,
 		bma2x2_fifo_trig_show, bma2x2_fifo_trig_store);
-static DEVICE_ATTR(fifo_trig_src, S_IRUGO|S_IWUSR|S_IWGRP|S_IWOTH,
+static DEVICE_ATTR(fifo_trig_src, S_IRUSR|S_IRGRP|S_IWUSR,
 		bma2x2_fifo_trig_src_show, bma2x2_fifo_trig_src_store);
-static DEVICE_ATTR(fifo_data_sel, S_IRUGO|S_IWUSR|S_IWGRP|S_IWOTH,
+static DEVICE_ATTR(fifo_data_sel, S_IRUSR|S_IRGRP|S_IWUSR,
 		bma2x2_fifo_data_sel_show, bma2x2_fifo_data_sel_store);
-static DEVICE_ATTR(fifo_data_frame, S_IRUGO,
+static DEVICE_ATTR(fifo_data_frame, S_IRUSR|S_IRGRP,
 		bma2x2_fifo_data_out_frame_show, NULL);
-static DEVICE_ATTR(reg, S_IRUGO|S_IWUSR|S_IWGRP|S_IWOTH,
+static DEVICE_ATTR(reg, S_IRUSR|S_IRGRP|S_IWUSR,
 		bma2x2_register_show, bma2x2_register_store);
-static DEVICE_ATTR(chip_id, S_IRUGO,
+static DEVICE_ATTR(chip_id, S_IRUSR|S_IRGRP,
 		bma2x2_chip_id_show, NULL);
-static DEVICE_ATTR(offset_x, S_IRUGO|S_IWUSR|S_IWGRP|S_IWOTH,
+static DEVICE_ATTR(offset_x, S_IRUSR|S_IRGRP|S_IWUSR,
 		bma2x2_offset_x_show,
 		bma2x2_offset_x_store);
-static DEVICE_ATTR(offset_y, S_IRUGO|S_IWUSR|S_IWGRP|S_IWOTH,
+static DEVICE_ATTR(offset_y, S_IRUSR|S_IRGRP|S_IWUSR,
 		bma2x2_offset_y_show,
 		bma2x2_offset_y_store);
-static DEVICE_ATTR(offset_z, S_IRUGO|S_IWUSR|S_IWGRP|S_IWOTH,
+static DEVICE_ATTR(offset_z, S_IRUSR|S_IRGRP|S_IWUSR,
 		bma2x2_offset_z_show,
 		bma2x2_offset_z_store);
-static DEVICE_ATTR(enable_int, S_IWUSR|S_IWGRP|S_IWOTH,
+static DEVICE_ATTR(enable_int, S_IWUSR,
 		NULL, bma2x2_enable_int_store);
-static DEVICE_ATTR(int_mode, S_IRUGO|S_IWUSR|S_IWGRP|S_IWOTH,
+static DEVICE_ATTR(int_mode, S_IRUSR|S_IRGRP|S_IWUSR,
 		bma2x2_int_mode_show, bma2x2_int_mode_store);
-static DEVICE_ATTR(slope_duration, S_IRUGO|S_IWUSR|S_IWGRP|S_IWOTH,
+static DEVICE_ATTR(slope_duration, S_IRUSR|S_IRGRP|S_IWUSR,
 		bma2x2_slope_duration_show, bma2x2_slope_duration_store);
-static DEVICE_ATTR(slope_threshold, S_IRUGO|S_IWUSR|S_IWGRP|S_IWOTH,
+static DEVICE_ATTR(slope_threshold, S_IRUSR|S_IRGRP|S_IWUSR,
 		bma2x2_slope_threshold_show, bma2x2_slope_threshold_store);
-static DEVICE_ATTR(slope_no_mot_duration, S_IRUGO|S_IWUSR|S_IWGRP|S_IWOTH,
+static DEVICE_ATTR(slope_no_mot_duration, S_IRUSR|S_IRGRP|S_IWUSR,
 		bma2x2_slope_no_mot_duration_show,
 			bma2x2_slope_no_mot_duration_store);
-static DEVICE_ATTR(slope_no_mot_threshold, S_IRUGO|S_IWUSR|S_IWGRP|S_IWOTH,
+static DEVICE_ATTR(slope_no_mot_threshold, S_IRUSR|S_IRGRP|S_IWUSR,
 		bma2x2_slope_no_mot_threshold_show,
 			bma2x2_slope_no_mot_threshold_store);
-static DEVICE_ATTR(high_g_duration, S_IRUGO|S_IWUSR|S_IWGRP|S_IWOTH,
+static DEVICE_ATTR(high_g_duration, S_IRUSR|S_IRGRP|S_IWUSR,
 		bma2x2_high_g_duration_show, bma2x2_high_g_duration_store);
-static DEVICE_ATTR(high_g_threshold, S_IRUGO|S_IWUSR|S_IWGRP|S_IWOTH,
+static DEVICE_ATTR(high_g_threshold, S_IRUSR|S_IRGRP|S_IWUSR,
 		bma2x2_high_g_threshold_show, bma2x2_high_g_threshold_store);
-static DEVICE_ATTR(low_g_duration, S_IRUGO|S_IWUSR|S_IWGRP|S_IWOTH,
+static DEVICE_ATTR(low_g_duration, S_IRUSR|S_IRGRP|S_IWUSR,
 		bma2x2_low_g_duration_show, bma2x2_low_g_duration_store);
-static DEVICE_ATTR(low_g_threshold, S_IRUGO|S_IWUSR|S_IWGRP|S_IWOTH,
+static DEVICE_ATTR(low_g_threshold, S_IRUSR|S_IRGRP|S_IWUSR,
 		bma2x2_low_g_threshold_show, bma2x2_low_g_threshold_store);
-static DEVICE_ATTR(tap_duration, S_IRUGO|S_IWUSR|S_IWGRP|S_IWOTH,
+static DEVICE_ATTR(tap_duration, S_IRUSR|S_IRGRP|S_IWUSR,
 		bma2x2_tap_duration_show, bma2x2_tap_duration_store);
-static DEVICE_ATTR(tap_threshold, S_IRUGO|S_IWUSR|S_IWGRP|S_IWOTH,
+static DEVICE_ATTR(tap_threshold, S_IRUSR|S_IRGRP|S_IWUSR,
 		bma2x2_tap_threshold_show, bma2x2_tap_threshold_store);
-static DEVICE_ATTR(tap_quiet, S_IRUGO|S_IWUSR|S_IWGRP|S_IWOTH,
+static DEVICE_ATTR(tap_quiet, S_IRUSR|S_IRGRP|S_IWUSR,
 		bma2x2_tap_quiet_show, bma2x2_tap_quiet_store);
-static DEVICE_ATTR(tap_shock, S_IRUGO|S_IWUSR|S_IWGRP|S_IWOTH,
+static DEVICE_ATTR(tap_shock, S_IRUSR|S_IRGRP|S_IWUSR,
 		bma2x2_tap_shock_show, bma2x2_tap_shock_store);
-static DEVICE_ATTR(tap_samp, S_IRUGO|S_IWUSR|S_IWGRP|S_IWOTH,
+static DEVICE_ATTR(tap_samp, S_IRUSR|S_IRGRP|S_IWUSR,
 		bma2x2_tap_samp_show, bma2x2_tap_samp_store);
-static DEVICE_ATTR(orient_mode, S_IRUGO|S_IWUSR|S_IWGRP|S_IWOTH,
+static DEVICE_ATTR(orient_mode, S_IRUSR|S_IRGRP|S_IWUSR,
 		bma2x2_orient_mode_show, bma2x2_orient_mode_store);
-static DEVICE_ATTR(orient_blocking, S_IRUGO|S_IWUSR|S_IWGRP|S_IWOTH,
+static DEVICE_ATTR(orient_blocking, S_IRUSR|S_IRGRP|S_IWUSR,
 		bma2x2_orient_blocking_show, bma2x2_orient_blocking_store);
-static DEVICE_ATTR(orient_hyst, S_IRUGO|S_IWUSR|S_IWGRP|S_IWOTH,
+static DEVICE_ATTR(orient_hyst, S_IRUSR|S_IRGRP|S_IWUSR,
 		bma2x2_orient_hyst_show, bma2x2_orient_hyst_store);
-static DEVICE_ATTR(orient_theta, S_IRUGO|S_IWUSR|S_IWGRP|S_IWOTH,
+static DEVICE_ATTR(orient_theta, S_IRUSR|S_IRGRP|S_IWUSR,
 		bma2x2_orient_theta_show, bma2x2_orient_theta_store);
-static DEVICE_ATTR(flat_theta, S_IRUGO|S_IWUSR|S_IWGRP|S_IWOTH,
+static DEVICE_ATTR(flat_theta, S_IRUSR|S_IRGRP|S_IWUSR,
 		bma2x2_flat_theta_show, bma2x2_flat_theta_store);
-static DEVICE_ATTR(flat_hold_time, S_IRUGO|S_IWUSR|S_IWGRP|S_IWOTH,
+static DEVICE_ATTR(flat_hold_time, S_IRUSR|S_IRGRP|S_IWUSR,
 		bma2x2_flat_hold_time_show, bma2x2_flat_hold_time_store);
-static DEVICE_ATTR(selftest, S_IRUGO|S_IWUSR|S_IWGRP|S_IWOTH,
+static DEVICE_ATTR(selftest, S_IRUSR|S_IRGRP|S_IWUSR,
 		bma2x2_selftest_show, bma2x2_selftest_store);
-static DEVICE_ATTR(softreset, S_IWUSR|S_IWGRP|S_IWOTH,
+static DEVICE_ATTR(softreset, S_IWUSR,
 		NULL, bma2x2_softreset_store);
-static DEVICE_ATTR(temperature, S_IRUGO,
+static DEVICE_ATTR(temperature, S_IRUSR|S_IRGRP,
 		bma2x2_temperature_show, NULL);
-static DEVICE_ATTR(place, S_IRUGO,
+static DEVICE_ATTR(place, S_IRUSR|S_IRGRP,
 		bma2x2_place_show, NULL);
 #ifdef CONFIG_SIG_MOTION
-static DEVICE_ATTR(en_sig_motion, S_IRUGO|S_IWUSR|S_IWGRP|S_IWOTH,
+static DEVICE_ATTR(en_sig_motion, S_IRUSR|S_IRGRP|S_IWUSR,
 		bma2x2_en_sig_motion_show, bma2x2_en_sig_motion_store);
 #endif
 #ifdef CONFIG_DOUBLE_TAP
-static DEVICE_ATTR(tap_time_period, S_IRUGO|S_IWUSR|S_IWGRP|S_IWOTH,
+static DEVICE_ATTR(tap_time_period, S_IRUSR|S_IRGRP|S_IWUSR,
 		bma2x2_tap_time_period_show, bma2x2_tap_time_period_store);
-static DEVICE_ATTR(en_double_tap, S_IRUGO|S_IWUSR|S_IWGRP|S_IWOTH,
+static DEVICE_ATTR(en_double_tap, S_IRUSR|S_IRGRP|S_IWUSR,
 		bma2x2_en_double_tap_show, bma2x2_en_double_tap_store);
 #endif
 
