@@ -93,6 +93,7 @@ static void __iomem *virt_dbgbase;
 #define USB_HS_SYSTEM_CBCR				0x41004
 #define USB_HS_AHB_CBCR					0x41008
 #define USB_HS_SYSTEM_CMD_RCGR				0x41010
+#define USB_FS_BCR					0x3F000
 #define USB_FS_SYSTEM_CMD_RCGR                          0x3F010
 #define USB_FS_IC_CMD_RCGR				0x3F034
 #define USB_FS_AHB_CBCR                                 0x3F008
@@ -2737,6 +2738,7 @@ static struct branch_clk gcc_usb_fs_ic_clk = {
 
 static struct branch_clk gcc_usb_fs_system_clk = {
 	.cbcr_reg = USB_FS_SYSTEM_CBCR,
+	.bcr_reg  = USB_FS_BCR,
 	.has_sibling = 0,
 	.base = &virt_bases[GCC_BASE],
 	.c = {
