@@ -551,6 +551,19 @@ static long imx_ioctl(struct v4l2_subdev *sd, unsigned int cmd, void *arg)
 	return 0;
 }
 
+static int power_ctrl(struct v4l2_subdev *sd, int flag)
+{
+	struct imx_device *dev = to_imx_sensor(sd);
+	return dev->platform_data->power_ctrl(sd, flag);
+}
+
+static int gpio_ctrl(struct v4l2_subdev *sd, int flag)
+{
+	struct imx_device *dev = to_imx_sensor(sd);
+	return dev->platform_data->gpio_ctrl(sd, flag);
+}
+
+
 static int power_up(struct v4l2_subdev *sd)
 {
 	struct i2c_client *client = v4l2_get_subdevdata(sd);
@@ -558,7 +571,7 @@ static int power_up(struct v4l2_subdev *sd)
 	int ret;
 
        /* power control */
-	ret = dev->platform_data->power_ctrl(sd, 1);
+	ret = power_ctrl(sd, 1);
 	if (ret)
 		goto fail_power;
 
@@ -568,7 +581,7 @@ static int power_up(struct v4l2_subdev *sd)
 		goto fail_clk;
 
 	/* gpio ctrl */
-	ret = dev->platform_data->gpio_ctrl(sd, 1);
+	ret = gpio_ctrl(sd, 1);
 	if (ret) {
 		dev_err(&client->dev, "gpio failed\n");
 		goto fail_gpio;
@@ -576,11 +589,11 @@ static int power_up(struct v4l2_subdev *sd)
 
 	return 0;
 fail_gpio:
-	dev->platform_data->gpio_ctrl(sd, 0);
+	gpio_ctrl(sd, 0);
 fail_clk:
 	dev->platform_data->flisclk_ctrl(sd, 0);
 fail_power:
-	dev->platform_data->power_ctrl(sd, 0);
+	power_ctrl(sd, 0);
 	dev_err(&client->dev, "sensor power-up failed\n");
 
 	return ret;
@@ -597,12 +610,12 @@ static int power_down(struct v4l2_subdev *sd)
 		dev_err(&client->dev, "flisclk failed\n");
 
 	/* gpio ctrl */
-	ret = dev->platform_data->gpio_ctrl(sd, 0);
+	ret = gpio_ctrl(sd, 0);
 	if (ret)
 		dev_err(&client->dev, "gpio failed\n");
 
 	/* power control */
-	ret = dev->platform_data->power_ctrl(sd, 0);
+	ret = power_ctrl(sd, 0);
 	if (ret)
 		dev_err(&client->dev, "vprog failed.\n");
 
