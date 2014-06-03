@@ -43,6 +43,8 @@
 /* The SVM upper bound is the same as the TASK_SIZE in arm32 */
 #define KGSL_SVM_UPPER_BOUND (0xC0000000 - SZ_16M)
 
+#define KGSL_SVM_LOWER_BOUND PAGE_SIZE
+
 /* A macro for memory statistics - add the new size to the stat and if
    the statisic is greater then _max, set _max
 */
