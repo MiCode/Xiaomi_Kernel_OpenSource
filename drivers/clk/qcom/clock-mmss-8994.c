@@ -629,9 +629,13 @@ static struct rcg_clk fd_core_clk_src = {
 static struct clk_freq_tbl ftbl_mdp_clk_src[] = {
 	F_MM(  85710000,     mmsscc_gpll0,    7,    0,     0),
 	F_MM( 100000000,     mmsscc_gpll0,    6,    0,     0),
+	F_MM( 120000000,     mmsscc_gpll0,    5,    0,     0),
 	F_MM( 150000000,     mmsscc_gpll0,    4,    0,     0),
 	F_MM( 171430000,     mmsscc_gpll0,  3.5,    0,     0),
 	F_MM( 200000000,     mmsscc_gpll0,    3,    0,     0),
+	F_MM( 240000000,     mmsscc_gpll0,  2.5,    0,     0),
+	F_MM( 266670000,  mmpll0_out_main,    3,    0,     0),
+	F_MM( 300000000,     mmsscc_gpll0,    2,    0,     0),
 	F_MM( 320000000,  mmpll0_out_main,  2.5,    0,     0),
 	F_MM( 400000000,  mmpll0_out_main,    2,    0,     0),
 	F_END
