@@ -2154,7 +2154,7 @@ static struct kgsl_cmdbatch *_kgsl_cmdbatch_create_legacy(
 	mem = kmem_cache_alloc(memobjs_cache, GFP_KERNEL);
 	if (mem == NULL) {
 		kgsl_cmdbatch_destroy(cmdbatch);
-		return NULL;
+		return ERR_PTR(-ENOMEM);
 	}
 
 	mem->gpuaddr = param->ibdesc_addr;
