@@ -1185,10 +1185,13 @@
 		clocks = <&clock_rpm clk_cxo_clk_src>,
 			 <&clock_gcc clk_gcc_mss_cfg_ahb_clk>,
 			 <&clock_gcc clk_gcc_mss_q6_bimc_axi_clk>,
-			 <&clock_gcc clk_gcc_boot_rom_ahb_clk>;
-		clock-names = "xo", "iface_clk", "bus_clk", "mem_clk";
+			 <&clock_gcc clk_gcc_boot_rom_ahb_clk>,
+			 <&clock_gcc clk_gpll0_out_msscc>;
+		clock-names = "xo", "iface_clk", "bus_clk", "mem_clk",
+			      "gpll0_mss_clk";
 		proxy-clock-names = "xo";
-		active-clock-names = "iface_clk", "bus_clk", "mem_clk";
+		active-clock-names = "iface_clk", "bus_clk", "mem_clk",
+				     "gpll0_mss_clk";
 
 		interrupts = <0 24 1>;
 		vdd_mss-supply = <&pm8994_s7>;
