@@ -216,6 +216,7 @@
 #include "msm8939-mdss.dtsi"
 #include "msm8939-iommu-domains.dtsi"
 #include "msm8939-camera.dtsi"
+#include "msm8939-mdss-pll.dtsi"
 
 &soc {
 	#address-cells = <1>;
@@ -776,6 +777,17 @@
 		clocks = <&clock_rpm clk_xo_clk_src>,
                          <&clock_rpm clk_xo_a_clk_src>;
 		clock-names = "xo", "xo_a";
+		#clock-cells = <1>;
+	};
+
+	clock_gcc_mdss: qcom,gcc-mdss@1a98300 {
+		compatible = "qcom,gcc-mdss-8936";
+		clocks = <&mdss_dsi0_pll clk_pixel_clk_src>,
+			 <&mdss_dsi0_pll clk_byte_clk_src>,
+			 <&mdss_dsi0_pll clk_pixel_clk_src>,
+			 <&mdss_dsi0_pll clk_byte_clk_src>;
+		clock-names = "pclk0_src", "byte0_src", "pclk1_src",
+				 "byte1_src";
 		#clock-cells = <1>;
 	};
 
