@@ -291,6 +291,10 @@ static int cnss_wlan_get_resources(struct platform_device *pdev)
 		goto err_reg_enable;
 	}
 
+	if (of_find_property((&pdev->dev)->of_node,
+				"qcom,wlan-uart-access", NULL))
+		penv->cap.cap_flag |= CNSS_HAS_UART_ACCESS;
+
 	if (of_get_property(pdev->dev.of_node,
 		    WLAN_SWREG_NAME"-supply", NULL)) {
 

@@ -21,6 +21,8 @@ Optional properties:
   - qcom,notify-modem-status: Boolean property to decide whether modem
     notification should be enabled or not in this platform
   - wlan-soc-swreg-supply: phandle to the external 1.15V regulator for QCA6174
+  - qcom,wlan-uart-access: Boolean property to decide whether QCA6174
+    has exclusive access to UART.
 
 Example:
 
