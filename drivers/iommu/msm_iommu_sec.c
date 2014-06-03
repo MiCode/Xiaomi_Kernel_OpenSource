@@ -128,7 +128,7 @@ static int msm_iommu_dump_fault_regs(int smmu_id, int cb_num,
 		uint32_t buff;
 		uint32_t len;
 	} req_info;
-	int resp;
+	int resp = 0;
 
 	req_info.id = smmu_id;
 	req_info.cb_num = cb_num;
@@ -154,6 +154,9 @@ static int msm_iommu_reg_dump_to_regs(
 	const uint32_t * const end = ((uint32_t *) dump) + nvals;
 	phys_addr_t phys_base = drvdata->phys_base;
 	int ctx = ctx_drvdata->num;
+
+	if (!nvals)
+		return -EINVAL;
 
 	for (i = 1; it < end; it += 2, i += 2) {
 		unsigned int reg_offset;
@@ -222,12 +225,10 @@ static int msm_iommu_reg_dump_to_regs(
 	for (i = 0; i < MAX_DUMP_REGS; ++i) {
 		if (!ctx_regs[i].valid) {
 			if (dump_regs_tbl[i].must_be_present) {
-				pr_err("Register missing from dump: %s, 0x%x (0x%lx)\n",
+				pr_err("Register missing from dump for ctx %d: %s, 0x%x\n",
+					ctx,
 					dump_regs_tbl[i].name,
-					dump_regs_tbl[i].reg_offset,
-					(unsigned long)
-					(phys_base +
-						dump_regs_tbl[i].reg_offset));
+					dump_regs_tbl[i].reg_offset);
 				ret = 1;
 			}
 			ctx_regs[i].val = 0xd00dfeed;
@@ -255,7 +256,7 @@ irqreturn_t msm_iommu_secure_fault_handler_v2(int irq, void *dev_id)
 	ctx_drvdata = dev_get_drvdata(&pdev->dev);
 	BUG_ON(!ctx_drvdata);
 
-	regs = kmalloc(sizeof(*regs), GFP_KERNEL);
+	regs = kzalloc(sizeof(*regs), GFP_KERNEL);
 	if (!regs) {
 		pr_err("%s: Couldn't allocate memory\n", __func__);
 		goto lock_release;
@@ -287,6 +288,12 @@ irqreturn_t msm_iommu_secure_fault_handler_v2(int irq, void *dev_id)
 		memset(ctx_regs, 0, sizeof(ctx_regs));
 		tmp = msm_iommu_reg_dump_to_regs(
 			ctx_regs, regs, drvdata, ctx_drvdata);
+		if (tmp < 0) {
+			ret = IRQ_NONE;
+			pr_err("Incorrect response from secure environment\n");
+			goto free_regs;
+		}
+
 		if (ctx_regs[DUMP_REG_FSR].val) {
 			if (tmp)
 				pr_err("Incomplete fault register dump. Printout will be incomplete.\n");
