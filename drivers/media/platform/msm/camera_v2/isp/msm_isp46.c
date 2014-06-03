@@ -85,15 +85,7 @@ static uint8_t stats_pingpong_offset_map[] = {
 #define VFE46_BUS_BDG_DS_CFG_NUM            17
 
 #define VFE46_CLK_IDX 2
-static struct msm_cam_clk_info msm_vfe46_clk_info[] = {
-	{"camss_top_ahb_clk", -1},
-	{"camss_ahb_clk", -1},
-	{"vfe_clk_src", 266670000},
-	{"camss_vfe_vfe_clk", -1},
-	{"camss_csi_vfe_clk", -1},
-	{"iface_clk", -1},
-	{"bus_clk", -1},
-};
+static struct msm_cam_clk_info msm_vfe46_clk_info[VFE_CLK_INFO_MAX];
 
 static uint32_t vfe46_qos_settings_8994_v1[] = {
 	0xAAA9AAA9, /* QOS_CFG_0 */
@@ -199,8 +191,14 @@ static int msm_vfe46_init_hardware(struct vfe_device *vfe_dev)
 		}
 	}
 
+	rc = msm_isp_get_clk_info(vfe_dev, vfe_dev->pdev, msm_vfe46_clk_info);
+	if (rc < 0) {
+		pr_err("msm_isp_get_clk_info() failed\n");
+		goto fs_failed;
+	}
+
 	rc = msm_cam_clk_enable(&vfe_dev->pdev->dev, msm_vfe46_clk_info,
-		vfe_dev->vfe_clk, ARRAY_SIZE(msm_vfe46_clk_info), 1);
+		vfe_dev->vfe_clk, vfe_dev->num_clk, 1);
 	if (rc < 0)
 		goto clk_enable_failed;
 
@@ -233,7 +231,7 @@ vbif_remap_failed:
 	iounmap(vfe_dev->vfe_base);
 vfe_remap_failed:
 	msm_cam_clk_enable(&vfe_dev->pdev->dev, msm_vfe46_clk_info,
-		vfe_dev->vfe_clk, ARRAY_SIZE(msm_vfe46_clk_info), 0);
+		vfe_dev->vfe_clk, vfe_dev->num_clk, 0);
 clk_enable_failed:
 	if (vfe_dev->fs_vfe)
 		regulator_disable(vfe_dev->fs_vfe);
@@ -250,7 +248,7 @@ static void msm_vfe46_release_hardware(struct vfe_device *vfe_dev)
 	iounmap(vfe_dev->vfe_vbif_base);
 	iounmap(vfe_dev->vfe_base);
 	msm_cam_clk_enable(&vfe_dev->pdev->dev, msm_vfe46_clk_info,
-		vfe_dev->vfe_clk, ARRAY_SIZE(msm_vfe46_clk_info), 0);
+		vfe_dev->vfe_clk, vfe_dev->num_clk, 0);
 	regulator_disable(vfe_dev->fs_vfe);
 	msm_isp_deinit_bandwidth_mgr(ISP_VFE0 + vfe_dev->pdev->id);
 }
