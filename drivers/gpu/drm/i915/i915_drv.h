@@ -2088,6 +2088,7 @@ extern void i915_master_destroy(struct drm_device *dev, struct drm_master *maste
 
 /* i915_params.c */
 struct i915_params {
+	int limitbw;
 	int modeset;
 	int panel_ignore_lid;
 	unsigned int powersave;

@@ -37,6 +37,21 @@
 #include <drm/i915_drm.h>
 #include "i915_drv.h"
 
+#define HDMI_UEVENT_MAX_LENGTH 20
+
+#define LIMIT_BW_MAX_HDISPLAY	1280
+#define LIMIT_BW_MAX_VDISPLAY	800
+
+/* CEA Mode 4 - 1280x720@60Hz */
+struct drm_display_mode hdmi_fallback_mode = {
+	DRM_MODE("1280x720", DRM_MODE_TYPE_DRIVER,
+	74250,
+	1280, 1390, 1430, 1650, 0,
+	720, 725, 730, 750, 0,
+	DRM_MODE_FLAG_PHSYNC | DRM_MODE_FLAG_PVSYNC),
+	.vrefresh = 60
+};
+
 static struct drm_device *intel_hdmi_to_dev(struct intel_hdmi *intel_hdmi)
 {
 	return hdmi_to_dig_port(intel_hdmi)->base.base.dev;
@@ -911,11 +926,22 @@ static enum drm_mode_status
 intel_hdmi_mode_valid(struct drm_connector *connector,
 		      struct drm_display_mode *mode)
 {
+	struct drm_device *dev = connector->dev;
 	if (mode->clock > hdmi_portclock_limit(intel_attached_hdmi(connector),
 					       true))
 		return MODE_CLOCK_HIGH;
 	if (mode->clock < 20000)
 		return MODE_CLOCK_LOW;
+
+	/* WAR
+	 * For limitation in memory chanel bandwidth.
+	 */
+	if ((i915.limitbw) && (IS_VALLEYVIEW(dev))) {
+		if (mode->vdisplay > LIMIT_BW_MAX_VDISPLAY)
+			return MODE_BAD_VVALUE;
+		if (mode->hdisplay > LIMIT_BW_MAX_HDISPLAY)
+			return MODE_BAD_HVALUE;
+	}
 
 	if (mode->flags & DRM_MODE_FLAG_DBLSCAN)
 		return MODE_NO_DBLESCAN;

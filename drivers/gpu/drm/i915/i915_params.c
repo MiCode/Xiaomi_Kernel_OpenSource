@@ -25,6 +25,7 @@
 #include "i915_drv.h"
 
 struct i915_params i915 __read_mostly = {
+	.limitbw = 0,
 	.modeset = -1,
 	.panel_ignore_lid = 1,
 	.powersave = 1,
@@ -50,6 +51,9 @@ struct i915_params i915 __read_mostly = {
 	.disable_vtd_wa = 0,
 	.drrs_interval = 2000,
 };
+module_param_named(limitbw, i915.limitbw, int, 0400);
+MODULE_PARM_DESC(limitbw,
+	"Override lid status (0=not limited [default], 1=limited bandwidth, ");
 
 module_param_named(modeset, i915.modeset, int, 0400);
 MODULE_PARM_DESC(modeset,
