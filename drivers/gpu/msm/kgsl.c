@@ -197,6 +197,13 @@ static void kgsl_memfree_add(pid_t pid, unsigned int gpuaddr,
 	spin_unlock(&memfree_lock);
 }
 
+int kgsl_readtimestamp(struct kgsl_device *device, void *priv,
+		enum kgsl_timestamp_type type, unsigned int *timestamp)
+{
+	return device->ftbl->readtimestamp(device, priv, type, timestamp);
+}
+EXPORT_SYMBOL(kgsl_readtimestamp);
+
 /* kgsl_get_mem_entry - get the mem_entry structure for the specified object
  * @device - Pointer to the device structure
  * @ptbase - the pagetable base of the object
@@ -580,7 +587,8 @@ int kgsl_context_init(struct kgsl_device_private *dev_priv,
 		goto fail_free_id;
 
 	snprintf(name, sizeof(name), "context-%d", id);
-	kgsl_add_event_group(&context->events, context, name);
+	kgsl_add_event_group(&context->events, context, name,
+		kgsl_readtimestamp, context);
 
 	return 0;
 fail_free_id:

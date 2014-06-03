@@ -3111,7 +3111,7 @@ static int adreno_waittimestamp(struct kgsl_device *device,
 /**
  * adreno_readtimestamp(): Return the value of given type of timestamp
  * @device: GPU device whose timestamp values are being queried
- * @context: The context for which timestamp is to be read
+ * @priv: The object being queried for a timestamp (expected to be a context)
  * @type: The type of timestamp (one of 3) to be read
  * @timestamp: Pointer to where the read timestamp is to be written to
  *
@@ -3123,11 +3123,11 @@ static int adreno_waittimestamp(struct kgsl_device *device,
  * address and returns -EINVAL on any read error/invalid type and timestamp = 0.
  */
 static int adreno_readtimestamp(struct kgsl_device *device,
-					struct kgsl_context *context,
-					enum kgsl_timestamp_type type,
-					unsigned int *timestamp)
+		void *priv, enum kgsl_timestamp_type type,
+		unsigned int *timestamp)
 {
 	int status = 0;
+	struct kgsl_context *context = priv;
 	unsigned int id = KGSL_CONTEXT_ID(context);
 
 	/*
