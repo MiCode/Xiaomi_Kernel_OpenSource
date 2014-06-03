@@ -11,6 +11,7 @@ Node required properties:
 - interrupt-parent		phandle to the interrupt parent device
 - interrupts			the interrupt number on which the STAT interrupt
 				output is connected.
+Node optional properties:
 - summit,chg-en-n-gpio		gpio which control charging enable.
 - summit,chg-shdn-n-gpio	gpio which control device shutdown
 - summit,chg-current-ma		charging current in milliamps.

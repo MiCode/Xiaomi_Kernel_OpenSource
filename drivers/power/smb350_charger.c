@@ -717,7 +717,7 @@ static int smb350_hw_init(struct smb350_chg *chip)
 
 		/* Set Termination current */
 		smb350_set_term_current(client, chip->term_current_ma);
-	} else {
+	} else if (chip->term_current_ma == 0) {
 		/* Disable Current Termination */
 		smb350_masked_write(client, CHG_CTRL_REG, BIT(6), 1);
 	}
@@ -787,11 +787,19 @@ static int smb350_parse_dt(struct smb350_chg *chip)
 
 	rc = of_property_read_u32(node, "summit,chg-current-ma",
 				   &(chip->chg_current_ma));
-	pr_debug("chg_current_ma = %d.\n", chip->chg_current_ma);
+	if (rc < 0) {
+		chip->chg_current_ma = 0;
+		pr_debug("chg_current_ma = %d rc = %d\n",
+						chip->chg_current_ma, rc);
+	}
 
 	rc = of_property_read_u32(node, "summit,term-current-ma",
 				   &(chip->term_current_ma));
-	pr_debug("term_current_ma = %d.\n", chip->term_current_ma);
+	if (rc < 0) {
+		chip->term_current_ma = rc;
+		pr_debug("term_current_ma = %d rc = %d\n",
+						chip->term_current_ma, rc);
+	}
 	return 0;
 }
 
