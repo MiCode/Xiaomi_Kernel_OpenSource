@@ -366,6 +366,10 @@
 		};
 	};
 
+	restart@fc4ab000 {
+		compatible = "qcom,pshold";
+		reg = <0xfc4ab000 0x4>;
+	};
 
 	blsp1_uart3: serial@f991f000 {
 		compatible = "qcom,msm-lsuart-v14";
