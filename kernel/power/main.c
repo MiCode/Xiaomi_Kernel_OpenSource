@@ -633,7 +633,7 @@ static int __init pm_start_workqueue(void)
 static inline int pm_start_workqueue(void) { return 0; }
 #endif
 
-int register_power_HAL_suspend_device(struct device *dev)
+int register_power_hal_suspend_device(struct device *dev)
 {
 	if (!power_hal_kobj || !dev)
 		return -ENODEV;
@@ -641,13 +641,13 @@ int register_power_HAL_suspend_device(struct device *dev)
 	return sysfs_create_link(power_hal_kobj, &dev->kobj,
 			dev_name(dev));
 }
-EXPORT_SYMBOL(register_power_HAL_suspend_device);
+EXPORT_SYMBOL(register_power_hal_suspend_device);
 
-void unregister_power_HAL_suspend_device(struct device *dev)
+void unregister_power_hal_suspend_device(struct device *dev)
 {
 	sysfs_delete_link(power_hal_kobj, &dev->kobj, dev_name(dev));
 }
-EXPORT_SYMBOL(unregister_power_HAL_suspend_device);
+EXPORT_SYMBOL(unregister_power_hal_suspend_device);
 
 static int __init pm_init(void)
 {
