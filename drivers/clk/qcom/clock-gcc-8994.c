@@ -197,7 +197,6 @@ static DEFINE_VDD_REGULATORS(vdd_dig, VDD_DIG_NUM, 1, vdd_corner, NULL);
 #define GP3_CBCR                                         (0x1980)
 #define GP3_CMD_RCGR                                     (0x1984)
 #define GPLL4_MODE                                       (0x1DC0)
-#define PCIE_0_BCR                                       (0x1AC0)
 #define PCIE_0_SLV_AXI_CBCR                              (0x1AC8)
 #define PCIE_0_MSTR_AXI_CBCR                             (0x1ACC)
 #define PCIE_0_CFG_AHB_CBCR                              (0x1AD0)
@@ -205,7 +204,8 @@ static DEFINE_VDD_REGULATORS(vdd_dig, VDD_DIG_NUM, 1, vdd_corner, NULL);
 #define PCIE_0_PIPE_CBCR                                 (0x1AD8)
 #define PCIE_0_PIPE_CMD_RCGR                             (0x1ADC)
 #define PCIE_0_AUX_CMD_RCGR                              (0x1B00)
-#define PCIE_1_BCR                                       (0x1B40)
+#define PCIE_PHY_0_PHY_BCR                               (0x1B14)
+#define PCIE_PHY_0_BCR                                   (0x1B18)
 #define PCIE_1_SLV_AXI_CBCR                              (0x1B48)
 #define PCIE_1_MSTR_AXI_CBCR                             (0x1B4C)
 #define PCIE_1_CFG_AHB_CBCR                              (0x1B50)
@@ -213,6 +213,8 @@ static DEFINE_VDD_REGULATORS(vdd_dig, VDD_DIG_NUM, 1, vdd_corner, NULL);
 #define PCIE_1_PIPE_CBCR                                 (0x1B58)
 #define PCIE_1_PIPE_CMD_RCGR                             (0x1B5C)
 #define PCIE_1_AUX_CMD_RCGR                              (0x1B80)
+#define PCIE_PHY_1_PHY_BCR                               (0x1B94)
+#define PCIE_PHY_1_BCR                                   (0x1B98)
 #define UFS_AXI_CBCR                                     (0x1D48)
 #define UFS_AHB_CBCR                                     (0x1D4C)
 #define UFS_TX_CFG_CBCR                                  (0x1D50)
@@ -1360,6 +1362,26 @@ static struct rcg_clk usb_hs_system_clk_src = {
 	},
 };
 
+static struct reset_clk gcc_pcie_phy_0_reset = {
+	.reset_reg = PCIE_PHY_0_BCR,
+	.base = &virt_base,
+	.c = {
+		.dbg_name = "gcc_pcie_phy_0_reset",
+		.ops = &clk_ops_rst,
+		CLK_INIT(gcc_pcie_phy_0_reset.c),
+	},
+};
+
+static struct reset_clk gcc_pcie_phy_1_reset = {
+	.reset_reg = PCIE_PHY_1_BCR,
+	.base = &virt_base,
+	.c = {
+		.dbg_name = "gcc_pcie_phy_1_reset",
+		.ops = &clk_ops_rst,
+		CLK_INIT(gcc_pcie_phy_1_reset.c),
+	},
+};
+
 static struct reset_clk gcc_qusb2_phy_reset = {
 	.reset_reg = QUSB2_PHY_BCR,
 	.base = &virt_base,
@@ -2035,7 +2057,7 @@ static struct branch_clk gcc_pcie_0_mstr_axi_clk = {
 
 static struct branch_clk gcc_pcie_0_pipe_clk = {
 	.cbcr_reg = PCIE_0_PIPE_CBCR,
-	.bcr_reg = PCIE_0_BCR,
+	.bcr_reg = PCIE_PHY_0_PHY_BCR,
 	.has_sibling = 0,
 	.base = &virt_base,
 	.c = {
@@ -2093,7 +2115,7 @@ static struct branch_clk gcc_pcie_1_mstr_axi_clk = {
 
 static struct branch_clk gcc_pcie_1_pipe_clk = {
 	.cbcr_reg = PCIE_1_PIPE_CBCR,
-	.bcr_reg = PCIE_1_BCR,
+	.bcr_reg = PCIE_PHY_1_PHY_BCR,
 	.has_sibling = 0,
 	.base = &virt_base,
 	.c = {
@@ -2693,6 +2715,8 @@ static struct clk_lookup msm_clocks_gcc_8994[] = {
 	CLK_LIST(usb30_mock_utmi_clk_src),
 	CLK_LIST(usb3_phy_aux_clk_src),
 	CLK_LIST(usb_hs_system_clk_src),
+	CLK_LIST(gcc_pcie_phy_0_reset),
+	CLK_LIST(gcc_pcie_phy_1_reset),
 	CLK_LIST(gcc_qusb2_phy_reset),
 	CLK_LIST(gcc_usb3_phy_reset),
 	CLK_LIST(gpll0_out_mmsscc),
