@@ -34,13 +34,9 @@
 
 #define FIRST_TIMEOUT (HZ / 2)
 
-#define KGSL_IOCTL_FUNC(_cmd, _func, _flags) \
+#define KGSL_IOCTL_FUNC(_cmd, _func) \
 	[_IOC_NR((_cmd))] = \
-		{ .cmd = (_cmd), .func = (_func), .flags = (_flags) }
-
-#define KGSL_IOCTL_LOCK		BIT(0)
-#define KGSL_IOCTL_WAKE		BIT(1)
-
+		{ .cmd = (_cmd), .func = (_func) }
 
 /* KGSL device state is initialized to INIT when platform_probe		*
  * sucessfully initialized the device.  Once a device has been opened	*
@@ -196,7 +192,6 @@ typedef long (*kgsl_ioctl_func_t)(struct kgsl_device_private *,
 struct kgsl_ioctl {
 	unsigned int cmd;
 	kgsl_ioctl_func_t func;
-	unsigned int flags;
 };
 
 long kgsl_ioctl_helper(struct file *filep, unsigned int cmd,
