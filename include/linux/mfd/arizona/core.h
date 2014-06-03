@@ -117,6 +117,9 @@ struct arizona {
 	struct snd_soc_dapm_context *dapm;
 
 	struct mutex reg_setting_lock;
+
+	int tdm_width[ARIZONA_MAX_AIF];
+	int tdm_slots[ARIZONA_MAX_AIF];
 };
 
 int arizona_clk32k_enable(struct arizona *arizona);
