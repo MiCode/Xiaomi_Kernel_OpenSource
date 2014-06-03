@@ -23,6 +23,10 @@
 #include <linux/backing-dev.h>
 #include <linux/atomic.h>
 #include <linux/scatterlist.h>
+#include <linux/device-mapper.h>
+#include <linux/printk.h>
+#include <linux/pft.h>
+
 #include <crypto/scatterwalk.h>
 #include <asm/page.h>
 #include <asm/unaligned.h>
@@ -30,9 +34,6 @@
 #include <crypto/md5.h>
 #include <crypto/algapi.h>
 #include <mach/qcrypto.h>
-
-#include <linux/device-mapper.h>
-
 
 #define DM_MSG_PREFIX "req-crypt"
 
@@ -46,20 +47,23 @@
 
 #define DM_REQ_CRYPT_ERROR -1
 #define DM_REQ_CRYPT_ERROR_AFTER_PAGE_MALLOC -2
-#define FDE_CRYPTO_DEVICE 0
 
 struct req_crypt_result {
 	struct completion completion;
 	int err;
 };
 
-struct dm_dev *dev;
+#define FDE_KEY_ID	0
+#define PFE_KEY_ID	1
+
+static struct dm_dev *dev;
 static struct kmem_cache *_req_crypt_io_pool;
-sector_t start_sector_orig;
-struct workqueue_struct *req_crypt_queue;
-mempool_t *req_io_pool;
-mempool_t *req_page_pool;
-struct crypto_ablkcipher *tfm;
+static sector_t start_sector_orig;
+static struct workqueue_struct *req_crypt_queue;
+static mempool_t *req_io_pool;
+static mempool_t *req_page_pool;
+static bool is_fde_enabled;
+static struct crypto_ablkcipher *tfm;
 
 struct req_dm_crypt_io {
 	struct work_struct work;
@@ -67,11 +71,82 @@ struct req_dm_crypt_io {
 	int error;
 	atomic_t pending;
 	struct timespec start_time;
+	bool should_encrypt;
+	bool should_decrypt;
+	u32 key_id;
 };
 
 static void req_crypt_cipher_complete
 		(struct crypto_async_request *req, int err);
 
+
+static  bool req_crypt_should_encrypt(struct req_dm_crypt_io *req)
+{
+	int ret;
+	bool should_encrypt = false;
+	struct bio *bio = NULL;
+	struct inode *inode = NULL;
+	u32 key_id = 0;
+	bool is_encrypted = false;
+	bool is_inplace = false;
+
+	if (!req || !req->cloned_request || !req->cloned_request->bio)
+		return false;
+
+	bio = req->cloned_request->bio;
+
+	if (!bio->bi_io_vec || !bio->bi_io_vec->bv_page ||
+	    !bio->bi_io_vec->bv_page->mapping)
+		return false;
+
+	inode = bio->bi_io_vec->bv_page->mapping->host;
+
+	ret = pft_get_key_index(inode, &key_id, &is_encrypted, &is_inplace);
+	/* req->key_id = key_id; @todo support more than 1 pfe key */
+	if ((ret == 0) && (is_encrypted || is_inplace)) {
+		should_encrypt = true;
+		req->key_id = PFE_KEY_ID;
+	} else if (is_fde_enabled) {
+		should_encrypt = true;
+		req->key_id = FDE_KEY_ID;
+	}
+
+	return should_encrypt;
+}
+
+static  bool req_crypt_should_deccrypt(struct req_dm_crypt_io *req)
+{
+	int ret;
+	bool should_deccrypt = false;
+	struct bio *bio = NULL;
+	struct inode *inode = NULL;
+	u32 key_id = 0;
+	bool is_encrypted = false;
+	bool is_inplace = false;
+
+	if (!req || !req->cloned_request || !req->cloned_request->bio)
+		return false;
+
+	bio = req->cloned_request->bio;
+
+	if (!bio->bi_io_vec || !bio->bi_io_vec->bv_page ||
+	    !bio->bi_io_vec->bv_page->mapping)
+		return false;
+
+	inode = bio->bi_io_vec->bv_page->mapping->host;
+
+	ret = pft_get_key_index(inode, &key_id, &is_encrypted, &is_inplace);
+	/* req->key_id = key_id; @todo support more than 1 pfe key */
+	if ((ret == 0) && (is_encrypted && !is_inplace)) {
+		should_deccrypt = true;
+		req->key_id = PFE_KEY_ID;
+	} else if (is_fde_enabled) {
+		should_deccrypt = true;
+		req->key_id = FDE_KEY_ID;
+	}
+
+	return should_deccrypt;
+}
 
 static void req_crypt_inc_pending(struct req_dm_crypt_io *io)
 {
@@ -197,7 +272,7 @@ static void req_cryptd_crypt_read_convert(struct req_dm_crypt_io *io)
 	ablkcipher_request_set_callback(req, CRYPTO_TFM_REQ_MAY_BACKLOG,
 					req_crypt_cipher_complete, &result);
 	init_completion(&result.completion);
-	err = qcrypto_cipher_set_device(req, FDE_CRYPTO_DEVICE);
+	err = qcrypto_cipher_set_device(req, io->key_id);
 	if (err != 0) {
 		DMERR("%s qcrypto_cipher_set_device failed with err %d\n",
 				__func__, err);
@@ -278,6 +353,26 @@ submit_request:
 }
 
 /*
+ * This callback is called by the worker queue to perform non-decrypt reads
+ * and use the dm function to complete the bios and requests.
+ */
+static void req_cryptd_crypt_read_plain(struct req_dm_crypt_io *io)
+{
+	struct request *clone = NULL;
+	int error = 0;
+
+	if (!io || !io->cloned_request) {
+		DMERR("%s io is invalid\n", __func__);
+		BUG(); /* should not happen */
+	}
+
+	clone = io->cloned_request;
+
+	dm_end_request(clone, error);
+	mempool_free(io, req_io_pool);
+}
+
+/*
  * The callback that will be called by the worker queue to perform Encryption
  * for writes and submit the request using the elevelator.
  */
@@ -299,6 +394,7 @@ static void req_cryptd_crypt_write_convert(struct req_dm_crypt_io *io)
 	struct page *page = NULL;
 	u8 IV[AES_XTS_IV_LEN];
 	int remaining_size = 0;
+	int err = 0;
 
 	if (io) {
 		if (io->cloned_request) {
@@ -330,10 +426,10 @@ static void req_cryptd_crypt_write_convert(struct req_dm_crypt_io *io)
 				req_crypt_cipher_complete, &result);
 
 	init_completion(&result.completion);
-	error = qcrypto_cipher_set_device(req, FDE_CRYPTO_DEVICE);
-	if (error != 0) {
-		DMERR("%s qcrypto_cipher_set_device failed with error %d\n",
-				__func__, error);
+	err = qcrypto_cipher_set_device(req, io->key_id);
+	if (err != 0) {
+		DMERR("%s qcrypto_cipher_set_device failed with err %d\n",
+				__func__, err);
 		error = DM_REQ_CRYPT_ERROR;
 		goto ablkcipher_req_alloc_failure;
 	}
@@ -475,19 +571,44 @@ submit_request:
 	req_crypt_dec_pending_encrypt(io);
 }
 
+/*
+ * This callback is called by the worker queue to perform non-encrypted writes
+ * and submit the request using the elevelator.
+ */
+static void req_cryptd_crypt_write_plain(struct req_dm_crypt_io *io)
+{
+	struct request *clone = NULL;
+
+	if (!io || !io->cloned_request) {
+		DMERR("%s io is invalid\n", __func__);
+		BUG(); /* should not happen */
+	}
+
+	clone = io->cloned_request;
+	io->error = 0;
+	dm_dispatch_request(clone);
+}
+
 /* Queue callback function that will get triggered */
 static void req_cryptd_crypt(struct work_struct *work)
 {
 	struct req_dm_crypt_io *io =
 			container_of(work, struct req_dm_crypt_io, work);
 
-	if (rq_data_dir(io->cloned_request) == WRITE)
-		req_cryptd_crypt_write_convert(io);
-	else if (rq_data_dir(io->cloned_request) == READ)
-		req_cryptd_crypt_read_convert(io);
-	else
-		DMERR("%s received non-read/write request for Clone %u\n",
+	if (rq_data_dir(io->cloned_request) == WRITE) {
+		if (io->should_encrypt)
+			req_cryptd_crypt_write_convert(io);
+		else
+			req_cryptd_crypt_write_plain(io);
+	} else if (rq_data_dir(io->cloned_request) == READ) {
+		if (io->should_decrypt)
+			req_cryptd_crypt_read_convert(io);
+		else
+			req_cryptd_crypt_read_plain(io);
+	} else {
+		DMERR("%s received non-write request for Clone %u\n",
 				__func__, (unsigned int)io->cloned_request);
+	}
 }
 
 static void req_cryptd_queue_crypt(struct req_dm_crypt_io *io)
@@ -552,7 +673,7 @@ static int req_crypt_endio(struct dm_target *ti, struct request *clone,
 	bvec = NULL;
 	if (rq_data_dir(clone) == WRITE) {
 		rq_for_each_segment(bvec, clone, iter1) {
-			if (bvec->bv_offset == 0) {
+			if (req_io->should_encrypt && bvec->bv_offset == 0) {
 				mempool_free(bvec->bv_page, req_page_pool);
 				bvec->bv_page = NULL;
 			} else
@@ -580,7 +701,6 @@ submit_request:
  * For a read request no pre-processing is required the request
  * is returned to dm once mapping is done
  */
-
 static int req_crypt_map(struct dm_target *ti, struct request *clone,
 			 union map_info *map_context)
 {
@@ -608,6 +728,11 @@ static int req_crypt_map(struct dm_target *ti, struct request *clone,
 	req_io->cloned_request = clone;
 	map_context->ptr = req_io;
 	atomic_set(&req_io->pending, 0);
+
+	if (rq_data_dir(clone) == WRITE)
+		req_io->should_encrypt = req_crypt_should_encrypt(req_io);
+	if (rq_data_dir(clone) == READ)
+		req_io->should_decrypt = req_crypt_should_deccrypt(req_io);
 
 	/* Get the queue of the underlying original device */
 	clone->q = bdev_get_queue(dev->bdev);
@@ -656,6 +781,8 @@ submit_request:
 
 static void req_crypt_dtr(struct dm_target *ti)
 {
+	DMDEBUG("dm-req-crypt Destructor.\n");
+
 	if (req_crypt_queue) {
 		destroy_workqueue(req_crypt_queue);
 		req_crypt_queue = NULL;
@@ -685,6 +812,8 @@ static int req_crypt_ctr(struct dm_target *ti, unsigned int argc, char **argv)
 	char dummy;
 	int err = DM_REQ_CRYPT_ERROR;
 
+	DMDEBUG("dm-req-crypt Constructor.\n");
+
 	if (argc < 5) {
 		DMERR(" %s Not enough args\n", __func__);
 		err = DM_REQ_CRYPT_ERROR;
@@ -711,12 +840,23 @@ static int req_crypt_ctr(struct dm_target *ti, unsigned int argc, char **argv)
 			goto ctr_exit;
 		}
 	} else {
-		DMERR(" %s Arg[4]invalid\n", __func__);
+		DMERR(" %s Arg[4] invalid\n", __func__);
 		err =  DM_REQ_CRYPT_ERROR;
 		goto ctr_exit;
 	}
 
 	start_sector_orig = tmpll;
+
+	if (argv[5]) {
+		if (!strcmp(argv[5], "fde_enabled"))
+			is_fde_enabled = true;
+		else
+			is_fde_enabled = false;
+	} else {
+		DMERR(" %s Arg[5] invalid, set FDE eanbled.\n", __func__);
+		is_fde_enabled = true; /* backward compatible */
+	}
+	DMDEBUG("%s is_fde_enabled=%d\n", __func__, is_fde_enabled);
 
 	req_crypt_queue = alloc_workqueue("req_cryptd",
 					WQ_NON_REENTRANT |
@@ -740,6 +880,7 @@ static int req_crypt_ctr(struct dm_target *ti, unsigned int argc, char **argv)
 	}
 
 	req_io_pool = mempool_create_slab_pool(MIN_IOS, _req_crypt_io_pool);
+	BUG_ON(!req_io_pool);
 	if (!req_io_pool) {
 		DMERR("%s req_io_pool not allocated\n", __func__);
 		err =  DM_REQ_CRYPT_ERROR;
@@ -805,6 +946,8 @@ static int __init req_dm_crypt_init(void)
 		DMERR("register failed %d", r);
 		kmem_cache_destroy(_req_crypt_io_pool);
 	}
+
+	DMINFO("dm-req-crypt successfully initalized.\n");
 
 	return r;
 }
