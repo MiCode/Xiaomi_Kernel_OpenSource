@@ -222,6 +222,7 @@ struct ci13xxx {
 /* PORTSC */
 #define PORTSC_FPR            BIT(6)
 #define PORTSC_SUSP           BIT(7)
+#define PORTSC_PR             BIT(8)
 #define PORTSC_HSP            BIT(9)
 #define PORTSC_PTC            (0x0FUL << 16)
 
