@@ -223,10 +223,12 @@
 	vdd-supply = <&gdsc_jpeg>;
 	qcom,iommu-enable-halt;
 	qcom,needs-alt-core-clk;
+	qcom,needs-alt-iface-clk;
 	clocks = <&clock_mmss clk_camss_jpeg_jpeg_axi_clk>,
 		<&clock_mmss clk_camss_jpeg_jpeg_ahb_clk>,
+		<&clock_mmss clk_camss_ahb_clk>,
 		<&clock_mmss clk_camss_top_ahb_clk>;
-	clock-names = "core_clk", "iface_clk", "alt_core_clk";
+	clock-names = "core_clk", "iface_clk", "alt_iface_clk", "alt_core_clk";
 
 	qcom,iommu-bfb-regs =  <0x2000
 				0x204c
@@ -358,10 +360,12 @@
 	vdd-supply = <&gdsc_vfe>;
 	qcom,iommu-enable-halt;
 	qcom,needs-alt-core-clk;
+	qcom,needs-alt-iface-clk;
 	clocks = <&clock_mmss clk_camss_vfe_vfe_axi_clk>,
 		<&clock_mmss clk_camss_vfe_vfe_ahb_clk>,
+		<&clock_mmss clk_camss_ahb_clk>,
 		<&clock_mmss clk_camss_top_ahb_clk>;
-	clock-names = "core_clk", "iface_clk", "alt_core_clk";
+	clock-names = "core_clk", "iface_clk", "alt_iface_clk", "alt_core_clk";
 
 	qcom,iommu-bfb-regs =  <0x2000
 				0x204c
@@ -406,16 +410,24 @@
 	status = "ok";
 	vdd-supply = <&gdsc_fd>;
 	qcom,iommu-enable-halt;
+	qcom,needs-alt-core-clk;
+	qcom,needs-alt-iface-clk;
 	clocks = <&clock_mmss clk_fd_axi_clk>,
-		<&clock_mmss clk_fd_ahb_clk>;
-	clock-names = "core_clk", "iface_clk";
+		<&clock_mmss clk_fd_ahb_clk>,
+		<&clock_mmss clk_fd_core_clk>,
+		<&clock_mmss clk_fd_core_uar_clk>;
+	clock-names = "core_clk", "iface_clk", "alt_core_clk", "alt_iface_clk";
 };
 
 &cpp_iommu {
 	status = "ok";
 	vdd-supply = <&gdsc_cpp>;
 	qcom,iommu-enable-halt;
+        qcom,needs-alt-core-clk;
+        qcom,needs-alt-iface-clk;
 	clocks = <&clock_mmss clk_camss_vfe_cpp_axi_clk>,
-		<&clock_mmss clk_camss_vfe_cpp_ahb_clk>;
-	clock-names = "core_clk", "iface_clk";
+		<&clock_mmss clk_camss_vfe_cpp_ahb_clk>,
+                <&clock_mmss clk_camss_ahb_clk>,
+                <&clock_mmss clk_camss_top_ahb_clk>;
+	clock-names = "core_clk", "iface_clk", "alt_iface_clk", "alt_core_clk";
 };
