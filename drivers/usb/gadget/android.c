@@ -3339,6 +3339,7 @@ android_setup(struct usb_gadget *gadget, const struct usb_ctrlrequest *c)
 	int value = -EOPNOTSUPP;
 	unsigned long flags;
 	bool do_work = false;
+	bool prev_configured = false;
 
 	req->zero = 0;
 	req->length = 0;
@@ -3357,6 +3358,12 @@ android_setup(struct usb_gadget *gadget, const struct usb_ctrlrequest *c)
 			}
 		}
 
+	/*
+	 * skip the  work when 2nd set config arrives
+	 * with same value from the host.
+	 */
+	if (cdev->config)
+		prev_configured = true;
 	/* Special case the accessory function.
 	 * It needs to handle control requests before it is enabled.
 	 */
@@ -3372,7 +3379,8 @@ android_setup(struct usb_gadget *gadget, const struct usb_ctrlrequest *c)
 		do_work = true;
 	} else if (c->bRequest == USB_REQ_SET_CONFIGURATION &&
 						cdev->config) {
-		do_work = true;
+		if (!prev_configured)
+			do_work = true;
 	}
 	spin_unlock_irqrestore(&cdev->lock, flags);
 	if (do_work)
