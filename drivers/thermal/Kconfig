@@ -210,7 +210,7 @@ config X86_PKG_TEMP_THERMAL
 config INTEL_BYT_AUX_DTS_THERMAL
 	tristate "Intel Baytrail Auxiliary DTS thermal driver"
 	depends on X86
-	depends on IOSF_MBI
+	select IOSF_MBI
 	help
 	  Enable this to register Intel Baytrail platform digital temperature
 	  sensor (DTS). Two DTSs are provided in Baytrail are in addition to
