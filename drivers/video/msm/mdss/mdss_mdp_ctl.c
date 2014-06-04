@@ -552,6 +552,14 @@ static void mdss_mdp_perf_calc_mixer(struct mdss_mdp_mixer *mixer,
 				fps * mixer->width * mixer->height * 3;
 	}
 
+	/*
+	 * In case of border color, we still need enough mdp clock
+	 * to avoid under-run. Clock requirement for border color is
+	 * based on mixer width.
+	 */
+	if (num_pipes == 0)
+		goto exit;
+
 	memset(bw_overlap, 0, sizeof(u64) * MAX_PIPES_PER_LM);
 	memset(v_region, 0, sizeof(u32) * MAX_PIPES_PER_LM * 2);
 
@@ -640,10 +648,10 @@ static void mdss_mdp_perf_calc_mixer(struct mdss_mdp_mixer *mixer,
 	if (max_clk_rate > perf->mdp_clk_rate)
 		perf->mdp_clk_rate = max_clk_rate;
 
+exit:
 	pr_debug("final mixer=%d video=%d clk_rate=%u bw=%llu prefill=%d\n",
 		mixer->num, mixer->ctl->is_video_mode, perf->mdp_clk_rate,
 		perf->bw_overlap, perf->prefill_bytes);
-
 }
 
 static u32 mdss_mdp_get_vbp_factor(struct mdss_mdp_ctl *ctl)
@@ -696,7 +704,7 @@ static void __mdss_mdp_perf_calc_ctl_helper(struct mdss_mdp_ctl *ctl,
 
 	memset(perf, 0, sizeof(*perf));
 
-	if (left_cnt && ctl->mixer_left) {
+	if (ctl->mixer_left) {
 		mdss_mdp_perf_calc_mixer(ctl->mixer_left, &tmp,
 				left_plist, left_cnt);
 		perf->bw_overlap += tmp.bw_overlap;
@@ -704,7 +712,7 @@ static void __mdss_mdp_perf_calc_ctl_helper(struct mdss_mdp_ctl *ctl,
 		perf->mdp_clk_rate = tmp.mdp_clk_rate;
 	}
 
-	if (right_cnt && ctl->mixer_right) {
+	if (ctl->mixer_right) {
 		mdss_mdp_perf_calc_mixer(ctl->mixer_right, &tmp,
 				right_plist, right_cnt);
 		perf->bw_overlap += tmp.bw_overlap;
