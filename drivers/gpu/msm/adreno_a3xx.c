@@ -896,6 +896,9 @@ static int a306_perfcounter_enable_vbif(struct adreno_device *adreno_dev,
 	struct adreno_perfcounters *counters = ADRENO_PERFCOUNTERS(adreno_dev);
 	struct adreno_perfcount_register *reg;
 
+	if (counters == NULL)
+		return -EINVAL;
+
 	if (counter > 3 || countable > A306_VBIF_PERF_CNT_SEL_MASK)
 		return -EINVAL;
 
@@ -952,7 +955,7 @@ static int a306_perfcounter_enable_vbif_pwr(struct adreno_device *adreno_dev,
 	struct adreno_perfcounters *counters = ADRENO_PERFCOUNTERS(adreno_dev);
 	struct adreno_perfcount_register *reg;
 
-	if (counter > 2)
+	if (counters == NULL || counter > 2)
 		return -EINVAL;
 
 	reg = &counters->groups[KGSL_PERFCOUNTER_GROUP_VBIF_PWR].regs[counter];
@@ -1087,7 +1090,7 @@ static uint64_t a3xx_perfcounter_read_pwr(struct adreno_device *adreno_dev,
 	struct kgsl_device *device = &adreno_dev->dev;
 	struct adreno_perfcounters *counters = ADRENO_PERFCOUNTERS(adreno_dev);
 	struct adreno_perfcount_register *reg;
-	unsigned int in, out, lo = 0, hi = 0;
+	unsigned int in = 0, out, lo = 0, hi = 0;
 	unsigned int enable_bit;
 
 	if (counters == NULL || counter > 1)
@@ -1125,7 +1128,7 @@ static uint64_t a306_perfcounter_read_vbif(struct adreno_device *adreno_dev,
 	struct adreno_perfcount_register *reg;
 	unsigned int lo = 0, hi = 0;
 
-	if (counter > 3)
+	if (counters == NULL || counter > 3)
 		return 0;
 
 	reg = &counters->groups[KGSL_PERFCOUNTER_GROUP_VBIF].regs[counter];
@@ -1183,7 +1186,7 @@ static uint64_t a306_perfcounter_read_vbif_pwr(struct adreno_device *adreno_dev,
 	struct adreno_perfcount_register *reg;
 	unsigned int lo = 0, hi = 0;
 
-	 if (counter > 2)
+	 if (counters == NULL || counter > 2)
 		return 0;
 
 	reg = &counters->groups[KGSL_PERFCOUNTER_GROUP_VBIF_PWR].regs[counter];
@@ -1248,7 +1251,7 @@ uint64_t a3xx_perfcounter_read(struct adreno_device *adreno_dev,
 	struct kgsl_device *device = &adreno_dev->dev;
 	struct adreno_perfcount_register *reg;
 	unsigned int lo = 0, hi = 0;
-	unsigned int in, out;
+	unsigned int in = 0, out;
 
 	if (group == KGSL_PERFCOUNTER_GROUP_VBIF_PWR) {
 		if (adreno_is_a4xx(adreno_dev))
@@ -2144,6 +2147,9 @@ int a3xx_perfcounter_init(struct adreno_device *adreno_dev)
 	int ret;
 	struct kgsl_device *device = &adreno_dev->dev;
 	struct adreno_perfcounters *counters = ADRENO_PERFCOUNTERS(adreno_dev);
+
+	if (counters == NULL)
+		return -EINVAL;
 
 	/* SP[3] counter is broken on a330 so disable it if a330 device */
 	if (adreno_is_a330(adreno_dev))
