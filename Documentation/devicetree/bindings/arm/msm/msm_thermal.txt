@@ -358,6 +358,14 @@ Following are the required and optional properties of a child node.
 			degree centigrade. If this property is not
 			present, a default scaling factor of 1 is assigned
 			to a sensor.
+- qcom,ktm-prog-mitigation-config: This optional property enables KTM
+			progressive mitigation for a sensor. This property
+			requires an array of progressive monitor rules for a
+			sensor which needs to be monitored by KTM. Each rule
+			should contain cluster id to be mitigated, high
+			threshold in degree centigrade, low thresholds in
+			degree centigrade and progressive sampling interval
+			in millisecond respectively.
 
 Example:
 
@@ -376,6 +384,14 @@ Example:
 		sensor_information2: qcom,sensor-information-2 {
 			qcom,sensor-type =  "tsens";
 			qcom,sensor-name = "tsens_tz_sensor2";
+			/* <cluster-ID to be mitigated, high threshold,
+			**  low threshold, progressive sampling interval>.
+			**  In the below case, progressive config is enabled
+			**  for sensor tsens_tz_sensor2 with cluster ID 1,
+			**  85C high threshold, 55C low threshold and 50ms
+			**  progressive sampling interval.
+			*/
+			qcom,ktm-prog-mitigation-config = <1 85 55 50>;
 		};
 
 		sensor_information3: qcom,sensor-information-3 {
