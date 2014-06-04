@@ -32,6 +32,8 @@ struct lpm_cpu_level {
 	enum msm_pm_sleep_mode mode;
 	bool use_bc_timer;
 	struct power_params pwr;
+	bool default_idle_enable;
+	bool default_suspend_enable;
 };
 
 struct lpm_cpu {
@@ -58,6 +60,8 @@ struct lpm_cluster_level {
 	bool sync_level;
 	bool last_core_only;
 	struct lpm_level_avail available;
+	bool default_idle_enable;
+	bool default_suspend_enable;
 };
 
 struct low_power_ops {
