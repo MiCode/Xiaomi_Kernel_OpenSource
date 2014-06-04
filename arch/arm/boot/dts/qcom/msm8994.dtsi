@@ -1496,6 +1496,7 @@
 		venus-core1-supply = <&gdsc_venus_core1>;
 		venus-core2-supply = <&gdsc_venus_core2>;
 		qcom,clock-configs = <0x3 0x0 0x0 0x0 0x0 0x0 0x0>;
+		qcom,sw-power-collapse;
 		clocks = <&clock_mmss clk_venus0_vcodec0_clk>,
 			<&clock_mmss clk_venus0_core0_vcodec_clk>,
 			<&clock_mmss clk_venus0_core1_vcodec_clk>,
