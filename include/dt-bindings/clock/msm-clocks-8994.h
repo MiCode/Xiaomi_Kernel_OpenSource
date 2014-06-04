@@ -407,6 +407,11 @@
 #define clk_cci_hf_mux 0x1e4a0b42
 #define clk_cci_lf_mux 0x78b92bfd
 #define clk_xo_ao 0x480207b3
+#define clk_a57_debug_mux 0x0a9d77c3
+#define clk_a53_debug_mux 0x034d8e87
+#define clk_cpu_debug_mux 0x3ae8bcb2
+#define clk_a57_div_clk 0x4fdce8aa
+#define clk_a53_div_clk 0x6006022b
 
 /* clock_debug controlled clocks */
 #define clk_gcc_debug_mux 0x8121ac15

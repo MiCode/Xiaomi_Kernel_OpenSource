@@ -232,6 +232,7 @@ DEFINE_EXT_CLK(gcc_xo, NULL);
 DEFINE_EXT_CLK(gcc_xo_a_clk, NULL);
 DEFINE_EXT_CLK(debug_mmss_clk, NULL);
 DEFINE_EXT_CLK(debug_rpm_clk, NULL);
+DEFINE_EXT_CLK(debug_cpu_clk, NULL);
 
 static unsigned int soft_vote_gpll0;
 
@@ -2518,8 +2519,10 @@ static struct mux_clk gcc_debug_mux = {
 	MUX_REC_SRC_LIST(
 		&debug_mmss_clk.c,
 		&debug_rpm_clk.c,
+		&debug_cpu_clk.c,
 	),
 	MUX_SRC_LIST(
+		{ &debug_cpu_clk.c, 0x016A },
 		{ &debug_mmss_clk.c, 0x002b },
 		{ &debug_rpm_clk.c, 0xffff },
 		{ &gcc_sys_noc_usb3_axi_clk.c, 0x0006 },
@@ -2886,6 +2889,12 @@ static int msm_clock_debug_8994_probe(struct platform_device *pdev)
 	if (IS_ERR(debug_rpm_clk.c.parent)) {
 		dev_err(&pdev->dev, "Failed to get RPM debug mux\n");
 		return PTR_ERR(debug_rpm_clk.c.parent);
+	}
+
+	debug_cpu_clk.c.parent = clk_get(&pdev->dev, "debug_cpu_clk");
+	if (IS_ERR(debug_cpu_clk.c.parent)) {
+		dev_err(&pdev->dev, "Failed to get CPU debug mux\n");
+		return PTR_ERR(debug_cpu_clk.c.parent);
 	}
 
 	ret = of_msm_clock_register(pdev->dev.of_node,
