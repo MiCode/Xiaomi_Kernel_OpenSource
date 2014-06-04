@@ -5416,6 +5416,13 @@
 					  <45 512 25000 200000>,  /* 200 Mbps */
 					  <45 512 100000 200000>; /* 800 Mbps */
 	};
+
+	qcom,avtimer {
+		compatible = "qcom,avtimer";
+		reg = <0xFE0C900C  0x4>,
+		      <0xFE0C9010  0x4>;
+		reg-names = "avtimer_lsb_addr", "avtimer_msb_addr";
+	};
 };
 
 &gdsc_venus {
