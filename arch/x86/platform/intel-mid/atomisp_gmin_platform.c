@@ -196,12 +196,20 @@ static const struct gmin_cfg_var ffrd8_vars[] = {
 };
 
 static const struct gmin_cfg_var mrd7_vars[] = {
+	/* GC2235 world-facing camera: */
 	{ "INT33F8:00_CamType",  "1" },
 	{ "INT33F8:00_CsiPort",  "1" },
 	{ "INT33F8:00_CsiLanes", "2" },
 	{ "INT33F8:00_CsiFmt",   "13" },
 	{ "INT33F8:00_CsiBayer", "0" },
 	{ "INT33F8:00_CamClk", "0" },
+	/* GC0339 user-facing camera: */
+	{ "INT33F9:00_CamType",  "1" },
+	{ "INT33F9:00_CsiPort",  "0" },
+	{ "INT33F9:00_CsiLanes", "1" },
+	{ "INT33F9:00_CsiFmt",   "13" },
+	{ "INT33F9:00_CsiBayer", "0" },
+	{ "INT33F9:00_CamClk", "1" },
 	{},
 };
 

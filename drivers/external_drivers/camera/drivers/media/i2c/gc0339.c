@@ -762,14 +762,63 @@ static int gc0339_init(struct v4l2_subdev *sd)
 
 static int power_ctrl(struct v4l2_subdev *sd, bool flag)
 {
+	int ret = 0;
 	struct gc0339_device *dev = to_gc0339_sensor(sd);
-	return dev->platform_data->power_ctrl(sd, flag);
+	if (!dev || !dev->platform_data)
+		return -ENODEV;
+
+	/* Non-gmin platforms use the legacy callback */
+	if (dev->platform_data->power_ctrl)
+		return dev->platform_data->power_ctrl(sd, flag);
+
+	if (flag) {
+		/* The upstream module driver (written to Crystal
+		 * Cove) had this logic to pulse the rails low first.
+		 * This appears to break things on the MRD7 with the
+		 * X-Powers PMIC...
+		 *
+		 *     ret = dev->platform_data->v1p8_ctrl(sd, 0);
+		 *     ret |= dev->platform_data->v2p8_ctrl(sd, 0);
+		 *     mdelay(50);
+		*/
+		ret |= dev->platform_data->v1p8_ctrl(sd, 1);
+		ret |= dev->platform_data->v2p8_ctrl(sd, 1);
+		msleep(10);
+	}
+
+	if (!flag || ret) {
+		ret |= dev->platform_data->v1p8_ctrl(sd, 0);
+		ret |= dev->platform_data->v2p8_ctrl(sd, 0);
+	}
+	return ret;
 }
 
 static int gpio_ctrl(struct v4l2_subdev *sd, bool flag)
 {
+	int ret;
 	struct gc0339_device *dev = to_gc0339_sensor(sd);
-	return dev->platform_data->gpio_ctrl(sd, flag);
+
+	if (!dev || !dev->platform_data)
+		return -ENODEV;
+
+	/* Non-gmin platforms use the legacy callback */
+	if (dev->platform_data->gpio_ctrl)
+		return dev->platform_data->gpio_ctrl(sd, flag);
+
+	/* GPIO0 == "reset" (active low), GPIO1 == "power down" */
+	if (flag) {
+		/* Pulse reset, then release power down */
+		ret = dev->platform_data->gpio0_ctrl(sd, 0);
+		msleep(5);
+		ret |= dev->platform_data->gpio0_ctrl(sd, 1);
+		msleep(10);
+		ret |= dev->platform_data->gpio1_ctrl(sd, 0);
+		msleep(10);
+	} else {
+		ret = dev->platform_data->gpio1_ctrl(sd, 1);
+		ret |= dev->platform_data->gpio0_ctrl(sd, 0);
+	}
+	return ret;
 }
 
 static int power_down(struct v4l2_subdev *sd);
@@ -1473,7 +1522,7 @@ static int gc0339_probe(struct i2c_client *client,
 		 * directly and configure via ACPI/EFIvars instead
 		 */
 		ret = gc0339_s_config(&dev->sd, client->irq,
-				      gc0339_platform_data(NULL));
+				      gmin_camera_platform_data());
 		if (ret)
 			goto out_free;
 	}
@@ -1497,7 +1546,7 @@ out_free:
 }
 
 static struct acpi_device_id gc0339_acpi_match[] = {
-	{""},
+	{"INT33F9"},
 	{},
 };
 MODULE_DEVICE_TABLE(acpi, gc0339_acpi_match);

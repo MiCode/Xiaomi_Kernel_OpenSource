@@ -110,8 +110,6 @@
 
 #define REG_VER1 0
 
-void *gc0339_platform_data(void *info);
-
 struct regval_list {
 	u16 reg_num;
 	u8 value;
