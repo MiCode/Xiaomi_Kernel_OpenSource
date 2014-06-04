@@ -318,8 +318,12 @@ kgsl_mem_entry_track_gpuaddr(struct kgsl_process_private *process,
 	struct rb_node **node;
 	struct rb_node *parent = NULL;
 	struct kgsl_pagetable *pagetable = process->pagetable;
+	size_t size = entry->memdesc.size;
 
 	assert_spin_locked(&process->mem_lock);
+
+	if (kgsl_memdesc_has_guard_page(&entry->memdesc))
+		size += PAGE_SIZE;
 	/*
 	 * If cpu=gpu map is used then caller needs to set the
 	 * gpu address
@@ -332,34 +336,12 @@ kgsl_mem_entry_track_gpuaddr(struct kgsl_process_private *process,
 		ret = -EINVAL;
 		goto done;
 	}
-	if (!kgsl_memdesc_use_cpu_map(&entry->memdesc)) {
-		ret = -ENOMEM;
-		/*
-		 * For external allocations use mmu gen pool to assign
-		 * virtual address
-		 */
-		if (KGSL_MEMFLAGS_USERMEM_MASK & entry->memdesc.flags) {
-			/* Get secured buffer gpuaddr from secured pool */
-			if (kgsl_memdesc_is_secured(&entry->memdesc))
-				pagetable = pagetable->mmu->securepagetable;
-			ret = kgsl_mmu_get_gpuaddr(pagetable, &entry->memdesc);
-		}
-		if ((kgsl_memdesc_is_secured(&entry->memdesc)) && (ret))
-			goto done;
-		if (-ENOMEM == ret) {
-			unsigned long gpuaddr = 0;
-			size_t size = entry->memdesc.size;
-			if (kgsl_memdesc_has_guard_page(&entry->memdesc))
-				size += PAGE_SIZE;
+	if (kgsl_memdesc_is_secured(&entry->memdesc))
+		pagetable = pagetable->mmu->securepagetable;
 
-			ret = __kgsl_check_collision(process, NULL, &gpuaddr,
-						size, 0);
-			if (!ret)
-				entry->memdesc.gpuaddr = gpuaddr;
-		}
-		if (ret)
-			goto done;
-	}
+	ret = kgsl_mmu_get_gpuaddr(pagetable, &entry->memdesc);
+	if (ret)
+		goto done;
 
 	node = &process->mem_rb.rb_node;
 
@@ -396,8 +378,7 @@ kgsl_mem_entry_untrack_gpuaddr(struct kgsl_process_private *process,
 {
 	assert_spin_locked(&process->mem_lock);
 	if (entry->memdesc.gpuaddr) {
-		if (KGSL_MEMFLAGS_USERMEM_MASK & entry->memdesc.flags)
-			kgsl_mmu_put_gpuaddr(entry->memdesc.pagetable,
+		kgsl_mmu_put_gpuaddr(entry->memdesc.pagetable,
 					&entry->memdesc);
 		rb_erase(&entry->node, &entry->priv->mem_rb);
 	}
@@ -3807,75 +3788,72 @@ static int __kgsl_check_collision(struct kgsl_process_private *private,
 	int ret = 0;
 	unsigned long addr = *gpuaddr;
 	struct kgsl_mem_entry *collision_entry = entry;
+	struct rb_node *node, *node_first, *node_last;
 
-	if (!addr) {
-		addr = flag_top_down ? (KGSL_SVM_UPPER_BOUND - len) : PAGE_SIZE;
-		collision_entry = NULL;
-	}
+	if (!collision_entry)
+		return -ENOENT;
 
-	do {
+	node = &(collision_entry->node);
+	node_first = rb_first(&private->mem_rb);
+	node_last = rb_last(&private->mem_rb);
+
+	while (1) {
 		/*
-		 * If address collided with an existing entry then find a new
-		 * one
+		 * If top down search then next address to consider
+		 * is lower. The highest lower address possible is the
+		 * colliding entry address - the length of
+		 * allocation
 		 */
-		if (collision_entry) {
-			/*
-			 * If top down search then next address to consider
-			 * is lower. The highest lower address possible is the
-			 * colliding entry address - the length of
-			 * allocation
-			 */
-			if (flag_top_down) {
-				addr = collision_entry->memdesc.gpuaddr - len;
-				/* Check for loopback */
-				if (addr > collision_entry->memdesc.gpuaddr) {
-					KGSL_CORE_ERR_ONCE(
-					"Underflow err ent:%x/%zx, addr:%lx/%lx\n",
-					collision_entry->memdesc.gpuaddr,
-					kgsl_memdesc_mmapsize(
-						&collision_entry->memdesc),
-					addr, len);
-					*gpuaddr =
-						KGSL_SVM_UPPER_BOUND;
-					ret = -EAGAIN;
-					break;
-				}
+		if (flag_top_down) {
+			addr = collision_entry->memdesc.gpuaddr - len;
+			/* Check for loopback */
+			if (addr > collision_entry->memdesc.gpuaddr || !addr) {
+				*gpuaddr = KGSL_SVM_UPPER_BOUND;
+				ret = -EAGAIN;
+				break;
+			}
+			if (node == node_first) {
+				collision_entry = NULL;
 			} else {
-				/*
-				 * Bottom up mode the next address to consider
-				 * is higher. The lowest higher address possible
-				 * colliding entry address + the size of the
-				 * colliding entry
-				 */
-				addr = collision_entry->memdesc.gpuaddr +
-					kgsl_memdesc_mmapsize(
-						&collision_entry->memdesc);
-				/* overflow check */
-				if (addr < collision_entry->memdesc.gpuaddr ||
-					!mmap_range_valid(addr, len)) {
-					KGSL_CORE_ERR_ONCE(
-					"Overflow err ent:%x/%zx, addr:%lx/%lx\n",
-					collision_entry->memdesc.gpuaddr,
-					kgsl_memdesc_mmapsize(
-						&collision_entry->memdesc),
-					addr, len);
-					*gpuaddr =
-						KGSL_SVM_UPPER_BOUND;
-					ret = -EAGAIN;
-					break;
-				}
+				node = rb_prev(&collision_entry->node);
+				collision_entry = container_of(node,
+					struct kgsl_mem_entry, node);
+			}
+		} else {
+			/*
+			 * Bottom up mode the next address to consider
+			 * is higher. The lowest higher address possible
+			 * colliding entry address + the size of the
+			 * colliding entry
+			 */
+			addr = collision_entry->memdesc.gpuaddr +
+				kgsl_memdesc_mmapsize(
+					&collision_entry->memdesc);
+			/* overflow check */
+			if (addr < collision_entry->memdesc.gpuaddr ||
+				!mmap_range_valid(addr, len)) {
+				*gpuaddr = KGSL_SVM_UPPER_BOUND;
+				ret = -EAGAIN;
+				break;
+			}
+			if (node == node_last) {
+				collision_entry = NULL;
+			} else {
+				node = rb_next(&collision_entry->node);
+				collision_entry = container_of(node,
+					struct kgsl_mem_entry, node);
 			}
 		}
-		if (kgsl_sharedmem_region_empty(private, addr, len,
-						&collision_entry)) {
-			/* no collision with addr then return */
+
+		if (!collision_entry ||
+			!kgsl_addr_range_overlap(addr, len,
+			collision_entry->memdesc.gpuaddr,
+			kgsl_memdesc_mmapsize(&collision_entry->memdesc))) {
+			/* success */
 			*gpuaddr = addr;
 			break;
-		} else if (!collision_entry) {
-			ret = -ENOENT;
-			break;
 		}
-	} while (1);
+	}
 
 	return ret;
 }

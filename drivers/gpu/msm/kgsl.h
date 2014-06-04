@@ -120,6 +120,8 @@ struct kgsl_memdesc_ops {
 #define KGSL_MEMDESC_GENPOOL_ALLOC BIT(4)
 /* The memdesc is secured for content protection */
 #define KGSL_MEMDESC_SECURE BIT(5)
+/* Indicates gpuaddr is assigned via bimap */
+#define KGSL_MEMDESC_BITMAP_ALLOC BIT(6)
 
 /* shared memory allocation */
 struct kgsl_memdesc {
