@@ -31,10 +31,6 @@
 #include <linux/platform_device.h>
 #include <net/pkt_sched.h>
 
-#ifdef CONFIG_HAS_EARLYSUSPEND
-#include <linux/earlysuspend.h>
-#endif
-
 #include <soc/qcom/bam_dmux.h>
 
 /* Debug message support */
@@ -58,9 +54,6 @@ MODULE_PARM_DESC(msm_rmnet_bam_headroom_check_failure,
 #define DBG0(x...) DBG(DEBUG_MASK_LVL0, x)
 #define DBG1(x...) DBG(DEBUG_MASK_LVL1, x)
 #define DBG2(x...) DBG(DEBUG_MASK_LVL2, x)
-
-/* Configure device instances */
-#define RMNET_DEVICE_COUNT  9
 
 /* allow larger frames */
 #define RMNET_DATA_LEN 2000
@@ -91,69 +84,10 @@ struct rmnet_private {
 	u32 operation_mode; /* IOCTL specified mode (protocol, QoS header) */
 	uint8_t device_up;
 	uint8_t in_reset;
-	struct platform_driver *bam_pdev;
 };
 
 #ifdef CONFIG_MSM_RMNET_DEBUG
 static unsigned long timeout_us;
-
-#ifdef CONFIG_HAS_EARLYSUSPEND
-/*
- * If early suspend is enabled then we specify two timeout values,
- * screen on (default), and screen is off.
- */
-static unsigned long timeout_suspend_us;
-static struct device *rmnet0;
-
-/* Set timeout in us when the screen is off. */
-static ssize_t timeout_suspend_store(struct device *d,
-				     struct device_attribute *attr,
-				     const char *buf, size_t n)
-{
-	timeout_suspend_us = strict_strtoul(buf, NULL, 10);
-	return n;
-}
-
-static ssize_t timeout_suspend_show(struct device *d,
-				    struct device_attribute *attr,
-				    char *buf)
-{
-	return snprintf(buf, PAGE_SIZE, "%lu\n",
-			(unsigned long) timeout_suspend_us);
-}
-
-static DEVICE_ATTR(timeout_suspend, 0664, timeout_suspend_show,
-		   timeout_suspend_store);
-
-static void rmnet_early_suspend(struct early_suspend *handler)
-{
-	if (rmnet0) {
-		struct rmnet_private *p = netdev_priv(to_net_dev(rmnet0));
-		p->timeout_us = timeout_suspend_us;
-	}
-}
-
-static void rmnet_late_resume(struct early_suspend *handler)
-{
-	if (rmnet0) {
-		struct rmnet_private *p = netdev_priv(to_net_dev(rmnet0));
-		p->timeout_us = timeout_us;
-	}
-}
-
-static struct early_suspend rmnet_power_suspend = {
-	.suspend = rmnet_early_suspend,
-	.resume = rmnet_late_resume,
-};
-
-static int __init rmnet_late_init(void)
-{
-	register_early_suspend(&rmnet_power_suspend);
-	return 0;
-}
-
-late_initcall(rmnet_late_init);
-#endif
 
 /* Returns 1 if packet caused rmnet to wakeup, 0 otherwise. */
 static int rmnet_cause_wakeup(struct rmnet_private *p)
@@ -196,13 +130,8 @@ DEVICE_ATTR(wakeups_rcv, 0444, wakeups_rcv_show, NULL);
 static ssize_t timeout_store(struct device *d, struct device_attribute *attr,
 			     const char *buf, size_t n)
 {
-#ifndef CONFIG_HAS_EARLYSUSPEND
 	struct rmnet_private *p = netdev_priv(to_net_dev(d));
 	p->timeout_us = timeout_us = strict_strtoul(buf, NULL, 10);
-#else
-/* If using early suspend/resume hooks do not write the value on store. */
-	timeout_us = strict_strtoul(buf, NULL, 10);
-#endif
 	return n;
 }
 
@@ -220,6 +149,7 @@ DEVICE_ATTR(timeout, 0664, timeout_show, timeout_store);
 
 /* Forward declaration */
 static int rmnet_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd);
+static struct platform_driver bam_rmnet_drivers[BAM_DMUX_NUM_CHANNELS];
 
 static __be16 rmnet_ip_type_trans(struct sk_buff *skb, struct net_device *dev)
 {
@@ -426,19 +356,10 @@ static int __rmnet_open(struct net_device *dev)
 
 	if (p->device_up == DEVICE_UNINITIALIZED) {
 		r = msm_bam_dmux_open(p->ch_id, dev, bam_notify);
-
 		if (r < 0) {
 			DBG0("%s: ch=%d failed with rc %d\n",
 					__func__, p->ch_id, r);
 			return -ENODEV;
-		}
-
-		r = platform_driver_register(p->bam_pdev);
-		if (r) {
-			pr_err("%s: bam pdev registration failed n=%d rc=%d\n",
-					__func__, p->ch_id, r);
-			msm_bam_dmux_close(p->ch_id);
-			return r;
 		}
 	}
 
@@ -739,7 +660,7 @@ static int rmnet_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
 	return rc;
 }
 
-static void __init rmnet_setup(struct net_device *dev)
+static void rmnet_setup(struct net_device *dev)
 {
 	/* Using Ethernet mode by default */
 	dev->netdev_ops = &rmnet_ops_ether;
@@ -754,139 +675,9 @@ static void __init rmnet_setup(struct net_device *dev)
 	dev->watchdog_timeo = 1000; /* 10 seconds? */
 }
 
-static struct net_device *netdevs[RMNET_DEVICE_COUNT];
-static struct platform_driver bam_rmnet_drivers[RMNET_DEVICE_COUNT];
-
-static int bam_rmnet_probe(struct platform_device *pdev)
-{
-	int i;
-	char name[BAM_DMUX_CH_NAME_MAX_LEN];
-	struct rmnet_private *p;
-
-	for (i = 0; i < RMNET_DEVICE_COUNT; ++i) {
-		scnprintf(name, BAM_DMUX_CH_NAME_MAX_LEN, "bam_dmux_ch_%d", i);
-		if (!strncmp(pdev->name, name, BAM_DMUX_CH_NAME_MAX_LEN))
-			break;
-	}
-
-	if (i >= RMNET_DEVICE_COUNT) {
-		pr_err("%s: wrong netdev %s\n", __func__, pdev->name);
-		return -ENODEV;
-	}
-
-	p = netdev_priv(netdevs[i]);
-	if (p->in_reset) {
-		p->in_reset = 0;
-		msm_bam_dmux_open(p->ch_id, netdevs[i], bam_notify);
-		netif_carrier_on(netdevs[i]);
-		netif_start_queue(netdevs[i]);
-	}
-
-	return 0;
-}
-
-static int bam_rmnet_remove(struct platform_device *pdev)
-{
-	int i;
-	char name[BAM_DMUX_CH_NAME_MAX_LEN];
-	struct rmnet_private *p;
-
-	for (i = 0; i < RMNET_DEVICE_COUNT; ++i) {
-		scnprintf(name, BAM_DMUX_CH_NAME_MAX_LEN, "bam_dmux_ch_%d", i);
-		if (!strncmp(pdev->name, name, BAM_DMUX_CH_NAME_MAX_LEN))
-			break;
-	}
-
-	p = netdev_priv(netdevs[i]);
-	p->in_reset = 1;
-	if (p->waiting_for_ul_skb != NULL) {
-		dev_kfree_skb_any(p->waiting_for_ul_skb);
-		p->waiting_for_ul_skb = NULL;
-	}
-	msm_bam_dmux_close(p->ch_id);
-	netif_carrier_off(netdevs[i]);
-	netif_stop_queue(netdevs[i]);
-	return 0;
-}
-
-/* support for 9 new rmnet ports */
-#define RMNET_REV_DEVICE_COUNT (9)
-static struct net_device *netdevs_rev[RMNET_REV_DEVICE_COUNT];
-static struct platform_driver bam_rmnet_rev_drivers[RMNET_REV_DEVICE_COUNT];
-
-static int bam_rmnet_rev_probe(struct platform_device *pdev)
-{
-	int i;
-	char name[BAM_DMUX_CH_NAME_MAX_LEN];
-	struct rmnet_private *p;
-
-	for (i = 0; i < RMNET_REV_DEVICE_COUNT; ++i) {
-		scnprintf(name, BAM_DMUX_CH_NAME_MAX_LEN, "bam_dmux_ch_%d",
-					(i+BAM_DMUX_DATA_REV_RMNET_0));
-		if (!strncmp(pdev->name, name, BAM_DMUX_CH_NAME_MAX_LEN))
-			break;
-	}
-
-	if (i >= RMNET_REV_DEVICE_COUNT) {
-		pr_err("%s: wrong netdev %s\n", __func__, pdev->name);
-		return -ENODEV;
-	}
-
-	p = netdev_priv(netdevs_rev[i]);
-	if (p->in_reset) {
-		p->in_reset = 0;
-		msm_bam_dmux_open(p->ch_id, netdevs_rev[i], bam_notify);
-		netif_carrier_on(netdevs_rev[i]);
-		netif_start_queue(netdevs_rev[i]);
-	}
-
-	return 0;
-}
-
-static int bam_rmnet_rev_remove(struct platform_device *pdev)
-{
-	int i;
-	char name[BAM_DMUX_CH_NAME_MAX_LEN];
-	struct rmnet_private *p;
-
-	for (i = 0; i < RMNET_REV_DEVICE_COUNT; ++i) {
-		scnprintf(name, BAM_DMUX_CH_NAME_MAX_LEN, "bam_dmux_ch_%d",
-				(i+BAM_DMUX_DATA_REV_RMNET_0));
-		if (!strncmp(pdev->name, name, BAM_DMUX_CH_NAME_MAX_LEN))
-			break;
-	}
-
-	if (i >= RMNET_REV_DEVICE_COUNT) {
-		pr_err("%s: wrong netdev %s\n", __func__, pdev->name);
-		return 0;
-	}
-
-	p = netdev_priv(netdevs_rev[i]);
-	p->in_reset = 1;
-	if (p->waiting_for_ul_skb != NULL) {
-		dev_kfree_skb_any(p->waiting_for_ul_skb);
-		p->waiting_for_ul_skb = NULL;
-	}
-	msm_bam_dmux_close(p->ch_id);
-	netif_carrier_off(netdevs_rev[i]);
-	netif_stop_queue(netdevs_rev[i]);
-	return 0;
-}
+static struct net_device *netdevs[BAM_DMUX_NUM_CHANNELS];
 
 #ifdef CONFIG_MSM_RMNET_DEBUG
-#ifdef CONFIG_HAS_EARLYSUSPEND
-static int rmnet_debug_init_timeout_suspend(struct net_device *dev)
-{
-	struct device *d;
-	d = &(dev->dev);
-	return device_create_file(d, &dev_attr_timeout_suspend);
-}
-#else
-static int rmnet_debug_init_timeout_suspend(struct net_device *dev)
-{
-	return 0;
-}
-#endif
 static int rmnet_debug_init(struct net_device *dev)
 {
 
@@ -904,9 +695,6 @@ static int rmnet_debug_init(struct net_device *dev)
 	if (err)
 		return err;
 	err = device_create_file(d, &dev_attr_wakeups_rcv);
-	if (err)
-		return err;
-	err = rmnet_debug_init_timeout_suspend(dev);
 	return err;
 }
 #else
@@ -915,146 +703,139 @@ static int rmnet_debug_init(struct net_device *dev)
 	return 0;
 }
 #endif
+
+static int bam_rmnet_probe(struct platform_device *pdev)
+{
+	int i, ret;
+	struct rmnet_private *p;
+	struct device *d;
+	char name[BAM_DMUX_CH_NAME_MAX_LEN];
+	struct net_device *dev;
+	const char *dev_name;
+
+	for (i = 0; i < BAM_DMUX_NUM_CHANNELS; ++i) {
+		scnprintf(name, BAM_DMUX_CH_NAME_MAX_LEN, "bam_dmux_ch_%d", i);
+		if (!strcmp(pdev->name, name))
+			break;
+	}
+
+	if (((i > BAM_DMUX_DATA_RMNET_7) && (i < BAM_DMUX_DATA_REV_RMNET_0)) ||
+	    (i >= BAM_DMUX_NUM_CHANNELS)) {
+		pr_err("%s: wrong netdev %s\n", __func__, pdev->name);
+		return -ENODEV;
+	}
+
+	if (i <= BAM_DMUX_DATA_RMNET_7)
+		dev_name = "rmnet%d";
+	else
+		dev_name = "rev_rmnet%d";
+
+	dev = alloc_netdev(sizeof(*p), dev_name, rmnet_setup);
+	if (!dev) {
+		pr_err("%s: no memory for netdev %d\n", __func__, i);
+		return -ENOMEM;
+	}
+
+	netdevs[i] = dev;
+	d = &(dev->dev);
+	p = netdev_priv(dev);
+	/* Initial config uses Ethernet */
+	p->operation_mode = RMNET_MODE_LLP_ETH;
+	p->ch_id = i;
+	p->waiting_for_ul_skb = NULL;
+	p->device_up = DEVICE_UNINITIALIZED;
+	spin_lock_init(&p->lock);
+	spin_lock_init(&p->tx_queue_lock);
+
+	ret = register_netdev(dev);
+	if (ret) {
+		pr_err("%s: unable to register netdev %d rc=%d\n",
+			__func__, i, ret);
+		netdevs[i] = NULL;
+		free_netdev(dev);
+		return ret;
+	}
+
+	rmnet_debug_init(dev);
+
+	return 0;
+}
+
+static int bam_rmnet_remove(struct platform_device *pdev)
+{
+	int i;
+	struct rmnet_private *p;
+	char name[BAM_DMUX_CH_NAME_MAX_LEN];
+
+	for (i = 0; i < BAM_DMUX_NUM_CHANNELS; ++i) {
+		scnprintf(name, BAM_DMUX_CH_NAME_MAX_LEN, "bam_dmux_ch_%d", i);
+		if (!strcmp(pdev->name, name))
+			break;
+	}
+
+	if (((i > BAM_DMUX_DATA_RMNET_7) && (i < BAM_DMUX_DATA_REV_RMNET_0)) ||
+	    (i >= BAM_DMUX_NUM_CHANNELS)) {
+		pr_err("%s: wrong netdev %s\n", __func__, pdev->name);
+		return -ENODEV;
+	}
+
+	p = netdev_priv(netdevs[i]);
+	if (p->waiting_for_ul_skb != NULL) {
+		dev_kfree_skb_any(p->waiting_for_ul_skb);
+		p->waiting_for_ul_skb = NULL;
+	}
+	msm_bam_dmux_close(p->ch_id);
+	netif_carrier_off(netdevs[i]);
+	netif_stop_queue(netdevs[i]);
+
+	unregister_netdev(netdevs[i]);
+	free_netdev(netdevs[i]);
+
+	return 0;
+}
+
+#ifdef CONFIG_MSM_RMNET_DEBUG
+static void rmnet_clear_timeout_us(void)
+{
+	timeout_us = 0;
+}
+#else
+static void rmnet_clear_timeout_us(void)
+{
+	return;
+}
+#endif /* CONFIG_MSM_RMNET_DEBUG */
+
 static int __init rmnet_init(void)
 {
-	int ret;
-	struct device *d;
-	struct net_device *dev;
-	struct rmnet_private *p;
 	unsigned n;
 	char *tempname;
 
-	pr_info("%s: BAM devices[%d]\n", __func__, RMNET_DEVICE_COUNT);
+	rmnet_clear_timeout_us();
 
-#ifdef CONFIG_MSM_RMNET_DEBUG
-	timeout_us = 0;
-#ifdef CONFIG_HAS_EARLYSUSPEND
-	timeout_suspend_us = 0;
-#endif
-#endif
-
-	for (n = 0; n < RMNET_DEVICE_COUNT; n++) {
-		const char *dev_name = "rmnet%d";
-
-		if (n == BAM_DMUX_USB_RMNET_0)
-			dev_name = "rmnet_usb%d";
-
-		dev = alloc_netdev(sizeof(struct rmnet_private),
-				   dev_name, rmnet_setup);
-
-		if (!dev) {
-			pr_err("%s: no memory for netdev %d\n", __func__, n);
-			return -ENOMEM;
+	n = 0;
+	while (n < BAM_DMUX_NUM_CHANNELS) {
+		if ((n > BAM_DMUX_DATA_RMNET_7) &&
+		    (n < BAM_DMUX_DATA_REV_RMNET_0)) {
+			n++;
+			continue;
 		}
-
-		netdevs[n] = dev;
-		d = &(dev->dev);
-		p = netdev_priv(dev);
-		/* Initial config uses Ethernet */
-		p->operation_mode = RMNET_MODE_LLP_ETH;
-		p->ch_id = n;
-		p->waiting_for_ul_skb = NULL;
-		p->in_reset = 0;
-		p->device_up = DEVICE_UNINITIALIZED;
-		spin_lock_init(&p->lock);
-		spin_lock_init(&p->tx_queue_lock);
-#ifdef CONFIG_MSM_RMNET_DEBUG
-		p->timeout_us = timeout_us;
-		p->wakeups_xmit = p->wakeups_rcv = 0;
-#endif
-
-		ret = register_netdev(dev);
-		if (ret) {
-			pr_err("%s: unable to register netdev"
-				   " %d rc=%d\n", __func__, n, ret);
-			netdevs[n] = NULL;
-			free_netdev(dev);
-			return ret;
-		}
-
-#ifdef CONFIG_MSM_RMNET_DEBUG
-		if (device_create_file(d, &dev_attr_timeout))
-			continue;
-		if (device_create_file(d, &dev_attr_wakeups_xmit))
-			continue;
-		if (device_create_file(d, &dev_attr_wakeups_rcv))
-			continue;
-#ifdef CONFIG_HAS_EARLYSUSPEND
-		if (device_create_file(d, &dev_attr_timeout_suspend))
-			continue;
-
-		/* Only care about rmnet0 for suspend/resume tiemout hooks. */
-		if (n == 0)
-			rmnet0 = d;
-#endif
-#endif
 		bam_rmnet_drivers[n].probe = bam_rmnet_probe;
 		bam_rmnet_drivers[n].remove = bam_rmnet_remove;
 		tempname = kmalloc(BAM_DMUX_CH_NAME_MAX_LEN, GFP_KERNEL);
 		if (tempname == NULL) {
 			netdevs[n] = NULL;
-			ret = -ENOMEM;
-			goto error;
-		}
-		scnprintf(tempname, BAM_DMUX_CH_NAME_MAX_LEN, "bam_dmux_ch_%d",
-									n);
-		bam_rmnet_drivers[n].driver.name = tempname;
-		bam_rmnet_drivers[n].driver.owner = THIS_MODULE;
-		p->bam_pdev = &bam_rmnet_drivers[n];
-	}
-	/*Support for new rmnet ports */
-	for (n = 0; n < RMNET_REV_DEVICE_COUNT; n++) {
-		dev = alloc_netdev(sizeof(struct rmnet_private),
-				   "rev_rmnet%d", rmnet_setup);
-
-		if (!dev) {
-			pr_err("%s: no memory for rev netdev %d\n",
-							__func__, n);
 			return -ENOMEM;
 		}
-
-		netdevs_rev[n] = dev;
-		d = &(dev->dev);
-		p = netdev_priv(dev);
-		/* Initial config uses Ethernet */
-		p->operation_mode = RMNET_MODE_LLP_ETH;
-		p->ch_id = n+BAM_DMUX_DATA_REV_RMNET_0;
-		p->waiting_for_ul_skb = NULL;
-		p->in_reset = 0;
-		p->device_up = DEVICE_UNINITIALIZED;
-		spin_lock_init(&p->lock);
-		spin_lock_init(&p->tx_queue_lock);
-
-		ret = register_netdev(dev);
-		if (ret) {
-			pr_err("%s: unable to register rev netdev %d rc=%d\n",
-							__func__, n, ret);
-			netdevs_rev[n] = NULL;
-			free_netdev(dev);
-			return ret;
-		}
-		if (rmnet_debug_init(dev))
-			continue;
-		bam_rmnet_rev_drivers[n].probe = bam_rmnet_rev_probe;
-		bam_rmnet_rev_drivers[n].remove = bam_rmnet_rev_remove;
-		tempname = kmalloc(BAM_DMUX_CH_NAME_MAX_LEN, GFP_KERNEL);
-		if (tempname == NULL) {
-			netdevs_rev[n] = NULL;
-			ret = -ENOMEM;
-			goto error;
-		}
 		scnprintf(tempname, BAM_DMUX_CH_NAME_MAX_LEN, "bam_dmux_ch_%d",
-					(n+BAM_DMUX_DATA_REV_RMNET_0));
-		bam_rmnet_rev_drivers[n].driver.name = tempname;
-		bam_rmnet_rev_drivers[n].driver.owner = THIS_MODULE;
-		p->bam_pdev = &bam_rmnet_rev_drivers[n];
+			  n);
+		bam_rmnet_drivers[n].driver.name = tempname;
+		bam_rmnet_drivers[n].driver.owner = THIS_MODULE;
+		platform_driver_register(&bam_rmnet_drivers[n]);
+		n++;
 	}
-	return 0;
 
-error:
-	unregister_netdev(dev);
-	free_netdev(dev);
-	return ret;
+	return 0;
 }
 
 module_init(rmnet_init);
