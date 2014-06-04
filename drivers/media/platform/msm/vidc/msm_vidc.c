@@ -1452,3 +1452,9 @@ int msm_vidc_close(void *instance)
 }
 EXPORT_SYMBOL(msm_vidc_close);
 
+int msm_vidc_suspend(int core_id)
+{
+	return msm_comm_suspend(core_id);
+}
+EXPORT_SYMBOL(msm_vidc_suspend);
+

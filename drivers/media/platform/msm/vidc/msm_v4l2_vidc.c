@@ -553,6 +553,35 @@ static const struct of_device_id msm_vidc_dt_match[] = {
 	{}
 };
 
+static int msm_vidc_pm_suspend(struct device *pdev)
+{
+	struct msm_vidc_core *core;
+
+	if (!pdev) {
+		dprintk(VIDC_ERR, "%s invalid device\n", __func__);
+		return -EINVAL;
+	}
+
+	core = (struct msm_vidc_core *)pdev->platform_data;
+	if (!core) {
+		dprintk(VIDC_ERR, "%s invalid core\n", __func__);
+		return -EINVAL;
+	}
+	dprintk(VIDC_INFO, "%s\n", __func__);
+
+	return msm_vidc_suspend(core->id);
+}
+
+static int msm_vidc_pm_resume(struct device *dev)
+{
+	dprintk(VIDC_INFO, "%s\n", __func__);
+	return 0;
+}
+
+static const struct dev_pm_ops msm_vidc_pm_ops = {
+	SET_SYSTEM_SLEEP_PM_OPS(msm_vidc_pm_suspend, msm_vidc_pm_resume)
+};
+
 MODULE_DEVICE_TABLE(of, msm_vidc_dt_match);
 
 static struct platform_driver msm_vidc_driver = {
@@ -562,6 +591,7 @@ static struct platform_driver msm_vidc_driver = {
 		.name = "msm_vidc_v4l2",
 		.owner = THIS_MODULE,
 		.of_match_table = msm_vidc_dt_match,
+		.pm = &msm_vidc_pm_ops,
 	},
 };
 
