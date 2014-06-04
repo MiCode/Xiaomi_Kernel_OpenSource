@@ -201,6 +201,7 @@ static const struct gmin_cfg_var mrd7_vars[] = {
 	{ "INT33F8:00_CsiLanes", "2" },
 	{ "INT33F8:00_CsiFmt",   "13" },
 	{ "INT33F8:00_CsiBayer", "0" },
+	{ "INT33F8:00_CamClk", "0" },
 	{},
 };
 
