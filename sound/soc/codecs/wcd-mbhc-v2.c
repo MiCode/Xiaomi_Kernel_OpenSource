@@ -447,6 +447,8 @@ static void wcd_mbhc_report_plug(struct wcd_mbhc *mbhc, int insertion,
 		 * removal.
 		 */
 		if (mbhc->mbhc_cfg->detect_extn_cable &&
+		    (mbhc->current_plug == MBHC_PLUG_TYPE_HIGH_HPH ||
+		    jack_type == SND_JACK_LINEOUT) &&
 		    (mbhc->hph_status && mbhc->hph_status != jack_type)) {
 
 			if (mbhc->micbias_enable &&
