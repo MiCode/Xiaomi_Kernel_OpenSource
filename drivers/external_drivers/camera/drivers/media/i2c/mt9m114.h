@@ -207,8 +207,6 @@ struct misensor_fwreg {
 	u32	val7;
 };
 
-void *mt9m114_platform_data(void *info);
-
 struct regval_list {
 	u16 reg_num;
 	u8 value;

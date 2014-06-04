@@ -463,14 +463,55 @@ static int mt9m114_init_common(struct v4l2_subdev *sd)
 
 static int power_ctrl(struct v4l2_subdev *sd, bool flag)
 {
+	int ret;
 	struct mt9m114_device *dev = to_mt9m114_sensor(sd);
-	return dev->platform_data->power_ctrl(sd, flag);
+
+	if (!dev || !dev->platform_data)
+		return -ENODEV;
+
+	/* Non-gmin platforms use the legacy callback */
+	if (dev->platform_data->power_ctrl)
+		return dev->platform_data->power_ctrl(sd, flag);
+
+	if (flag) {
+		ret = dev->platform_data->v1p8_ctrl(sd, 1);
+		if (ret == 0) {
+			ret = dev->platform_data->v2p8_ctrl(sd, 1);
+			if (ret)
+				ret = dev->platform_data->v1p8_ctrl(sd, 0);
+		}
+		msleep(20);
+	} else {
+		ret = dev->platform_data->v1p8_ctrl(sd, 0);
+		ret = dev->platform_data->v2p8_ctrl(sd, 0);
+	}
+
+	return ret;
 }
 
 static int gpio_ctrl(struct v4l2_subdev *sd, bool flag)
 {
+	int ret;
 	struct mt9m114_device *dev = to_mt9m114_sensor(sd);
-	return dev->platform_data->gpio_ctrl(sd, flag);
+
+	if (!dev || !dev->platform_data)
+		return -ENODEV;
+
+	/* Non-gmin platforms use the legacy callback */
+	if (dev->platform_data->gpio_ctrl)
+		return dev->platform_data->gpio_ctrl(sd, flag);
+
+	if (flag) {
+		ret = dev->platform_data->gpio0_ctrl(sd, 0);
+		ret |= dev->platform_data->gpio1_ctrl(sd, 1);
+		usleep_range(1000, 2000);
+		ret |= dev->platform_data->gpio0_ctrl(sd, 1);
+	} else {
+		ret = dev->platform_data->gpio1_ctrl(sd, 0);
+		ret |= dev->platform_data->gpio0_ctrl(sd, 0);
+	}
+
+	return ret;
 }
 
 static int power_up(struct v4l2_subdev *sd)
@@ -1519,7 +1560,7 @@ static int mt9m114_probe(struct i2c_client *client,
 		 * directly and configure via ACPI/EFIvars instead
 		 */
 		ret = mt9m114_s_config(&dev->sd, client->irq,
-				       mt9m114_platform_data(NULL));
+				       gmin_camera_platform_data());
 		if (ret)
 			goto out_free;
 	}
