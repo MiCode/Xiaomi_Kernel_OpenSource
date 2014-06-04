@@ -848,4 +848,21 @@ config INTEL_GPIO_HSIC
 	  PHYs. And HSIC PHY disconnect and remote wakeup are supported by two
 	  gpios.
 
+config INTEL_PSTORE_PRAM
+	tristate "Intel pstore RAM backend driver (PRAM BIOS feature)"
+	depends on ACPI
+	depends on PSTORE_RAM
+	---help---
+	  This driver provides RAM backend for pstore, managed by BIOS
+	  as PRAM (Persisted RAM buffer) debug feature.
+
+	  PRAM BIOS feature is configurable through BIOS setup or PRAM_Conf
+	  EFI variable (GUID ecb54cd9-e5ae-4fdc-a971-e877756068f7).
+	  Accepted values for variable are 0, 1, 2 and 3 as ASCII
+	  string; will configure PRAM feature respectively as
+	  Disabled, 4 MB, 16 MB and 64 MB.
+
+	  Safe to say Y, will not bind if your BIOS doesn't support
+	  this feature.
+
 endif # X86_PLATFORM_DEVICES
