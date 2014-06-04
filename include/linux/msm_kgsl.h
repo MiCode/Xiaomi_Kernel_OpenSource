@@ -26,14 +26,12 @@
  * @bus_freq:		Bus bandwidth vote index
  * @bus_min:		Min bus index @gpu_freq
  * @bus_max:		Max bus index @gpu_freq
- * @io_fraction:	IO percetage vote to the CPU
  */
 struct kgsl_pwrlevel {
 	unsigned int gpu_freq;
 	unsigned int bus_freq;
 	unsigned int bus_min;
 	unsigned int bus_max;
-	unsigned int io_fraction;
 };
 
 /**
