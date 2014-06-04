@@ -23,6 +23,7 @@
 #include <linux/of.h>
 #include <linux/regulator/consumer.h>
 #include <linux/dma-mapping.h>
+#include <soc/qcom/scm.h>
 
 #include "peripheral-loader.h"
 #include "pil-q6v5.h"
@@ -62,6 +63,8 @@
 #define EXTERNAL_BHS_ON			BIT(0)
 #define EXTERNAL_BHS_STATUS		BIT(4)
 #define BHS_TIMEOUT_US			50
+
+#define MSS_RESTART_ID			0xA
 
 static int pbl_mba_boot_timeout_ms = 1000;
 module_param(pbl_mba_boot_timeout_ms, int, S_IRUGO | S_IWUSR);
@@ -155,6 +158,25 @@ static void pil_mss_disable_clks(struct q6v5_data *drv)
 	clk_disable_unprepare(drv->ahb_clk);
 }
 
+static int pil_mss_restart_reg(struct q6v5_data *drv, u32 mss_restart)
+{
+	int ret = 0;
+	int scm_ret;
+
+	if (drv->restart_reg && !drv->restart_reg_sec) {
+		writel_relaxed(mss_restart, drv->restart_reg);
+		mb();
+		udelay(2);
+	} else if (drv->restart_reg_sec) {
+		ret = scm_call(SCM_SVC_PIL, MSS_RESTART_ID, &mss_restart,
+			sizeof(mss_restart), &scm_ret, sizeof(scm_ret));
+		if (ret)
+			pr_err("Secure MSS restart failed\n");
+	}
+
+	return ret;
+}
+
 static int pil_msa_wait_for_mba_ready(struct q6v5_data *drv)
 {
 	struct device *dev = drv->desc.dev;
@@ -192,6 +214,7 @@ static int pil_msa_wait_for_mba_ready(struct q6v5_data *drv)
 int pil_mss_shutdown(struct pil_desc *pil)
 {
 	struct q6v5_data *drv = container_of(pil, struct q6v5_data, desc);
+	int ret = 0;
 
 	if (drv->axi_halt_base) {
 		pil_q6v5_halt_axi_port(pil,
@@ -209,8 +232,7 @@ int pil_mss_shutdown(struct pil_desc *pil)
 	if (drv->axi_halt_nc)
 		pil_q6v5_halt_axi_port(pil, drv->axi_halt_nc);
 
-	if (drv->restart_reg)
-		writel_relaxed(1, drv->restart_reg);
+	ret = pil_mss_restart_reg(drv, 1);
 
 	if (drv->is_booted) {
 		pil_mss_disable_clks(drv);
@@ -218,7 +240,7 @@ int pil_mss_shutdown(struct pil_desc *pil)
 		drv->is_booted = false;
 	}
 
-	return 0;
+	return ret;
 }
 
 int pil_mss_make_proxy_votes(struct pil_desc *pil)
@@ -281,11 +303,9 @@ static int pil_mss_reset(struct pil_desc *pil)
 		goto err_power;
 
 	/* Deassert reset to subsystem and wait for propagation */
-	if (drv->restart_reg) {
-		writel_relaxed(0, drv->restart_reg);
-		mb();
-		udelay(2);
-	}
+	ret = pil_mss_restart_reg(drv, 0);
+	if (ret)
+		goto err_restart;
 
 	ret = pil_mss_enable_clks(drv);
 	if (ret)
@@ -324,8 +344,8 @@ err_q6v5_reset:
 	modem_log_rmb_regs(drv->rmb_base);
 	pil_mss_disable_clks(drv);
 err_clks:
-	if (drv->restart_reg)
-		writel_relaxed(1, drv->restart_reg);
+	pil_mss_restart_reg(drv, 1);
+err_restart:
 	pil_mss_power_down(drv);
 err_power:
 	return ret;
