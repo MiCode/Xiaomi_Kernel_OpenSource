@@ -89,12 +89,12 @@
 
 			spi_0_active: spi_0_active {
 					       drive-strength = <6>;
-					       bias-disable;
+					       bias-pull-up;
 		        };
 
 			spi_0_sleep: spi_0_sleep {
 					       drive-strength = <6>;
-					       bias-disable;
+					       bias-pull-up;
 		        };
 		};
 
