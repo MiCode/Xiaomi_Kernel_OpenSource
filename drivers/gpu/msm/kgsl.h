@@ -290,9 +290,6 @@ int kgsl_cmdbatch_add_sync(struct kgsl_device *device,
 
 void kgsl_mem_entry_destroy(struct kref *kref);
 
-struct kgsl_mem_entry *kgsl_get_mem_entry(struct kgsl_device *device,
-		phys_addr_t ptbase, unsigned int gpuaddr, unsigned int size);
-
 struct kgsl_mem_entry *kgsl_sharedmem_find_region(
 	struct kgsl_process_private *private, unsigned int gpuaddr,
 	size_t size);

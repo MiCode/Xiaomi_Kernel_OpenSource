@@ -724,7 +724,8 @@ unsigned int adreno_a3xx_rbbm_clock_ctl_default(struct adreno_device
 							*adreno_dev);
 
 void adreno_snapshot(struct kgsl_device *device,
-		struct kgsl_snapshot *snapshot);
+		struct kgsl_snapshot *snapshot,
+		struct kgsl_context *context);
 
 void adreno_dispatcher_start(struct kgsl_device *device);
 int adreno_dispatcher_init(struct adreno_device *adreno_dev);

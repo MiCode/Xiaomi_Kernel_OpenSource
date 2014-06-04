@@ -204,40 +204,6 @@ int kgsl_readtimestamp(struct kgsl_device *device, void *priv,
 }
 EXPORT_SYMBOL(kgsl_readtimestamp);
 
-/* kgsl_get_mem_entry - get the mem_entry structure for the specified object
- * @device - Pointer to the device structure
- * @ptbase - the pagetable base of the object
- * @gpuaddr - the GPU address of the object
- * @size - Size of the region to search
- *
- * Caller must kgsl_mem_entry_put() the returned entry when finished using it.
- */
-
-struct kgsl_mem_entry * __must_check
-kgsl_get_mem_entry(struct kgsl_device *device,
-	phys_addr_t ptbase, unsigned int gpuaddr, unsigned int size)
-{
-	struct kgsl_process_private *priv;
-	struct kgsl_mem_entry *entry;
-
-	mutex_lock(&kgsl_driver.process_mutex);
-
-	list_for_each_entry(priv, &kgsl_driver.process_list, list) {
-		if (!kgsl_mmu_pt_equal(&device->mmu, priv->pagetable, ptbase))
-			continue;
-		entry = kgsl_sharedmem_find_region(priv, gpuaddr, size);
-
-		if (entry) {
-			mutex_unlock(&kgsl_driver.process_mutex);
-			return entry;
-		}
-	}
-	mutex_unlock(&kgsl_driver.process_mutex);
-
-	return NULL;
-}
-EXPORT_SYMBOL(kgsl_get_mem_entry);
-
 static inline struct kgsl_mem_entry *
 kgsl_mem_entry_create(void)
 {
@@ -832,18 +798,7 @@ static void kgsl_destroy_process_private(struct kref *kref)
 	struct kgsl_process_private *private = container_of(kref,
 			struct kgsl_process_private, refcount);
 
-	/*
-	 * Remove this process from global process list
-	 * We do not acquire a lock first as it is expected that
-	 * kgsl_destroy_process_private() is only going to be called
-	 * through kref_put() which is only called after acquiring
-	 * the lock.
-	 */
-	if (!private) {
-		KGSL_CORE_ERR("Cannot destroy null process private\n");
-		mutex_unlock(&kgsl_driver.process_mutex);
-		return;
-	}
+	mutex_lock(&kgsl_driver.process_mutex);
 	list_del(&private->list);
 	mutex_unlock(&kgsl_driver.process_mutex);
 
@@ -863,16 +818,8 @@ static void kgsl_destroy_process_private(struct kref *kref)
 void
 kgsl_process_private_put(struct kgsl_process_private *private)
 {
-	mutex_lock(&kgsl_driver.process_mutex);
-
-	/*
-	 * kref_put() returns 1 when the refcnt has reached 0 and the destroy
-	 * function is called. Mutex is released in the destroy function if
-	 * its called, so only release mutex if kref_put() return 0
-	 */
-	if (!kref_put(&private->refcount, kgsl_destroy_process_private))
-		mutex_unlock(&kgsl_driver.process_mutex);
-	return;
+	if (private)
+		kref_put(&private->refcount, kgsl_destroy_process_private);
 }
 
 /**
