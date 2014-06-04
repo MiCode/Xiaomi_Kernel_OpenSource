@@ -19,7 +19,7 @@
 
 enum clock_properties {
 	CLOCK_PROP_HAS_SCALING = 1 << 0,
-	CLOCK_PROP_HAS_SW_POWER_COLLAPSE = 1 << 1,
+	CLOCK_PROP_HAS_GATING = 1 << 1,
 };
 
 static size_t get_u32_array_num_elements(struct platform_device *pdev,
@@ -614,15 +614,18 @@ static int msm_vidc_load_clock_table(
 			vc->load_freq_tbl = NULL;
 		}
 
-		vc->has_sw_power_collapse = !!(clock_props[c] &
-				CLOCK_PROP_HAS_SW_POWER_COLLAPSE);
+		vc->has_gating = !!(clock_props[c] & CLOCK_PROP_HAS_GATING);
 
 		dprintk(VIDC_DBG,
-				"Found clock %s: scales = %s, s/w collapse = %s\n",
-				vc->name,
-				vc->count ? "yes" : "no",
-				vc->has_sw_power_collapse ? "yes" : "no");
+			"Found clock %s: scale-able = %s, gate-able = %s\n",
+			vc->name, vc->count ? "yes" : "no",
+			vc->has_gating ? "yes" : "no");
 	}
+
+	res->sw_power_collapsible = of_property_read_bool(pdev->dev.of_node,
+					"qcom,sw-power-collapse");
+	dprintk(VIDC_DBG, "Power collapse supported = %s\n",
+		res->sw_power_collapsible ? "yes" : "no");
 
 	return 0;
 
