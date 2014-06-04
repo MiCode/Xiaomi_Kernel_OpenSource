@@ -156,6 +156,8 @@ static void __iomem *virt_dbgbase;
 #define JPEG_TBU_CBCR					0x12034
 #define SMMU_CFG_CBCR					0x12038
 #define VFE_TBU_CBCR					0x1203C
+#define CPP_TBU_CBCR					0x12040
+#define MDP_RT_TBU_CBCR					0x1204C
 #define GTCU_AHB_CBCR					0x12044
 #define GTCU_AHB_BRIDGE_CBCR				0x12094
 #define APCS_GPLL_ENA_VOTE				0x45000
@@ -2702,6 +2704,30 @@ static struct local_vote_clk gcc_gtcu_ahb_clk = {
 	},
 };
 
+static struct local_vote_clk gcc_cpp_tbu_clk = {
+	.cbcr_reg = CPP_TBU_CBCR,
+	.vote_reg = APCS_SMMU_CLOCK_BRANCH_ENA_VOTE,
+	.en_mask = BIT(14),
+	.base = &virt_bases[GCC_BASE],
+	.c = {
+		.dbg_name = "gcc_cpp_tbu_clk",
+		.ops = &clk_ops_vote,
+		CLK_INIT(gcc_cpp_tbu_clk.c),
+	},
+};
+
+static struct local_vote_clk gcc_mdp_rt_tbu_clk = {
+	.cbcr_reg = MDP_TBU_CBCR,
+	.vote_reg = APCS_SMMU_CLOCK_BRANCH_ENA_VOTE,
+	.en_mask = BIT(15),
+	.base = &virt_bases[GCC_BASE],
+	.c = {
+		.dbg_name = "gcc_mdp_rt_tbu_clk",
+		.ops = &clk_ops_vote,
+		CLK_INIT(gcc_mdp_rt_tbu_clk.c),
+	},
+};
+
 static struct branch_clk gcc_usb2a_phy_sleep_clk = {
 	.cbcr_reg = USB2A_PHY_SLEEP_CBCR,
 	.has_sibling = 1,
@@ -3026,6 +3052,8 @@ static struct mux_clk gcc_debug_mux = {
 		{&gcc_mdss_esc0_clk.c,			0x01fd},
 		{&gcc_mdss_esc1_clk.c,			0x01bc},
 		{&gcc_bimc_gpu_clk.c,			0x0157},
+		{&gcc_cpp_tbu_clk.c,			0x00e9},
+		{&gcc_mdp_rt_tbu_clk.c,			0x00ee},
 		{&wcnss_m_clk.c,			0x0198},
 	),
 	.c = {
@@ -3122,6 +3150,8 @@ static struct clk_lookup msm_clocks_lookup[] = {
 	CLK_LIST(gcc_smmu_cfg_clk),
 	CLK_LIST(gcc_venus_tbu_clk),
 	CLK_LIST(gcc_vfe_tbu_clk),
+	CLK_LIST(gcc_cpp_tbu_clk),
+	CLK_LIST(gcc_mdp_rt_tbu_clk),
 
 	/* Branches */
 	CLK_LIST(gcc_blsp1_qup1_i2c_apps_clk),
