@@ -24,17 +24,17 @@
 #define A320_SNAPSHOT_CP_MERCIU_SECTION_SIZE	32
 
 /* snapshot functions used for A4XX as well */
-size_t a330_snapshot_cp_merciu(struct kgsl_device *device, void *snapshot,
+size_t a330_snapshot_cp_merciu(struct kgsl_device *device, u8 *buf,
 		size_t remain, void *priv);
-size_t a3xx_snapshot_cp_roq(struct kgsl_device *device, void *snapshot,
+size_t a3xx_snapshot_cp_roq(struct kgsl_device *device, u8 *buf,
 		size_t remain, void *priv);
-size_t a3xx_snapshot_cp_pm4_ram(struct kgsl_device *device, void *snapshot,
+size_t a3xx_snapshot_cp_pm4_ram(struct kgsl_device *device, u8 *buf,
 		size_t remain, void *priv);
-size_t a3xx_snapshot_cp_pfp_ram(struct kgsl_device *device, void *snapshot,
+size_t a3xx_snapshot_cp_pfp_ram(struct kgsl_device *device, u8 *buf,
 		size_t remain, void *priv);
-size_t a3xx_snapshot_cp_meq(struct kgsl_device *device, void *snapshot,
+size_t a3xx_snapshot_cp_meq(struct kgsl_device *device, u8 *buf,
 		size_t remain, void *priv);
-size_t a3xx_snapshot_vpc_memory(struct kgsl_device *device, void *snapshot,
+size_t a3xx_snapshot_vpc_memory(struct kgsl_device *device, u8 *buf,
 		size_t remain, void *priv);
 
 static inline void _snapshot_a3xx_regs(struct kgsl_snapshot_registers *regs,

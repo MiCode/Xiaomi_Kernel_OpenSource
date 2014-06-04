@@ -208,11 +208,11 @@ done:
 }
 
 /* Snapshot the ringbuffer memory */
-static size_t snapshot_rb(struct kgsl_device *device, void *snapshot,
+static size_t snapshot_rb(struct kgsl_device *device, u8 *buf,
 	size_t remain, void *priv)
 {
-	struct kgsl_snapshot_rb *header = snapshot;
-	unsigned int *data = snapshot + sizeof(*header);
+	struct kgsl_snapshot_rb *header = (struct kgsl_snapshot_rb *)buf;
+	unsigned int *data = (unsigned int *)(buf + sizeof(*header));
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
 	struct adreno_ringbuffer *rb = ADRENO_CURRENT_RINGBUFFER(adreno_dev);
 	unsigned int rptr, *rbptr, ibbase;
@@ -366,16 +366,17 @@ static size_t snapshot_rb(struct kgsl_device *device, void *snapshot,
 }
 
 static size_t snapshot_capture_mem_list(struct kgsl_device *device,
-		void *snapshot, size_t remain, void *priv)
+		u8 *buf, size_t remain, void *priv)
 {
-	struct kgsl_snapshot_replay_mem_list *header = snapshot;
+	struct kgsl_snapshot_replay_mem_list *header =
+		(struct kgsl_snapshot_replay_mem_list *)buf;
 	struct kgsl_process_private *private = NULL;
 	struct kgsl_process_private *tmp_private;
 	phys_addr_t ptbase;
 	struct rb_node *node;
 	struct kgsl_mem_entry *entry = NULL;
 	int num_mem;
-	unsigned int *data = snapshot + sizeof(*header);
+	unsigned int *data = (unsigned int *)(buf + sizeof(*header));
 
 	ptbase = kgsl_mmu_get_current_ptbase(&device->mmu);
 	mutex_lock(&kgsl_driver.process_mutex);
@@ -427,14 +428,14 @@ static size_t snapshot_capture_mem_list(struct kgsl_device *device,
 }
 
 /* Snapshot the memory for an indirect buffer */
-static size_t snapshot_ib(struct kgsl_device *device, void *snapshot,
+static size_t snapshot_ib(struct kgsl_device *device, u8 *buf,
 	size_t remain, void *priv)
 {
-	struct kgsl_snapshot_ib *header = snapshot;
+	struct kgsl_snapshot_ib *header = (struct kgsl_snapshot_ib *)buf;
 	struct kgsl_snapshot_obj *obj = priv;
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
 	unsigned int *src;
-	unsigned int *dst = snapshot + sizeof(*header);
+	unsigned int *dst = (unsigned int *)(buf + sizeof(*header));
 	struct adreno_ib_object_list *ib_obj_list;
 	unsigned int ib1base;
 

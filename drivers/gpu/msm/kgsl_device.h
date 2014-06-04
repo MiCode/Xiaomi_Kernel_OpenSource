@@ -530,12 +530,12 @@ struct kgsl_device_private {
  * @mempool_size: Size of the memory pool
  */
 struct kgsl_snapshot {
-	void *start;
+	u8 *start;
 	size_t size;
-	void *ptr;
+	u8 *ptr;
 	size_t remain;
 	unsigned long timestamp;
-	void *mempool;
+	u8 *mempool;
 	size_t mempool_size;
 };
 
@@ -939,7 +939,7 @@ struct kgsl_snapshot_registers_list {
 	int count;
 };
 
-size_t kgsl_snapshot_dump_regs(struct kgsl_device *device, void *snapshot,
+size_t kgsl_snapshot_dump_regs(struct kgsl_device *device, u8 *snapshot,
 	size_t remain, void *priv);
 
 void kgsl_snapshot_indexed_registers(struct kgsl_device *device,
@@ -963,7 +963,7 @@ void kgsl_snapshot_dump_skipped_regs(struct kgsl_device *device,
 
 void kgsl_snapshot_add_section(struct kgsl_device *device, u16 id,
 	struct kgsl_snapshot *snapshot,
-	size_t (*func)(struct kgsl_device *, void *, size_t, void *),
+	size_t (*func)(struct kgsl_device *, u8 *, size_t, void *),
 	void *priv);
 
 #endif  /* __KGSL_DEVICE_H */

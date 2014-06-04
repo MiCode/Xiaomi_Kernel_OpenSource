@@ -45,14 +45,14 @@ struct kgsl_snapshot_cp_obj {
 };
 
 struct snapshot_obj_itr {
-	void *buf;      /* Buffer pointer to write to */
+	u8 *buf;      /* Buffer pointer to write to */
 	int pos;        /* Current position in the sequence */
 	loff_t offset;  /* file offset to start writing from */
 	size_t remain;  /* Bytes remaining in buffer */
 	size_t write;   /* Bytes written so far */
 };
 
-static void obj_itr_init(struct snapshot_obj_itr *itr, void *buf,
+static void obj_itr_init(struct snapshot_obj_itr *itr, u8 *buf,
 	loff_t offset, size_t remain)
 {
 	itr->buf = buf;
@@ -109,11 +109,12 @@ static int snapshot_context_count(int id, void *ptr, void *data)
  * to pass around double star references to the snapshot data
  */
 
-static void *_ctxtptr;
+static u8 *_ctxtptr;
 
 static int snapshot_context_info(int id, void *ptr, void *data)
 {
-	struct kgsl_snapshot_linux_context *header = _ctxtptr;
+	struct kgsl_snapshot_linux_context *header =
+		(struct kgsl_snapshot_linux_context *)_ctxtptr;
 	struct kgsl_context *context = ptr;
 	struct kgsl_device *device;
 
@@ -140,9 +141,9 @@ static int snapshot_context_info(int id, void *ptr, void *data)
 
 /* Snapshot the Linux specific information */
 static size_t snapshot_os(struct kgsl_device *device,
-	void *snapshot, size_t remain, void *priv)
+	u8 *buf, size_t remain, void *priv)
 {
-	struct kgsl_snapshot_linux *header = snapshot;
+	struct kgsl_snapshot_linux *header = (struct kgsl_snapshot_linux *)buf;
 	struct kgsl_pwrctrl *pwr = &device->pwrctrl;
 	struct task_struct *task;
 	pid_t pid;
@@ -207,7 +208,7 @@ static size_t snapshot_os(struct kgsl_device *device,
 
 	header->ctxtcount = ctxtcount;
 
-	_ctxtptr = snapshot + sizeof(*header);
+	_ctxtptr = buf + sizeof(*header);
 	/* append information for the global context */
 	snapshot_context_info(KGSL_MEMSTORE_GLOBAL, NULL, device);
 	/* append information for each context */
@@ -492,14 +493,14 @@ EXPORT_SYMBOL(kgsl_snapshot_get_object);
  * kgsl_snapshot_add_section(device, KGSL_SNAPSHOT_SECTION_REGS, snapshot,
  *	remain, kgsl_snapshot_dump_regs, &list).
  */
-size_t kgsl_snapshot_dump_regs(struct kgsl_device *device, void *snapshot,
+size_t kgsl_snapshot_dump_regs(struct kgsl_device *device, u8 *buf,
 	size_t remain, void *priv)
 {
 	struct kgsl_snapshot_registers_list *list = priv;
 
-	struct kgsl_snapshot_regs *header = snapshot;
+	struct kgsl_snapshot_regs *header = (struct kgsl_snapshot_regs *)buf;
 	struct kgsl_snapshot_registers *regs;
-	unsigned int *data = snapshot + sizeof(*header);
+	unsigned int *data = (unsigned int *)(buf + sizeof(*header));
 	int count = 0, i, j, k;
 
 	/* Figure out how many registers we are going to dump */
@@ -598,11 +599,12 @@ struct kgsl_snapshot_indexed_registers {
 };
 
 static size_t kgsl_snapshot_dump_indexed_regs(struct kgsl_device *device,
-	void *snapshot, size_t remain, void *priv)
+	u8 *buf, size_t remain, void *priv)
 {
 	struct kgsl_snapshot_indexed_registers *iregs = priv;
-	struct kgsl_snapshot_indexed_regs *header = snapshot;
-	unsigned int *data = snapshot + sizeof(*header);
+	struct kgsl_snapshot_indexed_regs *header =
+		(struct kgsl_snapshot_indexed_regs *)buf;
+	unsigned int *data = (unsigned int *)(buf + sizeof(*header));
 	int i;
 
 	if (remain < (iregs->count * 4) + sizeof(*header)) {
@@ -665,11 +667,12 @@ EXPORT_SYMBOL(kgsl_snapshot_indexed_registers);
  */
 void kgsl_snapshot_add_section(struct kgsl_device *device, u16 id,
 	struct kgsl_snapshot *snapshot,
-	size_t (*func)(struct kgsl_device *, void *, size_t, void *),
+	size_t (*func)(struct kgsl_device *, u8 *, size_t, void *),
 	void *priv)
 {
-	struct kgsl_snapshot_section_header *header = snapshot->ptr;
-	void *data = snapshot->ptr + sizeof(*header);
+	struct kgsl_snapshot_section_header *header =
+		(struct kgsl_snapshot_section_header *)snapshot->ptr;
+	u8 *data = snapshot->ptr + sizeof(*header);
 	size_t ret = 0;
 
 	/*
