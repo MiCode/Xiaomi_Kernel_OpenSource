@@ -48,7 +48,6 @@
 #include <linux/list.h>
 #include <linux/dma-mapping.h>
 #include <linux/vmalloc.h>
-#include <linux/module.h>
 
 #include <linux/usb/ch9.h>
 #include <linux/usb/gadget.h>
@@ -58,11 +57,6 @@
 #include "gadget.h"
 #include "debug.h"
 #include "io.h"
-
-#define BULK_EP_XFER_TIMEOUT	(8)	/* milliseconds */
-
-static int bulk_ep_xfer_timeout_ms = BULK_EP_XFER_TIMEOUT;
-module_param(bulk_ep_xfer_timeout_ms, int, S_IRUGO | S_IWUSR);
 
 static void dwc3_gadget_usb2_phy_suspend(struct dwc3 *dwc, int suspend);
 static void dwc3_gadget_usb3_phy_suspend(struct dwc3 *dwc, int suspend);
@@ -76,8 +70,6 @@ struct dwc3_usb_gadget {
 	struct dwc3 *dwc;
 };
 
-static void dwc3_endpoint_transfer_complete(struct dwc3 *, struct dwc3_ep *,
-	const struct dwc3_event_depevt *, int);
 /**
  * dwc3_gadget_set_test_mode - Enables USB2 Test Modes
  * @dwc: pointer to our context structure
@@ -913,17 +905,6 @@ update_trb:
 		break;
 
 	case USB_ENDPOINT_XFER_BULK:
-		trb->ctrl = DWC3_TRBCTL_NORMAL;
-		/*
-		 * bulk endpoint optimization: setting the CSP bit (continue on
-		 * short packet) will prevent the core from generating an
-		 * XferComplete event for each TRB with a short packet
-		 * (except for the last TRB).
-		 */
-		if (!last)
-			trb->ctrl |= DWC3_TRB_CTRL_CSP;
-		break;
-
 	case USB_ENDPOINT_XFER_INT:
 		trb->ctrl = DWC3_TRBCTL_NORMAL;
 		break;
@@ -1206,12 +1187,6 @@ static int __dwc3_gadget_kick_transfer(struct dwc3_ep *dep, u16 cmd_param,
 		dep->resource_index = dwc3_gadget_ep_get_transfer_index(dwc,
 				dep->number);
 		WARN_ON_ONCE(!dep->resource_index);
-
-		if (usb_endpoint_xfer_bulk(dep->endpoint.desc)) {
-			hrtimer_start(&dep->xfer_timer, ktime_set(0,
-				bulk_ep_xfer_timeout_ms * NSEC_PER_MSEC),
-				HRTIMER_MODE_REL);
-		}
 	}
 
 	return 0;
@@ -2100,40 +2075,6 @@ static const struct usb_gadget_ops dwc3_gadget_ops = {
 
 /* -------------------------------------------------------------------------- */
 
-static enum hrtimer_restart dwc3_gadget_ep_timer(struct hrtimer *hrtimer)
-{
-	struct dwc3_ep *dep = container_of(hrtimer, struct dwc3_ep, xfer_timer);
-	struct dwc3_event_depevt event;
-	struct dwc3 *dwc;
-
-	if (!dep) {
-		pr_err("%s: NULL endpoint!\n", __func__);
-		goto out;
-	}
-	if (!(dep->flags & DWC3_EP_ENABLED)) {
-		pr_debug("%s: disabled endpoint!\n", __func__);
-		goto out;
-	}
-	if (!dep->endpoint.desc) {
-		pr_err("%s: NULL endpoint desc!\n", __func__);
-		goto out;
-	}
-	if (!dep->dwc) {
-		pr_err("%s: NULL dwc3 ptr!\n", __func__);
-		goto out;
-	}
-	dwc = dep->dwc;
-
-	event.status = 0;
-
-	spin_lock(&dwc->lock);
-	dwc3_endpoint_transfer_complete(dep->dwc, dep, &event, 1);
-	spin_unlock(&dwc->lock);
-
-out:
-	return HRTIMER_NORESTART;
-}
-
 static int dwc3_gadget_init_hw_endpoints(struct dwc3 *dwc,
 		u8 num, u32 direction)
 {
@@ -2182,10 +2123,6 @@ static int dwc3_gadget_init_hw_endpoints(struct dwc3 *dwc,
 
 		INIT_LIST_HEAD(&dep->request_list);
 		INIT_LIST_HEAD(&dep->req_queued);
-
-		hrtimer_init(&dep->xfer_timer, CLOCK_MONOTONIC,
-			HRTIMER_MODE_REL);
-		dep->xfer_timer.function = dwc3_gadget_ep_timer;
 	}
 
 	return 0;
@@ -2294,8 +2231,7 @@ static int __dwc3_cleanup_done_trbs(struct dwc3 *dwc, struct dwc3_ep *dep,
 			dep->flags &= ~DWC3_EP_MISSED_ISOC;
 		}
 	} else {
-		if (count && (event->status & DEPEVT_STATUS_SHORT) &&
-			!(trb->ctrl & DWC3_TRB_CTRL_CSP))
+		if (count && (event->status & DEPEVT_STATUS_SHORT))
 			s_pkt = 1;
 	}
 
@@ -2331,19 +2267,9 @@ static int dwc3_cleanup_done_reqs(struct dwc3 *dwc, struct dwc3_ep *dep,
 	do {
 		req = next_request(&dep->req_queued);
 		if (!req) {
-			if (event->status)
-				WARN_ON_ONCE(1);
+			WARN_ON_ONCE(1);
 			return 1;
 		}
-
-		/*
-		 * For bulk endpoints, HWO bit may be set when the transfer
-		 * complete timeout expires.
-		 */
-		if (usb_endpoint_xfer_bulk(dep->endpoint.desc) &&
-			(req->trb->ctrl & DWC3_TRB_CTRL_HWO))
-			return 0;
-
 		i = 0;
 		do {
 			slot = req->start_slot + i;
@@ -2418,16 +2344,6 @@ static void dwc3_endpoint_transfer_complete(struct dwc3 *dwc,
 	clean_busy = dwc3_cleanup_done_reqs(dwc, dep, event, status);
 	if (clean_busy)
 		dep->flags &= ~DWC3_EP_BUSY;
-
-	if (usb_endpoint_xfer_bulk(dep->endpoint.desc)) {
-		/* Cancel transfer complete timer when hitting the last TRB */
-		if (!(event->status & DEPEVT_STATUS_LST))
-			hrtimer_start(&dep->xfer_timer, ktime_set(0,
-				bulk_ep_xfer_timeout_ms * NSEC_PER_MSEC),
-				HRTIMER_MODE_REL);
-		else
-			hrtimer_cancel(&dep->xfer_timer);
-	}
 
 	/*
 	 * WORKAROUND: This is the 2nd half of U1/U2 -> U0 workaround.
