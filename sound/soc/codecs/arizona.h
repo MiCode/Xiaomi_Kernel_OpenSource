@@ -82,7 +82,7 @@ struct arizona_priv {
 	unsigned int in_pending;
 };
 
-#define ARIZONA_NUM_MIXER_INPUTS 103
+#define ARIZONA_NUM_MIXER_INPUTS 104
 
 extern const unsigned int arizona_mixer_tlv[];
 extern const char *arizona_mixer_texts[ARIZONA_NUM_MIXER_INPUTS];
@@ -209,6 +209,7 @@ extern const struct soc_enum arizona_isrc_fsl[];
 extern const struct soc_enum arizona_isrc_fsh[];
 extern const struct soc_enum arizona_asrc_rate1;
 extern const struct soc_enum arizona_output_rate;
+extern const struct soc_enum arizona_spdif_rate;
 
 extern const struct soc_enum arizona_in_vi_ramp;
 extern const struct soc_enum arizona_in_vd_ramp;
