@@ -1344,7 +1344,8 @@ int mdss_dsi_cmdlist_commit(struct mdss_dsi_ctrl_pdata *ctrl, int from_mdp)
 	 * also, axi bus bandwidth need since dsi controller will
 	 * fetch dcs commands from axi bus
 	 */
-	mdss_bus_bandwidth_ctrl(1);
+	mdss_bus_scale_set_quota(MDSS_HW_DSI0, SZ_1M, SZ_1M);
+
 	pr_debug("%s:  from_mdp=%d pid=%d\n", __func__, from_mdp, current->pid);
 	mdss_dsi_clk_ctrl(ctrl, DSI_ALL_CLKS, 1);
 
@@ -1360,8 +1361,7 @@ int mdss_dsi_cmdlist_commit(struct mdss_dsi_ctrl_pdata *ctrl, int from_mdp)
 		ret = mdss_dsi_cmdlist_tx(ctrl, req);
 	mdss_iommu_ctrl(0);
 	mdss_dsi_clk_ctrl(ctrl, DSI_ALL_CLKS, 0);
-	mdss_bus_bandwidth_ctrl(0);
-
+	mdss_bus_scale_set_quota(MDSS_HW_DSI0, 0, 0);
 need_lock:
 
 	if (from_mdp) { /* from pipe_commit */
