@@ -1105,7 +1105,7 @@ static int mt9m114_s_config(struct v4l2_subdev *sd,
 	 * This is hard coded to FFRD8. */
 	ret = atomisp_register_i2c_module(sd, client, platform_data,
 					  getvar_int(&client->dev, "CamType",
-						     RAW_CAMERA),
+						     SOC_CAMERA),
 					  getvar_int(&client->dev, "CsiPort",
 						     ATOMISP_CAMERA_PORT_PRIMARY));
 	if (ret) {
@@ -1507,7 +1507,7 @@ static int mt9m114_probe(struct i2c_client *client,
 		 * directly and configure via ACPI/EFIvars instead
 		 */
 		ret = mt9m114_s_config(&dev->sd, client->irq,
-				       mt9m114_platform_data NULL);
+				       mt9m114_platform_data(NULL));
 		if (ret)
 			goto out_free;
 	}
@@ -1533,7 +1533,6 @@ out_free:
 }
 
 static struct acpi_device_id mt9m114_acpi_match[] = {
-	{ "APTN1040" },
 	{ "INT33F0" },
 	{},
 };
@@ -1545,7 +1544,8 @@ MODULE_DEVICE_TABLE(i2c, mt9m114_id);
 static struct i2c_driver mt9m114_driver = {
 	.driver = {
 		.owner = THIS_MODULE,
-		.name = "mt9m114"
+		.name = "mt9m114",
+		.acpi_match_table = ACPI_PTR(mt9m114_acpi_match),
 	},
 	.probe = mt9m114_probe,
 	.remove = mt9m114_remove,
