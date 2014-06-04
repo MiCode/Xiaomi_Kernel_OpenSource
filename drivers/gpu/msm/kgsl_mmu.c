@@ -537,11 +537,7 @@ int kgsl_mmu_start(struct kgsl_device *device)
 	struct kgsl_mmu *mmu = &device->mmu;
 	int ret = 0;
 
-	if (kgsl_mmu_type == KGSL_MMU_TYPE_NONE) {
-		/* Setup gpuaddr of global mappings */
-		if (!mmu->setstate_memory.gpuaddr)
-			ret = kgsl_map_global_pt_entries(NULL);
-	} else
+	if (kgsl_mmu_type != KGSL_MMU_TYPE_NONE)
 		ret = mmu->mmu_ops->mmu_start(mmu);
 
 	return ret;
