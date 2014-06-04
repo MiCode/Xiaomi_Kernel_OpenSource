@@ -297,6 +297,6 @@
 	qcom,vdd-always-on;
 	qcom,vdd-lpm-sup;
 
-	qcom,vdd-current-level = <9000 400000>;
+	qcom,vdd-current-level = <4000 400000>;
 };
 
