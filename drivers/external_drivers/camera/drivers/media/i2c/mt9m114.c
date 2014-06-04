@@ -461,6 +461,18 @@ static int mt9m114_init_common(struct v4l2_subdev *sd)
 	return ret;
 }
 
+static int power_ctrl(struct v4l2_subdev *sd, bool flag)
+{
+	struct mt9m114_device *dev = to_mt9m114_sensor(sd);
+	return dev->platform_data->power_ctrl(sd, flag);
+}
+
+static int gpio_ctrl(struct v4l2_subdev *sd, bool flag)
+{
+	struct mt9m114_device *dev = to_mt9m114_sensor(sd);
+	return dev->platform_data->gpio_ctrl(sd, flag);
+}
+
 static int power_up(struct v4l2_subdev *sd)
 {
 	struct mt9m114_device *dev = to_mt9m114_sensor(sd);
@@ -473,7 +485,7 @@ static int power_up(struct v4l2_subdev *sd)
 	}
 
 	/* power control */
-	ret = dev->platform_data->power_ctrl(sd, 1);
+	ret = power_ctrl(sd, 1);
 	if (ret)
 		goto fail_power;
 
@@ -483,7 +495,7 @@ static int power_up(struct v4l2_subdev *sd)
 		goto fail_clk;
 
 	/* gpio ctrl */
-	ret = dev->platform_data->gpio_ctrl(sd, 1);
+	ret = gpio_ctrl(sd, 1);
 	if (ret)
 		dev_err(&client->dev, "gpio failed 1\n");
 	/*
@@ -497,7 +509,7 @@ static int power_up(struct v4l2_subdev *sd)
 fail_clk:
 	dev->platform_data->flisclk_ctrl(sd, 0);
 fail_power:
-	dev->platform_data->power_ctrl(sd, 0);
+	power_ctrl(sd, 0);
 	dev_err(&client->dev, "sensor power-up failed\n");
 
 	return ret;
@@ -519,12 +531,12 @@ static int power_down(struct v4l2_subdev *sd)
 		dev_err(&client->dev, "flisclk failed\n");
 
 	/* gpio ctrl */
-	ret = dev->platform_data->gpio_ctrl(sd, 0);
+	ret = gpio_ctrl(sd, 0);
 	if (ret)
 		dev_err(&client->dev, "gpio failed\n");
 
 	/* power control */
-	ret = dev->platform_data->power_ctrl(sd, 0);
+	ret = power_ctrl(sd, 0);
 	if (ret)
 		dev_err(&client->dev, "vprog failed.\n");
 
