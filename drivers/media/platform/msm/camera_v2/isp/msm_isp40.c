@@ -350,6 +350,8 @@ static void msm_vfe40_init_hardware_reg(struct vfe_device *vfe_dev)
 	msm_camera_io_w_mb(0xFEFFFFFF, vfe_dev->vfe_base + 0x2C);
 	msm_camera_io_w(0xFFFFFFFF, vfe_dev->vfe_base + 0x30);
 	msm_camera_io_w_mb(0xFEFFFFFF, vfe_dev->vfe_base + 0x34);
+	msm_camera_io_w(vfe_dev->stats_data.stats_mask,
+		vfe_dev->vfe_base + 0x44);
 }
 
 static void msm_vfe40_process_reset_irq(struct vfe_device *vfe_dev,
@@ -1199,6 +1201,7 @@ static void msm_vfe40_stats_cfg_comp_mask(struct vfe_device *vfe_dev,
 	else
 		comp_mask &= ~stats_mask;
 	msm_camera_io_w(comp_mask << 16, vfe_dev->vfe_base + 0x44);
+	vfe_dev->stats_data.stats_mask = (comp_mask << 16);
 }
 
 static void msm_vfe40_stats_cfg_wm_irq_mask(
