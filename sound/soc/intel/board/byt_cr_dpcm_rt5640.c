@@ -660,6 +660,7 @@ static int byt_set_bias_level(struct snd_soc_card *card,
 static int byt_init(struct snd_soc_pcm_runtime *runtime)
 {
 	int ret;
+	int codec_gpio;
 	struct snd_soc_codec *codec;
 	struct snd_soc_card *card = runtime->card;
 	struct byt_mc_private *ctx = snd_soc_card_get_drvdata(runtime->card);
@@ -679,6 +680,27 @@ static int byt_init(struct snd_soc_pcm_runtime *runtime)
 	   effective threshold of 1000uA for micbias resistor for 2.2K */
 	rt5640_config_ovcd_thld(codec, RT5640_MIC1_OVTH_2000UA,
 			RT5640_MIC_OVCD_SF_0P5);
+
+	codec_gpio = rt5640_get_jack_gpio(codec);
+	pr_info("%s: GPIOs - codec %d", __func__, codec_gpio);
+	hs_gpio[BYT_CODEC_GPIO_IDX].gpio = codec_gpio;
+
+	ctx->hs_insert_det_delay = BYT_HS_INSERT_DET_DELAY;
+	ctx->hs_remove_det_delay = BYT_HS_REMOVE_DET_DELAY;
+	ctx->button_det_delay = BYT_BUTTON_DET_DELAY;
+	ctx->hs_det_poll_intrvl = BYT_HS_DET_POLL_INTRVL;
+	ctx->hs_det_retry = BYT_HS_DET_RETRY_COUNT;
+	ctx->button_en_delay = BYT_BUTTON_EN_DELAY;
+	ctx->process_button_events = false;
+
+	INIT_DELAYED_WORK(&ctx->hs_insert_work, byt_check_hs_insert_status);
+	INIT_DELAYED_WORK(&ctx->hs_remove_work, byt_check_hs_remove_status);
+	INIT_DELAYED_WORK(&ctx->hs_button_work, byt_check_hs_button_status);
+	INIT_DELAYED_WORK(&ctx->hs_button_en_work, byt_enable_hs_button_events);
+	mutex_init(&ctx->jack_mlock);
+	ctx->tristate_buffer_gpio = -1;
+	ctx->num_jack_gpios = 1;
+	ctx->use_soc_jd_gpio = false;
 
 	/* Headset jack detection */
 	ret = snd_soc_jack_new(codec, "Headset Jack",
@@ -988,7 +1010,6 @@ static int snd_byt_mc_probe(struct platform_device *pdev)
 {
 	int ret_val = 0;
 	struct byt_mc_private *drv;
-	int codec_gpio;
 	struct snd_soc_card *card;
 	const struct snd_soc_dapm_route *routes;
 	enum board_id bid;
@@ -1000,30 +1021,6 @@ static int snd_byt_mc_probe(struct platform_device *pdev)
 		pr_err("Allocation failed!\n");
 		return -ENOMEM;
 	}
-
-	/* get the codec -> SoC GPIO */
-	/* FIXME: Hard coding this to 86. This should come from DSDT. Currently
-	   there is not ACPI entry for machine driver */
-	codec_gpio = 86;
-	pr_info("%s: GPIOs - codec %d", __func__, codec_gpio);
-	hs_gpio[BYT_CODEC_GPIO_IDX].gpio = codec_gpio;
-
-	drv->hs_insert_det_delay = BYT_HS_INSERT_DET_DELAY;
-	drv->hs_remove_det_delay = BYT_HS_REMOVE_DET_DELAY;
-	drv->button_det_delay = BYT_BUTTON_DET_DELAY;
-	drv->hs_det_poll_intrvl = BYT_HS_DET_POLL_INTRVL;
-	drv->hs_det_retry = BYT_HS_DET_RETRY_COUNT;
-	drv->button_en_delay = BYT_BUTTON_EN_DELAY;
-	drv->process_button_events = false;
-
-	INIT_DELAYED_WORK(&drv->hs_insert_work, byt_check_hs_insert_status);
-	INIT_DELAYED_WORK(&drv->hs_remove_work, byt_check_hs_remove_status);
-	INIT_DELAYED_WORK(&drv->hs_button_work, byt_check_hs_button_status);
-	INIT_DELAYED_WORK(&drv->hs_button_en_work, byt_enable_hs_button_events);
-	mutex_init(&drv->jack_mlock);
-	drv->tristate_buffer_gpio = -1;
-	drv->num_jack_gpios = 1;
-	drv->use_soc_jd_gpio = false;
 
 	bid = get_board_id();
 	switch (bid) {
