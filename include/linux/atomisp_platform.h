@@ -197,6 +197,16 @@ struct camera_sensor_platform_data {
 	char *(*msr_file_name)(void);
 	struct atomisp_camera_caps *(*get_camera_caps)(void);
 	int (*gpio_intr_ctrl)(struct v4l2_subdev *subdev);
+
+#ifdef CONFIG_GMIN_INTEL_MID
+	/* New G-Min power and GPIO interface, replaces
+	 * power/gpio_ctrl with methods to control individual
+	 * lines as implemented on all known camera modules. */
+	int (*gpio0_ctrl)(struct v4l2_subdev *subdev, int on);
+	int (*gpio1_ctrl)(struct v4l2_subdev *subdev, int on);
+	int (*v1p8_ctrl)(struct v4l2_subdev *subdev, int on);
+	int (*v2p8_ctrl)(struct v4l2_subdev *subdev, int on);
+#endif
 };
 
 struct camera_af_platform_data {
