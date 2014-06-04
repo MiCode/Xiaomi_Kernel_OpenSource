@@ -32,6 +32,7 @@
 /* 2 is to account for module & param ID in payload */
 #define ADM_GET_PARAMETER_LENGTH  (4096 - APR_HDR_SIZE - 2 * sizeof(uint32_t))
 
+#define ULL_SUPPORTED_BITS_PER_SAMPLE 16
 #define ULL_SUPPORTED_SAMPLE_RATE 48000
 
 enum {
@@ -1408,6 +1409,7 @@ int adm_open(int port_id, int path, int rate, int channel_mode,
 		flags = ADM_ULTRA_LOW_LATENCY_DEVICE_SESSION;
 		topology = NULL_COPP_TOPOLOGY;
 		rate = ULL_SUPPORTED_SAMPLE_RATE;
+		bit_width = ULL_SUPPORTED_BITS_PER_SAMPLE;
 	} else if (perf_mode == LOW_LATENCY_PCM_MODE) {
 		flags = ADM_LOW_LATENCY_DEVICE_SESSION;
 		if ((topology == DOLBY_ADM_COPP_TOPOLOGY_ID) ||

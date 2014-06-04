@@ -2011,6 +2011,9 @@ static int __q6asm_open_write(struct audio_client *ac, uint32_t format,
 	case FORMAT_MP2:
 		open.dec_fmt_id = ASM_MEDIA_FMT_MP2;
 		break;
+	case FORMAT_FLAC:
+		open.dec_fmt_id = ASM_MEDIA_FMT_FLAC;
+		break;
 	default:
 		pr_err("%s: Invalid format[%d]\n", __func__, format);
 		goto fail_cmd;
@@ -3149,6 +3152,49 @@ int q6asm_media_format_block_amrwbplus(struct audio_client *ac,
 	return 0;
 fail_cmd:
 	return -EINVAL;
+}
+
+int q6asm_stream_media_format_block_flac(struct audio_client *ac,
+				struct asm_flac_cfg *cfg, int stream_id)
+{
+	struct asm_flac_fmt_blk_v2 fmt;
+	int rc = 0;
+
+	pr_debug("%s :session[%d]rate[%d]ch[%d]size[%d]\n", __func__,
+		ac->session, cfg->sample_rate, cfg->ch_cfg, cfg->sample_size);
+
+	q6asm_add_hdr(ac, &fmt.hdr, sizeof(fmt), TRUE);
+	atomic_set(&ac->cmd_state, 1);
+
+	fmt.hdr.opcode = ASM_DATA_CMD_MEDIA_FMT_UPDATE_V2;
+	fmt.fmtblk.fmt_blk_size = sizeof(fmt) - sizeof(fmt.hdr) -
+						sizeof(fmt.fmtblk);
+
+	fmt.is_stream_info_present = cfg->stream_info_present;
+	fmt.num_channels = cfg->ch_cfg;
+	fmt.min_blk_size = cfg->min_blk_size;
+	fmt.max_blk_size = cfg->max_blk_size;
+	fmt.sample_rate = cfg->sample_rate;
+	fmt.min_frame_size = cfg->min_frame_size;
+	fmt.max_frame_size = cfg->max_frame_size;
+	fmt.sample_size = cfg->sample_size;
+
+	rc = apr_send_pkt(ac->apr, (uint32_t *) &fmt);
+	if (rc < 0) {
+		pr_err("%s :Comamnd media format update failed %d\n",
+				__func__, rc);
+		goto fail_cmd;
+	}
+	rc = wait_event_timeout(ac->cmd_wait,
+				(atomic_read(&ac->cmd_state) == 0), 5*HZ);
+	if (!rc) {
+		pr_err("%s :timeout. waited for FORMAT_UPDATE\n", __func__);
+		rc = -ETIMEDOUT;
+		goto fail_cmd;
+	}
+	return 0;
+fail_cmd:
+	return rc;
 }
 
 int q6asm_ds1_set_endp_params(struct audio_client *ac,
