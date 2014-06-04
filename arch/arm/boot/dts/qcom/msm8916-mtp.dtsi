@@ -131,7 +131,7 @@
 		qcom,model = "msm8x16-snd-card-mtp";
 		qcom,msm-snd-card-id = <0>;
 		qcom,msm-codec-type = "internal";
-		qcom,msm-ext-pa = <0>;
+		qcom,msm-ext-pa = "primary";
 		qcom,msm-mclk-freq = <9600000>;
 		qcom,msm-mbhc-hphl-swh = <0>;
 		qcom,msm-mbhc-gnd-swh = <0>;
@@ -146,14 +146,20 @@
 			"AMIC1", "MIC BIAS External",
 			"AMIC2", "MIC BIAS Internal2",
 			"AMIC3", "MIC BIAS External";
-		pinctrl-names = "cdc_pdm_lines_act",
-				"cdc_pdm_lines_sus",
+		pinctrl-names = "cdc_lines_act",
+				"cdc_lines_sus",
+				"cdc_lines_sec_ext_act",
+				"cdc_lines_sec_ext_sus",
 				"cross_conn_det_act",
 				"cross_conn_det_sus";
 		pinctrl-0 = <&cdc_pdm_lines_act>;
 		pinctrl-1 = <&cdc_pdm_lines_sus>;
-		pinctrl-2 = <&cross_conn_det_act>;
-		pinctrl-3 = <&cross_conn_det_sus>;
+		pinctrl-2 = <&cdc_pdm_lines_act &cdc_ext_pa_act
+						&cdc_ext_pa_ws_act>;
+		pinctrl-3 = <&cdc_pdm_lines_sus &cdc_ext_pa_sus
+						&cdc_ext_pa_ws_sus>;
+		pinctrl-4 = <&cross_conn_det_act>;
+		pinctrl-5 = <&cross_conn_det_sus>;
 		qcom,cdc-us-euro-gpios = <&msm_gpio 120 0>;
 	};
 };
