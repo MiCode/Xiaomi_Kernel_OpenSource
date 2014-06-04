@@ -346,10 +346,9 @@
 			qcom,dim-method = "linear";
 			qcom,hyb-thres = <625>;
 			qcom,sync-dly-us = <800>;
-			qcom,fs-curr-ua = <30000>;
+			qcom,fs-curr-ua = <16000>;
 			qcom,en-phase-stag;
 			qcom,ibb-bias-active;
-			qcom,lab-fast-precharge;
 			qcom,led-strings-list = [00 01 02 03];
 		};
 
