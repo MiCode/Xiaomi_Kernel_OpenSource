@@ -46,7 +46,7 @@ EXPORT_SYMBOL(nc_dev_state);
 
 void pm_suspend_dev_state(void)
 {
-	if (!pm_suspend_debug)
+	if (!(pm_suspend_debug & PM_SUSPEND_DBG_DEV_STATE))
 		return;
 	else {
 		if (sc_dev_state)
@@ -429,12 +429,12 @@ int pm_suspend(suspend_state_t state)
 }
 EXPORT_SYMBOL(pm_suspend);
 
-bool pm_suspend_debug = 0;
+int pm_suspend_debug = 0;
 EXPORT_SYMBOL(pm_suspend_debug);
 
-static int __init pm_suspend_debug_enable(char *str)
+static int __init pm_suspend_debug_setup(char *str)
 {
-        pm_suspend_debug = 1;
+	pm_suspend_debug = simple_strtoul(str, NULL, 0);
         return 1;
 }
-__setup("pm_suspend_debug", pm_suspend_debug_enable);
+__setup("pm_suspend_debug=", pm_suspend_debug_setup);

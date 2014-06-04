@@ -465,11 +465,16 @@ static inline void page_key_write(void *address) {}
 
 #endif /* !CONFIG_ARCH_SAVE_PAGE_KEYS */
 
-extern bool pm_suspend_debug;
+extern int pm_suspend_debug;
+#define	PM_SUSPEND_DBG_DEV_STATE	0x1
+#define	PM_SUSPEND_DBG_SLP_STATE	0x2
+#define	PM_SUSPEND_DBG_SUSPEND		0x4
+#define	PM_SUSPEND_DBG_RESUME		0x8
+#define	PM_SUSPEND_DBG_MISC		0x10
 extern void pm_suspend_dev_state(void);
-#define pm_suspend_dbg(fmt, arg...)                                     \
-do {                                                                    \
-        if (pm_suspend_debug)                                           \
+#define pm_suspend_dbg(flg, fmt, arg...)                                \
+do {									\
+        if (pm_suspend_debug & flg)                                     \
                 printk(KERN_INFO fmt, ##arg);				\
 } while (0)
 

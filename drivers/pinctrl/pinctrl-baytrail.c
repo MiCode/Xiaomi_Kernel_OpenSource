@@ -328,7 +328,8 @@ static void byt_gpio_irq_handler(unsigned irq, struct irq_desc *desc)
 	unsigned virq;
 	int looplimit = 0;
 
-	pm_suspend_dbg("baytrail pinctrl irq occurs, num %d\n", irq);
+	pm_suspend_dbg(PM_SUSPEND_DBG_MISC,
+		"baytrail pinctrl irq occurs, num %d\n", irq);
 
 	/* check from GPIO controller which pin triggered the interrupt */
 	for (base = 0; base < vg->chip.ngpio; base += 32) {
