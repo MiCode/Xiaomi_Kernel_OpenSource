@@ -44,8 +44,6 @@
 #include <linux/atomisp_gmin_platform.h>
 #include "imx.h"
 
-void *imx134_platform_data(void *info); /* From platform_imx134.c */
-
 static enum atomisp_bayer_order imx_bayer_order_mapping[] = {
 	atomisp_bayer_order_rggb,
 	atomisp_bayer_order_grbg,
@@ -553,14 +551,64 @@ static long imx_ioctl(struct v4l2_subdev *sd, unsigned int cmd, void *arg)
 
 static int power_ctrl(struct v4l2_subdev *sd, int flag)
 {
+	int ret;
 	struct imx_device *dev = to_imx_sensor(sd);
-	return dev->platform_data->power_ctrl(sd, flag);
+
+	if (!dev || !dev->platform_data)
+		return -ENODEV;
+
+	/* Non-gmin platforms use the legacy callback */
+	if (dev->platform_data->power_ctrl)
+		return dev->platform_data->power_ctrl(sd, flag);
+
+	/* G-Min only supports imx134 */
+	if (dev->sensor_id && dev->sensor_id != IMX134_ID)
+		return -EINVAL;
+
+	if (flag) {
+		ret = dev->platform_data->v2p8_ctrl(sd, 1);
+		if (!ret) {
+			ret = dev->platform_data->v1p8_ctrl(sd, 1);
+			if (ret)
+				dev->platform_data->v2p8_ctrl(sd, 0);
+		}
+		usleep_range(1000, 1200);
+	} else {
+		ret = dev->platform_data->v2p8_ctrl(sd, 0);
+		ret |= dev->platform_data->v1p8_ctrl(sd, 0);
+	}
+	return ret;
 }
 
 static int gpio_ctrl(struct v4l2_subdev *sd, int flag)
 {
+	int ret;
 	struct imx_device *dev = to_imx_sensor(sd);
-	return dev->platform_data->gpio_ctrl(sd, flag);
+
+	if (!dev || !dev->platform_data)
+		return -ENODEV;
+
+	/* Non-gmin platforms use the legacy callback */
+	if (dev->platform_data->gpio_ctrl)
+		return dev->platform_data->gpio_ctrl(sd, flag);
+
+	/* G-Min only supports imx134 */
+	if (dev->sensor_id && dev->sensor_id != IMX134_ID)
+		return -EINVAL;
+
+	ret = dev->platform_data->gpio0_ctrl(sd, flag);
+
+	/* From original platform_imx134.c:
+	 *
+	 * imx134 core silicon initializing time - t1+t2+t3
+	 * 400us(t1) - Time to VDDL is supplied after REGEN high
+	 * 600us(t2) - imx134 core Waking up time
+	 * 459us(t3, 8825clocks) -Initializing time of silicon */
+	if (flag)
+                usleep_range(1500, 1600);
+	else
+		udelay(1);
+	return ret;
 }
 
 
@@ -2274,7 +2322,7 @@ static int imx_probe(struct i2c_client *client,
 
 	pdata = client->dev.platform_data;
 	if (!pdata || ACPI_COMPANION(&client->dev))
-		pdata = imx134_platform_data(NULL);
+		pdata = gmin_camera_platform_data();
 
 	if (!pdata) {
 		v4l2_err(client, "No imx platform data\n");
