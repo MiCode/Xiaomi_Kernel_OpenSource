@@ -649,6 +649,10 @@
 		};
 	};
 
+	qcom,iris-fm {
+		compatible = "qcom,iris_fm";
+	};
+
 	qcom,wcnss-wlan@0a000000 {
 		compatible = "qcom,wcnss_wlan";
 		reg = <0x0a000000 0x280000>,
