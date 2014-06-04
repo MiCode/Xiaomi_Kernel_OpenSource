@@ -817,14 +817,13 @@ static int q6lsm_send_cal(struct lsm_client *client)
 		rc = -EINVAL;
 		goto unlock;
 	}
-
-	if (cal_block->cal_data.paddr != client->lsm_cal_phy_addr) {
-		pr_err("%s: Cal address does not match LSM mapped address\n",
-			__func__);
+	if (cal_block->cal_data.size != client->lsm_cal_size) {
+		pr_err("%s: Cal size %zd doesn't match lsm cal size %d\n",
+			__func__, cal_block->cal_data.size,
+			client->lsm_cal_size);
 		rc = -EINVAL;
 		goto unlock;
 	}
-
 	/* Cache mmap address, only map once or if new addr */
 	lsm_common.common_client[client->session].session = client->session;
 	q6lsm_add_hdr(client, &params.hdr, sizeof(params), true);
@@ -995,8 +994,8 @@ int q6lsm_snd_model_buf_alloc(struct lsm_client *client, size_t len)
 	if (cal_block == NULL)
 		goto fail;
 
-	pr_debug("%s: Snd Model len = %zd cal size %zd", __func__,
-			 len, cal_block->cal_data.size);
+	pr_debug("%s:Snd Model len = %zd cal size %zd phys addr %pa", __func__,
+	 len, cal_block->cal_data.size, &cal_block->cal_data.paddr);
 	if (!cal_block->cal_data.paddr) {
 		pr_err("%s: No LSM calibration set for session", __func__);
 		rc = -EINVAL;
@@ -1041,6 +1040,7 @@ int q6lsm_snd_model_buf_alloc(struct lsm_client *client, size_t len)
 		rc = -EBUSY;
 		goto fail;
 	}
+	mutex_unlock(&lsm_common.cal_data->lock);
 	mutex_unlock(&client->cmd_lock);
 
 	rc = q6lsm_memory_map_regions(client, client->sound_model.phys,
