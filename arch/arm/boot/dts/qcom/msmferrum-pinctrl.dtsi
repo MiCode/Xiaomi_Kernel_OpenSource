@@ -29,5 +29,16 @@
 				num_irqs = <113>;
 			};
 		};
+
+		pmx-uartconsole {
+			qcom,pins = <&gp 20>, <&gp 21>;
+			qcom,num-grp-pins = <2>;
+			qcom,pin-func = <3>;
+			label = "uart-console";
+			uart_console_sleep: uart-console {
+				drive-strength = <2>;
+				bias-pull-down;
+			};
+		};
 	};
 };
