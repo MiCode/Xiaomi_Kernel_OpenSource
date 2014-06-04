@@ -530,8 +530,11 @@ static int bit_doAddress(struct i2c_adapter *i2c_adap, struct i2c_msg *msg)
 		if (flags & I2C_M_REV_DIR_ADDR)
 			addr ^= 1;
 		ret = try_address(i2c_adap, addr, retries);
-		if ((ret != 1) && !nak_ok)
+		if ((ret != 1) && !nak_ok) {
+			dev_err(&i2c_adap->dev,
+					"normal 7 bit addr failed\n");
 			return -ENXIO;
+		}
 	}
 
 	return 0;

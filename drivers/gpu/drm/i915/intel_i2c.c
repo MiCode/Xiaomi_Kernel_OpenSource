@@ -595,6 +595,9 @@ int intel_setup_gmbus(struct drm_device *dev)
 
 		bus->adapter.owner = THIS_MODULE;
 		bus->adapter.class = I2C_CLASS_DDC;
+		/*TODO: Revisit and optimize this value */
+		bus->adapter.retries = 100;
+		bus->adapter.timeout = usecs_to_jiffies(2200);
 		snprintf(bus->adapter.name,
 			 sizeof(bus->adapter.name),
 			 "i915 gmbus %s",
