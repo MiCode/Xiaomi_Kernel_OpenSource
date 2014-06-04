@@ -996,7 +996,7 @@ static inline void mdss_mdp_ctl_perf_update_bus(struct mdss_data_type *mdata,
 		&mdss_res->ab_factor);
 	trace_mdp_perf_update_bus(bus_ab_quota, bus_ib_quota);
 	ATRACE_INT("bus_quota", bus_ib_quota);
-	mdss_mdp_bus_scale_set_quota(bus_ab_quota, bus_ib_quota);
+	mdss_bus_scale_set_quota(MDSS_HW_MDP, bus_ab_quota, bus_ib_quota);
 	pr_debug("ab=%llu ib=%llu\n", bus_ab_quota, bus_ib_quota);
 	ATRACE_END(__func__);
 }
