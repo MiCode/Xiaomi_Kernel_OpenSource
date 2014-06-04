@@ -143,9 +143,15 @@ static void ci13xxx_msm_reset(void)
 	struct ci13xxx *udc = _udc;
 	struct usb_phy *phy = udc->transceiver;
 	struct device *dev = udc->gadget.dev.parent;
+	int	temp;
 
 	writel_relaxed(0, USB_AHBBURST);
 	writel_relaxed(0x08, USB_AHBMODE);
+
+	/* workaround for rx buffer collision issue */
+	temp = readl_relaxed(USB_GENCONFIG);
+	temp &= ~GENCONFIG_TXFIFO_IDLE_FORCE_DISABLE;
+	writel_relaxed(temp, USB_GENCONFIG);
 
 	if (udc->gadget.l1_supported)
 		ci13xxx_msm_set_l1(udc);
