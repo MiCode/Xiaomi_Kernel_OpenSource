@@ -55,6 +55,7 @@ enum smem_cache_ops {
 
 void *msm_vidc_open(int core_id, int session_type);
 int msm_vidc_close(void *instance);
+int msm_vidc_suspend(int core_id);
 int msm_vidc_querycap(void *instance, struct v4l2_capability *cap);
 int msm_vidc_enum_fmt(void *instance, struct v4l2_fmtdesc *f);
 int msm_vidc_s_fmt(void *instance, struct v4l2_format *f);

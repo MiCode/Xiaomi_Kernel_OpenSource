@@ -3508,6 +3508,25 @@ static int protect_cp_mem(struct venus_hfi_device *device)
 	return rc;
 }
 
+static int venus_hfi_suspend(void *dev)
+{
+	int rc = 0;
+	struct venus_hfi_device *device = (struct venus_hfi_device *) dev;
+
+	if (!device) {
+		dprintk(VIDC_ERR, "%s invalid device\n", __func__);
+		return -EINVAL;
+	}
+	dprintk(VIDC_INFO, "%s\n", __func__);
+
+	if (device->power_enabled) {
+		venus_hfi_try_clk_gating(device);
+		rc = flush_delayed_work(&venus_hfi_pm_work);
+		dprintk(VIDC_INFO, "%s flush delayed work %d\n", __func__, rc);
+	}
+	return 0;
+}
+
 static int venus_hfi_load_fw(void *dev)
 {
 	int rc = 0;
@@ -3958,6 +3977,7 @@ static void venus_init_hfi_callbacks(struct hfi_device *hdev)
 	hdev->get_core_capabilities = venus_hfi_get_core_capabilities;
 	hdev->capability_check = venus_hfi_capability_check;
 	hdev->power_enable = venus_hfi_power_enable;
+	hdev->suspend = venus_hfi_suspend;
 }
 
 int venus_hfi_initialize(struct hfi_device *hdev, u32 device_id,
