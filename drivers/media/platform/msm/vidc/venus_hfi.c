@@ -1173,7 +1173,7 @@ static inline int venus_hfi_clk_enable(struct venus_hfi_device *device)
 	}
 
 	venus_hfi_for_each_clock(device, cl) {
-		if (cl->has_sw_power_collapse) {
+		if (cl->has_gating) {
 			rc = clk_enable(cl->clk);
 			if (rc) {
 				dprintk(VIDC_ERR, "Failed to enable clocks\n");
@@ -1193,7 +1193,7 @@ fail_clk_enable:
 		if (i < 0)
 			break;
 
-		if (cl->has_sw_power_collapse) {
+		if (cl->has_gating) {
 			usleep(100);
 			clk_disable(cl->clk);
 		}
@@ -1222,7 +1222,7 @@ static inline void venus_hfi_clk_disable(struct venus_hfi_device *device)
 	/* We get better power savings if we lower the venus core clock to the
 	 * lowest level before disabling it. */
 	cl = venus_hfi_get_clock(device, "core_clk");
-	if (cl && cl->has_sw_power_collapse) {
+	if (cl && cl->has_gating) {
 		int rc = clk_set_rate(cl->clk,
 				venus_hfi_get_clock_rate(cl, 0));
 		if (rc) {
@@ -1233,7 +1233,7 @@ static inline void venus_hfi_clk_disable(struct venus_hfi_device *device)
 	}
 
 	venus_hfi_for_each_clock(device, cl) {
-		if (cl->has_sw_power_collapse) {
+		if (cl->has_gating) {
 			usleep(100);
 			clk_disable(cl->clk);
 			dprintk(VIDC_DBG, "Clock: %s disabled\n", cl->name);
@@ -2205,9 +2205,6 @@ static inline void venus_hfi_clk_gating_on(struct venus_hfi_device *device)
 				VIDC_WRAPPER_INTR_MASK_A2HCPU_BMSK);
 	}
 	venus_hfi_clk_disable(device);
-	if (!queue_delayed_work(device->venus_pm_workq, &venus_hfi_pm_work,
-			msecs_to_jiffies(msm_vidc_pwr_collapse_delay)))
-		dprintk(VIDC_DBG, "PM work already scheduled\n");
 already_disabled:
 	device->clk_state = DISABLED_PREPARED;
 }
@@ -3084,6 +3081,16 @@ static void venus_hfi_response_handler(struct venus_hfi_device *device)
 		}
 		switch (rc) {
 		case HFI_MSG_SYS_IDLE:
+			/* Queue worker thread to enable power collapse */
+			if (device->res->sw_power_collapsible) {
+				if (!queue_delayed_work(device->venus_pm_workq,
+					&venus_hfi_pm_work, msecs_to_jiffies(
+						msm_vidc_pwr_collapse_delay))) {
+					dprintk(VIDC_DBG,
+						"PM work already scheduled\n");
+				}
+			}
+
 			dprintk(VIDC_DBG,
 					"Received HFI_MSG_SYS_IDLE\n");
 			rc = venus_hfi_try_clk_gating(device);
@@ -3204,7 +3211,7 @@ static inline int venus_hfi_init_clocks(struct msm_vidc_platform_resources *res,
 		int i = 0;
 
 		dprintk(VIDC_DBG, "%s: scalable? %d, gate-able? %d\n", cl->name,
-			!!cl->count, cl->has_sw_power_collapse);
+			!!cl->count, cl->has_gating);
 		for (i = 0; i < cl->count; ++i) {
 			dprintk(VIDC_DBG, "\tload = %d, freq = %d\n",
 				cl->load_freq_tbl[i].load,
@@ -3267,8 +3274,7 @@ static inline void venus_hfi_disable_unprepare_clks(
 	}
 	WARN_ON(!mutex_is_locked(&device->clk_pwr_lock));
 	venus_hfi_for_each_clock(device, cl) {
-		if (device->clk_state == DISABLED_PREPARED &&
-				cl->has_sw_power_collapse) {
+		if (device->clk_state == DISABLED_PREPARED) {
 			dprintk(VIDC_DBG,
 				"Omitting clk_disable of %s in %s as it's already disabled\n",
 				cl->name, __func__);
