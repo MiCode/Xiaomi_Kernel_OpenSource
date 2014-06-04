@@ -2574,6 +2574,8 @@ static void i9xx_update_primary_plane(struct drm_crtc *crtc,
 	intel_fb = to_intel_framebuffer(fb);
 	obj = intel_fb->obj;
 
+	intel_update_watermarks(crtc);
+
 	reg = DSPCNTR(plane);
 	dspcntr = I915_READ(reg);
 	/* Mask out pixel format bits in case we change it */
@@ -2584,18 +2586,27 @@ static void i9xx_update_primary_plane(struct drm_crtc *crtc,
 		break;
 	case DRM_FORMAT_XRGB1555:
 	case DRM_FORMAT_ARGB1555:
-		dspcntr |= DISPPLANE_BGRX555;
+		if (intel_crtc->primary_alpha)
+			dspcntr |= DISPPLANE_BGRA555;
+		else
+			dspcntr |= DISPPLANE_BGRX555;
 		break;
 	case DRM_FORMAT_RGB565:
 		dspcntr |= DISPPLANE_BGRX565;
 		break;
 	case DRM_FORMAT_XRGB8888:
 	case DRM_FORMAT_ARGB8888:
-		dspcntr |= DISPPLANE_BGRX888;
+		if (intel_crtc->primary_alpha)
+			dspcntr |= DISPPLANE_BGRA888;
+		else
+			dspcntr |= DISPPLANE_BGRX888;
 		break;
 	case DRM_FORMAT_XBGR8888:
 	case DRM_FORMAT_ABGR8888:
-		dspcntr |= DISPPLANE_RGBX888;
+		if (intel_crtc->primary_alpha)
+			dspcntr |= DISPPLANE_RGBA888;
+		else
+			dspcntr |= DISPPLANE_RGBX888;
 		break;
 	case DRM_FORMAT_XRGB2101010:
 	case DRM_FORMAT_ARGB2101010:
@@ -2603,12 +2614,14 @@ static void i9xx_update_primary_plane(struct drm_crtc *crtc,
 		break;
 	case DRM_FORMAT_XBGR2101010:
 	case DRM_FORMAT_ABGR2101010:
-		dspcntr |= DISPPLANE_RGBX101010;
+		if (intel_crtc->primary_alpha)
+			dspcntr |= DISPPLANE_RGBA101010;
+		else
+			dspcntr |= DISPPLANE_RGBX101010;
 		break;
 	default:
 		BUG();
 	}
-
 	if (dspcntr & DISPPLANE_180_ROTATION_ENABLE)
 		rotate = true;
 
