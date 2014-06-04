@@ -122,7 +122,7 @@ static const struct errors_edac errors[] = {
 })
 
 #define read_cpumerrsr_el1 ({						\
-	u32 __val;							\
+	u64 __val;							\
 	asm("mrs %0, s3_1_c15_c2_2" : "=r" (__val));			\
 	__val;								\
 })
