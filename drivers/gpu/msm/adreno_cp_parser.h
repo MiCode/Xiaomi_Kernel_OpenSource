@@ -1,4 +1,4 @@
-/* Copyright (c) 2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -134,6 +134,9 @@ static inline void adreno_ib_init_ib_obj(unsigned int gpuaddr,
 static inline int adreno_cp_parser_getreg(struct adreno_device *adreno_dev,
 					enum adreno_cp_addr_regs reg_enum)
 {
+	if (reg_enum == ADRENO_CP_ADDR_MAX)
+		return -EEXIST;
+
 	if (adreno_is_a3xx(adreno_dev))
 		return a3xx_cp_addr_regs[reg_enum];
 	else if (adreno_is_a4xx(adreno_dev))
@@ -166,7 +169,7 @@ static inline int adreno_cp_parser_regindex(struct adreno_device *adreno_dev,
 	else
 		return -EEXIST;
 
-	for (i = start; i <= end; i++)
+	for (i = start; i <= end && i < ADRENO_CP_ADDR_MAX; i++)
 		if (regs[i] == offset)
 			return i;
 	return -EEXIST;
