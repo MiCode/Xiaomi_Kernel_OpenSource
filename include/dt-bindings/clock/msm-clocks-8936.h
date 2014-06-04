@@ -20,7 +20,7 @@
 #define clk_gpll0_ao				0x6b2fb034
 #define clk_gpll0_out_main			0x850fecec
 #define clk_gpll0_out_aux			0x64e55d63
-#define clk_gpll0_usbfs				0xed4d330a
+#define clk_gpll0_misc				0xe06ee816
 #define clk_gpll1				0x916f8847
 #define clk_gpll1_out_main                      0x8e313934
 #define clk_gpll2				0x7c34503b
