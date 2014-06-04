@@ -75,6 +75,7 @@
 #define ULPI_DATA_READ(n)     (((n) >> 8) & 255)
 
 #define GENCONFIG_BAM_DISABLE (1 << 13)
+#define GENCONFIG_TXFIFO_IDLE_FORCE_DISABLE (1 << 4)
 
 /* synopsys 28nm phy registers */
 #define ULPI_PWR_CLK_MNG_REG	0x88
