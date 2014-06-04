@@ -24,6 +24,7 @@
 #include <sound/initval.h>
 #include <sound/tlv.h>
 #include <linux/acpi.h>
+#include <linux/gpio/consumer.h>
 
 #define RTK_IOCTL
 #ifdef RTK_IOCTL
@@ -531,6 +532,12 @@ int rt5640_check_bp_status(struct snd_soc_codec *codec)
 	return  snd_soc_read(codec, RT5640_IRQ_CTRL2) & 0x8;
 }
 EXPORT_SYMBOL(rt5640_check_bp_status);
+int rt5640_get_jack_gpio(struct snd_soc_codec *codec)
+{
+	struct rt5640_priv *rt5640 = snd_soc_codec_get_drvdata(codec);
+	return rt5640->codec_gpio;
+}
+EXPORT_SYMBOL(rt5640_get_jack_gpio);
 
 /* Function to enable/disable overcurrent detection(OVCD) and button
    press interrupts (based on OVCD) in the codec*/
@@ -3447,6 +3454,7 @@ static int rt5640_i2c_probe(struct i2c_client *i2c,
 {
 	struct rt5640_priv *rt5640;
 	int ret;
+	struct gpio_desc *gpiod;
 
 	pr_debug("%s enter", __func__);
 	rt5640 = kzalloc(sizeof(struct rt5640_priv), GFP_KERNEL);
@@ -3459,6 +3467,11 @@ static int rt5640_i2c_probe(struct i2c_client *i2c,
 				     rt5640_dai, ARRAY_SIZE(rt5640_dai));
 	if (ret < 0)
 		kfree(rt5640);
+
+	gpiod = devm_gpiod_get_index(&i2c->dev, NULL, 0);
+	rt5640->codec_gpio = desc_to_gpio(gpiod);
+	devm_gpiod_put(&i2c->dev, gpiod);
+	pr_debug("%s: codec gpio is %d\n", rt5640->codec_gpio);
 
 	return ret;
 }
