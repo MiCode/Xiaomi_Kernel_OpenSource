@@ -1059,6 +1059,7 @@ unsigned int min_max_freq = 1;
 
 unsigned int max_capacity = 1024; /* max(rq->capacity) */
 unsigned int min_capacity = 1024; /* min(rq->capacity) */
+unsigned int max_load_scale_factor = 1024; /* max(rq->load_scale_factor) */
 
 static unsigned int sync_cpu;
 static u64 sched_init_jiffy;
@@ -1481,16 +1482,21 @@ static void update_min_max_capacity(void)
 {
 	int i;
 	int max = 0, min = INT_MAX;
+	int max_lsf = 0;
 
 	for_each_possible_cpu(i) {
 		if (cpu_rq(i)->capacity > max)
 			max = cpu_rq(i)->capacity;
 		if (cpu_rq(i)->capacity < min)
 			min = cpu_rq(i)->capacity;
+
+		if (cpu_rq(i)->load_scale_factor > max_lsf)
+			max_lsf = cpu_rq(i)->load_scale_factor;
 	}
 
 	max_capacity = max;
 	min_capacity = min;
+	max_load_scale_factor = max_lsf;
 }
 
 /*

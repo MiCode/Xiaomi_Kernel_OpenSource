@@ -1403,13 +1403,12 @@ static inline int is_big_task(struct task_struct *p)
 	return load > sched_upmigrate;
 }
 
-/* Is a task "small" on its current cpu */
+/* Is a task "small" on the minimum capacity CPU */
 static inline int is_small_task(struct task_struct *p)
 {
-	unsigned int load = task_load(p);
-
-	load = scale_task_load(load, task_cpu(p));
-
+	u64 load = task_load(p);
+	load *= (u64)max_load_scale_factor;
+	load /= 1024;
 	return load < sched_small_task;
 }
 
@@ -1619,6 +1618,79 @@ static unsigned int power_cost(struct task_struct *p, int cpu)
 	return power_cost_at_freq(cpu, demand);
 }
 
+static int best_small_task_cpu(struct task_struct *p)
+{
+	int best_busy_cpu = -1, best_fallback_cpu = -1;
+	int min_cost_cpu = -1, min_cstate_cpu = -1;
+	int min_busy_load = INT_MAX;
+	int min_cstate = INT_MAX;
+	int min_fallback_cpu_cost = INT_MAX;
+	int min_cost = INT_MAX;
+	int i, load, cstate, cpu_cost;
+	int cost_list[nr_cpu_ids];
+	struct cpumask search_cpus;
+
+	cpumask_and(&search_cpus,  tsk_cpus_allowed(p), cpu_online_mask);
+
+	/* Take a first pass to find the lowest power cost CPU. This
+	   will avoid a potential O(n^2) search */
+	for_each_cpu(i, &search_cpus) {
+		cpu_cost = power_cost(p, i);
+		if (cpu_cost < min_cost) {
+			min_cost = cpu_cost;
+			min_cost_cpu = i;
+		}
+
+		cost_list[i] = cpu_cost;
+	}
+
+	/* Optimization to steer task towards the minimum power
+	   cost CPU. The tradeoff is that we may have to check
+	   the same information again in pass 2 */
+	if (!cpu_rq(min_cost_cpu)->cstate && mostly_idle_cpu(min_cost_cpu))
+		return min_cost_cpu;
+
+	for_each_cpu(i, &search_cpus) {
+		struct rq *rq = cpu_rq(i);
+		cstate = rq->cstate;
+
+		if (power_delta_exceeded(cost_list[i], min_cost)) {
+			if (cost_list[i] < min_fallback_cpu_cost) {
+				best_fallback_cpu = i;
+				min_fallback_cpu_cost = cost_list[i];
+			}
+			continue;
+		}
+
+		if (cstate) {
+			if (cstate < min_cstate) {
+				min_cstate_cpu = i;
+				min_cstate = cstate;
+			}
+			continue;
+		}
+
+		if (mostly_idle_cpu(i))
+			return i;
+
+		load = cpu_load(i);
+		if (!spill_threshold_crossed(p, rq, i)) {
+			if (load < min_busy_load) {
+				min_busy_load = load;
+				best_busy_cpu = i;
+			}
+		}
+	}
+
+	if (min_cstate_cpu != -1)
+		return min_cstate_cpu;
+
+	if (best_busy_cpu != -1)
+		return best_busy_cpu;
+
+	return best_fallback_cpu;
+}
+
 /* return cheapest cpu that can fit this task */
 static int select_best_cpu(struct task_struct *p, int target)
 {
@@ -1630,12 +1702,9 @@ static int select_best_cpu(struct task_struct *p, int target)
 
 	trace_sched_task_load(p);
 
-	/* provide bias for prev_cpu */
-	if (!small_task && mostly_idle_cpu(prev_cpu) &&
-	    task_will_fit(p, prev_cpu)) {
-		best_cpu = prev_cpu;
-		min_cost = power_cost(p, prev_cpu);
-		min_load = cpu_load(prev_cpu);
+	if (small_task) {
+		best_cpu = best_small_task_cpu(p);
+		goto done;
 	}
 
 	/* Todo : Optimize this loop */
@@ -1678,6 +1747,7 @@ static int select_best_cpu(struct task_struct *p, int target)
 		}
 	}
 
+done:
 	if (best_cpu < 0) {
 		if (unlikely(fallback_idle_cpu < 0))
 			best_cpu = prev_cpu;
