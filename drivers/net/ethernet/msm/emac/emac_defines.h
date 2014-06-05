@@ -328,6 +328,10 @@
 #define CLOCK_MODE_SHFT                                               1
 #define ETH_MODE_SW                                                 0x1
 
+/* EMAC_P1588_TX_LATENCY */
+#define TX_LATENCY_BMSK                                          0xffff
+#define TX_LATENCY_SHFT                                               0
+
 /* EMAC_P1588_INC_VALUE_2 */
 #define INC_VALUE_2_BMSK                                         0xffff
 

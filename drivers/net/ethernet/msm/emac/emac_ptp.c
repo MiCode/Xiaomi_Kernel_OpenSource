@@ -13,6 +13,7 @@
 /* MSM EMAC Ethernet Controller PTP support
  */
 
+#include <linux/phy.h>
 #include <linux/net_tstamp.h>
 #include "emac.h"
 #include "emac_hw.h"
@@ -21,6 +22,20 @@
 #define TS_TX_FIFO_SYNC_RST (TX_INDX_FIFO_SYNC_RST | TX_TS_FIFO_SYNC_RST)
 #define TS_RX_FIFO_SYNC_RST (RX_TS_FIFO1_SYNC_RST  | RX_TS_FIFO2_SYNC_RST)
 #define TS_FIFO_SYNC_RST    (TS_TX_FIFO_SYNC_RST | TS_RX_FIFO_SYNC_RST)
+
+struct emac_tstamp_hw_delay {
+	int phy_mode;
+	u32 speed;
+	u32 tx;
+	u32 rx;
+};
+
+static const struct emac_tstamp_hw_delay emac_ptp_hw_delay[] = {
+	{ PHY_INTERFACE_MODE_SGMII, 1000, 16, 60 },
+	{ PHY_INTERFACE_MODE_SGMII, 100, 280, 100 },
+	{ PHY_INTERFACE_MODE_SGMII, 10, 2400, 400 },
+	{ 0 }
+};
 
 static inline u32 clk_to_ptp_inc_value(u32 clk)
 {
@@ -42,6 +57,64 @@ static inline u32 clk_to_ptp_inc_value(u32 clk)
 	return (ns << 26) | fract;
 }
 
+static const struct emac_tstamp_hw_delay *emac_get_ptp_hw_delay(u32 link_speed,
+								int phy_mode)
+{
+	const struct emac_tstamp_hw_delay *info = emac_ptp_hw_delay;
+	u32 speed;
+
+	switch (link_speed) {
+	case EMAC_LINK_SPEED_1GB_FULL:
+		speed = 1000;
+		break;
+	case EMAC_LINK_SPEED_100_FULL:
+	case EMAC_LINK_SPEED_100_HALF:
+		speed = 100;
+		break;
+	case EMAC_LINK_SPEED_10_FULL:
+	case EMAC_LINK_SPEED_10_HALF:
+		speed = 10;
+		break;
+	default:
+		speed = 0;
+		break;
+	}
+
+	for (info = emac_ptp_hw_delay; info->phy_mode; info++) {
+		if (info->phy_mode == phy_mode && info->speed == speed)
+			return info;
+	}
+
+	return NULL;
+}
+
+static int emac_hw_adjust_tstamp_offset(struct emac_hw *hw,
+					enum emac_ptp_clk_mode clk_mode,
+					u32 link_speed)
+{
+	const struct emac_tstamp_hw_delay *delay_info;
+
+	delay_info = emac_get_ptp_hw_delay(link_speed, hw->adpt->phy_mode);
+
+	if (clk_mode == emac_ptp_clk_mode_oc_one_step) {
+		u32 latency = (delay_info) ? delay_info->tx : 0;
+
+		emac_reg_update32(hw, EMAC_1588, EMAC_P1588_TX_LATENCY,
+				  TX_LATENCY_BMSK, latency << TX_LATENCY_SHFT);
+		wmb();
+	}
+
+	if (delay_info) {
+		hw->tstamp_rx_offset = delay_info->rx;
+		hw->tstamp_tx_offset = delay_info->tx;
+	} else {
+		hw->tstamp_rx_offset = 0;
+		hw->tstamp_tx_offset = 0;
+	}
+
+	return 0;
+}
+
 static int emac_hw_1588_core_disable(struct emac_hw *hw)
 {
 	emac_reg_update32(hw, EMAC_CSR, EMAC_EMAC_WRAPPER_CSR1,
@@ -60,7 +133,7 @@ static int emac_hw_1588_core_disable(struct emac_hw *hw)
 static int emac_hw_1588_core_enable(struct emac_hw *hw,
 				    enum emac_ptp_mode mode,
 				    enum emac_ptp_clk_mode clk_mode,
-				    enum emac_mac_speed mac_speed,
+				    u32 link_speed,
 				    u32 rtc_ref_clkrate)
 {
 	u32 v;
@@ -84,10 +157,14 @@ static int emac_hw_1588_core_enable(struct emac_hw *hw,
 	emac_reg_update32(hw, EMAC_1588, EMAC_P1588_RTC_EXPANDED_CONFIG,
 			  RTC_READ_MODE, RTC_READ_MODE);
 	emac_reg_update32(hw, EMAC_1588, EMAC_P1588_CTRL_REG, ATTACH_EN, 0);
+	wmb(); /* ensure P1588_CTRL_REG is set before we proceed */
+
+	emac_hw_adjust_tstamp_offset(hw, clk_mode, link_speed);
+
 	emac_reg_update32(hw, EMAC_1588, EMAC_P1588_CTRL_REG, CLOCK_MODE_BMSK,
 			  (clk_mode << CLOCK_MODE_SHFT));
 	emac_reg_update32(hw, EMAC_1588, EMAC_P1588_CTRL_REG, ETH_MODE_SW,
-			  (mac_speed == emac_mac_speed_1000) ?
+			  (link_speed == EMAC_LINK_SPEED_1GB_FULL) ?
 			  0 : ETH_MODE_SW);
 
 	/* set RTC increment every 8ns to fit 125MHZ clock */
@@ -189,7 +266,7 @@ int emac_ptp_config(struct emac_hw *hw)
 	ret = emac_hw_1588_core_enable(hw,
 				       emac_ptp_mode_slave,
 				       hw->ptp_clk_mode,
-				       emac_mac_speed_1000,
+				       EMAC_LINK_SPEED_1GB_FULL,
 				       hw->rtc_ref_clkrate);
 	if (ret)
 		goto unlock_out;
@@ -218,14 +295,15 @@ int emac_ptp_stop(struct emac_hw *hw)
 	return ret;
 }
 
-int emac_ptp_set_linkspeed(struct emac_hw *hw, enum emac_mac_speed link_speed)
+int emac_ptp_set_linkspeed(struct emac_hw *hw, u32 link_speed)
 {
 	unsigned long flag;
 
 	spin_lock_irqsave(&hw->ptp_lock, flag);
 	emac_reg_update32(hw, EMAC_1588, EMAC_P1588_CTRL_REG, ETH_MODE_SW,
-		  (link_speed == emac_mac_speed_1000) ? 0 : ETH_MODE_SW);
-	wmb();
+		  (link_speed == EMAC_LINK_SPEED_1GB_FULL) ? 0 : ETH_MODE_SW);
+	wmb(); /* ensure ETH_MODE_SW is set before we proceed */
+	emac_hw_adjust_tstamp_offset(hw, hw->ptp_clk_mode, link_speed);
 	spin_unlock_irqrestore(&hw->ptp_lock, flag);
 
 	return 0;

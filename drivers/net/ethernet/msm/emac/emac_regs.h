@@ -124,6 +124,7 @@
 
 /* EMAC_1588 register offsets */
 #define EMAC_P1588_CTRL_REG                      0x000048
+#define EMAC_P1588_TX_LATENCY                    0x0000d4
 #define EMAC_P1588_INC_VALUE_2                   0x0000d8
 #define EMAC_P1588_INC_VALUE_1                   0x0000dc
 #define EMAC_P1588_NANO_OFFSET_2                 0x0000e0

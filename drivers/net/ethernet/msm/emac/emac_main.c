@@ -475,6 +475,8 @@ static void emac_read_tx_tstamp_fifo(struct emac_hw *hw,
 			struct skb_shared_hwtstamps ts;
 
 			ts.hwtstamp = ktime_set(sec, ns);
+			ts.syststamp = ktime_add_ns(ts.hwtstamp,
+						    hw->tstamp_tx_offset);
 			skb_tstamp_tx(tpbuf->skb, &ts);
 		}
 	}
@@ -545,6 +547,8 @@ static void emac_handle_rx(struct emac_adapter *adpt,
 
 			hwts->hwtstamp = ktime_set(srrd.genr.ts_high,
 						   srrd.genr.ts_low);
+			hwts->syststamp = ktime_sub_ns(hwts->hwtstamp,
+						       hw->tstamp_rx_offset);
 		}
 
 		emac_receive_skb(rxque, skb, (u16)srrd.genr.cvlan_tag,
