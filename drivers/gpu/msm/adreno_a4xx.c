@@ -1423,6 +1423,7 @@ struct adreno_gpudev adreno_a4xx_gpudev = {
 	.perfcounters = &a4xx_perfcounters,
 	.irq = &a4xx_irq,
 	.snapshot_data = &a4xx_snapshot_data,
+	.num_prio_levels = 1,
 
 	.perfcounter_init = a3xx_perfcounter_init,
 	.perfcounter_close = a3xx_perfcounter_close,

@@ -307,6 +307,10 @@ static size_t snapshot_rb(struct kgsl_device *device, u8 *buf,
 	header->wptr = rb->wptr;
 	header->rbsize = KGSL_RB_DWORDS;
 	header->count = KGSL_RB_DWORDS;
+	adreno_rb_readtimestamp(device, rb, KGSL_TIMESTAMP_QUEUED,
+					&header->timestamp_queued);
+	adreno_rb_readtimestamp(device, rb, KGSL_TIMESTAMP_RETIRED,
+					&header->timestamp_retired);
 
 	/*
 	 * Loop through the RB, copying the data and looking for indirect

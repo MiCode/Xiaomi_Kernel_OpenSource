@@ -57,23 +57,25 @@ static unsigned int _fault_timer_interval = 200;
 /* Local array for the current set of fault detect registers */
 static unsigned int fault_detect_regs[FT_DETECT_REGS_COUNT];
 
-/* The last retired global timestamp read during fault detect */
-static unsigned int fault_detect_ts;
-
 /**
  * fault_detect_read() - Read the set of fault detect registers
  * @device: Pointer to the KGSL device struct
  *
  * Read the set of fault detect registers and store them in the local array.
  * This is for the initial values that are compared later with
- * fault_detect_read_compare
+ * fault_detect_read_compare. Also store the initial timestamp of each rb
+ * to compare the timestamps with.
  */
 static void fault_detect_read(struct kgsl_device *device)
 {
 	int i;
+	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
 
-	kgsl_readtimestamp(device, NULL, KGSL_TIMESTAMP_RETIRED,
-		&fault_detect_ts);
+	for (i = 0; i < adreno_dev->num_ringbuffers; i++) {
+		struct adreno_ringbuffer *rb = &(adreno_dev->ringbuffers[i]);
+		adreno_rb_readtimestamp(device, rb,
+			KGSL_TIMESTAMP_RETIRED, &(rb->fault_detect_ts));
+	}
 
 	for (i = 0; i < FT_DETECT_REGS_COUNT; i++) {
 		if (ft_detect_regs[i] == 0)
@@ -99,12 +101,16 @@ static inline bool _isidle(struct kgsl_device *device)
 	if (!adreno_hw_isidle(device))
 		return false;
 
-	for (i = 0; i < adreno_dev->num_ringbuffers; i++) {
-		kgsl_readtimestamp(device, NULL,
-				KGSL_TIMESTAMP_RETIRED, &ts);
-		if (ts != adreno_dev->ringbuffers[i].global_ts)
-			return false;
-	}
+	/*
+	 * only compare the current RB timestamp because the device has gone
+	 * idle and therefore only the current RB ts can be equal, the other
+	 * RB's may not be scheduled by dispatcher yet
+	 */
+	if (adreno_rb_readtimestamp(device,
+		adreno_dev->cur_rb, KGSL_TIMESTAMP_RETIRED, &ts))
+		return false;
+	if (ts != adreno_dev->cur_rb->timestamp)
+		return false;
 ret:
 	for (i = 0; i < FT_DETECT_REGS_COUNT; i++)
 		fault_detect_regs[i] = 0;
@@ -117,10 +123,13 @@ ret:
  * @device: Pointer to the KGSL device struct
  *
  * Read the set of fault detect registers and compare them to the current set
- * of registers.  Return 1 if any of the register values changed
+ * of registers.  Return 1 if any of the register values changed. Also, compare
+ * if the current RB's timstamp has changed or not.
  */
 static int fault_detect_read_compare(struct kgsl_device *device)
 {
+	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
+	struct adreno_ringbuffer *rb = ADRENO_CURRENT_RINGBUFFER(adreno_dev);
 	int i, ret = 0;
 	unsigned int ts;
 
@@ -139,11 +148,13 @@ static int fault_detect_read_compare(struct kgsl_device *device)
 		fault_detect_regs[i] = val;
 	}
 
-	kgsl_readtimestamp(device, NULL, KGSL_TIMESTAMP_RETIRED, &ts);
-	if (ts != fault_detect_ts)
-		ret = 1;
+	if (!adreno_rb_readtimestamp(device, adreno_dev->cur_rb,
+				KGSL_TIMESTAMP_RETIRED, &ts)) {
+		if (ts != rb->fault_detect_ts)
+			ret = 1;
 
-	fault_detect_ts = ts;
+		rb->fault_detect_ts = ts;
+	}
 
 	return ret;
 }

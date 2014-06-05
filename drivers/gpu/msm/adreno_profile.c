@@ -336,6 +336,7 @@ static void check_close_profile(struct adreno_profile *profile)
 static bool results_available(struct kgsl_device *device,
 		struct adreno_profile *profile, unsigned int *shared_buf_tail)
 {
+	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
 	unsigned int global_eop;
 	unsigned int off = profile->shared_tail;
 	unsigned int *shared_ptr = (unsigned int *)
@@ -350,7 +351,10 @@ static bool results_available(struct kgsl_device *device,
 	if (shared_buf_empty(profile))
 		return false;
 
-	kgsl_readtimestamp(device, NULL, KGSL_TIMESTAMP_RETIRED, &global_eop);
+	if (adreno_rb_readtimestamp(device,
+			adreno_dev->cur_rb,
+			KGSL_TIMESTAMP_RETIRED, &global_eop))
+		return false;
 	do {
 		cnt = *(shared_ptr + off + 1);
 		if (cnt == 0)
@@ -1148,7 +1152,7 @@ void adreno_profile_preib_processing(struct kgsl_device *device,
 
 	/* create the shared ibdesc */
 	_build_pre_ib_cmds(profile, rbcmds, entry_head,
-			rb->global_ts + 1, drawctxt);
+			rb->timestamp + 1, drawctxt);
 
 	/* set flag to sync with post ib commands */
 	*cmd_flags |= KGSL_CMD_FLAGS_PROFILE;

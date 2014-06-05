@@ -32,9 +32,15 @@ struct kgsl_device_private;
  * @buffer_desc: Pointer to the ringbuffer memory descriptor
  * @wptr: Local copy of the wptr offset
  * @rptr: Read pointer offset in dwords from baseaddr
- * @global_ts: Current global timestamp for the ringbuffer
  * @last_wptr: offset of the last H/W committed wptr
- * @event: Event list for this ringbuffer
+ * @rb_ctx: The context that represents a ringbuffer
+ * @id: Priority level of the ringbuffer, also used as an ID
+ * @fault_detect_ts: The last retired global timestamp read during fault detect
+ * @timestamp: The RB's global timestamp
+ * @events: A kgsl_event_group for this context - contains the list of GPU
+ * events
+ * @mmu_events: A kgsl_event_group for this context - contains the list of mmu
+ * events
  */
 struct adreno_ringbuffer {
 	struct kgsl_device *device;
@@ -43,9 +49,25 @@ struct adreno_ringbuffer {
 	unsigned int sizedwords;
 	unsigned int wptr;
 	unsigned int rptr;
-	unsigned int global_ts;
 	unsigned int last_wptr;
-	struct kgsl_event_group event;
+	int id;
+	unsigned int fault_detect_ts;
+	unsigned int timestamp;
+	struct kgsl_event_group events;
+	struct kgsl_event_group mmu_events;
+};
+
+/**
+ * struct adreno_ringbuffer_mmu_disable_clk_param - Parameter struct for
+ * disble clk event
+ * @rb: The rb pointer
+ * @unit: The MMU unit whose clock is to be turned off
+ * @ts: Timestamp on which clock is to be disabled
+ */
+struct adreno_ringbuffer_mmu_disable_clk_param {
+	struct adreno_ringbuffer *rb;
+	int unit;
+	unsigned int ts;
 };
 
 /* enable timestamp (...scratch0) memory shadowing */
@@ -61,6 +83,9 @@ struct adreno_ringbuffer {
 /* Returns the current ringbuffer */
 #define ADRENO_CURRENT_RINGBUFFER(a)	((a)->cur_rb)
 
+#define KGSL_MEMSTORE_RB_OFFSET(rb, field)	\
+	KGSL_MEMSTORE_OFFSET((rb->id + KGSL_MEMSTORE_MAX), field)
+
 int adreno_ringbuffer_issueibcmds(struct kgsl_device_private *dev_priv,
 				struct kgsl_context *context,
 				struct kgsl_cmdbatch *cmdbatch,
@@ -74,6 +99,8 @@ int adreno_ringbuffer_init(struct kgsl_device *device);
 int adreno_ringbuffer_warm_start(struct adreno_device *adreno_dev);
 
 int adreno_ringbuffer_cold_start(struct adreno_device *adreno_dev);
+
+void adreno_ringbuffer_stop(struct adreno_device *adreno_dev);
 
 void adreno_ringbuffer_close(struct adreno_device *adreno_dev);
 
@@ -94,6 +121,9 @@ unsigned int *adreno_ringbuffer_allocspace(struct adreno_ringbuffer *rb,
 void adreno_ringbuffer_read_pfp_ucode(struct kgsl_device *device);
 
 void adreno_ringbuffer_read_pm4_ucode(struct kgsl_device *device);
+
+void adreno_ringbuffer_mmu_disable_clk_on_ts(struct kgsl_device *device,
+			struct adreno_ringbuffer *rb, int unit);
 
 static inline int adreno_ringbuffer_count(struct adreno_ringbuffer *rb,
 	unsigned int rptr)
