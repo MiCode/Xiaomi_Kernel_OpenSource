@@ -138,6 +138,18 @@ struct rr_packet *create_pkt(struct sk_buff_head *data);
 struct rr_packet *clone_pkt(struct rr_packet *pkt);
 void release_pkt(struct rr_packet *pkt);
 
+/**
+ * ipc_router_peek_pkt_size() - Peek into the packet header to get potential packet size
+ * @data: Starting address of the packet which points to router header.
+ *
+ * @returns: potential packet size on success, < 0 on error.
+ *
+ * This function is used by the underlying transport abstraction layer to
+ * peek into the potential packet size of an incoming packet. This information
+ * is used to perform link layer fragmentation and re-assembly
+ */
+int ipc_router_peek_pkt_size(char *data);
+
 #if defined CONFIG_MSM_IPC_ROUTER_SMD_XPRT
 extern void *msm_ipc_load_default_node(void);
 
