@@ -51,8 +51,6 @@
 
 #define CPP_CMD_TIMEOUT_MS	300
 
-#define MSM_MICRO_IFACE_CLK_IDX	7
-
 #define MSM_CPP_NOMINAL_CLOCK	266670000
 #define MSM_CPP_TURBO_CLOCK	320000000
 
@@ -165,6 +163,17 @@ static void msm_enqueue(struct msm_device_queue *queue,
 }
 
 static struct msm_cam_clk_info cpp_clk_info[CPP_CLK_INFO_MAX];
+
+static int get_clock_index(const char *clk_name)
+{
+	uint32_t i = 0;
+	for (i = 0; i < ARRAY_SIZE(cpp_clk_info); i++) {
+		if (!strcmp(clk_name, cpp_clk_info[i].clk_name))
+			return i;
+	}
+	return -EINVAL;
+}
+
 
 static int msm_cpp_notify_frame_done(struct cpp_device *cpp_dev);
 static void cpp_load_fw(struct cpp_device *cpp_dev, char *fw_name_bin);
@@ -677,6 +686,7 @@ void msm_cpp_do_tasklet(unsigned long data)
 static int cpp_init_hardware(struct cpp_device *cpp_dev)
 {
 	int rc = 0;
+	uint32_t msm_micro_iface_idx;
 	rc = msm_isp_init_bandwidth_mgr(ISP_CPP);
 	if (rc < 0) {
 		pr_err("%s: Bandwidth registration Failed!\n", __func__);
@@ -698,25 +708,29 @@ static int cpp_init_hardware(struct cpp_device *cpp_dev)
 			goto fs_failed;
 		}
 	}
-
+	msm_micro_iface_idx = get_clock_index("micro_iface_clk");
+	if (msm_micro_iface_idx < 0)  {
+		pr_err("Fail to get clock index\n");
+		goto fs_failed;
+	}
 	if (cpp_dev->hw_info.cpp_hw_version != CPP_HW_VERSION_4_0_0) {
-		cpp_dev->cpp_clk[MSM_MICRO_IFACE_CLK_IDX] =
+		cpp_dev->cpp_clk[msm_micro_iface_idx] =
 			clk_get(&cpp_dev->pdev->dev,
-			cpp_clk_info[MSM_MICRO_IFACE_CLK_IDX].clk_name);
-		if (IS_ERR(cpp_dev->cpp_clk[MSM_MICRO_IFACE_CLK_IDX])) {
+			cpp_clk_info[msm_micro_iface_idx].clk_name);
+		if (IS_ERR(cpp_dev->cpp_clk[msm_micro_iface_idx])) {
 			pr_err("%s get failed\n",
-			cpp_clk_info[MSM_MICRO_IFACE_CLK_IDX].clk_name);
+			cpp_clk_info[msm_micro_iface_idx].clk_name);
 			rc =
-			PTR_ERR(cpp_dev->cpp_clk[MSM_MICRO_IFACE_CLK_IDX]);
+			PTR_ERR(cpp_dev->cpp_clk[msm_micro_iface_idx]);
 			goto remap_failed;
 		}
 
-		rc = clk_reset(cpp_dev->cpp_clk[MSM_MICRO_IFACE_CLK_IDX],
+		rc = clk_reset(cpp_dev->cpp_clk[msm_micro_iface_idx],
 			CLK_RESET_ASSERT);
 		if (rc) {
 			pr_err("%s:micro_iface_clk assert failed\n",
 			__func__);
-			clk_put(cpp_dev->cpp_clk[MSM_MICRO_IFACE_CLK_IDX]);
+			clk_put(cpp_dev->cpp_clk[msm_micro_iface_idx]);
 			goto remap_failed;
 		}
 		/*Below usleep values are chosen based on experiments
@@ -725,11 +739,11 @@ static int cpp_init_hardware(struct cpp_device *cpp_dev)
 		to resets all its registers.*/
 		usleep_range(10000, 12000);
 
-		rc = clk_reset(cpp_dev->cpp_clk[MSM_MICRO_IFACE_CLK_IDX],
+		rc = clk_reset(cpp_dev->cpp_clk[msm_micro_iface_idx],
 			CLK_RESET_DEASSERT);
 		if (rc) {
 			pr_err("%s:micro_iface_clk assert failed\n", __func__);
-			clk_put(cpp_dev->cpp_clk[MSM_MICRO_IFACE_CLK_IDX]);
+			clk_put(cpp_dev->cpp_clk[msm_micro_iface_idx]);
 			goto remap_failed;
 		}
 		/*Below usleep values are chosen based on experiments and
@@ -738,7 +752,7 @@ static int cpp_init_hardware(struct cpp_device *cpp_dev)
 		resets all its registers.*/
 		usleep_range(1000, 1200);
 
-		clk_put(cpp_dev->cpp_clk[MSM_MICRO_IFACE_CLK_IDX]);
+		clk_put(cpp_dev->cpp_clk[msm_micro_iface_idx]);
 	}
 
 	rc = msm_cam_clk_enable(&cpp_dev->pdev->dev, cpp_clk_info,
@@ -1887,6 +1901,7 @@ long msm_cpp_subdev_ioctl(struct v4l2_subdev *sd,
 	}
 	case VIDIOC_MSM_CPP_SET_CLOCK: {
 		long clock_rate = 0;
+		uint32_t msm_cpp_core_clk_idx;
 		CPP_DBG("VIDIOC_MSM_CPP_SET_CLOCK\n");
 		if (ioctl_ptr->len == 0) {
 			pr_err("ioctl_ptr->len is 0\n");
@@ -1916,10 +1931,18 @@ long msm_cpp_subdev_ioctl(struct v4l2_subdev *sd,
 		}
 
 		if (clock_rate > 0) {
+			msm_cpp_core_clk_idx = get_clock_index("cpp_core_clk");
+			if (msm_cpp_core_clk_idx < 0) {
+				pr_err(" Fail to get clock index\n");
+				return -EINVAL;
+			}
 			clock_rate =
-				clk_round_rate(cpp_dev->cpp_clk[4], clock_rate);
+				clk_round_rate(cpp_dev->
+					cpp_clk[msm_cpp_core_clk_idx],
+					clock_rate);
 			CPP_DBG("clk:%ld\n", clock_rate);
-			clk_set_rate(cpp_dev->cpp_clk[4], clock_rate);
+			clk_set_rate(cpp_dev->cpp_clk[msm_cpp_core_clk_idx],
+				clock_rate);
 			rc = msm_isp_update_bandwidth(ISP_CPP, clock_rate * 4,
 				clock_rate * 6);
 			if (rc < 0) {
