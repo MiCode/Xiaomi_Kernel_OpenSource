@@ -48,6 +48,7 @@
 			qcom,fab-dev;
 			qcom,base-name = "bimc-base";
 			qcom,bus-type = <2>;
+			qcom,util-fact = <153>;
 			clock-names = "bus_clk", "bus_a_clk";
 			clocks = <&clock_rpm  clk_bimc_msmbus_clk>,
 			      <&clock_rpm  clk_bimc_msmbus_a_clk>;
@@ -88,6 +89,7 @@
 			qcom,base-offset = <0x3000>;
 			qcom,bus-type = <1>;
 			qcom,qos-off = <0x80>;
+			qcom,util-fact = <153>;
 			clock-names = "bus_clk", "bus_a_clk";
 			clocks = <&clock_mmss  clk_mmss_s0_axi_clk>,
 			      <&clock_mmss  clk_mmss_s0_axi_clk>;
