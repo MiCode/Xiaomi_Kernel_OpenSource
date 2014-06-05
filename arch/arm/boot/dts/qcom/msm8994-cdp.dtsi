@@ -273,6 +273,9 @@
 			interrupts = <61 0x2008>;
 			vdd-supply = <&pm8994_l14>;
 			avdd-supply = <&pm8994_l22>;
+			pinctrl-names = "pmx_ts_active", "pmx_ts_suspend";
+			pinctrl-0 = <&ts_active>;
+			pinctrl-1 = <&ts_suspend>;
 			synaptics,display-coords = <0 0 1599 2559>;
 			synaptics,panel-coords = <0 0 1599 2703>;
 			synaptics,reset-gpio = <&msm_gpio 60 0x00>;
