@@ -137,7 +137,7 @@
 
 			qcom,iterm-ma = <100>;
 			qcom,float-voltage-mv = <4200>;
-			qcom,resume-delta-mv = <100>;
+			qcom,resume-delta-mv = <200>;
 			qcom,bmd-pin-src = "bpd_thm_id";
 			qcom,dc-psy-type = "Mains";
 			qcom,dc-psy-ma = <1500>;
