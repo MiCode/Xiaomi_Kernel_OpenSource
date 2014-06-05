@@ -43,6 +43,7 @@ static char *descriptions =
 	"18 ARM: dts: msm: add perf-events support for msm8916\n"
 	"19 Perf: Enable pmuv3 on 32 bit kernel\n"
 	"20 msm: perf: set filter bits for cycle counter on krait\n"
+	"21 Perf: Fix hrtimer operation across hotplug\n"
 ;
 
 static ssize_t desc_read(struct file *fp, char __user *buf,
