@@ -1367,6 +1367,7 @@ fail_send:
 fail_gen:
 	return -EFAULT;
 }
+EXPORT_SYMBOL(ipa_tx_dp);
 
 static void ipa_wq_handle_rx(struct work_struct *work)
 {
