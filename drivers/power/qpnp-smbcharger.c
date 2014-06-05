@@ -204,12 +204,11 @@ static int smbchg_masked_write_raw(struct smbchg_chip *chip, u16 base, u8 mask,
 				base, rc);
 		return rc;
 	}
-	pr_debug("addr = 0x%x read 0x%x\n", base, reg);
 
 	reg &= ~mask;
 	reg |= val & mask;
 
-	pr_debug("Writing 0x%x\n", reg);
+	pr_debug("addr = 0x%x writing 0x%x\n", base, reg);
 
 	rc = smbchg_write(chip, &reg, base, 1);
 	if (rc) {
@@ -252,7 +251,7 @@ static int smbchg_masked_write(struct smbchg_chip *chip, u16 base, u8 mask,
  */
 #define SEC_ACCESS_OFFSET	0xD0
 #define SEC_ACCESS_VALUE	0xA5
-#define PERIPHERAL_MASK		0x3
+#define PERIPHERAL_MASK		0xFF
 static int smbchg_sec_masked_write(struct smbchg_chip *chip, u16 base, u8 mask,
 									u8 val)
 {
@@ -671,8 +670,6 @@ static void smbchg_usb_update_online_work(struct work_struct *work)
 	mutex_unlock(&chip->usb_set_online_lock);
 }
 
-#define CHGR_CFG2		0xFC
-#define CHG_EN_CMD_BIT		BIT(6)
 static int smbchg_usb_en(struct smbchg_chip *chip, bool enable,
 		enum enable_reason reason)
 {
@@ -1212,7 +1209,7 @@ static int smbchg_float_voltage_set(struct smbchg_chip *chip, int vfloat_mv)
 				/ VHIGH_RANGE_FLOAT_STEP_MV;
 	}
 
-	return smbchg_sec_masked_write(chip, chip->bat_if_base + VFLOAT_CFG_REG,
+	return smbchg_sec_masked_write(chip, chip->chgr_base + VFLOAT_CFG_REG,
 			VFLOAT_MASK, temp);
 }
 
@@ -1669,6 +1666,10 @@ static int chg_time[] = {
 	1536,
 };
 
+#define CHGR_CFG1			0xFB
+#define RECHG_THRESHOLD_SRC_BIT		BIT(1)
+#define TERM_I_SRC_BIT			BIT(2)
+#define CHGR_CFG2			0xFC
 #define CHG_INHIB_CFG_REG		0xF7
 #define CHG_INHIBIT_50MV_VAL		0x00
 #define CHG_INHIBIT_100MV_VAL		0x01
@@ -1736,7 +1737,7 @@ static int smbchg_hw_init(struct smbchg_chip *chip)
 	rc = smbchg_sec_masked_write(chip, chip->chgr_base + CHGR_CFG2,
 			CHG_EN_SRC_BIT | CHG_EN_COMMAND_BIT | P2F_CHG_TRAN
 			| I_TERM_BIT | AUTO_RECHG_BIT | CHARGER_INHIBIT_BIT,
-			CHARGER_INHIBIT_BIT
+			CHARGER_INHIBIT_BIT | CHG_EN_COMMAND_BIT
 			| (chip->iterm_disabled ? I_TERM_BIT : 0));
 	if (rc < 0) {
 		dev_err(chip->dev, "Couldn't set chgr_cfg2 rc=%d\n", rc);
@@ -1763,6 +1764,7 @@ static int smbchg_hw_init(struct smbchg_chip *chip)
 				"Couldn't set float voltage rc = %d\n", rc);
 			return rc;
 		}
+		pr_debug("set vfloat to %d\n", chip->vfloat_mv);
 	}
 
 	/* set iterm */
@@ -1789,13 +1791,15 @@ static int smbchg_hw_init(struct smbchg_chip *chip)
 				reg = CHG_ITERM_600MA;
 
 			rc = smbchg_sec_masked_write(chip,
-					chip->usb_chgpth_base + CFG_TCC_REG,
+					chip->chgr_base + CFG_TCC_REG,
 					CHG_ITERM_MASK, reg);
 			if (rc) {
 				dev_err(chip->dev,
 					"Couldn't set iterm rc = %d\n", rc);
 				return rc;
 			}
+			pr_debug("set tcc (%d) to 0x%02x\n", chip->iterm_ma,
+					reg);
 		}
 	}
 
@@ -2296,7 +2300,7 @@ static void dump_regs(struct smbchg_chip *chip)
 		dump_reg(chip, chip->chgr_base + addr, "CHGR Config");
 	/* battery interface peripheral */
 	dump_reg(chip, chip->bat_if_base + RT_STS, "BAT_IF Status");
-	dump_reg(chip, chip->bat_if_base + CMD_IL, "BAT_IF Command");
+	dump_reg(chip, chip->bat_if_base + CMD_CHG_REG, "BAT_IF Command");
 	for (addr = 0xF0; addr <= 0xFB; addr++)
 		dump_reg(chip, chip->bat_if_base + addr, "BAT_IF Config");
 	/* usb charge path peripheral */
