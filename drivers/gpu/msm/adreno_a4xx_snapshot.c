@@ -19,6 +19,7 @@
 #include "adreno_a3xx_snapshot.h"
 
 #define A4XX_NUM_SHADER_BANKS 4
+#define A405_NUM_SHADER_BANKS 1
 /* Shader memory size in words */
 #define A4XX_SHADER_MEMORY_SIZE 0x4000
 
@@ -39,18 +40,21 @@ static const struct adreno_debugbus_block a4xx_debugbus_blocks[] = {
 	{ A4XX_RBBM_DEBBUS_COM_ID, 0x100, },
 	{ A4XX_RBBM_DEBBUS_DCOM_ID, 0x100, },
 	{ A4XX_RBBM_DEBBUS_SP_0_ID, 0x100, },
+	{ A4XX_RBBM_DEBBUS_TPL1_0_ID, 0x100, },
+	{ A4XX_RBBM_DEBBUS_RB_0_ID, 0x100, },
+	{ A4XX_RBBM_DEBBUS_MARB_0_ID, 0x100 },
+};
+
+static const struct adreno_debugbus_block a420_debugbus_blocks[] = {
 	{ A4XX_RBBM_DEBBUS_SP_1_ID, 0x100, },
 	{ A4XX_RBBM_DEBBUS_SP_2_ID, 0x100, },
 	{ A4XX_RBBM_DEBBUS_SP_3_ID, 0x100, },
-	{ A4XX_RBBM_DEBBUS_TPL1_0_ID, 0x100, },
 	{ A4XX_RBBM_DEBBUS_TPL1_1_ID, 0x100, },
 	{ A4XX_RBBM_DEBBUS_TPL1_2_ID, 0x100, },
 	{ A4XX_RBBM_DEBBUS_TPL1_3_ID, 0x100, },
-	{ A4XX_RBBM_DEBBUS_RB_0_ID, 0x100, },
 	{ A4XX_RBBM_DEBBUS_RB_1_ID, 0x100, },
 	{ A4XX_RBBM_DEBBUS_RB_2_ID, 0x100, },
 	{ A4XX_RBBM_DEBBUS_RB_3_ID, 0x100, },
-	{ A4XX_RBBM_DEBBUS_MARB_0_ID, 0x100 },
 	{ A4XX_RBBM_DEBBUS_MARB_1_ID, 0x100, },
 	{ A4XX_RBBM_DEBBUS_MARB_2_ID, 0x100, },
 	{ A4XX_RBBM_DEBBUS_MARB_3_ID, 0x100, },
@@ -72,22 +76,27 @@ static const struct adreno_debugbus_block a4xx_debugbus_blocks[] = {
 static size_t a4xx_snapshot_shader_memory(struct kgsl_device *device,
 	void *snapshot, size_t remain, void *priv)
 {
+	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
 	struct kgsl_snapshot_debug *header = snapshot;
 	unsigned int i, j;
 	unsigned int *data = snapshot + sizeof(*header);
 	unsigned int shader_read_len = A4XX_SHADER_MEMORY_SIZE;
+	unsigned int shader_banks = A4XX_NUM_SHADER_BANKS;
 
 	if (shader_read_len > (device->shader_mem_len >> 2))
 		shader_read_len = (device->shader_mem_len >> 2);
 
+	if (adreno_is_a405(adreno_dev))
+		shader_banks = A405_NUM_SHADER_BANKS;
+
 	if (remain < DEBUG_SECTION_SZ(shader_read_len *
-				A4XX_NUM_SHADER_BANKS)) {
+				shader_banks)) {
 		SNAPSHOT_ERR_NOMEM(device, "SHADER MEMORY");
 		return 0;
 	}
 
 	header->type = SNAPSHOT_DEBUG_SHADER_MEMORY;
-	header->size = shader_read_len * A4XX_NUM_SHADER_BANKS;
+	header->size = shader_read_len * shader_banks;
 
 	/* Map shader memory to kernel, for dumping */
 	if (device->shader_mem_virt == NULL)
@@ -101,7 +110,7 @@ static size_t a4xx_snapshot_shader_memory(struct kgsl_device *device,
 		return 0;
 	}
 
-	for (j = 0; j < A4XX_NUM_SHADER_BANKS; j++) {
+	for (j = 0; j < shader_banks; j++) {
 		unsigned int val;
 		/* select the SPTP */
 		kgsl_regread(device, A4XX_HLSQ_SPTP_RDSEL, &val);
@@ -115,7 +124,7 @@ static size_t a4xx_snapshot_shader_memory(struct kgsl_device *device,
 	}
 
 
-	return DEBUG_SECTION_SZ(shader_read_len * A4XX_NUM_SHADER_BANKS);
+	return DEBUG_SECTION_SZ(shader_read_len * shader_banks);
 }
 
 /*
@@ -278,6 +287,7 @@ static size_t a4xx_snapshot_debugbus_block(struct kgsl_device *device,
 static void a4xx_snapshot_debugbus(struct kgsl_device *device,
 		struct kgsl_snapshot *snapshot)
 {
+	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
 	int i;
 
 	kgsl_regwrite(device, A4XX_RBBM_CFG_DEBBUS_CTLM,
@@ -295,6 +305,15 @@ static void a4xx_snapshot_debugbus(struct kgsl_device *device,
 				KGSL_SNAPSHOT_SECTION_DEBUGBUS,
 				snapshot, a4xx_snapshot_debugbus_block,
 				(void *) &a4xx_debugbus_blocks[i]);
+	}
+
+	if (!adreno_is_a405(adreno_dev)) {
+		for (i = 0; i < ARRAY_SIZE(a420_debugbus_blocks); i++)
+			kgsl_snapshot_add_section(device,
+				KGSL_SNAPSHOT_SECTION_DEBUGBUS,
+				snapshot, a4xx_snapshot_debugbus_block,
+				(void *) &a420_debugbus_blocks[i]);
+
 	}
 }
 
@@ -320,6 +339,31 @@ static void a4xx_reset_hlsq(struct kgsl_device *device)
 	val &= (0x1F << 24);
 	val |= (26 << 24);
 	kgsl_regwrite(device, A4XX_HLSQ_TIMEOUT_THRESHOLD, val);
+}
+
+static void a4xx_snapshot_vbif_registers(struct kgsl_device *device,
+				struct kgsl_snapshot_registers *regs,
+				struct kgsl_snapshot_registers_list *list)
+{
+	unsigned int vbif_version = 0;
+	int i;
+	int found = 0;
+
+	kgsl_regread(device, A4XX_VBIF_VERSION, &vbif_version);
+
+	for (i = 0; i < a4xx_vbif_snapshot_reg_cnt; i++) {
+		if (vbif_version ==
+			a4xx_vbif_snapshot_registers[i].vbif_version) {
+			found = 1;
+			break;
+		}
+	}
+	if (found)
+		_snapshot_a3xx_regs(regs, list,
+				a4xx_vbif_snapshot_registers[i].
+					vbif_snapshot_registers,
+				a4xx_vbif_snapshot_registers[i].
+					vbif_snapshot_registers_count, 1);
 }
 
 /*
@@ -356,6 +400,12 @@ void a4xx_snapshot(struct adreno_device *adreno_dev,
 
 	_snapshot_a3xx_regs(regs, &list, a4xx_sp_tp_registers,
 			a4xx_sp_tp_registers_count, 0);
+
+	if (!adreno_is_a405(adreno_dev)) {
+		_snapshot_a3xx_regs(regs, &list, a4xx_xpu_registers,
+				a4xx_xpu_reg_cnt, 1);
+	}
+	a4xx_snapshot_vbif_registers(device, regs, &list);
 
 	/* Turn on MMU clocks since we read MMU registers */
 	kgsl_mmu_enable_clk(&device->mmu, KGSL_IOMMU_MAX_UNITS);
