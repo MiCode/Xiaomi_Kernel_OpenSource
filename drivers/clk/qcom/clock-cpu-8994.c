@@ -25,6 +25,7 @@
 #include <linux/cpu.h>
 #include <linux/platform_device.h>
 
+#include <soc/qcom/scm.h>
 #include <soc/qcom/clock-pll.h>
 #include <soc/qcom/clock-local2.h>
 #include <soc/qcom/clock-alpha-pll.h>
@@ -53,6 +54,7 @@ static char *base_names[] = {
 };
 
 static void *vbases[NUM_BASES];
+u32 cci_phys_base = 0xF9112000;
 
 static DEFINE_VDD_REGULATORS(vdd_dig, VDD_DIG_NUM, 1, vdd_corner, NULL);
 
@@ -385,16 +387,31 @@ static struct mux_clk a53_hf_mux;
 static struct mux_clk a57_lf_mux;
 static struct mux_clk a57_hf_mux;
 
+#define SCM_IO_READ	0x1
+#define SCM_IO_WRITE	0x2
+
 static void __cpu_mux_set_sel(struct mux_clk *mux, int sel)
 {
 	u32 regval;
 	unsigned long flags;
 
 	spin_lock_irqsave(&mux_reg_lock, flags);
-	regval = readl_relaxed(*mux->base + mux->offset);
+
+	if (mux->priv)
+		regval = scm_call_atomic1(SCM_SVC_IO, SCM_IO_READ,
+					  *(u32 *)mux->priv + mux->offset);
+	else
+		regval = readl_relaxed(*mux->base + mux->offset);
+
 	regval &= ~(mux->mask << mux->shift);
 	regval |= (sel & mux->mask) << mux->shift;
-	writel_relaxed(regval, *mux->base + mux->offset);
+
+	if (mux->priv) {
+		scm_call_atomic2(SCM_SVC_IO, SCM_IO_WRITE,
+				 *(u32 *)mux->priv + mux->offset, regval);
+	} else
+		writel_relaxed(regval, *mux->base + mux->offset);
+
 	spin_unlock_irqrestore(&mux_reg_lock, flags);
 
 	/* Ensure switch request goes through before returning */
@@ -426,7 +443,13 @@ static int cpu_mux_set_sel(struct mux_clk *mux, int sel)
 
 static int cpu_mux_get_sel(struct mux_clk *mux)
 {
-	u32 regval = readl_relaxed(*mux->base + mux->offset);
+	u32 regval;
+
+	if (mux->priv)
+		regval = scm_call_atomic1(SCM_SVC_IO, SCM_IO_READ,
+					  *(u32 *)mux->priv + mux->offset);
+	else
+		regval = readl_relaxed(*mux->base + mux->offset);
 	return (regval >> mux->shift) & mux->mask;
 }
 
@@ -642,7 +665,7 @@ static struct mux_clk a57_debug_mux = {
 
 static struct mux_clk cpu_debug_mux = {
 	.offset = 0x120,
-	.ops = &mux_reg_ops,
+	.ops = &cpu_mux_ops,
 	.mask = 0x1,
 	.shift = 0,
 	MUX_SRC_LIST(
@@ -653,6 +676,7 @@ static struct mux_clk cpu_debug_mux = {
 		&a53_debug_mux.c,
 		&a57_debug_mux.c,
 	),
+	.priv = &cci_phys_base,
 	.base = &vbases[CCI_BASE],
 	.c = {
 		.dbg_name = "cpu_debug_mux",
@@ -717,6 +741,7 @@ static struct mux_clk cci_lf_mux = {
 	.ops = &cpu_mux_ops,
 	.mask = 0x3,
 	.shift = 1,
+	.priv = &cci_phys_base,
 	.base = &vbases[CCI_BASE],
 	.c = {
 		.dbg_name = "cci_lf_mux",
@@ -738,6 +763,7 @@ static struct mux_clk cci_hf_mux = {
 	.ops = &cpu_mux_ops,
 	.mask = 0x3,
 	.shift = 3,
+	.priv = &cci_phys_base,
 	.base = &vbases[CCI_BASE],
 	.c = {
 		.dbg_name = "cci_hf_mux",
