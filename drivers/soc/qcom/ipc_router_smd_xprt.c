@@ -188,7 +188,7 @@ static int msm_ipc_router_smd_remote_write(void *data,
 	if (!len || pkt->length != len)
 		return -EINVAL;
 
-	while ((ret = smd_write_start(smd_xprtp->channel, len)) < 0) {
+	do {
 		spin_lock_irqsave(&smd_xprtp->ss_reset_lock, flags);
 		if (smd_xprtp->ss_reset) {
 			spin_unlock_irqrestore(&smd_xprtp->ss_reset_lock,
@@ -198,14 +198,16 @@ static int msm_ipc_router_smd_remote_write(void *data,
 			return -ENETRESET;
 		}
 		spin_unlock_irqrestore(&smd_xprtp->ss_reset_lock, flags);
-		if (num_retries >= 5) {
+		ret = smd_write_start(smd_xprtp->channel, len);
+		if (ret < 0 && num_retries >= 5) {
 			IPC_RTR_ERR("%s: Error %d @smd_write_start for %s\n",
 				__func__, ret, xprt->name);
 			return ret;
+		} else if (ret < 0) {
+			msleep(50);
+			num_retries++;
 		}
-		msleep(50);
-		num_retries++;
-	}
+	} while (ret < 0);
 
 	D("%s: Ready to write %d bytes\n", __func__, len);
 	skb_queue_walk(pkt->pkt_fragment_q, ipc_rtr_pkt) {
