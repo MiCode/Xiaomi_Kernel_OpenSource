@@ -3175,7 +3175,6 @@ static int rt5640_set_bias_level(struct snd_soc_codec *codec,
 #endif
 			codec->cache_only = false;
 			codec->cache_sync = 1;
-			snd_soc_cache_sync(codec);
 			rt5640_index_sync(codec);
 		}
 		break;
