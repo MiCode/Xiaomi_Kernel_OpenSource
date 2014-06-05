@@ -72,6 +72,8 @@ Optional properties:
 					device node. Refer to pinctrl-bindings.txt
 - qcom,regulator-ldo-mode:		Boolean to enable ldo mode for the dsi phy regulator
 - qcom,dsi-panel-bias-vreg:		Boolean to enable control of panel bias regulator
+- qcom,mmss-ulp-clamp-ctrl-offset:	Specifies the offset for dsi ulps clamp control register.
+- qcom,mmss-phyreset-ctrl-offset:	Specifies the offset for dsi phy reset control register.
 
 Example:
         mdss_dsi0: qcom,mdss_dsi@fd922800 {
@@ -96,6 +98,8 @@ Example:
 			00 00 00 00 0a 00 00 01 97
 			00 00 00 00 0f 00 00 01 97
 			00 c0 00 00 00 00 00 01 bb];
+		qcom,mmss-ulp-clamp-ctrl-offset = <0x20>;
+		qcom,mmss-phyreset-ctrl-offset = <0x24>;
 		qcom,mdss-fb-map = <&mdss_fb0>;
 		qcom,mdss-mdp = <&mdss_mdp>;
 		pinctrl-names = "mdss_default", "mdss_sleep";
