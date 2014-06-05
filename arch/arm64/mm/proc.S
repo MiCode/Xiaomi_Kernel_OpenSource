@@ -273,5 +273,16 @@ ENDPROC(__cpu_setup)
 	 */
 	.type	crval, #object
 crval:
+#ifdef CONFIG_ARM64_ICACHE_DISABLE
+#define CR_IBIT		0
+#else
+#define CR_IBIT		0x1000
+#endif
+
+#ifdef CONFIG_ARM64_DCACHE_DISABLE
+#define CR_CBIT		0
+#else
+#define CR_CBIT		0x4
+#endif
 	.word	0xfcffffff			// clear
-	.word	0x34d5d91d			// set
+	.word	0x34d5d91d | CR_IBIT | CR_CBIT	// set
