@@ -17,6 +17,7 @@
 #include <linux/err.h>
 #include <linux/string.h>
 #include <linux/kernel.h>
+#include <linux/list.h>
 #include <linux/init.h>
 #include <linux/io.h>
 #include <linux/bitops.h>
@@ -192,6 +193,7 @@ enum voltage_change_dir {
 };
 
 struct cpr_regulator {
+	struct list_head		list;
 	struct regulator_desc		rdesc;
 	struct regulator_dev		*rdev;
 	bool				vreg_enabled;
@@ -274,6 +276,9 @@ static int cpr_debug_enable = CPR_DEBUG_MASK_IRQ;
 #if defined(CONFIG_DEBUG_FS)
 static struct dentry *cpr_debugfs_base;
 #endif
+
+static DEFINE_MUTEX(cpr_regulator_list_mutex);
+static LIST_HEAD(cpr_regulator_list);
 
 module_param_named(debug_enable, cpr_debug_enable, int, S_IRUGO | S_IWUSR);
 #define cpr_debug(message, ...) \
@@ -2837,6 +2842,10 @@ static int cpr_regulator_probe(struct platform_device *pdev)
 	platform_set_drvdata(pdev, cpr_vreg);
 	cpr_debugfs_init(cpr_vreg);
 
+	mutex_lock(&cpr_regulator_list_mutex);
+	list_add(&cpr_vreg->list, &cpr_regulator_list);
+	mutex_unlock(&cpr_regulator_list_mutex);
+
 	return 0;
 
 err_out:
@@ -2855,6 +2864,10 @@ static int cpr_regulator_remove(struct platform_device *pdev)
 			cpr_ctl_disable(cpr_vreg);
 			cpr_irq_set(cpr_vreg, 0);
 		}
+
+		mutex_lock(&cpr_regulator_list_mutex);
+		list_del(&cpr_vreg->list);
+		mutex_unlock(&cpr_regulator_list_mutex);
 
 		cpr_apc_exit(cpr_vreg);
 		cpr_debugfs_remove(cpr_vreg);
