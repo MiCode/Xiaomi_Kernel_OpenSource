@@ -77,6 +77,7 @@ struct wcd_mbhc {
 	bool hphl_swh; /*track HPHL switch NC / NO */
 	bool gnd_swh; /*track GND switch NC / NO */
 	bool hs_detect_work_stop;
+	bool micbias_enable;
 
 	struct snd_soc_codec *codec;
 
