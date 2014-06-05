@@ -92,7 +92,7 @@
 		 .platform_max = xmax, .invert = xinvert} }
 #define SND_SOC_BYTES_EXT(xname, xcount, xhandler_get, xhandler_put) \
 {	.iface = SNDRV_CTL_ELEM_IFACE_MIXER, .name = xname, \
-	.info = snd_soc_info_bytes_ext, \
+	.info = snd_soc_info_bytes_ext, .index = SOC_CONTROL_IO_BYTES_EXT,\
 	.get = xhandler_get, .put = xhandler_put, \
 	.private_value = (unsigned long)&(struct soc_bytes_ext) \
 		{.max = xcount} }
