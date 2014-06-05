@@ -99,7 +99,7 @@ static int i915_sync_fill_driver_data(struct sync_pt *sync_pt,
 
 static
 struct sync_pt *i915_sync_pt_create(struct i915_sync_timeline *obj,
-						u32 value, u32 cycle)
+					u32 value, u32 cycle, u64 flags)
 {
 	struct i915_sync_pt *pt;
 	struct intel_engine_cs *ring;
@@ -119,6 +119,7 @@ struct sync_pt *i915_sync_pt_create(struct i915_sync_timeline *obj,
 	if (pt) {
 		pt->pvt.value = value;
 		pt->pvt.cycle = cycle;
+		pt->pvt.flags = flags & I915_EXEC_RING_MASK;
 	} else
 		ring->irq_put(ring);
 
@@ -134,7 +135,7 @@ static struct sync_pt *i915_sync_pt_dup(struct sync_pt *sync_pt)
 		(struct i915_sync_timeline *)sync_pt->parent;
 
 	new_pt = (struct sync_pt *)i915_sync_pt_create(obj, pt->pvt.value,
-								pt->pvt.cycle);
+					pt->pvt.cycle, pt->pvt.flags);
 	return new_pt;
 }
 
@@ -261,7 +262,8 @@ void *i915_sync_prepare_request(struct drm_i915_gem_execbuffer2 *args,
 	 * the timeline is signalled on completion.
 	 */
 	pt = i915_sync_pt_create(ring->timeline, seqno,
-				ring->timeline->pvt.cycle);
+				 ring->timeline->pvt.cycle,
+				 args->flags);
 	if (!pt)
 		DRM_DEBUG_DRIVER("Failed to create sync point for %d/%u\n",
 					ring->id, seqno);
@@ -319,7 +321,8 @@ void *gen8_sync_prepare_request(struct drm_i915_gem_execbuffer2 *args,
 	 * the timeline is signalled on completion.
 	 */
 	pt = i915_sync_pt_create(ring->timeline, seqno,
-				ring->timeline->pvt.cycle);
+				 ring->timeline->pvt.cycle,
+				 args->flags);
 	if (!pt)
 		DRM_DEBUG_DRIVER("Failed to create sync point for %d/%u\n",
 					ring->id, seqno);

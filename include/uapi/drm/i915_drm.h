@@ -839,6 +839,12 @@ struct drm_i915_gem_execbuffer2 {
 #define i915_execbuffer2_get_context_id(eb2) \
 	((eb2).rsvd1 & I915_EXEC_CONTEXT_ID_MASK)
 
+struct drm_i915_gem_syncpt_driver_data {
+	__u32 value;
+	__u32 cycle;
+	__u64 flags;
+};
+
 struct drm_i915_gem_pin {
 	/** Handle of the buffer to be pinned. */
 	__u32 handle;

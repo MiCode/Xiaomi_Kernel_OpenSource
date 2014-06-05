@@ -55,10 +55,7 @@ struct i915_sync_timeline {
 struct i915_sync_pt {
 	struct sync_pt		pt;
 
-	struct {
-		u32		value;
-		u32		cycle;
-	} pvt;
+	struct drm_i915_gem_syncpt_driver_data pvt;
 };
 
 #ifdef CONFIG_DRM_I915_SYNC
