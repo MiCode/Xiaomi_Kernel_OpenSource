@@ -41,6 +41,11 @@
 
 #include <asm/current.h>
 
+#define DISABLE_SSR 0x9889deed
+/* If set to 0x9889deed, call to subsystem_restart_dev() returns immediately */
+static uint disable_restart_work;
+module_param(disable_restart_work, uint, S_IRUGO | S_IWUSR);
+
 static int enable_debug;
 module_param(enable_debug, int, S_IRUGO | S_IWUSR);
 
@@ -818,6 +823,11 @@ int subsystem_restart_dev(struct subsys_device *dev)
 
 	pr_info("Restart sequence requested for %s, restart_level = %s.\n",
 		name, restart_levels[dev->restart_level]);
+
+	if (WARN(disable_restart_work == DISABLE_SSR,
+		"subsys-restart: Ignoring restart request for %s.\n", name)) {
+		return 0;
+	}
 
 	switch (dev->restart_level) {
 
