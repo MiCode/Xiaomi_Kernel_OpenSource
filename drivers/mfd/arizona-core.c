@@ -841,7 +841,7 @@ static int arizona_of_get_micbias(struct arizona *arizona,
 static int arizona_of_get_core_pdata(struct arizona *arizona)
 {
 	struct arizona_pdata *pdata = &arizona->pdata;
-	u32 out_mono[ARRAY_SIZE(pdata->out_mono)];
+	u32 out_mono[ARRAY_SIZE(pdata->out_mono)] = {0};
 	int i;
 
 	pdata->reset = arizona_of_get_named_gpio(arizona, "wlf,reset", true);
