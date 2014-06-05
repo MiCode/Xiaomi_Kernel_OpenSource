@@ -1416,13 +1416,34 @@ static int arizona_startup(struct snd_pcm_substream *substream,
 					  constraint);
 }
 
+static void arizona_wm5102_set_dac_comp(struct snd_soc_codec *codec,
+					unsigned int rate)
+{
+	struct arizona_priv *priv = snd_soc_codec_get_drvdata(codec);
+	struct arizona *arizona = priv->arizona;
+
+	mutex_lock(&arizona->reg_setting_lock);
+	snd_soc_write(codec, 0x80, 0x3);
+	if (rate >= 176400) {
+		mutex_lock(&codec->mutex);
+		snd_soc_write(codec, ARIZONA_DAC_COMP_1,
+			      arizona->out_comp_coeff);
+		snd_soc_write(codec, ARIZONA_DAC_COMP_2,
+			      arizona->out_comp_enabled);
+		mutex_unlock(&codec->mutex);
+	} else {
+		snd_soc_write(codec, ARIZONA_DAC_COMP_2, 0x0);
+	}
+	snd_soc_write(codec, 0x80, 0x0);
+	mutex_unlock(&arizona->reg_setting_lock);
+}
+
 static int arizona_hw_params_rate(struct snd_pcm_substream *substream,
 				  struct snd_pcm_hw_params *params,
 				  struct snd_soc_dai *dai)
 {
 	struct snd_soc_codec *codec = dai->codec;
 	struct arizona_priv *priv = snd_soc_codec_get_drvdata(codec);
-	struct arizona *arizona = priv->arizona;
 	struct arizona_dai_priv *dai_priv = &priv->dai[dai->id - 1];
 	int base = dai->driver->base;
 	int i, sr_val;
@@ -1441,25 +1462,17 @@ static int arizona_hw_params_rate(struct snd_pcm_substream *substream,
 	}
 	sr_val = i;
 
-	switch (priv->arizona->type) {
-	case WM5102:
-		if (priv->arizona->pdata.ultrasonic_response) {
-			mutex_lock(&arizona->reg_setting_lock);
-			snd_soc_write(codec, 0x80, 0x3);
-			if (params_rate(params) >= 176400)
-				snd_soc_write(codec, 0x4dd, 0x1);
-			else
-				snd_soc_write(codec, 0x4dd, 0x0);
-			snd_soc_write(codec, 0x80, 0x0);
-			mutex_unlock(&arizona->reg_setting_lock);
-		}
-		break;
-	default:
-		break;
-	}
-
 	switch (dai_priv->clk) {
 	case ARIZONA_CLK_SYSCLK:
+		switch (priv->arizona->type) {
+		case WM5102:
+			arizona_wm5102_set_dac_comp(codec,
+						    params_rate(params));
+			break;
+		default:
+			break;
+		}
+
 		snd_soc_update_bits(codec, ARIZONA_SAMPLE_RATE_1,
 				    ARIZONA_SAMPLE_RATE_1_MASK, sr_val);
 		if (base)
