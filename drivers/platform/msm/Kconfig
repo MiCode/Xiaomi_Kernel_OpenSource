@@ -207,4 +207,9 @@ config QPNP_HAPTIC
 	  on the Qualcomm Technologies' QPNP PMICs. It uses the android
 	  timed-output framework.
 
+config QMP_CORE
+	tristate "QMP Core"
+	help
+		This option enables Qualcomm Malware Protection Sphinx component
+		to log on-device software API activity.
 endmenu
