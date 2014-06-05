@@ -304,14 +304,36 @@ static int process_mem_print(struct seq_file *s, void *unused)
 
 static int process_mem_open(struct inode *inode, struct file *file)
 {
-	return single_open(file, process_mem_print, inode->i_private);
+	struct kgsl_process_private *private = inode->i_private;
+
+	/*
+	 * Hold a reference count on the process while open
+	 * in case the process tries to die in the meantime.
+	 * If the process is already dying we cannot get a
+	 * refcount, print nothing.
+	 */
+
+	if (!private || !kgsl_process_private_get(private))
+		return -ENODEV;
+
+	return single_open(file, process_mem_print, private);
+}
+
+static int process_mem_release(struct inode *inode, struct file *file)
+{
+	struct kgsl_process_private *private = inode->i_private;
+
+	if (private)
+		kgsl_process_private_put(private);
+
+	return single_release(inode, file);
 }
 
 static const struct file_operations process_mem_fops = {
 	.open = process_mem_open,
 	.read = seq_read,
 	.llseek = seq_lseek,
-	.release = single_release,
+	.release = process_mem_release,
 };
 
 
