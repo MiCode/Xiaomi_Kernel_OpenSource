@@ -46,14 +46,52 @@
 	};
 };
 
-/* Stub regulators */
+/* CPR controlled regulators */
 
-/ {
-	apc_vreg_corner: regulator-apc-corner {
-		compatible = "qcom,stub-regulator";
+&soc {
+	apc_vreg_corner: regulator@b018000 {
+		compatible = "qcom,cpr-regulator";
+		reg = <0xb018000 0x1000>, <0xb011064 4>, <0x58000 0x1000>;
+		reg-names = "rbcpr", "rbcpr_clk", "efuse_addr";
+		interrupts = <0 15 0>;
 		regulator-name = "apc_corner";
 		regulator-min-microvolt = <1>;
 		regulator-max-microvolt = <3>;
+
+		qcom,cpr-fuse-corners = <3>;
+		qcom,cpr-voltage-ceiling = <1050000 1150000 1350000>;
+		qcom,cpr-voltage-floor = <1050000 1050000 1162500>;
+		vdd-apc-supply = <&ncp6335d>;
+		vdd-apc-optional-prim-supply = <&fan53555>;
+
+		qcom,vdd-mx-corner-map = <4 5 7>;
+		qcom,vdd-mx-vmin-method = <4>;
+		vdd-mx-supply = <&pm8916_l3_corner_ao>;
+		qcom,vdd-mx-vmax = <7>;
+
+		qcom,cpr-ref-clk = <19200>;
+		qcom,cpr-timer-delay = <5000>;
+		qcom,cpr-timer-cons-up = <0>;
+		qcom,cpr-timer-cons-down = <2>;
+		qcom,cpr-irq-line = <0>;
+		qcom,cpr-step-quotient = <26>;
+		qcom,cpr-up-threshold = <0>;
+		qcom,cpr-down-threshold = <2>;
+		qcom,cpr-idle-clocks = <15>;
+		qcom,cpr-gcnt-time = <1>;
+		qcom,vdd-apc-step-up-limit = <1>;
+		qcom,vdd-apc-step-down-limit = <1>;
+		qcom,cpr-apc-volt-step = <12500>;
+
+		qcom,cpr-fuse-row = <27 0>;
+		qcom,cpr-fuse-target-quot = <42 24 6>;
+		qcom,cpr-fuse-ro-sel = <54 54 54>;
+		qcom,cpr-init-voltage-ref = <1050000 1150000 1350000>;
+		qcom,cpr-fuse-init-voltage =
+					<27 36 6 0>,
+					<27 18 6 0>,
+					<27 0 6 0>;
+		qcom,cpr-init-voltage-step = <10000>;
 	};
 };
 

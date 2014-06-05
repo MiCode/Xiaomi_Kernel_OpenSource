@@ -165,3 +165,7 @@
 &fan53555 {
 	status = "disabled";
 };
+
+&apc_vreg_corner {
+	status = "disabled";
+};
