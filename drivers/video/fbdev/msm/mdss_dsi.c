@@ -523,6 +523,7 @@ int mdss_dsi_ulps_config(struct mdss_dsi_ctrl_pdata *ctrl_pdata, int enable)
 	struct mipi_panel_info *mipi;
 	u32 lane_status = 0, regval;
 	u32 active_lanes = 0, clamp_reg;
+	u32 clamp_reg_off, phyrst_reg_off;
 
 	if (!ctrl_pdata) {
 		pr_err("%s: invalid input\n", __func__);
@@ -541,6 +542,8 @@ int mdss_dsi_ulps_config(struct mdss_dsi_ctrl_pdata *ctrl_pdata, int enable)
 	}
 	pinfo = &pdata->panel_info;
 	mipi = &pinfo->mipi;
+	clamp_reg_off = ctrl_pdata->ulps_clamp_ctrl_off;
+	phyrst_reg_off = ctrl_pdata->ulps_phyrst_ctrl_off;
 
 	if (!mdss_dsi_ulps_feature_enabled(pdata)) {
 		pr_debug("%s: ULPS feature not supported. enable=%d\n",
@@ -607,16 +610,18 @@ int mdss_dsi_ulps_config(struct mdss_dsi_ctrl_pdata *ctrl_pdata, int enable)
 
 		/* Enable MMSS DSI Clamps */
 		if (ctrl_pdata->ndx == DSI_CTRL_0) {
-			regval = MIPI_INP(ctrl_pdata->mmss_misc_io.base + 0x14);
-			MIPI_OUTP(ctrl_pdata->mmss_misc_io.base + 0x14,
+			regval = MIPI_INP(ctrl_pdata->mmss_misc_io.base +
+				clamp_reg_off);
+			MIPI_OUTP(ctrl_pdata->mmss_misc_io.base + clamp_reg_off,
 				regval | clamp_reg);
-			MIPI_OUTP(ctrl_pdata->mmss_misc_io.base + 0x14,
+			MIPI_OUTP(ctrl_pdata->mmss_misc_io.base + clamp_reg_off,
 				regval | (clamp_reg | BIT(15)));
 		} else if (ctrl_pdata->ndx == DSI_CTRL_1) {
-			regval = MIPI_INP(ctrl_pdata->mmss_misc_io.base + 0x14);
-			MIPI_OUTP(ctrl_pdata->mmss_misc_io.base + 0x14,
+			regval = MIPI_INP(ctrl_pdata->mmss_misc_io.base +
+				clamp_reg_off);
+			MIPI_OUTP(ctrl_pdata->mmss_misc_io.base + clamp_reg_off,
 				regval | (clamp_reg << 16));
-			MIPI_OUTP(ctrl_pdata->mmss_misc_io.base + 0x14,
+			MIPI_OUTP(ctrl_pdata->mmss_misc_io.base + clamp_reg_off,
 				regval | ((clamp_reg << 16) | BIT(31)));
 		}
 
@@ -627,10 +632,10 @@ int mdss_dsi_ulps_config(struct mdss_dsi_ctrl_pdata *ctrl_pdata, int enable)
 		 * reset when mdss ahb clock reset is asserted while coming
 		 * out of power collapse
 		 */
-		MIPI_OUTP(ctrl_pdata->mmss_misc_io.base + 0x108, 0x1);
+		MIPI_OUTP(ctrl_pdata->mmss_misc_io.base + phyrst_reg_off, 0x1);
 		ctrl_pdata->ulps = true;
 	} else if (ctrl_pdata->ulps) {
-		MIPI_OUTP(ctrl_pdata->mmss_misc_io.base + 0x108, 0x0);
+		MIPI_OUTP(ctrl_pdata->mmss_misc_io.base + phyrst_reg_off, 0x0);
 		if (ctrl_pdata->ctrl_rev == MDSS_DSI_HW_REV_103)
 			mdss_dsi_20nm_phy_init(pdata);
 		else
@@ -654,12 +659,14 @@ int mdss_dsi_ulps_config(struct mdss_dsi_ctrl_pdata *ctrl_pdata, int enable)
 
 		/* Disable MMSS DSI Clamps */
 		if (ctrl_pdata->ndx == DSI_CTRL_0) {
-			regval = MIPI_INP(ctrl_pdata->mmss_misc_io.base + 0x14);
-			MIPI_OUTP(ctrl_pdata->mmss_misc_io.base + 0x14,
+			regval = MIPI_INP(ctrl_pdata->mmss_misc_io.base +
+				clamp_reg_off);
+			MIPI_OUTP(ctrl_pdata->mmss_misc_io.base + clamp_reg_off,
 				regval & ~(clamp_reg | BIT(15)));
 		} else if (ctrl_pdata->ndx == DSI_CTRL_1) {
-			regval = MIPI_INP(ctrl_pdata->mmss_misc_io.base + 0x14);
-			MIPI_OUTP(ctrl_pdata->mmss_misc_io.base + 0x14,
+			regval = MIPI_INP(ctrl_pdata->mmss_misc_io.base +
+				clamp_reg_off);
+			MIPI_OUTP(ctrl_pdata->mmss_misc_io.base + clamp_reg_off,
 				regval & ~((clamp_reg << 16) | BIT(31)));
 		}
 
@@ -1731,6 +1738,20 @@ int dsi_panel_device_register(struct device_node *pan_node,
 	for (i = 0; i < len; i++) {
 		pinfo->mipi.dsi_phy_db.lanecfg[i] =
 			data[i];
+	}
+
+	rc = of_property_read_u32(ctrl_pdev->dev.of_node,
+			"qcom,mmss-ulp-clamp-ctrl-offset",
+			&ctrl_pdata->ulps_clamp_ctrl_off);
+	if (!rc) {
+		rc = of_property_read_u32(ctrl_pdev->dev.of_node,
+				"qcom,mmss-phyreset-ctrl-offset",
+				&ctrl_pdata->ulps_phyrst_ctrl_off);
+	}
+	if (rc && pinfo->ulps_feature_enabled) {
+		pr_err("%s: dsi ulps clamp register settings missing\n",
+				__func__);
+		return -EINVAL;
 	}
 
 	ctrl_pdata->shared_pdata.broadcast_enable = of_property_read_bool(
