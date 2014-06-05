@@ -15,6 +15,8 @@ Optional properties:
 			config defined in pin groups of interrupt and reset gpio.
 			"gpio_ts_suspend" : Disabled configuration of pins, this should specify sleep
 			config defined in pin groups of interrupt and reset gpio.
+	- name		: input device name.
+	- use-syscore	: use syscore functionality for driver.
 
 Each button (key) is represented as a sub-node of "gpio-keys":
 Subnode properties:
@@ -41,6 +43,7 @@ gpio_keys {
 		pinctrl-names = "tlmm_gpio_key_active","tlmm_gpio_key_suspend";
 		pinctrl-0 = <&gpio_key_active>;
 		pinctrl-1 = <&gpio_key_suspend>;
+		use-syscore;
 		button@21 {
 			label = "GPIO Key UP";
 			linux,code = <103>;
