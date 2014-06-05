@@ -620,6 +620,12 @@ int adreno_ringbuffer_cold_start(struct adreno_device *adreno_dev)
 	return status;
 }
 
+static int ringbuffer_readtimestamp(struct kgsl_device *device, void *priv,
+		enum kgsl_timestamp_type type, unsigned int *timestamp)
+{
+	return kgsl_readtimestamp(device, NULL, type, timestamp);
+}
+
 static int _adreno_ringbuffer_init(struct adreno_device *adreno_dev,
 				struct adreno_ringbuffer *rb, int id)
 {
@@ -628,7 +634,9 @@ static int _adreno_ringbuffer_init(struct adreno_device *adreno_dev,
 	rb->global_ts = 0;
 
 	snprintf(str, sizeof(str), "ringbuffer-%d", id);
-	kgsl_add_event_group(&rb->event, NULL, str);
+	kgsl_add_event_group(&rb->event, NULL, str, ringbuffer_readtimestamp,
+		rb);
+
 	return kgsl_allocate_global(&adreno_dev->dev, &rb->buffer_desc,
 			KGSL_RB_SIZE, KGSL_MEMFLAGS_GPUREADONLY);
 }

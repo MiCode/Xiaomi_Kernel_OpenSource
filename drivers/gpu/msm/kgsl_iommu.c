@@ -495,6 +495,8 @@ static void kgsl_iommu_clk_disable_event(struct kgsl_device *device,
 	kfree(param);
 }
 
+
+
 /*
  * kgsl_iommu_disable_clk_on_ts - Sets up event to disable IOMMU clocks
  * @mmu - The kgsl MMU pointer
@@ -1306,6 +1308,12 @@ static unsigned int kgsl_iommu_get_reg_ahbaddr(struct kgsl_mmu *mmu,
 			iommu->iommu_reg_list[reg].reg_offset;
 }
 
+static int iommu_readtimestamp(struct kgsl_device *device, void *priv,
+		enum kgsl_timestamp_type type, unsigned int *timestamp)
+{
+	return kgsl_readtimestamp(device, NULL, type, timestamp);
+}
+
 static int kgsl_iommu_init(struct kgsl_mmu *mmu)
 {
 	/*
@@ -1324,7 +1332,8 @@ static int kgsl_iommu_init(struct kgsl_mmu *mmu)
 	if (!iommu)
 		return -ENOMEM;
 
-	kgsl_add_event_group(&iommu->events, NULL, "iommu");
+	kgsl_add_event_group(&iommu->events, NULL, "iommu",
+		iommu_readtimestamp, iommu);
 
 	mmu->priv = iommu;
 	status = kgsl_get_iommu_ctxt(mmu);

@@ -210,6 +210,9 @@ struct kgsl_event {
 	int result;
 };
 
+typedef int (*readtimestamp_func)(struct kgsl_device *, void *,
+	enum kgsl_timestamp_type, unsigned int *);
+
 /**
  * struct event_group - A list of GPU events
  * @context: Pointer to the active context for the events
@@ -218,6 +221,8 @@ struct kgsl_event {
  * @group: Node for the master group list
  * @processed: Last processed timestamp
  * @name: String name for the group (for the debugfs file)
+ * @readtimestamp: Function pointer to read a timestamp
+ * @priv: Priv member to pass to the readtimestamp function
  */
 struct kgsl_event_group {
 	struct kgsl_context *context;
@@ -226,6 +231,8 @@ struct kgsl_event_group {
 	struct list_head group;
 	unsigned int processed;
 	char name[64];
+	readtimestamp_func readtimestamp;
+	void *priv;
 };
 
 long kgsl_ioctl_device_getproperty(struct kgsl_device_private *dev_priv,

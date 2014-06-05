@@ -77,7 +77,8 @@ void kgsl_process_event_group(struct kgsl_device *device,
 
 	spin_lock(&group->lock);
 
-	kgsl_readtimestamp(device, context, KGSL_TIMESTAMP_RETIRED, &timestamp);
+	group->readtimestamp(device, group->priv, KGSL_TIMESTAMP_RETIRED,
+		&timestamp);
 
 	/*
 	 * If no timestamps have been retired since the last time we were here
@@ -180,6 +181,7 @@ int kgsl_add_event(struct kgsl_device *device, struct kgsl_event_group *group,
 	unsigned int queued;
 	struct kgsl_context *context = group->context;
 	struct kgsl_event *event;
+	unsigned int retired;
 
 	if (!func)
 		return -EINVAL;
@@ -190,8 +192,9 @@ int kgsl_add_event(struct kgsl_device *device, struct kgsl_event_group *group,
 	 * queued.
 	 */
 	if (!context || !(context->flags & KGSL_CONTEXT_USER_GENERATED_TS)) {
-		kgsl_readtimestamp(device, context, KGSL_TIMESTAMP_QUEUED,
+		group->readtimestamp(device, group->priv, KGSL_TIMESTAMP_QUEUED,
 			&queued);
+
 		if (timestamp_cmp(timestamp, queued) > 0)
 			return -EINVAL;
 	}
@@ -220,7 +223,10 @@ int kgsl_add_event(struct kgsl_device *device, struct kgsl_event_group *group,
 	 * Check to see if the requested timestamp has already retired.  If so,
 	 * schedule the callback right away
 	 */
-	if (kgsl_check_timestamp(device, context, timestamp)) {
+	group->readtimestamp(device, group->priv, KGSL_TIMESTAMP_RETIRED,
+		&retired);
+
+	if (timestamp_cmp(retired, timestamp) >= 0) {
 		event->result = KGSL_EVENT_RETIRED;
 		queue_work(device->events_wq, &event->work);
 		spin_unlock(&group->lock);
@@ -274,14 +280,24 @@ EXPORT_SYMBOL(kgsl_del_event_group);
 /**
  * kgsl_add_event_group() - Add a new GPU event group
  * group: Pointer to the new group to add to the list
+ * context: Context that owns the group (or NULL for global)
+ * name: Name of the group
+ * readtimestamp: Function pointer to the readtimestamp function to call when
+ * processing events
+ * priv: Priv member to pass to the readtimestamp function
  */
 void kgsl_add_event_group(struct kgsl_event_group *group,
-		struct kgsl_context *context, const char *name)
+		struct kgsl_context *context, const char *name,
+		readtimestamp_func readtimestamp, void *priv)
 {
+	BUG_ON(readtimestamp == NULL);
+
 	spin_lock_init(&group->lock);
 	INIT_LIST_HEAD(&group->events);
 
 	group->context = context;
+	group->readtimestamp = readtimestamp;
+	group->priv = priv;
 
 	if (name)
 		strlcpy(group->name, name, sizeof(group->name));
@@ -304,7 +320,7 @@ static void events_debugfs_print_group(struct seq_file *s,
 
 	list_for_each_entry(event, &group->events, node) {
 
-		kgsl_readtimestamp(event->device, group->context,
+		group->readtimestamp(event->device, group->priv,
 			KGSL_TIMESTAMP_RETIRED, &retired);
 
 		seq_printf(s, "\t%d:%d age=%lu func=%ps [retired=%d]\n",
