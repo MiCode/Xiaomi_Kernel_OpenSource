@@ -446,6 +446,8 @@ void arch_teardown_msi_irqs(struct pci_dev *dev)
 	PCIE_DBG(pcie_dev, "RC:%d EP: vendor_id:0x%x device_id:0x%x\n",
 		pcie_dev->rc_idx, dev->vendor, dev->device);
 
+	pcie_dev->use_msi = false;
+
 	list_for_each_entry(entry, &dev->msi_list, list) {
 		int i, nvec;
 		if (entry->irq == 0)
@@ -641,6 +643,8 @@ int arch_setup_msi_irqs(struct pci_dev *dev, int nvec, int type)
 		if (ret > 0)
 			return -ENOSPC;
 	}
+
+	pcie_dev->use_msi = true;
 
 	return 0;
 }
