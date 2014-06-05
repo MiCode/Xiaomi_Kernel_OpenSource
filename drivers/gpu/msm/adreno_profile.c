@@ -146,7 +146,7 @@ static void _build_pre_ib_cmds(struct adreno_profile *profile,
 				entry->offset, data_offset);
 		IB_CMD(ibcmds, CP_REG_TO_MEM, entry->offset,
 				gpuaddr + data_offset, data_offset);
-		IB_CMD(ibcmds, CP_REG_TO_MEM, entry->offset + 1,
+		IB_CMD(ibcmds, CP_REG_TO_MEM, entry->offset_hi,
 				gpuaddr + data_offset, data_offset);
 
 		/* skip over post_ib counter data */
@@ -185,7 +185,7 @@ static void _build_post_ib_cmds(struct adreno_profile *profile,
 
 		IB_CMD(ibcmds, CP_REG_TO_MEM, entry->offset,
 				gpuaddr + data_offset, data_offset);
-		IB_CMD(ibcmds, CP_REG_TO_MEM, entry->offset + 1,
+		IB_CMD(ibcmds, CP_REG_TO_MEM, entry->offset_hi,
 				gpuaddr + data_offset, data_offset);
 	}
 
@@ -281,7 +281,7 @@ static bool _in_assignments_list(struct adreno_profile *profile,
 
 static bool _add_to_assignments_list(struct adreno_profile *profile,
 		const char *str, unsigned int groupid, unsigned int countable,
-		unsigned int offset)
+		unsigned int offset, unsigned int offset_hi)
 {
 	struct adreno_profile_assigns_list *entry;
 
@@ -295,6 +295,7 @@ static bool _add_to_assignments_list(struct adreno_profile *profile,
 	entry->countable = countable;
 	entry->groupid = groupid;
 	entry->offset = offset;
+	entry->offset_hi = offset_hi;
 
 	strlcpy(entry->name, str, sizeof(entry->name));
 
@@ -576,7 +577,7 @@ static void _add_assignment(struct adreno_device *adreno_dev,
 		unsigned int groupid, unsigned int countable)
 {
 	struct adreno_profile *profile = &adreno_dev->profile;
-	unsigned int offset;
+	unsigned int offset, offset_hi;
 	const char *name = NULL;
 
 	name = adreno_perfcounter_get_name(adreno_dev, groupid);
@@ -588,13 +589,13 @@ static void _add_assignment(struct adreno_device *adreno_dev,
 		return;
 
 	/* add to perf counter allocation, if fail skip it */
-	if (adreno_perfcounter_get(adreno_dev, groupid,
-				countable, &offset, PERFCOUNTER_FLAG_NONE))
+	if (adreno_perfcounter_get(adreno_dev, groupid, countable,
+				&offset, &offset_hi, PERFCOUNTER_FLAG_NONE))
 		return;
 
 	/* add to assignments list, put counter back if error */
 	if (!_add_to_assignments_list(profile, name, groupid,
-				countable, offset))
+				countable, offset, offset_hi))
 		adreno_perfcounter_put(adreno_dev, groupid,
 				countable, PERFCOUNTER_FLAG_KERNEL);
 }
