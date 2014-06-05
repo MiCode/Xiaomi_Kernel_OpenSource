@@ -129,7 +129,7 @@
 			qcom,vadc-poll-eoc;
 		};
 
-		qcom,qpnp-smbcharger {
+		pmi8994_charger: qcom,qpnp-smbcharger {
 			spmi-dev-container;
 			compatible = "qcom,qpnp-smbcharger";
 			#address-cells = <1>;
@@ -143,7 +143,6 @@
 			qcom,dc-psy-ma = <1500>;
 			qcom,bms-psy-name = "bms";
 			qcom,thermal-mitigation = <1500 700 600 0>;
-			qcom,charging-disabled;
 
 			qcom,chgr@1000 {
 				reg = <0x1000 0x100>;
