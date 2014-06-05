@@ -61,6 +61,7 @@ struct msm_led_flash_ctrl_t {
 	uint32_t num_sources;
 	enum msm_camera_device_type_t flash_device_type;
 	enum cci_i2c_master_t cci_i2c_master;
+        enum msm_camera_led_config_t led_state;
 	uint32_t subdev_id;
 	struct msm_pinctrl_info pinctrl_info;
 };

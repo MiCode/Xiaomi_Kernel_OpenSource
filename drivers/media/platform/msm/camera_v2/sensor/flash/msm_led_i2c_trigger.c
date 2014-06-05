@@ -139,6 +139,7 @@ int msm_flash_led_init(struct msm_led_flash_ctrl_t *fctrl)
 
 	flashdata = fctrl->flashdata;
 	power_info = &flashdata->power_info;
+        fctrl->led_state = MSM_CAMERA_LED_RELEASE;
 	if (power_info->gpio_conf->cam_gpiomux_conf_tbl != NULL) {
 		pr_err("%s:%d mux install\n", __func__, __LINE__);
 		msm_gpiomux_install(
@@ -175,7 +176,7 @@ int msm_flash_led_init(struct msm_led_flash_ctrl_t *fctrl)
 	}
 	msleep(20);
 
-	pr_err("before FL_RESET\n");
+	CDBG("before FL_RESET\n");
 	if (power_info->gpio_conf->gpio_num_info->
 			valid[SENSOR_GPIO_FL_RESET] == 1)
 		gpio_set_value_cansleep(
@@ -200,6 +201,7 @@ int msm_flash_led_init(struct msm_led_flash_ctrl_t *fctrl)
 		if (rc < 0)
 			pr_err("%s:%d failed\n", __func__, __LINE__);
 	}
+        fctrl->led_state = MSM_CAMERA_LED_INIT;
 	return rc;
 }
 
@@ -214,6 +216,11 @@ int msm_flash_led_release(struct msm_led_flash_ctrl_t *fctrl)
 	CDBG("%s:%d called\n", __func__, __LINE__);
 	if (!fctrl) {
 		pr_err("%s:%d fctrl NULL\n", __func__, __LINE__);
+		return -EINVAL;
+	}
+
+	if (fctrl->led_state != MSM_CAMERA_LED_INIT) {
+		pr_err("%s:%d invalid led state\n", __func__, __LINE__);
 		return -EINVAL;
 	}
 	gpio_set_value_cansleep(
@@ -246,6 +253,7 @@ int msm_flash_led_release(struct msm_led_flash_ctrl_t *fctrl)
 		return rc;
 	}
 
+        fctrl->led_state = MSM_CAMERA_LED_RELEASE;
 	/* CCI deInit */
 	if (fctrl->flash_device_type == MSM_CAMERA_PLATFORM_DEVICE) {
 		rc = fctrl->flash_i2c_client->i2c_func_tbl->i2c_util(
