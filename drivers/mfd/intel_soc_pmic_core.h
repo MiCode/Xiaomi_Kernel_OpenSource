@@ -87,5 +87,6 @@ void intel_pmic_install_handlers(struct intel_soc_pmic *);
 
 extern struct intel_soc_pmic crystal_cove_pmic;
 extern struct intel_soc_pmic dollar_cove_pmic;
+extern struct intel_soc_pmic dollar_cove_ti_pmic;
 
 #endif	/* __INTEL_SOC_PMIC_CORE_H__ */

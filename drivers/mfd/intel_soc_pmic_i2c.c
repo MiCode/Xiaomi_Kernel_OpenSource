@@ -113,6 +113,8 @@ static const struct i2c_device_id pmic_i2c_id[] = {
 	{ "dollar_cove", (kernel_ulong_t)&dollar_cove_pmic},
 	{ "INT33F4", (kernel_ulong_t)&dollar_cove_pmic},
 	{ "INT33F4:00", (kernel_ulong_t)&dollar_cove_pmic},
+	{ "INT33F5", (kernel_ulong_t)&dollar_cove_ti_pmic},
+	{ "INT33F5:00", (kernel_ulong_t)&dollar_cove_ti_pmic},
 	{ "INT33FD", (kernel_ulong_t)&crystal_cove_pmic},
 	{ "INT33FD:00", (kernel_ulong_t)&crystal_cove_pmic},
 	{ }
