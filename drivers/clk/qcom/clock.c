@@ -854,15 +854,11 @@ static struct clk *of_clk_src_get(struct of_phandle_args *clkspec,
 				  void *data)
 {
 	struct of_msm_provider_data *ofdata = data;
-	struct clk *c;
 	int n;
 
 	for (n = 0; n < ofdata->size; n++) {
-		if (clkspec->args[0] == ofdata->table[n].of_idx) {
-			c = ofdata->table[n].clk;
-			if (c->flags & CLKFLAG_INIT_DONE)
-				return c;
-		}
+		if (clkspec->args[0] == ofdata->table[n].of_idx)
+			return ofdata->table[n].clk;
 	}
 	return ERR_PTR(-ENOENT);
 }
