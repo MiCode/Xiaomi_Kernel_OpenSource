@@ -304,24 +304,26 @@ static int process_mem_print(struct seq_file *s, void *unused)
 
 static int process_mem_open(struct inode *inode, struct file *file)
 {
-	struct kgsl_process_private *private = inode->i_private;
+	int ret;
+	pid_t pid = (pid_t) (unsigned long) inode->i_private;
+	struct kgsl_process_private *private = NULL;
 
-	/*
-	 * Hold a reference count on the process while open
-	 * in case the process tries to die in the meantime.
-	 * If the process is already dying we cannot get a
-	 * refcount, print nothing.
-	 */
+	private = kgsl_process_private_find(pid);
 
-	if (!private || !kgsl_process_private_get(private))
+	if (!private)
 		return -ENODEV;
 
-	return single_open(file, process_mem_print, private);
+	ret = single_open(file, process_mem_print, private);
+	if (ret)
+		kgsl_process_private_put(private);
+
+	return ret;
 }
 
 static int process_mem_release(struct inode *inode, struct file *file)
 {
-	struct kgsl_process_private *private = inode->i_private;
+	struct kgsl_process_private *private =
+		((struct seq_file *)file->private_data)->private;
 
 	if (private)
 		kgsl_process_private_put(private);
@@ -372,8 +374,8 @@ kgsl_process_init_debugfs(struct kgsl_process_private *private)
 	 * So if debugfs is disabled in kernel, return as
 	 * success.
 	 */
-	dentry = debugfs_create_file("mem", 0444, private->debug_root, private,
-			    &process_mem_fops);
+	dentry = debugfs_create_file("mem", 0444, private->debug_root,
+		(void *) ((unsigned long) private->pid), &process_mem_fops);
 
 	if (IS_ERR(dentry)) {
 		ret = PTR_ERR(dentry);
