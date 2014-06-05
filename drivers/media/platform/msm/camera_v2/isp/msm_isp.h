@@ -421,6 +421,7 @@ struct msm_vfe_stats_shared_data {
 	atomic_t stats_comp_mask[MAX_NUM_STATS_COMP_MASK];
 	uint16_t stream_handle_cnt;
 	atomic_t stats_update;
+	uint32_t stats_mask;
 };
 
 struct msm_vfe_tasklet_queue_cmd {
