@@ -55,6 +55,7 @@ struct msm_actuator_func_tbl {
 			int16_t);
 	int32_t (*actuator_set_position)(struct msm_actuator_ctrl_t *,
 		struct msm_actuator_set_position_t *);
+	int32_t (*actuator_park_lens)(struct msm_actuator_ctrl_t *);
 };
 
 struct msm_actuator {
@@ -102,6 +103,8 @@ struct msm_actuator_ctrl_t {
 	enum msm_actuator_state_t actuator_state;
 	struct msm_actuator_vreg vreg_cfg;
 	uint32_t valid_position;
+	struct park_lens_data_t park_lens;
+	uint32_t max_code_size;
 };
 
 #endif
