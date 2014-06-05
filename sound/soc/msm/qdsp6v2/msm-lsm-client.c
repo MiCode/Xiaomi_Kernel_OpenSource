@@ -49,24 +49,40 @@ static void lsm_event_handler(uint32_t opcode, uint32_t token,
 	struct snd_pcm_substream *substream = prtd->substream;
 	uint16_t status = 0;
 	uint16_t payload_size = 0;
+	uint16_t index = 0;
 
 	pr_debug("%s: Opcode 0x%x\n", __func__, opcode);
 	switch (opcode) {
-	case LSM_SESSION_EVENT_DETECTION_STATUS_V2:
 	case LSM_SESSION_EVENT_DETECTION_STATUS:
 		status = (uint16_t)((uint8_t *)payload)[0];
-		payload_size = (uint16_t)((uint8_t *)payload)[1];
+		payload_size = (uint16_t)((uint8_t *)payload)[2];
+		index = 4;
 		pr_debug("%s: event detect status = %d payload size = %d\n",
 			 __func__, status , payload_size);
+	break;
+	case LSM_SESSION_EVENT_DETECTION_STATUS_V2:
+		status = (uint16_t)((uint8_t *)payload)[0];
+		payload_size = (uint16_t)((uint8_t *)payload)[1];
+		index = 2;
+		pr_debug("%s: event detect status = %d payload size = %d\n",
+			 __func__, status , payload_size);
+		break;
+	default:
+		pr_debug("%s: Unsupported Event opcode 0x%x\n", __func__,
+			 opcode);
+		break;
+	}
+	if (opcode == LSM_SESSION_EVENT_DETECTION_STATUS ||
+		opcode == LSM_SESSION_EVENT_DETECTION_STATUS_V2) {
 		spin_lock_irqsave(&prtd->event_lock, flags);
 		prtd->event_status = krealloc(prtd->event_status,
-				      sizeof(struct snd_lsm_event_status) +
-				      payload_size, GFP_ATOMIC);
+					sizeof(struct snd_lsm_event_status) +
+					payload_size, GFP_ATOMIC);
 		prtd->event_status->status = status;
 		prtd->event_status->payload_size = payload_size;
 		if (likely(prtd->event_status)) {
 			memcpy(prtd->event_status->payload,
-			       &((uint8_t *)payload)[2],
+			       &((uint8_t *)payload)[index],
 			       payload_size);
 			prtd->event_avail = 1;
 			spin_unlock_irqrestore(&prtd->event_lock, flags);
@@ -78,11 +94,6 @@ static void lsm_event_handler(uint32_t opcode, uint32_t token,
 		}
 		if (substream->timer_running)
 			snd_timer_interrupt(substream->timer, 1);
-		break;
-	default:
-		pr_debug("%s: Unsupported Event opcode 0x%x\n", __func__,
-			 opcode);
-		break;
 	}
 }
 
