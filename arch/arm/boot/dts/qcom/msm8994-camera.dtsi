@@ -224,7 +224,7 @@
 		interrupt-names = "jpeg";
 		vdd-supply = <&gdsc_jpeg>;
 		clock-names =  "core_clk", "iface_clk", "bus_clk0", "camss_top_ahb_clk", "camss_ahb_clk";
-		clocks = <&clock_mmss clk_jpeg_dma_clk_src>,
+		clocks = <&clock_mmss clk_camss_jpeg_dma_clk>,
 			<&clock_mmss clk_camss_jpeg_jpeg_ahb_clk>,
 			<&clock_mmss clk_camss_jpeg_jpeg_axi_clk>,
 			<&clock_mmss clk_camss_top_ahb_clk>,
