@@ -1234,7 +1234,12 @@ static int msm_audrx_init(struct snd_soc_pcm_runtime *rtd)
 
 	snd_soc_dapm_sync(dapm);
 
-	codec_clk = clk_get(cpu_dai->dev, "osr_clk");
+	codec_clk = clk_get(&spdev->dev, "osr_clk");
+	if (IS_ERR(codec_clk)) {
+		pr_err("%s: error clk_get %lu\n",
+			__func__, PTR_ERR(codec_clk));
+		return -EINVAL;
+	}
 
 	snd_soc_dai_set_channel_map(codec_dai, ARRAY_SIZE(tx_ch),
 				    tx_ch, ARRAY_SIZE(rx_ch), rx_ch);
