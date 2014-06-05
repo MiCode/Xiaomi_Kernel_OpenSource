@@ -153,7 +153,11 @@ struct usb_os_desc_table {
  * @get_status: Returns function status as a reply to
  *	GetStatus() request when the recipient is Interface.
  * @func_suspend: callback to be called when
- *	SetFeature(FUNCTION_SUSPEND) is reseived
+ *	SetFeature(FUNCTION_SUSPEND) is received
+ * @func_is_suspended: Tells whether the function is currently in
+ *	Function Suspend state (used in Super Speed mode only).
+ * @func_wakeup_allowed: Tells whether Function Remote Wakeup has been allowed
+ *	by the USB host (used in Super Speed mode only).
  *
  * A single USB function uses one or more interfaces, and should in most
  * cases support operation at both full and high speeds.  Each function is
@@ -220,6 +224,8 @@ struct usb_function {
 	int			(*get_status)(struct usb_function *);
 	int			(*func_suspend)(struct usb_function *,
 						u8 suspend_opt);
+	unsigned		func_is_suspended:1;
+	unsigned		func_wakeup_allowed:1;
 	/* private: */
 	/* internals */
 	struct list_head		list;
@@ -233,6 +239,9 @@ int usb_function_deactivate(struct usb_function *);
 int usb_function_activate(struct usb_function *);
 
 int usb_interface_id(struct usb_configuration *, struct usb_function *);
+int usb_func_wakeup(struct usb_function *func);
+
+int usb_get_func_interface_id(struct usb_function *func);
 
 int config_ep_by_speed(struct usb_gadget *g, struct usb_function *f,
 			struct usb_ep *_ep);
