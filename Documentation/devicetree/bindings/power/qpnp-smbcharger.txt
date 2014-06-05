@@ -46,6 +46,8 @@ Sub node required properties:
 			 - chg-inhibit:		Notifies on battery voltage
 						being too high to resume
 						charging.
+			 - chg-p2f-thr:		Triggers on transitioning from
+						precharge to fastcharge.
 			 - chg-rechg-thr:	Triggers on battery voltage
 						falling below the resume
 						threshold.
