@@ -146,6 +146,12 @@
 #define MSM_NAND_EBI2_ECC_BUF_CFG(info)     MSM_NAND_REG(info, 0x300F0)
 #define MSM_NAND_ERASED_CW_DETECT_CFG(info)	MSM_NAND_REG(info, 0x300E8)
 #define MSM_NAND_ERASED_CW_DETECT_STATUS(info)  MSM_NAND_REG(info, 0x300EC)
+#define PAGE_ALL_ERASED		7
+#define CODEWORD_ALL_ERASED	6
+#define PAGE_ERASED		5
+#define CODEWORD_ERASED		4
+#define ERASED_PAGE	((1 << PAGE_ALL_ERASED) | (1 << PAGE_ERASED))
+#define ERASED_CW	((1 << CODEWORD_ALL_ERASED) | (1 << CODEWORD_ERASED))
 
 #define MSM_NAND_CTRL(info)		    MSM_NAND_REG(info, 0x30F00)
 #define BAM_MODE_EN	0
@@ -1277,6 +1283,8 @@ static int msm_nand_validate_mtd_params(struct mtd_info *mtd, bool read,
 	}
 
 	if (ops->datbuf) {
+		if (read)
+			memset(ops->datbuf, 0xFF, ops->len);
 		args->data_dma_addr_curr = args->data_dma_addr =
 			msm_nand_dma_map(chip->dev, ops->datbuf, ops->len,
 				      (read ? DMA_FROM_DEVICE : DMA_TO_DEVICE));
@@ -1405,6 +1413,12 @@ static void msm_nand_prep_rw_cmd_desc(struct mtd_oob_ops *ops,
 			cmd++;
 			goto sub_exec_cmd;
 		}
+		msm_nand_prep_ce(cmd, MSM_NAND_ERASED_CW_DETECT_CFG(info),
+				WRITE, 0x3, 0);
+		cmd++;
+		msm_nand_prep_ce(cmd, MSM_NAND_ERASED_CW_DETECT_CFG(info),
+				WRITE, 0x2, 0);
+		cmd++;
 
 	}
 
@@ -1570,6 +1584,7 @@ static int msm_nand_read_oob(struct mtd_info *mtd, loff_t from,
 		struct {
 			uint32_t flash_status;
 			uint32_t buffer_status;
+			uint32_t erased_cw_status;
 		} result[cwperpage];
 	} *dma_buffer;
 
@@ -1593,6 +1608,7 @@ static int msm_nand_read_oob(struct mtd_info *mtd, loff_t from,
 		data.addr1 = (rw_params.page >> 16) & 0xff;
 		cmd = dma_buffer->cmd;
 		for (n = rw_params.start_sector; n < cwperpage; n++) {
+			dma_buffer->result[n].erased_cw_status = 0xeeeeee00;
 			dma_buffer->result[n].flash_status = 0xeeeeeeee;
 			dma_buffer->result[n].buffer_status = 0xeeeeeeee;
 
@@ -1604,6 +1620,13 @@ static int msm_nand_read_oob(struct mtd_info *mtd, loff_t from,
 			msm_nand_prep_ce(cmd, MSM_NAND_FLASH_STATUS(info),
 				READ, msm_virt_to_dma(chip,
 				&dma_buffer->result[n].flash_status), 0);
+			cmd++;
+
+			msm_nand_prep_ce(cmd,
+				MSM_NAND_ERASED_CW_DETECT_STATUS(info),
+				READ, msm_virt_to_dma(chip,
+				&dma_buffer->result[n].erased_cw_status),
+				0);
 			cmd++;
 
 			msm_nand_prep_ce(cmd, MSM_NAND_BUFFER_STATUS(info),
@@ -1665,6 +1688,7 @@ static int msm_nand_read_oob(struct mtd_info *mtd, loff_t from,
 				info->sps.cmd_pipe.index,
 				dma_buffer->xfer.iovec_count,
 				err, put_dev, &iovec_temp);
+
 		msm_nand_sps_get_iovec(info->sps.data_prod.handle,
 				info->sps.data_prod.index, submitted_num_desc,
 				err, put_dev, &iovec_temp);
@@ -1679,52 +1703,28 @@ static int msm_nand_read_oob(struct mtd_info *mtd, loff_t from,
 			if (dma_buffer->result[n].flash_status & (FS_OP_ERR |
 					FS_MPU_ERR)) {
 				rawerr = -EIO;
+				/*
+				 * Check if ECC error was due to an erased
+				 * codeword. If so, ignore the error.
+				 *
+				 * NOTE: There is a bug in erased page
+				 * detection hardware block when reading
+				 * only spare data. In order to work around
+				 * this issue, instead of using PAGE_ALL_ERASED
+				 * bit to check for whether a whole page is
+				 * erased or not, we use CODEWORD_ALL_ERASED
+				 * and  CODEWORD_ERASED bits together and check
+				 * each codeword that has FP_OP_ERR bit set is
+				 * an erased codeword or not.
+				 */
+				if ((dma_buffer->result[n].erased_cw_status &
+					ERASED_CW) == ERASED_CW) {
+					pr_debug("erased codeword detected - ignore ecc error\n");
+					continue;
+				}
+				pageerr = rawerr;
 				break;
 			}
-		}
-		/* Check for ECC correction on empty block */
-		if (rawerr && ops->datbuf && ops->mode != MTD_OPS_RAW) {
-			uint8_t *datbuf = ops->datbuf +
-				pages_read * mtd->writesize;
-
-			dma_sync_single_for_cpu(chip->dev,
-			rw_params.data_dma_addr_curr - mtd->writesize,
-			mtd->writesize, DMA_BIDIRECTIONAL);
-
-			for (n = 0; n < mtd->writesize; n++) {
-				/* TODO: check offset for 4bit BCHECC */
-				if ((n % 516 == 3 || n % 516 == 175)
-						&& datbuf[n] == 0x54)
-					datbuf[n] = 0xff;
-				if (datbuf[n] != 0xff) {
-					pageerr = rawerr;
-					break;
-				}
-			}
-
-			dma_sync_single_for_device(chip->dev,
-			rw_params.data_dma_addr_curr - mtd->writesize,
-			mtd->writesize, DMA_BIDIRECTIONAL);
-		}
-		if (rawerr && ops->oobbuf) {
-			dma_sync_single_for_cpu(chip->dev,
-			rw_params.oob_dma_addr_curr - (ops->ooblen -
-			rw_params.oob_len_data),
-			ops->ooblen - rw_params.oob_len_data,
-			DMA_BIDIRECTIONAL);
-
-			for (n = 0; n < ops->ooblen; n++) {
-				if (ops->oobbuf[n] != 0xff) {
-					pageerr = rawerr;
-					break;
-				}
-			}
-
-			dma_sync_single_for_device(chip->dev,
-			rw_params.oob_dma_addr_curr - (ops->ooblen -
-			rw_params.oob_len_data),
-			ops->ooblen - rw_params.oob_len_data,
-			DMA_BIDIRECTIONAL);
 		}
 		/* check for uncorrectable errors */
 		if (pageerr) {
@@ -1765,9 +1765,10 @@ static int msm_nand_read_oob(struct mtd_info *mtd, loff_t from,
 			       ops->len, ops->ooblen);
 		} else {
 			for (n = rw_params.start_sector; n < cwperpage; n++)
-				pr_debug("cw %d: flash_sts %x buffr_sts %x\n",
+				pr_debug("cw %d: flash_sts %x buffr_sts %x, erased_cw_status: %x\n",
 				n, dma_buffer->result[n].flash_status,
-				dma_buffer->result[n].buffer_status);
+				dma_buffer->result[n].buffer_status,
+				dma_buffer->result[n].erased_cw_status);
 		}
 		if (err && err != -EUCLEAN && err != -EBADMSG)
 			goto free_dma;
