@@ -244,6 +244,28 @@ static const struct file_operations fmax_rates_fops = {
 	.release	= seq_release,
 };
 
+static int orphan_list_show(struct seq_file *m, void *unused)
+{
+	struct clk *c, *safe;
+
+	list_for_each_entry_safe(c, safe, &orphan_clk_list, list)
+		seq_printf(m, "%s\n", c->dbg_name);
+
+	return 0;
+}
+
+static int orphan_list_open(struct inode *inode, struct file *file)
+{
+	return single_open(file, orphan_list_show, inode->i_private);
+}
+
+static const struct file_operations orphan_list_fops = {
+	.open		= orphan_list_open,
+	.read		= seq_read,
+	.llseek		= seq_lseek,
+	.release	= seq_release,
+};
+
 #define clock_debug_output(m, c, fmt, ...)		\
 do {							\
 	if (m)						\
@@ -564,6 +586,10 @@ static int clock_debug_init(void)
 
 	if (!debugfs_create_file("enabled_clocks", S_IRUGO, debugfs_base, NULL,
 				&enabled_clocks_fops))
+		return -ENOMEM;
+
+	if (!debugfs_create_file("orphan_list", S_IRUGO, debugfs_base, NULL,
+				&orphan_list_fops))
 		return -ENOMEM;
 
 	return 0;
