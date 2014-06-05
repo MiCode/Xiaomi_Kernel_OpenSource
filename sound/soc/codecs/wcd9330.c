@@ -7229,7 +7229,10 @@ static int tomtom_post_reset_cb(struct wcd9xxx *wcd9xxx)
 		else
 			tomtom_hs_detect(codec, tomtom->mbhc.mbhc_cfg);
 	}
-	tomtom->machine_codec_event_cb(codec, WCD9XXX_CODEC_EVENT_CODEC_UP);
+
+	if (tomtom->machine_codec_event_cb)
+		tomtom->machine_codec_event_cb(codec,
+				       WCD9XXX_CODEC_EVENT_CODEC_UP);
 
 	tomtom_cleanup_irqs(tomtom);
 	ret = tomtom_setup_irqs(tomtom);
