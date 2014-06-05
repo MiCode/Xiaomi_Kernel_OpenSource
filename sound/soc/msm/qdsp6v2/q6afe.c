@@ -59,6 +59,7 @@ struct afe_ctl {
 	int vi_tx_port;
 	uint32_t afe_sample_rates[AFE_MAX_PORTS];
 	struct aanc_data aanc_info;
+	struct mutex mem_map_lock;
 };
 
 static atomic_t afe_ports_mad_type[SLIMBUS_PORT_LAST - SLIMBUS_0_RX];
@@ -2352,13 +2353,19 @@ int afe_memory_map(phys_addr_t dma_addr_p, u32 dma_buf_sz,
 {
 	int ret = 0;
 
+	mutex_lock(&this_afe.mem_map_lock);
 	ac->mem_map_handle = 0;
 	ret = afe_cmd_memory_map(dma_addr_p, dma_buf_sz);
 	if (ret < 0) {
-		pr_err("%s: afe_cmd_memory_map failed\n", __func__);
+		pr_err("%s: afe_cmd_memory_map failed. error = %d\n",
+		       __func__, ret);
+
+		mutex_unlock(&this_afe.mem_map_lock);
 		return ret;
 	}
 	ac->mem_map_handle = this_afe.mmap_handle;
+	mutex_unlock(&this_afe.mem_map_lock);
+
 	return ret;
 }
 
@@ -4078,6 +4085,7 @@ static int __init afe_init(void)
 	this_afe.mmap_handle = 0;
 	this_afe.vi_tx_port = -1;
 	this_afe.prot_cfg.mode = MSM_SPKR_PROT_DISABLED;
+	mutex_init(&this_afe.mem_map_lock);
 	for (i = 0; i < AFE_MAX_PORTS; i++)
 		init_waitqueue_head(&this_afe.wait[i]);
 
