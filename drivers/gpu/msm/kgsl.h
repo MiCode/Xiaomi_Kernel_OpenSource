@@ -50,24 +50,7 @@
 #define KGSL_STATS_ADD(_size, _stat, _max) \
 	do { _stat += (_size); if (_stat > _max) _max = _stat; } while (0)
 
-
-#define KGSL_MEMFREE_HIST_SIZE	((int)(PAGE_SIZE * 2))
-
 #define KGSL_MAX_NUMIBS 100000
-
-struct kgsl_memfree_hist_elem {
-	unsigned int pid;
-	unsigned int gpuaddr;
-	unsigned int size;
-	unsigned int flags;
-};
-
-struct kgsl_memfree_hist {
-	void *base_hist_rb;
-	unsigned int size;
-	struct kgsl_memfree_hist_elem *wptr;
-};
-
 
 struct kgsl_device;
 struct kgsl_context;
@@ -94,9 +77,6 @@ struct kgsl_driver {
 
 	/* Mutex for protecting the device list */
 	struct mutex devlock;
-
-	struct mutex memfree_hist_mutex;
-	struct kgsl_memfree_hist memfree_hist;
 
 	struct {
 		unsigned int vmalloc;
