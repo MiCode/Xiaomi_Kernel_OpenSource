@@ -2666,7 +2666,7 @@ static bool i2c_msm_xfer_buf_is_last(struct i2c_msm_ctrl *ctrl)
 	struct i2c_msg *cur_msg = ctrl->xfer.msgs + cur_buf->msg_idx;
 
 	return i2c_msm_xfer_msg_is_last(ctrl) &&
-		((cur_buf->byte_idx + ctrl->ver.max_buf_size) > cur_msg->len);
+		((cur_buf->byte_idx + ctrl->ver.max_buf_size) >= cur_msg->len);
 }
 
 static void i2c_msm_xfer_create_cur_tag(struct i2c_msm_ctrl *ctrl,
