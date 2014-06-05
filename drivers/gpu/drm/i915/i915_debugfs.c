@@ -3065,6 +3065,20 @@ static int i915_display_info(struct seq_file *m, void *unused)
 	return 0;
 }
 
+static int i915_runtime_pm_info(struct seq_file *m, void *unused)
+{
+	struct drm_info_node *node = (struct drm_info_node *) m->private;
+	struct drm_device *drm_dev = node->minor->dev;
+	struct device *dev = drm_dev->dev;
+	struct pci_dev *pdev = to_pci_dev(dev);
+
+	seq_printf(m, "%-25s 0x%x\n", "pci state:", pdev->current_state);
+	seq_printf(m, "%-25s %d\n", "usage count:",
+					atomic_read(&dev->power.usage_count));
+
+	return 0;
+}
+
 struct pipe_crc_info {
 	const char *name;
 	struct drm_device *dev;
@@ -4931,6 +4945,7 @@ static const struct drm_info_list i915_debugfs_list[] = {
 	{"i915_energy_uJ", i915_energy_uJ, 0},
 	{"i915_pc8_status", i915_pc8_status, 0},
 	{"i915_power_domain_info", i915_power_domain_info, 0},
+	{"i915_runtime_pm_info", i915_runtime_pm_info, 0},
 	{"i915_display_info", i915_display_info, 0},
 };
 #define I915_DEBUGFS_ENTRIES ARRAY_SIZE(i915_debugfs_list)
