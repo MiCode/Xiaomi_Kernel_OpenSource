@@ -314,6 +314,24 @@ static unsigned int get_bus_node_device_data(
 			dev_warn(&pdev->dev,
 				 "Coresight support absent for bus: %d\n",
 				  node_device->node_info->id);
+	} else {
+		node_device->qos_clk.clk = of_clk_get_by_name(dev_node,
+							"bus_qos_clk");
+
+		if (IS_ERR_OR_NULL(node_device->qos_clk.clk))
+			dev_dbg(&pdev->dev,
+				"%s:Failed to get bus qos clk for mas%d",
+				__func__, node_device->node_info->id);
+
+		node_device->clk[DUAL_CTX].clk = of_clk_get_by_name(dev_node,
+							"node_clk");
+
+		if (IS_ERR_OR_NULL(node_device->clk[DUAL_CTX].clk))
+			dev_dbg(&pdev->dev,
+				"%s:Failed to get bus clk for bus%d ctx%d",
+				__func__, node_device->node_info->id,
+								DUAL_CTX);
+
 	}
 	return 0;
 }
