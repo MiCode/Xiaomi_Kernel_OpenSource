@@ -581,9 +581,9 @@ int kgsl_context_detach(struct kgsl_context *context)
 	trace_kgsl_context_detach(device, context);
 
 	/* we need to hold device mutex to detach */
-	kgsl_mutex_lock(&device->mutex, &device->mutex_owner);
+	mutex_lock(&device->mutex);
 	ret = context->device->ftbl->drawctxt_detach(context);
-	kgsl_mutex_unlock(&device->mutex, &device->mutex_owner);
+	mutex_unlock(&device->mutex);
 
 	/*
 	 * Cancel all pending events after the device-specific context is
@@ -690,9 +690,9 @@ static int kgsl_suspend_device(struct kgsl_device *device, pm_message_t state)
 
 	KGSL_PWR_WARN(device, "suspend start\n");
 
-	kgsl_mutex_lock(&device->mutex, &device->mutex_owner);
+	mutex_lock(&device->mutex);
 	status = kgsl_pwrctrl_change_state(device, KGSL_STATE_SUSPEND);
-	kgsl_mutex_unlock(&device->mutex, &device->mutex_owner);
+	mutex_unlock(&device->mutex);
 
 	KGSL_PWR_WARN(device, "suspend end\n");
 	return status;
@@ -704,7 +704,7 @@ static int kgsl_resume_device(struct kgsl_device *device)
 		return -EINVAL;
 
 	KGSL_PWR_WARN(device, "resume start\n");
-	kgsl_mutex_lock(&device->mutex, &device->mutex_owner);
+	mutex_lock(&device->mutex);
 	if (device->state == KGSL_STATE_SUSPEND) {
 		kgsl_pwrctrl_change_state(device, KGSL_STATE_SLUMBER);
 	} else if (device->state != KGSL_STATE_INIT) {
@@ -721,7 +721,7 @@ static int kgsl_resume_device(struct kgsl_device *device)
 			"resume invoked without a suspend\n");
 	}
 
-	kgsl_mutex_unlock(&device->mutex, &device->mutex_owner);
+	mutex_unlock(&device->mutex);
 	KGSL_PWR_WARN(device, "resume end\n");
 	return 0;
 }
@@ -928,7 +928,7 @@ static int kgsl_close_device(struct kgsl_device *device)
 {
 	int result = 0;
 
-	kgsl_mutex_lock(&device->mutex, &device->mutex_owner);
+	mutex_lock(&device->mutex);
 	device->open_count--;
 	if (device->open_count == 0) {
 
@@ -943,7 +943,7 @@ static int kgsl_close_device(struct kgsl_device *device)
 		result = device->ftbl->stop(device);
 		kgsl_pwrctrl_change_state(device, KGSL_STATE_INIT);
 	}
-	kgsl_mutex_unlock(&device->mutex, &device->mutex_owner);
+	mutex_unlock(&device->mutex);
 	return result;
 
 }
@@ -1032,7 +1032,7 @@ static int kgsl_open_device(struct kgsl_device *device)
 {
 	int result = 0;
 
-	kgsl_mutex_lock(&device->mutex, &device->mutex_owner);
+	mutex_lock(&device->mutex);
 	if (device->open_count == 0) {
 		/*
 		 * active_cnt special case: we are starting up for the first
@@ -1063,7 +1063,7 @@ err:
 	if (result)
 		atomic_dec(&device->active_cnt);
 
-	kgsl_mutex_unlock(&device->mutex, &device->mutex_owner);
+	mutex_unlock(&device->mutex);
 	return result;
 }
 
@@ -1413,7 +1413,7 @@ long kgsl_ioctl_device_waittimestamp_ctxtid(
 	unsigned int temp_cur_ts = 0;
 	struct kgsl_context *context;
 
-	kgsl_mutex_lock(&device->mutex, &device->mutex_owner);
+	mutex_lock(&device->mutex);
 
 	context = kgsl_context_get_owner(dev_priv, param->context_id);
 	if (context == NULL)
@@ -1434,7 +1434,7 @@ long kgsl_ioctl_device_waittimestamp_ctxtid(
 
 out:
 	kgsl_context_put(context);
-	kgsl_mutex_unlock(&device->mutex, &device->mutex_owner);
+	mutex_unlock(&device->mutex);
 
 	return result;
 }
@@ -2293,7 +2293,7 @@ long kgsl_ioctl_cmdstream_readtimestamp_ctxtid(struct kgsl_device_private
 	struct kgsl_context *context;
 	long result = -EINVAL;
 
-	kgsl_mutex_lock(&device->mutex, &device->mutex_owner);
+	mutex_lock(&device->mutex);
 	context = kgsl_context_get_owner(dev_priv, param->context_id);
 
 	if (context) {
@@ -2305,7 +2305,7 @@ long kgsl_ioctl_cmdstream_readtimestamp_ctxtid(struct kgsl_device_private
 	}
 
 	kgsl_context_put(context);
-	kgsl_mutex_unlock(&device->mutex, &device->mutex_owner);
+	mutex_unlock(&device->mutex);
 	return result;
 }
 
@@ -2383,7 +2383,7 @@ long kgsl_ioctl_drawctxt_create(struct kgsl_device_private *dev_priv,
 	struct kgsl_context *context = NULL;
 	struct kgsl_device *device = dev_priv->device;
 
-	kgsl_mutex_lock(&device->mutex, &device->mutex_owner);
+	mutex_lock(&device->mutex);
 	context = device->ftbl->drawctxt_create(dev_priv, &param->flags);
 	if (IS_ERR(context)) {
 		result = PTR_ERR(context);
@@ -2392,7 +2392,7 @@ long kgsl_ioctl_drawctxt_create(struct kgsl_device_private *dev_priv,
 	trace_kgsl_context_create(dev_priv->device, context, param->flags);
 	param->drawctxt_id = context->id;
 done:
-	kgsl_mutex_unlock(&device->mutex, &device->mutex_owner);
+	mutex_unlock(&device->mutex);
 	return result;
 }
 

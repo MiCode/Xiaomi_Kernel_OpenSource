@@ -40,7 +40,7 @@ ssize_t adreno_coresight_show_register(struct device *dev,
 	 * otherwise report 0
 	 */
 
-	kgsl_mutex_lock(&device->mutex, &device->mutex_owner);
+	mutex_lock(&device->mutex);
 	if (test_bit(ADRENO_DEVICE_CORESIGHT, &adreno_dev->priv)) {
 
 		/*
@@ -59,7 +59,7 @@ ssize_t adreno_coresight_show_register(struct device *dev,
 
 		val = cattr->reg->value;
 	}
-	kgsl_mutex_unlock(&device->mutex, &device->mutex_owner);
+	mutex_unlock(&device->mutex);
 
 	return snprintf(buf, PAGE_SIZE, "0x%X", val);
 }
@@ -85,7 +85,7 @@ ssize_t adreno_coresight_store_register(struct device *dev,
 	if (ret)
 		return ret;
 
-	kgsl_mutex_lock(&device->mutex, &device->mutex_owner);
+	mutex_lock(&device->mutex);
 
 	/* Ignore writes while coresight is off */
 	if (!test_bit(ADRENO_DEVICE_CORESIGHT, &adreno_dev->priv))
@@ -104,7 +104,7 @@ ssize_t adreno_coresight_store_register(struct device *dev,
 	}
 
 out:
-	kgsl_mutex_unlock(&device->mutex, &device->mutex_owner);
+	mutex_unlock(&device->mutex);
 	return size;
 }
 
@@ -140,7 +140,7 @@ static void adreno_coresight_disable(struct coresight_device *csdev)
 	if (coresight == NULL)
 		return;
 
-	kgsl_mutex_lock(&device->mutex, &device->mutex_owner);
+	mutex_lock(&device->mutex);
 
 	if (!kgsl_active_count_get(device)) {
 		for (i = 0; i < coresight->count; i++)
@@ -152,7 +152,7 @@ static void adreno_coresight_disable(struct coresight_device *csdev)
 
 	clear_bit(ADRENO_DEVICE_CORESIGHT, &adreno_dev->priv);
 
-	kgsl_mutex_unlock(&device->mutex, &device->mutex_owner);
+	mutex_unlock(&device->mutex);
 }
 
 static int _adreno_coresight_get(struct adreno_device *adreno_dev)
@@ -226,7 +226,7 @@ static int adreno_coresight_enable(struct coresight_device *csdev)
 	if (coresight == NULL)
 		return -ENODEV;
 
-	kgsl_mutex_lock(&device->mutex, &device->mutex_owner);
+	mutex_lock(&device->mutex);
 	if (!test_and_set_bit(ADRENO_DEVICE_CORESIGHT, &adreno_dev->priv)) {
 		int i;
 
@@ -239,7 +239,7 @@ static int adreno_coresight_enable(struct coresight_device *csdev)
 		ret = _adreno_coresight_set(adreno_dev);
 	}
 
-	kgsl_mutex_unlock(&device->mutex, &device->mutex_owner);
+	mutex_unlock(&device->mutex);
 
 	return ret;
 }
