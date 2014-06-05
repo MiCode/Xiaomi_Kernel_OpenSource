@@ -190,49 +190,58 @@ static void *cntrl_bank;
 static void gps_to_unix_time(
 	struct timespec *ts_ptr)
 {
-	u32 pulses = readl_relaxed(WC_PULSECNT_ADDR);
-	u32 clkCnt = readl_relaxed(WC_SNAPSHOT_ADDR);
-	u32 secs   = readl_relaxed(WC_SECS_ADDR);
-	u32 nsecs  = readl_relaxed(WC_NSECS_ADDR);
-	u32 leaps;
-	u32 rmndr, unused;
-	u64 q;
+	if (ts_ptr) {
+		u32 pulses = readl_relaxed(WC_PULSECNT_ADDR);
+		u32 clkCnt = readl_relaxed(WC_SNAPSHOT_ADDR);
+		u32 secs   = readl_relaxed(WC_SECS_ADDR);
+		u32 nsecs  = readl_relaxed(WC_NSECS_ADDR);
+		u32 leaps;
+		u32 rmndr, unused;
+		u64 q;
 
-	/*
-	 * NOTE:
-	 *
-	 *   There is some bit manipulation of the nano second value
-	 *   below.  This is because the nsecs register is doing duel
-	 *   duty.  It not only stores nano seconds, but also, the first
-	 *   BITS_FOR_LEAP low order bits are used to store leap seconds.
-	 *   The remaining high order bits hold a scaled (by a factor of
-	 *   16) version of nano seconds.
-	 */
-	leaps = nsecs & ((1 << BITS_FOR_LEAP) - 1);
+		/*
+		 * NOTE:
+		 *
+		 *   There is some bit manipulation of the nano second value
+		 *   below.  This is because the nsecs register is doing duel
+		 *   duty.  It not only stores nano seconds, but also, the first
+		 *   BITS_FOR_LEAP low order bits are used to store leap
+		 *   seconds.
+		 *   The remaining high order bits hold a scaled (by a factor of
+		 *   16) version of nano seconds.
+		 */
+		leaps = nsecs & ((1 << BITS_FOR_LEAP) - 1);
 
-	nsecs >>= BITS_FOR_LEAP;
-	nsecs <<= 4;
+		nsecs >>= BITS_FOR_LEAP;
+		nsecs <<= 4;
 
-	/*
-	 * Convert PP2S pulses to seconds and add that in.
-	 */
-	secs += (pulses * 2);
+		/*
+		 * Convert PP2S pulses to seconds and add that in.
+		 */
+		secs += (pulses * 2);
 
-	/*
-	 * Now convert the free running clock into seconds and nanoseconds
-	 * and add that in as well...
-	 */
-	secs += (u32) div_u64_rem((u64) clkCnt, CLK_RATE, &rmndr);
+		/*
+		 * Now convert the free running clock into seconds and
+		 * nanoseconds
+		 * and add that in as well...
+		 */
+		secs += (u32) div_u64_rem((u64) clkCnt, CLK_RATE, &rmndr);
 
-	q = div_u64_rem((u64) NSEC_PER_SEC, CLK_RATE, &unused);
+		q = div_u64_rem((u64) NSEC_PER_SEC, CLK_RATE, &unused);
 
-	nsecs += (u32) ((u64) rmndr * q);
+		nsecs += (u32) ((u64) rmndr * q);
 
-	/*
-	 * And finally, the actual conversion from GPS to unix time...
-	 */
-	ts_ptr->tv_sec  = secs + (UNIX_EPOCH_TO_GPS_EPOCH_GAP - leaps);
-	ts_ptr->tv_nsec = nsecs;
+		/*
+		 * And finally, the actual conversion from GPS to unix time...
+		 */
+		ts_ptr->tv_sec  = secs + (UNIX_EPOCH_TO_GPS_EPOCH_GAP - leaps);
+		ts_ptr->tv_nsec = nsecs;
+
+		if (ts_ptr->tv_sec < 0 || ts_ptr->tv_nsec < 0) {
+			ts_ptr->tv_sec = 0;
+			ts_ptr->tv_nsec = 0;
+		}
+	}
 }
 
 /*
@@ -536,8 +545,6 @@ static irqreturn_t pp2s_intr_top(
 	void *arbDatPtr)
 {
 	LOG_DRVR_DEBUG("Entering %s\n", __func__);
-
-	INIT_WORK(&bottom_work, pp2s_intr_bottom);
 
 	queue_work(workqueue, &bottom_work);
 
@@ -864,6 +871,8 @@ static int __init pp2s_init(void)
 			__func__);
 		return -ENOMEM;
 	}
+
+	INIT_WORK(&bottom_work, pp2s_intr_bottom);
 
 	ret = platform_driver_register(&pp2s_driver);
 
