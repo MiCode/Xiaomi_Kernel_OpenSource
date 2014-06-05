@@ -760,6 +760,18 @@ static int gc0339_init(struct v4l2_subdev *sd)
 	return 0;
 }
 
+static int power_ctrl(struct v4l2_subdev *sd, bool flag)
+{
+	struct gc0339_device *dev = to_gc0339_sensor(sd);
+	return dev->platform_data->power_ctrl(sd, flag);
+}
+
+static int gpio_ctrl(struct v4l2_subdev *sd, bool flag)
+{
+	struct gc0339_device *dev = to_gc0339_sensor(sd);
+	return dev->platform_data->gpio_ctrl(sd, flag);
+}
+
 static int power_down(struct v4l2_subdev *sd);
 
 static int power_up(struct v4l2_subdev *sd)
@@ -776,7 +788,7 @@ static int power_up(struct v4l2_subdev *sd)
 	}
 
 	/* power control */
-	ret = dev->platform_data->power_ctrl(sd, 1);
+	ret = power_ctrl(sd, 1);
 	if (ret)
 		goto fail_power;
 
@@ -786,9 +798,9 @@ static int power_up(struct v4l2_subdev *sd)
 		goto fail_clk;
 
 	/* gpio ctrl */
-	ret = dev->platform_data->gpio_ctrl(sd, 1);
+	ret = gpio_ctrl(sd, 1);
 	if (ret) {
-		ret = dev->platform_data->gpio_ctrl(sd, 1);
+		ret = gpio_ctrl(sd, 1);
 		if (ret)
 			goto fail_gpio;
 	}
@@ -799,7 +811,7 @@ static int power_up(struct v4l2_subdev *sd)
 	return 0;
 
 fail_gpio:
-	dev->platform_data->power_ctrl(sd, 0);
+	power_ctrl(sd, 0);
 fail_power:
 	dev->platform_data->flisclk_ctrl(sd, 0);
 fail_clk:
@@ -821,15 +833,15 @@ static int power_down(struct v4l2_subdev *sd)
 	}
 
 	/* gpio ctrl */
-	ret = dev->platform_data->gpio_ctrl(sd, 0);
+	ret = gpio_ctrl(sd, 0);
 	if (ret) {
-		ret = dev->platform_data->gpio_ctrl(sd, 0);
+		ret = gpio_ctrl(sd, 0);
 		if (ret)
 			dev_err(&client->dev, "gpio failed 2\n");
 	}
 
 	/* power control */
-	ret = dev->platform_data->power_ctrl(sd, 0);
+	ret = power_ctrl(sd, 0);
 	if (ret)
 		dev_err(&client->dev, "vprog failed.\n");
 
