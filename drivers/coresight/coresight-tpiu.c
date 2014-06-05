@@ -111,7 +111,7 @@ struct tpiu_drvdata {
 	bool			nidnt_spmi;
 };
 
-static int nidnt_boot_hw_detect = 1;
+static int nidnt_boot_hw_detect;
 module_param_named(nidnt_boot_hw_detect,
 	nidnt_boot_hw_detect, int, S_IRUGO | S_IWUSR | S_IWGRP);
 
