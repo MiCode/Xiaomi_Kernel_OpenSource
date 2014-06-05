@@ -742,6 +742,10 @@
 		compatible = "qcom,bcl";
 	};
 
+	qcom,memshare {
+		compatible = "qcom,memshare";
+	};
+
 	slim_msm: slim@77c0000 {
 		cell-index = <1>;
 		compatible = "qcom,slim-ngd";
