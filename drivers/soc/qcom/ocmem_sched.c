@@ -242,7 +242,7 @@ inline int ocmem_write(unsigned long val, void *at)
 inline int get_mode(int id)
 {
 	if (!check_id(id))
-		return MODE_NOT_SET;
+		return MODE_DEFAULT;
 	else
 		return ocmem_client_table[id].mode == OCMEM_PERFORMANCE ?
 							WIDE_MODE : THIN_MODE;

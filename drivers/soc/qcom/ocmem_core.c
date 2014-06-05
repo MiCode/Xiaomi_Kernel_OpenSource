@@ -622,11 +622,13 @@ static int do_lock(enum ocmem_client id, unsigned long offset,
 		u32 id;
 		u32 offset;
 		u32 size;
+		u32 mode;
 	} request;
 
 	request.id = get_tz_id(id);
 	request.offset = offset;
 	request.size = len;
+	request.mode = mode;
 
 	rc = scm_call(OCMEM_SVC_ID, OCMEM_LOCK_CMD_ID, &request,
 				sizeof(request), NULL, 0);
