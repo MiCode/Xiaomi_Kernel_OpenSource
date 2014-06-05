@@ -135,6 +135,23 @@ static struct msm_cam_clk_info cpp_clk_info[] = {
 	{"cpp_bus_clk", -1},
 	{"micro_iface_clk", -1},
 };
+
+#define msm_cpp_empty_list(queue, member) { \
+	unsigned long flags; \
+	struct msm_queue_cmd *qcmd = NULL; \
+	if (queue) { \
+		spin_lock_irqsave(&queue->lock, flags); \
+		while (!list_empty(&queue->list)) { \
+			queue->len--; \
+			qcmd = list_first_entry(&queue->list, \
+				struct msm_queue_cmd, member); \
+			list_del_init(&qcmd->member); \
+			kfree(qcmd); \
+		} \
+		spin_unlock_irqrestore(&queue->lock, flags); \
+	} \
+}
+
 static int msm_cpp_notify_frame_done(struct cpp_device *cpp_dev);
 static void cpp_load_fw(struct cpp_device *cpp_dev, char *fw_name_bin);
 static void cpp_timer_callback(unsigned long data);
@@ -923,8 +940,18 @@ static int cpp_close_node(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh)
 {
 	uint32_t i;
 	struct cpp_device *cpp_dev = v4l2_get_subdevdata(sd);
+	struct msm_device_queue *processing_q = NULL;
+	struct msm_device_queue *eventData_q = NULL;
+
+	if (!cpp_dev) {
+		pr_err("failed: cpp_dev %p\n", cpp_dev);
+		return -EINVAL;
+	}
 
 	mutex_lock(&cpp_dev->mutex);
+
+	processing_q = &cpp_dev->processing_q;
+	eventData_q = &cpp_dev->eventData_q;
 
 	if (cpp_dev->cpp_open_cnt == 0) {
 		mutex_unlock(&cpp_dev->mutex);
@@ -980,6 +1007,8 @@ static int cpp_close_node(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh)
 		cpp_deinit_mem(cpp_dev);
 		iommu_detach_device(cpp_dev->domain, cpp_dev->iommu_ctx);
 		cpp_release_hardware(cpp_dev);
+		msm_cpp_empty_list(processing_q, list_frame);
+		msm_cpp_empty_list(eventData_q, list_eventdata);
 		cpp_dev->state = CPP_STATE_OFF;
 	}
 
@@ -1009,7 +1038,7 @@ static int msm_cpp_notify_frame_done(struct cpp_device *cpp_dev)
 	struct v4l2_event v4l2_evt;
 	struct msm_queue_cmd *frame_qcmd = NULL;
 	struct msm_queue_cmd *event_qcmd = NULL;
-	struct msm_cpp_frame_info_t *processed_frame;
+	struct msm_cpp_frame_info_t *processed_frame = NULL;
 	struct msm_device_queue *queue = &cpp_dev->processing_q;
 	struct msm_buf_mngr_info buff_mgr_info;
 	int rc = 0;
@@ -1689,6 +1718,7 @@ long msm_cpp_subdev_ioctl(struct v4l2_subdev *sd,
 		mutex_unlock(&cpp_dev->mutex);
 		while (cpp_dev->cpp_open_cnt != 0)
 			cpp_close_node(sd, NULL);
+		mutex_lock(&cpp_dev->mutex);
 		rc = 0;
 		break;
 	}
