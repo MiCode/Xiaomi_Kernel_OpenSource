@@ -280,6 +280,11 @@ Optional properties:
 				total numbers of MMBs per pipe while values, if
 				any, following first one denotes indexes of MMBs
 				to that RGB pipe.
+- qcom,mdss-pipe-vig-fixed-mmb: Array of indexes describing fixed Memory Macro
+				Blocks (MMBs) for vig pipes. First value denotes
+				total numbers of MMBs per pipe while values, if
+				any, following first one denotes indexes of MMBs
+				to that VIG pipe.
 - qcom,mdss-pipe-sw-reset-off: Property to indicate offset to the register which
 			       holds sw_reset bitmap for different MDSS
 			       components.
@@ -468,6 +473,10 @@ Example:
 						<2 2 3>,
 						<2 4 5>,
 						<2 6 7>;
+		qcom,mdss-pipe-vig-fixed-mmb =	<1 8>,
+						<1 9>,
+						<1 10>,
+						<1 11>;
 		qcom,mdss-smp-data = <22 4096>;
 		qcom,mdss-rot-block-size = <64>;
 		qcom,mdss-rotator-ot-limit = <2>;
