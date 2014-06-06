@@ -28,6 +28,9 @@
 #include <linux/sched.h>
 #include <linux/init.h>
 #include <linux/cache.h>
+#include <linux/platform_data/qcom_crypto_device.h>
+#include <linux/msm-bus.h>
+#include <linux/qcrypto.h>
 #include <soc/qcom/scm.h>
 
 #include <crypto/ctr.h>
@@ -42,11 +45,7 @@
 #include <crypto/internal/hash.h>
 #include <crypto/internal/aead.h>
 
-#include <linux/platform_data/qcom_crypto_device.h>
-#include <linux/msm-bus.h>
-#include <mach/qcrypto.h>
 #include "qce.h"
-
 
 #define DEBUG_MAX_FNAME  16
 #define DEBUG_MAX_RW_BUF 2048
