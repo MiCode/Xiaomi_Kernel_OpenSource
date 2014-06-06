@@ -236,8 +236,8 @@
 		qcom,saw2-pmic-data0 = <0x04030011>;
 		qcom,saw2-pmic-data1 = <0x00030010>;
                 qcom,saw2-spm-cmd-ret = [00 03 00 0f];
-                qcom,saw2-spm-cmd-pc = [00 60 10 20 30 50 11 03 70 01 50
-                                28 1f 30 0b 10 02 62 72 0f];
+                qcom,saw2-spm-cmd-pc = [00 60 50 11 03 70 01 50
+                                02 62 72 0f];
 	};
 
 	qcom,lpm-levels {
