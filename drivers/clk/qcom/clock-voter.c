@@ -10,11 +10,14 @@
  * GNU General Public License for more details.
  */
 
+#define pr_fmt(fmt) "%s: " fmt, __func__
+
 #include <linux/err.h>
 #include <linux/mutex.h>
 #include <linux/clk.h>
 #include <linux/clk/msm-clk-provider.h>
 #include <soc/qcom/clock-voter.h>
+#include <soc/qcom/msm-clock-controller.h>
 
 static DEFINE_MUTEX(voter_clk_lock);
 
@@ -173,3 +176,27 @@ struct clk_ops clk_ops_voter = {
 	.is_local = voter_clk_is_local,
 	.handoff = voter_clk_handoff,
 };
+
+static void *sw_vote_clk_dt_parser(struct device *dev,
+					struct device_node *np)
+{
+	struct clk_voter *v;
+	int rc;
+	u32 temp;
+
+	v = devm_kzalloc(dev, sizeof(*v), GFP_KERNEL);
+	if (!v) {
+		dt_err(np, "failed to alloc memory\n");
+		return ERR_PTR(-ENOMEM);
+	}
+
+	rc = of_property_read_u32(np, "qcom,config-rate", &temp);
+	if (rc) {
+		dt_prop_err(np, "qcom,config-rate", "is missing");
+		return ERR_PTR(rc);
+	}
+
+	v->c.ops = &clk_ops_voter;
+	return msmclk_generic_clk_init(dev, np, &v->c);
+}
+MSMCLK_PARSER(sw_vote_clk_dt_parser, "qcom,sw-vote-clk", 0);

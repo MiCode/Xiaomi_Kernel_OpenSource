@@ -535,3 +535,25 @@ Optional Properties:
 	qcom,xo-div4-cbcr = <GCC_GCC_XO_DIV4_CBCR>;
 	qcom,test-pad-cfg = <0x51A00>;
 };
+
+*****************************************************************************
+
+"qcom,sw-vote-clk"
+
+This clock, like RPM clocks, is a logical rather than physical entity. When several
+drivers are clients of a clock which is able to change rate, avoiding a "last vote
+wins" scenario is desirable. Several voter clocks are created with the original clock
+as their parent, one per client driver. When one client requests to change rate, the
+rates of all the "sibling" voter clocks are examined and the maximum rate is passed
+on to the parent clock.
+
+Required Properties:
+- compatible: 		Must be "qcom,sw-vote-clk".
+- qcom,parent:		Phandle reference to the clock which the rate requests are for.
+- qcom,config-rate:	Initial rate setting.
+
+snoc_msmbus_clk: snoc_msmbus_clk {
+	compatible = "qcom,sw-vote-clk";
+	qcom,parent = <&snoc_clk>;
+	qcom,config-rate = <100000000>;
+};
