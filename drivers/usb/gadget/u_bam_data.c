@@ -1551,10 +1551,34 @@ static void bam2bam_data_resume_work(struct work_struct *w)
 {
 	struct bam_data_port *port =
 			container_of(w, struct bam_data_port, resume_w);
-	struct bam_data_ch_info *d = &port->data_ch;
-	struct data_port *d_port = port->port_usb;
-	struct usb_gadget *gadget = d_port->cdev->gadget;
+	struct bam_data_ch_info *d;
+	struct data_port *d_port;
+	struct usb_gadget *gadget;
 	int ret;
+
+	if (!port) {
+		pr_err("port is NULL");
+		return;
+	}
+
+	if (!port->port_usb) {
+		pr_err("port->port_usb is NULL");
+		return;
+	}
+
+	if (!port->port_usb->cdev) {
+		pr_err("!port->port_usb->cdev is NULL");
+		return;
+	}
+
+	if (!port->port_usb->cdev->gadget) {
+		pr_err("!port->port_usb->cdev->gadget is NULL");
+		return;
+	}
+
+	d = &port->data_ch;
+	d_port = port->port_usb;
+	gadget = d_port->cdev->gadget;
 
 	pr_debug("%s: resume work started\n", __func__);
 
