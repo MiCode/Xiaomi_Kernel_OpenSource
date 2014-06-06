@@ -38,8 +38,8 @@
 #define FSM9900_QDSP6_0_DEBUG_DUMP_PHYS	0x25200000
 #define FSM9900_QDSP6_1_DEBUG_DUMP_PHYS	0x25280000
 #define FSM9900_QDSP6_2_DEBUG_DUMP_PHYS	0x25300000
-#define FSM9900_QDSP6_3_DEBUG_DUMP_PHYS	0x25380000
 #define FSM9900_SCLTE_DEBUG_DUMP_PHYS	0x25180000
+#define FSM9900_SCLTE_DEBUG_TRACE_PHYS	0x1f100000
 
 #define FSM9900_UIO_VERSION "1.0"
 
@@ -71,20 +71,20 @@ static struct resource fsm9900_uio_resources[] = {
 	},
 	{
 		.start = FSM9900_QDSP6_2_DEBUG_DUMP_PHYS,
-		.end   = FSM9900_QDSP6_2_DEBUG_DUMP_PHYS + SZ_512K - 1,
+		.end   = FSM9900_QDSP6_2_DEBUG_DUMP_PHYS + SZ_1M - 1,
 		.name  = "qdsp6_2_debug_dump",
-		.flags = IORESOURCE_MEM,
-	},
-	{
-		.start = FSM9900_QDSP6_3_DEBUG_DUMP_PHYS,
-		.end   = FSM9900_QDSP6_3_DEBUG_DUMP_PHYS + SZ_512K - 1,
-		.name  = "qdsp6_3_debug_dump",
 		.flags = IORESOURCE_MEM,
 	},
 	{
 		.start = FSM9900_SCLTE_DEBUG_DUMP_PHYS,
 		.end   = FSM9900_SCLTE_DEBUG_DUMP_PHYS + SZ_512K - 1,
 		.name  = "sclte_debug_dump",
+		.flags = IORESOURCE_MEM,
+	},
+	{
+		.start = FSM9900_SCLTE_DEBUG_TRACE_PHYS,
+		.end   = FSM9900_SCLTE_DEBUG_TRACE_PHYS + SZ_512K - 1,
+		.name  = "sclte_debug_trace",
 		.flags = IORESOURCE_MEM,
 	},
 };
