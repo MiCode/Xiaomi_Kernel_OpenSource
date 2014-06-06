@@ -113,7 +113,6 @@
 
 	qcom,vfe@fda10000 {
 		cell-index = <0>;
-		status = "disabled";
 		compatible = "qcom,vfe46";
 		reg = <0xfda10000 0x1000>,
 			<0xfda40000 0x200>;
@@ -126,18 +125,17 @@
 			<&clock_mmss clk_vfe0_clk_src>,
 			<&clock_mmss clk_camss_vfe_vfe0_clk>,
 			<&clock_mmss clk_camss_csi_vfe0_clk>,
-			<&clock_mmss clk_camss_vfe_vfe0_clk>,
+			<&clock_mmss clk_camss_vfe_vfe_ahb_clk>,
 			<&clock_mmss clk_camss_vfe_vfe_axi_clk>;
 		clock-names = "camss_top_ahb_clk" , "camss_ahb_clk",
 			"vfe_clk_src", "camss_vfe_vfe_clk", "camss_csi_vfe_clk",
 			"iface_clk", "bus_clk";
-		clock-rates = <0 0 266670000 0 0 0 0>;
+		qcom,clock-rates = <0 0 320000000 0 0 0 0>;
 
 	};
 
 	qcom,vfe@fda14000 {
 		cell-index = <1>;
-		status = "disabled";
 		compatible = "qcom,vfe46";
 		reg = <0xfda14000 0x1000>,
 			<0xfda40000 0x200>;
@@ -150,12 +148,12 @@
 			<&clock_mmss clk_vfe1_clk_src>,
 			<&clock_mmss clk_camss_vfe_vfe1_clk>,
 			<&clock_mmss clk_camss_csi_vfe1_clk>,
-			<&clock_mmss clk_camss_vfe_vfe1_clk>,
+			<&clock_mmss clk_camss_vfe_vfe_ahb_clk>,
 			<&clock_mmss clk_camss_vfe_vfe_axi_clk>;
 		clock-names = "camss_top_ahb_clk" , "camss_ahb_clk",
 			"vfe_clk_src", "camss_vfe_vfe_clk", "camss_csi_vfe_clk",
 			"iface_clk", "bus_clk";
-		clock-rates = <0 0 266670000 0 0 0 0>;
+		qcom,clock-rates = <0 0 320000000 0 0 0 0>;
 	};
 
 
