@@ -1241,21 +1241,32 @@ int msm_pcie_enable(struct msm_pcie_dev_t *dev, u32 options)
 
 	PCIE_DBG(dev, "%s", "check if link is up\n");
 
-	/* Wait for up to 100ms for the link to come up */
-	do {
-		usleep_range(LINK_UP_TIMEOUT_US_MIN, LINK_UP_TIMEOUT_US_MAX);
-		val =  readl_relaxed(dev->elbi + PCIE20_ELBI_SYS_STTS);
-	} while ((!(val & XMLH_LINK_UP) ||
-		!msm_pcie_confirm_linkup(dev, false, false))
-		&& (link_check_count++ < LINK_UP_CHECK_MAX_COUNT));
-
-	if ((val & XMLH_LINK_UP) &&
-		msm_pcie_confirm_linkup(dev, false, false))
-		PCIE_DBG(dev, "Link is up after %d checkings\n",
-			link_check_count);
-	else
-		PCIE_DBG(dev, "Initial link training failed for RC%d\n",
+	if (dev->rc_idx == 1) {
+		PCIE_DBG(dev, "optimized link training for RC%d\n",
 			dev->rc_idx);
+		/* Wait for up to 100ms for the link to come up */
+		do {
+			usleep_range(LINK_UP_TIMEOUT_US_MIN,
+					LINK_UP_TIMEOUT_US_MAX);
+			val =  readl_relaxed(dev->elbi + PCIE20_ELBI_SYS_STTS);
+		} while ((!(val & XMLH_LINK_UP) ||
+			!msm_pcie_confirm_linkup(dev, false, false))
+			&& (link_check_count++ < LINK_UP_CHECK_MAX_COUNT));
+
+		if ((val & XMLH_LINK_UP) &&
+			msm_pcie_confirm_linkup(dev, false, false))
+			PCIE_DBG(dev, "Link is up after %d checkings\n",
+				link_check_count);
+		else
+			PCIE_DBG(dev, "Initial link training failed for RC%d\n",
+				dev->rc_idx);
+	} else {
+		PCIE_DBG(dev, "non-optimized link training for RC%d\n",
+			dev->rc_idx);
+		usleep_range(LINK_RETRY_TIMEOUT_US_MIN * 5 ,
+			LINK_RETRY_TIMEOUT_US_MAX * 5);
+		val =  readl_relaxed(dev->elbi + PCIE20_ELBI_SYS_STTS);
+	}
 
 	retries = 0;
 
