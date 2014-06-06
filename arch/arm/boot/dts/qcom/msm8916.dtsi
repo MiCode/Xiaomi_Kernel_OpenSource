@@ -1604,7 +1604,7 @@
 		      <0x0194f000 0x010>,
 		      <0x01950000 0x008>,
 		      <0x01951000 0x008>;
-		reg-names = "qdsp6_base", "rmb_base", "restart_reg",
+		reg-names = "qdsp6_base", "rmb_base", "restart_reg_sec",
 				"halt_q6", "halt_modem", "halt_nc";
 
 		interrupts = <0 24 1>;
