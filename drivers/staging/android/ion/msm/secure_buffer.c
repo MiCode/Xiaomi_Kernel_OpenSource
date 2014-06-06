@@ -145,6 +145,13 @@ static int secure_buffer_change_table(struct sg_table *table,
 		 */
 		unsigned long base = (unsigned long)sg_dma_address(sg);
 
+		if (!size || (size % V2_CHUNK_SIZE)) {
+			WARN(1,
+				"%s: chunk %d has invalid size: 0x%x. Must be a multiple of 0x%x\n",
+				__func__, i, size, V2_CHUNK_SIZE);
+			return -EINVAL;
+		}
+
 		nchunks = size / V2_CHUNK_SIZE;
 		chunk_list_len = sizeof(unsigned long)*nchunks;
 
