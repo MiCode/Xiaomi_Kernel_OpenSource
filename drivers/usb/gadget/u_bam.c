@@ -255,7 +255,7 @@ static struct sk_buff *gbam_alloc_skb_from_pool(struct gbam_port *port)
 
 		skb_reserve(skb, BAM_MUX_HDR);
 
-		dev = port_to_rmnet(port->gr);
+		dev = port_to_rmnet(port->port_usb);
 		if ((d->trans == USB_GADGET_XPORT_BAM2BAM_IPA) &&
 			dev && dev->cdev && dev->cdev->gadget) {
 
@@ -317,7 +317,7 @@ static void gbam_free_rx_skb_idle_list(struct gbam_port *port)
 		return;
 	d = &port->data_ch;
 
-	dev = port_to_rmnet(port->gr);
+	dev = port_to_rmnet(port->port_usb);
 	if (dev && dev->cdev && dev->cdev->gadget)
 		gadget = dev->cdev->gadget;
 
