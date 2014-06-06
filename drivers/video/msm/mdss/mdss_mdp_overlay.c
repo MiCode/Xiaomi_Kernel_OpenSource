@@ -77,6 +77,49 @@ static inline u32 left_lm_w_from_mfd(struct msm_fb_data_type *mfd)
 	return (ctl && ctl->mixer_left) ? ctl->mixer_left->width : 0;
 }
 
+/**
+ * __is_more_decimation_doable() -
+ * @pipe: pointer to pipe data structure
+ *
+ * if per pipe BW exceeds the limit and user
+ * has not requested decimation then return
+ * -E2BIG error back to user else try more
+ * decimation based on following table config.
+ *
+ * ----------------------------------------------------------
+ * error | split mode | src_split | v_deci |     action     |
+ * ------|------------|-----------|--------|----------------|
+ *       |            |           |   00   | return error   |
+ *       |            |  enabled  |--------|----------------|
+ *       |            |           |   >1   | more decmation |
+ *       |     yes    |-----------|--------|----------------|
+ *       |            |           |   00   | return error   |
+ *       |            | disabled  |--------|----------------|
+ *       |            |           |   >1   | return error   |
+ * E2BIG |------------|-----------|--------|----------------|
+ *       |            |           |   00   | return error   |
+ *       |            |  enabled  |--------|----------------|
+ *       |            |           |   >1   | more decmation |
+ *       |     no     |-----------|--------|----------------|
+ *       |            |           |   00   | return error   |
+ *       |            | disabled  |--------|----------------|
+ *       |            |           |   >1   | more decmation |
+ * ----------------------------------------------------------
+ */
+static inline bool __is_more_decimation_doable(struct mdss_mdp_pipe *pipe)
+{
+	struct mdss_data_type *mdata = pipe->mixer_left->ctl->mdata;
+	struct msm_fb_data_type *mfd = pipe->mixer_left->ctl->mfd;
+
+	if (!mfd->split_mode && !pipe->vert_deci)
+		return false;
+	else if (mfd->split_mode && (!mdata->has_src_split ||
+	   (mdata->has_src_split && !pipe->vert_deci)))
+		return false;
+	else
+		return true;
+}
+
 static int mdss_mdp_overlay_sd_ctrl(struct msm_fb_data_type *mfd,
 					unsigned int enable)
 {
@@ -374,13 +417,8 @@ static int __mdp_pipe_tune_perf(struct mdss_mdp_pipe *pipe)
 			rc = mdss_mdp_perf_bw_check_pipe(&perf, pipe);
 			if (!rc) {
 				break;
-			} else if ((rc == -E2BIG) && !pipe->vert_deci) {
-				/*
-				 * if per pipe BW exceeds the limit and user
-				 * has not requested decimation then return
-				 * -E2BIG error back to user else try more
-				 * decimation.
-				 */
+			} else if (rc == -E2BIG &&
+				   !__is_more_decimation_doable(pipe)) {
 				pr_debug("pipe%d exceeded per pipe BW\n",
 					pipe->num);
 				return rc;
