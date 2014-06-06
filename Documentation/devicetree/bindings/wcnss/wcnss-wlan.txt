@@ -27,6 +27,15 @@ Optional properties:
 should be performed during boot up.
 - qcom,wlan-rx-buff-count: WLAN RX buffer count is a configurable value,
 using a smaller count for this buffer will reduce the memory usage.
+- qcom,wcnss-pm : <Core rail LDO#, PA rail LDO#, XO settling time,
+                   RPM power collapse enabled, standalone power collapse enabled>
+        Power manager related parameter for LDO configuration.
+        11     -  WCN CORE rail LDO number
+        21     -  WCN PA rail LDO number
+        1200   -  WCN XO settling time (usec)
+        1      -  WCN RPM power collapse enabled
+        1      -  WCN standalone power collapse enabled
+
 
 Example:
 
@@ -51,4 +60,5 @@ Example:
         qcom,has-48mhz-xo;
         qcom,has-pronto-hw;
         qcom,wcnss-adc_tm = <&pm8226_adc_tm>;
+	qcom,wcnss-pm = <11 21 1200 1 1>;
     };
