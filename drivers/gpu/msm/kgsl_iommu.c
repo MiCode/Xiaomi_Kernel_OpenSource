@@ -999,6 +999,7 @@ static int kgsl_iommu_init_sync_lock(struct kgsl_mmu *mmu)
 	}
 
 	/* Add the entry to the global PT list */
+	iommu->sync_lock_desc.priv |= KGSL_MEMDESC_PRIVATE;
 	status = kgsl_add_global_pt_entry(mmu->device, &iommu->sync_lock_desc);
 	if (status) {
 		kgsl_sg_free(iommu->sync_lock_desc.sg,
@@ -1189,6 +1190,7 @@ static int kgsl_set_register_map(struct kgsl_mmu *mmu)
 			ret = -EINVAL;
 			goto err;
 		}
+		/* this mapping is only for use during pagetable switch */
 		iommu_unit->reg_map.hostptr = ioremap(data.physstart,
 					data.physend - data.physstart + 1);
 		if (!iommu_unit->reg_map.hostptr) {
@@ -1206,9 +1208,22 @@ static int kgsl_set_register_map(struct kgsl_mmu *mmu)
 		if (ret)
 			goto err;
 
-		/* Add the register map to the global PT list */
-		kgsl_add_global_pt_entry(mmu->device, &iommu_unit->reg_map);
+		if (msm_soc_version_supports_iommu_v0()) {
+			/*
+			* Add the register map to the global PT list so that it
+			* gets a GPU virtual address. This is needed for v0
+			* only, on later hardware the registers are in the
+			* RBBM adress space.
+			*/
+			iommu_unit->reg_map.priv |= KGSL_MEMDESC_PRIVATE;
+			kgsl_add_global_pt_entry(mmu->device,
+					&iommu_unit->reg_map);
 
+		}
+
+		/* For v0, iommu_halt_enable is read from devtree
+		 * elsewhere, but force it on for v1 and later hardware.
+		 */
 		if (!msm_soc_version_supports_iommu_v0())
 			iommu_unit->iommu_halt_enable = 1;
 
@@ -1865,7 +1880,6 @@ static int kgsl_iommu_close(struct kgsl_mmu *mmu)
 		if (reg_map->hostptr)
 			iounmap(reg_map->hostptr);
 		kgsl_free(reg_map->sg);
-		reg_map->priv &= ~KGSL_MEMDESC_GLOBAL;
 	}
 	/* clear IOMMU GPU CPU sync structures */
 

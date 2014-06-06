@@ -107,8 +107,21 @@ static void kgsl_unmap_global_pt_entries(struct kgsl_pagetable *pagetable)
 	int i;
 
 	for (i = 0; i < KGSL_MAX_GLOBAL_PT_ENTRIES; i++) {
-		if (kgsl_global_pt_entries.entries[i])
-			kgsl_mmu_unmap(pagetable,
+		struct kgsl_memdesc *entry = kgsl_global_pt_entries.entries[i];
+		/* entry was removed */
+		if (entry == NULL)
+			continue;
+
+		/*
+		 * Private entries are only in the private pagetable,
+		 * but they are in the global list so that they have a unique
+		 * address.
+		 */
+		if ((entry->priv & KGSL_MEMDESC_PRIVATE) &&
+			(pagetable->name != KGSL_MMU_PRIV_PT))
+			continue;
+
+		kgsl_mmu_unmap(pagetable,
 				kgsl_global_pt_entries.entries[i]);
 	}
 }
@@ -126,12 +139,24 @@ static int kgsl_map_global_pt_entries(struct kgsl_pagetable *pagetable)
 	int i, ret = 0;
 
 	for (i = 0; !ret && i < KGSL_MAX_GLOBAL_PT_ENTRIES; i++) {
-		if (kgsl_global_pt_entries.entries[i]) {
-			ret = kgsl_mmu_map(pagetable,
-				kgsl_global_pt_entries.entries[i]);
-			if (ret)
-				break;
-		}
+		struct kgsl_memdesc *entry = kgsl_global_pt_entries.entries[i];
+		/* entry was removed */
+		if (entry == NULL)
+			continue;
+
+		/*
+		 * Private entries are only in the private pagetable,
+		 * but they are in the global list so that they have a unique
+		 * address.
+		 */
+		if ((entry->priv & KGSL_MEMDESC_PRIVATE) &&
+			(pagetable->name != KGSL_MMU_PRIV_PT))
+			continue;
+
+		ret = kgsl_mmu_map(pagetable, entry);
+		if (ret)
+			break;
+
 	}
 
 	if (ret)
@@ -152,11 +177,14 @@ void kgsl_remove_global_pt_entry(struct kgsl_memdesc *memdesc)
 {
 	int i, j;
 
-	if (!(memdesc->priv & KGSL_MEMDESC_GLOBAL))
+	if (memdesc->gpuaddr == 0)
 		return;
 
 	for (i = 0; i < kgsl_global_pt_entries.count; i++) {
 		if (kgsl_global_pt_entries.entries[i] == memdesc) {
+			memdesc->gpuaddr = 0;
+			memdesc->priv &= ~(KGSL_MEMDESC_GLOBAL |
+						KGSL_MEMDESC_PRIVATE);
 			for (j = i; j < kgsl_global_pt_entries.count; j++)
 				kgsl_global_pt_entries.entries[j] =
 				kgsl_global_pt_entries.entries[j + 1];
@@ -183,7 +211,8 @@ int kgsl_add_global_pt_entry(struct kgsl_device *device,
 	unsigned int gaddr = KGSL_MMU_GLOBAL_MEM_BASE;
 	unsigned int size = ALIGN(memdesc->size, PAGE_SIZE);
 
-	if (memdesc->priv & KGSL_MEMDESC_GLOBAL)
+	/* do we already have a mapping? */
+	if (memdesc->gpuaddr != 0)
 		return 0;
 
 	if (kgsl_global_pt_entries.count == KGSL_MAX_GLOBAL_PT_ENTRIES)
@@ -209,13 +238,12 @@ int kgsl_add_global_pt_entry(struct kgsl_device *device,
 				KGSL_GLOBAL_PT_SIZE))
 		return -ENOMEM;
 
-	memdesc->priv |= KGSL_MEMDESC_GLOBAL;
-
 	if (kgsl_mmu_type == KGSL_MMU_TYPE_NONE)
 		memdesc->gpuaddr = memdesc->physaddr;
 	else
 		memdesc->gpuaddr = gaddr;
 
+	memdesc->priv |= KGSL_MEMDESC_GLOBAL;
 	/*
 	 * Move the entries from index till the last entry 1 slot right leaving
 	 * the slot at index empty for the newcomer
