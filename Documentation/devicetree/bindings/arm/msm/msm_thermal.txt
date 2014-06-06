@@ -88,6 +88,18 @@ Optional properties
 - <consumer_supply_name>-supply = <&phandle_of_regulator>: consumer_supply_name
 			is the name that's defined in thermal driver.
 			phandle_of_regulator is defined by reuglator device tree.
+- qcom,default-temp:    Default cpu temperature limit for SoC. It is an optional
+			property. Not defining this property requires a full truth
+			table for qcom,efuse temperature map and valid efuse info for
+			qcom,efuse-data otherwise feature will be disabled.
+- qcom,efuse-data:      Efuse data for getting device parts info for cpu temperature
+			limit recommendation for SoC. It expects below data in order to
+			read target parts, efuse address, efuse size, row number to be
+			read, starting bit number of the row for identifying device parts
+			and number of bits to read from start bit as bit mask.
+- qcom,efuse-temperature-map: Truth table of efuse value temperature value pair for
+			different parts. if qcom,default temp is defined, then it can
+			specify only pairs which deviate from default temperature.
 
 Optional child nodes
 - qti,pmic-opt-curr-temp: Threshold temperature for requesting optimum current (request
@@ -147,6 +159,9 @@ Example:
 		qti,pmic-opt-curr-temp-hysteresis = <10>;
 		qti,pmic-opt-curr-regs = "vdd-dig";
 		vdd-dig-supply=<&pm8841_s2_floor_corner>
+		qcom,default-temp = <80>;
+		qcom,efuse-data = <0xfc4b8000 0x1000 23 30 0x3>;
+		qcom,efuse-temperature-map = <0x0 80>, <0x1 70>, <0x2 80>, <0x3 80>;
 
 		qcom,vdd-dig-rstr{
 			qcom,vdd-rstr-reg = "vdd-dig";
