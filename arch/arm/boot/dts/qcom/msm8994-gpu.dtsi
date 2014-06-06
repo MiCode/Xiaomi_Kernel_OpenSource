@@ -33,7 +33,7 @@
 		 */
 		qcom,clk-map = <0x00000006>;
 
-		clocks = <&clock_rpm clk_oxili_gfx3d_clk_src>,
+		clocks = <&clock_mmss clk_oxili_gfx3d_clk>,
 			<&clock_mmss clk_oxilicx_ahb_clk>;
 		clock-names = "core_clk", "iface_clk";
 
