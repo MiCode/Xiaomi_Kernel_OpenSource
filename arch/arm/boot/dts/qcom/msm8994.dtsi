@@ -1214,8 +1214,8 @@
 			 <&clock_gcc clk_gpll0_out_msscc>;
 		clock-names = "xo", "iface_clk", "bus_clk", "mem_clk",
 			      "gpll0_mss_clk";
-		proxy-clock-names = "xo";
-		active-clock-names = "iface_clk", "bus_clk", "mem_clk",
+		qcom,proxy-clock-names = "xo";
+		qcom,active-clock-names = "iface_clk", "bus_clk", "mem_clk",
 				     "gpll0_mss_clk";
 
 		interrupts = <0 24 1>;

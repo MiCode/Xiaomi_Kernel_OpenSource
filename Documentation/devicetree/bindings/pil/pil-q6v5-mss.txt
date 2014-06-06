@@ -31,6 +31,13 @@ Optional properties:
 - qcom,vdd_pll:       Voltage to be set for the PLL's rail.
 - reg-names:          "cxrail_bhs_reg" - control register for modem power
 		      domain.
+- clocks:	      Array of <clock_controller_phandle clock_reference> listing
+		      all the clocks that are accesed by this subsystem.
+- qcom,proxy-clock-names:  Names of the clocks that need to be turned on/off during
+			   proxy voting/unvoting.
+- qcom,active-clock-names: Names of the clocks that need to be turned on for the
+			   subsystem to run. Turned off when the subsystem is shutdown.
+- clock-names:		   Names of all the clocks that are accessed by the subsystem.
 - qcom,is-not-loadable: Boolean- Present if the image does not need to
 			be loaded.
 - qcom,pil-self-auth: Boolean- True if authentication is required.
@@ -59,6 +66,14 @@ Example:
 		vdd_cx-supply = <&pm8841_s2>;
 		vdd_mx-supply = <&pm8841_s1>;
 		vdd_mx-uV = <105000>;
+
+		clocks = <&clock_rpm clk_xo_pil_mss_clk>,
+			 <&clock_gcc clk_gcc_mss_cfg_ahb_clk>,
+			 <&clock_gcc clk_gcc_mss_q6_bimc_axi_clk>,
+			 <&clock_gcc clk_gcc_boot_rom_ahb_clk>;
+		clock-names = "xo", "iface_clk", "bus_clk", "mem_clk";
+		qcom,proxy-clock-names = "xo";
+		qcom,active-clock-names = "iface_clk", "bus_clk", "mem_clk";
 
 		qcom,is-not-loadable;
 		qcom,firmware-name = "mba";
