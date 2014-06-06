@@ -81,6 +81,7 @@
 					qcom,ss-power = <8000>;
 					qcom,energy-overhead = <100000>;
 					qcom,time-overhead = <1>;
+					qcom,default-idle;
 				};
 
 				qcom,pm-cpu-level@1 {
@@ -99,6 +100,7 @@
 					qcom,ss-power = <5000>;
 					qcom,energy-overhead = <60350000>;
 					qcom,time-overhead = <7300>;
+					qcom,default-suspend;
 				};
 			};
 		};
