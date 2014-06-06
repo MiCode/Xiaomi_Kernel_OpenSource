@@ -41,6 +41,58 @@
 			};
 		};
 
+		pmx_i2c_6 {
+			/* CLK, DATA */
+			qcom,pins = <&gp 22>, <&gp 23>;
+			qcom,num-grp-pins = <2>;
+			qcom,pin-func = <2>;
+			label = "pmx_i2c_6";
+			/* active state */
+			i2c_6_active: i2c_6_active{
+				drive-strength = <2>; /* 2 MA */
+				bias-disable; /* No PULL */
+			};
+			/* suspended state */
+			i2c_6_sleep: i2c_6_sleep {
+				drive-strength = <2>; /* 2 MA */
+				bias-disable; /* No PULL */
+			};
+		};
+
+		pmx_rd_nfc_int{
+			qcom,pins = <&gp 21>;
+			qcom,pin-func = <0>;
+			qcom,num-grp-pins = <1>;
+			label = "pmx_nfc_int";
+
+			nfc_int_active: active {
+				drive-strength = <6>;
+				bias-pull-up;
+			};
+
+			nfc_int_suspend: suspend {
+				drive-strength = <6>;
+				bias-pull-up;
+			};
+		};
+
+		pmx_nfc_reset{
+			qcom,pins = <&gp 20>;
+			qcom,pin-func = <0>;
+			qcom,num-grp-pins = <1>;
+			label = "pmx_nfc_disable";
+
+			nfc_disable_active: active {
+				drive-strength = <6>;
+				bias-pull-up;
+			};
+
+			nfc_disable_suspend: suspend {
+				drive-strength = <6>;
+				bias-disable;
+			};
+		};
+
 		blsp1_uart1_active {
 			qcom,pins = <&gp 0>, <&gp 1>, <&gp 2>, <&gp 3>;
 			qcom,num-grp-pins = <4>;
