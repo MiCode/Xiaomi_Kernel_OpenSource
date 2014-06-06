@@ -661,7 +661,7 @@ int read_platform_resources_from_dt(
 			"qcom,ocmem-size", &res->ocmem_size);
 
 	res->dynamic_bw_update = of_property_read_bool(pdev->dev.of_node,
-			"qcom,use_dynamic_bw_update");
+			"qcom,use-dynamic-bw-update");
 
 	rc = msm_vidc_load_freq_table(res);
 	if (rc) {

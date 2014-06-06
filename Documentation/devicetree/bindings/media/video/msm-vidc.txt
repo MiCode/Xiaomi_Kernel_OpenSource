@@ -97,7 +97,7 @@ Optional properties:
   power collapsible = 0x2 (if the driver should disable the clock if no load)
 - qcom,use-non-secure-pil = A bool indicating which type of pil to use to load
   the fw.
-- qcom,use_dynamic_bw_update = A bool indicating whether dynamic bandwidth
+- qcom,use-dynamic-bw-update = A bool indicating whether dynamic bandwidth
   update request should be sent to msm bus or not.
 - qcom,fw-bias = The address at which venus fw is loaded (manually).
 
