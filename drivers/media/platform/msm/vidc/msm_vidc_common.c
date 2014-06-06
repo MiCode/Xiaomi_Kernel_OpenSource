@@ -957,17 +957,20 @@ static void handle_sys_idle(enum command_response cmd, void *data)
 	if (response) {
 		core = get_vidc_core(response->device_id);
 		dprintk(VIDC_DBG, "SYS_IDLE received for core %p\n", core);
-		if (core && core->resources.dynamic_bw_update) {
-			struct timeval tv;
-			mutex_lock(&core->lock);
-			do_gettimeofday(&tv);
-			core->idle_time.start_idle_time =
-				(tv.tv_sec * 1000000 + (tv.tv_usec));
-			dprintk(VIDC_DBG, "%s: start_idle_time %llu us\n",
-				__func__,
-				core->idle_time.start_idle_time);
-			core->idle_time.core_in_idle = true;
-			mutex_unlock(&core->lock);
+		if (core) {
+			if (core->resources.dynamic_bw_update) {
+				struct timeval tv;
+				mutex_lock(&core->lock);
+				do_gettimeofday(&tv);
+				core->idle_time.start_idle_time =
+					(tv.tv_sec * 1000000 + (tv.tv_usec));
+				dprintk(VIDC_DBG,
+					"%s: start_idle_time %llu us\n",
+					__func__,
+					core->idle_time.start_idle_time);
+				core->idle_time.core_in_idle = true;
+				mutex_unlock(&core->lock);
+			}
 		} else
 			dprintk(VIDC_ERR, "Core is NULL when sys_idle rxed\n");
 	}
