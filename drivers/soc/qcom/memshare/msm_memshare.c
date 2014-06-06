@@ -15,10 +15,14 @@
 #include <linux/module.h>
 #include <linux/dma-mapping.h>
 #include <linux/mutex.h>
+#include <linux/platform_device.h>
 #include <soc/qcom/msm_qmi_interface.h>
 #include <soc/qcom/scm.h>
 #include "msm_memshare.h"
 #include "heap_mem_ext_v01.h"
+
+/* Macros */
+#define MEMSHARE_DEV_NAME "memshare"
 #define MEM_SHARE_SERVICE_SVC_ID 0x00000034
 #define MEM_SHARE_SERVICE_INS_ID 1
 #define MEM_SHARE_SERVICE_VERS 1
@@ -27,13 +31,20 @@ static struct qmi_handle *mem_share_svc_handle;
 static void mem_share_svc_recv_msg(struct work_struct *work);
 static DECLARE_DELAYED_WORK(work_recv_msg, mem_share_svc_recv_msg);
 static struct workqueue_struct *mem_share_svc_workqueue;
+
+/* Memshare Driver Structure */
+struct memshare_driver {
+	struct device *dev;
+	struct mutex mem_share;
+	struct mutex mem_free;
+	struct mutex connection;
+	struct work_struct memshare_init_work;
+};
+
+static struct memshare_driver *memsh_drv;
 static void *curr_conn;
-struct mutex connection;
 static struct mem_blocks memblock;
-struct mutex mem_share;
-struct mutex mem_free;
 static uint32_t size;
-static struct work_struct memshare_init_work;
 
 static struct msg_desc mem_share_svc_alloc_req_desc = {
 	.max_msg_len = MEM_ALLOC_REQ_MAX_MSG_LEN_V01,
@@ -59,7 +70,6 @@ static struct msg_desc mem_share_svc_free_resp_desc = {
 	.ei_array = mem_free_resp_msg_data_v01_ei,
 };
 
-
 static int handle_alloc_req(void *req_h, void *req)
 {
 	struct mem_alloc_req_msg_v01 *alloc_req;
@@ -70,14 +80,14 @@ static int handle_alloc_req(void *req_h, void *req)
 	pr_debug("%s: Received Alloc Request\n", __func__);
 	pr_debug("%s: req->num_bytes = %d\n", __func__, alloc_req->num_bytes);
 	alloc_resp.resp = QMI_RESULT_FAILURE_V01;
-	mutex_lock(&mem_share);
+	mutex_lock(&memsh_drv->mem_share);
 	if (!size) {
 		memset(&alloc_resp, 0, sizeof(struct mem_alloc_resp_msg_v01));
 		rc = memshare_alloc(alloc_req->num_bytes,
 					alloc_req->block_alignment,
 					&memblock);
 		if (rc) {
-			mutex_unlock(&mem_share);
+			mutex_unlock(&memsh_drv->mem_share);
 			return -ENOMEM;
 		}
 	}
@@ -87,7 +97,7 @@ static int handle_alloc_req(void *req_h, void *req)
 	alloc_resp.handle_valid = 1;
 	alloc_resp.handle = memblock.phy_addr;
 	alloc_resp.resp = QMI_RESULT_SUCCESS_V01;
-	mutex_unlock(&mem_share);
+	mutex_unlock(&memsh_drv->mem_share);
 
 	pr_debug("alloc_resp.num_bytes :%d, alloc_resp.handle :%lx, alloc_resp.mem_req_result :%lx\n",
 			  alloc_resp.num_bytes,
@@ -96,8 +106,13 @@ static int handle_alloc_req(void *req_h, void *req)
 	rc = qmi_send_resp_from_cb(mem_share_svc_handle, curr_conn, req_h,
 			&mem_share_svc_alloc_resp_desc, &alloc_resp,
 			sizeof(alloc_resp));
+	if (rc < 0)
+		pr_err("In %s, Error sending the alloc request: %d\n",
+					__func__, rc);
+
 	return rc;
 }
+
 static int handle_free_req(void *req_h, void *req)
 {
 	struct mem_free_req_msg_v01 *free_req;
@@ -106,22 +121,25 @@ static int handle_free_req(void *req_h, void *req)
 
 	free_req = (struct mem_free_req_msg_v01 *)req;
 	pr_debug("%s: Received Free Request\n", __func__);
-	mutex_lock(&mem_free);
+	mutex_lock(&memsh_drv->mem_free);
 	free_resp.resp = QMI_RESULT_FAILURE_V01;
 
 	memset(&free_resp, 0, sizeof(struct mem_free_resp_msg_v01));
-	pr_debug("In %s: pblk->virtual_addr :%lx, pblk->phy_addr %lx\n,size: %d",
+	pr_debug("In %s: pblk->virtual_addr :%lx, pblk->phy_addr: %lx\n,size: %d",
 			__func__,
 			(unsigned long int)memblock.virtual_addr,
 			(unsigned long int)free_req->handle, size);
-	dma_free_coherent(NULL, size,
+	dma_free_coherent(memsh_drv->dev, size,
 		memblock.virtual_addr, free_req->handle);
 	size = 0;
-	mutex_unlock(&mem_free);
+	mutex_unlock(&memsh_drv->mem_free);
 	free_resp.resp = QMI_RESULT_SUCCESS_V01;
 	rc = qmi_send_resp_from_cb(mem_share_svc_handle, curr_conn, req_h,
 			&mem_share_svc_free_resp_desc, &free_resp,
 			sizeof(free_resp));
+	if (rc < 0)
+		pr_err("In %s, Error sending the free request: %d\n",
+					__func__, rc);
 
 	return rc;
 }
@@ -131,27 +149,27 @@ static int mem_share_svc_connect_cb(struct qmi_handle *handle,
 {
 	if (mem_share_svc_handle != handle || !conn_h)
 		return -EINVAL;
-	mutex_lock(&connection);
+	mutex_lock(&memsh_drv->connection);
 	if (curr_conn) {
 		pr_err("%s: Service is busy\n", __func__);
-		mutex_unlock(&connection);
+		mutex_unlock(&memsh_drv->connection);
 		return -EBUSY;
 	}
 	curr_conn = conn_h;
-	mutex_unlock(&connection);
+	mutex_unlock(&memsh_drv->connection);
 	return 0;
 }
 
 static int mem_share_svc_disconnect_cb(struct qmi_handle *handle,
 				  void *conn_h)
 {
-	mutex_lock(&connection);
+	mutex_lock(&memsh_drv->connection);
 	if (mem_share_svc_handle != handle || curr_conn != conn_h) {
-		mutex_unlock(&connection);
+		mutex_unlock(&memsh_drv->connection);
 		return -EINVAL;
 	}
 	curr_conn = NULL;
-	mutex_unlock(&connection);
+	mutex_unlock(&memsh_drv->connection);
 	return 0;
 }
 
@@ -255,7 +273,7 @@ int memshare_alloc(unsigned int block_size,
 		return -ENOMEM;
 	}
 
-	pblk->virtual_addr = dma_alloc_coherent(NULL, block_size,
+	pblk->virtual_addr = dma_alloc_coherent(memsh_drv->dev, block_size,
 						&pblk->phy_addr, GFP_KERNEL);
 	if (pblk->virtual_addr == NULL) {
 		pr_err("allocation failed, %d\n", block_size);
@@ -292,29 +310,67 @@ static void memshare_init_worker(struct work_struct *work)
 		destroy_workqueue(mem_share_svc_workqueue);
 		return;
 	}
-	mutex_init(&connection);
-	mutex_init(&mem_share);
-	mutex_init(&mem_free);
-	pr_info("memshare: memshare_init successful\n");
+	pr_debug("memshare: memshare_init successful\n");
 }
 
-static int __init memshare_init(void)
+static int memshare_probe(struct platform_device *pdev)
 {
-	INIT_WORK(&memshare_init_work, memshare_init_worker);
-	schedule_work(&memshare_init_work);
+	struct memshare_driver *drv;
+
+	drv = devm_kzalloc(&pdev->dev, sizeof(struct memshare_driver),
+							GFP_KERNEL);
+
+	if (!drv) {
+		pr_err("Unable to allocate memory to driver\n");
+		return -ENOMEM;
+	}
+
+	/* Memory allocation has been done successfully */
+	mutex_init(&drv->connection);
+	mutex_init(&drv->mem_free);
+	mutex_init(&drv->mem_share);
+
+	INIT_WORK(&drv->memshare_init_work, memshare_init_worker);
+	schedule_work(&drv->memshare_init_work);
+
+	drv->dev = &pdev->dev;
+	memsh_drv = drv;
+	platform_set_drvdata(pdev, memsh_drv);
+
+	pr_debug("Memshare probe success\n");
 	return 0;
 }
 
-static void __exit memshare_exit(void)
+static int memshare_remove(struct platform_device *pdev)
 {
+	if (!memsh_drv)
+		return 0;
+
 	qmi_svc_unregister(mem_share_svc_handle);
 	flush_workqueue(mem_share_svc_workqueue);
 	qmi_handle_destroy(mem_share_svc_handle);
 	destroy_workqueue(mem_share_svc_workqueue);
+
+	return 0;
 }
 
-module_init(memshare_init);
-module_exit(memshare_exit);
+static struct of_device_id memshare_match_table[] = {
+	{
+		.compatible = "qcom,memshare",
+	},
+	{}
+};
+
+static struct platform_driver memshare_pdriver = {
+	.probe          = memshare_probe,
+	.remove         = memshare_remove,
+	.driver = {
+		.name   = MEMSHARE_DEV_NAME,
+		.owner  = THIS_MODULE,
+		.of_match_table = memshare_match_table,
+	},
+};
+module_platform_driver(memshare_pdriver);
 
 MODULE_DESCRIPTION("Mem Share QMI Service Driver");
 MODULE_LICENSE("GPL v2");
