@@ -984,12 +984,16 @@ void mxhci_hsic_shutdown(struct usb_hcd *hcd)
 int mxhci_hsic_hub_control(struct usb_hcd *hcd, u16 typeReq, u16 wValue,
 		u16 wIndex, char *buf, u16 wLength)
 {
-	struct mxhci_hsic_hcd *mxhci = hcd_to_hsic(hcd->primary_hcd);
+	struct mxhci_hsic_hcd *mxhci;
 	int ret = 0;
 	u32 status;
 
 	ret = xhci_hub_control(hcd, typeReq, wValue, wIndex, buf, wLength);
 
+	if (!hcd->primary_hcd)
+		return ret;
+
+	mxhci = hcd_to_hsic(hcd->primary_hcd);
 	status = get_unaligned_le32(buf);
 
 	if (typeReq == GetPortStatus) {
