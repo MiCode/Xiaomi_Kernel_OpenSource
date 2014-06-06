@@ -582,3 +582,56 @@ gcc_xo: gcc_xo {
 	compatible = "qcom,ext-clk";
 	qcom,clock-names = "xo";
 };
+
+*****************************************************************************
+
+"qcom,div-clk"
+
+A clock which can divide its input frequency values. Fractional division isnt
+supported.
+
+Required Properties:
+- compatible:		Must be "qcom,div-clk"
+- qcom,base-offset:	Register offset.
+- qcom,min-div:		The minimum supported divider
+- qcom,max-div:		The maximum supported divider
+- qcom,mask:		The bit mask to be applied
+- qcom,shift:		The shift to be applied
+
+Optional Properties:
+- qcom,slave-div:	This clock may not change its parent's rate.
+
+Recommended Properties:
+- qcom,parent:		See "General Optional Properties"
+
+cci_clk: cci_clk {
+	compatible = "qcom,div-clk";
+	qcom,base-offset = <CCI_MUX_OFFSET>;
+	qcom,min-div = <1>;
+	qcom,max-div = <4>;
+	qcom,mask = <3>;
+	qcom,shift = <5>;
+	qcom,parent = <&cci_hf_mux>;
+};
+
+*****************************************************************************
+
+"qcom,fixed-div-clk"
+
+A fixed, nonconfigurable divider.
+
+Required Properties:
+- compatible:		Must be "qcom,fixed-div-clk"
+- qcom,div:		The fixed divider
+
+Optional Properties:
+- qcom,slave-div:	This clock may not change its parent's rate.
+
+Recommended Properties:
+- qcom,parent:		See "General Optional Properties"
+
+ahb_div_clk: ahb_div_clk {
+	compatible = "qcom,fixed-div-clk";
+	qcom,parent = <&ahb_clk_src>;
+	qcom,div = <16>;
+};
