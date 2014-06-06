@@ -4950,6 +4950,7 @@ static int wcd9xxx_detect_impedance(struct wcd9xxx_mbhc *mbhc, uint32_t *zl,
 {
 	int i;
 	int ret = 0;
+	u8 micb_mbhc_val;
 	s16 l[3], r[3];
 	s16 *z[] = {
 		&l[0], &r[0], &r[1], &l[1], &l[2], &r[2],
@@ -4990,6 +4991,16 @@ static int wcd9xxx_detect_impedance(struct wcd9xxx_mbhc *mbhc, uint32_t *zl,
 	mutex_lock(&codec->mutex);
 
 	wcd9xxx_onoff_ext_mclk(mbhc, true);
+
+	/*
+	 * For impedance detection, make sure to disable micbias from
+	 * override signal so that override does not cause micbias
+	 * to be enabled. This setting will be undone after completing
+	 * impedance measurement.
+	 */
+	micb_mbhc_val = snd_soc_read(codec, WCD9XXX_A_MAD_ANA_CTRL);
+	snd_soc_update_bits(codec, WCD9XXX_A_MAD_ANA_CTRL,
+			    0x10, 0x00);
 
 	override_en = (snd_soc_read(codec, WCD9XXX_A_CDC_MBHC_B1_CTL) & 0x04) ?
 					true : false;
@@ -5174,6 +5185,9 @@ disable_pa:
 
 	if (!override_en)
 		wcd9xxx_turn_onoff_override(mbhc, false);
+
+	/* Undo the micbias disable for override */
+	snd_soc_write(codec, WCD9XXX_A_MAD_ANA_CTRL, micb_mbhc_val);
 
 	pr_debug("%s: L0: 0x%x(%d), L1: 0x%x(%d), L2: 0x%x(%d)\n",
 		 __func__,
