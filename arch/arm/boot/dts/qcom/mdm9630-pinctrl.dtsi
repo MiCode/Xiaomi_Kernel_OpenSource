@@ -63,6 +63,10 @@
 				bias-disable; /* NO pull */
 				drive-strength = <10>; /* 10 MA */
 			};
+			sdc2_clk_on_16: clk_16_on {
+				bias-disable; /* NO pull */
+				drive-strength = <16>; /* 16 MA */
+			};
 			sdc2_clk_off: clk_off {
 				bias-disable; /* NO pull */
 				drive-strength = <2>; /* 2 MA */
