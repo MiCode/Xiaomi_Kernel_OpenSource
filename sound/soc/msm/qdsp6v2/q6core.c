@@ -71,7 +71,8 @@ static int32_t aprv2_core_fn_q(struct apr_client_data *data, void *priv)
 		return -EINVAL;
 	}
 
-	pr_debug("core msg: payload len = %u, apr resp opcode = 0x%X\n",
+	pr_debug("%s: core msg: payload len = %u, apr resp opcode = 0x%x\n",
+		__func__,
 		data->payload_size, data->opcode);
 
 	switch (data->opcode) {
@@ -93,8 +94,9 @@ static int32_t aprv2_core_fn_q(struct apr_client_data *data, void *priv)
 				__func__, payload1[1]);
 			break;
 		default:
-			pr_err("Invalid cmd rsp[0x%x][0x%x]\n",
-					payload1[0], payload1[1]);
+			pr_err("%s: Invalid cmd rsp[0x%x][0x%x] opcode %d\n",
+					__func__,
+					payload1[0], payload1[1], data->opcode);
 			break;
 		}
 		break;
@@ -127,7 +129,8 @@ static int32_t aprv2_core_fn_q(struct apr_client_data *data, void *priv)
 		break;
 
 	case RESET_EVENTS:{
-		pr_debug("Reset event received in Core service");
+		pr_debug("%s: Reset event received in Core service\n",
+			__func__);
 		apr_reset(q6core_lcl.core_handle_q);
 		q6core_lcl.core_handle_q = NULL;
 		break;
@@ -153,7 +156,8 @@ static int32_t aprv2_core_fn_q(struct apr_client_data *data, void *priv)
 		wake_up(&q6core_lcl.cmd_req_wait);
 		break;
 	default:
-		pr_err("Message id from adsp core svc: %d\n", data->opcode);
+		pr_err("%s: Message id from adsp core svc: 0x%x\n",
+			__func__, data->opcode);
 		break;
 	}
 
@@ -166,7 +170,7 @@ void ocm_core_open(void)
 	if (q6core_lcl.core_handle_q == NULL)
 		q6core_lcl.core_handle_q = apr_register("ADSP", "CORE",
 					aprv2_core_fn_q, 0xFFFFFFFF, NULL);
-	pr_debug("Open_q %p\n", q6core_lcl.core_handle_q);
+	pr_debug("%s: Open_q %p\n", __func__, q6core_lcl.core_handle_q);
 	if (q6core_lcl.core_handle_q == NULL)
 		pr_err("%s: Unable to register CORE\n", __func__);
 }
@@ -328,7 +332,8 @@ uint32_t core_set_dolby_manufacturer_id(int manufacturer_id)
 		payload.hdr.token = 0;
 		payload.hdr.opcode = ADSP_CMD_SET_DOLBY_MANUFACTURER_ID;
 		payload.manufacturer_id = manufacturer_id;
-		pr_debug("Send Dolby security opcode=%x manufacturer ID = %d\n",
+		pr_debug("%s: Send Dolby security opcode=0x%x manufacturer ID = %d\n",
+			__func__,
 			payload.hdr.opcode, payload.manufacturer_id);
 		rc = apr_send_pkt(q6core_lcl.core_handle_q,
 						(uint32_t *)&payload);
@@ -346,7 +351,7 @@ int core_get_low_power_segments(
 	struct avcs_cmd_get_low_power_segments_info lp_ocm_cmd;
 	int ret = 0;
 
-	pr_debug("%s: ", __func__);
+	pr_debug("%s:", __func__);
 
 	ocm_core_open();
 	if (q6core_lcl.core_handle_q == NULL) {
@@ -368,7 +373,8 @@ int core_get_low_power_segments(
 
 	ret = apr_send_pkt(q6core_lcl.core_handle_q, (uint32_t *) &lp_ocm_cmd);
 	if (ret < 0) {
-		pr_err("%s: CORE low power segment request failed\n", __func__);
+		pr_err("%s: CORE low power segment request failed %d\n",
+			__func__, ret);
 		goto fail_cmd;
 	}
 
@@ -406,7 +412,8 @@ bool q6core_is_adsp_ready(void)
 	q6core_lcl.bus_bw_resp_received = 0;
 	rc = apr_send_pkt(q6core_lcl.core_handle_q, (uint32_t *)&hdr);
 	if (rc < 0) {
-		pr_err("%s: Get ADSP state APR packet send event\n", __func__);
+		pr_err("%s: Get ADSP state APR packet send event %d\n",
+			__func__, rc);
 		goto bail;
 	}
 
