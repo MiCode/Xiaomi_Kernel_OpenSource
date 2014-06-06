@@ -38,7 +38,7 @@
 #define VFE46_8994V1_VERSION   0x60000000
 
 #define VFE46_BURST_LEN 3
-#define VFE46_STATS_BURST_LEN 2
+#define VFE46_STATS_BURST_LEN 3
 #define VFE46_UB_SIZE 2048
 #define VFE46_EQUAL_SLICE_UB 228
 #define VFE46_WM_BASE(idx) (0xA0 + 0x24 * idx)
@@ -1154,15 +1154,15 @@ static void msm_vfe46_stats_cfg_ub(struct vfe_device *vfe_dev)
 	int i;
 	uint32_t ub_offset = VFE46_UB_SIZE;
 	uint32_t ub_size[VFE46_NUM_STATS_TYPE] = {
-		128, /* MSM_ISP_STATS_BF_SCALE */
-		64,  /* MSM_ISP_STATS_HDR_BE */
-		128, /* MSM_ISP_STATS_BG */
-		128, /* MSM_ISP_STATS_BF */
-		16,  /* MSM_ISP_STATS_HDR_BHIST */
-		8,   /* MSM_ISP_STATS_RS */
-		16,  /* MSM_ISP_STATS_CS */
-		16,  /* MSM_ISP_STATS_IHIST */
-		16,  /* MSM_ISP_STATS_BHIST */
+		32, /* MSM_ISP_STATS_BF_SCALE */
+		32, /* MSM_ISP_STATS_HDR_BE */
+		32, /* MSM_ISP_STATS_BG */
+		32, /* MSM_ISP_STATS_BF */
+		32, /* MSM_ISP_STATS_HDR_BHIST */
+		32, /* MSM_ISP_STATS_RS */
+		32, /* MSM_ISP_STATS_CS */
+		32, /* MSM_ISP_STATS_IHIST */
+		32, /* MSM_ISP_STATS_BHIST */
 	};
 
 	for (i = 0; i < VFE46_NUM_STATS_TYPE; i++) {
