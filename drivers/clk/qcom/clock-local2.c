@@ -2125,3 +2125,33 @@ static void *fixed_div_clk_dt_parser(struct device *dev,
 	return msmclk_generic_clk_init(dev, np, &div_clk->c);
 }
 MSMCLK_PARSER(fixed_div_clk_dt_parser, "qcom,fixed-div-clk", 0);
+
+static void *reset_clk_dt_parser(struct device *dev,
+					struct device_node *np)
+{
+	struct reset_clk *reset_clk;
+	struct msmclk_data *drv;
+	int rc;
+
+	reset_clk = devm_kzalloc(dev, sizeof(*reset_clk), GFP_KERNEL);
+	if (!reset_clk) {
+		dt_err(np, "memory alloc failed\n");
+		return ERR_PTR(-ENOMEM);
+	}
+
+	rc = of_property_read_u32(np, "qcom,base-offset",
+						&reset_clk->reset_reg);
+	if (rc) {
+		dt_err(np, "missing qcom,base-offset\n");
+		return ERR_PTR(-EINVAL);
+	}
+
+	drv = msmclk_parse_phandle(dev, np->parent->phandle);
+	if (IS_ERR_OR_NULL(drv))
+		return ERR_CAST(drv);
+	reset_clk->base = &drv->base;
+
+	reset_clk->c.ops = &clk_ops_rst;
+	return msmclk_generic_clk_init(dev, np, &reset_clk->c);
+};
+MSMCLK_PARSER(reset_clk_dt_parser, "qcom,reset-clk", 0);

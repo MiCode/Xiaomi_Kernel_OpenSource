@@ -137,8 +137,8 @@ static inline struct local_vote_clk *to_local_vote_clk(struct clk *clk)
  */
 struct reset_clk {
 	struct clk c;
-	const u32 reset_reg;
-	void *const __iomem *base;
+	u32 reset_reg;
+	void *__iomem *base;
 };
 
 static inline struct reset_clk *to_reset_clk(struct clk *clk)
