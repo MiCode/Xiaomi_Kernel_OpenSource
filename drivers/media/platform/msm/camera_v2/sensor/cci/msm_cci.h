@@ -143,6 +143,7 @@ struct cci_device {
 	uint8_t master_clk_init[MASTER_MAX];
 	struct msm_pinctrl_info cci_pinctrl;
 	uint8_t cci_pinctrl_status;
+	struct regulator *reg_ptr;
 };
 
 enum msm_cci_i2c_cmd_type {
