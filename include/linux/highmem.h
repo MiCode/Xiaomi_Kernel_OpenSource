@@ -100,8 +100,8 @@ static inline int kmap_atomic_idx_push(void)
 
 #ifdef CONFIG_DEBUG_HIGHMEM
 	WARN_ON_ONCE(in_irq() && !irqs_disabled());
-	BUG_ON(idx > KM_TYPE_NR);
 #endif
+	BUG_ON(idx >= KM_TYPE_NR);
 	return idx;
 }
 
