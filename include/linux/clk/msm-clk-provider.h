@@ -184,6 +184,9 @@ struct clk {
 	unsigned prepare_count;
 	struct mutex prepare_lock;
 
+	unsigned long init_rate;
+	bool always_on;
+
 	struct dentry *clk_dir;
 };
 

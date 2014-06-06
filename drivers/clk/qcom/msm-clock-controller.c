@@ -370,6 +370,29 @@ static int generic_clk_parse_depends(struct device *dev, struct clk *c,
 	return 0;
 }
 
+static int generic_clk_parse_init_config(struct device *dev, struct clk *c,
+						struct device_node *np)
+{
+	int rc;
+	u32 temp;
+	char *name = "qcom,config-rate";
+
+	/* This property is optional */
+	if (!of_property_read_bool(np, name))
+		return 0;
+
+	rc = of_property_read_u32(np, name, &temp);
+	if (rc) {
+		dt_prop_err(np, name, "unable to read u32\n");
+		return rc;
+	}
+	c->init_rate = temp;
+
+	name = "qcom,always-on";
+	c->always_on = of_property_read_bool(np, name);
+	return rc;
+}
+
 void *msmclk_generic_clk_init(struct device *dev, struct device_node *np,
 				struct clk *c)
 {
@@ -389,6 +412,7 @@ void *msmclk_generic_clk_init(struct device *dev, struct device_node *np,
 	rc |= generic_clk_parse_vdd(dev, c, np);
 	rc |= generic_clk_parse_fmax(dev, c, np);
 	rc |= generic_clk_parse_depends(dev, c, np);
+	rc |= generic_clk_parse_init_config(dev, c, np);
 
 	if (rc) {
 		dt_err(np, "unable to read clk\n");
