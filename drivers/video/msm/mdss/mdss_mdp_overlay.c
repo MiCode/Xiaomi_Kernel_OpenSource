@@ -3125,6 +3125,8 @@ static int mdss_mdp_overlay_off(struct msm_fb_data_type *mfd)
 	if (!mdp5_data->ctl->power_on)
 		return 0;
 
+	mutex_lock(&mdp5_data->ov_lock);
+
 	mdss_mdp_overlay_free_fb_pipe(mfd);
 
 	mixer = mdss_mdp_mixer_get(mdp5_data->ctl, MDSS_MDP_MIXER_MUX_LEFT);
@@ -3138,12 +3140,14 @@ static int mdss_mdp_overlay_off(struct msm_fb_data_type *mfd)
 	mutex_lock(&mdp5_data->list_lock);
 	need_cleanup = !list_empty(&mdp5_data->pipes_cleanup);
 	mutex_unlock(&mdp5_data->list_lock);
+	mutex_unlock(&mdp5_data->ov_lock);
 
 	if (need_cleanup) {
 		pr_debug("cleaning up pipes on fb%d\n", mfd->index);
 		mdss_mdp_overlay_kickoff(mfd, NULL);
 	}
 
+	mutex_lock(&mdp5_data->ov_lock);
 	rc = mdss_mdp_ctl_stop(mdp5_data->ctl);
 	if (rc == 0) {
 		mutex_lock(&mdp5_data->list_lock);
@@ -3165,6 +3169,7 @@ static int mdss_mdp_overlay_off(struct msm_fb_data_type *mfd)
 		if (rc)
 			pr_err("unable to suspend w/pm_runtime_put (%d)\n", rc);
 	}
+	mutex_unlock(&mdp5_data->ov_lock);
 
 	return rc;
 }
