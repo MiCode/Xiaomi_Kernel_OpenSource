@@ -557,3 +557,28 @@ snoc_msmbus_clk: snoc_msmbus_clk {
 	qcom,parent = <&snoc_clk>;
 	qcom,config-rate = <100000000>;
 };
+
+*****************************************************************************
+
+"qcom,ext-clk"
+
+A logical entity representing a clock defined outside of the current clock controller.
+A clock controller can only manage ordering dependencies within itself. Having an
+ext_clk whose parent is the actual external clock allows us to initialize the
+necessary clock data structures with the assumption that the missing dependency will
+be filled in later. During __handoff() this clock type will call clk_get() to fix the
+dependency.
+
+Required Properties:
+- compatible:		Must be "qcom,ext-clk"
+
+Optional Properties:
+- qcom,clock-names:	String argument for clk_get().
+
+Recommended Properties:
+- qcom,parent:		See "General Optional Properties"
+
+gcc_xo: gcc_xo {
+	compatible = "qcom,ext-clk";
+	qcom,clock-names = "xo";
+};
