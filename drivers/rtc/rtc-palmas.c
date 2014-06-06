@@ -318,7 +318,7 @@ static const struct dev_pm_ops palmas_rtc_pm_ops = {
 };
 
 #ifdef CONFIG_OF
-static struct of_device_id of_palmas_rtc_match[] = {
+static const struct of_device_id of_palmas_rtc_match[] = {
 	{ .compatible = "ti,palmas-rtc"},
 	{ },
 };
