@@ -285,6 +285,7 @@
 		clocks = <&clock_rpm clk_qdss_clk>,
 			 <&clock_rpm clk_qdss_a_clk>;
 		clock-names = "core_clk", "core_a_clk";
+		qcom,cti-save;
 	};
 
 	cti_perf_cpu1: cti@8f9000 {
@@ -299,6 +300,7 @@
 		clocks = <&clock_rpm clk_qdss_clk>,
 			 <&clock_rpm clk_qdss_a_clk>;
 		clock-names = "core_clk", "core_a_clk";
+		qcom,cti-save;
 	};
 
 	cti_perf_cpu2: cti@8fa000 {
@@ -313,6 +315,7 @@
 		clocks = <&clock_rpm clk_qdss_clk>,
 			 <&clock_rpm clk_qdss_a_clk>;
 		clock-names = "core_clk", "core_a_clk";
+		qcom,cti-save;
 	};
 
 	cti_perf_cpu3: cti@8fb000 {
@@ -327,6 +330,7 @@
 		clocks = <&clock_rpm clk_qdss_clk>,
 			 <&clock_rpm clk_qdss_a_clk>;
 		clock-names = "core_clk", "core_a_clk";
+		qcom,cti-save;
 	};
 
 	cti_pow_cpu0: cti@8d8000 {
@@ -341,6 +345,7 @@
 		clocks = <&clock_rpm clk_qdss_clk>,
 			 <&clock_rpm clk_qdss_a_clk>;
 		clock-names = "core_clk", "core_a_clk";
+		qcom,cti-save;
 	};
 
 	cti_pow_cpu1: cti@8d9000 {
@@ -355,6 +360,7 @@
 		clocks = <&clock_rpm clk_qdss_clk>,
 			 <&clock_rpm clk_qdss_a_clk>;
 		clock-names = "core_clk", "core_a_clk";
+		qcom,cti-save;
 	};
 
 	cti_pow_cpu2: cti@8da000 {
@@ -369,6 +375,7 @@
 		clocks = <&clock_rpm clk_qdss_clk>,
 			 <&clock_rpm clk_qdss_a_clk>;
 		clock-names = "core_clk", "core_a_clk";
+		qcom,cti-save;
 	};
 
 	cti_pow_cpu3: cti@8db000 {
@@ -383,6 +390,7 @@
 		clocks = <&clock_rpm clk_qdss_clk>,
 			 <&clock_rpm clk_qdss_a_clk>;
 		clock-names = "core_clk", "core_a_clk";
+		qcom,cti-save;
 	};
 
 	cti_rpm_cpu0: cti@83c000 {
