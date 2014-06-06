@@ -64,6 +64,7 @@ static DEFINE_VDD_REGULATORS(vdd_dig, VDD_DIG_NUM, 1, vdd_corner, NULL);
 #define C0_PLL_USER_CTL   0x10
 #define C0_PLL_CONFIG_CTL 0x14
 #define C0_PLL_STATUS     0x1C
+#define C0_PLL_TEST_CTL_LO 0x20
 
 #define C0_PLLA_MODE       0x40
 #define C0_PLLA_L_VAL      0x44
@@ -71,6 +72,7 @@ static DEFINE_VDD_REGULATORS(vdd_dig, VDD_DIG_NUM, 1, vdd_corner, NULL);
 #define C0_PLLA_USER_CTL   0x50
 #define C0_PLLA_CONFIG_CTL 0x54
 #define C0_PLLA_STATUS     0x5C
+#define C0_PLLA_TEST_CTL_LO 0x60
 
 #define C1_PLL_MODE        0x0
 #define C1_PLL_L_VAL       0x4
@@ -78,6 +80,7 @@ static DEFINE_VDD_REGULATORS(vdd_dig, VDD_DIG_NUM, 1, vdd_corner, NULL);
 #define C1_PLL_USER_CTL   0x10
 #define C1_PLL_CONFIG_CTL 0x14
 #define C1_PLL_STATUS     0x1C
+#define C1_PLL_TEST_CTL_LO 0x20
 
 #define C1_PLLA_MODE       0x40
 #define C1_PLLA_L_VAL      0x44
@@ -85,6 +88,7 @@ static DEFINE_VDD_REGULATORS(vdd_dig, VDD_DIG_NUM, 1, vdd_corner, NULL);
 #define C1_PLLA_USER_CTL   0x50
 #define C1_PLLA_CONFIG_CTL 0x54
 #define C1_PLLA_STATUS     0x5C
+#define C1_PLLA_TEST_CTL_LO 0x60
 
 #define GLB_CLK_DIAG	0x1C
 #define MUX_OFFSET	0x54
@@ -152,6 +156,7 @@ static struct pll_clk a57_pll0 = {
 	.config_reg = (void __iomem *)C1_PLL_USER_CTL,
 	.config_ctl_reg = (void __iomem *)C1_PLL_CONFIG_CTL,
 	.status_reg = (void __iomem *)C1_PLL_MODE,
+	.test_ctl_lo_reg = (void __iomem *)C1_PLL_TEST_CTL_LO,
 	.masks = {
 		.pre_div_mask = BIT(12),
 		.post_div_mask = BM(9, 8),
@@ -165,6 +170,7 @@ static struct pll_clk a57_pll0 = {
 		.post_div_masked = 0x100,
 		.pre_div_masked = 0x0,
 		.config_ctl_val = 0x000D6968,
+		.test_ctl_lo_val = 0x00010000,
 	},
 	.min_rate = 1209600000,
 	.max_rate = 1996800000,
@@ -185,6 +191,7 @@ static struct pll_clk a57_pll1 = {
 	.config_reg = (void __iomem *)C1_PLLA_USER_CTL,
 	.config_ctl_reg = (void __iomem *)C1_PLLA_CONFIG_CTL,
 	.status_reg = (void __iomem *)C1_PLLA_MODE,
+	.test_ctl_lo_reg = (void __iomem *)C1_PLLA_TEST_CTL_LO,
 	.masks = {
 		.pre_div_mask = BIT(12),
 		.post_div_mask = BM(9, 8),
@@ -198,6 +205,7 @@ static struct pll_clk a57_pll1 = {
 		.post_div_masked = 0x300,
 		.pre_div_masked = 0x0,
 		.config_ctl_val = 0x000D6968,
+		.test_ctl_lo_val = 0x00010000,
 	},
 	/* Necessary since we'll be setting a rate before handoff on V1 */
 	.src_rate = 19200000,
@@ -220,6 +228,7 @@ static struct pll_clk a53_pll0 = {
 	.config_reg = (void __iomem *)C0_PLL_USER_CTL,
 	.config_ctl_reg = (void __iomem *)C0_PLL_CONFIG_CTL,
 	.status_reg = (void __iomem *)C0_PLL_MODE,
+	.test_ctl_lo_reg = (void __iomem *)C0_PLL_TEST_CTL_LO,
 	.masks = {
 		.pre_div_mask = BIT(12),
 		.post_div_mask = BM(9, 8),
@@ -233,6 +242,7 @@ static struct pll_clk a53_pll0 = {
 		.post_div_masked = 0x100,
 		.pre_div_masked = 0x0,
 		.config_ctl_val = 0x000D6968,
+		.test_ctl_lo_val = 0x00010000,
 	},
 	.min_rate = 1209600000,
 	.max_rate = 1996800000,
@@ -253,6 +263,7 @@ static struct pll_clk a53_pll1 = {
 	.config_reg = (void __iomem *)C0_PLLA_USER_CTL,
 	.config_ctl_reg = (void __iomem *)C0_PLLA_CONFIG_CTL,
 	.status_reg = (void __iomem *)C0_PLLA_MODE,
+	.test_ctl_lo_reg = (void __iomem *)C0_PLLA_TEST_CTL_LO,
 	.masks = {
 		.pre_div_mask = BIT(12),
 		.post_div_mask = BM(9, 8),
@@ -266,6 +277,7 @@ static struct pll_clk a53_pll1 = {
 		.post_div_masked = 0x300,
 		.pre_div_masked = 0x0,
 		.config_ctl_val = 0x000D6968,
+		.test_ctl_lo_val = 0x00010000,
 	},
 	/* Necessary since we'll be setting a rate before handoff on V1 */
 	.src_rate = 19200000,
