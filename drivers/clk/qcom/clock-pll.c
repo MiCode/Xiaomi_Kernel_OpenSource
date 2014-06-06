@@ -45,11 +45,6 @@ static DEFINE_SPINLOCK(pll_reg_lock);
 #define ENABLE_WAIT_MAX_LOOPS 200
 #define PLL_LOCKED_BIT BIT(16)
 
-static long fixed_pll_clk_round_rate(struct clk *c, unsigned long rate)
-{
-	return c->rate;
-}
-
 static int pll_vote_clk_enable(struct clk *c)
 {
 	u32 ena, count;
@@ -128,7 +123,6 @@ struct clk_ops clk_ops_pll_vote = {
 	.enable = pll_vote_clk_enable,
 	.disable = pll_vote_clk_disable,
 	.is_enabled = pll_vote_clk_is_enabled,
-	.round_rate = fixed_pll_clk_round_rate,
 	.handoff = pll_vote_clk_handoff,
 	.list_registers = pll_vote_clk_list_registers,
 };
@@ -722,7 +716,6 @@ static enum handoff pll_acpu_vote_clk_handoff(struct clk *c)
 struct clk_ops clk_ops_pll_acpu_vote = {
 	.enable = pll_acpu_vote_clk_enable,
 	.disable = pll_acpu_vote_clk_disable,
-	.round_rate = fixed_pll_clk_round_rate,
 	.is_enabled = pll_vote_clk_is_enabled,
 	.handoff = pll_acpu_vote_clk_handoff,
 	.list_registers = pll_vote_clk_list_registers,
