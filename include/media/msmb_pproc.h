@@ -15,6 +15,7 @@
 #define MSM_CPP_MAX_NUM_PLANES 3
 #define MSM_CPP_MAX_FRAME_LENGTH 1024
 #define MSM_CPP_MAX_FW_NAME_LEN 32
+#define MAX_FREQ_TBL 10
 
 enum msm_cpp_frame_type {
 	MSM_CPP_OFFLINE_FRAME,
@@ -126,6 +127,8 @@ struct msm_cpp_frame_info_t {
 struct cpp_hw_info {
 	uint32_t cpp_hw_version;
 	uint32_t cpp_hw_caps;
+	unsigned long freq_tbl[MAX_FREQ_TBL];
+	uint32_t freq_tbl_count;
 };
 
 struct msm_vpe_frame_strip_info {
