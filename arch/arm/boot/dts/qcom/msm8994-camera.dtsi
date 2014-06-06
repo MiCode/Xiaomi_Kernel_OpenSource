@@ -166,13 +166,14 @@
 		interrupts = <0 59 0>;
 		interrupt-names = "jpeg";
 		vdd-supply = <&gdsc_jpeg>;
-		clock-names =  "core_clk", "iface_clk", "bus_clk0", "camss_top_ahb_clk";
+		clock-names =  "core_clk", "iface_clk", "bus_clk0",
+			"camss_top_ahb_clk", "camss_ahb_clk";
 		clocks = <&clock_mmss clk_camss_jpeg_jpeg0_clk>,
 			<&clock_mmss clk_camss_jpeg_jpeg_ahb_clk>,
 			<&clock_mmss clk_camss_jpeg_jpeg_axi_clk>,
 			<&clock_mmss clk_camss_top_ahb_clk>,
 			<&clock_mmss clk_camss_ahb_clk>;
-		qcom,clock-rates = <266670000 0 0 0 0>;
+		qcom,clock-rates = <320000000 0 0 0 0>;
 	};
 
 	qcom,jpeg@fda20000 {
@@ -190,7 +191,7 @@
 		       <&clock_mmss clk_camss_jpeg_jpeg_axi_clk>,
 		       <&clock_mmss clk_camss_top_ahb_clk>,
 		       <&clock_mmss clk_camss_ahb_clk>;
-		qcom,clock-rates = <266670000 0 0 0 0>;
+		qcom,clock-rates = <320000000 0 0 0 0>;
 	};
 
 	qcom,jpeg@fda24000 {
