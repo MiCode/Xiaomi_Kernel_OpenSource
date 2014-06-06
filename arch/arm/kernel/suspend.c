@@ -1,9 +1,12 @@
 #include <linux/init.h>
+#include <linux/slab.h>
 
+#include <asm/cacheflush.h>
 #include <asm/idmap.h>
 #include <asm/pgalloc.h>
 #include <asm/pgtable.h>
 #include <asm/memory.h>
+#include <asm/smp_plat.h>
 #include <asm/suspend.h>
 #include <asm/tlbflush.h>
 
@@ -74,3 +77,20 @@ int cpu_suspend(unsigned long arg, int (*fn)(unsigned long))
 
 	return ret;
 }
+
+extern struct sleep_save_sp sleep_save_sp;
+
+static int cpu_suspend_alloc_sp(void)
+{
+	void *ctx_ptr;
+	/* ctx_ptr is an array of physical addresses */
+	ctx_ptr = kcalloc(mpidr_hash_size(), sizeof(u32), GFP_KERNEL);
+
+	if (WARN_ON(!ctx_ptr))
+		return -ENOMEM;
+	sleep_save_sp.save_ptr_stash = ctx_ptr;
+	sleep_save_sp.save_ptr_stash_phys = virt_to_phys(ctx_ptr);
+	sync_cache_w(&sleep_save_sp);
+	return 0;
+}
+early_initcall(cpu_suspend_alloc_sp);
