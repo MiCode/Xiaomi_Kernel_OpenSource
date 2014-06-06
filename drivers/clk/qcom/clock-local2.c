@@ -1933,3 +1933,71 @@ static void *mux_reg_clk_dt_parser(struct device *dev, struct device_node *np)
 	return msmclk_generic_clk_init(dev, np, &mux->c);
 };
 MSMCLK_PARSER(mux_reg_clk_dt_parser, "qcom,mux-reg", 0);
+
+static void *measure_clk_dt_parser(struct device *dev,
+					struct device_node *np)
+{
+	struct mux_clk *mux;
+	struct clk *c;
+	struct measure_clk_data *p;
+	struct clk_ops *clk_ops_measure_mux;
+	phandle cxo;
+	int rc;
+
+	c = mux_reg_clk_dt_parser(dev, np);
+	if (IS_ERR(c))
+		return c;
+
+	mux = to_mux_clk(c);
+
+	p = devm_kzalloc(dev, sizeof(*p), GFP_KERNEL);
+	if (!p) {
+		dt_err(np, "memory alloc failure\n");
+		return ERR_PTR(-ENOMEM);
+	}
+
+	rc = of_property_read_phandle_index(np, "qcom,cxo", 0, &cxo);
+	if (rc) {
+		dt_err(np, "missing qcom,cxo\n");
+		return ERR_PTR(-EINVAL);
+	}
+	p->cxo = msmclk_parse_phandle(dev, cxo);
+	if (IS_ERR_OR_NULL(p->cxo)) {
+		dt_prop_err(np, "qcom,cxo", "hashtable lookup failure\n");
+		return p->cxo;
+	}
+
+	rc = of_property_read_u32(np, "qcom,xo-div4-cbcr", &p->xo_div4_cbcr);
+	if (rc) {
+		dt_err(np, "missing qcom,xo-div4-cbcr dt property\n");
+		return ERR_PTR(-EINVAL);
+	}
+
+	rc = of_property_read_u32(np, "qcom,test-pad-config", &p->plltest_val);
+	if (rc) {
+		dt_err(np, "missing qcom,test-pad-config dt property\n");
+		return ERR_PTR(-EINVAL);
+	}
+
+	p->base = mux->base;
+	p->ctl_reg = mux->offset + 0x4;
+	p->status_reg = mux->offset + 0x8;
+	p->plltest_reg = mux->offset + 0xC;
+	mux->priv = p;
+
+	clk_ops_measure_mux = devm_kzalloc(dev, sizeof(*clk_ops_measure_mux),
+								GFP_KERNEL);
+	if (!clk_ops_measure_mux) {
+		dt_err(np, "memory alloc failure\n");
+		return ERR_PTR(-ENOMEM);
+	}
+
+	*clk_ops_measure_mux = clk_ops_gen_mux;
+	clk_ops_measure_mux->get_rate = measure_get_rate;
+
+	mux->c.ops = clk_ops_measure_mux;
+
+	/* Already did generic clk init */
+	return &mux->c;
+};
+MSMCLK_PARSER(measure_clk_dt_parser, "qcom,measure-mux", 0);
