@@ -527,6 +527,8 @@
 		clocks = <&clock_rpm clk_qdss_clk>,
 			 <&clock_rpm clk_qdss_a_clk>;
 		clock-names = "core_clk", "core_a_clk";
+
+		qcom,cti-ack-atomic;
 	};
 
 	cti_cpu1: cti@fb920000 {
@@ -653,8 +655,6 @@
 		clocks = <&clock_rpm clk_qdss_clk>,
 			 <&clock_rpm clk_qdss_a_clk>;
 		clock-names = "core_clk", "core_a_clk";
-
-		qcom,cti-ack-atomic;
 	};
 
 	cti_modem_cpu0: cti@fc33c000 {
