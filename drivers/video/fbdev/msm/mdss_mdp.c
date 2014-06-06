@@ -2208,6 +2208,50 @@ parse_fail:
 	return rc;
 }
 
+static int mdss_mdp_update_smp_map(struct platform_device *pdev,
+		const u32 *data, int len, int pipe_cnt,
+		struct mdss_mdp_pipe *pipes)
+{
+	struct mdss_data_type *mdata = platform_get_drvdata(pdev);
+	int i, j, k;
+	u32 cnt, mmb;
+
+	len /= sizeof(u32);
+	for (i = 0, k = 0; i < len; k++) {
+		struct mdss_mdp_pipe *pipe = NULL;
+
+		if (k >= pipe_cnt) {
+			pr_err("invalid fixed mmbs\n");
+			return -EINVAL;
+		}
+
+		pipe = &pipes[k];
+
+		cnt = be32_to_cpu(data[i++]);
+		if (cnt == 0)
+			continue;
+
+		for (j = 0; j < cnt; j++) {
+			mmb = be32_to_cpu(data[i++]);
+			if (mmb > mdata->smp_mb_cnt) {
+				pr_err("overflow mmb:%d pipe:%d: max:%d\n",
+						mmb, k, mdata->smp_mb_cnt);
+				return -EINVAL;
+			}
+			set_bit(mmb, pipe->smp_map[0].fixed);
+		}
+		if (bitmap_intersects(pipe->smp_map[0].fixed,
+					mdata->mmb_alloc_map,
+					mdata->smp_mb_cnt)) {
+			pr_err("overlapping fixed mmb map\n");
+			return -EINVAL;
+		}
+		bitmap_or(mdata->mmb_alloc_map, pipe->smp_map[0].fixed,
+				mdata->mmb_alloc_map, mdata->smp_mb_cnt);
+	}
+	return 0;
+}
+
 static int mdss_mdp_parse_dt_smp(struct platform_device *pdev)
 {
 	struct mdss_data_type *mdata = platform_get_drvdata(pdev);
@@ -2238,46 +2282,24 @@ static int mdss_mdp_parse_dt_smp(struct platform_device *pdev)
 
 	rc = 0;
 	arr = of_get_property(pdev->dev.of_node,
-		"qcom,mdss-pipe-rgb-fixed-mmb", &len);
+			"qcom,mdss-pipe-rgb-fixed-mmb", &len);
 	if (arr) {
-		int i, j, k;
-		u32 cnt, mmb;
+		rc = mdss_mdp_update_smp_map(pdev, arr, len,
+				mdata->nrgb_pipes, mdata->rgb_pipes);
 
-		len /= sizeof(u32);
-		for (i = 0, k = 0; i < len; k++) {
-			struct mdss_mdp_pipe *pipe = NULL;
-
-			if (k >= mdata->nrgb_pipes) {
-				pr_err("invalid fixed mmbs for rgb pipes\n");
-				return -EINVAL;
-			}
-
-			pipe = &mdata->rgb_pipes[k];
-
-			cnt = be32_to_cpu(arr[i++]);
-			if (cnt == 0)
-				continue;
-
-			for (j = 0; j < cnt; j++) {
-				mmb = be32_to_cpu(arr[i++]);
-				if (mmb > mdata->smp_mb_cnt) {
-					pr_err("overflow mmb%d: rgb%d: max%d\n",
-						mmb, k, mdata->smp_mb_cnt);
-					return -EINVAL;
-				}
-				/* rgb pipes fetches only single plane */
-				set_bit(mmb, pipe->smp_map[0].fixed);
-			}
-			if (bitmap_intersects(pipe->smp_map[0].fixed,
-				mdata->mmb_alloc_map, mdata->smp_mb_cnt)) {
-				pr_err("overlapping fixed mmb map\n");
-				return -EINVAL;
-			}
-			bitmap_or(mdata->mmb_alloc_map, pipe->smp_map[0].fixed,
-				mdata->mmb_alloc_map, mdata->smp_mb_cnt);
-		}
+		if (rc)
+			pr_warn("unable to update smp map for RGB pipes\n");
 	}
 
+	arr = of_get_property(pdev->dev.of_node,
+			"qcom,mdss-pipe-vig-fixed-mmb", &len);
+	if (arr) {
+		rc = mdss_mdp_update_smp_map(pdev, arr, len,
+				mdata->nvig_pipes, mdata->vig_pipes);
+
+		if (rc)
+			pr_warn("unable to update smp map for VIG pipes\n");
+	}
 	return rc;
 }
 
