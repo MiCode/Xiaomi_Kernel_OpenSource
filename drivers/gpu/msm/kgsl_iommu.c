@@ -659,13 +659,10 @@ static void *kgsl_iommu_create_pagetable(void)
 	int domain_num;
 	struct kgsl_iommu_pt *iommu_pt;
 
-	struct msm_iova_partition kgsl_partition = {
-		.start = 0,
-		.size = 0xFFFFFFFF,
-	};
 	struct msm_iova_layout kgsl_layout = {
-		.partitions = &kgsl_partition,
-		.npartitions = 1,
+		/* we manage VA space ourselves, so partitions aren't needed */
+		.partitions = NULL,
+		.npartitions = 0,
 		.client_name = "kgsl",
 		.domain_flags = 0,
 	};
