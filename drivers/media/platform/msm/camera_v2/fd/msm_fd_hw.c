@@ -20,6 +20,8 @@
 #include <linux/spinlock.h>
 #include <linux/qcom_iommu.h>
 #include <linux/msm_ion.h>
+#include <linux/msm-bus.h>
+#include <linux/msm-bus-board.h>
 #include <media/videobuf2-core.h>
 
 #include "msm_fd_dev.h"
@@ -37,6 +39,29 @@ static struct msm_iova_layout msm_fd_fw_layout = {
 	.npartitions = 1,
 	.client_name = "fd_iommu",
 	.domain_flags = 0,
+};
+
+/* Face detection bus bandwidth definitions */
+static struct msm_bus_vectors msm_fd_bandwidth_vectors[] = {
+	{
+		.src = MSM_BUS_MASTER_VPU,
+		.dst = MSM_BUS_SLAVE_EBI_CH0,
+		.ab  = 450000000,
+		.ib  = 900000000,
+	},
+};
+
+static struct msm_bus_paths msm_fd_bus_client_config[] = {
+	{
+		ARRAY_SIZE(msm_fd_bandwidth_vectors),
+		msm_fd_bandwidth_vectors,
+	},
+};
+
+static struct msm_bus_scale_pdata msm_fd_bus_scale_data = {
+	msm_fd_bus_client_config,
+	ARRAY_SIZE(msm_fd_bus_client_config),
+	.name = "msm_face_detect",
 };
 
 /*
@@ -657,6 +682,41 @@ static void msm_fd_hw_disable_clocks(struct msm_fd_device *fd)
 }
 
 /*
+ * msm_fd_hw_bus_request - Request bus for memory access.
+ * @fd: Pointer to fd device.
+ */
+static int msm_fd_hw_bus_request(struct msm_fd_device *fd)
+{
+	int ret;
+
+	fd->bus_client = msm_bus_scale_register_client(&msm_fd_bus_scale_data);
+	if (!fd->bus_client) {
+		dev_err(fd->dev, "Fail to register bus client\n");
+		return -ENOENT;
+	}
+
+	ret = msm_bus_scale_client_update_request(fd->bus_client, 0);
+	if (ret < 0) {
+		dev_err(fd->dev, "Fail bus scale update %d\n", ret);
+		return -EINVAL;
+	}
+
+	return 0;
+}
+
+/*
+ * msm_fd_hw_bus_release - Release memory access bus.
+ * @fd: Pointer to fd device.
+ */
+static void msm_fd_hw_bus_release(struct msm_fd_device *fd)
+{
+	if (fd->bus_client) {
+		msm_bus_scale_unregister_client(fd->bus_client);
+		fd->bus_client = 0;
+	}
+}
+
+/*
  * msm_fd_hw_get - Get fd hw for performing any hw operation.
  * @fd: Pointer to fd device.
  * @clock_rate_idx: Clock rate index.
@@ -688,6 +748,12 @@ int msm_fd_hw_get(struct msm_fd_device *fd, unsigned int clock_rate_idx)
 			dev_err(fd->dev, "Fail to enable clocks\n");
 			goto error_clocks;
 		}
+
+		ret = msm_fd_hw_bus_request(fd);
+		if (ret < 0) {
+			dev_err(fd->dev, "Fail bus request\n");
+			goto error_bus_request;
+		}
 		msm_fd_hw_vbif_register(fd);
 	}
 
@@ -696,6 +762,8 @@ int msm_fd_hw_get(struct msm_fd_device *fd, unsigned int clock_rate_idx)
 
 	return 0;
 
+error_bus_request:
+	msm_fd_hw_disable_clocks(fd);
 error_clocks:
 	regulator_disable(fd->vdd);
 error:
@@ -717,6 +785,7 @@ void msm_fd_hw_put(struct msm_fd_device *fd)
 
 	if (--fd->ref_count == 0) {
 		msm_fd_hw_vbif_unregister(fd);
+		msm_fd_hw_bus_release(fd);
 		msm_fd_hw_disable_clocks(fd);
 		regulator_disable(fd->vdd);
 	}
