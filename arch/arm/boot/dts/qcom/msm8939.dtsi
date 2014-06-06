@@ -903,6 +903,12 @@
 		status = "disabled";
 	};
 
+	qcom,msm-adsp-loader {
+		compatible = "qcom,adsp-loader";
+		qcom,adsp-state = <0>;
+		qcom,proc-img-to-load = "modem";
+	};
+
 	qcom_crypto: qcrypto@720000 {
 		compatible = "qcom,qcrypto";
 		reg = <0x720000 0x20000>,
