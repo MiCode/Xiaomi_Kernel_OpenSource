@@ -26,7 +26,6 @@
 			cell-id = <MSM_BUS_FAB_SYS_NOC>;
 			label = "fab-snoc";
 			qcom,fab-dev;
-			qcom,bypass-qos-prg;
 			qcom,base-name = "snoc-base";
 			qcom,base-offset = <0x5000>;
 			qcom,qos-off = <0x80>;
@@ -40,7 +39,6 @@
 			cell-id = <MSM_BUS_FAB_BIMC>;
 			label = "fab-bimc";
 			qcom,fab-dev;
-			qcom,bypass-qos-prg;
 			qcom,base-name = "bimc-base";
 			qcom,bus-type = <2>;
 			clock-names = "bus_clk", "bus_a_clk";
@@ -52,7 +50,6 @@
 			cell-id = <MSM_BUS_FAB_PERIPH_NOC>;
 			label = "fab-pnoc";
 			qcom,fab-dev;
-			qcom,bypass-qos-prg;
 			qcom,base-name = "pnoc-base";
 			qcom,base-offset = <0x3000>;
 			qcom,qos-off = <0x80>;
@@ -66,7 +63,6 @@
 			cell-id = <MSM_BUS_FAB_MMSS_NOC>;
 			label = "fab-mnoc";
 			qcom,fab-dev;
-			qcom,bypass-qos-prg;
 			qcom,base-name = "mnoc-base";
 			qcom,base-offset = <0x3000>;
 			qcom,bus-type = <1>;
@@ -80,7 +76,6 @@
 			cell-id = <MSM_BUS_FAB_CONFIG_NOC>;
 			label = "fab-cnoc";
 			qcom,fab-dev;
-			qcom,bypass-qos-prg;
 			qcom,base-name = "cnoc-base";
 			qcom,base-offset = <0x3000>;
 			qcom,qos-off = <0x80>;
