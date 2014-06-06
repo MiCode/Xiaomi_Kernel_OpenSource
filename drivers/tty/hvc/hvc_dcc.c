@@ -10,6 +10,7 @@
  * GNU General Public License for more details.
  */
 
+#include <linux/console.h>
 #include <linux/init.h>
 
 #include <asm/dcc.h>

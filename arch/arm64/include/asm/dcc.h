@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2014 The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -15,18 +15,18 @@
 static inline u32 __dcc_getstatus(void)
 {
 	u32 __ret;
-	asm volatile("mrc p14, 0, %0, c0, c1, 0	@ read comms ctrl reg"
-		: "=r" (__ret) : : "cc");
+	asm volatile("mrs %0, mdccsr_el0" : "=r" (__ret)
+			: : "cc");
 
 	return __ret;
 }
+
 
 static inline char __dcc_getchar(void)
 {
 	char __c;
 
-	asm volatile("mrc p14, 0, %0, c0, c5, 0	@ read comms data reg"
-		: "=r" (__c));
+	asm volatile("mrs %0, dbgdtrrx_el0" : "=r" (__c));
 	isb();
 
 	return __c;
@@ -34,8 +34,8 @@ static inline char __dcc_getchar(void)
 
 static inline void __dcc_putchar(char c)
 {
-	asm volatile("mcr p14, 0, %0, c0, c5, 0	@ write a char"
-		: /* no output register */
+	asm volatile("msr dbgdtrtx_el0, %0"
+		: /* No output register */
 		: "r" (c));
 	isb();
 }
