@@ -103,7 +103,8 @@ static int modem_shutdown(const struct subsys_desc *subsys, bool force_stop)
 	if (subsys->is_not_loadable)
 		return 0;
 
-	if (!subsys_get_crash_status(drv->subsys) && force_stop) {
+	if (!subsys_get_crash_status(drv->subsys) && force_stop &&
+	    subsys->force_stop_gpio) {
 		gpio_set_value(subsys->force_stop_gpio, 1);
 		ret = wait_for_completion_timeout(&drv->stop_ack,
 				msecs_to_jiffies(STOP_ACK_TIMEOUT_MS));
@@ -137,7 +138,8 @@ static void modem_crash_shutdown(const struct subsys_desc *subsys)
 {
 	struct modem_data *drv = subsys_to_drv(subsys);
 	drv->crash_shutdown = true;
-	if (!subsys_get_crash_status(drv->subsys)) {
+	if (!subsys_get_crash_status(drv->subsys) &&
+		subsys->force_stop_gpio) {
 		gpio_set_value(subsys->force_stop_gpio, 1);
 		mdelay(STOP_ACK_TIMEOUT_MS);
 	}
