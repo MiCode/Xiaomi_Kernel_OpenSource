@@ -537,9 +537,7 @@
 
 		pmx_mdss: pmx_mdss {
 			label = "mdss-pins";
-			qcom,pins = <&gp 25>;
 			qcom,pin-func = <0>;
-			qcom,num-grp-pins = <1>;
 
 			mdss_dsi_active: active {
 				drive-strength = <8>; /* 8 mA */
