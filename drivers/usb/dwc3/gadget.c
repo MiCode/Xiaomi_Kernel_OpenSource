@@ -814,6 +814,8 @@ static void dwc3_prepare_one_trb(struct dwc3_ep *dep,
 {
 	struct dwc3		*dwc = dep->dwc;
 	struct dwc3_trb		*trb;
+	bool			zlp_appended = false;
+	unsigned		rlen;
 
 	dev_vdbg(dwc->dev, "%s: req %p dma %08llx length %d%s%s\n",
 			dep->name, req, (unsigned long long) dma,
@@ -883,13 +885,18 @@ update_trb:
 
 	trace_dwc3_prepare_trb(dep, trb);
 
-	if (req->request.zero && length &&
-			(length % usb_endpoint_maxp(dep->endpoint.desc) == 0)) {
+	rlen = req->request.length;
+	if (!zlp_appended && !chain &&
+		req->request.zero && rlen &&
+		(rlen % usb_endpoint_maxp(dep->endpoint.desc) == 0)) {
+
+		zlp_appended = true;
 		/* Skip the LINK-TRB on ISOC */
 		if (((dep->free_slot & DWC3_TRB_MASK) == DWC3_TRB_NUM - 1) &&
 			usb_endpoint_xfer_isoc(dep->endpoint.desc))
 			dep->free_slot++;
 
+		trb->ctrl |= DWC3_TRB_CTRL_CHN;
 		trb = &dep->trb_pool[dep->free_slot & DWC3_TRB_MASK];
 		dep->free_slot++;
 
