@@ -17,6 +17,7 @@
 #include <linux/elf.h>
 #include <linux/wait.h>
 #include <linux/delay.h>
+#include <linux/dma-mapping.h>
 #include <sound/soc.h>
 #include <sound/lsm_params.h>
 #include <sound/cpe_core.h>
@@ -684,6 +685,8 @@ struct wcd_cpe_core *wcd_cpe_init_and_boot(const char *img_fname,
 
 	core->cpe_cdc_cb.cdc_clk_en = params->cdc_cb->cdc_clk_en;
 	core->cpe_cdc_cb.cpe_clk_en = params->cdc_cb->cpe_clk_en;
+	core->cpe_cdc_cb.cdc_ext_clk   = params->cdc_cb->cdc_ext_clk;
+	core->cpe_cdc_cb.slimtx_lab_en = params->cdc_cb->slimtx_lab_en;
 
 	INIT_WORK(&core->load_fw_work, wcd_cpe_load_fw_image);
 
@@ -1517,6 +1520,298 @@ err_ret:
 }
 
 /*
+ * wcd_cpe_lsm_config_lab_latency: send lab latency value
+ * @core: handle to wcd_cpe_core
+ * @session: lsm session
+ */
+static int wcd_cpe_lsm_config_lab_latency(
+		struct cpe_lsm_session *session, u32 latency)
+{
+	int ret = 0, pld_size = CPE_PARAM_LSM_LAB_LATENCY_SIZE;
+	struct cpe_lsm_lab_latency_config cpe_lab_latency;
+	struct cpe_lsm_lab_config *lab_lat = &cpe_lab_latency.latency_cfg;
+
+	if (fill_lsm_cmd_header_v0_inband(&cpe_lab_latency.hdr, session->id,
+		(u8) pld_size, CPE_LSM_SESSION_CMD_SET_PARAMS)) {
+		pr_err("%s: Failed to create header\n", __func__);
+		return -EINVAL;
+	}
+	if (latency == 0x00 || latency > WCD_CPE_LAB_MAX_LATENCY) {
+		pr_err("%s: Invalid latency %u\n",
+			__func__, latency);
+		return -EINVAL;
+	} else {
+		lab_lat->latency = latency;
+	}
+
+	lab_lat->minor_ver = 1;
+	lab_lat->param.module_id = LSM_MODULE_ID_LAB;
+	lab_lat->param.param_id = LSM_PARAM_ID_LAB_CONFIG;
+	lab_lat->param.param_size = PARAM_SIZE_LSM_LATENCY_SIZE;
+	lab_lat->param.reserved = 0;
+	pr_debug("%s: Module 0x%x Param 0x%x size 0x%x pld_size 0x%x\n",
+		  __func__, lab_lat->param.module_id,
+		 lab_lat->param.param_id, lab_lat->param.param_size,
+		 pld_size);
+
+	ret = wcd_cpe_cmi_send_lsm_msg(session, &cpe_lab_latency);
+	if (ret != 0) {
+		pr_err("%s: lsm_set_params failed, error = %d\n",
+		       __func__, ret);
+		return -EINVAL;
+	}
+	return 0;
+}
+
+/*
+ * wcd_cpe_buf_alloc: allocate lab DMA buffer.
+ * @core: handle to wcd_cpe_core
+ * @session: lsm session to be deallocated
+ */
+static int wcd_cpe_buf_alloc(void *core_handle,
+			     struct cpe_lsm_session *session,
+			     u32 bufsz, u32 bufcnt)
+{
+	int rc = 0;
+	int dma_alloc = 0;
+	u32 count = 0;
+	struct wcd_cpe_data_pcm_buf *pcm_buf = NULL;
+	struct wcd_cpe_core *core = (struct wcd_cpe_core *)core_handle;
+	struct wcd_cpe_lsm_lab *lab = NULL;
+	struct snd_soc_codec *codec;
+	struct wcd9xxx *wcd9xxx;
+
+
+	pr_debug("%s:Buf Size %d Buf count %d\n", __func__,
+		 bufsz, bufcnt);
+
+	if (bufcnt <= 0 || bufsz <= 0) {
+		pr_err("%s:HW Params Error for LAB\n", __func__);
+		rc = -EINVAL;
+		goto exit;
+	}
+	if (core == NULL || session == NULL) {
+		pr_err("%s:Err core handle/Session ptr NULL\n", __func__);
+		rc = -EINVAL;
+		goto exit;
+	}
+	codec = core->codec;
+	wcd9xxx = codec->control_data;
+	if (session)
+		lab = &session->lab;
+	else {
+		pr_err("%s: Session ptr NULL\n", __func__);
+		rc = -EINVAL;
+		goto exit;
+
+	}
+	pcm_buf = kzalloc(((sizeof(struct wcd_cpe_data_pcm_buf)) * bufcnt),
+			  GFP_KERNEL);
+	if (!pcm_buf) {
+		pr_err("%s: No memory for pcm_buf\n", __func__);
+		rc = -ENOMEM;
+		goto exit;
+	}
+	lab->pcm_buf = pcm_buf;
+	dma_alloc = bufsz * bufcnt;
+	pcm_buf->mem = NULL;
+	pcm_buf->mem = dma_alloc_coherent(wcd9xxx->slim->dev.parent,
+					  dma_alloc,
+					  &(pcm_buf->phys),
+					  GFP_KERNEL);
+
+	if (pcm_buf->mem == NULL) {
+		pr_err("%s:DMA alloc failed size = %x\n",
+		       __func__, dma_alloc);
+		rc = -ENOMEM;
+		goto fail;
+	}
+	count = 0;
+	while (count < bufcnt) {
+		pcm_buf[count].mem =  pcm_buf[0].mem + (count * bufsz);
+		pcm_buf[count].phys =  pcm_buf[0].phys + (count * bufsz);
+		if (!pcm_buf[count].mem) {
+			pr_err("%s: pcm buf mem Null\n", __func__);
+				rc = -EINVAL;
+				goto fail;
+		}
+		pr_debug("%s: pcm_buf[%d].mem %p pcm_buf[%d].phys %pa\n",
+			 __func__, count,
+			 (void *)pcm_buf[count].mem,
+			 count, &(pcm_buf[count].phys));
+		count++;
+	}
+
+	return 0;
+fail:
+	if (pcm_buf) {
+		if (pcm_buf->mem)
+			dma_free_coherent(wcd9xxx->slim->dev.parent, dma_alloc,
+					  pcm_buf->mem, pcm_buf->phys);
+		kfree(pcm_buf);
+	}
+exit:
+	return rc;
+}
+
+/*
+ * wcd_cpe_buf_dealloc: deallocate DMA buffers
+ * @core: handle to wcd_cpe_core
+ * @session: lsm session
+ * @bufz: buffer size
+ * @bufCnt: no of period or buffers
+ */
+static int wcd_cpe_buf_dealloc(void *core_handle,
+			       struct cpe_lsm_session *session,
+			       u32 bufsz, u32 bufcnt)
+{
+	int rc = 0;
+	int dma_alloc = 0;
+	struct wcd_cpe_data_pcm_buf *pcm_buf = NULL;
+	struct wcd_cpe_core *core = (struct wcd_cpe_core *)core_handle;
+	struct wcd_cpe_lsm_lab *lab = NULL;
+	struct snd_soc_codec *codec;
+	struct wcd9xxx *wcd9xxx;
+
+	pr_debug("%s:Buf Size %d Buf count %d\n", __func__,
+		 bufsz, bufcnt);
+
+	if (bufcnt <= 0 || bufsz <= 0) {
+		pr_err("%s:HW Params Error for LAB\n", __func__);
+		return -EINVAL;
+	}
+
+	if (core == NULL || session == NULL) {
+		pr_err("%s:Err core handle/Session ptr NULL\n", __func__);
+		rc = -ENOMEM;
+		return rc;
+	}
+	codec = core->codec;
+	wcd9xxx = codec->control_data;
+	if (session)
+		lab = &session->lab;
+	else {
+		pr_err("%s: Session ptr NULL\n", __func__);
+		rc = -EINVAL;
+		return rc;
+	}
+	pcm_buf = lab->pcm_buf;
+	dma_alloc = bufsz * bufcnt;
+	if (pcm_buf)
+		dma_free_coherent(wcd9xxx->slim->dev.parent, dma_alloc,
+				  pcm_buf->mem, pcm_buf->phys);
+	kfree(pcm_buf);
+	lab->pcm_buf = NULL;
+	return rc;
+}
+
+/*
+ * wcd_cpe_lsm_lab_enable_disable: enable/disable lab
+ * @core: handle to wcd_cpe_core
+ * @session: lsm session
+ */
+static int wcd_cpe_lsm_lab_enable_disable(struct cpe_lsm_session *session,
+					  bool enable)
+{
+	int ret = 0, pld_size = CPE_PARAM_SIZE_LSM_LAB_CONTROL;
+	struct cpe_lsm_control_lab cpe_lab_enable;
+	struct cpe_lsm_lab_enable *lab_enable = &cpe_lab_enable.lab_enable;
+
+	pr_debug("%s: enter payload_size = %d Enable %d\n",
+		 __func__, pld_size, enable);
+
+	if (fill_lsm_cmd_header_v0_inband(&cpe_lab_enable.hdr, session->id,
+		(u8) pld_size, CPE_LSM_SESSION_CMD_SET_PARAMS)) {
+		return -EINVAL;
+	}
+	if (enable == true)
+		lab_enable->enable = 1;
+	else
+		lab_enable->enable = 0;
+	lab_enable->param.module_id = LSM_MODULE_ID_LAB;
+	lab_enable->param.param_id = LSM_PARAM_ID_LAB_ENABLE;
+	lab_enable->param.param_size = PARAM_SIZE_LSM_CONTROL_SIZE;
+	lab_enable->param.reserved = 0;
+	pr_debug("%s: Module 0x%x, Param 0x%x size 0x%x pld_size 0x%x\n",
+		 __func__, lab_enable->param.module_id,
+		 lab_enable->param.param_id, lab_enable->param.param_size,
+		 pld_size);
+	ret = wcd_cpe_cmi_send_lsm_msg(session, &cpe_lab_enable);
+	if (ret != 0) {
+		pr_err("%s: lsm_set_params failed, error = %d\n",
+			__func__, ret);
+		return -EINVAL;
+	}
+	if (lab_enable->enable)
+		wcd_cpe_lsm_config_lab_latency(session,
+					       WCD_CPE_LAB_MAX_LATENCY);
+	return 0;
+}
+
+static int wcd_cpe_lsm_control_lab(void *core_handle,
+				   struct cpe_lsm_session *session,
+				   u32 bufsz, u32 bufcnt, bool enable)
+{
+	int rc = 0;
+
+	if (enable) {
+		rc = wcd_cpe_buf_alloc(core_handle, session, bufsz, bufcnt);
+		if (rc) {
+			pr_err("%s: DMA buffer allocation failed rc %d\n",
+			       __func__, rc);
+			return rc;
+		}
+		rc = wcd_cpe_lsm_lab_enable_disable(session, enable);
+		if (rc) {
+			pr_err("%s: LAB disable/ Enable failed rc %d\n",
+			       __func__, rc);
+			return rc;
+		}
+		session->lab.core_handle = core_handle;
+		session->lab.lsm_s = session;
+	} else {
+		rc = wcd_cpe_buf_dealloc(core_handle, session, bufsz, bufcnt);
+		/* do not return error for DMA dealloc put
+		 * session in detection mode
+		 */
+		if (rc) {
+			pr_err("%s: DMA buffer De-allocation failed, rc %d\n",
+			       __func__, rc);
+		}
+		rc = wcd_cpe_lsm_lab_enable_disable(session, enable);
+		if (rc) {
+			pr_err("%s: LAB disable/ Enable failed rc %d\n",
+			       __func__, rc);
+			return rc;
+		}
+		session->lab.lab_enable = false;
+	}
+	return rc;
+}
+
+/*
+ * wcd_cpe_lsm_eob: stop lab
+ * @core: handle to wcd_cpe_core
+ * @session: lsm session to be deallocated
+ */
+static int wcd_cpe_lsm_eob(struct cpe_lsm_session *session)
+{
+	int ret = 0;
+	struct cmi_hdr lab_eob;
+
+	if (fill_lsm_cmd_header_v0_inband(&lab_eob, session->id,
+		0, CPE_LSM_SESSION_CMD_EOB)) {
+		return -EINVAL;
+	}
+	ret = wcd_cpe_cmi_send_lsm_msg(session, &lab_eob);
+	if (ret != 0) {
+		pr_err("%s: lsm_set_params failed\n", __func__);
+		return -EINVAL;
+	}
+	return 0;
+}
+
+/*
  * wcd_cpe_dealloc_lsm_session: deallocate lsm session
  * @core: handle to wcd_cpe_core
  * @session: lsm session to be deallocated
@@ -1548,6 +1843,154 @@ static int wcd_cpe_dealloc_lsm_session(void *core_handle,
 	return 0;
 }
 
+static int slim_master_read_enable(void *core_handle,
+				   struct cpe_lsm_session *session)
+{
+	int rc = 0;
+	struct wcd_cpe_lsm_lab *lab_s = NULL;
+	struct wcd_cpe_core *core = (struct wcd_cpe_core *)core_handle;
+	struct snd_soc_codec *codec;
+	struct wcd9xxx *wcd9xxx;
+	struct wcd_cpe_lab_hw_params *lsm_params;
+
+	codec = core->codec;
+	wcd9xxx = codec->control_data;
+	lab_s = &session->lab;
+	lsm_params = &lab_s->hw_params;
+	/* The sequence should be maintained strictly */
+	mutex_lock(&session->lsm_lock);
+	if (core->cpe_cdc_cb.cdc_ext_clk)
+		core->cpe_cdc_cb.cdc_ext_clk(codec, true, false);
+	else {
+		pr_err("%s: MCLK cannot be enabled NULL\n", __func__);
+		rc = -EINVAL;
+		goto exit;
+	}
+	if (core->cpe_cdc_cb.slimtx_lab_en)
+		core->cpe_cdc_cb.slimtx_lab_en(codec, 1);
+	else {
+		pr_err("%s: Err slim slave cannot be enabled\n",
+			__func__);
+		rc = -EINVAL;
+		goto fail_mclk;
+	}
+	lab_s->slim_handle = NULL;
+	rc = wcd9xxx_slim_ch_master_open(wcd9xxx, lsm_params->sample_rate,
+					 lsm_params->sample_size,
+					 &lab_s->slim_handle,
+					 WCD_CPE_MAD_SLIM_CHANNEL);
+	if (rc || lab_s->slim_handle == NULL) {
+		pr_err("%s: Slim Open rc %d\n",
+			__func__, rc);
+		rc = -EINVAL;
+		goto fail_slim_open;
+	}
+	rc = wcd9xxx_slim_ch_master_enable_read(wcd9xxx, lab_s->slim_handle);
+	if (rc) {
+		pr_err("%s: Slim enable read rc %d\n",
+			__func__, rc);
+		rc = -EINVAL;
+		goto fail_slim_open;
+	}
+	rc = cpe_svc_toggle_lab(core->cpe_handle, true);
+	if (rc) {
+		pr_err("%s: SVC toggle codec LAB Enable error\n", __func__);
+		rc = -EINVAL;
+		goto fail_slim_open;
+	}
+	init_waitqueue_head(&lab_s->period_wait);
+	mutex_unlock(&session->lsm_lock);
+	return 0;
+fail_slim_open:
+	core->cpe_cdc_cb.slimtx_lab_en(codec, 0);
+fail_mclk:
+	core->cpe_cdc_cb.cdc_ext_clk(codec, false, false);
+exit:
+	mutex_unlock(&session->lsm_lock);
+	return rc;
+}
+
+int slim_master_read_status(void *core_handle,
+			    struct cpe_lsm_session *session,
+			    phys_addr_t phys, u32 *len)
+{
+	struct wcd_cpe_core *core = (struct wcd_cpe_core *)core_handle;
+	struct snd_soc_codec *codec;
+	struct wcd9xxx *wcd9xxx;
+	struct wcd_cpe_lsm_lab *lab = &session->lab;
+	int rc = 0;
+
+	codec = core->codec;
+	wcd9xxx = codec->control_data;
+	rc = wcd9xxx_slim_ch_master_status(wcd9xxx, lab->slim_handle,
+					   phys, len);
+	return rc;
+}
+int slim_master_read(void *core_handle,
+		     struct cpe_lsm_session *session,
+		     phys_addr_t phys, u8 *mem,
+		     u32 read_len)
+{
+	struct wcd_cpe_core *core = (struct wcd_cpe_core *)core_handle;
+	struct snd_soc_codec *codec;
+	struct wcd9xxx *wcd9xxx;
+	struct wcd_cpe_lsm_lab *lab = &session->lab;
+	int rc = 0;
+
+	codec = core->codec;
+	wcd9xxx = codec->control_data;
+	rc = wcd9xxx_slim_ch_master_read(wcd9xxx, lab->slim_handle,
+					 phys, mem, read_len);
+	return rc;
+}
+static int wcd_cpe_lsm_stop_lab(void *core_handle,
+				struct cpe_lsm_session *session)
+{
+	struct wcd_cpe_lsm_lab *lab_s = NULL;
+	struct wcd_cpe_core *core = (struct wcd_cpe_core *)core_handle;
+	struct snd_soc_codec *codec;
+	struct wcd9xxx *wcd9xxx;
+	int rc = 0;
+
+	codec = core->codec;
+	wcd9xxx = codec->control_data;
+	lab_s = &session->lab;
+	mutex_lock(&session->lsm_lock);
+	/* This seqeunce should be followed strictly for closing sequence */
+	if (core->cpe_cdc_cb.slimtx_lab_en)
+		core->cpe_cdc_cb.slimtx_lab_en(codec, 0);
+	else
+		pr_err("%s: Err slim slave cannot be enabled\n",
+			__func__);
+
+	rc = wcd9xxx_slim_ch_master_close(wcd9xxx, &lab_s->slim_handle);
+	if (rc != 0)
+		pr_err("%s: wcd9xxx_slim_pcm_close rc %d\n",
+			__func__, rc);
+
+	rc = wcd_cpe_lsm_eob(session);
+	if (rc != 0)
+		pr_err("%s: wcd_cpe_lsm_eob failed, rc %d\n",
+			__func__, rc);
+
+	rc = cpe_svc_toggle_lab(core->cpe_handle, false);
+	if (rc)
+		pr_err("%s: LAB Voice Tx codec error, rc %d\n",
+			__func__, rc);
+
+	lab_s->buf_idx = 0;
+	lab_s->thread_status = MSM_LSM_LAB_THREAD_STOP;
+	atomic_set(&lab_s->in_count, 0);
+	lab_s->dma_write = 0;
+	if (core->cpe_cdc_cb.cdc_ext_clk)
+		core->cpe_cdc_cb.cdc_ext_clk(codec, false, false);
+	else
+		pr_err("%s: MCLK cannot be disable NULL\n",
+			__func__);
+	mutex_unlock(&session->lsm_lock);
+	return rc;
+}
+
 /*
  * wcd_cpe_get_lsm_ops: register lsm driver to codec
  * @lsm_ops: structure with lsm callbacks
@@ -1565,6 +2008,11 @@ int wcd_cpe_get_lsm_ops(struct wcd_cpe_lsm_ops *lsm_ops)
 	lsm_ops->lsm_deregister_snd_model = wcd_cpe_lsm_dereg_snd_model;
 	lsm_ops->lsm_start = wcd_cpe_cmd_lsm_start;
 	lsm_ops->lsm_stop = wcd_cpe_cmd_lsm_stop;
+	lsm_ops->lsm_lab_control = wcd_cpe_lsm_control_lab;
+	lsm_ops->lsm_lab_stop = wcd_cpe_lsm_stop_lab;
+	lsm_ops->lsm_lab_data_channel_read = slim_master_read;
+	lsm_ops->lsm_lab_data_channel_read_status = slim_master_read_status;
+	lsm_ops->lsm_lab_data_channel_open = slim_master_read_enable;
 	return 0;
 }
 EXPORT_SYMBOL(wcd_cpe_get_lsm_ops);

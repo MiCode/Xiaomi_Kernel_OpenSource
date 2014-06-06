@@ -143,4 +143,5 @@ enum cpe_svc_result cpe_svc_ramdump(void *cpe_handle,
 enum cpe_svc_result cpe_svc_set_debug_mode(void *cpe_handle, u32 mode);
 
 const struct cpe_svc_hw_cfg *cpe_svc_get_hw_cfg(void *cpe_handle);
+enum cpe_svc_result cpe_svc_toggle_lab(void *cpe_handle, bool enable);
 #endif /*__CPE_SERVICES__*/

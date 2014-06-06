@@ -59,6 +59,15 @@
 #define LSM_PARAM_ID_CONNECT_TO_PORT		(0x00012C04)
 #define LSM_PARAM_ID_MIN_CONFIDENCE_LEVELS	(0x00012C07)
 
+/* LSM LAB command opcodes */
+#define CPE_LSM_SESSION_CMD_EOB		0x0000200B
+#define LSM_MODULE_ID_LAB		0x00012C08
+/* used for enable/disable lab*/
+#define LSM_PARAM_ID_LAB_ENABLE		0x00012C09
+/* used for T in LAB config DSP internal buffer*/
+#define LSM_PARAM_ID_LAB_CONFIG		0x00012C0A
+
+
 /* AFE Service command opcodes */
 #define CPE_AFE_PORT_CMD_START			(0x1001)
 #define CPE_AFE_PORT_CMD_STOP			(0x1002)
@@ -315,6 +324,40 @@ struct cpe_lsm_params {
 	struct cpe_lsm_connect_to_port connect_port;
 } __packed;
 
+struct cpe_lsm_lab_enable {
+	struct cpe_param_data param;
+	u16 enable;
+	u16 reserved;
+} __packed;
+
+struct cpe_lsm_control_lab {
+	struct cmi_hdr hdr;
+	struct cpe_lsm_lab_enable lab_enable;
+} __packed;
+
+struct cpe_lsm_lab_config {
+	struct cpe_param_data param;
+	u32 minor_ver;
+	u32 latency;
+} __packed;
+
+struct cpe_lsm_lab_latency_config {
+	struct cmi_hdr hdr;
+	struct cpe_lsm_lab_config latency_cfg;
+} __packed;
+
+
+#define CPE_PARAM_LSM_LAB_LATENCY_SIZE (\
+				sizeof(struct cpe_lsm_lab_latency_config) - \
+				sizeof(struct cmi_hdr))
+#define PARAM_SIZE_LSM_LATENCY_SIZE (\
+					sizeof(struct cpe_lsm_lab_config) - \
+					sizeof(struct cpe_param_data))
+#define CPE_PARAM_SIZE_LSM_LAB_CONTROL (\
+				sizeof(struct cpe_lsm_control_lab) - \
+				sizeof(struct cmi_hdr))
+#define PARAM_SIZE_LSM_CONTROL_SIZE (sizeof(struct cpe_lsm_lab_enable) - \
+					sizeof(struct cpe_param_data))
 #define PARAM_SIZE_LSM_OP_MODE (sizeof(struct cpe_lsm_operation_mode) - \
 				sizeof(struct cpe_param_data))
 #define PARAM_SIZE_LSM_CONNECT_PORT (sizeof(struct cpe_lsm_connect_to_port) - \

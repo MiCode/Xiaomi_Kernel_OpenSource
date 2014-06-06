@@ -45,6 +45,7 @@
 #define TOMTOM_VALIDATE_RX_SBPORT_RANGE(port) ((port >= 16) && (port <= 23))
 #define TOMTOM_CONVERT_RX_SBPORT_ID(port) (port - 16) /* RX1 port ID = 0 */
 
+#define TOMTOM_MAD_MASTER_SLIM_TX 140
 #define TOMTOM_HPH_PA_SETTLE_COMP_ON 3000
 #define TOMTOM_HPH_PA_SETTLE_COMP_OFF 13000
 
@@ -5583,6 +5584,51 @@ out_vi:
 	return ret;
 }
 
+static int tomtom_codec_enable_slimtx_mad(struct snd_soc_codec *codec,
+					  int event)
+{
+	struct wcd9xxx *core;
+	struct tomtom_priv *tomtom_p = snd_soc_codec_get_drvdata(codec);
+	struct wcd9xxx_codec_dai_data *dai;
+	int ret = 0;
+	struct wcd9xxx_ch *ch;
+
+	dai = &tomtom_p->dai[AIF4_MAD_TX];
+	core = dev_get_drvdata(codec->dev->parent);
+	pr_debug("%s: Set MAD Channel MAP to TX12\n", __func__);
+	if (event) {
+		list_add_tail(&core->tx_chs[TOMTOM_TX13].list,
+			      &dai->wcd9xxx_ch_list);
+		tomtom_codec_enable_int_port(dai, codec);
+		(void) tomtom_codec_enable_slim_chmask(dai, true);
+		dai->rate = 16000;
+		dai->bit_width = 16;
+		ret = wcd9xxx_cfg_slim_sch_tx(core, &dai->wcd9xxx_ch_list,
+					      16000, 16,
+					      &dai->grph);
+	} else {
+		ret = wcd9xxx_close_slim_sch_tx(core, &dai->wcd9xxx_ch_list,
+						dai->grph);
+		pr_debug("%s: wcd9xxx_close_slim_sch_tx rc = 0x%x\n",
+			 __func__, ret);
+		ret = tomtom_codec_enable_slim_chmask(dai, false);
+		if (ret < 0) {
+			ret = wcd9xxx_disconnect_port(core,
+						      &dai->wcd9xxx_ch_list,
+						      dai->grph);
+			pr_debug("%s: Disconnect RX port, ret = %d\n",
+				 __func__, ret);
+		}
+		list_for_each_entry(ch, &dai->wcd9xxx_ch_list, list) {
+			if (ch->ch_num == TOMTOM_MAD_MASTER_SLIM_TX) {
+				list_del_init(&core->tx_chs[TOMTOM_TX13].list);
+				break;
+			}
+		}
+	}
+return ret;
+}
+
 static int tomtom_codec_enable_slimtx(struct snd_soc_dapm_widget *w,
 				     struct snd_kcontrol *kcontrol,
 				     int event)
@@ -7373,10 +7419,16 @@ static int tomtom_codec_fll_enable(struct snd_soc_codec *codec,
 }
 
 static void tomtom_codec_cpe_setup_callbacks(
-		struct wcd_cpe_cdc_cb *cpe_cb)
+		struct wcd_cpe_cdc_cb *cpe_cb,
+		int (*cdc_ext_clk)(struct snd_soc_codec *codec,
+		int enable, bool dapm))
 {
 	cpe_cb->cdc_clk_en = tomtom_codec_internal_rco_ctrl;
 	cpe_cb->cpe_clk_en = tomtom_codec_fll_enable;
+	cpe_cb->slimtx_lab_en = tomtom_codec_enable_slimtx_mad;
+	if (cdc_ext_clk == NULL)
+		pr_err("%s: MCLK could not be set", __func__);
+	cpe_cb->cdc_ext_clk = cdc_ext_clk;
 }
 
 int tomtom_enable_cpe(struct snd_soc_codec *codec)
@@ -7385,7 +7437,8 @@ int tomtom_enable_cpe(struct snd_soc_codec *codec)
 	struct wcd_cpe_params cpe_params;
 	struct wcd_cpe_cdc_cb cpe_cdc_cb;
 
-	tomtom_codec_cpe_setup_callbacks(&cpe_cdc_cb);
+	tomtom_codec_cpe_setup_callbacks(&cpe_cdc_cb,
+					 tomtom->codec_ext_clk_en_cb);
 	memset(&cpe_params, 0,
 	       sizeof(struct wcd_cpe_params));
 	cpe_params.codec = codec;
@@ -7492,6 +7545,8 @@ static int tomtom_codec_probe(struct snd_soc_codec *codec)
 	else if (wcd9xxx->mclk_rate == TOMTOM_MCLK_CLK_9P6MHZ)
 		snd_soc_update_bits(codec, TOMTOM_A_CHIP_CTL, 0x06, 0x2);
 	tomtom_codec_init_reg(codec);
+	/* set QFuse for LAB FIFO detection */
+	snd_soc_write(codec, TOMTOM_A_QFUSE_CTL, 0x3);
 	ret = tomtom_handle_pdata(tomtom);
 	if (IS_ERR_VALUE(ret)) {
 		pr_err("%s: bad pdata\n", __func__);
