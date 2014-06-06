@@ -995,7 +995,7 @@ static void kgsl_pwrctrl_sptp(struct kgsl_device *device, int state)
 			&pwr->power_flags))
 			device->ftbl->enable_pc(device);
 	} else if (state == KGSL_PWRFLAGS_ON) {
-		if (!test_and_set_bit(KGSL_PWRFLAGS_AXI_ON,
+		if (!test_and_set_bit(KGSL_PWRFLAGS_SPTP_ON,
 			&pwr->power_flags))
 			device->ftbl->disable_pc(device);
 	}
