@@ -524,8 +524,12 @@ Required properties:
 - qcom,msm-hs-micbias-type : This property is used to recognize the headset
   micbias type, internal or external.
 - qcom,msm-ext-pa : This property is used to inform machine driver about
-  the connection of external PA over secondary MI2S interface, val 0 external
-  PA is not there, Val 1 external PA is connected.
+  the connection of external PA over available MI2S interfaces,
+  following values can be given to this property.
+  primary -> Primary MI2S interface
+  secondary -> Secondary MI2S interface
+  tertiary -> Tertiary MI2S interface
+  quaternary -> Quaternary MI2S interface
 - qcom,msm-mclk-freq : This property is used to inform machine driver about
 mclk frequency needs to be configured for internal and external PA.
 - qcom,msm-mbhc-hphl-swh: This property is used to distinguish headset HPHL
