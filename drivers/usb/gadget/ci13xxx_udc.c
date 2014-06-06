@@ -3804,6 +3804,9 @@ static irqreturn_t udc_irq(void)
 		/* order defines priority - do NOT change it */
 		if (USBi_URI & intr) {
 			isr_statistics.uri++;
+			if (!hw_cread(CAP_PORTSC, PORTSC_PR))
+				pr_info("%s: USB reset interrupt is delayed\n",
+								__func__);
 			isr_reset_handler(udc);
 		}
 		if (USBi_PCI & intr) {
