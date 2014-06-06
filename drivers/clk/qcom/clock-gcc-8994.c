@@ -1306,6 +1306,7 @@ DEFINE_FIXED_DIV_CLK(ufs_rx_cfg_postdiv_clk_src, 2, &ufs_axi_clk_src.c);
 DEFINE_FIXED_DIV_CLK(ufs_tx_cfg_postdiv_clk_src, 2, &ufs_axi_clk_src.c);
 
 static struct clk_freq_tbl ftbl_usb30_mock_utmi_clk_src[] = {
+	F(  19200000,         gcc_xo,    1,    0,     0),
 	F(  60000000, gpll0_out_main,   10,    0,     0),
 	F_END
 };
