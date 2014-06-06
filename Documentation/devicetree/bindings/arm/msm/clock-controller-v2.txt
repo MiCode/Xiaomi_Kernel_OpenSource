@@ -447,3 +447,46 @@ axi_clk_src: axi_clk_src {
 		<FMAX_NOM 333430000>,
 		<FMAX_TURBO 400000000>;
 };
+
+*****************************************************************************
+
+"qcom,mux-reg"
+
+Represents a mux which may optionally have gating capability.
+
+Required Properties:
+- compatible:		Must be "qcom,mux-reg".
+
+- qcom,offset:		Register selecting the input clk.
+- qcom,mask:		Bitmask for the mux src select register.
+- qcom,shift:		Shift applied to mask and src sel.
+- qcom,parents:		Array of <mux_selection  parent_phandle>.
+
+Optional Properties:
+- qcom,en-offset:	Register controlling gating functionality.
+- qcom,en-mask:		Bitmask for the enable register.
+- qcom,recursive-parents:
+			Array of phandles.
+			Suppose the following clock-tree.
+			A -> B --> C
+			       \-> D
+			It may be desireable to change the grandparent
+			of A to D instead of C directly from clk_set_parent(A, D),
+			as opposed to calling clk_set_parent(B, D). Including B on
+			this list will allow this behavior.
+			Any clocks on this list must also be on the qcom,parents.
+
+mmss_gcc_dbg_clk: mmss_gcc_dbg_clk {
+	compatible = "qcom,mux-reg";
+	qcom,recursive-parents = <&debug_clk_src>;
+	qcom,offset = <MMSS_MMSS_DEBUG_CLK_CTL>;
+	qcom,mask = <0xFFF>;
+	qcom,shift = <0>;
+	qcom,en-offset = <MMSS_MMSS_DEBUG_CLK_CTL>;
+	qcom,en-mask = <0x10000>;
+	qcom,parents =
+		<    0 &gcc_xo>,
+		<    1 &gpll0>,
+		<    2 &debug_clk_src>,
+		<>;
+};
