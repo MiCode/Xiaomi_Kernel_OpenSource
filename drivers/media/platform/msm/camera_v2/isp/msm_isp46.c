@@ -321,44 +321,47 @@ static void msm_vfe46_process_camif_irq(struct vfe_device *vfe_dev,
 static void msm_vfe46_process_violation_status(
 	struct vfe_device *vfe_dev)
 {
-	static const char str[37][32] = {
-		"camif",              /*  0 */
-		"pedestal",           /*  1 */
-		"black",              /*  2 */
-		"demux",              /*  3 */
-		"hdr recon",          /*  4 */
-		"hdr mac",            /*  5 */
-		"bpc",                /*  6 */
-		"abf",                /*  7 */
-		"rolloff",            /*  8 */
-		"gic",                /*  9 */
-		"demosaic",           /* 10 */
-		"clf",                /* 11 */
-		"color correct",      /* 12 */
-		"gtm",                /* 13 */
-		"rgb lut",            /* 14 */
-		"ltm",                /* 15 */
-		"chroma enhance",     /* 16 */
-		"chroma suppress",    /* 17 */
-		"skin enhance",       /* 18 */
-		"color xform enc",    /* 19 */
-		"scaler enc y",       /* 20 */
-		"scaler enc cbcr",    /* 21 */
-		"crop enc y",         /* 22 */
-		"crop enc cbcr",      /* 23 */
-		"color xform view",   /* 24 */
-		"scaler view y",      /* 25 */
-		"scaler view cbcr",   /* 26 */
-		"crop view y",        /* 27 */
-		"crop view cbcr",     /* 28 */
-		"color xform video",  /* 29 */
-		"scaler video y",     /* 30 */
-		"scaler video cbcr",  /* 31 */
-		"crop video y",       /* 32 */
-		"crop video cbcr",    /* 33 */
-		"realign buf y",      /* 34 */
-		"realign buf cb",     /* 35 */
-		"realign buf cr",     /* 36 */
+	static const char str[40][32] = {
+		"no violation",       /*  0 */
+		"camif",              /*  1 */
+		"rica",               /*  2 */
+		"pedestal",           /*  3 */
+		"black",              /*  4 */
+		"demux",              /*  5 */
+		"hdr recon",          /*  6 */
+		"hdr mac",            /*  7 */
+		"bpc",                /*  8 */
+		"abf",                /*  9 */
+		"rolloff",            /* 10 */
+		"gic",                /* 11 */
+		"demosaic",           /* 12 */
+		"clf",                /* 13 */
+		"color correct",      /* 14 */
+		"gtm",                /* 15 */
+		"rgb lut",            /* 16 */
+		"ltm",                /* 17 */
+		"ltm conv",           /* 18 */
+		"chroma enhance",     /* 19 */
+		"chroma suppress",    /* 20 */
+		"skin enhance",       /* 21 */
+		"color xform enc",    /* 22 */
+		"color xform view",   /* 23 */
+		"color xform video",  /* 24 */
+		"scaler enc y",       /* 25 */
+		"scaler enc cbcr",    /* 26 */
+		"scaler view y",      /* 27 */
+		"scaler view cbcr",   /* 28 */
+		"scaler video y",     /* 29 */
+		"scaler video cbcr",  /* 30 */
+		"crop enc y",         /* 31 */
+		"crop enc cbcr",      /* 32 */
+		"crop view y",        /* 33 */
+		"crop view cbcr",     /* 34 */
+		"crop video y",       /* 35 */
+		"crop video cbcr",    /* 36 */
+		"realign buf y",      /* 37 */
+		"realign buf cb",     /* 38 */
+		"realign buf cr",     /* 39 */
 	};
 	uint32_t violation_status = vfe_dev->error_info.violation_status;
 
