@@ -123,6 +123,7 @@ struct msm_hsphy {
 	struct regulator	*vdda33;
 	struct regulator	*vdda18;
 	int			vdd_levels[3]; /* none, low, high */
+	u32			lpm_flags;
 	bool			suspended;
 
 	/* Using external VBUS/ID notification */
@@ -386,6 +387,7 @@ static int msm_hsphy_set_suspend(struct usb_phy *uphy, int suspend)
 					msm_usb_write_readback(phy->base,
 						HS_PHY_CTRL_REG(i),
 						RETENABLEN, 0);
+				phy->lpm_flags |= PHY_RETENTIONED;
 			}
 		}
 
@@ -399,16 +401,21 @@ static int msm_hsphy_set_suspend(struct usb_phy *uphy, int suspend)
 					(OTGSESSVLDHV_INTEN | IDHV_INTEN));
 		}
 		/* can turn off regulators if disconnected in device mode */
-		if (!host && !phy->cable_connected) {
-			if (phy->ext_vbus_id)
+		if (phy->lpm_flags & PHY_RETENTIONED && !phy->cable_connected) {
+			if (phy->ext_vbus_id) {
 				msm_hsusb_ldo_enable(phy, 0);
+				phy->lpm_flags |= PHY_PWR_COLLAPSED;
+			}
 			msm_hsusb_config_vdd(phy, 0);
 		}
 	} else {
-		if (!host && !phy->cable_connected) {
+		if (phy->lpm_flags & PHY_RETENTIONED && !phy->cable_connected) {
 			msm_hsusb_config_vdd(phy, 1);
-			if (phy->ext_vbus_id)
+			if (phy->ext_vbus_id) {
 				msm_hsusb_ldo_enable(phy, 1);
+				phy->lpm_flags &= ~PHY_PWR_COLLAPSED;
+			}
+			phy->lpm_flags &= ~PHY_RETENTIONED;
 		}
 
 		if (phy->core_ver >= MSM_CORE_VER_120) {
