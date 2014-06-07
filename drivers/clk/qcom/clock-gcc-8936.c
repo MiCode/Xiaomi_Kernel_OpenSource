@@ -2503,7 +2503,7 @@ static struct branch_clk gcc_oxili_ahb_clk = {
 
 static struct branch_clk gcc_oxili_gfx3d_clk = {
 	.cbcr_reg = OXILI_GFX3D_CBCR,
-	.has_sibling = 1,
+	.has_sibling = 0,
 	.base = &virt_bases[GCC_BASE],
 	.c = {
 		.dbg_name = "gcc_oxili_gfx3d_clk",
