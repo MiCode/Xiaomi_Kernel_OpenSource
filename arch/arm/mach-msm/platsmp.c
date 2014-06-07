@@ -107,8 +107,6 @@ static int __cpuinit msm8960_release_secondary(unsigned long base,
 	if (!base_ptr)
 		return -ENODEV;
 
-	msm_spm_turn_on_cpu_rail(MSM8960_SAW2_BASE_ADDR, cpu);
-
 	writel_relaxed(0x109, base_ptr+0x04);
 	writel_relaxed(0x101, base_ptr+0x04);
 	mb();
