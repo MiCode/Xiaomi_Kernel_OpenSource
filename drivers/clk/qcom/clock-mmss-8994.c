@@ -656,10 +656,12 @@ static struct rcg_clk mdp_clk_src = {
 	},
 };
 
+DEFINE_EXT_CLK(ext_pclk0_clk_src, NULL);
 static struct clk_freq_tbl ftbl_pclk0_clk_src[] = {
 	{
 		.div_src_val = BVAL(10, 8, dsi0phypll_mm_source_val)
 				| BVAL(4, 0, 0),
+		.src_clk = &ext_pclk0_clk_src.c,
 	},
 	F_END
 };
@@ -670,6 +672,7 @@ static struct rcg_clk pclk0_clk_src = {
 	.base = &virt_base,
 	.c = {
 		.dbg_name = "pclk0_clk_src",
+		.parent = &ext_pclk0_clk_src.c,
 		.ops = &clk_ops_pixel,
 		VDD_DIG_FMAX_MAP3(LOWER, 75000000, LOW, 150000000,
 				  NOMINAL, 250000000),
@@ -677,10 +680,12 @@ static struct rcg_clk pclk0_clk_src = {
 	},
 };
 
+DEFINE_EXT_CLK(ext_pclk1_clk_src, NULL);
 static struct clk_freq_tbl ftbl_pclk1_clk_src[] = {
 	{
 		.div_src_val = BVAL(10, 8, dsi0phypll_mm_source_val)
 				| BVAL(4, 0, 0),
+		.src_clk = &ext_pclk1_clk_src.c,
 	},
 	F_END
 };
@@ -691,6 +696,7 @@ static struct rcg_clk pclk1_clk_src = {
 	.base = &virt_base,
 	.c = {
 		.dbg_name = "pclk1_clk_src",
+		.parent = &ext_pclk1_clk_src.c,
 		.ops = &clk_ops_pixel,
 		VDD_DIG_FMAX_MAP3(LOWER, 75000000, LOW, 150000000,
 				  NOMINAL, 250000000),
@@ -1000,9 +1006,11 @@ static struct rcg_clk csi1phytimer_clk_src = {
 	},
 };
 
+DEFINE_EXT_CLK(ext_byte0_clk_src, NULL);
 static struct clk_freq_tbl ftbl_byte0_clk_src[] = {
 	{
 		.div_src_val = BVAL(10, 8, dsi0phypll_mm_source_val),
+		.src_clk = &ext_byte0_clk_src.c,
 	},
 	F_END
 };
@@ -1013,6 +1021,7 @@ static struct rcg_clk byte0_clk_src = {
 	.base = &virt_base,
 	.c = {
 		.dbg_name = "byte0_clk_src",
+		.parent = &ext_byte0_clk_src.c,
 		.ops = &clk_ops_byte,
 		VDD_DIG_FMAX_MAP3(LOWER, 60000000, LOW, 112500000,
 				  NOMINAL, 187500000),
@@ -1020,9 +1029,11 @@ static struct rcg_clk byte0_clk_src = {
 	},
 };
 
+DEFINE_EXT_CLK(ext_byte1_clk_src, NULL);
 static struct clk_freq_tbl ftbl_byte1_clk_src[] = {
 	{
 		.div_src_val = BVAL(10, 8, dsi0phypll_mm_source_val),
+		.src_clk = &ext_byte1_clk_src.c,
 	},
 	F_END
 };
@@ -1033,6 +1044,7 @@ static struct rcg_clk byte1_clk_src = {
 	.base = &virt_base,
 	.c = {
 		.dbg_name = "byte1_clk_src",
+		.parent = &ext_byte1_clk_src.c,
 		.ops = &clk_ops_byte,
 		VDD_DIG_FMAX_MAP3(LOWER, 60000000, LOW, 112500000,
 				  NOMINAL, 187500000),
@@ -1078,9 +1090,11 @@ static struct rcg_clk esc1_clk_src = {
 	},
 };
 
+DEFINE_EXT_CLK(ext_extpclk_clk_src, NULL);
 static struct clk_freq_tbl ftbl_extpclk_clk_src[] = {
 	{
 		.div_src_val = BVAL(10, 8, hdmiphypll_mm_source_val),
+		.src_clk = &ext_extpclk_clk_src.c,
 	},
 	F_END
 };
@@ -1091,6 +1105,7 @@ static struct rcg_clk extpclk_clk_src = {
 	.base = &virt_base,
 	.c = {
 		.dbg_name = "extpclk_clk_src",
+		.parent = &ext_extpclk_clk_src.c,
 		.ops = &clk_ops_byte,
 		VDD_DIG_FMAX_MAP3(LOWER, 85000000, LOW, 170000000,
 				  NOMINAL, 340000000),
@@ -2279,6 +2294,8 @@ static struct clk_lookup msm_clocks_mmss_8994[] = {
 	CLK_LIST(jpeg1_clk_src),
 	CLK_LIST(jpeg2_clk_src),
 	CLK_LIST(csi2phytimer_clk_src),
+	CLK_LIST(pclk0_clk_src),
+	CLK_LIST(pclk1_clk_src),
 	CLK_LIST(fd_core_clk_src),
 	CLK_LIST(mdp_clk_src),
 	CLK_LIST(ocmemnoc_clk_src),
@@ -2293,8 +2310,11 @@ static struct clk_lookup msm_clocks_mmss_8994[] = {
 	CLK_LIST(mclk3_clk_src),
 	CLK_LIST(csi0phytimer_clk_src),
 	CLK_LIST(csi1phytimer_clk_src),
+	CLK_LIST(byte0_clk_src),
+	CLK_LIST(byte1_clk_src),
 	CLK_LIST(esc0_clk_src),
 	CLK_LIST(esc1_clk_src),
+	CLK_LIST(extpclk_clk_src),
 	CLK_LIST(hdmi_clk_src),
 	CLK_LIST(vsync_clk_src),
 	CLK_LIST(rbbmtimer_clk_src),
@@ -2354,11 +2374,16 @@ static struct clk_lookup msm_clocks_mmss_8994[] = {
 	CLK_LIST(fd_core_uar_clk),
 	CLK_LIST(mdss_ahb_clk),
 	CLK_LIST(mdss_axi_clk),
+	CLK_LIST(mdss_byte0_clk),
+	CLK_LIST(mdss_byte1_clk),
 	CLK_LIST(mdss_esc0_clk),
 	CLK_LIST(mdss_esc1_clk),
+	CLK_LIST(mdss_extpclk_clk),
 	CLK_LIST(mdss_hdmi_ahb_clk),
 	CLK_LIST(mdss_hdmi_clk),
 	CLK_LIST(mdss_mdp_clk),
+	CLK_LIST(mdss_pclk0_clk),
+	CLK_LIST(mdss_pclk1_clk),
 	CLK_LIST(mdss_vsync_clk),
 	CLK_LIST(mmss_misc_ahb_clk),
 	CLK_LIST(mmss_mmssnoc_axi_clk),
@@ -2448,6 +2473,17 @@ int msm_mmsscc_8994_probe(struct platform_device *pdev)
 		return PTR_ERR(tmp);
 	}
 
+	ext_pclk0_clk_src.dev = &pdev->dev;
+	ext_pclk0_clk_src.clk_id = "pclk0_src";
+	ext_pclk1_clk_src.dev = &pdev->dev;
+	ext_pclk1_clk_src.clk_id = "pclk1_src";
+	ext_byte0_clk_src.dev = &pdev->dev;
+	ext_byte0_clk_src.clk_id = "byte0_src";
+	ext_byte1_clk_src.dev = &pdev->dev;
+	ext_byte1_clk_src.clk_id = "byte1_src";
+	ext_extpclk_clk_src.dev = &pdev->dev;
+	ext_extpclk_clk_src.clk_id = "extpclk_src";
+
 	rc = of_msm_clock_register(pdev->dev.of_node, msm_clocks_mmss_8994,
 				   ARRAY_SIZE(msm_clocks_mmss_8994));
 	if (rc)
@@ -2477,95 +2513,4 @@ int __init msm_mmsscc_8994_init(void)
 	return platform_driver_register(&msm_clock_mmss_driver);
 }
 arch_initcall(msm_mmsscc_8994_init);
-
-static struct clk_lookup msm_clocks_mdss_8994[] = {
-	CLK_LIST(pclk0_clk_src),
-	CLK_LIST(pclk1_clk_src),
-	CLK_LIST(byte0_clk_src),
-	CLK_LIST(byte1_clk_src),
-	CLK_LIST(extpclk_clk_src),
-	CLK_LIST(mdss_byte0_clk),
-	CLK_LIST(mdss_byte1_clk),
-	CLK_LIST(mdss_extpclk_clk),
-	CLK_LIST(mdss_pclk0_clk),
-	CLK_LIST(mdss_pclk1_clk),
-};
-
-static int msm_mdss_get_ext_clk(struct device *dev, const char *con,
-				struct clk *clk, struct clk_freq_tbl *ftbl,
-				size_t ftbl_size)
-{
-	int i;
-
-	clk->parent = clk_get(dev, con);
-	if (IS_ERR(clk->parent)) {
-		if (PTR_ERR(clk->parent) != -EPROBE_DEFER)
-			dev_err(dev, "Failed to get clock %s\n", con);
-		return PTR_ERR(clk->parent);
-	}
-
-	for (i = 0; i < ftbl_size; i++)
-		ftbl[i].src_clk = clk->parent;
-
-	return 0;
-}
-
-int msm_mmsscc_mdss_8994_probe(struct platform_device *pdev)
-{
-	int rc;
-
-	rc = msm_mdss_get_ext_clk(&pdev->dev, "pclk0_src", &pclk0_clk_src.c,
-			ftbl_pclk0_clk_src, ARRAY_SIZE(ftbl_pclk0_clk_src));
-	if (rc)
-		return rc;
-
-	rc = msm_mdss_get_ext_clk(&pdev->dev, "pclk1_src", &pclk1_clk_src.c,
-			ftbl_pclk1_clk_src, ARRAY_SIZE(ftbl_pclk1_clk_src));
-	if (rc)
-		return rc;
-
-	rc = msm_mdss_get_ext_clk(&pdev->dev, "byte0_src", &byte0_clk_src.c,
-			ftbl_byte0_clk_src, ARRAY_SIZE(ftbl_byte0_clk_src));
-	if (rc)
-		return rc;
-
-	rc = msm_mdss_get_ext_clk(&pdev->dev, "byte1_src", &byte1_clk_src.c,
-			ftbl_byte1_clk_src, ARRAY_SIZE(ftbl_byte1_clk_src));
-	if (rc)
-		return rc;
-
-	rc = msm_mdss_get_ext_clk(&pdev->dev, "extpclk_src", &extpclk_clk_src.c,
-			ftbl_extpclk_clk_src, ARRAY_SIZE(ftbl_extpclk_clk_src));
-	if (rc)
-		return rc;
-
-	rc = of_msm_clock_register(pdev->dev.of_node, msm_clocks_mdss_8994,
-				   ARRAY_SIZE(msm_clocks_mdss_8994));
-	if (rc)
-		return rc;
-
-	dev_info(&pdev->dev, "Registered MMSS display clocks.\n");
-
-	return 0;
-}
-
-static struct of_device_id msm_clock_mdss_match_table[] = {
-	{ .compatible = "qcom,mmsscc-mdss-8994" },
-	{}
-};
-
-static struct platform_driver msm_clock_mdss_driver = {
-	.probe = msm_mmsscc_mdss_8994_probe,
-	.driver = {
-		.name = "qcom,mmsscc-mdss-8994",
-		.of_match_table = msm_clock_mdss_match_table,
-		.owner = THIS_MODULE,
-	},
-};
-
-int __init msm_mmsscc_mdss_8994_init(void)
-{
-	return platform_driver_register(&msm_clock_mdss_driver);
-}
-arch_initcall(msm_mmsscc_mdss_8994_init);
 
