@@ -596,8 +596,8 @@ static int msm_fd_hw_set_clock_rate_idx(struct msm_fd_device *fd,
 
 		clk_rate = clk_round_rate(fd->clk[i], fd->clk_rates[idx][i]);
 		if (clk_rate < 0) {
-			dev_err(fd->dev, "Fail clock round rate\n");
-			return -EINVAL;
+			dev_dbg(fd->dev, "Clk raund rate fail skip %d\n", i);
+			continue;
 		}
 
 		ret = clk_set_rate(fd->clk[i], clk_rate);
