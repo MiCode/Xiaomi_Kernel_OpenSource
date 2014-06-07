@@ -884,7 +884,7 @@
 		interrupts = <0 163 0>, <0 164 0>;
 		interrupt-names = "slimbus_irq", "slimbus_bam_irq";
 		qcom,apps-ch-pipes = <0x60000000>;
-		qcom,ea-pc = <0x110>;
+		qcom,ea-pc = <0x130>;
 
 		tomtom_codec {
 			compatible = "qcom,tomtom-slim-pgd";
@@ -892,7 +892,8 @@
 
 			interrupt-parent = <&wcd9xxx_intc>;
 			interrupts = <0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16
-				      17 18 19 20 21 22 23 24 25 26 27 28 30 31>;
+				      17 18 19 20 21 22 23 24 25 26 27 28 29
+				      30 31>;
 
 			qcom,cdc-reset-gpio = <&msm_gpio 68 0>;
 
@@ -1744,6 +1745,8 @@
 			"DMIC6", "MIC BIAS4 External",
 			"MIC BIAS4 External", "Digital Mic6";
 
+		clock-names = "osr_clk";
+		clocks = <&clock_rpm clk_div_clk1>;
 		qcom,cdc-mclk-gpios = <&pm8994_gpios 15 0>;
 		qcom,tomtom-mclk-clk-freq = <9600000>;
 		qcom,prim-auxpcm-gpio-clk  = <&msm_gpio 74 0>;
@@ -1769,6 +1772,10 @@
 	qcom,msm-pcm {
 		compatible = "qcom,msm-pcm-dsp";
 		qcom,msm-pcm-dsp-id = <0>;
+	};
+
+	qcom,msm-pcm-lpa {
+		compatible = "qcom,msm-pcm-lpa";
 	};
 
 	qcom,msm-pcm-low-latency {
@@ -1878,6 +1885,26 @@
 		qcom,msm-dai-q6-sb-5-tx {
 			compatible = "qcom,msm-dai-q6-dev";
 			qcom,msm-dai-q6-dev-id = <16395>;
+		};
+
+		qcom,msm-dai-q6-bt-sco-rx {
+			compatible = "qcom,msm-dai-q6-dev";
+			qcom,msm-dai-q6-dev-id = <12288>;
+		};
+
+		qcom,msm-dai-q6-bt-sco-tx {
+			compatible = "qcom,msm-dai-q6-dev";
+			qcom,msm-dai-q6-dev-id = <12289>;
+		};
+
+		qcom,msm-dai-q6-int-fm-rx {
+			compatible = "qcom,msm-dai-q6-dev";
+			qcom,msm-dai-q6-dev-id = <12292>;
+		};
+
+		qcom,msm-dai-q6-int-fm-tx {
+			compatible = "qcom,msm-dai-q6-dev";
+			qcom,msm-dai-q6-dev-id = <12293>;
 		};
 
 		qcom,msm-dai-q6-be-afe-pcm-rx {
