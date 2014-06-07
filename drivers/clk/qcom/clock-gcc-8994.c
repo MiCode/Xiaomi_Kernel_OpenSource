@@ -1423,7 +1423,6 @@ static struct gate_clk gpll0_out_msscc = {
 	.delay_us = 1,
 	.base = &virt_base,
 	.c = {
-		.parent = &gpll0_out_main.c,
 		.dbg_name = "gpll0_out_msscc",
 		.ops = &clk_ops_gate,
 		CLK_INIT(gpll0_out_msscc.c),
