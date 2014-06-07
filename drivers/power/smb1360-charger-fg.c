@@ -2271,8 +2271,7 @@ static int smb1360_probe(struct i2c_client *client,
 	/* STAT irq configuration */
 	if (client->irq) {
 		rc = devm_request_threaded_irq(&client->dev, client->irq, NULL,
-				smb1360_stat_handler,
-				IRQF_TRIGGER_LOW | IRQF_ONESHOT,
+				smb1360_stat_handler, IRQF_ONESHOT,
 				"smb1360_stat_irq", chip);
 		if (rc < 0) {
 			dev_err(&client->dev,
