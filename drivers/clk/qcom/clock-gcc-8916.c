@@ -2793,6 +2793,13 @@ static int msm_gcc_probe(struct platform_device *pdev)
 	regval |= BIT(0);
 	writel_relaxed(regval, GCC_REG_BASE(APCS_GPLL_ENA_VOTE));
 
+	xo_a_clk_src.c.parent = clk_get(&pdev->dev, "xo_a");
+	if (IS_ERR(xo_a_clk_src.c.parent)) {
+		if (!(PTR_ERR(xo_a_clk_src.c.parent) == -EPROBE_DEFER))
+			dev_err(&pdev->dev, "Unable to get xo_a clock!!!\n");
+		return PTR_ERR(xo_a_clk_src.c.parent);
+	}
+
 	ret = of_msm_clock_register(pdev->dev.of_node,
 				msm_clocks_lookup,
 				ARRAY_SIZE(msm_clocks_lookup));
@@ -2801,13 +2808,6 @@ static int msm_gcc_probe(struct platform_device *pdev)
 
 	clk_set_rate(&apss_ahb_clk_src.c, 19200000);
 	clk_prepare_enable(&apss_ahb_clk_src.c);
-
-	xo_a_clk_src.c.parent = clk_get(&pdev->dev, "xo_a");
-	if (IS_ERR(xo_a_clk_src.c.parent)) {
-		if (!(PTR_ERR(xo_a_clk_src.c.parent) == -EPROBE_DEFER))
-			dev_err(&pdev->dev, "Unable to get xo_a clock!!!\n");
-		return PTR_ERR(xo_a_clk_src.c.parent);
-	}
 
 	dev_info(&pdev->dev, "Registered GCC clocks\n");
 
