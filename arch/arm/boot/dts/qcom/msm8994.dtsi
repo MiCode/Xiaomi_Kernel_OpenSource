@@ -1467,7 +1467,7 @@
 			<&clock_mmss clk_venus0_axi_clk>;
 		qcom,load-freq-tbl = <979200 465000000>,
 			<783360 465000000>,
-			<489600 266670000>,
+			<489600 240000000>,
 			<244800 133330000>;
 		qcom,buffer-type-tz-usage-table = <0x241 0x1>,
 			<0x106 0x2>,
