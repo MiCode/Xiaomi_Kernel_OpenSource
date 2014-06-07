@@ -214,6 +214,7 @@ struct smb1360_chip {
 	u8				revision;
 	unsigned short			default_i2c_addr;
 	unsigned short			fg_i2c_addr;
+	bool				pulsed_irq;
 
 	/* configuration data - charger */
 	int				fake_battery_soc;
@@ -2223,7 +2224,10 @@ static int smb1360_hw_init(struct smb1360_chip *chip)
 	if (chip->client->irq) {
 		mask = CHG_STAT_IRQ_ONLY_BIT | CHG_STAT_ACTIVE_HIGH_BIT
 						| CHG_STAT_DISABLE_BIT;
-		reg = CHG_STAT_IRQ_ONLY_BIT;
+		if (!chip->pulsed_irq)
+			reg = CHG_STAT_IRQ_ONLY_BIT;
+		else
+			reg = 0;
 		rc = smb1360_masked_write(chip, CFG_STAT_CTRL_REG, mask, reg);
 		if (rc < 0) {
 			dev_err(chip->dev, "Couldn't set irq config rc = %d\n",
@@ -2303,6 +2307,8 @@ static int smb_parse_dt(struct smb1360_chip *chip)
 		dev_err(chip->dev, "device tree info. missing\n");
 		return -EINVAL;
 	}
+
+	chip->pulsed_irq = of_property_read_bool(node, "qcom,stat-pulsed-irq");
 
 	rc = of_property_read_u32(node, "qcom,float-voltage-mv",
 						&chip->vfloat_mv);
