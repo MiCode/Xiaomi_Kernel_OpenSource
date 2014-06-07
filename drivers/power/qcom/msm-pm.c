@@ -46,6 +46,7 @@
 
 #define SCM_CMD_TERMINATE_PC	(0x2)
 #define SCM_CMD_CORE_HOTPLUGGED (0x10)
+#define SCM_FLUSH_FLAG_MASK	(0x3)
 
 #define SCLK_HZ (32768)
 
@@ -177,14 +178,19 @@ static inline void msm_pc_inc_debug_count(uint32_t cpu,
 static bool msm_pm_pc_hotplug(void)
 {
 	uint32_t cpu = smp_processor_id();
+	enum msm_pm_l2_scm_flag flag;
 
-	if (msm_pm_is_L1_writeback())
+	flag = lpm_cpu_pre_pc_cb(cpu);
+
+	if (flag == MSM_SCM_L2_OFF)
+		flush_cache_all();
+	else if (msm_pm_is_L1_writeback())
 		flush_cache_louis();
 
 	msm_pc_inc_debug_count(cpu, MSM_PC_ENTRY_COUNTER);
 
 	scm_call_atomic1(SCM_SVC_BOOT, SCM_CMD_TERMINATE_PC,
-			SCM_CMD_CORE_HOTPLUGGED);
+		SCM_CMD_CORE_HOTPLUGGED | (flag & SCM_FLUSH_FLAG_MASK));
 
 	/* Should not return here */
 	msm_pc_inc_debug_count(cpu, MSM_PC_FALLTHRU_COUNTER);
