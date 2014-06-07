@@ -10,6 +10,14 @@
 /*
  * v4l2_buffer:
  *
+ * VPU uses standard V4L2 buffer flags, and defines some custom
+ * flags (used in v4l2_buffer.flags field):
+ *	V4L2_QCOM_BUF_FLAG_EOS: buffer flag indicating end of stream
+ *	V4L2_BUF_FLAG_CDS_ENABLE: buffer flag to enable chroma down-sampling
+ */
+#define V4L2_BUF_FLAG_CDS_ENABLE	0x10000000
+
+/*
  * VPU uses multi-plane v4l2_buffer in the following manner:
  * each plane can be a separate ION buffer, or all planes are from the
  * same ION buffer (under this case all planes have the same fd, but different
