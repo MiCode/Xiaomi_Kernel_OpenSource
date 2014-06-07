@@ -167,13 +167,13 @@ static inline void msm_hsl_write(struct uart_port *port,
 				 unsigned int val, unsigned int off)
 {
 	__iowmb();
-	__raw_writel((__force __u32)cpu_to_le32(val),
+	__raw_writel_no_log((__force __u32)cpu_to_le32(val),
 		port->membase + off);
 }
 static inline unsigned int msm_hsl_read(struct uart_port *port,
 		     unsigned int off)
 {
-	unsigned int v = le32_to_cpu((__force __le32)__raw_readl(
+	unsigned int v = le32_to_cpu((__force __le32)__raw_readl_no_log(
 		port->membase + off));
 	__iormb();
 	return v;
