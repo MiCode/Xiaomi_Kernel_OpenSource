@@ -72,6 +72,9 @@
 		qcom,sensor-mode = <0>;
 		qcom,cci-master = <0>;
 		status = "ok";
+		clocks = <&clock_mmss clk_mclk0_clk_src>,
+				<&clock_mmss clk_camss_mclk0_clk>;
+		clock-names = "cam_src_clk", "cam_clk";
 	};
 
 	qcom,camera@1 {
@@ -107,6 +110,9 @@
 		qcom,sensor-mode = <0>;
 		qcom,cci-master = <0>;
 		status = "ok";
+		clocks = <&clock_mmss clk_mclk1_clk_src>,
+			<&clock_mmss clk_camss_mclk1_clk>;
+		clock-names = "cam_src_clk", "cam_clk";
 	};
 
 	qcom,camera@2 {
@@ -142,5 +148,8 @@
 		qcom,sensor-mode = <0>;
 		qcom,cci-master = <0>;
 		status = "ok";
+		clocks = <&clock_mmss clk_mclk2_clk_src>,
+			<&clock_mmss clk_camss_mclk2_clk>;
+		clock-names = "cam_src_clk", "cam_clk";
 	};
 };
