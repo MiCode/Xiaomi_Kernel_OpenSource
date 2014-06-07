@@ -35,7 +35,7 @@
 
 #include <linux/atomisp_platform.h>
 
-#define GC0339_NAME		"gc0339_raw"
+#define GC0339_NAME		"gc0339"
 
 /* Defines for register writes and register array processing */
 #define I2C_MSG_LENGTH		1
