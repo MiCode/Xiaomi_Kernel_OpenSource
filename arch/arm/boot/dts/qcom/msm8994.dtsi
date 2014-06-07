@@ -288,7 +288,9 @@
 
 	l2ccc_1: clock-controller@f900f000 {
 		compatible = "qcom,8994-l2ccc";
-		reg = <0xf900f000 0x1000>;
+		reg = <0xf900f000 0x1000>,
+		      <0xf901301c 4>;
+		qcom,vctl-val = <0xb8>;
 	};
 
 	intc: interrupt-controller@f9000000 {

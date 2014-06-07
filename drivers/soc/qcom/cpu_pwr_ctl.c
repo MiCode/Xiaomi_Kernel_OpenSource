@@ -24,6 +24,7 @@
 #include <linux/smp.h>
 
 #include <soc/qcom/cpu_pwr_ctl.h>
+#include <soc/qcom/spm.h>
 
 #include <asm/barrier.h>
 #include <asm/cacheflush.h>
@@ -47,12 +48,13 @@
  */
 struct msm_l2ccc_of_info {
 	const char *compat;
-	int (*l2_power_on) (struct device_node *dn, u32 l2_mask);
+	int (*l2_power_on) (struct device_node *dn, u32 l2_mask, int cpu);
 	u32 l2_power_on_mask;
 };
 
 
-static int power_on_l2_msm8916(struct device_node *l2ccc_node, u32 pon_mask)
+static int power_on_l2_msm8916(struct device_node *l2ccc_node, u32 pon_mask,
+				int cpu)
 {
 	u32 pon_status;
 	void __iomem *l2_base;
@@ -112,10 +114,14 @@ static int power_on_l2_msm8916(struct device_node *l2ccc_node, u32 pon_mask)
 	return 0;
 }
 
-static int power_on_l2_msm8994(struct device_node *l2ccc_node, u32 pon_mask)
+static int power_on_l2_msm8994(struct device_node *l2ccc_node, u32 pon_mask,
+				int cpu)
 {
 	u32 pon_status;
 	void __iomem *l2_base;
+	int ret;
+	uint32_t val;
+	void __iomem *reg;
 
 	l2_base = of_iomap(l2ccc_node, 0);
 	if (!l2_base)
@@ -126,6 +132,28 @@ static int power_on_l2_msm8994(struct device_node *l2ccc_node, u32 pon_mask)
 	if (pon_status) {
 		iounmap(l2_base);
 		return 0;
+	}
+
+	/* Need to power on the rail */
+	ret = of_property_read_u32(l2ccc_node, "qcom,vctl-val", &val);
+	if (ret) {
+		iounmap(l2_base);
+		pr_err("Unable to read L2 voltage\n");
+		return -EFAULT;
+	}
+
+	reg = of_iomap(l2ccc_node, 1);
+	if (!reg) {
+		iounmap(l2_base);
+		return -ENOMEM;
+	}
+
+	ret = msm_spm_turn_on_cpu_rail(reg, val, cpu);
+	iounmap(reg);
+	if (ret) {
+		iounmap(l2_base);
+		pr_err("Error turning on power rail.\n");
+		return -EFAULT;
 	}
 
 	/* Enable L1 invalidation by h/w */
@@ -191,7 +219,7 @@ static const struct msm_l2ccc_of_info l2ccc_info[] = {
 	},
 };
 
-static int power_on_l2_cache(struct device_node *l2ccc_node)
+static int power_on_l2_cache(struct device_node *l2ccc_node, int cpu)
 {
 	int ret, i;
 	const char *compat;
@@ -205,7 +233,7 @@ static int power_on_l2_cache(struct device_node *l2ccc_node)
 
 		if (!of_compat_cmp(ptr->compat, compat, strlen(compat)))
 				return ptr->l2_power_on(l2ccc_node,
-						ptr->l2_power_on_mask);
+						ptr->l2_power_on_mask, cpu);
 	}
 	pr_err("Compat string not found for L2CCC node\n");
 	return -EIO;
@@ -245,7 +273,7 @@ int msm8994_unclamp_secondary_arm_cpu(unsigned int cpu)
 	 * unclamping cpu power rails.
 	 */
 
-	ret = power_on_l2_cache(l2ccc_node);
+	ret = power_on_l2_cache(l2ccc_node, cpu);
 	if (ret) {
 		pr_err("L2 cache power up failed for CPU%d\n", cpu);
 		goto out_l2ccc;
@@ -351,8 +379,7 @@ int msm_unclamp_secondary_arm_cpu(unsigned int cpu)
 	/* Ensure L2-cache of the CPU is powered on before
 	 * unclamping cpu power rails.
 	 */
-
-	ret = power_on_l2_cache(l2ccc_node);
+	ret = power_on_l2_cache(l2ccc_node, cpu);
 	if (ret) {
 		pr_err("L2 cache power up failed for CPU%d\n", cpu);
 		goto out_l2ccc;
