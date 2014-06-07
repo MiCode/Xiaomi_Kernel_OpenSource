@@ -57,6 +57,7 @@ struct wcd_cpe_lsm_lab {
 	void *slim_handle;
 	void *core_handle;
 	atomic_t in_count;
+	atomic_t abort_read;
 	u32 dma_write;
 	u32 buf_idx;
 	u32 pcm_size;
