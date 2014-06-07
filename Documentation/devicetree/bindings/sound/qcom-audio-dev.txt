@@ -1091,10 +1091,13 @@ sound {
 Required properties:
 - compatible : "qcom,msm8994-audio-tomtom"
 - qcom,model : The user-visible name of this sound card.
-
+- clock-names : clock name defined for external clock.
+- clocks : external clock defined for codec clock.
 Example:
 
 	sound {
 		compatible = "qcom,msm8994-asoc-snd";
 		qcom,model = "msm8994-tomtom-snd-card";
+		clock-names = "osr_clk";
+		clocks = <&clock_rpm clk_div_clk1>;
 	};
