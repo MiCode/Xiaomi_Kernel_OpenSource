@@ -430,14 +430,6 @@ static int diag_hsic_suspend(void *ctxt)
 	if (diag_hsic[index].in_busy_hsic_write)
 		return -EBUSY;
 
-	/*
-	 * Don't allow suspend if in MEMORY_DEVICE_MODE and if there
-	 * has been hsic data requested
-	 */
-	if (driver->logging_mode == MEMORY_DEVICE_MODE &&
-				diag_hsic[index].hsic_ch)
-		return -EBUSY;
-
 	diag_hsic[index].hsic_suspend = 1;
 
 	return 0;
