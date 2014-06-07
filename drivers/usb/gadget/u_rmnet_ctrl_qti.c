@@ -559,6 +559,9 @@ static const struct file_operations rmnet_ctrl_fops = {
 	.read = rmnet_ctrl_read,
 	.write = rmnet_ctrl_write,
 	.unlocked_ioctl = rmnet_ctrl_ioctl,
+#ifdef CONFIG_COMPAT
+	.compat_ioctl = rmnet_ctrl_ioctl,
+#endif
 	.poll = rmnet_ctrl_poll,
 };
 
