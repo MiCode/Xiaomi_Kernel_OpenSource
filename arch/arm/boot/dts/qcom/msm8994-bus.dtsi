@@ -842,7 +842,10 @@
 			cell-id = <MSM_BUS_SLAVE_OCMEM>;
 			label = "slv-ocmem";
 			qcom,bus-dev = <&fab_ovirt>;
-			qcom,buswidth = <32>;
+			qcom,buswidth = <16>;
+			qcom,ap-owned;
+			clock-names = "node_clk";
+			clocks = <&clock_mmss  clk_ocmemnoc_clk_src>;
 		};
 
 		slv_ocmem_gfx: slv-ocmem-gfx {
