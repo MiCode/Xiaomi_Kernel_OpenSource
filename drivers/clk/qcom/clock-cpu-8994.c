@@ -283,11 +283,19 @@ static struct pll_clk a53_pll1 = {
 
 static DEFINE_SPINLOCK(mux_reg_lock);
 
+#define SCM_IO_READ	0x1
+#define SCM_IO_WRITE	0x2
+
 static int cpudiv_get_div(struct div_clk *divclk)
 {
 	u32 regval;
 
-	regval = readl_relaxed(*divclk->base + divclk->offset);
+	if (divclk->priv)
+		regval = scm_call_atomic1(SCM_SVC_IO, SCM_IO_READ,
+					 *(u32 *)divclk->priv + divclk->offset);
+	else
+		regval = readl_relaxed(*divclk->base + divclk->offset);
+
 	regval &= (divclk->mask << divclk->shift);
 	regval >>= divclk->shift;
 
@@ -300,10 +308,23 @@ static void __cpudiv_set_div(struct div_clk *divclk, int div)
 	unsigned long flags;
 
 	spin_lock_irqsave(&mux_reg_lock, flags);
-	regval = readl_relaxed(*divclk->base + divclk->offset);
+
+	if (divclk->priv)
+		regval = scm_call_atomic1(SCM_SVC_IO, SCM_IO_READ,
+					 *(u32 *)divclk->priv + divclk->offset);
+	else
+		regval = readl_relaxed(*divclk->base + divclk->offset);
+
+
 	regval &= ~(divclk->mask << divclk->shift);
 	regval |= ((div - 1) & divclk->mask) << divclk->shift;
-	writel_relaxed(regval, *divclk->base + divclk->offset);
+
+	if (divclk->priv)
+		scm_call_atomic2(SCM_SVC_IO, SCM_IO_WRITE,
+				 *(u32 *)divclk->priv + divclk->offset, regval);
+	else
+		writel_relaxed(regval, *divclk->base + divclk->offset);
+
 	/* Ensure switch request goes through before returning */
 	mb();
 	spin_unlock_irqrestore(&mux_reg_lock, flags);
@@ -386,9 +407,6 @@ static struct mux_clk a53_lf_mux;
 static struct mux_clk a53_hf_mux;
 static struct mux_clk a57_lf_mux;
 static struct mux_clk a57_hf_mux;
-
-#define SCM_IO_READ	0x1
-#define SCM_IO_WRITE	0x2
 
 static void __cpu_mux_set_sel(struct mux_clk *mux, int sel)
 {
@@ -786,6 +804,7 @@ static struct div_clk cci_clk = {
 	.offset = CCI_MUX_OFFSET,
 	.mask = 0x3,
 	.shift = 5,
+	.priv = &cci_phys_base,
 	.c = {
 		.parent = &cci_hf_mux.c,
 		.vdd_class = &vdd_cci,
