@@ -338,6 +338,75 @@ int usb_interface_id(struct usb_configuration *config,
 }
 EXPORT_SYMBOL_GPL(usb_interface_id);
 
+/**
+ * usb_get_func_interface_id() - Find the interface ID of a function
+ * @function: the function for which want to find the interface ID
+ * Context: single threaded
+ *
+ * Returns the interface ID of the function or -ENODEV if this function
+ * is not part of this configuration
+ */
+int usb_get_func_interface_id(struct usb_function *func)
+{
+	int id;
+	struct usb_configuration *config;
+
+	if (!func)
+		return -EINVAL;
+
+	config = func->config;
+
+	for (id = 0; id < MAX_CONFIG_INTERFACES; id++) {
+		if (config->interface[id] == func)
+			return id;
+	}
+	return -ENODEV;
+}
+
+int usb_func_wakeup(struct usb_function *func)
+{
+	int ret;
+	unsigned interface_id;
+	struct usb_gadget *gadget;
+
+	pr_debug("%s function wakeup\n",
+		func->name ? func->name : "");
+
+	if (!func || !func->config || !func->config->cdev ||
+		!func->config->cdev->gadget)
+		return -EINVAL;
+
+	gadget = func->config->cdev->gadget;
+	if ((gadget->speed != USB_SPEED_SUPER) || !func->func_wakeup_allowed) {
+		DBG(func->config->cdev,
+			"Function Wakeup is not possible. speed=%u, func_wakeup_allowed=%u",
+			gadget->speed,
+			func->func_wakeup_allowed);
+
+		return -ENOTSUPP;
+	}
+
+	ret = usb_get_func_interface_id(func);
+	if (ret < 0) {
+		ERROR(func->config->cdev,
+			"Function %s - Unknown interface id. Canceling USB request. ret=%d",
+			func->name ? func->name : "", ret);
+		return ret;
+	}
+
+	interface_id = ret;
+	ret = usb_gadget_func_wakeup(gadget, interface_id);
+	if (ret) {
+		ERROR(func->config->cdev,
+			"Failed to wake function %s from suspend state. interface id: %d, ret=%d. Canceling USB request.",
+			func->name ? func->name : "",
+			interface_id, ret);
+		return ret;
+	}
+
+	return 0;
+}
+
 static u8 encode_bMaxPower(enum usb_device_speed speed,
 		struct usb_configuration *c)
 {
@@ -594,6 +663,10 @@ static void reset_config(struct usb_composite_dev *cdev)
 	list_for_each_entry(f, &cdev->config->functions, list) {
 		if (f->disable)
 			f->disable(f);
+
+		/* USB 3.0 addition */
+		f->func_is_suspended = false;
+		f->func_wakeup_allowed = false;
 
 		bitmap_zero(f->endpoints, 32);
 	}
@@ -1452,8 +1525,13 @@ composite_setup(struct usb_gadget *gadget, const struct usb_ctrlrequest *ctrl)
 			if (!f)
 				break;
 			value = 0;
-			if (f->func_suspend)
-				value = f->func_suspend(f, w_index >> 8);
+			if (f->func_suspend) {
+				const u8 suspend_opt = w_index >> 8;
+
+				value = f->func_suspend(f, suspend_opt);
+				DBG(cdev, "%s function: FUNCTION_SUSPEND(%u)",
+					f->name ? f->name : "", suspend_opt);
+			}
 			if (value < 0) {
 				ERROR(cdev,
 				      "func_suspend() returned error %d\n",
