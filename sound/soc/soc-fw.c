@@ -804,11 +804,13 @@ static int soc_fw_kcontrol_load(struct soc_fw *sfw, struct snd_soc_fw_hdr *hdr)
 	}
 
 	sfw->pos += sizeof(struct snd_soc_fw_kcontrol);
-	control_hdr = (struct snd_soc_fw_control_hdr *)sfw->pos;
 
 	dev_dbg(sfw->dev, "ASoC: adding %d kcontrols\n", sfwk->count);
 
 	for (i = 0; i < sfwk->count; i++) {
+
+		control_hdr = (struct snd_soc_fw_control_hdr *)sfw->pos;
+
 		switch (SOC_CONTROL_GET_ID_INFO(control_hdr->index)) {
 		case SOC_CONTROL_TYPE_VOLSW:
 		case SOC_CONTROL_TYPE_STROBE:
