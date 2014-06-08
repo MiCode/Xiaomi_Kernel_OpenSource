@@ -39,7 +39,8 @@
 /* SUBTYPE definitions */
 #define FG_SOC			0x9
 #define FG_BATT			0xA
-#define FG_MEMIF		0xD
+#define FG_ADC			0xB
+#define FG_MEMIF		0xC
 
 #define QPNP_FG_DEV_NAME "qcom,qpnp-fg"
 
@@ -244,66 +245,99 @@ static irqreturn_t fg_soc_irq_handler(int irq, void *_chip)
 	return IRQ_HANDLED;
 }
 
-static int fg_init_irqs(struct fg_chip *chip,
-		struct spmi_resource *spmi_resource, u8 subtype)
+static int fg_init_irqs(struct fg_chip *chip)
 {
 	int rc = 0;
+	struct resource *resource;
+	struct spmi_resource *spmi_resource;
+	u8 subtype;
+	struct spmi_device *spmi = chip->spmi;
 
-	switch (subtype) {
-	case FG_SOC:
-		chip->soc_irq[FULL_SOC].irq = spmi_get_irq_byname(chip->spmi,
-					spmi_resource, "full-soc");
-		if (chip->soc_irq[FULL_SOC].irq < 0) {
-			pr_err("Unable to get full-soc irq\n");
-			return rc;
-		}
-		chip->soc_irq[EMPTY_SOC].irq = spmi_get_irq_byname(chip->spmi,
-					spmi_resource, "empty-soc");
-		if (chip->soc_irq[EMPTY_SOC].irq < 0) {
-			pr_err("Unable to get low-soc irq\n");
-			return rc;
-		}
-		chip->soc_irq[DELTA_SOC].irq = spmi_get_irq_byname(chip->spmi,
-					spmi_resource, "delta-soc");
-		if (chip->soc_irq[DELTA_SOC].irq < 0) {
-			pr_err("Unable to get delta-soc irq\n");
+	spmi_for_each_container_dev(spmi_resource, spmi) {
+		if (!spmi_resource) {
+			pr_err("fg: spmi resource absent\n");
 			return rc;
 		}
 
-		rc |= devm_request_irq(chip->dev, chip->soc_irq[FULL_SOC].irq,
-			fg_soc_irq_handler, IRQF_TRIGGER_RISING,
-			"full-soc", chip);
-		if (rc < 0) {
-			pr_err("Can't request %d full-soc: %d\n",
+		resource = spmi_get_resource(spmi, spmi_resource,
+						IORESOURCE_MEM, 0);
+		if (!(resource && resource->start)) {
+			pr_err("node %s IO resource absent!\n",
+				spmi->dev.of_node->full_name);
+			return rc;
+		}
+
+		if ((resource->start == chip->vbat_adc_addr) ||
+				(resource->start == chip->ibat_adc_addr))
+			continue;
+
+		rc = fg_read(chip, &subtype,
+				resource->start + REG_OFFSET_PERP_SUBTYPE, 1);
+		if (rc) {
+			pr_err("Peripheral subtype read failed rc=%d\n", rc);
+			return rc;
+		}
+
+		switch (subtype) {
+		case FG_SOC:
+			chip->soc_irq[FULL_SOC].irq = spmi_get_irq_byname(
+					chip->spmi, spmi_resource, "full-soc");
+			if (chip->soc_irq[FULL_SOC].irq < 0) {
+				pr_err("Unable to get full-soc irq\n");
+				return rc;
+			}
+			chip->soc_irq[EMPTY_SOC].irq = spmi_get_irq_byname(
+					chip->spmi, spmi_resource, "empty-soc");
+			if (chip->soc_irq[EMPTY_SOC].irq < 0) {
+				pr_err("Unable to get low-soc irq\n");
+				return rc;
+			}
+			chip->soc_irq[DELTA_SOC].irq = spmi_get_irq_byname(
+					chip->spmi, spmi_resource, "delta-soc");
+			if (chip->soc_irq[DELTA_SOC].irq < 0) {
+				pr_err("Unable to get delta-soc irq\n");
+				return rc;
+			}
+
+			rc |= devm_request_irq(chip->dev,
+				chip->soc_irq[FULL_SOC].irq,
+				fg_soc_irq_handler, IRQF_TRIGGER_RISING,
+				"full-soc", chip);
+			if (rc < 0) {
+				pr_err("Can't request %d full-soc: %d\n",
 					chip->soc_irq[FULL_SOC].irq, rc);
-			return rc;
-		}
-		rc |= devm_request_irq(chip->dev, chip->soc_irq[EMPTY_SOC].irq,
-				fg_soc_irq_handler, IRQF_TRIGGER_RISING,
-				"empty-soc", chip);
-		if (rc < 0) {
-			pr_err("Can't request %d empty-soc: %d\n",
+				return rc;
+			}
+			rc |= devm_request_irq(chip->dev,
+					chip->soc_irq[EMPTY_SOC].irq,
+					fg_soc_irq_handler, IRQF_TRIGGER_RISING,
+					"empty-soc", chip);
+			if (rc < 0) {
+				pr_err("Can't request %d empty-soc: %d\n",
 					chip->soc_irq[EMPTY_SOC].irq, rc);
-			return rc;
-		}
-		rc |= devm_request_irq(chip->dev, chip->soc_irq[DELTA_SOC].irq,
-				fg_soc_irq_handler, IRQF_TRIGGER_RISING,
-				"delta-soc", chip);
-		if (rc < 0) {
-			pr_err("Can't request %d delta-soc: %d\n",
+				return rc;
+			}
+			rc |= devm_request_irq(chip->dev,
+					chip->soc_irq[DELTA_SOC].irq,
+					fg_soc_irq_handler, IRQF_TRIGGER_RISING,
+					"delta-soc", chip);
+			if (rc < 0) {
+				pr_err("Can't request %d delta-soc: %d\n",
 					chip->soc_irq[DELTA_SOC].irq, rc);
-			return rc;
-		}
+				return rc;
+			}
 
-		enable_irq_wake(chip->soc_irq[FULL_SOC].irq);
-		enable_irq_wake(chip->soc_irq[EMPTY_SOC].irq);
-		break;
-	case FG_BATT:
-		break;
-	case FG_MEMIF:
-		break;
-	default:
-		return -EINVAL;
+			enable_irq_wake(chip->soc_irq[FULL_SOC].irq);
+			enable_irq_wake(chip->soc_irq[EMPTY_SOC].irq);
+			break;
+		case FG_MEMIF:
+		case FG_BATT:
+		case FG_ADC:
+			break;
+		default:
+			pr_err("subtype %d\n", subtype);
+			return -EINVAL;
+		}
 	}
 
 	return rc;
@@ -377,11 +411,6 @@ static int fg_probe(struct spmi_device *spmi)
 		switch (subtype) {
 		case FG_SOC:
 			chip->soc_base = resource->start;
-			rc = fg_init_irqs(chip, spmi_resource, subtype);
-			if (rc) {
-				pr_err("IRQ init failed, rc=%d\n", rc);
-				return rc;
-			}
 			break;
 		default:
 			pr_err("Invalid peripheral subtype=0x%x\n", subtype);
@@ -403,8 +432,18 @@ static int fg_probe(struct spmi_device *spmi)
 		return rc;
 	}
 
+	rc = fg_init_irqs(chip);
+	if (rc) {
+		pr_err("failed to request interrupts %d\n", rc);
+		goto power_supply_unregister;
+	}
+
 	pr_info("probe success SOC %d\n", get_prop_capacity(chip));
 
+	return rc;
+
+power_supply_unregister:
+	power_supply_unregister(&chip->bms_psy);
 	return rc;
 }
 
