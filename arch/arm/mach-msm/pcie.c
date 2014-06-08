@@ -392,7 +392,11 @@ static inline int msm_pcie_oper_conf(struct pci_bus *bus, u32 devfn, int oper,
 		writel_relaxed(wr_val, config_base + word_offset);
 		wmb(); /* ensure config data is written to hardware register */
 
-		if (dev->shadow_en) {
+		if (rd_val == PCIE_LINK_DOWN) {
+			PCIE_ERR(dev,
+				"Read of RC%d %d:0x%02x + 0x%04x[%d] is all FFs\n",
+				rc_idx, bus->number, devfn, where, size);
+		} else if (dev->shadow_en) {
 			if (rc)
 				dev->rc_shadow[word_offset / 4] = wr_val;
 			else
@@ -2239,7 +2243,14 @@ int msm_pcie_recover_config(struct pci_dev *dev)
 		msm_pcie_cfg_recover(pcie_dev, true);
 		PCIE_DBG(pcie_dev, "Recover EP of RC%d\n", pcie_dev->rc_idx);
 		msm_pcie_cfg_recover(pcie_dev, false);
+		PCIE_DBG(pcie_dev,
+			"Refreshing the saved config space in PCI framework for RC%d and its EP\n",
+			pcie_dev->rc_idx);
+		pci_save_state(pcie_dev->dev);
+		pci_save_state(dev);
 		pcie_dev->shadow_en = true;
+		PCIE_DBG(pcie_dev, "Turn on shadow for RC%d\n",
+			pcie_dev->rc_idx);
 	} else {
 		PCIE_ERR(pcie_dev,
 			"PCIe: the link of RC%d is not up yet; can't recover config space.\n",
