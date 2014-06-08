@@ -237,10 +237,17 @@ static int msm_fd_start_streaming(struct vb2_queue *q, unsigned int count)
 		return -EINVAL;
 	}
 
+	ret = msm_fd_hw_get(ctx->fd_device, ctx->settings.speed);
+	if (ret < 0) {
+		dev_err(ctx->fd_device->dev, "Can not acquire fd hw\n");
+		goto out;
+	}
+
 	ret = msm_fd_hw_schedule_and_start(ctx->fd_device);
 	if (ret < 0)
 		dev_err(ctx->fd_device->dev, "Can not start fd hw\n");
 
+out:
 	return ret;
 }
 
@@ -253,6 +260,7 @@ static int msm_fd_stop_streaming(struct vb2_queue *q)
 	struct fd_ctx *ctx = vb2_get_drv_priv(q);
 
 	msm_fd_hw_remove_buffers_from_queue(ctx->fd_device, q);
+	msm_fd_hw_put(ctx->fd_device);
 
 	return 0;
 }
@@ -717,16 +725,10 @@ static int msm_fd_streamon(struct file *file,
 	struct fd_ctx *ctx = msm_fd_ctx_from_fh(fh);
 	int ret;
 
-	ret = msm_fd_hw_get(ctx->fd_device, ctx->settings.speed);
-	if (ret < 0) {
-		dev_err(ctx->fd_device->dev, "Can not acquire fd hw\n");
-		goto out;
-	}
-
 	ret = vb2_streamon(&ctx->vb2_q, buf_type);
 	if (ret < 0)
 		dev_err(ctx->fd_device->dev, "Stream on fails\n");
-out:
+
 	return ret;
 }
 
@@ -743,13 +745,9 @@ static int msm_fd_streamoff(struct file *file,
 	int ret;
 
 	ret = vb2_streamoff(&ctx->vb2_q, buf_type);
-	if (ret < 0) {
+	if (ret < 0)
 		dev_err(ctx->fd_device->dev, "Stream off fails\n");
-		goto out;
-	}
 
-	msm_fd_hw_put(ctx->fd_device);
-out:
 	return ret;
 }
 
