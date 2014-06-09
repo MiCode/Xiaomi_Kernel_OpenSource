@@ -2684,11 +2684,14 @@ static int check_vma(struct vm_area_struct *vma, struct file *vmfile,
 
 static int memdesc_sg_virt(struct kgsl_memdesc *memdesc, struct file *vmfile)
 {
-	int i, ret = 0;
-	long npages = 0;
+	int ret = 0;
+	long npages = 0, i;
 	unsigned long sglen = memdesc->size / PAGE_SIZE;
 	struct page **pages = NULL;
 	int write = (memdesc->flags & KGSL_MEMFLAGS_GPUREADONLY) != 0;
+
+	if (sglen == 0 || sglen >= LONG_MAX)
+		return -EINVAL;
 
 	pages = kgsl_malloc(sglen * sizeof(struct page *));
 	if (pages == NULL)
