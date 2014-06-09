@@ -659,9 +659,9 @@ static int msm_isp_send_hw_cmd(struct vfe_device *vfe_dev,
 				*cfg_data);
 			pr_err("hw update across frame boundary,end id %lu\n",
 				vfe_dev->axi_data.src_info[VFE_PIX_0].frame_id);
-			vfe_dev->axi_data.src_info[VFE_PIX_0].last_updt_frm_id =
-			vfe_dev->axi_data.src_info[VFE_PIX_0].frame_id;
 		}
+		vfe_dev->axi_data.src_info[VFE_PIX_0].last_updt_frm_id =
+			vfe_dev->axi_data.src_info[VFE_PIX_0].frame_id;
 		break;
 	}
 	case VFE_READ: {
