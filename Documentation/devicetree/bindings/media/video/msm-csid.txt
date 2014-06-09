@@ -24,6 +24,9 @@ Required properties:
 - qcom,clock-rates: clock rate in Hz
 	- 0 if appropriate clock is required but doesn't have to apply the rate
 
+Optional properties:
+- qcom,gdscr-vdd-supply : should contain regulator used for csid clocks
+
 Example:
 
    qcom,csid@fda08000 {
