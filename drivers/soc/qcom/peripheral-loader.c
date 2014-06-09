@@ -378,6 +378,7 @@ static int pil_alloc_region(struct pil_priv *priv, phys_addr_t min_addr,
 	else
 		aligned_size = ALIGN(size, SZ_1M);
 
+	dma_set_attr(DMA_ATTR_SKIP_ZEROING, &attrs);
 	region = dma_alloc_attrs(priv->desc->dev, aligned_size,
 				&priv->region_start, GFP_KERNEL, &attrs);
 
