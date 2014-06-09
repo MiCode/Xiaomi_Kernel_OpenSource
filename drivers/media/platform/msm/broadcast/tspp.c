@@ -2122,6 +2122,7 @@ const struct tspp_data_descriptor *tspp_get_buffer(u32 dev, u32 channel_id)
 	struct tspp_mem_buffer *buffer;
 	struct tspp_channel *channel;
 	struct tspp_device *pdev;
+	unsigned long flags;
 
 	if (channel_id >= TSPP_NUM_CHANNELS) {
 		pr_err("tspp: channel id out of range");
@@ -2132,9 +2133,13 @@ const struct tspp_data_descriptor *tspp_get_buffer(u32 dev, u32 channel_id)
 		pr_err("tspp_get: can't find device %i", dev);
 		return NULL;
 	}
+
+	spin_lock_irqsave(&pdev->spinlock, flags);
+
 	channel = &pdev->channels[channel_id];
 
 	if (!channel->read) {
+		spin_unlock_irqrestore(&pdev->spinlock, flags);
 		pr_warn("tspp: no buffer to get on channel %i!",
 			channel->id);
 		return NULL;
@@ -2142,8 +2147,10 @@ const struct tspp_data_descriptor *tspp_get_buffer(u32 dev, u32 channel_id)
 
 	buffer = channel->read;
 	/* see if we have any buffers ready to read */
-	if (buffer->state != TSPP_BUF_STATE_DATA)
-		return 0;
+	if (buffer->state != TSPP_BUF_STATE_DATA) {
+		spin_unlock_irqrestore(&pdev->spinlock, flags);
+		return NULL;
+	}
 
 	if (buffer->state == TSPP_BUF_STATE_DATA) {
 		/* mark the buffer as busy */
@@ -2152,6 +2159,8 @@ const struct tspp_data_descriptor *tspp_get_buffer(u32 dev, u32 channel_id)
 		/* increment the pointer along the list */
 		channel->read = channel->read->next;
 	}
+
+	spin_unlock_irqrestore(&pdev->spinlock, flags);
 
 	return &buffer->desc;
 }
@@ -2173,6 +2182,7 @@ int tspp_release_buffer(u32 dev, u32 channel_id, u32 descriptor_id)
 	struct tspp_mem_buffer *buffer;
 	struct tspp_channel *channel;
 	struct tspp_device *pdev;
+	unsigned long flags;
 
 	if (channel_id >= TSPP_NUM_CHANNELS) {
 		pr_err("tspp: channel id out of range");
@@ -2183,6 +2193,9 @@ int tspp_release_buffer(u32 dev, u32 channel_id, u32 descriptor_id)
 		pr_err("tspp: can't find device %i", dev);
 		return -ENODEV;
 	}
+
+	spin_lock_irqsave(&pdev->spinlock, flags);
+
 	channel = &pdev->channels[channel_id];
 
 	if (descriptor_id > channel->buffer_count)
@@ -2200,12 +2213,14 @@ int tspp_release_buffer(u32 dev, u32 channel_id, u32 descriptor_id)
 	channel->locked = channel->locked->next;
 
 	if (!found) {
+		spin_unlock_irqrestore(&pdev->spinlock, flags);
 		pr_err("tspp: cant find desc %i", descriptor_id);
 		return -EINVAL;
 	}
 
 	/* make sure the buffer is in the expected state */
 	if (buffer->state != TSPP_BUF_STATE_LOCKED) {
+		spin_unlock_irqrestore(&pdev->spinlock, flags);
 		pr_err("tspp: buffer %i not locked", descriptor_id);
 		return -EINVAL;
 	}
@@ -2214,6 +2229,9 @@ int tspp_release_buffer(u32 dev, u32 channel_id, u32 descriptor_id)
 
 	if (tspp_queue_buffer(channel, buffer))
 		pr_warn("tspp: can't requeue buffer");
+
+	spin_unlock_irqrestore(&pdev->spinlock, flags);
+
 	return 0;
 }
 EXPORT_SYMBOL(tspp_release_buffer);
