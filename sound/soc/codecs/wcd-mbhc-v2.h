@@ -76,11 +76,13 @@ struct wcd_mbhc {
 	bool in_swch_irq_handler;
 	bool hphl_swh; /*track HPHL switch NC / NO */
 	bool gnd_swh; /*track GND switch NC / NO */
+	bool hs_detect_work_stop;
 
 	struct snd_soc_codec *codec;
 
 	/* track PA/DAC state to sync with userspace */
 	unsigned long hph_pa_dac_state;
+	unsigned long jiffies_atreport;
 
 	/* impedance of hphl and hphr */
 	uint32_t zl, zr;
@@ -92,6 +94,9 @@ struct wcd_mbhc {
 
 	/* Holds codec specific interrupt mapping */
 	const struct wcd_mbhc_intr *intr_ids;
+
+	/* Work to correct accessory type */
+	struct work_struct correct_plug_swch;
 };
 
 #define WCD_MBHC_CAL_BTN_DET_PTR(cali) ( \
