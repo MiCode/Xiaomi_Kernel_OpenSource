@@ -1093,6 +1093,9 @@ Required properties:
 - qcom,model : The user-visible name of this sound card.
 - clock-names : clock name defined for external clock.
 - clocks : external clock defined for codec clock.
+- pinctrl-names : pinctrl state names for each pin group configuration.
+- pinctrl-x : defines pinctrl state for each pin group
+
 Example:
 
 	sound {
@@ -1100,4 +1103,12 @@ Example:
 		qcom,model = "msm8994-tomtom-snd-card";
 		clock-names = "osr_clk";
 		clocks = <&clock_rpm clk_div_clk1>;
+		pinctrl-names= "mi2s-sleep",
+				"mi2s-active",
+				"auxpcm-sleep",
+				"auxpcm-active";
+		pinctrl-0 = <&pri_mi2s_sleep>;
+		pinctrl-1 = <&pri_mi2s_active>;
+		pinctrl-2 = <&sec_aux_pcm_sleep>;
+		pinctrl-3 = <&sec_aux_pcm_active>;
 	};
