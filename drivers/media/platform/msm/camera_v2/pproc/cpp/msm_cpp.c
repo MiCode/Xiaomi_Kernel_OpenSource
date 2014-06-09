@@ -2642,7 +2642,7 @@ static int cpp_probe(struct platform_device *pdev)
 		goto cpp_probe_init_error;
 
 	if (cpp_dev->hw_info.cpp_hw_version == CPP_HW_VERSION_5_0_0)
-		cpp_dev->iommu_ctx = msm_iommu_get_ctx("cpp_2");
+		cpp_dev->iommu_ctx = msm_iommu_get_ctx("cpp_0");
 	else
 		cpp_dev->iommu_ctx = msm_iommu_get_ctx("cpp");
 
