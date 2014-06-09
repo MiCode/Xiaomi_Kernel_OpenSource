@@ -211,10 +211,10 @@ struct apds993x_data {
 	struct delayed_work	als_dwork;	/* for ALS polling */
 	struct input_dev *input_dev_als;
 	struct input_dev *input_dev_ps;
-	struct regulator *vdd;
-	struct regulator *vio;
 	struct sensors_classdev als_cdev;
 	struct sensors_classdev ps_cdev;
+
+	/* pinctrl data*/
 	struct pinctrl *pinctrl;
 	struct pinctrl_state *pin_default;
 	struct pinctrl_state *pin_sleep;
@@ -222,6 +222,12 @@ struct apds993x_data {
 	struct apds993x_platform_data *platform_data;
 	int irq;
 
+	/* regulator data */
+	bool power_on;
+	struct regulator *vdd;
+	struct regulator *vio;
+
+	/* register configuration*/
 	unsigned int enable;
 	unsigned int atime;
 	unsigned int ptime;
@@ -238,6 +244,9 @@ struct apds993x_data {
 	/* control flag from HAL */
 	unsigned int enable_ps_sensor;
 	unsigned int enable_als_sensor;
+
+	/* save sensor enabling state for resume */
+	unsigned int als_enable_state;
 
 	/* PS parameters */
 	unsigned int ps_threshold;
@@ -328,6 +337,7 @@ static int apds993x_set_als_poll_delay(struct i2c_client *client, unsigned int v
 #endif
 
 static int sensor_regulator_power_on(struct apds993x_data *data, bool on);
+static int apds993x_init_device(struct i2c_client *client);
 
 /*
  * Management functions
@@ -1095,6 +1105,8 @@ static irqreturn_t apds993x_interrupt(int vec, void *info)
 static int apds993x_enable_als_sensor(struct i2c_client *client, int val)
 {
 	struct apds993x_data *data = i2c_get_clientdata(client);
+	struct apds993x_platform_data *pdata = data->platform_data;
+	int rc;
 
 	pr_debug("%s: val=%d\n", __func__, val);
 
@@ -1105,6 +1117,19 @@ static int apds993x_enable_als_sensor(struct i2c_client *client, int val)
 
 	if (val == 1) {
 		/* turn on light  sensor */
+		if ((data->enable_als_sensor == 0) &&
+			(data->enable_ps_sensor == 0)) {
+			/* Power on and initalize the device */
+			if (pdata->power_on)
+				pdata->power_on(true);
+
+			rc = apds993x_init_device(client);
+			if (rc) {
+				dev_err(&client->dev, "Failed to init apds993x\n");
+				return rc;
+			}
+		}
+
 		if (data->enable_als_sensor == 0) {
 			data->enable_als_sensor = 1;
 			/* Power Off */
@@ -1132,6 +1157,8 @@ static int apds993x_enable_als_sensor(struct i2c_client *client, int val)
 			} else {
 				/* only enable light sensor with interrupt*/
 				apds993x_set_enable(client, 0x13);
+				if (data->irq)
+					enable_irq(data->irq);
 			}
 #endif
 
@@ -1177,6 +1204,13 @@ static int apds993x_enable_als_sensor(struct i2c_client *client, int val)
 		flush_delayed_work(&data->als_dwork);
 #endif
 	}
+
+	/* Vote off  regulators if both light and prox sensor are off */
+	if ((data->enable_als_sensor == 0) &&
+		(data->enable_ps_sensor == 0) &&
+		(pdata->power_on))
+		pdata->power_on(false);
+
 	return 0;
 }
 
@@ -1228,6 +1262,8 @@ static int apds993x_set_als_poll_delay(struct i2c_client *client,
 static int apds993x_enable_ps_sensor(struct i2c_client *client, int val)
 {
 	struct apds993x_data *data = i2c_get_clientdata(client);
+	struct apds993x_platform_data *pdata = data->platform_data;
+	int rc;
 
 	pr_debug("%s: val=%d\n", __func__, val);
 
@@ -1238,6 +1274,19 @@ static int apds993x_enable_ps_sensor(struct i2c_client *client, int val)
 
 	if (val == 1) {
 		/* turn on p sensor */
+		if ((data->enable_als_sensor == 0) &&
+			(data->enable_ps_sensor == 0)) {
+			/* Power on and initalize the device */
+			if (pdata->power_on)
+				pdata->power_on(true);
+
+			rc = apds993x_init_device(client);
+			if (rc) {
+				dev_err(&client->dev, "Failed to init apds993x\n");
+				return rc;
+			}
+		}
+
 		if (data->enable_ps_sensor==0) {
 			data->enable_ps_sensor= 1;
 
@@ -1255,13 +1304,22 @@ static int apds993x_enable_ps_sensor(struct i2c_client *client, int val)
 			if (data->enable_als_sensor==0) {
 				/* only enable PS interrupt */
 				apds993x_set_enable(client, 0x27);
+				if (data->irq) {
+					enable_irq(data->irq);
+					irq_set_irq_wake(client->irq, 1);
+				}
 			} else {
 #ifdef ALS_POLLING_ENABLED
 				/* enable PS interrupt */
 				apds993x_set_enable(client, 0x27);
+				if (data->irq) {
+					enable_irq(data->irq);
+					irq_set_irq_wake(client->irq, 1);
+				}
 #else
 				/* enable ALS and PS interrupt */
 				apds993x_set_enable(client, 0x37);
+				irq_set_irq_wake(client->irq, 1);
 #endif
 			}
 		}
@@ -1275,6 +1333,11 @@ static int apds993x_enable_ps_sensor(struct i2c_client *client, int val)
 		if (data->enable_als_sensor) {
 #ifdef ALS_POLLING_ENABLED
 			/* no ALS interrupt */
+			if (data->irq) {
+				irq_set_irq_wake(client->irq, 0);
+				disable_irq(data->irq);
+			}
+
 			apds993x_set_enable(client, 0x03);
 
 			/*
@@ -1291,6 +1354,9 @@ static int apds993x_enable_ps_sensor(struct i2c_client *client, int val)
 
 #else
 			/* reconfigute light sensor setting */
+			if (data->irq)
+				irq_set_irq_wake(client->irq, 0);
+
 			/* Power Off */
 			apds993x_set_enable(client,0);
 			/* Force ALS interrupt */
@@ -1301,6 +1367,10 @@ static int apds993x_enable_ps_sensor(struct i2c_client *client, int val)
 			apds993x_set_enable(client, 0x13);
 #endif
 		} else {
+			if (data->irq) {
+				irq_set_irq_wake(client->irq, 0);
+				disable_irq(data->irq);
+			}
 			apds993x_set_enable(client, 0);
 #ifdef ALS_POLLING_ENABLED
 			/*
@@ -1313,6 +1383,13 @@ static int apds993x_enable_ps_sensor(struct i2c_client *client, int val)
 #endif
 		}
 	}
+
+	/* Vote off  regulators if both light and prox sensor are off */
+	if ((data->enable_als_sensor == 0) &&
+		(data->enable_ps_sensor == 0) &&
+		(pdata->power_on))
+		pdata->power_on(false);
+
 	return 0;
 }
 
@@ -1839,19 +1916,9 @@ static struct miscdevice apds993x_als_device = {
 	.fops = &apds993x_als_fops,
 };
 
-/*
- * Initialization function
- */
-
-static int apds993x_init_client(struct i2c_client *client)
+static int apds993x_check_chip_id(struct i2c_client *client)
 {
-	struct apds993x_data *data = i2c_get_clientdata(client);
-	int err;
 	int id;
-
-	err = apds993x_set_enable(client, 0);
-	if (err < 0)
-		return err;
 
 	id = i2c_smbus_read_byte_data(client, CMD_BYTE|APDS993X_ID_REG);
 	switch (id) {
@@ -1874,6 +1941,20 @@ static int apds993x_init_client(struct i2c_client *client)
 		dev_err(&client->dev, "Neither APDS993x nor APDS990x\n");
 		return -ENODEV;
 	}
+	return 0;
+}
+
+/*
+ * Initialization function
+ */
+static int apds993x_init_device(struct i2c_client *client)
+{
+	struct apds993x_data *data = i2c_get_clientdata(client);
+	int err;
+
+	err = apds993x_set_enable(client, 0);
+	if (err < 0)
+		return err;
 
 	/* 100.64ms ALS integration time */
 	err = apds993x_set_atime(client,
@@ -1943,22 +2024,25 @@ static int apds993x_suspend(struct device *dev)
 {
 	struct apds993x_data *data;
 	struct apds993x_platform_data *pdata;
+	int rc;
 
 	data = dev_get_drvdata(dev);
 	pdata = data->platform_data;
 
-	if (data->irq) {
-		irq_set_irq_wake(data->irq, 0);
-		disable_irq(data->irq);
+	/*
+	  * Save sensor state and disable them,
+	  * this is to ensure internal state flags are set correctly.
+	  * device will power off after both sensors are disabled.
+	  * P sensor will not be disabled because it  is a wakeup sensor.
+	*/
+	data->als_enable_state = data->enable_als_sensor;
+
+	if (data->als_enable_state) {
+		rc = apds993x_enable_als_sensor(data->client, 0);
+		if (rc)
+			dev_err(&data->client->dev,
+				"Disable light sensor fail! rc=%d\n", rc);
 	}
-
-	cancel_delayed_work_sync(&data->dwork);
-#ifdef ALS_POLLING_ENABLED
-	cancel_delayed_work_sync(&data->als_dwork);
-#endif
-
-	if (pdata->power_on)
-		pdata->power_on(false);
 
 	return 0;
 }
@@ -1967,22 +2051,17 @@ static int apds993x_resume(struct device *dev)
 {
 	struct apds993x_data *data;
 	struct apds993x_platform_data *pdata;
+	int rc;
 
 	data = dev_get_drvdata(dev);
 	pdata = data->platform_data;
 
-	if (pdata->power_on)
-		pdata->power_on(true);
-
-	if (data->enable_ps_sensor)
-		apds993x_ps_set_enable(&data->ps_cdev, 1);
-
-	if (data->enable_als_sensor)
-		apds993x_als_set_enable(&data->als_cdev, 1);
-
-	if (data->irq) {
-		enable_irq(data->irq);
-		irq_set_irq_wake(data->irq, 1);
+	/* Resume L sensor state as P sensor does not disable */
+	if (data->als_enable_state) {
+		rc = apds993x_enable_als_sensor(data->client, 1);
+		if (rc)
+			dev_err(&data->client->dev,
+				"Disable light sensor fail! rc=%d\n", rc);
 	}
 
 	return 0;
@@ -2073,7 +2152,18 @@ static int sensor_regulator_power_on(struct apds993x_data *data, bool on)
 			dev_err(&data->client->dev,
 				"Regulator vio disable failed rc=%d\n", rc);
 			rc = regulator_enable(data->vdd);
+			dev_err(&data->client->dev,
+					"Regulator vio re-enabled rc=%d\n", rc);
+			/*
+			 * Successfully re-enable regulator.
+			 * Enter poweron delay and returns error.
+			 */
+			if (!rc) {
+				rc = -EBUSY;
+				goto enable_delay;
+			}
 		}
+		return rc;
 	} else {
 		rc = regulator_enable(data->vdd);
 		if (rc) {
@@ -2086,36 +2176,49 @@ static int sensor_regulator_power_on(struct apds993x_data *data, bool on)
 		if (rc) {
 			dev_err(&data->client->dev,
 				"Regulator vio enable failed rc=%d\n", rc);
-			rc = regulator_disable(data->vdd);
+			regulator_disable(data->vdd);
+			return rc;
 		}
 	}
 
+enable_delay:
 	msleep(130);
-
+	dev_dbg(&data->client->dev,
+		"Sensor regulator power on =%d\n", on);
 	return rc;
 }
 
 static int sensor_platform_hw_power_on(bool on)
 {
-	int err;
+	struct apds993x_data *data;
+	int err = 0;
 
 	if (pdev_data == NULL)
 		return -ENODEV;
 
-	if (!IS_ERR_OR_NULL(pdev_data->pinctrl)) {
-		if (on)
-			err = pinctrl_select_state(pdev_data->pinctrl,
-				pdev_data->pin_default);
-		else
-			err = pinctrl_select_state(pdev_data->pinctrl,
-				pdev_data->pin_sleep);
-		if (err)
-			dev_err(&pdev_data->client->dev,
-				"Can't select pinctrl state\n");
-	}
-	sensor_regulator_power_on(pdev_data, on);
+	data = pdev_data;
+	if (data->power_on != on) {
+		if (!IS_ERR_OR_NULL(data->pinctrl)) {
+			if (on)
+				err = pinctrl_select_state(data->pinctrl,
+					data->pin_default);
+			else
+				err = pinctrl_select_state(data->pinctrl,
+					data->pin_sleep);
+			if (err)
+				dev_err(&data->client->dev,
+					"Can't select pinctrl state\n");
+		}
 
-	return 0;
+		err = sensor_regulator_power_on(data, on);
+		if (err)
+			dev_err(&data->client->dev,
+					"Can't configure regulator!\n");
+		else
+			data->power_on = on;
+	}
+
+	return err;
 }
 
 static int sensor_platform_hw_init(void)
@@ -2393,21 +2496,30 @@ static int apds993x_probe(struct i2c_client *client,
 	INIT_DELAYED_WORK(&data->als_dwork, apds993x_als_polling_work_handler);
 #endif
 
+	err = apds993x_check_chip_id(client);
+	if (err) {
+		dev_err(&client->dev, "Not a valid chip ID\n");
+		err = -ENODEV;
+		goto exit_uninit;
+	}
 	/* Initialize the APDS993X chip */
-	err = apds993x_init_client(client);
+	err = apds993x_init_device(client);
 	if (err) {
 		pr_err("%s: Failed to init apds993x\n", __func__);
 		goto exit_uninit;
 	}
 
-	err = request_irq(data->irq, apds993x_interrupt, IRQF_TRIGGER_FALLING,
-				APDS993X_DRV_NAME, (void *)client);
-	if (err < 0) {
-		pr_err("%s: Could not allocate APDS993X_INT !\n", __func__);
-		goto exit_uninit;
+	if (data->irq) {
+		err = request_irq(data->irq, apds993x_interrupt,
+					IRQF_TRIGGER_FALLING,
+					APDS993X_DRV_NAME, (void *)client);
+		if (err < 0) {
+			dev_err(&client->dev,
+				"Could not allocate APDS993X_INT !\n");
+			goto exit_uninit;
+		}
+		disable_irq(data->irq);
 	}
-
-	irq_set_irq_wake(client->irq, 1);
 
 	/* Register to Input Device */
 	data->input_dev_als = input_allocate_device();
@@ -2488,6 +2600,9 @@ static int apds993x_probe(struct i2c_client *client,
 			       __func__, err);
 		goto exit_unregister_als_class;
 	}
+
+	if (pdata->power_on)
+		err = pdata->power_on(false);
 
 	pr_info("%s: Support ver. %s enabled\n", __func__, DRIVER_VERSION);
 
