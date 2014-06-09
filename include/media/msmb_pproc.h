@@ -29,16 +29,21 @@ enum msm_vpe_frame_type {
 };
 
 struct msm_cpp_frame_strip_info {
-	int scale_v_en;
-	int scale_h_en;
+	uint32_t scale_v_en;
+	uint32_t scale_h_en;
 
-	int upscale_v_en;
-	int upscale_h_en;
+	uint32_t upscale_v_en;
+	uint32_t upscale_h_en;
 
-	int src_start_x;
-	int src_end_x;
-	int src_start_y;
-	int src_end_y;
+	int32_t src_start_x;
+	uint32_t src_end_x;
+	int32_t src_start_y;
+	uint32_t src_end_y;
+
+	int32_t temporal_src_start_x;
+	uint32_t temporal_src_end_x;
+	int32_t temporal_src_start_y;
+	uint32_t temporal_src_end_y;
 
 	/* Padding is required for upscaler because it does not
 	 * pad internally like other blocks, also needed for rotation
@@ -46,44 +51,77 @@ struct msm_cpp_frame_strip_info {
 	 * Padding is done such that all the extra padded pixels
 	 * are on the right and bottom
 	 */
-	int pad_bottom;
-	int pad_top;
-	int pad_right;
-	int pad_left;
+	uint32_t pad_bottom;
+	uint32_t pad_top;
+	uint32_t pad_right;
+	uint32_t pad_left;
 
-	int v_init_phase;
-	int h_init_phase;
-	int h_phase_step;
-	int v_phase_step;
+	uint32_t v_init_phase;
+	uint32_t h_init_phase;
+	uint32_t h_phase_step;
+	uint32_t v_phase_step;
 
-	int prescale_crop_width_first_pixel;
-	int prescale_crop_width_last_pixel;
-	int prescale_crop_height_first_line;
-	int prescale_crop_height_last_line;
+	uint32_t spatial_denoise_crop_width_first_pixel;
+	uint32_t spatial_denoise_crop_width_last_pixel;
+	uint32_t spatial_denoise_crop_height_first_line;
+	uint32_t spatial_denoise_crop_height_last_line;
 
-	int postscale_crop_height_first_line;
-	int postscale_crop_height_last_line;
-	int postscale_crop_width_first_pixel;
-	int postscale_crop_width_last_pixel;
+	uint32_t sharpen_crop_height_first_line;
+	uint32_t sharpen_crop_height_last_line;
+	uint32_t sharpen_crop_width_first_pixel;
+	uint32_t sharpen_crop_width_last_pixel;
 
-	int dst_start_x;
-	int dst_end_x;
-	int dst_start_y;
-	int dst_end_y;
+	uint32_t temporal_denoise_crop_width_first_pixel;
+	uint32_t temporal_denoise_crop_width_last_pixel;
+	uint32_t temporal_denoise_crop_height_first_line;
+	uint32_t temporal_denoise_crop_height_last_line;
 
-	int bytes_per_pixel;
-	unsigned int source_address;
-	unsigned int destination_address;
-	unsigned int compl_destination_address;
+	uint32_t prescaler_spatial_denoise_crop_width_first_pixel;
+	uint32_t prescaler_spatial_denoise_crop_width_last_pixel;
+	uint32_t prescaler_spatial_denoise_crop_height_first_line;
+	uint32_t prescaler_spatial_denoise_crop_height_last_line;
+
+	uint32_t state_crop_width_first_pixel;
+	uint32_t state_crop_width_last_pixel;
+	uint32_t state_crop_height_first_line;
+	uint32_t state_crop_height_last_line;
+
+	int32_t dst_start_x;
+	uint32_t dst_end_x;
+	int32_t dst_start_y;
+	uint32_t dst_end_y;
+
+	int32_t temporal_dst_start_x;
+	uint32_t temporal_dst_end_x;
+	int32_t temporal_dst_start_y;
+	uint32_t temporal_dst_end_y;
+
+	uint32_t input_bytes_per_pixel;
+	uint32_t output_bytes_per_pixel;
+	uint32_t temporal_bytes_per_pixel;
+
+	unsigned int source_address[2];
+	unsigned int destination_address[2];
+	/* source_address[1] is used for CbCR planar
+	 * to CbCr interleaved conversion
+	 */
+	unsigned int temporal_source_address[2];
+	/* destination_address[1] is used for CbCr interleved
+	 * to CbCr planar conversion
+	 */
+	unsigned int temporal_destination_address[2];
 	unsigned int src_stride;
 	unsigned int dst_stride;
-	int rotate_270;
-	int horizontal_flip;
-	int vertical_flip;
-	int scale_output_width;
-	int scale_output_height;
-	int prescale_crop_en;
-	int postscale_crop_en;
+	uint32_t rotate_270;
+	uint32_t horizontal_flip;
+	uint32_t vertical_flip;
+	uint32_t scale_output_width;
+	uint32_t scale_output_height;
+	uint32_t spatial_denoise_crop_en;
+	uint32_t sharpen_crop_en;
+	uint32_t temporal_denoise_crop_en;
+	uint32_t prescaler_spatial_denoise_crop_en;
+	uint32_t state_crop_en;
 };
 
 struct msm_cpp_buffer_info_t {
@@ -242,6 +280,12 @@ struct msm_pproc_queue_buf_info {
 #define VIDIOC_MSM_CPP_POP_STREAM_BUFFER \
 	_IOWR('V', BASE_VIDIOC_PRIVATE + 17, struct msm_camera_v4l2_ioctl_t)
 
+#define VIDIOC_MSM_CPP_IOMMU_ATTACH \
+	_IOWR('V', BASE_VIDIOC_PRIVATE + 18, struct msm_camera_v4l2_ioctl_t)
+
+#define VIDIOC_MSM_CPP_IOMMU_DETACH \
+	_IOWR('V', BASE_VIDIOC_PRIVATE + 19, struct msm_camera_v4l2_ioctl_t)
+
 #define V4L2_EVENT_CPP_FRAME_DONE  (V4L2_EVENT_PRIVATE_START + 0)
 #define V4L2_EVENT_VPE_FRAME_DONE  (V4L2_EVENT_PRIVATE_START + 1)
 
@@ -251,5 +295,105 @@ struct msm_camera_v4l2_ioctl_t {
 	int32_t trans_code;
 	void __user *ioctl_ptr;
 };
+
+#ifdef CONFIG_COMPAT
+struct msm_cpp_frame_info32_t {
+	int32_t frame_id;
+	struct compat_timeval timestamp;
+	uint32_t inst_id;
+	uint32_t identity;
+	uint32_t client_id;
+	enum msm_cpp_frame_type frame_type;
+	uint32_t num_strips;
+	compat_caddr_t strip_info;
+	uint32_t msg_len;
+	compat_uint_t cpp_cmd_msg;
+	int src_fd;
+	int dst_fd;
+	struct compat_timeval in_time, out_time;
+	compat_caddr_t cookie;
+	compat_int_t status;
+	int32_t duplicate_output;
+	uint32_t duplicate_identity;
+	struct msm_cpp_buffer_info_t input_buffer_info;
+	struct msm_cpp_buffer_info_t output_buffer_info[2];
+	struct msm_cpp_buffer_info_t tnr_scratch_buffer_info[2];
+};
+
+struct msm_cpp_stream_buff_info32_t {
+	uint32_t identity;
+	uint32_t num_buffs;
+	compat_caddr_t buffer_info;
+};
+
+struct msm_pproc_queue_buf_info32_t {
+	struct msm_buf_mngr_info32_t buff_mgr_info;
+	uint8_t is_buf_dirty;
+};
+
+#define VIDIOC_MSM_CPP_CFG32 \
+	_IOWR('V', BASE_VIDIOC_PRIVATE, struct msm_camera_v4l2_ioctl32_t)
+
+#define VIDIOC_MSM_CPP_GET_EVENTPAYLOAD32 \
+	_IOWR('V', BASE_VIDIOC_PRIVATE + 1, struct msm_camera_v4l2_ioctl32_t)
+
+#define VIDIOC_MSM_CPP_GET_INST_INFO32 \
+	_IOWR('V', BASE_VIDIOC_PRIVATE + 2, struct msm_camera_v4l2_ioctl32_t)
+
+#define VIDIOC_MSM_CPP_LOAD_FIRMWARE32 \
+	_IOWR('V', BASE_VIDIOC_PRIVATE + 3, struct msm_camera_v4l2_ioctl32_t)
+
+#define VIDIOC_MSM_CPP_GET_HW_INFO32 \
+	_IOWR('V', BASE_VIDIOC_PRIVATE + 4, struct msm_camera_v4l2_ioctl32_t)
+
+#define VIDIOC_MSM_CPP_FLUSH_QUEUE32 \
+	_IOWR('V', BASE_VIDIOC_PRIVATE + 5, struct msm_camera_v4l2_ioctl32_t)
+
+#define VIDIOC_MSM_CPP_ENQUEUE_STREAM_BUFF_INFO32 \
+	_IOWR('V', BASE_VIDIOC_PRIVATE + 6, struct msm_camera_v4l2_ioctl32_t)
+
+#define VIDIOC_MSM_CPP_DEQUEUE_STREAM_BUFF_INFO32 \
+	_IOWR('V', BASE_VIDIOC_PRIVATE + 7, struct msm_camera_v4l2_ioctl32_t)
+
+#define VIDIOC_MSM_VPE_CFG32 \
+	_IOWR('V', BASE_VIDIOC_PRIVATE + 8, struct msm_camera_v4l2_ioctl32_t)
+
+#define VIDIOC_MSM_VPE_TRANSACTION_SETUP32 \
+	_IOWR('V', BASE_VIDIOC_PRIVATE + 9, struct msm_camera_v4l2_ioctl32_t)
+
+#define VIDIOC_MSM_VPE_GET_EVENTPAYLOAD32 \
+	_IOWR('V', BASE_VIDIOC_PRIVATE + 10, struct msm_camera_v4l2_ioctl32_t)
+
+#define VIDIOC_MSM_VPE_GET_INST_INFO32 \
+	_IOWR('V', BASE_VIDIOC_PRIVATE + 11, struct msm_camera_v4l2_ioctl32_t)
+
+#define VIDIOC_MSM_VPE_ENQUEUE_STREAM_BUFF_INFO32 \
+	_IOWR('V', BASE_VIDIOC_PRIVATE + 12, struct msm_camera_v4l2_ioctl32_t)
+
+#define VIDIOC_MSM_VPE_DEQUEUE_STREAM_BUFF_INFO32 \
+	_IOWR('V', BASE_VIDIOC_PRIVATE + 13, struct msm_camera_v4l2_ioctl32_t)
+
+#define VIDIOC_MSM_CPP_QUEUE_BUF32 \
+	_IOWR('V', BASE_VIDIOC_PRIVATE + 14, struct msm_camera_v4l2_ioctl32_t)
+
+#define VIDIOC_MSM_CPP_SET_CLOCK32 \
+	_IOWR('V', BASE_VIDIOC_PRIVATE + 16, struct msm_camera_v4l2_ioctl32_t)
+
+#define VIDIOC_MSM_CPP_POP_STREAM_BUFFER32 \
+	_IOWR('V', BASE_VIDIOC_PRIVATE + 17, struct msm_camera_v4l2_ioctl32_t)
+
+#define VIDIOC_MSM_CPP_IOMMU_ATTACH32 \
+	_IOWR('V', BASE_VIDIOC_PRIVATE + 18, struct msm_camera_v4l2_ioctl32_t)
+
+#define VIDIOC_MSM_CPP_IOMMU_DETACH32 \
+	_IOWR('V', BASE_VIDIOC_PRIVATE + 19, struct msm_camera_v4l2_ioctl32_t)
+
+struct msm_camera_v4l2_ioctl32_t {
+	uint32_t id;
+	uint32_t len;
+	int32_t trans_code;
+	compat_caddr_t ioctl_ptr;
+};
+#endif
 
 #endif /* __MSMB_PPROC_H */
