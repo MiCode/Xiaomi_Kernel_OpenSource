@@ -176,6 +176,77 @@ TRACE_EVENT(mmc_request_done,
 		  __entry->hold_retune, __entry->retune_period)
 );
 
+TRACE_EVENT(mmc_cmd_rw_start,
+	TP_PROTO(unsigned int cmd, unsigned int arg, unsigned int flags),
+	TP_ARGS(cmd, arg, flags),
+	TP_STRUCT__entry(
+		__field(unsigned int, cmd)
+		__field(unsigned int, arg)
+		__field(unsigned int, flags)
+	),
+	TP_fast_assign(
+		__entry->cmd = cmd;
+		__entry->arg = arg;
+		__entry->flags = flags;
+	),
+	TP_printk("cmd=%u,arg=0x%08x,flags=0x%08x",
+		  __entry->cmd, __entry->arg, __entry->flags)
+);
+
+TRACE_EVENT(mmc_cmd_rw_end,
+	TP_PROTO(unsigned int cmd, unsigned int status, unsigned int resp),
+	TP_ARGS(cmd, status, resp),
+	TP_STRUCT__entry(
+		__field(unsigned int, cmd)
+		__field(unsigned int, status)
+		__field(unsigned int, resp)
+	),
+	TP_fast_assign(
+		__entry->cmd = cmd;
+		__entry->status = status;
+		__entry->resp = resp;
+	),
+	TP_printk("cmd=%u,int_status=0x%08x,response=0x%08x",
+		  __entry->cmd, __entry->status, __entry->resp)
+);
+
+TRACE_EVENT(mmc_data_rw_end,
+	TP_PROTO(unsigned int cmd, unsigned int status),
+	TP_ARGS(cmd, status),
+	TP_STRUCT__entry(
+		__field(unsigned int, cmd)
+		__field(unsigned int, status)
+	),
+	TP_fast_assign(
+		__entry->cmd = cmd;
+		__entry->status = status;
+	),
+	TP_printk("cmd=%u,int_status=0x%08x",
+		  __entry->cmd, __entry->status)
+);
+
+DECLARE_EVENT_CLASS(mmc_adma_class,
+	TP_PROTO(unsigned int cmd, unsigned int len),
+	TP_ARGS(cmd, len),
+	TP_STRUCT__entry(
+		__field(unsigned int, cmd)
+		__field(unsigned int, len)
+	),
+	TP_fast_assign(
+		__entry->cmd = cmd;
+		__entry->len = len;
+	),
+	TP_printk("cmd=%u,sg_len=0x%08x", __entry->cmd, __entry->len)
+);
+
+DEFINE_EVENT(mmc_adma_class, mmc_adma_table_pre,
+	TP_PROTO(unsigned int cmd, unsigned int len),
+	TP_ARGS(cmd, len));
+
+DEFINE_EVENT(mmc_adma_class, mmc_adma_table_post,
+	TP_PROTO(unsigned int cmd, unsigned int len),
+	TP_ARGS(cmd, len));
+
 #endif /* _TRACE_MMC_H */
 
 /* This part must be outside protection */
