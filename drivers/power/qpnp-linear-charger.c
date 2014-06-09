@@ -880,9 +880,12 @@ static int get_prop_capacity(struct qpnp_lbc_chip *chip)
 		return DEFAULT_CAPACITY;
 
 	if (chip->bms_psy) {
-		mutex_lock(&chip->chg_enable_lock);
 		chip->bms_psy->get_property(chip->bms_psy,
 				POWER_SUPPLY_PROP_CAPACITY, &ret);
+		mutex_lock(&chip->chg_enable_lock);
+		if (chip->chg_done)
+			chip->bms_psy->get_property(chip->bms_psy,
+					POWER_SUPPLY_PROP_CAPACITY, &ret);
 		battery_status = get_prop_batt_status(chip);
 		charger_in = qpnp_lbc_is_usb_chg_plugged_in(chip);
 
