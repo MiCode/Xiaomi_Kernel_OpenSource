@@ -3129,8 +3129,9 @@ long kgsl_ioctl_gpumem_sync_cache(struct kgsl_device_private *dev_priv,
 static int mem_id_cmp(const void *_a, const void *_b)
 {
 	const unsigned int *a = _a, *b = _b;
-	int cmp = a - b;
-	return (cmp < 0) ? -1 : (cmp > 0);
+	if (*a == *b)
+		return 0;
+	return (*a > *b) ? 1 : -1;
 }
 
 long kgsl_ioctl_gpumem_sync_cache_bulk(struct kgsl_device_private *dev_priv,
@@ -3165,7 +3166,7 @@ long kgsl_ioctl_gpumem_sync_cache_bulk(struct kgsl_device_private *dev_priv,
 		goto end;
 	}
 	/* sort the ids so we can weed out duplicates */
-	sort(id_list, param->count, sizeof(int), mem_id_cmp, NULL);
+	sort(id_list, param->count, sizeof(*id_list), mem_id_cmp, NULL);
 
 	for (i = 0; i < param->count; i++) {
 		unsigned int cachemode;
