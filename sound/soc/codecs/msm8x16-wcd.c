@@ -145,6 +145,7 @@ struct msm8x16_wcd_priv {
 	bool config_mode_active;
 	bool spk_boost_set;
 	bool ear_pa_boost_set;
+	bool dec_active[NUM_DECIMATORS];
 	struct on_demand_supply on_demand_list[ON_DEMAND_SUPPLIES_MAX];
 	/* mbhc module */
 	struct wcd_mbhc mbhc;
@@ -1852,10 +1853,11 @@ static int msm8x16_wcd_codec_enable_dec(struct snd_soc_dapm_widget *w,
 {
 	struct snd_soc_codec *codec = w->codec;
 	unsigned int decimator;
+	struct msm8x16_wcd_priv *msm8x16_wcd = snd_soc_codec_get_drvdata(codec);
 	char *dec_name = NULL;
 	char *widget_name = NULL;
 	char *temp;
-	int ret = 0;
+	int ret = 0, i;
 	u16 dec_reset_reg, tx_vol_ctl_reg, tx_mux_ctl_reg;
 	u8 dec_hpf_cut_of_freq;
 	int offset;
@@ -1906,6 +1908,10 @@ static int msm8x16_wcd_codec_enable_dec(struct snd_soc_dapm_widget *w,
 	case SND_SOC_DAPM_PRE_PMU:
 		/* Enableable TX digital mute */
 		snd_soc_update_bits(codec, tx_vol_ctl_reg, 0x01, 0x01);
+		for (i = 0; i < NUM_DECIMATORS; i++) {
+			if (decimator == i + 1)
+				msm8x16_wcd->dec_active[i] = true;
+		}
 
 		dec_hpf_cut_of_freq = snd_soc_read(codec, tx_mux_ctl_reg);
 
@@ -1921,12 +1927,10 @@ static int msm8x16_wcd_codec_enable_dec(struct snd_soc_dapm_widget *w,
 					    CF_MIN_3DB_150HZ << 4);
 		}
 
-		/* enable HPF */
-		snd_soc_update_bits(codec, tx_mux_ctl_reg , 0x08, 0x00);
 		break;
 	case SND_SOC_DAPM_POST_PMU:
-		/* Disable TX digital mute */
-		snd_soc_update_bits(codec, tx_vol_ctl_reg, 0x01, 0x00);
+		/* enable HPF */
+		snd_soc_update_bits(codec, tx_mux_ctl_reg , 0x08, 0x00);
 
 		if (tx_hpf_work[decimator - 1].tx_hpf_cut_of_freq !=
 				CF_MIN_3DB_150HZ) {
@@ -1958,6 +1962,10 @@ static int msm8x16_wcd_codec_enable_dec(struct snd_soc_dapm_widget *w,
 		snd_soc_update_bits(codec, tx_mux_ctl_reg, 0x30,
 			(tx_hpf_work[decimator - 1].tx_hpf_cut_of_freq) << 4);
 		snd_soc_update_bits(codec, tx_vol_ctl_reg, 0x01, 0x00);
+		for (i = 0; i < NUM_DECIMATORS; i++) {
+			if (decimator == i + 1)
+				msm8x16_wcd->dec_active[i] = false;
+		}
 		break;
 	}
 out:
@@ -2493,6 +2501,53 @@ static int msm8x16_wcd_hw_params(struct snd_pcm_substream *substream,
 	return 0;
 }
 
+int msm8x16_wcd_digital_mute(struct snd_soc_dai *dai, int mute)
+{
+	struct snd_soc_codec *codec = NULL;
+	u16 tx_vol_ctl_reg = 0;
+	u8 decimator = 0, i;
+	struct msm8x16_wcd_priv *msm8x16_wcd;
+
+	pr_debug("%s: Digital Mute val = %d\n", __func__, mute);
+
+	if (!dai || !dai->codec) {
+		pr_err("%s: Invalid params\n", __func__);
+		return -EINVAL;
+	}
+	codec = dai->codec;
+	msm8x16_wcd = snd_soc_codec_get_drvdata(codec);
+
+	if (dai->id != AIF1_CAP) {
+		dev_dbg(codec->dev, "%s: Not capture use case skip\n",
+		__func__);
+		return 0;
+	}
+
+	mute = (mute) ? 1 : 0;
+	if (!mute && msm8x16_wcd->mbhc.current_plug == MBHC_PLUG_TYPE_HEADSET) {
+		/*
+		 * 23 ms is an emperical value for the mute time
+		 * that was arrived by checking the pop level
+		 * to be inaudible
+		 */
+		msleep(23);
+	}
+
+	for (i = 0; i < NUM_DECIMATORS; i++) {
+		if (msm8x16_wcd->dec_active[i])
+			decimator = i + 1;
+		if (decimator && decimator <= NUM_DECIMATORS) {
+			pr_debug("%s: Mute = %d Decimator = %d", __func__,
+					mute, decimator);
+			tx_vol_ctl_reg = MSM8X16_WCD_A_CDC_TX1_VOL_CTL_CFG +
+				32 * (decimator - 1);
+			snd_soc_update_bits(codec, tx_vol_ctl_reg, 0x01, mute);
+		}
+		decimator = 0;
+	}
+	return 0;
+}
+
 static struct snd_soc_dai_ops msm8x16_wcd_dai_ops = {
 	.startup = msm8x16_wcd_startup,
 	.shutdown = msm8x16_wcd_shutdown,
@@ -2501,6 +2556,7 @@ static struct snd_soc_dai_ops msm8x16_wcd_dai_ops = {
 	.set_fmt = msm8x16_wcd_set_dai_fmt,
 	.set_channel_map = msm8x16_wcd_set_channel_map,
 	.get_channel_map = msm8x16_wcd_get_channel_map,
+	.digital_mute = msm8x16_wcd_digital_mute,
 };
 
 static struct snd_soc_dai_driver msm8x16_wcd_i2s_dai[] = {
