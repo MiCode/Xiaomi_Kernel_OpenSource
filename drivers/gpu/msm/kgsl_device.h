@@ -183,6 +183,7 @@ struct kgsl_functable {
 	void (*enable_pc)(struct kgsl_device *);
 	void (*disable_pc)(struct kgsl_device *);
 	void (*regulator_enable)(struct kgsl_device *);
+	bool (*is_hw_collapsible)(struct kgsl_device *);
 };
 
 typedef long (*kgsl_ioctl_func_t)(struct kgsl_device_private *,
