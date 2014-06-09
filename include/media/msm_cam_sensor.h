@@ -7,7 +7,9 @@
 #include <linux/types.h>
 #include <linux/v4l2-mediabus.h>
 #include <linux/i2c.h>
+#ifdef CONFIG_COMPAT
 #include <linux/compat.h>
+#endif
 
 #define I2C_SEQ_REG_SETTING_MAX   5
 #define I2C_SEQ_REG_DATA_MAX      20
