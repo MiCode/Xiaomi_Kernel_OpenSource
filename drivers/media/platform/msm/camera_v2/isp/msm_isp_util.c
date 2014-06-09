@@ -817,6 +817,11 @@ static int msm_isp_send_hw_cmd(struct vfe_device *vfe_dev,
 
 		isp_id = (uint32_t *)cfg_data;
 		*isp_id = vfe_dev->pdev->id;
+		break;
+	}
+	case SET_WM_UB_SIZE: {
+		vfe_dev->vfe_ub_size = *cfg_data;
+		break;
 	}
 	}
 	return 0;
