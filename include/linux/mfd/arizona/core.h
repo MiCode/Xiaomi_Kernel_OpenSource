@@ -114,6 +114,9 @@ struct arizona {
 	struct mutex clk_lock;
 	int clk32k_ref;
 
+	struct mutex subsys_max_lock;
+	unsigned int subsys_max_rq;
+
 	struct snd_soc_dapm_context *dapm;
 
 	struct mutex reg_setting_lock;
@@ -125,8 +128,17 @@ struct arizona {
 	uint8_t out_comp_enabled;
 };
 
+#define ARIZONA_DVFS_SR1_RQ          0x00000001
+#define ARIZONA_DVFS_SR2_RQ          0x00000002
+#define ARIZONA_DVFS_SR3_RQ          0x00000004
+#define ARIZONA_DVFS_ASR1_RQ         0x00000010
+#define ARIZONA_DVFS_ASR2_RQ         0x00000020
+#define ARIZONA_DVFS_ADSP1_RQ        0x00010000
+
 int arizona_clk32k_enable(struct arizona *arizona);
 int arizona_clk32k_disable(struct arizona *arizona);
+int arizona_dvfs_up(struct arizona *arizona, unsigned int mask);
+int arizona_dvfs_down(struct arizona *arizona, unsigned int mask);
 
 int arizona_request_irq(struct arizona *arizona, int irq, char *name,
 			irq_handler_t handler, void *data);
