@@ -5587,6 +5587,7 @@ static void intel_connector_check_state(struct intel_connector *connector)
 void intel_connector_dpms(struct drm_connector *connector, int mode)
 {
 	struct drm_device *dev = connector->dev;
+	struct drm_i915_private *dev_priv = dev->dev_private;
 
 	/* All the simple cases only support two dpms states. */
 	if (mode != DRM_MODE_DPMS_ON)
@@ -5597,6 +5598,8 @@ void intel_connector_dpms(struct drm_connector *connector, int mode)
 
 	connector->dpms = mode;
 
+	intel_runtime_pm_get(dev_priv);
+
 	if (mode == DRM_MODE_DPMS_ON)
 		intel_modeset_setup_hw_state(dev, true);
 
@@ -5605,6 +5608,8 @@ void intel_connector_dpms(struct drm_connector *connector, int mode)
 		intel_encoder_dpms(to_intel_encoder(connector->encoder), mode);
 
 	intel_modeset_check_state(connector->dev);
+	
+	intel_runtime_pm_put(dev_priv);
 }
 
 /* Simple connector->get_hw_state implementation for encoders that support only
