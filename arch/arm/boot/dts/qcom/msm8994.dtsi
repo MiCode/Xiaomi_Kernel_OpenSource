@@ -2610,6 +2610,12 @@
 					  <45 512 25000 200000>,  /* 200 Mbps */
 					  <45 512 100000 200000>; /* 800 Mbps */
 	};
+
+	cpu-pmu {
+		compatible = "arm,armv8-pmuv3";
+		qcom,irq-is-percpu;
+		interrupts = <1 14 0xff00>;
+	};
 };
 
 &gdsc_usb30 {
