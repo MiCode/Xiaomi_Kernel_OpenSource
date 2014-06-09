@@ -699,7 +699,7 @@ static void configure_usb_data_fifo(u8 idx, struct usb_ep *ep,
 					&bam_info.usb_bam_handle,
 					&bam_info.usb_bam_pipe_idx,
 					&bam_info.peer_pipe_idx,
-					NULL, &data_fifo);
+					NULL, &data_fifo, NULL);
 
 		msm_data_fifo_config(ep,
 					data_fifo.phys_base,

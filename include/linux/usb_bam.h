@@ -356,7 +356,7 @@ int usb_bam_disconnect_pipe(u8 idx);
 int get_bam2bam_connection_info(u8 idx,
 	unsigned long *usb_bam_handle, u32 *usb_bam_pipe_idx,
 	u32 *peer_pipe_idx, struct sps_mem_buffer *desc_fifo,
-	struct sps_mem_buffer *data_fifo);
+	struct sps_mem_buffer *data_fifo, enum usb_pipe_mem_type *mem_type);
 
 /**
  * Resets the USB BAM that has A2 pipes
@@ -490,7 +490,7 @@ static inline int usb_bam_disconnect_pipe(u8 idx)
 static inline int get_bam2bam_connection_info(u8 idx,
 	unsigned long *usb_bam_handle, u32 *usb_bam_pipe_idx,
 	u32 *peer_pipe_idx, struct sps_mem_buffer *desc_fifo,
-	struct sps_mem_buffer *data_fifo)
+	struct sps_mem_buffer *data_fifo, enum usb_pipe_mem_type *mem_type)
 {
 	return -ENODEV;
 }

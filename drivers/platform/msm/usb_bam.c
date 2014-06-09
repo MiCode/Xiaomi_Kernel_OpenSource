@@ -3364,7 +3364,8 @@ void usb_bam_set_qdss_core(const char *qdss_core)
 
 int get_bam2bam_connection_info(u8 idx, unsigned long *usb_bam_handle,
 	u32 *usb_bam_pipe_idx, u32 *peer_pipe_idx,
-	struct sps_mem_buffer *desc_fifo, struct sps_mem_buffer *data_fifo)
+	struct sps_mem_buffer *desc_fifo, struct sps_mem_buffer *data_fifo,
+	enum usb_pipe_mem_type *mem_type)
 {
 	struct usb_bam_pipe_connect *pipe_connect = &usb_bam_connections[idx];
 	enum usb_bam_pipe_dir dir = pipe_connect->dir;
@@ -3386,6 +3387,9 @@ int get_bam2bam_connection_info(u8 idx, unsigned long *usb_bam_handle,
 	if (desc_fifo)
 		memcpy(desc_fifo, &pipe_connect->desc_mem_buf,
 		sizeof(struct sps_mem_buffer));
+	if (mem_type)
+		*mem_type = pipe_connect->mem_type;
+
 	return 0;
 }
 EXPORT_SYMBOL(get_bam2bam_connection_info);

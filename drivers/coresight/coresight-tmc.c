@@ -459,7 +459,8 @@ static void tmc_etr_fill_usb_bam_data(struct tmc_drvdata *drvdata)
 				    &bamdata->dest_pipe_idx,
 				    &bamdata->src_pipe_idx,
 				    &bamdata->desc_fifo,
-				    &bamdata->data_fifo);
+				    &bamdata->data_fifo,
+				    NULL);
 }
 
 static void __tmc_etr_enable_to_bam(struct tmc_drvdata *drvdata)
