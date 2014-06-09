@@ -21,6 +21,7 @@
 #include <linux/interrupt.h>
 #include <linux/power_supply.h>
 #include <linux/qpnp/qpnp-adc.h>
+#include <linux/alarmtimer.h>
 #include <linux/bitops.h>
 
 #define CREATE_MASK(NUM_BITS, POS) \
@@ -44,6 +45,8 @@
 /* CHARGER peripheral register offset */
 #define CHG_OPTION_REG				0x08
 #define CHG_OPTION_MASK				BIT(7)
+#define CHG_STATUS_REG				0x09
+#define CHG_VDD_LOOP_BIT			BIT(1)
 #define CHG_VDD_MAX_REG				0x40
 #define CHG_VDD_SAFE_REG			0x41
 #define CHG_IBAT_MAX_REG			0x44
@@ -90,8 +93,13 @@
 #define BTC_HOT_MASK				BIT(0)
 
 /* MISC peripheral register offset */
-#define MISC_BOOT_DONE_REG                     0x42
+#define MISC_REV2_REG				0x01
+#define MISC_BOOT_DONE_REG			0x42
 #define MISC_BOOT_DONE				BIT(7)
+#define MISC_TRIM3_REG				0xF3
+#define MISC_TRIM3_VDD_MASK			LBC_MASK(5, 4)
+#define MISC_TRIM4_REG				0xF4
+#define MISC_TRIM4_VDD_MASK			BIT(4)
 
 #define PERP_SUBTYPE_REG			0x05
 #define SEC_ACCESS                              0xD0
@@ -103,6 +111,9 @@
 #define LBC_MISC_SUBTYPE			0x18
 
 #define QPNP_CHG_I_MAX_MIN_90                   90
+
+/* Feature flags */
+#define VDD_TRIM_SUPPORTED			BIT(0)
 
 #define QPNP_CHARGER_DEV_NAME	"qcom,qpnp-linear-charger"
 
@@ -190,6 +201,39 @@ static char *pm_batt_supplied_to[] = {
 	"bms",
 };
 
+struct vddtrim_map {
+	int			trim_uv;
+	int			trim_val;
+};
+
+/*
+ * VDDTRIM is a 3 bit value which is split across two
+ * register TRIM3(bit 5:4)	-> VDDTRIM bit(2:1)
+ * register TRIM4(bit 4)	-> VDDTRIM bit(0)
+ */
+#define TRIM_CENTER			4
+#define MAX_VDD_EA_TRIM_CFG		8
+#define VDD_TRIM3_MASK			LBC_MASK(2, 1)
+#define VDD_TRIM3_SHIFT			3
+#define VDD_TRIM4_MASK			BIT(0)
+#define VDD_TRIM4_SHIFT			4
+#define AVG(VAL1, VAL2)			((VAL1 + VAL2) / 2)
+
+/*
+ * VDDTRIM table containing map of trim voltage and
+ * corresponding trim value.
+ */
+struct vddtrim_map vddtrim_map[] = {
+	{36700,		0x00},
+	{28000,		0x01},
+	{19800,		0x02},
+	{10760,		0x03},
+	{0,		0x04},
+	{-8500,		0x05},
+	{-16800,	0x06},
+	{-25440,	0x07},
+};
+
 /*
  * struct qpnp_lbc_chip - device information
  * @dev:			device pointer to access the parent
@@ -239,6 +283,12 @@ static char *pm_batt_supplied_to[] = {
  * @hw_access_lock:		lock to serialize access to charger registers
  * @ibat_change_lock:		lock to serialize ibat change requests from
  *				USB and thermal.
+ * @supported_feature_flag	bitmask for all supported features
+ * @vddtrim_alarm		alarm to schedule trim work at regular
+ *				interval
+ * @vddtrim_work		work to perform actual vddmax trimming
+ * @init_trim_uv		initial trim voltage at bootup
+ * @delta_vddmax_uv		current vddmax trim voltage
  * @chg_enable_lock:		lock to serialize charging enable/disable for
  *				SOC based resume charging
  * @usb_psy:			power supply to export information to
@@ -283,6 +333,7 @@ struct qpnp_lbc_chip {
 	unsigned int			cfg_tchg_mins;
 	unsigned int			chg_failed_count;
 	unsigned int			cfg_disable_follow_on_reset;
+	unsigned int			supported_feature_flag;
 	int				cfg_bpd_detection;
 	int				cfg_warm_bat_decidegc;
 	int				cfg_cool_bat_decidegc;
@@ -292,6 +343,10 @@ struct qpnp_lbc_chip {
 	int				charger_disabled;
 	int				prev_max_ma;
 	int				usb_psy_ma;
+	int				delta_vddmax_uv;
+	int				init_trim_uv;
+	struct alarm			vddtrim_alarm;
+	struct work_struct		vddtrim_work;
 	struct qpnp_lbc_irq		irqs[MAX_IRQS];
 	struct mutex			jeita_configure_lock;
 	struct mutex			chg_enable_lock;
@@ -422,6 +477,90 @@ static int qpnp_lbc_masked_write(struct qpnp_lbc_chip *chip, u16 base,
 out:
 	spin_unlock_irqrestore(&chip->hw_access_lock, flags);
 	return rc;
+}
+
+static int __qpnp_lbc_secure_masked_write(struct spmi_device *spmi, u16 base,
+				u16 offset, u8 mask, u8 val)
+{
+	int rc;
+	u8 reg_val, reg_val1;
+
+	rc = __qpnp_lbc_read(spmi, base + offset, &reg_val, 1);
+	if (rc) {
+		pr_err("spmi read failed: addr=%03X, rc=%d\n", base, rc);
+		return rc;
+	}
+	pr_debug("addr = 0x%x read 0x%x\n", base, reg_val);
+
+	reg_val &= ~mask;
+	reg_val |= val & mask;
+	pr_debug("writing to base=%x val=%x\n", base, reg_val);
+
+	reg_val1 = 0xA5;
+	rc = __qpnp_lbc_write(spmi, base + SEC_ACCESS, &reg_val1, 1);
+	if (rc) {
+		pr_err("SPMI read failed base=0x%02x sid=0x%02x rc=%d\n",
+				base + SEC_ACCESS, spmi->sid, rc);
+		return rc;
+	}
+
+	rc = __qpnp_lbc_write(spmi, base + offset, &reg_val, 1);
+	if (rc) {
+		pr_err("SPMI write failed base=0x%02x sid=0x%02x rc=%d\n",
+				base + offset, spmi->sid, rc);
+		return rc;
+	}
+
+	return rc;
+}
+
+static int qpnp_lbc_get_trim_voltage(u8 trim_reg)
+{
+	int i;
+
+	for (i = 0; i < MAX_VDD_EA_TRIM_CFG; i++)
+		if (trim_reg == vddtrim_map[i].trim_val)
+			return vddtrim_map[i].trim_uv;
+
+	pr_err("Invalid trim reg reg_val=%x\n", trim_reg);
+	return -EINVAL;
+}
+
+static u8 qpnp_lbc_get_trim_val(struct qpnp_lbc_chip *chip)
+{
+	int i, sign;
+	int delta_uv;
+
+	sign = (chip->delta_vddmax_uv >= 0) ? -1 : 1;
+
+	switch (sign) {
+	case -1:
+		for (i = TRIM_CENTER; i >= 0; i--) {
+			if (vddtrim_map[i].trim_uv > chip->delta_vddmax_uv) {
+				delta_uv = AVG(vddtrim_map[i].trim_uv,
+						vddtrim_map[i + 1].trim_uv);
+				if (chip->delta_vddmax_uv >= delta_uv)
+					return vddtrim_map[i].trim_val;
+				else
+					return vddtrim_map[i + 1].trim_val;
+			}
+		}
+		break;
+	case 1:
+		for (i = TRIM_CENTER; i <= 7; i++) {
+			if (vddtrim_map[i].trim_uv < chip->delta_vddmax_uv) {
+				delta_uv = AVG(vddtrim_map[i].trim_uv,
+						vddtrim_map[i - 1].trim_uv);
+				if (chip->delta_vddmax_uv >= delta_uv)
+					return vddtrim_map[i - 1].trim_val;
+				else
+					return vddtrim_map[i].trim_val;
+			}
+		}
+		break;
+	}
+
+	return vddtrim_map[i].trim_val;
 }
 
 static int qpnp_lbc_is_usb_chg_plugged_in(struct qpnp_lbc_chip *chip)
@@ -575,24 +714,64 @@ static int qpnp_lbc_vddsafe_set(struct qpnp_lbc_chip *chip, int voltage)
 static int qpnp_lbc_vddmax_set(struct qpnp_lbc_chip *chip, int voltage)
 {
 	u8 reg_val;
-	int rc;
+	int rc, trim_val;
+	unsigned long flags;
 
 	if (voltage < QPNP_LBC_VBAT_MIN_MV
 			|| voltage > QPNP_LBC_VBAT_MAX_MV) {
 		pr_err("bad mV=%d asked to set\n", voltage);
 		return -EINVAL;
 	}
+
+	spin_lock_irqsave(&chip->hw_access_lock, flags);
 	reg_val = (voltage - QPNP_LBC_VBAT_MIN_MV) / QPNP_LBC_VBAT_STEP_MV;
 	pr_debug("voltage=%d setting %02x\n", voltage, reg_val);
-	rc = qpnp_lbc_write(chip, chip->chgr_base + CHG_VDD_MAX_REG,
+	rc = __qpnp_lbc_write(chip->spmi, chip->chgr_base + CHG_VDD_MAX_REG,
 				&reg_val, 1);
-	if (rc)
+	if (rc) {
 		pr_err("Failed to set VDD_MAX rc=%d\n", rc);
+		goto out;
+	}
 
+	/* Update trim value */
+	if (chip->supported_feature_flag & VDD_TRIM_SUPPORTED) {
+		trim_val = qpnp_lbc_get_trim_val(chip);
+		reg_val = (trim_val & VDD_TRIM3_MASK) << VDD_TRIM3_SHIFT;
+		rc = __qpnp_lbc_secure_masked_write(chip->spmi,
+				chip->misc_base, MISC_TRIM3_REG,
+				MISC_TRIM3_VDD_MASK, reg_val);
+		if (rc) {
+			pr_err("Failed to set MISC_TRIM3_REG rc=%d\n", rc);
+			goto out;
+		}
+
+		reg_val = (trim_val & VDD_TRIM4_MASK) << VDD_TRIM4_SHIFT;
+		rc = __qpnp_lbc_secure_masked_write(chip->spmi,
+				chip->misc_base, MISC_TRIM4_REG,
+				MISC_TRIM4_VDD_MASK, reg_val);
+		if (rc) {
+			pr_err("Failed to set MISC_TRIM4_REG rc=%d\n", rc);
+			goto out;
+		}
+
+		chip->delta_vddmax_uv = qpnp_lbc_get_trim_voltage(trim_val);
+		if (chip->delta_vddmax_uv == -EINVAL) {
+			pr_err("Invalid trim voltage=%d\n",
+					chip->delta_vddmax_uv);
+			rc = -EINVAL;
+			goto out;
+		}
+
+		pr_debug("VDD_MAX delta=%d trim value=%x\n",
+				chip->delta_vddmax_uv, trim_val);
+	}
+
+out:
+	spin_unlock_irqrestore(&chip->hw_access_lock, flags);
 	return rc;
 }
 
-static void qpnp_lbc_set_appropriate_vddmax(struct qpnp_lbc_chip *chip)
+static int qpnp_lbc_set_appropriate_vddmax(struct qpnp_lbc_chip *chip)
 {
 	int rc;
 
@@ -604,6 +783,36 @@ static void qpnp_lbc_set_appropriate_vddmax(struct qpnp_lbc_chip *chip)
 		rc = qpnp_lbc_vddmax_set(chip, chip->cfg_max_voltage_mv);
 	if (rc)
 		pr_err("Failed to set appropriate vddmax rc=%d\n", rc);
+
+	return rc;
+}
+
+#define QPNP_LBC_MIN_DELTA_UV			13000
+static void qpnp_lbc_adjust_vddmax(struct qpnp_lbc_chip *chip, int vbat_uv)
+{
+	int delta_uv, prev_delta_uv, rc;
+
+	prev_delta_uv =  chip->delta_vddmax_uv;
+	delta_uv = (int)(chip->cfg_max_voltage_mv * 1000) - vbat_uv;
+
+	/*
+	 * If delta_uv is positive, apply trim if delta_uv > 13mv
+	 * If delta_uv is negative always apply trim.
+	 */
+	if (delta_uv > 0 && delta_uv < QPNP_LBC_MIN_DELTA_UV) {
+		pr_debug("vbat is not low enough to increase vdd\n");
+		return;
+	}
+
+	pr_debug("vbat=%d current delta_uv=%d prev delta_vddmax_uv=%d\n",
+			vbat_uv, delta_uv, chip->delta_vddmax_uv);
+	chip->delta_vddmax_uv = delta_uv + chip->delta_vddmax_uv;
+	pr_debug("new delta_vddmax_uv  %d\n", chip->delta_vddmax_uv);
+	rc = qpnp_lbc_set_appropriate_vddmax(chip);
+	if (rc) {
+		pr_err("Failed to set appropriate vddmax rc=%d\n", rc);
+		chip->delta_vddmax_uv = prev_delta_uv;
+	}
 }
 
 #define QPNP_LBC_VINMIN_MIN_MV		4200
@@ -1504,10 +1713,46 @@ static int qpnp_lbc_usb_path_init(struct qpnp_lbc_chip *chip)
 	return rc;
 }
 
+#define LBC_MISC_DIG_VERSION_1			0x01
 static int qpnp_lbc_misc_init(struct qpnp_lbc_chip *chip)
 {
 	int rc;
-	u8 reg_val;
+	u8 reg_val, reg_val1, trim_center;
+
+	/* Check if this LBC MISC version supports VDD trimming */
+	rc = qpnp_lbc_read(chip, chip->misc_base + MISC_REV2_REG,
+			&reg_val, 1);
+	if (rc) {
+		pr_err("Failed to read VDD_EA TRIM3 reg rc=%d\n", rc);
+		return rc;
+	}
+
+	if (reg_val >= LBC_MISC_DIG_VERSION_1) {
+		chip->supported_feature_flag |= VDD_TRIM_SUPPORTED;
+		/* Read initial VDD trim value */
+		rc = qpnp_lbc_read(chip, chip->misc_base + MISC_TRIM3_REG,
+				&reg_val, 1);
+		if (rc) {
+			pr_err("Failed to read VDD_EA TRIM3 reg rc=%d\n", rc);
+			return rc;
+		}
+
+		rc = qpnp_lbc_read(chip, chip->misc_base + MISC_TRIM4_REG,
+				&reg_val1, 1);
+		if (rc) {
+			pr_err("Failed to read VDD_EA TRIM3 reg rc=%d\n", rc);
+			return rc;
+		}
+
+		trim_center = ((reg_val & MISC_TRIM3_VDD_MASK)
+					>> VDD_TRIM3_SHIFT)
+					| ((reg_val1 & MISC_TRIM4_VDD_MASK)
+					>> VDD_TRIM4_SHIFT);
+		chip->init_trim_uv = qpnp_lbc_get_trim_voltage(trim_center);
+		chip->delta_vddmax_uv = chip->init_trim_uv;
+		pr_debug("Initial trim center %x trim_uv %d\n",
+				trim_center, chip->init_trim_uv);
+	}
 
 	pr_debug("Setting BOOT_DONE\n");
 	reg_val = MISC_BOOT_DONE;
@@ -1782,8 +2027,10 @@ static int qpnp_lbc_is_fastchg_on(struct qpnp_lbc_chip *chip)
 	return (reg_val & FAST_CHG_ON_IRQ) ? 1 : 0;
 }
 
+#define TRIM_PERIOD_NS			(50LL * NSEC_PER_SEC)
 static irqreturn_t qpnp_lbc_fastchg_irq_handler(int irq, void *_chip)
 {
+	ktime_t kt;
 	struct qpnp_lbc_chip *chip = _chip;
 	bool fastchg_on = false;
 
@@ -1793,13 +2040,25 @@ static irqreturn_t qpnp_lbc_fastchg_irq_handler(int irq, void *_chip)
 
 	if (chip->fastchg_on ^ fastchg_on) {
 		chip->fastchg_on = fastchg_on;
+		if (fastchg_on) {
+			chip->chg_done = false;
+			/*
+			 * Start alarm timer to periodically calculate
+			 * and update VDD_MAX trim value.
+			 */
+			if (chip->supported_feature_flag &
+						VDD_TRIM_SUPPORTED) {
+				kt = ns_to_ktime(TRIM_PERIOD_NS);
+				alarm_start_relative(&chip->vddtrim_alarm,
+							kt);
+			}
+		}
+
 		if (chip->bat_if_base) {
 			pr_debug("power supply changed batt_psy\n");
 			power_supply_changed(&chip->batt_psy);
 		}
 
-		if (fastchg_on)
-			chip->chg_done = false;
 	}
 
 	return IRQ_HANDLED;
@@ -2021,9 +2280,71 @@ static void determine_initial_status(struct qpnp_lbc_chip *chip)
 	}
 }
 
+#define IBAT_TRIM			-300
+static void qpnp_lbc_vddtrim_work_fn(struct work_struct *work)
+{
+	int rc, vbat_now_uv, ibat_now;
+	u8 reg_val;
+	ktime_t kt;
+	struct qpnp_lbc_chip *chip = container_of(work, struct qpnp_lbc_chip,
+						vddtrim_work);
+
+	vbat_now_uv = get_prop_battery_voltage_now(chip);
+	ibat_now = get_prop_current_now(chip) / 1000;
+	pr_debug("vbat %d ibat %d capacity %d\n",
+			vbat_now_uv, ibat_now, get_prop_capacity(chip));
+
+	/*
+	 * Stop trimming under following condition:
+	 * USB removed
+	 * Charging Stopped
+	 */
+	if (!qpnp_lbc_is_fastchg_on(chip) ||
+			!qpnp_lbc_is_usb_chg_plugged_in(chip)) {
+		pr_debug("stop trim charging stopped\n");
+		goto exit;
+	} else {
+		rc = qpnp_lbc_read(chip, chip->chgr_base + CHG_STATUS_REG,
+					&reg_val, 1);
+		if (rc) {
+			pr_err("Failed to read chg status rc=%d\n", rc);
+			goto out;
+		}
+
+		/*
+		 * Update VDD trim voltage only if following conditions are
+		 * met:
+		 * If charger is in VDD loop AND
+		 * If ibat is between 0 ma and -300 ma
+		 */
+		if ((reg_val & CHG_VDD_LOOP_BIT) &&
+				((ibat_now < 0) && (ibat_now > IBAT_TRIM)))
+			qpnp_lbc_adjust_vddmax(chip, vbat_now_uv);
+	}
+
+out:
+	kt = ns_to_ktime(TRIM_PERIOD_NS);
+	alarm_start_relative(&chip->vddtrim_alarm, kt);
+exit:
+	pm_relax(chip->dev);
+}
+
+static enum alarmtimer_restart vddtrim_callback(struct alarm *alarm,
+					ktime_t now)
+{
+	struct qpnp_lbc_chip *chip = container_of(alarm, struct qpnp_lbc_chip,
+						vddtrim_alarm);
+
+	pm_stay_awake(chip->dev);
+	schedule_work(&chip->vddtrim_work);
+
+	return ALARMTIMER_NORESTART;
+}
+
 static int qpnp_lbc_probe(struct spmi_device *spmi)
 {
 	u8 subtype;
+	ktime_t kt;
 	struct qpnp_lbc_chip *chip;
 	struct resource *resource;
 	struct spmi_resource *spmi_resource;
@@ -2053,6 +2374,8 @@ static int qpnp_lbc_probe(struct spmi_device *spmi)
 	mutex_init(&chip->chg_enable_lock);
 	spin_lock_init(&chip->hw_access_lock);
 	spin_lock_init(&chip->ibat_change_lock);
+	INIT_WORK(&chip->vddtrim_work, qpnp_lbc_vddtrim_work_fn);
+	alarm_init(&chip->vddtrim_alarm, ALARM_REALTIME, vddtrim_callback);
 
 	/* Get all device-tree properties */
 	rc = qpnp_charger_read_dt_props(chip);
@@ -2139,6 +2462,11 @@ static int qpnp_lbc_probe(struct spmi_device *spmi)
 	}
 
 	/* Initialize h/w */
+	rc = qpnp_lbc_misc_init(chip);
+	if (rc) {
+		pr_err("unable to initialize LBC MISC rc=%d\n", rc);
+		return rc;
+	}
 	rc = qpnp_lbc_chg_init(chip);
 	if (rc) {
 		pr_err("unable to initialize LBC charger rc=%d\n", rc);
@@ -2152,11 +2480,6 @@ static int qpnp_lbc_probe(struct spmi_device *spmi)
 	rc = qpnp_lbc_usb_path_init(chip);
 	if (rc) {
 		pr_err("unable to initialize LBC USB path rc=%d\n", rc);
-		return rc;
-	}
-	rc = qpnp_lbc_misc_init(chip);
-	if (rc) {
-		pr_err("unable to initialize LBC MISC rc=%d\n", rc);
 		return rc;
 	}
 
@@ -2222,6 +2545,13 @@ static int qpnp_lbc_probe(struct spmi_device *spmi)
 	if (chip->cfg_charging_disabled && !get_prop_batt_present(chip))
 		pr_info("Battery absent and charging disabled !!!\n");
 
+	/* Configure initial alarm for VDD trim */
+	if ((chip->supported_feature_flag & VDD_TRIM_SUPPORTED) &&
+			qpnp_lbc_is_fastchg_on(chip)) {
+		kt = ns_to_ktime(TRIM_PERIOD_NS);
+		alarm_start_relative(&chip->vddtrim_alarm, kt);
+	}
+
 	pr_info("Probe chg_dis=%d bpd=%d usb=%d batt_pres=%d batt_volt=%d soc=%d\n",
 			chip->cfg_charging_disabled,
 			chip->cfg_bpd_detection,
@@ -2244,6 +2574,10 @@ static int qpnp_lbc_remove(struct spmi_device *spmi)
 {
 	struct qpnp_lbc_chip *chip = dev_get_drvdata(&spmi->dev);
 
+	if (chip->supported_feature_flag & VDD_TRIM_SUPPORTED) {
+		alarm_cancel(&chip->vddtrim_alarm);
+		cancel_work_sync(&chip->vddtrim_work);
+	}
 	if (chip->bat_if_base)
 		power_supply_unregister(&chip->batt_psy);
 	mutex_destroy(&chip->jeita_configure_lock);
