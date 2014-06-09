@@ -94,7 +94,9 @@ Optional properties:
 
   The bitmap is defined as:
   scalable = 0x1 (if the driver should vary the clock's frequency based on load)
-  power collapsible = 0x2 (if the driver should disable the clock if no load)
+  gate-able = 0x2 (if the driver should disable the clock if no load)
+- qcom,sw-power-collapse = A bool indicating if video hardware core can be
+  power collapsed in idle state.
 - qcom,use-non-secure-pil = A bool indicating which type of pil to use to load
   the fw.
 - qcom,use-dynamic-bw-update = A bool indicating whether dynamic bandwidth
@@ -124,7 +126,8 @@ Example:
 		qcom,max-hw-load = <1224450>; /* 4k @ 30 + 1080p @ 30*/
 		qcom,clock-names = "foo_clk", "bar_clk", "baz_clk";
 		clock-names = "foo_clk", "bar_clk", "baz_clk";
-		qcom,clock-properties = <0x3 0x1 0x0>;
+		qcom,clock-configs = <0x3 0x1 0x0>;
+		qcom,sw-power-collapse;
 		qcom,buffer-type-tz-usage-table = <0x1 0x1>,
 						<0x1fe 0x2>;
 		qcom,msm-bus-clients {
