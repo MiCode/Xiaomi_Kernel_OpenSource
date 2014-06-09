@@ -36,6 +36,8 @@
 #include <asm/pmu.h>
 #include <asm/stacktrace.h>
 
+#include <soc/qcom/cti-pmu-irq.h>
+
 /*
  * ARMv8 supports a maximum of 32 events.
  * The cycle counter is included in this total.
@@ -1114,6 +1116,10 @@ irqreturn_t armv8pmu_handle_irq(int irq_num, void *dev)
 	struct pmu_hw_events *cpuc;
 	struct pt_regs *regs;
 	int idx;
+	int cpu = raw_smp_processor_id();
+
+	if (msm_pmu_use_irq)
+		msm_cti_pmu_irq_ack(cpu);
 
 	/*
 	 * Get and reset the IRQ flags
