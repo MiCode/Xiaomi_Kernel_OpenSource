@@ -971,7 +971,10 @@ static int msm_iommu_map(struct iommu_domain *domain, unsigned long va,
 	if (ret)
 		goto fail;
 
+#ifdef CONFIG_MSM_IOMMU_TLBINVAL_ON_MAP
 	ret = __flush_iotlb_va(domain, va);
+#endif
+
 fail:
 	mutex_unlock(&msm_iommu_lock);
 	return ret;
@@ -1023,7 +1026,10 @@ static int msm_iommu_map_range(struct iommu_domain *domain, unsigned int va,
 	if (ret)
 		goto fail;
 
+#ifdef CONFIG_MSM_IOMMU_TLBINVAL_ON_MAP
 	__flush_iotlb(domain);
+#endif
+
 fail:
 	mutex_unlock(&msm_iommu_lock);
 	return ret;
