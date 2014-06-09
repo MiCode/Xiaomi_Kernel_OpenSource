@@ -1960,15 +1960,14 @@
 		clocks = <&clock_rpm clk_div_clk1>;
 		qcom,cdc-mclk-gpios = <&pm8994_gpios 15 0>;
 		qcom,tomtom-mclk-clk-freq = <9600000>;
-		qcom,prim-auxpcm-gpio-clk  = <&msm_gpio 74 0>;
-		qcom,prim-auxpcm-gpio-sync = <&msm_gpio 75 0>;
-		qcom,prim-auxpcm-gpio-din  = <&msm_gpio 76 0>;
-		qcom,prim-auxpcm-gpio-dout = <&msm_gpio 77 0>;
-		qcom,prim-auxpcm-gpio-set = "prim-gpio-tert";
-		qcom,sec-auxpcm-gpio-clk  = <&msm_gpio 79 0>;
-		qcom,sec-auxpcm-gpio-sync = <&msm_gpio 80 0>;
-		qcom,sec-auxpcm-gpio-din  = <&msm_gpio 81 0>;
-		qcom,sec-auxpcm-gpio-dout = <&msm_gpio 82 0>;
+		pinctrl-names = "mi2s-sleep",
+				"mi2s-active",
+				"auxpcm-sleep",
+				"auxpcm-active";
+		pinctrl-0 = <&pri_mi2s_sleep>, <&pri_mi2s_sd0_sleep>;
+		pinctrl-1 = <&pri_mi2s_active>, <&pri_mi2s_sd0_active>;
+		pinctrl-2 = <&sec_aux_pcm_sleep>, <&sec_aux_pcm_din_sleep>;
+		pinctrl-3 = <&sec_aux_pcm_active>, <&sec_aux_pcm_din_active>;
 	};
 
 	qcom,msm-adsp-loader {
@@ -2190,8 +2189,8 @@
 		qcom,msm-dai-q6-mi2s-prim {
 			compatible = "qcom,msm-dai-q6-mi2s";
 			qcom,msm-dai-q6-mi2s-dev-id = <0>;
-			qcom,msm-mi2s-rx-lines = <1>;
-			qcom,msm-mi2s-tx-lines = <2>;
+			qcom,msm-mi2s-rx-lines = <2>;
+			qcom,msm-mi2s-tx-lines = <1>;
 		};
 	};
 
