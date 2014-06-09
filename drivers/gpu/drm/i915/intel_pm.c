@@ -3601,9 +3601,7 @@ void gen6_set_rc6_mode(struct drm_device *dev, bool disable)
 {
 	struct drm_i915_private *dev_priv = dev->dev_private;
 
-	if ((INTEL_INFO(dev)->gen < 6) ||
-	     IS_VALLEYVIEW(dev) ||
-	     IS_BROADWELL(dev)) {
+	if ((INTEL_INFO(dev)->gen < 6) || IS_VALLEYVIEW(dev)) {
 		DRM_DEBUG_DRIVER("RC6 disable not supported\n");
 		return;
 	}
@@ -3614,6 +3612,11 @@ void gen6_set_rc6_mode(struct drm_device *dev, bool disable)
 
 	if (disable)
 		I915_WRITE(GEN6_RC_CONTROL, 0);
+	else if (IS_BROADWELL(dev))
+		I915_WRITE(GEN6_RC_CONTROL,
+			   dev_priv->rps.rc6_mask |
+			   GEN7_RC_CTL_TO_MODE |
+			   GEN6_RC_CTL_HW_ENABLE);
 	else
 		I915_WRITE(GEN6_RC_CONTROL,
 			   dev_priv->rps.rc6_mask |
@@ -3894,14 +3897,9 @@ static void gen8_enable_rps(struct drm_device *dev)
 	if (intel_enable_rc6(dev) & INTEL_RC6_ENABLE)
 		rc6_mask = GEN6_RC_CTL_RC6_ENABLE;
 	intel_print_rc6_info(dev, rc6_mask);
-	if (IS_BROADWELL(dev))
-		I915_WRITE(GEN6_RC_CONTROL, GEN6_RC_CTL_HW_ENABLE |
-				GEN7_RC_CTL_TO_MODE |
-				rc6_mask);
-	else
-		I915_WRITE(GEN6_RC_CONTROL, GEN6_RC_CTL_HW_ENABLE |
-				GEN6_RC_CTL_EI_MODE(1) |
-				rc6_mask);
+
+	dev_priv->rps.rc6_mask = rc6_mask;
+	gen6_set_rc6_mode(dev, dev_priv->rps.rc6_disable);
 
 	/* 4 Program defaults and thresholds for RPS*/
 	I915_WRITE(GEN6_RPNSWREQ,
