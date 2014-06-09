@@ -3546,6 +3546,15 @@ void gen6_set_rps_mode(struct drm_device *dev, bool manual)
 		I915_WRITE(GEN6_RP_CONTROL,
 			   GEN6_RP_MEDIA_HW_NORMAL_MODE);
 		delay = (I915_READ(GEN6_GT_PERF_STATUS) & 0xff00) >> 8;
+	} else if (IS_BROADWELL(dev)) {
+		I915_WRITE(GEN6_RP_CONTROL,
+			   GEN6_RP_MEDIA_TURBO |
+			   GEN6_RP_MEDIA_HW_NORMAL_MODE |
+			   GEN6_RP_MEDIA_IS_GFX |
+			   GEN6_RP_ENABLE |
+			   GEN6_RP_UP_BUSY_AVG |
+			   GEN6_RP_DOWN_IDLE_AVG);
+		delay = (I915_READ(GEN6_GT_PERF_STATUS) & 0xff00) >> 8;
 	} else {
 		/* Force a reset */
 		dev_priv->rps.power = HIGH_POWER;
@@ -3921,18 +3930,8 @@ static void gen8_enable_rps(struct drm_device *dev)
 
 	I915_WRITE(GEN6_RP_IDLE_HYSTERSIS, 10);
 
-	/* 5: Enable RPS */
-	I915_WRITE(GEN6_RP_CONTROL,
-		   GEN6_RP_MEDIA_TURBO |
-		   GEN6_RP_MEDIA_HW_NORMAL_MODE |
-		   GEN6_RP_MEDIA_IS_GFX |
-		   GEN6_RP_ENABLE |
-		   GEN6_RP_UP_BUSY_AVG |
-		   GEN6_RP_DOWN_IDLE_AVG);
-
-	/* 6: Ring frequency + overclocking (our driver does this later */
-
-	gen6_set_rps(dev, (I915_READ(GEN6_GT_PERF_STATUS) & 0xff00) >> 8);
+	/* 5: Enable RPS and 6: set ring frequency */
+	gen6_set_rps_mode(dev, dev_priv->rps.manual_mode);
 
 	gen8_enable_rps_interrupts(dev);
 

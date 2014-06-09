@@ -4506,8 +4506,7 @@ static int i915_cur_freq_get(void *data, u64 *val)
 	struct drm_device *dev = data;
 	struct drm_i915_private *dev_priv = dev->dev_private;
 
-	if ((INTEL_INFO(dev)->gen < 6) ||
-	     IS_BROADWELL(dev))
+	if (INTEL_INFO(dev)->gen < 6)
 		return -ENODEV;
 
 	flush_delayed_work(&dev_priv->rps.delayed_resume_work);
@@ -4524,8 +4523,7 @@ static int i915_cur_freq_set(void *data, u64 val)
 	u64 freq = val;
 	int ret;
 
-	if ((INTEL_INFO(dev)->gen < 6) ||
-	     IS_BROADWELL(dev))
+	if (INTEL_INFO(dev)->gen < 6)
 		return -ENODEV;
 
 	flush_delayed_work(&dev_priv->rps.delayed_resume_work);
@@ -4604,9 +4602,7 @@ static int i915_rps_manual_get(void *data, u64 *val)
 	struct drm_device *dev = data;
 	struct drm_i915_private *dev_priv = dev->dev_private;
 
-	if ((INTEL_INFO(dev)->gen < 6) ||
-	     IS_VALLEYVIEW(dev) ||
-	     IS_BROADWELL(dev))
+	if ((INTEL_INFO(dev)->gen < 6) || IS_VALLEYVIEW(dev))
 		return -ENODEV;
 
 	flush_delayed_work(&dev_priv->rps.delayed_resume_work);
@@ -4622,9 +4618,7 @@ static int i915_rps_manual_set(void *data, u64 val)
 	struct drm_i915_private *dev_priv = dev->dev_private;
 	int ret;
 
-	if ((INTEL_INFO(dev)->gen < 6) ||
-	     IS_VALLEYVIEW(dev) ||
-	     IS_BROADWELL(dev))
+	if ((INTEL_INFO(dev)->gen < 6) || IS_VALLEYVIEW(dev))
 		return -ENODEV;
 
 	flush_delayed_work(&dev_priv->rps.delayed_resume_work);
