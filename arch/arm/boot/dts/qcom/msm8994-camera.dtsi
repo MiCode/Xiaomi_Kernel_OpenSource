@@ -346,7 +346,6 @@
 
 	qcom,fd@fd878000 {
 		cell-index = <0>;
-		status = "disabled";
 		compatible = "qcom,face-detection";
 		reg = <0xfd878000 0x800>,
 			<0xfd87c000 0x800>,
@@ -356,12 +355,12 @@
 		interrupt-names = "fd";
 		vdd-supply = <&gdsc_fd>;
 		clocks = <&clock_mmss clk_fd_core_clk>,
-			<&clock_mmss clk_fd_ahb_clk>,
+			<&clock_mmss clk_fd_core_uar_clk>,
 			<&clock_mmss clk_fd_axi_clk>,
-			<&clock_mmss clk_fd_core_uar_clk>;
+			<&clock_mmss clk_fd_ahb_clk>;
 		clock-names = "fd_core_clk", "fd_core_uar_clk",
 			"fd_axi_clk", "fd_ahb_clk";
-		clock-rates = <400 400 334 80 240>;
+		clock-rates = <400000000 400000000 333000000 800000000>;
 	};
 
 	cci: qcom,cci@fda0c000 {
