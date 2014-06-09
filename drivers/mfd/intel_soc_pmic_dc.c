@@ -363,14 +363,9 @@ static void dc_xpwr_chrg_pdata(void)
 	pdata.def_iterm = 300;
 	pdata.def_max_temp = 55;
 	pdata.def_min_temp = 0;
-
-	pdata.otg_gpio = 117; /* GPIONC_15 */
-	/* configure output */
-	ret = gpio_request(pdata.otg_gpio, "otg_gpio");
-	if (ret) {
-		pr_err("unable to request GPIO pin\n");
-		pdata.otg_gpio = -1;
-	}
+	
+	/* Deprecated: DC does not handle GPIO for VBUS */
+	pdata.otg_gpio = -1;
 
 	platform_init_chrg_params(&pdata);
 
