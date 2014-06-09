@@ -97,11 +97,6 @@ qcom,pm-cpu-levels.
 	power collapse and the cpu relies on Broadcast timer for scheduled
 	wakeups. Required only for states where the CPUs internal timer state
 	is lost.
-	- qcom,default-idle: The presence of this property in LPM level
-	indicates that the mode is enabled by default at boot up for idle path.
-	- qcom,default-suspend: The presence of this property in LPM level
-	indicates that the mode is enabled by default at boot up for suspend
-	path.
 
 [Example dts]
 
@@ -180,7 +175,6 @@ qcom,lpm-levels {
 					qcom,ss-power = <715>;
 					qcom,energy-overhead = <17700>;
 					qcom,time-overhead = <2>;
-					qcom,default-idle;
 				};
 
 				qcom,pm-cpu-level@1 {
@@ -208,7 +202,6 @@ qcom,lpm-levels {
 					qcom,ss-power = <163>;
 					qcom,energy-overhead = <577736>;
 					qcom,time-overhead = <1000>;
-					qcom,default-suspend;
 				};
 			};
 		};
