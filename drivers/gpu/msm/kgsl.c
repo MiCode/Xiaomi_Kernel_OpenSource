@@ -2995,7 +2995,7 @@ long kgsl_ioctl_map_user_mem(struct kgsl_device_private *dev_priv,
 			(param->flags & KGSL_MEMFLAGS_SECURE)) {
 		dev_WARN_ONCE(dev_priv->device->dev, 1,
 				"Secure buffer not supported");
-		return -EINVAL;
+		goto error;
 	}
 
 	if (param->flags & KGSL_MEMFLAGS_SECURE) {
@@ -3004,7 +3004,7 @@ long kgsl_ioctl_map_user_mem(struct kgsl_device_private *dev_priv,
 			KGSL_DRV_ERR(dev_priv->device,
 				 "Secure buffer size %zx must be %x aligned",
 				 entry->memdesc.size, SZ_1M);
-			return -EINVAL;
+			goto error;
 		}
 	}
 
