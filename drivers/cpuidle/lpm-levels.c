@@ -812,6 +812,7 @@ static int lpm_suspend_prepare(void)
 
 static void lpm_suspend_wake(void)
 {
+	suspend_in_progress = false;
 	msm_mpm_suspend_wake();
 	lpm_stats_suspend_exit();
 }
