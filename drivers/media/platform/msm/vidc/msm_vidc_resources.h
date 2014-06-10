@@ -119,6 +119,7 @@ struct msm_vidc_platform_resources {
 	bool dynamic_bw_update;
 	bool use_non_secure_pil;
 	bool sw_power_collapsible;
+	bool sys_idle_indicator;
 };
 
 struct msm_vidc_idle_time {
