@@ -864,5 +864,73 @@
 				bias-pull-down;
 			};
 		};
+
+		pcie0_clkreq {
+			qcom,pins = <&gp 54>;
+			qcom,num-grp-pins = <1>;
+			qcom,pin-func = <2>;
+			label = "pcie0-clkreq";
+			/* default state */
+			pcie0_clkreq_default: pcie0_clkreq_default {
+				drive-strength = <2>;
+				bias-pull-up;
+			};
+		};
+
+		pcie0_perst {
+			qcom,pins = <&gp 53>;
+			qcom,num-grp-pins = <1>;
+			label = "pcie0-perst";
+			/* default state */
+			pcie0_perst_default: pcie0_perst_default {
+				drive-strength = <2>;
+				bias-pull-down;
+			};
+		};
+
+		pcie0_wake {
+			qcom,pins = <&gp 55>;
+			qcom,num-grp-pins = <1>;
+			label = "pcie0-wake";
+			/* default state */
+			pcie0_wake_default: pcie0_wake_default {
+				drive-strength = <2>;
+				bias-pull-down;
+			};
+		};
+
+		pcie1_clkreq {
+			qcom,pins = <&gp 36>;
+			qcom,num-grp-pins = <1>;
+			qcom,pin-func = <2>;
+			label = "pcie1-clkreq";
+			/* default state */
+			pcie1_clkreq_default: pcie1_clkreq_default {
+				drive-strength = <2>;
+				bias-pull-up;
+			};
+		};
+
+		pcie1_perst {
+			qcom,pins = <&gp 35>;
+			qcom,num-grp-pins = <1>;
+			label = "pcie1-perst";
+			/* default state */
+			pcie1_perst_default: pcie1_perst_default {
+				drive-strength = <2>;
+				bias-pull-down;
+			};
+		};
+
+		pcie1_wake {
+			qcom,pins = <&gp 37>;
+			qcom,num-grp-pins = <1>;
+			label = "pcie1-wake";
+			/* default state */
+			pcie1_wake_default: pcie1_wake_default {
+				drive-strength = <2>;
+				bias-pull-down;
+			};
+		};
 	};
 };
