@@ -194,6 +194,7 @@ enum msm_fd_mem_resources {
  * @clk_num: Number of clocks attached to the device.
  * @clk: Array of clock resources used by fd device.
  * @clk_rates: Array of clock rates set.
+ * @bus_client: Memory access bus client.
  * @iommu_domain: Pointer to FD device iommu domain handler.
  * @iommu_domain_num: FD device iommu domain number.
  * @iommu_dev: Pointer to Ion iommu device.
@@ -220,6 +221,8 @@ struct msm_fd_device {
 	struct clk *clk[MSM_FD_MAX_CLK_NUM];
 	unsigned int clk_rates_num;
 	unsigned int clk_rates[MSM_FD_MAX_CLK_RATES][MSM_FD_MAX_CLK_NUM];
+
+	uint32_t bus_client;
 
 	struct iommu_domain *iommu_domain;
 	int iommu_domain_num;
