@@ -448,6 +448,9 @@ static void wcd9xxx_enable_clock_block(struct wcd9xxx_resmgr *resmgr,
 	struct snd_soc_codec *codec = resmgr->codec;
 	unsigned long delay = WCD9XXX_RCO_CALIBRATION_DELAY_US;
 	int num_retry = 0;
+	unsigned int valr;
+	unsigned int valr1;
+	unsigned int valw[] = {0x01, 0x01, 0x10, 0x00};
 
 	pr_debug("%s: config_mode = %d\n", __func__, config_mode);
 
@@ -469,6 +472,14 @@ static void wcd9xxx_enable_clock_block(struct wcd9xxx_resmgr *resmgr,
 				    0x01, 0x01);
 		/* 1ms sleep required after BG enabled */
 		usleep_range(1000, 1100);
+
+		snd_soc_update_bits(codec, TOMTOM_A_RCO_CTRL, 0x18, 0x10);
+		valr = snd_soc_read(codec, TOMTOM_A_QFUSE_DATA_OUT0) & (0x04);
+		valr1 = snd_soc_read(codec, TOMTOM_A_QFUSE_DATA_OUT1) & (0x08);
+		valr = (valr >> 1) | (valr1 >> 3);
+		snd_soc_update_bits(codec, TOMTOM_A_RCO_CTRL, 0x60,
+				    valw[valr] << 5);
+
 		snd_soc_update_bits(codec, TOMTOM_A_RCO_CTRL, 0x80, 0x80);
 
 		do {
