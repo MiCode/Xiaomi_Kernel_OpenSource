@@ -231,9 +231,6 @@ static int ep_config(u8 usb_ep, u8 bam_pipe, bool producer, bool disable_wb,
 	msm_dbm_write_reg_field(dbm_data->base, DBM_DBG_CNFG,
 		DBM_ENABLE_IOC_MASK & 1 << dbm_ep, ioc ? 1 : 0);
 
-	/* No internal memory support yet, we assume internal_mem ==  false */
-	internal_mem = false;
-
 	ep_cfg = (producer ? DBM_PRODUCER : 0) |
 		(disable_wb ? DBM_DISABLE_WB : 0) |
 		(internal_mem ? DBM_INT_RAM_ACC : 0);
