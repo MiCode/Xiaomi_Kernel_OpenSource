@@ -939,6 +939,7 @@ static int ipa_wwan_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
 		break;
 	/*  Set QoS header enabled  */
 	case RMNET_IOCTL_SET_QOS_ENABLE:
+		return -EINVAL;
 		break;
 	/*  Set QoS header disabled  */
 	case RMNET_IOCTL_SET_QOS_DISABLE:
