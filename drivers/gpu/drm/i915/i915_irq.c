@@ -3450,6 +3450,7 @@ static void gen5_gt_irq_postinstall(struct drm_device *dev)
 
 		if (dev_priv->rps.use_RC0_residency_for_turbo) {
 			dev_priv->pm_irq_mask &= ~GEN6_PM_RP_UP_EI_EXPIRED;
+			pm_irqs &= ~GEN6_PM_RPS_EVENTS;
 			pm_irqs |= GEN6_PM_RP_UP_EI_EXPIRED;
 		} else {
 			dev_priv->pm_irq_mask &= ~GEN6_PM_RPS_EVENTS;
