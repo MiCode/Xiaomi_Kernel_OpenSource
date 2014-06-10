@@ -45,6 +45,8 @@
 #include <acpi/actypes.h>
 #include "i2c-designware-core.h"
 
+#include <asm/intel_mid_pcihelpers.h>
+
 static struct i2c_algorithm i2c_dw_algo = {
 	.master_xfer	= i2c_dw_xfer,
 	.functionality	= i2c_dw_func,
@@ -60,6 +62,21 @@ struct dw_i2c_acpi_handler_data {
 	struct platform_device *pdev;
 };
 
+
+int dw_i2c_acquire_ownership(void)
+{
+#ifdef CONFIG_GMIN_INTEL_MID
+	return intel_mid_dw_i2c_acquire_ownership();
+#endif
+	return 0;
+}
+int dw_i2c_release_ownership(void)
+{
+#ifdef CONFIG_GMIN_INTEL_MID
+	return intel_mid_dw_i2c_release_ownership();
+#endif
+	return 0;
+}
 static acpi_status
 dw_i2c_acpi_space_handler(u32 function, acpi_physical_address address,
 			u32 bits, u64 *value64,
@@ -197,6 +214,9 @@ static int dw_i2c_acpi_configure(struct platform_device *pdev)
 {
 	struct dw_i2c_dev *dev = platform_get_drvdata(pdev);
 	bool fs_mode = dev->master_cfg & DW_IC_CON_SPEED_FAST;
+	acpi_status status;
+	acpi_handle handle = ACPI_HANDLE(&pdev->dev);
+	unsigned long long shared_host = 0;
 
 	if (!ACPI_HANDLE(&pdev->dev))
 		return -ENODEV;
@@ -213,6 +233,18 @@ static int dw_i2c_acpi_configure(struct platform_device *pdev)
 			   fs_mode ? NULL : &dev->sda_hold_time);
 	dw_i2c_acpi_params(pdev, "FMCN", &dev->fs_hcnt, &dev->fs_lcnt,
 			   fs_mode ? &dev->sda_hold_time : NULL);
+
+	status = acpi_evaluate_integer(handle, "_SEM", NULL, &shared_host);
+
+	if (ACPI_SUCCESS(status))
+		dev_info(&pdev->dev, "_SEM=%ld\n", shared_host);
+
+	if (shared_host != 0) {
+		dev_info(&pdev->dev, "Share controller with PUNIT\n");
+		dev->shared_host = 1;
+		dev->acquire_ownership = dw_i2c_acquire_ownership;
+		dev->release_ownership = dw_i2c_release_ownership;
+	}
 
 	return 0;
 }
@@ -325,10 +357,14 @@ static int dw_i2c_probe(struct platform_device *pdev)
 		return r;
 	}
 
-	pm_runtime_set_autosuspend_delay(&pdev->dev, 1000);
-	pm_runtime_use_autosuspend(&pdev->dev);
-	pm_runtime_set_active(&pdev->dev);
-	pm_runtime_enable(&pdev->dev);
+	if (dev->shared_host) {
+		pm_runtime_forbid(&pdev->dev);
+	} else {
+		pm_runtime_set_autosuspend_delay(&pdev->dev, 1000);
+		pm_runtime_use_autosuspend(&pdev->dev);
+		pm_runtime_set_active(&pdev->dev);
+		pm_runtime_enable(&pdev->dev);
+	}
 
 	dw_i2c_acpi_install_space_handler(pdev);
 	acpi_walk_dep_device_list();
@@ -376,7 +412,9 @@ static int dw_i2c_resume(struct device *dev)
 	struct dw_i2c_dev *i_dev = platform_get_drvdata(pdev);
 
 	clk_prepare_enable(i_dev->clk);
-	i2c_dw_init(i_dev);
+
+	if (!i_dev->shared_host)
+		i2c_dw_init(i_dev);
 
 	return 0;
 }
@@ -406,7 +444,7 @@ static int __init dw_i2c_init_driver(void)
 {
 	return platform_driver_register(&dw_i2c_driver);
 }
-subsys_initcall(dw_i2c_init_driver);
+fs_initcall_sync(dw_i2c_init_driver);
 
 static void __exit dw_i2c_exit_driver(void)
 {

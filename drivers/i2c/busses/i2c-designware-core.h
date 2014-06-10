@@ -65,6 +65,7 @@
  * @ss_lcnt: standard speed LCNT value
  * @fs_hcnt: fast speed HCNT value
  * @fs_lcnt: fast speed LCNT value
+ * @shared_host: if this host is shared by other units on the SoC
  *
  * HCNT and LCNT parameters can be used if the platform knows more accurate
  * values than the one computed based only on the input clock frequency.
@@ -103,6 +104,9 @@ struct dw_i2c_dev {
 	u16			ss_lcnt;
 	u16			fs_hcnt;
 	u16			fs_lcnt;
+	int			shared_host;
+	int			(*acquire_ownership) (void);
+	int			(*release_ownership) (void);
 };
 
 #define ACCESS_SWAP		0x00000001

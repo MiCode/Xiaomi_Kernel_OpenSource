@@ -1,5 +1,7 @@
 #include <linux/export.h>
 #include <linux/pci.h>
+#include <linux/pm_qos.h>
+#include <linux/delay.h>
 
 /* G-Min addition: "platform_is()" lives in intel_mid_pm.h in the MCG
  * tree, but it's just platform ID info and we don't want to pull in
@@ -11,11 +13,17 @@
 #define INTEL_ATOM_BYT 0x37
 #define INTEL_ATOM_MOORFLD 0x5a
 #define INTEL_ATOM_CHT 0x4c
+/* synchronization for sharing the I2C controller */
+#define PUNIT_PORT	0x04
+#define PUNIT_DOORBELL_OPCODE	(0xE0)
+#define PUNIT_DOORBELL_REG	(0x0)
+#ifndef CSTATE_EXIT_LATENCY
+#define CSTATE_EXIT_LATENCY_C1 1
+#endif
 static inline int platform_is(u8 model)
 {
         return (boot_cpu_data.x86_model == model);
 }
-
 
 #include <asm/intel_mid_pcihelpers.h>
 
@@ -23,6 +31,8 @@ static inline int platform_is(u8 model)
 static DEFINE_SPINLOCK(msgbus_lock);
 
 static struct pci_dev *pci_root;
+static struct pm_qos_request pm_qos;
+int qos;
 
 static int intel_mid_msgbus_init(void)
 {
@@ -31,6 +41,9 @@ static int intel_mid_msgbus_init(void)
 		pr_err("%s: Error: msgbus PCI handle NULL\n", __func__);
 		return -ENODEV;
 	}
+
+	pm_qos_add_request(&pm_qos, PM_QOS_CPU_DMA_LATENCY,
+			PM_QOS_DEFAULT_VALUE);
 	return 0;
 }
 fs_initcall(intel_mid_msgbus_init);
@@ -182,3 +195,73 @@ static void pci_d3_delay_fixup(struct pci_dev *dev)
 	}
 }
 DECLARE_PCI_FIXUP_FINAL(PCI_VENDOR_ID_INTEL, PCI_ANY_ID, pci_d3_delay_fixup);
+
+#define PUNIT_SEMAPHORE	(platform_is(INTEL_ATOM_BYT) ? 0x7 : 0x10E)
+#define GET_SEM() (intel_mid_msgbus_read32(PUNIT_PORT, PUNIT_SEMAPHORE) & 0x1)
+
+static void reset_semaphore(void)
+{
+	u32 data;
+
+	data = intel_mid_msgbus_read32(PUNIT_PORT, PUNIT_SEMAPHORE);
+	smp_mb();
+	data = data & 0xfffffffe;
+	intel_mid_msgbus_write32(PUNIT_PORT, PUNIT_SEMAPHORE, data);
+	smp_mb();
+
+	pm_qos_update_request(&pm_qos, PM_QOS_DEFAULT_VALUE);
+
+}
+
+int intel_mid_dw_i2c_acquire_ownership(void)
+{
+	u32 ret = 0;
+	u32 data = 0; /* data sent to PUNIT */
+	u32 cmd;
+	u32 cmdext;
+	int timeout = 100;
+
+	pm_qos_update_request(&pm_qos, CSTATE_EXIT_LATENCY_C1 - 1);
+
+	/* host driver writes 0x2 to side band register 0x7 */
+	intel_mid_msgbus_write32(PUNIT_PORT, PUNIT_SEMAPHORE, 0x2);
+	smp_mb();
+
+	/* host driver sends 0xE0 opcode to PUNIT and writes 0 register */
+	cmd = (PUNIT_DOORBELL_OPCODE << 24) | (PUNIT_PORT << 16) |
+	((PUNIT_DOORBELL_REG & 0xFF) << 8) | PCI_ROOT_MSGBUS_DWORD_ENABLE;
+	cmdext = PUNIT_DOORBELL_REG & 0xffffff00;
+
+	if (cmdext)
+		intel_mid_msgbus_write32_raw_ext(cmd, cmdext, data);
+	else
+		intel_mid_msgbus_write32_raw(cmd, data);
+
+	/* host driver waits for bit 0 to be set in side band 0x7 */
+	while (GET_SEM() != 0x1) {
+		usleep_range(1000, 2000);
+		timeout--;
+		if (timeout <= 0) {
+			pr_err("Timeout: semaphore timed out, reset sem\n");
+			ret = -ETIMEDOUT;
+			reset_semaphore();
+			pr_err("PUNIT SEM: %d\n",
+					intel_mid_msgbus_read32(PUNIT_PORT,
+						PUNIT_SEMAPHORE));
+			WARN_ON(1);
+			return ret;
+		}
+	}
+	smp_mb();
+
+	return ret;
+}
+EXPORT_SYMBOL(intel_mid_dw_i2c_acquire_ownership);
+
+int intel_mid_dw_i2c_release_ownership(void)
+{
+	reset_semaphore();
+
+	return 0;
+}
+EXPORT_SYMBOL(intel_mid_dw_i2c_release_ownership);

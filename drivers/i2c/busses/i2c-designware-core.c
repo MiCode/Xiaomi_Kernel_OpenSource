@@ -626,6 +626,15 @@ i2c_dw_xfer(struct i2c_adapter *adap, struct i2c_msg msgs[], int num)
 	dev->abort_source = 0;
 	dev->rx_outstanding = 0;
 
+	/* if the host is shared between other units on the SoC */
+	if (dev->shared_host && dev->acquire_ownership) {
+		ret = dev->acquire_ownership();
+		if (ret < 0) {
+			dev_WARN(dev->dev, "couldnt acquire ownership\n");
+			goto done;
+		}
+	}
+
 	ret = i2c_dw_wait_bus_not_busy(dev);
 	if (ret < 0)
 		goto done;
@@ -634,7 +643,7 @@ i2c_dw_xfer(struct i2c_adapter *adap, struct i2c_msg msgs[], int num)
 	i2c_dw_xfer_init(dev);
 
 	/* wait for tx to complete */
-	ret = wait_for_completion_timeout(&dev->cmd_complete, HZ);
+	ret = wait_for_completion_timeout(&dev->cmd_complete, 3 * HZ);
 	if (ret == 0) {
 		dev_err(dev->dev, "controller timed out\n");
 		/* i2c_dw_init implicitly disables the adapter */
@@ -671,6 +680,9 @@ i2c_dw_xfer(struct i2c_adapter *adap, struct i2c_msg msgs[], int num)
 	ret = -EIO;
 
 done:
+	if (dev->shared_host && dev->release_ownership)
+		dev->release_ownership();
+
 	pm_runtime_mark_last_busy(dev->dev);
 	pm_runtime_put_autosuspend(dev->dev);
 	mutex_unlock(&dev->lock);
