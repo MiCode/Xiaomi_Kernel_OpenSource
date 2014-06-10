@@ -379,3 +379,85 @@ static int __init clock_a53_init(void)
 	return platform_driver_register(&clock_a53_driver);
 }
 arch_initcall(clock_a53_init);
+
+#define APCS_C0_PLL			0xb116000
+#define C0_PLL_MODE			0x0
+#define C0_PLL_L_VAL			0x4
+#define C0_PLL_M_VAL			0x8
+#define C0_PLL_N_VAL			0xC
+#define C0_PLL_USER_CTL			0x10
+#define C0_PLL_CONFIG_CTL		0x14
+
+#define APCS_ALIAS0_CMD_RCGR		0xb111050
+#define APCS_ALIAS0_CFG_OFF		0x4
+#define APCS_ALIAS0_CORE_CBCR_OFF	0x8
+#define SRC_SEL				0x4
+#define SRC_DIV				0x3
+
+static void __init configure_enable_sr2_pll(void __iomem *base)
+{
+	/* Disable Mode */
+	writel_relaxed(0x0, base + C0_PLL_MODE);
+
+	/* Configure L/M/N values */
+	writel_relaxed(0x34, base + C0_PLL_L_VAL);
+	writel_relaxed(0x0,  base + C0_PLL_M_VAL);
+	writel_relaxed(0x1,  base + C0_PLL_N_VAL);
+
+	/* Configure USER_CTL and CONFIG_CTL value */
+	writel_relaxed(0x0100000f, base + C0_PLL_USER_CTL);
+	writel_relaxed(0x4c015765, base + C0_PLL_CONFIG_CTL);
+
+	/* Enable PLL now */
+	writel_relaxed(0x2, base + C0_PLL_MODE);
+	udelay(2);
+	writel_relaxed(0x6, base + C0_PLL_MODE);
+	udelay(50);
+	writel_relaxed(0x7, base + C0_PLL_MODE);
+	mb();
+}
+
+static int __init cpu_clock_a53_init_little(void)
+{
+	void __iomem  *base;
+	int regval = 0, count;
+	struct device_node *ofnode = of_find_compatible_node(NULL, NULL,
+							"qcom,cpu-clock-8939");
+	if (!ofnode)
+		return 0;
+
+	base = ioremap_nocache(APCS_C0_PLL, SZ_32);
+	configure_enable_sr2_pll(base);
+	iounmap(base);
+
+	base = ioremap_nocache(APCS_ALIAS0_CMD_RCGR, SZ_8);
+	regval = readl_relaxed(base);
+	/* Source GPLL0 and 1/2 the rate of GPLL0 */
+	regval = (SRC_SEL << 8) | SRC_DIV; /* 0x403 */
+	writel_relaxed(regval, base + APCS_ALIAS0_CFG_OFF);
+	mb();
+
+	/* update bit */
+	regval = readl_relaxed(base);
+	regval |= BIT(0);
+	writel_relaxed(regval, base);
+
+	/* Wait for update to take effect */
+	for (count = 500; count > 0; count--) {
+		if (!(readl_relaxed(base)) & BIT(0))
+			break;
+		udelay(1);
+	}
+
+	/* Enable the branch */
+	regval =  readl_relaxed(base + APCS_ALIAS0_CORE_CBCR_OFF);
+	regval |= BIT(0);
+	writel_relaxed(regval, base + APCS_ALIAS0_CORE_CBCR_OFF);
+	mb();
+	iounmap(base);
+
+	pr_info("A53 Power clocks configured\n");
+
+	return 0;
+}
+early_initcall(cpu_clock_a53_init_little);
