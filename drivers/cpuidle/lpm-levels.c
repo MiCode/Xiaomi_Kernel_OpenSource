@@ -954,6 +954,12 @@ enum msm_pm_l2_scm_flag lpm_cpu_pre_pc_cb(unsigned int cpu)
 	enum msm_pm_l2_scm_flag retflag = MSM_SCM_L2_ON;
 
 	/*
+	 * No need to acquire the lock if probe isn't completed yet
+	 */
+	if (!cluster)
+		return retflag;
+
+	/*
 	 * Assumes L2 only. What/How parameters gets passed into TZ will
 	 * determine how this function reports this info back in msm-pm.c
 	 */
