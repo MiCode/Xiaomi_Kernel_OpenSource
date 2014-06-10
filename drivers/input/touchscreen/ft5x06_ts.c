@@ -593,11 +593,6 @@ static int ft5x06_ts_suspend(struct device *dev)
 		dev_info(dev, "Already in suspend state\n");
 		return 0;
 	}
-	if (data->ts_pinctrl) {
-		err = ft5x06_ts_pinctrl_select(data, false);
-		if (err < 0)
-			dev_err(dev, "Cannot get idle pinctrl state\n");
-	}
 
 	disable_irq(data->client->irq);
 
@@ -665,11 +660,6 @@ static int ft5x06_ts_resume(struct device *dev)
 			dev_err(dev, "power on failed");
 			return err;
 		}
-	}
-	if (data->ts_pinctrl) {
-		err = ft5x06_ts_pinctrl_select(data, true);
-		if (err < 0)
-			dev_err(dev, "Cannot get default pinctrl state\n");
 	}
 
 	if (gpio_is_valid(data->pdata->reset_gpio)) {
