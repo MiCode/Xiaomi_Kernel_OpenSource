@@ -20,7 +20,6 @@ int msm_vidc_debug_out = VIDC_OUT_PRINTK;
 int msm_fw_debug = 0x18;
 int msm_fw_debug_mode = 0x1;
 int msm_fw_low_power_mode = 0x1;
-int msm_vp8_low_tier = 0x1;
 int msm_vidc_hw_rsp_timeout = 1000;
 
 struct debug_buffer {
@@ -181,11 +180,6 @@ struct dentry *msm_vidc_debugfs_init_core(struct msm_vidc_core *core,
 	}
 	if (!debugfs_create_u32("fw_low_power_mode", S_IRUGO | S_IWUSR,
 			parent, &msm_fw_low_power_mode)) {
-		dprintk(VIDC_ERR, "debugfs_create_file: fail\n");
-		goto failed_create_dir;
-	}
-	if (!debugfs_create_u32("vp8_low_tier", S_IRUGO | S_IWUSR,
-			parent, &msm_vp8_low_tier)) {
 		dprintk(VIDC_ERR, "debugfs_create_file: fail\n");
 		goto failed_create_dir;
 	}
