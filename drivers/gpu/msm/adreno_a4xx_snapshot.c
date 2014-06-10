@@ -68,18 +68,18 @@ static const struct adreno_debugbus_block a420_debugbus_blocks[] = {
  * a4xx_snapshot_shader_memory - Helper function to dump the GPU shader
  * memory to the snapshot buffer.
  * @device: GPU device whose shader memory is to be dumped
- * @snapshot: Pointer to binary snapshot data blob being made
+ * @buf: Pointer to binary snapshot data blob being made
  * @remain: Number of remaining bytes in the snapshot blob
  * @priv: Unused parameter
  *
  */
 static size_t a4xx_snapshot_shader_memory(struct kgsl_device *device,
-	void *snapshot, size_t remain, void *priv)
+	u8 *buf, size_t remain, void *priv)
 {
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
-	struct kgsl_snapshot_debug *header = snapshot;
+	struct kgsl_snapshot_debug *header = (struct kgsl_snapshot_debug *)buf;
 	unsigned int i, j;
-	unsigned int *data = snapshot + sizeof(*header);
+	unsigned int *data = (unsigned int *)(buf + sizeof(*header));
 	unsigned int shader_read_len = A4XX_SHADER_MEMORY_SIZE;
 	unsigned int shader_banks = A4XX_NUM_SHADER_BANKS;
 
@@ -156,16 +156,17 @@ void a4xx_rbbm_debug_bus_read(struct kgsl_device *device,
 /*
  * a4xx_snapshot_vbif_debugbus() - Dump the VBIF debug data
  * @device: Device pointer for which the debug data is dumped
- * @snapshot: Pointer to the memory where the data is dumped
+ * @buf: Pointer to the memory where the data is dumped
  * @remain: Amout of bytes remaining in snapshot
  * @priv: Pointer to debug bus block
  *
  * Returns the number of bytes dumped
  */
 static size_t a4xx_snapshot_vbif_debugbus(struct kgsl_device *device,
-			void *snapshot, size_t remain, void *priv)
+			u8 *buf, size_t remain, void *priv)
 {
-	struct kgsl_snapshot_debugbus *header = snapshot;
+	struct kgsl_snapshot_debugbus *header =
+		(struct kgsl_snapshot_debugbus *)buf;
 	struct adreno_debugbus_block *block = priv;
 	int i, j;
 	/*
@@ -176,7 +177,7 @@ static size_t a4xx_snapshot_vbif_debugbus(struct kgsl_device *device,
 	 */
 	unsigned int dwords = (16 * A4XX_NUM_AXI_ARB_BLOCKS) +
 			(4 * A4XX_NUM_XIN_BLOCKS) + (5 * A4XX_NUM_XIN_BLOCKS);
-	unsigned int *data = snapshot + sizeof(*header);
+	unsigned int *data = (unsigned int *)(buf + sizeof(*header));
 	size_t size;
 	unsigned int reg_clk;
 
@@ -243,19 +244,20 @@ static size_t a4xx_snapshot_vbif_debugbus(struct kgsl_device *device,
 /*
  * a4xx_snapshot_debugbus_block() - Capture debug data for a gpu block
  * @device: Pointer to device
- * @snapshot: Memory where data is captured
+ * @buf: Memory where data is captured
  * @remain: Number of bytes left in snapshot
  * @priv: Pointer to debug bus block
  *
  * Returns the number of bytes written
  */
 static size_t a4xx_snapshot_debugbus_block(struct kgsl_device *device,
-	void *snapshot, size_t remain, void *priv)
+	u8 *buf, size_t remain, void *priv)
 {
-	struct kgsl_snapshot_debugbus *header = snapshot;
+	struct kgsl_snapshot_debugbus *header =
+		(struct kgsl_snapshot_debugbus *)buf;
 	struct adreno_debugbus_block *block = priv;
 	int i;
-	unsigned int *data = snapshot + sizeof(*header);
+	unsigned int *data = (unsigned int *)(buf + sizeof(*header));
 	unsigned int dwords;
 	size_t size;
 
@@ -370,7 +372,6 @@ static void a4xx_snapshot_vbif_registers(struct kgsl_device *device,
  * a4xx_snapshot() - A4XX GPU snapshot function
  * @adreno_dev: Device being snapshotted
  * @snapshot: Pointer to the snapshot instance
- * @remain: Amount of space left in snapshot memory
  *
  * This is where all of the A4XX specific bits and pieces are grabbed
  * into the snapshot memory

@@ -41,17 +41,17 @@ static void _rbbm_debug_bus_read(struct kgsl_device *device,
  * a3xx_snapshot_shader_memory - Helper function to dump the GPU shader
  * memory to the snapshot buffer.
  * @device: GPU device whose shader memory is to be dumped
- * @snapshot: Pointer to binary snapshot data blob being made
+ * @buf: Pointer to binary snapshot data blob being made
  * @remain: Number of remaining bytes in the snapshot blob
  * @priv: Unused parameter
  *
  */
 static size_t a3xx_snapshot_shader_memory(struct kgsl_device *device,
-	void *snapshot, size_t remain, void *priv)
+	u8 *buf, size_t remain, void *priv)
 {
-	struct kgsl_snapshot_debug *header = snapshot;
+	struct kgsl_snapshot_debug *header = (struct kgsl_snapshot_debug *)buf;
 	unsigned int i;
-	unsigned int *data = snapshot + sizeof(*header);
+	unsigned int *data = (unsigned int *)(buf + sizeof(*header));
 	unsigned int shader_read_len = SHADER_MEMORY_SIZE;
 
 	if (shader_read_len > (device->shader_mem_len >> 2))
@@ -90,18 +90,18 @@ static size_t a3xx_snapshot_shader_memory(struct kgsl_device *device,
 /*
  * a3xx_snapshot_vpc_memory() - Save VPC data in snapshot
  * @device: Device being snapshotted
- * @snapshot: Snapshot memory
+ * @buf: Snapshot memory
  * @remain: Number of bytes left in snapshot memory
  * @priv: Private data for VPC if any
  *
  * Called for both A3XX and A4XX
  */
-size_t a3xx_snapshot_vpc_memory(struct kgsl_device *device, void *snapshot,
+size_t a3xx_snapshot_vpc_memory(struct kgsl_device *device, u8 *buf,
 		size_t remain, void *priv)
 {
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
-	struct kgsl_snapshot_debug *header = snapshot;
-	unsigned int *data = snapshot + sizeof(*header);
+	struct kgsl_snapshot_debug *header = (struct kgsl_snapshot_debug *)buf;
+	unsigned int *data = (unsigned int *)(buf + sizeof(*header));
 	int vpc_mem_size = *((int *)priv);
 	size_t size = VPC_MEMORY_BANKS * vpc_mem_size;
 	int bank, addr, i = 0;
@@ -130,18 +130,18 @@ size_t a3xx_snapshot_vpc_memory(struct kgsl_device *device, void *snapshot,
 /*
  * a3xx_snapshot_cp_meq() - Save CP MEQ data in snapshot
  * @device: Device being snapshotted
- * @snapshot: Snapshot memory
+ * @buf: Snapshot memory
  * @remain: Number of bytes left in snapshot memory
  * @priv: Contains the size of MEQ data
  *
  * Called for both A3XX and A4XX
  */
-size_t a3xx_snapshot_cp_meq(struct kgsl_device *device, void *snapshot,
+size_t a3xx_snapshot_cp_meq(struct kgsl_device *device, u8 *buf,
 		size_t remain, void *priv)
 {
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
-	struct kgsl_snapshot_debug *header = snapshot;
-	unsigned int *data = snapshot + sizeof(*header);
+	struct kgsl_snapshot_debug *header = (struct kgsl_snapshot_debug *)buf;
+	unsigned int *data = (unsigned int *)(buf + sizeof(*header));
 	int i;
 	int cp_meq_sz = *((int *)priv);
 
@@ -163,18 +163,18 @@ size_t a3xx_snapshot_cp_meq(struct kgsl_device *device, void *snapshot,
 /*
  * a3xx_snapshot_cp_pm4_ram() - Dump PM4 data in snapshot
  * @device: Device being snapshotted
- * @snapshot: Snapshot memory
+ * @buf: Snapshot memory
  * @remain: Number of bytes left in snapshot memory
  * @priv: Unused
  *
  * Called for both a3xx and a4xx
  */
-size_t a3xx_snapshot_cp_pm4_ram(struct kgsl_device *device, void *snapshot,
+size_t a3xx_snapshot_cp_pm4_ram(struct kgsl_device *device, u8 *buf,
 		size_t remain, void *priv)
 {
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
-	struct kgsl_snapshot_debug *header = snapshot;
-	unsigned int *data = snapshot + sizeof(*header);
+	struct kgsl_snapshot_debug *header = (struct kgsl_snapshot_debug *)buf;
+	unsigned int *data = (unsigned int *)(buf + sizeof(*header));
 	int i;
 	size_t size = adreno_dev->pm4_fw_size - 1;
 
@@ -203,18 +203,18 @@ size_t a3xx_snapshot_cp_pm4_ram(struct kgsl_device *device, void *snapshot,
 /*
  * a3xx_snapshot_cp_pfp_ram() - Dump the PFP data on snapshot
  * @device: Device being snapshotted
- * @snapshot: Snapshot memory
+ * @buf: Snapshot memory
  * @remain: Amount of butes left in snapshot memory
  * @priv: Unused
  *
  * Called for both A3xx and A4xx snapshots
  */
-size_t a3xx_snapshot_cp_pfp_ram(struct kgsl_device *device, void *snapshot,
+size_t a3xx_snapshot_cp_pfp_ram(struct kgsl_device *device, u8 *buf,
 		size_t remain, void *priv)
 {
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
-	struct kgsl_snapshot_debug *header = snapshot;
-	unsigned int *data = snapshot + sizeof(*header);
+	struct kgsl_snapshot_debug *header = (struct kgsl_snapshot_debug *)buf;
+	unsigned int *data = (unsigned int *)(buf + sizeof(*header));
 	int i, size = adreno_dev->pfp_fw_size - 1;
 
 	if (remain < DEBUG_SECTION_SZ(size)) {
@@ -247,12 +247,12 @@ size_t a3xx_snapshot_cp_pfp_ram(struct kgsl_device *device, void *snapshot,
  *
  * Called for both a3xx and a4xx
  */
-size_t a3xx_snapshot_cp_roq(struct kgsl_device *device, void *snapshot,
+size_t a3xx_snapshot_cp_roq(struct kgsl_device *device, u8 *buf,
 		size_t remain, void *priv)
 {
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
-	struct kgsl_snapshot_debug *header = snapshot;
-	unsigned int *data = snapshot + sizeof(*header);
+	struct kgsl_snapshot_debug *header = (struct kgsl_snapshot_debug *)buf;
+	unsigned int *data = (unsigned int *)(buf + sizeof(*header));
 	int i, size = *((int *)priv);
 
 	if (remain < DEBUG_SECTION_SZ(size)) {
@@ -278,12 +278,12 @@ size_t a3xx_snapshot_cp_roq(struct kgsl_device *device, void *snapshot,
  *
  * Called for both a3xx and a4xx
  */
-size_t a330_snapshot_cp_merciu(struct kgsl_device *device, void *snapshot,
+size_t a330_snapshot_cp_merciu(struct kgsl_device *device, u8 *buf,
 		size_t remain, void *priv)
 {
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
-	struct kgsl_snapshot_debug *header = snapshot;
-	unsigned int *data = snapshot + sizeof(*header);
+	struct kgsl_snapshot_debug *header = (struct kgsl_snapshot_debug *)buf;
+	unsigned int *data = (unsigned int *)(buf + sizeof(*header));
 	int i, size = *((int *)priv);
 
 	/* The MERCIU data is two dwords per entry */
@@ -310,14 +310,15 @@ size_t a330_snapshot_cp_merciu(struct kgsl_device *device, void *snapshot,
 }
 
 static size_t a3xx_snapshot_debugbus_block(struct kgsl_device *device,
-	void *snapshot, size_t remain, void *priv)
+	u8 *buf, size_t remain, void *priv)
 {
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
 
-	struct kgsl_snapshot_debugbus *header = snapshot;
+	struct kgsl_snapshot_debugbus *header
+		= (struct kgsl_snapshot_debugbus *)buf;
 	struct adreno_debugbus_block *block = priv;
 	int i;
-	unsigned int *data = snapshot + sizeof(*header);
+	unsigned int *data = (unsigned int *)(buf + sizeof(*header));
 	unsigned int dwords;
 	size_t size;
 
@@ -461,7 +462,7 @@ static void _snapshot_a330_regs(struct kgsl_snapshot_registers *regs,
 /*
  * a3xx_snapshot() - A3XX GPU snapshot function
  * @adreno_dev: Device being snapshotted
- * @snapshot: Memory where snapshot is saved
+ * @snapshot: Snapshot meta data
  * @remain: Amount of space left in snapshot memory
  *
  * This is where all of the A3XX specific bits and pieces are grabbed
