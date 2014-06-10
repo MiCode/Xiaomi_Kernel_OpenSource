@@ -28,13 +28,13 @@ static int32_t msm_actuator_power_down(struct msm_actuator_ctrl_t *a_ctrl);
 
 static struct msm_actuator msm_vcm_actuator_table;
 static struct msm_actuator msm_piezo_actuator_table;
-static struct msm_actuator msm_ois_actuator_table;
+static struct msm_actuator msm_hvcm_actuator_table;
 
 static struct i2c_driver msm_actuator_i2c_driver;
 static struct msm_actuator *actuators[] = {
 	&msm_vcm_actuator_table,
 	&msm_piezo_actuator_table,
-	&msm_ois_actuator_table,
+	&msm_hvcm_actuator_table,
 };
 
 static int32_t msm_actuator_piezo_set_default_focus(
@@ -1319,8 +1319,8 @@ static struct msm_actuator msm_piezo_actuator_table = {
 	},
 };
 
-static struct msm_actuator msm_ois_actuator_table = {
-	.act_type = ACTUATOR_OIS,
+static struct msm_actuator msm_hvcm_actuator_table = {
+	.act_type = ACTUATOR_HVCM,
 	.func_tbl = {
 		.actuator_init_step_table = msm_actuator_init_step_table,
 		.actuator_move_focus = msm_actuator_move_focus,
@@ -1329,6 +1329,7 @@ static struct msm_actuator msm_ois_actuator_table = {
 		.actuator_init_focus = msm_actuator_init_focus,
 		.actuator_parse_i2c_params = msm_actuator_parse_i2c_params,
 		.actuator_set_position = msm_actuator_set_position,
+		.actuator_park_lens = msm_actuator_park_lens,
 	},
 };
 
