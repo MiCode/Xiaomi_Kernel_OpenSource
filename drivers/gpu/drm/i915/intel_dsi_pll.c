@@ -268,6 +268,19 @@ void vlv_enable_dsi_pll(struct intel_encoder *encoder)
 	/* wait at least 0.5 us after ungating before enabling VCO */
 	usleep_range(1, 10);
 
+	I915_WRITE(_DPLL_A, I915_READ(_DPLL_A) | DPLL_REFA_CLK_ENABLE_VLV);
+	/*
+	 * Clock settle time. DSI PLL will be used
+	 * for DSI. But the palette registers
+	 * need REF clock of DPLLA or B to be
+	 * ON for functioning.
+	 * This settle time is required as DPLLA will be
+	 * unused earlier. Without this delay, system
+	 * goes to an unstable condition and throws
+	 * crash warnings.
+	 */
+	udelay(1000);
+
 	tmp = vlv_cck_read(dev_priv, CCK_REG_DSI_PLL_CONTROL);
 	tmp |= DSI_PLL_VCO_EN;
 	vlv_cck_write(dev_priv, CCK_REG_DSI_PLL_CONTROL, tmp);
