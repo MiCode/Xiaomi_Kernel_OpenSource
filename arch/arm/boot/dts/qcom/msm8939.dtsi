@@ -754,6 +754,8 @@
 		qcom,freq-mitigation-value = <960000>;
 		qcom,freq-mitigation-control-mask = <0x01>;
 		qcom,therm-reset-temp = <115>;
+		qcom,online-hotplug-core;
+		qcom,synchronous-cluster-id = <0 1>;
 	};
 
 	qcom,bcl {
