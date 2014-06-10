@@ -41,7 +41,7 @@
 #define IPC_ROUTER_DEFAULT_RX_QUOTA	5
 
 #define IPC_ROUTER_INFINITY -1
-#define DEFAULT_RCV_TIMEO 0
+#define DEFAULT_RCV_TIMEO IPC_ROUTER_INFINITY
 
 #define ALIGN_SIZE(x) ((4 - ((x) & 3)) & 3)
 
