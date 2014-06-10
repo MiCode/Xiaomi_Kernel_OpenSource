@@ -164,7 +164,7 @@ static void msm_spm_config_q2s(struct msm_spm_device *dev, unsigned int mode)
 		break;
 	case MSM_SPM_MODE_GDHS:
 	case MSM_SPM_MODE_POWER_COLLAPSE:
-		qchannel_ignore = 1;
+		qchannel_ignore = 0;
 		spm_legacy_mode = 1;
 		break;
 	default:
@@ -585,6 +585,13 @@ static int msm_spm_dev_probe(struct platform_device *pdev)
 			goto fail;
 		}
 	}
+	/*
+	 * At system boot, cpus and or clusters can remain in reset. CCI SPM
+	 * will not be triggered unless SPM_LEGACY_MODE bit is set for the
+	 * cluster in reset. Initialize q2s registers and set the
+	 * SPM_LEGACY_MODE bit.
+	 */
+	msm_spm_config_q2s(dev, MSM_SPM_MODE_POWER_COLLAPSE);
 
 	for (i = 0; i < ARRAY_SIZE(spm_of_data); i++) {
 		ret = of_property_read_u32(node, spm_of_data[i].key, &val);
