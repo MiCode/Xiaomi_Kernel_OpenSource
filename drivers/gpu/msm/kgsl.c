@@ -2719,7 +2719,7 @@ static int memdesc_sg_virt(struct kgsl_memdesc *memdesc, struct file *vmfile)
 	if (ret)
 		goto out;
 
-	if (npages != sglen) {
+	if ((unsigned long) npages != sglen) {
 		ret = -EINVAL;
 		goto out;
 	}
