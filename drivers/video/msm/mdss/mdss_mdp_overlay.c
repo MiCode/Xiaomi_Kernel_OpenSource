@@ -769,7 +769,6 @@ static void mdss_mdp_overlay_cleanup(struct msm_fb_data_type *mfd)
 	list_for_each_entry_safe(pipe, tmp, &mdp5_data->pipes_cleanup,
 				cleanup_list) {
 		list_move(&pipe->cleanup_list, &destroy_pipes);
-		mdss_mdp_pipe_fetch_halt(pipe);
 		mdss_mdp_overlay_free_buf(&pipe->back_buf);
 		__mdss_mdp_overlay_free_list_add(mfd, &pipe->front_buf);
 		pipe->mfd = NULL;
