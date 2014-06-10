@@ -1163,6 +1163,40 @@
 		qcom,hsusb-otg-otg-control = <1>;
 	};
 
+	usb_ehci: ehci@f9a55000 {
+		compatible = "qcom,ehci-host";
+		status = "disabled";
+		reg = <0xf9a55000 0x400>;
+		interrupts = <0 134 0>, <0 140 0>;
+		interrupt-names = "core_irq", "async_irq";
+		hsusb_vdd_dig-supply = <&pm8994_s2_corner>;
+		HSUSB_1p8-supply = <&pm8994_l6>;
+		HSUSB_3p3-supply = <&pm8994_l24>;
+		qcom,vdd-voltage-level = <1 2 3 5 7>;
+		qcom,usb2-power-budget = <500>;
+		usb-phy = <&qusb_phy>;
+
+		clocks = <&clock_gcc clk_gcc_usb_hs_system_clk>,
+			 <&clock_gcc clk_gcc_usb_hs_ahb_clk>,
+			 <&clock_rpm clk_cxo_otg_clk>;
+		clock-names = "core_clk", "iface_clk", "xo";
+	};
+
+	qusb_phy: qusb@f9b39000 {
+		compatible = "qcom,qusb2phy";
+		status = "disabled";
+		reg = <0xf9b39000 0x17f>;
+		vdd-supply = <&pm8994_s2_corner>;
+		vdda18-supply = <&pm8994_l6>;
+		vdda33-supply = <&pm8994_l24>;
+		qcom,vdd-voltage-level = <1 5 7>;
+
+		clocks = <&clock_rpm clk_ln_bb_clk>,
+			 <&clock_gcc clk_gcc_usb_phy_cfg_ahb2phy_clk>,
+			 <&clock_gcc clk_gcc_qusb2_phy_reset>;
+		clock-names = "ref_clk", "cfg_ahb_clk", "phy_reset";
+	};
+
 	android_usb@fe87f0c8 {
 		compatible = "qcom,android-usb";
 		reg = <0xfe87f0c8 0xc8>;
