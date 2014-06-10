@@ -2580,15 +2580,18 @@ static void msm_ufs_advertise_quirks(struct ufs_hba *hba)
 
 	msm_ufs_get_controller_revision(hba, &major, &minor, &step);
 
-	if ((major == 0x1) && (minor == 0x001) && (step == 0x0001)) {
+	if ((major == 0x1) && (minor == 0x001) && (step == 0x0001))
 		hba->quirks |= (UFSHCD_QUIRK_DELAY_BEFORE_DME_CMDS
 			      | UFSHCD_QUIRK_BROKEN_INTR_AGGR
 			      | UFSHCD_QUIRK_BROKEN_PA_RXHSUNTERMCAP
 			      | UFSHCD_QUIRK_BROKEN_LCC);
+	else if ((major == 0x1) && (minor == 0x002) && (step == 0x0000))
+		hba->quirks |= (UFSHCD_QUIRK_DELAY_BEFORE_DME_CMDS
+			      | UFSHCD_QUIRK_BROKEN_PA_RXHSUNTERMCAP
+			      | UFSHCD_QUIRK_BROKEN_LCC);
 
-		phy->quirks = (MSM_UFS_PHY_QUIRK_CFG_RESTORE
+	phy->quirks = (MSM_UFS_PHY_QUIRK_CFG_RESTORE
 			     | MSM_UFS_PHY_DIS_SIGDET_BEFORE_PWR_COLLAPSE);
-	}
 }
 
 static int msm_ufs_get_bus_vote(struct msm_ufs_host *host,
