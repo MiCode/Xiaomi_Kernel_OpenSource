@@ -327,7 +327,6 @@
 						qcom,ss-power = <560>;
 						qcom,energy-overhead = <12000>;
 						qcom,time-overhead = <20>;
-						qcom,default-idle;
 					};
 
 					qcom,pm-cpu-level@1 {
@@ -348,7 +347,6 @@
 						qcom,energy-overhead = <200000>;
 						qcom,time-overhead = <330>;
 						qcom,use-broadcast-timer;
-						qcom,default-suspend;
 					};
 				};
 			};
@@ -394,7 +392,6 @@
 						qcom,ss-power = <600>;
 						qcom,energy-overhead = <13000>;
 						qcom,time-overhead = <20>;
-						qcom,default-idle;
 					};
 
 					qcom,pm-cpu-level@1 {
@@ -415,7 +412,6 @@
 						qcom,energy-overhead = <300000>;
 						qcom,time-overhead = <330>;
 						qcom,use-broadcast-timer;
-						qcom,default-suspend;
 					};
 				};
 			};
