@@ -121,6 +121,7 @@ struct msm_ipc_port {
 	char rx_ws_name[MAX_WS_NAME_SZ];
 	struct wakeup_source port_rx_ws;
 	wait_queue_head_t port_rx_wait_q;
+	wait_queue_head_t port_tx_wait_q;
 
 	int restart_state;
 	spinlock_t restart_lock;
