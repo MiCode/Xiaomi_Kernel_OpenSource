@@ -133,6 +133,8 @@ static int create_lvl_avail_nodes(const char *name,
 		goto failed;
 	}
 
+	avail->idle_enabled = true;
+	avail->suspend_enabled = true;
 	avail->kobj = kobj;
 
 	return ret;
@@ -179,10 +181,6 @@ static int create_cpu_lvl_nodes(struct lpm_cluster *p, struct kobject *parent)
 				continue;
 			}
 
-			level_list[i].idle_enabled =
-				p->cpu->levels[j].default_idle_enable;
-			level_list[i].suspend_enabled =
-				p->cpu->levels[j].default_suspend_enable;
 			ret = create_lvl_avail_nodes(p->cpu->levels[j].name,
 						cpu_kobj[cpu], &level_list[i]);
 			if (ret)
@@ -211,10 +209,6 @@ int create_cluster_lvl_nodes(struct lpm_cluster *p, struct kobject *kobj)
 		return -ENOMEM;
 
 	for (i = 0; i < p->nlevels; i++) {
-		p->levels[i].available.idle_enabled
-				= p->levels[i].default_idle_enable;
-		p->levels[i].available.suspend_enabled
-				= p->levels[i].default_suspend_enable;
 		ret = create_lvl_avail_nodes(p->levels[i].level_name,
 				cluster_kobj, &p->levels[i].available);
 		if (ret)
@@ -437,10 +431,6 @@ static int parse_cluster_level(struct device_node *node,
 	level->last_core_only = of_property_read_bool(node,
 					"qcom,last-core-only");
 
-	level->default_idle_enable = of_property_read_bool(node,
-						"qcom,default-idle");
-	level->default_suspend_enable = of_property_read_bool(node,
-						"qcom,default-suspend");
 	ret = parse_power_params(node, &level->pwr);
 	if (ret)
 		goto failed;
@@ -550,10 +540,6 @@ static int parse_cpu_levels(struct device_node *node, struct lpm_cluster *c)
 		key = "qcom,use-broadcast-timer";
 		l->use_bc_timer = of_property_read_bool(n, key);
 
-		l->default_idle_enable =
-			of_property_read_bool(n, "qcom,default-idle");
-		l->default_suspend_enable =
-			of_property_read_bool(n, "qcom,default-suspend");
 	}
 	return 0;
 failed:
