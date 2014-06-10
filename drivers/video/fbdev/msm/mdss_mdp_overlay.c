@@ -1386,10 +1386,8 @@ int mdss_mdp_overlay_kickoff(struct msm_fb_data_type *mfd,
 		ATRACE_END("display_commit");
 	}
 
-	if (!need_cleanup) {
-		atomic_set(&mfd->kickoff_pending, 0);
-		wake_up_all(&mfd->kickoff_wait_q);
-	}
+	if (!need_cleanup)
+		mdss_mdp_ctl_notify(ctl, MDP_NOTIFY_FRAME_START);
 
 	if (IS_ERR_VALUE(ret))
 		goto commit_fail;
@@ -1417,10 +1415,9 @@ commit_fail:
 	ATRACE_END("overlay_cleanup");
 	mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_OFF, false);
 	mdss_mdp_ctl_notify(ctl, MDP_NOTIFY_FRAME_FLUSHED);
-	if (need_cleanup) {
-		atomic_set(&mfd->kickoff_pending, 0);
-		wake_up_all(&mfd->kickoff_wait_q);
-	}
+	if (need_cleanup)
+		mdss_mdp_ctl_notify(ctl, MDP_NOTIFY_FRAME_START);
+
 	mutex_unlock(&mdp5_data->ov_lock);
 	if (ctl->shared_lock)
 		mutex_unlock(ctl->shared_lock);
