@@ -415,6 +415,14 @@ static void wcd_mbhc_report_plug(struct wcd_mbhc *mbhc, int insertion,
 				~WCD_MBHC_JACK_BUTTON_MASK;
 		}
 
+		/*
+		 * Set micbias back to 1.8V if accessory was special
+		 * headset and thus micbias was increased to 2.8V
+		 */
+		if (mbhc->micbias_enable)
+			snd_soc_write(codec, MSM8X16_WCD_A_ANALOG_MICB_1_VAL,
+				      0x20);
+
 		mbhc->zl = mbhc->zr = 0;
 		mbhc->is_hs_inserted = false;
 		pr_debug("%s: Reporting removal %d(%x)\n", __func__,
@@ -440,6 +448,12 @@ static void wcd_mbhc_report_plug(struct wcd_mbhc *mbhc, int insertion,
 		 */
 		if (mbhc->mbhc_cfg->detect_extn_cable &&
 		    (mbhc->hph_status && mbhc->hph_status != jack_type)) {
+
+			if (mbhc->micbias_enable &&
+			    mbhc->hph_status == SND_JACK_HEADSET)
+				snd_soc_write(codec,
+					      MSM8X16_WCD_A_ANALOG_MICB_1_VAL,
+					      0x20);
 
 			mbhc->zl = mbhc->zr = 0;
 			mbhc->is_hs_inserted = false;
@@ -536,7 +550,7 @@ static void wcd_correct_swch_plug(struct work_struct *work)
 	struct snd_soc_codec *codec;
 	enum wcd_mbhc_plug_type plug_type = MBHC_PLUG_TYPE_INVALID;
 	unsigned long timeout;
-	u16 result2;
+	u16 result1, result2;
 	bool wrk_complete = false;
 
 	pr_debug("%s: enter\n", __func__);
@@ -561,6 +575,8 @@ static void wcd_correct_swch_plug(struct work_struct *work)
 			pr_debug("%s: stop requested\n", __func__);
 			return;
 		}
+		result1 = snd_soc_read(codec,
+				 MSM8X16_WCD_A_ANALOG_MBHC_BTN_RESULT);
 		result2 = snd_soc_read(codec,
 				MSM8X16_WCD_A_ANALOG_MBHC_ZDET_ELECT_RESULT);
 		pr_debug("%s: result2 = %x\n", __func__, result2);
@@ -578,6 +594,49 @@ static void wcd_correct_swch_plug(struct work_struct *work)
 		plug_type = MBHC_PLUG_TYPE_HIGH_HPH;
 	else
 		plug_type = MBHC_PLUG_TYPE_INVALID;
+
+	if (plug_type == MBHC_PLUG_TYPE_HIGH_HPH) {
+
+		/* Enable micbias if not already enabled*/
+		snd_soc_update_bits(codec, MSM8X16_WCD_A_ANALOG_MICB_2_EN,
+				    0x80, 0x80);
+		pr_debug("DEBUG apple headset, start register writes");
+		snd_soc_update_bits(codec, MSM8X16_WCD_A_ANALOG_MICB_1_CTL,
+				    0x60, 0x60);
+		snd_soc_write(codec, MSM8X16_WCD_A_ANALOG_MICB_1_VAL,
+			      0xC0);
+
+		/*
+		 * temporary workaround to add 2s delay to detect
+		 * apple headset until actual solution is worked out
+		 * with HW team - in progress.
+		 */
+		msleep(2000);
+		snd_soc_update_bits(codec, MSM8X16_WCD_A_ANALOG_MICB_2_EN,
+				    0x18, 0x10);
+
+		/* adding 50ms to micbias2 setting to settle down */
+		msleep(50);
+		result2 = snd_soc_read(codec,
+			MSM8X16_WCD_A_ANALOG_MBHC_ZDET_ELECT_RESULT);
+		if (!result1 && !(result2 & 0x01)) {
+			pr_debug("%s: Headset with threshold found\n",
+				 __func__);
+			plug_type = MBHC_PLUG_TYPE_HEADSET;
+			mbhc->micbias_enable = true;
+		}
+		/* Disable autozero and put micbias back to 1.8V */
+		snd_soc_update_bits(codec, MSM8X16_WCD_A_ANALOG_MICB_2_EN,
+				    0x18, 0x00);
+		snd_soc_update_bits(codec, MSM8X16_WCD_A_ANALOG_MICB_1_CTL,
+			    0x60, 0x00);
+		snd_soc_update_bits(codec, MSM8X16_WCD_A_ANALOG_MICB_2_EN,
+				    0x80, 0x00);
+		if (!mbhc->micbias_enable)
+			snd_soc_write(codec, MSM8X16_WCD_A_ANALOG_MICB_1_VAL,
+			0x20);
+	}
+
 	wcd_mbhc_find_plug_and_report(mbhc, plug_type);
 	pr_debug("%s: leave\n", __func__);
 }
@@ -1102,6 +1161,7 @@ int wcd_mbhc_init(struct wcd_mbhc *mbhc, struct snd_soc_codec *codec,
 	mbhc->impedance_detect = impedance_det_en;
 	mbhc->hphl_swh = hph_swh;
 	mbhc->gnd_swh = gnd_swh;
+	mbhc->micbias_enable = false;
 
 	if (mbhc->intr_ids == NULL) {
 		pr_err("%s: Interrupt mapping not provided\n", __func__);
