@@ -4337,7 +4337,11 @@ static void valleyview_enable_rps(struct drm_device *dev)
 	/* enable WA for RC6+turbo to work together */
 	dev_priv->rps.use_RC0_residency_for_turbo = true;
 
-	vlv_set_rps_mode(dev, false);
+	/* If Rpe=Rp0, disable turbo to avoid interrupt processing overhead. */
+	if (dev_priv->rps.efficient_freq == dev_priv->rps.max_freq)
+		vlv_set_rps_mode(dev, true);
+	else
+		vlv_set_rps_mode(dev, false);
 
 	gen6_gt_force_wake_put(dev_priv, FORCEWAKE_ALL);
 }
