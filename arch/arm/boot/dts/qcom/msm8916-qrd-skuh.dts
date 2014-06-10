@@ -13,6 +13,7 @@
 /dts-v1/;
 
 #include "msm8916-qrd-skuh.dtsi"
+#include "msm8916-memory.dtsi"
 
 / {
 	model = "Qualcomm Technologies, Inc. MSM 8916 QRD SKUH";
