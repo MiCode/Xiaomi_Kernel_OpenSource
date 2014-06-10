@@ -48,8 +48,6 @@ Optional properties :
   out of the controller power collapse.
 - qcom,utmi-clk-rate: Indicates refclk frequency (in Hz) to the core. If not
   specified, default of 19.2MHz is assumed.
-- qcom,reset_hsphy_sleep_clk_on_init: If present, the HSUSB PHY sleep clock is
-  being reset in initialization.
 - qcom,no-suspend-resume: If present, the device will not perform any activity
 		during suspend/resume
 - qcom,usb-dbm : phandle for the DBM device

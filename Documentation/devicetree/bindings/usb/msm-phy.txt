@@ -34,6 +34,8 @@ Optional properties:
  - qcom,set-pllbtune: If present, PLL tune is required in PHY initialization.
  - qcom,num_ports: Indicates the number of ports that supported by the HS PHY.
    If omitted, defaults to 1
+ - qcom,sleep-clk-reset: If present, the HSUSB PHY sleep clock supports the clk_reset
+   operation, and should be called during initialization.
 
 Example:
 	hsphy@f9200000 {

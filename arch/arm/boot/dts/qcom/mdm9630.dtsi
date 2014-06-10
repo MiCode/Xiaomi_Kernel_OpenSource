@@ -510,7 +510,6 @@
 		qcom,msm-bus,vectors-KBps =
 						<61 512 0 0>,
 						<61 512 240000 960000>;
-		qcom,reset_hsphy_sleep_clk_on_init;
 		qcom,power-collapse-on-cable-disconnect;
 		qcom,por-after-power-collapse;
 		qcom,lpm-to-suspend-delay-ms = <2000>;
@@ -548,6 +547,7 @@
 		qcom,ext-vbus-id;
 		qcom,vbus-valid-override;
 		qcom,set-pllbtune;
+		qcom,sleep-clk-reset;
 	};
 
 	ssphy0: ssphy@f9b38000 {
