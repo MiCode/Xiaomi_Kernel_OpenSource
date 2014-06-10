@@ -437,12 +437,14 @@ void ext4_error_inode(struct inode *inode, const char *function,
 	vaf.fmt = fmt;
 	vaf.va = &args;
 	if (block)
-		printk(KERN_CRIT "EXT4-fs error (device %s): %s:%d: "
+		printk_ratelimited(
+			KERN_CRIT "EXT4-fs error (device %s): %s:%d: "
 		       "inode #%lu: block %llu: comm %s: %pV\n",
 		       inode->i_sb->s_id, function, line, inode->i_ino,
 		       block, current->comm, &vaf);
 	else
-		printk(KERN_CRIT "EXT4-fs error (device %s): %s:%d: "
+		printk_ratelimited(
+			KERN_CRIT "EXT4-fs error (device %s): %s:%d: "
 		       "inode #%lu: comm %s: %pV\n",
 		       inode->i_sb->s_id, function, line, inode->i_ino,
 		       current->comm, &vaf);
