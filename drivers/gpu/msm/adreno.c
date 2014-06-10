@@ -224,8 +224,8 @@ static struct input_handler adreno_input_handler = {
 	.id_table = adreno_input_ids,
 };
 
-static int adreno_ft_init_sysfs(struct kgsl_device *device);
-static void adreno_ft_uninit_sysfs(struct kgsl_device *device);
+static int adreno_init_sysfs(struct kgsl_device *device);
+static void adreno_uninit_sysfs(struct kgsl_device *device);
 static int adreno_soft_reset(struct kgsl_device *device);
 
 static inline void adreno_irqctrl(struct adreno_device *adreno_dev, int state)
@@ -1754,7 +1754,7 @@ int adreno_probe(struct platform_device *pdev)
 	adreno_debugfs_init(device);
 	adreno_profile_init(device);
 
-	adreno_ft_init_sysfs(device);
+	adreno_init_sysfs(device);
 
 	kgsl_pwrscale_init(&pdev->dev, CONFIG_MSM_ADRENO_DEFAULT_GOVERNOR);
 
@@ -1791,7 +1791,7 @@ static int adreno_remove(struct platform_device *pdev)
 #ifdef CONFIG_INPUT
 	input_unregister_handler(&adreno_input_handler);
 #endif
-	adreno_ft_uninit_sysfs(device);
+	adreno_uninit_sysfs(device);
 
 	adreno_coresight_remove(device);
 	adreno_profile_close(device);
@@ -2520,19 +2520,19 @@ static ssize_t _wake_timeout_show(struct device *dev,
 	return snprintf(buf, PAGE_SIZE, "%u\n", _wake_timeout);
 }
 
-#define FT_DEVICE_ATTR(name) \
+#define ADRENO_DEVICE_ATTR(name) \
 	DEVICE_ATTR(name, 0644,	_ ## name ## _show, _ ## name ## _store);
 
-static FT_DEVICE_ATTR(ft_policy);
-static FT_DEVICE_ATTR(ft_pagefault_policy);
-static FT_DEVICE_ATTR(ft_fast_hang_detect);
-static FT_DEVICE_ATTR(ft_long_ib_detect);
-static FT_DEVICE_ATTR(ft_hang_intr_status);
+static ADRENO_DEVICE_ATTR(ft_policy);
+static ADRENO_DEVICE_ATTR(ft_pagefault_policy);
+static ADRENO_DEVICE_ATTR(ft_fast_hang_detect);
+static ADRENO_DEVICE_ATTR(ft_long_ib_detect);
+static ADRENO_DEVICE_ATTR(ft_hang_intr_status);
 
 static DEVICE_INT_ATTR(wake_nice, 0644, _wake_nice);
-static FT_DEVICE_ATTR(wake_timeout);
+static ADRENO_DEVICE_ATTR(wake_timeout);
 
-static const struct device_attribute *ft_attr_list[] = {
+static const struct device_attribute *_attr_list[] = {
 	&dev_attr_ft_policy,
 	&dev_attr_ft_pagefault_policy,
 	&dev_attr_ft_fast_hang_detect,
@@ -2543,14 +2543,14 @@ static const struct device_attribute *ft_attr_list[] = {
 	NULL,
 };
 
-static int adreno_ft_init_sysfs(struct kgsl_device *device)
+static int adreno_init_sysfs(struct kgsl_device *device)
 {
-	return kgsl_create_device_sysfs_files(device->dev, ft_attr_list);
+	return kgsl_create_device_sysfs_files(device->dev, _attr_list);
 }
 
-static void adreno_ft_uninit_sysfs(struct kgsl_device *device)
+static void adreno_uninit_sysfs(struct kgsl_device *device)
 {
-	kgsl_remove_device_sysfs_files(device->dev, ft_attr_list);
+	kgsl_remove_device_sysfs_files(device->dev, _attr_list);
 }
 
 static int adreno_getproperty(struct kgsl_device *device,
