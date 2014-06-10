@@ -73,7 +73,7 @@
 		clocks = <&clock_mmss clk_camss_top_ahb_clk>,
 			<&clock_mmss clk_camss_ispif_ahb_clk>,
 			<&clock_mmss clk_csi2_clk_src>,
-			<&clock_mmss clk_camss_csi1phy_clk>,
+			<&clock_mmss clk_camss_csi2phy_clk>,
 			<&clock_mmss clk_csi2phytimer_clk_src>,
 			<&clock_mmss clk_camss_phy2_csi2phytimer_clk>,
 			<&clock_mmss clk_camss_ahb_clk>;
