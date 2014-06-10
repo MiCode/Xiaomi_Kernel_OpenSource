@@ -1065,10 +1065,8 @@ static int wcd_mbhc_initialise(struct wcd_mbhc *mbhc)
 	snd_soc_write(codec, MSM8X16_WCD_A_ANALOG_MBHC_DET_CTL_2, 0xE8);
 	snd_soc_update_bits(codec, MSM8X16_WCD_A_ANALOG_MBHC_DET_CTL_2, 0x18,
 				(mbhc->hphl_swh << 4 | mbhc->gnd_swh << 3));
-	if (mbhc->hphl_swh == TOMBAK_MBHC_NC)
-		/* if Normaly closed switch we need pull down on HPHL */
-		snd_soc_update_bits(codec,
-			MSM8X16_WCD_A_ANALOG_MBHC_DET_CTL_2,
+
+	snd_soc_update_bits(codec, MSM8X16_WCD_A_ANALOG_MBHC_DET_CTL_2,
 			0x01, 0x01);
 
 	snd_soc_write(codec, MSM8X16_WCD_A_ANALOG_MBHC_DBNC_TIMER, 0x98);
