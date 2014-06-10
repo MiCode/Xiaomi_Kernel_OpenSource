@@ -2966,8 +2966,8 @@ static int msm8x10_wcd_setup_zdet(struct wcd9xxx_mbhc *mbhc,
 	 } while (0)
 
 	switch (stage) {
-	case PRE_MEAS:
-		dev_dbg(codec->dev, "%s: PRE_MEAS\n", __func__);
+	case MBHC_ZDET_PRE_MEASURE:
+		dev_dbg(codec->dev, "%s: MBHC_ZDET_PRE_MEASURE\n", __func__);
 		INIT_LIST_HEAD(&wcd_priv->reg_save_restore);
 		/* Configure PA */
 		msm8x10_wcd_prepare_hph_pa(mbhc->codec,
@@ -3020,8 +3020,8 @@ static int msm8x10_wcd_setup_zdet(struct wcd9xxx_mbhc *mbhc,
 		msm8x10_wcd_enable_static_pa(mbhc->codec, true);
 		break;
 
-	case POST_MEAS:
-		dev_dbg(codec->dev, "%s: POST_MEAS\n", __func__);
+	case MBHC_ZDET_POST_MEASURE:
+		dev_dbg(codec->dev, "%s: MBHC_ZDET_POST_MEASURE\n", __func__);
 		/* Turn off ICAL */
 		snd_soc_write(codec, WCD9XXX_A_MBHC_SCALING_MUX_2, 0xF0);
 
@@ -3067,10 +3067,14 @@ static int msm8x10_wcd_setup_zdet(struct wcd9xxx_mbhc *mbhc,
 		usleep_range(mux_wait_us,
 				mux_wait_us + WCD9XXX_USLEEP_RANGE_MARGIN_US);
 		break;
-	case PA_DISABLE:
-		dev_dbg(codec->dev, "%s: PA_DISABLE\n", __func__);
+	case MBHC_ZDET_PA_DISABLE:
+		dev_dbg(codec->dev, "%s: MBHC_ZDET_PA_DISABLE\n", __func__);
 		msm8x10_wcd_enable_static_pa(mbhc->codec, false);
 		wcd9xxx_restore_registers(codec, &wcd_priv->reg_save_restore);
+		break;
+	default:
+		dev_dbg(codec->dev, "%s: Case %d not supported\n",
+			__func__, stage);
 		break;
 	}
 #undef __wr
@@ -3078,12 +3082,17 @@ static int msm8x10_wcd_setup_zdet(struct wcd9xxx_mbhc *mbhc,
 	return ret;
 }
 
-static void msm8x10_wcd_compute_impedance(s16 *l, s16 *r, uint32_t *zl,
-					  uint32_t *zr)
+static void msm8x10_wcd_compute_impedance(struct wcd9xxx_mbhc *mbhc, s16 *l,
+					  s16 *r, uint32_t *zl, uint32_t *zr)
 {
 	int zln, zld;
 	int zrn, zrd;
 	int rl = 0, rr = 0;
+
+	if (!mbhc) {
+		pr_err("%s: NULL pointer for MBHC", __func__);
+		return;
+	}
 
 	zln = (l[1] - l[0]) * MSM8X10_WCD_ZDET_MUL_FACTOR;
 	zld = (l[2] - l[0]);

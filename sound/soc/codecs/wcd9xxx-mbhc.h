@@ -43,9 +43,12 @@ enum mbhc_cal_type {
 };
 
 enum mbhc_impedance_detect_stages {
-	PRE_MEAS,
-	POST_MEAS,
-	PA_DISABLE,
+	MBHC_ZDET_PRE_MEASURE,
+	MBHC_ZDET_POST_MEASURE,
+	MBHC_ZDET_GAIN_1,
+	MBHC_ZDET_GAIN_2,
+	MBHC_ZDET_RAMP_DISABLE,
+	MBHC_ZDET_PA_DISABLE,
 };
 
 /* Data used by MBHC */
@@ -280,7 +283,10 @@ struct wcd9xxx_mbhc_cb {
 	void (*enable_clock_gate) (struct snd_soc_codec *, bool);
 	int (*setup_zdet) (struct wcd9xxx_mbhc *,
 			   enum mbhc_impedance_detect_stages stage);
-	void (*compute_impedance) (s16 *, s16 *, uint32_t *, uint32_t *);
+	void (*compute_impedance) (struct wcd9xxx_mbhc *, s16 *, s16 *,
+				   uint32_t *, uint32_t *);
+	void (*zdet_error_approx) (struct wcd9xxx_mbhc *, uint32_t *,
+				    uint32_t *);
 	void (*enable_mbhc_txfe) (struct snd_soc_codec *, bool);
 	int (*enable_mb_source) (struct snd_soc_codec *, bool, bool);
 	void (*setup_int_rbias) (struct snd_soc_codec *, bool);
