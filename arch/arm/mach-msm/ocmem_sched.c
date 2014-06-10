@@ -687,6 +687,7 @@ static int process_unmap(struct ocmem_req *req, unsigned long start,
 		goto unlock_failed;
 	}
 
+	pr_debug("ocmem: Unmapped request %p\n", req);
 	return 0;
 
 unlock_failed:
