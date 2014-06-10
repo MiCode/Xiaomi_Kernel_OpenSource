@@ -24,6 +24,8 @@
 #include <linux/clk/msm-clock-generic.h>
 #include <linux/cpu.h>
 #include <linux/platform_device.h>
+#include <linux/of_platform.h>
+#include <linux/pm_opp.h>
 
 #include <soc/qcom/scm.h>
 #include <soc/qcom/clock-pll.h>
@@ -32,6 +34,7 @@
 
 #include <dt-bindings/clock/msm-clocks-8994.h>
 
+#include "clock.h"
 #include "vdd-level-8994.h"
 
 enum {
@@ -1005,6 +1008,80 @@ static void perform_v1_fixup(void)
 	__cpu_mux_set_sel(&a53_lf_mux, 1);
 }
 
+static int add_opp(struct clk *c, struct device *dev, unsigned long max_rate)
+{
+	unsigned long rate = 0;
+	int level;
+	long ret;
+
+	while (1) {
+		ret = clk_round_rate(c, rate + 1);
+		if (ret < 0) {
+			pr_warn("clock-cpu: round_rate failed at %lu\n", rate);
+			return ret;
+		}
+		rate = ret;
+		level = find_vdd_level(c, rate);
+		if (level <= 0) {
+			pr_warn("clock-cpu: no uv for %lu.\n", rate);
+			return -EINVAL;
+		}
+		ret = dev_pm_opp_add(dev, rate, c->vdd_class->vdd_uv[level]);
+		if (ret) {
+			pr_warn("clock-cpu: failed to add OPP for %lu\n", rate);
+			return ret;
+		}
+		if (rate >= max_rate)
+			break;
+	}
+
+	return 0;
+}
+
+static void populate_opp_table(struct platform_device *pdev)
+{
+	struct platform_device *apc0_dev, *apc1_dev;
+	struct device_node *apc0_node, *apc1_node;
+	unsigned long apc0_fmax, apc1_fmax;
+
+	apc0_node = of_parse_phandle(pdev->dev.of_node, "vdd-a53-supply", 0);
+	apc1_node = of_parse_phandle(pdev->dev.of_node, "vdd-a57-supply", 0);
+
+	if (!apc0_node) {
+		pr_err("can't find the apc0 dt node.\n");
+		return;
+	}
+
+	if (!apc1_node) {
+		pr_err("can't find the apc1 dt node.\n");
+		return;
+	}
+
+	apc0_dev = of_find_device_by_node(apc0_node);
+	apc1_dev = of_find_device_by_node(apc1_node);
+
+	if (!apc0_dev) {
+		pr_err("can't find the apc0 device node.\n");
+		return;
+	}
+
+	if (!apc1_dev) {
+		pr_err("can't find the apc1 device node.\n");
+		return;
+	}
+
+	apc0_fmax = a53_clk.c.fmax[a53_clk.c.num_fmax - 1];
+	apc1_fmax = a57_clk.c.fmax[a57_clk.c.num_fmax - 1];
+
+	WARN(add_opp(&a53_clk.c, &apc0_dev->dev, apc0_fmax),
+		"Failed to add OPP levels for A53\n");
+	WARN(add_opp(&a57_clk.c, &apc1_dev->dev, apc1_fmax),
+		"Failed to add OPP levels for A57\n");
+
+	/* One time print during bootup */
+	pr_info("clock-cpu-8994: OPP tables populated.\n");
+}
+
 static int cpu_clock_8994_driver_probe(struct platform_device *pdev)
 {
 	int ret, cpu;
@@ -1096,6 +1173,8 @@ static int cpu_clock_8994_driver_probe(struct platform_device *pdev)
 	clk_set_rate(&a53_clk.c, 384000000);
 	clk_set_rate(&a57_clk.c, 199200000);
 	clk_set_rate(&cci_clk.c, 150000000);
+
+	populate_opp_table(pdev);
 
 	put_online_cpus();
 
