@@ -72,6 +72,10 @@ extern void emac_hw_stop_mac(struct emac_hw *hw);
 
 extern void emac_hw_set_mac_addr(struct emac_hw *hw, u8 *addr);
 
+/* TX Timestamp */
+extern bool emac_hw_read_tx_tstamp(struct emac_hw *hw,
+				   struct emac_hwtxtstamp *ts);
+
 #define IMR_NORMAL_MASK         (\
 		ISR_ERROR       |\
 		ISR_GPHY_LINK   |\
