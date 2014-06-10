@@ -37,8 +37,9 @@ enum color_fmts {
 	 * UV_Stride : Width aligned to 128
 	 * Y_Scanlines: Height aligned to 32
 	 * UV_Scanlines: Height/2 aligned to 16
+	 * Extradata: Arbitrary (software-imposed) padding
 	 * Total size = align((Y_Stride * Y_Scanlines
-	 *          + UV_Stride * UV_Scanlines + 4096), 4096)
+	 *          + UV_Stride * UV_Scanlines + Extradata), 4096)
 	 */
 	COLOR_FMT_NV12,
 
@@ -73,8 +74,9 @@ enum color_fmts {
 	 * UV_Stride : Width aligned to 128
 	 * Y_Scanlines: Height aligned to 32
 	 * UV_Scanlines: Height/2 aligned to 16
+	 * Extradata: Arbitrary (software-imposed) padding
 	 * Total size = align((Y_Stride * Y_Scanlines
-	 *          + UV_Stride * UV_Scanlines + 4096), 4096)
+	 *          + UV_Stride * UV_Scanlines + Extradata), 4096)
 	 */
 	COLOR_FMT_NV21,
 	/* Venus NV12_MVTB:
@@ -131,8 +133,9 @@ enum color_fmts {
 	 * UV_Scanlines: Height/2 aligned to 16
 	 * View_1 begin at: 0 (zero)
 	 * View_2 begin at: Y_Stride * Y_Scanlines + UV_Stride * UV_Scanlines
+	 * Extradata: Arbitrary (software-imposed) padding
 	 * Total size = align((2*(Y_Stride * Y_Scanlines)
-	 *          + 2*(UV_Stride * UV_Scanlines) + 4096), 4096)
+	 *          + 2*(UV_Stride * UV_Scanlines) + Extradata), 4096)
 	 */
 	COLOR_FMT_NV12_MVTB,
 };
