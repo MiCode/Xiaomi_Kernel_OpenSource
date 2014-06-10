@@ -626,6 +626,12 @@ static int pmic_chrg_usb_set_property(struct power_supply *psy,
 		ret = -EINVAL;
 	}
 
+	/*
+	 * back to back or contineous read/writes to
+	 * PMIC is causing i2c semaphore hang issues.
+	 * adding a delay of 5ms to avoid the issue.
+	 */
+	usleep_range(10000, 15000);
 	mutex_unlock(&info->lock);
 	return ret;
 }
@@ -708,6 +714,12 @@ static int pmic_chrg_usb_get_property(struct power_supply *psy,
 	}
 
 psy_get_prop_fail:
+	/*
+	 * back to back or contineous read/writes to
+	 * PMIC is causing i2c semaphore hang issues.
+	 * adding a delay of 5ms to avoid the issue.
+	 */
+	usleep_range(9000, 12000);
 	mutex_unlock(&info->lock);
 	return ret;
 }
