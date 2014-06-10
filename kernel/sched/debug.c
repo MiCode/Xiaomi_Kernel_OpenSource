@@ -403,6 +403,9 @@ static void sched_debug_header(struct seq_file *m)
 	P(sched_downmigrate);
 	P(sched_init_task_load_windows);
 	P(sched_init_task_load_pelt);
+	P(min_capacity);
+	P(max_capacity);
+	P(sched_use_pelt);
 #endif
 #undef PN
 #undef P
