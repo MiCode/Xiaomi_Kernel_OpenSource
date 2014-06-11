@@ -270,25 +270,33 @@ static ssize_t mdss_fb_get_type(struct device *dev,
 
 static void mdss_fb_parse_dt(struct msm_fb_data_type *mfd)
 {
-	u32 data[2];
+	u32 data[2] = {0};
+	u32 panel_xres;
 	struct platform_device *pdev = mfd->pdev;
 
 	mfd->splash_logo_enabled = of_property_read_bool(pdev->dev.of_node,
 				"qcom,mdss-fb-splash-logo-enabled");
 
-	if (of_property_read_u32_array(pdev->dev.of_node, "qcom,mdss-fb-split",
-				       data, 2))
-		return;
-	if (data[0] && data[1] &&
-	    (mfd->panel_info->xres == (data[0] + data[1]))) {
-		mfd->split_fb_left = data[0];
-		mfd->split_fb_right = data[1];
-		pr_info("split framebuffer left=%d right=%d\n",
-			mfd->split_fb_left, mfd->split_fb_right);
+	of_property_read_u32_array(pdev->dev.of_node,
+		"qcom,mdss-fb-split", data, 2);
+
+	panel_xres = mfd->panel_info->xres;
+	if (data[0] && data[1]) {
+		if (mfd->split_display)
+			panel_xres *= 2;
+
+		if (panel_xres == data[0] + data[1]) {
+			mfd->split_fb_left = data[0];
+			mfd->split_fb_right = data[1];
+		}
 	} else {
-		mfd->split_fb_left = 0;
-		mfd->split_fb_right = 0;
+		if (mfd->split_display)
+			mfd->split_fb_left = mfd->split_fb_right = panel_xres;
+		else
+			mfd->split_fb_left = mfd->split_fb_right = 0;
 	}
+	pr_info("split framebuffer left=%d right=%d\n",
+		mfd->split_fb_left, mfd->split_fb_right);
 }
 
 static ssize_t mdss_fb_get_split(struct device *dev,
