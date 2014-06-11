@@ -2560,6 +2560,7 @@ MODULE_DEVICE_TABLE(i2c, apds993x_id);
 static struct of_device_id apds993X_match_table[] = {
 	{ .compatible = "avago,apds9930",},
 	{ .compatible = "avago,apds9900",},
+	{ },
 };
 
 static const struct dev_pm_ops apds993x_pm_ops = {
