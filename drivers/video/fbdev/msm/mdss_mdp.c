@@ -122,6 +122,30 @@ struct mdss_hw mdss_mdp_hw = {
 	.irq_handler = mdss_mdp_isr,
 };
 
+#define MDP_REG_BUS_VECTOR_ENTRY(ab_val, ib_val)		\
+	{						\
+		.src = MSM_BUS_MASTER_SPDM,		\
+		.dst = MSM_BUS_SLAVE_IMEM_CFG,		\
+		.ab = (ab_val),				\
+		.ib = (ib_val),				\
+	}
+
+#define SZ_37_5M (37500000 * 8)
+#define SZ_75M (75000000 * 8)
+
+static struct msm_bus_vectors mdp_reg_bus_vectors[] = {
+	MDP_REG_BUS_VECTOR_ENTRY(0, 0),
+	MDP_REG_BUS_VECTOR_ENTRY(0, SZ_37_5M),
+	MDP_REG_BUS_VECTOR_ENTRY(0, SZ_75M),
+};
+static struct msm_bus_paths mdp_reg_bus_usecases[ARRAY_SIZE(
+		mdp_reg_bus_vectors)];
+static struct msm_bus_scale_pdata mdp_reg_bus_scale_table = {
+	.usecase = mdp_reg_bus_usecases,
+	.num_usecases = ARRAY_SIZE(mdp_reg_bus_usecases),
+	.name = "mdss_reg",
+};
+
 static DEFINE_SPINLOCK(mdss_lock);
 struct mdss_hw *mdss_irq_handlers[MDSS_MAX_HW_BLK];
 
@@ -363,6 +387,9 @@ EXPORT_SYMBOL(mdss_disable_irq_nosync);
 
 static int mdss_mdp_bus_scale_register(struct mdss_data_type *mdata)
 {
+	struct msm_bus_scale_pdata *reg_bus_pdata;
+	int i;
+
 	if (!mdata->bus_hdl) {
 		mdata->bus_hdl =
 			msm_bus_scale_register_client(mdata->bus_scale_table);
@@ -374,6 +401,24 @@ static int mdss_mdp_bus_scale_register(struct mdss_data_type *mdata)
 		pr_debug("register bus_hdl=%x\n", mdata->bus_hdl);
 	}
 
+	if (!mdata->reg_bus_hdl) {
+		reg_bus_pdata = &mdp_reg_bus_scale_table;
+		for (i = 0; i < reg_bus_pdata->num_usecases; i++) {
+			mdp_reg_bus_usecases[i].num_paths = 1;
+			mdp_reg_bus_usecases[i].vectors =
+				&mdp_reg_bus_vectors[i];
+		}
+
+		mdata->reg_bus_hdl =
+			msm_bus_scale_register_client(reg_bus_pdata);
+		if (!mdata->reg_bus_hdl) {
+			/* Continue without reg_bus scaling */
+			pr_warn("reg_bus_client register failed\n");
+		} else
+			pr_debug("register reg_bus_hdl=%x\n",
+					mdata->reg_bus_hdl);
+	}
+
 	return mdss_mdp_bus_scale_set_quota(AB_QUOTA, IB_QUOTA);
 }
 
@@ -383,6 +428,13 @@ static void mdss_mdp_bus_scale_unregister(struct mdss_data_type *mdata)
 
 	if (mdata->bus_hdl)
 		msm_bus_scale_unregister_client(mdata->bus_hdl);
+
+	pr_debug("unregister reg_bus_hdl=%x\n", mdata->reg_bus_hdl);
+
+	if (mdata->reg_bus_hdl) {
+		msm_bus_scale_unregister_client(mdata->reg_bus_hdl);
+		mdata->reg_bus_hdl = 0;
+	}
 }
 
 int mdss_mdp_bus_scale_set_quota(u64 ab_quota, u64 ib_quota)
