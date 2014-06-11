@@ -145,7 +145,7 @@ static struct mux_clk rpm_debug_mux = {
 		{ &cnoc_clk.c, 0x0008 },
 		{ &pnoc_clk.c, 0x0010 },
 		{ &snoc_clk.c, 0x0000 },
-		{ &bimc_clk.c, 0x0155 },
+		{ &bimc_clk.c, 0x015c },
 		{ &ce1_clk.c, 0x0138 },
 		{ &gcc_ce1_axi_m_clk.c, 0x0139 },
 		{ &gcc_ce1_ahb_m_clk.c, 0x013a },
