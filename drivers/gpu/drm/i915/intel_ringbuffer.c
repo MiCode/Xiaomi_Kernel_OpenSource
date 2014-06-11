@@ -2466,6 +2466,14 @@ int intel_ring_idle(struct intel_engine_cs *ring)
 			return ret;
 	}
 
+	/* If there is anything outstanding within the scheduler then give up
+	 * now as the submission of such work requires the mutex lock. While
+	 * the lock is definitely held at this point (i915_wait_seqno will BUG
+	 * if called without), the driver is not necessarily at a safe point
+	 * to start submitting ring work. */
+	if (!i915_scheduler_is_ring_idle(ring))
+		return -EAGAIN;
+
 	/* Wait upon the last request to be completed */
 	if (list_empty(&ring->request_list))
 		return 0;

@@ -1185,3 +1185,28 @@ int i915_scheduler_closefile(struct drm_device *dev, struct drm_file *file)
 
 	return 0;
 }
+
+bool i915_scheduler_is_ring_idle(struct intel_engine_cs *ring)
+{
+	struct i915_scheduler_queue_entry *node;
+	struct drm_i915_private *dev_priv = ring->dev->dev_private;
+	struct i915_scheduler   *scheduler = dev_priv->scheduler;
+	unsigned long   flags;
+	bool            idle = true;
+
+	if (!scheduler)
+		return true;
+
+	spin_lock_irqsave(&scheduler->lock, flags);
+
+	list_for_each_entry(node, &scheduler->node_queue[ring->id], link) {
+		if (!I915_SQS_IS_COMPLETE(node)) {
+			idle = false;
+			break;
+		}
+	}
+
+	spin_unlock_irqrestore(&scheduler->lock, flags);
+
+	return idle;
+}
