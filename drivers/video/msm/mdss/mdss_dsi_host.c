@@ -1430,12 +1430,14 @@ static int dsi_event_thread(void *data)
 			mdss_dsi_pll_relock(ctrl);
 
 		if (todo & DSI_EV_MDP_FIFO_UNDERFLOW) {
+			mutex_lock(&ctrl->mutex);
 			if (ctrl->recovery) {
 				mdss_dsi_clk_ctrl(ctrl, DSI_ALL_CLKS, 1);
 				mdss_dsi_sw_reset_restore(ctrl);
 				ctrl->recovery->fxn(ctrl->recovery->data);
 				mdss_dsi_clk_ctrl(ctrl, DSI_ALL_CLKS, 0);
 			}
+			mutex_unlock(&ctrl->mutex);
 		}
 
 		if (todo & DSI_EV_DSI_FIFO_EMPTY)
