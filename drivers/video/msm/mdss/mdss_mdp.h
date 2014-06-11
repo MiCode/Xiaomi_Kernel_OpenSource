@@ -168,6 +168,7 @@ struct mdss_mdp_ctl {
 	struct mdss_mdp_perf_params cur_perf;
 	struct mdss_mdp_perf_params new_perf;
 	u32 perf_transaction_status;
+	bool perf_release_ctl_bw;
 
 	struct mdss_data_type *mdata;
 	struct msm_fb_data_type *mfd;

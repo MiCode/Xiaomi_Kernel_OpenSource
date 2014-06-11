@@ -919,6 +919,17 @@ u32 mdss_mdp_ctl_perf_get_transaction_status(struct mdss_mdp_ctl *ctl)
 	unsigned long flags;
 	u32 transaction_status;
 
+	if (!ctl)
+		return PERF_STATUS_BUSY;
+
+	/*
+	 * If Rotator mode and bandwidth has been released; return STATUS_DONE
+	 * so the bandwidth is re-calculated.
+	 */
+	if (ctl->mixer_left && ctl->mixer_left->rotator_mode &&
+		!ctl->perf_release_ctl_bw)
+			return PERF_STATUS_DONE;
+
 	/*
 	 * If Video Mode or not valid data to determine the status, return busy
 	 * status, so the bandwidth cannot be freed by the caller
@@ -1035,6 +1046,14 @@ static int mdss_mdp_select_clk_lvl(struct mdss_mdp_ctl *ctl,
 	return clk_rate;
 }
 
+static void mdss_mdp_perf_release_ctl_bw(struct mdss_mdp_ctl *ctl,
+	struct mdss_mdp_perf_params *perf)
+{
+	/* Set to zero controller bandwidth. */
+	memset(perf, 0, sizeof(*perf));
+	ctl->perf_release_ctl_bw = false;
+}
+
 static void mdss_mdp_ctl_perf_update(struct mdss_mdp_ctl *ctl,
 		int params_changed)
 {
@@ -1059,7 +1078,9 @@ static void mdss_mdp_ctl_perf_update(struct mdss_mdp_ctl *ctl,
 	is_bw_released = !mdss_mdp_ctl_perf_get_transaction_status(ctl);
 
 	if (ctl->power_on) {
-		if (is_bw_released || params_changed)
+		if (ctl->perf_release_ctl_bw)
+			mdss_mdp_perf_release_ctl_bw(ctl, new);
+		else if (is_bw_released || params_changed)
 			mdss_mdp_perf_calc_ctl(ctl, new);
 		/*
 		 * if params have just changed delay the update until
@@ -1624,6 +1645,7 @@ struct mdss_mdp_ctl *mdss_mdp_ctl_init(struct mdss_panel_data *pdata,
 	ctl->mfd = mfd;
 	ctl->panel_data = pdata;
 	ctl->is_video_mode = false;
+	ctl->perf_release_ctl_bw = false;
 
 	switch (pdata->panel_info.type) {
 	case EDP_PANEL:
