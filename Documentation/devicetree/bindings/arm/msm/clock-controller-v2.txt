@@ -170,3 +170,51 @@ clk_dummy {
 	compatible = "qcom,dummy-clk";
 	qcom,parent = <&xo_clk>;
 };
+
+*****************************************************************************
+"qcom,rpm-clk"
+
+RPM clocks are logical entities representing clocks controlled by the RPM processor.
+RPM clocks come in pairs: a clock representing the active set, and another clock
+representing the active and sleep set.
+The rate for RPM branch clocks is not configurable.
+
+Required Properties:
+- compatible: 		"qcom,rpm-clk", "qcom,rpm-a-clk",
+			"qcom,rpm-branch-clk", "qcom,rpm-branch-a-clk"
+
+- qcom,res-type: 	String; only the first 4 chars are significant.
+			Type of RPM resource.
+
+- qcom,res-id:		Integer.
+			Identifies a particular resource of a given type.
+
+- qcom,key:		String; only the first 4 chars are significant.
+			Identifier to use for the type of data that will be
+			given to the rpm resource.
+
+- qcom,rpm-peer:	Phandle.
+			A reference to the other clock in the pair.
+
+Optional Properties:
+- qcom,rcg-init-rate:	Integer.
+			Configure the initial rate for "qcom,rpm-branch-clk"
+			and "qcom,rpm-branch-a-clk".
+
+
+bb_clk2: bb_clk2 {
+	compatible = "qcom,rpm-branch-clk";
+	qcom,res-type = "clka";
+	qcom,res-id = <2>;
+	qcom,key = "swen";
+	qcom,rpm-peer = <&bb_clk2_a>;
+	qcom,rcg-init-rate = <1000>;
+};
+bb_clk2_a: bb_clk2_a {
+	compatible = "qcom,rpm-branch-a-clk";
+	qcom,res-type = "clka";
+	qcom,res-id = <2>;
+	qcom,key = "swen";
+	qcom,rpm-peer = <&bb_clk2>;
+	qcom,rcg-init-rate = <1000>;
+};

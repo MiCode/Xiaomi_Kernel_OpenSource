@@ -11,10 +11,13 @@
  *
  */
 
+#define pr_fmt(fmt) "%s: " fmt, __func__
+
 #include <linux/err.h>
 #include <linux/mutex.h>
 #include <linux/clk/msm-clk-provider.h>
 #include <soc/qcom/clock-rpm.h>
+#include <soc/qcom/msm-clock-controller.h>
 
 #define __clk_rpmrs_set_rate(r, value, ctx) \
 	((r)->rpmrs_data->set_rate_fn((r), (value), (ctx)))
@@ -307,3 +310,93 @@ struct clk_ops clk_ops_rpm_branch = {
 	.is_local = rpm_clk_is_local,
 	.handoff = rpm_clk_handoff,
 };
+
+static struct rpm_clk *rpm_clk_dt_parser_common(struct device *dev,
+						struct device_node *np)
+{
+	struct rpm_clk *rpm, *peer;
+	struct clk *c;
+	int rc = 0;
+	phandle p;
+	const char *str;
+
+	rpm = devm_kzalloc(dev, sizeof(*rpm), GFP_KERNEL);
+	if (!rpm) {
+		dt_err(np, "memory alloc failure\n");
+		return ERR_PTR(-ENOMEM);
+	}
+
+	rc = of_property_read_phandle_index(np, "qcom,rpm-peer", 0, &p);
+	if (rc) {
+		dt_err(np, "missing qcom,rpm-peer dt property\n");
+		return ERR_PTR(rc);
+	}
+
+	/* Rely on whoever's called last to setup the circular ref */
+	c = msmclk_lookup_phandle(dev, p);
+	if (!IS_ERR(c)) {
+		peer = to_rpm_clk(c);
+		peer->peer = rpm;
+		rpm->peer = peer;
+	}
+
+	rpm->rpmrs_data = &clk_rpmrs_data_smd;
+	rpm->active_only = of_device_is_compatible(np, "qcom,rpm-a-clk") ||
+			of_device_is_compatible(np, "qcom,rpm-branch-a-clk");
+
+	rc = of_property_read_string(np, "qcom,res-type", &str);
+	if (rc) {
+		dt_err(np, "missing qcom,res-type dt property\n");
+		return ERR_PTR(rc);
+	}
+	sscanf(str, "%4c", (char *) &rpm->rpm_res_type);
+
+	rc = of_property_read_u32(np, "qcom,res-id", &rpm->rpm_clk_id);
+	if (rc) {
+		dt_err(np, "missing qcom,res-id dt property\n");
+		return ERR_PTR(rc);
+	}
+
+	rc = of_property_read_string(np, "qcom,key", &str);
+	if (rc) {
+		dt_err(np, "missing qcom,key dt property\n");
+		return ERR_PTR(rc);
+	}
+	sscanf(str, "%4c", (char *) &rpm->rpm_key);
+	return rpm;
+}
+
+static void *rpm_clk_dt_parser(struct device *dev, struct device_node *np)
+{
+	struct rpm_clk *rpm;
+	rpm = rpm_clk_dt_parser_common(dev, np);
+	if (IS_ERR(rpm))
+		return rpm;
+
+	rpm->c.ops = &clk_ops_rpm;
+	return msmclk_generic_clk_init(dev, np, &rpm->c);
+}
+
+static void *rpm_branch_clk_dt_parser(struct device *dev,
+					struct device_node *np)
+{
+	struct rpm_clk *rpm;
+	u32 rate;
+	int rc;
+	rpm = rpm_clk_dt_parser_common(dev, np);
+	if (IS_ERR(rpm))
+		return rpm;
+
+	rpm->c.ops = &clk_ops_rpm_branch;
+	rpm->branch = true;
+
+	rc = of_property_read_u32(np, "qcom,rcg-init-rate", &rate);
+	if (!rc)
+		rpm->c.rate = rate;
+
+	return msmclk_generic_clk_init(dev, np, &rpm->c);
+}
+MSMCLK_PARSER(rpm_clk_dt_parser, "qcom,rpm-clk", 0);
+MSMCLK_PARSER(rpm_clk_dt_parser, "qcom,rpm-a-clk", 1);
+MSMCLK_PARSER(rpm_branch_clk_dt_parser, "qcom,rpm-branch-clk", 0);
+MSMCLK_PARSER(rpm_branch_clk_dt_parser, "qcom,rpm-branch-a-clk", 1);

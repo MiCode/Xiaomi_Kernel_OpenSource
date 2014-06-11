@@ -31,11 +31,11 @@ extern struct clk_ops clk_ops_rpm;
 extern struct clk_ops clk_ops_rpm_branch;
 
 struct rpm_clk {
-	const int rpm_res_type;
-	const int rpm_key;
-	const int rpm_clk_id;
+	int rpm_res_type;
+	int rpm_key;
+	int rpm_clk_id;
 	const int rpm_status_id;
-	const bool active_only;
+	bool active_only;
 	bool enabled;
 	bool branch; /* true: RPM only accepts 1 for ON and 0 for OFF */
 	struct clk_rpmrs_data *rpmrs_data;
