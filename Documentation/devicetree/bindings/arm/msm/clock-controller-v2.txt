@@ -159,3 +159,14 @@ mmssnoc_axi: mmssnoc_axi {
 		<FMAX_TURBO 400000000>;
 	qcom,depends = <&mmss_mmssnoc_axi_clk>;
 };
+
+*****************************************************************************
+"qcom,dummy-clk"
+
+This clock serves as a placeholder for a clock which is yet to be implemented.
+It has no unique devicetree properties.
+
+clk_dummy {
+	compatible = "qcom,dummy-clk";
+	qcom,parent = <&xo_clk>;
+};
