@@ -158,8 +158,10 @@
 			<0xfd828000 0x108>;
 		reg-names = "dsi_ctrl", "dsi_phy", "mmss_misc_phys";
 		gdsc-supply = <&gdsc_mdss>;
-		vddio-supply = <&pm8994_l14>;
+		vdd-supply = <&pm8994_l14>;
+		vddio-supply = <&pm8994_l12>;
 		vdda-supply = <&pm8994_l2>;
+		vcca-supply = <&pm8994_l28>;
 		qcom,mdss-fb-map = <&mdss_fb0>;
 		qcom,mdss-mdp = <&mdss_mdp>;
 		clocks = <&clock_mmss clk_mdss_mdp_clk>,
@@ -171,14 +173,14 @@
                 clock-names = "mdp_core_clk", "iface_clk", "bus_clk",
                                 "byte_clk", "pixel_clk", "core_clk";
 
-		qcom,platform-strength-ctrl = [ff 06];
+		qcom,platform-strength-ctrl = [77 00];
 		qcom,platform-bist-ctrl = [00 00 b1 ff 00 00];
-		qcom,platform-regulator-settings = [07 09 03 00 20 00 01];
-		qcom,platform-lane-config = [00 00 00 00 00 00 00 01 97
-			00 00 00 00 05 00 00 01 97
-			00 00 00 00 0a 00 00 01 97
-			00 00 00 00 0f 00 00 01 97
-			00 c0 00 00 00 00 00 01 bb];
+		qcom,platform-regulator-settings = [03 08 07 00 20 07 01];
+		qcom,platform-lane-config = [02 00 00 00 20 00 00 00 00
+			02 00 00 00 40 00 00 00 00
+			02 00 00 40 20 00 00 00 00
+			02 00 00 40 00 00 00 00 00
+			00 00 00 80 00 00 00 00 00];
 
 		qcom,core-supply-entries {
 			#address-cells = <1>;
@@ -206,6 +208,25 @@
 				qcom,supply-enable-load = <100000>;
 				qcom,supply-disable-load = <100>;
 			};
+
+			qcom,ctrl-supply-entry@1 {
+				reg = <1>;
+				qcom,supply-name = "vddio";
+				qcom,supply-min-voltage = <1800000>;
+				qcom,supply-max-voltage = <1800000>;
+				qcom,supply-enable-load = <100000>;
+				qcom,supply-disable-load = <100>;
+				qcom,supply-post-on-sleep = <20>;
+			};
+
+			qcom,ctrl-supply-entry@2 {
+				reg = <2>;
+				qcom,supply-name = "vcca";
+				qcom,supply-min-voltage = <1000000>;
+				qcom,supply-max-voltage = <1000000>;
+				qcom,supply-enable-load = <10000>;
+				qcom,supply-disable-load = <100>;
+			};
 		};
 
 		qcom,panel-supply-entries {
@@ -214,7 +235,7 @@
 
 			qcom,panel-supply-entry@0 {
 				reg = <0>;
-				qcom,supply-name = "vddio";
+				qcom,supply-name = "vdd";
 				qcom,supply-min-voltage = <1800000>;
 				qcom,supply-max-voltage = <1800000>;
 				qcom,supply-enable-load = <100000>;
@@ -227,14 +248,16 @@
 	mdss_dsi1: qcom,mdss_dsi@fd9a0000 {
 		compatible = "qcom,mdss-dsi-ctrl";
 		label = "MDSS DSI CTRL->0";
-		cell-index = <0>;
+		cell-index = <1>;
 		reg = 	<0xfd9a0000 0x260>,
 			<0xfd9a0500 0x2b0>,
 			<0xfd828000 0x108>;
 		reg-names = "dsi_ctrl", "dsi_phy", "mmss_misc_phys";
 		gdsc-supply = <&gdsc_mdss>;
-		vddio-supply = <&pm8994_l14>;
+		vdd-supply = <&pm8994_l14>;
+		vddio-supply = <&pm8994_l12>;
 		vdda-supply = <&pm8994_l2>;
+		vcca-supply = <&pm8994_l28>;
 		qcom,mdss-fb-map = <&mdss_fb0>;
 		qcom,mdss-mdp = <&mdss_mdp>;
 		clocks = <&clock_mmss clk_mdss_mdp_clk>,
@@ -246,14 +269,14 @@
                 clock-names = "mdp_core_clk", "iface_clk", "bus_clk",
                                 "byte_clk", "pixel_clk", "core_clk";
 
-		qcom,platform-strength-ctrl = [ff 06];
+		qcom,platform-strength-ctrl = [77 00];
 		qcom,platform-bist-ctrl = [00 00 b1 ff 00 00];
-		qcom,platform-regulator-settings = [07 09 03 00 20 00 01];
-		qcom,platform-lane-config = [00 00 00 00 00 00 00 01 97
-			00 00 00 00 05 00 00 01 97
-			00 00 00 00 0a 00 00 01 97
-			00 00 00 00 0f 00 00 01 97
-			00 c0 00 00 00 00 00 01 bb];
+		qcom,platform-regulator-settings = [03 08 07 00 20 07 01];
+		qcom,platform-lane-config = [02 00 00 00 20 00 00 00 00
+			02 00 00 00 40 00 00 00 00
+			02 00 00 40 20 00 00 00 00
+			02 00 00 40 00 00 00 00 00
+			00 00 00 80 00 00 00 00 00];
 
 		qcom,core-supply-entries {
 			#address-cells = <1>;
@@ -281,6 +304,25 @@
 				qcom,supply-enable-load = <100000>;
 				qcom,supply-disable-load = <100>;
 			};
+
+			qcom,ctrl-supply-entry@1 {
+				reg = <1>;
+				qcom,supply-name = "vddio";
+				qcom,supply-min-voltage = <1800000>;
+				qcom,supply-max-voltage = <1800000>;
+				qcom,supply-enable-load = <100000>;
+				qcom,supply-disable-load = <100>;
+				qcom,supply-post-on-sleep = <20>;
+			};
+
+			qcom,ctrl-supply-entry@2 {
+				reg = <2>;
+				qcom,supply-name = "vcca";
+				qcom,supply-min-voltage = <1000000>;
+				qcom,supply-max-voltage = <1000000>;
+				qcom,supply-enable-load = <10000>;
+				qcom,supply-disable-load = <100>;
+			};
 		};
 
 		qcom,panel-supply-entries {
@@ -289,7 +331,7 @@
 
 			qcom,panel-supply-entry@0 {
 				reg = <0>;
-				qcom,supply-name = "vddio";
+				qcom,supply-name = "vdd";
 				qcom,supply-min-voltage = <1800000>;
 				qcom,supply-max-voltage = <1800000>;
 				qcom,supply-enable-load = <100000>;
@@ -301,7 +343,7 @@
 
 	qcom,mdss_wb_panel {
 		compatible = "qcom,mdss_wb";
-		qcom,mdss_pan_res = <640 480>;
+		qcom,mdss_pan_res = <1920 1080>;
 		qcom,mdss_pan_bpp = <24>;
 		qcom,mdss-fb-map = <&mdss_fb2>;
 	};
