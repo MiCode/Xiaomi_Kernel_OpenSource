@@ -549,6 +549,14 @@ static inline int edac_device_get_log_ue(struct edac_device_ctl_info *edac_dev)
 	return edac_dev->log_ue;
 }
 
+#ifdef CONFIG_EDAC_PANIC_ON_CE
+static inline int edac_device_get_panic_on_ce(struct edac_device_ctl_info
+					*edac_dev)
+{
+	return edac_dev->panic_on_ce;
+}
+#endif
+
 static inline int edac_device_get_panic_on_ue(struct edac_device_ctl_info
 					*edac_dev)
 {
@@ -594,6 +602,13 @@ void edac_device_handle_ce(struct edac_device_ctl_info *edac_dev,
 				"CE: %s instance: %s block: %s '%s'\n",
 				edac_dev->ctl_name, instance->name,
 				block ? block->name : "N/A", msg);
+
+#ifdef CONFIG_EDAC_PANIC_ON_CE
+	if (edac_device_get_panic_on_ce(edac_dev))
+		panic("EDAC %s: CE instance: %s block %s '%s'\n",
+			edac_dev->ctl_name, instance->name,
+			block ? block->name : "N/A", msg);
+#endif
 }
 EXPORT_SYMBOL_GPL(edac_device_handle_ce);
 

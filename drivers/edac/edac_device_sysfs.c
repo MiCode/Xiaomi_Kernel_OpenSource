@@ -62,12 +62,38 @@ static ssize_t edac_device_ctl_log_ce_store(struct edac_device_ctl_info
 	return count;
 }
 
+#ifdef CONFIG_EDAC_PANIC_ON_CE
+/* 'panic_on_ce' */
+static ssize_t edac_device_ctl_panic_on_ce_show(struct edac_device_ctl_info
+						*ctl_info, char *data)
+{
+	return snprintf(data, PAGE_SIZE, "%u\n", ctl_info->panic_on_ce);
+}
+#endif
+
 /* 'panic_on_ue' */
 static ssize_t edac_device_ctl_panic_on_ue_show(struct edac_device_ctl_info
 						*ctl_info, char *data)
 {
 	return sprintf(data, "%u\n", ctl_info->panic_on_ue);
 }
+
+#ifdef CONFIG_EDAC_PANIC_ON_CE
+static ssize_t edac_device_ctl_panic_on_ce_store(struct edac_device_ctl_info
+						 *ctl_info, const char *data,
+						 size_t count)
+{
+	unsigned long val;
+
+	/* if parameter is zero, turn off flag, if non-zero turn on flag */
+	if (kstrtoul(data, 0, &val) < 0)
+		return -EINVAL;
+
+	ctl_info->panic_on_ce = !!val;
+
+	return count;
+}
+#endif
 
 static ssize_t edac_device_ctl_panic_on_ue_store(struct edac_device_ctl_info
 						 *ctl_info, const char *data,
@@ -156,6 +182,11 @@ CTL_INFO_ATTR(log_ue, S_IRUGO | S_IWUSR,
 	edac_device_ctl_log_ue_show, edac_device_ctl_log_ue_store);
 CTL_INFO_ATTR(log_ce, S_IRUGO | S_IWUSR,
 	edac_device_ctl_log_ce_show, edac_device_ctl_log_ce_store);
+#ifdef CONFIG_EDAC_PANIC_ON_CE
+CTL_INFO_ATTR(panic_on_ce, 0644,
+	edac_device_ctl_panic_on_ce_show,
+	edac_device_ctl_panic_on_ce_store);
+#endif
 CTL_INFO_ATTR(panic_on_ue, S_IRUGO | S_IWUSR,
 	edac_device_ctl_panic_on_ue_show,
 	edac_device_ctl_panic_on_ue_store);
@@ -164,6 +195,9 @@ CTL_INFO_ATTR(poll_msec, S_IRUGO | S_IWUSR,
 
 /* Base Attributes of the EDAC_DEVICE ECC object */
 static struct ctl_info_attribute *device_ctrl_attr[] = {
+#ifdef CONFIG_EDAC_PANIC_ON_CE
+	&attr_ctl_info_panic_on_ce,
+#endif
 	&attr_ctl_info_panic_on_ue,
 	&attr_ctl_info_log_ue,
 	&attr_ctl_info_log_ce,

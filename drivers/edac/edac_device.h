@@ -159,6 +159,9 @@ struct edac_device_ctl_info {
 	/* Per instance controls for this edac_device */
 	int log_ue;		/* boolean for logging UEs */
 	int log_ce;		/* boolean for logging CEs */
+#ifdef CONFIG_EDAC_PANIC_ON_CE
+	int panic_on_ce;	/* boolean for panic'ing on an CE */
+#endif
 	int panic_on_ue;	/* boolean for panic'ing on an UE */
 	unsigned poll_msec;	/* number of milliseconds to poll interval */
 	unsigned long delay;	/* number of jiffies for poll_msec */
