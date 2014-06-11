@@ -1492,6 +1492,7 @@ int ubi_attach(struct ubi_device *ubi, int force_scan)
 					return -ENOMEM;
 
 				err = scan_all(ubi, ai, 0);
+				ai->failed_fm = 1;
 			} else {
 				err = scan_all(ubi, ai, UBI_FM_MAX_START);
 			}

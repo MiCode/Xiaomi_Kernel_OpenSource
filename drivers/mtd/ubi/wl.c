@@ -2012,7 +2012,7 @@ int ubi_wl_init(struct ubi_device *ubi, struct ubi_attach_info *ai)
 		e->last_erase_time = aeb->last_erase_time;
 		ubi_assert(e->ec >= 0);
 		ubi_assert(!ubi_is_fm_block(ubi, e->pnum));
-
+		ubi->lookuptbl[e->pnum] = e;
 		/* Check last erase timestamp (in days) */
 		if (e->last_erase_time + ubi->dt_threshold <
 			(tv.tv_sec / NUM_SEC_IN_DAY)) {
@@ -2020,13 +2020,13 @@ int ubi_wl_init(struct ubi_device *ubi, struct ubi_attach_info *ai)
 				kmem_cache_free(ubi_wl_entry_slab, e);
 				goto out_free;
 			}
-		} else {
+		} else if (!ai->failed_fm) {
 			wl_tree_add(e, &ubi->free);
 			ubi->free_count++;
+		} else if (schedule_erase(ubi, e, aeb->vol_id, aeb->lnum, 0)) {
+			kmem_cache_free(ubi_wl_entry_slab, e);
+			goto out_free;
 		}
-
-		ubi->lookuptbl[e->pnum] = e;
-
 		found_pebs++;
 	}
 
