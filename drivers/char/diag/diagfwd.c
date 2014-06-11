@@ -783,6 +783,14 @@ void encode_rsp_and_send(int buf_length)
 		 */
 		usleep_range(10000, 10100);
 		retry_count++;
+
+		/*
+		 * There can be a race conditon that clears the data ready flag
+		 * for responses. Make sure we don't miss previous wakeups for
+		 * draining responses when we are in Memory Device Mode.
+		 */
+		if (driver->logging_mode == MEMORY_DEVICE_MODE)
+			chk_logging_wakeup();
 	}
 	if (driver->rsp_buf_busy) {
 		pr_err("diag: unable to get hold of response buffer\n");
