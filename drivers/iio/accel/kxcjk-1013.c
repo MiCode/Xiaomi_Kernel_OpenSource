@@ -28,6 +28,7 @@
 #include <linux/iio/trigger.h>
 #include <linux/iio/trigger_consumer.h>
 #include <linux/iio/triggered_buffer.h>
+#include <linux/power_hal_sysfs.h>
 
 #define KXCJK1013_DRV_NAME "kxcjk1013"
 #define KXCJK1013_IRQ_NAME "kxcjk1013_event"
@@ -558,6 +559,56 @@ static int kxcjk1013_acpi_gpio_probe(struct i2c_client *client,
 	return 0;
 }
 
+#ifdef CONFIG_PM_SLEEP
+static int kxcjk1013_suspend(struct device *dev)
+{
+	struct iio_dev *indio_dev = i2c_get_clientdata(to_i2c_client(dev));
+	struct kxcjk1013_data *data = iio_priv(indio_dev);
+
+	mutex_lock(&data->mutex);
+	kxcjk1013_set_mode(data, STANDBY);
+	mutex_unlock(&data->mutex);
+
+	return 0;
+}
+
+static int kxcjk1013_resume(struct device *dev)
+{
+	struct iio_dev *indio_dev = i2c_get_clientdata(to_i2c_client(dev));
+	struct kxcjk1013_data *data = iio_priv(indio_dev);
+
+	mutex_lock(&data->mutex);
+	kxcjk1013_set_mode(data, OPERATION);
+	mutex_unlock(&data->mutex);
+
+	return 0;
+}
+
+static SIMPLE_DEV_PM_OPS(kxcjk1013_pm_ops, kxcjk1013_suspend, NULL);
+#define KXCJK1013_PM_OPS (&kxcjk1013_pm_ops)
+#else
+#define KXCJK1013_PM_OPS NULL
+#endif
+
+#define POWER_HAL_SUSPEND_STATUS_LEN  1
+#define POWER_HAL_SUSPEND_ON         "1"
+#define POWER_SUSPEND_OFF        "0"
+
+static ssize_t kxcjk1013_power_hal_suspend_store(struct device *dev,
+       struct device_attribute *attr, const char *buf, size_t count)
+{
+
+       if (!strncmp(buf, POWER_HAL_SUSPEND_ON, POWER_HAL_SUSPEND_STATUS_LEN))
+               // Call device specific power HAL suspend routine
+		kxcjk1013_suspend(dev);
+       else if (!strncmp(buf, POWER_HAL_SUSPEND_OFF, POWER_HAL_SUSPEND_STATUS_LEN))
+               // Call device specific resume routine
+		kxcjk1013_resume(dev);
+       return count;
+}
+
+static DEVICE_POWER_HAL_SUSPEND_ATTR(kxcjk1013_power_hal_suspend_store);
+
 static int kxcjk1013_probe(struct i2c_client *client,
 		const struct i2c_device_id *id)
 {
@@ -637,6 +688,8 @@ skip_setup_trigger:
 		else
 			return ret;
 	}
+	device_create_file(&client->dev, &dev_attr_power_HAL_suspend);
+	register_power_hal_suspend_device(&client->dev);
 
 	return 0;
 
@@ -667,27 +720,12 @@ static int kxcjk1013_remove(struct i2c_client *client)
 	kxcjk1013_set_mode(data, STANDBY);
 	mutex_unlock(&data->mutex);
 
-	return 0;
-}
-
-#ifdef CONFIG_PM_SLEEP
-static int kxcjk1013_suspend(struct device *dev)
-{
-	struct iio_dev *indio_dev = i2c_get_clientdata(to_i2c_client(dev));
-	struct kxcjk1013_data *data = iio_priv(indio_dev);
-
-	mutex_lock(&data->mutex);
-	kxcjk1013_set_mode(data, STANDBY);
-	mutex_unlock(&data->mutex);
+	device_remove_file(&client->dev, &dev_attr_power_HAL_suspend);
+	unregister_power_hal_suspend_device(&client->dev);
 
 	return 0;
 }
 
-static SIMPLE_DEV_PM_OPS(kxcjk1013_pm_ops, kxcjk1013_suspend, NULL);
-#define KXCJK1013_PM_OPS (&kxcjk1013_pm_ops)
-#else
-#define KXCJK1013_PM_OPS NULL
-#endif
 
 static const struct acpi_device_id kx_acpi_match[] = {
 	{"KXCJ1013", 0},

@@ -26,6 +26,7 @@
 #include <linux/acpi.h>
 #include <linux/gpio/consumer.h>
 
+#include <linux/power_hal_sysfs.h>
 #include <linux/iio/iio.h>
 #include <linux/iio/sysfs.h>
 #include <linux/iio/events.h>
@@ -1130,6 +1131,67 @@ static int jsa1212_acpi_gpio_probe(struct i2c_client *client,
 	return 0;
 }
 
+#ifdef CONFIG_PM_SLEEP
+static int jsa1212_suspend(struct device *dev)
+{
+	int ret;
+	struct jsa1212_data *data;
+
+	data = iio_priv(i2c_get_clientdata(to_i2c_client(dev)));
+
+	mutex_lock(&data->lock);
+
+	ret = jsa1212_send_cmd(data, JSA1212_CMD_SUSPEND);
+
+	if (ret < 0)
+		dev_err(dev, "send shutdown cmd failed\n");
+
+	mutex_unlock(&data->lock);
+
+	return ret;
+}
+
+static int jsa1212_resume(struct device *dev)
+{
+	int ret;
+	struct jsa1212_data *data;
+
+	data = iio_priv(i2c_get_clientdata(to_i2c_client(dev)));
+
+	mutex_lock(&data->lock);
+
+	ret = jsa1212_send_cmd(data, JSA1212_CMD_RESUME);
+
+	if (ret < 0)
+		dev_err(dev, "send resume cmd failed\n");
+
+	mutex_unlock(&data->lock);
+
+	return ret;
+}
+#endif
+
+static SIMPLE_DEV_PM_OPS(jsa1212_pm_ops, jsa1212_suspend, jsa1212_resume);
+
+#define POWER_HAL_SUSPEND_STATUS_LEN  1
+#define POWER_HAL_SUSPEND_ON         "1"
+#define POWER_SUSPEND_OFF        "0"
+
+static ssize_t jsa1212_power_hal_suspend_store(struct device *dev,
+       struct device_attribute *attr, const char *buf, size_t count)
+{
+
+       if (!strncmp(buf, POWER_HAL_SUSPEND_ON, POWER_HAL_SUSPEND_STATUS_LEN))
+               // Call device specific power HAL suspend routine
+		jsa1212_suspend(dev);
+       else if (!strncmp(buf, POWER_HAL_SUSPEND_OFF, POWER_HAL_SUSPEND_STATUS_LEN))
+               // Call device specific resume routine
+		jsa1212_resume(dev);
+       return count;
+}
+
+static DEVICE_POWER_HAL_SUSPEND_ATTR(jsa1212_power_hal_suspend_store);
+
 static int jsa1212_probe(struct i2c_client *client,
 			     const struct i2c_device_id *id)
 {
@@ -1188,6 +1250,9 @@ static int jsa1212_probe(struct i2c_client *client,
 		return -ENODEV;
 	}
 
+	device_create_file(&client->dev, &dev_attr_power_HAL_suspend);
+	register_power_hal_suspend_device(&client->dev);
+	
 	return 0;
 }
 
@@ -1207,50 +1272,11 @@ static int jsa1212_remove(struct i2c_client *client)
 
 	mutex_unlock(&data->lock);
 
+	device_remove_file(&client->dev, &dev_attr_power_HAL_suspend);
+	unregister_power_hal_suspend_device(&client->dev);
+	
 	return ret;
 }
-
-#ifdef CONFIG_PM_SLEEP
-static int jsa1212_suspend(struct device *dev)
-{
-	int ret;
-	struct jsa1212_data *data;
-
-	data = iio_priv(i2c_get_clientdata(to_i2c_client(dev)));
-
-	mutex_lock(&data->lock);
-
-	ret = jsa1212_send_cmd(data, JSA1212_CMD_SUSPEND);
-
-	if (ret < 0)
-		dev_err(dev, "send shutdown cmd failed\n");
-
-	mutex_unlock(&data->lock);
-
-	return ret;
-}
-
-static int jsa1212_resume(struct device *dev)
-{
-	int ret;
-	struct jsa1212_data *data;
-
-	data = iio_priv(i2c_get_clientdata(to_i2c_client(dev)));
-
-	mutex_lock(&data->lock);
-
-	ret = jsa1212_send_cmd(data, JSA1212_CMD_RESUME);
-
-	if (ret < 0)
-		dev_err(dev, "send resume cmd failed\n");
-
-	mutex_unlock(&data->lock);
-
-	return ret;
-}
-#endif
-
-static SIMPLE_DEV_PM_OPS(jsa1212_pm_ops, jsa1212_suspend, jsa1212_resume);
 
 static const struct acpi_device_id jsa1212_acpi_match[] = {
 	{"JSA1212", 0},
