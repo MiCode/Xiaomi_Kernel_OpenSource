@@ -50,6 +50,10 @@
 		qcom,ext-ref-clk;
 		status = "ok";
 	};
+
+	qcom,danipc@251f8000 {
+		status = "ok";
+	};
 };
 
 &sdhc_1 {
