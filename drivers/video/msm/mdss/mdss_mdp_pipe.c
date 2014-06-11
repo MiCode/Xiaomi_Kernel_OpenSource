@@ -674,8 +674,8 @@ static struct mdss_mdp_pipe *mdss_mdp_pipe_init(struct mdss_mdp_mixer *mixer,
 		return NULL;
 	}
 
-	if (pipe && mdss_mdp_pipe_panic_signal_ctrl(pipe, false))
-		return NULL;
+	if (pipe && mdss_mdp_panic_signal_supported(mdata, pipe))
+		mdss_mdp_pipe_panic_signal_ctrl(pipe, false);
 
 	if (pipe && mdss_mdp_pipe_is_sw_reset_available(mdata)) {
 		force_off_mask =
@@ -823,13 +823,15 @@ struct mdss_mdp_pipe *mdss_mdp_pipe_search(struct mdss_data_type *mdata,
 static void mdss_mdp_pipe_free(struct kref *kref)
 {
 	struct mdss_mdp_pipe *pipe;
+	struct mdss_data_type *mdata = mdss_mdp_get_mdata();
 
 	pipe = container_of(kref, struct mdss_mdp_pipe, kref);
 
 	pr_debug("ndx=%x pnum=%d\n", pipe->ndx, pipe->num);
 
 	mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_ON, false);
-	mdss_mdp_pipe_panic_signal_ctrl(pipe, false);
+	if (pipe && mdss_mdp_panic_signal_supported(mdata, pipe))
+		mdss_mdp_pipe_panic_signal_ctrl(pipe, false);
 
 	if (pipe->play_cnt) {
 		mdss_mdp_pipe_fetch_halt(pipe);
