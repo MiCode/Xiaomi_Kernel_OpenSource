@@ -2605,6 +2605,7 @@ unsigned int power_cost_at_freq(int cpu, unsigned int freq)
 static unsigned int power_cost(struct task_struct *p, int cpu)
 {
 	unsigned int demand;
+	unsigned int cur_freq = cpu_rq(cpu)->cur_freq;
 
 	if (!sysctl_sched_enable_power_aware)
 		return cpu_rq(cpu)->capacity;
@@ -2618,6 +2619,8 @@ static unsigned int power_cost(struct task_struct *p, int cpu)
 
 	demand *= cpu_rq(cpu)->max_possible_freq;
 	demand /= 100; /* khz needed */
+
+	demand = max(cur_freq, demand);
 
 	return power_cost_at_freq(cpu, demand);
 }
