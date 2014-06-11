@@ -267,10 +267,11 @@ static int pft_remove_file(struct file *filp)
 	int ret = -ENOENT;
 	struct pft_file_info *tmp = NULL;
 	struct list_head *pos = NULL;
+	struct list_head *next = NULL;
 	bool found = false;
 
 	mutex_lock(&pft_dev->lock);
-	list_for_each(pos, &pft_dev->open_file_list) {
+	list_for_each_safe(pos, next, &pft_dev->open_file_list) {
 		tmp = list_entry(pos, struct pft_file_info, list);
 		if (filp == tmp->file) {
 			found = true;
@@ -393,6 +394,9 @@ static inline u32 pft_get_inode_key_index(struct inode *inode)
 static inline bool pft_is_tag_valid(struct inode *inode)
 {
 	struct inode_security_struct *isec = inode->i_security;
+
+	if (isec == NULL)
+		return false;
 
 	return ((isec->tag & PFT_TAG_MAGIC_MASK) == PFT_TAG_MAGIC) ?
 		true : false;
@@ -563,27 +567,6 @@ static bool pft_is_encrypted_file(struct dentry *dentry)
 	rc = pft_get_file_tag(dentry, &tag);
 	if (rc < 0)
 		return false;
-
-	return pft_is_file_encrypted(tag);
-}
-
-/**
- * pft_is_encrypted_inode() - is the file encrypted.
- * @inode: inode of file to check.
- *
- * Return: true if the file is encrypted, false otherwise.
- */
-static bool pft_is_encrypted_inode(struct inode *inode)
-{
-	u32 tag;
-
-	if (!pft_is_ready())
-		return false;
-
-	if (!pft_is_xattr_supported(inode))
-		return false;
-
-	tag = pft_get_inode_tag(inode);
 
 	return pft_is_file_encrypted(tag);
 }
@@ -881,92 +864,6 @@ int pft_inode_mknod(struct inode *dir, struct dentry *dentry,
 EXPORT_SYMBOL(pft_inode_mknod);
 
 /**
- * pft_inode_symlink() - symlink file hook (callback)
- * @dir:	directory inode pointer
- * @dentry:	file dentry pointer
- * @name:	Old file name
- *
- * Allow only enterprise app to create symlink to enterprise
- * file.
- * Call path:
- * vfs_symlink()->security_inode_symlink()->selinux_inode_symlink()
- *
- * Return: 0 on allowed operation, negative value otherwise.
- */
-int pft_inode_symlink(struct inode *dir, struct dentry *dentry,
-		      const char *name)
-{
-	struct inode *inode;
-
-	if (!dir) {
-		pr_err("dir is NULL.\n");
-		return 0;
-	}
-	if (!dentry) {
-		pr_err("dentry is NULL.\n");
-		return 0;
-	}
-	if (!name) {
-		pr_err("name is NULL.\n");
-		return 0;
-	}
-
-	pr_debug("symlink for file [%s] dir [%s] dentry [%s] started! ....\n",
-		 name, inode_to_filename(dir), dentry->d_iname);
-	inode = dentry->d_inode;
-
-	if (!dentry->d_inode) {
-		pr_debug("d_inode is NULL.\n");
-		return 0;
-	}
-
-	if (!pft_is_ready())
-		return 0;
-
-	/* do nothing for non-encrypted files */
-	if (!pft_is_encrypted_inode(inode))
-		return 0;
-
-	/*
-	 * Only PFM allowed to access in-place-encryption-file
-	 * during in-place-encryption process
-	 */
-	if (pft_is_inplace_inode(inode)) {
-		pr_err("symlink for in-place-encryption file %s by pid %d is blocked.\n",
-			 inode_to_filename(inode), current_pid());
-		return -EACCES;
-	}
-
-	switch (pft_dev->state) {
-	case PFT_STATE_DEACTIVATED:
-	case PFT_STATE_KEY_REMOVED:
-	case PFT_STATE_DEACTIVATING:
-	case PFT_STATE_REMOVING_KEY:
-		/* Block any access for encrypted files when key not loaded */
-		pr_debug("key not loaded. uid (%u) can not access file %s\n",
-			 current_uid(), inode_to_filename(inode));
-		return -EACCES;
-	case PFT_STATE_KEY_LOADED:
-		 /* Only registered apps may access encrypted files. */
-		if (!pft_is_current_process_registered()) {
-			pr_err("unregistered app uid %u pid %u is trying to access encrypted file %s\n",
-			       current_uid(), current_pid(), name);
-			return -EACCES;
-		}
-		break;
-	default:
-		BUG(); /* State is set by "set state" command */
-		break;
-	}
-
-	pr_debug("symlink for file %s ok.\n", name);
-
-	return 0;
-
-}
-EXPORT_SYMBOL(pft_inode_symlink);
-
-/**
  * pft_inode_rename() - file rename hook.
  * @inode:	directory inode
  * @dentry:	file dentry
@@ -1025,6 +922,8 @@ EXPORT_SYMBOL(pft_inode_rename);
  */
 int pft_file_open(struct file *filp, const struct cred *cred)
 {
+	int ret;
+
 	if (!filp || !filp->f_path.dentry)
 		return 0;
 
@@ -1063,7 +962,12 @@ int pft_file_open(struct file *filp, const struct cred *cred)
 			return -EACCES;
 		}
 
-		pft_add_file(filp);
+		ret = pft_add_file(filp);
+		if (ret) {
+			pr_err("failed to add file %s to the list.\n",
+			       file_to_filename(filp));
+			return -EFAULT;
+		}
 		break;
 	default:
 		BUG(); /* State is set by "set state" command */
@@ -1230,7 +1134,7 @@ int pft_inode_unlink(struct inode *dir, struct dentry *dentry)
 	if (pft_is_inplace_inode(inode)) {
 		pr_err("block delete in-place-encryption file %s by uid [%d] pid [%d], while encryption in progress.\n",
 		       inode_to_filename(inode), current_uid(), current_pid());
-		return -EACCES;
+		return -EBUSY;
 	}
 
 	if (!pft_is_current_process_registered()) {
@@ -1562,7 +1466,7 @@ static int pft_update_reg_apps(struct pft_command *command, int size)
  */
 static int pft_handle_command(void *buf, int buf_size)
 {
-	size_t ret = 0;
+	int ret = 0;
 	struct pft_command *command = NULL;
 
 	/* opcode field is the minimum length of command */
@@ -1620,7 +1524,7 @@ static int pft_device_open(struct inode *inode, struct file *file)
 static int pft_device_release(struct inode *inode, struct file *file)
 {
 	mutex_lock(&pft_dev->lock);
-	if (0 < pft_dev->open_count)
+	if (pft_dev->open_count > 0)
 		pft_dev->open_count--;
 	pft_dev->pfm_pid = UINT_MAX;
 	mutex_unlock(&pft_dev->lock);
@@ -1769,15 +1673,32 @@ static void __exit pft_unregister_chrdev(void)
 
 }
 
+static void  __exit pft_free_open_files_list(void)
+{
+	struct pft_file_info *tmp = NULL;
+	struct list_head *pos = NULL;
+	struct list_head *next = NULL;
+
+	mutex_lock(&pft_dev->lock);
+	list_for_each_safe(pos, next, &pft_dev->open_file_list) {
+		tmp = list_entry(pos, struct pft_file_info, list);
+		list_del(&tmp->list);
+		kfree(tmp);
+	}
+	mutex_unlock(&pft_dev->lock);
+}
+
 static void __exit pft_exit(void)
 {
 	if (pft_dev == NULL)
 		return;
 
 	pft_unregister_chrdev();
+	pft_free_open_files_list();
 
 	kfree(pft_dev->uid_table);
 	kfree(pft_dev);
+	pft_dev = NULL;
 }
 
 static int __init pft_init(void)
@@ -1790,12 +1711,13 @@ static int __init pft_init(void)
 		pr_err("No memory for device structr\n");
 		return -ENOMEM;
 	}
+	pft_dev = dev;
 
 	dev->state = PFT_STATE_DEACTIVATED;
+	dev->pfm_pid = UINT_MAX;
+
 	INIT_LIST_HEAD(&dev->open_file_list);
 	mutex_init(&dev->lock);
-
-	pft_dev = dev;
 
 	ret = pft_register_chardev();
 	if (ret) {
@@ -1810,6 +1732,7 @@ static int __init pft_init(void)
 fail:
 	pr_err("Failed to init driver.\n");
 	kfree(dev);
+	pft_dev = NULL;
 
 	return -ENODEV;
 }
