@@ -4173,6 +4173,20 @@ dhd_preinit_ioctls(dhd_pub_t *dhd)
 	if ((ret = dhd_wl_ioctl_cmd(dhd, WLC_SET_VAR, iovbuf,
 		sizeof(iovbuf), TRUE, 0)) < 0) {
 		DHD_ERROR(("%s Set lpc failed  %d\n", __FUNCTION__, ret));
+		/* Dongle state is sometimes not down state.
+		 * So, if ioctl error is BCME_NOTDOWN, make the dongle state
+		 * down using WLC_DOWN ioctl command and try again.
+		 */
+		if (ret == BCME_NOTDOWN) {
+			uint wl_down = 1;
+			ret = dhd_wl_ioctl_cmd(dhd, WLC_DOWN,
+				(char *)&wl_down, sizeof(wl_down), TRUE, 0);
+			DHD_ERROR(("%s lpc fail WL_DOWN : %d, lpc = %d\n", __FUNCTION__, ret, lpc));
+
+			bcm_mkiovar("lpc", (char *)&lpc, 4, iovbuf, sizeof(iovbuf));
+			ret = dhd_wl_ioctl_cmd(dhd, WLC_SET_VAR, iovbuf, sizeof(iovbuf), TRUE, 0);
+			DHD_ERROR(("%s Set lpc ret --> %d\n", __FUNCTION__, ret));
+		}
 	}
 #endif /* DHD_ENABLE_LPC */
 
@@ -4440,6 +4454,24 @@ dhd_preinit_ioctls(dhd_pub_t *dhd)
 		DHD_ERROR(("%s wl ampdu_hostreorder failed %d\n", __FUNCTION__, ret2));
 		if (ret2 != BCME_UNSUPPORTED)
 			ret = ret2;
+		/* Dongle state is sometimes not down state.
+		 * So, if ioctl error is BCME_NOTDOWN, make the dongle state
+		 * down using WLC_DOWN ioctl command and try again.
+		 */
+		if (ret == BCME_NOTDOWN) {
+			uint wl_down = 1;
+			ret2 = dhd_wl_ioctl_cmd(dhd, WLC_DOWN, (char *)&wl_down,
+				sizeof(wl_down), TRUE, 0);
+			DHD_ERROR(("%s ampdu_hostreorder fail WL_DOWN : %d, hostreorder :%d\n",
+				__FUNCTION__, ret2, hostreorder));
+
+			bcm_mkiovar("ampdu_hostreorder", (char *)&hostreorder, 4,
+				iovbuf, sizeof(iovbuf));
+			ret2 = dhd_wl_ioctl_cmd(dhd, WLC_SET_VAR, iovbuf, sizeof(iovbuf), TRUE, 0);
+			DHD_ERROR(("%s wl ampdu_hostreorder. ret --> %d\n", __FUNCTION__, ret2));
+			if (ret2 != BCME_UNSUPPORTED)
+				ret = ret2;
+		}
 	}
 #endif /* DISABLE_11N */
 	if (wlfc_enable)
