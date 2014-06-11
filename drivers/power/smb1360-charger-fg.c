@@ -44,6 +44,7 @@
 #define CFG_BATT_CHG_ICL_REG		0x05
 #define AC_INPUT_ICL_PIN_BIT		BIT(7)
 #define AC_INPUT_PIN_HIGH_BIT		BIT(6)
+#define RESET_STATE_USB_500		BIT(5)
 #define INPUT_CURR_LIM_MASK		SMB1360_MASK(3, 0)
 
 #define CFG_GLITCH_FLT_REG		0x06
@@ -180,6 +181,7 @@
 enum {
 	WRKRND_FG_CONFIG_FAIL = BIT(0),
 	WRKRND_BATT_DET_FAIL = BIT(1),
+	WRKRND_USB100_FAIL = BIT(2),
 };
 
 enum {
@@ -409,6 +411,21 @@ static int smb1360_enable_volatile_writes(struct smb1360_chip *chip)
 			"Couldn't set VOLATILE_W_PERM_BIT rc=%d\n", rc);
 
 	return rc;
+}
+
+#define TRIM_1C_REG		0x1C
+#define CHECK_USB100_GOOD_BIT	BIT(6)
+static bool is_usb100_broken(struct smb1360_chip *chip)
+{
+	int rc;
+	u8 reg;
+
+	rc = smb1360_read(chip, TRIM_1C_REG, &reg);
+	if (rc < 0) {
+		dev_err(chip->dev, "Couldn't read trim 1C reg rc = %d\n", rc);
+		return rc;
+	}
+	return !!(reg & CHECK_USB100_GOOD_BIT);
 }
 
 static int read_revision(struct smb1360_chip *chip, u8 *revision)
@@ -778,6 +795,12 @@ static int smb1360_set_appropriate_usb_current(struct smb1360_chip *chip)
 		pr_err("Couldn't set ICL mA rc=%d\n", rc);
 
 	pr_debug("ICL set to = %d\n", input_current_limit[i]);
+
+	if ((current_ma <= CURRENT_100_MA) &&
+		(chip->workaround_flags & WRKRND_USB100_FAIL)) {
+		pr_debug("usb100 not supported\n");
+		current_ma = CURRENT_500_MA;
+	}
 
 	if (current_ma <= CURRENT_100_MA) {
 		/* USB 100 */
@@ -1825,11 +1848,36 @@ static int smb1360_fg_config(struct smb1360_chip *chip)
 	return 0;
 }
 
+static void smb1360_check_feature_support(struct smb1360_chip *chip)
+{
+
+	if (is_usb100_broken(chip)) {
+		pr_debug("USB100 is not supported\n");
+		chip->workaround_flags |= WRKRND_USB100_FAIL;
+	}
+
+	/*
+	 * FG Configuration
+	 *
+	 * The REV_1 of the chip does not allow access to
+	 * FG config registers (20-2FH). Set the workaround flag.
+	 * Also, the battery detection does not work when the DCIN is absent,
+	 * add a workaround flag for it.
+	*/
+	if (chip->revision == SMB1360_REV_1) {
+		pr_debug("FG config and Battery detection is not supported\n");
+		chip->workaround_flags |=
+			WRKRND_FG_CONFIG_FAIL | WRKRND_BATT_DET_FAIL;
+	}
+}
+
 static int smb1360_hw_init(struct smb1360_chip *chip)
 {
 	int rc;
 	int i;
 	u8 reg, mask;
+
+	smb1360_check_feature_support(chip);
 
 	rc = smb1360_enable_volatile_writes(chip);
 	if (rc < 0) {
@@ -1837,7 +1885,6 @@ static int smb1360_hw_init(struct smb1360_chip *chip)
 				rc);
 		return rc;
 	}
-
 	/*
 	 * set chg en by cmd register, set chg en by writing bit 1,
 	 * enable auto pre to fast
@@ -1855,8 +1902,10 @@ static int smb1360_hw_init(struct smb1360_chip *chip)
 	/* USB/AC pin settings */
 	rc = smb1360_masked_write(chip, CFG_BATT_CHG_ICL_REG,
 					AC_INPUT_ICL_PIN_BIT
-					| AC_INPUT_PIN_HIGH_BIT,
-					AC_INPUT_PIN_HIGH_BIT);
+					| AC_INPUT_PIN_HIGH_BIT
+					| RESET_STATE_USB_500,
+					AC_INPUT_PIN_HIGH_BIT
+					| RESET_STATE_USB_500);
 	if (rc < 0) {
 		dev_err(chip->dev, "Couldn't set CFG_BATT_CHG_ICL_REG rc=%d\n",
 				rc);
@@ -2061,18 +2110,6 @@ static int smb1360_hw_init(struct smb1360_chip *chip)
 		}
 	}
 
-	/*
-	 * FG Configuration
-	 *
-	 * The REV_1 of the chip does not allow access to
-	 * FG config registers (20-2FH). Set the workaround flag.
-	 * Also, the battery detection does not work when the DCIN is absent,
-	 * add a workaround flag for it.
-	*/
-
-	if (chip->revision == SMB1360_REV_1)
-		chip->workaround_flags |=
-			WRKRND_FG_CONFIG_FAIL | WRKRND_BATT_DET_FAIL;
 
 	smb1360_fg_config(chip);
 
