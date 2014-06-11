@@ -3034,6 +3034,23 @@ int sched_hmp_proc_update_handler(struct ctl_table *table, int write,
 	return 0;
 }
 
+/*
+ * Reset balance_interval at all sched_domain levels of given cpu, so that it
+ * honors kick.
+ */
+static inline void reset_balance_interval(int cpu)
+{
+	struct sched_domain *sd;
+
+	if (cpu >= nr_cpu_ids)
+		return;
+
+	rcu_read_lock();
+	for_each_domain(cpu, sd)
+		sd->balance_interval = 0;
+	rcu_read_unlock();
+}
+
 static inline int find_new_hmp_ilb(int type)
 {
 	int i;
@@ -3066,6 +3083,8 @@ static inline int find_new_hmp_ilb(int type)
 	}
 
 	rcu_read_unlock();
+
+	reset_balance_interval(best_cpu);
 
 	return best_cpu;
 }
@@ -8839,6 +8858,18 @@ static inline int _nohz_kick_needed(struct rq *rq, int cpu, int *type)
 
 static inline int _nohz_kick_needed(struct rq *rq, int cpu, int *type)
 {
+	unsigned long now = jiffies;
+
+	/*
+	 * None are in tickless mode and hence no need for NOHZ idle load
+	 * balancing.
+	 */
+	if (likely(!atomic_read(&nohz.nr_cpus)))
+		return 0;
+
+	if (time_before(now, nohz.next_balance))
+		return 0;
+
 	return (rq->nr_running >= 2);
 }
 
@@ -8857,7 +8888,6 @@ static inline int _nohz_kick_needed(struct rq *rq, int cpu, int *type)
  */
 static inline bool nohz_kick_needed(struct rq *rq, int *type)
 {
-	unsigned long now = jiffies;
 #ifndef CONFIG_SCHED_HMP
 	struct sched_domain *sd;
 	struct sched_group_capacity *sgc;
@@ -8875,16 +8905,6 @@ static inline bool nohz_kick_needed(struct rq *rq, int *type)
 	*/
 	set_cpu_sd_state_busy();
 	nohz_balance_exit_idle(cpu);
-
-	/*
-	 * None are in tickless mode and hence no need for NOHZ idle load
-	 * balancing.
-	 */
-	if (likely(!atomic_read(&nohz.nr_cpus)))
-		return false;
-
-	if (time_before(now, nohz.next_balance))
-		return false;
 
 	if (_nohz_kick_needed(rq, cpu, type))
 		return true;
