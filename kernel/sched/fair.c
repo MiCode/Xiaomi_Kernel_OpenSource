@@ -2873,6 +2873,9 @@ static inline int migration_needed(struct rq *rq, struct task_struct *p)
 {
 	int nice = task_nice(p);
 
+	if (is_small_task(p))
+		return 0;
+
 	/* Todo: cgroup-based control? */
 	if (nice > sysctl_sched_upmigrate_min_nice &&
 		rq->capacity > min_capacity)
