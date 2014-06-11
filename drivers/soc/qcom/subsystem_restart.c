@@ -1402,6 +1402,12 @@ struct subsys_device *subsys_register(struct subsys_desc *desc)
 		ret = subsys_setup_irqs(subsys);
 		if (ret < 0)
 			goto err_register;
+
+		if (of_property_read_u32(desc->dev->of_node,
+					"qcom,ssctl-instance-id",
+					&desc->ssctl_instance_id))
+			pr_debug("Reading instance-id for %s failed\n",
+								desc->name);
 	}
 
 	mutex_lock(&subsys_list_lock);
