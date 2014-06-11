@@ -29,7 +29,6 @@
 #define KGSL_PWRFLAGS_CLK_ON   1
 #define KGSL_PWRFLAGS_AXI_ON   2
 #define KGSL_PWRFLAGS_IRQ_ON   3
-#define KGSL_PWRFLAGS_SPTP_ON  4
 
 #define UPDATE_BUSY_VAL		1000000
 
@@ -83,7 +82,6 @@ static void kgsl_pwrctrl_clk(struct kgsl_device *device, int state,
 					int requested_state);
 static void kgsl_pwrctrl_axi(struct kgsl_device *device, int state);
 static int kgsl_pwrctrl_pwrrail(struct kgsl_device *device, int state);
-static void kgsl_pwrctrl_sptp(struct kgsl_device *device, int state);
 static void kgsl_pwrctrl_set_state(struct kgsl_device *device,
 				unsigned int state);
 static void kgsl_pwrctrl_request_state(struct kgsl_device *device,
@@ -587,9 +585,6 @@ static void __force_on(struct kgsl_device *device, int flag, int on)
 		case KGSL_PWRFLAGS_POWER_ON:
 			kgsl_pwrctrl_pwrrail(device, KGSL_PWRFLAGS_ON);
 			break;
-		case KGSL_PWRFLAGS_SPTP_ON:
-			kgsl_pwrctrl_sptp(device, KGSL_PWRFLAGS_ON);
-			break;
 		}
 		set_bit(flag, &device->pwrctrl.ctrl_flags);
 	} else {
@@ -672,19 +667,6 @@ static ssize_t kgsl_pwrctrl_force_rail_on_store(struct device *dev,
 {
 	return __force_on_store(dev, attr, buf, count, KGSL_PWRFLAGS_POWER_ON);
 }
-static ssize_t kgsl_pwrctrl_force_sptp_on_show(struct device *dev,
-					struct device_attribute *attr,
-					char *buf)
-{
-	return __force_on_show(dev, attr, buf, KGSL_PWRFLAGS_SPTP_ON);
-}
-
-static ssize_t kgsl_pwrctrl_force_sptp_on_store(struct device *dev,
-					struct device_attribute *attr,
-					const char *buf, size_t count)
-{
-	return __force_on_store(dev, attr, buf, count, KGSL_PWRFLAGS_SPTP_ON);
-}
 
 static ssize_t kgsl_pwrctrl_bus_split_show(struct device *dev,
 					struct device_attribute *attr,
@@ -757,9 +739,6 @@ static DEVICE_ATTR(force_bus_on, 0644,
 static DEVICE_ATTR(force_rail_on, 0644,
 	kgsl_pwrctrl_force_rail_on_show,
 	kgsl_pwrctrl_force_rail_on_store);
-static DEVICE_ATTR(force_sptp_on, 0644,
-	kgsl_pwrctrl_force_sptp_on_show,
-	kgsl_pwrctrl_force_sptp_on_store);
 DEVICE_ATTR(bus_split, 0644,
 	kgsl_pwrctrl_bus_split_show,
 	kgsl_pwrctrl_bus_split_store);
@@ -779,7 +758,6 @@ static const struct device_attribute *pwrctrl_attr_list[] = {
 	&dev_attr_force_clk_on,
 	&dev_attr_force_bus_on,
 	&dev_attr_force_rail_on,
-	&dev_attr_force_sptp_on,
 	&dev_attr_bus_split,
 	NULL
 };
@@ -975,32 +953,6 @@ void kgsl_pwrctrl_irq(struct kgsl_device *device, int state)
 	}
 }
 EXPORT_SYMBOL(kgsl_pwrctrl_irq);
-
-static void kgsl_pwrctrl_sptp(struct kgsl_device *device, int state)
-{
-	struct kgsl_pwrctrl *pwr = &device->pwrctrl;
-
-	if (test_bit(KGSL_PWRFLAGS_SPTP_ON, &pwr->ctrl_flags))
-		return;
-
-	/*
-	 * In the case of the SP/TP block, the _ON flag forces the
-	 * block's power on and disables SP/TP power collapse.  The
-	 * _OFF flag allows the block to "go off" ie power collapse
-	 * on supported targets.  This function is a no-op on targets
-	 * that do not support SP/TP power collapse.
-	 */
-	if (state == KGSL_PWRFLAGS_OFF) {
-		if (test_and_clear_bit(KGSL_PWRFLAGS_SPTP_ON,
-			&pwr->power_flags))
-			device->ftbl->enable_pc(device);
-	} else if (state == KGSL_PWRFLAGS_ON) {
-		if (!test_and_set_bit(KGSL_PWRFLAGS_SPTP_ON,
-			&pwr->power_flags))
-			device->ftbl->disable_pc(device);
-	}
-}
-
 
 int kgsl_pwrctrl_init(struct kgsl_device *device)
 {

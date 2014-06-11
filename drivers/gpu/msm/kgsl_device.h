@@ -180,8 +180,6 @@ struct kgsl_functable {
 	void (*drawctxt_sched)(struct kgsl_device *device,
 		struct kgsl_context *context);
 	void (*resume)(struct kgsl_device *device);
-	void (*enable_pc)(struct kgsl_device *);
-	void (*disable_pc)(struct kgsl_device *);
 	void (*regulator_enable)(struct kgsl_device *);
 	bool (*is_hw_collapsible)(struct kgsl_device *);
 	void (*regulator_disable)(struct kgsl_device *);

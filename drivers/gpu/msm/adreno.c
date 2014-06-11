@@ -1968,6 +1968,10 @@ static int _adreno_start(struct adreno_device *adreno_dev)
 
 	adreno_perfcounter_start(adreno_dev);
 
+	/* Enable h/w power collapse feature */
+	if (gpudev->enable_pc)
+		gpudev->enable_pc(adreno_dev);
+
 	status = adreno_ringbuffer_cold_start(adreno_dev);
 	if (status)
 		goto error_irq_off;
@@ -2520,6 +2524,59 @@ static ssize_t _wake_timeout_show(struct device *dev,
 	return snprintf(buf, PAGE_SIZE, "%u\n", _wake_timeout);
 }
 
+/**
+ * _sptp_pc_store() - Enable or disable SP/TP power collapse
+ * @dev: device ptr
+ * @attr: Device attribute
+ * @buf: value to write
+ * @count: size of the value to write
+ *
+ */
+static ssize_t _sptp_pc_store(struct device *dev,
+				struct device_attribute *attr,
+				const char *buf, size_t count)
+{
+	struct adreno_device *adreno_dev = _get_adreno_dev(dev);
+	struct kgsl_device *device = kgsl_device_from_dev(dev);
+	struct adreno_gpudev *gpudev;
+	int ret, t = 0;
+
+	if ((adreno_dev == NULL) || (device == NULL))
+		return -ENODEV;
+
+	gpudev = ADRENO_GPU_DEVICE(adreno_dev);
+	ret = kgsl_sysfs_store(buf, &t);
+	if (ret < 0)
+		return ret;
+
+	kgsl_mutex_lock(&device->mutex, &device->mutex_owner);
+
+	kgsl_pwrctrl_change_state(device, KGSL_STATE_SUSPEND);
+	if (t)
+		set_bit(ADRENO_SPTP_PC_CTRL, &adreno_dev->pwrctrl_flag);
+	else
+		clear_bit(ADRENO_SPTP_PC_CTRL, &adreno_dev->pwrctrl_flag);
+	kgsl_pwrctrl_change_state(device, KGSL_STATE_SLUMBER);
+
+	kgsl_mutex_unlock(&device->mutex, &device->mutex_owner);
+	return count;
+}
+
+/**
+ * _sptp_pc_show() -  Show whether SP/TP power collapse is enabled
+ * @dev: device ptr
+ * @attr: Device attribute
+ * @buf: value read
+ */
+static ssize_t _sptp_pc_show(struct device *dev,
+					struct device_attribute *attr,
+					char *buf)
+{
+	struct adreno_device *adreno_dev = _get_adreno_dev(dev);
+	return snprintf(buf, PAGE_SIZE, "%u\n", test_bit(ADRENO_SPTP_PC_CTRL,
+					&adreno_dev->pwrctrl_flag));
+}
+
 #define ADRENO_DEVICE_ATTR(name) \
 	DEVICE_ATTR(name, 0644,	_ ## name ## _show, _ ## name ## _store);
 
@@ -2531,6 +2588,7 @@ static ADRENO_DEVICE_ATTR(ft_hang_intr_status);
 
 static DEVICE_INT_ATTR(wake_nice, 0644, _wake_nice);
 static ADRENO_DEVICE_ATTR(wake_timeout);
+static ADRENO_DEVICE_ATTR(sptp_pc);
 
 static const struct device_attribute *_attr_list[] = {
 	&dev_attr_ft_policy,
@@ -2540,6 +2598,7 @@ static const struct device_attribute *_attr_list[] = {
 	&dev_attr_ft_hang_intr_status,
 	&dev_attr_wake_nice.attr,
 	&dev_attr_wake_timeout,
+	&dev_attr_sptp_pc,
 	NULL,
 };
 
@@ -3302,22 +3361,6 @@ static unsigned int adreno_gpuid(struct kgsl_device *device,
 	return (0x0003 << 16) | ADRENO_GPUREV(adreno_dev);
 }
 
-static void adreno_enable_pc(struct kgsl_device *device)
-{
-	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
-	struct adreno_gpudev *gpudev  = ADRENO_GPU_DEVICE(adreno_dev);
-	if (gpudev->enable_pc)
-		gpudev->enable_pc(adreno_dev);
-}
-
-static void adreno_disable_pc(struct kgsl_device *device)
-{
-	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
-	struct adreno_gpudev *gpudev  = ADRENO_GPU_DEVICE(adreno_dev);
-	if (gpudev->disable_pc)
-		gpudev->disable_pc(adreno_dev);
-}
-
 static void adreno_regulator_enable(struct kgsl_device *device)
 {
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
@@ -3374,8 +3417,6 @@ static const struct kgsl_functable adreno_functable = {
 	.setproperty_compat = adreno_setproperty_compat,
 	.drawctxt_sched = adreno_drawctxt_sched,
 	.resume = adreno_dispatcher_start,
-	.enable_pc = adreno_enable_pc,
-	.disable_pc = adreno_disable_pc,
 	.regulator_enable = adreno_regulator_enable,
 	.is_hw_collapsible = adreno_is_hw_collapsible,
 	.regulator_disable = adreno_regulator_disable,
