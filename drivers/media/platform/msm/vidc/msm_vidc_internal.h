@@ -58,6 +58,30 @@
 #define MAX_NAME_LENGTH 64
 
 #define EXTRADATA_IDX(__num_planes) (__num_planes - 1)
+
+#define NUM_MBS_PER_SEC(__height, __width, __fps) ({\
+	(__height / 16) * (__width  / 16) * __fps; \
+})
+
+/* Default threshold to reduce the core frequency */
+#define DCVS_NOMINAL_THRESHOLD 8
+/* Default threshold to increase the core frequency */
+#define DCVS_TURBO_THRESHOLD 4
+/* Instance max load above which DCVS kicks in */
+#define DCVS_NOMINAL_LOAD NUM_MBS_PER_SEC(1088, 1920, 60)
+/* Considering two output buffer with core */
+#define DCVS_BUFFER_WITH_DEC 2
+/* Considering one output buffer in transition after decode */
+#define DCVS_BUFFER_RELEASED_DEC 1
+/* Considering atleast one FTB between each FBD */
+#define DCVS_MIN_DRAIN_RATE 1
+/* Ensures difference of 4 between min and max threshold always*/
+#define DCVS_MIN_THRESHOLD_DIFF 4
+/* Maintains the number of FTB's between each FBD over a window */
+#define DCVS_FTB_WINDOW 16
+/* Empirical number arrived at to calculate the high threshold*/
+#define DCVS_EMP_THRESHOLD_HIGH 8
+
 enum vidc_ports {
 	OUTPUT_PORT,
 	CAPTURE_PORT,
@@ -162,6 +186,24 @@ struct buf_count {
 	int ebd;
 };
 
+struct dcvs_stats {
+	int num_ftb[DCVS_FTB_WINDOW];
+	int ftb_index;
+	int ftb_counter;
+	int prev_ftb_count;
+	bool prev_freq_lowered;
+	bool prev_freq_increased;
+	bool change_initial_freq;
+	int threshold_disp_buf_high;
+	int threshold_disp_buf_low;
+	int load;
+	int load_low;
+	int load_high;
+	int min_threshold;
+	int max_threshold;
+	bool is_clock_scaled;
+};
+
 struct profile_data {
 	int start;
 	int stop;
@@ -246,6 +288,7 @@ struct msm_vidc_inst {
 	void *priv;
 	struct msm_vidc_debug debug;
 	struct buf_count count;
+	struct dcvs_stats dcvs;
 	enum msm_vidc_modes flags;
 	struct msm_vidc_core_capability capability;
 	enum buffer_mode_type buffer_mode_set[MAX_PORT_NUM];
@@ -253,6 +296,7 @@ struct msm_vidc_inst {
 	bool map_output_buffer;
 	atomic_t get_seq_hdr_cnt;
 	struct v4l2_ctrl **ctrls;
+	bool dcvs_mode;
 };
 
 extern struct msm_vidc_drv *vidc_driver;
