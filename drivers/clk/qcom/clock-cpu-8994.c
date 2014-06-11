@@ -707,6 +707,7 @@ static struct alpha_pll_masks alpha_pll_masks_20nm_p = {
 	.vco_shift = 20,
 	.alpha_en_mask = BIT(24),
 	.output_mask = 0xF,
+	.post_div_mask = 0xF00,
 };
 
 static struct alpha_pll_vco_tbl alpha_pll_vco_20nm_p[] = {
@@ -719,6 +720,7 @@ static struct alpha_pll_clk cci_pll = {
 	.vco_tbl = alpha_pll_vco_20nm_p,
 	.num_vco = ARRAY_SIZE(alpha_pll_vco_20nm_p),
 	.enable_config = 0x9, /* Main and early outputs */
+	.post_div_config = 0x100, /* Div-2 */
 	.c = {
 		.parent = &xo_ao.c,
 		.dbg_name = "cci_pll",

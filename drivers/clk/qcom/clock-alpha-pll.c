@@ -33,6 +33,7 @@
 #define ALPHA_EN_REG(pll) (*pll->base + pll->offset + 0x10)
 #define OUTPUT_REG(pll) (*pll->base + pll->offset + 0x10)
 #define VOTE_REG(pll) (*pll->base + pll->fsm_reg_offset)
+#define USER_CTL_LO_REG(pll) (*pll->base + pll->offset + 0x10)
 
 #define PLL_BYPASSNL 0x2
 #define PLL_RESET_N  0x4
@@ -396,7 +397,7 @@ static enum handoff alpha_pll_handoff(struct clk *c)
 	struct alpha_pll_masks *masks = pll->masks;
 	u64 a_val;
 	u32 alpha_en, l_val;
-	u32 output_en;
+	u32 output_en, userval;
 
 	update_vco_tbl(pll);
 
@@ -408,6 +409,12 @@ static enum handoff alpha_pll_handoff(struct clk *c)
 			output_en &= ~masks->output_mask;
 			output_en |= pll->enable_config;
 			writel_relaxed(output_en, OUTPUT_REG(pll));
+		}
+		if (masks->post_div_mask) {
+			userval = readl_relaxed(USER_CTL_LO_REG(pll));
+			userval &= ~masks->post_div_mask;
+			userval |= pll->post_div_config;
+			writel_relaxed(userval, USER_CTL_LO_REG(pll));
 		}
 		if (pll->fsm_en_mask)
 			__set_fsm_mode(MODE_REG(pll));
