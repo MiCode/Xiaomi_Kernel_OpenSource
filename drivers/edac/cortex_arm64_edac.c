@@ -62,7 +62,7 @@
 
 #define L1_CACHE		0
 #define L2_CACHE		1
-#define CCI		1
+#define CCI			2
 
 #define A53_L1_CE			0
 #define A53_L1_UE			1
@@ -194,7 +194,7 @@ static void ca53_parse_cpumerrsr(struct edac_device_ctl_info *edev_ctl)
 	edac_printk(KERN_CRIT, EDAC_CPU, "Other error count: %d\n",
 					 (int) A53_CPUMERRSR_OTHER(cpumerrsr));
 
-	errors[A53_L1_UE].func(edev_ctl, cpuid, L1_CACHE,
+	errors[A53_L1_UE].func(edev_ctl, smp_processor_id(), L1_CACHE,
 				errors[A53_L1_UE].msg);
 	write_cpumerrsr_el1(0);
 }
@@ -242,7 +242,9 @@ static void ca53_parse_l2merrsr(struct edac_device_ctl_info *edev_ctl)
 	edac_printk(KERN_CRIT, EDAC_CPU, "Other error count: %d\n",
 					 (int) A53_L2MERRSR_OTHER(l2merrsr));
 
-	errors[A53_L2_UE].func(edev_ctl, 0, L2_CACHE, errors[A53_L2_UE].msg);
+	errors[A53_L2_UE].func(edev_ctl, smp_processor_id(), L2_CACHE,
+			       errors[A53_L2_UE].msg);
+
 	write_l2merrsr_el1(0);
 }
 
@@ -295,8 +297,9 @@ static void ca57_parse_cpumerrsr(struct edac_device_ctl_info *edev_ctl)
 	edac_printk(KERN_CRIT, EDAC_CPU, "Other error count: %d\n",
 					 (int) A57_CPUMERRSR_OTHER(cpumerrsr));
 
-	errors[A57_L1_UE].func(edev_ctl, bank, L1_CACHE,
+	errors[A57_L1_UE].func(edev_ctl, smp_processor_id(), L1_CACHE,
 				errors[A57_L1_UE].msg);
+
 	write_cpumerrsr_el1(0);
 }
 
@@ -353,7 +356,9 @@ static void ca57_parse_l2merrsr(struct edac_device_ctl_info *edev_ctl)
 	edac_printk(KERN_CRIT, EDAC_CPU, "Other error count: %d\n",
 					 (int) A57_L2MERRSR_OTHER(l2merrsr));
 
-	errors[A57_L2_UE].func(edev_ctl, 0, L2_CACHE, errors[A57_L2_UE].msg);
+	errors[A57_L2_UE].func(edev_ctl, smp_processor_id(), L2_CACHE,
+			       errors[A57_L2_UE].msg);
+
 	write_l2merrsr_el1(0);
 }
 
@@ -429,8 +434,8 @@ static void arm64_ext_local_handler(void *info)
 		    "L2 external error detected by CPU%d\n",
 		    smp_processor_id());
 
-		errors[L2_EXT_UE].func(drv->edev_ctl, 0, L2_CACHE,
-				errors[L2_EXT_UE].msg);
+		errors[L2_EXT_UE].func(drv->edev_ctl, smp_processor_id(),
+				       L2_CACHE, errors[L2_EXT_UE].msg);
 
 		l2ectlr &= ~L2ECTLR_EXT_ERR;
 		write_l2ectlr_el1(l2ectlr);
@@ -527,8 +532,9 @@ static int arm64_cpu_erp_probe(struct platform_device *pdev)
 	if (!drv)
 		return -ENOMEM;
 
-	drv->edev_ctl = edac_device_alloc_ctl_info(0, "cpu", ARRAY_SIZE(errors),
-				"L", 3, 1, NULL, 0, edac_device_alloc_index());
+	drv->edev_ctl = edac_device_alloc_ctl_info(0, "cpu",
+					num_possible_cpus(), "L", 3, 1, NULL, 0,
+					edac_device_alloc_index());
 
 	if (!drv->edev_ctl)
 		return -ENOMEM;
