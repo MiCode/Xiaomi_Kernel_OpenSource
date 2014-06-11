@@ -1,73 +1,75 @@
 This document lists the features of the Wolfson 'Arizona' class audio hubs
-supported by the kernel drivers (WM8997, WM5102, WM8280, WM8281). Note that
-some features are covered by other classes of driver (extcon, regulator, etc.)
-and this list below shows the full set of features related to sound:
+supported by the kernel drivers (WM8997, WM8998, WM5102, WM8280, WM8281).
+Note that some features are covered by other classes of driver (extcon,
+regulator, etc.) and this list below shows the full set of features related
+to sound:
 
 '-' means not relevant for that audio hub model
 
-
-Feature                                            WM8997  WM5102  WM8280  WM8281
+                                                                           WM8280
+Feature                                            WM8997  WM8998  WM5102  WM8281
 ---------------------------------------------------------------------------------
-24-bit samples                                        Y       Y       Y      Y
-192kHz sample rate                                    Y       Y       Y      Y
-Routing controlled via ALSA controls                  Y       Y       Y      Y
-Volume control on all mixer inputs                    Y       Y       Y      Y
-Volume control on all outputs                         Y       Y       Y      Y
-Mute control on all outputs                           Y       Y       Y      Y
-Output DRE control                                    -       Y       Y      Y
-Output OSR control                                    Y       Y       Y      Y
-Input ramp control                                    Y       Y       Y      Y
-Output ramp control                                   Y       Y       Y      Y
-Route any audio input to any mixer input              Y       Y       Y      Y
-Route internal signals to mixer inputs                Y       Y       Y      Y
-Route audio path through ISRC                         Y       Y       Y      Y
-Route audio path through ASRC                         -       Y       Y      Y
-Route audio path through EQs                          Y       Y       Y      Y
-Route audio path through low/high pass filters        Y       Y       Y      Y
-Route audio path through DRCs                         Y       Y       Y      Y
-Route audio path through ADSP cores                   -       Y       Y      Y
-Set EQ coefficient through ALSA controls              Y       Y       Y      Y
-Set low/high pass filter coeffs through ALSA controls Y       Y       Y      Y
-Set DRC coefficient through ALSA controls             Y       Y       Y      Y
-Noise Gates controlled via ALSA controls              Y       Y       Y      Y
-Configure inputs as analogue or digital mic [note 1]  Y       Y       Y      Y
+24-bit samples                                        Y       Y       Y       Y
+192kHz sample rate                                    Y       Y       Y       Y
+Routing controlled via ALSA controls                  Y       Y       Y       Y
+Volume control on all mixer inputs                    Y       Y       Y       Y
+Volume control on all outputs                         Y       Y       Y       Y
+Mute control on all outputs                           Y       Y       Y       Y
+Output DRE control                                    -       Y       Y       Y
+Output OSR control                                    Y       -       Y       Y
+Input ramp control                                    Y       Y       Y       Y
+Output ramp control                                   Y       Y       Y       Y
+Route any audio input to any mixer input              Y       Y       Y       Y
+Route internal signals to mixer inputs                Y       Y       Y       Y
+Route audio path through ISRC                         Y       Y       Y       Y
+Route audio path through ASRC                         -       Y       Y       Y
+Route audio path through EQs                          Y       Y       Y       Y
+Route audio path through low/high pass filters        Y       Y       Y       Y
+Route audio path through DRCs                         Y       Y       Y       Y
+Route audio path through ADSP cores                   -       -       Y       Y
+Set EQ coefficient through ALSA controls              Y       Y       Y       Y
+Set low/high pass filter coeffs through ALSA controls Y       Y       Y       Y
+Set DRC coefficient through ALSA controls             Y       Y       Y       Y
+Noise Gates controlled via ALSA controls              Y       Y       Y       Y
+Configure inputs as analogue or digital mic [note 1]  Y       Y       Y       Y
+Input mux controls [note 9]                           -       Y       -       -
 Config analogue inputs as single-ended
-          or differential [note 1]                    Y       Y       Y      Y
-Host I2S routing to any AIF                           Y       Y       Y      Y
-I2S TDM (multi-channel) [note 2]                      Y       Y       Y      Y
-Configure TDM slot order                              N       N       N      N
-AEC loopback control                                  Y       Y       Y      Y
-ANC block control [note 8]                            -       -       N      N
-Configure ADSP firmware for each ADSP core [note 3]   -       Y       Y      Y
-Runtime-configurable ADSP firmware selection [note 6] -       Y       Y      Y
-Auto-load ADSP firmware when ADSP is in audio path    -       Y       Y      Y
-Load algorithm tuning data with firmware              -       Y       Y      Y
-Control firmware coefficients via ALSA controls       -       Y       Y      Y
-Connect Noise Generator to any mixer input            Y       Y       Y      Y
-Connect Tone Generator 1/2 to any mixer input         Y       Y       Y      Y
-Configure sample-rate domain frequencies [note 4]     Y       Y       Y      Y
-Auto sample-rate                                      N       N       N      N
-Speaker short-circuit protection                      -       N       N      N
-Use write sequencer                                   N       N       N      N
-Codec control over SPI                                -       Y       Y      Y
-Codec control over I2C                                Y       Y       Y      Y
-DAPM-based power up/down                              Y       Y       Y      Y
-Jack insert detection                                 Y       Y       Y      Y
-Headset mic detection                                 Y       Y       Y      Y
-Headset button detection                              Y       Y       Y      Y
-Headphone speaker impedance detection                 Y       Y       Y      Y
-Codec internal LDOVDD regulator control               Y       Y       Y      Y
-Support for external LDO regulator                    Y       Y       Y      Y
-Build as loadable module                              Y       Y       Y      Y
-Configure via pdata                                   Y       Y       Y      Y
-Configure via device tree [note 7]                    Y       Y       Y      Y
-Configure SYSCLK rate [note 5]                        Y       Y       Y      Y
-Configure ASYNCCLK rate [note 5]                      Y       Y       Y      Y
-Configure analogue mic bias [note 1]                  Y       Y       Y      Y
+          or differential [note 1]                    Y       Y       Y       Y
+Host I2S routing to any AIF                           Y       Y       Y       Y
+I2S TDM (multi-channel) [note 2]                      Y       Y       Y       Y
+Configure TDM slot order                              N       N       N       N
+AEC loopback control                                  Y       Y       Y       Y
+ANC block control [note 8]                            -       -       -       N
+Configure ADSP firmware for each ADSP core [note 3]   -       -       Y       Y
+Runtime-configurable ADSP firmware selection [note 6] -       -       Y       Y
+Auto-load ADSP firmware when ADSP is in audio path    -       -       Y       Y
+Load algorithm tuning data with firmware              -       -       Y       Y
+Control firmware coefficients via ALSA controls       -       -       Y       Y
+Connect Noise Generator to any mixer input            Y       Y       Y       Y
+Connect Tone Generator 1/2 to any mixer input         Y       Y       Y       Y
+Configure sample-rate domain frequencies [note 4]     Y       Y       Y       Y
+Auto sample-rate                                      N       N       N       N
+Speaker short-circuit protection                      -       N       N       N
+Use write sequencer                                   N       N       N       N
+Codec control over SPI                                -       -       Y       Y
+Codec control over I2C                                Y       Y       Y       Y
+DAPM-based power up/down                              Y       Y       Y       Y
+Jack insert detection                                 Y       Y       Y       Y
+Headset mic detection                                 Y       Y       Y       Y
+Headset button detection                              Y       Y       Y       Y
+Headphone speaker impedance detection                 Y       Y       Y       Y
+Codec internal LDOVDD regulator control               Y       Y       Y       Y
+Support for external DCVDD regulator                  Y       Y       Y       Y
+Build as loadable module                              Y       Y       Y       Y
+Configure via pdata                                   Y       Y       Y       Y
+Configure via device tree [note 7]                    Y       Y       Y       Y
+Configure SYSCLK rate [note 5]                        Y       Y       Y       Y
+Configure ASYNCCLK rate [note 5]                      Y       Y       Y       Y
+Configure analogue mic bias [note 1]                  Y       Y       Y       Y
 Configure mapping of headset button resistance
-              to key event [note 1]                   Y       Y       Y      Y
-Support Ez2Control                                    -       N       Y      Y
-Support trace firmware                                -       -       Y      Y
+              to key event [note 1]                   Y       Y       Y       Y
+Support Ez2Control                                    -       -       N       Y
+Support trace firmware                                -       -       -       Y
 
 Notes:
 1. Integration-time configuration. Not possible to change at runtime
@@ -83,3 +85,61 @@ Notes:
         pdata settings that have not yet been migrated to device tree
 8. The ANC is normally used by ADSP firmwares and there is currently no support
         for using it directly from the host
+9. See below for a description of the input mux routing on WM8998. The input
+        mux should be set _before_ connecting it into an audio path. If one
+        input is configured as digital, that setting will be applied only when
+        the input is powered up as part of an active audio route - the
+        digital/analogue setting of the input path cannot be changed while the
+        input is part of an active audio route.
+
+
+INPUT MUXES ON WM8998
+=====================
+The WM8998 has two physical input paths, IN1 and IN2, and both paths have an
+input mux to select between two possible external input sources for that
+path.
+
+  - The IN1 path can be selected between IN1A or IN1B pins. The left and right
+    channels have separate mux controls
+
+  - The IN2 path can be selected between IN2A or IN2B and is mono
+
+A diagram of the route through the input muxes is:
+
+Input pin      ALSA control        Internal signal path
+-------------------------------------------------------
+
+           +-----------------+
+IN1AL ---> |                 |
+           | "IN1MUXL Input" | --> IN1L
+IN1BL ---> |                 |
+           +-----------------+
+
+           +-----------------+
+IN1AR ---> |                 |
+           | "IN1MUXR Input" | --> IN1R
+IN1BR ---> |                 |
+           +-----------------+
+
+           +-----------------+
+IN2A  ---> |                 |
+           | "IN2MUX Input"  | --> IN2L
+IN2B  ---> |                 |
+           +-----------------+
+
+IN1A and IN2A can be set as digital. IN1B and IN2B are analogue only.
+
+It is important to note that although the left and right paths of IN1 have
+separate mux controls, these only separate for the analogue path. The setting
+of digital/analogue applies jointly to both channels of IN1. Because of this,
+if IN1A is digital _both_ the left and right mux must be set to IN1A before
+connecting the input to any internal codec blocks. When IN1 is part of an
+active path the whole of IN1 will be set to digital or analogue depending on
+mux setting and this cannot be changed while IN1 is part of an active path.
+
+To change from a digital IN1A to an analogue IN1B follow this sequence:
+
+1) Disconnect IN1 from the input of any codec blocks
+2) Change the IN1MUXL and IN1MUXR to IN1B
+3) Connect IN1 as an input to codec blocks
+
