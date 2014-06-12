@@ -1632,7 +1632,7 @@ static inline void update_cfs_rq_blocked_load(struct cfs_rq *cfs_rq,
 					      int force_update) {}
 #endif
 
-#ifdef CONFIG_SCHED_FREQ_INPUT
+#if defined(CONFIG_SCHED_FREQ_INPUT) || defined(CONFIG_SCHED_HMP)
 
 static inline unsigned int task_load(struct task_struct *p)
 {
@@ -1695,7 +1695,7 @@ static inline void decay_scaled_stat(struct sched_avg *sa, u64 periods)
 			   periods);
 }
 
-#else  /* CONFIG_SCHED_FREQ_INPUT */
+#else  /* CONFIG_SCHED_FREQ_INPUT || CONFIG_SCHED_HMP */
 
 static inline void
 add_to_scaled_stat(int cpu, struct sched_avg *sa, u64 delta)
@@ -1706,7 +1706,7 @@ static inline void decay_scaled_stat(struct sched_avg *sa, u64 periods)
 {
 }
 
-#endif /* CONFIG_SCHED_FREQ_INPUT */
+#endif /* CONFIG_SCHED_FREQ_INPUT || CONFIG_SCHED_HMP */
 
 static void enqueue_sleeper(struct cfs_rq *cfs_rq, struct sched_entity *se)
 {

@@ -1030,6 +1030,15 @@ config DEBUG_BLK_CGROUP
 
 endif # CGROUPS
 
+config SCHED_HMP
+	bool "Scheduler support for heterogenous multi-processor systems"
+	depends on SMP && FAIR_GROUP_SCHED
+	help
+	  This feature will let the scheduler optimize task placement on
+	  systems made of heterogeneous cpus i.e cpus that differ either
+	  in their instructions per-cycle capability or the maximum
+	  frequency they can attain.
+
 config CHECKPOINT_RESTORE
 	bool "Checkpoint/restore support" if EXPERT
 	default n
