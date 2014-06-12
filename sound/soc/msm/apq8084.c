@@ -23,7 +23,7 @@
 #include <linux/pm_runtime.h>
 #include <linux/slimbus/slimbus.h>
 #include <soc/qcom/subsystem_notif.h>
-#include <soc/qcom/apq8084_dock.h>
+#include <soc/qcom/liquid_dock.h>
 #include <sound/core.h>
 #include <sound/soc.h>
 #include <sound/soc-dapm.h>

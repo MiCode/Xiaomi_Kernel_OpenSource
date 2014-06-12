@@ -12,7 +12,7 @@
 
 #include <linux/notifier.h>
 
-#if IS_ENABLED(CONFIG_APQ8084_DOCKING_STATION)
+#if IS_ENABLED(CONFIG_QCOM_LIQUID_DOCK)
 void register_liquid_dock_notify(struct notifier_block *nb);
 void unregister_liquid_dock_notify(struct notifier_block *nb);
 #else
