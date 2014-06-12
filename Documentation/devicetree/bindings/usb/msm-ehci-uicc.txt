@@ -1,0 +1,44 @@
+EHCI MSM UICC controller
+
+Required properties :
+- compatible : should be "qcom,ehci-uicc-host"
+- regs : offset and length of the register set in the memory map
+- interrupts: IRQ lines used by this controller
+- clocks: List of clock phandles
+- clock-names: Required clock name entries are: "core_clk", "iface_clk"
+  and "alt_core_clk"
+- pinctrl-names : List of pin configuration strings. "uicc_active" and
+  "uicc_sleep" states are supported.
+- pinctrl-0 : Phandle of "uicc_active" pin config state
+- pinctrl-1 : Phandle of "uicc_sleep" pin config state
+
+Optional properties :
+- Refer to "Documentation/devicetree/bindings/arm/msm/msm_bus.txt" for
+  below optional properties:
+    - qcom,msm_bus,name
+    - qcom,msm_bus,num_cases
+    - qcom,msm_bus,num_paths
+    - qcom,msm_bus,vectors
+
+Example EHCI MSM UICC controller device node :
+	qcom,ehci-host@79c0000 {
+		compatible = "qcom,ehci-uicc-host";
+		reg = <0x79c0000 0x400>;
+		interrupts = <0 132 0>;
+
+		clocks = <&clock_gcc clk_gcc_usb_fs_ahb_clk>,
+			 <&clock_gcc clk_gcc_usb_fs_system_clk>,
+			 <&clock_gcc clk_gcc_usb_fs_ic_clk>;
+		clock-names = "iface_clk", "core_clk", "alt_core_clk";
+
+		pinctrl-names = "uicc_active", "uicc_sleep";
+		pinctrl-0 = <&uicc_active>;
+		pinctrl-1 = <&uicc_sleep>;
+
+		qcom,msm-bus,name = "uicc";
+		qcom,msm-bus,num-cases = <2>;
+		qcom,msm-bus,num-paths = <1>;
+		qcom,msm-bus,vectors-KBps =
+				<93 512 0 0>,
+				<93 512 12000 192000>;
+	};

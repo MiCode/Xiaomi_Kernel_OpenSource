@@ -38,6 +38,7 @@
 
 #define USBCMD_RESET		2
 #define USBCMD_SESS_VLD_CTRL	BIT(25)
+#define USBCMD_FS_SELECT	BIT(27)
 
 #define USB_USBINTR          (MSM_USB_BASE + 0x0148)
 #define USB_FRINDEX          (MSM_USB_BASE + 0x014C)
@@ -56,8 +57,11 @@
 #define AHB2AHB_BYPASS_CLEAR   (0 << 31)
 
 #define PORTSC_PTS_MASK         (3 << 30)
-#define PORTSC_PTS_ULPI         (3 << 30)
+#define PORTSC_PTS_ULPI         (2 << 30)
+#define PORTSC_PTS_SERIAL       (3 << 30)
+#define PORTSC_SPRT             (1 << 25) /* phy suspend mode */
 #define PORTSC_PHCD             (1 << 23) /* phy suspend mode */
+#define PORTSC_PP               (1 << 12)
 #define PORTSC_LS               (3 << 10)
 #define PORTSC_LS_DM            (1 << 10)
 #define PORTSC_SUSP_MASK        (1 << 7)  /* Port Suspend */
