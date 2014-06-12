@@ -539,7 +539,7 @@ static int __cti_enable_gate(struct cti_drvdata *drvdata, int ch)
 	CTI_UNLOCK(drvdata);
 
 	ctigate = cti_readl(drvdata, CTIGATE);
-	cti_writel(drvdata, (ctigate | 1 << ch), CTIGATE);
+	cti_writel(drvdata, (ctigate & ~(1 << ch)), CTIGATE);
 
 	CTI_LOCK(drvdata);
 
@@ -583,7 +583,7 @@ static void __cti_disable_gate(struct cti_drvdata *drvdata, int ch)
 	CTI_UNLOCK(drvdata);
 
 	ctigate = cti_readl(drvdata, CTIGATE);
-	cti_writel(drvdata, (ctigate & ~(1 << ch)), CTIGATE);
+	cti_writel(drvdata, (ctigate | (1 << ch)), CTIGATE);
 
 	CTI_LOCK(drvdata);
 }
