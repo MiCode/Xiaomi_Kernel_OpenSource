@@ -1252,6 +1252,7 @@ static irqreturn_t arizona_hpdet_handler(int irq, void *data)
 		break;
 	default:
 		dev_warn(arizona->dev, "Spurious HPDET IRQ\n");
+		arizona_jds_start_timeout(info);
 		mutex_unlock(&info->lock);
 		return IRQ_NONE;
 	}
@@ -1291,6 +1292,7 @@ static void arizona_micd_handler(struct work_struct *work)
 		break;
 	default:
 		dev_warn(arizona->dev, "Spurious MICDET IRQ\n");
+		arizona_jds_start_timeout(info);
 		mutex_unlock(&info->lock);
 		return;
 	}
