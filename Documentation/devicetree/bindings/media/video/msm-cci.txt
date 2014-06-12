@@ -171,6 +171,22 @@ Required properties:
     - 0 -> MASTER 0
     - 1 -> MASTER 1
 
+Optional properties:
+- qcom,cam-vreg-name : should contain names of all regulators needed by this
+    actuator
+    - "cam_vaf"
+- qcom,cam-vreg-type : should contain regulator type for regulators mentioned in
+    qcom,cam-vreg-name property (in the same order)
+    - 0 for LDO and 1 for LVS
+- qcom,cam-vreg-min-voltage : should contain minimum voltage level in mcrovolts
+   for regulators mentioned in qcom,cam-vreg-name property (in the same order)
+- qcom,cam-vreg-max-voltage : should contain maximum voltage level in mcrovolts
+   for regulators mentioned in qcom,cam-vreg-name property (in the same order)
+- qcom,cam-vreg-op-mode : should contain the maximum current in microamps
+   required from the regulators mentioned in the qcom,cam-vreg-name property
+   (in the same order).
+- cam_vaf-supply : should contain regulator from which AF voltage is supplied
+
 Example:
 
    qcom,cci@0xfda0c000 {
@@ -200,8 +216,14 @@ Example:
         actuator0: qcom,actuator@18 {
                 cell-index = <0>;
                 reg = <0x18>;
-                compatible = "qcom,actuator";
-                qcom,cci-master = <0>;
+		compatible = "qcom,actuator";
+		qcom,cci-master = <0>;
+		cam_vaf-supply = <&pm8941_l23>;
+		qcom,cam-vreg-name = "cam_vaf";
+		qcom,cam-vreg-type = <0>;
+		qcom,cam-vreg-min-voltage = <3000000>;
+		qcom,cam-vreg-max-voltage = <3000000>;
+		qcom,cam-vreg-op-mode = <100000>;
         };
 
        qcom,s5k3l1yx@6e {

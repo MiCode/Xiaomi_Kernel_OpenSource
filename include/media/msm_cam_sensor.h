@@ -486,6 +486,8 @@ enum msm_actuator_cfg_type_t {
 	CFG_SET_DEFAULT_FOCUS,
 	CFG_MOVE_FOCUS,
 	CFG_SET_POSITION,
+	CFG_ACTUATOR_POWERDOWN,
+	CFG_ACTUATOR_POWERUP,
 };
 
 enum actuator_type {
