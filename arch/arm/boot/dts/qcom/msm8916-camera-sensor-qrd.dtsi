@@ -10,6 +10,30 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  */
+&tlmm_pinmux {
+	camera_ldo_pins_default {
+		qcom,pins = <&gp 114>, <&gp 110>;
+		qcom,num-grp-pins = <2>;
+		qcom,pin-func = <0>;
+		label = "camera_ldo_pins_default";
+		camera_ldo_default: en_default {
+			drive-strength = <2>;
+			bias-pull-up;
+		};
+	};
+
+	camera_ldo_pins_sleep {
+		qcom,pins = <&gp 114>, <&gp 110>;
+		qcom,num-grp-pins = <2>;
+		qcom,pin-func = <0>;
+		label = "camera_ldo_pins_suspend";
+		camera_ldo_suspend: en_suspend {
+			drive-strength = <2>;
+			bias-pull-down;
+		};
+	};
+};
+
 &cci {
 	actuator0: qcom,actuator@6e {
 		cell-index = <3>;
@@ -40,26 +64,20 @@
 		qcom,cam-vreg-op-mode = <200000 0 80000 100000>;
 
 		pinctrl-names = "cam_default", "cam_suspend";
-		pinctrl-0 = <&cam_sensor_mclk0_default &cam_sensor_rear_default>;
-		pinctrl-1 = <&cam_sensor_mclk0_sleep &cam_sensor_rear_sleep>;
+		pinctrl-0 = <&cam_sensor_mclk0_default &cam_sensor_rear_default &camera_ldo_default>;
+		pinctrl-1 = <&cam_sensor_mclk0_sleep &cam_sensor_rear_sleep &camera_ldo_suspend>;
 		gpios = <&msm_gpio 26 0>,
 				<&msm_gpio 35 0>,
 				<&msm_gpio 34 0>,
-				<&msm_gpio 114 0>,
-				<&msm_gpio 110 0>,
 				<&msm_gpio 120 0>;
 		qcom,gpio-reset = <1>;
 		qcom,gpio-standby = <2>;
-		qcom,gpio-vdig = <3>;
-		qcom,gpio-vana = <4>;
-		qcom,gpio-af-pwdm = <5>;
-		qcom,gpio-req-tbl-num = <0 1 2 3 4 5>;
-		qcom,gpio-req-tbl-flags = <1 0 0 0 0 0>;
+		qcom,gpio-af-pwdm = <3>;
+		qcom,gpio-req-tbl-num = <0 1 2 3>;
+		qcom,gpio-req-tbl-flags = <1 0 0 0>;
 		qcom,gpio-req-tbl-label = "CAMIF_MCLK",
 				"CAM_RESET1",
 				"CAM_STANDBY",
-				"CAM_VDIG",
-				"CAM_VANA",
 				"CAM_AF_PWDM";
 		qcom,sensor-position = <0>;
 		qcom,sensor-mode = <0>;
@@ -88,24 +106,18 @@
 		qcom,cam-vreg-op-mode = <200000 0 80000>;
 
 		pinctrl-names = "cam_default", "cam_suspend";
-		pinctrl-0 = <&cam_sensor_mclk1_default &cam_sensor_front_default>;
-		pinctrl-1 = <&cam_sensor_mclk1_sleep &cam_sensor_front_sleep>;
+		pinctrl-0 = <&cam_sensor_mclk1_default &cam_sensor_front_default &camera_ldo_default>;
+		pinctrl-1 = <&cam_sensor_mclk1_sleep &cam_sensor_front_sleep &camera_ldo_suspend>;
 		gpios = <&msm_gpio 27 0>,
 				<&msm_gpio 28 0>,
-				<&msm_gpio 33 0>,
-				<&msm_gpio 114 0>,
-				<&msm_gpio 110 0>;
+				<&msm_gpio 33 0>;
 		qcom,gpio-reset = <1>;
 		qcom,gpio-standby = <2>;
-		qcom,gpio-vdig = <3>;
-		qcom,gpio-vana = <4>;
-		qcom,gpio-req-tbl-num = <0 1 2 3 4>;
-		qcom,gpio-req-tbl-flags = <1 0 0 0 0>;
+		qcom,gpio-req-tbl-num = <0 1 2>;
+		qcom,gpio-req-tbl-flags = <1 0 0>;
 		qcom,gpio-req-tbl-label = "CAMIF_MCLK",
 				"CAM_RESET",
-				"CAM_STANDBY",
-				"CAM_VDIG",
-				"CAM_VANA";
+				"CAM_STANDBY";
 		qcom,sensor-position = <1>;
 		qcom,sensor-mode = <0>;
 		qcom,cci-master = <0>;
