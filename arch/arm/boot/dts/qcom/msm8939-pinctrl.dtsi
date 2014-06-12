@@ -1209,5 +1209,29 @@
 				bias-disable;
 			};
 		};
+
+		uicc-active {
+			qcom,pins = <&gp 53>, <&gp 54>;
+			qcom,num-grp-pins = <2>;
+			qcom,pin-func = <2>;
+			label = "uicc-active-pins";
+
+			uicc_active: active {
+				drive-strength = <8>;
+				bias-disable;
+			};
+		};
+
+		uicc-sleep {
+			qcom,pins = <&gp 53>, <&gp 54>;
+			qcom,num-grp-pins = <2>;
+			qcom,pin-func = <0>;
+			label = "uicc-sleep-pins";
+
+			uicc_sleep: sleep {
+				drive-strength = <2>;
+				bias-pull-down;
+			};
+		};
 	};
 };

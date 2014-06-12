@@ -1070,6 +1070,28 @@
 		qcom,android-usb-swfi-latency = <1>;
 	};
 
+	uicc: qcom,ehci-host@79c0000 {
+		compatible = "qcom,ehci-uicc-host";
+		reg = <0x79c0000 0x400>;
+		interrupts = <0 132 0>;
+
+		clocks = <&clock_gcc clk_gcc_usb_fs_ahb_clk>,
+			 <&clock_gcc clk_gcc_usb_fs_system_clk>,
+			 <&clock_gcc clk_gcc_usb_fs_ic_clk>;
+		clock-names = "iface_clk", "core_clk", "alt_core_clk";
+
+                pinctrl-names = "uicc_active", "uicc_sleep";
+                pinctrl-0 = <&uicc_active>;
+                pinctrl-1 = <&uicc_sleep>;
+
+		qcom,msm-bus,name = "uicc";
+		qcom,msm-bus,num-cases = <2>;
+		qcom,msm-bus,num-paths = <1>;
+		qcom,msm-bus,vectors-KBps =
+				<93 512 0 0>,
+				<93 512 12000 192000>;
+	};
+
 	blsp1_uart2: serial@78b0000 {
 		compatible = "qcom,msm-lsuart-v14";
 		reg = <0x78b0000 0x200>;
