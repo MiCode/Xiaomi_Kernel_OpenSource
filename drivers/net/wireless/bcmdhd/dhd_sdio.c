@@ -850,7 +850,7 @@ dhdsdio_clk_kso_enab(dhd_bus_t *bus, bool on)
 		cmp_val = SBSDIO_FUNC1_SLEEPCSR_KSO_MASK |  SBSDIO_FUNC1_SLEEPCSR_DEVON_MASK;
 		bmask = cmp_val;
 
-		OSL_SLEEP(3);
+		OSL_SLEEP(5);
 	} else {
 		/* Put device to sleep, turn off  KSO  */
 		cmp_val = 0;
