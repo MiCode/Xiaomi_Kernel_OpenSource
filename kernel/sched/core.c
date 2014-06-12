@@ -1094,27 +1094,29 @@ unsigned int __read_mostly sched_use_pelt;
 unsigned int max_possible_efficiency = 1024;
 unsigned int min_possible_efficiency = 1024;
 
-__read_mostly unsigned int sysctl_sched_task_migrate_notify_pct = 25;
-unsigned int sched_task_migrate_notify;
+__read_mostly int sysctl_sched_freq_inc_notify_slack_pct;
+__read_mostly int sysctl_sched_freq_dec_notify_slack_pct = 25;
 
-int sched_migrate_notify_proc_handler(struct ctl_table *table, int write,
-				      void __user *buffer, size_t *lenp,
-				      loff_t *ppos)
+/* Returns how undercommitted a CPU is given its current frequency and
+ * task load (as measured in the previous window).  Returns this value
+ * as a percentage of the CPU's maximum frequency.  A negative value
+ * means the CPU is overcommitted at its current frequency.
+ */
+int rq_freq_margin(struct rq *rq)
 {
-	int ret;
-	unsigned int *data = (unsigned int *)table->data;
+	unsigned int freq_required;
+	int margin;
 
-	ret = proc_dointvec_minmax(table, write, buffer, lenp, ppos);
-	if (ret || !write)
-		return ret;
+	freq_required = scale_task_load(rq->prev_runnable_sum, rq->cpu);
+	freq_required *= 128;
+	freq_required /= max_task_load();
+	freq_required *= rq->max_possible_freq;
+	freq_required /= 128;
 
-	if (*data > 100)
-		return -EINVAL;
-
-	sched_task_migrate_notify = div64_u64((u64)*data *
-					      (u64)max_task_load(), 100);
-
-	return 0;
+	margin = rq->cur_freq - freq_required;
+	margin *= 100;
+	margin /= (int)rq->max_possible_freq;
+	return margin;
 }
 
 /*
@@ -1435,6 +1437,11 @@ void sched_set_window(u64 window_start, unsigned int window_size)
 
 #else	/* CONFIG_SCHED_FREQ_INPUT || CONFIG_SCHED_HMP */
 
+static inline int rq_freq_margin(struct rq *rq)
+{
+	return INT_MAX;
+}
+
 static inline void init_cpu_efficiency(void) {}
 
 static inline void mark_task_starting(struct task_struct *p) {}
@@ -1509,23 +1516,32 @@ void set_task_cpu(struct task_struct *p, unsigned int new_cpu)
 			if (p->state == TASK_WAKING)
 				double_rq_unlock(src_rq, dest_rq);
 
-			/* Is p->ravg.prev_window significant? Trigger a load
-			   alert notifier if so. */
-			if (p->ravg.prev_window > sched_task_migrate_notify &&
-			    !cpumask_test_cpu(new_cpu,
-					     &src_rq->freq_domain_cpumask)) {
-				atomic_notifier_call_chain(
-					&load_alert_notifier_head, 0,
-					(void *)(long)task_cpu(p));
+			if (cpumask_test_cpu(new_cpu,
+					     &src_rq->freq_domain_cpumask))
+				goto done;
+
+			/* Evaluate possible frequency notifications for
+			 * source and destination CPUs in different frequency
+			 * domains. */
+			if (rq_freq_margin(dest_rq) <
+			    sysctl_sched_freq_inc_notify_slack_pct)
 				atomic_notifier_call_chain(
 					&load_alert_notifier_head, 0,
 					(void *)(long)new_cpu);
-			}
+
+			if (rq_freq_margin(src_rq) >
+			    sysctl_sched_freq_dec_notify_slack_pct)
+				atomic_notifier_call_chain(
+					&load_alert_notifier_head, 0,
+					(void *)(long)task_cpu(p));
 		}
 #endif
 
 	}
 
+#if defined(CONFIG_SCHED_FREQ_INPUT) || defined(CONFIG_SCHED_HMP)
+done:
+#endif
 	__set_task_cpu(p, new_cpu);
 }
 
@@ -2176,6 +2192,14 @@ try_to_wake_up(struct task_struct *p, unsigned int state, int wake_flags)
 	if (src_cpu != cpu) {
 		wake_flags |= WF_MIGRATED;
 		set_task_cpu(p, cpu);
+	} else {
+#ifdef CONFIG_SCHED_FREQ_INPUT
+		if (rq_freq_margin(cpu_rq(cpu)) <
+		    sysctl_sched_freq_inc_notify_slack_pct)
+			atomic_notifier_call_chain(
+				&load_alert_notifier_head, 0,
+				(void *)(long)cpu);
+#endif
 	}
 #endif /* CONFIG_SMP */
 
@@ -2610,6 +2634,13 @@ void wake_up_new_task(struct task_struct *p)
 	init_task_runnable_average(p);
 	rq = __task_rq_lock(p);
 	mark_task_starting(p);
+#ifdef CONFIG_SCHED_FREQ_INPUT
+	if (rq_freq_margin(task_rq(p)) <
+	    sysctl_sched_freq_inc_notify_slack_pct)
+		atomic_notifier_call_chain(
+			&load_alert_notifier_head, 0,
+			(void *)(long)task_cpu(p));
+#endif
 	activate_task(rq, p, 0);
 	p->on_rq = TASK_ON_RQ_QUEUED;
 	trace_sched_wakeup_new(p, true);
