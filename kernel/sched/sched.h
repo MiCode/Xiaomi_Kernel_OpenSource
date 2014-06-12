@@ -1472,6 +1472,9 @@ enum rq_nohz_flag_bits {
 #define nohz_flags(cpu)	(&cpu_rq(cpu)->nohz_flags)
 #endif
 
+#define NOHZ_KICK_ANY 0
+#define NOHZ_KICK_RESTRICT 1
+
 #ifdef CONFIG_IRQ_TIME_ACCOUNTING
 
 DECLARE_PER_CPU(u64, cpu_hardirq_time);
