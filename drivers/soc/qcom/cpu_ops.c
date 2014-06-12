@@ -29,6 +29,7 @@
 #include <soc/qcom/scm-boot.h>
 #include <soc/qcom/socinfo.h>
 #include <soc/qcom/pm.h>
+#include <soc/qcom/jtag.h>
 
 #include <asm/barrier.h>
 #include <asm/cacheflush.h>
@@ -161,6 +162,7 @@ static int msm8994_cpu_boot(unsigned int cpu)
 
 void msm_cpu_postboot(void)
 {
+	msm_jtag_restore_state();
 	/*
 	 * Let the primary processor know we're out of the pen.
 	 */
