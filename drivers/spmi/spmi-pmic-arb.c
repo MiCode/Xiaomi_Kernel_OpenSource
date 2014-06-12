@@ -33,21 +33,23 @@
 /* PMIC Arbiter configuration registers */
 #define PMIC_ARB_VERSION		0x0000
 #define PMIC_ARB_INT_EN			0x0004
-#define PMIC_ARB_PROTOCOL_IRQ_STATUS	(0x700 + 0x820)
 
 enum {
 	PMIC_ARB_GENI_CTRL,
 	PMIC_ARB_GENI_STATUS,
+	PMIC_ARB_PROTOCOL_IRQ_STATUS,
 };
 
 u32 pmic_arb_regs_v1[] = {
 	[PMIC_ARB_GENI_CTRL]	= 0x0024,
 	[PMIC_ARB_GENI_STATUS]	= 0x0028,
+	[PMIC_ARB_PROTOCOL_IRQ_STATUS] = (0x700 + 0x820),
 };
 
 u32 pmic_arb_regs_v2[] = {
 	[PMIC_ARB_GENI_CTRL]	= 0x0028,
 	[PMIC_ARB_GENI_STATUS]	= 0x002C,
+	[PMIC_ARB_PROTOCOL_IRQ_STATUS] = (0x700 + 0x900),
 };
 
 /* Offset per chnnel-register type */
@@ -341,7 +343,8 @@ static u32 spmi_pic_acc_en_rd(struct spmi_pmic_arb_dev *dev,
 static void pmic_arb_save_stat_before_txn(struct spmi_pmic_arb_dev *dev)
 {
 	dev->prev_prtcl_irq_stat =
-		readl_relaxed(dev->cnfg + PMIC_ARB_PROTOCOL_IRQ_STATUS);
+		readl_relaxed(dev->cnfg +
+			dev->ver->regs[PMIC_ARB_PROTOCOL_IRQ_STATUS]);
 }
 
 static int pmic_arb_diagnosis(struct spmi_pmic_arb_dev *dev, u32 status)
@@ -419,7 +422,7 @@ static void pmic_arb_dbg_err_dump(struct spmi_pmic_arb_dev *pmic_arb, int ret,
 		const char *msg, u8 opc, u8 sid, u16 addr, u8 bc, u8 *buf)
 {
 	u32 irq_stat  = readl_relaxed(pmic_arb->cnfg +
-						PMIC_ARB_PROTOCOL_IRQ_STATUS);
+			pmic_arb->ver->regs[PMIC_ARB_PROTOCOL_IRQ_STATUS]);
 	u32 geni_stat = readl_relaxed(pmic_arb->cnfg +
 				pmic_arb->ver->regs[PMIC_ARB_GENI_STATUS]);
 	u32 geni_ctrl = readl_relaxed(pmic_arb->cnfg +
@@ -436,15 +439,9 @@ static void pmic_arb_dbg_err_dump(struct spmi_pmic_arb_dev *pmic_arb, int ret,
 		"error:%d on non-data-cmd opcode:0x%x sid:%d\n",
 			ret, opc, sid);
 
-	if (irq_stat != pmic_arb->prev_prtcl_irq_stat)
-		dev_err(pmic_arb->dev,
-			"PROTOCOL_IRQ_STATUS before:0x%x after:0x%x GENI_STATUS:0x%x GENI_CTRL:0x%x\n",
-			irq_stat, pmic_arb->prev_prtcl_irq_stat, geni_stat,
-			geni_ctrl);
-	else if (geni_stat || geni_ctrl)
-		dev_err(pmic_arb->dev,
-			"GENI_STATUS:0x%x GENI_CTRL:0x%x\n",
-			geni_stat, geni_ctrl);
+	dev_err(pmic_arb->dev,
+		"PROTOCOL_IRQ_STATUS before:0x%x after:0x%x GENI_STATUS:0x%x GENI_CTRL:0x%x\n",
+		irq_stat, pmic_arb->prev_prtcl_irq_stat, geni_stat, geni_ctrl);
 }
 
 static int
