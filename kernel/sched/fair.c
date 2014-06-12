@@ -1261,6 +1261,12 @@ unsigned int __read_mostly sysctl_sched_enable_hmp_task_placement = 1;
 unsigned int __read_mostly sysctl_sched_mostly_idle_nr_run = 3;
 
 /*
+ * Control whether or not individual CPU power consumption is used to
+ * guide task placement.
+ */
+unsigned int __read_mostly sysctl_sched_enable_power_aware = 1;
+
+/*
  * Conversion of *_pct to absolute form is based on max_task_load().
  *
  * For example:
@@ -1664,6 +1670,8 @@ static inline int nr_big_tasks(struct rq *rq)
 }
 
 #else	/* CONFIG_SCHED_HMP */
+
+#define sysctl_sched_enable_power_aware 0
 
 static inline int select_best_cpu(struct task_struct *p, int target)
 {
