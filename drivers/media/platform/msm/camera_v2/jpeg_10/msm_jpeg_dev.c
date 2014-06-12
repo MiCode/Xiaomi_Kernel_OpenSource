@@ -196,6 +196,11 @@ static int msm_jpeg_init_dev(struct platform_device *pdev)
 	msm_jpeg_device_p->pdev = pdev;
 
 	device_id = of_match_device(msm_jpeg_dt_match, &pdev->dev);
+	if (!device_id) {
+		JPEG_PR_ERR("%s: device_id is NULL\n", __func__);
+		goto fail;
+	}
+
 	priv_data = device_id->data;
 	msm_jpeg_device_p->core_type = priv_data->core_type;
 
