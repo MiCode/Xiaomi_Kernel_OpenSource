@@ -655,18 +655,3 @@ int camera_sensor_csi(struct v4l2_subdev *sd, u32 port,
         return 0;
 }
 EXPORT_SYMBOL_GPL(camera_sensor_csi);
-
-static int __init gmin_plat_init(void)
-{
-	/* BYT-T output clock driver required by the MIPI-CSI
-	 * camera modules */
-	if (IS_ERR(platform_device_register_simple("vlv2_plat_clk",
-						   -1, NULL, 0)))
-	{
-		pr_err("Failed to register vlv2_plat_clk device");
-		return -ENODEV;
-	}
-	return 0;
-}
-
-device_initcall(gmin_plat_init);
