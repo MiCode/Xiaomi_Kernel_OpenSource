@@ -50,6 +50,8 @@ struct arm_dma_alloc_args {
 	pgprot_t prot;
 	const void *caller;
 	bool want_vaddr;
+	bool skip_cpu_sync;
+	bool skip_zeroing;
 	int coherent_flag;
 };
 
@@ -276,7 +278,8 @@ static u64 get_coherent_dma_mask(struct device *dev)
 	return mask;
 }
 
-static void __dma_clear_buffer(struct page *page, size_t size, int coherent_flag)
+static void __dma_clear_buffer(struct page *page, size_t size,
+					bool skip_zeroing, int coherent_flag)
 {
 	/*
 	 * Ensure that the allocated pages are zeroed, and that any data
@@ -287,7 +290,8 @@ static void __dma_clear_buffer(struct page *page, size_t size, int coherent_flag
 		phys_addr_t end = base + size;
 		while (size > 0) {
 			void *ptr = kmap_atomic(page);
-			memset(ptr, 0, PAGE_SIZE);
+			if (!skip_zeroing)
+				memset(ptr, 0, PAGE_SIZE);
 			if (coherent_flag != COHERENT)
 				dmac_flush_range(ptr, ptr + PAGE_SIZE);
 			kunmap_atomic(ptr);
@@ -298,7 +302,8 @@ static void __dma_clear_buffer(struct page *page, size_t size, int coherent_flag
 			outer_flush_range(base, end);
 	} else {
 		void *ptr = page_address(page);
-		memset(ptr, 0, size);
+		if (!skip_zeroing)
+			memset(ptr, 0, size);
 		if (coherent_flag != COHERENT) {
 			dmac_flush_range(ptr, ptr + size);
 			outer_flush_range(__pa(ptr), __pa(ptr) + size);
@@ -327,7 +332,7 @@ static struct page *__dma_alloc_buffer(struct device *dev, size_t size,
 	for (p = page + (size >> PAGE_SHIFT), e = page + (1 << order); p < e; p++)
 		__free_page(p);
 
-	__dma_clear_buffer(page, size, coherent_flag);
+	__dma_clear_buffer(page, size, false, coherent_flag);
 
 	return page;
 }
@@ -350,6 +355,7 @@ static void __dma_free_buffer(struct page *page, size_t size)
 static void *__alloc_from_contiguous(struct device *dev, size_t size,
 				     pgprot_t prot, struct page **ret_page,
 				     const void *caller, bool want_vaddr,
+				     bool skip_cpu_sync, bool skip_zeroing,
 				     int coherent_flag);
 
 static void *__alloc_remap_buffer(struct device *dev, size_t size, gfp_t gfp,
@@ -421,7 +427,8 @@ static int __init atomic_pool_init(void)
 	 */
 	if (dev_get_cma_area(NULL))
 		ptr = __alloc_from_contiguous(NULL, atomic_pool_size, prot,
-				      &page, atomic_pool_init, true, NORMAL);
+				      &page, atomic_pool_init, true, false,
+				      false, NORMAL);
 	else
 		ptr = __alloc_remap_buffer(NULL, atomic_pool_size, gfp, prot,
 					   &page, atomic_pool_init, true);
@@ -595,6 +602,7 @@ static int __free_from_pool(void *start, size_t size)
 static void *__alloc_from_contiguous(struct device *dev, size_t size,
 				     pgprot_t prot, struct page **ret_page,
 				     const void *caller, bool want_vaddr,
+				     bool skip_cpu_sync, bool skip_zeroing,
 				     int coherent_flag)
 {
 	unsigned long order = get_order(size);
@@ -606,7 +614,11 @@ static void *__alloc_from_contiguous(struct device *dev, size_t size,
 	if (!page)
 		return NULL;
 
-	__dma_clear_buffer(page, size, coherent_flag);
+	/*
+	 * skip completely if we neither need to zero nor sync.
+	 */
+	if (!(skip_cpu_sync  && skip_zeroing))
+		__dma_clear_buffer(page, size, skip_zeroing, coherent_flag);
 
 	if (!want_vaddr)
 		goto out;
@@ -656,7 +668,8 @@ static inline pgprot_t __get_dma_pgprot(unsigned long attrs, pgprot_t prot)
 #define __get_dma_pgprot(attrs, prot)				__pgprot(0)
 #define __alloc_remap_buffer(dev, size, gfp, prot, ret, c, wv)	NULL
 #define __alloc_from_pool(size, ret_page)			NULL
-#define __alloc_from_contiguous(dev, size, prot, ret, c, wv, coherent_flag)	NULL
+#define __alloc_from_contiguous(dev, size, prot, ret, c, \
+					wv, scs, sz, coherent_flag) NULL
 #define __free_from_pool(cpu_addr, size)			do { } while (0)
 #define __free_from_contiguous(dev, page, cpu_addr, size, wv)	do { } while (0)
 #define __dma_free_remap(cpu_addr, size)			do { } while (0)
@@ -698,7 +711,8 @@ static void *cma_allocator_alloc(struct arm_dma_alloc_args *args,
 {
 	return __alloc_from_contiguous(args->dev, args->size, args->prot,
 				       ret_page, args->caller,
-				       args->want_vaddr, args->coherent_flag);
+				       args->want_vaddr, args->skip_cpu_sync,
+				       args->skip_zeroing, args->coherent_flag);
 }
 
 static void cma_allocator_free(struct arm_dma_free_args *args)
@@ -765,6 +779,8 @@ static void *__dma_alloc(struct device *dev, size_t size, dma_addr_t *handle,
 		.prot = prot,
 		.caller = caller,
 		.want_vaddr = ((attrs & DMA_ATTR_NO_KERNEL_MAPPING) == 0),
+		.skip_cpu_sync = (attrs & DMA_ATTR_SKIP_CPU_SYNC),
+		.skip_zeroing = (attrs & DMA_ATTR_SKIP_ZEROING),
 		.coherent_flag = is_coherent ? COHERENT : NORMAL,
 	};
 
@@ -1298,7 +1314,7 @@ static struct page **__iommu_alloc_buffer(struct device *dev, size_t size,
 		if (!page)
 			goto error;
 
-		__dma_clear_buffer(page, size, coherent_flag);
+		__dma_clear_buffer(page, size, false, coherent_flag);
 
 		for (i = 0; i < count; i++)
 			pages[i] = page + i;
@@ -1348,7 +1364,8 @@ static struct page **__iommu_alloc_buffer(struct device *dev, size_t size,
 				pages[i + j] = pages[i] + j;
 		}
 
-		__dma_clear_buffer(pages[i], PAGE_SIZE << order, coherent_flag);
+		__dma_clear_buffer(pages[i], PAGE_SIZE << order,
+						false, coherent_flag);
 		i += 1 << order;
 		count -= 1 << order;
 	}
