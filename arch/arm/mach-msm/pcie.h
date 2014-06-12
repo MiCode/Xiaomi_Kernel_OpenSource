@@ -67,7 +67,6 @@
 #define PM_GPIO                  0x4
 #define PM_VREG                  0x8
 #define PM_PIPE_CLK              0x10
-#define PM_EXPT                  0x80000000
 #define PM_ALL (PM_IRQ | PM_CLK | PM_GPIO | PM_VREG | PM_PIPE_CLK)
 
 #define PCIE_CONF_SPACE_DW		      1024
@@ -216,10 +215,9 @@ struct msm_pcie_dev_t {
 	uint32_t                     rc_idx;
 	bool                         enumerated;
 	struct work_struct	     handle_wake_work;
-	struct work_struct	     handle_linkdown_work;
-	int                          handling_linkdown;
-	bool                         recovery_pending;
 	struct mutex                 recovery_lock;
+	spinlock_t                   linkdown_lock;
+	spinlock_t                   wakeup_lock;
 	ulong                        linkdown_counter;
 	bool                         suspending;
 	ulong                        wake_counter;

@@ -1356,8 +1356,7 @@ void msm_pcie_disable(struct msm_pcie_dev_t *dev, u32 options)
 				dev->gpio[MSM_PCIE_GPIO_PERST].on);
 
 	if (options & PM_CLK) {
-		if (!(options & PM_EXPT))
-			msm_pcie_write_mask(dev->parf + PCIE20_PARF_PHY_CTRL, 0,
+		msm_pcie_write_mask(dev->parf + PCIE20_PARF_PHY_CTRL, 0,
 					BIT(0));
 		msm_pcie_clk_deinit(dev);
 	}
@@ -1641,8 +1640,6 @@ static int msm_pcie_probe(struct platform_device *pdev)
 	msm_pcie_dev[rc_idx].user_suspend = false;
 	msm_pcie_dev[rc_idx].saved_state = NULL;
 	msm_pcie_dev[rc_idx].enumerated = false;
-	msm_pcie_dev[rc_idx].handling_linkdown = 0;
-	msm_pcie_dev[rc_idx].recovery_pending = false;
 	msm_pcie_dev[rc_idx].linkdown_counter = 0;
 	msm_pcie_dev[rc_idx].suspending = false;
 	msm_pcie_dev[rc_idx].wake_counter = 0;
@@ -1792,6 +1789,8 @@ static int __init pcie_init(void)
 		msm_pcie_dev[i].cfg_access = true;
 		mutex_init(&msm_pcie_dev[i].setup_lock);
 		mutex_init(&msm_pcie_dev[i].recovery_lock);
+		spin_lock_init(&msm_pcie_dev[i].linkdown_lock);
+		spin_lock_init(&msm_pcie_dev[i].wakeup_lock);
 	}
 
 	ret = platform_driver_register(&msm_pcie_driver);
@@ -1840,7 +1839,8 @@ static int msm_pcie_pm_suspend(struct pci_dev *dev,
 		return ret;
 	}
 
-	if (dev && !(options & MSM_PCIE_CONFIG_NO_CFG_RESTORE)) {
+	if (dev && !(options & MSM_PCIE_CONFIG_NO_CFG_RESTORE)
+		&& msm_pcie_confirm_linkup(pcie_dev, true, true)) {
 		ret = pci_save_state(dev);
 		pcie_dev->saved_state =	pci_store_saved_state(dev);
 	}
@@ -1874,11 +1874,7 @@ static int msm_pcie_pm_suspend(struct pci_dev *dev,
 		PCIE_DBG(pcie_dev, "RC%d: PM_Enter_L23 is NOT received\n",
 			pcie_dev->rc_idx);
 
-	if (options & MSM_PCIE_CONFIG_LINKDOWN)
-		msm_pcie_disable(pcie_dev, PM_EXPT | PM_PIPE_CLK |
-						PM_CLK | PM_VREG);
-	else
-		msm_pcie_disable(pcie_dev, PM_PIPE_CLK | PM_CLK | PM_VREG);
+	msm_pcie_disable(pcie_dev, PM_PIPE_CLK | PM_CLK | PM_VREG);
 
 	return ret;
 }
@@ -1953,42 +1949,12 @@ void msm_pcie_fixup_resume(struct pci_dev *dev)
 		pcie_dev->user_suspend)
 		return;
 
-	if (pcie_dev->recovery_pending) {
-		PCIE_DBG(pcie_dev,
-			"RC%d is pending recovery; so ignore resume.\n",
-			pcie_dev->rc_idx);
-		return;
-	}
-
 	mutex_lock(&pcie_dev->recovery_lock);
 	ret = msm_pcie_pm_resume(dev, NULL, NULL, 0);
-	if (ret) {
+	if (ret)
 		PCIE_ERR(pcie_dev,
 			"PCIe: RC%d got failure in fixup resume:%d.\n",
 			pcie_dev->rc_idx, ret);
-
-		if (pcie_dev->event_reg && pcie_dev->event_reg->callback &&
-			(pcie_dev->event_reg->events &
-				MSM_PCIE_EVENT_WAKE_RECOVERY)) {
-			pcie_dev->recovery_pending = true;
-			PCIE_DBG(pcie_dev,
-				"PCIe: wait for wake IRQ to recover the link for RC%d\n",
-				pcie_dev->rc_idx);
-		}
-
-		if (pcie_dev->event_reg && pcie_dev->event_reg->callback &&
-			(pcie_dev->event_reg->events &
-				MSM_PCIE_EVENT_NO_ACCESS)) {
-			struct msm_pcie_notify *notify =
-					&pcie_dev->event_reg->notify;
-			notify->event = MSM_PCIE_EVENT_NO_ACCESS;
-			notify->user = pcie_dev->event_reg->user;
-			PCIE_DBG(pcie_dev,
-				"PCIe: notify client not to access the EP of RC%d\n",
-				pcie_dev->rc_idx);
-			pcie_dev->event_reg->callback(notify);
-		}
-	}
 
 	mutex_unlock(&pcie_dev->recovery_lock);
 }
@@ -2006,41 +1972,12 @@ void msm_pcie_fixup_resume_early(struct pci_dev *dev)
 		pcie_dev->user_suspend)
 		return;
 
-	if (pcie_dev->recovery_pending) {
-		PCIE_DBG(pcie_dev,
-			"RC%d is pending recovery; so ignore resume.\n",
-			pcie_dev->rc_idx);
-		return;
-	}
-
 	mutex_lock(&pcie_dev->recovery_lock);
 	ret = msm_pcie_pm_resume(dev, NULL, NULL, 0);
-	if (ret) {
+	if (ret)
 		PCIE_ERR(pcie_dev, "PCIe: RC%d got failure in resume:%d.\n",
 			pcie_dev->rc_idx, ret);
 
-		if (pcie_dev->event_reg && pcie_dev->event_reg->callback &&
-			(pcie_dev->event_reg->events &
-				MSM_PCIE_EVENT_WAKE_RECOVERY)) {
-			pcie_dev->recovery_pending = true;
-			PCIE_DBG(pcie_dev,
-				"PCIe: wait for wake IRQ to recover the link for RC%d\n",
-				pcie_dev->rc_idx);
-		}
-
-		if (pcie_dev->event_reg && pcie_dev->event_reg->callback &&
-			(pcie_dev->event_reg->events &
-				MSM_PCIE_EVENT_NO_ACCESS)) {
-			struct msm_pcie_notify *notify =
-					&pcie_dev->event_reg->notify;
-			notify->event = MSM_PCIE_EVENT_NO_ACCESS;
-			notify->user = pcie_dev->event_reg->user;
-			PCIE_DBG(pcie_dev,
-				"PCIe: notify client not to access the EP of RC%d\n",
-				pcie_dev->rc_idx);
-			pcie_dev->event_reg->callback(notify);
-		}
-	}
 	mutex_unlock(&pcie_dev->recovery_lock);
 }
 DECLARE_PCI_FIXUP_RESUME_EARLY(PCIE_VENDOR_ID_RCP, PCIE_DEVICE_ID_RCP,
@@ -2094,17 +2031,22 @@ int msm_pcie_pm_control(enum msm_pcie_pm_opt pm_opt, u32 busnr, void *user,
 
 	switch (pm_opt) {
 	case MSM_PCIE_SUSPEND:
-		if ((msm_pcie_dev[rc_idx].link_status != MSM_PCIE_LINK_ENABLED)
-			&& !(options & MSM_PCIE_CONFIG_LINKDOWN)) {
-			PCIE_ERR(&msm_pcie_dev[rc_idx],
+		if (msm_pcie_dev[rc_idx].link_status != MSM_PCIE_LINK_ENABLED)
+			PCIE_DBG(&msm_pcie_dev[rc_idx],
 				"PCIe: RC%d: requested to suspend when link is not enabled:%d.\n",
+				rc_idx, msm_pcie_dev[rc_idx].link_status);
+
+		if (!msm_pcie_dev[rc_idx].power_on) {
+			PCIE_ERR(&msm_pcie_dev[rc_idx],
+				"PCIe: RC%d: requested to suspend when link is powered down:%d.\n",
 				rc_idx, msm_pcie_dev[rc_idx].link_status);
 			break;
 		}
-		if (!(options & MSM_PCIE_CONFIG_LINKDOWN)) {
-			msm_pcie_dev[rc_idx].user_suspend = true;
-			mutex_lock(&msm_pcie_dev[rc_idx].recovery_lock);
-		}
+
+		msm_pcie_dev[rc_idx].user_suspend = true;
+
+		mutex_lock(&msm_pcie_dev[rc_idx].recovery_lock);
+
 		ret = msm_pcie_pm_suspend(dev, user, data, options);
 		if (ret) {
 			PCIE_ERR(&msm_pcie_dev[rc_idx],
@@ -2112,8 +2054,8 @@ int msm_pcie_pm_control(enum msm_pcie_pm_opt pm_opt, u32 busnr, void *user,
 				rc_idx);
 			msm_pcie_dev[rc_idx].user_suspend = false;
 		}
-		if (!(options & MSM_PCIE_CONFIG_LINKDOWN))
-			mutex_unlock(&msm_pcie_dev[rc_idx].recovery_lock);
+
+		mutex_unlock(&msm_pcie_dev[rc_idx].recovery_lock);
 		break;
 	case MSM_PCIE_RESUME:
 		PCIE_DBG(&msm_pcie_dev[rc_idx],
@@ -2125,20 +2067,22 @@ int msm_pcie_pm_control(enum msm_pcie_pm_opt pm_opt, u32 busnr, void *user,
 				rc_idx, msm_pcie_dev[rc_idx].link_status);
 			break;
 		}
-		if (!(options & MSM_PCIE_CONFIG_LINKDOWN))
-			mutex_lock(&msm_pcie_dev[rc_idx].recovery_lock);
+
+		mutex_lock(&msm_pcie_dev[rc_idx].recovery_lock);
 		ret = msm_pcie_pm_resume(dev, user, data, options);
 		if (ret) {
 			PCIE_ERR(&msm_pcie_dev[rc_idx],
 				"PCIe: RC%d: user failed to resume the link.\n",
 				rc_idx);
 		} else {
+			PCIE_DBG(&msm_pcie_dev[rc_idx],
+				"PCIe: RC%d: user succeeded to resume the link.\n",
+				rc_idx);
+
 			msm_pcie_dev[rc_idx].user_suspend = false;
-			msm_pcie_dev[rc_idx].recovery_pending = false;
 		}
 
-		if (!(options & MSM_PCIE_CONFIG_LINKDOWN))
-			mutex_unlock(&msm_pcie_dev[rc_idx].recovery_lock);
+		mutex_unlock(&msm_pcie_dev[rc_idx].recovery_lock);
 		break;
 	default:
 		PCIE_ERR(&msm_pcie_dev[rc_idx],
