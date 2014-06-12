@@ -600,7 +600,7 @@ static void wcd_correct_swch_plug(struct work_struct *work)
 		/* Enable micbias if not already enabled*/
 		snd_soc_update_bits(codec, MSM8X16_WCD_A_ANALOG_MICB_2_EN,
 				    0x80, 0x80);
-		pr_debug("DEBUG apple headset, start register writes");
+		pr_debug("DEBUG special headset, start register writes\n");
 		snd_soc_update_bits(codec, MSM8X16_WCD_A_ANALOG_MICB_1_CTL,
 				    0x60, 0x60);
 		snd_soc_write(codec, MSM8X16_WCD_A_ANALOG_MICB_1_VAL,
@@ -608,7 +608,7 @@ static void wcd_correct_swch_plug(struct work_struct *work)
 
 		/*
 		 * temporary workaround to add 2s delay to detect
-		 * apple headset until actual solution is worked out
+		 * special headset until actual solution is worked out
 		 * with HW team - in progress.
 		 */
 		msleep(2000);
