@@ -493,6 +493,9 @@ static int msm_ipc_router_hsic_remote_probe(struct platform_device *pdev)
 		return rc;
 	}
 	hsic_xprtp->pdev = pdev;
+	mutex_lock(&hsic_xprtp->ss_reset_lock);
+	hsic_xprtp->ss_reset = 0;
+	mutex_unlock(&hsic_xprtp->ss_reset_lock);
 	msm_ipc_router_xprt_notify(&hsic_xprtp->xprt,
 				   IPC_ROUTER_XPRT_EVENT_OPEN, NULL);
 	D("%s: Notified IPC Router of %s OPEN\n",
