@@ -28,6 +28,7 @@
 #define MSM_FD_CONDT_MIN_MASK  (0x03)
 #define MSM_FD_CONDT_MIN_SHIFT (0x00)
 #define MSM_FD_CONDT_DIR_MAX   (0x08)
+#define MSM_FD_CONDT_DIR_MASK  (0x3C)
 #define MSM_FD_CONDT_DIR_SHIFT (0x02)
 
 #define MSM_FD_START_X (0x0C)
