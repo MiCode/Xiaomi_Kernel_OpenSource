@@ -220,6 +220,15 @@ static int mdss_mdp_hscl_filter[] = {
 #define PP_FLAGS_DIRTY_HIST_COL	0x80
 #define PP_FLAGS_DIRTY_PGC	0x100
 #define PP_FLAGS_DIRTY_SHARP	0x200
+/* Leave space for future features */
+#define PP_FLAGS_RESUME_COMMIT	0x10000000
+
+#define IS_PP_RESUME_COMMIT(x)	((x) & PP_FLAGS_RESUME_COMMIT)
+#define PP_FLAGS_LUT_BASED (PP_FLAGS_DIRTY_IGC | PP_FLAGS_DIRTY_GAMUT | \
+		PP_FLAGS_DIRTY_PGC | PP_FLAGS_DIRTY_ARGC)
+#define IS_PP_LUT_DIRTY(x)	((x) & PP_FLAGS_LUT_BASED)
+#define IS_SIX_ZONE_DIRTY(d, pa)	(((d) & PP_FLAGS_DIRTY_PA) && \
+		((pa) & MDP_PP_PA_SIX_ZONE_ENABLE))
 
 #define PP_SSPP		0
 #define PP_DSPP		1
@@ -1727,10 +1736,12 @@ int mdss_mdp_pp_setup_locked(struct mdss_mdp_ctl *ctl)
 {
 	struct mdss_data_type *mdata = ctl->mdata;
 	int ret = 0;
+	u32 flags, pa_v2_flags;
+	u32 max_bw_needed;
 	u32 mixer_cnt;
 	u32 mixer_id[MDSS_MDP_INTF_MAX_LAYERMIXER];
 	u32 disp_num;
-	int i;
+	int i, req = -1;
 	bool valid_mixers = true;
 	bool valid_ad_panel = true;
 	if ((!ctl->mfd) || (!mdss_pp_res) || (!mdata))
@@ -1766,6 +1777,25 @@ int mdss_mdp_pp_setup_locked(struct mdss_mdp_ctl *ctl)
 	}
 
 	mutex_lock(&mdss_pp_mutex);
+
+	flags = mdss_pp_res->pp_disp_flags[disp_num];
+	pa_v2_flags = mdss_pp_res->pa_v2_disp_cfg[disp_num].flags;
+
+	/*
+	 * If a LUT based PP feature needs to be reprogrammed during resume,
+	 * increase the register bus bandwidth to maximum frequency
+	 * in order to speed up the register reprogramming.
+	 */
+	max_bw_needed = (IS_PP_RESUME_COMMIT(flags) &&
+				(IS_PP_LUT_DIRTY(flags) ||
+				IS_SIX_ZONE_DIRTY(flags, pa_v2_flags)));
+	if (mdata->reg_bus_hdl && max_bw_needed) {
+		req = msm_bus_scale_client_update_request(mdata->reg_bus_hdl,
+				REG_CLK_CFG_HIGH);
+		if (req)
+			pr_err("Updated reg_bus_scale failed, ret = %d", req);
+	}
+
 	if (ctl->mixer_left) {
 		pp_mixer_setup(disp_num, ctl->mixer_left);
 		pp_dspp_setup(disp_num, ctl->mixer_left);
@@ -1780,6 +1810,16 @@ int mdss_mdp_pp_setup_locked(struct mdss_mdp_ctl *ctl)
 		if (disp_num < mdata->nad_cfgs)
 			mdata->ad_cfgs[disp_num].reg_sts = 0;
 	}
+
+	if (mdata->reg_bus_hdl && max_bw_needed) {
+		req = msm_bus_scale_client_update_request(mdata->reg_bus_hdl,
+				REG_CLK_CFG_OFF);
+		if (req)
+			pr_err("Updated reg_bus_scale failed, ret = %d", req);
+	}
+	if (IS_PP_RESUME_COMMIT(flags))
+		mdss_pp_res->pp_disp_flags[disp_num] &=
+			~PP_FLAGS_RESUME_COMMIT;
 	mutex_unlock(&mdss_pp_mutex);
 exit:
 	return ret;
@@ -1901,6 +1941,7 @@ int mdss_mdp_pp_resume(struct mdss_mdp_ctl *ctl, u32 dspp_num)
 	}
 
 	mdss_pp_res->pp_disp_flags[disp_num] |= flags;
+	mdss_pp_res->pp_disp_flags[disp_num] |= PP_FLAGS_RESUME_COMMIT;
 	return 0;
 }
 
