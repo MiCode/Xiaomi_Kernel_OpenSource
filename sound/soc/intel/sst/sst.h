@@ -97,6 +97,8 @@ enum sst_algo_ops {
 #define SST_SHIM_SIZE		0xD0
 
 #define FW_SIGNATURE_SIZE	4
+#define SST_LPE_STACK_OFFSET      0x27000
+#define SST_LPE_STACK_SIZE        4096
 
 /* stream states */
 enum sst_stream_states {

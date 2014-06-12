@@ -637,7 +637,9 @@ static ssize_t sst_debug_readme_read(struct file *file, char __user *user_buf,
 					"dma single block mode\n"
 		"7. iram_dump, dram_dump, interfaces provide mmap support to\n"
 		"get the iram and dram dump, these buffers will have data only\n"
-		"after the recovery is triggered\n";
+		"after the recovery is triggered\n"
+		"8. lpe_stack, dumps lpe stack area."
+		"Valid only when LPE is active\n";
 
 	const char *ctp_buf =
 		"8. Enable input clock by 'echo enable > osc_clk0'.\n"
@@ -1082,6 +1084,36 @@ static const struct file_operations sst_debug_dma_reg = {
 		.read = sst_debug_dma_reg_read,
 };
 
+static ssize_t sst_debug_lpe_stack_read(struct file *file,
+		char __user *user_buf, size_t count, loff_t *ppos)
+{
+	int retval = 0;
+	struct intel_sst_drv *sst = file->private_data;
+	void __iomem *addr;
+
+
+	retval = is_fw_running(sst);
+	if (retval)
+		return retval;
+
+	addr = sst->dram + SST_LPE_STACK_OFFSET;
+
+	pr_debug("Dumping DCCM from %p, num_dwrds %d...\n",
+		 (u32 *)addr, SST_LPE_STACK_SIZE);
+
+	retval = copy_sram_to_user_buffer(user_buf, count, ppos,
+			SST_LPE_STACK_SIZE/(sizeof(u32)), (u32 *)(addr), 0);
+	sst_pm_runtime_put(sst);
+
+
+	return retval;
+}
+
+static const struct file_operations sst_debug_lpe_stack_dump = {
+		.open = simple_open,
+		.read = sst_debug_lpe_stack_read,
+};
+
 /**
  * sst_debug_remap - function remaps the iram/dram buff to userspace
  *
@@ -1290,6 +1322,7 @@ static const struct sst_debug sst_common_dbg_entries[] = {
 	{"sram_ia_lpe_mailbox", &sst_debug_sram_ia_lpe_mbox_ops, 0400},
 	{"sram_lpe_ia_mailbox", &sst_debug_sram_lpe_ia_mbox_ops, 0400},
 	{"README", &sst_debug_readme_ops, 0400},
+	{"lpe_stack", &sst_debug_lpe_stack_dump, 0400},
 };
 
 static const struct sst_debug ctp_dbg_entries[] = {
