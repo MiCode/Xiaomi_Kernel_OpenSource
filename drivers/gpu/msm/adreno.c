@@ -1530,8 +1530,6 @@ static int adreno_of_get_iommu(struct device_node *parent,
 
 	data->physstart = reg_val[0];
 	data->physend = data->physstart + reg_val[1] - 1;
-	data->iommu_halt_enable = of_property_read_bool(node,
-					"qcom,iommu-enable-halt");
 
 	data->iommu_ctx_count = 0;
 

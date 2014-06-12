@@ -161,8 +161,6 @@ struct kgsl_mmu {
 	atomic_t fault;
 	unsigned long pt_base;
 	unsigned long pt_size;
-	bool pt_per_process;
-	bool use_cpu_map;
 	bool secured;
 };
 
@@ -368,7 +366,7 @@ static inline int kgsl_mmu_hw_halt_supported(struct kgsl_mmu *mmu,
  */
 static inline int kgsl_mmu_is_perprocess(struct kgsl_mmu *mmu)
 {
-	return mmu->pt_per_process;
+	return KGSL_MMU_USE_PER_PROCESS_PT;
 }
 
 /*
@@ -380,7 +378,7 @@ static inline int kgsl_mmu_is_perprocess(struct kgsl_mmu *mmu)
  */
 static inline int kgsl_mmu_use_cpu_map(struct kgsl_mmu *mmu)
 {
-	return mmu->use_cpu_map;
+	return kgsl_mmu_is_perprocess(mmu);
 }
 
 static inline int kgsl_mmu_sync_lock(struct kgsl_mmu *mmu,
