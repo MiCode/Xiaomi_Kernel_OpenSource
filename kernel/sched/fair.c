@@ -1556,9 +1556,6 @@ static int select_best_cpu(struct task_struct *p, int target)
 	int small_task = is_small_task(p);
 
 	trace_sched_task_load(p);
-	for_each_online_cpu(i)
-		trace_sched_cpu_load(cpu_rq(i), idle_cpu(i),
-				     mostly_idle_cpu(i), power_cost(p, i));
 
 	/* provide bias for prev_cpu */
 	if (!small_task && mostly_idle_cpu(prev_cpu) &&
@@ -1570,6 +1567,9 @@ static int select_best_cpu(struct task_struct *p, int target)
 
 	/* Todo : Optimize this loop */
 	for_each_cpu_and(i, tsk_cpus_allowed(p), cpu_online_mask) {
+		trace_sched_cpu_load(cpu_rq(i), idle_cpu(i),
+				     mostly_idle_cpu(i), power_cost(p, i));
+
 		if (!task_will_fit(p, i)) {
 			if (mostly_idle_cpu(i)) {
 				load = cpu_load(i);
