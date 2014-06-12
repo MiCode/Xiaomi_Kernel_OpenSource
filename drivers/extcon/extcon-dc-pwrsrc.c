@@ -74,7 +74,7 @@
 #define DET_STAT_POS			5
 #define DET_STAT_SDP			0x1
 #define DET_STAT_CDP			0x2
-#define DET_STAT_DCP			0x2
+#define DET_STAT_DCP			0x3
 
 #define DC_PS_BOOT_REASON_REG		0x2
 
