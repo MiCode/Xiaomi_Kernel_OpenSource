@@ -7846,15 +7846,46 @@ static inline unsigned long load_scale_cpu_freq(int cpu)
 	return (1024 * max_possible_freq) / cpu_rq(cpu)->max_freq;
 }
 
+static int compute_capacity(int cpu)
+{
+	int capacity = 1024;
+
+	capacity *= capacity_scale_cpu_efficiency(cpu);
+	capacity >>= 10;
+
+	capacity *= capacity_scale_cpu_freq(cpu);
+	capacity >>= 10;
+
+	return capacity;
+}
+
+static int compute_load_scale_factor(int cpu)
+{
+	int load_scale = 1024;
+
+	/*
+	 * load_scale_factor accounts for the fact that task load
+	 * is in reference to "best" performing cpu. Task's load will need to be
+	 * scaled (up) by a factor to determine suitability to be placed on a
+	 * (little) cpu.
+	 */
+	load_scale *= load_scale_cpu_efficiency(cpu);
+	load_scale >>= 10;
+
+	load_scale *= load_scale_cpu_freq(cpu);
+	load_scale >>= 10;
+
+	return load_scale;
+}
+
 static int cpufreq_notifier_policy(struct notifier_block *nb,
 		unsigned long val, void *data)
 {
 	struct cpufreq_policy *policy = (struct cpufreq_policy *)data;
 	int i;
 	unsigned int min_max = min_max_freq;
-	int cpu = policy->cpu;
-	int load_scale = 1024;
-	int capacity = 1024;
+	const struct cpumask *cpus = policy->related_cpus;
+	int orig_min_max_freq = min_max_freq;
 
 	if (val != CPUFREQ_NOTIFY)
 		return 0;
@@ -7874,24 +7905,8 @@ static int cpufreq_notifier_policy(struct notifier_block *nb,
 	BUG_ON(!min_max_freq);
 	BUG_ON(!policy->max);
 
-	/* Assumes all cpus in cluster has same efficiency!! */
-	capacity *= capacity_scale_cpu_efficiency(cpu);
-	capacity >>= 10;
-
-	capacity *= capacity_scale_cpu_freq(cpu);
-	capacity >>= 10;
-
-	/*
-	 * load_scale_factor accounts for the fact that task load
-	 * (p->se.avg.runnable_avg_sum_scaled) is in reference to "best"
-	 * performing cpu. Task's load will need to be scaled (up) by a factor
-	 * to determine suitability to be placed on a particular cpu.
-	 */
-	load_scale *= load_scale_cpu_efficiency(cpu);
-	load_scale >>= 10;
-
-	load_scale *= load_scale_cpu_freq(cpu);
-	load_scale >>= 10;
+	if (min_max_freq != orig_min_max_freq)
+		cpus = cpu_online_mask;
 
 	/*
 	 * Changed load_scale_factor can trigger reclassification of tasks as
@@ -7899,11 +7914,11 @@ static int cpufreq_notifier_policy(struct notifier_block *nb,
 	 * properly due to changed load_scale_factor
 	 */
 	pre_big_small_task_count_change();
-	for_each_cpu(i, policy->related_cpus) {
+	for_each_cpu(i, cpus) {
 		struct rq *rq = cpu_rq(i);
 
-		rq->capacity = capacity;
-		rq->load_scale_factor = load_scale;
+		rq->capacity = compute_capacity(i);
+		rq->load_scale_factor = compute_load_scale_factor(i);
 	}
 
 	update_min_max_capacity();
