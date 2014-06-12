@@ -1640,6 +1640,7 @@ static int ipa_lan_rx_pyld_hdlr(struct sk_buff *skb,
 	int pad_len_byte;
 	int len;
 	unsigned char *buf;
+	bool drop_packet;
 
 	IPA_DUMP_BUFF(skb->data, 0, skb->len);
 
@@ -1705,6 +1706,7 @@ static int ipa_lan_rx_pyld_hdlr(struct sk_buff *skb,
 
 begin:
 	while (skb->len) {
+		drop_packet = false;
 		IPADBG("LEN_REM %d\n", skb->len);
 
 		if (skb->len < IPA_PKT_STATUS_SIZE) {
@@ -1766,6 +1768,14 @@ begin:
 		}
 		if (status->endp_dest_idx == (sys->ep - ipa_ctx->ep)) {
 			/* RX data */
+
+			/*
+			 * A packet which is received back to the AP after
+			 * there was no route match.
+			 */
+			if (!status->exception && !status->route_match)
+				drop_packet = true;
+
 			if (skb->len == IPA_PKT_STATUS_SIZE &&
 					!status->exception) {
 				WARN_ON(sys->prev_skb != NULL);
@@ -1800,9 +1810,14 @@ begin:
 							IPA_PKT_STATUS_SIZE);
 					IPADBG("rx avail for %d\n",
 							status->endp_dest_idx);
-					sys->ep->client_notify(sys->ep->priv,
+					if (drop_packet)
+						dev_kfree_skb_any(skb2);
+					else {
+						sys->ep->client_notify(
+							sys->ep->priv,
 							IPA_RECEIVE,
 							(unsigned long)(skb2));
+					}
 					skb_pull(skb, len +
 						IPA_PKT_STATUS_SIZE);
 				}

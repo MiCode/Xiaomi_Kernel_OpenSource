@@ -51,8 +51,19 @@
 
 #define IPA_AGGR_MAX_STR_LENGTH (10)
 
+#define CLEANUP_TAG_PROCESS_TIMEOUT 20
+
 #define IPA_AGGR_STR_IN_BYTES(str) \
 	(strnlen((str), IPA_AGGR_MAX_STR_LENGTH - 1) + 1)
+
+#define IPA_Q6_CLEANUP_FLT_RT_MAX_CMDS \
+	(IPA_NUM_PIPES*2 + \
+	(IPA_v2_V4_MODEM_RT_INDEX_HI - IPA_v2_V4_MODEM_RT_INDEX_LO + 1) + \
+	(IPA_v2_V6_MODEM_RT_INDEX_HI - IPA_v2_V6_MODEM_RT_INDEX_LO + 1)) \
+
+/* To be on the safe side */
+#define IPA_Q6_CLEANUP_EXP_AGGR_MAX_CMDS \
+	(IPA_NUM_PIPES*2) \
 
 #ifdef CONFIG_COMPAT
 #define IPA_IOC_ADD_HDR32 _IOWR(IPA_IOC_MAGIC, \
@@ -978,6 +989,423 @@ static int ipa_setup_exception_path(void)
 bail:
 	kfree(hdr);
 	return ret;
+}
+
+static int ipa_init_smem_region(int memory_region_size,
+				int memory_region_offset)
+{
+	struct ipa_hw_imm_cmd_dma_shared_mem cmd;
+	struct ipa_desc desc;
+	struct ipa_mem_buffer mem;
+	int rc;
+
+	memset(&desc, 0, sizeof(desc));
+	memset(&cmd, 0, sizeof(cmd));
+	memset(&mem, 0, sizeof(mem));
+
+	mem.size = memory_region_size;
+	mem.base = dma_alloc_coherent(ipa_ctx->pdev, mem.size,
+		&mem.phys_base, GFP_KERNEL);
+	if (!mem.base) {
+		IPAERR("failed to alloc DMA buff of size %d\n", mem.size);
+		return -ENOMEM;
+	}
+
+	memset(mem.base, 0, mem.size);
+	cmd.size = mem.size;
+	cmd.system_addr = mem.phys_base;
+	cmd.local_addr = ipa_ctx->smem_restricted_bytes +
+		memory_region_offset;
+	desc.opcode = IPA_DMA_SHARED_MEM;
+	desc.pyld = &cmd;
+	desc.len = sizeof(cmd);
+	desc.type = IPA_IMM_CMD_DESC;
+
+	rc = ipa_send_cmd(1, &desc);
+	if (rc) {
+		IPAERR("failed to send immediate command (error %d)\n", rc);
+		rc = -EFAULT;
+	}
+
+	dma_free_coherent(ipa_ctx->pdev, mem.size, mem.base,
+		mem.phys_base);
+
+	return rc;
+}
+
+/**
+* ipa_init_q6_smem() - Initialize Q6 general memory and
+*                      header memory regions in IPA.
+*
+* Return codes:
+* 0: success
+* -ENOMEM: failed to allocate dma memory
+* -EFAULT: failed to send IPA command to initialize the memory
+*/
+int ipa_init_q6_smem(void)
+{
+	int rc;
+
+	rc = ipa_init_smem_region(IPA_v2_RAM_MODEM_SIZE,
+				  IPA_v2_RAM_MODEM_OFST);
+
+	if (rc) {
+		IPAERR("failed to initialize Modem RAM memory\n");
+		return rc;
+	}
+
+	rc = ipa_init_smem_region(IPA_v2_RAM_MODEM_HDR_SIZE,
+				  IPA_v2_RAM_MODEM_HDR_OFST);
+
+	if (rc) {
+		IPAERR("failed to initialize Modem HDRs RAM memory\n");
+		return rc;
+	}
+
+	return rc;
+}
+
+static void ipa_free_buffer(void *user1, int user2)
+{
+	kfree(user1);
+}
+
+static int ipa_q6_pipe_delay(void)
+{
+	u32 reg_val = 0;
+	int client_idx;
+	int ep_idx;
+
+	for (client_idx = 0; client_idx < IPA_CLIENT_MAX; client_idx++) {
+		if (IPA_CLIENT_IS_Q6_PROD(client_idx)) {
+			ep_idx = ipa_get_ep_mapping(client_idx);
+			if (ep_idx == -1)
+				continue;
+
+			IPA_SETFIELD_IN_REG(reg_val, 1,
+				IPA_ENDP_INIT_CTRL_N_ENDP_DELAY_SHFT,
+				IPA_ENDP_INIT_CTRL_N_ENDP_DELAY_BMSK);
+
+			ipa_write_reg(ipa_ctx->mmio,
+				IPA_ENDP_INIT_CTRL_N_OFST(ep_idx), reg_val);
+		}
+	}
+
+	return 0;
+}
+
+static int ipa_q6_avoid_holb(void)
+{
+	u32 reg_val;
+	int ep_idx;
+	int client_idx;
+	struct ipa_ep_cfg_ctrl avoid_holb;
+
+	memset(&avoid_holb, 0, sizeof(avoid_holb));
+	avoid_holb.ipa_ep_suspend = true;
+
+	for (client_idx = 0; client_idx < IPA_CLIENT_MAX; client_idx++) {
+		if (IPA_CLIENT_IS_Q6_CONS(client_idx)) {
+			ep_idx = ipa_get_ep_mapping(client_idx);
+			if (ep_idx == -1)
+				continue;
+
+			/*
+			 * ipa_cfg_ep_holb is not used here because we are
+			 * setting HOLB on Q6 pipes, and from APPS perspective
+			 * they are not valid, therefore, the above function
+			 * will fail.
+			 */
+			reg_val = 0;
+			IPA_SETFIELD_IN_REG(reg_val, 0,
+				IPA_ENDP_INIT_HOL_BLOCK_TIMER_N_TIMER_SHFT,
+				IPA_ENDP_INIT_HOL_BLOCK_TIMER_N_TIMER_BMSK);
+
+			ipa_write_reg(ipa_ctx->mmio,
+			IPA_ENDP_INIT_HOL_BLOCK_TIMER_N_OFST_v2_0(ep_idx),
+				reg_val);
+
+			reg_val = 0;
+			IPA_SETFIELD_IN_REG(reg_val, 1,
+				IPA_ENDP_INIT_HOL_BLOCK_EN_N_EN_SHFT,
+				IPA_ENDP_INIT_HOL_BLOCK_EN_N_EN_BMSK);
+
+			ipa_write_reg(ipa_ctx->mmio,
+				IPA_ENDP_INIT_HOL_BLOCK_EN_N_OFST_v2_0(ep_idx),
+				reg_val);
+
+			ipa_cfg_ep_ctrl(ep_idx, &avoid_holb);
+		}
+	}
+
+	return 0;
+}
+
+static int ipa_q6_clean_q6_tables(void)
+{
+	struct ipa_desc *desc;
+	struct ipa_hw_imm_cmd_dma_shared_mem *cmd = NULL;
+	int client_idx;
+	int ep_idx;
+	int num_cmds = 0;
+	int index;
+	int retval;
+	struct ipa_mem_buffer mem = { 0 };
+	u32 *entry;
+
+	mem.base = dma_alloc_coherent(ipa_ctx->pdev, 4, &mem.phys_base,
+		GFP_KERNEL);
+	if (!mem.base) {
+		IPAERR("failed to alloc DMA buff of size %d\n", mem.size);
+		return -ENOMEM;
+	}
+
+	mem.size = 4;
+	entry = mem.base;
+	*entry = ipa_ctx->empty_rt_tbl_mem.phys_base;
+
+	desc = kzalloc(sizeof(struct ipa_desc) *
+		IPA_Q6_CLEANUP_FLT_RT_MAX_CMDS, GFP_KERNEL);
+	if (!desc) {
+		IPAERR("failed to allocate memory\n");
+		retval = -ENOMEM;
+		goto bail_dma;
+	}
+
+	cmd = kzalloc(sizeof(struct ipa_hw_imm_cmd_dma_shared_mem) *
+		IPA_Q6_CLEANUP_FLT_RT_MAX_CMDS, GFP_KERNEL);
+	if (!cmd) {
+		IPAERR("failed to allocate memory\n");
+		retval = -ENOMEM;
+		goto bail_desc;
+	}
+
+	/*
+	 * Iterating over all the pipes which are either invalid but connected
+	 * or connected but not configured by AP.
+	 */
+	for (client_idx = 0; client_idx < IPA_CLIENT_MAX; client_idx++) {
+		ep_idx = ipa_get_ep_mapping(client_idx);
+		if (ep_idx == -1)
+			continue;
+
+		if (!ipa_ctx->ep[ep_idx].valid ||
+		    ipa_ctx->ep[ep_idx].skip_ep_cfg) {
+			/*
+			 * Need to point v4 and v6 fltr tables to an empty
+			 * table
+			 */
+			cmd[num_cmds].size = mem.size;
+			cmd[num_cmds].system_addr = mem.phys_base;
+			cmd[num_cmds].local_addr =
+				ipa_ctx->smem_restricted_bytes +
+				IPA_v2_RAM_V4_FLT_OFST + 8 + ep_idx*4;
+
+			desc[num_cmds].opcode = IPA_DMA_SHARED_MEM;
+			desc[num_cmds].pyld = &cmd[num_cmds];
+			desc[num_cmds].len = sizeof(*cmd);
+			desc[num_cmds].type = IPA_IMM_CMD_DESC;
+			num_cmds++;
+
+			cmd[num_cmds].size = mem.size;
+			cmd[num_cmds].system_addr =  mem.phys_base;
+			cmd[num_cmds].local_addr =
+				ipa_ctx->smem_restricted_bytes +
+				IPA_v2_RAM_V6_FLT_OFST + 8 + ep_idx*4;
+
+			desc[num_cmds].opcode = IPA_DMA_SHARED_MEM;
+			desc[num_cmds].pyld = &cmd[num_cmds];
+			desc[num_cmds].len = sizeof(*cmd);
+			desc[num_cmds].type = IPA_IMM_CMD_DESC;
+			num_cmds++;
+		}
+	}
+
+	/* Need to point v4/v6 modem routing tables to an empty table */
+	for (index = IPA_v2_V4_MODEM_RT_INDEX_LO; index <=
+		IPA_v2_V4_MODEM_RT_INDEX_HI; index++) {
+		cmd[num_cmds].size = mem.size;
+		cmd[num_cmds].system_addr =  mem.phys_base;
+		cmd[num_cmds].local_addr = ipa_ctx->smem_restricted_bytes +
+			IPA_v2_RAM_V4_RT_OFST + index*4;
+
+		desc[num_cmds].opcode = IPA_DMA_SHARED_MEM;
+		desc[num_cmds].pyld = &cmd[num_cmds];
+		desc[num_cmds].len = sizeof(*cmd);
+		desc[num_cmds].type = IPA_IMM_CMD_DESC;
+		num_cmds++;
+	}
+
+	for (index = IPA_v2_V6_MODEM_RT_INDEX_LO; index <=
+		IPA_v2_V6_MODEM_RT_INDEX_HI; index++) {
+		cmd[num_cmds].size = mem.size;
+		cmd[num_cmds].system_addr =  mem.phys_base;
+		cmd[num_cmds].local_addr = ipa_ctx->smem_restricted_bytes +
+			IPA_v2_RAM_V6_RT_OFST + index*4;
+
+		desc[num_cmds].opcode = IPA_DMA_SHARED_MEM;
+		desc[num_cmds].pyld = &cmd[num_cmds];
+		desc[num_cmds].len = sizeof(*cmd);
+		desc[num_cmds].type = IPA_IMM_CMD_DESC;
+		num_cmds++;
+	}
+
+	retval = ipa_send_cmd(num_cmds, desc);
+	if (retval) {
+		IPAERR("failed to send immediate command (error %d)\n", retval);
+		retval = -EFAULT;
+	}
+
+	kfree(cmd);
+
+bail_desc:
+	kfree(desc);
+
+bail_dma:
+	dma_free_coherent(ipa_ctx->pdev, mem.size, mem.base, mem.phys_base);
+
+	return retval;
+}
+
+static void ipa_q6_disable_agg_reg(struct ipa_register_write *reg_write,
+				   int ep_idx)
+{
+	reg_write->skip_pipeline_clear = 0;
+
+	reg_write->offset = IPA_ENDP_INIT_AGGR_N_OFST_v2_0(ep_idx);
+	reg_write->value =
+		(1 & IPA_ENDP_INIT_AGGR_n_AGGR_FORCE_CLOSE_BMSK) <<
+		IPA_ENDP_INIT_AGGR_n_AGGR_FORCE_CLOSE_SHFT;
+	reg_write->value_mask =
+		IPA_ENDP_INIT_AGGR_n_AGGR_FORCE_CLOSE_BMSK <<
+		IPA_ENDP_INIT_AGGR_n_AGGR_FORCE_CLOSE_SHFT;
+
+	reg_write->value |=
+		((0 & IPA_ENDP_INIT_AGGR_N_AGGR_EN_BMSK) <<
+		IPA_ENDP_INIT_AGGR_N_AGGR_EN_SHFT);
+	reg_write->value_mask |=
+		((IPA_ENDP_INIT_AGGR_N_AGGR_EN_BMSK <<
+		IPA_ENDP_INIT_AGGR_N_AGGR_EN_SHFT));
+}
+
+static int ipa_q6_set_ex_path_dis_agg(void)
+{
+	int ep_idx;
+	int client_idx;
+	struct ipa_desc *desc;
+	int num_descs = 0;
+	int index;
+	struct ipa_register_write *reg_write;
+	int retval;
+
+	desc = kzalloc(sizeof(struct ipa_desc) *
+		IPA_Q6_CLEANUP_EXP_AGGR_MAX_CMDS, GFP_KERNEL);
+	if (!desc) {
+		IPAERR("failed to allocate memory\n");
+		return -ENOMEM;
+	}
+
+	/* Set the exception path to AP */
+	for (client_idx = 0; client_idx < IPA_CLIENT_MAX; client_idx++) {
+		ep_idx = ipa_get_ep_mapping(client_idx);
+		if (ep_idx == -1)
+			continue;
+
+		if (ipa_ctx->ep[ep_idx].valid &&
+			ipa_ctx->ep[ep_idx].skip_ep_cfg) {
+			reg_write = kzalloc(sizeof(*reg_write), GFP_KERNEL);
+
+			if (!reg_write) {
+				IPAERR("failed to allocate memory\n");
+				BUG();
+			}
+			reg_write->skip_pipeline_clear = 0;
+			reg_write->offset = IPA_ENDP_STATUS_n_OFST(ep_idx);
+			reg_write->value =
+				(ipa_get_ep_mapping(IPA_CLIENT_APPS_LAN_CONS) &
+				IPA_ENDP_STATUS_n_STATUS_ENDP_BMSK) <<
+				IPA_ENDP_STATUS_n_STATUS_ENDP_SHFT;
+			reg_write->value_mask =
+				IPA_ENDP_STATUS_n_STATUS_ENDP_BMSK <<
+				IPA_ENDP_STATUS_n_STATUS_ENDP_SHFT;
+
+			desc[num_descs].opcode = IPA_REGISTER_WRITE;
+			desc[num_descs].pyld = reg_write;
+			desc[num_descs].len = sizeof(*reg_write);
+			desc[num_descs].type = IPA_IMM_CMD_DESC;
+			desc[num_descs].callback = ipa_free_buffer;
+			desc[num_descs].user1 = reg_write;
+			num_descs++;
+		}
+	}
+
+	/* Disable AGGR on IPA->Q6 pipes */
+	for (client_idx = 0; client_idx < IPA_CLIENT_MAX; client_idx++) {
+		if (IPA_CLIENT_IS_Q6_CONS(client_idx)) {
+			reg_write = kzalloc(sizeof(*reg_write), GFP_KERNEL);
+
+			if (!reg_write) {
+				IPAERR("failed to allocate memory\n");
+				BUG();
+			}
+
+			ipa_q6_disable_agg_reg(reg_write,
+					       ipa_get_ep_mapping(client_idx));
+
+			desc[num_descs].opcode = IPA_REGISTER_WRITE;
+			desc[num_descs].pyld = reg_write;
+			desc[num_descs].len = sizeof(*reg_write);
+			desc[num_descs].type = IPA_IMM_CMD_DESC;
+			desc[num_descs].callback = ipa_free_buffer;
+			desc[num_descs].user1 = reg_write;
+			num_descs++;
+		}
+	}
+
+	/* Will wait 20msecs for IPA tag process completion */
+	retval = ipa_tag_process(desc, num_descs,
+				 msecs_to_jiffies(CLEANUP_TAG_PROCESS_TIMEOUT));
+	if (retval) {
+		IPAERR("TAG process failed! (error %d)\n", retval);
+		for (index = 0; index < num_descs; index++)
+			kfree(desc[index].user1);
+		retval = -EINVAL;
+	}
+
+	kfree(desc);
+
+	return retval;
+}
+
+/**
+* ipa_q6_cleanup() - A cleanup for all Q6 related configuration
+*                    in IPA HW. This is performed in case of SSR.
+*
+* Return codes:
+* 0: success
+* This is a mandatory procedure, in case one of the steps fails, the
+* AP needs to restart.
+*/
+int ipa_q6_cleanup(void)
+{
+	if (ipa_q6_pipe_delay()) {
+		IPAERR("Failed to delay Q6 pipes\n");
+		BUG();
+	}
+	if (ipa_q6_avoid_holb()) {
+		IPAERR("Failed to set HOLB on Q6 pipes\n");
+		BUG();
+	}
+	if (ipa_q6_clean_q6_tables()) {
+		IPAERR("Failed to clean Q6 tables\n");
+		BUG();
+	}
+	if (ipa_q6_set_ex_path_dis_agg()) {
+		IPAERR("Failed to disable aggregation on Q6 pipes\n");
+		BUG();
+	}
+
+	return 0;
 }
 
 static int ipa_init_sram(void)
