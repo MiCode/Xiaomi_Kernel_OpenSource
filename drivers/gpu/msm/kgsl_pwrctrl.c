@@ -1051,8 +1051,6 @@ int kgsl_pwrctrl_init(struct kgsl_device *device)
 					   gpu_freq) : 0;
 		pwr->pwrlevels[i].bus_freq =
 			pdata->pwrlevel[i].bus_freq;
-		pwr->pwrlevels[i].io_fraction =
-			pdata->pwrlevel[i].io_fraction;
 	}
 	/* Do not set_rate for targets in sync with AXI */
 	if (pwr->pwrlevels[0].gpu_freq > 0) {

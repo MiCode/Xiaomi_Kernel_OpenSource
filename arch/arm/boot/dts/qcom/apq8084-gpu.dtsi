@@ -89,42 +89,36 @@
 				reg = <0>;
 				qcom,gpu-freq = <600000000>;
 				qcom,bus-freq = <16>;
-				qcom,io-fraction = <33>;
 			};
 
 			qcom,gpu-pwrlevel@1 {
 				reg = <1>;
 				qcom,gpu-freq = <500000000>;
 				qcom,bus-freq = <13>;
-				qcom,io-fraction = <66>;
 			};
 
 			qcom,gpu-pwrlevel@2 {
 				reg = <2>;
 				qcom,gpu-freq = <389000000>;
 				qcom,bus-freq = <10>;
-				qcom,io-fraction = <66>;
 			};
 
 			qcom,gpu-pwrlevel@3 {
 				reg = <3>;
 				qcom,gpu-freq = <300000000>;
 				qcom,bus-freq = <7>;
-				qcom,io-fraction = <100>;
 			};
 
 			qcom,gpu-pwrlevel@4 {
 				reg = <4>;
 				qcom,gpu-freq = <240000000>;
 				qcom,bus-freq = <3>;
-				qcom,io-fraction = <100>;
 			};
 
 			qcom,gpu-pwrlevel@5 {
 				reg = <5>;
 				qcom,gpu-freq = <27000000>;
 				qcom,bus-freq = <0>;
-				qcom,io-fraction = <0>;
 			};
 		};
 
