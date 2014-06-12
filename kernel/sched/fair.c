@@ -1922,6 +1922,7 @@ void init_new_task_load(struct task_struct *p)
 	p->se.avg.runnable_avg_sum = sched_init_task_load_pelt;
 	p->se.avg.runnable_avg_sum_scaled = sched_init_task_load_pelt;
 	p->ravg.demand = sched_init_task_load_windows;
+	p->ravg.partial_demand = sched_init_task_load_windows;
 }
 
 #else /* CONFIG_SCHED_FREQ_INPUT || CONFIG_SCHED_HMP */
