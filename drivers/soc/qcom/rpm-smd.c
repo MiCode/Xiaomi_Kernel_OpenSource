@@ -68,7 +68,7 @@ struct msm_rpm_driver_data {
 #define INV_RSC "resource does not exist"
 #define ERR "err\0"
 #define MAX_ERR_BUFFER_SIZE 128
-#define MAX_WAIT_ON_ACK 24
+#define MAX_WAIT_ON_ACK 10
 #define INIT_ERROR 1
 
 static ATOMIC_NOTIFIER_HEAD(msm_rpm_sleep_notifier);
@@ -413,7 +413,7 @@ static int msm_rpm_flush_requests(bool print)
 
 		/*
 		 * RPM acks need to be handled here if we have sent over
-		 * 24 messages such that we do not overrun SMD buffer. Since
+		 * 10 messages such that we do not overrun SMD buffer. Since
 		 * we expect only sleep sets at this point (RPM PC would be
 		 * disallowed if we had pending active requests), we need not
 		 * process these sleep set acks.
@@ -421,10 +421,25 @@ static int msm_rpm_flush_requests(bool print)
 		count++;
 		if (count > MAX_WAIT_ON_ACK) {
 			int len;
+			int timeout = 10;
+
+			while (timeout) {
+				if (smd_is_pkt_avail(msm_rpm_data.ch_info))
+					break;
+				/*
+				 * Sleep for 50us at a time before checking
+				 * for packet availability. The 50us is based
+				 * on the the max time rpm could take to
+				 * process and send an ack for sleep set
+				 * request.
+				 */
+				udelay(50);
+				timeout--;
+			}
+
 			pkt_sz = smd_cur_packet_size(msm_rpm_data.ch_info);
-			if (pkt_sz)
-				len = smd_read(msm_rpm_data.ch_info, buf,
-							pkt_sz);
+			BUG_ON(!pkt_sz);
+			len = smd_read(msm_rpm_data.ch_info, buf, pkt_sz);
 			count--;
 		}
 
