@@ -78,9 +78,13 @@ static int get_supplied_by_list(struct power_supply *psy,
 static int handle_cable_notification(struct notifier_block *nb,
 				   unsigned long event, void *data);
 struct usb_phy *otg_xceiver;
-struct notifier_block nb = {
+struct notifier_block usb_nb = {
 		   .notifier_call = handle_cable_notification,
 		};
+struct notifier_block psy_nb = {
+		   .notifier_call = handle_cable_notification,
+		};
+
 static void configure_chrgr_source(struct charger_cable *cable_lst);
 
 struct charger_cable *get_cable(unsigned long usb_chrgr_type)
@@ -178,13 +182,13 @@ static int register_notifier(void)
 		retval = -EIO;
 		goto notifier_reg_failed;
 	}
-	retval = usb_register_notifier(otg_xceiver, &nb);
+	retval = usb_register_notifier(otg_xceiver, &usb_nb);
 	if (retval) {
 		pr_err("failure to register otg notifier\n");
 		goto notifier_reg_failed;
 	}
 
-	retval = power_supply_reg_notifier(&nb);
+	retval = power_supply_reg_notifier(&psy_nb);
 	if (retval) {
 		pr_err("failure to register power_supply notifier\n");
 		goto notifier_reg_failed;
