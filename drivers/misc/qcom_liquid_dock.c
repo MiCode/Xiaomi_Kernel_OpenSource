@@ -76,19 +76,23 @@ static void dock_detected_work(struct work_struct *w)
 	struct liquid_dock *dock = container_of(w, struct liquid_dock,
 						 dock_work);
 	docked = gpio_get_value(dock->dock_detect);
-	gpio_direction_output(dock->dock_enable, 0);
+
+	if (dock->dock_enable)
+		gpio_direction_output(dock->dock_enable, 0);
 
 	if (docked) {
+		/* assert RESETs before turning on power */
+		gpio_direction_output(dock->dock_hub_reset, 1);
+		gpio_direction_output(dock->dock_eth_reset, 1);
+
 		if (device_attach(&dock->usb3_pdev->dev) != 1) {
 			dev_err(dock->dev, "Could not add USB driver 0x%p\n",
 				dock->usb3_pdev);
 			return;
 		}
 
-		/* assert RESETs before turning on power */
-		gpio_direction_output(dock->dock_hub_reset, 1);
-		gpio_direction_output(dock->dock_eth_reset, 1);
-		gpio_direction_output(dock->dock_enable, 1);
+		if (dock->dock_enable)
+			gpio_direction_output(dock->dock_enable, 1);
 
 		msleep(20); /* short delay before de-asserting RESETs */
 		gpio_direction_output(dock->dock_hub_reset, 0);
@@ -170,14 +174,14 @@ static int liquid_dock_probe(struct platform_device *pdev)
 		return ret;
 
 	dock->dock_enable = of_get_named_gpio(node, "qcom,dock-enable-gpio", 0);
-	if (dock->dock_enable < 0) {
-		dev_err(dock->dev, "unable to get dock-enable-gpio\n");
-		return dock->dock_enable;
+	if (dock->dock_enable < 0) { /* optional */
+		dock->dock_enable = 0;
+	} else {
+		ret = devm_gpio_request(dock->dev, dock->dock_enable,
+					"dock_enable");
+		if (ret)
+			return ret;
 	}
-
-	ret = devm_gpio_request(dock->dev, dock->dock_enable, "dock_enable");
-	if (ret)
-		return ret;
 
 	usb3_node = of_parse_phandle(node, "qcom,usb-host", 0);
 	if (!usb3_node) {
