@@ -20,7 +20,7 @@
 
 	qcom,csiphy@fda0ac00 {
 		cell-index = <0>;
-		compatible = "qcom,csiphy-v3.1", "qcom,csiphy";
+		compatible = "qcom,csiphy-v3.1.1", "qcom,csiphy";
 		reg = <0xfda0ac00 0x200>,
                       <0xfda00030 0x4>;
 		reg-names = "csiphy", "csiphy_clk_mux";
@@ -42,7 +42,7 @@
 
 	qcom,csiphy@fda0b000 {
 		cell-index = <1>;
-		compatible = "qcom,csiphy-v3.1", "qcom,csiphy";
+		compatible = "qcom,csiphy-v3.1.1", "qcom,csiphy";
 		reg = <0xfda0b000 0x200>,
                       <0xfda00038 0x4>;
 		reg-names = "csiphy", "csiphy_clk_mux";
@@ -64,7 +64,7 @@
 
 	qcom,csiphy@fda0b400 {
 		cell-index = <2>;
-		compatible = "qcom,csiphy-v3.1", "qcom,csiphy";
+		compatible = "qcom,csiphy-v3.1.1", "qcom,csiphy";
 		reg = <0xfda0b400 0x200>,
                       <0xfda00040 0x4>;
 		reg-names = "csiphy", "csiphy_clk_mux";
