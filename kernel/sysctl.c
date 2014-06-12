@@ -296,11 +296,18 @@ static struct ctl_table kern_table[] = {
 	},
 #ifdef CONFIG_SCHED_FREQ_INPUT
 	{
-		.procname	= "sched_task_migrate_notify",
-		.data		= &sysctl_sched_task_migrate_notify_pct,
+		.procname	= "sched_freq_inc_notify_slack_pct",
+		.data		= &sysctl_sched_freq_inc_notify_slack_pct,
 		.maxlen		= sizeof(unsigned int),
 		.mode		= 0644,
-		.proc_handler	= sched_migrate_notify_proc_handler,
+		.proc_handler	= proc_dointvec,
+	},
+	{
+		.procname	= "sched_freq_dec_notify_slack_pct",
+		.data		= &sysctl_sched_freq_dec_notify_slack_pct,
+		.maxlen		= sizeof(unsigned int),
+		.mode		= 0644,
+		.proc_handler	= proc_dointvec,
 	},
 #endif
 #if defined(CONFIG_SCHED_FREQ_INPUT) || defined(CONFIG_SCHED_HMP)
