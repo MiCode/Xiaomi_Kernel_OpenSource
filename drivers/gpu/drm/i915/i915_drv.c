@@ -610,6 +610,9 @@ static int i915_drm_thaw_early(struct drm_device *dev)
 {
 	struct drm_i915_private *dev_priv = dev->dev_private;
 
+	if (IS_HASWELL(dev) || IS_BROADWELL(dev))
+		hsw_disable_pc8(dev_priv);
+
 	intel_uncore_early_sanitize(dev);
 	intel_uncore_sanitize(dev);
 	intel_power_domains_init_hw(dev_priv);
@@ -893,6 +896,7 @@ static int i915_pm_suspend_late(struct device *dev)
 {
 	struct pci_dev *pdev = to_pci_dev(dev);
 	struct drm_device *drm_dev = pci_get_drvdata(pdev);
+	struct drm_i915_private *dev_priv = drm_dev->dev_private;
 
 	/*
 	 * We have a suspedn ordering issue with the snd-hda driver also
@@ -905,6 +909,9 @@ static int i915_pm_suspend_late(struct device *dev)
 	 */
 	if (drm_dev->switch_power_state == DRM_SWITCH_POWER_OFF)
 		return 0;
+
+	if (IS_HASWELL(drm_dev) || IS_BROADWELL(drm_dev))
+		hsw_enable_pc8(dev_priv);
 
 	pci_disable_device(pdev);
 	pci_set_power_state(pdev, PCI_D3hot);
