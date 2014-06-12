@@ -627,12 +627,19 @@ static void ci13xxx_msm_hsic_notify_event(struct ci13xxx *udc, unsigned event)
 {
 	struct device *dev = udc->gadget.dev.parent;
 	struct msm_hsic_per *mhsic = the_mhsic;
+	int	temp;
 
 	switch (event) {
 	case CI13XXX_CONTROLLER_RESET_EVENT:
 		dev_info(dev, "CI13XXX_CONTROLLER_RESET_EVENT received\n");
 		writel_relaxed(0, USB_AHBBURST);
 		writel_relaxed(0x08, USB_AHBMODE);
+
+		/* workaround for rx buffer collision issue */
+		temp = readl_relaxed(USB_GENCONFIG);
+		temp &= ~GENCONFIG_TXFIFO_IDLE_FORCE_DISABLE;
+		writel_relaxed(temp, USB_GENCONFIG);
+		mb();
 		break;
 	case CI13XXX_CONTROLLER_CONNECT_EVENT:
 		dev_info(dev, "CI13XXX_CONTROLLER_CONNECT_EVENT received\n");
