@@ -145,6 +145,7 @@ Optional properties:
 				SD card vdd supply or "vdd-io" for SD I/O vdd
 				supply.
 - qcom,hwevent-clks : list of clocks required by hardware event driver
+- qcom,hwevent-regs : list of regulators required by hardware event driver
 - qcom,byte-cntr-absent : specifies if the byte counter feature is absent on
 			  the device. Only relevant in case of tmc-etr device.
 - interrupts : <a b c> where a is 0 or 1 depending on if the interrupt is
@@ -302,6 +303,7 @@ Examples:
 		coresight-nr-inports = <0>;
 
 		qcom,hwevent-clks = "core_mmss_clk";
+		qcom,hwevent-regs = "gdsc_ufs";
 	};
 
 	fuse: fuse@fc4be024 {

@@ -1,4 +1,4 @@
-/* Copyright (c) 2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -23,6 +23,7 @@
 #include <linux/of_coresight.h>
 #include <linux/coresight.h>
 #include <linux/of.h>
+#include <linux/regulator/consumer.h>
 
 #include "coresight-priv.h"
 
@@ -38,6 +39,8 @@ struct hwevent_drvdata {
 	struct mutex				mutex;
 	int					nr_hclk;
 	struct clk				**hclk;
+	int					nr_hreg;
+	struct regulator			**hreg;
 	int					nr_hmux;
 	struct hwevent_mux			*hmux;
 	bool					enable;
@@ -45,7 +48,7 @@ struct hwevent_drvdata {
 
 static int hwevent_enable(struct hwevent_drvdata *drvdata)
 {
-	int ret, i;
+	int ret, i, j;
 
 	mutex_lock(&drvdata->mutex);
 
@@ -55,20 +58,31 @@ static int hwevent_enable(struct hwevent_drvdata *drvdata)
 	ret = clk_prepare_enable(drvdata->clk);
 	if (ret)
 		goto err0;
-	for (i = 0; i < drvdata->nr_hclk; i++) {
-		ret = clk_prepare_enable(drvdata->hclk[i]);
+
+	for (i = 0; i < drvdata->nr_hreg; i++) {
+		ret = regulator_enable(drvdata->hreg[i]);
 		if (ret)
 			goto err1;
+	}
+
+	for (j = 0; j < drvdata->nr_hclk; j++) {
+		ret = clk_prepare_enable(drvdata->hclk[j]);
+		if (ret)
+			goto err2;
 	}
 	drvdata->enable = true;
 	dev_info(drvdata->dev, "Hardware Event driver enabled\n");
 out:
 	mutex_unlock(&drvdata->mutex);
 	return 0;
+err2:
+	for (j--; j >= 0; j--)
+		clk_disable_unprepare(drvdata->hclk[j]);
 err1:
-	clk_disable_unprepare(drvdata->clk);
 	for (i--; i >= 0; i--)
-		clk_disable_unprepare(drvdata->hclk[i]);
+		regulator_disable(drvdata->hreg[i]);
+
+	clk_disable_unprepare(drvdata->clk);
 err0:
 	mutex_unlock(&drvdata->mutex);
 	return ret;
@@ -87,6 +101,8 @@ static void hwevent_disable(struct hwevent_drvdata *drvdata)
 	clk_disable_unprepare(drvdata->clk);
 	for (i = 0; i < drvdata->nr_hclk; i++)
 		clk_disable_unprepare(drvdata->hclk[i]);
+	for (i = 0; i < drvdata->nr_hreg; i++)
+		regulator_disable(drvdata->hreg[i]);
 	dev_info(drvdata->dev, "Hardware Event driver disabled\n");
 out:
 	mutex_unlock(&drvdata->mutex);
@@ -209,7 +225,7 @@ static int hwevent_probe(struct platform_device *pdev)
 	struct coresight_platform_data *pdata;
 	struct resource *res;
 	int ret, i;
-	const char *hmux_name, *hclk_name;
+	const char *hmux_name, *hclk_name, *hreg_name;
 
 	if (coresight_fuse_access_disabled())
 		return -EPERM;
@@ -267,27 +283,50 @@ static int hwevent_probe(struct platform_device *pdev)
 	if (ret)
 		return ret;
 
-	if (pdev->dev.of_node)
+	if (pdev->dev.of_node) {
 		drvdata->nr_hclk = of_property_count_strings(pdev->dev.of_node,
 							     "qcom,hwevent-clks");
+		drvdata->nr_hreg = of_property_count_strings(pdev->dev.of_node,
+							     "qcom,hwevent-regs");
+	}
 	if (drvdata->nr_hclk > 0) {
 		drvdata->hclk = devm_kzalloc(dev, drvdata->nr_hclk *
 					     sizeof(*drvdata->hclk),
 					     GFP_KERNEL);
 		if (!drvdata->hclk)
 			return -ENOMEM;
+
 		for (i = 0; i < drvdata->nr_hclk; i++) {
 			ret = of_property_read_string_index(pdev->dev.of_node,
 							    "qcom,hwevent-clks",
 							    i, &hclk_name);
 			if (ret)
 				return ret;
+
 			drvdata->hclk[i] = devm_clk_get(dev, hclk_name);
 			if (IS_ERR(drvdata->hclk[i]))
 				return PTR_ERR(drvdata->hclk[i]);
 		}
 	}
+	if (drvdata->nr_hreg > 0) {
+		drvdata->hreg = devm_kzalloc(dev, drvdata->nr_hreg *
+					     sizeof(*drvdata->hreg),
+					     GFP_KERNEL);
+		if (!drvdata->hreg)
+			return -ENOMEM;
 
+		for (i = 0; i < drvdata->nr_hreg; i++) {
+			ret = of_property_read_string_index(pdev->dev.of_node,
+							    "qcom,hwevent-regs",
+							    i, &hreg_name);
+			if (ret)
+				return ret;
+
+			drvdata->hreg[i] = devm_regulator_get(dev, hreg_name);
+			if (IS_ERR(drvdata->hreg[i]))
+				return PTR_ERR(drvdata->hreg[i]);
+		}
+	}
 	desc = devm_kzalloc(dev, sizeof(*desc), GFP_KERNEL);
 	if (!desc)
 		return -ENOMEM;
