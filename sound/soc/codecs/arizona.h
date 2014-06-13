@@ -254,6 +254,7 @@ extern int arizona_set_fll(struct arizona_fll *fll, int source,
 extern int arizona_init_spk(struct snd_soc_codec *codec);
 extern int arizona_init_gpio(struct snd_soc_codec *codec);
 extern int arizona_init_mono(struct snd_soc_codec *codec);
+extern int arizona_init_input(struct snd_soc_codec *codec);
 
 extern int arizona_init_dai(struct arizona_priv *priv, int dai);
 

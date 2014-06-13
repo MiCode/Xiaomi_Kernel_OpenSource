@@ -236,6 +236,48 @@ int arizona_init_mono(struct snd_soc_codec *codec)
 }
 EXPORT_SYMBOL_GPL(arizona_init_mono);
 
+static const char * const arizona_dmic_refs[] = {
+	"MICVDD",
+	"MICBIAS1",
+	"MICBIAS2",
+	"MICBIAS3",
+};
+
+static const char * const arizona_dmic_inputs[] = {
+	"IN1L",
+	"IN1R",
+	"IN2L",
+	"IN2R",
+	"IN3L",
+	"IN3R",
+	"IN4L",
+	"IN4R",
+};
+
+int arizona_init_input(struct snd_soc_codec *codec)
+{
+	struct arizona_priv *priv = snd_soc_codec_get_drvdata(codec);
+	struct arizona *arizona = priv->arizona;
+	struct arizona_pdata *pdata = &arizona->pdata;
+	int i, ret;
+	struct snd_soc_dapm_route routes[2];
+
+	memset(&routes, 0, sizeof(routes));
+
+	for (i = 0; i < ARRAY_SIZE(pdata->dmic_ref); ++i) {
+		routes[0].source = arizona_dmic_refs[pdata->dmic_ref[i]];
+		routes[1].source = arizona_dmic_refs[pdata->dmic_ref[i]];
+
+		routes[0].sink = arizona_dmic_inputs[i * 2];
+		routes[1].sink = arizona_dmic_inputs[(i * 2) + 1];
+
+		ret = snd_soc_dapm_add_routes(&codec->dapm, routes, 2);
+	}
+
+	return 0;
+}
+EXPORT_SYMBOL_GPL(arizona_init_input);
+
 int arizona_init_gpio(struct snd_soc_codec *codec)
 {
 	struct arizona_priv *priv = snd_soc_codec_get_drvdata(codec);
