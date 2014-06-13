@@ -69,9 +69,14 @@ static inline int set_ps_int_property(struct power_supply *psy,
 {
 
 	union power_supply_propval val;
+	int ret = -ENODEV;
 
 	val.intval = prop_val;
-	return psy->set_property(psy, psp, &val);
+
+	if (psy->set_property)
+		ret = psy->set_property(psy, psp, &val);
+
+	return ret;
 }
 
 static inline int get_ps_int_property(struct power_supply *psy,
@@ -81,7 +86,9 @@ static inline int get_ps_int_property(struct power_supply *psy,
 
 	val.intval = 0;
 
-	psy->get_property(psy, psp, &val);
+	if (psy->get_property)
+		psy->get_property(psy, psp, &val);
+
 	return val.intval;
 }
 /* Define a TTL for some properies to optimize the frequency of
