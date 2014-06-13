@@ -247,13 +247,18 @@ static int msm_cpufreq_cpu_callback(struct notifier_block *nfb,
 		return NOTIFY_BAD;
 
 	switch (action & ~CPU_TASKS_FROZEN) {
+
+	case CPU_DYING:
+		clk_disable(cpu_clk[cpu]);
+		clk_disable(l2_clk);
+		break;
 	/*
 	 * Scale down clock/power of CPU that is dead and scale it back up
 	 * before the CPU is brought up.
 	 */
 	case CPU_DEAD:
-		clk_disable_unprepare(cpu_clk[cpu]);
-		clk_disable_unprepare(l2_clk);
+		clk_unprepare(cpu_clk[cpu]);
+		clk_unprepare(l2_clk);
 		break;
 	case CPU_UP_CANCELED:
 		clk_unprepare(cpu_clk[cpu]);
