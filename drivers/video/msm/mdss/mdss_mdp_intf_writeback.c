@@ -466,6 +466,9 @@ static int mdss_mdp_wb_wait4comp(struct mdss_mdp_ctl *ctl, void *arg)
 
 	mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_OFF, false); /* clock off */
 
+	/* Set flag to release Controller Bandwidth */
+	ctl->perf_release_ctl_bw = true;
+
 	ctx->comp_cnt--;
 
 	return rc;
