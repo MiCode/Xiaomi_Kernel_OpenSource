@@ -245,7 +245,7 @@ static int cpu_power_select(struct cpuidle_device *dev,
 		return -EINVAL;
 
 	if (sleep_disabled)
-		return best_level;
+		return 0;
 
 	/*
 	 * TODO:
