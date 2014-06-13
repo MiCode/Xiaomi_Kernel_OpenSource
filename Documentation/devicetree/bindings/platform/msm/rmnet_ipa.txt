@@ -7,6 +7,7 @@ Required properties:
 
 Optional:
 - qcom,rmnet-ipa-ssr: determine if modem SSR is supported
+- qcom,ipa-loaduC: indicate that ipa uC should be loaded
 
 Example:
 	qcom,rmnet-ipa {
