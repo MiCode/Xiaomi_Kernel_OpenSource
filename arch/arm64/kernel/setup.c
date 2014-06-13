@@ -201,8 +201,10 @@ static void __init setup_machine_fdt(phys_addr_t dt_phys)
 	}
 
 	machine_name = of_flat_dt_get_machine_name();
-
-	dump_stack_set_arch_desc("%s (DT)", machine_name);
+	if (machine_name) {
+		dump_stack_set_arch_desc("%s (DT)", machine_name);
+		pr_info("Machine: %s\n", machine_name);
+	}
 }
 
 static void __init request_standard_resources(void)
