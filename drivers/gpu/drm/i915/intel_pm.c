@@ -1523,6 +1523,14 @@ static void valleyview_update_wm(struct drm_crtc *crtc)
 			    &planeb_wm, &cursorb_wm))
 		enabled |= 1 << PIPE_B;
 
+	if (is_maxfifo_needed(dev_priv) & !dev_priv->maxfifo_enabled) {
+		I915_WRITE(FW_BLC_SELF_VLV, FW_CSPWRDWNEN);
+		dev_priv->maxfifo_enabled = true;
+	} else if (dev_priv->maxfifo_enabled && !is_maxfifo_needed(dev_priv)) {
+		I915_WRITE(FW_BLC_SELF_VLV, ~FW_CSPWRDWNEN);
+		dev_priv->maxfifo_enabled = false;
+	}
+
 	I915_WRITE(DSPFW1,
 		   (DSPFW_SR_VAL << DSPFW_SR_SHIFT) |
 		   (DSPFW_CURSORB_VAL << DSPFW_CURSORB_SHIFT) |
@@ -3029,6 +3037,14 @@ static void valleyview_update_sprite_wm(struct drm_plane *plane,
 	enable.plane_enabled = false;
 	enable.cursor_enabled = false;
 	enable.sprite_enabled = enabled;
+
+	if (is_maxfifo_needed(dev_priv) & !dev_priv->maxfifo_enabled) {
+		I915_WRITE(FW_BLC_SELF_VLV, FW_CSPWRDWNEN);
+		dev_priv->maxfifo_enabled = true;
+	} else if (dev_priv->maxfifo_enabled && !is_maxfifo_needed(dev_priv)) {
+		I915_WRITE(FW_BLC_SELF_VLV, ~FW_CSPWRDWNEN);
+		dev_priv->maxfifo_enabled = false;
+	}
 
 	if (intel_plane->plane == 0) {
 		mask = 0x0000ff00;
