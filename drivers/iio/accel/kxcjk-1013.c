@@ -298,6 +298,9 @@ static int kxcjk1013_set_odr(struct kxcjk1013_data *data, int val, int val2)
 
 	data->odr_bits = odr_bits;
 
+	if (atomic_read(&data->power_state))
+		kxcjk1013_set_mode(data, OPERATION);
+
 	return 0;
 }
 
@@ -578,13 +581,14 @@ static int kxcjk1013_resume(struct device *dev)
 	struct kxcjk1013_data *data = iio_priv(indio_dev);
 
 	mutex_lock(&data->mutex);
-	kxcjk1013_set_mode(data, OPERATION);
+	if (atomic_read(&data->power_state))
+		kxcjk1013_set_mode(data, OPERATION);
 	mutex_unlock(&data->mutex);
 
 	return 0;
 }
 
-static SIMPLE_DEV_PM_OPS(kxcjk1013_pm_ops, kxcjk1013_suspend, NULL);
+static SIMPLE_DEV_PM_OPS(kxcjk1013_pm_ops, kxcjk1013_suspend, kxcjk1013_resume);
 #define KXCJK1013_PM_OPS (&kxcjk1013_pm_ops)
 #else
 #define KXCJK1013_PM_OPS NULL
