@@ -26,4 +26,6 @@ struct hdmi_pll_vco_clk {
 int hdmi_pll_clock_register(struct platform_device *pdev,
 				struct mdss_pll_resources *pll_res);
 
+int hdmi_20nm_pll_clock_register(struct platform_device *pdev,
+				struct mdss_pll_resources *pll_res);
 #endif
