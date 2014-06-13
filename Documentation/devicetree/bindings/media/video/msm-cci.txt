@@ -106,6 +106,8 @@ Optional properties:
 - qcom,mount-angle : should contain the physical mount angle of the sensor on
     the target
     - 0, 90, 180, 360
+- qcom,mclk-23880000 : should be enabled if the supported mclk is 23.88Mhz and
+    not 24Mhz.
 - qcom,gpio-no-mux : should contain field to indicate whether gpio mux table is
     available
     - 1 if gpio mux is not available, 0 otherwise
@@ -280,6 +282,7 @@ Example:
                qcom,csi-phy-sel = <0>;
                qcom,sensor-position = <0>;
                qcom,sensor-mode = <1>;
+               qcom,mclk-23880000
        };
    };
 
