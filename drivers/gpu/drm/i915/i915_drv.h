@@ -2468,6 +2468,7 @@ struct i915_params {
 	int drrs_interval;
 	int use_mmio_flip;
 	int memtrack_debug;
+	int scheduler_override;
 };
 extern struct i915_params i915 __read_mostly;
 

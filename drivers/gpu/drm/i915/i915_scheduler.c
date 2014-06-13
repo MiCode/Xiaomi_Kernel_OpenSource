@@ -93,7 +93,7 @@ int i915_scheduler_queue_execbuffer(struct i915_scheduler_queue_entry *qe)
 
 	BUG_ON(!scheduler);
 
-	if (1/*i915.scheduler_override & i915_so_direct_submit*/) {
+	if (i915.scheduler_override & i915_so_direct_submit) {
 		int ret;
 
 		qe->scheduler_index = scheduler->index++;
@@ -458,7 +458,7 @@ int i915_scheduler_handle_irq(struct intel_engine_cs *ring)
 
 	seqno = ring->get_seqno(ring, false);
 
-	if (1/*i915.scheduler_override & i915_so_direct_submit*/)
+	if (i915.scheduler_override & i915_so_direct_submit)
 		return 0;
 
 	if (seqno == last_seqno) {
