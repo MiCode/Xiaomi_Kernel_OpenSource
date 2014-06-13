@@ -138,7 +138,7 @@ struct msm_hdmi_mode_timing_info {
 	 480, 10, 2, 33, true, 25200, 60000, false, true}
 #define HDMI_VFRMT_720x480p60_4_3_TIMING				\
 	{HDMI_VFRMT_720x480p60_4_3, 720, 16, 62, 60, true,		\
-	 480, 9, 6, 30, true, 27030, 60000, false, true}
+	 480, 9, 6, 30, true, 27027, 60000, false, true}
 #define HDMI_VFRMT_720x480p60_16_9_TIMING				\
 	{HDMI_VFRMT_720x480p60_16_9, 720, 16, 62, 60, true,		\
 	 480, 9, 6, 30, true, 27030, 60000, false, true}
