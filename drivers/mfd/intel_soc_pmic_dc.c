@@ -26,6 +26,9 @@
 #include <linux/power/dc_xpwr_battery.h>
 #include <linux/power/dc_xpwr_charger.h>
 
+#include <asm/intel_em_config.h>
+#include <linux/extcon/extcon-dc-pwrsrc.h>
+
 #include "intel_soc_pmic_core.h"
 
 enum {
@@ -404,9 +407,25 @@ static void dc_xpwr_fg_pdata(void)
 				(void *)&pdata, sizeof(pdata));
 }
 
+static void dc_xpwr_pwrsrc_pdata(void)
+{
+	static struct dc_xpwr_pwrsrc_pdata pdata;
+
+	/*
+	 * set en_chrg_det to true if the
+	 * D+/D- lines are connected to
+	 * PMIC itself.
+	 */
+	pdata.en_chrg_det = true;
+
+	intel_soc_pmic_set_pdata("dollar_cove_pwrsrc",
+				 (void *)&pdata, sizeof(pdata));
+}
+
 static int dollar_cove_init(void)
 {
 	pr_info("Dollar Cove: IC_TYPE 0x%02X\n", intel_soc_pmic_readb(0x03));
+	dc_xpwr_pwrsrc_pdata();
 	dc_xpwr_fg_pdata();
 	dc_xpwr_chrg_pdata();
 
