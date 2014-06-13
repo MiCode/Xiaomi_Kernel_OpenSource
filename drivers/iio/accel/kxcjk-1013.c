@@ -268,7 +268,7 @@ static int kxcjk1013_convert_freq_to_bit(int val, int val2)
 {
 	int i;
 
-	for (i = 0; ARRAY_SIZE(samp_freq_table); ++i) {
+	for (i = 0; i < ARRAY_SIZE(samp_freq_table); ++i) {
 		if (samp_freq_table[i].val == val &&
 			samp_freq_table[i].val2 == val2) {
 			return samp_freq_table[i].odr_bits;
