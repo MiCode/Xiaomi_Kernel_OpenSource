@@ -864,11 +864,11 @@ extern unsigned int sched_init_task_load_pelt;
 extern unsigned int sched_init_task_load_windows;
 #ifdef CONFIG_SCHED_HMP
 extern void fixup_nr_big_small_task(int cpu);
-extern u64 scale_task_load(u64 load, int cpu);
+extern u64 scale_load_to_cpu(u64 load, int cpu);
 #else
 static inline void fixup_nr_big_small_task(int cpu) {}
 
-static inline u64 scale_task_load(u64 load, int cpu)
+static inline u64 scale_load_to_cpu(u64 load, int cpu)
 {
 	return load;
 }
