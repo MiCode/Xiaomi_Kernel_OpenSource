@@ -540,6 +540,8 @@
 		compatible = "qcom,usb-ssphy-qmp";
 		reg = <0xf9b38000 0x16c>,
 			<0xf9b3e000 0x3ff>;
+		reg-names = "qmp_phy_base",
+			"qmp_ahb2phy_base";
 		vdd-supply = <&pmd9635_l4>;
 		vdda18-supply = <&pmd9635_l8>;
 		qcom,vdd-voltage-level = <0 900000 1050000>;

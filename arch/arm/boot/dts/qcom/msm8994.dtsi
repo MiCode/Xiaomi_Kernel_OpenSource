@@ -1174,6 +1174,8 @@
 		status = "disabled";
 		reg = <0xf9b38000 0x800>,
 			<0xf9b3e000 0x3ff>;
+		reg-names = "qmp_phy_base",
+			"qmp_ahb2phy_base";
 		vdd-supply = <&pm8994_l28>;
 		vdda18-supply = <&pm8994_l6>;
 		qcom,vdd-voltage-level = <0 1000000 1000000>;
