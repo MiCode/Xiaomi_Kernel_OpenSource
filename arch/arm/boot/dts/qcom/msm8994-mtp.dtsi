@@ -250,6 +250,7 @@
 	pinctrl-names = "mdss_default", "mdss_sleep";
 	pinctrl-0 = <&mdss_dsi_active>;
 	pinctrl-1 = <&mdss_dsi_suspend>;
+	qcom,dsi-panel-bias-vreg;
 	qcom,platform-reset-gpio = <&msm_gpio 78 0>;
 };
 
