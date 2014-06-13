@@ -8,7 +8,8 @@ Required properties:
 - compatible:		Compatible name used in the driver. Should be one of:
 			"qcom,mdss_dsi_pll_8916", "qcom,mdss_dsi_pll_8939",
 			"qcom,mdss_dsi_pll_8974", "qcom,mdss_dsi_pll_8994",
-			"qcom,mdss_dsi_pll_8994", "qcom,mdss_hdmi_pll"
+			"qcom,mdss_dsi_pll_8994", "qcom,mdss_hdmi_pll",
+			"qcom,mdss_hdmi_pll_8994"
 - cell-index:		Specifies the controller used
 - reg:			offset and length of the register set for the device.
 - reg-names :		names to refer to register sets related to this device
