@@ -27,7 +27,6 @@
 #include <linux/input/synaptics_dsx_v2.h>
 #include "synaptics_dsx_core.h"
 
-#define DO_STARTUP_FW_UPDATE
 #define STARTUP_FW_UPDATE_DELAY_MS 1000 /* ms */
 #define FORCE_UPDATE false
 #define DO_LOCKDOWN false
@@ -276,7 +275,6 @@ struct synaptics_rmi4_fwu_handle {
 	const unsigned char *firmware_data;
 	const unsigned char *config_data;
 	const unsigned char *lockdown_data;
-	struct workqueue_struct *fwu_workqueue;
 	struct delayed_work fwu_work;
 	struct synaptics_rmi4_fn_desc f34_fd;
 	struct synaptics_rmi4_data *rmi4_data;
@@ -1452,13 +1450,6 @@ int synaptics_dsx_fw_updater(unsigned char *fw_data)
 }
 EXPORT_SYMBOL(synaptics_dsx_fw_updater);
 
-static void fwu_startup_fw_update_work(struct work_struct *work)
-{
-	synaptics_dsx_fw_updater(NULL);
-
-	return;
-}
-
 static ssize_t fwu_sysfs_show_image(struct file *data_file,
 		struct kobject *kobj, struct bin_attribute *attributes,
 		char *buf, loff_t pos, size_t count)
@@ -1839,14 +1830,6 @@ static int synaptics_rmi4_fwu_init(struct synaptics_rmi4_data *rmi4_data)
 			goto exit_remove_attrs;
 		}
 	}
-
-#ifdef DO_STARTUP_FW_UPDATE
-	fwu->fwu_workqueue = create_singlethread_workqueue("fwu_workqueue");
-	INIT_DELAYED_WORK(&fwu->fwu_work, fwu_startup_fw_update_work);
-	queue_delayed_work(fwu->fwu_workqueue,
-			&fwu->fwu_work,
-			msecs_to_jiffies(STARTUP_FW_UPDATE_DELAY_MS));
-#endif
 
 	return 0;
 
