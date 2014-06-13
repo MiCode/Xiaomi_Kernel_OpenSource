@@ -607,6 +607,9 @@ static void wcd_correct_swch_plug(struct work_struct *work)
 		plug_type = MBHC_PLUG_TYPE_INVALID;
 
 	if (plug_type == MBHC_PLUG_TYPE_HIGH_HPH) {
+		/* Enable external voltage source to micbias if present */
+		if (mbhc->mbhc_cb && mbhc->mbhc_cb->enable_mb_source)
+			mbhc->mbhc_cb->enable_mb_source(codec, true);
 
 		/* Enable micbias if not already enabled*/
 		snd_soc_update_bits(codec, MSM8X16_WCD_A_ANALOG_MICB_2_EN,
@@ -663,6 +666,10 @@ static void wcd_correct_swch_plug(struct work_struct *work)
 		if (!mbhc->micbias_enable)
 			snd_soc_write(codec, MSM8X16_WCD_A_ANALOG_MICB_1_VAL,
 			0x20);
+
+		/* Disable external voltage source to micbias if present */
+		if (mbhc->mbhc_cb && mbhc->mbhc_cb->enable_mb_source)
+			mbhc->mbhc_cb->enable_mb_source(codec, false);
 	}
 
 	wcd_mbhc_find_plug_and_report(mbhc, plug_type);
@@ -685,6 +692,11 @@ static void wcd_mbhc_detect_plug_type(struct wcd_mbhc *mbhc)
 	snd_soc_update_bits(codec,
 			MSM8X16_WCD_A_ANALOG_MICB_2_EN,
 			0x80, 0x80);
+
+	/* Enable external voltage source to micbias if present */
+	if (mbhc->mbhc_cb && mbhc->mbhc_cb->enable_mb_source)
+		mbhc->mbhc_cb->enable_mb_source(codec, true);
+
 	/*
 	 * Wait for 50msec for FSM to complete its task.
 	 * wakeup if btn pres intr occurs
@@ -769,6 +781,10 @@ eu_us_switch:
 	snd_soc_update_bits(codec,
 		MSM8X16_WCD_A_ANALOG_MICB_2_EN,
 		0x80, 0x00);
+	/* Disable external voltage source to micbias if present */
+	if (mbhc->mbhc_cb && mbhc->mbhc_cb->enable_mb_source)
+		mbhc->mbhc_cb->enable_mb_source(codec, false);
+
 	pr_debug("%s: Valid plug found, plug type is %d\n",
 			 __func__, plug_type);
 	if (plug_type != MBHC_PLUG_TYPE_HIGH_HPH &&
@@ -1173,6 +1189,7 @@ EXPORT_SYMBOL(wcd_mbhc_stop);
  * NOTE: mbhc->mbhc_cfg is not YET configure so shouldn't be used
  */
 int wcd_mbhc_init(struct wcd_mbhc *mbhc, struct snd_soc_codec *codec,
+		      const struct wcd_mbhc_cb *mbhc_cb,
 		      const struct wcd_mbhc_intr *mbhc_cdc_intr_ids,
 		      bool impedance_det_en)
 {
@@ -1207,6 +1224,7 @@ int wcd_mbhc_init(struct wcd_mbhc *mbhc, struct snd_soc_codec *codec,
 	mbhc->hphl_swh = hph_swh;
 	mbhc->gnd_swh = gnd_swh;
 	mbhc->micbias_enable = false;
+	mbhc->mbhc_cb = mbhc_cb;
 
 	if (mbhc->intr_ids == NULL) {
 		pr_err("%s: Interrupt mapping not provided\n", __func__);
