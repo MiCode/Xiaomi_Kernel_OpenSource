@@ -1074,11 +1074,13 @@ int rq_freq_margin(struct rq *rq)
 {
 	unsigned int freq_required;
 	int margin;
+	u64 demand;
 
-	freq_required = scale_task_load(rq->prev_runnable_sum, rq->cpu);
-	freq_required *= 128;
-	freq_required /= max_task_load();
-	freq_required *= rq->max_possible_freq;
+	demand = scale_load_to_cpu(rq->prev_runnable_sum, rq->cpu);
+	demand *= 128;
+	demand = div64_u64(demand, max_task_load());
+
+	freq_required = demand * rq->max_possible_freq;
 	freq_required /= 128;
 
 	margin = rq->cur_freq - freq_required;
@@ -1406,7 +1408,7 @@ unsigned long sched_get_busy(int cpu)
 	update_task_ravg(rq->curr, rq, TASK_UPDATE, sched_clock(), NULL);
 	raw_spin_unlock(&rq->lock);
 
-	return div64_u64(scale_task_load(rq->prev_runnable_sum, cpu),
+	return div64_u64(scale_load_to_cpu(rq->prev_runnable_sum, cpu),
 			  NSEC_PER_USEC);
 }
 

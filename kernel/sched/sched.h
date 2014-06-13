@@ -700,7 +700,7 @@ extern unsigned int sched_init_task_load_pelt;
 extern unsigned int sched_init_task_load_windows;
 extern void fixup_nr_big_small_task(int cpu);
 
-u64 scale_task_load(u64 load, int cpu);
+u64 scale_load_to_cpu(u64 load, int cpu);
 unsigned int max_task_load(void);
 
 static inline void

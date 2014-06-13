@@ -1378,7 +1378,7 @@ void set_hmp_defaults(void)
  * Scale that in reference to a given cpu, accounting for how bad it is
  * in reference to "best cpu".
  */
-u64 scale_task_load(u64 task_load, int cpu)
+u64 scale_load_to_cpu(u64 task_load, int cpu)
 {
 	struct rq *rq = cpu_rq(cpu);
 
@@ -1391,14 +1391,14 @@ u64 scale_task_load(u64 task_load, int cpu)
 /* Is a task "big" on its current cpu */
 static inline int is_big_task(struct task_struct *p)
 {
-	unsigned int load = task_load(p);
+	u64 load = task_load(p);
 	int nice = TASK_NICE(p);
 
 	/* Todo: Provide cgroup-based control as well? */
 	if (nice > sysctl_sched_upmigrate_min_nice)
 		return 0;
 
-	load = scale_task_load(load, task_cpu(p));
+	load = scale_load_to_cpu(load, task_cpu(p));
 
 	return load > sched_upmigrate;
 }
@@ -1416,13 +1416,13 @@ static inline u64 cpu_load(int cpu)
 {
 	struct rq *rq = cpu_rq(cpu);
 
-	return scale_task_load(rq->cumulative_runnable_avg, cpu);
+	return scale_load_to_cpu(rq->cumulative_runnable_avg, cpu);
 }
 
 static int
 spill_threshold_crossed(struct task_struct *p, struct rq *rq, int cpu)
 {
-	u32 total_load = cpu_load(cpu) + scale_task_load(task_load(p), cpu);
+	u64 total_load = cpu_load(cpu) + scale_load_to_cpu(task_load(p), cpu);
 
 	if (total_load > sched_spill_load ||
 	    (rq->nr_running + 1) > sysctl_sched_spill_nr_run)
@@ -1503,7 +1503,7 @@ done:
  */
 static int task_will_fit(struct task_struct *p, int cpu)
 {
-	unsigned int load;
+	u64 load;
 	int prev_cpu = task_cpu(p);
 	struct rq *prev_rq = cpu_rq(prev_cpu);
 	struct rq *rq = cpu_rq(cpu);
@@ -1520,7 +1520,7 @@ static int task_will_fit(struct task_struct *p, int cpu)
 			return 1;
 
 	} else {
-		load = scale_task_load(task_load(p), cpu);
+		load = scale_load_to_cpu(task_load(p), cpu);
 
 		if (prev_rq->capacity > rq->capacity)
 			upmigrate = sched_downmigrate;
@@ -1597,36 +1597,34 @@ unsigned int power_cost_at_freq(int cpu, unsigned int freq)
  * the CPU. */
 static unsigned int power_cost(struct task_struct *p, int cpu)
 {
-	unsigned int demand;
+	u64 demand;
+	unsigned int task_freq;
 	unsigned int cur_freq = cpu_rq(cpu)->cur_freq;
 
 	if (!sysctl_sched_enable_power_aware)
 		return cpu_rq(cpu)->capacity;
 
 	/* calculate % of max freq needed */
-	demand = scale_task_load(task_load(p), cpu) * 100;
-	if (sched_use_pelt)
-		demand /= p->se.avg.runnable_avg_period;
-	else
-		demand /= sched_ravg_window;
+	demand = scale_load_to_cpu(task_load(p), cpu) * 100;
+	demand = div64_u64(demand, max_task_load());
 
-	demand *= cpu_rq(cpu)->max_possible_freq;
-	demand /= 100; /* khz needed */
+	task_freq = demand * cpu_rq(cpu)->max_possible_freq;
+	task_freq /= 100; /* khz needed */
 
-	demand = max(cur_freq, demand);
+	task_freq = max(cur_freq, task_freq);
 
-	return power_cost_at_freq(cpu, demand);
+	return power_cost_at_freq(cpu, task_freq);
 }
 
 static int best_small_task_cpu(struct task_struct *p)
 {
 	int best_busy_cpu = -1, best_fallback_cpu = -1;
 	int min_cost_cpu = -1, min_cstate_cpu = -1;
-	int min_busy_load = INT_MAX;
 	int min_cstate = INT_MAX;
 	int min_fallback_cpu_cost = INT_MAX;
 	int min_cost = INT_MAX;
-	int i, load, cstate, cpu_cost;
+	int i, cstate, cpu_cost;
+	u64 load, min_busy_load = ULLONG_MAX;
 	int cost_list[nr_cpu_ids];
 	struct cpumask search_cpus;
 
@@ -1697,7 +1695,7 @@ static int select_best_cpu(struct task_struct *p, int target)
 	int i, best_cpu = -1, fallback_idle_cpu = -1;
 	int prev_cpu = task_cpu(p);
 	int cpu_cost, min_cost = INT_MAX;
-	int load, min_load = INT_MAX, min_fallback_load = INT_MAX;
+	u64 load, min_load = ULLONG_MAX, min_fallback_load = ULLONG_MAX;
 	int small_task = is_small_task(p);
 
 	trace_sched_task_load(p);
@@ -5271,7 +5269,7 @@ struct sd_lb_stats {
 #ifdef CONFIG_SCHED_HMP
 	unsigned long busiest_nr_small_tasks;
 	unsigned long busiest_nr_big_tasks;
-	unsigned long busiest_scaled_load;
+	u64 busiest_scaled_load;
 #endif
 	unsigned long busiest_group_capacity;
 	unsigned long busiest_has_capacity;
@@ -5289,7 +5287,7 @@ struct sg_lb_stats {
 	unsigned long sum_nr_running; /* Nr tasks running in the group */
 #ifdef CONFIG_SCHED_HMP
 	unsigned long sum_nr_big_tasks, sum_nr_small_tasks;
-	unsigned long group_cpu_load; /* Scaled load of all CPUs of the group */
+	u64 group_cpu_load; /* Scaled load of all CPUs of the group */
 #endif
 	unsigned long sum_weighted_load; /* Weighted load of group's tasks */
 	unsigned long group_capacity;
