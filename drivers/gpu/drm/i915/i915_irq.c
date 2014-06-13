@@ -1801,8 +1801,11 @@ static void valleyview_pipestat_irq_handler(struct drm_device *dev, u32 iir)
 			intel_pipe_handle_vblank(dev, pipe);
 
 		if (pipe_stats[pipe] & PLANE_FLIP_DONE_INT_STATUS_VLV) {
-			intel_prepare_page_flip(dev, pipe);
-			intel_finish_page_flip(dev, pipe);
+			/* Primary flips only when primary plane enabled */
+			if (I915_READ(DSPCNTR(pipe)) & DISPLAY_PLANE_ENABLE) {
+				intel_prepare_page_flip(dev, pipe);
+				intel_finish_page_flip(dev, pipe);
+			}
 		}
 		if (pipe_stats[pipe] & SPRITE0_FLIP_DONE_INT_STATUS_VLV) {
 				intel_prepare_sprite_page_flip(dev, pipe);
