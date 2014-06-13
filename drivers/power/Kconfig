@@ -419,6 +419,27 @@ config BATTERY_GOLDFISH
 	  Say Y to enable support for the battery and AC power in the
 	  Goldfish emulator.
 
+config DC_XPWR_BATTERY
+	bool "Dollar Cove(Xpower) PMIC Fuel Gauge driver"
+	help
+	  Say Y here to enable support for Dollar Cove(Xpower) PMIC Fuel Gauge.
+
+config DC_XPWR_CHARGER
+	bool "Dollar Cove(Xpower) PMIC Charger driver"
+	help
+	  Say Y here to enable support for Dollar Cove(Xpower) PMIC Charger.
+
+config CHARGER_BQ24192
+	tristate "TI BQ24192/BQ24191/BQ24190 Charger"
+	select POWER_SUPPLY_CHARGER
+	depends on I2C
+	help
+	  BQ24192 is the charger chip for lithium-ion (Li+) batteries
+	  in handheld and portable equipment.
+
+	  Say Y here if you know your platform has this chip for charging
+	  support.
+
 source "drivers/power/reset/Kconfig"
 
 endif # POWER_SUPPLY
