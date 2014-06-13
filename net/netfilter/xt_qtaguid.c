@@ -956,6 +956,9 @@ static void iface_stat_create(struct net_device *net_dev,
 	}
 
 	ifname = net_dev->name;
+	if (!strcmp(ifname, ""))
+		return;
+
 	if (!ifa) {
 		in_dev = in_dev_get(net_dev);
 		if (!in_dev) {
