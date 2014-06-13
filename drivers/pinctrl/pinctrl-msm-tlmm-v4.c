@@ -281,44 +281,42 @@ static int msm_tlmm_v4_qdsd_cfg(uint pin_no, unsigned long *config,
 	switch (id) {
 	case PIN_CONFIG_BIAS_DISABLE:
 		mask = TLMMV4_QDSD_PULL_MASK;
-		shft = id * TLMMV4_QDSD_CONFIG_WIDTH + TLMMV4_QDSD_PULL_OFFSET;
+		shft = pin_no * TLMMV4_QDSD_CONFIG_WIDTH
+					+ TLMMV4_QDSD_PULL_OFFSET;
 		data = TLMMV4_NO_PULL;
 		if (!write) {
 			val >>= shft;
-			val &= mask;
-			data = rval_to_pull(val);
+			data = val & mask;
 		}
 		break;
 	case PIN_CONFIG_BIAS_PULL_DOWN:
 		mask = TLMMV4_QDSD_PULL_MASK;
-		shft = id * TLMMV4_QDSD_CONFIG_WIDTH + TLMMV4_QDSD_PULL_OFFSET;
+		shft = pin_no * TLMMV4_QDSD_CONFIG_WIDTH
+					+ TLMMV4_QDSD_PULL_OFFSET;
 		data = TLMMV4_PULL_DOWN;
 		if (!write) {
 			val >>= shft;
-			val &= mask;
-			data = rval_to_pull(val);
+			data = val & mask;
 		}
 		break;
 	case PIN_CONFIG_BIAS_PULL_UP:
 		mask = TLMMV4_QDSD_PULL_MASK;
-		shft = id * TLMMV4_QDSD_CONFIG_WIDTH + TLMMV4_QDSD_PULL_OFFSET;
+		shft = pin_no * TLMMV4_QDSD_CONFIG_WIDTH
+					+ TLMMV4_QDSD_PULL_OFFSET;
 		data = TLMMV4_PULL_UP;
 		if (!write) {
 			val >>= shft;
-			val &= mask;
-			data = rval_to_pull(val);
+			data = val & mask;
 		}
 		break;
 	case PIN_CONFIG_DRIVE_STRENGTH:
 		mask = TLMMV4_QDSD_DRV_MASK;
-		shft = id * TLMMV4_QDSD_CONFIG_WIDTH;
+		shft = pin_no * TLMMV4_QDSD_CONFIG_WIDTH;
 		if (write) {
 			data = pinconf_to_config_argument(*config);
-			data = drv_str_to_rval(data);
 		} else {
 			val >>= shft;
-			val &= mask;
-			data = rval_to_drv_str(val);
+			data = val & mask;
 		}
 		break;
 	default:
@@ -327,10 +325,12 @@ static int msm_tlmm_v4_qdsd_cfg(uint pin_no, unsigned long *config,
 
 	if (write) {
 		val &= ~(mask << shft);
-		val |= (data << shft);
+		/* QDSD software override bit */
+		val |= ((data << shft) | BIT(31));
 		writel_relaxed(val, cfg_reg);
-	} else
+	} else {
 		*config = pinconf_to_config_packed(id, data);
+	}
 	return 0;
 }
 
