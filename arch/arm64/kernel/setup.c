@@ -336,8 +336,10 @@ static void __init setup_machine_fdt(phys_addr_t dt_phys)
 	}
 
 	machine_name = of_flat_dt_get_machine_name();
-	if (machine_name)
+	if (machine_name) {
+		dump_stack_set_arch_desc("%s (DT)", machine_name);
 		pr_info("Machine: %s\n", machine_name);
+	}
 }
 
 /*
@@ -507,6 +509,8 @@ static int c_show(struct seq_file *m, void *v)
 {
 	int i, j;
 
+	seq_printf(m, "Processor\t: %s rev %d (%s)\n",
+		cpu_name, read_cpuid_id() & 15, ELF_PLATFORM);
 	for_each_present_cpu(i) {
 		struct cpuinfo_arm64 *cpuinfo = &per_cpu(cpu_data, i);
 		u32 midr = cpuinfo->reg_midr;
