@@ -97,6 +97,7 @@ enum {
 /* Options for 'scheduler_override' module parameter: */
 enum {
 	i915_so_direct_submit       = (1 << 0),
+	i915_so_submit_on_queue     = (1 << 1),
 };
 
 bool        i915_scheduler_is_enabled(struct drm_device *dev);

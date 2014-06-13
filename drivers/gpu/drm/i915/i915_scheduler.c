@@ -231,8 +231,11 @@ int i915_scheduler_queue_execbuffer(struct i915_scheduler_queue_entry *qe)
 
 	list_add_tail(&node->link, &scheduler->node_queue[ring->id]);
 
-	not_flying = i915_scheduler_count_flying(scheduler, ring) <
-						 scheduler->min_flying;
+	if (i915.scheduler_override & i915_so_submit_on_queue)
+		not_flying = true;
+	else
+		not_flying = i915_scheduler_count_flying(scheduler, ring) <
+							 scheduler->min_flying;
 
 	spin_unlock_irqrestore(&scheduler->lock, flags);
 
