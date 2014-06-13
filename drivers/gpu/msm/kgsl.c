@@ -575,8 +575,10 @@ int kgsl_context_init(struct kgsl_device_private *dev_priv,
 	 * the context is destroyed. This will also prevent the pagetable
 	 * from being destroyed
 	 */
-	if (!kgsl_process_private_get(dev_priv->process_priv))
+	if (!kgsl_process_private_get(dev_priv->process_priv)) {
+		ret = -EBADF;
 		goto fail_free_id;
+	}
 	context->device = dev_priv->device;
 	context->dev_priv = dev_priv;
 	context->proc_priv = dev_priv->process_priv;
