@@ -590,4 +590,10 @@ enum mdss_mdp_pingpong_index {
 
 #define MDSS_VBIF_QOS_REMAP_BASE	0x020
 #define MDSS_VBIF_QOS_REMAP_ENTRIES	0x4
+
+#define MDSS_MDP_REG_TRAFFIC_SHAPER_EN			BIT(31)
+#define MDSS_MDP_REG_TRAFFIC_SHAPER_RD_CLIENT(num)	(0x030 + (num * 4))
+#define MDSS_MDP_REG_TRAFFIC_SHAPER_WR_CLIENT(num)	(0x060 + (num * 4))
+#define MDSS_MDP_REG_TRAFFIC_SHAPER_FIXPOINT_FACTOR	4
+
 #endif
