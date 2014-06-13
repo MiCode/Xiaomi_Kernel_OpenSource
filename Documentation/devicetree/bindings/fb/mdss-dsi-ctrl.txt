@@ -71,6 +71,7 @@ Optional properties:
 					controller. These pin configurations are installed in the pinctrl
 					device node. Refer to pinctrl-bindings.txt
 - qcom,regulator-ldo-mode:		Boolean to enable ldo mode for the dsi phy regulator
+- qcom,dsi-panel-bias-vreg:		Boolean to enable control of panel bias regulator
 
 Example:
         mdss_dsi0: qcom,mdss_dsi@fd922800 {
@@ -105,6 +106,7 @@ Example:
 		qcom,platform-enable-gpio = <&msmgpio 58 1>;
 		qcom,platform-bklight-en-gpio = <&msmgpio 86 0>;
 		qcom,platform-mode-gpio = <&msmgpio 7 0>;
+		qcom,dsi-panel-bias-vreg;
 
 		qcom,core-supply-entries {
 			#address-cells = <1>;
