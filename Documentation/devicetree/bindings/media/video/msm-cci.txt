@@ -22,6 +22,7 @@ Required properties:
 - clock-rates: clock rate in Hz
 
 Optional properties:
+- qcom,gdscr-vdd-supply : should contain regulator used for cci clocks
 - i2c_freq_100Khz: qcom,i2c_standard_mode - node should contain clock settings for
     100Khz
 - i2c_freq_400Khz: qcom,i2c_fast_mode - node should contain clock settings for
