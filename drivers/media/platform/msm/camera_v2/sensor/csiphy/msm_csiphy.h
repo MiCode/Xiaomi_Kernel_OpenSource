@@ -21,6 +21,7 @@
 #include "msm_sd.h"
 
 #define MAX_CSIPHY 3
+#define CSIPHY_NUM_CLK_MAX  16
 
 enum msm_csiphy_state_t {
 	CSIPHY_POWER_UP,
@@ -41,8 +42,7 @@ struct csiphy_device {
 	struct mutex mutex;
 	uint32_t hw_version;
 	enum msm_csiphy_state_t csiphy_state;
-
-	struct clk *csiphy_clk[4];
+	struct clk *csiphy_clk[CSIPHY_NUM_CLK_MAX];
 	uint8_t ref_count;
 	uint16_t lane_mask[MAX_CSIPHY];
 };
