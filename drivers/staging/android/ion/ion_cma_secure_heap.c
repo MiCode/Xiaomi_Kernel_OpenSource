@@ -628,7 +628,7 @@ static int ion_secure_cma_print_debug(struct ion_heap *heap, struct seq_file *s,
 		seq_printf(s, "\nMemory Map\n");
 		seq_printf(s, "%16.s %14.s %14.s %14.s\n",
 			   "client", "start address", "end address",
-			   "size (hex)");
+			   "size");
 
 		list_for_each_entry(data, mem_map, node) {
 			const char *client_name = "(null)";
@@ -637,15 +637,15 @@ static int ion_secure_cma_print_debug(struct ion_heap *heap, struct seq_file *s,
 			if (data->client_name)
 				client_name = data->client_name;
 
-			seq_printf(s, "%16.s %14pa %14pa %14lu (%lx)\n",
+			seq_printf(s, "%16.s 0x%14pa 0x%14pa %14lu (0x%lx)\n",
 				   client_name, &data->addr,
 				   &data->addr_end,
 				   data->size, data->size);
 		}
 	}
-	seq_printf(s, "Total allocated: %x\n",
+	seq_printf(s, "Total allocated: 0x%x\n",
 				atomic_read(&sheap->total_allocated));
-	seq_printf(s, "Total pool size: %x\n",
+	seq_printf(s, "Total pool size: 0x%x\n",
 				atomic_read(&sheap->total_pool_size));
 	return 0;
 }

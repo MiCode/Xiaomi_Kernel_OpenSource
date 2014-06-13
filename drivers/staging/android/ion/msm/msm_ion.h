@@ -2,7 +2,7 @@
 #define _MSM_MSM_ION_H
 
 #include "../ion.h"
-#include "../../uapi/linux/msm_ion.h"
+#include "../../uapi/msm_ion.h"
 
 enum ion_permission_type {
 	IPT_TYPE_MM_CARVEOUT = 0,
