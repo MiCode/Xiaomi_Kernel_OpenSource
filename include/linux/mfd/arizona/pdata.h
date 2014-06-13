@@ -150,7 +150,7 @@ struct arizona_pdata {
 	int hpdet_id_gpio;
 
 	/** Callback notifying HPDET result */
-	void (*hpdet_cb)(unsigned int measurement);
+	void (*hpdet_cb)(unsigned int measurement, bool mic);
 
 	/** Use HPDETL to check for moisture, this value specifies the
 	 * threshold impedance in ohms above which it will be considered
