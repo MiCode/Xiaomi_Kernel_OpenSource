@@ -910,6 +910,7 @@ static int ipa_wwan_xmit(struct sk_buff *skb, struct net_device *dev)
 	ret = ipa_tx_dp(IPA_CLIENT_APPS_LAN_WAN_PROD, skb, NULL);
 	if (ret) {
 		ret = NETDEV_TX_BUSY;
+		dev->stats.tx_dropped++;
 		goto out;
 	}
 
@@ -978,11 +979,12 @@ static void apps_ipa_packet_receive_notify(void *priv,
 		unsigned long data)
 {
 	struct sk_buff *skb = (struct sk_buff *)data;
+	struct net_device *dev = (struct net_device *)priv;
 	int result;
 
 	IPAWANDBG("Tx packet was received");
 	if (evt != IPA_RECEIVE) {
-		IPAWANERR("A none IPA_RECEIVE event in ecm_ipa_receive\n");
+		IPAWANERR("A none IPA_RECEIVE event in wan_ipa_receive\n");
 		return;
 	}
 
@@ -990,8 +992,12 @@ static void apps_ipa_packet_receive_notify(void *priv,
 	skb->protocol = 0xda1a;
 
 	result = netif_rx(skb);
-	if (result)
+	if (result)	{
 		IPAWANERR("fail on netif_rx\n");
+		dev->stats.rx_dropped++;
+	}
+	dev->stats.rx_packets++;
+	dev->stats.rx_bytes += skb->len;
 	return;
 }
 
@@ -1286,6 +1292,7 @@ static int ipa_wwan_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
 			ipa_to_apps_ep_cfg.notify =
 				apps_ipa_packet_receive_notify;
 			ipa_to_apps_ep_cfg.desc_fifo_sz = IPA_SYS_DESC_FIFO_SZ;
+			ipa_to_apps_ep_cfg.priv = dev;
 
 			rc = ipa_setup_sys_pipe(
 				&ipa_to_apps_ep_cfg, &ipa_to_apps_hdl);
