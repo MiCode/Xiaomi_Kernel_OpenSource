@@ -712,6 +712,9 @@ int arizona_hpdet_start(struct arizona_extcon_info *info)
 	if (info->arizona->pdata.fixed_hpdet_imp) {
 		int imp = info->arizona->pdata.fixed_hpdet_imp;
 
+		if (arizona->pdata.hpdet_cb)
+			arizona->pdata.hpdet_cb(imp, info->mic);
+
 		switch (arizona->type) {
 		case WM5110:
 			arizona_wm5110_tune_headphone(info, imp);
