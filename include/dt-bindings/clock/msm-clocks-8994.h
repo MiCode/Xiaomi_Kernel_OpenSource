@@ -57,6 +57,9 @@
 #define clk_ipa_a_clk 0xeeec2919
 #define clk_ln_bb_clk 0x3ab0b36d
 #define clk_ln_bb_a_clk 0xc7257ea8
+#define clk_mcd_ce1_clk 0xbb615d26
+#define clk_mcd_ce2_clk 0x6ed5c723
+#define clk_mcd_ce3_clk 0x607c2bd3
 #define clk_mmssnoc_ahb_clk 0xccd4bd4c
 #define clk_mmssnoc_ahb_a_clk 0x3f1a62ce
 #define clk_ocmemgx_core_clk 0xaad7dbe5
@@ -68,8 +71,17 @@
 #define clk_pnoc_msmbus_a_clk 0x8c9b4e93
 #define clk_pnoc_pm_clk 0xd6f7dfb9
 #define clk_pnoc_sps_clk 0xd482ecc7
+#define clk_qcedev_ce1_clk 0x293f97b0
+#define clk_qcedev_ce2_clk 0x816b3fec
+#define clk_qcedev_ce3_clk 0xbfa406c1
+#define clk_qcrypto_ce1_clk 0xa6ac14df
+#define clk_qcrypto_ce2_clk 0x8728364d
+#define clk_qcrypto_ce3_clk 0x0dce9a93
 #define clk_qdss_clk 0x1492202a
 #define clk_qdss_a_clk 0xdd121669
+#define clk_qseecom_ce1_clk 0xaa858373
+#define clk_qseecom_ce2_clk 0x7768a8d3
+#define clk_qseecom_ce3_clk 0xf277bf96
 #define clk_rf_clk1 0xaabeea5a
 #define clk_rf_clk1_ao 0x72a10cb8
 #define clk_rf_clk1_pin 0x8f463562
@@ -78,6 +90,9 @@
 #define clk_rf_clk2_ao 0x944d8bbd
 #define clk_rf_clk2_pin 0xa7c5602a
 #define clk_rf_clk2_pin_ao 0x2d75eb4d
+#define clk_scm_ce1_clk 0xd8ebcc62
+#define clk_scm_ce2_clk 0x5f97c3fc
+#define clk_scm_ce3_clk 0xc52c879f
 #define clk_snoc_msmbus_clk 0xe6900bb6
 #define clk_snoc_msmbus_a_clk 0x5d4683bd
 #define clk_ce1_clk 0x42229c55
