@@ -2527,7 +2527,6 @@ static int __init msm_spi_probe(struct platform_device *pdev)
 	for (i = 0; i < ARRAY_SIZE(spi_cs_rsrcs); ++i)
 		dd->cs_gpios[i].valid = 0;
 
-	master->rt = pdata->rt_priority;
 	dd->pdata = pdata;
 	resource = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	if (!resource) {
@@ -2538,7 +2537,7 @@ static int __init msm_spi_probe(struct platform_device *pdev)
 	dd->mem_phys_addr = resource->start;
 	dd->mem_size = resource_size(resource);
 
-	if (dd->pdata->use_pinctrl) {
+	if (dd->pdata && dd->pdata->use_pinctrl) {
 		dd->dev = &pdev->dev;
 		rc = msm_spi_pinctrl_init(dd);
 		if (rc)
@@ -2546,6 +2545,7 @@ static int __init msm_spi_probe(struct platform_device *pdev)
 	}
 
 	if (pdata) {
+		master->rt = pdata->rt_priority;
 		if (pdata->dma_config) {
 			rc = pdata->dma_config();
 			if (rc) {
