@@ -43,6 +43,7 @@
 #include <linux/usb/ulpi.h>
 #include <linux/usb/msm_hsusb_hw.h>
 #include <linux/usb/msm_hsusb.h>
+#include <linux/usb/phy.h>
 #include <linux/of.h>
 
 #include <linux/debugfs.h>
@@ -657,7 +658,12 @@ static int msm_hsusb_reset(struct msm_hcd *mhcd)
 								USB_PHY_CTRL2);
 
 	/* Reset USB PHY after performing USB Link RESET */
-	msm_usb_phy_reset(mhcd);
+	if (hcd->phy) {
+		usb_phy_reset(hcd->phy);
+		usb_phy_init(hcd->phy);
+	} else {
+		msm_usb_phy_reset(mhcd);
+	}
 
 	msleep(100);
 
@@ -1520,7 +1526,19 @@ static int ehci_msm2_probe(struct platform_device *pdev)
 		goto disable_ldo;
 	}
 
-	if (pdata && pdata->use_sec_phy)
+	hcd->phy = devm_usb_get_phy_by_phandle(&pdev->dev, "usb-phy", 0);
+	if (IS_ERR(hcd->phy)) {
+		if (PTR_ERR(hcd->phy) == -EPROBE_DEFER) {
+			dev_dbg(&pdev->dev, "usb-phy not probed yet\n");
+			ret = -EPROBE_DEFER;
+			goto vbus_deinit;
+		}
+		hcd->phy = NULL;
+	}
+
+	if (hcd->phy)
+		usb_phy_init(hcd->phy);
+	else if (pdata && pdata->use_sec_phy)
 		mhcd->usb_phy_ctrl_reg = USB_PHY_CTRL2;
 	else
 		mhcd->usb_phy_ctrl_reg = USB_PHY_CTRL;
@@ -1670,6 +1688,9 @@ static int ehci_msm2_remove(struct platform_device *pdev)
 	pm_runtime_set_suspended(&pdev->dev);
 
 	usb_remove_hcd(hcd);
+
+	if (hcd->phy)
+		usb_phy_shutdown(hcd->phy);
 
 	if (mhcd->xo_clk) {
 		clk_disable_unprepare(mhcd->xo_clk);
