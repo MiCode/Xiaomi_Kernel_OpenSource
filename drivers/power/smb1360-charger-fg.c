@@ -489,6 +489,9 @@ static int __smb1360_charging_disable(struct smb1360_chip *chip, bool disable)
 	if (rc < 0)
 		pr_err("Couldn't set CHG_ENABLE_BIT disable=%d rc = %d\n",
 							disable, rc);
+	else
+		pr_debug("CHG_EN status=%d\n", !disable);
+
 	return rc;
 }
 
@@ -917,6 +920,7 @@ static int smb1360_battery_set_property(struct power_supply *psy,
 		break;
 	case POWER_SUPPLY_PROP_CAPACITY:
 		chip->fake_battery_soc = val->intval;
+		pr_info("fake_soc set to %d\n", chip->fake_battery_soc);
 		power_supply_changed(&chip->batt_psy);
 		break;
 	case POWER_SUPPLY_PROP_SYSTEM_TEMP_LEVEL:
@@ -1076,13 +1080,14 @@ static int battery_missing_handler(struct smb1360_chip *chip, u8 rt_stat)
 
 static int vbat_low_handler(struct smb1360_chip *chip, u8 rt_stat)
 {
-	pr_warn("vbat low\n");
+	pr_debug("vbat low\n");
+
 	return 0;
 }
 
 static int chg_hot_handler(struct smb1360_chip *chip, u8 rt_stat)
 {
-	pr_warn("chg hot\n");
+	pr_warn_ratelimited("chg hot\n");
 	return 0;
 }
 
@@ -1135,21 +1140,7 @@ static int delta_soc_handler(struct smb1360_chip *chip, u8 rt_stat)
 
 static int min_soc_handler(struct smb1360_chip *chip, u8 rt_stat)
 {
-	/*
-	 * Avoid holding a wake_source if there is no battery
-	 * or if the SMB rev. has a battery detection issue
-	 */
-	if (!chip->batt_present ||
-			(chip->workaround_flags & WRKRND_BATT_DET_FAIL))
-		return 0;
-
-	if (rt_stat) {
-		pr_debug("Below minimum SOC, holding wake_source\n");
-		pm_stay_awake(chip->dev);
-	} else {
-		pr_debug("Above minimum SOC, releasing wake_source\n");
-		pm_relax(chip->dev);
-	}
+	pr_debug("SOC dropped below min SOC\n");
 
 	return 0;
 }
@@ -1157,10 +1148,12 @@ static int min_soc_handler(struct smb1360_chip *chip, u8 rt_stat)
 static int empty_soc_handler(struct smb1360_chip *chip, u8 rt_stat)
 {
 	if (rt_stat) {
-		pr_warn("SOC is 0\n");
+		pr_warn_ratelimited("SOC is 0\n");
 		chip->empty_soc = true;
+		pm_stay_awake(chip->dev);
 	} else {
 		chip->empty_soc = false;
+		pm_relax(chip->dev);
 	}
 
 	return 0;
