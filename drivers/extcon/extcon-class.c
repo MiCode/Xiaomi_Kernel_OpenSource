@@ -48,6 +48,11 @@ const char extcon_cable_name[][CABLE_NAME_MAX + 1] = {
 	[EXTCON_FAST_CHARGER]	= "Fast-charger",
 	[EXTCON_SLOW_CHARGER]	= "Slow-charger",
 	[EXTCON_CHARGE_DOWNSTREAM]	= "Charge-downstream",
+	[EXTCON_SDP]		= "CHARGER_USB_SDP",
+	[EXTCON_DCP]		= "CHARGER_USB_DCP",
+	[EXTCON_CDP]		= "CHARGER_USB_CDP",
+	[EXTCON_ACA]		= "CHARGER_USB_ACA",
+	[EXTCON_AC]		= "CHARGER_AC",
 	[EXTCON_HDMI]		= "HDMI",
 	[EXTCON_MHL]		= "MHL",
 	[EXTCON_DVI]		= "DVI",
@@ -71,6 +76,8 @@ static struct class_compat *switch_class;
 
 static LIST_HEAD(extcon_dev_list);
 static DEFINE_MUTEX(extcon_dev_list_lock);
+
+static BLOCKING_NOTIFIER_HEAD(extcon_dev_notifier_list);
 
 /**
  * check_mutually_exclusive - Check if new_state violates mutually_exclusive
@@ -308,6 +315,30 @@ int extcon_find_cable_index(struct extcon_dev *edev, const char *cable_name)
 EXPORT_SYMBOL_GPL(extcon_find_cable_index);
 
 /**
+ * extcon_find_cable_type() - Get the cable type based on the cable index.
+ * @edev:	the extcon device that has the cable.
+ * @idx:	cable idx to be searched.
+ *
+ * This function is useful if the notifee want to know the cable type
+ * equivalent value defined in extcon_cable_name enum.
+ */
+int extcon_find_cable_type(struct extcon_dev *edev, int index)
+{
+	int i;
+
+	if (edev->supported_cable) {
+		for (i = 0; extcon_cable_name[i]; i++) {
+			if (!strncmp(edev->supported_cable[index],
+				extcon_cable_name[i], CABLE_NAME_MAX))
+				return i;
+		}
+	}
+
+	return -EINVAL;
+}
+EXPORT_SYMBOL_GPL(extcon_find_cable_type);
+
+/**
  * extcon_get_cable_state_() - Get the status of a specific cable.
  * @edev:	the extcon device that has the cable.
  * @index:	cable index that can be retrieved by extcon_find_cable_index().
@@ -392,6 +423,27 @@ out:
 	return sd;
 }
 EXPORT_SYMBOL_GPL(extcon_get_extcon_dev);
+
+/**
+ * extcon_num_of_extcon_devs() - number of extcon devices
+ * returns the total number of extcon registered devices.
+ */
+int extcon_num_of_cable_devs(const char *cable)
+{
+	struct extcon_dev *sd = NULL;
+	int i, j = 0;
+
+	mutex_lock(&extcon_dev_list_lock);
+	list_for_each_entry(sd, &extcon_dev_list, entry) {
+		for (i = 0; sd && i < sd->max_supported; i++) {
+			if (!strcmp(sd->supported_cable[i], cable))
+				j++;
+		}
+	}
+	mutex_unlock(&extcon_dev_list_lock);
+	return j;
+}
+EXPORT_SYMBOL_GPL(extcon_num_of_cable_devs);
 
 static int _call_per_cable(struct notifier_block *nb, unsigned long val,
 			   void *ptr)
@@ -562,6 +614,30 @@ static void extcon_dev_release(struct device *dev)
 static const char *muex_name = "mutually_exclusive";
 static void dummy_sysfs_dev_release(struct device *dev)
 {
+}
+
+void extcon_dev_register_notify(struct notifier_block *nb)
+{
+	blocking_notifier_chain_register(&extcon_dev_notifier_list, nb);
+}
+EXPORT_SYMBOL_GPL(extcon_dev_register_notify);
+
+void extcon_dev_unregister_notify(struct notifier_block *nb)
+{
+	blocking_notifier_chain_unregister(&extcon_dev_notifier_list, nb);
+}
+EXPORT_SYMBOL_GPL(extcon_dev_unregister_notify);
+
+void extcon_dev_notify_add_device(struct extcon_dev *edev)
+{
+	blocking_notifier_call_chain(&extcon_dev_notifier_list,
+				     EXTCON_DEVICE_ADD, edev);
+}
+
+void extcon_dev_notify_remove_device(struct extcon_dev *edev)
+{
+	blocking_notifier_call_chain(&extcon_dev_notifier_list,
+				     EXTCON_DEVICE_REMOVE, edev);
 }
 
 /**
@@ -748,6 +824,8 @@ int extcon_dev_register(struct extcon_dev *edev)
 	list_add(&edev->entry, &extcon_dev_list);
 	mutex_unlock(&extcon_dev_list_lock);
 
+	extcon_dev_notify_add_device(edev);
+
 	return 0;
 
 err_dev:
@@ -781,6 +859,8 @@ EXPORT_SYMBOL_GPL(extcon_dev_register);
 void extcon_dev_unregister(struct extcon_dev *edev)
 {
 	int index;
+
+	extcon_dev_notify_remove_device(edev);
 
 	mutex_lock(&extcon_dev_list_lock);
 	list_del(&edev->entry);

@@ -74,4 +74,12 @@ config EXTCON_PALMAS
 	  Say Y here to enable support for USB peripheral and USB host
 	  detection by palmas usb.
 
+config EXTCON_SMSC375X
+	tristate "SMSC375X EXTCON support"
+	depends on I2C
+	help
+	  Say Y here to enable support for external charger detection
+	  with SMSC375X. SMSC375X has BC1.2 charger detection support
+	  with USB mux switch.
+
 endif # MULTISTATE_SWITCH

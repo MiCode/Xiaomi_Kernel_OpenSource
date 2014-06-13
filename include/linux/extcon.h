@@ -26,6 +26,7 @@
 #include <linux/device.h>
 #include <linux/notifier.h>
 #include <linux/sysfs.h>
+#include <linux/kconfig.h>
 
 #define SUPPORTED_CABLE_MAX	32
 #define CABLE_NAME_MAX		30
@@ -55,6 +56,11 @@ enum extcon_cable_name {
 	EXTCON_FAST_CHARGER,
 	EXTCON_SLOW_CHARGER,
 	EXTCON_CHARGE_DOWNSTREAM,	/* Charging an external device */
+	EXTCON_SDP,
+	EXTCON_DCP,
+	EXTCON_CDP,
+	EXTCON_ACA,
+	EXTCON_AC,
 	EXTCON_HDMI,
 	EXTCON_MHL,
 	EXTCON_DVI,
@@ -119,6 +125,7 @@ struct extcon_dev {
 	/* Optional callbacks to override class functions */
 	ssize_t	(*print_name)(struct extcon_dev *edev, char *buf);
 	ssize_t	(*print_state)(struct extcon_dev *edev, char *buf);
+	int (*get_cable_properties)(const char *cable_name, void *cable_props);
 
 	/* Internal data. Please do not set. */
 	struct device dev;
@@ -177,6 +184,23 @@ struct extcon_specific_cable_nb {
 	unsigned long previous_value;
 };
 
+enum extcon_chrgr_cbl_stat {
+	EXTCON_CHRGR_CABLE_CONNECTED,
+	EXTCON_CHRGR_CABLE_DISCONNECTED,
+	EXTCON_CHRGR_CABLE_SUSPENDED,
+	EXTCON_CHRGR_CABLE_RESUMED,
+	EXTCON_CHRGR_CABLE_UPDATED,
+};
+
+struct extcon_chrgr_cbl_props {
+	enum extcon_chrgr_cbl_stat cable_stat;
+	unsigned long ma;
+};
+
+/* extcon device register notify events */
+#define EXTCON_DEVICE_ADD		0x0001
+#define EXTCON_DEVICE_REMOVE		0x0002
+
 #if IS_ENABLED(CONFIG_EXTCON)
 
 /*
@@ -186,6 +210,9 @@ struct extcon_specific_cable_nb {
 extern int extcon_dev_register(struct extcon_dev *edev);
 extern void extcon_dev_unregister(struct extcon_dev *edev);
 extern struct extcon_dev *extcon_get_extcon_dev(const char *extcon_name);
+extern int extcon_num_of_cable_devs(const char *cable);
+extern void extcon_dev_register_notify(struct notifier_block *nb);
+extern void extcon_dev_unregister_notify(struct notifier_block *nb);
 
 /*
  * get/set/update_state access the 32b encoded state value, which represents
@@ -208,6 +235,7 @@ extern int extcon_update_state(struct extcon_dev *edev, u32 mask, u32 state);
  */
 extern int extcon_find_cable_index(struct extcon_dev *sdev,
 				   const char *cable_name);
+extern int extcon_find_cable_type(struct extcon_dev *edev, int index);
 extern int extcon_get_cable_state_(struct extcon_dev *edev, int cable_index);
 extern int extcon_set_cable_state_(struct extcon_dev *edev, int cable_index,
 				   bool cable_state);
@@ -247,6 +275,8 @@ static inline int extcon_dev_register(struct extcon_dev *edev)
 }
 
 static inline void extcon_dev_unregister(struct extcon_dev *edev) { }
+static void extcon_dev_register_notify(struct notifier_block *nb) { }
+static void extcon_dev_unregister_notify(struct notifier_block *nb) { }
 
 static inline u32 extcon_get_state(struct extcon_dev *edev)
 {
@@ -266,6 +296,16 @@ static inline int extcon_update_state(struct extcon_dev *edev, u32 mask,
 
 static inline int extcon_find_cable_index(struct extcon_dev *edev,
 					  const char *cable_name)
+{
+	return 0;
+}
+
+static int extcon_find_cable_type(struct extcon_dev *edev, int index)
+{
+	return 0;
+}
+
+static int extcon_find_cable_type(struct extcon_dev *edev, int index)
 {
 	return 0;
 }
@@ -297,6 +337,11 @@ static inline int extcon_set_cable_state(struct extcon_dev *edev,
 static inline struct extcon_dev *extcon_get_extcon_dev(const char *extcon_name)
 {
 	return NULL;
+}
+
+static inline int extcon_num_of_cable_devs(const char *cable)
+{
+	return 0;
 }
 
 static inline int extcon_register_notifier(struct extcon_dev *edev,
