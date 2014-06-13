@@ -3026,6 +3026,7 @@ static int synaptics_rmi4_probe(struct platform_device *pdev)
 	rmi4_data->touch_stopped = false;
 	rmi4_data->sensor_sleep = false;
 	rmi4_data->irq_enabled = false;
+	rmi4_data->fw_updating = false;
 	rmi4_data->fingers_on_2d = false;
 
 	rmi4_data->irq_enable = synaptics_rmi4_irq_enable;
@@ -3531,47 +3532,84 @@ static int synaptics_rmi4_suspend(struct device *dev)
 			rmi4_data->hw_if->board_data;
 	int retval;
 
-	if (rmi4_data->staying_awake)
+	if (rmi4_data->stay_awake) {
+		rmi4_data->staying_awake = true;
 		return 0;
+	} else {
+		rmi4_data->staying_awake = false;
+	}
 
-	if (rmi4_data->suspended)
+	if (rmi4_data->suspended) {
+		dev_info(dev, "Already in suspend state\n");
 		return 0;
+	}
 
 	synaptics_secure_touch_stop(rmi4_data, 1);
 
-	if (!rmi4_data->sensor_sleep) {
-		rmi4_data->touch_stopped = true;
-		synaptics_rmi4_irq_enable(rmi4_data, false);
-		synaptics_rmi4_sensor_sleep(rmi4_data);
-		synaptics_rmi4_free_fingers(rmi4_data);
-	}
+	if (!rmi4_data->fw_updating) {
+		if (!rmi4_data->sensor_sleep) {
+			rmi4_data->touch_stopped = true;
+			synaptics_rmi4_irq_enable(rmi4_data, false);
+			synaptics_rmi4_sensor_sleep(rmi4_data);
+			synaptics_rmi4_free_fingers(rmi4_data);
+		}
 
-	mutex_lock(&exp_data.mutex);
-	if (!list_empty(&exp_data.list)) {
-		list_for_each_entry(exp_fhandler, &exp_data.list, link)
+		mutex_lock(&exp_data.mutex);
+		if (!list_empty(&exp_data.list)) {
+			list_for_each_entry(exp_fhandler, &exp_data.list, link)
 			if (exp_fhandler->exp_fn->suspend != NULL)
 				exp_fhandler->exp_fn->suspend(rmi4_data);
-	}
-	mutex_unlock(&exp_data.mutex);
+		}
+		mutex_unlock(&exp_data.mutex);
 
-	synaptics_dsx_regulator_enable(rmi4_data, false);
+		retval = synaptics_dsx_regulator_enable(rmi4_data, false);
+		if (retval < 0) {
+			dev_err(dev, "failed to enter low power mode\n");
+			goto err_lpm_regulator;
+		}
+	} else {
+		dev_err(dev,
+			"Firmware updating, cannot go into suspend mode\n");
+		return 0;
+	}
 
 	if (bdata->disable_gpios) {
 		if (rmi4_data->ts_pinctrl) {
 			retval = synpatics_dsx_pinctrl_select(rmi4_data,
-								 false);
-			if (retval < 0)
+								false);
+			if (retval < 0) {
 				dev_err(dev, "Cannot get idle pinctrl state\n");
+				goto err_pinctrl_select_suspend;
+			}
 		}
 
 		retval = synaptics_dsx_gpio_configure(rmi4_data, false);
-		if (retval < 0)
+		if (retval < 0) {
 			dev_err(dev, "failed to put gpios in suspend state\n");
+			goto err_gpio_configure;
+		}
 	}
 
 	rmi4_data->suspended = true;
 
 	return 0;
+
+err_gpio_configure:
+	if (rmi4_data->ts_pinctrl) {
+		retval = synpatics_dsx_pinctrl_select(rmi4_data, true);
+		if (retval < 0)
+			dev_err(dev, "Cannot get default pinctrl state\n");
+	}
+err_pinctrl_select_suspend:
+	synaptics_dsx_regulator_enable(rmi4_data, true);
+err_lpm_regulator:
+	if (rmi4_data->sensor_sleep) {
+		synaptics_rmi4_sensor_wake(rmi4_data);
+		synaptics_rmi4_irq_enable(rmi4_data, true);
+		rmi4_data->touch_stopped = false;
+	}
+
+	return retval;
 }
 
  /**
