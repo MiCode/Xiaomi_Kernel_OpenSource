@@ -62,6 +62,7 @@ struct pll_config_vals {
 	u32 post_div_masked;
 	u32 pre_div_masked;
 	u32 config_ctl_val;
+	u32 test_ctl_lo_val;
 	u32 alpha_val;
 	bool enable_mn;
 };
@@ -129,6 +130,7 @@ struct pll_clk {
 	void __iomem *const config_reg;
 	void __iomem *const config_ctl_reg;
 	void __iomem *const status_reg;
+	void __iomem *const test_ctl_lo_reg;
 
 	struct pll_config_masks masks;
 	struct pll_config_vals vals;
