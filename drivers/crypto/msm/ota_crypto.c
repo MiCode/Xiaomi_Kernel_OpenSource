@@ -468,6 +468,8 @@ static long qcota_ioctl(struct file *file,
 			       areq.req.f9_req.msize))
 			return -EFAULT;
 
+		if (areq.req.f9_req.msize == 0)
+			return 0;
 		k_buf = kmalloc(areq.req.f9_req.msize, GFP_KERNEL);
 		if (k_buf == NULL)
 			return -ENOMEM;
@@ -513,6 +515,8 @@ static long qcota_ioctl(struct file *file,
 				user_dst, total))
 			return -EFAULT;
 
+		if (!total)
+			return 0;
 		k_buf = kmalloc(total, GFP_KERNEL);
 		if (k_buf == NULL)
 			return -ENOMEM;
@@ -565,6 +569,8 @@ static long qcota_ioctl(struct file *file,
 				user_dst, total))
 			return -EFAULT;
 
+		if (!total)
+			return 0;
 		k_buf = kmalloc(total, GFP_KERNEL);
 		if (k_buf == NULL)
 			return -ENOMEM;
@@ -608,6 +614,8 @@ static long qcota_ioctl(struct file *file,
 			total = ALIGN(total, L1_CACHE_BYTES);
 		}
 
+		if (!total)
+			return 0;
 		k_buf = kmalloc(total, GFP_KERNEL);
 		if (k_buf == NULL)
 			return -ENOMEM;
