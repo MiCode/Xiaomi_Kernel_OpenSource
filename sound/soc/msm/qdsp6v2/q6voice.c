@@ -4579,7 +4579,9 @@ static int voc_disable_cvp(uint32_t session_id)
 		ret = voice_send_disable_vocproc_cmd(v);
 		if (ret < 0) {
 			pr_err("%s:  disable vocproc failed\n", __func__);
-			goto fail;
+
+			mutex_unlock(&v->lock);
+			goto done;
 		}
 
 		voice_send_cvp_deregister_vol_cal_cmd(v);
@@ -4588,10 +4590,12 @@ static int voc_disable_cvp(uint32_t session_id)
 
 		v->voc_state = VOC_CHANGE;
 	}
+	mutex_unlock(&v->lock);
+
 	if (common.ec_ref_ext)
 		voc_set_ext_ec_ref(AFE_PORT_INVALID, false);
-fail:	mutex_unlock(&v->lock);
 
+done:
 	return ret;
 }
 
