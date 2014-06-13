@@ -302,6 +302,7 @@
 #define clk_esc1_clk_src 0x3b0afa42
 #define clk_extpclk_clk_src 0xb2c31abd
 #define clk_hdmi_clk_src 0xb40aeea9
+#define clk_hdmi_20nm_vco_clk 0xacaed5e6
 #define clk_vsync_clk_src 0xecb43940
 #define clk_rbbmtimer_clk_src 0x17649ecc
 #define clk_camss_ahb_clk 0xc4ff91d4
