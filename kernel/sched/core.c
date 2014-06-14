@@ -3860,9 +3860,9 @@ need_resched:
 	if (unlikely(!rq->nr_running))
 		idle_balance(cpu, rq);
 
-	wallclock = sched_clock();
 	put_prev_task(rq, prev);
 	next = pick_next_task(rq);
+	wallclock = sched_clock();
 	update_task_ravg(prev, rq, PUT_PREV_TASK, wallclock, NULL);
 	update_task_ravg(next, rq, PICK_NEXT_TASK, wallclock, NULL);
 	clear_tsk_need_resched(prev);
