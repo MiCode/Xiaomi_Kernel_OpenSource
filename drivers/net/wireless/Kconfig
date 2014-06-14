@@ -300,10 +300,8 @@ config WCNSS_CORE
 
 config CNSS
 	tristate "CNSS driver for PCIe wifi module"
-	depends on MIGHT_HAVE_PCI
 	depends on PCI
 	depends on PCI_MSI
-	depends on MSM_PCIE
 	select CRYPTO
 	select CRYPTO_HASH
 	select CRYPTO_BLKCIPHER
