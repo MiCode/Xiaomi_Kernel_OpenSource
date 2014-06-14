@@ -785,7 +785,7 @@ static int __from_user_lut_cfg_data(
 			struct mdp_lut_cfg_data __user *lut_cfg)
 {
 	uint32_t lut_type;
-	int ret;
+	int ret = 0;
 
 	if (copy_from_user(&lut_type, &lut_cfg32->lut_type,
 			sizeof(uint32_t)))
