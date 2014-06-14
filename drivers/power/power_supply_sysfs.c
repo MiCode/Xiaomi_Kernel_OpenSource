@@ -44,7 +44,7 @@ static ssize_t power_supply_show_property(struct device *dev,
 					  struct device_attribute *attr,
 					  char *buf) {
 	static char *type_text[] = {
-		"Unknown", "Battery", "UPS", "Mains", "USB",
+		"Unknown", "Battery", "UPS", "Mains", "USB", "USB",
 		"USB_DCP", "USB_CDP", "USB_ACA"
 	};
 	static char *status_text[] = {
@@ -168,8 +168,14 @@ static struct device_attribute power_supply_attrs[] = {
 	POWER_SUPPLY_ATTR(constant_charge_current_max),
 	POWER_SUPPLY_ATTR(constant_charge_voltage),
 	POWER_SUPPLY_ATTR(constant_charge_voltage_max),
+	POWER_SUPPLY_ATTR(charge_current_limit),
 	POWER_SUPPLY_ATTR(charge_control_limit),
 	POWER_SUPPLY_ATTR(charge_control_limit_max),
+	POWER_SUPPLY_ATTR(charge_current),
+	POWER_SUPPLY_ATTR(max_charge_current),
+	POWER_SUPPLY_ATTR(charge_voltage),
+	POWER_SUPPLY_ATTR(max_charge_voltage),
+	POWER_SUPPLY_ATTR(input_cur_limit),
 	POWER_SUPPLY_ATTR(energy_full_design),
 	POWER_SUPPLY_ATTR(energy_empty_design),
 	POWER_SUPPLY_ATTR(energy_full),
@@ -183,6 +189,8 @@ static struct device_attribute power_supply_attrs[] = {
 	POWER_SUPPLY_ATTR(temp),
 	POWER_SUPPLY_ATTR(temp_alert_min),
 	POWER_SUPPLY_ATTR(temp_alert_max),
+	POWER_SUPPLY_ATTR(max_temp),
+	POWER_SUPPLY_ATTR(min_temp),
 	POWER_SUPPLY_ATTR(temp_ambient),
 	POWER_SUPPLY_ATTR(temp_ambient_alert_min),
 	POWER_SUPPLY_ATTR(temp_ambient_alert_max),
@@ -191,6 +199,11 @@ static struct device_attribute power_supply_attrs[] = {
 	POWER_SUPPLY_ATTR(time_to_full_now),
 	POWER_SUPPLY_ATTR(time_to_full_avg),
 	POWER_SUPPLY_ATTR(type),
+	POWER_SUPPLY_ATTR(charge_term_cur),
+	POWER_SUPPLY_ATTR(enable_charging),
+	POWER_SUPPLY_ATTR(enable_charger),
+	POWER_SUPPLY_ATTR(cable_type),
+	POWER_SUPPLY_ATTR(priority),
 	POWER_SUPPLY_ATTR(scope),
 	/* Local extensions */
 	POWER_SUPPLY_ATTR(usb_hc),

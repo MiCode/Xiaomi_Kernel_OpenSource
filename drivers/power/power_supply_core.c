@@ -20,6 +20,7 @@
 #include <linux/power_supply.h>
 #include <linux/thermal.h>
 #include "power_supply.h"
+#include "power_supply_charger.h"
 
 /* exported for the APM Power driver, APM emulation */
 struct class *power_supply_class;
@@ -30,6 +31,13 @@ EXPORT_SYMBOL_GPL(power_supply_notifier);
 
 static struct device_type power_supply_dev_type;
 
+static struct mutex ps_chrg_evt_lock;
+
+static struct power_supply_charger_cap power_supply_chrg_cap = {
+		.chrg_evt	= POWER_SUPPLY_CHARGER_EVENT_DISCONNECT,
+		.chrg_type	= POWER_SUPPLY_TYPE_USB,
+		.mA		= 0	/* 0 mA */
+};
 static bool __power_supply_is_supplied_by(struct power_supply *supplier,
 					 struct power_supply *supply)
 {
@@ -83,6 +91,7 @@ static void power_supply_changed_work(struct work_struct *work)
 		spin_unlock_irqrestore(&psy->changed_lock, flags);
 		class_for_each_device(power_supply_class, NULL, psy,
 				      __power_supply_changed_work);
+		power_supply_trigger_charging_handler(psy);
 		power_supply_update_leds(psy);
 		atomic_notifier_call_chain(&power_supply_notifier,
 				PSY_EVENT_PROP_CHANGED, psy);
@@ -103,6 +112,11 @@ void power_supply_changed(struct power_supply *psy)
 {
 	unsigned long flags;
 
+	if (psy == NULL) {
+		power_supply_trigger_charging_handler(psy);
+		return;
+	}
+
 	dev_dbg(psy->dev, "%s\n", __func__);
 
 	spin_lock_irqsave(&psy->changed_lock, flags);
@@ -112,6 +126,37 @@ void power_supply_changed(struct power_supply *psy)
 	schedule_work(&psy->changed_work);
 }
 EXPORT_SYMBOL_GPL(power_supply_changed);
+
+static int __power_supply_charger_event(struct device *dev, void *data)
+{
+	struct power_supply_charger_cap *cap =
+				(struct power_supply_charger_cap *)data;
+	struct power_supply *psy = dev_get_drvdata(dev);
+
+	if (psy->charging_port_changed)
+		psy->charging_port_changed(psy, cap);
+
+	return 0;
+}
+
+void power_supply_charger_event(struct power_supply_charger_cap cap)
+{
+	class_for_each_device(power_supply_class, NULL, &cap,
+				      __power_supply_charger_event);
+
+	mutex_lock(&ps_chrg_evt_lock);
+	memcpy(&power_supply_chrg_cap, &cap, sizeof(power_supply_chrg_cap));
+	mutex_unlock(&ps_chrg_evt_lock);
+}
+EXPORT_SYMBOL_GPL(power_supply_charger_event);
+
+void power_supply_query_charger_caps(struct power_supply_charger_cap *cap)
+{
+	mutex_lock(&ps_chrg_evt_lock);
+	memcpy(cap, &power_supply_chrg_cap, sizeof(power_supply_chrg_cap));
+	mutex_unlock(&ps_chrg_evt_lock);
+}
+EXPORT_SYMBOL_GPL(power_supply_query_charger_caps);
 
 #ifdef CONFIG_OF
 #include <linux/of.h>
@@ -300,18 +345,42 @@ int power_supply_is_system_supplied(void)
 	unsigned int count = 0;
 
 	error = class_for_each_device(power_supply_class, NULL, &count,
-				      __power_supply_is_system_supplied);
+					__power_supply_is_system_supplied);
 
 	/*
-	 * If no power class device was found at all, most probably we are
-	 * running on a desktop system, so assume we are on mains power.
-	 */
+	* If no power class device was found at all, most probably we are
+	* running on a desktop system, so assume we are on mains power.
+	*/
 	if (count == 0)
 		return 1;
 
 	return error;
 }
 EXPORT_SYMBOL_GPL(power_supply_is_system_supplied);
+
+static int __power_supply_is_battery_connected(struct device *dev, void *data)
+{
+	union power_supply_propval ret = {0,};
+	struct power_supply *psy = dev_get_drvdata(dev);
+
+	if (psy->type == POWER_SUPPLY_TYPE_BATTERY) {
+		if (psy->get_property(psy, POWER_SUPPLY_PROP_PRESENT, &ret))
+			return 0;
+		if (ret.intval)
+			return ret.intval;
+	}
+	return 0;
+}
+
+int power_supply_is_battery_connected(void)
+{
+	int error;
+
+	error = class_for_each_device(power_supply_class, NULL, NULL,
+					__power_supply_is_battery_connected);
+	return error;
+}
+EXPORT_SYMBOL_GPL(power_supply_is_battery_connected);
 
 int power_supply_set_battery_charged(struct power_supply *psy)
 {
@@ -399,7 +468,8 @@ static int power_supply_read_temp(struct thermal_zone_device *tzd,
 	union power_supply_propval val;
 	int ret;
 
-	WARN_ON(tzd == NULL);
+	if (WARN_ON(tzd == NULL))
+		return -EINVAL;
 	psy = tzd->devdata;
 	ret = psy->get_property(psy, POWER_SUPPLY_PROP_TEMP, &val);
 
@@ -446,6 +516,8 @@ static int ps_get_max_charge_cntl_limit(struct thermal_cooling_device *tcd,
 	union power_supply_propval val;
 	int ret;
 
+	if (WARN_ON(tcd == NULL))
+		return -EINVAL;
 	psy = tcd->devdata;
 	ret = psy->get_property(psy,
 		POWER_SUPPLY_PROP_CHARGE_CONTROL_LIMIT_MAX, &val);
@@ -462,6 +534,8 @@ static int ps_get_cur_chrage_cntl_limit(struct thermal_cooling_device *tcd,
 	union power_supply_propval val;
 	int ret;
 
+	if (WARN_ON(tcd == NULL))
+		return -EINVAL;
 	psy = tcd->devdata;
 	ret = psy->get_property(psy,
 		POWER_SUPPLY_PROP_CHARGE_CONTROL_LIMIT, &val);
@@ -478,10 +552,14 @@ static int ps_set_cur_charge_cntl_limit(struct thermal_cooling_device *tcd,
 	union power_supply_propval val;
 	int ret;
 
+	if (WARN_ON(tcd == NULL))
+		return -EINVAL;
 	psy = tcd->devdata;
 	val.intval = state;
 	ret = psy->set_property(psy,
 		POWER_SUPPLY_PROP_CHARGE_CONTROL_LIMIT, &val);
+
+	psy_charger_throttle_charger(psy, state);
 
 	return ret;
 }
@@ -588,10 +666,16 @@ int power_supply_register(struct device *parent, struct power_supply *psy)
 	if (rc)
 		goto create_triggers_failed;
 
+	if (IS_CHARGER(psy))
+		rc = power_supply_register_charger(psy);
+	if (rc)
+		goto charger_register_failed;
+
 	power_supply_changed(psy);
 
 	goto success;
 
+charger_register_failed:
 create_triggers_failed:
 	psy_unregister_cooler(psy);
 register_cooler_failed:
@@ -613,6 +697,9 @@ void power_supply_unregister(struct power_supply *psy)
 	cancel_work_sync(&psy->changed_work);
 	sysfs_remove_link(&psy->dev->kobj, "powers");
 	power_supply_remove_triggers(psy);
+	if (IS_CHARGER(psy))
+		power_supply_unregister_charger(psy);
+	power_supply_remove_triggers(psy);
 	psy_unregister_cooler(psy);
 	psy_unregister_thermal(psy);
 	device_init_wakeup(psy->dev, false);
@@ -629,6 +716,7 @@ static int __init power_supply_class_init(void)
 
 	power_supply_class->dev_uevent = power_supply_uevent;
 	power_supply_init_attrs(&power_supply_dev_type);
+	mutex_init(&ps_chrg_evt_lock);
 
 	return 0;
 }
