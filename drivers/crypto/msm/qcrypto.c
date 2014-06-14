@@ -305,6 +305,11 @@ struct qcrypto_cipher_ctx {
 	unsigned int auth_key_len;
 
 	u8 ccm4309_nonce[QCRYPTO_CCM4309_NONCE_LEN];
+
+	union {
+		struct crypto_ablkcipher *cipher_fb;
+		struct crypto_aead *aead_fb;
+	} fallback;
 };
 
 struct qcrypto_resp_ctx {
@@ -778,6 +783,28 @@ static int _qcrypto_cra_ablkcipher_init(struct crypto_tfm *tfm)
 	return _qcrypto_cipher_cra_init(tfm);
 };
 
+static int _qcrypto_cra_aes_ablkcipher_init(struct crypto_tfm *tfm)
+{
+	const char *name = tfm->__crt_alg->cra_name;
+	struct qcrypto_cipher_ctx *ctx = crypto_tfm_ctx(tfm);
+	int ret;
+	struct crypto_priv *cp = &qcrypto_dev;
+
+	if (cp->ce_support.use_sw_aes_cbc_ecb_ctr_algo) {
+		ctx->fallback.cipher_fb = NULL;
+		return _qcrypto_cra_ablkcipher_init(tfm);
+	}
+	ctx->fallback.cipher_fb = crypto_alloc_ablkcipher(name, 0,
+			CRYPTO_ALG_ASYNC | CRYPTO_ALG_NEED_FALLBACK);
+	if (IS_ERR(ctx->fallback.cipher_fb)) {
+		pr_err("Error allocating fallback algo %s\n", name);
+		ret = PTR_ERR(ctx->fallback.cipher_fb);
+		ctx->fallback.cipher_fb = NULL;
+		return ret;
+	}
+	return _qcrypto_cra_ablkcipher_init(tfm);
+};
+
 static int _qcrypto_cra_aead_sha1_init(struct crypto_tfm *tfm)
 {
 	int rc;
@@ -829,6 +856,16 @@ static void _qcrypto_cra_ablkcipher_exit(struct crypto_tfm *tfm)
 	if (!list_empty(&ctx->rsp_queue))
 		pr_err("_qcrypto__cra_ablkcipher_exit: requests still outstanding");
 };
+
+static void _qcrypto_cra_aes_ablkcipher_exit(struct crypto_tfm *tfm)
+{
+	struct qcrypto_cipher_ctx *ctx = crypto_tfm_ctx(tfm);
+
+	_qcrypto_cra_ablkcipher_exit(tfm);
+	if (ctx->fallback.cipher_fb)
+		crypto_free_ablkcipher(ctx->fallback.cipher_fb);
+	ctx->fallback.cipher_fb = NULL;
+}
 
 static void _qcrypto_cra_aead_exit(struct crypto_tfm *tfm)
 {
@@ -1066,6 +1103,27 @@ static int _qcrypto_check_aes_keylen(struct crypto_ablkcipher *cipher,
 	return 0;
 }
 
+static int _qcrypto_setkey_aes_192_fallback(struct crypto_ablkcipher *cipher,
+		const u8 *key)
+{
+	struct crypto_tfm *tfm = crypto_ablkcipher_tfm(cipher);
+	struct qcrypto_cipher_ctx *ctx = crypto_tfm_ctx(tfm);
+	int ret;
+
+	ctx->enc_key_len = AES_KEYSIZE_192;
+	ctx->fallback.cipher_fb->base.crt_flags &= ~CRYPTO_TFM_REQ_MASK;
+	ctx->fallback.cipher_fb->base.crt_flags |=
+			(cipher->base.crt_flags & CRYPTO_TFM_REQ_MASK);
+	ret = crypto_ablkcipher_setkey(ctx->fallback.cipher_fb, key,
+			AES_KEYSIZE_192);
+	if (ret) {
+		tfm->crt_flags &= ~CRYPTO_TFM_RES_MASK;
+		tfm->crt_flags |=
+			(cipher->base.crt_flags & CRYPTO_TFM_RES_MASK);
+	}
+	return ret;
+}
+
 static int _qcrypto_setkey_aes(struct crypto_ablkcipher *cipher, const u8 *key,
 		unsigned int len)
 {
@@ -1075,6 +1133,10 @@ static int _qcrypto_setkey_aes(struct crypto_ablkcipher *cipher, const u8 *key,
 
 	if ((ctx->flags & QCRYPTO_CTX_USE_HW_KEY) == QCRYPTO_CTX_USE_HW_KEY)
 		return 0;
+
+	if ((len == AES_KEYSIZE_192) && (!cp->ce_support.aes_key_192)
+					&& ctx->fallback.cipher_fb)
+		return _qcrypto_setkey_aes_192_fallback(cipher, key);
 
 	if (_qcrypto_check_aes_keylen(cipher, cp, len)) {
 		return -EINVAL;
@@ -2096,6 +2158,33 @@ static int _qcrypto_queue_req(struct crypto_priv *cp,
 	return ret;
 }
 
+static int _qcrypto_enc_aes_192_fallback(struct ablkcipher_request *req)
+{
+	struct crypto_tfm *tfm =
+		crypto_ablkcipher_tfm(crypto_ablkcipher_reqtfm(req));
+	struct qcrypto_cipher_ctx *ctx = crypto_tfm_ctx(req->base.tfm);
+	int err;
+
+	ablkcipher_request_set_tfm(req, ctx->fallback.cipher_fb);
+	err = crypto_ablkcipher_encrypt(req);
+	ablkcipher_request_set_tfm(req, __crypto_ablkcipher_cast(tfm));
+	return err;
+}
+
+static int _qcrypto_dec_aes_192_fallback(struct ablkcipher_request *req)
+{
+	struct crypto_tfm *tfm =
+		crypto_ablkcipher_tfm(crypto_ablkcipher_reqtfm(req));
+	struct qcrypto_cipher_ctx *ctx = crypto_tfm_ctx(req->base.tfm);
+	int err;
+
+	ablkcipher_request_set_tfm(req, ctx->fallback.cipher_fb);
+	err = crypto_ablkcipher_decrypt(req);
+	ablkcipher_request_set_tfm(req, __crypto_ablkcipher_cast(tfm));
+	return err;
+}
+
+
 static int _qcrypto_enc_aes_ecb(struct ablkcipher_request *req)
 {
 	struct qcrypto_cipher_req_ctx *rctx;
@@ -2110,6 +2199,12 @@ static int _qcrypto_enc_aes_ecb(struct ablkcipher_request *req)
 #ifdef QCRYPTO_DEBUG
 	dev_info(&ctx->pengine->pdev->dev, "_qcrypto_enc_aes_ecb: %p\n", req);
 #endif
+
+	if ((ctx->enc_key_len == AES_KEYSIZE_192) &&
+			(!cp->ce_support.aes_key_192) &&
+				ctx->fallback.cipher_fb)
+		return _qcrypto_enc_aes_192_fallback(req);
+
 	rctx = ablkcipher_request_ctx(req);
 	rctx->aead = 0;
 	rctx->alg = CIPHER_ALG_AES;
@@ -2134,6 +2229,12 @@ static int _qcrypto_enc_aes_cbc(struct ablkcipher_request *req)
 #ifdef QCRYPTO_DEBUG
 	dev_info(&ctx->pengine->pdev->dev, "_qcrypto_enc_aes_cbc: %p\n", req);
 #endif
+
+	if ((ctx->enc_key_len == AES_KEYSIZE_192) &&
+			(!cp->ce_support.aes_key_192) &&
+				ctx->fallback.cipher_fb)
+		return _qcrypto_enc_aes_192_fallback(req);
+
 	rctx = ablkcipher_request_ctx(req);
 	rctx->aead = 0;
 	rctx->alg = CIPHER_ALG_AES;
@@ -2158,6 +2259,12 @@ static int _qcrypto_enc_aes_ctr(struct ablkcipher_request *req)
 #ifdef QCRYPTO_DEBUG
 	dev_info(&ctx->pengine->pdev->dev, "_qcrypto_enc_aes_ctr: %p\n", req);
 #endif
+
+	if ((ctx->enc_key_len == AES_KEYSIZE_192) &&
+			(!cp->ce_support.aes_key_192) &&
+				ctx->fallback.cipher_fb)
+		return _qcrypto_enc_aes_192_fallback(req);
+
 	rctx = ablkcipher_request_ctx(req);
 	rctx->aead = 0;
 	rctx->alg = CIPHER_ALG_AES;
@@ -2336,6 +2443,12 @@ static int _qcrypto_dec_aes_ecb(struct ablkcipher_request *req)
 #ifdef QCRYPTO_DEBUG
 	dev_info(&ctx->pengine->pdev->dev, "_qcrypto_dec_aes_ecb: %p\n", req);
 #endif
+
+	if ((ctx->enc_key_len == AES_KEYSIZE_192) &&
+			(!cp->ce_support.aes_key_192) &&
+				ctx->fallback.cipher_fb)
+		return _qcrypto_dec_aes_192_fallback(req);
+
 	rctx = ablkcipher_request_ctx(req);
 	rctx->aead = 0;
 	rctx->alg = CIPHER_ALG_AES;
@@ -2361,6 +2474,11 @@ static int _qcrypto_dec_aes_cbc(struct ablkcipher_request *req)
 	dev_info(&ctx->pengine->pdev->dev, "_qcrypto_dec_aes_cbc: %p\n", req);
 #endif
 
+	if ((ctx->enc_key_len == AES_KEYSIZE_192) &&
+			(!cp->ce_support.aes_key_192) &&
+				ctx->fallback.cipher_fb)
+		return _qcrypto_dec_aes_192_fallback(req);
+
 	rctx = ablkcipher_request_ctx(req);
 	rctx->aead = 0;
 	rctx->alg = CIPHER_ALG_AES;
@@ -2385,6 +2503,12 @@ static int _qcrypto_dec_aes_ctr(struct ablkcipher_request *req)
 #ifdef QCRYPTO_DEBUG
 	dev_info(&ctx->pengine->pdev->dev, "_qcrypto_dec_aes_ctr: %p\n", req);
 #endif
+
+	if ((ctx->enc_key_len == AES_KEYSIZE_192) &&
+			(!cp->ce_support.aes_key_192) &&
+				ctx->fallback.cipher_fb)
+		return _qcrypto_dec_aes_192_fallback(req);
+
 	rctx = ablkcipher_request_ctx(req);
 	rctx->aead = 0;
 	rctx->alg = CIPHER_ALG_AES;
@@ -3911,14 +4035,16 @@ static struct crypto_alg _qcrypto_ablk_cipher_algos[] = {
 		.cra_name		= "ecb(aes)",
 		.cra_driver_name	= "qcrypto-ecb-aes",
 		.cra_priority	= 300,
-		.cra_flags	= CRYPTO_ALG_TYPE_ABLKCIPHER | CRYPTO_ALG_ASYNC,
+		.cra_flags	= CRYPTO_ALG_TYPE_ABLKCIPHER |
+					CRYPTO_ALG_NEED_FALLBACK |
+					CRYPTO_ALG_ASYNC,
 		.cra_blocksize	= AES_BLOCK_SIZE,
 		.cra_ctxsize	= sizeof(struct qcrypto_cipher_ctx),
 		.cra_alignmask	= 0,
 		.cra_type	= &crypto_ablkcipher_type,
 		.cra_module	= THIS_MODULE,
-		.cra_init	= _qcrypto_cra_ablkcipher_init,
-		.cra_exit	= _qcrypto_cra_ablkcipher_exit,
+		.cra_init	= _qcrypto_cra_aes_ablkcipher_init,
+		.cra_exit	= _qcrypto_cra_aes_ablkcipher_exit,
 		.cra_u		= {
 			.ablkcipher = {
 				.min_keysize	= AES_MIN_KEY_SIZE,
@@ -3933,14 +4059,16 @@ static struct crypto_alg _qcrypto_ablk_cipher_algos[] = {
 		.cra_name	= "cbc(aes)",
 		.cra_driver_name = "qcrypto-cbc-aes",
 		.cra_priority	= 300,
-		.cra_flags	= CRYPTO_ALG_TYPE_ABLKCIPHER | CRYPTO_ALG_ASYNC,
+		.cra_flags	= CRYPTO_ALG_TYPE_ABLKCIPHER |
+					CRYPTO_ALG_NEED_FALLBACK |
+					CRYPTO_ALG_ASYNC,
 		.cra_blocksize	= AES_BLOCK_SIZE,
 		.cra_ctxsize	= sizeof(struct qcrypto_cipher_ctx),
 		.cra_alignmask	= 0,
 		.cra_type	= &crypto_ablkcipher_type,
 		.cra_module	= THIS_MODULE,
-		.cra_init	= _qcrypto_cra_ablkcipher_init,
-		.cra_exit	= _qcrypto_cra_ablkcipher_exit,
+		.cra_init	= _qcrypto_cra_aes_ablkcipher_init,
+		.cra_exit	= _qcrypto_cra_aes_ablkcipher_exit,
 		.cra_u		= {
 			.ablkcipher = {
 				.ivsize		= AES_BLOCK_SIZE,
@@ -3956,14 +4084,16 @@ static struct crypto_alg _qcrypto_ablk_cipher_algos[] = {
 		.cra_name	= "ctr(aes)",
 		.cra_driver_name = "qcrypto-ctr-aes",
 		.cra_priority	= 300,
-		.cra_flags	= CRYPTO_ALG_TYPE_ABLKCIPHER | CRYPTO_ALG_ASYNC,
+		.cra_flags	= CRYPTO_ALG_TYPE_ABLKCIPHER |
+					CRYPTO_ALG_NEED_FALLBACK |
+					CRYPTO_ALG_ASYNC,
 		.cra_blocksize	= AES_BLOCK_SIZE,
 		.cra_ctxsize	= sizeof(struct qcrypto_cipher_ctx),
 		.cra_alignmask	= 0,
 		.cra_type	= &crypto_ablkcipher_type,
 		.cra_module	= THIS_MODULE,
-		.cra_init	= _qcrypto_cra_ablkcipher_init,
-		.cra_exit	= _qcrypto_cra_ablkcipher_exit,
+		.cra_init	= _qcrypto_cra_aes_ablkcipher_init,
+		.cra_exit	= _qcrypto_cra_aes_ablkcipher_exit,
 		.cra_u		= {
 			.ablkcipher = {
 				.ivsize		= AES_BLOCK_SIZE,
