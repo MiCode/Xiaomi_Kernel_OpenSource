@@ -67,8 +67,10 @@ static int msm_bus_agg_fab_clks(struct device *bus_dev, void *data)
 	int ret = 0;
 	int ctx = *(int *)data;
 
-	if (ctx >= NUM_CTX)
+	if (ctx >= NUM_CTX) {
 		MSM_BUS_ERR("%s: Invalid Context %d", __func__, ctx);
+		goto exit_agg_fab_clks;
+	}
 
 	node = bus_dev->platform_data;
 	if (!node) {
@@ -86,6 +88,31 @@ static int msm_bus_agg_fab_clks(struct device *bus_dev, void *data)
 	}
 
 exit_agg_fab_clks:
+	return ret;
+}
+
+static int msm_bus_reset_fab_clks(struct device *bus_dev, void *data)
+{
+	struct msm_bus_node_device_type *node = NULL;
+	int ret = 0;
+	int ctx = *(int *)data;
+
+	if (ctx >= NUM_CTX) {
+		MSM_BUS_ERR("%s: Invalid Context %d", __func__, ctx);
+		goto exit_reset_fab_clks;
+	}
+
+	node = bus_dev->platform_data;
+	if (!node) {
+		MSM_BUS_ERR("%s: Can't get device info", __func__);
+		goto exit_reset_fab_clks;
+	}
+
+	if (node->node_info->is_fab_dev) {
+		node->cur_clk_hz[ctx] = 0;
+		MSM_BUS_DBG("Resetting for node %d", node->node_info->id);
+	}
+exit_reset_fab_clks:
 	return ret;
 }
 
@@ -278,6 +305,9 @@ int msm_bus_commit_data(int *dirty_nodes, int ctx, int num_dirty)
 					__func__, dirty_nodes[i]);
 	}
 	kfree(dirty_nodes);
+	/* Aggregate the bus clocks */
+	bus_for_each_dev(&msm_bus_type, NULL, (void *)&ctx,
+				msm_bus_reset_fab_clks);
 	return ret;
 }
 
