@@ -373,17 +373,18 @@
 		reg-names = "cpp", "cpp_vbif", "cpp_hw";
 		interrupts = <0 49 0>;
 		interrupt-names = "cpp";
-		vdd-supply = <&gdsc_vfe>;
+		vdd-supply = <&gdsc_cpp>;
 		clocks = <&clock_mmss clk_camss_top_ahb_clk>,
 			<&clock_mmss clk_cpp_clk_src>,
 			<&clock_mmss clk_camss_vfe_cpp_ahb_clk>,
 			<&clock_mmss clk_camss_vfe_cpp_axi_clk>,
 			<&clock_mmss clk_camss_vfe_cpp_clk>,
-			<&clock_mmss clk_camss_micro_ahb_clk>;
-		clock-names = "camss_top_ahb_clk", "cpp_clk_src",
+			<&clock_mmss clk_camss_micro_ahb_clk>,
+			<&clock_mmss clk_camss_ahb_clk>;
+		clock-names = "camss_top_ahb_clk", "cpp_core_clk",
 			"camss_vfe_cpp_ahb_clk", "camss_vfe_cpp_axi_clk",
-			"camss_vfe_cpp_clk","camss_micro_ahb_clk";
-		clock-rates = <0 266670000 0 0 266670000 0>;
+			"camss_vfe_cpp_clk","micro_iface_clk", "camss_ahb_clk";
+		qcom,clock-rates = <0 465000000 0 0 465000000 0 0>;
 	};
 
 	qcom,fd@fd878000 {
