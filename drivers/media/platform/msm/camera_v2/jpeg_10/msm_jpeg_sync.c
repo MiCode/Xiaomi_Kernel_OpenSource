@@ -1184,7 +1184,7 @@ long __msm_jpeg_compat_ioctl(struct msm_jpeg_device *pgmn_dev,
 	unsigned int cmd, unsigned long arg)
 {
 	int rc = 0;
-	struct msm_jpeg_ctrl_cmd *pctrl_cmd, ctrl_cmd;
+	struct msm_jpeg_ctrl_cmd *pctrl_cmd = NULL, ctrl_cmd;
 	struct msm_jpeg_buf jpeg_buf;
 	mm_segment_t old_fs;
 

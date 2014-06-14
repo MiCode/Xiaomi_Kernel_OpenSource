@@ -1649,6 +1649,9 @@ static void msm_ufs_phy_calibrate(struct ufs_hba *hba)
 	} else if ((major == 0x1) && (minor == 0x001) && (step == 0x0001)) {
 		tbl_size = ARRAY_SIZE(phy_cal_table_ctrl_1_1_1_rate_A);
 		tbl = phy_cal_table_ctrl_1_1_1_rate_A;
+	} else {
+		pr_err("%s: Unknown UFS controller type\n", __func__);
+		return;
 	}
 
 	for (i = 0; i < tbl_size; i++)
