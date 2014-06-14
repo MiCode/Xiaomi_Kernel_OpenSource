@@ -531,11 +531,23 @@ static int32_t qpnp_vadc_version_check(struct qpnp_vadc_chip *dev)
 #define QPNP_VBAT_COEFF_26	7895
 #define QPNP_VBAT_COEFF_27	5658
 #define QPNP_VBAT_COEFF_28	5760
+#define QPNP_VBAT_COEFF_29	7900
+#define QPNP_VBAT_COEFF_30	5660
+#define QPNP_VBAT_COEFF_31	3620
+#define QPNP_VBAT_COEFF_32	1230
+#define QPNP_VBAT_COEFF_33	5760
+#define QPNP_VBAT_COEFF_34	4080
+#define QPNP_VBAT_COEFF_35	7000
+#define QPNP_VBAT_COEFF_36	3040
+#define QPNP_VBAT_COEFF_37	3850
+#define QPNP_VBAT_COEFF_38	5000
+#define QPNP_VBAT_COEFF_39	2610
+#define QPNP_VBAT_COEFF_40	4190
 
 static int32_t qpnp_ocv_comp(int64_t *result,
 			struct qpnp_vadc_chip *vadc, int64_t die_temp)
 {
-	int64_t temp_var = 0;
+	int64_t temp_var = 0, offset = 0;
 	int64_t old = *result;
 	int version;
 
@@ -627,8 +639,6 @@ static int32_t qpnp_ocv_comp(int64_t *result,
 		}
 		break;
 	case QPNP_REV_ID_8916_1_0:
-	case QPNP_REV_ID_8916_1_1:
-	case QPNP_REV_ID_8916_2_0:
 		switch (vadc->id) {
 		case COMP_ID_SMIC:
 			if (die_temp < 25000)
@@ -639,12 +649,49 @@ static int32_t qpnp_ocv_comp(int64_t *result,
 			break;
 		default:
 		case COMP_ID_GF:
-			*result -= QPNP_OCV_OFFSET_GF;
+			offset = QPNP_OCV_OFFSET_GF;
 			if (die_temp < 25000)
 				temp_var = QPNP_VBAT_COEFF_26;
 			else
 				temp_var = QPNP_VBAT_COEFF_27;
 			temp_var = (die_temp - 25000) * temp_var;
+			break;
+		}
+		break;
+	case QPNP_REV_ID_8916_1_1:
+		switch (vadc->id) {
+		/* FAB_ID is zero */
+		case COMP_ID_GF:
+			if (die_temp < 25000)
+				temp_var = QPNP_VBAT_COEFF_29;
+			else
+				temp_var = QPNP_VBAT_COEFF_30;
+			temp_var = (die_temp - 25000) * temp_var;
+			break;
+		/* FAB_ID is non-zero */
+		default:
+			if (die_temp < 25000)
+				temp_var = QPNP_VBAT_COEFF_31;
+			else
+				temp_var = (-QPNP_VBAT_COEFF_32);
+			temp_var = (die_temp - 25000) * temp_var;
+			break;
+		}
+		break;
+	case QPNP_REV_ID_8916_2_0:
+		switch (vadc->id) {
+		case COMP_ID_SMIC:
+			if (die_temp < 0) {
+				offset = (-QPNP_VBAT_COEFF_38);
+				temp_var = die_temp * QPNP_VBAT_COEFF_36;
+			} else if (die_temp > 40000) {
+				offset = (-QPNP_VBAT_COEFF_38);
+				temp_var = ((die_temp - 40000) *
+						(-QPNP_VBAT_COEFF_37));
+			}
+			break;
+		default:
+			temp_var = 0;
 			break;
 		}
 		break;
@@ -659,6 +706,9 @@ static int32_t qpnp_ocv_comp(int64_t *result,
 
 	*result = *result * temp_var;
 
+	if (offset)
+		*result -= offset;
+
 	*result = div64_s64(*result, 1000000);
 	pr_debug("%lld compensated into %lld\n", old, *result);
 
@@ -668,7 +718,7 @@ static int32_t qpnp_ocv_comp(int64_t *result,
 static int32_t qpnp_vbat_sns_comp(int64_t *result,
 			struct qpnp_vadc_chip *vadc, int64_t die_temp)
 {
-	int64_t temp_var = 0;
+	int64_t temp_var = 0, offset = 0;
 	int64_t old = *result;
 	int version;
 
@@ -756,8 +806,6 @@ static int32_t qpnp_vbat_sns_comp(int64_t *result,
 		}
 		break;
 	case QPNP_REV_ID_8916_1_0:
-	case QPNP_REV_ID_8916_1_1:
-	case QPNP_REV_ID_8916_2_0:
 		switch (vadc->id) {
 		case COMP_ID_SMIC:
 			temp_var = ((die_temp - 25000) *
@@ -767,6 +815,39 @@ static int32_t qpnp_vbat_sns_comp(int64_t *result,
 		case COMP_ID_GF:
 			temp_var = ((die_temp - 25000) *
 			(QPNP_VBAT_COEFF_28));
+			break;
+		}
+		break;
+	case QPNP_REV_ID_8916_1_1:
+		switch (vadc->id) {
+		/* FAB_ID is zero */
+		case COMP_ID_GF:
+			temp_var = ((die_temp - 25000) *
+			(QPNP_VBAT_COEFF_33));
+			break;
+		/* FAB_ID is non-zero */
+		default:
+			if (die_temp > 50000) {
+				offset = QPNP_VBAT_COEFF_35;
+				temp_var = ((die_temp - 25000) *
+				(QPNP_VBAT_COEFF_34));
+			}
+			break;
+		}
+		break;
+	case QPNP_REV_ID_8916_2_0:
+		switch (vadc->id) {
+		case COMP_ID_SMIC:
+			if (die_temp < 0) {
+				temp_var = (die_temp *
+					QPNP_VBAT_COEFF_39);
+			} else if (die_temp > 40000) {
+				temp_var = ((die_temp - 40000) *
+				(-QPNP_VBAT_COEFF_40));
+			}
+			break;
+		default:
+			temp_var = 0;
 			break;
 		}
 		break;
@@ -780,6 +861,9 @@ static int32_t qpnp_vbat_sns_comp(int64_t *result,
 	temp_var = 1000000 + temp_var;
 
 	*result = *result * temp_var;
+
+	if (offset)
+		*result -= offset;
 
 	*result = div64_s64(*result, 1000000);
 	pr_debug("%lld compensated into %lld\n", old, *result);
