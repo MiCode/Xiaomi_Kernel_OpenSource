@@ -1408,8 +1408,9 @@ static int msm_isp_stop_axi_stream(struct vfe_device *vfe_dev,
 			wait_for_complete = 1;
 		}
 		session_id = stream_info->session_id;
-		session_mask = vfe_dev->axi_data.
-			session_frame_src_mask[session_id];
+		if (!session_mask)
+			session_mask = vfe_dev->axi_data.
+				session_frame_src_mask[session_id];
 		if (SRC_TO_INTF(stream_info->stream_src) == VFE_PIX_0) {
 			if ((vfe_dev->axi_data.
 				src_info[SRC_TO_INTF(stream_info->stream_src)].
