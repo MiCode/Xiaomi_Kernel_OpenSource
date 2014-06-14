@@ -44,6 +44,13 @@
 #define MIPI_DSI_PANEL_720P_PT	8
 #define DSI_PANEL_MAX	8
 
+#define MDSS_DSI_HW_REV_100		0x10000000	/* 8974    */
+#define MDSS_DSI_HW_REV_101		0x10010000	/* 8974v2  */
+#define MDSS_DSI_HW_REV_101_1		0x10010001	/* 8974Pro */
+#define MDSS_DSI_HW_REV_102		0x10020000	/* 8084    */
+#define MDSS_DSI_HW_REV_103		0x10030000	/* 8994    */
+
+
 enum {		/* mipi dsi panel */
 	DSI_VIDEO_MODE,
 	DSI_CMD_MODE,
@@ -270,6 +277,7 @@ struct mdss_dsi_ctrl_pdata {
 	void (*switch_mode) (struct mdss_panel_data *pdata, int mode);
 	struct mdss_panel_data panel_data;
 	unsigned char *ctrl_base;
+	u32 ctrl_rev;
 	struct dss_io_data ctrl_io;
 	struct dss_io_data mmss_misc_io;
 	struct dss_io_data phy_io;
@@ -406,6 +414,7 @@ int mdss_dsi_panel_init(struct device_node *node,
 		bool cmd_cfg_cont_splash);
 int mdss_panel_get_dst_fmt(u32 bpp, char mipi_mode, u32 pixel_packing,
 				char *dst_format);
+void mdss_dsi_20nm_phy_init(struct mdss_panel_data *pdata);
 
 static inline const char *__mdss_dsi_pm_name(enum dsi_pm_type module)
 {

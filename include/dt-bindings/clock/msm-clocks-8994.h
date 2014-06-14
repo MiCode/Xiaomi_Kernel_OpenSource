@@ -387,6 +387,16 @@
 #define clk_venus0_core2_vcodec_clk 0x24fa20a3
 #define clk_mmss_debug_mux 0xe646ffda
 
+/* dsi0pll controlled clocks */
+#define clk_pixel_clk_src 0x1708ae85
+#define clk_byte_clk_src 0x63154efc
+#define clk_fixed_hr_oclk2_div_clk_8994 0xabbb0923
+#define clk_bypass_lp_div_mux_8994 0xdc0bb6ea
+#define clk_hr_oclk3_div_clk_8994 0xc91f9f32
+#define clk_indirect_path_div2_clk_8994 0x21cdcc22
+#define clk_ndiv_clk_8994 0x39f41978
+#define clk_dsi_vco_clk_8994 0x976ed967
+
 /* clock_cpu controlled clocks */
 #define clk_a57_pll0 0xd01177bc
 #define clk_a57_pll1 0x546813fa
