@@ -776,6 +776,7 @@
 		interrupts = <0 163 0>, <0 165 0>;
 		interrupt-names = "slimbus_irq", "slimbus_bam_irq";
 		qcom,ea-pc = <0x140>;
+		status = "disabled";
 	};
 
 	clock_rpm: qcom,rpmcc@1874000 {
