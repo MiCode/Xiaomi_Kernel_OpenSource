@@ -464,7 +464,8 @@ void msm_isp_sof_notify(struct vfe_device *vfe_dev,
 		vfe_dev->axi_data.frame_id[session_id]++;
 		if (vfe_dev->axi_data.frame_id[session_id] == 0)
 			vfe_dev->axi_data.frame_id[session_id] = 1;
-		sof_event.input_intf = frame_src;
+		sof_event.input_intf =
+			vfe_dev->axi_data.session_frame_src_mask[session_id];
 		sof_event.frame_id = vfe_dev->axi_data.frame_id[session_id];
 		sof_event.timestamp = ts->event_time;
 		sof_event.mono_timestamp = ts->buf_time;
