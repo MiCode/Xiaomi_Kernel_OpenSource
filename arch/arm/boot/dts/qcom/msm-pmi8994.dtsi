@@ -136,7 +136,7 @@
 			#size-cells = <1>;
 
 			qcom,iterm-ma = <100>;
-			qcom,float-voltage-mv = <4200>;
+			qcom,float-voltage-mv = <4350>;
 			qcom,resume-delta-mv = <200>;
 			qcom,bmd-pin-src = "bpd_thm";
 			qcom,dc-psy-type = "Mains";
