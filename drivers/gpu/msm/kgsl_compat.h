@@ -196,8 +196,8 @@ struct kgsl_gpumem_sync_cache_compat {
 	compat_ulong_t gpuaddr;
 	unsigned int id;
 	unsigned int op;
-	compat_size_t length;
 	compat_size_t offset;
+	compat_size_t length;
 };
 
 #define IOCTL_KGSL_GPUMEM_SYNC_CACHE_COMPAT \
