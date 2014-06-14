@@ -1743,7 +1743,6 @@ void set_task_cpu(struct task_struct *p, unsigned int new_cpu)
 		if (p->on_rq || p->state == TASK_WAKING) {
 			struct rq *src_rq = task_rq(p);
 			struct rq *dest_rq = cpu_rq(new_cpu);
-			int old_onrq;
 			u64 wallclock;
 
 			if (p->state == TASK_WAKING)
@@ -1757,13 +1756,32 @@ void set_task_cpu(struct task_struct *p, unsigned int new_cpu)
 			update_task_ravg(dest_rq->curr, dest_rq,
 					 TASK_UPDATE, wallclock, NULL);
 
-			/* In the wakeup case the task has already had
-			 * its statisics updated (and the RQ is not locked). */
-			old_onrq = p->on_rq;
-			p->on_rq = 0;   /* todo */
+			/*
+			 * In case of migration of task on runqueue, on_rq =1,
+			 * however its load is removed from its runqueue.
+			 * update_task_ravg() below can update its demand, which
+			 * will require its load on runqueue to be adjusted to
+			 * reflect new demand. Restore load temporarily for such
+			 * task on its runqueue
+			 */
+			if (p->on_rq) {
+				inc_cumulative_runnable_avg(src_rq, p);
+				if (p->sched_class == &fair_sched_class)
+					inc_nr_big_small_task(src_rq, p);
+			}
+
 			update_task_ravg(p, task_rq(p), TASK_MIGRATE,
 					 wallclock, NULL);
-			p->on_rq = old_onrq;    /* todo */
+
+			/*
+			 * Remove task's load from rq as its now migrating to
+			 * another cpu.
+			 */
+			if (p->on_rq) {
+				dec_cumulative_runnable_avg(src_rq, p);
+				if (p->sched_class == &fair_sched_class)
+					dec_nr_big_small_task(src_rq, p);
+			}
 
 			if (p->ravg.sum) {
 				src_rq->curr_runnable_sum -=
