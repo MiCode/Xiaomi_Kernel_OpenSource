@@ -176,6 +176,8 @@ static void arm64_swiotlb_free_coherent(struct device *dev, size_t size,
 		return;
 	}
 
+	size = PAGE_ALIGN(size);
+
 	if (__free_from_pool(vaddr, size)) {
 		return;
 	} else if (IS_ENABLED(CONFIG_CMA)) {
@@ -249,6 +251,8 @@ static void arm64_swiotlb_free_noncoherent(struct device *dev, size_t size,
 					   struct dma_attrs *attrs)
 {
 	void *swiotlb_addr = phys_to_virt(dma_to_phys(dev, dma_handle));
+
+	size = PAGE_ALIGN(size);
 
 	if (__free_from_pool(vaddr, size))
 		return;
