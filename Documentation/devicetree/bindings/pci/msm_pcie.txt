@@ -3,9 +3,8 @@ MSM PCIe
 MSM PCI express root complex
 
 Required properties:
-  - compatible: should be "qcom,msm_pcie"
+  - compatible: should be "qcom,pci-msm"
   - cell-index: defines root complex ID.
-  - qcom,ctrl-amt: Number of controllers.
   - #address-cells: Should provide a value of 0.
   - reg: should contain PCIe register maps.
   - reg-names: indicates various resources passed to driver by name.
@@ -17,18 +16,17 @@ Required properties:
   - #interrupt-map-mask: should provide a value of 0xffffffff.
   - interrupt-map:  Must create mapping for the number of interrupts
 		    that are defined in above interrupts property.
-		    For PCIe device node, it should define 13 mappings for
+		    For PCIe device node, it should define 12 mappings for
 		    the corresponding PCIe interrupts supporting the specification.
   - interrupt-names: indicates interrupts passed to driver by name.
 		     Should be "int_msi", "int_a", "int_b", "int_c", "int_d",
 		     "int_pls_pme", "int_pme_legacy", "int_pls_err",
 		     "int_aer_legacy", "int_pls_link_up",
-		     "int_pls_link_down", "int_bridge_flush_n", "int_wake"
+		     "int_pls_link_down", "int_bridge_flush_n"
 		     These correspond to the standard PCIe specification to support
 		     MSIs, virtual IRQ's (INT#), link state notifications.
   - perst-gpio: PERST GPIO specified by PCIe spec.
   - wake-gpio: WAKE GPIO specified by PCIe spec.
-  - clkreq-gpio: CLKREQ GPIO specified by PCIe spec.
   - <supply-name>-supply: phandle to the regulator device tree node.
     Refer to the schematics for the corresponding voltage regulators.
     vreg-1.8-supply: phandle to the analog supply for the PCIe controller.
@@ -38,6 +36,12 @@ Required properties:
 Optional Properties:
   - qcom,<supply-name>-voltage-level: specifies voltage levels for supply.
     Should be specified in pairs (max, min, optimal), units uV.
+  - clkreq-gpio: CLKREQ GPIO specified by PCIe spec.
+  - pinctrl-names: The state name of the pin configuration. Only
+    support: "default"
+  - pinctrl-0: For details of pinctrl properties, please refer to:
+    "Documentation/devicetree/bindings/pinctrl/pinctrl-bindings.txt"
+  - clocks: list of clock phandles
   - clock-names: list of names of clock inputs.
 		     Should be "pcie_0_pipe_clk", "pcie_0_ref_clk_src",
 				"pcie_0_aux_clk", "pcie_0_cfg_ahb_clk",
@@ -69,7 +73,6 @@ Example:
 	pcie0: qcom,pcie@fc520000 {
 		compatible = "qcom,msm_pcie";
 		cell-index = <0>;
-		qcom,ctrl-amt = <1>;
 		#address-cells = <0>;
 		reg = <0xfc520000 0x2000>,
 		      <0xfc526000 0x1000>,
@@ -95,13 +98,11 @@ Example:
 				8 &intc 0 252 0
 				9 &intc 0 253 0
 				10 &intc 0 254 0
-				11 &intc 0 255 0
-				12 &msmgpio 69 0x2>;
+				11 &intc 0 255 0>;
 		interrupt-names = "int_msi", "int_a", "int_b", "int_c", "int_d",
 				"int_pls_pme", "int_pme_legacy", "int_pls_err",
 				"int_aer_legacy", "int_pls_link_up",
-				"int_pls_link_down", "int_bridge_flush_n",
-				"int_wake";
+				"int_pls_link_down", "int_bridge_flush_n";
 		perst-gpio = <&msmgpio 70 0>;
 		wake-gpio = <&msmgpio 69 0>;
 		clkreq-gpio = <&msmgpio 68 0>;
@@ -113,6 +114,18 @@ Example:
 
 		qcom,vreg-1.8-voltage-level = <1800000 1800000 1000>;
 		qcom,vreg-0.9-voltage-level = <950000 950000 24000>;
+
+		pinctrl-names = "default";
+		pinctrl-0 = <&pcie0_clkreq_default &pcie0_perst_default &pcie0_wake_default>;
+
+		clocks = <&clock_gcc clk_gcc_pcie_0_pipe_clk>,
+			<&clock_rpm clk_ln_bb_clk>,
+			<&clock_gcc clk_gcc_pcie_0_aux_clk>,
+			<&clock_gcc clk_gcc_pcie_0_cfg_ahb_clk>,
+			<&clock_gcc clk_gcc_pcie_0_mstr_axi_clk>,
+			<&clock_gcc clk_gcc_pcie_0_slv_axi_clk>,
+			<&clock_gcc clk_pcie_0_phy_ldo>,
+			<&clock_gcc clk_gcc_pcie_phy_0_reset>;
 
 		clock-names = "pcie_0_pipe_clk", "pcie_0_ref_clk_src",
 				"pcie_0_aux_clk", "pcie_0_cfg_ahb_clk",

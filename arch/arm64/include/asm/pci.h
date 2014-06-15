@@ -70,4 +70,9 @@ static inline int pci_get_legacy_ide_irq(struct pci_dev *dev, int channel)
 
 #endif /* __KERNEL__ */
 
+#ifdef CONFIG_PCI_MSM
+#define arch_setup_msi_irqs arch_setup_msi_irqs
+#define arch_teardown_msi_irqs arch_teardown_msi_irqs
+#endif
+
 #endif
