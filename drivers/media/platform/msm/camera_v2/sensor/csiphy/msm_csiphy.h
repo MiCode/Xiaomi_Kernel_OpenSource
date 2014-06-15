@@ -21,6 +21,7 @@
 #include "msm_sd.h"
 
 #define MAX_CSIPHY 3
+#define CSIPHY_NUM_CLK_MAX  16
 
 struct csiphy_reg_parms_t {
 /*MIPI CSI PHY registers*/
@@ -78,7 +79,7 @@ struct csiphy_device {
 	struct csiphy_ctrl_t *ctrl_reg;
 	uint32_t num_clk;
 
-	struct clk *csiphy_clk[8];
+	struct clk *csiphy_clk[CSIPHY_NUM_CLK_MAX];
 
 	int32_t ref_count;
 	uint16_t lane_mask[MAX_CSIPHY];

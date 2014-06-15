@@ -41,8 +41,6 @@
 #define TRUE   1
 #define FALSE  0
 
-#define CSID_NUM_CLK_MAX  16
-
 #undef CDBG
 #define CDBG(fmt, args...) pr_debug(fmt, ##args)
 

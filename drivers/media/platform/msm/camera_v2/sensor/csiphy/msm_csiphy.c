@@ -35,8 +35,6 @@
 #define CSIPHY_VERSION_V32                        0x32
 #define MSM_CSIPHY_DRV_NAME                      "msm_csiphy"
 
-#define CSIPHY_NUM_CLK_MAX  16
-
 #undef CDBG
 #define CDBG(fmt, args...) pr_debug(fmt, ##args)
 
