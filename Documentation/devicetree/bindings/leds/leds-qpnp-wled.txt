@@ -39,6 +39,8 @@ Optional properties for WLED:
 - qcom,en-phase-stag	: boolean, specify if phase staggering is needed.
 - qcom,en-cabc		: boolean, specify if cabc (content adaptive backlight control) is needed.
 - qcom,ibb-bias-active	: boolean, specify to activate the bias
+- qcom,ibb-pwrup-dly	: ibb power up delay in milli seconds. The supported values are 1 to 8.
+			  default is 1.
 - qcom,lab-fast-precharge: boolean, specify to activate the fast precharge
 - qcom,disp-type-amoled	: specify if the display is amoled
 - qcom,led-strings-list	: Wled module has four strings of leds numbered from 0 to 3. each string of leds
@@ -74,6 +76,7 @@ Example:
 		qcom,en-cabc;
 		qcom,led-strings-list = [00 01 02 03];
 		qcom,ibb-bias-active;
+		qcom,ibb-pwrup-dly = <8>;
 		qcom,lab-fast-precharge;
 		qcom,disp-type-amoled;
 	};
