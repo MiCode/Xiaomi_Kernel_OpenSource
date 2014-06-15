@@ -354,6 +354,14 @@
 		qcom,us-euro-gpios = <&pm8994_mpps 2 0>;
 		qcom,mbhc-audio-jack-type = "6-pole-jack";
 	};
+
+	usb1_vreg: usb1_vreg {
+		compatible = "regulator-fixed";
+		regulator-name = "usb1_vreg";
+		startup-delay-us = <18000>; /* the on time of TPD4S214 */
+		enable-active-high;
+		gpio = <&pmi8994_gpios 5 0>;
+	};
 };
 
 &pm8994_gpios {
@@ -515,5 +523,14 @@
 };
 
 &ssphy0 {
+	status = "ok";
+};
+
+&usb_ehci {
+        status = "ok";
+        vbus-supply = <&usb1_vreg>;
+};
+
+&qusb_phy {
 	status = "ok";
 };
