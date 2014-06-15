@@ -238,9 +238,9 @@ static int ion_removed_print_debug(struct ion_heap *heap, struct seq_file *s,
 	struct ion_removed_heap *removed_heap =
 		container_of(heap, struct ion_removed_heap, heap);
 
-	seq_printf(s, "total bytes currently allocated: %lx\n",
+	seq_printf(s, "total bytes currently allocated: 0x%lx\n",
 		removed_heap->allocated_bytes);
-	seq_printf(s, "total heap size: %lx\n", removed_heap->total_size);
+	seq_printf(s, "total heap size: 0x%lx\n", removed_heap->total_size);
 
 	if (mem_map) {
 		unsigned long base = removed_heap->base;
@@ -252,7 +252,7 @@ static int ion_removed_print_debug(struct ion_heap *heap, struct seq_file *s,
 		seq_printf(s, "\nMemory Map\n");
 		seq_printf(s, "%16.s %14.s %14.s %14.s\n",
 			   "client", "start address", "end address",
-			   "size (hex)");
+			   "size");
 
 		list_for_each_entry(data, mem_map, node) {
 			const char *client_name = "(null)";
@@ -261,7 +261,8 @@ static int ion_removed_print_debug(struct ion_heap *heap, struct seq_file *s,
 				phys_addr_t da;
 
 				da = data->addr-1;
-				seq_printf(s, "%16.s %14pa %14pa %14lu (%lx)\n",
+				seq_printf(s,
+					"%16.s 0x%14pa 0x%14pa %14lu (0x%lx)\n",
 					   "FREE", &last_end, &da,
 					   (unsigned long)data->addr-last_end,
 					   (unsigned long)data->addr-last_end);
@@ -270,14 +271,15 @@ static int ion_removed_print_debug(struct ion_heap *heap, struct seq_file *s,
 			if (data->client_name)
 				client_name = data->client_name;
 
-			seq_printf(s, "%16.s %14pa %14pa %14lu (%lx)\n",
+			seq_printf(s, "%16.s 0x%14pa 0x%14pa %14lu (0x%lx)\n",
 				   client_name, &data->addr,
 				   &data->addr_end,
 				   data->size, data->size);
 			last_end = data->addr_end+1;
 		}
 		if (last_end < end) {
-			seq_printf(s, "%16.s %14lx %14lx %14lu (%lx)\n", "FREE",
+			seq_printf(s, "%16.s 0x%14lx 0x%14lx 0x%14lu (0x%lx)\n",
+				"FREE",
 				last_end, end-1, end-last_end, end-last_end);
 		}
 	}
