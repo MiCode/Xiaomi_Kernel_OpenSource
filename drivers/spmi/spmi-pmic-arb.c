@@ -1017,7 +1017,7 @@ static int pmic_arb_devm_ioremap(struct platform_device *pdev,
 		"%s ioremap(phy:0x%lx vir:0x%p len:0x%lx)\n", res_name,
 		(ulong) mem_res->start, *virt, (ulong) resource_size(mem_res));
 
-	if (!virt) {
+	if (!(*virt)) {
 		dev_err(&pdev->dev,
 			"error %s ioremap(phy:0x%lx len:0x%lx) failed\n",
 			res_name, (ulong) mem_res->start,
