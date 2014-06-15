@@ -698,15 +698,15 @@ int mdss_mdp_overlay_get_buf(struct msm_fb_data_type *mfd,
 					   int num_planes,
 					   u32 flags)
 {
-	int i, rc, ret;
+	int i, rc;
 
 	if ((num_planes <= 0) || (num_planes > MAX_PLANES))
 		return -EINVAL;
 
-	ret = mdss_iommu_ctrl(1);
-	if (IS_ERR_VALUE(ret)) {
+	rc = mdss_iommu_ctrl(1);
+	if (IS_ERR_VALUE(rc)) {
 		pr_err("Iommu attach failed");
-		return ret;
+		goto end;
 	}
 
 	memset(data, 0, sizeof(*data));
@@ -723,13 +723,9 @@ int mdss_mdp_overlay_get_buf(struct msm_fb_data_type *mfd,
 		}
 	}
 
-	ret = mdss_iommu_ctrl(0);
-	if (IS_ERR_VALUE(ret)) {
-		pr_err("Iommu dettach failed");
-		return ret;
-	}
-
+	mdss_iommu_ctrl(0);
 	data->num_planes = i;
+end:
 	return rc;
 }
 
@@ -746,12 +742,7 @@ int mdss_mdp_overlay_free_buf(struct mdss_mdp_data *data)
 	for (i = 0; i < data->num_planes && data->p[i].len; i++)
 		mdss_mdp_put_img(&data->p[i]);
 
-	rc = mdss_iommu_ctrl(0);
-	if (IS_ERR_VALUE(rc)) {
-		pr_err("Iommu dettach failed");
-		return rc;
-	}
-
+	mdss_iommu_ctrl(0);
 	data->num_planes = 0;
 	return 0;
 }
@@ -935,11 +926,7 @@ int mdss_mdp_overlay_start(struct msm_fb_data_type *mfd)
 				goto pm_error;
 			}
 			mdss_hw_init(mdss_res);
-			rc = mdss_iommu_ctrl(0);
-			if (IS_ERR_VALUE(rc)) {
-				pr_err("iommu dettach failed rc=%d\n", rc);
-				goto pm_error;
-			}
+			mdss_iommu_ctrl(0);
 		}
 	}
 
@@ -1542,6 +1529,14 @@ static void mdss_mdp_overlay_pan_display(struct msm_fb_data_type *mfd)
 		return;
 	}
 
+	mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_ON, false);
+
+	ret = mdss_iommu_ctrl(1);
+	if (IS_ERR_VALUE(ret)) {
+		pr_err("IOMMU attach failed\n");
+		goto pan_display_error;
+	}
+
 	bpp = fbi->var.bits_per_pixel / 8;
 	offset = fbi->var.xoffset * bpp +
 		 fbi->var.yoffset * fbi->fix.line_length;
@@ -1608,9 +1603,13 @@ static void mdss_mdp_overlay_pan_display(struct msm_fb_data_type *mfd)
 	    (fbi->var.activate & FB_ACTIVATE_FORCE))
 		mfd->mdp.kickoff_fnc(mfd, NULL);
 
+	mdss_iommu_ctrl(0);
+	mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_OFF, false);
 	return;
 
 pan_display_error:
+	mdss_iommu_ctrl(0);
+	mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_OFF, false);
 	mutex_unlock(&mdp5_data->ov_lock);
 }
 
