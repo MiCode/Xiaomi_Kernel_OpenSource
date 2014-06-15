@@ -91,6 +91,16 @@ static void wcd_program_btn_threshold(const struct wcd_mbhc *mbhc)
 	}
 }
 
+static bool wcd_swch_level_remove(struct wcd_mbhc *mbhc)
+{
+	u16 result2;
+	struct snd_soc_codec *codec = mbhc->codec;
+
+	result2 = snd_soc_read(codec,
+			MSM8X16_WCD_A_ANALOG_MBHC_ZDET_ELECT_RESULT);
+	return (result2 & 0x10) ? true : false;
+}
+
 /* should be called under interrupt context that hold suspend */
 static void wcd_schedule_hs_detect_plug(struct wcd_mbhc *mbhc,
 					    struct work_struct *work)
@@ -552,6 +562,7 @@ static void wcd_correct_swch_plug(struct work_struct *work)
 	unsigned long timeout;
 	u16 result1, result2;
 	bool wrk_complete = false;
+	int delay = 0;
 
 	pr_debug("%s: enter\n", __func__);
 
@@ -600,25 +611,42 @@ static void wcd_correct_swch_plug(struct work_struct *work)
 		/* Enable micbias if not already enabled*/
 		snd_soc_update_bits(codec, MSM8X16_WCD_A_ANALOG_MICB_2_EN,
 				    0x80, 0x80);
-		pr_debug("DEBUG special headset, start register writes\n");
-		snd_soc_update_bits(codec, MSM8X16_WCD_A_ANALOG_MICB_1_CTL,
-				    0x60, 0x60);
-		snd_soc_write(codec, MSM8X16_WCD_A_ANALOG_MICB_1_VAL,
-			      0xC0);
+		pr_debug("DEBUG special headset, start register writes");
 
-		/*
-		 * temporary workaround to add 2s delay to detect
-		 * special headset until actual solution is worked out
-		 * with HW team - in progress.
-		 */
-		msleep(2000);
-		snd_soc_update_bits(codec, MSM8X16_WCD_A_ANALOG_MICB_2_EN,
-				    0x18, 0x10);
-
-		/* adding 50ms to micbias2 setting to settle down */
-		msleep(50);
 		result2 = snd_soc_read(codec,
-			MSM8X16_WCD_A_ANALOG_MBHC_ZDET_ELECT_RESULT);
+				MSM8X16_WCD_A_ANALOG_MBHC_ZDET_ELECT_RESULT);
+		while (result2 & 0x01)  {
+			if (wcd_swch_level_remove(mbhc)) {
+				pr_debug("%s: Switch level is low ", __func__);
+				break;
+			}
+			delay = delay + 50;
+			snd_soc_update_bits(codec,
+					MSM8X16_WCD_A_ANALOG_MICB_1_CTL,
+					0x60, 0x60);
+			snd_soc_write(codec, MSM8X16_WCD_A_ANALOG_MICB_1_VAL,
+					0xC0);
+			/*
+			 * Special headset needs micbias voltage above 2.4,
+			 * it is taking time for micbias to rampup and
+			 * for result2 to change.This delay is also dependent
+			 * on type of headset.
+			 */
+			msleep(delay);
+			snd_soc_update_bits(codec,
+					MSM8X16_WCD_A_ANALOG_MICB_2_EN,
+					0x18, 0x10);
+			msleep(50);
+			result2 = snd_soc_read(codec,
+				MSM8X16_WCD_A_ANALOG_MBHC_ZDET_ELECT_RESULT);
+			if (!(result2 & 0x01))
+				pr_debug("spl headset detected in %d msecs",
+						delay);
+			if (delay == 2000) {
+				pr_debug("spl headset not detected in 2 sec");
+				break;
+			}
+		}
 		if (!result1 && !(result2 & 0x01)) {
 			pr_debug("%s: Headset with threshold found\n",
 				 __func__);
@@ -772,6 +800,11 @@ static void wcd_mbhc_swch_irq_handler(struct wcd_mbhc *mbhc)
 	wcd_cancel_hs_detect_plug(mbhc, &mbhc->correct_plug_swch);
 
 	if ((mbhc->current_plug == MBHC_PLUG_TYPE_NONE) && detection_type) {
+
+		/* Make sure MASTER_BIAS_CTL is enabled */
+		snd_soc_update_bits(codec,
+				    MSM8X16_WCD_A_ANALOG_MASTER_BIAS_CTL,
+				    0x30, 0x30);
 		/* Enable Tx2 RBias */
 		snd_soc_update_bits(codec,
 				MSM8X16_WCD_A_ANALOG_MICB_1_INT_RBIAS,
@@ -801,6 +834,10 @@ static void wcd_mbhc_swch_irq_handler(struct wcd_mbhc *mbhc)
 		snd_soc_update_bits(codec,
 				MSM8X16_WCD_A_ANALOG_MBHC_FSM_CTL,
 				0xB0, 0x00);
+		/* Make sure MASTER_BIAS_CTL is enabled */
+		snd_soc_update_bits(codec,
+				    MSM8X16_WCD_A_ANALOG_MASTER_BIAS_CTL,
+				    0x30, 0x00);
 		if (mbhc->current_plug == MBHC_PLUG_TYPE_HEADPHONE) {
 			wcd_mbhc_report_plug(mbhc, 0, SND_JACK_HEADPHONE);
 		} else if (mbhc->current_plug == MBHC_PLUG_TYPE_GND_MIC_SWAP) {
@@ -828,6 +865,10 @@ static void wcd_mbhc_swch_irq_handler(struct wcd_mbhc *mbhc)
 		snd_soc_update_bits(codec,
 				MSM8X16_WCD_A_ANALOG_MBHC_FSM_CTL,
 				0xB0, 0x00);
+		/* Make sure MASTER_BIAS_CTL is enabled */
+		snd_soc_update_bits(codec,
+				MSM8X16_WCD_A_ANALOG_MASTER_BIAS_CTL,
+				0x30, 0x00);
 	}
 
 	mbhc->in_swch_irq_handler = false;
