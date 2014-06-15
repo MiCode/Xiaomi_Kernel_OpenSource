@@ -591,22 +591,10 @@ static inline struct cpu_clk_8994 *to_cpu_clk_8994(struct clk *c)
 	return container_of(c, struct cpu_clk_8994, c);
 }
 
-static struct clk *logical_cpu_to_clk(int cpu);
-
 static enum handoff cpu_clk_8994_handoff(struct clk *c)
 {
-	int cpu;
-
 	c->rate = clk_get_rate(c->parent);
 
-	/*
-	 * Don't unnecessarily turn on the parents for an offline CPU and
-	 * then have them turned off at late init.
-	 */
-	for_each_online_cpu(cpu) {
-		if (logical_cpu_to_clk(cpu) == c)
-			return HANDOFF_ENABLED_CLK;
-	}
 	return HANDOFF_DISABLED_CLK;
 }
 
