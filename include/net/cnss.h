@@ -56,6 +56,7 @@ struct cnss_wlan_driver {
 /* platform capabilities */
 enum cnss_platform_cap_flag {
 	CNSS_HAS_EXTERNAL_SWREG = 0x01,
+	CNSS_HAS_UART_ACCESS = 0x02,
 };
 
 struct cnss_platform_cap {
