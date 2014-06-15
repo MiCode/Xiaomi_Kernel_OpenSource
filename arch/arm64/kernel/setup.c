@@ -265,6 +265,8 @@ static void __init setup_machine_fdt(phys_addr_t dt_phys)
 	}
 
 	machine_name = of_flat_dt_get_machine_name();
+	if (machine_name)
+		pr_info("Machine: %s\n", machine_name);
 }
 
 /*
