@@ -194,12 +194,10 @@ static inline void mdss_mdp_cmd_clk_on(struct mdss_mdp_cmd_ctx *ctx)
 		ctx->clk_enabled = 1;
 		if (cancel_delayed_work_sync(&ctx->pc_work))
 			pr_debug("deleted pending power collapse work\n");
+
 		rc = mdss_iommu_ctrl(1);
-		if (IS_ERR_VALUE(rc)) {
+		if (IS_ERR_VALUE(rc))
 			pr_err("IOMMU attach failed\n");
-			mutex_unlock(&ctx->clk_mtx);
-			return;
-		}
 
 		if (ctx->idle_pc) {
 			mdss_mdp_footswitch_ctrl_idle_pc(1,

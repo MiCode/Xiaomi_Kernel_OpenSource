@@ -2775,11 +2775,7 @@ int mdss_mdp_footswitch_ctrl_idle_pc(int on, struct device *dev)
 		}
 		mdss_hw_init(mdata);
 		mdata->idle_pc = false;
-		rc = mdss_iommu_ctrl(0);
-		if (IS_ERR_VALUE(rc)) {
-			pr_err("iommu dettach failed ret=%d\n", rc);
-			return rc;
-		}
+		mdss_iommu_ctrl(0);
 	} else {
 		mdata->idle_pc = true;
 		pm_runtime_put_sync(dev);
