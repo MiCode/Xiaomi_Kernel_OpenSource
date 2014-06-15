@@ -795,9 +795,11 @@ static int msm_isp_send_hw_cmd(struct vfe_device *vfe_dev,
 		uint32_t hi_val, lo_val, lo_val1;
 		if (reg_cfg_cmd->cmd_type == VFE_WRITE_DMI_64BIT) {
 			if ((UINT_MAX - reg_cfg_cmd->u.dmi_info.hi_tbl_offset <
-						reg_cfg_cmd->u.dmi_info.len) ||
+						reg_cfg_cmd->u.dmi_info.len -
+						sizeof(uint32_t)) ||
 				(reg_cfg_cmd->u.dmi_info.hi_tbl_offset +
-				reg_cfg_cmd->u.dmi_info.len > cmd_len)) {
+				reg_cfg_cmd->u.dmi_info.len -
+					sizeof(uint32_t) > cmd_len)) {
 				pr_err("Invalid Hi Table out of bounds\n");
 				return -EINVAL;
 			}
@@ -843,7 +845,8 @@ static int msm_isp_send_hw_cmd(struct vfe_device *vfe_dev,
 		uint32_t hi_val, lo_val, lo_val1;
 		if (reg_cfg_cmd->cmd_type == VFE_READ_DMI_64BIT) {
 			if (reg_cfg_cmd->u.dmi_info.hi_tbl_offset +
-				reg_cfg_cmd->u.dmi_info.len > cmd_len) {
+				reg_cfg_cmd->u.dmi_info.len -
+					sizeof(uint32_t) > cmd_len) {
 				pr_err("Invalid Hi Table out of bounds\n");
 				return -EINVAL;
 			}
