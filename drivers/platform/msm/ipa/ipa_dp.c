@@ -1721,8 +1721,11 @@ begin:
 		if (status->status_opcode !=
 			IPA_HW_STATUS_OPCODE_DROPPED_PACKET &&
 			status->status_opcode !=
-			IPA_HW_STATUS_OPCODE_PACKET) {
-			IPAERR("unsupported opcode\n");
+			IPA_HW_STATUS_OPCODE_PACKET &&
+			status->status_opcode !=
+			IPA_HW_STATUS_OPCODE_SUSPENDED_PACKET) {
+			IPAERR("unsupported opcode(%d)\n",
+				status->status_opcode);
 			skb_pull(skb, IPA_PKT_STATUS_SIZE);
 			continue;
 		}
