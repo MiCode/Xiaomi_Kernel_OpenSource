@@ -824,6 +824,27 @@ static int fwu_write_blocks(unsigned char *block_ptr, unsigned short block_cnt,
 	unsigned char block_offset[] = {0, 0};
 	unsigned short block_num;
 	struct synaptics_rmi4_data *rmi4_data = fwu->rmi4_data;
+	unsigned int progress;
+	unsigned char command_str[10];
+
+	switch (command) {
+	case CMD_WRITE_CONFIG_BLOCK:
+		progress = 10;
+		strlcpy(command_str, "config", 10);
+		break;
+	case CMD_WRITE_FW_BLOCK:
+		progress = 100;
+		strlcpy(command_str, "firmware", 10);
+		break;
+	case CMD_WRITE_LOCKDOWN_BLOCK:
+		progress = 1;
+		strlcpy(command_str, "lockdown", 10);
+		break;
+	default:
+		progress = 1;
+		strlcpy(command_str, "unknown", 10);
+		break;
+	}
 
 	block_offset[1] |= (fwu->config_area << 5);
 
@@ -839,6 +860,11 @@ static int fwu_write_blocks(unsigned char *block_ptr, unsigned short block_cnt,
 	}
 
 	for (block_num = 0; block_num < block_cnt; block_num++) {
+		if (block_num % progress == 0)
+			dev_info(rmi4_data->pdev->dev.parent,
+				"%s: update %s %3d / %3d\n",
+				__func__, command_str, block_num, block_cnt);
+
 		retval = synaptics_rmi4_reg_write(rmi4_data,
 				fwu->f34_fd.data_base_addr + fwu->blk_data_off,
 				block_ptr,
@@ -867,9 +893,10 @@ static int fwu_write_blocks(unsigned char *block_ptr, unsigned short block_cnt,
 		}
 
 		block_ptr += fwu->block_size;
-		dev_info(rmi4_data->pdev->dev.parent,
-			"updated %d/%d blocks\n", block_num, block_cnt);
 	}
+
+	dev_info(rmi4_data->pdev->dev.parent,
+		"updated %d/%d blocks\n", block_num, block_cnt);
 
 	return 0;
 }
@@ -1441,10 +1468,20 @@ int synaptics_dsx_fw_updater(unsigned char *fw_data)
 	if (!fwu->initialized)
 		return -ENODEV;
 
+	fwu->rmi4_data->fw_updating = true;
+	if (fwu->rmi4_data->suspended == true) {
+		fwu->rmi4_data->fw_updating = false;
+		dev_err(fwu->rmi4_data->pdev->dev.parent,
+			"Cannot start fw upgrade: Device is in suspend\n");
+		return -EBUSY;
+	}
+
 	fwu->ext_data_source = fw_data;
 	fwu->config_area = UI_CONFIG_AREA;
 
 	retval = fwu_start_reflash();
+
+	fwu->rmi4_data->fw_updating = false;
 
 	return retval;
 }
