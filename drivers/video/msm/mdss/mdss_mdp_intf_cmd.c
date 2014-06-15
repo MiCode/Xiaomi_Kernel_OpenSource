@@ -203,11 +203,9 @@ static inline void mdss_mdp_cmd_clk_on(struct mdss_mdp_cmd_ctx *ctx)
 			pr_debug("deleted pending ulps work\n");
 
 		rc = mdss_iommu_ctrl(1);
-		if (IS_ERR_VALUE(rc)) {
+		if (IS_ERR_VALUE(rc))
 			pr_err("IOMMU attach failed\n");
-			mutex_unlock(&ctx->clk_mtx);
-			return;
-		}
+
 		mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_ON, false);
 
 		if (ctx->ulps) {
