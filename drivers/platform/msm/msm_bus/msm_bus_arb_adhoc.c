@@ -325,11 +325,30 @@ static uint64_t arbitrate_bus_req(struct msm_bus_node_device_type *bus_dev,
 	uint64_t max_ib = 0;
 	uint64_t sum_ab = 0;
 	uint64_t bw_max_hz;
+	struct msm_bus_node_device_type *fab_dev = NULL;
 
 	/* Find max ib */
 	for (i = 0; i < bus_dev->num_lnodes; i++) {
 		max_ib = max(max_ib, bus_dev->lnode_list[i].lnode_ib[ctx]);
 		sum_ab += bus_dev->lnode_list[i].lnode_ab[ctx];
+	}
+
+	/*
+	 *  Account for Util factor and vrail comp. The new aggregation
+	 *  formula is:
+	 *  Freq_hz = max((sum(ab) * util_fact)/num_chan, max(ib)/vrail_comp)
+	 *				/ bus-width
+	 *  util_fact and vrail comp are obtained from fabric's dts properties.
+	 *  They default to 100 if absent.
+	 */
+	fab_dev = bus_dev->node_info->bus_device->platform_data;
+
+	/* Don't do this for virtual fabrics */
+	if (fab_dev && fab_dev->fabdev) {
+		sum_ab *= fab_dev->fabdev->util_fact;
+		sum_ab = msm_bus_div64(100, sum_ab);
+		max_ib *= 100;
+		max_ib = msm_bus_div64(fab_dev->fabdev->vrail_comp, max_ib);
 	}
 
 	/* Account for multiple channels if any */

@@ -57,6 +57,11 @@ qcom,qos-off:		Parameter that represents the delta between QoS register address
 			space for different devices.
 			Typically these optional properties are used for
 			devices that represent fabric devices.
+qcom,util-fact:		Parameter that represents the DDR utilization factor. It is
+			represented as actual util-factor * 100.
+qcom,vrail-comp:	Parameter that represents the voltage rail compensation to push
+			the bus to the next level if needed. It is represented as actual
+			vrail-comp * 100.
 qcom,bus-type:		Parameter that represents the bus type such as BIMC or NOC.
 			Typically these optional properties are used for
 			devices that represent fabric devices.
