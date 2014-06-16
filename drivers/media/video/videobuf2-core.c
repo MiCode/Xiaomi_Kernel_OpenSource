@@ -1104,7 +1104,7 @@ int vb2_qbuf(struct vb2_queue *q, struct v4l2_buffer *b)
 	 * consistent after getting driver's lock back.
 	 */
 	if (q->memory == V4L2_MEMORY_USERPTR) {
-		mmap_sem = &current->active_mm->mmap_sem;
+		mmap_sem = &current->mm->mmap_sem;
 		call_qop(q, wait_prepare, q);
 		down_read(mmap_sem);
 		call_qop(q, wait_finish, q);
