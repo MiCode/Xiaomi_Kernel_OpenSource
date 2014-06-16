@@ -250,8 +250,6 @@ void mdss_dsi_host_init(struct mdss_panel_data *pdata)
 
 	pinfo = &pdata->panel_info.mipi;
 
-	pinfo->rgb_swap = DSI_RGB_SWAP_RGB;
-
 	if (pinfo->mode == DSI_VIDEO_MODE) {
 		data = 0;
 		if (pinfo->last_line_interleave_en)

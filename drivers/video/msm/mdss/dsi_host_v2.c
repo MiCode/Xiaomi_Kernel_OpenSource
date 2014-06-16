@@ -377,7 +377,6 @@ void msm_dsi_host_init(struct mipi_panel_info *pinfo)
 	unsigned char *ctrl_base = dsi_host_private->dsi_base;
 
 	pr_debug("msm_dsi_host_init\n");
-	pinfo->rgb_swap = DSI_RGB_SWAP_RGB;
 
 	if (pinfo->mode == DSI_VIDEO_MODE) {
 		data = 0;
