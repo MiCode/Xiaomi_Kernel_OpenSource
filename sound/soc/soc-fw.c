@@ -1644,11 +1644,12 @@ void snd_soc_fw_dcontrols_remove_codec(struct snd_soc_codec *codec,
 	struct soc_enum *se, *next_se;
 	struct soc_bytes_ext *sb, *next_sb;
 	struct snd_card *card = codec->card->snd_card;
-	const unsigned int *p = NULL;
+	const unsigned int *p;
 	int i;
 
 	list_for_each_entry_safe(sm, next_sm, &codec->dmixers, list) {
 
+		p = NULL;
 		if (sm->index != index)
 			continue;
 
@@ -1694,10 +1695,12 @@ void snd_soc_fw_dcontrols_remove_platform(struct snd_soc_platform *platform,
 	struct soc_enum *se, *next_se;
 	struct soc_bytes_ext *sb, *next_sb;
 	struct snd_card *card = platform->card->snd_card;
-	const unsigned int *p = NULL;
+	const unsigned int *p;
 	int i;
 
 	list_for_each_entry_safe(sm, next_sm, &platform->dmixers, list) {
+
+		p = NULL;
 
 		if (sm->index != index)
 			continue;
@@ -1744,11 +1747,12 @@ void snd_soc_fw_dcontrols_remove_card(struct snd_soc_card *soc_card,
 	struct soc_enum *se, *next_se;
 	struct soc_bytes_ext *sb, *next_sb;
 	struct snd_card *card = soc_card->snd_card;
-	const unsigned int *p = NULL;
+	const unsigned int *p;
 	int i;
 
 	list_for_each_entry_safe(sm, next_sm, &soc_card->dmixers, list) {
 
+		p = NULL;
 		if (sm->index != index)
 			continue;
 
