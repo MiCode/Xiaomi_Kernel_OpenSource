@@ -854,6 +854,13 @@
 };
 
 &i2c_0 {
+	battery@b {
+		compatible = "ti,bq28400-battery";
+		reg = <0xb>;
+		ti,temp-cold-degc = <2>;
+		ti,temp-hot-degc = <43>;
+	};
+
 	smb350-charger@2b {
 		compatible = "summit,smb350-charger";
 		reg = <0x2b>; /* 0x56/0x57 */
