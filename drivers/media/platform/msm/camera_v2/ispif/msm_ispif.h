@@ -62,7 +62,7 @@ struct ispif_device {
 	struct clk *ahb_clk[ISPIF_CLK_INFO_MAX];
 	struct completion reset_complete[VFE_MAX];
 	uint32_t hw_num_isps;
-	uint32_t num_clk;
+	uint32_t num_ahb_clk;
 	uint32_t clk_idx;
 };
 #endif
