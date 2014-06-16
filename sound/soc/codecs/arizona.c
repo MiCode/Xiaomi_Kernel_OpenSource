@@ -2323,7 +2323,7 @@ int arizona_set_output_mode(struct snd_soc_codec *codec, int output, bool diff)
 EXPORT_SYMBOL_GPL(arizona_set_output_mode);
 
 int arizona_set_hpdet_cb(struct snd_soc_codec *codec,
-			 void (*hpdet_cb)(unsigned int measurement, bool mic))
+			 void (*hpdet_cb)(unsigned int measurement))
 {
 	struct arizona *arizona = dev_get_drvdata(codec->dev->parent);
 
@@ -2332,6 +2332,17 @@ int arizona_set_hpdet_cb(struct snd_soc_codec *codec,
 	return 0;
 }
 EXPORT_SYMBOL_GPL(arizona_set_hpdet_cb);
+
+int arizona_set_micd_cb(struct snd_soc_codec *codec,
+			 void (*micd_cb)(bool mic))
+{
+	struct arizona *arizona = dev_get_drvdata(codec->dev->parent);
+
+	arizona->pdata.micd_cb = micd_cb;
+
+	return 0;
+}
+EXPORT_SYMBOL_GPL(arizona_set_micd_cb);
 
 int arizona_set_ez2ctrl_cb(struct snd_soc_codec *codec,
 			   void (*ez2ctrl_trigger)(void))
