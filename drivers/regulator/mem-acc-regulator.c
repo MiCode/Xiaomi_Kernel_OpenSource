@@ -23,8 +23,14 @@
 #include <linux/regulator/driver.h>
 #include <linux/regulator/machine.h>
 #include <linux/regulator/of_regulator.h>
+#include <soc/qcom/scm.h>
 
 #define MEM_ACC_SEL_MASK	0x3
+
+#define BYTES_PER_FUSE_ROW	8
+
+/* mem-acc config flags */
+#define MEM_ACC_SKIP_L1_CONFIG	BIT(0)
 
 enum {
 	MEMORY_L1,
@@ -53,7 +59,73 @@ struct mem_acc_regulator {
 	void __iomem		*acc_en_base;
 	phys_addr_t		acc_sel_addr[MEMORY_MAX];
 	phys_addr_t		acc_en_addr;
+	u32			flags;
+
+	/* eFuse parameters */
+	phys_addr_t		efuse_addr;
+	void __iomem		*efuse_base;
 };
+
+static u64 mem_acc_read_efuse_row(struct mem_acc_regulator *mem_acc_vreg,
+					u32 row_num, bool use_tz_api)
+{
+	int rc;
+	u64 efuse_bits;
+	struct mem_acc_read_req {
+		u32 row_address;
+		int addr_type;
+	} req;
+
+	struct mem_acc_read_rsp {
+		u32 row_data[2];
+		u32 status;
+	} rsp;
+
+	if (!use_tz_api) {
+		efuse_bits = readq_relaxed(mem_acc_vreg->efuse_base
+			+ row_num * BYTES_PER_FUSE_ROW);
+		return efuse_bits;
+	}
+
+	req.row_address = mem_acc_vreg->efuse_addr +
+					row_num * BYTES_PER_FUSE_ROW;
+	req.addr_type = 0;
+	efuse_bits = 0;
+
+	rc = scm_call(SCM_SVC_FUSE, SCM_FUSE_READ,
+			&req, sizeof(req), &rsp, sizeof(rsp));
+
+	if (rc) {
+		pr_err("read row %d failed, err code = %d", row_num, rc);
+	} else {
+		efuse_bits = ((u64)(rsp.row_data[1]) << 32) +
+				(u64)rsp.row_data[0];
+	}
+
+	return efuse_bits;
+}
+
+static int mem_acc_fuse_is_setting_expected(
+		struct mem_acc_regulator *mem_acc_vreg, u32 sel_array[5])
+{
+	u64 fuse_bits;
+	u32 ret;
+
+	fuse_bits = mem_acc_read_efuse_row(mem_acc_vreg, sel_array[0],
+							sel_array[4]);
+	ret = (fuse_bits >> sel_array[1]) & ((1 << sel_array[2]) - 1);
+	if (ret == sel_array[3])
+		ret = 1;
+	else
+		ret = 0;
+
+	pr_info("[row:%d] = 0x%llx @%d:%d == %d ?: %s\n",
+			sel_array[0], fuse_bits,
+			sel_array[1], sel_array[2],
+			sel_array[3],
+			(ret == 1) ? "yes" : "no");
+	return ret;
+}
 
 static inline u32 apc_to_acc_corner(struct mem_acc_regulator *mem_acc_vreg,
 								int corner)
@@ -69,6 +141,14 @@ static void __update_acc_sel(struct mem_acc_regulator *mem_acc_vreg,
 						int corner, int mem_type)
 {
 	u32 acc_data, i, bit, acc_corner;
+
+	/*
+	 * Do not configure the L1 ACC corner if the the corresponding flag is
+	 * set.
+	 */
+	if ((mem_type == MEMORY_L1)
+			&& (mem_acc_vreg->flags & MEM_ACC_SKIP_L1_CONFIG))
+		return;
 
 	acc_data = mem_acc_vreg->acc_sel_reg[mem_type];
 	for (i = 0; i < mem_acc_vreg->num_acc_sel[mem_type]; i++) {
@@ -273,6 +353,56 @@ static int mem_acc_sel_setup(struct mem_acc_regulator *mem_acc_vreg,
 	return rc;
 }
 
+static int mem_acc_efuse_init(struct platform_device *pdev,
+				 struct mem_acc_regulator *mem_acc_vreg)
+{
+	struct resource *res;
+	int len, rc = 0;
+	u32 l1_config_skip_fuse_sel[5];
+
+	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "efuse_addr");
+	if (!res || !res->start) {
+		mem_acc_vreg->efuse_base = NULL;
+		pr_debug("'efuse_addr' resource missing or not used.\n");
+		return 0;
+	}
+
+	mem_acc_vreg->efuse_addr = res->start;
+	len = res->end - res->start + 1;
+
+	pr_info("efuse_addr = %pa (len=0x%x)\n", &res->start, len);
+
+	mem_acc_vreg->efuse_base = ioremap(mem_acc_vreg->efuse_addr, len);
+	if (!mem_acc_vreg->efuse_base) {
+		pr_err("Unable to map efuse_addr %pa\n",
+				&mem_acc_vreg->efuse_addr);
+		return -EINVAL;
+	}
+
+	if (of_find_property(mem_acc_vreg->dev->of_node,
+				"qcom,l1-config-skip-fuse-sel", NULL)) {
+		rc = of_property_read_u32_array(mem_acc_vreg->dev->of_node,
+					"qcom,l1-config-skip-fuse-sel",
+					l1_config_skip_fuse_sel, 5);
+		if (rc < 0) {
+			pr_err("Read failed - qcom,l1-config-skip-fuse-sel rc=%d\n",
+					rc);
+			goto err_out;
+		}
+
+		if (mem_acc_fuse_is_setting_expected(mem_acc_vreg,
+						l1_config_skip_fuse_sel)) {
+			mem_acc_vreg->flags |= MEM_ACC_SKIP_L1_CONFIG;
+			pr_debug("Skip L1 configuration enabled\n");
+		}
+	}
+
+
+err_out:
+	iounmap(mem_acc_vreg->efuse_base);
+	return rc;
+}
+
 static int mem_acc_init(struct platform_device *pdev,
 		struct mem_acc_regulator *mem_acc_vreg)
 {
@@ -303,6 +433,12 @@ static int mem_acc_init(struct platform_device *pdev,
 					rc);
 			return rc;
 		}
+	}
+
+	rc = mem_acc_efuse_init(pdev, mem_acc_vreg);
+	if (rc) {
+		pr_err("Wrong eFuse address specified: rc=%d\n", rc);
+		return rc;
 	}
 
 	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "acc-sel-l1");
