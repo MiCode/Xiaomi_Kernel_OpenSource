@@ -1025,6 +1025,50 @@ void mxhci_hsic_udev_enum_done(struct usb_hcd *hcd)
 	}
 }
 
+/*
+ * When stop ep command times out due to controller halt failure
+ * no point waiting till XHCI_STOP_EP_CMD_TIMEOUT to giveback urbs.
+ * Kick stop ep command watchdog to finish endpoint related cleanup
+ * as early as possible.
+ */
+static void mxhci_hsic_ep_cleanup(struct usb_hcd *hcd)
+{
+	struct xhci_hcd *xhci = hcd_to_xhci(hcd);
+	struct xhci_virt_ep *temp_ep;
+	int i, j;
+	unsigned long flags;
+	int locked;
+	bool kick_wdog = false;
+
+	locked = spin_trylock_irqsave(&xhci->lock, flags);
+	if (xhci->xhc_state & XHCI_STATE_DYING)
+		goto unlock;
+
+	for (i = 0; i < MAX_HC_SLOTS; i++) {
+		if (!xhci->devs[i])
+			continue;
+		for (j = 0; j < 31; j++) {
+			temp_ep = &xhci->devs[i]->eps[j];
+			/* find first ep with pending stop ep cmd */
+			if (temp_ep->stop_cmds_pending) {
+				kick_wdog = true;
+				/* kick stop ep cmd watchdog asap */
+				mod_timer(&temp_ep->stop_cmd_timer, jiffies);
+				goto unlock;
+			}
+		}
+	}
+unlock:
+	/*
+	 * if no stop ep cmd pending set xhci state to halted so that
+	 * xhci_urb_dequeue() gives back urb right away.
+	 */
+	if (!kick_wdog)
+		xhci->xhc_state |= XHCI_STATE_HALTED;
+	if (locked)
+		spin_unlock_irqrestore(&xhci->lock, flags);
+}
+
 static struct hc_driver mxhci_hsic_hc_driver = {
 	.description =		"xhci-hcd",
 	.product_desc =		"Qualcomm xHCI Host Controller using HSIC",
@@ -1060,6 +1104,7 @@ static struct hc_driver mxhci_hsic_hc_driver = {
 	.address_device =	xhci_address_device,
 	.update_hub_device =	xhci_update_hub_device,
 	.reset_device =		xhci_discover_or_reset_device,
+	.halt_failed_cleanup =	mxhci_hsic_ep_cleanup,
 
 	/*
 	 * scheduling support
