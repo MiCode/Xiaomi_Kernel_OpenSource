@@ -424,7 +424,12 @@ int msm_jpeg_platform_release(struct resource *mem, void *base, int irq,
 
 	msm_jpeg_detach_iommu(pgmn_dev);
 
-	msm_bus_scale_unregister_client(pgmn_dev->jpeg_bus_client);
+	if (pgmn_dev->jpeg_bus_client) {
+		msm_bus_scale_client_update_request(
+			pgmn_dev->jpeg_bus_client, 0);
+		msm_bus_scale_unregister_client(pgmn_dev->jpeg_bus_client);
+	}
+
 	msm_cam_clk_enable(&pgmn_dev->pdev->dev, jpeg_8x_clk_info,
 	pgmn_dev->jpeg_clk, pgmn_dev->num_clk, 0);
 	JPEG_DBG("%s:%d] clock disbale done", __func__, __LINE__);
