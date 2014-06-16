@@ -1035,6 +1035,7 @@ void ironlake_teardown_rc6(struct drm_device *dev);
 void gen6_update_ring_freq(struct drm_device *dev);
 void gen6_rps_idle(struct drm_i915_private *dev_priv);
 void gen6_rps_boost(struct drm_i915_private *dev_priv);
+void gen8_flip_interrupt(struct drm_device *dev);
 void intel_aux_display_runtime_get(struct drm_i915_private *dev_priv);
 void intel_aux_display_runtime_put(struct drm_i915_private *dev_priv);
 void intel_runtime_pm_get(struct drm_i915_private *dev_priv);

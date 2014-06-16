@@ -10344,6 +10344,8 @@ static int intel_crtc_page_flip(struct drm_crtc *crtc,
 	unsigned long flags;
 	int ret;
 
+	gen8_flip_interrupt(dev);
+
 	/* Can't change pixel format via MI display flips. */
 	if (fb->pixel_format != crtc->primary->fb->pixel_format) {
 		if (IS_HASWELL(dev) || IS_VALLEYVIEW(dev))

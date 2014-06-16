@@ -921,6 +921,19 @@ struct debugfs_vars {
 };
 #endif
 
+struct intel_rps_bdw_cal {
+	u32 it_threshold_pct; /* interrupt, in percentage */
+	u32 eval_interval; /* evaluation interval, in us */
+	u32 last_ts;
+	u32 last_c0;
+	bool is_up;
+};
+
+struct intel_rps_bdw_turbo {
+	struct intel_rps_bdw_cal up;
+	struct intel_rps_bdw_cal down;
+};
+
 struct intel_gen6_power_mgmt {
 	/* work and pm_iir are protected by dev_priv->irq_lock */
 	struct work_struct work;
@@ -967,6 +980,9 @@ struct intel_gen6_power_mgmt {
 	bool rps_disable;
 
 	struct delayed_work delayed_resume_work;
+
+	bool is_bdw_sw_turbo;	/* Switch of BDW software turbo */
+	struct intel_rps_bdw_turbo sw_turbo; /* Calculate RP interrupt timing */
 
 	/*
 	 * Protects RPS/RC6 register access and PCU communication.
@@ -2774,6 +2790,7 @@ extern void vlv_set_rc6_mode(struct drm_device *dev, bool disable);
 extern void gen6_set_rps_mode(struct drm_device *dev, bool manual);
 extern void vlv_set_rps_mode(struct drm_device *dev, bool disable);
 extern void gen6_set_rps(struct drm_device *dev, u8 val);
+extern void bdw_software_turbo(struct drm_device *dev);
 extern void valleyview_set_rps(struct drm_device *dev, u8 val);
 extern int valleyview_rps_max_freq(struct drm_i915_private *dev_priv);
 extern int valleyview_rps_min_freq(struct drm_i915_private *dev_priv);

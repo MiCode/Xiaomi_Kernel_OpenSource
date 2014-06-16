@@ -1863,6 +1863,16 @@ static void i9xx_pipe_crc_irq_handler(struct drm_device *dev, enum pipe pipe)
 				     res1, res2);
 }
 
+void gen8_flip_interrupt(struct drm_device *dev)
+{
+	struct drm_i915_private *dev_priv = dev->dev_private;
+
+	if (!dev_priv->rps.is_bdw_sw_turbo)
+		return;
+
+	bdw_software_turbo(dev);
+}
+
 /* The RPS events need forcewake, so we add them to a work queue and mask their
  * IMR bits until the work is done. Other interrupts can be processed without
  * the work queue. */
