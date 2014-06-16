@@ -37,6 +37,7 @@
 #define LOCKDOWN_OFFSET 0xb0
 #define FW_IMAGE_OFFSET 0x100
 
+#define PACKAGE_ID_OFFSET 17
 #define BOOTLOADER_ID_OFFSET 0
 #define BLOCK_NUMBER_OFFSET 0
 
@@ -140,6 +141,9 @@ static ssize_t fwu_sysfs_disp_config_block_count_show(struct device *dev,
 		struct device_attribute *attr, char *buf);
 
 static ssize_t fwu_sysfs_config_id_show(struct device *dev,
+		struct device_attribute *attr, char *buf);
+
+static ssize_t fwu_sysfs_package_id_show(struct device *dev,
 		struct device_attribute *attr, char *buf);
 
 enum bl_version {
@@ -298,20 +302,20 @@ static struct device_attribute attrs[] = {
 	__ATTR(update_fw, S_IWUSR | S_IWGRP,
 			NULL,
 			fwu_sysfs_do_reflash_store),
-	__ATTR(writeconfig, S_IWUGO,
-			synaptics_rmi4_show_error,
+	__ATTR(writeconfig, S_IWUSR | S_IWGRP,
+			NULL,
 			fwu_sysfs_write_config_store),
-	__ATTR(readconfig, S_IWUGO,
-			synaptics_rmi4_show_error,
+	__ATTR(readconfig, S_IWUSR | S_IWGRP,
+			NULL,
 			fwu_sysfs_read_config_store),
-	__ATTR(configarea, S_IWUGO,
-			synaptics_rmi4_show_error,
+	__ATTR(configarea, S_IWUSR | S_IWGRP,
+			NULL,
 			fwu_sysfs_config_area_store),
 	__ATTR(fw_name, S_IRUGO | S_IWUSR | S_IWGRP,
 			fwu_sysfs_image_name_show,
 			fwu_sysfs_image_name_store),
-	__ATTR(imagesize, S_IWUGO,
-			synaptics_rmi4_show_error,
+	__ATTR(imagesize, S_IWUSR | S_IWGRP,
+			NULL,
 			fwu_sysfs_image_size_store),
 	__ATTR(blocksize, S_IRUGO,
 			fwu_sysfs_block_size_show,
@@ -333,6 +337,9 @@ static struct device_attribute attrs[] = {
 			synaptics_rmi4_store_error),
 	__ATTR(config_id, S_IRUGO,
 			fwu_sysfs_config_id_show,
+			synaptics_rmi4_store_error),
+	__ATTR(package_id, S_IRUGO,
+			fwu_sysfs_package_id_show,
 			synaptics_rmi4_store_error),
 };
 
@@ -1773,6 +1780,31 @@ static ssize_t fwu_sysfs_config_id_show(struct device *dev,
 
 	return snprintf(buf, PAGE_SIZE, "%d.%d.%d.%d\n",
 		config_id[0], config_id[1], config_id[2], config_id[3]);
+}
+
+static ssize_t fwu_sysfs_package_id_show(struct device *dev,
+			struct device_attribute *attr, char *buf)
+{
+	int retval;
+	unsigned char package_id[4];
+	struct synaptics_rmi4_data *rmi4_data = fwu->rmi4_data;
+
+	/* read device package id */
+	retval = synaptics_rmi4_reg_read(rmi4_data,
+			rmi4_data->f01_query_base_addr + PACKAGE_ID_OFFSET,
+			package_id,
+			sizeof(package_id));
+
+	if (retval < 0) {
+		dev_err(rmi4_data->pdev->dev.parent,
+				"%s: Failed to read device package ID\n",
+				__func__);
+		return retval;
+	}
+
+	return snprintf(buf, PAGE_SIZE, "%d rev %d\n",
+			(package_id[1] << 8) | package_id[0],
+			(package_id[3] << 8) | package_id[2]);
 }
 
 static void synaptics_rmi4_fwu_attn(struct synaptics_rmi4_data *rmi4_data,
