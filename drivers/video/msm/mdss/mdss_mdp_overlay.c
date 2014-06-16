@@ -278,7 +278,8 @@ static int __mdp_pipe_tune_perf(struct mdss_mdp_pipe *pipe)
 		 * mdp clock requirement
 		 */
 		if (mdata->has_decimation && (pipe->vert_deci < MAX_DECIMATION)
-			&& !pipe->bwc_mode)
+			&& !pipe->bwc_mode && !pipe->src_fmt->tile &&
+			!pipe->scale.enable_pxl_ext)
 			pipe->vert_deci++;
 		else
 			return -EPERM;
@@ -574,14 +575,21 @@ static int mdss_mdp_overlay_pipe_setup(struct msm_fb_data_type *mfd,
 		}
 	}
 
-	if ((pipe->flags & MDP_DEINTERLACE) && !pipe->scale.enable_pxl_ext) {
+	/*
+	 * When scaling is enabled src crop and image
+	 * width and height is modified by user
+	 */
+	if ((pipe->flags & MDP_DEINTERLACE)) {
 		if (pipe->flags & MDP_SOURCE_ROTATED_90) {
 			pipe->src.x = DIV_ROUND_UP(pipe->src.x, 2);
 			pipe->src.x &= ~1;
-			pipe->src.w /= 2;
-			pipe->img_width /= 2;
+			if (!pipe->scale.enable_pxl_ext) {
+				pipe->src.w /= 2;
+				pipe->img_width /= 2;
+			}
 		} else {
-			pipe->src.h /= 2;
+			if (!pipe->scale.enable_pxl_ext)
+				pipe->src.h /= 2;
 			pipe->src.y = DIV_ROUND_UP(pipe->src.y, 2);
 			pipe->src.y &= ~1;
 		}
