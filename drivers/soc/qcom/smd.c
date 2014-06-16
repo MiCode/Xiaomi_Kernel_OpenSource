@@ -1273,6 +1273,8 @@ static void update_packet_state(struct smd_channel *ch)
 			if (peripheral) {
 				if (subsystem_restart(peripheral) < 0)
 					BUG();
+			} else {
+				BUG();
 			}
 		}
 	}
