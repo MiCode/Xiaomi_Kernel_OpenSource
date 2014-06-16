@@ -233,7 +233,8 @@ static int cpu_power_select(struct cpuidle_device *dev,
 {
 	int best_level = -1;
 	uint32_t best_level_pwr = ~0U;
-	uint32_t latency_us = pm_qos_request(PM_QOS_CPU_DMA_LATENCY);
+	uint32_t latency_us = pm_qos_request_for_cpu(PM_QOS_CPU_DMA_LATENCY,
+							dev->cpu);
 	uint32_t sleep_us =
 		(uint32_t)(ktime_to_us(tick_nohz_get_sleep_length()));
 	uint32_t modified_time_us = 0;
@@ -378,13 +379,19 @@ static int cluster_select(struct lpm_cluster *cluster, bool from_idle)
 	int i;
 	uint32_t best_level_pwr = ~0U;
 	uint32_t pwr;
-	uint32_t latency_us = pm_qos_request(PM_QOS_CPU_DMA_LATENCY);
+	struct cpumask mask;
+	uint32_t latency_us = ~0U;
 	uint32_t sleep_us;
 
 	if (!cluster)
 		return -EINVAL;
 
 	sleep_us = (uint32_t)get_cluster_sleep_time(cluster, NULL, from_idle);
+	if (cpumask_and(&mask, cpu_online_mask, &cluster->child_cpus))
+		latency_us = pm_qos_request_for_cpumask(PM_QOS_CPU_DMA_LATENCY,
+							&mask);
+	else
+		BUG_ON(!from_idle);
 
 	for (i = 0; i < cluster->nlevels; i++) {
 		struct lpm_cluster_level *level = &cluster->levels[i];
