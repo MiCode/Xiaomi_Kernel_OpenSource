@@ -144,7 +144,8 @@ memdesc_sg_phys(struct kgsl_memdesc *memdesc,
 	if (memdesc->sg == NULL)
 		return -ENOMEM;
 
-	kmemleak_not_leak(memdesc->sg);
+	if (!is_vmalloc_addr(memdesc->sg))
+		kmemleak_not_leak(memdesc->sg);
 
 	memdesc->sglen = 1;
 	sg_init_table(memdesc->sg, 1);
