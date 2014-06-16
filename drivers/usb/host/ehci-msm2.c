@@ -82,6 +82,7 @@ struct msm_hcd {
 	bool					wakeup_irq_enabled;
 	int					wakeup_irq;
 	enum usb_vdd_type			vdd_type;
+	void __iomem				*usb_phy_ctrl_reg;
 };
 
 static inline struct msm_hcd *hcd_to_mhcd(struct usb_hcd *hcd)
@@ -497,6 +498,9 @@ static int msm_ulpi_read(struct msm_hcd *mhcd, u32 reg)
 		if (time_after(jiffies, timeout)) {
 			dev_err(mhcd->dev, "msm_ulpi_read: timeout %08x\n",
 				readl_relaxed(USB_ULPI_VIEWPORT));
+			dev_err(mhcd->dev, "PORTSC: %08x USBCMD: %08x\n",
+				readl_relaxed(USB_PORTSC),
+				readl_relaxed(USB_USBCMD));
 			return -ETIMEDOUT;
 		}
 		udelay(1);
@@ -521,6 +525,9 @@ static int msm_ulpi_write(struct msm_hcd *mhcd, u32 val, u32 reg)
 	while (readl_relaxed(USB_ULPI_VIEWPORT) & ULPI_RUN) {
 		if (time_after(jiffies, timeout)) {
 			dev_err(mhcd->dev, "msm_ulpi_write: timeout\n");
+			dev_err(mhcd->dev, "PORTSC: %08x USBCMD: %08x\n",
+				readl_relaxed(USB_PORTSC),
+				readl_relaxed(USB_USBCMD));
 			return -ETIMEDOUT;
 		}
 		udelay(1);
@@ -572,13 +579,13 @@ static int msm_ehci_phy_reset(struct msm_hcd *mhcd)
 	struct msm_usb_host_platform_data *pdata;
 	u32 val;
 	int ret;
-	int retries;
 
 	ret = msm_ehci_link_clk_reset(mhcd, 1);
 	if (ret)
 		return ret;
 
-	usleep_range(10, 12);
+	/* Minimum 10msec delay for block reset as per hardware spec */
+	usleep_range(10000, 12000);
 
 	ret = msm_ehci_link_clk_reset(mhcd, 0);
 	if (ret)
@@ -592,27 +599,32 @@ static int msm_ehci_phy_reset(struct msm_hcd *mhcd)
 	val = readl_relaxed(USB_PORTSC) & ~PORTSC_PTS_MASK;
 	writel_relaxed(val | PORTSC_PTS_ULPI, USB_PORTSC);
 
-	for (retries = 3; retries > 0; retries--) {
-		ret = msm_ulpi_write(mhcd, ULPI_FUNC_CTRL_SUSPENDM,
-				ULPI_CLR(ULPI_FUNC_CTRL));
-		if (!ret)
-			break;
-	}
-	if (!retries)
-		return -ETIMEDOUT;
-
-	/* Wakeup the PHY with a reg-access for calibration */
-	for (retries = 3; retries > 0; retries--) {
-		ret = msm_ulpi_read(mhcd, ULPI_DEBUG);
-		if (ret != -ETIMEDOUT)
-			break;
-	}
-	if (!retries)
-		return -ETIMEDOUT;
-
 	dev_info(mhcd->dev, "phy_reset: success\n");
 
 	return 0;
+}
+
+static void usb_phy_reset(struct msm_hcd *mhcd)
+{
+	u32 val;
+
+	/* Assert USB PHY_PON */
+	val =  readl_relaxed(mhcd->usb_phy_ctrl_reg);
+	val &= ~PHY_POR_BIT_MASK;
+	val |= PHY_POR_ASSERT;
+	writel_relaxed(val, mhcd->usb_phy_ctrl_reg);
+
+	/* wait for minimum 10 microseconds as suggested in hardware spec */
+	usleep_range(10, 15);
+
+	/* Deassert USB PHY_PON */
+	val =  readl_relaxed(mhcd->usb_phy_ctrl_reg);
+	val &= ~PHY_POR_BIT_MASK;
+	val |= PHY_POR_DEASSERT;
+	writel_relaxed(val, mhcd->usb_phy_ctrl_reg);
+
+	/* Ensure that RESET operation is completed. */
+	mb();
 }
 
 #define LINK_RESET_TIMEOUT_USEC		(250 * 1000)
@@ -648,6 +660,9 @@ static int msm_hsusb_reset(struct msm_hcd *mhcd)
 	if (pdata && pdata->use_sec_phy)
 		writel_relaxed(readl_relaxed(USB_PHY_CTRL2) | (1<<16),
 								USB_PHY_CTRL2);
+
+	/* Reset USB PHY after performing USB Link RESET */
+	usb_phy_reset(mhcd);
 
 	msleep(100);
 
@@ -1523,6 +1538,13 @@ static int __devinit ehci_msm2_probe(struct platform_device *pdev)
 		goto disable_ldo;
 	}
 
+	pdata = mhcd->dev->platform_data;
+
+	if (pdata && pdata->use_sec_phy)
+		mhcd->usb_phy_ctrl_reg = USB_PHY_CTRL2;
+	else
+		mhcd->usb_phy_ctrl_reg = USB_PHY_CTRL;
+
 	ret = msm_hsusb_reset(mhcd);
 	if (ret) {
 		dev_err(&pdev->dev, "hsusb PHY initialization failed\n");
@@ -1535,7 +1557,6 @@ static int __devinit ehci_msm2_probe(struct platform_device *pdev)
 		goto vbus_deinit;
 	}
 
-	pdata = mhcd->dev->platform_data;
 	if (pdata && (!pdata->dock_connect_irq ||
 				!irq_read_line(pdata->dock_connect_irq)))
 		msm_ehci_vbus_power(mhcd, 1);
