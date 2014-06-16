@@ -2019,7 +2019,7 @@ static struct branch_clk gcc_camss_gp1_clk = {
 
 static struct branch_clk gcc_camss_ispif_ahb_clk = {
 	.cbcr_reg = CAMSS_ISPIF_AHB_CBCR,
-	.has_sibling = 1,
+	.has_sibling = 0,
 	.base = &virt_bases[GCC_BASE],
 	.c = {
 		.dbg_name = "gcc_camss_ispif_ahb_clk",
@@ -2200,7 +2200,7 @@ static struct branch_clk gcc_camss_vfe0_clk = {
 
 static struct branch_clk gcc_camss_vfe_ahb_clk = {
 	.cbcr_reg = CAMSS_VFE_AHB_CBCR,
-	.has_sibling = 0,
+	.has_sibling = 1,
 	.base = &virt_bases[GCC_BASE],
 	.c = {
 		.dbg_name = "gcc_camss_vfe_ahb_clk",
