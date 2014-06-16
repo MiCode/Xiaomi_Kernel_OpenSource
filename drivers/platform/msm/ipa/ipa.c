@@ -128,8 +128,14 @@
 				IPA_IOCTL_WRITE_QMAPID, \
 				compat_uptr_t)
 #define IPA_IOC_MDFY_FLT_RULE32 _IOWR(IPA_IOC_MAGIC, \
-					IPA_IOCTL_MDFY_FLT_RULE, \
-					compat_uptr_t)
+				IPA_IOCTL_MDFY_FLT_RULE, \
+				compat_uptr_t)
+#define IPA_IOC_NOTIFY_WAN_UPSTREAM_ROUTE_ADD32 _IOWR(IPA_IOC_MAGIC, \
+				IPA_IOCTL_NOTIFY_WAN_UPSTREAM_ROUTE_ADD, \
+				compat_uptr_t)
+#define IPA_IOC_NOTIFY_WAN_UPSTREAM_ROUTE_DEL32 _IOWR(IPA_IOC_MAGIC, \
+				IPA_IOCTL_NOTIFY_WAN_UPSTREAM_ROUTE_DEL, \
+				compat_uptr_t)
 
 /**
  * struct ipa_ioc_nat_alloc_mem32 - nat table memory allocation
@@ -177,6 +183,19 @@ static int ipa_open(struct inode *inode, struct file *filp)
 	return 0;
 }
 
+static void ipa_wan_msg_free_cb(void *buff, u32 len, u32 type)
+{
+	if (!buff || (type != WAN_UPSTREAM_ROUTE_ADD
+			&& type != WAN_UPSTREAM_ROUTE_DEL)) {
+		IPAERR("Null buffer or wrong type give. buff %p type %d\n",
+			buff, type);
+		return;
+	}
+
+	kfree(buff);
+}
+
+
 static long ipa_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 {
 	int retval = 0;
@@ -187,6 +206,8 @@ static long ipa_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 	struct ipa_ioc_v4_nat_init nat_init;
 	struct ipa_ioc_v4_nat_del nat_del;
 	struct ipa_ioc_rm_dependency rm_depend;
+	struct ipa_wan_msg *wan_msg;
+	struct ipa_msg_meta msg_meta;
 	size_t sz;
 
 	IPADBG("cmd=%x nr=%d\n", cmd, _IOC_NR(cmd));
@@ -774,7 +795,56 @@ static long ipa_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 			break;
 		}
 		break;
+	case IPA_IOC_NOTIFY_WAN_UPSTREAM_ROUTE_ADD:
+		wan_msg = kzalloc(sizeof(struct ipa_wan_msg), GFP_KERNEL);
+		if (!wan_msg) {
+			IPAERR("no memory\n");
+			retval = -ENOMEM;
+			break;
+		}
 
+		if (copy_from_user((u8 *)wan_msg, (u8 *)arg,
+			sizeof(struct ipa_wan_msg))) {
+				kfree(wan_msg);
+				retval = -EFAULT;
+				break;
+		}
+
+		memset(&msg_meta, 0, sizeof(struct ipa_msg_meta));
+		msg_meta.msg_type = WAN_UPSTREAM_ROUTE_ADD;
+		msg_meta.msg_len = sizeof(struct ipa_wan_msg);
+		retval = ipa_send_msg(&msg_meta, wan_msg, ipa_wan_msg_free_cb);
+		if (retval) {
+			IPAERR("ipa_send_msg failed: %d\n", retval);
+			kfree(wan_msg);
+			break;
+		}
+		break;
+	case IPA_IOC_NOTIFY_WAN_UPSTREAM_ROUTE_DEL:
+		wan_msg = kzalloc(sizeof(struct ipa_wan_msg), GFP_KERNEL);
+		if (!wan_msg) {
+			IPAERR("no memory\n");
+			retval = -ENOMEM;
+			break;
+		}
+
+		if (copy_from_user((u8 *)wan_msg, (u8 *)arg,
+			sizeof(struct ipa_wan_msg))) {
+				kfree(wan_msg);
+				retval = -EFAULT;
+				break;
+		}
+
+		memset(&msg_meta, 0, sizeof(struct ipa_msg_meta));
+		msg_meta.msg_type = WAN_UPSTREAM_ROUTE_DEL;
+		msg_meta.msg_len = sizeof(struct ipa_wan_msg);
+		retval = ipa_send_msg(&msg_meta, wan_msg, ipa_wan_msg_free_cb);
+		if (retval) {
+			IPAERR("ipa_send_msg failed: %d\n", retval);
+			kfree(wan_msg);
+			break;
+		}
+		break;
 	default:        /* redundant, as cmd was checked against MAXNR */
 		ipa_dec_client_disable_clks();
 		return -ENOTTY;
@@ -1412,6 +1482,12 @@ ret:
 		break;
 	case IPA_IOC_MDFY_FLT_RULE32:
 		cmd = IPA_IOC_MDFY_FLT_RULE;
+		break;
+	case IPA_IOC_NOTIFY_WAN_UPSTREAM_ROUTE_ADD32:
+		cmd = IPA_IOC_NOTIFY_WAN_UPSTREAM_ROUTE_ADD;
+		break;
+	case IPA_IOC_NOTIFY_WAN_UPSTREAM_ROUTE_DEL32:
+		cmd = IPA_IOC_NOTIFY_WAN_UPSTREAM_ROUTE_DEL;
 		break;
 	case IPA_IOC_COMMIT_HDR:
 	case IPA_IOC_RESET_HDR:
