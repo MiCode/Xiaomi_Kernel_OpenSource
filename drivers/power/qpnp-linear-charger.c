@@ -266,6 +266,8 @@ struct vddtrim_map vddtrim_map[] = {
  * @cfg_float_charge:		enable float charging
  * @charger_disabled:		maintain USB path state.
  * @cfg_charger_detect_eoc:	charger can detect end of charging
+ * @cfg_disable_vbatdet_based_recharge:	keep VBATDET comparator overriden to
+ *				low and VBATDET irq disabled.
  * @cfg_safe_current:		battery safety current setting
  * @cfg_hot_batt_p:		hot battery threshold setting
  * @cfg_cold_batt_p:		eold battery threshold setting
@@ -323,6 +325,7 @@ struct qpnp_lbc_chip {
 	unsigned int			cfg_max_voltage_mv;
 	unsigned int			cfg_min_voltage_mv;
 	unsigned int			cfg_charger_detect_eoc;
+	unsigned int			cfg_disable_vbatdet_based_recharge;
 	unsigned int			cfg_batt_weak_voltage_uv;
 	unsigned int			cfg_warm_bat_mv;
 	unsigned int			cfg_cool_bat_mv;
@@ -1145,7 +1148,8 @@ static int get_prop_capacity(struct qpnp_lbc_chip *chip)
 				&& ret.intval <= chip->cfg_soc_resume_limit) {
 			pr_debug("resuming charging at %d%% soc\n",
 					ret.intval);
-			qpnp_lbc_vbatdet_override(chip, OVERRIDE_0);
+			if (!chip->cfg_disable_vbatdet_based_recharge)
+				qpnp_lbc_vbatdet_override(chip, OVERRIDE_0);
 			qpnp_lbc_charger_enable(chip, SOC, 1);
 		}
 		mutex_unlock(&chip->chg_enable_lock);
@@ -1419,11 +1423,7 @@ static int qpnp_batt_power_set_property(struct power_supply *psy,
 		if (val->intval == POWER_SUPPLY_STATUS_FULL &&
 				!chip->cfg_float_charge) {
 			mutex_lock(&chip->chg_enable_lock);
-			/* No override for VBAT_DET_LO comp */
-			rc = qpnp_lbc_vbatdet_override(chip, OVERRIDE_NONE);
-			if (rc)
-				pr_err("Failed to override VBAT_DET rc=%d\n",
-						rc);
+
 			/* Disable charging */
 			rc = qpnp_lbc_charger_enable(chip, SOC, 0);
 			if (rc)
@@ -1437,8 +1437,17 @@ static int qpnp_batt_power_set_property(struct power_supply *psy,
 			 * To enable charging when VBAT falls below VBAT_DET
 			 * and device stays suspended after EOC.
 			 */
-			qpnp_lbc_enable_irq(chip,
-					&chip->irqs[CHG_VBAT_DET_LO]);
+			if (!chip->cfg_disable_vbatdet_based_recharge) {
+				/* No override for VBAT_DET_LO comp */
+				rc = qpnp_lbc_vbatdet_override(chip,
+							OVERRIDE_NONE);
+				if (rc)
+					pr_err("Failed to override VBAT_DET rc=%d\n",
+							rc);
+				else
+					qpnp_lbc_enable_irq(chip,
+						&chip->irqs[CHG_VBAT_DET_LO]);
+			}
 
 			mutex_unlock(&chip->chg_enable_lock);
 		}
@@ -1916,6 +1925,10 @@ static int qpnp_charger_read_dt_props(struct qpnp_lbc_chip *chip)
 			of_property_read_bool(chip->spmi->dev.of_node,
 					"qcom,charger-detect-eoc");
 
+	/* Get the vbatdet disable property */
+	chip->cfg_disable_vbatdet_based_recharge =
+			of_property_read_bool(chip->spmi->dev.of_node,
+					"qcom,disable-vbatdet-based-recharge");
 	/* Disable charging when faking battery values */
 	if (chip->cfg_use_fake_battery)
 		chip->cfg_charging_disabled = true;
@@ -1972,7 +1985,8 @@ static irqreturn_t qpnp_lbc_usbin_valid_irq_handler(int irq, void *_chip)
 			 * Override VBAT_DET comparator to start charging
 			 * even if VBAT > VBAT_DET.
 			 */
-			qpnp_lbc_vbatdet_override(chip, OVERRIDE_0);
+			if (!chip->cfg_disable_vbatdet_based_recharge)
+				qpnp_lbc_vbatdet_override(chip, OVERRIDE_0);
 
 			/*
 			 * Enable SOC based charging to make sure
@@ -2295,9 +2309,10 @@ static int qpnp_lbc_get_irqs(struct qpnp_lbc_chip *chip, u8 subtype,
 		SPMI_GET_IRQ_RESOURCE(chip, rc, spmi_resource,
 						CHG_FAST_CHG, fast-chg-on);
 		SPMI_GET_IRQ_RESOURCE(chip, rc, spmi_resource,
-						CHG_VBAT_DET_LO, vbat-det-lo);
-		SPMI_GET_IRQ_RESOURCE(chip, rc, spmi_resource,
 						CHG_FAILED, chg-failed);
+		if (!chip->cfg_disable_vbatdet_based_recharge)
+			SPMI_GET_IRQ_RESOURCE(chip, rc, spmi_resource,
+						CHG_VBAT_DET_LO, vbat-det-lo);
 		if (chip->cfg_charger_detect_eoc)
 			SPMI_GET_IRQ_RESOURCE(chip, rc, spmi_resource,
 						CHG_DONE, chg-done);
