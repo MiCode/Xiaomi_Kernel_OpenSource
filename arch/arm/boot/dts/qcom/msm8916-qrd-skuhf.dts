@@ -13,6 +13,7 @@
 /dts-v1/;
 
 #include "msm8916-qrd-skuh.dtsi"
+#include "msm8916-camera-sensor-qrd-skuhf.dtsi"
 #include "msm8916-memory.dtsi"
 
 / {
