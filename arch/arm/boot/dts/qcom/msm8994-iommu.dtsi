@@ -282,7 +282,6 @@
 	vdd-supply = <&gdsc_oxili_cx>;
 	qcom,alt-vdd-supply = <&gdsc_oxili_gx>;
 	qcom,iommu-enable-halt;
-	qcom,iommu-secure-id = <18>;
 	clocks = <&clock_mmss clk_oxili_gfx3d_clk>,
 		<&clock_mmss clk_oxilicx_ahb_clk>;
 	clock-names = "core_clk", "iface_clk";
@@ -353,8 +352,6 @@
 
 	qcom,iommu-ctx@fdb1a000 {
 		qcom,iommu-ctx-sids = <2>;
-		interrupts = <0 241 0>, <0 240 0>;
-		qcom,secure-context;
 	};
 };
 
