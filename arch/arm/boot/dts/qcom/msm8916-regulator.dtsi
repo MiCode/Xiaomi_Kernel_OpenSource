@@ -28,8 +28,8 @@
 &soc {
 	mem_acc_vreg_corner: regulator@1946000 {
 		compatible = "qcom,mem-acc-regulator";
-		reg = <0x1946000 0x4>, <0x1946000 0x4>;
-		reg-names = "acc-sel-l1", "acc-sel-l2";
+		reg = <0x1946000 0x4>, <0x1946000 0x4>, <0x58000 0x1000>;
+		reg-names = "acc-sel-l1", "acc-sel-l2", "efuse_addr";
 		regulator-name = "mem_acc_corner";
 		regulator-min-microvolt = <1>;
 		regulator-max-microvolt = <3>;
@@ -37,6 +37,7 @@
 		qcom,acc-sel-l1-bit-pos = <0>;
 		qcom,acc-sel-l2-bit-pos = <8>;
 		qcom,corner-acc-map = <0 1 1>;
+		qcom,l1-config-skip-fuse-sel = <0 52 1 1 0>;
 	};
 
 	apc_vreg_corner: regulator@b018000 {
