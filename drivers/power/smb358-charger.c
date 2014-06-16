@@ -849,8 +849,10 @@ static int smb358_get_prop_charge_type(struct smb358_charger *chip)
 
 	reg &= STATUS_C_CHARGING_MASK;
 
-	if (reg == STATUS_C_FAST_CHARGING || reg == STATUS_C_TAPER_CHARGING)
+	if (reg == STATUS_C_FAST_CHARGING)
 		return POWER_SUPPLY_CHARGE_TYPE_FAST;
+	else if (reg == STATUS_C_TAPER_CHARGING)
+		return POWER_SUPPLY_CHARGE_TYPE_TAPER;
 	else if (reg == STATUS_C_PRE_CHARGING)
 		return POWER_SUPPLY_CHARGE_TYPE_TRICKLE;
 	else
