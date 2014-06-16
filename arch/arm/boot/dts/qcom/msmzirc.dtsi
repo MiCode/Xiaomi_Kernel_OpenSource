@@ -27,6 +27,7 @@
 		smd21 = &smdtty_data21;
 		smd36 = &smdtty_loopback;
 		spi0 = &spi_0;
+		spi1 = &spi_1;
 	};
 
 	memory {
@@ -187,8 +188,8 @@
 		compatible = "qcom,msm-lsuart-v14";
 		reg = <0x78af000 0x200>;
 		interrupts = <0 107 0>;
-		clocks = <&clock_gcc 0xc7c62f90>,
-			 <&clock_gcc 0x8caa5b4f>;
+		clocks = <&clock_gcc clk_gcc_blsp1_uart1_apps_clk>,
+			 <&clock_gcc clk_gcc_blsp1_ahb_clk>;
 		clock-names = "core_clk", "iface_clk";
 		status = "disabled";
 	};
@@ -197,8 +198,18 @@
 		compatible = "qcom,msm-lsuart-v14";
 		reg = <0x78b0000 0x200>;
 		interrupts = <0 108 0>;
-		clocks = <&clock_gcc 0xc7c62f90>,
-			 <&clock_gcc 0x8caa5b4f>;
+		clocks = <&clock_gcc clk_gcc_blsp1_uart2_apps_clk>,
+			 <&clock_gcc clk_gcc_blsp1_ahb_clk>;
+		clock-names = "core_clk", "iface_clk";
+		status = "disabled";
+	};
+
+	blsp1_uart3: serial@78b1000 {
+		compatible = "qcom,msm-lsuart-v14";
+		reg = <0x78b1000 0x200>;
+		interrupts = <0 109 0>;
+		clocks = <&clock_gcc clk_gcc_blsp1_uart3_apps_clk>,
+			 <&clock_gcc clk_gcc_blsp1_ahb_clk>;
 		clock-names = "core_clk", "iface_clk";
 		status = "disabled";
 	};
@@ -231,13 +242,37 @@
 		pinctrl-names = "default", "sleep";
 		pinctrl-0 = <&spi0_default &spi0_cs0_active>;
 		pinctrl-1 = <&spi0_sleep &spi0_cs0_sleep>;
-		clocks = <&clock_gcc 0x8caa5b4f>,
-			 <&clock_gcc 0x759a76b0>;
+		clocks = <&clock_gcc clk_gcc_blsp1_ahb_clk>,
+			 <&clock_gcc clk_gcc_blsp1_qup1_spi_apps_clk>;
 		clock-names = "iface_clk", "core_clk";
 		qcom,infinite-mode = <0>;
 		qcom,use-pinctrl;
 		qcom,ver-reg-exists;
 		qcom,master-id = <86>;
+		status = "disabled";
+        };
+
+	spi_1: spi@78b6000 { /* BLSP1 QUP2 */
+		compatible = "qcom,spi-qup-v2";
+		#address-cells = <1>;
+		#size-cells = <0>;
+		reg-names = "spi_physical", "spi_bam_physical";
+		reg = <0x78b6000 0x600>,
+		      <0x7884000 0x23000>;
+		interrupt-names = "spi_irq", "spi_bam_irq";
+		interrupts = <0 96 0>, <0 239 0>;
+		spi-max-frequency = <50000000>;
+		pinctrl-names = "default", "sleep";
+		pinctrl-0 = <&spi1_default &spi1_cs0_active>;
+		pinctrl-1 = <&spi1_sleep &spi1_cs0_sleep>;
+		clocks = <&clock_gcc clk_gcc_blsp1_ahb_clk>,
+			 <&clock_gcc clk_gcc_blsp1_qup2_spi_apps_clk>;
+		clock-names = "iface_clk", "core_clk";
+		qcom,infinite-mode = <0>;
+		qcom,use-pinctrl;
+		qcom,ver-reg-exists;
+		qcom,master-id = <86>;
+		status = "disabled";
         };
 
 	spmi_bus: qcom,spmi@200f000 {

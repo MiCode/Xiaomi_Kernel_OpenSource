@@ -24,10 +24,11 @@
 &blsp1_uart2 {
 	status = "ok";
 	pinctrl-names = "default";
-	pinctrl-0 = <&uart_console_sleep>;
+	pinctrl-0 = <&uart2_console_active>;
 };
 
 &spi_0 {
+	status = "ok";
 	ethernet-switch@0 {
 		compatible = "simtec,ks8851";
 		interrupt-parent = <&msm_gpio>;

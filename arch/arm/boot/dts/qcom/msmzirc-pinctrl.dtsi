@@ -30,13 +30,25 @@
 			};
 		};
 
-		pmx-uartconsole {
+		pmx-uart2console {
 			qcom,pins = <&gp 4>, <&gp 5>;
 			qcom,num-grp-pins = <2>;
 			qcom,pin-func = <2>;
-			label = "uart-console";
+			label = "uart2-console";
 
-			uart_console_sleep: uart-console {
+			uart2_console_active: uart2-console {
+				drive-strength = <2>;
+				bias-pull-down;
+			};
+		};
+
+		pmx-uart3console {
+			qcom,pins = <&gp 8>, <&gp 9>;
+			qcom,num-grp-pins = <2>;
+			qcom,pin-func = <3>;
+			label = "uart3-console";
+
+			uart3_console_active: uart3-console {
 				drive-strength = <2>;
 				bias-pull-down;
 			};
@@ -67,6 +79,7 @@
 				bias-pull-down; /* pull down */
 			};
 		};
+
 		spi0_cs0_active {
 			/* CS */
 			qcom,pins = <&gp 2>;
@@ -79,7 +92,6 @@
 			};
 		};
 
-
 		spi0_cs0_suspend {
 			/* CS */
 			qcom,pins = <&gp 2>;
@@ -87,6 +99,56 @@
 			qcom,pin-func = <0>;
 			label = "spi0-cs0-suspend";
 			spi0_cs0_sleep: cs0_sleep {
+				drive-strength = <2>;
+				bias-disable = <0>;
+			};
+		};
+
+		spi1_active {
+			/* MOSI, MISO, CLK */
+			qcom,pins = <&gp 4>, <&gp 5>, <&gp 7>;
+			qcom,num-grp-pins = <3>;
+			qcom,pin-func = <1>;
+			label = "spi1-active";
+			/* active state */
+			spi1_default: default {
+				drive-strength = <12>; /* 12 MA */
+				bias-disable = <0>; /* No PULL */
+			};
+		};
+
+		spi1_suspend {
+			/* MOSI, MISO, CLK */
+			qcom,pins = <&gp 4>, <&gp 5>, <&gp 7>;
+			qcom,num-grp-pins = <3>;
+			qcom,pin-func = <0>;
+			label = "spi1-suspend";
+			/* suspended state */
+			spi1_sleep: sleep {
+				drive-strength = <2>; /* 2 MA */
+				bias-pull-down; /* pull down */
+			};
+		};
+
+		spi1_cs0_active {
+			/* CS */
+			qcom,pins = <&gp 6>;
+			qcom,num-grp-pins = <1>;
+			qcom,pin-func = <1>;
+			label = "spi1-cs0-active";
+			spi1_cs0_active: cs0_active {
+				drive-strength = <2>;
+				bias-disable = <0>;
+			};
+		};
+
+		spi1_cs0_suspend {
+			/* CS */
+			qcom,pins = <&gp 6>;
+			qcom,num-grp-pins = <1>;
+			qcom,pin-func = <0>;
+			label = "spi1-cs0-suspend";
+			spi1_cs0_sleep: cs0_sleep {
 				drive-strength = <2>;
 				bias-disable = <0>;
 			};
