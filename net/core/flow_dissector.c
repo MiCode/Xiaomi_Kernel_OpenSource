@@ -18,6 +18,7 @@
 #include <linux/mpls.h>
 #include <net/flow_dissector.h>
 #include <scsi/fc/fc_fcoe.h>
+#include <linux/net_map.h>
 
 static bool dissector_uses_key(const struct flow_dissector *flow_dissector,
 			       enum flow_dissector_key_id key_id)
@@ -335,6 +336,40 @@ mpls:
 		goto out_good;
 	}
 
+	case __constant_htons(ETH_P_MAP): {
+		struct {
+			struct rmnet_map_header_s map;
+			uint8_t proto;
+		} *map, _map;
+		unsigned int maplen;
+
+		map = skb_header_pointer(skb, nhoff, sizeof(_map), &_map);
+		if (!map)
+			return false;
+
+		/* Is MAP command? */
+		if (map->map.cd_bit)
+			return false;
+
+		/* Is aggregated frame? */
+		maplen = ntohs(map->map.pkt_len);
+		maplen += map->map.pad_len;
+		maplen += sizeof(struct rmnet_map_header_s);
+		if (maplen < skb->len)
+			return false;
+
+		nhoff += sizeof(struct rmnet_map_header_s);
+		switch (map->proto & RMNET_IP_VER_MASK) {
+		case RMNET_IPV4:
+			proto = htons(ETH_P_IP);
+			goto ip;
+		case RMNET_IPV6:
+			proto = htons(ETH_P_IPV6);
+			goto ipv6;
+		default:
+			return false;
+		}
+	}
 	case htons(ETH_P_FCOE):
 		key_control->thoff = (u16)(nhoff + FCOE_HEADER_LEN);
 		/* fall through */

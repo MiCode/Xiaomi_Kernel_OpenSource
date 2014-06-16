@@ -23,5 +23,8 @@ struct rmnet_map_header_s {
 #define RMNET_MAP_GET_LENGTH(Y) (ntohs( \
 			       ((struct rmnet_map_header_s *)Y->data)->pkt_len))
 
+#define RMNET_IP_VER_MASK 0xF0
+#define RMNET_IPV4        0x40
+#define RMNET_IPV6        0x60
 
 #endif /* _NET_MAP_H_ */
