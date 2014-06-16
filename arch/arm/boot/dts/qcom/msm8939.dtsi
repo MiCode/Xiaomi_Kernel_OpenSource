@@ -1057,7 +1057,6 @@
 		qcom,hsusb-otg-phy-type = <2>;
 		qcom,hsusb-otg-mode = <1>;
 		qcom,hsusb-otg-otg-control = <2>;
-		qcom,ahb-async-bridge-bypass;
 		qcom,dp-manual-pullup;
 
 		qcom,msm-bus,name = "usb2";
