@@ -5409,6 +5409,7 @@
 		qcom,notify-modem-status;
 		pinctrl-names = "default";
 		pinctrl-0 = <&cnss_default>;
+		qcom,wlan-rc-num = <0>;
 
 		qcom,msm-bus,name = "msm-cnss";
 		qcom,msm-bus,num-cases = <4>;
