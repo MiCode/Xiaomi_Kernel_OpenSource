@@ -350,6 +350,28 @@ static int audio_cal_open(struct inode *inode, struct file *f)
 	return ret;
 }
 
+static void dealloc_all_clients(void)
+{
+	int				i = 0;
+	struct audio_cal_type_dealloc	dealloc_data;
+	pr_debug("%s\n", __func__);
+
+	dealloc_data.cal_hdr.version = VERSION_0_0;
+	dealloc_data.cal_hdr.buffer_number = ALL_CAL_BLOCKS;
+	dealloc_data.cal_data.mem_handle = -1;
+
+	for (; i < MAX_CAL_TYPES; i++)
+		call_deallocs(i, sizeof(dealloc_data), &dealloc_data);
+}
+
+static int audio_cal_release(struct inode *inode, struct file *f)
+{
+	int ret = 0;
+	pr_debug("%s\n", __func__);
+	dealloc_all_clients();
+	return ret;
+}
+
 static long audio_cal_shared_ioctl(struct file *file, unsigned int cmd,
 							void __user *arg)
 {
@@ -409,6 +431,12 @@ static long audio_cal_shared_ioctl(struct file *file, unsigned int cmd,
 		pr_err("%s: cal type size %d is Invalid! Max is %zd!\n",
 			__func__, data->hdr.cal_type_size,
 			get_user_cal_type_size(data->hdr.cal_type));
+		ret = -EINVAL;
+		goto done;
+	} else if (data->cal_type.cal_hdr.buffer_number < 0) {
+		pr_err("%s: cal type %d Invalid buffer number %d!\n",
+			__func__, data->hdr.cal_type,
+			data->cal_type.cal_hdr.buffer_number);
 		ret = -EINVAL;
 		goto done;
 	}
@@ -521,14 +549,6 @@ done:
 	return ret;
 }
 #endif
-
-static int audio_cal_release(struct inode *inode, struct file *f)
-{
-	int ret = 0;
-	pr_debug("%s\n", __func__);
-
-	return ret;
-}
 
 static const struct file_operations audio_cal_fops = {
 	.owner = THIS_MODULE,

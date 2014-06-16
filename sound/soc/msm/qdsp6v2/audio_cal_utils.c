@@ -350,14 +350,11 @@ done:
 	return;
 }
 
-static void destroy_cal_type_data(struct cal_type_data *cal_type)
+static void destroy_all_cal_blocks(struct cal_type_data *cal_type)
 {
 	int				ret = 0;
 	struct list_head		*ptr, *next;
 	struct cal_block_data		*cal_block;
-
-	if (cal_type == NULL)
-		goto done;
 
 	list_for_each_safe(ptr, next,
 		&cal_type->cal_blocks) {
@@ -379,6 +376,16 @@ static void destroy_cal_type_data(struct cal_type_data *cal_type)
 		delete_cal_block(cal_block);
 		cal_block = NULL;
 	}
+
+	return;
+}
+
+static void destroy_cal_type_data(struct cal_type_data *cal_type)
+{
+	if (cal_type == NULL)
+		goto done;
+
+	destroy_all_cal_blocks(cal_type);
 	list_del(&cal_type->cal_blocks);
 	kfree(cal_type);
 done:
@@ -758,6 +765,12 @@ int cal_utils_dealloc_cal(size_t data_size, void *data,
 			__func__, data_size,
 			sizeof(struct audio_cal_type_dealloc));
 		ret = -EINVAL;
+		goto done;
+	}
+
+	if ((dealloc_data->cal_data.mem_handle == -1) &&
+		(dealloc_data->cal_hdr.buffer_number == ALL_CAL_BLOCKS)) {
+		destroy_all_cal_blocks(cal_type);
 		goto done;
 	}
 
