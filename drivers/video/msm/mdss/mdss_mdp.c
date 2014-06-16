@@ -393,7 +393,7 @@ static int mdss_mdp_bus_scale_register(struct mdss_data_type *mdata)
 	if (!mdata->bus_hdl) {
 		mdata->bus_hdl =
 			msm_bus_scale_register_client(mdata->bus_scale_table);
-		if (IS_ERR_VALUE(mdata->bus_hdl)) {
+		if (!mdata->bus_hdl) {
 			pr_err("bus_client register failed\n");
 			return -EINVAL;
 		}
