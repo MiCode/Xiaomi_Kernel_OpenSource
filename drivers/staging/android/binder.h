@@ -158,7 +158,7 @@ struct binder_ptr_cookie {
 
 struct binder_pri_desc {
 	__s32 priority;
-	__u32 desc;
+	__s32 desc;
 };
 
 struct binder_pri_ptr_cookie {
