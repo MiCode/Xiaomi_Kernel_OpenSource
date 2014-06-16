@@ -56,7 +56,8 @@ enum rmnet_ioctl_extended_cmds_e {
 	RMNET_IOCTL_SET_QOS_VERSION            = 0x0011,   /* 8/6 byte QoS hdr*/
 	RMNET_IOCTL_GET_QOS_VERSION            = 0x0012,   /* 8/6 byte QoS hdr*/
 	RMNET_IOCTL_GET_SUPPORTED_QOS_MODES    = 0x0013,   /* Get QoS modes   */
-	RMNET_IOCTL_EXTENDED_MAX               = 0x0014
+	RMNET_IOCTL_SET_SLEEP_STATE            = 0x0014,   /* Set sleep state */
+	RMNET_IOCTL_EXTENDED_MAX               = 0x0015
 };
 
 /* Return values for the RMNET_IOCTL_GET_SUPPORTED_FEATURES IOCTL */
