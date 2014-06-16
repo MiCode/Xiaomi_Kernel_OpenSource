@@ -24,6 +24,7 @@ extern unsigned int user_debug;
 extern void disable_hlt(void);
 extern void enable_hlt(void);
 extern int get_hlt(void);
+extern char* (*arch_read_hardware_id)(void);
 
 #endif /* !__ASSEMBLY__ */
 
