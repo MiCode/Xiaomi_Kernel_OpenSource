@@ -121,7 +121,9 @@ vfe_remap_failed:
 				msm_vfe32_2_clk_info, vfe_dev->vfe_clk,
 				ARRAY_SIZE(msm_vfe32_2_clk_info), 0);
 clk_enable_failed:
-	regulator_disable(vfe_dev->fs_vfe);
+	if (vfe_dev->fs_vfe) {
+		regulator_disable(vfe_dev->fs_vfe);
+	}
 fs_failed:
 	msm_isp_deinit_bandwidth_mgr(ISP_VFE0 + vfe_dev->pdev->id);
 bus_scale_register_failed:
