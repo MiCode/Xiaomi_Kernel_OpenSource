@@ -17,6 +17,7 @@ enum peripheral_ep_type {
 	DATA_EP_TYPE_HSUSB	= 0x2,
 	DATA_EP_TYPE_PCIE	= 0x3,
 	DATA_EP_TYPE_EMBEDDED	= 0x4,
+	DATA_EP_TYPE_BAM_DMUX	= 0x5,
 };
 
 struct peripheral_ep_info {

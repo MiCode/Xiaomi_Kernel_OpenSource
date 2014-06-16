@@ -411,7 +411,7 @@ static int gport_rmnet_connect(struct f_rmnet *dev, unsigned intf)
 		}
 		break;
 	case USB_GADGET_XPORT_QTI:
-		ret = gqti_ctrl_connect(&dev->port, port_num, intf);
+		ret = gqti_ctrl_connect(&dev->port, port_num, intf, dxport);
 		if (ret) {
 			pr_err("%s: gqti_ctrl_connect failed: err:%d\n",
 					__func__, ret);
