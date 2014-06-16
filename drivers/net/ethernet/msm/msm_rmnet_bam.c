@@ -58,6 +58,8 @@ MODULE_PARM_DESC(msm_rmnet_bam_headroom_check_failure,
 /* allow larger frames */
 #define RMNET_DATA_LEN 2000
 
+#define RMNET_BAM_DRIVER_NAME "rmnet_bam"
+
 #define DEVICE_ID_INVALID   -1
 
 #define DEVICE_INACTIVE      2
@@ -522,6 +524,48 @@ static const struct net_device_ops rmnet_ops_ip = {
 	.ndo_validate_addr = 0,
 };
 
+static int rmnet_ioctl_extended(struct net_device *dev, struct ifreq *ifr)
+{
+	struct rmnet_ioctl_extended_s ext_cmd;
+	int rc = 0;
+	struct rmnet_private *p = netdev_priv(dev);
+
+
+	rc = copy_from_user(&ext_cmd, ifr->ifr_ifru.ifru_data,
+			    sizeof(ext_cmd));
+
+	if (rc) {
+		pr_err("%s: copy_from_user failed ,error %d", __func__, rc);
+		return rc;
+	}
+
+	switch (ext_cmd.extended_ioctl) {
+	case RMNET_IOCTL_SET_MRU:
+		/* Transport MRU is fixed, so do nothing */
+		break;
+	case RMNET_IOCTL_GET_EPID:
+		ext_cmd.u.data = p->ch_id;
+		break;
+	case RMNET_IOCTL_GET_SUPPORTED_FEATURES:
+		ext_cmd.u.data = 0;
+		break;
+	case RMNET_IOCTL_GET_DRIVER_NAME:
+		strlcpy(ext_cmd.u.if_name, RMNET_BAM_DRIVER_NAME,
+			sizeof(ext_cmd.u.if_name));
+		break;
+	default:
+		rc = -EINVAL;
+		break;
+	}
+
+	rc = copy_to_user(ifr->ifr_ifru.ifru_data, &ext_cmd, sizeof(ext_cmd));
+
+	if (rc)
+		pr_err("%s: copy_to_user failed, error %d", __func__, rc);
+
+	return rc;
+}
+
 static int rmnet_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
 {
 	struct rmnet_private *p = netdev_priv(dev);
@@ -647,6 +691,10 @@ static int rmnet_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
 		rc = __rmnet_close(dev);
 		DBG0("[%s] rmnet_ioctl(): close transport port\n",
 			dev->name);
+		break;
+
+	case RMNET_IOCTL_EXTENDED:          /* Extended IOCTL's        */
+		rc = rmnet_ioctl_extended(dev, ifr);
 		break;
 
 	default:
