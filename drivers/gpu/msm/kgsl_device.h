@@ -173,10 +173,9 @@ struct kgsl_event {
  * @ibcount: Number of IBs in the command list
  * @ibdesc: Pointer to the list of IBs
  * @expires: Point in time when the cmdbatch is considered to be hung
- * @invalid:  non-zero if the dispatcher determines the command and the owning
- * context should be invalidated
  * @refcount: kref structure to maintain the reference count
  * @synclist: List of context/timestamp tuples to wait for before issuing
+ * @timer: a timer used to track possible sync timeouts for this cmdbatch
  *
  * This struture defines an atomic batch of command buffers issued from
  * userspace.
@@ -193,9 +192,9 @@ struct kgsl_cmdbatch {
 	uint32_t ibcount;
 	struct kgsl_ibdesc *ibdesc;
 	unsigned long expires;
-	int invalid;
 	struct kref refcount;
 	struct list_head synclist;
+	struct timer_list timer;
 };
 
 /**
@@ -725,27 +724,6 @@ static inline void kgsl_cmdbatch_put(struct kgsl_cmdbatch *cmdbatch)
 {
 	if (cmdbatch)
 		kref_put(&cmdbatch->refcount, kgsl_cmdbatch_destroy_object);
-}
-
-/**
- * kgsl_cmdbatch_sync_pending() - return true if the cmdbatch is waiting
- * @cmdbatch: Pointer to the command batch object to check
- *
- * Return non-zero if the specified command batch is still waiting for sync
- * point dependencies to be satisfied
- */
-static inline int kgsl_cmdbatch_sync_pending(struct kgsl_cmdbatch *cmdbatch)
-{
-	int ret;
-
-	if (cmdbatch == NULL)
-		return 0;
-
-	spin_lock(&cmdbatch->lock);
-	ret = list_empty(&cmdbatch->synclist) ? 0 : 1;
-	spin_unlock(&cmdbatch->lock);
-
-	return ret;
 }
 
 /**

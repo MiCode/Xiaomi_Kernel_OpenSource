@@ -1484,6 +1484,46 @@ struct kgsl_cmdbatch_sync_event {
 	struct kref refcount;
 };
 
+static void _kgsl_cmdbatch_timer(unsigned long data)
+{
+	struct kgsl_cmdbatch *cmdbatch = (struct kgsl_cmdbatch *) data;
+	struct kgsl_cmdbatch_sync_event *event;
+
+	if (cmdbatch == NULL || cmdbatch->context == NULL)
+		return;
+
+	pr_err("kgsl: possible gpu syncpoint deadlock for context %d timestamp %d\n",
+		cmdbatch->context->id, cmdbatch->timestamp);
+	pr_err(" Active sync points:\n");
+
+	spin_lock(&cmdbatch->lock);
+
+	/* Print all the pending sync objects */
+	list_for_each_entry(event, &cmdbatch->synclist, node) {
+
+		switch (event->type) {
+		case KGSL_CMD_SYNCPOINT_TYPE_TIMESTAMP: {
+			unsigned int retired;
+
+			 retired = kgsl_readtimestamp(event->device,
+				event->context, KGSL_TIMESTAMP_RETIRED);
+
+			pr_err("  [timestamp] context %d timestamp %d (retired %d)\n",
+				event->context->id, event->timestamp,
+				retired);
+			break;
+		}
+		case KGSL_CMD_SYNCPOINT_TYPE_FENCE:
+			pr_err("  fence: [%p] %s\n", event->handle,
+				(event->handle && event->handle->fence)
+					? event->handle->fence->name : "NULL");
+			break;
+		}
+	}
+
+	spin_unlock(&cmdbatch->lock);
+}
+
 /**
  * kgsl_cmdbatch_sync_event_destroy() - Destroy a sync event object
  * @kref: Pointer to the kref structure for this object
@@ -1556,6 +1596,14 @@ static void kgsl_cmdbatch_sync_expire(struct kgsl_device *device,
 	}
 
 	sched = list_empty(&event->cmdbatch->synclist) ? 1 : 0;
+
+	/*
+	 * If the list is empty delete the canary timer while
+	 * still holding the lock
+	 */
+	if (sched)
+		del_timer_sync(&event->cmdbatch->timer);
+
 	spin_unlock(&event->cmdbatch->lock);
 
 	/*
@@ -1600,10 +1648,12 @@ void kgsl_cmdbatch_destroy(struct kgsl_cmdbatch *cmdbatch)
 	struct kgsl_cmdbatch_sync_event *event, *tmp;
 	LIST_HEAD(cancel_synclist);
 
-	/*
-	 * Empty the synclist before canceling events
-	 */
 	spin_lock(&cmdbatch->lock);
+
+	/* Zap the canary timer */
+	del_timer_sync(&cmdbatch->timer);
+
+	/* Empty the synclist before canceling events */
 	list_splice_init(&cmdbatch->synclist, &cancel_synclist);
 	spin_unlock(&cmdbatch->lock);
 
@@ -1782,6 +1832,7 @@ static int kgsl_cmdbatch_add_sync_timestamp(struct kgsl_device *device,
 	event->cmdbatch = cmdbatch;
 	event->context = context;
 	event->timestamp = sync->timestamp;
+	event->device = device;
 
 	/*
 	 * Two krefs are required to support events. The first kref is for
@@ -1916,6 +1967,10 @@ static struct kgsl_cmdbatch *kgsl_cmdbatch_create(struct kgsl_device *device,
 	cmdbatch->ibcount = (flags & KGSL_CONTEXT_SYNC) ? 0 : numibs;
 	cmdbatch->context = context;
 	cmdbatch->flags = flags & ~KGSL_CONTEXT_SUBMIT_IB_LIST;
+
+	/* Add a timer to help debug sync deadlocks */
+	setup_timer(&cmdbatch->timer, _kgsl_cmdbatch_timer,
+		(unsigned long) cmdbatch);
 
 	return cmdbatch;
 }

@@ -155,6 +155,7 @@ static inline struct kgsl_cmdbatch *adreno_dispatcher_get_cmdbatch(
 		struct adreno_context *drawctxt)
 {
 	struct kgsl_cmdbatch *cmdbatch = NULL;
+	int pending;
 
 	mutex_lock(&drawctxt->mutex);
 	if (drawctxt->cmdqueue_head != drawctxt->cmdqueue_tail) {
@@ -164,7 +165,31 @@ static inline struct kgsl_cmdbatch *adreno_dispatcher_get_cmdbatch(
 		 * Don't dequeue a cmdbatch that is still waiting for other
 		 * events
 		 */
-		if (kgsl_cmdbatch_sync_pending(cmdbatch)) {
+
+		spin_lock(&cmdbatch->lock);
+		pending = list_empty(&cmdbatch->synclist) ? 0 : 1;
+
+		/*
+		 * If changes are pending and the canary timer hasn't been
+		 * started yet, start it
+		 */
+		if (pending) {
+			/*
+			 * If syncpoints are pending start the canary timer if
+			 * it hasn't already been started
+			 */
+			if (!timer_pending(&cmdbatch->timer))
+				mod_timer(&cmdbatch->timer, jiffies + (5 * HZ));
+		} else {
+			/*
+			 * Otherwise, delete the timer to make sure it is good
+			 * and dead before queuing the buffer
+			 */
+			del_timer_sync(&cmdbatch->timer);
+		}
+		spin_unlock(&cmdbatch->lock);
+
+		if (pending) {
 			cmdbatch = ERR_PTR(-EAGAIN);
 			goto done;
 		}
