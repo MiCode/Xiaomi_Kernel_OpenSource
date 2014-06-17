@@ -1413,6 +1413,9 @@ static int allocate_ring_buffer(struct intel_engine_cs *ring)
 	if (obj == NULL)
 		return -ENOMEM;
 
+	/* mark ring buffers as read-only from GPU side by default */
+	obj->gt_ro = 1;
+
 	ret = i915_gem_obj_ggtt_pin(obj, PAGE_SIZE, PIN_MAPPABLE);
 	if (ret)
 		goto err_unref;
