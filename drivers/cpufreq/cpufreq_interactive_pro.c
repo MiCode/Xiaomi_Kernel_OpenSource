@@ -33,7 +33,6 @@
 #include <linux/kernel_stat.h>
 #include <asm/cputime.h>
 
-#define CREATE_TRACE_POINTS
 #include <trace/events/cpufreq_interactive.h>
 
 struct cpufreq_interactive_cpuinfo {
@@ -117,7 +116,7 @@ struct cpufreq_interactive_tunables {
 };
 
 /* For cases where we have single governor instance for system */
-struct cpufreq_interactive_tunables *common_tunables;
+static struct cpufreq_interactive_tunables *common_tunables;
 
 static struct attribute_group *get_sysfs_attr(void);
 
@@ -1067,7 +1066,7 @@ static struct attribute *interactive_attributes_gov_sys[] = {
 
 static struct attribute_group interactive_attr_group_gov_sys = {
 	.attrs = interactive_attributes_gov_sys,
-	.name = "interactive",
+	.name = "interactive_pro",
 };
 
 /* Per policy governor instance */
@@ -1088,7 +1087,7 @@ static struct attribute *interactive_attributes_gov_pol[] = {
 
 static struct attribute_group interactive_attr_group_gov_pol = {
 	.attrs = interactive_attributes_gov_pol,
-	.name = "interactive",
+	.name = "interactive_pro",
 };
 
 static struct attribute_group *get_sysfs_attr(void)
@@ -1300,7 +1299,7 @@ static int cpufreq_governor_interactive(struct cpufreq_policy *policy,
 static
 #endif
 struct cpufreq_governor cpufreq_gov_interactive = {
-	.name = "interactive",
+	.name = "interactive_pro",
 	.governor = cpufreq_governor_interactive,
 	.max_transition_latency = 10000000,
 	.owner = THIS_MODULE,
