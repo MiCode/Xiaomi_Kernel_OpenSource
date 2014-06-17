@@ -85,7 +85,8 @@ void ubifs_ro_mode(struct ubifs_info *c, int err)
 		c->ro_error = 1;
 		c->no_chk_data_crc = 0;
 		c->vfs_sb->s_flags |= MS_RDONLY;
-		ubifs_warn("switched to read-only mode, error %d", err);
+		ubifs_warn("switched to read-only mode, error %d",
+				c->vi.ubi_num, err);
 		dump_stack();
 	}
 }
@@ -108,7 +109,7 @@ int ubifs_leb_read(const struct ubifs_info *c, int lnum, void *buf, int offs,
 	 */
 	if (err && (err != -EBADMSG || even_ebadmsg)) {
 		ubifs_err("reading %d bytes from LEB %d:%d failed, error %d",
-			  len, lnum, offs, err);
+			  c->vi.ubi_num, len, lnum, offs, err);
 		dump_stack();
 	}
 	return err;
@@ -128,7 +129,7 @@ int ubifs_leb_write(struct ubifs_info *c, int lnum, const void *buf, int offs,
 		err = dbg_leb_write(c, lnum, buf, offs, len);
 	if (err) {
 		ubifs_err("writing %d bytes to LEB %d:%d failed, error %d",
-			  len, lnum, offs, err);
+			  c->vi.ubi_num, len, lnum, offs, err);
 		ubifs_ro_mode(c, err);
 		dump_stack();
 	}
@@ -148,7 +149,7 @@ int ubifs_leb_change(struct ubifs_info *c, int lnum, const void *buf, int len)
 		err = dbg_leb_change(c, lnum, buf, len);
 	if (err) {
 		ubifs_err("changing %d bytes in LEB %d failed, error %d",
-			  len, lnum, err);
+			  c->vi.ubi_num, len, lnum, err);
 		ubifs_ro_mode(c, err);
 		dump_stack();
 	}
@@ -167,7 +168,8 @@ int ubifs_leb_unmap(struct ubifs_info *c, int lnum)
 	else
 		err = dbg_leb_unmap(c, lnum);
 	if (err) {
-		ubifs_err("unmap LEB %d failed, error %d", lnum, err);
+		ubifs_err("unmap LEB %d failed, error %d",
+				c->vi.ubi_num, lnum, err);
 		ubifs_ro_mode(c, err);
 		dump_stack();
 	}
@@ -186,7 +188,8 @@ int ubifs_leb_map(struct ubifs_info *c, int lnum)
 	else
 		err = dbg_leb_map(c, lnum);
 	if (err) {
-		ubifs_err("mapping LEB %d failed, error %d", lnum, err);
+		ubifs_err("mapping LEB %d failed, error %d",
+				c->vi.ubi_num, lnum, err);
 		ubifs_ro_mode(c, err);
 		dump_stack();
 	}
@@ -200,7 +203,7 @@ int ubifs_is_mapped(const struct ubifs_info *c, int lnum)
 	err = ubi_is_mapped(c->ubi, lnum);
 	if (err < 0) {
 		ubifs_err("ubi_is_mapped failed for LEB %d, error %d",
-			  lnum, err);
+			  c->vi.ubi_num, lnum, err);
 		dump_stack();
 	}
 	return err;
@@ -248,7 +251,7 @@ int ubifs_check_node(const struct ubifs_info *c, const void *buf, int lnum,
 	if (magic != UBIFS_NODE_MAGIC) {
 		if (!quiet)
 			ubifs_err("bad magic %#08x, expected %#08x",
-				  magic, UBIFS_NODE_MAGIC);
+				  c->vi.ubi_num, magic, UBIFS_NODE_MAGIC);
 		err = -EUCLEAN;
 		goto out;
 	}
@@ -256,7 +259,7 @@ int ubifs_check_node(const struct ubifs_info *c, const void *buf, int lnum,
 	type = ch->node_type;
 	if (type < 0 || type >= UBIFS_NODE_TYPES_CNT) {
 		if (!quiet)
-			ubifs_err("bad node type %d", type);
+			ubifs_err("bad node type %d", c->vi.ubi_num, type);
 		goto out;
 	}
 
@@ -280,7 +283,7 @@ int ubifs_check_node(const struct ubifs_info *c, const void *buf, int lnum,
 	if (crc != node_crc) {
 		if (!quiet)
 			ubifs_err("bad CRC: calculated %#08x, read %#08x",
-				  crc, node_crc);
+				  c->vi.ubi_num, crc, node_crc);
 		err = -EUCLEAN;
 		goto out;
 	}
@@ -289,10 +292,10 @@ int ubifs_check_node(const struct ubifs_info *c, const void *buf, int lnum,
 
 out_len:
 	if (!quiet)
-		ubifs_err("bad node length %d", node_len);
+		ubifs_err("bad node length %d", c->vi.ubi_num, node_len);
 out:
 	if (!quiet) {
-		ubifs_err("bad node at LEB %d:%d", lnum, offs);
+		ubifs_err("bad node at LEB %d:%d", c->vi.ubi_num, lnum, offs);
 		ubifs_dump_node(c, buf);
 		dump_stack();
 	}
@@ -356,10 +359,11 @@ static unsigned long long next_sqnum(struct ubifs_info *c)
 	if (unlikely(sqnum >= SQNUM_WARN_WATERMARK)) {
 		if (sqnum >= SQNUM_WATERMARK) {
 			ubifs_err("sequence number overflow %llu, end of life",
-				  sqnum);
+				  c->vi.ubi_num, sqnum);
 			ubifs_ro_mode(c, -EINVAL);
 		}
-		ubifs_warn("running out of sequence numbers, end of life soon");
+		ubifs_warn("running out of sequence numbers, end of life soon",
+			   c->vi.ubi_num);
 	}
 
 	return sqnum;
@@ -636,7 +640,8 @@ int ubifs_bg_wbufs_sync(struct ubifs_info *c)
 		err = ubifs_wbuf_sync_nolock(wbuf);
 		mutex_unlock(&wbuf->io_mutex);
 		if (err) {
-			ubifs_err("cannot sync write-buffer, error %d", err);
+			ubifs_err("cannot sync write-buffer, error %d",
+					c->vi.ubi_num, err);
 			ubifs_ro_mode(c, err);
 			goto out_timers;
 		}
@@ -834,7 +839,7 @@ exit:
 
 out:
 	ubifs_err("cannot write %d bytes to LEB %d:%d, error %d",
-		  len, wbuf->lnum, wbuf->offs, err);
+		  c->vi.ubi_num, len, wbuf->lnum, wbuf->offs, err);
 	ubifs_dump_node(c, buf);
 	dump_stack();
 	ubifs_dump_leb(c, wbuf->lnum);
@@ -933,26 +938,27 @@ int ubifs_read_node_wbuf(struct ubifs_wbuf *wbuf, void *buf, int type, int len,
 
 	if (type != ch->node_type) {
 		ubifs_err("bad node type (%d but expected %d)",
-			  ch->node_type, type);
+			  c->vi.ubi_num, ch->node_type, type);
 		goto out;
 	}
 
 	err = ubifs_check_node(c, buf, lnum, offs, 0, 0);
 	if (err) {
-		ubifs_err("expected node type %d", type);
+		ubifs_err("expected node type %d", c->vi.ubi_num, type);
 		return err;
 	}
 
 	rlen = le32_to_cpu(ch->len);
 	if (rlen != len) {
-		ubifs_err("bad node length %d, expected %d", rlen, len);
+		ubifs_err("bad node length %d, expected %d", c->vi.ubi_num,
+				rlen, len);
 		goto out;
 	}
 
 	return 0;
 
 out:
-	ubifs_err("bad node at LEB %d:%d", lnum, offs);
+	ubifs_err("bad node at LEB %d:%d", c->vi.ubi_num, lnum, offs);
 	ubifs_dump_node(c, buf);
 	dump_stack();
 	return -EINVAL;
@@ -988,27 +994,29 @@ int ubifs_read_node(const struct ubifs_info *c, void *buf, int type, int len,
 		return err;
 
 	if (type != ch->node_type) {
-		ubifs_err("bad node type (%d but expected %d)",
+		ubifs_err("bad node type (%d but expected %d)", c->vi.ubi_num,
 			  ch->node_type, type);
 		goto out;
 	}
 
 	err = ubifs_check_node(c, buf, lnum, offs, 0, 0);
 	if (err) {
-		ubifs_err("expected node type %d", type);
+		ubifs_err("expected node type %d", c->vi.ubi_num, type);
 		return err;
 	}
 
 	l = le32_to_cpu(ch->len);
 	if (l != len) {
-		ubifs_err("bad node length %d, expected %d", l, len);
+		ubifs_err("bad node length %d, expected %d",
+				c->vi.ubi_num, l, len);
 		goto out;
 	}
 
 	return 0;
 
 out:
-	ubifs_err("bad node at LEB %d:%d, LEB mapping status %d", lnum, offs,
+	ubifs_err("bad node at LEB %d:%d, LEB mapping status %d",
+			c->vi.ubi_num, lnum, offs,
 		  ubi_is_mapped(c->ubi, lnum));
 	ubifs_dump_node(c, buf);
 	dump_stack();

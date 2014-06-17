@@ -510,7 +510,7 @@ again:
 			c->bi.nospace_rp = 1;
 		smp_wmb();
 	} else
-		ubifs_err("cannot budget space, error %d", err);
+		ubifs_err("cannot budget space, error %d", c->vi.ubi_num, err);
 	return err;
 }
 
