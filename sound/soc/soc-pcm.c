@@ -1703,23 +1703,20 @@ int soc_dpcm_fe_dai_prepare(struct snd_pcm_substream *substream)
 	}
 
 	ret = dpcm_be_dai_prepare(fe, substream->stream);
-	if (ret < 0)
+	if (ret < 0) {
+		dev_err(fe->dev, "ASoC: prepare FE %s failed\n",
+						fe->dai_link->name);
 		goto out;
+	}
 
 	/* call prepare on the frontend */
 	if (!fe->fe_compr) {
 		ret = soc_pcm_prepare(substream);
 		if (ret < 0) {
-			dev_err(fe->dev,"ASoC: prepare FE %s failed\n",
+			dev_err(fe->dev, "ASoC: prepare FE %s failed\n",
 							fe->dai_link->name);
 			goto out;
 		}
-	}
-
-	ret = soc_pcm_prepare(substream);
-	if (ret < 0) {
-		dev_err(fe->dev,"dpcm: prepare FE %s failed\n", fe->dai_link->name);
-		goto out;
 	}
 
 	/* run the stream event for each BE */
