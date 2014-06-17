@@ -158,13 +158,14 @@
 #define IRQ_I_REG			0x58
 
 /* FG registers - IRQ config register */
-#define SOC_DELTA_REG			0x20
-#define VTG_MIN_REG			0x23
 #define SOC_MAX_REG			0x24
 #define SOC_MIN_REG			0x25
 #define VTG_EMPTY_REG			0x26
+#define SOC_DELTA_REG			0x28
+#define VTG_MIN_REG			0x2B
 
 /* FG SHADOW registers */
+#define SHDW_FG_ESR_ACTUAL		0x20
 #define SHDW_FG_MSYS_SOC		0x61
 #define SHDW_FG_CAPACITY		0x62
 #define SHDW_FG_VTG_NOW			0x69
@@ -539,6 +540,7 @@ static enum power_supply_property smb1360_battery_properties[] = {
 	POWER_SUPPLY_PROP_CHARGE_FULL_DESIGN,
 	POWER_SUPPLY_PROP_VOLTAGE_NOW,
 	POWER_SUPPLY_PROP_CURRENT_NOW,
+	POWER_SUPPLY_PROP_RESISTANCE,
 	POWER_SUPPLY_PROP_TEMP,
 	POWER_SUPPLY_PROP_SYSTEM_TEMP_LEVEL,
 };
@@ -719,6 +721,22 @@ static int smb1360_get_prop_voltage_now(struct smb1360_chip *chip)
 				reg[0], reg[1], temp * 1000);
 
 	return temp * 1000;
+}
+
+static int smb1360_get_prop_batt_resistance(struct smb1360_chip *chip)
+{
+	u8 reg = 0;
+	int rc;
+
+	rc = smb1360_read(chip, SHDW_FG_ESR_ACTUAL, &reg);
+	if (rc) {
+		pr_err("Failed to read FG_ESR_ACTUAL rc=%d\n", rc);
+		return rc;
+	}
+
+	pr_debug("reg=0x%02x resistance=%d\n", reg, reg * 2);
+
+	return reg * 2;
 }
 
 static int smb1360_get_prop_current_now(struct smb1360_chip *chip)
@@ -985,6 +1003,9 @@ static int smb1360_battery_get_property(struct power_supply *psy,
 		break;
 	case POWER_SUPPLY_PROP_CURRENT_NOW:
 		val->intval = smb1360_get_prop_current_now(chip);
+		break;
+	case POWER_SUPPLY_PROP_RESISTANCE:
+		val->intval = smb1360_get_prop_batt_resistance(chip);
 		break;
 	case POWER_SUPPLY_PROP_TEMP:
 		val->intval = smb1360_get_prop_batt_temp(chip);
@@ -1617,6 +1638,39 @@ static int irq_stat_debugfs_open(struct inode *inode, struct file *file)
 static const struct file_operations irq_stat_debugfs_ops = {
 	.owner		= THIS_MODULE,
 	.open		= irq_stat_debugfs_open,
+	.read		= seq_read,
+	.llseek		= seq_lseek,
+	.release	= single_release,
+};
+
+#define FIRST_FG_CFG_REG	0x24
+#define LAST_FG_CFG_REG		0x2F
+static int show_fg_cfg_regs(struct seq_file *m, void *data)
+{
+	struct smb1360_chip *chip = m->private;
+	int rc;
+	u8 reg;
+	u8 addr;
+
+	for (addr = FIRST_FG_CFG_REG; addr <= LAST_FG_CFG_REG; addr++) {
+		rc = smb1360_read(chip, addr, &reg);
+		if (!rc)
+			seq_printf(m, "0x%02x = 0x%02x\n", addr, reg);
+	}
+
+	return 0;
+}
+
+static int fg_cfg_debugfs_open(struct inode *inode, struct file *file)
+{
+	struct smb1360_chip *chip = inode->i_private;
+
+	return single_open(file, show_fg_cfg_regs, chip);
+}
+
+static const struct file_operations fg_cfg_debugfs_ops = {
+	.owner		= THIS_MODULE,
+	.open		= fg_cfg_debugfs_open,
 	.read		= seq_read,
 	.llseek		= seq_lseek,
 	.release	= single_release,
@@ -2350,6 +2404,14 @@ static int smb1360_probe(struct i2c_client *client,
 		if (!ent)
 			dev_err(chip->dev,
 				"Couldn't create cmd debug file rc = %d\n",
+				rc);
+
+		ent = debugfs_create_file("fg_config_registers",
+				S_IFREG | S_IRUGO, chip->debug_root, chip,
+						  &fg_cfg_debugfs_ops);
+		if (!ent)
+			dev_err(chip->dev,
+				"Couldn't create fg_config debug file rc = %d\n",
 				rc);
 
 		ent = debugfs_create_x32("address", S_IFREG | S_IWUSR | S_IRUGO,
