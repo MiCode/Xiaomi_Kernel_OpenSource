@@ -21,6 +21,7 @@
 #include <linux/rmnet_data.h>
 #include <linux/spinlock.h>
 #include <linux/workqueue.h>
+#include <linux/net_map.h>
 #include "rmnet_data_config.h"
 #include "rmnet_map.h"
 #include "rmnet_data_private.h"
