@@ -457,8 +457,10 @@ int usb_func_ep_queue(struct usb_function *func, struct usb_ep *ep,
 	if ((gadget->speed == USB_SPEED_SUPER) && func->func_is_suspended) {
 		ret = usb_func_wakeup(func);
 		if (ret) {
-			pr_err("Failed to send function wake up notification. func name:%s, ep:%u\n",
-				func->name ? func->name : "", ep->address);
+			if (ret != -EAGAIN)
+				pr_err("Failed to send function wake up notification. func name:%s, ep:%u\n",
+					func->name ? func->name : "",
+					ep->address);
 			return ret;
 		}
 	}
