@@ -185,12 +185,19 @@ static int msm8x16_wcd_dt_parse_vreg_info(struct device *dev,
 	const char *vreg_name, bool ondemand);
 static struct msm8x16_wcd_pdata *msm8x16_wcd_populate_dt_pdata(
 	struct device *dev);
+static int msm8x16_wcd_enable_ext_mb_source(struct snd_soc_codec *codec,
+					    bool turn_on);
 
 struct msm8x16_wcd_spmi msm8x16_wcd_modules[MAX_MSM8X16_WCD_DEVICE];
 
 static void *modem_state_notifier;
 
 static struct snd_soc_codec *registered_codec;
+
+static const struct wcd_mbhc_cb mbhc_cb = {
+	.enable_mb_source = msm8x16_wcd_enable_ext_mb_source,
+};
+
 
 static int get_spmi_msm8x16_wcd_device_info(u16 *reg,
 			struct msm8x16_wcd_spmi **msm8x16_wcd)
@@ -1757,6 +1764,30 @@ static int msm8x16_wcd_codec_enable_dmic(struct snd_soc_dapm_widget *w,
 	return 0;
 }
 
+static int msm8x16_wcd_enable_ext_mb_source(struct snd_soc_codec *codec,
+					    bool turn_on)
+{
+	int ret = 0;
+
+	if (turn_on)
+		ret = snd_soc_dapm_force_enable_pin(&codec->dapm,
+				"MICBIAS_REGULATOR");
+	else
+		ret = snd_soc_dapm_disable_pin(&codec->dapm,
+				"MICBIAS_REGULATOR");
+
+	snd_soc_dapm_sync(&codec->dapm);
+
+	if (ret)
+		dev_err(codec->dev, "%s: Failed to %s external micbias source\n",
+			__func__, turn_on ? "enable" : "disabled");
+	else
+		dev_dbg(codec->dev, "%s: %s external micbias source\n",
+			 __func__, turn_on ? "Enabled" : "Disabled");
+
+	return ret;
+}
+
 static int msm8x16_wcd_codec_enable_micbias(struct snd_soc_dapm_widget *w,
 	struct snd_kcontrol *kcontrol, int event)
 {
@@ -3170,7 +3201,8 @@ static int msm8x16_wcd_codec_probe(struct snd_soc_codec *codec)
 				on_demand_supply_name[ON_DEMAND_MICBIAS]);
 	atomic_set(&msm8x16_wcd_priv->on_demand_list[ON_DEMAND_MICBIAS].ref, 0);
 
-	wcd_mbhc_init(&msm8x16_wcd_priv->mbhc, codec, &intr_ids, false);
+	wcd_mbhc_init(&msm8x16_wcd_priv->mbhc, codec, &mbhc_cb, &intr_ids,
+			false);
 
 	msm8x16_wcd_priv->mclk_enabled = false;
 	msm8x16_wcd_priv->clock_active = false;
