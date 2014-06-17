@@ -110,8 +110,9 @@
 		label = "MDSS DSI CTRL->0";
 		cell-index = <0>;
 		reg = <0x1a98000 0x25c>,
-		      <0x1a98500 0x2b0>;
-		reg-names = "dsi_ctrl", "dsi_phy";
+		      <0x1a98500 0x2b0>,
+		      <0x193e000 0x30>;
+		reg-names = "dsi_ctrl", "dsi_phy", "mmss_misc_phys";
 		qcom,mdss-fb-map = <&mdss_fb0>;
 		qcom,mdss-mdp = <&mdss_mdp>;
 		gdsc-supply = <&gdsc_mdss>;
@@ -135,6 +136,9 @@
 			00 00 00 00 0a 00 00 01 97
 			00 00 00 00 0f 00 00 01 97
 			00 c0 00 00 00 00 00 01 bb];
+
+		qcom,mmss-ulp-clamp-ctrl-offset = <0x20>;
+		qcom,mmss-phyreset-ctrl-offset = <0x24>;
 
 		qcom,core-supply-entries {
                         #address-cells = <1>;
