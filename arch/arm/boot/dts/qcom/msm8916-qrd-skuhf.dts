@@ -33,3 +33,14 @@
 		};
 	};
 };
+
+#include "dsi-panel-otm1283a-720p-video.dtsi"
+
+&dsi_otm1283a_720p_video {
+	qcom,mdss-dsi-pwm-gpio = <&pm8916_mpps 4 0>;
+	qcom,cont-splash-enabled;
+};
+
+&mdss_dsi0 {
+	qcom,dsi-pref-prim-pan = <&dsi_otm1283a_720p_video>;
+};
