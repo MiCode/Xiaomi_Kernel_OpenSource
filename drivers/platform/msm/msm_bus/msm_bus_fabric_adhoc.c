@@ -831,6 +831,7 @@ static int msm_bus_copy_node_info(struct msm_bus_node_device_type *pdata,
 	node_info->qos_params.gp = pdata_node_info->qos_params.gp;
 	node_info->qos_params.thmp = pdata_node_info->qos_params.thmp;
 	node_info->qos_params.ws = pdata_node_info->qos_params.ws;
+	node_info->qos_params.bw_buffer = pdata_node_info->qos_params.bw_buffer;
 
 	node_info->dev_connections = devm_kzalloc(bus_dev,
 			sizeof(struct device *) *

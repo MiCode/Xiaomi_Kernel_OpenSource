@@ -1252,8 +1252,7 @@ static void set_qos_bw_regs(void __iomem *baddr, uint32_t mas_index,
 	int16_t val2;
 
 	/* Disable BKE before writing to registers as per spec */
-	bke_reg_val = readl_relaxed(M_BKE_EN_ADDR(baddr, mas_index)) &
-		M_BKE_EN_RMSK;
+	bke_reg_val = readl_relaxed(M_BKE_EN_ADDR(baddr, mas_index));
 	writel_relaxed((bke_reg_val & ~(M_BKE_EN_EN_BMSK)),
 		M_BKE_EN_ADDR(baddr, mas_index));
 
@@ -1502,7 +1501,7 @@ static void bimc_set_static_qos_bw(void __iomem *base, unsigned int qos_freq,
 		return;
 	}
 
-	if (!(qbw->bw && qbw->ws)) {
+	if (!(qbw->bw && qbw->gp)) {
 		MSM_BUS_DBG("No QoS Bandwidth or Window size\n");
 		return;
 	}
@@ -1980,24 +1979,19 @@ static int msm_bus_bimc_qos_init(struct msm_bus_node_device_type *info,
 
 	for (i = 0; i < info->node_info->num_qports; i++) {
 		/* If not in bypass mode, update priority */
-		if (info->node_info->qos_params.mode != BIMC_QOS_MODE_BYPASS) {
+		if (info->node_info->qos_params.mode != BIMC_QOS_MODE_BYPASS)
 			msm_bus_bimc_set_qos_prio(qos_base, info->node_info->
 				qport[i], info->node_info->qos_params.mode,
 									&qmode);
 
-			/* If not in fixed mode, update bandwidth */
-			if (info->node_info->qos_params.mode
-						!= BIMC_QOS_MODE_FIXED) {
-				struct msm_bus_bimc_qos_bw qbw;
-				qbw.ws = info->node_info->qos_params.ws;
-				msm_bus_bimc_set_qos_bw(qos_base, qos_freq,
-					info->node_info->qport[i], &qbw);
-			}
-		}
-
 		/* set mode */
-	       msm_bus_bimc_set_qos_mode(qos_base, info->node_info->qport[i],
-			info->node_info->qos_params.mode);
+		if (info->node_info->qos_params.mode == BIMC_QOS_MODE_LIMITER)
+			bke_switch(qos_base, info->node_info->qport[i],
+				BKE_OFF, BIMC_QOS_MODE_FIXED);
+		else
+		       msm_bus_bimc_set_qos_mode(qos_base,
+				info->node_info->qport[i],
+				info->node_info->qos_params.mode);
 	}
 
 	return 0;
@@ -2028,16 +2022,28 @@ static int msm_bus_bimc_set_bw(struct msm_bus_node_device_type *dev,
 				break;
 			}
 
-			qbw.bw = bw;
-			qbw.ws = info->qos_params.ws;
-			/* Threshold low = 90% of bw */
-			qbw.thl = div_s64((90 * bw), 100);
-			/* Threshold medium = bw */
-			qbw.thm = bw;
-			/* Threshold high = 10% more than bw */
-			qbw.thh = div_s64((110 * bw), 100);
-			msm_bus_bimc_set_qos_bw(qos_base, qos_freq,
+			qbw.bw = bw + info->qos_params.bw_buffer;
+			trace_bus_bimc_config_limiter(info->id, bw);
+
+			/* Default to gp of 5us */
+			qbw.gp = (info->qos_params.gp ?
+					info->qos_params.gp : 5000);
+			/* Default to thmp of 50% */
+			qbw.thmp = (info->qos_params.thmp ?
+					info->qos_params.thmp : 50);
+			/*
+			 * If the BW vote is 0 then set the QoS mode to
+			 * Fixed.
+			 */
+			if (bw) {
+				bimc_set_static_qos_bw(qos_base, qos_freq,
 					info->qport[i], &qbw);
+				bke_switch(qos_base, info->qport[i],
+					BKE_ON, info->qos_params.mode);
+			} else {
+				bke_switch(qos_base, info->qport[i],
+					BKE_OFF, BIMC_QOS_MODE_FIXED);
+			}
 		}
 	}
 	return ret;

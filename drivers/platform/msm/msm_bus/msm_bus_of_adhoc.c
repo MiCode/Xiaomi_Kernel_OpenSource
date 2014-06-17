@@ -179,6 +179,7 @@ static void get_qos_params(
 {
 	const char *qos_mode = NULL;
 	unsigned int ret;
+	unsigned int temp;
 
 	ret = of_property_read_string(dev_node, "qcom,qos-mode", &qos_mode);
 
@@ -211,6 +212,14 @@ static void get_qos_params(
 
 	of_property_read_u32(dev_node, "qcom,ws",
 						&node_info->qos_params.ws);
+
+	ret = of_property_read_u32(dev_node, "qcom,bw_buffer", &temp);
+
+	if (ret)
+		node_info->qos_params.bw_buffer = 0;
+	else
+		node_info->qos_params.bw_buffer = KBTOB(temp);
+
 }
 
 
