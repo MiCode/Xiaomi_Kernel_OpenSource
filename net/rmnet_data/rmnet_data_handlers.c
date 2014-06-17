@@ -18,6 +18,7 @@
 #include <linux/netdevice.h>
 #include <linux/module.h>
 #include <linux/rmnet_data.h>
+#include <linux/net_map.h>
 #include "rmnet_data_private.h"
 #include "rmnet_data_config.h"
 #include "rmnet_data_vnd.h"

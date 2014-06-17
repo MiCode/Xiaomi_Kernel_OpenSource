@@ -288,6 +288,7 @@ header-y += neighbour.h
 header-y += netconf.h
 header-y += netdevice.h
 header-y += net_dropmon.h
+header-y += net_map.h
 header-y += netfilter_arp.h
 header-y += netfilter_bridge.h
 header-y += netfilter_decnet.h
