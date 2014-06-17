@@ -261,6 +261,11 @@
 						1 &intc 0 238 0
 						2 &msmgpio 44 0>;
 
+		qcom,tx-gpio = <&msmgpio 43 0x00>;
+		qcom,rx-gpio = <&msmgpio 44 0x00>;
+		qcom,cts-gpio = <&msmgpio 45 0x00>;
+		qcom,rfr-gpio = <&msmgpio 46 0x00>;
+
 		qcom,bam-tx-ep-pipe-index = <10>;
 		qcom,bam-rx-ep-pipe-index = <11>;
 		qcom,msm-bus,name = "uart6";
@@ -269,6 +274,7 @@
 		qcom,msm-bus,vectors-KBps =
 				<86 512 0 0>,
 				<86 512 500 800>;
+		status = "disabled";
 	};
 
 	blsp2_uart4: uart@f9961000 { /* BLSP2 UART4 */
