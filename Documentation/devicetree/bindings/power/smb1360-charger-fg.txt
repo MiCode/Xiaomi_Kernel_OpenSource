@@ -58,6 +58,18 @@ Optional Properties:
 - qcom,stat-pulsed-irq:		A boolean flag to indicate the state-irq pin will generate pulse
 				signal when interrupt happened. If this property is not specified,
 				the default configuration is static level irq.
+- qcom,fg-disabled-in-sleep:	A bool property to config the fuel gauge in smb1360 to
+				shutdown when APPS going to suspend.
+- qcom,fg-disabled-after-pwroff: A bool property to config the fuel gauge in smb1360 to
+				shutdown when device powered off.
+- qcom,low-vbat-adc_tm:		Corresponding ADC_TM device's phandle to set recurring
+				measurements and receive notifications for vbatt. This
+				property is required when qcom,fg-disabled-at-sleep is
+				specified.
+- qcom,low-vbat-threshold:	The battery voltage threshold in micro-volts to wake up
+				device and hold a wakelock to ensure graceful shutdown.
+				This property is required when qcom,fg-disabled-at-sleep
+				is specified.
 
 Example:
 	i2c@f9967000 {
