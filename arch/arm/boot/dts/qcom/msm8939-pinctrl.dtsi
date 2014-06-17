@@ -551,6 +551,21 @@
 			};
 		};
 
+		pmx_mdss_te: pmx_mdss_te {
+			label = "mdss-te-pin";
+			qcom,pin-func = <1>;
+			mdss_te_active: active {
+				drive-strength = <2>; /* 2 mA */
+				bias-pull-down; /* pull down */
+				input-debounce = <0>;
+			};
+			mdss_te_suspend: suspend {
+				drive-strength = <2>; /* 2 mA */
+				bias-pull-down; /* pull down */
+				input-debounce = <0>;
+			};
+		};
+
 		/* QDSD pin type */
 		qdsd: qdsd {
 			qcom,pin-type-qdsd;
