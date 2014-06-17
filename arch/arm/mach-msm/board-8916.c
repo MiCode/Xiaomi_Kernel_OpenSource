@@ -81,6 +81,7 @@ static void __init msm8916_init(void)
 
 static const char *msm8916_dt_match[] __initconst = {
 	"qcom,msm8916",
+	"qcom,apq8016",
 	NULL
 };
 
