@@ -78,6 +78,7 @@ struct smbchg_chip {
 	bool				bmd_algo_disabled;
 	bool				soft_vfloat_comp_disabled;
 	bool				chg_enabled;
+	bool				low_icl_wa_on;
 	struct parallel_usb_cfg		parallel;
 
 	/* status variables */
@@ -117,6 +118,7 @@ struct smbchg_chip {
 	int				src_detect_irq;
 	int				aicl_done_irq;
 	int				chg_inhibit_irq;
+	int				chg_error_irq;
 
 	/* psy */
 	struct power_supply		*usb_psy;
@@ -944,6 +946,12 @@ static int smbchg_set_usb_current_max(struct smbchg_chip *chip,
 	} else {
 		rc = smbchg_usb_en(chip, true, REASON_USB);
 	}
+
+	if (chip->low_icl_wa_on) {
+		chip->usb_max_current_ma = current_ma;
+		pr_debug("low_icl_wa on, ignoring the usb current setting\n");
+		goto out;
+	}
 	if (current_ma < CURRENT_150_MA) {
 		/* force 100mA */
 		rc = smbchg_sec_masked_write(chip,
@@ -993,6 +1001,36 @@ out:
 	if (rc < 0)
 		dev_err(chip->dev,
 			"Couldn't set %dmA rc = %d\n", current_ma, rc);
+	return rc;
+}
+
+static int smbchg_low_icl_wa_check(struct smbchg_chip *chip)
+{
+	int rc = 0;
+	bool enable = (get_prop_batt_status(chip)
+		!= POWER_SUPPLY_STATUS_CHARGING);
+
+	mutex_lock(&chip->current_change_lock);
+	pr_debug("low icl %s -> %s\n", chip->low_icl_wa_on ? "on" : "off",
+			enable ? "on" : "off");
+	if (enable == chip->low_icl_wa_on)
+		goto out;
+
+	chip->low_icl_wa_on = enable;
+	if (enable) {
+		rc = smbchg_sec_masked_write(chip,
+					chip->usb_chgpth_base + CHGPTH_CFG,
+					CFG_USB_2_3_SEL_BIT, CFG_USB_2);
+		rc |= smbchg_masked_write(chip, chip->usb_chgpth_base + CMD_IL,
+					USBIN_MODE_CHG_BIT | USB51_MODE_BIT,
+					USBIN_LIMITED_MODE | USB51_100MA);
+		if (rc)
+			pr_err("could not set low current limit: %d\n", rc);
+	} else {
+		rc = smbchg_set_usb_current_max(chip, chip->usb_max_current_ma);
+	}
+out:
+	mutex_unlock(&chip->current_change_lock);
 	return rc;
 }
 
@@ -1449,6 +1487,7 @@ static irqreturn_t batt_hot_handler(int irq, void *_chip)
 	smbchg_read(chip, &reg, chip->bat_if_base + RT_STS, 1);
 	chip->batt_hot = !!(reg & HOT_BAT_HARD_BIT);
 	pr_debug("triggered: 0x%02x\n", reg);
+	smbchg_low_icl_wa_check(chip);
 	if (chip->psy_registered)
 		power_supply_changed(&chip->batt_psy);
 	return IRQ_HANDLED;
@@ -1462,6 +1501,7 @@ static irqreturn_t batt_cold_handler(int irq, void *_chip)
 	smbchg_read(chip, &reg, chip->bat_if_base + RT_STS, 1);
 	chip->batt_cold = !!(reg & COLD_BAT_HARD_BIT);
 	pr_debug("triggered: 0x%02x\n", reg);
+	smbchg_low_icl_wa_check(chip);
 	if (chip->psy_registered)
 		power_supply_changed(&chip->batt_psy);
 	return IRQ_HANDLED;
@@ -1512,11 +1552,24 @@ static irqreturn_t vbat_low_handler(int irq, void *_chip)
 	return IRQ_HANDLED;
 }
 
+static irqreturn_t chg_error_handler(int irq, void *_chip)
+{
+	struct smbchg_chip *chip = _chip;
+
+	pr_debug("chg-error triggered\n");
+	smbchg_low_icl_wa_check(chip);
+	if (chip->psy_registered)
+		power_supply_changed(&chip->batt_psy);
+
+	return IRQ_HANDLED;
+}
+
 static irqreturn_t fastchg_handler(int irq, void *_chip)
 {
 	struct smbchg_chip *chip = _chip;
 
 	pr_debug("p2f triggered\n");
+	smbchg_low_icl_wa_check(chip);
 	if (chip->psy_registered)
 		power_supply_changed(&chip->batt_psy);
 
@@ -1861,10 +1914,28 @@ static int chg_time[] = {
 #define RCHG_LVL_BIT			BIT(0)
 #define CFG_AFVC			0xF5
 #define VFLOAT_COMP_ENABLE_MASK		SMB_MASK(2, 0)
+#define TR_RID_REG			0xFA
+#define FG_INPUT_FET_DELAY_BIT		BIT(3)
+#define TRIM_OPTIONS_7_0		0xF6
+#define INPUT_MISSING_POLLER_EN_BIT	BIT(3)
 static int smbchg_hw_init(struct smbchg_chip *chip)
 {
 	int rc, i;
 	u8 reg;
+
+	rc = smbchg_sec_masked_write(chip, chip->usb_chgpth_base + TR_RID_REG,
+			FG_INPUT_FET_DELAY_BIT, FG_INPUT_FET_DELAY_BIT);
+	if (rc < 0) {
+		pr_err("Couldn't disable fg input fet delay rc=%d\n", rc);
+		return rc;
+	}
+
+	rc = smbchg_sec_masked_write(chip, chip->misc_base + TRIM_OPTIONS_7_0,
+			INPUT_MISSING_POLLER_EN_BIT, 0);
+	if (rc < 0) {
+		pr_err("Couldn't disable input missing poller rc=%d\n", rc);
+		return rc;
+	}
 
 	/*
 	 * force using current from the register i.e. ignore auto
@@ -2008,6 +2079,13 @@ static int smbchg_hw_init(struct smbchg_chip *chip)
 		return rc;
 	}
 
+	smbchg_low_icl_wa_check(chip);
+
+	/*
+	 * The charger needs 20 milliseconds to go into battery supplementary
+	 * mode. Sleep here until we are sure it takes into effect.
+	 */
+	msleep(20);
 	smbchg_usb_en(chip, chip->chg_enabled, REASON_USER);
 	smbchg_dc_en(chip, chip->chg_enabled, REASON_USER);
 	/* resume threshold */
@@ -2310,6 +2388,8 @@ static int smbchg_request_irqs(struct smbchg_chip *chip)
 
 		switch (subtype) {
 		case SMBCHG_CHGR_SUBTYPE:
+			REQUEST_IRQ(chip, spmi_resource, chip->chg_error_irq,
+					"chg-error", chg_error_handler, rc);
 			REQUEST_IRQ(chip, spmi_resource, chip->taper_irq,
 					"chg-taper-thr", taper_handler, rc);
 			REQUEST_IRQ(chip, spmi_resource, chip->chg_term_irq,
@@ -2321,6 +2401,7 @@ static int smbchg_request_irqs(struct smbchg_chip *chip)
 			REQUEST_IRQ(chip, spmi_resource, chip->fastchg_irq,
 					"chg-p2f-thr", fastchg_handler, rc);
 			enable_irq_wake(chip->chg_term_irq);
+			enable_irq_wake(chip->chg_error_irq);
 			enable_irq_wake(chip->fastchg_irq);
 			break;
 		case SMBCHG_BAT_IF_SUBTYPE:
