@@ -1668,22 +1668,13 @@ done:
 static void kgsl_iommu_flush_tlb_pt_current(struct kgsl_pagetable *pt,
 				struct kgsl_memdesc *memdesc)
 {
-	int lock_taken = 0;
-	struct kgsl_device *device = pt->mmu->device;
 	struct kgsl_iommu *iommu = pt->mmu->priv;
 	unsigned int flush_flags = KGSL_MMUFLAGS_TLBFLUSH;
 
 	flush_flags |= ((kgsl_memdesc_is_secured(memdesc) ?
 			KGSL_MMUFLAGS_TLBFLUSH_SECURE : 0));
 
-	/*
-	 * Check to see if the current thread already holds the device mutex.
-	 * If it does not, then take the device mutex which is required for
-	 * flushing the tlb
-	 */
-	if (!kgsl_mutex_lock(&device->mutex, &device->mutex_owner))
-		lock_taken = 1;
-
+	mutex_lock(&pt->mmu->device->mutex);
 	/*
 	 * Flush the tlb only if the iommu device is attached and the pagetable
 	 * hasn't been switched yet
@@ -1693,9 +1684,7 @@ static void kgsl_iommu_flush_tlb_pt_current(struct kgsl_pagetable *pt,
 		kgsl_iommu_pt_equal(pt->mmu, pt,
 		kgsl_iommu_get_current_ptbase(pt->mmu)))
 		kgsl_iommu_default_setstate(pt->mmu, flush_flags);
-
-	if (lock_taken)
-		kgsl_mutex_unlock(&device->mutex, &device->mutex_owner);
+	mutex_unlock(&pt->mmu->device->mutex);
 }
 
 static int
@@ -1727,7 +1716,13 @@ kgsl_iommu_unmap(struct kgsl_pagetable *pt,
 		return ret;
 	}
 
-	kgsl_iommu_flush_tlb_pt_current(pt, memdesc);
+	/*
+	 * We only need to flush the TLB for non-global memory.
+	 * This is because global mappings are only removed at pagetable destroy
+	 * time, and the pagetable is not active in the TLB at this point.
+	 */
+	if (!kgsl_memdesc_is_global(memdesc))
+		kgsl_iommu_flush_tlb_pt_current(pt, memdesc);
 
 	return ret;
 }
@@ -1789,10 +1784,15 @@ kgsl_iommu_map(struct kgsl_pagetable *pt,
 	 *  bus errors, or upstream cores being hung (because of garbage data
 	 *  being read) -> causing TLB sync stuck issues. As a result SW must
 	 *  implement the invalidate+map.
+	 *
+	 * We only need to flush the TLB for non-global memory.
+	 * This is because global mappings are only created at pagetable create
+	 * time, and the pagetable is not active in the TLB at this point.
 	 */
 
-	if (ADRENO_FEATURE(adreno_dev, IOMMU_FLUSH_TLB_ON_MAP))
-		kgsl_iommu_flush_tlb_pt_current(pt, NULL);
+	if (ADRENO_FEATURE(adreno_dev, IOMMU_FLUSH_TLB_ON_MAP)
+		&& !kgsl_memdesc_is_global(memdesc))
+		kgsl_iommu_flush_tlb_pt_current(pt, memdesc);
 
 	return ret;
 }
@@ -1926,6 +1926,9 @@ static int kgsl_iommu_default_setstate(struct kgsl_mmu *mmu,
 	phys_addr_t pt_base = kgsl_iommu_get_pt_base_addr(mmu,
 						mmu->hwpagetable);
 	uint64_t pt_val;
+
+	/* we must hold the mutex here to idle the GPU, and to write regs */
+	BUG_ON(!mutex_is_locked(&mmu->device->mutex));
 
 	kgsl_iommu_enable_clk(mmu, KGSL_IOMMU_MAX_UNITS);
 
