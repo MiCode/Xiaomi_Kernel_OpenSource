@@ -37,8 +37,8 @@
  */
 struct msm_serial_hs_platform_data {
 	int wakeup_irq;  /* wakeup irq */
-	unsigned char inject_rx_on_wakeup;
-	char rx_to_inject;
+	bool inject_rx_on_wakeup;
+	u8 rx_to_inject;
 	int (*gpio_config)(int);
 	int userid;
 

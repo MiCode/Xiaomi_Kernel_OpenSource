@@ -210,8 +210,8 @@ struct msm_hs_wakeup {
 	unsigned char ignore;  /* bool */
 
 	/* bool: inject char into rx tty on wakeup */
-	unsigned char inject_rx;
-	char rx_to_inject;
+	bool inject_rx;
+	unsigned char rx_to_inject;
 };
 
 struct msm_hs_port {
@@ -2373,6 +2373,8 @@ static irqreturn_t msm_hs_wakeup_isr(int irq, void *dev)
 			tty_insert_flip_char(tty->port,
 					     msm_uport->wakeup.rx_to_inject,
 					     TTY_NORMAL);
+			MSM_HS_DBG("%s(): Inject 0x%x", __func__,
+				msm_uport->wakeup.rx_to_inject);
 		}
 	}
 
@@ -2749,7 +2751,8 @@ struct msm_serial_hs_platform_data
 {
 	struct device_node *node = pdev->dev.of_node;
 	struct msm_serial_hs_platform_data *pdata;
-	int rx_to_inject, ret;
+	u32 rx_to_inject;
+	int ret;
 
 	pdata = devm_kzalloc(&pdev->dev, sizeof(*pdata), GFP_KERNEL);
 	if (!pdata) {
@@ -2795,7 +2798,7 @@ struct msm_serial_hs_platform_data
 			MSM_HS_ERR("Error: Rx_char_to_inject not specified.\n");
 			return ERR_PTR(ret);
 		}
-		pdata->rx_to_inject = (char)rx_to_inject;
+		pdata->rx_to_inject = (u8)rx_to_inject;
 	}
 
 	ret = of_property_read_u32(node, "qcom,bam-tx-ep-pipe-index",
