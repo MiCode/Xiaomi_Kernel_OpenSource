@@ -192,16 +192,23 @@ static int vfe_probe(struct platform_device *pdev)
 	};
 
 	vfe_dev = kzalloc(sizeof(struct vfe_device), GFP_KERNEL);
-	vfe_dev->stats = kzalloc(sizeof(struct msm_isp_statistics), GFP_KERNEL);
 	if (!vfe_dev) {
 		pr_err("%s: no enough memory\n", __func__);
 		return -ENOMEM;
 	}
-
+	vfe_dev->stats = kzalloc(sizeof(struct msm_isp_statistics), GFP_KERNEL);
+	if (!vfe_dev->stats) {
+		pr_err("%s: no enough memory\n", __func__);
+		return -ENOMEM;
+	}
 	if (pdev->dev.of_node) {
 		of_property_read_u32((&pdev->dev)->of_node,
 			"cell-index", &pdev->id);
 		match_dev = of_match_device(msm_vfe_dt_match, &pdev->dev);
+		if (!match_dev) {
+			pr_err("%s: No vfe hardware info\n", __func__);
+			return -EINVAL;
+		}
 		vfe_dev->hw_info =
 			(struct msm_vfe_hardware_info *) match_dev->data;
 	} else {
