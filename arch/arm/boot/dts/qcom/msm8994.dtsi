@@ -610,6 +610,7 @@
 
 	qcom,rmnet-ipa {
 		compatible = "qcom,rmnet-ipa";
+		qcom,rmnet-ipa-ssr;
 	};
 
 	qcom,ipc-spinlock@fd484000 {
