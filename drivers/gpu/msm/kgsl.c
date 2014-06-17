@@ -1492,11 +1492,13 @@ static void _kgsl_cmdbatch_timer(unsigned long data)
 	if (cmdbatch == NULL || cmdbatch->context == NULL)
 		return;
 
+	spin_lock(&cmdbatch->lock);
+	if (list_empty(&cmdbatch->synclist))
+		goto done;
+
 	pr_err("kgsl: possible gpu syncpoint deadlock for context %d timestamp %d\n",
 		cmdbatch->context->id, cmdbatch->timestamp);
 	pr_err(" Active sync points:\n");
-
-	spin_lock(&cmdbatch->lock);
 
 	/* Print all the pending sync objects */
 	list_for_each_entry(event, &cmdbatch->synclist, node) {
@@ -1521,6 +1523,7 @@ static void _kgsl_cmdbatch_timer(unsigned long data)
 		}
 	}
 
+done:
 	spin_unlock(&cmdbatch->lock);
 }
 
@@ -1596,15 +1599,11 @@ static void kgsl_cmdbatch_sync_expire(struct kgsl_device *device,
 	}
 
 	sched = list_empty(&event->cmdbatch->synclist) ? 1 : 0;
+	spin_unlock(&event->cmdbatch->lock);
 
-	/*
-	 * If the list is empty delete the canary timer while
-	 * still holding the lock
-	 */
+	/* If the list is empty delete the canary timer */
 	if (sched)
 		del_timer_sync(&event->cmdbatch->timer);
-
-	spin_unlock(&event->cmdbatch->lock);
 
 	/*
 	 * if this is the last event in the list then tell
@@ -1648,10 +1647,10 @@ void kgsl_cmdbatch_destroy(struct kgsl_cmdbatch *cmdbatch)
 	struct kgsl_cmdbatch_sync_event *event, *tmp;
 	LIST_HEAD(cancel_synclist);
 
-	spin_lock(&cmdbatch->lock);
-
 	/* Zap the canary timer */
 	del_timer_sync(&cmdbatch->timer);
+
+	spin_lock(&cmdbatch->lock);
 
 	/* Empty the synclist before canceling events */
 	list_splice_init(&cmdbatch->synclist, &cancel_synclist);

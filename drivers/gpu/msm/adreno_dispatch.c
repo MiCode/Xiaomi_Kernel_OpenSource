@@ -180,14 +180,15 @@ static inline struct kgsl_cmdbatch *adreno_dispatcher_get_cmdbatch(
 			 */
 			if (!timer_pending(&cmdbatch->timer))
 				mod_timer(&cmdbatch->timer, jiffies + (5 * HZ));
+			spin_unlock(&cmdbatch->lock);
 		} else {
 			/*
 			 * Otherwise, delete the timer to make sure it is good
 			 * and dead before queuing the buffer
 			 */
+			spin_unlock(&cmdbatch->lock);
 			del_timer_sync(&cmdbatch->timer);
 		}
-		spin_unlock(&cmdbatch->lock);
 
 		if (pending) {
 			cmdbatch = ERR_PTR(-EAGAIN);
