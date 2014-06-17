@@ -364,8 +364,9 @@
 	fuse: fuse@5e01c {
 		compatible = "arm,coresight-fuse-v2";
 		reg = <0x5e01c 0x8>,
-		      <0x58040 0x4>;
-		reg-names = "fuse-base", "nidnt-fuse-base";
+		      <0x58040 0x4>,
+		      <0x5e00c 0x4>;
+		reg-names = "fuse-base", "nidnt-fuse-base", "qpdi-fuse-base";
 
 		coresight-id = <22>;
 		coresight-name = "coresight-fuse-v2";
@@ -389,5 +390,23 @@
 		clocks = <&clock_rpm clk_qdss_clk>,
 			 <&clock_rpm clk_qdss_a_clk>;
 		clock-names = "core_clk", "core_a_clk";
+	};
+
+	qpdi: qpdi@1941000 {
+		compatible = "qcom,coresight-qpdi";
+		reg = <0x1941000 0x4>;
+		reg-names = "qpdi-base";
+
+		coresight-id = <24>;
+		coresight-name = "coresight-qpdi";
+		coresight-nr-inports = <0>;
+
+		vdd-supply = <&pmd9635_l11>;
+		qcom,vdd-voltage-level = <2800000 2950000>;
+		qcom,vdd-current-level = <15000 400000>;
+
+		vdd-io-supply = <&pmd9635_l12>;
+		qcom,vdd-io-voltage-level = <1800000 2950000>;
+		qcom,vdd-io-current-level = <200 50000>;
 	};
 };
