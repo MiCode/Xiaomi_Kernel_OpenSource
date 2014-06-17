@@ -82,4 +82,11 @@ config EXTCON_SMSC375X
 	  with SMSC375X. SMSC375X has BC1.2 charger detection support
 	  with USB mux switch.
 
+config EXTCON_3GPIO_OTG
+	tristate "VIRTUAL 3GPIO USB OTG PORT"
+	depends on GPIOLIB
+	help
+	  Say Y here to enable support for virtual USB OTG port driver
+	  controlled by 3 GPIOs.
+
 endif # MULTISTATE_SWITCH
