@@ -1291,7 +1291,8 @@ static void hdmi_tx_hpd_int_work(struct work_struct *work)
 		return;
 	}
 	io = &hdmi_ctrl->pdata.io[HDMI_TX_CORE_IO];
-	DEV_DBG("%s: Got HPD interrupt\n", __func__);
+	DEV_DBG("%s: Got HPD %s interrupt\n", __func__,
+		hdmi_ctrl->hpd_state ? "CONNECT" : "DISCONNECT");
 
 	if (hdmi_ctrl->hpd_state) {
 		/*
@@ -2014,7 +2015,8 @@ static void hdmi_tx_init_phy(struct hdmi_tx_ctrl *hdmi_ctrl)
 
 	io = &hdmi_ctrl->pdata.io[HDMI_TX_PHY_IO];
 	if (!io->base) {
-		DEV_ERR("%s: phy io is not initialized\n", __func__);
+		DEV_DBG("%s: phy not initialized or init not available\n",
+			 __func__);
 		return;
 	}
 
@@ -2039,7 +2041,8 @@ static void hdmi_tx_powerdown_phy(struct hdmi_tx_ctrl *hdmi_ctrl)
 	}
 	io = &hdmi_ctrl->pdata.io[HDMI_TX_PHY_IO];
 	if (!io->base) {
-		DEV_ERR("%s: phy io is not initialized\n", __func__);
+		DEV_DBG("%s: phy not initialized or pd not available\n",
+			 __func__);
 		return;
 	}
 
@@ -2821,6 +2824,7 @@ static void hdmi_tx_hpd_off(struct hdmi_tx_ctrl *hdmi_ctrl)
 	spin_unlock_irqrestore(&hdmi_ctrl->hpd_state_lock, flags);
 
 	hdmi_ctrl->hpd_initialized = false;
+	DEV_DBG("%s: HPD is now OFF\n", __func__);
 } /* hdmi_tx_hpd_off */
 
 static int hdmi_tx_hpd_on(struct hdmi_tx_ctrl *hdmi_ctrl)
@@ -2873,6 +2877,7 @@ static int hdmi_tx_hpd_on(struct hdmi_tx_ctrl *hdmi_ctrl)
 		DSS_REG_W(io, HDMI_HPD_CTRL, reg_val | BIT(28));
 
 		hdmi_tx_hpd_polarity_setup(hdmi_ctrl, HPD_CONNECT_POLARITY);
+		DEV_DBG("%s: HPD is now ON\n", __func__);
 	}
 
 	return rc;
@@ -3324,8 +3329,10 @@ static void hdmi_tx_deinit_resource(struct hdmi_tx_ctrl *hdmi_ctrl)
 	}
 
 	/* IO */
-	for (i = HDMI_TX_MAX_IO - 1; i >= 0; i--)
-		msm_dss_iounmap(&hdmi_ctrl->pdata.io[i]);
+	for (i = HDMI_TX_MAX_IO - 1; i >= 0; i--) {
+		if (hdmi_ctrl->pdata.io[i].base)
+			msm_dss_iounmap(&hdmi_ctrl->pdata.io[i]);
+	}
 } /* hdmi_tx_deinit_resource */
 
 static int hdmi_tx_init_resource(struct hdmi_tx_ctrl *hdmi_ctrl)
@@ -3345,9 +3352,8 @@ static int hdmi_tx_init_resource(struct hdmi_tx_ctrl *hdmi_ctrl)
 		rc = msm_dss_ioremap_byname(hdmi_ctrl->pdev, &pdata->io[i],
 			hdmi_tx_io_name(i));
 		if (rc) {
-			DEV_ERR("%s: '%s' remap failed\n", __func__,
-				hdmi_tx_io_name(i));
-			goto error;
+			DEV_DBG("%s: '%s' remap failed or not available\n",
+				__func__, hdmi_tx_io_name(i));
 		}
 		DEV_INFO("%s: '%s': start = 0x%p, len=0x%x\n", __func__,
 			hdmi_tx_io_name(i), pdata->io[i].base,
