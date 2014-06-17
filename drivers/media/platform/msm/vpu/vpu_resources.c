@@ -253,10 +253,11 @@ static int __vpu_load_bus_vector_data(struct vpu_platform_resources *res,
 		res->bus_table.loads[i] = vectors[i].load;
 
 		for (j = 0; j < num_ports; j++) {
+			/* change ab and ib values from kilobits to bytes */
 			bus_pdata->usecase[i].vectors[j].ab =
-					(u64)vectors[i].ab * 1000;
+					(u64)vectors[i].ab * 1000 / 8;
 			bus_pdata->usecase[i].vectors[j].ib =
-					(u64)vectors[i].ib * 1000;
+					(u64)vectors[i].ib * 1000 / 8;
 			bus_pdata->usecase[i].vectors[j].src =
 					bus_pdata_config.masters[j];
 			bus_pdata->usecase[i].vectors[j].dst =
