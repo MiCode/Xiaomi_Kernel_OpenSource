@@ -203,7 +203,7 @@ static int vpu_out_mdss_set_buf_num(struct vpu_dev_session *session, int port,
 
 		pr_debug("Release tunnel buffers on port %d\n", port);
 		ret = vpu_hw_session_release_buffers(session->id,
-				CH_RELEASE_OUT_BUF);
+			translate_port_id(OUTPUT_PORT), CH_RELEASE_OUT_BUF);
 		if (ret)
 			pr_err("Release buffer cmd failed\n");
 		/*
@@ -401,7 +401,8 @@ static int  vpu_out_mdss_streamon(struct vpu_dev_session *session,
 	pr_debug("Set tunnel buffers to VPU on port %d\n", port);
 
 
-	ret = vpu_hw_session_register_buffers(session->id, false,
+	ret = vpu_hw_session_register_buffers(session->id,
+			translate_port_id(OUTPUT_PORT),
 			o_port_hnd->buf_array, o_port_hnd->buf_num);
 	if (unlikely(ret))
 		pr_err("Register buffer failed (error %d)\n", ret);

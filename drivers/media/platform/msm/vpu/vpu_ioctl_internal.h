@@ -1,4 +1,4 @@
-/* Copyright (c) 2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -67,6 +67,7 @@ int vpu_set_control_port(struct vpu_client *client,
 
 int vpu_commit_configuration(struct vpu_client *client);
 
+int vpu_dual_output(struct vpu_client *client);
 
 int vpu_reqbufs(struct vpu_client *client, struct v4l2_requestbuffers *rb);
 int vpu_qbuf(struct vpu_client *client, struct v4l2_buffer *b);

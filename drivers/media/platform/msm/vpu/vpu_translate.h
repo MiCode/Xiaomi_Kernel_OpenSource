@@ -17,11 +17,14 @@
 #include <linux/videodev2.h>
 
 #include "vpu_v4l2.h"
+#include "vpu_channel.h"
 #include "vpu_property.h"
 
 /*
  * Translations between API parameters and HFI parameters
  */
+u32 translate_port_id(u32 port);
+
 u32 translate_input_source(u32 in);
 u32 translate_input_source_ch(u32 in);
 u32 translate_output_destination(u32 out);

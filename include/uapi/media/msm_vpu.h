@@ -428,6 +428,9 @@ struct vpu_control_port {
 #define VPU_ATTACH_TO_SESSION	_IOW('V', (BASE_VIDIOC_PRIVATE + 1), int)
 #define VPU_CREATE_SESSION	_IOR('V', (BASE_VIDIOC_PRIVATE + 2), int)
 
+/* Enable second VPU output port and use with current client */
+#define VPU_CREATE_OUTPUT2	_IO('V', (BASE_VIDIOC_PRIVATE + 5))
+
 /* Explicit commit of session configuration */
 #define VPU_COMMIT_CONFIGURATION    _IO('V', (BASE_VIDIOC_PRIVATE + 10))
 

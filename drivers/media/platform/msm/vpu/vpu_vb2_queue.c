@@ -1,4 +1,4 @@
-/* Copyright (c) 2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -16,6 +16,7 @@
 #include <linux/msm_ion.h>
 #include "vpu_ioctl_internal.h"
 #include "vpu_configuration.h"
+#include "vpu_translate.h"
 #include "vpu_channel.h"
 #include "vpu_v4l2.h"
 
@@ -29,7 +30,7 @@ static void vpu_vb2_ops_wait_prepare(struct vb2_queue *q)
 {
 	struct vpu_dev_session *session =
 		(struct vpu_dev_session *) vb2_get_drv_priv(q);
-	int port = get_port_number(q->type);
+	int port = get_queue_port_number(q);
 
 	if (port >= 0)
 		mutex_unlock(&session->que_lock[port]);
@@ -39,7 +40,7 @@ static void vpu_vb2_ops_wait_finish(struct vb2_queue *q)
 {
 	struct vpu_dev_session *session =
 		(struct vpu_dev_session *) vb2_get_drv_priv(q);
-	int port = get_port_number(q->type);
+	int port = get_queue_port_number(q);
 
 	if (port >= 0)
 		mutex_lock(&session->que_lock[port]);
@@ -62,7 +63,7 @@ static int vpu_vb2_ops_queue_setup(struct vb2_queue *q,
 	int port = 0;
 	int min_buffers = MIN_NUM_VPU_BUFFERS;
 
-	port = get_port_number(q->type);
+	port = get_queue_port_number(q);
 	if (port < 0)
 		return -EINVAL;
 
@@ -106,7 +107,7 @@ static int vpu_vb2_ops_buf_init(struct vb2_buffer *vb)
 	bool secure;
 	int i, port, ret = 0;
 
-	port = get_port_number(vb->vb2_queue->type);
+	port = get_queue_port_number(vb->vb2_queue);
 	secure = session->port_info[port].secure_content ? true : false;
 
 	for (i = 0; i < vb->num_planes; i++) {
@@ -162,8 +163,10 @@ static void vpu_vb2_ops_buf_queue(struct vb2_buffer *vb)
 	struct vb2_queue *q = vb->vb2_queue;
 	struct vpu_dev_session *session =
 			(struct vpu_dev_session *) vb2_get_drv_priv(q);
-	int ret = 0, port = get_port_number(q->type);
+	int ret = 0, port;
+
 	vpu_buf = to_vpu_buffer(vb);
+	port = get_queue_port_number(q);
 
 	if (session->streaming_state != ALL_STREAMING ||
 		!list_empty(&session->pending_list[port])) {
@@ -177,9 +180,11 @@ static void vpu_vb2_ops_buf_queue(struct vb2_buffer *vb)
 				&session->pending_list[port]);
 	} else {
 		if (port == INPUT_PORT)
-			ret = vpu_hw_session_empty_buffer(session->id, vpu_buf);
+			ret = vpu_hw_session_empty_buffer(session->id,
+					translate_port_id(port), vpu_buf);
 		else
-			ret = vpu_hw_session_fill_buffer(session->id, vpu_buf);
+			ret = vpu_hw_session_fill_buffer(session->id,
+					translate_port_id(port), vpu_buf);
 
 		if (ret) {
 			pr_err("buf_queue fail, returning buffer\n");
@@ -233,7 +238,7 @@ static int vpu_vb2_ops_stop_streaming(struct vb2_queue *q)
 {
 	struct vpu_dev_session *session =
 			(struct vpu_dev_session *) vb2_get_drv_priv(q);
-	int port = get_port_number(q->type);
+	int port = get_queue_port_number(q);
 
 	pr_debug("called for port %d\n", port);
 
@@ -325,7 +330,8 @@ int vpu_vb2_flush_buffers(struct vpu_dev_session *session, int port)
 
 	/* Flush buffers from FW */
 	pr_debug("Flushing port %d buffers from FW\n", port);
-	ret = vpu_hw_session_flush(session->id, flush_port);
+	ret = vpu_hw_session_flush(session->id, translate_port_id(port),
+			flush_port);
 	if (ret)
 		pr_err("port %d flush failed\n", port);
 
@@ -340,7 +346,7 @@ int vpu_vb2_flush_buffers(struct vpu_dev_session *session, int port)
 
 	/* Forced retrieve of buffers not returned by FW. Should never happen */
 	pr_warn("Forced retrieve of %d buffers from port %d\n",
-		atomic_read(&q->queued_count), get_port_number(q->type));
+		atomic_read(&q->queued_count), port);
 	for (i = 0; i < q->num_buffers; i++) {
 		if (q->bufs[i] && q->bufs[i]->state == VB2_BUF_STATE_ACTIVE)
 			vb2_buffer_done(q->bufs[i], VB2_BUF_STATE_ERROR);
