@@ -152,5 +152,13 @@ config JSA1212
 	 To compile this driver as a module, choose M here:
 	 the module will be called jsa1212.
 
+config JSA1127
+	tristate "JSA1127 ALS sensor driver"
+	depends on I2C
+	help
+	 Say Y here if you want to build a IIO driver for JSA1127
+	 ALS sensor device.
 
+	 To compile this driver as a module, choose M here:
+	 the module will be called jsa1127.
 endmenu
