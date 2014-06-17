@@ -437,7 +437,7 @@ bool msm_cpu_pm_enter_sleep(enum msm_pm_sleep_mode mode, bool from_idle)
  */
 int msm_pm_wait_cpu_shutdown(unsigned int cpu)
 {
-	int timeout = 10;
+	int timeout = 0;
 
 	if (!msm_pm_slp_sts)
 		return 0;
@@ -455,7 +455,14 @@ int msm_pm_wait_cpu_shutdown(unsigned int cpu)
 			return 0;
 
 		udelay(100);
-		WARN(++timeout == 20, "CPU%u didn't collapse in 2ms\n", cpu);
+		/*
+		 * Dump spm registers for debugging
+		 */
+		if (++timeout == 20) {
+			msm_spm_dump_regs(cpu);
+			__WARN_printf("CPU%u didn't collapse in 2ms, sleep status: 0x%x\n",
+					cpu, acc_sts);
+		}
 	}
 
 	return -EBUSY;
