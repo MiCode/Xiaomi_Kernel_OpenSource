@@ -15,8 +15,8 @@
 &soc {
 	ad_hoc_bus: ad-hoc-bus@580000 {
 		compatible = "qcom,msm-bus-device";
-		reg = <0x580000 0x14000>,
-			<0x580000 0x14000>,
+		reg = <0x580000 0x14080>,
+			<0x580000 0x14080>,
 			<0x400000 0x62000>,
 			<0x500000 0x11000>;
 		reg-names = "snoc-base", "snoc-mm-base", "bimc-base", "pnoc-base";
@@ -25,7 +25,6 @@
 			cell-id = <MSM_BUS_FAB_SYS_NOC>;
 			label = "fab-snoc";
 			qcom,fab-dev;
-			qcom,bypass-qos-prg;
 			qcom,base-name = "snoc-base";
 			qcom,base-offset = <0x7000>;
 			qcom,qos-off = <0x1000>;
@@ -39,7 +38,6 @@
 			cell-id = <MSM_BUS_FAB_MMSS_NOC>;
 			label = "fab-snoc-mm";
 			qcom,fab-dev;
-			qcom,bypass-qos-prg;
 			qcom,base-name = "snoc-mm-base";
 			qcom,base-offset = <0x7000>;
 			qcom,qos-off = <0x1000>;
@@ -53,7 +51,6 @@
 			cell-id = <MSM_BUS_FAB_BIMC>;
 			label = "fab-bimc";
 			qcom,fab-dev;
-			qcom,bypass-qos-prg;
 			qcom,base-name = "bimc-base";
 			qcom,bus-type = <2>;
 			clock-names = "bus_clk", "bus_a_clk";
@@ -65,7 +62,6 @@
 			cell-id = <MSM_BUS_FAB_PERIPH_NOC>;
 			label = "fab-pnoc";
 			qcom,fab-dev;
-			qcom,bypass-qos-prg;
 			qcom,base-name = "pnoc-base";
 			qcom,base-offset = <0x7000>;
 			qcom,qos-delta = <0x1000>;
@@ -366,20 +362,6 @@
 		mas_tcu0: mas-tcu0 {
 			cell-id = <MSM_BUS_MASTER_TCU_0>;
 			label = "mas-tcu0";
-			qcom,ap-owned;
-			qcom,connections = <&slv_ebi_ch0 &bimc_snoc_mas &slv_apps_l2>;
-			qcom,qport = <5>;
-			qcom,bus-dev = <&fab_bimc>;
-			qcom,qos-mode = "fixed";
-			qcom,prio-lvl = <2>;
-			qcom,prio-rd = <2>;
-			qcom,prio-wr = <2>;
-			qom,buswidth = <8>;
-		};
-
-		mas_tcu1: mas-tcu1 {
-			cell-id = <MSM_BUS_MASTER_TCU_1>;
-			label = "mas-tcu1";
 			qcom,ap-owned;
 			qcom,connections = <&slv_ebi_ch0 &bimc_snoc_mas &slv_apps_l2>;
 			qcom,qport = <6>;
