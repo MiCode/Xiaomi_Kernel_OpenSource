@@ -1,0 +1,12 @@
+#
+# Intel DGNSS driver.
+#
+
+config  DGNSS
+	tristate "Intel DGNSS driver"
+	default n
+	help
+	  Select this driver to enable kernel interface for GPS devices
+	  used in Intel core platforms.
+	  This driver exports GPIO to user space GPS software
+	  that use a standard tty to communicate with the GPS device.
