@@ -56,7 +56,7 @@ enum dev_pm_qos_req_type {
 struct dev_pm_qos_request {
 	enum dev_pm_qos_req_type type;
 	union {
-		struct plist_node pnode;
+		struct pm_qos_request lat;
 		struct pm_qos_flags_request flr;
 	} data;
 	struct device *dev;
@@ -105,8 +105,9 @@ static inline int dev_pm_qos_request_active(struct dev_pm_qos_request *req)
 	return req->dev != NULL;
 }
 
-int pm_qos_update_target(struct pm_qos_constraints *c, struct plist_node *node,
-			 enum pm_qos_req_action action, int value);
+int pm_qos_update_target(struct pm_qos_constraints *c,
+				struct pm_qos_request *req,
+				enum pm_qos_req_action action, int value);
 bool pm_qos_update_flags(struct pm_qos_flags *pqf,
 			 struct pm_qos_flags_request *req,
 			 enum pm_qos_req_action action, s32 val);
@@ -198,7 +199,7 @@ int dev_pm_qos_update_flags(struct device *dev, s32 mask, bool set);
 
 static inline s32 dev_pm_qos_requested_latency(struct device *dev)
 {
-	return dev->power.qos->latency_req->data.pnode.prio;
+	return dev->power.qos->latency_req->data.lat.node.prio;
 }
 
 static inline s32 dev_pm_qos_requested_flags(struct device *dev)
