@@ -6892,6 +6892,8 @@ static const struct wcd9xxx_reg_mask_val tomtom_codec_2_0_reg_init_val[] = {
 	{TOMTOM_A_RX_HPH_R_TEST, 0x08, 0x00},
 	{TOMTOM_A_CDC_CLIP_ADJ_SPKR_MIN_CLIP_THRESHOLD, 0xFF, 0x00},
 	{TOMTOM_A_CDC_CLIP_ADJ_SPKR2_MIN_CLIP_THRESHOLD, 0xFF, 0x00},
+	{TOMTOM_A_CDC_CLIP_ADJ_SPKR_BOOST_GATING, 0x01, 0x01},
+	{TOMTOM_A_CDC_CLIP_ADJ_SPKR2_BOOST_GATING, 0x01, 0x01},
 };
 
 static void tomtom_codec_init_reg(struct snd_soc_codec *codec)
