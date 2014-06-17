@@ -2250,3 +2250,31 @@ int msm_pcie_recover_config(struct pci_dev *dev)
 	return ret;
 }
 EXPORT_SYMBOL(msm_pcie_recover_config);
+
+int msm_pcie_shadow_control(struct pci_dev *dev, bool enable)
+{
+	int ret = 0;
+	struct msm_pcie_dev_t *pcie_dev;
+
+	if (dev) {
+		pcie_dev = PCIE_BUS_PRIV_DATA(dev);
+		PCIE_DBG(pcie_dev,
+			"Recovery for the link of RC%d\n", pcie_dev->rc_idx);
+	} else {
+		pr_err("PCIe: the input pci dev is NULL.\n");
+		return -ENODEV;
+	}
+
+	PCIE_DBG(pcie_dev,
+		"The shadowing of RC%d is %s enabled currently.\n",
+		pcie_dev->rc_idx, pcie_dev->shadow_en ? "" : "not");
+
+	pcie_dev->shadow_en = enable;
+
+	PCIE_DBG(pcie_dev,
+		"Shadowing of RC%d is turned %s upon user's request.\n",
+		pcie_dev->rc_idx, enable ? "on" : "off");
+
+	return ret;
+}
+EXPORT_SYMBOL(msm_pcie_shadow_control);

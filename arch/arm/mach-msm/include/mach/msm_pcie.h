@@ -106,4 +106,16 @@ int msm_pcie_deregister_event(struct msm_pcie_register_event *reg);
  * Return: 0 on success, negative value on error
  */
 int msm_pcie_recover_config(struct pci_dev *dev);
+
+/**
+ * msm_pcie_shadow_control - control the shadowing of PCIe config space.
+ * @dev:	pci device structure
+ * @enable:	shadowing should be enabled or disabled
+ *
+ * This function gives PCIe endpoint device drivers the control to enable
+ * or disable the shadowing of PCIe config space.
+ *
+ * Return: 0 on success, negative value on error
+ */
+int msm_pcie_shadow_control(struct pci_dev *dev, bool enable);
 #endif
