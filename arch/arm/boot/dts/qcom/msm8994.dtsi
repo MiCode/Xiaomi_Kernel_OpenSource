@@ -152,6 +152,12 @@
 		#address-cells = <2>;
 		#size-cells = <2>;
 
+		secure_mem: secure_region@0 {
+			linux,reserve-contiguous-region;
+			reg = <0 0 0 0xfc00000>;
+			label = "secure_mem";
+		};
+
 		adsp_mem: adsp_region@0 {
                         linux,reserve-contiguous-region;
 			reg = <0 0 0 0x3F00000>;
