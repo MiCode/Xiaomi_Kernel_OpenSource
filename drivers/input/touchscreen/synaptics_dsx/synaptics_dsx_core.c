@@ -136,9 +136,6 @@ static ssize_t synaptics_rmi4_0dbutton_show(struct device *dev,
 static ssize_t synaptics_rmi4_0dbutton_store(struct device *dev,
 		struct device_attribute *attr, const char *buf, size_t count);
 
-static ssize_t synaptics_rmi4_suspend_store(struct device *dev,
-		struct device_attribute *attr, const char *buf, size_t count);
-
 static irqreturn_t synaptics_rmi4_irq(int irq, void *data);
 
 #if defined(CONFIG_SECURE_TOUCH)
@@ -359,11 +356,11 @@ struct synaptics_rmi4_exp_fn_data {
 static struct synaptics_rmi4_exp_fn_data exp_data;
 
 static struct device_attribute attrs[] = {
-	__ATTR(full_pm_cycle, (S_IRUGO | S_IWUGO),
+	__ATTR(full_pm_cycle, (S_IRUGO | S_IWUSR | S_IWGRP),
 			synaptics_rmi4_full_pm_cycle_show,
 			synaptics_rmi4_full_pm_cycle_store),
-	__ATTR(reset, S_IWUGO,
-			synaptics_rmi4_show_error,
+	__ATTR(reset, (S_IWUSR | S_IWGRP),
+			NULL,
 			synaptics_rmi4_f01_reset_store),
 	__ATTR(productinfo, S_IRUGO,
 			synaptics_rmi4_f01_productinfo_show,
@@ -374,12 +371,9 @@ static struct device_attribute attrs[] = {
 	__ATTR(flashprog, S_IRUGO,
 			synaptics_rmi4_f01_flashprog_show,
 			synaptics_rmi4_store_error),
-	__ATTR(0dbutton, (S_IRUGO | S_IWUGO),
+	__ATTR(0dbutton, (S_IRUGO | S_IWUSR | S_IWGRP),
 			synaptics_rmi4_0dbutton_show,
 			synaptics_rmi4_0dbutton_store),
-	__ATTR(suspend, S_IWUGO,
-			synaptics_rmi4_show_error,
-			synaptics_rmi4_suspend_store),
 #if defined(CONFIG_SECURE_TOUCH)
 	__ATTR(secure_touch_enable, (S_IRUGO | S_IWUGO),
 			synaptics_secure_touch_enable_show,
@@ -729,24 +723,6 @@ static ssize_t synaptics_rmi4_0dbutton_store(struct device *dev,
 	}
 
 	rmi4_data->button_0d_enabled = input;
-
-	return count;
-}
-
-static ssize_t synaptics_rmi4_suspend_store(struct device *dev,
-		struct device_attribute *attr, const char *buf, size_t count)
-{
-	unsigned int input;
-
-	if (sscanf(buf, "%u", &input) != 1)
-		return -EINVAL;
-
-	if (input == 1)
-		synaptics_rmi4_suspend(dev);
-	else if (input == 0)
-		synaptics_rmi4_resume(dev);
-	else
-		return -EINVAL;
 
 	return count;
 }
