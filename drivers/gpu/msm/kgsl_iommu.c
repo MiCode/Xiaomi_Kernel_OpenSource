@@ -628,6 +628,26 @@ static int kgsl_iommu_pt_equal(struct kgsl_mmu *mmu,
 }
 
 /*
+ * kgsl_iommu_get_ptbase - Get pagetable base address
+ * @pt - Pointer to pagetable
+ *
+ * Returns the physical address of the pagetable base.
+ *
+ */
+static phys_addr_t kgsl_iommu_get_ptbase(struct kgsl_pagetable *pt)
+{
+	struct kgsl_iommu_pt *iommu_pt = pt ? pt->priv : NULL;
+	phys_addr_t domain_ptbase;
+
+	if (iommu_pt == NULL)
+		return 0;
+
+	domain_ptbase = iommu_get_pt_base_addr(iommu_pt->domain);
+
+	return domain_ptbase & KGSL_IOMMU_CTX_TTBR0_ADDR_MASK;
+}
+
+/*
  * kgsl_iommu_destroy_pagetable - Free up reaources help by a pagetable
  * @mmu_specific_pt - Pointer to pagetable which is to be freed
  *
@@ -2186,4 +2206,5 @@ struct kgsl_mmu_pt_ops iommu_pt_ops = {
 	.mmu_unmap = kgsl_iommu_unmap,
 	.mmu_create_pagetable = kgsl_iommu_create_pagetable,
 	.mmu_destroy_pagetable = kgsl_iommu_destroy_pagetable,
+	.get_ptbase = kgsl_iommu_get_ptbase,
 };

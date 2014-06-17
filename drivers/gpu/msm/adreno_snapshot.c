@@ -31,24 +31,21 @@
 /* Keep track of how many bytes are frozen after a snapshot and tell the user */
 static size_t snapshot_frozen_objsize;
 
-static struct kgsl_snapshot_obj {
-	int type;
-	uint32_t gpuaddr;
-	phys_addr_t ptbase;
-	int dwords;
-	struct kgsl_mem_entry *entry;
-} objbuf[SNAPSHOT_OBJ_BUFSIZE];
+static struct kgsl_snapshot_object objbuf[SNAPSHOT_OBJ_BUFSIZE];
 
 /* Pointer to the next open entry in the object list */
 static int objbufptr;
 
 /* Push a new buffer object onto the list */
-static void push_object(struct kgsl_device *device, int type,
-	phys_addr_t ptbase,
+static void push_object(int type,
+	struct kgsl_process_private *process,
 	uint32_t gpuaddr, int dwords)
 {
 	int index;
 	struct kgsl_mem_entry *entry;
+
+	if (process == NULL)
+		return;
 
 	/*
 	 * Sometimes IBs can be reused in the same dump.  Because we parse from
@@ -59,29 +56,30 @@ static void push_object(struct kgsl_device *device, int type,
 
 	for (index = 0; index < objbufptr; index++) {
 		if (objbuf[index].gpuaddr == gpuaddr &&
-			objbuf[index].ptbase == ptbase) {
-				objbuf[index].dwords = dwords;
-				return;
-			}
+			objbuf[index].entry->priv == process) {
+
+			objbuf[index].size = max_t(unsigned int,
+						objbuf[index].size,
+						dwords << 2);
+			return;
+		}
 	}
 
 	if (objbufptr == SNAPSHOT_OBJ_BUFSIZE) {
-		KGSL_DRV_ERR(device, "snapshot: too many snapshot objects\n");
+		KGSL_CORE_ERR("snapshot: too many snapshot objects\n");
 		return;
 	}
 
-	entry = kgsl_get_mem_entry(device, ptbase, gpuaddr, dwords << 2);
+	entry = kgsl_sharedmem_find_region(process, gpuaddr, dwords << 2);
 	if (entry == NULL) {
-		KGSL_DRV_ERR(device,
-			"snapshot: Can't find entry for %X\n", gpuaddr);
+		KGSL_CORE_ERR("snapshot: Can't find entry for %X\n", gpuaddr);
 		return;
 	}
 
 	/* Put it on the list of things to parse */
 	objbuf[objbufptr].type = type;
 	objbuf[objbufptr].gpuaddr = gpuaddr;
-	objbuf[objbufptr].ptbase = ptbase;
-	objbuf[objbufptr].dwords = dwords;
+	objbuf[objbufptr].size = dwords << 2;
 	objbuf[objbufptr++].entry = entry;
 }
 
@@ -90,14 +88,14 @@ static void push_object(struct kgsl_device *device, int type,
  * to be dumped
  */
 
-static int find_object(int type, unsigned int gpuaddr, phys_addr_t ptbase)
+static int find_object(int type, unsigned int gpuaddr,
+		struct kgsl_process_private *process)
 {
 	int index;
 
 	for (index = 0; index < objbufptr; index++) {
 		if (objbuf[index].gpuaddr == gpuaddr &&
-			objbuf[index].ptbase == ptbase &&
-			objbuf[index].type == type)
+			objbuf[index].entry->priv == process)
 			return 1;
 	}
 
@@ -107,22 +105,21 @@ static int find_object(int type, unsigned int gpuaddr, phys_addr_t ptbase)
 /*
  * snapshot_freeze_obj_list() - Take a list of ib objects and freeze their
  * memory for snapshot
- * @device: Device being snapshotted
- * @ptbase: The pagetable base of the process to which IB belongs
+ * @snapshot: The snapshot data.
+ * @process: The process to which the IB belongs
  * @ib_obj_list: List of the IB objects
+ * @ib2base: IB2 base address at time of the fault
  *
  * Returns 0 on success else error code
  */
-static int snapshot_freeze_obj_list(struct kgsl_device *device,
-		phys_addr_t ptbase, struct adreno_ib_object_list *ib_obj_list)
+static int snapshot_freeze_obj_list(struct kgsl_snapshot *snapshot,
+		struct kgsl_process_private *process,
+		struct adreno_ib_object_list *ib_obj_list,
+		unsigned int ib2base)
 {
 	int ret = 0;
 	struct adreno_ib_object *ib_objs;
-	unsigned int ib2base;
-	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
 	int i;
-
-	adreno_readreg(adreno_dev, ADRENO_REG_CP_IB2_BASE, &ib2base);
 
 	for (i = 0; i < ib_obj_list->num_objs; i++) {
 		int temp_ret;
@@ -134,9 +131,9 @@ static int snapshot_freeze_obj_list(struct kgsl_device *device,
 		for (index = 0; index < objbufptr; index++) {
 			if ((objbuf[index].gpuaddr <= ib_objs->gpuaddr) &&
 				((objbuf[index].gpuaddr +
-				(objbuf[index].dwords << 2)) >=
+				(objbuf[index].size)) >=
 				(ib_objs->gpuaddr + ib_objs->size)) &&
-				(objbuf[index].ptbase == ptbase)) {
+				(objbuf[index].entry->priv == process)) {
 				freeze = 0;
 				break;
 			}
@@ -145,11 +142,12 @@ static int snapshot_freeze_obj_list(struct kgsl_device *device,
 		if (freeze) {
 			/* Save current IB2 statically */
 			if (ib2base == ib_objs->gpuaddr) {
-				push_object(device, SNAPSHOT_OBJ_TYPE_IB,
-				ptbase, ib_objs->gpuaddr, ib_objs->size >> 2);
+				push_object(SNAPSHOT_OBJ_TYPE_IB,
+				process, ib_objs->gpuaddr, ib_objs->size >> 2);
 			} else {
-				temp_ret = kgsl_snapshot_get_object(device,
-					ptbase, ib_objs->gpuaddr, ib_objs->size,
+				temp_ret = kgsl_snapshot_get_object(snapshot,
+					process, ib_objs->gpuaddr,
+					ib_objs->size,
 					ib_objs->snapshot_obj_type);
 				if (temp_ret < 0) {
 					if (ret >= 0)
@@ -169,7 +167,9 @@ static int snapshot_freeze_obj_list(struct kgsl_device *device,
  * access the dynamic data from the sysfs file.  Push all other IBs on the
  * dynamic list
  */
-static inline int parse_ib(struct kgsl_device *device, phys_addr_t ptbase,
+static inline int parse_ib(struct kgsl_device *device,
+		struct kgsl_snapshot *snapshot,
+		struct kgsl_process_private *process,
 		unsigned int gpuaddr, unsigned int dwords)
 {
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
@@ -186,20 +186,21 @@ static inline int parse_ib(struct kgsl_device *device, phys_addr_t ptbase,
 	adreno_readreg(adreno_dev, ADRENO_REG_CP_IB1_BASE, &ib1base);
 
 	if (gpuaddr == ib1base) {
-		push_object(device, SNAPSHOT_OBJ_TYPE_IB, ptbase,
+		push_object(SNAPSHOT_OBJ_TYPE_IB, process,
 			gpuaddr, dwords);
 		goto done;
 	}
 
-	if (kgsl_snapshot_have_object(device, ptbase, gpuaddr, dwords << 2))
+	if (kgsl_snapshot_have_object(snapshot, process,
+					gpuaddr, dwords << 2))
 		goto done;
 
-	ret = adreno_ib_create_object_list(device, ptbase,
+	ret = adreno_ib_create_object_list(device, process,
 				gpuaddr, dwords, &ib_obj_list);
 	if (ret)
 		goto done;
 
-	ret = kgsl_snapshot_add_ib_obj_list(device, ptbase, ib_obj_list);
+	ret = kgsl_snapshot_add_ib_obj_list(snapshot, ib_obj_list);
 
 	if (ret)
 		adreno_ib_destroy_obj_list(ib_obj_list);
@@ -216,12 +217,9 @@ static size_t snapshot_rb(struct kgsl_device *device, u8 *buf,
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
 	struct adreno_ringbuffer *rb = ADRENO_CURRENT_RINGBUFFER(adreno_dev);
 	unsigned int rptr, *rbptr, ibbase;
-	phys_addr_t ptbase;
 	int index, i;
 	int parse_ibs = 0, ib_parse_start;
-
-	/* Get the physical address of the MMU pagetable */
-	ptbase = kgsl_mmu_get_current_ptbase(&device->mmu);
+	struct kgsl_snapshot *snapshot = priv;
 
 	/* Get the current read pointers for the RB */
 	adreno_readreg(adreno_dev, ADRENO_REG_CP_RB_RPTR, &rptr);
@@ -299,8 +297,7 @@ static size_t snapshot_rb(struct kgsl_device *device, u8 *buf,
 	 */
 
 	if (remain < KGSL_RB_SIZE + sizeof(*header)) {
-		KGSL_DRV_ERR(device,
-			"snapshot: Not enough memory for the rb section");
+		KGSL_CORE_ERR("snapshot: Not enough memory for the rb section");
 		return 0;
 	}
 
@@ -347,10 +344,11 @@ static size_t snapshot_rb(struct kgsl_device *device, u8 *buf,
 			 */
 
 			if (memdesc != NULL)
-				push_object(device, SNAPSHOT_OBJ_TYPE_IB,
-					ptbase, ibaddr, ibsize);
+				push_object(SNAPSHOT_OBJ_TYPE_IB,
+					snapshot->process, ibaddr, ibsize);
 			else
-				parse_ib(device, ptbase, ibaddr, ibsize);
+				parse_ib(device, snapshot, snapshot->process,
+					ibaddr, ibsize);
 		}
 
 		index = index + 1;
@@ -370,32 +368,19 @@ static size_t snapshot_capture_mem_list(struct kgsl_device *device,
 {
 	struct kgsl_snapshot_replay_mem_list *header =
 		(struct kgsl_snapshot_replay_mem_list *)buf;
-	struct kgsl_process_private *private = NULL;
-	struct kgsl_process_private *tmp_private;
-	phys_addr_t ptbase;
 	struct rb_node *node;
 	struct kgsl_mem_entry *entry = NULL;
 	int num_mem;
 	unsigned int *data = (unsigned int *)(buf + sizeof(*header));
+	struct kgsl_process_private *process = priv;
 
-	ptbase = kgsl_mmu_get_current_ptbase(&device->mmu);
-	mutex_lock(&kgsl_driver.process_mutex);
-	list_for_each_entry(tmp_private, &kgsl_driver.process_list, list) {
-		if (kgsl_mmu_pt_equal(&device->mmu, tmp_private->pagetable,
-			ptbase)) {
-			private = tmp_private;
-			break;
-		}
-	}
-	mutex_unlock(&kgsl_driver.process_mutex);
-	if (!private) {
-		KGSL_DRV_ERR(device,
-		"Failed to get pointer to process private structure\n");
+	/* we need a process to search! */
+	if (process == NULL)
 		return 0;
-	}
+
 	/* We need to know the number of memory objects that the process has */
-	spin_lock(&private->mem_lock);
-	for (node = rb_first(&private->mem_rb), num_mem = 0; node; ) {
+	spin_lock(&process->mem_lock);
+	for (node = rb_first(&process->mem_rb), num_mem = 0; node; ) {
 		entry = rb_entry(node, struct kgsl_mem_entry, node);
 		node = rb_next(&entry->node);
 		num_mem++;
@@ -403,18 +388,18 @@ static size_t snapshot_capture_mem_list(struct kgsl_device *device,
 
 	if (remain < ((num_mem * 3 * sizeof(unsigned int)) +
 			sizeof(*header))) {
-		KGSL_DRV_ERR(device,
-			"snapshot: Not enough memory for the mem list section");
-		spin_unlock(&private->mem_lock);
+		KGSL_CORE_ERR("snapshot: Not enough memory for the mem list");
+		spin_unlock(&process->mem_lock);
 		return 0;
 	}
 	header->num_entries = num_mem;
-	header->ptbase = (__u32)ptbase;
+	header->ptbase =
+	 (__u32)kgsl_mmu_pagetable_get_ptbase(process->pagetable);
 	/*
 	 * Walk throught the memory list and store the
 	 * tuples(gpuaddr, size, memtype) in snapshot
 	 */
-	for (node = rb_first(&private->mem_rb); node; ) {
+	for (node = rb_first(&process->mem_rb); node; ) {
 		entry = rb_entry(node, struct kgsl_mem_entry, node);
 		node = rb_next(&entry->node);
 
@@ -423,116 +408,198 @@ static size_t snapshot_capture_mem_list(struct kgsl_device *device,
 		*data++ = (entry->memdesc.flags & KGSL_MEMTYPE_MASK) >>
 							KGSL_MEMTYPE_SHIFT;
 	}
-	spin_unlock(&private->mem_lock);
+	spin_unlock(&process->mem_lock);
 	return sizeof(*header) + (num_mem * 3 * sizeof(unsigned int));
 }
+
+struct snapshot_ib_meta {
+	struct kgsl_snapshot *snapshot;
+	struct kgsl_snapshot_object *obj;
+};
 
 /* Snapshot the memory for an indirect buffer */
 static size_t snapshot_ib(struct kgsl_device *device, u8 *buf,
 	size_t remain, void *priv)
 {
 	struct kgsl_snapshot_ib *header = (struct kgsl_snapshot_ib *)buf;
-	struct kgsl_snapshot_obj *obj = priv;
+	struct snapshot_ib_meta *meta = priv;
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
 	unsigned int *src;
 	unsigned int *dst = (unsigned int *)(buf + sizeof(*header));
 	struct adreno_ib_object_list *ib_obj_list;
-	unsigned int ib1base;
+	unsigned int ib1base, ib2base;
+	struct kgsl_snapshot *snapshot;
+	struct kgsl_snapshot_object *obj;
+
+	if (meta == NULL || meta->snapshot == NULL || meta->obj == NULL) {
+		KGSL_CORE_ERR("snapshot: bad metadata");
+		return 0;
+	}
+	snapshot = meta->snapshot;
+	obj = meta->obj;
+
 
 	src = kgsl_gpuaddr_to_vaddr(&obj->entry->memdesc, obj->gpuaddr);
 	if (src == NULL) {
-		KGSL_DRV_ERR(device,
-			"snapshot: Unable to map object 0x%X into the kernel\n",
+		KGSL_CORE_ERR("snapshot: Unable to map object 0x%X\n",
 			obj->gpuaddr);
 		return 0;
 	}
 
 	adreno_readreg(adreno_dev, ADRENO_REG_CP_IB1_BASE, &ib1base);
+	adreno_readreg(adreno_dev, ADRENO_REG_CP_IB2_BASE, &ib2base);
 
-	if (remain < (obj->dwords << 2) + sizeof(*header)) {
-		KGSL_DRV_ERR(device,
-			"snapshot: Not enough memory for the ib section");
+	if (remain < (obj->size + sizeof(*header))) {
+		KGSL_CORE_ERR("snapshot: Not enough memory for the ib\n");
 		return 0;
 	}
 
 	/* only do this for IB1 because the IB2's are part of IB1 objects */
 	if (ib1base == obj->gpuaddr) {
-		if (!adreno_ib_create_object_list(device, obj->ptbase,
-					obj->gpuaddr, obj->dwords,
+		if (!adreno_ib_create_object_list(device, obj->entry->priv,
+					obj->gpuaddr, obj->size >> 2,
 					&ib_obj_list)) {
 			/* freeze the IB objects in the IB */
-			snapshot_freeze_obj_list(device, obj->ptbase,
-						ib_obj_list);
+			snapshot_freeze_obj_list(snapshot,
+						obj->entry->priv,
+						ib_obj_list, ib2base);
 			adreno_ib_destroy_obj_list(ib_obj_list);
 		}
 	}
 
 	/* Write the sub-header for the section */
 	header->gpuaddr = obj->gpuaddr;
-	header->ptbase = (__u32)obj->ptbase;
-	header->size = obj->dwords;
+	/*
+	 * This loses address bits, but we can't do better until the snapshot
+	 * binary format is updated.
+	 */
+	header->ptbase =
+	 (__u32)kgsl_mmu_pagetable_get_ptbase(obj->entry->priv->pagetable);
+	header->size = obj->size >> 2;
 
 	/* Write the contents of the ib */
-	memcpy((void *)dst, (void *)src, obj->dwords << 2);
+	memcpy((void *)dst, (void *)src, obj->size);
 	/* Write the contents of the ib */
 
-	return (obj->dwords << 2) + sizeof(*header);
+	return obj->size + sizeof(*header);
 }
 
 /* Dump another item on the current pending list */
 static void dump_object(struct kgsl_device *device, int obj,
 		struct kgsl_snapshot *snapshot)
 {
+	struct snapshot_ib_meta meta;
+
 	switch (objbuf[obj].type) {
 	case SNAPSHOT_OBJ_TYPE_IB:
+		meta.snapshot = snapshot;
+		meta.obj = &objbuf[obj];
+
 		kgsl_snapshot_add_section(device, KGSL_SNAPSHOT_SECTION_IB,
-			snapshot, snapshot_ib, &objbuf[obj]);
+			snapshot, snapshot_ib, &meta);
 		if (objbuf[obj].entry) {
 			kgsl_memdesc_unmap(&(objbuf[obj].entry->memdesc));
 			kgsl_mem_entry_put(objbuf[obj].entry);
 		}
 		break;
 	default:
-		KGSL_DRV_ERR(device,
-			"snapshot: Invalid snapshot object type: %d\n",
+		KGSL_CORE_ERR("snapshot: Invalid snapshot object type: %d\n",
 			objbuf[obj].type);
 		break;
 	}
 }
 
+/* setup_fault process - Find kgsl_process_private struct that caused the fault
+ *
+ * Find the faulting process based what the dispatcher thinks happened and
+ * what the hardware is using for the current pagetable. The process struct
+ * will be used to look up GPU addresses that are encountered while parsing
+ * the GPU state.
+ */
+static void setup_fault_process(struct kgsl_device *device,
+				struct kgsl_snapshot *snapshot,
+				struct kgsl_process_private *process)
+{
+	phys_addr_t hw_ptbase, proc_ptbase;
+
+	if (process != NULL && !kgsl_process_private_get(process))
+		process = NULL;
+
+	/* Get the physical address of the MMU pagetable */
+	hw_ptbase = kgsl_mmu_get_current_ptbase(&device->mmu);
+
+	/* if we have an input process, make sure the ptbases match */
+	if (process) {
+		proc_ptbase = kgsl_mmu_pagetable_get_ptbase(process->pagetable);
+		/* agreement! No need to check further */
+		if (hw_ptbase == proc_ptbase)
+			goto done;
+
+		kgsl_process_private_put(process);
+		process = NULL;
+		KGSL_CORE_ERR("snapshot: ptbase mismatch hw %pa sw %pa\n",
+				&hw_ptbase, &proc_ptbase);
+	}
+
+	/* try to find the right pagetable by walking the process list */
+	if (kgsl_mmu_is_perprocess(&device->mmu)) {
+		struct kgsl_process_private *tmp_private;
+
+		mutex_lock(&kgsl_driver.process_mutex);
+		list_for_each_entry(tmp_private,
+				&kgsl_driver.process_list, list) {
+			if (kgsl_mmu_pt_equal(&device->mmu,
+						tmp_private->pagetable,
+						hw_ptbase)
+				&& kgsl_process_private_get(tmp_private)) {
+					process = tmp_private;
+				break;
+			}
+		}
+		mutex_unlock(&kgsl_driver.process_mutex);
+	}
+done:
+	snapshot->process = process;
+}
+
 /* adreno_snapshot - Snapshot the Adreno GPU state
  * @device - KGSL device to snapshot
  * @snapshot - Pointer to the snapshot instance
+ * @context - context that caused the fault, if known by the driver
  * This is a hook function called by kgsl_snapshot to snapshot the
  * Adreno specific information for the GPU snapshot.  In turn, this function
  * calls the GPU specific snapshot function to get core specific information.
  */
-void adreno_snapshot(struct kgsl_device *device, struct kgsl_snapshot *snapshot)
+void adreno_snapshot(struct kgsl_device *device, struct kgsl_snapshot *snapshot,
+			struct kgsl_context *context)
 {
 	int i;
 	uint32_t ibbase, ibsize;
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
 	struct adreno_gpudev *gpudev = ADRENO_GPU_DEVICE(adreno_dev);
-	phys_addr_t ptbase;
 
 	/* Reset the list of objects */
 	objbufptr = 0;
 
 	snapshot_frozen_objsize = 0;
 
-	/* Get the physical address of the MMU pagetable */
-	ptbase = kgsl_mmu_get_current_ptbase(&device->mmu);
+	setup_fault_process(device, snapshot,
+			context ? context->proc_priv : NULL);
 
 	/* Dump the ringbuffer */
 	kgsl_snapshot_add_section(device, KGSL_SNAPSHOT_SECTION_RB, snapshot,
-			snapshot_rb, NULL);
+			snapshot_rb, snapshot);
+
+	/* Add GPU specific sections - registers mainly, but other stuff too */
+	if (gpudev->snapshot)
+		gpudev->snapshot(adreno_dev, snapshot);
 
 	/*
 	 * Add a section that lists (gpuaddr, size, memtype) tuples of the
 	 * hanging process
 	 */
 	kgsl_snapshot_add_section(device, KGSL_SNAPSHOT_SECTION_MEMLIST,
-			snapshot, snapshot_capture_mem_list, NULL);
+			snapshot, snapshot_capture_mem_list, snapshot->process);
 	/*
 	 * Make sure that the last IB1 that was being executed is dumped.
 	 * Since this was the last IB1 that was processed, we should have
@@ -551,10 +618,11 @@ void adreno_snapshot(struct kgsl_device *device, struct kgsl_snapshot *snapshot)
 	 * figure how often this really happens.
 	 */
 
-	if (!find_object(SNAPSHOT_OBJ_TYPE_IB, ibbase, ptbase) && ibsize) {
-		push_object(device, SNAPSHOT_OBJ_TYPE_IB, ptbase,
+	if (!find_object(SNAPSHOT_OBJ_TYPE_IB, ibbase, snapshot->process)
+			&& ibsize) {
+		push_object(SNAPSHOT_OBJ_TYPE_IB, snapshot->process,
 			ibbase, ibsize);
-		KGSL_DRV_ERR(device, "CP_IB1_BASE not found in the ringbuffer. "
+		KGSL_CORE_ERR("CP_IB1_BASE not found in the ringbuffer. "
 			"Dumping %x dwords of the buffer.\n", ibsize);
 	}
 
@@ -569,8 +637,9 @@ void adreno_snapshot(struct kgsl_device *device, struct kgsl_snapshot *snapshot)
 	 * correct size.
 	 */
 
-	if (!find_object(SNAPSHOT_OBJ_TYPE_IB, ibbase, ptbase) && ibsize) {
-		push_object(device, SNAPSHOT_OBJ_TYPE_IB, ptbase,
+	if (!find_object(SNAPSHOT_OBJ_TYPE_IB, ibbase, snapshot->process)
+			&& ibsize) {
+		push_object(SNAPSHOT_OBJ_TYPE_IB, snapshot->process,
 			ibbase, ibsize);
 	}
 
@@ -581,19 +650,8 @@ void adreno_snapshot(struct kgsl_device *device, struct kgsl_snapshot *snapshot)
 	for (i = 0; i < objbufptr; i++)
 		dump_object(device, i, snapshot);
 
-	/* Add GPU specific sections - registers mainly, but other stuff too */
-	if (gpudev->snapshot)
-		gpudev->snapshot(adreno_dev, snapshot);
-
 	if (snapshot_frozen_objsize)
-		KGSL_DRV_ERR(device,
-			"GPU snapshot froze %zdKb of GPU buffers\n",
+		KGSL_CORE_ERR("GPU snapshot froze %zdKb of GPU buffers\n",
 			snapshot_frozen_objsize / 1024);
 
-	/*
-	 * Queue a work item that will save the IB data in snapshot into
-	 * static memory to prevent loss of data due to overwriting of
-	 * memory
-	 */
-	queue_work(device->work_queue, &device->snapshot_obj_ws);
 }

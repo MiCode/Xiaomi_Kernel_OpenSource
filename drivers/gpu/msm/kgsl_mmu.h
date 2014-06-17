@@ -139,6 +139,7 @@ struct kgsl_mmu_pt_ops {
 			unsigned int *tlb_flags);
 	void *(*mmu_create_pagetable) (void);
 	void (*mmu_destroy_pagetable) (struct kgsl_pagetable *);
+	phys_addr_t (*get_ptbase) (struct kgsl_pagetable *);
 };
 
 #define KGSL_MMU_FLAGS_IOMMU_SYNC BIT(31)
@@ -169,6 +170,10 @@ extern struct kgsl_mmu_pt_ops iommu_pt_ops;
 
 struct kgsl_pagetable *kgsl_mmu_getpagetable(struct kgsl_mmu *,
 						unsigned long name);
+
+struct kgsl_pagetable *kgsl_mmu_getpagetable_ptbase(struct kgsl_mmu *,
+						phys_addr_t ptbase);
+
 void kgsl_mmu_putpagetable(struct kgsl_pagetable *pagetable);
 int kgsl_mmu_init(struct kgsl_device *device);
 int kgsl_mmu_start(struct kgsl_device *device);
@@ -425,5 +430,15 @@ static inline int kgsl_mmu_is_secured(struct kgsl_mmu *mmu)
 {
 	return mmu && (mmu->secured) && (mmu->securepagetable);
 }
+
+static inline phys_addr_t
+kgsl_mmu_pagetable_get_ptbase(struct kgsl_pagetable *pagetable)
+{
+	if (pagetable && pagetable->pt_ops->get_ptbase)
+		return pagetable->pt_ops->get_ptbase(pagetable);
+	return 0;
+}
+
+
 
 #endif /* __KGSL_MMU_H */
