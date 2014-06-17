@@ -2415,6 +2415,8 @@
 		reg-names = "ramdump";
 		wlan-en-gpio = <&msm_gpio 113 0>;
 		vdd-wlan-supply = <&bt_vreg>;
+		vdd-wlan-io-supply = <&pm8994_s4>;
+		vdd-wlan-xtal-supply = <&pm8994_l30>;
 		qcom,notify-modem-status;
 		pinctrl-names = "default";
 		pinctrl-0 = <&cnss_default>;
