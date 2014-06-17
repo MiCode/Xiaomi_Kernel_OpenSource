@@ -1377,7 +1377,7 @@ int hdmi_hdcp_isr(void *input)
 
 	/* Ignore HDCP interrupts if HDCP is disabled */
 	if (HDCP_STATE_INACTIVE == hdcp_ctrl->hdcp_state) {
-		DEV_ERR("%s: HDCP inactive. Just clear int and return.\n",
+		DEV_DBG("%s: HDCP inactive. Just clear int and return.\n",
 			__func__);
 		DSS_REG_W(io, HDMI_HDCP_INT_CTRL, HDCP_INT_CLR);
 		return 0;
