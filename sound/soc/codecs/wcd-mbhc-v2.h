@@ -61,9 +61,14 @@ struct wcd_mbhc_intr {
 	int hph_right_ocp;
 };
 
+struct wcd_mbhc_cb {
+	int (*enable_mb_source) (struct snd_soc_codec *, bool);
+};
+
 struct wcd_mbhc {
 	int buttons_pressed;
 	struct wcd_mbhc_config *mbhc_cfg;
+	const struct wcd_mbhc_cb *mbhc_cb;
 
 	u32 hph_status; /* track headhpone status */
 	u8 hphlocp_cnt; /* headphone left ocp retry */
@@ -107,6 +112,7 @@ int wcd_mbhc_start(struct wcd_mbhc *mbhc,
 		       struct wcd_mbhc_config *mbhc_cfg);
 void wcd_mbhc_stop(struct wcd_mbhc *mbhc);
 int wcd_mbhc_init(struct wcd_mbhc *mbhc, struct snd_soc_codec *codec,
+		      const struct wcd_mbhc_cb *mbhc_cb,
 		      const struct wcd_mbhc_intr *mbhc_cdc_intr_ids,
 		      bool impedance_det_en);
 void wcd_mbhc_deinit(struct wcd_mbhc *mbhc);
