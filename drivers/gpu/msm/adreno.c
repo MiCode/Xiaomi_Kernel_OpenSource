@@ -3335,6 +3335,14 @@ static bool adreno_is_hw_collapsible(struct kgsl_device *device)
 				gpudev->is_sptp_idle(adreno_dev) : true);
 }
 
+static void adreno_regulator_disable(struct kgsl_device *device)
+{
+	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
+	struct adreno_gpudev *gpudev  = ADRENO_GPU_DEVICE(adreno_dev);
+	if (gpudev->regulator_disable)
+		gpudev->regulator_disable(adreno_dev);
+}
+
 static const struct kgsl_functable adreno_functable = {
 	/* Mandatory functions */
 	.regread = adreno_regread,
@@ -3370,6 +3378,7 @@ static const struct kgsl_functable adreno_functable = {
 	.disable_pc = adreno_disable_pc,
 	.regulator_enable = adreno_regulator_enable,
 	.is_hw_collapsible = adreno_is_hw_collapsible,
+	.regulator_disable = adreno_regulator_disable,
 
 };
 

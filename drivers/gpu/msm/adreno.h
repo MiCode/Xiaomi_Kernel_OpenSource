@@ -626,6 +626,7 @@ struct adreno_gpudev {
 	void (*enable_pc)(struct adreno_device *);
 	void (*disable_pc)(struct adreno_device *);
 	void (*regulator_enable)(struct adreno_device *);
+	void (*regulator_disable)(struct adreno_device *);
 };
 
 #define FT_DETECT_REGS_COUNT 14
