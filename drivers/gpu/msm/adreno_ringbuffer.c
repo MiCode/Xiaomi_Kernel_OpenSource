@@ -900,7 +900,7 @@ adreno_ringbuffer_addcmds(struct adreno_ringbuffer *rb,
 	return 0;
 }
 
-unsigned int
+int
 adreno_ringbuffer_issuecmds(struct kgsl_device *device,
 						struct adreno_context *drawctxt,
 						unsigned int flags,
