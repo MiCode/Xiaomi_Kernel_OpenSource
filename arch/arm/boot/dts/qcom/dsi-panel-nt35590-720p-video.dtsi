@@ -513,7 +513,7 @@
 		qcom,mdss-dsi-off-command-state = "dsi_hs_mode";
 		qcom,mdss-dsi-panel-status-check-mode = "bta_check";
 		qcom,dynamic-mode-switch-enabled;
-		qcom,video-to-cmd-mode-switch-commands = [15 01 00 00 00 00 02 C2 0B
+		qcom,video-to-cmd-mode-switch-commands = [15 01 00 00 14 00 02 C2 0B
 					15 01 00 00 00 00 02 C2 08];
 		qcom,cmd-to-video-mode-switch-commands = [15 01 00 00 00 00 02 C2 03];
 		qcom,mdss-dsi-h-sync-pulse = <1>;
