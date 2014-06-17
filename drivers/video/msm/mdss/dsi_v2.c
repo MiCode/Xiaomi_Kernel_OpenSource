@@ -52,6 +52,37 @@ static int dsi_on(struct mdss_panel_data *pdata)
 	return rc;
 }
 
+static int dsi_update_pconfig(struct mdss_panel_data *pdata,
+				int mode)
+{
+	int ret = 0;
+	struct mdss_panel_info *pinfo = &pdata->panel_info;
+	struct mdss_dsi_ctrl_pdata *ctrl_pdata = NULL;
+	if (!pdata)
+		return -ENODEV;
+	ctrl_pdata = container_of(pdata, struct mdss_dsi_ctrl_pdata,
+				panel_data);
+
+	if (mode == DSI_CMD_MODE) {
+		pinfo->mipi.mode = DSI_CMD_MODE;
+		pinfo->type = MIPI_CMD_PANEL;
+		pinfo->mipi.vsync_enable = 1;
+		pinfo->mipi.hw_vsync_mode = 1;
+	} else {
+		pinfo->mipi.mode = DSI_VIDEO_MODE;
+		pinfo->type = MIPI_VIDEO_PANEL;
+		pinfo->mipi.vsync_enable = 0;
+		pinfo->mipi.hw_vsync_mode = 0;
+	}
+
+	ctrl_pdata->panel_mode = pinfo->mipi.mode;
+	mdss_panel_get_dst_fmt(pinfo->bpp, pinfo->mipi.mode,
+			pinfo->mipi.pixel_packing, &(pinfo->mipi.dst_format));
+	pinfo->cont_splash_enabled = 0;
+
+	return ret;
+}
+
 static int dsi_panel_handler(struct mdss_panel_data *pdata, int enable)
 {
 	int rc = 0;
@@ -64,17 +95,35 @@ static int dsi_panel_handler(struct mdss_panel_data *pdata, int enable)
 				panel_data);
 
 	if (enable && pdata->panel_info.panel_power_on == 0) {
-		mdss_dsi_panel_reset(pdata, 1);
+		if (!pdata->panel_info.dynamic_switch_pending) {
+			mdss_dsi_panel_reset(pdata, 1);
+			rc = ctrl_pdata->on(pdata);
+			if (rc)
+				pr_err("dsi_panel_handler panel on failed %d\n",
+									rc);
+		}
 		pdata->panel_info.panel_power_on = 1;
-		rc = ctrl_pdata->on(pdata);
-		if (rc)
-			pr_err("dsi_panel_handler panel on failed %d\n", rc);
+		if (pdata->panel_info.type == MIPI_CMD_PANEL)
+			mdss_dsi_set_tear_on(ctrl_pdata);
 	} else if (!enable && pdata->panel_info.panel_power_on == 1) {
+		msm_dsi_sw_reset();
 		if (dsi_intf.op_mode_config)
 			dsi_intf.op_mode_config(DSI_CMD_MODE, pdata);
-		rc = ctrl_pdata->off(pdata);
+		if (pdata->panel_info.dynamic_switch_pending) {
+			pr_info("%s: switching to %s mode\n", __func__,
+			(pdata->panel_info.mipi.mode ? "video" : "command"));
+			if (pdata->panel_info.type == MIPI_CMD_PANEL) {
+				ctrl_pdata->switch_mode(pdata, DSI_VIDEO_MODE);
+			} else if (pdata->panel_info.type == MIPI_VIDEO_PANEL) {
+				ctrl_pdata->switch_mode(pdata, DSI_CMD_MODE);
+				mdss_dsi_set_tear_off(ctrl_pdata);
+			}
+		}
 		pdata->panel_info.panel_power_on = 0;
-		mdss_dsi_panel_reset(pdata, 0);
+		if (!pdata->panel_info.dynamic_switch_pending) {
+			rc = ctrl_pdata->off(pdata);
+			mdss_dsi_panel_reset(pdata, 0);
+		}
 	}
 	return rc;
 }
@@ -135,6 +184,9 @@ static int dsi_event_handler(struct mdss_panel_data *pdata,
 		break;
 	case MDSS_EVENT_PANEL_CLK_CTRL:
 		rc = dsi_clk_ctrl(pdata, (int)arg);
+		break;
+	case MDSS_EVENT_DSI_DYNAMIC_SWITCH:
+		rc = dsi_update_pconfig(pdata, (int)(unsigned long) arg);
 		break;
 	default:
 		pr_debug("%s: unhandled event=%d\n", __func__, event);
