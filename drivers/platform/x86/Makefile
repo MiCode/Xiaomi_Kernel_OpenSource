@@ -54,6 +54,7 @@ obj-$(CONFIG_APPLE_GMUX)	+= apple-gmux.o
 obj-$(CONFIG_INTEL_RST)		+= intel-rst.o
 obj-$(CONFIG_INTEL_SMARTCONNECT)	+= intel-smartconnect.o
 
-obj-$(CONFIG_PVPANIC)           += pvpanic.o
+obj-$(CONFIG_PVPANIC)		+= pvpanic.o
 obj-$(CONFIG_INTEL_BAYTRAIL_MBI)	+= intel_baytrail.o
-obj-$(CONFIG_ACPI) += intel_em_config.o
+obj-$(CONFIG_INTEL_SOC_PMIC)	+= dc_ti_cc.o
+obj-$(CONFIG_ACPI)		+= intel_em_config.o

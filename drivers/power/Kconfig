@@ -440,6 +440,22 @@ config CHARGER_BQ24192
 	  Say Y here if you know your platform has this chip for charging
 	  support.
 
+config INTEL_FUEL_GAUGE
+	bool "Intel Fuel Gauge driver"
+	help
+	  SW fuel gauge has a daemon running in user space to read
+	  Coulomb counnter and calculate battery capacity and level.
+
+	  Say Y here to enable support for Intel SW Fuel Gauge driver.
+
+config INTEL_FG_UIFACE
+	bool "Intel Fuel Gauge User Interface"
+	help
+	  This enables the sysfs interface for SW fuel gauge.
+
+	  Say Y here to enable support for Intel SW Fuel gauge Algo User
+	  Interface.
+
 source "drivers/power/reset/Kconfig"
 
 endif # POWER_SUPPLY
