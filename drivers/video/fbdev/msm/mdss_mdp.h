@@ -47,6 +47,7 @@
 #define MDP_MIN_VBP		4
 #define MDP_MIN_FETCH		9
 #define MAX_FREE_LIST_SIZE	12
+#define OVERLAY_MAX		10
 
 #define C3_ALPHA	3	/* alpha */
 #define C2_R_Cr		2	/* R/Cr */

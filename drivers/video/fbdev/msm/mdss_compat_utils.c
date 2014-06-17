@@ -23,6 +23,7 @@
 #include "mdss_fb.h"
 #include "mdss_compat_utils.h"
 #include "mdss_mdp_hwio.h"
+#include "mdss_mdp.h"
 
 #define MSMFB_SET_LUT32 _IOW(MSMFB_IOCTL_MAGIC, 131, struct fb_cmap32)
 #define MSMFB_HISTOGRAM32 _IOWR(MSMFB_IOCTL_MAGIC, 132,\
@@ -2523,6 +2524,11 @@ int mdss_compat_overlay_ioctl(struct fb_info *info, unsigned int cmd,
 		if (get_user(num_overlays, &ovlist32->num_overlays)) {
 			pr_err("compat mdp prepare failed: invalid arg\n");
 			return -EFAULT;
+		}
+
+		if (num_overlays >= OVERLAY_MAX) {
+			pr_err("%s: No: of overlays exceeds max\n", __func__);
+			return -EINVAL;
 		}
 
 		layers_sz = num_overlays * sizeof(struct mdp_overlay);
