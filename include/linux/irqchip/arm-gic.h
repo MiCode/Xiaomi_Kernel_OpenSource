@@ -2,6 +2,7 @@
  *  include/linux/irqchip/arm-gic.h
  *
  *  Copyright (C) 2002 ARM Limited, All Rights Reserved.
+ *  Copyright (c) 2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -110,6 +111,7 @@ void gic_send_sgi(unsigned int cpu_id, unsigned int irq);
 int gic_get_cpu_id(unsigned int cpu);
 void gic_migrate_target(unsigned int new_cpu_id);
 unsigned long gic_get_sgir_physaddr(void);
+void gic_show_pending_irq(void);
 
 extern const struct irq_domain_ops *gic_routable_irq_domain_ops;
 static inline void __init register_routable_domain_ops
