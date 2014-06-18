@@ -280,6 +280,7 @@
 			qcom,low-soc-fifo-length = <2>;
 			qcom,bms-vadc = <&pm8916_vadc>;
 			qcom,bms-adc_tm = <&pm8916_adc_tm>;
+			qcom,pmic-revid = <&pm8916_revid>;
 
 			qcom,force-s3-on-suspend;
 			qcom,force-s2-in-charging;
