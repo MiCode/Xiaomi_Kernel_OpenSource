@@ -59,6 +59,9 @@
 /* Battery power unit: 0 means mW, 1 means mA */
 #define ACPI_BATTERY_POWER_UNIT_MA	1
 
+/* 6% is minimun threshold  for platform shutdown*/
+#define EC_BAT_SAFE_MIN_CAPACITY        6
+
 #define _COMPONENT		ACPI_BATTERY_COMPONENT
 
 ACPI_MODULE_NAME("battery");
@@ -109,6 +112,10 @@ enum {
 	   post-1.29 BIOS), but as of Nov. 2012, no such update is
 	   available for the 2010 models.  */
 	ACPI_BATTERY_QUIRK_THINKPAD_MAH,
+	/* On Broadwell platforms 6% battery is minimum threshold for
+	 * platform shutdown
+	 */
+	ACPI_BATTERY_BROADWELL_QUIRK,
 };
 
 struct acpi_battery {
@@ -170,23 +177,60 @@ static int acpi_battery_technology(struct acpi_battery *battery)
 
 static int acpi_battery_get_state(struct acpi_battery *battery);
 
+int acpi_compensate_battery_charge(struct acpi_battery *battery)
+{
+	int comp_cap = battery->capacity_now * 100/
+		battery->full_charge_capacity;
+
+	/* 6% of capacity is minimum treshold for Broadwell
+	 * So, the 6% is mapped to 0% in android.
+	 * 6% to 50% is compensated with 0% to 50% to OS,
+	 * compensated capacity= cap - ((100 - cap)*6)/100 + 0.5.
+	 *
+	 * 50% to 99% is compensated so that 99% maps to 100%,
+	 * compensated capacity= cap - ((100 - cap)*6)/100 + 1.5.
+	 * This allows non perfectly calibrated batteries to seem
+	 * fully charged
+	 */
+	if (test_bit(ACPI_BATTERY_BROADWELL_QUIRK,
+		&battery->flags)) {
+		if (comp_cap <= 50) {
+			comp_cap = comp_cap*100 -
+				((100 - comp_cap)*
+				EC_BAT_SAFE_MIN_CAPACITY) + 50;
+			comp_cap /= 100;
+		} else if (comp_cap < 100) {
+			comp_cap = comp_cap*100 -
+				((100 - comp_cap)*
+				EC_BAT_SAFE_MIN_CAPACITY) + 150;
+			comp_cap /= 100;
+		}
+	}
+	if (comp_cap < 0)
+		comp_cap = 0;
+	else if (comp_cap > 100)
+		comp_cap = 100;
+
+	return comp_cap;
+}
+
 static int acpi_battery_is_charged(struct acpi_battery *battery)
 {
 	/* either charging or discharging */
 	if (battery->state != 0)
 		return 0;
-
 	/* battery not reporting charge */
 	if (battery->capacity_now == ACPI_BATTERY_VALUE_UNKNOWN ||
-	    battery->capacity_now == 0)
+			battery->capacity_now == 0)
 		return 0;
-
 	/* good batteries update full_charge as the batteries degrade */
 	if (battery->full_charge_capacity == battery->capacity_now)
 		return 1;
-
 	/* fallback to using design values for broken batteries */
 	if (battery->design_capacity == battery->capacity_now)
+		return 1;
+	/*if compensated battery reaches 100%, report fully charged*/
+	if (acpi_compensate_battery_charge(battery) == 100)
 		return 1;
 
 	/* we don't do any sort of metric based on percentages */
@@ -205,10 +249,13 @@ static int acpi_battery_get_property(struct power_supply *psy,
 		acpi_battery_get_state(battery);
 	} else if (psp != POWER_SUPPLY_PROP_PRESENT)
 		return -ENODEV;
+
 	switch (psp) {
 	case POWER_SUPPLY_PROP_STATUS:
 		if (battery->state & 0x01)
 			val->intval = POWER_SUPPLY_STATUS_DISCHARGING;
+		else if (acpi_compensate_battery_charge(battery) == 100)
+			val->intval = POWER_SUPPLY_STATUS_FULL;
 		else if (battery->state & 0x02)
 			val->intval = POWER_SUPPLY_STATUS_CHARGING;
 		else if (acpi_battery_is_charged(battery))
@@ -266,10 +313,10 @@ static int acpi_battery_get_property(struct power_supply *psy,
 			val->intval = battery->capacity_now * 1000;
 		break;
 	case POWER_SUPPLY_PROP_CAPACITY:
-		if (battery->capacity_now && battery->full_charge_capacity)
-			val->intval = battery->capacity_now * 100/
-					battery->full_charge_capacity;
-		else
+		if (battery->capacity_now && battery->full_charge_capacity) {
+			val->intval =
+				acpi_compensate_battery_charge(battery);
+		} else
 			val->intval = 0;
 		break;
 	case POWER_SUPPLY_PROP_MODEL_NAME:
@@ -660,6 +707,11 @@ static void find_battery(const struct dmi_header *dm, void *private)
  */
 static void acpi_battery_quirks(struct acpi_battery *battery)
 {
+	const char *str;
+	str = dmi_get_system_info(DMI_PRODUCT_NAME);
+	if (str && !strnicmp(str, "BROADWELL", 9))
+		set_bit(ACPI_BATTERY_BROADWELL_QUIRK, &battery->flags);
+
 	if (test_bit(ACPI_BATTERY_QUIRK_PERCENTAGE_CAPACITY, &battery->flags))
 		return;
 
