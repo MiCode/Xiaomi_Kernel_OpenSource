@@ -132,8 +132,7 @@
 				    <0x013d0 0x00ccc000>;
 
 		/* buffer parameters to calculate prefill bandwidth */
-		/* TODO: Need to check BW settings */
-		qcom,mdss-prefill-outstanding-buffer-bytes = <1024>;
+		qcom,mdss-prefill-outstanding-buffer-bytes = <2048>;
 		qcom,mdss-prefill-y-buffer-bytes = <4096>;
 		qcom,mdss-prefill-scaler-buffer-lines-bilinear = <2>;
 		qcom,mdss-prefill-scaler-buffer-lines-caf = <4>;
@@ -254,7 +253,7 @@
 
 	mdss_dsi1: qcom,mdss_dsi@fd9a0000 {
 		compatible = "qcom,mdss-dsi-ctrl";
-		label = "MDSS DSI CTRL->0";
+		label = "MDSS DSI CTRL->1";
 		cell-index = <1>;
 		reg = 	<0xfd9a0000 0x260>,
 			<0xfd9a0500 0x2b0>,
