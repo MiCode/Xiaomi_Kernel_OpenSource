@@ -277,6 +277,7 @@ enum {
 	SLIM_3_RX_2 = 168, /* External echo-cancellation ref */
 	SLIM_3_TX_1 = 169, /* HDMI RX */
 	SLIM_3_TX_2 = 170, /* HDMI RX */
+	SLIM_4_RX_1 = 171, /* In-call music delivery2 */
 	SLIM_6_TX_1 = 163, /* In-call recording RX */
 	SLIM_6_TX_2 = 164, /* In-call recording RX */
 	SLIM_6_RX_1 = 165, /* In-call music delivery TX */
@@ -1859,6 +1860,23 @@ static int msm_slim_3_tx_be_hw_params_fixup(struct snd_soc_pcm_runtime *rtd,
 	return 0;
 }
 
+static int msm_slim_4_rx_be_hw_params_fixup(struct snd_soc_pcm_runtime *rtd,
+					    struct snd_pcm_hw_params *params)
+{
+	struct snd_interval *rate = hw_param_interval(params,
+						SNDRV_PCM_HW_PARAM_RATE);
+
+	struct snd_interval *channels = hw_param_interval(params,
+						SNDRV_PCM_HW_PARAM_CHANNELS);
+
+	rate->min = rate->max = 48000;
+	channels->min = channels->max = 1;
+
+	pr_debug("%s() channels->min %u channels->max %u\n", __func__,
+		 channels->min, channels->max);
+	return 0;
+}
+
 static int msm_slim_6_tx_be_hw_params_fixup(struct snd_soc_pcm_runtime *rtd,
 					    struct snd_pcm_hw_params *params)
 {
@@ -2670,6 +2688,27 @@ end:
 	return ret;
 }
 
+static int apq8084_slimbus_4_hw_params(struct snd_pcm_substream *substream,
+				       struct snd_pcm_hw_params *params)
+{
+	struct snd_soc_pcm_runtime *rtd = substream->private_data;
+	struct snd_soc_dai *cpu_dai = rtd->cpu_dai;
+	int ret = 0;
+	unsigned int rx_ch = SLIM_4_RX_1;
+
+	if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK) {
+		pr_debug("%s: SLIMBUS_4_RX -> MDM TX shared ch %d\n",
+			 __func__, rx_ch);
+
+		ret = snd_soc_dai_set_channel_map(cpu_dai, 0, 0, 1, &rx_ch);
+		if (ret < 0) {
+			pr_err("%s: Erorr %d setting SLIM_4 RX channel map\n",
+				__func__, ret);
+		}
+	}
+	return ret;
+}
+
 static int apq8084_slimbus_6_hw_params(struct snd_pcm_substream *substream,
 				       struct snd_pcm_hw_params *params)
 {
@@ -2725,6 +2764,12 @@ static struct snd_soc_ops apq8084_slimbus_2_be_ops = {
 static struct snd_soc_ops apq8084_slimbus_3_be_ops = {
 	.startup = apq8084_snd_startup,
 	.hw_params = apq8084_slimbus_3_hw_params,
+	.shutdown = apq8084_snd_shudown,
+};
+
+static struct snd_soc_ops apq8084_slimbus_4_be_ops = {
+	.startup = apq8084_snd_startup,
+	.hw_params = apq8084_slimbus_4_hw_params,
 	.shutdown = apq8084_snd_shudown,
 };
 
@@ -3381,6 +3426,22 @@ static struct snd_soc_dai_link apq8084_common_dai_links[] = {
 		 /* this dai link has playback support */
 		.be_id = MSM_FRONTEND_DAI_MULTIMEDIA16,
 	},
+	{
+		.name = "APQ8084 Media9",
+		.stream_name = "MultiMedia9",
+		.cpu_dai_name   = "MultiMedia9",
+		.platform_name  = "msm-pcm-dsp.0",
+		.dynamic = 1,
+		.async_ops = ASYNC_DPCM_SND_SOC_PREPARE,
+		.codec_dai_name = "snd-soc-dummy-dai",
+		.codec_name = "snd-soc-dummy",
+		.trigger = {SND_SOC_DPCM_TRIGGER_POST,
+			    SND_SOC_DPCM_TRIGGER_POST},
+		.ignore_suspend = 1,
+		/* this dainlink has playback support */
+		.ignore_pmdown_time = 1,
+		.be_id = MSM_FRONTEND_DAI_MULTIMEDIA9,
+	},
 };
 
 static struct snd_soc_dai_link apq8084_tomtom_fe_dai_links[] = {
@@ -3752,13 +3813,13 @@ static struct snd_soc_dai_link apq8084_tomtom_be_dai_links[] = {
 		.stream_name = "Slimbus4 Playback",
 		.cpu_dai_name = "msm-dai-q6-dev.16392",
 		.platform_name = "msm-pcm-routing",
-		.codec_name = "tomtom_codec",
-		.codec_dai_name	= "tomtom_rx1",
+		.codec_name = "msm-stub-codec.1",
+		.codec_dai_name	= "msm-stub-rx",
 		.no_pcm = 1,
 		.async_ops = ASYNC_DPCM_SND_SOC_PREPARE,
 		.be_id = MSM_BACKEND_DAI_SLIMBUS_4_RX,
-		.be_hw_params_fixup = msm_slim_0_rx_be_hw_params_fixup,
-		.ops = &apq8084_be_ops,
+		.be_hw_params_fixup = msm_slim_4_rx_be_hw_params_fixup,
+		.ops = &apq8084_slimbus_4_be_ops,
 		/* this dai link has playback support */
 		.ignore_pmdown_time = 1,
 		.ignore_suspend = 1,
@@ -3869,13 +3930,13 @@ static struct snd_soc_dai_link apq8084_taiko_be_dai_links[] = {
 		.stream_name = "Slimbus4 Playback",
 		.cpu_dai_name = "msm-dai-q6-dev.16392",
 		.platform_name = "msm-pcm-routing",
-		.codec_name = "taiko_codec",
-		.codec_dai_name	= "taiko_rx1",
+		.codec_name = "msm-stub-codec.1",
+		.codec_dai_name	= "msm-stub-rx",
 		.no_pcm = 1,
 		.async_ops = ASYNC_DPCM_SND_SOC_PREPARE,
 		.be_id = MSM_BACKEND_DAI_SLIMBUS_4_RX,
-		.be_hw_params_fixup = msm_slim_0_rx_be_hw_params_fixup,
-		.ops = &apq8084_be_ops,
+		.be_hw_params_fixup = msm_slim_4_rx_be_hw_params_fixup,
+		.ops = &apq8084_slimbus_4_be_ops,
 		/* this dai link has playback support */
 		.ignore_pmdown_time = 1,
 		.ignore_suspend = 1,
