@@ -1245,6 +1245,8 @@ qmi_handle_create_failed:
 
 void msm_slim_qmi_exit(struct msm_slim_ctrl *dev)
 {
+	if (!dev->qmi.handle || !dev->qmi.task)
+		return;
 	qmi_handle_destroy(dev->qmi.handle);
 	flush_kthread_worker(&dev->qmi.kworker);
 	kthread_stop(dev->qmi.task);
