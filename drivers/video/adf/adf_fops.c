@@ -23,8 +23,8 @@
 #include <video/adf_client.h>
 #include <video/adf_format.h>
 
-#include "sw_sync.h"
-#include "sync.h"
+#include <android/sw_sync.h>
+#include <android/sync.h>
 
 #include "adf.h"
 #include "adf_fops.h"

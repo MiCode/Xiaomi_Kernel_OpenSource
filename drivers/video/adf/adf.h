@@ -18,7 +18,6 @@
 #include <linux/idr.h>
 #include <linux/list.h>
 #include <video/adf.h>
-#include "sync.h"
 
 struct adf_event_refcount {
 	struct rb_node node;

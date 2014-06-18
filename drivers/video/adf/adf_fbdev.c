@@ -18,6 +18,8 @@
 #include <video/adf_client.h>
 #include <video/adf_fbdev.h>
 #include <video/adf_format.h>
+#include <android/sync.h>
+#include <android/sw_sync.h>
 
 #include "adf.h"
 
@@ -90,7 +92,8 @@ static u32 drm_fourcc_from_fb_var(struct fb_var_screeninfo *var)
 	size_t i;
 	for (i = 0; i < ARRAY_SIZE(format_table); i++) {
 		const struct adf_fbdev_format *f = &format_table[i];
-		if (var->red.length == f->r_length &&
+		if (var->bits_per_pixel == f->bpp &&
+			var->red.length == f->r_length &&
 			var->red.offset == f->r_offset &&
 			var->green.length == f->g_length &&
 			var->green.offset == f->g_offset &&

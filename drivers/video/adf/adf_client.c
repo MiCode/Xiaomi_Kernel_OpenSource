@@ -15,13 +15,10 @@
 #include <linux/kthread.h>
 #include <linux/mutex.h>
 #include <linux/slab.h>
-
-#include "sw_sync.h"
-
+#include <android/sw_sync.h>
 #include <video/adf.h>
 #include <video/adf_client.h>
 #include <video/adf_format.h>
-
 #include "adf.h"
 
 static inline bool vsync_active(u8 state)
