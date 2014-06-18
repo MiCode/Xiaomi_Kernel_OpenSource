@@ -23,7 +23,10 @@
 #include <linux/sys_soc.h>
 #include <linux/slab.h>
 #include <linux/stat.h>
+#include <linux/string.h>
 #include <linux/types.h>
+
+#include <asm/system_misc.h>
 
 #include <soc/qcom/socinfo.h>
 #include <soc/qcom/smem.h>
@@ -487,6 +490,30 @@ uint32_t socinfo_get_version(void)
 char *socinfo_get_build_id(void)
 {
 	return (socinfo) ? socinfo->v1.build_id : NULL;
+}
+
+static char *msm_read_hardware_id(void)
+{
+	static char msm_soc_str[256] = "Qualcomm Technologies, Inc ";
+	static bool string_generated;
+	int ret = 0;
+
+	if (string_generated)
+		return msm_soc_str;
+	if (!socinfo)
+		goto err_path;
+	if (!cpu_of_id[socinfo->v1.id].soc_id_string)
+		goto err_path;
+
+	ret = strlcat(msm_soc_str, cpu_of_id[socinfo->v1.id].soc_id_string,
+			sizeof(msm_soc_str));
+	if (ret > sizeof(msm_soc_str))
+		goto err_path;
+
+	string_generated = true;
+	return msm_soc_str;
+err_path:
+	return "UNKNOWN SOC TYPE";
 }
 
 uint32_t socinfo_get_raw_id(void)
@@ -1209,14 +1236,15 @@ int __init socinfo_init(void)
 	}
 
 	WARN(!socinfo_get_id(), "Unknown SOC ID!\n");
-	WARN(socinfo_get_id() >= ARRAY_SIZE(cpu_of_id),
-		"New IDs added! ID => CPU mapping might need an update.\n");
 
-	if (socinfo->v1.id < ARRAY_SIZE(cpu_of_id))
+	if (socinfo_get_id() >= ARRAY_SIZE(cpu_of_id))
+		BUG_ON("New IDs added! ID => CPU mapping needs an update.\n");
+	else
 		cur_cpu = cpu_of_id[socinfo->v1.id].generic_soc_type;
 
 	boot_stats_init();
 	socinfo_print();
+	arch_read_hardware_id = msm_read_hardware_id;
 	socinfo_init_done = true;
 
 	return 0;
