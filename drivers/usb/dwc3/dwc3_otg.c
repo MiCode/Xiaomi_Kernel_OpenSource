@@ -446,21 +446,19 @@ static void dwc3_ext_event_notify(struct usb_otg *otg,
 		flush_delayed_work(&dotg->sm_work);
 
 	if (event == DWC3_EVENT_PHY_RESUME) {
-		if (!pm_runtime_status_suspended(phy->dev)) {
+		if (!pm_runtime_status_suspended(phy->dev))
 			dev_warn(phy->dev, "PHY_RESUME event out of LPM!!!!\n");
-		} else {
-			dev_dbg(phy->dev, "ext PHY_RESUME event received\n");
-			/* ext_xceiver would have taken h/w out of LPM by now */
-			ret = pm_runtime_get(phy->dev);
-			if (ret == -EACCES) {
-				/* pm_runtime_get may fail during system
-				   resume with -EACCES error */
-				pm_runtime_disable(phy->dev);
-				pm_runtime_set_active(phy->dev);
-				pm_runtime_enable(phy->dev);
-			} else if (ret < 0) {
-				dev_warn(phy->dev, "pm_runtime_get failed!\n");
-			}
+		dev_dbg(phy->dev, "ext PHY_RESUME event received\n");
+		/* ext_xceiver would have taken h/w out of LPM by now */
+		ret = pm_runtime_get(phy->dev);
+		if (ret == -EACCES) {
+			/* pm_runtime_get may fail during system
+			   resume with -EACCES error */
+			pm_runtime_disable(phy->dev);
+			pm_runtime_set_active(phy->dev);
+			pm_runtime_enable(phy->dev);
+		} else if (ret < 0) {
+			dev_warn(phy->dev, "pm_runtime_get failed!\n");
 		}
 	} else if (event == DWC3_EVENT_XCEIV_STATE) {
 		if (pm_runtime_status_suspended(phy->dev) ||
