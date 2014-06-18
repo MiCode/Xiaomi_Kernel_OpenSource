@@ -71,6 +71,9 @@
 #define SYNAPTICS_RMI4_PRODUCT_ID_SIZE 10
 #define SYNAPTICS_RMI4_BUILD_ID_SIZE 3
 
+#define F01_PACKAGE_ID_OFFSET 17
+#define PACKAGE_ID_SIZE 4
+
 #define F12_FINGERS_TO_SUPPORT 10
 #define F12_NO_OBJECT_STATUS 0x00
 #define F12_FINGER_STATUS 0x01
@@ -104,7 +107,7 @@ enum exp_fn {
 };
 
 struct synaptics_dsx_hw_interface {
-	const struct synaptics_dsx_board_data *board_data;
+	struct synaptics_dsx_board_data *board_data;
 	const struct synaptics_dsx_bus_access *bus_access;
 };
 
@@ -199,6 +202,8 @@ struct synaptics_rmi4_device_info {
 	unsigned char product_id_string[SYNAPTICS_RMI4_PRODUCT_ID_SIZE + 1];
 	unsigned char build_id[SYNAPTICS_RMI4_BUILD_ID_SIZE];
 	struct list_head support_fn_list;
+	unsigned int package_id;
+	unsigned int package_id_rev;
 };
 
 /*
@@ -322,6 +327,10 @@ void synaptics_rmi4_dsx_new_function(struct synaptics_rmi4_exp_fn *exp_fn_mod,
 
 int synaptics_dsx_fw_updater(unsigned char *fw_data);
 
+int synaptics_dsx_get_dt_coords(struct device *dev, char *name,
+				struct synaptics_dsx_board_data *pdata,
+				struct device_node *node);
+
 static inline int synaptics_rmi4_reg_read(
 		struct synaptics_rmi4_data *rmi4_data,
 		unsigned short addr,
@@ -369,5 +378,4 @@ static inline void hstoba(unsigned char *dest, unsigned short src)
 	dest[0] = src % 0x100;
 	dest[1] = src / 0x100;
 }
-
 #endif

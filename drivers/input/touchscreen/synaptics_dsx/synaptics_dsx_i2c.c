@@ -224,12 +224,13 @@ static void synaptics_rmi4_i2c_dev_release(struct device *dev)
 	return;
 }
 #ifdef CONFIG_OF
-static int synaptics_dsx_get_dt_coords(struct device *dev, char *name,
-				struct synaptics_dsx_board_data *pdata)
+int synaptics_dsx_get_dt_coords(struct device *dev, char *name,
+				struct synaptics_dsx_board_data *pdata,
+				struct device_node *node)
 {
 	u32 coords[DSX_COORDS_ARR_SIZE];
 	struct property *prop;
-	struct device_node *np = dev->of_node;
+	struct device_node *np = (node == NULL) ? (dev->of_node) : (node);
 	int coords_size, rc;
 
 	prop = of_find_property(np, name, NULL);
@@ -307,15 +308,20 @@ static int synaptics_dsx_parse_dt(struct device *dev,
 			"synaptics,irq-gpio", 0, &rmi4_pdata->irq_flags);
 
 	rc = synaptics_dsx_get_dt_coords(dev, "synaptics,display-coords",
-				rmi4_pdata);
+				rmi4_pdata, NULL);
 	if (rc && (rc != -EINVAL))
 		return rc;
 
 	rc = synaptics_dsx_get_dt_coords(dev, "synaptics,panel-coords",
-				rmi4_pdata);
+				rmi4_pdata, NULL);
 	if (rc && (rc != -EINVAL))
 		return rc;
 
+	rmi4_pdata->detect_device = of_property_read_bool(np,
+				"synaptics,detect-device");
+
+	if (rmi4_pdata->detect_device)
+		return 0;
 
 	prop = of_find_property(np, "synaptics,button-map", NULL);
 	if (prop) {
