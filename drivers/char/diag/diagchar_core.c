@@ -291,6 +291,7 @@ static int diagchar_close(struct inode *inode, struct file *file)
 	int i = -1;
 	struct diagchar_priv *diagpriv_data = file->private_data;
 	struct diag_dci_client_tbl *dci_entry = NULL;
+	unsigned long flags;
 
 	pr_debug("diag: process exit %s\n", current->comm);
 	if (!(file->private_data)) {
@@ -327,6 +328,19 @@ static int diagchar_close(struct inode *inode, struct file *file)
 #ifdef CONFIG_DIAG_OVER_USB
 	/* If the SD logging process exits, change logging to USB mode */
 	if (driver->logging_process_id == current->tgid) {
+		if (driver->rsp_buf_busy) {
+			/*
+			 * This happens when the logging process did not get a
+			 * chance to read the last response. Clear the busy flag
+			 * for the response buffer.
+			 */
+			spin_lock_irqsave(&driver->rsp_buf_busy_lock, flags);
+			driver->rsp_buf_busy = 0;
+			spin_unlock_irqrestore(&driver->rsp_buf_busy_lock,
+					       flags);
+			pr_debug("diag: In %s, Resetting rsp_buf_busy explicitly due to pid: %d\n",
+				 __func__, current->tgid);
+		}
 		diag_update_proc_vote(DIAG_PROC_MEMORY_DEVICE, VOTE_DOWN,
 				      ALL_PROC);
 		diag_switch_logging(USB_MODE);
