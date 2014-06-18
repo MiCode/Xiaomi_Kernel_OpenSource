@@ -75,7 +75,7 @@ static void msm_pcm_route_event_handler(enum msm_pcm_routing_event event,
 
 	BUG_ON(!pcm);
 
-	pr_debug("%s: event %x\n", __func__, event);
+	pr_debug("%s: event 0x%x\n", __func__, event);
 
 	switch (event) {
 	case MSM_PCM_RT_EVT_DEVSWITCH:
@@ -83,6 +83,7 @@ static void msm_pcm_route_event_handler(enum msm_pcm_routing_event event,
 		q6asm_cmd(pcm->audio_client, CMD_FLUSH);
 		q6asm_run(pcm->audio_client, 0, 0, 0);
 	default:
+		pr_err("%s: default event 0x%x\n", __func__, event);
 		break;
 	}
 }
@@ -90,7 +91,7 @@ static void msm_pcm_route_event_handler(enum msm_pcm_routing_event event,
 static void msm_pcm_loopback_event_handler(uint32_t opcode, uint32_t token,
 					   uint32_t *payload, void *priv)
 {
-	pr_debug("%s\n", __func__);
+	pr_debug("%s:\n", __func__);
 	switch (opcode) {
 	case APR_BASIC_RSP_RESULT: {
 		switch (payload[0]) {
@@ -101,7 +102,8 @@ static void msm_pcm_loopback_event_handler(uint32_t opcode, uint32_t token,
 	}
 		break;
 	default:
-		pr_err("Not Supported Event opcode[0x%x]\n", opcode);
+		pr_err("%s: Not Supported Event opcode[0x%x]\n",
+			__func__, opcode);
 		break;
 	}
 }
@@ -110,7 +112,7 @@ static int pcm_loopback_set_volume(struct msm_pcm_loopback *prtd, int volume)
 {
 	int rc = -EINVAL;
 
-	pr_debug("%s Setting volume 0x%x\n", __func__, volume);
+	pr_debug("%s: Setting volume 0x%x\n", __func__, volume);
 
 	if (prtd && prtd->audio_client) {
 		rc = q6asm_set_volume(prtd->audio_client, volume);
@@ -298,6 +300,7 @@ static int msm_pcm_trigger(struct snd_pcm_substream *substream, int cmd)
 			q6asm_cmd_nowait(pcm->audio_client, CMD_PAUSE);
 		break;
 	default:
+		pr_err("%s: default cmd %d\n", __func__, cmd);
 		break;
 	}
 
