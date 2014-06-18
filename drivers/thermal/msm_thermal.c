@@ -1458,9 +1458,12 @@ static int vdd_restriction_apply_all(int en)
 	int ret = 0;
 
 	for (i = 0; i < rails_cnt; i++) {
-		if (rails[i].freq_req == 1 && freq_table_get)
-			ret = vdd_restriction_apply_freq(&rails[i],
+		if (rails[i].freq_req == 1)
+			if (freq_table_get)
+				ret = vdd_restriction_apply_freq(&rails[i],
 					en ? 0 : -1);
+			else
+				continue;
 		else
 			ret = vdd_restriction_apply_voltage(&rails[i],
 					en ? 0 : -1);
