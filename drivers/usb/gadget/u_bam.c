@@ -226,8 +226,6 @@ static struct sk_buff *gbam_alloc_skb_from_pool(struct gbam_port *port)
 	struct bam_ch_info *d;
 	struct sk_buff *skb;
 	dma_addr_t      skb_buf_dma_addr;
-
-	struct f_rmnet    *dev;
 	struct usb_gadget *gadget;
 
 	if (!port)
@@ -254,11 +252,9 @@ static struct sk_buff *gbam_alloc_skb_from_pool(struct gbam_port *port)
 
 		skb_reserve(skb, BAM_MUX_HDR);
 
-		dev = port_to_rmnet(port->port_usb);
-		if ((d->trans == USB_GADGET_XPORT_BAM2BAM_IPA) &&
-			dev && dev->cdev && dev->cdev->gadget) {
+		if ((d->trans == USB_GADGET_XPORT_BAM2BAM_IPA)) {
 
-			gadget = dev->cdev->gadget;
+			gadget = port->port_usb->gadget;
 
 			skb_buf_dma_addr =
 				dma_map_single(&gadget->dev, skb->data,
@@ -306,19 +302,14 @@ static void gbam_free_rx_skb_idle_list(struct gbam_port *port)
 {
 	struct bam_ch_info *d;
 	struct sk_buff *skb;
-
 	dma_addr_t dma_addr;
-
-	struct f_rmnet    *dev;
 	struct usb_gadget *gadget = NULL;
 
 	if (!port)
 		return;
 	d = &port->data_ch;
 
-	dev = port_to_rmnet(port->port_usb);
-	if (dev && dev->cdev && dev->cdev->gadget)
-		gadget = dev->cdev->gadget;
+	gadget = port->port_usb->gadget;
 
 	while (d->rx_skb_idle.qlen > 0) {
 		skb = __skb_dequeue(&d->rx_skb_idle);
@@ -887,22 +878,14 @@ static void configure_data_fifo(u8 idx, struct usb_ep *ep,
 static void gbam_start(void *param, enum usb_bam_pipe_dir dir)
 {
 	struct gbam_port *port = param;
-	struct f_rmnet *dev = NULL;
 	struct usb_gadget *gadget = NULL;
 	struct bam_ch_info *d;
 
 	if (port) {
-		dev = port_to_rmnet(port->port_usb);
+		gadget = port->port_usb->gadget;
 		d = &port->data_ch;
 	} else {
 		pr_err("%s: port is NULL\n", __func__);
-		return;
-	}
-
-	if (dev && dev->cdev)
-		gadget = dev->cdev->gadget;
-	 else {
-		pr_err("%s: dev or dev->cdev are NULL\n", __func__);
 		return;
 	}
 
@@ -1151,7 +1134,6 @@ static void gbam_connect_work(struct work_struct *w)
 static void gbam2bam_connect_work(struct work_struct *w)
 {
 	struct gbam_port *port = container_of(w, struct gbam_port, connect_w);
-	struct f_rmnet *dev = NULL;
 	struct usb_gadget *gadget = NULL;
 	struct teth_bridge_connect_params connect_params;
 	struct teth_bridge_init_params teth_bridge_params;
@@ -1165,15 +1147,7 @@ static void gbam2bam_connect_work(struct work_struct *w)
 		return;
 	}
 	d = &port->data_ch;
-	dev = port_to_rmnet(port->port_usb);
-
-	if (dev && dev->cdev)
-		gadget = dev->cdev->gadget;
-
-	if (!gadget) {
-		pr_err("%s: NULL gadget\n", __func__);
-		return;
-	}
+	gadget = port->port_usb->gadget;
 
 	spin_lock_irqsave(&port->port_lock_ul, flags);
 	spin_lock(&port->port_lock_dl);
@@ -1426,14 +1400,14 @@ static int gbam_wake_cb(void *param)
 {
 	struct gbam_port	*port = (struct gbam_port *)param;
 	struct bam_ch_info *d;
-	struct f_rmnet		*dev;
+	struct usb_gadget *gadget;
 
-	dev = port_to_rmnet(port->port_usb);
+	gadget = port->port_usb->gadget;
 	d = &port->data_ch;
 
 	pr_debug("%s: woken up by peer\n", __func__);
 
-	return usb_gadget_wakeup(dev->cdev->gadget);
+	return usb_gadget_wakeup(gadget);
 }
 
 static void gbam2bam_suspend_work(struct work_struct *w)
@@ -1463,15 +1437,12 @@ static void gbam2bam_resume_work(struct work_struct *w)
 {
 	struct gbam_port *port = container_of(w, struct gbam_port, resume_w);
 	struct bam_ch_info *d = &port->data_ch;
-	struct f_rmnet *dev = NULL;
 	struct usb_gadget *gadget = NULL;
 	int ret;
 
 	pr_debug("%s: resume work started\n", __func__);
-	if (port)
-		dev = port_to_rmnet(port->port_usb);
-	if (dev && dev->cdev) {
-		gadget = dev->cdev->gadget;
+	if (port) {
+		gadget = port->port_usb->gadget;
 	} else {
 		pr_err("Unable to retrieve gadget handle\n");
 		return;
@@ -1503,14 +1474,12 @@ static int gbam_peer_reset_cb(void *param)
 {
 	struct gbam_port	*port = (struct gbam_port *)param;
 	struct bam_ch_info *d;
-	struct f_rmnet		*dev;
 	struct usb_gadget *gadget;
 	int ret;
 
-	dev = port_to_rmnet(port->port_usb);
 	d = &port->data_ch;
 
-	gadget = dev->cdev->gadget;
+	gadget = port->port_usb->gadget;
 
 	pr_debug("%s: reset by peer\n", __func__);
 
@@ -1932,6 +1901,11 @@ int gbam_connect(struct grmnet *gr, u8 port_num,
 	unsigned long		flags;
 
 	pr_debug("%s: grmnet:%p port#%d\n", __func__, gr, port_num);
+
+	if (!gr->gadget) {
+		pr_err("%s: gadget handle not passed\n", __func__);
+		return -EINVAL;
+	}
 
 	if (trans == USB_GADGET_XPORT_BAM && port_num >= n_bam_ports) {
 		pr_err("%s: invalid portno#%d\n", __func__, port_num);
