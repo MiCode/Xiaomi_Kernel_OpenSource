@@ -173,6 +173,7 @@
 #define PCIE20_CAP_LINKCTRLSTATUS	(PCIE20_CAP + 0x10)
 
 #define PCIE20_COMMAND_STATUS	    0x04
+#define PCIE20_HEADER_TYPE		0x0C
 #define PCIE20_BUSNUMBERS		  0x18
 #define PCIE20_MEMORY_BASE_LIMIT	 0x20
 #define PCIE20_L1SUB_CONTROL1	    0x158
@@ -191,6 +192,8 @@
 #define PCIE20_PLR_IATU_LTAR	     0x918
 #define PCIE20_PLR_IATU_UTAR	     0x91c
 
+#define PCIE20_CTRL1_TYPE_CFG0		0x04
+#define PCIE20_CTRL1_TYPE_CFG1		0x05
 
 #define PCIE_VENDOR_ID_RCP		 0x17cb
 #define PCIE_DEVICE_ID_RCP		 0x0300
@@ -224,6 +227,7 @@
 #define MSM_PCIE_MAX_CLK 7
 #define MSM_PCIE_MAX_PIPE_CLK 1
 #define MAX_RC_NUM 2
+#define MAX_DEVICE_NUM 20
 #define PCIE_MSI_NR_IRQS 256
 #define PCIE_LOG_PAGES (50)
 #define PCIE_CONF_SPACE_DW			1024
@@ -254,8 +258,8 @@
 #define PCIE_LOWER_ADDR(addr) ((u32)((addr) & 0xffffffff))
 
 /* Config Space Offsets */
-#define BDF_OFFSET(bus, device, function) \
-	((bus << 24) | (device << 16) | (function << 8))
+#define BDF_OFFSET(bus, devfn) \
+	((bus << 24) | (devfn << 16))
 
 #define PCIE_BUS_PRIV_DATA(pdev) \
 	(((struct pci_sys_data *)pdev->bus->sysdata)->private_data)
@@ -364,6 +368,15 @@ struct msm_pcie_irq_info_t {
 	uint32_t	    num;
 };
 
+/* PCIe device info structure */
+struct msm_pcie_device_info {
+	u32			bdf;
+	struct pci_dev		*dev;
+	int			domain;
+	void __iomem		*conf_base;
+	unsigned long		phy_address;
+};
+
 /* msm pcie device structure */
 struct msm_pcie_dev_t {
 	struct platform_device	 *pdev;
@@ -422,6 +435,7 @@ struct msm_pcie_dev_t {
 	uint32_t			   n_fts;
 	bool				 ext_ref_clk;
 	uint32_t			   ep_latency;
+	uint32_t			current_bdf;
 	bool				 ep_wakeirq;
 
 	uint32_t			   rc_idx;
@@ -434,12 +448,13 @@ struct msm_pcie_dev_t {
 	ulong				linkdown_counter;
 	bool				 suspending;
 	ulong				wake_counter;
-	u32			     ep_shadow[PCIE_CONF_SPACE_DW];
+	u32		ep_shadow[MAX_DEVICE_NUM][PCIE_CONF_SPACE_DW];
 	u32				  rc_shadow[PCIE_CONF_SPACE_DW];
 	bool				 shadow_en;
 	struct msm_pcie_register_event *event_reg;
 	bool				 power_on;
 	void				 *ipc_log;
+	struct msm_pcie_device_info   pcidev_table[MAX_DEVICE_NUM];
 };
 
 
@@ -448,6 +463,9 @@ static int msm_pcie_debug_mask;
 module_param_named(debug_mask, msm_pcie_debug_mask,
 			    int, S_IRUGO | S_IWUSR | S_IWGRP);
 
+/* Table to track info of PCIe devices */
+static struct msm_pcie_device_info
+	msm_pcie_dev_tbl[MAX_RC_NUM * MAX_DEVICE_NUM];
 
 /* PCIe driver state */
 struct pcie_drv_sta {
@@ -788,31 +806,44 @@ static bool msm_pcie_confirm_linkup(struct msm_pcie_dev_t *dev,
 
 static void msm_pcie_cfg_recover(struct msm_pcie_dev_t *dev, bool rc)
 {
-	int i;
+	int i, j;
 	u32 val = 0;
 	u32 *shadow;
-	void *cfg;
+	void *cfg = dev->conf;
 
-	if (rc) {
-		shadow = dev->rc_shadow;
-		cfg = dev->dm_core;
-	} else {
-		shadow = dev->ep_shadow;
-		cfg = dev->conf;
-	}
-
-	for (i = PCIE_CONF_SPACE_DW - 1; i >= 0; i--) {
-		val = readl_relaxed(shadow + i);
-		if (val != PCIE_CLEAR) {
-			PCIE_DBG(dev, "PCIe: before recovery:cfg 0x%x:0x%x\n",
-				i * 4, readl_relaxed(cfg + i * 4));
-			PCIE_DBG(dev, "PCIe: shadow_dw[%d]:cfg 0x%x:0x%x\n",
-				i, i * 4, val);
-			writel_relaxed(val, cfg + i * 4);
-			wmb();
-			PCIE_DBG(dev, "PCIe: after recovery:cfg 0x%x:0x%x\n\n",
-				i * 4, readl_relaxed(cfg + i * 4));
+	for (i = 0; i < MAX_DEVICE_NUM; i++) {
+		if (!rc && !dev->pcidev_table[i].bdf)
+			break;
+		if (rc) {
+			cfg = dev->dm_core;
+			shadow = dev->rc_shadow;
+		} else {
+			shadow = dev->ep_shadow[i];
+			PCIE_DBG(dev,
+				"PCIe Device: %02x:%02x.%01x\n",
+				dev->pcidev_table[i].bdf >> 24,
+				dev->pcidev_table[i].bdf >> 19 & 0x1f,
+				dev->pcidev_table[i].bdf >> 16 & 0x07);
 		}
+		for (j = PCIE_CONF_SPACE_DW - 1; j >= 0; j--) {
+			val = readl_relaxed(shadow + j);
+			if (val != PCIE_CLEAR) {
+				PCIE_DBG(dev,
+					"PCIe: before recovery:cfg 0x%x:0x%x\n",
+					j * 4, readl_relaxed(cfg + j * 4));
+				PCIE_DBG(dev,
+					"PCIe: shadow_dw[%d]:cfg 0x%x:0x%x\n",
+					j, j * 4, val);
+				writel_relaxed(val, cfg + j * 4);
+				wmb();
+				PCIE_DBG(dev,
+					"PCIe: after recovery:cfg 0x%x:0x%x\n\n",
+					j * 4, readl_relaxed(cfg + j * 4));
+			}
+		}
+		if (rc)
+			break;
+		cfg += SZ_4K;
 	}
 }
 
@@ -832,6 +863,144 @@ static inline int msm_pcie_is_link_up(struct msm_pcie_dev_t *dev)
 			PCIE20_CAP_LINKCTRLSTATUS) & BIT(29);
 }
 
+/**
+ * msm_pcie_iatu_config - configure outbound address translation region
+ * @dev: root commpex
+ * @nr: region number
+ * @type: target transaction type, see PCIE20_CTRL1_TYPE_xxx
+ * @host_addr: - region start address on host
+ * @host_end: - region end address (low 32 bit) on host,
+ *	upper 32 bits are same as for @host_addr
+ * @target_addr: - region start address on target
+ */
+static void msm_pcie_iatu_config(struct msm_pcie_dev_t *dev, int nr, u8 type,
+				unsigned long host_addr, u32 host_end,
+				unsigned long target_addr)
+{
+	void __iomem *pcie20 = dev->dm_core;
+
+	if (dev->shadow_en) {
+		writel_relaxed(nr, dev->rc_shadow +
+				PCIE20_PLR_IATU_VIEWPORT / 4);
+		writel_relaxed(type, dev->rc_shadow +
+				PCIE20_PLR_IATU_CTRL1 / 4);
+		writel_relaxed(lower_32_bits(host_addr), dev->rc_shadow +
+				PCIE20_PLR_IATU_LBAR / 4);
+		writel_relaxed(upper_32_bits(host_addr), dev->rc_shadow +
+				PCIE20_PLR_IATU_UBAR / 4);
+		writel_relaxed(host_end, dev->rc_shadow +
+				PCIE20_PLR_IATU_LAR / 4);
+		writel_relaxed(lower_32_bits(target_addr), dev->rc_shadow +
+				PCIE20_PLR_IATU_LTAR / 4);
+		writel_relaxed(upper_32_bits(target_addr), dev->rc_shadow +
+				PCIE20_PLR_IATU_UTAR / 4);
+		writel_relaxed(BIT(31), dev->rc_shadow +
+				PCIE20_PLR_IATU_CTRL2 / 4);
+	}
+
+	/* select region */
+	writel_relaxed(nr, pcie20 + PCIE20_PLR_IATU_VIEWPORT);
+	/* ensure that hardware locks it */
+	wmb();
+
+	/* switch off region before changing it */
+	writel_relaxed(0, pcie20 + PCIE20_PLR_IATU_CTRL2);
+	/* and wait till it propagates to the hardware */
+	wmb();
+
+	writel_relaxed(type, pcie20 + PCIE20_PLR_IATU_CTRL1);
+	writel_relaxed(lower_32_bits(host_addr),
+		       pcie20 + PCIE20_PLR_IATU_LBAR);
+	writel_relaxed(upper_32_bits(host_addr),
+		       pcie20 + PCIE20_PLR_IATU_UBAR);
+	writel_relaxed(host_end, pcie20 + PCIE20_PLR_IATU_LAR);
+	writel_relaxed(lower_32_bits(target_addr),
+		       pcie20 + PCIE20_PLR_IATU_LTAR);
+	writel_relaxed(upper_32_bits(target_addr),
+		       pcie20 + PCIE20_PLR_IATU_UTAR);
+	wmb();
+	writel_relaxed(BIT(31), pcie20 + PCIE20_PLR_IATU_CTRL2);
+
+	/* ensure that changes propagated to the hardware */
+	wmb();
+
+	if (dev->enumerated) {
+		PCIE_DBG(dev, "IATU for Endpoint %02x:%02x.%01x\n",
+			dev->pcidev_table[nr].bdf >> 24,
+			dev->pcidev_table[nr].bdf >> 19 & 0x1f,
+			dev->pcidev_table[nr].bdf >> 16 & 0x07);
+		PCIE_DBG(dev, "PCIE20_PLR_IATU_VIEWPORT:0x%x\n",
+			readl_relaxed(dev->dm_core + PCIE20_PLR_IATU_VIEWPORT));
+		PCIE_DBG(dev, "PCIE20_PLR_IATU_CTRL1:0x%x\n",
+			readl_relaxed(dev->dm_core + PCIE20_PLR_IATU_CTRL1));
+		PCIE_DBG(dev, "PCIE20_PLR_IATU_LBAR:0x%x\n",
+			readl_relaxed(dev->dm_core + PCIE20_PLR_IATU_LBAR));
+		PCIE_DBG(dev, "PCIE20_PLR_IATU_UBAR:0x%x\n",
+			readl_relaxed(dev->dm_core + PCIE20_PLR_IATU_UBAR));
+		PCIE_DBG(dev, "PCIE20_PLR_IATU_LAR:0x%x\n",
+			readl_relaxed(dev->dm_core + PCIE20_PLR_IATU_LAR));
+		PCIE_DBG(dev, "PCIE20_PLR_IATU_LTAR:0x%x\n",
+			readl_relaxed(dev->dm_core + PCIE20_PLR_IATU_LTAR));
+		PCIE_DBG(dev, "PCIE20_PLR_IATU_UTAR:0x%x\n",
+			readl_relaxed(dev->dm_core + PCIE20_PLR_IATU_UTAR));
+		PCIE_DBG(dev, "PCIE20_PLR_IATU_CTRL2:0x%x\n\n",
+			readl_relaxed(dev->dm_core + PCIE20_PLR_IATU_CTRL2));
+	}
+}
+
+/**
+ * msm_pcie_cfg_bdf - configure for config access
+ * @dev: root commpex
+ * @bus: PCI bus number
+ * @devfn: PCI dev and function number
+ *
+ * Remap if required region 0 for config access of proper type
+ * (CFG0 for bus 1, CFG1 for other buses)
+ * Cache current device bdf for speed-up
+ */
+static void msm_pcie_cfg_bdf(struct msm_pcie_dev_t *dev, u8 bus, u8 devfn)
+{
+	struct resource *axi_conf = dev->res[MSM_PCIE_RES_CONF].resource;
+	u32 bdf  = BDF_OFFSET(bus, devfn);
+	u8 type = bus == 1 ? PCIE20_CTRL1_TYPE_CFG0 : PCIE20_CTRL1_TYPE_CFG1;
+	if (dev->current_bdf == bdf)
+		return;
+
+	msm_pcie_iatu_config(dev, 0, type,
+			axi_conf->start,
+			axi_conf->start + SZ_4K - 1,
+			bdf);
+
+	dev->current_bdf = bdf;
+}
+
+static inline void msm_pcie_save_shadow(struct msm_pcie_dev_t *dev,
+					u32 word_offset, u32 wr_val,
+					u32 bdf, bool rc)
+{
+	int i, j;
+	u32 max_dev = MAX_RC_NUM * MAX_DEVICE_NUM;
+
+	if (rc) {
+		dev->rc_shadow[word_offset / 4] = wr_val;
+	} else {
+		for (i = 0; i < MAX_DEVICE_NUM; i++) {
+			if (!dev->pcidev_table[i].bdf) {
+				for (j = 0; j < max_dev; j++)
+					if (!msm_pcie_dev_tbl[j].bdf) {
+						msm_pcie_dev_tbl[j].bdf = bdf;
+						break;
+					}
+				dev->pcidev_table[i].bdf = bdf;
+			}
+			if (dev->pcidev_table[i].bdf == bdf) {
+				dev->ep_shadow[i][word_offset / 4] = wr_val;
+				break;
+			}
+		}
+	}
+}
+
 static inline int msm_pcie_oper_conf(struct pci_bus *bus, u32 devfn, int oper,
 				     int where, int size, u32 *val)
 {
@@ -842,6 +1011,8 @@ static inline int msm_pcie_oper_conf(struct pci_bus *bus, u32 devfn, int oper,
 	bool rc = false;
 	u32 rc_idx;
 	int rv = 0;
+	u32 bdf = BDF_OFFSET(bus->number, devfn);
+	int i;
 
 	dev = ((struct msm_pcie_dev_t *)
 		(((struct pci_sys_data *)bus->sysdata)->private_data));
@@ -853,35 +1024,22 @@ static inline int msm_pcie_oper_conf(struct pci_bus *bus, u32 devfn, int oper,
 		goto out;
 	}
 
-	/* Do the bus->number based access control since we don't support
-	   ECAM mechanism */
-
-	switch (bus->number) {
-	case 0:
-		rc = true;
-	case 1:
-		rc_idx = dev->rc_idx;
-		break;
-	default:
-		PCIE_ERR(dev, "PCIe: unsupported bus number:%d\n", bus->number);
-		*val = ~0;
-		rv = PCIBIOS_DEVICE_NOT_FOUND;
-		goto out;
-	}
-
-	if ((bus->number > MAX_BUS_NUM) || (devfn != 0)) {
-		PCIE_DBG(dev, "RC%d invalid %s - bus %d devfn %d\n", rc_idx,
-			 (oper == RD) ? "rd" : "wr", bus->number, devfn);
-		*val = ~0;
-		rv = PCIBIOS_DEVICE_NOT_FOUND;
-		goto out;
-	}
+	rc_idx = dev->rc_idx;
+	rc = (bus->number == 0);
 
 	spin_lock_irqsave(&dev->cfg_lock, dev->irqsave_flags);
 
 	if (!dev->cfg_access) {
 		PCIE_DBG(dev, "Access denied for RC%d %d:0x%02x + 0x%04x[%d]\n",
 			rc_idx, bus->number, devfn, where, size);
+		*val = ~0;
+		rv = PCIBIOS_DEVICE_NOT_FOUND;
+		goto unlock;
+	}
+
+	if (rc && (devfn != 0)) {
+		PCIE_DBG(dev, "RC%d invalid %s - bus %d devfn %d\n", rc_idx,
+			 (oper == RD) ? "rd" : "wr", bus->number, devfn);
 		*val = ~0;
 		rv = PCIBIOS_DEVICE_NOT_FOUND;
 		goto unlock;
@@ -907,11 +1065,29 @@ static inline int msm_pcie_oper_conf(struct pci_bus *bus, u32 devfn, int oper,
 			goto unlock;
 	}
 
+	if (!rc && !dev->enumerated)
+		msm_pcie_cfg_bdf(dev, bus->number, devfn);
+
 	word_offset = where & ~0x3;
 	byte_offset = where & 0x3;
 	mask = (~0 >> (8 * (4 - size))) << (8 * byte_offset);
 
-	config_base = rc ? dev->dm_core : dev->conf;
+	if (rc || !dev->enumerated) {
+		config_base = rc ? dev->dm_core : dev->conf;
+	} else {
+		for (i = 0; i < MAX_DEVICE_NUM; i++) {
+			if (dev->pcidev_table[i].bdf == bdf) {
+				config_base = dev->pcidev_table[i].conf_base;
+				break;
+			}
+		}
+		if (i == MAX_DEVICE_NUM) {
+			*val = ~0;
+			rv = PCIBIOS_DEVICE_NOT_FOUND;
+			goto unlock;
+		}
+	}
+
 	rd_val = readl_relaxed(config_base + word_offset);
 
 	if (oper == RD) {
@@ -925,16 +1101,12 @@ static inline int msm_pcie_oper_conf(struct pci_bus *bus, u32 devfn, int oper,
 		writel_relaxed(wr_val, config_base + word_offset);
 		wmb(); /* ensure config data is written to hardware register */
 
-		if (rd_val == PCIE_LINK_DOWN) {
+		if (rd_val == PCIE_LINK_DOWN)
 			PCIE_ERR(dev,
 				"Read of RC%d %d:0x%02x + 0x%04x[%d] is all FFs\n",
 				rc_idx, bus->number, devfn, where, size);
-		} else if (dev->shadow_en) {
-			if (rc)
-				dev->rc_shadow[word_offset / 4] = wr_val;
-			else
-				dev->ep_shadow[word_offset / 4] = wr_val;
-		}
+		else if (dev->shadow_en)
+			msm_pcie_save_shadow(dev, word_offset, wr_val, bdf, rc);
 
 		PCIE_DBG(dev,
 			"RC%d %d:0x%02x + 0x%04x[%d] <- 0x%08x; rd 0x%08x val 0x%08x\n",
@@ -1259,77 +1431,40 @@ static void msm_pcie_pipe_clk_deinit(struct msm_pcie_dev_t *dev)
 				dev->pipeclk[i].hdl);
 }
 
+static void msm_pcie_iatu_config_all_ep(struct msm_pcie_dev_t *dev)
+{
+	int i;
+	u8 type;
+	struct msm_pcie_device_info *dev_table = dev->pcidev_table;
+
+	for (i = 0; i < MAX_DEVICE_NUM; i++) {
+		if (!dev_table[i].bdf)
+			break;
+
+		type = dev_table[i].bdf >> 24 == 0x1 ?
+			PCIE20_CTRL1_TYPE_CFG0 : PCIE20_CTRL1_TYPE_CFG1;
+
+		msm_pcie_iatu_config(dev, i, type, dev_table[i].phy_address,
+			dev_table[i].phy_address + SZ_4K - 1,
+			dev_table[i].bdf);
+	}
+}
 
 static void msm_pcie_config_controller(struct msm_pcie_dev_t *dev)
 {
-	struct resource *axi_conf = dev->res[MSM_PCIE_RES_CONF].resource;
-	u32 dev_conf, upper, lower, limit;
-
 	PCIE_DBG(dev, "RC%d\n", dev->rc_idx);
-
-	if (IS_ENABLED(CONFIG_ARM_LPAE)) {
-		lower = PCIE_LOWER_ADDR(axi_conf->start);
-		upper = PCIE_UPPER_ADDR(axi_conf->start);
-		limit = PCIE_LOWER_ADDR(axi_conf->end);
-	} else {
-		lower = axi_conf->start;
-		upper = 0;
-		limit = axi_conf->end;
-	}
-
-	dev_conf = BDF_OFFSET(1, 0, 0);
-
-	if (dev->shadow_en) {
-		writel_relaxed(0, dev->rc_shadow +
-				PCIE20_PLR_IATU_VIEWPORT / 4);
-		writel_relaxed(4, dev->rc_shadow +
-				PCIE20_PLR_IATU_CTRL1 / 4);
-		writel_relaxed(lower, dev->rc_shadow +
-				PCIE20_PLR_IATU_LBAR / 4);
-		writel_relaxed(upper, dev->rc_shadow +
-				PCIE20_PLR_IATU_UBAR / 4);
-		writel_relaxed(limit, dev->rc_shadow + PCIE20_PLR_IATU_LAR / 4);
-		writel_relaxed(dev_conf, dev->rc_shadow +
-				PCIE20_PLR_IATU_LTAR / 4);
-		writel_relaxed(0, dev->rc_shadow + PCIE20_PLR_IATU_UTAR / 4);
-		writel_relaxed(BIT(31), dev->rc_shadow +
-				PCIE20_PLR_IATU_CTRL2 / 4);
-	}
 
 	/*
 	 * program and enable address translation region 0 (device config
 	 * address space); region type config;
 	 * axi config address range to device config address range
 	 */
-	writel_relaxed(0, dev->dm_core + PCIE20_PLR_IATU_VIEWPORT);
-	/* ensure that hardware locks the region before programming it */
-	wmb();
-
-	writel_relaxed(4, dev->dm_core + PCIE20_PLR_IATU_CTRL1);
-	writel_relaxed(lower, dev->dm_core + PCIE20_PLR_IATU_LBAR);
-	writel_relaxed(upper, dev->dm_core + PCIE20_PLR_IATU_UBAR);
-	writel_relaxed(limit, dev->dm_core + PCIE20_PLR_IATU_LAR);
-	writel_relaxed(dev_conf, dev->dm_core + PCIE20_PLR_IATU_LTAR);
-	writel_relaxed(0, dev->dm_core + PCIE20_PLR_IATU_UTAR);
-	writel_relaxed(BIT(31), dev->dm_core + PCIE20_PLR_IATU_CTRL2);
-	/* ensure that hardware registers the configuration */
-	wmb();
-	PCIE_DBG(dev, "PCIE20_PLR_IATU_VIEWPORT:0x%x\n",
-		readl_relaxed(dev->dm_core + PCIE20_PLR_IATU_VIEWPORT));
-	PCIE_DBG(dev, "PCIE20_PLR_IATU_CTRL1:0x%x\n",
-		readl_relaxed(dev->dm_core + PCIE20_PLR_IATU_CTRL1));
-	PCIE_DBG(dev, "PCIE20_PLR_IATU_LBAR:0x%x\n",
-		readl_relaxed(dev->dm_core + PCIE20_PLR_IATU_LBAR));
-	PCIE_DBG(dev, "PCIE20_PLR_IATU_UBAR:0x%x\n",
-		readl_relaxed(dev->dm_core + PCIE20_PLR_IATU_UBAR));
-	PCIE_DBG(dev, "PCIE20_PLR_IATU_LAR:0x%x\n",
-		readl_relaxed(dev->dm_core + PCIE20_PLR_IATU_LAR));
-	PCIE_DBG(dev, "PCIE20_PLR_IATU_LTAR:0x%x\n",
-		readl_relaxed(dev->dm_core + PCIE20_PLR_IATU_LTAR));
-	PCIE_DBG(dev, "PCIE20_PLR_IATU_UTAR:0x%x\n",
-		readl_relaxed(dev->dm_core + PCIE20_PLR_IATU_UTAR));
-	PCIE_DBG(dev, "PCIE20_PLR_IATU_CTRL2:0x%x\n",
-		readl_relaxed(dev->dm_core + PCIE20_PLR_IATU_CTRL2));
+	if (dev->enumerated) {
+		msm_pcie_iatu_config_all_ep(dev);
+	} else {
+		dev->current_bdf = 0; /* to force IATU re-config */
+		msm_pcie_cfg_bdf(dev, 1, 0);
+	}
 
 	/* configure N_FTS */
 	PCIE_DBG(dev, "Original PCIE20_ACK_F_ASPM_CTRL_REG:0x%x\n",
@@ -1377,7 +1512,7 @@ static void msm_pcie_config_link_state(struct msm_pcie_dev_t *dev)
 			msm_pcie_write_mask(dev->rc_shadow +
 						PCIE20_CAP_LINKCTRLSTATUS / 4,
 						0, BIT(0));
-			msm_pcie_write_mask(dev->ep_shadow +
+			msm_pcie_write_mask(dev->ep_shadow[0] +
 						PCIE20_CAP_LINKCTRLSTATUS / 4,
 						0, BIT(0));
 		}
@@ -1397,7 +1532,7 @@ static void msm_pcie_config_link_state(struct msm_pcie_dev_t *dev)
 			msm_pcie_write_mask(dev->rc_shadow +
 						PCIE20_CAP_LINKCTRLSTATUS / 4,
 						0, BIT(1));
-			msm_pcie_write_mask(dev->ep_shadow +
+			msm_pcie_write_mask(dev->ep_shadow[0] +
 						PCIE20_CAP_LINKCTRLSTATUS / 4,
 						0, BIT(1));
 		}
@@ -1426,11 +1561,11 @@ static void msm_pcie_config_link_state(struct msm_pcie_dev_t *dev)
 			msm_pcie_write_mask(dev->rc_shadow +
 					PCIE20_DEVICE_CONTROL2_STATUS2 / 4,
 					0, BIT(10));
-			msm_pcie_write_mask(dev->ep_shadow +
+			msm_pcie_write_mask(dev->ep_shadow[0] +
 					PCIE20_L1SUB_CONTROL1 / 4 +
 					PCIE20_EP_L1SUB_CTL1_OFFSET / 4, 0,
 					BIT(3)|BIT(2)|BIT(1)|BIT(0));
-			msm_pcie_write_mask(dev->ep_shadow +
+			msm_pcie_write_mask(dev->ep_shadow[0] +
 					PCIE20_DEVICE_CONTROL2_STATUS2 / 4,
 					0, BIT(10));
 		}
@@ -2003,9 +2138,109 @@ static struct hw_pci msm_pci[MAX_RC_NUM] = {
 	},
 };
 
+static int msm_pcie_config_device_table(struct device *dev, void *pdev)
+{
+	struct pci_dev *pcidev = to_pci_dev(dev);
+	struct msm_pcie_dev_t *pcie_dev = (struct msm_pcie_dev_t *) pdev;
+	struct msm_pcie_device_info *dev_table_t = pcie_dev->pcidev_table;
+	struct resource *axi_conf = pcie_dev->res[MSM_PCIE_RES_CONF].resource;
+	int ret = 0;
+	u32 rc_idx = pcie_dev->rc_idx;
+	u32 i, index;
+	u32 bdf = 0;
+	u8 type;
+	u32 h_type;
+	u32 bme;
+
+	if (!pcidev) {
+		PCIE_ERR(pcie_dev,
+			"PCIe: Did not find PCI device in list for RC%d.\n",
+			pcie_dev->rc_idx);
+		return -ENODEV;
+	} else {
+		PCIE_DBG(pcie_dev,
+			"PCI device found: vendor-id:0x%x device-id:0x%x\n",
+			pcidev->vendor, pcidev->device);
+	}
+
+	if (!pcidev->bus->number)
+		return ret;
+
+	bdf = BDF_OFFSET(pcidev->bus->number, pcidev->devfn);
+	type = pcidev->bus->number == 1 ?
+		PCIE20_CTRL1_TYPE_CFG0 : PCIE20_CTRL1_TYPE_CFG1;
+
+	for (i = 0; i < (MAX_RC_NUM * MAX_DEVICE_NUM); i++) {
+		if (msm_pcie_dev_tbl[i].bdf == bdf &&
+			!msm_pcie_dev_tbl[i].dev) {
+			for (index = 0; index < MAX_DEVICE_NUM; index++) {
+				if (dev_table_t[index].bdf == bdf) {
+					msm_pcie_dev_tbl[i].dev = pcidev;
+					msm_pcie_dev_tbl[i].domain = rc_idx;
+					msm_pcie_dev_tbl[i].conf_base =
+						pcie_dev->conf + index * SZ_4K;
+					msm_pcie_dev_tbl[i].phy_address =
+						axi_conf->start + index * SZ_4K;
+
+					dev_table_t[index].dev = pcidev;
+					dev_table_t[index].domain = rc_idx;
+					dev_table_t[index].conf_base =
+						pcie_dev->conf + index * SZ_4K;
+					dev_table_t[index].phy_address =
+						axi_conf->start + index * SZ_4K;
+
+					msm_pcie_iatu_config(pcie_dev, index,
+						type,
+						dev_table_t[index].phy_address,
+						dev_table_t[index].phy_address
+						+ SZ_4K - 1,
+						bdf);
+
+					h_type = readl_relaxed(
+						dev_table_t[index].conf_base +
+						PCIE20_HEADER_TYPE);
+
+					bme = readl_relaxed(
+						dev_table_t[index].conf_base +
+						PCIE20_COMMAND_STATUS);
+
+					if (h_type & (1 << 16)) {
+						pci_write_config_dword(pcidev,
+							PCIE20_COMMAND_STATUS,
+							bme | 0x06);
+					}
+					break;
+				}
+			}
+			if (index == MAX_DEVICE_NUM) {
+				PCIE_ERR(pcie_dev,
+					"RC%d PCI device table is full.\n",
+					rc_idx);
+				ret = index;
+			} else {
+				break;
+			}
+		} else if (msm_pcie_dev_tbl[i].bdf == bdf &&
+			pcidev == msm_pcie_dev_tbl[i].dev) {
+			break;
+		}
+	}
+	if (i == MAX_RC_NUM * MAX_DEVICE_NUM) {
+		PCIE_ERR(pcie_dev,
+			"Global PCI device table is full: %d elements.\n",
+			i);
+		PCIE_ERR(pcie_dev,
+			"Bus number is 0x%x\nDevice number is 0x%x\n",
+			pcidev->bus->number, pcidev->devfn);
+		ret = i;
+	}
+	return ret;
+}
+
+
 int msm_pcie_enumerate(u32 rc_idx)
 {
-	int ret = 0;
+	int ret = 0, bus_ret = 0;
 	struct msm_pcie_dev_t *dev = &msm_pcie_dev[rc_idx];
 
 	PCIE_DBG(dev, "Enumerate RC%d\n", rc_idx);
@@ -2064,6 +2299,16 @@ int msm_pcie_enumerate(u32 rc_idx)
 			if (!pcidev) {
 				PCIE_ERR(dev,
 					"PCIe: Did not find PCI device for RC%d.\n",
+					dev->rc_idx);
+				return -ENODEV;
+			}
+
+			bus_ret = bus_for_each_dev(&pci_bus_type, NULL, dev,
+					&msm_pcie_config_device_table);
+
+			if (bus_ret) {
+				PCIE_ERR(dev,
+					"PCIe: Failed to set up device table for RC%d\n",
 					dev->rc_idx);
 				return -ENODEV;
 			}
@@ -2600,7 +2845,7 @@ static int msm_pcie_probe(struct platform_device *pdev)
 {
 	int ret = 0;
 	int rc_idx = -1;
-	int i;
+	int i, j;
 
 	PCIE_GEN_DBG("%s\n", __func__);
 
@@ -2739,9 +2984,17 @@ static int msm_pcie_probe(struct platform_device *pdev)
 	memcpy(msm_pcie_dev[rc_idx].irq, msm_pcie_irq_info,
 				sizeof(msm_pcie_irq_info));
 	msm_pcie_dev[rc_idx].shadow_en = true;
-	for (i = 0; i < PCIE_CONF_SPACE_DW; i++) {
+	for (i = 0; i < PCIE_CONF_SPACE_DW; i++)
 		msm_pcie_dev[rc_idx].rc_shadow[i] = PCIE_CLEAR;
-		msm_pcie_dev[rc_idx].ep_shadow[i] = PCIE_CLEAR;
+	for (i = 0; i < MAX_DEVICE_NUM; i++)
+		for (j = 0; j < PCIE_CONF_SPACE_DW; j++)
+			msm_pcie_dev[rc_idx].ep_shadow[i][j] = PCIE_CLEAR;
+	for (i = 0; i < MAX_DEVICE_NUM; i++) {
+		msm_pcie_dev[rc_idx].pcidev_table[i].bdf = 0;
+		msm_pcie_dev[rc_idx].pcidev_table[i].dev = NULL;
+		msm_pcie_dev[rc_idx].pcidev_table[i].domain = rc_idx;
+		msm_pcie_dev[rc_idx].pcidev_table[i].conf_base = 0;
+		msm_pcie_dev[rc_idx].pcidev_table[i].phy_address = 0;
 	}
 
 	ret = msm_pcie_get_resources(&msm_pcie_dev[rc_idx],
@@ -2875,6 +3128,13 @@ int __init pcie_init(void)
 		spin_lock_init(&msm_pcie_dev[i].linkdown_lock);
 		spin_lock_init(&msm_pcie_dev[i].wakeup_lock);
 		msm_pcie_dev[i].drv_ready = false;
+	}
+	for (i = 0; i < MAX_RC_NUM * MAX_DEVICE_NUM; i++) {
+		msm_pcie_dev_tbl[i].bdf = 0;
+		msm_pcie_dev_tbl[i].dev = NULL;
+		msm_pcie_dev_tbl[i].domain = -1;
+		msm_pcie_dev_tbl[i].conf_base = 0;
+		msm_pcie_dev_tbl[i].phy_address = 0;
 	}
 
 	ret = platform_driver_register(&msm_pcie_driver);
