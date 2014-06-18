@@ -128,7 +128,7 @@ struct smq_null_invoke {
 };
 
 struct smq_phy_page {
-	ion_phys_addr_t addr;	/* physical address */
+	unsigned long addr;	/* physical address */
 	ssize_t size;		/* size of contiguous region */
 };
 

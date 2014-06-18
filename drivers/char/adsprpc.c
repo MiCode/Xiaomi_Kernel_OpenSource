@@ -24,6 +24,7 @@
 #include <linux/hash.h>
 #include <linux/msm_ion.h>
 #include <soc/qcom/smd.h>
+#include <soc/qcom/subsystem_notif.h>
 #include <linux/msm_iommu_domains.h>
 #include <linux/scatterlist.h>
 #include <linux/fs.h>
@@ -144,7 +145,6 @@ struct smq_invoke_ctx {
 	struct hlist_node hn;
 	struct completion work;
 	int retval;
-	int cid;
 	int pid;
 	int tgid;
 	remote_arg_t *pra;
@@ -153,6 +153,7 @@ struct smq_invoke_ctx {
 	struct fastrpc_buf *abufs;
 	struct fastrpc_device *dev;
 	struct fastrpc_apps *apps;
+	struct file_data *fdata;
 	int *fds;
 	struct ion_handle **handles;
 	int nbufs;
@@ -179,6 +180,8 @@ struct fastrpc_channel_context {
 	struct completion work;
 	struct fastrpc_smmu smmu;
 	struct kref kref;
+	struct notifier_block nb;
+	int ssrcount;
 };
 
 struct fastrpc_apps {
@@ -203,6 +206,7 @@ struct fastrpc_mmap {
 	uintptr_t *vaddrin;
 	uintptr_t vaddrout;
 	ssize_t size;
+	int refs;
 };
 
 struct file_data {
@@ -210,6 +214,8 @@ struct file_data {
 	struct hlist_head hlst;
 	uint32_t mode;
 	int cid;
+	int tgid;
+	int ssrcount;
 };
 
 struct fastrpc_device {
@@ -222,6 +228,7 @@ struct fastrpc_channel_info {
 	char *name;
 	char *node;
 	char *group;
+	char *subsys;
 	int channel;
 };
 
@@ -232,22 +239,85 @@ static const struct fastrpc_channel_info gcinfo[NUM_CHANNELS] = {
 		.name = "adsprpc-smd",
 		.node = "qcom,msm-audio-ion",
 		.group = "lpass_audio",
+		.subsys = "adsp",
 		.channel = SMD_APPS_QDSP,
 	},
 	{
 		.name = "mdsprpc-smd",
+		.subsys = "modem",
 		.channel = SMD_APPS_MODEM,
 	},
 };
 
-static void free_mem(struct fastrpc_buf *buf, int cid)
+static int map_iommu_mem(struct ion_handle *handle, struct file_data *fdata,
+			ion_phys_addr_t *iova, unsigned long size)
+{
+	struct fastrpc_apps *me = &gfa;
+	struct fastrpc_mmap *map = 0, *mapmatch = 0;
+	struct hlist_node *n;
+	unsigned long len = size;
+	int cid = fdata->cid;
+	int err = 0;
+
+	spin_lock(&fdata->hlock);
+	hlist_for_each_entry_safe(map, n, &fdata->hlst, hn) {
+		if (handle == map->handle) {
+			mapmatch = map;
+			break;
+		}
+	}
+	spin_unlock(&fdata->hlock);
+
+	if (mapmatch) {
+		*iova = mapmatch->phys;
+		return 0;
+	}
+
+	mutex_lock(&me->smd_mutex);
+	VERIFY(err, fdata->ssrcount == me->channel[cid].ssrcount);
+	if (!err)
+		VERIFY(err, 0 == ion_map_iommu(me->iclient, handle,
+				me->channel[cid].smmu.domain_id, 0,
+				SZ_4K, 0, iova, &len, 0, 0));
+	mutex_unlock(&me->smd_mutex);
+	return err;
+}
+
+static void unmap_iommu_mem(struct ion_handle *handle, struct file_data *fdata,
+				int cached)
+{
+	struct fastrpc_apps *me = &gfa;
+	struct fastrpc_mmap *map = 0, *mapmatch = 0;
+	struct hlist_node *n;
+	int cid = fdata->cid;
+
+	if (cached) {
+		spin_lock(&fdata->hlock);
+		hlist_for_each_entry_safe(map, n, &fdata->hlst, hn) {
+			if (handle == map->handle) {
+				mapmatch = map;
+				break;
+			}
+		}
+		spin_unlock(&fdata->hlock);
+	}
+
+	if (!mapmatch) {
+		mutex_lock(&me->smd_mutex);
+		if (fdata->ssrcount == me->channel[cid].ssrcount)
+			ion_unmap_iommu(me->iclient, handle,
+					me->channel[cid].smmu.domain_id, 0);
+		mutex_unlock(&me->smd_mutex);
+	}
+}
+
+static void free_mem(struct fastrpc_buf *buf, struct file_data *fd)
 {
 	struct fastrpc_apps *me = &gfa;
 
 	if (!IS_ERR_OR_NULL(buf->handle)) {
-		if (me->channel[cid].smmu.enabled && buf->phys) {
-			ion_unmap_iommu(me->iclient, buf->handle,
-					me->channel[cid].smmu.domain_id, 0);
+		if (me->channel[fd->cid].smmu.enabled && buf->phys) {
+			unmap_iommu_mem(buf->handle, fd, 0);
 			buf->phys = 0;
 		}
 		if (!IS_ERR_OR_NULL(buf->virt)) {
@@ -259,13 +329,14 @@ static void free_mem(struct fastrpc_buf *buf, int cid)
 	}
 }
 
-static void free_map(struct fastrpc_mmap *map, int cid)
+static void free_map(struct fastrpc_mmap *map, struct file_data *fdata)
 {
 	struct fastrpc_apps *me = &gfa;
+	int cid = fdata->cid;
+
 	if (!IS_ERR_OR_NULL(map->handle)) {
 		if (me->channel[cid].smmu.enabled && map->phys) {
-			ion_unmap_iommu(me->iclient, map->handle,
-					me->channel[cid].smmu.domain_id, 0);
+			unmap_iommu_mem(map->handle, fdata, 0);
 			map->phys = 0;
 		}
 		if (!IS_ERR_OR_NULL(map->virt)) {
@@ -277,14 +348,14 @@ static void free_map(struct fastrpc_mmap *map, int cid)
 	map->handle = 0;
 }
 
-static int alloc_mem(struct fastrpc_buf *buf, int cid)
+static int alloc_mem(struct fastrpc_buf *buf, struct file_data *fdata)
 {
 	struct fastrpc_apps *me = &gfa;
 	struct ion_client *clnt = gfa.iclient;
 	struct sg_table *sg;
 	int err = 0;
+	int cid = fdata->cid;
 	unsigned int heap;
-	unsigned long len;
 	buf->handle = 0;
 	buf->virt = 0;
 	buf->phys = 0;
@@ -299,10 +370,8 @@ static int alloc_mem(struct fastrpc_buf *buf, int cid)
 	if (err)
 		goto bail;
 	if (me->channel[cid].smmu.enabled) {
-		len = buf->size;
-		VERIFY(err, 0 == ion_map_iommu(clnt, buf->handle,
-					me->channel[cid].smmu.domain_id, 0,
-					SZ_4K, 0, &buf->phys, &len, 0, 0));
+		VERIFY(err, 0 == map_iommu_mem(buf->handle, fdata,
+						&buf->phys, buf->size));
 		if (err)
 			goto bail;
 	} else {
@@ -313,13 +382,14 @@ static int alloc_mem(struct fastrpc_buf *buf, int cid)
 	}
  bail:
 	if (err && !IS_ERR_OR_NULL(buf->handle))
-		free_mem(buf, cid);
+		free_mem(buf, fdata);
 	return err;
 }
 
 static int context_restore_interrupted(struct fastrpc_apps *me,
 				struct fastrpc_ioctl_invoke_fd *invokefd,
-				int cid, struct smq_invoke_ctx **po)
+				struct file_data *fdata,
+				struct smq_invoke_ctx **po)
 {
 	int err = 0;
 	struct smq_invoke_ctx *ctx = 0, *ictx = 0;
@@ -328,7 +398,7 @@ static int context_restore_interrupted(struct fastrpc_apps *me,
 	spin_lock(&me->clst.hlock);
 	hlist_for_each_entry_safe(ictx, n, &me->clst.interrupted, hn) {
 		if (ictx->pid == current->pid) {
-			if (invoke->sc != ictx->sc || ictx->cid != cid)
+			if (invoke->sc != ictx->sc || ictx->fdata != fdata)
 				err = -1;
 			else {
 				ctx = ictx;
@@ -346,7 +416,7 @@ static int context_restore_interrupted(struct fastrpc_apps *me,
 
 static int context_alloc(struct fastrpc_apps *me, uint32_t kernel,
 				struct fastrpc_ioctl_invoke_fd *invokefd,
-				int cid,
+				struct file_data *fdata,
 				struct smq_invoke_ctx **po)
 {
 	int err = 0, bufs, size = 0;
@@ -394,7 +464,7 @@ static int context_alloc(struct fastrpc_apps *me, uint32_t kernel,
 	}
 	ctx->sc = invoke->sc;
 	ctx->retval = -1;
-	ctx->cid = cid;
+	ctx->fdata = fdata;
 	ctx->pid = current->pid;
 	ctx->tgid = current->tgid;
 	ctx->apps = me;
@@ -421,41 +491,46 @@ static void context_save_interrupted(struct smq_invoke_ctx *ctx)
 
 static void add_dev(struct fastrpc_apps *me, struct fastrpc_device *dev);
 
-static void context_free(struct smq_invoke_ctx *ctx, bool lock)
+static void context_free(struct smq_invoke_ctx *ctx, int remove)
 {
 	struct smq_context_list *clst = &ctx->apps->clst;
 	struct fastrpc_apps *apps = ctx->apps;
 	struct ion_client *clnt = apps->iclient;
-	struct fastrpc_smmu *smmu = &apps->channel[ctx->cid].smmu;
+	int cid = ctx->fdata->cid;
+	int ssrcount = ctx->fdata->ssrcount;
+	struct fastrpc_smmu *smmu = &apps->channel[cid].smmu;
 	struct fastrpc_buf *b;
 	int i, bufs;
 	if (ctx->smmu) {
 		bufs = REMOTE_SCALARS_INBUFS(ctx->sc) +
 			REMOTE_SCALARS_OUTBUFS(ctx->sc);
 		if (ctx->fds) {
-			for (i = 0; i < bufs; i++)
-				if (!IS_ERR_OR_NULL(ctx->handles[i])) {
-					ion_unmap_iommu(clnt, ctx->handles[i],
-						smmu->domain_id, 0);
-					ion_free(clnt, ctx->handles[i]);
-				}
+			for (i = 0; i < bufs; i++) {
+				if (IS_ERR_OR_NULL(ctx->handles[i]))
+					continue;
+				unmap_iommu_mem(ctx->handles[i], ctx->fdata, 1);
+				ion_free(clnt, ctx->handles[i]);
+			}
 		}
-		iommu_detach_group(smmu->domain, smmu->group);
+		mutex_lock(&apps->smd_mutex);
+		if (ssrcount == apps->channel[cid].ssrcount)
+			iommu_detach_group(smmu->domain, smmu->group);
+		mutex_unlock(&apps->smd_mutex);
 	}
 	for (i = 0, b = ctx->abufs; i < ctx->nbufs; ++i, ++b)
-		free_mem(b, ctx->cid);
+		free_mem(b, ctx->fdata);
 
 	kfree(ctx->abufs);
 	if (ctx->dev) {
 		add_dev(apps, ctx->dev);
 		if (ctx->obuf.handle != ctx->dev->buf.handle)
-			free_mem(&ctx->obuf, ctx->cid);
+			free_mem(&ctx->obuf, ctx->fdata);
 	}
-	if (lock)
+	if (remove) {
 		spin_lock(&clst->hlock);
-	hlist_del(&ctx->hn);
-	if (lock)
+		hlist_del(&ctx->hn);
 		spin_unlock(&clst->hlock);
+	}
 	kfree(ctx);
 }
 
@@ -471,11 +546,11 @@ static void context_notify_all_users(struct smq_context_list *me, int cid)
 	struct hlist_node *n;
 	spin_lock(&me->hlock);
 	hlist_for_each_entry_safe(ictx, n, &me->pending, hn) {
-		if (ictx->cid == cid)
+		if (ictx->fdata->cid == cid)
 			complete(&ictx->work);
 	}
 	hlist_for_each_entry_safe(ictx, n, &me->interrupted, hn) {
-		if (ictx->cid == cid)
+		if (ictx->fdata->cid == cid)
 			complete(&ictx->work);
 	}
 	spin_unlock(&me->hlock);
@@ -492,19 +567,35 @@ static void context_list_ctor(struct smq_context_list *me)
 static void context_list_dtor(struct fastrpc_apps *me,
 				struct smq_context_list *clst)
 {
-	struct smq_invoke_ctx *ictx = 0;
+	struct smq_invoke_ctx *ictx = 0, *ctxfree;
 	struct hlist_node *n;
-	spin_lock(&clst->hlock);
-	hlist_for_each_entry_safe(ictx, n, &clst->interrupted, hn) {
-		context_free(ictx, 0);
-	}
-	hlist_for_each_entry_safe(ictx, n, &clst->pending, hn) {
-		context_free(ictx, 0);
-	}
-	spin_unlock(&clst->hlock);
+	do {
+		ctxfree = 0;
+		spin_lock(&clst->hlock);
+		hlist_for_each_entry_safe(ictx, n, &clst->interrupted, hn) {
+			hlist_del(&ictx->hn);
+			ctxfree = ictx;
+			break;
+		}
+		spin_unlock(&clst->hlock);
+		if (ctxfree)
+			context_free(ctxfree, 0);
+	} while (ctxfree);
+	do {
+		ctxfree = 0;
+		spin_lock(&clst->hlock);
+		hlist_for_each_entry_safe(ictx, n, &clst->pending, hn) {
+			hlist_del(&ictx->hn);
+			ctxfree = ictx;
+			break;
+		}
+		spin_unlock(&clst->hlock);
+		if (ctxfree)
+			context_free(ctxfree, 0);
+	} while (ctxfree);
 }
 
-static int get_page_list(uint32_t kernel, struct smq_invoke_ctx *ctx, int cid)
+static int get_page_list(uint32_t kernel, struct smq_invoke_ctx *ctx)
 {
 	struct fastrpc_apps *me = &gfa;
 	struct smq_phy_page *pgstart, *pages;
@@ -514,6 +605,7 @@ static int get_page_list(uint32_t kernel, struct smq_invoke_ctx *ctx, int cid)
 	remote_arg_t *pra = ctx->pra;
 	ssize_t rlen;
 	uint32_t sc = ctx->sc;
+	int cid = ctx->fdata->cid;
 	int i, err = 0;
 	int inbufs = REMOTE_SCALARS_INBUFS(sc);
 	int outbufs = REMOTE_SCALARS_OUTBUFS(sc);
@@ -528,7 +620,7 @@ static int get_page_list(uint32_t kernel, struct smq_invoke_ctx *ctx, int cid)
 	if (rlen < 0) {
 		rlen = ((uintptr_t)pages - (uintptr_t)obuf->virt) - obuf->size;
 		obuf->size += buf_page_size(rlen);
-		VERIFY(err, 0 == alloc_mem(obuf, cid));
+		VERIFY(err, 0 == alloc_mem(obuf, ctx->fdata));
 		if (err)
 			goto bail;
 		goto retry;
@@ -575,9 +667,9 @@ static int get_page_list(uint32_t kernel, struct smq_invoke_ctx *ctx, int cid)
 			pages = pages + 1;
 		} else {
 			if (obuf->handle != ibuf->handle)
-				free_mem(obuf, cid);
+				free_mem(obuf, ctx->fdata);
 			obuf->size += buf_page_size(sizeof(*pages));
-			VERIFY(err, 0 == alloc_mem(obuf, cid));
+			VERIFY(err, 0 == alloc_mem(obuf, ctx->fdata));
 			if (err)
 				goto bail;
 			goto retry;
@@ -587,13 +679,13 @@ static int get_page_list(uint32_t kernel, struct smq_invoke_ctx *ctx, int cid)
 	obuf->used = obuf->size - rlen;
  bail:
 	if (err && (obuf->handle != ibuf->handle))
-		free_mem(obuf, cid);
+		free_mem(obuf, ctx->fdata);
 	UNLOCK_MMAP(kernel);
 	return err;
 }
 
 static int get_args(uint32_t kernel, struct smq_invoke_ctx *ctx,
-			remote_arg_t *upra, int cid)
+			remote_arg_t *upra)
 {
 	struct fastrpc_apps *me = &gfa;
 	struct smq_invoke_buf *list;
@@ -609,6 +701,7 @@ static int get_args(uint32_t kernel, struct smq_invoke_ctx *ctx,
 	int i, inh, bufs = 0, err = 0;
 	int inbufs = REMOTE_SCALARS_INBUFS(sc);
 	int outbufs = REMOTE_SCALARS_OUTBUFS(sc);
+	int cid = ctx->fdata->cid;
 	int *fds = ctx->fds, idx, num;
 	unsigned long len;
 	ion_phys_addr_t iova;
@@ -633,9 +726,8 @@ static int get_args(uint32_t kernel, struct smq_invoke_ctx *ctx,
 			VERIFY(err, 0 == IS_ERR_OR_NULL(handles[i]));
 			if (err)
 				goto bail;
-			VERIFY(err, 0 == ion_map_iommu(me->iclient, handles[i],
-					me->channel[cid].smmu.domain_id,
-					0, SZ_4K, 0, &iova, &len, 0, 0));
+			VERIFY(err, 0 == map_iommu_mem(handles[i],
+						ctx->fdata, &iova, len));
 			if (err)
 				goto bail;
 			VERIFY(err, (num << PAGE_SHIFT) <= len);
@@ -663,7 +755,7 @@ static int get_args(uint32_t kernel, struct smq_invoke_ctx *ctx,
 			pbuf = obufs + bufs;
 			pbuf->size = buf_num_pages(0, pra[i].buf.len) *
 								PAGE_SIZE;
-			VERIFY(err, 0 == alloc_mem(pbuf, cid));
+			VERIFY(err, 0 == alloc_mem(pbuf, ctx->fdata));
 			if (err)
 				goto bail;
 			bufs++;
@@ -810,7 +902,7 @@ static int fastrpc_invoke_send(struct fastrpc_apps *me,
 	msg.invoke.page.addr = buf->phys;
 	msg.invoke.page.size = buf_page_size(buf->used);
 	spin_lock(&me->wrlock);
-	len = smd_write(me->channel[ctx->cid].chan, &msg, sizeof(msg));
+	len = smd_write(me->channel[ctx->fdata->cid].chan, &msg, sizeof(msg));
 	spin_unlock(&me->wrlock);
 	VERIFY(err, len == sizeof(msg));
 	return err;
@@ -835,18 +927,15 @@ static void fastrpc_read_handler(int cid)
 {
 	struct fastrpc_apps *me = &gfa;
 	struct smq_invoke_rsp rsp;
-	int err = 0;
+	int ret = 0;
 
 	do {
-		VERIFY(err, sizeof(rsp) == smd_read_from_cb(
-							me->channel[cid].chan,
-							&rsp, sizeof(rsp)));
-		if (err)
-			goto bail;
+		ret = smd_read_from_cb(me->channel[cid].chan, &rsp,
+					sizeof(rsp));
+		if (ret != sizeof(rsp))
+			break;
 		context_notify_user(rsp.ctx, rsp.retval);
-	} while (!err);
- bail:
-	return;
+	} while (ret == sizeof(rsp));
 }
 
 static void smd_event_handler(void *priv, unsigned event)
@@ -910,16 +999,16 @@ bail:
 	return err;
 }
 
-static void free_dev(struct fastrpc_device *dev, int cid)
+static void free_dev(struct fastrpc_device *dev, struct file_data *fdata)
 {
 	if (dev) {
-		free_mem(&dev->buf, cid);
+		free_mem(&dev->buf, fdata);
 		kfree(dev);
 		module_put(THIS_MODULE);
 	}
 }
 
-static int alloc_dev(struct fastrpc_device **dev, int cid)
+static int alloc_dev(struct fastrpc_device **dev, struct file_data *fdata)
 {
 	int err = 0;
 	struct fastrpc_device *fd = 0;
@@ -934,7 +1023,7 @@ static int alloc_dev(struct fastrpc_device **dev, int cid)
 	INIT_HLIST_NODE(&fd->hn);
 
 	fd->buf.size = PAGE_SIZE;
-	VERIFY(err, 0 == alloc_mem(&fd->buf, cid));
+	VERIFY(err, 0 == alloc_mem(&fd->buf, fdata));
 	if (err)
 		goto bail;
 	fd->tgid = current->tgid;
@@ -942,11 +1031,11 @@ static int alloc_dev(struct fastrpc_device **dev, int cid)
 	*dev = fd;
  bail:
 	if (err)
-		free_dev(fd, cid);
+		free_dev(fd, fdata);
 	return err;
 }
 
-static int get_dev(struct fastrpc_apps *me, int cid,
+static int get_dev(struct fastrpc_apps *me, struct file_data *fdata,
 			struct fastrpc_device **rdev)
 {
 	struct hlist_head *head;
@@ -971,8 +1060,8 @@ static int get_dev(struct fastrpc_apps *me, int cid,
 	*rdev = devfree;
  bail:
 	if (err) {
-		free_dev(devfree, cid);
-		err = alloc_dev(rdev, cid);
+		free_dev(devfree, fdata);
+		err = alloc_dev(rdev, fdata);
 	}
 	return err;
 }
@@ -989,47 +1078,53 @@ static void add_dev(struct fastrpc_apps *me, struct fastrpc_device *dev)
 	return;
 }
 
-static int fastrpc_release_current_dsp_process(int cid);
+static int fastrpc_release_current_dsp_process(struct file_data *fdata);
 
 static int fastrpc_internal_invoke(struct fastrpc_apps *me, uint32_t mode,
 			uint32_t kernel,
-			struct fastrpc_ioctl_invoke_fd *invokefd, int cid)
+			struct fastrpc_ioctl_invoke_fd *invokefd,
+			struct file_data *fdata)
 {
 	struct smq_invoke_ctx *ctx = 0;
 	struct fastrpc_ioctl_invoke *invoke = &invokefd->inv;
+	int cid = fdata->cid;
 	int interrupted = 0;
 	int err = 0;
 
 	if (!kernel) {
 		VERIFY(err, 0 == context_restore_interrupted(me, invokefd,
-								cid, &ctx));
+								fdata, &ctx));
 		if (err)
 			goto bail;
 		if (ctx)
 			goto wait;
 	}
 
-	VERIFY(err, 0 == context_alloc(me, kernel, invokefd, cid, &ctx));
+	VERIFY(err, 0 == context_alloc(me, kernel, invokefd, fdata, &ctx));
 	if (err)
 		goto bail;
 
 	if (me->channel[cid].smmu.enabled) {
-		VERIFY(err, 0 == iommu_attach_group(
+		mutex_lock(&me->smd_mutex);
+		VERIFY(err, fdata->ssrcount == me->channel[cid].ssrcount);
+		if (!err)
+			VERIFY(err, 0 == iommu_attach_group(
 						me->channel[cid].smmu.domain,
 						me->channel[cid].smmu.group));
+		mutex_unlock(&me->smd_mutex);
 		if (err)
 			goto bail;
 		ctx->smmu = 1;
 	}
 	if (REMOTE_SCALARS_LENGTH(ctx->sc)) {
-		VERIFY(err, 0 == get_dev(me, cid, &ctx->dev));
+		VERIFY(err, 0 == get_dev(me, fdata, &ctx->dev));
 		if (err)
 			goto bail;
-		VERIFY(err, 0 == get_page_list(kernel, ctx, cid));
+		VERIFY(err, 0 == get_page_list(kernel, ctx));
 		if (err)
 			goto bail;
 		ctx->rpra = (remote_arg_t *)ctx->obuf.virt;
-		VERIFY(err, 0 == get_args(kernel, ctx, invoke->pra, cid));
+		VERIFY(err, 0 == get_args(kernel, ctx, invoke->pra));
 		if (err)
 			goto bail;
 	}
@@ -1064,10 +1159,12 @@ static int fastrpc_internal_invoke(struct fastrpc_apps *me, uint32_t mode,
 		context_save_interrupted(ctx);
 	else if (ctx)
 		context_free(ctx, 1);
+	if (fdata->ssrcount != me->channel[cid].ssrcount)
+		err = ECONNRESET;
 	return err;
 }
 
-static int fastrpc_create_current_dsp_process(int cid)
+static int fastrpc_create_current_dsp_process(struct file_data *fdata)
 {
 	int err = 0;
 	struct fastrpc_ioctl_invoke_fd ioctl;
@@ -1075,7 +1172,7 @@ static int fastrpc_create_current_dsp_process(int cid)
 	remote_arg_t ra[1];
 	int tgid = 0;
 
-	tgid = current->tgid;
+	tgid = fdata->tgid;
 	ra[0].buf.pv = &tgid;
 	ra[0].buf.len = sizeof(tgid);
 	ioctl.inv.handle = 1;
@@ -1083,11 +1180,11 @@ static int fastrpc_create_current_dsp_process(int cid)
 	ioctl.inv.pra = ra;
 	ioctl.fds = 0;
 	VERIFY(err, 0 == (err = fastrpc_internal_invoke(me,
-		FASTRPC_MODE_PARALLEL, 1, &ioctl, cid)));
+		FASTRPC_MODE_PARALLEL, 1, &ioctl, fdata)));
 	return err;
 }
 
-static int fastrpc_release_current_dsp_process(int cid)
+static int fastrpc_release_current_dsp_process(struct file_data *fdata)
 {
 	int err = 0;
 	struct fastrpc_apps *me = &gfa;
@@ -1095,7 +1192,7 @@ static int fastrpc_release_current_dsp_process(int cid)
 	remote_arg_t ra[1];
 	int tgid = 0;
 
-	tgid = current->tgid;
+	tgid = fdata->tgid;
 	ra[0].buf.pv = &tgid;
 	ra[0].buf.len = sizeof(tgid);
 	ioctl.inv.handle = 1;
@@ -1103,14 +1200,14 @@ static int fastrpc_release_current_dsp_process(int cid)
 	ioctl.inv.pra = ra;
 	ioctl.fds = 0;
 	VERIFY(err, 0 == (err = fastrpc_internal_invoke(me,
-		FASTRPC_MODE_PARALLEL, 1, &ioctl, cid)));
+		FASTRPC_MODE_PARALLEL, 1, &ioctl, fdata)));
 	return err;
 }
 
 static int fastrpc_mmap_on_dsp(struct fastrpc_apps *me,
 					 struct fastrpc_ioctl_mmap *mmap,
 					 struct smq_phy_page *pages,
-					 int cid, int num)
+					 struct file_data *fdata, int num)
 {
 	struct fastrpc_ioctl_invoke_fd ioctl;
 	remote_arg_t ra[3];
@@ -1146,7 +1243,7 @@ static int fastrpc_mmap_on_dsp(struct fastrpc_apps *me,
 	ioctl.inv.pra = ra;
 	ioctl.fds = 0;
 	VERIFY(err, 0 == (err = fastrpc_internal_invoke(me,
-		FASTRPC_MODE_PARALLEL, 1, &ioctl, cid)));
+		FASTRPC_MODE_PARALLEL, 1, &ioctl, fdata)));
 	mmap->vaddrout = (uintptr_t)routargs.vaddrout;
 	if (err)
 		goto bail;
@@ -1155,7 +1252,8 @@ bail:
 }
 
 static int fastrpc_munmap_on_dsp(struct fastrpc_apps *me,
-				 struct fastrpc_ioctl_munmap *munmap, int cid)
+				 struct fastrpc_ioctl_munmap *munmap,
+				struct file_data *fdata)
 {
 	struct fastrpc_ioctl_invoke_fd ioctl;
 	remote_arg_t ra[1];
@@ -1180,7 +1278,7 @@ static int fastrpc_munmap_on_dsp(struct fastrpc_apps *me,
 	ioctl.inv.pra = ra;
 	ioctl.fds = 0;
 	VERIFY(err, 0 == (err = fastrpc_internal_invoke(me,
-		FASTRPC_MODE_PARALLEL, 1, &ioctl, cid)));
+		FASTRPC_MODE_PARALLEL, 1, &ioctl, fdata)));
 	return err;
 }
 
@@ -1191,23 +1289,21 @@ static int fastrpc_internal_munmap(struct fastrpc_apps *me,
 	int err = 0;
 	struct fastrpc_mmap *map = 0, *mapfree = 0;
 	struct hlist_node *n;
-	VERIFY(err, 0 == (err = fastrpc_munmap_on_dsp(me, munmap, fdata->cid)));
-	if (err)
-		goto bail;
+
 	spin_lock(&fdata->hlock);
 	hlist_for_each_entry_safe(map, n, &fdata->hlst, hn) {
 		if (map->vaddrout == munmap->vaddrout &&
-		    map->size == munmap->size) {
+		    map->size == munmap->size && --map->refs == 0) {
 			hlist_del(&map->hn);
 			mapfree = map;
-			map = 0;
 			break;
 		}
 	}
 	spin_unlock(&fdata->hlock);
-bail:
 	if (mapfree) {
-		free_map(mapfree, fdata->cid);
+		VERIFY(err, 0 == (err = fastrpc_munmap_on_dsp(me, munmap,
+								fdata)));
+		free_map(mapfree, fdata);
 		kfree(mapfree);
 	}
 	return err;
@@ -1219,20 +1315,37 @@ static int fastrpc_internal_mmap(struct fastrpc_apps *me,
 				 struct fastrpc_ioctl_mmap *mmap)
 {
 	struct ion_client *clnt = gfa.iclient;
-	struct fastrpc_mmap *map = 0;
+	struct ion_handle *handle = 0;
+	struct fastrpc_mmap *map = 0, *mapmatch = 0;
 	struct smq_phy_page *pages = 0;
+	struct hlist_node *n;
 	void *buf;
 	unsigned long len;
 	int num;
 	int err = 0;
 
+	handle = ion_import_dma_buf(clnt, mmap->fd);
+	VERIFY(err, 0 == IS_ERR_OR_NULL(handle));
+	if (err)
+		goto bail;
+	spin_lock(&fdata->hlock);
+	hlist_for_each_entry_safe(map, n, &fdata->hlst, hn) {
+		if (map->handle == handle) {
+			map->refs++;
+			mapmatch = map;
+			break;
+		}
+	}
+	spin_unlock(&fdata->hlock);
+	if (mapmatch) {
+		mmap->vaddrout = mapmatch->vaddrout;
+		return 0;
+	}
 	VERIFY(err, 0 != (map = kzalloc(sizeof(*map), GFP_KERNEL)));
 	if (err)
 		goto bail;
-	map->handle = ion_import_dma_buf(clnt, mmap->fd);
-	VERIFY(err, 0 == IS_ERR_OR_NULL(map->handle));
-	if (err)
-		goto bail;
+	map->handle = handle;
+	handle = 0;
 	map->virt = ion_map_kernel(clnt, map->handle);
 	VERIFY(err, 0 == IS_ERR_OR_NULL(map->virt));
 	if (err)
@@ -1245,9 +1358,8 @@ static int fastrpc_internal_mmap(struct fastrpc_apps *me,
 		goto bail;
 
 	if (me->channel[fdata->cid].smmu.enabled) {
-		VERIFY(err, 0 == ion_map_iommu(clnt, map->handle,
-				me->channel[fdata->cid].smmu.domain_id, 0,
-				SZ_4K, 0, &map->phys, &len, 0, 0));
+		VERIFY(err, 0 == map_iommu_mem(map->handle, fdata,
+						&map->phys, len));
 		if (err)
 			goto bail;
 		pages->addr = map->phys;
@@ -1260,26 +1372,29 @@ static int fastrpc_internal_mmap(struct fastrpc_apps *me,
 			goto bail;
 	}
 
-	VERIFY(err, 0 == fastrpc_mmap_on_dsp(me, mmap, pages, fdata->cid, num));
+	VERIFY(err, 0 == fastrpc_mmap_on_dsp(me, mmap, pages, fdata, num));
 	if (err)
 		goto bail;
 	map->vaddrin = mmap->vaddrin;
 	map->vaddrout = mmap->vaddrout;
 	map->size = mmap->size;
+	map->refs = 1;
 	INIT_HLIST_NODE(&map->hn);
 	spin_lock(&fdata->hlock);
 	hlist_add_head(&map->hn, &fdata->hlst);
 	spin_unlock(&fdata->hlock);
  bail:
+	if (handle)
+		ion_free(clnt, handle);
 	if (err && map) {
-		free_map(map, fdata->cid);
+		free_map(map, fdata);
 		kfree(map);
 	}
 	kfree(pages);
 	return err;
 }
 
-static void cleanup_current_dev(int cid)
+static void cleanup_current_dev(struct file_data *fdata)
 {
 	struct fastrpc_apps *me = &gfa;
 	uint32_t h = hash_32(current->tgid, RPC_HASH_BITS);
@@ -1300,7 +1415,7 @@ static void cleanup_current_dev(int cid)
 	}
 	spin_unlock(&me->hlock);
 	if (devfree) {
-		free_dev(devfree, cid);
+		free_dev(devfree, fdata);
 		goto rnext;
 	}
 	return;
@@ -1326,30 +1441,39 @@ static int fastrpc_device_release(struct inode *inode, struct file *file)
 	struct file_data *fdata = (struct file_data *)file->private_data;
 	struct fastrpc_apps *me = &gfa;
 	struct smq_context_list *clst = &me->clst;
-	struct smq_invoke_ctx *ictx = 0;
+	struct smq_invoke_ctx *ictx = 0, *ctxfree;
 	struct hlist_node *n;
 	int cid = MINOR(inode->i_rdev);
 
-	(void)fastrpc_release_current_dsp_process(cid);
-	cleanup_current_dev(cid);
-	spin_lock(&clst->hlock);
-	hlist_for_each_entry_safe(ictx, n, &clst->interrupted, hn) {
-		if (ictx->tgid == current->tgid)
-			context_free(ictx, 0);
-	}
-	spin_unlock(&clst->hlock);
+	(void)fastrpc_release_current_dsp_process(fdata);
+	cleanup_current_dev(fdata);
+	do {
+		ctxfree = 0;
+		spin_lock(&clst->hlock);
+		hlist_for_each_entry_safe(ictx, n, &clst->interrupted, hn) {
+			if (ictx->tgid == current->tgid) {
+				hlist_del(&ictx->hn);
+				ctxfree = ictx;
+				break;
+			}
+		}
+		spin_unlock(&clst->hlock);
+		if (ctxfree)
+			context_free(ctxfree, 0);
+	} while (ctxfree);
 	if (fdata) {
 		struct fastrpc_mmap *map = 0;
 		struct hlist_node *n;
 		file->private_data = 0;
 		hlist_for_each_entry_safe(map, n, &fdata->hlst, hn) {
 			hlist_del(&map->hn);
-			free_map(map, cid);
+			free_map(map, fdata);
 			kfree(map);
 		}
+		if (fdata->ssrcount == me->channel[cid].ssrcount)
+			kref_put_mutex(&me->channel[cid].kref,
+					fastrpc_channel_close, &me->smd_mutex);
 		kfree(fdata);
-		kref_put_mutex(&me->channel[cid].kref, fastrpc_channel_close,
-				&me->smd_mutex);
 	}
 	return 0;
 }
@@ -1357,11 +1481,13 @@ static int fastrpc_device_release(struct inode *inode, struct file *file)
 static int fastrpc_device_open(struct inode *inode, struct file *filp)
 {
 	int cid = MINOR(inode->i_rdev);
-	int err = 0;
+	int err = 0, ssrcount;
 	struct fastrpc_apps *me = &gfa;
 
 	mutex_lock(&me->smd_mutex);
-	if (kref_get_unless_zero(&me->channel[cid].kref) == 0) {
+	ssrcount = me->channel[cid].ssrcount;
+	if ((kref_get_unless_zero(&me->channel[cid].kref) == 0) ||
+		(me->channel[cid].chan == 0)) {
 		VERIFY(err, 0 == smd_named_open_on_edge(
 					FASTRPC_SMD_GUID,
 					gcinfo[cid].channel,
@@ -1394,14 +1520,16 @@ static int fastrpc_device_open(struct inode *inode, struct file *filp)
 		spin_lock_init(&fdata->hlock);
 		INIT_HLIST_HEAD(&fdata->hlst);
 		fdata->cid = cid;
+		fdata->tgid = current->tgid;
+		fdata->ssrcount = ssrcount;
 
-		VERIFY(err, 0 == fastrpc_create_current_dsp_process(cid));
+		VERIFY(err, 0 == fastrpc_create_current_dsp_process(fdata));
 		if (err)
 			goto bail;
 		filp->private_data = fdata;
 bail:
 		if (err) {
-			cleanup_current_dev(cid);
+			cleanup_current_dev(fdata);
 			kfree(fdata);
 			kref_put_mutex(&me->channel[cid].kref,
 					fastrpc_channel_close, &me->smd_mutex);
@@ -1440,7 +1568,7 @@ static long fastrpc_device_ioctl(struct file *file, unsigned int ioctl_num,
 		if (err)
 			goto bail;
 		VERIFY(err, 0 == (err = fastrpc_internal_invoke(me, fdata->mode,
-						0, &invokefd, fdata->cid)));
+						0, &invokefd, fdata)));
 		if (err)
 			goto bail;
 		break;
@@ -1486,6 +1614,33 @@ static long fastrpc_device_ioctl(struct file *file, unsigned int ioctl_num,
 	return err;
 }
 
+static int fastrpc_restart_notifier_cb(struct notifier_block *nb,
+					unsigned long code,
+					void *data)
+{
+	struct fastrpc_apps *me = &gfa;
+	struct fastrpc_channel_context *ctx;
+	int cid;
+
+	ctx = container_of(nb, struct fastrpc_channel_context, nb);
+	cid = ctx - &me->channel[0];
+	if (code == SUBSYS_BEFORE_SHUTDOWN) {
+		mutex_lock(&me->smd_mutex);
+		ctx->ssrcount++;
+		if (ctx->chan) {
+			smd_close(ctx->chan);
+			ctx->chan = 0;
+			pr_info("'closed /dev/%s c %d %d'\n", gcinfo[cid].name,
+						MAJOR(me->dev_no), cid);
+		}
+		mutex_unlock(&me->smd_mutex);
+		context_notify_all_users(&me->clst, cid);
+	}
+
+	return NOTIFY_DONE;
+}
+
+
 static const struct file_operations fops = {
 	.open = fastrpc_device_open,
 	.release = fastrpc_device_release,
@@ -1524,6 +1679,10 @@ static int __init fastrpc_device_init(void)
 		VERIFY(err, !IS_ERR(me->channel[i].dev));
 		if (err)
 			goto device_create_bail;
+		me->channel[i].ssrcount = 0;
+		me->channel[i].nb.notifier_call = fastrpc_restart_notifier_cb,
+		(void)subsys_notif_register_notifier(gcinfo[i].subsys,
+							&me->channel[i].nb);
 	}
 
 	return 0;
@@ -1548,8 +1707,9 @@ static void __exit fastrpc_device_exit(void)
 	context_list_dtor(me, &me->clst);
 	fastrpc_deinit();
 	for (i = 0; i < NUM_CHANNELS; i++) {
-		cleanup_current_dev(i);
 		device_destroy(me->class, MKDEV(MAJOR(me->dev_no), i));
+		subsys_notif_unregister_notifier(gcinfo[i].subsys,
+						&me->channel[i].nb);
 	}
 	class_destroy(me->class);
 	cdev_del(&me->cdev);
