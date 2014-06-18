@@ -74,7 +74,6 @@ struct cff_op_wait_irq {
 
 #define CFF_OP_RMW              0x0000000a
 
-#define CFF_OP_WRITE_MEM        0x0000000b
 struct cff_op_write_mem {
 	unsigned char op;
 	uint addr;
@@ -409,7 +408,7 @@ void kgsl_cffdump_user_event(struct kgsl_device *device,
 
 
 void kgsl_cffdump_memcpy(struct kgsl_device *device,
-		unsigned int gupaddr, unsigned int *ptr, size_t sizebytes)
+		unsigned int gpuaddr, unsigned int *ptr, size_t sizebytes)
 {
 	int i;
 
@@ -449,10 +448,12 @@ void kgsl_cffdump_syncmem(struct kgsl_device *device,
 		mb();
 
 		kgsl_cache_range_op((struct kgsl_memdesc *)memdesc,
+				gpuaddr - memdesc->gpuaddr,
+				sizebytes,
 				KGSL_CACHE_OP_INV);
 	}
 
-	kgsl_cffdump_memcpy(device, gpuaddr, ptr, sizebytes);
+	kgsl_cffdump_memcpy(device, gpuaddr, src, sizebytes);
 
 	/* Unmap memory since kgsl_gpuaddr_to_vaddr was called */
 	kgsl_memdesc_unmap(memdesc);
@@ -467,7 +468,7 @@ void kgsl_cffdump_memset(struct kgsl_device *device,
 		return;
 
 	/* Expand the input char into a dword and output it */
-	for (i = 0; i < ALIGN(sizebytes, 4) / 4; gupaddr += 4, i++)
+	for (i = 0; i < ALIGN(sizebytes, 4) / 4; gpuaddr += 4, i++)
 		kgsl_cffdump_write(device, gpuaddr,
 			(ch << 24) | (ch << 16) | (ch << 8) | ch);
 }
@@ -672,7 +673,7 @@ EXPORT_SYMBOL(kgsl_cff_dump_enable_get);
  * Returns 0 on success else error code
  */
 static int kgsl_cffdump_capture_adreno_ib_cff(struct kgsl_device *device,
-				phys_addr_t ptbase,
+				struct kgsl_process_private *process,
 				unsigned int gpuaddr, unsigned int dwords)
 {
 	int ret;
@@ -683,7 +684,7 @@ static int kgsl_cffdump_capture_adreno_ib_cff(struct kgsl_device *device,
 	if (!device->cff_dump_enable)
 		return 0;
 
-	ret = adreno_ib_create_object_list(device, ptbase, gpuaddr, dwords,
+	ret = adreno_ib_create_object_list(device, process, gpuaddr, dwords,
 		&ib_obj_list);
 
 	if (ret) {
@@ -716,31 +717,23 @@ int kgsl_cffdump_capture_ib_desc(struct kgsl_device *device,
 				struct kgsl_cmdbatch *cmdbatch)
 {
 	int ret = 0;
-	unsigned int ptbase;
-	struct kgsl_ibdesc_node *ibdesc;
+	struct kgsl_memobj_node *ib;
 
 	if (!device->cff_dump_enable)
 		return 0;
 	/* Dump CFF for IB and all objects in it */
-	ptbase = kgsl_mmu_get_pt_base_addr(&device->mmu,
-					context->proc_priv->pagetable);
-	if (!ptbase) {
-		ret = -EINVAL;
-		goto done;
-	}
-	list_for_each_entry(ib, &cmdbatch->ibdesclist, node) {
+	list_for_each_entry(ib, &cmdbatch->cmdlist, node) {
 		ret = kgsl_cffdump_capture_adreno_ib_cff(
-			device, ptbase, ibdesc->gpuaddr,
-			ibdesc->sizedwords);
+			device, context->proc_priv, ib->gpuaddr,
+			ib->sizedwords);
 		if (ret) {
 			KGSL_DRV_ERR(device,
 			"Fail cff capture, IB %lx, size %zx\n",
-			ibdesc->gpuaddr,
-			ibdesc->sizedwords << 2);
+			ib->gpuaddr,
+			ib->sizedwords << 2);
 			break;
 		}
 	}
-done:
 	return ret;
 }
 EXPORT_SYMBOL(kgsl_cffdump_capture_ib_desc);
