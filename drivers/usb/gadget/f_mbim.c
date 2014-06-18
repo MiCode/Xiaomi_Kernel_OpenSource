@@ -125,8 +125,6 @@ struct f_mbim {
 	u8				ctrl_id, data_id;
 	u8				data_alt_int;
 
-	struct mbim_ndp_parser_opts	*parser_opts;
-
 	spinlock_t			lock;
 
 	struct list_head	cpkt_req_q;
@@ -533,61 +531,6 @@ static struct {
 	},
 };
 
-/*
- * Here are options for the Datagram Pointer table (NDP) parser.
- * There are 2 different formats: NDP16 and NDP32 in the spec (ch. 3),
- * in NDP16 offsets and sizes fields are 1 16bit word wide,
- * in NDP32 -- 2 16bit words wide. Also signatures are different.
- * To make the parser code the same, put the differences in the structure,
- * and switch pointers to the structures when the format is changed.
- */
-
-struct mbim_ndp_parser_opts {
-	u32		nth_sign;
-	u32		ndp_sign;
-	unsigned	nth_size;
-	unsigned	ndp_size;
-	unsigned	ndplen_align;
-	/* sizes in u16 units */
-	unsigned	dgram_item_len; /* index or length */
-	unsigned	block_length;
-	unsigned	fp_index;
-	unsigned	reserved1;
-	unsigned	reserved2;
-	unsigned	next_fp_index;
-};
-
-#define INIT_NDP16_OPTS {				\
-	.nth_sign = USB_CDC_NCM_NTH16_SIGN,		\
-	.ndp_sign = USB_CDC_NCM_NDP16_NOCRC_SIGN,	\
-	.nth_size = sizeof(struct usb_cdc_ncm_nth16),	\
-	.ndp_size = sizeof(struct usb_cdc_ncm_ndp16),	\
-	.ndplen_align = 4,				\
-	.dgram_item_len = 1,				\
-	.block_length = 1,				\
-	.fp_index = 1,					\
-	.reserved1 = 0,					\
-	.reserved2 = 0,					\
-	.next_fp_index = 1,				\
-}
-
-#define INIT_NDP32_OPTS {				\
-	.nth_sign = USB_CDC_NCM_NTH32_SIGN,		\
-	.ndp_sign = USB_CDC_NCM_NDP32_NOCRC_SIGN,	\
-	.nth_size = sizeof(struct usb_cdc_ncm_nth32),	\
-	.ndp_size = sizeof(struct usb_cdc_ncm_ndp32),	\
-	.ndplen_align = 8,				\
-	.dgram_item_len = 2,				\
-	.block_length = 2,				\
-	.fp_index = 2,					\
-	.reserved1 = 1,					\
-	.reserved2 = 2,					\
-	.next_fp_index = 2,				\
-}
-
-static struct mbim_ndp_parser_opts mbim_ndp16_opts = INIT_NDP16_OPTS;
-static struct mbim_ndp_parser_opts mbim_ndp32_opts = INIT_NDP32_OPTS;
-
 static inline int mbim_lock(atomic_t *excl)
 {
 	if (atomic_inc_return(excl) == 1) {
@@ -829,8 +772,6 @@ static int mbim_bam_disconnect(struct f_mbim *dev)
 
 static inline void mbim_reset_values(struct f_mbim *mbim)
 {
-	mbim->parser_opts = &mbim_ndp16_opts;
-
 	mbim->ntb_input_size = MBIM_NTB_DEFAULT_IN_SIZE;
 
 	atomic_set(&mbim->online, 0);
@@ -1209,46 +1150,6 @@ mbim_setup(struct usb_function *f, const struct usb_ctrlrequest *ctrl)
 
 		value = req->length;
 		break;
-
-	case ((USB_DIR_IN | USB_TYPE_CLASS | USB_RECIP_INTERFACE) << 8)
-		| USB_CDC_GET_NTB_FORMAT:
-	{
-		uint16_t format;
-
-		pr_debug("USB_CDC_GET_NTB_FORMAT\n");
-
-		if (w_length < 2 || w_value != 0 || w_index != mbim->ctrl_id)
-			break;
-
-		format = (mbim->parser_opts == &mbim_ndp16_opts) ? 0 : 1;
-		put_unaligned_le16(format, req->buf);
-		value = 2;
-		pr_debug("NTB FORMAT: sending %d\n", format);
-		break;
-	}
-
-	case ((USB_DIR_OUT | USB_TYPE_CLASS | USB_RECIP_INTERFACE) << 8)
-		| USB_CDC_SET_NTB_FORMAT:
-	{
-		pr_debug("USB_CDC_SET_NTB_FORMAT\n");
-
-		if (w_length != 0 || w_index != mbim->ctrl_id)
-			break;
-		switch (w_value) {
-		case 0x0000:
-			mbim->parser_opts = &mbim_ndp16_opts;
-			pr_debug("NCM16 selected\n");
-			break;
-		case 0x0001:
-			mbim->parser_opts = &mbim_ndp32_opts;
-			pr_debug("NCM32 selected\n");
-			break;
-		default:
-			break;
-		}
-		value = 0;
-		break;
-	}
 
 	/* optional in mbim descriptor: */
 	/* case USB_CDC_GET_MAX_DATAGRAM_SIZE: */
