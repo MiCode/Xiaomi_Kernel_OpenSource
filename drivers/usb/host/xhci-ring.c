@@ -3338,6 +3338,9 @@ int xhci_queue_bulk_tx(struct xhci_hcd *xhci, gfp_t mem_flags,
 	bool more_trbs_coming;
 	int start_cycle;
 	u32 field, length_field;
+	int zlp_required = 0;
+	int max_packet = 0;
+	bool last = false;
 
 	int running_total, trb_buff_len, ret;
 	unsigned int total_packet_count;
@@ -3366,11 +3369,17 @@ int xhci_queue_bulk_tx(struct xhci_hcd *xhci, gfp_t mem_flags,
 		num_trbs++;
 		running_total += TRB_MAX_BUFF_SIZE;
 	}
-	/* FIXME: this doesn't deal with URB_ZERO_PACKET - need one more */
+
+	max_packet = usb_endpoint_maxp(&urb->ep->desc);
+	if (!usb_urb_dir_in(urb) && urb->transfer_buffer_length &&
+		(urb->transfer_flags & URB_ZERO_PACKET) &&
+		!(urb->transfer_buffer_length % max_packet)) {
+		zlp_required = 1;
+	}
 
 	ret = prepare_transfer(xhci, xhci->devs[slot_id],
 			ep_index, urb->stream_id,
-			num_trbs, urb, 0, mem_flags);
+			num_trbs + zlp_required, urb, 0, mem_flags);
 	if (ret < 0)
 		return ret;
 
@@ -3410,17 +3419,6 @@ int xhci_queue_bulk_tx(struct xhci_hcd *xhci, gfp_t mem_flags,
 		} else
 			field |= ep_ring->cycle_state;
 
-		/* Chain all the TRBs together; clear the chain bit in the last
-		 * TRB to indicate it's the last TRB in the chain.
-		 */
-		if (num_trbs > 1) {
-			field |= TRB_CHAIN;
-		} else {
-			/* FIXME - add check for ZERO_PACKET flag before this */
-			td->last_trb = ep_ring->enqueue;
-			field |= TRB_IOC;
-		}
-
 		/* Only set interrupt on short packet for IN endpoints */
 		if (usb_urb_dir_in(urb))
 			field |= TRB_ISP;
@@ -3439,15 +3437,36 @@ int xhci_queue_bulk_tx(struct xhci_hcd *xhci, gfp_t mem_flags,
 			remainder |
 			TRB_INTR_TARGET(0);
 
-		if (num_trbs > 1)
-			more_trbs_coming = true;
-		else
-			more_trbs_coming = false;
+		more_trbs_coming = true;
+		field |= TRB_CHAIN;
+		if (num_trbs <= 1) {
+			last = true;
+			if (!zlp_required) {
+				more_trbs_coming = false;
+				td->last_trb = ep_ring->enqueue;
+				field &= ~TRB_CHAIN;
+				field |= TRB_IOC;
+			}
+		}
+
 		queue_trb(xhci, ep_ring, more_trbs_coming,
 				lower_32_bits(addr),
 				upper_32_bits(addr),
 				length_field,
 				field | TRB_TYPE(TRB_NORMAL));
+
+		if (last && zlp_required) {
+			td->last_trb = ep_ring->enqueue;
+			field |= TRB_IOC;
+			field &= ~TRB_CHAIN;
+			field &= ~TRB_CYCLE;
+			field |= ep_ring->cycle_state;
+
+			queue_trb(xhci, ep_ring, false,
+				0, 0, TRB_INTR_TARGET(0),
+				field | TRB_TYPE(TRB_NORMAL));
+		}
+
 		--num_trbs;
 		running_total += trb_buff_len;
 
