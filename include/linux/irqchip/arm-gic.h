@@ -2,6 +2,7 @@
  *  include/linux/irqchip/arm-gic.h
  *
  *  Copyright (C) 2002 ARM Limited, All Rights Reserved.
+ *  Copyright (c) 2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -81,6 +82,6 @@ static inline void gic_init(unsigned int nr, int start,
 
 bool gic_is_spi_pending(unsigned int irq);
 void gic_clear_spi_pending(unsigned int irq);
-
+void gic_show_pending_irq(void);
 #endif /* __ASSEMBLY */
 #endif

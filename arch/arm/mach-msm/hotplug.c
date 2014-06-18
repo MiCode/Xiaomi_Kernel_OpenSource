@@ -15,6 +15,7 @@
 #include <linux/msm_rtb.h>
 #include <soc/qcom/spm.h>
 #include <soc/qcom/pm.h>
+#include <linux/irqchip/arm-gic.h>
 
 #include <asm/smp_plat.h>
 #include <asm/vfp.h>
@@ -53,7 +54,10 @@ static inline void platform_do_lowpower(unsigned int cpu, int *spurious)
 		 * The trouble is, letting people know about this is not really
 		 * possible, since we are currently running incoherently, and
 		 * therefore cannot safely call printk() or anything else
+		 * Read the pending interrupts to understand why we woke up
 		 */
+		local_irq_disable();
+		gic_show_pending_irq();
 		(*spurious)++;
 	}
 }
