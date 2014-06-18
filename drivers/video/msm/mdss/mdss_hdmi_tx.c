@@ -1800,6 +1800,104 @@ static void hdmi_tx_set_mode(struct hdmi_tx_ctrl *hdmi_ctrl, u32 power_on)
 		power_on ? "Enable" : "Disable", reg_val);
 } /* hdmi_tx_set_mode */
 
+static int hdmi_tx_pinctrl_set_state(struct hdmi_tx_ctrl *hdmi_ctrl,
+			enum hdmi_tx_power_module_type module, bool active)
+{
+	struct pinctrl_state *pin_state;
+	int rc = -EFAULT;
+	struct dss_module_power *power_data = NULL;
+	u64 cur_pin_states;
+
+	if (!hdmi_ctrl) {
+		DEV_ERR("%s: invalid input\n", __func__);
+		return -ENODEV;
+	}
+
+	if (IS_ERR_OR_NULL(hdmi_ctrl->pin_res.pinctrl))
+		return 0;
+
+	power_data = &hdmi_ctrl->pdata.power_data[module];
+
+	cur_pin_states = active ? (hdmi_ctrl->pdata.pin_states | BIT(module))
+				: (hdmi_ctrl->pdata.pin_states & ~BIT(module));
+
+	if (cur_pin_states & BIT(HDMI_TX_HPD_PM)) {
+		if (cur_pin_states & BIT(HDMI_TX_DDC_PM)) {
+			if (cur_pin_states & BIT(HDMI_TX_CEC_PM))
+				pin_state = hdmi_ctrl->pin_res.state_active;
+			else
+				pin_state =
+					hdmi_ctrl->pin_res.state_ddc_active;
+		} else if (cur_pin_states & BIT(HDMI_TX_CEC_PM)) {
+			pin_state = hdmi_ctrl->pin_res.state_cec_active;
+		} else {
+			pin_state = hdmi_ctrl->pin_res.state_hpd_active;
+		}
+	} else {
+		pin_state = hdmi_ctrl->pin_res.state_suspend;
+	}
+
+	if (!IS_ERR_OR_NULL(pin_state)) {
+		rc = pinctrl_select_state(hdmi_ctrl->pin_res.pinctrl,
+				pin_state);
+		if (rc)
+			pr_err("%s: cannot set pins\n", __func__);
+		else
+			hdmi_ctrl->pdata.pin_states = cur_pin_states;
+	} else {
+		pr_err("%s: pinstate not found\n", __func__);
+	}
+
+	return rc;
+}
+
+static int hdmi_tx_pinctrl_init(struct platform_device *pdev)
+{
+	struct hdmi_tx_ctrl *hdmi_ctrl;
+
+	hdmi_ctrl = platform_get_drvdata(pdev);
+	if (!hdmi_ctrl) {
+		DEV_ERR("%s: invalid input\n", __func__);
+		return -ENODEV;
+	}
+
+	hdmi_ctrl->pin_res.pinctrl = devm_pinctrl_get(&pdev->dev);
+	if (IS_ERR_OR_NULL(hdmi_ctrl->pin_res.pinctrl)) {
+		pr_err("%s: failed to get pinctrl\n", __func__);
+		return PTR_ERR(hdmi_ctrl->pin_res.pinctrl);
+	}
+
+	hdmi_ctrl->pin_res.state_active =
+		pinctrl_lookup_state(hdmi_ctrl->pin_res.pinctrl, "hdmi_active");
+	if (IS_ERR_OR_NULL(hdmi_ctrl->pin_res.state_active))
+		pr_debug("%s: cannot get active pinstate\n", __func__);
+
+	hdmi_ctrl->pin_res.state_hpd_active =
+		pinctrl_lookup_state(hdmi_ctrl->pin_res.pinctrl,
+							"hdmi_hpd_active");
+	if (IS_ERR_OR_NULL(hdmi_ctrl->pin_res.state_hpd_active))
+		pr_debug("%s: cannot get hpd active pinstate\n", __func__);
+
+	hdmi_ctrl->pin_res.state_cec_active =
+		pinctrl_lookup_state(hdmi_ctrl->pin_res.pinctrl,
+							"hdmi_cec_active");
+	if (IS_ERR_OR_NULL(hdmi_ctrl->pin_res.state_cec_active))
+		pr_debug("%s: cannot get cec active pinstate\n", __func__);
+
+	hdmi_ctrl->pin_res.state_ddc_active =
+		pinctrl_lookup_state(hdmi_ctrl->pin_res.pinctrl,
+							"hdmi_ddc_active");
+	if (IS_ERR_OR_NULL(hdmi_ctrl->pin_res.state_ddc_active))
+		pr_debug("%s: cannot get ddc active pinstate\n", __func__);
+
+	hdmi_ctrl->pin_res.state_suspend =
+		pinctrl_lookup_state(hdmi_ctrl->pin_res.pinctrl, "hdmi_sleep");
+	if (IS_ERR_OR_NULL(hdmi_ctrl->pin_res.state_suspend))
+		pr_debug("%s: cannot get sleep pinstate\n", __func__);
+
+	return 0;
+}
+
 static int hdmi_tx_config_power(struct hdmi_tx_ctrl *hdmi_ctrl,
 	enum hdmi_tx_power_module_type module, int config)
 {
@@ -1879,6 +1977,13 @@ static int hdmi_tx_enable_power(struct hdmi_tx_ctrl *hdmi_ctrl,
 			goto error;
 		}
 
+		rc = hdmi_tx_pinctrl_set_state(hdmi_ctrl, module, enable);
+		if (rc) {
+			DEV_ERR("%s: Failed to set %s pinctrl state\n",
+				__func__, hdmi_tx_pm_name(module));
+			goto error;
+		}
+
 		rc = msm_dss_enable_gpio(power_data->gpio_config,
 			power_data->num_gpio, 1);
 		if (rc) {
@@ -1907,6 +2012,7 @@ static int hdmi_tx_enable_power(struct hdmi_tx_ctrl *hdmi_ctrl,
 			power_data->num_clk, 0);
 		msm_dss_enable_gpio(power_data->gpio_config,
 			power_data->num_gpio, 0);
+		hdmi_tx_pinctrl_set_state(hdmi_ctrl, module, 0);
 		msm_dss_enable_vreg(power_data->vreg_config,
 			power_data->num_vreg, 0);
 	}
@@ -3346,6 +3452,8 @@ static int hdmi_tx_init_resource(struct hdmi_tx_ctrl *hdmi_ctrl)
 	}
 
 	pdata = &hdmi_ctrl->pdata;
+
+	hdmi_tx_pinctrl_init(hdmi_ctrl->pdev);
 
 	/* IO */
 	for (i = 0; i < HDMI_TX_MAX_IO; i++) {
