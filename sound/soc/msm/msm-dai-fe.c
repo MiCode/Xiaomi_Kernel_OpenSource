@@ -862,7 +862,7 @@ static struct snd_soc_dai_driver msm_fe_dais[] = {
 	},
 	{
 		.playback = {
-			.stream_name = "Multimedia9 Playback",
+			.stream_name = "MultiMedia9 Playback",
 			.aif_name = "MM_DL9",
 			.rates = (SNDRV_PCM_RATE_8000_192000|
 				  SNDRV_PCM_RATE_KNOT),
@@ -874,7 +874,7 @@ static struct snd_soc_dai_driver msm_fe_dais[] = {
 			.rate_max =	192000,
 		},
 		.capture = {
-			.stream_name = "Multimedia9 Capture",
+			.stream_name = "MultiMedia9 Capture",
 			.aif_name = "MM_UL9",
 			.rates = (SNDRV_PCM_RATE_8000_48000|
 				  SNDRV_PCM_RATE_KNOT),
@@ -886,6 +886,7 @@ static struct snd_soc_dai_driver msm_fe_dais[] = {
 		},
 		.ops = &msm_fe_Multimedia_dai_ops,
 		.name = "MultiMedia9",
+		.probe = fe_dai_probe,
 	},
 	{
 		.playback = {
@@ -910,6 +911,7 @@ static struct snd_soc_dai_driver msm_fe_dais[] = {
 		},
 		.ops = &msm_fe_dai_ops,
 		.name = "QCHAT",
+		.probe = fe_dai_probe,
 	},
 	{
 		.capture = {
