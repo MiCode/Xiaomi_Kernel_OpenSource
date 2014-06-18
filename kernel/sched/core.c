@@ -1794,13 +1794,13 @@ void set_task_cpu(struct task_struct *p, unsigned int new_cpu)
 			    sysctl_sched_freq_inc_notify_slack_pct)
 				atomic_notifier_call_chain(
 					&load_alert_notifier_head, 0,
-					(void *)new_cpu);
+					(void *)(long)new_cpu);
 
 			if (rq_freq_margin(src_rq) >
 			    sysctl_sched_freq_dec_notify_slack_pct)
 				atomic_notifier_call_chain(
 					&load_alert_notifier_head, 0,
-					(void *)task_cpu(p));
+					(void *)(long)task_cpu(p));
 
 		}
 #endif
@@ -2334,7 +2334,7 @@ try_to_wake_up(struct task_struct *p, unsigned int state, int wake_flags)
 		    sysctl_sched_freq_inc_notify_slack_pct)
 			atomic_notifier_call_chain(
 				&load_alert_notifier_head, 0,
-				(void *)cpu);
+				(void *)(long)cpu);
 #endif
 	}
 #endif /* CONFIG_SMP */
@@ -2614,7 +2614,7 @@ void wake_up_new_task(struct task_struct *p)
 	    sysctl_sched_freq_inc_notify_slack_pct)
 		atomic_notifier_call_chain(
 			&load_alert_notifier_head, 0,
-			(void *)task_cpu(p));
+			(void *)(long)task_cpu(p));
 #endif
 	activate_task(rq, p, 0);
 	p->on_rq = 1;
