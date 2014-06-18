@@ -344,7 +344,7 @@ void __iomem *__arm_ioremap_caller(phys_addr_t phys_addr, size_t size,
 	unsigned int mtype, void *caller)
 {
 	phys_addr_t last_addr;
-	phys_addr_t offset = phys_addr & ~PAGE_MASK;
+	unsigned long offset = phys_addr & ~PAGE_MASK;
  	unsigned long pfn = __phys_to_pfn(phys_addr);
 
  	/*
