@@ -149,8 +149,12 @@ enum msm_cpu {
 	MSM_CPU_8084,
 	MSM_CPU_9630,
 	FSM_CPU_9900,
-	MSM_CPU_SAMARIUM,
 	MSM_CPU_ZIRC,
+};
+
+struct msm_soc_info {
+	enum msm_cpu generic_soc_type;
+	char *soc_id_string;
 };
 
 enum pmic_model {
