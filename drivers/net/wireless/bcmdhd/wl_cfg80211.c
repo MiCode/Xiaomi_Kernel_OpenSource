@@ -237,6 +237,10 @@ common_iface_combinations[] = {
 #define PM_ENABLE 0
 
 
+#ifdef PMF
+#define WL_AKM_SUITE_PMF_1X  0x000FAC05
+#define WL_AKM_SUITE_PMF_PSK 0x000FAC06
+#endif /* PMF */
 
 #ifndef IBSS_COALESCE_ALLOWED
 #define IBSS_COALESCE_ALLOWED 0
@@ -435,6 +439,9 @@ static void wl_update_hidden_ap_ie(struct wl_bss_info *bi, u8 *ie_stream, u32 *i
 static s32 wl_mrg_ie(struct bcm_cfg80211 *cfg, u8 *ie_stream, u16 ie_size);
 static s32 wl_cp_ie(struct bcm_cfg80211 *cfg, u8 *dst, u16 dst_size);
 static u32 wl_get_ielen(struct bcm_cfg80211 *cfg);
+#ifdef PMF
+static int wl_cfg80211_get_rsn_capa(bcm_tlv_t *wpa2ie, u8* capa);
+#endif /* PMF */
 
 #ifdef WL11U
 bcm_tlv_t *
@@ -2813,6 +2820,43 @@ static s32 wl_cfg80211_leave_ibss(struct wiphy *wiphy, struct net_device *dev)
 	return err;
 }
 
+#ifdef PMF
+static int wl_cfg80211_get_rsn_capa(bcm_tlv_t *wpa2ie, u8* capa)
+{
+	u16 suite_count;
+	wpa_suite_mcast_t *mcast;
+	wpa_suite_ucast_t *ucast;
+	u16 len;
+	wpa_suite_auth_key_mgmt_t *mgmt;
+
+	if (!wpa2ie)
+		return -1;
+
+	len = wpa2ie->len;
+	mcast = (wpa_suite_mcast_t *)&wpa2ie->data[WPA2_VERSION_LEN];
+	if ((len -= WPA_SUITE_LEN) <= 0)
+		return BCME_BADLEN;
+	ucast = (wpa_suite_ucast_t *)&mcast[1];
+	suite_count = ltoh16_ua(&ucast->count);
+	if ((suite_count > NL80211_MAX_NR_CIPHER_SUITES) ||
+		(len -= (WPA_IE_SUITE_COUNT_LEN +
+		(WPA_SUITE_LEN * suite_count))) <= 0)
+		return BCME_BADLEN;
+
+	mgmt = (wpa_suite_auth_key_mgmt_t *)&ucast->list[suite_count];
+	suite_count = ltoh16_ua(&mgmt->count);
+
+	if ((suite_count > NL80211_MAX_NR_CIPHER_SUITES) ||
+		(len -= (WPA_IE_SUITE_COUNT_LEN +
+		(WPA_SUITE_LEN * suite_count))) >= RSN_CAP_LEN) {
+		capa[0] = *(u8 *)&mgmt->list[suite_count];
+		capa[1] = *((u8 *)&mgmt->list[suite_count] + 1);
+	} else
+		return BCME_BADLEN;
+
+	return 0;
+}
+#endif /* PMF */
 
 static s32
 wl_set_wpa_version(struct net_device *dev, struct cfg80211_connect_params *sme)
@@ -2902,6 +2946,11 @@ wl_set_set_cipher(struct net_device *dev, struct cfg80211_connect_params *sme)
 	s32 gval = 0;
 	s32 err = 0;
 	s32 wsec_val = 0;
+#ifdef PMF
+	s32 mfp = 0;
+	bcm_tlv_t *wpa2_ie;
+	u8 rsn_cap[2];
+#endif /* PMF */
 
 	s32 bssidx;
 	if (wl_cfgp2p_find_idx(cfg, dev, &bssidx) != BCME_OK) {
@@ -2962,6 +3011,41 @@ wl_set_set_cipher(struct net_device *dev, struct cfg80211_connect_params *sme)
 			WL_DBG((" NO, is_wps_conn, Set pval | gval to WSEC"));
 			wsec_val = pval | gval;
 
+#ifdef PMF
+			if (pval == AES_ENABLED) {
+				if (((wpa2_ie = bcm_parse_tlvs((u8 *)sme->ie, sme->ie_len,
+					DOT11_MNG_RSN_ID)) != NULL) &&
+					(wl_cfg80211_get_rsn_capa(wpa2_ie, rsn_cap) == 0)) {
+
+					if (rsn_cap[0] & RSN_CAP_MFPC) {
+						/* PMF Capability advertised by supplicant. Check
+						 * whether MFP is supported in the firmware
+						 */
+						if ((err = wldev_iovar_getint_bsscfg(dev,
+								"mfp", &mfp, bssidx)) < 0) {
+							WL_ERR(("Get MFP failed! "
+								"Check MFP support in FW \n"));
+							return -EINVAL;
+						}
+
+						if ((sme->crypto.n_akm_suites == 1) &&
+							((sme->crypto.akm_suites[0] ==
+							WL_AKM_SUITE_PMF_PSK) ||
+							(sme->crypto.akm_suites[0] ==
+							WL_AKM_SUITE_PMF_1X))) {
+							wsec_val |= MFP_SHA256;
+						} else if (sme->crypto.n_akm_suites > 1) {
+							WL_ERR(("Multiple AKM Specified \n"));
+							return -EINVAL;
+						}
+
+						wsec_val |= MFP_CAPABLE;
+						if (rsn_cap[0] & RSN_CAP_MFPR)
+							wsec_val |= MFP_REQUIRED;
+					}
+				}
+			}
+#endif /* PMF */
 			WL_DBG((" Set WSEC to fW 0x%x \n", wsec_val));
 			err = wldev_iovar_setint_bsscfg(dev, "wsec",
 				wsec_val, bssidx);
@@ -3017,6 +3101,14 @@ wl_set_key_mgmt(struct net_device *dev, struct cfg80211_connect_params *sme)
 			case WLAN_AKM_SUITE_8021X:
 				val = WPA2_AUTH_UNSPECIFIED;
 				break;
+#ifdef PMF
+			case WL_AKM_SUITE_PMF_1X:
+				val = WPA2_AUTH_UNSPECIFIED;
+				break;
+			case WL_AKM_SUITE_PMF_PSK:
+				val = WPA2_AUTH_PSK;
+				break;
+#endif
 			case WLAN_AKM_SUITE_PSK:
 				val = WPA2_AUTH_PSK;
 				break;
