@@ -59,6 +59,7 @@ struct kgsl_pwr_constraint {
 		} pwrlevel;
 	} hint;
 	unsigned long expires;
+	uint32_t owner_id;
 };
 
 /**
