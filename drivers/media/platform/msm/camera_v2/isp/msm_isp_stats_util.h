@@ -1,4 +1,4 @@
-/* Copyright (c) 2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -20,6 +20,8 @@ void msm_isp_process_stats_irq(struct vfe_device *vfe_dev,
 	struct msm_isp_timestamp *ts);
 void msm_isp_stats_stream_update(struct vfe_device *vfe_dev);
 int msm_isp_cfg_stats_stream(struct vfe_device *vfe_dev, void *arg);
+int msm_isp_update_stats_stream(struct vfe_device *vfe_dev, void *arg);
 int msm_isp_release_stats_stream(struct vfe_device *vfe_dev, void *arg);
 int msm_isp_request_stats_stream(struct vfe_device *vfe_dev, void *arg);
+void msm_isp_update_stats_framedrop_reg(struct vfe_device *vfe_dev);
 #endif /* __MSM_ISP_STATS_UTIL_H__ */

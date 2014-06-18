@@ -191,6 +191,7 @@ enum msm_vfe_axi_stream_update_type {
 	ENABLE_STREAM_BUF_DIVERT,
 	DISABLE_STREAM_BUF_DIVERT,
 	UPDATE_STREAM_FRAMEDROP_PATTERN,
+	UPDATE_STREAM_STATS_FRAMEDROP_PATTERN,
 	UPDATE_STREAM_AXI_CONFIG,
 	UPDATE_STREAM_REQUEST_FRAMES,
 };
@@ -243,6 +244,7 @@ struct msm_vfe_stats_stream_request_cmd {
 	enum msm_isp_stats_type stats_type;
 	uint32_t composite_flag;
 	uint32_t framedrop_pattern;
+	uint32_t init_frame_drop; /*MAX 31 Frames*/
 	uint32_t irq_subsample_pattern;
 	uint32_t buffer_offset;
 	uint32_t stream_handle;
@@ -485,5 +487,8 @@ struct msm_isp_event_data {
 
 #define VIDIOC_MSM_ISP_SMMU_ATTACH \
 	_IOWR('V', BASE_VIDIOC_PRIVATE+15, struct msm_vfe_smmu_attach_cmd)
+
+#define VIDIOC_MSM_ISP_UPDATE_STATS_STREAM \
+	_IOWR('V', BASE_VIDIOC_PRIVATE+16, struct msm_vfe_axi_stream_update_cmd)
 
 #endif /* __MSMB_ISP__ */
