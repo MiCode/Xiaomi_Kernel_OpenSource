@@ -503,8 +503,6 @@ static int i915_drm_freeze(struct drm_device *dev)
 	struct drm_i915_private *dev_priv = dev->dev_private;
 	struct drm_crtc *crtc;
 
-	intel_runtime_pm_get(dev_priv);
-
 	/* ignore lid events during suspend */
 	mutex_lock(&dev_priv->modeset_restore_lock);
 	dev_priv->modeset_restore = MODESET_SUSPENDED;
@@ -683,8 +681,6 @@ static int __i915_drm_thaw(struct drm_device *dev, bool restore_gtt_mappings)
 	mutex_lock(&dev_priv->modeset_restore_lock);
 	dev_priv->modeset_restore = MODESET_DONE;
 	mutex_unlock(&dev_priv->modeset_restore_lock);
-
-	intel_runtime_pm_put(dev_priv);
 
 	sysfs_notify(&dev->primary->kdev->kobj, NULL, "thaw");
 
