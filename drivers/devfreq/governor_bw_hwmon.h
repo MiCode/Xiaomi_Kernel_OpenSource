@@ -47,10 +47,8 @@
 struct bw_hwmon {
 	int (*start_hwmon)(struct bw_hwmon *hw, unsigned long mbps);
 	void (*stop_hwmon)(struct bw_hwmon *hw);
-	bool (*is_valid_irq)(struct bw_hwmon *hw);
 	unsigned long (*meas_bw_and_set_irq)(struct bw_hwmon *hw,
 					unsigned int tol, unsigned int us);
-	int irq;
 	struct device *dev;
 	struct device_node *of_node;
 	struct devfreq_governor *gov;
@@ -60,9 +58,14 @@ struct bw_hwmon {
 
 #ifdef CONFIG_DEVFREQ_GOV_MSM_BW_HWMON
 int register_bw_hwmon(struct device *dev, struct bw_hwmon *hwmon);
+int update_bw_hwmon(struct bw_hwmon *hwmon);
 #else
 static inline int register_bw_hwmon(struct device *dev,
 					struct bw_hwmon *hwmon)
+{
+	return 0;
+}
+int update_bw_hwmon(struct bw_hwmon *hwmon)
 {
 	return 0;
 }

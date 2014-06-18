@@ -135,6 +135,7 @@ static long mon_get_count(int n, u32 start_val)
 static u32 bytes_per_beat;
 static u32 prev_r_start_val;
 static u32 prev_w_start_val;
+static int bw_irq;
 
 static void mon_bw_init(void)
 {
@@ -200,14 +201,28 @@ static unsigned long meas_bw_and_set_irq(struct bw_hwmon *hw,
 	return r_mbps + w_mbps;
 }
 
-static bool is_valid_bw_irq(struct bw_hwmon *hw)
+static irqreturn_t bwmon_intr_handler(int irq, void *dev)
 {
-	return mon_overflow(RD_MON) || mon_overflow(WR_MON);
+	if (mon_overflow(RD_MON) || mon_overflow(WR_MON)) {
+		update_bw_hwmon(dev);
+		return IRQ_HANDLED;
+	}
+
+	return IRQ_NONE;
 }
 
 static int start_bw_hwmon(struct bw_hwmon *hw, unsigned long mbps)
 {
 	u32 limit;
+	int ret;
+
+	ret = request_threaded_irq(bw_irq, NULL, bwmon_intr_handler,
+				  IRQF_ONESHOT | IRQF_SHARED,
+				  "bw_hwmon", hw);
+	if (ret) {
+		pr_err("Unable to register interrupt handler!\n");
+		return ret;
+	}
 
 	mon_bw_init();
 	mon_disable(RD_MON);
@@ -229,6 +244,8 @@ static int start_bw_hwmon(struct bw_hwmon *hw, unsigned long mbps)
 
 static void stop_bw_hwmon(struct bw_hwmon *hw)
 {
+	disable_irq(bw_irq);
+	free_irq(bw_irq, hw);
 	global_mon_enable(false);
 	mon_disable(RD_MON);
 	mon_disable(WR_MON);
@@ -243,7 +260,6 @@ static struct devfreq_governor devfreq_gov_cpubw_hwmon = {
 static struct bw_hwmon cpubw_hwmon = {
 	.start_hwmon = &start_bw_hwmon,
 	.stop_hwmon = &stop_bw_hwmon,
-	.is_valid_irq = &is_valid_bw_irq,
 	.meas_bw_and_set_irq = &meas_bw_and_set_irq,
 	.gov = &devfreq_gov_cpubw_hwmon,
 };
@@ -372,12 +388,12 @@ static int krait_l2pm_driver_probe(struct platform_device *pdev)
 	struct device *dev = &pdev->dev;
 	int ret, ret2;
 
-	cpubw_hwmon.irq = platform_get_irq(pdev, 0);
-	if (cpubw_hwmon.irq < 0) {
+	bw_irq = platform_get_irq(pdev, 0);
+	if (bw_irq < 0) {
 		pr_err("Unable to get IRQ number\n");
-		return cpubw_hwmon.irq;
+		return bw_irq;
 	}
-	mrps_hwmon.irq = cpubw_hwmon.irq;
+	mrps_hwmon.irq = bw_irq;
 
 	ret = of_property_read_u32(dev->of_node, "qcom,bytes-per-beat",
 					&bytes_per_beat);
