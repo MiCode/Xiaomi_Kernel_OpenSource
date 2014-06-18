@@ -323,7 +323,7 @@ vbif_remap_failed:
 	iounmap(vfe_dev->vfe_base);
 vfe_remap_failed:
 	msm_cam_clk_enable(&vfe_dev->pdev->dev, msm_vfe40_clk_info,
-		vfe_dev->vfe_clk, ARRAY_SIZE(msm_vfe40_clk_info), 0);
+		vfe_dev->vfe_clk, vfe_dev->num_clk, 0);
 clk_enable_failed:
 	if (vfe_dev->fs_vfe) {
 		regulator_disable(vfe_dev->fs_vfe);
