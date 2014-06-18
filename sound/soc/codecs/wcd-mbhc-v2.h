@@ -83,6 +83,7 @@ struct wcd_mbhc {
 	bool gnd_swh; /*track GND switch NC / NO */
 	bool hs_detect_work_stop;
 	bool micbias_enable;
+	bool btn_press_intr;
 
 	struct snd_soc_codec *codec;
 
