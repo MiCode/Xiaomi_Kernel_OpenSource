@@ -26,6 +26,7 @@
 #include <linux/gpio.h>
 #include <linux/init.h>
 #include <linux/i2c.h>
+#include <linux/acpi.h>
 #include <linux/io.h>
 #include <linux/kernel.h>
 #include <linux/mm.h>
@@ -35,11 +36,10 @@
 #include <linux/string.h>
 #include <linux/slab.h>
 #include <linux/types.h>
-#include <media/v4l2-chip-ident.h>
 #include <media/v4l2-device.h>
 #include <asm/intel-mid.h>
+#include <linux/atomisp_gmin_platform.h>
 #include "gc2235.h"
-#include <asm/intel-mid.h>
 
 #ifndef POWER_ALWAYS_ON_BEFORE_SUSPEND
 #define POWER_ALWAYS_ON_BEFORE_SUSPEND
@@ -158,7 +158,6 @@ static int gc2235_write_reg_array(struct i2c_client *client,
 {
 	const struct gc2235_reg *next = reglist;
 	struct gc2235_write_ctrl ctrl;
-	int err;
 
 	ctrl.index = 0;
 	for (; next->type != GC2235_TOK_TERM; next++) {
@@ -269,6 +268,54 @@ static long gc2235_ioctl(struct v4l2_subdev *sd, unsigned int cmd, void *arg)
 	return 0;
 }
 
+static int power_ctrl(struct v4l2_subdev *sd, int flag)
+{
+	int ret;
+	struct gc2235_device *dev = to_gc2235_sensor(sd);
+
+	if (!dev || !dev->platform_data)
+		return -ENODEV;
+
+	/* Non-gmin platforms use the legacy callback */
+	if (dev->platform_data->power_ctrl)
+		return dev->platform_data->power_ctrl(sd, flag);
+
+       if (flag) {
+               ret = dev->platform_data->v1p8_ctrl(sd, 1);
+               usleep_range(60, 90);
+               ret = dev->platform_data->v2p8_ctrl(sd, 1);
+               msleep(20);
+       } else {
+               ret = dev->platform_data->v2p8_ctrl(sd, 0);
+               ret |= dev->platform_data->v1p8_ctrl(sd, 0);
+       }
+       return ret;
+}
+
+static int gpio_ctrl(struct v4l2_subdev *sd, int flag)
+{
+	int ret;
+	struct gc2235_device *dev = to_gc2235_sensor(sd);
+
+	if (!dev || !dev->platform_data)
+		return -ENODEV;
+
+	/* Non-gmin platforms use the legacy callback */
+	if (dev->platform_data->gpio_ctrl)
+		return dev->platform_data->gpio_ctrl(sd, flag);
+
+	/* GPIO0 == "reset" (active low), GPIO1 == "power down" */
+	if (flag) {
+		ret = dev->platform_data->gpio1_ctrl(sd, 0);
+		ret |= dev->platform_data->gpio0_ctrl(sd, 1);
+	} else {
+		ret = dev->platform_data->gpio1_ctrl(sd, 1);
+		ret |= dev->platform_data->gpio0_ctrl(sd, 0);
+	}
+	return ret;
+}
+
+
 static int power_up(struct v4l2_subdev *sd)
 {
 	struct i2c_client *client = v4l2_get_subdevdata(sd);
@@ -276,7 +323,7 @@ static int power_up(struct v4l2_subdev *sd)
 	int ret;
 
        /* power control */
-	ret = dev->platform_data->power_ctrl(sd, 1);
+	ret = power_ctrl(sd, 1);
 	if (ret)
 		goto fail_power;
 
@@ -289,7 +336,7 @@ static int power_up(struct v4l2_subdev *sd)
 	usleep_range(1000, 1500);
 
 	/* gpio ctrl*/
-	ret = dev->platform_data->gpio_ctrl(sd, 1);
+	ret = gpio_ctrl(sd, 1);
 	if (ret) {
 		dev_err(&client->dev, "gpio failed\n");
 		goto fail_gpio;
@@ -299,11 +346,11 @@ static int power_up(struct v4l2_subdev *sd)
 	return 0;
 
 fail_gpio:
-	dev->platform_data->gpio_ctrl(sd, 0);
+	gpio_ctrl(sd, 0);
 fail_clk:
 	dev->platform_data->flisclk_ctrl(sd, 0);
 fail_power:
-	dev->platform_data->power_ctrl(sd, 0);
+	power_ctrl(sd, 0);
 	dev_err(&client->dev, "sensor power-up failed\n");
 
 	return ret;
@@ -320,12 +367,12 @@ static int power_down(struct v4l2_subdev *sd)
 		dev_err(&client->dev, "flisclk failed\n");
 
 	/* gpio ctrl*/
-	ret = dev->platform_data->gpio_ctrl(sd, 0);
+	ret = gpio_ctrl(sd, 0);
 	if (ret)
 		dev_err(&client->dev, "gpio failed\n");
 
 	/* power control */
-	ret = dev->platform_data->power_ctrl(sd, 0);
+	ret = power_ctrl(sd, 0);
 	if (ret)
 		dev_err(&client->dev, "vprog failed.\n");
 
@@ -500,6 +547,7 @@ static int __gc2235_s_power(struct v4l2_subdev *sd, int on)
 	return ret;
 }
 
+#ifndef POWER_ALWAYS_ON_BEFORE_SUSPEND
 static int gc2235_s_power(struct v4l2_subdev *sd, int on)
 {
 	int ret;
@@ -511,6 +559,7 @@ static int gc2235_s_power(struct v4l2_subdev *sd, int on)
 
 	return ret;
 }
+#endif
 
 #ifdef POWER_ALWAYS_ON_BEFORE_SUSPEND
 static int __gc2235_s_power_always_on(struct v4l2_subdev *sd, int on)
@@ -547,19 +596,6 @@ static int gc2235_s_power_always_on(struct v4l2_subdev *sd, int on)
 	return ret;
 }
 #endif
-
-static int gc2235_g_chip_ident(struct v4l2_subdev *sd,
-				struct v4l2_dbg_chip_ident *chip)
-{
-	struct i2c_client *client = v4l2_get_subdevdata(sd);
-
-	if (!chip)
-		return -EINVAL;
-
-	v4l2_chip_ident_i2c_client(client, chip, V4L2_IDENT_GC, 0);
-
-	return 0;
-}
 
 static int gc2235_get_intg_factor(struct i2c_client *client,
 				struct camera_mipi_info *info,
@@ -734,7 +770,6 @@ static int gc2235_v_flip(struct v4l2_subdev *sd, s32 value)
 	struct camera_mipi_info *gc2235_info = NULL;
 	struct i2c_client *client = v4l2_get_subdevdata(sd);
 	int ret;
-	int need_write = 0;
 	u8 val;
 
 	val = g_flip;
@@ -766,7 +801,6 @@ static int gc2235_h_flip(struct v4l2_subdev *sd, s32 value)
 	struct camera_mipi_info *gc2235_info = NULL;
 	struct i2c_client *client = v4l2_get_subdevdata(sd);
 	int ret;
-	int need_write = 0;
 	u8 val;
 
 	val = g_flip;
@@ -1275,6 +1309,21 @@ static int gc2235_s_config(struct v4l2_subdev *sd,
 
 	dev->sensor_id = sensor_id;
 
+	/* Register the atomisp platform data prior to the ISP module
+	 * load.  Ideally this would be stored as data on the
+	 * subdevices, but this API matches upstream better. */
+	ret = atomisp_register_i2c_module(sd, client, dev->platform_data,
+					  getvar_int(&client->dev, "CamType",
+						     RAW_CAMERA),
+					  getvar_int(&client->dev, "CsiPort",
+						     ATOMISP_CAMERA_PORT_PRIMARY));
+
+	if (ret) {
+		dev_err(&client->dev,
+			"gc2235 atomisp_register_i2c_module failed.\n");
+		goto fail_csi_cfg;
+	}
+
 	/* power off sensor */
 	ret = __gc2235_s_power(sd, 0);
 	mutex_unlock(&dev->input_lock);
@@ -1456,7 +1505,6 @@ static const struct v4l2_subdev_video_ops gc2235_video_ops = {
 };
 
 static const struct v4l2_subdev_core_ops gc2235_core_ops = {
-	.g_chip_ident = gc2235_g_chip_ident,
 	.queryctrl = gc2235_queryctrl,
 	.g_ctrl = gc2235_g_ctrl,
 	.s_ctrl = gc2235_s_ctrl,
@@ -1534,6 +1582,15 @@ static int gc2235_probe(struct i2c_client *client,
 	if (client->dev.platform_data) {
 		ret = gc2235_s_config(&dev->sd, client->irq,
 				       client->dev.platform_data);
+		if (ret)
+			goto out_free;
+	} else if (ACPI_COMPANION(&client->dev)) {
+		/*
+		 * If no SFI firmware, grab the platform struct
+		 * directly and configure via ACPI/EFIvars instead
+		 */
+		ret = gc2235_s_config(&dev->sd, client->irq,
+				      gmin_camera_platform_data());
 		if (ret)
 			goto out_free;
 	}
@@ -1618,10 +1675,17 @@ static const struct i2c_device_id gc2235_ids[] = {
 
 MODULE_DEVICE_TABLE(i2c, gc2235_ids);
 
+static struct acpi_device_id gc2235_acpi_match[] = {
+       {"INT33F8"},
+       {},
+};
+MODULE_DEVICE_TABLE(acpi, gc2235_acpi_match);
+
 static struct i2c_driver gc2235_driver = {
 	.driver = {
 		.owner = THIS_MODULE,
 		.name = GC2235_DRIVER,
+		.acpi_match_table = ACPI_PTR(gc2235_acpi_match),
 #ifdef POWER_ALWAYS_ON_BEFORE_SUSPEND
 		.pm = &gc2235_pm_ops,
 #endif
