@@ -89,6 +89,7 @@ struct smbchg_chip {
 	bool				usb_present;
 	bool				batt_present;
 	bool				chg_done_batt_full;
+	bool				otg_retries;
 
 	/* jeita and temperature */
 	bool				batt_hot;
@@ -1397,10 +1398,12 @@ static int smbchg_otg_regulator_enable(struct regulator_dev *rdev)
 	int rc = 0;
 	struct smbchg_chip *chip = rdev_get_drvdata(rdev);
 
+	chip->otg_retries = 0;
 	rc = smbchg_masked_write(chip, chip->bat_if_base + CMD_CHG_REG,
 			OTG_EN, OTG_EN);
 	if (rc < 0)
 		dev_err(chip->dev, "Couldn't enable OTG mode rc=%d\n", rc);
+	pr_debug("Enabling OTG Boost\n");
 	return rc;
 }
 
@@ -1413,6 +1416,7 @@ static int smbchg_otg_regulator_disable(struct regulator_dev *rdev)
 			OTG_EN, 0);
 	if (rc < 0)
 		dev_err(chip->dev, "Couldn't disable OTG mode rc=%d\n", rc);
+	pr_debug("Disabling OTG Boost\n");
 	return rc;
 }
 
@@ -1810,9 +1814,29 @@ static irqreturn_t src_detect_handler(int irq, void *_chip)
 /**
  * otg_oc_handler() - called when the usb otg goes over current
  */
+#define NUM_OTG_RETRIES			1
 static irqreturn_t otg_oc_handler(int irq, void *_chip)
 {
+	struct smbchg_chip *chip = _chip;
+
 	pr_debug("triggered\n");
+	/*
+	 * Due to a HW bug in the PMI8994 charger, the current inrush that
+	 * occurs when connecting certain OTG devices can cause the OTG
+	 * overcurrent protection to trip.
+	 *
+	 * The work around is to try reenabling the OTG when getting an
+	 * overcurrent interrupt once.
+	 */
+	if (chip->otg_retries < NUM_OTG_RETRIES) {
+		chip->otg_retries += 1;
+		pr_debug("Retrying OTG enable. Try #%d\n", chip->otg_retries);
+		smbchg_masked_write(chip, chip->bat_if_base + CMD_CHG_REG,
+							OTG_EN, 0);
+		msleep(20);
+		smbchg_masked_write(chip, chip->bat_if_base + CMD_CHG_REG,
+							OTG_EN, OTG_EN);
+	}
 	return IRQ_HANDLED;
 }
 
@@ -1864,6 +1888,8 @@ static irqreturn_t usbid_change_handler(int irq, void *_chip)
 	otg_present = is_otg_present(chip);
 	if (chip->usb_psy)
 		power_supply_set_usb_otg(chip->usb_psy, otg_present ? 1 : 0);
+	if (otg_present)
+		pr_debug("OTG detected\n");
 
 	return IRQ_HANDLED;
 }
