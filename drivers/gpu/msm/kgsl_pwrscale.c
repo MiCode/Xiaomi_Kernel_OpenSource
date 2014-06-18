@@ -259,8 +259,7 @@ int kgsl_devfreq_target(struct device *dev, unsigned long *freq, u32 flags)
 	 * new level is less than the constraint
 	 */
 	if ((pwr->constraint.type != KGSL_CONSTRAINT_NONE) &&
-		(!time_after(jiffies, pwr->constraint.expires)) &&
-		(level >= pwr->constraint.hint.pwrlevel.level))
+		(!time_after(jiffies, pwr->constraint.expires)))
 			*freq = cur_freq;
 	else {
 		/* Change the power level */
