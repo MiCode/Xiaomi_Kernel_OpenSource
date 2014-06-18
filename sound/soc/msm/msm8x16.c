@@ -661,10 +661,42 @@ static int msm_snd_enable_codec_ext_clk(struct snd_soc_codec *codec, int enable,
 	return ret;
 }
 
+static int msm_btsco_rate_get(struct snd_kcontrol *kcontrol,
+				struct snd_ctl_elem_value *ucontrol)
+{
+	pr_debug("%s: msm_btsco_rate  = %d", __func__, msm_btsco_rate);
+	ucontrol->value.integer.value[0] = msm_btsco_rate;
+	return 0;
+}
+
+static int msm_btsco_rate_put(struct snd_kcontrol *kcontrol,
+				struct snd_ctl_elem_value *ucontrol)
+{
+	switch (ucontrol->value.integer.value[0]) {
+	case 8000:
+		msm_btsco_rate = BTSCO_RATE_8KHZ;
+		break;
+	case 16000:
+		msm_btsco_rate = BTSCO_RATE_16KHZ;
+		break;
+	default:
+		msm_btsco_rate = BTSCO_RATE_8KHZ;
+		break;
+	}
+
+	pr_debug("%s: msm_btsco_rate = %d\n", __func__, msm_btsco_rate);
+	return 0;
+}
+
 static const struct soc_enum msm_snd_enum[] = {
 	SOC_ENUM_SINGLE_EXT(2, rx_bit_format_text),
 	SOC_ENUM_SINGLE_EXT(2, ter_mi2s_tx_ch_text),
 	SOC_ENUM_SINGLE_EXT(2, loopback_mclk_text),
+};
+
+static const char *const btsco_rate_text[] = {"8000", "16000"};
+static const struct soc_enum msm_btsco_enum[] = {
+	SOC_ENUM_SINGLE_EXT(2, btsco_rate_text),
 };
 
 static const struct snd_kcontrol_new msm_snd_controls[] = {
@@ -676,6 +708,8 @@ static const struct snd_kcontrol_new msm_snd_controls[] = {
 			msm_pri_mi2s_rx_ch_get, msm_pri_mi2s_rx_ch_put),
 	SOC_ENUM_EXT("Loopback MCLK", msm_snd_enum[2],
 			loopback_mclk_get, loopback_mclk_put),
+	SOC_ENUM_EXT("Internal BTSCO SampleRate", msm_btsco_enum[0],
+		     msm_btsco_rate_get, msm_btsco_rate_put),
 
 };
 
