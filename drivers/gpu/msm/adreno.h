@@ -74,6 +74,8 @@
 #define ADRENO_USE_BOOTSTRAP  BIT(3)
 /* The microcode for the code supports the IOMMU sync lock functionality */
 #define ADRENO_HAS_IOMMU_SYNC_LOCK BIT(4)
+/* The core supports SP/TP hw controlled power collapse */
+#define ADRENO_SPTP_PC BIT(5)
 
 /* Flags to control command packet settings */
 #define KGSL_CMD_FLAGS_NONE             0
@@ -129,6 +131,8 @@ enum adreno_gpurev {
 #define ADRENO_HARD_FAULT BIT(1)
 #define ADRENO_TIMEOUT_FAULT BIT(2)
 #define ADRENO_IOMMU_PAGE_FAULT BIT(3)
+
+#define ADRENO_SPTP_PC_CTRL BIT(0)
 
 /*
  * Maximum size of the dispatcher ringbuffer - the actual inflight size will be
@@ -266,6 +270,7 @@ struct adreno_device {
 	unsigned int starved_ram_lo;
 	atomic_t halt;
 	struct dentry *ctx_d_debugfs;
+	unsigned long pwrctrl_flag;
 };
 
 /**
@@ -624,7 +629,6 @@ struct adreno_gpudev {
 	void (*soft_reset)(struct adreno_device *device);
 	bool (*is_sptp_idle)(struct adreno_device *);
 	void (*enable_pc)(struct adreno_device *);
-	void (*disable_pc)(struct adreno_device *);
 	void (*regulator_enable)(struct adreno_device *);
 	void (*regulator_disable)(struct adreno_device *);
 };
