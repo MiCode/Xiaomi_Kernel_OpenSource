@@ -324,6 +324,8 @@ bool wcd9xxx_spmi_lock_sleep()
 				      msm_cpuidle_get_deep_idle_latency());
 	}
 	mutex_unlock(&map.pm_lock);
+	pr_debug("%s: wake lock counter %d\n", __func__,
+			map.wlock_holders);
 
 	if (!wait_event_timeout(map.pm_wq,
 				((wcd9xxx_spmi_pm_cmpxchg(
@@ -364,6 +366,8 @@ void wcd9xxx_spmi_unlock_sleep()
 				PM_QOS_DEFAULT_VALUE);
 	}
 	mutex_unlock(&map.pm_lock);
+	pr_debug("%s: wake lock counter %d\n", __func__,
+			map.wlock_holders);
 	wake_up_all(&map.pm_wq);
 }
 EXPORT_SYMBOL(wcd9xxx_spmi_unlock_sleep);
