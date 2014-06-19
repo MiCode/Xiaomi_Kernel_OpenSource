@@ -171,6 +171,15 @@ config ARCH_MSM8994_V1_TLBI_WA
 	  [39:38] bits of VA are tied to zero and due to which TLBI
 	  operations with VA or ASID will not work.
 
+config MSM8994_V1_PMUIRQ_WA
+	bool "Enable MSM8994 v1 PMU-CTI IRQ workaround"
+	depends on ARCH_MSM8994 && CORESIGHT_CTI
+	help
+	  This enables support for the MSM8994 v1 PMU-CTI IRQ workaround.
+	  This workaround is required for MSM8994 V1 revision where the
+	  percpu PMU interrupt is incorrectly connected to the corresponding
+	  CPUs in the other cluster.
+
 config ARCH_XGENE
 	bool "AppliedMicro X-Gene SOC Family"
 	help
