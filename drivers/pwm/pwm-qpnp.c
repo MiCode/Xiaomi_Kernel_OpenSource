@@ -31,6 +31,7 @@
 #define QPNP_LPG_LUT_BASE	"qpnp-lpg-lut-base"
 
 #define QPNP_PWM_MODE_ONLY_SUB_TYPE	0x0B
+#define QPNP_PWM_SUB_TYPE2		0x11
 
 /* LPG Control for LPG_PATTERN_CONFIG */
 #define QPNP_RAMP_DIRECTION_SHIFT	4
@@ -512,8 +513,9 @@ static void qpnp_lpg_calc_period(enum time_level tm_lvl,
 			if (best_m >= 3) {
 				n += 3;
 				best_m -= 3;
-			} else if (best_m >= 1 &&
-				chip->sub_type != QPNP_PWM_MODE_ONLY_SUB_TYPE) {
+			} else if (best_m >= 1 && (
+				chip->sub_type != QPNP_PWM_MODE_ONLY_SUB_TYPE &&
+				chip->sub_type != QPNP_PWM_SUB_TYPE2)) {
 				n += 1;
 				best_m -= 1;
 			}
@@ -681,7 +683,8 @@ static int qpnp_lpg_save_pwm_value(struct qpnp_pwm_chip *chip)
 	if (rc)
 		return rc;
 
-	if (chip->sub_type == QPNP_PWM_MODE_ONLY_SUB_TYPE) {
+	if (chip->sub_type == QPNP_PWM_MODE_ONLY_SUB_TYPE ||
+		chip->sub_type == QPNP_PWM_SUB_TYPE2) {
 		value = QPNP_PWM_SYNC_VALUE & QPNP_PWM_SYNC_MASK;
 		rc = spmi_ext_register_writel(chip->spmi_dev->ctrl,
 			chip->spmi_dev->sid,
