@@ -15,10 +15,16 @@
 #include <linux/interrupt.h>
 #include <linux/of_device.h>
 #include <linux/platform_device.h>
+#include <linux/perf_event.h>
 #include <linux/smp.h>
 #include <linux/cpu.h>
+#include <linux/cpu_pm.h>
 #include <linux/of_irq.h>
 #include <linux/spinlock.h>
+#include <linux/slab.h>
+#include <linux/workqueue.h>
+#include <linux/percpu.h>
+
 #include <asm/cputype.h>
 
 #include "edac_core.h"
@@ -83,12 +89,39 @@
 
 #define EDAC_CPU	"arm64"
 
+enum error_type {
+	SBE,
+	DBE,
+};
+
+const char *err_name[] = {
+	"Single-bit",
+	"Double-bit",
+};
+
 struct erp_drvdata {
 	struct edac_device_ctl_info *edev_ctl;
 	void __iomem *cci_base;
+	u32 mem_perf_counter;
+	struct notifier_block nb;
 };
 
 static struct erp_drvdata *abort_handler_drvdata;
+
+struct erp_local_data {
+	struct erp_drvdata *drv;
+	enum error_type err;
+};
+
+/* Reserving the last PMU counter for Memory Event for EDAC */
+#define	ARMV8_PMCR_N_SHIFT	11	 /* Number of counters supported */
+#define	ARMV8_PMCR_N_MASK	0x1f
+#define ARMV8PMU_EVTYPE_NSH	BIT(27)
+#define ARMV8_PMCR_E		(1 << 0) /* Enable all counters */
+#define MEM_ERROR_EVENT		0x1A
+#define MAX_COUNTER_VALUE	0xFFFFFFFF
+
+static inline void sbe_enable_event(void *info);
 
 struct errors_edac {
 	const char * const msg;
@@ -139,7 +172,7 @@ static const struct errors_edac errors[] = {
 	asm("msr s3_1_c15_c2_2, %0" : : "r" (val));			\
 })
 
-static void ca53_parse_cpumerrsr(struct edac_device_ctl_info *edev_ctl)
+static void ca53_parse_cpumerrsr(struct erp_local_data *ed)
 {
 	u64 cpumerrsr;
 	int cpuid;
@@ -149,8 +182,8 @@ static void ca53_parse_cpumerrsr(struct edac_device_ctl_info *edev_ctl)
 	if (!A53_CPUMERRSR_VALID(cpumerrsr))
 		return;
 
-	edac_printk(KERN_CRIT, EDAC_CPU, "Cortex A53 CPU%d L1 Double-bit Error detected\n",
-						 smp_processor_id());
+	edac_printk(KERN_CRIT, EDAC_CPU, "Cortex A53 CPU%d L1 %s Error detected\n",
+					 smp_processor_id(), err_name[ed->err]);
 	edac_printk(KERN_CRIT, EDAC_CPU, "CPUMERRSR value = %llx\n", cpumerrsr);
 
 	cpuid = A53_CPUMERRSR_CPUID(cpumerrsr);
@@ -194,12 +227,16 @@ static void ca53_parse_cpumerrsr(struct edac_device_ctl_info *edev_ctl)
 	edac_printk(KERN_CRIT, EDAC_CPU, "Other error count: %d\n",
 					 (int) A53_CPUMERRSR_OTHER(cpumerrsr));
 
-	errors[A53_L1_UE].func(edev_ctl, smp_processor_id(), L1_CACHE,
-				errors[A53_L1_UE].msg);
+	if (ed->err == SBE)
+		errors[A53_L1_CE].func(ed->drv->edev_ctl, smp_processor_id(),
+					L1_CACHE, errors[A53_L1_CE].msg);
+	else if (ed->err == DBE)
+		errors[A53_L1_UE].func(ed->drv->edev_ctl, smp_processor_id(),
+					L1_CACHE, errors[A53_L1_UE].msg);
 	write_cpumerrsr_el1(0);
 }
 
-static void ca53_parse_l2merrsr(struct edac_device_ctl_info *edev_ctl)
+static void ca53_parse_l2merrsr(struct erp_local_data *ed)
 {
 	u64 l2merrsr;
 	u32 l2ectlr;
@@ -211,7 +248,8 @@ static void ca53_parse_l2merrsr(struct edac_device_ctl_info *edev_ctl)
 	if (!A53_L2MERRSR_VALID(l2merrsr))
 		return;
 
-	edac_printk(KERN_CRIT, EDAC_CPU, "CortexA53 L2 Double-bit Error detected\n");
+	edac_printk(KERN_CRIT, EDAC_CPU, "CortexA53 L2 %s Error detected\n",
+							err_name[ed->err]);
 	edac_printk(KERN_CRIT, EDAC_CPU, "L2MERRSR value = %llx\n", l2merrsr);
 
 	cpuid = A53_L2MERRSR_CPUID(l2merrsr);
@@ -242,13 +280,17 @@ static void ca53_parse_l2merrsr(struct edac_device_ctl_info *edev_ctl)
 	edac_printk(KERN_CRIT, EDAC_CPU, "Other error count: %d\n",
 					 (int) A53_L2MERRSR_OTHER(l2merrsr));
 
-	errors[A53_L2_UE].func(edev_ctl, smp_processor_id(), L2_CACHE,
-			       errors[A53_L2_UE].msg);
-
+	if (ed->err == SBE)
+		errors[A53_L2_CE].func(ed->drv->edev_ctl, smp_processor_id(),
+					L2_CACHE, errors[A53_L2_CE].msg);
+	else if (ed->err == DBE)
+		errors[A53_L2_UE].func(ed->drv->edev_ctl, smp_processor_id(),
+					L2_CACHE, errors[A53_L2_UE].msg);
 	write_l2merrsr_el1(0);
 }
 
-static void ca57_parse_cpumerrsr(struct edac_device_ctl_info *edev_ctl)
+
+static void ca57_parse_cpumerrsr(struct erp_local_data *ed)
 {
 	u64 cpumerrsr;
 	int bank;
@@ -258,8 +300,8 @@ static void ca57_parse_cpumerrsr(struct edac_device_ctl_info *edev_ctl)
 	if (!A57_CPUMERRSR_VALID(cpumerrsr))
 		return;
 
-	edac_printk(KERN_CRIT, EDAC_CPU, "Cortex A57 CPU%d L1 Double-bit Error detected\n",
-						 smp_processor_id());
+	edac_printk(KERN_CRIT, EDAC_CPU, "Cortex A57 CPU%d L1 %s Error detected\n",
+					 smp_processor_id(), err_name[ed->err]);
 	edac_printk(KERN_CRIT, EDAC_CPU, "CPUMERRSR value = %llx\n", cpumerrsr);
 
 	bank = A57_CPUMERRSR_BANK(cpumerrsr);
@@ -297,13 +339,16 @@ static void ca57_parse_cpumerrsr(struct edac_device_ctl_info *edev_ctl)
 	edac_printk(KERN_CRIT, EDAC_CPU, "Other error count: %d\n",
 					 (int) A57_CPUMERRSR_OTHER(cpumerrsr));
 
-	errors[A57_L1_UE].func(edev_ctl, smp_processor_id(), L1_CACHE,
-				errors[A57_L1_UE].msg);
-
+	if (ed->err == SBE)
+		errors[A57_L1_CE].func(ed->drv->edev_ctl, smp_processor_id(),
+					L1_CACHE, errors[A57_L1_CE].msg);
+	else if (ed->err == DBE)
+		errors[A57_L1_UE].func(ed->drv->edev_ctl, smp_processor_id(),
+					L1_CACHE, errors[A57_L1_UE].msg);
 	write_cpumerrsr_el1(0);
 }
 
-static void ca57_parse_l2merrsr(struct edac_device_ctl_info *edev_ctl)
+static void ca57_parse_l2merrsr(struct erp_local_data *ed)
 {
 	u64 l2merrsr;
 	u32 l2ectlr;
@@ -315,7 +360,8 @@ static void ca57_parse_l2merrsr(struct edac_device_ctl_info *edev_ctl)
 	if (!A57_L2MERRSR_VALID(l2merrsr))
 		return;
 
-	edac_printk(KERN_CRIT, EDAC_CPU, "CortexA57 L2 Double-bit Error detected\n");
+	edac_printk(KERN_CRIT, EDAC_CPU, "CortexA57 L2 %s Error detected\n",
+							err_name[ed->err]);
 	edac_printk(KERN_CRIT, EDAC_CPU, "L2MERRSR value = %llx\n", l2merrsr);
 
 	cpuid = A57_L2MERRSR_CPUID(l2merrsr);
@@ -356,36 +402,40 @@ static void ca57_parse_l2merrsr(struct edac_device_ctl_info *edev_ctl)
 	edac_printk(KERN_CRIT, EDAC_CPU, "Other error count: %d\n",
 					 (int) A57_L2MERRSR_OTHER(l2merrsr));
 
-	errors[A57_L2_UE].func(edev_ctl, smp_processor_id(), L2_CACHE,
-			       errors[A57_L2_UE].msg);
-
+	if (ed->err == SBE) {
+		errors[A57_L2_CE].func(ed->drv->edev_ctl, smp_processor_id(),
+					L2_CACHE, errors[A57_L2_CE].msg);
+	} else if (ed->err == DBE) {
+		errors[A57_L2_UE].func(ed->drv->edev_ctl, smp_processor_id(),
+					L2_CACHE, errors[A57_L2_UE].msg);
+	}
 	write_l2merrsr_el1(0);
 }
 
 static DEFINE_SPINLOCK(local_handler_lock);
 static DEFINE_SPINLOCK(l2ectlr_lock);
 
-static void arm64_dbe_local_handler(void *info)
+static void arm64_erp_local_handler(void *info)
 {
-	struct erp_drvdata *drv = info;
+	struct erp_local_data *errdata = info;
 	unsigned int cpuid = read_cpuid_id();
 	unsigned int partnum = read_cpuid_part_number();
 	unsigned long flags, flags2;
 	u32 l2ectlr;
 
 	spin_lock_irqsave(&local_handler_lock, flags);
-	edac_printk(KERN_CRIT, EDAC_CPU, "Double-bit error information from CPU %d, MIDR=%08x:\n",
-	       raw_smp_processor_id(), cpuid);
+	edac_printk(KERN_CRIT, EDAC_CPU, "%s error information from CPU %d, MIDR=%08x:\n",
+		       err_name[errdata->err], raw_smp_processor_id(), cpuid);
 
 	switch (partnum) {
 	case ARM_CPU_PART_CORTEX_A53:
-		ca53_parse_cpumerrsr(drv->edev_ctl);
-		ca53_parse_l2merrsr(drv->edev_ctl);
+		ca53_parse_cpumerrsr(errdata);
+		ca53_parse_l2merrsr(errdata);
 	break;
 
 	case ARM_CPU_PART_CORTEX_A57:
-		ca57_parse_cpumerrsr(drv->edev_ctl);
-		ca57_parse_l2merrsr(drv->edev_ctl);
+		ca57_parse_cpumerrsr(errdata);
+		ca57_parse_l2merrsr(errdata);
 	break;
 
 	default:
@@ -409,9 +459,13 @@ static void arm64_dbe_local_handler(void *info)
 
 static irqreturn_t arm64_dbe_handler(int irq, void *drvdata)
 {
-	edac_printk(KERN_CRIT, EDAC_CPU, "Double-bit error interrupt received!\n");
+	struct erp_local_data errdata;
 
-	on_each_cpu(arm64_dbe_local_handler, drvdata, 1);
+	errdata.drv = drvdata;
+	errdata.err = DBE;
+	edac_printk(KERN_CRIT, EDAC_CPU, "ARM64 CPU ERP: Double-bit error interrupt received!\n");
+
+	on_each_cpu(arm64_erp_local_handler, &errdata, 1);
 
 	return IRQ_HANDLED;
 }
@@ -485,13 +539,148 @@ static irqreturn_t arm64_cci_handler(int irq, void *drvdata)
 
 void arm64_erp_local_dbe_handler(void)
 {
-	if (abort_handler_drvdata)
-		arm64_dbe_local_handler(abort_handler_drvdata);
+	if (abort_handler_drvdata) {
+		struct erp_local_data errdata;
+		errdata.err = DBE;
+		errdata.drv = abort_handler_drvdata;
+		arm64_erp_local_handler(abort_handler_drvdata);
+	}
+}
+
+static inline u32 armv8pmu_pmcr_read(void)
+{
+	u32 val;
+	asm volatile("mrs %0, pmcr_el0" : "=r" (val));
+	return val;
+}
+
+static inline u32 arm64_pmu_get_last_counter(void)
+{
+	u32 pmcr, cntr;
+
+	asm volatile("mrs %0, pmcr_el0" : "=r" (pmcr));
+	cntr = (pmcr >> ARMV8_PMCR_N_SHIFT) & ARMV8_PMCR_N_MASK;
+
+	return cntr-1;
+}
+
+static inline void arm64pmu_select_mem_counter(u32 cntr)
+{
+	asm volatile("msr pmselr_el0, %0" : : "r" (cntr));
+	isb();
+}
+
+static inline u32 arm64pmu_getreset_flags(u32 cntr)
+{
+	u32 value;
+	u32 write_val;
+
+	/* Read */
+	asm volatile("mrs %0, pmovsclr_el0" : "=r" (value));
+
+	/* Write to clear flags */
+	write_val = value & BIT(cntr);
+	asm volatile("msr pmovsclr_el0, %0" : : "r" (write_val));
+
+	return value;
+}
+
+static inline int arm64pmu_mem_counter_has_overflowed(u32 pmnc, u32 cntr)
+{
+	int ret = pmnc & BIT(cntr);
+	return ret;
+}
+
+static inline void arm64pmu_disable_mem_counter(u32 cntr)
+{
+	asm volatile("msr pmcntenclr_el0, %0" : : "r" (BIT(cntr)));
+}
+
+static inline void arm64pmu_enable_mem_counter(u32 cntr)
+{
+	asm volatile("msr pmcntenset_el0, %0" : : "r" (BIT(cntr)));
+}
+
+static inline void arm64pmu_write_mem_counter(u32 value, u32 cntr)
+{
+	arm64pmu_select_mem_counter(cntr);
+	asm volatile("msr pmxevcntr_el0, %0" : : "r" (value));
+}
+
+static inline void arm64pmu_set_mem_evtype(u32 cntr)
+{
+	u32 val = ARMV8PMU_EVTYPE_NSH | MEM_ERROR_EVENT;
+	arm64pmu_select_mem_counter(cntr);
+	asm volatile("msr pmxevtyper_el0, %0" : : "r" (val));
+}
+
+static inline void arm64pmu_enable_mem_irq(u32 cntr)
+{
+	asm volatile("msr pmintenset_el1, %0" : : "r" (BIT(cntr)));
+}
+
+static inline void arm64pmu_pmcr_enable(void)
+{
+	u32 val = armv8pmu_pmcr_read();
+	val |= ARMV8_PMCR_E;
+	asm volatile("msr pmcr_el0, %0" : : "r" (val));
+	isb();
+}
+
+/*
+ * This function follows the sequence to enable
+ * the memory event counter. Steps done here include
+ * programming the counter for memory error perf event,
+ * setting the initial counter value and enabling the interrupt
+ * associated with the counter.
+ */
+static inline void sbe_enable_event(void *info)
+{
+	struct erp_drvdata *drv = info;
+	unsigned long flags;
+	u32 cntr = drv->mem_perf_counter;
+
+	arm64_pmu_lock(NULL, &flags);
+	arm64pmu_disable_mem_counter(cntr);
+	arm64pmu_set_mem_evtype(cntr);
+	arm64pmu_enable_mem_irq(cntr);
+	arm64pmu_write_mem_counter(MAX_COUNTER_VALUE, cntr);
+	arm64pmu_enable_mem_counter(cntr);
+	arm64pmu_pmcr_enable();
+	arm64_pmu_unlock(NULL, &flags);
+}
+
+static irqreturn_t arm64_sbe_handler(int irq, void *drvdata)
+{
+	u32 pmovsr, cntr;
+	struct erp_local_data errdata;
+	unsigned long flags;
+	int overflow = 0;
+	int cpu = raw_smp_processor_id();
+
+	errdata.drv = *((struct erp_drvdata **)drvdata);
+	cntr = errdata.drv->mem_perf_counter;
+	arm64_pmu_lock(NULL, &flags);
+	pmovsr = arm64pmu_getreset_flags(cntr);
+	arm64_pmu_unlock(NULL, &flags);
+	overflow = arm64pmu_mem_counter_has_overflowed(pmovsr, cntr);
+
+	if (overflow) {
+		errdata.err = SBE;
+		edac_printk(KERN_CRIT, EDAC_CPU, "ARM64 CPU ERP: Single-bit error interrupt received on CPU %d!\n",
+						cpu);
+		arm64_erp_local_handler(&errdata);
+		sbe_enable_event(errdata.drv);
+	} else {
+		return armv8pmu_handle_irq(irq, NULL);
+	}
+
+	return IRQ_HANDLED;
 }
 
 static int request_erp_irq(struct platform_device *pdev, const char *propname,
 			   const char *desc, irq_handler_t handler,
-			   void *edac_dev)
+			   void *ed)
 {
 	int rc;
 	struct resource *r;
@@ -508,7 +697,7 @@ static int request_erp_irq(struct platform_device *pdev, const char *propname,
 				       handler,
 				       IRQF_ONESHOT | IRQF_TRIGGER_RISING,
 				       desc,
-				       edac_dev);
+				       ed);
 
 	if (rc) {
 		pr_err("ARM64 CPU ERP: Failed to request IRQ %d: %d (%s / %s). Proceeding anyway.\n",
@@ -519,13 +708,61 @@ static int request_erp_irq(struct platform_device *pdev, const char *propname,
 	return 0;
 }
 
+static void arm64_enable_pmu_irq(void *data)
+{
+	unsigned int irq = *(unsigned int *)data;
+	enable_percpu_irq(irq, IRQ_TYPE_NONE);
+}
+
+static void check_sbe_event(struct erp_drvdata *drv)
+{
+	unsigned int partnum = read_cpuid_part_number();
+	struct erp_local_data errdata;
+	unsigned long flags;
+
+	errdata.drv = drv;
+	errdata.err = SBE;
+
+	spin_lock_irqsave(&local_handler_lock, flags);
+	switch (partnum) {
+	case ARM_CPU_PART_CORTEX_A53:
+		ca53_parse_cpumerrsr(&errdata);
+		ca53_parse_l2merrsr(&errdata);
+	break;
+
+	case ARM_CPU_PART_CORTEX_A57:
+		ca57_parse_cpumerrsr(&errdata);
+		ca57_parse_l2merrsr(&errdata);
+	break;
+	};
+	spin_unlock_irqrestore(&local_handler_lock, flags);
+}
+
+static int arm64_pmu_cpu_pm_notify(struct notifier_block *self,
+					   unsigned long action, void *v)
+{
+	struct erp_drvdata *drv = container_of(self, struct erp_drvdata, nb);
+
+	switch (action) {
+	case CPU_PM_EXIT:
+		check_sbe_event(drv);
+		sbe_enable_event(drv);
+		break;
+	}
+
+	return NOTIFY_OK;
+}
+
 static int arm64_cpu_erp_probe(struct platform_device *pdev)
 {
 	struct device *dev = &pdev->dev;
 	struct erp_drvdata *drv;
 	struct resource *r;
+	int cpu;
+	struct erp_drvdata * __percpu *drv_cpu =
+					alloc_percpu(struct erp_drvdata *);
 
-	int rc, fail = 0;
+	int rc, sbe_irq, fail = 0;
 
 	drv = devm_kzalloc(dev, sizeof(*drv), GFP_KERNEL);
 
@@ -579,10 +816,40 @@ static int arm64_cpu_erp_probe(struct platform_device *pdev)
 			    arm64_cci_handler, drv))
 		fail++;
 
-	if (fail == 5) {
+	if (!drv_cpu)
+		goto out_irq;
+
+	sbe_irq = platform_get_irq_byname(pdev, "sbe-irq");
+	if (sbe_irq < 0) {
+		pr_err("ARM64 CPU ERP: Could not find sbe-irq IRQ property. Proceeding anyway.\n");
+		fail++;
+		goto out_irq;
+	}
+
+	for_each_possible_cpu(cpu)
+		*per_cpu_ptr(drv_cpu, cpu) = drv;
+
+	rc = request_percpu_irq(sbe_irq, arm64_sbe_handler,
+			"ARM64 Single-Bit Error PMU IRQ",
+			drv_cpu);
+	if (rc) {
+		pr_err("ARM64 CPU ERP: Failed to request IRQ %d: %d. Proceeding anyway.\n",
+								sbe_irq, rc);
+		goto out_irq;
+	}
+
+	drv->nb.notifier_call = arm64_pmu_cpu_pm_notify;
+	drv->mem_perf_counter = arm64_pmu_get_last_counter();
+	cpu_pm_register_notifier(&(drv->nb));
+	arm64_pmu_irq_handled_externally();
+	on_each_cpu(sbe_enable_event, drv, 1);
+	on_each_cpu(arm64_enable_pmu_irq, &sbe_irq, 1);
+
+out_irq:
+	if (fail == of_irq_count(dev->of_node)) {
 		pr_err("ARM64 CPU ERP: Could not request any IRQs. Giving up.\n");
 		rc = -ENODEV;
-		goto out_mem;
+		goto out_dev;
 	}
 
 	/*
@@ -595,6 +862,8 @@ static int arm64_cpu_erp_probe(struct platform_device *pdev)
 	abort_handler_drvdata = drv;
 	return 0;
 
+out_dev:
+	edac_device_del_device(dev);
 out_mem:
 	edac_device_free_ctl_info(drv->edev_ctl);
 	return rc;
@@ -618,5 +887,4 @@ static int __init arm64_cpu_erp_init(void)
 {
 	return platform_driver_register(&arm64_cpu_erp_driver);
 }
-
-subsys_initcall(arm64_cpu_erp_init);
+device_initcall_sync(arm64_cpu_erp_init);
