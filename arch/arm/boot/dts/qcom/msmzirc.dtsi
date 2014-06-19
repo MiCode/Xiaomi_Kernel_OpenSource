@@ -33,6 +33,7 @@
 };
 
 #include "msmzirc-smp2p.dtsi"
+#include "msmzirc-ipcrouter.dtsi"
 
 &soc {
 	#address-cells = <1>;
