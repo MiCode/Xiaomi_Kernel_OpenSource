@@ -155,7 +155,6 @@ static void mdss_mdp_splash_unmap_splash_mem(struct msm_fb_data_type *mfd)
 {
 	struct iommu_domain *domain;
 	struct mdss_overlay_private *mdp5_data = mfd_to_mdp5_data(mfd);
-	int ret;
 
 	if (mfd->splash_info.iommu_dynamic_attached) {
 		domain = msm_get_iommu_domain(mdss_get_iommu_domain(
@@ -167,9 +166,7 @@ static void mdss_mdp_splash_unmap_splash_mem(struct msm_fb_data_type *mfd)
 
 		iommu_unmap(domain, mdp5_data->splash_mem_addr,
 						mdp5_data->splash_mem_size);
-		ret = mdss_iommu_ctrl(0);
-		if (IS_ERR_VALUE(ret))
-			pr_err("mdss iommu dettach failed\n");
+		mdss_iommu_ctrl(0);
 
 		mfd->splash_info.iommu_dynamic_attached = false;
 	}
