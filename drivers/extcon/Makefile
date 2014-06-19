@@ -13,6 +13,7 @@ obj-$(CONFIG_EXTCON_MAX8997)	+= extcon-max8997.o
 obj-$(CONFIG_EXTCON_ARIZONA)	+= extcon-arizona.o
 obj-$(CONFIG_EXTCON_PALMAS)	+= extcon-palmas.o
 obj-$(CONFIG_EXTCON_SMSC375X)	+= extcon-smsc375x.o
+obj-$(CONFIG_EXTCON_TSU6111)	+= extcon-tsu6111.o
 obj-$(CONFIG_INTEL_SOC_PMIC)	+= extcon-crc-pwrsrc.o
 obj-$(CONFIG_INTEL_SOC_PMIC)	+= extcon-dc-pwrsrc.o
 obj-$(CONFIG_EXTCON_3GPIO_OTG)	+= extcon-3gpio_otg.o

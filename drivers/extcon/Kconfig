@@ -89,4 +89,11 @@ config EXTCON_3GPIO_OTG
 	  Say Y here to enable support for virtual USB OTG port driver
 	  controlled by 3 GPIOs.
 
+config EXTCON_TSU6111
+	tristate "TSU6111 EXTCON support"
+	depends on I2C
+	help
+	  Say Y here for the platforms that have TSU6111 USB mux switch
+	  for USB cable and charger detection.
+
 endif # MULTISTATE_SWITCH

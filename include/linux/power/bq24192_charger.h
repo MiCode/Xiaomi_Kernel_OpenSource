@@ -145,6 +145,9 @@ extern int bq24192_query_battery_status(void);
 extern int bq24192_get_battery_pack_temp(int *temp);
 extern int bq24192_get_battery_health(void);
 extern bool bq24192_is_volt_shutdown_enabled(void);
+extern int bq24192_vbus_enable(void);
+extern int bq24192_vbus_disable(void);
+extern int bq24192_vbus_status(void);
 #else
 static int bq24192_get_battery_health(void)
 {
