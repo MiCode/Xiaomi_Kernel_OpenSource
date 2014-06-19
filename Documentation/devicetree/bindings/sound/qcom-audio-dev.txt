@@ -1095,12 +1095,42 @@ Required properties:
 - clocks : external clock defined for codec clock.
 - pinctrl-names : pinctrl state names for each pin group configuration.
 - pinctrl-x : defines pinctrl state for each pin group
+- qcom,ext-ult-spk-amp-gpio : GPIO to enable ultrasound emitter amp.
+- qcom,mbhc-audio-jack-type : Indicates headset jack type.
 
 Example:
 
 	sound {
 		compatible = "qcom,msm8994-asoc-snd";
 		qcom,model = "msm8994-tomtom-snd-card";
+
+		qcom,audio-routing =
+			"RX_BIAS", "MCLK",
+			"LDO_H", "MCLK",
+			"AIF4 MAD", "MCLK",
+			"ultrasound amp", "LINEOUT1",
+			"ultrasound amp", "LINEOUT3",
+			"AMIC1", "MIC BIAS1 Internal1",
+			"MIC BIAS1 Internal1", "Handset Mic",
+			"AMIC2", "MIC BIAS2 External",
+			"MIC BIAS2 External", "Headset Mic",
+			"AMIC3", "MIC BIAS2 External",
+			"MIC BIAS2 External", "ANCRight Headset Mic",
+			"AMIC4", "MIC BIAS2 External",
+			"MIC BIAS2 External", "ANCLeft Headset Mic",
+			"DMIC1", "MIC BIAS1 External",
+			"MIC BIAS1 External", "Digital Mic1",
+			"DMIC2", "MIC BIAS1 External",
+			"MIC BIAS1 External", "Digital Mic2",
+			"DMIC3", "MIC BIAS3 External",
+			"MIC BIAS3 External", "Digital Mic3",
+			"DMIC4", "MIC BIAS3 External",
+			"MIC BIAS3 External", "Digital Mic4",
+			"DMIC5", "MIC BIAS4 External",
+			"MIC BIAS4 External", "Digital Mic5",
+			"DMIC6", "MIC BIAS4 External",
+			"MIC BIAS4 External", "Digital Mic6";
+
 		clock-names = "osr_clk";
 		clocks = <&clock_rpm clk_div_clk1>;
 		pinctrl-names= "mi2s-sleep",
@@ -1111,4 +1141,6 @@ Example:
 		pinctrl-1 = <&pri_mi2s_active>;
 		pinctrl-2 = <&sec_aux_pcm_sleep>;
 		pinctrl-3 = <&sec_aux_pcm_active>;
+		qcom,ext-ult-spk-amp-gpio = <&pmi8994_gpios 1 0>;
+		qcom,mbhc-audio-jack-type = "6-pole-jack";
 	};

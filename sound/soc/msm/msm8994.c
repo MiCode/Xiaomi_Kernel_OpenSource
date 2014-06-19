@@ -47,11 +47,6 @@
 #define MSM_SLIM_0_RX_MAX_CHANNELS    2
 #define MSM_SLIM_0_TX_MAX_CHANNELS    4
 
-#define LO_1_SPK_AMP    0x1
-#define LO_3_SPK_AMP    0x2
-#define LO_2_SPK_AMP    0x4
-#define LO_4_SPK_AMP    0x8
-
 #define I2S_PCM_SEL_PCM       1
 #define I2S_PCM_SEL_I2S       0
 #define I2S_PCM_SEL_OFFSET    1
@@ -163,7 +158,7 @@ static struct wcd9xxx_mbhc_config mbhc_cfg = {
 	.do_recalibration = true,
 	.use_vddio_meas = true,
 	.enable_anc_mic_detect = false,
-	.hw_jack_type = FOUR_POLE_JACK,
+	.hw_jack_type = SIX_POLE_JACK,
 };
 
 static struct afe_clk_cfg mi2s_tx_clk = {
@@ -207,10 +202,10 @@ static void msm8994_ext_control(struct snd_soc_codec *codec)
 	pr_debug("%s: msm8994_spk_control = %d", __func__, msm8994_spk_control);
 	if (msm8994_spk_control == MSM8994_SPK_ON) {
 		snd_soc_dapm_enable_pin(dapm, "Lineout_1 amp");
-		snd_soc_dapm_enable_pin(dapm, "Lineout_3 amp");
+		snd_soc_dapm_enable_pin(dapm, "Lineout_2 amp");
 	} else {
 		snd_soc_dapm_disable_pin(dapm, "Lineout_1 amp");
-		snd_soc_dapm_disable_pin(dapm, "Lineout_3 amp");
+		snd_soc_dapm_disable_pin(dapm, "Lineout_2 amp");
 	}
 	mutex_unlock(&dapm->codec->mutex);
 	snd_soc_dapm_sync(dapm);
@@ -272,7 +267,7 @@ static int msm_ext_ultrasound_event(struct snd_soc_dapm_widget *w,
 			     struct snd_kcontrol *k, int event)
 {
 	pr_debug("%s()\n", __func__);
-	if (!strcmp(w->name, "SPK_ultrasound amp")) {
+	if (strcmp(w->name, "ultrasound amp")) {
 		if (!gpio_is_valid(ext_us_amp_gpio)) {
 			pr_err("%s: ext_us_amp_gpio isn't configured\n",
 				__func__);
@@ -283,7 +278,7 @@ static int msm_ext_ultrasound_event(struct snd_soc_dapm_widget *w,
 		else
 			msm8994_ext_us_amp_enable(0);
 	} else {
-		pr_err("%s() Invalid Speaker Widget = %s\n",
+		pr_err("%s() Invalid Widget = %s\n",
 				__func__, w->name);
 		return -EINVAL;
 	}
@@ -354,9 +349,11 @@ static const struct snd_soc_dapm_widget msm8994_dapm_widgets[] = {
 	SND_SOC_DAPM_SUPPLY("MCLK",  SND_SOC_NOPM, 0, 0,
 	msm8994_mclk_event, SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMD),
 
-	SND_SOC_DAPM_SPK("SPK_ultrasound amp",
-					 msm_ext_ultrasound_event),
-
+	SND_SOC_DAPM_SPK("Lineout_1 amp", NULL),
+	SND_SOC_DAPM_SPK("Lineout_3 amp", NULL),
+	SND_SOC_DAPM_SPK("Lineout_2 amp", NULL),
+	SND_SOC_DAPM_SPK("Lineout_4 amp", NULL),
+	SND_SOC_DAPM_SPK("ultrasound amp", msm_ext_ultrasound_event),
 	SND_SOC_DAPM_MIC("Handset Mic", NULL),
 	SND_SOC_DAPM_MIC("Headset Mic", NULL),
 	SND_SOC_DAPM_MIC("ANCRight Headset Mic", NULL),
@@ -364,6 +361,7 @@ static const struct snd_soc_dapm_widget msm8994_dapm_widgets[] = {
 	SND_SOC_DAPM_MIC("Analog Mic4", NULL),
 	SND_SOC_DAPM_MIC("Analog Mic6", NULL),
 	SND_SOC_DAPM_MIC("Analog Mic7", NULL),
+	SND_SOC_DAPM_MIC("Analog Mic8", NULL),
 
 	SND_SOC_DAPM_MIC("Digital Mic1", NULL),
 	SND_SOC_DAPM_MIC("Digital Mic2", NULL),
@@ -1483,6 +1481,45 @@ static int msm_audrx_init(struct snd_soc_pcm_runtime *rtd)
 	snd_soc_dapm_enable_pin(dapm, "Lineout_3 amp");
 	snd_soc_dapm_enable_pin(dapm, "Lineout_2 amp");
 	snd_soc_dapm_enable_pin(dapm, "Lineout_4 amp");
+
+	snd_soc_dapm_ignore_suspend(dapm, "Lineout_1 amp");
+	snd_soc_dapm_ignore_suspend(dapm, "Lineout_3 amp");
+	snd_soc_dapm_ignore_suspend(dapm, "Lineout_2 amp");
+	snd_soc_dapm_ignore_suspend(dapm, "Lineout_4 amp");
+	snd_soc_dapm_ignore_suspend(dapm, "ultrasound amp");
+	snd_soc_dapm_ignore_suspend(dapm, "Handset Mic");
+	snd_soc_dapm_ignore_suspend(dapm, "Headset Mic");
+	snd_soc_dapm_ignore_suspend(dapm, "ANCRight Headset Mic");
+	snd_soc_dapm_ignore_suspend(dapm, "ANCLeft Headset Mic");
+	snd_soc_dapm_ignore_suspend(dapm, "Digital Mic1");
+	snd_soc_dapm_ignore_suspend(dapm, "Digital Mic2");
+	snd_soc_dapm_ignore_suspend(dapm, "Digital Mic3");
+	snd_soc_dapm_ignore_suspend(dapm, "Digital Mic4");
+	snd_soc_dapm_ignore_suspend(dapm, "Digital Mic5");
+	snd_soc_dapm_ignore_suspend(dapm, "Digital Mic6");
+
+	snd_soc_dapm_ignore_suspend(dapm, "MADINPUT");
+	snd_soc_dapm_ignore_suspend(dapm, "EAR");
+	snd_soc_dapm_ignore_suspend(dapm, "HEADPHONE");
+	snd_soc_dapm_ignore_suspend(dapm, "LINEOUT1");
+	snd_soc_dapm_ignore_suspend(dapm, "LINEOUT2");
+	snd_soc_dapm_ignore_suspend(dapm, "LINEOUT3");
+	snd_soc_dapm_ignore_suspend(dapm, "LINEOUT4");
+	snd_soc_dapm_ignore_suspend(dapm, "SPK_OUT");
+	snd_soc_dapm_ignore_suspend(dapm, "ANC HEADPHONE");
+	snd_soc_dapm_ignore_suspend(dapm, "ANC EAR");
+	snd_soc_dapm_ignore_suspend(dapm, "AMIC1");
+	snd_soc_dapm_ignore_suspend(dapm, "AMIC2");
+	snd_soc_dapm_ignore_suspend(dapm, "AMIC3");
+	snd_soc_dapm_ignore_suspend(dapm, "AMIC4");
+	snd_soc_dapm_ignore_suspend(dapm, "AMIC5");
+	snd_soc_dapm_ignore_suspend(dapm, "AMIC6");
+	snd_soc_dapm_ignore_suspend(dapm, "DMIC1");
+	snd_soc_dapm_ignore_suspend(dapm, "DMIC2");
+	snd_soc_dapm_ignore_suspend(dapm, "DMIC3");
+	snd_soc_dapm_ignore_suspend(dapm, "DMIC4");
+	snd_soc_dapm_ignore_suspend(dapm, "DMIC5");
+	snd_soc_dapm_ignore_suspend(dapm, "DMIC6");
 
 	snd_soc_dapm_sync(dapm);
 
@@ -2791,6 +2828,7 @@ static int msm8994_asoc_machine_probe(struct platform_device *pdev)
 {
 	struct snd_soc_card *card = &snd_soc_card_msm8994;
 	struct msm8994_asoc_mach_data *pdata;
+	const char *mbhc_audio_jack_type = NULL;
 	int ret;
 
 	if (!pdev->dev.of_node) {
@@ -2887,6 +2925,34 @@ static int msm8994_asoc_machine_probe(struct platform_device *pdev)
 		dev_err(&pdev->dev, "snd_soc_register_card failed (%d)\n",
 			ret);
 		goto err;
+	}
+	ret = of_property_read_string(pdev->dev.of_node,
+		"qcom,mbhc-audio-jack-type", &mbhc_audio_jack_type);
+	if (ret) {
+		dev_dbg(&pdev->dev, "Looking up %s property in node %s failed",
+			"qcom,mbhc-audio-jack-type",
+			pdev->dev.of_node->full_name);
+		mbhc_cfg.hw_jack_type = FOUR_POLE_JACK;
+		mbhc_cfg.enable_anc_mic_detect = false;
+		dev_dbg(&pdev->dev, "Jack type properties set to default");
+	} else {
+		if (!strcmp(mbhc_audio_jack_type, "4-pole-jack")) {
+			mbhc_cfg.hw_jack_type = FOUR_POLE_JACK;
+			mbhc_cfg.enable_anc_mic_detect = false;
+			dev_dbg(&pdev->dev, "This hardware has 4 pole jack");
+		} else if (!strcmp(mbhc_audio_jack_type, "5-pole-jack")) {
+			mbhc_cfg.hw_jack_type = FIVE_POLE_JACK;
+			mbhc_cfg.enable_anc_mic_detect = true;
+			dev_dbg(&pdev->dev, "This hardware has 5 pole jack");
+		} else if (!strcmp(mbhc_audio_jack_type, "6-pole-jack")) {
+			mbhc_cfg.hw_jack_type = SIX_POLE_JACK;
+			mbhc_cfg.enable_anc_mic_detect = true;
+			dev_dbg(&pdev->dev, "This hardware has 6 pole jack");
+		} else {
+			mbhc_cfg.hw_jack_type = FOUR_POLE_JACK;
+			mbhc_cfg.enable_anc_mic_detect = false;
+			dev_dbg(&pdev->dev, "Unknown value, set to default");
+		}
 	}
 	/* Parse US-Euro gpio info from DT. Report no error if us-euro
 	 * entry is not found in DT file as some targets do not support
