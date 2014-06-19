@@ -493,8 +493,8 @@ void diag_send_diag_mode_update_by_smd(struct diag_smd_info *smd_info,
 {
 	char buf[sizeof(struct diag_ctrl_msg_diagmode)];
 	int msg_size = sizeof(struct diag_ctrl_msg_diagmode);
-	int wr_size = -ENOMEM, retry_count = 0, timer;
 	struct diag_smd_info *data = NULL;
+	int err = 0;
 
 	if (!smd_info || smd_info->type != SMD_CNTL_TYPE) {
 		pr_err("diag: In %s, invalid channel info, smd_info: %p type: %d\n",
@@ -517,37 +517,13 @@ void diag_send_diag_mode_update_by_smd(struct diag_smd_info *smd_info,
 	diag_create_diag_mode_ctrl_pkt(buf, real_time);
 
 	mutex_lock(&driver->diag_cntl_mutex);
-	if (smd_info->ch) {
-		while (retry_count < 3) {
-			mutex_lock(&smd_info->smd_ch_mutex);
-			wr_size = smd_write(smd_info->ch, buf, msg_size);
-			mutex_unlock(&smd_info->smd_ch_mutex);
-			if (wr_size == -ENOMEM) {
-				/*
-				 * The smd channel is full. Delay while
-				 * smd processes existing data and smd
-				 * has memory become available. The delay
-				 * of 2000 was determined empirically as
-				 * best value to use.
-				 */
-				retry_count++;
-				for (timer = 0; timer < 5; timer++)
-					udelay(2000);
-			} else {
-				data =
-				&driver->smd_data[smd_info->peripheral];
-				driver->real_time_mode[DIAG_LOCAL_PROC] =
-								real_time;
-				break;
-			}
-		}
-		if (wr_size != msg_size)
-			pr_err("diag: proc %d fail feature update %d, tried %d",
-				smd_info->peripheral,
-				wr_size, msg_size);
+	err = diag_smd_write(smd_info, buf, msg_size);
+	if (err) {
+		pr_err("diag: In %s, unable to write to smd, peripheral: %d, type: %d, len: %d, err: %d\n",
+		       __func__, smd_info->peripheral, smd_info->type,
+		       msg_size, err);
 	} else {
-		pr_err("diag: ch invalid, feature update on proc %d\n",
-				smd_info->peripheral);
+		driver->real_time_mode[DIAG_LOCAL_PROC] = real_time;
 	}
 
 	mutex_unlock(&driver->diag_cntl_mutex);
@@ -558,9 +534,8 @@ int diag_send_stm_state(struct diag_smd_info *smd_info,
 {
 	struct diag_ctrl_msg_stm stm_msg;
 	int msg_size = sizeof(struct diag_ctrl_msg_stm);
-	int retry_count = 0;
-	int wr_size = 0;
 	int success = 0;
+	int err = 0;
 
 	if (!smd_info || (smd_info->type != SMD_CNTL_TYPE) ||
 		(driver->peripheral_supports_stm[smd_info->peripheral] ==
@@ -573,30 +548,13 @@ int diag_send_stm_state(struct diag_smd_info *smd_info,
 		stm_msg.ctrl_pkt_data_len = 5;
 		stm_msg.version = 1;
 		stm_msg.control_data = stm_control_data;
-		while (retry_count < 3) {
-			mutex_lock(&smd_info->smd_ch_mutex);
-			wr_size = smd_write(smd_info->ch, &stm_msg, msg_size);
-			mutex_unlock(&smd_info->smd_ch_mutex);
-			if (wr_size == -ENOMEM) {
-				/*
-				 * The smd channel is full. Delay while
-				 * smd processes existing data and smd
-				 * has memory become available. The delay
-				 * of 10000 was determined empirically as
-				 * best value to use.
-				 */
-				retry_count++;
-				usleep_range(10000, 10000);
-			} else {
-				success = 1;
-				break;
-			}
-		}
-		if (wr_size != msg_size) {
-			pr_err("diag: In %s, proc %d fail STM update %d, tried %d",
-				__func__, smd_info->peripheral, wr_size,
-				msg_size);
-			success = 0;
+		err = diag_smd_write(smd_info, &stm_msg, msg_size);
+		if (err) {
+			pr_err("diag: In %s, unable to write to smd, peripheral: %d, type: %d, len: %d, err: %d\n",
+			       __func__, smd_info->peripheral, smd_info->type,
+			       msg_size, err);
+		} else {
+			success = 1;
 		}
 	} else {
 		pr_err("diag: In %s, ch invalid, STM update on proc %d\n",

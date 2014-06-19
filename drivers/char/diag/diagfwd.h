@@ -24,6 +24,7 @@
 
 int diagfwd_init(void);
 void diagfwd_exit(void);
+int diag_smd_write(struct diag_smd_info *smd_info, void *buf, int len);
 void diag_process_hdlc(void *data, unsigned len);
 void diag_smd_send_req(struct diag_smd_info *smd_info);
 void diag_usb_legacy_notifier(void *, unsigned, struct diag_request *);

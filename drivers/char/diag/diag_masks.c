@@ -345,8 +345,8 @@ void diag_send_log_mask_update(struct diag_smd_info *smd_info, int equip_id)
 	struct diag_log_mask_t *log_item = NULL;
 	struct diag_ctrl_log_mask ctrl_pkt;
 	uint32_t log_mask_size = 0;
-	int wr_size = -ENOMEM, retry_count = 0;
 	int i, header_size, send_once = 0;
+	int err = 0;
 
 	if (!smd_info) {
 		pr_err("diag: In %s, null smd info pointer\n",
@@ -396,26 +396,13 @@ void diag_send_log_mask_update(struct diag_smd_info *smd_info, int equip_id)
 			       log_mask_size);
 		}
 
-		if (smd_info->ch) {
-			while (retry_count < 3) {
-				mutex_lock(&smd_info->smd_ch_mutex);
-				wr_size = smd_write(smd_info->ch, buf,
-						header_size + log_mask_size);
-				mutex_unlock(&smd_info->smd_ch_mutex);
-				if (wr_size == -ENOMEM) {
-					retry_count++;
-					usleep_range(10000, 10100);
-				} else
-				break;
-			}
-			if (wr_size != header_size + log_mask_size)
-				pr_err("diag: log mask update failed %d, tried %d",
-					wr_size, header_size + log_mask_size);
-			else
-				pr_debug("diag: updated log equip ID %d,len %d\n",
-					 i, log_mask_size);
-		} else
-			pr_err("diag: ch not valid for log update\n");
+		err = diag_smd_write(smd_info, buf,
+				     header_size + log_mask_size);
+		if (err) {
+			pr_err("diag: In %s, unable to write to smd, peripheral: %d, type: %d, len: %d, err: %d\n",
+			       __func__, smd_info->peripheral, smd_info->type,
+			       header_size + log_mask_size, err);
+		}
 		if (send_once)
 			break;
 	}
@@ -427,7 +414,7 @@ void diag_send_event_mask_update(struct diag_smd_info *smd_info, int num_bytes)
 {
 	void *buf = driver->buf_event_mask_update;
 	int header_size = sizeof(struct diag_ctrl_event_mask);
-	int wr_size = -ENOMEM, retry_count = 0;
+	int err = 0;
 
 	if (!smd_info) {
 		pr_err("diag: In %s, null smd info pointer\n",
@@ -473,23 +460,13 @@ void diag_send_event_mask_update(struct diag_smd_info *smd_info, int num_bytes)
 		return;
 	}
 	memcpy(buf, driver->event_mask, header_size);
-	if (smd_info->ch) {
-		while (retry_count < 3) {
-			mutex_lock(&smd_info->smd_ch_mutex);
-			wr_size = smd_write(smd_info->ch, buf,
-						header_size + num_bytes);
-			mutex_unlock(&smd_info->smd_ch_mutex);
-			if (wr_size == -ENOMEM) {
-				retry_count++;
-				usleep_range(10000, 10100);
-			} else
-				break;
-		}
-		if (wr_size != header_size + num_bytes)
-			pr_err("diag: error writing event mask %d, tried %d\n",
-					 wr_size, header_size + num_bytes);
-	} else
-		pr_err("diag: ch not valid for event update\n");
+
+	err = diag_smd_write(smd_info, buf, header_size + num_bytes);
+	if (err) {
+		pr_err("diag: In %s, unable to write to smd, peripheral: %d, type: %d, len: %d, err: %d\n",
+		       __func__, smd_info->peripheral, smd_info->type,
+		       header_size + num_bytes, err);
+	}
 	mutex_unlock(&driver->diag_cntl_mutex);
 }
 
@@ -498,9 +475,11 @@ void diag_send_msg_mask_update(struct diag_smd_info *smd_info,
 				int proc)
 {
 	void *buf = driver->buf_msg_mask_update;
-	int first, last, actual_last, size = -ENOMEM, retry_count = 0;
+	int first, last, actual_last;
 	int header_size = sizeof(struct diag_ctrl_msg_mask);
 	uint8_t *ptr = driver->msg_masks;
+	int err = 0;
+	int write_len = 0;
 
 	if (!smd_info) {
 		pr_err("diag: In %s, null smd info pointer\n",
@@ -566,29 +545,13 @@ void diag_send_msg_mask_update(struct diag_smd_info *smd_info,
 		driver->msg_mask->ssid_first = first;
 		driver->msg_mask->ssid_last = actual_last;
 		memcpy(buf, driver->msg_mask, header_size);
-		if (smd_info->ch) {
-			while (retry_count < 3) {
-				mutex_lock(&smd_info->smd_ch_mutex);
-				size = smd_write(smd_info->ch, buf, header_size
-					+ 4*(driver->msg_mask->msg_mask_size));
-				mutex_unlock(&smd_info->smd_ch_mutex);
-				if (size == -ENOMEM) {
-					retry_count++;
-					usleep_range(10000, 10100);
-				} else
-					break;
-			}
-			if (size != header_size +
-				 4*(driver->msg_mask->msg_mask_size))
-				pr_err("diag: proc %d, msg mask update fail %d, tried %d\n",
-					proc, size, (header_size +
-				4*(driver->msg_mask->msg_mask_size)));
-			else
-				pr_debug("diag: sending mask update for ssid first %d, last %d on PROC %d\n",
-					first, actual_last, proc);
-		} else
-			pr_err("diag: proc %d, ch invalid msg mask update\n",
-								proc);
+		write_len = header_size + 4 * driver->msg_mask->msg_mask_size;
+		err = diag_smd_write(smd_info, buf, write_len);
+		if (err) {
+			pr_err("diag: In %s, unable to write to smd, peripheral: %d, type: %d, len: %d, err: %d\n",
+			       __func__, smd_info->peripheral, smd_info->type,
+			       write_len, err);
+		}
 		ptr += MAX_SSID_PER_RANGE*4;
 	}
 	mutex_unlock(&driver->diag_cntl_mutex);
@@ -598,9 +561,9 @@ void diag_send_feature_mask_update(struct diag_smd_info *smd_info)
 {
 	void *buf = driver->buf_feature_mask_update;
 	int header_size = sizeof(struct diag_ctrl_feature_mask);
-	int wr_size = -ENOMEM, retry_count = 0;
 	uint8_t feature_bytes[FEATURE_MASK_LEN_BYTES] = {0, 0};
 	int total_len = 0;
+	int err = 0;
 
 	if (!smd_info) {
 		pr_err("diag: In %s, null smd info pointer\n",
@@ -630,27 +593,12 @@ void diag_send_feature_mask_update(struct diag_smd_info *smd_info)
 	memcpy(buf+header_size, &feature_bytes, FEATURE_MASK_LEN_BYTES);
 	total_len = header_size + FEATURE_MASK_LEN_BYTES;
 
-	while (retry_count < 3) {
-		mutex_lock(&smd_info->smd_ch_mutex);
-		wr_size = smd_write(smd_info->ch, buf, total_len);
-		mutex_unlock(&smd_info->smd_ch_mutex);
-		if (wr_size == -ENOMEM) {
-			retry_count++;
-			/*
-			 * The smd channel is full. Delay while
-			 * smd processes existing data and smd
-			 * has memory become available. The delay
-			 * of 10000 was determined empirically as
-			 * best value to use.
-			 */
-			usleep_range(10000, 10100);
-		} else
-			break;
+	err = diag_smd_write(smd_info, buf, total_len);
+	if (err) {
+		pr_err("diag: In %s, unable to write to smd, peripheral: %d, type: %d, len: %d, err: %d\n",
+		       __func__, smd_info->peripheral, smd_info->type,
+		       total_len, err);
 	}
-	if (wr_size != total_len)
-		pr_err("diag: In %s, peripheral %d fail feature update, size: %d, tried: %d",
-			__func__, smd_info->peripheral, wr_size, total_len);
-
 	mutex_unlock(&driver->diag_cntl_mutex);
 }
 
