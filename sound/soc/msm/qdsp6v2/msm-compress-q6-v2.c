@@ -129,6 +129,8 @@ struct msm_compr_audio {
 	uint32_t stream_available;
 	uint32_t next_stream;
 
+	uint64_t marker_timestamp;
+
 	struct msm_compr_gapless_state gapless_state;
 
 	atomic_t start;
@@ -1064,6 +1066,7 @@ static int msm_compr_trigger(struct snd_compr_stream *cstream, int cmd)
 		prtd->app_pointer  = 0;
 		prtd->bytes_received = 0;
 		prtd->bytes_sent = 0;
+		prtd->marker_timestamp = 0;
 
 		atomic_set(&prtd->xrun, 0);
 		spin_unlock_irqrestore(&prtd->lock, flags);
@@ -1196,6 +1199,8 @@ static int msm_compr_trigger(struct snd_compr_stream *cstream, int cmd)
 			prtd->first_buffer = 1;
 			prtd->last_buffer = 0;
 			prtd->gapless_state.gapless_transition = 1;
+			prtd->marker_timestamp = 0;
+
 			/*
 			Don't reset these as these vars map to
 			total_bytes_transferred and total_bytes_available
@@ -1251,23 +1256,23 @@ static int msm_compr_trigger(struct snd_compr_stream *cstream, int cmd)
 			q6asm_stream_cmd_nowait(ac, CMD_PAUSE, ac->stream_id);
 			prtd->cmd_ack = 0;
 			spin_unlock_irqrestore(&prtd->lock, flags);
-			pr_debug("%s:issue CMD_FLUSH ac->stream_id %d",
-					      __func__, ac->stream_id);
-			q6asm_stream_cmd(ac, CMD_FLUSH, ac->stream_id);
-			wait_event_timeout(prtd->flush_wait,
-					   prtd->cmd_ack, 1 * HZ / 4);
 
+			/*
+			 * Cache this time as last known time
+			 */
+			q6asm_get_session_time(prtd->audio_client,
+					       &prtd->marker_timestamp);
 			spin_lock_irqsave(&prtd->lock, flags);
 			/*
-			Don't reset these as these vars map to
-			total_bytes_transferred and total_bytes_available
-			directly, only total_bytes_transferred will be updated
-			in the next avail() ioctl
-			prtd->copied_total = 0;
-			prtd->bytes_received = 0;
-			do not reset prtd->bytes_sent as well as the same
-			session is used for gapless playback
-			*/
+			 * Don't reset these as these vars map to
+			 * total_bytes_transferred and total_bytes_available.
+			 * Just total_bytes_transferred will be updated
+			 * in the next avail() ioctl.
+			 * prtd->copied_total = 0;
+			 * prtd->bytes_received = 0;
+			 * do not reset prtd->bytes_sent as well as the same
+			 * session is used for gapless playback
+			 */
 			prtd->byte_offset = 0;
 
 			prtd->app_pointer  = 0;
@@ -1275,8 +1280,15 @@ static int msm_compr_trigger(struct snd_compr_stream *cstream, int cmd)
 			prtd->last_buffer = 0;
 			atomic_set(&prtd->drain, 0);
 			atomic_set(&prtd->xrun, 1);
-			q6asm_run_nowait(prtd->audio_client, 0, 0, 0);
 			spin_unlock_irqrestore(&prtd->lock, flags);
+
+			pr_debug("%s:issue CMD_FLUSH ac->stream_id %d",
+					      __func__, ac->stream_id);
+			q6asm_stream_cmd(ac, CMD_FLUSH, ac->stream_id);
+			wait_event_timeout(prtd->flush_wait,
+					   prtd->cmd_ack, 1 * HZ / 4);
+
+			q6asm_run_nowait(prtd->audio_client, 0, 0, 0);
 		}
 		prtd->cmd_interrupt = 0;
 		break;
@@ -1404,6 +1416,8 @@ static int msm_compr_pointer(struct snd_compr_stream *cstream,
 				__func__, timestamp);
 			return -EAGAIN;
 		}
+	} else {
+		timestamp = prtd->marker_timestamp;
 	}
 
 	/* DSP returns timestamp in usec */
