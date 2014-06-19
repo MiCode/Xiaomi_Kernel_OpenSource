@@ -123,7 +123,7 @@ static void msm_csid_reset(struct csid_device *csid_dev)
 	msm_camera_io_w(csid_dev->ctrl_reg->csid_reg.csid_rst_stb_all,
 		csid_dev->base +
 		csid_dev->ctrl_reg->csid_reg.csid_rst_cmd_addr);
-	wait_for_completion_interruptible(&csid_dev->reset_complete);
+	wait_for_completion(&csid_dev->reset_complete);
 	return;
 }
 
