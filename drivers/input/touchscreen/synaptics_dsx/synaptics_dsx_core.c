@@ -2309,12 +2309,18 @@ static void synaptics_rmi4_set_params(struct synaptics_rmi4_data *rmi4_data)
 
 	rmi = &(rmi4_data->rmi4_mod_info);
 
-	input_set_abs_params(rmi4_data->input_dev,
-			ABS_MT_POSITION_X, 0,
-			bdata->disp_maxx, 0, 0);
-	input_set_abs_params(rmi4_data->input_dev,
-			ABS_MT_POSITION_Y, 0,
-			bdata->disp_maxy, 0, 0);
+	if (bdata->disp_maxx && bdata->disp_maxy) {
+		input_set_abs_params(rmi4_data->input_dev, ABS_MT_POSITION_X,
+				0, bdata->disp_maxx, 0, 0);
+		input_set_abs_params(rmi4_data->input_dev, ABS_MT_POSITION_Y,
+				0, bdata->disp_maxy, 0, 0);
+	} else {
+		input_set_abs_params(rmi4_data->input_dev, ABS_MT_POSITION_X,
+				0, rmi4_data->sensor_max_x, 0, 0);
+		input_set_abs_params(rmi4_data->input_dev, ABS_MT_POSITION_Y,
+				0, rmi4_data->sensor_max_y, 0, 0);
+	}
+
 #ifdef REPORT_2D_W
 	input_set_abs_params(rmi4_data->input_dev,
 			ABS_MT_TOUCH_MAJOR, 0,
