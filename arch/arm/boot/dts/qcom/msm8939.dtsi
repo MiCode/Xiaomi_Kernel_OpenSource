@@ -879,6 +879,8 @@
 			 <&clock_cpu clk_a53ssmux_lc>,
 			 <&clock_cpu clk_a53ssmux_lc>;
 
+		qcom,governor-per-policy;
+
 		qcom,cpufreq-table-0 =
 			 <  200000 >,
 			 <  345600 >,
