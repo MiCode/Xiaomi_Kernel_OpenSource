@@ -484,7 +484,7 @@
 			qcom,temp_alarm-vadc = <&pm8226_vadc>;
 		};
 
-		qcom,pm8226_rtc {
+	        pm8x26_rtc: qcom,pm8226_rtc {
 			spmi-dev-container;
 			compatible = "qcom,qpnp-rtc";
 			#address-cells = <1>;
