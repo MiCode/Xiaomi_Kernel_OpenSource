@@ -13,6 +13,8 @@
 #ifndef _LINUX_CORESIGHT_CTI_H
 #define _LINUX_CORESIGHT_CTI_H
 
+#include <linux/list.h>
+
 struct coresight_cti_data {
 	int nr_ctis;
 	const char **names;
@@ -42,6 +44,7 @@ extern int coresight_cti_enable_gate(struct coresight_cti *cti, int ch);
 extern void coresight_cti_disable_gate(struct coresight_cti *cti, int ch);
 extern void coresight_cti_ctx_save(void);
 extern void coresight_cti_ctx_restore(void);
+extern int coresight_cti_ack_trig(struct coresight_cti *cti, int trig);
 #else
 static inline struct coresight_cti *coresight_cti_get(const char *name)
 {
@@ -81,6 +84,10 @@ static inline void coresight_cti_disable_gate(struct coresight_cti *cti, int ch)
 {}
 static inline void coresight_cti_ctx_save(void){}
 static inline void coresight_cti_ctx_restore(void){}
+static inline int coresight_cti_ack_trig(struct coresight_cti *cti, int trig)
+{
+	return -ENOSYS;
+}
 #endif
 
 #endif
