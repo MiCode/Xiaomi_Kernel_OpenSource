@@ -683,6 +683,7 @@ static int32_t msm_cci_init(struct v4l2_subdev *sd,
 	enum cci_i2c_master_t master;
 
 	cci_dev = v4l2_get_subdevdata(sd);
+	cci_dev->reg_ptr = NULL;
 	if (!cci_dev || !c_ctrl) {
 		pr_err("%s:%d failed: invalid params %p %p\n", __func__,
 			__LINE__, cci_dev, c_ctrl);
@@ -717,7 +718,6 @@ static int32_t msm_cci_init(struct v4l2_subdev *sd,
 		return 0;
 	}
 	ret = msm_cci_pinctrl_init(cci_dev);
-	cci_dev->reg_ptr = NULL;
 	if (ret < 0) {
 		pr_err("%s:%d Initialization of pinctrl failed\n",
 				__func__, __LINE__);
@@ -735,7 +735,6 @@ static int32_t msm_cci_init(struct v4l2_subdev *sd,
 				__func__, __LINE__);
 	}
 	if (rc < 0) {
-		cci_dev->ref_count--;
 		CDBG("%s: request gpio failed\n", __func__);
 		goto request_gpio_failed;
 	}
@@ -749,13 +748,12 @@ static int32_t msm_cci_init(struct v4l2_subdev *sd,
 		if (rc) {
 			pr_err(" %s: regulator enable failed for TOP GDSCR\n",
 				__func__);
-			goto csid_gdscr_regulator_enable_failed;
+			goto clk_enable_failed;
 		}
 	}
 	rc = msm_cam_clk_enable(&cci_dev->pdev->dev, cci_clk_info,
 		cci_dev->cci_clk, cci_dev->num_clk, 1);
 	if (rc < 0) {
-		cci_dev->ref_count--;
 		CDBG("%s: clk enable failed\n", __func__);
 		goto clk_enable_failed;
 	}
@@ -802,14 +800,14 @@ clk_enable_failed:
 			pr_err("%s:%d cannot set pin to suspend state\n",
 				__func__, __LINE__);
 	}
-csid_gdscr_regulator_enable_failed:
+	msm_camera_request_gpio_table(cci_dev->cci_gpio_tbl,
+		cci_dev->cci_gpio_tbl_size, 0);
+
 	if (!IS_ERR_OR_NULL(cci_dev->reg_ptr)) {
 		regulator_disable(cci_dev->reg_ptr);
 		regulator_put(cci_dev->reg_ptr);
 		cci_dev->reg_ptr = NULL;
 	}
-	msm_camera_request_gpio_table(cci_dev->cci_gpio_tbl,
-		cci_dev->cci_gpio_tbl_size, 0);
 request_gpio_failed:
 	cci_dev->ref_count--;
 	return rc;
