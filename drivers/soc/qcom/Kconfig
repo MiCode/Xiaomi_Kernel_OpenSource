@@ -441,6 +441,11 @@ config MSM_CPU_PWR_CTL
 	  Provides routines to power on cpu rails and l2 cache
 	  controller during coldboot.
 
+config MSM_XPU_ERR_FATAL
+	bool "Configure XPU violations as fatal errors"
+	help
+	 Select if XPU violations have to be configured as fatal errors.
+
 source "drivers/soc/qcom/memshare/Kconfig"
 
 endif # ARCH_MSM
