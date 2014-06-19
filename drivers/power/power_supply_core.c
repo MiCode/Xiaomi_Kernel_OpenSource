@@ -19,6 +19,8 @@
 #include <linux/err.h>
 #include <linux/power_supply.h>
 #include <linux/thermal.h>
+#include <linux/dmi.h>
+#include <linux/delay.h>
 #include "power_supply.h"
 #include "power_supply_charger.h"
 
@@ -28,6 +30,8 @@ EXPORT_SYMBOL_GPL(power_supply_class);
 
 ATOMIC_NOTIFIER_HEAD(power_supply_notifier);
 EXPORT_SYMBOL_GPL(power_supply_notifier);
+
+static int ac_sleep_before_sending_event_ms;
 
 static struct device_type power_supply_dev_type;
 
@@ -93,6 +97,8 @@ static void power_supply_changed_work(struct work_struct *work)
 				      __power_supply_changed_work);
 		power_supply_trigger_charging_handler(psy);
 		power_supply_update_leds(psy);
+		if (ac_sleep_before_sending_event_ms > 0)
+			msleep(ac_sleep_before_sending_event_ms);
 		atomic_notifier_call_chain(&power_supply_notifier,
 				PSY_EVENT_PROP_CHANGED, psy);
 		kobject_uevent(&psy->dev->kobj, KOBJ_CHANGE);
@@ -615,6 +621,23 @@ static void psy_unregister_cooler(struct power_supply *psy)
 }
 #endif
 
+static int intel_ac_quirk(const struct dmi_system_id *d)
+{
+	ac_sleep_before_sending_event_ms = 1500;
+	return 0;
+}
+
+static struct dmi_system_id charger_dmi_table[] = {
+	{
+	.callback = intel_ac_quirk,
+	.ident = "broadwell",
+	.matches = {
+		DMI_MATCH(DMI_PRODUCT_NAME, "Broadwell Client platform"),
+	},
+	},
+	{},
+};
+
 int power_supply_register(struct device *parent, struct power_supply *psy)
 {
 	struct device *dev;
@@ -672,6 +695,8 @@ int power_supply_register(struct device *parent, struct power_supply *psy)
 		goto charger_register_failed;
 
 	power_supply_changed(psy);
+
+	dmi_check_system(charger_dmi_table);
 
 	goto success;
 
