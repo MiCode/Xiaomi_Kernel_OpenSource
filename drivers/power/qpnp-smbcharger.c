@@ -626,14 +626,16 @@ static int smbchg_set_dc_current_max(struct smbchg_chip *chip, int current_ma)
 		if (current_ma >= dc_current_table[i])
 			break;
 	}
-	chip->dc_max_current_ma = dc_current_table[i];
-	dc_cur_val = i & DCIN_INPUT_MASK;
 
 	if (i < 0) {
 		dev_err(chip->dev, "Cannot find %dma current_table\n",
 				current_ma);
 		return -EINVAL;
 	}
+
+	chip->dc_max_current_ma = dc_current_table[i];
+	dc_cur_val = i & DCIN_INPUT_MASK;
+
 	dev_dbg(chip->dev, "dc current set to %d mA\n",
 			chip->dc_max_current_ma);
 	return smbchg_sec_masked_write(chip, chip->dc_chgpth_base + IL_CFG,

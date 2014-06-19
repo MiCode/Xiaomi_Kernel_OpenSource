@@ -262,6 +262,9 @@ static int mem_acc_sel_setup(struct mem_acc_regulator *mem_acc_vreg,
 	case MEMORY_L2:
 		mem_select_str = "qcom,acc-sel-l2-bit-pos";
 		break;
+	default:
+		pr_err("Invalid memory type: %d\n", mem_type);
+		return -EINVAL;
 	}
 
 	rc = populate_acc_data(mem_acc_vreg, mem_select_str,
