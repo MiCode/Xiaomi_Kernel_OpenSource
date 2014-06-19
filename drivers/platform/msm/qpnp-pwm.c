@@ -136,12 +136,6 @@ do { \
 	(value |= (BIT(id) >> QPNP_RAMP_CONTROL_SHIFT)); \
 } while (0)
 
-#define QPNP_DISABLE_LUT_V1(value, id) \
-do { \
-	(id < 8) ? (value &= ~BIT(id)) : \
-	(value &= (~BIT(id) >> QPNP_RAMP_CONTROL_SHIFT)); \
-} while (0)
-
 /* LPG Control for RAMP_STEP_DURATION_LSB */
 #define QPNP_RAMP_STEP_DURATION_LSB_MASK	0xFF
 
@@ -1018,7 +1012,6 @@ static int qpnp_lpg_configure_lut_state(struct pwm_device *pwm,
 			QPNP_ENABLE_LUT_V1(value1, pwm->pwm_config.channel_id);
 			value2 = QPNP_ENABLE_LPG_MODE;
 		} else {
-			QPNP_DISABLE_LUT_V1(value1, pwm->pwm_config.channel_id);
 			value2 = QPNP_DISABLE_LPG_MODE;
 		}
 		mask1 = value1;
@@ -1038,8 +1031,10 @@ static int qpnp_lpg_configure_lut_state(struct pwm_device *pwm,
 	if (rc)
 		return rc;
 
-	return qpnp_lpg_save_and_write(value1, mask1, reg1,
+	if (state == QPNP_LUT_ENABLE || chip->revision == QPNP_LPG_REVISION_0)
+		rc = qpnp_lpg_save_and_write(value1, mask1, reg1,
 					addr1, 1, chip);
+	return rc;
 }
 
 static inline int qpnp_enable_pwm_mode(struct qpnp_pwm_config *pwm_conf)
