@@ -551,9 +551,9 @@
 			 <&clock_cpu clk_a57_clk>;
 	};
 
-	qcom,cpu-sleep-status@f9088008{
+	qcom,cpu-sleep-status@f908b008{
 		compatible = "qcom,cpu-sleep-status";
-		reg = <0xf9088008 0x100>;
+		reg = <0xf908b008 0x100>;
 		qcom,cpu-alias-addr = <0x10000>;
 		qcom,sleep-status-mask= <0x80000>;
 	};
