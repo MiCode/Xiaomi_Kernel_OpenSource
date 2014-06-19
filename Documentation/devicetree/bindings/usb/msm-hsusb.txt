@@ -68,9 +68,6 @@ Optional properties :
 	    Used for allowing USB to respond for remote wakup.
 - qcom,hsusb-otg-delay-lpm: If present then USB core will wait one second
 	after disconnect before entering low power mode.
-- qcom,hsusb-otg-delay-lpm-hndshk-on-disconnect: If present then USB core will
-	wait for the handshake with the IPA to complete before entering low
-	power mode.
 - <supply-name>-supply: handle to the regulator device tree node.
          Optional "supply-name" is "vbus_otg" to supply vbus in host mode.
 - qcom,dp-manual-pullup: If present, vbus is not routed to USB controller/phy
