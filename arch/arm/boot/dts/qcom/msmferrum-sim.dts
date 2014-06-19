@@ -13,6 +13,7 @@
 /dts-v1/;
 
 #include "msmferrum.dtsi"
+#include "msmferrum-pinctrl.dtsi"
 
 / {
 	model = "Qualcomm Technologies, Inc. MSMFERRUM Simulator";
