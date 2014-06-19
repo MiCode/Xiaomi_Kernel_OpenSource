@@ -55,12 +55,12 @@
  * Vladik, 21.08.2011
  */
 
-#define FIFO_MAP_SIZE		SZ_16K
+#define FIFO_MAP_SIZE		SZ_256K
 #define FIFO_MAP_MASK		(FIFO_MAP_SIZE - 1)
 
 uint8_t	__iomem			*ipc_buffers;
 
-struct ipc_to_virt_map		ipc_to_virt_map[PLATFORM_MAX_NUM_OF_NODES][2];
+struct ipc_to_virt_map	ipc_to_virt_map[PLATFORM_MAX_NUM_OF_NODES][2];
 
 static void __iomem		*krait_ipc_mux;
 
@@ -99,16 +99,33 @@ static void unmap_ipc_to_virt_map(void)
 static void remap_fifo_mem(const int cpuid, const unsigned prio,
 				const uint32_t paddr)
 {
-	struct ipc_to_virt_map *const map = &ipc_to_virt_map[cpuid][prio];
+	struct ipc_to_virt_map *const map = ipc_to_virt_map[cpuid];
+	unsigned other_prio = (prio == IPC_trns_prio_0) ?
+				IPC_trns_prio_1 : IPC_trns_prio_0;
+	uint32_t start_addr;
+	uint32_t map_size;
+	uint32_t map_mask;
 
-	/* Round down to nearest 16kB address */
-	const uint32_t		start_addr =
-		((paddr + FIFO_MAP_MASK) & ~FIFO_MAP_MASK) - 2 * FIFO_MAP_SIZE;
-	map->paddr		= start_addr;
-	map->vaddr		= ioremap_nocache(start_addr,
-							2 * FIFO_MAP_SIZE);
+	/* Use shared memory size if defined for given CPU.
+	 * Since shared memory is used for both FIFO priorities, remap
+	 * only once for this CPU.
+	 */
+	if (IPC_shared_mem_sizes[cpuid]) {
+		map_size = IPC_shared_mem_sizes[cpuid];
+		map_mask = map_size - 1;
+		start_addr = ((paddr + map_mask) & ~map_mask) - map_size;
+		map[prio].paddr = map[other_prio].paddr = start_addr;
+		map[prio].vaddr = map[other_prio].vaddr =
+			ioremap_nocache(start_addr, 2 * map_size);
+	} else {
+		map_size = FIFO_MAP_SIZE;
+		map_mask = FIFO_MAP_MASK;
+		start_addr = ((paddr + map_mask) & ~map_mask) - 2 * map_size;
+		map[prio].paddr = start_addr;
+		map[prio].vaddr = ioremap_nocache(start_addr, 2 * map_size);
+	}
 
-	if (!map->vaddr) {
+	if (!map[prio].vaddr) {
 		pr_err(
 			"%s:%d cpuid = %d priority = %u cannot remap FIFO memory at addr. 0x%x\n",
 			__func__, __LINE__, cpuid, prio, start_addr);

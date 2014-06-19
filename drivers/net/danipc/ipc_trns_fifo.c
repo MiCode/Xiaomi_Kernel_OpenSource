@@ -86,6 +86,7 @@
 
 uint32_t IPC_array_hw_access_phys[PLATFORM_MAX_NUM_OF_NODES];
 unsigned IPC_hw_access_phys_len[PLATFORM_MAX_NUM_OF_NODES];
+uint32_t IPC_shared_mem_sizes[PLATFORM_MAX_NUM_OF_NODES];
 
 /* Remapped addresses from IPC_array_hw_access_phys */
 void __iomem *IPC_array_hw_access[PLATFORM_MAX_NUM_OF_NODES];
@@ -149,7 +150,7 @@ void IPC_trns_fifo_buffer_free(char *ptr, uint8_t dest_agent_id,
 	}
 }
 
-/* IPC_trns_fifo_msg_send:
+/* IPC_trns_fifo_buf_send:
  *
  * Transport layer message sent API
  * use to send message when message is to be sent

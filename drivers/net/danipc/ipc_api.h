@@ -35,7 +35,7 @@
 #define IPC_GetNode(_id)		((_id)>>4)
 #define IPC_LocalId(_id)		((_id)&0x0f)
 
-#define IPC_BUF_SIZE_MAX	128		/* in bytes */
+#define IPC_BUF_SIZE_MAX	1600		/* in bytes */
 #define IPC_BUF_COUNT_MAX	128
 #define IPC_MAX_MESSAGE_SIZE	(IPC_BUF_COUNT_MAX * IPC_BUF_SIZE_MAX)
 #define IPC_BUF_SIZE_PER_NODE	(IPC_BUF_COUNT_MAX * IPC_BUF_SIZE_MAX)

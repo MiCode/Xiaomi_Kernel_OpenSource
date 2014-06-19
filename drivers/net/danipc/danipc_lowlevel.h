@@ -35,6 +35,7 @@ extern uint8_t __iomem			*ipc_buffers;
 extern uint32_t				IPC_array_hw_access_phys[];
 extern unsigned				IPC_hw_access_phys_len[];
 extern void __iomem			*IPC_array_hw_access[];
+extern uint32_t				IPC_shared_mem_sizes[];
 extern struct agentNameEntry __iomem	*agentTable;
 
 #define PLATFORM_my_ipc_id	/*CHIP_IPC_KRAIT_ADDR*/ 8

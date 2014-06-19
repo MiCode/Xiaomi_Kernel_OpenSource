@@ -95,5 +95,6 @@ extern spinlock_t	skbs_lock;
 extern struct work_struct delayed_skbs_work;
 
 extern struct net_device	*danipc_dev;
+extern int danipc_change_mtu(struct net_device *dev, int new_mtu);
 
 #endif /* __DANIPC_H__ */

@@ -99,7 +99,7 @@ static const struct net_device_ops danipc_netdev_ops = {
 	.ndo_stop		= danipc_close,
 	.ndo_start_xmit		= danipc_hard_start_xmit,
 	.ndo_do_ioctl		= danipc_ioctl,
-	.ndo_change_mtu		= eth_change_mtu,
+	.ndo_change_mtu		= danipc_change_mtu,
 	.ndo_validate_addr	= eth_validate_addr,
 	.ndo_set_mac_address	= eth_mac_addr,
 };
@@ -191,7 +191,16 @@ static int parse_resources(struct platform_device *pdev,
 		"qdsp6_3_ipc", NULL, NULL, NULL
 	};
 	const char		*resource[RESOURCE_NUM] = {
-		"ipc_bufs", "agent_table", "krait_ipc_intr_en"
+			"ipc_bufs", "agent_table", "krait_ipc_intr_en"
+	};
+	const char      *shm_sizes[PLATFORM_MAX_NUM_OF_NODES] = {
+		"qcom,cpu0-shm-size", "qcom,cpu1-shm-size",
+		"qcom,cpu2-shm-size", "qcom,cpu3-shm-size",
+		"qcom,dsp0-shm-size", "qcom,dsp1-shm-size",
+		"qcom,dsp2-shm-size", NULL, "qcom,krait-shm-size",
+		"qcom,qdsp6-0-shm-size", "qcom,qdsp6-1-shm-size",
+		"qcom,qdsp6-2-shm-size", "qcom,qdsp6-3-shm-size",
+		NULL, NULL, NULL
 	};
 	struct device_node	*node = pdev->dev.of_node;
 	bool			parse_err = false;
@@ -199,6 +208,7 @@ static int parse_resources(struct platform_device *pdev,
 
 	if (node) {
 		struct resource	*res;
+		int shm_size;
 		int		r;
 		priv->irq = irq_of_parse_and_map(node, 0);
 		if (!priv->irq || priv->irq == NO_IRQ) {
@@ -231,6 +241,14 @@ static int parse_resources(struct platform_device *pdev,
 			} else {
 				pr_err("cannot get resource %s\n", regs[r]);
 				parse_err = true;
+			}
+
+			if (of_property_read_u32((&pdev->dev)->of_node,
+					shm_sizes[r],
+					&shm_size)) {
+				IPC_shared_mem_sizes[r] = 0;
+			} else {
+				IPC_shared_mem_sizes[r] = shm_size;
 			}
 		}
 
