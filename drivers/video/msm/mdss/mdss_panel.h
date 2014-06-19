@@ -323,7 +323,6 @@ struct mdss_panel_info {
 	u32 rst_seq_len;
 	u32 vic; /* video identification code */
 	struct mdss_rect roi;
-	int bklt_ctrl;	/* backlight ctrl */
 	int pwm_pmic_gpio;
 	int pwm_lpg_chan;
 	int pwm_period;
