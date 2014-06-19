@@ -515,6 +515,14 @@
 	 pinctrl-0 = <&uart_console_sleep>;
 };
 
+&ufsphy1 {
+	status = "ok";
+};
+
+&ufs1 {
+	status = "ok";
+};
+
 &usb3 {
 	status = "ok";
 };
