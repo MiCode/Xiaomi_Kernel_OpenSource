@@ -245,6 +245,22 @@ Optional properties:
 				adjustment values are added to the target quotient values read from fuses
 				before writing them into the CPR GCNT target control registers.
 				This property can be used to add static margin to the voltage rail managed by the CPR controller.
+- qcom,cpr-clamp-timer-interval:	The number of 64 reference clock cycle blocks to delay for whenever
+					the clamp signal, sensor mask registers or sensor bypass registers
+					change.  The CPR controller loop is disabled during this delay.
+					Supported values are 0 to 255.  If this property is not specified,
+					then a value of 0 is assumed.  Note that if this property has a
+					value greater than 0, then software cannot accurately determine the
+					error_steps value that corresponds to a given CPR measurement
+					unless processor power collapsing is disabled.  If this property
+					has a value of 0, then the CPR controller loop is not disabled and
+					re-enabled while idle if the clamp signal changes.  Instead, it
+					will remain idle until software issues an ACK or NACK command.
+					This ensures that software can read the error_steps value which
+					resulted in the CPR up or down interrupt.  Setting this property to
+					a value greater than 0 is useful for resetting the CPR sensors of a
+					processor that uses BHS type voltage switches in order to avoid
+					anomalous CPR up interrupts when exiting from power collapse.
 - vdd-apc-optional-prim-supply:	Present: Regulator of highest priority to supply VDD APC power
 				Not Present: No such regulator.
 - vdd-apc-optional-sec-supply:	Present: Regulator of second highest priority to supply VDD APC power.
@@ -380,6 +396,7 @@ Example:
 		qcom,cpr-down-threshold = <2>;
 		qcom,cpr-idle-clocks = <5>;
 		qcom,cpr-gcnt-time = <1>;
+		qcom,cpr-clamp-timer-interval = <1>;
 		qcom,cpr-apc-volt-step = <5000>;
 
 		qcom,cpr-fuse-row = <138 1>;
