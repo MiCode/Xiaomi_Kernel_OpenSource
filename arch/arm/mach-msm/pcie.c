@@ -1338,15 +1338,6 @@ void msm_pcie_disable(struct msm_pcie_dev_t *dev, u32 options)
 
 	mutex_lock(&dev->setup_lock);
 
-	if ((dev->link_status == MSM_PCIE_LINK_DISABLED)
-		&& !(options & PM_EXPT)) {
-		PCIE_ERR(dev,
-			"PCIe: the link of RC%d is already disabled\n",
-			dev->rc_idx);
-		mutex_unlock(&dev->setup_lock);
-		return;
-	}
-
 	if (!dev->power_on) {
 		PCIE_DBG(dev,
 			"PCIe: the link of RC%d is already power down.\n",
@@ -1354,6 +1345,9 @@ void msm_pcie_disable(struct msm_pcie_dev_t *dev, u32 options)
 		mutex_unlock(&dev->setup_lock);
 		return;
 	}
+
+	dev->link_status = MSM_PCIE_LINK_DISABLED;
+	dev->power_on = false;
 
 	PCIE_INFO(dev, "PCIe: Assert the reset of endpoint of RC%d.\n",
 		dev->rc_idx);
@@ -1373,9 +1367,6 @@ void msm_pcie_disable(struct msm_pcie_dev_t *dev, u32 options)
 
 	if (options & PM_PIPE_CLK)
 		msm_pcie_pipe_clk_deinit(dev);
-
-	dev->link_status = MSM_PCIE_LINK_DISABLED;
-	dev->power_on = false;
 
 	mutex_unlock(&dev->setup_lock);
 }
@@ -1841,6 +1832,13 @@ static int msm_pcie_pm_suspend(struct pci_dev *dev,
 
 	pcie_dev->suspending = true;
 	PCIE_DBG(pcie_dev, "RC%d\n", pcie_dev->rc_idx);
+
+	if (!pcie_dev->power_on) {
+		PCIE_DBG(pcie_dev,
+			"PCIe: power of RC%d has been turned off.\n",
+			pcie_dev->rc_idx);
+		return ret;
+	}
 
 	if (dev && !(options & MSM_PCIE_CONFIG_NO_CFG_RESTORE)) {
 		ret = pci_save_state(dev);
