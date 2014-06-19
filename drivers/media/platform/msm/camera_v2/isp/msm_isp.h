@@ -380,6 +380,7 @@ struct msm_vfe_axi_shared_data {
 	uint16_t session_frame_src_mask[MAX_SESSIONS];
 	unsigned int  frame_id[MAX_SESSIONS];
 	uint32_t event_mask;
+	uint32_t burst_len;
 };
 
 struct msm_vfe_stats_hardware_info {
@@ -422,6 +423,7 @@ struct msm_vfe_stats_shared_data {
 	uint16_t stream_handle_cnt;
 	atomic_t stats_update;
 	uint32_t stats_mask;
+	uint32_t stats_burst_len;
 };
 
 struct msm_vfe_tasklet_queue_cmd {
@@ -506,8 +508,7 @@ struct vfe_device {
 	struct list_head tasklet_q;
 	struct tasklet_struct vfe_tasklet;
 	struct msm_vfe_tasklet_queue_cmd
-		tasklet_queue_cmd[MSM_VFE_TASKLETQ_SIZE];
-
+	tasklet_queue_cmd[MSM_VFE_TASKLETQ_SIZE];
 	uint32_t vfe_hw_version;
 	struct msm_vfe_hardware_info *hw_info;
 	struct msm_vfe_axi_shared_data axi_data;
@@ -525,6 +526,7 @@ struct vfe_device {
 	uint8_t ignore_error;
 	struct msm_isp_statistics *stats;
 	struct msm_vbif_cntrs vbif_cntrs;
+	uint32_t vfe_ub_size;
 };
 
 #endif
