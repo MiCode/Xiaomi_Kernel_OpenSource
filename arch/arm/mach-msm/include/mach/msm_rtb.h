@@ -27,6 +27,7 @@ enum logk_event_type {
 	LOGK_TIMESTAMP = 6,
 	LOGK_L2CPREAD = 7,
 	LOGK_L2CPWRITE = 8,
+	LOGK_IRQ = 9,
 };
 
 #define LOGTYPE_NOPC 0x80
