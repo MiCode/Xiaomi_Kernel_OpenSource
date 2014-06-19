@@ -79,6 +79,7 @@ struct kgsl_pagetable {
 	unsigned int fault_addr;
 	void *priv;
 	struct kgsl_mmu *mmu;
+	unsigned long *mem_bitmap;
 };
 
 struct kgsl_mmu;
