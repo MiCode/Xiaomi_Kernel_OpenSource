@@ -985,6 +985,11 @@ static void charging_began(struct qpnp_bms_chip *chip)
 
 	chip->charge_start_tm_sec = 0;
 	chip->catch_up_time_sec = 0;
+	/*
+	 * reset ocv_at_100 to -EINVAL to indicate
+	 * start of charging.
+	 */
+	chip->ocv_at_100 = -EINVAL;
 
 	mutex_unlock(&chip->last_soc_mutex);
 
@@ -1099,7 +1104,7 @@ static int scale_soc_while_chg(struct qpnp_bms_chip *chip, int chg_time_sec,
 
 static int report_eoc(struct qpnp_bms_chip *chip)
 {
-	int rc = 0;
+	int rc = -EINVAL;
 	union power_supply_propval ret = {0,};
 
 	if (chip->batt_psy == NULL)
@@ -1107,7 +1112,9 @@ static int report_eoc(struct qpnp_bms_chip *chip)
 	if (chip->batt_psy) {
 		rc = chip->batt_psy->get_property(chip->batt_psy,
 				POWER_SUPPLY_PROP_STATUS, &ret);
-		if (ret.intval != POWER_SUPPLY_STATUS_FULL) {
+		if (rc) {
+			pr_err("Unable to get battery 'STATUS' rc=%d\n", rc);
+		} else if (ret.intval != POWER_SUPPLY_STATUS_FULL) {
 			pr_debug("Report EOC to charger\n");
 			ret.intval = POWER_SUPPLY_STATUS_FULL;
 			rc = chip->batt_psy->set_property(chip->batt_psy,
@@ -1124,6 +1131,18 @@ static int report_eoc(struct qpnp_bms_chip *chip)
 
 static void check_eoc_condition(struct qpnp_bms_chip *chip)
 {
+	int rc;
+	int status = get_battery_status(chip);
+
+	/*
+	 * Check battery status:
+	 * if last_soc is 100 and battery status is still charging
+	 * reset ocv_at_100 and force reporting of eoc to charger.
+	 */
+	if ((chip->last_soc == 100) &&
+			(status == POWER_SUPPLY_STATUS_CHARGING))
+		chip->ocv_at_100 = -EINVAL;
+
 	/*
 	 * Store the OCV value at 100. If the new ocv is greater than
 	 * ocv_at_100 (battery settles), update ocv_at_100. Else
@@ -1131,10 +1150,21 @@ static void check_eoc_condition(struct qpnp_bms_chip *chip)
 	 */
 	if (chip->ocv_at_100 == -EINVAL) {
 		if (chip->last_soc == 100) {
-			chip->ocv_at_100 = chip->last_ocv_uv;
-			pr_debug("Battery FULL\n");
-			if (chip->dt.cfg_report_charger_eoc)
-				report_eoc(chip);
+			if (chip->dt.cfg_report_charger_eoc) {
+				rc = report_eoc(chip);
+				if (!rc) {
+					/*
+					 * update ocv_at_100 only if EOC is
+					 * reported successfully.
+					 */
+					chip->ocv_at_100 = chip->last_ocv_uv;
+					pr_debug("Battery FULL\n");
+				} else {
+					pr_err("Unable to report eoc rc=%d\n",
+							rc);
+					chip->ocv_at_100 = -EINVAL;
+				}
+			}
 		}
 	} else {
 		if (chip->last_ocv_uv >= chip->ocv_at_100) {
@@ -1248,8 +1278,15 @@ static int report_vm_bms_soc(struct qpnp_bms_chip *chip)
 	if (chip->last_soc != soc && !chip->last_soc_unbound)
 		chip->last_soc_change_sec = last_change_sec;
 
-	if (bound_soc(soc) != chip->last_soc) {
-		chip->last_soc = bound_soc(soc);
+	/*
+	 * Check/update eoc under following condition:
+	 * if there is change in soc:
+	 *	soc != chip->last_soc
+	 * during bootup if soc is 100:
+	 */
+	soc = bound_soc(soc);
+	if ((soc != chip->last_soc) || (soc == 100)) {
+		chip->last_soc = soc;
 		check_eoc_condition(chip);
 	}
 
