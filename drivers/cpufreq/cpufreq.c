@@ -1009,7 +1009,8 @@ static int cpufreq_add_policy_cpu(struct cpufreq_policy *policy, unsigned int cp
 	if (has_target()) {
 		ret = __cpufreq_governor(policy, CPUFREQ_GOV_STOP);
 		if (ret) {
-			pr_err("%s: Failed to stop governor\n", __func__);
+			pr_err("%s: Failed to stop governor for CPU%u, policy CPU%u\n",
+			       __func__, cpu, policy->cpu);
 			return ret;
 		}
 	}
@@ -1024,7 +1025,8 @@ static int cpufreq_add_policy_cpu(struct cpufreq_policy *policy, unsigned int cp
 			ret = __cpufreq_governor(policy, CPUFREQ_GOV_LIMITS);
 
 		if (ret) {
-			pr_err("%s: Failed to start governor\n", __func__);
+			pr_err("%s: Failed to start governor for CPU%u, policy CPU%u\n",
+			       __func__, cpu, policy->cpu);
 			return ret;
 		}
 	}
@@ -1334,7 +1336,8 @@ static void cpufreq_offline_prepare(unsigned int cpu)
 	if (has_target()) {
 		int ret = __cpufreq_governor(policy, CPUFREQ_GOV_STOP);
 		if (ret)
-			pr_err("%s: Failed to stop governor\n", __func__);
+			pr_err("%s: Failed to stop governor for CPU%u\n",
+			       __func__, cpu);
 	}
 
 	down_write(&policy->rwsem);
@@ -1384,7 +1387,8 @@ static void cpufreq_offline_finish(unsigned int cpu)
 	if (has_target()) {
 		int ret = __cpufreq_governor(policy, CPUFREQ_GOV_POLICY_EXIT);
 		if (ret)
-			pr_err("%s: Failed to exit governor\n", __func__);
+			pr_err("%s: Failed to start governor for CPU%u, policy CPU%u\n",
+			       __func__, cpu, policy->cpu);
 	}
 
 	/*
