@@ -172,6 +172,11 @@
 #define SHDW_FG_CURR_NOW		0x6B
 #define SHDW_FG_BATT_TEMP		0x6D
 
+#define FG_I2C_CFG_MASK			SMB1360_MASK(2, 1)
+#define FG_CFG_I2C_ADDR			0x2
+#define FG_PROFILE_A_ADDR		0x4
+#define FG_PROFILE_B_ADDR		0x6
+
 /* Constants */
 #define CURRENT_100_MA			100
 #define CURRENT_500_MA			500
@@ -191,6 +196,12 @@ enum {
 	CURRENT = BIT(2),
 };
 
+enum fg_i2c_access_type {
+	FG_ACCESS_CFG = 0x1,
+	FG_ACCESS_PROFILE_A = 0x2,
+	FG_ACCESS_PROFILE_B = 0x3
+};
+
 struct smb1360_otg_regulator {
 	struct regulator_desc	rdesc;
 	struct regulator_dev	*rdev;
@@ -200,6 +211,8 @@ struct smb1360_chip {
 	struct i2c_client		*client;
 	struct device			*dev;
 	u8				revision;
+	unsigned short			default_i2c_addr;
+	unsigned short			fg_i2c_addr;
 
 	/* configuration data - charger */
 	int				fake_battery_soc;
@@ -240,6 +253,8 @@ struct smb1360_chip {
 	int				charging_disabled_status;
 
 	u32				peek_poke_address;
+	u32				fg_access_type;
+	u32				fg_peek_poke_address;
 	int				skip_writes;
 	int				skip_reads;
 	struct dentry			*debug_root;
@@ -348,6 +363,42 @@ static int smb1360_write(struct smb1360_chip *chip, int reg,
 
 	mutex_lock(&chip->read_write_lock);
 	rc = __smb1360_write(chip, reg, val);
+	mutex_unlock(&chip->read_write_lock);
+
+	return rc;
+}
+
+static int smb1360_fg_read(struct smb1360_chip *chip, int reg,
+				u8 *val)
+{
+	int rc;
+
+	if (chip->skip_reads) {
+		*val = 0;
+		return 0;
+	}
+
+	mutex_lock(&chip->read_write_lock);
+	chip->client->addr = chip->fg_i2c_addr;
+	rc = __smb1360_read(chip, reg, val);
+	chip->client->addr = chip->default_i2c_addr;
+	mutex_unlock(&chip->read_write_lock);
+
+	return rc;
+}
+
+static int smb1360_fg_write(struct smb1360_chip *chip, int reg,
+						u8 val)
+{
+	int rc;
+
+	if (chip->skip_writes)
+		return 0;
+
+	mutex_lock(&chip->read_write_lock);
+	chip->client->addr = chip->fg_i2c_addr;
+	rc = __smb1360_write(chip, reg, val);
+	chip->client->addr = chip->default_i2c_addr;
 	mutex_unlock(&chip->read_write_lock);
 
 	return rc;
@@ -1512,6 +1563,80 @@ static int set_reg(void *data, u64 val)
 }
 DEFINE_SIMPLE_ATTRIBUTE(poke_poke_debug_ops, get_reg, set_reg, "0x%02llx\n");
 
+static int smb1360_select_fg_i2c_address(struct smb1360_chip *chip)
+{
+	unsigned short addr = chip->default_i2c_addr << 0x1;
+
+	switch (chip->fg_access_type) {
+	case FG_ACCESS_CFG:
+		addr = (addr & ~FG_I2C_CFG_MASK) | FG_CFG_I2C_ADDR;
+		break;
+	case FG_ACCESS_PROFILE_A:
+		addr = (addr & ~FG_I2C_CFG_MASK) | FG_PROFILE_A_ADDR;
+		break;
+	case FG_ACCESS_PROFILE_B:
+		addr = (addr & ~FG_I2C_CFG_MASK) | FG_PROFILE_B_ADDR;
+		break;
+	default:
+		pr_err("Invalid FG access type=%d\n", chip->fg_access_type);
+		return -EINVAL;
+	}
+
+	chip->fg_i2c_addr = addr >> 0x1;
+	pr_debug("FG_access_type=%d fg_i2c_addr=%x\n", chip->fg_access_type,
+							chip->fg_i2c_addr);
+
+	return 0;
+}
+
+static int fg_get_reg(void *data, u64 *val)
+{
+	struct smb1360_chip *chip = data;
+	int rc;
+	u8 temp;
+
+	rc = smb1360_select_fg_i2c_address(chip);
+	if (rc) {
+		pr_err("Unable to set FG access I2C address\n");
+		return -EINVAL;
+	}
+
+	rc = smb1360_fg_read(chip, chip->fg_peek_poke_address, &temp);
+	if (rc < 0) {
+		dev_err(chip->dev,
+			"Couldn't read reg %x rc = %d\n",
+			chip->fg_peek_poke_address, rc);
+		return -EAGAIN;
+	}
+	*val = temp;
+	return 0;
+}
+
+static int fg_set_reg(void *data, u64 val)
+{
+	struct smb1360_chip *chip = data;
+	int rc;
+	u8 temp;
+
+	rc = smb1360_select_fg_i2c_address(chip);
+	if (rc) {
+		pr_err("Unable to set FG access I2C address\n");
+		return -EINVAL;
+	}
+
+	temp = (u8) val;
+	rc = smb1360_fg_write(chip, chip->fg_peek_poke_address, temp);
+	if (rc < 0) {
+		dev_err(chip->dev,
+			"Couldn't write 0x%02x to 0x%02x rc= %d\n",
+			chip->fg_peek_poke_address, temp, rc);
+		return -EAGAIN;
+	}
+	return 0;
+}
+DEFINE_SIMPLE_ATTRIBUTE(fg_poke_poke_debug_ops, fg_get_reg,
+				fg_set_reg, "0x%02llx\n");
+
 #define LAST_CNFG_REG	0x17
 static int show_cnfg_regs(struct seq_file *m, void *data)
 {
@@ -2314,6 +2439,9 @@ static int smb1360_probe(struct i2c_client *client,
 	mutex_init(&chip->irq_complete);
 	mutex_init(&chip->charging_disable_lock);
 	mutex_init(&chip->current_change_lock);
+	chip->default_i2c_addr = client->addr;
+
+	pr_debug("default_i2c_addr=%x\n", chip->default_i2c_addr);
 
 	rc = smb1360_regulator_init(chip);
 	if  (rc) {
@@ -2425,6 +2553,33 @@ static int smb1360_probe(struct i2c_client *client,
 		ent = debugfs_create_file("data", S_IFREG | S_IWUSR | S_IRUGO,
 					  chip->debug_root, chip,
 					  &poke_poke_debug_ops);
+		if (!ent)
+			dev_err(chip->dev,
+				"Couldn't create data debug file rc = %d\n",
+				rc);
+
+		ent = debugfs_create_x32("fg_address",
+					S_IFREG | S_IWUSR | S_IRUGO,
+					chip->debug_root,
+					&(chip->fg_peek_poke_address));
+		if (!ent)
+			dev_err(chip->dev,
+				"Couldn't create address debug file rc = %d\n",
+				rc);
+
+		ent = debugfs_create_file("fg_data",
+					S_IFREG | S_IWUSR | S_IRUGO,
+					chip->debug_root, chip,
+					&fg_poke_poke_debug_ops);
+		if (!ent)
+			dev_err(chip->dev,
+				"Couldn't create data debug file rc = %d\n",
+				rc);
+
+		ent = debugfs_create_x32("fg_access_type",
+					S_IFREG | S_IWUSR | S_IRUGO,
+					chip->debug_root,
+					&(chip->fg_access_type));
 		if (!ent)
 			dev_err(chip->dev,
 				"Couldn't create data debug file rc = %d\n",
