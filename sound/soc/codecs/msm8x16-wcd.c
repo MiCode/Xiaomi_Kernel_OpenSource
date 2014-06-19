@@ -71,6 +71,11 @@
  */
 #define ADSP_STATE_READY_TIMEOUT_MS 50
 
+#define HPHL_PA_DISABLE (0x01 << 1)
+#define HPHR_PA_DISABLE (0x01 << 2)
+#define EAR_PA_DISABLE (0x01 << 3)
+#define SPKR_PA_DISABLE (0x01 << 4)
+
 enum {
 	AIF1_PB = 0,
 	AIF1_CAP,
@@ -142,6 +147,7 @@ struct msm8x16_wcd_priv {
 	u32 adc_count;
 	u32 rx_bias_count;
 	s32 dmic_1_2_clk_cnt;
+	u32 mute_mask;
 	bool mclk_enabled;
 	bool clock_active;
 	bool config_mode_active;
@@ -1599,11 +1605,8 @@ static int msm8x16_wcd_codec_enable_spk_pa(struct snd_soc_dapm_widget *w,
 	case SND_SOC_DAPM_PRE_PMD:
 		snd_soc_update_bits(codec,
 			MSM8X16_WCD_A_CDC_RX3_B6_CTL, 0x01, 0x01);
-		snd_soc_update_bits(codec,
-			MSM8X16_WCD_A_CDC_RX3_B6_CTL, 0x01, 0x00);
 		msleep(20);
-		snd_soc_update_bits(codec,
-			MSM8X16_WCD_A_CDC_RX3_B6_CTL, 0x01, 0x01);
+		msm8x16_wcd->mute_mask |= SPKR_PA_DISABLE;
 		snd_soc_update_bits(codec, w->reg, 0x80, 0x00);
 		if (msm8x16_wcd->spk_boost_set)
 			snd_soc_update_bits(codec,
@@ -2016,6 +2019,7 @@ static int msm8x16_wcd_codec_enable_interpolator(struct snd_soc_dapm_widget *w,
 						 int event)
 {
 	struct snd_soc_codec *codec = w->codec;
+	struct msm8x16_wcd_priv *msm8x16_wcd = snd_soc_codec_get_drvdata(codec);
 
 	dev_dbg(codec->dev, "%s %d %s\n", __func__, event, w->name);
 
@@ -2036,6 +2040,33 @@ static int msm8x16_wcd_codec_enable_interpolator(struct snd_soc_dapm_widget *w,
 		snd_soc_update_bits(codec,
 			MSM8X16_WCD_A_CDC_CLK_RX_RESET_CTL,
 			1 << w->shift, 0x0);
+		/*
+		 * disable the mute enabled during the PMD of this device
+		 */
+		if (msm8x16_wcd->mute_mask & HPHL_PA_DISABLE) {
+			pr_debug("disabling HPHL mute\n");
+			snd_soc_update_bits(codec,
+				MSM8X16_WCD_A_CDC_RX1_B6_CTL, 0x01, 0x00);
+			msm8x16_wcd->mute_mask &= ~(HPHL_PA_DISABLE);
+		}
+		if (msm8x16_wcd->mute_mask & HPHR_PA_DISABLE) {
+			pr_debug("disabling HPHR mute\n");
+			snd_soc_update_bits(codec,
+				MSM8X16_WCD_A_CDC_RX2_B6_CTL, 0x01, 0x00);
+			msm8x16_wcd->mute_mask &= ~(HPHR_PA_DISABLE);
+		}
+		if (msm8x16_wcd->mute_mask & SPKR_PA_DISABLE) {
+			pr_debug("disabling SPKR mute\n");
+			snd_soc_update_bits(codec,
+				MSM8X16_WCD_A_CDC_RX3_B6_CTL, 0x01, 0x00);
+			msm8x16_wcd->mute_mask &= ~(SPKR_PA_DISABLE);
+		}
+		if (msm8x16_wcd->mute_mask & EAR_PA_DISABLE) {
+			pr_debug("disabling EAR mute\n");
+			snd_soc_update_bits(codec,
+				MSM8X16_WCD_A_CDC_RX1_B6_CTL, 0x01, 0x00);
+			msm8x16_wcd->mute_mask &= ~(EAR_PA_DISABLE);
+		}
 	}
 	return 0;
 }
@@ -2162,19 +2193,13 @@ static int msm8x16_wcd_hph_pa_event(struct snd_soc_dapm_widget *w,
 		if (w->shift == 5) {
 			snd_soc_update_bits(codec,
 				MSM8X16_WCD_A_CDC_RX1_B6_CTL, 0x01, 0x01);
-			snd_soc_update_bits(codec,
-				MSM8X16_WCD_A_CDC_RX1_B6_CTL, 0x01, 0x00);
 			msleep(20);
-			snd_soc_update_bits(codec,
-				MSM8X16_WCD_A_CDC_RX1_B6_CTL, 0x01, 0x01);
+			msm8x16_wcd->mute_mask |= HPHL_PA_DISABLE;
 		} else if (w->shift == 4) {
 			snd_soc_update_bits(codec,
 				MSM8X16_WCD_A_CDC_RX2_B6_CTL, 0x01, 0x01);
-			snd_soc_update_bits(codec,
-				MSM8X16_WCD_A_CDC_RX2_B6_CTL, 0x01, 0x00);
 			msleep(20);
-			snd_soc_update_bits(codec,
-				MSM8X16_WCD_A_CDC_RX2_B6_CTL, 0x01, 0x01);
+			msm8x16_wcd->mute_mask |= HPHR_PA_DISABLE;
 		}
 		break;
 	case SND_SOC_DAPM_POST_PMD:
@@ -2655,6 +2680,7 @@ static int msm8x16_wcd_codec_enable_ear_pa(struct snd_soc_dapm_widget *w,
 	struct snd_kcontrol *kcontrol, int event)
 {
 	struct snd_soc_codec *codec = w->codec;
+	struct msm8x16_wcd_priv *msm8x16_wcd = snd_soc_codec_get_drvdata(codec);
 
 	switch (event) {
 	case SND_SOC_DAPM_PRE_PMU:
@@ -2677,11 +2703,8 @@ static int msm8x16_wcd_codec_enable_ear_pa(struct snd_soc_dapm_widget *w,
 	case SND_SOC_DAPM_PRE_PMD:
 		snd_soc_update_bits(codec,
 			MSM8X16_WCD_A_CDC_RX1_B6_CTL, 0x01, 0x01);
-		snd_soc_update_bits(codec,
-			MSM8X16_WCD_A_CDC_RX1_B6_CTL, 0x01, 0x00);
 		msleep(20);
-		snd_soc_update_bits(codec,
-			MSM8X16_WCD_A_CDC_RX1_B6_CTL, 0x01, 0x01);
+		msm8x16_wcd->mute_mask |= EAR_PA_DISABLE;
 		break;
 	case SND_SOC_DAPM_POST_PMD:
 		dev_dbg(w->codec->dev,
