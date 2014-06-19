@@ -49,6 +49,7 @@
 
 #define CFG_GLITCH_FLT_REG		0x06
 #define AICL_ENABLED_BIT		BIT(0)
+#define INPUT_UV_GLITCH_FLT_20MS_BIT	BIT(7)
 
 #define CFG_CHG_MISC_REG		0x7
 #define CHG_EN_BY_PIN_BIT		BIT(7)
@@ -2084,9 +2085,9 @@ static int smb1360_hw_init(struct smb1360_chip *chip)
 		return rc;
 	}
 
-	/* AICL setting */
-	rc = smb1360_masked_write(chip, CFG_GLITCH_FLT_REG,
-			AICL_ENABLED_BIT, AICL_ENABLED_BIT);
+	/* AICL enable and set input-uv glitch flt to 20ms*/
+	reg = AICL_ENABLED_BIT | INPUT_UV_GLITCH_FLT_20MS_BIT;
+	rc = smb1360_masked_write(chip, CFG_GLITCH_FLT_REG, reg, reg);
 	if (rc < 0) {
 		dev_err(chip->dev, "Couldn't set CFG_GLITCH_FLT_REG rc=%d\n",
 				rc);
