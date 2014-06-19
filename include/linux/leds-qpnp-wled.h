@@ -11,6 +11,12 @@
  */
 #ifndef __LEDS_QPNP_WLED_H
 
+#ifdef CONFIG_LEDS_QPNP_WLED
 int qpnp_ibb_enable(bool state);
-
+#else
+int qpnp_ibb_enable(bool state)
+{
+	return 0;
+}
+#endif
 #endif
