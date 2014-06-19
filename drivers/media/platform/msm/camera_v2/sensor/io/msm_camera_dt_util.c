@@ -1163,6 +1163,8 @@ power_up_failed:
 				0);
 			break;
 		case SENSOR_GPIO:
+			if (!ctrl->gpio_conf->gpio_num_info)
+				continue;
 			if (!ctrl->gpio_conf->gpio_num_info->valid
 				[power_setting->seq_val])
 				continue;

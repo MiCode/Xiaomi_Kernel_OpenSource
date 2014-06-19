@@ -12,7 +12,7 @@
 #endif
 
 #define I2C_SEQ_REG_SETTING_MAX   5
-#define I2C_SEQ_REG_DATA_MAX      20
+#define I2C_SEQ_REG_DATA_MAX      256
 #define MAX_CID                   16
 
 #define MSM_SENSOR_MCLK_8HZ   8000000
