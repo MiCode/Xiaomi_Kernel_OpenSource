@@ -87,17 +87,39 @@ static void kgsl_pwrctrl_set_state(struct kgsl_device *device,
 static void kgsl_pwrctrl_request_state(struct kgsl_device *device,
 				unsigned int state);
 
-/*
- * Given a requested power level do bounds checking on the constraints and
- * return the nearest possible level
+/**
+ * _adjust_pwrlevel() - Given a requested power level do bounds checking on the
+ * constraints and return the nearest possible level
+ * @device: Pointer to the kgsl_device struct
+ * @level: Requested level
+ * @pwrc: Pointer to the power constraint to be applied
+ *
+ * Apply thermal and max/min limits first.  Then force the level with a
+ * constraint if one exists.
  */
-
-static inline unsigned int _adjust_pwrlevel(struct kgsl_pwrctrl *pwr, int level)
+static unsigned int _adjust_pwrlevel(struct kgsl_pwrctrl *pwr, int level,
+					struct kgsl_pwr_constraint *pwrc)
 {
 	unsigned int max_pwrlevel = max_t(unsigned int, pwr->thermal_pwrlevel,
 		pwr->max_pwrlevel);
 	unsigned int min_pwrlevel = max_t(unsigned int, pwr->thermal_pwrlevel,
 		pwr->min_pwrlevel);
+
+	switch (pwrc->type) {
+	case KGSL_CONSTRAINT_PWRLEVEL: {
+		switch (pwrc->sub_type) {
+		case KGSL_CONSTRAINT_PWR_MAX:
+			return max_pwrlevel;
+			break;
+		case KGSL_CONSTRAINT_PWR_MIN:
+			return min_pwrlevel;
+			break;
+		default:
+			break;
+		}
+	}
+	break;
+	}
 
 	if (level < max_pwrlevel)
 		return max_pwrlevel;
@@ -107,6 +129,11 @@ static inline unsigned int _adjust_pwrlevel(struct kgsl_pwrctrl *pwr, int level)
 	return level;
 }
 
+/**
+ * kgsl_pwrctrl_buslevel_update() - Recalculate the bus vote and send it
+ * @device: Pointer to the kgsl_device struct
+ * @on: true for setting and active bus vote, false to turn off the vote
+ */
 void kgsl_pwrctrl_buslevel_update(struct kgsl_device *device,
 			bool on)
 {
@@ -126,22 +153,51 @@ void kgsl_pwrctrl_buslevel_update(struct kgsl_device *device,
 		buslevel = min_t(int, pwr->pwrlevels[0].bus_freq,
 				cur + pwr->bus_mod);
 		buslevel = max_t(int, buslevel, 1);
+	} else {
+		/* If the bus is being turned off, reset to default level */
+		pwr->bus_mod = 0;
 	}
 	msm_bus_scale_client_update_request(pwr->pcl, buslevel);
 	trace_kgsl_buslevel(device, pwr->active_pwrlevel, buslevel);
 }
 EXPORT_SYMBOL(kgsl_pwrctrl_buslevel_update);
 
+/**
+ * kgsl_pwrctrl_pwrlevel_change() - Validate and change power levels
+ * @device: Pointer to the kgsl_device struct
+ * @new_level: Requested powerlevel, an index into the pwrlevel array
+ *
+ * Check that any power level constraints are still valid.  Update the
+ * requested level according to any thermal, max/min, or power constraints.
+ * If a new GPU level is going to be set, update the bus to that level's
+ * default value.  Do not change the bus if a constraint keeps the new
+ * level at the current level.  Set the new GPU frequency.
+ */
 void kgsl_pwrctrl_pwrlevel_change(struct kgsl_device *device,
 				unsigned int new_level)
 {
 	struct kgsl_pwrctrl *pwr = &device->pwrctrl;
 	struct kgsl_pwrlevel *pwrlevel;
+	unsigned int old_level = pwr->active_pwrlevel;
 
-	/* Adjust the power level to the current constraints */
-	new_level = _adjust_pwrlevel(pwr, new_level);
+	/* If a pwr constraint is expired, remove it */
+	if ((pwr->constraint.type != KGSL_CONSTRAINT_NONE) &&
+		(time_after(jiffies, pwr->constraint.expires))) {
+		/* Trace the constraint being un-set by the driver */
+		trace_kgsl_constraint(device, pwr->constraint.type,
+						old_level, 0);
+		/*Invalidate the constraint set */
+		pwr->constraint.expires = 0;
+		pwr->constraint.type = KGSL_CONSTRAINT_NONE;
+	}
 
-	if (new_level == pwr->active_pwrlevel)
+	/*
+	 * Adjust the power level if required by thermal, max/min,
+	 * constraints, etc
+	 */
+	new_level = _adjust_pwrlevel(pwr, new_level, &pwr->constraint);
+
+	if (new_level == old_level)
 		return;
 
 	/*
@@ -149,20 +205,68 @@ void kgsl_pwrctrl_pwrlevel_change(struct kgsl_device *device,
 	 * don't do this then the pwrlevel change won't take effect when the
 	 * clocks come back
 	 */
-
 	pwr->active_pwrlevel = new_level;
-	pwr->bus_mod = 0;
-	pwrlevel = &pwr->pwrlevels[pwr->active_pwrlevel];
 
+	/*
+	 * Update the bus before the GPU clock to prevent underrun during
+	 * frequency increases.
+	 */
+	pwr->bus_mod = 0;
 	kgsl_pwrctrl_buslevel_update(device, true);
 
-	clk_set_rate(pwr->grp_clks[0], pwr->pwrlevels[new_level].gpu_freq);
-
-
-	trace_kgsl_pwrlevel(device, pwr->active_pwrlevel, pwrlevel->gpu_freq);
+	pwrlevel = &pwr->pwrlevels[pwr->active_pwrlevel];
+	clk_set_rate(pwr->grp_clks[0], pwrlevel->gpu_freq);
+	trace_kgsl_pwrlevel(device, pwr->active_pwrlevel,
+			pwrlevel->gpu_freq);
 }
-
 EXPORT_SYMBOL(kgsl_pwrctrl_pwrlevel_change);
+
+/**
+ * kgsl_pwrctrl_set_constraint() - Validate and change enforced constraint
+ * @device: Pointer to the kgsl_device struct
+ * @pwrc: Pointer to requested constraint
+ * @id: Context id which owns the constraint
+ *
+ * Accept the new constraint if no previous constraint existed or if the
+ * new constraint is faster than the previous one.  If the new and previous
+ * constraints are equal, update the timestamp and ownership to make sure
+ * the constraint expires at the correct time.
+ */
+void kgsl_pwrctrl_set_constraint(struct kgsl_device *device,
+			struct kgsl_pwr_constraint *pwrc, uint32_t id)
+{
+	unsigned int constraint;
+	struct kgsl_pwr_constraint *pwrc_old;
+
+	if (device == NULL || pwrc == NULL)
+		return;
+	constraint = _adjust_pwrlevel(&device->pwrctrl,
+				device->pwrctrl.active_pwrlevel, pwrc);
+	pwrc_old = &device->pwrctrl.constraint;
+
+	/*
+	 * If a constraint is already set, set a new constraint only
+	 * if it is faster.  If the requested constraint is the same
+	 * as the current one, update ownership and timestamp.
+	 */
+	if ((pwrc_old->type == KGSL_CONSTRAINT_NONE) ||
+		(constraint < pwrc_old->hint.pwrlevel.level)) {
+		pwrc_old->type = pwrc->type;
+		pwrc_old->sub_type = pwrc->sub_type;
+		pwrc_old->hint.pwrlevel.level = constraint;
+		pwrc_old->owner_id = id;
+		pwrc_old->expires = jiffies + device->pwrctrl.interval_timeout;
+		kgsl_pwrctrl_pwrlevel_change(device, constraint);
+		/* Trace the constraint being set by the driver */
+		trace_kgsl_constraint(device, pwrc_old->type, constraint, 1);
+	} else if ((pwrc_old->type == pwrc->type) &&
+		(pwrc_old->hint.pwrlevel.level == constraint)) {
+			pwrc_old->owner_id = id;
+			pwrc_old->expires = jiffies +
+					device->pwrctrl.interval_timeout;
+	}
+}
+EXPORT_SYMBOL(kgsl_pwrctrl_set_constraint);
 
 static ssize_t kgsl_pwrctrl_thermal_pwrlevel_store(struct device *dev,
 					 struct device_attribute *attr,
@@ -190,15 +294,8 @@ static ssize_t kgsl_pwrctrl_thermal_pwrlevel_store(struct device *dev,
 
 	pwr->thermal_pwrlevel = level;
 
-	/*
-	 * If there is no power policy set the clock to the requested thermal
-	 * level - if thermal now happens to be higher than max, then that will
-	 * be limited by the pwrlevel change function.  Otherwise if there is
-	 * a policy only change the active clock if it is higher then the new
-	 * thermal level
-	 */
-	if (pwr->thermal_pwrlevel > pwr->active_pwrlevel)
-		kgsl_pwrctrl_pwrlevel_change(device, pwr->thermal_pwrlevel);
+	/* Update the current level using the new limit */
+	kgsl_pwrctrl_pwrlevel_change(device, pwr->active_pwrlevel);
 	mutex_unlock(&device->mutex);
 
 	return count;
@@ -224,7 +321,7 @@ static ssize_t kgsl_pwrctrl_max_pwrlevel_store(struct device *dev,
 	struct kgsl_device *device = kgsl_device_from_dev(dev);
 	struct kgsl_pwrctrl *pwr;
 	int ret;
-	unsigned int max_level, level = 0;
+	unsigned int level = 0;
 
 	if (device == NULL)
 		return 0;
@@ -243,16 +340,8 @@ static ssize_t kgsl_pwrctrl_max_pwrlevel_store(struct device *dev,
 
 	pwr->max_pwrlevel = level;
 
-
-	max_level = max_t(unsigned int, pwr->thermal_pwrlevel,
-		pwr->max_pwrlevel);
-
-	/*
-	 * If there is no policy then move to max by default.  Otherwise only
-	 * move max if the current level happens to be higher then the new max
-	 */
-	if (max_level > pwr->active_pwrlevel)
-		kgsl_pwrctrl_pwrlevel_change(device, max_level);
+	/* Update the current level using the new limit */
+	kgsl_pwrctrl_pwrlevel_change(device, pwr->active_pwrlevel);
 	mutex_unlock(&device->mutex);
 
 	return count;
@@ -277,7 +366,7 @@ static ssize_t kgsl_pwrctrl_min_pwrlevel_store(struct device *dev,
 {	struct kgsl_device *device = kgsl_device_from_dev(dev);
 	struct kgsl_pwrctrl *pwr;
 	int ret;
-	unsigned int min_level, level = 0;
+	unsigned int level = 0;
 
 	if (device == NULL)
 		return 0;
@@ -298,15 +387,8 @@ static ssize_t kgsl_pwrctrl_min_pwrlevel_store(struct device *dev,
 
 	pwr->min_pwrlevel = level;
 
-	min_level = max_t(unsigned int, pwr->thermal_pwrlevel,
-		pwr->min_pwrlevel);
-
-	/* Only move the power level higher if minimum is higher then the
-	 * current level
-	 */
-
-	if (min_level < pwr->active_pwrlevel)
-		kgsl_pwrctrl_pwrlevel_change(device, min_level);
+	/* Update the current level using the new limit */
+	kgsl_pwrctrl_pwrlevel_change(device, pwr->active_pwrlevel);
 
 	mutex_unlock(&device->mutex);
 
@@ -377,13 +459,8 @@ static ssize_t kgsl_pwrctrl_max_gpuclk_store(struct device *dev,
 
 	pwr->thermal_pwrlevel = (unsigned int) level;
 
-	/*
-	 * if the thermal limit is lower than the current setting,
-	 * move the speed down immediately
-	 */
-
-	if (pwr->thermal_pwrlevel > pwr->active_pwrlevel)
-		kgsl_pwrctrl_pwrlevel_change(device, pwr->thermal_pwrlevel);
+	/* Update the current level using the new limit */
+	kgsl_pwrctrl_pwrlevel_change(device, pwr->active_pwrlevel);
 
 done:
 	mutex_unlock(&device->mutex);
@@ -1490,10 +1567,7 @@ int kgsl_pwrctrl_enable(struct kgsl_device *device)
 	} else
 		level = pwr->default_pwrlevel;
 
-	pwr->bus_mod = 0;
-
-	if (pwr->constraint.type == KGSL_CONSTRAINT_NONE)
-		kgsl_pwrctrl_pwrlevel_change(device, level);
+	kgsl_pwrctrl_pwrlevel_change(device, level);
 
 	/* Order pwrrail/clk sequence based upon platform */
 	status = kgsl_pwrctrl_pwrrail(device, KGSL_PWRFLAGS_ON);
