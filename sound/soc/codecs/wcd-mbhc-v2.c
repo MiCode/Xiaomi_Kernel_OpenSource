@@ -579,13 +579,13 @@ static void wcd_correct_swch_plug(struct work_struct *work)
 	while (!time_after(jiffies, timeout)) {
 		if (mbhc->hs_detect_work_stop) {
 			pr_debug("%s: stop requested\n", __func__);
-			return;
+			goto exit;
 		}
 		/* allow sometime and re-check stop requested again */
 		msleep(200);
 		if (mbhc->hs_detect_work_stop) {
 			pr_debug("%s: stop requested\n", __func__);
-			return;
+			goto exit;
 		}
 		result1 = snd_soc_read(codec,
 				 MSM8X16_WCD_A_ANALOG_MBHC_BTN_RESULT);
@@ -600,7 +600,7 @@ static void wcd_correct_swch_plug(struct work_struct *work)
 			plug_type = MBHC_PLUG_TYPE_HEADSET;
 			if (mbhc->current_plug != MBHC_PLUG_TYPE_HEADSET) {
 				wcd_mbhc_find_plug_and_report(mbhc, plug_type);
-				return;
+				goto exit;
 			}
 			wrk_complete = false;
 		}
@@ -684,6 +684,8 @@ static void wcd_correct_swch_plug(struct work_struct *work)
 	}
 
 	wcd_mbhc_find_plug_and_report(mbhc, plug_type);
+exit:
+	wcd9xxx_spmi_unlock_sleep();
 	pr_debug("%s: leave\n", __func__);
 }
 
