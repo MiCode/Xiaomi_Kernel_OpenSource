@@ -534,7 +534,7 @@
 	android_usb@fe8050c8 {
 		reg = <0xfe8050c8 0xc8>;
 		compatible = "qcom,android-usb";
-		qcom,android-usb-swfi-latency = <100>;
+		qcom,pm-qos-latency = <101 2001 30001>;
 	};
 
 	hsphy0: hsphy@f92f8800 {

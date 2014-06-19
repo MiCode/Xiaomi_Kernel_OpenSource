@@ -40,7 +40,7 @@
 	android_usb@fc42b0c8 {
 		compatible = "qcom,android-usb";
 		reg = <0xfc42b0c8 0xc8>;
-		qcom,android-usb-swfi-latency = <1>;
+		qcom,pm-qos-latency = <2 1001 30001>;
 		qcom,android-usb-uicc-nluns = /bits/ 8 <1>;
 	};
 

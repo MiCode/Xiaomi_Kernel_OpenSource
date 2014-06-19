@@ -21,9 +21,18 @@
 
 #define MAX_STREAMING_FUNCS 3
 #define FUNC_NAME_LEN 10
+
+enum android_pm_qos_state {
+	WFI,
+	IDLE_PC,
+	IDLE_PC_RPM,
+	NO_USB_VOTE,
+	MAX_VOTES = NO_USB_VOTE,
+};
+
 struct android_usb_platform_data {
 	int (*update_pid_and_serial_num)(uint32_t, const char *);
-	u32 swfi_latency;
+	u32 pm_qos_latency[MAX_VOTES];
 	u8 usb_core_id;
 	char streaming_func[MAX_STREAMING_FUNCS][FUNC_NAME_LEN];
 	int  streaming_func_count;

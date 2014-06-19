@@ -1584,7 +1584,7 @@
 
 	android_usb@fe8050c8 {
 		compatible = "qcom,android-usb";
-		qcom,android-usb-swfi-latency = <1>;
+		qcom,pm-qos-latency = <2 1001 30001>;
 	};
 
 	pcie0: qcom,pcie@fc520000 {
