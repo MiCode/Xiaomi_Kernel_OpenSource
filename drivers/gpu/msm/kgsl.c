@@ -3767,8 +3767,8 @@ err_put:
 static inline bool
 mmap_range_valid(unsigned long addr, unsigned long len)
 {
-	return ((ULONG_MAX - addr) > len) && ((addr + len) <
-		KGSL_SVM_UPPER_BOUND);
+	return ((ULONG_MAX - addr) > len) && ((addr + len) <=
+		KGSL_SVM_UPPER_BOUND) && (addr >= KGSL_SVM_LOWER_BOUND);
 }
 
 /**
@@ -3979,7 +3979,7 @@ kgsl_get_unmapped_area(struct file *file, unsigned long addr,
 	}
 	/* special case handling for MAP_FIXED */
 	if (flags & MAP_FIXED) {
-		if (addr + len > KGSL_SVM_UPPER_BOUND) {
+		if (!mmap_range_valid(addr, len)) {
 			ret = -EFAULT;
 			goto put;
 		}
@@ -4004,14 +4004,11 @@ kgsl_get_unmapped_area(struct file *file, unsigned long addr,
 	if (align)
 		len += 1 << align;
 
-	if (!mmap_range_valid(addr, len))
-		addr = 0;
-
 	/*
 	 * first try to see if the suggested address is accepted by the
 	 * system map and our gpu map
 	 */
-	if (addr && (addr + len <= KGSL_SVM_UPPER_BOUND)) {
+	if (mmap_range_valid(addr, len)) {
 		vma = find_vma(current->mm, addr);
 		if (!vma || ((addr + len) <= vma->vm_start)) {
 
@@ -4030,6 +4027,10 @@ kgsl_get_unmapped_area(struct file *file, unsigned long addr,
 			}
 		}
 	}
+
+	if (mmap_min_addr >= KGSL_SVM_UPPER_BOUND)
+		return -ERANGE;
+
 	addr = current->mm->mmap_base;
 	info.length = orig_len;
 	info.align_mask = ((1 << align) - 1);
@@ -4038,14 +4039,15 @@ kgsl_get_unmapped_area(struct file *file, unsigned long addr,
 	 * Loop through the address space to find a address region agreeable to
 	 * both system map and gpu map
 	 */
-	do {
+	while (1) {
 		if (retry) {
 			/*
 			 * try the bottom up approach if top down failed
 			 */
 			if (flag_top_down) {
 				flag_top_down = false;
-				addr = TASK_UNMAPPED_BASE;
+				addr = max_t(unsigned long,
+					KGSL_SVM_LOWER_BOUND, mmap_min_addr);
 				gpumap_free_addr = 0;
 				ret = 0;
 				retry = 0;
@@ -4076,7 +4078,8 @@ kgsl_get_unmapped_area(struct file *file, unsigned long addr,
 			addr = gpumap_free_addr;
 		if (flag_top_down) {
 			info.flags = VM_UNMAPPED_AREA_TOPDOWN;
-			info.low_limit = PAGE_SIZE;
+			info.low_limit = max_t(unsigned long,
+					KGSL_SVM_LOWER_BOUND, mmap_min_addr);
 			info.high_limit = (addr > KGSL_SVM_UPPER_BOUND) ?
 						KGSL_SVM_UPPER_BOUND : addr;
 		} else {
@@ -4123,13 +4126,12 @@ kgsl_get_unmapped_area(struct file *file, unsigned long addr,
 		 * the whole address space at least once by wrapping
 		 * back around once.
 		 */
-		if (!mmap_range_valid(addr, len) ||
-			!mmap_range_valid(gpumap_free_addr, len)) {
+		if (!mmap_range_valid(gpumap_free_addr, len)) {
 			retry = 1;
 			ret = -EBUSY;
 			continue;
 		}
-	} while (mmap_range_valid(addr, orig_len));
+	}
 
 put:
 	if (IS_ERR_VALUE(ret))
