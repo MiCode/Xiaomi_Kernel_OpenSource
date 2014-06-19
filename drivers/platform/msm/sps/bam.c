@@ -1177,7 +1177,7 @@ int bam_pipe_init(void *base, u32 pipe,	struct bam_pipe_parameters *param,
 			    param->stream_mode);
 
 #ifdef CONFIG_SPS_SUPPORT_NDP_BAM
-	if (SPS_LPAE)
+	if (SPS_LPAE && SPS_GET_UPPER_ADDR(param->desc_base))
 		bam_write_reg(base, P_DESC_FIFO_ADDR_MSB, pipe,
 				SPS_GET_UPPER_ADDR(param->desc_base));
 
@@ -1207,7 +1207,7 @@ int bam_pipe_init(void *base, u32 pipe,	struct bam_pipe_parameters *param,
 			param->peer_pipe);
 
 #ifdef CONFIG_SPS_SUPPORT_NDP_BAM
-		if (SPS_LPAE) {
+		if (SPS_LPAE && SPS_GET_UPPER_ADDR(param->data_base)) {
 			bam_write_reg(base, P_EVNT_DEST_ADDR_MSB, pipe, 0x0);
 			bam_write_reg(base, P_DATA_FIFO_ADDR_MSB, pipe,
 				      SPS_GET_UPPER_ADDR(param->data_base));
