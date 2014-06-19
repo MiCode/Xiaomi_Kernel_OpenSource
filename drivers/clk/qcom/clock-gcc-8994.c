@@ -1301,10 +1301,6 @@ static struct rcg_clk tsif_ref_clk_src = {
 	},
 };
 
-DEFINE_FIXED_DIV_CLK(ufs_rx_cfg_postdiv_clk_src, 2, &ufs_axi_clk_src.c);
-
-DEFINE_FIXED_DIV_CLK(ufs_tx_cfg_postdiv_clk_src, 2, &ufs_axi_clk_src.c);
-
 static struct clk_freq_tbl ftbl_usb30_mock_utmi_clk_src[] = {
 	F(  19200000,         gcc_xo,    1,    0,     0),
 	F(  60000000, gpll0_out_main,   10,    0,     0),
@@ -2338,11 +2334,13 @@ static struct branch_clk gcc_ufs_axi_clk = {
 static struct branch_clk gcc_ufs_rx_cfg_clk = {
 	.cbcr_reg = UFS_RX_CFG_CBCR,
 	.has_sibling = 1,
+	.max_div = 16,
 	.base = &virt_base,
 	.c = {
 		.dbg_name = "gcc_ufs_rx_cfg_clk",
-		.parent = &ufs_rx_cfg_postdiv_clk_src.c,
+		.parent = &ufs_axi_clk_src.c,
 		.ops = &clk_ops_branch,
+		.rate = 1,
 		CLK_INIT(gcc_ufs_rx_cfg_clk.c),
 	},
 };
@@ -2372,11 +2370,13 @@ static struct branch_clk gcc_ufs_rx_symbol_1_clk = {
 static struct branch_clk gcc_ufs_tx_cfg_clk = {
 	.cbcr_reg = UFS_TX_CFG_CBCR,
 	.has_sibling = 1,
+	.max_div = 16,
 	.base = &virt_base,
 	.c = {
 		.dbg_name = "gcc_ufs_tx_cfg_clk",
-		.parent = &ufs_tx_cfg_postdiv_clk_src.c,
+		.parent = &ufs_axi_clk_src.c,
 		.ops = &clk_ops_branch,
+		.rate = 1,
 		CLK_INIT(gcc_ufs_tx_cfg_clk.c),
 	},
 };
