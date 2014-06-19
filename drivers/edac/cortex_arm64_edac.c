@@ -88,6 +88,12 @@
 #define ARM64_ERP_PANIC_ON_UE 0
 #endif
 
+#ifdef CONFIG_EDAC_CORTEX_ARM64_PANIC_ON_CE
+#define ARM64_ERP_PANIC_ON_CE 1
+#else
+#define ARM64_ERP_PANIC_ON_CE 0
+#endif
+
 #define EDAC_CPU	"arm64"
 
 enum error_type {
@@ -788,6 +794,7 @@ static int arm64_cpu_erp_probe(struct platform_device *pdev)
 	if (rc)
 		goto out_mem;
 
+	drv->edev_ctl->panic_on_ce = ARM64_ERP_PANIC_ON_CE;
 	drv->edev_ctl->panic_on_ue = ARM64_ERP_PANIC_ON_UE;
 
 	r = platform_get_resource_byname(pdev, IORESOURCE_MEM, "cci");
