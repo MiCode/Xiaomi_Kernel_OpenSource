@@ -203,19 +203,6 @@ out:
 	return rc;
 }
 
-static int rpm_branch_clk_set_rate(struct clk *clk, unsigned long rate)
-{
-	if (rate == clk->rate)
-		return 0;
-
-	return -EPERM;
-}
-
-static long rpm_branch_clk_round_rate(struct clk *clk, unsigned long rate)
-{
-	return clk->rate;
-}
-
 static unsigned long rpm_clk_get_rate(struct clk *clk)
 {
 	struct rpm_clk *r = to_rpm_clk(clk);
@@ -317,8 +304,6 @@ struct clk_ops clk_ops_rpm = {
 struct clk_ops clk_ops_rpm_branch = {
 	.prepare = rpm_clk_prepare,
 	.unprepare = rpm_clk_unprepare,
-	.set_rate = rpm_branch_clk_set_rate,
-	.round_rate = rpm_branch_clk_round_rate,
 	.is_local = rpm_clk_is_local,
 	.handoff = rpm_clk_handoff,
 };
