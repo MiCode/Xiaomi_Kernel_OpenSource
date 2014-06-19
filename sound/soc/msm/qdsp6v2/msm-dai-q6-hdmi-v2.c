@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -224,6 +224,11 @@ static int msm_dai_q6_hdmi_dai_probe(struct snd_soc_dai *dai)
 	const struct snd_kcontrol_new *kcontrol;
 	int rc = 0;
 	struct snd_soc_dapm_route intercon;
+
+	if (!dai) {
+		pr_err("%s: dai not found\n", __func__);
+		return -EINVAL;
+	}
 	dai_data = kzalloc(sizeof(struct msm_dai_q6_hdmi_dai_data),
 		GFP_KERNEL);
 
