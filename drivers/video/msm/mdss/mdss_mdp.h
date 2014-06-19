@@ -610,7 +610,7 @@ int mdss_mdp_overlay_get_buf(struct msm_fb_data_type *mfd,
 			     u32 flags);
 int mdss_mdp_overlay_pipe_setup(struct msm_fb_data_type *mfd,
 	struct mdp_overlay *req, struct mdss_mdp_pipe **ppipe,
-	struct mdss_mdp_pipe *left_blend_pipe);
+	struct mdss_mdp_pipe *left_blend_pipe, bool is_single_layer);
 void mdss_mdp_handoff_cleanup_pipes(struct msm_fb_data_type *mfd,
 							u32 type);
 int mdss_mdp_overlay_release(struct msm_fb_data_type *mfd, int ndx);
@@ -646,7 +646,7 @@ int mdss_mdp_perf_bw_check_pipe(struct mdss_mdp_perf_params *perf,
 		struct mdss_mdp_pipe *pipe);
 int mdss_mdp_perf_calc_pipe(struct mdss_mdp_pipe *pipe,
 	struct mdss_mdp_perf_params *perf, struct mdss_rect *roi,
-	bool apply_fudge);
+	bool apply_fudge, bool is_single_layer);
 u32 mdss_mdp_get_mdp_clk_rate(struct mdss_data_type *mdata);
 int mdss_mdp_ctl_notify(struct mdss_mdp_ctl *ctl, int event);
 void mdss_mdp_ctl_notifier_register(struct mdss_mdp_ctl *ctl,
