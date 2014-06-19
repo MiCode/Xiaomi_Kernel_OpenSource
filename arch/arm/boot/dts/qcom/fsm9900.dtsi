@@ -1730,15 +1730,15 @@
 		reg = <0xfd4aa000 0x20>, <0xfd4a9000 0x40>;
 	};
 
-	qcom,danipc@251f8000 {
+	qcom,danipc@24200000 {
 		compatible = "qcom,danipc";
 		reg-names = "ipc_bufs", "agent_table", "krait_ipc_intr_en",
-				"cpu0_ipc", "cpu1_ipc", "cpu2_ipc", "cpu3_ipc",
-				"dsp0_ipc", "dsp1_ipc", "dsp2_ipc", "krait_ipc",
-				"qdsp6_0_ipc", "qdsp6_1_ipc", "qdsp6_2_ipc",
-				"qdsp6_3_ipc";
-		reg = <0x251f8000 0x8000>, /* ipc_bufs */
-			<0xf601ac00 0x2000>, /* agent_table */
+			"cpu0_ipc", "cpu1_ipc", "cpu2_ipc", "cpu3_ipc",
+			"dsp0_ipc", "dsp1_ipc", "dsp2_ipc", "krait_ipc",
+			"qdsp6_0_ipc", "qdsp6_1_ipc", "qdsp6_2_ipc",
+			"qdsp6_3_ipc";
+		reg = <0x24200000 0x80000>, /* ipc_bufs */
+			<0x1cf60000 0x2000>, /* agent_table */
 			<0xfd4a3500 0x100>, /* krait_ipc_intr_en */
 			<0xf683a000 0x100>, /* cpu0_ipc */
 			<0xf683a000 0x100>, /* cpu1_ipc */
@@ -1750,8 +1750,9 @@
 			<0xfd490000 0x100>, /* krait_ipc */
 			<0xfd491000 0x100>, /* qdsp6_0_ipc */
 			<0xfd492000 0x100>, /* qdsp6_1_ipc */
-			<0xfd493000 0x100>, /* qdsp6_2_ipc */
+			<0xfd496000 0x100>, /* qdsp6_2_ipc */
 			<0xfd494000 0x100>; /* qdsp6_3_ipc */
+		qcom,qdsp6-2-shm-size = <0x4000000>;
 		interrupts = <0 202 0>;
 	};
 };

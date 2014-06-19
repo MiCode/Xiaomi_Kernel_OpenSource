@@ -55,7 +55,7 @@
 		status = "ok";
 	};
 
-	qcom,danipc@251f8000 {
+	qcom,danipc@24200000 {
 		status = "ok";
 	};
 };
