@@ -392,6 +392,17 @@ static int cluster_select(struct lpm_cluster *cluster, bool from_idle)
 		latency_us = pm_qos_request_for_cpumask(PM_QOS_CPU_DMA_LATENCY,
 							&mask);
 
+	/*
+	 * If atleast one of the core in the cluster is online, the cluster
+	 * low power modes should be determined by the idle characteristics
+	 * even if the last core enters the low power mode as a part of
+	 * hotplug.
+	 */
+
+	if (!from_idle && num_online_cpus() > 1 &&
+		cpumask_intersects(&cluster->child_cpus, cpu_online_mask))
+		from_idle = true;
+
 	for (i = 0; i < cluster->nlevels; i++) {
 		struct lpm_cluster_level *level = &cluster->levels[i];
 		struct power_params *pwr_params = &level->pwr;
