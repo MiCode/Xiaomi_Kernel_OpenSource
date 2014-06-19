@@ -1,7 +1,7 @@
 /*
  * ASIX AX88179/178A USB 3.0/2.0 to Gigabit Ethernet Devices
  *
- * Copyright (C) 2011-2014 ASIX
+ * Copyright (C) 2011-2013 ASIX
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License
