@@ -137,6 +137,7 @@ struct bms_wakeup_source {
 
 struct bms_dt_cfg {
 	bool				cfg_report_charger_eoc;
+	bool				cfg_force_bms_active_on_charger;
 	bool				cfg_force_s3_on_suspend;
 	bool				cfg_ignore_shutdown_soc;
 	bool				cfg_use_voltage_soc;
@@ -233,6 +234,7 @@ struct qpnp_bms_chip {
 	struct bms_irq			fsm_state_change_irq;
 	struct power_supply		bms_psy;
 	struct power_supply		*batt_psy;
+	struct power_supply		*usb_psy;
 };
 
 static struct qpnp_bms_chip *the_chip;
@@ -415,6 +417,21 @@ static int calculate_delta_time(unsigned long *time_stamp, int *delta_time_s)
 	/* remember this time */
 	*time_stamp = now_tm_sec;
 	return 0;
+}
+
+static bool is_charger_present(struct qpnp_bms_chip *chip)
+{
+	union power_supply_propval ret = {0,};
+
+	if (chip->usb_psy == NULL)
+		chip->usb_psy = power_supply_get_by_name("usb");
+	if (chip->usb_psy) {
+		chip->usb_psy->get_property(chip->usb_psy,
+					POWER_SUPPLY_PROP_PRESENT, &ret);
+		return ret.intval;
+	}
+
+	return false;
 }
 
 static bool is_battery_charging(struct qpnp_bms_chip *chip)
@@ -2971,7 +2988,9 @@ static int parse_bms_dt_properties(struct qpnp_bms_chip *chip)
 			chip->spmi->dev.of_node, "qcom,report-charger-eoc");
 	chip->dt.cfg_disable_bms = of_property_read_bool(
 			chip->spmi->dev.of_node, "qcom,disable-bms");
-
+	chip->dt.cfg_force_bms_active_on_charger = of_property_read_bool(
+			chip->spmi->dev.of_node,
+			"qcom,force-bms-active-on-charger");
 	pr_debug("v_cutoff_uv=%d, max_v=%d\n", chip->dt.cfg_v_cutoff_uv,
 					chip->dt.cfg_max_voltage_uv);
 	pr_debug("r_conn=%d shutdown_soc_valid_limit=%d\n",
@@ -2981,10 +3000,11 @@ static int parse_bms_dt_properties(struct qpnp_bms_chip *chip)
 				chip->dt.cfg_ignore_shutdown_soc,
 				chip->dt.cfg_use_voltage_soc,
 				chip->dt.cfg_low_soc_fifo_length);
-	pr_debug("force-s3-on-suspend=%d report-charger-eoc=%d disable-bms=%d\n",
+	pr_debug("force-s3-on-suspend=%d report-charger-eoc=%d disable-bms=%d disable-suspend-on-usb=%d\n",
 			chip->dt.cfg_force_s3_on_suspend,
 			chip->dt.cfg_report_charger_eoc,
-			chip->dt.cfg_disable_bms);
+			chip->dt.cfg_disable_bms,
+			chip->dt.cfg_force_bms_active_on_charger);
 
 	return 0;
 }
@@ -3378,15 +3398,26 @@ static int bms_suspend(struct device *dev)
 	struct qpnp_bms_chip *chip = dev_get_drvdata(dev);
 	bool battery_charging = is_battery_charging(chip);
 	bool hi_power_state = is_hi_power_state_requested(chip);
+	bool charger_present = is_charger_present(chip);
+	bool bms_suspend_config;
+
+	/*
+	 * Keep BMS FSM active if 'cfg_force_bms_active_on_charger' property
+	 * is present and charger inserted. This ensures that recharge
+	 * starts once battery SOC falls below resume_soc.
+	 */
+	bms_suspend_config = chip->dt.cfg_force_bms_active_on_charger
+						&& charger_present;
 
 	chip->apply_suspend_config = false;
-	if (!battery_charging && !hi_power_state)
+	if (!battery_charging && !hi_power_state && !bms_suspend_config)
 		chip->apply_suspend_config = true;
 
-	pr_debug("battery_charging=%d power_state=%s hi_power_state=0x%x apply_suspend_config=%d\n",
+	pr_debug("battery_charging=%d power_state=%s hi_power_state=0x%x apply_suspend_config=%d bms_suspend_config=%d usb_present=%d\n",
 			battery_charging, hi_power_state ? "hi" : "low",
 				chip->hi_power_state,
-				chip->apply_suspend_config);
+				chip->apply_suspend_config, bms_suspend_config,
+				charger_present);
 
 	if (chip->apply_suspend_config) {
 		if (chip->dt.cfg_force_s3_on_suspend) {
