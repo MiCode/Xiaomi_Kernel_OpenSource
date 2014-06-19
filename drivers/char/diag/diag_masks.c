@@ -29,7 +29,7 @@ int diag_event_num_bytes;
 #define ALL_EQUIP_ID		100
 #define ALL_SSID		-1
 
-#define FEATURE_MASK_LEN_BYTES		2
+#define DIAG_SET_FEATURE_MASK(x) (feature_bytes[(x)/8] |= (1 << (x & 0x7)))
 
 struct mask_info {
 	int equip_id;
@@ -561,7 +561,8 @@ void diag_send_feature_mask_update(struct diag_smd_info *smd_info)
 {
 	void *buf = driver->buf_feature_mask_update;
 	int header_size = sizeof(struct diag_ctrl_feature_mask);
-	uint8_t feature_bytes[FEATURE_MASK_LEN_BYTES] = {0, 0};
+	uint8_t feature_bytes[FEATURE_MASK_LEN] = {0, 0};
+	struct diag_ctrl_feature_mask feature_mask;
 	int total_len = 0;
 	int err = 0;
 
@@ -579,19 +580,19 @@ void diag_send_feature_mask_update(struct diag_smd_info *smd_info)
 
 	mutex_lock(&driver->diag_cntl_mutex);
 	/* send feature mask update */
-	driver->feature_mask->ctrl_pkt_id = DIAG_CTRL_MSG_FEATURE;
-	driver->feature_mask->ctrl_pkt_data_len = 4 + FEATURE_MASK_LEN_BYTES;
-	driver->feature_mask->feature_mask_len = FEATURE_MASK_LEN_BYTES;
-	memcpy(buf, driver->feature_mask, header_size);
-	feature_bytes[0] |= F_DIAG_INT_FEATURE_MASK;
-	feature_bytes[0] |= F_DIAG_LOG_ON_DEMAND_RSP_ON_MASTER;
-	feature_bytes[0] |= driver->supports_separate_cmdrsp ?
-				F_DIAG_REQ_RSP_CHANNEL : 0;
-	feature_bytes[0] |= driver->supports_apps_hdlc_encoding ?
-				F_DIAG_HDLC_ENCODE_IN_APPS_MASK : 0;
-	feature_bytes[1] |= F_DIAG_OVER_STM;
-	memcpy(buf+header_size, &feature_bytes, FEATURE_MASK_LEN_BYTES);
-	total_len = header_size + FEATURE_MASK_LEN_BYTES;
+	feature_mask.ctrl_pkt_id = DIAG_CTRL_MSG_FEATURE;
+	feature_mask.ctrl_pkt_data_len = sizeof(uint32_t) + FEATURE_MASK_LEN;
+	feature_mask.feature_mask_len = FEATURE_MASK_LEN;
+	memcpy(buf, &feature_mask, header_size);
+	DIAG_SET_FEATURE_MASK(F_DIAG_FEATURE_MASK_SUPPORT);
+	DIAG_SET_FEATURE_MASK(F_DIAG_LOG_ON_DEMAND_APPS);
+	DIAG_SET_FEATURE_MASK(F_DIAG_STM);
+	if (driver->supports_separate_cmdrsp)
+		DIAG_SET_FEATURE_MASK(F_DIAG_REQ_RSP_SUPPORT);
+	if (driver->supports_apps_hdlc_encoding)
+		DIAG_SET_FEATURE_MASK(F_DIAG_APPS_HDLC_ENCODE);
+	memcpy(buf + header_size, &feature_bytes, FEATURE_MASK_LEN);
+	total_len = header_size + FEATURE_MASK_LEN;
 
 	err = diag_smd_write(smd_info, buf, total_len);
 	if (err) {
@@ -911,17 +912,10 @@ int diag_masks_init(void)
 	if (driver->buf_feature_mask_update == NULL) {
 		driver->buf_feature_mask_update = kzalloc(sizeof(
 					struct diag_ctrl_feature_mask) +
-					FEATURE_MASK_LEN_BYTES, GFP_KERNEL);
+					FEATURE_MASK_LEN, GFP_KERNEL);
 		if (driver->buf_feature_mask_update == NULL)
 			goto err;
 		kmemleak_not_leak(driver->buf_feature_mask_update);
-	}
-	if (driver->feature_mask == NULL) {
-		driver->feature_mask = kzalloc(sizeof(
-			struct diag_ctrl_feature_mask), GFP_KERNEL);
-		if (driver->feature_mask == NULL)
-			goto err;
-		kmemleak_not_leak(driver->feature_mask);
 	}
 	diag_create_msg_mask_table();
 	diag_event_num_bytes = 0;
@@ -947,7 +941,6 @@ err:
 	kfree(driver->msg_masks);
 	kfree(driver->log_masks);
 	kfree(driver->event_masks);
-	kfree(driver->feature_mask);
 	kfree(driver->buf_feature_mask_update);
 	return -ENOMEM;
 }
@@ -960,6 +953,5 @@ void diag_masks_exit(void)
 	kfree(driver->msg_masks);
 	kfree(driver->log_masks);
 	kfree(driver->event_masks);
-	kfree(driver->feature_mask);
 	kfree(driver->buf_feature_mask_update);
 }

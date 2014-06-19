@@ -21,9 +21,11 @@
 #include "diagfwd_hsic.h"
 #include "diag_dci.h"
 #include "diagmem.h"
+
+#define FEATURE_SUPPORTED(x)	((feature_mask << (i * 8)) & (1 << x))
+
 /* tracks which peripheral is undergoing SSR */
 static uint16_t reg_dirty;
-#define HDR_SIZ 8
 
 void diag_clean_reg_fn(struct work_struct *work)
 {
@@ -87,30 +89,20 @@ void diag_cntl_stm_notify(struct diag_smd_info *smd_info, int action)
 	}
 }
 
-static void process_stm_feature(struct diag_smd_info *smd_info,
-			      uint8_t feature_mask)
+static void enable_stm_feature(struct diag_smd_info *smd_info)
 {
-	if (feature_mask & F_DIAG_OVER_STM) {
-		driver->peripheral_supports_stm[smd_info->peripheral] =
-								ENABLE_STM;
-		smd_info->general_context = UPDATE_PERIPHERAL_STM_STATE;
-		queue_work(driver->diag_cntl_wq,
-				&(smd_info->diag_general_smd_work));
-	} else {
-		driver->peripheral_supports_stm[smd_info->peripheral] =
-								DISABLE_STM;
-	}
+	driver->peripheral_supports_stm[smd_info->peripheral] = ENABLE_STM;
+	smd_info->general_context = UPDATE_PERIPHERAL_STM_STATE;
+	queue_work(driver->diag_cntl_wq, &(smd_info->diag_general_smd_work));
 }
 
-static void process_hdlc_encoding_feature(struct diag_smd_info *smd_info,
-					uint8_t feature_mask)
+static void process_hdlc_encoding_feature(struct diag_smd_info *smd_info)
 {
 	/*
 	 * Check if apps supports hdlc encoding and the
 	 * peripheral supports apps hdlc encoding
 	 */
-	if (driver->supports_apps_hdlc_encoding &&
-		(feature_mask & F_DIAG_HDLC_ENCODE_IN_APPS_MASK)) {
+	if (driver->supports_apps_hdlc_encoding) {
 		driver->smd_data[smd_info->peripheral].encode_hdlc =
 						ENABLE_APPS_HDLC_ENCODING;
 		if (driver->separate_cmdrsp[smd_info->peripheral] &&
@@ -124,6 +116,126 @@ static void process_hdlc_encoding_feature(struct diag_smd_info *smd_info,
 			smd_info->peripheral < NUM_SMD_CMD_CHANNELS)
 			driver->smd_cmd[smd_info->peripheral].encode_hdlc =
 						DISABLE_APPS_HDLC_ENCODING;
+	}
+}
+
+static void process_command_registration(uint8_t *buf, uint32_t len,
+					 struct diag_smd_info *smd_info)
+{
+	uint8_t *ptr = buf;
+	int i;
+	int header_len = sizeof(struct diag_ctrl_cmd_reg);
+	int read_len = 0;
+	struct bindpkt_params_per_process *pkt_params = NULL;
+	struct bindpkt_params *temp = NULL;
+	struct diag_ctrl_cmd_reg *reg = NULL;
+	struct cmd_code_range *range = NULL;
+
+	/*
+	 * Perform Basic sanity. The len field is the size of the data payload.
+	 * This doesn't include the header size.
+	 */
+	if (!buf || !smd_info || len == 0)
+		return;
+
+	/* Peripheral undergoing SSR should not record new registration */
+	if (reg_dirty & smd_info->peripheral_mask) {
+		pr_err("diag: dropping command registration from peripheral %d\n",
+		       smd_info->peripheral);
+		return;
+	}
+
+	reg = (struct diag_ctrl_cmd_reg *)ptr;
+	ptr += header_len;
+
+	if (reg->count_entries == 0) {
+		pr_debug("diag: In %s, received reg tbl with no entries\n",
+			 __func__);
+		return;
+	}
+
+	pkt_params = kzalloc(sizeof(struct bindpkt_params_per_process),
+			     GFP_KERNEL);
+	if (!pkt_params) {
+		pr_err("diag: In %s, unable to allocate memory for new command table entry\n",
+		       __func__);
+		return;
+	}
+	pkt_params->count = reg->count_entries;
+	pkt_params->params = kzalloc(pkt_params->count *
+				     sizeof(struct bindpkt_params),
+				     GFP_KERNEL);
+	if (!pkt_params->params) {
+		pr_err("diag: In %s, Memory alloc fail for cmd_code: %d, subsys: %d\n",
+		       __func__, reg->cmd_code, reg->subsysid);
+		kfree(pkt_params);
+		return;
+	}
+
+	temp = pkt_params->params;
+	for (i = 0; i < reg->count_entries && read_len < len; i++, temp++) {
+		temp->cmd_code = reg->cmd_code;
+		temp->subsys_id = reg->subsysid;
+		temp->client_id = smd_info->peripheral;
+		temp->proc_id = NON_APPS_PROC;
+		range = (struct cmd_code_range *)ptr;
+		temp->cmd_code_lo = range->cmd_code_lo;
+		temp->cmd_code_hi = range->cmd_code_hi;
+		ptr += sizeof(struct cmd_code_range);
+		read_len += sizeof(struct cmd_code_range);
+	}
+
+	diagchar_ioctl(NULL, DIAG_IOCTL_COMMAND_REG, (unsigned long)pkt_params);
+	kfree(pkt_params->params);
+	kfree(pkt_params);
+}
+
+static void process_incoming_feature_mask(uint8_t *buf, uint32_t len,
+					  struct diag_smd_info *smd_info)
+{
+	int i;
+	int header_len = sizeof(struct diag_ctrl_feature_mask);
+	int read_len = 0;
+	struct diag_ctrl_feature_mask *header = NULL;
+	uint32_t feature_mask_len = 0;
+	uint32_t feature_mask = 0;
+	uint8_t *ptr = buf;
+
+	if (!buf || !smd_info || len == 0)
+		return;
+
+	header = (struct diag_ctrl_feature_mask *)ptr;
+	ptr += header_len;
+	feature_mask_len = header->feature_mask_len;
+
+	if (feature_mask_len == 0) {
+		pr_debug("diag: In %s, received invalid feature mask from peripheral %d\n",
+			 __func__, smd_info->peripheral);
+		return;
+	}
+
+	if (feature_mask_len > FEATURE_MASK_LEN) {
+		pr_alert("diag: Receiving feature mask length more than Apps support\n");
+		feature_mask_len = FEATURE_MASK_LEN;
+	}
+
+	driver->rcvd_feature_mask[smd_info->peripheral] = 1;
+
+	for (i = 0; i < feature_mask_len && read_len < len; i++) {
+		feature_mask = *(uint8_t *)ptr;
+		driver->peripheral_feature[smd_info->peripheral][i] =
+								feature_mask;
+		ptr += sizeof(uint8_t);
+		read_len += sizeof(uint8_t);
+
+		if (FEATURE_SUPPORTED(F_DIAG_LOG_ON_DEMAND_APPS))
+			driver->log_on_demand_support = 1;
+		if (FEATURE_SUPPORTED(F_DIAG_REQ_RSP_SUPPORT))
+			driver->separate_cmdrsp[smd_info->peripheral] = 1;
+		if (FEATURE_SUPPORTED(F_DIAG_APPS_HDLC_ENCODE))
+			process_hdlc_encoding_feature(smd_info);
+		if (FEATURE_SUPPORTED(F_DIAG_STM))
+			enable_stm_feature(smd_info);
 	}
 }
 
@@ -131,130 +243,34 @@ static void process_hdlc_encoding_feature(struct diag_smd_info *smd_info,
 int diag_process_smd_cntl_read_data(struct diag_smd_info *smd_info, void *buf,
 								int total_recd)
 {
-	int data_len = 0, type = -1, count_bytes = 0, j, flag = 0;
-	struct bindpkt_params_per_process *pkt_params =
-		kzalloc(sizeof(struct bindpkt_params_per_process), GFP_KERNEL);
-	struct diag_ctrl_msg *msg;
-	struct cmd_code_range *range;
-	struct bindpkt_params *temp;
+	int read_len = 0;
+	int header_len = sizeof(struct diag_ctrl_pkt_header_t);
+	uint8_t *ptr = buf;
+	struct diag_ctrl_pkt_header_t *ctrl_pkt = NULL;
 
-	if (pkt_params == NULL) {
-		pr_alert("diag: In %s, Memory allocation failure\n",
-			__func__);
-		return 0;
-	}
+	if (!smd_info || !buf || total_recd <= 0)
+		return -EIO;
 
-	if (!smd_info) {
-		pr_err("diag: In %s, No smd info. Not able to read.\n",
-			__func__);
-		kfree(pkt_params);
-		return 0;
-	}
-
-	while (count_bytes + HDR_SIZ <= total_recd) {
-		type = *(uint32_t *)(buf);
-		data_len = *(uint32_t *)(buf + 4);
-		if (type < DIAG_CTRL_MSG_REG ||
-				 type > DIAG_CTRL_MSG_LAST) {
-			pr_alert("diag: In %s, Invalid Msg type %d proc %d",
-				 __func__, type, smd_info->peripheral);
+	while (read_len + header_len < total_recd) {
+		ctrl_pkt = (struct diag_ctrl_pkt_header_t *)ptr;
+		switch (ctrl_pkt->pkt_id) {
+		case DIAG_CTRL_MSG_REG:
+			process_command_registration(ptr, ctrl_pkt->len,
+						     smd_info);
 			break;
-		}
-		if (data_len < 0 || data_len > total_recd) {
-			pr_alert("diag: In %s, Invalid data len %d, total_recd: %d, proc %d",
-				 __func__, data_len, total_recd,
-				 smd_info->peripheral);
+		case DIAG_CTRL_MSG_FEATURE:
+			process_incoming_feature_mask(ptr, ctrl_pkt->len,
+						      smd_info);
 			break;
+		default:
+			pr_debug("diag: Control packet %d not supported\n",
+				 ctrl_pkt->pkt_id);
 		}
-		count_bytes = count_bytes+HDR_SIZ+data_len;
-		if (type == DIAG_CTRL_MSG_REG && total_recd >= count_bytes) {
-			msg = buf+HDR_SIZ;
-			range = buf+HDR_SIZ+
-					sizeof(struct diag_ctrl_msg);
-			if (msg->count_entries == 0) {
-				pr_debug("diag: In %s, received reg tbl with no entries\n",
-								__func__);
-				buf = buf + HDR_SIZ + data_len;
-				continue;
-			}
-			pkt_params->count = msg->count_entries;
-			pkt_params->params = kzalloc(pkt_params->count *
-				sizeof(struct bindpkt_params), GFP_KERNEL);
-			if (!pkt_params->params) {
-				pr_alert("diag: In %s, Memory alloc fail for cmd_code: %d, subsys: %d\n",
-						__func__, msg->cmd_code,
-						msg->subsysid);
-				buf = buf + HDR_SIZ + data_len;
-				continue;
-			}
-			temp = pkt_params->params;
-			for (j = 0; j < pkt_params->count; j++) {
-				temp->cmd_code = msg->cmd_code;
-				temp->subsys_id = msg->subsysid;
-				temp->client_id = smd_info->peripheral;
-				temp->proc_id = NON_APPS_PROC;
-				temp->cmd_code_lo = range->cmd_code_lo;
-				temp->cmd_code_hi = range->cmd_code_hi;
-				range++;
-				temp++;
-			}
-			flag = 1;
-			/* peripheral undergoing SSR should not
-			 * record new registration
-			 */
-			if (!(reg_dirty & smd_info->peripheral_mask))
-				diagchar_ioctl(NULL, DIAG_IOCTL_COMMAND_REG,
-						(unsigned long)pkt_params);
-			else
-				pr_err("diag: drop reg proc %d\n",
-						smd_info->peripheral);
-			kfree(pkt_params->params);
-		} else if (type == DIAG_CTRL_MSG_FEATURE &&
-				total_recd >= count_bytes) {
-			uint8_t feature_mask = 0;
-			int feature_mask_len = *(int *)(buf+8);
-			if (feature_mask_len > 0) {
-				int periph = smd_info->peripheral;
-				driver->rcvd_feature_mask[smd_info->peripheral]
-									= 1;
-				feature_mask = *(uint8_t *)(buf+12);
-				if (periph == MODEM_DATA)
-					driver->log_on_demand_support =
-						feature_mask &
-					F_DIAG_LOG_ON_DEMAND_RSP_ON_MASTER;
-				/*
-				 * If apps supports separate cmd/rsp channels
-				 * and the peripheral supports separate cmd/rsp
-				 * channels
-				 */
-				if (driver->supports_separate_cmdrsp &&
-					(feature_mask & F_DIAG_REQ_RSP_CHANNEL))
-					driver->separate_cmdrsp[periph] =
-							ENABLE_SEPARATE_CMDRSP;
-				else
-					driver->separate_cmdrsp[periph] =
-							DISABLE_SEPARATE_CMDRSP;
-				/*
-				 * Check if apps supports hdlc encoding and the
-				 * peripheral supports apps hdlc encoding
-				 */
-				process_hdlc_encoding_feature(smd_info,
-								feature_mask);
-				if (feature_mask_len > 1) {
-					feature_mask = *(uint8_t *)(buf+13);
-					process_stm_feature(smd_info,
-								feature_mask);
-				}
-			}
-			flag = 1;
-		} else if (type != DIAG_CTRL_MSG_REG) {
-			flag = 1;
-		}
-		buf = buf + HDR_SIZ + data_len;
+		ptr += header_len + ctrl_pkt->len;
+		read_len += header_len + ctrl_pkt->len;
 	}
-	kfree(pkt_params);
 
-	return flag;
+	return 0;
 }
 
 static int diag_compute_real_time(int idx)
