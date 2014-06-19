@@ -168,6 +168,7 @@ struct msm_vfe_axi_stream_request_cmd {
 	/*Return values*/
 	uint32_t axi_stream_handle;
 	uint32_t controllable_output;
+	uint32_t burst_len;
 };
 
 struct msm_vfe_axi_stream_release_cmd {
@@ -254,6 +255,7 @@ struct msm_vfe_stats_stream_cfg_cmd {
 	uint8_t num_streams;
 	uint32_t stream_handle[MSM_ISP_STATS_MAX];
 	uint8_t enable;
+	uint32_t stats_burst_len;
 };
 
 enum msm_vfe_reg_cfg_type {
@@ -271,6 +273,7 @@ enum msm_vfe_reg_cfg_type {
 	GET_ISP_ID,
 	VFE_HW_UPDATE_LOCK,
 	VFE_HW_UPDATE_UNLOCK,
+	SET_WM_UB_SIZE,
 };
 
 struct msm_vfe_cfg_cmd2 {
