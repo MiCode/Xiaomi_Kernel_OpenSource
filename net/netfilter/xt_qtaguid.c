@@ -1696,9 +1696,10 @@ static bool qtaguid_mt(const struct sk_buff *skb, struct xt_action_param *par)
 	 * "struct inet_timewait_sock" which is missing fields.
 	 * So we ignore it.
 	 */
-	if (sk && sk->sk_state == TCP_TIME_WAIT)
+	if (sk && sk->sk_state == TCP_TIME_WAIT) {
 		sk = NULL;
-	if (sk == NULL) {
+		atomic64_inc(&qtu_events.match_found_no_sk_in_ct);
+	} else if (sk == NULL) {
 		/*
 		 * A missing sk->sk_socket happens when packets are in-flight
 		 * and the matching socket is already closed and gone.
