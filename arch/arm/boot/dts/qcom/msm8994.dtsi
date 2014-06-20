@@ -1367,7 +1367,7 @@
 			<&clock_mmss clk_venus0_ahb_clk>,
 			<&clock_mmss clk_venus0_axi_clk>,
 			<&clock_mmss clk_venus0_ocmemnoc_clk>,
-			<&clock_rpm clk_ce1_clk>;
+			<&clock_rpm clk_scm_ce1_clk>;
 
 		qcom,msm-bus,name = "pil-venus";
 		qcom,msm-bus,num-cases = <2>;
@@ -1435,7 +1435,7 @@
 
 		clocks = <&clock_gcc clk_gcc_lpass_q6_axi_clk>,
 			 <&clock_rpm clk_cxo_pil_lpass_clk>,
-			 <&clock_rpm clk_ce1_clk>;
+			 <&clock_rpm clk_scm_ce1_clk>;
 		clock-names = "bus_clk", "xo", "scm_ce1_clk";
 		qcom,active-clock-names = "bus_clk";
 		qcom,proxy-clock-names = "xo", "scm_ce1_clk";
@@ -2305,7 +2305,7 @@
 				<55 512 120000 1200000>,
 				<55 512 393600 3936000>;
 		clock-names = "core_clk";
-		clocks = <&clock_rpm clk_ce1_clk>;
+		clocks = <&clock_rpm clk_qseecom_ce1_clk>;
 	};
 
 	qcom,sensor-information {
