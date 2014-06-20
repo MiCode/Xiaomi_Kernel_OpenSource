@@ -63,6 +63,7 @@ struct mdss_mdp_video_ctx {
 
 	atomic_t vsync_ref;
 	spinlock_t vsync_lock;
+	spinlock_t dfps_lock;
 	struct mutex vsync_mtx;
 	struct list_head vsync_handlers;
 };
@@ -86,9 +87,7 @@ static inline u32 mdss_mdp_video_line_count(struct mdss_mdp_ctl *ctl)
 	if (!ctl || !ctl->priv_data)
 		goto line_count_exit;
 	ctx = ctl->priv_data;
-	mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_ON, false);
 	line_cnt = mdp_video_read(ctx, MDSS_MDP_REG_INTF_LINE_COUNT);
-	mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_OFF, false);
 line_count_exit:
 	return line_cnt;
 }
@@ -625,6 +624,8 @@ static int mdss_mdp_video_config_fps(struct mdss_mdp_ctl *ctl,
 			mdss_mdp_display_wait4comp(ctl);
 		} else if (pdata->panel_info.dfps_update
 				== DFPS_IMMEDIATE_PORCH_UPDATE_MODE){
+			u32 line_cnt;
+			unsigned long flags;
 			if (!ctx->timegen_en) {
 				pr_err("TG is OFF. DFPS mode invalid\n");
 				return -EINVAL;
@@ -642,16 +643,21 @@ static int mdss_mdp_video_config_fps(struct mdss_mdp_ctl *ctl,
 			if (rc <= 0)
 				return rc;
 
-			if (mdss_mdp_video_line_count(ctl) >=
-					pdata->panel_info.yres/2) {
-				pr_err("Too few lines left line_cnt = %d y_res/2 = %d\n",
-					mdss_mdp_video_line_count(ctl),
-					pdata->panel_info.yres/2);
+			mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_ON, false);
+			spin_lock_irqsave(&ctx->dfps_lock, flags);
+
+			line_cnt = mdss_mdp_video_line_count(ctl);
+			if (line_cnt >= pdata->panel_info.yres/2) {
+				pr_err("Too few lines left line_cnt=%d yres/2=%d",
+						line_cnt,
+						pdata->panel_info.yres/2);
+				spin_unlock_irqrestore(&ctx->dfps_lock, flags);
 				return -EPERM;
 			}
 			rc = mdss_mdp_video_vfp_fps_update(ctl, new_fps);
 			if (rc < 0) {
 				pr_err("%s: Error during DFPS\n", __func__);
+				spin_unlock_irqrestore(&ctx->dfps_lock, flags);
 				return rc;
 			}
 			if (sctl) {
@@ -659,6 +665,8 @@ static int mdss_mdp_video_config_fps(struct mdss_mdp_ctl *ctl,
 								new_fps);
 				if (rc < 0) {
 					pr_err("%s: DFPS error\n", __func__);
+					spin_unlock_irqrestore(&ctx->dfps_lock,
+							flags);
 					return rc;
 				}
 			}
@@ -667,6 +675,8 @@ static int mdss_mdp_video_config_fps(struct mdss_mdp_ctl *ctl,
 					(void *) (unsigned long) new_fps);
 			WARN(rc, "intf %d panel fps update error (%d)\n",
 							ctl->intf_num, rc);
+			spin_unlock_irqrestore(&ctx->dfps_lock, flags);
+			mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_OFF, false);
 		} else {
 			pr_err("intf %d panel, unknown FPS mode\n",
 							ctl->intf_num);
@@ -835,6 +845,7 @@ int mdss_mdp_video_start(struct mdss_mdp_ctl *ctl)
 	ctx->intf_type = ctl->intf_type;
 	init_completion(&ctx->vsync_comp);
 	spin_lock_init(&ctx->vsync_lock);
+	spin_lock_init(&ctx->dfps_lock);
 	mutex_init(&ctx->vsync_mtx);
 	atomic_set(&ctx->vsync_ref, 0);
 	INIT_WORK(&ctl->recover_work, recover_underrun_work);
