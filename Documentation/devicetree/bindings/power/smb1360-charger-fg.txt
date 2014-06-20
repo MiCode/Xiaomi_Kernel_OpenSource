@@ -55,6 +55,9 @@ Optional Properties:
 - qcom,fg-voltage-empty-mv	The voltage which indicates the battery is empty.
 - qcom,thermal-mitigation:	Array of input current limit values for different
 				system thermal mitigation level.
+- qcom,stat-pulsed-irq:		A boolean flag to indicate the state-irq pin will generate pulse
+				signal when interrupt happened. If this property is not specified,
+				the default configuration is static level irq.
 
 Example:
 	i2c@f9967000 {
