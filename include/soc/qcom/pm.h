@@ -157,5 +157,5 @@ static inline void msm_pm_l2_add_stat(uint32_t id, int64_t t) {}
 #endif
 
 void msm_pm_set_cpr_ops(struct msm_pm_cpr_ops *ops);
-extern unsigned long msm_pc_debug_counters_phys;
+extern dma_addr_t msm_pc_debug_counters_phys;
 #endif  /* __ARCH_ARM_MACH_MSM_PM_H */
