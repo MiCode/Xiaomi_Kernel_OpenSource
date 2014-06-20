@@ -32,6 +32,7 @@ static int msm_sharedmem_probe(struct platform_device *pdev)
 	u32 shared_mem_size = 0;
 	void *shared_mem = NULL;
 	phys_addr_t shared_mem_pyhsical = 0;
+	bool is_addr_dynamic = false;
 	struct sharemem_qmi_entry qmi_entry;
 
 	/* Get the addresses from platform-data */
@@ -66,6 +67,7 @@ static int msm_sharedmem_probe(struct platform_device *pdev)
 	}
 
 	if (shared_mem_pyhsical == 0) {
+		is_addr_dynamic = true;
 		shared_mem = dma_alloc_coherent(&pdev->dev, shared_mem_size,
 					&shared_mem_pyhsical, GFP_KERNEL);
 		if (shared_mem == NULL) {
@@ -93,6 +95,7 @@ static int msm_sharedmem_probe(struct platform_device *pdev)
 	qmi_entry.client_name = info->name;
 	qmi_entry.address = info->mem[0].addr;
 	qmi_entry.size = info->mem[0].size;
+	qmi_entry.is_addr_dynamic = is_addr_dynamic;
 
 	sharedmem_qmi_add_entry(&qmi_entry);
 	pr_info("Device created for client '%s'\n", clnt_res->name);

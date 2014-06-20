@@ -21,6 +21,7 @@ struct sharemem_qmi_entry {
 	u32 client_id;
 	u64 address;
 	u32 size;
+	bool is_addr_dynamic;
 };
 
 int sharedmem_qmi_init(void);

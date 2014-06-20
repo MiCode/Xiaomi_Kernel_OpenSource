@@ -32,6 +32,7 @@ struct shared_addr_entry {
 	u64 address;
 	u32 size;
 	u64 request_count;
+	bool is_addr_dynamic;
 	char name[SHARED_ADDR_ENTRY_NAME_MAX_LEN + 1];
 };
 
@@ -85,6 +86,7 @@ void sharedmem_qmi_add_entry(struct sharemem_qmi_entry *qmi_entry)
 	list_entry->entry.id = qmi_entry->client_id;
 	list_entry->entry.address = qmi_entry->address;
 	list_entry->entry.size = qmi_entry->size;
+	list_entry->entry.is_addr_dynamic = qmi_entry->is_addr_dynamic;
 	list_entry->entry.request_count = 0;
 
 	down_write(&sharedmem_list_lock);
@@ -245,6 +247,10 @@ static u32 fill_debug_info(char *buffer, u32 buffer_size)
 		size += scnprintf(buffer + size, buffer_size - size,
 				"Address: 0x%016llX\n",
 				list_entry->entry.address);
+		size += scnprintf(buffer + size, buffer_size - size,
+				"Address Allocation: %s\n",
+				(list_entry->entry.is_addr_dynamic ?
+				"Dynamic" : "Static"));
 		size += scnprintf(buffer + size, buffer_size - size,
 				"Request count: %llu\n",
 				list_entry->entry.request_count);
