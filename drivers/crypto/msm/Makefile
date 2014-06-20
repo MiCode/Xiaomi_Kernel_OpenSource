@@ -7,5 +7,8 @@ else
 		obj-$(CONFIG_CRYPTO_DEV_QCE) += qce.o
 	endif
 endif
+ifdef CONFIG_COMPAT
+obj-$(CONFIG_CRYPTO_DEV_QCE) += compat_qcedev.o
+endif
 obj-$(CONFIG_CRYPTO_DEV_QCRYPTO) += qcrypto.o
 obj-$(CONFIG_CRYPTO_DEV_OTA_CRYPTO) += ota_crypto.o

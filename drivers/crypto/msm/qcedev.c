@@ -35,7 +35,10 @@
 #include <crypto/hash.h>
 
 #include "qce.h"
-
+#ifdef CONFIG_COMPAT
+#include <linux/compat.h>
+#include <linux/compat_qcedev.h>
+#endif
 
 #define CACHE_LINE_SIZE 32
 #define CE_SHA_BLOCK_SIZE SHA256_BLOCK_SIZE
@@ -288,7 +291,6 @@ static int qcedev_lock_ce(struct qcedev_control *podev)
 
 #define QCEDEV_MAGIC 0x56434544 /* "qced" */
 
-static long qcedev_ioctl(struct file *file, unsigned cmd, unsigned long arg);
 static int qcedev_open(struct inode *inode, struct file *file);
 static int qcedev_release(struct inode *inode, struct file *file);
 static int start_cipher_req(struct qcedev_control *podev);
@@ -297,6 +299,9 @@ static int start_sha_req(struct qcedev_control *podev);
 static const struct file_operations qcedev_fops = {
 	.owner = THIS_MODULE,
 	.unlocked_ioctl = qcedev_ioctl,
+#ifdef CONFIG_COMPAT
+	.compat_ioctl = compat_qcedev_ioctl,
+#endif
 	.open = qcedev_open,
 	.release = qcedev_release,
 };
@@ -805,12 +810,12 @@ static int qcedev_sha_update_max_xfer(struct qcedev_async_req *qcedev_areq,
 	k_buf_src = kmalloc(total + CACHE_LINE_SIZE * 2,
 				GFP_KERNEL);
 	if (k_buf_src == NULL) {
-		pr_err("%s: Can't Allocate memory: k_buf_src 0x%x\n",
-			__func__, (uint32_t)k_buf_src);
+		pr_err("%s: Can't Allocate memory: k_buf_src 0x%lx\n",
+					__func__, (uintptr_t)k_buf_src);
 		return -ENOMEM;
 	}
 
-	k_align_src = (uint8_t *) ALIGN(((unsigned int)k_buf_src),
+	k_align_src = (uint8_t *)ALIGN(((uintptr_t)k_buf_src),
 							CACHE_LINE_SIZE);
 	k_src = k_align_src;
 
@@ -903,8 +908,8 @@ static int qcedev_sha_update(struct qcedev_async_req *qcedev_areq,
 		saved_req =
 			kmalloc(sizeof(struct qcedev_sha_op_req), GFP_KERNEL);
 		if (saved_req == NULL) {
-			pr_err("%s:Can't Allocate mem:saved_req 0x%x\n",
-			__func__, (uint32_t)saved_req);
+			pr_err("%s:Can't Allocate mem:saved_req 0x%lx\n",
+						__func__, (uintptr_t)saved_req);
 			return -ENOMEM;
 		}
 		memcpy(&req, sreq, sizeof(struct qcedev_sha_op_req));
@@ -1014,12 +1019,12 @@ static int qcedev_sha_final(struct qcedev_async_req *qcedev_areq,
 		k_buf_src = kmalloc(total + CACHE_LINE_SIZE * 2,
 					GFP_KERNEL);
 		if (k_buf_src == NULL) {
-			pr_err("%s: Can't Allocate memory: k_buf_src 0x%x\n",
-			__func__, (uint32_t)k_buf_src);
+			pr_err("%s: Can't Allocate memory: k_buf_src 0x%lx\n",
+						__func__, (uintptr_t)k_buf_src);
 			return -ENOMEM;
 		}
 
-		k_align_src = (uint8_t *) ALIGN(((unsigned int)k_buf_src),
+		k_align_src = (uint8_t *)ALIGN(((uintptr_t)k_buf_src),
 							CACHE_LINE_SIZE);
 		memcpy(k_align_src, &handle->sha_ctxt.trailing_buf[0], total);
 	}
@@ -1077,8 +1082,8 @@ static int qcedev_hash_cmac(struct qcedev_async_req *qcedev_areq,
 
 	k_buf_src = kmalloc(total, GFP_KERNEL);
 	if (k_buf_src == NULL) {
-		pr_err("%s: Can't Allocate memory: k_buf_src 0x%x\n",
-			__func__, (uint32_t)k_buf_src);
+		pr_err("%s: Can't Allocate memory: k_buf_src 0x%lx\n",
+				__func__, (uintptr_t)k_buf_src);
 		return -ENOMEM;
 	}
 
@@ -1185,8 +1190,8 @@ static int qcedev_hmac_get_ohash(struct qcedev_async_req *qcedev_areq,
 	}
 	k_src = kmalloc(sha_block_size, GFP_KERNEL);
 	if (k_src == NULL) {
-		pr_err("%s: Can't Allocate memory: k_src 0x%x\n",
-			__func__, (uint32_t)k_src);
+		pr_err("%s: Can't Allocate memory: k_src 0x%lx\n",
+						__func__, (uintptr_t)k_src);
 		return -ENOMEM;
 	}
 
@@ -1438,9 +1443,9 @@ static int qcedev_vbuf_ablk_cipher(struct qcedev_async_req *areq,
 				if (!access_ok(VERIFY_WRITE,
 					(void __user *)creq->vbuf.dst[i].vaddr,
 						creq->vbuf.dst[i].len)) {
-					pr_err("%s:DST WR_VERIFY err %d=0x%x\n",
-						__func__, i,
-						(u32)creq->vbuf.dst[i].vaddr);
+					pr_err("%s:DST WR_VERIFY err %d=0x%lx\n",
+						__func__, i, (uintptr_t)
+						creq->vbuf.dst[i].vaddr);
 					return -EFAULT;
 				}
 				total += creq->vbuf.dst[i].len;
@@ -1452,9 +1457,9 @@ static int qcedev_vbuf_ablk_cipher(struct qcedev_async_req *areq,
 				if (!access_ok(VERIFY_WRITE,
 					(void __user *)creq->vbuf.src[i].vaddr,
 						creq->vbuf.src[i].len)) {
-					pr_err("%s:SRC WR_VERIFY err %d=0x%x\n",
-						__func__, i,
-						(u32)creq->vbuf.src[i].vaddr);
+					pr_err("%s:SRC WR_VERIFY err %d=0x%lx\n",
+						__func__, i, (uintptr_t)
+						creq->vbuf.src[i].vaddr);
 					return -EFAULT;
 				}
 				total += creq->vbuf.src[i].len;
@@ -1468,18 +1473,18 @@ static int qcedev_vbuf_ablk_cipher(struct qcedev_async_req *areq,
 	k_buf_src = kmalloc(QCE_MAX_OPER_DATA + CACHE_LINE_SIZE * 2,
 				GFP_KERNEL);
 	if (k_buf_src == NULL) {
-		pr_err("%s: Can't Allocate memory: k_buf_src 0x%x\n",
-			__func__, (uint32_t)k_buf_src);
+		pr_err("%s: Can't Allocate memory: k_buf_src 0x%lx\n",
+					__func__, (uintptr_t)k_buf_src);
 		return -ENOMEM;
 	}
-	k_align_src = (uint8_t *) ALIGN(((unsigned int)k_buf_src),
+	k_align_src = (uint8_t *)ALIGN(((uintptr_t)k_buf_src),
 							CACHE_LINE_SIZE);
 	max_data_xfer = QCE_MAX_OPER_DATA - byteoffset;
 
 	saved_req = kmalloc(sizeof(struct qcedev_cipher_op_req), GFP_KERNEL);
 	if (saved_req == NULL) {
-		pr_err("%s: Can't Allocate memory:saved_req 0x%x\n",
-			__func__, (uint32_t)saved_req);
+		pr_err("%s: Can't Allocate memory:saved_req 0x%lx\n",
+					__func__, (uintptr_t)saved_req);
 		kfree(k_buf_src);
 		return -ENOMEM;
 
@@ -1815,7 +1820,7 @@ sha_error:
 	return -EINVAL;
 }
 
-static long qcedev_ioctl(struct file *file, unsigned cmd, unsigned long arg)
+long qcedev_ioctl(struct file *file, unsigned cmd, unsigned long arg)
 {
 	int err = 0;
 	struct qcedev_handle *handle;
@@ -2008,6 +2013,7 @@ static long qcedev_ioctl(struct file *file, unsigned cmd, unsigned long arg)
 
 	return err;
 }
+EXPORT_SYMBOL(qcedev_ioctl);
 
 static int qcedev_probe(struct platform_device *pdev)
 {
@@ -2164,7 +2170,7 @@ static int _debug_stats_open(struct inode *inode, struct file *file)
 static ssize_t _debug_stats_read(struct file *file, char __user *buf,
 			size_t count, loff_t *ppos)
 {
-	int rc = -EINVAL;
+	ssize_t rc = -EINVAL;
 	int qcedev = *((int *) file->private_data);
 	int len;
 

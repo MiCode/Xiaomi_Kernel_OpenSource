@@ -19,10 +19,11 @@
 #define QCEBAM_BURST_SIZE	MAX_CE_BAM_BURST_SIZE
 
 #define GET_VIRT_ADDR(x)  \
-		((uint32_t)pce_dev->coh_vmem +			\
-		((uint32_t)x - (uint32_t)pce_dev->coh_pmem))
+		((uintptr_t)pce_dev->coh_vmem +			\
+		((uintptr_t)x - (uintptr_t)pce_dev->coh_pmem))
 #define GET_PHYS_ADDR(x)  \
-		(pce_dev->coh_pmem + (x - (uint32_t)pce_dev->coh_vmem))
+		((uintptr_t)pce_dev->coh_pmem +			\
+		((uintptr_t)x - (uintptr_t)pce_dev->coh_vmem))
 
 #define CRYPTO_REG_SIZE 4
 #define NUM_OF_CRYPTO_AUTH_IV_REG 16
@@ -62,7 +63,7 @@ struct ce_result_dump_format {
 
 struct qce_cmdlist_info {
 
-	uint32_t cmdlist;
+	unsigned long cmdlist;
 	struct sps_command_element *crypto_cfg;
 	struct sps_command_element *encr_seg_cfg;
 	struct sps_command_element *encr_seg_size;
@@ -83,7 +84,7 @@ struct qce_cmdlist_info {
 	struct sps_command_element *auth_bytecount;
 	struct sps_command_element *seg_size;
 	struct sps_command_element *go_proc;
-	uint32_t size;
+	ptrdiff_t size;
 };
 
 struct qce_cmdlistptr_ops {
@@ -180,7 +181,7 @@ struct ce_sps_data {
 	unsigned int			pipe_pair_index;
 	unsigned int			src_pipe_index;
 	unsigned int			dest_pipe_index;
-	uint32_t			bam_handle;
+	unsigned long			bam_handle;
 
 	enum qce_pipe_st_enum consumer_state;	/* Consumer pipe state */
 	enum qce_pipe_st_enum producer_state;	/* Producer pipe state */

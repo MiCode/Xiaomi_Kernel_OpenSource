@@ -616,8 +616,8 @@ static int qcrypto_count_sg(struct scatterlist *sg, int nbytes)
 	return i;
 }
 
-size_t qcrypto_sg_copy_from_buffer(struct scatterlist *sgl, unsigned int nents,
-			   void *buf, size_t buflen)
+static size_t qcrypto_sg_copy_from_buffer(struct scatterlist *sgl,
+				unsigned int nents, void *buf, size_t buflen)
 {
 	int i;
 	size_t offset, len;
@@ -633,8 +633,8 @@ size_t qcrypto_sg_copy_from_buffer(struct scatterlist *sgl, unsigned int nents,
 	return offset;
 }
 
-size_t qcrypto_sg_copy_to_buffer(struct scatterlist *sgl, unsigned int nents,
-			 void *buf, size_t buflen)
+static size_t qcrypto_sg_copy_to_buffer(struct scatterlist *sgl,
+				unsigned int nents, void *buf, size_t buflen)
 {
 	int i;
 	size_t offset, len;
@@ -3273,7 +3273,7 @@ static int _sha_update(struct ahash_request  *req, uint32_t sha_block_size)
 	rctx->src = req->src;
 	rctx->nbytes = req->nbytes;
 
-	staging = (uint8_t *) ALIGN(((unsigned int)rctx->staging_dmabuf),
+	staging = (uint8_t *)ALIGN(((uintptr_t)rctx->staging_dmabuf),
 							L1_CACHE_BYTES);
 	memcpy(staging, rctx->trailing_buf, rctx->trailing_buf_len);
 	k_src = &rctx->trailing_buf[0];
@@ -3385,7 +3385,7 @@ static int _sha_final(struct ahash_request *req, uint32_t sha_block_size)
 	rctx->src = req->src;
 	rctx->nbytes = req->nbytes;
 
-	staging = (uint8_t *) ALIGN(((unsigned int)rctx->staging_dmabuf),
+	staging = (uint8_t *)ALIGN(((uintptr_t)rctx->staging_dmabuf),
 							L1_CACHE_BYTES);
 	memcpy(staging, rctx->trailing_buf, rctx->trailing_buf_len);
 	sg_set_buf(&rctx->sg[0], staging, rctx->trailing_buf_len);
@@ -3629,7 +3629,7 @@ static int _sha_hmac_outer_hash(struct ahash_request *req,
 	uint8_t  *staging;
 	uint8_t *p;
 
-	staging = (uint8_t *) ALIGN(((unsigned int)rctx->staging_dmabuf),
+	staging = (uint8_t *)ALIGN(((uintptr_t)rctx->staging_dmabuf),
 							L1_CACHE_BYTES);
 	p = staging;
 	for (i = 0; i < sha_block_size; i++)
@@ -3671,7 +3671,7 @@ static int _sha_hmac_inner_hash(struct ahash_request *req,
 	struct qcrypto_sha_req_ctx *rctx = ahash_request_ctx(req);
 	uint8_t  *staging;
 
-	staging = (uint8_t *) ALIGN(((unsigned int)rctx->staging_dmabuf),
+	staging = (uint8_t *)ALIGN(((uintptr_t)rctx->staging_dmabuf),
 							L1_CACHE_BYTES);
 	memcpy(staging, rctx->trailing_buf, rctx->trailing_buf_len);
 	sg_set_buf(&rctx->sg[0], staging, rctx->trailing_buf_len);
