@@ -221,6 +221,7 @@ struct dwc3_msm {
 
 	int  pwr_event_irq;
 	atomic_t                in_p3;
+	unsigned int		lpm_to_suspend_delay;
 };
 
 #define USB_HSPHY_3P3_VOL_MIN		3050000 /* uV */
@@ -1702,7 +1703,18 @@ static int dwc3_msm_suspend(struct dwc3_msm *mdwc)
 			dev_err(mdwc->dev, "Failed to reset bus bw vote\n");
 	}
 
-	pm_relax(mdwc->dev);
+	/*
+	 * release wakeup source with timeout to defer system suspend to
+	 * handle case where on USB cable disconnect, SUSPEND and DISCONNECT
+	 * event is received.
+	 */
+	if (mdwc->lpm_to_suspend_delay) {
+		dev_dbg(mdwc->dev, "defer suspend with %d(msecs)\n",
+					mdwc->lpm_to_suspend_delay);
+		pm_wakeup_event(mdwc->dev, mdwc->lpm_to_suspend_delay);
+	} else {
+		pm_relax(mdwc->dev);
+	}
 
 	if (mdwc->hs_phy_irq) {
 		/*
@@ -2891,6 +2903,13 @@ static int dwc3_msm_probe(struct platform_device *pdev)
 
 	mdwc->enable_suspend_event = of_property_read_bool(node,
 				"qcom,suspend_event_enable");
+
+	ret = of_property_read_u32(node, "qcom,lpm-to-suspend-delay-ms",
+				&mdwc->lpm_to_suspend_delay);
+	if (ret) {
+		dev_dbg(&pdev->dev, "setting lpm_to_suspend_delay to zero.\n");
+		mdwc->lpm_to_suspend_delay = 0;
+	}
 
 	if (mdwc->power_collapse) {
 		/*
