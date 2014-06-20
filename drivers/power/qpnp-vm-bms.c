@@ -35,6 +35,7 @@
 #include <linux/qpnp/qpnp-adc.h>
 #include <linux/of_batterydata.h>
 #include <linux/batterydata-interface.h>
+#include <linux/qpnp-revid.h>
 #include <uapi/linux/vm_bms.h>
 
 #define _BMS_MASK(BITS, POS) \
@@ -125,6 +126,10 @@ enum {
 	S7_STATE,
 };
 
+enum {
+	WRKARND_PON_OCV_COMP = BIT(0),
+};
+
 struct bms_irq {
 	int		irq;
 	unsigned long	disabled;
@@ -133,6 +138,11 @@ struct bms_irq {
 struct bms_wakeup_source {
 	struct wakeup_source	source;
 	unsigned long		disabled;
+};
+
+struct temp_curr_comp_map {
+	int temp_deg;
+	int current_ma;
 };
 
 struct bms_dt_cfg {
@@ -203,6 +213,7 @@ struct qpnp_bms_chip {
 	unsigned int			vadc_v0625;
 	unsigned int			vadc_v1250;
 	unsigned long			tm_sec;
+	unsigned long			workaround_flag;
 	u32				seq_num;
 	u8				shutdown_soc;
 	u16				last_ocv_raw;
@@ -229,6 +240,7 @@ struct qpnp_bms_chip {
 	struct qpnp_vm_bms_data		bms_data;
 	struct qpnp_vadc_chip		*vadc_dev;
 	struct qpnp_adc_tm_chip		*adc_tm_dev;
+	struct pmic_revid_data		*revid_data;
 	struct qpnp_adc_tm_btm_param	vbat_monitor_params;
 	struct bms_irq			fifo_update_done_irq;
 	struct bms_irq			fsm_state_change_irq;
@@ -238,6 +250,16 @@ struct qpnp_bms_chip {
 };
 
 static struct qpnp_bms_chip *the_chip;
+
+/*
+ * TODO: Characterize current compensation at different temperature and
+ * update table.
+ */
+static struct temp_curr_comp_map temp_curr_comp_lut[] = {
+			{-20, 40},
+			{25, 40},
+			{60, 40},
+};
 
 static void disable_bms_irq(struct bms_irq *irq)
 {
@@ -991,6 +1013,29 @@ static int get_batt_therm(struct qpnp_bms_chip *chip, int *batt_temp)
 static int get_prop_bms_rbatt(struct qpnp_bms_chip *chip)
 {
 	return chip->batt_data->default_rbatt_mohm;
+}
+
+static int get_rbatt(struct qpnp_bms_chip *chip, int soc, int batt_temp)
+{
+	int rbatt_mohm, scalefactor;
+
+	rbatt_mohm = chip->batt_data->default_rbatt_mohm;
+	if (chip->batt_data->rbatt_sf_lut == NULL)  {
+		pr_debug("RBATT = %d\n", rbatt_mohm);
+		return rbatt_mohm;
+	}
+
+	scalefactor = interpolate_scalingfactor(chip->batt_data->rbatt_sf_lut,
+						batt_temp, soc);
+	rbatt_mohm = (rbatt_mohm * scalefactor) / 100;
+
+	if (chip->dt.cfg_r_conn_mohm > 0)
+		rbatt_mohm += chip->dt.cfg_r_conn_mohm;
+
+	if (chip->batt_data->rbatt_capacitive_mohm > 0)
+		rbatt_mohm += chip->batt_data->rbatt_capacitive_mohm;
+
+	return rbatt_mohm;
 }
 
 static void charging_began(struct qpnp_bms_chip *chip)
@@ -2235,6 +2280,55 @@ static int read_shutdown_ocv_soc(struct qpnp_bms_chip *chip)
 	return 0;
 }
 
+static int interpolate_current_comp(int die_temp)
+{
+	int i;
+	int num_rows = ARRAY_SIZE(temp_curr_comp_lut);
+
+	if (die_temp <= (temp_curr_comp_lut[0].temp_deg * 10))
+		return temp_curr_comp_lut[0].current_ma;
+
+	if (die_temp >= (temp_curr_comp_lut[num_rows - 1].temp_deg * 10))
+		return temp_curr_comp_lut[num_rows - 1].current_ma;
+
+	for (i = 0; i < num_rows - 1; i++)
+		if (die_temp  <= (temp_curr_comp_lut[i].temp_deg * 10))
+			break;
+
+	if (die_temp == (temp_curr_comp_lut[i].temp_deg * 10))
+		return temp_curr_comp_lut[i].current_ma;
+
+	return linear_interpolate(
+				temp_curr_comp_lut[i - 1].current_ma,
+				temp_curr_comp_lut[i - 1].temp_deg * 10,
+				temp_curr_comp_lut[i].current_ma,
+				temp_curr_comp_lut[i].temp_deg * 10,
+				die_temp);
+}
+
+static void adjust_pon_ocv(struct qpnp_bms_chip *chip, int batt_temp)
+{
+	int rc, current_ma, rbatt_mohm, die_temp, delta_uv, soc;
+	struct qpnp_vadc_result result;
+
+	rc = qpnp_vadc_read(chip->vadc_dev, DIE_TEMP, &result);
+	if (rc) {
+		pr_err("error reading adc channel=%d, rc=%d\n", DIE_TEMP, rc);
+	} else {
+		soc = lookup_soc_ocv(chip, chip->last_ocv_uv, batt_temp);
+		rbatt_mohm = get_rbatt(chip, soc, batt_temp);
+		/* convert die_temp to DECIDEGC */
+		die_temp = (int)result.physical / 100;
+		current_ma = interpolate_current_comp(die_temp);
+		delta_uv = rbatt_mohm * current_ma;
+		pr_debug("PON OCV chaged from %d to %d soc=%d rbatt=%d current_ma=%d die_temp=%d batt_temp=%d delta_uv=%d\n",
+			chip->last_ocv_uv, chip->last_ocv_uv + delta_uv, soc,
+			rbatt_mohm, current_ma, die_temp, batt_temp, delta_uv);
+
+		chip->last_ocv_uv += delta_uv;
+	}
+}
+
 static int calculate_initial_soc(struct qpnp_bms_chip *chip)
 {
 	int rc, batt_temp = 0, est_ocv = 0, shutdown_soc = 0;
@@ -2282,6 +2376,14 @@ static int calculate_initial_soc(struct qpnp_bms_chip *chip)
 			pr_debug("Using shutdown SOC\n");
 		}
 	} else {
+		/*
+		 * In PM8916 2.0 PON OCV calculation is delayed due to
+		 * change in the ordering of power-on sequence of LDO6.
+		 * Adjust PON OCV to include current during PON.
+		 */
+		if (chip->workaround_flag & WRKARND_PON_OCV_COMP)
+			adjust_pon_ocv(chip, batt_temp);
+
 		 /* !warm_reset use PON OCV only if shutdown SOC is invalid */
 		chip->calculated_soc = lookup_soc_ocv(chip,
 					chip->last_ocv_uv, batt_temp);
@@ -3080,6 +3182,7 @@ unregister_chrdev:
 static int qpnp_vm_bms_probe(struct spmi_device *spmi)
 {
 	struct qpnp_bms_chip *chip;
+	struct device_node *revid_dev_node;
 	int rc, vbatt = 0;
 
 	chip = devm_kzalloc(&spmi->dev, sizeof(*chip), GFP_KERNEL);
@@ -3093,6 +3196,22 @@ static int qpnp_vm_bms_probe(struct spmi_device *spmi)
 		pr_err("Failed to get adc rc=%d\n", rc);
 		return rc;
 	}
+
+	revid_dev_node = of_parse_phandle(spmi->dev.of_node,
+						"qcom,pmic-revid", 0);
+	if (!revid_dev_node) {
+		pr_err("Missing qcom,pmic-revid property\n");
+		return -EINVAL;
+	}
+
+	chip->revid_data = get_revid_data(revid_dev_node);
+	if (IS_ERR(chip->revid_data)) {
+		pr_err("revid error rc = %ld\n", PTR_ERR(chip->revid_data));
+		return -EINVAL;
+	}
+	if ((chip->revid_data->pmic_subtype == PM8916_V2P0_SUBTYPE) &&
+				chip->revid_data->rev4 == PM8916_V2P0_REV4)
+		chip->workaround_flag |= WRKARND_PON_OCV_COMP;
 
 	rc = qpnp_pon_is_warm_reset();
 	if (rc < 0) {
