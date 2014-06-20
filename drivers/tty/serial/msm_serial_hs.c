@@ -1157,9 +1157,6 @@ static void msm_hs_set_termios(struct uart_port *uport,
 			MSM_HS_WARN("%s(): buffers may be pending 0x%lx",
 				__func__, msm_uport->rx.pending_flag);
 		MSM_HS_DBG("%s(): clearing desc usage flag", __func__);
-		msm_uport->rx.queued_flag = 0;
-		msm_uport->rx.pending_flag = 0;
-		msm_uport->rx.rx_inx = 0;
 		msm_hs_spsconnect_rx(uport);
 		msm_uport->rx.flush = FLUSH_IGNORE;
 		msm_serial_hs_rx_tlet((unsigned long) &rx->tlet);
@@ -1373,10 +1370,8 @@ static void msm_hs_post_rx_desc(struct msm_hs_port *msm_uport, int inx)
 		(u64)rbuff_addr, (u64)rx->rbuffer, virt_addr);
 
 	rx->iovec[inx].size = 0;
-	msm_uport->rx_bam_inprogress = true;
 	ret = sps_transfer_one(rx->prod.pipe_handle, rbuff_addr,
 		UARTDM_RX_BUF_SIZE, msm_uport, flags);
-	msm_uport->rx_bam_inprogress = false;
 
 	if (ret)
 		MSM_HS_ERR("Error processing descriptor %d", ret);
@@ -1493,6 +1488,7 @@ static void msm_hs_start_rx_locked(struct uart_port *uport)
 	msm_uport->rx.flush = FLUSH_NONE;
 	msm_uport->rx_bam_inprogress = true;
 	msm_hs_queue_rx_desc(msm_uport);
+	msm_uport->rx_bam_inprogress = false;
 	wake_up(&msm_uport->rx.wait);
 	MSM_HS_DBG("%s:Enqueue Rx Cmd\n", __func__);
 }
