@@ -130,10 +130,9 @@ struct msm8916_asoc_mach_data {
 	int us_euro_gpio;
 	int mclk_freq;
 	atomic_t mclk_rsc_ref;
-	atomic_t dis_work_mclk;
-	atomic_t mclk_act;
+	atomic_t mclk_enabled;
 	struct mutex cdc_mclk_mutex;
-	struct delayed_work enable_mclk_work;
+	struct delayed_work disable_mclk_work;
 	struct afe_digital_clk_cfg digital_cdc_clk;
 };
 
