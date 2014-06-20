@@ -475,6 +475,7 @@ enum tsens_calib_fuse_map_type {
 	TSENS_CALIB_FUSE_MAP_8916,
 	TSENS_CALIB_FUSE_MAP_8939,
 	TSENS_CALIB_FUSE_MAP_8994,
+	TSENS_CALIB_FUSE_MAP_MSMFERRUM,
 	TSENS_CALIB_FUSE_MAP_NUM,
 };
 
@@ -2565,7 +2566,8 @@ static int tsens_calib_sensors(void)
 		rc = tsens_calib_9900_sensors();
 	else if (tmdev->calib_mode == TSENS_CALIB_FUSE_MAP_9630)
 		rc = tsens_calib_9630_sensors();
-	else if (tmdev->calib_mode == TSENS_CALIB_FUSE_MAP_8916)
+	else if ((tmdev->calib_mode == TSENS_CALIB_FUSE_MAP_8916) ||
+			(tmdev->calib_mode == TSENS_CALIB_FUSE_MAP_MSMFERRUM))
 		rc = tsens_calib_8916_sensors();
 	else if (tmdev->calib_mode == TSENS_CALIB_FUSE_MAP_8939)
 		rc = tsens_calib_8939_sensors();
@@ -2603,6 +2605,9 @@ static struct of_device_id tsens_match[] = {
 	},
 	{	.compatible = "qcom,msm8994-tsens",
 		.data = (void *)TSENS_CALIB_FUSE_MAP_8994,
+	},
+	{	.compatible = "qcom,msmferrum-tsens",
+		.data = (void *)TSENS_CALIB_FUSE_MAP_MSMFERRUM,
 	},
 	{}
 };
