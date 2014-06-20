@@ -281,6 +281,8 @@
 			regulator-min-microvolt = <2950000>;
 			regulator-max-microvolt = <2950000>;
 			qcom,init-voltage = <2950000>;
+			qcom,init-current = <750>;
+			regulator-boot-on;
 			status = "okay";
 		};
 	};
@@ -361,6 +363,8 @@
 			regulator-min-microvolt = <1000000>;
 			regulator-max-microvolt = <1000000>;
 			qcom,init-voltage = <1000000>;
+			qcom,init-current = <45>;
+			regulator-boot-on;
 			status = "okay";
 		};
 	};
@@ -391,6 +395,8 @@
 			regulator-min-microvolt = <1200000>;
 			regulator-max-microvolt = <1200000>;
 			qcom,init-voltage = <1200000>;
+			qcom,init-current = <50>;
+			regulator-boot-on;
 			status = "okay";
 		};
 	};
