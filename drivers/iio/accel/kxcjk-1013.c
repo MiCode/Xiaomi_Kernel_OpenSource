@@ -264,26 +264,24 @@ static int kxcjk1013_chip_setup_interrupt(struct kxcjk1013_data *data,
 	return ret;
 }
 
-static int kxcjk1013_convert_freq_to_bit(int val, int val2)
+static int kxcjk1013_convert_freq_to_bit(int val)
 {
 	int i;
 
 	for (i = 0; i < ARRAY_SIZE(samp_freq_table); ++i) {
-		if (samp_freq_table[i].val == val &&
-			samp_freq_table[i].val2 == val2) {
+		if (samp_freq_table[i].val == val)
 			return samp_freq_table[i].odr_bits;
-		}
 	}
 
 	return -EINVAL;
 }
 
-static int kxcjk1013_set_odr(struct kxcjk1013_data *data, int val, int val2)
+static int kxcjk1013_set_odr(struct kxcjk1013_data *data, int val)
 {
 	int ret;
 	int odr_bits;
 
-	odr_bits = kxcjk1013_convert_freq_to_bit(val, val2 / 1000);
+	odr_bits = kxcjk1013_convert_freq_to_bit(val);
 	if (odr_bits < 0)
 		return odr_bits;
 
@@ -402,7 +400,7 @@ static int kxcjk1013_write_raw(struct iio_dev *indio_dev,
 	switch (mask) {
 	case IIO_CHAN_INFO_SAMP_FREQ:
 		mutex_lock(&data->mutex);
-		ret = kxcjk1013_set_odr(data, val, val2);
+		ret = kxcjk1013_set_odr(data, val);
 		mutex_unlock(&data->mutex);
 		break;
 	default:
