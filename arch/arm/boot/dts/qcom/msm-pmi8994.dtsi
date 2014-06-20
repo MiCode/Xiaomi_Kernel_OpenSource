@@ -416,5 +416,68 @@
 				linux,name = "blue";
 			};
 		};
+
+		qcom,leds@d300 {
+			compatible = "qcom,qpnp-flash-led";
+			status = "okay";
+			reg = <0xd300 0x100>;
+			label = "flash";
+			qcom,headroom = <500>;
+			qcom,startup-dly = <128>;
+			qcom,clamp-curr = <200>;
+			qcom,pmic-charger-support;
+			qcom,self-check-enabled;
+			qcom,thermal-derate-enabled;
+			qcom,thermal-derate-threshold = <80>;
+			qcom,thermal-derate-rate = "4_PERCENT";
+			qcom,current-ramp-enabled;
+			qcom,ramp_up_step = "27US";
+			qcom,ramp_dn_step = "27US";
+			qcom,vph-pwr-droop-enabled;
+			qcom,vph-pwr-droop-threshold = <3200>;
+			qcom,vph-pwr-droop-debounce-time = <10>;
+
+			pmi8994_flash0: qcom,flash_0 {
+				label = "flash";
+				qcom,led-name = "led:flash_0";
+				qcom,default-led-trigger =
+						"flash0_trigger";
+				qcom,max-current = <1000>;
+				qcom,duration = <1280>;
+				qcom,id = <0>;
+				qcom,current = <625>;
+			};
+
+			pmi8994_flash1: qcom,flash_1 {
+				label = "flash";
+				qcom,led-name = "led:flash_1";
+				qcom,default-led-trigger =
+						"flash1_trigger";
+				qcom,max-current = <1000>;
+				qcom,duration = <1280>;
+				qcom,id = <1>;
+				qcom,current = <625>;
+			};
+
+			pmi8994_torch0: qcom,torch_0 {
+				label = "torch";
+				qcom,led-name = "led:torch_0";
+				qcom,default-led-trigger =
+						"torch0_trigger";
+				qcom,max-current = <200>;
+				qcom,id = <0>;
+				qcom,current = <120>;
+			};
+
+			pmi8994_torch1: qcom,torch_1 {
+				label = "torch";
+				qcom,led-name = "led:torch_1";
+				qcom,default-led-trigger =
+						"torch1_trigger";
+				qcom,max-current = <200>;
+				qcom,id = <1>;
+				qcom,current = <120>;
+			};
+		};
 	};
 };
