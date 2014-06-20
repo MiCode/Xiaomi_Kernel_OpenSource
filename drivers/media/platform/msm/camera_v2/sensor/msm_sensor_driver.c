@@ -923,6 +923,12 @@ static int32_t msm_sensor_driver_get_dt_data(struct msm_sensor_ctrl_t *s_ctrl)
 		&sensordata->misc_regulator);
 	CDBG("qcom,misc_regulator %s", sensordata->misc_regulator);
 
+	s_ctrl->set_mclk_23880000 = of_property_read_bool(of_node,
+						"qcom,mclk-23880000");
+
+	CDBG("%s qcom,mclk-23880000 = %d\n", __func__,
+		s_ctrl->set_mclk_23880000);
+
 	return rc;
 
 FREE_VREG_DATA:
