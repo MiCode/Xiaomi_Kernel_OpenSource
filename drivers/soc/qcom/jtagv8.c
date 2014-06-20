@@ -396,6 +396,9 @@ static inline void dbg_save_state(int cpu)
 		dbg.state[i++] =  (uint32_t)dbg_readl(OSDTRRX_EL1);
 		dbg.state[i++] =  (uint32_t)dbg_readl(OSDTRTX_EL1);
 
+		/* Set the OS double lock */
+		isb();
+		dbg_write(0x1, OSDLR_EL1);
 		isb();
 		break;
 	default:
@@ -412,10 +415,14 @@ static inline void dbg_restore_state(int cpu)
 
 	switch (dbg.arch) {
 	case ARM_DEBUG_ARCH_V8:
+		/* Clear the OS double lock */
+		isb();
+		dbg_write(0x0, OSDLR_EL1);
+		isb();
+
 		/* Set OS lock. Lock will already be set after power collapse
 		 * but this write is included to ensure it is set.
 		 */
-		isb();
 		dbg_write(0x1, OSLAR_EL1);
 		isb();
 
@@ -791,6 +798,11 @@ static inline void dbg_restore_state(int cpu)
 
 	switch (dbg.arch) {
 	case ARM_DEBUG_ARCH_V8:
+		/* Clear the OS double lock */
+		isb();
+		dbg_write(0x0, DBGOSDLR);
+		isb();
+
 		/* Set OS lock. Lock will already be set after power collapse
 		 * but this write is included to ensure it is set.
 		 */
@@ -859,9 +871,9 @@ void msm_jtag_save_state(void)
 	/* ensure counter is updated before moving forward */
 	mb();
 
+	msm_jtag_mm_save_state();
 	if (dbg.save_restore_enabled)
 		dbg_save_state(cpu);
-	msm_jtag_mm_save_state();
 }
 EXPORT_SYMBOL(msm_jtag_save_state);
 
