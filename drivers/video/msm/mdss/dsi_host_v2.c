@@ -969,7 +969,8 @@ int msm_dsi_cmdlist_commit(struct mdss_dsi_ctrl_pdata *ctrl, int from_mdp)
 		return ret;
 	}
 
-	mutex_lock(&ctrl->cmd_mutex);
+	if (from_mdp)	/* from mdp kickoff */
+		mutex_lock(&ctrl->cmd_mutex);
 	req = mdss_dsi_cmdlist_get(ctrl);
 
 	if (!req) {
@@ -999,7 +1000,8 @@ int msm_dsi_cmdlist_commit(struct mdss_dsi_ctrl_pdata *ctrl, int from_mdp)
 	msm_dsi_clk_ctrl(&ctrl->panel_data, 0);
 	mdp3_res_update(0, 1, MDP3_CLIENT_DMA_P);
 
-	mutex_unlock(&ctrl->cmd_mutex);
+	if (from_mdp)	/* from mdp kickoff */
+		mutex_unlock(&ctrl->cmd_mutex);
 	return 0;
 }
 
