@@ -1312,7 +1312,7 @@ int adreno_ringbuffer_submitcmd(struct adreno_device *adreno_dev,
 
 
 	cmds = link = kzalloc(sizeof(unsigned int) * (numibs * 3 + 5 +
-					(secured_ctxt ? 12 : 0)),
+					(secured_ctxt ? 14 : 0)),
 				GFP_KERNEL);
 	if (!link) {
 		ret = -ENOMEM;
@@ -1325,7 +1325,8 @@ int adreno_ringbuffer_submitcmd(struct adreno_device *adreno_dev,
 	if (secured_ctxt) {
 		*cmds++ = cp_type3_packet(CP_SET_PROTECTED_MODE, 1);
 		*cmds++ = 0;
-		*cmds++ = cp_type0_packet(A4XX_RBBM_SECVID_TRUST_CONTROL, 1);
+		*cmds++ = cp_type3_packet(CP_WIDE_REG_WRITE, 2);
+		*cmds++ = A4XX_RBBM_SECVID_TRUST_CONTROL;
 		*cmds++ = 1;
 		*cmds++ = cp_type3_packet(CP_SET_PROTECTED_MODE, 1);
 		*cmds++ = 1;
@@ -1355,7 +1356,8 @@ int adreno_ringbuffer_submitcmd(struct adreno_device *adreno_dev,
 	if (secured_ctxt) {
 		*cmds++ = cp_type3_packet(CP_SET_PROTECTED_MODE, 1);
 		*cmds++ = 0;
-		*cmds++ = cp_type0_packet(A4XX_RBBM_SECVID_TRUST_CONTROL, 1);
+		*cmds++ = cp_type3_packet(CP_WIDE_REG_WRITE, 2);
+		*cmds++ = A4XX_RBBM_SECVID_TRUST_CONTROL;
 		*cmds++ = 0;
 		*cmds++ = cp_type3_packet(CP_SET_PROTECTED_MODE, 1);
 		*cmds++ = 1;
