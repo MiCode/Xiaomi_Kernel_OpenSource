@@ -1502,6 +1502,8 @@ static irqreturn_t arizona_jackdet(int irq, void *data)
 			else
 				arizona_jds_set_state(info,
 						      &arizona_micd_microphone);
+
+			arizona_jds_start_timeout(info);
 		} else {
 			schedule_delayed_work(&info->hpdet_work,
 					      msecs_to_jiffies(HPDET_DEBOUNCE));
