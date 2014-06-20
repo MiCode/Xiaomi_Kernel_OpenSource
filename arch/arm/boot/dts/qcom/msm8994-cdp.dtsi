@@ -543,3 +543,11 @@
 &qusb_phy {
 	status = "ok";
 };
+
+&qcom_crypto {
+	status = "okay";
+};
+
+&qcom_cedev {
+	status = "okay";
+};

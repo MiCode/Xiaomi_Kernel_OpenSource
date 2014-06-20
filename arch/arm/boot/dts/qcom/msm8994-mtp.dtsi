@@ -503,3 +503,11 @@
 &ssphy0 {
 	status = "ok";
 };
+
+&qcom_crypto {
+	status = "okay";
+};
+
+&qcom_cedev {
+	status = "okay";
+};
