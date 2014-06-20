@@ -81,11 +81,10 @@ static inline int adreno_profile_process_results(struct kgsl_device *device)
 
 static inline void adreno_profile_preib_processing(struct kgsl_device *device,
 		struct adreno_context *drawctxt, unsigned int *cmd_flags,
-		unsigned int **rbptr, unsigned int *cmds_gpu) { }
+		unsigned int **rbptr) { }
 
 static inline void adreno_profile_postib_processing(struct kgsl_device *device,
-		unsigned int *cmd_flags, unsigned int **rbptr,
-		unsigned int *cmds_gpu) { }
+		unsigned int *cmd_flags, unsigned int **rbptr) { }
 #endif
 
 static inline bool adreno_profile_enabled(struct adreno_profile *profile)
