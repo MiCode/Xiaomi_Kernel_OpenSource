@@ -1,4 +1,4 @@
-/* Copyright (c) 2010, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2010, 2014 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -11,12 +11,9 @@
  */
 
 #include <linux/console.h>
-#include <linux/delay.h>
-#include <linux/err.h>
 #include <linux/init.h>
-#include <linux/moduleparam.h>
-#include <linux/types.h>
 
+#include <asm/dcc.h>
 #include <asm/processor.h>
 
 #include "hvc_console.h"
@@ -24,35 +21,6 @@
 /* DCC Status Bits */
 #define DCC_STATUS_RX		(1 << 30)
 #define DCC_STATUS_TX		(1 << 29)
-
-static inline u32 __dcc_getstatus(void)
-{
-	u32 __ret;
-	asm volatile("mrc p14, 0, %0, c0, c1, 0	@ read comms ctrl reg"
-		: "=r" (__ret) : : "cc");
-
-	return __ret;
-}
-
-
-static inline char __dcc_getchar(void)
-{
-	char __c;
-
-	asm volatile("mrc p14, 0, %0, c0, c5, 0	@ read comms data reg"
-		: "=r" (__c));
-	isb();
-
-	return __c;
-}
-
-static inline void __dcc_putchar(char c)
-{
-	asm volatile("mcr p14, 0, %0, c0, c5, 0	@ write a char"
-		: /* no output register */
-		: "r" (c));
-	isb();
-}
 
 static int hvc_dcc_put_chars(uint32_t vt, const char *buf, int count)
 {
