@@ -80,6 +80,13 @@ Parent node optional properties:
 					If not specified charger driver
 					depends on BMSfor end-of-charge
 					detection.
+- qcom,disable-vbatdet-based-recharge   If specified disable VBATDET irq
+					and charging can only be resumed
+					if charger is re-inserted or SOC
+					falls below resume SOC.
+					This property should always be used
+					along with the BMS property:
+					"qcom,disable-suspend-on-usb".
 - qcom,use-external-charger		If specifed the LBC module will
 					be disabled and the driver will not
 					register. It also enables BID for
