@@ -3158,8 +3158,8 @@ static int venus_hfi_init_regs_and_interrupts(
 	}
 	hal->irq = res->irq;
 	hal->firmware_base = res->firmware_base;
-	hal->register_base = ioremap_nocache(res->register_base,
-			(unsigned long)res->register_size);
+	hal->register_base = devm_ioremap_nocache(&res->pdev->dev,
+			res->register_base, (unsigned long)res->register_size);
 	hal->register_size = res->register_size;
 	if (!hal->register_base) {
 		dprintk(VIDC_ERR,
