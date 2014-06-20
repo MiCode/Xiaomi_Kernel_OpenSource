@@ -655,16 +655,18 @@ static int msm_ssphy_qmp_probe(struct platform_device *pdev)
 	if (!phy)
 		return -ENOMEM;
 
-	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
+	res = platform_get_resource_byname(pdev, IORESOURCE_MEM,
+						"qmp_phy_base");
 	phy->base = devm_ioremap_resource(dev, res);
 	if (IS_ERR(phy->base))
 		return PTR_ERR(phy->base);
 
-	res = platform_get_resource(pdev, IORESOURCE_MEM, 1);
-	if (res) {
-		phy->ahb2phy = devm_ioremap_resource(dev, res);
-		if (IS_ERR(phy->ahb2phy))
-			return PTR_ERR(phy->ahb2phy);
+	res = platform_get_resource_byname(pdev, IORESOURCE_MEM,
+						"qmp_ahb2phy_base");
+	phy->ahb2phy = devm_ioremap_resource(dev, res);
+	if (IS_ERR(phy->ahb2phy)) {
+		dev_err(dev, "couldn't find qmp_ahb2phy_base address.\n");
+		return PTR_ERR(phy->ahb2phy);
 	}
 
 	ret = of_property_read_u32_array(dev->of_node, "qcom,vdd-voltage-level",

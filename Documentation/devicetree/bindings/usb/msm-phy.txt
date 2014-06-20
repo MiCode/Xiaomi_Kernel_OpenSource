@@ -86,6 +86,9 @@ SSUSB-QMP PHY
 Required properties:
  - compatible: Should be "qcom,usb-ssphy-qmp"
  - reg: Address and length of the register set for the device
+   Required regs are:
+   "qmp_phy_base" : QMP PHY Base register set.
+   "qmp_ahb2phy_base" : SS AHB2PHY CSR register set.
  - <supply-name>-supply: phandle to the regulator device tree node
    Required "supply-name" examples are:
 	"vdd" : vdd supply for SSPHY digital circuit operation
@@ -95,8 +98,6 @@ Required properties:
    microvolts or a value corresponding to voltage corner
 
 Optional properties:
- - reg: An address and length of the AHB2PHY CSR register set. If specified, must
-   be the second entry after the base register.
  - qcom,vbus-valid-override: If present, indicates VBUS pin is not connected to
    the USB PHY and the controller must rely on external VBUS notification in
    order to manually relay the notification to the SSPHY.
@@ -107,7 +108,10 @@ Optional properties:
 Example:
 	ssphy0: ssphy@f9b38000 {
 		compatible = "qcom,usb-ssphy-qmp";
-		reg = <0xf9b38000 0x16c>;
+		reg = <0xf9b38000 0x16c>,
+			<0xf9b3e000 0x3ff>;
+		reg-names = "qmp_phy_base",
+			"qmp_ahb2phy_base";
 		vdd-supply = <&pmd9635_l4>;
 		vdda18-supply = <&pmd9635_l8>;
 		qcom,vdd-voltage-level = <0 900000 1050000>;
