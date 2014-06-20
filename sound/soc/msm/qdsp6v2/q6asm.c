@@ -1400,6 +1400,10 @@ static int32_t q6asm_callback(struct apr_client_data *data, void *priv)
 		if (ac->cb)
 			ac->cb(data->opcode, data->token,
 				data->payload, ac->priv);
+		atomic_set(&ac->time_flag, 0);
+		atomic_set(&ac->cmd_state, 0);
+		wake_up(&ac->time_wait);
+		wake_up(&ac->cmd_wait);
 		ac->apr = NULL;
 		return 0;
 	}
