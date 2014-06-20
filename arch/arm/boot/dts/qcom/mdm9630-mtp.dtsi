@@ -11,6 +11,9 @@
  */
 
 &soc {
+	sound {
+		qcom,cdc-micbias2-headset-only;
+	};
 };
 
 &i2c_1 {
@@ -24,6 +27,12 @@
 		qcom,recharge-thresh-mv = <100>;
 		qcom,iterm-ma = <100>;
 		regulator-name = "smb1357_otg_supply";
+	};
+
+	wcd9xxx_codec@d{
+		qcom,cdc-micbias1-ext-cap;
+		qcom,cdc-micbias2-ext-cap;
+		qcom,cdc-micbias3-ext-cap;
 	};
 };
 
