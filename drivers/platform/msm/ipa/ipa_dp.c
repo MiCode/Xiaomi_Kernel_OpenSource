@@ -2531,3 +2531,143 @@ void ipa_free_skb(struct ipa_rx_data *data)
 }
 EXPORT_SYMBOL(ipa_free_skb);
 
+/* Functions added to support kernel tests */
+
+int ipa_sys_setup(struct ipa_sys_connect_params *sys_in,
+			unsigned long *ipa_bam_hdl,
+			u32 *ipa_pipe_num, u32 *clnt_hdl)
+{
+	struct ipa_ep_context *ep;
+	int ipa_ep_idx;
+	int result = -EINVAL;
+
+	if (sys_in == NULL || clnt_hdl == NULL) {
+		IPAERR("NULL args\n");
+		goto fail_gen;
+	}
+
+	if (ipa_bam_hdl == NULL || ipa_pipe_num == NULL) {
+		IPAERR("NULL args\n");
+		goto fail_gen;
+	}
+	if (sys_in->client >= IPA_CLIENT_MAX) {
+		IPAERR("bad parm client:%d\n", sys_in->client);
+		goto fail_gen;
+	}
+
+	ipa_ep_idx = ipa_get_ep_mapping(sys_in->client);
+	if (ipa_ep_idx == -1) {
+		IPAERR("Invalid client :%d\n", sys_in->client);
+		goto fail_gen;
+	}
+
+	ep = &ipa_ctx->ep[ipa_ep_idx];
+
+	ipa_inc_client_enable_clks();
+
+	if (ep->valid == 1) {
+		if (sys_in->client != IPA_CLIENT_APPS_LAN_WAN_PROD) {
+			IPAERR("EP %d already allocated\n", ipa_ep_idx);
+			goto fail_and_disable_clocks;
+		} else {
+			if (ipa_cfg_ep_hdr(ipa_ep_idx,
+						&sys_in->ipa_ep_cfg.hdr)) {
+				IPAERR("fail to configure hdr prop of EP %d\n",
+						ipa_ep_idx);
+				result = -EFAULT;
+				goto fail_and_disable_clocks;
+			}
+			if (ipa_cfg_ep_cfg(ipa_ep_idx,
+						&sys_in->ipa_ep_cfg.cfg)) {
+				IPAERR("fail to configure cfg prop of EP %d\n",
+						ipa_ep_idx);
+				result = -EFAULT;
+				goto fail_and_disable_clocks;
+			}
+			IPAERR("client %d (ep: %d) overlay ok sys=%p\n",
+					sys_in->client, ipa_ep_idx, ep->sys);
+			ep->client_notify = sys_in->notify;
+			ep->priv = sys_in->priv;
+			*clnt_hdl = ipa_ep_idx;
+			if (!ep->keep_ipa_awake)
+				ipa_dec_client_disable_clks();
+
+			return 0;
+		}
+	}
+
+	memset(ep, 0, offsetof(struct ipa_ep_context, sys));
+
+	ep->valid = 1;
+	ep->client = sys_in->client;
+	ep->client_notify = sys_in->notify;
+	ep->priv = sys_in->priv;
+	ep->keep_ipa_awake = true;
+
+	result = ipa_enable_data_path(ipa_ep_idx);
+	if (result) {
+		IPAERR("enable data path failed res=%d clnt=%d.\n",
+				 result, ipa_ep_idx);
+		goto fail_gen2;
+	}
+
+	if (!ep->skip_ep_cfg) {
+		if (ipa_cfg_ep(ipa_ep_idx, &sys_in->ipa_ep_cfg)) {
+			IPAERR("fail to configure EP.\n");
+			goto fail_gen2;
+		}
+		if (ipa_cfg_ep_status(ipa_ep_idx, &ep->status)) {
+			IPAERR("fail to configure status of EP.\n");
+			goto fail_gen2;
+		}
+		IPADBG("ep configuration successful\n");
+	} else {
+		IPADBG("skipping ep configuration\n");
+	}
+
+	*clnt_hdl = ipa_ep_idx;
+
+	*ipa_pipe_num = ipa_ep_idx;
+	*ipa_bam_hdl = ipa_ctx->bam_handle;
+
+	if (!ep->keep_ipa_awake)
+		ipa_dec_client_disable_clks();
+
+	ipa_ctx->skip_ep_cfg_shadow[ipa_ep_idx] = ep->skip_ep_cfg;
+	IPADBG("client %d (ep: %d) connected sys=%p\n", sys_in->client,
+			ipa_ep_idx, ep->sys);
+
+	return 0;
+
+fail_gen2:
+fail_and_disable_clocks:
+	ipa_dec_client_disable_clks();
+fail_gen:
+	return result;
+}
+EXPORT_SYMBOL(ipa_sys_setup);
+
+int ipa_sys_teardown(u32 clnt_hdl)
+{
+	struct ipa_ep_context *ep;
+
+	if (clnt_hdl >= IPA_NUM_PIPES || ipa_ctx->ep[clnt_hdl].valid == 0) {
+		IPAERR("bad parm(Either endpoint or client hdl invalid)\n");
+		return -EINVAL;
+	}
+
+	ep = &ipa_ctx->ep[clnt_hdl];
+
+	if (!ep->keep_ipa_awake)
+		ipa_inc_client_enable_clks();
+
+	ipa_disable_data_path(clnt_hdl);
+	ep->valid = 0;
+
+	ipa_dec_client_disable_clks();
+
+	IPADBG("client (ep: %d) disconnected\n", clnt_hdl);
+
+	return 0;
+}
+EXPORT_SYMBOL(ipa_sys_teardown);
