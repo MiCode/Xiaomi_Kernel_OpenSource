@@ -1281,6 +1281,7 @@ err_clk_gating_off:
 static inline int venus_hfi_power_off(struct venus_hfi_device *device)
 {
 	int rc = 0;
+	struct regulator *r = NULL;
 	if (!device) {
 		dprintk(VIDC_ERR, "Invalid params: %p\n", device);
 		return -EINVAL;
@@ -1304,7 +1305,14 @@ static inline int venus_hfi_power_off(struct venus_hfi_device *device)
 	}
 	venus_hfi_disable_unprepare_clks(device);
 	venus_hfi_iommu_detach(device);
-	rc = regulator_disable(venus_hfi_get_regulator(device, "venus"));
+
+	r = venus_hfi_get_regulator(device, "venus");
+	if (!r) {
+		dprintk(VIDC_ERR, "%s - failed to get regulator\n", __func__);
+		return -EINVAL;
+	}
+
+	rc = regulator_disable(r);
 	if (rc) {
 		dprintk(VIDC_WARN, "Failed to disable GDSC, %d\n", rc);
 		return rc;
@@ -1321,6 +1329,7 @@ already_disabled:
 static inline int venus_hfi_power_on(struct venus_hfi_device *device)
 {
 	int rc = 0;
+	struct regulator *r = NULL;
 	if (!device) {
 		dprintk(VIDC_ERR, "Invalid params: %p\n", device);
 		return -EINVAL;
@@ -1333,7 +1342,14 @@ static inline int venus_hfi_power_on(struct venus_hfi_device *device)
 		goto err_vote_buses;
 	}
 
-	rc = regulator_enable(venus_hfi_get_regulator(device, "venus"));
+	r = venus_hfi_get_regulator(device, "venus");
+	if (!r) {
+		dprintk(VIDC_ERR, "%s - failed to get regulator\n", __func__);
+		rc = -EINVAL;
+		goto err_enable_gdsc;
+	}
+
+	rc = regulator_enable(r);
 	if (rc) {
 		dprintk(VIDC_ERR, "Failed to enable GDSC %d\n", rc);
 		goto err_enable_gdsc;
