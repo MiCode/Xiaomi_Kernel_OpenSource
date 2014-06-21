@@ -74,7 +74,7 @@ static int handle_alloc_req(void *req_h, void *req)
 {
 	struct mem_alloc_req_msg_v01 *alloc_req;
 	struct mem_alloc_resp_msg_v01 alloc_resp;
-	int rc;
+	int rc = 0;
 
 	alloc_req = (struct mem_alloc_req_msg_v01 *)req;
 	pr_debug("%s: Received Alloc Request\n", __func__);
@@ -86,17 +86,18 @@ static int handle_alloc_req(void *req_h, void *req)
 		rc = memshare_alloc(alloc_req->num_bytes,
 					alloc_req->block_alignment,
 					&memblock);
-		if (rc) {
-			mutex_unlock(&memsh_drv->mem_share);
-			return -ENOMEM;
-		}
 	}
 	alloc_resp.num_bytes_valid = 1;
 	alloc_resp.num_bytes =  alloc_req->num_bytes;
-	size = alloc_req->num_bytes;
 	alloc_resp.handle_valid = 1;
 	alloc_resp.handle = memblock.phy_addr;
-	alloc_resp.resp = QMI_RESULT_SUCCESS_V01;
+	if (rc) {
+		alloc_resp.resp = QMI_RESULT_FAILURE_V01;
+		size = 0;
+	} else {
+		alloc_resp.resp = QMI_RESULT_SUCCESS_V01;
+		size = alloc_req->num_bytes;
+	}
 	mutex_unlock(&memsh_drv->mem_share);
 
 	pr_debug("alloc_resp.num_bytes :%d, alloc_resp.handle :%lx, alloc_resp.mem_req_result :%lx\n",
