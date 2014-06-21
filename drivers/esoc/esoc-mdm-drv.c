@@ -31,6 +31,7 @@ struct mdm_drv {
 	unsigned mode;
 	struct esoc_eng cmd_eng;
 	struct completion boot_done;
+	struct completion req_eng_wait;
 	struct esoc_clink *esoc_clink;
 	bool boot_fail;
 	struct workqueue_struct *mdm_queue;
@@ -72,6 +73,9 @@ static void mdm_handle_clink_evt(enum esoc_evt evt,
 			return;
 		mdm_drv->mode = CRASH;
 		queue_work(mdm_drv->mdm_queue, &mdm_drv->ssr_work);
+		break;
+	case ESOC_REQ_ENG_ON:
+		complete(&mdm_drv->req_eng_wait);
 		break;
 	default:
 		break;
@@ -144,6 +148,10 @@ static int mdm_subsys_powerup(const struct subsys_desc *crashed_subsys)
 	struct mdm_drv *mdm_drv = esoc_get_drv_data(esoc_clink);
 	const struct esoc_clink_ops const *clink_ops = esoc_clink->clink_ops;
 
+	if (!esoc_req_eng_enabled(esoc_clink)) {
+		dev_dbg(&esoc_clink->dev, "Wait for req eng registration\n");
+		wait_for_completion(&mdm_drv->req_eng_wait);
+	}
 	if (mdm_drv->mode == PWR_OFF) {
 		ret = clink_ops->cmd_exe(ESOC_PWR_ON, esoc_clink);
 		if (ret) {
@@ -225,6 +233,7 @@ int esoc_ssr_probe(struct esoc_clink *esoc_clink)
 	}
 	esoc_set_drv_data(esoc_clink, mdm_drv);
 	init_completion(&mdm_drv->boot_done);
+	init_completion(&mdm_drv->req_eng_wait);
 	INIT_WORK(&mdm_drv->ssr_work, mdm_ssr_fn);
 	mdm_drv->esoc_clink = esoc_clink;
 	mdm_drv->mode = PWR_OFF;
