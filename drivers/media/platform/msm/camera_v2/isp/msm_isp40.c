@@ -340,8 +340,6 @@ static void msm_vfe40_release_hardware(struct vfe_device *vfe_dev)
 
 static void msm_vfe40_init_hardware_reg(struct vfe_device *vfe_dev)
 {
-	uint32_t irq_mask;
-	irq_mask = msm_camera_io_r(vfe_dev->vfe_base + 0x28);
 	msm_vfe40_init_qos_parms(vfe_dev);
 	msm_vfe40_init_vbif_parms(vfe_dev);
 	/* CGC_OVERRIDE */
@@ -349,13 +347,10 @@ static void msm_vfe40_init_hardware_reg(struct vfe_device *vfe_dev)
 	msm_camera_io_w(0xC001FF7F, vfe_dev->vfe_base + 0x974);
 	/* BUS_CFG */
 	msm_camera_io_w(0x10000001, vfe_dev->vfe_base + 0x50);
-	msm_camera_io_w(0xE00000F3, vfe_dev->vfe_base + 0x28);
+	msm_camera_io_w(0xE00000FB, vfe_dev->vfe_base + 0x28);
 	msm_camera_io_w_mb(0xFEFFFFFF, vfe_dev->vfe_base + 0x2C);
 	msm_camera_io_w(0xFFFFFFFF, vfe_dev->vfe_base + 0x30);
 	msm_camera_io_w_mb(0xFEFFFFFF, vfe_dev->vfe_base + 0x34);
-	/* Enable EPOCH IRQ for 100 frame lines*/
-	irq_mask |= BIT(3);
-	msm_camera_io_w(irq_mask, vfe_dev->vfe_base + 0x28);
 	msm_camera_io_w(0x64, vfe_dev->vfe_base + 0x318);
 	msm_camera_io_w(vfe_dev->stats_data.stats_mask,
 		vfe_dev->vfe_base + 0x44);
@@ -387,9 +382,10 @@ static void msm_vfe40_process_camif_irq(struct vfe_device *vfe_dev,
 
 	if (irq_status0 & (1 << 0)) {
 		ISP_DBG("%s: SOF IRQ\n", __func__);
+		vfe_dev->hw_info->vfe_ops.core_ops.vbif_clear_counters(vfe_dev);
 		cnt = vfe_dev->axi_data.src_info[VFE_PIX_0].raw_stream_count;
 		if (cnt > 0) {
-			msm_isp_sof_notify(vfe_dev, VFE_RAW_0, ts);
+			msm_isp_sof_notify(vfe_dev, VFE_PIX_0, ts);
 			if (vfe_dev->axi_data.stream_update)
 				msm_isp_axi_stream_update(vfe_dev);
 			msm_isp_update_framedrop_reg(vfe_dev);
@@ -600,7 +596,7 @@ static void msm_vfe40_process_reg_update(struct vfe_device *vfe_dev,
 {
 	if (!(irq_status0 & 0xF0))
 		return;
-
+	vfe_dev->hw_info->vfe_ops.core_ops.reg_update(vfe_dev);
 	if (irq_status0 & BIT(4))
 		msm_isp_sof_notify(vfe_dev, VFE_PIX_0, ts);
 	if (irq_status0 & BIT(5))
@@ -619,7 +615,6 @@ static void msm_vfe40_process_reg_update(struct vfe_device *vfe_dev,
 	msm_isp_update_framedrop_reg(vfe_dev);
 	msm_isp_update_error_frame_count(vfe_dev);
 
-	vfe_dev->hw_info->vfe_ops.core_ops.reg_update(vfe_dev);
 	return;
 }
 
