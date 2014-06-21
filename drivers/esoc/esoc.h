@@ -160,4 +160,6 @@ static inline void notify_esoc_clients(struct esoc_clink *esoc_clink,
 	return;
 }
 #endif
+bool esoc_req_eng_enabled(struct esoc_clink *esoc_clink);
+bool esoc_cmd_eng_enabled(struct esoc_clink *esoc_clink);
 #endif
