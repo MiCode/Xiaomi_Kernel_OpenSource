@@ -1463,7 +1463,6 @@ static inline int venus_hfi_clk_gating_off(struct venus_hfi_device *device)
 		dprintk(VIDC_DBG, "Clocks are already enabled\n");
 		goto already_enabled;
 	}
-	cancel_delayed_work(&venus_hfi_pm_work);
 	if (!device->power_enabled) {
 		/*This will enable clocks as well*/
 		rc = venus_hfi_power_on(device);
@@ -1566,6 +1565,19 @@ static int venus_hfi_iface_cmdq_write_nolock(struct venus_hfi_device *device,
 			venus_hfi_write_register(
 				device, VIDC_CPU_IC_SOFTINT,
 				1 << VIDC_CPU_IC_SOFTINT_H2A_SHFT);
+
+		if (device->res->sw_power_collapsible) {
+			dprintk(VIDC_DBG,
+				"Cancel and queue delayed work again\n");
+			cancel_delayed_work(&venus_hfi_pm_work);
+			if (!queue_delayed_work(device->venus_pm_workq,
+				&venus_hfi_pm_work,
+				msecs_to_jiffies(
+				msm_vidc_pwr_collapse_delay))) {
+				dprintk(VIDC_DBG,
+				"PM work already scheduled\n");
+			}
+		}
 		result = 0;
 	} else {
 		dprintk(VIDC_ERR, "venus_hfi_iface_cmdq_write:queue_full\n");
@@ -2025,6 +2037,10 @@ static int venus_hfi_sys_set_idle_message(struct venus_hfi_device *device,
 	u8 packet[VIDC_IFACEQ_VAR_SMALL_PKT_SIZE];
 	struct hfi_cmd_sys_set_property_packet *pkt =
 		(struct hfi_cmd_sys_set_property_packet *) &packet;
+	if (!enable) {
+		dprintk(VIDC_DBG, "sys_idle_indicator is not enabled\n");
+		return 0;
+	}
 	create_pkt_cmd_sys_idle_indicator(pkt, enable);
 	if (venus_hfi_iface_cmdq_write(device, pkt))
 		return -ENOTEMPTY;
@@ -2373,7 +2389,8 @@ static void venus_hfi_set_default_sys_properties(
 {
 	if (venus_hfi_sys_set_debug(device, msm_fw_debug))
 		dprintk(VIDC_WARN, "Setting fw_debug msg ON failed\n");
-	if (venus_hfi_sys_set_idle_message(device, msm_fw_low_power_mode))
+	if (venus_hfi_sys_set_idle_message(device,
+		device->res->sys_idle_indicator || msm_vidc_sys_idle_indicator))
 		dprintk(VIDC_WARN, "Setting idle response ON failed\n");
 	if (venus_hfi_sys_set_power_control(device, msm_fw_low_power_mode))
 		dprintk(VIDC_WARN, "Setting h/w power collapse ON failed\n");
@@ -2933,10 +2950,8 @@ static void venus_hfi_pm_hndlr(struct work_struct *work)
 	struct venus_hfi_device *device = list_first_entry(
 			&hal_ctxt.dev_head, struct venus_hfi_device, list);
 	mutex_lock(&device->clk_pwr_lock);
-	if (device->clk_state == ENABLED_PREPARED || !device->power_enabled) {
-		dprintk(VIDC_DBG,
-				"Clocks status: %d, Power status: %d, ignore power off\n",
-				device->clk_state, device->power_enabled);
+	if (!device->power_enabled) {
+		dprintk(VIDC_DBG, "Power already disabled\n");
 		goto clks_enabled;
 	}
 	mutex_unlock(&device->clk_pwr_lock);
@@ -2957,12 +2972,6 @@ static void venus_hfi_pm_hndlr(struct work_struct *work)
 	}
 
 	mutex_lock(&device->clk_pwr_lock);
-	if (device->clk_state == ENABLED_PREPARED) {
-		dprintk(VIDC_ERR,
-				"Clocks are still enabled after PC_PREP_DONE, ignore power off\n");
-		goto clks_enabled;
-	}
-
 	rc = venus_hfi_power_off(device);
 	if (rc)
 		dprintk(VIDC_ERR, "Failed venus power off\n");
@@ -2970,33 +2979,6 @@ clks_enabled:
 	mutex_unlock(&device->clk_pwr_lock);
 }
 
-static int venus_hfi_try_clk_gating(struct venus_hfi_device *device)
-{
-	int rc = 0;
-	u32 ctrl_status = 0;
-	if (!device) {
-		dprintk(VIDC_ERR, "invalid device\n");
-		return -ENODEV;
-	}
-	mutex_lock(&device->write_lock);
-	mutex_lock(&device->clk_pwr_lock);
-	rc = venus_hfi_get_q_size(device, VIDC_IFACEQ_CMDQ_IDX);
-	ctrl_status = venus_hfi_read_register(
-		device,
-		VIDC_CPU_CS_SCIACMDARG0);
-	dprintk(VIDC_DBG,
-			"venus_hfi_try_clk_gating - rc %d, ctrl_status 0x%x\n",
-			rc, ctrl_status);
-	if (((ctrl_status & VIDC_CPU_CS_SCIACMDARG0_HFI_CTRL_INIT_IDLE_MSG_BMSK)
-		|| (ctrl_status & VIDC_CPU_CS_SCIACMDARG0_HFI_CTRL_PC_READY))
-			&& !rc)
-		venus_hfi_clk_gating_on(device);
-	else
-		dprintk(VIDC_DBG, "Ignore clock gating\n");
-	mutex_unlock(&device->clk_pwr_lock);
-	mutex_unlock(&device->write_lock);
-	return rc;
-}
 static void venus_hfi_process_msg_event_notify(
 	struct venus_hfi_device *device, void *packet)
 {
@@ -3085,28 +3067,9 @@ static void venus_hfi_response_handler(struct venus_hfi_device *device)
 			}
 		}
 		switch (rc) {
-		case HFI_MSG_SYS_IDLE:
-			/* Queue worker thread to enable power collapse */
-			if (device->res->sw_power_collapsible) {
-				if (!queue_delayed_work(device->venus_pm_workq,
-					&venus_hfi_pm_work, msecs_to_jiffies(
-						msm_vidc_pwr_collapse_delay))) {
-					dprintk(VIDC_DBG,
-						"PM work already scheduled\n");
-				}
-			}
-
-			dprintk(VIDC_DBG,
-					"Received HFI_MSG_SYS_IDLE\n");
-			rc = venus_hfi_try_clk_gating(device);
-			break;
 		case HFI_MSG_SYS_PC_PREP_DONE:
 			dprintk(VIDC_DBG,
 					"Received HFI_MSG_SYS_PC_PREP_DONE\n");
-			rc = venus_hfi_try_clk_gating(device);
-			if (rc)
-				dprintk(VIDC_ERR,
-					"Failed clk gating after PC_PREP_DONE\n");
 			complete(&pc_prep_done);
 			break;
 		}
@@ -3126,6 +3089,15 @@ static void venus_hfi_core_work_handler(struct work_struct *work)
 		dprintk(VIDC_ERR, "No interrupt callback function: %p\n",
 				device);
 		return;
+	}
+	if (device->res->sw_power_collapsible) {
+		dprintk(VIDC_DBG, "Cancel and queue delayed work again.\n");
+		cancel_delayed_work(&venus_hfi_pm_work);
+		if (!queue_delayed_work(device->venus_pm_workq,
+			&venus_hfi_pm_work,
+			msecs_to_jiffies(msm_vidc_pwr_collapse_delay))) {
+			dprintk(VIDC_DBG, "PM work already scheduled\n");
+		}
 	}
 	venus_hfi_core_clear_interrupt(device);
 	venus_hfi_response_handler(device);
