@@ -20,8 +20,6 @@
 #include <linux/init.h>
 #include <linux/module.h>
 #include <linux/cpufreq.h>
-#include <linux/workqueue.h>
-#include <linux/completion.h>
 #include <linux/cpu.h>
 #include <linux/cpumask.h>
 #include <linux/sched.h>
@@ -39,18 +37,6 @@ static struct clk *cpu_clk[NR_CPUS];
 static struct clk *l2_clk;
 static DEFINE_PER_CPU(struct cpufreq_frequency_table *, freq_table);
 static bool hotplug_ready;
-
-struct cpufreq_work_struct {
-	struct work_struct work;
-	struct cpufreq_policy *policy;
-	struct completion complete;
-	int frequency;
-	unsigned int index;
-	int status;
-};
-
-static DEFINE_PER_CPU(struct cpufreq_work_struct, cpufreq_work);
-static struct workqueue_struct *msm_cpufreq_wq;
 
 struct cpufreq_suspend_t {
 	struct mutex suspend_mutex;
@@ -104,16 +90,6 @@ static int set_cpu_freq(struct cpufreq_policy *policy, unsigned int new_freq,
 	return ret;
 }
 
-static void set_cpu_work(struct work_struct *work)
-{
-	struct cpufreq_work_struct *cpu_work =
-		container_of(work, struct cpufreq_work_struct, work);
-
-	cpu_work->status = set_cpu_freq(cpu_work->policy, cpu_work->frequency,
-					cpu_work->index);
-	complete(&cpu_work->complete);
-}
-
 static int msm_cpufreq_target(struct cpufreq_policy *policy,
 				unsigned int target_freq,
 				unsigned int relation)
@@ -121,8 +97,6 @@ static int msm_cpufreq_target(struct cpufreq_policy *policy,
 	int ret = -EFAULT;
 	int index;
 	struct cpufreq_frequency_table *table;
-
-	struct cpufreq_work_struct *cpu_work = NULL;
 
 	mutex_lock(&per_cpu(cpufreq_suspend, policy->cpu).suspend_mutex);
 
@@ -145,19 +119,8 @@ static int msm_cpufreq_target(struct cpufreq_policy *policy,
 		policy->cpu, target_freq, relation,
 		policy->min, policy->max, table[index].frequency);
 
-	cpu_work = &per_cpu(cpufreq_work, policy->cpu);
-	cpu_work->policy = policy;
-	cpu_work->frequency = table[index].frequency;
-	cpu_work->index = table[index].driver_data;
-	cpu_work->status = -ENODEV;
-
-	cancel_work_sync(&cpu_work->work);
-	INIT_COMPLETION(cpu_work->complete);
-	queue_work_on(policy->cpu, msm_cpufreq_wq, &cpu_work->work);
-	wait_for_completion(&cpu_work->complete);
-
-	ret = cpu_work->status;
-
+	ret = set_cpu_freq(policy, table[index].frequency,
+			   table[index].driver_data);
 done:
 	mutex_unlock(&per_cpu(cpufreq_suspend, policy->cpu).suspend_mutex);
 	return ret;
@@ -182,7 +145,6 @@ static int msm_cpufreq_init(struct cpufreq_policy *policy)
 	int ret = 0;
 	struct cpufreq_frequency_table *table =
 			per_cpu(freq_table, policy->cpu);
-	struct cpufreq_work_struct *cpu_work = NULL;
 	int cpu;
 
 	/*
@@ -191,14 +153,9 @@ static int msm_cpufreq_init(struct cpufreq_policy *policy)
 	 * CPUs that share same clock, and mark them as controlled by
 	 * same policy.
 	 */
-	for_each_possible_cpu(cpu) {
-		if (cpu_clk[cpu] == cpu_clk[policy->cpu]) {
+	for_each_possible_cpu(cpu)
+		if (cpu_clk[cpu] == cpu_clk[policy->cpu])
 			cpumask_set_cpu(cpu, policy->cpus);
-			cpu_work = &per_cpu(cpufreq_work, cpu);
-			INIT_WORK(&cpu_work->work, set_cpu_work);
-			init_completion(&cpu_work->complete);
-		}
-	}
 
 	if (cpufreq_frequency_table_cpuinfo(policy, table))
 		pr_err("cpufreq: failed to get policy min/max\n");
@@ -521,7 +478,6 @@ static int __init msm_cpufreq_register(void)
 		return rc;
 	}
 
-	msm_cpufreq_wq = alloc_workqueue("msm-cpufreq", WQ_HIGHPRI, 0);
 	register_pm_notifier(&msm_cpufreq_pm_notifier);
 	return cpufreq_register_driver(&msm_cpufreq_driver);
 }
