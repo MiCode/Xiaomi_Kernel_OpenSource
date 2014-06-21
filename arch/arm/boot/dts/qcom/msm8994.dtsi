@@ -1144,6 +1144,7 @@
 		interrupt-names = "hs_phy_irq", "pwr_event_irq", "pmic_id_irq";
 
 		USB3_GDSC-supply = <&gdsc_usb30>;
+		vbus_dwc3-supply = <&pmi8994_otg_supply>;
 		qcom,dwc-usb3-msm-tx-fifo-size = <29696>;
 		qcom,dwc-usb3-msm-qdss-tx-fifo-size = <8192>;
 		qcom,otg-capability;

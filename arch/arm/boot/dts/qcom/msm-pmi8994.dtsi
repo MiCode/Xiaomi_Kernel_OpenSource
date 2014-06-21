@@ -129,7 +129,7 @@
 			qcom,vadc-poll-eoc;
 		};
 
-		pmi8994_charger: qcom,qpnp-smbcharger {
+		pmi8994_charger: pmi8994_otg_supply: qcom,qpnp-smbcharger {
 			spmi-dev-container;
 			compatible = "qcom,qpnp-smbcharger";
 			#address-cells = <1>;
@@ -143,6 +143,7 @@
 			qcom,dc-psy-ma = <1500>;
 			qcom,bms-psy-name = "bms";
 			qcom,thermal-mitigation = <1500 700 600 0>;
+			regulator-name = "pmi8994_otg_vreg";
 
 			qcom,chgr@1000 {
 				reg = <0x1000 0x100>;
