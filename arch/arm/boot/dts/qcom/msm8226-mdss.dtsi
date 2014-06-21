@@ -138,6 +138,9 @@
 			00 00 00 00 0f 00 00 01 97
 			00 c0 00 00 00 00 00 01 bb];
 
+		qcom,mmss-ulp-clamp-ctrl-offset = <0x14>;
+		qcom,mmss-phyreset-ctrl-offset = <0x108>;
+
 		qcom,core-supply-entries {
 			#address-cells = <1>;
 			#size-cells = <0>;

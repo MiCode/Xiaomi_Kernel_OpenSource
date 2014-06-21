@@ -337,6 +337,8 @@ struct mdss_dsi_ctrl_pdata {
 	struct mutex cmd_mutex;
 
 	bool ulps;
+	u32 ulps_clamp_ctrl_off;
+	u32 ulps_phyrst_ctrl_off;
 
 	struct dsi_buf tx_buf;
 	struct dsi_buf rx_buf;

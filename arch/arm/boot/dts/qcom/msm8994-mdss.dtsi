@@ -186,6 +186,9 @@
 			02 00 00 40 00 00 00 00 00
 			00 00 00 80 00 00 00 00 00];
 
+		qcom,mmss-ulp-clamp-ctrl-offset = <0x14>;
+		qcom,mmss-phyreset-ctrl-offset = <0x108>;
+
 		qcom,core-supply-entries {
 			#address-cells = <1>;
 			#size-cells = <0>;
@@ -281,6 +284,9 @@
 			02 00 00 40 20 00 00 00 00
 			02 00 00 40 00 00 00 00 00
 			00 00 00 80 00 00 00 00 00];
+
+		qcom,mmss-ulp-clamp-ctrl-offset = <0x14>;
+		qcom,mmss-phyreset-ctrl-offset = <0x108>;
 
 		qcom,core-supply-entries {
 			#address-cells = <1>;
