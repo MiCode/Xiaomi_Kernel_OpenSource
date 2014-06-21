@@ -24,7 +24,7 @@
 #include <linux/platform_device.h>
 #include <linux/of.h>
 #include <linux/spinlock.h>
-#include "governor_cpubw_hwmon.h"
+#include "governor_bw_hwmon.h"
 #include "governor_cache_hwmon.h"
 
 #include <mach/msm-krait-l2-accessors.h>
@@ -171,12 +171,12 @@ static unsigned int mbps_to_beats(unsigned long mbps, unsigned int ms,
 	return mbps;
 }
 
-static unsigned long meas_bw_and_set_irq(struct devfreq *df, unsigned int tol,
-					 unsigned int us)
+static unsigned long meas_bw_and_set_irq(struct bw_hwmon *hw,
+					 unsigned int tol, unsigned int us)
 {
 	unsigned long r_mbps, w_mbps;
 	u32 r_limit, w_limit;
-	unsigned int sample_ms = df->profile->polling_ms;
+	unsigned int sample_ms = hw->df->profile->polling_ms;
 
 	mon_disable(RD_MON);
 	mon_disable(WR_MON);
@@ -200,12 +200,12 @@ static unsigned long meas_bw_and_set_irq(struct devfreq *df, unsigned int tol,
 	return r_mbps + w_mbps;
 }
 
-static bool is_valid_bw_irq(struct devfreq *df)
+static bool is_valid_bw_irq(struct bw_hwmon *hw)
 {
 	return mon_overflow(RD_MON) || mon_overflow(WR_MON);
 }
 
-static int start_bw_hwmon(struct devfreq *df, unsigned long mbps)
+static int start_bw_hwmon(struct bw_hwmon *hw, unsigned long mbps)
 {
 	u32 limit;
 
@@ -213,7 +213,7 @@ static int start_bw_hwmon(struct devfreq *df, unsigned long mbps)
 	mon_disable(RD_MON);
 	mon_disable(WR_MON);
 
-	limit = mbps_to_beats(mbps, df->profile->polling_ms, 0);
+	limit = mbps_to_beats(mbps, hw->df->profile->polling_ms, 0);
 	limit /= 2;
 	prev_r_start_val = mon_set_limit(RD_MON, limit);
 	prev_w_start_val = mon_set_limit(WR_MON, limit);
@@ -227,7 +227,7 @@ static int start_bw_hwmon(struct devfreq *df, unsigned long mbps)
 	return 0;
 }
 
-static void stop_bw_hwmon(struct devfreq *df)
+static void stop_bw_hwmon(struct bw_hwmon *hw)
 {
 	global_mon_enable(false);
 	mon_disable(RD_MON);
@@ -236,11 +236,16 @@ static void stop_bw_hwmon(struct devfreq *df)
 	mon_irq_enable(WR_MON, false);
 }
 
-static struct cpubw_hwmon bw_hwmon = {
+static struct devfreq_governor devfreq_gov_cpubw_hwmon = {
+	.name = "cpubw_hwmon",
+};
+
+static struct bw_hwmon cpubw_hwmon = {
 	.start_hwmon = &start_bw_hwmon,
 	.stop_hwmon = &stop_bw_hwmon,
 	.is_valid_irq = &is_valid_bw_irq,
 	.meas_bw_and_set_irq = &meas_bw_and_set_irq,
+	.gov = &devfreq_gov_cpubw_hwmon,
 };
 
 /* ********** Cache reqs specific code  ********** */
@@ -367,12 +372,12 @@ static int krait_l2pm_driver_probe(struct platform_device *pdev)
 	struct device *dev = &pdev->dev;
 	int ret, ret2;
 
-	bw_hwmon.irq = platform_get_irq(pdev, 0);
-	if (bw_hwmon.irq < 0) {
+	cpubw_hwmon.irq = platform_get_irq(pdev, 0);
+	if (cpubw_hwmon.irq < 0) {
 		pr_err("Unable to get IRQ number\n");
-		return bw_hwmon.irq;
+		return cpubw_hwmon.irq;
 	}
-	mrps_hwmon.irq = bw_hwmon.irq;
+	mrps_hwmon.irq = cpubw_hwmon.irq;
 
 	ret = of_property_read_u32(dev->of_node, "qcom,bytes-per-beat",
 					&bytes_per_beat);
@@ -381,7 +386,7 @@ static int krait_l2pm_driver_probe(struct platform_device *pdev)
 		return ret;
 	}
 
-	ret = register_cpubw_hwmon(&bw_hwmon);
+	ret = register_bw_hwmon(dev, &cpubw_hwmon);
 	if (ret)
 		pr_err("CPUBW hwmon registration failed\n");
 
