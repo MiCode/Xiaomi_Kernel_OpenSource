@@ -22,6 +22,7 @@
 #ifndef __UAPI_LINUX_DANIPC_IOCTL_H__
 #define __UAPI_LINUX_DANIPC_IOCTL_H__
 
+#include <linux/types.h>
 
 #define DANIPC_IOCS_REGISTER	(SIOCDEVPRIVATE + 0)
 #define DANIPC_IOCG_ADDR2NAME	(SIOCDEVPRIVATE + 1)
@@ -57,5 +58,5 @@ struct danipc_name {
 	danipc_addr_t		addr;
 };
 
-
+#define DANIPC_MAX_BUF 1600
 #endif /* __UAPI_LINUX_DANIPC_IOCTL_H__ */

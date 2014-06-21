@@ -80,10 +80,12 @@ static int delay_skb(struct sk_buff *skb, struct ipc_to_virt_map *map)
 		spin_unlock_irqrestore(&skbs_lock, flags);
 
 		schedule_work(&delayed_skbs_work);
+		skb->dev->stats.tx_fifo_errors++;
 		rc = NETDEV_TX_OK;
 	} else {
 		netdev_err(skb->dev, "cannot allocate struct delayed_skb\n");
 		rc = NETDEV_TX_BUSY;	/* Try again sometime */
+		skb->dev->stats.tx_dropped++;
 	}
 	return rc;
 }
@@ -194,4 +196,12 @@ handle_incoming_packet(char *const packet, u8 cpu_id,
 		danipc_dev->stats.rx_bytes += skb->len;
 	} else
 		danipc_dev->stats.rx_dropped++;
+}
+
+int danipc_change_mtu(struct net_device *dev, int new_mtu)
+{
+	if ((new_mtu < 68) || (new_mtu > IPC_BUF_SIZE_MAX))
+		return -EINVAL;
+	dev->mtu = new_mtu;
+	return 0;
 }
