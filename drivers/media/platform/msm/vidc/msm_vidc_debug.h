@@ -16,6 +16,7 @@
 #include <linux/debugfs.h>
 #include <linux/delay.h>
 #include "msm_vidc_internal.h"
+#include "trace/events/msm_vidc.h"
 
 #define VIDC_DBG_TAG "msm_vidc: %4s: "
 
