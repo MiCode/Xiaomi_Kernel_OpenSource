@@ -42,7 +42,7 @@ extern struct list_head orphan_clk_list;
 int clock_debug_register(struct clk *clk);
 void clock_debug_print_enabled(void);
 #else
-static inline int clock_debug_register(struct list_head *list)
+static inline int clock_debug_register(struct clk *unused)
 {
 	return 0;
 }
