@@ -585,7 +585,12 @@ static int32_t sp1628_platform_probe(struct platform_device *pdev)
 	const struct of_device_id *match;
 	CDBG("%s, E.", __func__);
 	match = of_match_device(sp1628_dt_match, &pdev->dev);
-	rc = msm_sensor_platform_probe(pdev, match->data);
+	if (match)
+		rc = msm_sensor_platform_probe(pdev, match->data);
+	else {
+		pr_err("%s:%d match is null\n", __func__, __LINE__);
+		rc = -EINVAL;
+	}
 	return rc;
 }
 
