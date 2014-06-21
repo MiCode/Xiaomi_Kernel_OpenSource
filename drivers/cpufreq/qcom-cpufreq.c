@@ -191,13 +191,14 @@ static int msm_cpufreq_init(struct cpufreq_policy *policy)
 	 * CPUs that share same clock, and mark them as controlled by
 	 * same policy.
 	 */
-	for_each_possible_cpu(cpu)
-		if (cpu_clk[cpu] == cpu_clk[policy->cpu])
+	for_each_possible_cpu(cpu) {
+		if (cpu_clk[cpu] == cpu_clk[policy->cpu]) {
 			cpumask_set_cpu(cpu, policy->cpus);
-
-	cpu_work = &per_cpu(cpufreq_work, policy->cpu);
-	INIT_WORK(&cpu_work->work, set_cpu_work);
-	init_completion(&cpu_work->complete);
+			cpu_work = &per_cpu(cpufreq_work, cpu);
+			INIT_WORK(&cpu_work->work, set_cpu_work);
+			init_completion(&cpu_work->complete);
+		}
+	}
 
 	if (cpufreq_frequency_table_cpuinfo(policy, table)) {
 #ifdef CONFIG_MSM_CPU_FREQ_SET_MIN_MAX
