@@ -803,9 +803,9 @@ static ssize_t snapshot_show(struct file *filep, struct kobject *kobj,
 	if (device == NULL)
 		return 0;
 
-	kgsl_mutex_lock(&device->mutex, &device->mutex_owner);
+	mutex_lock(&device->mutex);
 	snapshot = device->snapshot;
-	kgsl_mutex_unlock(&device->mutex, &device->mutex_owner);
+	mutex_unlock(&device->mutex);
 
 	/* Return nothing if we haven't taken a snapshot yet */
 	if (snapshot == NULL)
@@ -849,9 +849,9 @@ static ssize_t snapshot_show(struct file *filep, struct kobject *kobj,
 	 */
 
 	if (itr.write == 0) {
-		kgsl_mutex_lock(&device->mutex, &device->mutex_owner);
+		mutex_lock(&device->mutex);
 		device->snapshot = NULL;
-		kgsl_mutex_unlock(&device->mutex, &device->mutex_owner);
+		mutex_unlock(&device->mutex);
 
 		list_for_each_entry_safe(obj, tmp, &snapshot->obj_list, node)
 			kgsl_snapshot_put_object(obj);

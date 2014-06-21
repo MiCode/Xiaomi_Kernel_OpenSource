@@ -331,7 +331,6 @@ struct kgsl_device {
 	int open_count;
 
 	struct mutex mutex;
-	atomic64_t mutex_owner;
 	uint32_t state;
 	uint32_t requested_state;
 
@@ -888,32 +887,6 @@ static inline int kgsl_sysfs_store(const char *buf, unsigned int *ptr)
 		*ptr = val;
 
 	return 0;
-}
-
-/**
- * kgsl_mutex_lock() -- mutex_lock() wrapper
- * @mutex: mutex to lock
- * @owner: current mutex owner
- *
- */
-static inline int kgsl_mutex_lock(struct mutex *mutex, atomic64_t *owner)
-{
-	/*
-	 * owner is no longer used, but the interface must remain the same
-	 * for now.
-	 */
-	mutex_lock(mutex);
-	return 1;
-}
-
-/**
- * kgsl_mutex_unlock() -- Clear the owner and unlock the mutex
- * @mutex: mutex to unlock
- * @owner: current mutex owner
- */
-static inline void kgsl_mutex_unlock(struct mutex *mutex, atomic64_t *owner)
-{
-	mutex_unlock(mutex);
 }
 
 /*

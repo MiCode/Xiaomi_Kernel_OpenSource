@@ -480,9 +480,9 @@ static int profile_enable_get(void *data, u64 *val)
 	struct kgsl_device *device = data;
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
 
-	kgsl_mutex_lock(&device->mutex, &device->mutex_owner);
+	mutex_lock(&device->mutex);
 	*val = adreno_profile_enabled(&adreno_dev->profile);
-	kgsl_mutex_unlock(&device->mutex, &device->mutex_owner);
+	mutex_unlock(&device->mutex);
 
 	return 0;
 }
@@ -493,13 +493,13 @@ static int profile_enable_set(void *data, u64 val)
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
 	struct adreno_profile *profile = &adreno_dev->profile;
 
-	kgsl_mutex_lock(&device->mutex, &device->mutex_owner);
+	mutex_lock(&device->mutex);
 
 	profile->enabled = val;
 
 	check_close_profile(profile);
 
-	kgsl_mutex_unlock(&device->mutex, &device->mutex_owner);
+	mutex_unlock(&device->mutex);
 
 	return 0;
 }
@@ -515,11 +515,11 @@ static ssize_t profile_assignments_read(struct file *filep,
 	char *buf, *pos;
 	ssize_t size = 0;
 
-	kgsl_mutex_lock(&device->mutex, &device->mutex_owner);
+	mutex_lock(&device->mutex);
 
 	buf = kmalloc(max_size, GFP_KERNEL);
 	if (!buf) {
-		kgsl_mutex_unlock(&device->mutex, &device->mutex_owner);
+		mutex_unlock(&device->mutex);
 		return -ENOMEM;
 	}
 
@@ -539,7 +539,7 @@ static ssize_t profile_assignments_read(struct file *filep,
 
 	kfree(buf);
 
-	kgsl_mutex_unlock(&device->mutex, &device->mutex_owner);
+	mutex_unlock(&device->mutex);
 	return size;
 }
 
@@ -678,7 +678,7 @@ static ssize_t profile_assignments_write(struct file *filep,
 		goto error_free;
 	}
 
-	kgsl_mutex_lock(&device->mutex, &device->mutex_owner);
+	mutex_lock(&device->mutex);
 
 	if (adreno_profile_enabled(profile)) {
 		size = -EINVAL;
@@ -734,7 +734,7 @@ static ssize_t profile_assignments_write(struct file *filep,
 error_put:
 	kgsl_active_count_put(device);
 error_unlock:
-	kgsl_mutex_unlock(&device->mutex, &device->mutex_owner);
+	mutex_unlock(&device->mutex);
 error_free:
 	kfree(buf);
 	return size;
@@ -906,7 +906,7 @@ static ssize_t profile_pipe_print(struct file *filep, char __user *ubuf,
 	 * for each perf counter <cntr_reg_off> <start hi & lo> <end hi & low>
 	 */
 
-	kgsl_mutex_lock(&device->mutex, &device->mutex_owner);
+	mutex_lock(&device->mutex);
 
 	while (1) {
 		/* process any results that are available into the log_buffer */
@@ -928,10 +928,10 @@ static ssize_t profile_pipe_print(struct file *filep, char __user *ubuf,
 			}
 		}
 
-		kgsl_mutex_unlock(&device->mutex, &device->mutex_owner);
+		mutex_unlock(&device->mutex);
 		set_current_state(TASK_INTERRUPTIBLE);
 		schedule_timeout(HZ / 10);
-		kgsl_mutex_lock(&device->mutex, &device->mutex_owner);
+		mutex_lock(&device->mutex);
 
 		if (signal_pending(current)) {
 			status = 0;
@@ -940,7 +940,7 @@ static ssize_t profile_pipe_print(struct file *filep, char __user *ubuf,
 	}
 
 	check_close_profile(profile);
-	kgsl_mutex_unlock(&device->mutex, &device->mutex_owner);
+	mutex_unlock(&device->mutex);
 
 	return status;
 }
@@ -954,7 +954,7 @@ static int profile_groups_print(struct seq_file *s, void *unused)
 	struct adreno_perfcount_group *group;
 	int i, j, used;
 
-	kgsl_mutex_lock(&device->mutex, &device->mutex_owner);
+	mutex_lock(&device->mutex);
 
 	for (i = 0; i < counters->group_count; ++i) {
 		group = &(counters->groups[i]);
@@ -970,7 +970,7 @@ static int profile_groups_print(struct seq_file *s, void *unused)
 			group->reg_count, used);
 	}
 
-	kgsl_mutex_unlock(&device->mutex, &device->mutex_owner);
+	mutex_unlock(&device->mutex);
 
 	return 0;
 }
