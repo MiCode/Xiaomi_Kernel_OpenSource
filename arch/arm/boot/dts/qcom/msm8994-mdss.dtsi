@@ -144,7 +144,6 @@
 		mdss_fb0: qcom,mdss_fb_primary {
 			cell-index = <0>;
 			compatible = "qcom,mdss-fb";
-			qcom,memblock-reserve = <0x03200000 0x01E00000>;
 		};
 
 		mdss_fb2: qcom,mdss_fb_wfd {
