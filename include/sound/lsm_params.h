@@ -16,6 +16,13 @@ enum lsm_detection_mode {
 	LSM_MODE_USER_KEYWORD_DETECTION
 };
 
+enum lsm_vw_status {
+	LSM_VOICE_WAKEUP_STATUS_RUNNING = 1,
+	LSM_VOICE_WAKEUP_STATUS_DETECTED,
+	LSM_VOICE_WAKEUP_STATUS_END_SPEECH,
+	LSM_VOICE_WAKEUP_STATUS_REJECTED
+};
+
 struct snd_lsm_sound_model {
 	__u8 *data;
 	__u32 data_size;
@@ -53,5 +60,7 @@ struct snd_lsm_event_status {
 #define SNDRV_LSM_SET_SESSION_DATA _IOW('U', 0x06, struct snd_lsm_session_data)
 #define SNDRV_LSM_REG_SND_MODEL_V2 _IOW('U', 0x07,\
 					struct snd_lsm_sound_model_v2)
+#define SNDRV_LSM_LAB_CONTROL	_IOW('U', 0x08, bool)
+#define SNDRV_LSM_STOP_LAB	_IO('U', 0x09)
 
 #endif
