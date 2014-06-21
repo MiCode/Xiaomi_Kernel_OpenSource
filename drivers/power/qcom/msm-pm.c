@@ -27,6 +27,7 @@
 #include <linux/cpu_pm.h>
 #include <linux/msm-bus.h>
 #include <linux/uaccess.h>
+#include <linux/dma-mapping.h>
 #include <soc/qcom/avs.h>
 #include <soc/qcom/spm.h>
 #include <soc/qcom/pm.h>
@@ -34,6 +35,7 @@
 #include <soc/qcom/scm-boot.h>
 #include <asm/suspend.h>
 #include <asm/cacheflush.h>
+#include <asm/cputype.h>
 #ifdef CONFIG_VFP
 #include <asm/vfp.h>
 #endif
@@ -48,7 +50,7 @@
 
 #define SCLK_HZ (32768)
 
-#define MAX_BUF_SIZE  512
+#define MAX_BUF_SIZE  1024
 
 static int msm_pm_debug_mask = 1;
 module_param_named(
@@ -81,7 +83,7 @@ static struct msm_pm_sleep_status_data *msm_pm_slp_sts;
 DEFINE_PER_CPU(struct clk *, cpu_clks);
 static struct clk *l2_clk;
 
-static void __iomem *msm_pc_debug_counters;
+static long *msm_pc_debug_counters;
 
 static cpumask_t retention_cpus;
 static DEFINE_SPINLOCK(retention_lock);
@@ -162,15 +164,20 @@ bailout:
 static inline void msm_pc_inc_debug_count(uint32_t cpu,
 		enum msm_pc_count_offsets offset)
 {
-	uint32_t cnt;
-	int cntr_offset = cpu * 4 * MSM_PC_NUM_COUNTERS + offset * 4;
+	int cntr_offset;
+	uint32_t cluster_id = MPIDR_AFFINITY_LEVEL(cpu_logical_map(cpu), 1);
+	uint32_t cpu_id = MPIDR_AFFINITY_LEVEL(cpu_logical_map(cpu), 0);
+
+	if (cluster_id >= MAX_NUM_CLUSTER || cpu_id >= MAX_CPUS_PER_CLUSTER)
+		BUG();
+
+	cntr_offset = (cluster_id * MAX_CPUS_PER_CLUSTER * MSM_PC_NUM_COUNTERS)
+			 + (cpu_id * MSM_PC_NUM_COUNTERS) + offset;
 
 	if (!msm_pc_debug_counters)
 		return;
 
-	cnt = readl_relaxed(msm_pc_debug_counters + cntr_offset);
-	writel_relaxed(++cnt, msm_pc_debug_counters + cntr_offset);
-	mb();
+	msm_pc_debug_counters[cntr_offset]++;
 }
 
 static bool msm_pm_pc_hotplug(void)
@@ -632,16 +639,10 @@ static struct platform_driver msm_cpu_pm_snoc_client_driver = {
 };
 
 struct msm_pc_debug_counters_buffer {
-	void __iomem *reg;
+	int *reg;
 	u32 len;
 	char buf[MAX_BUF_SIZE];
 };
-
-static inline u32 msm_pc_debug_counters_read_register(
-		void __iomem *reg, int index , int offset)
-{
-	return readl_relaxed(reg + (index * 4 + offset) * 4);
-}
 
 char *counter_name[MSM_PC_NUM_COUNTERS] = {
 		"PC Entry Counter",
@@ -656,23 +657,29 @@ static int msm_pc_debug_counters_copy(
 	u32 stat;
 	unsigned int cpu;
 	unsigned int len;
+	uint32_t cluster_id;
+	uint32_t cpu_id;
+	uint32_t offset;
 
 	for_each_possible_cpu(cpu) {
 		len = scnprintf(data->buf + data->len,
 				sizeof(data->buf)-data->len,
 				"CPU%d\n", cpu);
+		cluster_id = MPIDR_AFFINITY_LEVEL(cpu_logical_map(cpu), 1);
+		cpu_id = MPIDR_AFFINITY_LEVEL(cpu_logical_map(cpu), 0);
+		offset = (cluster_id * MAX_CPUS_PER_CLUSTER
+				 * MSM_PC_NUM_COUNTERS)
+				 + (cpu_id * MSM_PC_NUM_COUNTERS);
 
 		data->len += len;
 
 		for (j = 0; j < MSM_PC_NUM_COUNTERS; j++) {
-			stat = msm_pc_debug_counters_read_register(
-				data->reg, cpu, j);
-			 len = scnprintf(data->buf + data->len,
+			stat = data->reg[offset + j];
+			len = scnprintf(data->buf + data->len,
 					 sizeof(data->buf) - data->len,
 					"\t%s: %d", counter_name[j], stat);
 
-			 data->len += len;
-
+			data->len += len;
 		}
 
 	}
@@ -707,11 +714,9 @@ static int msm_pc_debug_counters_file_open(struct inode *inode,
 		struct file *file)
 {
 	struct msm_pc_debug_counters_buffer *buf;
-	void __iomem *msm_pc_debug_counters_reg;
 
-	msm_pc_debug_counters_reg = inode->i_private;
 
-	if (!msm_pc_debug_counters_reg)
+	if (!inode->i_private)
 		return -EINVAL;
 
 	file->private_data = kzalloc(
@@ -725,7 +730,7 @@ static int msm_pc_debug_counters_file_open(struct inode *inode,
 	}
 
 	buf = file->private_data;
-	buf->reg = msm_pc_debug_counters_reg;
+	buf->reg = (int *)inode->i_private;
 
 	return 0;
 }
@@ -782,31 +787,40 @@ static int msm_cpu_pm_probe(struct platform_device *pdev)
 {
 	struct dentry *dent = NULL;
 	struct resource *res = NULL;
-	int i;
 	int ret = 0;
+	void __iomem *msm_pc_debug_counters_imem;
+	int alloc_size = (MAX_NUM_CLUSTER * MAX_CPUS_PER_CLUSTER
+					* MSM_PC_NUM_COUNTERS
+					* sizeof(*msm_pc_debug_counters));
 
-	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
-	if (!res)
-		return  0;
-	msm_pc_debug_counters_phys = res->start;
-	WARN_ON(resource_size(res) < SZ_64);
-	msm_pc_debug_counters = devm_ioremap(&pdev->dev, res->start,
-					resource_size(res));
+	msm_pc_debug_counters = dma_alloc_coherent(&pdev->dev, alloc_size,
+				&msm_pc_debug_counters_phys, GFP_KERNEL);
+
 	if (msm_pc_debug_counters) {
-		for (i = 0; i < resource_size(res)/4; i++)
-			__raw_writel(0, msm_pc_debug_counters + i * 4);
-
+		memset(msm_pc_debug_counters, 0, alloc_size);
 		dent = debugfs_create_file("pc_debug_counter", S_IRUGO, NULL,
 				msm_pc_debug_counters,
 				&msm_pc_debug_counters_fops);
 		if (!dent)
 			pr_err("%s: ERROR debugfs_create_file failed\n",
 					__func__);
+		res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
+		if (!res)
+			goto skip_save_imem;
+		msm_pc_debug_counters_imem = devm_ioremap(&pdev->dev,
+						res->start, resource_size(res));
+		if (msm_pc_debug_counters_imem) {
+			writel_relaxed(msm_pc_debug_counters_phys,
+					msm_pc_debug_counters_imem);
+			mb();
+			devm_iounmap(&pdev->dev,
+					msm_pc_debug_counters_imem);
+		}
 	} else {
 		msm_pc_debug_counters = 0;
 		msm_pc_debug_counters_phys = 0;
 	}
-
+skip_save_imem:
 	if (pdev->dev.of_node) {
 		ret = msm_pm_clk_init(pdev);
 		if (ret) {

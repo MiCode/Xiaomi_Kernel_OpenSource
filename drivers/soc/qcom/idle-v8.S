@@ -26,18 +26,20 @@ ENTRY(msm_pm_boot_entry)
 	adr	x3, align
 	ldr	x1, [x3]
 	sub	x3, x1, x3
-	ldr	x1, =msm_pc_debug_counters_phys /*phys addr for IMEM reg */
+	ldr	x1, =msm_pc_debug_counters_phys /* phys addr for IMEM reg */
 	sub	x1, x1, x3			/* translate virt to phys */
 	ldr	x1,[x1]
-
 	cmp	x1, #0
 	beq	skip_pc_debug3
-	add	x1, x1, x0, LSL #4	/* debug location for this CPU */
-	add	x1, x1, #4		/* warmboot entry counter*/
+	and	x2, x0, #0xff00
+	lsr	x2, x0, #0x8
+	add	x1, x1, x2, lsl #7	/* get offset for this cluster */
+	and	x2, x0, #0xff
+	add	x1, x1, x2, lsl #5	/* get offset for this cpu */
+	add	x1, x1, #8		/* warmboot entry counter */
 	ldr	x2, [x1]
 	add	x2, x2, #1
 	str	x2, [x1]
-
 skip_pc_debug3:
 	ldr     x1, =msm_pm_boot_vector
 	sub	x1, x1, x3		/* translate virt to phys */
