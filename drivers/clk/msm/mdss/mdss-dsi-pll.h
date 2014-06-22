@@ -68,7 +68,7 @@ int digital_get_div(struct div_clk *clk);
 int analog_set_div(struct div_clk *clk, int div);
 int analog_get_div(struct div_clk *clk);
 int dsi_pll_lock_status(struct mdss_pll_resources *dsi_pll_res);
-void pll_20nm_dsi_phy_ctrl_config
+void dsi_pll_20nm_phy_ctrl_config
 		(struct mdss_pll_resources *dsi_pll_res, int off);
 int vco_set_rate(struct dsi_pll_vco_clk *vco, unsigned long rate);
 unsigned long vco_get_rate(struct clk *c);
