@@ -1255,7 +1255,6 @@ int ipa_del_flt_rule(struct ipa_ioc_del_flt_rule *hdls)
 
 	if (hdls->commit)
 		if (ipa_ctx->ctrl->ipa_commit_flt(hdls->ip)) {
-			mutex_unlock(&ipa_ctx->lock);
 			result = -EPERM;
 			goto bail;
 		}
@@ -1297,7 +1296,6 @@ int ipa_mdfy_flt_rule(struct ipa_ioc_mdfy_flt_rule *hdls)
 
 	if (hdls->commit)
 		if (ipa_ctx->ctrl->ipa_commit_flt(hdls->ip)) {
-			mutex_unlock(&ipa_ctx->lock);
 			result = -EPERM;
 			goto bail;
 		}
