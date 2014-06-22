@@ -180,14 +180,14 @@
                 clock-names = "mdp_core_clk", "iface_clk", "bus_clk",
                                 "byte_clk", "pixel_clk", "core_clk";
 
-		qcom,platform-strength-ctrl = [77 00];
+		qcom,platform-strength-ctrl = [77 06];
 		qcom,platform-bist-ctrl = [00 00 b1 ff 00 00];
-		qcom,platform-regulator-settings = [03 08 07 00 20 07 01];
-		qcom,platform-lane-config = [02 00 00 00 20 00 00 00 00
-			02 00 00 00 40 00 00 00 00
-			02 00 00 40 20 00 00 00 00
-			02 00 00 40 00 00 00 00 00
-			00 00 00 80 00 00 00 00 00];
+		qcom,platform-regulator-settings = [03 05 03 00 20 07 01];
+		qcom,platform-lane-config = [02 00 00 00 20 00 00 01 88
+			02 00 00 00 40 00 00 01 88
+			02 00 00 40 20 00 00 01 88
+			02 00 00 40 00 00 00 01 88
+			00 00 00 80 00 00 00 01 88];
 
 		qcom,mmss-ulp-clamp-ctrl-offset = <0x14>;
 		qcom,mmss-phyreset-ctrl-offset = <0x108>;
@@ -279,14 +279,14 @@
                 clock-names = "mdp_core_clk", "iface_clk", "bus_clk",
                                 "byte_clk", "pixel_clk", "core_clk";
 
-		qcom,platform-strength-ctrl = [77 00];
+		qcom,platform-strength-ctrl = [77 06];
 		qcom,platform-bist-ctrl = [00 00 b1 ff 00 00];
-		qcom,platform-regulator-settings = [03 08 07 00 20 07 01];
-		qcom,platform-lane-config = [02 00 00 00 20 00 00 00 00
-			02 00 00 00 40 00 00 00 00
-			02 00 00 40 20 00 00 00 00
-			02 00 00 40 00 00 00 00 00
-			00 00 00 80 00 00 00 00 00];
+		qcom,platform-regulator-settings = [03 05 03 00 20 07 01];
+		qcom,platform-lane-config = [02 00 00 00 20 00 00 01 88
+			02 00 00 00 40 00 00 01 88
+			02 00 00 40 20 00 00 01 88
+			02 00 00 40 00 00 00 01 88
+			00 00 00 80 00 00 00 01 88];
 
 		qcom,mmss-ulp-clamp-ctrl-offset = <0x14>;
 		qcom,mmss-phyreset-ctrl-offset = <0x108>;
