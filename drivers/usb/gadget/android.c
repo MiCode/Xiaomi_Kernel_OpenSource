@@ -1852,10 +1852,15 @@ static void rndis_function_cleanup(struct android_usb_function *f)
 static int rndis_qc_function_init(struct android_usb_function *f,
 					struct usb_composite_dev *cdev)
 {
-	f->config = kzalloc(sizeof(struct rndis_function_config), GFP_KERNEL);
-	if (!f->config)
+	struct rndis_function_config *rndis;
+
+	rndis = kzalloc(sizeof(struct rndis_function_config), GFP_KERNEL);
+	if (!rndis)
 		return -ENOMEM;
 
+	rndis->wceis = true;
+
+	f->config = rndis;
 	return rndis_qc_init();
 }
 
