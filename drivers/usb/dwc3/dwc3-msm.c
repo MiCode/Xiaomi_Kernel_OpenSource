@@ -1777,12 +1777,14 @@ static int dwc3_msm_resume(struct dwc3_msm *mdwc)
 		dev_dbg(mdwc->dev, "%s: exit power collapse\n", __func__);
 		dwc3_msm_config_gdsc(mdwc, 1);
 
-		clk_reset(mdwc->phy_com_reset, CLK_RESET_ASSERT);
+		if (mdwc->phy_com_reset)
+			clk_reset(mdwc->phy_com_reset, CLK_RESET_ASSERT);
 		clk_reset(mdwc->core_clk, CLK_RESET_ASSERT);
 		/* HW requires a short delay for reset to take place properly */
 		usleep_range(1000, 1200);
 		clk_reset(mdwc->core_clk, CLK_RESET_DEASSERT);
-		clk_reset(mdwc->phy_com_reset, CLK_RESET_DEASSERT);
+		if (mdwc->phy_com_reset)
+			clk_reset(mdwc->phy_com_reset, CLK_RESET_DEASSERT);
 	}
 
 	clk_prepare_enable(mdwc->utmi_clk);
@@ -2892,16 +2894,15 @@ static int dwc3_msm_probe(struct platform_device *pdev)
 
 	if (mdwc->power_collapse) {
 		/*
-		 * Resetting this clock is required in order to properly
-		 * recover from power collapse
+		 * If present, the phy_com_reset is used in conjunction
+		 * with power collapse exit
 		 */
 		mdwc->phy_com_reset = devm_clk_get(&pdev->dev, "phy_com_reset");
 		if (IS_ERR(mdwc->phy_com_reset)) {
-			ret = PTR_ERR(mdwc->phy_com_reset);
-			dev_err(&pdev->dev,
-				"%s unable to get phy_com_reset clock, ret=%d\n",
-				__func__, ret);
-			goto disable_ref_clk;
+			dev_dbg(&pdev->dev,
+				"%s unable to get phy_com_reset clock, ret=%ld\n",
+				__func__, PTR_ERR(mdwc->phy_com_reset));
+			mdwc->phy_com_reset = NULL;
 		}
 	}
 
