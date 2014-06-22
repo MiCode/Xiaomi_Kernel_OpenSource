@@ -78,7 +78,7 @@ snd-soc-mdm9630-objs := mdm9630.o
 obj-$(CONFIG_SND_SOC_MDM9630) += snd-soc-mdm9630.o
 
 # for MSM 8x16 sound card driver
-snd-soc-msm8x16-objs := msm8x16.o
+snd-soc-msm8x16-objs := msm8x16.o msm8939-slimbus.o
 obj-$(CONFIG_SND_SOC_MSM8X16) += snd-soc-msm8x16.o
 
 # for MSM 8994 sound card driver

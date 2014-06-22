@@ -231,6 +231,7 @@ config SND_SOC_MSM8X16
 	select SND_SOC_MSM_STUB
 	select SND_SOC_MSM_HOSTLESS_PCM
 	select SND_SOC_MSM8X16_WCD
+	select SLIMBUS
 	select MFD_CORE
 	select SND_DYNAMIC_MINORS
 	select QTI_PP
