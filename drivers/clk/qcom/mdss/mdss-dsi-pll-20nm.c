@@ -65,7 +65,12 @@ static int dsi_pll_enable_seq_8994(struct mdss_pll_resources *dsi_pll_res)
 	MDSS_PLL_REG_W(dsi_pll_res->pll_base,
 				MMSS_DSI_PHY_PLL_PLL_BKG_KVCO_CAL_EN, 0x00);
 	udelay(500);
-	pll_20nm_dsi_phy_ctrl_config(dsi_pll_res, 0x200); /* Ctrl 0 */
+	dsi_pll_20nm_phy_ctrl_config(dsi_pll_res, 0x200); /* Ctrl 0 */
+	/*
+	 * Make sure that the PHY controller configurations are completed
+	 * before checking the pll lock status.
+	 */
+	wmb();
 	pll_locked = dsi_20nm_pll_lock_status(dsi_pll_res);
 	if (!pll_locked) {
 		pr_err("DSI PLL lock failed\n");
