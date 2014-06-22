@@ -63,6 +63,7 @@ Parent node required properties:
 - qcom,bms-vadc: Corresponding VADC device's phandle.
 - qcom,bms-adc_tm: Corresponding ADC_TM device's phandle to set recurring
                         measurements and receive notifications for vbatt.
+- qcom,pmic-revid : Phandle pointing to the revision peripheral node.
 
 Parent node Optional properties
 - qcom,s1-sample-interval-ms: The sampling rate in ms of the accumulator in state
