@@ -467,7 +467,6 @@ enum i2c_msm_xfer_mode_id {
 /*
  * i2c_msm_ctrl_ver: info that is different between i2c controller versions
  *
- * @create   Called once on probe. Allocate transfer modes
  * @destroy  Called once on exit.  Deallocate transfer modes
  * @init     Initialises the controller.
  * @teardown Teardown the controller and the transfer modes.
@@ -484,7 +483,6 @@ enum i2c_msm_xfer_mode_id {
  *                 is a "base class" to the particular transfer mode.
  */
 struct i2c_msm_ctrl_ver {
-	int			  (*create)     (struct i2c_msm_ctrl *);
 	void			  (*destroy)    (struct i2c_msm_ctrl *);
 	int			  (*init)       (struct i2c_msm_ctrl *);
 	void			  (*teardown)   (struct i2c_msm_ctrl *);
