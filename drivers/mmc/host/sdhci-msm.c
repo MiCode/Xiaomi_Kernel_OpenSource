@@ -930,6 +930,11 @@ static int sdhci_msm_hs400_dll_calibration(struct sdhci_host *host)
 	if (ret)
 		goto out;
 
+	/* Write 1 to CMD_DAT_TRACK_SEL field in DLL_CONFIG */
+	writel_relaxed((readl_relaxed(host->ioaddr + CORE_DLL_CONFIG)
+				| CORE_CMD_DAT_TRACK_SEL),
+				host->ioaddr + CORE_DLL_CONFIG);
+
 	if (msm_host->use_cdclp533)
 		/* Calibrate CDCLP533 DLL HW */
 		ret = sdhci_msm_cdclp533_calibration(host);
