@@ -553,7 +553,7 @@ static const struct snd_soc_dapm_route byt_audio_map[] = {
 	{"ssp2 Rx", NULL, "AIF1 Capture"},
 };
 
-static const struct snd_soc_dapm_route byt_audio_map_mrd7[] = {
+static const struct snd_soc_dapm_route byt_audio_map_default[] = {
 	{"IN3P", NULL, "micbias1"},
 };
 
@@ -939,8 +939,8 @@ static int snd_byt_poweroff(struct device *dev)
 #endif
 
 /* SoC card */
-static struct snd_soc_card snd_soc_card_byt_mrd7 = {
-	.name = "bytcr-rt5640-mrd7",
+static struct snd_soc_card snd_soc_card_byt_default = {
+	.name = "bytcr-rt5640",
 	.dai_link = byt_dailink,
 	.num_links = ARRAY_SIZE(byt_dailink),
 	.set_bias_level = byt_set_bias_level,
@@ -961,22 +961,13 @@ static struct snd_soc_card snd_soc_card_byt_t100 = {
 };
 
 enum board_id {
-	BOARD_UNSUPPORTED = -1,
-	BOARD_MRD7 = 0,
+	BOARD_DEFAULT = 0,
 	BOARD_T100 = 1,
 };
 
 static enum board_id get_board_id(void)
 {
 	static const struct dmi_system_id dmi_machine_table[] = {
-		{
-			/*  INTEL MRD7 */
-			.ident = "MRD7",
-			.matches = {
-				DMI_MATCH(DMI_BOARD_NAME, "TABLET"),
-				DMI_MATCH(DMI_BOARD_VERSION, "MRD 7"),
-			},
-		},
 		{
 			/*  ASUS T100 */
 			.ident = "T100",
@@ -991,19 +982,16 @@ static enum board_id get_board_id(void)
 
 	dmi_machine = dmi_first_match(dmi_machine_table);
 	if (!dmi_machine) {
-		pr_err("Unsupported machine!\n");
-		return -ENOENT;	
+		pr_debug("No dmi entries found using default!\n");
+		return BOARD_DEFAULT;
 	}
 
-	if (!strncmp(dmi_machine->ident, "MRD7", 4)) {
-		pr_err("%s: Machine is MRD7\n", __func__);
-		return BOARD_MRD7;
-	} else if (!strncmp(dmi_machine->ident, "T100", 4)) {
-		pr_err("%s: Machine is T100\n", __func__);
+	if (!strncmp(dmi_machine->ident, "T100", 4)) {
+		pr_debug("%s: Machine is T100\n", __func__);
 		return BOARD_T100;
 	}
 
-	return BOARD_UNSUPPORTED;
+	return BOARD_DEFAULT;
 }
 
 static int snd_byt_mc_probe(struct platform_device *pdev)
@@ -1024,16 +1012,13 @@ static int snd_byt_mc_probe(struct platform_device *pdev)
 
 	bid = get_board_id();
 	switch (bid) {
-	case BOARD_MRD7:
-		card = &snd_soc_card_byt_mrd7;
-		routes = &byt_audio_map_mrd7[0];
-		break;
 	case BOARD_T100:
 		card = &snd_soc_card_byt_t100;
 		routes = &byt_audio_map_t100[0];
 		break;
 	default:
-		return -EINVAL;
+		card = &snd_soc_card_byt_default;
+		routes = &byt_audio_map_default[0];
 	}
 
 	/* register the soc card */
@@ -1052,8 +1037,7 @@ static int snd_byt_mc_probe(struct platform_device *pdev)
 		return ret_val;
 	}
 
-	if (bid == BOARD_MRD7) {
-		pr_err("%s: Setting special-bit for MRD7-board.\n", __func__);
+	if (bid != BOARD_T100) {
 		snd_soc_update_bits(byt_get_codec(card), RT5640_JD_CTRL,
 				RT5640_JD_MASK, RT5640_JD_JD1_IN4P);
 	}

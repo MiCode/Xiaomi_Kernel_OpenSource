@@ -527,13 +527,11 @@ int sst_request_firmware_async(struct intel_sst_drv *ctx)
 {
 	int ret = 0;
 	const struct dmi_system_id* dmi_machine;
-pr_err("DORIAN: Enter %s\n", __func__);
 	dmi_machine = dmi_first_match(dmi_machine_table);
 	if (!dmi_machine) {
 		pr_err("%s: Unsupported machine!\n", __func__);
 		return -ENOENT;	
 	}
-pr_err("DORIAN: %s\n", (const char*)dmi_machine->driver_data);
 	snprintf(ctx->firmware_name, sizeof(ctx->firmware_name),
 			"fw_sst_%04x_%s.bin", ctx->pci_id, (const char*)dmi_machine->driver_data);
 	pr_err("Requesting FW %s now...\n", ctx->firmware_name);
