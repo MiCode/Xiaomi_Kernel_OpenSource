@@ -3408,7 +3408,7 @@ static int hdmi_tx_get_dt_clk_data(struct device *dev,
 
 	switch (module_type) {
 	case HDMI_TX_HPD_PM:
-		mp->num_clk = 3;
+		mp->num_clk = 4;
 		mp->clk_config = devm_kzalloc(dev, sizeof(struct dss_clk) *
 			mp->num_clk, GFP_KERNEL);
 		if (!mp->clk_config) {
@@ -3434,10 +3434,14 @@ static int hdmi_tx_get_dt_clk_data(struct device *dev,
 		snprintf(mp->clk_config[2].clk_name, 32, "%s", "mdp_core_clk");
 		mp->clk_config[2].type = DSS_CLK_AHB;
 		mp->clk_config[2].rate = 0;
+
+		snprintf(mp->clk_config[3].clk_name, 32, "%s", "alt_iface_clk");
+		mp->clk_config[3].type = DSS_CLK_AHB;
+		mp->clk_config[3].rate = 0;
 		break;
 
 	case HDMI_TX_CORE_PM:
-		mp->num_clk = 2;
+		mp->num_clk = 1;
 		mp->clk_config = devm_kzalloc(dev, sizeof(struct dss_clk) *
 			mp->num_clk, GFP_KERNEL);
 		if (!mp->clk_config) {
@@ -3450,10 +3454,6 @@ static int hdmi_tx_get_dt_clk_data(struct device *dev,
 		mp->clk_config[0].type = DSS_CLK_PCLK;
 		/* This rate will be overwritten when core is powered on */
 		mp->clk_config[0].rate = 148500000;
-
-		snprintf(mp->clk_config[1].clk_name, 32, "%s", "alt_iface_clk");
-		mp->clk_config[1].type = DSS_CLK_AHB;
-		mp->clk_config[1].rate = 0;
 		break;
 
 	case HDMI_TX_DDC_PM:
