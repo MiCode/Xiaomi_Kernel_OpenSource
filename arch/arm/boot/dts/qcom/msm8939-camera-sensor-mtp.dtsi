@@ -16,6 +16,46 @@
 
 &cci {
 
+	actuator0: qcom,actuator@0 {
+		cell-index = <0>;
+		reg = <0x0>;
+		compatible = "qcom,actuator";
+		qcom,cci-master = <0>;
+		cam_vaf-supply = <&pm8916_l10>;
+		qcom,cam-vreg-name = "cam_vaf";
+		qcom,cam-vreg-type = <0>;
+		qcom,cam-vreg-min-voltage = <2800000>;
+		qcom,cam-vreg-max-voltage = <2800000>;
+		qcom,cam-vreg-op-mode = <80000>;
+	};
+
+	led_flash0: qcom,led-flash@66 {
+		cell-index = <0>;
+		reg = <0x66>;
+		qcom,slave-id = <0x66 0x00 0x0011>;
+		compatible = "rohm-flash,bd7710";
+		label = "bd7710";
+		qcom,flash-type = <1>;
+		qcom,gpio-no-mux = <0>;
+		qcom,enable_pinctrl;
+		pinctrl-names = "cam_flash_default", "cam_flash_suspend";
+		pinctrl-0 = <&cam_sensor_flash_default>;
+		pinctrl-1 = <&cam_sensor_flash_sleep>;
+		gpios = <&msm_gpio 36 0>,
+			<&msm_gpio 32 0>,
+			<&msm_gpio 31 0>;
+		qcom,gpio-flash-reset = <0>;
+		qcom,gpio-flash-en = <1>;
+		qcom,gpio-flash-now = <2>;
+		qcom,gpio-req-tbl-num = <0 1 2>;
+		qcom,gpio-req-tbl-flags = <0 0 0>;
+		qcom,gpio-req-tbl-label = "FLASH_RST",
+			"FLASH_EN",
+			"FLASH_NOW";
+		qcom,cci-master = <0>;
+	};
+
+
 	qcom,camera@78 {
 		compatible = "ovti,ov5645";
 		reg = <0x78 0x0>;
@@ -66,6 +106,8 @@
 		qcom,csiphy-sd-index = <0>;
 		qcom,csid-sd-index = <0>;
 		qcom,mount-angle = <90>;
+		qcom,actuator-src = <&actuator0>;
+		qcom,led-flash-src = <&led_flash0>;
 		cam_vdig-supply = <&pm8916_s4>;
 		cam_vana-supply = <&pm8916_l17>;
 		cam_vio-supply = <&pm8916_l6>;
