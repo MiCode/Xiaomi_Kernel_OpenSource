@@ -845,7 +845,7 @@ static void ipa_sps_irq_rx_notify(struct sps_event_notify *notify)
 				break;
 			}
 			atomic_set(&sys->curr_polling_state, 1);
-			queue_work(sys->wq, &sys->work);
+			queue_work_on(0, sys->wq, &sys->work);
 		}
 		break;
 	default:
@@ -988,7 +988,8 @@ int ipa_setup_sys_pipe(struct ipa_sys_connect_params *sys_in, u32 *clnt_hdl)
 		ep->sys->ep = ep;
 		snprintf(buff, IPA_RESOURCE_NAME_MAX, "ipawq%d",
 				sys_in->client);
-		ep->sys->wq = create_singlethread_workqueue(buff);
+		ep->sys->wq = alloc_workqueue(buff,
+				WQ_MEM_RECLAIM | WQ_CPU_INTENSIVE, 1);
 		if (!ep->sys->wq) {
 			IPAERR("failed to create wq for client %d\n",
 					sys_in->client);
