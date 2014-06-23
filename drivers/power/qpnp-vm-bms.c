@@ -114,6 +114,9 @@
 #define VBATT_ERROR_MARGIN		20000
 #define CV_DROP_MARGIN			10000
 #define MIN_OCV_UV			2000000
+#define TIME_PER_PERCENT_UUC		60
+#define IAVG_SAMPLES			16
+#define MIN_SOC_UUC			3
 
 #define QPNP_VM_BMS_DEV_NAME		"qcom,qpnp-vm-bms"
 
@@ -195,6 +198,7 @@ struct qpnp_bms_chip {
 	int				battery_status;
 	int				calculated_soc;
 	int				current_now;
+	int				prev_current_now;
 	int				prev_voltage_based_soc;
 	int				calculate_soc_ms;
 	int				voltage_soc_uv;
@@ -205,6 +209,7 @@ struct qpnp_bms_chip {
 	int				charge_start_tm_sec;
 	int				catch_up_time_sec;
 	int				delta_time_s;
+	int				uuc_delta_time_s;
 	int				ocv_at_100;
 	int				last_ocv_uv;
 	int				s2_fifo_length;
@@ -214,11 +219,17 @@ struct qpnp_bms_chip {
 	unsigned int			vadc_v1250;
 	unsigned long			tm_sec;
 	unsigned long			workaround_flag;
+	unsigned long			uuc_tm_sec;
 	u32				seq_num;
 	u8				shutdown_soc;
 	u16				last_ocv_raw;
 	u32				shutdown_ocv;
 	bool				suspend_data_valid;
+	int				iavg_num_samples;
+	unsigned int			iavg_index;
+	int				iavg_samples_ma[IAVG_SAMPLES];
+	int				iavg_ma;
+	int				prev_soc_uuc;
 
 	struct bms_battery_data		*batt_data;
 	struct bms_dt_cfg		dt;
@@ -747,10 +758,77 @@ fail_fsm:
 	return rc;
 }
 
+static int calculate_uuc_iavg(struct qpnp_bms_chip *chip)
+{
+	int i;
+	int iavg_ma = chip->current_now / 1000;
+
+	/* only continue if ibat has changed */
+	if (chip->current_now == chip->prev_current_now)
+		goto ibat_unchanged;
+	else
+		chip->prev_current_now = chip->current_now;
+
+	chip->iavg_samples_ma[chip->iavg_index] = iavg_ma;
+	chip->iavg_index = (chip->iavg_index + 1) % IAVG_SAMPLES;
+	chip->iavg_num_samples++;
+	if (chip->iavg_num_samples >= IAVG_SAMPLES)
+		chip->iavg_num_samples = IAVG_SAMPLES;
+
+	if (chip->iavg_num_samples) {
+		iavg_ma = 0;
+		/* maintain a 16 sample average of ibat */
+		for (i = 0; i < chip->iavg_num_samples; i++) {
+			pr_debug("iavg_samples_ma[%d] = %d\n", i,
+					chip->iavg_samples_ma[i]);
+			iavg_ma += chip->iavg_samples_ma[i];
+		}
+
+		chip->iavg_ma = DIV_ROUND_CLOSEST(iavg_ma,
+					chip->iavg_num_samples);
+	}
+
+ibat_unchanged:
+	pr_debug("current_now_ma=%d averaged_iavg_ma=%d\n",
+			chip->current_now / 1000, chip->iavg_ma);
+
+	return chip->iavg_ma;
+}
+
+static int adjust_uuc(struct qpnp_bms_chip *chip, int soc_uuc)
+{
+	int max_percent_change;
+
+	calculate_delta_time(&chip->uuc_tm_sec, &chip->uuc_delta_time_s);
+
+	/* make sure that the UUC changes 1% at a time */
+	max_percent_change = max(chip->uuc_delta_time_s
+				/ TIME_PER_PERCENT_UUC, 1);
+
+	if (chip->prev_soc_uuc == -EINVAL) {
+		/* start with a minimum UUC if the initial UUC is high */
+		if (soc_uuc > MIN_SOC_UUC)
+			chip->prev_soc_uuc = MIN_SOC_UUC;
+		else
+			chip->prev_soc_uuc = soc_uuc;
+	} else {
+		if (abs(chip->prev_soc_uuc - soc_uuc) <= max_percent_change)
+			chip->prev_soc_uuc = soc_uuc;
+		else if (soc_uuc > chip->prev_soc_uuc)
+			chip->prev_soc_uuc += max_percent_change;
+		else
+			chip->prev_soc_uuc -= max_percent_change;
+	}
+
+	pr_debug("soc_uuc=%d new_soc_uuc=%d\n", soc_uuc, chip->prev_soc_uuc);
+
+	return chip->prev_soc_uuc;
+}
+
 static int lookup_soc_ocv(struct qpnp_bms_chip *chip, int ocv_uv, int batt_temp)
 {
 	int soc_ocv = 0, soc_cutoff = 0, soc_final = 0;
-	int fcc, acc, soc_uuc = 0, soc_acc = 0;
+	int fcc, acc, soc_uuc = 0, soc_acc = 0, iavg_ma = 0;
 
 	soc_ocv = interpolate_pc(chip->batt_data->pc_temp_ocv_lut,
 					batt_temp, ocv_uv / 1000);
@@ -762,10 +840,13 @@ static int lookup_soc_ocv(struct qpnp_bms_chip *chip, int ocv_uv, int batt_temp)
 	if (chip->batt_data->ibat_acc_lut) {
 		/* Apply  ACC logic only if we discharging */
 		if (!is_battery_charging(chip) && chip->current_now > 0) {
+
+			iavg_ma = calculate_uuc_iavg(chip);
+
 			fcc = interpolate_fcc(chip->batt_data->fcc_temp_lut,
 								batt_temp);
 			acc = interpolate_acc(chip->batt_data->ibat_acc_lut,
-					batt_temp, chip->current_now / 1000);
+							batt_temp, iavg_ma);
 			if (acc <= 0) {
 				if (chip->last_acc)
 					acc = chip->last_acc;
@@ -773,15 +854,25 @@ static int lookup_soc_ocv(struct qpnp_bms_chip *chip, int ocv_uv, int batt_temp)
 					acc = fcc;
 			}
 			soc_uuc = ((fcc - acc) * 100) / acc;
+
+			soc_uuc = adjust_uuc(chip, soc_uuc);
+
 			soc_acc = soc_final - soc_uuc;
-			pr_debug("fcc=%d acc=%d soc_final=%d soc_uuc=%d soc_acc=%d ibat_ma=%d\n",
+
+			pr_debug("fcc=%d acc=%d soc_final=%d soc_uuc=%d soc_acc=%d current_now=%d iavg_ma=%d\n",
 				fcc, acc, soc_final, soc_uuc,
-				soc_acc, chip->current_now / 1000);
+				soc_acc, chip->current_now / 1000, iavg_ma);
+
 			soc_final = soc_acc;
 			chip->last_acc = acc;
 		} else {
-			/* charging */
+			/* charging - reset all the counters */
 			chip->last_acc = 0;
+			chip->iavg_num_samples = 0;
+			chip->iavg_index = 0;
+			chip->iavg_ma = 0;
+			chip->prev_current_now = 0;
+			chip->prev_soc_uuc = -EINVAL;
 		}
 	}
 
@@ -2642,6 +2733,7 @@ static void bms_init_defaults(struct qpnp_bms_chip *chip)
 	chip->vbms_cv_wake_source.disabled = 1;
 	chip->vbms_soc_wake_source.disabled = 1;
 	chip->ocv_at_100 = -EINVAL;
+	chip->prev_soc_uuc = -EINVAL;
 }
 
 #define SPMI_REQUEST_IRQ(chip, rc, irq_name)				\
