@@ -3009,10 +3009,10 @@ static const struct msm8x16_wcd_reg_mask_val
 	/* Initialize current threshold to 350MA
 	 * number of wait and run cycles to 4096
 	 */
-	{MSM8X16_WCD_A_ANALOG_RX_COM_OCP_CTL, 0xE1, 0x61},
+	{MSM8X16_WCD_A_ANALOG_RX_COM_OCP_CTL, 0xFF, 0xD1},
 	{MSM8X16_WCD_A_ANALOG_RX_COM_OCP_COUNT, 0xFF, 0xFF},
-	{MSM8X16_WCD_A_ANALOG_RX_HPH_L_TEST, 0x40, 0x40},
-	{MSM8X16_WCD_A_ANALOG_RX_HPH_R_TEST, 0x40, 0x40},
+	{MSM8X16_WCD_A_ANALOG_RX_HPH_L_TEST, 0x04, 0x04},
+	{MSM8X16_WCD_A_ANALOG_RX_HPH_R_TEST, 0x04, 0x04},
 };
 
 static void msm8x16_wcd_codec_init_reg(struct snd_soc_codec *codec)

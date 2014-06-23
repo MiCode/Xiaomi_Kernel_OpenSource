@@ -1164,8 +1164,6 @@ static int wcd_mbhc_initialise(struct wcd_mbhc *mbhc)
 
 	snd_soc_write(codec, MSM8X16_WCD_A_ANALOG_MBHC_DBNC_TIMER, 0x98);
 
-	snd_soc_update_bits(codec, MSM8X16_WCD_A_ANALOG_RX_COM_OCP_CTL,
-			0x10, 0x00);
 	/* enable MBHC clock */
 	snd_soc_update_bits(codec,
 			MSM8X16_WCD_A_DIGITAL_CDC_DIG_CLK_CTL,
@@ -1323,7 +1321,6 @@ int wcd_mbhc_init(struct wcd_mbhc *mbhc, struct snd_soc_codec *codec,
 		       mbhc->intr_ids->mbhc_hs_ins_rem_intr);
 		goto err_mbhc_hs_ins_rem_irq;
 	}
-	wcd9xxx_spmi_disable_irq(mbhc->intr_ids->mbhc_hs_ins_rem_intr);
 
 	ret = wcd9xxx_spmi_request_irq(mbhc->intr_ids->hph_left_ocp,
 				  wcd_mbhc_hphl_ocp_irq, "HPH_L OCP detect",
@@ -1333,7 +1330,6 @@ int wcd_mbhc_init(struct wcd_mbhc *mbhc, struct snd_soc_codec *codec,
 		       mbhc->intr_ids->hph_left_ocp);
 		goto err_hphl_ocp_irq;
 	}
-	wcd9xxx_spmi_disable_irq(mbhc->intr_ids->hph_left_ocp);
 
 	ret = wcd9xxx_spmi_request_irq(mbhc->intr_ids->hph_right_ocp,
 				  wcd_mbhc_hphr_ocp_irq, "HPH_R OCP detect",
@@ -1343,7 +1339,6 @@ int wcd_mbhc_init(struct wcd_mbhc *mbhc, struct snd_soc_codec *codec,
 		       mbhc->intr_ids->hph_right_ocp);
 		goto err_hphr_ocp_irq;
 	}
-	wcd9xxx_spmi_disable_irq(mbhc->intr_ids->hph_right_ocp);
 
 	pr_debug("%s: leave ret %d\n", __func__, ret);
 	return ret;
