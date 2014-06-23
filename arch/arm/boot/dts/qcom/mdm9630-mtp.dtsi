@@ -40,6 +40,19 @@
 	vbus_dwc3-supply = <&smb1357_otg_supply>; /* Host 5V VBUS from SMB1357 regulator */
 };
 
+&spi_2 {
+	ethernet-switch@0 {
+		compatible = "micrel,ks8851";
+		reg = <0>;
+		interrupt-parent = <&msmgpio>;
+		spi-max-frequency = <2400000>;
+		interrupts = <56 0>;
+		vdd-io-supply = <&spi_eth_vreg>;
+		vdd-phy-supply = <&spi_eth_vreg>;
+		rst-gpio = <&msmgpio 57 0>;
+	};
+};
+
 &pmd9635_gpios {
 	gpio@c000 { /* GPIO 1 */
 	};
