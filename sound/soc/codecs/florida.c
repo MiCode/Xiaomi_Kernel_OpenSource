@@ -2155,6 +2155,14 @@ static int florida_probe(struct platform_device *pdev)
 		florida->core.adsp[i].num_mems
 			= ARRAY_SIZE(florida_dsp1_regions);
 
+		if (arizona->pdata.num_fw_defs[i]) {
+			florida->core.adsp[i].firmwares
+				= arizona->pdata.fw_defs[i];
+
+			florida->core.adsp[i].num_firmwares
+				= arizona->pdata.num_fw_defs[i];
+		}
+
 		ret = wm_adsp2_init(&florida->core.adsp[i], false,
 				    &florida->fw_lock);
 		if (ret != 0)

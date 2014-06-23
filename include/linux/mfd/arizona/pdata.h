@@ -76,6 +76,8 @@
 /* Treat INT_MAX impedance as open circuit */
 #define ARIZONA_HP_Z_OPEN INT_MAX
 
+#define ARIZONA_MAX_DSP	4
+
 struct regulator_init_data;
 
 struct arizona_jd_state;
@@ -246,6 +248,10 @@ struct arizona_pdata {
 
 	/** Override the normal jack detection */
 	const struct arizona_jd_state *custom_jd;
+
+	struct wm_adsp_fw_defs *fw_defs[ARIZONA_MAX_DSP];
+	int num_fw_defs[ARIZONA_MAX_DSP];
+
 };
 
 #endif

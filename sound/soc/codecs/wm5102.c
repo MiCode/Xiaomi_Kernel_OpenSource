@@ -1977,6 +1977,14 @@ static int wm5102_probe(struct platform_device *pdev)
 	wm5102->core.adsp[0].mem = wm5102_dsp1_regions;
 	wm5102->core.adsp[0].num_mems = ARRAY_SIZE(wm5102_dsp1_regions);
 
+	if (arizona->pdata.num_fw_defs[0]) {
+		wm5102->core.adsp[0].firmwares
+			= arizona->pdata.fw_defs[0];
+
+		wm5102->core.adsp[0].num_firmwares
+			= arizona->pdata.num_fw_defs[0];
+	}
+
 	ret = wm_adsp2_init(&wm5102->core.adsp[0], true,
 			    &wm5102->fw_lock);
 	if (ret != 0)
