@@ -2947,9 +2947,10 @@ static int __qseecom_delete_saved_key(struct qseecom_dev_handle *data,
 	struct qseecom_command_scm_resp resp;
 	int ret;
 
-	if (usage != QSEOS_KM_USAGE_DISK_ENCRYPTION) {
-		pr_err("Error:: unsupported usage %d\n", usage);
-		return -EFAULT;
+	if (usage < QSEOS_KM_USAGE_DISK_ENCRYPTION ||
+		usage >= QSEOS_KM_USAGE_MAX) {
+			pr_err("Error:: unsupported usage %d\n", usage);
+			return -EFAULT;
 	}
 
 	__qseecom_enable_clk(CLK_QSEE);
