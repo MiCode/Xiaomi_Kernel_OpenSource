@@ -15,11 +15,12 @@
 
 #include <linux/types.h>
 #include <linux/fs.h>
+#include <linux/bio.h>
 
 #ifdef CONFIG_PFT
 
 /* dm-req-crypt API */
-int pft_get_key_index(struct inode *inode, u32 *key_index,
+int pft_get_key_index(struct bio *bio, u32 *key_index,
 		      bool *is_encrypted, bool *is_inplace);
 
 /* block layer API */
