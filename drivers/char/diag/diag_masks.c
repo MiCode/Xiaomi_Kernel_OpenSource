@@ -62,12 +62,14 @@ static int diag_apps_responds(void)
 {
 	/*
 	 * Apps processor should respond to mask commands only if the
-	 * Modem channel is up and the feature mask is received from
-	 * Modem.
+	 * Modem channel is up, the feature mask is received from Modem
+	 * and if Modem supports Mask Centralization.
 	 */
 	if (chk_apps_only()) {
 		if (driver->smd_data[MODEM_DATA].ch &&
-		    driver->rcvd_feature_mask[MODEM_DATA]) {
+			driver->rcvd_feature_mask[MODEM_DATA]) {
+			if (driver->mask_centralization[MODEM_DATA])
+				return 1;
 			return 0;
 		}
 		return 1;
@@ -83,6 +85,7 @@ static void diag_send_log_mask_update(struct diag_smd_info *smd_info,
 	int send_once = 0;
 	int header_len = sizeof(struct diag_ctrl_log_mask);
 	uint8_t *buf = log_mask.update_buf;
+	uint8_t *temp = NULL;
 	uint32_t mask_size = 0;
 	struct diag_ctrl_log_mask ctrl_pkt;
 	struct diag_log_mask_t *mask = (struct diag_log_mask_t *)log_mask.ptr;
@@ -134,10 +137,15 @@ static void diag_send_log_mask_update(struct diag_smd_info *smd_info,
 		ctrl_pkt.data_len = LOG_MASK_CTRL_HEADER_LEN + mask_size;
 
 		if (header_len + mask_size > log_mask.update_buf_len) {
-			pr_err("diag: In %s, invalid log mask size %d, buf_len: %d, equip_id: %d\n",
-			       __func__, mask_size,
-			       log_mask.update_buf_len, equip_id);
-			break;
+			temp = krealloc(buf, header_len + mask_size,
+					GFP_KERNEL);
+			if (!temp) {
+				pr_err("diag: Unable to realloc log update buffer, new size: %d, equip_id: %d\n",
+				       header_len + mask_size, equip_id);
+				break;
+			}
+			log_mask.update_buf = temp;
+			log_mask.update_buf_len = header_len + mask_size;
 		}
 
 		memcpy(buf, &ctrl_pkt, header_len);
@@ -159,10 +167,12 @@ static void diag_send_log_mask_update(struct diag_smd_info *smd_info,
 static void diag_send_event_mask_update(struct diag_smd_info *smd_info)
 {
 	uint8_t *buf = event_mask.update_buf;
+	uint8_t *temp = NULL;
 	struct diag_ctrl_event_mask header;
 	int num_bytes = EVENT_COUNT_TO_BYTES(driver->last_event_id);
 	int write_len = 0;
 	int err = 0;
+	int temp_len = 0;
 
 	if (num_bytes <= 0 || num_bytes > driver->event_mask_size) {
 		pr_debug("diag: In %s, invalid event mask length %d\n",
@@ -197,9 +207,15 @@ static void diag_send_event_mask_update(struct diag_smd_info *smd_info)
 		header.event_config = 1;
 		header.event_mask_size = num_bytes;
 		if (num_bytes + sizeof(header) > event_mask.update_buf_len) {
-			pr_err("diag: In %s, invalid event mask length %d\n",
-			       __func__, num_bytes);
-			goto err;
+			temp_len = num_bytes + sizeof(header);
+			temp = krealloc(buf, temp_len, GFP_KERNEL);
+			if (!temp) {
+				pr_err("diag: Unable to realloc event mask update buffer\n");
+				goto err;
+			} else {
+				event_mask.update_buf = temp;
+				event_mask.update_buf_len = temp_len;
+			}
 		}
 		memcpy(buf + sizeof(header), event_mask.ptr, num_bytes);
 		write_len += num_bytes;
@@ -228,7 +244,9 @@ static void diag_send_msg_mask_update(struct diag_smd_info *smd_info,
 	int i;
 	int err = 0;
 	int header_len = sizeof(struct diag_ctrl_msg_mask);
+	int temp_len = 0;
 	uint8_t *buf = msg_mask.update_buf;
+	uint8_t *temp = NULL;
 	uint32_t mask_size = 0;
 	struct diag_msg_mask_t *mask = (struct diag_msg_mask_t *)msg_mask.ptr;
 	struct diag_ctrl_msg_mask header;
@@ -264,8 +282,26 @@ static void diag_send_msg_mask_update(struct diag_smd_info *smd_info,
 			continue;
 		}
 
-		if (msg_mask.status == DIAG_CTRL_MASK_VALID)
+		if (msg_mask.status == DIAG_CTRL_MASK_VALID) {
 			mask_size = mask->ssid_last - mask->ssid_first + 1;
+			temp_len = mask_size * sizeof(uint32_t);
+			if (temp_len + header_len <= msg_mask.update_buf_len)
+				goto proceed;
+			temp = krealloc(msg_mask.update_buf, temp_len,
+					GFP_KERNEL);
+			if (!temp) {
+				pr_err("diag: In %s, unable to realloc msg_mask update buffer\n",
+				       __func__);
+				mask_size = (msg_mask.update_buf_len -
+					    header_len) / sizeof(uint32_t);
+			} else {
+				msg_mask.update_buf = temp;
+				msg_mask.update_buf_len = temp_len;
+				pr_debug("diag: In %s, successfully reallocated msg_mask update buffer to len: %d\n",
+					 __func__, msg_mask.update_buf_len);
+			}
+		}
+proceed:
 		header.cmd_type = DIAG_CTRL_MSG_F3_MASK;
 		header.status = msg_mask.status;
 		header.stream_id = 1;
@@ -276,11 +312,6 @@ static void diag_send_msg_mask_update(struct diag_smd_info *smd_info,
 		mask_size *= sizeof(uint32_t);
 		header.data_len = MSG_MASK_CTRL_HEADER_LEN + mask_size;
 		memcpy(buf, &header, header_len);
-		if (mask_size + header_len > msg_mask.update_buf_len) {
-			pr_err("diag: In %s, invalid length for msg mask update buffer %d\n",
-			       __func__, mask_size + header_len);
-			break;
-		}
 		if (mask_size > 0)
 			memcpy(buf + header_len, mask->ptr, mask_size);
 
@@ -331,6 +362,7 @@ static void diag_send_feature_mask_update(struct diag_smd_info *smd_info)
 		DIAG_SET_FEATURE_MASK(F_DIAG_REQ_RSP_SUPPORT);
 	if (driver->supports_apps_hdlc_encoding)
 		DIAG_SET_FEATURE_MASK(F_DIAG_APPS_HDLC_ENCODE);
+	DIAG_SET_FEATURE_MASK(F_DIAG_MASK_CENTRALIZATION);
 	memcpy(buf + header_size, &feature_bytes, FEATURE_MASK_LEN);
 	total_len = header_size + FEATURE_MASK_LEN;
 
@@ -1220,6 +1252,7 @@ static int __diag_mask_init(struct diag_mask_info *mask_info, int mask_len,
 static int diag_msg_mask_init(void)
 {
 	int err = 0;
+	int i;
 
 	err = __diag_mask_init(&msg_mask, MSG_MASK_SIZE, APPS_BUF_SIZE);
 	if (err)
@@ -1230,6 +1263,9 @@ static int diag_msg_mask_init(void)
 		return err;
 	}
 	driver->msg_mask = &msg_mask;
+
+	for (i = 0; i < NUM_SMD_CONTROL_CHANNELS; i++)
+		driver->max_ssid_count[i] = 0;
 
 	return 0;
 }
@@ -1283,6 +1319,7 @@ static void diag_build_time_mask_exit(void)
 static int diag_log_mask_init(void)
 {
 	int err = 0;
+	int i;
 
 	err = __diag_mask_init(&log_mask, LOG_MASK_SIZE, APPS_BUF_SIZE);
 	if (err)
@@ -1291,6 +1328,9 @@ static int diag_log_mask_init(void)
 	if (err)
 		return err;
 	driver->log_mask = &log_mask;
+
+	for (i = 0; i < NUM_SMD_CONTROL_CHANNELS; i++)
+		driver->num_equip_id[i] = 0;
 
 	return 0;
 }
@@ -1313,6 +1353,7 @@ static void diag_log_mask_exit(void)
 static int diag_event_mask_init(void)
 {
 	int err = 0;
+	int i;
 
 	err = __diag_mask_init(&event_mask, EVENT_MASK_SIZE, APPS_BUF_SIZE);
 	if (err)
@@ -1320,6 +1361,9 @@ static int diag_event_mask_init(void)
 	driver->event_mask_size = EVENT_MASK_SIZE;
 	driver->last_event_id = APPS_EVENT_LAST_ID;
 	driver->event_mask = &event_mask;
+
+	for (i = 0; i < NUM_SMD_CONTROL_CHANNELS; i++)
+		driver->num_event_id[i] = 0;
 
 	return 0;
 }

@@ -35,7 +35,10 @@
 #define DIAG_CTRL_MSG_EVENT_MASK_WITH_PRESET_ID	15
 #define DIAG_CTRL_MSG_F3_MASK_WITH_PRESET_ID	16
 #define DIAG_CTRL_MSG_DCI_CONNECTION_STATUS	20
-#define DIAG_CTRL_MSG_LAST DIAG_CTRL_MSG_DCI_CONNECTION_STATUS
+#define DIAG_CTRL_MSG_LAST_EVENT_REPORT		22
+#define DIAG_CTRL_MSG_LOG_RANGE_REPORT		23
+#define DIAG_CTRL_MSG_SSID_RANGE_REPORT		24
+#define DIAG_CTRL_MSG_BUILD_MASK_REPORT		25
 
 /*
  * Feature Mask Definitions: Feature mask is used to sepcify Diag features
@@ -53,6 +56,7 @@
 #define F_DIAG_REQ_RSP_SUPPORT			4
 #define F_DIAG_APPS_HDLC_ENCODE			6
 #define F_DIAG_STM				9
+#define F_DIAG_MASK_CENTRALIZATION		11
 
 #define ENABLE_SEPARATE_CMDRSP	1
 #define DISABLE_SEPARATE_CMDRSP	0
@@ -156,6 +160,40 @@ struct diag_ctrl_dci_status {
 	uint32_t ctrl_pkt_data_len;
 	uint32_t version;
 	uint8_t count;
+} __packed;
+
+struct diag_ctrl_last_event_report {
+	uint32_t pkt_id;
+	uint32_t len;
+	uint32_t version;
+	uint16_t event_last_id;
+} __packed;
+
+struct diag_ctrl_log_range_report {
+	uint32_t pkt_id;
+	uint32_t len;
+	uint32_t version;
+	uint32_t last_equip_id;
+	uint32_t num_ranges;
+} __packed;
+
+struct diag_ctrl_log_range {
+	uint32_t equip_id;
+	uint32_t num_items;
+} __packed;
+
+struct diag_ctrl_ssid_range_report {
+	uint32_t pkt_id;
+	uint32_t len;
+	uint32_t version;
+	uint32_t count;
+} __packed;
+
+struct diag_ctrl_build_mask_report {
+	uint32_t pkt_id;
+	uint32_t len;
+	uint32_t version;
+	uint32_t count;
 } __packed;
 
 int diagfwd_cntl_init(void);
