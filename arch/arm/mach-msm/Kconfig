@@ -77,6 +77,25 @@ config ARCH_APQ8084
 	select PINCTRL
 	select PINCTRL_MSM_TLMM
 
+config ARCH_MSMFERRUM
+	bool "MSMFERRUM"
+	select ARCH_MSM_CORTEXMP
+	select GPIO_MSM_V3
+	select ARM_GIC
+	select MULTI_IRQ_HANDLER
+	select CPU_V7
+	select HAVE_ARM_ARCH_TIMER
+	select MAY_HAVE_SPARSE_IRQ
+	select SPARSE_IRQ
+	select PINCTRL
+	select PINCTRL_MSM_TLMM
+	select MSM_NOPM
+	select CPU_FREQ
+	select MSM_QDSP6_APRV3
+	select MSM_QDSP6V2_CODECS
+	select MSM_AUDIO_QDSP6V2 if SND_SOC
+	select MSM_CORTEX_A7
+
 config ARCH_MSM8916
 	bool "MSM8916"
 	select ARCH_MSM_CORTEXMP
@@ -334,6 +353,7 @@ config PHYS_OFFSET
 	hex
 	default "0x00000000" if ARCH_MSM8974
 	default "0x00000000" if ARCH_APQ8084
+	default "0x80000000" if ARCH_MSMFERRUM
 	default "0x80000000" if ARCH_MSM8916
 	default "0x00000000" if ARCH_MSM8226
 	default "0x00000000" if ARCH_MSM8610
@@ -398,6 +418,14 @@ choice
 		help
 		  Say Y here if you want the debug print routines to direct
 		  their output to the serial port on MSM 8974 devices.
+
+	config DEBUG_MSMFERRUM_UART
+		bool "Kernel low-level debugging messages via MSM FERRUM UART"
+		depends on ARCH_MSMFERRUM
+		select MSM_HAS_DEBUG_UART_HS_V14
+		help
+		  Say Y here if you want the debug print routines to direct
+		  their output to the serial port on MSM FERRUM devices.
 
 	config DEBUG_MSM8916_UART
                 bool "Kernel low-level debugging messages via MSM8916 UART"
