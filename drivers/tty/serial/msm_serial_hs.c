@@ -3301,32 +3301,31 @@ static int __devinit msm_hs_probe(struct platform_device *pdev)
 	if (is_blsp_uart(msm_uport)) {
 		core_resource = platform_get_resource_byname(pdev,
 					IORESOURCE_MEM, "core_mem");
-		bam_resource = platform_get_resource_byname(pdev,
-					IORESOURCE_MEM, "bam_mem");
-		core_irqres = platform_get_irq_byname(pdev, "core_irq");
-		bam_irqres = platform_get_irq_byname(pdev, "bam_irq");
-		wakeup_irqres = platform_get_irq_byname(pdev, "wakeup_irq");
-
 		if (!core_resource) {
 			MSM_HS_ERR("Invalid core HSUART Resources.\n");
 			return -ENXIO;
 		}
-
+		bam_resource = platform_get_resource_byname(pdev,
+					IORESOURCE_MEM, "bam_mem");
 		if (!bam_resource) {
 			MSM_HS_ERR("Invalid BAM HSUART Resources.\n");
 			return -ENXIO;
 		}
-
-		if (!core_irqres) {
+		core_irqres = platform_get_irq_byname(pdev, "core_irq");
+		if (core_irqres < 0) {
 			MSM_HS_ERR("Invalid core irqres Resources.\n");
 			return -ENXIO;
 		}
-		if (!bam_irqres) {
+		bam_irqres = platform_get_irq_byname(pdev, "bam_irq");
+		if (bam_irqres < 0) {
 			MSM_HS_ERR("Invalid bam irqres Resources.\n");
 			return -ENXIO;
 		}
-		if (!wakeup_irqres)
+		wakeup_irqres = platform_get_irq_byname(pdev, "wakeup_irq");
+		if (wakeup_irqres < 0) {
+			wakeup_irqres = -1;
 			MSM_HS_DBG("Wakeup irq not specified.\n");
+		}
 
 		uport->mapbase = core_resource->start;
 
@@ -3389,11 +3388,6 @@ static int __devinit msm_hs_probe(struct platform_device *pdev)
 		msm_uport->wakeup.ignore = 1;
 		msm_uport->wakeup.inject_rx = pdata->inject_rx_on_wakeup;
 		msm_uport->wakeup.rx_to_inject = pdata->rx_to_inject;
-
-		if (unlikely(msm_uport->wakeup.irq < 0)) {
-			ret = -ENXIO;
-			goto deregister_bus_client;
-		}
 
 		if (is_blsp_uart(msm_uport)) {
 			msm_uport->bam_tx_ep_pipe_index =
