@@ -128,6 +128,9 @@ struct arizona_pdata {
 	 */
 	int max_channels_clocked[ARIZONA_MAX_AIF];
 
+	/** Time in milliseconds to keep wake lock during jack detection */
+	int jd_wake_time;
+
 	/** GPIO5 is used for jack detection */
 	bool jd_gpio5;
 
