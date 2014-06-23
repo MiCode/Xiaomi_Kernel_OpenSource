@@ -12,6 +12,7 @@
 
 #define pr_fmt(fmt)	"FG: %s: " fmt, __func__
 
+#include <linux/atomic.h>
 #include <linux/delay.h>
 #include <linux/kernel.h>
 #include <linux/of.h>
@@ -49,6 +50,8 @@
 #define MEM_INTF_RD_DATA2	0x4E
 #define MEM_INTF_RD_DATA3	0x4F
 #define OTP_CFG1		0xE2
+#define SOC_BOOT_MOD		0x50
+#define SOC_RESTART		0x51
 
 #define REG_OFFSET_PERP_SUBTYPE	0x05
 
@@ -61,6 +64,9 @@
 #define MA_MV_BIT_RES		39
 #define MSB_SIGN		BIT(7)
 #define IBAT_VBAT_MASK		0x7F
+#define NO_OTP_PROF_RELOAD	BIT(6)
+#define REDO_FIRST_ESTIMATE	BIT(3)
+#define RESTART_GO		BIT(0)
 
 /* SUBTYPE definitions */
 #define FG_SOC			0x9
@@ -89,10 +95,10 @@ struct fg_mem_setting {
 
 /* FG_MEMIF setting index */
 enum fg_mem_setting_index {
-	FG_MEM_JEITA_SOFT_COLD,
-	FG_MEM_JEITA_SOFT_HOT,
-	FG_MEM_JEITA_HARD_COLD,
-	FG_MEM_JEITA_HARD_HOT,
+	FG_MEM_SOFT_COLD,
+	FG_MEM_SOFT_HOT,
+	FG_MEM_HARD_COLD,
+	FG_MEM_HARD_HOT,
 	FG_MEM_SETTING_MAX,
 };
 
@@ -105,10 +111,10 @@ enum fg_mem_setting_index {
 
 static struct fg_mem_setting settings[FG_MEM_SETTING_MAX] = {
 	/*       ID                    Address, Offset, Value*/
-	SETTING(JEITA_SOFT_COLD,       0x454,   0,      100),
-	SETTING(JEITA_SOFT_HOT,        0x454,   1,      400),
-	SETTING(JEITA_HARD_COLD,       0x454,   2,      50),
-	SETTING(JEITA_HARD_HOT,        0x454,   3,      450),
+	SETTING(SOFT_COLD,       0x454,   0,      100),
+	SETTING(SOFT_HOT,        0x454,   1,      400),
+	SETTING(HARD_COLD,       0x454,   2,      50),
+	SETTING(HARD_HOT,        0x454,   3,      450),
 };
 
 static int fg_debug_mask;
@@ -159,13 +165,20 @@ struct fg_chip {
 	u16			mem_base;
 	u16			vbat_adc_addr;
 	u16			ibat_adc_addr;
+	atomic_t		memif_user_cnt;
+	bool			fast_access;
 	struct fg_irq		soc_irq[FG_SOC_IRQ_COUNT];
 	struct fg_irq		batt_irq[FG_BATT_IRQ_COUNT];
 	struct fg_irq		mem_irq[FG_MEM_IF_IRQ_COUNT];
 	struct completion	sram_access;
 	struct power_supply	bms_psy;
 	struct mutex		rw_lock;
+	struct work_struct	batt_profile_init;
+	bool			profile_loaded;
+	bool			use_otp_profile;
 	struct delayed_work	update_jeita_setting;
+	char			*batt_profile;
+	unsigned int		batt_profile_len;
 };
 
 /* FG_MEMIF DEBUGFS structures */
@@ -420,20 +433,23 @@ static int fg_set_ram_addr(struct fg_chip *chip, u16 *address)
 static int fg_mem_read(struct fg_chip *chip, u8 *val, u16 address, int len,
 		bool keep_access)
 {
-	int rc = 0;
+	int rc = 0, user_cnt = 0;
 	u8 *rd_data = val;
 	bool otp;
 
 	if (address < RAM_OFFSET)
 		otp = 1;
 
+	user_cnt = atomic_add_return(1, &chip->memif_user_cnt);
+	if (fg_debug_mask & FG_MEM_DEBUG_READS)
+		pr_info("user_cnt %d\n", user_cnt);
+	mutex_lock(&chip->rw_lock);
 	if (!fg_check_sram_access(chip)) {
 		rc = fg_req_and_wait_access(chip, MEM_IF_TIMEOUT_MS);
 		if (rc)
-			return rc;
+			goto out;
 	}
 
-	mutex_lock(&chip->rw_lock);
 	rc = fg_config_access(chip, 0, (len > 4), otp);
 	if (rc)
 		goto out;
@@ -461,14 +477,18 @@ static int fg_mem_read(struct fg_chip *chip, u8 *val, u16 address, int len,
 			len = 0;
 	}
 
-	if (!keep_access) {
+out:
+	user_cnt = atomic_sub_return(1, &chip->memif_user_cnt);
+	if (fg_debug_mask & FG_MEM_DEBUG_READS)
+		pr_info("user_cnt %d\n", user_cnt);
+
+	if (!keep_access && (user_cnt == 0) && !rc) {
 		rc = fg_masked_write(chip, chip->mem_base + MEM_INTF_CFG,
 				RIF_MEM_ACCESS_REQ, 0, 1);
 		if (rc)
 			pr_err("failed to set mem access bit\n");
 	}
 
-out:
 	mutex_unlock(&chip->rw_lock);
 	return rc;
 }
@@ -476,7 +496,7 @@ out:
 static int fg_mem_write(struct fg_chip *chip, u8 *val, u16 address,
 		unsigned int len, unsigned int offset, bool keep_access)
 {
-	int rc = 0;
+	int rc = 0, user_cnt = 0;
 	u8 *wr_data = val;
 
 	if (address < RAM_OFFSET)
@@ -485,13 +505,16 @@ static int fg_mem_write(struct fg_chip *chip, u8 *val, u16 address,
 	if (offset > 3)
 		return -EINVAL;
 
+	user_cnt = atomic_add_return(1, &chip->memif_user_cnt);
+	if (fg_debug_mask & FG_MEM_DEBUG_READS)
+		pr_info("user_cnt %d\n", user_cnt);
+	mutex_lock(&chip->rw_lock);
 	if (!fg_check_sram_access(chip)) {
 		rc = fg_req_and_wait_access(chip, MEM_IF_TIMEOUT_MS);
 		if (rc)
-			return rc;
+			goto out;
 	}
 
-	mutex_lock(&chip->rw_lock);
 	rc = fg_config_access(chip, 1, (len > 4), 0);
 	if (rc)
 		goto out;
@@ -532,7 +555,11 @@ static int fg_mem_write(struct fg_chip *chip, u8 *val, u16 address,
 		}
 	}
 
-	if (!keep_access) {
+out:
+	user_cnt = atomic_sub_return(1, &chip->memif_user_cnt);
+	if (fg_debug_mask & FG_MEM_DEBUG_READS)
+		pr_info("user_cnt %d\n", user_cnt);
+	if (!keep_access && (user_cnt == 0) && !rc) {
 		rc = fg_masked_write(chip, chip->mem_base + MEM_INTF_CFG,
 				RIF_MEM_ACCESS_REQ, 0, 1);
 		if (rc) {
@@ -541,15 +568,47 @@ static int fg_mem_write(struct fg_chip *chip, u8 *val, u16 address,
 		}
 	}
 
-out:
 	mutex_unlock(&chip->rw_lock);
-	return 0;
+	return rc;
 }
 
+static int fg_mem_masked_write(struct fg_chip *chip, u16 addr,
+		u8 mask, u8 val, u8 offset)
+{
+	int rc = 0;
+	u8 reg[4];
+	char str[DEBUG_PRINT_BUFFER_SIZE];
+
+	rc = fg_mem_read(chip, reg, addr, 4, 1);
+	if (rc) {
+		pr_err("spmi read failed: addr=%03X, rc=%d\n", addr, rc);
+		return rc;
+	}
+
+	reg[offset] &= ~mask;
+	reg[offset] |= val & mask;
+
+	str[0] = '\0';
+	fill_string(str, DEBUG_PRINT_BUFFER_SIZE, reg, 4);
+	pr_debug("Writing %s address %03x, offset %d\n", str, addr, offset);
+
+	rc = fg_mem_write(chip, reg, addr, 4, 0, 0);
+	if (rc) {
+		pr_err("spmi write failed: addr=%03X, rc=%d\n", addr, rc);
+		return rc;
+	}
+
+	return rc;
+}
+
+#define DEFAULT_CAPACITY 50
 static int get_prop_capacity(struct fg_chip *chip)
 {
 	u8 cap[2];
 	int rc, capacity = 0, tries = 0;
+
+	if (!chip->profile_loaded && !chip->use_otp_profile)
+		return DEFAULT_CAPACITY;
 
 	while (tries < MAX_TRIES_SOC) {
 		rc = fg_read(chip, cap,
@@ -633,6 +692,10 @@ static int get_prop_voltage_now(struct fg_chip *chip)
 #define MAX_TEMP_DEGC	970
 static int get_prop_jeita_temp(struct fg_chip *chip, unsigned int type)
 {
+	if (fg_debug_mask & FG_POWER_SUPPLY)
+		pr_info("addr 0x%02X, offset %d\n", settings[type].address,
+			settings[type].offset);
+
 	return settings[type].value;
 }
 
@@ -641,7 +704,9 @@ static int set_prop_jeita_temp(struct fg_chip *chip,
 {
 	int rc = 0;
 
-	pr_debug("addr 0x%02X, offset %d temp%d\n", settings[type].address,
+	if (fg_debug_mask & FG_POWER_SUPPLY)
+		pr_info("addr 0x%02X, offset %d temp%d\n",
+			settings[type].address,
 			settings[type].offset, decidegc);
 
 	settings[type].value = decidegc;
@@ -663,10 +728,10 @@ static void update_jeita_setting(struct work_struct *work)
 	int i, rc;
 
 	for (i = 0; i < 4; i++)
-		reg[i] = (settings[JEITA_SOFT_COLD + i].value / 10) + 30;
+		reg[i] = (settings[FG_MEM_SOFT_COLD + i].value / 10) + 30;
 
-	rc = fg_mem_write(chip, reg, settings[JEITA_SOFT_COLD].address, 4,
-			settings[JEITA_SOFT_COLD].offset, 0);
+	rc = fg_mem_write(chip, reg, settings[FG_MEM_SOFT_COLD].address,
+			4, settings[FG_MEM_SOFT_COLD].offset, 0);
 	if (rc)
 		pr_err("failed to update JEITA setting rc=%d\n", rc);
 }
@@ -696,10 +761,10 @@ static int fg_power_get_property(struct power_supply *psy,
 		val->intval = get_prop_voltage_now(chip);
 		break;
 	case POWER_SUPPLY_PROP_COOL_TEMP:
-		val->intval = get_prop_jeita_temp(chip, FG_MEM_JEITA_SOFT_COLD);
+		val->intval = get_prop_jeita_temp(chip, FG_MEM_SOFT_COLD);
 		break;
 	case POWER_SUPPLY_PROP_WARM_TEMP:
-		val->intval = get_prop_jeita_temp(chip, FG_MEM_JEITA_SOFT_HOT);
+		val->intval = get_prop_jeita_temp(chip, FG_MEM_SOFT_HOT);
 		break;
 	default:
 		return -EINVAL;
@@ -718,11 +783,11 @@ static int fg_power_set_property(struct power_supply *psy,
 	switch (psp) {
 	case POWER_SUPPLY_PROP_COOL_TEMP:
 		rc = set_prop_jeita_temp(chip,
-				FG_MEM_JEITA_SOFT_COLD, val->intval);
+				FG_MEM_SOFT_COLD, val->intval);
 		break;
 	case POWER_SUPPLY_PROP_WARM_TEMP:
 		rc = set_prop_jeita_temp(chip,
-				FG_MEM_JEITA_SOFT_HOT, val->intval);
+				FG_MEM_SOFT_HOT, val->intval);
 		break;
 	default:
 		return -EINVAL;
@@ -748,7 +813,7 @@ static int fg_property_is_writeable(struct power_supply *psy,
 static irqreturn_t fg_mem_avail_irq_handler(int irq, void *_chip)
 {
 	struct fg_chip *chip = _chip;
-	u8 mem_if_sts;
+	u8 mem_if_sts, reg;
 	int rc;
 
 	rc = fg_read(chip, &mem_if_sts, INT_RT_STS(chip->mem_base), 1);
@@ -760,6 +825,13 @@ static irqreturn_t fg_mem_avail_irq_handler(int irq, void *_chip)
 	if (fg_check_sram_access(chip)) {
 		if (fg_debug_mask & FG_IRQS)
 			pr_info("sram access granted\n");
+		if (chip->fast_access) {
+			reg = REDO_FIRST_ESTIMATE | RESTART_GO;
+			rc = fg_masked_write(chip, chip->soc_base + SOC_RESTART,
+				       reg, reg, 1);
+			if (rc)
+				pr_err("failed to set low latency bit\n");
+		}
 		complete_all(&chip->sram_access);
 	} else {
 		if (fg_debug_mask & FG_IRQS)
@@ -774,6 +846,25 @@ static irqreturn_t fg_mem_avail_irq_handler(int irq, void *_chip)
 }
 
 static irqreturn_t fg_soc_irq_handler(int irq, void *_chip)
+{
+	struct fg_chip *chip = _chip;
+	u8 soc_rt_sts;
+	int rc;
+
+	rc = fg_read(chip, &soc_rt_sts, INT_RT_STS(chip->soc_base), 1);
+	if (rc) {
+		pr_err("spmi read failed: addr=%03X, rc=%d\n",
+				INT_RT_STS(chip->soc_base), rc);
+	}
+
+	if (fg_debug_mask & FG_IRQS)
+		pr_info("triggered 0x%x\n", soc_rt_sts);
+
+	power_supply_changed(&chip->bms_psy);
+	return IRQ_HANDLED;
+}
+
+static irqreturn_t fg_first_soc_irq_handler(int irq, void *_chip)
 {
 	struct fg_chip *chip = _chip;
 
@@ -800,14 +891,121 @@ do {									\
 				" property rc = %d\n", rc);		\
 } while (0)
 
+#define LOW_LATENCY	BIT(6)
+static int fg_batt_profile_init(struct fg_chip *chip)
+{
+	int rc = 0;
+	int len;
+	struct device_node *node = chip->spmi->dev.of_node;
+	struct device_node *batt_node;
+	const char *data;
+	u8 reg = 0;
+
+	batt_node = of_find_node_by_name(node, "qcom,battery-data");
+	if (!batt_node) {
+		pr_warn("No available batterydata, using OTP defaults\n");
+		return 0;
+	}
+
+	for_each_child_of_node(batt_node, node) {
+		data = of_get_property(node, "qcom,fg-profile-data", &len);
+		if (!data) {
+			pr_err("no battery profile loaded\n");
+			return 0;
+		} else {
+			break;
+		}
+	}
+
+	chip->batt_profile = devm_kzalloc(chip->dev,
+			sizeof(char) * len, GFP_KERNEL);
+	if (!chip->batt_profile)
+		return -ENOMEM;
+
+	memcpy(chip->batt_profile, data, len);
+
+	chip->batt_profile_len = len;
+
+	if (fg_debug_mask & FG_MEM_DEBUG_WRITES)
+		print_hex_dump(KERN_ERR, "profile: ", DUMP_PREFIX_NONE, 16, 1,
+			chip->batt_profile, chip->batt_profile_len, false);
+
+	reg = NO_OTP_PROF_RELOAD;
+	rc = fg_masked_write(chip, chip->soc_base + SOC_BOOT_MOD, reg, reg, 1);
+	if (rc) {
+		pr_err("failed to set low latency access bit\n");
+		return -EIO;
+	}
+
+	reg = LOW_LATENCY;
+	rc = fg_write(chip, &reg, chip->mem_base + MEM_INTF_CTL, 1);
+	if (rc) {
+		pr_err("failed to set low latency access bit\n");
+		return -EIO;
+	}
+	chip->fast_access = true;
+
+	rc = fg_mem_write(chip, chip->batt_profile, 0x4C0,
+			chip->batt_profile_len, 0, 1);
+	if (rc)
+		pr_err("failed to write profile rc=%d\n", rc);
+
+	rc = fg_mem_masked_write(chip, 0x53C, 0x1, 0x1, 0);
+	if (rc)
+		pr_err("failed to write profile rc=%d\n", rc);
+
+	reg = 0;
+	rc = fg_write(chip, &reg, chip->mem_base + MEM_INTF_CTL, 1);
+	if (rc) {
+		pr_err("failed to set low latency access bit\n");
+		return -EIO;
+	}
+
+	reg = 0;
+	rc = fg_write(chip, &reg, chip->soc_base + SOC_RESTART, 1);
+	if (rc) {
+		pr_err("failed to set low latency access bit\n");
+		return -EIO;
+	}
+
+	chip->fast_access = false;
+
+	/* wait for 2 seconds prior to restart the fuel gauge */
+	msleep(2000);
+	reg = 0x19;
+	rc = fg_write(chip, &reg, chip->soc_base + SOC_RESTART, 1);
+	if (rc) {
+		pr_err("failed to set low latency access bit\n");
+		return -EIO;
+	}
+
+	chip->profile_loaded = true;
+	return rc;
+}
+
+static void batt_profile_init(struct work_struct *work)
+{
+	struct fg_chip *chip = container_of(work,
+				struct fg_chip,
+				batt_profile_init);
+
+	if (fg_batt_profile_init(chip))
+		pr_err("failed to update JEITA setting\n");
+}
+
 static int fg_of_init(struct fg_chip *chip)
 {
 	int rc = 0;
 
-	OF_READ_SETTING(FG_MEM_JEITA_SOFT_HOT, "warm-bat-decidegc", rc, 1);
-	OF_READ_SETTING(FG_MEM_JEITA_SOFT_COLD, "cool-bat-decidegc", rc, 1);
-	OF_READ_SETTING(FG_MEM_JEITA_HARD_HOT, "hot-bat-decidegc", rc, 1);
-	OF_READ_SETTING(FG_MEM_JEITA_HARD_COLD, "cold-bat-decidegc", rc, 1);
+	OF_READ_SETTING(FG_MEM_SOFT_HOT, "warm-bat-decidegc", rc, 1);
+	OF_READ_SETTING(FG_MEM_SOFT_COLD, "cool-bat-decidegc", rc, 1);
+	OF_READ_SETTING(FG_MEM_HARD_HOT, "hot-bat-decidegc", rc, 1);
+	OF_READ_SETTING(FG_MEM_HARD_COLD, "cold-bat-decidegc", rc, 1);
+
+	/* Get the use-otp-profile property */
+	chip->use_otp_profile = of_property_read_bool(
+			chip->spmi->dev.of_node,
+			"qcom,use-otp-profile");
 
 	return rc;
 }
@@ -865,6 +1063,12 @@ static int fg_init_irqs(struct fg_chip *chip)
 				pr_err("Unable to get delta-soc irq\n");
 				return rc;
 			}
+			chip->soc_irq[FIRST_EST_DONE].irq = spmi_get_irq_byname(
+				chip->spmi, spmi_resource, "first-est-done");
+			if (chip->soc_irq[FIRST_EST_DONE].irq < 0) {
+				pr_err("Unable to get first-est-done irq\n");
+				return rc;
+			}
 
 			rc |= devm_request_irq(chip->dev,
 				chip->soc_irq[FULL_SOC].irq,
@@ -876,21 +1080,30 @@ static int fg_init_irqs(struct fg_chip *chip)
 				return rc;
 			}
 			rc |= devm_request_irq(chip->dev,
-					chip->soc_irq[EMPTY_SOC].irq,
-					fg_soc_irq_handler, IRQF_TRIGGER_RISING,
-					"empty-soc", chip);
+				chip->soc_irq[EMPTY_SOC].irq,
+				fg_soc_irq_handler, IRQF_TRIGGER_RISING,
+				"empty-soc", chip);
 			if (rc < 0) {
 				pr_err("Can't request %d empty-soc: %d\n",
 					chip->soc_irq[EMPTY_SOC].irq, rc);
 				return rc;
 			}
 			rc |= devm_request_irq(chip->dev,
-					chip->soc_irq[DELTA_SOC].irq,
-					fg_soc_irq_handler, IRQF_TRIGGER_RISING,
-					"delta-soc", chip);
+				chip->soc_irq[DELTA_SOC].irq,
+				fg_soc_irq_handler, IRQF_TRIGGER_RISING,
+				"delta-soc", chip);
 			if (rc < 0) {
 				pr_err("Can't request %d delta-soc: %d\n",
 					chip->soc_irq[DELTA_SOC].irq, rc);
+				return rc;
+			}
+			rc |= devm_request_irq(chip->dev,
+				chip->soc_irq[FIRST_EST_DONE].irq,
+				fg_first_soc_irq_handler, IRQF_TRIGGER_RISING,
+				"first-est-done", chip);
+			if (rc < 0) {
+				pr_err("Can't request %d delta-soc: %d\n",
+					chip->soc_irq[FIRST_EST_DONE].irq, rc);
 				return rc;
 			}
 
@@ -934,6 +1147,7 @@ static int fg_remove(struct spmi_device *spmi)
 
 	mutex_destroy(&chip->rw_lock);
 	cancel_delayed_work_sync(&chip->update_jeita_setting);
+	cancel_work_sync(&chip->batt_profile_init);
 	power_supply_unregister(&chip->bms_psy);
 	dev_set_drvdata(&spmi->dev, NULL);
 	return 0;
@@ -1327,6 +1541,7 @@ err_remove_fs:
 	return -ENOMEM;
 }
 
+#define INIT_JEITA_DELAY_MS 1000
 static int fg_probe(struct spmi_device *spmi)
 {
 	struct device *dev = &(spmi->dev);
@@ -1358,13 +1573,9 @@ static int fg_probe(struct spmi_device *spmi)
 	mutex_init(&chip->rw_lock);
 	INIT_DELAYED_WORK(&chip->update_jeita_setting,
 			update_jeita_setting);
+	INIT_WORK(&chip->batt_profile_init,
+			batt_profile_init);
 	init_completion(&chip->sram_access);
-
-	rc = fg_of_init(chip);
-	if (rc) {
-		pr_err("failed to parse devicetree rc%d\n", rc);
-		goto of_init_fail;
-	}
 
 	spmi_for_each_container_dev(spmi_resource, spmi) {
 		if (!spmi_resource) {
@@ -1412,6 +1623,12 @@ static int fg_probe(struct spmi_device *spmi)
 		}
 	}
 
+	rc = fg_of_init(chip);
+	if (rc) {
+		pr_err("failed to parse devicetree rc%d\n", rc);
+		goto of_init_fail;
+	}
+
 	chip->bms_psy.name = "bms";
 	chip->bms_psy.type = POWER_SUPPLY_TYPE_BMS;
 	chip->bms_psy.properties = fg_power_props;
@@ -1442,7 +1659,13 @@ static int fg_probe(struct spmi_device *spmi)
 		}
 	}
 
-	pr_info("probe success SOC %d\n", get_prop_capacity(chip));
+	schedule_delayed_work(
+		&chip->update_jeita_setting,
+		msecs_to_jiffies(INIT_JEITA_DELAY_MS));
+	if (!chip->use_otp_profile)
+		schedule_work(&chip->batt_profile_init);
+
+	pr_info("probe success\n");
 
 	return rc;
 

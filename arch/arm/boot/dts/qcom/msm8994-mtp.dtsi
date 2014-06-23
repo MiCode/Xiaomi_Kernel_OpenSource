@@ -555,3 +555,13 @@
 		interrupt-names = "silabs_fm_int";
 	};
 };
+
+/{
+	mtp_batterydata: qcom,battery-data {
+		#include "batterydata-mtp-3000mah.dtsi"
+	};
+};
+
+&pmi8994_fg {
+	qcom,battery-data = <&mtp_batterydata>;
+};
