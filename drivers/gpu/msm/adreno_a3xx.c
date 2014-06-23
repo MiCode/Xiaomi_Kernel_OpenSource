@@ -13,6 +13,7 @@
 
 #include <linux/delay.h>
 #include <linux/sched.h>
+#include <linux/msm_kgsl.h>
 
 #include "kgsl.h"
 #include "adreno.h"
@@ -2074,95 +2075,12 @@ static struct adreno_perfcounters a3xx_perfcounters = {
 	ARRAY_SIZE(a3xx_perfcounter_groups),
 };
 
-static inline int _get_counter(struct adreno_device *adreno_dev,
-		int group, int countable, unsigned int *lo,
-		unsigned int *hi)
-{
-	int ret = 0;
-
-	if (*lo == 0) {
-
-		ret = adreno_perfcounter_get(adreno_dev, group, countable,
-			lo, hi, PERFCOUNTER_FLAG_KERNEL);
-
-		if (ret) {
-			struct kgsl_device *device = &adreno_dev->dev;
-
-			KGSL_DRV_ERR(device,
-				"Unable to allocate fault detect performance counter %d/%d\n",
-				group, countable);
-			KGSL_DRV_ERR(device,
-				"GPU fault detect will be less reliable\n");
-		}
-	}
-
-	return ret;
-}
-
-static inline void _put_counter(struct adreno_device *adreno_dev,
-		int group, int countable, unsigned int *lo,
-		unsigned int *hi)
-{
-	if (*lo != 0) {
-		adreno_perfcounter_put(adreno_dev, group, countable,
-			PERFCOUNTER_FLAG_KERNEL);
-	}
-
-	*lo = 0;
-	*hi = 0;
-}
-
-/**
- * a3xx_fault_detect_start() - Allocate performance counters used for fast fault
- * detection
- * @adreno_dev: Pointer to an adreno_device structure
- *
- * Allocate the series of performance counters that should be periodically
- * checked to verify that the GPU is still moving
- */
-void a3xx_fault_detect_start(struct adreno_device *adreno_dev)
-{
-	_get_counter(adreno_dev, KGSL_PERFCOUNTER_GROUP_SP,
-		SP_ALU_ACTIVE_CYCLES,
-		&ft_detect_regs[6], &ft_detect_regs[7]);
-
-	_get_counter(adreno_dev, KGSL_PERFCOUNTER_GROUP_SP,
-		SP0_ICL1_MISSES,
-		&ft_detect_regs[8], &ft_detect_regs[9]);
-
-	_get_counter(adreno_dev, KGSL_PERFCOUNTER_GROUP_SP,
-		SP_FS_CFLOW_INSTRUCTIONS,
-		&ft_detect_regs[10], &ft_detect_regs[11]);
-
-	_get_counter(adreno_dev, KGSL_PERFCOUNTER_GROUP_TSE,
-		TSE_INPUT_PRIM_NUM,
-		&ft_detect_regs[12], &ft_detect_regs[13]);
-}
-/**
- * a3xx_fault_detect_stop() - Release performance counters used for fast fault
- * detection
- * @adreno_dev: Pointer to an adreno_device structure
- *
- * Release the counters allocated in a3xx_fault_detect_start
- */
-void a3xx_fault_detect_stop(struct adreno_device *adreno_dev)
-{
-	_put_counter(adreno_dev, KGSL_PERFCOUNTER_GROUP_SP,
-		SP_ALU_ACTIVE_CYCLES,
-		&ft_detect_regs[6], &ft_detect_regs[7]);
-
-	_put_counter(adreno_dev, KGSL_PERFCOUNTER_GROUP_SP,
-		SP0_ICL1_MISSES,
-		&ft_detect_regs[8], &ft_detect_regs[9]);
-
-	_put_counter(adreno_dev, KGSL_PERFCOUNTER_GROUP_SP,
-		SP_FS_CFLOW_INSTRUCTIONS,
-		&ft_detect_regs[10], &ft_detect_regs[11]);
-
-	_put_counter(adreno_dev, KGSL_PERFCOUNTER_GROUP_TSE,
-		TSE_INPUT_PRIM_NUM,
-		&ft_detect_regs[12], &ft_detect_regs[13]);
-}
+struct adreno_ft_perf_counters a3xx_ft_perf_counters[] = {
+	{KGSL_PERFCOUNTER_GROUP_SP, SP_ALU_ACTIVE_CYCLES},
+	{KGSL_PERFCOUNTER_GROUP_SP, SP0_ICL1_MISSES},
+	{KGSL_PERFCOUNTER_GROUP_SP, SP_FS_CFLOW_INSTRUCTIONS},
+	{KGSL_PERFCOUNTER_GROUP_TSE, TSE_INPUT_PRIM_NUM},
+};
 
 /**
  * a3xx_perfcounter_close() - Put counters that were initialized in
@@ -2175,7 +2093,7 @@ void a3xx_perfcounter_close(struct adreno_device *adreno_dev)
 		PERFCOUNTER_FLAG_KERNEL);
 
 	if (adreno_dev->fast_hang_detect)
-		a3xx_fault_detect_stop(adreno_dev);
+		adreno_fault_detect_stop(adreno_dev);
 }
 
 /**
@@ -2203,7 +2121,7 @@ int a3xx_perfcounter_init(struct adreno_device *adreno_dev)
 	}
 
 	if (adreno_dev->fast_hang_detect)
-		a3xx_fault_detect_start(adreno_dev);
+		adreno_fault_detect_start(adreno_dev);
 
 	/* Turn on the GPU busy counter(s) and let them run free */
 	/* GPU busy counts */
@@ -2483,6 +2401,8 @@ static struct adreno_snapshot_data a3xx_snapshot_data = {
 
 struct adreno_gpudev adreno_a3xx_gpudev = {
 	.reg_offsets = &a3xx_reg_offsets,
+	.ft_perf_counters = a3xx_ft_perf_counters,
+	.ft_perf_counters_count = ARRAY_SIZE(a3xx_ft_perf_counters),
 	.perfcounters = &a3xx_perfcounters,
 	.irq = &a3xx_irq,
 	.snapshot_data = &a3xx_snapshot_data,
@@ -2503,7 +2423,5 @@ struct adreno_gpudev adreno_a3xx_gpudev = {
 	.perfcounter_enable = a3xx_perfcounter_enable,
 	.perfcounter_read = a3xx_perfcounter_read,
 	.perfcounter_write = a3xx_perfcounter_write,
-	.fault_detect_start = a3xx_fault_detect_start,
-	.fault_detect_stop = a3xx_fault_detect_stop,
 	.coresight = &a3xx_coresight,
 };

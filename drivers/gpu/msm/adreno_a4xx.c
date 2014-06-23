@@ -11,6 +11,10 @@
  *
  */
 
+#include <linux/delay.h>
+#include <linux/sched.h>
+#include <linux/msm_kgsl.h>
+
 #include "adreno.h"
 #include "a4xx_reg.h"
 #include "adreno_a3xx.h"
@@ -1165,6 +1169,13 @@ static struct adreno_perfcounters a4xx_perfcounters = {
 	ARRAY_SIZE(a4xx_perfcounter_groups),
 };
 
+struct adreno_ft_perf_counters a4xx_ft_perf_counters[] = {
+	{KGSL_PERFCOUNTER_GROUP_SP, SP_ALU_ACTIVE_CYCLES},
+	{KGSL_PERFCOUNTER_GROUP_SP, SP0_ICL1_MISSES},
+	{KGSL_PERFCOUNTER_GROUP_SP, SP_FS_CFLOW_INSTRUCTIONS},
+	{KGSL_PERFCOUNTER_GROUP_TSE, TSE_INPUT_PRIM_NUM},
+};
+
 /*
  * On A420 a number of perfcounters are un-usable. The following defines the
  * array of countables that do not work and should not be used
@@ -1263,6 +1274,10 @@ static int a4xx_perfcounter_init(struct adreno_device *adreno_dev)
 	if (adreno_is_a420(adreno_dev)) {
 		struct adreno_gpudev *gpudev = ADRENO_GPU_DEVICE(adreno_dev);
 		struct adreno_perfcounters *counters = gpudev->perfcounters;
+
+		if (counters == NULL)
+			return -EINVAL;
+
 		/*
 		 * The CP counters on A420 are... special.  Some of the counters
 		 * are swizzled so only a subset of them are usable
@@ -1462,6 +1477,8 @@ static struct adreno_snapshot_data a4xx_snapshot_data = {
 
 struct adreno_gpudev adreno_a4xx_gpudev = {
 	.reg_offsets = &a4xx_reg_offsets,
+	.ft_perf_counters = a4xx_ft_perf_counters,
+	.ft_perf_counters_count = ARRAY_SIZE(a4xx_ft_perf_counters),
 	.perfcounters = &a4xx_perfcounters,
 	.irq = &a4xx_irq,
 	.snapshot_data = &a4xx_snapshot_data,
@@ -1480,8 +1497,6 @@ struct adreno_gpudev adreno_a4xx_gpudev = {
 	.perfcounter_read = a3xx_perfcounter_read,
 	.perfcounter_save = a3xx_perfcounter_save,
 	.perfcounter_restore = a3xx_perfcounter_restore,
-	.fault_detect_start = a3xx_fault_detect_start,
-	.fault_detect_stop = a3xx_fault_detect_stop,
 	.snapshot = a4xx_snapshot,
 	.is_sptp_idle = a4xx_is_sptp_idle,
 	.enable_pc = a4xx_enable_pc,

@@ -34,9 +34,6 @@ void a3xx_a4xx_err_callback(struct adreno_device *adreno_dev, int bit);
 void a3xx_fatal_err_callback(struct adreno_device *adreno_dev, int bit);
 void a3xx_cp_callback(struct adreno_device *adreno_dev, int irq);
 
-void a3xx_fault_detect_start(struct adreno_device *adreno_dev);
-void a3xx_fault_detect_stop(struct adreno_device *adreno_dev);
-
 void a3xx_snapshot(struct adreno_device *adreno_dev,
 		struct kgsl_snapshot *snapshot);
 #endif /*__A3XX_H */
