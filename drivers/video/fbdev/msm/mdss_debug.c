@@ -595,7 +595,7 @@ void mdss_dump_reg(char __iomem *base, int len)
 		len += 16;
 	len /= 16;
 
-	mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_ON, false);
+	mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_ON);
 	for (i = 0; i < len; i++) {
 		x0 = readl_relaxed(addr+0x0);
 		x4 = readl_relaxed(addr+0x4);
@@ -604,7 +604,7 @@ void mdss_dump_reg(char __iomem *base, int len)
 		pr_info("%p : %08x %08x %08x %08x\n", addr, x0, x4, x8, xc);
 		addr += 16;
 	}
-	mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_OFF, false);
+	mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_OFF);
 }
 
 int vsync_count;
@@ -767,7 +767,7 @@ int mdss_misr_set(struct mdss_data_type *mdata,
 		return -EINVAL;
 	}
 
-	mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_ON, false);
+	mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_ON);
 	if (req->block_id == DISPLAY_MISR_MDP) {
 		mixer = mdss_mdp_mixer_get(ctl, MDSS_MDP_MIXER_MUX_DEFAULT);
 		mixer_num = mixer->num;
@@ -829,7 +829,7 @@ int mdss_misr_set(struct mdss_data_type *mdata,
 		pr_debug("MISR_CTRL = 0x%x",
 				readl_relaxed(mdata->mdp_base + map->ctrl_reg));
 	}
-	mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_OFF, false);
+	mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_OFF);
 	return 0;
 }
 
@@ -851,7 +851,7 @@ int mdss_misr_get(struct mdss_data_type *mdata,
 	}
 	mixer = mdss_mdp_mixer_get(ctl, MDSS_MDP_MIXER_MUX_DEFAULT);
 
-	mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_ON, false);
+	mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_ON);
 	switch (map->crc_op_mode) {
 	case MISR_OP_SFM:
 	case MISR_OP_MFM:
@@ -904,7 +904,7 @@ int mdss_misr_get(struct mdss_data_type *mdata,
 		break;
 	}
 
-	mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_OFF, false);
+	mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_OFF);
 	return ret;
 }
 

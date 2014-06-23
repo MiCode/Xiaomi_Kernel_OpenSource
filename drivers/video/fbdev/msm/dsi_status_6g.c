@@ -95,9 +95,9 @@ void mdss_check_dsi_ctrl_status(struct work_struct *work, uint32_t interval)
 
 	pr_debug("%s: DSI ctrl wait for ping pong done\n", __func__);
 
-	mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_ON, false);
+	mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_ON);
 	ret = ctrl_pdata->check_status(ctrl_pdata);
-	mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_OFF, false);
+	mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_OFF);
 
 	mutex_unlock(&mdp5_data->ov_lock);
 	if (ctl->shared_lock)
