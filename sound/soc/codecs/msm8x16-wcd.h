@@ -134,6 +134,8 @@ struct msm8916_asoc_mach_data {
 	struct mutex cdc_mclk_mutex;
 	struct delayed_work disable_mclk_work;
 	struct afe_digital_clk_cfg digital_cdc_clk;
+	void __iomem *vaddr_gpio_mux_spkr_ctl;
+	void __iomem *vaddr_gpio_mux_mic_ctl;
 };
 
 struct msm8x16_wcd_pdata {

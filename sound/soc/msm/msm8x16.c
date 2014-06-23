@@ -806,28 +806,16 @@ static int conf_int_codec_mux_sec(struct msm8916_asoc_mach_data *pdata)
 	/*
 	 * Configure the secondary MI2S to TLMM.
 	 */
-	vaddr = ioremap(LPASS_CSR_GP_IO_MUX_SPKR_CTL , 4);
-	if (!vaddr) {
-		pr_err("%s ioremap failure for addr %x",
-					__func__, LPASS_CSR_GP_IO_MUX_SPKR_CTL);
-		return -ENOMEM;
-	}
+	vaddr = pdata->vaddr_gpio_mux_spkr_ctl;
 	val = ioread32(vaddr);
 	/* enable sec MI2S interface to TLMM GPIO */
 	val = val | 0x0004007E;
 	pr_debug("%s: Sec mux configuration = %x\n", __func__, val);
 	iowrite32(val, vaddr);
-	iounmap(vaddr);
-	vaddr = ioremap(LPASS_CSR_GP_IO_MUX_MIC_CTL , 4);
-	if (!vaddr) {
-		pr_err("%s ioremap failure for addr %x",
-					__func__, LPASS_CSR_GP_IO_MUX_MIC_CTL);
-		return -ENOMEM;
-	}
+	vaddr = pdata->vaddr_gpio_mux_mic_ctl;
 	val = ioread32(vaddr);
 	val = val | 0x00200000;
 	iowrite32(val, vaddr);
-	iounmap(vaddr);
 	return ret;
 }
 
@@ -926,26 +914,15 @@ static int conf_int_codec_mux(struct msm8916_asoc_mach_data *pdata)
 	 * slave select to invalid state, for machine mode this
 	 * should move to HW, I do not like to do it here
 	 */
-	vaddr = ioremap(LPASS_CSR_GP_IO_MUX_SPKR_CTL , 4);
-	if (!vaddr) {
-		pr_err("%s ioremap failure for addr %x",
-				__func__, LPASS_CSR_GP_IO_MUX_SPKR_CTL);
-		return -ENOMEM;
-	}
+	vaddr = pdata->vaddr_gpio_mux_spkr_ctl;
 	val = ioread32(vaddr);
 	val = val | 0x00030300;
 	iowrite32(val, vaddr);
-	iounmap(vaddr);
-	vaddr = ioremap(LPASS_CSR_GP_IO_MUX_MIC_CTL , 4);
-	if (!vaddr) {
-		pr_err("%s ioremap failure for addr %x",
-				__func__, LPASS_CSR_GP_IO_MUX_MIC_CTL);
-		return -ENOMEM;
-	}
+
+	vaddr = pdata->vaddr_gpio_mux_mic_ctl;
 	val = ioread32(vaddr);
 	val = val | 0x00220002;
 	iowrite32(val, vaddr);
-	iounmap(vaddr);
 	return ret;
 }
 
@@ -1002,27 +979,15 @@ static int msm_mi2s_snd_startup(struct snd_pcm_substream *substream)
 		 * and Data 1 to TLMM GPIO,
 		 * TODO MUX config
 		 */
-		vaddr = ioremap(LPASS_CSR_GP_IO_MUX_SPKR_CTL , 4);
-		if (!vaddr) {
-			pr_err("%s ioremap failure for addr %x\n",
-					__func__,
-					LPASS_CSR_GP_IO_MUX_SPKR_CTL);
-			return -ENOMEM;
-		}
+		vaddr = pdata->vaddr_gpio_mux_spkr_ctl;
 		val = ioread32(vaddr);
 		val = val | 0x00000002;
 		iowrite32(val, vaddr);
-		iounmap(vaddr);
-		vaddr = ioremap(LPASS_CSR_GP_IO_MUX_MIC_CTL , 4);
-		if (!vaddr) {
-			pr_err("%s: ioremap failure for addr %x",
-					__func__, LPASS_CSR_GP_IO_MUX_MIC_CTL);
-			return -ENOMEM;
-		}
+
+		vaddr = pdata->vaddr_gpio_mux_mic_ctl;
 		val = ioread32(vaddr);
 		val = val | 0x00000002;
 		iowrite32(val, vaddr);
-		iounmap(vaddr);
 
 		ret = pinctrl_select_state(ext_cdc_pinctrl_info.pinctrl,
 						ext_cdc_pinctrl_info.tlmm_act);
@@ -2037,6 +2002,23 @@ static int msm8x16_asoc_machine_probe(struct platform_device *pdev)
 		goto err;
 	}
 
+	pdata->vaddr_gpio_mux_spkr_ctl =
+		ioremap(LPASS_CSR_GP_IO_MUX_SPKR_CTL , 4);
+	if (!pdata->vaddr_gpio_mux_spkr_ctl) {
+		pr_err("%s ioremap failure for addr %x",
+				__func__, LPASS_CSR_GP_IO_MUX_SPKR_CTL);
+		ret = -ENOMEM;
+		goto err;
+	}
+	pdata->vaddr_gpio_mux_mic_ctl =
+		ioremap(LPASS_CSR_GP_IO_MUX_MIC_CTL , 4);
+	if (!pdata->vaddr_gpio_mux_mic_ctl) {
+		pr_err("%s ioremap failure for addr %x",
+				__func__, LPASS_CSR_GP_IO_MUX_MIC_CTL);
+		ret = -ENOMEM;
+		goto err;
+	}
+
 	ret = of_property_read_u32(pdev->dev.of_node, card_dev_id, &id);
 	if (ret) {
 		dev_err(&pdev->dev,
@@ -2187,6 +2169,10 @@ static int msm8x16_asoc_machine_probe(struct platform_device *pdev)
 	return 0;
 err:
 	devm_kfree(&pdev->dev, pdata);
+	if (pdata->vaddr_gpio_mux_spkr_ctl)
+		iounmap(pdata->vaddr_gpio_mux_spkr_ctl);
+	if (pdata->vaddr_gpio_mux_mic_ctl)
+		iounmap(pdata->vaddr_gpio_mux_mic_ctl);
 	return ret;
 }
 
@@ -2195,6 +2181,10 @@ static int msm8x16_asoc_machine_remove(struct platform_device *pdev)
 	struct snd_soc_card *card = platform_get_drvdata(pdev);
 	struct msm8916_asoc_mach_data *pdata = snd_soc_card_get_drvdata(card);
 
+	if (pdata->vaddr_gpio_mux_spkr_ctl)
+		iounmap(pdata->vaddr_gpio_mux_spkr_ctl);
+	if (pdata->vaddr_gpio_mux_mic_ctl)
+		iounmap(pdata->vaddr_gpio_mux_mic_ctl);
 	snd_soc_unregister_card(card);
 	mutex_destroy(&pdata->cdc_mclk_mutex);
 	return 0;
