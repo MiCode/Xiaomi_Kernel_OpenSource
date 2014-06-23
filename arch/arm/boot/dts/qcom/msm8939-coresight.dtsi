@@ -516,8 +516,9 @@
 	fuse: fuse@5e01c {
 		compatible = "arm,coresight-fuse-v2";
 		reg = <0x5e01c 0x8>,
+		      <0x58040 0x4>,
 		      <0x5e00c 0x4>;
-		reg-names = "fuse-base", "qpdi-fuse-base";
+		reg-names = "fuse-base", "nidnt-fuse-base", "qpdi-fuse-base";
 
 		coresight-id = <33>;
 		coresight-name = "coresight-fuse";
