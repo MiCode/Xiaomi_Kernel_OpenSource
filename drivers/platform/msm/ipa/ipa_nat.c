@@ -524,6 +524,14 @@ int ipa_nat_del_cmd(struct ipa_ioc_v4_nat_del *del)
 		goto free_mem;
 	}
 
+	ipa_ctx->nat_mem.size_base_tables = 0;
+	ipa_ctx->nat_mem.size_expansion_tables = 0;
+	ipa_ctx->nat_mem.public_ip_addr = 0;
+	ipa_ctx->nat_mem.ipv4_rules_addr = 0;
+	ipa_ctx->nat_mem.ipv4_expansion_rules_addr = 0;
+	ipa_ctx->nat_mem.index_table_addr = 0;
+	ipa_ctx->nat_mem.index_table_expansion_addr = 0;
+
 	ipa_nat_free_mem_and_device(&ipa_ctx->nat_mem);
 	IPADBG("return\n");
 	result = 0;
