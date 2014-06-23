@@ -233,10 +233,10 @@ char * const migratetype_names[MIGRATE_TYPES] = {
 	"Unmovable",
 	"Movable",
 	"Reclaimable",
-	"HighAtomic",
 #ifdef CONFIG_CMA
 	"CMA",
 #endif
+	"HighAtomic",
 #ifdef CONFIG_MEMORY_ISOLATION
 	"Isolate",
 #endif
@@ -2216,24 +2216,22 @@ static struct page *__rmqueue(struct zone *zone, unsigned int order,
 	return page;
 }
 
-static struct page *__rmqueue_cma(struct zone *zone, unsigned int order,
-					int migratetype)
+#ifdef CONFIG_CMA
+static struct page *__rmqueue_cma(struct zone *zone, unsigned int order)
 {
 	struct page *page = 0;
-#ifdef CONFIG_CMA
-	if (migratetype == MIGRATE_MOVABLE && !zone->cma_alloc)
-		page = __rmqueue_cma_fallback(zone, order);
-	else
-#endif
-		page = __rmqueue_smallest(zone, order, migratetype);
-
-	if (unlikely(!page)) {
-		page = __rmqueue_fallback(zone, order, migratetype);
-	}
-
-	trace_mm_page_alloc_zone_locked(page, order, migratetype);
+	if (IS_ENABLED(CONFIG_CMA))
+		if (!zone->cma_alloc)
+			page = __rmqueue_cma_fallback(zone, order);
+	trace_mm_page_alloc_zone_locked(page, order, MIGRATE_CMA);
 	return page;
 }
+#else
+static inline struct page *__rmqueue_cma(struct zone *zone, unsigned int order)
+{
+	return NULL;
+}
+#endif
 
 /*
  * Obtain a specified number of elements from the buddy allocator, all under
@@ -2242,15 +2240,21 @@ static struct page *__rmqueue_cma(struct zone *zone, unsigned int order,
  */
 static int rmqueue_bulk(struct zone *zone, unsigned int order,
 			unsigned long count, struct list_head *list,
-			int migratetype, bool cold, int cma)
+			int migratetype, bool cold)
 {
 	int i, alloced = 0;
 
 	spin_lock(&zone->lock);
 	for (i = 0; i < count; ++i) {
 		struct page *page;
-		if (cma)
-			page = __rmqueue_cma(zone, order, migratetype);
+
+		/*
+		 * If migrate type CMA is being requested only try to
+		 * satisfy the request with CMA pages to try and increase
+		 * CMA utlization.
+		 */
+		if (is_migrate_cma(migratetype))
+			page = __rmqueue_cma(zone, order);
 		else
 			page = __rmqueue(zone, order, migratetype);
 		if (unlikely(page == NULL))
@@ -2288,6 +2292,28 @@ static int rmqueue_bulk(struct zone *zone, unsigned int order,
 	__mod_zone_page_state(zone, NR_FREE_PAGES, -(i << order));
 	spin_unlock(&zone->lock);
 	return alloced;
+}
+
+/*
+ * Return the pcp list that corresponds to the migrate type if that list isn't
+ * empty.
+ * If the list is empty return NULL.
+ */
+static struct list_head *get_populated_pcp_list(struct zone *zone,
+			unsigned int order, struct per_cpu_pages *pcp,
+			int migratetype, int cold)
+{
+	struct list_head *list = &pcp->lists[migratetype];
+
+	if (list_empty(list)) {
+		pcp->count += rmqueue_bulk(zone, order,
+				pcp->batch, list,
+				migratetype, cold);
+
+		if (list_empty(list))
+			list = NULL;
+	}
+	return list;
 }
 
 #ifdef CONFIG_NUMA
@@ -2650,23 +2676,33 @@ struct page *buffered_rmqueue(struct zone *preferred_zone,
 			int migratetype)
 {
 	unsigned long flags;
-	struct page *page;
+	struct page *page = NULL;
 	bool cold = ((gfp_flags & __GFP_COLD) != 0);
 
 	if (likely(order == 0)) {
 		struct per_cpu_pages *pcp;
-		struct list_head *list;
+		struct list_head *list = NULL;
 
 		local_irq_save(flags);
 		do {
 			pcp = &this_cpu_ptr(zone->pageset)->pcp;
-			list = &pcp->lists[migratetype];
-			if (list_empty(list)) {
-				pcp->count += rmqueue_bulk(zone, 0,
-						pcp->batch, list,
-						migratetype, cold,
-						gfp_flags & __GFP_CMA);
-				if (unlikely(list_empty(list)))
+
+			/* First try to get CMA pages */
+			if (migratetype == MIGRATE_MOVABLE &&
+				gfp_flags & __GFP_CMA) {
+				list = get_populated_pcp_list(zone, 0, pcp,
+						get_cma_migrate_type(), cold);
+			}
+
+			if (list == NULL) {
+				/*
+				 * Either CMA is not suitable or there are no
+				 * free CMA pages.
+				 */
+				list = get_populated_pcp_list(zone, 0, pcp,
+					migratetype, cold);
+				if (unlikely(list == NULL) ||
+					unlikely(list_empty(list)))
 					goto failed;
 			}
 
@@ -2694,13 +2730,14 @@ struct page *buffered_rmqueue(struct zone *preferred_zone,
 				if (page)
 					trace_mm_page_alloc_zone_locked(page, order, migratetype);
 			}
-			if (!page) {
-				if (gfp_flags & __GFP_CMA)
-					page = __rmqueue_cma(zone, order, migratetype);
-				else
-					page = __rmqueue(zone, order, migratetype);
-			}
+			if (!page && migratetype == MIGRATE_MOVABLE &&
+					gfp_flags & __GFP_CMA)
+				page = __rmqueue_cma(zone, order);
+
+			if (!page)
+				page = __rmqueue(zone, order, migratetype);
 		} while (page && check_new_pages(page, order));
+
 		spin_unlock(&zone->lock);
 		if (!page)
 			goto failed;
