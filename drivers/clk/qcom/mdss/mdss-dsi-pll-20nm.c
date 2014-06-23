@@ -129,7 +129,7 @@ static struct div_clk ndiv_clk_8994 = {
 	.ops = &ndiv_ops,
 	.c = {
 		.parent = &dsi_vco_clk_8994.c,
-		.dbg_name = "ndiv_clk",
+		.dbg_name = "ndiv_clk_8994",
 		.ops = &ndiv_clk_ops,
 		.flags = CLKFLAG_NO_RATE_CACHE,
 		CLK_INIT(ndiv_clk_8994.c),
@@ -144,7 +144,7 @@ static struct div_clk indirect_path_div2_clk_8994 = {
 	},
 	.c = {
 		.parent = &ndiv_clk_8994.c,
-		.dbg_name = "indirect_path_div2_clk",
+		.dbg_name = "indirect_path_div2_clk_8994",
 		.ops = &clk_ops_div,
 		.flags = CLKFLAG_NO_RATE_CACHE,
 		CLK_INIT(indirect_path_div2_clk_8994.c),
@@ -174,7 +174,7 @@ static struct div_clk pixel_clk_src = {
 	},
 	.c = {
 		.parent = &hr_oclk3_div_clk_8994.c,
-		.dbg_name = "pixel_clk_src_8994",
+		.dbg_name = "pixel_clk_src",
 		.ops = &clk_ops_div,
 		.flags = CLKFLAG_NO_RATE_CACHE,
 		CLK_INIT(pixel_clk_src.c),
@@ -204,7 +204,7 @@ static struct div_clk fixed_hr_oclk2_div_clk_8994 = {
 	},
 	.c = {
 		.parent = &bypass_lp_div_mux_8994.c,
-		.dbg_name = "fixed_hr_oclk2_div_clk",
+		.dbg_name = "fixed_hr_oclk2_div_clk_8994",
 		.ops = &byte_clk_src_ops,
 		CLK_INIT(fixed_hr_oclk2_div_clk_8994.c),
 	},
@@ -218,7 +218,7 @@ static struct div_clk byte_clk_src = {
 	},
 	.c = {
 		.parent = &fixed_hr_oclk2_div_clk_8994.c,
-		.dbg_name = "byte_clk_src_8994",
+		.dbg_name = "byte_clk_src",
 		.ops = &clk_ops_div,
 		CLK_INIT(byte_clk_src.c),
 	},
