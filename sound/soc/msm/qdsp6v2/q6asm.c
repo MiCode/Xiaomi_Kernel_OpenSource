@@ -399,14 +399,12 @@ static int q6asm_map_cal_memory(struct cal_block_data *cal_block)
 	if (cal_block == NULL) {
 		pr_err("%s: cal_block is NULL!\n",
 			__func__);
-		result = -EINVAL;
 		goto done;
 	}
 
 	if (cal_block->cal_data.paddr == 0) {
 		pr_debug("%s: No address to map!\n",
 			__func__);
-		result = -EINVAL;
 		goto done;
 	}
 
@@ -421,7 +419,6 @@ static int q6asm_map_cal_memory(struct cal_block_data *cal_block)
 	if (cal_block->map_data.map_size == 0) {
 		pr_debug("%s: map size is 0!\n",
 			__func__);
-		result = -EINVAL;
 		goto done;
 	}
 
