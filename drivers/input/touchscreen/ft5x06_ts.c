@@ -62,6 +62,7 @@ struct ft5x0x_ts_data {
 	bool x_flip;
 	bool y_flip;
 	bool swap_axis;
+	bool wake_avail;
 	struct gpio_desc *gpio_irq;
 	struct gpio_desc *gpio_wake;
 	struct gpio_desc *gpio_reset;
@@ -347,11 +348,13 @@ static int ft5x0x_gpio_init(struct ft5x0x_ts_data *ts_data)
 		return ret;
 	}
 
-	ret = gpiod_direction_output(ts_data->gpio_wake, 1);
-	if (ret) {
-		dev_err(dev, "gpio %d dir set failed\n",
-				desc_to_gpio(ts_data->gpio_wake));
-		return ret;
+	if (ts_data->wake_avail) {
+		ret = gpiod_direction_output(ts_data->gpio_wake, 1);
+		if (ret) {
+			dev_err(dev, "gpio %d dir set failed\n",
+					desc_to_gpio(ts_data->gpio_wake));
+			return ret;
+		}
 	}
 
 	return 0;
@@ -400,10 +403,17 @@ static int ft5x0x_platform_probe(struct ft5x0x_ts_data *ts_data)
 
 	ts_data->gpio_irq = gpio_to_desc(pdata->irq);
 	ts_data->gpio_reset = gpio_to_desc(pdata->reset);
-	ts_data->gpio_wake = gpio_to_desc(pdata->wake);
 	ts_data->x_flip = pdata->x_flip;
 	ts_data->y_flip = pdata->y_flip;
 	ts_data->swap_axis = pdata->swap_axis;
+
+	if (pdata->wake > 0) {
+		ts_data->gpio_wake = gpio_to_desc(pdata->wake);
+		ts_data->wake_avail = true;
+	} else {
+		ts_data->gpio_wake = NULL;
+		ts_data->wake_avail = false;
+	}
 
 	err = gpio_request(desc_to_gpio(ts_data->gpio_irq),
 					FT5X0X_IRQ_NAME);
@@ -421,12 +431,14 @@ static int ft5x0x_platform_probe(struct ft5x0x_ts_data *ts_data)
 		return err;
 	}
 
-	err = gpio_request(desc_to_gpio(ts_data->gpio_wake),
+	if (ts_data->wake_avail) {
+		err = gpio_request(desc_to_gpio(ts_data->gpio_wake),
 						FT5X0X_WAKE_NAME);
-	if (err < 0) {
-		dev_err(dev, "Failed request gpio=%d wake error=%d\n",
-			pdata->wake, err);
-		return err;
+		if (err < 0) {
+			dev_err(dev, "Failed request gpio=%d wake error=%d\n",
+				pdata->wake, err);
+			return err;
+		}
 	}
 
 	err = ft5x0x_gpio_init(ts_data);
@@ -497,11 +509,13 @@ static int ft5x0x_acpi_probe(struct ft5x0x_ts_data *ts_data)
 	gpio = devm_gpiod_get_index(dev, FT5X0X_WAKE_NAME, index);
 
 	if (IS_ERR(gpio)) {
-		dev_err(dev, "acpi gpio get index 2 failed\n");
-		return PTR_ERR(gpio);
+		dev_warn(dev, "acpi gpio get index 2 failed\n");
+		ts_data->wake_avail = false;
+		ts_data->gpio_wake = NULL;
+	} else {
+		ts_data->gpio_wake = gpio;
+		ts_data->wake_avail = true;
 	}
-
-	ts_data->gpio_wake = gpio;
 
 	dev_dbg(dev, "gpio resource %d, no %d\n", index, desc_to_gpio(gpio));
 
