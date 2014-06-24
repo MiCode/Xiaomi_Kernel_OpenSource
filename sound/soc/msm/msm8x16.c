@@ -944,12 +944,6 @@ static int conf_int_codec_mux(struct msm8916_asoc_mach_data *pdata)
 	}
 	val = ioread32(vaddr);
 	val = val | 0x00220002;
-	vaddr = ioremap(LPASS_CSR_GP_IO_MUX_MIC_CTL , 4);
-	if (!vaddr) {
-		pr_err("%s ioremap failure for addr %x",
-				__func__, LPASS_CSR_GP_IO_MUX_MIC_CTL);
-		return -ENOMEM;
-	}
 	iowrite32(val, vaddr);
 	iounmap(vaddr);
 	return ret;
