@@ -16,6 +16,9 @@
 #include <linux/kernel.h>
 #include <linux/of.h>
 #include <linux/err.h>
+#include <linux/debugfs.h>
+#include <linux/slab.h>
+#include <linux/uaccess.h>
 #include <linux/init.h>
 #include <linux/spmi.h>
 #include <linux/of_irq.h>
@@ -24,6 +27,7 @@
 #include <linux/types.h>
 #include <linux/module.h>
 #include <linux/power_supply.h>
+#include <linux/string_helpers.h>
 
 /* Register offsets */
 
@@ -44,6 +48,7 @@
 #define MEM_INTF_RD_DATA1	0x4D
 #define MEM_INTF_RD_DATA2	0x4E
 #define MEM_INTF_RD_DATA3	0x4F
+#define OTP_CFG1		0xE2
 
 #define REG_OFFSET_PERP_SUBTYPE	0x05
 
@@ -157,10 +162,62 @@ struct fg_chip {
 	struct fg_irq		soc_irq[FG_SOC_IRQ_COUNT];
 	struct fg_irq		batt_irq[FG_BATT_IRQ_COUNT];
 	struct fg_irq		mem_irq[FG_MEM_IF_IRQ_COUNT];
-	struct delayed_work	update_jeita_setting;
-	struct mutex		rw_lock;
 	struct completion	sram_access;
 	struct power_supply	bms_psy;
+	struct mutex		rw_lock;
+	struct delayed_work	update_jeita_setting;
+};
+
+/* FG_MEMIF DEBUGFS structures */
+#define ADDR_LEN	4	/* 3 byte address + 1 space character */
+#define CHARS_PER_ITEM	3	/* Format is 'XX ' */
+#define ITEMS_PER_LINE	4	/* 4 data items per line */
+#define MAX_LINE_LENGTH  (ADDR_LEN + (ITEMS_PER_LINE * CHARS_PER_ITEM) + 1)
+#define MAX_REG_PER_TRANSACTION	(8)
+
+static const char *DFS_ROOT_NAME	= "fg_memif";
+static const mode_t DFS_MODE = S_IRUSR | S_IWUSR;
+
+/* Log buffer */
+struct fg_log_buffer {
+	size_t rpos;	/* Current 'read' position in buffer */
+	size_t wpos;	/* Current 'write' position in buffer */
+	size_t len;	/* Length of the buffer */
+	char data[0];	/* Log buffer */
+};
+
+/* transaction parameters */
+struct fg_trans {
+	u32 cnt;	/* Number of bytes to read */
+	u16 addr;	/* 12-bit address in SRAM */
+	u32 offset;	/* Offset of last read data + byte offset */
+	struct fg_chip *chip;
+	struct fg_log_buffer *log; /* log buffer */
+};
+
+struct fg_dbgfs {
+	u32 cnt;
+	u32 addr;
+	struct fg_chip *chip;
+	struct dentry *root;
+	struct mutex  lock;
+	struct debugfs_blob_wrapper help_msg;
+};
+
+static struct fg_dbgfs dbgfs_data = {
+	.lock = __MUTEX_INITIALIZER(dbgfs_data.lock),
+	.help_msg = {
+	.data =
+"FG Debug-FS support\n"
+"\n"
+"Hierarchy schema:\n"
+"/sys/kernel/debug/spmi\n"
+"       /help            -- Static help text\n"
+"       /address  -- Starting register address for reads or writes\n"
+"       /count    -- Number of registers to read (only used for reads)\n"
+"       /data     -- Initiates the SRAM read (formatted output)\n"
+"\n",
+	},
 };
 
 static const struct of_device_id fg_match_table[] = {
@@ -288,10 +345,20 @@ static inline bool fg_check_sram_access(struct fg_chip *chip)
 #define INTF_CTL_BURST		BIT(7)
 #define INTF_CTL_WR_EN		BIT(6)
 static int fg_config_access(struct fg_chip *chip, bool write,
-		bool burst)
+		bool burst, bool otp)
 {
 	int rc;
 	u8 intf_ctl = 0;
+
+	if (otp) {
+		/* Configure OTP access */
+		rc = fg_masked_write(chip, chip->mem_base + OTP_CFG1,
+				0xFF, 0x00, 1);
+		if (rc) {
+			pr_err("failed to set OTP cfg\n");
+			return -EIO;
+		}
+	}
 
 	intf_ctl = (write ? INTF_CTL_WR_EN : 0) | (burst ? INTF_CTL_BURST : 0);
 
@@ -350,6 +417,62 @@ static int fg_set_ram_addr(struct fg_chip *chip, u16 *address)
 	return rc;
 }
 
+static int fg_mem_read(struct fg_chip *chip, u8 *val, u16 address, int len,
+		bool keep_access)
+{
+	int rc = 0;
+	u8 *rd_data = val;
+	bool otp;
+
+	if (address < RAM_OFFSET)
+		otp = 1;
+
+	if (!fg_check_sram_access(chip)) {
+		rc = fg_req_and_wait_access(chip, MEM_IF_TIMEOUT_MS);
+		if (rc)
+			return rc;
+	}
+
+	mutex_lock(&chip->rw_lock);
+	rc = fg_config_access(chip, 0, (len > 4), otp);
+	if (rc)
+		goto out;
+
+	rc = fg_set_ram_addr(chip, &address);
+	if (rc)
+		goto out;
+
+	if (fg_debug_mask & FG_MEM_DEBUG_READS)
+		pr_info("length %d addr=%02X\n", len, address);
+
+	while (len > 0) {
+		rc = fg_read(chip, rd_data,
+				chip->mem_base + MEM_INTF_RD_DATA0,
+				(len > 4) ? 4 : len);
+		if (rc) {
+			pr_err("spmi read failed: addr=%03x, rc=%d\n",
+				chip->mem_base + MEM_INTF_RD_DATA0, rc);
+			goto out;
+		}
+		rd_data += 4;
+		if (len >= 4)
+			len -= 4;
+		else
+			len = 0;
+	}
+
+	if (!keep_access) {
+		rc = fg_masked_write(chip, chip->mem_base + MEM_INTF_CFG,
+				RIF_MEM_ACCESS_REQ, 0, 1);
+		if (rc)
+			pr_err("failed to set mem access bit\n");
+	}
+
+out:
+	mutex_unlock(&chip->rw_lock);
+	return rc;
+}
+
 static int fg_mem_write(struct fg_chip *chip, u8 *val, u16 address,
 		unsigned int len, unsigned int offset, bool keep_access)
 {
@@ -369,7 +492,7 @@ static int fg_mem_write(struct fg_chip *chip, u8 *val, u16 address,
 	}
 
 	mutex_lock(&chip->rw_lock);
-	rc = fg_config_access(chip, 1, (len > 4));
+	rc = fg_config_access(chip, 1, (len > 4), 0);
 	if (rc)
 		goto out;
 
@@ -816,6 +939,394 @@ static int fg_remove(struct spmi_device *spmi)
 	return 0;
 }
 
+static int fg_memif_data_open(struct inode *inode, struct file *file)
+{
+	struct fg_log_buffer *log;
+	struct fg_trans *trans;
+
+	size_t logbufsize = SZ_4K;
+
+	if (!dbgfs_data.chip) {
+		pr_err("Not initialized data\n");
+		return -EINVAL;
+	}
+
+	/* Per file "transaction" data */
+	trans = kzalloc(sizeof(*trans), GFP_KERNEL);
+	if (!trans) {
+		pr_err("Unable to allocate memory for transaction data\n");
+		return -ENOMEM;
+	}
+
+	/* Allocate log buffer */
+	log = kzalloc(logbufsize, GFP_KERNEL);
+
+	if (!log) {
+		kfree(trans);
+		pr_err("Unable to allocate memory for log buffer\n");
+		return -ENOMEM;
+	}
+
+	log->rpos = 0;
+	log->wpos = 0;
+	log->len = logbufsize - sizeof(*log);
+
+	trans->log = log;
+	trans->cnt = dbgfs_data.cnt;
+	trans->addr = dbgfs_data.addr;
+	trans->chip = dbgfs_data.chip;
+	trans->offset = trans->addr;
+
+	file->private_data = trans;
+	return 0;
+}
+
+static int fg_memif_dfs_close(struct inode *inode, struct file *file)
+{
+	struct fg_trans *trans = file->private_data;
+
+	if (trans && trans->log) {
+		file->private_data = NULL;
+		kfree(trans->log);
+		kfree(trans);
+	}
+
+	return 0;
+}
+
+/**
+ * print_to_log: format a string and place into the log buffer
+ * @log: The log buffer to place the result into.
+ * @fmt: The format string to use.
+ * @...: The arguments for the format string.
+ *
+ * The return value is the number of characters written to @log buffer
+ * not including the trailing '\0'.
+ */
+static int print_to_log(struct fg_log_buffer *log, const char *fmt, ...)
+{
+	va_list args;
+	int cnt;
+	char *buf = &log->data[log->wpos];
+	size_t size = log->len - log->wpos;
+
+	va_start(args, fmt);
+	cnt = vscnprintf(buf, size, fmt, args);
+	va_end(args);
+
+	log->wpos += cnt;
+	return cnt;
+}
+
+/**
+ * write_next_line_to_log: Writes a single "line" of data into the log buffer
+ * @trans: Pointer to SRAM transaction data.
+ * @offset: SRAM address offset to start reading from.
+ * @pcnt: Pointer to 'cnt' variable.  Indicates the number of bytes to read.
+ *
+ * The 'offset' is a 12-bit SRAM address.
+ *
+ * On a successful read, the pcnt is decremented by the number of data
+ * bytes read from the SRAM.  When the cnt reaches 0, all requested bytes have
+ * been read.
+ */
+static int
+write_next_line_to_log(struct fg_trans *trans, int offset, size_t *pcnt)
+{
+	int i, j, rc = 0;
+	u8 data[ITEMS_PER_LINE];
+	struct fg_log_buffer *log = trans->log;
+
+	int cnt = 0;
+	int padding = offset % ITEMS_PER_LINE;
+	int items_to_read = min(ARRAY_SIZE(data) - padding, *pcnt);
+	int items_to_log = min(ITEMS_PER_LINE, padding + items_to_read);
+
+	/* Buffer needs enough space for an entire line */
+	if ((log->len - log->wpos) < MAX_LINE_LENGTH)
+		goto done;
+
+	/* Read the desired number of "items" */
+	rc = fg_mem_read(trans->chip, data, offset, items_to_read,
+				*pcnt > items_to_read ? 1 : 0);
+	if (rc)
+		return -EINVAL;
+
+	*pcnt -= items_to_read;
+
+	/* Each line starts with the aligned offset (12-bit address) */
+	cnt = print_to_log(log, "%3.3X ", offset & 0xfff);
+	if (cnt == 0)
+		goto done;
+
+	/* If the offset is unaligned, add padding to right justify items */
+	for (i = 0; i < padding; ++i) {
+		cnt = print_to_log(log, "-- ");
+		if (cnt == 0)
+			goto done;
+	}
+
+	/* Log the data items */
+	for (j = 0; i < items_to_log; ++i, ++j) {
+		cnt = print_to_log(log, "%2.2X ", data[j]);
+		if (cnt == 0)
+			goto done;
+	}
+
+	/* If the last character was a space, then replace it with a newline */
+	if (log->wpos > 0 && log->data[log->wpos - 1] == ' ')
+		log->data[log->wpos - 1] = '\n';
+
+done:
+	return cnt;
+}
+
+/**
+ * get_log_data - reads data from SRAM and saves to the log buffer
+ * @trans: Pointer to SRAM transaction data.
+ *
+ * Returns the number of "items" read or SPMI error code for read failures.
+ */
+static int get_log_data(struct fg_trans *trans)
+{
+	int cnt;
+	int last_cnt;
+	int items_read;
+	int total_items_read = 0;
+	u32 offset = trans->offset;
+	size_t item_cnt = trans->cnt;
+	struct fg_log_buffer *log = trans->log;
+
+	if (item_cnt == 0)
+		return 0;
+
+	/* Reset the log buffer 'pointers' */
+	log->wpos = log->rpos = 0;
+
+	/* Keep reading data until the log is full */
+	do {
+		last_cnt = item_cnt;
+		cnt = write_next_line_to_log(trans, offset, &item_cnt);
+		items_read = last_cnt - item_cnt;
+		offset += items_read;
+		total_items_read += items_read;
+	} while (cnt && item_cnt > 0);
+
+	/* Adjust the transaction offset and count */
+	trans->cnt = item_cnt;
+	trans->offset += total_items_read;
+
+	return total_items_read;
+}
+
+/**
+ * fg_memif_dfs_reg_read: reads value(s) from SRAM and fills user's buffer a
+ *  byte array (coded as string)
+ * @file: file pointer
+ * @buf: where to put the result
+ * @count: maximum space available in @buf
+ * @ppos: starting position
+ * @return number of user bytes read, or negative error value
+ */
+static ssize_t fg_memif_dfs_reg_read(struct file *file, char __user *buf,
+	size_t count, loff_t *ppos)
+{
+	struct fg_trans *trans = file->private_data;
+	struct fg_log_buffer *log = trans->log;
+	size_t ret;
+	size_t len;
+
+	/* Is the the log buffer empty */
+	if (log->rpos >= log->wpos) {
+		if (get_log_data(trans) <= 0)
+			return 0;
+	}
+
+	len = min(count, log->wpos - log->rpos);
+
+	ret = copy_to_user(buf, &log->data[log->rpos], len);
+	if (ret == len) {
+		pr_err("error copy SPMI register values to user\n");
+		return -EFAULT;
+	}
+
+	/* 'ret' is the number of bytes not copied */
+	len -= ret;
+
+	*ppos += len;
+	log->rpos += len;
+	return len;
+}
+
+/**
+ * fg_memif_dfs_reg_write: write user's byte array (coded as string) to SRAM.
+ * @file: file pointer
+ * @buf: user data to be written.
+ * @count: maximum space available in @buf
+ * @ppos: starting position
+ * @return number of user byte written, or negative error value
+ */
+static ssize_t fg_memif_dfs_reg_write(struct file *file, const char __user *buf,
+			size_t count, loff_t *ppos)
+{
+	int bytes_read;
+	int data;
+	int pos = 0;
+	int cnt = 0;
+	u8  *values;
+	size_t ret = 0;
+
+	struct fg_trans *trans = file->private_data;
+	u32 offset = trans->offset;
+
+	/* Make a copy of the user data */
+	char *kbuf = kmalloc(count + 1, GFP_KERNEL);
+	if (!kbuf)
+		return -ENOMEM;
+
+	ret = copy_from_user(kbuf, buf, count);
+	if (ret == count) {
+		pr_err("failed to copy data from user\n");
+		ret = -EFAULT;
+		goto free_buf;
+	}
+
+	count -= ret;
+	*ppos += count;
+	kbuf[count] = '\0';
+
+	/* Override the text buffer with the raw data */
+	values = kbuf;
+
+	/* Parse the data in the buffer.  It should be a string of numbers */
+	while (sscanf(kbuf + pos, "%i%n", &data, &bytes_read) == 1) {
+		pos += bytes_read;
+		values[cnt++] = data & 0xff;
+	}
+
+	if (!cnt)
+		goto free_buf;
+
+	pr_info("address %x, count %d\n", offset, cnt);
+	/* Perform the write(s) */
+
+	ret = fg_mem_write(trans->chip, values, offset,
+				cnt, 0, 0);
+	if (ret) {
+		pr_err("SPMI write failed, err = %zu\n", ret);
+	} else {
+		ret = count;
+		trans->offset += cnt > 4 ? 4 : cnt;
+	}
+
+free_buf:
+	kfree(kbuf);
+	return ret;
+}
+
+static const struct file_operations fg_memif_dfs_reg_fops = {
+	.open		= fg_memif_data_open,
+	.release	= fg_memif_dfs_close,
+	.read		= fg_memif_dfs_reg_read,
+	.write		= fg_memif_dfs_reg_write,
+};
+
+/**
+ * fg_dfs_create_fs: create debugfs file system.
+ * @return pointer to root directory or NULL if failed to create fs
+ */
+static struct dentry *fg_dfs_create_fs(void)
+{
+	struct dentry *root, *file;
+
+	pr_debug("Creating FG_MEM debugfs file-system\n");
+	root = debugfs_create_dir(DFS_ROOT_NAME, NULL);
+	if (IS_ERR_OR_NULL(root)) {
+		pr_err("Error creating top level directory err:%ld",
+			(long)root);
+		if (PTR_ERR(root) == -ENODEV)
+			pr_err("debugfs is not enabled in the kernel");
+		return NULL;
+	}
+
+	dbgfs_data.help_msg.size = strlen(dbgfs_data.help_msg.data);
+
+	file = debugfs_create_blob("help", S_IRUGO, root, &dbgfs_data.help_msg);
+	if (!file) {
+		pr_err("error creating help entry\n");
+		goto err_remove_fs;
+	}
+	return root;
+
+err_remove_fs:
+	debugfs_remove_recursive(root);
+	return NULL;
+}
+
+/**
+ * fg_dfs_get_root: return a pointer to FG debugfs root directory.
+ * @return a pointer to the existing directory, or if no root
+ * directory exists then create one. Directory is created with file that
+ * configures SRAM transaction, namely: address, and count.
+ * @returns valid pointer on success or NULL
+ */
+struct dentry *fg_dfs_get_root(void)
+{
+	if (dbgfs_data.root)
+		return dbgfs_data.root;
+
+	if (mutex_lock_interruptible(&dbgfs_data.lock) < 0)
+		return NULL;
+	/* critical section */
+	if (!dbgfs_data.root) { /* double checking idiom */
+		dbgfs_data.root = fg_dfs_create_fs();
+	}
+	mutex_unlock(&dbgfs_data.lock);
+	return dbgfs_data.root;
+}
+
+/*
+ * fg_dfs_create: adds new fg_mem if debugfs entry
+ * @return zero on success
+ */
+int fg_dfs_create(struct fg_chip *chip)
+{
+	struct dentry *root;
+	struct dentry *file;
+
+	root = fg_dfs_get_root();
+	if (!root)
+		return -ENOENT;
+
+	dbgfs_data.chip = chip;
+
+	file = debugfs_create_u32("count", DFS_MODE, root, &(dbgfs_data.cnt));
+	if (!file) {
+		pr_err("error creating 'count' entry\n");
+		goto err_remove_fs;
+	}
+
+	file = debugfs_create_x32("address", DFS_MODE,
+			root, &(dbgfs_data.addr));
+	if (!file) {
+		pr_err("error creating 'address' entry\n");
+		goto err_remove_fs;
+	}
+
+	file = debugfs_create_file("data", DFS_MODE, root, &dbgfs_data,
+							&fg_memif_dfs_reg_fops);
+	if (!file) {
+		pr_err("error creating 'data' entry\n");
+		goto err_remove_fs;
+	}
+
+	return 0;
+
+err_remove_fs:
+	debugfs_remove_recursive(root);
+	return -ENOMEM;
+}
+
 static int fg_probe(struct spmi_device *spmi)
 {
 	struct device *dev = &(spmi->dev);
@@ -921,6 +1432,14 @@ static int fg_probe(struct spmi_device *spmi)
 	if (rc) {
 		pr_err("failed to request interrupts %d\n", rc);
 		goto power_supply_unregister;
+	}
+
+	if (chip->mem_base) {
+		rc = fg_dfs_create(chip);
+		if (rc < 0) {
+			pr_err("failed to create debugfs rc = %d\n", rc);
+			goto power_supply_unregister;
+		}
 	}
 
 	pr_info("probe success SOC %d\n", get_prop_capacity(chip));
