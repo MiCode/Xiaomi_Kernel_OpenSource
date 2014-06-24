@@ -18,6 +18,7 @@ Node optional properties:
 - summit,term-current-ma	charging termination current in milliamps.
 				valid values are 200/300/400/500/600/700.
 				A value of zero means no termination current.
+- summit,fuel-gauge-name	A string specify the name of the fuel gauge part.
 
 Example:
 	i2c@f9967000 {
@@ -42,5 +43,6 @@ Example:
 			summit,chg-shdn-n-gpio = <&pm8941_gpios 13 0x00>;
 			summit,chg-current-ma = <1600>;
 			summit,term-current-ma = <200>;
+			summit,fuel-gauge-name = "bq28400_battery";
 		};
 	};
