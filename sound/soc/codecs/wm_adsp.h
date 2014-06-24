@@ -58,6 +58,7 @@ struct wm_adsp_fw_caps {
 };
 
 struct wm_adsp_fw_defs {
+	const char *name;
 	const char *file;
 	const char *binfile;
 	int compr_direction;
