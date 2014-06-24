@@ -53,6 +53,8 @@ struct florida_priv {
 	struct arizona_priv core;
 	struct arizona_fll fll[2];
 	struct florida_compr compr_info;
+
+	struct mutex fw_lock;
 };
 
 static const struct wm_adsp_region florida_dsp1_regions[] = {
@@ -2135,6 +2137,7 @@ static int florida_probe(struct platform_device *pdev)
 	platform_set_drvdata(pdev, florida);
 
 	mutex_init(&florida->compr_info.lock);
+	mutex_init(&florida->fw_lock);
 
 	florida->core.arizona = arizona;
 	florida->core.num_inputs = 8;
@@ -2152,7 +2155,8 @@ static int florida_probe(struct platform_device *pdev)
 		florida->core.adsp[i].num_mems
 			= ARRAY_SIZE(florida_dsp1_regions);
 
-	        ret = wm_adsp2_init(&florida->core.adsp[i], false);
+		ret = wm_adsp2_init(&florida->core.adsp[i], false,
+				    &florida->fw_lock);
 		if (ret != 0)
 			return ret;
 	}

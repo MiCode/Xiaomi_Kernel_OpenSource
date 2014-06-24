@@ -36,6 +36,8 @@
 struct wm5102_priv {
 	struct arizona_priv core;
 	struct arizona_fll fll[2];
+
+	struct mutex fw_lock;
 };
 
 static DECLARE_TLV_DB_SCALE(ana_tlv, 0, 100, 0);
@@ -1961,6 +1963,8 @@ static int wm5102_probe(struct platform_device *pdev)
 		return -ENOMEM;
 	platform_set_drvdata(pdev, wm5102);
 
+	mutex_init(&wm5102->fw_lock);
+
 	wm5102->core.arizona = arizona;
 	wm5102->core.num_inputs = 6;
 
@@ -1973,7 +1977,8 @@ static int wm5102_probe(struct platform_device *pdev)
 	wm5102->core.adsp[0].mem = wm5102_dsp1_regions;
 	wm5102->core.adsp[0].num_mems = ARRAY_SIZE(wm5102_dsp1_regions);
 
-	ret = wm_adsp2_init(&wm5102->core.adsp[0], true);
+	ret = wm_adsp2_init(&wm5102->core.adsp[0], true,
+			    &wm5102->fw_lock);
 	if (ret != 0)
 		return ret;
 
