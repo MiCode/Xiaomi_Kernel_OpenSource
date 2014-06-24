@@ -46,6 +46,33 @@ const unsigned char MAX_SRCH_MODE = 0x01;
 
 #define TUNE_PARAM 16
 
+#define OFFSET_OF_GRP_TYP 11
+#define NO_OF_RDS_BLKS 4
+#define MSB_OF_BLK_0 4
+#define LSB_OF_BLK_0 5
+#define MSB_OF_BLK_1 6
+#define LSB_OF_BLK_1 7
+#define MSB_OF_BLK_2 8
+#define LSB_OF_BLK_2 9
+#define MSB_OF_BLK_3 10
+#define LSB_OF_BLK_3 11
+#define MAX_RT_LEN 64
+#define END_OF_RT 0x0d
+#define MAX_PS_LEN 8
+#define OFFSET_OF_PS 5
+#define PS_VALIDATE_LIMIT 2
+#define RT_VALIDATE_LIMIT 2
+#define RDS_CMD_LEN 3
+#define RDS_RSP_LEN 13
+#define PS_EVT_DATA_LEN (MAX_PS_LEN + OFFSET_OF_PS)
+#define NO_OF_PS 1
+#define OFFSET_OF_RT 5
+#define OFFSET_OF_PTY 5
+#define MAX_LEN_2B_GRP_RT 32
+#define CNT_FOR_2A_GRP_RT 4
+#define CNT_FOR_2B_GRP_RT 2
+
+
 /* commands */
 #define POWER_UP_CMD  0x01
 #define GET_REV_CMD 0x10
@@ -143,7 +170,6 @@ const unsigned char MAX_SRCH_MODE = 0x01;
 #define FM_RDS_BUF 100
 #define FM_RDS_STATUS_IN_INTACK     0x01
 #define FM_RDS_STATUS_IN_MTFIFO     0x02
-#define FM_RDS_STATUS_OUT_SYNC      0x01
 #define FM_RDS_STATUS_OUT_GRPLOST   0x04
 #define FM_RDS_STATUS_OUT_BLED      0x03
 #define FM_RDS_STATUS_OUT_BLEC      0x0C
