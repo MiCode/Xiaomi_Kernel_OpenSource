@@ -571,4 +571,36 @@
 			<0xb1b8008 0x100>;
 		qcom,sleep-status-mask= <0x40000>;
 	};
+
+	qcom,rpm-log@29dc00 {
+		compatible = "qcom,rpm-log";
+		reg = <0x29dc00 0x4000>;
+		qcom,rpm-addr-phys = <0xfc000000>;
+		qcom,offset-version = <4>;
+		qcom,offset-page-buffer-addr = <36>;
+		qcom,offset-log-len = <40>;
+		qcom,offset-log-len-mask = <44>;
+		qcom,offset-page-indices = <56>;
+	};
+
+	qcom,rpm-stats@29dba0 {
+		compatible = "qcom,rpm-stats";
+		reg = <0x29dba0 0x1000>;
+		reg-names = "phys_addr_base";
+		qcom,sleep-stats-version = <2>;
+	};
+
+	qcom,rpm-master-stats@60150 {
+		compatible = "qcom,rpm-master-stats";
+		reg = <0x60150 0x2030>;
+		qcom,masters = "APSS", "MPSS", "PRONTO";
+		qcom,master-stats-version = <2>;
+		qcom,master-offset = <4096>;
+	};
+
+	qcom,rpm-rbcpr-stats@0x29daa0  {
+		compatible = "qcom,rpmrbcpr-stats";
+		reg = <0x29daa0 0x1a0000>;
+		qcom,start-offset = <0x190010>;
+	};
 };
