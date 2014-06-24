@@ -248,7 +248,6 @@ static void etm_os_unlock(struct etm_cpu_ctx *etmdata)
 static inline void etm_save_state(struct etm_cpu_ctx *etmdata)
 {
 	int i, j, count;
-	uint64_t val;
 
 	i = 0;
 	mb();
@@ -268,7 +267,6 @@ static inline void etm_save_state(struct etm_cpu_ctx *etmdata)
 					   );
 
 		/* main control and configuration registers */
-		etmdata->state[i++] = etm_readl(etmdata, TRCPRGCTLR);
 		etmdata->state[i++] = etm_readl(etmdata, TRCPROCSELR);
 		etmdata->state[i++] = etm_readl(etmdata, TRCCONFIGR);
 		etmdata->state[i++] = etm_readl(etmdata, TRCAUXCTLR);
@@ -316,7 +314,7 @@ static inline void etm_save_state(struct etm_cpu_ctx *etmdata)
 			etmdata->state[i++] = etm_readq(etmdata, TRCDVCMRn(i));
 		}
 		for (j = 0; j < etm.nr_ctxid_cmp; j++)
-			val = etm_readq(etmdata, TRCCIDCVRn(j));
+			etmdata->state[i++] = etm_readq(etmdata, TRCCIDCVRn(j));
 		etmdata->state[i++] = etm_readl(etmdata, TRCCIDCCTLR0);
 		etmdata->state[i++] = etm_readl(etmdata, TRCCIDCCTLR1);
 		for (j = 0; j < etm.nr_vmid_cmp; j++)
@@ -333,6 +331,8 @@ static inline void etm_save_state(struct etm_cpu_ctx *etmdata)
 		}
 		/* claim tag registers */
 		etmdata->state[i++] = etm_readl(etmdata, TRCCLAIMCLR);
+		/* program ctrl register */
+		etmdata->state[i++] = etm_readl(etmdata, TRCPRGCTLR);
 
 		/* ensure trace unit is idle to be powered down */
 		for (count = TIMEOUT_US; (BVAL(etm_readl(etmdata, TRCSTATR), 0)
@@ -365,7 +365,6 @@ static inline void etm_restore_state(struct etm_cpu_ctx *etmdata)
 		}
 
 		/* main control and configuration registers */
-		etm_writel(etmdata, etmdata->state[i++], TRCPRGCTLR);
 		etm_writel(etmdata, etmdata->state[i++], TRCPROCSELR);
 		etm_writel(etmdata, etmdata->state[i++], TRCCONFIGR);
 		etm_writel(etmdata, etmdata->state[i++], TRCAUXCTLR);
@@ -429,6 +428,8 @@ static inline void etm_restore_state(struct etm_cpu_ctx *etmdata)
 		}
 		/* claim tag registers */
 		etm_writel(etmdata, etmdata->state[i++], TRCCLAIMSET);
+		/* program ctrl register */
+		etm_writel(etmdata, etmdata->state[i++], TRCPRGCTLR);
 
 		etm_os_unlock(etmdata);
 		break;
