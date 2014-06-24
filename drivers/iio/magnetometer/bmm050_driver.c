@@ -1674,6 +1674,7 @@ MODULE_DEVICE_TABLE(i2c, bmm_id);
 
 static const struct acpi_device_id bmm050_acpi_match[] = {
 	{ "BMM0050", 0 },
+	{ "BSBM0150", 0},
 	{ },
 };
 MODULE_DEVICE_TABLE(acpi, bmm050_acpi_match);
