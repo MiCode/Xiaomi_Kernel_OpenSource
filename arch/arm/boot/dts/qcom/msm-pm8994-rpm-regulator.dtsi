@@ -663,4 +663,19 @@
 			status = "disabled";
 		};
 	};
+
+	rpm-regulator-bbyb {
+		compatible = "qcom,rpm-smd-regulator-resource";
+		qcom,resource-name = "bbyb";
+		qcom,resource-id = <1>;
+		qcom,regulator-type = <0>;
+		status = "disabled";
+
+		regulator-bby {
+			compatible = "qcom,rpm-smd-regulator";
+			regulator-name = "pmi8994_boostbypass";
+			qcom,set = <3>;
+			status = "disabled";
+		};
+	};
 };
