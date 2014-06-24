@@ -365,7 +365,11 @@ static uint64_t get_cluster_sleep_time(struct lpm_cluster *cluster,
 	if (mask)
 		cpumask_copy(mask, cpumask_of(next_cpu));
 
-	return ktime_to_us(ktime_sub(next_event, ktime_get()));
+
+	if (ktime_to_us(next_event) > ktime_to_us(ktime_get()))
+		return ktime_to_us(ktime_sub(next_event, ktime_get()));
+	else
+		return 0;
 }
 
 static int cluster_select(struct lpm_cluster *cluster, bool from_idle)
@@ -380,7 +384,7 @@ static int cluster_select(struct lpm_cluster *cluster, bool from_idle)
 	if (!cluster)
 		return -EINVAL;
 
-	sleep_us = get_cluster_sleep_time(cluster, NULL, from_idle);
+	sleep_us = (uint32_t)get_cluster_sleep_time(cluster, NULL, from_idle);
 
 	for (i = 0; i < cluster->nlevels; i++) {
 		struct lpm_cluster_level *level = &cluster->levels[i];
