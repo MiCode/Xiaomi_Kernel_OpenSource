@@ -34,6 +34,8 @@
 #define clk_qdss_a_clk 0xdd121669
 #define clk_qpic_clk 0x3ce6f7bb
 #define clk_qpic_a_clk 0xd70ccb7c
+#define clk_ln_bb_clk 0x3ab0b36d
+#define clk_cxo_dwc3_clk 0xf79c19f6
 
 /* clock_gcc controlled clocks */
 #define clk_gpll0 0x1ebe3bc4
