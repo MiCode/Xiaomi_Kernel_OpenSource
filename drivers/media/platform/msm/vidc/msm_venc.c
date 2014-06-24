@@ -1117,6 +1117,13 @@ static int msm_venc_queue_setup(struct vb2_queue *q,
 					extra_idx < VIDEO_MAX_PLANES) {
 				buff_req_buffer = get_buff_req_buffer(inst,
 						HAL_BUFFER_EXTRADATA_OUTPUT);
+				if (!buff_req_buffer) {
+					dprintk(VIDC_ERR,
+						"%s: failed - invalid buffer req\n",
+						__func__);
+					return -EINVAL;
+				}
+
 				sizes[i] = buff_req_buffer->buffer_size;
 			}
 		}
@@ -1163,6 +1170,13 @@ static int msm_venc_queue_setup(struct vb2_queue *q,
 		if (extra_idx && (extra_idx < VIDEO_MAX_PLANES)) {
 			buff_req_buffer = get_buff_req_buffer(inst,
 				HAL_BUFFER_EXTRADATA_INPUT);
+			if (!buff_req_buffer) {
+				dprintk(VIDC_ERR,
+					"%s: failed - invalid buffer req\n",
+					__func__);
+				return -EINVAL;
+			}
+
 			sizes[extra_idx] = buff_req_buffer->buffer_size;
 		}
 
@@ -2999,7 +3013,7 @@ int msm_venc_g_fmt(struct msm_vidc_inst *inst, struct v4l2_format *f)
 	int rc = 0;
 	int i;
 	u32 height, width;
-	int extra_idx = 0;
+	unsigned int extra_idx = 0;
 	struct hal_buffer_requirements *buff_req_buffer = NULL;
 
 	if (!inst || !f) {

@@ -892,7 +892,7 @@ int msm_vdec_g_fmt(struct msm_vidc_inst *inst, struct v4l2_format *f)
 	unsigned int *plane_sizes = NULL;
 	struct hfi_device *hdev;
 	int stride, scanlines;
-	int extra_idx = 0;
+	unsigned int extra_idx = 0;
 	int rc = 0;
 	int i;
 	struct hal_buffer_requirements *buff_req_buffer;
@@ -2306,6 +2306,11 @@ int msm_vdec_ctrl_init(struct msm_vidc_inst *inst)
 					msm_vdec_ctrls[idx].step,
 					msm_vdec_ctrls[idx].default_value);
 			}
+		}
+
+		if (!ctrl) {
+			dprintk(VIDC_ERR, "%s - invalid ctrl\n", __func__);
+			return -EINVAL;
 		}
 
 		switch (msm_vdec_ctrls[idx].id) {

@@ -37,7 +37,10 @@
 #define V4L2_EVENT_RELEASE_BUFFER_REFERENCE \
 		V4L2_EVENT_MSM_VIDC_RELEASE_BUFFER_REFERENCE
 
-#define IS_SESSION_CMD_VALID(cmd) ((cmd - SESSION_MSG_START) <= SESSION_MSG_END)
+#define IS_SESSION_CMD_VALID(cmd) (((cmd) >= SESSION_MSG_START) && \
+		(((cmd) - SESSION_MSG_START) <= SESSION_MSG_END))
+#define IS_SYS_CMD_VALID(cmd) (((cmd) >= SYS_MSG_START) && \
+		(((cmd) - SYS_MSG_START) <= SYS_MSG_END))
 
 struct getprop_buf {
 	struct list_head list;
@@ -382,7 +385,14 @@ static void handle_sys_init_done(enum command_response cmd, void *data)
 	struct msm_vidc_cb_cmd_done *response = data;
 	struct msm_vidc_core *core;
 	struct vidc_hal_sys_init_done *sys_init_msg;
-	int index = SYS_MSG_INDEX(cmd);
+	unsigned int index;
+
+	if (!IS_SYS_CMD_VALID(cmd)) {
+		dprintk(VIDC_ERR, "%s - invalid cmd\n", __func__);
+		return;
+	}
+	index = SYS_MSG_INDEX(cmd);
+
 	if (!response) {
 		dprintk(VIDC_ERR,
 			"Failed to get valid response for sys init\n");

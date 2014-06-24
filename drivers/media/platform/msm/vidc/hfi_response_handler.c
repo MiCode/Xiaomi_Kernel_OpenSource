@@ -739,6 +739,12 @@ static void hfi_process_sess_get_prop_buf_req(
 	hfi_buf_req = (struct hfi_buffer_requirements *)
 		&prop->rg_property_data[1];
 
+	if (!hfi_buf_req) {
+		dprintk(VIDC_ERR, "%s - invalid buffer req pointer\n",
+			__func__);
+		return;
+	}
+
 	while (req_bytes) {
 		if ((hfi_buf_req->buffer_size) &&
 			((hfi_buf_req->buffer_count_min > hfi_buf_req->
@@ -882,6 +888,11 @@ static void hfi_process_session_init_done(
 	struct msm_vidc_cb_cmd_done cmd_done = {0};
 	struct vidc_hal_session_init_done session_init_done;
 
+	if (!session) {
+		dprintk(VIDC_ERR, "%s - invalid session\n", __func__);
+		return;
+	}
+
 	memset(&session_init_done, 0, sizeof(struct
 				vidc_hal_session_init_done));
 	dprintk(VIDC_DBG, "RECEIVED: SESSION_INIT_DONE[%p]\n", session);
@@ -900,7 +911,7 @@ static void hfi_process_session_init_done(
 	if (!cmd_done.status) {
 		cmd_done.status = hfi_process_sess_init_done_prop_read(
 			pkt, &session_init_done);
-	} else if (session) {
+	} else {
 		dprintk(VIDC_WARN,
 			"Sess init failed: 0x%p, 0x%p\n",
 			session->session_id, session);
