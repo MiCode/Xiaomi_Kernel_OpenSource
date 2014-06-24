@@ -1652,6 +1652,10 @@ static int wm_adsp_load_coeff(struct wm_adsp *dsp)
 	struct wm_adsp_buf *buf;
 	int tmp;
 
+	if (dsp->firmwares[dsp->fw].binfile &&
+	    !(strcmp(dsp->firmwares[dsp->fw].binfile, "None")))
+		return 0;
+
 	file = kzalloc(PAGE_SIZE, GFP_KERNEL);
 	if (file == NULL)
 		return -ENOMEM;
