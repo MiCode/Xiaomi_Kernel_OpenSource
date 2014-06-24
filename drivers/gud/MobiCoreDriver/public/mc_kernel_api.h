@@ -1,14 +1,19 @@
 /*
- * Interface to be used by module MobiCoreKernelAPI.
+ * Copyright (c) 2013 TRUSTONIC LIMITED
+ * All Rights Reserved.
  *
- * <-- Copyright Giesecke & Devrient GmbH 2010-2012 -->
- * <-- Copyright Trustonic Limited 2013 -->
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * version 2 as published by the Free Software Foundation.
  *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License version 2 as
- * published by the Free Software Foundation.
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
  */
-
+/*
+ * Interface to be used by module MobiCoreKernelAPI.
+ */
 #ifndef _MC_KERNEL_API_H_
 #define _MC_KERNEL_API_H_
 
