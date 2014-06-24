@@ -53,6 +53,8 @@
 #include "msmzirc-smp2p.dtsi"
 #include "msmzirc-ipcrouter.dtsi"
 
+#include "msmzirc-coresight.dtsi"
+
 &soc {
 	#address-cells = <1>;
 	#size-cells = <1>;
