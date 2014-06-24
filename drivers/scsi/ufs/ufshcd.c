@@ -337,6 +337,51 @@ static inline void ufshcd_remove_non_printable(char *val)
 		*val = ' ';
 }
 
+#ifdef CONFIG_TRACEPOINTS
+static void ufshcd_add_command_trace(struct ufs_hba *hba,
+		unsigned int tag, const char *str)
+{
+	sector_t lba = -1;
+	u8 opcode = 0;
+	u32 intr, doorbell;
+	struct ufshcd_lrb *lrbp;
+	int transfer_len = -1;
+
+	lrbp = &hba->lrb[tag];
+
+	if (lrbp->cmd) { /* data phase exists */
+		opcode = (u8)(*lrbp->cmd->cmnd);
+		if ((opcode == READ_10) || (opcode == WRITE_10)) {
+			/*
+			 * Currently we only fully trace read(10) and write(10)
+			 * commands
+			 */
+			if (lrbp->cmd->request && lrbp->cmd->request->bio)
+				lba =
+				  lrbp->cmd->request->bio->bi_iter.bi_sector;
+			transfer_len = be32_to_cpu(
+				lrbp->ucd_req_ptr->sc.exp_data_transfer_len);
+		}
+	}
+
+	intr = ufshcd_readl(hba, REG_INTERRUPT_STATUS);
+	doorbell = ufshcd_readl(hba, REG_UTP_TRANSFER_REQ_DOOR_BELL);
+	trace_ufshcd_command(dev_name(hba->dev), str, tag,
+				doorbell, transfer_len, intr, lba, opcode);
+}
+
+static inline void ufshcd_cond_add_cmd_trace(struct ufs_hba *hba,
+					unsigned int tag, const char *str)
+{
+	ufshcd_add_command_trace(hba, tag, str);
+}
+#else
+static inline void ufshcd_cond_add_cmd_trace(struct ufs_hba *hba,
+					unsigned int tag, const char *str)
+{
+}
+#endif
+
 static void ufshcd_print_host_regs(struct ufs_hba *hba)
 {
 	/*
@@ -1660,6 +1705,7 @@ int ufshcd_send_command(struct ufs_hba *hba, unsigned int task_tag)
 	ufshcd_writel(hba, 1 << task_tag, REG_UTP_TRANSFER_REQ_DOOR_BELL);
 	/* Make sure that doorbell is commited immediately */
 	wmb();
+	ufshcd_cond_add_cmd_trace(hba, task_tag, "send");
 	UFSHCD_UPDATE_TAG_STATS(hba, task_tag);
 	return ret;
 }
@@ -4497,6 +4543,7 @@ static void ufshcd_transfer_req_compl(struct ufs_hba *hba)
 		lrbp = &hba->lrb[index];
 		cmd = lrbp->cmd;
 		if (cmd) {
+			ufshcd_cond_add_cmd_trace(hba, index, "complete");
 			UFSHCD_UPDATE_TAG_STATS_COMPLETION(hba, cmd);
 			result = ufshcd_transfer_rsp_status(hba, lrbp);
 			scsi_dma_unmap(cmd);
@@ -4510,8 +4557,11 @@ static void ufshcd_transfer_req_compl(struct ufs_hba *hba)
 			__ufshcd_pm_qos_release(hba);
 			__ufshcd_hibern8_release(hba);
 		} else if (lrbp->command_type == UTP_CMD_TYPE_DEV_MANAGE) {
-			if (hba->dev_cmd.complete)
+			if (hba->dev_cmd.complete) {
+				ufshcd_cond_add_cmd_trace(hba, index,
+						"dev_complete");
 				complete(hba->dev_cmd.complete);
+			}
 		}
 	}
 
