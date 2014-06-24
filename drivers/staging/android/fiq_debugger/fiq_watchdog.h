@@ -1,6 +1,4 @@
 /*
- * include/linux/keyreset.h - platform data structure for resetkeys driver
- *
  * Copyright (C) 2014 Google, Inc.
  *
  * This software is licensed under the terms of the GNU General Public
@@ -14,16 +12,9 @@
  *
  */
 
-#ifndef _LINUX_KEYRESET_H
-#define _LINUX_KEYRESET_H
+#ifndef _FIQ_WATCHDOG_H_
+#define _FIQ_WATCHDOG_H_
 
-#define KEYRESET_NAME "keyreset"
+void fiq_watchdog_triggered(const struct pt_regs *regs, void *svc_sp);
 
-struct keyreset_platform_data {
-	int (*reset_fn)(void);
-	int key_down_delay;
-	int *keys_up;
-	int keys_down[]; /* 0 terminated */
-};
-
-#endif /* _LINUX_KEYRESET_H */
+#endif
