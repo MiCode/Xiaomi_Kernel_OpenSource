@@ -373,9 +373,26 @@ static int smb350_get_charge_type(struct smb350_chg *chip)
 	return POWER_SUPPLY_CHARGE_TYPE_NONE;
 }
 
+#define DEFAULT_CAPACITY	75
 static int smb350_get_capacity(struct smb350_chg *chip)
 {
-	return 75;
+	union power_supply_propval ret = {0,};
+	struct power_supply *fuel_gauge = NULL;
+
+	if (chip->fake_battery_soc >= 0 || !chip->fuel_gauge_name)
+		return chip->fake_battery_soc;
+
+	fuel_gauge = power_supply_get_by_name(chip->fuel_gauge_name);
+	if (fuel_gauge) {
+		fuel_gauge->get_property(fuel_gauge,
+			POWER_SUPPLY_PROP_CAPACITY, &ret);
+		if (ret.intval >= 0)
+			return ret.intval;
+		else
+			pr_debug("get capacity failure, rc = %d\n", ret.intval);
+	}
+
+	return DEFAULT_CAPACITY;
 }
 
 #define HOT_HARD_LIMIT_BIT	BIT(6)
@@ -830,7 +847,7 @@ static int smb350_probe(struct i2c_client *client,
 		return -ENOMEM;
 	}
 
-	chip->fake_battery_soc = 75;
+	chip->fake_battery_soc = -EINVAL;
 
 	chip->client = client;
 	ret = smb350_parse_dt(chip);
