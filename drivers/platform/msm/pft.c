@@ -162,6 +162,8 @@ struct pft_device {
 /* Device Driver State */
 static struct pft_device *pft_dev;
 
+static struct inode *pft_bio_get_inode(struct bio *bio);
+
 /**
  * pft_is_ready() - driver is initialized and ready.
  *
@@ -623,10 +625,11 @@ static inline bool pft_is_inplace_file(struct file *filp)
  *
  * Return: 0 on successe, negative value on failure.
  */
-int pft_get_key_index(struct inode *inode, u32 *key_index,
+int pft_get_key_index(struct bio *bio, u32 *key_index,
 		      bool *is_encrypted, bool *is_inplace)
 {
 	u32 tag = 0;
+	struct inode *inode = NULL;
 
 	if (!pft_is_ready())
 		return -ENODEV;
@@ -634,7 +637,7 @@ int pft_get_key_index(struct inode *inode, u32 *key_index,
 	if (!selinux_is_enabled())
 		return -ENODEV;
 
-	if (!inode)
+	if (!bio)
 		return -EPERM;
 
 	if (!is_encrypted) {
@@ -649,6 +652,10 @@ int pft_get_key_index(struct inode *inode, u32 *key_index,
 		pr_err("key_index is NULL\n");
 		return -EPERM;
 	}
+
+	inode = pft_bio_get_inode(bio);
+	if (!inode)
+		return -EINVAL;
 
 	if (!pft_is_tag_valid(inode)) {
 		pr_debug("file %s, Tag not valid\n", inode_to_filename(inode));
@@ -685,8 +692,27 @@ EXPORT_SYMBOL(pft_get_key_index);
  */
 static struct inode *pft_bio_get_inode(struct bio *bio)
 {
-	if (!bio || !bio->bi_io_vec || !bio->bi_io_vec->bv_page ||
-	    !bio->bi_io_vec->bv_page->mapping)
+	if (!bio)
+		return NULL;
+	if (!bio->bi_io_vec)
+		return NULL;
+	if (!bio->bi_io_vec->bv_page)
+		return NULL;
+
+	if (PageAnon(bio->bi_io_vec->bv_page)) {
+		struct inode *inode;
+
+		/* Using direct-io (O_DIRECT) without page cache */
+		inode = dio_bio_get_inode(bio);
+		pr_debug("inode on direct-io, inode = 0x%x.\n", (int) inode);
+
+		return inode;
+	}
+
+	if (!bio->bi_io_vec->bv_page->mapping)
+		return NULL;
+
+	if (!bio->bi_io_vec->bv_page->mapping->host)
 		return NULL;
 
 	return bio->bi_io_vec->bv_page->mapping->host;
@@ -715,12 +741,12 @@ bool pft_allow_merge_bio(struct bio *bio1, struct bio *bio2)
 	if (!pft_is_ready())
 		return true;
 
-	ret = pft_get_key_index(pft_bio_get_inode(bio1), &key_index1,
+	ret = pft_get_key_index(bio1, &key_index1,
 				&is_encrypted1, &is_inplace);
 	if (ret)
 		is_encrypted1 = false;
 
-	ret = pft_get_key_index(pft_bio_get_inode(bio2), &key_index2,
+	ret = pft_get_key_index(bio2, &key_index2,
 				&is_encrypted2, &is_inplace);
 	if (ret)
 		is_encrypted2 = false;
@@ -928,6 +954,9 @@ int pft_file_open(struct file *filp, const struct cred *cred)
 
 	if (!pft_is_ready())
 		return 0;
+
+	if (filp->f_flags & O_DIRECT)
+		pr_debug("file %s using O_DIRECT.\n", file_to_filename(filp));
 
 	/* do nothing for non-encrypted files */
 	if (!pft_is_encrypted_file(filp->f_dentry))
