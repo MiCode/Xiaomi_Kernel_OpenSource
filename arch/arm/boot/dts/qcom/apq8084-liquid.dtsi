@@ -867,5 +867,6 @@
 		interrupt-parent = <&spmi_bus>;
 		interrupts = <0x0 0xcd 0x0>;	/* PMA8084 GPIO 14 */
 		summit,term-current-ma = <300>;
+		summit,fuel-gauge-name = "bq28400_battery";
 	};
 };
