@@ -628,8 +628,22 @@ static void msm_nand_bus_unregister(struct msm_nand_info *info)
 }
 
 /*
- * Wrapper function to prepare a SPS command element with the data that is
- * passed to this function.
+ * Wrapper function to prepare a single SPS command element with the data
+ * that is passed to this function.
+ */
+static inline void msm_nand_prep_ce(struct sps_command_element *ce,
+				uint32_t addr, uint32_t command, uint32_t data)
+{
+	ce->addr = addr;
+	ce->command = (command & WRITE) ? (uint32_t) SPS_WRITE_COMMAND :
+			(uint32_t) SPS_READ_COMMAND;
+	ce->data = data;
+	ce->mask = 0xFFFFFFFF;
+}
+
+/*
+ * Wrapper function to prepare a single command descriptor with a single
+ * SPS command element with the data that is passed to this function.
  *
  * Since for any command element it is a must to have this flag
  * SPS_IOVEC_FLAG_CMD, this function by default updates this flag for a
@@ -637,20 +651,13 @@ static void msm_nand_bus_unregister(struct msm_nand_info *info)
  * pass this flag. The other flags must be passed based on the need.  If a
  * command element doesn't have any other flag, then 0 can be passed to flags.
  */
-static inline void msm_nand_prep_ce(struct msm_nand_sps_cmd *sps_cmd,
+static inline void msm_nand_prep_single_desc(struct msm_nand_sps_cmd *sps_cmd,
 				uint32_t addr, uint32_t command,
 				uint32_t data, uint32_t flags)
 {
-	struct sps_command_element *cmd = &sps_cmd->ce;
-
-	cmd->addr = addr;
-	cmd->command = (command & WRITE) ? (uint32_t) SPS_WRITE_COMMAND :
-			(uint32_t) SPS_READ_COMMAND;
-	cmd->data = data;
-	cmd->mask = 0xFFFFFFFF;
+	msm_nand_prep_ce(&sps_cmd->ce, addr, command, data);
 	sps_cmd->flags = SPS_IOVEC_FLAG_CMD | flags;
 }
-
 /*
  * Read a single NANDc register as mentioned by its parameter addr. The return
  * value indicates whether read is successful or not. The register value read
@@ -671,7 +678,7 @@ static int msm_nand_flash_rd_reg(struct msm_nand_info *info, uint32_t addr,
 	wait_event(chip->dma_wait_queue, (dma_buffer = msm_nand_get_dma_buffer(
 		    chip, sizeof(*dma_buffer))));
 	cmd = &dma_buffer->cmd;
-	msm_nand_prep_ce(cmd, addr, READ, msm_virt_to_dma(chip,
+	msm_nand_prep_single_desc(cmd, addr, READ, msm_virt_to_dma(chip,
 			&dma_buffer->data), SPS_IOVEC_FLAG_INT);
 
 	mutex_lock(&info->lock);
@@ -738,19 +745,19 @@ static int msm_nand_flash_read_id(struct msm_nand_info *info,
 	dma_buffer->data[3] = 0xeeeeeeee;
 
 	cmd = dma_buffer->cmd;
-	msm_nand_prep_ce(cmd, MSM_NAND_ADDR0(info), WRITE,
+	msm_nand_prep_single_desc(cmd, MSM_NAND_ADDR0(info), WRITE,
 			dma_buffer->data[0], SPS_IOVEC_FLAG_LOCK);
 	cmd++;
 
-	msm_nand_prep_ce(cmd, MSM_NAND_FLASH_CMD(info), WRITE,
+	msm_nand_prep_single_desc(cmd, MSM_NAND_FLASH_CMD(info), WRITE,
 			dma_buffer->data[1], 0);
 	cmd++;
 
-	msm_nand_prep_ce(cmd, MSM_NAND_EXEC_CMD(info), WRITE,
+	msm_nand_prep_single_desc(cmd, MSM_NAND_EXEC_CMD(info), WRITE,
 			dma_buffer->data[2], SPS_IOVEC_FLAG_NWD);
 	cmd++;
 
-	msm_nand_prep_ce(cmd, MSM_NAND_READ_ID(info), READ,
+	msm_nand_prep_single_desc(cmd, MSM_NAND_READ_ID(info), READ,
 		msm_virt_to_dma(chip, &dma_buffer->data[3]),
 		SPS_IOVEC_FLAG_UNLOCK | SPS_IOVEC_FLAG_INT);
 	cmd++;
@@ -820,20 +827,24 @@ static void msm_nand_prep_cfg_cmd_desc(struct msm_nand_info *info,
 	struct msm_nand_sps_cmd *cmd;
 
 	cmd = *curr_cmd;
-	msm_nand_prep_ce(cmd, MSM_NAND_FLASH_CMD(info), WRITE, data.cmd,
-			SPS_IOVEC_FLAG_LOCK);
+	msm_nand_prep_single_desc(cmd, MSM_NAND_FLASH_CMD(info), WRITE,
+			data.cmd, SPS_IOVEC_FLAG_LOCK);
 	cmd++;
 
-	msm_nand_prep_ce(cmd, MSM_NAND_ADDR0(info), WRITE, data.addr0, 0);
+	msm_nand_prep_single_desc(cmd, MSM_NAND_ADDR0(info), WRITE,
+			data.addr0, 0);
 	cmd++;
 
-	msm_nand_prep_ce(cmd, MSM_NAND_ADDR1(info), WRITE, data.addr1, 0);
+	msm_nand_prep_single_desc(cmd, MSM_NAND_ADDR1(info), WRITE,
+			data.addr1, 0);
 	cmd++;
 
-	msm_nand_prep_ce(cmd, MSM_NAND_DEV0_CFG0(info), WRITE, data.cfg0, 0);
+	msm_nand_prep_single_desc(cmd, MSM_NAND_DEV0_CFG0(info), WRITE,
+			data.cfg0, 0);
 	cmd++;
 
-	msm_nand_prep_ce(cmd, MSM_NAND_DEV0_CFG1(info), WRITE, data.cfg1, 0);
+	msm_nand_prep_single_desc(cmd, MSM_NAND_DEV0_CFG1(info), WRITE,
+			data.cfg1, 0);
 	cmd++;
 	*curr_cmd = cmd;
 }
@@ -1020,36 +1031,36 @@ static int msm_nand_flash_onfi_probe(struct msm_nand_info *info)
 	msm_nand_prep_cfg_cmd_desc(info, data.cfg, &curr_cmd);
 
 	cmd = curr_cmd;
-	msm_nand_prep_ce(cmd, MSM_NAND_DEV0_ECC_CFG(info), WRITE,
+	msm_nand_prep_single_desc(cmd, MSM_NAND_DEV0_ECC_CFG(info), WRITE,
 			data.ecc_bch_cfg, 0);
 	cmd++;
 
-	msm_nand_prep_ce(cmd, MSM_NAND_DEV_CMD_VLD(info), WRITE,
+	msm_nand_prep_single_desc(cmd, MSM_NAND_DEV_CMD_VLD(info), WRITE,
 			data.devcmdvld_mod, 0);
 	cmd++;
 
-	msm_nand_prep_ce(cmd, MSM_NAND_DEV_CMD1(info), WRITE,
+	msm_nand_prep_single_desc(cmd, MSM_NAND_DEV_CMD1(info), WRITE,
 			data.devcmd1_mod, 0);
 	cmd++;
 
 	rdata = (0 << 0) | (ONFI_PARAM_INFO_LENGTH << 16) | (1 << 31);
-	msm_nand_prep_ce(cmd, MSM_NAND_READ_LOCATION_0(info), WRITE,
+	msm_nand_prep_single_desc(cmd, MSM_NAND_READ_LOCATION_0(info), WRITE,
 			rdata, 0);
 	cmd++;
 
-	msm_nand_prep_ce(cmd, MSM_NAND_EXEC_CMD(info), WRITE,
+	msm_nand_prep_single_desc(cmd, MSM_NAND_EXEC_CMD(info), WRITE,
 		data.exec, SPS_IOVEC_FLAG_NWD);
 	cmd++;
 
-	msm_nand_prep_ce(cmd, MSM_NAND_FLASH_STATUS(info), READ,
+	msm_nand_prep_single_desc(cmd, MSM_NAND_FLASH_STATUS(info), READ,
 		msm_virt_to_dma(chip, &dma_buffer->flash_status), 0);
 	cmd++;
 
-	msm_nand_prep_ce(cmd, MSM_NAND_DEV_CMD1(info), WRITE,
+	msm_nand_prep_single_desc(cmd, MSM_NAND_DEV_CMD1(info), WRITE,
 			data.devcmd1_orig, 0);
 	cmd++;
 
-	msm_nand_prep_ce(cmd, MSM_NAND_DEV_CMD_VLD(info), WRITE,
+	msm_nand_prep_single_desc(cmd, MSM_NAND_DEV_CMD_VLD(info), WRITE,
 			data.devcmdvld_orig,
 			SPS_IOVEC_FLAG_UNLOCK | SPS_IOVEC_FLAG_INT);
 	cmd++;
@@ -1377,55 +1388,58 @@ static void msm_nand_prep_rw_cmd_desc(struct mtd_oob_ops *ops,
 
 	cmd = *curr_cmd;
 	if (curr_cw == args->start_sector) {
-		msm_nand_prep_ce(cmd, MSM_NAND_FLASH_CMD(info), WRITE,
+		msm_nand_prep_single_desc(cmd, MSM_NAND_FLASH_CMD(info), WRITE,
 				data->cmd,
 				((curr_cw == args->start_sector) ?
 				 SPS_IOVEC_FLAG_LOCK : 0));
 		cmd++;
 
-		msm_nand_prep_ce(cmd, MSM_NAND_ADDR0(info), WRITE,
+		msm_nand_prep_single_desc(cmd, MSM_NAND_ADDR0(info), WRITE,
 				data->addr0, 0);
 		cmd++;
 
-		msm_nand_prep_ce(cmd, MSM_NAND_ADDR1(info), WRITE,
+		msm_nand_prep_single_desc(cmd, MSM_NAND_ADDR1(info), WRITE,
 				data->addr1, 0);
 		cmd++;
 
-		msm_nand_prep_ce(cmd, MSM_NAND_DEV0_CFG0(info), WRITE,
+		msm_nand_prep_single_desc(cmd, MSM_NAND_DEV0_CFG0(info), WRITE,
 				data->cfg0, 0);
 		cmd++;
 
-		msm_nand_prep_ce(cmd, MSM_NAND_DEV0_CFG1(info), WRITE,
+		msm_nand_prep_single_desc(cmd, MSM_NAND_DEV0_CFG1(info), WRITE,
 				data->cfg1, 0);
 		cmd++;
 
-		msm_nand_prep_ce(cmd, MSM_NAND_DEV0_ECC_CFG(info), WRITE,
-				data->ecc_bch_cfg, 0);
+		msm_nand_prep_single_desc(cmd, MSM_NAND_DEV0_ECC_CFG(info),
+				WRITE, data->ecc_bch_cfg, 0);
 		cmd++;
 
-		msm_nand_prep_ce(cmd, MSM_NAND_EBI2_ECC_BUF_CFG(info),
+		msm_nand_prep_single_desc(cmd, MSM_NAND_EBI2_ECC_BUF_CFG(info),
 				WRITE, data->ecc_cfg, 0);
 		cmd++;
 
 		if (!args->read) {
-			msm_nand_prep_ce(cmd, MSM_NAND_FLASH_STATUS(info),
+			msm_nand_prep_single_desc(cmd,
+					MSM_NAND_FLASH_STATUS(info),
 					WRITE, data->clrfstatus, 0);
 			cmd++;
 			goto sub_exec_cmd;
 		}
-		msm_nand_prep_ce(cmd, MSM_NAND_ERASED_CW_DETECT_CFG(info),
+
+		msm_nand_prep_single_desc(cmd,
+				MSM_NAND_ERASED_CW_DETECT_CFG(info),
 				WRITE, 0x3, 0);
 		cmd++;
-		msm_nand_prep_ce(cmd, MSM_NAND_ERASED_CW_DETECT_CFG(info),
+		msm_nand_prep_single_desc(cmd,
+				MSM_NAND_ERASED_CW_DETECT_CFG(info),
 				WRITE, 0x2, 0);
 		cmd++;
-
 	}
 
 	if (ops->mode == MTD_OPS_RAW) {
 		rdata = (0 << 0) | (chip->cw_size << 16) | (1 << 31);
-		msm_nand_prep_ce(cmd, MSM_NAND_READ_LOCATION_0(info), WRITE,
-				rdata, 0);
+		msm_nand_prep_single_desc(cmd, MSM_NAND_READ_LOCATION_0(info),
+				WRITE, rdata, 0);
 		cmd++;
 	}
 	if (ops->mode == MTD_OPS_AUTO_OOB) {
@@ -1438,7 +1452,7 @@ static void msm_nand_prep_rw_cmd_desc(struct mtd_oob_ops *ops,
 			rdata = (offset << 0) | (size << 16) |
 				(last_read << 31);
 
-			msm_nand_prep_ce(cmd,
+			msm_nand_prep_single_desc(cmd,
 					MSM_NAND_READ_LOCATION_0(info),
 					WRITE,
 					rdata, 0);
@@ -1455,19 +1469,19 @@ static void msm_nand_prep_rw_cmd_desc(struct mtd_oob_ops *ops,
 				(last_read << 31);
 
 			if (ops->datbuf)
-				msm_nand_prep_ce(cmd,
+				msm_nand_prep_single_desc(cmd,
 						MSM_NAND_READ_LOCATION_1(info),
 						WRITE, rdata, 0);
 			else
-				msm_nand_prep_ce(cmd,
+				msm_nand_prep_single_desc(cmd,
 						MSM_NAND_READ_LOCATION_0(info),
 						WRITE, rdata, 0);
 			cmd++;
 		}
 	}
 sub_exec_cmd:
-	msm_nand_prep_ce(cmd, MSM_NAND_EXEC_CMD(info), WRITE, data->exec,
-			SPS_IOVEC_FLAG_NWD);
+	msm_nand_prep_single_desc(cmd, MSM_NAND_EXEC_CMD(info), WRITE,
+			data->exec, SPS_IOVEC_FLAG_NWD);
 	cmd++;
 	*curr_cmd = cmd;
 }
@@ -1617,19 +1631,21 @@ static int msm_nand_read_oob(struct mtd_info *mtd, loff_t from,
 					&data, info, n, &curr_cmd);
 
 			cmd = curr_cmd;
-			msm_nand_prep_ce(cmd, MSM_NAND_FLASH_STATUS(info),
+			msm_nand_prep_single_desc(cmd,
+				MSM_NAND_FLASH_STATUS(info),
 				READ, msm_virt_to_dma(chip,
 				&dma_buffer->result[n].flash_status), 0);
 			cmd++;
 
-			msm_nand_prep_ce(cmd,
+			msm_nand_prep_single_desc(cmd,
 				MSM_NAND_ERASED_CW_DETECT_STATUS(info),
 				READ, msm_virt_to_dma(chip,
 				&dma_buffer->result[n].erased_cw_status),
 				0);
 			cmd++;
 
-			msm_nand_prep_ce(cmd, MSM_NAND_BUFFER_STATUS(info),
+			msm_nand_prep_single_desc(cmd,
+				MSM_NAND_BUFFER_STATUS(info),
 				READ, msm_virt_to_dma(chip,
 				&dma_buffer->result[n].buffer_status),
 				((n == (cwperpage - 1)) ?
@@ -2026,17 +2042,18 @@ static int msm_nand_write_oob(struct mtd_info *mtd, loff_t to,
 					&data, info, n, &curr_cmd);
 
 			cmd = curr_cmd;
-			msm_nand_prep_ce(cmd, MSM_NAND_FLASH_STATUS(info),
+			msm_nand_prep_single_desc(cmd,
+				MSM_NAND_FLASH_STATUS(info),
 				READ, msm_virt_to_dma(chip,
 				&dma_buffer->data.flash_status[n]), 0);
 			cmd++;
 
 			if (n == (cwperpage - 1)) {
-				msm_nand_prep_ce(cmd,
+				msm_nand_prep_single_desc(cmd,
 						MSM_NAND_FLASH_STATUS(info),
 						WRITE, data.clrfstatus, 0);
 				cmd++;
-				msm_nand_prep_ce(cmd,
+				msm_nand_prep_single_desc(cmd,
 						MSM_NAND_READ_STATUS(info),
 						WRITE, data.clrrstatus,
 						SPS_IOVEC_FLAG_UNLOCK
@@ -2302,19 +2319,19 @@ static int msm_nand_erase(struct mtd_info *mtd, struct erase_info *instr)
 	msm_nand_prep_cfg_cmd_desc(info, data.cfg, &curr_cmd);
 
 	cmd = curr_cmd;
-	msm_nand_prep_ce(cmd, MSM_NAND_EXEC_CMD(info), WRITE, data.exec,
-			SPS_IOVEC_FLAG_NWD);
+	msm_nand_prep_single_desc(cmd, MSM_NAND_EXEC_CMD(info), WRITE,
+			data.exec, SPS_IOVEC_FLAG_NWD);
 	cmd++;
 
-	msm_nand_prep_ce(cmd, MSM_NAND_FLASH_STATUS(info), READ,
+	msm_nand_prep_single_desc(cmd, MSM_NAND_FLASH_STATUS(info), READ,
 		msm_virt_to_dma(chip, &dma_buffer->flash_status), 0);
 	cmd++;
 
-	msm_nand_prep_ce(cmd, MSM_NAND_FLASH_STATUS(info), WRITE,
+	msm_nand_prep_single_desc(cmd, MSM_NAND_FLASH_STATUS(info), WRITE,
 			data.clrfstatus, 0);
 	cmd++;
 
-	msm_nand_prep_ce(cmd, MSM_NAND_READ_STATUS(info), WRITE,
+	msm_nand_prep_single_desc(cmd, MSM_NAND_READ_STATUS(info), WRITE,
 			data.clrrstatus,
 			SPS_IOVEC_FLAG_UNLOCK | SPS_IOVEC_FLAG_INT);
 	cmd++;
@@ -2465,19 +2482,20 @@ static int msm_nand_block_isbad(struct mtd_info *mtd, loff_t ofs)
 	msm_nand_prep_cfg_cmd_desc(info, data.cfg, &curr_cmd);
 
 	cmd = curr_cmd;
-	msm_nand_prep_ce(cmd, MSM_NAND_DEV0_ECC_CFG(info), WRITE,
+	msm_nand_prep_single_desc(cmd, MSM_NAND_DEV0_ECC_CFG(info), WRITE,
 			data.ecc_bch_cfg, 0);
 	cmd++;
 
 	rdata = (data.read_offset << 0) | (4 << 16) | (1 << 31);
-	msm_nand_prep_ce(cmd, MSM_NAND_READ_LOCATION_0(info), WRITE, rdata, 0);
+	msm_nand_prep_single_desc(cmd, MSM_NAND_READ_LOCATION_0(info), WRITE,
+			rdata, 0);
 	cmd++;
 
-	msm_nand_prep_ce(cmd, MSM_NAND_EXEC_CMD(info), WRITE,
+	msm_nand_prep_single_desc(cmd, MSM_NAND_EXEC_CMD(info), WRITE,
 			data.exec, SPS_IOVEC_FLAG_NWD);
 	cmd++;
 
-	msm_nand_prep_ce(cmd, MSM_NAND_FLASH_STATUS(info), READ,
+	msm_nand_prep_single_desc(cmd, MSM_NAND_FLASH_STATUS(info), READ,
 		msm_virt_to_dma(chip, &dma_buffer->flash_status),
 		SPS_IOVEC_FLAG_INT | SPS_IOVEC_FLAG_UNLOCK);
 	cmd++;
@@ -2968,7 +2986,7 @@ static int msm_nand_enable_dma(struct msm_nand_info *info)
 	wait_event(chip->dma_wait_queue,
 		   (sps_cmd = msm_nand_get_dma_buffer(chip, sizeof(*sps_cmd))));
 
-	msm_nand_prep_ce(sps_cmd, MSM_NAND_CTRL(info), WRITE,
+	msm_nand_prep_single_desc(sps_cmd, MSM_NAND_CTRL(info), WRITE,
 			(1 << BAM_MODE_EN), SPS_IOVEC_FLAG_INT);
 
 	mutex_lock(&info->lock);
