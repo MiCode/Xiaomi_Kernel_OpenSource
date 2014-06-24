@@ -680,7 +680,7 @@ static inline struct mdss_mdp_misr_map *mdss_misr_get_map(u32 block_id,
 		return NULL;
 	}
 
-	if (mdata->mdp_rev >= MDSS_MDP_HW_REV_106) {
+	if (mdata->mdp_rev >= MDSS_MDP_HW_REV_105) {
 		/* Use updated MDP Interface MISR Block address offset */
 		if (block_id == DISPLAY_MISR_MDP) {
 			if (ctl) {
