@@ -3076,7 +3076,7 @@ static int adreno_suspend_context(struct kgsl_device *device)
 
 	/* switch to NULL ctxt */
 	if (adreno_dev->drawctxt_active != NULL) {
-		adreno_drawctxt_switch(adreno_dev, NULL, 0);
+		adreno_drawctxt_switch(adreno_dev, adreno_dev->cur_rb, NULL, 0);
 		status = adreno_idle(device);
 	}
 

@@ -911,6 +911,8 @@ adreno_ringbuffer_issuecmds(struct kgsl_device *device,
 	struct adreno_ringbuffer *rb = ADRENO_CURRENT_RINGBUFFER(adreno_dev);
 
 	flags |= KGSL_CMD_FLAGS_INTERNAL_ISSUE;
+	if (drawctxt)
+		rb = adreno_ctx_get_rb(adreno_dev, drawctxt);
 
 	return adreno_ringbuffer_addcmds(rb, drawctxt, flags, cmds,
 		sizedwords, 0);
@@ -1269,6 +1271,7 @@ int adreno_ringbuffer_submitcmd(struct adreno_device *adreno_dev,
 	bool use_preamble = true;
 	int flags = KGSL_CMD_FLAGS_NONE;
 	int ret;
+	struct adreno_ringbuffer *rb;
 
 	context = cmdbatch->context;
 	drawctxt = ADRENO_CONTEXT(context);
@@ -1276,6 +1279,8 @@ int adreno_ringbuffer_submitcmd(struct adreno_device *adreno_dev,
 	/* Get the total IBs in the list */
 	list_for_each_entry(ib, &cmdbatch->cmdlist, node)
 		numibs++;
+
+	rb = adreno_ctx_get_rb(adreno_dev, drawctxt);
 
 	/* process any profiling results that are available into the log_buf */
 	adreno_profile_process_results(device);
@@ -1398,7 +1403,7 @@ int adreno_ringbuffer_submitcmd(struct adreno_device *adreno_dev,
 	if (ret)
 		goto done;
 
-	ret = adreno_drawctxt_switch(adreno_dev, drawctxt, cmdbatch->flags);
+	ret = adreno_drawctxt_switch(adreno_dev, rb, drawctxt, cmdbatch->flags);
 
 	/*
 	 * In the unlikely event of an error in the drawctxt switch,
@@ -1425,9 +1430,7 @@ int adreno_ringbuffer_submitcmd(struct adreno_device *adreno_dev,
 	/* CFF stuff executed only if CFF is enabled */
 	kgsl_cffdump_capture_ib_desc(device, context, cmdbatch);
 
-	ret = adreno_ringbuffer_addcmds(ADRENO_CURRENT_RINGBUFFER(adreno_dev),
-					drawctxt,
-					flags,
+	ret = adreno_ringbuffer_addcmds(rb, drawctxt, flags,
 					&link[0], (cmds - link),
 					cmdbatch->timestamp);
 
