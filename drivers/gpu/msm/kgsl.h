@@ -124,6 +124,8 @@ struct kgsl_memdesc_ops {
 #define KGSL_MEMDESC_SECURE BIT(5)
 /* Indicates gpuaddr is assigned via bimap */
 #define KGSL_MEMDESC_BITMAP_ALLOC BIT(6)
+/* The memdesc is private for use during pagetable switch only */
+#define KGSL_MEMDESC_PRIVATE BIT(7)
 
 /* shared memory allocation */
 struct kgsl_memdesc {
