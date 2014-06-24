@@ -1086,6 +1086,11 @@ static void msm_vfe44_stats_cfg_comp_mask(
 	atomic_t *stats_comp;
 	struct msm_vfe_stats_shared_data *stats_data = &vfe_dev->stats_data;
 
+
+	if (vfe_dev->hw_info->stats_hw_info->num_stats_comp_mask < 1)
+		/* no stats composite masks */
+		return;
+
 	if (vfe_dev->hw_info->stats_hw_info->num_stats_comp_mask >
 			MAX_NUM_STATS_COMP_MASK) {
 		pr_err("%s: num of comp masks %d exceed max %d\n",
@@ -1110,36 +1115,35 @@ static void msm_vfe44_stats_cfg_comp_mask(
 				continue;
 
 			reg_mask |= (mask_bf_scale << (16 + i*8));
-			atomic_add(stats_mask, stats_comp);
+			atomic_set(stats_comp, stats_mask |
+					atomic_read(stats_comp));
+			break;
+
 		} else {
 
+			if (!(atomic_read(stats_comp) & stats_mask))
+				continue;
 			if (stats_mask & (1 << STATS_IDX_BF_SCALE) &&
 				atomic_read(stats_comp) &
 					(1 << STATS_IDX_BF_SCALE))
-				atomic_sub((1 << STATS_IDX_BF_SCALE),
-					stats_comp);
+				atomic_set(stats_comp,
+						~(1 << STATS_IDX_BF_SCALE) &
+						atomic_read(stats_comp));
 
-			/*
-			 * Check if comp mask in reg is valid
-			 * and contains this stat
-			 */
-
-			if (!comp_stats_mask ||
-				!((comp_stats_mask >> (16 + i*8)) &
-					mask_bf_scale))
-				continue;
-
-			atomic_sub(stats_mask, stats_comp);
+			atomic_set(stats_comp,
+					~stats_mask & atomic_read(stats_comp));
 			reg_mask &= ~(mask_bf_scale << (16 + i*8));
+			break;
 		}
-		ISP_DBG("%s: comp_mask: %x atomic stats[0]: %x %x\n",
-			__func__, reg_mask,
-			atomic_read(&stats_data->stats_comp_mask[0]),
-			atomic_read(&stats_data->stats_comp_mask[1]));
-
-		msm_camera_io_w(reg_mask, vfe_dev->vfe_base + 0x44);
-		return;
 	}
+
+	ISP_DBG("%s: comp_mask: %x atomic stats[0]: %x %x\n",
+		__func__, reg_mask,
+		atomic_read(&stats_data->stats_comp_mask[0]),
+		atomic_read(&stats_data->stats_comp_mask[1]));
+
+	msm_camera_io_w(reg_mask, vfe_dev->vfe_base + 0x44);
+	return;
 }
 
 static void msm_vfe44_stats_cfg_wm_irq_mask(
