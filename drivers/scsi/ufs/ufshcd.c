@@ -354,6 +354,7 @@ static inline void ufshcd_remove_non_printable(char *val)
 		*val = ' ';
 }
 
+#ifdef CONFIG_TRACEPOINTS
 static void ufshcd_add_command_trace(struct ufs_hba *hba,
 		unsigned int tag, const char *str)
 {
@@ -388,6 +389,18 @@ static void ufshcd_add_command_trace(struct ufs_hba *hba,
 	trace_ufshcd_command(dev_name(hba->dev), str, tag,
 				doorbell, transfer_len, intr, lba, opcode);
 }
+
+static inline void ufshcd_cond_add_cmd_trace(struct ufs_hba *hba,
+					unsigned int tag, const char *str)
+{
+	ufshcd_add_command_trace(hba, tag, str);
+}
+#else
+static inline void ufshcd_cond_add_cmd_trace(struct ufs_hba *hba,
+					unsigned int tag, const char *str)
+{
+}
+#endif
 
 static void ufshcd_print_clk_freqs(struct ufs_hba *hba)
 {
@@ -2201,7 +2214,7 @@ int ufshcd_send_command(struct ufs_hba *hba, unsigned int task_tag)
 	UFSHCD_UPDATE_TAG_STATS(hba, task_tag);
 	/* Make sure that doorbell is committed immediately */
 	wmb();
-	ufshcd_add_command_trace(hba, task_tag, "send");
+	ufshcd_cond_add_cmd_trace(hba, task_tag, "send");
 	return ret;
 }
 
@@ -5160,7 +5173,7 @@ static void __ufshcd_transfer_req_compl(struct ufs_hba *hba,
 		lrbp = &hba->lrb[index];
 		cmd = lrbp->cmd;
 		if (cmd) {
-			ufshcd_add_command_trace(hba, index, "complete");
+			ufshcd_cond_add_cmd_trace(hba, index, "complete");
 			UFSHCD_UPDATE_TAG_STATS_COMPLETION(hba, cmd);
 			result = ufshcd_transfer_rsp_status(hba, lrbp);
 			scsi_dma_unmap(cmd);
@@ -5175,7 +5188,7 @@ static void __ufshcd_transfer_req_compl(struct ufs_hba *hba,
 		} else if (lrbp->command_type == UTP_CMD_TYPE_DEV_MANAGE ||
 			lrbp->command_type == UTP_CMD_TYPE_UFS_STORAGE) {
 			if (hba->dev_cmd.complete) {
-				ufshcd_add_command_trace(hba, index,
+				ufshcd_cond_add_cmd_trace(hba, index,
 						"dev_complete");
 				complete(hba->dev_cmd.complete);
 			}
