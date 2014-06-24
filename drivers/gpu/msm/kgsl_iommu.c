@@ -789,12 +789,20 @@ static int kgsl_attach_pagetable_iommu_domain(struct kgsl_mmu *mmu)
 			 * If there is a 2nd default pagetable then priv domain
 			 * is attached to this pagetable
 			 */
-			if (mmu->priv_bank_table &&
-					(KGSL_IOMMU_CONTEXT_PRIV == j))
-				iommu_pt = mmu->priv_bank_table->priv;
-			if (mmu->securepagetable &&
-					(KGSL_IOMMU_CONTEXT_SECURE == j))
-				iommu_pt = mmu->securepagetable->priv;
+			if (KGSL_IOMMU_CONTEXT_PRIV == j) {
+				if (mmu->priv_bank_table)
+					iommu_pt = mmu->priv_bank_table->priv;
+				else
+					continue;
+			}
+
+			if (KGSL_IOMMU_CONTEXT_SECURE == j) {
+				if (mmu->securepagetable)
+					iommu_pt = mmu->securepagetable->priv;
+				else
+					continue;
+			}
+
 			if (!iommu_unit->dev[j].attached) {
 				ret = iommu_attach_device(iommu_pt->domain,
 							iommu_unit->dev[j].dev);
@@ -1619,6 +1627,9 @@ static int kgsl_iommu_start(struct kgsl_mmu *mmu)
 	for (i = 0; i < iommu->unit_count; i++) {
 		struct kgsl_iommu_unit *iommu_unit = &iommu->iommu_units[i];
 		for (j = 0; j < iommu_unit->dev_count; j++) {
+
+			if (!iommu_unit->dev[j].attached)
+				continue;
 
 			/*
 			 * For IOMMU V1 do not halt IOMMU on pagefault if
