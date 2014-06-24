@@ -442,12 +442,12 @@
 		qcom,ext-ult-spk-amp-gpio = <&pmi8994_gpios 1 0>;
 	};
 
-	usb1_vreg: usb1_vreg {
-		compatible = "regulator-fixed";
-		regulator-name = "usb1_vreg";
-		startup-delay-us = <18000>; /* the on time of TPD4S214 */
-		enable-active-low; /* high */
-		gpio = <&pm8994_gpios 1 0>; /* PM8994 GPIO1 */
+	liquid_dock {
+		compatible = "qcom,liquid-dock";
+		qcom,dock-detect-gpio = <&pm8994_gpios 5 0>;
+		qcom,dock-hub-reset-gpio = <&pm8994_gpios 1 0>;
+		qcom,dock-eth-reset-gpio = <&pm8994_mpps 6 0>;
+		qcom,usb-host = <&usb_ehci>;
 	};
 };
 
@@ -726,7 +726,6 @@
 
 &usb_ehci {
 	status = "ok";
-	vbus-supply = <&usb1_vreg>;
 };
 
 &qusb_phy {
