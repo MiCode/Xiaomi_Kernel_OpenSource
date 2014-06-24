@@ -794,8 +794,8 @@ static int bq28400_register_psy(struct bq28400_device *bq28400_dev)
 {
 	int ret;
 
-	bq28400_dev->batt_psy.name = "battery";
-	bq28400_dev->batt_psy.type = POWER_SUPPLY_TYPE_BATTERY;
+	bq28400_dev->batt_psy.name = "bq28400_battery";
+	bq28400_dev->batt_psy.type = POWER_SUPPLY_TYPE_BMS;
 	bq28400_dev->batt_psy.num_supplicants = 0;
 	bq28400_dev->batt_psy.properties = pm_power_props;
 	bq28400_dev->batt_psy.num_properties = ARRAY_SIZE(pm_power_props);
