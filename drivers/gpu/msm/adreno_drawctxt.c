@@ -130,13 +130,20 @@ static void global_wait_callback(struct kgsl_device *device,
 }
 
 static int _check_global_timestamp(struct kgsl_device *device,
-		struct kgsl_context *context, unsigned int timestamp)
+		struct kgsl_context *context, struct adreno_ringbuffer *rb,
+		unsigned int timestamp)
 {
+	unsigned int ts_processed;
 	/* Stop waiting if the context is invalidated */
 	if (kgsl_context_invalid(context))
 		return 1;
 
-	return kgsl_check_timestamp(device, NULL, timestamp);
+	/* Failure to read return false */
+	if (adreno_rb_readtimestamp(device, rb, KGSL_TIMESTAMP_RETIRED,
+		&ts_processed))
+		return 0;
+
+	return (timestamp_cmp(ts_processed, timestamp) >= 0);
 }
 
 static int adreno_drawctxt_wait_global(struct adreno_device *adreno_dev,
@@ -145,6 +152,7 @@ static int adreno_drawctxt_wait_global(struct adreno_device *adreno_dev,
 {
 	struct kgsl_device *device = &adreno_dev->dev;
 	struct adreno_context *drawctxt = ADRENO_CONTEXT(context);
+	struct adreno_ringbuffer *rb = drawctxt->rb;
 	int ret = 0;
 
 	/* Needs to hold the device mutex */
@@ -166,7 +174,7 @@ static int adreno_drawctxt_wait_global(struct adreno_device *adreno_dev,
 
 	trace_adreno_drawctxt_wait_start(KGSL_MEMSTORE_GLOBAL, timestamp);
 
-	ret = kgsl_add_event(device, &adreno_dev->cur_rb->event, timestamp,
+	ret = kgsl_add_event(device, &(rb->events), timestamp,
 		global_wait_callback, (void *) drawctxt);
 	if (ret) {
 		kgsl_context_put(context);
@@ -177,7 +185,7 @@ static int adreno_drawctxt_wait_global(struct adreno_device *adreno_dev,
 
 	if (timeout) {
 		ret = (int) wait_event_timeout(drawctxt->waiting,
-			_check_global_timestamp(device, context, timestamp),
+			_check_global_timestamp(device, context, rb, timestamp),
 			msecs_to_jiffies(timeout));
 
 		if (ret == 0)
@@ -186,14 +194,15 @@ static int adreno_drawctxt_wait_global(struct adreno_device *adreno_dev,
 			ret = 0;
 	} else {
 		wait_event(drawctxt->waiting,
-			_check_global_timestamp(device, context, timestamp));
+			_check_global_timestamp(device, context, rb,
+						timestamp));
 	}
 
 	mutex_lock(&device->mutex);
 
 	if (ret)
 		kgsl_cancel_events_timestamp(device,
-			&adreno_dev->cur_rb->event, timestamp);
+			&(rb->events), timestamp);
 
 done:
 	trace_adreno_drawctxt_wait_done(KGSL_MEMSTORE_GLOBAL, timestamp, ret);
@@ -291,6 +300,7 @@ adreno_drawctxt_create(struct kgsl_device_private *dev_priv,
 {
 	struct adreno_context *drawctxt;
 	struct kgsl_device *device = dev_priv->device;
+	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
 	int ret;
 	unsigned long local;
 
@@ -348,6 +358,8 @@ adreno_drawctxt_create(struct kgsl_device_private *dev_priv,
 
 	/* Set the context priority */
 	_set_context_priority(drawctxt);
+	/* set the context ringbuffer */
+	drawctxt->rb = adreno_ctx_get_rb(adreno_dev, drawctxt);
 
 	/*
 	 * Set up the plist node for the dispatcher.  Insert the node into the
@@ -496,30 +508,43 @@ static int adreno_context_restore(struct adreno_device *adreno_dev,
 				  struct adreno_context *context)
 {
 	struct kgsl_device *device;
-	unsigned int cmds[8];
+	struct adreno_ringbuffer *rb;
+	unsigned int cmds[11];
 
 	if (adreno_dev == NULL || context == NULL)
 		return -EINVAL;
 
+	rb = context->rb;
 	device = &adreno_dev->dev;
 
-	/* write the context identifier to the ringbuffer */
+	/*
+	 * write the context identifier to the ringbuffer, write to both
+	 * the global index and the index of the RB in which the context
+	 * operates. The global values will always be reliable since we
+	 * could be in middle of RB switch in which case the RB value may
+	 * not be accurate
+	 */
 	cmds[0] = cp_nop_packet(1);
 	cmds[1] = KGSL_CONTEXT_TO_MEM_IDENTIFIER;
 	cmds[2] = cp_type3_packet(CP_MEM_WRITE, 2);
 	cmds[3] = device->memstore.gpuaddr +
-		KGSL_MEMSTORE_OFFSET(KGSL_MEMSTORE_GLOBAL, current_context);
+		KGSL_MEMSTORE_RB_OFFSET(rb, current_context);
 	cmds[4] = context->base.id;
+	cmds[5] = cp_type3_packet(CP_MEM_WRITE, 2);
+	cmds[6] = device->memstore.gpuaddr +
+		KGSL_MEMSTORE_OFFSET(KGSL_MEMSTORE_GLOBAL,
+					current_context);
+	cmds[7] = context->base.id;
 	/* Flush the UCHE for new context */
-	cmds[5] = cp_type0_packet(
+	cmds[8] = cp_type0_packet(
 		adreno_getreg(adreno_dev, ADRENO_REG_UCHE_INVALIDATE0), 2);
-	cmds[6] = 0;
+	cmds[9] = 0;
 	if (adreno_is_a4xx(adreno_dev))
-		cmds[7] = 0x12;
+		cmds[10] = 0x12;
 	else if (adreno_is_a3xx(adreno_dev))
-		cmds[7] = 0x90000000;
+		cmds[10] = 0x90000000;
 	return adreno_ringbuffer_issuecmds(device, context,
-				KGSL_CMD_FLAGS_NONE, cmds, 8);
+				KGSL_CMD_FLAGS_NONE, cmds, 11);
 }
 
 /**

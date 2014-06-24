@@ -474,7 +474,7 @@ static void _ringbuffer_setup_common(struct adreno_ringbuffer *rb)
 	/* setup scratch/timestamp */
 	adreno_writereg(adreno_dev, ADRENO_REG_SCRATCH_ADDR,
 				device->memstore.gpuaddr +
-				KGSL_MEMSTORE_OFFSET(KGSL_MEMSTORE_GLOBAL,
+				KGSL_MEMSTORE_RB_OFFSET(rb,
 					soptimestamp));
 
 	adreno_writereg(adreno_dev, ADRENO_REG_SCRATCH_UMSK,
@@ -620,22 +620,30 @@ int adreno_ringbuffer_cold_start(struct adreno_device *adreno_dev)
 	return status;
 }
 
-static int ringbuffer_readtimestamp(struct kgsl_device *device, void *priv,
-		enum kgsl_timestamp_type type, unsigned int *timestamp)
+void adreno_ringbuffer_stop(struct adreno_device *adreno_dev)
 {
-	return kgsl_readtimestamp(device, NULL, type, timestamp);
+	struct kgsl_device *device = &adreno_dev->dev;
+	int i;
+	for (i = 0; i < adreno_dev->num_ringbuffers; i++)
+		kgsl_cancel_events(device,
+			&(adreno_dev->ringbuffers[i].mmu_events));
 }
 
 static int _adreno_ringbuffer_init(struct adreno_device *adreno_dev,
 				struct adreno_ringbuffer *rb, int id)
 {
-	char str[20];
-	rb->device = &adreno_dev->dev;
-	rb->global_ts = 0;
+	char name[64];
 
-	snprintf(str, sizeof(str), "ringbuffer-%d", id);
-	kgsl_add_event_group(&rb->event, NULL, str, ringbuffer_readtimestamp,
-		rb);
+	rb->device = &adreno_dev->dev;
+	rb->id = id;
+
+	snprintf(name, sizeof(name), "rb_events-%d", id);
+	kgsl_add_event_group(&rb->events, NULL, name,
+		adreno_rb_readtimestamp, rb);
+	snprintf(name, sizeof(name), "rb_mmu_events-%d", id);
+	kgsl_add_event_group(&rb->mmu_events, NULL, name,
+		adreno_rb_readtimestamp, rb);
+	rb->timestamp = 0;
 
 	return kgsl_allocate_global(&adreno_dev->dev, &rb->buffer_desc,
 			KGSL_RB_SIZE, KGSL_MEMFLAGS_GPUREADONLY);
@@ -643,11 +651,12 @@ static int _adreno_ringbuffer_init(struct adreno_device *adreno_dev,
 
 int adreno_ringbuffer_init(struct kgsl_device *device)
 {
-	int status;
+	int status = 0;
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
+	struct adreno_gpudev *gpudev = ADRENO_GPU_DEVICE(adreno_dev);
 	int i;
 
-	adreno_dev->num_ringbuffers = ADRENO_NUM_RINGBUFFERS;
+	adreno_dev->num_ringbuffers = gpudev->num_prio_levels;
 	for (i = 0; i < adreno_dev->num_ringbuffers; i++) {
 		status = _adreno_ringbuffer_init(adreno_dev,
 			&(adreno_dev->ringbuffers[i]), i);
@@ -666,7 +675,8 @@ static void _adreno_ringbuffer_close(struct adreno_ringbuffer *rb)
 {
 	if (rb->buffer_desc.hostptr)
 		kgsl_free_global(&rb->buffer_desc);
-	kgsl_del_event_group(&rb->event);
+	kgsl_del_event_group(&rb->events);
+	kgsl_del_event_group(&rb->mmu_events);
 	memset(rb, 0, sizeof(struct adreno_ringbuffer));
 }
 
@@ -694,22 +704,20 @@ adreno_ringbuffer_addcmds(struct adreno_ringbuffer *rb,
 	unsigned int *ringcmds;
 	unsigned int total_sizedwords = sizedwords;
 	unsigned int i;
-	unsigned int context_id;
+	unsigned int context_id = 0;
 	unsigned int gpuaddr = rb->device->memstore.gpuaddr;
 	bool profile_ready;
 
 	if (drawctxt != NULL && kgsl_context_detached(&drawctxt->base))
 		return -EINVAL;
 
-	rb->global_ts++;
+	rb->timestamp++;
 
 	/* If this is a internal IB, use the global timestamp for it */
-	if (!drawctxt || (flags & KGSL_CMD_FLAGS_INTERNAL_ISSUE)) {
-		timestamp = rb->global_ts;
-		context_id = KGSL_MEMSTORE_GLOBAL;
-	} else {
+	if (!drawctxt || (flags & KGSL_CMD_FLAGS_INTERNAL_ISSUE))
+		timestamp = rb->timestamp;
+	else
 		context_id = drawctxt->base.id;
-	}
 
 	/*
 	 * Note that we cannot safely take drawctxt->mutex here without
@@ -718,7 +726,7 @@ adreno_ringbuffer_addcmds(struct adreno_ringbuffer *rb,
 	 * must also use device->mutex.
 	 */
 	if (drawctxt)
-		drawctxt->internal_timestamp = rb->global_ts;
+		drawctxt->internal_timestamp = rb->timestamp;
 
 	/*
 	 * If in stream ib profiling is enabled and there are counters
@@ -756,7 +764,7 @@ adreno_ringbuffer_addcmds(struct adreno_ringbuffer *rb,
 	total_sizedwords += 3; /* sop timestamp */
 	total_sizedwords += 4; /* eop timestamp */
 
-	if (drawctxt) {
+	if (drawctxt && !(flags & KGSL_CMD_FLAGS_INTERNAL_ISSUE)) {
 		total_sizedwords += 3; /* global timestamp without cache
 					* flush for non-zero context */
 	}
@@ -809,7 +817,12 @@ adreno_ringbuffer_addcmds(struct adreno_ringbuffer *rb,
 
 	/* start-of-pipeline timestamp */
 	*ringcmds++ = cp_type3_packet(CP_MEM_WRITE, 2);
-	*ringcmds++ = gpuaddr + KGSL_MEMSTORE_OFFSET(context_id, soptimestamp);
+	if (drawctxt && !(flags & KGSL_CMD_FLAGS_INTERNAL_ISSUE))
+		*ringcmds++ = gpuaddr +
+			KGSL_MEMSTORE_OFFSET(context_id, soptimestamp);
+	else
+		*ringcmds++ = gpuaddr +
+			KGSL_MEMSTORE_RB_OFFSET(rb, soptimestamp);
 	*ringcmds++ = timestamp;
 
 	if (flags & KGSL_CMD_FLAGS_PMODE) {
@@ -844,20 +857,24 @@ adreno_ringbuffer_addcmds(struct adreno_ringbuffer *rb,
 
 	/*
 	 * end-of-pipeline timestamp.  If per context timestamps is not
-	 * enabled, then context_id will be KGSL_MEMSTORE_GLOBAL so all
-	 * eop timestamps will work out.
+	 * enabled, then drawctxt will be NULL or internal command flag will be
+	 * set and hence the rb timestamp will be used in else statement below.
 	 */
 	*ringcmds++ = cp_type3_packet(CP_EVENT_WRITE, 3);
 	*ringcmds++ = CACHE_FLUSH_TS;
-	*ringcmds++ = gpuaddr + KGSL_MEMSTORE_OFFSET(context_id, eoptimestamp);
-	*ringcmds++ = timestamp;
 
-	if (drawctxt) {
+	if (drawctxt && !(flags & KGSL_CMD_FLAGS_INTERNAL_ISSUE)) {
+		*ringcmds++ = gpuaddr + KGSL_MEMSTORE_OFFSET(context_id,
+							eoptimestamp);
+		*ringcmds++ = timestamp;
 		*ringcmds++ = cp_type3_packet(CP_MEM_WRITE, 2);
 		*ringcmds++ = gpuaddr +
-			KGSL_MEMSTORE_OFFSET(KGSL_MEMSTORE_GLOBAL,
-			eoptimestamp);
-		*ringcmds++ = rb->global_ts;
+			KGSL_MEMSTORE_RB_OFFSET(rb, eoptimestamp);
+		*ringcmds++ = rb->timestamp;
+	} else {
+		*ringcmds++ = gpuaddr + KGSL_MEMSTORE_RB_OFFSET(rb,
+							eoptimestamp);
+		*ringcmds++ = timestamp;
 	}
 
 	if (drawctxt || (flags & KGSL_CMD_FLAGS_INTERNAL_ISSUE)) {
@@ -1424,4 +1441,56 @@ done:
 
 	kfree(link);
 	return ret;
+}
+
+/**
+ * adreno_ringbuffer_mmu_clk_disable_event() - Callback function that
+ * disables the MMU clocks.
+ * @device: Device pointer
+ * @context: The ringbuffer context pointer
+ * @data: Pointer containing the adreno_mmu_disable_clk_param structure
+ * @type: The event call type (RETIRED or CANCELLED)
+ */
+static void adreno_ringbuffer_mmu_clk_disable_event(struct kgsl_device *device,
+			struct kgsl_context *context, void *data, int type)
+{
+	struct adreno_ringbuffer_mmu_disable_clk_param *param = data;
+	kgsl_mmu_disable_clk(&device->mmu, param->unit);
+	/* Free param we are done using it */
+	kfree(param);
+}
+
+/*
+ * adreno_ringbuffer_mmu_disable_clk_on_ts() - Sets up event to disable MMU
+ * clocks
+ * @device - The kgsl device pointer
+ * @rb: The ringbuffer in whose event list the event is added
+ * @unit: IOMMU unit for which clocks are to be turned off
+ *
+ * Creates an event to disable the MMU clocks on timestamp and if event
+ * already exists then updates the timestamp of disabling the MMU clocks
+ * with the passed in ts if it is greater than the current value at which
+ * the clocks will be disabled
+ * Return - void
+ */
+void
+adreno_ringbuffer_mmu_disable_clk_on_ts(struct kgsl_device *device,
+			struct adreno_ringbuffer *rb, int unit)
+{
+	struct adreno_ringbuffer_mmu_disable_clk_param *param;
+
+	param = kmalloc(sizeof(*param), GFP_KERNEL);
+	if (!param)
+		return;
+
+	param->rb = rb;
+	param->unit = unit;
+	param->ts = rb->timestamp;
+
+	if (kgsl_add_event(device, &(rb->mmu_events),
+		param->ts, adreno_ringbuffer_mmu_clk_disable_event, param)) {
+		KGSL_DRV_ERR(device,
+			"Failed to add IOMMU disable clk event\n");
+		kfree(param);
+	}
 }

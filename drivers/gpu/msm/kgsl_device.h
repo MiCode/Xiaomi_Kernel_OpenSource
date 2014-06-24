@@ -403,12 +403,18 @@ enum kgsl_context_priv {
 };
 
 struct kgsl_process_private;
+
 /**
- * struct kgsl_context - Master structure for a KGSL context object
+ * struct kgsl_context - The context fields that are valid for a user defined
+ * context
  * @refcount: kref object for reference counting the context
  * @id: integer identifier for the context
- * @priv: in-kernel context flags, use KGSL_CONTEXT_* values
+ * @priority; The context's priority to submit commands to GPU
+ * @tid: task that created this context.
  * @dev_priv: pointer to the owning device instance
+ * @proc_priv: pointer to process private, the process that allocated the
+ * context
+ * @priv: in-kernel context flags, use KGSL_CONTEXT_* values
  * @reset_status: status indication whether a gpu reset occured and whether
  * this context was responsible for causing it
  * @wait_on_invalid_ts: flag indicating if this context has tried to wait on a
@@ -417,7 +423,6 @@ struct kgsl_process_private;
  * sync_pt timestamp expires
  * @events: A kgsl_event_group for this context - contains the list of GPU
  * events
- * @tid: task that created this context.
  * @pagefault_ts: global timestamp of the pagefault, if KGSL_CONTEXT_PAGEFAULT
  * is set.
  * @flags: flags from userspace controlling the behavior of this context

@@ -105,10 +105,7 @@ static int snapshot_context_info(int id, void *ptr, void *data)
 	struct kgsl_context *context = ptr;
 	struct kgsl_device *device;
 
-	if (context)
-		device = context->device;
-	else
-		device = (struct kgsl_device *)data;
+	device = context->device;
 
 	header->id = id;
 
@@ -145,9 +142,6 @@ static size_t snapshot_os(struct kgsl_device *device,
 	idr_for_each(&device->context_idr, snapshot_context_count, &ctxtcount);
 	read_unlock(&device->context_lock);
 
-	/* Increment ctxcount for the global memstore */
-	ctxtcount++;
-
 	size += ctxtcount * sizeof(struct kgsl_snapshot_linux_context);
 
 	/* Make sure there is enough room for the data */
@@ -175,7 +169,10 @@ static size_t snapshot_os(struct kgsl_device *device,
 	header->power_interval_timeout = pwr->interval_timeout;
 	header->grpclk = kgsl_get_clkrate(pwr->grp_clks[0]);
 
-	/* Save the last active context */
+	/*
+	 * Save the last active context from global index since its more
+	 * reliable than currrent RB index
+	 */
 	kgsl_sharedmem_readl(&device->memstore, &header->current_context,
 		KGSL_MEMSTORE_OFFSET(KGSL_MEMSTORE_GLOBAL, current_context));
 
@@ -196,8 +193,6 @@ static size_t snapshot_os(struct kgsl_device *device,
 	header->ctxtcount = ctxtcount;
 
 	_ctxtptr = buf + sizeof(*header);
-	/* append information for the global context */
-	snapshot_context_info(KGSL_MEMSTORE_GLOBAL, NULL, device);
 	/* append information for each context */
 
 	read_lock(&device->context_lock);

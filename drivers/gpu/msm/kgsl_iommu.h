@@ -262,7 +262,6 @@ struct kgsl_iommu {
 	unsigned int sync_lock_offset;
 	bool sync_lock_initialized;
 	struct clk *gtcu_iface_clk;
-	struct kgsl_event_group events;
 };
 
 /*
@@ -273,20 +272,6 @@ struct kgsl_iommu {
 struct kgsl_iommu_pt {
 	struct iommu_domain *domain;
 	struct kgsl_iommu *iommu;
-};
-
-/*
- * struct kgsl_iommu_disable_clk_param - Parameter struct for disble clk event
- * @mmu: The mmu pointer
- * @rb_level: the rb level in which the timestamp of the event belongs to
- * @unit: The IOMMU unit whose clock is to be turned off
- * @ts: Timestamp on which clock is to be disabled
- */
-struct kgsl_iommu_disable_clk_param {
-	struct kgsl_mmu *mmu;
-	int rb_level;
-	int unit;
-	unsigned int ts;
 };
 
 /*

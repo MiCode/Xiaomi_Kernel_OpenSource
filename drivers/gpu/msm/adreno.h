@@ -605,6 +605,7 @@ struct adreno_gpudev {
 	struct adreno_coresight *coresight;
 
 	struct adreno_irq *irq;
+	int num_prio_levels;
 	/* GPU specific function hooks */
 	irqreturn_t (*irq_handler)(struct adreno_device *);
 	void (*irq_control)(struct adreno_device *, int);
@@ -778,6 +779,10 @@ void adreno_coresight_remove(struct kgsl_device *device);
 
 bool adreno_hw_isidle(struct kgsl_device *device);
 
+int adreno_rb_readtimestamp(struct kgsl_device *device,
+	void *priv, enum kgsl_timestamp_type type,
+	unsigned int *timestamp);
+
 static inline int adreno_is_a3xx(struct adreno_device *adreno_dev)
 {
 	return ((ADRENO_GPUREV(adreno_dev) >= 300) &&
@@ -860,19 +865,14 @@ static inline int adreno_rb_ctxtswitch(unsigned int *cmd)
 /**
  * adreno_context_timestamp() - Return the last queued timestamp for the context
  * @k_ctxt: Pointer to the KGSL context to query
- * @rb: Pointer to the ringbuffer structure for the GPU
  *
  * Return the last queued context for the given context. This is used to verify
  * that incoming requests are not using an invalid (unsubmitted) timestamp
  */
-static inline int adreno_context_timestamp(struct kgsl_context *k_ctxt,
-		struct adreno_ringbuffer *rb)
+static inline int adreno_context_timestamp(struct kgsl_context *k_ctxt)
 {
-	if (k_ctxt) {
-		struct adreno_context *a_ctxt = ADRENO_CONTEXT(k_ctxt);
-		return a_ctxt->timestamp;
-	}
-	return rb->global_ts;
+	struct adreno_context *drawctxt = ADRENO_CONTEXT(k_ctxt);
+	return drawctxt->timestamp;
 }
 
 static inline int __adreno_add_idle_indirect_cmds(unsigned int *cmds,
@@ -1290,6 +1290,35 @@ adreno_get_rptr(struct adreno_ringbuffer *rb)
 		rmb();
 	}
 	return rb->rptr;
+}
+
+/**
+ * adreno_ctx_get_rb() - Return the ringbuffer that a context should
+ * use based on priority
+ * @adreno_dev: The adreno device that context is using
+ * @drawctxt: The context pointer
+ */
+static inline struct adreno_ringbuffer *adreno_ctx_get_rb(
+				struct adreno_device *adreno_dev,
+				struct adreno_context *drawctxt)
+{
+	struct kgsl_context *context;
+	int level;
+	if (!drawctxt)
+		return NULL;
+
+	context = &(drawctxt->base);
+
+	/*
+	 * Math to convert the priority field in context structure to an RB ID.
+	 * Divide up the context priority based on number of ringbuffer levels.
+	 */
+	level = context->priority / adreno_dev->num_ringbuffers;
+	if (level < adreno_dev->num_ringbuffers)
+		return &(adreno_dev->ringbuffers[level]);
+	else
+		return &(adreno_dev->ringbuffers[
+				adreno_dev->num_ringbuffers - 1]);
 }
 
 #endif /*__ADRENO_H */

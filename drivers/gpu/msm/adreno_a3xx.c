@@ -2482,6 +2482,7 @@ struct adreno_gpudev adreno_a3xx_gpudev = {
 	.perfcounters = &a3xx_perfcounters,
 	.irq = &a3xx_irq,
 	.snapshot_data = &a3xx_snapshot_data,
+	.num_prio_levels = 1,
 
 	.rb_init = a3xx_rb_init,
 	.perfcounter_init = a3xx_perfcounter_init,

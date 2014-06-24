@@ -324,7 +324,8 @@ static void events_debugfs_print_group(struct seq_file *s,
 			KGSL_TIMESTAMP_RETIRED, &retired);
 
 		seq_printf(s, "\t%d:%d age=%lu func=%ps [retired=%d]\n",
-			group->context ? group->context->id : 0,
+			group->context ? group->context->id :
+						KGSL_MEMSTORE_GLOBAL,
 			event->timestamp, jiffies  - event->created,
 			event->func, retired);
 	}

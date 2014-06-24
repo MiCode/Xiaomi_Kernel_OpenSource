@@ -98,9 +98,6 @@ struct kgsl_mmu_ops {
 			(struct kgsl_mmu *mmu);
 	void (*mmu_pagefault_resume)
 			(struct kgsl_mmu *mmu);
-	void (*mmu_disable_clk_on_ts)
-		(struct kgsl_mmu *mmu,
-		uint32_t ts, int unit);
 	void (*mmu_enable_clk)
 		(struct kgsl_mmu *mmu, int unit);
 	void (*mmu_disable_clk)
@@ -291,13 +288,6 @@ static inline void kgsl_mmu_disable_clk(struct kgsl_mmu *mmu, int unit)
 {
 	if (mmu->mmu_ops && mmu->mmu_ops->mmu_disable_clk)
 		mmu->mmu_ops->mmu_disable_clk(mmu, unit);
-}
-
-static inline void kgsl_mmu_disable_clk_on_ts(struct kgsl_mmu *mmu,
-						unsigned int ts, int unit)
-{
-	if (mmu->mmu_ops && mmu->mmu_ops->mmu_disable_clk_on_ts)
-		mmu->mmu_ops->mmu_disable_clk_on_ts(mmu, ts, unit);
 }
 
 static inline unsigned int kgsl_mmu_get_reg_gpuaddr(struct kgsl_mmu *mmu,

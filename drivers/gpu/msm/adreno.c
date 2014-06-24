@@ -1339,7 +1339,7 @@ static int adreno_iommu_setstate(struct kgsl_device *device,
 	if (result)
 		kgsl_mmu_disable_clk(&device->mmu, KGSL_IOMMU_MAX_UNITS);
 	else
-		kgsl_mmu_disable_clk_on_ts(&device->mmu, rb->global_ts,
+		adreno_ringbuffer_mmu_disable_clk_on_ts(device, rb,
 						KGSL_IOMMU_MAX_UNITS);
 
 done:
@@ -1811,7 +1811,7 @@ static int adreno_remove(struct platform_device *pdev)
 static int adreno_init(struct kgsl_device *device)
 {
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
-	struct adreno_gpudev *gpudev;
+	struct adreno_gpudev *gpudev = ADRENO_GPU_DEVICE(adreno_dev);
 	int i;
 	int ret;
 
@@ -1822,8 +1822,6 @@ static int adreno_init(struct kgsl_device *device)
 	 */
 	if (test_bit(ADRENO_DEVICE_INITIALIZED, &adreno_dev->priv))
 		return 0;
-
-	gpudev = ADRENO_GPU_DEVICE(adreno_dev);
 
 	/* Power up the device */
 	ret = kgsl_pwrctrl_enable(device);
@@ -2082,6 +2080,8 @@ static int adreno_stop(struct kgsl_device *device)
 	adreno_dev->drawctxt_active = NULL;
 
 	adreno_dispatcher_stop(adreno_dev);
+
+	adreno_ringbuffer_stop(adreno_dev);
 
 	kgsl_mmu_stop(&device->mmu);
 
@@ -3204,6 +3204,74 @@ static int adreno_waittimestamp(struct kgsl_device *device,
 }
 
 /**
+ * __adreno_readtimestamp() - Reads the timestamp from memstore memory
+ * @device: Pointer to device whose memstore is read
+ * @index: Index into the memstore memory
+ * @type: Type of timestamp to read
+ * @timestamp: The out parameter where the timestamp is read
+ */
+int __adreno_readtimestamp(struct kgsl_device *device, int index, int type,
+		unsigned int *timestamp)
+{
+	int status = 0;
+
+	switch (type) {
+	case KGSL_TIMESTAMP_CONSUMED:
+		kgsl_sharedmem_readl(&device->memstore, timestamp,
+			KGSL_MEMSTORE_OFFSET(index, soptimestamp));
+		break;
+	case KGSL_TIMESTAMP_RETIRED:
+		kgsl_sharedmem_readl(&device->memstore, timestamp,
+			KGSL_MEMSTORE_OFFSET(index, eoptimestamp));
+		break;
+	default:
+		status = -EINVAL;
+		*timestamp = 0;
+		break;
+	}
+	return status;
+}
+
+/**
+ * adreno_rb_readtimestamp(): Return the value of given type of timestamp
+ * for a RB
+ * @device: GPU device whose timestamp values are being queried
+ * @priv: The object being queried for a timestamp (expected to be a rb pointer)
+ * @type: The type of timestamp (one of 3) to be read
+ * @timestamp: Pointer to where the read timestamp is to be written to
+ *
+ * CONSUMED and RETIRED type timestamps are sorted by id and are constantly
+ * updated by the GPU through shared memstore memory. QUEUED type timestamps
+ * are read directly from context struct.
+
+ * The function returns 0 on success and timestamp value at the *timestamp
+ * address and returns -EINVAL on any read error/invalid type and timestamp = 0.
+ */
+int adreno_rb_readtimestamp(struct kgsl_device *device,
+		void *priv, enum kgsl_timestamp_type type,
+		unsigned int *timestamp)
+{
+	int status = 0;
+	struct adreno_ringbuffer *rb = priv;
+
+	/*
+	 * If user passed in a NULL pointer for timestamp, return without
+	 * doing anything.
+	 */
+	if (!timestamp)
+		return status;
+
+	if (KGSL_TIMESTAMP_QUEUED == type)
+		*timestamp = rb->timestamp;
+	else
+		status = __adreno_readtimestamp(device,
+				rb->id + KGSL_MEMSTORE_MAX,
+				type, timestamp);
+
+	return status;
+}
+
+/**
  * adreno_readtimestamp(): Return the value of given type of timestamp
  * @device: GPU device whose timestamp values are being queried
  * @priv: The object being queried for a timestamp (expected to be a context)
@@ -3225,6 +3293,7 @@ static int adreno_readtimestamp(struct kgsl_device *device,
 	struct kgsl_context *context = priv;
 	unsigned int id = KGSL_CONTEXT_ID(context);
 
+	BUG_ON(NULL == context || id >= KGSL_MEMSTORE_MAX);
 	/*
 	 * If user passed in a NULL pointer for timestamp, return without
 	 * doing anything.
@@ -3232,27 +3301,11 @@ static int adreno_readtimestamp(struct kgsl_device *device,
 	if (!timestamp)
 		return status;
 
-	switch (type) {
-	case KGSL_TIMESTAMP_QUEUED: {
-		struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
-
-		*timestamp = adreno_context_timestamp(context,
-				ADRENO_CURRENT_RINGBUFFER(adreno_dev));
-		break;
-	}
-	case KGSL_TIMESTAMP_CONSUMED:
-		kgsl_sharedmem_readl(&device->memstore, timestamp,
-			KGSL_MEMSTORE_OFFSET(id, soptimestamp));
-		break;
-	case KGSL_TIMESTAMP_RETIRED:
-		kgsl_sharedmem_readl(&device->memstore, timestamp,
-			KGSL_MEMSTORE_OFFSET(id, eoptimestamp));
-		break;
-	default:
-		status = -EINVAL;
-		*timestamp = 0;
-		break;
-	}
+	if (KGSL_TIMESTAMP_QUEUED == type)
+		*timestamp = adreno_context_timestamp(context);
+	else
+		status = __adreno_readtimestamp(device,
+				context->id, type, timestamp);
 
 	return status;
 }
