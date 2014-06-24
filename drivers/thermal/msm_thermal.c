@@ -3109,8 +3109,7 @@ static int init_threshold(enum msm_thresh_list index,
 		goto init_thresh_exit;
 	}
 	if (thresh[index].thresh_list) {
-		pr_err("threshold id:%d already initialized\n", index);
-		ret = -EEXIST;
+		pr_info("threshold id:%d already initialized\n", index);
 		goto init_thresh_exit;
 	}
 
