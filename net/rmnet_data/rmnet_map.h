@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -16,20 +16,6 @@
 
 #ifndef _RMNET_MAP_H_
 #define _RMNET_MAP_H_
-
-struct rmnet_map_header_s {
-#ifndef RMNET_USE_BIG_ENDIAN_STRUCTS
-	uint8_t  pad_len:6;
-	uint8_t  reserved_bit:1;
-	uint8_t  cd_bit:1;
-#else
-	uint8_t  cd_bit:1;
-	uint8_t  reserved_bit:1;
-	uint8_t  pad_len:6;
-#endif /* RMNET_USE_BIG_ENDIAN_STRUCTS */
-	uint8_t  mux_id;
-	uint16_t pkt_len;
-}  __aligned(1);
 
 struct rmnet_map_control_command_s {
 	uint8_t command_name;
@@ -116,14 +102,6 @@ enum rmnet_map_agg_state_e {
 uint8_t rmnet_map_demultiplex(struct sk_buff *skb);
 struct sk_buff *rmnet_map_deaggregate(struct sk_buff *skb,
 				      struct rmnet_phys_ep_conf_s *config);
-
-#define RMNET_MAP_GET_MUX_ID(Y) (((struct rmnet_map_header_s *)Y->data)->mux_id)
-#define RMNET_MAP_GET_CD_BIT(Y) (((struct rmnet_map_header_s *)Y->data)->cd_bit)
-#define RMNET_MAP_GET_PAD(Y) (((struct rmnet_map_header_s *)Y->data)->pad_len)
-#define RMNET_MAP_GET_CMD_START(Y) ((struct rmnet_map_control_command_s *) \
-				  (Y->data + sizeof(struct rmnet_map_header_s)))
-#define RMNET_MAP_GET_LENGTH(Y) (ntohs( \
-			       ((struct rmnet_map_header_s *)Y->data)->pkt_len))
 
 struct rmnet_map_header_s *rmnet_map_add_map_header(struct sk_buff *skb,
 						    int hdrlen);

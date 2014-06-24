@@ -23,6 +23,7 @@
 #include <linux/spinlock.h>
 #include <net/pkt_sched.h>
 #include <linux/atomic.h>
+#include <linux/net_map.h>
 #include "rmnet_data_config.h"
 #include "rmnet_data_handlers.h"
 #include "rmnet_data_private.h"

@@ -16,6 +16,7 @@
 #include <linux/skbuff.h>
 #include <linux/netdevice.h>
 #include <linux/rmnet_data.h>
+#include <linux/net_map.h>
 #include <net/pkt_sched.h>
 #include "rmnet_data_config.h"
 #include "rmnet_map.h"
