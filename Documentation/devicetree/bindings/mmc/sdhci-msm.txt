@@ -47,6 +47,8 @@ Optional Properties:
 			      hot pluggable or hard wired.
 	- qcom,bus-speed-mode - specifies supported bus speed modes by host.
 				The supported bus speed modes are :
+				"HS400_1p8v" - indicates that host can support HS400 at 1.8v.
+				"HS400_1p2v" - indicates that host can support HS400 at 1.2v.
 				"HS200_1p8v" - indicates that host can support HS200 at 1.8v.
 				"HS200_1p2v" - indicates that host can support HS200 at 1.2v.
 				"DDR_1p8v" - indicates that host can support DDR mode at 1.8v.
