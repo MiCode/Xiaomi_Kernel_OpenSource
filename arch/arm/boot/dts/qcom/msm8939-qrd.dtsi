@@ -10,7 +10,6 @@
  * GNU General Public License for more details.
  */
 
-#include "msm8939.dtsi"
 #include "msm8939-pinctrl.dtsi"
 
 &blsp1_uart1 {
