@@ -63,14 +63,20 @@
 	(__height / 16) * (__width  / 16) * __fps; \
 })
 
+#define NUM_MBS_PER_FRAME(__height, __width) ({\
+	((__height + 15) >> 4) * ((__width + 15) >> 4); \
+})
+
 /* Default threshold to reduce the core frequency */
 #define DCVS_NOMINAL_THRESHOLD 8
 /* Default threshold to increase the core frequency */
 #define DCVS_TURBO_THRESHOLD 4
 /* Instance max load above which DCVS kicks in */
 #define DCVS_NOMINAL_LOAD NUM_MBS_PER_SEC(1088, 1920, 60)
-/* Considering two output buffer with core */
-#define DCVS_BUFFER_WITH_DEC 2
+/* Considering one output buffer with core */
+#define DCVS_BUFFER_WITH_DEC 1
+/* Considering one safeguard buffer */
+#define DCVS_BUFFER_SAFEGUARD 1
 /* Considering one output buffer in transition after decode */
 #define DCVS_BUFFER_RELEASED_DEC 1
 /* Considering atleast one FTB between each FBD */
@@ -81,6 +87,10 @@
 #define DCVS_FTB_WINDOW 16
 /* Empirical number arrived at to calculate the high threshold*/
 #define DCVS_EMP_THRESHOLD_HIGH 8
+/* Supported DCVS MBs per frame */
+#define DCVS_MIN_SUPPORTED_MBPERFRAME NUM_MBS_PER_FRAME(2160, 3840)
+/* Window size used to calculate the low threshold */
+#define DCVS_FTB_STAT_SAMPLES 4
 
 enum vidc_ports {
 	OUTPUT_PORT,
