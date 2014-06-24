@@ -71,6 +71,7 @@
 #define KGSL_CMDBATCH_MARKER		0x00000002
 #define KGSL_CMDBATCH_SUBMIT_IB_LIST	KGSL_CONTEXT_SUBMIT_IB_LIST /* 0x004 */
 #define KGSL_CMDBATCH_CTX_SWITCH	KGSL_CONTEXT_CTX_SWITCH     /* 0x008 */
+#define KGSL_CMDBATCH_PROFILING		0x00000010
 #define KGSL_CMDBATCH_END_OF_FRAME	KGSL_CONTEXT_END_OF_FRAME   /* 0x100 */
 #define KGSL_CMDBATCH_SYNC		KGSL_CONTEXT_SYNC           /* 0x400 */
 #define KGSL_CMDBATCH_PWR_CONSTRAINT	KGSL_CONTEXT_PWR_CONSTRAINT /* 0x800 */
@@ -314,6 +315,25 @@ struct kgsl_ibdesc {
 	unsigned long __pad;
 	size_t sizedwords;
 	unsigned int ctrl;
+};
+
+/**
+ * struct kgsl_cmdbatch_profiling_buffer
+ * @wall_clock_s: Wall clock at ringbuffer submission time (seconds)
+ * @wall_clock_ns: Wall clock at ringbuffer submission time (nanoseconds)
+ * @gpu_ticks_queued: GPU ticks at ringbuffer submission
+ * @gpu_ticks_submitted: GPU ticks when starting cmdbatch execution
+ * @gpu_ticks_retired: GPU ticks when finishing cmdbatch execution
+ *
+ * This structure defines the profiling buffer used to measure cmdbatch
+ * execution time
+ */
+struct kgsl_cmdbatch_profiling_buffer {
+	uint64_t wall_clock_s;
+	uint64_t wall_clock_ns;
+	uint64_t gpu_ticks_queued;
+	uint64_t gpu_ticks_submitted;
+	uint64_t gpu_ticks_retired;
 };
 
 /* ioctls */
@@ -934,6 +954,9 @@ struct kgsl_cmd_syncpoint {
 
 /* Flag to indicate that the cmdlist may contain memlists */
 #define KGSL_IBDESC_MEMLIST 0x1
+
+/* Flag to point out the cmdbatch profiling buffer in the memlist */
+#define KGSL_IBDESC_PROFILING_BUFFER 0x2
 
 /**
  * struct kgsl_submit_commands - Argument to IOCTL_KGSL_SUBMIT_COMMANDS
