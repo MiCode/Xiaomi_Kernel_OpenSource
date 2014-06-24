@@ -807,6 +807,11 @@ struct hfi_mvc_buffer_layout_descp_type {
 #define HFI_TEST_SSR_SW_DIV_BY_ZERO	0x2
 #define HFI_TEST_SSR_HW_WDOG_IRQ	0x3
 
+struct vidc_hal_cmd_pkt_hdr {
+	u32 size;
+	u32 packet_type;
+};
+
 struct vidc_hal_msg_pkt_hdr {
 	u32 size;
 	u32 packet;
