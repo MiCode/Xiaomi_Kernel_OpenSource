@@ -264,6 +264,17 @@ static irqreturn_t proxy_unvote_intr_handler(int irq, void *dev_id)
 	return IRQ_HANDLED;
 }
 
+static int cma_region_is_removed(struct device *dev)
+{
+	struct device_node *np;
+
+	np = of_parse_phandle(dev->of_node, "linux,contiguous-region", 0);
+	if (np)
+		return of_property_read_bool(np, "linux,remove-completely");
+
+	return 0;
+}
+
 static bool segment_is_relocatable(const struct elf32_phdr *p)
 {
 	return !!(p->p_flags & BIT(27));
@@ -363,7 +374,6 @@ static int pil_alloc_region(struct pil_priv *priv, phys_addr_t min_addr,
 	void *region;
 	size_t size = max_addr - min_addr;
 	size_t aligned_size;
-	DEFINE_DMA_ATTRS(attrs);
 
 	/* Don't reallocate due to fragmentation concerns, just sanity check */
 	if (priv->region) {
@@ -378,10 +388,13 @@ static int pil_alloc_region(struct pil_priv *priv, phys_addr_t min_addr,
 	else
 		aligned_size = ALIGN(size, SZ_1M);
 
-	dma_set_attr(DMA_ATTR_SKIP_ZEROING, &attrs);
-	region = dma_alloc_attrs(priv->desc->dev, aligned_size,
-				&priv->region_start, GFP_KERNEL, &attrs);
+	dma_set_attr(DMA_ATTR_SKIP_ZEROING, &priv->desc->attrs);
+	if (cma_region_is_removed(priv->desc->dev))
+		dma_set_attr(DMA_ATTR_NO_KERNEL_MAPPING, &priv->desc->attrs);
 
+	region = dma_alloc_attrs(priv->desc->dev, aligned_size,
+				&priv->region_start, GFP_KERNEL,
+				&priv->desc->attrs);
 	if (region == NULL) {
 		pil_err(priv->desc, "Failed to allocate relocatable region of size %zx\n",
 					size);
@@ -526,26 +539,28 @@ struct pil_map_fw_info {
 	int relocated;
 	void *region;
 	phys_addr_t base_addr;
+	struct device *dev;
 };
 
 static void *map_fw_mem(phys_addr_t paddr, size_t size, void *data)
 {
 	struct pil_map_fw_info *info = data;
+	void *base;
 
-	if (info && info->relocated && info->region)
-		return info->region + (paddr - info->base_addr);
+	if (cma_region_is_removed(info->dev))
+		base = ioremap(paddr, size);
+	else if (info && info->relocated && info->region)
+		base = info->region + (paddr - info->base_addr);
 
-	return ioremap(paddr, size);
+	return base;
 }
 
 static void unmap_fw_mem(void *vaddr, void *data)
 {
 	struct pil_map_fw_info *info = data;
 
-	if (info && info->relocated && info->region)
-		return;
-
-	iounmap(vaddr);
+	if (cma_region_is_removed(info->dev))
+		iounmap(vaddr);
 }
 
 static int pil_load_seg(struct pil_desc *desc, struct pil_seg *seg)
@@ -558,6 +573,7 @@ static int pil_load_seg(struct pil_desc *desc, struct pil_seg *seg)
 		.relocated = seg->relocated,
 		.region = desc->priv->region,
 		.base_addr = desc->priv->region_start,
+		.dev = desc->dev,
 	};
 	void *map_data = desc->map_data ? desc->map_data : &map_fw_info;
 
@@ -714,6 +730,8 @@ int pil_boot(struct pil_desc *desc)
 		goto release_fw;
 	}
 
+	init_dma_attrs(&desc->attrs);
+
 	ret = pil_init_mmap(desc, mdt);
 	if (ret)
 		goto release_fw;
@@ -765,8 +783,9 @@ out:
 	up_read(&pil_pm_rwsem);
 	if (ret) {
 		if (priv->region) {
-			dma_free_coherent(desc->dev, priv->region_size,
-					priv->region, priv->region_start);
+			dma_free_attrs(desc->dev, priv->region_size,
+					priv->region, priv->region_start,
+					&desc->attrs);
 			priv->region = NULL;
 		}
 		pil_release_mmap(desc);
@@ -796,8 +815,8 @@ void pil_shutdown(struct pil_desc *desc)
 		flush_delayed_work(&priv->proxy);
 
 	if (priv->region) {
-		dma_free_coherent(desc->dev, priv->region_size,
-				priv->region, priv->region_start);
+		dma_free_attrs(desc->dev, priv->region_size,
+				priv->region, priv->region_start, &desc->attrs);
 		priv->region = NULL;
 	}
 }
