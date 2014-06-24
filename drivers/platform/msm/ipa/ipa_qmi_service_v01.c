@@ -803,6 +803,26 @@ struct elem_info ipa_init_modem_driver_req_msg_data_v01_ei[] = {
 			ctrl_comm_dest_end_pt),
 	},
 	{
+		.data_type	= QMI_OPT_FLAG,
+		.elem_len	= 1,
+		.elem_size	= sizeof(uint8_t),
+		.is_array	= NO_ARRAY,
+		.tlv_type	= 0x18,
+		.offset		= offsetof(
+			struct ipa_init_modem_driver_req_msg_v01,
+			is_ssr_bootup_valid),
+	},
+	{
+		.data_type	= QMI_UNSIGNED_1_BYTE,
+		.elem_len	= 1,
+		.elem_size	= sizeof(uint8_t),
+		.is_array	= NO_ARRAY,
+		.tlv_type	= 0x18,
+		.offset		= offsetof(
+			struct ipa_init_modem_driver_req_msg_v01,
+			is_ssr_bootup),
+	},
+	{
 		.data_type	= QMI_EOTI,
 		.is_array	= NO_ARRAY,
 		.tlv_type	= QMI_COMMON_TLV_TYPE,
