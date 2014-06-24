@@ -757,6 +757,7 @@ static SIMPLE_DEV_PM_OPS(ft5x0x_ts_pm_ops,
 
 static const struct acpi_device_id ft5x0x_acpi_match[] = {
 	{"FT05506", 0},
+	{"FTTH5506", 0},
 	{ },
 };
 MODULE_DEVICE_TABLE(acpi, ft5x0x_acpi_match);
