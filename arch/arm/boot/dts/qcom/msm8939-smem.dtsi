@@ -1,0 +1,68 @@
+/* Copyright (c) 2014, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+&soc {
+	qcom,smem@86300000 {
+		compatible = "qcom,smem";
+		reg = <0x86300000 0x100000>,
+			<0x0b111008 0x4>,
+			<0x60000 0x8000>,
+			<0x193D000 0x8>;
+		reg-names = "smem", "irq-reg-base", "aux-mem1", "smem_targ_info_reg";
+		qcom,mpu-enabled;
+
+		qcom,smd-modem {
+			compatible = "qcom,smd";
+			qcom,smd-edge = <0>;
+			qcom,smd-irq-offset = <0x0>;
+			qcom,smd-irq-bitmask = <0x1000>;
+			interrupts = <0 25 1>;
+			label = "modem";
+		};
+
+		qcom,smsm-modem {
+			compatible = "qcom,smsm";
+			qcom,smsm-edge = <0>;
+			qcom,smsm-irq-offset = <0x0>;
+			qcom,smsm-irq-bitmask = <0x2000>;
+			interrupts = <0 26 1>;
+		};
+
+		qcom,smd-wcnss {
+			compatible = "qcom,smd";
+			qcom,smd-edge = <6>;
+			qcom,smd-irq-offset = <0x0>;
+			qcom,smd-irq-bitmask = <0x20000>;
+			interrupts = <0 142 1>;
+			label = "wcnss";
+		};
+
+		qcom,smsm-wcnss {
+			compatible = "qcom,smsm";
+			qcom,smsm-edge = <6>;
+			qcom,smsm-irq-offset = <0x0>;
+			qcom,smsm-irq-bitmask = <0x80000>;
+			interrupts = <0 144 1>;
+		};
+
+		qcom,smd-rpm {
+			compatible = "qcom,smd";
+			qcom,smd-edge = <15>;
+			qcom,smd-irq-offset = <0x0>;
+			qcom,smd-irq-bitmask = <0x1>;
+			interrupts = <0 168 1>;
+			label = "rpm";
+			qcom,irq-no-suspend;
+			qcom,not-loadable;
+		};
+	};
+};
