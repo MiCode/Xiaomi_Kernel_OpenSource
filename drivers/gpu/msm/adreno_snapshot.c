@@ -34,7 +34,7 @@ static size_t snapshot_frozen_objsize;
 static struct kgsl_snapshot_object objbuf[SNAPSHOT_OBJ_BUFSIZE];
 
 /* Pointer to the next open entry in the object list */
-static int objbufptr;
+static unsigned int objbufptr;
 
 /* Push a new buffer object onto the list */
 static void push_object(int type,
@@ -330,23 +330,13 @@ static size_t snapshot_rb(struct kgsl_device *device, u8 *buf,
 		if (parse_ibs && adreno_cmd_is_ib(rbptr[index])) {
 			unsigned int ibaddr = rbptr[index + 1];
 			unsigned int ibsize = rbptr[index + 2];
-			struct kgsl_memdesc *memdesc = NULL;
 
-			/* IOMMU uses a NOP IB placed in setsate memory */
-			if (kgsl_gpuaddr_in_memdesc(
-					&device->mmu.setstate_memory,
-					ibaddr, ibsize << 2))
-				memdesc = &device->mmu.setstate_memory;
 			/*
-			 * The IB from CP_IB1_BASE and the IBs for legacy
-			 * context switch go into the snapshot all
-			 * others get marked at GPU objects
+			 * Sometimes the kernel generates IBs in global
+			 * memory. We dump the interesting global buffers,
+			 * so there's no need to parse these IBs.
 			 */
-
-			if (memdesc != NULL)
-				push_object(SNAPSHOT_OBJ_TYPE_IB,
-					snapshot->process, ibaddr, ibsize);
-			else
+			if (!kgsl_search_global_pt_entries(ibaddr, ibsize))
 				parse_ib(device, snapshot, snapshot->process,
 					ibaddr, ibsize);
 		}
@@ -562,6 +552,42 @@ done:
 	snapshot->process = process;
 }
 
+/* Snapshot a global memory buffer */
+static size_t snapshot_global(struct kgsl_device *device, u8 *buf,
+	size_t remain, void *priv)
+{
+	struct kgsl_memdesc *memdesc = priv;
+
+	struct kgsl_snapshot_gpu_object *header =
+		(struct kgsl_snapshot_gpu_object *)buf;
+
+	u8 *ptr = buf + sizeof(*header);
+
+	if (memdesc->size == 0)
+		return 0;
+
+	if (remain < (memdesc->size + sizeof(*header))) {
+		KGSL_CORE_ERR("snapshot: Not enough memory for the memdesc\n");
+		return 0;
+	}
+
+	if (memdesc->hostptr == NULL) {
+		KGSL_CORE_ERR("snapshot: no kernel mapping for global %x\n",
+				memdesc->gpuaddr);
+		return 0;
+	}
+
+	header->size = memdesc->size >> 2;
+	header->gpuaddr = memdesc->gpuaddr;
+	header->ptbase =
+	 (__u32)kgsl_mmu_pagetable_get_ptbase(device->mmu.defaultpagetable);
+	header->type = SNAPSHOT_GPU_OBJECT_GLOBAL;
+
+	memcpy(ptr, memdesc->hostptr, memdesc->size);
+
+	return memdesc->size + sizeof(*header);
+}
+
 /* adreno_snapshot - Snapshot the Adreno GPU state
  * @device - KGSL device to snapshot
  * @snapshot - Pointer to the snapshot instance
@@ -573,7 +599,7 @@ done:
 void adreno_snapshot(struct kgsl_device *device, struct kgsl_snapshot *snapshot,
 			struct kgsl_context *context)
 {
-	int i;
+	unsigned int i;
 	uint32_t ibbase, ibsize;
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
 	struct adreno_gpudev *gpudev = ADRENO_GPU_DEVICE(adreno_dev);
@@ -593,6 +619,18 @@ void adreno_snapshot(struct kgsl_device *device, struct kgsl_snapshot *snapshot,
 	/* Add GPU specific sections - registers mainly, but other stuff too */
 	if (gpudev->snapshot)
 		gpudev->snapshot(adreno_dev, snapshot);
+
+	/* Dump selected global buffers */
+	kgsl_snapshot_add_section(device, KGSL_SNAPSHOT_SECTION_GPU_OBJECT,
+			snapshot, snapshot_global, &adreno_dev->dev.memstore);
+
+	kgsl_snapshot_add_section(device, KGSL_SNAPSHOT_SECTION_GPU_OBJECT,
+			snapshot, snapshot_global,
+			&adreno_dev->dev.mmu.setstate_memory);
+
+	kgsl_snapshot_add_section(device, KGSL_SNAPSHOT_SECTION_GPU_OBJECT,
+			snapshot, snapshot_global,
+			&adreno_dev->pwron_fixup);
 
 	/*
 	 * Add a section that lists (gpuaddr, size, memtype) tuples of the
