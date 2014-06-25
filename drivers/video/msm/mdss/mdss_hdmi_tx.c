@@ -1403,6 +1403,11 @@ static int hdmi_tx_set_video_fmt(struct hdmi_tx_ctrl *hdmi_ctrl,
 
 	timing = hdmi_get_supported_mode(hdmi_ctrl->video_resolution);
 
+	if (!timing) {
+		DEV_ERR("%s: invalid input\n", __func__);
+		return -EINVAL;
+	}
+
 	/* todo: find a better way */
 	hdmi_ctrl->pdata.power_data[HDMI_TX_CORE_PM].clk_config[0].rate =
 		timing->pixel_freq * 1000;
@@ -3394,8 +3399,7 @@ static int hdmi_tx_get_dt_clk_data(struct device *dev,
 
 	if (!dev || !mp) {
 		DEV_ERR("%s: invalid input\n", __func__);
-		rc = -EINVAL;
-		goto error;
+		return -EINVAL;
 	}
 
 	DEV_DBG("%s: module: '%s'\n", __func__, hdmi_tx_pm_name(module_type));
@@ -3501,8 +3505,7 @@ static int hdmi_tx_get_dt_vreg_data(struct device *dev,
 
 	if (!dev || !mp) {
 		DEV_ERR("%s: invalid input\n", __func__);
-		rc = -EINVAL;
-		goto error;
+		return -EINVAL;
 	}
 
 	switch (module_type) {
