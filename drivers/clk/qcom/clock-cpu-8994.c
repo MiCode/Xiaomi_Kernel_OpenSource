@@ -743,6 +743,7 @@ static struct alpha_pll_clk cci_pll = {
 		.parent = &xo_ao.c,
 		.dbg_name = "cci_pll",
 		.ops = &clk_ops_alpha_pll,
+		VDD_DIG_FMAX_MAP1(LOW, 1000000000),
 		CLK_INIT(cci_pll.c),
 	},
 };
