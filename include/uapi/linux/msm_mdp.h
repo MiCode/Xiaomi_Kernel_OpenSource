@@ -1094,7 +1094,7 @@ struct mdp_mixer_info {
 	int z_order;
 };
 
-#define MAX_PIPE_PER_MIXER  4
+#define MAX_PIPE_PER_MIXER  7
 
 struct msmfb_mixer_info_req {
 	int mixer_num;
