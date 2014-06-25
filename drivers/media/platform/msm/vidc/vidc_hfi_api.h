@@ -1155,10 +1155,13 @@ struct hfi_device {
 			int *domain_num, int *partition_num);
 	int (*load_fw)(void *dev);
 	void (*unload_fw)(void *dev);
+	int (*resurrect_fw)(void *dev);
 	int (*get_fw_info)(void *dev, enum fw_info info);
 	int (*get_info) (void *dev, enum dev_info info);
 	int (*get_stride_scanline)(int color_fmt, int width,
 		int height,	int *stride, int *scanlines);
+	int (*capability_check)(u32 fourcc, u32 width,
+			u32 *max_width, u32 *max_height);
 	int (*session_clean)(void *sess);
 	int (*get_core_capabilities)(void);
 	int (*power_enable)(void *dev);

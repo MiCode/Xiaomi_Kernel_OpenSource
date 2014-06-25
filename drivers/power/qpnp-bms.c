@@ -281,6 +281,7 @@ struct qpnp_bms_chip {
 	u8				charge_increase;
 	int				fcc_resolution;
 	bool				battery_removed;
+	bool				in_taper_charge;
 	struct bms_irq			sw_cc_thr_irq;
 	struct bms_irq			ocv_thr_irq;
 	struct qpnp_vadc_chip		*vadc_dev;
@@ -771,6 +772,30 @@ static int get_battery_status(struct qpnp_bms_chip *chip)
 	return POWER_SUPPLY_STATUS_UNKNOWN;
 }
 
+static int get_battery_charge_type(struct qpnp_bms_chip *chip)
+{
+	union power_supply_propval ret = {0,};
+	int rc;
+
+	if (chip->batt_psy == NULL)
+		chip->batt_psy = power_supply_get_by_name("battery");
+	if (chip->batt_psy) {
+		/* if battery has been registered, use the type property */
+		rc = chip->batt_psy->get_property(chip->batt_psy,
+				POWER_SUPPLY_PROP_CHARGE_TYPE, &ret);
+		if (rc) {
+			pr_debug("Battery does not export charge type: %d\n"
+									, rc);
+			return POWER_SUPPLY_CHARGE_TYPE_NONE;
+		}
+		return ret.intval;
+	}
+
+	/* Default to false if the battery power supply is not registered. */
+	pr_debug("battery power supply is not registered\n");
+	return POWER_SUPPLY_CHARGE_TYPE_NONE;
+}
+
 static bool is_battery_charging(struct qpnp_bms_chip *chip)
 {
 	return get_battery_status(chip) == POWER_SUPPLY_STATUS_CHARGING;
@@ -908,13 +933,32 @@ static int get_simultaneous_batt_v_and_i(struct qpnp_bms_chip *chip,
 	return 0;
 }
 
-static int estimate_ocv(struct qpnp_bms_chip *chip)
+static int get_rbatt(struct qpnp_bms_chip *chip,
+					int soc_rbatt_mohm, int batt_temp)
 {
-	int ibat_ua, vbat_uv, ocv_est_uv;
-	int rc;
-	int rbatt_mohm = chip->default_rbatt_mohm + chip->r_conn_mohm
-					+ chip->rbatt_capacitive_mohm;
+	int rbatt_mohm, scalefactor;
 
+	rbatt_mohm = chip->default_rbatt_mohm;
+	if (chip->rbatt_sf_lut == NULL)  {
+		pr_debug("RBATT = %d\n", rbatt_mohm);
+		return rbatt_mohm;
+	}
+	/* Convert the batt_temp to DegC from deciDegC */
+	scalefactor = interpolate_scalingfactor(chip->rbatt_sf_lut,
+						batt_temp, soc_rbatt_mohm);
+	rbatt_mohm = (rbatt_mohm * scalefactor) / 100;
+
+	rbatt_mohm += chip->r_conn_mohm;
+	rbatt_mohm += chip->rbatt_capacitive_mohm;
+	return rbatt_mohm;
+}
+
+#define DEFAULT_RBATT_SOC	50
+static int estimate_ocv(struct qpnp_bms_chip *chip, int batt_temp)
+{
+	int ibat_ua, vbat_uv, ocv_est_uv, rbatt_mohm, rc;
+
+	rbatt_mohm = get_rbatt(chip, DEFAULT_RBATT_SOC, batt_temp);
 	rc = get_simultaneous_batt_v_and_i(chip, &ibat_ua, &vbat_uv);
 	if (rc) {
 		pr_err("simultaneous failed rc = %d\n", rc);
@@ -922,7 +966,8 @@ static int estimate_ocv(struct qpnp_bms_chip *chip)
 	}
 
 	ocv_est_uv = vbat_uv + (ibat_ua * rbatt_mohm) / 1000;
-	pr_debug("estimated pon ocv = %d\n", ocv_est_uv);
+	pr_debug("estimated pon ocv = %d, vbat_uv = %d ibat_ua = %d rbatt_mohm = %d\n",
+			ocv_est_uv, vbat_uv, ibat_ua, rbatt_mohm);
 	return ocv_est_uv;
 }
 
@@ -1047,10 +1092,9 @@ static int read_soc_params_raw(struct qpnp_bms_chip *chip,
 		pr_debug("PON_OCV_UV = %d, cc = %llx\n",
 				chip->last_ocv_uv, raw->cc);
 		warm_reset = qpnp_pon_is_warm_reset();
-		if (raw->last_good_ocv_uv < MIN_OCV_UV
-				|| warm_reset > 0) {
+		if (raw->last_good_ocv_uv < MIN_OCV_UV || warm_reset > 0) {
 			pr_debug("OCV is stale or bad, estimating new OCV.\n");
-			chip->last_ocv_uv = estimate_ocv(chip);
+			chip->last_ocv_uv = estimate_ocv(chip, batt_temp);
 			raw->last_good_ocv_uv = chip->last_ocv_uv;
 			reset_cc(chip, CLEAR_CC | CLEAR_SHDW_CC);
 			pr_debug("New PON_OCV_UV = %d, cc = %llx\n",
@@ -1217,26 +1261,6 @@ static int calculate_cc(struct qpnp_bms_chip *chip, int64_t cc,
 				*software_counter + cc_uah);
 		return *software_counter + cc_uah;
 	}
-}
-
-static int get_rbatt(struct qpnp_bms_chip *chip,
-					int soc_rbatt_mohm, int batt_temp)
-{
-	int rbatt_mohm, scalefactor;
-
-	rbatt_mohm = chip->default_rbatt_mohm;
-	if (chip->rbatt_sf_lut == NULL)  {
-		pr_debug("RBATT = %d\n", rbatt_mohm);
-		return rbatt_mohm;
-	}
-	/* Convert the batt_temp to DegC from deciDegC */
-	scalefactor = interpolate_scalingfactor(chip->rbatt_sf_lut,
-						batt_temp, soc_rbatt_mohm);
-	rbatt_mohm = (rbatt_mohm * scalefactor) / 100;
-
-	rbatt_mohm += chip->r_conn_mohm;
-	rbatt_mohm += chip->rbatt_capacitive_mohm;
-	return rbatt_mohm;
 }
 
 #define IAVG_MINIMAL_TIME	2
@@ -1920,7 +1944,8 @@ static int charging_adjustments(struct qpnp_bms_chip *chip,
 	batt_terminal_uv = vbat_uv + (ibat_ua * chip->r_conn_mohm) / 1000;
 
 	if (chip->soc_at_cv == -EINVAL) {
-		if (batt_terminal_uv >= chip->max_voltage_uv - VDD_MAX_ERR) {
+		if (batt_terminal_uv >= chip->max_voltage_uv - VDD_MAX_ERR ||
+							chip->in_taper_charge) {
 			chip->soc_at_cv = soc;
 			chip->prev_chg_soc = soc;
 			chip->ibat_at_cv_ua = params->iavg_ua;
@@ -2207,6 +2232,11 @@ static int clamp_soc_based_on_voltage(struct qpnp_bms_chip *chip, int soc)
 		pr_err("adc vbat failed err = %d\n", rc);
 		return soc;
 	}
+
+	/* only clamp when discharging */
+	if (is_battery_charging(chip))
+		return soc;
+
 	if (soc <= 0 && vbat_uv > chip->v_cutoff_uv) {
 		pr_debug("clamping soc to 1, vbat (%d) > cutoff (%d)\n",
 						vbat_uv, chip->v_cutoff_uv);
@@ -3234,6 +3264,7 @@ static void charging_ended(struct qpnp_bms_chip *chip)
 	mutex_lock(&chip->last_ocv_uv_mutex);
 	chip->soc_at_cv = -EINVAL;
 	chip->prev_chg_soc = -EINVAL;
+	chip->in_taper_charge = false;
 
 	/* update the chargecycles */
 	if (chip->end_soc > chip->start_soc) {
@@ -3365,6 +3396,11 @@ static void qpnp_bms_external_power_changed(struct power_supply *psy)
 	battery_insertion_check(chip);
 	batfet_status_check(chip);
 	battery_status_check(chip);
+
+	if (POWER_SUPPLY_CHARGE_TYPE_TAPER == get_battery_charge_type(chip))
+		chip->in_taper_charge = true;
+	else
+		chip->in_taper_charge = false;
 }
 
 static int qpnp_bms_power_get_property(struct power_supply *psy,
