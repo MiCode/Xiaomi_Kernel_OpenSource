@@ -598,7 +598,7 @@
 		reg = <0x77c0000 0x2C000>,
 		      <0x7784000 0x2A000>;
 		reg-names = "slimbus_physical", "slimbus_bam_physical";
-		interrupts = <0 163 0>, <0 165 0>;
+		interrupts = <0 163 0>, <0 180 0>;
 		interrupt-names = "slimbus_irq", "slimbus_bam_irq";
 		qcom,ea-pc = <0x140>;
 		status = "disabled";
