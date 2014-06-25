@@ -1673,7 +1673,8 @@ static int mdss_mdp_overlay_queue(struct msm_fb_data_type *mfd,
 	if (IS_ERR_VALUE(ret)) {
 		pr_err("src_data pmem error\n");
 	}
-	pipe->has_buf = 1;
+
+	pipe->has_buf = !ret;
 
 	mdss_mdp_pipe_unmap(pipe);
 
