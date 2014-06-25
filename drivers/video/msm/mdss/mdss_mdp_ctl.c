@@ -2943,9 +2943,11 @@ int mdss_mdp_display_commit(struct mdss_mdp_ctl *ctl, void *arg)
 	ctl->roi_bkup.w = ctl->roi.w;
 	ctl->roi_bkup.h = ctl->roi.h;
 
-	ATRACE_BEGIN("postproc_programming");
-	if (sctl && sctl->wait_pingpong)
+	if (sctl && sctl->wait_pingpong) {
+		ATRACE_BEGIN("wait_pingpong sctl");
 		sctl->wait_pingpong(sctl, NULL);
+		ATRACE_END("wait_pingpong sctl");
+	}
 
 	/*
 	 * With partial frame update, enable split display bit only
@@ -2956,6 +2958,7 @@ int mdss_mdp_display_commit(struct mdss_mdp_ctl *ctl, void *arg)
 		mdss_mdp_ctl_split_display_enable(split_enable, ctl, sctl);
 	}
 
+	ATRACE_BEGIN("postproc_programming");
 	if (ctl->mfd && ctl->mfd->dcm_state != DTM_ENTER)
 		/* postprocessing setup, including dspp */
 		mdss_mdp_pp_setup_locked(ctl);
