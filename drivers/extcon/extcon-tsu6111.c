@@ -192,6 +192,9 @@ static int tsu6111_detect_dev(struct tsu6111_chip *chip)
 		cable_props.ma = TSU_CHARGE_CUR_DCP;
 		if (!wake_lock_active(&chip->wakelock))
 			wake_lock(&chip->wakelock);
+	} else if (chrg_type == 0x80) {
+		dev_info(&chip->client->dev,
+                                "Enter USB host mode\n");
 	} else {
 		dev_warn(&chip->client->dev,
 			"disconnect or unknown or ID event\n");
@@ -385,16 +388,21 @@ static int tsu6111_irq_init(struct tsu6111_chip *chip)
 		return -ENODEV;
 
 	id = acpi_match_device(dev->driver->acpi_match_table, dev);
-	if (!id)
+	if (!id) {
+		dev_err(dev, "%s: no acpi dev match\n", __func__);
 		return -ENODEV;
+	}
 	gpio = devm_gpiod_get_index(dev, "tsu6111_int", 0);
 	if (IS_ERR(gpio)) {
 		dev_err(dev, "acpi gpio get index failed\n");
 		return PTR_ERR(gpio);
 	}
 	ret = gpiod_to_irq(gpio);
-	if (ret < 0)
+	if (ret < 0) {
+		dev_err(dev, "%s: invalid irq for the gpio\n", __func__);
 		return ret;
+	} else
+		dev_err(dev, "%s: irq = %d\n", __func__, ret);
 
 	/* get irq number */
 	chip->client->irq = ret;
@@ -473,7 +481,7 @@ static int tsu6111_probe(struct i2c_client *client,
 		goto id_reg_failed;
 	}
 
-	/* mark all interrupt, because we use pmic interrupt */
+	/* unmask interrupt */
 	val = tsu6111_read_reg(chip->client, TSU_REG_CONTROL);
 	val = val & 0xfe;
 	tsu6111_write_reg(chip->client, TSU_REG_CONTROL, val);
@@ -492,10 +500,11 @@ static int tsu6111_probe(struct i2c_client *client,
 		}
 	}
 
+	/* Set manual switching */
 	val = tsu6111_read_reg(chip->client, TSU_REG_CONTROL);
 	val = val & 0xFB;
 	tsu6111_write_reg(chip->client, TSU_REG_CONTROL, val);
-
+	/* open all switches, set correct status later by tsu6111_detect_dev */
 	tsu6111_write_reg(chip->client, TSU_REG_MANUALSW1, 0x00);
 
 	if (!id_val && !chip->id_short)
