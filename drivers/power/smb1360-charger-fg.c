@@ -26,6 +26,7 @@
 #include <linux/of.h>
 #include <linux/of_gpio.h>
 #include <linux/bitops.h>
+#include <linux/qpnp/qpnp-adc.h>
 
 #define _SMB1360_MASK(BITS, POS) \
 	((unsigned char)(((1 << (BITS)) - 1) << (POS)))
@@ -105,6 +106,11 @@
 #define BATT_CHG_FLT_VTG_REG		0x15
 #define VFLOAT_MASK			SMB1360_MASK(6, 0)
 
+#define SHDN_CTRL_REG			0x1A
+#define SHDN_PIN_USE_BIT		BIT(0)
+#define SHDN_CMD_USE_BIT		BIT(1)
+#define SHDN_CMD_POLARITY_BIT		BIT(2)
+
 /* Command Registers */
 #define CMD_I2C_REG			0x40
 #define ALLOW_VOLATILE_BIT		BIT(6)
@@ -114,6 +120,7 @@
 #define USB_100_BIT			0x01
 #define USB_500_BIT			0x00
 #define USB_AC_BIT			0x02
+#define SHDN_CMD_BIT			BIT(7)
 
 #define CMD_CHG_REG			0x42
 #define CMD_CHG_EN			BIT(1)
@@ -185,6 +192,8 @@
 
 #define SMB1360_REV_1			0x01
 
+#define VBAT_ERROR_MARGIN		20000
+
 enum {
 	WRKRND_FG_CONFIG_FAIL = BIT(0),
 	WRKRND_BATT_DET_FAIL = BIT(1),
@@ -223,13 +232,19 @@ struct smb1360_chip {
 	bool				recharge_disabled;
 	bool				chg_inhibit_disabled;
 	bool				iterm_disabled;
+	bool				fg_disabled_in_sleep;
+	bool				fg_disabled_after_pwroff;
 	int				iterm_ma;
 	int				vfloat_mv;
 	int				safety_time;
 	int				resume_delta_mv;
 	unsigned int			thermal_levels;
 	unsigned int			therm_lvl_sel;
+
 	unsigned int			*thermal_mitigation;
+	struct qpnp_adc_tm_chip		*adc_tm_dev;
+	struct qpnp_adc_tm_btm_param	vbat_monitor_params;
+	unsigned int			low_vbat_threshold;
 
 	/* configuration data - fg */
 	int				soc_max;
@@ -1117,6 +1132,83 @@ static void smb1360_external_power_changed(struct power_supply *psy)
 		pr_err("could not set usb online, rc=%d\n", rc);
 }
 
+static void low_vbat_notify(enum qpnp_tm_state state, void *ctx)
+{
+	struct smb1360_chip *chip = ctx;
+	int vbat_uv = smb1360_get_prop_voltage_now(chip);
+
+	pr_debug("vbat is %duV, state is %d\n", vbat_uv, state);
+
+	if (state == ADC_TM_LOW_STATE) {
+		pr_debug("low vbat btm notification triggered\n");
+		if (vbat_uv <= (chip->vbat_monitor_params.low_thr +
+					VBAT_ERROR_MARGIN)) {
+			pm_stay_awake(chip->dev);
+			chip->vbat_monitor_params.state_request =
+				ADC_TM_HIGH_THR_ENABLE;
+		} else {
+			pr_debug("low vbat btm triggered by fault\n");
+			goto out;
+		}
+	} else if (state == ADC_TM_HIGH_STATE) {
+		pr_debug("high vbat btm notification triggered\n");
+		if (vbat_uv > chip->vbat_monitor_params.high_thr) {
+			pm_relax(chip->dev);
+			chip->vbat_monitor_params.state_request =
+				ADC_TM_LOW_THR_ENABLE;
+		} else {
+			pr_debug("high vbat btm triggered by fault\n");
+			goto out;
+		}
+	} else {
+		pr_debug("unknow notification state = %d\n", state);
+		goto out;
+	}
+out:
+	qpnp_adc_tm_channel_measure(chip->adc_tm_dev,
+			&chip->vbat_monitor_params);
+}
+
+static int setup_low_vbat_monitor_via_adc_tm(struct smb1360_chip *chip)
+{
+	int rc;
+
+	chip->vbat_monitor_params.low_thr = chip->low_vbat_threshold;
+	chip->vbat_monitor_params.high_thr = chip->low_vbat_threshold +
+					VBAT_ERROR_MARGIN;
+	chip->vbat_monitor_params.state_request = ADC_TM_LOW_THR_ENABLE;
+	chip->vbat_monitor_params.channel = VBAT_SNS;
+	chip->vbat_monitor_params.btm_ctx = chip;
+	chip->vbat_monitor_params.timer_interval = ADC_MEAS1_INTERVAL_1S;
+	chip->vbat_monitor_params.threshold_notification = &low_vbat_notify;
+	pr_debug("setup low voltage monitor: low = %d, high = %d\n",
+			chip->vbat_monitor_params.low_thr,
+			chip->vbat_monitor_params.high_thr);
+	rc = qpnp_adc_tm_channel_measure(chip->adc_tm_dev,
+			&chip->vbat_monitor_params);
+	if (rc)
+		pr_err("adc_tm channel setup failed rc = %d\n", rc);
+
+	return rc;
+}
+
+static int reset_low_vbat_monitor_via_adc_tm(struct smb1360_chip *chip)
+{
+	int rc;
+
+	chip->vbat_monitor_params.state_request = ADC_TM_HIGH_LOW_THR_DISABLE;
+	rc = qpnp_adc_tm_channel_measure(chip->adc_tm_dev,
+				&chip->vbat_monitor_params);
+	if (rc) {
+		pr_err("vbat adc tm disable failed rc = %d\n", rc);
+		return rc;
+	}
+	pr_debug("Cancel low voltage monitor\n");
+	pm_relax(chip->dev);
+
+	return 0;
+}
+
 static int hot_hard_handler(struct smb1360_chip *chip, u8 rt_stat)
 {
 	pr_debug("rt_stat = 0x%02x\n", rt_stat);
@@ -1147,8 +1239,28 @@ static int cold_soft_handler(struct smb1360_chip *chip, u8 rt_stat)
 
 static int battery_missing_handler(struct smb1360_chip *chip, u8 rt_stat)
 {
+	int rc;
+	bool present = !rt_stat;
+
 	pr_debug("rt_stat = 0x%02x\n", rt_stat);
-	chip->batt_present = !rt_stat;
+
+	if (chip->fg_disabled_in_sleep && (chip->batt_present != present)) {
+		if (present) {
+			pr_debug("New battery insertion\n");
+			rc = setup_low_vbat_monitor_via_adc_tm(chip);
+			if (rc)
+				pr_err("set low vbat detect fail rc = %d\n",
+									rc);
+		} else {
+			pr_debug("Battery removed\n");
+			rc = reset_low_vbat_monitor_via_adc_tm(chip);
+			if (rc)
+				pr_err("reset low vbat detect fail rc = %d\n",
+									rc);
+		}
+	}
+	chip->batt_present = present;
+
 	return 0;
 }
 
@@ -2045,6 +2157,30 @@ static void smb1360_check_feature_support(struct smb1360_chip *chip)
 	}
 }
 
+static int smb1360_enable(struct smb1360_chip *chip, bool enable)
+{
+	int rc;
+
+	rc = smb1360_masked_write(chip, CMD_IL_REG,
+			SHDN_CMD_BIT, !enable);
+	if (rc < 0)
+		dev_err(chip->dev, "Couldn't shutdown smb1360 rc = %d\n", rc);
+
+	return rc;
+}
+
+static inline int smb1360_poweroff(struct smb1360_chip *chip)
+{
+	pr_debug("power off smb1360\n");
+	return smb1360_enable(chip, false);
+}
+
+static inline int smb1360_poweron(struct smb1360_chip *chip)
+{
+	pr_debug("power on smb1360\n");
+	return smb1360_enable(chip, true);
+}
+
 static int smb1360_hw_init(struct smb1360_chip *chip)
 {
 	int rc;
@@ -2059,6 +2195,24 @@ static int smb1360_hw_init(struct smb1360_chip *chip)
 				rc);
 		return rc;
 	}
+
+	if (chip->fg_disabled_in_sleep || chip->fg_disabled_after_pwroff) {
+		rc = smb1360_masked_write(chip, SHDN_CTRL_REG,
+				SHDN_CMD_USE_BIT | SHDN_CMD_POLARITY_BIT,
+				SHDN_CMD_USE_BIT | SHDN_CMD_POLARITY_BIT);
+		if (rc < 0) {
+			dev_err(chip->dev, "Couldn't set SHDN_CTRL_REG rc=%d\n",
+									rc);
+			return rc;
+		}
+
+		rc = smb1360_poweron(chip);
+		if (rc < 0) {
+			pr_err("smb1360 power on failed\n");
+			return rc;
+		}
+	}
+
 	/*
 	 * set chg en by cmd register, set chg en by writing bit 1,
 	 * enable auto pre to fast
@@ -2350,6 +2504,34 @@ static int smb_parse_dt(struct smb1360_chip *chip)
 	chip->batt_id_disabled = of_property_read_bool(node,
 						"qcom,batt-id-disabled");
 
+	chip->fg_disabled_in_sleep = of_property_read_bool(node,
+						"qcom,fg-disabled-in-sleep");
+
+	chip->fg_disabled_after_pwroff = of_property_read_bool(node,
+						"qcom,fg-disabled-after-pwroff");
+
+	if (chip->fg_disabled_in_sleep) {
+		chip->adc_tm_dev = qpnp_get_adc_tm(chip->dev, "low-vbat");
+		if (IS_ERR(chip->adc_tm_dev)) {
+			rc = PTR_ERR(chip->adc_tm_dev);
+			if (rc == -EPROBE_DEFER)
+				pr_err("adc_tm not found - defer probe rc = %d\n",
+									rc);
+			else
+				pr_err("can't find adc_tm for low-bat rc = %d\n",
+									rc);
+
+			return rc;
+		}
+		rc = of_property_read_u32(node, "qcom,low-vbat-threshold",
+					&chip->low_vbat_threshold);
+		if (rc) {
+			pr_err("low-vbat-threshold property missing rc = %d\n",
+									rc);
+			return rc;
+		}
+	}
+
 	if (of_find_property(node, "qcom,thermal-mitigation",
 					&chip->thermal_levels)) {
 		chip->thermal_mitigation = devm_kzalloc(chip->dev,
@@ -2485,6 +2667,15 @@ static int smb1360_probe(struct i2c_client *client,
 		dev_err(&client->dev,
 			"Unable to register batt_psy rc = %d\n", rc);
 		goto fail_hw_init;
+	}
+
+	if (chip->fg_disabled_in_sleep && chip->batt_present) {
+		rc = setup_low_vbat_monitor_via_adc_tm(chip);
+		if (rc) {
+			pr_err("failed to config low vbat monitoring rc = %d\n",
+									rc);
+			goto fail_hw_init;
+		}
 	}
 
 	/* STAT irq configuration */
@@ -2627,6 +2818,12 @@ static int smb1360_probe(struct i2c_client *client,
 	return 0;
 
 unregister_batt_psy:
+	if (chip->fg_disabled_in_sleep && chip->batt_present) {
+		rc = reset_low_vbat_monitor_via_adc_tm(chip);
+		if (rc)
+			pr_err("Cancel low vbat monitoring failed rc = %d\n",
+									rc);
+	}
 	power_supply_unregister(&chip->batt_psy);
 fail_hw_init:
 	regulator_unregister(chip->otg_vreg.rdev);
@@ -2654,30 +2851,37 @@ static int smb1360_suspend(struct device *dev)
 	struct i2c_client *client = to_i2c_client(dev);
 	struct smb1360_chip *chip = i2c_get_clientdata(client);
 
-	/* Save the current IRQ config */
-	for (i = 0; i < 3; i++) {
-		rc = smb1360_read(chip, IRQ_CFG_REG + i,
-					&chip->irq_cfg_mask[i]);
-		if (rc)
-			pr_err("Couldn't save irq cfg regs rc=%d\n", rc);
+	if (chip->fg_disabled_in_sleep) {
+		rc = smb1360_poweroff(chip);
+		if (rc < 0)
+			pr_err("Couldn't shutdown smb1360 rc = %d\n", rc);
+	} else {
+		/* Save the current IRQ config */
+		for (i = 0; i < 3; i++) {
+			rc = smb1360_read(chip, IRQ_CFG_REG + i,
+						&chip->irq_cfg_mask[i]);
+			if (rc)
+				pr_err("Couldn't save irq cfg regs rc=%d\n",
+									rc);
+		}
+
+		/* enable only important IRQs */
+		rc = smb1360_write(chip, IRQ_CFG_REG, IRQ_DCIN_UV_BIT);
+		if (rc < 0)
+			pr_err("Couldn't set irq_cfg rc=%d\n", rc);
+
+		rc = smb1360_write(chip, IRQ2_CFG_REG, IRQ2_BATT_MISSING_BIT
+							| IRQ2_VBAT_LOW_BIT
+							| IRQ2_POWER_OK_BIT);
+		if (rc < 0)
+			pr_err("Couldn't set irq2_cfg rc=%d\n", rc);
+
+		rc = smb1360_write(chip, IRQ3_CFG_REG, IRQ3_SOC_FULL_BIT
+						| IRQ3_SOC_MIN_BIT
+						| IRQ3_SOC_EMPTY_BIT);
+		if (rc < 0)
+			pr_err("Couldn't set irq3_cfg rc=%d\n", rc);
 	}
-
-	/* enable only important IRQs */
-	rc = smb1360_write(chip, IRQ_CFG_REG, IRQ_DCIN_UV_BIT);
-	if (rc < 0)
-		pr_err("Couldn't set irq_cfg rc=%d\n", rc);
-
-	rc = smb1360_write(chip, IRQ2_CFG_REG, IRQ2_BATT_MISSING_BIT
-						| IRQ2_VBAT_LOW_BIT
-						| IRQ2_POWER_OK_BIT);
-	if (rc < 0)
-		pr_err("Couldn't set irq2_cfg rc=%d\n", rc);
-
-	rc = smb1360_write(chip, IRQ3_CFG_REG, IRQ3_SOC_FULL_BIT
-					| IRQ3_SOC_MIN_BIT
-					| IRQ3_SOC_EMPTY_BIT);
-	if (rc < 0)
-		pr_err("Couldn't set irq3_cfg rc=%d\n", rc);
 
 	mutex_lock(&chip->irq_complete);
 	chip->resume_completed = false;
@@ -2704,14 +2908,21 @@ static int smb1360_resume(struct device *dev)
 	struct i2c_client *client = to_i2c_client(dev);
 	struct smb1360_chip *chip = i2c_get_clientdata(client);
 
-	/* Restore the IRQ config */
-	for (i = 0; i < 3; i++) {
-		rc = smb1360_write(chip, IRQ_CFG_REG + i,
-					chip->irq_cfg_mask[i]);
-		if (rc)
-			pr_err("Couldn't restore irq cfg regs rc=%d\n", rc);
-	}
 
+	if (chip->fg_disabled_in_sleep) {
+		rc = smb1360_poweron(chip);
+		if (rc < 0)
+			pr_err("Couldn't enable smb1360 rc = %d\n", rc);
+	} else {
+		/* Restore the IRQ config */
+		for (i = 0; i < 3; i++) {
+			rc = smb1360_write(chip, IRQ_CFG_REG + i,
+						chip->irq_cfg_mask[i]);
+			if (rc)
+				pr_err("Couldn't restore irq cfg regs rc=%d\n",
+									rc);
+		}
+	}
 	mutex_lock(&chip->irq_complete);
 	chip->resume_completed = true;
 	if (chip->irq_waiting) {
@@ -2723,6 +2934,19 @@ static int smb1360_resume(struct device *dev)
 	}
 
 	return 0;
+}
+
+static void smb1360_shutdown(struct i2c_client *client)
+{
+	int rc;
+	struct smb1360_chip *chip = i2c_get_clientdata(client);
+
+	if (chip->fg_disabled_after_pwroff) {
+		rc = smb1360_poweroff(chip);
+		if (rc)
+			pr_err("Couldn't shutdown smb1360, rc = %d\n", rc);
+		pr_info("smb1360 power off\n");
+	}
 }
 
 static const struct dev_pm_ops smb1360_pm_ops = {
@@ -2751,6 +2975,7 @@ static struct i2c_driver smb1360_driver = {
 	},
 	.probe		= smb1360_probe,
 	.remove		= smb1360_remove,
+	.shutdown	= smb1360_shutdown,
 	.id_table	= smb1360_id,
 };
 
