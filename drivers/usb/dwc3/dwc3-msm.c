@@ -1729,9 +1729,7 @@ static int dwc3_msm_resume(struct dwc3_msm *mdwc)
 	int ret;
 	bool dcp;
 	bool host_bus_suspend;
-	bool resume_from_core_clk_off = false;
 	struct dwc3 *dwc = platform_get_drvdata(mdwc->dwc3);
-	bool cable_connected = mdwc->vbus_active;
 
 	dev_dbg(mdwc->dev, "%s: exiting lpm\n", __func__);
 	dbg_event(0xFF, "Controller Resume", 0);
@@ -1742,9 +1740,6 @@ static int dwc3_msm_resume(struct dwc3_msm *mdwc)
 	}
 
 	pm_stay_awake(mdwc->dev);
-
-	if (mdwc->lpm_flags & MDWC3_PHY_REF_AND_CORECLK_OFF)
-		resume_from_core_clk_off = true;
 
 	if (mdwc->bus_perf_client) {
 		ret = msm_bus_scale_client_update_request(
@@ -1794,6 +1789,7 @@ static int dwc3_msm_resume(struct dwc3_msm *mdwc)
 
 	if (mdwc->lpm_flags & MDWC3_PHY_REF_CLK_OFF) {
 		clk_prepare_enable(mdwc->ref_clk);
+		usb_phy_set_suspend(mdwc->ss_phy, 0);
 		mdwc->lpm_flags &= ~MDWC3_PHY_REF_CLK_OFF;
 	}
 	usleep_range(1000, 1200);
@@ -1805,16 +1801,12 @@ static int dwc3_msm_resume(struct dwc3_msm *mdwc)
 	}
 
 	usb_phy_set_suspend(mdwc->hs_phy, 0);
-	if (!host_bus_suspend && !cable_connected) {
-		/* Reset UTMI HSPHY interface */
-		dwc3_msm_write_reg(mdwc->base, DWC3_GUSB2PHYCFG(0),
-			dwc3_msm_read_reg(mdwc->base, DWC3_GUSB2PHYCFG(0)) |
-						DWC3_GUSB2PHYCFG_PHYSOFTRST);
-		/* 10usec delay required before de-asserting PHY RESET */
-		udelay(10);
-		dwc3_msm_write_reg(mdwc->base, DWC3_GUSB2PHYCFG(0),
-		      dwc3_msm_read_reg(mdwc->base, DWC3_GUSB2PHYCFG(0)) &
-						~DWC3_GUSB2PHYCFG_PHYSOFTRST);
+
+	/* Recover from controller power collapse */
+	if (mdwc->lpm_flags & MDWC3_POWER_COLLAPSE) {
+		dev_dbg(mdwc->dev, "%s: exit power collapse (POR=%d)\n",
+			__func__, mdwc->power_collapse_por);
+
 		/* Reset HSPHY */
 		if (mdwc->reset_hsphy_sleep_clk) {
 			ret = dwc3_hsphy_reset(mdwc);
@@ -1827,19 +1819,12 @@ static int dwc3_msm_resume(struct dwc3_msm *mdwc)
 		ret = dwc3_msm_restore_sec_config(mdwc->scm_dev_id);
 		if (ret)
 			return ret;
-	}
 
-	/* Recover from controller power collapse */
-	if (mdwc->lpm_flags & MDWC3_POWER_COLLAPSE) {
-		dev_dbg(mdwc->dev, "%s: exit power collapse (POR=%d)\n",
-			__func__, mdwc->power_collapse_por);
 		if (mdwc->power_collapse_por)
 			dwc3_msm_power_collapse_por(mdwc);
 		mdwc->lpm_flags &= ~MDWC3_POWER_COLLAPSE;
 	}
 
-	if (resume_from_core_clk_off)
-		usb_phy_set_suspend(mdwc->ss_phy, 0);
 	atomic_set(&dwc->in_lpm, 0);
 
 	msm_bam_notify_lpm_resume(DWC3_CTRL);
