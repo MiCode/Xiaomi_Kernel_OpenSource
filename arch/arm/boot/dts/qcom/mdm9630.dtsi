@@ -546,7 +546,6 @@
 		vdda18-supply = <&pmd9635_l8>;
 		qcom,vdd-voltage-level = <0 900000 1050000>;
 		qcom,vbus-valid-override;
-		qcom,ext-vbus-id;
 	};
 
 	dbm_1p5: dbm@f92f8000 {
