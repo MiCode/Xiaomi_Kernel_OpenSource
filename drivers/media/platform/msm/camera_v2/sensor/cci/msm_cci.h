@@ -30,6 +30,8 @@
 #define CCI_PINCTRL_STATE_DEFAULT "cci_default"
 #define CCI_PINCTRL_STATE_SLEEP "cci_suspend"
 
+#define CCI_NUM_CLK_MAX	16
+
 enum cci_i2c_queue_t {
 	QUEUE_0,
 	QUEUE_1,
@@ -133,7 +135,7 @@ struct cci_device {
 	enum msm_cci_state_t cci_state;
 	uint32_t num_clk;
 
-	struct clk *cci_clk[5];
+	struct clk *cci_clk[CCI_NUM_CLK_MAX];
 	struct msm_camera_cci_i2c_queue_info
 		cci_i2c_queue_info[NUM_MASTERS][NUM_QUEUES];
 	struct msm_camera_cci_master_info cci_master_info[NUM_MASTERS];

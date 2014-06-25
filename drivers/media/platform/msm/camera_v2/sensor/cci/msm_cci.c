@@ -42,7 +42,6 @@
 #define CCI_I2C_READ_MAX_RETRIES 3
 #define CCI_I2C_MAX_READ 8192
 #define CCI_I2C_MAX_WRITE 8192
-#define CCI_NUM_CLK_MAX		16
 
 static struct v4l2_subdev *g_cci_subdev;
 
