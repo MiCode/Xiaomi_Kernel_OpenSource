@@ -5,7 +5,7 @@
  * Copyright (C) 2003 Oliver Endriss
  * Copyright (C) 2004 Andrew de Quincey
  *
- * Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
  *
  * based on code originally found in av7110.c & dvb_ci.c:
  * Copyright (C) 1999-2003 Ralph  Metzler
@@ -49,7 +49,6 @@ void dvb_ringbuffer_init(struct dvb_ringbuffer *rbuf, void *data, size_t len)
 	rbuf->data=data;
 	rbuf->size=len;
 	rbuf->error=0;
-	atomic_set(&rbuf->fill, 0);
 
 	init_waitqueue_head(&rbuf->queue);
 
@@ -58,23 +57,33 @@ void dvb_ringbuffer_init(struct dvb_ringbuffer *rbuf, void *data, size_t len)
 
 
 
-int dvb_ringbuffer_empty(const struct dvb_ringbuffer *rbuf)
+int dvb_ringbuffer_empty(struct dvb_ringbuffer *rbuf)
 {
-	return (atomic_read(&rbuf->fill) == 0);
+	return (rbuf->pread == rbuf->pwrite);
 }
 
 
 
-ssize_t dvb_ringbuffer_free(const struct dvb_ringbuffer *rbuf)
+ssize_t dvb_ringbuffer_free(struct dvb_ringbuffer *rbuf)
 {
-	return rbuf->size - atomic_read(&rbuf->fill);
+	ssize_t free;
+
+	free = rbuf->pread - rbuf->pwrite;
+	if (free <= 0)
+		free += rbuf->size;
+	return free-1;
 }
 
 
 
-ssize_t dvb_ringbuffer_avail(const struct dvb_ringbuffer *rbuf)
+ssize_t dvb_ringbuffer_avail(struct dvb_ringbuffer *rbuf)
 {
-	return atomic_read(&rbuf->fill);
+	ssize_t avail;
+
+	avail = rbuf->pwrite - rbuf->pread;
+	if (avail < 0)
+		avail += rbuf->size;
+	return avail;
 }
 
 
@@ -83,7 +92,6 @@ void dvb_ringbuffer_flush(struct dvb_ringbuffer *rbuf)
 {
 	rbuf->pread = rbuf->pwrite;
 	rbuf->error = 0;
-	atomic_set(&rbuf->fill, 0);
 }
 EXPORT_SYMBOL(dvb_ringbuffer_flush);
 
@@ -91,9 +99,7 @@ void dvb_ringbuffer_reset(struct dvb_ringbuffer *rbuf)
 {
 	rbuf->pread = rbuf->pwrite = 0;
 	rbuf->error = 0;
-	atomic_set(&rbuf->fill, 0);
 }
-EXPORT_SYMBOL(dvb_ringbuffer_reset);
 
 void dvb_ringbuffer_flush_spinlock_wakeup(struct dvb_ringbuffer *rbuf)
 {
@@ -118,13 +124,11 @@ ssize_t dvb_ringbuffer_read_user(struct dvb_ringbuffer *rbuf, u8 __user *buf, si
 		buf += split;
 		todo -= split;
 		rbuf->pread = 0;
-		atomic_sub(split, &rbuf->fill);
 	}
 	if (copy_to_user(buf, rbuf->data+rbuf->pread, todo))
 		return -EFAULT;
 
 	rbuf->pread = (rbuf->pread + todo) % rbuf->size;
-	atomic_sub(todo, &rbuf->fill);
 
 	return len;
 }
@@ -140,12 +144,10 @@ void dvb_ringbuffer_read(struct dvb_ringbuffer *rbuf, u8 *buf, size_t len)
 		buf += split;
 		todo -= split;
 		rbuf->pread = 0;
-		atomic_sub(split, &rbuf->fill);
 	}
 	memcpy(buf, rbuf->data+rbuf->pread, todo);
 
 	rbuf->pread = (rbuf->pread + todo) % rbuf->size;
-	atomic_sub(todo, &rbuf->fill);
 }
 
 
@@ -161,11 +163,9 @@ ssize_t dvb_ringbuffer_write(struct dvb_ringbuffer *rbuf, const u8 *buf, size_t 
 		buf += split;
 		todo -= split;
 		rbuf->pwrite = 0;
-		atomic_add(split, &rbuf->fill);
 	}
 	memcpy(rbuf->data+rbuf->pwrite, buf, todo);
 	rbuf->pwrite = (rbuf->pwrite + todo) % rbuf->size;
-	atomic_add(todo, &rbuf->fill);
 
 	return len;
 }
@@ -187,7 +187,6 @@ ssize_t dvb_ringbuffer_write_user(struct dvb_ringbuffer *rbuf,
 		buf += split;
 		todo -= split;
 		rbuf->pwrite = 0;
-		atomic_add(split, &rbuf->fill);
 	}
 
 	if (copy_from_user(rbuf->data + rbuf->pwrite, buf, todo)) {
@@ -196,7 +195,6 @@ ssize_t dvb_ringbuffer_write_user(struct dvb_ringbuffer *rbuf,
 	}
 
 	rbuf->pwrite = (rbuf->pwrite + todo) % rbuf->size;
-	atomic_add(todo, &rbuf->fill);
 
 	return len;
 }

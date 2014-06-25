@@ -5,7 +5,7 @@
  * Copyright (C) 2003 Oliver Endriss
  * Copyright (C) 2004 Andrew de Quincey
  *
- * Copyright (c) 2012,2014, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012, The Linux Foundation. All rights reserved.
  *
  * based on code originally found in av7110.c & dvb_ci.c:
  * Copyright (C) 1999-2003 Ralph Metzler & Marcus Metzler
@@ -33,12 +33,11 @@
 #include <linux/wait.h>
 
 struct dvb_ringbuffer {
-	u8		*data;
-	ssize_t		size;
-	ssize_t		pread;
-	ssize_t		pwrite;
-	atomic_t	fill;
-	int		error;
+	u8               *data;
+	ssize_t           size;
+	ssize_t           pread;
+	ssize_t           pwrite;
+	int               error;
 
 	wait_queue_head_t queue;
 	spinlock_t        lock;
@@ -80,13 +79,13 @@ struct dvb_ringbuffer {
 extern void dvb_ringbuffer_init(struct dvb_ringbuffer *rbuf, void *data, size_t len);
 
 /* test whether buffer is empty */
-extern int dvb_ringbuffer_empty(const struct dvb_ringbuffer *rbuf);
+extern int dvb_ringbuffer_empty(struct dvb_ringbuffer *rbuf);
 
 /* return the number of free bytes in the buffer */
-extern ssize_t dvb_ringbuffer_free(const struct dvb_ringbuffer *rbuf);
+extern ssize_t dvb_ringbuffer_free(struct dvb_ringbuffer *rbuf);
 
 /* return the number of bytes waiting in the buffer */
-extern ssize_t dvb_ringbuffer_avail(const struct dvb_ringbuffer *rbuf);
+extern ssize_t dvb_ringbuffer_avail(struct dvb_ringbuffer *rbuf);
 
 
 /*
@@ -110,13 +109,11 @@ extern void dvb_ringbuffer_flush_spinlock_wakeup(struct dvb_ringbuffer *rbuf);
 
 /* advance read ptr by <num> bytes */
 #define DVB_RINGBUFFER_SKIP(rbuf,num)	\
-	{ (rbuf)->pread = ((rbuf)->pread+(num))%(rbuf)->size;	\
-	atomic_sub((num), &(rbuf)->fill); }
+			(rbuf)->pread = ((rbuf)->pread+(num))%(rbuf)->size
 
 /* advance write ptr by <num> bytes */
 #define DVB_RINGBUFFER_PUSH(rbuf, num)	\
-	{ ((rbuf)->pwrite = (((rbuf)->pwrite+(num))%(rbuf)->size));	\
-	atomic_add((num), &(rbuf)->fill); }
+			((rbuf)->pwrite = (((rbuf)->pwrite+(num))%(rbuf)->size))
 
 /*
 ** read <len> bytes from ring buffer into <buf>
@@ -134,8 +131,7 @@ extern void dvb_ringbuffer_read(struct dvb_ringbuffer *rbuf,
 /* write single byte to ring buffer */
 #define DVB_RINGBUFFER_WRITE_BYTE(rbuf,byte)	\
 			{ (rbuf)->data[(rbuf)->pwrite]=(byte); \
-			(rbuf)->pwrite = ((rbuf)->pwrite+1)%(rbuf)->size; \
-			atomic_inc(&(rbuf)->fill); }
+			(rbuf)->pwrite = ((rbuf)->pwrite+1)%(rbuf)->size; }
 /*
 ** write <len> bytes to ring buffer
 ** <usermem> specifies whether <buf> resides in user space
