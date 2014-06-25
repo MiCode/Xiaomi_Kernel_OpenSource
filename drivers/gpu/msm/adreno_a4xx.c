@@ -841,6 +841,29 @@ static struct adreno_perfcount_register a4xx_perfcounters_cp[] = {
 	{ KGSL_PERFCOUNTER_NOT_USED, 0, 0, A4XX_RBBM_PERFCTR_CP_0_LO,
 		A4XX_RBBM_PERFCTR_CP_0_HI, 0, A4XX_CP_PERFCTR_CP_SEL_0 },
 	{ KGSL_PERFCOUNTER_NOT_USED, 0, 0, A4XX_RBBM_PERFCTR_CP_1_LO,
+		A4XX_RBBM_PERFCTR_CP_1_HI, 0, A4XX_CP_PERFCTR_CP_SEL_1 },
+	{ KGSL_PERFCOUNTER_NOT_USED, 0, 0, A4XX_RBBM_PERFCTR_CP_2_LO,
+		A4XX_RBBM_PERFCTR_CP_2_HI, 0, A4XX_CP_PERFCTR_CP_SEL_2 },
+	{ KGSL_PERFCOUNTER_NOT_USED, 0, 0, A4XX_RBBM_PERFCTR_CP_3_LO,
+		A4XX_RBBM_PERFCTR_CP_3_HI, 0, A4XX_CP_PERFCTR_CP_SEL_3 },
+	{ KGSL_PERFCOUNTER_NOT_USED, 0, 0, A4XX_RBBM_PERFCTR_CP_4_LO,
+		A4XX_RBBM_PERFCTR_CP_4_HI, 0, A4XX_CP_PERFCTR_CP_SEL_4 },
+	{ KGSL_PERFCOUNTER_NOT_USED, 0, 0, A4XX_RBBM_PERFCTR_CP_5_LO,
+		A4XX_RBBM_PERFCTR_CP_5_HI, 0, A4XX_CP_PERFCTR_CP_SEL_5 },
+	{ KGSL_PERFCOUNTER_NOT_USED, 0, 0, A4XX_RBBM_PERFCTR_CP_6_LO,
+		A4XX_RBBM_PERFCTR_CP_6_HI, 0, A4XX_CP_PERFCTR_CP_SEL_6 },
+	{ KGSL_PERFCOUNTER_NOT_USED, 0, 0, A4XX_RBBM_PERFCTR_CP_7_LO,
+		A4XX_RBBM_PERFCTR_CP_7_HI, 0, A4XX_CP_PERFCTR_CP_SEL_7 },
+};
+
+/*
+ * Special list of CP registers for 420 to account for flaws.  This array is
+ * inserted into the tables during perfcounter init
+ */
+static struct adreno_perfcount_register a420_perfcounters_cp[] = {
+	{ KGSL_PERFCOUNTER_NOT_USED, 0, 0, A4XX_RBBM_PERFCTR_CP_0_LO,
+		A4XX_RBBM_PERFCTR_CP_0_HI, 0, A4XX_CP_PERFCTR_CP_SEL_0 },
+	{ KGSL_PERFCOUNTER_NOT_USED, 0, 0, A4XX_RBBM_PERFCTR_CP_1_LO,
 		A4XX_RBBM_PERFCTR_CP_1_HI, 1, A4XX_CP_PERFCTR_CP_SEL_1 },
 	/*
 	 * The selector registers for 3, 5, and 7 are swizzled on the hardware.
@@ -1123,59 +1146,59 @@ static struct adreno_perfcounters a4xx_perfcounters = {
 };
 
 /*
- * On A4xx a number of perfcounters are un-usable. The following defines the
+ * On A420 a number of perfcounters are un-usable. The following defines the
  * array of countables that do not work and should not be used
  */
-static const unsigned int pc_invalid_countables[] = {
+static const unsigned int a420_pc_invalid_countables[] = {
 	PC_INSTANCES, PC_VERTEX_HITS, PC_GENERATED_FIBERS, PC_GENERATED_WAVES,
 };
 
-static unsigned int vfd_invalid_countables[] = {
+static const unsigned int a420_vfd_invalid_countables[] = {
 	VFD_VPC_BYPASS_TRANS, VFD_UPPER_SHADER_FIBERS, VFD_LOWER_SHADER_FIBERS,
 };
 
-static const unsigned int hlsq_invalid_countables[] = {
+static const unsigned int a420_hlsq_invalid_countables[] = {
 	HLSQ_SP_VS_STAGE_CONSTANT, HLSQ_SP_VS_STAGE_INSTRUCTIONS,
 	HLSQ_SP_FS_STAGE_CONSTANT, HLSQ_SP_FS_STAGE_INSTRUCTIONS,
 	HLSQ_FS_STAGE_16_WAVES, HLSQ_FS_STAGE_32_WAVES, HLSQ_FS_STAGE_64_WAVES,
 	HLSQ_VS_STAGE_16_WAVES, HLSQ_VS_STAGE_32_WAVES,
 };
 
-static const unsigned int uche_invalid_countables[] = {
+static const unsigned int a420_uche_invalid_countables[] = {
 	UCHE_READ_REQUESTS_MARB, UCHE_READ_REQUESTS_SP,
 	UCHE_WRITE_REQUESTS_MARB, UCHE_WRITE_REQUESTS_SP,
 	UCHE_WRITE_REQUESTS_VPC
 };
 
-static const unsigned int tp_invalid_countables[] = {
+static const unsigned int a420_tp_invalid_countables[] = {
 	TP_OUTPUT_TEXELS_POINT, TP_OUTPUT_TEXELS_BILINEAR, TP_OUTPUT_TEXELS_MIP,
 	TP_OUTPUT_TEXELS_ANISO, TP_OUTPUT_TEXELS_OPS16, TP_OUTPUT_TEXELS_OPS32,
 	TP_ZERO_LOD, TP_LATENCY, TP_LATENCY_TRANS,
 };
 
-static const unsigned int sp_invalid_countables[] = {
+static const unsigned int a420_sp_invalid_countables[] = {
 	SP_FS_STAGE_BARY_INSTRUCTIONS,
 };
 
-static const unsigned int rb_invalid_countables[] = {
+static const unsigned int a420_rb_invalid_countables[] = {
 	RB_VALID_SAMPLES, RB_Z_FAIL, RB_S_FAIL,
 };
 
-static const unsigned int ccu_invalid_countables[] = {
+static const unsigned int a420_ccu_invalid_countables[] = {
 	CCU_VBIF_STALL, CCU_VBIF_LATENCY_CYCLES, CCU_VBIF_LATENCY_SAMPLES,
 	CCU_Z_READ, CCU_Z_WRITE, CCU_C_READ, CCU_C_WRITE,
 };
 
 static const struct adreno_invalid_countables
-	a4xx_perfctr_invalid_countables[KGSL_PERFCOUNTER_GROUP_MAX] = {
-	ADRENO_PERFCOUNTER_INVALID_COUNTABLE(pc, PC),
-	ADRENO_PERFCOUNTER_INVALID_COUNTABLE(vfd, VFD),
-	ADRENO_PERFCOUNTER_INVALID_COUNTABLE(hlsq, HLSQ),
-	ADRENO_PERFCOUNTER_INVALID_COUNTABLE(tp, TP),
-	ADRENO_PERFCOUNTER_INVALID_COUNTABLE(sp, SP),
-	ADRENO_PERFCOUNTER_INVALID_COUNTABLE(rb, RB),
-	ADRENO_PERFCOUNTER_INVALID_COUNTABLE(ccu, CCU),
-	ADRENO_PERFCOUNTER_INVALID_COUNTABLE(uche, UCHE),
+	a420_perfctr_invalid_countables[KGSL_PERFCOUNTER_GROUP_MAX] = {
+	ADRENO_PERFCOUNTER_INVALID_COUNTABLE(a420_pc, PC),
+	ADRENO_PERFCOUNTER_INVALID_COUNTABLE(a420_vfd, VFD),
+	ADRENO_PERFCOUNTER_INVALID_COUNTABLE(a420_hlsq, HLSQ),
+	ADRENO_PERFCOUNTER_INVALID_COUNTABLE(a420_tp, TP),
+	ADRENO_PERFCOUNTER_INVALID_COUNTABLE(a420_sp, SP),
+	ADRENO_PERFCOUNTER_INVALID_COUNTABLE(a420_rb, RB),
+	ADRENO_PERFCOUNTER_INVALID_COUNTABLE(a420_ccu, CCU),
+	ADRENO_PERFCOUNTER_INVALID_COUNTABLE(a420_uche, UCHE),
 };
 
 static struct adreno_coresight_register a4xx_coresight_registers[] = {
@@ -1214,6 +1237,34 @@ static struct adreno_coresight_register a4xx_coresight_registers[] = {
 	{ A4XX_RBBM_EXT_TRACE_BUS_CTL },
 	{ A4XX_RBBM_CFG_DEBBUS_CTLM },
 };
+
+static int a4xx_perfcounter_init(struct adreno_device *adreno_dev)
+{
+	if (adreno_is_a420(adreno_dev)) {
+		struct adreno_gpudev *gpudev = ADRENO_GPU_DEVICE(adreno_dev);
+		struct adreno_perfcounters *counters = gpudev->perfcounters;
+		/*
+		 * The CP counters on A420 are... special.  Some of the counters
+		 * are swizzled so only a subset of them are usable
+		 */
+
+		if (counters) {
+			counters->groups[KGSL_PERFCOUNTER_GROUP_CP].regs =
+				a420_perfcounters_cp;
+			counters->groups[KGSL_PERFCOUNTER_GROUP_CP].reg_count =
+				ARRAY_SIZE(a420_perfcounters_cp);
+		}
+
+		/*
+		 * Also on A420 a number of the countables are not functional so
+		 * we maintain a blacklist of countables to protect the user
+		 */
+
+		gpudev->invalid_countables = a420_perfctr_invalid_countables;
+	}
+
+	return a3xx_perfcounter_init(adreno_dev);
+}
 
 static ADRENO_CORESIGHT_ATTR(cfg_debbus_ctrlt, &a4xx_coresight_registers[0]);
 static ADRENO_CORESIGHT_ATTR(cfg_debbus_sela, &a4xx_coresight_registers[1]);
@@ -1396,7 +1447,7 @@ struct adreno_gpudev adreno_a4xx_gpudev = {
 	.snapshot_data = &a4xx_snapshot_data,
 	.num_prio_levels = 1,
 
-	.perfcounter_init = a3xx_perfcounter_init,
+	.perfcounter_init = a4xx_perfcounter_init,
 	.perfcounter_close = a3xx_perfcounter_close,
 	.rb_init = a3xx_rb_init,
 	.irq_control = a3xx_irq_control,
@@ -1411,7 +1462,6 @@ struct adreno_gpudev adreno_a4xx_gpudev = {
 	.perfcounter_restore = a3xx_perfcounter_restore,
 	.fault_detect_start = a3xx_fault_detect_start,
 	.fault_detect_stop = a3xx_fault_detect_stop,
-	.invalid_countables = a4xx_perfctr_invalid_countables,
 	.soft_reset = a3xx_soft_reset,
 	.snapshot = a4xx_snapshot,
 	.is_sptp_idle = a4xx_is_sptp_idle,
