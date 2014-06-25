@@ -2405,6 +2405,7 @@ static int _gadget_stop_activity(struct usb_gadget *gadget)
 	udc->configured = 0;
 	spin_unlock_irqrestore(udc->lock, flags);
 
+	gadget->xfer_isr_count = 0;
 	gadget->b_hnp_enable = 0;
 	gadget->a_hnp_support = 0;
 	gadget->host_request = 0;
@@ -3817,6 +3818,7 @@ static irqreturn_t udc_irq(void)
 			isr_statistics.uei++;
 		if (USBi_UI  & intr) {
 			isr_statistics.ui++;
+			udc->gadget.xfer_isr_count++;
 			isr_tr_complete_handler(udc);
 		}
 		if (USBi_SLI & intr) {
