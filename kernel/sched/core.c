@@ -1397,6 +1397,7 @@ static inline void migrate_sync_cpu(int cpu)
 
 unsigned long sched_get_busy(int cpu)
 {
+	unsigned long flags;
 	struct rq *rq = cpu_rq(cpu);
 
 	/*
@@ -1404,9 +1405,9 @@ unsigned long sched_get_busy(int cpu)
 	 * current task may have been executing for a long time. Ensure
 	 * that the window stats are current by doing an update.
 	 */
-	raw_spin_lock(&rq->lock);
+	raw_spin_lock_irqsave(&rq->lock, flags);
 	update_task_ravg(rq->curr, rq, TASK_UPDATE, sched_clock(), NULL);
-	raw_spin_unlock(&rq->lock);
+	raw_spin_unlock_irqrestore(&rq->lock, flags);
 
 	return div64_u64(scale_load_to_cpu(rq->prev_runnable_sum, cpu),
 			  NSEC_PER_USEC);
