@@ -1133,6 +1133,16 @@ static int mdss_mdp_debug_init(struct mdss_data_type *mdata)
 	return 0;
 }
 
+static void mdss_mdp_max_zorder_init(struct mdss_data_type *mdata)
+{
+	mdata->max_target_zorder = MDSS_MDP_STAGE_4;
+	switch (mdata->mdp_rev) {
+	case MDSS_MDP_HW_REV_105:
+		mdata->max_target_zorder = MDSS_MDP_MAX_STAGE;
+		break;
+	}
+}
+
 static void mdss_hw_rev_init(struct mdss_data_type *mdata)
 {
 	if (mdata->mdp_rev)
@@ -1140,6 +1150,7 @@ static void mdss_hw_rev_init(struct mdss_data_type *mdata)
 	mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_ON);
 	mdata->mdp_rev = readl_relaxed(mdata->mdss_base + MDSS_REG_HW_VERSION);
 	pr_info_once("MDP Rev=%x\n", mdata->mdp_rev);
+	mdss_mdp_max_zorder_init(mdata);
 	mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_OFF);
 }
 
@@ -1407,6 +1418,7 @@ static ssize_t mdss_mdp_show_capabilities(struct device *dev,
 	SPRINT("rgb_pipes=%d\n", mdata->nrgb_pipes);
 	SPRINT("vig_pipes=%d\n", mdata->nvig_pipes);
 	SPRINT("dma_pipes=%d\n", mdata->ndma_pipes);
+	SPRINT("blending_stages=%d\n", mdata->max_target_zorder);
 	SPRINT("smp_count=%d\n", mdata->smp_mb_cnt);
 	SPRINT("smp_size=%d\n", mdata->smp_mb_size);
 	SPRINT("smp_mb_per_pipe=%d\n", mdata->smp_mb_per_pipe);
