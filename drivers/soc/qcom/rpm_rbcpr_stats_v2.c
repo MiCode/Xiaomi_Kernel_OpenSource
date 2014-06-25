@@ -344,6 +344,7 @@ static  int msm_rpmrbcpr_probe(struct platform_device *pdev)
 	}
 
 	rbcpr_start_addr = res->start + readl_relaxed(start_ptr);
+	res->end = rbcpr_start_addr + RBCPR_STATS_MAX_SIZE;
 
 	if ((rbcpr_start_addr > (res->end - RBCPR_STATS_MAX_SIZE)) ||
 			(rbcpr_start_addr < start_addr)) {
