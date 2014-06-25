@@ -187,7 +187,7 @@ int mdss_mdp_vbif_axi_halt(struct mdss_data_type *mdata)
 	if (mdata->axi_port_cnt == 2)
 		idle_mask |= BIT(5);
 
-	mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_ON, false);
+	mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_ON);
 	reg_val = readl_relaxed(mdata->vbif_base + MMSS_VBIF_AXI_HALT_CTRL1);
 
 	is_idle = (reg_val & idle_mask) ? true : false;
@@ -206,7 +206,7 @@ int mdss_mdp_vbif_axi_halt(struct mdss_data_type *mdata)
 
 		writel_relaxed(0, mdata->vbif_base + MMSS_VBIF_AXI_HALT_CTRL0);
 	}
-	mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_OFF, false);
+	mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_OFF);
 
 	return rc;
 }
@@ -819,7 +819,7 @@ void mdss_bus_bandwidth_ctrl(int enable)
 }
 EXPORT_SYMBOL(mdss_bus_bandwidth_ctrl);
 
-void mdss_mdp_clk_ctrl(int enable, int isr)
+void mdss_mdp_clk_ctrl(int enable)
 {
 	struct mdss_data_type *mdata = mdss_mdp_get_mdata();
 	static int mdp_clk_cnt;
@@ -1112,9 +1112,9 @@ static int mdss_debug_dump_stats(void *data, char *buf, int len)
 static void mdss_debug_enable_clock(int on)
 {
 	if (on)
-		mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_ON, false);
+		mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_ON);
 	else
-		mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_OFF, false);
+		mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_OFF);
 }
 
 static int mdss_mdp_debug_init(struct mdss_data_type *mdata)
@@ -1137,10 +1137,10 @@ static void mdss_hw_rev_init(struct mdss_data_type *mdata)
 {
 	if (mdata->mdp_rev)
 		return;
-	mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_ON, false);
+	mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_ON);
 	mdata->mdp_rev = readl_relaxed(mdata->mdss_base + MDSS_REG_HW_VERSION);
 	pr_info_once("MDP Rev=%x\n", mdata->mdp_rev);
-	mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_OFF, false);
+	mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_OFF);
 }
 
 int mdss_hw_init(struct mdss_data_type *mdata)
@@ -1149,7 +1149,7 @@ int mdss_hw_init(struct mdss_data_type *mdata)
 	char *offset;
 	struct mdss_mdp_pipe *vig;
 
-	mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_ON, false);
+	mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_ON);
 	mdss_hw_rev_init(mdata);
 
 	/* disable hw underrun recovery */
@@ -1191,7 +1191,7 @@ int mdss_hw_init(struct mdss_data_type *mdata)
 		for (i = 0; i < mdata->nvig_pipes; i++)
 			mdss_mdp_hscl_init(&vig[i]);
 
-	mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_OFF, false);
+	mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_OFF);
 	pr_debug("MDP hw init done\n");
 
 	return 0;
@@ -1252,11 +1252,11 @@ void mdss_mdp_footswitch_ctrl_splash(int on)
 			if (ret)
 				pr_err("Footswitch failed to enable\n");
 
-			mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_ON, false);
+			mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_ON);
 			mdss_hw_init(mdata);
 		} else {
 			pr_debug("Disable MDP FS for splash.\n");
-			mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_OFF, false);
+			mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_OFF);
 			regulator_disable(mdata->fs);
 			mdata->handoff_pending = false;
 		}
