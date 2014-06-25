@@ -1038,7 +1038,18 @@ EXPORT_SYMBOL(bq24192_vbus_disable);
 int bq24192_vbus_status(void)
 {
 	struct bq24192_chip *chip = i2c_get_clientdata(bq24192_client);
-	return chip->a_bus_enable;
+	int val;
+
+	val = bq24192_read_reg(chip->client, BQ24192_SYSTEM_STAT_REG);
+	if (val < 0) {
+		dev_warn(&chip->client->dev, "System Status reg read fail\n");
+		return 0;
+	}
+	val &= SYSTEM_STAT_VBUS_BITS;
+	if (val == SYSTEM_STAT_VBUS_HOST || val == SYSTEM_STAT_VBUS_ADP)
+		return 1;
+	else
+		return 0;
 }
 EXPORT_SYMBOL(bq24192_vbus_status);
 
