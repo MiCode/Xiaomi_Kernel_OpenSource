@@ -1158,7 +1158,7 @@ static int mdss_panel_parse_dt(struct device_node *np,
 	rc = of_property_read_u32(np,
 		"qcom,mdss-dsi-border-color", &tmp);
 	pinfo->lcdc.border_clr = (!rc ? tmp : 0);
-	pinfo->bklt_ctrl = UNKNOWN_CTRL;
+	ctrl_pdata->bklt_ctrl = UNKNOWN_CTRL;
 	data = of_get_property(np, "qcom,mdss-dsi-bl-pmic-control-type", NULL);
 	if (data) {
 		if (!strncmp(data, "bl_ctrl_wled", 12)) {
@@ -1188,8 +1188,11 @@ static int mdss_panel_parse_dt(struct device_node *np,
 			tmp = of_get_named_gpio(np,
 				"qcom,mdss-dsi-pwm-gpio", 0);
 			ctrl_pdata->pwm_pmic_gpio = tmp;
+			pr_debug("%s: Configured PWM bklt ctrl\n", __func__);
 		} else if (!strncmp(data, "bl_ctrl_dcs", 11)) {
 			ctrl_pdata->bklt_ctrl = BL_DCS_CMD;
+			pr_debug("%s: Configured DCS_CMD bklt ctrl\n",
+								__func__);
 		}
 	}
 	rc = of_property_read_u32(np, "qcom,mdss-brightness-max-level", &tmp);
