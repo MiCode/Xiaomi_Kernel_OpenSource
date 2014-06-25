@@ -20,3 +20,35 @@
 	compatible = "qcom,msm8939-mtp", "qcom,msm8939", "qcom,mtp";
 	qcom,board-id = <8 1>;
 };
+
+&soc {
+	sound {
+		compatible = "qcom,msm8x16-audio-codec";
+		qcom,model = "msm8939-snd-card-mtp";
+		qcom,msm-snd-card-id = <0>;
+		qcom,msm-codec-type = "internal";
+		qcom,msm-ext-pa = "primary";
+		qcom,msm-mbhc-hphl-swh = <0>;
+		qcom,msm-mbhc-gnd-swh = <0>;
+		qcom,msm-hs-micbias-type = "internal";
+		qcom,audio-routing =
+			"RX_BIAS", "MCLK",
+			"SPK_RX_BIAS", "MCLK",
+			"INT_LDO_H", "MCLK",
+			"MIC BIAS External", "Handset Mic",
+			"MIC BIAS Internal2", "Headset Mic",
+			"MIC BIAS External", "Secondary Mic",
+			"AMIC1", "MIC BIAS External",
+			"AMIC2", "MIC BIAS Internal2",
+			"AMIC3", "MIC BIAS External";
+		pinctrl-names = "cdc_lines_act",
+				"cdc_lines_sus",
+				"cross_conn_det_act",
+				"cross_conn_det_sus";
+		pinctrl-0 = <&cdc_pdm_lines_act>;
+		pinctrl-1 = <&cdc_pdm_lines_sus>;
+		pinctrl-2 = <&cross_conn_det_act>;
+		pinctrl-3 = <&cross_conn_det_sus>;
+		qcom,cdc-us-euro-gpios = <&msm_gpio 120 0>;
+	};
+};

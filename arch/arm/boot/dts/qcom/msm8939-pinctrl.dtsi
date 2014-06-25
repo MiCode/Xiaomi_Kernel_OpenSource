@@ -505,6 +505,22 @@
 			};
 		};
 
+		cdc_slim_lines {
+			qcom,pins = <&gp 63>;
+			qcom,num-grp-pins = <1>;
+			qcom,pin-func = <2>;
+			label = "cdc_slim_lines";
+			cdc_slim_lines_act: slim_lines_on {
+				drive-strength = <8>;
+				bias-pull-none;
+				output-high;
+			};
+			cdc_slim_lines_sus: slim_lines_off {
+				drive-strength = <2>;
+				bias-disable;
+			};
+		};
+
 		cdc-pdm-lines {
 			qcom,pins = <&gp 63>, <&gp 64>, <&gp 65>,
 					<&gp 66>, <&gp 67>, <&gp 68>;
@@ -520,6 +536,7 @@
 				bias-disable;
 			};
 		};
+
 		cross-conn-det {
 			qcom,pins = <&gp 120>;
 			qcom,num-grp-pins = <1>;
@@ -535,6 +552,21 @@
 			};
 		};
 
+		cdc-vdd-spkr {
+			qcom,pins = <&gp 121>;
+			qcom,num-grp-pins = <1>;
+			qcom,pin-func = <0>;
+			label = "cdc-vdd-spkr-gpio";
+			cdc_vdd_spkr_act: spk_lines_on {
+				drive-strength = <8>;
+				bias-pull-none;
+				output-low;
+			};
+			cdc_vdd_spkr_sus: spk_lines_off {
+				drive-strength = <2>;
+				bias-disable;
+			};
+		};
 		pmx_mdss: pmx_mdss {
 			label = "mdss-pins";
 			qcom,pin-func = <0>;
