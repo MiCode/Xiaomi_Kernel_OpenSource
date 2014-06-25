@@ -792,6 +792,11 @@ void arizona_hpdet_stop(struct arizona_extcon_info *info)
 			   ARIZONA_HP_IMPEDANCE_RANGE_MASK |
 			   ARIZONA_HP_POLL, 0);
 
+	/* Reset to default mode */
+	regmap_update_bits(arizona->regmap,
+			   ARIZONA_ACCESSORY_DETECT_MODE_1,
+			   ARIZONA_ACCDET_MODE_MASK, 0);
+
 	arizona_extcon_do_magic(info, 0);
 
 	pm_runtime_put_autosuspend(info->dev);
@@ -923,6 +928,11 @@ void arizona_micd_stop(struct arizona_extcon_info *info)
 		regmap_write(arizona->regmap, 0x80, 0x0);
 		mutex_unlock(&arizona->reg_setting_lock);
 	}
+
+	/* Reset to default mode */
+	regmap_update_bits(arizona->regmap,
+			   ARIZONA_ACCESSORY_DETECT_MODE_1,
+			   ARIZONA_ACCDET_MODE_MASK, 0);
 
 	regulator_disable(info->micvdd);
 
