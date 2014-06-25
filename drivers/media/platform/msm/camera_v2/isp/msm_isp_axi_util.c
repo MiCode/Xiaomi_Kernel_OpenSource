@@ -478,8 +478,6 @@ void msm_isp_sof_notify(struct vfe_device *vfe_dev,
 		pr_debug("%s: frame id %d\n", __func__,
 			vfe_dev->axi_data.frame_id[session_id]);
 	}
-
-	vfe_dev->hw_info->vfe_ops.core_ops.vbif_clear_counters(vfe_dev);
 }
 
 void msm_isp_calculate_framedrop(
@@ -899,7 +897,6 @@ static int msm_isp_cfg_ping_pong_address(struct vfe_device *vfe_dev,
 			vfe_dev, stream_info->wm[i],
 			pingpong_status, buf->mapped_info[i].paddr +
 			stream_info->plane_cfg[i].plane_addr_offset);
-
 	pingpong_bit = (~(pingpong_status >> stream_info->wm[0]) & 0x1);
 	stream_info->buf[pingpong_bit] = buf;
 	return 0;
@@ -1317,6 +1314,7 @@ static int msm_isp_start_axi_stream(struct vfe_device *vfe_dev,
 		}
 		stream_info = &axi_data->stream_info[
 			HANDLE_TO_IDX(stream_cfg_cmd->stream_handle[i])];
+		stream_info->frame_id = 0;
 		src_state = axi_data->src_info[
 			SRC_TO_INTF(stream_info->stream_src)].active;
 
@@ -1644,6 +1642,7 @@ void msm_isp_process_axi_irq(struct vfe_device *vfe_dev,
 	struct msm_vfe_axi_stream *stream_info;
 	struct msm_vfe_axi_composite_info *comp_info;
 	struct msm_vfe_axi_shared_data *axi_data = &vfe_dev->axi_data;
+	uint32_t frame_id = 0;
 
 	comp_mask = vfe_dev->hw_info->vfe_ops.axi_ops.
 		get_comp_mask(irq_status0, irq_status1);
@@ -1655,7 +1654,6 @@ void msm_isp_process_axi_irq(struct vfe_device *vfe_dev,
 	ISP_DBG("%s: status: 0x%x\n", __func__, irq_status0);
 	pingpong_status =
 		vfe_dev->hw_info->vfe_ops.axi_ops.get_pingpong_status(vfe_dev);
-
 	for (i = 0; i < axi_data->hw_info->num_comp_mask; i++) {
 		comp_info = &axi_data->composite_info[i];
 		if (comp_mask & (1 << i)) {
@@ -1670,7 +1668,15 @@ void msm_isp_process_axi_irq(struct vfe_device *vfe_dev,
 				ISP_DBG("%s: stream%d frame id: 0x%x\n",
 					__func__,
 					stream_idx, stream_info->frame_id);
-				stream_info->frame_id++;
+				frame_id = vfe_dev->axi_data.
+					frame_id[stream_info->session_id];
+				if (stream_info->frame_id >= frame_id) {
+					pr_err("%s: Session frm id %d cur frm id %d\n",
+						__func__, frame_id,
+						stream_info->frame_id);
+					return;
+				}
+				stream_info->frame_id =  frame_id;
 
 				if (stream_info->stream_type == BURST_STREAM)
 					stream_info->
@@ -1681,7 +1687,7 @@ void msm_isp_process_axi_irq(struct vfe_device *vfe_dev,
 				if (stream_info->stream_type ==
 					CONTINUOUS_STREAM ||
 					stream_info->
-					runtime_num_burst_capture > 1) {
+					runtime_num_burst_capture >= 1) {
 					rc = msm_isp_cfg_ping_pong_address(
 							vfe_dev, stream_info,
 							pingpong_status);
@@ -1703,10 +1709,16 @@ void msm_isp_process_axi_irq(struct vfe_device *vfe_dev,
 			}
 			stream_idx = HANDLE_TO_IDX(axi_data->free_wm[i]);
 			stream_info = &axi_data->stream_info[stream_idx];
+			frame_id = vfe_dev->axi_data.
+				frame_id[stream_info->session_id];
 			ISP_DBG("%s: stream%d frame id: 0x%x\n",
 				__func__,
 				stream_idx, stream_info->frame_id);
-			stream_info->frame_id++;
+			if (stream_info->frame_id >= frame_id) {
+				pr_err("%s: Session frm id %d cur frm id %d\n",
+				__func__, frame_id, stream_info->frame_id);
+				return;
+			}
 
 			if (stream_info->stream_type == BURST_STREAM)
 				stream_info->runtime_num_burst_capture--;
