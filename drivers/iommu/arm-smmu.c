@@ -482,9 +482,16 @@ struct arm_smmu_cfg {
 #define ARM_SMMU_CB_ASID(cfg)		((cfg)->cbndx + 1)
 #define ARM_SMMU_CB_VMID(cfg)		((cfg)->cbndx + 2)
 
+enum arm_smmu_domain_stage {
+	ARM_SMMU_DOMAIN_S1 = 0,
+	ARM_SMMU_DOMAIN_S2,
+	ARM_SMMU_DOMAIN_NESTED,
+};
+
 struct arm_smmu_domain {
 	struct arm_smmu_device		*smmu;
 	struct arm_smmu_cfg		cfg;
+	enum arm_smmu_domain_stage	stage;
 	struct mutex			lock;
 	u32				attributes;
 };
@@ -1187,19 +1194,46 @@ static int arm_smmu_init_domain_context(struct iommu_domain *domain,
 	if (smmu_domain->smmu)
 		goto out;
 
-	if (smmu->features & ARM_SMMU_FEAT_TRANS_NESTED) {
+	/*
+	 * Mapping the requested stage onto what we support is surprisingly
+	 * complicated, mainly because the spec allows S1+S2 SMMUs without
+	 * support for nested translation. That means we end up with the
+	 * following table:
+	 *
+	 * Requested        Supported        Actual
+	 *     S1               N              S1
+	 *     S1             S1+S2            S1
+	 *     S1               S2             S2
+	 *     S1               S1             S1
+	 *     N                N              N
+	 *     N              S1+S2            S2
+	 *     N                S2             S2
+	 *     N                S1             S1
+	 *
+	 * Note that you can't actually request stage-2 mappings.
+	 */
+	if (!(smmu->features & ARM_SMMU_FEAT_TRANS_S1))
+		smmu_domain->stage = ARM_SMMU_DOMAIN_S2;
+	if (!(smmu->features & ARM_SMMU_FEAT_TRANS_S2))
+		smmu_domain->stage = ARM_SMMU_DOMAIN_S1;
+
+	switch (smmu_domain->stage) {
+	case ARM_SMMU_DOMAIN_S1:
+		cfg->cbar = CBAR_TYPE_S1_TRANS_S2_BYPASS;
+		start = smmu->num_s2_context_banks;
+		break;
+	case ARM_SMMU_DOMAIN_NESTED:
 		/*
 		 * We will likely want to change this if/when KVM gets
 		 * involved.
 		 */
-		cfg->cbar = CBAR_TYPE_S1_TRANS_S2_BYPASS;
-		start = smmu->num_s2_context_banks;
-	} else if (smmu->features & ARM_SMMU_FEAT_TRANS_S1) {
-		cfg->cbar = CBAR_TYPE_S1_TRANS_S2_BYPASS;
-		start = smmu->num_s2_context_banks;
-	} else {
+	case ARM_SMMU_DOMAIN_S2:
 		cfg->cbar = CBAR_TYPE_S2_TRANS;
 		start = 0;
+		break;
+	default:
+		ret = -EINVAL;
+		goto out;
 	}
 
 	ret = __arm_smmu_alloc_bitmap(smmu->context_map, start,
@@ -2175,6 +2209,9 @@ static int arm_smmu_domain_get_attr(struct iommu_domain *domain,
 	struct arm_smmu_domain *smmu_domain = domain->priv;
 
 	switch (attr) {
+	case DOMAIN_ATTR_NESTING:
+		*(int *)data = (smmu_domain->stage == ARM_SMMU_DOMAIN_NESTED);
+		return 0;
 	case DOMAIN_ATTR_COHERENT_HTW_DISABLE:
 		*((int *)data) = !!(smmu_domain->attributes &
 				(1 << DOMAIN_ATTR_COHERENT_HTW_DISABLE));
@@ -2193,6 +2230,14 @@ static int arm_smmu_domain_set_attr(struct iommu_domain *domain,
 	struct arm_smmu_domain *smmu_domain = domain->priv;
 
 	switch (attr) {
+	case DOMAIN_ATTR_NESTING:
+		if (smmu_domain->smmu)
+			return -EPERM;
+		if (*(int *)data)
+			smmu_domain->stage = ARM_SMMU_DOMAIN_NESTED;
+		else
+			smmu_domain->stage = ARM_SMMU_DOMAIN_S1;
+		return 0;
 	case DOMAIN_ATTR_COHERENT_HTW_DISABLE:
 	{
 		struct arm_smmu_device *smmu;
@@ -2238,8 +2283,8 @@ static struct iommu_ops arm_smmu_ops = {
 	.domain_get_attr	= arm_smmu_domain_get_attr,
 	.domain_set_attr	= arm_smmu_domain_set_attr,
 	.pgsize_bitmap		= (SECTION_SIZE |
-			   ARM_SMMU_PTE_CONT_SIZE |
-			   PAGE_SIZE),
+				   ARM_SMMU_PTE_CONT_SIZE |
+				   PAGE_SIZE),
 };
 
 static void arm_smmu_device_reset(struct arm_smmu_device *smmu)
