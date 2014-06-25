@@ -1140,10 +1140,18 @@ int bam2bam_data_port_select(int portno)
 
 	spin_lock_init(&port->port_lock_ul);
 	spin_lock_init(&port->port_lock);
-	INIT_WORK(&port->connect_w, bam2bam_data_connect_work);
-	INIT_WORK(&port->disconnect_w, bam2bam_data_disconnect_work);
-	INIT_WORK(&port->suspend_w, bam2bam_data_suspend_work);
-	INIT_WORK(&port->resume_w, bam2bam_data_resume_work);
+
+	if (!work_pending(&port->connect_w))
+		INIT_WORK(&port->connect_w, bam2bam_data_connect_work);
+
+	if (!work_pending(&port->disconnect_w))
+		INIT_WORK(&port->disconnect_w, bam2bam_data_disconnect_work);
+
+	if (!work_pending(&port->suspend_w))
+		INIT_WORK(&port->suspend_w, bam2bam_data_suspend_work);
+
+	if (!work_pending(&port->resume_w))
+		INIT_WORK(&port->resume_w, bam2bam_data_resume_work);
 
 	/* data ch */
 	d = &port->data_ch;
@@ -1156,7 +1164,9 @@ int bam2bam_data_port_select(int portno)
 	skb_queue_head_init(&d->rx_skb_q);
 	skb_queue_head_init(&d->rx_skb_idle);
 	INIT_LIST_HEAD(&d->rx_idle);
-	INIT_WORK(&d->write_tobam_w, bam_data_write_toipa);
+
+	if (!work_pending(&d->write_tobam_w))
+		INIT_WORK(&d->write_tobam_w, bam_data_write_toipa);
 
 	rndis_disconn_w = &port->disconnect_w;
 
