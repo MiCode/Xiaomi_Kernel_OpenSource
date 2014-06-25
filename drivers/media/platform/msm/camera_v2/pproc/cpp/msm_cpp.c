@@ -1284,8 +1284,6 @@ static int msm_cpp_cfg(struct cpp_device *cpp_dev,
 	unsigned long in_phyaddr, out_phyaddr0, out_phyaddr1;
 	uint16_t num_stripes = 0;
 	struct msm_buf_mngr_info buff_mgr_info, dup_buff_mgr_info;
-	struct msm_cpp_frame_info_t *u_frame_info =
-		(struct msm_cpp_frame_info_t *)ioctl_ptr->ioctl_ptr;
 	int32_t status = 0;
 	uint8_t fw_version_1_2_x = 0;
 	int in_fd;
@@ -1441,7 +1439,7 @@ static int msm_cpp_cfg(struct cpp_device *cpp_dev,
 
 	ioctl_ptr->trans_code = rc;
 	status = rc;
-	rc = (copy_to_user((void __user *)u_frame_info->status, &status,
+	rc = (copy_to_user((void __user *)new_frame->status, &status,
 		sizeof(int32_t)) ? -EFAULT : 0);
 	if (rc) {
 		ERR_COPY_FROM_USER();
@@ -1457,12 +1455,12 @@ ERROR3:
 ERROR2:
 	kfree(cpp_frame_msg);
 ERROR1:
-	kfree(new_frame);
 	ioctl_ptr->trans_code = rc;
 	status = rc;
-	if (copy_to_user((void __user *)u_frame_info->status, &status,
+	if (copy_to_user((void __user *)new_frame->status, &status,
 		sizeof(int32_t)))
 		pr_err("error cannot copy error\n");
+	kfree(new_frame);
 	return rc;
 }
 
