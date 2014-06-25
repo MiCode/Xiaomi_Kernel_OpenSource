@@ -143,9 +143,9 @@ static int mdss_fb_notify_update(struct msm_fb_data_type *mfd,
 							unsigned long *argp)
 {
 	int ret;
-	unsigned long notify = 0x0, to_user = 0x0;
+	unsigned int notify = 0x0, to_user = 0x0;
 
-	ret = copy_from_user(&notify, argp, sizeof(unsigned long));
+	ret = copy_from_user(&notify, argp, sizeof(unsigned int));
 	if (ret) {
 		pr_err("%s:ioctl failed\n", __func__);
 		return ret;
@@ -195,7 +195,7 @@ static int mdss_fb_notify_update(struct msm_fb_data_type *mfd,
 	if (ret == 0)
 		ret = -ETIMEDOUT;
 	else if (ret > 0)
-		ret = copy_to_user(argp, &to_user, sizeof(unsigned long));
+		ret = copy_to_user(argp, &to_user, sizeof(unsigned int));
 	return ret;
 }
 
