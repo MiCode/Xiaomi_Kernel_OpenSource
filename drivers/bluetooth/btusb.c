@@ -35,7 +35,8 @@ static bool ignore_sniffer;
 static bool disable_scofix;
 static bool force_scofix;
 
-static bool reset = 1;
+static int sco_conn;
+static int reset = 1;
 
 static struct usb_driver btusb_driver;
 
@@ -830,8 +831,9 @@ static void btusb_notify(struct hci_dev *hdev, unsigned int evt)
 
 	BT_DBG("%s evt %d", hdev->name, evt);
 
-	if (hdev->conn_hash.sco_num != data->sco_num) {
-		data->sco_num = hdev->conn_hash.sco_num;
+	if ((evt == HCI_NOTIFY_SCO_COMPLETE) || (evt == HCI_NOTIFY_CONN_DEL)) {
+		BT_DBG("SCO conn state changed: evt %d", evt);
+		sco_conn = (evt == HCI_NOTIFY_SCO_COMPLETE) ? 1 : 0;
 		schedule_work(&data->work);
 	}
 }
@@ -886,7 +888,7 @@ static void btusb_work(struct work_struct *work)
 	int new_alts;
 	int err;
 
-	if (hdev->conn_hash.sco_num > 0) {
+	if (sco_conn) {
 		if (!test_bit(BTUSB_DID_ISO_RESUME, &data->flags)) {
 			err = usb_autopm_get_interface(data->isoc ? data->isoc : data->intf);
 			if (err < 0) {
