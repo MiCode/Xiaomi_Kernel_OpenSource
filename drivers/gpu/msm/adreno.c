@@ -395,8 +395,9 @@ int adreno_perfcounter_read_group(struct adreno_device *adreno_dev,
 
 	/* write the data */
 	if (ret == 0)
-		ret = copy_to_user(reads, list,
-			sizeof(struct kgsl_perfcounter_read_group) * count);
+		if (copy_to_user(reads, list,
+			sizeof(struct kgsl_perfcounter_read_group) * count))
+			ret = -EFAULT;
 
 done:
 	kfree(list);
@@ -475,7 +476,7 @@ int adreno_perfcounter_query_group(struct adreno_device *adreno_dev,
 	struct adreno_perfcounters *counters = ADRENO_PERFCOUNTERS(adreno_dev);
 	struct adreno_perfcount_group *group;
 	unsigned int i, t;
-	int ret;
+	int ret = 0;
 	unsigned int *buf;
 
 	*max_counters = 0;
@@ -510,7 +511,9 @@ int adreno_perfcounter_query_group(struct adreno_device *adreno_dev,
 
 	mutex_unlock(&device->mutex);
 
-	ret = copy_to_user(countables, buf, sizeof(unsigned int) * t);
+	if (copy_to_user(countables, buf, sizeof(unsigned int) * t))
+		ret = -EFAULT;
+
 	kfree(buf);
 
 	return ret;
