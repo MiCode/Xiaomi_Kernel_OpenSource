@@ -225,9 +225,10 @@ static ssize_t msm_rpm_log_file_read(struct file *file, char __user *bufu,
 						&(buf->read_idx));
 	}
 
-	if ((file->f_flags & O_NONBLOCK) && buf->len == 0)
+	if ((file->f_flags & O_NONBLOCK) && buf->len == 0) {
 		mutex_unlock(&buf->mutex);
 		return -EAGAIN;
+	}
 
 	/* loop until new messages arrive */
 	while (buf->len == 0) {
