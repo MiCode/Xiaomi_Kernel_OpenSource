@@ -16,6 +16,18 @@ Required properties:
   property defined.
     - "vfe" - Required.
 - vdd-supply: phandle to GDSC regulator controlling VFE core.
+- qos-entries: number of QoS registers to program
+- qos-regs: relative address offsets of QoS registers
+- qos-settings: QoS values to be written to QoS registers
+- vbif-entries - number of VBIF registers to program (optional)
+- vbif-regs: relative address offsets of VBIF registers (optional)
+- vbif-settings: VBIF values to be written to VBIF registers (optional)
+- ds-entries: number danger/safe registers to program (optional)
+- ds-regs: relative address offsets of danger/safe registers (optional)
+- ds-settings: danger/safe values to be written to registers (optional)
+  NOTE: For all qos*, vbif*, ds* parameters, same SoC can have different
+  hardware versions with different entries/registers/settings. They can be
+  specified by adding version to the string e.g. qos-v2-settings.
 
 Example:
 
@@ -27,4 +39,43 @@ Example:
        interrupts = <0 58 0>;
        interrupt-names = "vfe";
        vdd-supply = <&gdsc_vfe>;
+       qos-entries = <8>;
+       qos-regs = <0x2C4 0x2C8 0x2CC 0x2D0 0x2D4 0x2D8
+               0x2DC 0x2E0>;
+       qos-settings = <0xAAAAAAAA 0xAAAAAAAA 0xAAAAAAAA
+               0xAAAAAAAA 0xAAAAAAAA 0xAAAAAAAA
+               0xAAAAAAAA 0x0002AAAA>;
+       qos-v2-settings = <0xAAA9AAA9 0xAAA9AAA9 0xAAA9AAA9
+               0xAAA9AAA9 0xAAA9AAA9 0xAAA9AAA9
+               0xAAA9AAA9 0x0001AAA9>;
+       qos-v3-settings = <0xAAA9AAA9 0xAAA9AAA9 0xAAA9AAA9
+               0xAAA9AAA9 0xAAA9AAA9 0xAAA9AAA9
+               0xAAA9AAA9 0x0001AAA9>;
+       vbif-entries = <17>;
+       vbif-regs = <0x4 0xB0 0xB4 0xB8 0xC0 0xC4 0xC8 0xD0
+               0xD4 0xD8 0xDC 0xF0 0x178 0x17C 0x124 0x160
+               0x164>;
+       vbif-settings = <0x1 0x01010101 0x01010101 0x10010110
+               0x10101010 0x10101010 0x10101010 0x00001010
+               0x00001010 0x00000707 0x00000707 0x00000030
+               0x00000FFF 0x0FFF0FFF 0x00000001 0x22222222
+               0x00002222>;
+       vbif-v2-entries = <16>;
+       vbif-v2-regs = <0x4 0xB0 0xB4 0xB8 0xC0 0xC4 0xC8 0xD0
+               0xD4 0xD8 0xF0 0x178 0x17C 0x124 0x160
+               0x164>;
+       vbif-v2-settings = <0x1 0x10101010 0x10101010 0x10101010
+                0x10101010 0x10101010 0x10101010 0x00000010
+                0x00000010 0x00000707 0x00000010 0x00000FFF
+                0x0FFF0FFF 0x00000003 0x22222222 0x00002222>;
+       ds-entries = <17>;
+       ds-regs = <0x988 0x98C 0x990 0x994 0x998
+                0x99C 0x9A0 0x9A4 0x9A8 0x9AC 0x9B0
+                0x9B4 0x9B8 0x9BC 0x9C0 0x9C4 0x9C8>;
+       ds-settings = <0x44441111 0x44441111 0x44441111
+                0x44441111 0x44441111 0x44441111
+                0x44441111 0x44441111 0x44441111
+                0x44441111 0x44441111 0x44441111
+                0x44441111 0x44441111 0x44441111
+                0x44441111 0x00000103>;
    };
