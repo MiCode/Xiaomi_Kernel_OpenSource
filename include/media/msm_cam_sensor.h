@@ -57,6 +57,7 @@
 #define MAX_NUMBER_OF_STEPS 47
 
 #define MAX_LED_TRIGGERS 3
+#define MAX_POWER_CONFIG 12
 
 enum sensor_stats_type {
 	YRGB,
@@ -502,6 +503,9 @@ struct msm_camera_sensor_slave_info32 {
 	enum msm_camera_i2c_reg_addr_type addr_type;
 	struct msm_sensor_id_info_t sensor_id_info;
 	struct msm_sensor_power_setting_array32 power_setting_array;
+	uint8_t  is_init_params_valid;
+	struct msm_sensor_init_params sensor_init_params;
+	uint8_t is_flash_supported;
 };
 
 struct msm_camera_csid_lut_params32 {

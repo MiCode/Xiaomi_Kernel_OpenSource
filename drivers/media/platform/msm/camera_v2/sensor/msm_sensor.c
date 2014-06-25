@@ -589,25 +589,11 @@ static long msm_sensor_subdev_ioctl(struct v4l2_subdev *sd,
 static long msm_sensor_subdev_do_ioctl(
 	struct file *file, unsigned int cmd, void *arg)
 {
-	int rc = 0;
 	struct video_device *vdev = video_devdata(file);
 	struct v4l2_subdev *sd = vdev_to_v4l2_subdev(vdev);
-	struct sensorb_cfg_data32 *u32 =
-		(struct sensorb_cfg_data32 *)arg;
 	switch (cmd) {
 	case VIDIOC_MSM_SENSOR_CFG32:
 		cmd = VIDIOC_MSM_SENSOR_CFG;
-		switch (u32->cfgtype) {
-		case CFG_WRITE_I2C_ARRAY:
-		case CFG_SET_SLAVE_INFO:
-		case CFG_SLAVE_READ_I2C:
-		case CFG_SLAVE_WRITE_I2C_ARRAY:
-		case CFG_WRITE_I2C_SEQ_ARRAY:
-		case CFG_SET_STOP_STREAM_SETTING:
-		default:
-			rc = msm_sensor_subdev_ioctl(sd, cmd, arg);
-			return rc;
-		}
 	default:
 		return msm_sensor_subdev_ioctl(sd, cmd, arg);
 	}

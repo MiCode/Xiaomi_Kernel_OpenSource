@@ -580,15 +580,22 @@ static int32_t msm_csid_cmd32(struct csid_device *csid_dev, void __user *arg)
 		struct msm_camera_csid_vc_cfg *vc_cfg = NULL;
 		int8_t i = 0;
 		struct msm_camera_csid_lut_params32 lut_par32;
-		struct msm_camera_csid_params32 *csid_params32 =
-			compat_ptr(arg32->cfg.csid_params);
-		struct msm_camera_csid_vc_cfg *vc_cfg32;
+		struct msm_camera_csid_params32 csid_params32;
+		struct msm_camera_csid_vc_cfg vc_cfg32;
 
-		csid_params.lane_cnt = csid_params32->lane_cnt;
-		csid_params.lane_assign = csid_params32->lane_assign;
-		csid_params.phy_sel = csid_params32->phy_sel;
+		if (copy_from_user(&csid_params32,
+			(void *)compat_ptr(arg32->cfg.csid_params),
+			sizeof(struct msm_camera_csid_params32))) {
+			pr_err("%s: %d failed\n", __func__, __LINE__);
+			rc = -EFAULT;
+			break;
+		}
 
-		lut_par32 = csid_params32->lut_params;
+		csid_params.lane_cnt = csid_params32.lane_cnt;
+		csid_params.lane_assign = csid_params32.lane_assign;
+		csid_params.phy_sel = csid_params32.phy_sel;
+
+		lut_par32 = csid_params32.lut_params;
 		csid_params.lut_params.num_cid = lut_par32.num_cid;
 
 		if (csid_params.lut_params.num_cid < 1 ||
@@ -611,11 +618,16 @@ static int32_t msm_csid_cmd32(struct csid_device *csid_dev, void __user *arg)
 			}
 			/* msm_camera_csid_vc_cfg size
 					does not change in COMPAT MODE */
-			vc_cfg32 = compat_ptr(lut_par32.vc_cfg[i]);
-
-			vc_cfg->cid = vc_cfg32->cid;
-			vc_cfg->dt = vc_cfg32->dt;
-			vc_cfg->decode_format = vc_cfg32->decode_format;
+			if (copy_from_user(&vc_cfg32,
+				(void *)compat_ptr(lut_par32.vc_cfg[i]),
+				sizeof(vc_cfg32))) {
+				pr_err("%s: %d failed\n", __func__, __LINE__);
+				rc = -EFAULT;
+				break;
+			}
+			vc_cfg->cid = vc_cfg32.cid;
+			vc_cfg->dt = vc_cfg32.dt;
+			vc_cfg->decode_format = vc_cfg32.decode_format;
 			csid_params.lut_params.vc_cfg[i] = vc_cfg;
 		}
 
