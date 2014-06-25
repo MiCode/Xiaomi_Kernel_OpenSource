@@ -1300,16 +1300,7 @@ static int kgsl_iommu_init(struct kgsl_mmu *mmu)
 	if (status)
 		goto done;
 
-	/*
-	 * IOMMU-v1 requires hardware halt support to do in stream
-	 * pagetable switching. This check assumes that if there are
-	 * multiple units, they will be matching hardware.
-	 */
-	mmu->pt_per_process = KGSL_MMU_USE_PER_PROCESS_PT &&
-				(msm_soc_version_supports_iommu_v0() ||
-				 iommu->iommu_units[0].iommu_halt_enable);
-
-	if (mmu->pt_per_process &&
+	if (KGSL_MMU_USE_PER_PROCESS_PT &&
 		of_property_match_string(pdev->dev.of_node, "clock-names",
 						"gtcu_iface_clk") >= 0)
 		iommu->gtcu_iface_clk = clk_get(&pdev->dev, "gtcu_iface_clk");
@@ -1325,7 +1316,6 @@ static int kgsl_iommu_init(struct kgsl_mmu *mmu)
 
 	mmu->pt_base = KGSL_MMU_MAPPED_MEM_BASE;
 	mmu->pt_size = (KGSL_MMU_MAPPED_MEM_SIZE - secured_pool_sz);
-	mmu->use_cpu_map = mmu->pt_per_process;
 
 	status = kgsl_iommu_init_sync_lock(mmu);
 	if (status)

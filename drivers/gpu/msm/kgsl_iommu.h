@@ -132,14 +132,12 @@ struct kgsl_iommu_ctx {
  * from dtsi file
  * @iommu_ctxs:         Pointer to array of struct holding context name and id
  * @iommu_ctx_count:    Number of contexts defined in the dtsi file
- * @iommu_halt_enable:  Indicates if smmu halt h/w feature is supported
  * @physstart:          Start of iommu registers physical address
  * @physend:            End of iommu registers physical address
  */
 struct kgsl_device_iommu_data {
 	const struct kgsl_iommu_ctx *iommu_ctxs;
 	int iommu_ctx_count;
-	int iommu_halt_enable;
 	unsigned int physstart;
 	unsigned int physend;
 };
