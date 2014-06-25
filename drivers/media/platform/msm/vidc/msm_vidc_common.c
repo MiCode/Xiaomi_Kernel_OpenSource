@@ -4047,18 +4047,6 @@ int msm_vidc_check_scaling_supported(struct msm_vidc_inst *inst)
 	u32 x_min, x_max, y_min, y_max;
 	u32 input_height, input_width, output_height, output_width;
 
-	if (!inst->capability.scale_x.min || !inst->capability.scale_x.max ||
-		!inst->capability.scale_y.min ||
-		!inst->capability.scale_y.max) {
-		dprintk(VIDC_ERR, "%s : Invalid scaling ratios\n",
-				__func__);
-		return -ENOTSUPP;
-	}
-	x_min = (1<<16)/inst->capability.scale_x.min;
-	y_min = (1<<16)/inst->capability.scale_y.min;
-	x_max = inst->capability.scale_x.max >> 16;
-	y_max = inst->capability.scale_y.max >> 16;
-
 	input_height = inst->prop.height[OUTPUT_PORT];
 	input_width = inst->prop.width[OUTPUT_PORT];
 	output_height = inst->prop.height[CAPTURE_PORT];
@@ -4072,6 +4060,30 @@ int msm_vidc_check_scaling_supported(struct msm_vidc_inst *inst)
 			output_width);
 		return -ENOTSUPP;
 	}
+
+	if (!inst->capability.scale_x.min ||
+		!inst->capability.scale_x.max ||
+		!inst->capability.scale_y.min ||
+		!inst->capability.scale_y.max) {
+
+		if ((input_width * input_height) !=
+			(output_width * output_height)) {
+			dprintk(VIDC_ERR,
+				"%s: scaling is not supported (%dx%d != %dx%d)\n",
+				__func__, input_width, input_height,
+				output_width, output_height);
+			return -ENOTSUPP;
+		} else {
+			dprintk(VIDC_DBG, "%s: supported WxH = %dx%d\n",
+				__func__, input_width, input_height);
+			return 0;
+		}
+	}
+
+	x_min = (1<<16)/inst->capability.scale_x.min;
+	y_min = (1<<16)/inst->capability.scale_y.min;
+	x_max = inst->capability.scale_x.max >> 16;
+	y_max = inst->capability.scale_y.max >> 16;
 
 	if (input_height > output_height) {
 		if (input_height/output_height > x_min) {
