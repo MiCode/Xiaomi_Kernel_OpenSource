@@ -1637,6 +1637,12 @@ i915_gem_do_execbuffer(struct drm_device *dev, void *data,
 	params->args_DR4                = args->DR4;
 	params->batch_obj               = batch_obj;
 
+	/* Use the out-of-memory priority value as a suitable starting point for
+	 * the buffer priority. It seems to be zero for application level tasks
+	 * and less than zero for system tasks. */
+	qe.priority = (current->signal->oom_score_adj < 0) ?
+					-current->signal->oom_score_adj : 0;
+
 	/*
 	 * Save away the list of objects used by this batch buffer for the
 	 * purpose of tracking inter-buffer dependencies.
