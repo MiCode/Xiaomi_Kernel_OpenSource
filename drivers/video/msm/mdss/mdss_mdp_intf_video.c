@@ -324,14 +324,12 @@ static int mdss_mdp_video_stop(struct mdss_mdp_ctl *ctl)
 		WARN(rc, "intf %d blank error (%d)\n", ctl->intf_num, rc);
 
 		mdp_video_write(ctx, MDSS_MDP_REG_INTF_TIMING_ENGINE_EN, 0);
-		/* wait for at least one VSYNC on HDMI intf for proper TG OFF */
-		if (MDSS_INTF_HDMI == ctx->intf_type) {
-			frame_rate = mdss_panel_get_framerate
-					(&(ctl->panel_data->panel_info));
-			if (!(frame_rate >= 24 && frame_rate <= 240))
-				frame_rate = 24;
-			msleep((1000/frame_rate) + 1);
-		}
+		/* wait for at least one VSYNC for proper TG OFF */
+		frame_rate = mdss_panel_get_framerate
+				(&(ctl->panel_data->panel_info));
+		if (!(frame_rate >= 24 && frame_rate <= 240))
+			frame_rate = 24;
+		msleep((1000/frame_rate) + 1);
 
 		mdss_iommu_ctrl(0);
 		mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_OFF, false);
