@@ -144,6 +144,17 @@ void removed_sync_sg_for_device(struct device *dev,
 	return;
 }
 
+void *removed_remap(struct device *dev, void *cpu_addr, dma_addr_t handle,
+			size_t size, struct dma_attrs *attrs)
+{
+	return ioremap(handle, size);
+}
+
+void removed_unremap(struct device *dev, void *remapped_address, size_t size)
+{
+	iounmap(remapped_address);
+}
+
 struct dma_map_ops removed_dma_ops = {
 	.alloc			= removed_alloc,
 	.free			= removed_free,
@@ -156,6 +167,8 @@ struct dma_map_ops removed_dma_ops = {
 	.sync_single_for_device	= removed_sync_single_for_device,
 	.sync_sg_for_cpu	= removed_sync_sg_for_cpu,
 	.sync_sg_for_device	= removed_sync_sg_for_device,
+	.remap			= removed_remap,
+	.unremap		= removed_unremap,
 };
 EXPORT_SYMBOL(removed_dma_ops);
 
