@@ -1041,7 +1041,7 @@ EXPORT_SYMBOL(kgsl_pwrctrl_irq);
 
 int kgsl_pwrctrl_init(struct kgsl_device *device)
 {
-	int i, k, m, n = 0, result = 0;
+	int i, k, m, set_bus = 1, n = 0, result = 0;
 	unsigned int freq_i, rbbmtimer_freq;
 	struct clk *clk;
 	struct platform_device *pdev = device->pdev;
@@ -1088,6 +1088,17 @@ int kgsl_pwrctrl_init(struct kgsl_device *device)
 					   gpu_freq) : 0;
 		pwr->pwrlevels[i].bus_freq =
 			pdata->pwrlevel[i].bus_freq;
+		pwr->pwrlevels[i].bus_min =
+			pdata->pwrlevel[i].bus_min;
+		pwr->pwrlevels[i].bus_max =
+			pdata->pwrlevel[i].bus_max;
+		/*
+		 * If the bus min/max values are specified to be something
+		 * other than defaults, do not attempt to generate them
+		 * below.
+		 */
+		if (pwr->pwrlevels[i].bus_min != pwr->pwrlevels[i].bus_max)
+			set_bus = 0;
 	}
 	/* Do not set_rate for targets in sync with AXI */
 	if (pwr->pwrlevels[0].gpu_freq > 0) {
@@ -1160,6 +1171,12 @@ int kgsl_pwrctrl_init(struct kgsl_device *device)
 			for (k = 0; k < n; k++)
 				if (vector->ib == pwr->bus_ib[k]) {
 					static uint64_t last_ib = 0xFFFFFFFF;
+					/*
+					 * if the bus min/max are already set
+					 * leave them alone.
+					 */
+					if (set_bus == 0)
+						break;
 					if (vector->ib <= last_ib) {
 						pwr->pwrlevels[freq_i--].
 							bus_max = i - 1;
@@ -1184,7 +1201,7 @@ int kgsl_pwrctrl_init(struct kgsl_device *device)
 			}
 		}
 	}
-	pwr->pwrlevels[freq_i].bus_max = i - 1;
+	pwr->pwrlevels[0].bus_max = i - 1;
 
 	return result;
 
