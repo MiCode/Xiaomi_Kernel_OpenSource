@@ -200,7 +200,6 @@ struct msm_ssphy_qmp {
 	bool			clk_enabled;
 	bool			cable_connected;
 	bool			in_suspend;
-	bool			ext_vbus_id;
 	bool			override_pll_cal;
 	bool			switch_pipe_clk_src;
 };
@@ -533,8 +532,7 @@ static int msm_ssphy_power_enable(struct msm_ssphy_qmp *phy, bool on)
 	 * Turn off the phy's LDOs when cable is disconnected for device mode
 	 * with external vbus_id indication.
 	 */
-	if (!host && !chg_connected && phy->ext_vbus_id &&
-		!phy->cable_connected) {
+	if (!host && !chg_connected && !phy->cable_connected) {
 		if (on) {
 			ret = regulator_enable(phy->vdd);
 			if (ret)
@@ -676,9 +674,6 @@ static int msm_ssphy_qmp_probe(struct platform_device *pdev)
 		dev_err(dev, "error reading qcom,vdd-voltage-level property\n");
 		return ret;
 	}
-
-	phy->ext_vbus_id =
-		of_property_read_bool(dev->of_node, "qcom,ext-vbus-id");
 
 	phy->vdd = devm_regulator_get(dev, "vdd");
 	if (IS_ERR(phy->vdd)) {
