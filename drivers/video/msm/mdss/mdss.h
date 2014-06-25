@@ -187,6 +187,7 @@ struct mdss_data_type {
 	u32 nvig_pipes;
 	u32 nrgb_pipes;
 	u32 ndma_pipes;
+	u32 max_target_zorder;
 
 	DECLARE_BITMAP(mmb_alloc_map, MAX_DRV_SUP_MMB_BLKS);
 
