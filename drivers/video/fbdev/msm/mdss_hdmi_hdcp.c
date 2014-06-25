@@ -603,7 +603,7 @@ static int hdmi_hdcp_authentication_part1(struct hdmi_hdcp_ctrl *hdcp_ctrl)
 error:
 	if (rc) {
 		DEV_ERR("%s: %s: Authentication Part I failed\n", __func__,
-			HDCP_STATE_NAME);
+			hdcp_ctrl ? HDCP_STATE_NAME : "???");
 	} else {
 		/* Enable HDCP Encryption */
 		DSS_REG_W(io, HDMI_HDCP_CTRL, BIT(0) | BIT(8));
@@ -1041,7 +1041,7 @@ static int hdmi_hdcp_authentication_part2(struct hdmi_hdcp_ctrl *hdcp_ctrl)
 error:
 	if (rc)
 		DEV_ERR("%s: %s: Authentication Part II failed\n", __func__,
-			HDCP_STATE_NAME);
+			hdcp_ctrl ? HDCP_STATE_NAME : "???");
 	else
 		DEV_INFO("%s: %s: Authentication Part II successful\n",
 			__func__, HDCP_STATE_NAME);
