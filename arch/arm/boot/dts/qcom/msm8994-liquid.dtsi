@@ -60,10 +60,6 @@
 	qcom,mdss-dsi-pwm-gpio = <&pmi8994_mpps 1 0>;
 };
 
-&mdss_dsi0_pll {
-	vddio-supply = <&pm8994_l12>;
-};
-
 &mdss_dsi0 {
 	qcom,dsi-pref-prim-pan = <&dsi_dual_jdi_4k_video_0>;
 	pinctrl-names = "mdss_default", "mdss_sleep";
@@ -75,6 +71,8 @@
 	qcom,platform-enable-gpio = <&pm8994_gpios 14 0>;
 	qcom,platform-reset-gpio = <&msm_gpio 78 0>;
 	qcom,platform-bklight-en-gpio = <&pmi8994_gpios 2 0>;
+
+	qcom,dsi-panel-bias-vreg;
 	qcom,regulator-ldo-mode;
 };
 
