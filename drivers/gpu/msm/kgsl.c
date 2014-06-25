@@ -620,6 +620,15 @@ kgsl_context_destroy(struct kref *kref)
 		kgsl_sharedmem_writel(device, &device->memstore,
 			KGSL_MEMSTORE_OFFSET(context->id, eoptimestamp), 0);
 
+		/* clear device power constraint */
+		if (context->id == device->pwrctrl.constraint.owner_id) {
+			trace_kgsl_constraint(device,
+				device->pwrctrl.constraint.type,
+				device->pwrctrl.active_pwrlevel,
+				0);
+			device->pwrctrl.constraint.type = KGSL_CONSTRAINT_NONE;
+		}
+
 		idr_remove(&device->context_idr, context->id);
 		context->id = KGSL_CONTEXT_INVALID;
 	}
