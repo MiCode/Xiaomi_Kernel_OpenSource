@@ -50,6 +50,7 @@
 #include <linux/vmalloc.h>
 
 #include <linux/usb/ch9.h>
+#include <linux/usb/composite.h>
 #include <linux/usb/gadget.h>
 #include <linux/usb/otg.h>
 
@@ -191,30 +192,34 @@ int dwc3_gadget_resize_tx_fifos(struct dwc3 *dwc)
 	int		fifo_size;
 	int		mdwidth;
 	int		num;
+	int		num_eps;
+	struct usb_composite_dev *cdev = get_gadget_data(&dwc->gadget);
 
 	if (!dwc->needs_fifo_resize)
 		return 0;
 
+	/* gadget.num_eps never be greater than dwc->num_in_eps */
+	num_eps = min_t(int, dwc->num_in_eps,
+			cdev->config->num_ineps_used + 1);
 	ram1_depth = DWC3_RAM1_DEPTH(dwc->hwparams.hwparams7);
 	mdwidth = DWC3_MDWIDTH(dwc->hwparams.hwparams0);
 
 	/* MDWIDTH is represented in bits, we need it in bytes */
 	mdwidth >>= 3;
 
-	/*
-	 * FIXME For now we will only allocate 1 wMaxPacketSize space
-	 * for each enabled endpoint, later patches will come to
-	 * improve this algorithm so that we better use the internal
-	 * FIFO space. Also consider the case where TxFIFO RAM space
-	 * may change dynamically based on the USB configuration.
-	 */
-	for (num = 0; num < dwc->num_in_eps; num++) {
+	dev_dbg(dwc->dev, "%s: num eps: %d\n", __func__, num_eps);
+
+	for (num = 0; num < num_eps; num++) {
 		struct dwc3_ep	*dep = dwc->eps[(num << 1) | 1];
 		int		mult = 1;
 		int		tmp;
+		int		max_packet = 1024;
 
-		if (!(dep->flags & DWC3_EP_ENABLED))
-			continue;
+		if (!(dep->flags & DWC3_EP_ENABLED)) {
+			dev_warn(dwc->dev, "ep%dIn not enabled", num);
+			tmp = max_packet + mdwidth;
+			goto resize_fifo;
+		}
 
 		if (((dep->endpoint.maxburst > 1) &&
 				usb_endpoint_xfer_bulk(dep->endpoint.desc))
@@ -250,6 +255,7 @@ int dwc3_gadget_resize_tx_fifos(struct dwc3 *dwc)
 				tmp = mult * (1024 + mdwidth);
 		}
 
+resize_fifo:
 		tmp += mdwidth;
 
 		fifo_size = DIV_ROUND_UP(tmp, mdwidth);
