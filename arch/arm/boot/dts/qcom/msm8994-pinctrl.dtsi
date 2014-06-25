@@ -84,7 +84,7 @@
 		spi_0 {
 			qcom,pins = <&gp 0>, <&gp 1>, <&gp 3>;
 			qcom,num-grp-pins = <3>;
-			qcom,pin-func = <0>;
+			qcom,pin-func = <1>;
 			label = "spi_0";
 
 			spi_0_active: spi_0_active {
