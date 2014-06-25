@@ -544,6 +544,14 @@ static int32_t qpnp_vadc_version_check(struct qpnp_vadc_chip *dev)
 #define QPNP_VBAT_COEFF_38	5000
 #define QPNP_VBAT_COEFF_39	2610
 #define QPNP_VBAT_COEFF_40	4190
+#define QPNP_VBAT_COEFF_41	5800
+#define QPNP_VBAT_COEFF_42	2620
+#define QPNP_VBAT_COEFF_43	4030
+#define QPNP_VBAT_COEFF_44	3230
+#define QPNP_VBAT_COEFF_45	3450
+#define QPNP_VBAT_COEFF_46	2120
+#define QPNP_VBAT_COEFF_47	3560
+#define QPNP_VBAT_COEFF_48	2190
 
 static int32_t qpnp_ocv_comp(int64_t *result,
 			struct qpnp_vadc_chip *vadc, int64_t die_temp)
@@ -692,8 +700,22 @@ static int32_t qpnp_ocv_comp(int64_t *result,
 						(-QPNP_VBAT_COEFF_37));
 			}
 			break;
+		case COMP_ID_TSMC:
+			if (die_temp < 10000)
+				temp_var = ((die_temp - 10000) *
+						QPNP_VBAT_COEFF_41);
+			else if (die_temp > 50000)
+				temp_var = ((die_temp - 50000) *
+						(-QPNP_VBAT_COEFF_42));
+			break;
 		default:
-			temp_var = 0;
+		case COMP_ID_GF:
+			if (die_temp < 20000)
+				temp_var = ((die_temp - 20000) *
+						QPNP_VBAT_COEFF_45);
+			else if (die_temp > 40000)
+				temp_var = ((die_temp - 40000) *
+						(-QPNP_VBAT_COEFF_46));
 			break;
 		}
 		break;
@@ -849,8 +871,22 @@ static int32_t qpnp_vbat_sns_comp(int64_t *result,
 				(-QPNP_VBAT_COEFF_40));
 			}
 			break;
+		case COMP_ID_TSMC:
+			if (die_temp < 10000)
+				temp_var = ((die_temp - 10000) *
+					QPNP_VBAT_COEFF_43);
+			else if (die_temp > 50000)
+				temp_var = ((die_temp - 50000) *
+						(-QPNP_VBAT_COEFF_44));
+			break;
 		default:
-			temp_var = 0;
+		case COMP_ID_GF:
+			if (die_temp < 20000)
+				temp_var = ((die_temp - 20000) *
+					QPNP_VBAT_COEFF_47);
+			else if (die_temp > 40000)
+				temp_var = ((die_temp - 40000) *
+						(-QPNP_VBAT_COEFF_48));
 			break;
 		}
 		break;
