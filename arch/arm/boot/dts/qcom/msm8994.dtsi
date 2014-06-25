@@ -1698,8 +1698,8 @@
 		interrupts = <0 44 0>;
 		qcom,hfi = "venus";
 		qcom,reg-presets = <0x800D8 0x707>,
-			<0xe0020 0x5555556>,
-			<0xe0024 0x5555556>,
+			<0xe0020 0x55555556>,
+			<0xe0024 0x55555556>,
 			<0x80124 0x3>;
 		qcom,ocmem-size = <524288>; /* 512 * 1024*/
 		qcom,max-hw-load = <1281600>; /* Full 4k @ 30 + 1080p @ 30 */
