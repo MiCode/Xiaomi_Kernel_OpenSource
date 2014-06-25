@@ -50,6 +50,11 @@
 #define TSU6111_EXTCON_DCP		"CHARGER_USB_DCP"
 #define TSU6111_EXTCON_CDP		"CHARGER_USB_CDP"
 
+#define TSU6111_DET_SDP			0x04
+#define TSU6111_DET_CDP			0x20
+#define TSU6111_DET_DCP			0x40
+#define TSU6111_DET_OTG			0x80
+
 static const char *tsu6111_extcon_cable[] = {
 	TSU6111_EXTCON_SDP,
 	TSU6111_EXTCON_DCP,
@@ -158,7 +163,7 @@ static int tsu6111_detect_dev(struct tsu6111_chip *chip)
 
 	chrg_type = cfg;
 	chip->is_sdp = false;
-	if (chrg_type == 0x04) {
+	if (chrg_type == TSU6111_DET_SDP) {
 		dev_info(&chip->client->dev,
 				"SDP cable connecetd\n");
 		notify_otg = true;
@@ -172,7 +177,7 @@ static int tsu6111_detect_dev(struct tsu6111_chip *chip)
 			cable_props.ma = TSU_CHARGE_CUR_SDP_500;
 		else
 			cable_props.ma = TSU_CHARGE_CUR_SDP_100;
-	} else if (chrg_type == 0x20) {
+	} else if (chrg_type == TSU6111_DET_CDP) {
 		dev_info(&chip->client->dev,
 				"CDP cable connecetd\n");
 		notify_otg = true;
@@ -182,7 +187,7 @@ static int tsu6111_detect_dev(struct tsu6111_chip *chip)
 		cable_props.chrg_evt = POWER_SUPPLY_CHARGER_EVENT_CONNECT;
 		cable_props.chrg_type = POWER_SUPPLY_CHARGER_TYPE_USB_CDP;
 		cable_props.ma = TSU_CHARGE_CUR_CDP;
-	} else if (chrg_type == 0x40) {
+	} else if (chrg_type == TSU6111_DET_DCP) {
 		dev_info(&chip->client->dev,
 				"DCP/SE1 cable connecetd\n");
 		notify_charger = true;
@@ -221,6 +226,14 @@ notify_otg_em:
 		}
 		if (wake_lock_active(&chip->wakelock))
 			wake_unlock(&chip->wakelock);
+		/* Let's see if what really needed is host mode */
+		ret = tsu6111_read_reg(client, TSU_REG_DEVICETYPE1);
+		if (ret < 0)
+			goto dev_det_i2c_failed;
+		if (ret == TSU6111_DET_OTG) { /* Enter host mode */
+			atomic_notifier_call_chain(&chip->otg->notifier,
+				USB_EVENT_ID, &vbus_mask);
+		}
 	} else {
 		if (notify_otg) {
 			/* close mux path to enable device mode */
