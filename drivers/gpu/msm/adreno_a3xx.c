@@ -796,6 +796,8 @@ static void a3xx_err_callback(struct adreno_device *adreno_dev, int bit)
 {
 	struct kgsl_device *device = &adreno_dev->dev;
 	const char *err = "";
+	/* Limit to 10 messages every 5 seconds */
+	static DEFINE_RATELIMIT_STATE(ratelimit_state, 5 * HZ, 10);
 
 	switch (bit) {
 	case A3XX_INT_RBBM_ATB_BUS_OVERFLOW:
@@ -813,7 +815,13 @@ static void a3xx_err_callback(struct adreno_device *adreno_dev, int bit)
 	default:
 		return;
 	}
-	KGSL_DRV_CRIT(device, "%s\n", err);
+
+	/*
+	* Limit error interrupt reporting to prevent
+	* kernel logs causing watchdog timeout
+	*/
+	if (__ratelimit(&ratelimit_state))
+		KGSL_DRV_CRIT(device, "%s\n", err);
 }
 
 /*
