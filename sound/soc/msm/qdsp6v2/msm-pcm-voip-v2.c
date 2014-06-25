@@ -144,6 +144,7 @@ struct voip_drv_info {
 	spinlock_t dsp_lock;
 	spinlock_t dsp_ul_lock;
 
+	bool voip_reset;
 	uint32_t mode;
 	uint32_t rate_type;
 	uint32_t rate;
@@ -317,6 +318,34 @@ static int msm_pcm_voip_probe(struct snd_soc_platform *platform)
 
 /* sample rate supported */
 static unsigned int supported_sample_rates[] = {8000, 16000};
+
+static void voip_ssr_cb_fn(uint32_t opcode, void *private_data)
+{
+
+	/* Notify ASoC to send next playback/Capture to unblock write/read */
+	struct voip_drv_info *prtd = private_data;
+
+	if (opcode == 0xFFFFFFFF) {
+
+		prtd->voip_reset = true;
+		pr_debug("%s: Notify ASoC to send next playback/Capture\n",
+			__func__);
+
+		prtd->pcm_playback_irq_pos += prtd->pcm_count;
+		if (prtd->state == VOIP_STARTED)
+			snd_pcm_period_elapsed(prtd->playback_substream);
+		wake_up(&prtd->out_wait);
+
+		prtd->pcm_capture_irq_pos += prtd->pcm_capture_count;
+		if (prtd->state == VOIP_STARTED)
+			snd_pcm_period_elapsed(prtd->capture_substream);
+		wake_up(&prtd->in_wait);
+
+	} else {
+		pr_err("%s: Invalid opcode during reset : %d\n",
+			__func__, opcode);
+	}
+}
 
 /* capture path */
 static void voip_process_ul_pkt(uint8_t *voc_pkt,
@@ -756,10 +785,20 @@ static int msm_pcm_playback_copy(struct snd_pcm_substream *substream, int a,
 	int count = frames_to_bytes(runtime, frames);
 	pr_debug("%s: count = %d, frames=%d\n", __func__, count, (int)frames);
 
+	if (prtd->voip_reset) {
+		pr_debug("%s: RESET event happened during VoIP\n", __func__);
+		return -ENETRESET;
+	}
+
 	ret = wait_event_interruptible_timeout(prtd->in_wait,
 				(!list_empty(&prtd->free_in_queue) ||
 				prtd->state == VOIP_STOPPED),
 				1 * HZ);
+	if (prtd->voip_reset) {
+		pr_debug("%s: RESET event happened during VoIP\n", __func__);
+		return -ENETRESET;
+	}
+
 	if (ret > 0) {
 		if (count <= VOIP_MAX_VOC_PKT_SIZE) {
 			spin_lock_irqsave(&prtd->dsp_lock, dsp_flags);
@@ -809,10 +848,20 @@ static int msm_pcm_capture_copy(struct snd_pcm_substream *substream,
 
 	pr_debug("%s: count = %d\n", __func__, count);
 
+	if (prtd->voip_reset) {
+		pr_debug("%s: RESET event happened during VoIP\n", __func__);
+		return -ENETRESET;
+	}
+
 	ret = wait_event_interruptible_timeout(prtd->out_wait,
 				(!list_empty(&prtd->out_queue) ||
 				prtd->state == VOIP_STOPPED),
 				1 * HZ);
+
+	if (prtd->voip_reset) {
+		pr_debug("%s: RESET event happened during VoIP\n", __func__);
+		return -ENETRESET;
+	}
 
 	if (ret > 0) {
 
@@ -844,7 +893,6 @@ static int msm_pcm_capture_copy(struct snd_pcm_substream *substream,
 			list_add_tail(&buf_node->list,
 						&prtd->free_out_queue);
 			spin_unlock_irqrestore(&prtd->dsp_ul_lock, dsp_flags);
-
 		} else {
 			pr_err("%s: Read count %d > VOIP_MAX_VOC_PKT_SIZE\n",
 				__func__, count);
@@ -904,10 +952,11 @@ static int msm_pcm_close(struct snd_pcm_substream *substream)
 
 	if (!prtd->playback_instance && !prtd->capture_instance) {
 		if (prtd->state == VOIP_STARTED) {
+			prtd->voip_reset = false;
 			prtd->state = VOIP_STOPPED;
 			voc_end_voice_call(
 					voc_get_session_id(VOIP_SESSION_NAME));
-			voc_register_mvs_cb(NULL, NULL, prtd);
+			voc_register_mvs_cb(NULL, NULL, NULL, prtd);
 		}
 		/* release all buffer */
 		/* release in_queue and free_in_queue */
@@ -1134,8 +1183,10 @@ static int msm_pcm_prepare(struct snd_pcm_substream *substream)
 			goto done;
 		}
 
+		/* Initialaizing cb variables */
 		voc_register_mvs_cb(voip_process_ul_pkt,
-				    voip_process_dl_pkt, prtd);
+				    voip_process_dl_pkt,
+				    voip_ssr_cb_fn, prtd);
 
 		ret = voc_start_voice_call(
 				voc_get_session_id(VOIP_SESSION_NAME));
