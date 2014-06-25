@@ -25,6 +25,7 @@
 #include <linux/wait.h>
 #include <linux/err.h>
 #include <linux/interrupt.h>
+#include <linux/compat.h>
 
 #include <linux/types.h>
 #include <linux/file.h>
@@ -965,6 +966,92 @@ out:
 	return ret;
 }
 
+#ifdef CONFIG_COMPAT
+struct mtp_file_range_32 {
+	int	fd;
+	loff_t	offset;
+	int64_t	length;
+	uint16_t	command;
+	uint16_t	padding;
+	uint32_t	transaction_id;
+} __attribute__ ((packed));
+
+struct mtp_event_32 {
+	uint32_t	length;
+	uint32_t	data;
+};
+
+#define MTP_SEND_FILE_32	_IOW('M', 0, struct mtp_file_range_32)
+#define MTP_RECEIVE_FILE_32	_IOW('M', 1, struct mtp_file_range_32)
+#define MTP_SEND_EVENT_32	_IOW('M', 3, struct mtp_event_32)
+#define MTP_SEND_FILE_WITH_HEADER_32	_IOW('M', 4, struct mtp_file_range_32)
+
+static long mtp_compat_ioctl(struct file *fp, unsigned int code32,
+						unsigned long value32)
+{
+	long err = -EINVAL;
+	unsigned int code;
+	unsigned long value;
+
+	if (code32 == MTP_SEND_EVENT_32) {
+		struct mtp_event_32 e32;
+		struct mtp_event __user *event;
+
+		if (copy_from_user(&e32, (void __user *)value32, sizeof(e32)))
+			return -EFAULT;
+
+		event = compat_alloc_user_space(sizeof(*event));
+		if (!access_ok(VERIFY_WRITE, event, sizeof(*event)))
+			return -EFAULT;
+
+		if (__put_user(e32.length, &event->length)
+		    || __put_user((void __user *)(unsigned long)e32.data,
+								&event->data))
+			return -EFAULT;
+
+		code = MTP_SEND_EVENT;
+		value = (unsigned long)event;
+	} else {
+		struct mtp_file_range_32 r32;
+		struct mtp_file_range __user *range;
+
+		switch (code32) {
+		case MTP_SEND_FILE_32:
+			code = MTP_SEND_FILE;
+			break;
+		case MTP_RECEIVE_FILE_32:
+			code = MTP_RECEIVE_FILE;
+			break;
+		case MTP_SEND_FILE_WITH_HEADER_32:
+			code = MTP_SEND_FILE_WITH_HEADER;
+			break;
+		default:
+			return -EINVAL;
+		}
+
+		if (copy_from_user(&r32, (void __user *)value32, sizeof(r32)))
+			return -EFAULT;
+
+		range = compat_alloc_user_space(sizeof(*range));
+		if (!access_ok(VERIFY_WRITE, range, sizeof(*range)))
+			return -EFAULT;
+
+		/* TODO: r32 accesses are not aligned to natural boundries */
+		if (__put_user(r32.fd, &range->fd)
+		    || __put_user(r32.offset, &range->offset)
+		    || __put_user(r32.length, &range->length)
+		    || __put_user(r32.command, &range->command)
+		    || __put_user(r32.transaction_id, &range->transaction_id))
+			return -EFAULT;
+
+		value = (unsigned long)range;
+	}
+
+	err = mtp_ioctl(fp, code, value);
+	return err;
+}
+#endif
+
 static int mtp_open(struct inode *ip, struct file *fp)
 {
 	printk(KERN_INFO "mtp_open\n");
@@ -993,6 +1080,9 @@ static const struct file_operations mtp_fops = {
 	.read = mtp_read,
 	.write = mtp_write,
 	.unlocked_ioctl = mtp_ioctl,
+#ifdef CONFIG_COMPAT
+	.compat_ioctl = mtp_compat_ioctl,
+#endif
 	.open = mtp_open,
 	.release = mtp_release,
 };
