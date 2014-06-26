@@ -1,4 +1,4 @@
-/* Copyright (c) 2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -19,6 +19,39 @@ qcom,mtp-3000mah {
 	qcom,chg-term-ua = <200000>;
 	qcom,batt-id-kohm = <300>;
 	qcom,battery-type = "mtp_3000mah";
+	qcom,fg-profile-data = [
+		07 88 73 7E
+		31 82 CB 7C
+		6D 83 E6 76
+		74 89 E1 8E
+		F3 81 7A 93
+		72 AE 1A B3
+		67 1B 07 88
+		03 7E DB 81
+		7B 7C 6F 83
+		D7 75 DE 89
+		4C 94 34 82
+		0F 99 41 B7
+		F7 C2 60 14
+		07 0B 2C 5B
+		28 6E 5C FF
+		9A 3E 49 4E
+		78 49 18 28
+		82 46 19 34
+		C5 4F 18 28
+		66 72 66 62
+		66 72 66 62
+		2D 6B 8F 69
+		2F 88 65 91
+		F5 6E 0C 48
+		51 75 67 83
+		DF 6D 01 3E
+		66 4E 00 82
+		0A 32 58 8A
+		5C A0 71 0C
+		28 00 FF 37
+		F0 51 30 03
+		01 00 00 00];
 
 	qcom,fcc-temp-lut {
 		qcom,lut-col-legend = <(-20) 0 25 40 60>;

@@ -27,6 +27,11 @@ Profile data node required properties:
 			module when the ID resistance of some battery modules goes across
 			several ranges.
 - qcom,battery-type : A string indicating the type of battery.
+- qcom,fg-profile-data : An array of hexadecimal values used to configure more
+			complex fuel gauge peripherals which have a large amount
+			of coefficients used in hardware state machines and thus
+			influencing the final output of the state of charge read
+			by software.
 
 Profile data node required subnodes:
 - qcom,fcc-temp-lut : An 1-dimensional lookup table node that encodes

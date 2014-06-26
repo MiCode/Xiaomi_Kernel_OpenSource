@@ -29,6 +29,8 @@ Parent node optional properties:
 - qcom,cool-bat-decidegc:		Cool battery temperature in decidegC.
 - qcom,hot-bat-decidegc:		Hot battery temperature in decidegC.
 - qcom,cold-bat-decidegc:		Cold battery temperature in decidegC.
+- qcom,use-otp-profile:			Specify this flag to avoid RAM loading
+					any battery profile.
 
 qcom,fg-soc node required properties:
 - reg : offset and length of the PMIC peripheral register map.
