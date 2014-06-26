@@ -406,12 +406,14 @@ vlv_update_plane(struct drm_plane *dplane, struct drm_crtc *crtc,
 	u32 sprctl;
 	bool rotate = false;
 	bool alpha_changed = false;
+	bool yuv_format = false;
 	unsigned long sprsurf_offset, linear_offset;
 	int pixel_size = drm_format_plane_cpp(fb->pixel_format, 0);
 	struct drm_display_mode *mode = &intel_crtc->config.requested_mode;
 	u32 start_vbl_count;
 	bool atomic_update = false;
 	int sprite_ddl, sp_prec_multi;
+	int ch, index;
 	u32 mask, shift;
 
 	sprctl = I915_READ(SPCNTR(pipe, plane));
@@ -441,15 +443,19 @@ vlv_update_plane(struct drm_plane *dplane, struct drm_crtc *crtc,
 	switch (fb->pixel_format) {
 	case DRM_FORMAT_YUYV:
 		sprctl |= SP_FORMAT_YUV422 | SP_YUV_ORDER_YUYV;
+		yuv_format = true;
 		break;
 	case DRM_FORMAT_YVYU:
 		sprctl |= SP_FORMAT_YUV422 | SP_YUV_ORDER_YVYU;
+		yuv_format = true;
 		break;
 	case DRM_FORMAT_UYVY:
 		sprctl |= SP_FORMAT_YUV422 | SP_YUV_ORDER_UYVY;
+		yuv_format = true;
 		break;
 	case DRM_FORMAT_VYUY:
 		sprctl |= SP_FORMAT_YUV422 | SP_YUV_ORDER_VYUY;
+		yuv_format = true;
 		break;
 	case DRM_FORMAT_RGB565:
 		sprctl |= SP_FORMAT_BGR565;
@@ -611,6 +617,35 @@ vlv_update_plane(struct drm_plane *dplane, struct drm_crtc *crtc,
 		sprctl |= DISPPLANE_180_ROTATION_ENABLE;
 	else
 		sprctl &= ~DISPPLANE_180_ROTATION_ENABLE;
+
+	/* program csc registers */
+	if (IS_CHERRYVIEW(dev) && STEP_FROM(STEP_B0) &&
+		intel_plane->pipe == PIPE_B && yuv_format) {
+		struct chv_sprite_csc *sp_csc =
+			chv_sprite_cscs[intel_plane->csc_profile - 1];
+
+		for (ch = SPCSC_YG; ch <= SPCSC_CR; ch++) {
+			I915_WRITE(CHV_SPCSC_OFFSET(plane, ch),
+				sp_csc->csc_val[ch][SPCSC_OUT].offset << 16 |
+				sp_csc->csc_val[ch][SPCSC_IN].offset);
+
+			I915_WRITE(CHV_SPCSC_CLAMP(plane, ch, SPCSC_IN),
+				sp_csc->csc_val[ch][SPCSC_IN].max_clamp << 16 |
+				sp_csc->csc_val[ch][SPCSC_IN].min_clamp);
+
+			I915_WRITE(CHV_SPCSC_CLAMP(plane, ch, SPCSC_OUT),
+				sp_csc->csc_val[ch][SPCSC_OUT].max_clamp << 16 |
+				sp_csc->csc_val[ch][SPCSC_OUT].min_clamp);
+		}
+
+		for (index = 0; index < (CHV_NUM_SPCSC_COEFFS-1); index += 2) {
+			I915_WRITE(CHV_SPCSC_COEFFS(plane, index),
+					sp_csc->coeff[index+1] << 16 |
+					sp_csc->coeff[index]);
+		}
+		I915_WRITE(CHV_SPCSC_C8(plane),
+				sp_csc->coeff[CHV_NUM_SPCSC_COEFFS-1]);
+	}
 
 	/* When in maxfifo dspcntr cannot be changed */
 	if (sprctl != I915_READ(SPCNTR(pipe, plane)) &&
@@ -1843,6 +1878,13 @@ static void intel_destroy_plane(struct drm_plane *plane)
 {
 	struct intel_plane *intel_plane = to_intel_plane(plane);
 	intel_disable_plane(plane);
+
+	if (intel_plane->csc_profile_property) {
+		drm_property_destroy(plane->dev,
+				intel_plane->csc_profile_property);
+		intel_plane->csc_profile_property = NULL;
+	}
+
 	drm_plane_cleanup(plane);
 	kfree(intel_plane);
 }
@@ -1931,10 +1973,27 @@ void intel_plane_disable(struct drm_plane *plane)
 	intel_disable_plane(plane);
 }
 
+static int intel_plane_set_property(struct drm_plane *plane,
+	struct drm_property *property, uint64_t val)
+{
+	struct intel_plane *intel_plane = to_intel_plane(plane);
+	struct drm_device *dev = plane->dev;
+	struct drm_i915_private *dev_priv = dev->dev_private;
+
+	if (IS_CHERRYVIEW(dev) && STEP_FROM(STEP_B0) &&
+		intel_plane->pipe == PIPE_B) {
+		if (property == intel_plane->csc_profile_property)
+			intel_plane->csc_profile = (uint32_t) val;
+		return 0;
+	}
+	return -EINVAL;
+}
+
 static const struct drm_plane_funcs intel_plane_funcs = {
 	.update_plane = intel_update_plane,
 	.disable_plane = intel_disable_plane,
 	.destroy = intel_destroy_plane,
+	.set_property = intel_plane_set_property,
 };
 
 static uint32_t ilk_plane_formats[] = {
@@ -1971,6 +2030,7 @@ static uint32_t vlv_plane_formats[] = {
 int
 intel_plane_init(struct drm_device *dev, enum pipe pipe, int plane)
 {
+	struct drm_i915_private *dev_priv = dev->dev_private;
 	struct intel_plane *intel_plane;
 	unsigned long possible_crtcs;
 	const uint32_t *plane_formats;
@@ -2051,5 +2111,13 @@ intel_plane_init(struct drm_device *dev, enum pipe pipe, int plane)
 	if (ret)
 		kfree(intel_plane);
 
+	if (IS_CHERRYVIEW(dev) && STEP_FROM(STEP_B0) && pipe == PIPE_B) {
+		intel_plane->csc_profile = 4;
+		intel_plane->csc_profile_property =
+			drm_property_create_range(dev, 0, "csc profile", 1,
+				chv_sprite_csc_num_entries);
+		drm_object_attach_property(&intel_plane->base.base,
+			intel_plane->csc_profile_property, 4);
+	}
 	return ret;
 }

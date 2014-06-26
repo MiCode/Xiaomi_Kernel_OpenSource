@@ -88,6 +88,16 @@
 #define INTEL_I2C_BUS_DVO 1
 #define INTEL_I2C_BUS_SDVO 2
 
+/* CHV Sprite CSC programming macros */
+#define CHV_NUM_SPCSC_YCBCR 3
+#define CHV_NUM_SPCSC_IO 2
+#define CHV_NUM_SPCSC_COEFFS 9
+#define SPCSC_YG 0
+#define SPCSC_CB 1
+#define SPCSC_CR 2
+#define SPCSC_IN 0
+#define SPCSC_OUT 1
+
 /* these are outputs from the chip - integrated only
    external chips are via DVO or SDVO output */
 #define INTEL_OUTPUT_UNUSED 0
@@ -504,6 +514,7 @@ struct intel_plane {
 	bool can_scale;
 	int max_downscale;
 	bool rotate180;
+	uint32_t csc_profile;
 	u32 lut_r[1024], lut_g[1024], lut_b[1024];
 	u32 flags;
 	__u32 z_order;
@@ -525,6 +536,7 @@ struct intel_plane {
 	struct work_struct work;
 	struct intel_disp_reg reg;
 	bool pri_update;
+	struct drm_property *csc_profile_property;
 
 	void (*update_plane)(struct drm_plane *plane,
 			     struct drm_crtc *crtc,
@@ -1161,4 +1173,20 @@ extern void intel_unpin_sprite_work_fn(struct work_struct *__work);
 extern bool intel_pipe_has_type(struct drm_crtc *crtc, int type);
 bool vlv_calculate_ddl(struct drm_crtc *crtc, int pixel_size,
 	int *prec_multi, int *ddl);
+
+struct sprite_csc {
+	int16_t min_clamp;
+	int16_t max_clamp;
+	int16_t offset;
+};
+
+struct chv_sprite_csc {
+	struct sprite_csc csc_val[CHV_NUM_SPCSC_YCBCR][CHV_NUM_SPCSC_IO];
+	uint16_t coeff[CHV_NUM_SPCSC_COEFFS];
+};
+
+/* externs */
+extern struct chv_sprite_csc *chv_sprite_cscs[];
+extern const uint32_t chv_sprite_csc_num_entries;
+
 #endif /* __INTEL_DRV_H__ */

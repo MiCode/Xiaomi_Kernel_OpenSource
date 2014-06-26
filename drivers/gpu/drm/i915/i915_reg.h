@@ -4554,6 +4554,78 @@ enum punit_power_well {
 #define CHV_PRIMPOS_B (dev_priv->info.display_mmio_offset + 0x61A08)
 #define CHV_PRIMSIZE_B (dev_priv->info.display_mmio_offset + 0x61A0C)
 
+#define CHV_SPC_CSC_YGOFF      (dev_priv->info.display_mmio_offset + 0x6D900)
+#define CHV_SPC_CSC_YGICLAMP   (dev_priv->info.display_mmio_offset + 0x6D920)
+#define CHV_SPC_CSC_YGOCLAMP   (dev_priv->info.display_mmio_offset + 0x6D92C)
+#define CHV_SPC_CSC_CBOFF      (dev_priv->info.display_mmio_offset + 0x6D904)
+#define CHV_SPC_CSC_CBICLAMP   (dev_priv->info.display_mmio_offset + 0x6D924)
+#define CHV_SPC_CSC_CBOCLAMP   (dev_priv->info.display_mmio_offset + 0x6D930)
+#define CHV_SPC_CSC_CROFF      (dev_priv->info.display_mmio_offset + 0x6D908)
+#define CHV_SPC_CSC_CRICLAMP   (dev_priv->info.display_mmio_offset + 0x6D928)
+#define CHV_SPC_CSC_CROCLAMP   (dev_priv->info.display_mmio_offset + 0x6D934)
+#define CHV_SPC_CSC_C01        (dev_priv->info.display_mmio_offset + 0x6D90C)
+#define CHV_SPC_CSC_C23        (dev_priv->info.display_mmio_offset + 0x6D910)
+#define CHV_SPC_CSC_C45        (dev_priv->info.display_mmio_offset + 0x6D914)
+#define CHV_SPC_CSC_C67        (dev_priv->info.display_mmio_offset + 0x6D918)
+#define CHV_SPC_CSC_C8         (dev_priv->info.display_mmio_offset + 0x6D91C)
+
+#define CHV_SPD_CSC_YGOFF      (dev_priv->info.display_mmio_offset + 0x6E900)
+#define CHV_SPD_CSC_YGICLAMP   (dev_priv->info.display_mmio_offset + 0x6E920)
+#define CHV_SPD_CSC_YGOCLAMP   (dev_priv->info.display_mmio_offset + 0x6E92C)
+#define CHV_SPD_CSC_CBOFF      (dev_priv->info.display_mmio_offset + 0x6E904)
+#define CHV_SPD_CSC_CBICLAMP   (dev_priv->info.display_mmio_offset + 0x6E924)
+#define CHV_SPD_CSC_CBOCLAMP   (dev_priv->info.display_mmio_offset + 0x6E930)
+#define CHV_SPD_CSC_CROFF      (dev_priv->info.display_mmio_offset + 0x6E908)
+#define CHV_SPD_CSC_CRICLAMP   (dev_priv->info.display_mmio_offset + 0x6E928)
+#define CHV_SPD_CSC_CROCLAMP   (dev_priv->info.display_mmio_offset + 0x6E934)
+#define CHV_SPD_CSC_C01        (dev_priv->info.display_mmio_offset + 0x6E90C)
+#define CHV_SPD_CSC_C23        (dev_priv->info.display_mmio_offset + 0x6E910)
+#define CHV_SPD_CSC_C45        (dev_priv->info.display_mmio_offset + 0x6E914)
+#define CHV_SPD_CSC_C67        (dev_priv->info.display_mmio_offset + 0x6E918)
+#define CHV_SPD_CSC_C8         (dev_priv->info.display_mmio_offset + 0x6E91C)
+
+#define CHV_SPCSC_YGOFF(plane) (!plane ? CHV_SPC_CSC_YGOFF : CHV_SPD_CSC_YGOFF)
+#define CHV_SPCSC_CBOFF(plane) (!plane ? CHV_SPC_CSC_CBOFF : CHV_SPD_CSC_CBOFF)
+#define CHV_SPCSC_CROFF(plane) (!plane ? CHV_SPC_CSC_CROFF : CHV_SPD_CSC_CROFF)
+#define CHV_SPCSC_YGICLAMP(plane) (!plane ? CHV_SPC_CSC_YGICLAMP : \
+						CHV_SPD_CSC_YGICLAMP)
+#define CHV_SPCSC_CBICLAMP(plane) (!plane ? CHV_SPC_CSC_CBICLAMP : \
+						CHV_SPD_CSC_CBICLAMP)
+#define CHV_SPCSC_CRICLAMP(plane) (!plane ? CHV_SPC_CSC_CRICLAMP : \
+						CHV_SPD_CSC_CRICLAMP)
+#define CHV_SPCSC_YGOCLAMP(plane) (!plane ? CHV_SPC_CSC_YGOCLAMP : \
+						CHV_SPD_CSC_YGOCLAMP)
+#define CHV_SPCSC_CBOCLAMP(plane) (!plane ? CHV_SPC_CSC_CBOCLAMP : \
+						CHV_SPD_CSC_CBOCLAMP)
+#define CHV_SPCSC_CROCLAMP(plane) (!plane ? CHV_SPC_CSC_CROCLAMP : \
+						CHV_SPD_CSC_CROCLAMP)
+
+#define CHV_SPCSC_C01(plane) (!plane ? CHV_SPC_CSC_C01 : CHV_SPD_CSC_C01)
+#define CHV_SPCSC_C23(plane) (!plane ? CHV_SPC_CSC_C23 : CHV_SPD_CSC_C23)
+#define CHV_SPCSC_C45(plane) (!plane ? CHV_SPC_CSC_C45 : CHV_SPD_CSC_C45)
+#define CHV_SPCSC_C67(plane) (!plane ? CHV_SPC_CSC_C67 : CHV_SPD_CSC_C67)
+#define CHV_SPCSC_C8(plane)  (!plane ? CHV_SPC_CSC_C8  : CHV_SPD_CSC_C8)
+
+#define CHV_SPCSC_CLAMP(plane, channel, inout) \
+	(!channel ? (!inout ? CHV_SPCSC_YGICLAMP(plane) : \
+		CHV_SPCSC_YGOCLAMP(plane)) : \
+	(channel == 1 ? (!inout ? CHV_SPCSC_CBICLAMP(plane) : \
+		CHV_SPCSC_CBOCLAMP(plane)) : \
+	(!inout ? CHV_SPCSC_CRICLAMP(plane) : \
+		CHV_SPCSC_CROCLAMP(plane))))
+
+#define CHV_SPCSC_OFFSET(plane, channel) \
+	(!channel ? CHV_SPCSC_YGOFF(plane) : \
+	(channel == 1 ? CHV_SPCSC_CBOFF(plane) : \
+		 CHV_SPCSC_CROFF(plane)))
+
+#define CHV_SPCSC_COEFFS(plane, coeff_index) \
+	(!coeff_index ? CHV_SPCSC_C01(plane) : \
+	(coeff_index == 2 ? CHV_SPCSC_C23(plane) : \
+	(coeff_index == 4 ? CHV_SPCSC_C45(plane) : \
+	(coeff_index == 6 ? CHV_SPCSC_C67(plane) : \
+		CHV_SPCSC_C8(plane)))))
+
 #define SPRCTL(pipe) _PIPE(pipe, _SPRA_CTL, _SPRB_CTL)
 #define SPRLINOFF(pipe) _PIPE(pipe, _SPRA_LINOFF, _SPRB_LINOFF)
 #define SPRSTRIDE(pipe) _PIPE(pipe, _SPRA_STRIDE, _SPRB_STRIDE)
