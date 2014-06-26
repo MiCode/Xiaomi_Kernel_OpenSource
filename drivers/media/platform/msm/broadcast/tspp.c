@@ -2649,43 +2649,6 @@ static void tspp_debugfs_exit(struct tspp_device *device)
 	}
 }
 
-/* copy device-tree data to platfrom data struct */
-static struct msm_tspp_platform_data *
-msm_tspp_dt_to_pdata(struct platform_device *pdev)
-{
-	struct device_node *node = pdev->dev.of_node;
-	struct msm_tspp_platform_data *data;
-	struct property *prop;
-	int rc;
-
-	/* Note: memory allocated by devm_kzalloc is freed automatically */
-	data = devm_kzalloc(&pdev->dev, sizeof(*data), GFP_KERNEL);
-	if (!data) {
-		pr_err("tspp: Unable to allocate platform data\n");
-		return NULL;
-	}
-	rc = of_property_read_string(node, "qcom,tsif-pclk", &data->tsif_pclk);
-	if (rc) {
-		pr_err("tspp: Could not find tsif-pclk property, err = %d\n",
-			rc);
-		return NULL;
-	}
-	rc = of_property_read_string(node, "qcom,tsif-ref-clk",
-			&data->tsif_ref_clk);
-	if (rc) {
-		pr_err("tspp: Could not find tsif-ref-clk property, err = %d\n",
-			rc);
-		return NULL;
-	}
-
-	data->tsif_vreg_present = 0;
-	prop = of_find_property(node, "vdd_cx-supply", NULL);
-	if (prop)
-		data->tsif_vreg_present = 1;
-
-	return data;
-}
-
 static int msm_tspp_map_irqs(struct platform_device *pdev,
 				struct tspp_device *device)
 {
@@ -2736,7 +2699,6 @@ static int msm_tspp_probe(struct platform_device *pdev)
 	int rc = -ENODEV;
 	u32 version;
 	u32 i;
-	struct msm_tspp_platform_data *data;
 	struct tspp_device *device;
 	struct resource *mem_tsif0;
 	struct resource *mem_tsif1;
@@ -2746,32 +2708,12 @@ static int msm_tspp_probe(struct platform_device *pdev)
 	unsigned long rate;
 
 	if (pdev->dev.of_node) {
-		/* get information from device tree */
-		data = msm_tspp_dt_to_pdata(pdev);
-		/* get device ID */
-		rc = of_property_read_u32(pdev->dev.of_node,
-					"cell-index", &pdev->id);
-		if (rc)
-			pdev->id = -1;
-
-		pdev->dev.platform_data = data;
-
+		/* ID is always 0 since there is only 1 instance of TSPP */
+		pdev->id = 0;
 		tspp_bus_pdata = msm_bus_cl_get_pdata(pdev);
 	} else {
 		/* must have device tree data */
 		pr_err("tspp: Device tree data not available\n");
-		rc = -EINVAL;
-		goto out;
-	}
-	if (!data) {
-		pr_err("tspp: Platform data not available\n");
-		rc = -EINVAL;
-		goto out;
-	}
-
-	/* check for valid device id */
-	if ((pdev->id < 0) || (pdev->id >= TSPP_MAX_DEVICES)) {
-		pr_err("tspp: Invalid device ID %d\n", pdev->id);
 		rc = -EINVAL;
 		goto out;
 	}
@@ -2806,51 +2748,53 @@ static int msm_tspp_probe(struct platform_device *pdev)
 	}
 
 	/* map regulators */
-	if (data->tsif_vreg_present) {
-		device->tsif_vreg = devm_regulator_get(&pdev->dev, "vdd_cx");
-		if (IS_ERR(device->tsif_vreg)) {
-			rc = PTR_ERR(device->tsif_vreg);
-			device->tsif_vreg = NULL;
-			goto err_regultaor;
+	device->tsif_vreg = devm_regulator_get(&pdev->dev, "vdd_cx");
+	if (IS_ERR(device->tsif_vreg)) {
+		rc = PTR_ERR(device->tsif_vreg);
+		device->tsif_vreg = NULL;
+		if (rc == -ENODEV) {
+			pr_notice("%s: vdd_cx regulator will not be used\n",
+				__func__);
+		} else {
+			dev_err(&pdev->dev,
+				"failed to get CX regulator, err=%d\n", rc);
+			goto err_regulator;
 		}
-
+	} else {
 		/* Set an initial voltage and enable the regulator */
 		rc = regulator_set_voltage(device->tsif_vreg,
 					RPM_REGULATOR_CORNER_NONE,
 					RPM_REGULATOR_CORNER_SUPER_TURBO);
 		if (rc) {
 			dev_err(&pdev->dev, "Unable to set CX voltage.\n");
-			goto err_regultaor;
+			goto err_regulator;
 		}
 
 		rc = regulator_enable(device->tsif_vreg);
 		if (rc) {
 			dev_err(&pdev->dev, "Unable to enable CX regulator.\n");
-			goto err_regultaor;
+			goto err_regulator;
 		}
 	}
 
 	/* map clocks */
-	if (data->tsif_pclk) {
-		device->tsif_pclk = clk_get(&pdev->dev, data->tsif_pclk);
-		if (IS_ERR(device->tsif_pclk)) {
-			rc = PTR_ERR(device->tsif_pclk);
-			device->tsif_pclk = NULL;
-			goto err_pclock;
-		}
+	device->tsif_pclk = clk_get(&pdev->dev, "iface_clk");
+	if (IS_ERR(device->tsif_pclk)) {
+		rc = PTR_ERR(device->tsif_pclk);
+		device->tsif_pclk = NULL;
+		goto err_pclock;
 	}
-	if (data->tsif_ref_clk) {
-		device->tsif_ref_clk = clk_get(&pdev->dev, data->tsif_ref_clk);
-		if (IS_ERR(device->tsif_ref_clk)) {
-			rc = PTR_ERR(device->tsif_ref_clk);
-			device->tsif_ref_clk = NULL;
-			goto err_refclock;
-		}
-		rate = clk_round_rate(device->tsif_ref_clk, 1);
-		rc = clk_set_rate(device->tsif_ref_clk, rate);
-		if (rc)
-			goto err_res_tsif0;
+
+	device->tsif_ref_clk = clk_get(&pdev->dev, "ref_clk");
+	if (IS_ERR(device->tsif_ref_clk)) {
+		rc = PTR_ERR(device->tsif_ref_clk);
+		device->tsif_ref_clk = NULL;
+		goto err_refclock;
 	}
+	rate = clk_round_rate(device->tsif_ref_clk, 1);
+	rc = clk_set_rate(device->tsif_ref_clk, rate);
+	if (rc)
+		goto err_res_tsif0;
 
 	/* map I/O memory */
 	mem_tsif0 = platform_get_resource_byname(pdev,
@@ -2917,7 +2861,6 @@ static int msm_tspp_probe(struct platform_device *pdev)
 	/* power management */
 	pm_runtime_set_active(&pdev->dev);
 	pm_runtime_enable(&pdev->dev);
-
 	tspp_debugfs_init(device, 0);
 
 	for (i = 0; i < TSPP_TSIF_INSTANCES; i++)
@@ -2974,7 +2917,6 @@ static int msm_tspp_probe(struct platform_device *pdev)
 
 	/* everything is ok, so add the device to the list */
 	list_add_tail(&(device->devlist), &tspp_devices);
-
 	return 0;
 
 err_clock:
@@ -3002,7 +2944,7 @@ err_refclock:
 err_pclock:
 	if (device->tsif_vreg)
 		regulator_disable(device->tsif_vreg);
-err_regultaor:
+err_regulator:
 	if (device->tsif_bus_client)
 		msm_bus_scale_unregister_client(device->tsif_bus_client);
 err_pinctrl:

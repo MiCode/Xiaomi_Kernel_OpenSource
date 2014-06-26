@@ -684,7 +684,6 @@
 
 	tspp: msm_tspp@f99d8000 {
 		compatible = "qcom,msm_tspp";
-		cell-index = <0>;
 		reg = <0xf99d8000 0x1000>, /* MSM_TSIF0_PHYS */
 		      <0xf99d9000 0x1000>, /* MSM_TSIF1_PHYS */
 		      <0xf99da000 0x1000>, /* MSM_TSPP_PHYS  */
@@ -701,8 +700,6 @@
 			"TSIF0_IRQ",
 			"TSIF1_IRQ",
 			"TSIF_BAM_IRQ";
-		qcom,tsif-pclk = "iface_clk";
-		qcom,tsif-ref-clk = "ref_clk";
 
 		qcom,msm-bus,name = "tsif";
 		qcom,msm-bus,num-cases = <2>;

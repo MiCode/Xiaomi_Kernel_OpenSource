@@ -13,12 +13,6 @@
 #ifndef _MSM_TSPP_H_
 #define _MSM_TSPP_H_
 
-struct msm_tspp_platform_data {
-	const char *tsif_pclk;
-	const char *tsif_ref_clk;
-	int tsif_vreg_present;
-};
-
 struct tspp_data_descriptor {
 	void *virt_base;   /* logical address of the actual data */
 	phys_addr_t phys_base; /* physical address of the actual data */
