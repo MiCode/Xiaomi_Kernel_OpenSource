@@ -2515,9 +2515,9 @@
 		compatible = "qcom,bcl";
 	};
 
-	cnss: qcom,cnss@0d400000 {
+	cnss: qcom,cnss@06300000 {
 		compatible = "qcom,cnss";
-		reg = <0x0d400000 0x200000>;
+		reg = <0x06300000 0x200000>;
 		reg-names = "ramdump";
 		wlan-en-gpio = <&msm_gpio 113 0>;
 		vdd-wlan-supply = <&bt_vreg>;
