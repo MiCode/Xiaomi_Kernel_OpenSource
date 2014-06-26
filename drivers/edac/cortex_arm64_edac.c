@@ -89,10 +89,11 @@
 #endif
 
 #ifdef CONFIG_EDAC_CORTEX_ARM64_PANIC_ON_CE
-#define ARM64_ERP_PANIC_ON_CE 1
+static int panic_on_ce = 1;
 #else
-#define ARM64_ERP_PANIC_ON_CE 0
+static int panic_on_ce;
 #endif
+module_param(panic_on_ce, int, 0);
 
 #define EDAC_CPU	"arm64"
 
@@ -678,6 +679,7 @@ static irqreturn_t arm64_sbe_handler(int irq, void *drvdata)
 		errdata.err = SBE;
 		edac_printk(KERN_CRIT, EDAC_CPU, "ARM64 CPU ERP: Single-bit error interrupt received on CPU %d!\n",
 						cpu);
+		WARN_ON(!panic_on_ce);
 		arm64_erp_local_handler(&errdata);
 		sbe_enable_event(errdata.drv);
 	} else {
@@ -794,7 +796,7 @@ static int arm64_cpu_erp_probe(struct platform_device *pdev)
 	if (rc)
 		goto out_mem;
 
-	drv->edev_ctl->panic_on_ce = ARM64_ERP_PANIC_ON_CE;
+	drv->edev_ctl->panic_on_ce = panic_on_ce;
 	drv->edev_ctl->panic_on_ue = ARM64_ERP_PANIC_ON_UE;
 
 	r = platform_get_resource_byname(pdev, IORESOURCE_MEM, "cci");
