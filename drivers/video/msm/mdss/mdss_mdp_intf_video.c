@@ -651,23 +651,20 @@ static int mdss_mdp_video_config_fps(struct mdss_mdp_ctl *ctl,
 				pr_err("Too few lines left line_cnt=%d yres/2=%d",
 						line_cnt,
 						pdata->panel_info.yres/2);
-				spin_unlock_irqrestore(&ctx->dfps_lock, flags);
-				return -EPERM;
+				rc = -EPERM;
+				goto exit_dfps;
 			}
 			rc = mdss_mdp_video_vfp_fps_update(ctl, new_fps);
 			if (rc < 0) {
 				pr_err("%s: Error during DFPS\n", __func__);
-				spin_unlock_irqrestore(&ctx->dfps_lock, flags);
-				return rc;
+				goto exit_dfps;
 			}
 			if (sctl) {
 				rc = mdss_mdp_video_vfp_fps_update(sctl,
 								new_fps);
 				if (rc < 0) {
 					pr_err("%s: DFPS error\n", __func__);
-					spin_unlock_irqrestore(&ctx->dfps_lock,
-							flags);
-					return rc;
+					goto exit_dfps;
 				}
 			}
 			rc = mdss_mdp_ctl_intf_event(ctl,
@@ -675,6 +672,7 @@ static int mdss_mdp_video_config_fps(struct mdss_mdp_ctl *ctl,
 					(void *) (unsigned long) new_fps);
 			WARN(rc, "intf %d panel fps update error (%d)\n",
 							ctl->intf_num, rc);
+exit_dfps:
 			spin_unlock_irqrestore(&ctx->dfps_lock, flags);
 			mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_OFF);
 		} else {
