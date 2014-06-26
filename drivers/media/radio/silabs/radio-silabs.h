@@ -16,6 +16,13 @@
 #include <linux/ioctl.h>
 #include <linux/videodev2.h>
 
+#define WRITE_REG_NUM           8
+#define READ_REG_NUM            16
+
+#define FMDBG(fmt, args...) pr_debug("silabs_radio: " fmt, ##args)
+
+#define FMDERR(fmt, args...) pr_err("silabs_radio: " fmt, ##args)
+
 /* For bounds checking. */
 const unsigned char MIN_RDS_STD = 0x00;
 const unsigned char MAX_RDS_STD = 0x02;
@@ -31,13 +38,23 @@ const unsigned char MAX_SRCH_MODE = 0x01;
 #define SILABS_DELAY_MSEC 10
 #define CTS_RETRY_COUNT 10
 #define RADIO_NR -1
+#define TURNING_ON 1
+#define TURNING_OFF 0
 
 /* to distinguish between seek, tune during STC int. */
 #define NO_SEEK_TUNE_PENDING 0
 #define TUNE_PENDING 1
 #define SEEK_PENDING 2
 #define SCAN_PENDING 3
-
+#define WRAP_ENABLE 1
+#define WRAP_DISABLE 0
+#define VALID_MASK 0x01
+/* it will check whether UPPER band reached or not */
+#define BLTF_MASK 0x80
+#define SAMPLE_RATE_48_KHZ 0xBB80
+#define MIN_DWELL_TIME 0x00
+#define MAX_DWELL_TIME 0x0F
+#define START_SCAN 1
 /*
  * When tuning, we need to divide freq by TUNE_STEP_SIZE
  * before sending it to chip
@@ -47,6 +64,9 @@ const unsigned char MAX_SRCH_MODE = 0x01;
 #define TUNE_PARAM 16
 
 #define OFFSET_OF_GRP_TYP 11
+#define RDS_INT_BIT 0x01
+#define FIFO_CNT_16 0x10
+#define UNCORRECTABLE_RDS_EN 0xFF01
 #define NO_OF_RDS_BLKS 4
 #define MSB_OF_BLK_0 4
 #define LSB_OF_BLK_0 5
@@ -71,7 +91,9 @@ const unsigned char MAX_SRCH_MODE = 0x01;
 #define MAX_LEN_2B_GRP_RT 32
 #define CNT_FOR_2A_GRP_RT 4
 #define CNT_FOR_2B_GRP_RT 2
-
+#define PS_MASK 0x3
+#define PTY_MASK 0x1F
+#define NO_OF_CHARS_IN_EACH_ADD 2
 
 /* commands */
 #define POWER_UP_CMD  0x01
@@ -327,7 +349,7 @@ struct silabs_fm_recv_conf_req {
 	__u16	band_high_limit;
 };
 
-static inline int is_valid_chan_spacing(int spacing)
+static inline bool is_valid_chan_spacing(int spacing)
 {
 	if ((spacing == 0) ||
 		(spacing == 1) ||
@@ -337,7 +359,7 @@ static inline int is_valid_chan_spacing(int spacing)
 		return 0;
 }
 
-static inline int is_valid_rds_std(int rds_std)
+static inline bool is_valid_rds_std(int rds_std)
 {
 	if ((rds_std >= MIN_RDS_STD) &&
 		(rds_std <= MAX_RDS_STD))
@@ -346,7 +368,7 @@ static inline int is_valid_rds_std(int rds_std)
 		return 0;
 }
 
-static inline int is_valid_srch_mode(int srch_mode)
+static inline bool is_valid_srch_mode(int srch_mode)
 {
 	if ((srch_mode >= MIN_SRCH_MODE) &&
 		(srch_mode <= MAX_SRCH_MODE))
@@ -355,4 +377,16 @@ static inline int is_valid_srch_mode(int srch_mode)
 		return 0;
 }
 
+struct fm_power_vreg_data {
+	/* voltage regulator handle */
+	struct regulator *reg;
+	/* regulator name */
+	const char *name;
+	/* voltage levels to be set */
+	unsigned int low_vol_level;
+	unsigned int high_vol_level;
+	bool set_voltage_sup;
+	/* is this regulator enabled? */
+	bool is_enabled;
+};
 #endif /* __RADIO_SILABS_H */

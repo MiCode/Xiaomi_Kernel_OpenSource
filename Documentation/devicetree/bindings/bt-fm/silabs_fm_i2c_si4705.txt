@@ -28,6 +28,10 @@ Required properties:
 Optional properties:
  - vdd-supply		: Digital power supply needed to power device
  - va-supply		: Analog power supply needed to power device
+ - silabs,va-supply-voltage    : specifies VA voltage levels for supply.
+			Should be specified in pair (min, max), units uV.
+ - silabs,vdd-supply-voltage   : specifies VDD voltage levels for supply.
+			Should be specified in pairs (min, max), units uV.
 
 Example:
 	i2c_5: i2c@f9967000 { /* BLSP2 QUP5 */
@@ -54,6 +58,8 @@ Example:
 			compatible = "silabs,si4705";
 			reg = <0x11>;
 			vdd-supply = <&pm8994_s4>;
+			silabs,va-supply-voltage = <3300000 3300000>;
+			silabs,vdd-supply-voltage = <1800000 1800000>;
 			pinctrl-names = "pmx_fm_active","pmx_fm_suspend";
 			pinctrl-0 = <&fm_int_active &fm_rst_active>;
 			pinctrl-1 = <&fm_int_suspend &fm_rst_suspend>;
