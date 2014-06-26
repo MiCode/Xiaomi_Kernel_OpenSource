@@ -872,10 +872,6 @@ static void wcd_mbhc_swch_irq_handler(struct wcd_mbhc *mbhc)
 		snd_soc_update_bits(codec,
 				MSM8X16_WCD_A_ANALOG_MBHC_FSM_CTL,
 				0xB0, 0x00);
-		/* Make sure MASTER_BIAS_CTL is enabled */
-		snd_soc_update_bits(codec,
-				    MSM8X16_WCD_A_ANALOG_MASTER_BIAS_CTL,
-				    0x30, 0x00);
 		if (mbhc->current_plug == MBHC_PLUG_TYPE_HEADPHONE) {
 			wcd_mbhc_report_plug(mbhc, 0, SND_JACK_HEADPHONE);
 			mbhc->btn_press_intr = false;
@@ -904,10 +900,6 @@ static void wcd_mbhc_swch_irq_handler(struct wcd_mbhc *mbhc)
 		snd_soc_update_bits(codec,
 				MSM8X16_WCD_A_ANALOG_MBHC_FSM_CTL,
 				0xB0, 0x00);
-		/* Make sure MASTER_BIAS_CTL is enabled */
-		snd_soc_update_bits(codec,
-				MSM8X16_WCD_A_ANALOG_MASTER_BIAS_CTL,
-				0x30, 0x00);
 	}
 
 	mbhc->in_swch_irq_handler = false;
