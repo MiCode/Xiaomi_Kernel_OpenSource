@@ -12,6 +12,8 @@
 #ifndef __MSM_PERIPHERAL_LOADER_H
 #define __MSM_PERIPHERAL_LOADER_H
 
+#include <linux/dma-attrs.h>
+
 struct device;
 struct module;
 struct pil_priv;
@@ -41,6 +43,7 @@ struct pil_desc {
 	unsigned long flags;
 #define PIL_SKIP_ENTRY_CHECK	BIT(0)
 	struct pil_priv *priv;
+	struct dma_attrs attrs;
 	unsigned int proxy_unvote_irq;
 	void * (*map_fw_mem)(phys_addr_t phys, size_t size, void *data);
 	void (*unmap_fw_mem)(void *virt, void *data);
