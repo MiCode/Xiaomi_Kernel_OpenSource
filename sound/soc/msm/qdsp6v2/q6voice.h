@@ -35,6 +35,20 @@
 #define VOC_REC_DOWNLINK	0x01
 #define VOC_REC_BOTH		0x02
 
+#define VSS_IVERSION_CMD_GET                 0x00011378
+#define VSS_IVERSION_RSP_GET                 0x00011379
+#define CVD_VERSION_STRING_MAX_SIZE          31
+#define CVD_VERSION_DEFAULT                  ""
+#define CVD_VERSION_0_0                      "0.0"
+
+int voc_get_cvd_version(char *);
+
+/* Payload structure for the VSS_IVERSION_RSP_GET command response */
+struct vss_iversion_rsp_get_t {
+	char version[CVD_VERSION_STRING_MAX_SIZE];
+	/* NULL-terminated version string */
+};
+
 enum {
 	CVP_VOC_RX_TOPOLOGY_CAL = 0,
 	CVP_VOC_TX_TOPOLOGY_CAL,
@@ -467,6 +481,9 @@ struct vss_imemory_cmd_unmap_t {
 #define VSS_ISTREAM_CMD_REGISTER_CALIBRATION_DATA_V2    0x00011369
 
 #define VSS_ISTREAM_CMD_DEREGISTER_CALIBRATION_DATA     0x0001127A
+
+#define VSS_ISTREAM_CMD_REGISTER_STATIC_CALIBRATION_DATA        0x0001307D
+#define VSS_ISTREAM_CMD_DEREGISTER_STATIC_CALIBRATION_DATA      0x0001307E
 
 #define VSS_ISTREAM_CMD_SET_MEDIA_TYPE			0x00011186
 /* Set media type on the stream. */
@@ -955,6 +972,12 @@ struct vss_istream_cmd_set_packet_exchange_mode_t {
 
 #define VSS_IVOCPROC_CMD_REGISTER_VOL_CALIBRATION_DATA	0x00011374
 #define VSS_IVOCPROC_CMD_DEREGISTER_VOL_CALIBRATION_DATA	0x00011375
+
+#define VSS_IVOCPROC_CMD_REGISTER_STATIC_CALIBRATION_DATA       0x00013079
+#define VSS_IVOCPROC_CMD_DEREGISTER_STATIC_CALIBRATION_DATA     0x0001307A
+
+#define VSS_IVOCPROC_CMD_REGISTER_DYNAMIC_CALIBRATION_DATA      0x0001307B
+#define VSS_IVOCPROC_CMD_DEREGISTER_DYNAMIC_CALIBRATION_DATA    0x0001307C
 
 #define VSS_IVOCPROC_TOPOLOGY_ID_NONE			0x00010F70
 #define VSS_IVOCPROC_TOPOLOGY_ID_TX_SM_ECNS		0x00010F71
@@ -1503,6 +1526,8 @@ struct common_data {
 	bool srvcc_rec_flag;
 	bool is_destroy_cvd;
 	bool is_vote_bms;
+	char cvd_version[CVD_VERSION_STRING_MAX_SIZE];
+	bool is_per_vocoder_cal_enabled;
 };
 
 struct voice_session_itr {
