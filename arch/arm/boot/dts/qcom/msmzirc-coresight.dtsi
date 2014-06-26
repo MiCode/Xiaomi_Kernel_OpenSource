@@ -100,6 +100,45 @@
 		clock-names = "core_clk", "core_a_clk";
 	};
 
+	etm0: etm@842000 {
+		compatible = "arm,coresight-etm";
+		reg = <0x842000 0x1000>;
+		reg-names = "etm-base";
+
+		coresight-id = <6>;
+		coresight-name = "coresight-etm0";
+		coresight-nr-inports = <0>;
+		coresight-outports = <0>;
+		coresight-child-list = <&funnel_in0>;
+		coresight-child-ports = <4>;
+
+		clocks = <&clock_rpm clk_qdss_clk>,
+			 <&clock_rpm clk_qdss_a_clk>;
+		clock-names = "core_clk", "core_a_clk";
+	};
+
+	rpm_etm0 {
+		compatible = "qcom,coresight-rpm-etm";
+
+		coresight-id = <7>;
+		coresight-name = "coresight-rpm-etm0";
+		coresight-nr-inports = <0>;
+		coresight-outports = <0>;
+		coresight-child-list = <&funnel_in0>;
+		coresight-child-ports = <0>;
+	};
+
+	modem_etm0 {
+		compatible = "qcom,coresight-modem-etm";
+
+		coresight-id = <8>;
+		coresight-name = "coresight-modem-etm0";
+		coresight-nr-inports = <0>;
+		coresight-outports = <0>;
+		coresight-child-list = <&funnel_in0>;
+		coresight-child-ports = <2>;
+	};
+
 	csr: csr@801000 {
 		compatible = "qcom,coresight-csr";
 		reg = <0x801000 0x1000>;
