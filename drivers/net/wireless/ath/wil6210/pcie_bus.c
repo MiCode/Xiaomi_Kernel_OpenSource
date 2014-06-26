@@ -70,7 +70,9 @@ static int wil_if_pcie_enable(struct wil6210_priv *wil)
 		goto stop_master;
 
 	/* need reset here to obtain MAC */
+	mutex_lock(&wil->mutex);
 	rc = wil_reset(wil);
+	mutex_unlock(&wil->mutex);
 	if (rc)
 		goto release_irq;
 
@@ -138,7 +140,7 @@ static int wil_pcie_probe(struct pci_dev *pdev, const struct pci_device_id *id)
 		goto err_release_reg;
 	}
 	/* rollback to err_iounmap */
-	dev_info(&pdev->dev, "CSR at %pR -> %p\n", &pdev->resource[0], csr);
+	dev_info(&pdev->dev, "CSR at %pR -> 0x%p\n", &pdev->resource[0], csr);
 
 	wil = wil_if_alloc(dev, csr);
 	if (IS_ERR(wil)) {
@@ -151,6 +153,7 @@ static int wil_pcie_probe(struct pci_dev *pdev, const struct pci_device_id *id)
 	pci_set_drvdata(pdev, wil);
 	wil->pdev = pdev;
 
+	wil6210_clear_irq(wil);
 	/* FW should raise IRQ when ready */
 	rc = wil_if_pcie_enable(wil);
 	if (rc) {
@@ -197,7 +200,6 @@ static void wil_pcie_remove(struct pci_dev *pdev)
 	pci_iounmap(pdev, wil->csr);
 	pci_release_region(pdev, 0);
 	pci_disable_device(pdev);
-	pci_set_drvdata(pdev, NULL);
 }
 
 static DEFINE_PCI_DEVICE_TABLE(wil6210_pcie_ids) = {
