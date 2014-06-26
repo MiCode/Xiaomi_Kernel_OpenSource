@@ -675,7 +675,7 @@ static int msm_isp_request_bufq(struct msm_isp_buf_mgr *buf_mgr,
 	struct msm_isp_bufq *bufq = NULL;
 	CDBG("%s: E\n", __func__);
 
-	if (!buf_request->num_buf) {
+	if (!buf_request->num_buf || buf_request->num_buf > VIDEO_MAX_FRAME) {
 		pr_err("Invalid buffer request\n");
 		return rc;
 	}

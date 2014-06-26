@@ -1098,7 +1098,8 @@ switch_parallel_ovp_mode(struct qpnp_chg_chip *chip, bool enable)
 		return rc;
 	}
 
-	rc = override_dcin_ilimit(chip, 0);
+	if (enable)
+		rc = override_dcin_ilimit(chip, 0);
 	return rc;
 }
 
@@ -5186,6 +5187,14 @@ qpnp_charger_probe(struct spmi_device *spmi)
 	qpnp_chg_charge_en(chip, !chip->charging_disabled);
 	qpnp_chg_force_run_on_batt(chip, chip->charging_disabled);
 	qpnp_chg_set_appropriate_vddmax(chip);
+
+	if (chip->parallel_ovp_mode) {
+		rc = override_dcin_ilimit(chip, 1);
+		if (rc) {
+			pr_err("Override DCIN LLIMIT %d\n", rc);
+			goto unregister_dc_psy;
+		}
+	}
 
 	rc = qpnp_chg_request_irqs(chip);
 	if (rc) {
