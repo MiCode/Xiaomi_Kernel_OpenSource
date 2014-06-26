@@ -1529,8 +1529,10 @@
 	};
 
 	cpubw: qcom,cpubw {
-		compatible = "qcom,cpubw";
-		qcom,cpu-mem-ports = <1 512>;
+		compatible = "qcom,devbw";
+		governor = "cpufreq";
+		qcom,src-dst-ports = <1 512>;
+		qcom,active-only;
 		qcom,bw-tbl =
 			<  1525 /*  100 MHz */ >,
 			<  2288 /*  150 MHz */ >,

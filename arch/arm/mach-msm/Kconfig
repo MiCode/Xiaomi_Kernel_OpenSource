@@ -11,7 +11,7 @@ config ARCH_MSM8974
 	select MSM_SCM
 	select MSM_GPIOMUX
 	select PM_DEVFREQ
-	select MSM_DEVFREQ_CPUBW
+	select MSM_DEVFREQ_DEVBW
 	select DEVFREQ_SIMPLE_DEV
 	select MSM_PIL
 	select MSM_SPM_V2
@@ -67,7 +67,7 @@ config ARCH_APQ8084
 	select USB_ARCH_HAS_XHCI
 	select KRAIT_REGULATOR
 	select PM_DEVFREQ
-	select MSM_DEVFREQ_CPUBW
+	select MSM_DEVFREQ_DEVBW
 	select DEVFREQ_SIMPLE_DEV
 	select MSM_PIL
 	select ENABLE_VMALLOC_SAVINGS
@@ -120,7 +120,7 @@ config ARCH_MSM8916
 	select CPU_FREQ_MSM
 	select CPU_FREQ
 	select PM_DEVFREQ
-	select MSM_DEVFREQ_CPUBW
+	select MSM_DEVFREQ_DEVBW
 	select MSM_RPM_SMD
 	select MSM_QDSP6_APRV3
 	select MSM_QDSP6V2_CODECS
@@ -141,7 +141,7 @@ config ARCH_FSM9900
 	select HAVE_ARM_ARCH_TIMER
 	select MSM_GPIOMUX
 	select PM_DEVFREQ
-	select MSM_DEVFREQ_CPUBW
+	select MSM_DEVFREQ_DEVBW
 	select DEVFREQ_SIMPLE_DEV
 	select MSM_PIL
 	select REGULATOR
@@ -173,7 +173,7 @@ config ARCH_MDM9630
 	select MSM_JTAG_MM if CORESIGHT_ETM
 	select MSM_CORTEX_A7
 	select PM_DEVFREQ
-	select MSM_DEVFREQ_CPUBW
+	select MSM_DEVFREQ_DEVBW
 	select PINCTRL
 	select PINCTRL_MSM_TLMM
 	select MSM_IRQ
@@ -220,7 +220,7 @@ config ARCH_MSM8610
 	select CPU_FREQ_MSM
 	select CPU_FREQ
 	select PM_DEVFREQ
-	select MSM_DEVFREQ_CPUBW
+	select MSM_DEVFREQ_DEVBW
 	select MSM_PIL
 	select MSM_RUN_QUEUE_STATS
 	select ARM_HAS_SG_CHAIN
@@ -259,7 +259,7 @@ config ARCH_MSM8226
 	select CPU_FREQ_MSM
 	select CPU_FREQ
 	select PM_DEVFREQ
-	select MSM_DEVFREQ_CPUBW
+	select MSM_DEVFREQ_DEVBW
 	select MSM_PIL
 	select MSM_RUN_QUEUE_STATS
 	select ARM_HAS_SG_CHAIN

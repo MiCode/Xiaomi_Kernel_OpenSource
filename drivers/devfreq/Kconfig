@@ -126,8 +126,8 @@ config DEVFREQ_SIMPLE_DEV
 	  Device driver for simple devices that control their frequency using
 	  clock APIs and don't have any form of status reporting.
 
-config MSM_DEVFREQ_CPUBW
-	bool "MSM DEVFREQ device for CPU<->DDR IB/AB BW voting"
+config MSM_DEVFREQ_DEVBW
+	bool "MSM DEVFREQ device for device master <-> slave IB/AB BW voting"
 	depends on ARCH_MSM
 	select DEVFREQ_GOV_PERFORMANCE
 	select DEVFREQ_GOV_POWERSAVE
