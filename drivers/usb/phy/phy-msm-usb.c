@@ -5146,8 +5146,6 @@ static int msm_otg_pm_resume(struct device *dev)
 	dev_dbg(dev, "OTG PM resume\n");
 
 	motg->pm_done = 0;
-	if (!motg->host_bus_suspend)
-		atomic_set(&motg->pm_suspended, 0);
 
 	if (motg->async_int || motg->sm_work_pending ||
 			!pm_runtime_suspended(dev)) {
@@ -5159,14 +5157,7 @@ static int msm_otg_pm_resume(struct device *dev)
 		pm_runtime_set_active(dev);
 		pm_runtime_enable(dev);
 
-		/*
-		 * Defer any host mode disconnect events until
-		 * all devices are RESUMED
-		 */
-		if (motg->sm_work_pending && !motg->host_bus_suspend) {
-			motg->sm_work_pending = false;
-			queue_work(system_nrt_wq, &motg->sm_work);
-		}
+		/* sm work will start in pm notify */
 	}
 
 	return ret;
