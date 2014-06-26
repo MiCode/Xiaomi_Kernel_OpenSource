@@ -1433,6 +1433,7 @@ int msm_isp_open_node(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh)
 	rc = vfe_dev->hw_info->vfe_ops.core_ops.reset_hw(vfe_dev);
 	if (rc <= 0) {
 		pr_err("%s: reset timeout\n", __func__);
+		vfe_dev->hw_info->vfe_ops.core_ops.release_hw(vfe_dev);
 		vfe_dev->vfe_open_cnt--;
 		mutex_unlock(&vfe_dev->core_mutex);
 		mutex_unlock(&vfe_dev->realtime_mutex);
