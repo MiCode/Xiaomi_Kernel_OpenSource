@@ -412,7 +412,7 @@ static struct mdss_mdp_wb_data *get_user_node(struct msm_fb_data_type *mfd,
 	struct mdss_mdp_wb *wb = mfd_to_wb(mfd);
 	struct mdss_mdp_wb_data *node;
 	struct mdss_mdp_img_data *buf;
-	int ret, rc;
+	int ret;
 
 	if (!list_empty(&wb->register_queue)) {
 		list_for_each_entry(node, &wb->register_queue, registered_entry)
@@ -436,21 +436,20 @@ static struct mdss_mdp_wb_data *get_user_node(struct msm_fb_data_type *mfd,
 	buf = &node->buf_data.p[0];
 	if (wb->is_secure)
 		buf->flags |= MDP_SECURE_OVERLAY_SESSION;
-	rc = mdss_iommu_ctrl(1);
-	if (IS_ERR_VALUE(rc)) {
+
+	ret = mdss_iommu_ctrl(1);
+	if (IS_ERR_VALUE(ret)) {
 		pr_err("IOMMU attach failed\n");
 		goto register_fail;
 	}
 	ret = mdss_mdp_get_img(data, buf);
-	rc = mdss_iommu_ctrl(0);
-	if (IS_ERR_VALUE(rc)) {
-		pr_err("IOMMU dettach failed\n");
-		goto register_fail;
-	}
 	if (IS_ERR_VALUE(ret)) {
 		pr_err("error getting buffer info\n");
+		mdss_iommu_ctrl(0);
 		goto register_fail;
 	}
+	mdss_iommu_ctrl(0);
+
 	memcpy(&node->buf_info, data, sizeof(*data));
 
 	ret = mdss_mdp_wb_register_node(wb, node);
@@ -727,7 +726,6 @@ int mdss_mdp_wb_ioctl_handler(struct msm_fb_data_type *mfd, u32 cmd,
 {
 	struct msmfb_data data;
 	int ret = -ENOSYS, hint = 0;
-	int rc;
 
 	switch (cmd) {
 	case MSMFB_WRITEBACK_INIT:
@@ -758,17 +756,13 @@ int mdss_mdp_wb_ioctl_handler(struct msm_fb_data_type *mfd, u32 cmd,
 		}
 		break;
 	case MSMFB_WRITEBACK_TERMINATE:
-		rc = mdss_iommu_ctrl(1);
-		if (IS_ERR_VALUE(rc)) {
+		ret = mdss_iommu_ctrl(1);
+		if (IS_ERR_VALUE(ret)) {
 			pr_err("IOMMU attach failed\n");
-			return rc;
+			return ret;
 		}
 		ret = mdss_mdp_wb_terminate(mfd);
-		rc = mdss_iommu_ctrl(0);
-		if (IS_ERR_VALUE(rc)) {
-			pr_err("IOMMU dettach failed\n");
-			return rc;
-		}
+		mdss_iommu_ctrl(0);
 		break;
 	case MSMFB_WRITEBACK_SET_MIRRORING_HINT:
 		if (!copy_from_user(&hint, arg, sizeof(hint))) {
@@ -898,11 +892,7 @@ int msm_fb_writeback_iommu_ref(struct fb_info *info, int enable)
 			return ret;
 		}
 	} else {
-		ret = mdss_iommu_ctrl(0);
-		if (IS_ERR_VALUE(ret)) {
-			pr_err("IOMMU dettach failed\n");
-			return ret;
-		}
+		mdss_iommu_ctrl(0);
 	}
 
 	return 0;
