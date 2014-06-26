@@ -236,17 +236,6 @@
 			qcom,msm-codec-type = "internal";
 			qcom,msm-mbhc-hphl-swh = <1>;
 			qcom,msm-mbhc-gnd-swh = <0>;
-			qcom,msm-hs-micbias-type = "external";
-			qcom,audio-routing =
-				"RX_BIAS", "MCLK",
-				"SPK_RX_BIAS", "MCLK",
-				"INT_LDO_H", "MCLK",
-				"MIC BIAS External", "Handset Mic",
-				"MIC BIAS External2", "Headset Mic",
-				"MIC BIAS External", "Secondary Mic",
-				"AMIC1", "MIC BIAS External",
-				"AMIC2", "MIC BIAS External2",
-				"AMIC3", "MIC BIAS External";
 			pinctrl-names = "cdc_lines_act",
 					"cdc_lines_sus";
 			pinctrl-0 = <&cdc_pdm_lines_act>;
