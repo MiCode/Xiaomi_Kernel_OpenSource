@@ -97,6 +97,10 @@
 #define clk_gcc_usb3_aux_clk 0x555d16b2
 #define clk_usb3_pipe_clk_src 0x8b922db4
 #define clk_usb3_aux_clk_src 0xfde7ae09
+#define clk_gcc_qusb2a_phy_reset 0x2a9dfa9f
+#define clk_gcc_usb3_phy_reset 0x03d559f1
+#define clk_gcc_usb3phy_phy_reset 0xb1a4f885
+#define clk_usb_ss_ldo 0x88d5fdf7
 #define clk_gcc_pcie_cfg_ahb_clk 0xddc9a515
 #define clk_gcc_pcie_pipe_clk 0x8be62558
 #define clk_gcc_pcie_axi_clk 0xb833d9e3
