@@ -133,7 +133,7 @@ the appropriate macros. */
 /* This needs to be modified manually now, when we add
  a new RANGE of SSIDs to the msg_mask_tbl */
 #define MSG_MASK_TBL_CNT		25
-#define EVENT_LAST_ID			0x0A2E
+#define APPS_EVENT_LAST_ID		0x0A2E
 
 #define MSG_SSID_0			0
 #define MSG_SSID_0_LAST			107
@@ -793,5 +793,7 @@ static const uint32_t log_code_last_tbl[] = {
 #define LOG_GET_ITEM_NUM(xx_code)	(xx_code & 0x0FFF)
 #define LOG_GET_EQUIP_ID(xx_code)	((xx_code & 0xF000) >> 12)
 #define LOG_ITEMS_TO_SIZE(num_items)	((num_items+7)/8)
+#define LOG_SIZE_TO_ITEMS(size)		((8*size) - 7)
+#define EVENT_COUNT_TO_BYTES(count)	((count/8) + 1)
 
 #endif

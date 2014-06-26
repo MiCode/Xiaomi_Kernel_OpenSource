@@ -1192,35 +1192,22 @@ int diag_process_stm_cmd(unsigned char *buf, unsigned char *dest_buf)
 	return STM_RSP_NUM_BYTES;
 }
 
-int diag_apps_responds()
-{
-	if (chk_apps_only()) {
-		if (driver->smd_data[MODEM_DATA].ch &&
-				driver->rcvd_feature_mask[MODEM_DATA]) {
-			return 0;
-		}
-		return 1;
-	}
-	return 0;
-}
-
 int diag_process_apps_pkt(unsigned char *buf, int len)
 {
 	uint16_t subsys_cmd_code;
-	int subsys_id, ssid_first, ssid_last, ssid_range;
+	int subsys_id;
 	int packet_type = 1, i, cmd_code;
 	unsigned char *temp = buf;
 	int data_type;
 	int mask_ret;
 	int status = 0;
-#if defined(CONFIG_DIAG_OVER_USB)
-	unsigned char *ptr;
-#endif
 
 	/* Check if the command is a supported mask command */
 	mask_ret = diag_process_apps_masks(buf, len);
-	if (mask_ret <= 0)
-		return mask_ret;
+	if (mask_ret > 0) {
+		encode_rsp_and_send(mask_ret - 1);
+		return 0;
+	}
 
 	/* Check for registered clients and forward packet to apropriate proc */
 	cmd_code = (int)(*(char *)buf);
@@ -1297,322 +1284,6 @@ int diag_process_apps_pkt(unsigned char *buf, int len)
 			return 0;
 		}
 		return len;
-	}
-	/* Check for Apps Only & get event mask request */
-	else if (diag_apps_responds() && *buf == 0x81) {
-		driver->apps_rsp_buf[0] = 0x81;
-		driver->apps_rsp_buf[1] = 0x0;
-		*(uint16_t *)(driver->apps_rsp_buf + 2) = 0x0;
-		*(uint16_t *)(driver->apps_rsp_buf + 4) = EVENT_LAST_ID + 1;
-		memcpy(driver->apps_rsp_buf+6, driver->event_masks,
-							EVENT_LAST_ID/8+1);
-		encode_rsp_and_send(6 + EVENT_LAST_ID/8);
-		return 0;
-	}
-	/* Get log ID range & Check for Apps Only */
-	else if (diag_apps_responds() && (*buf == 0x73) &&
-							*(int *)(buf+4) == 1) {
-		driver->apps_rsp_buf[0] = 0x73;
-		*(int *)(driver->apps_rsp_buf + 4) = 0x1; /* operation ID */
-		*(int *)(driver->apps_rsp_buf + 8) = 0x0; /* success code */
-		*(int *)(driver->apps_rsp_buf + 12) =
-				LOG_GET_ITEM_NUM(log_code_last_tbl[0]);
-		*(int *)(driver->apps_rsp_buf + 16) =
-				LOG_GET_ITEM_NUM(log_code_last_tbl[1]);
-		*(int *)(driver->apps_rsp_buf + 20) =
-				LOG_GET_ITEM_NUM(log_code_last_tbl[2]);
-		*(int *)(driver->apps_rsp_buf + 24) =
-				LOG_GET_ITEM_NUM(log_code_last_tbl[3]);
-		*(int *)(driver->apps_rsp_buf + 28) =
-				LOG_GET_ITEM_NUM(log_code_last_tbl[4]);
-		*(int *)(driver->apps_rsp_buf + 32) =
-				LOG_GET_ITEM_NUM(log_code_last_tbl[5]);
-		*(int *)(driver->apps_rsp_buf + 36) =
-				LOG_GET_ITEM_NUM(log_code_last_tbl[6]);
-		*(int *)(driver->apps_rsp_buf + 40) =
-				LOG_GET_ITEM_NUM(log_code_last_tbl[7]);
-		*(int *)(driver->apps_rsp_buf + 44) =
-				LOG_GET_ITEM_NUM(log_code_last_tbl[8]);
-		*(int *)(driver->apps_rsp_buf + 48) =
-				LOG_GET_ITEM_NUM(log_code_last_tbl[9]);
-		*(int *)(driver->apps_rsp_buf + 52) =
-				LOG_GET_ITEM_NUM(log_code_last_tbl[10]);
-		*(int *)(driver->apps_rsp_buf + 56) =
-				LOG_GET_ITEM_NUM(log_code_last_tbl[11]);
-		*(int *)(driver->apps_rsp_buf + 60) =
-				LOG_GET_ITEM_NUM(log_code_last_tbl[12]);
-		*(int *)(driver->apps_rsp_buf + 64) =
-				LOG_GET_ITEM_NUM(log_code_last_tbl[13]);
-		*(int *)(driver->apps_rsp_buf + 68) =
-				LOG_GET_ITEM_NUM(log_code_last_tbl[14]);
-		*(int *)(driver->apps_rsp_buf + 72) =
-				LOG_GET_ITEM_NUM(log_code_last_tbl[15]);
-		encode_rsp_and_send(75);
-		return 0;
-	}
-	/* Respond to Get SSID Range request message */
-	else if (diag_apps_responds() && (*buf == 0x7d) &&
-							(*(buf+1) == 0x1)) {
-		driver->apps_rsp_buf[0] = 0x7d;
-		driver->apps_rsp_buf[1] = 0x1;
-		driver->apps_rsp_buf[2] = 0x1;
-		driver->apps_rsp_buf[3] = 0x0;
-		/* -1 to un-account for OEM SSID range */
-		*(int *)(driver->apps_rsp_buf + 4) = MSG_MASK_TBL_CNT - 1;
-		*(uint16_t *)(driver->apps_rsp_buf + 8) = MSG_SSID_0;
-		*(uint16_t *)(driver->apps_rsp_buf + 10) = MSG_SSID_0_LAST;
-		*(uint16_t *)(driver->apps_rsp_buf + 12) = MSG_SSID_1;
-		*(uint16_t *)(driver->apps_rsp_buf + 14) = MSG_SSID_1_LAST;
-		*(uint16_t *)(driver->apps_rsp_buf + 16) = MSG_SSID_2;
-		*(uint16_t *)(driver->apps_rsp_buf + 18) = MSG_SSID_2_LAST;
-		*(uint16_t *)(driver->apps_rsp_buf + 20) = MSG_SSID_3;
-		*(uint16_t *)(driver->apps_rsp_buf + 22) = MSG_SSID_3_LAST;
-		*(uint16_t *)(driver->apps_rsp_buf + 24) = MSG_SSID_4;
-		*(uint16_t *)(driver->apps_rsp_buf + 26) = MSG_SSID_4_LAST;
-		*(uint16_t *)(driver->apps_rsp_buf + 28) = MSG_SSID_5;
-		*(uint16_t *)(driver->apps_rsp_buf + 30) = MSG_SSID_5_LAST;
-		*(uint16_t *)(driver->apps_rsp_buf + 32) = MSG_SSID_6;
-		*(uint16_t *)(driver->apps_rsp_buf + 34) = MSG_SSID_6_LAST;
-		*(uint16_t *)(driver->apps_rsp_buf + 36) = MSG_SSID_7;
-		*(uint16_t *)(driver->apps_rsp_buf + 38) = MSG_SSID_7_LAST;
-		*(uint16_t *)(driver->apps_rsp_buf + 40) = MSG_SSID_8;
-		*(uint16_t *)(driver->apps_rsp_buf + 42) = MSG_SSID_8_LAST;
-		*(uint16_t *)(driver->apps_rsp_buf + 44) = MSG_SSID_9;
-		*(uint16_t *)(driver->apps_rsp_buf + 46) = MSG_SSID_9_LAST;
-		*(uint16_t *)(driver->apps_rsp_buf + 48) = MSG_SSID_10;
-		*(uint16_t *)(driver->apps_rsp_buf + 50) = MSG_SSID_10_LAST;
-		*(uint16_t *)(driver->apps_rsp_buf + 52) = MSG_SSID_11;
-		*(uint16_t *)(driver->apps_rsp_buf + 54) = MSG_SSID_11_LAST;
-		*(uint16_t *)(driver->apps_rsp_buf + 56) = MSG_SSID_12;
-		*(uint16_t *)(driver->apps_rsp_buf + 58) = MSG_SSID_12_LAST;
-		*(uint16_t *)(driver->apps_rsp_buf + 60) = MSG_SSID_13;
-		*(uint16_t *)(driver->apps_rsp_buf + 62) = MSG_SSID_13_LAST;
-		*(uint16_t *)(driver->apps_rsp_buf + 64) = MSG_SSID_14;
-		*(uint16_t *)(driver->apps_rsp_buf + 66) = MSG_SSID_14_LAST;
-		*(uint16_t *)(driver->apps_rsp_buf + 68) = MSG_SSID_15;
-		*(uint16_t *)(driver->apps_rsp_buf + 70) = MSG_SSID_15_LAST;
-		*(uint16_t *)(driver->apps_rsp_buf + 72) = MSG_SSID_16;
-		*(uint16_t *)(driver->apps_rsp_buf + 74) = MSG_SSID_16_LAST;
-		*(uint16_t *)(driver->apps_rsp_buf + 76) = MSG_SSID_17;
-		*(uint16_t *)(driver->apps_rsp_buf + 78) = MSG_SSID_17_LAST;
-		*(uint16_t *)(driver->apps_rsp_buf + 80) = MSG_SSID_18;
-		*(uint16_t *)(driver->apps_rsp_buf + 82) = MSG_SSID_18_LAST;
-		*(uint16_t *)(driver->apps_rsp_buf + 84) = MSG_SSID_19;
-		*(uint16_t *)(driver->apps_rsp_buf + 86) = MSG_SSID_19_LAST;
-		*(uint16_t *)(driver->apps_rsp_buf + 88) = MSG_SSID_20;
-		*(uint16_t *)(driver->apps_rsp_buf + 90) = MSG_SSID_20_LAST;
-		*(uint16_t *)(driver->apps_rsp_buf + 92) = MSG_SSID_21;
-		*(uint16_t *)(driver->apps_rsp_buf + 94) = MSG_SSID_21_LAST;
-		*(uint16_t *)(driver->apps_rsp_buf + 96) = MSG_SSID_22;
-		*(uint16_t *)(driver->apps_rsp_buf + 98) = MSG_SSID_22_LAST;
-		*(uint16_t *)(driver->apps_rsp_buf + 100) = MSG_SSID_23;
-		*(uint16_t *)(driver->apps_rsp_buf + 102) = MSG_SSID_23_LAST;
-		encode_rsp_and_send(103);
-		return 0;
-	}
-	/* Check for Apps Only Respond to Get Subsys Build mask */
-	else if (diag_apps_responds() && (*buf == 0x7d) &&
-							(*(buf+1) == 0x2)) {
-		ssid_first = *(uint16_t *)(buf + 2);
-		ssid_last = *(uint16_t *)(buf + 4);
-		ssid_range = 4 * (ssid_last - ssid_first + 1);
-		/* frame response */
-		driver->apps_rsp_buf[0] = 0x7d;
-		driver->apps_rsp_buf[1] = 0x2;
-		*(uint16_t *)(driver->apps_rsp_buf + 2) = ssid_first;
-		*(uint16_t *)(driver->apps_rsp_buf + 4) = ssid_last;
-		driver->apps_rsp_buf[6] = 0x1;
-		driver->apps_rsp_buf[7] = 0x0;
-		ptr = driver->apps_rsp_buf + 8;
-		/* bld time masks */
-		switch (ssid_first) {
-		case MSG_SSID_0:
-			if (ssid_range > sizeof(msg_bld_masks_0)) {
-				pr_warning("diag: truncating ssid range for ssid 0");
-				ssid_range = sizeof(msg_bld_masks_0);
-			}
-			for (i = 0; i < ssid_range; i += 4)
-				*(int *)(ptr + i) = msg_bld_masks_0[i/4];
-			break;
-		case MSG_SSID_1:
-			if (ssid_range > sizeof(msg_bld_masks_1)) {
-				pr_warning("diag: truncating ssid range for ssid 1");
-				ssid_range = sizeof(msg_bld_masks_1);
-			}
-			for (i = 0; i < ssid_range; i += 4)
-				*(int *)(ptr + i) = msg_bld_masks_1[i/4];
-			break;
-		case MSG_SSID_2:
-			if (ssid_range > sizeof(msg_bld_masks_2)) {
-				pr_warning("diag: truncating ssid range for ssid 2");
-				ssid_range = sizeof(msg_bld_masks_2);
-			}
-			for (i = 0; i < ssid_range; i += 4)
-				*(int *)(ptr + i) = msg_bld_masks_2[i/4];
-			break;
-		case MSG_SSID_3:
-			if (ssid_range > sizeof(msg_bld_masks_3)) {
-				pr_warning("diag: truncating ssid range for ssid 3");
-				ssid_range = sizeof(msg_bld_masks_3);
-			}
-			for (i = 0; i < ssid_range; i += 4)
-				*(int *)(ptr + i) = msg_bld_masks_3[i/4];
-			break;
-		case MSG_SSID_4:
-			if (ssid_range > sizeof(msg_bld_masks_4)) {
-				pr_warning("diag: truncating ssid range for ssid 4");
-				ssid_range = sizeof(msg_bld_masks_4);
-			}
-			for (i = 0; i < ssid_range; i += 4)
-				*(int *)(ptr + i) = msg_bld_masks_4[i/4];
-			break;
-		case MSG_SSID_5:
-			if (ssid_range > sizeof(msg_bld_masks_5)) {
-				pr_warning("diag: truncating ssid range for ssid 5");
-				ssid_range = sizeof(msg_bld_masks_5);
-			}
-			for (i = 0; i < ssid_range; i += 4)
-				*(int *)(ptr + i) = msg_bld_masks_5[i/4];
-			break;
-		case MSG_SSID_6:
-			if (ssid_range > sizeof(msg_bld_masks_6)) {
-				pr_warning("diag: truncating ssid range for ssid 6");
-				ssid_range = sizeof(msg_bld_masks_6);
-			}
-			for (i = 0; i < ssid_range; i += 4)
-				*(int *)(ptr + i) = msg_bld_masks_6[i/4];
-			break;
-		case MSG_SSID_7:
-			if (ssid_range > sizeof(msg_bld_masks_7)) {
-				pr_warning("diag: truncating ssid range for ssid 7");
-				ssid_range = sizeof(msg_bld_masks_7);
-			}
-			for (i = 0; i < ssid_range; i += 4)
-				*(int *)(ptr + i) = msg_bld_masks_7[i/4];
-			break;
-		case MSG_SSID_8:
-			if (ssid_range > sizeof(msg_bld_masks_8)) {
-				pr_warning("diag: truncating ssid range for ssid 8");
-				ssid_range = sizeof(msg_bld_masks_8);
-			}
-			for (i = 0; i < ssid_range; i += 4)
-				*(int *)(ptr + i) = msg_bld_masks_8[i/4];
-			break;
-		case MSG_SSID_9:
-			if (ssid_range > sizeof(msg_bld_masks_9)) {
-				pr_warning("diag: truncating ssid range for ssid 9");
-				ssid_range = sizeof(msg_bld_masks_9);
-			}
-			for (i = 0; i < ssid_range; i += 4)
-				*(int *)(ptr + i) = msg_bld_masks_9[i/4];
-			break;
-		case MSG_SSID_10:
-			if (ssid_range > sizeof(msg_bld_masks_10)) {
-				pr_warning("diag: truncating ssid range for ssid 10");
-				ssid_range = sizeof(msg_bld_masks_10);
-			}
-			for (i = 0; i < ssid_range; i += 4)
-				*(int *)(ptr + i) = msg_bld_masks_10[i/4];
-			break;
-		case MSG_SSID_11:
-			if (ssid_range > sizeof(msg_bld_masks_11)) {
-				pr_warning("diag: truncating ssid range for ssid 11");
-				ssid_range = sizeof(msg_bld_masks_11);
-			}
-			for (i = 0; i < ssid_range; i += 4)
-				*(int *)(ptr + i) = msg_bld_masks_11[i/4];
-			break;
-		case MSG_SSID_12:
-			if (ssid_range > sizeof(msg_bld_masks_12)) {
-				pr_warning("diag: truncating ssid range for ssid 12");
-				ssid_range = sizeof(msg_bld_masks_12);
-			}
-			for (i = 0; i < ssid_range; i += 4)
-				*(int *)(ptr + i) = msg_bld_masks_12[i/4];
-			break;
-		case MSG_SSID_13:
-			if (ssid_range > sizeof(msg_bld_masks_13)) {
-				pr_warning("diag: truncating ssid range for ssid 13");
-				ssid_range = sizeof(msg_bld_masks_13);
-			}
-			for (i = 0; i < ssid_range; i += 4)
-				*(int *)(ptr + i) = msg_bld_masks_13[i/4];
-			break;
-		case MSG_SSID_14:
-			if (ssid_range > sizeof(msg_bld_masks_14)) {
-				pr_warning("diag: truncating ssid range for ssid 14");
-				ssid_range = sizeof(msg_bld_masks_14);
-			}
-			for (i = 0; i < ssid_range; i += 4)
-				*(int *)(ptr + i) = msg_bld_masks_14[i/4];
-			break;
-		case MSG_SSID_15:
-			if (ssid_range > sizeof(msg_bld_masks_15)) {
-				pr_warning("diag: truncating ssid range for ssid 15");
-				ssid_range = sizeof(msg_bld_masks_15);
-			}
-			for (i = 0; i < ssid_range; i += 4)
-				*(int *)(ptr + i) = msg_bld_masks_15[i/4];
-			break;
-		case MSG_SSID_16:
-			if (ssid_range > sizeof(msg_bld_masks_16)) {
-				pr_warning("diag: truncating ssid range for ssid 16");
-				ssid_range = sizeof(msg_bld_masks_16);
-			}
-			for (i = 0; i < ssid_range; i += 4)
-				*(int *)(ptr + i) = msg_bld_masks_16[i/4];
-			break;
-		case MSG_SSID_17:
-			if (ssid_range > sizeof(msg_bld_masks_17)) {
-				pr_warning("diag: truncating ssid range for ssid 17");
-				ssid_range = sizeof(msg_bld_masks_17);
-			}
-			for (i = 0; i < ssid_range; i += 4)
-				*(int *)(ptr + i) = msg_bld_masks_17[i/4];
-			break;
-		case MSG_SSID_18:
-			if (ssid_range > sizeof(msg_bld_masks_18)) {
-				pr_warning("diag: truncating ssid range for ssid 18");
-				ssid_range = sizeof(msg_bld_masks_18);
-			}
-			for (i = 0; i < ssid_range; i += 4)
-				*(int *)(ptr + i) = msg_bld_masks_18[i/4];
-			break;
-		case MSG_SSID_19:
-			if (ssid_range > sizeof(msg_bld_masks_19)) {
-				pr_warning("diag: truncating ssid range for ssid 19");
-				ssid_range = sizeof(msg_bld_masks_19);
-			}
-			for (i = 0; i < ssid_range; i += 4)
-				*(int *)(ptr + i) = msg_bld_masks_19[i/4];
-			break;
-		case MSG_SSID_20:
-			if (ssid_range > sizeof(msg_bld_masks_20)) {
-				pr_warning("diag: truncating ssid range for ssid 20");
-				ssid_range = sizeof(msg_bld_masks_20);
-			}
-			for (i = 0; i < ssid_range; i += 4)
-				*(int *)(ptr + i) = msg_bld_masks_20[i/4];
-			break;
-		case MSG_SSID_21:
-			if (ssid_range > sizeof(msg_bld_masks_21)) {
-				pr_warning("diag: truncating ssid range for ssid 21");
-				ssid_range = sizeof(msg_bld_masks_21);
-			}
-			for (i = 0; i < ssid_range; i += 4)
-				*(int *)(ptr + i) = msg_bld_masks_21[i/4];
-			break;
-		case MSG_SSID_22:
-			if (ssid_range > sizeof(msg_bld_masks_22)) {
-				pr_warning("diag: truncating ssid range for ssid 22");
-				ssid_range = sizeof(msg_bld_masks_22);
-			}
-			for (i = 0; i < ssid_range; i += 4)
-				*(int *)(ptr + i) = msg_bld_masks_22[i/4];
-			break;
-		}
-		encode_rsp_and_send(8 + ssid_range - 1);
-		return 0;
 	}
 	/* Check for download command */
 	else if ((cpu_is_msm8x60() || chk_apps_master()) && (*buf == 0x3A)) {
@@ -2698,9 +2369,6 @@ err:
 
 	kfree(driver->encoded_rsp_buf);
 	kfree(driver->rsp_write_ptr);
-	kfree(driver->buf_msg_mask_update);
-	kfree(driver->buf_log_mask_update);
-	kfree(driver->buf_event_mask_update);
 	kfree(driver->usb_buf_out);
 	kfree(driver->hdlc_buf);
 	kfree(driver->client_map);
@@ -2742,9 +2410,6 @@ void diagfwd_exit(void)
 
 	kfree(driver->encoded_rsp_buf);
 	kfree(driver->rsp_write_ptr);
-	kfree(driver->buf_msg_mask_update);
-	kfree(driver->buf_log_mask_update);
-	kfree(driver->buf_event_mask_update);
 	kfree(driver->usb_buf_out);
 	kfree(driver->hdlc_buf);
 	kfree(driver->client_map);
