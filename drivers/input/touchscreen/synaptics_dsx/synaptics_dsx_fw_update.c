@@ -37,7 +37,6 @@
 #define LOCKDOWN_OFFSET 0xb0
 #define FW_IMAGE_OFFSET 0x100
 
-#define PACKAGE_ID_OFFSET 17
 #define BOOTLOADER_ID_OFFSET 0
 #define BLOCK_NUMBER_OFFSET 0
 
@@ -1786,12 +1785,12 @@ static ssize_t fwu_sysfs_package_id_show(struct device *dev,
 			struct device_attribute *attr, char *buf)
 {
 	int retval;
-	unsigned char package_id[4];
+	unsigned char package_id[PACKAGE_ID_SIZE];
 	struct synaptics_rmi4_data *rmi4_data = fwu->rmi4_data;
 
 	/* read device package id */
 	retval = synaptics_rmi4_reg_read(rmi4_data,
-			rmi4_data->f01_query_base_addr + PACKAGE_ID_OFFSET,
+			rmi4_data->f01_query_base_addr + F01_PACKAGE_ID_OFFSET,
 			package_id,
 			sizeof(package_id));
 
