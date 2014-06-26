@@ -31,6 +31,7 @@ void *removed_alloc(struct device *dev, size_t size, dma_addr_t *handle,
 {
 	bool no_kernel_mapping = dma_get_attr(DMA_ATTR_NO_KERNEL_MAPPING,
 					attrs);
+	bool skip_zeroing = dma_get_attr(DMA_ATTR_SKIP_ZEROING, attrs);
 	unsigned long pfn;
 	unsigned long order = get_order(size);
 	void *addr = NULL;
@@ -43,11 +44,16 @@ void *removed_alloc(struct device *dev, size_t size, dma_addr_t *handle,
 	pfn = dma_alloc_from_contiguous(dev, size >> PAGE_SHIFT, order);
 
 	if (pfn) {
+		if (no_kernel_mapping && skip_zeroing) {
+			*handle = __pfn_to_phys(pfn);
+			return (void *)NO_KERNEL_MAPPING_DUMMY;
+		}
+
 		addr = ioremap(__pfn_to_phys(pfn), size);
 		if (WARN_ON(!addr)) {
 			dma_release_from_contiguous(dev, pfn, order);
 		} else {
-			if (!dma_get_attr(DMA_ATTR_SKIP_ZEROING, attrs))
+			if (!skip_zeroing)
 				memset(addr, 0, size);
 			if (no_kernel_mapping) {
 				iounmap(addr);
