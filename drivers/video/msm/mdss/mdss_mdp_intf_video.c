@@ -657,7 +657,8 @@ static int mdss_mdp_video_display(struct mdss_mdp_ctl *ctl, void *arg)
 {
 	struct mdss_mdp_video_ctx *ctx;
 	struct mdss_mdp_ctl *sctl;
-	int rc;
+	struct mdss_panel_data *pdata = ctl->panel_data;
+	int rc = 0;
 
 	pr_debug("kickoff ctl=%d\n", ctl->num);
 
@@ -676,6 +677,10 @@ static int mdss_mdp_video_display(struct mdss_mdp_ctl *ctl, void *arg)
 	}
 
 	MDSS_XLOG(ctl->num, ctl->underrun_cnt);
+
+	if (pdata->panel_info.cont_splash_enabled &&
+			!ctl->mfd->splash_info.splash_logo_enabled)
+		return rc;
 
 	if (!ctx->timegen_en) {
 		rc = mdss_mdp_ctl_intf_event(ctl, MDSS_EVENT_UNBLANK, NULL);
