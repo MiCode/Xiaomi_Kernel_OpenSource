@@ -62,8 +62,9 @@ int rndis_ipa_init(struct ipa_usb_init_params *params);
 
 int rndis_ipa_pipe_connect_notify(u32 usb_to_ipa_hdl,
 			u32 ipa_to_usb_hdl,
-			u32 max_transfer_size,
-			u32 max_packet_number,
+			u32 max_xfer_size_bytes_to_dev,
+			u32 max_packet_number_to_dev,
+			u32 max_xfer_size_bytes_to_host,
 			void *private);
 
 int rndis_ipa_pipe_disconnect_notify(void *private);
@@ -79,8 +80,9 @@ int rndis_ipa_init(struct ipa_usb_init_params *params)
 
 int rndis_ipa_pipe_connect_notify(u32 usb_to_ipa_hdl,
 			u32 ipa_to_usb_hdl,
-			u32 max_transfer_size,
-			u32 max_packet_number,
+			u32 max_xfer_size_bytes_to_dev,
+			u32 max_packet_number_to_dev,
+			u32 max_xfer_size_bytes_to_host,
 			void *private)
 {
 	return 0;
