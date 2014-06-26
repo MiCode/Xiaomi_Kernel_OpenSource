@@ -1447,6 +1447,22 @@ static inline enum dwc3_link_state dwc3_get_link_state(struct dwc3 *dwc)
 	return DWC3_DSTS_USBLNKST(reg);
 }
 
+static bool dwc3_gadget_is_suspended(struct dwc3 *dwc)
+{
+	enum dwc3_link_state		link_state;
+
+	if (atomic_read(&dwc->in_lpm)) {
+		return true;
+	} else {
+		link_state = dwc3_get_link_state(dwc);
+		if (link_state == DWC3_LINK_STATE_RX_DET ||
+			link_state == DWC3_LINK_STATE_U3)
+			return true;
+	}
+
+	return false;
+}
+
 static int dwc3_gadget_ep_queue(struct usb_ep *ep, struct usb_request *request,
 	gfp_t gfp_flags)
 {
@@ -1455,20 +1471,9 @@ static int dwc3_gadget_ep_queue(struct usb_ep *ep, struct usb_request *request,
 	struct dwc3			*dwc = dep->dwc;
 
 	unsigned long			flags;
-	enum dwc3_link_state		link_state;
 	int				ret;
-	bool wakeup = false;
 
-	if (atomic_read(&dwc->in_lpm)) {
-		wakeup = true;
-	} else {
-		link_state = dwc3_get_link_state(dwc);
-		if (link_state == DWC3_LINK_STATE_RX_DET ||
-			link_state == DWC3_LINK_STATE_U3)
-			wakeup = true;
-	}
-
-	if (wakeup) {
+	if (dwc3_gadget_is_suspended(dwc)) {
 		dwc3_gadget_wakeup(&dwc->gadget);
 		return -EAGAIN;
 	}
@@ -1767,6 +1772,11 @@ static int dwc_gadget_func_wakeup(struct usb_gadget *g, int interface_id)
 
 	if (!g || (g->speed != USB_SPEED_SUPER))
 		return -ENOTSUPP;
+
+	if (dwc3_gadget_is_suspended(dwc)) {
+		dwc3_gadget_wakeup(&dwc->gadget);
+		return -EAGAIN;
+	}
 
 	ret = dwc3_send_gadget_generic_command(dwc,
 		DWC3_DGCMD_XMIT_FUNCTION, interface_id);
