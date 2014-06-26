@@ -240,6 +240,43 @@ static struct sym_tbl {
 	{ smsm_state_syms, ARRAY_SIZE(smsm_state_syms) },
 };
 
+#define hash(val) (val % HSIZE)
+
+static void init_syms(void)
+{
+	int i;
+	int j;
+
+	for (i = 0; i < ARRAY_SIZE(tbl); ++i)
+		for (j = 0; j < HSIZE; ++j)
+			INIT_HLIST_HEAD(&tbl[i].hlist[j]);
+
+	for (i = 0; i < ARRAY_SIZE(tbl); ++i)
+		for (j = 0; j < tbl[i].size; ++j) {
+			INIT_HLIST_NODE(&tbl[i].data[j].node);
+			hlist_add_head(&tbl[i].data[j].node,
+				       &tbl[i].hlist[hash(tbl[i].data[j].val)]);
+		}
+}
+
+static char *find_sym(uint32_t id, uint32_t val)
+{
+	struct hlist_node *n;
+	struct sym *s;
+
+	hlist_for_each(n, &tbl[id].hlist[hash(val)]) {
+		s = hlist_entry(n, struct sym, node);
+		if (s->val == val)
+			return s->str;
+	}
+
+	return 0;
+}
+
+#else
+static void init_syms(void) {}
+#endif
+
 union fifo_mem {
 	uint64_t u64;
 	uint8_t u8;
@@ -310,42 +347,6 @@ static void *memcpy_to_log(void *dest, const void *src, size_t num_bytes,
 	return dest;
 }
 
-#define hash(val) (val % HSIZE)
-
-static void init_syms(void)
-{
-	int i;
-	int j;
-
-	for (i = 0; i < ARRAY_SIZE(tbl); ++i)
-		for (j = 0; j < HSIZE; ++j)
-			INIT_HLIST_HEAD(&tbl[i].hlist[j]);
-
-	for (i = 0; i < ARRAY_SIZE(tbl); ++i)
-		for (j = 0; j < tbl[i].size; ++j) {
-			INIT_HLIST_NODE(&tbl[i].data[j].node);
-			hlist_add_head(&tbl[i].data[j].node,
-				       &tbl[i].hlist[hash(tbl[i].data[j].val)]);
-		}
-}
-
-static char *find_sym(uint32_t id, uint32_t val)
-{
-	struct hlist_node *n;
-	struct sym *s;
-
-	hlist_for_each(n, &tbl[id].hlist[hash(val)]) {
-		s = hlist_entry(n, struct sym, node);
-		if (s->val == val)
-			return s->str;
-	}
-
-	return 0;
-}
-
-#else
-static void init_syms(void) {}
-#endif
 
 static inline unsigned int read_timestamp(void)
 {
