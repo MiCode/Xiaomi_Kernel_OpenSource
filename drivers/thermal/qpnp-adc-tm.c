@@ -208,6 +208,7 @@ struct qpnp_adc_tm_chip {
 	struct list_head		list;
 	bool				adc_tm_initialized;
 	int				max_channels_available;
+	atomic_t			wq_cnt;
 	struct qpnp_vadc_chip		*vadc_dev;
 	struct workqueue_struct		*high_thr_wq;
 	struct workqueue_struct		*low_thr_wq;
@@ -1338,6 +1339,7 @@ static void notify_adc_tm_fn(struct work_struct *work)
 {
 	struct qpnp_adc_tm_sensor *adc_tm = container_of(work,
 		struct qpnp_adc_tm_sensor, work);
+	struct qpnp_adc_tm_chip *chip = adc_tm->chip;
 
 	if (adc_tm->thermal_node) {
 		sysfs_notify(&adc_tm->tz_dev->device.kobj,
@@ -1350,6 +1352,7 @@ static void notify_adc_tm_fn(struct work_struct *work)
 			notify_clients(adc_tm);
 	}
 
+	atomic_dec(&chip->wq_cnt);
 	return;
 }
 
@@ -1608,6 +1611,8 @@ fail:
 	if (adc_tm_high_enable || adc_tm_low_enable)
 		queue_work(chip->sensor[sensor_num].req_wq,
 				&chip->sensor[sensor_num].work);
+	if (rc < 0)
+		atomic_dec(&chip->wq_cnt);
 
 	return rc;
 }
@@ -1636,6 +1641,7 @@ static irqreturn_t qpnp_adc_tm_high_thr_isr(int irq, void *data)
 
 	qpnp_adc_tm_disable(chip);
 
+	atomic_inc(&chip->wq_cnt);
 	queue_work(chip->high_thr_wq, &chip->trigger_high_thr_work);
 
 	return IRQ_HANDLED;
@@ -1665,6 +1671,7 @@ static irqreturn_t qpnp_adc_tm_low_thr_isr(int irq, void *data)
 
 	qpnp_adc_tm_disable(chip);
 
+	atomic_inc(&chip->wq_cnt);
 	queue_work(chip->low_thr_wq, &chip->trigger_low_thr_work);
 
 	return IRQ_HANDLED;
@@ -2055,6 +2062,7 @@ static int qpnp_adc_tm_probe(struct spmi_device *spmi)
 	}
 	INIT_WORK(&chip->trigger_high_thr_work, qpnp_adc_tm_high_thr_work);
 	INIT_WORK(&chip->trigger_low_thr_work, qpnp_adc_tm_low_thr_work);
+	atomic_set(&chip->wq_cnt, 0);
 
 	rc = qpnp_adc_tm_write_reg(chip, QPNP_ADC_TM_HIGH_THR_INT_EN,
 								thr_init);
@@ -2148,6 +2156,22 @@ static int qpnp_adc_tm_remove(struct spmi_device *spmi)
 	return 0;
 }
 
+static int qpnp_adc_tm_suspend_noirq(struct device *dev)
+{
+	struct qpnp_adc_tm_chip *chip = dev_get_drvdata(dev);
+
+	if (0 != atomic_read(&chip->wq_cnt)) {
+		pr_err(
+			"Aborting suspend, adc_tm notification running while suspending\n");
+		return -EBUSY;
+	}
+	return 0;
+}
+
+static const struct dev_pm_ops qpnp_adc_tm_pm_ops = {
+	.suspend_noirq	= qpnp_adc_tm_suspend_noirq,
+};
+
 static const struct of_device_id qpnp_adc_tm_match_table[] = {
 	{	.compatible = "qcom,qpnp-adc-tm" },
 	{}
@@ -2157,6 +2181,7 @@ static struct spmi_driver qpnp_adc_tm_driver = {
 	.driver		= {
 		.name	= "qcom,qpnp-adc-tm",
 		.of_match_table = qpnp_adc_tm_match_table,
+		.pm	= &qpnp_adc_tm_pm_ops,
 	},
 	.probe		= qpnp_adc_tm_probe,
 	.remove		= qpnp_adc_tm_remove,
