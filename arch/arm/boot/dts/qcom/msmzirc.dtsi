@@ -365,6 +365,11 @@
 		qcom,bark-time = <11000>;
 		qcom,pet-time = <10000>;
 	};
+
+	qcom,msm-rtb {
+		compatible = "qcom,msm-rtb";
+		qcom,rtb-size = <0x100000>;
+	};
 };
 
 #include "msmzirc-regulator.dtsi"
