@@ -14,7 +14,7 @@
 #include <linux/module.h>
 #include <linux/kthread.h>
 #include <linux/vmalloc.h>
-#include <mach/msm_tspp.h>
+#include <linux/qcom_tspp.h>
 #include "mpq_dvb_debug.h"
 #include "mpq_dmx_plugin_common.h"
 
