@@ -1050,6 +1050,23 @@ bool is_rndis_ipa_supported(void)
 	return rndis_ipa_supported;
 }
 
+void rndis_ipa_reset_trigger(void)
+{
+	struct f_rndis_qc *rndis;
+	unsigned long flags;
+
+	spin_lock_irqsave(&rndis_lock, flags);
+	rndis = _rndis_qc;
+	if (!rndis) {
+		pr_err("%s: No RNDIS instance", __func__);
+		spin_unlock_irqrestore(&rndis_lock, flags);
+		return;
+	}
+
+	rndis->net_ready_trigger = false;
+	spin_unlock_irqrestore(&rndis_lock, flags);
+}
+
 /*
  * Callback let RNDIS_IPA trigger us when network interface is up
  * and userspace is ready to answer DHCP requests

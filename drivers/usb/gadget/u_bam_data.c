@@ -1187,8 +1187,14 @@ void u_bam_data_stop_rndis_ipa(void)
 {
 	pr_debug("%s\n", __func__);
 
-	if (is_ipa_rndis_net_on)
+	if (is_ipa_rndis_net_on) {
+		struct bam_data_port *port =
+			bam2bam_data_ports[RNDIS_QC_ACTIVE_PORT];
+
+		rndis_ipa_reset_trigger();
+		bam_data_stop_endless_tx(port);
 		queue_work(bam_data_wq, rndis_disconn_w);
+	}
 }
 
 void bam_data_disconnect(struct data_port *gr, u8 port_num)
