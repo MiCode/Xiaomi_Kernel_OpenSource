@@ -84,20 +84,12 @@ static void mdm_handle_clink_evt(enum esoc_evt evt,
 
 static void mdm_ssr_fn(struct work_struct *work)
 {
-	int ret;
 	struct mdm_drv *mdm_drv = container_of(work, struct mdm_drv, ssr_work);
-	struct esoc_clink *esoc_clink = mdm_drv->esoc_clink;
-	const struct esoc_clink_ops const *clink_ops = esoc_clink->clink_ops;
 
 	/*
-	 * If esoc bus cannot allow restart, then forcibly shut down the
-	 * esoc
+	 * If restarting esoc fails, the SSR framework triggers a kernel panic
 	 */
-	ret = esoc_clink_request_ssr(mdm_drv->esoc_clink);
-	if (ret) {
-		dev_err(&esoc_clink->dev, "ssr request refused\n");
-		clink_ops->cmd_exe(ESOC_PWR_OFF, esoc_clink);
-	}
+	esoc_clink_request_ssr(mdm_drv->esoc_clink);
 	return;
 }
 
@@ -128,8 +120,12 @@ static int mdm_subsys_shutdown(const struct subsys_desc *crashed_subsys,
 			return ret;
 		}
 		mdm_drv->mode = IN_DEBUG;
-	} else {
-		ret = clink_ops->cmd_exe(ESOC_PWR_OFF, esoc_clink);
+	} else if (!force_stop) {
+		if (esoc_clink->subsys.sysmon_shutdown_ret)
+			ret = clink_ops->cmd_exe(ESOC_FORCE_PWR_OFF,
+							esoc_clink);
+		else
+			ret = clink_ops->cmd_exe(ESOC_PWR_OFF, esoc_clink);
 		if (ret) {
 			dev_err(&esoc_clink->dev, "failed to exe power off\n");
 			return ret;

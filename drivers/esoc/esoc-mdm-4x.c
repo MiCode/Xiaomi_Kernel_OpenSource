@@ -332,11 +332,11 @@ static void mdm_power_down(struct mdm_ctrl *mdm)
 
 static int mdm_cmd_exe(enum esoc_cmd cmd, struct esoc_clink *esoc)
 {
-	int ret;
 	unsigned long end_time;
 	bool status_down = false;
 	struct mdm_ctrl *mdm = get_esoc_clink_data(esoc);
 	struct device *dev = mdm->dev;
+	bool graceful_shutdown;
 
 	switch (cmd) {
 	case ESOC_PWR_ON:
@@ -350,29 +350,35 @@ static int mdm_cmd_exe(enum esoc_cmd cmd, struct esoc_clink *esoc)
 		mdm->debug = 0;
 		mdm->ready = false;
 		mdm->trig_cnt = 0;
+		graceful_shutdown = true;
 
-		ret = sysmon_send_shutdown(&esoc->subsys);
-		if (ret)
-			dev_err(mdm->dev, "Graceful shutdown fail, ret = %d\n",
-									ret);
-		else {
-			dev_dbg(mdm->dev, "Waiting for status gpio go low\n");
-			status_down = false;
-			end_time = jiffies + msecs_to_jiffies(10000);
-			while (time_before(jiffies, end_time)) {
-				if (gpio_get_value(MDM_GPIO(mdm, MDM2AP_STATUS))
+		dev_dbg(mdm->dev, "Waiting for status gpio go low\n");
+		status_down = false;
+		end_time = jiffies + msecs_to_jiffies(10000);
+		while (time_before(jiffies, end_time)) {
+			if (gpio_get_value(MDM_GPIO(mdm, MDM2AP_STATUS))
 									== 0) {
-					dev_dbg(dev, "Status went low\n");
-					status_down = true;
-					break;
-				}
-				msleep(100);
+				dev_dbg(dev, "Status went low\n");
+				status_down = true;
+				break;
 			}
-			if (status_down)
-				dev_dbg(dev, "shutdown successful\n");
-			else
-				dev_err(mdm->dev, "graceful poff ipc fail\n");
+			msleep(100);
 		}
+		if (status_down)
+			dev_dbg(dev, "shutdown successful\n");
+		else
+			dev_err(mdm->dev, "graceful poff ipc fail\n");
+	case ESOC_FORCE_PWR_OFF:
+		if (!graceful_shutdown) {
+			mdm_disable_irqs(mdm);
+			mdm->debug = 0;
+			mdm->ready = false;
+			mdm->trig_cnt = 0;
+
+			dev_err(mdm->dev, "Graceful shutdown fail, ret = %d\n",
+				esoc->subsys.sysmon_shutdown_ret);
+		}
+
 		/*
 		 * Force a shutdown of the mdm. This is required in order
 		 * to prevent the mdm from immediately powering back on
