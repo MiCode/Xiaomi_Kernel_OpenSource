@@ -1239,7 +1239,11 @@ static void edp_panel_vdd_off(struct intel_dp *intel_dp, bool sync)
 	if (!is_edp(intel_dp))
 		return;
 
-	WARN(!intel_dp->want_panel_vdd, "eDP VDD not forced on");
+	if (!edp_have_panel_vdd(intel_dp))
+		return;
+
+	if (!intel_dp->want_panel_vdd)
+		return;
 
 	intel_dp->want_panel_vdd = false;
 
