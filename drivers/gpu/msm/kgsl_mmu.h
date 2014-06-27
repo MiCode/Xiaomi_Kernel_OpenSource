@@ -51,11 +51,6 @@
 
 struct kgsl_device;
 
-/* MMU Flags */
-#define KGSL_MMUFLAGS_TLBFLUSH         0x10000000
-#define KGSL_MMUFLAGS_PTUPDATE         0x20000000
-#define KGSL_MMUFLAGS_TLBFLUSH_SECURE  0x40000000
-
 enum kgsl_mmutype {
 	KGSL_MMU_TYPE_IOMMU = 0,
 	KGSL_MMU_TYPE_NONE
@@ -75,7 +70,6 @@ struct kgsl_pagetable {
 		unsigned int max_mapped;
 	} stats;
 	const struct kgsl_mmu_pt_ops *pt_ops;
-	unsigned int tlb_flags;
 	unsigned int fault_addr;
 	void *priv;
 	struct kgsl_mmu *mmu;
@@ -89,11 +83,7 @@ struct kgsl_mmu_ops {
 	int (*mmu_close) (struct kgsl_mmu *mmu);
 	int (*mmu_start) (struct kgsl_mmu *mmu);
 	void (*mmu_stop) (struct kgsl_mmu *mmu);
-	int (*mmu_setstate) (struct kgsl_mmu *mmu,
-		struct kgsl_pagetable *pagetable,
-		unsigned int context_id);
-	int (*mmu_device_setstate) (struct kgsl_mmu *mmu,
-					uint32_t flags);
+	int (*mmu_set_pt) (struct kgsl_mmu *mmu, struct kgsl_pagetable *pt);
 	phys_addr_t (*mmu_get_current_ptbase)
 			(struct kgsl_mmu *mmu);
 	void (*mmu_pagefault_resume)
@@ -130,11 +120,9 @@ struct kgsl_mmu_ops {
 
 struct kgsl_mmu_pt_ops {
 	int (*mmu_map) (struct kgsl_pagetable *pt,
-			struct kgsl_memdesc *memdesc,
-			unsigned int *tlb_flags);
+			struct kgsl_memdesc *memdesc);
 	int (*mmu_unmap) (struct kgsl_pagetable *pt,
-			struct kgsl_memdesc *memdesc,
-			unsigned int *tlb_flags);
+			struct kgsl_memdesc *memdesc);
 	void *(*mmu_create_pagetable) (void);
 	void (*mmu_destroy_pagetable) (struct kgsl_pagetable *);
 	phys_addr_t (*get_ptbase) (struct kgsl_pagetable *);
@@ -152,7 +140,6 @@ struct kgsl_mmu {
 	struct kgsl_pagetable  *securepagetable;
 	/* pagetable object used for priv bank of IOMMU */
 	struct kgsl_pagetable  *priv_bank_table;
-	struct kgsl_pagetable  *hwpagetable;
 	const struct kgsl_mmu_ops *mmu_ops;
 	void *priv;
 	atomic_t fault;
@@ -185,8 +172,6 @@ int kgsl_mmu_unmap(struct kgsl_pagetable *pagetable,
 int kgsl_mmu_put_gpuaddr(struct kgsl_pagetable *pagetable,
 		 struct kgsl_memdesc *memdesc);
 unsigned int kgsl_virtaddr_to_physaddr(void *virtaddr);
-int kgsl_setstate(struct kgsl_mmu *mmu, unsigned int context_id,
-			uint32_t flags);
 int kgsl_mmu_get_ptname_from_ptbase(struct kgsl_mmu *mmu,
 					phys_addr_t pt_base);
 unsigned int kgsl_mmu_log_fault_addr(struct kgsl_mmu *mmu,
@@ -219,21 +204,11 @@ static inline phys_addr_t kgsl_mmu_get_current_ptbase(struct kgsl_mmu *mmu)
 		return 0;
 }
 
-static inline int kgsl_mmu_setstate(struct kgsl_mmu *mmu,
-			struct kgsl_pagetable *pagetable,
-			unsigned int context_id)
+static inline int kgsl_mmu_set_pt(struct kgsl_mmu *mmu,
+					struct kgsl_pagetable *pagetable)
 {
-	if (mmu->mmu_ops && mmu->mmu_ops->mmu_setstate)
-		return mmu->mmu_ops->mmu_setstate(mmu, pagetable, context_id);
-
-	return 0;
-}
-
-static inline int kgsl_mmu_device_setstate(struct kgsl_mmu *mmu,
-						uint32_t flags)
-{
-	if (mmu->mmu_ops && mmu->mmu_ops->mmu_device_setstate)
-		return mmu->mmu_ops->mmu_device_setstate(mmu, flags);
+	if (mmu->mmu_ops && mmu->mmu_ops->mmu_set_pt)
+		return mmu->mmu_ops->mmu_set_pt(mmu, pagetable);
 
 	return 0;
 }

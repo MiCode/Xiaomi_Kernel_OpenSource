@@ -415,10 +415,10 @@ int adreno_drawctxt_detach(struct kgsl_context *context)
 	device = context->device;
 	adreno_dev = ADRENO_DEVICE(device);
 	drawctxt = ADRENO_CONTEXT(context);
-	rb = adreno_ctx_get_rb(adreno_dev, drawctxt);
+	rb = drawctxt->rb;
 
 	/* deactivate context */
-	if (adreno_dev->drawctxt_active == drawctxt)
+	if (rb->drawctxt_active == drawctxt)
 		adreno_drawctxt_switch(adreno_dev, rb, NULL, 0);
 
 	mutex_lock(&drawctxt->mutex);
@@ -498,27 +498,35 @@ void adreno_drawctxt_destroy(struct kgsl_context *context)
 	kfree(drawctxt);
 }
 
+static void _adreno_context_restore_cpu(struct adreno_ringbuffer *rb,
+				struct adreno_context *drawctxt)
+{
+	kgsl_sharedmem_writel(rb->device, &(rb->device->memstore),
+			KGSL_MEMSTORE_RB_OFFSET(rb->device, current_context),
+			drawctxt ? drawctxt->base.id : 0);
+	kgsl_sharedmem_writel(rb->device, &(rb->device->memstore),
+			KGSL_MEMSTORE_OFFSET(KGSL_MEMSTORE_GLOBAL,
+						current_context),
+			drawctxt ? drawctxt->base.id : 0);
+}
+
 /**
  * adreno_context_restore() - generic context restore handler
- * @adreno_dev: the device
- * @context: the context
+ * @rb: The RB in which context is to be restored
  *
  * Basic context restore handler that writes the context identifier
  * to the ringbuffer and issues pagetable switch commands if necessary.
  */
-static int adreno_context_restore(struct adreno_device *adreno_dev,
-				  struct adreno_context *context)
+static void adreno_context_restore(struct adreno_ringbuffer *rb)
 {
-	struct kgsl_device *device;
-	struct adreno_ringbuffer *rb;
+	struct kgsl_device *device = rb->device;
+	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
+	struct adreno_context *drawctxt = rb->drawctxt_active;
 	unsigned int cmds[11];
+	int ret;
 
-	if (adreno_dev == NULL || context == NULL)
-		return -EINVAL;
-
-	rb = context->rb;
-	device = &adreno_dev->dev;
-
+	if (!drawctxt)
+		return;
 	/*
 	 * write the context identifier to the ringbuffer, write to both
 	 * the global index and the index of the RB in which the context
@@ -531,12 +539,12 @@ static int adreno_context_restore(struct adreno_device *adreno_dev,
 	cmds[2] = cp_type3_packet(CP_MEM_WRITE, 2);
 	cmds[3] = device->memstore.gpuaddr +
 		KGSL_MEMSTORE_RB_OFFSET(rb, current_context);
-	cmds[4] = context->base.id;
+	cmds[4] = drawctxt->base.id;
 	cmds[5] = cp_type3_packet(CP_MEM_WRITE, 2);
 	cmds[6] = device->memstore.gpuaddr +
 		KGSL_MEMSTORE_OFFSET(KGSL_MEMSTORE_GLOBAL,
 					current_context);
-	cmds[7] = context->base.id;
+	cmds[7] = drawctxt->base.id;
 	/* Flush the UCHE for new context */
 	cmds[8] = cp_type0_packet(
 		adreno_getreg(adreno_dev, ADRENO_REG_UCHE_INVALIDATE0), 2);
@@ -545,8 +553,16 @@ static int adreno_context_restore(struct adreno_device *adreno_dev,
 		cmds[10] = 0x12;
 	else if (adreno_is_a3xx(adreno_dev))
 		cmds[10] = 0x90000000;
-	return adreno_ringbuffer_issuecmds(device, context,
-				KGSL_CMD_FLAGS_NONE, cmds, 11);
+	ret = adreno_ringbuffer_issuecmds(rb, KGSL_CMD_FLAGS_NONE, cmds, 11);
+	if (ret) {
+		/*
+		 * A failure to submit commands to ringbuffer means RB may
+		 * be full, in this case wait for idle and use CPU
+		 */
+		ret = adreno_idle(device);
+		BUG_ON(ret);
+		_adreno_context_restore_cpu(rb, drawctxt);
+	}
 }
 
 /**
@@ -565,49 +581,43 @@ int adreno_drawctxt_switch(struct adreno_device *adreno_dev,
 				unsigned int flags)
 {
 	struct kgsl_device *device = &adreno_dev->dev;
+	struct kgsl_pagetable *new_pt;
 	int ret = 0;
-
-	/* already current? */
-	if (adreno_dev->drawctxt_active == drawctxt)
-		return ret;
-
-	trace_adreno_drawctxt_switch(adreno_dev->drawctxt_active,
-		drawctxt, flags);
 
 	/* We always expect a valid rb */
 	BUG_ON(!rb);
+
+	/* already current? */
+	if (rb->drawctxt_active == drawctxt)
+		return ret;
+
+	trace_adreno_drawctxt_switch(rb,
+		drawctxt, flags);
+
 	/* Get a refcount to the new instance */
 	if (drawctxt) {
 		if (!_kgsl_context_get(&drawctxt->base))
 			return -EINVAL;
 
-		ret = kgsl_mmu_setstate(&device->mmu,
-			drawctxt->base.proc_priv->pagetable,
-			adreno_dev->drawctxt_active ?
-			adreno_dev->drawctxt_active->base.id :
-			KGSL_CONTEXT_INVALID);
-		/* Set the new context */
-		ret = adreno_context_restore(adreno_dev, drawctxt);
-		if (ret) {
-			KGSL_DRV_ERR(device,
-					"Error in GPU context %d restore: %d\n",
-					drawctxt->base.id, ret);
-			return ret;
-		}
+		new_pt = drawctxt->base.proc_priv->pagetable;
 	} else {
-		/*
-		 * No context - set the default pagetable and thats it.
-		 * If there isn't a current context, the kgsl_mmu_setstate
-		 * will use the CPU path so we don't need to give
-		 * it a valid context id.
-		 */
-		ret = kgsl_mmu_setstate(&device->mmu,
-					 device->mmu.defaultpagetable,
-					adreno_dev->drawctxt_active->base.id);
+		 /* No context - set the default pagetable and thats it. */
+		new_pt = device->mmu.defaultpagetable;
 	}
+	ret = adreno_iommu_set_pt(rb, new_pt);
+	if (ret) {
+		KGSL_DRV_ERR(device,
+			"Failed to set pagetable on rb %d\n", rb->id);
+		return ret;
+	}
+
 	/* Put the old instance of the active drawctxt */
-	if (adreno_dev->drawctxt_active)
-		kgsl_context_put(&adreno_dev->drawctxt_active->base);
-	adreno_dev->drawctxt_active = drawctxt;
+	if (rb->drawctxt_active)
+		kgsl_context_put(&rb->drawctxt_active->base);
+
+	rb->drawctxt_active = drawctxt;
+	/* Set the new context */
+	adreno_context_restore(rb);
+
 	return 0;
 }

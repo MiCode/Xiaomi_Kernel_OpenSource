@@ -242,7 +242,6 @@ struct adreno_device {
 	unsigned long gmem_base;
 	unsigned long gmem_size;
 	const struct adreno_gpu_core *gpucore;
-	struct adreno_context *drawctxt_active;
 	unsigned int *pfp_fw;
 	size_t pfp_fw_size;
 	unsigned int pfp_fw_version;
@@ -679,6 +678,11 @@ struct log_field {
 	{ BIT(KGSL_FT_THROTTLE), "throttle"}, \
 	{ BIT(KGSL_FT_SKIPCMD), "skipcmd" }
 
+#define FOR_EACH_RINGBUFFER(adreno_dev, rb, i)				\
+	for (i = 0, rb = &(adreno_dev->ringbuffers[0]);			\
+		i < adreno_dev->num_ringbuffers;			\
+		i++, rb++)
+
 extern struct adreno_gpudev adreno_a3xx_gpudev;
 extern struct adreno_gpudev adreno_a4xx_gpudev;
 
@@ -782,6 +786,9 @@ bool adreno_hw_isidle(struct adreno_device *adreno_dev);
 int adreno_rb_readtimestamp(struct kgsl_device *device,
 	void *priv, enum kgsl_timestamp_type type,
 	unsigned int *timestamp);
+
+int adreno_iommu_set_pt(struct adreno_ringbuffer *rb,
+			struct kgsl_pagetable *new_pt);
 
 static inline int adreno_is_a3xx(struct adreno_device *adreno_dev)
 {
@@ -1317,6 +1324,41 @@ static inline struct adreno_ringbuffer *adreno_ctx_get_rb(
 	else
 		return &(adreno_dev->ringbuffers[
 				adreno_dev->num_ringbuffers - 1]);
+}
+/*
+ * adreno_set_active_ctx_null() - Put back reference to any active context
+ * and set the active context to NULL
+ * @adreno_dev: The adreno device
+ */
+static inline void adreno_set_active_ctx_null(struct adreno_device *adreno_dev)
+{
+	int i;
+	struct adreno_ringbuffer *rb;
+	FOR_EACH_RINGBUFFER(adreno_dev, rb, i) {
+		if (rb->drawctxt_active)
+			kgsl_context_put(&(rb->drawctxt_active->base));
+		rb->drawctxt_active = NULL;
+	}
+}
+
+/**
+ * adreno_use_cpu_path() - Use CPU instead of the GPU to manage the mmu?
+ * @adreno_dev: the device
+ *
+ * In many cases it is preferable to poke the iommu directly rather
+ * than using the GPU command stream. If we are idle or trying to go to a low
+ * power state, using the command stream will be slower and asynchronous, which
+ * needlessly complicates the power state transitions. Additionally,
+ * the hardware simulators do not support command stream MMU operations so
+ * the command stream can never be used if we are capturing CFF data.
+ *
+ */
+static inline bool adreno_use_cpu_path(struct adreno_device *adreno_dev)
+{
+	return (adreno_isidle(&adreno_dev->dev) ||
+		KGSL_STATE_ACTIVE != adreno_dev->dev.state ||
+		atomic_read(&adreno_dev->dev.active_cnt) == 0 ||
+		adreno_dev->dev.cff_dump_enable);
 }
 
 #endif /*__ADRENO_H */

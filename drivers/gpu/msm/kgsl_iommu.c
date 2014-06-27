@@ -70,8 +70,7 @@ static struct kgsl_iommu_register_list kgsl_iommuv1_reg[KGSL_IOMMU_REG_MAX] = {
 
 static struct iommu_access_ops *iommu_access_ops;
 
-static int kgsl_iommu_default_setstate(struct kgsl_mmu *mmu,
-		uint32_t flags);
+static int kgsl_iommu_flush_pt(struct kgsl_mmu *mmu);
 static phys_addr_t
 kgsl_iommu_get_current_ptbase(struct kgsl_mmu *mmu);
 
@@ -1235,28 +1234,6 @@ static uint64_t kgsl_iommu_get_default_ttbr0(struct kgsl_mmu *mmu,
 	return 0;
 }
 
-static int kgsl_iommu_setstate(struct kgsl_mmu *mmu,
-				struct kgsl_pagetable *pagetable,
-				unsigned int context_id)
-{
-	int ret = 0;
-
-	/* page table not current, then setup mmu to use new
-	 *  specified page table
-	 */
-	if (mmu->hwpagetable != pagetable) {
-		unsigned int flags = 0;
-		mmu->hwpagetable = pagetable;
-		flags |= kgsl_mmu_pt_get_flags(mmu->hwpagetable,
-						mmu->device->id) |
-						KGSL_MMUFLAGS_TLBFLUSH;
-		ret = kgsl_setstate(mmu, context_id,
-			KGSL_MMUFLAGS_PTUPDATE | flags);
-	}
-
-	return ret;
-}
-
 /*
  * kgsl_iommu_get_reg_ahbaddr - Returns the ahb address of the register
  * @mmu - Pointer to mmu structure
@@ -1535,13 +1512,9 @@ static int kgsl_iommu_start(struct kgsl_mmu *mmu)
 	if (status)
 		return status;
 
-	mmu->hwpagetable = mmu->defaultpagetable;
-
 	status = kgsl_attach_pagetable_iommu_domain(mmu);
-	if (status) {
-		mmu->hwpagetable = NULL;
+	if (status)
 		goto done;
-	}
 
 	kgsl_iommu_enable_clk(mmu, KGSL_IOMMU_MAX_UNITS);
 
@@ -1607,10 +1580,9 @@ static void kgsl_iommu_flush_tlb_pt_current(struct kgsl_pagetable *pt,
 				struct kgsl_memdesc *memdesc)
 {
 	struct kgsl_iommu *iommu = pt->mmu->priv;
-	unsigned int flush_flags = KGSL_MMUFLAGS_TLBFLUSH;
 
-	flush_flags |= ((kgsl_memdesc_is_secured(memdesc) ?
-			KGSL_MMUFLAGS_TLBFLUSH_SECURE : 0));
+	if (kgsl_memdesc_is_secured(memdesc))
+		return;
 
 	mutex_lock(&pt->mmu->device->mutex);
 	/*
@@ -1621,14 +1593,13 @@ static void kgsl_iommu_flush_tlb_pt_current(struct kgsl_pagetable *pt,
 		iommu->iommu_units[0].dev[KGSL_IOMMU_CONTEXT_USER].attached &&
 		kgsl_iommu_pt_equal(pt->mmu, pt,
 		kgsl_iommu_get_current_ptbase(pt->mmu)))
-		kgsl_iommu_default_setstate(pt->mmu, flush_flags);
+		kgsl_iommu_flush_pt(pt->mmu);
 	mutex_unlock(&pt->mmu->device->mutex);
 }
 
 static int
 kgsl_iommu_unmap(struct kgsl_pagetable *pt,
-		struct kgsl_memdesc *memdesc,
-		unsigned int *tlb_flags)
+		struct kgsl_memdesc *memdesc)
 {
 	int ret = 0;
 	unsigned int range = memdesc->size;
@@ -1667,8 +1638,7 @@ kgsl_iommu_unmap(struct kgsl_pagetable *pt,
 
 static int
 kgsl_iommu_map(struct kgsl_pagetable *pt,
-			struct kgsl_memdesc *memdesc,
-			unsigned int *tlb_flags)
+			struct kgsl_memdesc *memdesc)
 {
 	int ret;
 	unsigned int iommu_virt_addr;
@@ -1775,8 +1745,8 @@ static void kgsl_iommu_stop(struct kgsl_mmu *mmu)
 	 *  call this with the global lock held
 	 *  detach iommu attachment
 	 */
+	/* detach iommu attachment */
 	kgsl_detach_pagetable_iommu_domain(mmu);
-	mmu->hwpagetable = NULL;
 
 	kgsl_iommu_pagefault_resume(mmu);
 }
@@ -1838,32 +1808,16 @@ kgsl_iommu_get_current_ptbase(struct kgsl_mmu *mmu)
 }
 
 /*
- * kgsl_iommu_default_setstate - Change the IOMMU pagetable or flush IOMMU tlb
- * of the primary context bank
+ * kgsl_iommu_flush_pt - Flush the IOMMU pagetable
  * @mmu - Pointer to mmu structure
- * @flags - Flags indicating whether pagetable has to chnage or tlb is to be
- * flushed or both
- *
- * Based on flags set the new pagetable fo the IOMMU unit or flush it's tlb or
- * do both by doing direct register writes to the IOMMu registers through the
- * cpu
- * Return - void
  */
-static int kgsl_iommu_default_setstate(struct kgsl_mmu *mmu,
-					uint32_t flags)
+static int kgsl_iommu_flush_pt(struct kgsl_mmu *mmu)
 {
 	struct kgsl_iommu *iommu = mmu->priv;
-	int temp;
+	unsigned long wait_for_flush;
+	unsigned int tlbflush_ctxt = KGSL_IOMMU_CONTEXT_USER;
 	int i;
 	int ret = 0;
-	phys_addr_t pt_base = kgsl_iommu_get_pt_base_addr(mmu,
-						mmu->hwpagetable);
-	uint64_t pt_val;
-
-	/* we must hold the mutex here to idle the GPU, and to write regs */
-	BUG_ON(!mutex_is_locked(&mmu->device->mutex));
-
-	kgsl_iommu_enable_clk(mmu, KGSL_IOMMU_MAX_UNITS);
 
 	/* For v0 SMMU GPU needs to be idle for tlb invalidate as well */
 	if (msm_soc_version_supports_iommu_v0()) {
@@ -1871,78 +1825,103 @@ static int kgsl_iommu_default_setstate(struct kgsl_mmu *mmu,
 		if (ret)
 			return ret;
 	}
+	kgsl_iommu_enable_clk(mmu, KGSL_IOMMU_MAX_UNITS);
 
 	/* Acquire GPU-CPU sync Lock here */
 	_iommu_lock(iommu);
 
-	if (flags & KGSL_MMUFLAGS_PTUPDATE) {
+	for (i = 0; i < iommu->unit_count; i++) {
+		KGSL_IOMMU_SET_CTX_REG(iommu, (&iommu->iommu_units[i]),
+			tlbflush_ctxt, TLBIALL, 1);
+		mb();
+		/*
+		 * Wait for flush to complete by polling the flush
+		 * status bit of TLBSTATUS register for not more than
+		 * 2 s. After 2s just exit, at that point the SMMU h/w
+		 * may be stuck and will eventually cause GPU to hang
+		 * or bring the system down.
+		 */
 		if (!msm_soc_version_supports_iommu_v0()) {
-			ret = kgsl_idle(mmu->device);
-			if (ret)
-				goto unlock;
-		}
-		for (i = 0; i < iommu->unit_count; i++) {
-			/* get the lsb value which should not change when
-			 * changing ttbr0 */
-			pt_val = kgsl_iommu_get_default_ttbr0(mmu, i,
-						KGSL_IOMMU_CONTEXT_USER);
-
-			pt_base &= KGSL_IOMMU_CTX_TTBR0_ADDR_MASK;
-			pt_val &= ~KGSL_IOMMU_CTX_TTBR0_ADDR_MASK;
-			pt_val |= pt_base;
-			KGSL_IOMMU_SET_CTX_REG_Q(iommu,
-					(&iommu->iommu_units[i]),
-					KGSL_IOMMU_CONTEXT_USER, TTBR0, pt_val);
-
-			mb();
-			temp = KGSL_IOMMU_GET_CTX_REG_Q(iommu,
+			wait_for_flush = jiffies + msecs_to_jiffies(2000);
+			KGSL_IOMMU_SET_CTX_REG(iommu,
 				(&iommu->iommu_units[i]),
-				KGSL_IOMMU_CONTEXT_USER, TTBR0);
-		}
-	}
-	/* Flush tlb */
-	if (flags & KGSL_MMUFLAGS_TLBFLUSH) {
-		unsigned long wait_for_flush;
-		unsigned int tlbflush_ctxt = KGSL_IOMMU_CONTEXT_USER;
-		for (i = 0; i < iommu->unit_count; i++) {
-
-			if (flags & KGSL_MMUFLAGS_TLBFLUSH_SECURE)
-				tlbflush_ctxt = KGSL_IOMMU_CONTEXT_SECURE;
-
-			KGSL_IOMMU_SET_CTX_REG(iommu, (&iommu->iommu_units[i]),
-				tlbflush_ctxt, TLBIALL, 1);
-			mb();
-			/*
-			 * Wait for flush to complete by polling the flush
-			 * status bit of TLBSTATUS register for not more than
-			 * 2 s. After 2s just exit, at that point the SMMU h/w
-			 * may be stuck and will eventually cause GPU to hang
-			 * or bring the system down.
-			 */
-			if (!msm_soc_version_supports_iommu_v0()) {
-				wait_for_flush = jiffies +
-						msecs_to_jiffies(2000);
-				KGSL_IOMMU_SET_CTX_REG(iommu,
-					(&iommu->iommu_units[i]),
-					tlbflush_ctxt, TLBSYNC, 0);
-				while (KGSL_IOMMU_GET_CTX_REG(iommu,
-					(&iommu->iommu_units[i]),
-					tlbflush_ctxt, TLBSTATUS) &
-					(KGSL_IOMMU_CTX_TLBSTATUS_SACTIVE)) {
-					if (time_after(jiffies,
-						wait_for_flush)) {
-						KGSL_DRV_ERR(mmu->device,
-						"Wait limit reached for IOMMU tlb flush\n");
-						break;
-					}
-					cpu_relax();
+				tlbflush_ctxt, TLBSYNC, 0);
+			while (KGSL_IOMMU_GET_CTX_REG(iommu,
+				(&iommu->iommu_units[i]),
+				tlbflush_ctxt, TLBSTATUS) &
+				(KGSL_IOMMU_CTX_TLBSTATUS_SACTIVE)) {
+				if (time_after(jiffies,
+					wait_for_flush)) {
+					KGSL_DRV_ERR(mmu->device,
+					"Wait limit reached for IOMMU tlb flush\n");
+					break;
 				}
+				cpu_relax();
 			}
 		}
 	}
-unlock:
 	/* Release GPU-CPU sync Lock here */
 	_iommu_unlock(iommu);
+
+	/* Disable smmu clock */
+	kgsl_iommu_disable_clk(mmu, KGSL_IOMMU_MAX_UNITS);
+
+	return ret;
+}
+
+/*
+ * kgsl_iommu_set_pt - Change the IOMMU pagetable of the primary context bank
+ * @mmu - Pointer to mmu structure
+ * @pt - Pagetable to switch to
+ *
+ * Set the new pagetable for the IOMMU unit by doing direct register writes
+ * to the IOMMU registers through the cpu
+ *
+ * Return - void
+ */
+static int kgsl_iommu_set_pt(struct kgsl_mmu *mmu,
+				struct kgsl_pagetable *pt)
+{
+	struct kgsl_iommu *iommu = mmu->priv;
+	int temp;
+	int i;
+	int ret = 0;
+	phys_addr_t pt_base;
+	uint64_t pt_val;
+
+	kgsl_iommu_enable_clk(mmu, KGSL_IOMMU_MAX_UNITS);
+
+	pt_base = kgsl_iommu_get_pt_base_addr(mmu, pt);
+
+	ret = kgsl_idle(mmu->device);
+	if (ret)
+		return ret;
+
+	/* Acquire GPU-CPU sync Lock here */
+	_iommu_lock(iommu);
+
+	for (i = 0; i < iommu->unit_count; i++) {
+		/* get the lsb value which should not change when
+		 * changing ttbr0 */
+		pt_val = kgsl_iommu_get_default_ttbr0(mmu, i,
+					KGSL_IOMMU_CONTEXT_USER);
+
+		pt_base &= KGSL_IOMMU_CTX_TTBR0_ADDR_MASK;
+		pt_val &= ~KGSL_IOMMU_CTX_TTBR0_ADDR_MASK;
+		pt_val |= pt_base;
+		KGSL_IOMMU_SET_CTX_REG_Q(iommu,
+				(&iommu->iommu_units[i]),
+				KGSL_IOMMU_CONTEXT_USER, TTBR0, pt_val);
+
+		mb();
+		temp = KGSL_IOMMU_GET_CTX_REG_Q(iommu,
+			(&iommu->iommu_units[i]),
+			KGSL_IOMMU_CONTEXT_USER, TTBR0);
+	}
+	/* Release GPU-CPU sync Lock here */
+	_iommu_unlock(iommu);
+
+	kgsl_iommu_flush_pt(mmu);
 
 	/* Disable smmu clock */
 	kgsl_iommu_disable_clk(mmu, KGSL_IOMMU_MAX_UNITS);
@@ -2115,8 +2094,7 @@ struct kgsl_mmu_ops iommu_ops = {
 	.mmu_close = kgsl_iommu_close,
 	.mmu_start = kgsl_iommu_start,
 	.mmu_stop = kgsl_iommu_stop,
-	.mmu_setstate = kgsl_iommu_setstate,
-	.mmu_device_setstate = kgsl_iommu_default_setstate,
+	.mmu_set_pt = kgsl_iommu_set_pt,
 	.mmu_pagefault_resume = kgsl_iommu_pagefault_resume,
 	.mmu_get_current_ptbase = kgsl_iommu_get_current_ptbase,
 	.mmu_enable_clk = kgsl_iommu_enable_clk,
