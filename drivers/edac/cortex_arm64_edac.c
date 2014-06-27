@@ -192,7 +192,8 @@ static void ca53_parse_cpumerrsr(struct erp_local_data *ed)
 
 	edac_printk(KERN_CRIT, EDAC_CPU, "Cortex A53 CPU%d L1 %s Error detected\n",
 					 smp_processor_id(), err_name[ed->err]);
-	edac_printk(KERN_CRIT, EDAC_CPU, "CPUMERRSR value = %llx\n", cpumerrsr);
+	edac_printk(KERN_CRIT, EDAC_CPU, "CPUMERRSR value = %#llx\n",
+								cpumerrsr);
 
 	cpuid = A53_CPUMERRSR_CPUID(cpumerrsr);
 
@@ -258,7 +259,7 @@ static void ca53_parse_l2merrsr(struct erp_local_data *ed)
 
 	edac_printk(KERN_CRIT, EDAC_CPU, "CortexA53 L2 %s Error detected\n",
 							err_name[ed->err]);
-	edac_printk(KERN_CRIT, EDAC_CPU, "L2MERRSR value = %llx\n", l2merrsr);
+	edac_printk(KERN_CRIT, EDAC_CPU, "L2MERRSR value = %#llx\n", l2merrsr);
 
 	cpuid = A53_L2MERRSR_CPUID(l2merrsr);
 
@@ -310,7 +311,8 @@ static void ca57_parse_cpumerrsr(struct erp_local_data *ed)
 
 	edac_printk(KERN_CRIT, EDAC_CPU, "Cortex A57 CPU%d L1 %s Error detected\n",
 					 smp_processor_id(), err_name[ed->err]);
-	edac_printk(KERN_CRIT, EDAC_CPU, "CPUMERRSR value = %llx\n", cpumerrsr);
+	edac_printk(KERN_CRIT, EDAC_CPU, "CPUMERRSR value = %#llx\n",
+								cpumerrsr);
 
 	bank = A57_CPUMERRSR_BANK(cpumerrsr);
 
@@ -370,7 +372,7 @@ static void ca57_parse_l2merrsr(struct erp_local_data *ed)
 
 	edac_printk(KERN_CRIT, EDAC_CPU, "CortexA57 L2 %s Error detected\n",
 							err_name[ed->err]);
-	edac_printk(KERN_CRIT, EDAC_CPU, "L2MERRSR value = %llx\n", l2merrsr);
+	edac_printk(KERN_CRIT, EDAC_CPU, "L2MERRSR value = %#llx\n", l2merrsr);
 
 	cpuid = A57_L2MERRSR_CPUID(l2merrsr);
 
@@ -432,7 +434,7 @@ static void arm64_erp_local_handler(void *info)
 	u32 l2ectlr;
 
 	spin_lock_irqsave(&local_handler_lock, flags);
-	edac_printk(KERN_CRIT, EDAC_CPU, "%s error information from CPU %d, MIDR=%08x:\n",
+	edac_printk(KERN_CRIT, EDAC_CPU, "%s error information from CPU %d, MIDR=%#08x:\n",
 		       err_name[errdata->err], raw_smp_processor_id(), cpuid);
 
 	switch (partnum) {
@@ -447,7 +449,7 @@ static void arm64_erp_local_handler(void *info)
 	break;
 
 	default:
-		edac_printk(KERN_CRIT, EDAC_CPU, "Unknown CPU Part Number in MIDR: %04x (%08x)\n",
+		edac_printk(KERN_CRIT, EDAC_CPU, "Unknown CPU Part Number in MIDR: %#04x (%#08x)\n",
 						 partnum, cpuid);
 	};
 
@@ -527,7 +529,7 @@ static irqreturn_t arm64_cci_handler(int irq, void *drvdata)
 		cci_err_reg = readl_relaxed(drv->cci_base +
 							CCI_IMPRECISEERROR_REG);
 
-		edac_printk(KERN_CRIT, EDAC_CPU, "CCI imprecise error register: %08x.\n",
+		edac_printk(KERN_CRIT, EDAC_CPU, "CCI imprecise error register: %#08x.\n",
 						 cci_err_reg);
 
 		/* This register has write-clear semantics */
