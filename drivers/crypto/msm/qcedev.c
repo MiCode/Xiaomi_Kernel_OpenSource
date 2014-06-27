@@ -2118,6 +2118,75 @@ static int qcedev_remove(struct platform_device *pdev)
 	return 0;
 };
 
+static int qcedev_suspend(struct platform_device *pdev, pm_message_t state)
+{
+	struct qcedev_control *podev;
+	int ret;
+	podev = platform_get_drvdata(pdev);
+
+	if (!podev || !podev->platform_support.bus_scale_table)
+		return 0;
+
+	mutex_lock(&qcedev_sent_bw_req);
+	if (podev->high_bw_req_count) {
+		ret = msm_bus_scale_client_update_request(
+				podev->bus_scale_handle, 0);
+		if (ret) {
+			pr_err("%s Unable to set to low bandwidth\n",
+						__func__);
+			goto suspend_exit;
+		}
+		ret = qce_disable_clk(podev->qce);
+		if (ret) {
+			pr_err("%s Unable disable clk\n", __func__);
+			ret = msm_bus_scale_client_update_request(
+				podev->bus_scale_handle, 1);
+			if (ret)
+				pr_err("%s Unable to set to high bandwidth\n",
+					__func__);
+			goto suspend_exit;
+		}
+	}
+
+suspend_exit:
+	mutex_unlock(&qcedev_sent_bw_req);
+	return 0;
+}
+
+static int qcedev_resume(struct platform_device *pdev)
+{
+	struct qcedev_control *podev;
+	int ret;
+	podev = platform_get_drvdata(pdev);
+
+	if (!podev || !podev->platform_support.bus_scale_table)
+		return 0;
+
+	mutex_lock(&qcedev_sent_bw_req);
+	if (podev->high_bw_req_count) {
+		ret = qce_enable_clk(podev->qce);
+		if (ret) {
+			pr_err("%s Unable enable clk\n", __func__);
+			goto resume_exit;
+		}
+		ret = msm_bus_scale_client_update_request(
+				podev->bus_scale_handle, 1);
+		if (ret) {
+			pr_err("%s Unable to set to high bandwidth\n",
+						__func__);
+			ret = qce_disable_clk(podev->qce);
+			if (ret)
+				pr_err("%s Unable enable clk\n",
+					__func__);
+			goto resume_exit;
+		}
+	}
+
+resume_exit:
+	mutex_unlock(&qcedev_sent_bw_req);
+	return 0;
+}
+
 static struct of_device_id qcedev_match[] = {
 	{	.compatible = "qcom,qcedev",
 	},
@@ -2127,6 +2196,8 @@ static struct of_device_id qcedev_match[] = {
 static struct platform_driver qcedev_plat_driver = {
 	.probe = qcedev_probe,
 	.remove = qcedev_remove,
+	.suspend = qcedev_suspend,
+	.resume = qcedev_resume,
 	.driver = {
 		.name = "qce",
 		.owner = THIS_MODULE,
