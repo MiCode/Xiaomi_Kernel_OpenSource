@@ -49,6 +49,8 @@ Optional Properties:
 				"pcie_0_ldo";
   - max-clock-frequency-hz: list of the maximum operating frequencies stored
 				in the same order of clock names;
+  - qcom,l0s-supported: L0s is supported.
+  - qcom,l1-supported: L1 is supported.
   - qcom,l1ss-supported: L1 sub-states (L1ss) is supported.
   - qcom,aux-clk-sync: The AUX clock is synchronous to the Core clock to
     support L1ss.
@@ -133,6 +135,8 @@ Example:
 				"pcie_0_ldo";
 		max-clock-frequency-hz = <125000000>, <0>, <1000000>,
 						<0>, <0>, <0>, <0>;
+		qcom,l0s-supported;
+		qcom,l1-supported;
 		qcom,l1ss-supported;
 		qcom,aux-clk-sync;
 		qcom,n-fts = <0x50>;

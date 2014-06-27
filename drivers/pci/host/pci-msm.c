@@ -414,6 +414,8 @@ struct msm_pcie_dev_t {
 	struct msm_bus_scale_pdata   *bus_scale_table;
 	uint32_t			   bus_client;
 
+	bool				l0s_supported;
+	bool				l1_supported;
 	bool				 l1ss_supported;
 	bool				 aux_clk_sync;
 	uint32_t			   n_fts;
@@ -1353,7 +1355,7 @@ static void msm_pcie_config_controller(struct msm_pcie_dev_t *dev)
 		readl_relaxed(dev->dm_core + PCIE20_ACK_F_ASPM_CTRL_REG));
 }
 
-static void msm_pcie_config_l1ss(struct msm_pcie_dev_t *dev)
+static void msm_pcie_config_link_state(struct msm_pcie_dev_t *dev)
 {
 	u32 offset = 0;
 
@@ -1361,56 +1363,88 @@ static void msm_pcie_config_l1ss(struct msm_pcie_dev_t *dev)
 		offset = PCIE20_EP_L1SUB_CTL1_OFFSET;
 
 	/* Enable the AUX Clock and the Core Clk to be synchronous for L1SS*/
-	if (!dev->aux_clk_sync)
+	if (!dev->aux_clk_sync && dev->l1ss_supported)
 		msm_pcie_write_mask(dev->parf +
 				PCIE20_PARF_SYS_CTRL, BIT(3), 0);
 
-	/* Enable L1SS on RC */
-	msm_pcie_write_mask(dev->dm_core + PCIE20_CAP_LINKCTRLSTATUS, 0,
-					BIT(1)|BIT(0));
-	msm_pcie_write_mask(dev->dm_core + PCIE20_L1SUB_CONTROL1, 0,
-					BIT(3)|BIT(2)|BIT(1)|BIT(0));
-	msm_pcie_write_mask(dev->dm_core + PCIE20_DEVICE_CONTROL2_STATUS2, 0,
-					BIT(10));
-	if (dev->shadow_en) {
-		msm_pcie_write_mask(dev->rc_shadow +
-			PCIE20_CAP_LINKCTRLSTATUS / 4, 0, BIT(1)|BIT(0));
-		msm_pcie_write_mask(dev->rc_shadow + PCIE20_L1SUB_CONTROL1 / 4,
-			0, BIT(3)|BIT(2)|BIT(1)|BIT(0));
-		msm_pcie_write_mask(dev->rc_shadow +
-			PCIE20_DEVICE_CONTROL2_STATUS2 / 4, 0, BIT(10));
+	if (dev->l0s_supported) {
+		msm_pcie_write_mask(dev->dm_core + PCIE20_CAP_LINKCTRLSTATUS,
+					0, BIT(0));
+		msm_pcie_write_mask(dev->conf + PCIE20_CAP_LINKCTRLSTATUS,
+					0, BIT(0));
+		if (dev->shadow_en) {
+			msm_pcie_write_mask(dev->rc_shadow +
+						PCIE20_CAP_LINKCTRLSTATUS / 4,
+						0, BIT(0));
+			msm_pcie_write_mask(dev->ep_shadow +
+						PCIE20_CAP_LINKCTRLSTATUS / 4,
+						0, BIT(0));
+		}
+		PCIE_DBG(dev, "RC's CAP_LINKCTRLSTATUS:0x%x\n",
+			readl_relaxed(dev->dm_core +
+			PCIE20_CAP_LINKCTRLSTATUS));
+		PCIE_DBG(dev, "EP's CAP_LINKCTRLSTATUS:0x%x\n",
+			readl_relaxed(dev->conf + PCIE20_CAP_LINKCTRLSTATUS));
 	}
-	PCIE_DBG(dev, "RC's CAP_LINKCTRLSTATUS:0x%x\n",
-		readl_relaxed(dev->dm_core + PCIE20_CAP_LINKCTRLSTATUS));
-	PCIE_DBG(dev, "RC's L1SUB_CONTROL1:0x%x\n",
-		readl_relaxed(dev->dm_core + PCIE20_L1SUB_CONTROL1));
-	PCIE_DBG(dev, "RC's DEVICE_CONTROL2_STATUS2:0x%x\n",
-		readl_relaxed(dev->dm_core + PCIE20_DEVICE_CONTROL2_STATUS2));
 
-	/* Enable L1SS on EP */
-	msm_pcie_write_mask(dev->conf + PCIE20_CAP_LINKCTRLSTATUS, 0,
-					BIT(1)|BIT(0));
-	msm_pcie_write_mask(dev->conf + PCIE20_L1SUB_CONTROL1 +
+	if (dev->l1_supported) {
+		msm_pcie_write_mask(dev->dm_core + PCIE20_CAP_LINKCTRLSTATUS,
+					0, BIT(1));
+		msm_pcie_write_mask(dev->conf + PCIE20_CAP_LINKCTRLSTATUS,
+					0, BIT(1));
+		if (dev->shadow_en) {
+			msm_pcie_write_mask(dev->rc_shadow +
+						PCIE20_CAP_LINKCTRLSTATUS / 4,
+						0, BIT(1));
+			msm_pcie_write_mask(dev->ep_shadow +
+						PCIE20_CAP_LINKCTRLSTATUS / 4,
+						0, BIT(1));
+		}
+		PCIE_DBG(dev, "RC's CAP_LINKCTRLSTATUS:0x%x\n",
+			readl_relaxed(dev->dm_core +
+			PCIE20_CAP_LINKCTRLSTATUS));
+		PCIE_DBG(dev, "EP's CAP_LINKCTRLSTATUS:0x%x\n",
+			readl_relaxed(dev->conf + PCIE20_CAP_LINKCTRLSTATUS));
+	}
+
+	if (dev->l1ss_supported) {
+		msm_pcie_write_mask(dev->dm_core + PCIE20_L1SUB_CONTROL1, 0,
+					BIT(3)|BIT(2)|BIT(1)|BIT(0));
+		msm_pcie_write_mask(dev->dm_core +
+					PCIE20_DEVICE_CONTROL2_STATUS2,
+					0, BIT(10));
+		msm_pcie_write_mask(dev->conf + PCIE20_L1SUB_CONTROL1 +
 					offset, 0,
 					BIT(3)|BIT(2)|BIT(1)|BIT(0));
-	msm_pcie_write_mask(dev->conf + PCIE20_DEVICE_CONTROL2_STATUS2, 0,
-					BIT(10));
-	if (dev->shadow_en) {
-		msm_pcie_write_mask(dev->ep_shadow +
-			PCIE20_CAP_LINKCTRLSTATUS / 4, 0, BIT(1)|BIT(0));
-		msm_pcie_write_mask(dev->ep_shadow + PCIE20_L1SUB_CONTROL1 / 4 +
+		msm_pcie_write_mask(dev->conf + PCIE20_DEVICE_CONTROL2_STATUS2,
+					0, BIT(10));
+		if (dev->shadow_en) {
+			msm_pcie_write_mask(dev->rc_shadow +
+					PCIE20_L1SUB_CONTROL1 / 4, 0,
+					BIT(3)|BIT(2)|BIT(1)|BIT(0));
+			msm_pcie_write_mask(dev->rc_shadow +
+					PCIE20_DEVICE_CONTROL2_STATUS2 / 4,
+					0, BIT(10));
+			msm_pcie_write_mask(dev->ep_shadow +
+					PCIE20_L1SUB_CONTROL1 / 4 +
 					PCIE20_EP_L1SUB_CTL1_OFFSET / 4, 0,
 					BIT(3)|BIT(2)|BIT(1)|BIT(0));
-		msm_pcie_write_mask(dev->ep_shadow +
-				PCIE20_DEVICE_CONTROL2_STATUS2 / 4, 0, BIT(10));
+			msm_pcie_write_mask(dev->ep_shadow +
+					PCIE20_DEVICE_CONTROL2_STATUS2 / 4,
+					0, BIT(10));
+		}
+		PCIE_DBG(dev, "RC's L1SUB_CONTROL1:0x%x\n",
+			readl_relaxed(dev->dm_core + PCIE20_L1SUB_CONTROL1));
+		PCIE_DBG(dev, "RC's DEVICE_CONTROL2_STATUS2:0x%x\n",
+			readl_relaxed(dev->dm_core +
+			PCIE20_DEVICE_CONTROL2_STATUS2));
+		PCIE_DBG(dev, "EP's L1SUB_CONTROL1:0x%x\n",
+			readl_relaxed(dev->conf + PCIE20_L1SUB_CONTROL1 +
+			offset));
+		PCIE_DBG(dev, "EP's DEVICE_CONTROL2_STATUS2:0x%x\n",
+			readl_relaxed(dev->conf +
+			PCIE20_DEVICE_CONTROL2_STATUS2));
 	}
-	PCIE_DBG(dev, "EP's CAP_LINKCTRLSTATUS:0x%x\n",
-		readl_relaxed(dev->conf + PCIE20_CAP_LINKCTRLSTATUS));
-	PCIE_DBG(dev, "EP's L1SUB_CONTROL1:0x%x\n",
-		readl_relaxed(dev->conf + PCIE20_L1SUB_CONTROL1 +
-					offset));
-	PCIE_DBG(dev, "EP's DEVICE_CONTROL2_STATUS2:0x%x\n",
-		readl_relaxed(dev->conf + PCIE20_DEVICE_CONTROL2_STATUS2));
 }
 
 void msm_pcie_config_msi_controller(struct msm_pcie_dev_t *dev)
@@ -1826,8 +1860,7 @@ int msm_pcie_enable(struct msm_pcie_dev_t *dev, u32 options)
 	if (!dev->msi_gicm_addr)
 		msm_pcie_config_msi_controller(dev);
 
-	if (dev->l1ss_supported)
-		msm_pcie_config_l1ss(dev);
+	msm_pcie_config_link_state(dev);
 
 	dev->link_status = MSM_PCIE_LINK_ENABLED;
 	dev->power_on = true;
@@ -2585,6 +2618,16 @@ static int msm_pcie_probe(struct platform_device *pdev)
 			rc_idx);
 	}
 
+	msm_pcie_dev[rc_idx].l0s_supported =
+		of_property_read_bool((&pdev->dev)->of_node,
+				"qcom,l0s-supported");
+	PCIE_DBG(&msm_pcie_dev[rc_idx], "L0s is %s supported.\n",
+		msm_pcie_dev[rc_idx].l0s_supported ? "" : "not");
+	msm_pcie_dev[rc_idx].l1_supported =
+		of_property_read_bool((&pdev->dev)->of_node,
+				"qcom,l1-supported");
+	PCIE_DBG(&msm_pcie_dev[rc_idx], "L1 is %s supported.\n",
+		msm_pcie_dev[rc_idx].l1_supported ? "" : "not");
 	msm_pcie_dev[rc_idx].l1ss_supported =
 		of_property_read_bool((&pdev->dev)->of_node,
 				"qcom,l1ss-supported");
