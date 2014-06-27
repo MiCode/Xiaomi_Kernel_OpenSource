@@ -1468,6 +1468,13 @@
 		qcom,gpio-force-stop = <&smp2pgpio_ssr_smp2p_4_out 0 0>;
 		linux,contiguous-region = <&peripheral_mem>;
 	};
+
+	qcom,avtimer {
+		compatible = "qcom,avtimer";
+		reg = <0xfe053008 0x4>,
+			<0xfe05300c 0x4>;
+		reg-names = "avtimer_lsb_addr", "avtimer_msb_addr";
+	};
 };
 
 &gdsc_venus {
