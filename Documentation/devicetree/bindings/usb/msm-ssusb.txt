@@ -59,6 +59,8 @@ Optional properties :
 	power collapse when cable is disconencted.
 - qcom,por-after-power-collapse: If present, a partial POR sequence will be performed
   when recovering from power collapse.
+- qcom,lpm-to-suspend-delay-ms: Indicates timeout (in milliseconds) to release wakeup source
+  after USB is kept into LPM.
 Sub nodes:
 - Sub node for "DWC3- USB3 controller".
   This sub node is required property for device node. The properties of this subnode
@@ -79,6 +81,7 @@ Example MSM USB3.0 controller device node :
 		qcom,dwc-usb3-msm-qdss-tx-fifo-size = <16384>;
 		qcom,usb-dbm = <&dbm_1p4>;
 		qcom,usbin-vadc = <&pm8941_vadc>;
+		qcom,lpm-to-suspend-delay-ms = <2>;
 
 		qcom,msm_bus,name = "usb3";
 		qcom,msm_bus,num_cases = <2>;
