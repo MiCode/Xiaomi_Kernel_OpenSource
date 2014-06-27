@@ -852,7 +852,7 @@ static inline int msm_rpm_get_error_from_ack(uint8_t *buf)
 
 static int msm_rpm_read_smd_data(char *buf)
 {
-	uint32_t pkt_sz;
+	int pkt_sz;
 	int bytes_read = 0;
 
 	pkt_sz = smd_cur_packet_size(msm_rpm_data.ch_info);
