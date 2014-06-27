@@ -162,4 +162,6 @@ int __must_check kgsl_active_count_get(struct kgsl_device *device);
 void kgsl_active_count_put(struct kgsl_device *device);
 int kgsl_active_count_wait(struct kgsl_device *device, int count);
 void kgsl_pwrctrl_busy_time(struct kgsl_device *device, u64 time, u64 busy);
+void kgsl_pwrctrl_set_constraint(struct kgsl_device *device,
+			struct kgsl_pwr_constraint *pwrc, uint32_t id);
 #endif /* __KGSL_PWRCTRL_H */
