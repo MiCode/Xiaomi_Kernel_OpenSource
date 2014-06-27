@@ -522,6 +522,7 @@ enum a4xx_sp_perfctr_sp_sel {
 #define UCHE_TRAP_BASE_HI               0xe84
 #define A4XX_UCHE_INVALIDATE0		0xe8a
 #define A4XX_UCHE_INVALIDATE1		0xe8b
+#define A4XX_UCHE_CACHE_WAYS_VFD	0xe8c
 
 /* VSC registers */
 #define A4XX_VSC_SIZE_ADDRESS		0xc01

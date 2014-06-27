@@ -586,6 +586,9 @@ static void a4xx_start(struct adreno_device *adreno_dev)
 	/* Turn on the GPU busy counter and let it run free */
 	memset(&adreno_dev->busy_data, 0, sizeof(adreno_dev->busy_data));
 
+	/* Enable VFD to access most of the UCHE (7 ways out of 8) */
+	kgsl_regwrite(device, A4XX_UCHE_CACHE_WAYS_VFD, 0x07);
+
 	/* Disable L2 bypass to avoid UCHE out of bounds errors */
 	kgsl_regwrite(device, UCHE_TRAP_BASE_LO, 0xffff0000);
 	kgsl_regwrite(device, UCHE_TRAP_BASE_HI, 0xffff0000);
