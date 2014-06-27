@@ -6554,6 +6554,18 @@ static int get_cal_type_index(int32_t cal_type)
 	return ret;
 }
 
+static int voice_prepare_volume_boost(int32_t cal_type,
+					size_t data_size, void *data)
+{
+	return voc_deregister_vocproc_vol_table();
+}
+
+static int voice_enable_volume_boost(int32_t cal_type,
+				size_t data_size, void *data)
+{
+	return voc_register_vocproc_vol_table();
+}
+
 static int voice_alloc_cal(int32_t cal_type,
 			   size_t data_size, void *data)
 {
@@ -6667,8 +6679,10 @@ static int voice_init_cal_data(void)
 		cal_utils_match_ion_map} },
 
 		{{CVP_VOCVOL_CAL_TYPE,
-		{voice_alloc_cal, voice_dealloc_cal, NULL,
-		voice_set_cal, NULL, NULL} },
+		{voice_alloc_cal, voice_dealloc_cal,
+		voice_prepare_volume_boost,
+		voice_set_cal, NULL,
+		voice_enable_volume_boost} },
 		{NULL, voice_unmap_cal_memory,
 		cal_utils_match_ion_map} },
 
