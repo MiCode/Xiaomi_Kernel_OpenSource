@@ -191,11 +191,19 @@ void mdss_mdp_release_splash_pipe(struct msm_fb_data_type *mfd)
 int mdss_mdp_splash_cleanup(struct msm_fb_data_type *mfd,
 					bool use_borderfill)
 {
-	struct mdss_overlay_private *mdp5_data = mfd_to_mdp5_data(mfd);
-	struct mdss_mdp_ctl *ctl = mdp5_data->ctl;
+	struct mdss_overlay_private *mdp5_data;
+	struct mdss_mdp_ctl *ctl;
 	int rc = 0;
 
-	if (!mfd || !mdp5_data)
+	if (!mfd)
+		return -EINVAL;
+
+	mdp5_data = mfd_to_mdp5_data(mfd);
+	if (!mdp5_data)
+		return -EINVAL;
+
+	ctl = mdp5_data->ctl;
+	if (!ctl)
 		return -EINVAL;
 
 	if (mfd->splash_info.iommu_dynamic_attached ||
@@ -491,7 +499,7 @@ done:
 static int mdss_mdp_splash_thread(void *data)
 {
 	struct msm_fb_data_type *mfd = data;
-	struct mdss_overlay_private *mdp5_data = mfd_to_mdp5_data(mfd);
+	struct mdss_overlay_private *mdp5_data;
 	int ret = -EINVAL;
 
 	if (!mfd) {
@@ -499,6 +507,7 @@ static int mdss_mdp_splash_thread(void *data)
 		goto end;
 	}
 
+	mdp5_data = mfd_to_mdp5_data(mfd);
 	lock_fb_info(mfd->fbi);
 	ret = fb_blank(mfd->fbi, FB_BLANK_UNBLANK);
 	if (ret) {

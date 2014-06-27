@@ -390,6 +390,11 @@ int mdss_mdp_get_plane_sizes(u32 format, u32 w, u32 h,
 					chroma_samp = MDSS_MDP_CHROMA_H2V1;
 			}
 
+			if (chroma_samp >= ARRAY_SIZE(hmap) ||
+				chroma_samp >= ARRAY_SIZE(vmap)) {
+				pr_err("%s: out of bounds error\n", __func__);
+				return -ERANGE;
+			}
 			horiz = hmap[chroma_samp];
 			vert = vmap[chroma_samp];
 
