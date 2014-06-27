@@ -1774,6 +1774,7 @@ static int dwc_gadget_func_wakeup(struct usb_gadget *g, int interface_id)
 		return -ENOTSUPP;
 
 	if (dwc3_gadget_is_suspended(dwc)) {
+		pr_debug("USB bus is suspended. Scheduling wakeup and returning -EAGAIN.\n");
 		dwc3_gadget_wakeup(&dwc->gadget);
 		return -EAGAIN;
 	}

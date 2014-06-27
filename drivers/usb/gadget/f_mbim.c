@@ -663,10 +663,13 @@ void fmbim_free_req(struct usb_ep *ep, struct usb_request *req)
 
 static void fmbim_ctrl_response_available(struct f_mbim *dev)
 {
+	const unsigned int		max_ep_queue_trials = 10;
+
 	struct usb_request		*req = dev->not_port.notify_req;
 	struct usb_cdc_notification	*event = NULL;
 	unsigned long			flags;
 	int				ret;
+	int                             ep_queue_trials;
 
 	pr_debug("dev:%p portno#%d\n", dev, dev->port_num);
 
@@ -707,8 +710,21 @@ static void fmbim_ctrl_response_available(struct f_mbim *dev)
 	event->wLength = cpu_to_le16(0);
 	spin_unlock_irqrestore(&dev->lock, flags);
 
-	ret = usb_func_ep_queue(&dev->function, dev->not_port.notify,
+	ep_queue_trials = 0;
+	while (ep_queue_trials <= max_ep_queue_trials) {
+		ret = usb_func_ep_queue(&dev->function, dev->not_port.notify,
 			   req, GFP_ATOMIC);
+
+		ep_queue_trials++;
+
+		if (ret == -EAGAIN) {
+			pr_debug("ep queueing is delayed (-EAGAIN).\n");
+			usleep_range(1000, 3000);
+		} else {
+			break;
+		}
+	}
+
 	if (ret) {
 		atomic_dec(&dev->not_port.notify_count);
 		pr_err("ep enqueue error %d\n", ret);

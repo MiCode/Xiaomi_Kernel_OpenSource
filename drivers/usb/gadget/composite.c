@@ -379,7 +379,7 @@ int usb_func_wakeup(struct usb_function *func)
 	gadget = func->config->cdev->gadget;
 	if ((gadget->speed != USB_SPEED_SUPER) || !func->func_wakeup_allowed) {
 		DBG(func->config->cdev,
-			"Function Wakeup is not possible. speed=%u, func_wakeup_allowed=%u",
+			"Function Wakeup is not possible. speed=%u, func_wakeup_allowed=%u\n",
 			gadget->speed,
 			func->func_wakeup_allowed);
 
@@ -389,7 +389,7 @@ int usb_func_wakeup(struct usb_function *func)
 	ret = usb_get_func_interface_id(func);
 	if (ret < 0) {
 		ERROR(func->config->cdev,
-			"Function %s - Unknown interface id. Canceling USB request. ret=%d",
+			"Function %s - Unknown interface id. Canceling USB request. ret=%d\n",
 			func->name ? func->name : "", ret);
 		return ret;
 	}
@@ -397,10 +397,16 @@ int usb_func_wakeup(struct usb_function *func)
 	interface_id = ret;
 	ret = usb_gadget_func_wakeup(gadget, interface_id);
 	if (ret) {
-		ERROR(func->config->cdev,
-			"Failed to wake function %s from suspend state. interface id: %d, ret=%d. Canceling USB request.",
-			func->name ? func->name : "",
-			interface_id, ret);
+		if (ret == -EAGAIN) {
+			DBG(func->config->cdev,
+				"Function wakeup for %s could not be complete. Retry is needed.\n",
+				func->name ? func->name : "");
+		} else {
+			ERROR(func->config->cdev,
+				"Failed to wake function %s from suspend state. interface id: %d, ret=%d. Canceling USB request.\n",
+				func->name ? func->name : "",
+				interface_id, ret);
+		}
 		return ret;
 	}
 
