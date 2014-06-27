@@ -7144,6 +7144,16 @@ static struct i915_power_well vlv_power_wells[] = {
 	},
 };
 
+static struct i915_power_well chv_power_wells[] = {
+	{
+		.name = "always-on",
+		.always_on = 1,
+		.domains = VLV_ALWAYS_ON_POWER_DOMAINS,
+		.ops = &i9xx_always_on_power_well_ops,
+	},
+};
+
+
 #define set_power_wells(power_domains, __power_wells) ({		\
 	(power_domains)->power_wells = (__power_wells);			\
 	(power_domains)->power_well_count = ARRAY_SIZE(__power_wells);	\
@@ -7165,6 +7175,8 @@ int intel_power_domains_init(struct drm_i915_private *dev_priv)
 	} else if (IS_BROADWELL(dev_priv->dev)) {
 		set_power_wells(power_domains, bdw_power_wells);
 		hsw_pwr = power_domains;
+	} else if (IS_CHERRYVIEW(dev_priv->dev)) {
+		set_power_wells(power_domains, chv_power_wells);
 	} else if (IS_VALLEYVIEW(dev_priv->dev)) {
 		set_power_wells(power_domains, vlv_power_wells);
 	} else {
