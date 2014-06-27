@@ -347,27 +347,42 @@ static void wcd_mbhc_calc_impedance(struct wcd_mbhc *mbhc, uint32_t *zl,
 	uint32_t *zr)
 {
 	struct snd_soc_codec *codec = mbhc->codec;
-	u16 impedance_l, impedance_r;
-	u16 impedance_l_fixed;
-	s16 reg0, reg1;
+	s16 impedance_l, impedance_r;
+	s16 impedance_l_fixed;
+	s16 reg0, reg1, reg2;
+	bool high = false;
 
 	pr_debug("%s: enter\n", __func__);
 
 	WCD_MBHC_RSC_ASSERT_LOCKED(mbhc);
-	reg0 = snd_soc_read(codec, MSM8X16_WCD_A_ANALOG_MASTER_BIAS_CTL);
-	reg1 = snd_soc_read(codec, MSM8X16_WCD_A_ANALOG_MICB_1_EN);
-	/* enable master bias */
-	snd_soc_update_bits(codec,
-			MSM8X16_WCD_A_ANALOG_MASTER_BIAS_CTL,
-			0x30, 0x30);
-	/* enable mic bias */
-	snd_soc_update_bits(codec,
-			MSM8X16_WCD_A_ANALOG_MICB_1_EN,
-			0x06, 0x04);
+	reg0 = snd_soc_read(codec, MSM8X16_WCD_A_ANALOG_MBHC_DBNC_TIMER);
+	reg1 = snd_soc_read(codec, MSM8X16_WCD_A_ANALOG_MBHC_BTN2_ZDETH_CTL);
+	reg2 = snd_soc_read(codec, MSM8X16_WCD_A_ANALOG_MBHC_DET_CTL_2);
+
 	/* disable FSM */
 	snd_soc_update_bits(codec,
 			MSM8X16_WCD_A_ANALOG_MBHC_FSM_CTL,
 			0x80, 0x00);
+	/*
+	 * Enable legacy electrical detection current sources
+	 * and disable fast ramp and enable manual switching
+	 * of extra capacitance
+	 */
+	pr_debug("%s: Setup for impedance det\n", __func__);
+
+	snd_soc_update_bits(codec,
+			MSM8X16_WCD_A_ANALOG_MBHC_DET_CTL_2,
+			0x06, 0x02);
+	snd_soc_update_bits(codec,
+			MSM8X16_WCD_A_ANALOG_MBHC_DBNC_TIMER,
+			0x02, 0x02);
+	snd_soc_update_bits(codec,
+			MSM8X16_WCD_A_ANALOG_MBHC_BTN2_ZDETH_CTL,
+			0x20, 0x00);
+
+	pr_debug("%s: Start performing impedance detection\n",
+		 __func__);
+
 	/* Enable ZDET_L_MEAS_EN */
 	snd_soc_update_bits(codec,
 			MSM8X16_WCD_A_ANALOG_MBHC_FSM_CTL,
@@ -386,8 +401,10 @@ static void wcd_mbhc_calc_impedance(struct wcd_mbhc *mbhc, uint32_t *zl,
 			MSM8X16_WCD_A_ANALOG_MBHC_FSM_CTL,
 			0x04, 0x00);
 
-	if (impedance_l > 1)
+	if (impedance_l > 1) {
+		high = true;
 		goto exit;
+	}
 
 	/*
 	 * As the result is 0 impedance is < 200 use
@@ -434,10 +451,10 @@ static void wcd_mbhc_calc_impedance(struct wcd_mbhc *mbhc, uint32_t *zl,
 		snd_soc_update_bits(codec,
 				MSM8X16_WCD_A_ANALOG_MBHC_FSM_CTL,
 				0x02, 0x00);
+		usleep_range(40000, 40100);
 		snd_soc_update_bits(codec,
 				MSM8X16_WCD_A_ANALOG_MBHC_BTN0_ZDETL_CTL,
 				0x03, 0x00);
-		usleep_range(40000, 40100);
 		goto exit;
 	}
 
@@ -503,11 +520,12 @@ exit:
 	snd_soc_update_bits(codec,
 			MSM8X16_WCD_A_ANALOG_MBHC_FSM_CTL,
 			0xFF, 0xB0);
-	/* write back Master Bias and mic_bias registers */
-	snd_soc_write(codec, MSM8X16_WCD_A_ANALOG_MICB_1_EN, reg1);
-	snd_soc_write(codec, MSM8X16_WCD_A_ANALOG_MASTER_BIAS_CTL, reg0);
-	*zl = impedance_l;
-	*zr = impedance_r;
+	snd_soc_write(codec, MSM8X16_WCD_A_ANALOG_MBHC_BTN2_ZDETH_CTL, reg1);
+	snd_soc_write(codec, MSM8X16_WCD_A_ANALOG_MBHC_DBNC_TIMER, reg0);
+	snd_soc_write(codec, MSM8X16_WCD_A_ANALOG_MBHC_DET_CTL_2, reg2);
+	mbhc->mbhc_cb->compute_impedance(impedance_l, impedance_r,
+					 zl, zr, high);
+
 	pr_debug("%s: RL %d milliohm, RR %d milliohm\n", __func__, *zl, *zr);
 	pr_debug("%s: Impedance detection completed\n", __func__);
 }

@@ -178,9 +178,31 @@ static void *modem_state_notifier;
 
 static struct snd_soc_codec *registered_codec;
 
+static void msm8x16_wcd_compute_impedance(s16 l, s16 r, uint32_t *zl,
+				uint32_t *zr, bool high)
+{
+	int64_t rl = 0, rr = 0;
+
+	if (high) {
+		pr_debug("%s: This plug has high range impedance",
+			  __func__);
+		rl = (int)(10*(l*400 - 200))/12;
+		rr = (int)(10*(r*400 - 200))/12;
+	} else {
+		pr_debug("%s: This plug has low range impedance",
+			__func__);
+		rl = (int)(10*(l*2 - 1))/12;
+		rr = (int)(10*(r*2 - 1))/12;
+	}
+
+	*zl = rl;
+	*zr = rr;
+}
+
 static const struct wcd_mbhc_cb mbhc_cb = {
 	.enable_mb_source = msm8x16_wcd_enable_ext_mb_source,
 	.trim_btn_reg = msm8x16_trim_btn_reg,
+	.compute_impedance = msm8x16_wcd_compute_impedance,
 };
 
 int msm8x16_unregister_notifier(struct snd_soc_codec *codec,
@@ -3323,7 +3345,7 @@ static int msm8x16_wcd_codec_probe(struct snd_soc_codec *codec)
 	BLOCKING_INIT_NOTIFIER_HEAD(&msm8x16_wcd_priv->notifier);
 
 	wcd_mbhc_init(&msm8x16_wcd_priv->mbhc, codec, &mbhc_cb, &intr_ids,
-			false);
+			true);
 
 	msm8x16_wcd_priv->mclk_enabled = false;
 	msm8x16_wcd_priv->clock_active = false;
