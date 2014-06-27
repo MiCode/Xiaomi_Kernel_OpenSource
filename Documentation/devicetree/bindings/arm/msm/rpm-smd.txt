@@ -1,0 +1,34 @@
+Resource Power Manager(RPM)
+
+RPM is a dedicated hardware engine for managing shared SoC resources,
+which includes buses, clocks, power rails, etc.  The goal of RPM is
+to achieve the maximum power savings while satisfying the SoC's
+operational and performance requirements.  RPM accepts resource
+requests from multiple RPM masters.  It arbitrates and aggregates the
+requests, and configures the shared resources.  The RPM masters are
+the application processor, the modem processor, as well as hardware
+accelerators. The RPM driver communicates with the hardware engine using
+SMD.
+
+The devicetree representation of the SPM block should be:
+
+Required properties
+
+- compatible: "qcom,rpm-smd"
+- rpm-channel-name: The string corresponding to the channel name of the
+			peripheral subsystem
+- rpm-channel-type: The interal SMD edge for this subsystem found in
+			<soc/qcom/smd.h>
+
+Optional properties
+- rpm-standalone: Allow RPM driver to run in standalone mode irrespective of RPM
+			channel presence.
+
+Example:
+
+	qcom,rpm-smd {
+		compatible = "qcom,rpm-smd"
+		qcom,rpm-channel-name = "rpm_requests";
+		qcom,rpm-channel-type = 15; /* SMD_APPS_RPM */
+	}
+}
