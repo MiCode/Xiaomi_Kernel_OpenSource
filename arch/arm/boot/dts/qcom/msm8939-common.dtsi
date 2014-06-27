@@ -1516,9 +1516,17 @@
 		vdd_pronto_pll-supply = <&pm8916_l7>;
 		proxy-reg-names = "vdd_pronto_pll";
 		vdd_pronto_pll-uV-uA = <1800000 18000>;
-		clocks = <&clock_rpm clk_xo_pil_pronto_clk>;
-		clock-names = "xo";
-		proxy-clock-names = "xo";
+		clocks = <&clock_rpm clk_xo_pil_pronto_clk>,
+			 <&clock_gcc clk_gcc_crypto_clk>,
+			 <&clock_gcc clk_gcc_crypto_ahb_clk>,
+			 <&clock_gcc clk_gcc_crypto_axi_clk>,
+			 <&clock_gcc clk_crypto_clk_src>;
+
+		clock-names = "xo", "scm_core_clk", "scm_iface_clk",
+				"scm_bus_clk", "scm_core_clk_src";
+		qcom,proxy-clock-names = "xo", "scm_core_clk", "scm_iface_clk",
+				 "scm_bus_clk", "scm_core_clk_src";
+		qcom,scm_core_clk_src = <80000000>;
 
 		qcom,pas-id = <6>;
 		qcom,proxy-timeout-ms = <10000>;
