@@ -750,6 +750,7 @@
 
 		qcom,hwevent-clks = "core_mmss_clk", "ufs_ahb_clk",
 				    "ufs_axi_clk";
+		qcom,hwevent-regs = "gdsc_ufs";
 	};
 
 	fuse: fuse@fc4be024 {
