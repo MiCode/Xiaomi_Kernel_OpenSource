@@ -6929,6 +6929,64 @@ static void vlv_display_power_well_disable(struct drm_i915_private *dev_priv,
 	vlv_set_power_well(dev_priv, power_well, false);
 }
 
+static void chv_dpio_cmn_power_well_enable(struct drm_i915_private *dev_priv,
+					   struct i915_power_well *power_well)
+{
+	enum dpio_phy phy;
+
+	WARN_ON_ONCE(power_well->data != PUNIT_POWER_WELL_DPIO_CMN_BC &&
+		     power_well->data != PUNIT_POWER_WELL_DPIO_CMN_D);
+
+	/*
+	 * Enable the CRI clock source so we can get at the
+	 * display and the reference clock for VGA
+	 * hotplug / manual detection.
+	 */
+	if (power_well->data == PUNIT_POWER_WELL_DPIO_CMN_BC) {
+		phy = DPIO_PHY0;
+		I915_WRITE(DPLL(PIPE_B), I915_READ(DPLL(PIPE_B)) |
+			   DPLL_REFA_CLK_ENABLE_VLV);
+		I915_WRITE(DPLL(PIPE_B), I915_READ(DPLL(PIPE_B)) |
+			   DPLL_REFA_CLK_ENABLE_VLV | DPLL_INTEGRATED_CRI_CLK_VLV);
+	} else {
+		phy = DPIO_PHY1;
+		I915_WRITE(DPLL(PIPE_C), I915_READ(DPLL(PIPE_C)) |
+			   DPLL_REFA_CLK_ENABLE_VLV | DPLL_INTEGRATED_CRI_CLK_VLV);
+	}
+	udelay(1); /* >10ns for cmnreset, >0ns for sidereset */
+	vlv_set_power_well(dev_priv, power_well, true);
+
+	/* Poll for phypwrgood signal */
+	if (wait_for(I915_READ(DISPLAY_PHY_STATUS) & PHY_POWERGOOD(phy), 1))
+		DRM_ERROR("Display PHY %d is not power up\n", phy);
+
+	I915_WRITE(DISPLAY_PHY_CONTROL,
+		   PHY_COM_LANE_RESET_DEASSERT(phy, I915_READ(DISPLAY_PHY_CONTROL)));
+}
+
+static void chv_dpio_cmn_power_well_disable(struct drm_i915_private *dev_priv,
+					    struct i915_power_well *power_well)
+{
+	enum dpio_phy phy;
+
+	WARN_ON_ONCE(power_well->data != PUNIT_POWER_WELL_DPIO_CMN_BC &&
+		     power_well->data != PUNIT_POWER_WELL_DPIO_CMN_D);
+
+	if (power_well->data == PUNIT_POWER_WELL_DPIO_CMN_BC) {
+		phy = DPIO_PHY0;
+		assert_pll_disabled(dev_priv, PIPE_A);
+		assert_pll_disabled(dev_priv, PIPE_B);
+	} else {
+		phy = DPIO_PHY1;
+		assert_pll_disabled(dev_priv, PIPE_C);
+	}
+
+	I915_WRITE(DISPLAY_PHY_CONTROL,
+		   PHY_COM_LANE_RESET_ASSERT(phy, I915_READ(DISPLAY_PHY_CONTROL)));
+
+	vlv_set_power_well(dev_priv, power_well, false);
+}
+
 static void check_power_well_state(struct drm_i915_private *dev_priv,
 				   struct i915_power_well *power_well)
 {
@@ -7119,6 +7177,18 @@ EXPORT_SYMBOL_GPL(i915_get_cdclk_freq);
 	BIT(POWER_DOMAIN_PORT_DDI_C_4_LANES) |	\
 	BIT(POWER_DOMAIN_INIT))
 
+#define CHV_DPIO_CMN_BC_POWER_DOMAINS (		\
+	BIT(POWER_DOMAIN_PORT_DDI_B_2_LANES) |	\
+	BIT(POWER_DOMAIN_PORT_DDI_B_4_LANES) |	\
+	BIT(POWER_DOMAIN_PORT_DDI_C_2_LANES) |	\
+	BIT(POWER_DOMAIN_PORT_DDI_C_4_LANES) |	\
+	BIT(POWER_DOMAIN_INIT))
+
+#define CHV_DPIO_CMN_D_POWER_DOMAINS (		\
+	BIT(POWER_DOMAIN_PORT_DDI_D_2_LANES) |	\
+	BIT(POWER_DOMAIN_PORT_DDI_D_4_LANES) |	\
+	BIT(POWER_DOMAIN_INIT))
+
 static const struct i915_power_well_ops i9xx_always_on_power_well_ops = {
 	.sync_hw = i9xx_always_on_power_well_noop,
 	.enable = i9xx_always_on_power_well_noop,
@@ -7241,6 +7311,13 @@ static struct i915_power_well vlv_power_wells[] = {
 	},
 };
 
+static const struct i915_power_well_ops chv_dpio_cmn_power_well_ops = {
+	.sync_hw = vlv_power_well_sync_hw,
+	.enable = chv_dpio_cmn_power_well_enable,
+	.disable = chv_dpio_cmn_power_well_disable,
+	.is_enabled = vlv_power_well_enabled,
+};
+
 static struct i915_power_well chv_power_wells[] = {
 	{
 		.name = "always-on",
@@ -7248,6 +7325,19 @@ static struct i915_power_well chv_power_wells[] = {
 		.domains = VLV_ALWAYS_ON_POWER_DOMAINS,
 		.ops = &i9xx_always_on_power_well_ops,
 	},
+	{
+		.name = "dpio-common-bc",
+		.domains = CHV_DPIO_CMN_BC_POWER_DOMAINS,
+		.data = PUNIT_POWER_WELL_DPIO_CMN_BC,
+		.ops = &chv_dpio_cmn_power_well_ops,
+	},
+	{
+		.name = "dpio-common-d",
+		.domains = CHV_DPIO_CMN_D_POWER_DOMAINS,
+		.data = PUNIT_POWER_WELL_DPIO_CMN_D,
+		.ops = &chv_dpio_cmn_power_well_ops,
+	},
+
 };
 
 
