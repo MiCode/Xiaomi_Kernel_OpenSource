@@ -5062,6 +5062,11 @@ int valleyview_cur_cdclk(struct drm_i915_private *dev_priv)
 static int valleyview_calc_cdclk(struct drm_i915_private *dev_priv,
 				 int max_pixclk)
 {
+
+	/* FIXME: Punit isn't quite ready yet */
+	if (IS_CHERRYVIEW(dev_priv->dev))
+		return 400000;
+
 	/*
 	 * Really only a few cases to deal with, as only 4 CDclks are supported:
 	 *   200MHz
