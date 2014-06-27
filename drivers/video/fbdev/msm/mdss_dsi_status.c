@@ -83,6 +83,11 @@ static int fb_event_callback(struct notifier_block *self,
 	struct mdss_dsi_ctrl_pdata *ctrl_pdata = NULL;
 	struct mdss_panel_info *pinfo;
 
+	if (!evdata) {
+		pr_err("%s: event data not available\n", __func__);
+		return NOTIFY_BAD;
+	}
+
 	pdata->mfd = evdata->info->par;
 	ctrl_pdata = container_of(dev_get_platdata(&pdata->mfd->pdev->dev),
 				struct mdss_dsi_ctrl_pdata, panel_data);
@@ -103,7 +108,7 @@ static int fb_event_callback(struct notifier_block *self,
 		return NOTIFY_DONE;
 	}
 
-	if (event == FB_EVENT_BLANK && evdata) {
+	if (event == FB_EVENT_BLANK) {
 		int *blank = evdata->data;
 		struct dsi_status_data *pdata = container_of(self,
 				struct dsi_status_data, fb_notifier);
