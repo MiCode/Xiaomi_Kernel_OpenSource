@@ -2903,6 +2903,8 @@ int diag_dci_write_proc(int peripheral, int pkt_type, char *buf, int len)
 		pr_err("diag: In %s, unable to write to smd, peripheral: %d, type: %d, len: %d, err: %d\n",
 		       __func__, smd_info->peripheral,
 		       smd_info->type, len, err);
+	} else {
+		err = DIAG_DCI_NO_ERROR;
 	}
 
 	return err;
