@@ -397,7 +397,7 @@ int send_asm_custom_topology(struct audio_client *ac)
 	if (cal_block.cal_size == 0) {
 		pr_debug("%s: no cal to send addr= 0x%pa\n",
 				__func__, &cal_block.cal_paddr);
-		return -EINVAL;
+		return 0;
 	}
 
 	common_client.mmap_apr = q6asm_mmap_apr_reg();
