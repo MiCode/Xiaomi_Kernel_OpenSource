@@ -3538,11 +3538,12 @@ static int pp_hist_collect(struct mdp_histogram_data *hist,
 	struct mdss_pipe_pp_res *res;
 	struct mdss_mdp_pipe *pipe;
 	struct mdss_data_type *mdata = mdss_mdp_get_mdata();
-	bool is_hist_v2 = mdata->mdp_rev >= MDSS_MDP_HW_REV_103;
+	bool is_hist_v2;
 
 	if (!mdata)
 		return -EPERM;
 
+	is_hist_v2 = mdata->mdp_rev >= MDSS_MDP_HW_REV_103;
 	mutex_lock(&hist_info->hist_mutex);
 	spin_lock_irqsave(&hist_info->hist_lock, flag);
 	if ((hist_info->col_en == 0) ||
