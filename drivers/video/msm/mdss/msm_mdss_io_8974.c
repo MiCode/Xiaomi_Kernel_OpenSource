@@ -681,7 +681,7 @@ int mdss_dsi_clk_ctrl(struct mdss_dsi_ctrl_pdata *ctrl,
 	 */
 	if (link_changed && (!bus_changed && !ctrl->bus_clk_cnt)) {
 		pr_err("%s: Trying to enable link clks w/o enabling bus clks for ctrl%d",
-			__func__, mctrl->ndx);
+			__func__, ctrl->ndx);
 		goto error_mctrl_start;
 	}
 
