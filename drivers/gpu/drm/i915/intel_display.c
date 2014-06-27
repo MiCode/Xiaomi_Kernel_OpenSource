@@ -13170,10 +13170,14 @@ static void intel_sanitize_encoder(struct intel_encoder *encoder)
 				      encoder->base.base.id,
 				      encoder->base.name);
 			encoder->disable(encoder);
+			if (encoder->post_disable)
+				encoder->post_disable(encoder);
 		}
 		encoder->base.crtc = NULL;
 		encoder->connectors_active = false;
 
+ 		encoder->base.crtc = NULL;
+ 		encoder->connectors_active = false;
 		/* Inconsistent output/port/pipe state happens presumably due to
 		 * a bug in one of the get_hw_state functions. Or someplace else
 		 * in our code, like the register restore mess on resume. Clamp
