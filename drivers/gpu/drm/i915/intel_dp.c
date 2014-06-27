@@ -288,6 +288,51 @@ intel_dp_init_panel_power_sequencer_registers(struct drm_device *dev,
 					      struct intel_dp *intel_dp,
 					      struct edp_power_seq *out);
 
+static void
+vlv_power_sequencer_kick(struct intel_dp *intel_dp,
+			 enum pipe pipe)
+{
+	struct intel_digital_port *intel_dig_port = dp_to_dig_port(intel_dp);
+	struct drm_device *dev = intel_dig_port->base.base.dev;
+	struct drm_i915_private *dev_priv = dev->dev_private;
+	uint32_t DP;
+
+	/* Preserve the BIOS-computed detected bit. This is
+	 * supposed to be read-only.
+	 */
+	DP = I915_READ(intel_dp->output_reg) & DP_DETECTED;
+	DP |= DP_VOLTAGE_0_4 | DP_PRE_EMPHASIS_0;
+	DP |= DP_PORT_WIDTH(intel_dp->lane_count);
+
+	if (!IS_CHERRYVIEW(dev)) {
+		if (pipe == PIPE_B)
+			DP |= DP_PIPEB_SELECT;
+	} else {
+		DP |= DP_PIPE_SELECT_CHV(pipe);
+	}
+
+	/*
+	 * Need to enable the port with idle pattern to allow the power
+	 * sequencer to lock into the port. Otherwise the power sequence
+	 * (including vdd force bit!) doesn't work on this port.
+	 *
+	 * FIXME do we need a clock from the DPLL?
+	 * FIXME and what if the pipe is active, does it matter?
+	 */
+	DP |= DP_PORT_EN | DP_LINK_TRAIN_PAT_IDLE;
+
+	I915_WRITE(intel_dp->output_reg, DP);
+	POSTING_READ(intel_dp->output_reg);
+
+	intel_edp_panel_vdd_on(intel_dp);
+	intel_edp_panel_on(intel_dp);
+	intel_edp_panel_off(intel_dp);
+
+	I915_WRITE(intel_dp->output_reg, DP & ~DP_PORT_EN);
+	POSTING_READ(intel_dp->output_reg);
+	msleep(intel_dp->panel_power_down_delay);
+}
+
 enum pipe
 vlv_power_sequencer_pipe(struct intel_dp *intel_dp)
 {
@@ -333,6 +378,15 @@ vlv_power_sequencer_pipe(struct intel_dp *intel_dp)
 	intel_dp_init_panel_power_sequencer_registers(dev, intel_dp,
 						      &power_seq);
 
+	/*
+	 * Even vdd force doesn't work until we've made
+	 * the power sequencer lock in on the port.
+	 */
+	DRM_DEBUG_KMS("kicking pipe %c power sequencer\n",
+		      pipe_name(intel_dp->pipe));
+
+	vlv_power_sequencer_kick(intel_dp, intel_dp->pipe);
+
 	return intel_dp->pipe;
 }
 
@@ -370,6 +424,9 @@ vlv_initial_power_sequencer_setup(struct intel_dp *intel_dp)
 	intel_dp_init_panel_power_sequencer(dev, intel_dp, &power_seq);
 	intel_dp_init_panel_power_sequencer_registers(dev, intel_dp,
 						      &power_seq);
+
+	/* kick it just in case someone left it in a stuck state */
+	vlv_power_sequencer_kick(intel_dp, intel_dp->pipe);
 }
 
 static u32 _pp_ctrl_reg(struct intel_dp *intel_dp)
