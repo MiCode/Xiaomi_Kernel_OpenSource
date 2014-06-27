@@ -2274,6 +2274,9 @@ static void a3xx_start(struct adreno_device *adreno_dev)
 	/* Enable 64-byte cacheline size. HW Default is 32-byte (0x000000E0). */
 	kgsl_regwrite(device, A3XX_UCHE_CACHE_MODE_CONTROL_REG, 0x00000001);
 
+	/* Enable VFD to access most of the UCHE (7 ways out of 8) */
+	kgsl_regwrite(device, A3XX_UCHE_CACHE_WAYS_VFD, 0x07);
+
 	/* Enable Clock gating */
 	kgsl_regwrite(device, A3XX_RBBM_CLOCK_CTL,
 		adreno_a3xx_rbbm_clock_ctl_default(adreno_dev));
