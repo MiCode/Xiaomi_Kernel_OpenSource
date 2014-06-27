@@ -742,8 +742,14 @@
 
 		clocks = <&clock_rpm clk_qdss_clk>,
 			 <&clock_rpm clk_qdss_a_clk>,
-			 <&clock_mmss clk_mmss_misc_ahb_clk>;
-		clock-names = "core_clk", "core_a_clk", "core_mmss_clk";
+			 <&clock_mmss clk_mmss_misc_ahb_clk>,
+			 <&clock_gcc clk_gcc_ufs_ahb_clk>,
+			 <&clock_gcc clk_gcc_ufs_axi_clk>;
+		clock-names = "core_clk", "core_a_clk", "core_mmss_clk",
+			      "ufs_ahb_clk", "ufs_axi_clk";
+
+		qcom,hwevent-clks = "core_mmss_clk", "ufs_ahb_clk",
+				    "ufs_axi_clk";
 	};
 
 	fuse: fuse@fc4be024 {
