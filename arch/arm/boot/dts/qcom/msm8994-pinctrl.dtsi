@@ -397,7 +397,7 @@
 		tpiu_seta_3 {
 			qcom,pins = <&gp 53>;
 			qcom,num-grp-pins = <1>;
-			qcom,pin-func = <8>;
+			qcom,pin-func = <10>;
 			label = "tpiu-seta-3";
 			seta_3: seta {
 				drive-strength = <16>;
@@ -408,7 +408,7 @@
 		tpiu_seta_4 {
 			qcom,pins = <&gp 54>;
 			qcom,num-grp-pins = <1>;
-			qcom,pin-func = <9>;
+			qcom,pin-func = <11>;
 			label = "tpiu-seta-4";
 			seta_4: seta {
 				drive-strength = <16>;
@@ -419,7 +419,7 @@
 		tpiu_seta_5 {
 			qcom,pins = <&gp 63>;
 			qcom,num-grp-pins = <1>;
-			qcom,pin-func = <7>;
+			qcom,pin-func = <9>;
 			label = "tpiu-seta-5";
 			seta_5: seta {
 				drive-strength = <16>;
@@ -430,7 +430,7 @@
 		tpiu_seta_6 {
 			qcom,pins = <&gp 64>;
 			qcom,num-grp-pins = <1>;
-			qcom,pin-func = <5>;
+			qcom,pin-func = <7>;
 			label = "tpiu-seta-6";
 			seta_6: seta {
 				drive-strength = <16>;
@@ -441,7 +441,7 @@
 		tpiu_seta_7 {
 			qcom,pins = <&gp 65>;
 			qcom,num-grp-pins = <1>;
-			qcom,pin-func = <5>;
+			qcom,pin-func = <7>;
 			label = "tpiu-seta-7";
 			seta_7: seta {
 				drive-strength = <16>;
@@ -452,7 +452,7 @@
 		tpiu_seta_8 {
 			qcom,pins = <&gp 66>;
 			qcom,num-grp-pins = <1>;
-			qcom,pin-func = <6>;
+			qcom,pin-func = <8>;
 			label = "tpiu-seta-8";
 			seta_8: seta {
 				drive-strength = <16>;
@@ -463,7 +463,7 @@
 		tpiu_seta_9 {
 			qcom,pins = <&gp 67>;
 			qcom,num-grp-pins = <1>;
-			qcom,pin-func = <6>;
+			qcom,pin-func = <8>;
 			label = "tpiu-seta-9";
 			seta_9: seta {
 				drive-strength = <16>;
@@ -474,7 +474,7 @@
 		tpiu_seta_10 {
 			qcom,pins = <&gp 74>;
 			qcom,num-grp-pins = <1>;
-			qcom,pin-func = <6>;
+			qcom,pin-func = <8>;
 			label = "tpiu-seta-10";
 			seta_10: seta {
 				drive-strength = <16>;
@@ -485,7 +485,7 @@
 		tpiu_seta_11 {
 			qcom,pins = <&gp 75>;
 			qcom,num-grp-pins = <1>;
-			qcom,pin-func = <4>;
+			qcom,pin-func = <6>;
 			label = "tpiu-seta-11";
 			seta_11: seta {
 				drive-strength = <16>;
@@ -496,7 +496,7 @@
 		tpiu_seta_12 {
 			qcom,pins = <&gp 76>;
 			qcom,num-grp-pins = <1>;
-			qcom,pin-func = <4>;
+			qcom,pin-func = <6>;
 			label = "tpiu-seta-12";
 			seta_12: seta {
 				drive-strength = <16>;
@@ -507,7 +507,7 @@
 		tpiu_seta_13 {
 			qcom,pins = <&gp 77>;
 			qcom,num-grp-pins = <1>;
-			qcom,pin-func = <4>;
+			qcom,pin-func = <6>;
 			label = "tpiu-seta-13";
 			seta_13: seta {
 				drive-strength = <16>;
@@ -705,7 +705,7 @@
 		tpiu_setb_13 {
 			qcom,pins = <&gp 57>;
 			qcom,num-grp-pins = <1>;
-			qcom,pin-func = <5>;
+			qcom,pin-func = <7>;
 			label = "tpiu-setb-13";
 			setb_13: setb {
 				drive-strength = <16>;
@@ -716,7 +716,7 @@
 		tpiu_setb_14 {
 			qcom,pins = <&gp 58>;
 			qcom,num-grp-pins = <1>;
-			qcom,pin-func = <5>;
+			qcom,pin-func = <7>;
 			label = "tpiu-setb-14";
 			setb_14: setb {
 				drive-strength = <16>;
@@ -727,7 +727,7 @@
 		tpiu_setb_15 {
 			qcom,pins = <&gp 91>;
 			qcom,num-grp-pins = <1>;
-			qcom,pin-func = <5>;
+			qcom,pin-func = <7>;
 			label = "tpiu-setb-15";
 			setb_15: setb {
 				drive-strength = <16>;
@@ -749,7 +749,7 @@
 		tpiu_setb_17 {
 			qcom,pins = <&gp 93>;
 			qcom,num-grp-pins = <1>;
-			qcom,pin-func = <5>;
+			qcom,pin-func = <7>;
 			label = "tpiu-setb-17";
 			setb_17: setb {
 				drive-strength = <16>;
@@ -760,7 +760,7 @@
 		tpiu_setb_18 {
 			qcom,pins = <&gp 94>;
 			qcom,num-grp-pins = <1>;
-			qcom,pin-func = <5>;
+			qcom,pin-func = <7>;
 			label = "tpiu-setb-18";
 			setb_18: setb {
 				drive-strength = <16>;
