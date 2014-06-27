@@ -2070,14 +2070,161 @@ static void chv_post_disable_dp(struct intel_encoder *encoder)
 	mutex_unlock(&dev_priv->dpio_lock);
 }
 
+static void vlv_panel_on(struct intel_dp *intel_dp)
+{
+	struct drm_device *dev = intel_dp_to_dev(intel_dp);
+	struct drm_i915_private *dev_priv = dev->dev_private;
+	u32 pp;
+	u32 pp_ctrl_reg;
+
+	wait_panel_status(intel_dp, IDLE_CYCLE_MASK, IDLE_CYCLE_VALUE);
+
+	pp_ctrl_reg = _pp_ctrl_reg(intel_dp);
+	pp = ironlake_get_pp_control(intel_dp);
+	pp |= POWER_TARGET_ON | PANEL_POWER_RESET;
+
+	I915_WRITE(pp_ctrl_reg, pp);
+	POSTING_READ(pp_ctrl_reg);
+
+	wait_panel_status(intel_dp, IDLE_ON_MASK, IDLE_ON_VALUE);
+}
+
+static void vlv_panel_off(struct intel_dp *intel_dp)
+{
+	struct drm_device *dev = intel_dp_to_dev(intel_dp);
+	struct drm_i915_private *dev_priv = dev->dev_private;
+	u32 pp;
+	u32 pp_ctrl_reg;
+
+	pp = ironlake_get_pp_control(intel_dp);
+	/* We need to switch off panel power _and_ force vdd, for otherwise some
+	 * panels get very unhappy and cease to work. */
+	pp &= ~(POWER_TARGET_ON | PANEL_POWER_RESET | EDP_FORCE_VDD |
+		EDP_BLC_ENABLE);
+
+	pp_ctrl_reg = _pp_ctrl_reg(intel_dp);
+
+	I915_WRITE(pp_ctrl_reg, pp);
+	POSTING_READ(pp_ctrl_reg);
+
+	wait_panel_status(intel_dp, IDLE_OFF_MASK, IDLE_OFF_VALUE);
+}
+
+static void
+vlv_kick_power_seqeuencer_for_dp(struct intel_dp *intel_dp,
+				 enum pipe pipe)
+{
+	struct intel_digital_port *intel_dig_port = dp_to_dig_port(intel_dp);
+	struct drm_device *dev = intel_dig_port->base.base.dev;
+	struct drm_i915_private *dev_priv = dev->dev_private;
+	uint32_t DP;
+
+	intel_dp->pipe = pipe;
+
+	/* Preserve the BIOS-computed detected bit. This is
+	 * supposed to be read-only.
+	 */
+	DP = I915_READ(intel_dp->output_reg) & DP_DETECTED;
+	DP |= DP_VOLTAGE_0_4 | DP_PRE_EMPHASIS_0;
+	DP |= DP_PORT_WIDTH(1);
+
+	if (!IS_CHERRYVIEW(dev)) {
+		if (pipe == PIPE_B)
+			DP |= DP_PIPEB_SELECT;
+	} else {
+		DP |= DP_PIPE_SELECT_CHV(pipe);
+	}
+
+	/*
+	 * Need to enable the port with idle pattern to allow the power
+	 * sequencer to lock into the port. Otherwise the power sequencer
+	 * (including vdd force bit!) doesn't work on this port.
+	 *
+	 * FIXME do we need a clock from the DPLL?
+	 * FIXME and what if the pipe is active, does it matter?
+	 */
+	DP |= DP_PORT_EN | DP_LINK_TRAIN_PAT_IDLE;
+
+	I915_WRITE(intel_dp->output_reg, DP);
+	POSTING_READ(intel_dp->output_reg);
+
+	vlv_panel_on(intel_dp);
+	vlv_panel_off(intel_dp);
+
+	I915_WRITE(intel_dp->output_reg, DP & ~DP_PORT_EN);
+	POSTING_READ(intel_dp->output_reg);
+
+	intel_dp->pipe = INVALID_PIPE;
+}
+
+static void vlv_unstuck_power_sequencer(struct intel_dp *intel_dp)
+{
+	struct intel_digital_port *intel_dig_port = dp_to_dig_port(intel_dp);
+	struct drm_device *dev = intel_dig_port->base.base.dev;
+	struct drm_i915_private *dev_priv = dev->dev_private;
+	struct intel_encoder *encoder = &intel_dig_port->base;
+	enum pipe pipe = to_intel_crtc(encoder->base.crtc)->pipe;
+	bool need_kick = false;
+
+	list_for_each_entry(encoder, &dev->mode_config.encoder_list, base.head) {
+		struct intel_dp *tmp;
+
+		if (encoder->type != INTEL_OUTPUT_EDP)
+			continue;
+
+		tmp = enc_to_intel_dp(&encoder->base);
+
+		if (tmp->pipe != pipe)
+			continue;
+
+		DRM_DEBUG_KMS("pipe %c power sequencer previously in use on port %c\n",
+			      pipe_name(pipe),
+			      port_name(dp_to_dig_port(tmp)->port));
+
+		/*
+		 * Turn off vdd on the other port before we kick
+		 * the power sequencer and make it lock on to this
+		 * port.
+		 */
+		edp_panel_vdd_off(tmp, false);
+		tmp->pipe = INVALID_PIPE;
+
+		need_kick = true;
+	}
+
+	if (!need_kick)
+		return;
+
+	DRM_DEBUG_KMS("kicking pipe %c power sequencer\n",
+		      pipe_name(pipe));
+
+	/* just the port select and ref divider seem appropriate here */
+	I915_WRITE(VLV_PIPE_PP_ON_DELAYS(pipe),
+		   dp_to_dig_port(intel_dp)->port == PORT_B ?
+		   PANEL_PORT_SELECT_DPB_VLV : PANEL_PORT_SELECT_DPC_VLV);
+	I915_WRITE(VLV_PIPE_PP_OFF_DELAYS(pipe), 0);
+	I915_WRITE(VLV_PIPE_PP_DIVISOR(pipe),
+		   I915_READ(VLV_PIPE_PP_DIVISOR(pipe)) & PP_REFERENCE_DIVIDER_MASK);
+
+	vlv_kick_power_seqeuencer_for_dp(intel_dp, pipe);
+}
+
 static void intel_edp_init_train(struct intel_dp *intel_dp)
 {
 	struct intel_digital_port *intel_dig_port = dp_to_dig_port(intel_dp);
 	struct drm_device *dev = intel_dig_port->base.base.dev;
 	struct drm_i915_private *dev_priv = dev->dev_private;
 
-	if (!is_edp(intel_dp))
+	if (!is_edp(intel_dp)) {
+		/*
+		 * Need to kick the power sequencer even on DP if it it
+		 * was alrady locked to another port. Otherwise the port
+		 * just refuses to operate.
+		 */
+		if (IS_VALLEYVIEW(dev))
+			vlv_unstuck_power_sequencer(intel_dp);
 		return;
+	}
 
 	/*
 	 * Need to enable the port with idle pattern to allow the power
