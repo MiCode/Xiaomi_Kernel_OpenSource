@@ -2815,8 +2815,6 @@ extern void vlv_set_rps_mode(struct drm_device *dev, bool disable);
 extern void gen6_set_rps(struct drm_device *dev, u8 val);
 extern void bdw_software_turbo(struct drm_device *dev);
 extern void valleyview_set_rps(struct drm_device *dev, u8 val);
-extern int valleyview_rps_max_freq(struct drm_i915_private *dev_priv);
-extern int valleyview_rps_min_freq(struct drm_i915_private *dev_priv);
 extern void intel_detect_pch(struct drm_device *dev);
 extern int intel_trans_dp_port_sel(struct drm_crtc *crtc);
 extern int intel_enable_rc6(const struct drm_device *dev);
