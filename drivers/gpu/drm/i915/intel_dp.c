@@ -2070,6 +2070,37 @@ static void chv_post_disable_dp(struct intel_encoder *encoder)
 	mutex_unlock(&dev_priv->dpio_lock);
 }
 
+static void intel_edp_init_train(struct intel_dp *intel_dp)
+{
+	struct intel_digital_port *intel_dig_port = dp_to_dig_port(intel_dp);
+	struct drm_device *dev = intel_dig_port->base.base.dev;
+	struct drm_i915_private *dev_priv = dev->dev_private;
+
+	if (!is_edp(intel_dp))
+		return;
+
+	/*
+	 * Need to enable the port with idle pattern to allow the power
+	 * sequencer to lock into the port. Otherwise the power sequencer
+	 * (including vdd force bit!) doesn't work on this port.
+	 */
+	if (IS_VALLEYVIEW(dev)) {
+		intel_dp->DP |= DP_PORT_EN;
+
+		if (IS_CHERRYVIEW(dev))
+			intel_dp->DP &= ~DP_LINK_TRAIN_MASK_CHV;
+		else
+			intel_dp->DP &= ~DP_LINK_TRAIN_MASK;
+		intel_dp->DP |= DP_LINK_TRAIN_PAT_IDLE;
+
+		I915_WRITE(intel_dp->output_reg, intel_dp->DP);
+		POSTING_READ(intel_dp->output_reg);
+	}
+
+	intel_edp_panel_on(intel_dp);
+	edp_panel_vdd_off(intel_dp, true);
+}
+
 static void intel_enable_dp(struct intel_encoder *encoder)
 {
 	struct intel_dp *intel_dp = enc_to_intel_dp(&encoder->base);
@@ -2081,10 +2112,9 @@ static void intel_enable_dp(struct intel_encoder *encoder)
 		return;
 
 	intel_edp_panel_vdd_on(intel_dp);
+	intel_edp_init_train(intel_dp);
 	intel_dp_sink_dpms(intel_dp, DRM_MODE_DPMS_ON);
 	intel_dp_start_link_train(intel_dp);
-	intel_edp_panel_on(intel_dp);
-	edp_panel_vdd_off(intel_dp, true);
 	intel_dp_complete_link_train(intel_dp);
 	intel_dp_stop_link_train(intel_dp);
 }
