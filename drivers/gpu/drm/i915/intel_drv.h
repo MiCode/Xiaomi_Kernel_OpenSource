@@ -596,6 +596,12 @@ struct intel_dp {
 	unsigned long last_power_on;
 	unsigned long last_backlight_off;
 	bool use_tps3;
+	/*
+	 * Pipe whose power sequencer is currently locked into
+	 * this port. Ie. the last pipe that was feeding this
+	 * port. Only relevant on VLV/CHV.
+	 */
+	enum pipe pipe;
 	struct intel_connector *attached_connector;
 
 	uint32_t (*get_aux_clock_divider)(struct intel_dp *dp, int index);
