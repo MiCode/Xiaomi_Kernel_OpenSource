@@ -486,6 +486,17 @@ config MSM_SHARED_HEAP_ACCESS
 	 Enable support to provide access to clients to certain HLOS regions
 	 which are protected by the secure environment.
 
+config MSM_SYSTEM_HEALTH_MONITOR
+	bool "System Health Monitor"
+	depends on MSM_QMI_INTERFACE && MSM_SUBSYSTEM_RESTART
+	help
+	  System Health Monitor (SHM) passively monitors the health of the
+	  peripherals connected to the application processor. Software
+	  components in the application processor that experience
+	  communication failure can request the SHM to perform a system-wide
+	  health check. If any failures are detected during the health-check,
+	  then a subsystem restart will be triggered for the failed subsystem.
+
 source "drivers/soc/qcom/memshare/Kconfig"
 
 endif # ARCH_MSM
