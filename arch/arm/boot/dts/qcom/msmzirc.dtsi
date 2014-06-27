@@ -30,20 +30,20 @@
 	};
 
 	memory {
-		wcnss_debug_mem: wcnss_debug_region@0x86b00000 {
+		peripheral1_mem: peripheral1_region@0x81c00000 {
 			linux,reserve-contiguous-region;
 			linux,reserve-region;
 			linux,remove-completely;
-			reg = <0x86b00000 0x100000>;
-			label = "wcnss_debug_mem";
+			reg = <0x81c00000 0x6000000>;
+			label = "peripheral1_mem";
 		};
 
-		peripheral_mem: peripheral_region@0x87d00000 {
+		peripheral2_mem: peripheral2_region@0x87d00000 {
 			linux,reserve-contiguous-region;
 			linux,reserve-region;
 			linux,remove-completely;
 			reg = <0x87d00000 0x300000>;
-			label = "peripheral_mem";
+			label = "peripheral2_mem";
 		};
 	};
 
