@@ -25,10 +25,10 @@
 #include <sound/pcm.h>
 #include <sound/jack.h>
 #include <soc/qcom/socinfo.h>
-#include <qdsp6v2/msm-pcm-routing-v2.h>
 #include <sound/q6afe-v2.h>
 #include <linux/module.h>
 #include <mach/gpiomux.h>
+#include "qdsp6v2/msm-pcm-routing-v2.h"
 #include "../codecs/msm8x10-wcd.h"
 #define DRV_NAME "msm8x10-asoc-wcd"
 #define BTSCO_RATE_8KHZ 8000

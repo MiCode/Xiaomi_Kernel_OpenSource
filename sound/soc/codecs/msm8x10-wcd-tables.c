@@ -1,4 +1,4 @@
-/* Copyright (c) 2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -10,7 +10,7 @@
  * GNU General Public License for more details.
  */
 
-#include <msm8x10_wcd_registers.h>
+#include "msm8x10_wcd_registers.h"
 #include "msm8x10-wcd.h"
 
 const u8 msm8x10_wcd_reg_readable[MSM8X10_WCD_CACHE_SIZE] = {

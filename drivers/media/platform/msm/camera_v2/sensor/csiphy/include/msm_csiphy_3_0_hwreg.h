@@ -13,7 +13,7 @@
 #ifndef MSM_CSIPHY_3_0_HWREG_H
 #define MSM_CSIPHY_3_0_HWREG_H
 
-#include "msm_csiphy.h"
+#include <sensor/csiphy/msm_csiphy.h>
 
 struct csiphy_reg_parms_t csiphy_v3_0 = {
 	/*MIPI CSI PHY registers*/

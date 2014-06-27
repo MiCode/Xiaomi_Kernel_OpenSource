@@ -13,7 +13,7 @@
  *
  */
 
-#include <msm_qpic_nand.h>
+#include "msm_qpic_nand.h"
 
 /*
  * Get the DMA memory for requested amount of size. It returns the pointer
