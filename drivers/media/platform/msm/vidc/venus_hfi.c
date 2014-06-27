@@ -81,6 +81,8 @@ static DECLARE_DELAYED_WORK(venus_hfi_pm_work, venus_hfi_pm_hndlr);
 static int venus_hfi_power_enable(void *dev);
 static inline int venus_hfi_power_on(
 	struct venus_hfi_device *device);
+static int venus_hfi_disable_regulators(struct venus_hfi_device *device);
+static int venus_hfi_enable_regulators(struct venus_hfi_device *device);
 static inline int venus_hfi_prepare_enable_clks(
 	struct venus_hfi_device *device);
 static inline void venus_hfi_disable_unprepare_clks(
@@ -241,17 +243,102 @@ static void venus_hfi_sim_modify_cmd_packet(u8 *packet,
 #define venus_hfi_for_each_bus(__device, __binfo) \
 	venus_hfi_for_each_thing(__device, __binfo, bus)
 
-static struct regulator *venus_hfi_get_regulator(
-		struct venus_hfi_device *device, char *name)
+static int venus_hfi_acquire_regulator(struct regulator_info *rinfo)
+{
+	int rc = 0;
+
+	dprintk(VIDC_DBG,
+		"Acquire regulator control from HW: %s\n", rinfo->name);
+
+	if (rinfo->has_hw_power_collapse) {
+		rc = regulator_set_mode(rinfo->regulator,
+				REGULATOR_MODE_NORMAL);
+		if (rc) {
+			/*
+			* This is somewhat fatal, but nothing we can do
+			* about it. We can't disable the regulator w/o
+			* getting it back under s/w control
+			*/
+			dprintk(VIDC_WARN,
+				"Failed to acquire regulator control : %s\n",
+					rinfo->name);
+		}
+	}
+	WARN_ON(!regulator_is_enabled(rinfo->regulator));
+	return rc;
+}
+
+static int venus_hfi_hand_off_regulator(struct regulator_info *rinfo)
+{
+	int rc = 0;
+
+	dprintk(VIDC_DBG,
+		"Hand off regulator control to HW: %s\n", rinfo->name);
+
+	if (rinfo->has_hw_power_collapse) {
+		rc = regulator_set_mode(rinfo->regulator,
+				REGULATOR_MODE_FAST);
+		if (rc)
+			dprintk(VIDC_WARN,
+				"Failed to hand off regulator control : %s\n",
+					rinfo->name);
+	}
+	return rc;
+}
+
+static int venus_hfi_hand_off_regulators(struct venus_hfi_device *device)
 {
 	struct regulator_info *rinfo;
+	int rc = 0, c = 0;
 
 	venus_hfi_for_each_regulator(device, rinfo) {
-		if (!strcmp(rinfo->name, name))
-			return rinfo->regulator;
+		rc = venus_hfi_hand_off_regulator(rinfo);
+		/*
+		* If one regulator hand off failed, driver should take
+		* the control for other regulators back.
+		*/
+		if (rc)
+			goto err_reg_handoff_failed;
+		c++;
 	}
 
-	return NULL;
+	return rc;
+err_reg_handoff_failed:
+	venus_hfi_for_each_regulator(device, rinfo) {
+		if (!c)
+			break;
+
+		venus_hfi_acquire_regulator(rinfo);
+		--c;
+	}
+
+	return rc;
+}
+
+static int venus_hfi_acquire_regulators(struct venus_hfi_device *device)
+{
+	int rc = 0;
+	struct regulator_info *rinfo;
+
+	dprintk(VIDC_DBG, "Enabling regulators\n");
+
+	venus_hfi_for_each_regulator(device, rinfo) {
+		if (rinfo->has_hw_power_collapse) {
+			/*
+			 * Once driver has the control, it restores the
+			 * previous state of regulator. Hence driver no
+			 * need to call regulator_enable for these.
+			 */
+			rc = venus_hfi_acquire_regulator(rinfo);
+			if (rc) {
+				dprintk(VIDC_WARN,
+						"Failed: Aqcuire control: %s\n",
+						rinfo->name);
+				break;
+			}
+		}
+	}
+	return rc;
 }
 
 static int venus_hfi_write_queue(void *info, u8 *packet, u32 *rx_req_is_set)
@@ -1298,7 +1385,7 @@ static int venus_hfi_halt_axi(struct venus_hfi_device *device)
 static inline int venus_hfi_power_off(struct venus_hfi_device *device)
 {
 	int rc = 0;
-	struct regulator *r = NULL;
+
 	if (!device) {
 		dprintk(VIDC_ERR, "Invalid params: %p\n", device);
 		return -EINVAL;
@@ -1321,33 +1408,39 @@ static inline int venus_hfi_power_off(struct venus_hfi_device *device)
 		venus_hfi_clk_disable(device);
 		return rc;
 	}
-	venus_hfi_disable_unprepare_clks(device);
 	venus_hfi_iommu_detach(device);
 
-	r = venus_hfi_get_regulator(device, "venus");
-	if (!r) {
-		dprintk(VIDC_ERR, "%s - failed to get regulator\n", __func__);
-		return -EINVAL;
-	}
+	/*
+	* For some regulators, driver might have transfered the control to HW.
+	* So before touching any clocks, driver should get the regulator
+	* control back. Acquire regulators also makes sure that the regulators
+	* are turned ON. So driver can touch the clocks safely.
+	*/
 
-	rc = regulator_disable(r);
+	rc = venus_hfi_acquire_regulators(device);
 	if (rc) {
-		dprintk(VIDC_WARN, "Failed to disable GDSC, %d\n", rc);
-		return rc;
+		dprintk(VIDC_ERR, "Failed to enable gdsc in %s Err code = %d\n",
+			__func__, rc);
+		goto err_acquire_gdsc;
 	}
-
+	venus_hfi_disable_unprepare_clks(device);
+	rc = venus_hfi_disable_regulators(device);
+	if (rc) {
+		dprintk(VIDC_ERR, "Failed to disable gdsc\n");
+		goto err_disable_gdsc;
+	}
+err_disable_gdsc:
+err_acquire_gdsc:
 	venus_hfi_unvote_buses(device);
-
 	device->power_enabled = false;
 	dprintk(VIDC_INFO, "Venus power collapsed\n");
-
 	return rc;
 }
 
 static inline int venus_hfi_power_on(struct venus_hfi_device *device)
 {
 	int rc = 0;
-	struct regulator *r = NULL;
+
 	if (!device) {
 		dprintk(VIDC_ERR, "Invalid params: %p\n", device);
 		return -EINVAL;
@@ -1362,24 +1455,12 @@ static inline int venus_hfi_power_on(struct venus_hfi_device *device)
 		dprintk(VIDC_ERR, "Failed to scale buses\n");
 		goto err_vote_buses;
 	}
-
-	r = venus_hfi_get_regulator(device, "venus");
-	if (!r) {
-		dprintk(VIDC_ERR, "%s - failed to get regulator\n", __func__);
-		rc = -EINVAL;
-		goto err_enable_gdsc;
-	}
-
-	rc = regulator_enable(r);
+	/* At this point driver has the control for all regulators */
+	rc = venus_hfi_enable_regulators(device);
 	if (rc) {
-		dprintk(VIDC_ERR, "Failed to enable GDSC %d\n", rc);
+		dprintk(VIDC_ERR, "Failed to enable GDSC in %s Err code = %d\n",
+			__func__, rc);
 		goto err_enable_gdsc;
-	}
-
-	rc = venus_hfi_iommu_attach(device);
-	if (rc) {
-		dprintk(VIDC_ERR, "Failed to attach iommu after power on");
-		goto err_iommu_attach;
 	}
 
 	if (device->clk_state == DISABLED_UNPREPARED)
@@ -1392,12 +1473,28 @@ static inline int venus_hfi_power_on(struct venus_hfi_device *device)
 		goto err_enable_clk;
 	}
 
+	/* iommu_attach makes call to TZ for restore_sec_cfg. With this call
+	* TZ accesses the VMIDMT block which needs all the Venus clocks.
+	* While going to power collapse these clocks were turned OFF.
+	* Hence enabling the Venus clocks before iommu_attach call.
+	*/
+
+	rc = venus_hfi_iommu_attach(device);
+	if (rc) {
+		dprintk(VIDC_ERR, "Failed to attach iommu after power on\n");
+		goto err_iommu_attach;
+	}
+
 	/* Reboot the firmware */
 	rc = venus_hfi_tzbsp_set_video_state(TZBSP_VIDEO_STATE_RESUME);
 	if (rc) {
 		dprintk(VIDC_ERR, "Failed to resume video core %d\n", rc);
 		goto err_set_video_state;
 	}
+
+	rc = venus_hfi_hand_off_regulators(device);
+	if (rc)
+		dprintk(VIDC_WARN, "Failed to handoff control to HW %d\n", rc);
 
 	/*
 	 * Re-program all of the registers that get reset as a result of
@@ -1449,11 +1546,11 @@ err_alloc_ocmem:
 err_reset_core:
 	venus_hfi_tzbsp_set_video_state(TZBSP_VIDEO_STATE_SUSPEND);
 err_set_video_state:
-	venus_hfi_clk_disable(device);
-err_enable_clk:
 	venus_hfi_iommu_detach(device);
 err_iommu_attach:
-	regulator_disable(venus_hfi_get_regulator(device, "venus"));
+	venus_hfi_clk_disable(device);
+err_enable_clk:
+	venus_hfi_disable_regulators(device);
 err_enable_gdsc:
 	venus_hfi_unvote_buses(device);
 err_vote_buses:
@@ -3649,27 +3746,29 @@ static int venus_hfi_disable_regulator(struct regulator_info *rinfo)
 
 	dprintk(VIDC_DBG, "Disabling regulator %s\n", rinfo->name);
 
-	if (rinfo->has_hw_power_collapse) {
-		rc = regulator_set_mode(rinfo->regulator,
-				REGULATOR_MODE_NORMAL);
+	/*
+	* This call is needed. Driver needs to acquire the control back
+	* from HW in order to disable the regualtor. Else the behavior
+	* is unknown.
+	*/
 
-		if (rc) {
-			/* This is somewhat fatal, but nothing we can do
-			 * about it. We can't disable the regulator w/o
-			 * getting it back under s/w control */
-			dprintk(VIDC_WARN,
-					"Failed to disable power collapse on %s\n",
-					rinfo->name);
+	rc = venus_hfi_acquire_regulator(rinfo);
 
-			goto disable_regulator_failed;
-		}
+	if (rc) {
+		/* This is somewhat fatal, but nothing we can do
+		 * about it. We can't disable the regulator w/o
+		 * getting it back under s/w control */
+		dprintk(VIDC_WARN,
+			"Failed to acquire control on %s\n",
+			rinfo->name);
+
+		goto disable_regulator_failed;
 	}
-
 	rc = regulator_disable(rinfo->regulator);
 	if (rc) {
 		dprintk(VIDC_WARN,
-				"Failed to disable %s: %d\n",
-				rinfo->name, rc);
+			"Failed to disable %s: %d\n",
+			rinfo->name, rc);
 		goto disable_regulator_failed;
 	}
 
@@ -3684,33 +3783,18 @@ disable_regulator_failed:
 static int venus_hfi_enable_hw_power_collapse(struct venus_hfi_device *device)
 {
 	int rc = 0;
-	struct regulator_info *rinfo;
 
 	if (!msm_fw_low_power_mode) {
 		dprintk(VIDC_DBG, "Not enabling hardware power collapse\n");
 		return 0;
 	}
 
-	venus_hfi_for_each_regulator(device, rinfo) {
-		if (rinfo->has_hw_power_collapse) {
-			rc = regulator_set_mode(rinfo->regulator,
-					REGULATOR_MODE_FAST);
-			if (rc) {
-				/* Not fatal, we can live with
-				 * out power collapse */
-				dprintk(VIDC_WARN,
-						"Failed to enable power collapse on %s\n",
-						rinfo->name);
-				continue;
-			}
-
-			dprintk(VIDC_DBG,
-					"Enabled h/w power collapse on %s\n",
-					rinfo->name);
-		}
-	}
-
-	return 0;
+	rc = venus_hfi_hand_off_regulators(device);
+	if (rc)
+		dprintk(VIDC_WARN,
+			"%s : Failed to enable HW power collapse %d\n",
+				__func__, rc);
+	return rc;
 }
 
 static int venus_hfi_enable_regulators(struct venus_hfi_device *device)
@@ -3724,12 +3808,12 @@ static int venus_hfi_enable_regulators(struct venus_hfi_device *device)
 		rc = regulator_enable(rinfo->regulator);
 		if (rc) {
 			dprintk(VIDC_ERR,
-				"Failed to enable %s: %d\n",
-				rinfo->name, rc);
+					"Failed to enable %s: %d\n",
+					rinfo->name, rc);
 			goto err_reg_enable_failed;
 		}
-
-		dprintk(VIDC_DBG, "Enabled regulator %s\n", rinfo->name);
+		dprintk(VIDC_DBG, "Enabled regulator %s\n",
+				rinfo->name);
 		c++;
 	}
 
@@ -3780,7 +3864,8 @@ static int venus_hfi_load_fw(void *dev)
 
 	rc = venus_hfi_enable_regulators(device);
 	if (rc) {
-		dprintk(VIDC_ERR, "Failed to enable GDSC %d\n", rc);
+		dprintk(VIDC_ERR, "%s : Failed to enable GDSC, Err = %d\n",
+			__func__, rc);
 		goto fail_enable_gdsc;
 	}
 
