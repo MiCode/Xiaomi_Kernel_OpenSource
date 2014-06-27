@@ -1444,6 +1444,10 @@ struct bma2x2_platform_data {
 	bool use_int;
 };
 
+struct bma2x2_suspend_state {
+	bool powerEn;
+};
+
 struct bma2x2_data {
 	struct i2c_client *bma2x2_client;
 	struct sensors_classdev cdev;
@@ -1475,6 +1479,7 @@ struct bma2x2_data {
 #endif
 	int IRQ;
 	struct bma2x2_platform_data *pdata;
+	struct bma2x2_suspend_state suspend_state;
 
 	int ref_count;
 	struct input_dev *dev_interrupt;
@@ -5154,6 +5159,11 @@ static int bma2x2_cdev_enable(struct sensors_classdev *sensors_cdev,
 	return 0;
 }
 
+static int bma2x2_is_power_enabled(struct bma2x2_data *data)
+{
+	return atomic_read(&data->enable);
+}
+
 static int bma2x2_cdev_poll_delay(struct sensors_classdev *sensors_cdev,
 				unsigned int delay_ms)
 {
@@ -7397,7 +7407,7 @@ free_input_dev_exit:
 	input_free_device(dev);
 free_irq_exit:
 disable_power_exit:
-		bma2x2_power_ctl(data, false);
+	bma2x2_power_ctl(data, false);
 deinit_power_exit:
 	bma2x2_power_deinit(data);
 free_i2c_clientdata_exit:
@@ -7476,7 +7486,6 @@ static int bma2x2_remove(struct i2c_client *client)
 	}
 
 	bma2x2_set_enable(&client->dev, 0);
-	bma2x2_power_ctl(data, false);
 	bma2x2_power_deinit(data);
 	i2c_set_clientdata(client, NULL);
 	if (data->pdata && (client->dev.of_node))
@@ -7517,13 +7526,20 @@ static int bma2x2_store_state(struct i2c_client *client,
 #ifdef CONFIG_PM
 static int bma2x2_suspend(struct i2c_client *client, pm_message_t mesg)
 {
+	struct bma2x2_data *data = i2c_get_clientdata(client);
+
+	data->suspend_state.powerEn = bma2x2_is_power_enabled(data);
 	bma2x2_set_enable(&client->dev, 0);
 	return 0;
 }
 
 static int bma2x2_resume(struct i2c_client *client)
 {
-	bma2x2_set_enable(&client->dev, 1);
+	struct bma2x2_data *data = i2c_get_clientdata(client);
+
+	if (data->suspend_state.powerEn)
+		bma2x2_set_enable(&client->dev, 1);
+
 	return 0;
 }
 
