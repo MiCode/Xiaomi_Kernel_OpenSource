@@ -121,7 +121,7 @@ struct epm_get_high_res_avg_data {
 };
 
 struct epm_generic_request {
-	uint8_t		buf_data[65];
+	uint8_t		buf[64];
 };
 
 
