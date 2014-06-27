@@ -640,7 +640,6 @@ config ARCH_PXA
 config ARCH_MSM
 	bool "Qualcomm MSM (non-multiplatform)"
 	select ARCH_REQUIRE_GPIOLIB
-	select COMMON_CLK
 	select GENERIC_CLOCKEVENTS
 	help
 	  Support for Qualcomm MSM/QSD based systems.  This runs on the
