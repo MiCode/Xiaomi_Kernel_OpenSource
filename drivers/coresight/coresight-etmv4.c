@@ -32,6 +32,7 @@
 #include <linux/pm_wakeup.h>
 #include <asm/sections.h>
 #include <soc/qcom/socinfo.h>
+#include <soc/qcom/memory_dump.h>
 
 #include "coresight-priv.h"
 
@@ -387,6 +388,7 @@ struct etm_drvdata {
 	uint8_t				s_ex_level;
 	uint8_t				ns_ex_level;
 	uint32_t			ext_inp;
+	struct msm_dump_data		reg_data;
 };
 
 static struct etm_drvdata *etmdrvdata[NR_CPUS];
@@ -3242,6 +3244,8 @@ static int etm_probe(struct platform_device *pdev)
 	struct resource *res;
 	uint32_t reg_size;
 	static int count;
+	void *baddr;
+	struct msm_dump_entry dump_entry;
 	struct coresight_desc *desc;
 
 	if (coresight_fuse_access_disabled() ||
@@ -3320,6 +3324,21 @@ static int etm_probe(struct platform_device *pdev)
 	etm_init_default_data(drvdata);
 
 	clk_disable_unprepare(drvdata->clk);
+
+	baddr = devm_kzalloc(dev, reg_size, GFP_KERNEL);
+	if (baddr) {
+		drvdata->reg_data.addr = virt_to_phys(baddr);
+		drvdata->reg_data.len = reg_size;
+		dump_entry.id = MSM_DUMP_DATA_ETM_REG + drvdata->cpu;
+		dump_entry.addr = virt_to_phys(&drvdata->reg_data);
+		ret = msm_dump_data_register(MSM_DUMP_TABLE_APPS, &dump_entry);
+		if (ret) {
+			devm_kfree(dev, baddr);
+			dev_err(dev, "ETM REG dump setup failed\n");
+		}
+	} else {
+		dev_err(dev, "ETM REG dump space allocation failed\n");
+	}
 
 	desc = devm_kzalloc(dev, sizeof(*desc), GFP_KERNEL);
 	if (!desc) {
