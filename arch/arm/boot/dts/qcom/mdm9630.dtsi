@@ -502,6 +502,7 @@
 		qcom,reset_hsphy_sleep_clk_on_init;
 		qcom,power-collapse-on-cable-disconnect;
 		qcom,por-after-power-collapse;
+		qcom,lpm-to-suspend-delay-ms = <2000>;
 
 		dwc3@f9200000 {
 				compatible = "synopsys,dwc3";
