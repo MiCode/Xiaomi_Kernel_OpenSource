@@ -141,6 +141,7 @@ struct vpu_channel_hal {
 	void *clk_handle;
 	struct regulator *vdd;
 	bool vdd_enabled; /* if VDD is enabled */
+	bool rpm_vote; /* If VPU high power vote was sent to RPM */
 	/* internally cached value for current fw logging level */
 	int fw_log_level;
 };
@@ -1572,6 +1573,8 @@ int vpu_hw_session_empty_buffer(u32 sid, u32 port_id, struct vpu_buffer *vb)
 	return rc;
 }
 
+static void inform_rpm_vpu_state(u32 on);
+
 int vpu_hw_session_commit(u32 sid, enum commit_type ct,
 			  u32 load_kbps, u32 pwr_mode)
 {
@@ -1596,10 +1599,21 @@ int vpu_hw_session_commit(u32 sid, enum commit_type ct,
 	}
 
 	mutex_lock(&hal->pw_lock);
-	if (vpu_bus_scale(load_kbps))
-		pr_err("bus scale failed\n");
+
+	if (pwr_mode == VPU_POWER_SVS && hal->rpm_vote) {
+		inform_rpm_vpu_state(0);
+		hal->rpm_vote = false;
+	} else if (pwr_mode > VPU_POWER_SVS && !hal->rpm_vote) {
+		inform_rpm_vpu_state(1);
+		hal->rpm_vote = true;
+	}
+
 	if (vpu_clock_scale(hal->clk_handle, pwr_mode))
 		pr_err("clock scale failed\n");
+
+	if (vpu_bus_scale(load_kbps))
+		pr_err("bus scale failed\n");
+
 	mutex_unlock(&hal->pw_lock);
 
 	/* send the configuration commit through IPC */
@@ -1958,9 +1972,6 @@ static int vpu_hw_power_on(struct vpu_channel_hal *hal)
 {
 	int rc;
 
-	/* inform RPM VPU state is ON */
-	inform_rpm_vpu_state(1);
-
 	/* enable the power */
 	if (!hal->vdd_enabled) {
 		rc = regulator_enable(hal->vdd);
@@ -1992,7 +2003,6 @@ err_bus:
 	regulator_disable(hal->vdd);
 	hal->vdd_enabled = false;
 err_power:
-	inform_rpm_vpu_state(0);
 	return rc;
 }
 
@@ -2009,7 +2019,10 @@ static void vpu_hw_power_off(struct vpu_channel_hal *hal)
 		hal->vdd_enabled = false;
 	}
 
-	inform_rpm_vpu_state(0);
+	if (hal->rpm_vote) {
+		inform_rpm_vpu_state(0);
+		hal->rpm_vote = false;
+	}
 }
 
 int vpu_hw_sys_suspend(void)

@@ -1162,7 +1162,8 @@ static u32 __calculate_session_load(struct vpu_dev_session *session)
 	int i;
 
 	/* get required info before computation */
-	fps = in->framerate ? in->framerate : MAX_FPS;
+	fps = max(in->framerate, out->framerate) >> 16;
+	fps = fps ? fps : 30;
 	nrwb_bpp = __get_bits_per_pixel(V4L2_PIX_FMT_YUYV);
 	in_bpp = __get_bits_per_pixel(in->format.pixelformat);
 	out_bpp = __get_bits_per_pixel(out->format.pixelformat);
@@ -1170,7 +1171,7 @@ static u32 __calculate_session_load(struct vpu_dev_session *session)
 	interlaced = in->scan_mode == LINESCANINTERLACED;
 	nr_ctrl = get_control(controller, VPU_CTRL_NOISE_REDUCTION);
 	nr = nr_ctrl ? (nr_ctrl->enable == PROP_TRUE) : false;
-	bbroi = true; /* TODO: how to calculate? */
+	bbroi = false; /* TODO: how to calculate? */
 
 	/* compute the current session's load at each stage */
 	stage_load_factor[VIP_MIP] = in_bpp;
@@ -1188,6 +1189,10 @@ static u32 __calculate_session_load(struct vpu_dev_session *session)
 	for (i = VOP_MOP; i < NUM_STAGES; i++)
 		load_kbps += stage_load_factor[i] *
 			TO_KILO(out->format.width * out->format.height * fps);
+
+	/* approximately a 25% BW increase if dual output is enabled */
+	if (session->dual_output)
+		load_kbps = (load_kbps * 5) / 4;
 
 	return load_kbps;
 }
@@ -1212,8 +1217,8 @@ static u32 __get_power_mode(struct vpu_dev_session *cur_sess)
 	u32 max_w = 0, max_h = 0, fps, pr[VPU_NUM_SESSIONS] = {0, };
 	int i, num_sessions = 0;
 	const u32 pr_threshold[VPU_POWER_MAX] = {
-		[VPU_POWER_SVS]     =  63000000,
-		[VPU_POWER_NOMINAL] = 125000000,
+		[VPU_POWER_SVS]     =  67000000,
+		[VPU_POWER_NOMINAL] = 134000000,
 		[VPU_POWER_TURBO]   = 260000000,
 	};
 
@@ -1231,8 +1236,8 @@ static u32 __get_power_mode(struct vpu_dev_session *cur_sess)
 		if ((max_w * max_h) > SZ_2M)
 			goto exit_and_return_mode;
 
-		fps = max(in->framerate, out->framerate);
-		fps = fps ? fps : 60;
+		fps = max(in->framerate, out->framerate) >> 16;
+		fps = fps ? fps : 30;
 
 		pr[i] = max_w * max_h * fps;
 		pr_debug("session %d's pixel rate is %d\n", i, pr[i]);

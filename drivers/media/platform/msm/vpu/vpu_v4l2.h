@@ -89,7 +89,7 @@ struct vpu_port_info {
 	struct v4l2_pix_format_mplane format;
 	struct v4l2_rect roi;
 	u32 scan_mode;
-	u32 framerate;
+	u32 framerate; /* in 16.16 format */
 	u32 video_fmt;
 	u32 secure_content;
 
