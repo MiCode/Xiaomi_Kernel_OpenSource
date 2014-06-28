@@ -24,3 +24,55 @@
 	qcom,msm-id = <233 0>;
 };
 
+&soc {
+	clock_cpu: qcom,cpu-clock-8936@b011050 {
+		compatible = "qcom,cpu-clock-8936";
+		reg = <0xb011050 0x8>,
+			<0xb1d1050 0x8>;
+		reg-names = "apcs-c1-rcg-base",
+				"apcs-cci-rcg-base";
+		vdd-c1-supply = <&apc_vreg_corner>;
+		vdd-cci-supply = <&apc_vreg_corner>;
+		clocks = <&clock_gcc clk_gpll0_ao>,
+			 <&clock_gcc clk_a53ss_c1_pll>,
+			 <&clock_gcc clk_gpll0_ao>,
+			 <&clock_gcc clk_a53ss_cci_pll>;
+		clock-names = "clk-c1-4", "clk-c1-5",
+				"clk-cci-4", "clk-cci-5";
+		qcom,speed0-bin-v0-c1 =
+			<          0 0>,
+			<  400000000 1>,
+			<  800000000 2>,
+			< 1536800000 3>;
+
+		qcom,speed0-bin-v0-cci =
+			<          0 0>,
+			<  200000000 1>,
+			<  300000000 2>,
+			<  800000000 3>;
+		#clock-cells = <1>;
+	};
+
+	qcom,msm-cpufreq {
+		compatible = "qcom,msm-cpufreq";
+		clock-names = "cpu0_clk", "cpu1_clk", "cpu2_clk",
+				"cpu3_clk";
+		clocks = <&clock_cpu clk_a53ssmux_bc>,
+			 <&clock_cpu clk_a53ssmux_bc>,
+			 <&clock_cpu clk_a53ssmux_bc>,
+			 <&clock_cpu clk_a53ssmux_bc>;
+
+		qcom,cpufreq-table-0 =
+			 <  200000 >,
+			 <  345600 >,
+			 <  400000 >,
+			 <  422400 >,
+			 <  499200 >,
+			 <  533330 >,
+			 <  652800 >,
+			 <  800000 >,
+			 < 1113600 >,
+			 < 1267200 >,
+			 < 1344000 >;
+	};
+};
