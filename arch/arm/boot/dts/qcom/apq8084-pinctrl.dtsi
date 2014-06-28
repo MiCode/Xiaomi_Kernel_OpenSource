@@ -628,7 +628,7 @@
 			qcom,num-grp-pins = <1>;
 			qcom,pin-func = <5>;
 			label = "cti-trigout-a";
-			trigout_a: default {
+			trigout_a: trigout_a {
 				drive-strength = <2>;
 				bias-disable;
 			};

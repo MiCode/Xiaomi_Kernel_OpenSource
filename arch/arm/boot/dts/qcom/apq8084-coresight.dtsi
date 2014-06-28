@@ -326,7 +326,8 @@
 		coresight-name = "coresight-cti6";
 		coresight-nr-inports = <0>;
 
-		pinctrl-names = "default";
+		qcom,cti-gpio-trigout = <2>;
+		pinctrl-names = "cti-trigout-pctrl";
 		pinctrl-0 = <&trigout_a>;
 	};
 
