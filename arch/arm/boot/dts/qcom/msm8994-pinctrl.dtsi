@@ -768,6 +768,28 @@
 			};
 		};
 
+		cti_trigout_a {
+			qcom,pins = <&gp 56>;
+			qcom,num-grp-pins = <1>;
+			qcom,pin-func = <9>;
+			label = "cti-trigout-a";
+			trigout_a: trigout_a {
+				drive-strength = <2>;
+				bias-disable;
+			};
+		};
+
+		cti_trigout_c {
+			qcom,pins = <&gp 41>;
+			qcom,num-grp-pins = <1>;
+			qcom,pin-func = <4>;
+			label = "cti-trigout-c";
+			trigout_c: trigout_c {
+				drive-strength = <2>;
+				bias-disable;
+			};
+		};
+
 		cci0_active {
 			/* CLK, DATA */
 			qcom,pins = <&gp 17>, <&gp 18>;
