@@ -92,5 +92,401 @@
 			};
 		};
 
+		/* CoreSight */
+		tpiu_seta_1 {
+			qcom,pins = <&gp 4>;
+			qcom,num-grp-pins = <1>;
+			qcom,pin-func = <5>;
+			label = "tpiu-seta-1";
+			seta_1: seta {
+				drive-strength = <16>;
+				bias-disable;
+			};
+		};
+
+		tpiu_seta_2 {
+			qcom,pins = <&gp 5>;
+			qcom,num-grp-pins = <1>;
+			qcom,pin-func = <5>;
+			label = "tpiu-seta-2";
+			seta_2: seta {
+				drive-strength = <16>;
+				bias-disable;
+			};
+		};
+
+		tpiu_seta_3 {
+			qcom,pins = <&gp 6>;
+			qcom,num-grp-pins = <1>;
+			qcom,pin-func = <7>;
+			label = "tpiu-seta-3";
+			seta_3: seta {
+				drive-strength = <16>;
+				bias-disable;
+			};
+		};
+
+		tpiu_seta_4 {
+			qcom,pins = <&gp 7>;
+			qcom,num-grp-pins = <1>;
+			qcom,pin-func = <7>;
+			label = "tpiu-seta-4";
+			seta_4: seta {
+				drive-strength = <16>;
+				bias-disable;
+			};
+		};
+
+		tpiu_seta_5 {
+			qcom,pins = <&gp 8>;
+			qcom,num-grp-pins = <1>;
+			qcom,pin-func = <5>;
+			label = "tpiu-seta-5";
+			seta_5: seta {
+				drive-strength = <16>;
+				bias-disable;
+			};
+		};
+
+		tpiu_seta_6 {
+			qcom,pins = <&gp 9>;
+			qcom,num-grp-pins = <1>;
+			qcom,pin-func = <5>;
+			label = "tpiu-seta-6";
+			seta_6: seta {
+				drive-strength = <16>;
+				bias-disable;
+			};
+		};
+
+		tpiu_seta_7 {
+			qcom,pins = <&gp 12>;
+			qcom,num-grp-pins = <1>;
+			qcom,pin-func = <5>;
+			label = "tpiu-seta-7";
+			seta_7: seta {
+				drive-strength = <16>;
+				bias-disable;
+			};
+		};
+
+		tpiu_seta_8 {
+			qcom,pins = <&gp 13>;
+			qcom,num-grp-pins = <1>;
+			qcom,pin-func = <5>;
+			label = "tpiu-seta-8";
+			seta_8: seta {
+				drive-strength = <16>;
+				bias-disable;
+			};
+		};
+
+		tpiu_seta_9 {
+			qcom,pins = <&gp 14>;
+			qcom,num-grp-pins = <1>;
+			qcom,pin-func = <8>;
+			label = "tpiu-seta-9";
+			seta_9: seta {
+				drive-strength = <16>;
+				bias-disable;
+			};
+		};
+
+		tpiu_seta_10 {
+			qcom,pins = <&gp 15>;
+			qcom,num-grp-pins = <1>;
+			qcom,pin-func = <8>;
+			label = "tpiu-seta-10";
+			seta_10: seta {
+				drive-strength = <16>;
+				bias-disable;
+			};
+		};
+
+		tpiu_seta_11 {
+			qcom,pins = <&gp 16>;
+			qcom,num-grp-pins = <1>;
+			qcom,pin-func = <7>;
+			label = "tpiu-seta-11";
+			seta_11: seta {
+				drive-strength = <16>;
+				bias-disable;
+			};
+		};
+
+		tpiu_seta_12 {
+			qcom,pins = <&gp 17>;
+			qcom,num-grp-pins = <1>;
+			qcom,pin-func = <6>;
+			label = "tpiu-seta-12";
+			seta_12: seta {
+				drive-strength = <16>;
+				bias-disable;
+			};
+		};
+
+		tpiu_seta_13 {
+			qcom,pins = <&gp 18>;
+			qcom,num-grp-pins = <1>;
+			qcom,pin-func = <8>;
+			label = "tpiu-seta-13";
+			seta_13: seta {
+				drive-strength = <16>;
+				bias-disable;
+			};
+		};
+
+		tpiu_seta_14 {
+			qcom,pins = <&gp 19>;
+			qcom,num-grp-pins = <1>;
+			qcom,pin-func = <8>;
+			label = "tpiu-seta-14";
+			seta_14: seta {
+				drive-strength = <16>;
+				bias-disable;
+			};
+		};
+
+		tpiu_seta_15 {
+			qcom,pins = <&gp 36>;
+			qcom,num-grp-pins = <1>;
+			qcom,pin-func = <3>;
+			label = "tpiu-seta-15";
+			seta_15: seta {
+				drive-strength = <16>;
+				bias-disable;
+			};
+		};
+
+		tpiu_seta_16 {
+			qcom,pins = <&gp 50>;
+			qcom,num-grp-pins = <1>;
+			qcom,pin-func = <2>;
+			label = "tpiu-seta-16";
+			seta_16: seta {
+				drive-strength = <16>;
+				bias-disable;
+			};
+		};
+
+		tpiu_seta_17 {
+			qcom,pins = <&gp 69>;
+			qcom,num-grp-pins = <1>;
+			qcom,pin-func = <6>;
+			label = "tpiu-seta-17";
+			seta_17: seta {
+				drive-strength = <16>;
+				bias-disable;
+			};
+		};
+
+		tpiu_seta_18 {
+			qcom,pins = <&gp 71>;
+			qcom,num-grp-pins = <1>;
+			qcom,pin-func = <8>;
+			label = "tpiu-seta-18";
+			seta_18: seta {
+				drive-strength = <16>;
+				bias-disable;
+			};
+		};
+
+		tpiu_setb_1 {
+			qcom,pins = <&gp 16>;
+			qcom,num-grp-pins = <1>;
+			qcom,pin-func = <8>;
+			label = "tpiu-setb-1";
+			setb_1: setb {
+				drive-strength = <16>;
+				bias-disable;
+			};
+		};
+
+		tpiu_setb_2 {
+			qcom,pins = <&gp 17>;
+			qcom,num-grp-pins = <1>;
+			qcom,pin-func = <7>;
+			label = "tpiu-setb-2";
+			setb_2: setb {
+				drive-strength = <16>;
+				bias-disable;
+			};
+		};
+
+		tpiu_setb_3 {
+			qcom,pins = <&gp 18>;
+			qcom,num-grp-pins = <1>;
+			qcom,pin-func = <9>;
+			label = "tpiu-setb-3";
+			setb_3: setb {
+				drive-strength = <16>;
+				bias-disable;
+			};
+		};
+
+		tpiu_setb_4 {
+			qcom,pins = <&gp 19>;
+			qcom,num-grp-pins = <1>;
+			qcom,pin-func = <9>;
+			label = "tpiu-setb-4";
+			setb_4: setb {
+				drive-strength = <16>;
+				bias-disable;
+			};
+		};
+
+		tpiu_setb_5 {
+			qcom,pins = <&gp 30>;
+			qcom,num-grp-pins = <1>;
+			qcom,pin-func = <2>;
+			label = "tpiu-setb-5";
+			setb_5: setb {
+				drive-strength = <16>;
+				bias-disable;
+			};
+		};
+
+		tpiu_setb_6 {
+			qcom,pins = <&gp 31>;
+			qcom,num-grp-pins = <1>;
+			qcom,pin-func = <2>;
+			label = "tpiu-setb-6";
+			setb_6: setb {
+				drive-strength = <16>;
+				bias-disable;
+			};
+		};
+
+		tpiu_setb_7 {
+			qcom,pins = <&gp 32>;
+			qcom,num-grp-pins = <1>;
+			qcom,pin-func = <2>;
+			label = "tpiu-setb-7";
+			setb_7: setb {
+				drive-strength = <16>;
+				bias-disable;
+			};
+		};
+
+		tpiu_setb_8 {
+			qcom,pins = <&gp 33>;
+			qcom,num-grp-pins = <1>;
+			qcom,pin-func = <2>;
+			label = "tpiu-setb-8";
+			setb_8: setb {
+				drive-strength = <16>;
+				bias-disable;
+			};
+		};
+
+		tpiu_setb_9 {
+			qcom,pins = <&gp 34>;
+			qcom,num-grp-pins = <1>;
+			qcom,pin-func = <2>;
+			label = "tpiu-setb-9";
+			setb_9: setb {
+				drive-strength = <16>;
+				bias-disable;
+			};
+		};
+
+		tpiu_setb_10 {
+			qcom,pins = <&gp 35>;
+			qcom,num-grp-pins = <1>;
+			qcom,pin-func = <2>;
+			label = "tpiu-setb-10";
+			setb_10: setb {
+				drive-strength = <16>;
+				bias-disable;
+			};
+		};
+
+		tpiu_setb_11 {
+			qcom,pins = <&gp 36>;
+			qcom,num-grp-pins = <1>;
+			qcom,pin-func = <4>;
+			label = "tpiu-setb-11";
+			setb_11: setb {
+				drive-strength = <16>;
+				bias-disable;
+			};
+		};
+
+		tpiu_setb_12 {
+			qcom,pins = <&gp 39>;
+			qcom,num-grp-pins = <1>;
+			qcom,pin-func = <2>;
+			label = "tpiu-setb-12";
+			setb_12: setb {
+				drive-strength = <16>;
+				bias-disable;
+			};
+		};
+
+		tpiu_setb_13 {
+			qcom,pins = <&gp 40>;
+			qcom,num-grp-pins = <1>;
+			qcom,pin-func = <2>;
+			label = "tpiu-setb-13";
+			setb_13: setb {
+				drive-strength = <16>;
+				bias-disable;
+			};
+		};
+
+		tpiu_setb_14 {
+			qcom,pins = <&gp 43>;
+			qcom,num-grp-pins = <1>;
+			qcom,pin-func = <2>;
+			label = "tpiu-setb-14";
+			setb_14: setb {
+				drive-strength = <16>;
+				bias-disable;
+			};
+		};
+
+		tpiu_setb_15 {
+			qcom,pins = <&gp 50>;
+			qcom,num-grp-pins = <1>;
+			qcom,pin-func = <3>;
+			label = "tpiu-setb-15";
+			setb_15: setb {
+				drive-strength = <16>;
+				bias-disable;
+			};
+		};
+
+		tpiu_setb_16 {
+			qcom,pins = <&gp 69>;
+			qcom,num-grp-pins = <1>;
+			qcom,pin-func = <7>;
+			label = "tpiu-setb-16";
+			setb_16: setb {
+				drive-strength = <16>;
+				bias-disable;
+			};
+		};
+
+		tpiu_setb_17 {
+			qcom,pins = <&gp 52>;
+			qcom,num-grp-pins = <1>;
+			qcom,pin-func = <3>;
+			label = "tpiu-setb-17";
+			setb_17: setb {
+				drive-strength = <16>;
+				bias-disable;
+			};
+		};
+
+		tpiu_setb_18 {
+			qcom,pins = <&gp 53>;
+			qcom,num-grp-pins = <1>;
+			qcom,pin-func = <3>;
+			label = "tpiu-setb-18";
+			setb_18: setb {
+				drive-strength = <16>;
+				bias-disable;
+			};
+		};
 	};
 };
