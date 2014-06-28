@@ -1027,69 +1027,81 @@ static void msm_nand_prep_rw_cmd_desc(struct mtd_oob_ops *ops,
 				struct msm_nand_rw_reg_data *data,
 				struct msm_nand_info *info,
 				uint32_t curr_cw,
-				struct msm_nand_sps_cmd **curr_cmd)
+				struct msm_nand_rw_cmd_desc *cmd_list,
+				uint32_t *cw_desc_cnt)
 {
 	struct msm_nand_chip *chip = &info->nand_chip;
-	struct msm_nand_sps_cmd *cmd;
 	uint32_t rdata;
 	/* read_location register parameters */
 	uint32_t offset, size, last_read;
+	struct sps_command_element *curr_ce, *start_ce;
+	uint32_t *flags_ptr, *num_ce_ptr;
 
-	cmd = *curr_cmd;
 	if (curr_cw == args->start_sector) {
-		msm_nand_prep_single_desc(cmd, MSM_NAND_FLASH_CMD(info), WRITE,
-				data->cmd,
-				((curr_cw == args->start_sector) ?
-				 SPS_IOVEC_FLAG_LOCK : 0));
-		cmd++;
+		curr_ce = start_ce = &cmd_list->setup_desc.ce[0];
+		num_ce_ptr = &cmd_list->setup_desc.num_ce;
+		flags_ptr = &cmd_list->setup_desc.flags;
+		*flags_ptr = CMD_LCK;
+		cmd_list->count = 1;
+		msm_nand_prep_ce(curr_ce, MSM_NAND_FLASH_CMD(info), WRITE,
+				data->cmd);
+		curr_ce++;
 
-		msm_nand_prep_single_desc(cmd, MSM_NAND_ADDR0(info), WRITE,
-				data->addr0, 0);
-		cmd++;
+		msm_nand_prep_ce(curr_ce, MSM_NAND_ADDR0(info), WRITE,
+				data->addr0);
+		curr_ce++;
 
-		msm_nand_prep_single_desc(cmd, MSM_NAND_ADDR1(info), WRITE,
-				data->addr1, 0);
-		cmd++;
+		msm_nand_prep_ce(curr_ce, MSM_NAND_ADDR1(info), WRITE,
+				data->addr1);
+		curr_ce++;
 
-		msm_nand_prep_single_desc(cmd, MSM_NAND_DEV0_CFG0(info), WRITE,
-				data->cfg0, 0);
-		cmd++;
+		msm_nand_prep_ce(curr_ce, MSM_NAND_DEV0_CFG0(info), WRITE,
+				data->cfg0);
+		curr_ce++;
 
-		msm_nand_prep_single_desc(cmd, MSM_NAND_DEV0_CFG1(info), WRITE,
-				data->cfg1, 0);
-		cmd++;
+		msm_nand_prep_ce(curr_ce, MSM_NAND_DEV0_CFG1(info), WRITE,
+				data->cfg1);
+		curr_ce++;
 
-		msm_nand_prep_single_desc(cmd, MSM_NAND_DEV0_ECC_CFG(info),
-				WRITE, data->ecc_bch_cfg, 0);
-		cmd++;
+		msm_nand_prep_ce(curr_ce, MSM_NAND_DEV0_ECC_CFG(info), WRITE,
+				data->ecc_bch_cfg);
+		curr_ce++;
 
-		msm_nand_prep_single_desc(cmd, MSM_NAND_EBI2_ECC_BUF_CFG(info),
-				WRITE, data->ecc_cfg, 0);
-		cmd++;
+		msm_nand_prep_ce(curr_ce, MSM_NAND_EBI2_ECC_BUF_CFG(info),
+				WRITE, data->ecc_cfg);
+		curr_ce++;
 
 		if (!args->read) {
-			msm_nand_prep_single_desc(cmd,
-					MSM_NAND_FLASH_STATUS(info),
-					WRITE, data->clrfstatus, 0);
-			cmd++;
+			msm_nand_prep_ce(curr_ce, MSM_NAND_FLASH_STATUS(info),
+					WRITE, data->clrfstatus);
+			curr_ce++;
 			goto sub_exec_cmd;
+		} else {
+			msm_nand_prep_ce(curr_ce,
+					MSM_NAND_ERASED_CW_DETECT_CFG(info),
+					WRITE, CLR_ERASED_PAGE_DET);
+			curr_ce++;
+			msm_nand_prep_ce(curr_ce,
+					MSM_NAND_ERASED_CW_DETECT_CFG(info),
+					WRITE, SET_ERASED_PAGE_DET);
+			curr_ce++;
 		}
-
-		msm_nand_prep_single_desc(cmd,
-				MSM_NAND_ERASED_CW_DETECT_CFG(info),
-				WRITE, 0x3, 0);
-		cmd++;
-		msm_nand_prep_single_desc(cmd,
-				MSM_NAND_ERASED_CW_DETECT_CFG(info),
-				WRITE, 0x2, 0);
-		cmd++;
+	} else {
+		curr_ce = start_ce = &cmd_list->cw_desc[*cw_desc_cnt].ce[0];
+		num_ce_ptr = &cmd_list->cw_desc[*cw_desc_cnt].num_ce;
+		flags_ptr = &cmd_list->cw_desc[*cw_desc_cnt].flags;
+		*cw_desc_cnt += 1;
+		*flags_ptr = CMD;
+		cmd_list->count++;
 	}
+	if (!args->read)
+		goto sub_exec_cmd;
 
 	if (ops->mode == MTD_OPS_RAW) {
 		rdata = (0 << 0) | (chip->cw_size << 16) | (1 << 31);
-		msm_nand_prep_single_desc(cmd, MSM_NAND_READ_LOCATION_0(info),
-				WRITE, rdata, 0);
-		cmd++;
+		msm_nand_prep_ce(curr_ce, MSM_NAND_READ_LOCATION_0(info), WRITE,
+				rdata);
+		curr_ce++;
 	}
 	if (ops->mode == MTD_OPS_AUTO_OOB) {
 		if (ops->datbuf) {
@@ -1101,11 +1113,11 @@ static void msm_nand_prep_rw_cmd_desc(struct mtd_oob_ops *ops,
 			rdata = (offset << 0) | (size << 16) |
 				(last_read << 31);
 
-			msm_nand_prep_single_desc(cmd,
+			msm_nand_prep_ce(curr_ce,
 					MSM_NAND_READ_LOCATION_0(info),
 					WRITE,
-					rdata, 0);
-			cmd++;
+					rdata);
+			curr_ce++;
 		}
 		if (curr_cw == (args->cwperpage - 1) && ops->oobbuf) {
 			offset = 512 - ((args->cwperpage - 1) << 2);
@@ -1117,22 +1129,23 @@ static void msm_nand_prep_rw_cmd_desc(struct mtd_oob_ops *ops,
 			rdata = (offset << 0) | (size << 16) |
 				(last_read << 31);
 
-			if (ops->datbuf)
-				msm_nand_prep_single_desc(cmd,
-						MSM_NAND_READ_LOCATION_1(info),
-						WRITE, rdata, 0);
-			else
-				msm_nand_prep_single_desc(cmd,
+			if (!ops->datbuf)
+				msm_nand_prep_ce(curr_ce,
 						MSM_NAND_READ_LOCATION_0(info),
-						WRITE, rdata, 0);
-			cmd++;
+						WRITE, rdata);
+			else
+				msm_nand_prep_ce(curr_ce,
+						MSM_NAND_READ_LOCATION_1(info),
+						WRITE, rdata);
+			curr_ce++;
 		}
 	}
 sub_exec_cmd:
-	msm_nand_prep_single_desc(cmd, MSM_NAND_EXEC_CMD(info), WRITE,
-			data->exec, SPS_IOVEC_FLAG_NWD);
-	cmd++;
-	*curr_cmd = cmd;
+	*flags_ptr |= NWD;
+	msm_nand_prep_ce(curr_ce, MSM_NAND_EXEC_CMD(info), WRITE, data->exec);
+	curr_ce++;
+
+	*num_ce_ptr = curr_ce - start_ce;
 }
 
 /*
@@ -1229,9 +1242,9 @@ static int msm_nand_read_oob(struct mtd_info *mtd, loff_t from,
 	uint32_t ecc_errors = 0, total_ecc_errors = 0;
 	struct msm_nand_rw_params rw_params;
 	struct msm_nand_rw_reg_data data;
-	struct msm_nand_sps_cmd *cmd, *curr_cmd;
 	struct sps_iovec *iovec;
 	struct sps_iovec iovec_temp;
+
 	/*
 	 * The following 6 commands will be sent only once for the first
 	 * codeword (CW) - addr0, addr1, dev0_cfg0, dev0_cfg1,
@@ -1239,17 +1252,22 @@ static int msm_nand_read_oob(struct mtd_info *mtd, loff_t from,
 	 * be sent for every CW - flash, read_location_0, read_location_1,
 	 * exec, flash_status and buffer_status.
 	 */
-	uint32_t total_cnt = (6 * cwperpage) + 6;
+	uint32_t desc_needed = 2 * cwperpage;
 	struct {
 		struct sps_transfer xfer;
-		struct sps_iovec cmd_iovec[total_cnt];
-		struct msm_nand_sps_cmd cmd[total_cnt];
+		struct sps_iovec cmd_iovec[desc_needed];
+		struct {
+			uint32_t count;
+			struct msm_nand_cmd_setup_desc setup_desc;
+			struct msm_nand_cmd_cw_desc cw_desc[desc_needed - 1];
+		} cmd_list;
 		struct {
 			uint32_t flash_status;
 			uint32_t buffer_status;
 			uint32_t erased_cw_status;
 		} result[cwperpage];
 	} *dma_buffer;
+	struct msm_nand_rw_cmd_desc *cmd_list = NULL;
 
 	memset(&rw_params, 0, sizeof(struct msm_nand_rw_params));
 	err = msm_nand_validate_mtd_params(mtd, true, from, ops, &rw_params);
@@ -1265,56 +1283,66 @@ static int msm_nand_read_oob(struct mtd_info *mtd, loff_t from,
 
 	memset(&data, 0, sizeof(struct msm_nand_rw_reg_data));
 	msm_nand_update_rw_reg_data(chip, ops, &rw_params, &data);
+	cmd_list = (struct msm_nand_rw_cmd_desc *)&dma_buffer->cmd_list;
 
 	while (rw_params.page_count-- > 0) {
+		uint32_t cw_desc_cnt = 0;
 		data.addr0 = (rw_params.page << 16) | rw_params.oob_col;
 		data.addr1 = (rw_params.page >> 16) & 0xff;
-		cmd = dma_buffer->cmd;
 		for (n = rw_params.start_sector; n < cwperpage; n++) {
-			dma_buffer->result[n].erased_cw_status = 0xeeeeee00;
+			struct sps_command_element *curr_ce, *start_ce;
 			dma_buffer->result[n].flash_status = 0xeeeeeeee;
 			dma_buffer->result[n].buffer_status = 0xeeeeeeee;
+			dma_buffer->result[n].erased_cw_status = 0xeeeeee00;
 
-			curr_cmd = cmd;
-			msm_nand_prep_rw_cmd_desc(ops, &rw_params,
-					&data, info, n, &curr_cmd);
+			msm_nand_prep_rw_cmd_desc(ops, &rw_params, &data, info,
+					n, cmd_list, &cw_desc_cnt);
 
-			cmd = curr_cmd;
-			msm_nand_prep_single_desc(cmd,
-				MSM_NAND_FLASH_STATUS(info),
+			start_ce = &cmd_list->cw_desc[cw_desc_cnt].ce[0];
+			curr_ce = start_ce;
+			cmd_list->cw_desc[cw_desc_cnt].flags = CMD;
+			if (n == (cwperpage - 1))
+				cmd_list->cw_desc[cw_desc_cnt].flags |=
+								INT_UNLCK;
+			cmd_list->count++;
+
+			msm_nand_prep_ce(curr_ce, MSM_NAND_FLASH_STATUS(info),
 				READ, msm_virt_to_dma(chip,
-				&dma_buffer->result[n].flash_status), 0);
-			cmd++;
+					&dma_buffer->result[n].flash_status));
+			curr_ce++;
 
-			msm_nand_prep_single_desc(cmd,
+			msm_nand_prep_ce(curr_ce, MSM_NAND_BUFFER_STATUS(info),
+				READ, msm_virt_to_dma(chip,
+					&dma_buffer->result[n].buffer_status));
+			curr_ce++;
+
+			msm_nand_prep_ce(curr_ce,
 				MSM_NAND_ERASED_CW_DETECT_STATUS(info),
 				READ, msm_virt_to_dma(chip,
-				&dma_buffer->result[n].erased_cw_status),
-				0);
-			cmd++;
-
-			msm_nand_prep_single_desc(cmd,
-				MSM_NAND_BUFFER_STATUS(info),
-				READ, msm_virt_to_dma(chip,
-				&dma_buffer->result[n].buffer_status),
-				((n == (cwperpage - 1)) ?
-				(SPS_IOVEC_FLAG_UNLOCK | SPS_IOVEC_FLAG_INT) :
-				0));
-			cmd++;
+				&dma_buffer->result[n].erased_cw_status));
+			curr_ce++;
+			cmd_list->cw_desc[cw_desc_cnt++].num_ce = curr_ce -
+				start_ce;
 		}
 
-		BUG_ON(cmd - dma_buffer->cmd > ARRAY_SIZE(dma_buffer->cmd));
-		dma_buffer->xfer.iovec_count = (cmd - dma_buffer->cmd);
+		dma_buffer->xfer.iovec_count = cmd_list->count;
 		dma_buffer->xfer.iovec = dma_buffer->cmd_iovec;
 		dma_buffer->xfer.iovec_phys = msm_virt_to_dma(chip,
 						&dma_buffer->cmd_iovec);
 		iovec = dma_buffer->xfer.iovec;
 
-		for (n = 0; n < dma_buffer->xfer.iovec_count; n++) {
+		iovec->addr =  msm_virt_to_dma(chip,
+				&cmd_list->setup_desc.ce[0]);
+		iovec->size = sizeof(struct sps_command_element) *
+			cmd_list->setup_desc.num_ce;
+		iovec->flags = cmd_list->setup_desc.flags;
+		iovec++;
+		for (n = 0; n < (cmd_list->count - 1); n++) {
 			iovec->addr =  msm_virt_to_dma(chip,
-					&dma_buffer->cmd[n].ce);
-			iovec->size = sizeof(struct sps_command_element);
-			iovec->flags = dma_buffer->cmd[n].flags;
+						&cmd_list->cw_desc[n].ce[0]);
+			iovec->size = sizeof(struct sps_command_element) *
+						cmd_list->cw_desc[n].num_ce;
+			iovec->flags = cmd_list->cw_desc[n].flags;
 			iovec++;
 		}
 		mutex_lock(&info->lock);
@@ -1331,6 +1359,7 @@ static int msm_nand_read_oob(struct mtd_info *mtd, loff_t from,
 				goto put_dev;
 			}
 		}
+
 		if (ops->mode == MTD_OPS_RAW) {
 			submitted_num_desc = cwperpage - rw_params.start_sector;
 		} else if (ops->mode == MTD_OPS_AUTO_OOB) {
@@ -1353,7 +1382,6 @@ static int msm_nand_read_oob(struct mtd_info *mtd, loff_t from,
 				info->sps.cmd_pipe.index,
 				dma_buffer->xfer.iovec_count,
 				err, put_dev, &iovec_temp);
-
 		msm_nand_sps_get_iovec(info->sps.data_prod.handle,
 				info->sps.data_prod.index, submitted_num_desc,
 				err, put_dev, &iovec_temp);
@@ -1430,10 +1458,11 @@ static int msm_nand_read_oob(struct mtd_info *mtd, loff_t from,
 			       ops->len, ops->ooblen);
 		} else {
 			for (n = rw_params.start_sector; n < cwperpage; n++)
-				pr_debug("cw %d: flash_sts %x buffr_sts %x, erased_cw_status: %x\n",
+				pr_debug("cw %d: flash_sts %x buffr_sts %x, erased_cw_status: %x, pageerr: %d, rawerr: %d\n",
 				n, dma_buffer->result[n].flash_status,
 				dma_buffer->result[n].buffer_status,
-				dma_buffer->result[n].erased_cw_status);
+				dma_buffer->result[n].erased_cw_status,
+				pageerr, rawerr);
 		}
 		if (err && err != -EUCLEAN && err != -EBADMSG)
 			goto free_dma;
@@ -1645,7 +1674,6 @@ static int msm_nand_write_oob(struct mtd_info *mtd, loff_t to,
 	int err = 0, submitted_num_desc = 0;
 	struct msm_nand_rw_params rw_params;
 	struct msm_nand_rw_reg_data data;
-	struct msm_nand_sps_cmd *cmd, *curr_cmd;
 	struct sps_iovec *iovec;
 	struct sps_iovec iovec_temp;
 	/*
@@ -1657,15 +1685,20 @@ static int msm_nand_write_oob(struct mtd_info *mtd, loff_t to,
 	 * The following 4 commands will be sent for every CW :
 	 * flash, exec, flash_status (read), flash_status (write).
 	 */
-	uint32_t total_cnt = (4 * cwperpage) + 7;
+	uint32_t desc_needed = 2 * cwperpage;
 	struct {
 		struct sps_transfer xfer;
-		struct sps_iovec cmd_iovec[total_cnt];
-		struct msm_nand_sps_cmd cmd[total_cnt];
+		struct sps_iovec cmd_iovec[desc_needed + 1];
 		struct {
-			uint32_t flash_status[cwperpage];
-		} data;
+			uint32_t count;
+			struct msm_nand_cmd_setup_desc setup_desc;
+			struct msm_nand_cmd_cw_desc cw_desc[desc_needed];
+		} cmd_list;
+		struct {
+			uint32_t flash_status;
+		} data[cwperpage];
 	} *dma_buffer;
+	struct msm_nand_rw_cmd_desc *cmd_list = NULL;
 
 	memset(&rw_params, 0, sizeof(struct msm_nand_rw_params));
 	err = msm_nand_validate_mtd_params(mtd, false, to, ops, &rw_params);
@@ -1677,52 +1710,61 @@ static int msm_nand_write_oob(struct mtd_info *mtd, loff_t to,
 
 	memset(&data, 0, sizeof(struct msm_nand_rw_reg_data));
 	msm_nand_update_rw_reg_data(chip, ops, &rw_params, &data);
+	cmd_list = (struct msm_nand_rw_cmd_desc *)&dma_buffer->cmd_list;
 
 	while (rw_params.page_count-- > 0) {
+		uint32_t cw_desc_cnt = 0;
+		struct sps_command_element *curr_ce, *start_ce;
 		data.addr0 = (rw_params.page << 16);
 		data.addr1 = (rw_params.page >> 16) & 0xff;
-		cmd = dma_buffer->cmd;
 
 		for (n = 0; n < cwperpage ; n++) {
-			dma_buffer->data.flash_status[n] = 0xeeeeeeee;
+			dma_buffer->data[n].flash_status = 0xeeeeeeee;
 
-			curr_cmd = cmd;
-			msm_nand_prep_rw_cmd_desc(ops, &rw_params,
-					&data, info, n, &curr_cmd);
+			msm_nand_prep_rw_cmd_desc(ops, &rw_params, &data, info,
+					n, cmd_list, &cw_desc_cnt);
 
-			cmd = curr_cmd;
-			msm_nand_prep_single_desc(cmd,
-				MSM_NAND_FLASH_STATUS(info),
+			curr_ce = &cmd_list->cw_desc[cw_desc_cnt].ce[0];
+			cmd_list->cw_desc[cw_desc_cnt].flags = CMD;
+			cmd_list->count++;
+
+			msm_nand_prep_ce(curr_ce, MSM_NAND_FLASH_STATUS(info),
 				READ, msm_virt_to_dma(chip,
-				&dma_buffer->data.flash_status[n]), 0);
-			cmd++;
-
-			if (n == (cwperpage - 1)) {
-				msm_nand_prep_single_desc(cmd,
-						MSM_NAND_FLASH_STATUS(info),
-						WRITE, data.clrfstatus, 0);
-				cmd++;
-				msm_nand_prep_single_desc(cmd,
-						MSM_NAND_READ_STATUS(info),
-						WRITE, data.clrrstatus,
-						SPS_IOVEC_FLAG_UNLOCK
-						| SPS_IOVEC_FLAG_INT);
-				cmd++;
-			}
+					&dma_buffer->data[n].flash_status));
+			cmd_list->cw_desc[cw_desc_cnt++].num_ce = 1;
 		}
 
-		BUG_ON(cmd - dma_buffer->cmd > ARRAY_SIZE(dma_buffer->cmd));
-		dma_buffer->xfer.iovec_count = (cmd - dma_buffer->cmd);
+		start_ce = &cmd_list->cw_desc[cw_desc_cnt].ce[0];
+		curr_ce = start_ce;
+		cmd_list->cw_desc[cw_desc_cnt].flags = CMD_INT_UNLCK;
+		cmd_list->count++;
+		msm_nand_prep_ce(curr_ce, MSM_NAND_FLASH_STATUS(info),
+				WRITE, data.clrfstatus);
+		curr_ce++;
+
+		msm_nand_prep_ce(curr_ce, MSM_NAND_READ_STATUS(info),
+				WRITE, data.clrrstatus);
+		curr_ce++;
+		cmd_list->cw_desc[cw_desc_cnt++].num_ce = curr_ce - start_ce;
+
+		dma_buffer->xfer.iovec_count = cmd_list->count;
 		dma_buffer->xfer.iovec = dma_buffer->cmd_iovec;
 		dma_buffer->xfer.iovec_phys = msm_virt_to_dma(chip,
 						&dma_buffer->cmd_iovec);
 		iovec = dma_buffer->xfer.iovec;
 
-		for (n = 0; n < dma_buffer->xfer.iovec_count; n++) {
+		iovec->addr =  msm_virt_to_dma(chip,
+				&cmd_list->setup_desc.ce[0]);
+		iovec->size = sizeof(struct sps_command_element) *
+					cmd_list->setup_desc.num_ce;
+		iovec->flags = cmd_list->setup_desc.flags;
+		iovec++;
+		for (n = 0; n < (cmd_list->count - 1); n++) {
 			iovec->addr =  msm_virt_to_dma(chip,
-					&dma_buffer->cmd[n].ce);
-			iovec->size = sizeof(struct sps_command_element);
-			iovec->flags = dma_buffer->cmd[n].flags;
+					&cmd_list->cw_desc[n].ce[0]);
+			iovec->size = sizeof(struct sps_command_element) *
+					cmd_list->cw_desc[n].num_ce;
+			iovec->flags = cmd_list->cw_desc[n].flags;
 			iovec++;
 		}
 		mutex_lock(&info->lock);
@@ -1739,6 +1781,7 @@ static int msm_nand_write_oob(struct mtd_info *mtd, loff_t to,
 				goto put_dev;
 			}
 		}
+
 		if (ops->mode == MTD_OPS_RAW) {
 			submitted_num_desc = n;
 		} else if (ops->mode == MTD_OPS_AUTO_OOB) {
@@ -1772,11 +1815,11 @@ static int msm_nand_write_oob(struct mtd_info *mtd, loff_t to,
 		for (n = 0; n < cwperpage; n++)
 			pr_debug("write pg %d: flash_status[%d] = %x\n",
 				rw_params.page, n,
-				dma_buffer->data.flash_status[n]);
+				dma_buffer->data[n].flash_status);
 
 		/*  Check for flash status errors */
 		for (n = 0; n < cwperpage; n++) {
-			flash_sts = dma_buffer->data.flash_status[n];
+			flash_sts = dma_buffer->data[n].flash_status;
 			if (flash_sts & (FS_OP_ERR | FS_MPU_ERR)) {
 				pr_err("MPU/OP err (0x%x) set\n", flash_sts);
 				err = -EIO;

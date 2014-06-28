@@ -147,7 +147,16 @@
 #define MSM_NAND_DEV_CMD1(info)             MSM_NAND_REG(info, 0x300A4)
 #define MSM_NAND_DEV_CMD_VLD(info)          MSM_NAND_REG(info, 0x300AC)
 #define MSM_NAND_EBI2_ECC_BUF_CFG(info)     MSM_NAND_REG(info, 0x300F0)
+
 #define MSM_NAND_ERASED_CW_DETECT_CFG(info)	MSM_NAND_REG(info, 0x300E8)
+#define ERASED_CW_ECC_MASK	1
+#define AUTO_DETECT_RES		0
+#define MASK_ECC		(1 << ERASED_CW_ECC_MASK)
+#define RESET_ERASED_DET	(1 << AUTO_DETECT_RES)
+#define ACTIVE_ERASED_DET	(0 << AUTO_DETECT_RES)
+#define CLR_ERASED_PAGE_DET	(RESET_ERASED_DET | MASK_ECC)
+#define SET_ERASED_PAGE_DET	(ACTIVE_ERASED_DET | MASK_ECC)
+
 #define MSM_NAND_ERASED_CW_DETECT_STATUS(info)  MSM_NAND_REG(info, 0x300EC)
 #define PAGE_ALL_ERASED		7
 #define CODEWORD_ALL_ERASED	6
@@ -178,6 +187,13 @@
 #define MSM_NAND_VERSION_MINOR_MASK	0x0FFF0000
 #define MSM_NAND_VERSION_MINOR_SHIFT	16
 
+#define CMD		SPS_IOVEC_FLAG_CMD
+#define CMD_LCK		(CMD | SPS_IOVEC_FLAG_LOCK)
+#define INT		SPS_IOVEC_FLAG_INT
+#define INT_UNLCK	(INT | SPS_IOVEC_FLAG_UNLOCK)
+#define CMD_INT_UNLCK	(CMD | INT_UNLCK)
+#define NWD		SPS_IOVEC_FLAG_NWD
+
 #define msm_nand_sps_get_iovec(pipe, indx, cnt, ret, label, iovec)	\
 	do {								\
 		do {							\
@@ -194,6 +210,24 @@
 struct msm_nand_sps_cmd {
 	struct sps_command_element ce;
 	uint32_t flags;
+};
+
+struct msm_nand_cmd_setup_desc {
+	struct sps_command_element ce[11];
+	uint32_t flags;
+	uint32_t num_ce;
+};
+
+struct msm_nand_cmd_cw_desc {
+	struct sps_command_element ce[3];
+	uint32_t flags;
+	uint32_t num_ce;
+};
+
+struct msm_nand_rw_cmd_desc {
+	uint32_t count;
+	struct msm_nand_cmd_setup_desc setup_desc;
+	struct msm_nand_cmd_cw_desc cw_desc[];
 };
 
 /*
