@@ -37,6 +37,7 @@
 #include <media/msmb_camera.h>
 #include <media/msmb_generic_buf_mgr.h>
 #include <media/msmb_pproc.h>
+#include <mach/clk-provider.h>
 #include "msm_cpp.h"
 #include "msm_isp_util.h"
 #include "msm_camera_io_util.h"
@@ -49,6 +50,7 @@
 #define CONFIG_MSM_CPP_DBG 0
 
 #define CPP_CMD_TIMEOUT_MS 300
+#define MSM_CPP_CORE_CLK_IDX 4
 #define MSM_MICRO_IFACE_CLK_IDX 7
 
 #define MSM_CPP_NOMINAL_CLOCK 266670000
@@ -632,6 +634,27 @@ void msm_cpp_do_tasklet(unsigned long data)
 	}
 }
 
+static void cpp_get_clk_freq_tbl(struct clk *clk, struct cpp_hw_info *hw_info)
+{
+	uint32_t count;
+	signed long freq_tbl_entry = 0;
+
+	if ((clk == NULL) || (hw_info == NULL) || (clk->ops == NULL) ||
+		(clk->ops->list_rate == NULL)) {
+		pr_err("Bad parameter\n");
+		return;
+	}
+
+	for (count = 0; count < MAX_FREQ_TBL; count++) {
+		freq_tbl_entry = clk->ops->list_rate(clk, count);
+		if (freq_tbl_entry >= 0)
+			hw_info->freq_tbl[count] = freq_tbl_entry;
+		else
+			break;
+	}
+
+	hw_info->freq_tbl_count = count;
+}
 static int cpp_init_hardware(struct cpp_device *cpp_dev)
 {
 	int rc = 0;
@@ -745,6 +768,8 @@ static int cpp_init_hardware(struct cpp_device *cpp_dev)
 	pr_debug("CPP HW Version: 0x%x\n", cpp_dev->hw_info.cpp_hw_version);
 	cpp_dev->hw_info.cpp_hw_caps =
 		msm_camera_io_r(cpp_dev->cpp_hw_base + 0x4);
+	cpp_get_clk_freq_tbl(cpp_dev->cpp_clk[MSM_CPP_CORE_CLK_IDX],
+		&cpp_dev->hw_info);
 	pr_debug("CPP HW Caps: 0x%x\n", cpp_dev->hw_info.cpp_hw_caps);
 	msm_camera_io_w(0x1, cpp_dev->vbif_base + 0x4);
 	cpp_dev->taskletq_idx = 0;
@@ -1639,6 +1664,57 @@ long msm_cpp_subdev_ioctl(struct v4l2_subdev *sd,
 		} else {
 			pr_err("Empty command list\n");
 			return -EFAULT;
+		}
+		break;
+	}
+	case VIDIOC_MSM_CPP_SET_CLOCK: {
+		struct msm_cpp_clock_settings_t clock_settings;
+		unsigned long clock_rate = 0;
+		CPP_DBG("VIDIOC_MSM_CPP_SET_CLOCK\n");
+		if (ioctl_ptr->len == 0) {
+			pr_err("ioctl_ptr->len is 0\n");
+			mutex_unlock(&cpp_dev->mutex);
+			return -EINVAL;
+		}
+
+		if (ioctl_ptr->ioctl_ptr == NULL) {
+			pr_err("ioctl_ptr->ioctl_ptr is NULL\n");
+			mutex_unlock(&cpp_dev->mutex);
+			return -EINVAL;
+		}
+
+		if (ioctl_ptr->len != sizeof(struct msm_cpp_clock_settings_t)) {
+			pr_err("Not valid ioctl_ptr->len\n");
+			mutex_unlock(&cpp_dev->mutex);
+			return -EINVAL;
+		}
+
+		rc = (copy_from_user(&clock_settings,
+			(void __user *)ioctl_ptr->ioctl_ptr,
+			ioctl_ptr->len) ? -EFAULT : 0);
+		if (rc) {
+			ERR_COPY_FROM_USER();
+			mutex_unlock(&cpp_dev->mutex);
+			return -EINVAL;
+		}
+
+		if (clock_settings.clock_rate > 0) {
+			rc = msm_isp_update_bandwidth(ISP_CPP,
+				clock_settings.avg,
+				clock_settings.inst);
+			if (rc < 0) {
+				pr_err("Bandwidth Set Failed!\n");
+				msm_isp_update_bandwidth(ISP_CPP, 0, 0);
+				mutex_unlock(&cpp_dev->mutex);
+				return -EINVAL;
+			}
+			clock_rate = clk_round_rate(
+				cpp_dev->cpp_clk[MSM_CPP_CORE_CLK_IDX],
+				clock_settings.clock_rate);
+			if (clock_rate != clock_settings.clock_rate)
+				pr_err("clock rate differ from settings\n");
+			clk_set_rate(cpp_dev->cpp_clk[MSM_CPP_CORE_CLK_IDX],
+				clock_rate);
 		}
 		break;
 	}
