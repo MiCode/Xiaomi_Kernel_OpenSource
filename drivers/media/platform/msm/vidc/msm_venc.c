@@ -210,17 +210,6 @@ static struct msm_vidc_ctrl msm_venc_ctrls[] = {
 		.qmenu = NULL,
 	},
 	{
-		.id = V4L2_CID_MPEG_VIDEO_H264_I_PERIOD,
-		.name = "Intra Period",
-		.type = V4L2_CTRL_TYPE_INTEGER,
-		.minimum = 1,
-		.maximum = INT_MAX,
-		.default_value = DEFAULT_FRAME_RATE,
-		.step = 1,
-		.menu_skip_mask = 0,
-		.qmenu = NULL,
-	},
-	{
 		.id = V4L2_CID_MPEG_VIDC_VIDEO_NUM_P_FRAMES,
 		.name = "Intra Period for P frames",
 		.type = V4L2_CTRL_TYPE_INTEGER,
@@ -236,7 +225,7 @@ static struct msm_vidc_ctrl msm_venc_ctrls[] = {
 		.name = "Intra Period for B frames",
 		.type = V4L2_CTRL_TYPE_INTEGER,
 		.minimum = 0,
-		.maximum = 3,
+		.maximum = INT_MAX,
 		.default_value = 0,
 		.step = 1,
 		.menu_skip_mask = 0,
@@ -1793,23 +1782,10 @@ static int try_set_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 		idr_period.idr_period = ctrl->val;
 		pdata = &idr_period;
 		break;
-	case V4L2_CID_MPEG_VIDEO_H264_I_PERIOD:
 	case V4L2_CID_MPEG_VIDC_VIDEO_NUM_B_FRAMES:
 	case V4L2_CID_MPEG_VIDC_VIDEO_NUM_P_FRAMES:
 	{
 		int num_p, num_b;
-		struct v4l2_ctrl update_ctrl = {.id = 0};
-
-		if (ctrl->id == V4L2_CID_MPEG_VIDEO_H264_I_PERIOD &&
-			inst->fmts[CAPTURE_PORT]->fourcc != V4L2_PIX_FMT_H264 &&
-			inst->fmts[CAPTURE_PORT]->fourcc !=
-				V4L2_PIX_FMT_H264_NO_SC) {
-			dprintk(VIDC_ERR, "Control 0x%x only valid for H264\n",
-					ctrl->id);
-			rc = -ENOTSUPP;
-			break;
-		}
-
 
 		temp_ctrl = TRY_GET_CTRL(V4L2_CID_MPEG_VIDC_VIDEO_NUM_B_FRAMES);
 		num_b = temp_ctrl->val;
@@ -1817,29 +1793,10 @@ static int try_set_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 		temp_ctrl = TRY_GET_CTRL(V4L2_CID_MPEG_VIDC_VIDEO_NUM_P_FRAMES);
 		num_p = temp_ctrl->val;
 
-		/* V4L2_CID_MPEG_VIDEO_H264_I_PERIOD and _NUM_P_FRAMES are
-		 * implicitly tied to each other.  If either is adjusted,
-		 * the other needs to be adjusted in a complementary manner.
-		 * Ideally we adjust _NUM_B_FRAMES as well but we'll leave it
-		 * alone for now */
-		if (ctrl->id == V4L2_CID_MPEG_VIDEO_H264_I_PERIOD) {
+		if (ctrl->id == V4L2_CID_MPEG_VIDC_VIDEO_NUM_P_FRAMES)
 			num_p = ctrl->val;
-			update_ctrl.id = V4L2_CID_MPEG_VIDC_VIDEO_NUM_P_FRAMES;
-			update_ctrl.val = num_p;
-		} else if (ctrl->id == V4L2_CID_MPEG_VIDC_VIDEO_NUM_P_FRAMES) {
-			num_p = ctrl->val;
-			update_ctrl.id = V4L2_CID_MPEG_VIDEO_H264_I_PERIOD;
-			update_ctrl.val = num_p + num_b;
-		} else if (ctrl->id == V4L2_CID_MPEG_VIDC_VIDEO_NUM_B_FRAMES) {
+		else if (ctrl->id == V4L2_CID_MPEG_VIDC_VIDEO_NUM_B_FRAMES)
 			num_b = ctrl->val;
-			update_ctrl.id = V4L2_CID_MPEG_VIDEO_H264_I_PERIOD;
-			update_ctrl.val = num_p + num_b;
-		}
-
-		if (update_ctrl.id) {
-			temp_ctrl = TRY_GET_CTRL(update_ctrl.id);
-			temp_ctrl->val = update_ctrl.val;
-		}
 
 		if (num_b) {
 			u32 max_num_b_frames = MAX_NUM_B_FRAMES;
@@ -1859,7 +1816,6 @@ static int try_set_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 		intra_period.pframes = num_p;
 		intra_period.bframes = num_b;
 		pdata = &intra_period;
-
 		break;
 	}
 	case V4L2_CID_MPEG_VIDC_VIDEO_REQUEST_IFRAME:
