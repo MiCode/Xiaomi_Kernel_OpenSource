@@ -1541,6 +1541,15 @@
 			<  7110 /*  466 MHz */ >;
 	};
 
+	qcom,cpu-bwmon {
+		compatible = "qcom,bimc-bwmon";
+		reg = <0xfc388000 0x300>, <0xfc381000 0x200>;
+		reg-names = "base", "global_base";
+		interrupts = <0 183 1>;
+		qcom,mport = <0>;
+		qcom,target-dev = <&cpubw>;
+	};
+
 	devfreq-cpufreq {
 		cpubw-cpufreq {
 			target-dev = <&cpubw>;
