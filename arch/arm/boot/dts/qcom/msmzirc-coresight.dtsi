@@ -33,12 +33,26 @@
 
 	tpiu: tpiu@820000 {
 		compatible = "arm,coresight-tpiu";
-		reg = <0x820000 0x1000>;
-		reg-names = "tpiu-base";
+		reg = <0x820000 0x1000>,
+		      <0x1100000 0xb0000>;
+		reg-names = "tpiu-base", "nidnt-base";
 
 		coresight-id = <1>;
 		coresight-name = "coresight-tpiu";
 		coresight-nr-inports = <1>;
+
+		qcom,nidntsw;
+		qcom,nidnthw;
+		qcom,nidnt-swduart;
+		qcom,nidnt-swdtrc;
+		qcom,nidnt-jtag;
+		qcom,nidnt-spmi;
+
+		nidnt-gpio = <38>;
+		nidnt-gpio-polarity = <1>;
+
+		interrupts = <0 82 0>;
+		interrupt-names = "nidnt-irq";
 
 		vdd-supply = <&pmd9635_l11>;
 		qcom,vdd-voltage-level = <2950000 2950000>;
@@ -349,8 +363,9 @@
 
 	fuse: fuse@5e01c {
 		compatible = "arm,coresight-fuse-v2";
-		reg = <0x5e01c 0x8>;
-		reg-names = "fuse-base";
+		reg = <0x5e01c 0x8>,
+		      <0x58040 0x4>;
+		reg-names = "fuse-base", "nidnt-fuse-base";
 
 		coresight-id = <22>;
 		coresight-name = "coresight-fuse-v2";
