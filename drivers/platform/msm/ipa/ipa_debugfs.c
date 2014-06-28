@@ -56,6 +56,8 @@ const char *ipa_event_name[] = {
 	__stringify(WLAN_STA_CONNECT),
 	__stringify(WLAN_STA_DISCONNECT),
 	__stringify(WLAN_CLIENT_CONNECT_EX),
+	__stringify(WAN_UPSTREAM_ROUTE_ADD),
+	__stringify(WAN_UPSTREAM_ROUTE_DEL),
 	__stringify(ECM_CONNECT),
 	__stringify(ECM_DISCONNECT),
 };
