@@ -215,6 +215,11 @@ int32_t msm_camera_qup_i2c_write_seq(struct msm_camera_i2c_client *client,
 			len+1, buf[len+1]);
 		len = 2;
 	}
+	if (num_byte > I2C_SEQ_REG_DATA_MAX) {
+		pr_err("%s: num_byte=%d clamped to max supported %d\n",
+			__func__, num_byte, I2C_SEQ_REG_DATA_MAX);
+		num_byte = I2C_SEQ_REG_DATA_MAX;
+	}
 	for (i = 0; i < num_byte; i++) {
 		buf[i+len] = data[i];
 		S_I2C_DBG("Byte %d: 0x%x\n", i+len, buf[i+len]);

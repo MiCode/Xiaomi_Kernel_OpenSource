@@ -149,6 +149,11 @@ int32_t msm_camera_cci_i2c_write_seq(struct msm_camera_i2c_client *client,
 	memset(reg_conf_tbl, 0,
 		num_byte * sizeof(struct msm_camera_i2c_reg_array));
 	reg_conf_tbl[0].reg_addr = addr;
+	if (num_byte > I2C_SEQ_REG_DATA_MAX) {
+		pr_err("%s: num_byte=%d clamped to max supported %d\n",
+			__func__, num_byte, I2C_SEQ_REG_DATA_MAX);
+		num_byte = I2C_SEQ_REG_DATA_MAX;
+	}
 	for (i = 0; i < num_byte; i++) {
 		reg_conf_tbl[i].reg_data = data[i];
 		reg_conf_tbl[i].delay = 0;
