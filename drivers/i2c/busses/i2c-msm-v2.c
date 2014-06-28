@@ -2724,10 +2724,10 @@ static irqreturn_t i2c_msm_qup_isr(int irq, void *devid)
 			ctrl->xfer.err |= I2C_MSM_ERR_BUS_ERR;
 	}
 
-	blk = i2c_msm_blk_get_struct(ctrl);
-
 	if (xfer->mode_id == I2C_MSM_XFER_MODE_BLOCK) {
 		/*For Block Mode */
+		blk = i2c_msm_blk_get_struct(ctrl);
+
 		/* block ready for writing */
 		if (qup_op & QUP_OUTPUT_SERVICE_FLAG) {
 			log_event = true;
