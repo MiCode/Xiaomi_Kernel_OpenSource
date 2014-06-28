@@ -45,6 +45,10 @@
 #define MAX_ACTUATOR_REG_TBL_SIZE 8
 #define MAX_ACTUATOR_AF_TOTAL_STEPS 1024
 
+#define MAX_OIS_MOD_NAME_SIZE 32
+#define MAX_OIS_NAME_SIZE 32
+#define MAX_OIS_REG_SETTINGS 800
+
 #define MOVE_NEAR 0
 #define MOVE_FAR  1
 
@@ -80,6 +84,7 @@ enum msm_camera_i2c_reg_addr_type {
 enum msm_camera_i2c_data_type {
 	MSM_CAMERA_I2C_BYTE_DATA = 1,
 	MSM_CAMERA_I2C_WORD_DATA,
+	MSM_CAMERA_I2C_DWORD_DATA,
 	MSM_CAMERA_I2C_SET_BYTE_MASK,
 	MSM_CAMERA_I2C_UNSET_BYTE_MASK,
 	MSM_CAMERA_I2C_SET_WORD_MASK,
@@ -152,6 +157,7 @@ enum sensor_sub_module_t {
 	SUB_MODULE_CSID_3D,
 	SUB_MODULE_CSIPHY,
 	SUB_MODULE_CSIPHY_3D,
+	SUB_MODULE_OIS,
 	SUB_MODULE_MAX,
 };
 
@@ -401,6 +407,7 @@ struct msm_camera_sensor_slave_info {
 	char sensor_name[32];
 	char eeprom_name[32];
 	char actuator_name[32];
+	char ois_name[32];
 	enum msm_sensor_camera_id_t camera_id;
 	uint16_t slave_addr;
 	enum i2c_freq_mode_t i2c_freq_mode;
@@ -595,6 +602,62 @@ enum msm_actuator_cfg_type_t {
 	CFG_ACTUATOR_INIT,
 };
 
+enum msm_ois_cfg_type_t {
+	CFG_OIS_INIT,
+	CFG_GET_OIS_INFO,
+	CFG_OIS_POWERDOWN,
+	CFG_OIS_INI_SET,
+	CFG_OIS_ENABLE,
+	CFG_OIS_DISABLE,
+	CFG_OIS_SET_MOVIE_MODE,
+	CFG_OIS_SET_STILL_MODE,
+	CFG_OIS_SET_CENTERING_ON,
+	CFG_OIS_SET_PANTILT_ON,
+	CFG_OIS_POWERUP,
+	CFG_OIS_I2C_WRITE_SEQ_TABLE,
+};
+
+enum msm_ois_i2c_operation {
+	MSM_OIS_WRITE = 0,
+	MSM_OIS_POLL,
+};
+
+struct reg_settings_ois_t {
+	uint16_t reg_addr;
+	enum msm_camera_i2c_reg_addr_type addr_type;
+	uint32_t reg_data;
+	enum msm_camera_i2c_data_type data_type;
+	enum msm_ois_i2c_operation i2c_operation;
+	uint32_t delay;
+};
+
+struct msm_ois_params_t {
+	uint16_t data_size;
+	uint16_t init_setting_size;
+	uint16_t enable_ois_setting_size;
+	uint16_t disable_ois_setting_size;
+	uint16_t movie_mode_ois_setting_size;
+	uint16_t still_mode_ois_setting_size;
+	uint16_t centering_on_ois_setting_size;
+	uint16_t centering_off_ois_setting_size;
+	uint16_t pantilt_on_ois_setting_size;
+	uint32_t i2c_addr;
+	enum msm_camera_i2c_reg_addr_type i2c_addr_type;
+	enum msm_camera_i2c_data_type i2c_data_type;
+	struct reg_settings_ois_t *init_settings;
+	struct reg_settings_ois_t *enable_ois_settings;
+	struct reg_settings_ois_t *disable_ois_settings;
+	struct reg_settings_ois_t *movie_mode_ois_settings;
+	struct reg_settings_ois_t *still_mode_ois_settings;
+	struct reg_settings_ois_t *centering_on_ois_settings;
+	struct reg_settings_ois_t *centering_off_ois_settings;
+	struct reg_settings_ois_t *pantilt_on_ois_settings;
+};
+
+struct msm_ois_set_info_t {
+	struct msm_ois_params_t ois_params;
+};
+
 enum actuator_type {
 	ACTUATOR_VCM,
 	ACTUATOR_PIEZO,
@@ -708,6 +771,15 @@ enum af_camera_name {
 	ACTUATOR_WEB_CAM_2,
 };
 
+struct msm_ois_cfg_data {
+	int cfgtype;
+	uint8_t is_ois_supported;
+	union {
+		uint8_t enable_centering_ois;
+		struct msm_ois_set_info_t set_info;
+		struct msm_camera_i2c_seq_reg_setting *settings;
+	} cfg;
+};
 
 struct msm_actuator_set_position_t {
 	uint16_t number_of_steps;
@@ -808,6 +880,9 @@ struct sensor_init_cfg_data {
 
 #define VIDIOC_MSM_SENSOR_INIT_CFG \
 	_IOWR('V', BASE_VIDIOC_PRIVATE + 10, struct sensor_init_cfg_data)
+
+#define VIDIOC_MSM_OIS_CFG \
+	_IOWR('V', BASE_VIDIOC_PRIVATE + 11, struct msm_ois_cfg_data)
 
 #define MSM_V4L2_PIX_FMT_META v4l2_fourcc('M', 'E', 'T', 'A') /* META */
 

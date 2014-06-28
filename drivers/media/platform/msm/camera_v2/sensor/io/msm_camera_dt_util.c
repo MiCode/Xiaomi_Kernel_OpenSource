@@ -134,6 +134,22 @@ int msm_sensor_get_sub_module_index(struct device_node *of_node,
 		src_node = NULL;
 	}
 
+	src_node = of_parse_phandle(of_node, "qcom,ois-src", 0);
+	if (!src_node) {
+		CDBG("%s:%d src_node NULL\n", __func__, __LINE__);
+	} else {
+		rc = of_property_read_u32(src_node, "cell-index", &val);
+		CDBG("%s qcom,ois cell index %d, rc %d\n", __func__,
+			val, rc);
+		if (rc < 0) {
+			pr_err("%s failed %d\n", __func__, __LINE__);
+			goto ERROR;
+		}
+		sensor_info->subdev_id[SUB_MODULE_OIS] = val;
+		of_node_put(src_node);
+		src_node = NULL;
+	}
+
 	src_node = of_parse_phandle(of_node, "qcom,eeprom-src", 0);
 	if (!src_node) {
 		CDBG("%s:%d eeprom src_node NULL\n", __func__, __LINE__);
