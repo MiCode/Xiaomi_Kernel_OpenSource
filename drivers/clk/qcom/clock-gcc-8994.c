@@ -83,8 +83,8 @@ static DEFINE_VDD_REGULATORS(vdd_dig, VDD_DIG_NUM, 1, vdd_corner, NULL);
 #define USB_HS_SYSTEM_CBCR                               (0x0484)
 #define USB_HS_AHB_CBCR                                  (0x0488)
 #define USB_HS_SYSTEM_CMD_RCGR                           (0x0490)
-#define USB2_HS_PHY_BCR                                  (0x04A8)
 #define USB2_HS_PHY_SLEEP_CBCR                           (0x04AC)
+#define USB2_HS_PHY_ONLY_BCR                             (0x04B0)
 #define QUSB2_PHY_BCR                                    (0x04B8)
 #define USB_PHY_CFG_AHB2PHY_CBCR                         (0x1A84)
 #define SDCC1_APPS_CMD_RCGR                              (0x04D0)
@@ -2407,7 +2407,7 @@ static struct branch_clk gcc_ufs_tx_symbol_1_clk = {
 
 static struct branch_clk gcc_usb2_hs_phy_sleep_clk = {
 	.cbcr_reg = USB2_HS_PHY_SLEEP_CBCR,
-	.bcr_reg = USB2_HS_PHY_BCR,
+	.bcr_reg = USB2_HS_PHY_ONLY_BCR,
 	.has_sibling = 1,
 	.base = &virt_base,
 	.c = {
