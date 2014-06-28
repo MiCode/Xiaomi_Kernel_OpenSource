@@ -19,7 +19,7 @@
 		interrupts = <0 270 0>;
 		interrupt-names = "byte-cntr-irq";
 
-		qcom,memory-size = <0x100000>;
+		qcom,memory-size = <0x1400000>;
 
 		coresight-id = <0>;
 		coresight-name = "coresight-tmc-etr";
