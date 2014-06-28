@@ -161,6 +161,7 @@
 #define PCIE20_PARF_PHY_REFCLK	   0x4C
 #define PCIE20_PARF_CONFIG_BITS	  0x50
 #define PCIE20_PARF_DBI_BASE_ADDR	0x168
+#define PCIE20_PARF_SLV_ADDR_SPACE_SIZE	0x16C
 #define PCIE20_PARF_AXI_MSTR_WR_ADDR_HALT   0x178
 #define PCIE20_PARF_LTSSM              0x1B0
 
@@ -1771,6 +1772,10 @@ int msm_pcie_enable(struct msm_pcie_dev_t *dev, u32 options)
 	writel_relaxed(0, dev->parf + PCIE20_PARF_DBI_BASE_ADDR);
 
 	writel_relaxed(0x3656, dev->parf + PCIE20_PARF_SYS_CTRL);
+
+	if (dev->dev_mem_res->end - dev->dev_mem_res->start > SZ_8M)
+		writel_relaxed(SZ_16M, dev->parf +
+			PCIE20_PARF_SLV_ADDR_SPACE_SIZE);
 
 	if (dev->use_msi) {
 		PCIE_DBG(dev, "RC%d: enable WR halt.\n", dev->rc_idx);
