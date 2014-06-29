@@ -164,6 +164,10 @@ struct msm_compr_dec_params {
 	struct snd_dec_ddp ddp_params;
 };
 
+static int msm_compr_send_dec_params(struct snd_compr_stream *cstream,
+				     struct msm_compr_dec_params *dec_params,
+				     int stream_id);
+
 static int msm_compr_set_volume(struct snd_compr_stream *cstream,
 				uint32_t volume_l, uint32_t volume_r)
 {
@@ -228,13 +232,15 @@ static int msm_compr_set_volume(struct snd_compr_stream *cstream,
 }
 
 static int msm_compr_send_ddp_cfg(struct audio_client *ac,
-				  struct snd_dec_ddp *ddp)
+				  struct snd_dec_ddp *ddp,
+				  int stream_id)
 {
 	int i, rc;
 	pr_debug("%s\n", __func__);
 	for (i = 0; i < ddp->params_length; i++) {
-		rc = q6asm_ds1_set_endp_params(ac, ddp->params_id[i],
-						ddp->params_value[i]);
+		rc = q6asm_ds1_set_stream_endp_params(ac, ddp->params_id[i],
+						      ddp->params_value[i],
+						      stream_id);
 		if (rc) {
 			pr_err("sending params_id: %d failed\n",
 				ddp->params_id[i]);
@@ -1201,6 +1207,7 @@ static int msm_compr_trigger(struct snd_compr_stream *cstream, int cmd)
 			snd_soc_platform_get_drvdata(rtd->platform);
 	uint32_t *volume = pdata->volume[rtd->dai_link->be_id];
 	struct audio_client *ac = prtd->audio_client;
+	unsigned long fe_id = rtd->dai_link->be_id;
 	int rc = 0;
 	int bytes_to_write;
 	unsigned long flags;
@@ -1584,6 +1591,8 @@ static int msm_compr_trigger(struct snd_compr_stream *cstream, int cmd)
 				__func__);
 			break;
 		}
+		msm_compr_send_dec_params(cstream, pdata->dec_params[fe_id],
+					  stream_id);
 		spin_lock_irqsave(&prtd->lock, flags);
 		prtd->gapless_state.stream_opened[stream_index] = 1;
 		prtd->gapless_state.set_next_stream_id = true;
@@ -1995,7 +2004,45 @@ static int msm_compr_audio_effects_config_get(struct snd_kcontrol *kcontrol,
 	/* dummy function */
 	return 0;
 }
+static int msm_compr_send_dec_params(struct snd_compr_stream *cstream,
+				     struct msm_compr_dec_params *dec_params,
+				     int stream_id)
+{
 
+	int rc = 0;
+	struct msm_compr_audio *prtd = NULL;
+	struct snd_dec_ddp *ddp = &dec_params->ddp_params;
+
+	if (!cstream || !dec_params) {
+		pr_err("%s: stream or dec_params inactive\n", __func__);
+		rc = -EINVAL;
+		goto end;
+	}
+	prtd = cstream->runtime->private_data;
+	if (!prtd) {
+		pr_err("%s: cannot set dec_params\n", __func__);
+		rc = -EINVAL;
+		goto end;
+	}
+	switch (prtd->codec) {
+	case FORMAT_MP3:
+	case FORMAT_MPEG4_AAC:
+		pr_debug("%s: no runtime parameters for codec: %d\n", __func__,
+			 prtd->codec);
+		break;
+	case FORMAT_AC3:
+	case FORMAT_EAC3:
+		rc = msm_compr_send_ddp_cfg(prtd->audio_client, ddp, stream_id);
+		if (rc < 0)
+			pr_err("%s: DDP CMD CFG failed %d\n", __func__, rc);
+		break;
+	default:
+		break;
+	}
+end:
+	return rc;
+
+}
 static int msm_compr_dec_params_put(struct snd_kcontrol *kcontrol,
 				    struct snd_ctl_elem_value *ucontrol)
 {
@@ -2007,12 +2054,14 @@ static int msm_compr_dec_params_put(struct snd_kcontrol *kcontrol,
 	struct snd_compr_stream *cstream = NULL;
 	struct msm_compr_audio *prtd = NULL;
 	long *values = &(ucontrol->value.integer.value[0]);
+	int rc = 0;
 
 	pr_debug("%s\n", __func__);
 	if (fe_id >= MSM_FRONTEND_DAI_MAX) {
 		pr_err("%s Received out of bounds fe_id %lu\n",
 			__func__, fe_id);
-		return -EINVAL;
+		rc = -EINVAL;
+		goto end;
 	}
 
 	cstream = pdata->cstream[fe_id];
@@ -2020,13 +2069,16 @@ static int msm_compr_dec_params_put(struct snd_kcontrol *kcontrol,
 
 	if (!cstream || !dec_params) {
 		pr_err("%s: stream or dec_params inactive\n", __func__);
-		return -EINVAL;
+		rc = -EINVAL;
+		goto end;
 	}
 	prtd = cstream->runtime->private_data;
 	if (!prtd) {
 		pr_err("%s: cannot set dec_params\n", __func__);
-		return -EINVAL;
+		rc = -EINVAL;
+		goto end;
 	}
+
 	switch (prtd->codec) {
 	case FORMAT_MP3:
 	case FORMAT_MPEG4_AAC:
@@ -2042,20 +2094,25 @@ static int msm_compr_dec_params_put(struct snd_kcontrol *kcontrol,
 		if (ddp->params_length > DDP_DEC_MAX_NUM_PARAM) {
 			pr_err("%s: invalid num of params:: %d\n", __func__,
 				ddp->params_length);
-			return -EINVAL;
+			rc = -EINVAL;
+			goto end;
 		}
 		for (cnt = 0; cnt < ddp->params_length; cnt++) {
 			ddp->params_id[cnt] = *values++;
 			ddp->params_value[cnt] = *values++;
 		}
-		if (msm_compr_send_ddp_cfg(prtd->audio_client, ddp) < 0)
-			pr_err("%s: DDP CMD CFG failed\n", __func__);
+		prtd = cstream->runtime->private_data;
+		if (prtd && prtd->audio_client)
+			rc = msm_compr_send_dec_params(cstream, dec_params,
+						prtd->audio_client->stream_id);
 		break;
 	}
 	default:
 		break;
 	}
-	return 0;
+end:
+	pr_debug("%s: ret %d\n", __func__, rc);
+	return rc;
 }
 
 static int msm_compr_dec_params_get(struct snd_kcontrol *kcontrol,
