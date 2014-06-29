@@ -35,17 +35,16 @@
 #include <linux/regulator/consumer.h>
 #include <linux/regulator/rpm-smd-regulator.h>
 #include <linux/msm-sps.h>            /* BAM stuff */
-#include <mach/gpio.h>
 #include <linux/wakelock.h>      /* Locking functions */
 #include <linux/timer.h>         /* Timer services */
 #include <linux/jiffies.h>       /* Jiffies counter */
-#include <mach/dma.h>
-#include <mach/msm_tspp.h>
+#include <linux/qcom_tspp.h>
 #include <linux/debugfs.h>
 #include <linux/of.h>
 #include <linux/of_gpio.h>
 #include <linux/string.h>
 #include <linux/msm-bus.h>
+#include <linux/interrupt.h>	/* tasklet */
 
 /*
  * General defines
