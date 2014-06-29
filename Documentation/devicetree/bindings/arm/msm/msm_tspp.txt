@@ -19,14 +19,22 @@ Required properties:
 - qcom,tsif-ref-clk: reference clock name.
 	The driver uses clk_get to get the clocks by name. The clocks
 	should be defined in the relevant clock file (e.g. clock-8974.c).
-- gpios: GPIO numbers for TSIF0 (CLK, EN, DATA and SYNC) and TSIF1 (same).
-- qcom,gpio-names: GPIO names - strings describing the GPIO functionality.
-- qcom,gpios-func: GPIO functionality according to the GPIO functionality table.
-	GPIO pins can have more than a single functionality, and the TSPP driver
-	is responsible for configuring the GPIOs to work in TSIF functionality
-	based on this parameter.
-	Note: it is assumed that the functionality value (e.g. 1 in 8974 case)
-	is applicable to all TSIF GPIOs.
+- pinctrl-names: the names of the pinctrl states that are used by the driver to
+	configure the TLMM pins. The allowed states are:
+	disabled - both tsif inputs are not used
+	tsif0-mode1 - only tsif0 is active in mode 1 (no sync signal)
+	tsif0-mode2 - only tsif0 is used in mode 2 (with sync signal)
+	tsif1-mode1 - only tsif1 is active in mode 1 (no sync signal)
+	tsif1-mode2 - only tsif1 is used in mode 2 (with sync signal)
+	dual-tsif-mode1 - both tsif0 and tsif1 are active, in mode 1
+	dual-tsif-mode1 - both tsif0 and tsif1 are active, in mode 2
+- pinctrl-#: a list of pinctrl phandles for the different pinctrl states. Refer
+	to "Documentation/devicetree/bindings/pinctrl/pinctrl-bindings.txt" for
+	the pinctrl handles definitions. Each pinctrl-# corresponds to the
+	respective state name that appears under pinctrl-state list.
+	Note that when switching from one state to another, any pins in
+	the old state which do not appear in the new state are automatically
+	disabled by the pinctrl framework.
 
 Optional properties:
 
@@ -64,23 +72,25 @@ Example (for 8974 platform, avaialble at msm8974.dtsi):
 			"TSIF_BAM_IRQ";
 		qcom,tsif-pclk = "iface_clk";
 		qcom,tsif-ref-clk = "ref_clk";
-		gpios = <&msmgpio 89 0>, /* TSIF0 CLK  */
-			<&msmgpio 90 0>, /* TSIF0 EN   */
-			<&msmgpio 91 0>, /* TSIF0 DATA */
-			<&msmgpio 92 0>, /* TSIF0 SYNC */
-			<&msmgpio 93 0>, /* TSIF1 CLK  */
-			<&msmgpio 94 0>, /* TSIF1 EN   */
-			<&msmgpio 95 0>, /* TSIF1 DATA */
-			<&msmgpio 96 0>; /* TSIF1 SYNC */
-		qcom,gpio-names = "tsif_clk",
-				"tsif_en",
-				"tsif_data",
-				"tsif_sync",
-				"tsif_clk",
-				"tsif_en",
-				"tsif_data",
-				"tsif_sync";
-		qcom,gpios-func = <1>;
+
+		pinctrl-names = "disabled",
+			"tsif0-mode1", "tsif0-mode2",
+			"tsif1-mode1", "tsif1-mode2",
+			"dual-tsif-mode1", "dual-tsif-mode2";
+
+		pinctrl-0 = <>;				/* disabled */
+		pinctrl-1 = <&tsif0_signals_active>;	/* tsif0-mode1 */
+		pinctrl-2 = <&tsif0_signals_active
+			&tsif0_sync_active>;		/* tsif0-mode2 */
+		pinctrl-3 = <&tsif1_signals_active>;	/* tsif1-mode1 */
+		pinctrl-4 = <&tsif1_signals_active
+			&tsif1_sync_active>;		/* tsif1-mode2 */
+		pinctrl-5 = <&tsif0_signals_active
+			&tsif1_signals_active>;		/* dual-tsif-mode1 */
+		pinctrl-6 = <&tsif0_signals_active
+			&tsif0_sync_active
+			&tsif1_signals_active
+			&tsif1_sync_active>;		/* dual-tsif-mode2 */
 
 		qcom,msm-bus,name = "tsif";
 		qcom,msm-bus,num-cases = <2>;
