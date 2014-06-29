@@ -3555,16 +3555,26 @@ fail_cmd:
 	return rc;
 }
 
-int q6asm_ds1_set_endp_params(struct audio_client *ac,
-				int param_id, int param_value)
+static int __q6asm_ds1_set_endp_params(struct audio_client *ac, int param_id,
+				int param_value, int stream_id)
 {
 	struct asm_dec_ddp_endp_param_v2 ddp_cfg;
 	int rc = 0;
 
-	pr_debug("%s: session[%d]param_id[%d]param_value[%d]\n", __func__,
-			ac->session, param_id, param_value);
-	q6asm_add_hdr(ac, &ddp_cfg.hdr, sizeof(ddp_cfg), TRUE);
+	pr_debug("%s: session[%d] stream[%d],param_id[%d]param_value[%d]",
+		 __func__, ac->session, stream_id, param_id, param_value);
+
+	q6asm_stream_add_hdr(ac, &ddp_cfg.hdr, sizeof(ddp_cfg), TRUE,
+			     stream_id);
 	atomic_set(&ac->cmd_state, 1);
+	/*
+	 * Updated the token field with stream/session for compressed playback
+	 * Platform driver must know the stream with which the command is
+	 * associated
+	 */
+	if (ac->io_mode & COMPRESSED_STREAM_IO)
+		ddp_cfg.hdr.token = ((ac->session << 8) & 0xFFFF00) |
+				(stream_id & 0xFF);
 	ddp_cfg.hdr.opcode = ASM_STREAM_CMD_SET_ENCDEC_PARAM;
 	ddp_cfg.encdec.param_id = param_id;
 	ddp_cfg.encdec.param_size = sizeof(struct asm_dec_ddp_endp_param_v2) -
@@ -3594,6 +3604,21 @@ int q6asm_ds1_set_endp_params(struct audio_client *ac,
 	return 0;
 fail_cmd:
 	return rc;
+}
+
+int q6asm_ds1_set_endp_params(struct audio_client *ac,
+			      int param_id, int param_value)
+{
+	return __q6asm_ds1_set_endp_params(ac, param_id, param_value,
+					   ac->stream_id);
+}
+
+int q6asm_ds1_set_stream_endp_params(struct audio_client *ac,
+				     int param_id, int param_value,
+				     int stream_id)
+{
+	return __q6asm_ds1_set_endp_params(ac, param_id, param_value,
+					   stream_id);
 }
 
 int q6asm_memory_map(struct audio_client *ac, phys_addr_t buf_add, int dir,

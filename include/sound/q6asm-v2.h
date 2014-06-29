@@ -383,6 +383,10 @@ int q6asm_stream_media_format_block_flac(struct audio_client *ac,
 int q6asm_ds1_set_endp_params(struct audio_client *ac,
 				int param_id, int param_value);
 
+/* Send stream based end params */
+int q6asm_ds1_set_stream_endp_params(struct audio_client *ac, int param_id,
+				     int param_value, int stream_id);
+
 /* PP specific */
 int q6asm_equalizer(struct audio_client *ac, void *eq);
 
