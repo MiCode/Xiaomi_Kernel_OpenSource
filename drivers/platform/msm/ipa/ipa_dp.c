@@ -1013,8 +1013,7 @@ int ipa_setup_sys_pipe(struct ipa_sys_connect_params *sys_in, u32 *clnt_hdl)
 	ep->client = sys_in->client;
 	ep->client_notify = sys_in->notify;
 	ep->priv = sys_in->priv;
-	/* keep sys_in->keep_ipa_awake */
-	ep->keep_ipa_awake = 1;
+	ep->keep_ipa_awake = sys_in->keep_ipa_awake;
 	atomic_set(&ep->avail_fifo_desc,
 		((sys_in->desc_fifo_sz/sizeof(struct sps_iovec))-1));
 
