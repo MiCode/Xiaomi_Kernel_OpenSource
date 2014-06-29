@@ -273,7 +273,7 @@ static void f9_cb(void *cookie, unsigned char *icv, unsigned char *iv,
 	struct ota_qce_dev *pqce;
 
 	pqce = areq->pqce;
-	areq->req.f9_req.mac_i  = (uint32_t) icv;
+	areq->req.f9_req.mac_i  = *((uint32_t *)icv);
 
 	if (ret) {
 		pqce->err_req++;
