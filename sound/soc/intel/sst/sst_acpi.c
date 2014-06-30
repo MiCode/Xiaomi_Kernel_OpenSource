@@ -519,6 +519,13 @@ struct platform_device byt_rt5640_dev = {
 
 };
 
+struct platform_device byt_rt5651_dev = {
+	.name		= "byt_rt5651",
+	.id		= -1,
+	.num_resources	= 0,
+
+};
+
 int sst_acpi_probe(struct platform_device *pdev)
 {
 	struct device *dev = &pdev->dev;
@@ -528,6 +535,7 @@ int sst_acpi_probe(struct platform_device *pdev)
 	int i, ret = 0;
 	struct intel_sst_drv *ctx;
 	platform_device_register(&byt_rt5640_dev);
+	platform_device_register(&byt_rt5651_dev);
 
 	ret = acpi_bus_get_device(handle, &device);
 	if (ret) {
