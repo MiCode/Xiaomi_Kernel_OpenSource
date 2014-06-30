@@ -1351,6 +1351,14 @@ static void msm_vfe40_get_halt_restart_mask(uint32_t *irq0_mask,
 	*irq1_mask = BIT(8);
 }
 
+static int msm_vfe40_get_reg_update(uint32_t irq0_status,
+	uint32_t irq1_status)
+{
+	int rc = 0;
+	if (irq0_status & 0xF0)
+		rc = 1;
+	return rc;
+}
 static uint32_t msm_vfe40_get_comp_mask(
 	uint32_t irq_status0, uint32_t irq_status1)
 {
@@ -1742,6 +1750,7 @@ struct msm_vfe_hardware_info vfe40_hw_info = {
 			.init_vbif_counters = msm_vfe40_init_vbif_cntrs,
 			.vbif_clear_counters = msm_vfe40_vbif_clear_cnt,
 			.vbif_read_counters = msm_vfe40_vbif_read_cnt_epoch,
+			.get_regupdate_status = msm_vfe40_get_reg_update,
 		},
 		.stats_ops = {
 			.get_stats_idx = msm_vfe40_get_stats_idx,
