@@ -1343,15 +1343,22 @@ static void hsuart_disconnect_rx_endpoint_work(struct work_struct *w)
 {
 	struct msm_hs_port *msm_uport = container_of(w, struct msm_hs_port,
 						disconnect_rx_endpoint);
+	struct uart_port *uport = &msm_uport->uport;
 	struct msm_hs_rx *rx = &msm_uport->rx;
 	struct sps_pipe *sps_pipe_handle = rx->prod.pipe_handle;
+	struct platform_device *pdev = to_platform_device(uport->dev);
+	const struct msm_serial_hs_platform_data *pdata =
+					pdev->dev.platform_data;
 	int ret = 0;
 
 	ret = sps_rx_disconnect(sps_pipe_handle);
 	if (ret)
 		MSM_HS_ERR("%s(): sps_disconnect failed\n", __func__);
-
-	wake_lock_timeout(&msm_uport->rx.wake_lock, HZ / 2);
+	if (pdata->no_suspend_delay)
+		wake_unlock(&msm_uport->rx.wake_lock);
+	else
+		wake_lock_timeout(&msm_uport->rx.wake_lock,
+						HZ / 2);
 	msm_uport->rx.flush = FLUSH_SHUTDOWN;
 	MSM_HS_DBG("%s: Calling Completion\n", __func__);
 	wake_up(&msm_uport->bam_disconnect_wait);
@@ -1631,6 +1638,8 @@ static void msm_serial_hs_rx_tlet(unsigned long tlet_ptr)
 	struct msm_hs_rx *rx;
 	struct sps_pipe *sps_pipe_handle;
 	u32 sps_flags = SPS_IOVEC_FLAG_INT;
+	struct platform_device *pdev;
+	const struct msm_serial_hs_platform_data *pdata;
 
 	msm_uport = container_of((struct tasklet_struct *)tlet_ptr,
 				 struct msm_hs_port, rx.tlet);
@@ -1638,6 +1647,8 @@ static void msm_serial_hs_rx_tlet(unsigned long tlet_ptr)
 	tty = uport->state->port.tty;
 	notify = &msm_uport->notify;
 	rx = &msm_uport->rx;
+	pdev = to_platform_device(uport->dev);
+	pdata = pdev->dev.platform_data;
 
 	msm_uport->rx.rx_cmd_queued = false;
 	msm_uport->rx.rx_cmd_exec = false;
@@ -1751,8 +1762,12 @@ out:
 				      , msecs_to_jiffies(RETRY_TIMEOUT));
 	}
 	/* release wakelock in 500ms, not immediately, because higher layers
-	 * don't always take wakelocks when they should */
-	wake_lock_timeout(&msm_uport->rx.wake_lock, HZ / 2);
+	 * don't always take wakelocks when they should
+	 */
+	if (pdata->no_suspend_delay)
+		wake_unlock(&msm_uport->rx.wake_lock);
+	else
+		wake_lock_timeout(&msm_uport->rx.wake_lock, HZ / 2);
 	/* tty_flip_buffer_push() might call msm_hs_start(), so unlock */
 	spin_unlock_irqrestore(&uport->lock, flags);
 	if (flush < FLUSH_DATA_INVALID)
@@ -2962,6 +2977,9 @@ struct msm_serial_hs_platform_data
 					"qcom,rfr-gpio", 0);
 	if (pdata->uart_rfr_gpio < 0)
 		MSM_HS_DBG("uart_rfr_gpio is not available\n");
+
+	pdata->no_suspend_delay = of_property_read_bool(node,
+				"qcom,no-suspend-delay");
 
 	pdata->inject_rx_on_wakeup = of_property_read_bool(node,
 				"qcom,inject-rx-on-wakeup");

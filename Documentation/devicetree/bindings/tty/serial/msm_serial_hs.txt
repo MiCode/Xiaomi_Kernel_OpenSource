@@ -64,6 +64,9 @@ for uart.
 receiving interrupt with UART RX GPIO IRQ line (i.e. above wakeup_irq property),
 HSUART driver injects provided character with property rx_to_inject.
 - qcom, rx-char-to-inject : The character to be inserted on wakeup.
+- qcom, no-suspend-delay : This decides system to go to suspend immediately
+or not
+
 - Refer to "Documentation/devicetree/bindings/arm/msm/msm_bus.txt" for
 below optional properties:
     - qcom,msm_bus,name
