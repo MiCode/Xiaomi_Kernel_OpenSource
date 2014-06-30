@@ -66,11 +66,13 @@ static int change_memory_common(unsigned long addr, int numpages,
 	unsigned long end = start + size;
 	int ret;
 
-	if (start < MODULES_VADDR || start >= MODULES_END)
-		return -EINVAL;
+	if (!IS_ENABLED(CONFIG_FORCE_PAGES)) {
+		if (start < MODULES_VADDR || start >= MODULES_END)
+			return -EINVAL;
 
-	if (end < MODULES_VADDR || end >= MODULES_END)
-		return -EINVAL;
+		if (end < MODULES_VADDR || end >= MODULES_END)
+			return -EINVAL;
+	}
 
 	if (set)
 		ret = apply_to_page_range(&init_mm, start, size,
