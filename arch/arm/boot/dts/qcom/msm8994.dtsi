@@ -1052,8 +1052,10 @@
 			"TSIF0_IRQ",
 			"TSIF1_IRQ",
 			"TSIF_BAM_IRQ";
-		qcom,tsif-pclk = "iface_clk";
-		qcom,tsif-ref-clk = "ref_clk";
+
+		clock-names = "iface_clk", "ref_clk";
+		clocks = <&clock_gcc clk_gcc_tsif_ahb_clk>,
+			<&clock_gcc clk_gcc_tsif_ref_clk>;
 
 		qcom,msm-bus,name = "tsif";
 		qcom,msm-bus,num-cases = <2>;

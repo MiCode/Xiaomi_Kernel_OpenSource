@@ -8,17 +8,12 @@ The devicetree representation of the TSPP block should be:
 Required properties:
 
 - compatible: "qcom,msm_tspp"
-- cell-index: <0> - represents device ID.
 - reg: physical memory base addresses and sizes for the following:
 	TSIF0, TSIF1, TSPP and TSPP_BAM.
 - reg-names: names of the memory regions.
 - interrupts: represents IRQ numbers for the following:
 	TSIF_TSPP_IRQ, TSIF0_IRQ, TSIF1_IRQ, TSIF_BAM_IRQ.
 - interrupt-names: TSPP, TSIF and BAM interrupt names.
-- qcom,tsif-pclk: interface clock name.
-- qcom,tsif-ref-clk: reference clock name.
-	The driver uses clk_get to get the clocks by name. The clocks
-	should be defined in the relevant clock file (e.g. clock-8974.c).
 - pinctrl-names: the names of the pinctrl states that are used by the driver to
 	configure the TLMM pins. The allowed states are:
 	disabled - both tsif inputs are not used
@@ -53,7 +48,6 @@ Example (for 8974 platform, avaialble at msm8974.dtsi):
 
 	tspp: msm_tspp@f99d8000 {
 		compatible = "qcom,msm_tspp";
-		cell-index = <0>;
 		reg = <0xf99d8000 0x1000>, /* MSM_TSIF0_PHYS */
 		      <0xf99d9000 0x1000>, /* MSM_TSIF1_PHYS */
 		      <0xf99da000 0x1000>, /* MSM_TSPP_PHYS  */
@@ -70,8 +64,6 @@ Example (for 8974 platform, avaialble at msm8974.dtsi):
 			"TSIF0_IRQ",
 			"TSIF1_IRQ",
 			"TSIF_BAM_IRQ";
-		qcom,tsif-pclk = "iface_clk";
-		qcom,tsif-ref-clk = "ref_clk";
 
 		pinctrl-names = "disabled",
 			"tsif0-mode1", "tsif0-mode2",
@@ -99,5 +91,3 @@ Example (for 8974 platform, avaialble at msm8974.dtsi):
 				<82 512 0 0>, /* No vote */
 				<82 512 12288 24576>; /* Max. bandwidth, 2xTSIF, each max of 96Mbps */
 	};
-
-
