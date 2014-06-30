@@ -52,7 +52,7 @@ static int change_memory_common(unsigned long addr, int numpages,
 	}
 
 	if (!is_module_address(start) || !is_module_address(end - 1))
-		return -EINVAL;
+			return -EINVAL;
 
 	data.set_mask = set_mask;
 	data.clear_mask = clear_mask;
