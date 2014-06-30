@@ -246,8 +246,7 @@ static int wcd_cpe_enable_cpe_clks(struct wcd_cpe_core *core, bool enable)
 
 	if (!core || !core->cpe_cdc_cb.cdc_clk_en ||
 	    !core->cpe_cdc_cb.cpe_clk_en) {
-		dev_err(core->dev,
-			"%s: invalid handle\n",
+		pr_err("%s: invalid handle\n",
 			__func__);
 		return -EINVAL;
 	}
@@ -2336,7 +2335,7 @@ static int wcd_cpe_dealloc_lsm_session(void *core_handle,
 	if (!session) {
 		dev_err(core->dev,
 			"%s: Invalid lsm session\n", __func__);
-		return 0;
+		return -EINVAL;
 	}
 
 	dev_dbg(core->dev, "%s: session %d being deallocated\n",
