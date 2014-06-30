@@ -144,6 +144,26 @@ struct smbchg_chip {
 	struct mutex			dc_en_lock;
 };
 
+enum print_reason {
+	PR_REGISTER = BIT(0),
+	PR_INTERRUPT = BIT(1),
+	PR_STATUS = BIT(2),
+	PR_DUMP = BIT(3),
+};
+
+static int smbchg_debug_mask;
+module_param_named(
+	debug_mask, smbchg_debug_mask, int, S_IRUSR | S_IWUSR
+);
+
+#define pr_smb(reason, fmt, ...)				\
+	do {							\
+		if (smbchg_debug_mask & (reason))		\
+			pr_info(fmt, ##__VA_ARGS__);		\
+		else						\
+			pr_debug(fmt, ##__VA_ARGS__);		\
+	} while (0)
+
 static int smbchg_read(struct smbchg_chip *chip, u8 *val,
 			u16 addr, int count)
 {
@@ -223,7 +243,7 @@ static int smbchg_masked_write_raw(struct smbchg_chip *chip, u16 base, u8 mask,
 	reg &= ~mask;
 	reg |= val & mask;
 
-	pr_debug("addr = 0x%x writing 0x%x\n", base, reg);
+	pr_smb(PR_REGISTER, "addr = 0x%x writing 0x%x\n", base, reg);
 
 	rc = smbchg_write(chip, &reg, base, 1);
 	if (rc) {
@@ -299,11 +319,12 @@ static bool is_otg_present(struct smbchg_chip *chip)
 
 	rc = smbchg_read(chip, &reg, chip->usb_chgpth_base + RID_STS, 1);
 	if (rc < 0) {
-		pr_err("Couldn't read usb rid status rc = %d\n", rc);
+		dev_err(chip->dev,
+				"Couldn't read usb rid status rc = %d\n", rc);
 		return false;
 	}
 
-	pr_debug("RID_STS = %02x\n", reg);
+	pr_smb(PR_STATUS, "RID_STS = %02x\n", reg);
 
 	return (reg & RID_MASK) == 0;
 }
@@ -446,7 +467,7 @@ static int get_prop_batt_status(struct smbchg_chip *chip)
 	else
 		status = POWER_SUPPLY_STATUS_CHARGING;
 out:
-	pr_debug("CHGR_STS = 0x%02x\n", reg);
+	pr_smb(PR_STATUS, "CHGR_STS = 0x%02x\n", reg);
 	return status;
 }
 
@@ -598,8 +619,9 @@ static int calc_thermal_limited_current(struct smbchg_chip *chip,
 		 */
 		therm_ma = (int)chip->thermal_mitigation[chip->therm_lvl_sel];
 		if (therm_ma < current_ma) {
-			dev_dbg(chip->dev, "Limiting current due to thermal: %d mA",
-					therm_ma);
+			pr_smb(PR_STATUS,
+				"Limiting current due to thermal: %d mA",
+				therm_ma);
 			return therm_ma;
 		}
 	}
@@ -658,7 +680,7 @@ static int smbchg_set_dc_current_max(struct smbchg_chip *chip, int current_ma)
 	chip->dc_max_current_ma = dc_current_table[i];
 	dc_cur_val = i & DCIN_INPUT_MASK;
 
-	dev_dbg(chip->dev, "dc current set to %d mA\n",
+	pr_smb(PR_STATUS, "dc current set to %d mA\n",
 			chip->dc_max_current_ma);
 	return smbchg_sec_masked_write(chip, chip->dc_chgpth_base + IL_CFG,
 				DCIN_INPUT_MASK, dc_cur_val);
@@ -695,7 +717,7 @@ static struct power_supply *get_parallel_psy(struct smbchg_chip *chip)
 		return chip->parallel.psy;
 	chip->parallel.psy = power_supply_get_by_name("usb-parallel");
 	if (!chip->parallel.psy)
-		pr_debug("parallel charger not found\n");
+		pr_smb(PR_STATUS, "parallel charger not found\n");
 	return chip->parallel.psy;
 }
 
@@ -719,7 +741,7 @@ static void smbchg_parallel_usb_determine_current(struct smbchg_chip *chip)
 	rc = smbchg_read(chip, &reg,
 			chip->usb_chgpth_base + ICL_STS_2_REG, 1);
 	if (rc) {
-		pr_err("Could not read usb icl sts 2: %d\n", rc);
+		dev_err(chip->dev, "Could not read usb icl sts 2: %d\n", rc);
 		return;
 	}
 
@@ -729,14 +751,14 @@ static void smbchg_parallel_usb_determine_current(struct smbchg_chip *chip)
 	 */
 	if (!!(reg & USBIN_SUSPEND_STS_BIT) ||
 				!(reg & USBIN_ACTIVE_PWR_SRC_BIT)) {
-		pr_debug("USB not active power source: %02x\n", reg);
+		pr_smb(PR_STATUS, "USB not active power source: %02x\n", reg);
 		return;
 	}
 
 	rc = smbchg_read(chip, &reg,
 			chip->usb_chgpth_base + ICL_STS_1_REG, 1);
 	if (rc) {
-		pr_err("Could not read usb icl sts 1: %d\n", rc);
+		dev_err(chip->dev, "Could not read usb icl sts 1: %d\n", rc);
 		return;
 	}
 
@@ -771,7 +793,7 @@ static void smbchg_parallel_usb_determine_current(struct smbchg_chip *chip)
 	if (new_parallel_cl_ma < chip->parallel.current_max_ma
 			|| chip->parallel.current_max_ma <= SUSPEND_CURRENT_MA)
 		chip->parallel.current_max_ma = new_parallel_cl_ma;
-	pr_debug("ICL at %d. Setting Parallel ICL at %d\n",
+	pr_smb(PR_STATUS, "ICL at %d. Setting Parallel ICL at %d\n",
 			current_limit_ma, chip->parallel.current_max_ma);
 
 	mutex_lock(&chip->usb_en_lock);
@@ -792,7 +814,7 @@ static void smbchg_parallel_usb_en(struct smbchg_chip *chip, bool enable)
 	power_supply_set_current_limit(parallel_psy,
 			enable ? chip->parallel.current_max_ma * 1000
 			: (SUSPEND_CURRENT_MA * 1000));
-	pr_debug("parallel charger %s\n",
+	pr_smb(PR_STATUS, "parallel charger %s\n",
 			enable ? "unsuspended" : "suspended");
 }
 
@@ -817,7 +839,7 @@ static int smbchg_usb_en(struct smbchg_chip *chip, bool enable,
 {
 	int rc = 0, suspended;
 
-	pr_debug("usb charging %s, suspended = %02x, enable = %d, reason = %02x\n",
+	pr_smb(PR_STATUS, "usb %s, susp = %02x, en? = %d, reason = %02x\n",
 			chip->usb_suspended == 0 ? "enabled"
 			: "suspended", chip->usb_suspended, enable, reason);
 	mutex_lock(&chip->usb_en_lock);
@@ -841,7 +863,7 @@ static int smbchg_usb_en(struct smbchg_chip *chip, bool enable,
 		goto out;
 	}
 
-	pr_debug("usb charging %s, suspended = %02x\n",
+	pr_smb(PR_STATUS, "usb charging %s, suspended = %02x\n",
 			suspended == 0 ? "enabled"
 			: "suspended", suspended);
 out:
@@ -855,7 +877,7 @@ static int smbchg_dc_en(struct smbchg_chip *chip, bool enable,
 {
 	int rc = 0, suspended;
 
-	pr_debug("dc charging %s, suspended = %02x, enable = %d, reason = %02x\n",
+	pr_smb(PR_STATUS, "dc %s, susp = %02x, en? = %d, reason = %02x\n",
 			chip->dc_suspended == 0 ? "enabled"
 			: "suspended", chip->dc_suspended, enable, reason);
 	mutex_lock(&chip->dc_en_lock);
@@ -878,7 +900,7 @@ static int smbchg_dc_en(struct smbchg_chip *chip, bool enable,
 
 	if (chip->psy_registered)
 		power_supply_changed(&chip->dc_psy);
-	pr_debug("dc charging %s, suspended = %02x\n",
+	pr_smb(PR_STATUS, "dc charging %s, suspended = %02x\n",
 			suspended == 0 ? "enabled"
 			: "suspended", suspended);
 out:
@@ -960,7 +982,7 @@ static int smbchg_set_usb_current_max(struct smbchg_chip *chip,
 				current_ma);
 		return 0;
 	}
-	pr_debug("USB current_ma = %d\n", current_ma);
+	pr_smb(PR_STATUS, "USB current_ma = %d\n", current_ma);
 
 	if (current_ma == SUSPEND_CURRENT_MA) {
 		/* suspend the usb if current set to 2mA */
@@ -973,7 +995,8 @@ static int smbchg_set_usb_current_max(struct smbchg_chip *chip,
 
 	if (chip->low_icl_wa_on) {
 		chip->usb_max_current_ma = current_ma;
-		pr_debug("low_icl_wa on, ignoring the usb current setting\n");
+		pr_smb(PR_STATUS,
+			"low_icl_wa on, ignoring the usb current setting\n");
 		goto out;
 	}
 	if (current_ma < CURRENT_150_MA) {
@@ -1021,7 +1044,8 @@ static int smbchg_set_usb_current_max(struct smbchg_chip *chip,
 
 	rc = smbchg_set_high_usb_chg_current(chip, current_ma);
 out:
-	pr_debug("usb current set to %d mA\n", chip->usb_max_current_ma);
+	pr_smb(PR_STATUS, "usb current set to %d mA\n",
+			chip->usb_max_current_ma);
 	if (rc < 0)
 		dev_err(chip->dev,
 			"Couldn't set %dmA rc = %d\n", current_ma, rc);
@@ -1035,7 +1059,8 @@ static int smbchg_low_icl_wa_check(struct smbchg_chip *chip)
 		!= POWER_SUPPLY_STATUS_CHARGING);
 
 	mutex_lock(&chip->current_change_lock);
-	pr_debug("low icl %s -> %s\n", chip->low_icl_wa_on ? "on" : "off",
+	pr_smb(PR_STATUS, "low icl %s -> %s\n",
+			chip->low_icl_wa_on ? "on" : "off",
 			enable ? "on" : "off");
 	if (enable == chip->low_icl_wa_on)
 		goto out;
@@ -1049,7 +1074,8 @@ static int smbchg_low_icl_wa_check(struct smbchg_chip *chip)
 					USBIN_MODE_CHG_BIT | USB51_MODE_BIT,
 					USBIN_LIMITED_MODE | USB51_100MA);
 		if (rc)
-			pr_err("could not set low current limit: %d\n", rc);
+			dev_err(chip->dev,
+				"could not set low current limit: %d\n", rc);
 	} else {
 		rc = smbchg_set_usb_current_max(chip, chip->usb_max_current_ma);
 	}
@@ -1087,18 +1113,18 @@ static int smbchg_system_temp_level_set(struct smbchg_chip *chip,
 	int prev_therm_lvl;
 
 	if (!chip->thermal_mitigation) {
-		pr_err("Thermal mitigation not supported\n");
+		dev_err(chip->dev, "Thermal mitigation not supported\n");
 		return -EINVAL;
 	}
 
 	if (lvl_sel < 0) {
-		pr_err("Unsupported level selected %d\n", lvl_sel);
+		dev_err(chip->dev, "Unsupported level selected %d\n", lvl_sel);
 		return -EINVAL;
 	}
 
 	if (lvl_sel >= chip->thermal_levels) {
-		pr_err("Unsupported level selected %d forcing %d\n", lvl_sel,
-				chip->thermal_levels - 1);
+		dev_err(chip->dev, "Unsupported level selected %d forcing %d\n",
+				lvl_sel, chip->thermal_levels - 1);
 		lvl_sel = chip->thermal_levels - 1;
 	}
 
@@ -1320,8 +1346,8 @@ static void smbchg_external_power_changed(struct power_supply *psy)
 	rc = chip->usb_psy->get_property(chip->usb_psy,
 				POWER_SUPPLY_PROP_CHARGING_ENABLED, &prop);
 	if (rc < 0)
-		dev_dbg(chip->dev,
-			"could not read USB charging enabled, rc=%d\n", rc);
+		pr_smb(PR_STATUS, "could not read USB charge_en, rc=%d\n",
+				rc);
 	else
 		smbchg_usb_en(chip, prop.intval, REASON_POWER_SUPPLY);
 
@@ -1332,7 +1358,7 @@ static void smbchg_external_power_changed(struct power_supply *psy)
 			"could not read USB current_max property, rc=%d\n", rc);
 	else
 		current_limit = prop.intval / 1000;
-	pr_debug("current_limit = %d\n", current_limit);
+	pr_smb(PR_STATUS, "current_limit = %d\n", current_limit);
 
 	mutex_lock(&chip->current_change_lock);
 	chip->usb_target_current_ma = current_limit;
@@ -1403,7 +1429,7 @@ static int smbchg_otg_regulator_enable(struct regulator_dev *rdev)
 			OTG_EN, OTG_EN);
 	if (rc < 0)
 		dev_err(chip->dev, "Couldn't enable OTG mode rc=%d\n", rc);
-	pr_debug("Enabling OTG Boost\n");
+	pr_smb(PR_STATUS, "Enabling OTG Boost\n");
 	return rc;
 }
 
@@ -1416,7 +1442,7 @@ static int smbchg_otg_regulator_disable(struct regulator_dev *rdev)
 			OTG_EN, 0);
 	if (rc < 0)
 		dev_err(chip->dev, "Couldn't disable OTG mode rc=%d\n", rc);
-	pr_debug("Disabling OTG Boost\n");
+	pr_smb(PR_STATUS, "Disabling OTG Boost\n");
 	return rc;
 }
 
@@ -1513,7 +1539,7 @@ static irqreturn_t batt_hot_handler(int irq, void *_chip)
 
 	smbchg_read(chip, &reg, chip->bat_if_base + RT_STS, 1);
 	chip->batt_hot = !!(reg & HOT_BAT_HARD_BIT);
-	pr_debug("triggered: 0x%02x\n", reg);
+	pr_smb(PR_INTERRUPT, "triggered: 0x%02x\n", reg);
 	smbchg_low_icl_wa_check(chip);
 	if (chip->psy_registered)
 		power_supply_changed(&chip->batt_psy);
@@ -1527,7 +1553,7 @@ static irqreturn_t batt_cold_handler(int irq, void *_chip)
 
 	smbchg_read(chip, &reg, chip->bat_if_base + RT_STS, 1);
 	chip->batt_cold = !!(reg & COLD_BAT_HARD_BIT);
-	pr_debug("triggered: 0x%02x\n", reg);
+	pr_smb(PR_INTERRUPT, "triggered: 0x%02x\n", reg);
 	smbchg_low_icl_wa_check(chip);
 	if (chip->psy_registered)
 		power_supply_changed(&chip->batt_psy);
@@ -1541,7 +1567,7 @@ static irqreturn_t batt_warm_handler(int irq, void *_chip)
 
 	smbchg_read(chip, &reg, chip->bat_if_base + RT_STS, 1);
 	chip->batt_warm = !!(reg & HOT_BAT_SOFT_BIT);
-	pr_debug("triggered: 0x%02x\n", reg);
+	pr_smb(PR_INTERRUPT, "triggered: 0x%02x\n", reg);
 	if (chip->psy_registered)
 		power_supply_changed(&chip->batt_psy);
 	return IRQ_HANDLED;
@@ -1554,7 +1580,7 @@ static irqreturn_t batt_cool_handler(int irq, void *_chip)
 
 	smbchg_read(chip, &reg, chip->bat_if_base + RT_STS, 1);
 	chip->batt_cool = !!(reg & COLD_BAT_SOFT_BIT);
-	pr_debug("triggered: 0x%02x\n", reg);
+	pr_smb(PR_INTERRUPT, "triggered: 0x%02x\n", reg);
 	if (chip->psy_registered)
 		power_supply_changed(&chip->batt_psy);
 	return IRQ_HANDLED;
@@ -1567,7 +1593,7 @@ static irqreturn_t batt_pres_handler(int irq, void *_chip)
 
 	smbchg_read(chip, &reg, chip->bat_if_base + RT_STS, 1);
 	chip->batt_present = !(reg & BAT_MISSING_BIT);
-	pr_debug("triggered: 0x%02x\n", reg);
+	pr_smb(PR_INTERRUPT, "triggered: 0x%02x\n", reg);
 	if (chip->psy_registered)
 		power_supply_changed(&chip->batt_psy);
 	return IRQ_HANDLED;
@@ -1583,7 +1609,7 @@ static irqreturn_t chg_error_handler(int irq, void *_chip)
 {
 	struct smbchg_chip *chip = _chip;
 
-	pr_debug("chg-error triggered\n");
+	pr_smb(PR_INTERRUPT, "chg-error triggered\n");
 	smbchg_low_icl_wa_check(chip);
 	if (chip->psy_registered)
 		power_supply_changed(&chip->batt_psy);
@@ -1595,7 +1621,7 @@ static irqreturn_t fastchg_handler(int irq, void *_chip)
 {
 	struct smbchg_chip *chip = _chip;
 
-	pr_debug("p2f triggered\n");
+	pr_smb(PR_INTERRUPT, "p2f triggered\n");
 	smbchg_low_icl_wa_check(chip);
 	if (chip->psy_registered)
 		power_supply_changed(&chip->batt_psy);
@@ -1619,7 +1645,7 @@ static irqreturn_t chg_term_handler(int irq, void *_chip)
 
 	smbchg_read(chip, &reg, chip->chgr_base + RT_STS, 1);
 	chip->chg_done_batt_full = !!(reg & BAT_TCC_REACHED_BIT);
-	pr_debug("triggered: 0x%02x\n", reg);
+	pr_smb(PR_INTERRUPT, "triggered: 0x%02x\n", reg);
 	if (chip->psy_registered)
 		power_supply_changed(&chip->batt_psy);
 	return IRQ_HANDLED;
@@ -1631,7 +1657,7 @@ static irqreturn_t taper_handler(int irq, void *_chip)
 	u8 reg = 0;
 
 	smbchg_read(chip, &reg, chip->chgr_base + RT_STS, 1);
-	pr_debug("triggered: 0x%02x\n", reg);
+	pr_smb(PR_INTERRUPT, "triggered: 0x%02x\n", reg);
 	return IRQ_HANDLED;
 }
 
@@ -1641,7 +1667,7 @@ static irqreturn_t recharge_handler(int irq, void *_chip)
 	u8 reg = 0;
 
 	smbchg_read(chip, &reg, chip->chgr_base + RT_STS, 1);
-	pr_debug("triggered: 0x%02x\n", reg);
+	pr_smb(PR_INTERRUPT, "triggered: 0x%02x\n", reg);
 	if (chip->psy_registered)
 		power_supply_changed(&chip->batt_psy);
 	return IRQ_HANDLED;
@@ -1670,7 +1696,7 @@ static irqreturn_t power_ok_handler(int irq, void *_chip)
 	u8 reg = 0;
 
 	smbchg_read(chip, &reg, chip->misc_base + RT_STS, 1);
-	pr_debug("triggered: 0x%02x\n", reg);
+	pr_smb(PR_INTERRUPT, "triggered: 0x%02x\n", reg);
 	return IRQ_HANDLED;
 }
 
@@ -1685,7 +1711,7 @@ static irqreturn_t dcin_uv_handler(int irq, void *_chip)
 	struct smbchg_chip *chip = _chip;
 	bool dc_present = is_dc_present(chip);
 
-	pr_debug("chip->dc_present = %d dc_present = %d\n",
+	pr_smb(PR_STATUS, "chip->dc_present = %d dc_present = %d\n",
 			chip->dc_present, dc_present);
 
 	if (chip->dc_present && !dc_present) {
@@ -1716,9 +1742,10 @@ static void handle_usb_removal(struct smbchg_chip *chip)
 	struct power_supply *parallel_psy;
 
 	if (chip->usb_psy) {
-		pr_debug("setting usb psy type = %d\n",
+		pr_smb(PR_STATUS, "setting usb psy type = %d\n",
 				POWER_SUPPLY_TYPE_UNKNOWN);
-		pr_debug("setting usb psy present = %d\n", chip->usb_present);
+		pr_smb(PR_STATUS, "setting usb psy present = %d\n",
+				chip->usb_present);
 		power_supply_set_supply_type(chip->usb_psy,
 				POWER_SUPPLY_TYPE_UNKNOWN);
 		power_supply_set_present(chip->usb_psy, chip->usb_present);
@@ -1749,12 +1776,14 @@ static void handle_usb_insertion(struct smbchg_chip *chip)
 		dev_err(chip->dev, "Couldn't read status 5 rc = %d\n", rc);
 	usb_type_name = get_usb_type_name(reg);
 	usb_supply_type = get_usb_supply_type(reg);
-	pr_debug("inserted %s, usb psy type = %d stat_5 = 0x%02x\n",
+	pr_smb(PR_STATUS, "inserted %s, usb psy type = %d stat_5 = 0x%02x\n",
 			usb_type_name, usb_supply_type, reg);
 	if (chip->usb_psy) {
-		pr_debug("setting usb psy type = %d\n", usb_supply_type);
+		pr_smb(PR_STATUS, "setting usb psy type = %d\n",
+				usb_supply_type);
 		power_supply_set_supply_type(chip->usb_psy, usb_supply_type);
-		pr_debug("setting usb psy present = %d\n", chip->usb_present);
+		pr_smb(PR_STATUS, "setting usb psy present = %d\n",
+				chip->usb_present);
 		power_supply_set_present(chip->usb_psy, chip->usb_present);
 		schedule_work(&chip->usb_set_online_work);
 	}
@@ -1778,7 +1807,7 @@ static irqreturn_t usbin_uv_handler(int irq, void *_chip)
 	struct smbchg_chip *chip = _chip;
 	bool usb_present = is_usb_present(chip);
 
-	pr_debug("chip->usb_present = %d usb_present = %d\n",
+	pr_smb(PR_STATUS, "chip->usb_present = %d usb_present = %d\n",
 			chip->usb_present, usb_present);
 	if (chip->usb_present && !usb_present) {
 		/* USB removed */
@@ -1799,7 +1828,7 @@ static irqreturn_t src_detect_handler(int irq, void *_chip)
 	struct smbchg_chip *chip = _chip;
 	bool usb_present = is_usb_present(chip);
 
-	pr_debug("chip->usb_present = %d usb_present = %d\n",
+	pr_smb(PR_STATUS, "chip->usb_present = %d usb_present = %d\n",
 			chip->usb_present, usb_present);
 
 	if (!chip->usb_present && usb_present) {
@@ -1819,7 +1848,7 @@ static irqreturn_t otg_oc_handler(int irq, void *_chip)
 {
 	struct smbchg_chip *chip = _chip;
 
-	pr_debug("triggered\n");
+	pr_smb(PR_INTERRUPT, "triggered\n");
 	/*
 	 * Due to a HW bug in the PMI8994 charger, the current inrush that
 	 * occurs when connecting certain OTG devices can cause the OTG
@@ -1830,7 +1859,8 @@ static irqreturn_t otg_oc_handler(int irq, void *_chip)
 	 */
 	if (chip->otg_retries < NUM_OTG_RETRIES) {
 		chip->otg_retries += 1;
-		pr_debug("Retrying OTG enable. Try #%d\n", chip->otg_retries);
+		pr_smb(PR_STATUS, "Retrying OTG enable. Try #%d\n",
+							chip->otg_retries);
 		smbchg_masked_write(chip, chip->bat_if_base + CMD_CHG_REG,
 							OTG_EN, 0);
 		msleep(20);
@@ -1846,7 +1876,7 @@ static irqreturn_t otg_oc_handler(int irq, void *_chip)
  */
 static irqreturn_t otg_fail_handler(int irq, void *_chip)
 {
-	pr_debug("triggered\n");
+	pr_smb(PR_INTERRUPT, "triggered\n");
 	return IRQ_HANDLED;
 }
 
@@ -1859,7 +1889,7 @@ static irqreturn_t aicl_done_handler(int irq, void *_chip)
 	struct smbchg_chip *chip = _chip;
 	bool usb_present = is_usb_present(chip);
 
-	pr_debug("aicl_done triggered\n");
+	pr_smb(PR_INTERRUPT, "aicl_done triggered\n");
 	if (chip->parallel.avail && usb_present)
 		smbchg_parallel_usb_determine_current(chip);
 	return IRQ_HANDLED;
@@ -1874,7 +1904,7 @@ static irqreturn_t usbid_change_handler(int irq, void *_chip)
 	struct smbchg_chip *chip = _chip;
 	bool otg_present;
 
-	pr_debug("triggered\n");
+	pr_smb(PR_INTERRUPT, "triggered\n");
 
 	/*
 	 * After the falling edge of the usbid change interrupt occurs,
@@ -1889,7 +1919,7 @@ static irqreturn_t usbid_change_handler(int irq, void *_chip)
 	if (chip->usb_psy)
 		power_supply_set_usb_otg(chip->usb_psy, otg_present ? 1 : 0);
 	if (otg_present)
-		pr_debug("OTG detected\n");
+		pr_smb(PR_STATUS, "OTG detected\n");
 
 	return IRQ_HANDLED;
 }
@@ -1906,7 +1936,7 @@ static irqreturn_t chg_inhibit_handler(int irq, void *_chip)
 
 	smbchg_read(chip, &reg, chip->chgr_base + RT_STS, 1);
 	chip->chg_done_batt_full = !!(reg & CHG_INHIBIT_BIT);
-	pr_debug("triggered: 0x%02x\n", reg);
+	pr_smb(PR_INTERRUPT, "triggered: 0x%02x\n", reg);
 	if (chip->psy_registered)
 		power_supply_changed(&chip->batt_psy);
 	return IRQ_HANDLED;
@@ -2022,14 +2052,16 @@ static int smbchg_hw_init(struct smbchg_chip *chip)
 	rc = smbchg_sec_masked_write(chip, chip->usb_chgpth_base + TR_RID_REG,
 			FG_INPUT_FET_DELAY_BIT, FG_INPUT_FET_DELAY_BIT);
 	if (rc < 0) {
-		pr_err("Couldn't disable fg input fet delay rc=%d\n", rc);
+		dev_err(chip->dev, "Couldn't disable fg input fet delay rc=%d\n",
+				rc);
 		return rc;
 	}
 
 	rc = smbchg_sec_masked_write(chip, chip->misc_base + TRIM_OPTIONS_7_0,
 			INPUT_MISSING_POLLER_EN_BIT, 0);
 	if (rc < 0) {
-		pr_err("Couldn't disable input missing poller rc=%d\n", rc);
+		dev_err(chip->dev, "Couldn't disable input missing poller rc=%d\n",
+				rc);
 		return rc;
 	}
 
@@ -2092,7 +2124,7 @@ static int smbchg_hw_init(struct smbchg_chip *chip)
 				"Couldn't set float voltage rc = %d\n", rc);
 			return rc;
 		}
-		pr_debug("set vfloat to %d\n", chip->vfloat_mv);
+		pr_smb(PR_STATUS, "set vfloat to %d\n", chip->vfloat_mv);
 	}
 
 	/* set iterm */
@@ -2126,8 +2158,8 @@ static int smbchg_hw_init(struct smbchg_chip *chip)
 					"Couldn't set iterm rc = %d\n", rc);
 				return rc;
 			}
-			pr_debug("set tcc (%d) to 0x%02x\n", chip->iterm_ma,
-					reg);
+			pr_smb(PR_STATUS, "set tcc (%d) to 0x%02x\n",
+					chip->iterm_ma, reg);
 		}
 	}
 
@@ -2301,7 +2333,7 @@ do {									\
 	if ((retval == -EINVAL) && optional)				\
 		retval = 0;						\
 	else if (retval)						\
-		pr_err("Error reading " #dt_property			\
+		dev_err(chip->dev, "Error reading " #dt_property	\
 				" property rc = %d\n", rc);		\
 } while (0)
 
@@ -2361,7 +2393,8 @@ static int smb_parse_dt(struct smbchg_chip *chip)
 	} else {
 		chip->bmd_pin_src = get_bpd(bpd);
 		if (chip->bmd_pin_src < 0) {
-			pr_err("failed to determine bpd schema %d\n", rc);
+			dev_err(chip->dev,
+				"failed to determine bpd schema %d\n", rc);
 			return rc;
 		}
 	}
@@ -2409,7 +2442,7 @@ static int smb_parse_dt(struct smbchg_chip *chip)
 			GFP_KERNEL);
 
 		if (chip->thermal_mitigation == NULL) {
-			pr_err("thermal mitigation kzalloc() failed.\n");
+			dev_err(chip->dev, "thermal mitigation kzalloc() failed.\n");
 			return -ENOMEM;
 		}
 
@@ -2418,7 +2451,8 @@ static int smb_parse_dt(struct smbchg_chip *chip)
 				"qcom,thermal-mitigation",
 				chip->thermal_mitigation, chip->thermal_levels);
 		if (rc) {
-			pr_err("Couldn't read threm limits rc = %d\n", rc);
+			dev_err(chip->dev,
+				"Couldn't read threm limits rc = %d\n", rc);
 			return rc;
 		}
 	}
@@ -2645,7 +2679,7 @@ static inline void dump_reg(struct smbchg_chip *chip, u16 addr,
 	u8 reg;
 
 	smbchg_read(chip, &reg, addr, 1);
-	pr_debug("%s - %04X = %02X\n", name, addr, reg);
+	pr_smb(PR_DUMP, "%s - %04X = %02X\n", name, addr, reg);
 }
 
 /* dumps useful registers for debug */
@@ -2688,7 +2722,7 @@ static int smbchg_probe(struct spmi_device *spmi)
 
 	usb_psy = power_supply_get_by_name("usb");
 	if (!usb_psy) {
-		dev_dbg(&spmi->dev, "USB supply not found, deferring probe\n");
+		pr_smb(PR_STATUS, "USB supply not found, deferring probe\n");
 		return -EPROBE_DEFER;
 	}
 
