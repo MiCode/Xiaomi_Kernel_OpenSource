@@ -151,11 +151,7 @@ typedef BWL_PRE_PACKED_STRUCT struct bcm_event {
 #define WLC_E_IF		54	/* I/F change (for dongle host notification) */
 #define WLC_E_P2P_DISC_LISTEN_COMPLETE	55	/* listen state expires */
 #define WLC_E_RSSI		56	/* indicate RSSI change based on configured levels */
-/* PFN best network batching event, conflict/share with WLC_E_PFN_SCAN_COMPLETE */
-#define WLC_E_PFN_BEST_BATCHING     57
-#define WLC_E_PFN_SCAN_COMPLETE	57	/* PFN completed scan of network list */
-/* PFN best network batching event, conflict/share with WLC_E_PFN_SCAN_COMPLETE */
-#define WLC_E_PFN_BEST_BATCHING	57
+#define WLC_E_PFN_BEST_BATCHING	57 /* PFN best network batching event */
 #define WLC_E_EXTLOG_MSG	58
 #define WLC_E_ACTION_FRAME      59	/* Action frame Rx */
 #define WLC_E_ACTION_FRAME_COMPLETE	60	/* Action frame Tx complete */
@@ -235,10 +231,13 @@ typedef BWL_PRE_PACKED_STRUCT struct bcm_event {
 #define WLC_E_BSSID		125	/* to report change in BSSID while roaming */
 #define WLC_E_TX_STAT_ERROR		126	/* tx error indication */
 #define WLC_E_BCMC_CREDIT_SUPPORT	127	/* credit check for BCMC supported */
-#define WLC_E_LAST			128	/* highest val + 1 for range checking */
+#define WLC_E_PFN_GSCAN_FULL_RESULT   134 /* Full probe/beacon (IEs etc) results */
+#define WLC_E_PFN_SWC 135 /* Significant change in rssi of bssids being tracked */
+#define WLC_E_PFN_SCAN_COMPLETE	138	/* PFN completed scan of network list */
+#define WLC_E_LAST			139	/* highest val + 1 for range checking */
 
-#if (WLC_E_LAST > 128)
-#error "WLC_E_LAST: Invalid value for last event; must be <= 128."
+#if (WLC_E_LAST > 139)
+#error "WLC_E_LAST: Invalid value for last event; must be <= 139."
 #endif /* WLC_E_LAST */
 
 

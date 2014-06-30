@@ -145,6 +145,10 @@ const bcmevent_name_t bcmevent_names[] = {
 	BCMEVENT_NAME(WLC_E_BCMC_CREDIT_SUPPORT),
 #endif
 	BCMEVENT_NAME(WLC_E_TXFAIL_THRESH),
+#ifdef GSCAN_SUPPORT
+	{ WLC_E_PFN_GSCAN_FULL_RESULT, "PFN_GSCAN_FULL_RESULT"},
+	{ WLC_E_PFN_SWC, "PFN_SIGNIFICANT_WIFI_CHANGE"}
+#endif /* GSCAN_SUPPORT */
 };
 
 const int bcmevent_names_size = ARRAYSIZE(bcmevent_names);
