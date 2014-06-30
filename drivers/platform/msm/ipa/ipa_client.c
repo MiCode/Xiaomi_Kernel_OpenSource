@@ -446,8 +446,9 @@ static void ipa_wdi_evt_handler(enum ipa_irq_type interrupt,
 	union IpaHwErrorEventData_t evt;
 	union IpaHwWdiErrorEventData_t wdi_evt;
 
-	WARN_ON(interrupt_data != ipa_ctx);
+	WARN_ON(private_data != ipa_ctx);
 
+	ipa_inc_client_enable_clks();
 	IPAERR("WDI evt opcode=%u\n",
 			ipa_ctx->wdi.ipa_sram_mmio->common.eventOp);
 
@@ -470,6 +471,7 @@ static void ipa_wdi_evt_handler(enum ipa_irq_type interrupt,
 		IPAERR("unsupported WDI evt opcode=%u\n",
 				ipa_ctx->wdi.ipa_sram_mmio->common.eventOp);
 	}
+	ipa_dec_client_disable_clks();
 }
 
 static void ipa_wdi_rsp_handler(enum ipa_irq_type interrupt,
@@ -479,6 +481,7 @@ static void ipa_wdi_rsp_handler(enum ipa_irq_type interrupt,
 	union IpaHwCpuCmdCompletedResponseData_t wdi_rsp;
 	WARN_ON(private_data != ipa_ctx);
 
+	ipa_inc_client_enable_clks();
 	IPADBG("WDI rsp opcode=%u\n",
 			ipa_ctx->wdi.ipa_sram_mmio->common.responseOp);
 
@@ -505,6 +508,7 @@ static void ipa_wdi_rsp_handler(enum ipa_irq_type interrupt,
 		IPAERR("Unsupported WDI rsp opcode = %u\n",
 				ipa_ctx->wdi.ipa_sram_mmio->common.responseOp);
 	}
+	ipa_dec_client_disable_clks();
 }
 
 int ipa_wdi_init(void)
@@ -535,7 +539,7 @@ int ipa_wdi_init(void)
 	}
 
 	result = ipa_add_interrupt_handler(IPA_UC_IRQ_0,
-			ipa_wdi_evt_handler, false,
+			ipa_wdi_evt_handler, true,
 			ipa_ctx);
 	if (result) {
 		IPAERR("fail to register for UC_IRQ0 evt interrupt\n");
@@ -544,7 +548,7 @@ int ipa_wdi_init(void)
 	}
 
 	result = ipa_add_interrupt_handler(IPA_UC_IRQ_1,
-			ipa_wdi_rsp_handler, false,
+			ipa_wdi_rsp_handler, true,
 			ipa_ctx);
 	if (result) {
 		IPAERR("fail to register for UC_IRQ1 rsp interrupt\n");
