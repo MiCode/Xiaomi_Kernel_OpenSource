@@ -584,10 +584,8 @@ static int msm_tlmm_v3_irq_set_type(struct irq_data *d, unsigned int flow_type)
 	mb();
 	spin_unlock_irqrestore(&ic->irq_lock, irq_flags);
 
-	if ((flow_type & IRQ_TYPE_EDGE_BOTH) != IRQ_TYPE_EDGE_BOTH) {
-		if (ic->irq_chip_extn->irq_set_type)
-			ic->irq_chip_extn->irq_set_type(d, flow_type);
-	}
+	if (ic->irq_chip_extn->irq_set_type)
+		ic->irq_chip_extn->irq_set_type(d, flow_type);
 
 	return 0;
 }

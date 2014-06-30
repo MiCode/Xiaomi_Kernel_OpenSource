@@ -397,7 +397,7 @@ int send_asm_custom_topology(struct audio_client *ac)
 	if (cal_block.cal_size == 0) {
 		pr_debug("%s: no cal to send addr= 0x%pa\n",
 				__func__, &cal_block.cal_paddr);
-		return -EINVAL;
+		return 0;
 	}
 
 	common_client.mmap_apr = q6asm_mmap_apr_reg();
@@ -1312,6 +1312,10 @@ static int32_t q6asm_callback(struct apr_client_data *data, void *priv)
 		if (ac->cb)
 			ac->cb(data->opcode, data->token,
 				data->payload, ac->priv);
+		atomic_set(&ac->time_flag, 0);
+		atomic_set(&ac->cmd_state, 0);
+		wake_up(&ac->time_wait);
+		wake_up(&ac->cmd_wait);
 		ac->apr = NULL;
 		return 0;
 	}
