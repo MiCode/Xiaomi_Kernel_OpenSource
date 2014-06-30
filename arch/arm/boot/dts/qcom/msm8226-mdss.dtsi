@@ -168,6 +168,15 @@
 				qcom,supply-disable-load = <100>;
 				qcom,supply-post-on-sleep = <20>;
 			};
+
+			qcom,ctrl-supply-entry@1 {
+				reg = <1>;
+				qcom,supply-name = "vddio";
+				qcom,supply-min-voltage = <1800000>;
+				qcom,supply-max-voltage = <1800000>;
+				qcom,supply-enable-load = <100000>;
+				qcom,supply-disable-load = <100>;
+			};
 		};
 
 		qcom,panel-supply-entries {
