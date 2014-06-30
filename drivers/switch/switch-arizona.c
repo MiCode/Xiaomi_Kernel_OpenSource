@@ -732,7 +732,7 @@ int arizona_hpdet_start(struct arizona_extcon_info *info)
 	}
 
 	/* Make sure we keep the device enabled during the measurement */
-	pm_runtime_get(info->dev);
+	pm_runtime_get_sync(info->dev);
 
 	arizona_extcon_do_magic(info, 0x4000);
 
@@ -799,6 +799,7 @@ void arizona_hpdet_stop(struct arizona_extcon_info *info)
 
 	arizona_extcon_do_magic(info, 0);
 
+	pm_runtime_mark_last_busy(info->dev);
 	pm_runtime_put_autosuspend(info->dev);
 }
 EXPORT_SYMBOL_GPL(arizona_hpdet_stop);
@@ -871,7 +872,7 @@ int arizona_micd_start(struct arizona_extcon_info *info)
 	int ret;
 
 	/* Microphone detection can't use idle mode */
-	pm_runtime_get(info->dev);
+	pm_runtime_get_sync(info->dev);
 
 	ret = regulator_enable(info->micvdd);
 	if (ret != 0) {
