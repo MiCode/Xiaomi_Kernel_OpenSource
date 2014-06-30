@@ -557,7 +557,7 @@ void arch_irq_work_raise(void)
 
 static DEFINE_RAW_SPINLOCK(stop_lock);
 
-static struct pt_regs __percpu regs_before_stop;
+DEFINE_PER_CPU(struct pt_regs, regs_before_stop);
 
 /*
  * ipi_cpu_stop - handle IPI from smp_send_stop()
