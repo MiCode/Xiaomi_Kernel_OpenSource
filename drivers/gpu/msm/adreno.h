@@ -770,14 +770,14 @@ int adreno_perfcounter_put(struct adreno_device *adreno_dev,
 
 int adreno_a3xx_pwron_fixup_init(struct adreno_device *adreno_dev);
 
-int adreno_coresight_init(struct kgsl_device *device);
+int adreno_coresight_init(struct adreno_device *adreno_dev);
 
 void adreno_coresight_start(struct adreno_device *adreno_dev);
 void adreno_coresight_stop(struct adreno_device *adreno_dev);
 
-void adreno_coresight_remove(struct kgsl_device *device);
+void adreno_coresight_remove(struct adreno_device *adreno_dev);
 
-bool adreno_hw_isidle(struct kgsl_device *device);
+bool adreno_hw_isidle(struct adreno_device *adreno_dev);
 
 int adreno_rb_readtimestamp(struct kgsl_device *device,
 	void *priv, enum kgsl_timestamp_type type,
@@ -904,14 +904,13 @@ static inline int adreno_add_bank_change_cmds(unsigned int *cmds,
 
 /*
  * adreno_read_cmds - Add pm4 packets to perform read
- * @device - Pointer to device structure
  * @cmds - Pointer to memory where read commands need to be added
  * @addr - gpu address of the read
  * @val - The GPU will wait until the data at address addr becomes
+ * @nop_gpuaddr - NOP GPU address
  * equal to value
  */
-static inline int adreno_add_read_cmds(struct kgsl_device *device,
-				unsigned int *cmds, unsigned int addr,
+static inline int adreno_add_read_cmds(unsigned int *cmds, unsigned int addr,
 				unsigned int val, unsigned int nop_gpuaddr)
 {
 	unsigned int *start = cmds;
@@ -1029,10 +1028,9 @@ static inline void adreno_readreg(struct adreno_device *adreno_dev,
 				enum adreno_regs offset_name, unsigned int *val)
 {
 	struct adreno_gpudev *gpudev = ADRENO_GPU_DEVICE(adreno_dev);
-	struct kgsl_device *device = &adreno_dev->dev;
 	if (adreno_checkreg_off(adreno_dev, offset_name))
-		kgsl_regread(device, gpudev->reg_offsets->offsets[offset_name],
-			val);
+		kgsl_regread(&adreno_dev->dev,
+				gpudev->reg_offsets->offsets[offset_name], val);
 }
 
 /*
@@ -1046,10 +1044,9 @@ static inline void adreno_writereg(struct adreno_device *adreno_dev,
 				enum adreno_regs offset_name, unsigned int val)
 {
 	struct adreno_gpudev *gpudev = ADRENO_GPU_DEVICE(adreno_dev);
-	struct kgsl_device *device = &adreno_dev->dev;
 	if (adreno_checkreg_off(adreno_dev, offset_name))
-		kgsl_regwrite(device, gpudev->reg_offsets->offsets[offset_name],
-			val);
+		kgsl_regwrite(&adreno_dev->dev,
+				gpudev->reg_offsets->offsets[offset_name], val);
 }
 
 /*
@@ -1151,18 +1148,17 @@ static inline void adreno_put_gpu_halt(struct adreno_device *adreno_dev)
 
 /*
  * adreno_vbif_start() - Program VBIF registers, called in device start
- * @device: Pointer to device whose vbif data is to be programmed
+ * @adreno_dev: Pointer to device whose vbif data is to be programmed
  * @vbif_platforms: list register value pair of vbif for a family
  * of adreno cores
  * @num_platforms: Number of platforms contained in vbif_platforms
  */
-static inline void adreno_vbif_start(struct kgsl_device *device,
+static inline void adreno_vbif_start(struct adreno_device *adreno_dev,
 			const struct adreno_vbif_platform *vbif_platforms,
 			int num_platforms)
 {
 	int i;
 	const struct adreno_vbif_data *vbif = NULL;
-	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
 
 	for (i = 0; i < num_platforms; i++) {
 		if (vbif_platforms[i].devfunc(adreno_dev)) {
@@ -1172,7 +1168,7 @@ static inline void adreno_vbif_start(struct kgsl_device *device,
 	}
 	BUG_ON(vbif == NULL);
 	while (vbif->reg != 0) {
-		kgsl_regwrite(device, vbif->reg, vbif->val);
+		kgsl_regwrite(&adreno_dev->dev, vbif->reg, vbif->val);
 		vbif++;
 	}
 }
@@ -1180,7 +1176,7 @@ static inline void adreno_vbif_start(struct kgsl_device *device,
 /**
  * adreno_set_protected_registers() - Protect the specified range of registers
  * from being accessed by the GPU
- * @device: pointer to the KGSL device
+ * @adreno_dev: pointer to the Adreno device
  * @index: Pointer to the index of the protect mode register to write to
  * @reg: Starting dword register to write
  * @mask_len: Size of the mask to protect (# of registers = 2 ** mask_len)
@@ -1192,11 +1188,11 @@ static inline void adreno_vbif_start(struct kgsl_device *device,
  * pointer for each range and the registers will be magically programmed in
  * incremental fashion
  */
-static inline void adreno_set_protected_registers(struct kgsl_device *device,
-	unsigned int *index, unsigned int reg, int mask_len)
+static inline void adreno_set_protected_registers(
+		struct adreno_device *adreno_dev, unsigned int *index,
+		unsigned int reg, int mask_len)
 {
 	unsigned int val;
-	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
 
 	/* A430 has 24 registers (yay!).  Everything else has 16 (boo!) */
 
@@ -1213,18 +1209,20 @@ static inline void adreno_set_protected_registers(struct kgsl_device *device,
 	 */
 
 	if (adreno_is_a4xx(adreno_dev))
-		kgsl_regwrite(device, A4XX_CP_PROTECT_REG_0 + *index, val);
+		kgsl_regwrite(&adreno_dev->dev,
+				A4XX_CP_PROTECT_REG_0 + *index, val);
 	else if (adreno_is_a3xx(adreno_dev))
-		kgsl_regwrite(device, A3XX_CP_PROTECT_REG_0 + *index, val);
+		kgsl_regwrite(&adreno_dev->dev,
+				A3XX_CP_PROTECT_REG_0 + *index, val);
 	*index = *index + 1;
 }
 
 #ifdef CONFIG_DEBUG_FS
-void adreno_debugfs_init(struct kgsl_device *device);
+void adreno_debugfs_init(struct adreno_device *adreno_dev);
 void adreno_context_debugfs_init(struct adreno_device *,
 				struct adreno_context *);
 #else
-static inline void adreno_debugfs_init(struct kgsl_device *device) { }
+static inline void adreno_debugfs_init(struct adreno_device *adreno_dev) { }
 static inline void adreno_context_debugfs_init(struct adreno_device *device,
 						struct adreno_context *context)
 						{ }

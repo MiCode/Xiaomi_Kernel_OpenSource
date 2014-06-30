@@ -813,7 +813,7 @@ adreno_ringbuffer_addcmds(struct adreno_ringbuffer *rb,
 
 	/* Add any IB required for profiling if it is enabled */
 	if (profile_ready)
-		adreno_profile_preib_processing(rb->device, drawctxt,
+		adreno_profile_preib_processing(adreno_dev, drawctxt,
 				&flags, &ringcmds);
 
 	/* start-of-pipeline timestamp */
@@ -854,7 +854,7 @@ adreno_ringbuffer_addcmds(struct adreno_ringbuffer *rb,
 	/* Add any postIB required for profiling if it is enabled and has
 	   assigned counters */
 	if (profile_ready)
-		adreno_profile_postib_processing(rb->device, &flags, &ringcmds);
+		adreno_profile_postib_processing(adreno_dev, &flags, &ringcmds);
 
 	/*
 	 * end-of-pipeline timestamp.  If per context timestamps is not
@@ -1226,7 +1226,7 @@ int adreno_ringbuffer_submitcmd(struct adreno_device *adreno_dev,
 	rb = adreno_ctx_get_rb(adreno_dev, drawctxt);
 
 	/* process any profiling results that are available into the log_buf */
-	adreno_profile_process_results(device);
+	adreno_profile_process_results(adreno_dev);
 
 	/*
 	 * If SKIP CMD flag is set for current context

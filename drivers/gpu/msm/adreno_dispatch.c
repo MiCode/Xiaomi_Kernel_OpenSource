@@ -98,7 +98,7 @@ static inline bool _isidle(struct kgsl_device *device)
 		goto ret;
 
 	/* If GPU HW status is not idle then return false */
-	if (!adreno_hw_isidle(device))
+	if (!adreno_hw_isidle(adreno_dev))
 		return false;
 
 	/*

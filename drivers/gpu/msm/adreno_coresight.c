@@ -278,8 +278,9 @@ static const struct coresight_ops adreno_coresight_ops = {
 	.source_ops = &adreno_coresight_source_ops,
 };
 
-void adreno_coresight_remove(struct kgsl_device *device)
+void adreno_coresight_remove(struct adreno_device *adreno_dev)
 {
+	struct kgsl_device *device = &adreno_dev->dev;
 	struct kgsl_device_platform_data *pdata =
 		dev_get_platdata(&device->pdev->dev);
 
@@ -287,11 +288,11 @@ void adreno_coresight_remove(struct kgsl_device *device)
 	pdata->csdev = NULL;
 }
 
-int adreno_coresight_init(struct kgsl_device *device)
+int adreno_coresight_init(struct adreno_device *adreno_dev)
 {
 	int ret = 0;
-	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
 	struct adreno_gpudev *gpudev = ADRENO_GPU_DEVICE(adreno_dev);
+	struct kgsl_device *device = &adreno_dev->dev;
 	struct kgsl_device_platform_data *pdata =
 		dev_get_platdata(&device->pdev->dev);
 	struct coresight_desc desc;

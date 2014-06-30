@@ -825,7 +825,7 @@ static unsigned int _adreno_iommu_setstate_v0(struct kgsl_device *device,
 			 * Read back the ttbr0 register as a barrier to ensure
 			 * above writes have completed
 			 */
-			cmds += adreno_add_read_cmds(device, cmds,
+			cmds += adreno_add_read_cmds(cmds,
 				kgsl_mmu_get_reg_gpuaddr(&device->mmu, i,
 				KGSL_IOMMU_CONTEXT_USER, KGSL_IOMMU_CTX_TTBR0),
 				reg_pt_val,
@@ -854,7 +854,7 @@ static unsigned int _adreno_iommu_setstate_v0(struct kgsl_device *device,
 			device->mmu.setstate_memory.gpuaddr +
 			KGSL_IOMMU_SETSTATE_NOP_OFFSET);
 
-			cmds += adreno_add_read_cmds(device, cmds,
+			cmds += adreno_add_read_cmds(cmds,
 				kgsl_mmu_get_reg_gpuaddr(&device->mmu, i,
 					KGSL_IOMMU_CONTEXT_USER,
 					KGSL_IOMMU_CTX_TTBR0),
@@ -1752,8 +1752,8 @@ int adreno_probe(struct platform_device *pdev)
 	if (status)
 		goto out;
 
-	adreno_debugfs_init(device);
-	adreno_profile_init(device);
+	adreno_debugfs_init(adreno_dev);
+	adreno_profile_init(adreno_dev);
 
 	adreno_init_sysfs(device);
 
@@ -1794,8 +1794,8 @@ static int adreno_remove(struct platform_device *pdev)
 #endif
 	adreno_uninit_sysfs(device);
 
-	adreno_coresight_remove(device);
-	adreno_profile_close(device);
+	adreno_coresight_remove(adreno_dev);
+	adreno_profile_close(adreno_dev);
 
 	kgsl_pwrscale_close(device);
 
@@ -1833,7 +1833,7 @@ static int adreno_init(struct kgsl_device *device)
 	adreno_wq = alloc_workqueue("adreno", 0, 1);
 
 	/* Initialize coresight for the target */
-	adreno_coresight_init(device);
+	adreno_coresight_init(adreno_dev);
 
 	adreno_ringbuffer_read_pm4_ucode(device);
 	adreno_ringbuffer_read_pfp_ucode(device);
@@ -2848,15 +2848,14 @@ static int adreno_setproperty(struct kgsl_device_private *dev_priv,
 
 /**
  * adreno_hw_isidle() - Check if the GPU core is idle
- * @device: Pointer to the adreno device structure for the GPU
+ * @adreno_dev: Pointer to the Adreno device structure for the GPU
  *
  * Return true if the RBBM status register for the GPU type indicates that the
  * hardware is idle
  */
-bool adreno_hw_isidle(struct kgsl_device *device)
+bool adreno_hw_isidle(struct adreno_device *adreno_dev)
 {
 	unsigned int reg_rbbm_status;
-	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
 	struct adreno_gpudev *gpudev = ADRENO_GPU_DEVICE(adreno_dev);
 
 	adreno_readreg(adreno_dev, ADRENO_REG_RBBM_STATUS,
@@ -2982,7 +2981,7 @@ bool adreno_isidle(struct kgsl_device *device)
 	}
 
 	if (i == adreno_dev->num_ringbuffers)
-		return adreno_hw_isidle(device);
+		return adreno_hw_isidle(adreno_dev);
 
 	return false;
 }
@@ -3074,7 +3073,7 @@ static int adreno_suspend_context(struct kgsl_device *device)
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
 
 	/* process any profiling results that are available */
-	adreno_profile_process_results(device);
+	adreno_profile_process_results(adreno_dev);
 
 	/* switch to NULL ctxt */
 	if (adreno_dev->drawctxt_active != NULL) {

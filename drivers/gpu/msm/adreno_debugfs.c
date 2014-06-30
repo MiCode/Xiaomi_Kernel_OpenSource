@@ -261,9 +261,9 @@ adreno_context_debugfs_init(struct adreno_device *adreno_dev,
 				(void *)(unsigned long)ctx->base.id, &ctx_fops);
 }
 
-void adreno_debugfs_init(struct kgsl_device *device)
+void adreno_debugfs_init(struct adreno_device *adreno_dev)
 {
-	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
+	struct kgsl_device *device = &adreno_dev->dev;
 
 	if (!device->d_debugfs || IS_ERR(device->d_debugfs))
 		return;
