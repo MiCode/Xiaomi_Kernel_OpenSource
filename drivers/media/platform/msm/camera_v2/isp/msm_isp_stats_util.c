@@ -12,6 +12,7 @@
 #include <linux/io.h>
 #include <linux/atomic.h>
 #include <media/v4l2-subdev.h>
+#include <media/msmb_isp.h>
 #include "msm_isp_util.h"
 #include "msm_isp_stats_util.h"
 
@@ -24,24 +25,23 @@ static int msm_isp_stats_cfg_ping_pong_address(struct vfe_device *vfe_dev,
 	uint32_t pingpong_bit = 0;
 	uint32_t bufq_handle = stream_info->bufq_handle;
 	uint32_t stats_pingpong_offset;
+	uint32_t stats_idx = STATS_IDX(stream_info->stream_handle);
 
-	if (STATS_IDX(stream_info->stream_handle) >=
-			vfe_dev->hw_info->stats_hw_info->num_stats_type) {
-		pr_err("%s Invalid stats index %d", __func__,
-				STATS_IDX(stream_info->stream_handle));
+	if (stats_idx >= vfe_dev->hw_info->stats_hw_info->num_stats_type ||
+		stats_idx > MSM_ISP_STATS_MAX) {
+		pr_err("%s Invalid stats index %d", __func__, stats_idx);
 		return -EINVAL;
 	}
 
 	stats_pingpong_offset =
 		vfe_dev->hw_info->stats_hw_info->stats_ping_pong_offset[
-		STATS_IDX(stream_info->stream_handle)];
+		stats_idx];
 
 	pingpong_bit = (~(pingpong_status >> stats_pingpong_offset) & 0x1);
 	rc = vfe_dev->buf_mgr->ops->get_buf(vfe_dev->buf_mgr,
 			vfe_dev->pdev->id, bufq_handle, &buf);
 	if (rc < 0) {
-		vfe_dev->error_info.stats_framedrop_count[
-			STATS_IDX(stream_info->stream_handle)]++;
+		vfe_dev->error_info.stats_framedrop_count[stats_idx]++;
 		return rc;
 	}
 
