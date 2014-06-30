@@ -115,7 +115,6 @@ void wcd9xxx_spmi_enable_irq(int irq)
 		~(BYTE_BIT_MASK(irq));
 
 	enable_irq(map.linuxirq[irq]);
-	enable_irq_wake(map.linuxirq[irq]);
 }
 
 void wcd9xxx_spmi_disable_irq(int irq)
@@ -162,6 +161,7 @@ int wcd9xxx_spmi_request_irq(int irq, irq_handler_t handler,
 			"irq %d linuxIRQ: %d\n", irq, map.linuxirq[irq]);
 	map.mask[BIT_BYTE(irq)] &= ~BYTE_BIT_MASK(irq);
 	map.handler[irq] = handler;
+	enable_irq_wake(map.linuxirq[irq]);
 	return 0;
 }
 
