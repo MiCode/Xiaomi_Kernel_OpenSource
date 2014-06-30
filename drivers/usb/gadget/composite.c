@@ -729,6 +729,8 @@ static int set_config(struct usb_composite_dev *cdev,
 		goto done;
 
 	cdev->config = c;
+	c->num_ineps_used = 0;
+	c->num_outeps_used = 0;
 
 	/* Initialize all interfaces by setting them to altsetting zero. */
 	for (tmp = 0; tmp < MAX_CONFIG_INTERFACES; tmp++) {
@@ -766,6 +768,10 @@ static int set_config(struct usb_composite_dev *cdev,
 			addr = ((ep->bEndpointAddress & 0x80) >> 3)
 			     |  (ep->bEndpointAddress & 0x0f);
 			set_bit(addr, f->endpoints);
+			if (usb_endpoint_dir_in(ep))
+				c->num_ineps_used++;
+			else
+				c->num_outeps_used++;
 		}
 
 		result = f->set_alt(f, tmp, 0);

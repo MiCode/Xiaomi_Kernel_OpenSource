@@ -260,6 +260,10 @@ struct usb_configuration {
 	unsigned		highspeed:1;
 	unsigned		fullspeed:1;
 	struct usb_function	*interface[MAX_CONFIG_INTERFACES];
+
+	/* number of in and out eps used in this configuration */
+	int			num_ineps_used;
+	int			num_outeps_used;
 };
 
 int usb_add_config(struct usb_composite_dev *,
