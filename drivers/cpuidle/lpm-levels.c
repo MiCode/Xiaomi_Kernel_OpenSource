@@ -387,11 +387,10 @@ static int cluster_select(struct lpm_cluster *cluster, bool from_idle)
 		return -EINVAL;
 
 	sleep_us = (uint32_t)get_cluster_sleep_time(cluster, NULL, from_idle);
+
 	if (cpumask_and(&mask, cpu_online_mask, &cluster->child_cpus))
 		latency_us = pm_qos_request_for_cpumask(PM_QOS_CPU_DMA_LATENCY,
 							&mask);
-	else
-		BUG_ON(!from_idle);
 
 	for (i = 0; i < cluster->nlevels; i++) {
 		struct lpm_cluster_level *level = &cluster->levels[i];
