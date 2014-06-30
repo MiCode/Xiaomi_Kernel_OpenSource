@@ -88,6 +88,20 @@ static const char * const mad_audio_mux_text[] = {
 	TERT_MI2S_TX_TEXT
 };
 
+struct msm_pcm_route_bdai_pp_params {
+	u16 port_id; /* AFE port ID */
+	unsigned long pp_params_config;
+	bool mute_on;
+	int latency;
+};
+
+static struct msm_pcm_route_bdai_pp_params
+	msm_bedais_pp_params[MSM_BACKEND_DAI_PP_PARAMS_REQ_MAX] = {
+	{HDMI_RX, 0, 0, 0}
+};
+
+static int msm_routing_send_device_pp_params(int port_id,  int copp_idx);
+
 static void msm_pcm_routing_cfg_pp(int port_id, int copp_idx, int topology,
 				   int channels)
 {
@@ -640,6 +654,8 @@ int msm_pcm_routing_reg_phy_compr_stream(int fe_id, bool perf_mode,
 					num_copps++;
 				}
 			}
+			msm_routing_send_device_pp_params(msm_bedais[i].port_id,
+							  copp_idx);
 		}
 	}
 	if (num_copps) {
@@ -5452,6 +5468,172 @@ done:
 	return 0;
 }
 
+static int msm_routing_send_device_pp_params(int port_id, int copp_idx)
+{
+	int index, topo_id, be_idx;
+	unsigned long pp_config = 0;
+	bool mute_on;
+	int latency;
+
+	pr_debug("%s: port_id %d, copp_idx %d\n", __func__, port_id, copp_idx);
+
+	if (port_id != HDMI_RX) {
+		pr_err("%s: Device pp params on invalid port %d\n",
+			__func__, port_id);
+		return  -EINVAL;
+	}
+
+	for (be_idx = 0; be_idx < MSM_BACKEND_DAI_MAX; be_idx++) {
+		if (port_id == msm_bedais[be_idx].port_id)
+			break;
+	}
+
+	if (be_idx >= MSM_BACKEND_DAI_MAX) {
+		pr_debug("%s: Invalid be id %d\n", __func__, be_idx);
+		return  -EINVAL;
+	}
+
+	for (index = 0; index < MSM_BACKEND_DAI_PP_PARAMS_REQ_MAX; index++) {
+		if (msm_bedais_pp_params[index].port_id == port_id)
+			break;
+	}
+	if (index >= MSM_BACKEND_DAI_PP_PARAMS_REQ_MAX) {
+		pr_err("%s: Invalid backend pp params index %d\n",
+			__func__, index);
+		return -EINVAL;
+	}
+
+	topo_id = adm_get_topology_for_port_copp_idx(port_id, copp_idx);
+	if (topo_id != COMPRESSED_PASSTHROUGH_DEFAULT_TOPOLOGY) {
+		pr_err("%s: Invalid passthrough topology 0x%x\n",
+			__func__, topo_id);
+		return -EINVAL;
+	}
+
+	pp_config = msm_bedais_pp_params[index].pp_params_config;
+	if (test_bit(ADM_PP_PARAM_MUTE_BIT, &pp_config)) {
+		pr_debug("%s: ADM_PP_PARAM_MUTE\n", __func__);
+		clear_bit(ADM_PP_PARAM_MUTE_BIT, &pp_config);
+		mute_on = msm_bedais_pp_params[index].mute_on;
+		if ((msm_bedais[be_idx].active) &&
+			(msm_bedais[be_idx].compr_passthr_mode !=
+			 LEGACY_PCM))
+			adm_send_compressed_device_mute(port_id,
+								copp_idx,
+								mute_on);
+	}
+	if (test_bit(ADM_PP_PARAM_LATENCY_BIT, &pp_config)) {
+		pr_debug("%s: ADM_PP_PARAM_LATENCY\n", __func__);
+		clear_bit(ADM_PP_PARAM_LATENCY_BIT,
+			  &pp_config);
+		latency = msm_bedais_pp_params[index].latency;
+		if ((msm_bedais[be_idx].active) &&
+			(msm_bedais[be_idx].compr_passthr_mode !=
+			 LEGACY_PCM))
+			adm_send_compressed_device_latency(port_id,
+							   copp_idx,
+							   latency);
+	}
+	return 0;
+}
+
+static int msm_routing_put_device_pp_params_mixer(struct snd_kcontrol *kcontrol,
+					struct snd_ctl_elem_value *ucontrol)
+{
+	int pp_id = ucontrol->value.integer.value[0];
+	int port_id = 0;
+	int index, be_idx, i, topo_id, idx;
+	bool mute;
+	int latency;
+
+	pr_debug("%s: pp_id: 0x%x\n", __func__, pp_id);
+
+	for (be_idx = 0; be_idx < MSM_BACKEND_DAI_MAX; be_idx++) {
+		port_id = msm_bedais[be_idx].port_id;
+		if (port_id == HDMI_RX)
+			break;
+	}
+
+	if (be_idx >= MSM_BACKEND_DAI_MAX) {
+		pr_debug("%s: Invalid be id %d\n", __func__, be_idx);
+		return  -EINVAL;
+	}
+
+	for (index = 0; index < MSM_BACKEND_DAI_PP_PARAMS_REQ_MAX; index++) {
+		if (msm_bedais_pp_params[index].port_id == port_id)
+			break;
+	}
+	if (index >= MSM_BACKEND_DAI_PP_PARAMS_REQ_MAX) {
+		pr_err("%s: Invalid pp params backend index %d\n",
+			__func__, index);
+		return -EINVAL;
+	}
+
+	for_each_set_bit(i, &msm_bedais[be_idx].fe_sessions,
+				MSM_FRONTEND_DAI_MM_SIZE) {
+		for (idx = 0; idx < MAX_COPPS_PER_PORT; idx++) {
+			unsigned long copp =
+				session_copp_map[i]
+				[SESSION_TYPE_RX][be_idx];
+			if (!test_bit(idx, &copp))
+				continue;
+			topo_id = adm_get_topology_for_port_copp_idx(port_id,
+								     copp);
+			if (topo_id != COMPRESSED_PASSTHROUGH_DEFAULT_TOPOLOGY)
+				continue;
+		pr_debug("%s: port: 0x%x, copp %ld, be active: %d, passt: %d\n",
+			 __func__, port_id, copp, msm_bedais[be_idx].active,
+			 msm_bedais[be_idx].compr_passthr_mode);
+		switch (pp_id) {
+		case ADM_PP_PARAM_MUTE_ID:
+			pr_debug("%s: ADM_PP_PARAM_MUTE\n", __func__);
+			mute = ucontrol->value.integer.value[1] ? true : false;
+			msm_bedais_pp_params[index].mute_on = mute;
+			set_bit(ADM_PP_PARAM_MUTE_BIT,
+				&msm_bedais_pp_params[index].pp_params_config);
+			if ((msm_bedais[be_idx].active) &&
+				(msm_bedais[be_idx].compr_passthr_mode !=
+				LEGACY_PCM))
+				adm_send_compressed_device_mute(port_id,
+					copp, mute);
+			break;
+		case ADM_PP_PARAM_LATENCY_ID:
+			pr_debug("%s: ADM_PP_PARAM_LATENCY\n", __func__);
+			msm_bedais_pp_params[index].latency =
+				ucontrol->value.integer.value[1];
+			set_bit(ADM_PP_PARAM_LATENCY_BIT,
+				&msm_bedais_pp_params[index].pp_params_config);
+			latency = msm_bedais_pp_params[index].latency =
+				ucontrol->value.integer.value[1];
+			if ((msm_bedais[be_idx].active) &&
+				(msm_bedais[be_idx].compr_passthr_mode !=
+				LEGACY_PCM))
+				adm_send_compressed_device_latency(port_id,
+					copp, latency);
+			break;
+		default:
+			pr_info("%s, device pp param %d not supported\n",
+				__func__, pp_id);
+			break;
+		}
+		}
+	}
+	return 0;
+}
+
+static int msm_routing_get_device_pp_params_mixer(struct snd_kcontrol *kcontrol,
+					struct snd_ctl_elem_value *ucontrol)
+{
+	pr_debug("%s:msm_routing_get_device_pp_params_mixer", __func__);
+	return 0;
+}
+
+static const struct snd_kcontrol_new device_pp_params_mixer_controls[] = {
+	SOC_SINGLE_MULTI_EXT("Device PP Params", SND_SOC_NOPM, 0, 0xFFFFFFFF,
+	0, 3, msm_routing_get_device_pp_params_mixer,
+	msm_routing_put_device_pp_params_mixer),
+};
+
 static struct snd_pcm_ops msm_routing_pcm_ops = {
 	.hw_params	= msm_pcm_routing_hw_params,
 	.close          = msm_pcm_routing_close,
@@ -5509,6 +5691,10 @@ static int msm_routing_probe(struct snd_soc_platform *platform)
 	snd_soc_add_platform_controls(platform,
 			use_ds1_or_ds2_controls,
 			ARRAY_SIZE(use_ds1_or_ds2_controls));
+
+	snd_soc_add_platform_controls(platform,
+				device_pp_params_mixer_controls,
+				ARRAY_SIZE(device_pp_params_mixer_controls));
 
 	return 0;
 }
