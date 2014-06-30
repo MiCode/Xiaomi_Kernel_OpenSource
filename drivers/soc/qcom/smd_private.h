@@ -134,7 +134,6 @@ struct smd_channel {
 	unsigned char *send_data;
 	unsigned char *recv_data;
 	unsigned fifo_size;
-	unsigned fifo_mask;
 	struct list_head ch_list;
 
 	unsigned current_packet;
