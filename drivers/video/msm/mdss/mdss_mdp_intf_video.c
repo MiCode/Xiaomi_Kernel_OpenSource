@@ -596,7 +596,7 @@ static int mdss_mdp_video_config_fps(struct mdss_mdp_ctl *ctl,
 				return -EINVAL;
 			}
 			ctl->force_screen_state = MDSS_SCREEN_FORCE_BLANK;
-			mdss_mdp_display_commit(ctl, NULL);
+			mdss_mdp_display_commit(ctl, NULL, NULL);
 			mdss_mdp_display_wait4comp(ctl);
 			mdp_video_write(ctx,
 					MDSS_MDP_REG_INTF_TIMING_ENGINE_EN, 0);
@@ -618,7 +618,7 @@ static int mdss_mdp_video_config_fps(struct mdss_mdp_ctl *ctl,
 			 */
 			mb();
 			ctl->force_screen_state = MDSS_SCREEN_DEFAULT;
-			mdss_mdp_display_commit(ctl, NULL);
+			mdss_mdp_display_commit(ctl, NULL, NULL);
 			mdss_mdp_display_wait4comp(ctl);
 		} else if (pdata->panel_info.dfps_update
 				== DFPS_IMMEDIATE_PORCH_UPDATE_MODE){
