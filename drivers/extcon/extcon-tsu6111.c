@@ -562,6 +562,7 @@ otg_reg_failed:
 extcon_reg_failed:
 	kfree(chip->edev);
 extcon_mem_failed:
+	wake_lock_destroy(&chip->wakelock);
 	kfree(chip);
 	return ret;
 }
@@ -573,6 +574,7 @@ static int tsu6111_remove(struct i2c_client *client)
 	free_irq(client->irq, chip);
 	usb_put_phy(chip->otg);
 	extcon_dev_unregister(chip->edev);
+	wake_lock_destroy(&chip->wakelock);
 	kfree(chip->edev);
 	pm_runtime_get_noresume(&chip->client->dev);
 	kfree(chip);
