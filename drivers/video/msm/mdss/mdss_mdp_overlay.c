@@ -448,7 +448,7 @@ static int __mdp_pipe_tune_perf(struct mdss_mdp_pipe *pipe,
 			!pipe->scale.enable_pxl_ext)
 			pipe->vert_deci++;
 		else
-			return -EPERM;
+			return -E2BIG;
 	}
 
 	return 0;
