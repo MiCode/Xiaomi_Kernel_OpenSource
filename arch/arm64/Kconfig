@@ -182,6 +182,13 @@ config MSM8994_V1_PMUIRQ_WA
 	  percpu PMU interrupt is incorrectly connected to the corresponding
 	  CPUs in the other cluster.
 
+config ARCH_MSM8992
+	bool "Enable Support for Qualcomm MSM8992"
+	depends on ARCH_MSM
+	help
+	  Enable kernel support for the MSM8992 chipset. If you don't
+	  know what this is, you can safely say 'N' here.
+
 config ARCH_XGENE
 	bool "AppliedMicro X-Gene SOC Family"
 	help
