@@ -149,19 +149,24 @@ static char *pid_to_str(int pid)
  * @size: size of the fifo in bytes associated with @half_ch
  * @proc: the processor id that owns the part of the SMD channel associated with
  *		@half_ch
+ * @is_restricted: true if memory access is restricted
  */
 static void print_half_ch_state(struct seq_file *s,
 				void *half_ch,
 				struct smd_half_channel_access *half_ch_funcs,
 				unsigned size,
-				int proc)
+				int proc,
+				bool is_restricted)
 {
-	seq_printf(s, "%-5s|%-7s|0x%05X|0x%05X|0x%05X|%c%c%c%c%c%c%c%c|0x%05X",
-			pid_to_str(proc),
+	seq_printf(s, "%-5s|", pid_to_str(proc));
+
+	if (!is_restricted) {
+		seq_printf(s, "%-7s|0x%05X|0x%05X|0x%05X",
 			chstate(half_ch_funcs->get_state(half_ch)),
 			size,
 			half_ch_funcs->get_tail(half_ch),
-			half_ch_funcs->get_head(half_ch),
+			half_ch_funcs->get_head(half_ch));
+		seq_printf(s, "|%c%c%c%c%c%c%c%c|0x%05X",
 			half_ch_funcs->get_fDSR(half_ch) ? 'D' : 'd',
 			half_ch_funcs->get_fCTS(half_ch) ? 'C' : 'c',
 			half_ch_funcs->get_fCD(half_ch) ? 'C' : 'c',
@@ -172,6 +177,9 @@ static void print_half_ch_state(struct seq_file *s,
 			half_ch_funcs->get_fBLOCKREADINTR(half_ch) ? 'B' : 'b',
 			(half_ch_funcs->get_head(half_ch) -
 				half_ch_funcs->get_tail(half_ch)) & (size - 1));
+	} else {
+		seq_puts(s, " Access Restricted");
+	}
 }
 
 /**
@@ -220,6 +228,7 @@ static void print_smd_ch_table(struct seq_file *s,
 	void *buffer;
 	unsigned buffer_size;
 	int n;
+	bool is_restricted;
 
 /*
  * formatted, human readable channel state output, ie:
@@ -250,6 +259,14 @@ ID|CHANNEL NAME       |T|PROC |STATE  |FIFO SZ|RDPTR  |WRPTR  |FLAGS   |DATAPEN
 		seq_printf(s, "%2u|%-19s|%s|", tbl[n].cid, tbl[n].name,
 			smd_xfer_type_to_str(SMD_XFER_TYPE(tbl[n].type)));
 		ch_type = SMD_CHANNEL_TYPE(tbl[n].type);
+
+
+		if (smd_edge_to_remote_pid(ch_type) == SMD_RPM &&
+		   smd_edge_to_local_pid(ch_type) != SMD_APPS)
+			is_restricted = true;
+		else
+			is_restricted = false;
+
 		if (is_word_access_ch(ch_type))
 			half_ch_size =
 				sizeof(struct smd_half_channel_word_access);
@@ -265,7 +282,8 @@ ID|CHANNEL NAME       |T|PROC |STATE  |FIFO SZ|RDPTR  |WRPTR  |FLAGS   |DATAPEN
 					half_ch,
 					get_half_ch_funcs(ch_type),
 					buffer_size / 2,
-					smd_edge_to_local_pid(ch_type));
+					smd_edge_to_local_pid(ch_type),
+					is_restricted);
 
 		seq_puts(s, "\n");
 		seq_printf(s, "%2s|%-19s|%1s|", "", "", "");
@@ -275,7 +293,8 @@ ID|CHANNEL NAME       |T|PROC |STATE  |FIFO SZ|RDPTR  |WRPTR  |FLAGS   |DATAPEN
 					half_ch + half_ch_size,
 					get_half_ch_funcs(ch_type),
 					buffer_size / 2,
-					smd_edge_to_remote_pid(ch_type));
+					smd_edge_to_remote_pid(ch_type),
+					is_restricted);
 
 		seq_puts(s, "\n");
 		seq_puts(s,
