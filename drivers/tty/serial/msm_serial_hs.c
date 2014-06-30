@@ -3365,6 +3365,7 @@ static void msm_hs_shutdown(struct uart_port *uport)
 	struct circ_buf *tx_buf = &uport->state->xmit;
 	struct msm_hs_tx *tx = &msm_uport->tx;
 	struct sps_pipe *sps_pipe_handle = tx->cons.pipe_handle;
+	unsigned long flags;
 
 	/*
 	 * cancel the hrtimer first so that
@@ -3373,6 +3374,8 @@ static void msm_hs_shutdown(struct uart_port *uport)
 	hrtimer_cancel(&msm_uport->clk_off_timer);
 	flush_work(&msm_uport->clock_off_w);
 
+	/* Stop remote side from sending data */
+	msm_hs_disable_flow_control(uport);
 	if (use_low_power_wakeup(msm_uport))
 		irq_set_irq_wake(msm_uport->wakeup.irq, 0);
 
@@ -3392,20 +3395,33 @@ static void msm_hs_shutdown(struct uart_port *uport)
 	if (!ret)
 		MSM_HS_WARN("Shutdown called when tx buff not empty");
 
+	msm_hs_clock_vote(msm_uport);
 	/* make sure rx tasklet finishes */
 	tasklet_kill(&msm_uport->rx.tlet);
-	wait_event(msm_uport->rx.wait, msm_uport->rx.flush == FLUSH_SHUTDOWN);
+	if (msm_uport->rx.flush == FLUSH_STOP)
+		ret = wait_event_timeout(msm_uport->rx.wait,
+			msm_uport->rx.flush == FLUSH_SHUTDOWN, 500);
+	else if (msm_uport->rx.flush != FLUSH_SHUTDOWN) {
+		spin_lock_irqsave(&uport->lock, flags);
+		msm_hs_stop_rx_locked(uport);
+		spin_unlock_irqrestore(&uport->lock, flags);
+		ret = wait_event_timeout(msm_uport->rx.wait,
+				msm_uport->rx.flush == FLUSH_SHUTDOWN, 500);
+	} else
+		ret = EINPROGRESS;
+
+	if (!ret && msm_uport->rx.flush != FLUSH_SHUTDOWN)
+		MSM_HS_WARN("%s(): rx disconnect not complete", __func__);
+
 	cancel_delayed_work_sync(&msm_uport->rx.flip_insert_work);
 	flush_workqueue(msm_uport->hsuart_wq);
 
-	msm_hs_clock_vote(msm_uport);
 	mutex_lock(&msm_uport->clk_mutex);
 	/* BAM Disconnect for TX */
 	ret = sps_disconnect(sps_pipe_handle);
 	if (ret)
 		MSM_HS_ERR("%s(): sps_disconnect failed\n",
 					__func__);
-	WARN_ON(msm_uport->rx.flush < FLUSH_STOP);
 	/* Disable the transmitter */
 	msm_hs_write(uport, UART_DM_CR, UARTDM_CR_TX_DISABLE_BMSK);
 	/* Disable the receiver */
