@@ -709,8 +709,9 @@ static void cpp_get_clk_freq_tbl(struct clk *clk, struct cpp_hw_info *hw_info)
 static int cpp_init_hardware(struct cpp_device *cpp_dev)
 {
 	int rc = 0;
-	uint32_t msm_micro_iface_idx;
 	uint32_t msm_cpp_core_clk_idx;
+	uint32_t msm_micro_iface_idx;
+	uint32_t vbif_version;
 	rc = msm_isp_init_bandwidth_mgr(ISP_CPP);
 	if (rc < 0) {
 		pr_err("%s: Bandwidth registration Failed!\n", __func__);
@@ -737,47 +738,46 @@ static int cpp_init_hardware(struct cpp_device *cpp_dev)
 		pr_err("Fail to get clock index\n");
 		goto fs_failed;
 	}
-	if (cpp_dev->hw_info.cpp_hw_version != CPP_HW_VERSION_4_0_0) {
-		cpp_dev->cpp_clk[msm_micro_iface_idx] =
-			clk_get(&cpp_dev->pdev->dev,
-			cpp_clk_info[msm_micro_iface_idx].clk_name);
-		if (IS_ERR(cpp_dev->cpp_clk[msm_micro_iface_idx])) {
-			pr_err("%s get failed\n",
-			cpp_clk_info[msm_micro_iface_idx].clk_name);
-			rc =
-			PTR_ERR(cpp_dev->cpp_clk[msm_micro_iface_idx]);
-			goto remap_failed;
-		}
 
-		rc = clk_reset(cpp_dev->cpp_clk[msm_micro_iface_idx],
-			CLK_RESET_ASSERT);
-		if (rc) {
-			pr_err("%s:micro_iface_clk assert failed\n",
-			__func__);
-			clk_put(cpp_dev->cpp_clk[msm_micro_iface_idx]);
-			goto remap_failed;
-		}
-		/*Below usleep values are chosen based on experiments
-		and this was the smallest number which works. This
-		sleep is needed to leave enough time for Microcontroller
-		to resets all its registers.*/
-		usleep_range(10000, 12000);
-
-		rc = clk_reset(cpp_dev->cpp_clk[msm_micro_iface_idx],
-			CLK_RESET_DEASSERT);
-		if (rc) {
-			pr_err("%s:micro_iface_clk assert failed\n", __func__);
-			clk_put(cpp_dev->cpp_clk[msm_micro_iface_idx]);
-			goto remap_failed;
-		}
-		/*Below usleep values are chosen based on experiments and
-		this was the smallest number which works. This sleep is
-		needed to leave enough time for Microcontroller to
-		resets all its registers.*/
-		usleep_range(1000, 1200);
-
-		clk_put(cpp_dev->cpp_clk[msm_micro_iface_idx]);
+	cpp_dev->cpp_clk[msm_micro_iface_idx] =
+		clk_get(&cpp_dev->pdev->dev,
+		cpp_clk_info[msm_micro_iface_idx].clk_name);
+	if (IS_ERR(cpp_dev->cpp_clk[msm_micro_iface_idx])) {
+		pr_err("%s get failed\n",
+		cpp_clk_info[msm_micro_iface_idx].clk_name);
+		rc =
+		PTR_ERR(cpp_dev->cpp_clk[msm_micro_iface_idx]);
+		goto remap_failed;
 	}
+
+	rc = clk_reset(cpp_dev->cpp_clk[msm_micro_iface_idx],
+		CLK_RESET_ASSERT);
+	if (rc) {
+		pr_err("%s:micro_iface_clk assert failed\n",
+		__func__);
+		clk_put(cpp_dev->cpp_clk[msm_micro_iface_idx]);
+		goto remap_failed;
+	}
+	/*Below usleep values are chosen based on experiments
+	and this was the smallest number which works. This
+	sleep is needed to leave enough time for Microcontroller
+	to resets all its registers.*/
+	usleep_range(10000, 12000);
+
+	rc = clk_reset(cpp_dev->cpp_clk[msm_micro_iface_idx],
+		CLK_RESET_DEASSERT);
+	if (rc) {
+		pr_err("%s:micro_iface_clk assert failed\n", __func__);
+		clk_put(cpp_dev->cpp_clk[msm_micro_iface_idx]);
+		goto remap_failed;
+	}
+	/*Below usleep values are chosen based on experiments and
+	this was the smallest number which works. This sleep is
+	needed to leave enough time for Microcontroller to
+	resets all its registers.*/
+	usleep_range(1000, 1200);
+
+	clk_put(cpp_dev->cpp_clk[msm_micro_iface_idx]);
 
 	rc = msm_cam_clk_enable(&cpp_dev->pdev->dev, cpp_clk_info,
 			cpp_dev->cpp_clk, cpp_dev->num_clk, 1);
@@ -830,6 +830,11 @@ static int cpp_init_hardware(struct cpp_device *cpp_dev)
 
 	cpp_dev->hw_info.cpp_hw_version =
 		msm_camera_io_r(cpp_dev->cpp_hw_base);
+	if (cpp_dev->hw_info.cpp_hw_version == CPP_HW_VERSION_4_1_0) {
+		vbif_version = msm_camera_io_r(cpp_dev->vbif_base);
+		if (vbif_version == VBIF_VERSION_2_3_0)
+			cpp_dev->hw_info.cpp_hw_version = CPP_HW_VERSION_4_0_0;
+	}
 	pr_info("CPP HW Version: 0x%x\n", cpp_dev->hw_info.cpp_hw_version);
 	cpp_dev->hw_info.cpp_hw_caps =
 		msm_camera_io_r(cpp_dev->cpp_hw_base + 0x4);
@@ -843,24 +848,16 @@ static int cpp_init_hardware(struct cpp_device *cpp_dev)
 	msm_cpp_create_buff_queue(cpp_dev, MSM_CPP_MAX_BUFF_QUEUE);
 	pr_err("stream_cnt:%d\n", cpp_dev->stream_cnt);
 	cpp_dev->stream_cnt = 0;
-	if (cpp_dev->hw_info.cpp_hw_version != CPP_HW_VERSION_4_0_0) {
-		if (cpp_dev->is_firmware_loaded == 1) {
-			disable_irq(cpp_dev->irq->start);
-			cpp_load_fw(cpp_dev, cpp_dev->fw_name_bin);
-			enable_irq(cpp_dev->irq->start);
-			msm_camera_io_w_mb(0x7C8, cpp_dev->base +
-				MSM_CPP_MICRO_IRQGEN_MASK);
-			msm_camera_io_w_mb(0xFFFF, cpp_dev->base +
-				MSM_CPP_MICRO_IRQGEN_CLR);
-		}
-	} else {
-		msm_camera_io_w(0x1,
-			cpp_dev->base + MSM_CPP_MICRO_CLKEN_CTL);
-		msm_camera_io_w_mb(0x7C8,
-			cpp_dev->base + MSM_CPP_MICRO_IRQGEN_MASK);
-		msm_camera_io_w_mb(0xFFFF,
-			cpp_dev->base + MSM_CPP_MICRO_IRQGEN_CLR);
+	if (cpp_dev->is_firmware_loaded == 1) {
+		disable_irq(cpp_dev->irq->start);
+		cpp_load_fw(cpp_dev, cpp_dev->fw_name_bin);
+		enable_irq(cpp_dev->irq->start);
+		msm_camera_io_w_mb(0x7C8, cpp_dev->base +
+			MSM_CPP_MICRO_IRQGEN_MASK);
+		msm_camera_io_w_mb(0xFFFF, cpp_dev->base +
+			MSM_CPP_MICRO_IRQGEN_CLR);
 	}
+
 	return rc;
 req_irq_fail:
 	iounmap(cpp_dev->cpp_hw_base);
