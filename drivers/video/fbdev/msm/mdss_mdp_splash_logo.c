@@ -213,7 +213,7 @@ int mdss_mdp_splash_cleanup(struct msm_fb_data_type *mfd,
 		 * out on the dsi lanes.
 		 */
 		if (mdp5_data->handoff && ctl && ctl->is_video_mode) {
-			rc = mdss_mdp_display_commit(ctl, NULL);
+			rc = mdss_mdp_display_commit(ctl, NULL, NULL);
 			if (!IS_ERR_VALUE(rc)) {
 				mdss_mdp_display_wait4comp(ctl);
 			} else {
