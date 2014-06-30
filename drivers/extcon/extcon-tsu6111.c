@@ -440,7 +440,9 @@ static int tsu6111_irq_init(struct tsu6111_chip *chip)
 static int tsu6111_probe(struct i2c_client *client,
 			 const struct i2c_device_id *id)
 {
+	const struct acpi_device_id *acpi_id;
 	struct tsu6111_chip *chip;
+	struct device *dev;
 	int ret = 0, id_val = -1;
 	int val = 0;
 
@@ -450,8 +452,21 @@ static int tsu6111_probe(struct i2c_client *client,
 		return -ENOMEM;
 	}
 
+	dev = &client->dev;
+
+	if (!ACPI_HANDLE(dev)) {
+		dev_err(&client->dev, "ACPI_HANDLE is invalid\n");
+		return -ENODEV;
+	}
+
+	acpi_id = acpi_match_device(dev->driver->acpi_match_table, dev);
+	if (!acpi_id) {
+		dev_err(&client->dev, "null id while ACPI_HANDLE is valid\n");
+		return -ENODEV;
+	}
+
 	chip->client = client;
-	chip->pdata = (struct tsu6111_pdata *)id->driver_data;
+	chip->pdata = (struct tsu6111_pdata *)acpi_id->driver_data;
 
 	i2c_set_clientdata(client, chip);
 	wake_lock_init(&chip->wakelock, WAKE_LOCK_SUSPEND,
@@ -500,8 +515,14 @@ static int tsu6111_probe(struct i2c_client *client,
 	tsu6111_write_reg(chip->client, TSU_REG_CONTROL, val);
 
 	ret = tsu6111_irq_init(chip);
-	if (ret)
+	if (ret) {
+		/* In case of failure hardcode to USB device mode */
+		val = tsu6111_read_reg(chip->client, TSU_REG_CONTROL);
+		val = val & 0xFB;
+		tsu6111_write_reg(chip->client, TSU_REG_CONTROL, val);
+		tsu6111_write_reg(chip->client, TSU_REG_MANUALSW1, 0x6c);
 		goto intr_reg_failed;
+	}
 	chip_ptr = chip;
 
 	if (chip->otg->get_id_status) {
