@@ -680,8 +680,10 @@ int a3xx_rb_init(struct adreno_device *adreno_dev,
 {
 	unsigned int *cmds;
 	cmds = adreno_ringbuffer_allocspace(rb, NULL, 18);
+	if (IS_ERR(cmds))
+		return PTR_ERR(cmds);
 	if (cmds == NULL)
-		return -ENOMEM;
+		return -ENOSPC;
 
 	*cmds++ = cp_type3_packet(CP_ME_INIT, 17);
 
