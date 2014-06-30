@@ -679,7 +679,7 @@ int a3xx_rb_init(struct adreno_device *adreno_dev,
 			 struct adreno_ringbuffer *rb)
 {
 	unsigned int *cmds;
-	cmds = adreno_ringbuffer_allocspace(rb, NULL, 18);
+	cmds = adreno_ringbuffer_allocspace(rb, 18);
 	if (IS_ERR(cmds))
 		return PTR_ERR(cmds);
 	if (cmds == NULL)
