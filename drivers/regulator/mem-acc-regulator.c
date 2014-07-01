@@ -46,7 +46,6 @@ struct mem_acc_regulator {
 	int			corner;
 	bool			mem_acc_supported[MEMORY_MAX];
 
-	u32			acc_sel_reg[MEMORY_MAX];
 	u32			*acc_sel_mask[MEMORY_MAX];
 	u32			*acc_sel_bit_pos[MEMORY_MAX];
 	u32			num_acc_sel[MEMORY_MAX];
@@ -140,7 +139,7 @@ static inline u32 apc_to_acc_corner(struct mem_acc_regulator *mem_acc_vreg,
 static void __update_acc_sel(struct mem_acc_regulator *mem_acc_vreg,
 						int corner, int mem_type)
 {
-	u32 acc_data, i, bit, acc_corner;
+	u32 acc_data, acc_data_old, i, bit, acc_corner;
 
 	/*
 	 * Do not configure the L1 ACC corner if the the corresponding flag is
@@ -150,7 +149,8 @@ static void __update_acc_sel(struct mem_acc_regulator *mem_acc_vreg,
 			&& (mem_acc_vreg->flags & MEM_ACC_SKIP_L1_CONFIG))
 		return;
 
-	acc_data = mem_acc_vreg->acc_sel_reg[mem_type];
+	acc_data = readl_relaxed(mem_acc_vreg->acc_sel_base[mem_type]);
+	acc_data_old = acc_data;
 	for (i = 0; i < mem_acc_vreg->num_acc_sel[mem_type]; i++) {
 		bit = mem_acc_vreg->acc_sel_bit_pos[mem_type][i];
 		acc_data &= ~mem_acc_vreg->acc_sel_mask[mem_type][i];
@@ -159,10 +159,8 @@ static void __update_acc_sel(struct mem_acc_regulator *mem_acc_vreg,
 			mem_acc_vreg->acc_sel_mask[mem_type][i];
 	}
 	pr_debug("corner=%d old_acc_sel=0x%02x new_acc_sel=0x%02x mem_type=%d\n",
-			corner, mem_acc_vreg->acc_sel_reg[mem_type],
-						acc_data, mem_type);
+			corner, acc_data_old, acc_data, mem_type);
 	writel_relaxed(acc_data, mem_acc_vreg->acc_sel_base[mem_type]);
-	mem_acc_vreg->acc_sel_reg[mem_type] = acc_data;
 }
 
 static void update_acc_sel(struct mem_acc_regulator *mem_acc_vreg, int corner)
@@ -242,9 +240,6 @@ static int __mem_acc_sel_init(struct mem_acc_regulator *mem_acc_vreg,
 		mem_acc_vreg->acc_sel_mask[mem_type][i] =
 					MEM_ACC_SEL_MASK << bit;
 	}
-
-	mem_acc_vreg->acc_sel_reg[mem_type] =
-		readl_relaxed(mem_acc_vreg->acc_sel_base[mem_type]);
 
 	return 0;
 }
