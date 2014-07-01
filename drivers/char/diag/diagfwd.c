@@ -1875,6 +1875,7 @@ int diagfwd_connect(void)
 {
 	int err;
 	int i;
+	unsigned long flags;
 
 	printk(KERN_DEBUG "diag: USB connected\n");
 	err = usb_diag_alloc_req(driver->legacy_ch,
@@ -1884,6 +1885,17 @@ int diagfwd_connect(void)
 	if (err)
 		goto exit;
 	driver->usb_connected = 1;
+	if (driver->rsp_buf_busy) {
+		/*
+		 * When a client switches from callback mode to USB mode
+		 * explicitly, there can be a situation when the last response
+		 * is not drained to the user space application. Reset the
+		 * in_busy flag in this case.
+		 */
+		spin_lock_irqsave(&driver->rsp_buf_busy_lock, flags);
+		driver->rsp_buf_busy = 0;
+		spin_unlock_irqrestore(&driver->rsp_buf_busy_lock, flags);
+	}
 	diag_reset_smd_data(RESET_AND_QUEUE);
 	for (i = 0; i < NUM_SMD_CONTROL_CHANNELS; i++) {
 		/* Poll SMD CNTL channels to check for data */
