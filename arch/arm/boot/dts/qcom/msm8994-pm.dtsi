@@ -558,4 +558,30 @@
 		qcom,cpu-alias-addr = <0x10000>;
 		qcom,sleep-status-mask= <0x80000>;
 	};
+
+	qcom,rpm-log@fc000000 {
+		compatible = "qcom,rpm-log";
+		reg = <0xfc000000 0x4000>,
+			<0xfc190018 0x4>;
+		qcom,rpm-addr-phys = <0xfc000000>;
+		qcom,offset-version = <4>;
+		qcom,offset-page-buffer-addr = <36>;
+		qcom,offset-log-len = <40>;
+		qcom,offset-log-len-mask = <44>;
+		qcom,offset-page-indices = <56>;
+	};
+
+	qcom,rpm-stats@fc000000 {
+		compatible = "qcom,rpm-stats";
+		reg = <0xfc000000 0x1000>,
+			<0xfc190014 0x4>;
+		reg-names = "phys_addr_base", "offset";
+		qcom,sleep-stats-version = <2>;
+	};
+
+	qcom,rpm-rbcpr-stats@fc000000 {
+		compatible = "qcom,rpmrbcpr-stats";
+		reg = <0xfc000000 0x1a0000>;
+		qcom,start-offset = <0x190010>;
+	};
 };
