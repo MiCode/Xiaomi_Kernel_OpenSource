@@ -424,6 +424,7 @@
 		qcom,gic-parent = <&intc>;
 		qcom,gic-map = <2 216>, /* tsens_upper_lower_int */
 			<47 165>, /* usb30_hs_phy_irq */
+			<55 172>, /* usb1_hs_async_wakeup_irq */
 			<62 222>, /* ee0_krait_hlos_spmi_periph_irq */
 			<0xff 33>,  /* APCC_qgicL2PerfMonIrptReq */
 			<0xff 34>,  /* APCC_qgicL2ErrorIrptReq */
