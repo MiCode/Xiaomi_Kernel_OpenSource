@@ -254,6 +254,49 @@ static void __tmc_disable(struct tmc_drvdata *drvdata)
 	tmc_writel(drvdata, 0x0, TMC_CTL);
 }
 
+static void tmc_etr_sg_tbl_free(uint32_t *vaddr, uint32_t size, uint32_t ents)
+{
+	uint32_t i = 0, pte_n = 0, last_pte;
+	uint32_t *virt_st_tbl, *virt_pte;
+	void *virt_blk;
+	phys_addr_t phys_pte;
+	int total_ents = DIV_ROUND_UP(size, PAGE_SIZE);
+	int ents_per_blk = PAGE_SIZE/sizeof(uint32_t);
+
+	virt_st_tbl = vaddr;
+
+	while (i < total_ents) {
+		last_pte = ((i + ents_per_blk) > total_ents) ?
+			   total_ents : (i + ents_per_blk);
+		while (i < last_pte) {
+			virt_pte = virt_st_tbl + pte_n;
+
+			/* Do not go beyond number of entries allocated */
+			if (i == ents) {
+				free_page((unsigned long)virt_st_tbl);
+				return;
+			}
+
+			phys_pte = TMC_ETR_SG_ENT_TO_BLK(*virt_pte);
+			virt_blk = phys_to_virt(phys_pte);
+
+			if ((last_pte - i) > 1) {
+				free_page((unsigned long)virt_blk);
+				pte_n++;
+			} else if (last_pte == total_ents) {
+				free_page((unsigned long)virt_blk);
+				free_page((unsigned long)virt_st_tbl);
+			} else {
+				free_page((unsigned long)virt_st_tbl);
+				virt_st_tbl = (uint32_t *)virt_blk;
+				pte_n = 0;
+				break;
+			}
+			i++;
+		}
+	}
+}
+
 static void tmc_etr_sg_tbl_flush(uint32_t *vaddr, uint32_t size)
 {
 	uint32_t i = 0, pte_n = 0, last_pte;
@@ -326,8 +369,9 @@ static void tmc_etr_sg_tbl_flush(uint32_t *vaddr, uint32_t size)
  * b. ents_per_blk = 4
  */
 
-static int tmc_etr_sg_tbl_alloc(struct tmc_drvdata *drvdata, uint32_t size)
+static int tmc_etr_sg_tbl_alloc(struct tmc_drvdata *drvdata)
 {
+	int ret;
 	uint32_t i = 0, last_pte;
 	uint32_t *virt_pgdir, *virt_st_tbl;
 	void *virt_pte;
@@ -345,8 +389,10 @@ static int tmc_etr_sg_tbl_alloc(struct tmc_drvdata *drvdata, uint32_t size)
 			   total_ents : (i + ents_per_blk);
 		while (i < last_pte) {
 			virt_pte = (void *)get_zeroed_page(GFP_KERNEL);
-			if (!virt_pte)
-				return -ENOMEM;
+			if (!virt_pte) {
+				ret = -ENOMEM;
+				goto err;
+			}
 
 			if ((last_pte - i) > 1) {
 				*virt_st_tbl =
@@ -369,48 +415,15 @@ static int tmc_etr_sg_tbl_alloc(struct tmc_drvdata *drvdata, uint32_t size)
 	drvdata->paddr = virt_to_phys(virt_pgdir);
 
 	/* Flush the dcache before proceeding */
-	tmc_etr_sg_tbl_flush((uint32_t *)drvdata->vaddr, size);
+	tmc_etr_sg_tbl_flush((uint32_t *)drvdata->vaddr, drvdata->size);
 
 	dev_dbg(drvdata->dev, "%s: table starts at %#lx, total entries %d\n",
 		__func__, (unsigned long)drvdata->paddr, total_ents);
 
 	return 0;
-}
-
-static void tmc_etr_sg_tbl_free(uint32_t *vaddr, uint32_t size)
-{
-	uint32_t i = 0, pte_n = 0, last_pte;
-	uint32_t *virt_st_tbl, *virt_pte;
-	void *virt_blk;
-	phys_addr_t phys_pte;
-	int total_ents = DIV_ROUND_UP(size, PAGE_SIZE);
-	int ents_per_blk = PAGE_SIZE/sizeof(uint32_t);
-
-	virt_st_tbl = vaddr;
-
-	while (i < total_ents) {
-		last_pte = ((i + ents_per_blk) > total_ents) ?
-			   total_ents : (i + ents_per_blk);
-		while (i < last_pte) {
-			virt_pte = virt_st_tbl + pte_n;
-			phys_pte = TMC_ETR_SG_ENT_TO_BLK(*virt_pte);
-			virt_blk = phys_to_virt(phys_pte);
-
-			if ((last_pte - i) > 1) {
-				free_page((unsigned long)virt_blk);
-				pte_n++;
-			} else if (last_pte == total_ents) {
-				free_page((unsigned long)virt_blk);
-				free_page((unsigned long)virt_st_tbl);
-			} else {
-				free_page((unsigned long)virt_st_tbl);
-				virt_st_tbl = (uint32_t *)virt_blk;
-				pte_n = 0;
-				break;
-			}
-			i++;
-		}
-	}
+err:
+	tmc_etr_sg_tbl_free(virt_pgdir, drvdata->size, i);
+	return ret;
 }
 
 static void tmc_etr_sg_mem_reset(uint32_t *vaddr, uint32_t size)
@@ -668,7 +681,7 @@ static int tmc_etr_alloc_mem(struct tmc_drvdata *drvdata)
 				goto err;
 			}
 		} else {
-			ret = tmc_etr_sg_tbl_alloc(drvdata, drvdata->size);
+			ret = tmc_etr_sg_tbl_alloc(drvdata);
 			if (ret)
 				goto err;
 		}
@@ -692,7 +705,8 @@ static void tmc_etr_free_mem(struct tmc_drvdata *drvdata)
 					  drvdata->vaddr, drvdata->paddr);
 		else
 			tmc_etr_sg_tbl_free((uint32_t *)drvdata->vaddr,
-					    drvdata->size);
+				drvdata->size,
+				DIV_ROUND_UP(drvdata->size, PAGE_SIZE));
 	       drvdata->vaddr = 0;
 	       drvdata->paddr = 0;
 	}
