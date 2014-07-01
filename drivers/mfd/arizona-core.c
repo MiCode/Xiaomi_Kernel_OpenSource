@@ -1465,6 +1465,12 @@ int arizona_dev_init(struct arizona *arizona)
 	arizona_request_irq(arizona, ARIZONA_IRQ_UNDERCLOCKED, "Underclocked",
 			    arizona_underclocked, arizona);
 
+	/**
+	 * Give us a sane default for the headphone impedance in case the
+	 * extcon driver is not used
+	 */
+	arizona->hp_impedance = 32;
+
 	switch (arizona->type) {
 	case WM5102:
 		ret = mfd_add_devices(arizona->dev, -1, wm5102_devs,
