@@ -876,13 +876,13 @@ static void msm_vfe46_axi_cfg_wm_xbar_reg(
 		xbar_cfg = 0x400;
 		break;
 	case RDI_INTF_0:
-		xbar_cfg = 0x500;
+		xbar_cfg = 0xC00;
 		break;
 	case RDI_INTF_1:
-		xbar_cfg = 0x600;
+		xbar_cfg = 0xD00;
 		break;
 	case RDI_INTF_2:
-		xbar_cfg = 0x700;
+		xbar_cfg = 0xE00;
 		break;
 	default:
 		pr_err("%s: Invalid stream src\n", __func__);
