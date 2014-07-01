@@ -1037,8 +1037,13 @@ EXPORT_SYMBOL(bq24192_vbus_disable);
 
 int bq24192_vbus_status(void)
 {
-	struct bq24192_chip *chip = i2c_get_clientdata(bq24192_client);
+	struct bq24192_chip *chip;;
 	int val;
+
+	if (!bq24192_client)
+		return -ENODEV;
+
+	chip = i2c_get_clientdata(bq24192_client);
 
 	val = bq24192_read_reg(chip->client, BQ24192_SYSTEM_STAT_REG);
 	if (val < 0) {
@@ -2072,7 +2077,20 @@ static int bq24192_probe(struct i2c_client *client,
 
 	chip->client = client;
 #ifdef CONFIG_ACPI
-	chip->pdata = (struct bq24192_platform_data *)id->driver_data;
+	dev = &client->dev;
+	if (!ACPI_HANDLE(dev)) {
+		i2c_set_clientdata(client, NULL);
+		kfree(chip);
+		return -ENODEV;
+	}
+	acpi_id = acpi_match_device(dev->driver->acpi_match_table, dev);
+	if (!acpi_id) {
+		i2c_set_clientdata(client, NULL);
+		kfree(chip);
+		return -ENODEV;
+	}
+
+	chip->pdata = (struct bq24192_platform_data *)acpi_id->driver_data;
 #else
 	chip->pdata = client->dev.platform_data;
 #endif
@@ -2120,19 +2138,7 @@ static int bq24192_probe(struct i2c_client *client,
 	 * interrupts
 	 */
 #ifdef CONFIG_ACPI
-	dev = &client->dev;
-	if (!ACPI_HANDLE(dev)) {
-		i2c_set_clientdata(client, NULL);
-		kfree(chip);
-		return -ENODEV;
-	}
-	acpi_id = acpi_match_device(dev->driver->acpi_match_table, dev);
-	if (!acpi_id) {
-		i2c_set_clientdata(client, NULL);
-		kfree(chip);
-		return -ENODEV;
-	}
-	gpio = devm_gpiod_get_index(dev, "jsa1212_int", 0);
+	gpio = devm_gpiod_get_index(dev, "bq24192_int", 0);
 	if (IS_ERR(gpio)) {
 		dev_err(dev, "acpi gpio get index failed\n");
 		i2c_set_clientdata(client, NULL);
