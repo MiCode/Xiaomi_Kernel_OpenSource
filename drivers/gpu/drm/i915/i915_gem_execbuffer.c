@@ -1510,13 +1510,18 @@ i915_gem_do_execbuffer(struct drm_device *dev, void *data,
 			goto err;
 
 		/*
-		 * XXX: Actually do this when enabling batch copy...
+		 * XXX: Actually do this when enabling batch copy...and the
+		 * full PPGTT secure batch regression is fixed.
 		 *
 		 * Set the DISPATCH_SECURE bit to remove the NON_SECURE bit
 		 * from MI_BATCH_BUFFER_START commands issued in the
 		 * dispatch_execbuffer implementations. We specifically don't
 		 * want that set when the command parser is enabled.
 		 */
+		if (!USES_FULL_PPGTT(dev))
+			flags |= I915_DISPATCH_SECURE;
+		else
+			pr_err_once("CMD: trying to use command parser with full PPGTT\n");
 	}
 
 	/* snb/ivb/vlv conflate the "batch in ppgtt" bit with the "non-secure
