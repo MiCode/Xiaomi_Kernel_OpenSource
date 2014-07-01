@@ -1797,10 +1797,10 @@
 			<&clock_mmss clk_venus0_ahb_clk>,
 			<&clock_mmss clk_venus0_axi_clk>,
 			<&clock_mmss clk_venus0_ocmemnoc_clk>;
-		qcom,load-freq-tbl = <979200 465000000>,
-			<783360 465000000>,
-			<489600 240000000>,
-			<244800 133330000>;
+		qcom,load-freq-tbl = <979200 465000000 0xffffffff>,
+			<783360 465000000 0xffffffff>,
+			<489600 240000000 0xffffffff>,
+			<244800 133330000 0xffffffff>;
 		qcom,buffer-type-tz-usage-table = <0x241 0x1>,
 			<0x106 0x2>,
 			<0x480 0x3>;

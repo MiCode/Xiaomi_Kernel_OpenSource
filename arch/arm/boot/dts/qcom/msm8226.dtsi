@@ -180,9 +180,9 @@
 		qcom,clock-names = "core_clk", "iface_clk", "bus_clk";
 		qcom,clock-configs = <0x3 0x0 0x0>;
 		qcom,sw-power-collapse;
-		qcom,load-freq-tbl = <352800 160000000>,
-			<244800 133330000>,
-			<108000  66700000>;
+		qcom,load-freq-tbl = <352800 160000000 0xffffffff>,
+			<244800 133330000 0xffffffff>,
+			<108000  66700000 0xffffffff>;
 		qcom,hfi = "venus";
 		qcom,reg-presets = <0xE0024 0x0>,
 			<0x80124 0x3>,

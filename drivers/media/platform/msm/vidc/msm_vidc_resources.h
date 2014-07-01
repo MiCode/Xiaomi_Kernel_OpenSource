@@ -23,6 +23,7 @@
 struct load_freq_table {
 	u32 load;
 	u32 freq;
+	u32 supported_codecs;
 };
 
 struct reg_value_pair {

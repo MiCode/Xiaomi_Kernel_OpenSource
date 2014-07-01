@@ -40,7 +40,7 @@ static size_t get_u32_array_num_elements(struct platform_device *pdev,
 			name);
 		goto fail_read;
 	}
-	return num_elements / 2;
+	return num_elements;
 
 fail_read:
 	return 0;
@@ -160,6 +160,8 @@ static int msm_vidc_load_reg_table(struct msm_vidc_platform_resources *res)
 
 	reg_set = &res->reg_set;
 	reg_set->count = get_u32_array_num_elements(pdev, "qcom,reg-presets");
+	reg_set->count /=  sizeof(*reg_set->reg_tbl) / sizeof(u32);
+
 	if (reg_set->count == 0) {
 		dprintk(VIDC_DBG, "no elements in reg set\n");
 		return rc;
@@ -202,6 +204,7 @@ static int msm_vidc_load_freq_table(struct msm_vidc_platform_resources *res)
 	}
 
 	num_elements = get_u32_array_num_elements(pdev, "qcom,load-freq-tbl");
+	num_elements /= sizeof(*res->load_freq_tbl) / sizeof(u32);
 	if (num_elements == 0) {
 		dprintk(VIDC_ERR, "no elements in frequency table\n");
 		return rc;
@@ -218,7 +221,7 @@ static int msm_vidc_load_freq_table(struct msm_vidc_platform_resources *res)
 
 	if (of_property_read_u32_array(pdev->dev.of_node,
 		"qcom,load-freq-tbl", (u32 *)res->load_freq_tbl,
-		num_elements * 2)) {
+		num_elements * sizeof(*res->load_freq_tbl) / sizeof(u32))) {
 		dprintk(VIDC_ERR, "Failed to read frequency table\n");
 		msm_vidc_free_freq_table(res);
 		return -EINVAL;
@@ -445,6 +448,8 @@ static int msm_vidc_load_buffer_usage_table(
 
 	buffer_usage_set->count = get_u32_array_num_elements(
 				    pdev, "qcom,buffer-type-tz-usage-table");
+	buffer_usage_set->count /=
+		sizeof(*buffer_usage_set->buffer_usage_tbl) / sizeof(u32);
 	if (buffer_usage_set->count == 0) {
 		dprintk(VIDC_DBG, "no elements in buffer usage set\n");
 		return 0;
@@ -465,7 +470,7 @@ static int msm_vidc_load_buffer_usage_table(
 		    "qcom,buffer-type-tz-usage-table",
 		(u32 *)buffer_usage_set->buffer_usage_tbl,
 		buffer_usage_set->count *
-		(sizeof(*buffer_usage_set->buffer_usage_tbl)/sizeof(u32)));
+		(sizeof(*buffer_usage_set->buffer_usage_tbl) / sizeof(u32)));
 	if (rc) {
 		dprintk(VIDC_ERR, "Failed to read buffer usage table\n");
 		goto err_load_buf_usage;
