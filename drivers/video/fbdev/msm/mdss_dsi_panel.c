@@ -377,6 +377,7 @@ static int mdss_dsi_set_col_page_addr(struct mdss_panel_data *pdata)
 	struct mdss_rect *p_roi;
 	struct mdss_rect *c_roi;
 	struct mdss_dsi_ctrl_pdata *ctrl = NULL;
+	struct mdss_dsi_ctrl_pdata *other = NULL;
 	struct dcs_cmd_req cmdreq;
 	int left_or_both = 0;
 
@@ -390,19 +391,32 @@ static int mdss_dsi_set_col_page_addr(struct mdss_panel_data *pdata)
 
 	pinfo = &pdata->panel_info;
 	p_roi = &pinfo->roi;
-	c_roi = &ctrl->roi;
 
 	/*
-	 * if broadcase mode enable or roi had changed
-	 * then do col_page update
+	 * to avoid keep sending same col_page info to panel,
+	 * if roi_merge enabled, the roi of left ctrl is used
+	 * to compare against new merged roi and saved new
+	 * merged roi to it after comparing.
+	 * if roi_merge disabled, then the calling ctrl's roi
+	 * and pinfo's roi are used to compare.
 	 */
+	if (pinfo->partial_update_roi_merge) {
+		left_or_both = mdss_dsi_roi_merge(ctrl, &roi);
+		other = mdss_dsi_get_ctrl_by_index(DSI_CTRL_LEFT);
+		c_roi = &other->roi;
+	} else {
+		c_roi = &ctrl->roi;
+		roi = *p_roi;
+	}
+
+	/* roi had changed, do col_page update */
 	if (mdss_dsi_sync_wait_enable(ctrl) ||
-				!mdss_rect_cmp(c_roi, p_roi)) {
+				!mdss_rect_cmp(c_roi, &roi)) {
 		pr_debug("%s: ndx=%d x=%d y=%d w=%d h=%d\n",
 				__func__, ctrl->ndx, p_roi->x,
 				p_roi->y, p_roi->w, p_roi->h);
 
-		*c_roi = *p_roi;	/* keep to ctrl */
+		*c_roi = roi; /* keep to ctrl */
 		if (c_roi->w == 0 || c_roi->h == 0) {
 			/* no new frame update */
 			pr_debug("%s: ctrl=%d, no partial roi set\n",
@@ -410,11 +424,6 @@ static int mdss_dsi_set_col_page_addr(struct mdss_panel_data *pdata)
 			if (!mdss_dsi_sync_wait_enable(ctrl))
 				return 0;
 		}
-
-		roi = *c_roi;
-
-		if (pinfo->partial_update_roi_merge)
-			left_or_both = mdss_dsi_roi_merge(ctrl, &roi);
 
 		if (pinfo->partial_update_dcs_cmd_by_left) {
 			if (left_or_both && ctrl->ndx == DSI_CTRL_RIGHT) {
