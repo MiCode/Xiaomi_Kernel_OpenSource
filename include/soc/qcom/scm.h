@@ -50,6 +50,7 @@ extern int scm_call_noalloc(u32 svc_id, u32 cmd_id, const void *cmd_buf,
 
 
 extern s32 scm_call_atomic1(u32 svc, u32 cmd, u32 arg1);
+extern s32 scm_call_atomic1_1(u32 svc, u32 cmd, u32 arg1, u32 *ret1);
 extern s32 scm_call_atomic2(u32 svc, u32 cmd, u32 arg1, u32 arg2);
 extern s32 scm_call_atomic3(u32 svc, u32 cmd, u32 arg1, u32 arg2, u32 arg3);
 extern s32 scm_call_atomic4_3(u32 svc, u32 cmd, u32 arg1, u32 arg2, u32 arg3,
@@ -84,6 +85,11 @@ static inline int scm_call_noalloc(u32 svc_id, u32 cmd_id,
 }
 
 static inline s32 scm_call_atomic1(u32 svc, u32 cmd, u32 arg1)
+{
+	return 0;
+}
+
+static inline s32 scm_call_atomic1_1(u32 svc, u32 cmd, u32 arg1, u32 *ret1)
 {
 	return 0;
 }
