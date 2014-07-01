@@ -270,14 +270,6 @@ static int cpu_power_select(struct cpuidle_device *dev,
 
 		if (!allow)
 			continue;
-		/*
-		 * TODO:
-		 * use per_cpu pm_qos to prevent low power modes based on
-		 * latency
-		 */
-		if (mode >= MSM_PM_SLEEP_MODE_POWER_COLLAPSE_STANDALONE)
-			if (!dev->cpu && msm_rpm_waiting_for_ack())
-				break;
 
 		lvl_latency_us = pwr_params->latency_us;
 
@@ -385,6 +377,14 @@ static int cluster_select(struct lpm_cluster *cluster, bool from_idle)
 
 	if (!cluster)
 		return -EINVAL;
+
+	/*
+	 * TODO:
+	 * use per_cpu pm_qos to prevent low power modes based on
+	 * latency
+	 */
+	if (msm_rpm_waiting_for_ack())
+		return best_level;
 
 	sleep_us = (uint32_t)get_cluster_sleep_time(cluster, NULL, from_idle);
 
