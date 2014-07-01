@@ -406,6 +406,9 @@ int32_t msm_sensor_driver_probe(void *setting)
 		strlcpy(slave_info->sensor_name, setting32.sensor_name,
 			sizeof(slave_info->sensor_name));
 
+		strlcpy(slave_info->ois_name, setting32.ois_name,
+			sizeof(slave_info->ois_name));
+
 		slave_info->addr_type = setting32.addr_type;
 		slave_info->camera_id = setting32.camera_id;
 
