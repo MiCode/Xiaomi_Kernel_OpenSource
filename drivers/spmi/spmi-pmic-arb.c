@@ -84,6 +84,7 @@ u32 pmic_arb_regs_v2[] = {
 #define PMIC_ARB_PERIPH_ID(spmi_addr)		(((spmi_addr) >> 8) & 0xFF)
 #define PMIC_ARB_ADDR_IN_PERIPH(spmi_addr)	((spmi_addr) & 0xFF)
 #define PMIC_ARB_REG_CHNL(chnl_num)		(0x800 + 0x4 * (chnl_num))
+#define PMIC_ARB_TO_PPID(sid, pid)	((pid & 0xFF) | ((sid << 8) & 0xF))
 
 /* Channel Status fields */
 enum pmic_arb_chnl_status {
@@ -665,6 +666,21 @@ static u32 search_mapping_table(struct spmi_pmic_arb_dev *pmic_arb, u16 ppid)
 	return apid;
 }
 
+static void dbg_dump_bad_irq_request(struct spmi_pmic_arb_dev *pmic_arb,
+					u8 apid, u16 ppid, const char *msg)
+{
+	dev_err(pmic_arb->dev, "bad request: %s APID:0x%02x PPID:0x%04x\n",
+							msg, apid, ppid);
+
+	/* dump the stack to trace the caller */
+	dump_stack();
+
+	dev_info(pmic_arb->dev, "APID => PPID mapping tabel:\n");
+	for (apid = pmic_arb->min_apid; apid <= pmic_arb->max_apid; ++apid)
+		dev_info(pmic_arb->dev, "0x%02x => 0x%04x\n", apid,
+						pmic_arb->periph_id_map[apid]);
+}
+
 /* PPID to APID */
 static uint32_t map_peripheral_id(struct spmi_pmic_arb_dev *pmic_arb, u16 ppid)
 {
@@ -690,9 +706,8 @@ static uint32_t map_peripheral_id(struct spmi_pmic_arb_dev *pmic_arb, u16 ppid)
 		/* Check if already mapped */
 		if (pmic_arb->periph_id_map[apid] & PMIC_ARB_PERIPH_ID_VALID) {
 			if (ppid != old_ppid) {
-				dev_err(pmic_arb->dev,
-					"PPID 0x%x: APID 0x%x already mapped\n",
-					ppid, apid);
+				dbg_dump_bad_irq_request(pmic_arb, apid, ppid,
+						"map irq: apid already mapped");
 				return PMIC_ARB_MAX_PERIPHS;
 			}
 			return apid;
@@ -713,7 +728,11 @@ static uint32_t map_peripheral_id(struct spmi_pmic_arb_dev *pmic_arb, u16 ppid)
 	return PMIC_ARB_MAX_PERIPHS;
 }
 
-/* Enable interrupt at the PMIC Arbiter PIC */
+/*
+ * pmic_arb_pic_enable: Enable interrupt at the PMIC Arbiter PIC
+ *
+ * This function is a callback of request_irq(a PMIC interrupt #).
+ */
 static int pmic_arb_pic_enable(struct spmi_controller *ctrl,
 				struct qpnp_irq_spec *spec, uint32_t data)
 {
@@ -725,13 +744,11 @@ static int pmic_arb_pic_enable(struct spmi_controller *ctrl,
 	dev_dbg(pmic_arb->dev, "PIC enable, apid:0x%x, sid:0x%x, pid:0x%x\n",
 				apid, spec->slave, spec->per);
 
-	if (data < pmic_arb->min_apid || data > pmic_arb->max_apid) {
-		dev_err(pmic_arb->dev, "int enable: invalid APID %d\n", data);
-		return -EINVAL;
-	}
-
-	if (!is_apid_valid(pmic_arb, apid)) {
-		dev_err(pmic_arb->dev, "int enable: int not supported\n");
+	if ((apid < pmic_arb->min_apid) || (apid > pmic_arb->max_apid) ||
+					(!is_apid_valid(pmic_arb, apid))) {
+		dbg_dump_bad_irq_request(pmic_arb, apid,
+				PMIC_ARB_TO_PPID(spec->slave, spec->per),
+				"enable irq: invalid apid");
 		return -EINVAL;
 	}
 
@@ -749,7 +766,11 @@ static int pmic_arb_pic_enable(struct spmi_controller *ctrl,
 	return 0;
 }
 
-/* Disable interrupt at the PMIC Arbiter PIC */
+/*
+ * pmic_arb_pic_disable: Disable interrupt at the PMIC Arbiter PIC
+ *
+ * This function is a callback of free_irq(a PMIC interrupt #).
+ */
 static int pmic_arb_pic_disable(struct spmi_controller *ctrl,
 				struct qpnp_irq_spec *spec, uint32_t data)
 {
@@ -761,13 +782,11 @@ static int pmic_arb_pic_disable(struct spmi_controller *ctrl,
 	dev_dbg(pmic_arb->dev, "PIC disable, apid:0x%x, sid:0x%x, pid:0x%x\n",
 				apid, spec->slave, spec->per);
 
-	if (data < pmic_arb->min_apid || data > pmic_arb->max_apid) {
-		dev_err(pmic_arb->dev, "int disable: invalid APID %d\n", data);
-		return -EINVAL;
-	}
-
-	if (!is_apid_valid(pmic_arb, apid)) {
-		dev_err(pmic_arb->dev, "int disable: int not supported\n");
+	if ((apid < pmic_arb->min_apid) || (apid > pmic_arb->max_apid) ||
+					(!is_apid_valid(pmic_arb, apid))) {
+		dbg_dump_bad_irq_request(pmic_arb, apid,
+				PMIC_ARB_TO_PPID(spec->slave, spec->per),
+				"disable irq: invalid apid");
 		return -EINVAL;
 	}
 
