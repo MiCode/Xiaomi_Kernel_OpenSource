@@ -55,8 +55,10 @@
 #define ATH3K_MODE_MASK				0x3F
 #define ATH3K_NORMAL_MODE			0x0E
 
-#define ATH3K_PATCH_UPDATE			0x80
-#define ATH3K_SYSCFG_UPDATE			0x40
+#define ATH3K_PATCH_UPDATE			0xA0
+#define ATH3K_SYSCFG_UPDATE			0x60
+#define ATH3K_PATCH_SYSCFG_UPDATE		(ATH3K_PATCH_UPDATE | \
+							ATH3K_SYSCFG_UPDATE)
 
 #define ATH3K_XTAL_FREQ_26M			0x00
 #define ATH3K_XTAL_FREQ_40M			0x01
@@ -405,10 +407,14 @@ static int ath3k_load_patch(struct usb_device *udev)
 		return ret;
 	}
 
-	if (fw_state & ATH3K_PATCH_UPDATE) {
-		BT_DBG("Patch was already downloaded");
+	if ((fw_state == ATH3K_PATCH_UPDATE) ||
+		(fw_state == ATH3K_PATCH_SYSCFG_UPDATE)) {
+		BT_INFO("%s: Patch already downloaded(fw_state: %d)", __func__,
+			fw_state);
 		return 0;
-	}
+	} else
+		BT_DBG("%s: Downloading RamPatch(fw_state: %d)", __func__,
+			fw_state);
 
 	ret = ath3k_get_version(udev, &fw_version);
 	if (ret < 0) {
@@ -488,6 +494,14 @@ static int ath3k_load_syscfg(struct usb_device *udev)
 		BT_ERR("Can't get state to change to load configuration err");
 		return -EBUSY;
 	}
+
+	if ((fw_state == ATH3K_SYSCFG_UPDATE) ||
+		(fw_state == ATH3K_PATCH_SYSCFG_UPDATE)) {
+		BT_INFO("%s: NVM already downloaded(fw_state: %d)", __func__,
+			fw_state);
+		return 0;
+	} else
+		BT_DBG("%s: Downloading NVM(fw_state: %d)", __func__, fw_state);
 
 	ret = ath3k_get_version(udev, &fw_version);
 	if (ret < 0) {
