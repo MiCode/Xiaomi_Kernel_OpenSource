@@ -23,3 +23,4 @@ obj-$(CONFIG_TI_AM335X_ADC) += ti_am335x_adc.o
 obj-$(CONFIG_TWL6030_GPADC) += twl6030-gpadc.o
 obj-$(CONFIG_VIPERBOARD_ADC) += viperboard_adc.o
 obj-$(CONFIG_INTEL_SOC_PMIC) += dc_xpwr_gpadc.o
+obj-$(CONFIG_INTEL_SOC_PMIC) += dc_ti_gpadc.o
