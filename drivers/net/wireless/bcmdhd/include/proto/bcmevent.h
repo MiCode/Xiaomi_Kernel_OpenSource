@@ -2,13 +2,13 @@
  * Broadcom Event  protocol definitions
  *
  * Copyright (C) 1999-2014, Broadcom Corporation
- * 
+ *
  *      Unless you and Broadcom execute a separate written software license
  * agreement governing use of this software, this software is licensed to you
  * under the terms of the GNU General Public License version 2 (the "GPL"),
  * available at http://www.broadcom.com/licenses/GPLv2.php, with the
  * following added to such license:
- * 
+ *
  *      As a special exception, the copyright holders of this software give you
  * permission to link this software with independent modules, and to copy and
  * distribute the resulting executable under terms of your choice, provided that
@@ -16,7 +16,7 @@
  * the license of that module.  An independent module is a module which is not
  * derived from this software.  The special exception does not apply to any
  * modifications of the software.
- * 
+ *
  *      Notwithstanding the above, under no circumstances may you combine this
  * software in any way with any other Broadcom software provided under a license
  * other than the GPL, without Broadcom's express prior written consent.
@@ -423,8 +423,53 @@ typedef BWL_PRE_PACKED_STRUCT struct wl_event_sd {
 } BWL_POST_PACKED_STRUCT wl_event_sd_t;
 
 /* Reason codes for WLC_E_PROXD */
-#define WLC_E_PROXD_FOUND	1	/* Found a proximity device */
-#define WLC_E_PROXD_GONE	2	/* Lost a proximity device */
+#define WLC_E_PROXD_FOUND		1	/* Found a proximity device */
+#define WLC_E_PROXD_GONE		2	/* Lost a proximity device */
+#define WLC_E_PROXD_START		3	/* used by: target  */
+#define WLC_E_PROXD_STOP		4	/* used by: target   */
+#define WLC_E_PROXD_COMPLETED		5	/* used by: initiator completed */
+#define WLC_E_PROXD_ERROR		6	/* used by both initiator and target */
+#define WLC_E_PROXD_COLLECT_START	7	/* used by: target & initiator */
+#define WLC_E_PROXD_COLLECT_STOP	8	/* used by: target */
+#define WLC_E_PROXD_COLLECT_COMPLETED	9	/* used by: initiator completed */
+#define WLC_E_PROXD_COLLECT_ERROR	10	/* used by both initiator and target */
+#define WLC_E_PROXD_NAN_EVENT		11	/* used by both initiator and target */
+
+/*  proxd_event data */
+typedef struct ftm_sample {
+	uint32 value;	/* RTT in ns */
+	int8 rssi;	/* RSSI */
+} ftm_sample_t;
+
+typedef BWL_PRE_PACKED_STRUCT struct proxd_event_data {
+	uint16 ver;			/* version */
+	uint16 mode;			/* mode: target/initiator */
+	uint16 method;			/* method: rssi/TOF/AOA */
+	uint8  err_code;		/* error classification */
+	uint8  TOF_type;		/* one way or two way TOF */
+	uint8  OFDM_frame_type;		/* legacy or VHT */
+	uint8  bandwidth;		/* Bandwidth is 20, 40,80, MHZ */
+	struct ether_addr peer_mac;	/* (e.g for tgt:initiator's */
+	uint32 distance;		/* dst to tgt, units meter */
+	uint32 meanrtt;			/* mean delta */
+	uint32 modertt;			/* Mode delta */
+	uint32 medianrtt;		/* median RTT */
+	uint32 sdrtt;			/* Standard deviation of RTT */
+	int32    gdcalcresult;		/* Software or Hardware Kind of redundant, but if */
+					/* frame type is VHT, then we should do it by hardware */
+	int16  avg_rssi;		/* avg rssi accroos the ftm frames */
+	int16  validfrmcnt;		/* Firmware's valid frame counts */
+	int32 peer_router_info;	/* Peer router information if available in TLV, */
+					/* We will add this field later  */
+	int32 var1;			/* average of group delay */
+	int32 var2;			/* average of threshold crossing */
+	int32 var3;			/* difference between group delay and threshold crossing */
+					/* raw Fine Time Measurements (ftm) data */
+	uint16 ftm_unit;		/* ftm cnt resolution in picoseconds , 6250ps - default */
+	uint16 ftm_cnt;			/*  num of rtd measurments/length in the ftm buffer  */
+	ftm_sample_t ftm_buff[1];	/* 1 ... ftm_cnt  */
+} BWL_POST_PACKED_STRUCT wl_proxd_event_data_t;
+
 
 /* WLC_E_AWDL_AW event data */
 typedef BWL_PRE_PACKED_STRUCT struct awdl_aws_event_data {

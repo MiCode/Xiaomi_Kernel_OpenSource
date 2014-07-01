@@ -5,13 +5,13 @@
  * Definitions subject to change without notice.
  *
  * Copyright (C) 1999-2014, Broadcom Corporation
- * 
+ *
  *      Unless you and Broadcom execute a separate written software license
  * agreement governing use of this software, this software is licensed to you
  * under the terms of the GNU General Public License version 2 (the "GPL"),
  * available at http://www.broadcom.com/licenses/GPLv2.php, with the
  * following added to such license:
- * 
+ *
  *      As a special exception, the copyright holders of this software give you
  * permission to link this software with independent modules, and to copy and
  * distribute the resulting executable under terms of your choice, provided that
@@ -19,7 +19,7 @@
  * the license of that module.  An independent module is a module which is not
  * derived from this software.  The special exception does not apply to any
  * modifications of the software.
- * 
+ *
  *      Notwithstanding the above, under no circumstances may you combine this
  * software in any way with any other Broadcom software provided under a license
  * other than the GPL, without Broadcom's express prior written consent.
@@ -4497,63 +4497,273 @@ typedef struct wl_rmc_vsie {
 	uint16	payload;	/* IE Data Payload */
 } wl_rmc_vsie_t;
 
+/* structures  & defines for proximity detection  */
+enum proxd_method {
+	PROXD_UNDEFINED_METHOD = 0,
+	PROXD_RSSI_METHOD = 1,
+	PROXD_TOF_METHOD = 2
+};
+
+/* structures for proximity detection device role */
+#define WL_PROXD_MODE_DISABLE	0
+#define WL_PROXD_MODE_NEUTRAL	1
+#define WL_PROXD_MODE_INITIATOR	2
+#define WL_PROXD_MODE_TARGET	3
+
+#define WL_PROXD_ACTION_STOP		0
+#define WL_PROXD_ACTION_START		1
+
+#define WL_PROXD_FLAG_TARGET_REPORT	0x1
+#define WL_PROXD_FLAG_REPORT_FAILURE	0x2
+#define WL_PROXD_FLAG_INITIATOR_REPORT	0x4
+#define WL_PROXD_FLAG_NOCHANSWT		0x8
+#define WL_PROXD_FLAG_NETRUAL		0x10
+#define WL_PROXD_FLAG_INITIATOR_RPTRTT	0x20
+#define WL_PROXD_FLAG_ONEWAY		0x40
+#define WL_PROXD_FLAG_SEQ_EN		0x80
+
+#define WL_PROXD_RANDOM_WAKEUP	0x8000
+
 typedef struct wl_proxd_iovar {
 	uint16	method;		/* Proxmity Detection method */
 	uint16	mode;		/* Mode (neutral, initiator, target) */
 } wl_proxd_iovar_t;
 
-/* structures for proximity detection parameters */
-typedef struct wl_proxd_params_rssi_method {
-	chanspec_t	chanspec;	/* chanspec for home channel */
+/*
+ * structures for proximity detection parameters
+ * consists of two parts, common and method specific params
+ * common params should be placed at the beginning
+ */
+
+/* require strict packing */
+#include <packed_section_start.h>
+
+typedef	BWL_PRE_PACKED_STRUCT struct	wl_proxd_params_common {
+	chanspec_t	chanspec;	/* channel spec */
+	int16		tx_power;	/* tx power of Proximity Detection(PD) frames (in dBm) */
+	uint16		tx_rate;	/* tx rate of PD rames  (in 500kbps units) */
+	uint16		timeout;	/* timeout value */
 	uint16		interval;	/* interval between neighbor finding attempts (in TU) */
 	uint16		duration;	/* duration of neighbor finding attempts (in ms) */
-	int16		rssi_thresh;	/* RSSI threshold (in dBm) */
+} BWL_POST_PACKED_STRUCT wl_proxd_params_common_t;
+
+typedef BWL_PRE_PACKED_STRUCT struct wl_proxd_params_rssi_method {
+	chanspec_t	chanspec;	/* chanspec for home channel */
 	int16		tx_power;	/* tx power of Proximity Detection frames (in dBm) */
-	uint16		tx_rate;	/* tx rate of Proximity Detection frames
-					 * (in 500kbps units)
-					 */
+	uint16		tx_rate;	/* tx rate of PD frames, 500kbps units */
 	uint16		timeout;	/* state machine wait timeout of the frames (in ms) */
+	uint16		interval;	/* interval between neighbor finding attempts (in TU) */
+	uint16		duration;	/* duration of neighbor finding attempts (in ms) */
+					/* method specific ones go after this line */
+	int16		rssi_thresh;	/* RSSI threshold (in dBm) */
 	uint16		maxconvergtmo;	/* max wait converge timeout (in ms) */
 } wl_proxd_params_rssi_method_t;
+
+#define Q1_NS			25	/* Q1 time units */
+
+#define TOF_BW_NUM		3	/* number of bandwidth that the TOF can support */
+#define TOF_BW_SEQ_NUM		(TOF_BW_NUM+2)	/* number of total index */
+enum tof_bw_index {
+	TOF_BW_20MHZ_INDEX = 0,
+	TOF_BW_40MHZ_INDEX = 1,
+	TOF_BW_80MHZ_INDEX = 2,
+	TOF_BW_SEQTX_INDEX = 3,
+	TOF_BW_SEQRX_INDEX = 4
+};
+
+#define BANDWIDTH_BASE	20	/* base value of bandwidth */
+#define TOF_BW_20MHZ    (BANDWIDTH_BASE << TOF_BW_20MHZ_INDEX)
+#define TOF_BW_40MHZ    (BANDWIDTH_BASE << TOF_BW_40MHZ_INDEX)
+#define TOF_BW_80MHZ    (BANDWIDTH_BASE << TOF_BW_80MHZ_INDEX)
+#define TOF_BW_10MHZ    10
+
+#define NFFT_BASE		64	/* base size of fft */
+#define TOF_NFFT_20MHZ  (NFFT_BASE << TOF_BW_20MHZ_INDEX)
+#define TOF_NFFT_40MHZ  (NFFT_BASE << TOF_BW_40MHZ_INDEX)
+#define TOF_NFFT_80MHZ  (NFFT_BASE << TOF_BW_80MHZ_INDEX)
+
+typedef BWL_PRE_PACKED_STRUCT struct wl_proxd_params_tof_method {
+	chanspec_t	chanspec;	/* chanspec for home channel */
+	int16		tx_power;	/* tx power of Proximity Detection(PD) frames (in dBm) */
+	uint16		tx_rate;	/* tx rate of PD rames  (in 500kbps units) */
+	uint16		timeout;	/* state machine wait timeout of the frames (in ms) */
+	uint16		interval;	/* interval between neighbor finding attempts (in TU) */
+	uint16		duration;	/* duration of neighbor finding attempts (in ms) */
+	/* specific for the method go after this line */
+	struct ether_addr tgt_mac;	/* target mac addr for TOF method */
+	uint16		ftm_cnt;	/* number of the frames txed by initiator */
+	uint16		retry_cnt;	/* number of retransmit attampts for ftm frames */
+	int16		vht_rate;	/* ht or vht rate */
+	/* add more params required for other methods can be added here  */
+} BWL_POST_PACKED_STRUCT wl_proxd_params_tof_method_t;
+
+typedef BWL_PRE_PACKED_STRUCT struct wl_proxd_params_tof_tune {
+	uint32		Ki;			/* h/w delay K factor for initiator */
+	uint32		Kt;			/* h/w delay K factor for target */
+	int16		vhtack;			/* enable/disable VHT ACK */
+	int16		N_log2[TOF_BW_SEQ_NUM]; /* simple threshold crossing */
+	int16		w_offset[TOF_BW_NUM];	/* offset of threshold crossing window(per BW) */
+	int16		w_len[TOF_BW_NUM];	/* length of threshold crossing window(per BW) */
+	int32		maxDT;			/* max time difference of T4/T1 or T3/T2 */
+	int32		minDT;			/* min time difference of T4/T1 or T3/T2 */
+	uint8		totalfrmcnt;	/* total count of transfered measurement frames */
+	uint16		rsv_media;		/* reserve media value for TOF */
+	uint32		flags;			/* flags */
+	uint8		core;			/* core to use for tx */
+	uint8		force_K;		/* set to force value of K  */
+	int16		N_scale[TOF_BW_SEQ_NUM]; /* simple threshold crossing */
+	uint8		sw_adj;			/* enable sw assisted timestamp adjustment */
+	uint8		hw_adj;			/* enable hw assisted timestamp adjustment */
+	uint8		seq_en;			/* enable ranging sequence */
+	uint8		ftm_cnt[TOF_BW_SEQ_NUM]; /* number of ftm frames based on bandwidth */
+} BWL_POST_PACKED_STRUCT wl_proxd_params_tof_tune_t;
 
 typedef struct wl_proxd_params_iovar {
 	uint16	method;			/* Proxmity Detection method */
 	union {
-		wl_proxd_params_rssi_method_t rssi_params;
+		/* common params for pdsvc */
+		wl_proxd_params_common_t	cmn_params;	/* common parameters */
+		/*  method specific */
+		wl_proxd_params_rssi_method_t	rssi_params;	/* RSSI method parameters */
+		wl_proxd_params_tof_method_t	tof_params;	/* TOF meothod parameters */
+		/* tune parameters */
+		wl_proxd_params_tof_tune_t	tof_tune;	/* TOF tune parameters */
 	} u;				/* Method specific optional parameters */
 } wl_proxd_params_iovar_t;
 
-enum {
-	RSSI_REASON_UNKNOW,
-	RSSI_REASON_LOWRSSI,
-	RSSI_REASON_NSYC,
-	RSSI_REASON_TIMEOUT
+#define PROXD_COLLECT_GET_STATUS	0
+#define PROXD_COLLECT_SET_STATUS	1
+#define PROXD_COLLECT_QUERY_HEADER	2
+#define PROXD_COLLECT_QUERY_DATA	3
+#define PROXD_COLLECT_QUERY_DEBUG	4
+#define PROXD_COLLECT_REMOTE_REQUEST	5
+
+typedef BWL_PRE_PACKED_STRUCT struct wl_proxd_collect_query {
+	uint32		method;		/* method */
+	uint8		request;	/* Query request. */
+	uint8		status;		/* 0 -- disable, 1 -- enable collection, */
+					/* 2 -- enable collection & debug */
+	uint16		index;		/* The current frame index [0 to total_frames - 1]. */
+	uint16		mode;		/* Initiator or Target */
+	bool		busy;		/* tof sm is busy */
+	bool		remote;		/* Remote collect data */
+} BWL_POST_PACKED_STRUCT wl_proxd_collect_query_t;
+
+typedef BWL_PRE_PACKED_STRUCT struct wl_proxd_collect_header {
+	uint16		total_frames;			/* The totral frames for this collect. */
+	uint16		nfft;				/* nfft value */
+	uint16		bandwidth;			/* bandwidth */
+	uint16		channel;			/* channel number */
+	uint32		chanspec;			/* channel spec */
+	uint32		fpfactor;			/* avb timer value factor */
+	uint16		fpfactor_shift;			/* avb timer value shift bits */
+	int32		distance;			/* distance calculated by fw */
+	uint32		meanrtt;			/* mean of RTTs */
+	uint32		modertt;			/* mode of RTTs */
+	uint32		medianrtt;			/* median of RTTs */
+	uint32		sdrtt;				/* standard deviation of RTTs */
+	uint32		clkdivisor;			/* clock divisor */
+	uint16		chipnum;			/* chip type */
+	uint8		chiprev;			/* chip revision */
+	uint8		phyver;				/* phy version */
+	struct ether_addr	loaclMacAddr;		/* local mac address */
+	struct ether_addr	remoteMacAddr;		/* remote mac address */
+	wl_proxd_params_tof_tune_t params;
+} BWL_POST_PACKED_STRUCT wl_proxd_collect_header_t;
+enum rssi_reason {
+	RSSI_REASON_UNKNOW = 0,
+	RSSI_REASON_LOWRSSI = 1,
+	RSSI_REASON_NSYC = 2,
+	RSSI_REASON_TIMEOUT = 3
 };
 
-enum {
-	RSSI_STATE_POLL,
-	RSSI_STATE_TPAIRING,
-	RSSI_STATE_IPAIRING,
-	RSSI_STATE_THANDSHAKE,
-	RSSI_STATE_IHANDSHAKE,
-	RSSI_STATE_CONFIRMED,
-	RSSI_STATE_PIPELINE,
-	RSSI_STATE_NEGMODE,
-	RSSI_STATE_MONITOR,
-	RSSI_STATE_LAST
+enum tof_reason {
+	TOF_REASON_OK = 0,
+	TOF_REASON_REQEND = 1,
+	TOF_REASON_TIMEOUT = 2,
+	TOF_REASON_NOACK = 3,
+	TOF_REASON_INVALIDAVB = 4,
+	TOF_REASON_INITIAL = 5,
+	TOF_REASON_ABORT = 6
+};
+
+enum rssi_state {
+	RSSI_STATE_POLL = 0,
+	RSSI_STATE_TPAIRING = 1,
+	RSSI_STATE_IPAIRING = 2,
+	RSSI_STATE_THANDSHAKE = 3,
+	RSSI_STATE_IHANDSHAKE = 4,
+	RSSI_STATE_CONFIRMED = 5,
+	RSSI_STATE_PIPELINE = 6,
+	RSSI_STATE_NEGMODE = 7,
+	RSSI_STATE_MONITOR = 8,
+	RSSI_STATE_LAST = 9
+};
+
+enum tof_state {
+	TOF_STATE_IDLE	 = 0,
+	TOF_STATE_IWAITM = 1,
+	TOF_STATE_TWAITM = 2,
+	TOF_STATE_ILEGACY = 3,
+	TOF_STATE_IWAITCL = 4,
+	TOF_STATE_TWAITCL = 5,
+	TOF_STATE_ICONFIRM = 6,
+	TOF_STATE_IREPORT = 7
+};
+
+enum tof_mode_type {
+	TOF_LEGACY_UNKNOWN	= 0,
+	TOF_LEGACY_AP		= 1,
+	TOF_NONLEGACY_AP	= 2
+};
+
+enum tof_way_type {
+	TOF_TYPE_ONE_WAY = 0,
+	TOF_TYPE_TWO_WAY = 1
+};
+
+enum tof_rate_type {
+	TOF_FRAME_RATE_VHT = 0,
+	TOF_FRAME_RATE_LEGACY = 1
+};
+
+#define TOF_ADJ_TYPE_NUM	4	/* number of assisted timestamp adjustment */
+enum tof_adj_mode {
+	TOF_ADJ_SOFTWARE = 0,
+	TOF_ADJ_HARDWARE = 1,
+	TOF_ADJ_SEQ = 2,
+	TOF_ADJ_NONE = 3
+};
+
+#define FRAME_TYPE_NUM		4	/* number of frame type */
+enum frame_type {
+	FRAME_TYPE_CCK	= 0,
+	FRAME_TYPE_OFDM	= 1,
+	FRAME_TYPE_11N	= 2,
+	FRAME_TYPE_11AC	= 3
 };
 
 typedef struct wl_proxd_status_iovar {
-	uint8			mode;
-	uint8			peermode;
-	uint8			state;
-	uint8			reason;
-	uint32			txcnt;
-	uint32			rxcnt;
-	struct ether_addr	peer;
-	int16			hi_rssi;
-	int16			low_rssi;
+	uint16			method;				/* method */
+	uint8			mode;				/* mode */
+	uint8			peermode;			/* peer mode */
+	uint8			state;				/* state */
+	uint8			reason;				/* reason code */
+	uint32			distance;			/* distance */
+	uint32			txcnt;				/* tx pkt counter */
+	uint32			rxcnt;				/* rx pkt counter */
+	struct ether_addr	peer;				/* peer mac address */
+	int8			avg_rssi;			/* average rssi */
+	int8			hi_rssi;			/* highest rssi */
+	int8			low_rssi;			/* lowest rssi */
+	uint32			dbgstatus;			/* debug status */
+	uint16			frame_type_cnt[FRAME_TYPE_NUM];	/* frame types */
+	uint8			adj_type_cnt[TOF_ADJ_TYPE_NUM];	/* adj types HW/SW */
 } wl_proxd_status_iovar_t;
+
+/* no strict structure packing */
+#include <packed_section_end.h>
+
 
 #ifdef NET_DETECT
 typedef struct net_detect_adapter_features {

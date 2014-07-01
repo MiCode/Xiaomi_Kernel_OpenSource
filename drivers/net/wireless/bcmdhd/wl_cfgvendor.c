@@ -42,7 +42,7 @@
 #include <linux/if_arp.h>
 #include <asm/uaccess.h>
 
-#if defined(BCMDONGLEHOST)
+
 #include <dngl_stats.h>
 #include <dhd.h>
 #include <dhdioctl.h>
@@ -51,8 +51,9 @@
 #ifdef PNO_SUPPORT
 #include <dhd_pno.h>
 #endif /* PNO_SUPPORT */
-#endif /* defined(BCMDONGLEHOST) */
-
+#ifdef RTT_SUPPORT
+#include <dhd_rtt.h>
+#endif /* RTT_SUPPORT */
 #include <proto/ethernet.h>
 #include <linux/kernel.h>
 #include <linux/kthread.h>
@@ -715,8 +716,224 @@ exit:
 	return err;
 }
 #endif /* GSCAN_SUPPORT */
-static int wl_cfgvendor_priv_string_handler(struct wiphy *wiphy,
-	struct wireless_dev *wdev, const void  *data, int len)
+
+#ifdef RTT_SUPPORT
+void wl_cfgvendor_rtt_evt(void *ctx, void *rtt_data)
+{
+	struct wireless_dev *wdev = (struct wireless_dev *)ctx;
+	struct wiphy *wiphy;
+	struct sk_buff *skb;
+	uint32 tot_len = NLMSG_DEFAULT_SIZE, entry_len = 0;
+	gfp_t kflags;
+	rtt_report_t *rtt_report = NULL;
+	rtt_result_t *rtt_result = NULL;
+	struct list_head *rtt_list;
+	wiphy = wdev->wiphy;
+
+	WL_DBG(("In\n"));
+	/* Push the data to the skb */
+	if (!rtt_data) {
+		WL_ERR(("rtt_data is NULL\n"));
+		goto exit;
+	}
+	rtt_list = (struct list_head *)rtt_data;
+	kflags = in_atomic() ? GFP_ATOMIC : GFP_KERNEL;
+	/* Alloc the SKB for vendor_event */
+	skb = cfg80211_vendor_event_alloc(wiphy, tot_len, GOOGLE_RTT_COMPLETE_EVENT, kflags);
+	if (!skb) {
+		WL_ERR(("skb alloc failed"));
+		goto exit;
+	}
+	/* fill in the rtt results on each entry */
+	list_for_each_entry(rtt_result, rtt_list, list) {
+		entry_len = 0;
+		if (rtt_result->TOF_type == TOF_TYPE_ONE_WAY) {
+			entry_len = sizeof(rtt_report_t);
+			rtt_report = kzalloc(entry_len, kflags);
+			if (!rtt_report) {
+				WL_ERR(("rtt_report alloc failed"));
+				goto exit;
+			}
+			rtt_report->addr = rtt_result->peer_mac;
+			rtt_report->num_measurement = 1; /* ONE SHOT */
+			rtt_report->status = rtt_result->err_code;
+			rtt_report->type = (rtt_result->TOF_type == TOF_TYPE_ONE_WAY) ? RTT_ONE_WAY: RTT_TWO_WAY;
+			rtt_report->peer = rtt_result->target_info->peer;
+			rtt_report->channel = rtt_result->target_info->channel;
+			rtt_report->rssi = rtt_result->avg_rssi;
+			/* tx_rate */
+			rtt_report->tx_rate = rtt_result->tx_rate;
+			/* RTT */
+			rtt_report->rtt = rtt_result->meanrtt;
+			rtt_report->rtt_sd = rtt_result->sdrtt;
+			/* convert to centi meter */
+			if (rtt_result->distance == 0xffffffff)
+				rtt_report->distance = (rtt_result->distance >> 2) * 25;
+			else /* invalid distance */
+				rtt_report->distance = -1;
+
+			rtt_report->ts = rtt_result->ts;
+			nla_append(skb, entry_len, rtt_report);
+			kfree(rtt_report);
+		}
+	}
+	cfg80211_vendor_event(skb, kflags);
+exit:
+	return;
+}
+
+static int wl_cfgvendor_rtt_set_config(struct wiphy *wiphy, struct wireless_dev *wdev,
+					const void *data, int len) {
+	int err = 0, rem, rem1, rem2, type;
+	rtt_config_params_t rtt_param;
+	rtt_target_info_t* rtt_target = NULL;
+	const struct nlattr *iter, *iter1, *iter2;
+	int8 eabuf[ETHER_ADDR_STR_LEN];
+	int8 chanbuf[CHANSPEC_STR_LEN];
+	struct bcm_cfg80211 *cfg = wiphy_priv(wiphy);
+
+	WL_DBG(("In\n"));
+	err = dhd_dev_rtt_register_noti_callback(wdev->netdev, wdev, wl_cfgvendor_rtt_evt);
+	if (err < 0) {
+		WL_ERR(("failed to register rtt_noti_callback\n"));
+		goto exit;
+	}
+	memset(&rtt_param, 0, sizeof(rtt_param));
+	nla_for_each_attr(iter, data, len, rem) {
+		type = nla_type(iter);
+		switch (type) {
+		case RTT_ATTRIBUTE_TARGET_CNT:
+			rtt_param.rtt_target_cnt = nla_get_u8(iter);
+			if (rtt_param.rtt_target_cnt > RTT_MAX_TARGET_CNT) {
+				WL_ERR(("exceed max target count : %d\n",
+					rtt_param.rtt_target_cnt));
+				err = BCME_RANGE;
+			}
+			break;
+		case RTT_ATTRIBUTE_TARGET_INFO:
+			rtt_target = rtt_param.target_info;
+			nla_for_each_nested(iter1, iter, rem1) {
+				nla_for_each_nested(iter2, iter1, rem2) {
+					type = nla_type(iter2);
+					switch (type) {
+					case RTT_ATTRIBUTE_TARGET_MAC:
+						memcpy(&rtt_target->addr, nla_data(iter2), ETHER_ADDR_LEN);
+						break;
+					case RTT_ATTRIBUTE_TARGET_TYPE:
+						rtt_target->type = nla_get_u8(iter2);
+						break;
+					case RTT_ATTRIBUTE_TARGET_PEER:
+						rtt_target->peer= nla_get_u8(iter2);
+						break;
+					case RTT_ATTRIBUTE_TARGET_CHAN:
+						memcpy(&rtt_target->channel, nla_data(iter2),
+							sizeof(rtt_target->channel));
+						break;
+					case RTT_ATTRIBUTE_TARGET_MODE:
+						rtt_target->continuous = nla_get_u8(iter2);
+						break;
+					case RTT_ATTRIBUTE_TARGET_INTERVAL:
+						rtt_target->interval = nla_get_u32(iter2);
+						break;
+					case RTT_ATTRIBUTE_TARGET_NUM_MEASUREMENT:
+						rtt_target->measure_cnt = nla_get_u32(iter2);
+						break;
+					case RTT_ATTRIBUTE_TARGET_NUM_PKT:
+						rtt_target->ftm_cnt = nla_get_u32(iter2);
+						break;
+					case RTT_ATTRIBUTE_TARGET_NUM_RETRY:
+						rtt_target->retry_cnt = nla_get_u32(iter2);
+					}
+				}
+				/* convert to chanspec value */
+				rtt_target->chanspec = dhd_rtt_convert_to_chspec(rtt_target->channel);
+				if (rtt_target->chanspec == 0) {
+					WL_ERR(("Channel is not valid \n"));
+					goto exit;
+				}
+				WL_INFO(("Target addr %s, Channel : %s for RTT \n",
+					bcm_ether_ntoa((const struct ether_addr *)&rtt_target->addr, eabuf),
+					wf_chspec_ntoa(rtt_target->chanspec, chanbuf)));
+				rtt_target++;
+			}
+			break;
+		}
+	}
+	WL_DBG(("leave :target_cnt : %d\n", rtt_param.rtt_target_cnt));
+	if (dhd_dev_rtt_set_cfg(bcmcfg_to_prmry_ndev(cfg), &rtt_param) < 0) {
+		WL_ERR(("Could not set RTT configuration\n"));
+		err = -EINVAL;
+	}
+exit:
+	return err;
+}
+
+static int wl_cfgvendor_rtt_cancel_config(struct wiphy *wiphy, struct wireless_dev *wdev,
+					const void *data, int len)
+{
+	int err = 0, rem, type, target_cnt = 0;
+	const struct nlattr *iter;
+	struct ether_addr *mac_list = NULL, *mac_addr = NULL;
+	struct bcm_cfg80211 *cfg = wiphy_priv(wiphy);
+
+	nla_for_each_attr(iter, data, len, rem) {
+		type = nla_type(iter);
+		switch (type) {
+		case RTT_ATTRIBUTE_TARGET_CNT:
+			target_cnt = nla_get_u8(iter);
+			mac_list = (struct ether_addr *)kzalloc(target_cnt * ETHER_ADDR_LEN , GFP_KERNEL);
+			if (mac_list == NULL) {
+				WL_ERR(("failed to allocate mem for mac list\n"));
+				goto exit;
+			}
+			mac_addr = &mac_list[0];
+			break;
+		case RTT_ATTRIBUTE_TARGET_MAC:
+			if (mac_addr)
+				memcpy(mac_addr++, nla_data(iter), ETHER_ADDR_LEN);
+			else {
+				WL_ERR(("mac_list is NULL\n"));
+				goto exit;
+			}
+			break;
+		}
+		if (dhd_dev_rtt_cancel_cfg(bcmcfg_to_prmry_ndev(cfg), mac_list, target_cnt) < 0) {
+			WL_ERR(("Could not cancel RTT configuration\n"));
+			err = -EINVAL;
+			goto exit;
+		}
+	}
+exit:
+	if (mac_list)
+		kfree(mac_list);
+	return err;
+}
+static int wl_cfgvendor_rtt_get_capability(struct wiphy *wiphy, struct wireless_dev *wdev,
+					const void *data, int len)
+{
+	int err = 0;
+	struct bcm_cfg80211 *cfg = wiphy_priv(wiphy);
+	rtt_capabilities_t capability;
+
+	err = dhd_dev_rtt_capability(bcmcfg_to_prmry_ndev(cfg), &capability);
+	if (unlikely(err)) {
+		WL_ERR(("Vendor Command reply failed ret:%d \n", err));
+		goto exit;
+	}
+	err =  wl_cfgvendor_send_cmd_reply(wiphy, bcmcfg_to_prmry_ndev(cfg),
+	        &capability, sizeof(capability));
+
+	if (unlikely(err)) {
+		WL_ERR(("Vendor Command reply failed ret:%d \n", err));
+	}
+exit:
+	return err;
+}
+
+#endif /* RTT_SUPPORT */
+
+static int wl_cfgvendor_priv_string_handler(struct wiphy *wiphy, struct wireless_dev *wdev,
+					const void *data, int len)
 {
 	struct bcm_cfg80211 *cfg = wiphy_priv(wiphy);
 	int err = 0;
@@ -830,6 +1047,32 @@ static const struct wiphy_vendor_command wl_vendor_cmds [] = {
 		.doit = wl_cfgvendor_gscan_get_channel_list
 	},
 #endif /* GSCAN_SUPPORT */
+#ifdef RTT_SUPPORT
+	{
+		{
+			.vendor_id = OUI_GOOGLE,
+			.subcmd = RTT_SUBCMD_SET_CONFIG
+		},
+		.flags = WIPHY_VENDOR_CMD_NEED_WDEV | WIPHY_VENDOR_CMD_NEED_NETDEV,
+		.doit = wl_cfgvendor_rtt_set_config
+	},
+	{
+		{
+			.vendor_id = OUI_GOOGLE,
+			.subcmd = RTT_SUBCMD_CANCEL_CONFIG
+		},
+		.flags = WIPHY_VENDOR_CMD_NEED_WDEV | WIPHY_VENDOR_CMD_NEED_NETDEV,
+		.doit = wl_cfgvendor_rtt_cancel_config
+	},
+	{
+		{
+			.vendor_id = OUI_GOOGLE,
+			.subcmd = RTT_SUBCMD_GETCAPABILITY
+		},
+		.flags = WIPHY_VENDOR_CMD_NEED_WDEV | WIPHY_VENDOR_CMD_NEED_NETDEV,
+		.doit = wl_cfgvendor_rtt_get_capability
+	},
+#endif /* RTT_SUPPORT */
 	{
 		{
 			.vendor_id = OUI_GOOGLE,
@@ -856,9 +1099,11 @@ static const struct  nl80211_vendor_cmd_info wl_vendor_events [] = {
 		{ OUI_GOOGLE, GOOGLE_GSCAN_GEOFENCE_FOUND_EVENT },
 		{ OUI_GOOGLE, GOOGLE_GSCAN_BATCH_SCAN_EVENT },
 		{ OUI_GOOGLE, GOOGLE_SCAN_FULL_RESULTS_EVENT },
-		{ OUI_GOOGLE, GOOGLE_SCAN_RTT_EVENT },
-		{ OUI_GOOGLE, GOOGLE_SCAN_COMPLETE_EVENT }
+		{ OUI_GOOGLE, GOOGLE_SCAN_COMPLETE_EVENT },
 #endif /* GSCAN_SUPPORT */
+#ifdef RTT_SUPPORT
+		{ OUI_GOOGLE, GOOGLE_RTT_COMPLETE_EVENT },
+#endif /* RTT_SUPPORT */
 };
 
 int wl_cfgvendor_attach(struct wiphy *wiphy)
