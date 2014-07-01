@@ -1611,6 +1611,8 @@ static int cpufreq_notifier_policy(struct notifier_block *nb,
 		struct rq *rq = cpu_rq(i);
 
 		rq->capacity = compute_capacity(i);
+		rq->max_possible_capacity = rq->capacity *
+				rq->max_possible_freq / rq->max_freq;
 		rq->load_scale_factor = compute_load_scale_factor(i);
 	}
 
@@ -8158,6 +8160,7 @@ void __init sched_init(void)
 		rq->max_freq = 1;
 		rq->min_freq = 1;
 		rq->max_possible_freq = 1;
+		rq->max_possible_capacity = 0;
 		rq->cumulative_runnable_avg = 0;
 		rq->efficiency = 1024;
 		rq->capacity = 1024;

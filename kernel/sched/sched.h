@@ -495,6 +495,7 @@ struct rq {
 	int efficiency; /* Differentiate cpus with different IPC capability */
 	int load_scale_factor;
 	int capacity;
+	int max_possible_capacity;
 	u64 window_start;
 
 	unsigned int curr_runnable_sum;

@@ -308,6 +308,7 @@ do {									\
 #if defined(CONFIG_SCHED_HMP) || defined(CONFIG_SCHED_FREQ_INPUT)
 	P(load_scale_factor);
 	P(capacity);
+	P(max_possible_capacity);
 	P(efficiency);
 	P(cur_freq);
 	P(max_freq);
