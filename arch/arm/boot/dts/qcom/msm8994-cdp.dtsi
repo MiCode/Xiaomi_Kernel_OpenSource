@@ -45,8 +45,8 @@
 
 	qcom,nonremovable;
 
-	qcom,clk-rates = <400000 20000000 25000000 50000000 100000000 192000000>;
-	qcom,bus-speed-mode = "HS200_1p8v", "DDR_1p8v";
+	qcom,clk-rates = <400000 20000000 25000000 50000000 100000000 192000000 384000000>;
+	qcom,bus-speed-mode = "HS400_1p8v", "HS200_1p8v", "DDR_1p8v";
 	status = "ok";
 };
 
