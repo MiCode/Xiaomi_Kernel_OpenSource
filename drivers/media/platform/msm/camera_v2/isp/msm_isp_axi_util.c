@@ -850,10 +850,12 @@ static void msm_isp_get_done_buf(struct vfe_device *vfe_dev,
 		}
 	}
 
-	if (stream_info->controllable_output)
-		stream_info->request_frm_num--;
-
 	*done_buf = stream_info->buf[pingpong_bit];
+
+	if (stream_info->controllable_output) {
+		stream_info->buf[pingpong_bit] = NULL;
+		stream_info->request_frm_num--;
+	}
 }
 
 static int msm_isp_cfg_ping_pong_address(struct vfe_device *vfe_dev,
@@ -869,10 +871,9 @@ static int msm_isp_cfg_ping_pong_address(struct vfe_device *vfe_dev,
 		pr_err("%s: Invalid stream_idx", __func__);
 		return rc;
 	}
-	if (stream_info->controllable_output && !stream_info->request_frm_num) {
-		stream_info->buf[pingpong_bit] = NULL;
+
+	if (stream_info->controllable_output && !stream_info->request_frm_num)
 		return 0;
-	}
 
 	bufq_handle = stream_info->bufq_handle;
 
