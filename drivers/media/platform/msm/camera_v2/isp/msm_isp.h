@@ -458,7 +458,7 @@ struct vfe_device {
 	struct device *iommu_secure_ctx[MAX_IOMMU_CTX];
 
 	struct regulator *fs_vfe;
-	struct clk *vfe_clk[7];
+	struct clk **vfe_clk;
 	uint32_t num_clk;
 
 	uint32_t bus_perf_client;
