@@ -1318,10 +1318,7 @@ int adreno_ringbuffer_submitcmd(struct adreno_device *adreno_dev,
 	 * write it into the appropriate cmdbatch profiling buffer offset
 	 */
 	if (cmdbatch_profiling) {
-		*cmds++ = cp_type3_packet(CP_REG_TO_MEM, 2);
-		*cmds++ = adreno_getreg(adreno_dev,
-				ADRENO_REG_RBBM_ALWAYSON_COUNTER_LO) |
-				(1 << 30) | (2 << 18);
+		*cmds++ = cp_type3_packet(CP_RECORD_PFP_TIMESTAMP, 1);
 		*cmds++ = cmdbatch->profiling_buffer_gpuaddr +
 				offsetof(struct kgsl_cmdbatch_profiling_buffer,
 				gpu_ticks_submitted);
@@ -1353,10 +1350,7 @@ int adreno_ringbuffer_submitcmd(struct adreno_device *adreno_dev,
 	 * write it into the appropriate cmdbatch profiling buffer offset
 	 */
 	if (cmdbatch_profiling) {
-		*cmds++ = cp_type3_packet(CP_REG_TO_MEM, 2);
-		*cmds++ = adreno_getreg(adreno_dev,
-				ADRENO_REG_RBBM_ALWAYSON_COUNTER_LO) |
-				(1 << 30) | (2 << 18);
+		*cmds++ = cp_type3_packet(CP_RECORD_PFP_TIMESTAMP, 1);
 		*cmds++ = cmdbatch->profiling_buffer_gpuaddr +
 				offsetof(struct kgsl_cmdbatch_profiling_buffer,
 				gpu_ticks_retired);
