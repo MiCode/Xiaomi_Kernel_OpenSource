@@ -30,4 +30,6 @@ inline int dummy_vubs_enable(void) { return -1; }
 inline int dummy_vubs_disable(void) { return -1; }
 inline int dummy_vubs_status(void) { return -1; }
 
+extern int dc_ti_vbus_on_status(void);
+
 #endif

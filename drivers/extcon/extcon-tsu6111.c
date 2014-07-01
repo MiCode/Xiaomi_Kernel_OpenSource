@@ -642,7 +642,7 @@ static struct tsu6111_pdata tsu_drvdata = {
 #ifdef CONFIG_CHARGER_BQ24192
 	.enable_vbus = bq24192_vbus_enable,
 	.disable_vbus = bq24192_vbus_disable,
-	.is_vbus_online = bq24192_vbus_status,
+	.is_vbus_online = dc_ti_vbus_on_status,
 #else
 	.enable_vbus = dummy_vubs_enable,
 	.disable_vbus = dummy_vbus_disable,
