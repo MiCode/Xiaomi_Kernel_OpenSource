@@ -190,8 +190,8 @@ static int liquid_dock_probe(struct platform_device *pdev)
 	}
 
 	dock->usb3_pdev = of_find_device_by_node(usb3_node);
-	if (!dock->usb3_pdev) {
-		dev_err(dock->dev, "cannot find usb3_pdev\n");
+	if (!dock->usb3_pdev || !dock->usb3_pdev->dev.driver) {
+		dev_dbg(dock->dev, "usb pdev not ready\n");
 		of_node_put(usb3_node);
 		return -EPROBE_DEFER;
 	}
