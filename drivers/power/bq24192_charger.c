@@ -41,6 +41,8 @@
 #include <linux/acpi.h>
 #include <linux/gpio/consumer.h>
 
+#include <asm/intel_em_config.h>
+
 #define DRV_NAME "bq24192_charger"
 #define DEV_NAME "bq24192"
 
@@ -301,6 +303,43 @@ static enum power_supply_property bq24192_usb_props[] = {
 	POWER_SUPPLY_PROP_MAX_TEMP,
 	POWER_SUPPLY_PROP_MIN_TEMP
 };
+
+#define BYTCR_CHRG_CUR_NOLIMIT  1800
+#define BYTCR_CHRG_CUR_MEDIUM   1400
+#define BYTCR_CHRG_CUR_LOW      1000
+
+static struct ps_batt_chg_prof byt_ps_batt_chrg_prof;
+static struct ps_pse_mod_prof byt_batt_chg_profile;
+static struct power_supply_throttle byt_throttle_states[] = {
+	{
+		.throttle_action = PSY_THROTTLE_CC_LIMIT,
+		.throttle_val = BYTCR_CHRG_CUR_NOLIMIT,
+	},
+	{
+		.throttle_action = PSY_THROTTLE_CC_LIMIT,
+		.throttle_val = BYTCR_CHRG_CUR_MEDIUM,
+	},
+	{
+		.throttle_action = PSY_THROTTLE_CC_LIMIT,
+		.throttle_val = BYTCR_CHRG_CUR_LOW,
+	},
+	{
+		.throttle_action = PSY_THROTTLE_DISABLE_CHARGING,
+	},
+};
+
+static void *platform_byt_get_batt_charge_profile(void)
+{
+	if (!em_config_get_charge_profile(&byt_batt_chg_profile))
+		byt_ps_batt_chrg_prof.chrg_prof_type = CHRG_PROF_NONE;
+	else
+		byt_ps_batt_chrg_prof.chrg_prof_type = PSE_MOD_CHRG_PROF;
+
+	byt_ps_batt_chrg_prof.batt_prof = &byt_batt_chg_profile;
+	battery_prop_changed(POWER_SUPPLY_BATTERY_INSERTED,
+				&byt_ps_batt_chrg_prof);
+	return &byt_ps_batt_chrg_prof;
+}
 
 static enum power_supply_type get_power_supply_type(
 		enum power_supply_charger_cable_type cable)
@@ -661,6 +700,10 @@ int bq24192_get_battery_health(void)
 	chip = i2c_get_clientdata(bq24192_client);
 
 	dev_info(&chip->client->dev, "+%s\n", __func__);
+
+	/* If power supply is emulating as battery, return health as good */
+	if (!chip->pdata->sfi_tabl_present)
+		return POWER_SUPPLY_HEALTH_GOOD;
 
 	/* Report the battery health w.r.t battery temperature from FG */
 	temp = fg_chip_get_property(POWER_SUPPLY_PROP_TEMP);
@@ -1035,29 +1078,6 @@ int bq24192_vbus_disable(void)
 }
 EXPORT_SYMBOL(bq24192_vbus_disable);
 
-int bq24192_vbus_status(void)
-{
-	struct bq24192_chip *chip;;
-	int val;
-
-	if (!bq24192_client)
-		return -ENODEV;
-
-	chip = i2c_get_clientdata(bq24192_client);
-
-	val = bq24192_read_reg(chip->client, BQ24192_SYSTEM_STAT_REG);
-	if (val < 0) {
-		dev_warn(&chip->client->dev, "System Status reg read fail\n");
-		return 0;
-	}
-	val &= SYSTEM_STAT_VBUS_BITS;
-	if (val == SYSTEM_STAT_VBUS_HOST || val == SYSTEM_STAT_VBUS_ADP)
-		return 1;
-	else
-		return 0;
-}
-EXPORT_SYMBOL(bq24192_vbus_status);
-
 #ifdef CONFIG_DEBUG_FS
 #define DBGFS_REG_BUF_LEN	3
 
@@ -1197,6 +1217,23 @@ static inline int bq24192_enable_charging(
 	if (ret < 0) {
 		dev_err(&chip->client->dev,
 			"inlmt programming failed: %d\n", ret);
+		return ret;
+	}
+
+	/*
+	 * check if we have the battery emulator connected. We do not start
+	 * charging if the emulator is connected. Disable the charging
+	 * explicitly.
+	 */
+	if (!chip->pdata->sfi_tabl_present) {
+		ret = bq24192_reg_multi_bitset(chip->client,
+						BQ24192_POWER_ON_CFG_REG,
+						POWER_ON_CFG_CHRG_CFG_DIS,
+						CHR_CFG_BIT_POS,
+						CHR_CFG_BIT_LEN);
+		/* Schedule the charger task worker now */
+		schedule_delayed_work(&chip->chrg_task_wrkr,
+						0);
 		return ret;
 	}
 
@@ -2099,6 +2136,8 @@ static int bq24192_probe(struct i2c_client *client,
 		kfree(chip);
 		return -EINVAL;
 	}
+	chip->pdata->chg_profile = (struct ps_batt_chg_prof *)
+				platform_byt_get_batt_charge_profile();
 	chip->irq = -1;
 	chip->a_bus_enable = true;
 
@@ -2326,31 +2365,11 @@ static int bq24192_runtime_idle(struct device *dev)
 #define bq24192_runtime_idle	NULL
 #endif
 
-#define BYTCR_CHRG_CUR_NOLIMIT	1800
-#define BYTCR_CHRG_CUR_MEDIUM	1400
-#define BYTCR_CHRG_CUR_LOW	1000
-static struct power_supply_throttle byt_throttle_states[] = {
-	{
-		.throttle_action = PSY_THROTTLE_CC_LIMIT,
-		.throttle_val = BYTCR_CHRG_CUR_NOLIMIT,
-	},
-	{
-		.throttle_action = PSY_THROTTLE_CC_LIMIT,
-		.throttle_val = BYTCR_CHRG_CUR_MEDIUM,
-	},
-	{
-		.throttle_action = PSY_THROTTLE_CC_LIMIT,
-		.throttle_val = BYTCR_CHRG_CUR_LOW,
-	},
-	{
-		.throttle_action = PSY_THROTTLE_DISABLE_CHARGING,
-	},
-};
-
 char *bq24192_supplied_to[] = {
 	"max170xx_battery",
 	"max17042_battery",
 	"max17047_battery",
+	"intel_fuel_gauge",
 };
 
 struct bq24192_platform_data tbg24296_drvdata = {
@@ -2359,6 +2378,7 @@ struct bq24192_platform_data tbg24296_drvdata = {
 	.num_throttle_states = ARRAY_SIZE(byt_throttle_states),
 	.num_supplicants = ARRAY_SIZE(bq24192_supplied_to),
 	.supported_cables = POWER_SUPPLY_CHARGER_TYPE_USB,
+	.sfi_tabl_present = true,
 	.max_cc = 1800,	/* 1800 mA */
 	.max_cv = 4350,	/* 4350 mV */
 	.max_temp = 45,	/* 45 DegC */

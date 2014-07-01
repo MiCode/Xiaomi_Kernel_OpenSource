@@ -112,6 +112,7 @@ struct platform_batt_profile {
 struct bq24192_platform_data {
 	bool slave_mode;
 	short int temp_low_lim;
+	bool sfi_tabl_present;
 	short int safetemp;
 	struct platform_batt_profile batt_profile;
 	struct platform_batt_safety_param safety_param;
@@ -147,7 +148,6 @@ extern int bq24192_get_battery_health(void);
 extern bool bq24192_is_volt_shutdown_enabled(void);
 extern int bq24192_vbus_enable(void);
 extern int bq24192_vbus_disable(void);
-extern int bq24192_vbus_status(void);
 #else
 static int bq24192_get_battery_health(void)
 {
