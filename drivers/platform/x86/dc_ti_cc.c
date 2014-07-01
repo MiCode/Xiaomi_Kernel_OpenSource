@@ -29,7 +29,6 @@
 #include <linux/workqueue.h>
 #include <linux/delay.h>
 #include <linux/notifier.h>
-#include <linux/acpi.h>
 #include <linux/iio/consumer.h>
 #include <linux/mfd/intel_soc_pmic.h>
 #include <linux/power/intel_fuel_gauge.h>
@@ -78,7 +77,7 @@
 
 #define CC_INTG_TO_MA(a)		((a * 367) / 1000)
 
-#define CC_ACC_TO_UA(a)			(a * 367)
+#define CC_ACC_TO_UA(a)			(a * 366)
 
 #define CC_ACC_TO_UAH(a)		(a / 3600)
 
@@ -90,13 +89,43 @@
 
 #define DRV_NAME		"dollar_cove_ti_cc"
 
-#define THERM_CURVE_MAX_SAMPLES		13
+#define THERM_CURVE_MAX_SAMPLES		16
 #define THERM_CURVE_MAX_VALUES		4
 #define RBATT_TYPICAL			150
 
+#define CC_GAIN_STEP			25
+#define DEFAULT_CC_OFFSET_STEP	2
+#define TRIM_REV_3_OFFSET_STEP	1
+
+#define DEFAULT_CC_OFFSET_SHIFT	0
+#define TRIM_REV_3_OFFSET_SHIFT	1
+
+#define EEPROM_ACCESS_CONTROL		0x88
+#define EEPROM_UNLOCK			0xDA
+#define EEPROM_LOCK			0x00
+#define EEPROM_CTRL			0xFE
+#define EEPROM_CTRL_EEPSEL_MASK	0x03
+#define EEPROM_BANK0_SEL		0x01
+#define EEPROM_BANK1_SEL		0x02
+#define OFFSET_REG_TRIM_REV_3		0xFD  /* b7~b0 : CC offset */
+#define OFFSET_REG_TRIM_REV_DEFAULT	0xF3  /* b7~b4 : CC offset */
+#define EEPROM_GAIN_REG		0xF4  /* b7~b4 : CC gain */
+#define DC_PMIC_TRIM_REVISION_3	0x03
+#define DEF_PMIC_TRIM_REVISON		0x00
+/*CC Accumulator Bit unit 3.662uV/10mohm */
+#define MAX_CC_SCALE			3662
+
+struct dc_ti_trim {
+	s8 cc_offset_extra;
+	s8 cc_gain_extra;
+	s8 cc_off_shift;
+	s8 cc_step;
+	s8 cc_trim_rev;
+};
 struct dc_ti_cc_info {
 	struct platform_device *pdev;
 	struct work_struct	init_work;
+	struct dc_ti_trim trim;
 
 	int		vbat_socv;
 	int		vbat_bocv;
@@ -124,6 +153,9 @@ static int const dc_ti_bptherm_curve_data[THERM_CURVE_MAX_SAMPLES]
 	{45, 40, 376, 336},
 	{50, 45, 336, 299},
 	{55, 50, 299, 266},
+	{60, 55, 266, 236},
+	{65, 60, 236, 209},
+	{70, 65, 209, 185},
 };
 /* Temperature Interpolation Macros */
 static int platform_interpolate_temp(int adc_val,
@@ -155,12 +187,13 @@ static int platform_adc_to_temp(uint16_t adc_val, int *tmp)
 * update the value within the bound.
 */
 	adc_val = clamp_t(uint16_t, adc_val,
-			dc_ti_bptherm_curve_data[THERM_CURVE_MAX_SAMPLES-1][0],
+			dc_ti_bptherm_curve_data[THERM_CURVE_MAX_SAMPLES-1][3],
 			dc_ti_bptherm_curve_data[0][2]);
 
 	for (i = 0; i < THERM_CURVE_MAX_SAMPLES; i++) {
 		/* linear approximation for battery pack temperature */
-		if (adc_val >= dc_ti_bptherm_curve_data[i][2]) {
+		if (adc_val >= dc_ti_bptherm_curve_data[i][3] &&
+			adc_val <= dc_ti_bptherm_curve_data[i][2]) {
 			temp = platform_interpolate_temp(adc_val,
 					dc_ti_bptherm_curve_data[i][2],
 					dc_ti_bptherm_curve_data[i][2] -
@@ -353,25 +386,34 @@ static int dc_ti_get_cc_delta(struct dc_ti_cc_info *info, int *acc_val)
 		goto cc_read_failed;
 	smpl_ctr |= (ret << 16);
 
-	/* scale the counter to seconds */
-	smpl_ctr /= 4;
 	delta_smpl = smpl_ctr - info->smpl_ctr_prev;
 	info->smpl_ctr_prev = smpl_ctr;
 	/* handle sample counter overflow */
-	if (delta_smpl < 0) {
-		val = (int)((CC_SMPL_CTR_MAX_VAL/4) - info->smpl_ctr_prev);
-		delta_smpl = val + smpl_ctr;
-	}
+	if (delta_smpl < 0)
+		delta_smpl = val + (1 << 24);
 
 	dev_info(&info->pdev->dev, "delta_smpl:%d\n", delta_smpl);
 
+	/* Apply the Offset and Gain corrections to delta_q */
+	if (info->trim.cc_trim_rev == DC_PMIC_TRIM_REVISION_3) {
+		delta_q -= ((info->trim.cc_offset_extra * info->trim.cc_step *
+				delta_smpl) >> info->trim.cc_off_shift);
+
+		delta_q *= DIV_ROUND_CLOSEST(((10000 -
+				(CC_GAIN_STEP - (info->trim.cc_gain_extra *
+						 CC_GAIN_STEP)))
+				* MAX_CC_SCALE), 100000);
+	} else {
+		/* convert CC to to uAhr without offset and gain correction */
+		delta_q = CC_ACC_TO_UA(delta_q);
+	}
+
+	dev_info(&info->pdev->dev, "delta_q correction:%d\n", delta_q);
 	/* ibatt_avg in uA */
 	if (delta_smpl)
-		info->ibatt_avg = (CC_ACC_TO_UA(delta_q)) / delta_smpl;
+		info->ibatt_avg = DIV_ROUND_CLOSEST((delta_q * 4), delta_smpl);
 
-	/* convert CC to to uAhr */
-	delta_q = CC_ACC_TO_UA(delta_q);
-	*acc_val = CC_ACC_TO_UAH(delta_q);
+	*acc_val = DIV_ROUND_CLOSEST(delta_q, 3600);
 
 	return 0;
 
@@ -490,7 +532,7 @@ static int dc_ti_fg_get_ibatt_bootup(struct dc_ti_cc_info *info,
 	ret |= intel_soc_pmic_clearb(DC_TI_CC_CNTL_REG, CC_CNTL_CC_CTR_EN);
 	if (ret < 0) {
 		dev_err(&info->pdev->dev,
-			"Failed to clr CC_CTR_EN bit:%d\n", ret);
+			 "Failed to clr CC_CTR_EN bit:%d\n", ret);
 		return ret;
 	}
 
@@ -661,12 +703,99 @@ static void dc_ti_update_boot_ocv(struct dc_ti_cc_info *info)
 			"Failed to clr CC_CTR_EN bit:%d\n", ret);
 }
 
+/**
+ * dc_ti_cc_read_trim_values: Function to store the offset and gain correction.
+ * @info: Pointer to the dc_ti_cc_info instance.
+ * Returns 0 for success, Negetive value for failure.
+ */
+static int dc_ti_cc_read_trim_values(struct dc_ti_cc_info *info)
+{
+	int ret;
+	u8	val_offset, val_gain;
+
+	/*
+	 * As per the PMIC Vendor, the calibration offset and gain err
+	 * values are stored in EEPROM Bank 0 and Bank 1 of the PMIC.
+	 * We need to read the stored offset and gain margins and need
+	 * to apply the corrections to the raw coulomb counter value.
+	 */
+	/* UNLOCK the EEPROM Access */
+	ret = intel_soc_pmic_writeb(EEPROM_ACCESS_CONTROL, EEPROM_UNLOCK);
+	if (ret < 0) {
+		dev_err(&info->pdev->dev, "Error while unlocking EEPROM\n");
+		goto exit_trim;
+	}
+	/* Select Bank 1 to read CC GAIN Err correction */
+	ret = intel_soc_pmic_writeb(EEPROM_CTRL,
+			((u8)(EEPROM_CTRL_EEPSEL_MASK & EEPROM_BANK1_SEL)));
+	if (ret < 0) {
+		dev_err(&info->pdev->dev, "Error while selecting EEPROM Bank1\n");
+		goto exit_trim;
+	}
+	val_gain = intel_soc_pmic_readb(EEPROM_GAIN_REG);
+	if (val_gain < 0) {
+		dev_err(&info->pdev->dev, "Error while reading Gain Reg\n");
+		ret = val_gain;
+		goto exit_trim;
+	}
+	info->trim.cc_gain_extra = val_gain >> 4;
+	info->trim.cc_trim_rev = (val_gain & 0x0F);
+
+	if (info->trim.cc_trim_rev == DC_PMIC_TRIM_REVISION_3) {
+		/* Select Bank 0 to read CC OFFSET Correction */
+		ret = intel_soc_pmic_writeb(EEPROM_CTRL,
+			((u8)(EEPROM_CTRL_EEPSEL_MASK & EEPROM_BANK0_SEL)));
+		if (ret < 0) {
+			dev_err(&info->pdev->dev, "Error while selecting EEPROM Bank1\n");
+			goto exit_trim;
+		}
+		val_offset = intel_soc_pmic_readb(OFFSET_REG_TRIM_REV_3);
+		if (val_offset < 0) {
+			dev_err(&info->pdev->dev, "Error while reading Offset Reg\n");
+			ret = val_offset;
+			goto exit_trim;
+		}
+		info->trim.cc_offset_extra = (s8)(val_offset);
+		info->trim.cc_step = TRIM_REV_3_OFFSET_STEP;
+		info->trim.cc_off_shift = TRIM_REV_3_OFFSET_SHIFT;
+		dev_info(&info->pdev->dev, "TRIM Revision 3, Apply TRIM\n");
+	} else {
+		/* Read offset trim value from Bank 0 */
+		val_offset = intel_soc_pmic_readb(OFFSET_REG_TRIM_REV_DEFAULT);
+		if (val_offset < 0) {
+			dev_err(&info->pdev->dev,
+				"Error while reading Offset Reg\n");
+			ret = val_offset;
+			goto exit_trim;
+		}
+		info->trim.cc_offset_extra = ((s8)val_offset) >> 4;
+		info->trim.cc_step = DEFAULT_CC_OFFSET_STEP;
+		info->trim.cc_off_shift = DEFAULT_CC_OFFSET_SHIFT;
+		info->trim.cc_trim_rev = DEF_PMIC_TRIM_REVISON;
+		dev_info(&info->pdev->dev,
+			 "TRIM Revision old, Do not Apply TRIM\n");
+	}
+
+exit_trim:
+	/* Lock the EEPROM Access */
+	intel_soc_pmic_writeb(EEPROM_ACCESS_CONTROL, EEPROM_LOCK);
+	if (ret < 0) {
+		/* Reset the PMIC TRIM Revision number when error
+		 * is encountered */
+		info->trim.cc_trim_rev = DEF_PMIC_TRIM_REVISON;
+	}
+	dev_info(&info->pdev->dev, "CC OFFSET = %d GAIN = %d\n",
+			info->trim.cc_offset_extra, info->trim.cc_gain_extra);
+	return ret;
+}
 static void dc_ti_cc_init_worker(struct work_struct *work)
 {
 	struct dc_ti_cc_info *info =
 	    container_of(work, struct dc_ti_cc_info, init_work);
 	int ret;
+	u8 val_offset, val_gain;
 
+	dc_ti_cc_read_trim_values(info);
 	/* read bootup OCV */
 	dc_ti_update_boot_ocv(info);
 	dc_ti_cc_init_data(info);

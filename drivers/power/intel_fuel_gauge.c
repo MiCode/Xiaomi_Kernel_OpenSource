@@ -644,6 +644,11 @@ static int intel_fuel_gauge_suspend(struct device *dev)
 	return 0;
 }
 
+static bool intel_fuel_gauge_suspend_again(void)
+{
+	return false;
+}
+
 static int intel_fuel_gauge_resume(struct device *dev)
 {
 	/*
