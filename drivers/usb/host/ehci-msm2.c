@@ -1730,7 +1730,8 @@ static int ehci_msm2_pm_suspend(struct device *dev)
 
 	dev_dbg(dev, "ehci-msm2 PM suspend\n");
 
-	if (device_may_wakeup(dev))
+	if (device_may_wakeup(dev) && !mhcd->async_irq_enabled &&
+		!mhcd->wakeup_irq_enabled && !mhcd->pmic_gpio_dp_irq_enabled)
 		enable_irq_wake(hcd->irq);
 
 	return msm_ehci_suspend(mhcd);
@@ -1745,7 +1746,8 @@ static int ehci_msm2_pm_resume(struct device *dev)
 
 	dev_dbg(dev, "ehci-msm2 PM resume\n");
 
-	if (device_may_wakeup(dev))
+	if (device_may_wakeup(dev) && !mhcd->async_irq_enabled &&
+		!mhcd->wakeup_irq_enabled && !mhcd->pmic_gpio_dp_irq_enabled)
 		disable_irq_wake(hcd->irq);
 
 	ret = msm_ehci_resume(mhcd);
