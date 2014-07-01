@@ -10,6 +10,7 @@
  * GNU General Public License for more details.
  */
 
+
 qcom,qrd-skuh-4v35-2000mah-data {
 	qcom,default-rbatt-mohm = <188>;
 	qcom,max-voltage-uv = <4350000>;
@@ -102,5 +103,14 @@ qcom,qrd-skuh-4v35-2000mah-data {
 				<4080 519 123 102 93>,
 				<8074 696 153 171 149>,
 				<30656 4547 9542 7331 6138>;
+	};
+
+	qcom,ibat-acc-lut {
+		qcom,lut-col-legend = <(-20) 0 25>;
+		qcom,lut-row-legend = <0 250 500 1000>;
+		qcom,lut-data = <1937 1937 1933>,
+				<600 1866 1920>,
+				<107 1602 1898>,
+				<11 878 1841>;
 	};
 };
