@@ -923,7 +923,7 @@ static void msm_vfe46_cfg_axi_ub_equal_default(
 	uint8_t num_used_wms = 0;
 	uint32_t prop_size = 0;
 	uint32_t wm_ub_size;
-	uint32_t delta;
+	uint64_t delta;
 
 	for (i = 0; i < axi_data->hw_info->num_wm; i++) {
 		if (axi_data->free_wm[i] > 0) {
@@ -935,10 +935,11 @@ static void msm_vfe46_cfg_axi_ub_equal_default(
 		axi_data->hw_info->min_wm_ub * num_used_wms;
 	for (i = 0; i < axi_data->hw_info->num_wm; i++) {
 		if (axi_data->free_wm[i]) {
-			delta =
-				(axi_data->wm_image_size[i] *
-					prop_size)/total_image_size;
-			wm_ub_size = axi_data->hw_info->min_wm_ub + delta;
+			delta = (uint64_t)axi_data->wm_image_size[i] *
+					(uint64_t)prop_size;
+			do_div(delta, total_image_size);
+			wm_ub_size = axi_data->hw_info->min_wm_ub +
+					(uint32_t)delta;
 			msm_camera_io_w(ub_offset << 16 | (wm_ub_size - 1),
 				vfe_dev->vfe_base + VFE46_WM_BASE(i) + 0x10);
 			ub_offset += wm_ub_size;
