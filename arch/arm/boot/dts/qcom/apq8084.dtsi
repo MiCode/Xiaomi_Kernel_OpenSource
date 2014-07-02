@@ -4553,6 +4553,11 @@
 
 	};
 
+	memory_hole: qcom,msm-mem-hole {
+		compatible = "qcom,msm-mem-hole";
+		qcom,memblock-remove = <0xac1c0000 0x1000>;
+	};
+
 	qcom,ipc-spinlock@fd484000 {
 		compatible = "qcom,ipc-spinlock-sfpb";
 		reg = <0xfd484000 0x400>;
