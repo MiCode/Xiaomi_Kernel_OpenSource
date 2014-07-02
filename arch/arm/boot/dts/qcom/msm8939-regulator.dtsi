@@ -72,9 +72,8 @@
 
 		qcom,cpr-fuse-corners = <3>;
 		qcom,cpr-voltage-ceiling = <1050000 1150000 1350000>;
-		qcom,cpr-voltage-floor = <1050000 1050000 1162500>;
+		qcom,cpr-voltage-floor = <1050000 1050000 1137500>;
 		vdd-apc-supply = <&ncp6335d>;
-		vdd-apc-optional-prim-supply = <&fan53555>;
 
 		qcom,vdd-mx-corner-map = <4 5 7>;
 		qcom,vdd-mx-vmin-method = <4>;
@@ -88,14 +87,14 @@
 		qcom,cpr-timer-cons-up = <0>;
 		qcom,cpr-timer-cons-down = <2>;
 		qcom,cpr-irq-line = <0>;
-		qcom,cpr-step-quotient = <26>;
+		qcom,cpr-step-quotient = <13>;
 		qcom,cpr-up-threshold = <0>;
 		qcom,cpr-down-threshold = <2>;
 		qcom,cpr-idle-clocks = <15>;
 		qcom,cpr-gcnt-time = <1>;
 		qcom,vdd-apc-step-up-limit = <1>;
 		qcom,vdd-apc-step-down-limit = <1>;
-		qcom,cpr-apc-volt-step = <12500>;
+		qcom,cpr-apc-volt-step = <6250>;
 
 		qcom,cpr-fuse-row = <27 0>;
 		qcom,cpr-fuse-target-quot = <42 24 6>;
