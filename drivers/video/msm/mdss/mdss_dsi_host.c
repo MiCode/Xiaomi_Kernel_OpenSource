@@ -1321,6 +1321,10 @@ int mdss_dsi_cmdlist_commit(struct mdss_dsi_ctrl_pdata *ctrl, int from_mdp)
 	struct dcs_cmd_req *req;
 	int ret = -EINVAL;
 	int rc = 0;
+
+	if (mdss_get_sd_client_cnt())
+		return -EPERM;
+
 	mutex_lock(&ctrl->cmd_mutex);
 	req = mdss_dsi_cmdlist_get(ctrl);
 
