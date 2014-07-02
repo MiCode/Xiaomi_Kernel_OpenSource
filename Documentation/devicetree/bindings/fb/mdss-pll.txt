@@ -5,7 +5,10 @@ are compatable with MIPI display serial interface specification,
 HDMI and edp.
 
 Required properties:
-- compatible:		Compatible name used in the driver
+- compatible:		Compatible name used in the driver. Should be one of:
+			"qcom,mdss_dsi_pll_8916", "qcom,mdss_dsi_pll_8939",
+			"qcom,mdss_dsi_pll_8974", "qcom,mdss_dsi_pll_8994",
+			"qcom,mdss_dsi_pll_8994", "qcom,mdss_hdmi_pll"
 - cell-index:		Specifies the controller used
 - reg:			offset and length of the register set for the device.
 - reg-names :		names to refer to register sets related to this device
@@ -38,7 +41,7 @@ Optional properties:
 
 Example:
 	mdss_dsi0_pll: qcom,mdss_dsi_pll@fd922A00 {
-		compatible = "qcom,mdss_dsi_pll";
+		compatible = "qcom,mdss_dsi_pll_8974";
 		label = "MDSS DSI 0 PLL";
 		cell-index = <0>;
 
