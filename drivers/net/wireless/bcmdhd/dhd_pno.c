@@ -1574,7 +1574,7 @@ int dhd_pno_set_cfg_gscan(dhd_pub_t *dhd, dhd_pno_gscan_cmd_cfg_t type,
 				_pno_bssid = kzalloc(sizeof(struct dhd_pno_bssid), GFP_KERNEL);
 
 				if (!_pno_bssid) {
-					DHD_ERROR(("_pno_bssid is NULL, cannot kalloc %d bytes",
+					DHD_ERROR(("_pno_bssid is NULL, cannot kalloc %zd bytes",
 					       sizeof(struct dhd_pno_bssid)));
 					err = BCME_NOMEM;
 					goto exit;
@@ -1620,7 +1620,7 @@ int dhd_pno_set_cfg_gscan(dhd_pub_t *dhd, dhd_pno_gscan_cmd_cfg_t type,
 				      GFP_KERNEL);
 
 				if (!_pno_significant_change_bssid) {
-					DHD_ERROR(("SWC bssidptr is NULL, cannot kalloc %d bytes",
+					DHD_ERROR(("SWC bssidptr is NULL, cannot kalloc %zd bytes",
 					sizeof(dhd_pno_significant_bssid_t)));
 					err = BCME_NOMEM;
 					goto exit;
@@ -1883,7 +1883,7 @@ dhd_pno_set_for_gscan(dhd_pub_t *dhd, struct dhd_pno_gscan_params *gscan_params)
 		p_pfn_significant_bssid = kzalloc(sizeof(wl_pfn_significant_bssid_t) *
 		                   gscan_params->nbssid_significant_change, GFP_KERNEL);
 		if (p_pfn_significant_bssid == NULL) {
-			DHD_ERROR(("%s : failed to allocate memory %d\n",
+			DHD_ERROR(("%s : failed to allocate memory %zd\n",
 				__FUNCTION__,
 				sizeof(wl_pfn_significant_bssid_t) *
 				gscan_params->nbssid_significant_change));
@@ -2145,7 +2145,7 @@ dhd_pno_gscan_create_channel_list(dhd_pub_t *dhd,
 	   ((*num_buckets) * sizeof(wl_pfn_gscan_channel_bucket_t)));
 
 	if (!ch_bucket) {
-		DHD_ERROR(("%s: failed to malloc memory of size %d\n",
+		DHD_ERROR(("%s: failed to malloc memory of size %zd\n",
 			__FUNCTION__, (*num_buckets) * sizeof(wl_pfn_gscan_channel_bucket_t)));
 		*num_buckets_to_fw = *num_buckets = 0;
 		return NULL;
@@ -3372,7 +3372,7 @@ void * dhd_handle_swc_evt(dhd_pub_t *dhd, const void *event_data, int *send_evt_
 			GFP_KERNEL);
 
 			if (!params->change_array) {
-				DHD_ERROR(("%s Cannot Malloc %d bytes!!\n", __FUNCTION__,
+				DHD_ERROR(("%s Cannot Malloc %zd bytes!!\n", __FUNCTION__,
 				sizeof(wl_pfn_significant_net_t) * results->total_count));
 				*send_evt_bytes = 0;
 				return ptr;
