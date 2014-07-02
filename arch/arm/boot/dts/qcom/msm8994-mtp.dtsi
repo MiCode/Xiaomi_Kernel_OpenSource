@@ -633,3 +633,7 @@
 &pmi8994_fg {
 	qcom,battery-data = <&mtp_batterydata>;
 };
+
+&pmi8994_haptics {
+	status = "okay";
+};
