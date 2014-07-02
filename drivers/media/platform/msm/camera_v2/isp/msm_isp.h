@@ -166,8 +166,10 @@ struct msm_vfe_core_ops {
 	int (*init_hw) (struct vfe_device *vfe_dev);
 	void (*init_hw_reg) (struct vfe_device *vfe_dev);
 	void (*release_hw) (struct vfe_device *vfe_dev);
-	void (*cfg_camif) (struct vfe_device *vfe_dev,
+	void (*cfg_input_mux) (struct vfe_device *vfe_dev,
 		struct msm_vfe_pix_cfg *pix_cfg);
+	int (*start_fetch_eng)(struct vfe_device *vfe_dev,
+		void *arg);
 	void (*update_camif_state) (struct vfe_device *vfe_dev,
 		enum msm_isp_camif_update_state update_state);
 	void (*cfg_rdi_reg) (struct vfe_device *vfe_dev,
@@ -320,8 +322,9 @@ struct msm_vfe_axi_stream {
 	uint32_t runtime_init_frame_drop;
 	uint32_t runtime_burst_frame_count;/*number of sof before burst stop*/
 	uint32_t runtime_num_burst_capture;
-	uint8_t runtime_framedrop_update;
+	uint8_t  runtime_framedrop_update;
 	uint32_t runtime_output_format;
+	enum msm_stream_memory_input_t  memory_input;
 };
 
 struct msm_vfe_axi_composite_info {
@@ -339,6 +342,14 @@ struct msm_vfe_src_info {
 	long pixel_clock;
 	uint32_t input_format;/*V4L2 pix format with bayer pattern*/
 	uint32_t last_updt_frm_id;
+};
+
+struct msm_vfe_fetch_engine_info {
+	uint32_t session_id;
+	uint32_t stream_id;
+	uint32_t bufq_handle;
+	uint32_t buf_idx;
+	uint8_t is_busy;
 };
 
 enum msm_wm_ub_cfg_type {
@@ -359,7 +370,7 @@ struct msm_vfe_axi_shared_data {
 	uint8_t num_pix_stream;
 	uint32_t rdi_wm_mask;
 	struct msm_vfe_axi_composite_info
-		composite_info[MAX_NUM_COMPOSITE_MASK];
+	composite_info[MAX_NUM_COMPOSITE_MASK];
 	uint8_t num_used_composite_mask;
 	uint32_t stream_update;
 	atomic_t axi_cfg_update;
@@ -518,6 +529,7 @@ struct vfe_device {
 	void __iomem *p_avtimer_lsw;
 	uint8_t ignore_error;
 	struct msm_isp_statistics *stats;
+	struct msm_vfe_fetch_engine_info fetch_engine_info;
 };
 
 #endif

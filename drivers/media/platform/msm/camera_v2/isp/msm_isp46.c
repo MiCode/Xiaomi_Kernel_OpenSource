@@ -723,6 +723,19 @@ static int32_t msm_vfe46_cfg_io_format(struct vfe_device *vfe_dev,
 	return 0;
 }
 
+static int msm_vfe46_start_fetch_engine(struct vfe_device *vfe_dev,
+	void *arg)
+{
+	return 0;
+}
+
+static void msm_vfe46_cfg_fetch_engine(struct vfe_device *vfe_dev,
+	struct msm_vfe_pix_cfg *pix_cfg)
+{
+	pr_err("%s: Fetch engine not supported\n", __func__);
+	return;
+}
+
 static void msm_vfe46_cfg_camif(struct vfe_device *vfe_dev,
 	struct msm_vfe_pix_cfg *pix_cfg)
 {
@@ -768,6 +781,23 @@ static void msm_vfe46_cfg_camif(struct vfe_device *vfe_dev,
 			__func__, pix_cfg->input_mux);
 		break;
 	}
+}
+
+static void msm_vfe46_cfg_input_mux(struct vfe_device *vfe_dev,
+	struct msm_vfe_pix_cfg *pix_cfg)
+{
+	switch (pix_cfg->input_mux) {
+	case CAMIF:
+		msm_vfe46_cfg_camif(vfe_dev, pix_cfg);
+		break;
+	case EXTERNAL_READ:
+		msm_vfe46_cfg_fetch_engine(vfe_dev, pix_cfg);
+		break;
+	default:
+		pr_err("%s: Unsupported input mux %d\n",
+			__func__, pix_cfg->input_mux);
+	}
+	return;
 }
 
 static void msm_vfe46_update_camif_state(struct vfe_device *vfe_dev,
@@ -1603,8 +1633,9 @@ struct msm_vfe_hardware_info vfe46_hw_info = {
 		},
 		.core_ops = {
 			.reg_update = msm_vfe46_reg_update,
-			.cfg_camif = msm_vfe46_cfg_camif,
+			.cfg_input_mux = msm_vfe46_cfg_input_mux,
 			.update_camif_state = msm_vfe46_update_camif_state,
+			.start_fetch_eng = msm_vfe46_start_fetch_engine,
 			.cfg_rdi_reg = msm_vfe46_cfg_rdi_reg,
 			.reset_hw = msm_vfe46_reset_hardware,
 			.init_hw = msm_vfe46_init_hardware,

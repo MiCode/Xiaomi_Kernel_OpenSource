@@ -598,6 +598,14 @@ int msm_isp_request_axi_stream(struct vfe_device *vfe_dev, void *arg)
 	}
 	stream_info = &vfe_dev->axi_data.
 		stream_info[HANDLE_TO_IDX(stream_cfg_cmd->axi_stream_handle)];
+	if (!stream_info) {
+		pr_err("%s: can not find stream handle %x\n", __func__,
+			stream_cfg_cmd->axi_stream_handle);
+		return -EINVAL;
+	}
+
+	stream_info->memory_input = stream_cfg_cmd->memory_input;
+
 	msm_isp_axi_reserve_wm(&vfe_dev->axi_data, stream_info);
 
 	if (stream_info->stream_src < RDI_INTF_0) {
@@ -717,10 +725,10 @@ static void msm_isp_axi_stream_enable_cfg(
 		return;
 	for (i = 0; i < stream_info->num_planes; i++) {
 		if (stream_info->state == START_PENDING ||
-			stream_info->state == RESUME_PENDING)
+			stream_info->state == RESUME_PENDING) {
 			vfe_dev->hw_info->vfe_ops.axi_ops.
 				enable_wm(vfe_dev, stream_info->wm[i], 1);
-		else {
+		} else {
 			vfe_dev->hw_info->vfe_ops.axi_ops.
 				enable_wm(vfe_dev, stream_info->wm[i], 0);
 			/* Issue a reg update for Raw Snapshot Case
@@ -1015,7 +1023,9 @@ static enum msm_isp_camif_update_state
 			pix_stream_cnt++;
 	}
 
-	if (pix_stream_cnt) {
+	if ((pix_stream_cnt) &&
+	    (axi_data->src_info[VFE_PIX_0].input_mux != EXTERNAL_READ)) {
+
 		if (cur_pix_stream_cnt == 0 && pix_stream_cnt &&
 			stream_cfg_cmd->cmd == START_STREAM)
 			return ENABLE_CAMIF;
@@ -1028,6 +1038,7 @@ static enum msm_isp_camif_update_state
 			stream_cfg_cmd->cmd == STOP_IMMEDIATELY)
 			return DISABLE_CAMIF_IMMEDIATELY;
 	}
+
 	return NO_UPDATE;
 }
 
@@ -1071,33 +1082,6 @@ static void msm_isp_update_camif_output_count(
 					raw_stream_count--;
 		}
 	}
-}
-
-void msm_camera_io_dump_2(void __iomem *addr, int size)
-{
-	char line_str[128], *p_str;
-	int i;
-	u32 *p = (u32 *) addr;
-	u32 data;
-	ISP_DBG("%s: %p %d\n", __func__, addr, size);
-	line_str[0] = '\0';
-	p_str = line_str;
-	for (i = 0; i < size/4; i++) {
-		if (i % 4 == 0) {
-			snprintf(p_str, 12, "%p: ", p);
-			p_str += 10;
-		}
-		data = readl_relaxed(p++);
-		snprintf(p_str, 12, "%08x ", data);
-		p_str += 9;
-		if ((i + 1) % 4 == 0) {
-			ISP_DBG("%s\n", line_str);
-			line_str[0] = '\0';
-			p_str = line_str;
-		}
-	}
-	if (line_str[0] != '\0')
-		ISP_DBG("%s\n", line_str);
 }
 
 /*Factor in Q2 format*/
@@ -1359,7 +1343,8 @@ static int msm_isp_start_axi_stream(struct vfe_device *vfe_dev,
 		msm_isp_get_stream_wm_mask(stream_info, &wm_reload_mask);
 		rc = msm_isp_init_stream_ping_pong_reg(vfe_dev, stream_info);
 		if (rc < 0) {
-			pr_err("%s: No buffer for stream%d\n", __func__,
+			pr_err("%s: No buffer for stream %d\n",
+					__func__,
 				HANDLE_TO_IDX(
 				stream_cfg_cmd->stream_handle[i]));
 			return rc;
@@ -1385,7 +1370,6 @@ static int msm_isp_start_axi_stream(struct vfe_device *vfe_dev,
 	msm_isp_update_stream_bandwidth(vfe_dev);
 	vfe_dev->hw_info->vfe_ops.axi_ops.reload_wm(vfe_dev, wm_reload_mask);
 	vfe_dev->hw_info->vfe_ops.core_ops.reg_update(vfe_dev);
-
 	msm_isp_update_camif_output_count(vfe_dev, stream_cfg_cmd);
 	if (camif_update == ENABLE_CAMIF) {
 		vfe_dev->axi_data.src_info[VFE_PIX_0].frame_id = 0;
@@ -1738,9 +1722,9 @@ void msm_isp_process_axi_irq(struct vfe_device *vfe_dev,
 					HANDLE_TO_IDX(comp_info->stream_handle);
 				stream_info =
 					&axi_data->stream_info[stream_idx];
-				ISP_DBG("%s: stream%d frame id: 0x%x\n",
-					__func__,
-					stream_idx, stream_info->frame_id);
+				ISP_DBG("%s: stream id %x frame id: 0x%x\n",
+					__func__, stream_info->stream_id,
+					stream_info->frame_id);
 				stream_info->frame_id++;
 
 				pingpong_bit = (~(pingpong_status >>
@@ -1778,9 +1762,9 @@ void msm_isp_process_axi_irq(struct vfe_device *vfe_dev,
 			}
 			stream_idx = HANDLE_TO_IDX(axi_data->free_wm[i]);
 			stream_info = &axi_data->stream_info[stream_idx];
-			ISP_DBG("%s: stream%d frame id: 0x%x\n",
+			ISP_DBG("%s: stream id %x frame id: 0x%x\n",
 				__func__,
-				stream_idx, stream_info->frame_id);
+				stream_info->stream_id, stream_info->frame_id);
 			stream_info->frame_id++;
 
 			pingpong_bit = (~(pingpong_status >>

@@ -620,6 +620,19 @@ static int32_t msm_vfe32_cfg_io_format(struct vfe_device *vfe_dev,
 	return 0;
 }
 
+static int msm_vfe32_start_fetch_engine(struct vfe_device *vfe_dev,
+	void *arg)
+{
+	return 0;
+}
+
+static void msm_vfe32_cfg_fetch_engine(struct vfe_device *vfe_dev,
+	struct msm_vfe_pix_cfg *pix_cfg)
+{
+	pr_err("%s: Fetch engine not supported\n", __func__);
+	return;
+}
+
 static void msm_vfe32_cfg_camif(struct vfe_device *vfe_dev,
 	struct msm_vfe_pix_cfg *pix_cfg)
 {
@@ -649,6 +662,23 @@ static void msm_vfe32_cfg_camif(struct vfe_device *vfe_dev,
 	val &= 0xFFFFFFFC;
 	val |= camif_cfg->camif_input;
 	msm_camera_io_w(val, vfe_dev->vfe_base + 0x6FC);
+}
+
+static void msm_vfe32_cfg_input_mux(struct vfe_device *vfe_dev,
+	struct msm_vfe_pix_cfg *pix_cfg)
+{
+	switch (pix_cfg->input_mux) {
+	case CAMIF:
+		msm_vfe32_cfg_camif(vfe_dev, pix_cfg);
+		break;
+	case EXTERNAL_READ:
+		msm_vfe32_cfg_fetch_engine(vfe_dev, pix_cfg);
+		break;
+	default:
+		pr_err("%s: Unsupported input mux %d\n",
+			__func__, pix_cfg->input_mux);
+	}
+	return;
 }
 
 static void msm_vfe32_update_camif_state(
@@ -1231,8 +1261,9 @@ struct msm_vfe_hardware_info vfe32_hw_info = {
 		},
 		.core_ops = {
 			.reg_update = msm_vfe32_reg_update,
-			.cfg_camif = msm_vfe32_cfg_camif,
+			.cfg_input_mux = msm_vfe32_cfg_input_mux,
 			.update_camif_state = msm_vfe32_update_camif_state,
+			.start_fetch_eng = msm_vfe32_start_fetch_engine,
 			.cfg_rdi_reg = msm_vfe32_cfg_rdi_reg,
 			.reset_hw = msm_vfe32_reset_hardware,
 			.init_hw = msm_vfe32_init_hardware,
