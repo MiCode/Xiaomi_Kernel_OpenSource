@@ -420,6 +420,7 @@ struct msm_pcie_dev_t {
 	bool				 ep_wakeirq;
 
 	uint32_t			   rc_idx;
+	bool				drv_ready;
 	bool				 enumerated;
 	struct work_struct	     handle_wake_work;
 	struct mutex		     recovery_lock;
@@ -1969,6 +1970,12 @@ int msm_pcie_enumerate(u32 rc_idx)
 
 	PCIE_DBG(dev, "Enumerate RC%d\n", rc_idx);
 
+	if (!dev->drv_ready) {
+		PCIE_DBG(dev, "RC%d has not been successfully probed yet\n",
+			rc_idx);
+		return -EPROBE_DEFER;
+	}
+
 	if (!dev->enumerated) {
 		ret = msm_pcie_enable(dev, PM_ALL);
 
@@ -2725,6 +2732,9 @@ static int msm_pcie_probe(struct platform_device *pdev)
 
 	PCIE_DBG(&msm_pcie_dev[rc_idx], "PCIE probed %s\n",
 		dev_name(&(pdev->dev)));
+
+	msm_pcie_dev[rc_idx].drv_ready = true;
+
 	mutex_unlock(&pcie_drv.drv_lock);
 	return 0;
 
@@ -2813,6 +2823,7 @@ int __init pcie_init(void)
 		mutex_init(&msm_pcie_dev[i].recovery_lock);
 		spin_lock_init(&msm_pcie_dev[i].linkdown_lock);
 		spin_lock_init(&msm_pcie_dev[i].wakeup_lock);
+		msm_pcie_dev[i].drv_ready = false;
 	}
 
 	ret = platform_driver_register(&msm_pcie_driver);
@@ -3045,6 +3056,13 @@ int msm_pcie_pm_control(enum msm_pcie_pm_opt pm_opt, u32 busnr, void *user,
 	}
 
 	dev = msm_pcie_dev[rc_idx].dev;
+
+	if (!msm_pcie_dev[rc_idx].drv_ready) {
+		PCIE_ERR(&msm_pcie_dev[rc_idx],
+			"RC%d has not been successfully probed yet\n",
+			rc_idx);
+		return -EPROBE_DEFER;
+	}
 
 	switch (pm_opt) {
 	case MSM_PCIE_SUSPEND:
