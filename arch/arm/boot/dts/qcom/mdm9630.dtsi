@@ -514,6 +514,7 @@
 		qcom,power-collapse-on-cable-disconnect;
 		qcom,por-after-power-collapse;
 		qcom,lpm-to-suspend-delay-ms = <2000>;
+		qcom,dwc-usb3-msm-tx-fifo-size = <29696>;
 
 		dwc3@f9200000 {
 				compatible = "synopsys,dwc3";
@@ -526,6 +527,7 @@
 				snps,core-reset-after-phy-init;
 				snps,hsphy-auto-suspend-disable;
 				snps,hird_thresh = <0x10>;
+				tx-fifo-resize;
 		};
         };
 
