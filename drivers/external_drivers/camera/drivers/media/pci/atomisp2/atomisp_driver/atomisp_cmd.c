@@ -5083,6 +5083,7 @@ int atomisp_set_fmt(struct video_device *vdev, struct v4l2_format *f)
 		if (ret)
 			return -EINVAL;
 
+		atomisp_csi_lane_config(isp);
 		crop_needs_override = true;
 	}
 

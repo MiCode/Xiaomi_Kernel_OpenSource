@@ -578,7 +578,7 @@ static int atomisp_resume(struct device *dev)
 }
 #endif
 
-static int atomisp_csi_lane_config(struct atomisp_device *isp)
+int atomisp_csi_lane_config(struct atomisp_device *isp)
 {
 	static const struct {
 		u8 code;

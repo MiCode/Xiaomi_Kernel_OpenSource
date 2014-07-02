@@ -34,5 +34,6 @@ void atomisp_video_unregister(struct atomisp_video_pipe *video);
 int atomisp_video_register(struct atomisp_video_pipe *video,
 	struct v4l2_device *vdev);
 const struct firmware *atomisp_load_firmware(struct atomisp_device *isp);
+int atomisp_csi_lane_config(struct atomisp_device *isp);
 
 #endif /* __ATOMISP_V4L2_H__ */

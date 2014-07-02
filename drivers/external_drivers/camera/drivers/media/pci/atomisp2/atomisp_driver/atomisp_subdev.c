@@ -404,6 +404,11 @@ int atomisp_subdev_set_selection(struct v4l2_subdev *sd,
 			padding_h = 12;
 		}
 
+		if (isp->inputs[isp_sd->input_curr].type == SOC_CAMERA) {
+			padding_w = 0;
+			padding_h = 0;
+		}
+
 		if (atomisp_subdev_format_conversion(isp_sd,
 						     isp_sd->capture_pad)
 		    && crop[pad]->width && crop[pad]->height)
