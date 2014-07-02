@@ -1671,6 +1671,13 @@ void kgsl_cmdbatch_destroy(struct kgsl_cmdbatch *cmdbatch)
 		kgsl_cmdbatch_sync_event_put(event);
 	}
 
+	/*
+	 * Release the the refcount on the mem entry associated with the
+	 * cmdbatch profiling buffer
+	 */
+	if (cmdbatch->flags & KGSL_CMDBATCH_PROFILING)
+		kgsl_mem_entry_put(cmdbatch->profiling_buf_entry);
+
 	/* Destroy the cmdlist we created */
 	_free_memobj_list(&cmdbatch->cmdlist);
 
@@ -1946,12 +1953,34 @@ int kgsl_cmdbatch_add_memobj(struct kgsl_cmdbatch *cmdbatch,
 	mem->priv = 0;
 
 	/* sanitize the ibdesc ctrl flags */
-	ibdesc->ctrl &= KGSL_IBDESC_MEMLIST;
+	ibdesc->ctrl &= KGSL_IBDESC_MEMLIST | KGSL_IBDESC_PROFILING_BUFFER;
 
 	if (cmdbatch->flags & KGSL_CMDBATCH_MEMLIST &&
 			ibdesc->ctrl & KGSL_IBDESC_MEMLIST) {
 		/* add to the memlist */
 		list_add_tail(&mem->node, &cmdbatch->memlist);
+
+		/*
+		 * If the memlist contains a cmdbatch profiling buffer, store
+		 * the mem_entry containing the buffer and the gpuaddr at
+		 * which the buffer can be found
+		 */
+		if (cmdbatch->flags & KGSL_CMDBATCH_PROFILING &&
+			ibdesc->ctrl & KGSL_IBDESC_PROFILING_BUFFER &&
+			!cmdbatch->profiling_buf_entry) {
+			cmdbatch->profiling_buf_entry =
+				kgsl_sharedmem_find_region(
+				cmdbatch->context->proc_priv, mem->gpuaddr,
+				mem->sizedwords << 2);
+			if (!cmdbatch->profiling_buf_entry) {
+				WARN_ONCE(1,
+				"No mem entry for profiling buf, gpuaddr=%lx\n",
+				mem->gpuaddr);
+				return 0;
+			}
+
+			cmdbatch->profiling_buffer_gpuaddr = mem->gpuaddr;
+		}
 	} else {
 		/* set the preamble flag if directed to */
 		if (cmdbatch->context->flags & KGSL_CONTEXT_PREAMBLE &&
@@ -2003,7 +2032,8 @@ static struct kgsl_cmdbatch *kgsl_cmdbatch_create(struct kgsl_device *device,
 				| KGSL_CMDBATCH_END_OF_FRAME
 				| KGSL_CMDBATCH_SYNC
 				| KGSL_CMDBATCH_PWR_CONSTRAINT
-				| KGSL_CMDBATCH_MEMLIST);
+				| KGSL_CMDBATCH_MEMLIST
+				| KGSL_CMDBATCH_PROFILING);
 
 	/* Add a timer to help debug sync deadlocks */
 	setup_timer(&cmdbatch->timer, _kgsl_cmdbatch_timer,
@@ -2136,6 +2166,9 @@ static struct kgsl_cmdbatch *_kgsl_cmdbatch_create(struct kgsl_device *device,
 
 			uptr += sizeof(ibdesc);
 		}
+
+		if (cmdbatch->profiling_buf_entry == NULL)
+			cmdbatch->flags &= ~KGSL_CMDBATCH_PROFILING;
 	}
 
 	if (synclist && numsyncs) {

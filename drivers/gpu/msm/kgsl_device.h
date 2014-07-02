@@ -235,8 +235,11 @@ struct kgsl_memobj_node {
  * @timer: a timer used to track possible sync timeouts for this cmdbatch
  * @marker_timestamp: For markers, the timestamp of the last "real" command that
  * was queued
+ * @profiling_buf_entry: Mem entry containing the profiling buffer
+ * @profiling_buffer_gpuaddr: GPU virt address of the profile buffer added here
+ * for easy access
  *
- * This struture defines an atomic batch of command buffers issued from
+ * This structure defines an atomic batch of command buffers issued from
  * userspace.
  */
 struct kgsl_cmdbatch {
@@ -255,6 +258,8 @@ struct kgsl_cmdbatch {
 	struct list_head synclist;
 	struct timer_list timer;
 	unsigned int marker_timestamp;
+	struct kgsl_mem_entry *profiling_buf_entry;
+	unsigned long profiling_buffer_gpuaddr;
 };
 
 /**
