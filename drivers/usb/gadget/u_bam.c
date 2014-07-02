@@ -95,6 +95,13 @@ module_param(dl_intr_threshold, uint, S_IRUGO | S_IWUSR);
 #define BAM_CH_OPENED	BIT(0)
 #define BAM_CH_READY	BIT(1)
 
+enum u_bam_event_type {
+	U_BAM_DISCONNECT_E = 0,
+	U_BAM_CONNECT_E,
+	U_BAM_SUSPEND_E,
+	U_BAM_RESUME_E
+};
+
 struct sys2ipa_sw {
 	void		*teth_priv;
 	ipa_notify_cb	teth_cb;
@@ -148,9 +155,12 @@ struct bam_ch_info {
 };
 
 struct gbam_port {
+	bool			is_connected;
+	enum u_bam_event_type	last_event;
 	unsigned		port_num;
 	spinlock_t		port_lock_ul;
 	spinlock_t		port_lock_dl;
+	spinlock_t		port_lock;
 
 	struct grmnet		*port_usb;
 
@@ -1084,8 +1094,31 @@ static void gbam2bam_disconnect_work(struct work_struct *w)
 {
 	struct gbam_port *port =
 			container_of(w, struct gbam_port, disconnect_w);
-	struct bam_ch_info *d = &port->data_ch;
+	struct bam_ch_info *d;
 	int ret;
+	unsigned long flags;
+
+	spin_lock_irqsave(&port->port_lock, flags);
+
+	if (!port->is_connected) {
+		pr_debug("%s: Port already disconnected. Bailing out.\n",
+			__func__);
+		spin_unlock_irqrestore(&port->port_lock, flags);
+		return;
+	}
+
+	port->is_connected = false;
+	d = &port->data_ch;
+
+	/*
+	 * Unlock the port here and not at the end of this work,
+	 * because we do not want to activate usb_bam, ipa and
+	 * tethe bridge logic in atomic context and wait uneeded time.
+	 * Either way other works will not fire until end of this work
+	 * and event functions (as bam_data_connect) will not influance
+	 * while lower layers connect pipes, etc.
+	*/
+	spin_unlock_irqrestore(&port->port_lock, flags);
 
 	if (d->trans == USB_GADGET_XPORT_BAM2BAM_IPA) {
 		ret = usb_bam_disconnect_ipa(&d->ipa_params);
@@ -1140,27 +1173,35 @@ static void gbam2bam_connect_work(struct work_struct *w)
 	struct bam_ch_info *d;
 	u32 sps_params;
 	int ret;
-	unsigned long flags;
+	unsigned long flags, flags_ul;
 
-	if (!port) {
-		pr_err("%s: NULL port", __func__);
+	spin_lock_irqsave(&port->port_lock, flags);
+
+	if (port->last_event == U_BAM_DISCONNECT_E) {
+		pr_debug("%s: Port is about to disconnected. Bailing out.\n",
+			__func__);
+		spin_unlock_irqrestore(&port->port_lock, flags);
 		return;
 	}
+
+	port->is_connected = true;
 	d = &port->data_ch;
 	gadget = port->port_usb->gadget;
 
-	spin_lock_irqsave(&port->port_lock_ul, flags);
+	spin_lock_irqsave(&port->port_lock_ul, flags_ul);
 	spin_lock(&port->port_lock_dl);
 	if (!port->port_usb) {
 		pr_debug("%s: usb cable is disconnected, exiting\n", __func__);
 		spin_unlock(&port->port_lock_dl);
-		spin_unlock_irqrestore(&port->port_lock_ul, flags);
+		spin_unlock_irqrestore(&port->port_lock_ul, flags_ul);
+		spin_unlock_irqrestore(&port->port_lock, flags);
 		return;
 	}
 	d->rx_req = usb_ep_alloc_request(port->port_usb->out, GFP_ATOMIC);
 	if (!d->rx_req) {
 		spin_unlock(&port->port_lock_dl);
-		spin_unlock_irqrestore(&port->port_lock_ul, flags);
+		spin_unlock_irqrestore(&port->port_lock_ul, flags_ul);
+		spin_unlock_irqrestore(&port->port_lock, flags);
 		pr_err("%s: out of memory\n", __func__);
 		return;
 	}
@@ -1172,9 +1213,10 @@ static void gbam2bam_connect_work(struct work_struct *w)
 
 	d->tx_req = usb_ep_alloc_request(port->port_usb->in, GFP_ATOMIC);
 	spin_unlock(&port->port_lock_dl);
-	spin_unlock_irqrestore(&port->port_lock_ul, flags);
+	spin_unlock_irqrestore(&port->port_lock_ul, flags_ul);
 	if (!d->tx_req) {
 		pr_err("%s: out of memory\n", __func__);
+		spin_unlock_irqrestore(&port->port_lock, flags);
 		return;
 	}
 
@@ -1182,6 +1224,16 @@ static void gbam2bam_connect_work(struct work_struct *w)
 	d->tx_req->complete = gbam_endless_tx_complete;
 	d->tx_req->length = 0;
 	d->tx_req->no_interrupt = 1;
+
+	/*
+	 * Unlock the port here and not at the end of this work,
+	 * because we do not want to activate usb_bam, ipa and
+	 * tethe bridge logic in atomic context and wait uneeded time.
+	 * Either way other works will not fire until end of this work
+	 * and event functions (as bam_data_connect) will not influance
+	 * while lower layers connect pipes, etc.
+	*/
+	spin_unlock_irqrestore(&port->port_lock, flags);
 
 	if (d->trans == USB_GADGET_XPORT_BAM2BAM) {
 		usb_bam_reset_complete();
@@ -1265,19 +1317,19 @@ static void gbam2bam_connect_work(struct work_struct *w)
 				return;
 			}
 
-			spin_lock_irqsave(&port->port_lock_ul, flags);
+			spin_lock_irqsave(&port->port_lock_ul, flags_ul);
 			/* check if USB cable is disconnected or not */
 			if (!port->port_usb) {
 				pr_debug("%s: UL: cable is disconnected.\n",
 								 __func__);
 				spin_unlock_irqrestore(&port->port_lock_ul,
-								flags);
+								flags_ul);
 				return;
 			}
 
 			configure_data_fifo(d->src_bam_idx, port->port_usb->out,
 						d->src_pipe_type);
-			spin_unlock_irqrestore(&port->port_lock_ul, flags);
+			spin_unlock_irqrestore(&port->port_lock_ul, flags_ul);
 		}
 
 		/* Remove support for UL using system-to-IPA towards DL */
@@ -1413,17 +1465,29 @@ static int gbam_wake_cb(void *param)
 static void gbam2bam_suspend_work(struct work_struct *w)
 {
 	struct gbam_port *port = container_of(w, struct gbam_port, suspend_w);
-	struct bam_ch_info *d = &port->data_ch;
+	struct bam_ch_info *d;
 	int ret;
+	unsigned long flags;
 
 	pr_debug("%s: suspend work started\n", __func__);
+
+	spin_lock_irqsave(&port->port_lock, flags);
+
+	if ((port->last_event == U_BAM_DISCONNECT_E) ||
+	    (port->last_event == U_BAM_RESUME_E)) {
+		pr_debug("%s: Port is about to disconnect/resume. Bail out\n",
+			__func__);
+		goto exit;
+	}
+
+	d = &port->data_ch;
 
 	ret = usb_bam_register_wake_cb(d->dst_connection_idx,
 					gbam_wake_cb, port);
 	if (ret) {
 		pr_err("%s(): Failed to register BAM wake callback.\n",
 			__func__);
-		return;
+		goto exit;
 	}
 
 	if (d->trans == USB_GADGET_XPORT_BAM2BAM_IPA) {
@@ -1431,28 +1495,37 @@ static void gbam2bam_suspend_work(struct work_struct *w)
 						gbam_start, gbam_stop, port);
 		usb_bam_suspend(&d->ipa_params);
 	}
+
+exit:
+	spin_unlock_irqrestore(&port->port_lock, flags);
 }
 
 static void gbam2bam_resume_work(struct work_struct *w)
 {
 	struct gbam_port *port = container_of(w, struct gbam_port, resume_w);
-	struct bam_ch_info *d = &port->data_ch;
+	struct bam_ch_info *d;
 	struct usb_gadget *gadget = NULL;
 	int ret;
+	unsigned long flags;
 
 	pr_debug("%s: resume work started\n", __func__);
-	if (port) {
-		gadget = port->port_usb->gadget;
-	} else {
-		pr_err("Unable to retrieve gadget handle\n");
-		return;
+
+	spin_lock_irqsave(&port->port_lock, flags);
+
+	if (port->last_event == U_BAM_DISCONNECT_E) {
+		pr_debug("%s: Port is about to disconnect. Bailing out.\n",
+		__func__);
+		goto exit;
 	}
+
+	d = &port->data_ch;
+	gadget = port->port_usb->gadget;
 
 	ret = usb_bam_register_wake_cb(d->dst_connection_idx, NULL, NULL);
 	if (ret) {
 		pr_err("%s(): Failed to register BAM wake callback.\n",
 			__func__);
-		return;
+		goto exit;
 	}
 
 	if (d->trans == USB_GADGET_XPORT_BAM2BAM_IPA) {
@@ -1468,6 +1541,9 @@ static void gbam2bam_resume_work(struct work_struct *w)
 		}
 		usb_bam_resume(&d->ipa_params);
 	}
+
+exit:
+	spin_unlock_irqrestore(&port->port_lock, flags);
 }
 
 static int gbam_peer_reset_cb(void *param)
@@ -1611,8 +1687,10 @@ static int gbam_port_alloc(int portno)
 	port->port_num = portno;
 
 	/* port initialization */
+	port->is_connected = false;
 	spin_lock_init(&port->port_lock_ul);
 	spin_lock_init(&port->port_lock_dl);
+	spin_lock_init(&port->port_lock);
 	INIT_WORK(&port->connect_w, gbam_connect_work);
 	INIT_WORK(&port->disconnect_w, gbam_disconnect_work);
 
@@ -1654,8 +1732,10 @@ static int gbam2bam_port_alloc(int portno)
 	port->port_num = portno;
 
 	/* port initialization */
+	port->is_connected = false;
 	spin_lock_init(&port->port_lock_ul);
 	spin_lock_init(&port->port_lock_dl);
+	spin_lock_init(&port->port_lock);
 
 	INIT_WORK(&port->connect_w, gbam2bam_connect_work);
 	INIT_WORK(&port->disconnect_w, gbam2bam_disconnect_work);
@@ -1812,7 +1892,7 @@ static inline void gbam_debugfs_remove(void) {}
 void gbam_disconnect(struct grmnet *gr, u8 port_num, enum transport_type trans)
 {
 	struct gbam_port	*port;
-	unsigned long		flags;
+	unsigned long		flags, flags_ul;
 	struct bam_ch_info	*d;
 
 	pr_debug("%s: grmnet:%p port#%d\n", __func__, gr, port_num);
@@ -1841,6 +1921,13 @@ void gbam_disconnect(struct grmnet *gr, u8 port_num, enum transport_type trans)
 	else
 		port = bam2bam_ports[port_num];
 
+	if (!port) {
+		pr_err("%s: NULL port", __func__);
+		return;
+	}
+
+	spin_lock_irqsave(&port->port_lock, flags);
+
 	d = &port->data_ch;
 	port->port_usb = gr;
 
@@ -1849,12 +1936,12 @@ void gbam_disconnect(struct grmnet *gr, u8 port_num, enum transport_type trans)
 	else if (trans == USB_GADGET_XPORT_BAM2BAM_IPA)
 		gbam_free_rx_buffers(port);
 
-	spin_lock_irqsave(&port->port_lock_ul, flags);
+	spin_lock_irqsave(&port->port_lock_ul, flags_ul);
 	spin_lock(&port->port_lock_dl);
 	port->port_usb = 0;
 	n_tx_req_queued = 0;
 	spin_unlock(&port->port_lock_dl);
-	spin_unlock_irqrestore(&port->port_lock_ul, flags);
+	spin_unlock_irqrestore(&port->port_lock_ul, flags_ul);
 
 	/* disable endpoints */
 	usb_ep_disable(gr->out);
@@ -1879,8 +1966,10 @@ void gbam_disconnect(struct grmnet *gr, u8 port_num, enum transport_type trans)
 	gr->out->driver_data = NULL;
 
 	if (trans == USB_GADGET_XPORT_BAM ||
-		trans == USB_GADGET_XPORT_BAM2BAM_IPA)
+		trans == USB_GADGET_XPORT_BAM2BAM_IPA) {
+		port->last_event = U_BAM_DISCONNECT_E;
 		queue_work(gbam_wq, &port->disconnect_w);
+	}
 	else if (trans == USB_GADGET_XPORT_BAM2BAM) {
 		if (port_num == 0) {
 			if (usb_bam_client_ready(false)) {
@@ -1889,6 +1978,8 @@ void gbam_disconnect(struct grmnet *gr, u8 port_num, enum transport_type trans)
 			}
 		}
 	}
+
+	spin_unlock_irqrestore(&port->port_lock, flags);
 }
 
 int gbam_connect(struct grmnet *gr, u8 port_num,
@@ -1898,7 +1989,7 @@ int gbam_connect(struct grmnet *gr, u8 port_num,
 	struct gbam_port	*port;
 	struct bam_ch_info	*d;
 	int			ret;
-	unsigned long		flags;
+	unsigned long		flags, flags_ul;
 
 	pr_debug("%s: grmnet:%p port#%d\n", __func__, gr, port_num);
 
@@ -1929,10 +2020,17 @@ int gbam_connect(struct grmnet *gr, u8 port_num,
 	else
 		port = bam2bam_ports[port_num];
 
+	if (!port) {
+		pr_err("%s: NULL port", __func__);
+		return -ENODEV;
+	}
+
+	spin_lock_irqsave(&port->port_lock, flags);
+
 	d = &port->data_ch;
 	d->trans = trans;
 
-	spin_lock_irqsave(&port->port_lock_ul, flags);
+	spin_lock_irqsave(&port->port_lock_ul, flags_ul);
 	spin_lock(&port->port_lock_dl);
 	port->port_usb = gr;
 
@@ -1949,7 +2047,7 @@ int gbam_connect(struct grmnet *gr, u8 port_num,
 	}
 
 	spin_unlock(&port->port_lock_dl);
-	spin_unlock_irqrestore(&port->port_lock_ul, flags);
+	spin_unlock_irqrestore(&port->port_lock_ul, flags_ul);
 
 	if (d->trans == USB_GADGET_XPORT_BAM2BAM) {
 		d->src_connection_idx = src_connection_idx;
@@ -1973,7 +2071,8 @@ int gbam_connect(struct grmnet *gr, u8 port_num,
 			&d->dst_pipe_type)) {
 			pr_err("%s:usb_bam_get_pipe_type() failed\n",
 				__func__);
-			return -EINVAL;
+			ret = -EINVAL;
+			goto exit;
 		}
 	}
 
@@ -1999,7 +2098,7 @@ int gbam_connect(struct grmnet *gr, u8 port_num,
 	if (ret) {
 		pr_err("%s: usb_ep_enable failed eptype:IN ep:%p",
 			__func__, gr->in);
-		return ret;
+		goto exit;
 	}
 	gr->in->driver_data = port;
 
@@ -2008,12 +2107,17 @@ int gbam_connect(struct grmnet *gr, u8 port_num,
 		pr_err("%s: usb_ep_enable failed eptype:OUT ep:%p",
 			__func__, gr->out);
 		gr->in->driver_data = 0;
-		return ret;
+		goto exit;
 	}
 	gr->out->driver_data = port;
 
+	port->last_event = U_BAM_CONNECT_E;
 	queue_work(gbam_wq, &port->connect_w);
-	return 0;
+
+	ret = 0;
+exit:
+	spin_unlock_irqrestore(&port->port_lock, flags);
+	return ret;
 }
 
 int gbam_setup(unsigned int no_bam_port, unsigned int no_bam2bam_port)
@@ -2080,32 +2184,56 @@ void gbam_suspend(struct grmnet *gr, u8 port_num, enum transport_type trans)
 {
 	struct gbam_port	*port;
 	struct bam_ch_info *d;
+	unsigned long flags;
 
 	if (trans != USB_GADGET_XPORT_BAM2BAM &&
 		trans != USB_GADGET_XPORT_BAM2BAM_IPA)
 		return;
 
 	port = bam2bam_ports[port_num];
+
+	if (!port) {
+		pr_err("%s: NULL port", __func__);
+		return;
+	}
+
+	spin_lock_irqsave(&port->port_lock, flags);
+
 	d = &port->data_ch;
 
 	pr_debug("%s: suspended port %d\n", __func__, port_num);
 
+	port->last_event = U_BAM_SUSPEND_E;
 	queue_work(gbam_wq, &port->suspend_w);
+
+	spin_unlock_irqrestore(&port->port_lock, flags);
 }
 
 void gbam_resume(struct grmnet *gr, u8 port_num, enum transport_type trans)
 {
 	struct gbam_port	*port;
 	struct bam_ch_info *d;
+	unsigned long flags;
 
 	if (trans != USB_GADGET_XPORT_BAM2BAM &&
 		trans != USB_GADGET_XPORT_BAM2BAM_IPA)
 		return;
 
 	port = bam2bam_ports[port_num];
+
+	if (!port) {
+		pr_err("%s: NULL port", __func__);
+		return;
+	}
+
+	spin_lock_irqsave(&port->port_lock, flags);
+
 	d = &port->data_ch;
 
 	pr_debug("%s: resumed port %d\n", __func__, port_num);
 
+	port->last_event = U_BAM_RESUME_E;
 	queue_work(gbam_wq, &port->resume_w);
+
+	spin_unlock_irqrestore(&port->port_lock, flags);
 }
