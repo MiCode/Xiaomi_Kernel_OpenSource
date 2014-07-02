@@ -169,3 +169,35 @@
 &apc_vreg_corner {
 	status = "disabled";
 };
+
+&etm0 {
+	status = "disabled";
+};
+
+&etm1 {
+	status = "disabled";
+};
+
+&etm2 {
+	status = "disabled";
+};
+
+&etm3 {
+	status = "disabled";
+};
+
+&etm4 {
+	status = "disabled";
+};
+
+&etm5 {
+	status = "disabled";
+};
+
+&etm6 {
+	status = "disabled";
+};
+
+&etm7 {
+	status = "disabled";
+};
