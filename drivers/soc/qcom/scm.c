@@ -427,6 +427,42 @@ s32 scm_call_atomic1(u32 svc, u32 cmd, u32 arg1)
 EXPORT_SYMBOL(scm_call_atomic1);
 
 /**
+ * scm_call_atomic1_1() - SCM command with one argument and one return value
+ * @svc_id: service identifier
+ * @cmd_id: command identifier
+ * @arg1: first argument
+ * @ret1: first return value
+ *
+ * This shall only be used with commands that are guaranteed to be
+ * uninterruptable, atomic and SMP safe.
+ */
+s32 scm_call_atomic1_1(u32 svc, u32 cmd, u32 arg1, u32 *ret1)
+{
+	int context_id;
+	register u32 r0 asm("r0") = SCM_ATOMIC(svc, cmd, 1);
+	register u32 r1 asm("r1") = (uintptr_t)&context_id;
+	register u32 r2 asm("r2") = arg1;
+
+	asm volatile(
+		__asmeq("%0", R0_STR)
+		__asmeq("%1", R1_STR)
+		__asmeq("%2", R0_STR)
+		__asmeq("%3", R1_STR)
+		__asmeq("%4", R2_STR)
+#ifdef REQUIRES_SEC
+			".arch_extension sec\n"
+#endif
+		"smc	#0\n"
+		: "=r" (r0), "=r" (r1)
+		: "r" (r0), "r" (r1), "r" (r2)
+		: "r3");
+	if (ret1)
+		*ret1 = r1;
+	return r0;
+}
+EXPORT_SYMBOL(scm_call_atomic1_1);
+
+/**
  * scm_call_atomic2() - Send an atomic SCM command with two arguments
  * @svc_id: service identifier
  * @cmd_id: command identifier
