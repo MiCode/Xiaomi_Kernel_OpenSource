@@ -39,8 +39,11 @@
 
 #define VFE46_BURST_LEN 3
 #define VFE46_STATS_BURST_LEN 3
-#define VFE46_UB_SIZE 2048
-#define VFE46_EQUAL_SLICE_UB 228
+#define VFE46_UB_SIZE_VFE0 2048
+#define VFE46_UB_SIZE_VFE1 1536
+#define VFE46_UB_STATS_SIZE 144
+#define MSM_ISP46_TOTAL_IMAGE_UB_VFE0 (VFE46_UB_SIZE_VFE0 - VFE46_UB_STATS_SIZE)
+#define MSM_ISP46_TOTAL_IMAGE_UB_VFE1 (VFE46_UB_SIZE_VFE1 - VFE46_UB_STATS_SIZE)
 #define VFE46_WM_BASE(idx) (0xA0 + 0x24 * idx)
 #define VFE46_RDI_BASE(idx) (0x39C + 0x4 * idx)
 #define VFE46_XBAR_BASE(idx) (0x90 + 0x4 * (idx / 2))
@@ -910,7 +913,6 @@ static void msm_vfe46_axi_clear_wm_xbar_reg(
 		vfe_dev->vfe_base + VFE46_XBAR_BASE(wm));
 }
 
-#define MSM_ISP46_TOTAL_WM_UB 1203
 
 static void msm_vfe46_cfg_axi_ub_equal_default(
 	struct vfe_device *vfe_dev)
@@ -931,8 +933,15 @@ static void msm_vfe46_cfg_axi_ub_equal_default(
 			total_image_size += axi_data->wm_image_size[i];
 		}
 	}
-	prop_size = MSM_ISP46_TOTAL_WM_UB -
+	if (vfe_dev->pdev->id == ISP_VFE0) {
+		prop_size = MSM_ISP46_TOTAL_IMAGE_UB_VFE0 -
 		axi_data->hw_info->min_wm_ub * num_used_wms;
+	} else if (vfe_dev->pdev->id == ISP_VFE1) {
+		prop_size = MSM_ISP46_TOTAL_IMAGE_UB_VFE1 -
+		axi_data->hw_info->min_wm_ub * num_used_wms;
+	} else {
+		pr_err("%s: incorrect VFE device\n", __func__);
+	}
 	for (i = 0; i < axi_data->hw_info->num_wm; i++) {
 		if (axi_data->free_wm[i]) {
 			delta = (uint64_t)axi_data->wm_image_size[i] *
@@ -955,11 +964,20 @@ static void msm_vfe46_cfg_axi_ub_equal_slicing(
 	int i;
 	uint32_t ub_offset = 0;
 	struct msm_vfe_axi_shared_data *axi_data = &vfe_dev->axi_data;
-
+	uint32_t ub_equal_slice = 0;
+	if (vfe_dev->pdev->id == ISP_VFE0) {
+		ub_equal_slice = MSM_ISP46_TOTAL_IMAGE_UB_VFE0 /
+		axi_data->hw_info->num_wm;
+	} else if (vfe_dev->pdev->id == ISP_VFE1) {
+		ub_equal_slice = MSM_ISP46_TOTAL_IMAGE_UB_VFE1 /
+		axi_data->hw_info->num_wm;
+	} else {
+		pr_err("%s: incorrect VFE device\n ", __func__);
+	}
 	for (i = 0; i < axi_data->hw_info->num_wm; i++) {
-		msm_camera_io_w(ub_offset << 16 | (VFE46_EQUAL_SLICE_UB - 1),
+		msm_camera_io_w(ub_offset << 16 | (ub_equal_slice - 1),
 			vfe_dev->vfe_base + VFE46_WM_BASE(i) + 0x10);
-		ub_offset += VFE46_EQUAL_SLICE_UB;
+		ub_offset += ub_equal_slice;
 	}
 }
 
@@ -1208,18 +1226,25 @@ static void msm_vfe46_stats_clear_wm_reg(
 static void msm_vfe46_stats_cfg_ub(struct vfe_device *vfe_dev)
 {
 	int i;
-	uint32_t ub_offset = VFE46_UB_SIZE;
+	uint32_t ub_offset = 0;
 	uint32_t ub_size[VFE46_NUM_STATS_TYPE] = {
-		32, /* MSM_ISP_STATS_BF_SCALE */
-		32, /* MSM_ISP_STATS_HDR_BE */
-		32, /* MSM_ISP_STATS_BG */
-		32, /* MSM_ISP_STATS_BF */
-		32, /* MSM_ISP_STATS_HDR_BHIST */
-		32, /* MSM_ISP_STATS_RS */
-		32, /* MSM_ISP_STATS_CS */
-		32, /* MSM_ISP_STATS_IHIST */
-		32, /* MSM_ISP_STATS_BHIST */
+		16, /* MSM_ISP_STATS_BF_SCALE */
+		16, /* MSM_ISP_STATS_HDR_BE */
+		16, /* MSM_ISP_STATS_BG */
+		16, /* MSM_ISP_STATS_BF */
+		16, /* MSM_ISP_STATS_HDR_BHIST */
+		16, /* MSM_ISP_STATS_RS */
+		16, /* MSM_ISP_STATS_CS */
+		16, /* MSM_ISP_STATS_IHIST */
+		16, /* MSM_ISP_STATS_BHIST */
 	};
+	if (vfe_dev->pdev->id == ISP_VFE1) {
+		ub_offset = VFE46_UB_SIZE_VFE1;
+	} else if (vfe_dev->pdev->id == ISP_VFE0) {
+		ub_offset = VFE46_UB_SIZE_VFE0;
+	} else {
+		pr_err("%s: incorrect VFE device\n", __func__);
+	}
 
 	for (i = 0; i < VFE46_NUM_STATS_TYPE; i++) {
 		ub_offset -= ub_size[i];
@@ -1375,11 +1400,11 @@ static void msm_vfe46_get_error_mask(
 }
 
 static struct msm_vfe_axi_hardware_info msm_vfe46_axi_hw_info = {
-	.num_wm = 5,
+	.num_wm = 6,
 	.num_comp_mask = 3,
 	.num_rdi = 3,
 	.num_rdi_master = 3,
-	.min_wm_ub = 64,
+	.min_wm_ub = 96,
 };
 
 static struct msm_vfe_stats_hardware_info msm_vfe46_stats_hw_info = {
