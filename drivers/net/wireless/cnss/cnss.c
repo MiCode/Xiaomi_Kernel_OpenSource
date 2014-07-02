@@ -486,12 +486,16 @@ static void cnss_wlan_release_resources(void)
 	struct cnss_wlan_vreg_info *vreg_info = &penv->vreg_info;
 
 	gpio_free(gpio_info->num);
-	cnss_wlan_vreg_set(vreg_info, VREG_OFF);
-	regulator_put(vreg_info->wlan_reg);
-	if (vreg_info->soc_swreg)
-		regulator_put(vreg_info->soc_swreg);
 	gpio_info->state = WLAN_EN_LOW;
 	gpio_info->prop = false;
+	if (vreg_info->soc_swreg)
+		regulator_put(vreg_info->soc_swreg);
+	if (vreg_info->wlan_reg_xtal)
+		regulator_put(vreg_info->wlan_reg_xtal);
+	if (vreg_info->wlan_reg_io)
+		regulator_put(vreg_info->wlan_reg_io);
+	cnss_wlan_vreg_set(vreg_info, VREG_OFF);
+	regulator_put(vreg_info->wlan_reg);
 	vreg_info->state = VREG_OFF;
 }
 
