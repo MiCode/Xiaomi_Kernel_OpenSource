@@ -52,7 +52,6 @@ static int compat_get_qseecom_load_img_req(
 	compat_ulong_t img_len;
 	compat_long_t ifd_data_fd;
 	compat_int_t app_id;
-	unsigned int i;
 
 	err = get_user(mdt_len, &data32->mdt_len);
 	err |= put_user(mdt_len, &data->mdt_len);
@@ -60,8 +59,8 @@ static int compat_get_qseecom_load_img_req(
 	err |= put_user(img_len, &data->img_len);
 	err |= get_user(ifd_data_fd, &data32->ifd_data_fd);
 	err |= put_user(ifd_data_fd, &data->ifd_data_fd);
-	for (i = 0; i < MAX_APP_NAME_SIZE; i++)
-		data->img_name[i] = data32->img_name[i];
+	err |= copy_in_user(data->img_name, data32->img_name,
+				MAX_APP_NAME_SIZE);
 	err |= get_user(app_id, &data32->app_id);
 	err |= put_user(app_id, &data->app_id);
 	return err;
@@ -80,7 +79,7 @@ static int compat_get_qseecom_send_cmd_req(
 	err = get_user(cmd_req_buf, &data32->cmd_req_buf);
 	data->cmd_req_buf = NULL;
 	err |= put_user(cmd_req_buf, (compat_uptr_t *)&data->cmd_req_buf);
-	err = get_user(cmd_req_len, &data32->cmd_req_len);
+	err |= get_user(cmd_req_len, &data32->cmd_req_len);
 	err |= put_user(cmd_req_len, &data->cmd_req_len);
 
 	err |= get_user(resp_buf, &data32->resp_buf);
@@ -107,7 +106,7 @@ static int compat_get_qseecom_send_modfd_cmd_req(
 	err = get_user(cmd_req_buf, &data32->cmd_req_buf);
 	data->cmd_req_buf = NULL;
 	err |= put_user(cmd_req_buf, (compat_uptr_t *)&data->cmd_req_buf);
-	err = get_user(cmd_req_len, &data32->cmd_req_len);
+	err |= get_user(cmd_req_len, &data32->cmd_req_len);
 	err |= put_user(cmd_req_len, &data->cmd_req_len);
 	err |= get_user(resp_buf, &data32->resp_buf);
 	data->resp_buf = NULL;
@@ -190,7 +189,7 @@ static int compat_get_qseecom_send_svc_cmd_req(
 	err |= get_user(cmd_req_buf, &data32->cmd_req_buf);
 	data->cmd_req_buf = NULL;
 	err |= put_user(cmd_req_buf, (compat_uptr_t *)&data->cmd_req_buf);
-	err = get_user(cmd_req_len, &data32->cmd_req_len);
+	err |= get_user(cmd_req_len, &data32->cmd_req_len);
 	err |= put_user(cmd_req_len, &data->cmd_req_len);
 	err |= get_user(resp_buf, &data32->resp_buf);
 	data->resp_buf = NULL;
@@ -204,34 +203,44 @@ static int compat_get_qseecom_create_key_req(
 		struct compat_qseecom_create_key_req __user *data32,
 		struct qseecom_create_key_req __user *data)
 {
-	unsigned int i;
+	int err;
+	compat_uint_t usage;
 
-	for (i = 0; i < QSEECOM_HASH_SIZE; i++)
-		data->hash32[i] = data32->hash32[i];
-	data->usage = data32->usage;
-	return 0;
+	err = copy_in_user(data->hash32, data32->hash32, QSEECOM_HASH_SIZE);
+	err |= get_user(usage, &data32->usage);
+	err |= put_user(usage, &data->usage);
+
+	return err;
 }
 
 static int compat_get_qseecom_wipe_key_req(
 		struct compat_qseecom_wipe_key_req __user *data32,
 		struct qseecom_wipe_key_req __user *data)
 {
-	data->usage = data32->usage;
-	return 0;
+	int err;
+	compat_uint_t usage;
+
+	err = get_user(usage, &data32->usage);
+	err |= put_user(usage, &data->usage);
+
+	return err;
 }
 
 static int compat_get_qseecom_update_key_userinfo_req(
 		struct compat_qseecom_update_key_userinfo_req __user *data32,
 		struct qseecom_update_key_userinfo_req __user *data)
 {
-	unsigned int i;
+	int err = 0;
+	compat_uint_t usage;
 
-	for (i = 0; i < QSEECOM_HASH_SIZE; i++) {
-		data->current_hash32[i] = data32->current_hash32[i];
-		data->new_hash32[i] = data32->new_hash32[i];
-	}
-	data->usage = data32->usage;
-	return 0;
+	err = copy_in_user(data->current_hash32, data32->current_hash32,
+				QSEECOM_HASH_SIZE);
+	err |= copy_in_user(data->new_hash32, data32->new_hash32,
+				QSEECOM_HASH_SIZE);
+	err |= get_user(usage, &data32->usage);
+	err |= put_user(usage, &data->usage);
+
+	return err;
 }
 
 static int compat_get_qseecom_save_partition_hash_req(
@@ -239,13 +248,12 @@ static int compat_get_qseecom_save_partition_hash_req(
 		struct qseecom_save_partition_hash_req __user *data)
 {
 	int err;
-	unsigned int i;
 	compat_int_t partition_id;
 
 	err = get_user(partition_id, &data32->partition_id);
 	err |= put_user(partition_id, &data->partition_id);
-	for (i = 0; i < SHA256_DIGEST_LENGTH; i++)
-		data->digest[i] = data32->digest[i];
+	err |= copy_in_user(data->digest, data32->digest,
+				SHA256_DIGEST_LENGTH);
 	return err;
 }
 
@@ -330,7 +338,6 @@ static int compat_put_qseecom_load_img_req(
 		struct qseecom_load_img_req __user *data)
 {
 	int err;
-	unsigned int i;
 	compat_ulong_t mdt_len;
 	compat_ulong_t img_len;
 	compat_long_t ifd_data_fd;
@@ -342,8 +349,8 @@ static int compat_put_qseecom_load_img_req(
 	err |= put_user(img_len, &data32->img_len);
 	err |= get_user(ifd_data_fd, &data->ifd_data_fd);
 	err |= put_user(ifd_data_fd, &data32->ifd_data_fd);
-	for (i = 0; i < MAX_APP_NAME_SIZE; i++)
-		data32->img_name[i] = data->img_name[i];
+	err |= copy_in_user(data32->img_name, data->img_name,
+				MAX_APP_NAME_SIZE);
 	err |= get_user(app_id, &data->app_id);
 	err |= put_user(app_id, &data32->app_id);
 	return err;
