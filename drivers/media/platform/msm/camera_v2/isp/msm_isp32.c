@@ -79,7 +79,18 @@ static int msm_vfe32_init_hardware(struct vfe_device *vfe_dev)
 			goto fs_failed;
 		}
 	}
-
+	if (vfe_dev->num_clk <= 0) {
+		pr_err("%s: Invalid num of clock\n", __func__);
+		goto fs_failed;
+	} else {
+		vfe_dev->vfe_clk =
+			kzalloc(sizeof(struct clk *) * vfe_dev->num_clk,
+			GFP_KERNEL);
+		if (!vfe_dev->vfe_clk) {
+			pr_err("%s:%d No memory\n", __func__, __LINE__);
+			return -ENOMEM;
+		}
+	}
 	rc = msm_cam_clk_enable(&vfe_dev->pdev->dev, msm_vfe32_1_clk_info,
 		 vfe_dev->vfe_clk, ARRAY_SIZE(msm_vfe32_1_clk_info), 1);
 	if (rc < 0) {
@@ -123,6 +134,7 @@ vfe_remap_failed:
 clk_enable_failed:
 	if (vfe_dev->fs_vfe)
 		regulator_disable(vfe_dev->fs_vfe);
+	kfree(vfe_dev->vfe_clk);
 fs_failed:
 	msm_isp_deinit_bandwidth_mgr(ISP_VFE0 + vfe_dev->pdev->id);
 bus_scale_register_failed:
@@ -142,6 +154,7 @@ static void msm_vfe32_release_hardware(struct vfe_device *vfe_dev)
 		msm_cam_clk_enable(&vfe_dev->pdev->dev,
 				msm_vfe32_2_clk_info, vfe_dev->vfe_clk,
 				ARRAY_SIZE(msm_vfe32_2_clk_info), 0);
+	kfree(vfe_dev->vfe_clk);
 	regulator_disable(vfe_dev->fs_vfe);
 	msm_isp_deinit_bandwidth_mgr(ISP_VFE0 + vfe_dev->pdev->id);
 }
