@@ -2370,7 +2370,7 @@ int soc_new_pcm(struct snd_soc_pcm_runtime *rtd, int num)
 		rtd->ops.close		= soc_pcm_close;
 		rtd->ops.pointer	= soc_pcm_pointer;
 		rtd->ops.ioctl		= soc_pcm_ioctl;
-		rtd->ops.ioctl          = soc_pcm_compat_ioctl;
+		rtd->ops.compat_ioctl   = soc_pcm_compat_ioctl;
 	}
 
 	if (platform->driver->ops) {
