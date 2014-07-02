@@ -303,6 +303,15 @@ config CRYPTO_DEV_QCE40
 config CRYPTO_DEV_QCE50
 	bool
 
+config FIPS_ENABLE
+	bool "FIPS140-2 compliant build"
+	default n
+	help
+          This flag is used to make current build FIPS140-2
+          compliant. This flag will enable the patch of code
+          which will perform this task. Please select Y here
+          to enable.
+
 config CRYPTO_DEV_QCRYPTO
 	tristate "Qualcomm Crypto accelerator"
 	select CRYPTO_DES
