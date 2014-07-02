@@ -286,6 +286,11 @@
 	qcom,disable-follow-on-reset;
 };
 
+&pm8916_bms {
+	status = "ok";
+	qcom,disable-bms;
+};
+
 &qcom_tzlog {
 	status = "okay";
 };
