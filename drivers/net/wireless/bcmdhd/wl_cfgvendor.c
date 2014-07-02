@@ -767,7 +767,7 @@ void wl_cfgvendor_rtt_evt(void *ctx, void *rtt_data)
 			rtt_report->rtt = rtt_result->meanrtt;
 			rtt_report->rtt_sd = rtt_result->sdrtt;
 			/* convert to centi meter */
-			if (rtt_result->distance == 0xffffffff)
+			if (rtt_result->distance != 0xffffffff)
 				rtt_report->distance = (rtt_result->distance >> 2) * 25;
 			else /* invalid distance */
 				rtt_report->distance = -1;
@@ -1099,11 +1099,13 @@ static const struct  nl80211_vendor_cmd_info wl_vendor_events [] = {
 		{ OUI_GOOGLE, GOOGLE_GSCAN_GEOFENCE_FOUND_EVENT },
 		{ OUI_GOOGLE, GOOGLE_GSCAN_BATCH_SCAN_EVENT },
 		{ OUI_GOOGLE, GOOGLE_SCAN_FULL_RESULTS_EVENT },
-		{ OUI_GOOGLE, GOOGLE_SCAN_COMPLETE_EVENT },
 #endif /* GSCAN_SUPPORT */
 #ifdef RTT_SUPPORT
 		{ OUI_GOOGLE, GOOGLE_RTT_COMPLETE_EVENT },
 #endif /* RTT_SUPPORT */
+#ifdef GSCAN_SUPPORT
+		{ OUI_GOOGLE, GOOGLE_SCAN_COMPLETE_EVENT },
+#endif /* GSCAN_SUPPORT */
 };
 
 int wl_cfgvendor_attach(struct wiphy *wiphy)
