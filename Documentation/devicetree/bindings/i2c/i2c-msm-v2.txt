@@ -1,0 +1,50 @@
+Qualcomm I2C controller
+
+Required properties:
+ - reg : Offset and length of the register region for the device named in
+	reg-names and has the same index.
+ - reg-names : Register region name(s) referenced in reg above
+	"qup_phys_addr" : Physical address of QUP register space.
+	"bam_phys_addr" : Physical address of BAM for this controller.
+ - compatible : should be "qcom,i2c-msm-v2"
+ - interrupts : Interrupt number which correspond to the entry with the same
+	index in interrupt-names.
+ - interrupt-names: QUP core interrupt name(s) referenced in interrupts above
+	"qup_irq" : QUP interrupt used by the controller.
+	"bam_irq" : BAM interrupt used by the controller.
+ - qcom,clk-freq-out : Desired I2C bus clock frequency in Hz
+ - qcom,clk-freq-in  : Supplied core clock frequency in Hz.
+ - qcom,bam-pipe-idx-cons : BAM consumer-pipe index.
+ - qcom,bam-pipe-idx-prod : BAM producer-pipe index.
+
+Required alias:
+ - The desired bus-number is specified by an alias with the following format:
+	'i2c{n}' where n is the bus number.
+
+Optional property:
+ - qcom,noise-rjct-scl : number of low samples on clock line to consider it low.
+	When missing default to 0.
+ - qcom,noise-rjct-sda : number of low samples on data  line to consider it low.
+	When missing default to 0.
+ - qcom,bam-disable : disables BAM transfer mode.
+ - qcom,master-id : Master-port value used on voting for the clock path.
+
+Example:
+	aliases {
+		i2c10 = &i2c_10;
+	};
+
+	i2c_10: i2c@f9966000 {
+		compatible = "qcom,i2c-msm-v2";
+		reg-names = "qup_phys_addr", "bam_phys_addr";
+		reg = <0xf9966000 0x1000>,
+		      <0xf9904000 0x10000>;
+		interrupt-names = "qup_irq", "bam_irq";
+		interrupts = <0 104 0>, <0 238 0>;
+		qcom,clk-freq-out = <100000>;
+		qcom,clk-freq-in  = <24000000>;
+		qcom,noise-rjct-scl = <0>;
+		qcom,noise-rjct-sda = <0>;
+		qcom,bam-pipe-idx-cons = <18>;
+		qcom,bam-pipe-idx-prod = <19>;
+	};

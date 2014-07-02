@@ -869,6 +869,24 @@ config I2C_RCAR
 	  This driver can also be built as a module.  If so, the module
 	  will be called i2c-rcar.
 
+config I2C_MSM_QUP
+	tristate "I2C_QUP"
+	depends on ARCH_MSM
+	help
+	  If you say yes to this option, support will be included for the
+	  built-in I2C interface on the MSM family processors.
+
+config I2C_MSM_V2
+	tristate "I2C_MSM_V2"
+	depends on ARCH_MSM
+	help
+	  If you say yes to this option, support will be included for the
+	  built-in I2C interface and its DMA engine on the MSM family
+	  processors.
+
+	  This driver can also be built as a module.  If so, the module
+	  will be called i2c-msm-v2.
+
 comment "External I2C/SMBus adapter drivers"
 
 config I2C_DIOLAN_U2C
