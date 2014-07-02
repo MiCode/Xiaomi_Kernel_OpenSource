@@ -4876,7 +4876,8 @@ static int  pp_ad_attenuate_bl(u32 bl, u32 *bl_out,
 	}
 
 	ret = mdss_mdp_get_ad(mfd, &ad);
-	if (ret || !ad) {
+	if (ret || !ad || !ad->bl_mfd || !ad->bl_mfd->panel_info ||
+		!ad->bl_mfd->panel_info->bl_max || !ad->bl_att_lut) {
 		pr_err("Failed to get the ad.\n");
 		return ret;
 	}
@@ -4892,7 +4893,7 @@ static int  pp_ad_attenuate_bl(u32 bl, u32 *bl_out,
 		shift++;
 	}
 	n = bl >> shift;
-	if (n >= AD_BL_ATT_LUT_LEN) {
+	if (n >= (AD_BL_ATT_LUT_LEN - 1)) {
 		pr_err("Invalid index for BL attenuation: %d.\n", n);
 		return ret;
 	}
