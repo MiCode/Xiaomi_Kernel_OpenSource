@@ -426,10 +426,10 @@ static int ov2722_csi_configure(struct v4l2_subdev *sd, int flag)
         struct i2c_client *client = v4l2_get_subdevdata(sd);
 	if (client && ACPI_COMPANION(&client->dev)) {
 		struct device *dev = &client->dev;
-		port = getvar_int(dev, "CsiPort", port);
-		lanes = getvar_int(dev, "CsiLanes", lanes);
-		format = getvar_int(dev, "CsiFmt", format);
-		bayer = getvar_int(dev, "CsiBayer", bayer);
+		port = gmin_get_var_int(dev, "CsiPort", port);
+		lanes = gmin_get_var_int(dev, "CsiLanes", lanes);
+		format = gmin_get_var_int(dev, "CsiFmt", format);
+		bayer = gmin_get_var_int(dev, "CsiBayer", bayer);
 	}
 
 	return camera_sensor_csi(sd, port, lanes, format, bayer, flag);

@@ -2312,7 +2312,7 @@ static int imx_probe(struct i2c_client *client,
 	if (id) {
 		dev->i2c_id = id->driver_data;
 	} else {
-		dev->i2c_id = getvar_int(&client->dev, "ImxId", IMX134_ID);
+		dev->i2c_id = gmin_get_var_int(&client->dev, "ImxId", IMX134_ID);
 	}
 	dev->fmt_idx = 0;
 	dev->sensor_id = IMX_ID_DEFAULT;
@@ -2381,9 +2381,9 @@ static int imx_probe(struct i2c_client *client,
 	/* FIXME: type and port need to come from ACPI/EFI config,
 	 * this is hard coded to FFRD8 */
 	ret = atomisp_register_i2c_module(client,
-					  getvar_int(&client->dev, "CamType",
+					  gmin_get_var_int(&client->dev, "CamType",
 						     RAW_CAMERA),
-					  getvar_int(&client->dev, "CsiPort",
+					  gmin_get_var_int(&client->dev, "CsiPort",
 						     ATOMISP_CAMERA_PORT_PRIMARY));
 	if (ret) {
 		imx_remove(client);

@@ -1157,9 +1157,9 @@ static int mt9m114_s_config(struct v4l2_subdev *sd,
 	/* FIXME: type and port should come from ACPI/EFI
 	 * This is hard coded to FFRD8. */
 	ret = atomisp_register_i2c_module(sd, client, platform_data,
-					  getvar_int(&client->dev, "CamType",
+					  gmin_get_var_int(&client->dev, "CamType",
 						     SOC_CAMERA),
-					  getvar_int(&client->dev, "CsiPort",
+					  gmin_get_var_int(&client->dev, "CsiPort",
 						     ATOMISP_CAMERA_PORT_PRIMARY));
 	if (ret) {
 		dev_err(&client->dev,

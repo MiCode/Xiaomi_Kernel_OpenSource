@@ -1089,9 +1089,9 @@ static int ov5693_s_config(struct v4l2_subdev *sd,
 	 * load.  Ideally this would be stored as data on the
 	 * subdevices, but this API matches upstream better. */
 	ret = atomisp_register_i2c_module(sd, client, platform_data,
-					  getvar_int(&client->dev, "CamType",
+					  gmin_get_var_int(&client->dev, "CamType",
 						     RAW_CAMERA),
-					  getvar_int(&client->dev, "CsiPort",
+					  gmin_get_var_int(&client->dev, "CsiPort",
 						     ATOMISP_CAMERA_PORT_PRIMARY));
 	if (ret) {
 		dev_err(&client->dev,

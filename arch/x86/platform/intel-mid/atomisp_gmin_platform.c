@@ -289,7 +289,7 @@ static struct gmin_subdev *gmin_subdev_add(struct v4l2_subdev *subdev)
 	dev_info(dev, "gmin: initializing atomisp module subdev data.\n");
 
 	gmin_subdevs[i].subdev = subdev;
-	gmin_subdevs[i].clock_num = getvar_int(dev, "CamClk", 0);
+	gmin_subdevs[i].clock_num = gmin_get_var_int(dev, "CamClk", 0);
 	gmin_subdevs[i].gpio0 = gpiod_get_index(dev, "cam_gpio0", 0);
 	gmin_subdevs[i].gpio1 = gpiod_get_index(dev, "cam_gpio1", 1);
 
@@ -509,10 +509,10 @@ static int gmin_csi_cfg(struct v4l2_subdev *sd, int flag)
 		return -ENODEV;
 	dev = &client->dev;
 
-	port = getvar_int(dev, "CsiPort", -1);
-	lanes = getvar_int(dev, "CsiLanes", -1);
-	format = getvar_int(dev, "CsiFmt", -1);
-	bayer = getvar_int(dev, "CsiBayer", -1);
+	port = gmin_get_var_int(dev, "CsiPort", -1);
+	lanes = gmin_get_var_int(dev, "CsiLanes", -1);
+	format = gmin_get_var_int(dev, "CsiFmt", -1);
+	bayer = gmin_get_var_int(dev, "CsiBayer", -1);
 
 	if (port < 0 || lanes < 0 || format < 0 || bayer < 0) {
 		dev_err(dev, "Incomplete camera CSI configuration\n");
@@ -603,7 +603,7 @@ int gmin_get_config_var(struct device *dev, const char *var, char *out, size_t *
 }
 EXPORT_SYMBOL_GPL(gmin_get_config_var);
 
-int getvar_int(struct device *dev, const char *var, int def)
+int gmin_get_var_int(struct device *dev, const char *var, int def)
 {
 	char val[16];
 	size_t len = sizeof(val);
@@ -618,15 +618,10 @@ int getvar_int(struct device *dev, const char *var, int def)
 
 	return ret ? def : result;
 }
-EXPORT_SYMBOL_GPL(getvar_int);
+EXPORT_SYMBOL_GPL(gmin_get_var_int);
 
-/*
- * Cloned from MCG platform_camera.c because it's small and
- * self-contained.  All it does is maintain the V4L2 subdev hostdate
- * pointer
- */
 int camera_sensor_csi(struct v4l2_subdev *sd, u32 port,
-			     u32 lanes, u32 format, u32 bayer_order, int flag)
+		      u32 lanes, u32 format, u32 bayer_order, int flag)
 {
         struct i2c_client *client = v4l2_get_subdevdata(sd);
         struct camera_mipi_info *csi = NULL;

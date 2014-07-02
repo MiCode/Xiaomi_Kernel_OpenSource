@@ -1419,9 +1419,9 @@ static int ov2722_probe(struct i2c_client *client,
 		ov2722_remove(client);
 
 	ret = atomisp_register_i2c_module(&dev->sd, client, ovpdev,
-					  getvar_int(&client->dev, "CamType",
+					  gmin_get_var_int(&client->dev, "CamType",
 						     RAW_CAMERA),
-					  getvar_int(&client->dev, "CsiPort",
+					  gmin_get_var_int(&client->dev, "CsiPort",
 						     ATOMISP_CAMERA_PORT_SECONDARY));
 
 	printk("\0010ANDY %s:%d\n", __func__, __LINE__);
