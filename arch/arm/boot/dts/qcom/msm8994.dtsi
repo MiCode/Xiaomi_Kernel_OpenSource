@@ -531,7 +531,7 @@
 		    <0xf8800F20 0xa8>,
 		    <0xf8900000 0x100000>,
 		    <0xf8a00000 0x100000>,
-		    <0xf8b00000 0x4fffff>;
+		    <0xf8b00000 0x500000>;
 
 		reg-names = "parf", "phy", "dm_core", "elbi",
 				"conf", "io", "bars";
