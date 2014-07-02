@@ -571,6 +571,10 @@ struct slim_controller {
 				struct completion *comp);
 	enum slim_port_err	(*port_xfer_status)(struct slim_controller *ctr,
 				u8 pn, u8 **done_buf, u32 *done_len);
+	int			(*xfer_user_msg)(struct slim_controller *ctrl,
+				u8 la, u8 mt, u8 mc,
+				struct slim_ele_access *msg, u8 *buf, u8 len);
+
 };
 #define to_slim_controller(d) container_of(d, struct slim_controller, dev)
 
