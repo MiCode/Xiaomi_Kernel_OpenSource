@@ -725,21 +725,10 @@ static void scan_alloc_table(struct smd_alloc_elm *shared,
 	}
 }
 
-/**
- * smd_channel_probe_worker() - Scan for newly created SMD channels and init
- *				local structures so the channels are visable to
- *				local clients
- *
- * @work: work_struct corresponding to an instance of this function running on
- *		a workqueue.
- */
-static void smd_channel_probe_worker(struct work_struct *work)
+static void smd_channel_probe_now(struct remote_proc_info *r_info)
 {
 	struct smd_alloc_elm *shared;
-	struct remote_proc_info *r_info;
 	unsigned tbl_size;
-
-	r_info = container_of(work, struct remote_proc_info, probe_work);
 
 	shared = smem_get_entry(ID_CH_ALLOC_TBL, &tbl_size,
 							r_info->remote_pid, 0);
@@ -765,6 +754,23 @@ static void smd_channel_probe_worker(struct work_struct *work)
 			r_info);
 
 	mutex_unlock(&smd_probe_lock);
+}
+
+/**
+ * smd_channel_probe_worker() - Scan for newly created SMD channels and init
+ *				local structures so the channels are visable to
+ *				local clients
+ *
+ * @work: work_struct corresponding to an instance of this function running on
+ *		a workqueue.
+ */
+static void smd_channel_probe_worker(struct work_struct *work)
+{
+	struct remote_proc_info *r_info;
+
+	r_info = container_of(work, struct remote_proc_info, probe_work);
+
+	smd_channel_probe_now(r_info);
 }
 
 /**
@@ -3057,7 +3063,7 @@ static int restart_notifier_cb(struct notifier_block *this,
  */
 void smd_post_init(unsigned remote_pid)
 {
-	schedule_work(&remote_info[remote_pid].probe_work);
+	smd_channel_probe_now(&remote_info[remote_pid]);
 }
 
 /**
