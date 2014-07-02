@@ -2140,7 +2140,7 @@ static int __from_user_hist_data(
 			sizeof(uint32_t)) ||
 	    copy_in_user(&hist_data->bin_cnt,
 			&hist_data32->bin_cnt,
-			sizeof(uint8_t)))
+			sizeof(uint32_t)))
 		return -EFAULT;
 
 	if (get_user(data, &hist_data32->c0) ||
@@ -2167,7 +2167,7 @@ static int __to_user_hist_data(
 			sizeof(uint32_t)) ||
 	    copy_in_user(&hist_data32->bin_cnt,
 			&hist_data->bin_cnt,
-			sizeof(uint8_t)))
+			sizeof(uint32_t)))
 		return -EFAULT;
 
 	if (get_user(data, (unsigned long *) &hist_data->c0) ||
