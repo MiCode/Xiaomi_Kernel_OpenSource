@@ -62,6 +62,7 @@
 
 #define CFG_STAT_CTRL_REG		0x09
 #define CHG_STAT_IRQ_ONLY_BIT		BIT(4)
+#define CHG_TEMP_CHG_ERR_BLINK_BIT	BIT(3)
 #define CHG_STAT_ACTIVE_HIGH_BIT	BIT(1)
 #define CHG_STAT_DISABLE_BIT		BIT(0)
 
@@ -2376,12 +2377,15 @@ static int smb1360_hw_init(struct smb1360_chip *chip)
 
 	/* interrupt enabling - active low */
 	if (chip->client->irq) {
-		mask = CHG_STAT_IRQ_ONLY_BIT | CHG_STAT_ACTIVE_HIGH_BIT
-						| CHG_STAT_DISABLE_BIT;
+		mask = CHG_STAT_IRQ_ONLY_BIT
+			| CHG_STAT_ACTIVE_HIGH_BIT
+			| CHG_STAT_DISABLE_BIT
+			| CHG_TEMP_CHG_ERR_BLINK_BIT;
+
 		if (!chip->pulsed_irq)
 			reg = CHG_STAT_IRQ_ONLY_BIT;
 		else
-			reg = 0;
+			reg = CHG_TEMP_CHG_ERR_BLINK_BIT;
 		rc = smb1360_masked_write(chip, CFG_STAT_CTRL_REG, mask, reg);
 		if (rc < 0) {
 			dev_err(chip->dev, "Couldn't set irq config rc = %d\n",
