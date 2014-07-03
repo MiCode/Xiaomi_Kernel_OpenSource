@@ -261,6 +261,8 @@ Optional properties:
 			    access the memory.
 - qcom,mdss-has-source-split: Boolean property to indicate if source split
 			      feature is available or not.
+- qcom,mdss-has-rotator-downscale: Boolean property to indicate if rotator
+				   downscale feature is available or not.
 - qcom,mdss-ad-off:		Array of offset addresses for the available
 				Assertive Display (AD) blocks. These offsets
 				are calculated from the register "mdp_phys"
@@ -516,6 +518,7 @@ Example:
 		qcom,mdss-no-lut-read;
 		qcom,mdss-no-hist-vote;
 		qcom,mdss-traffic-shaper-enabled;
+		qcom,mdss-has-rotator-downscale;
 
 		qcom,mdss-has-dst-split;
 		qcom,mdss-pipe-vig-xin-id = <0 4 8>;

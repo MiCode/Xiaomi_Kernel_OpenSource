@@ -1450,6 +1450,8 @@ static ssize_t mdss_mdp_show_capabilities(struct device *dev,
 		SPRINT(" src_split");
 	if (mdata->max_mixer_width)
 		SPRINT(" max_mixer_width");
+	if (mdata->has_rot_dwnscale)
+		SPRINT(" rotator_downscale");
 	SPRINT("\n");
 
 	return cnt;
@@ -2729,7 +2731,8 @@ static int mdss_mdp_parse_dt_misc(struct platform_device *pdev)
 	mdss_mdp_parse_vbif_qos(pdev);
 	mdata->traffic_shaper_en = of_property_read_bool(pdev->dev.of_node,
 		 "qcom,mdss-traffic-shaper-enabled");
-
+	mdata->has_rot_dwnscale = of_property_read_bool(pdev->dev.of_node,
+		"qcom,mdss-has-rotator-downscale");
 	return 0;
 }
 
