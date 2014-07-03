@@ -615,6 +615,7 @@ static int rndis_init_response(int configNr, rndis_init_msg_type *buf)
 	resp->AFListOffset = cpu_to_le32(0);
 	resp->AFListSize = cpu_to_le32(0);
 
+	params->ul_max_xfer_size = le32_to_cpu(resp->MaxTransferSize);
 	params->resp_avail(params->v);
 	return 0;
 }
@@ -820,7 +821,7 @@ void rndis_set_host_mac(int configNr, const u8 *addr)
  */
 int rndis_msg_parser(u8 configNr, u8 *buf)
 {
-	u32 MsgType, MsgLength;
+	u32 MsgType, MsgLength, major, minor, max_transfer_size;
 	__le32 *tmp;
 	struct rndis_params *params;
 
@@ -845,6 +846,19 @@ int rndis_msg_parser(u8 configNr, u8 *buf)
 	case RNDIS_MSG_INIT:
 		pr_debug("%s: RNDIS_MSG_INIT\n",
 			__func__);
+		tmp++; /* to get RequestID */
+		major = get_unaligned_le32(tmp++);
+		minor = get_unaligned_le32(tmp++);
+		max_transfer_size = get_unaligned_le32(tmp++);
+
+		params->host_rndis_major_ver = major;
+		params->host_rndis_minor_ver = minor;
+		params->dl_max_xfer_size = max_transfer_size;
+
+		pr_debug("%s(): RNDIS Host Major:%d Minor:%d version\n",
+					__func__, major, minor);
+		pr_debug("%s(): UL Max Transfer size:%x\n", __func__,
+					max_transfer_size);
 		params->state = RNDIS_INITIALIZED;
 		return rndis_init_response(configNr,
 					(rndis_init_msg_type *)buf);
@@ -966,6 +980,17 @@ int rndis_set_param_medium(u8 configNr, u32 medium, u32 speed)
 	rndis_per_dev_params[configNr].speed = speed;
 
 	return 0;
+}
+u32 rndis_get_dl_max_xfer_size(u8 configNr)
+{
+	pr_debug("%s:\n", __func__);
+	return rndis_per_dev_params[configNr].dl_max_xfer_size;
+}
+
+u32 rndis_get_ul_max_xfer_size(u8 configNr)
+{
+	pr_debug("%s:\n", __func__);
+	return rndis_per_dev_params[configNr].ul_max_xfer_size;
 }
 
 void rndis_set_max_pkt_xfer(u8 configNr, u8 max_pkt_per_xfer)

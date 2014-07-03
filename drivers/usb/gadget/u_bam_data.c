@@ -58,8 +58,12 @@ module_param(bam_data_mux_rx_req_size, uint, S_IRUGO | S_IWUSR);
 #define MSM_VENDOR_ID			BIT(16)
 
 struct rndis_data_ch_info {
-	u32 max_transfer_size;
-	u32 max_packets_number;
+	/* this provides downlink (device->host i.e host) side configuration*/
+	u32 dl_max_transfer_size;
+	/* this provides uplink (host->device i.e device) side configuration */
+	u32 ul_max_transfer_size;
+	u32 ul_max_packets_number;
+	bool ul_aggregation_enable;
 	u32 prod_clnt_hdl;
 	u32 cons_clnt_hdl;
 	void *priv;
@@ -1025,11 +1029,19 @@ static void bam2bam_data_connect_work(struct work_struct *w)
 				d->ipa_params.cons_clnt_hdl;
 			rndis_data.priv = d->ipa_params.priv;
 
+			pr_debug("ul_max_transfer_size:%d\n",
+					rndis_data.ul_max_transfer_size);
+			pr_debug("ul_max_packets_number:%d\n",
+					rndis_data.ul_max_packets_number);
+			pr_debug("dl_max_transfer_size:%d\n",
+					rndis_data.dl_max_transfer_size);
+
 			ret = rndis_ipa_pipe_connect_notify(
 				rndis_data.cons_clnt_hdl,
 				rndis_data.prod_clnt_hdl,
-				rndis_data.max_transfer_size,
-				rndis_data.max_packets_number,
+				rndis_data.ul_max_transfer_size,
+				rndis_data.ul_max_packets_number,
+				rndis_data.dl_max_transfer_size,
 				rndis_data.priv);
 			if (ret) {
 				pr_err("%s: failed to connect IPA: err:%d\n",
@@ -1726,17 +1738,18 @@ exit:
 	spin_unlock_irqrestore(&port->port_lock, flags);
 }
 
-void u_bam_data_set_max_xfer_size(u32 max_transfer_size)
+void u_bam_data_set_dl_max_xfer_size(u32 max_transfer_size)
 {
+
 	if (!max_transfer_size) {
 		pr_err("%s: invalid parameters\n", __func__);
 		return;
 	}
-
-	rndis_data.max_transfer_size = max_transfer_size;
+	rndis_data.dl_max_transfer_size = max_transfer_size;
+	pr_debug("%s(): dl_max_xfer_size:%d\n", __func__, max_transfer_size);
 }
 
-void u_bam_data_set_max_pkt_num(u32 max_packets_number)
+void u_bam_data_set_ul_max_pkt_num(u8 max_packets_number)
 
 {
 	if (!max_packets_number) {
@@ -1744,5 +1757,25 @@ void u_bam_data_set_max_pkt_num(u32 max_packets_number)
 		return;
 	}
 
-	rndis_data.max_packets_number = max_packets_number;
+	rndis_data.ul_max_packets_number = max_packets_number;
+
+	if (max_packets_number > 1)
+		rndis_data.ul_aggregation_enable = true;
+	else
+		rndis_data.ul_aggregation_enable = false;
+
+	pr_debug("%s(): ul_aggregation enable:%d\n", __func__,
+				rndis_data.ul_aggregation_enable);
+	pr_debug("%s(): ul_max_packets_number:%d\n", __func__,
+				max_packets_number);
+}
+
+void u_bam_data_set_ul_max_xfer_size(u32 max_transfer_size)
+{
+	if (!max_transfer_size) {
+		pr_err("%s: invalid parameters\n", __func__);
+		return;
+	}
+	rndis_data.ul_max_transfer_size = max_transfer_size;
+	pr_debug("%s(): ul_max_xfer_size:%d\n", __func__, max_transfer_size);
 }

@@ -47,9 +47,11 @@ void bam_data_suspend(u8 port_num);
 
 void bam_data_resume(u8 port_num);
 
-void u_bam_data_set_max_xfer_size(u32 max_transfer_size);
+void u_bam_data_set_dl_max_xfer_size(u32 dl_max_transfer_size);
 
-void u_bam_data_set_max_pkt_num(u32 max_packets_number);
+void u_bam_data_set_ul_max_pkt_num(u8 ul_max_packets_number);
+
+void u_bam_data_set_ul_max_xfer_size(u32 ul_max_xfer_size);
 
 void u_bam_data_start_rndis_ipa(void);
 

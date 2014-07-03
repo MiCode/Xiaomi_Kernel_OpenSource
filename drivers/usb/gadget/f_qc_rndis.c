@@ -85,7 +85,7 @@ struct f_rndis_qc {
 	u8				ctrl_id, data_id;
 	u8				ethaddr[ETH_ALEN];
 	u32				vendorID;
-	u8				max_pkt_per_xfer;
+	u8				ul_max_pkt_per_xfer;
 	u8				pkt_alignment_factor;
 	u32				max_pkt_size;
 	const char			*manufacturer;
@@ -587,6 +587,7 @@ static void rndis_qc_command_complete(struct usb_ep *ep,
 	struct f_rndis_qc		*rndis = req->context;
 	int				status;
 	rndis_init_msg_type		*buf;
+	u32		ul_max_xfer_size, dl_max_xfer_size;
 
 	/* received RNDIS command from USB_CDC_SEND_ENCAPSULATED_COMMAND */
 	status = rndis_msg_parser(rndis->config, (u8 *) req->buf);
@@ -597,9 +598,10 @@ static void rndis_qc_command_complete(struct usb_ep *ep,
 	buf = (rndis_init_msg_type *)req->buf;
 
 	if (buf->MessageType == RNDIS_MSG_INIT) {
-		rndis->max_pkt_size = buf->MaxTransferSize;
-		pr_debug("MaxTransferSize: %d\n", buf->MaxTransferSize);
-		u_bam_data_set_max_xfer_size(rndis->max_pkt_size);
+		ul_max_xfer_size = rndis_get_ul_max_xfer_size(rndis->config);
+		u_bam_data_set_ul_max_xfer_size(ul_max_xfer_size);
+		dl_max_xfer_size = rndis_get_dl_max_xfer_size(rndis->config);
+		u_bam_data_set_dl_max_xfer_size(dl_max_xfer_size);
 	}
 }
 
@@ -968,8 +970,8 @@ rndis_qc_bind(struct usb_configuration *c, struct usb_function *f)
 		goto fail;
 
 	pr_debug("%s(): max_pkt_per_xfer:%d\n", __func__,
-				rndis->max_pkt_per_xfer);
-	rndis_set_max_pkt_xfer(rndis->config, rndis->max_pkt_per_xfer);
+				rndis->ul_max_pkt_per_xfer);
+	rndis_set_max_pkt_xfer(rndis->config, rndis->ul_max_pkt_per_xfer);
 
 	/* In case of aggregated packets QC device will request
 	 * aliment to 4 (2^2).
@@ -1195,10 +1197,10 @@ rndis_qc_bind_config_vendor(struct usb_configuration *c, u8 ethaddr[ETH_ALEN],
 	rndis->manufacturer = manufacturer;
 
 	/* if max_pkt_per_xfer was not configured set to default value */
-	rndis->max_pkt_per_xfer =
+	rndis->ul_max_pkt_per_xfer =
 			max_pkt_per_xfer ? max_pkt_per_xfer :
 			DEFAULT_MAX_PKT_PER_XFER;
-	u_bam_data_set_max_pkt_num(rndis->max_pkt_per_xfer);
+	u_bam_data_set_ul_max_pkt_num(rndis->ul_max_pkt_per_xfer);
 
 	/*
 	 * Check no RNDIS aggregation, and alignment if not mentioned,
@@ -1210,7 +1212,7 @@ rndis_qc_bind_config_vendor(struct usb_configuration *c, u8 ethaddr[ETH_ALEN],
 	 * those values will always override default values.
 	 */
 	if ((rndis->pkt_alignment_factor == 0) &&
-			(rndis->max_pkt_per_xfer == 1))
+			(rndis->ul_max_pkt_per_xfer == 1))
 		rndis->pkt_alignment_factor = 0;
 	else
 		rndis->pkt_alignment_factor = pkt_alignment_factor ?
@@ -1305,14 +1307,14 @@ static long rndis_qc_ioctl(struct file *fp, unsigned cmd, unsigned long arg)
 	switch (cmd) {
 	case RNDIS_QC_GET_MAX_PKT_PER_XFER:
 		ret = copy_to_user((void __user *)arg,
-					&rndis->max_pkt_per_xfer,
-					sizeof(rndis->max_pkt_per_xfer));
+					&rndis->ul_max_pkt_per_xfer,
+					sizeof(rndis->ul_max_pkt_per_xfer));
 		if (ret) {
 			pr_err("copying to user space failed\n");
 			ret = -EFAULT;
 		}
-		pr_info("Sent max packets per xfer %d\n",
-				rndis->max_pkt_per_xfer);
+		pr_info("Sent UL max packets per xfer %d\n",
+				rndis->ul_max_pkt_per_xfer);
 		break;
 	case RNDIS_QC_GET_MAX_PKT_SIZE:
 		ret = copy_to_user((void __user *)arg,

@@ -302,8 +302,8 @@ static void rndis_ipa_dump_skb(struct sk_buff *skb);
 static int rndis_ipa_debugfs_init(struct rndis_ipa_dev *rndis_ipa_ctx);
 static void rndis_ipa_debugfs_destroy(struct rndis_ipa_dev *rndis_ipa_ctx);
 static int rndis_ipa_ep_registers_cfg(u32 usb_to_ipa_hdl,
-		u32 ipa_to_usb_hdl, u32 max_transfer_size,
-		u32 max_packet_number, u32 mtu,
+		u32 ipa_to_usb_hdl, u32 max_xfer_size_bytes_to_dev,
+		u32 max_xfer_size_bytes_to_host, u32 mtu,
 		bool deaggr_enable);
 static int rndis_ipa_set_device_ethernet_addr(u8 *dev_ethaddr,
 		u8 device_ethaddr[]);
@@ -698,8 +698,9 @@ EXPORT_SYMBOL(rndis_ipa_init);
  */
 int rndis_ipa_pipe_connect_notify(u32 usb_to_ipa_hdl,
 			u32 ipa_to_usb_hdl,
-			u32 max_transfer_byte_size,
-			u32 max_packet_number,
+			u32 max_xfer_size_bytes_to_dev,
+			u32 max_packet_number_to_dev,
+			u32 max_xfer_size_bytes_to_host,
 			void *private)
 {
 	struct rndis_ipa_dev *rndis_ipa_ctx = private;
@@ -712,8 +713,11 @@ int rndis_ipa_pipe_connect_notify(u32 usb_to_ipa_hdl,
 
 	RNDIS_IPA_DEBUG("usb_to_ipa_hdl=%d, ipa_to_usb_hdl=%d, private=0x%p\n",
 				usb_to_ipa_hdl, ipa_to_usb_hdl, private);
-	RNDIS_IPA_DEBUG("max_xfer_sz=%d, max_pkt_num=%d\n",
-			max_transfer_byte_size, max_packet_number);
+	RNDIS_IPA_DEBUG("max_xfer_sz_to_dev=%d, max_pkt_num_to_dev=%d\n",
+			max_xfer_size_bytes_to_dev,
+			max_packet_number_to_dev);
+	RNDIS_IPA_DEBUG("max_xfer_sz_to_host=%d\n",
+			max_xfer_size_bytes_to_host);
 
 	next_state = rndis_ipa_next_state(rndis_ipa_ctx->state,
 		RNDIS_IPA_CONNECT);
@@ -734,10 +738,14 @@ int rndis_ipa_pipe_connect_notify(u32 usb_to_ipa_hdl,
 	}
 	rndis_ipa_ctx->ipa_to_usb_hdl = ipa_to_usb_hdl;
 	rndis_ipa_ctx->usb_to_ipa_hdl = usb_to_ipa_hdl;
+	if (max_packet_number_to_dev > 1)
+		rndis_ipa_ctx->deaggregation_enable = true;
+	else
+		rndis_ipa_ctx->deaggregation_enable = false;
 	result = rndis_ipa_ep_registers_cfg(usb_to_ipa_hdl,
 			ipa_to_usb_hdl,
-			max_transfer_byte_size,
-			max_packet_number,
+			max_xfer_size_bytes_to_dev,
+			max_xfer_size_bytes_to_host,
 			rndis_ipa_ctx->net->mtu,
 			rndis_ipa_ctx->deaggregation_enable);
 	if (result) {
@@ -1876,12 +1884,10 @@ static bool rm_enabled(struct rndis_ipa_dev *rndis_ipa_ctx)
  *  the USB to IPA end-point
  * @ipa_to_usb_hdl: handle received from ipa_connect which represents
  *  the IPA to USB end-point
- * @max_transfer_byte_size: the maximum size, in bytes, that the device
+ * @max_xfer_size_bytes_to_dev: the maximum size, in bytes, that the device
  *  expects to receive from the host. supplied on REMOTE_NDIS_INITIALIZE_CMPLT.
- * @max_packet_number: The maximum number of
- * concatenated REMOTE_NDIS_PACKET_MSG messages that the device can handle
- * in a single bus transfer to it.
- * This value MUST be at least 1.
+ * @max_xfer_size_bytes_to_host: the maximum size, in bytes, that the host
+ *  expects to receive from the device. supplied on REMOTE_NDIS_INITIALIZE_MSG.
  * @mtu: the netdev MTU size, in bytes
  *
  * USB to IPA pipe:
@@ -1897,8 +1903,8 @@ static bool rm_enabled(struct rndis_ipa_dev *rndis_ipa_ctx)
  */
 static int rndis_ipa_ep_registers_cfg(u32 usb_to_ipa_hdl,
 		u32 ipa_to_usb_hdl,
-		u32 max_transfer_byte_size,
-		u32 max_packet_number,
+		u32 max_xfer_size_bytes_to_dev,
+		u32 max_xfer_size_bytes_to_host,
 		u32 mtu,
 		bool deaggr_enable)
 {
@@ -1913,7 +1919,7 @@ static int rndis_ipa_ep_registers_cfg(u32 usb_to_ipa_hdl,
 		RNDIS_IPA_DEBUG("deaggregation disabled\n");
 	}
 
-	usb_to_ipa_ep_cfg->deaggr.max_packet_len = max_transfer_byte_size;
+	usb_to_ipa_ep_cfg->deaggr.max_packet_len = max_xfer_size_bytes_to_dev;
 	result = ipa_cfg_ep(usb_to_ipa_hdl, usb_to_ipa_ep_cfg);
 	if (result) {
 		pr_err("failed to configure USB to IPA point\n");
@@ -1921,9 +1927,9 @@ static int rndis_ipa_ep_registers_cfg(u32 usb_to_ipa_hdl,
 	}
 	RNDIS_IPA_DEBUG("IPA<-USB end-point configured\n");
 
-	ipa_to_usb_ep_cfg.aggr.aggr_pkt_limit = max_packet_number;
+	ipa_to_usb_ep_cfg.aggr.aggr_pkt_limit = 0;
 	ipa_to_usb_ep_cfg.aggr.aggr_byte_limit =
-		(max_transfer_byte_size - mtu)/1024;
+		(max_xfer_size_bytes_to_host - mtu)/1024;
 	result = ipa_cfg_ep(ipa_to_usb_hdl, &ipa_to_usb_ep_cfg);
 	if (result) {
 		pr_err("failed to configure IPA to USB end-point\n");
@@ -2676,8 +2682,10 @@ static int rndis_ipa_setup_loopback(bool enable,
 	retval = rndis_ipa_pipe_connect_notify(
 			rndis_ipa_ctx->usb_to_ipa_loopback_pipe.ipa_drv_ep_hdl,
 			rndis_ipa_ctx->ipa_to_usb_loopback_pipe.ipa_drv_ep_hdl,
+			BAM_DMA_DATA_FIFO_SIZE,
+			15,
 			BAM_DMA_DATA_FIFO_SIZE - rndis_ipa_ctx->net->mtu,
-			15, rndis_ipa_ctx);
+			rndis_ipa_ctx);
 	if (retval) {
 		RNDIS_IPA_ERROR("connect notify fail");
 		return -ENODEV;
