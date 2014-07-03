@@ -258,6 +258,7 @@ struct msm_fb_data_type {
 	bool mdss_fb_split_stored;
 
 	u32 wait_for_kickoff;
+	u32 thermal_level;
 };
 
 static inline void mdss_fb_update_notify_update(struct msm_fb_data_type *mfd)
