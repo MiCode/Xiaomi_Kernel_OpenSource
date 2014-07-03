@@ -4642,6 +4642,7 @@
 		qcom,pas-id = <1>;
 		qcom,proxy-timeout-ms = <10000>;
 		qcom,smem-id = <423>;
+		qcom,sysmon-id = <1>;
 		qcom,firmware-name = "adsp";
 
 		/* GPIO inputs from lpass */

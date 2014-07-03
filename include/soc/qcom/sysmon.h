@@ -17,6 +17,7 @@
 
 #include <soc/qcom/smd.h>
 #include <soc/qcom/subsystem_notif.h>
+#include <soc/qcom/subsystem_restart.h>
 
 /**
  * enum subsys_id - Destination subsystems for events.
@@ -35,23 +36,24 @@ enum subsys_id {
 };
 
 #ifdef CONFIG_MSM_SYSMON_COMM
-int sysmon_send_event(const char *dest_ss, const char *event_ss,
-				enum subsys_notif_type notif);
-int sysmon_get_reason(const char *dest_ss, char *buf, size_t len);
-int sysmon_send_shutdown(const char *dest_ss);
+int sysmon_send_event(struct subsys_desc *dest_desc,
+			struct subsys_desc *event_desc,
+			enum subsys_notif_type notif);
+int sysmon_get_reason(struct subsys_desc *dest_desc, char *buf, size_t len);
+int sysmon_send_shutdown(struct subsys_desc *dest_desc);
 #else
-static inline int sysmon_send_event(const char *dest_ss,
-				    const char *event_ss,
-				    enum subsys_notif_type notif)
+static inline int sysmon_send_event(struct subsys_desc *dest_desc,
+					struct subsys_desc *event_desc,
+					enum subsys_notif_type notif)
 {
 	return 0;
 }
-static inline int sysmon_get_reason(const char *dest_ss, char *buf,
-				    size_t len)
+static inline int sysmon_get_reason(struct subsys_desc *dest_desc,
+					char *buf, size_t len)
 {
 	return 0;
 }
-static inline int sysmon_send_shutdown(const char *dest_ss)
+static inline int sysmon_send_shutdown(struct subsys_desc *dest_desc)
 {
 	return 0;
 }

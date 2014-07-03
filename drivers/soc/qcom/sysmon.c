@@ -26,7 +26,6 @@
 #include <soc/qcom/subsystem_notif.h>
 #include <soc/qcom/smd.h>
 
-#define NAME_LENGTH	20
 #define TX_BUF_SIZE	50
 #define RX_BUF_SIZE	500
 #define TIMEOUT_MS	5000
@@ -44,8 +43,7 @@ struct sysmon_subsys {
 	char			rx_buf[RX_BUF_SIZE];
 	enum transports		transport;
 	struct device		*dev;
-	char			name[NAME_LENGTH];
-	int			pid;
+	u32			pid;
 	struct list_head	list;
 };
 
@@ -54,14 +52,6 @@ static const char *notif_name[SUBSYS_NOTIF_TYPE_COUNT] = {
 	[SUBSYS_AFTER_SHUTDOWN]  = "after_shutdown",
 	[SUBSYS_BEFORE_POWERUP]  = "before_powerup",
 	[SUBSYS_AFTER_POWERUP]   = "after_powerup",
-};
-
-static const char *subsys_name[SYSMON_NUM_SS] = {
-	[SYSMON_SS_WCNSS] = "wcnss",
-	[SYSMON_SS_MODEM] = "modem",
-	[SYSMON_SS_LPASS] = "adsp",
-	[SYSMON_SS_Q6FW] = "modem_fw",
-	[SYSMON_SS_EXT_MODEM] = "esoc0",
 };
 
 static LIST_HEAD(sysmon_list);
@@ -126,8 +116,10 @@ static int sysmon_send_msg(struct sysmon_subsys *ss, const char *tx_buf,
 
 /**
  * sysmon_send_event() - Notify a subsystem of another's state change
- * @dest_ss:	String name of the subsystem the notification should be sent to
- * @event_ss:	String name of the subsystem that generated the notification
+ * @dest_desc:	Subsystem descriptor of the subsystem the notification
+ * should be sent to
+ * @event_desc:	Subsystem descriptor of the subsystem that generated the
+ * notification
  * @notif:	ID of the notification type (ex. SUBSYS_BEFORE_SHUTDOWN)
  *
  * Returns 0 for success, -EINVAL for invalid destination or notification IDs,
@@ -137,17 +129,19 @@ static int sysmon_send_msg(struct sysmon_subsys *ss, const char *tx_buf,
  *
  * If CONFIG_MSM_SYSMON_COMM is not defined, always return success (0).
  */
-int sysmon_send_event(const char *dest_ss, const char *event_ss,
-		      enum subsys_notif_type notif)
+int sysmon_send_event(struct subsys_desc *dest_desc,
+			struct subsys_desc *event_desc,
+			enum subsys_notif_type notif)
 {
 
 	char tx_buf[TX_BUF_SIZE];
 	int ret;
 	struct sysmon_subsys *tmp, *ss = NULL;
+	const char *event_ss = event_desc->name;
 
 	mutex_lock(&sysmon_list_lock);
 	list_for_each_entry(tmp, &sysmon_list, list)
-		if (!strcmp(tmp->name, dest_ss))
+		if (tmp->pid == dest_desc->sysmon_pid)
 			ss = tmp;
 	mutex_unlock(&sysmon_list_lock);
 
@@ -177,9 +171,8 @@ out:
 }
 
 /**
- * sysmon_send_shutdown() - send shutdown command to a
- * subsystem.
- * @dest_ss:	String name of the subsystem to send to.
+ * sysmon_send_shutdown() - send shutdown command to a subsystem.
+ * @dest_desc:	Subsystem descriptor of the subsystem to send to
  *
  * Returns 0 for success, -EINVAL for an invalid destination, -ENODEV if
  * the SMD transport channel is not open, -ETIMEDOUT if the destination
@@ -188,7 +181,7 @@ out:
  *
  * If CONFIG_MSM_SYSMON_COMM is not defined, always return success (0).
  */
-int sysmon_send_shutdown(const char *dest_ss)
+int sysmon_send_shutdown(struct subsys_desc *dest_desc)
 {
 	struct sysmon_subsys *tmp, *ss = NULL;
 	const char tx_buf[] = "system:shutdown";
@@ -198,7 +191,7 @@ int sysmon_send_shutdown(const char *dest_ss)
 
 	mutex_lock(&sysmon_list_lock);
 	list_for_each_entry(tmp, &sysmon_list, list)
-		if (!strcmp(tmp->name, dest_ss))
+		if (tmp->pid == dest_desc->sysmon_pid)
 			ss = tmp;
 	mutex_unlock(&sysmon_list_lock);
 
@@ -222,7 +215,7 @@ out:
 
 /**
  * sysmon_get_reason() - Retrieve failure reason from a subsystem.
- * @dest_ss:	String name of the subsystem to query
+ * @dest_desc:	Subsystem descriptor of the subsystem to query
  * @buf:	Caller-allocated buffer for the returned NUL-terminated reason
  * @len:	Length of @buf
  *
@@ -233,7 +226,7 @@ out:
  *
  * If CONFIG_MSM_SYSMON_COMM is not defined, always return success (0).
  */
-int sysmon_get_reason(const char *dest_ss, char *buf, size_t len)
+int sysmon_get_reason(struct subsys_desc *dest_desc, char *buf, size_t len)
 {
 	struct sysmon_subsys *tmp, *ss = NULL;
 	const char tx_buf[] = "ssr:retrieve:sfr";
@@ -243,7 +236,7 @@ int sysmon_get_reason(const char *dest_ss, char *buf, size_t len)
 
 	mutex_lock(&sysmon_list_lock);
 	list_for_each_entry(tmp, &sysmon_list, list)
-		if (!strcmp(tmp->name, dest_ss))
+		if (tmp->pid == dest_desc->sysmon_pid)
 			ss = tmp;
 	mutex_unlock(&sysmon_list_lock);
 
@@ -311,8 +304,6 @@ static int sysmon_probe(struct platform_device *pdev)
 			return ret;
 		}
 	} else if (pdev->id < SMD_NUM_TYPE) {
-		if (subsys_name[pdev->id] == NULL)
-			return -EINVAL;
 		ss->transport = TRANSPORT_SMD;
 		ret = smd_named_open_on_edge("sys_mon", pdev->id, &ss->chan,
 						ss, sysmon_smd_notify);
@@ -326,7 +317,6 @@ static int sysmon_probe(struct platform_device *pdev)
 
 	ss->dev = &pdev->dev;
 	ss->pid = pdev->id;
-	strlcpy(ss->name, subsys_name[pdev->id], ARRAY_SIZE(ss->name));
 
 	mutex_lock(&sysmon_list_lock);
 	INIT_LIST_HEAD(&ss->list);
