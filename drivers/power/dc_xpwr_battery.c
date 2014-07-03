@@ -1300,8 +1300,7 @@ static int pmic_fg_resume(struct device *dev)
 
 	dev_dbg(dev, "%s called\n", __func__);
 
-	power_supply_changed(&info->bat);
-	schedule_delayed_work(&info->status_monitor, STATUS_MON_DELAY_JIFFIES);
+	schedule_delayed_work(&info->status_monitor, 0);
 	return 0;
 }
 
