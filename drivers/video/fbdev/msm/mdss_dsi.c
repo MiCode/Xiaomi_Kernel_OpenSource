@@ -911,6 +911,7 @@ static int mdss_dsi_dfps_config(struct mdss_panel_data *pdata, int new_fps)
 	int rc = 0;
 	struct mdss_dsi_ctrl_pdata *ctrl_pdata = NULL;
 	struct mdss_dsi_ctrl_pdata *sctrl_pdata = NULL;
+	struct mdss_panel_info *pinfo;
 
 	pr_debug("%s+:\n", __func__);
 
@@ -929,15 +930,19 @@ static int mdss_dsi_dfps_config(struct mdss_panel_data *pdata, int new_fps)
 	}
 
 	/*
-	 * DFPS registers were already programmed while programming
-	 * the first controller(DSI0). Ignore DSI1 reguest.
+	 * at split display case, DFPS registers were already programmed
+	 * while programming the left ctrl(DSI0). Ignore right ctrl (DSI1)
+	 * reguest.
 	 */
-	if (mdss_dsi_is_slave_ctrl(ctrl_pdata)) {
-		pr_debug("%s DFPS already updated.\n", __func__);
-		return rc;
+	pinfo = &pdata->panel_info;
+	if (pinfo->is_split_display) {
+		if (mdss_dsi_is_right_ctrl(ctrl_pdata)) {
+			pr_debug("%s DFPS already updated.\n", __func__);
+			return rc;
+		}
+		/* left ctrl to get right ctrl */
+		sctrl_pdata = mdss_dsi_get_other_ctrl(ctrl_pdata);
 	}
-
-	sctrl_pdata = mdss_dsi_get_slave_ctrl();
 
 	if (new_fps !=
 		ctrl_pdata->panel_data.panel_info.mipi.frame_rate) {
