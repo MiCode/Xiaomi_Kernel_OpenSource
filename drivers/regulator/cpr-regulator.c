@@ -56,6 +56,9 @@
 #define RBIF_TIMER_ADJ_CONS_DOWN_BITS	4
 #define RBIF_TIMER_ADJ_CONS_DOWN_MASK	((1<<RBIF_TIMER_ADJ_CONS_DOWN_BITS)-1)
 #define RBIF_TIMER_ADJ_CONS_DOWN_SHIFT	4
+#define RBIF_TIMER_ADJ_CLAMP_INT_BITS	8
+#define RBIF_TIMER_ADJ_CLAMP_INT_MASK	((1<<RBIF_TIMER_ADJ_CLAMP_INT_BITS)-1)
+#define RBIF_TIMER_ADJ_CLAMP_INT_SHIFT	8
 
 /* RBCPR Config Register */
 #define REG_RBIF_LIMIT			0x48
@@ -259,6 +262,7 @@ struct cpr_regulator {
 	u32		down_threshold;
 	u32		idle_clocks;
 	u32		gcnt_time_us;
+	u32		clamp_timer_interval;
 	u32		vdd_apc_step_up_limit;
 	u32		vdd_apc_step_down_limit;
 	u32		flags;
@@ -659,6 +663,16 @@ static void cpr_scale(struct cpr_regulator *cpr_vreg,
 	quot = gcnt & ((1 << RBCPR_GCNT_TARGET_GCNT_SHIFT) - 1);
 
 	if (dir == UP) {
+		if (cpr_vreg->clamp_timer_interval
+				&& error_steps < cpr_vreg->up_threshold) {
+			/*
+			 * Handle the case where another measurement started
+			 * after the interrupt was triggered due to a core
+			 * exiting from power collapse.
+			 */
+			error_steps = max(cpr_vreg->up_threshold,
+					cpr_vreg->vdd_apc_step_up_limit);
+		}
 		cpr_debug_irq("Up: cpr status = 0x%08x (error_steps=%d)\n",
 			      reg_val, error_steps);
 
@@ -723,6 +737,16 @@ static void cpr_scale(struct cpr_regulator *cpr_vreg,
 			"UP: -> new_volt[corner:%d, fuse_corner:%d] = %d uV\n",
 			corner, fuse_corner, new_volt);
 	} else if (dir == DOWN) {
+		if (cpr_vreg->clamp_timer_interval
+				&& error_steps < cpr_vreg->down_threshold) {
+			/*
+			 * Handle the case where another measurement started
+			 * after the interrupt was triggered due to a core
+			 * exiting from power collapse.
+			 */
+			error_steps = max(cpr_vreg->down_threshold,
+					cpr_vreg->vdd_apc_step_down_limit);
+		}
 		cpr_debug_irq("Down: cpr status = 0x%08x (error_steps=%d)\n",
 			      reg_val, error_steps);
 
@@ -805,7 +829,8 @@ static irqreturn_t cpr_irq_handler(int irq, void *dev)
 	if (!cpr_ctl_is_enabled(cpr_vreg)) {
 		cpr_debug_irq("CPR is disabled\n");
 		goto _exit;
-	} else if (cpr_ctl_is_busy(cpr_vreg)) {
+	} else if (cpr_ctl_is_busy(cpr_vreg)
+			&& !cpr_vreg->clamp_timer_interval) {
 		cpr_debug_irq("CPR measurement is not ready\n");
 		goto _exit;
 	} else if (!cpr_is_allowed(cpr_vreg)) {
@@ -1078,7 +1103,9 @@ static int cpr_config(struct cpr_regulator *cpr_vreg, struct device *dev)
 	/* Program Consecutive Up & Down */
 	val = ((cpr_vreg->timer_cons_down & RBIF_TIMER_ADJ_CONS_DOWN_MASK)
 			<< RBIF_TIMER_ADJ_CONS_DOWN_SHIFT) |
-		(cpr_vreg->timer_cons_up & RBIF_TIMER_ADJ_CONS_UP_MASK);
+	       (cpr_vreg->timer_cons_up & RBIF_TIMER_ADJ_CONS_UP_MASK) |
+	       ((cpr_vreg->clamp_timer_interval & RBIF_TIMER_ADJ_CLAMP_INT_MASK)
+			<< RBIF_TIMER_ADJ_CLAMP_INT_SHIFT);
 	cpr_write(cpr_vreg, REG_RBIF_TIMER_ADJUST, val);
 
 	/* Program the control register */
@@ -2208,12 +2235,23 @@ static int cpr_init_cpr_parameters(struct platform_device *pdev,
 	if (rc)
 		return rc;
 
+	rc = of_property_read_u32(of_node, "qcom,cpr-clamp-timer-interval",
+				  &cpr_vreg->clamp_timer_interval);
+	if (rc && rc != -EINVAL) {
+		pr_err("error reading qcom,cpr-clamp-timer-interval, rc=%d\n",
+			rc);
+		return rc;
+	}
+
+	cpr_vreg->clamp_timer_interval = min(cpr_vreg->clamp_timer_interval,
+					(u32)RBIF_TIMER_ADJ_CLAMP_INT_MASK);
+
 	/* Init module parameter with the DT value */
 	cpr_vreg->enable = of_property_read_bool(of_node, "qcom,cpr-enable");
 	pr_info("CPR is %s by default.\n",
 		cpr_vreg->enable ? "enabled" : "disabled");
 
-	return rc;
+	return 0;
 }
 
 static int cpr_init_cpr(struct platform_device *pdev,
