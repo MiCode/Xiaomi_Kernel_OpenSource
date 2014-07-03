@@ -2097,14 +2097,20 @@ int mdss_mdp_ctl_stop(struct mdss_mdp_ctl *ctl)
 
 	mdss_mdp_hist_intr_setup(&mdata->hist_intr, MDSS_IRQ_SUSPEND);
 
-	if (ctl->stop_fnc)
+	if (ctl->stop_fnc) {
 		ret = ctl->stop_fnc(ctl);
-	else
+		if (ctl->panel_data->panel_info.fbc.enabled)
+			mdss_mdp_ctl_fbc_enable(0, ctl->mixer_left,
+				&ctl->panel_data->panel_info);
+	} else {
 		pr_warn("no stop func for ctl=%d\n", ctl->num);
+	}
 
 	if (sctl && sctl->stop_fnc) {
 		ret = sctl->stop_fnc(sctl);
-
+		if (ctl->panel_data->panel_info.fbc.enabled)
+			mdss_mdp_ctl_fbc_enable(0, sctl->mixer_left,
+				&sctl->panel_data->panel_info);
 		mdss_mdp_ctl_split_display_enable(0, ctl, sctl);
 	}
 
