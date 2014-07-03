@@ -3653,3 +3653,17 @@ bool ipa_is_ready(void)
 	return (ipa_ctx != NULL) ? true : false;
 }
 EXPORT_SYMBOL(ipa_is_ready);
+
+/**
+ * ipa_q6_init_done() - called when q6 ipa initialization is done
+ *
+ * Return value: none
+ */
+void ipa_q6_init_done(void)
+{
+	if (ipa_is_ready() && ipa_ctx->q6_proxy_clk_vote_valid) {
+		ipa_dec_client_disable_clks();
+		ipa_ctx->q6_proxy_clk_vote_valid = false;
+	}
+}
+EXPORT_SYMBOL(ipa_q6_init_done);

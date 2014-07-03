@@ -2435,7 +2435,7 @@ static int ipa_init(const struct ipa_plat_drv_res *resource_p,
 	else
 		IPADBG(":wdi init ok\n");
 
-	ipa_dec_client_disable_clks();
+	ipa_ctx->q6_proxy_clk_vote_valid = true;
 
 	pr_info("IPA driver initialization was successful.\n");
 
