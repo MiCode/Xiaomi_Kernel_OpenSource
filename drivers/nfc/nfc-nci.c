@@ -56,11 +56,11 @@ MODULE_DEVICE_TABLE(of, msm_match_table);
 #define MAX_QCA_REG				(116)
 /* will timeout in approx. 100ms as 10us steps */
 #define NFC_RF_CLK_FREQ			(19200000)
-#define NTF_TIMEOUT				(10000)
+#define NTF_TIMEOUT				(10)
 #define	CORE_RESET_RSP_GID		(0x60)
 #define	CORE_RESET_OID			(0x00)
 #define CORE_RST_NTF_LENGTH		(0x02)
-#define WAKE_TIMEOUT			(10000)
+#define WAKE_TIMEOUT			(10)
 
 static void clk_req_update(struct work_struct *work);
 
@@ -363,6 +363,8 @@ static ssize_t nfc_read(struct file *filp, char __user *buf,
 			goto err;
 	}
 
+	dev_dbg(&qca199x_dev->client->dev, "%s : NfcNciRx %x %x %x\n",
+			__func__, tmp[0], tmp[1], tmp[2]);
 	if (total > 0) {
 		if ((total > count) || copy_to_user(buf, tmp, total)) {
 			dev_err(&qca199x_dev->client->dev,
@@ -417,6 +419,8 @@ int nfcc_read_buff_svc(struct qca199x_dev *qca199x_dev)
 			PAYLOAD_HEADER_LENGTH));
 		total = ret;
 	}
+	dev_dbg(&qca199x_dev->client->dev, "%s : NfcNciRx %x %x %x\n",
+			__func__, tmp[0], tmp[1], tmp[2]);
 leave:
 	mutex_unlock(&qca199x_dev->read_mutex);
 	return total;
@@ -501,7 +505,8 @@ static ssize_t nfc_write(struct file *filp, const char __user *buf,
 		(tmp[3] == 0x08) && (tmp[4] == 0x00)) {
 		region2_sent = true;
 	}
-
+	dev_dbg(&qca199x_dev->client->dev, "%s : NfcNciTx %x %x %x\n",
+			__func__, tmp[0], tmp[1], tmp[2]);
 	return ret;
 }
 
@@ -595,16 +600,10 @@ int nfc_ioctl_power_states(struct file *filp, unsigned int cmd,
 		r = qca199x_clock_select(qca199x_dev);
 		if (r < 0)
 			goto err_req;
+		dev_dbg(&qca199x_dev->client->dev, "gpio_set_value disable: %s: info: %p\n",
+			__func__, qca199x_dev);
 		gpio_set_value(qca199x_dev->dis_gpio, 0);
-		r = gpio_direction_output(qca199x_dev->dis_gpio, 1);
-		if (r) {
-			dev_err(&qca199x_dev->client->dev,
-					"unable to set direction for gpio [%d]\n",
-					qca199x_dev->dis_gpio);
-			goto err_req;
-		}
-		gpio_set_value(qca199x_dev->dis_gpio, 0);
-		msleep(20);
+		usleep(1000);
 	} else if (arg == 1) {
 		/*
 		 * We are attempting a hardware reset so let us disable
@@ -623,19 +622,17 @@ int nfc_ioctl_power_states(struct file *filp, unsigned int cmd,
 		 * construed as response to initial message
 		 */
 		qca199x_dev->sent_first_nci_write = false;
-		gpio_set_value(qca199x_dev->dis_gpio, 0);
-		r = gpio_direction_output(qca199x_dev->dis_gpio, 1);
-		if (r) {
-			dev_err(&qca199x_dev->client->dev,
-					"unable to set direction for gpio [%d]\n",
-					qca199x_dev->dis_gpio);
-			goto err_req;
-		}
+		dev_dbg(&qca199x_dev->client->dev, "gpio_set_value enable: %s: info: %p\n",
+			__func__, qca199x_dev);
 		gpio_set_value(qca199x_dev->dis_gpio, 1);
 		usleep(1000);
 	} else if (arg == 2) {
 		mutex_lock(&qca199x_dev->read_mutex);
+		dev_dbg(&qca199x_dev->client->dev, "before nfcc_initialise: %s: info: %p\n",
+			__func__, qca199x_dev);
 		r = nfcc_initialise(qca199x_dev->client, 0xE);
+		dev_dbg(&qca199x_dev->client->dev, "after nfcc_initialise: %s: info: %p\n",
+			__func__, qca199x_dev);
 		/* Also reset first NCI write */
 		qca199x_dev->sent_first_nci_write = false;
 		mutex_unlock(&qca199x_dev->read_mutex);
@@ -649,6 +646,8 @@ int nfc_ioctl_power_states(struct file *filp, unsigned int cmd,
 	} else if (arg == 4) {
 		mutex_lock(&qca199x_dev->read_mutex);
 		nfcc_wake(NFCC_WAKE, filp);
+		dev_dbg(&qca199x_dev->client->dev, "nfcc wake: %s: info: %p\n",
+			__func__, qca199x_dev);
 		mutex_unlock(&qca199x_dev->read_mutex);
 	} else if (arg == 5) {
 		nfcc_wake(NFCC_SLEEP, filp);
@@ -767,7 +766,9 @@ int nfc_ioctl_nfcc_version(struct file *filp, unsigned int cmd,
 	do {
 		r = i2c_master_recv(qca199x_dev->client, &raw_nci_read,
 						sizeof(raw_nci_read));
-		udelay(1);
+		if ((raw_nci_read & NCI_WAKE) != 0)
+			usleep(1000);
+
 		time_taken++;
 	} while ((r == 1) && (raw_nci_read & NCI_WAKE)
 			&& (time_taken < WAKE_TIMEOUT));
@@ -1083,7 +1084,7 @@ static int nfcc_initialise(struct i2c_client *client, unsigned short curr_addr)
 	 * get a core reset notification - This is time for chip
 	 * & NFCC controller to come-up.
 	 */
-	usleep(1000); /* 1 ms */
+	usleep(15000); /* 15 ms */
 
 	do {
 		ret = i2c_master_recv(client, rsp, 5);
@@ -1092,9 +1093,13 @@ static int nfcc_initialise(struct i2c_client *client, unsigned short curr_addr)
 			(rsp[1] == CORE_RESET_OID) &&
 			(rsp[2] == CORE_RST_NTF_LENGTH))
 				|| time_taken == NTF_TIMEOUT) {
+			dev_dbg(&client->dev,
+				"NFC core reset recevd: %s: info: %p\n",
+				__func__, client);
 			core_reset_completed = true;
+		} else {
+		  usleep(2000);  /* 2ms sleep before retry */
 		}
-		usleep(10);  /* 10us sleep before retry */
 		time_taken++;
 	} while (!core_reset_completed);
 	r = 0;
