@@ -514,7 +514,7 @@
 		qcom,vdd-mx-corner-map = <4 5 7>;
 		qcom,vdd-mx-vmax = <7>;
 		qcom,vdd-mx-vmin-method = <4>;
-		vdd-mx-supply = <&pm8994_s2_corner>;
+		vdd-mx-supply = <&pm8994_s2_corner_ao>;
 
 		qcom,cpr-ref-clk = <19200>;
 		qcom,cpr-timer-delay = <5000>;
@@ -563,7 +563,7 @@
 		qcom,vdd-mx-corner-map = <4 5 7>;
 		qcom,vdd-mx-vmax = <7>;
 		qcom,vdd-mx-vmin-method = <4>;
-		vdd-mx-supply = <&pm8994_s2_corner>;
+		vdd-mx-supply = <&pm8994_s2_corner_ao>;
 
 		qcom,cpr-ref-clk = <19200>;
 		qcom,cpr-timer-delay = <5000>;
