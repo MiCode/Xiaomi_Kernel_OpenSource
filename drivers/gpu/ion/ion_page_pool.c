@@ -104,11 +104,13 @@ static struct page *ion_page_pool_remove(struct ion_page_pool *pool, bool high)
 	return page;
 }
 
-void *ion_page_pool_alloc(struct ion_page_pool *pool)
+void *ion_page_pool_alloc(struct ion_page_pool *pool, bool *from_pool)
 {
 	struct page *page = NULL;
 
 	BUG_ON(!pool);
+
+	*from_pool = true;
 
 	mutex_lock(&pool->mutex);
 	if (pool->high_count)
@@ -117,9 +119,10 @@ void *ion_page_pool_alloc(struct ion_page_pool *pool)
 		page = ion_page_pool_remove(pool, false);
 	mutex_unlock(&pool->mutex);
 
-	if (!page)
+	if (!page) {
 		page = ion_page_pool_alloc_pages(pool);
-
+		*from_pool = false;
+	}
 	return page;
 }
 
