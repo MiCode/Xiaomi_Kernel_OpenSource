@@ -1967,9 +1967,13 @@ static void dwc3_pwr_event_handler(struct dwc3_msm *mdwc)
 static irqreturn_t msm_dwc3_pwr_irq_thread(int irq, void *_mdwc)
 {
 	struct dwc3_msm *mdwc = _mdwc;
+	struct dwc3 *dwc = platform_get_drvdata(mdwc->dwc3);
 
 	dev_dbg(mdwc->dev, "%s\n", __func__);
-	dwc3_pwr_event_handler(mdwc);
+	if (atomic_read(&dwc->in_lpm))
+		pm_runtime_get_sync(&mdwc->dwc3->dev);
+	else
+		dwc3_pwr_event_handler(mdwc);
 	return IRQ_HANDLED;
 }
 
@@ -2098,11 +2102,12 @@ static irqreturn_t msm_dwc3_pwr_irq(int irq, void *data)
 		 * msm_resume after the clocks are enabled.
 		 */
 		atomic_set(&mdwc->in_p3, 0);
-		/* bail out if system resume in process, else initiate RESUME */
-		if (atomic_read(&mdwc->pm_suspended))
-			mdwc->resume_pending = true;
-		else
-			pm_runtime_get(&mdwc->dwc3->dev);
+
+		/* Initate resume if system resume is not in process */
+		if (!atomic_read(&mdwc->pm_suspended))
+				return IRQ_WAKE_THREAD;
+
+		mdwc->resume_pending = true;
 
 		return IRQ_HANDLED;
 	}
