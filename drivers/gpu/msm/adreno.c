@@ -535,44 +535,6 @@ static inline void refcount_group(struct adreno_perfcount_group *group,
 		*hi = group->regs[reg].offset_hi;
 }
 
-
-/**
- * adreno_idle_unsafe() - wait for the GPU hardware to go idle
- *
- * This doesn't check for dispatcher mutex owner. Hence this function
- * should be called only if we are sure that we dont own dispatcher mutex
- * in this thread.
- *
- * @device: Pointer to the KGSL device structure for the GPU
- *
- * Wait up to ADRENO_IDLE_TIMEOUT milliseconds for the GPU hardware to go quiet.
- */
-
-static int adreno_idle_unsafe(struct kgsl_device *device)
-{
-	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
-	int ret;
-
-	/*
-	 * Make sure the device mutex is held so the dispatcher can't send any
-	 * more commands to the hardware
-	 */
-
-	BUG_ON(!mutex_is_locked(&device->mutex));
-
-	/* Check if we are already idle before idling dispatcher */
-	if (adreno_isidle(device))
-		return 0;
-	/*
-	 * Wait for dispatcher to finish completing commands
-	 * already submitted
-	 */
-	ret = adreno_dispatcher_idle_unsafe(adreno_dev);
-	if (ret)
-		return ret;
-
-	return adreno_spin_idle(device);
-}
 /**
  * adreno_perfcounter_get: Try to put a countable in an available counter
  * @adreno_dev: Adreno device to configure
@@ -654,11 +616,6 @@ int adreno_perfcounter_get(struct adreno_device *adreno_dev,
 	/* no available counters, so do nothing else */
 	if (empty == -1)
 		return -EBUSY;
-
-	ret = adreno_idle_unsafe(&adreno_dev->dev);
-
-	if (ret)
-		return ret;
 
 	/* enable the new counter */
 	ret = gpudev->perfcounter_enable(adreno_dev, groupid, empty, countable);
