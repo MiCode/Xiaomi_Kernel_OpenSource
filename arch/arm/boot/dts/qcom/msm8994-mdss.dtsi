@@ -110,6 +110,7 @@
 					  0x00072800>;
 		qcom,mdss-ad-off = <0x0079000 0x00079800 0x0007A000>;
 		qcom,mdss-has-decimation;
+		qcom,mdss-has-rotator-downscale;
 		qcom,mdss-wfd-mode = "intf";
 		qcom,mdss-ctl-len = <0x00000200>;
 
