@@ -600,6 +600,13 @@ static struct gpiomux_setting pcie_config = {
 	.pull = GPIOMUX_PULL_UP,
 };
 
+static struct gpiomux_setting pcie_perst_config = {
+	.func = GPIOMUX_FUNC_GPIO,
+	.drv = GPIOMUX_DRV_2MA,
+	.pull = GPIOMUX_PULL_NONE,
+	.dir = GPIO_CFG_OUTPUT,
+};
+
 static struct msm_gpiomux_config fsm_pcie_configs[] __initdata = {
 	{
 		.gpio      = 28,       /* BLSP PCIE1_CLK */
@@ -611,6 +618,18 @@ static struct msm_gpiomux_config fsm_pcie_configs[] __initdata = {
 		.gpio      = 32,       /* BLSP PCIE0_CLK */
 		.settings = {
 			[GPIOMUX_SUSPENDED] = &pcie_config,
+		},
+	},
+	{
+		.gpio      = 29,       /* PCIE1_PERST */
+		.settings = {
+			[GPIOMUX_SUSPENDED] = &pcie_perst_config,
+		},
+	},
+	{
+		.gpio      = 33,       /* PCIE0_PERST */
+		.settings = {
+			[GPIOMUX_SUSPENDED] = &pcie_perst_config,
 		},
 	},
 };
