@@ -2715,6 +2715,8 @@ static int msm_pcie_probe(struct platform_device *pdev)
 		goto decrease_rc_num;
 	}
 
+	msm_pcie_dev[rc_idx].drv_ready = true;
+
 	if (msm_pcie_dev[rc_idx].ep_wakeirq) {
 		PCIE_DBG(&msm_pcie_dev[rc_idx],
 			"PCIe: RC%d will be enumerated upon WAKE signal from Endpoint.\n",
@@ -2735,8 +2737,6 @@ static int msm_pcie_probe(struct platform_device *pdev)
 
 	PCIE_DBG(&msm_pcie_dev[rc_idx], "PCIE probed %s\n",
 		dev_name(&(pdev->dev)));
-
-	msm_pcie_dev[rc_idx].drv_ready = true;
 
 	mutex_unlock(&pcie_drv.drv_lock);
 	return 0;
