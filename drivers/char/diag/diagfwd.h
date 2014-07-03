@@ -47,7 +47,6 @@ void diag_smd_destructor(struct diag_smd_info *smd_info);
 void diag_cmp_logging_modes_diagfwd_bridge(int old_mode, int new_mode);
 int diag_process_apps_pkt(unsigned char *buf, int len);
 void diag_reset_smd_data(int queue);
-int diag_apps_responds(void);
 void diag_update_pkt_buffer(unsigned char *buf, int type);
 int diag_process_stm_cmd(unsigned char *buf, unsigned char *dest_buf);
 /* State for diag forwarding */

@@ -36,6 +36,7 @@
 #include "diagfwd_cntl.h"
 #include "diag_dci.h"
 #include "diagfwd_hsic.h"
+#include "diag_masks.h"
 
 static struct timer_list dci_drain_timer;
 static int dci_timer_in_progress;
@@ -1979,9 +1980,9 @@ int diag_send_dci_event_mask_remote(int token)
 	dci_header.cmd_code = DCI_CONTROL_PKT_CODE;
 
 	event_mask.cmd_type = DIAG_CTRL_MSG_EVENT_MASK;
-	event_mask.data_len = 7 + DCI_EVENT_MASK_SIZE;
+	event_mask.data_len = EVENT_MASK_CTRL_HEADER_LEN + DCI_EVENT_MASK_SIZE;
 	event_mask.stream_id = DCI_MASK_STREAM;
-	event_mask.status = 3; /* status for valid mask */
+	event_mask.status = DIAG_CTRL_MASK_VALID;
 	event_mask.event_config = 0; /* event config */
 	event_mask.event_mask_size = DCI_EVENT_MASK_SIZE;
 	for (i = 0; i < DCI_EVENT_MASK_SIZE; i++) {
@@ -2013,27 +2014,28 @@ int diag_send_dci_event_mask_remote(int token)
 
 int diag_send_dci_event_mask(int token)
 {
-	void *buf = driver->buf_event_mask_update;
+	void *buf = event_mask.update_buf;
+	struct diag_ctrl_event_mask header;
 	int header_size = sizeof(struct diag_ctrl_event_mask);
 	int ret = DIAG_DCI_NO_ERROR, err = DIAG_DCI_NO_ERROR, i;
 	unsigned char *event_mask_ptr = dci_ops_tbl[DCI_LOCAL_PROC].
 							event_mask_composite;
 
-	mutex_lock(&driver->diag_cntl_mutex);
+	mutex_lock(&event_mask.lock);
 	/* send event mask update */
-	driver->event_mask->cmd_type = DIAG_CTRL_MSG_EVENT_MASK;
-	driver->event_mask->data_len = 7 + DCI_EVENT_MASK_SIZE;
-	driver->event_mask->stream_id = DCI_MASK_STREAM;
-	driver->event_mask->status = 3; /* status for valid mask */
-	driver->event_mask->event_config = 0; /* event config */
-	driver->event_mask->event_mask_size = DCI_EVENT_MASK_SIZE;
+	header.cmd_type = DIAG_CTRL_MSG_EVENT_MASK;
+	header.data_len = EVENT_MASK_CTRL_HEADER_LEN + DCI_EVENT_MASK_SIZE;
+	header.stream_id = DCI_MASK_STREAM;
+	header.status = DIAG_CTRL_MASK_VALID;
+	header.event_config = 0; /* event config */
+	header.event_mask_size = DCI_EVENT_MASK_SIZE;
 	for (i = 0; i < DCI_EVENT_MASK_SIZE; i++) {
 		if (event_mask_ptr[i] != 0) {
-			driver->event_mask->event_config = 1;
+			header.event_config = 1;
 			break;
 		}
 	}
-	memcpy(buf, driver->event_mask, header_size);
+	memcpy(buf, &header, header_size);
 	memcpy(buf+header_size, event_mask_ptr, DCI_EVENT_MASK_SIZE);
 	for (i = 0; i < NUM_SMD_DCI_CHANNELS; i++) {
 		/*
@@ -2048,7 +2050,7 @@ int diag_send_dci_event_mask(int token)
 		if (err != DIAG_DCI_NO_ERROR)
 			ret = DIAG_DCI_SEND_DATA_FAIL;
 	}
-	mutex_unlock(&driver->diag_cntl_mutex);
+	mutex_unlock(&event_mask.lock);
 
 	return ret;
 }
@@ -2192,13 +2194,13 @@ int diag_send_dci_log_mask_remote(int token)
 
 int diag_send_dci_log_mask(int token)
 {
-	void *buf = driver->buf_log_mask_update;
+	void *buf = log_mask.update_buf;
 	int write_len = 0;
 	uint8_t *log_mask_ptr = dci_ops_tbl[DCI_LOCAL_PROC].log_mask_composite;
 	int i, j, ret = DIAG_DCI_NO_ERROR, err = DIAG_DCI_NO_ERROR;
 	int updated;
 
-	mutex_lock(&driver->diag_cntl_mutex);
+	mutex_lock(&log_mask.lock);
 	for (i = 0; i < 16; i++) {
 		updated = 1;
 		/* Dirty bit is set don't update the mask for this equip id */
@@ -2226,7 +2228,7 @@ int diag_send_dci_log_mask(int token)
 			*(log_mask_ptr+1) = 0; /* clear dirty byte */
 		log_mask_ptr += 514;
 	}
-	mutex_unlock(&driver->diag_cntl_mutex);
+	mutex_unlock(&log_mask.lock);
 
 	return ret;
 }

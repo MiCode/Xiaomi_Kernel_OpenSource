@@ -82,18 +82,7 @@
 #define HSIC_2_DATA		5
 #define SMUX_DATA		10
 #define APPS_PROC		1
-/*
- * Each row contains First (uint32_t), Last (uint32_t), Actual
- * last (uint32_t) values along with the range of SSIDs
- * (MAX_SSID_PER_RANGE*uint32_t).
- * And there are MSG_MASK_TBL_CNT rows.
- */
-#define MSG_MASK_SIZE		((MAX_SSID_PER_RANGE+3) * 4 * MSG_MASK_TBL_CNT)
-#define MAX_EQUIP_ID		16
-#define MAX_ITEMS_PER_EQUIP_ID	512
-#define LOG_MASK_ITEM_SIZE	(5 + MAX_ITEMS_PER_EQUIP_ID)
-#define LOG_MASK_SIZE		(MAX_EQUIP_ID * LOG_MASK_ITEM_SIZE)
-#define EVENT_MASK_SIZE 1000
+
 #define USER_SPACE_DATA 8192
 #define PKT_SIZE 4096
 
@@ -117,8 +106,13 @@
 #define DIAG_CMD_VERSION	0
 #define DIAG_CMD_DOWNLOAD	0x3A
 #define DIAG_CMD_DIAG_SUBSYS	0x4B
+#define DIAG_CMD_LOG_CONFIG	0x73
 #define DIAG_CMD_LOG_ON_DMND	0x78
 #define DIAG_CMD_EXT_BUILD	0x7c
+#define DIAG_CMD_MSG_CONFIG	0x7D
+#define DIAG_CMD_GET_EVENT_MASK	0x81
+#define DIAG_CMD_SET_EVENT_MASK	0x82
+#define DIAG_CMD_EVENT_TOGGLE	0x60
 
 #define DIAG_SS_DIAG		0x12
 #define DIAG_SS_PARAMS		0x32
@@ -128,6 +122,17 @@
 #define DIAG_DIAG_POLL		0x03
 #define DIAG_DEL_RSP_WRAP	0x04
 #define DIAG_DEL_RSP_WRAP_CNT	0x05
+
+#define DIAG_CMD_OP_LOG_DISABLE		0
+#define DIAG_CMD_OP_GET_LOG_RANGE	1
+#define DIAG_CMD_OP_SET_LOG_MASK	3
+#define DIAG_CMD_OP_GET_LOG_MASK	4
+
+#define DIAG_CMD_OP_GET_SSID_RANGE	1
+#define DIAG_CMD_OP_GET_BUILD_MASK	2
+#define DIAG_CMD_OP_GET_MSG_MASK	3
+#define DIAG_CMD_OP_SET_MSG_MASK	4
+#define DIAG_CMD_OP_SET_ALL_MSG_MASK	5
 
 #define BAD_PARAM_RESPONSE_MESSAGE 20
 
@@ -287,6 +292,25 @@ struct diag_request {
 };
 #endif
 
+/*
+ * High level structure for storing Diag masks.
+ *
+ * @ptr: Pointer to the buffer that stores the masks
+ * @mask_len: Length of the buffer pointed by ptr
+ * @update_buf: Buffer for performing mask updates to peripherals
+ * @update_buf_len: Length of the buffer pointed by buf
+ * @status: status of the mask - all enable, disabled, valid
+ * @lock: To protect access to the mask variables
+ */
+struct diag_mask_info {
+	uint8_t *ptr;
+	int mask_len;
+	uint8_t *update_buf;
+	int update_buf_len;
+	uint8_t status;
+	struct mutex lock;
+};
+
 struct diag_smd_info {
 	int peripheral;	/* The peripheral this smd channel communicates with */
 	int type;	/* The type of smd channel (data, control, dci) */
@@ -404,10 +428,6 @@ struct diagchar_dev {
 	int used;
 	/* Buffers for masks */
 	struct mutex diag_cntl_mutex;
-	struct diag_ctrl_event_mask *event_mask;
-	struct diag_ctrl_log_mask *log_mask;
-	struct diag_ctrl_msg_mask *msg_mask;
-	struct mutex log_mask_mutex;
 	/* Members for Sending response */
 	unsigned char *encoded_rsp_buf;
 	uint8_t rsp_buf_busy;
@@ -426,9 +446,6 @@ struct diagchar_dev {
 	unsigned char *apps_rsp_buf;
 	unsigned char *user_space_data_buf;
 	/* buffer for updating mask to peripherals */
-	unsigned char *buf_msg_mask_update;
-	unsigned char *buf_log_mask_update;
-	unsigned char *buf_event_mask_update;
 	unsigned char *buf_feature_mask_update;
 	int read_len_legacy;
 	struct mutex diag_hdlc_mutex;
@@ -456,12 +473,6 @@ struct diagchar_dev {
 	struct workqueue_struct *diag_usb_wq;
 	struct work_struct diag_drain_work;
 	struct workqueue_struct *diag_cntl_wq;
-	uint8_t *msg_masks;
-	uint8_t msg_status;
-	uint8_t *log_masks;
-	uint8_t log_status;
-	uint8_t *event_masks;
-	uint8_t event_status;
 	uint8_t log_on_demand_support;
 	struct diag_master_table *table;
 	uint8_t *pkt_buf;
@@ -480,7 +491,14 @@ struct diagchar_dev {
 	struct diag_ws_ref_t dci_ws;
 	struct diag_ws_ref_t md_ws;
 	spinlock_t ws_lock;
-
+	/* Pointers to Diag Masks */
+	struct diag_mask_info *msg_mask;
+	struct diag_mask_info *log_mask;
+	struct diag_mask_info *event_mask;
+	struct diag_mask_info *build_time_mask;
+	uint8_t msg_mask_tbl_count;
+	uint16_t event_mask_size;
+	uint16_t last_event_id;
 #ifdef CONFIG_DIAGFWD_BRIDGE_CODE
 	/* common for all bridges */
 	struct work_struct diag_connect_work;
