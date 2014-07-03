@@ -515,8 +515,9 @@ static int ion_secure_cma_allocate(struct ion_heap *heap,
 		return -ENOMEM;
 	}
 
-
+	trace_ion_secure_cma_allocate_start(heap->name, len, align, flags);
 	buf = __ion_secure_cma_allocate(heap, buffer, len, align, flags);
+	trace_ion_secure_cma_allocate_end(heap->name, len, align, flags);
 
 	if (buf) {
 		int ret;
@@ -526,7 +527,11 @@ static int ion_secure_cma_allocate(struct ion_heap *heap,
 				__func__);
 			ret = 1;
 		} else {
+			trace_ion_cp_secure_buffer_start(heap->name, len, align,
+									flags);
 			ret = msm_ion_secure_table(buf->table, 0, 0);
+			trace_ion_cp_secure_buffer_end(heap->name, len, align,
+									flags);
 		}
 		if (ret) {
 			/*
