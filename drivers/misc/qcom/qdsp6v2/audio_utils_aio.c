@@ -437,9 +437,9 @@ static void audio_aio_unmap_ion_region(struct q6audio_aio *audio)
 	pr_debug("%s[%p]:\n", __func__, audio);
 	list_for_each_safe(ptr, next, &audio->ion_region_queue) {
 		region = list_entry(ptr, struct audio_aio_ion_region, list);
-		pr_debug("%s[%p]: phy_address = 0x%pa\n",
-				__func__, audio, &region->paddr);
 		if (region != NULL) {
+			pr_debug("%s[%p]: phy_address = 0x%pa\n",
+				__func__, audio, &region->paddr);
 			rc = q6asm_memory_unmap(audio->ac,
 						region->paddr, IN);
 			if (rc < 0)
