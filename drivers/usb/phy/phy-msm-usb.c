@@ -3410,11 +3410,17 @@ static void msm_otg_set_vbus_state(int online)
 
 	if (!init) {
 		init = true;
+		if (pmic_vbus_init.done &&
+				test_bit(B_SESS_VLD, &motg->inputs)) {
+			pr_debug("PMIC: BSV came late\n");
+			goto out;
+		}
 		complete(&pmic_vbus_init);
 		pr_debug("PMIC: BSV init complete\n");
 		return;
 	}
 
+out:
 	if (test_bit(MHL, &motg->inputs) ||
 			mhl_det_in_progress) {
 		pr_debug("PMIC: BSV interrupt ignored in MHL\n");
