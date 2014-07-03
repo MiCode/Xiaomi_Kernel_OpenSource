@@ -691,14 +691,12 @@ static int32_t qpnp_ocv_comp(int64_t *result,
 	case QPNP_REV_ID_8916_2_0:
 		switch (vadc->id) {
 		case COMP_ID_SMIC:
-			if (die_temp < 0) {
-				offset = (-QPNP_VBAT_COEFF_38);
+			offset = (-QPNP_VBAT_COEFF_38);
+			if (die_temp < 0)
 				temp_var = die_temp * QPNP_VBAT_COEFF_36;
-			} else if (die_temp > 40000) {
-				offset = (-QPNP_VBAT_COEFF_38);
+			else if (die_temp > 40000)
 				temp_var = ((die_temp - 40000) *
 						(-QPNP_VBAT_COEFF_37));
-			}
 			break;
 		case COMP_ID_TSMC:
 			if (die_temp < 10000)
@@ -852,8 +850,8 @@ static int32_t qpnp_vbat_sns_comp(int64_t *result,
 			break;
 		/* FAB_ID is non-zero */
 		default:
+			offset = QPNP_VBAT_COEFF_35;
 			if (die_temp > 50000) {
-				offset = QPNP_VBAT_COEFF_35;
 				temp_var = ((die_temp - 25000) *
 				(QPNP_VBAT_COEFF_34));
 			}
