@@ -323,9 +323,9 @@ u32 get_pipe_control_scratch_addr(struct intel_engine_cs *ring);
 int bdw_init_workarounds(struct intel_engine_cs *ring);
 int chv_init_workarounds(struct intel_engine_cs *ring);
 
-static inline u32 intel_ring_get_tail(struct intel_engine_cs *ring)
+static inline u32 intel_ring_get_tail(struct intel_ringbuffer *ringbuf)
 {
-	return ring->buffer->tail;
+	return ringbuf->tail;
 }
 
 static inline u32 intel_ring_get_seqno(struct intel_engine_cs *ring)
