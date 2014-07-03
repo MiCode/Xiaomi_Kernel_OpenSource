@@ -1283,7 +1283,8 @@ static void tspp_destroy_buffers(u32 channel_id, struct tspp_channel *channel)
 					channel->user_info);
 			} else {
 				if (!channel->dma_pool)
-					dma_free_coherent(NULL,
+					dma_free_coherent(
+						&channel->pdev->pdev->dev,
 						pbuf->desc.size,
 						pbuf->desc.virt_base,
 						pbuf->desc.phys_base);
@@ -1639,7 +1640,7 @@ int tspp_open_channel(u32 dev, u32 channel_id)
 	config->src_pipe_index = channel->id;
 	config->desc.size =
 		TSPP_SPS_DESCRIPTOR_COUNT * SPS_DESCRIPTOR_SIZE;
-	config->desc.base = dma_alloc_coherent(NULL,
+	config->desc.base = dma_alloc_coherent(&pdev->pdev->dev,
 						config->desc.size,
 						&config->desc.phys_base,
 						GFP_KERNEL);
@@ -1685,8 +1686,8 @@ int tspp_open_channel(u32 dev, u32 channel_id)
 err_event:
 	sps_disconnect(channel->pipe);
 err_connect:
-	dma_free_coherent(NULL, config->desc.size, config->desc.base,
-		config->desc.phys_base);
+	dma_free_coherent(&pdev->pdev->dev, config->desc.size,
+		config->desc.base, config->desc.phys_base);
 err_desc_alloc:
 	sps_free_endpoint(channel->pipe);
 err_sps_alloc:
@@ -1777,8 +1778,8 @@ int tspp_close_channel(u32 dev, u32 channel_id)
 		pr_warn("tspp: Error freeing sps endpoint (%i)", channel->id);
 
 	/* destroy the buffers */
-	dma_free_coherent(NULL, config->desc.size, config->desc.base,
-		config->desc.phys_base);
+	dma_free_coherent(&pdev->pdev->dev, config->desc.size,
+		config->desc.base, config->desc.phys_base);
 
 	sps_free_endpoint(channel->pipe);
 
@@ -2408,7 +2409,7 @@ int tspp_allocate_buffers(u32 dev, u32 channel_id, u32 count, u32 size,
 	 */
 	if (TSPP_USE_DMA_POOL(channel->buffer_size)) {
 		channel->dma_pool = dma_pool_create("tspp",
-			NULL, channel->buffer_size, 0, 0);
+			&pdev->pdev->dev, channel->buffer_size, 0, 0);
 		if (!channel->dma_pool) {
 			pr_err("%s: Can't allocate memory pool\n", __func__);
 			return -ENOMEM;
