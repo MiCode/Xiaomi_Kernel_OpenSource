@@ -478,6 +478,25 @@ static inline bool mdss_dsi_is_slave_ctrl(struct mdss_dsi_ctrl_pdata *ctrl)
 		(ctrl->ndx == DSI_CTRL_SLAVE);
 }
 
+static inline bool mdss_dsi_is_left_ctrl(struct mdss_dsi_ctrl_pdata *ctrl)
+{
+	return ctrl->ndx == DSI_CTRL_LEFT;
+}
+
+static inline bool mdss_dsi_is_right_ctrl(struct mdss_dsi_ctrl_pdata *ctrl)
+{
+	return ctrl->ndx == DSI_CTRL_RIGHT;
+}
+
+static inline struct mdss_dsi_ctrl_pdata *mdss_dsi_get_other_ctrl(
+					struct mdss_dsi_ctrl_pdata *ctrl)
+{
+	if (ctrl->ndx == DSI_CTRL_RIGHT)
+		return ctrl_list[DSI_CTRL_LEFT];
+
+	return ctrl_list[DSI_CTRL_RIGHT];
+}
+
 static inline struct mdss_dsi_ctrl_pdata *mdss_dsi_get_ctrl_by_index(int ndx)
 {
 	if (ndx >= DSI_CTRL_MAX)
