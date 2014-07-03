@@ -355,6 +355,40 @@ static void mdss_fb_get_split(struct msm_fb_data_type *mfd)
 			mfd->split_fb_left, mfd->split_fb_right);
 }
 
+static ssize_t mdss_fb_get_thermal_level(struct device *dev,
+		struct device_attribute *attr, char *buf)
+{
+	struct fb_info *fbi = dev_get_drvdata(dev);
+	struct msm_fb_data_type *mfd = fbi->par;
+	int ret;
+
+	ret = scnprintf(buf, PAGE_SIZE, "thermal_level=%d\n",
+						mfd->thermal_level);
+
+	return ret;
+}
+
+static ssize_t mdss_fb_set_thermal_level(struct device *dev,
+	struct device_attribute *attr, const char *buf, size_t count)
+{
+	struct fb_info *fbi = dev_get_drvdata(dev);
+	struct msm_fb_data_type *mfd = fbi->par;
+	int rc = 0;
+	int thermal_level = 0;
+
+	rc = kstrtoint(buf, 10, &thermal_level);
+	if (rc) {
+		pr_err("kstrtoint failed. rc=%d\n", rc);
+		return rc;
+	}
+
+	pr_debug("Thermal level set to %d\n", thermal_level);
+	mfd->thermal_level = thermal_level;
+	sysfs_notify(&mfd->fbi->dev->kobj, NULL, "msm_fb_thermal_level");
+
+	return count;
+}
+
 static ssize_t mdss_mdp_show_blank_event(struct device *dev,
 		struct device_attribute *attr, char *buf)
 {
@@ -553,6 +587,8 @@ static DEVICE_ATTR(idle_notify, S_IRUGO, mdss_fb_get_idle_notify, NULL);
 static DEVICE_ATTR(msm_fb_panel_info, S_IRUGO, mdss_fb_get_panel_info, NULL);
 static DEVICE_ATTR(msm_fb_src_split_info, S_IRUGO, mdss_fb_get_src_split_info,
 	NULL);
+static DEVICE_ATTR(msm_fb_thermal_level, S_IRUGO | S_IWUSR,
+	mdss_fb_get_thermal_level, mdss_fb_set_thermal_level);
 
 static struct attribute *mdss_fb_attrs[] = {
 	&dev_attr_msm_fb_type.attr,
@@ -562,6 +598,7 @@ static struct attribute *mdss_fb_attrs[] = {
 	&dev_attr_idle_notify.attr,
 	&dev_attr_msm_fb_panel_info.attr,
 	&dev_attr_msm_fb_src_split_info.attr,
+	&dev_attr_msm_fb_thermal_level.attr,
 	NULL,
 };
 
