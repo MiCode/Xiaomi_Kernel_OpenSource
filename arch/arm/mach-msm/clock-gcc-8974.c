@@ -2502,6 +2502,8 @@ static struct clk_lookup msm_clocks_gcc_8974[] = {
 
 	CLK_LOOKUP_OF("mem_clk", gcc_usb30_master_clk,           "usb_bam"),
 	CLK_LOOKUP_OF("mem_iface_clk", gcc_sys_noc_usb3_axi_clk, "usb_bam"),
+	CLK_LOOKUP_OF("core_clk", gcc_usb30_master_clk,    "f92f8800.hsphy"),
+	CLK_LOOKUP_OF("core_clk", gcc_usb30_master_clk,    "f92f8800.ssphy"),
 	CLK_LOOKUP_OF("core_clk", gcc_usb30_master_clk,    "msm_dwc3"),
 	CLK_LOOKUP_OF("utmi_clk_src", usb30_mock_utmi_clk_src, "msm_dwc3"),
 	CLK_LOOKUP_OF("utmi_clk", gcc_usb30_mock_utmi_clk, "msm_dwc3"),

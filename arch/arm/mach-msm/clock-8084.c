@@ -6111,6 +6111,8 @@ static struct clk_lookup apq_clocks_8084[] = {
 	/* USB clocks */
 	CLK_LOOKUP("ref_clk", diff_clk1.c, "f9200000.ssusb"),
 	CLK_LOOKUP("xo", cxo_dwc3_clk.c, "f9200000.ssusb"),
+	CLK_LOOKUP("core_clk", gcc_usb30_master_clk.c, "f92f8800.hsphy"),
+	CLK_LOOKUP("core_clk", gcc_usb30_master_clk.c, "f92f8800.ssphy"),
 	CLK_LOOKUP("core_clk", gcc_usb30_master_clk.c, "f9200000.ssusb"),
 	CLK_LOOKUP("iface_clk", gcc_sys_noc_usb3_axi_clk.c, "f9200000.ssusb"),
 	CLK_LOOKUP("iface_clk", gcc_sys_noc_usb3_axi_clk.c, "msm_usb3"),
@@ -6124,6 +6126,8 @@ static struct clk_lookup apq_clocks_8084[] = {
 
 	CLK_LOOKUP("ref_clk", diff_clk1.c, "f9400000.ssusb"),
 	CLK_LOOKUP("xo", cxo_dwc3_clk.c, "f9400000.ssusb"),
+	CLK_LOOKUP("core_clk", gcc_usb30_sec_master_clk.c, "f94f8800.hsphy"),
+	CLK_LOOKUP("core_clk", gcc_usb30_sec_master_clk.c, "f94f8800.ssphy"),
 	CLK_LOOKUP("core_clk", gcc_usb30_sec_master_clk.c, "f9400000.ssusb"),
 	CLK_LOOKUP("iface_clk", gcc_sys_noc_usb3_sec_axi_clk.c,
 			"f9400000.ssusb"),
