@@ -384,6 +384,43 @@ static struct device_attribute attrs[] = {
 #endif
 };
 
+#define MAX_BUF_SIZE	256
+#define VKEY_VER_CODE	"0x01"
+
+#define HEIGHT_SCALE_NUM 8
+#define HEIGHT_SCALE_DENOM 10
+
+/* numerator and denomenator for border equations */
+#define BORDER_ADJUST_NUM 3
+#define BORDER_ADJUST_DENOM 4
+
+static struct kobject *vkey_kobj;
+static char *vkey_buf;
+
+static ssize_t vkey_show(struct kobject  *obj,
+	struct kobj_attribute *attr, char *buf)
+{
+	strlcpy(buf, vkey_buf, MAX_BUF_SIZE);
+	return strnlen(buf, MAX_BUF_SIZE);
+}
+
+static struct kobj_attribute vkey_obj_attr = {
+	.attr = {
+		.mode = S_IRUGO,
+		.name = "virtualkeys."PLATFORM_DRIVER_NAME,
+	},
+	.show = vkey_show,
+};
+
+static struct attribute *vkey_attr[] = {
+	&vkey_obj_attr.attr,
+	NULL,
+};
+
+static struct attribute_group vkey_grp = {
+	.attrs = vkey_attr,
+};
+
 static int synaptics_rmi4_debug_suspend_set(void *_data, u64 val)
 {
 	struct synaptics_rmi4_data *rmi4_data = _data;
@@ -2369,47 +2406,127 @@ static void synaptics_rmi4_set_params(struct synaptics_rmi4_data *rmi4_data)
 	return;
 }
 
-static int synaptics_dsx_get_button_map(struct device *dev, char *name,
+static int synaptics_dsx_virtual_keys_init(struct device *dev,
+			struct synaptics_dsx_board_data	*rmi4_pdata)
+{
+	int width, height, center_x, center_y;
+	int x1 = 0, x2 = 0, i, c = 0, rc = 0, border;
+
+	vkey_buf = devm_kzalloc(dev, MAX_BUF_SIZE, GFP_KERNEL);
+	if (!vkey_buf) {
+		dev_err(dev, "Failed to allocate memory\n");
+		return -ENOMEM;
+	}
+
+	border = (rmi4_pdata->panel_maxx - rmi4_pdata->disp_maxx) * 2;
+	width = ((rmi4_pdata->disp_maxx -
+			(border * (rmi4_pdata->virtual_key_map->nkeys - 1)))
+			/ rmi4_pdata->virtual_key_map->nkeys);
+	height = (rmi4_pdata->panel_maxy - rmi4_pdata->disp_maxy);
+	center_y = rmi4_pdata->disp_maxy + (height / 2);
+	height = height * HEIGHT_SCALE_NUM / HEIGHT_SCALE_DENOM;
+
+	x2 -= border * BORDER_ADJUST_NUM / BORDER_ADJUST_DENOM;
+
+	for (i = 0; i < rmi4_pdata->virtual_key_map->nkeys; i++) {
+		x1 = x2 + border;
+		x2 = x2 + border + width;
+		center_x = x1 + (x2 - x1) / 2;
+		c += snprintf(vkey_buf + c, MAX_BUF_SIZE - c,
+				"%s:%d:%d:%d:%d:%d\n", VKEY_VER_CODE,
+				rmi4_pdata->virtual_key_map->map[i],
+				center_x, center_y, width, height);
+	}
+
+	vkey_buf[c] = '\0';
+
+	vkey_kobj = kobject_create_and_add("board_properties", NULL);
+	if (!vkey_kobj) {
+		dev_err(dev, "unable to create kobject\n");
+		return -ENOMEM;
+	}
+
+	rc = sysfs_create_group(vkey_kobj, &vkey_grp);
+	if (rc) {
+		dev_err(dev, "failed to create attributes\n");
+		kobject_put(vkey_kobj);
+	}
+
+	return rc;
+}
+
+static int synaptics_dsx_get_virtual_keys(struct device *dev,
+				struct property *prop, char *name,
 				struct synaptics_dsx_board_data *rmi4_pdata,
 				struct device_node *np)
 {
-	struct property *prop;
+	u32 num_keys;
+	int rc;
+
+	num_keys = prop->length / sizeof(u32);
+
+	rmi4_pdata->virtual_key_map = devm_kzalloc(dev,
+			sizeof(*rmi4_pdata->virtual_key_map),
+			GFP_KERNEL);
+	if (!rmi4_pdata->virtual_key_map)
+		return -ENOMEM;
+
+	rmi4_pdata->virtual_key_map->map = devm_kzalloc(dev,
+		sizeof(*rmi4_pdata->virtual_key_map->map) *
+		num_keys, GFP_KERNEL);
+	if (!rmi4_pdata->virtual_key_map->map)
+		return -ENOMEM;
+
+	rc = of_property_read_u32_array(np, name,
+			rmi4_pdata->virtual_key_map->map,
+			num_keys);
+	if (rc) {
+		dev_err(dev, "Failed to read key codes\n");
+		return -EINVAL;
+	}
+	rmi4_pdata->virtual_key_map->nkeys = num_keys;
+
+	return 0;
+}
+
+static int synaptics_dsx_get_button_map(struct device *dev,
+				struct property *prop, char *name,
+				struct synaptics_dsx_board_data *rmi4_pdata,
+				struct device_node *np)
+{
 	int rc, i;
-	u32 temp_val, num_buttons;
+	u32 num_buttons;
 	u32 button_map[MAX_NUMBER_OF_BUTTONS];
 
-	prop = of_find_property(np, "synaptics,button-map", NULL);
-	if (prop) {
-		num_buttons = prop->length / sizeof(temp_val);
+	num_buttons = prop->length / sizeof(u32);
 
-		rmi4_pdata->cap_button_map = devm_kzalloc(dev,
-				sizeof(*rmi4_pdata->cap_button_map),
-				GFP_KERNEL);
-		if (!rmi4_pdata->cap_button_map)
-			return -ENOMEM;
+	rmi4_pdata->cap_button_map = devm_kzalloc(dev,
+			sizeof(*rmi4_pdata->cap_button_map),
+			GFP_KERNEL);
+	if (!rmi4_pdata->cap_button_map)
+		return -ENOMEM;
 
-		rmi4_pdata->cap_button_map->map = devm_kzalloc(dev,
-			sizeof(*rmi4_pdata->cap_button_map->map) *
-			num_buttons, GFP_KERNEL);
-		if (!rmi4_pdata->cap_button_map->map)
-			return -ENOMEM;
+	rmi4_pdata->cap_button_map->map = devm_kzalloc(dev,
+		sizeof(*rmi4_pdata->cap_button_map->map) *
+		num_buttons, GFP_KERNEL);
+	if (!rmi4_pdata->cap_button_map->map)
+		return -ENOMEM;
 
-		if (num_buttons <= MAX_NUMBER_OF_BUTTONS) {
-			rc = of_property_read_u32_array(np,
-					"synaptics,button-map", button_map,
-					num_buttons);
-			if (rc) {
-				dev_err(dev, "Unable to read key codes\n");
-				return rc;
-			}
-			for (i = 0; i < num_buttons; i++)
-				rmi4_pdata->cap_button_map->map[i] =
-					button_map[i];
-			rmi4_pdata->cap_button_map->nbuttons = num_buttons;
-		} else {
-			return -EINVAL;
+	if (num_buttons <= MAX_NUMBER_OF_BUTTONS) {
+		rc = of_property_read_u32_array(np,
+				name, button_map, num_buttons);
+		if (rc) {
+			dev_err(dev, "Unable to read key codes\n");
+			return rc;
 		}
+		for (i = 0; i < num_buttons; i++)
+			rmi4_pdata->cap_button_map->map[i] =
+				button_map[i];
+		rmi4_pdata->cap_button_map->nbuttons = num_buttons;
+	} else {
+		return -EINVAL;
 	}
+
 	return 0;
 }
 
@@ -2421,6 +2538,7 @@ static int synaptics_rmi4_parse_dt_children(struct device *dev,
 	struct device_node *node = dev->of_node, *child = NULL;
 	int rc = 0;
 	struct synaptics_rmi4_fn *fhandler = NULL;
+	struct property *prop;
 
 	for_each_child_of_node(node, child) {
 		rc = of_property_read_u32(child, "synaptics,package-id",
@@ -2439,7 +2557,7 @@ static int synaptics_rmi4_parse_dt_children(struct device *dev,
 				__func__,
 				rmi4_pdata->package_id, rmi->package_id);
 
-			/* Iterate over next child if package id not matched */
+			/* Iterate over next child if package does not match */
 			continue;
 		}
 
@@ -2453,28 +2571,51 @@ static int synaptics_rmi4_parse_dt_children(struct device *dev,
 		if (rc && (rc != -EINVAL))
 			return rc;
 
-		rc = synaptics_dsx_get_button_map(dev,
-				 "synaptics,button-map", rmi4_pdata, child);
-		if (rc < 0) {
-			dev_err(dev, "Unable to read key codes\n");
-			return rc;
-		}
+		prop = of_find_property(child, "synaptics,button-map", NULL);
+		if (prop) {
+			rc = synaptics_dsx_get_button_map(dev, prop,
+				"synaptics,button-map", rmi4_pdata, child);
+			if (rc < 0) {
+				dev_err(dev, "Unable to read button map\n");
+				return rc;
+			}
 
-		if (!list_empty(&rmi->support_fn_list)) {
-			list_for_each_entry(fhandler,
-					&rmi->support_fn_list, link) {
-				if (fhandler->fn_number == SYNAPTICS_RMI4_F1A)
-					break;
+			if (!list_empty(&rmi->support_fn_list)) {
+				list_for_each_entry(fhandler,
+						&rmi->support_fn_list, link) {
+					if (fhandler->fn_number ==
+						SYNAPTICS_RMI4_F1A)
+						break;
+				}
+			}
+
+			if (fhandler && fhandler->fn_number ==
+					SYNAPTICS_RMI4_F1A) {
+				rc = synaptics_rmi4_f1a_button_map(rmi4_data,
+								fhandler);
+				if (rc < 0) {
+					dev_err(dev,
+						"Fail to register F1A %d\n",
+						rc);
+					return rc;
+				}
 			}
 		}
 
-		if (fhandler && fhandler->fn_number == SYNAPTICS_RMI4_F1A) {
-			rc = synaptics_rmi4_f1a_button_map(rmi4_data, fhandler);
-			if (rc < 0) {
-				dev_err(dev, "Fail to register F1A %d\n", rc);
+		prop = of_find_property(child, "synaptics,key-codes", NULL);
+		if (prop) {
+			rc = synaptics_dsx_get_virtual_keys(dev, prop,
+				"synaptics,key-codes", rmi4_pdata, child);
+			if (!rc) {
+				synaptics_dsx_virtual_keys_init(dev,
+					rmi4_pdata);
+			} else {
+				dev_err(dev,
+					"Unable to read virtual key codes\n");
 				return rc;
 			}
 		}
+
 		break;
 	}
 
@@ -3363,6 +3504,9 @@ static int synaptics_rmi4_remove(struct platform_device *pdev)
 	struct synaptics_rmi4_data *rmi4_data = platform_get_drvdata(pdev);
 	const struct synaptics_dsx_board_data *bdata =
 			rmi4_data->hw_if->board_data;
+
+	sysfs_remove_group(vkey_kobj, &vkey_grp);
+	kobject_put(vkey_kobj);
 
 	for (attr_count = 0; attr_count < ARRAY_SIZE(attrs); attr_count++) {
 		sysfs_remove_file(&rmi4_data->input_dev->dev.kobj,

@@ -40,6 +40,7 @@ Optional property:
 				- synaptics,panel-coords
 				- synaptics-display-coords
 				- synaptics,button-map
+				- synaptics,key-codes
 
 Optional properties inside child node:
 These properties are defined only when synaptics,detect-device property is defined in DT.
@@ -48,8 +49,11 @@ These properties are defined only when synaptics,detect-device property is defin
 				resolution.
  - synaptics,display-coords	: Specifies the display min x, min y, max x and max y
 				resolution.
- - synaptics,button-map		: virtual key code mappings to be used.
-
+ - synaptics,button-map		: Key code mappings to be used when device
+				supports 0D buttons and directly sends key codes.
+ - synaptics,key-codes		: Virtual key code mappings to be used when device
+				supports 2D buttons and sends coordinates instead of
+				key codes.
 
 Example:
 	i2c@f9927000 {
@@ -79,6 +83,7 @@ Example:
 				synaptics,package-id = <3408>;
 				synaptics,display-coords = <0 0 1079 1919>;
 				synaptics,panel-coords = <0 0 1079 2084>;
+				synaptics,key-codes = <139 172 158 217>;
 			};
 		};
 	};
