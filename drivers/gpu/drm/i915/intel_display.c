@@ -2623,6 +2623,141 @@ static void ironlake_update_primary_plane(struct drm_crtc *crtc,
 	POSTING_READ(reg);
 }
 
+/* Set Pixel format for Haswell using MI commands */
+static int hsw_set_pixelformat(struct drm_crtc *crtc, u32 pixel_format)
+{
+	u32 dspcntr, reg;
+	struct drm_device *dev = crtc->dev;
+	struct drm_i915_private *dev_priv = dev->dev_private;
+	struct intel_crtc *intel_crtc = to_intel_crtc(crtc);
+	struct intel_engine_cs *ring = &dev_priv->ring[BCS];
+	int ret = 0;
+
+	reg = DSPCNTR(intel_crtc->pipe);
+	dspcntr = I915_READ(reg);
+	DRM_DEBUG_DRIVER("pixel format = %d\n", pixel_format);
+	/* Mask out pixel format bits in case we change it */
+	dspcntr &= ~DISPPLANE_PIXFORMAT_MASK;
+
+	switch (pixel_format) {
+	case DRM_FORMAT_C8:
+		dspcntr |= DISPPLANE_8BPP;
+		break;
+	case DRM_FORMAT_XRGB1555:
+	case DRM_FORMAT_ARGB1555:
+		dspcntr |= DISPPLANE_BGRX555;
+		break;
+	case DRM_FORMAT_RGB565:
+		dspcntr |= DISPPLANE_BGRX565;
+		break;
+	case DRM_FORMAT_XRGB8888:
+	case DRM_FORMAT_ARGB8888:
+		dspcntr |= DISPPLANE_BGRX888;
+		break;
+	case DRM_FORMAT_XBGR8888:
+	case DRM_FORMAT_ABGR8888:
+		dspcntr |= DISPPLANE_RGBX888;
+		break;
+	case DRM_FORMAT_XRGB2101010:
+	case DRM_FORMAT_ARGB2101010:
+		dspcntr |= DISPPLANE_BGRX101010;
+		break;
+	case DRM_FORMAT_XBGR2101010:
+	case DRM_FORMAT_ABGR2101010:
+		dspcntr |= DISPPLANE_RGBX101010;
+		break;
+	default:
+		DRM_ERROR("Unsupported pixel format 0x%08x\n", pixel_format);
+		return -EINVAL;
+	}
+
+	/* Write pixel format update command to ring */
+	ret = intel_ring_begin(ring, 4);
+	if (ret) {
+		DRM_ERROR("MI Command emit failed.\n");
+		return ret;
+	}
+	intel_ring_emit(ring, MI_NOOP);
+	intel_ring_emit(ring, MI_LOAD_REGISTER_IMM(1));
+	intel_ring_emit(ring, reg);
+	intel_ring_emit(ring, dspcntr);
+	intel_ring_advance(ring);
+	return 0;
+}
+
+/* This sets the params using MI commands */
+static int hsw_update_plane(struct drm_crtc *crtc,
+				struct drm_framebuffer *fb, int x, int y)
+{
+	int ret;
+	struct drm_device *dev = crtc->dev;
+	struct drm_i915_private *dev_priv = dev->dev_private;
+	struct intel_crtc *intel_crtc = to_intel_crtc(crtc);
+	struct intel_engine_cs *ring = &dev_priv->ring[BCS];
+	struct drm_i915_gem_object *obj;
+	int plane = intel_crtc->plane;
+
+	switch (plane) {
+	case 0:
+	case 1:
+	case 2:
+		break;
+	default:
+		DRM_ERROR("Can't update plane %c\n", plane_name(plane));
+		return -EINVAL;
+	}
+
+	obj = to_intel_framebuffer(fb)->obj;
+
+	if (obj == NULL)
+		return -EINVAL;
+
+	if (list_empty(&obj->vma_list)) {
+		DRM_ERROR("empty list in object\n");
+		return -EINVAL;
+	}
+
+
+	/* Set pixel format */
+	hsw_set_pixelformat(crtc, fb->pixel_format);
+
+	/* Set tiling offsets. Tiling mode is not set here as	*
+	* it is set from intel_gen7_queue_flip. Send MI Command	*
+	* to change - 						*
+	* 1. Tiling offset                                      *
+	* 2. stride - fb->pitches[0]                            *
+	* 2. surface base address                               *
+	* Linear offset and tile offset is same for Haswell     */
+	intel_crtc->dspaddr_offset =
+		intel_gen4_compute_page_offset(&x, &y, obj->tiling_mode,
+						fb->bits_per_pixel / 8,
+						fb->pitches[0]);
+
+	DRM_DEBUG_KMS("Writing base %08lX %08lX %d %d %d\n",
+			i915_gem_obj_ggtt_offset(obj),
+			intel_crtc->dspaddr_offset,
+			x, y, fb->pitches[0]);
+
+	/* Emit MI commands here */
+	ret = intel_ring_begin(ring, 10);
+	if (ret)
+		return ret;
+	intel_ring_emit(ring, MI_NOOP);
+	intel_ring_emit(ring, MI_LOAD_REGISTER_IMM(1));
+	intel_ring_emit(ring, DSPOFFSET(plane));
+	intel_ring_emit(ring, (y << 16) | x);
+	intel_ring_emit(ring, MI_LOAD_REGISTER_IMM(1));
+	intel_ring_emit(ring, DSPSTRIDE(plane));
+	intel_ring_emit(ring, fb->pitches[0]);
+	intel_ring_emit(ring, MI_LOAD_REGISTER_IMM(1));
+	intel_ring_emit(ring, DSPSURF(plane));
+	intel_ring_emit(ring,
+		i915_gem_obj_ggtt_offset(obj) + intel_crtc->dspaddr_offset);
+	intel_ring_advance(ring);
+	return 0;
+}
+
+
 /* Assume fb object is pinned & idle & fenced and just update base pointers */
 static int
 intel_pipe_set_base_atomic(struct drm_crtc *crtc, struct drm_framebuffer *fb,
@@ -9399,13 +9534,30 @@ static int intel_crtc_page_flip(struct drm_crtc *crtc,
 	int ret;
 
 	/* Can't change pixel format via MI display flips. */
-	if (fb->pixel_format != crtc->primary->fb->pixel_format)
-		return -EINVAL;
+	if (fb->pixel_format != crtc->primary->fb->pixel_format) {
+		if (IS_HASWELL(dev))
+			DRM_DEBUG_DRIVER(" Allow dynamic pixel format\n");
+		else
+			return -EINVAL;
+	}
 
 	/*
 	 * TILEOFF/LINOFF registers can't be changed via MI display flips.
 	 * Note that pitch changes could also affect these register.
 	 */
+	if ((IS_HASWELL(dev)) &&
+		((obj->tiling_mode !=
+		to_intel_framebuffer(crtc->primary->fb)->obj->tiling_mode) ||
+		(fb->offsets[0] != crtc->primary->fb->offsets[0]) ||
+		(fb->pitches[0] != crtc->primary->fb->pitches[0]))) {
+			DRM_DEBUG_DRIVER(" crtc fb: pitch = %d offset = %d\n",
+				crtc->primary->fb->pitches[0], crtc->primary->fb->offsets[0]);
+			DRM_DEBUG_DRIVER(" input fb: pitch = %d offset = %d\n",
+				fb->pitches[0], fb->offsets[0]);
+			if (hsw_update_plane(crtc, fb, 0, 0))
+				DRM_ERROR("Failed to update plane\n");
+	}
+
 	if (INTEL_INFO(dev)->gen > 3 &&
 	    (fb->offsets[0] != crtc->primary->fb->offsets[0] ||
 	     fb->pitches[0] != crtc->primary->fb->pitches[0]))
@@ -9518,6 +9670,33 @@ out_hang:
 			drm_send_vblank_event(dev, intel_crtc->pipe, event);
 	}
 	return ret;
+}
+
+/* Callback function - Called if change in pixel format is detected.
+* Sends MI command to update change in pixel format.
+*/
+static int intel_crtc_set_pixel_format(struct drm_crtc *crtc,
+					struct drm_framebuffer *fb)
+{
+	struct drm_device *dev = crtc->dev;
+	struct drm_i915_gem_object *obj;
+
+	if (IS_HASWELL(dev)) {
+
+		obj = to_intel_framebuffer(fb)->obj;
+		if (obj == NULL)
+			return -EINVAL;
+
+		if (list_empty(&obj->vma_list)) {
+			DRM_ERROR("empty list in object\n");
+			return -EINVAL;
+		}
+
+		return hsw_set_pixelformat(crtc, fb->pixel_format);
+	} else {
+		DRM_ERROR("Pixel format change not allowed.\n");
+		return -EINVAL;
+	}
 }
 
 static struct drm_crtc_helper_funcs intel_helper_funcs = {
@@ -11018,6 +11197,7 @@ static const struct drm_crtc_funcs intel_crtc_funcs = {
 	.set_config = intel_crtc_set_config,
 	.destroy = intel_crtc_destroy,
 	.page_flip = intel_crtc_page_flip,
+	.set_pixelformat = intel_crtc_set_pixel_format,
 };
 
 static void intel_cpu_pll_init(struct drm_device *dev)

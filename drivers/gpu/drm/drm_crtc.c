@@ -4351,9 +4351,18 @@ int drm_mode_page_flip_ioctl(struct drm_device *dev,
 		goto out;
 
 	if (crtc->primary->fb->pixel_format != fb->pixel_format) {
-		DRM_DEBUG_KMS("Page flip is not allowed to change frame buffer format.\n");
-		ret = -EINVAL;
-		goto out;
+		if (crtc->funcs->set_pixelformat == NULL) {
+			DRM_DEBUG_KMS("Pixel format change not allowed");
+			ret = -EINVAL;
+			goto out;
+		}
+		/* supports dynamic change in pixel format */
+		ret = crtc->funcs->set_pixelformat(crtc, fb);
+		if (ret) {
+			DRM_DEBUG_KMS("Pixel format change failed %d",
+					fb->pixel_format);
+			goto out;
+		}
 	}
 
 	if (page_flip->flags & DRM_MODE_PAGE_FLIP_EVENT) {

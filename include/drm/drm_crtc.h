@@ -232,6 +232,7 @@ struct drm_bridge;
  * @set_property: called when a property is changed
  * @set_config: apply a new CRTC configuration
  * @page_flip: initiate a page flip
+ * @set_pixelformat: apply new pixel format to primary plane control register
  *
  * The drm_crtc_funcs structure is the central CRTC management structure
  * in the DRM.  Each CRTC controls one or more connectors (note that the name
@@ -282,6 +283,14 @@ struct drm_crtc_funcs {
 
 	int (*set_property)(struct drm_crtc *crtc,
 			    struct drm_property *property, uint64_t val);
+	/*
+	* Update the primary plane pixel format register during page flip.
+	* To support dynamic change in pixel format define the callback
+	* function for set_pixelformat.
+	*/
+	int (*set_pixelformat)(struct drm_crtc *crtc,
+				struct drm_framebuffer *fb);
+
 };
 
 /**
