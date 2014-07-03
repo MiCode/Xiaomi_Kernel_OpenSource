@@ -249,4 +249,4 @@ crval:
 #endif
 
 	.word	0x000802c2	// clear
-	.word	0x0405c139 | CR_IBIT | CR_CBIT	// set
+	.word	0x0405c039 | CR_IBIT | CR_CBIT	// set
