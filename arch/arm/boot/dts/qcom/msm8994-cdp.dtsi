@@ -561,15 +561,6 @@
 	status = "ok";
 };
 
-&usb_ehci {
-        status = "ok";
-        vbus-supply = <&usb1_vreg>;
-};
-
-&qusb_phy {
-	status = "ok";
-};
-
 &qcom_crypto {
 	status = "okay";
 };
