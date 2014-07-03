@@ -1356,6 +1356,7 @@ static int __qseecom_send_cmd(struct qseecom_dev_handle *data,
 	unsigned long flags;
 	struct qseecom_registered_app_list *ptr_app;
 	bool found_app = false;
+	int name_len = 0;
 
 	if (req->cmd_req_buf == NULL || req->resp_buf == NULL) {
 		pr_err("cmd buffer or response buffer is null\n");
@@ -1401,10 +1402,11 @@ static int __qseecom_send_cmd(struct qseecom_dev_handle *data,
 	spin_lock_irqsave(&qseecom.registered_app_list_lock, flags);
 	list_for_each_entry(ptr_app, &qseecom.registered_app_list_head,
 							list) {
+		name_len = min(strlen(data->client.app_name),
+				strlen(ptr_app->app_name));
 		if ((ptr_app->app_id == data->client.app_id) &&
 			 (!memcmp((void *)ptr_app->app_name,
-				(void *)data->client.app_name,
-				strlen(data->client.app_name)))) {
+				(void *)data->client.app_name, name_len))) {
 			found_app = true;
 			break;
 		}
