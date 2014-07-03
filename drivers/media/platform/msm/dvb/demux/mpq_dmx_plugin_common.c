@@ -19,7 +19,7 @@
 #include "mpq_dmx_plugin_common.h"
 #include "mpq_sdmx.h"
 
-#define SDMX_MAJOR_VERSION_MATCH	(4)
+#define SDMX_MAJOR_VERSION_MATCH	(5)
 
 /* Length of mandatory fields that must exist in header of video PES */
 #define PES_MANDATORY_FIELDS_LEN			9
@@ -1672,6 +1672,7 @@ static int mpq_sdmx_init_metadata_buffer(struct mpq_demux *mpq_demux,
 	void *metadata_buff_base;
 	ion_phys_addr_t temp;
 	int ret;
+	size_t size;
 
 	feed->metadata_buf_handle = ion_alloc(mpq_demux->ion_client,
 		SDMX_METADATA_BUFFER_SIZE,
@@ -1703,24 +1704,15 @@ static int mpq_sdmx_init_metadata_buffer(struct mpq_demux *mpq_demux,
 	ret = ion_phys(mpq_demux->ion_client,
 		feed->metadata_buf_handle,
 		&temp,
-		&metadata_buff_desc->size);
+		&size);
 	if (ret) {
 		MPQ_DVB_ERR_PRINT(
 			"%s: FAILED to get physical address %d\n",
 			__func__, ret);
 		goto failed_unmap_metadata_buf;
 	}
-
-	/*
-	 * NOTE: the following casting to u32 must be done
-	 * as long as TZ does not support LPAE. Once TZ supports
-	 * LPAE SDMX interface needs to be updated accordingly.
-	 */
-	if (temp > 0xFFFFFFFF)
-		MPQ_DVB_ERR_PRINT(
-			"%s: WARNNING - physical address %pa is larger than 32bits!\n",
-			__func__, &temp);
-	metadata_buff_desc->base_addr = (void *)(u32)temp;
+	metadata_buff_desc->size = size;
+	metadata_buff_desc->base_addr = (u64)temp;
 
 	dvb_ringbuffer_init(&feed->metadata_buf, metadata_buff_base,
 		SDMX_METADATA_BUFFER_SIZE);
@@ -2316,16 +2308,7 @@ static int mpq_sdmx_dvr_buffer_desc(struct mpq_demux *mpq_demux,
 		return ret;
 	}
 
-	/*
-	 * NOTE: the following casting to u32 must be done
-	 * as long as TZ does not support LPAE. Once TZ supports
-	 * LPAE SDMX interface needs to be updated accordingly.
-	 */
-	if (phys_addr > 0xFFFFFFFF)
-		MPQ_DVB_ERR_PRINT(
-			"%s: WARNNING - physical address %pa is larger than 32bits!\n",
-			__func__, &phys_addr);
-	buf_desc->base_addr = (void *)(u32)phys_addr;
+	buf_desc->base_addr = (u64)phys_addr;
 	buf_desc->size = rbuf->size;
 
 	return 0;
@@ -3559,18 +3542,7 @@ static int mpq_sdmx_get_buffer_chunks(struct mpq_demux *mpq_demux,
 
 	sg = sg_ptr->sgl;
 	for (i = 0; i < sg_ptr->nents; i++) {
-		/*
-		 * NOTE: the following casting to u32 must be done
-		 * as long as TZ does not support LPAE. Once TZ supports
-		 * LPAE SDMX interface needs to be updated accordingly.
-		 */
-		if (sg_dma_address(sg) > 0xFFFFFFFF)
-			MPQ_DVB_ERR_PRINT(
-				"%s: WARNNING - physical address %pa is larger than 32bits!\n",
-				__func__, &sg_dma_address(sg));
-
-		buff_chunks[i].base_addr =
-			(void *)(u32)sg_dma_address(sg);
+		buff_chunks[i].base_addr = (u64)sg_dma_address(sg);
 
 		if (sg->length > actual_buff_size)
 			chunk_size = actual_buff_size;
@@ -4253,7 +4225,7 @@ static int mpq_sdmx_check_ts_stall(struct mpq_demux *mpq_demux,
 	 * output data to the still full buffer.
 	 */
 	if (mpq_demux->demux.playback_mode == DMX_PB_MODE_PULL) {
-		MPQ_DVB_DBG_PRINT("%s: Stalling for events and %d bytes\n",
+		MPQ_DVB_DBG_PRINT("%s: Stalling for events and %zu bytes\n",
 			__func__, req);
 
 		mutex_unlock(&mpq_demux->mutex);
@@ -4325,7 +4297,7 @@ static void mpq_sdmx_pes_filter_results(struct mpq_demux *mpq_demux,
 		bytes_avail = dvb_ringbuffer_avail(&mpq_feed->metadata_buf);
 		if (bytes_avail < (sizeof(header) + sizeof(counters))) {
 			MPQ_DVB_ERR_PRINT(
-				"%s: metadata_fill_count is %d less than required %d bytes\n",
+				"%s: metadata_fill_count is %d less than required %zu bytes\n",
 				__func__,
 				sts->metadata_fill_count,
 				sizeof(header) + sizeof(counters));
@@ -4440,7 +4412,7 @@ static void mpq_sdmx_section_filter_results(struct mpq_demux *mpq_demux,
 		bytes_avail = dvb_ringbuffer_avail(&mpq_feed->metadata_buf);
 		if (bytes_avail < sizeof(header)) {
 			MPQ_DVB_ERR_PRINT(
-				"%s: metadata_fill_count is %d less than required %d bytes\n",
+				"%s: metadata_fill_count is %d less than required %zu bytes\n",
 				__func__,
 				sts->metadata_fill_count,
 				sizeof(header));
@@ -4522,7 +4494,7 @@ static void mpq_sdmx_decoder_filter_results(struct mpq_demux *mpq_demux,
 		bytes_avail = dvb_ringbuffer_avail(&mpq_feed->metadata_buf);
 		if (bytes_avail < (sizeof(header) + sizeof(counters))) {
 			MPQ_DVB_ERR_PRINT(
-				"%s: metadata_fill_count is %d less than required %d bytes\n",
+				"%s: metadata_fill_count is %d less than required %zu bytes\n",
 				__func__,
 				sts->metadata_fill_count,
 				sizeof(header) + sizeof(counters));
@@ -4559,7 +4531,7 @@ static void mpq_sdmx_decoder_filter_results(struct mpq_demux *mpq_demux,
 				header.metadata_length - sizeof(counters));
 		} else {
 			MPQ_DVB_ERR_PRINT(
-				"%s: meta-data size %d larger than available meta-data %d or max allowed %d\n",
+				"%s: meta-data size %d larger than available meta-data %zd or max allowed %d\n",
 				__func__, header.metadata_length,
 				bytes_avail,
 				MAX_SDMX_METADATA_LENGTH);
@@ -4728,7 +4700,7 @@ static void mpq_sdmx_pcr_filter_results(struct mpq_demux *mpq_demux,
 		bytes_avail = dvb_ringbuffer_avail(&mpq_feed->metadata_buf);
 		if (bytes_avail < sizeof(header)) {
 			MPQ_DVB_ERR_PRINT(
-				"%s: metadata_fill_count is %d less than required %d bytes\n",
+				"%s: metadata_fill_count is %d less than required %zu bytes\n",
 				__func__,
 				sts->metadata_fill_count,
 				sizeof(header));
@@ -5018,7 +4990,7 @@ int mpq_sdmx_process(struct mpq_demux *mpq_demux,
 	int limit = mpq_sdmx_proc_limit * tsp_size;
 
 	MPQ_DVB_DBG_PRINT(
-		"\n\n%s: read_offset=%u, fill_count=%u, tsp_size=%u\n",
+		"\n\n%s: read_offset=%u, fill_count=%u, tsp_size=%zu\n",
 		__func__, read_offset, fill_count, tsp_size);
 
 	while (fill_count >= tsp_size) {

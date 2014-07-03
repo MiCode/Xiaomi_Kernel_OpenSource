@@ -1,4 +1,4 @@
-/* Copyright (c) 2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -121,6 +121,8 @@ enum sdmx_raw_out_format {
 	SDMX_192_TAIL_OUTPUT
 };
 
+#pragma pack(push, sdmx, 1)
+
 struct sdmx_session_dbg_counters {
 	/* Total number of TS-packets input to SDMX. */
 	u32 ts_pkt_in;
@@ -164,7 +166,7 @@ struct sdmx_pes_counters {
 
 struct sdmx_buff_descr {
 	/* Physical address where buffer starts */
-	void *base_addr;
+	u64 base_addr;
 
 	/* Size of buffer */
 	u32 size;
@@ -228,6 +230,7 @@ struct sdmx_filter_status {
 	/* General status (bitmap) reported by secure demux for this filter */
 	u32 status_indicators;
 };
+#pragma pack(pop, sdmx)
 
 #ifdef CONFIG_QSEECOM
 

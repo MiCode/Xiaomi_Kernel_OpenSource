@@ -369,25 +369,15 @@ static void mpq_dmx_tspp_aggregated_process(int tsif, int channel_id)
 	buff_start_addr_phys =
 		mpq_dmx_tspp_info.tsif[tsif].ch_mem_heap_phys_base;
 
-	/*
-	 * NOTE: the following casting to u32 must be done
-	 * as long as TZ does not support LPAE. Once TZ supports
-	 * LPAE SDMX interface needs to be updated accordingly.
-	 */
-	if (buff_start_addr_phys > 0xFFFFFFFF)
-		MPQ_DVB_ERR_PRINT(
-			"%s: WARNNING - physical address %pa is larger than 32bits!\n",
-			__func__, &buff_start_addr_phys);
-
-	input.base_addr = (void *)(u32)buff_start_addr_phys;
+	input.base_addr = (u64)buff_start_addr_phys;
 	input.size = mpq_dmx_tspp_info.tsif[tsif].buffer_count *
 		TSPP_DESCRIPTOR_SIZE;
 
 	if (mpq_sdmx_is_loaded() && mpq_demux->sdmx_filter_count) {
 		MPQ_DVB_DBG_PRINT(
-			"%s: SDMX Processing %d descriptors: %d bytes at start address 0x%x, read offset %d\n",
+			"%s: SDMX Processing %zu descriptors: %zu bytes at start address 0x%llx, read offset %d\n",
 			__func__, aggregate_count, aggregate_len,
-			(unsigned int)input.base_addr,
+			input.base_addr,
 			(int)(buff_current_addr_phys - buff_start_addr_phys));
 
 		mpq_sdmx_process(mpq_demux, &input, aggregate_len,
@@ -408,7 +398,7 @@ static void mpq_dmx_tspp_aggregated_process(int tsif, int channel_id)
  */
 static int mpq_dmx_tspp_thread(void *arg)
 {
-	int tsif = (int)arg;
+	int tsif = (int)(uintptr_t)arg;
 	struct mpq_demux *mpq_demux;
 	const struct tspp_data_descriptor *tspp_data_desc;
 	atomic_t *data_cnt;
@@ -500,7 +490,7 @@ static int mpq_dmx_tspp_thread(void *arg)
  */
 static void mpq_tspp_callback(int channel_id, void *user)
 {
-	int tsif = (int)user;
+	int tsif = (int)(uintptr_t)user;
 	struct mpq_demux *mpq_demux;
 
 	/* Save statistics on TSPP notifications */
@@ -1036,7 +1026,7 @@ static int mpq_tspp_dmx_add_channel(struct dvb_demux_feed *feed)
 		tspp_register_notification(0,
 					   channel_id,
 					   mpq_tspp_callback,
-					   (void *)tsif,
+					   (void *)(uintptr_t)tsif,
 					   tspp_channel_timeout);
 
 		/* register allocator and provide allocation function
@@ -1869,7 +1859,7 @@ static int __init mpq_dmx_tspp_plugin_init(void)
 		init_waitqueue_head(&mpq_dmx_tspp_info.tsif[i].wait_queue);
 		mpq_dmx_tspp_info.tsif[i].thread =
 			kthread_run(
-				mpq_dmx_tspp_thread, (void *)i,
+				mpq_dmx_tspp_thread, (void *)(uintptr_t)i,
 				mpq_dmx_tspp_info.tsif[i].name);
 
 		if (IS_ERR(mpq_dmx_tspp_info.tsif[i].thread)) {
