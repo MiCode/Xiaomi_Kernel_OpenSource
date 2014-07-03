@@ -140,7 +140,7 @@ static void do_input_boost_rem(struct work_struct *work)
 
 static int boost_mig_sync_thread(void *data)
 {
-	int dest_cpu = (int) data;
+	int dest_cpu = (long) data;
 	int src_cpu, ret;
 	struct cpu_sync *s = &per_cpu(sync_info, dest_cpu);
 	struct cpufreq_policy dest_policy;
@@ -373,8 +373,8 @@ static int cpu_boost_init(void)
 		spin_lock_init(&s->lock);
 		INIT_DELAYED_WORK(&s->boost_rem, do_boost_rem);
 		INIT_DELAYED_WORK(&s->input_boost_rem, do_input_boost_rem);
-		s->thread = kthread_run(boost_mig_sync_thread, (void *)cpu,
-					"boost_sync/%d", cpu);
+		s->thread = kthread_run(boost_mig_sync_thread,
+				(void *) (long)cpu, "boost_sync/%d", cpu);
 		set_cpus_allowed(s->thread, *cpumask_of(cpu));
 	}
 	cpufreq_register_notifier(&boost_adjust_nb, CPUFREQ_POLICY_NOTIFIER);
