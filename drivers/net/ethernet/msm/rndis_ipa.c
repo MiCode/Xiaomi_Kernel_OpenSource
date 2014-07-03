@@ -1284,8 +1284,8 @@ void rndis_ipa_cleanup(void *private)
 	unregister_netdev(rndis_ipa_ctx->net);
 	RNDIS_IPA_DEBUG("netdev unregistered\n");
 
-	free_netdev(rndis_ipa_ctx->net);
 	rndis_ipa_ctx->state = next_state;
+	free_netdev(rndis_ipa_ctx->net);
 	pr_info("RNDIS_IPA NetDev was cleaned\n");
 
 	RNDIS_IPA_LOG_EXIT();
