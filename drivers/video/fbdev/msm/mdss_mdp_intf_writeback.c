@@ -53,6 +53,9 @@ struct mdss_mdp_writeback_ctx {
 	u16 height;
 	struct mdss_rect dst_rect;
 
+	u32 dnsc_factor_w;
+	u32 dnsc_factor_h;
+
 	u8 rot90;
 	u32 bwc_mode;
 	int initialized;
@@ -140,6 +143,7 @@ static int mdss_mdp_writeback_format_setup(struct mdss_mdp_writeback_ctx *ctx,
 {
 	struct mdss_mdp_format_params *fmt;
 	u32 dst_format, pattern, ystride0, ystride1, outsize, chroma_samp;
+	u32 dnsc_factor;
 	u32 opmode = ctx->opmode;
 	bool rotation = false;
 	struct mdss_data_type *mdata;
@@ -227,6 +231,12 @@ static int mdss_mdp_writeback_format_setup(struct mdss_mdp_writeback_ctx *ctx,
 		   (ctx->dst_planes.ystride[3] << 16);
 	outsize = (ctx->dst_rect.h << 16) | ctx->dst_rect.w;
 
+	if (ctx->type == MDSS_MDP_WRITEBACK_TYPE_ROTATOR &&
+			mdata->has_rot_dwnscale) {
+		dnsc_factor = (ctx->dnsc_factor_h) | (ctx->dnsc_factor_w << 16);
+		mdp_wb_write(ctx, MDSS_MDP_REG_WB_ROTATOR_PIPE_DOWNSCALER,
+								dnsc_factor);
+	}
 	mdp_wb_write(ctx, MDSS_MDP_REG_WB_ALPHA_X_VALUE, 0xFF);
 	mdp_wb_write(ctx, MDSS_MDP_REG_WB_DST_FORMAT, dst_format);
 	mdp_wb_write(ctx, MDSS_MDP_REG_WB_DST_OP_MODE, opmode);
@@ -306,12 +316,14 @@ static int mdss_mdp_writeback_prepare_rot(struct mdss_mdp_ctl *ctl, void *arg)
 	ctx->bwc_mode = rot->bwc_mode;
 	ctx->opmode |= ctx->bwc_mode;
 
-	ctx->width = rot->dst.w;
-	ctx->height = rot->dst.h;
+	ctx->width = ctx->dst_rect.w = rot->dnsc_factor_w ?
+		rot->dst.w / rot->dnsc_factor_w : rot->dst.w;
+	ctx->height = ctx->dst_rect.h = rot->dnsc_factor_h ?
+		rot->dst.h / rot->dnsc_factor_h : rot->dst.h;
 	ctx->dst_rect.x = rot->dst.x;
 	ctx->dst_rect.y = rot->dst.y;
-	ctx->dst_rect.w = rot->src_rect.w;
-	ctx->dst_rect.h = rot->src_rect.h;
+	ctx->dnsc_factor_w = rot->dnsc_factor_w;
+	ctx->dnsc_factor_h = rot->dnsc_factor_h;
 
 	ctx->rot90 = !!(rot->flags & MDP_ROT_90);
 
@@ -327,10 +339,8 @@ static int mdss_mdp_writeback_prepare_rot(struct mdss_mdp_ctl *ctl, void *arg)
 	else
 		format = rot->format;
 
-	if (ctx->rot90) {
+	if (ctx->rot90)
 		ctx->opmode |= BIT(5); /* ROT 90 */
-		swap(ctx->dst_rect.w, ctx->dst_rect.h);
-	}
 
 	return mdss_mdp_writeback_format_setup(ctx, format);
 }

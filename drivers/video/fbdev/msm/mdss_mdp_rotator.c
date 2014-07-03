@@ -436,6 +436,60 @@ static int __mdss_mdp_rotator_pipe_reserve(struct mdss_mdp_rotator_session *rot)
 	return ret;
 }
 
+int mdss_mdp_calc_dnsc_factor(struct mdp_overlay *req,
+			      struct mdss_mdp_rotator_session *rot)
+{
+	int ret = 0;
+	u16 src_w, src_h, dst_w, dst_h, bit;
+	src_w = req->src_rect.w;
+	src_h = req->src_rect.h;
+
+	if (rot->flags & MDP_ROT_90) {
+		dst_w = req->dst_rect.h;
+		dst_h = req->dst_rect.w;
+	} else {
+		dst_w = req->dst_rect.w;
+		dst_h = req->dst_rect.h;
+	}
+	rot->dnsc_factor_w = 0;
+	rot->dnsc_factor_h = 0;
+
+	if ((src_w != dst_w) || (src_h != dst_h)) {
+		if ((src_w % dst_w) || (src_h % dst_h)) {
+			ret = -EINVAL;
+			goto dnsc_err;
+		}
+		/*
+		 * Validate that the calculated downscale
+		 * factor is valid. Ensure that the factor
+		 * is a number with a single bit enabled,
+		 * no larger than 32 (2^5) as we support
+		 * only power of 2 downscaling up to 32.
+		 */
+		rot->dnsc_factor_w = src_w / dst_w;
+		bit = fls(rot->dnsc_factor_w);
+		if ((rot->dnsc_factor_w & ~BIT(bit - 1)) || (bit > 5)) {
+			ret = -EINVAL;
+			goto dnsc_err;
+		}
+		rot->dnsc_factor_h = src_h / dst_h;
+		bit = fls(rot->dnsc_factor_h);
+		if ((rot->dnsc_factor_h & ~BIT(bit - 1)) || (bit > 5)) {
+			ret = -EINVAL;
+			goto dnsc_err;
+		}
+	}
+
+dnsc_err:
+	if (ret) {
+		pr_err("Invalid rotator downscale ratio %dx%d->%dx%d\n",
+			src_w, src_h, dst_w, dst_h);
+		rot->dnsc_factor_w = 0;
+		rot->dnsc_factor_h = 0;
+	}
+	return ret;
+}
+
 int mdss_mdp_rotator_setup(struct msm_fb_data_type *mfd,
 			   struct mdp_overlay *req)
 {
@@ -501,6 +555,20 @@ int mdss_mdp_rotator_setup(struct msm_fb_data_type *mfd,
 	rot->src_rect.y = req->src_rect.y;
 	rot->src_rect.w = req->src_rect.w;
 	rot->src_rect.h = req->src_rect.h;
+
+	if (mdp5_data->mdata->has_rot_dwnscale &&
+			mdss_mdp_calc_dnsc_factor(req, rot)) {
+		pr_err("Error calculating dnsc_factor\n");
+		ret = -EINVAL;
+		goto rot_err;
+	}
+
+	if ((req->flags & MDP_DEINTERLACE) &&
+			(rot->dnsc_factor_w || rot->dnsc_factor_h)) {
+		pr_err("Downscale not supported with interlaced content\n");
+		ret = -EINVAL;
+		goto rot_err;
+	}
 
 	if (req->flags & MDP_DEINTERLACE) {
 		rot->flags |= MDP_DEINTERLACE;

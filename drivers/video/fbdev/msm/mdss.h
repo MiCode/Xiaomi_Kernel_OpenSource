@@ -243,6 +243,7 @@ struct mdss_data_type {
 	int iommu_ref_cnt;
 	u32 latency_buff_per;
 	atomic_t active_intf_cnt;
+	bool has_rot_dwnscale;
 
 	u64 ab_rt[MDSS_MAX_HW_BLK];
 	u64 ab_nrt[MDSS_MAX_HW_BLK];
