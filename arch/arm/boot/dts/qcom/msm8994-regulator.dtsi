@@ -575,6 +575,7 @@
 		qcom,cpr-down-threshold = <5>;
 		qcom,cpr-idle-clocks = <5>;
 		qcom,cpr-gcnt-time = <1>;
+		qcom,cpr-clamp-timer-interval = <1>;
 		qcom,vdd-apc-step-up-limit = <1>;
 		qcom,vdd-apc-step-down-limit = <1>;
 		qcom,cpr-apc-volt-step = <5000>;
