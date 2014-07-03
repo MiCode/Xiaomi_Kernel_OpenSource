@@ -70,6 +70,8 @@
 					<14 15 16 17 18 19 20>, <21 22 23 24 25 26 27 28>;
 			qcom,cdc-reset-gpio = <&msm_gpio 67 0>;
 
+			qcom,cdc-micbias1-ext-cap;
+
 			cdc-vdd-buck-supply = <&pm8916_s4>;
 			qcom,cdc-vdd-buck-voltage = <1800000 2150000>;
 			qcom,cdc-vdd-buck-current = <650000>;
