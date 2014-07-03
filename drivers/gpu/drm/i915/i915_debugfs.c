@@ -175,7 +175,7 @@ describe_obj(struct seq_file *m, struct drm_i915_gem_object *obj)
 
 static void describe_ctx(struct seq_file *m, struct intel_context *ctx)
 {
-	seq_putc(m, ctx->is_initialized ? 'I' : 'i');
+	seq_putc(m, ctx->legacy_hw_ctx.initialized ? 'I' : 'i');
 	seq_putc(m, ctx->remap_slice ? 'R' : 'r');
 	seq_putc(m, ' ');
 }
@@ -2429,7 +2429,7 @@ static int i915_context_status(struct seq_file *m, void *unused)
 	}
 
 	list_for_each_entry(ctx, &dev_priv->context_list, link) {
-		if (ctx->obj == NULL)
+		if (ctx->legacy_hw_ctx.rcs_state == NULL)
 			continue;
 
 		seq_puts(m, "HW context ");
@@ -2438,7 +2438,7 @@ static int i915_context_status(struct seq_file *m, void *unused)
 			if (ring->default_context == ctx)
 				seq_printf(m, "(default context %s) ", ring->name);
 
-		describe_obj(m, ctx->obj);
+		describe_obj(m, ctx->legacy_hw_ctx.rcs_state);
 		seq_putc(m, '\n');
 	}
 
