@@ -1799,20 +1799,17 @@ static int dwc3_msm_resume(struct dwc3_msm *mdwc)
 
 	clk_prepare_enable(mdwc->utmi_clk);
 
-	if (mdwc->lpm_flags & MDWC3_PHY_REF_CLK_OFF)
+	if (mdwc->lpm_flags & MDWC3_PHY_REF_CLK_OFF) {
 		clk_prepare_enable(mdwc->ref_clk);
-
+		usb_phy_set_suspend(mdwc->ss_phy, 0);
+		mdwc->lpm_flags &= ~MDWC3_PHY_REF_CLK_OFF;
+	}
 	usleep_range(1000, 1200);
 
 	clk_prepare_enable(mdwc->iface_clk);
 	if (mdwc->lpm_flags & MDWC3_CORECLK_OFF) {
 		clk_prepare_enable(mdwc->core_clk);
 		mdwc->lpm_flags &= ~MDWC3_CORECLK_OFF;
-	}
-
-	if (mdwc->lpm_flags & MDWC3_PHY_REF_CLK_OFF) {
-		usb_phy_set_suspend(mdwc->ss_phy, 0);
-		mdwc->lpm_flags &= ~MDWC3_PHY_REF_CLK_OFF;
 	}
 
 	usb_phy_set_suspend(mdwc->hs_phy, 0);
