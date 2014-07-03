@@ -104,7 +104,9 @@ Optional properties :
 	mode with device controller for better throughput. With this mode, USB Core
 	runs using PNOC clock and synchronous to it. Hence it is must to have proper
 	"qcom,msm-bus,vectors" to have high bus frequency. User shouldn't try to
-	enable this feature without proper bus voting.
+	enable this feature without proper bus voting. When this feature is enabled,
+	it is required to do HW reset during cable disconnect for host mode functionality
+	working and hence need to disable qcom,hsusb-otg-disable-reset.
 - qcom,disable-retention-with-vdd-min: If present don't allow phy retention but allow
 	vdd min.
 - qcom,usbin-vadc: Corresponding vadc device's phandle to read usbin voltage using VADC.
