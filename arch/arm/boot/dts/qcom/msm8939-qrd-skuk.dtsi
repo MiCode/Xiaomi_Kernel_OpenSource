@@ -274,14 +274,18 @@
 
 	qcom,panel-supply-entries {
 		/delete-node/qcom,panel-supply-entry@0;
+
 		qcom,panel-supply-entry@2 {
+			reg = <2>;
 			qcom,supply-name = "vsp";
 			qcom,supply-min-voltage = <5800000>;
 			qcom,supply-max-voltage = <5800000>;
 			qcom,supply-enable-load = <200>;
 			qcom,supply-disable-load = <0>;
 		};
+
 		qcom,panel-supply-entry@3 {
+			reg = <3>;
 			qcom,supply-name = "vsn";
 			qcom,supply-min-voltage = <5800000>;
 			qcom,supply-max-voltage = <5800000>;
