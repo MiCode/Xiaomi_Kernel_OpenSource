@@ -76,6 +76,14 @@ static struct clk_pair clks[KGSL_MAX_CLKS] = {
 		.name = "rbbmtimer_clk",
 		.map = KGSL_CLK_RBBMTIMER,
 	},
+	{
+		.name = "gtcu_clk",
+		.map = KGSL_CLK_GFX_GTCU,
+	},
+	{
+		.name = "gtbu_clk",
+		.map = KGSL_CLK_GFX_GTBU,
+	},
 };
 
 static void kgsl_pwrctrl_clk(struct kgsl_device *device, int state,
