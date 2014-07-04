@@ -895,7 +895,7 @@ static int cpr_regulator_enable(struct regulator_dev *rdev)
 	mutex_lock(&cpr_vreg->cpr_mutex);
 	if (cpr_is_allowed(cpr_vreg) && cpr_vreg->corner) {
 		cpr_irq_clr(cpr_vreg);
-		cpr_corner_switch(cpr_vreg, cpr_vreg->corner);
+		cpr_corner_restore(cpr_vreg, cpr_vreg->corner);
 		cpr_ctl_enable(cpr_vreg, cpr_vreg->corner);
 	}
 	mutex_unlock(&cpr_vreg->cpr_mutex);
