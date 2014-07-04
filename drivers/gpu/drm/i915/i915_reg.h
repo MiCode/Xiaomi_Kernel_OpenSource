@@ -4025,6 +4025,8 @@ enum punit_power_well {
 #define   MCURSOR_PIPE_B	(1 << 28)
 #define   MCURSOR_GAMMA_ENABLE  (1 << 26)
 #define   CURSOR_TRICKLE_FEED_DISABLE	(1 << 14)
+#define   CUR_MODE_SEL_BIT	(1 << 5)
+#define   CUR_ENABLE		7
 #define _CURABASE		0x70084
 #define _CURAPOS		0x70088
 #define   CURSOR_POS_MASK       0x007FF
@@ -4357,6 +4359,9 @@ enum punit_power_well {
 #define _SPBCONSTALPHA		(VLV_DISPLAY_BASE + 0x722a8)
 #define _SPBGAMC		(VLV_DISPLAY_BASE + 0x722f4)
 #define VLV_NUM_SPRITES		2
+
+#define _SPCCNTR		(VLV_DISPLAY_BASE + 0x72380)
+#define _SPDCNTR		(VLV_DISPLAY_BASE + 0x72480)
 
 #define SPCNTR(pipe, plane) _PIPE(pipe * 2 + plane, _SPACNTR, _SPBCNTR)
 #define SPLINOFF(pipe, plane) _PIPE(pipe * 2 + plane, _SPALINOFF, _SPBLINOFF)

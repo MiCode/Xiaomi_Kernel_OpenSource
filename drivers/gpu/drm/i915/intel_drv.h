@@ -476,6 +476,18 @@ struct intel_plane {
 	u32 (*current_surface)(struct drm_plane *plane);
 };
 
+struct vlv_MA_component_enabled {
+	union {
+		u8 component;
+		struct {
+			u8 EnPlane:1;
+			u8 EnSprite:1;
+			u8 EnCursor:1;
+			u8 reserved:5;
+		};
+	};
+};
+
 struct intel_watermark_params {
 	unsigned long fifo_size;
 	unsigned long max_wm;
@@ -1043,5 +1055,11 @@ void intel_tv_init(struct drm_device *dev);
 /* VLV LP clock bending */
 extern void valleyview_program_clock_bending(struct drm_i915_private *dev_priv,
 		struct intel_program_clock_bending *clockbendargs);
+bool is_plane_enabled(struct drm_i915_private *dev_priv,
+			enum plane plane);
+bool is_sprite_enabled(struct drm_i915_private *dev_priv,
+			enum pipe pipe, enum plane plane);
+bool is_cursor_enabled(struct drm_i915_private *dev_priv,
+			enum pipe pipe);
 
 #endif /* __INTEL_DRV_H__ */
