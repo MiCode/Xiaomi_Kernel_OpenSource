@@ -384,7 +384,8 @@ static void cpe_notify_client(struct cpe_notif_node *client,
 	if (client->notif.notification)
 		client->notif.notification(payload);
 
-	if (client->notif.cmi_notification)
+	if ((client->mask & CPE_SVC_CMI_MSG) &&
+	     client->notif.cmi_notification)
 		client->notif.cmi_notification(
 			(const struct cmi_api_notification *)payload);
 }
@@ -401,9 +402,13 @@ static void cpe_broadcast_notification(const struct cpe_info *t_info,
 
 	pr_debug("%s: notify clients, event = %d\n",
 		 __func__, payload->event);
+	payload->private_data = cdc_priv;
 
-	list_for_each_entry(n, &t_info->client_list, list)
-		cpe_notify_client(n, payload);
+	list_for_each_entry(n, &t_info->client_list, list) {
+		if (!(n->mask & CPE_SVC_CMI_MSG)) {
+			cpe_notify_client(n, payload);
+		}
+	}
 }
 
 static void *cpe_register_generic(struct cpe_info *t_info,
@@ -637,13 +642,13 @@ static void cpe_process_irq_int(u32 irq,
 		break;
 
 	case CPE_IRQ_WDOG_BITE:
+	case CPE_IRQ_RCO_WDOG_INT:
 		err_irq = true;
 		mutex_unlock(&cpe_api_mutex);
 		cpe_svc_shutdown(t_info);
 		mutex_lock(&cpe_api_mutex);
 		break;
 
-	case CPE_IRQ_WCO_WDOG_INT:
 	case CPE_IRQ_FLL_LOCK_LOST:
 	default:
 		err_irq = true;
@@ -742,7 +747,7 @@ static enum cpe_svc_result broadcast_boot_event(
 
 	payload.event = CPE_SVC_ONLINE;
 	payload.result = CPE_SVC_SUCCESS;
-	payload.payload = cdc_priv;
+	payload.payload = NULL;
 	cpe_broadcast_notification(t_info, &payload);
 
 	return CPE_SVC_SUCCESS;
@@ -876,10 +881,14 @@ static bool cpe_mt_process_cmd(struct cpe_command_node *command_node)
 		kfree(command_node);
 		payload.result = CPE_SVC_SHUTTING_DOWN;
 		payload.event = CPE_SVC_OFFLINE;
-		payload.payload = cdc_priv;
-		cpe_broadcast_notification(t_info, &payload);
+		payload.payload = NULL;
+		/*
+		 * Make state as offline before broadcasting
+		 * the message to clients.
+		 */
 		t_info->state = CPE_STATE_OFFLINE;
 		t_info->substate = CPE_SS_IDLE;
+		cpe_broadcast_notification(t_info, &payload);
 		cpe_cleanup_worker_thread(t_info);
 		break;
 

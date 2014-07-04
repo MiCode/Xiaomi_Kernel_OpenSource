@@ -19,7 +19,7 @@
 #define CPE_IRQ_BUFFER_OVERFLOW		0x08
 #define CPE_IRQ_LAB_OVFUNF		0x10
 #define CPE_IRQ_FLL_LOCK_LOST		0x20
-#define CPE_IRQ_WCO_WDOG_INT		0x40
+#define CPE_IRQ_RCO_WDOG_INT		0x40
 
 #define EFAILED (MAX_ERRNO - 1)
 #define ENOTREADY (MAX_ERRNO - 2)
@@ -80,9 +80,10 @@ struct cpe_svc_codec_info_v1 {
 };
 
 struct cpe_svc_notification {
-	enum cpe_svc_event	event;
-	enum cpe_svc_result	result;
-	void			*payload;
+	enum cpe_svc_event event;
+	enum cpe_svc_result result;
+	void *payload;
+	void *private_data;
 };
 
 struct cpe_svc_msg_payload {
