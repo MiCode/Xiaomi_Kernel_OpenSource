@@ -1894,6 +1894,7 @@ static int silabs_fm_vidioc_g_frequency(struct file *file, void *priv,
 
 	f = (radio->read_buf[2] << 8) + radio->read_buf[3];
 	freq->frequency = f * TUNE_PARAM * TUNE_STEP_SIZE;
+	radio->tuned_freq_khz = f * TUNE_STEP_SIZE;
 
 	rssi = radio->read_buf[4];
 	snr = radio->read_buf[5];
