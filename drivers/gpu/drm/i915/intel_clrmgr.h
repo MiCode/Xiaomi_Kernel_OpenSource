@@ -32,6 +32,36 @@
 /* CSC correction */
 #define CSC_MAX_COEFF_COUNT		6
 #define CLR_MGR_PARSE_MAX		128
+#define PIPECONF_GAMMA			(1<<24)
+#define GAMMA_CORRECT_MAX_COUNT 256
+#define GAMMA_SP_MAX_COUNT		6
+/* Gamma correction defines */
+#define GAMMA_MAX_VAL			1024
+#define SHIFTBY6(val) (val<<6)
+#define PIPEA_GAMMA_MAX_RED	(dev_priv->info.display_mmio_offset + 0x70010)
+#define PIPEA_GAMMA_MAX_GREEN	(dev_priv->info.display_mmio_offset + 0x70014)
+#define PIPEA_GAMMA_MAX_BLUE	(dev_priv->info.display_mmio_offset + 0x70018)
+/* Sprite gamma correction regs */
+#define GAMMA_SPA_GAMC0		(dev_priv->info.display_mmio_offset + 0x721F4)
+#define GAMMA_SPA_GAMC1		(dev_priv->info.display_mmio_offset + 0x721F0)
+#define GAMMA_SPA_GAMC2		(dev_priv->info.display_mmio_offset + 0x721EC)
+#define GAMMA_SPA_GAMC3		(dev_priv->info.display_mmio_offset + 0x721E8)
+#define GAMMA_SPA_GAMC4		(dev_priv->info.display_mmio_offset + 0x721E4)
+#define GAMMA_SPA_GAMC5		(dev_priv->info.display_mmio_offset + 0x721E0)
+
+#define GAMMA_SPB_GAMC0		(dev_priv->info.display_mmio_offset + 0x721F4)
+#define GAMMA_SPB_GAMC1		(dev_priv->info.display_mmio_offset + 0x721F0)
+#define GAMMA_SPB_GAMC2		(dev_priv->info.display_mmio_offset + 0x721EC)
+#define GAMMA_SPB_GAMC3		(dev_priv->info.display_mmio_offset + 0x721E8)
+#define GAMMA_SPB_GAMC4		(dev_priv->info.display_mmio_offset + 0x721E4)
+#define GAMMA_SPB_GAMC5		(dev_priv->info.display_mmio_offset + 0x721E0)
+
+#define GAMMA_SPA_CNTRL		(dev_priv->info.display_mmio_offset + 0x72180)
+#define GAMMA_SPB_CNTRL		(dev_priv->info.display_mmio_offset + 0x72280)
+#define GAMMA_ENABLE_SPR			(1<<30)
+#define GAMMA_SP_MAX_COUNT			6
+#define NO_SPRITE_REG				4
+
 
 /* Color manager features */
 enum clrmgrfeatures {
@@ -43,10 +73,15 @@ enum clrmgrfeatures {
 
 /* Required for sysfs entry calls */
 extern u32 csc_softlut[CSC_MAX_COEFF_COUNT];
+extern u32 gamma_softlut[GAMMA_CORRECT_MAX_COUNT];
+extern u32 gamma_sprite_softlut[GAMMA_SP_MAX_COUNT];
 
 /* Prototypes */
 int parse_clrmgr_input(uint *dest, char *src, int max, int read);
 int do_intel_enable_csc(struct drm_device *dev, void *data,
 				struct drm_crtc *crtc);
 void do_intel_disable_csc(struct drm_device *dev, struct drm_crtc *crtc);
+int intel_crtc_enable_gamma(struct drm_crtc *crtc, u32 identifier);
+int intel_crtc_disable_gamma(struct drm_crtc *crtc, u32 identifier);
+
 #endif

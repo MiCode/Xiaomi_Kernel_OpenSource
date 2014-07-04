@@ -775,6 +775,7 @@ void intel_mark_busy(struct drm_device *dev);
 void intel_mark_fb_busy(struct drm_i915_gem_object *obj,
 			struct intel_engine_cs *ring);
 void intel_mark_idle(struct drm_device *dev);
+extern void intel_crtc_load_lut(struct drm_crtc *crtc);
 void intel_crtc_restore_mode(struct drm_crtc *crtc);
 void intel_crtc_queue_unpin(struct intel_crtc *crtc,
 			    struct drm_i915_gem_object *obj);

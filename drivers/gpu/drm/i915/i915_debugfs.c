@@ -1790,6 +1790,168 @@ static int i915_emon_status(struct seq_file *m, void *unused)
 	return 0;
 }
 
+
+ssize_t i915_gamma_adjust_read(struct file *filp,
+		 char __user *ubuf,
+		 size_t max,
+		 loff_t *ppos)
+{
+	/* To do: Not implemented yet */
+	DRM_ERROR("Gamma adjust: Not implemented\n");
+	return -EINVAL;
+}
+
+ssize_t i915_gamma_adjust_write(struct file *filp,
+		  const char __user *ubuf,
+		  size_t count,
+		  loff_t *ppos)
+{
+	int ret = 0;
+	char *buf = NULL;
+
+	/* Validate input */
+	if (!count) {
+		DRM_ERROR("Gamma adjust: insufficient data\n");
+		return -EINVAL;
+	}
+
+	buf = kzalloc(count, GFP_KERNEL);
+	if (!buf) {
+		DRM_ERROR("Gamma adjust: insufficient memory\n");
+		return -ENOMEM;
+	}
+
+	/* Get the data */
+	if (copy_from_user(buf, ubuf, count)) {
+		DRM_ERROR("Gamma adjust: copy failed\n");
+		ret = -EINVAL;
+		goto EXIT;
+	}
+
+	/* Parse data and load the gamma  table */
+	ret = parse_clrmgr_input(gamma_softlut, buf,
+		GAMMA_CORRECT_MAX_COUNT, count);
+	if (ret < 0)
+		DRM_ERROR("Gamma table loading failed\n");
+	else
+		DRM_DEBUG("Gamma table loading done\n");
+EXIT:
+	kfree(buf);
+	/* If error, return error*/
+	if (ret < 0)
+		return ret;
+
+	return count;
+}
+
+ssize_t i915_gamma_enable_read(struct file *filp,
+		 char __user *ubuf,
+		 size_t max,
+		 loff_t *ppos)
+{
+	int len = 0;
+	char buf[10] = {0,};
+	struct drm_device *dev = filp->private_data;
+	struct drm_i915_private *dev_priv = dev->dev_private;
+
+	len = scnprintf(buf, sizeof(buf), "%s\n",
+		dev_priv->gamma_enabled ? "Enabled" : "Disabled");
+	return simple_read_from_buffer(ubuf, max, ppos,
+		(const void *) buf, len);
+}
+
+ssize_t i915_gamma_enable_write(struct file *filp,
+		  const char __user *ubuf,
+		  size_t count,
+		  loff_t *ppos)
+{
+	int ret = 0;
+	unsigned long status = 0;
+	struct drm_crtc *crtc = NULL;
+	struct drm_device *dev = filp->private_data;
+	struct drm_i915_private *dev_priv = dev->dev_private;
+	char *buf = NULL;
+
+	/* Validate input */
+	if (!count) {
+		DRM_ERROR("Gamma adjust: insufficient data\n");
+		return -EINVAL;
+	}
+
+	buf = kzalloc(count, GFP_KERNEL);
+	if (!buf) {
+		DRM_ERROR("Gamma enable: Out of mem\n");
+		return  -ENOMEM;
+	}
+
+	/* Get the data */
+	if (copy_from_user(buf, ubuf, count)) {
+		DRM_ERROR("Gamma adjust: copy failed\n");
+		ret = -EINVAL;
+		goto EXIT;
+	}
+
+	/* Finally, get the status */
+	if (kstrtoul((const char *)buf, 10,
+		&status)) {
+		DRM_ERROR("Gamma enable: Invalid limit\n");
+		ret = -EINVAL;
+		goto EXIT;
+	}
+	dev_priv->gamma_enabled = status;
+
+	/* Search for a CRTC,
+	Assumption: Either MIPI or EDP is fix panel */
+	list_for_each_entry(crtc, &dev->mode_config.crtc_list, head) {
+		if ((intel_pipe_has_type(crtc, INTEL_OUTPUT_DSI)) ||
+			(intel_pipe_has_type(crtc, INTEL_OUTPUT_EDP)))
+			break;
+	}
+
+	/* No CRTC */
+	if (!crtc) {
+		DRM_ERROR("Gamma adjust: No local panel found\n");
+		ret = -EINVAL;
+		goto EXIT;
+	}
+
+	/* if gamma enabled, apply gamma correction on PIPE */
+	if (dev_priv->gamma_enabled) {
+		if (intel_crtc_enable_gamma(crtc, PIPEA)) {
+			DRM_ERROR("Apply gamma correction failed\n");
+			ret = -EINVAL;
+		} else
+			ret = count;
+	} else {
+		/* Disable gamma on this plane */
+		intel_crtc_disable_gamma(crtc, PIPEA);
+		ret = count;
+	}
+
+EXIT:
+	kfree(buf);
+	return ret;
+}
+
+const struct file_operations i915_gamma_adjust_fops = {
+	.owner = THIS_MODULE,
+	.open = simple_open,
+	.read = i915_gamma_adjust_read,
+	.write = i915_gamma_adjust_write,
+	.llseek = default_llseek,
+};
+
+const struct file_operations i915_gamma_enable_fops = {
+	.owner = THIS_MODULE,
+	.open = simple_open,
+	.read = i915_gamma_enable_read,
+	.write = i915_gamma_enable_write,
+	.llseek = default_llseek,
+};
+
+
+
+
 ssize_t i915_csc_adjust_write(struct file *filp,
 		  const char __user *ubuf,
 		  size_t count,
@@ -4502,6 +4664,19 @@ int i915_debugfs_init(struct drm_minor *minor)
 
 	if (ret)
 		return ret;
+
+	ret = i915_debugfs_create(minor->debugfs_root, minor,
+					"gamma_adjust",
+					&i915_gamma_adjust_fops);
+	if (ret)
+		return ret;
+
+	ret = i915_debugfs_create(minor->debugfs_root, minor,
+					"gamma_enable",
+					&i915_gamma_enable_fops);
+	if (ret)
+		return ret;
+
 
 	return drm_debugfs_create_files(i915_debugfs_list,
 					I915_DEBUGFS_ENTRIES,
