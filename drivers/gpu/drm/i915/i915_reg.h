@@ -419,6 +419,7 @@
 #define COLOR_BLT     ((0x2<<29)|(0x40<<22))
 #define SRC_COPY_BLT  ((0x2<<29)|(0x43<<22))
 
+#define GCI_CONTROL	(dev_priv->info.display_mmio_offset + 0x650C)
 /*
  * Registers used only by the command parser
  */

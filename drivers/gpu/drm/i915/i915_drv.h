@@ -1495,6 +1495,8 @@ struct drm_i915_private {
 		struct intel_connector *connector;
 	} dpst;
 
+	bool is_first_modeset;
+
 	/* PCH chipset type */
 	enum intel_pch pch_type;
 	unsigned short pch_id;
@@ -2128,6 +2130,7 @@ extern struct i915_params i915 __read_mostly;
 
 				/* i915_dma.c */
 void i915_update_dri1_breadcrumb(struct drm_device *dev);
+extern void program_pfi_credits(struct drm_i915_private *dev_priv, bool flag);
 extern void i915_kernel_lost_context(struct drm_device * dev);
 extern int i915_driver_load(struct drm_device *, unsigned long flags);
 extern int i915_driver_unload(struct drm_device *);

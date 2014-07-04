@@ -6928,6 +6928,25 @@ int vlv_freq_opcode(struct drm_i915_private *dev_priv, int val)
 	return DIV_ROUND_CLOSEST(4 * mul * val, dev_priv->mem_freq) + 0xbd - 6;
 }
 
+void program_pfi_credits(struct drm_i915_private *dev_priv, bool flag)
+{
+	int cd_clk, cz_clk;
+
+	if (!flag) {
+		I915_WRITE(GCI_CONTROL, 0x00004000);
+		return;
+	}
+
+	intel_get_cd_cz_clk(dev_priv, &cd_clk, &cz_clk);
+
+	if (cd_clk >= cz_clk) {
+		/* Disable before enabling */
+		I915_WRITE(GCI_CONTROL, 0x00004000);
+		I915_WRITE(GCI_CONTROL, 0x78004000);
+	} else
+		DRM_ERROR("cd clk < cz clk");
+}
+
 void intel_pm_setup(struct drm_device *dev)
 {
 	struct drm_i915_private *dev_priv = dev->dev_private;

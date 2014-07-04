@@ -11302,6 +11302,13 @@ static int __intel_set_mode(struct drm_crtc *crtc,
 			dev_priv->display.crtc_disable(&intel_crtc->base);
 	}
 
+	/* DO it only once */
+	if (IS_VALLEYVIEW(dev))
+		if (dev_priv->is_first_modeset) {
+			program_pfi_credits(dev_priv, true);
+			dev_priv->is_first_modeset = false;
+		}
+
 	/* crtc->mode is already used by the ->mode_set callbacks, hence we need
 	 * to set it here already despite that we pass it down the callchain.
 	 */
