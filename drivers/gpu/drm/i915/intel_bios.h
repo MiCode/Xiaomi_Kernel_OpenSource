@@ -774,7 +774,7 @@ struct mipi_config {
 	u32 video_transfer_mode:2;
 
 	u32 cabc_supported:1;
-	u32 pwm_blc:1;
+	u32 pmic_soc_blc:1;
 
 	/* Bit 13:10 */
 #define PIXEL_FORMAT_RGB565			0x1

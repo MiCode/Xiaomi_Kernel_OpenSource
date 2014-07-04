@@ -32,6 +32,7 @@
 
 #include <linux/moduleparam.h>
 #include <linux/mfd/intel_soc_pmic.h>
+#include <linux/pwm.h>
 #include "intel_drv.h"
 #include "intel_dsi.h"
 
@@ -461,11 +462,18 @@ static u32 _vlv_get_backlight(struct drm_device *dev, enum pipe pipe)
 {
 	struct drm_i915_private *dev_priv = dev->dev_private;
 
-	if (dev_priv->vbt.has_mipi)
-		return intel_soc_pmic_readb(PMIC_PWM_LEVEL);
+	return I915_READ(VLV_BLC_PWM_CTL(pipe)) &
+			BACKLIGHT_DUTY_CYCLE_MASK;
+}
+
+static u32 vlv_get_mipi_backlight(struct drm_device *dev)
+{
+	struct drm_i915_private *dev_priv = dev->dev_private;
+
+	if (dev_priv->vbt.dsi.config->pmic_soc_blc)
+		return lpio_bl_read(0, LPIO_PWM_CTRL) & 0xff;
 	else
-		return I915_READ(VLV_BLC_PWM_CTL(pipe)) &
-					BACKLIGHT_DUTY_CYCLE_MASK;
+		return intel_soc_pmic_readb(PMIC_PWM_LEVEL);
 }
 
 static u32 vlv_get_backlight(struct intel_connector *connector)
@@ -565,7 +573,17 @@ static void vlv_set_backlight(struct intel_connector *connector, u32 level)
 
 static void vlv_set_mipi_backlight(struct intel_connector *connector, u32 level)
 {
-	intel_soc_pmic_writeb(PMIC_PWM_LEVEL, level);
+	struct drm_device *dev = connector->base.dev;
+	struct drm_i915_private *dev_priv = dev->dev_private;
+	if (dev_priv->vbt.dsi.config->pmic_soc_blc) {
+		/* FixMe: if level is zero still a pulse is observed consuming
+		 * power. To fix this issue if requested level is zero then
+		 * disable pwm and enabled it again if brightness changes
+		 */
+		lpio_bl_write_bits(0, LPIO_PWM_CTRL, (0xff - level), 0xFF);
+		lpio_bl_update(0, LPIO_PWM_CTRL);
+	} else
+		intel_soc_pmic_writeb(PMIC_PWM_LEVEL, level);
 }
 
 void
@@ -668,10 +686,21 @@ static void vlv_disable_backlight(struct intel_connector *connector)
 
 static void vlv_disable_mipi_backlight(struct intel_connector *connector)
 {
+	struct drm_device *dev = connector->base.dev;
+	struct drm_i915_private *dev_priv = dev->dev_private;
+
 	intel_panel_actually_set_backlight(connector, 0);
 
-	intel_soc_pmic_writeb(PMIC_PWM_EN, 0x00);
-	intel_soc_pmic_writeb(PMIC_BKL_EN, 0x7F);
+	if (dev_priv->vbt.dsi.config->pmic_soc_blc) {
+		/* disable the backlight enable signal */
+		vlv_gpio_nc_write(dev_priv, GPIO_NC_10_PCONF0, 0x2000CC00);
+		vlv_gpio_nc_write(dev_priv, GPIO_NC_10_PAD, 0x00000004);
+		udelay(500);
+		lpio_bl_write_bits(0, LPIO_PWM_CTRL, 0x00, 0x80000000);
+	} else {
+		intel_soc_pmic_writeb(PMIC_PWM_EN, 0x00);
+		intel_soc_pmic_writeb(PMIC_BKL_EN, 0x7F);
+	}
 }
 
 void intel_panel_disable_backlight(struct intel_connector *connector)
@@ -744,6 +773,28 @@ static void bdw_enable_backlight(struct intel_connector *connector)
 
 	/* This won't stick until the above enable. */
 	intel_panel_actually_set_backlight(connector, panel->backlight.level);
+}
+
+static void lpio_enable_backlight(struct drm_i915_private *dev_priv)
+{
+	uint32_t val;
+
+	/* GPIOC_94 config to PWM0 function */
+	val = vlv_gps_core_read(dev_priv, GPIO_NC_22_PCONF0);
+	vlv_gps_core_write(dev_priv, GPIO_NC_22_PCONF0, 0x2000CC01);
+	vlv_gps_core_write(dev_priv, GPIO_NC_22_PAD, 0x5);
+
+	/* PWM enable*/
+	lpio_bl_write(0, LPIO_PWM_CTRL, 0x20c00);
+	lpio_bl_update(0, LPIO_PWM_CTRL);
+	lpio_bl_write_bits(0, LPIO_PWM_CTRL, 0x80000000,
+			0x80000000);
+	lpio_bl_update(0, LPIO_PWM_CTRL);
+
+	/* Backlight enable */
+	vlv_gpio_nc_write(dev_priv, GPIO_NC_10_PCONF0, 0x2000CC00);
+	vlv_gpio_nc_write(dev_priv, GPIO_NC_10_PAD, 0x00000005);
+	udelay(500);
 }
 
 static void pch_enable_backlight(struct intel_connector *connector)
@@ -894,8 +945,17 @@ static void vlv_enable_mipi_backlight(struct intel_connector *connector)
 {
 	struct intel_panel *panel = &connector->panel;
 
-	intel_soc_pmic_writeb(PMIC_BKL_EN, 0xFF);
-	intel_soc_pmic_writeb(PMIC_PWM_EN, 0x01);
+	struct drm_device *dev = connector->base.dev;
+	struct drm_i915_private *dev_priv = dev->dev_private;
+	/* Adding the check whether we are using the SOC PWM or
+	 * PMIC PWM
+	 */
+	if (dev_priv->vbt.dsi.config->pmic_soc_blc) {
+		lpio_enable_backlight(dev_priv);
+	} else {
+		intel_soc_pmic_writeb(PMIC_BKL_EN, 0xFF);
+		intel_soc_pmic_writeb(PMIC_PWM_EN, 0x01);
+	}
 
 	intel_panel_actually_set_backlight(connector, panel->backlight.level);
 }
@@ -1184,15 +1244,23 @@ static int vlv_setup_mipi_backlight(struct intel_connector *connector)
 {
 	struct drm_device *dev = connector->base.dev;
 	struct intel_panel *panel = &connector->panel;
+	struct drm_i915_private *dev_priv = dev->dev_private;
 	u32 val;
 
 	panel->backlight.max = 0xFF;
 
-	val = _vlv_get_backlight(dev, PIPE_A);
+	val = vlv_get_mipi_backlight(dev);
 	panel->backlight.level = intel_panel_compute_brightness(connector, val);
 
-	panel->backlight.enabled = (intel_soc_pmic_readb(PMIC_PWM_EN) & 0x1) &&
-						panel->backlight.level != 0;
+	if (dev_priv->vbt.dsi.config->pmic_soc_blc) {
+		panel->backlight.enabled = lpio_bl_read(0, LPIO_PWM_CTRL) &
+			0x80000000;
+	} else {
+		panel->backlight.enabled =
+			(intel_soc_pmic_readb(PMIC_PWM_EN) & 0x1) &&
+			panel->backlight.level != 0;
+	}
+
 	return 0;
 }
 
@@ -1273,6 +1341,8 @@ void intel_panel_init_backlight_funcs(struct drm_device *dev)
 						vlv_disable_mipi_backlight;
 			dev_priv->display.set_backlight =
 						vlv_set_mipi_backlight;
+			dev_priv->display.get_backlight =
+						vlv_get_mipi_backlight;
 		} else {
 			dev_priv->display.setup_backlight = vlv_setup_backlight;
 			dev_priv->display.enable_backlight =
@@ -1280,10 +1350,8 @@ void intel_panel_init_backlight_funcs(struct drm_device *dev)
 			dev_priv->display.disable_backlight =
 						vlv_disable_backlight;
 			dev_priv->display.set_backlight = vlv_set_backlight;
+			dev_priv->display.get_backlight = vlv_get_backlight;
 		}
-
-		dev_priv->display.get_backlight = vlv_get_backlight;
-
 	} else if (IS_GEN4(dev)) {
 		dev_priv->display.setup_backlight = i965_setup_backlight;
 		dev_priv->display.enable_backlight = i965_enable_backlight;

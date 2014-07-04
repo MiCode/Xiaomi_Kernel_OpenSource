@@ -48,31 +48,6 @@
 
 #define NS_KHZ_RATIO 1000000
 
-#define GPI0_NC_0_HV_DDI0_HPD           0x4130
-#define GPIO_NC_0_HV_DDI0_PAD           0x4138
-#define GPIO_NC_1_HV_DDI0_DDC_SDA       0x4120
-#define GPIO_NC_1_HV_DDI0_DDC_SDA_PAD   0x4128
-#define GPIO_NC_2_HV_DDI0_DDC_SCL       0x4110
-#define GPIO_NC_2_HV_DDI0_DDC_SCL_PAD   0x4118
-#define GPIO_NC_3_PANEL0_VDDEN          0x4140
-#define GPIO_NC_3_PANEL0_VDDEN_PAD      0x4148
-#define GPIO_NC_4_PANEL0_BLKEN          0x4150
-#define GPIO_NC_4_PANEL0_BLKEN_PAD      0x4158
-#define GPIO_NC_5_PANEL0_BLKCTL         0x4160
-#define GPIO_NC_5_PANEL0_BLKCTL_PAD     0x4168
-#define GPIO_NC_6_PCONF0                0x4180
-#define GPIO_NC_6_PAD                   0x4188
-#define GPIO_NC_7_PCONF0                0x4190
-#define GPIO_NC_7_PAD                   0x4198
-#define GPIO_NC_8_PCONF0                0x4170
-#define GPIO_NC_8_PAD                   0x4178
-#define GPIO_NC_9_PCONF0                0x4100
-#define GPIO_NC_9_PAD                   0x4108
-#define GPIO_NC_10_PCONF0               0x40E0
-#define GPIO_NC_10_PAD                  0x40E8
-#define GPIO_NC_11_PCONF0               0x40F0
-#define GPIO_NC_11_PAD                  0x40F8
-
 struct gpio_table {
 	u16 function_reg;
 	u16 pad_reg;
