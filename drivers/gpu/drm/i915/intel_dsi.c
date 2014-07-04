@@ -350,9 +350,21 @@ static bool intel_dsi_get_hw_state(struct intel_encoder *encoder,
 static void intel_dsi_get_config(struct intel_encoder *encoder,
 				 struct intel_crtc_config *pipe_config)
 {
+	struct drm_i915_private *dev_priv = encoder->base.dev->dev_private;
+
 	DRM_DEBUG_KMS("\n");
 
 	/* XXX: read flags, set to adjusted_mode */
+	pipe_config->quirks = 1;
+
+	/* for MIPI we use DSI PLL, not DPLL */
+	memset(&pipe_config->dpll_hw_state, 0,
+		sizeof(pipe_config->dpll_hw_state));
+
+	/* for now statically initialize dot clock */
+	pipe_config->adjusted_mode.crtc_clock =
+		dev_priv->vbt.lfp_lvds_vbt_mode->clock;
+	pipe_config->port_clock = dev_priv->vbt.lfp_lvds_vbt_mode->clock;
 }
 
 static enum drm_mode_status

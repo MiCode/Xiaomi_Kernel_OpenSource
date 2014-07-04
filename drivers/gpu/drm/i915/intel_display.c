@@ -7103,9 +7103,10 @@ static bool i9xx_get_pipe_config(struct intel_crtc *crtc,
 
 	if (IS_CHERRYVIEW(dev))
 		chv_crtc_clock_get(crtc, pipe_config);
-	else if (IS_VALLEYVIEW(dev))
+	else if (IS_VALLEYVIEW(dev) &&
+		!intel_pipe_has_type(&crtc->base, INTEL_OUTPUT_DSI))
 		vlv_crtc_clock_get(crtc, pipe_config);
-	else
+	else if (!IS_VALLEYVIEW(dev))
 		i9xx_crtc_clock_get(crtc, pipe_config);
 
 	return true;
