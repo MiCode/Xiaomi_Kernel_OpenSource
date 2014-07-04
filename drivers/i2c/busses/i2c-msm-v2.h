@@ -553,7 +553,6 @@ struct i2c_msm_resources {
 	bool                         disable_dma;
 	u32                          bam_pipe_idx_cons;
 	u32                          bam_pipe_idx_prod;
-	bool                         clk_ctl_xfer;
 	struct pinctrl              *pinctrl;
 	struct pinctrl_state        *gpio_state_active;
 	struct pinctrl_state        *gpio_state_suspend;
@@ -635,8 +634,10 @@ enum i2c_msm_err_bit_field {
  * @tx_cnt       number of output bytes in the client's request.
  * @rx_ovrhd_cnt number of input  bytes due to tags.
  * @tx_ovrhd_cnt number of output bytes due to tags.
- * @event     profiling data. An array of timestamps of transfer events
- * @event_cnt number of items in event array.
+ * @event        profiling data. An array of timestamps of transfer events
+ * @event_cnt    number of items in event array.
+ * @is_active    true during xfer process and false after xfer end
+ * @mtx          mutex to solve multithreaded problem in xfer
  */
 struct i2c_msm_xfer {
 	struct i2c_msg            *msgs;
@@ -653,6 +654,8 @@ struct i2c_msm_xfer {
 	enum i2c_msm_err_bit_field err;
 	struct i2c_msm_prof_event  event[I2C_MSM_PROF_MAX_EVNTS];
 	atomic_t                   event_cnt;
+	atomic_t                   is_active;
+	struct mutex               mtx;
 };
 
 /*
@@ -682,8 +685,6 @@ struct i2c_msm_ctrl {
 	int                        noise_rjct_sda;
 	struct i2c_msm_v2_platform_data *pdata;
 	enum msm_i2c_power_state   pwr_state;
-	atomic_t		   is_ctrl_active;
-	struct mutex               mlock;
 };
 
 #endif  /* _I2C_MSM_V2_H */

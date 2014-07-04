@@ -69,14 +69,12 @@ static int i2c_msm_xfer_wait_for_completion(struct i2c_msm_ctrl *ctrl,
 static int  i2c_msm_bam_xfer(struct i2c_msm_ctrl *ctrl);
 static int  i2c_msm_fifo_xfer(struct i2c_msm_ctrl *ctrl);
 static int  i2c_msm_blk_xfer(struct i2c_msm_ctrl *ctrl);
-static void i2c_msm_pm_resume_adptr(struct i2c_msm_ctrl *ctrl);
-static void i2c_msm_pm_suspend_adptr(struct i2c_msm_ctrl *ctrl);
-static int  i2c_msm_qup_init(struct i2c_msm_ctrl *ctrl);
-static int  i2c_msm_pm_resume_impl(struct device *dev);
+static int  i2c_msm_pm_resume(struct device *dev);
+static void i2c_msm_pm_suspend(struct device *dev);
 static int  i2c_msm_fifo_create_struct(struct i2c_msm_ctrl *ctrl);
 static int  i2c_msm_bam_create_struct(struct i2c_msm_ctrl *ctrl);
 static int  i2c_msm_blk_create_struct(struct i2c_msm_ctrl *ctrl);
-
+static void i2c_msm_clk_path_init(struct i2c_msm_ctrl *ctrl);
 
 /* i2c_msm_bam_get_struct: return the bam structure
  * if not created, call i2c_msm_bam_create_struct to create it
@@ -396,7 +394,7 @@ static const struct i2c_msm_qup_reg_dump i2c_msm_qup_reg_dump_map[] = {
 /*
  * see: struct i2c_msm_qup_reg_dump for more
  */
-static void i2c_msm_dbg_qup_reg_dump(struct i2c_msm_ctrl *ctrl)
+static int i2c_msm_dbg_qup_reg_dump(struct i2c_msm_ctrl *ctrl)
 {
 	u32 val;
 	char buf[I2C_MSM_REG_2_STR_BUF_SZ];
@@ -414,6 +412,7 @@ static void i2c_msm_dbg_qup_reg_dump(struct i2c_msm_ctrl *ctrl)
 
 		dev_info(ctrl->dev, "%-12s:0x%08x %s\n", itr->name, val, buf);
 	};
+	return 0;
 }
 
 static void i2c_msm_dbg_xfer_dump(struct i2c_msm_ctrl *ctrl)
@@ -2481,6 +2480,8 @@ poll_active_end:
 
 static void i2c_msm_clk_path_vote(struct i2c_msm_ctrl *ctrl)
 {
+	i2c_msm_clk_path_init(ctrl);
+
 	if (ctrl->rsrcs.clk_path_vote.client_hdl)
 		msm_bus_scale_client_update_request(
 					ctrl->rsrcs.clk_path_vote.client_hdl,
@@ -2661,17 +2662,9 @@ static irqreturn_t i2c_msm_qup_isr(int irq, void *devid)
 	i2c_msm_prof_evnt_add(ctrl, MSM_PROF, i2c_msm_prof_dump_irq_begn,
 								irq, 0, 0);
 
-	if (!atomic_read(&ctrl->is_ctrl_active)) {
-		dev_info(ctrl->dev, "irq:%d when PM suspended\n", irq);
-		return IRQ_NONE;
-	}
-
-	if (!ctrl->xfer.msgs) {
+	if (!atomic_read(&ctrl->xfer.is_active)) {
 		dev_info(ctrl->dev, "irq:%d when no active transfer\n", irq);
-		writel_relaxed(QUP_STATE_RESET, base + QUP_STATE);
-		/* Ensure that state is written before ISR exits */
-		wmb();
-		goto isr_end;
+		return IRQ_HANDLED;
 	}
 
 	i2c_status  = readl_relaxed(base + QUP_I2C_STATUS);
@@ -2784,7 +2777,6 @@ static irqreturn_t i2c_msm_qup_isr(int irq, void *devid)
 		i2c_msm_dbg_qup_reg_dump(ctrl);
 	}
 
-isr_end:
 	if (dump_details || log_event || (ctrl->dbgfs.dbg_lvl >= MSM_DBG))
 		i2c_msm_prof_evnt_add(ctrl, MSM_PROF,
 					i2c_msm_prof_dump_irq_end,
@@ -2863,7 +2855,7 @@ static int i2c_msm_qup_init(struct i2c_msm_ctrl *ctrl)
 /*
  * i2c_msm_qup_do_bus_clear: issue QUP bus clear command
  */
-static bool i2c_msm_qup_do_bus_clear(struct i2c_msm_ctrl *ctrl)
+static int i2c_msm_qup_do_bus_clear(struct i2c_msm_ctrl *ctrl)
 {
 	int ret;
 	ulong min_sleep_usec;
@@ -3172,6 +3164,91 @@ static bool i2c_msm_xfer_next_buf(struct i2c_msm_ctrl *ctrl)
 	return  true;
 }
 
+static void i2c_msm_pm_clk_disable_unprepare(struct i2c_msm_ctrl *ctrl)
+{
+	clk_disable_unprepare(ctrl->rsrcs.core_clk);
+	clk_disable_unprepare(ctrl->rsrcs.iface_clk);
+}
+
+static int i2c_msm_pm_clk_prepare_enable(struct i2c_msm_ctrl *ctrl)
+{
+	int ret;
+	ret = clk_prepare_enable(ctrl->rsrcs.iface_clk);
+	if (ret) {
+		dev_err(ctrl->dev,
+			"error on clk_prepare_enable(iface_clk):%d\n", ret);
+		return ret;
+	}
+
+	ret = clk_prepare_enable(ctrl->rsrcs.core_clk);
+	if (ret) {
+		clk_disable_unprepare(ctrl->rsrcs.iface_clk);
+		dev_err(ctrl->dev,
+			"error clk_prepare_enable(core_clk):%d\n", ret);
+	}
+	return ret;
+}
+
+static int i2c_msm_pm_xfer_start(struct i2c_msm_ctrl *ctrl)
+{
+	int ret;
+	struct i2c_msm_xfer *xfer = &ctrl->xfer;
+	mutex_lock(&ctrl->xfer.mtx);
+
+	/* if system is suspended just bail out */
+	if (ctrl->pwr_state == MSM_I2C_PM_SYS_SUSPENDED) {
+		struct i2c_msg *msgs = xfer->msgs + xfer->cur_buf.msg_idx;
+		dev_err(ctrl->dev,
+				"slave:0x%x is calling xfer when system is suspended\n",
+				msgs->addr);
+		mutex_unlock(&ctrl->xfer.mtx);
+		return -EIO;
+	}
+
+	pm_runtime_get_sync(ctrl->dev);
+	/*
+	 * if runtime PM callback was not invoked (when both runtime-pm
+	 * and systme-pm are in transition concurrently)
+	 */
+	if (ctrl->pwr_state != MSM_I2C_PM_ACTIVE) {
+		dev_info(ctrl->dev, "Runtime PM-callback was not invoked.\n");
+		i2c_msm_pm_resume(ctrl->dev);
+	}
+
+	ret = i2c_msm_pm_clk_prepare_enable(ctrl);
+	if (ret) {
+		mutex_unlock(&ctrl->xfer.mtx);
+		return ret;
+	}
+	ctrl->ver.init(ctrl);
+
+	/* Set xfer to active state (efectively enabling our ISR)*/
+	atomic_set(&ctrl->xfer.is_active, 1);
+
+	if (xfer->mode_id == I2C_MSM_XFER_MODE_BAM)
+		i2c_msm_bam_init(ctrl);
+	enable_irq(ctrl->rsrcs.irq);
+	return 0;
+}
+
+static void i2c_msm_pm_xfer_end(struct i2c_msm_ctrl *ctrl)
+{
+	/* efectively disabling our ISR */
+	atomic_set(&ctrl->xfer.is_active, 0);
+	i2c_msm_pm_clk_disable_unprepare(ctrl);
+	if (pm_runtime_enabled(ctrl->dev)) {
+		pm_runtime_mark_last_busy(ctrl->dev);
+		pm_runtime_put_autosuspend(ctrl->dev);
+	} else {
+		i2c_msm_pm_suspend(ctrl->dev);
+	}
+
+	disable_irq(ctrl->rsrcs.irq);
+	if (ctrl->xfer.mode_id == I2C_MSM_XFER_MODE_BAM)
+		i2c_msm_bam_teardown(ctrl);
+	mutex_unlock(&ctrl->xfer.mtx);
+}
+
 /*
  * i2c_msm_xfer_scan: initial input scan
  */
@@ -3205,14 +3282,9 @@ i2c_msm_frmwrk_xfer(struct i2c_adapter *adap, struct i2c_msg msgs[], int num)
 	struct i2c_msm_xfer      *xfer = &ctrl->xfer;
 	struct i2c_msm_xfer_mode *xfer_mode;
 
-	mutex_lock(&ctrl->mlock);
-	if (ctrl->pwr_state == MSM_I2C_PM_SYS_SUSPENDED) {
-		dev_err(ctrl->dev,
-				"slave:0x%x is calling xfer when system is suspended\n",
-				msgs->addr);
-		mutex_unlock(&ctrl->mlock);
-		return -EIO;
-	}
+	ret = i2c_msm_pm_xfer_start(ctrl);
+	if (ret)
+		return ret;
 
 	/* init xfer */
 	xfer->msgs         = msgs;
@@ -3231,13 +3303,6 @@ i2c_msm_frmwrk_xfer(struct i2c_adapter *adap, struct i2c_msg msgs[], int num)
 	i2c_msm_prof_evnt_add(ctrl, MSM_PROF, i2c_msm_prof_dump_xfer_beg,
 							num, msgs->addr, 0);
 
-	i2c_msm_pm_resume_adptr(ctrl);
-	/* if runtime PM callback was not invoked */
-	if (ctrl->pwr_state != MSM_I2C_PM_ACTIVE) {
-		dev_info(ctrl->dev, "Runtime PM-callback was not invoked.\n");
-		i2c_msm_pm_resume_impl(ctrl->dev);
-	}
-
 	i2c_msm_xfer_scan(ctrl);
 	i2c_msm_xfer_calc_timeout(ctrl);
 	xfer->mode_id = (*ctrl->ver.choose_mode)(ctrl);
@@ -3251,8 +3316,6 @@ i2c_msm_frmwrk_xfer(struct i2c_adapter *adap, struct i2c_msg msgs[], int num)
 	ret = (*xfer_mode->xfer)(ctrl);
 	ret = (*ctrl->ver.post_xfer)(ctrl, ret);
 
-	i2c_msm_pm_suspend_adptr(ctrl);
-
 	/* on success, return number of messages sent (which is index + 1)*/
 	if (!ret)
 		ret = xfer->cur_buf.msg_idx + 1;
@@ -3263,10 +3326,7 @@ i2c_msm_frmwrk_xfer(struct i2c_adapter *adap, struct i2c_msg msgs[], int num)
 	if (xfer->err || (ctrl->dbgfs.dbg_lvl >= MSM_PROF))
 		i2c_msm_prof_evnt_dump(ctrl);
 
-	/* mark end of transfer */
-	xfer->msg_cnt	= 0;
-	xfer->msgs	= NULL;
-	mutex_unlock(&ctrl->mlock);
+	i2c_msm_pm_xfer_end(ctrl);
 	return ret;
 }
 
@@ -3367,8 +3427,6 @@ static int i2c_msm_rsrcs_dt_to_pdata(struct i2c_msm_ctrl *ctrl,
 							DT_OPT,  DT_BOOL, 0},
 	{"qcom,master-id",		&(ctrl->rsrcs.clk_path_vote.mstr_id),
 							DT_SGST, DT_U32,  0},
-	{"qcom,clk-ctl-xfer",		 &(ctrl->rsrcs.clk_ctl_xfer),
-							DT_OPT,  DT_BOOL, 0},
 	{"qcom,noise-rjct-scl",		&(ctrl->noise_rjct_scl),
 							DT_OPT,  DT_U32,  0},
 	{"qcom,noise-rjct-sda",		&(ctrl->noise_rjct_sda),
@@ -3628,23 +3686,45 @@ DEFINE_SIMPLE_ATTRIBUTE(i2c_msm_dbgfs_noise_sda_fops,
 			i2c_msm_dbgfs_noise_sda_write,
 			"0x%llx");
 
-static int i2c_msm_dbgfs_reset(void *data, u64 val)
+/*
+ * i2c_msm_dbgfs_clk_wrapper: take care of clocks before calling func
+ *
+ * this function will verify that clocks are voted for the func if that they are
+ * not. This is required for functionality which touches registers from debugfs.
+ */
+static int i2c_msm_dbgfs_clk_wrapper(struct i2c_msm_ctrl *ctrl,
+					int (*func)(struct i2c_msm_ctrl *))
 {
-	struct i2c_msm_ctrl *ctrl = data;
-	(ctrl->ver.teardown)(ctrl);
-	return 0;
-}
+	int ret;
+	pm_runtime_get_sync(ctrl->dev);
+	/*
+	 * if runtime PM callback was not invoked (when both runtime-pm
+	 * and systme-pm are in transition concurrently)
+	 */
+	if (ctrl->pwr_state != MSM_I2C_PM_ACTIVE) {
+		dev_info(ctrl->dev, "Runtime PM-callback was not invoked.\n");
+		i2c_msm_pm_resume(ctrl->dev);
+	}
+	ret = i2c_msm_pm_clk_prepare_enable(ctrl);
+	if (ret)
+		return ret;
 
-DEFINE_SIMPLE_ATTRIBUTE(i2c_msm_dbgfs_reset_fops,
-			NULL,
-			i2c_msm_dbgfs_reset,
-			"0x%llx");
+	ret = func(ctrl);
+
+	i2c_msm_pm_clk_disable_unprepare(ctrl);
+	if (pm_runtime_enabled(ctrl->dev)) {
+		pm_runtime_mark_last_busy(ctrl->dev);
+		pm_runtime_put_autosuspend(ctrl->dev);
+	} else {
+		i2c_msm_pm_suspend(ctrl->dev);
+	}
+	return ret;
+}
 
 static int i2c_msm_dbgfs_reg_dump(void *data, u64 val)
 {
 	struct i2c_msm_ctrl *ctrl = data;
-	i2c_msm_dbg_qup_reg_dump(ctrl);
-	return 0;
+	return i2c_msm_dbgfs_clk_wrapper(ctrl, i2c_msm_dbg_qup_reg_dump);
 }
 
 DEFINE_SIMPLE_ATTRIBUTE(i2c_msm_dbgfs_reg_dump_fops,
@@ -3655,8 +3735,7 @@ DEFINE_SIMPLE_ATTRIBUTE(i2c_msm_dbgfs_reg_dump_fops,
 static int i2c_msm_dbgfs_do_bus_clear(void *data, u64 val)
 {
 	struct i2c_msm_ctrl *ctrl = data;
-	i2c_msm_qup_do_bus_clear(ctrl);
-	return 0;
+	return i2c_msm_dbgfs_clk_wrapper(ctrl, i2c_msm_qup_do_bus_clear);
 }
 
 DEFINE_SIMPLE_ATTRIBUTE(i2c_msm_dbgfs_do_bus_clear_fops,
@@ -3741,8 +3820,6 @@ static void i2c_msm_dbgfs_init(struct i2c_msm_ctrl *ctrl)
 				&i2c_msm_dbgfs_noise_scl_fops,     NULL},
 		{"noise-rjct-sda",  I2C_MSM_DFS_MD_RW, I2C_MSM_DFS_FILE,
 				&i2c_msm_dbgfs_noise_sda_fops,     NULL},
-		{"reset",           I2C_MSM_DFS_MD_W, I2C_MSM_DFS_FILE,
-				&i2c_msm_dbgfs_reset_fops,         NULL},
 		{"dump-regs",       I2C_MSM_DFS_MD_W, I2C_MSM_DFS_FILE,
 				&i2c_msm_dbgfs_reg_dump_fops,      NULL},
 		{"bus-clear",       I2C_MSM_DFS_MD_W, I2C_MSM_DFS_FILE,
@@ -3764,63 +3841,22 @@ static void i2c_msm_dbgfs_init(struct i2c_msm_ctrl *ctrl) {}
 static void i2c_msm_dbgfs_teardown(struct i2c_msm_ctrl *ctrl) {}
 #endif
 
-static void i2c_msm_pm_suspend_clk(struct i2c_msm_ctrl *ctrl)
-{
-	clk_disable_unprepare(ctrl->rsrcs.core_clk);
-	clk_disable_unprepare(ctrl->rsrcs.iface_clk);
-}
-
-static void i2c_msm_pm_clk_unvote(struct i2c_msm_ctrl *ctrl)
-{
-	if (!ctrl->rsrcs.clk_ctl_xfer)
-		i2c_msm_pm_suspend_clk(ctrl);
-
-	i2c_msm_clk_path_unvote(ctrl);
-}
-
-static void i2c_msm_pm_resume_clk(struct i2c_msm_ctrl *ctrl)
-{
-	int ret;
-
-	ret = clk_prepare_enable(ctrl->rsrcs.iface_clk);
-	if (ret) {
-		dev_err(ctrl->dev,
-			"error on clk_prepare_enable(iface_clk):%d\n", ret);
-		return;
-	}
-
-	ret = clk_prepare_enable(ctrl->rsrcs.core_clk);
-	if (ret)
-		dev_err(ctrl->dev,
-			"error clk_prepare_enable(core_clk):%d\n", ret);
-}
-
-static void i2c_msm_pm_clk_vote(struct i2c_msm_ctrl *ctrl)
-{
-	i2c_msm_clk_path_init(ctrl);
-	i2c_msm_clk_path_vote(ctrl);
-
-	if (!ctrl->rsrcs.clk_ctl_xfer)
-		i2c_msm_pm_resume_clk(ctrl);
-}
-
-static int i2c_msm_pm_suspend_impl(struct device *dev)
+static void i2c_msm_pm_suspend(struct device *dev)
 {
 	struct i2c_msm_ctrl *ctrl = dev_get_drvdata(dev);
 
 	if (ctrl->pwr_state == MSM_I2C_PM_SUSPENDED) {
 		dev_err(ctrl->dev, "attempt to suspend when suspended\n");
-		return 0;
+		return;
 	}
 	i2c_msm_dbg(ctrl, MSM_DBG, "suspending...");
-
-	disable_irq(ctrl->rsrcs.irq);
-	i2c_msm_pm_clk_unvote(ctrl);
 	i2c_msm_pm_pinctrl_state(ctrl, false);
-	return 0;
+	i2c_msm_clk_path_unvote(ctrl);
+	ctrl->pwr_state = MSM_I2C_PM_SUSPENDED;
+	return;
 }
 
-static int  i2c_msm_pm_resume_impl(struct device *dev)
+static int i2c_msm_pm_resume(struct device *dev)
 {
 	struct i2c_msm_ctrl *ctrl = dev_get_drvdata(dev);
 
@@ -3829,12 +3865,9 @@ static int  i2c_msm_pm_resume_impl(struct device *dev)
 
 	i2c_msm_dbg(ctrl, MSM_DBG, "resuming...");
 
+	i2c_msm_clk_path_vote(ctrl);
 	i2c_msm_pm_pinctrl_state(ctrl, true);
-	i2c_msm_pm_clk_vote(ctrl);
-	enable_irq(ctrl->rsrcs.irq);
-	(*ctrl->ver.init)(ctrl);
 	ctrl->pwr_state = MSM_I2C_PM_ACTIVE;
-	atomic_set(&ctrl->is_ctrl_active, 1);
 	return 0;
 }
 
@@ -3846,17 +3879,16 @@ static int i2c_msm_pm_sys_suspend_noirq(struct device *dev)
 {
 	int ret = 0;
 	struct i2c_msm_ctrl *ctrl = dev_get_drvdata(dev);
-	enum msm_i2c_power_state curr_state = ctrl->pwr_state;
+	enum msm_i2c_power_state prev_state = ctrl->pwr_state;
 	i2c_msm_dbg(ctrl, MSM_DBG, "pm_sys_noirq: suspending...");
 
 	/* Acquire mutex to ensure current transaction is over */
-	mutex_lock(&ctrl->mlock);
+	mutex_lock(&ctrl->xfer.mtx);
 	ctrl->pwr_state = MSM_I2C_PM_SYS_SUSPENDED;
-	mutex_unlock(&ctrl->mlock);
-	atomic_set(&ctrl->is_ctrl_active, 0);
+	mutex_unlock(&ctrl->xfer.mtx);
 
-	if (curr_state == MSM_I2C_PM_ACTIVE) {
-		ret = i2c_msm_pm_suspend_impl(dev);
+	if (prev_state == MSM_I2C_PM_ACTIVE) {
+		i2c_msm_pm_suspend(dev);
 		/*
 		 * Synchronize runtime-pm and system-pm states:
 		 * at this point we are already suspended. However, the
@@ -3874,18 +3906,15 @@ static int i2c_msm_pm_sys_suspend_noirq(struct device *dev)
 
 /*
  * i2c_msm_pm_sys_resume: system power management callback
+ * shifts the controller's power state from system suspend to runtime suspend
  */
 static int i2c_msm_pm_sys_resume_noirq(struct device *dev)
 {
 	struct i2c_msm_ctrl *ctrl = dev_get_drvdata(dev);
-	/*
-	 * Rely on runtime-PM to call resume in case it is enabled
-	 * Even if it's not enabled, rely on 1st client transaction to do
-	 * clock ON and gpio configuration
-	 */
 	i2c_msm_dbg(ctrl, MSM_DBG, "pm_sys_noirq: resuming...");
+	mutex_lock(&ctrl->xfer.mtx);
 	ctrl->pwr_state = MSM_I2C_PM_SUSPENDED;
-	atomic_set(&ctrl->is_ctrl_active, 0);
+	mutex_unlock(&ctrl->xfer.mtx);
 	return  0;
 }
 #endif
@@ -3905,13 +3934,10 @@ static void i2c_msm_pm_rt_init(struct device *dev)
 static int i2c_msm_pm_rt_suspend(struct device *dev)
 {
 	struct i2c_msm_ctrl *ctrl = dev_get_drvdata(dev);
-	int ret = 0;
 
 	i2c_msm_dbg(ctrl, MSM_DBG, "pm_runtime: suspending...");
-	ret = i2c_msm_pm_suspend_impl(dev);
-	ctrl->pwr_state = MSM_I2C_PM_SUSPENDED;
-	atomic_set(&ctrl->is_ctrl_active, 0);
-	return ret;
+	i2c_msm_pm_suspend(dev);
+	return 0;
 }
 
 /*
@@ -3922,43 +3948,13 @@ static int i2c_msm_pm_rt_resume(struct device *dev)
 	struct i2c_msm_ctrl *ctrl = dev_get_drvdata(dev);
 
 	i2c_msm_dbg(ctrl, MSM_DBG, "pm_runtime: resuming...");
-	return  i2c_msm_pm_resume_impl(dev);
+	return  i2c_msm_pm_resume(dev);
 }
 
-static void i2c_msm_pm_resume_adptr(struct i2c_msm_ctrl *ctrl)
-{
-	pm_runtime_get_sync(ctrl->dev);
-	if (ctrl->rsrcs.clk_ctl_xfer)
-		i2c_msm_pm_resume_clk(ctrl);
-}
-
-static void i2c_msm_pm_suspend_adptr(struct i2c_msm_ctrl *ctrl)
-{
-	if (ctrl->rsrcs.clk_ctl_xfer)
-		i2c_msm_pm_suspend_clk(ctrl);
-	pm_runtime_mark_last_busy(ctrl->dev);
-	pm_runtime_put_autosuspend(ctrl->dev);
-}
 #else
 static void i2c_msm_pm_rt_init(struct device *dev) {}
 #define i2c_msm_pm_rt_suspend NULL
 #define i2c_msm_pm_rt_resume NULL
-
-static void i2c_msm_pm_resume_adptr(struct i2c_msm_ctrl *ctrl)
-{
-	i2c_msm_pm_resume_impl(ctrl->dev);
-	if (ctrl->rsrcs.clk_ctl_xfer)
-		i2c_msm_pm_resume_clk(ctrl);
-}
-
-static void i2c_msm_pm_suspend_adptr(struct i2c_msm_ctrl *ctrl)
-{
-	if (ctrl->rsrcs.clk_ctl_xfer)
-		i2c_msm_pm_suspend_clk(ctrl);
-	i2c_msm_pm_suspend_impl(ctrl->dev);
-	ctrl->pwr_state = MSM_I2C_PM_SUSPENDED;
-	atomic_set(&ctrl->is_ctrl_active, 0);
-}
 #endif
 
 static const struct dev_pm_ops i2c_msm_pm_ops = {
@@ -4025,9 +4021,8 @@ static int i2c_msm_probe(struct platform_device *pdev)
 	platform_set_drvdata(pdev, ctrl);
 	ctrl->dbgfs.dbg_lvl         = DEFAULT_DBG_LVL;
 	ctrl->dbgfs.force_xfer_mode = I2C_MSM_XFER_MODE_NONE;
-	mutex_init(&ctrl->mlock);
+	mutex_init(&ctrl->xfer.mtx);
 	ctrl->pwr_state = MSM_I2C_PM_SUSPENDED;
-	atomic_set(&ctrl->is_ctrl_active, 0);
 
 	if (!pdev->dev.of_node) {
 		dev_err(&pdev->dev, "error: null device-tree node");
@@ -4047,14 +4042,17 @@ static int i2c_msm_probe(struct platform_device *pdev)
 		goto clk_err;
 
 	/* vote for clock to enable reading the version number off the HW */
-	i2c_msm_pm_clk_vote(ctrl);
-	if (ctrl->rsrcs.clk_ctl_xfer)
-		i2c_msm_pm_resume_clk(ctrl);
+	i2c_msm_clk_path_vote(ctrl);
+
+	ret = i2c_msm_pm_clk_prepare_enable(ctrl);
+	if (ret) {
+		dev_err(ctrl->dev, "error in enabling clocks:%d\n", ret);
+		goto clk_err;
+	}
 	ret = i2c_msm_ctrl_ver_detect_and_set(ctrl);
 	if (ret) {
-		if (ctrl->rsrcs.clk_ctl_xfer)
-			i2c_msm_pm_suspend_clk(ctrl);
-		i2c_msm_pm_clk_unvote(ctrl);
+		i2c_msm_pm_clk_disable_unprepare(ctrl);
+		i2c_msm_clk_path_unvote(ctrl);
 		goto ver_err;
 	}
 
@@ -4066,9 +4064,8 @@ static int i2c_msm_probe(struct platform_device *pdev)
 	if (ret)
 		dev_err(ctrl->dev, "error error on qup software reset\n");
 
-	if (ctrl->rsrcs.clk_ctl_xfer)
-		i2c_msm_pm_suspend_clk(ctrl);
-	i2c_msm_pm_clk_unvote(ctrl);
+	i2c_msm_pm_clk_disable_unprepare(ctrl);
+	i2c_msm_clk_path_unvote(ctrl);
 
 	ret = i2c_msm_rsrcs_gpio_pinctrl_init(ctrl);
 	if (ret)
@@ -4115,15 +4112,13 @@ static int i2c_msm_remove(struct platform_device *pdev)
 	struct i2c_msm_ctrl *ctrl = platform_get_drvdata(pdev);
 
 	/* Grab mutex to ensure ongoing transaction is over */
-	mutex_lock(&ctrl->mlock);
+	mutex_lock(&ctrl->xfer.mtx);
 	ctrl->pwr_state = MSM_I2C_PM_SYS_SUSPENDED;
-	mutex_unlock(&ctrl->mlock);
-	atomic_set(&ctrl->is_ctrl_active, 0);
-
-	i2c_msm_pm_suspend_impl(ctrl->dev);
-	mutex_destroy(&ctrl->mlock);
-
+	/* no one can call a xfer after the next line */
 	i2c_msm_frmwrk_unreg(ctrl);
+	mutex_unlock(&ctrl->xfer.mtx);
+	mutex_destroy(&ctrl->xfer.mtx);
+
 	/*
 	 * free version related resources.
 	 * Currently only BAM resources need to be freed

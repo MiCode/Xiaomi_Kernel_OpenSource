@@ -28,10 +28,6 @@ Optional property:
 	When missing default to 0.
  - qcom,bam-disable : disables BAM transfer mode.
  - qcom,master-id : Master-port value used on voting for the clock path.
- - qcom,clk-ctl-xfer   : When present, the clocks's state (prepare_enable/
-		       unprepare_disable) is controlled by i2c-transaction's
-		       begining and ending. When missing, the clock's state
-		       is controlled by runtime-pm events.
 
 Example:
 	aliases {
