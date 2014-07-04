@@ -415,13 +415,6 @@ parse_general_features(struct drm_i915_private *dev_priv,
 			intel_bios_ssc_frequency(dev, general->ssc_freq);
 		dev_priv->vbt.display_clock_mode = general->display_clock_mode;
 		dev_priv->vbt.fdi_rx_polarity_inverted = general->fdi_rx_polarity_inverted;
-		DRM_DEBUG_KMS("BDB_GENERAL_FEATURES int_tv_support %d int_crt_support %d lvds_use_ssc %d lvds_ssc_freq %d display_clock_mode %d fdi_rx_polarity_inverted %d\n",
-			      dev_priv->vbt.int_tv_support,
-			      dev_priv->vbt.int_crt_support,
-			      dev_priv->vbt.lvds_use_ssc,
-			      dev_priv->vbt.lvds_ssc_freq,
-			      dev_priv->vbt.display_clock_mode,
-			      dev_priv->vbt.fdi_rx_polarity_inverted);
 	}
 }
 

@@ -470,7 +470,8 @@ vlv_update_plane(struct drm_plane *dplane, struct drm_crtc *crtc,
 	intel_update_sprite_watermarks(dplane, crtc, src_w, pixel_size, true,
 				       src_w != crtc_w || src_h != crtc_h);
 
-	if (sprctl & DISPPLANE_180_ROTATION_ENABLE)
+	if (intel_plane->rotate180 &&
+			(pipe == 0))
 		rotate = true;
 
 	/* Sizes are 0 based */
@@ -478,6 +479,8 @@ vlv_update_plane(struct drm_plane *dplane, struct drm_crtc *crtc,
 	src_h--;
 	crtc_w--;
 	crtc_h--;
+
+	I915_WRITE(SPPOS(pipe, plane), (crtc_y << 16) | crtc_x);
 
 	linear_offset = y * fb->pitches[0] + x * pixel_size;
 	sprsurf_offset = intel_gen4_compute_page_offset(&x, &y,
@@ -492,24 +495,18 @@ vlv_update_plane(struct drm_plane *dplane, struct drm_crtc *crtc,
 
 	I915_WRITE(SPSTRIDE(pipe, plane), fb->pitches[0]);
 
-	if (rotate)
-		I915_WRITE(SPPOS(pipe, plane), ((rot_mode.vdisplay -
-			(crtc_y + crtc_h + 1)) << 16) |
-				(rot_mode.hdisplay - (crtc_x + crtc_w + 1)));
-	else
-		I915_WRITE(SPPOS(pipe, plane), (crtc_y << 16) | crtc_x);
-
 	if (obj->tiling_mode != I915_TILING_NONE) {
 		if (rotate) {
 			I915_WRITE(SPTILEOFF(pipe, plane),
-				(((crtc_h + 1) << 16) | (crtc_w + 1)));
+				((y + crtc_h) << 16) | (x + crtc_w));
 		} else
 			I915_WRITE(SPTILEOFF(pipe, plane), (y << 16) | x);
 	} else {
 		if (rotate) {
-			I915_WRITE(SPLINOFF(pipe, plane),
-				(((crtc_h + 1) * (crtc_w + 1) *
-				pixel_size)) - pixel_size);
+			int rot_linoff = linear_offset +
+					 crtc_h * fb->pitches[0] +
+					 (crtc_w + 1) * pixel_size;
+			I915_WRITE(SPLINOFF(pipe, plane), rot_linoff);
 		} else
 			I915_WRITE(SPLINOFF(pipe, plane), linear_offset);
 	}
@@ -517,6 +514,8 @@ vlv_update_plane(struct drm_plane *dplane, struct drm_crtc *crtc,
 	I915_WRITE(SPSIZE(pipe, plane), (crtc_h << 16) | crtc_w);
 	if (rotate)
 		sprctl |= DISPPLANE_180_ROTATION_ENABLE;
+	else
+		sprctl &= ~DISPPLANE_180_ROTATION_ENABLE;
 
 	I915_WRITE(SPCNTR(pipe, plane), sprctl);
 	I915_MODIFY_DISPBASE(SPSURF(pipe, plane),
@@ -1799,6 +1798,7 @@ intel_plane_init(struct drm_device *dev, enum pipe pipe, int plane)
 
 	intel_plane->pipe = pipe;
 	intel_plane->plane = plane;
+	intel_plane->rotate180 = false;
 	possible_crtcs = (1 << pipe);
 	ret = drm_plane_init(dev, &intel_plane->base, possible_crtcs,
 			     &intel_plane_funcs,

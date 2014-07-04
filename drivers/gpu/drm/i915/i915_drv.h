@@ -1276,6 +1276,7 @@ struct intel_vbt_data {
 	union child_device_config *child_dev;
 
 	struct ddi_vbt_port_info ddi_port_info[I915_MAX_PORTS];
+	bool is_180_rotation_enabled;
 };
 
 enum intel_ddb_partitioning {
