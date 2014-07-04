@@ -14,6 +14,19 @@
 
 #define WCD_CPE_LAB_MAX_LATENCY 250
 #define WCD_CPE_MAD_SLIM_CHANNEL 140
+
+/* Indicates CPE block is ready for image re-download */
+#define WCD_CPE_BLK_READY  (1 << 0)
+/* Indicates the underlying bus is ready */
+#define WCD_CPE_BUS_READY (1 << 1)
+
+/*
+ * only when the underlying bus and CPE block both are ready,
+ * the state will be ready to download
+ */
+#define WCD_CPE_READY_TO_DLOAD	\
+	(WCD_CPE_BLK_READY | WCD_CPE_BUS_READY)
+
 struct wcd_cpe_cdc_cb {
 	/* codec provided callback to enable RCO */
 	int (*cdc_clk_en) (struct snd_soc_codec *, bool);
@@ -22,6 +35,24 @@ struct wcd_cpe_cdc_cb {
 	int (*cpe_clk_en) (struct snd_soc_codec *, bool);
 	int (*cdc_ext_clk)(struct snd_soc_codec *codec, int enable, bool dapm);
 	int (*slimtx_lab_en)(struct snd_soc_codec *codec, int event);
+};
+
+enum wcd_cpe_ssr_state_event {
+	/* Indicates that CPE is currently active */
+	WCD_CPE_ACTIVE = 0,
+	/* Event from underlying bus notifying bus is down */
+	WCD_CPE_BUS_DOWN_EVENT,
+	/* Event from CPE block, notifying CPE is down */
+	WCD_CPE_SSR_EVENT,
+	/* Event from underlying bus notifying bus is up */
+	WCD_CPE_BUS_UP_EVENT,
+};
+
+struct wcd_cpe_ssr_entry {
+	int offline;
+	u32 offline_change;
+	wait_queue_head_t offline_poll_wait;
+	struct snd_info_entry *entry;
 };
 
 struct wcd_cpe_core {
@@ -54,6 +85,33 @@ struct wcd_cpe_core {
 
 	/* callbacks for codec specific implementation */
 	struct wcd_cpe_cdc_cb cpe_cdc_cb;
+
+	/* work to handle CPE SSR*/
+	struct work_struct ssr_work;
+
+	/* PM handle for suspend mode during SSR */
+	struct pm_qos_request pm_qos_req;
+
+	/* completion event indicating CPE OFFLINE */
+	struct completion offline_compl;
+
+	/* entry into snd card procfs indicating cpe status */
+	struct wcd_cpe_ssr_entry ssr_entry;
+
+	/*
+	 * completion event to signal CPE is
+	 * ready for image re-download
+	 */
+	struct completion ready_compl;
+
+	/* maintains the status for cpe ssr */
+	u8 ready_status;
+
+	/* Indicate SSR type */
+	enum wcd_cpe_ssr_state_event ssr_type;
+
+	/* mutex to protect cpe ssr status variables */
+	struct mutex ssr_lock;
 };
 
 struct wcd_cpe_params {
@@ -67,5 +125,7 @@ struct wcd_cpe_params {
 	u32 cdc_id;
 };
 
+int wcd_cpe_ssr_event(void *core_handle,
+		      enum wcd_cpe_ssr_state_event event);
 struct wcd_cpe_core *wcd_cpe_init_and_boot(const char *,
-	struct snd_soc_codec *, struct wcd_cpe_params *params);
+struct snd_soc_codec *, struct wcd_cpe_params *params);
