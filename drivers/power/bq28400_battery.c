@@ -867,7 +867,7 @@ static int bq28400_probe(struct i2c_client *client,
 	}
 
 	/* Note: Lithium-ion battery normal temperature range 0..40 C */
-	ret = of_property_read_u32(dev_node, "ti,temp-cold",
+	ret = of_property_read_u32(dev_node, "ti,temp-cold-degc",
 				   &(bq28400_dev->temp_cold));
 	if (ret) {
 		pr_err("Unable to read cold temperature. ret=%d.\n", ret);
@@ -875,7 +875,7 @@ static int bq28400_probe(struct i2c_client *client,
 	}
 	pr_debug("cold temperature limit = %d C.\n", bq28400_dev->temp_cold);
 
-	ret = of_property_read_u32(dev_node, "ti,temp-hot",
+	ret = of_property_read_u32(dev_node, "ti,temp-hot-degc",
 				   &(bq28400_dev->temp_hot));
 	if (ret) {
 		pr_err("Unable to read hot temperature. ret=%d.\n", ret);
