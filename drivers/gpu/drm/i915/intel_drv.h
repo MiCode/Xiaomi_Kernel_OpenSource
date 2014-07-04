@@ -800,8 +800,6 @@ void intel_wait_for_pipe_off(struct drm_device *dev, int pipe);
 int ironlake_get_lanes_required(int target_clock, int link_bw, int bpp);
 void vlv_wait_port_ready(struct drm_i915_private *dev_priv,
 			 struct intel_digital_port *dport);
-extern int intel_enable_CSC(struct drm_device *dev, void *csc_params,
-		struct drm_file *file_priv);
 int intel_configure_csc(struct drm_device *dev, void *csc_params,
 					struct drm_file *file_priv);
 bool intel_get_load_detect_pipe(struct drm_connector *connector,
@@ -1074,4 +1072,6 @@ bool is_cursor_enabled(struct drm_i915_private *dev_priv,
 
 extern void intel_unpin_work_fn(struct work_struct *__work);
 extern void intel_unpin_sprite_work_fn(struct work_struct *__work);
+extern bool intel_pipe_has_type(struct drm_crtc *crtc, int type);
+
 #endif /* __INTEL_DRV_H__ */
