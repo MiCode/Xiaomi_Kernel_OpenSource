@@ -2566,6 +2566,8 @@ static int tomtom_codec_enable_adc(struct snd_soc_dapm_widget *w,
 {
 	struct snd_soc_codec *codec = w->codec;
 	u16 adc_reg;
+	u16 tx_fe_clkdiv_reg;
+	u8 tx_fe_clkdiv_mask;
 	u8 init_bit_shift;
 
 	pr_debug("%s %d\n", __func__, event);
@@ -2573,27 +2575,39 @@ static int tomtom_codec_enable_adc(struct snd_soc_dapm_widget *w,
 	switch (w->reg) {
 	case TOMTOM_A_TX_1_GAIN:
 		adc_reg = TOMTOM_A_TX_1_2_TEST_CTL;
+		tx_fe_clkdiv_reg = TOMTOM_A_TX_1_2_TXFE_CLKDIV;
+		tx_fe_clkdiv_mask = 0x0F;
 		init_bit_shift = 7;
 		break;
 	case TOMTOM_A_TX_2_GAIN:
 		adc_reg = TOMTOM_A_TX_1_2_TEST_CTL;
+		tx_fe_clkdiv_reg = TOMTOM_A_TX_1_2_TXFE_CLKDIV;
+		tx_fe_clkdiv_mask = 0xF0;
 		init_bit_shift = 6;
 		break;
 	case TOMTOM_A_TX_3_GAIN:
 		adc_reg = TOMTOM_A_TX_3_4_TEST_CTL;
 		init_bit_shift = 7;
+		tx_fe_clkdiv_reg = TOMTOM_A_TX_3_4_TXFE_CKDIV;
+		tx_fe_clkdiv_mask = 0x0F;
 		break;
 	case TOMTOM_A_TX_4_GAIN:
 		adc_reg = TOMTOM_A_TX_3_4_TEST_CTL;
 		init_bit_shift = 6;
+		tx_fe_clkdiv_reg = TOMTOM_A_TX_3_4_TXFE_CKDIV;
+		tx_fe_clkdiv_mask = 0xF0;
 		break;
 	case TOMTOM_A_TX_5_GAIN:
 		adc_reg = TOMTOM_A_TX_5_6_TEST_CTL;
 		init_bit_shift = 7;
+		tx_fe_clkdiv_reg = TOMTOM_A_TX_5_6_TXFE_CKDIV;
+		tx_fe_clkdiv_mask = 0x0F;
 		break;
 	case TOMTOM_A_TX_6_GAIN:
 		adc_reg = TOMTOM_A_TX_5_6_TEST_CTL;
 		init_bit_shift = 6;
+		tx_fe_clkdiv_reg = TOMTOM_A_TX_5_6_TXFE_CKDIV;
+		tx_fe_clkdiv_mask = 0xF0;
 		break;
 	default:
 		pr_err("%s: Error, invalid adc register\n", __func__);
@@ -2602,6 +2616,8 @@ static int tomtom_codec_enable_adc(struct snd_soc_dapm_widget *w,
 
 	switch (event) {
 	case SND_SOC_DAPM_PRE_PMU:
+		snd_soc_update_bits(codec, tx_fe_clkdiv_reg, tx_fe_clkdiv_mask,
+				    0x0);
 		tomtom_codec_enable_adc_block(codec, 1);
 		snd_soc_update_bits(codec, adc_reg, 1 << init_bit_shift,
 				1 << init_bit_shift);
@@ -3125,6 +3141,16 @@ static void tx_hpf_corner_freq_callback(struct work_struct *work)
 
 	pr_debug("%s(): decimator %u hpf_cut_of_freq 0x%x\n", __func__,
 		hpf_work->decimator, (unsigned int)hpf_cut_of_freq);
+
+	/*
+	 * Restore TXFE ClkDiv registers to default.
+	 * If any of these registers are modified during analog
+	 * front-end enablement, they will be restored back to the
+	 * default
+	 */
+	snd_soc_update_bits(codec, TOMTOM_A_TX_1_2_TXFE_CLKDIV, 0xFF, 0x55);
+	snd_soc_update_bits(codec, TOMTOM_A_TX_3_4_TXFE_CKDIV, 0xFF, 0x55);
+	snd_soc_update_bits(codec, TOMTOM_A_TX_5_6_TXFE_CKDIV, 0xFF, 0x55);
 
 	snd_soc_update_bits(codec, tx_mux_ctl_reg, 0x30, hpf_cut_of_freq << 4);
 }
