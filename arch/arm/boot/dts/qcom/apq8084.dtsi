@@ -11,6 +11,7 @@
  */
 
 /memreserve/ 0x00000000 0x00001000;
+/memreserve/ 0xac1c0000 0x00001000;
 
 #include "skeleton64.dtsi"
 #include <dt-bindings/clock/msm-clocks-krait.h>
@@ -4551,11 +4552,6 @@
 			qcom,ocmem-part-min = <0x55000>;
 		};
 
-	};
-
-	memory_hole: qcom,msm-mem-hole {
-		compatible = "qcom,msm-mem-hole";
-		qcom,memblock-remove = <0xac1c0000 0x1000>;
 	};
 
 	qcom,ipc-spinlock@fd484000 {
