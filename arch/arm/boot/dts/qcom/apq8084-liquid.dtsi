@@ -860,6 +860,8 @@
 };
 
 &i2c_0 {
+	qcom,i2c-bus-freq = <100000>;
+
 	battery@b {
 		compatible = "ti,bq28400-battery";
 		reg = <0xb>;
