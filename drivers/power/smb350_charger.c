@@ -101,6 +101,7 @@ struct smb350_chg {
 	struct dentry		*dent;
 	struct power_supply	dc_psy;
 	struct power_supply	batt_psy;
+	const char		*fuel_gauge_name;
 };
 
 static struct smb350_chg *the_chip;
@@ -800,6 +801,14 @@ static int smb350_parse_dt(struct smb350_chg *chip)
 		pr_debug("term_current_ma = %d rc = %d\n",
 						chip->term_current_ma, rc);
 	}
+
+	rc = of_property_read_string(node, "summit,fuel-gauge-name",
+					&(chip->fuel_gauge_name));
+	if (rc < 0) {
+		pr_debug("read of summit,fuel-gauge-name failure, rc = %d\n",
+			rc);
+	}
+
 	return 0;
 }
 
