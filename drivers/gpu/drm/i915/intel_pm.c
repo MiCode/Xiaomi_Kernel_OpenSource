@@ -1396,13 +1396,13 @@ static bool vlv_compute_drain_latency(struct drm_device *dev,
 
 	entries = (clock / 1000) * pixel_size;
 	*plane_prec_mult = (entries > 256) ?
-		DRAIN_LATENCY_PRECISION_32 : DRAIN_LATENCY_PRECISION_16;
+		DRAIN_LATENCY_PRECISION_64 : DRAIN_LATENCY_PRECISION_32;
 	*plane_dl = (64 * (*plane_prec_mult) * 4) / ((clock / 1000) *
 						     pixel_size);
 
 	entries = (clock / 1000) * 4;	/* BPP is always 4 for cursor */
 	*cursor_prec_mult = (entries > 256) ?
-		DRAIN_LATENCY_PRECISION_32 : DRAIN_LATENCY_PRECISION_16;
+		DRAIN_LATENCY_PRECISION_64 : DRAIN_LATENCY_PRECISION_32;
 	*cursor_dl = (64 * (*cursor_prec_mult) * 4) / ((clock / 1000) * 4);
 
 	return true;
@@ -1422,15 +1422,15 @@ static void vlv_update_drain_latency(struct drm_device *dev)
 	int planea_prec, planea_dl, planeb_prec, planeb_dl;
 	int cursora_prec, cursora_dl, cursorb_prec, cursorb_dl;
 	int plane_prec_mult, cursor_prec_mult; /* Precision multiplier is
-							either 16 or 32 */
+							either 64 or 32 */
 
 	/* For plane A, Cursor A */
 	if (vlv_compute_drain_latency(dev, 0, &plane_prec_mult, &planea_dl,
 				      &cursor_prec_mult, &cursora_dl)) {
 		cursora_prec = (cursor_prec_mult == DRAIN_LATENCY_PRECISION_32) ?
-			DDL_CURSORA_PRECISION_32 : DDL_CURSORA_PRECISION_16;
+			DDL_CURSORA_PRECISION_32 : DDL_CURSORA_PRECISION_64;
 		planea_prec = (plane_prec_mult == DRAIN_LATENCY_PRECISION_32) ?
-			DDL_PLANEA_PRECISION_32 : DDL_PLANEA_PRECISION_16;
+			DDL_PLANEA_PRECISION_32 : DDL_PLANEA_PRECISION_64;
 
 		I915_WRITE(VLV_DDL1, cursora_prec |
 				(cursora_dl << DDL_CURSORA_SHIFT) |
@@ -1441,9 +1441,9 @@ static void vlv_update_drain_latency(struct drm_device *dev)
 	if (vlv_compute_drain_latency(dev, 1, &plane_prec_mult, &planeb_dl,
 				      &cursor_prec_mult, &cursorb_dl)) {
 		cursorb_prec = (cursor_prec_mult == DRAIN_LATENCY_PRECISION_32) ?
-			DDL_CURSORB_PRECISION_32 : DDL_CURSORB_PRECISION_16;
+			DDL_CURSORB_PRECISION_32 : DDL_CURSORB_PRECISION_64;
 		planeb_prec = (plane_prec_mult == DRAIN_LATENCY_PRECISION_32) ?
-			DDL_PLANEB_PRECISION_32 : DDL_PLANEB_PRECISION_16;
+			DDL_PLANEB_PRECISION_32 : DDL_PLANEB_PRECISION_64;
 
 		I915_WRITE(VLV_DDL2, cursorb_prec |
 				(cursorb_dl << DDL_CURSORB_SHIFT) |
@@ -1502,16 +1502,22 @@ static void valleyview_update_wm(struct drm_crtc *crtc)
 		      plane_sr, cursor_sr);
 
 	I915_WRITE(DSPFW1,
-		   (plane_sr << DSPFW_SR_SHIFT) |
-		   (cursorb_wm << DSPFW_CURSORB_SHIFT) |
-		   (planeb_wm << DSPFW_PLANEB_SHIFT) |
-		   planea_wm);
+		   (DSPFW_SR_VAL << DSPFW_SR_SHIFT) |
+		   (DSPFW_CURSORB_VAL << DSPFW_CURSORB_SHIFT) |
+		   (DSPFW_PLANEB_VAL << DSPFW_PLANEB_SHIFT) |
+		   DSPFW_PLANEA_VAL);
 	I915_WRITE(DSPFW2,
-		   (I915_READ(DSPFW2) & ~DSPFW_CURSORA_MASK) |
-		   (cursora_wm << DSPFW_CURSORA_SHIFT));
+		   (DSPFW2_RESERVED) |
+		   (DSPFW_CURSORA_VAL << DSPFW_CURSORA_SHIFT) |
+		   DSPFW_PLANEC_VAL);
 	I915_WRITE(DSPFW3,
 		   (I915_READ(DSPFW3) & ~DSPFW_CURSOR_SR_MASK) |
-		   (cursor_sr << DSPFW_CURSOR_SR_SHIFT));
+		   (DSPFW3_VLV));
+	I915_WRITE(DSPFW5, (DSPFW5_DISPLAYB_VAL << DSPFW5_DISPLAYB_SHIFT) |
+			(DSPFW5_DISPLAYA_VAL << DSPFW5_DISPLAYA_SHIFT) |
+			(DSPFW5_CURSORB_VAL << DSPFW5_CURSORB_SHIFT) |
+			DSPFW5_CURSORSR_VAL);
+	I915_WRITE(DSPFW6, DSPFW6_DISPLAYSR_VAL);
 }
 
 static void g4x_update_wm(struct drm_crtc *crtc)
@@ -2983,6 +2989,22 @@ void ilk_wm_get_hw_state(struct drm_device *dev)
 
 	hw->enable_fbc_wm =
 		!(I915_READ(DISP_ARB_CTL) & DISP_FBC_WM_DIS);
+}
+
+static void valleyview_update_sprite_wm(struct drm_device *dev, int pipe,
+					uint32_t sprite_width,
+					int pixel_size)
+{
+	struct drm_i915_private *dev_priv = dev->dev_private;
+
+	I915_WRITE(DSPFW4, (DSPFW4_SPRITEB_VAL << DSPFW4_SPRITEB_SHIFT) |
+			(DSPFW4_CURSORA_VAL << DSPFW4_CURSORA_SHIFT) |
+			DSPFW4_SPRITEA_VAL);
+	I915_WRITE(DSPFW7, (DSPFW7_SPRITED1_VAL << DSPFW7_SPRITED1_SHIFT) |
+			(DSPFW7_SPRITED_VAL << DSPFW7_SPRITED_SHIFT) |
+			(DSPFW7_SPRITEC1_VAL << DSPFW7_SPRITEC1_SHIFT) |
+			DSPFW7_SPRITEC_VAL);
+	POSTING_READ(DSPFW4);
 }
 
 /**
@@ -6703,6 +6725,8 @@ void intel_init_pm(struct drm_device *dev)
 			cherryview_init_clock_gating;
 	} else if (IS_VALLEYVIEW(dev)) {
 		dev_priv->display.update_wm = valleyview_update_wm;
+		dev_priv->display.update_sprite_wm =
+				valleyview_update_sprite_wm;
 		dev_priv->display.init_clock_gating =
 			valleyview_init_clock_gating;
 	} else if (IS_PINEVIEW(dev)) {
