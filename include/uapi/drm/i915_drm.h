@@ -276,7 +276,7 @@ struct csc_coeff {
 #define DRM_I915_GEM_USERPTR		0x33
 #define DRM_I915_SET_PLANE_ZORDER	0x34
 #define DRM_I915_SET_PLANE_180_ROTATION 0x36
-#define DRM_I915_ENABLE_PLANE_RESERVED_REG_BIT_2	0x37
+#define DRM_I915_RESERVED_REG_BIT_2	0x37
 #define DRM_I915_SET_CSC		0x39
 #define DRM_I915_DPST_CONTEXT		0x3b
 #define DRM_I915_GEM_ACCESS_USERDATA	0x3c
@@ -342,9 +342,9 @@ struct csc_coeff {
 #define DRM_IOCTL_I915_SET_PLANE_180_ROTATION  \
 		DRM_IOW(DRM_COMMAND_BASE + DRM_I915_SET_PLANE_180_ROTATION, \
 		struct drm_i915_plane_180_rotation)
-#define DRM_IOCTL_I915_ENABLE_PLANE_RESERVED_REG_BIT_2	\
-	DRM_IOW(DRM_COMMAND_BASE + DRM_I915_ENABLE_PLANE_RESERVED_REG_BIT_2, \
-	struct drm_i915_enable_plane_reserved_reg_bit_2)
+#define DRM_IOCTL_I915_RESERVED_REG_BIT_2	\
+	DRM_IOW(DRM_COMMAND_BASE + DRM_I915_RESERVED_REG_BIT_2, \
+	struct drm_i915_reserved_reg_bit_2)
 #define DRM_IOCTL_I915_DPST_CONTEXT	DRM_IOWR(DRM_COMMAND_BASE + \
 			DRM_I915_DPST_CONTEXT, struct dpst_initialize_context)
 #define DRM_IOCTL_I915_GEM_ACCESS_USERDATA	\
@@ -1172,10 +1172,9 @@ struct drm_i915_plane_180_rotation {
 	__u32 rotate;
 };
 
-struct drm_i915_enable_plane_reserved_reg_bit_2 {
+struct drm_i915_reserved_reg_bit_2 {
 	__u32 enable;
 	int plane;
-	int crtc_id;
 };
 
 struct drm_i915_set_plane_alpha {
