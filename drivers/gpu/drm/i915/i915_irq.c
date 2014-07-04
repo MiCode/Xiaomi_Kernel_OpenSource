@@ -1808,6 +1808,10 @@ static void valleyview_pipestat_irq_handler(struct drm_device *dev, u32 iir)
 				intel_prepare_sprite_page_flip(dev, pipe);
 				intel_finish_sprite_page_flip(dev, pipe);
 		}
+		if (pipe_stats[pipe] & SPRITE1_FLIP_DONE_INT_STATUS_VLV) {
+				intel_prepare_sprite_page_flip(dev, pipe);
+				intel_finish_sprite_page_flip(dev, pipe);
+		}
 		if (pipe_stats[pipe] & PIPE_CRC_DONE_INTERRUPT_STATUS)
 			i9xx_pipe_crc_irq_handler(dev, pipe);
 
@@ -3380,7 +3384,9 @@ static void valleyview_display_irqs_install(struct drm_i915_private *dev_priv)
 	POSTING_READ(PIPESTAT(PIPE_A));
 
 	pipestat_mask = PLANE_FLIP_DONE_INT_STATUS_VLV |
-			PIPE_CRC_DONE_INTERRUPT_STATUS;
+			PIPE_CRC_DONE_INTERRUPT_STATUS |
+			SPRITE0_FLIP_DONE_INT_STATUS_VLV |
+			SPRITE1_FLIP_DONE_INT_STATUS_VLV;
 
 	i915_enable_pipestat(dev_priv, PIPE_A, pipestat_mask |
 					       PIPE_GMBUS_INTERRUPT_STATUS);

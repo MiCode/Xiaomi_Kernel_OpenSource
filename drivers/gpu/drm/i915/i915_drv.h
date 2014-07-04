@@ -1464,6 +1464,7 @@ struct drm_i915_private {
 	 * result in deadlocks.
 	 */
 	struct workqueue_struct *wq;
+	struct workqueue_struct *flipwq;
 
 	/* Display functions */
 	struct drm_i915_display_funcs display;

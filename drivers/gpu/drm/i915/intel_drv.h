@@ -444,7 +444,7 @@ struct intel_plane {
 	struct drm_plane base;
 	int plane;
 	enum pipe pipe;
-	struct drm_i915_gem_object *obj;
+	struct drm_i915_gem_object *obj, *old_obj;
 	bool can_scale;
 	int max_downscale;
 	u32 lut_r[1024], lut_g[1024], lut_b[1024];
