@@ -230,7 +230,7 @@ static bool __ref msm_pm_spm_power_collapse(
 	void *entry;
 	bool collapsed = 0;
 	int ret;
-	bool save_cpu_regs = (num_online_cpus() == 1) || from_idle;
+	bool save_cpu_regs = (cpu_online(cpu) || from_idle);
 
 	if (MSM_PM_DEBUG_POWER_COLLAPSE & msm_pm_debug_mask)
 		pr_info("CPU%u: %s: notify_rpm %d\n",
