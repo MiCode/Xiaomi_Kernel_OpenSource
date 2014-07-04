@@ -63,7 +63,8 @@ i915_dpst_save_conn_on_edp(struct drm_device *dev)
 	{
 		i_connector = to_intel_connector(d_connector);
 		if (i_connector->encoder
-			&& i_connector->encoder->type == INTEL_OUTPUT_EDP) {
+			&& (i_connector->encoder->type == INTEL_OUTPUT_EDP ||
+			i_connector->encoder->type == INTEL_OUTPUT_DSI)) {
 			dev_priv->dpst.connector = i_connector;
 			new_pipe = to_intel_crtc(i_connector->encoder->base.crtc)->pipe;
 			if (new_pipe != dev_priv->dpst.pipe)
@@ -158,6 +159,7 @@ static int
 i915_dpst_set_user_enable(struct drm_device *dev, bool enable)
 {
 	struct drm_i915_private *dev_priv = dev->dev_private;
+	int ret = 0;
 
 	dev_priv->dpst.user_enable = enable;
 
@@ -168,11 +170,15 @@ i915_dpst_set_user_enable(struct drm_device *dev, bool enable)
 		/* User disabling invalidates any saved settings */
 		dev_priv->dpst.saved.is_valid = false;
 
+		/* Avoid warning messages */
+		mutex_lock(&dev->mode_config.mutex);
 		if (dev_priv->dpst.enabled)
-			return i915_dpst_disable_hist_interrupt(dev);
+			ret = i915_dpst_disable_hist_interrupt(dev);
+
+		mutex_unlock(&dev->mode_config.mutex);
 	}
 
-	return 0;
+	return ret;
 }
 
 static int
@@ -225,9 +231,12 @@ i915_dpst_apply_luma(struct drm_device *dev,
 	dev_priv->dpst.blc_adjustment =
 	ioctl_data->ie_container.dpst_blc_factor;
 
+	/* Avoid warning messages */
+	mutex_lock(&dev->mode_config.mutex);
 	spin_lock_irqsave(&dev_priv->backlight_lock, spin_lock_flags);
 	i915_dpst_set_brightness(dev, panel->backlight.level);
 	spin_unlock_irqrestore(&dev_priv->backlight_lock, spin_lock_flags);
+	mutex_unlock(&dev->mode_config.mutex);
 
 	/* Enable Image Enhancement Table */
 	blm_hist_ctl = I915_READ(dev_priv->dpst.reg.blm_hist_ctl);
@@ -267,9 +276,12 @@ i915_dpst_restore_luma(struct drm_device *dev)
 
 	dev_priv->dpst.blc_adjustment = dev_priv->dpst.saved.blc_adjustment;
 
+	/* Avoid warning messages */
+	mutex_lock(&dev->mode_config.mutex);
 	spin_lock_irqsave(&dev_priv->backlight_lock, spin_lock_flags);
 	i915_dpst_set_brightness(dev, panel->backlight.level);
 	spin_unlock_irqrestore(&dev_priv->backlight_lock, spin_lock_flags);
+	mutex_unlock(&dev->mode_config.mutex);
 
 	/* IE mod table entries are saved in the hardware even if the table
 	 * is disabled, so we only need to re-enable the table */
@@ -414,11 +426,21 @@ i915_dpst_display_off(struct drm_device *dev)
 	if (!dev_priv->dpst.user_enable)
 		return;
 
-	mutex_lock(&dev_priv->dpst.ioctl_lock);
+	/* Set the flag to reject all the subsequent DPST ioctls
+	 * till the Display is turned on again
+	 */
+	dev_priv->dpst.display_off = true;
 
-	i915_dpst_disable_hist_interrupt(dev);
-
-	mutex_unlock(&dev_priv->dpst.ioctl_lock);
+	/* To avoid the deadlock with the concurrent dpst ioctl path
+	 * (like apply_luma) due to cross dependency between the
+	 * ioctl_lock & mode_config.mutex. Although this leaves
+	 * a very tiny window, but it shall be benign */
+	if (!mutex_trylock(&dev_priv->dpst.ioctl_lock))
+		i915_dpst_disable_hist_interrupt(dev);
+	else {
+		i915_dpst_disable_hist_interrupt(dev);
+		mutex_unlock(&dev_priv->dpst.ioctl_lock);
+	}
 }
 
 void
@@ -436,6 +458,7 @@ i915_dpst_display_on(struct drm_device *dev)
 			&& !dev_priv->dpst.kernel_disable)
 		i915_dpst_enable_hist_interrupt(dev);
 
+	dev_priv->dpst.display_off = false;
 	mutex_unlock(&dev_priv->dpst.ioctl_lock);
 }
 
@@ -540,8 +563,18 @@ i915_dpst_context(struct drm_device *dev, void *data,
 	if (!I915_HAS_DPST(dev))
 		return -EINVAL;
 
+
 	/* Can be called from multiple usermode, prevent race condition */
 	mutex_lock(&dev_priv->dpst.ioctl_lock);
+
+	/* If Display is currently off (could be power gated also),
+	 * don't service the ioctls
+	 */
+	if (dev_priv->dpst.display_off) {
+		DRM_DEBUG_KMS("Display is off\n");
+		mutex_unlock(&dev_priv->dpst.ioctl_lock);
+		return -EINVAL;
+	}
 
 	ioctl_data = (struct dpst_initialize_context *) data;
 	switch (ioctl_data->dpst_ioctl_type) {

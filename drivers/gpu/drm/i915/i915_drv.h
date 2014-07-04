@@ -1527,6 +1527,7 @@ struct drm_i915_private {
 		bool kernel_disable;	/* kernel override wishes to disable */
 		bool enabled;		/* actual functional state */
 		bool pipe_mismatch;	/* Indicates pipe mismatch between user mode and kernel */
+		bool display_off;	/* Indicates that Display is off (could be power gated also) */
 		struct {
 			bool is_valid;
 			u32 blc_adjustment;

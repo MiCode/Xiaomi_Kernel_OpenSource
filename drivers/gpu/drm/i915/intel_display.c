@@ -5246,6 +5246,10 @@ static void valleyview_crtc_enable(struct drm_crtc *crtc)
 			encoder->enable(encoder);
 	}
 
+	/* Update DPST context after mode change */
+	if (I915_HAS_DPST(dev))
+		i915_dpst_display_on(dev);
+
 	intel_crtc_enable_planes(crtc);
 	intel_update_drrs(dev);
 
@@ -5385,6 +5389,9 @@ static void i9xx_crtc_disable(struct drm_crtc *crtc)
 	 */
 	if (IS_GEN2(dev))
 		intel_set_cpu_fifo_underrun_reporting(dev, pipe, false);
+
+	if (I915_HAS_DPST(dev))
+		i915_dpst_display_off(dev);
 
 	intel_crtc_disable_planes(crtc);
 
