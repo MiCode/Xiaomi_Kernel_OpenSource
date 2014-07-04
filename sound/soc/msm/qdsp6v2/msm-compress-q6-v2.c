@@ -1219,21 +1219,10 @@ static int msm_compr_trigger(struct snd_compr_stream *cstream, int cmd)
 		if (!prtd->gapless_state.gapless_transition) {
 			pr_debug("issue CMD_FLUSH stream_id %d\n", stream_id);
 			spin_unlock_irqrestore(&prtd->lock, flags);
-			rc = q6asm_stream_cmd(
+			q6asm_stream_cmd(
 				prtd->audio_client, CMD_FLUSH, stream_id);
-			if (rc < 0) {
-				pr_err("%s: flush cmd failed rc=%d\n",
-							__func__, rc);
-				return rc;
-			}
-			rc = wait_event_timeout(prtd->flush_wait,
+			wait_event_timeout(prtd->flush_wait,
 					prtd->cmd_ack, 1 * HZ);
-			if (!rc) {
-				rc = -ETIMEDOUT;
-				pr_err("Flush cmd timeout\n");
-			} else {
-				rc = 0; /* prtd->cmd_status == OK? 0 : -EPERM*/
-			}
 			spin_lock_irqsave(&prtd->lock, flags);
 		} else {
 			prtd->first_buffer = 0;
