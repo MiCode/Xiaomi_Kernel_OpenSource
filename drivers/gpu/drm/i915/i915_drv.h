@@ -1786,7 +1786,15 @@ struct drm_i915_gem_object {
 			struct work_struct *work;
 		} userptr;
 	};
+
+	/**
+	* Number of crtcs where this object is currently the fb, but
+	* will be page flipped away on the next vblank.  When it
+	* reaches 0, dev_priv->pending_flip_queue will be woken up.
+	*/
+	atomic_t pending_flip;
 };
+
 #define to_intel_bo(x) container_of(x, struct drm_i915_gem_object, base)
 
 /**

@@ -574,7 +574,8 @@ struct drm_plane_funcs {
 			    int crtc_x, int crtc_y,
 			    unsigned int crtc_w, unsigned int crtc_h,
 			    uint32_t src_x, uint32_t src_y,
-			    uint32_t src_w, uint32_t src_h);
+			    uint32_t src_w, uint32_t src_h,
+				struct drm_pending_vblank_event *e);
 	int (*disable_plane)(struct drm_plane *plane);
 	void (*destroy)(struct drm_plane *plane);
 

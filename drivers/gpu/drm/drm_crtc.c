@@ -2196,8 +2196,10 @@ int drm_mode_setplane(struct drm_device *dev, void *data,
 	struct drm_plane *plane;
 	struct drm_crtc *crtc;
 	struct drm_framebuffer *fb = NULL, *old_fb = NULL;
+	struct drm_pending_vblank_event *e = NULL;
 	int ret = 0;
 	unsigned int fb_width, fb_height;
+	unsigned long flags;
 	int i;
 
 	if (!drm_core_check_feature(dev, DRIVER_MODESET))
@@ -2299,16 +2301,48 @@ int drm_mode_setplane(struct drm_device *dev, void *data,
 
 	drm_modeset_lock_all(dev);
 	old_fb = plane->fb;
+
+	if (plane_req->flags & DRM_MODE_PAGE_FLIP_EVENT) {
+		ret = -ENOMEM;
+		spin_lock_irqsave(&dev->event_lock, flags);
+		if (file_priv->event_space < sizeof(e->event)) {
+			spin_unlock_irqrestore(&dev->event_lock, flags);
+			goto out;
+		}
+		file_priv->event_space -= sizeof(e->event);
+		spin_unlock_irqrestore(&dev->event_lock, flags);
+		e = kzalloc(sizeof(*e), GFP_KERNEL);
+		if (e == NULL) {
+			spin_lock_irqsave(&dev->event_lock, flags);
+			file_priv->event_space += sizeof(e->event);
+			spin_unlock_irqrestore(&dev->event_lock, flags);
+			goto out;
+		}
+
+		e->event.base.type = DRM_EVENT_FLIP_COMPLETE;
+		e->event.base.length = sizeof(e->event);
+		e->event.user_data = plane_req->user_data;
+		e->base.event = &e->event.base;
+		e->base.file_priv = file_priv;
+		e->base.destroy = (void (*) (struct drm_pending_event *)) kfree;
+	}
+
 	ret = plane->funcs->update_plane(plane, crtc, fb,
 					 plane_req->crtc_x, plane_req->crtc_y,
 					 plane_req->crtc_w, plane_req->crtc_h,
 					 plane_req->src_x, plane_req->src_y,
-					 plane_req->src_w, plane_req->src_h);
+					 plane_req->src_w, plane_req->src_h, e);
 	if (!ret) {
 		plane->crtc = crtc;
 		plane->fb = fb;
 		fb = NULL;
 	} else {
+		if (plane_req->flags & DRM_MODE_PAGE_FLIP_EVENT) {
+			spin_lock_irqsave(&dev->event_lock, flags);
+			file_priv->event_space += sizeof(e->event);
+			spin_unlock_irqrestore(&dev->event_lock, flags);
+			kfree(e);
+		}
 		old_fb = NULL;
 	}
 	drm_modeset_unlock_all(dev);
@@ -2328,7 +2362,6 @@ out:
  *
  * This is a little helper to wrap internal calls to the ->set_config driver
  * interface. The only thing it adds is correct refcounting dance.
- * 
  * Returns:
  * Zero on success, errno on failure.
  */
@@ -4333,6 +4366,7 @@ int drm_mode_page_flip_ioctl(struct drm_device *dev,
 		 * due to a hotplug event, that userspace has not
 		 * yet discovered.
 		 */
+		DRM_ERROR("fb = NULL");
 		ret = -EBUSY;
 		goto out;
 	}

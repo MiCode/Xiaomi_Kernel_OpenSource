@@ -154,6 +154,7 @@ struct drm_mode_set_plane {
 	/* Source values are 16.16 fixed point */
 	__u32 src_x, src_y;
 	__u32 src_h, src_w;
+	__u64 user_data;
 };
 
 struct drm_mode_get_plane {

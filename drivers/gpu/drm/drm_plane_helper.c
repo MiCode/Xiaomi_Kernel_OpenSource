@@ -186,7 +186,8 @@ int drm_primary_helper_update(struct drm_plane *plane, struct drm_crtc *crtc,
 			      int crtc_x, int crtc_y,
 			      unsigned int crtc_w, unsigned int crtc_h,
 			      uint32_t src_x, uint32_t src_y,
-			      uint32_t src_w, uint32_t src_h)
+			      uint32_t src_w, uint32_t src_h,
+			      struct drm_pending_vblank_event *event)
 {
 	struct drm_mode_set set = {
 		.crtc = crtc,

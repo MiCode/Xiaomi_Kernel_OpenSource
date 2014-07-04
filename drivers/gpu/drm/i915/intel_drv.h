@@ -381,6 +381,7 @@ struct intel_crtc {
 	struct intel_overlay *overlay;
 
 	struct intel_unpin_work *unpin_work;
+	struct intel_unpin_work *sprite_unpin_work;
 	atomic_t unpin_work_count;
 
 	struct intel_crtc_vblank_work {
@@ -458,6 +459,8 @@ struct intel_plane {
 	 * for the watermark calculations. Currently only Haswell uses this.
 	 */
 	struct intel_plane_wm_parameters wm;
+	/* Added for deffered plane disable*/
+	struct work_struct work;
 
 	void (*update_plane)(struct drm_plane *plane,
 			     struct drm_crtc *crtc,
@@ -466,7 +469,8 @@ struct intel_plane {
 			     int crtc_x, int crtc_y,
 			     unsigned int crtc_w, unsigned int crtc_h,
 			     uint32_t x, uint32_t y,
-			     uint32_t src_w, uint32_t src_h);
+			     uint32_t src_w, uint32_t src_h,
+			     struct drm_pending_vblank_event *event);
 	void (*disable_plane)(struct drm_plane *plane,
 			      struct drm_crtc *crtc);
 	int (*update_colorkey)(struct drm_plane *plane,
@@ -816,6 +820,8 @@ __intel_framebuffer_create(struct drm_device *dev,
 void intel_prepare_page_flip(struct drm_device *dev, int plane);
 void intel_finish_page_flip(struct drm_device *dev, int pipe);
 void intel_finish_page_flip_plane(struct drm_device *dev, int plane);
+extern void intel_prepare_sprite_page_flip(struct drm_device *dev, int plane);
+extern void intel_finish_sprite_page_flip(struct drm_device *dev, int plane);
 struct intel_shared_dpll *intel_crtc_to_shared_dpll(struct intel_crtc *crtc);
 void assert_shared_dpll(struct drm_i915_private *dev_priv,
 			struct intel_shared_dpll *pll,
@@ -1062,4 +1068,6 @@ bool is_sprite_enabled(struct drm_i915_private *dev_priv,
 bool is_cursor_enabled(struct drm_i915_private *dev_priv,
 			enum pipe pipe);
 
+extern void intel_unpin_work_fn(struct work_struct *__work);
+extern void intel_unpin_sprite_work_fn(struct work_struct *__work);
 #endif /* __INTEL_DRV_H__ */
