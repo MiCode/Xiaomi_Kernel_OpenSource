@@ -61,6 +61,7 @@ int mdss_mdp_pipe_panic_signal_ctrl(struct mdss_mdp_pipe *pipe, bool enable)
 	if (!mdata->has_panic_ctrl)
 		goto end;
 
+	mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_ON);
 	panic_robust_ctrl = readl_relaxed(mdata->mdp_base +
 			MMSS_MDP_PANIC_ROBUST_CTRL);
 	if (enable)
@@ -69,6 +70,7 @@ int mdss_mdp_pipe_panic_signal_ctrl(struct mdss_mdp_pipe *pipe, bool enable)
 		panic_robust_ctrl &= ~BIT(pipe->panic_ctrl_ndx);
 	writel_relaxed(panic_robust_ctrl,
 				mdata->mdp_base + MMSS_MDP_PANIC_ROBUST_CTRL);
+	mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_OFF);
 
 end:
 	return 0;
