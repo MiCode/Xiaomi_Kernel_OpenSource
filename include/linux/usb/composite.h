@@ -403,7 +403,8 @@ extern struct usb_string *usb_gstrings_attach(struct usb_composite_dev *cdev,
 		struct usb_gadget_strings **sp, unsigned n_strings);
 
 extern int usb_string_ids_n(struct usb_composite_dev *c, unsigned n);
-
+extern void composite_setup_complete(struct usb_ep *ep,
+					struct usb_request *req);
 extern void composite_disconnect(struct usb_gadget *gadget);
 extern int composite_setup(struct usb_gadget *gadget,
 		const struct usb_ctrlrequest *ctrl);
