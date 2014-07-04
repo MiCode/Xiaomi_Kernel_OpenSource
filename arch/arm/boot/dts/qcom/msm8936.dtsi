@@ -14,6 +14,7 @@
 #include <dt-bindings/clock/msm-clocks-8936.h>
 #include <dt-bindings/clock/msm-cpu-clocks-8939.h>
 #include "msm8939-common.dtsi"
+#include "msm8936-coresight.dtsi"
 #include "msm8936-cpu.dtsi"
 #include "msm8936-pm.dtsi"
 #include "msm8936-smem.dtsi"

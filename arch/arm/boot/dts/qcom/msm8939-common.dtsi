@@ -89,7 +89,6 @@
 #include "msm8939-ion.dtsi"
 #include "msm-gdsc-8916.dtsi"
 #include "msm8939-iommu.dtsi"
-#include "msm8939-coresight.dtsi"
 #include "msm8939-bus.dtsi"
 #include "msm8939-mdss.dtsi"
 #include "msm8939-iommu-domains.dtsi"
