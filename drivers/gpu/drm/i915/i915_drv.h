@@ -1500,6 +1500,7 @@ struct drm_i915_private {
 	bool maxfifo_enabled;
 	bool csc_enabled;
 	bool gamma_enabled;
+	bool is_resuming;
 
 	/* PCH chipset type */
 	enum intel_pch pch_type;

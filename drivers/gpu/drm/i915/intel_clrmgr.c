@@ -537,3 +537,72 @@ int intel_crtc_disable_gamma(struct drm_crtc *crtc, u32 identifier)
 	}
 	return 0;
 }
+
+/* Tune Contrast Brightness Value for Sprite */
+int intel_sprite_cb_adjust(struct drm_i915_private *dev_priv,
+		struct cont_brightlut *cb_ptr)
+{
+	if (!dev_priv || !cb_ptr) {
+		DRM_ERROR("Contrast Brightness: Invalid Arguments\n");
+		return -EINVAL;
+	}
+
+	switch (cb_ptr->sprite_no) {
+	/* Sprite plane */
+	case SPRITEA:
+		if (is_sprite_enabled(dev_priv, 0, 0) || dev_priv->is_resuming)
+			I915_WRITE(SPRITEA_CB_REG, cb_ptr->val);
+	break;
+	case SPRITEB:
+		if (is_sprite_enabled(dev_priv, 0, 1) || dev_priv->is_resuming)
+			I915_WRITE(SPRITEB_CB_REG, cb_ptr->val);
+	break;
+	case SPRITEC:
+		if (is_sprite_enabled(dev_priv, 1, 0) || dev_priv->is_resuming)
+			I915_WRITE(SPRITEC_CB_REG, cb_ptr->val);
+	break;
+	case SPRITED:
+		if (is_sprite_enabled(dev_priv, 1, 1) || dev_priv->is_resuming)
+			I915_WRITE(SPRITED_CB_REG, cb_ptr->val);
+	break;
+	default:
+		DRM_ERROR("Invalid Sprite Number\n");
+		return -EINVAL;
+	}
+
+	return 0;
+}
+
+/* Tune Hue Saturation Value for Sprite */
+int intel_sprite_hs_adjust(struct drm_i915_private *dev_priv,
+		struct hue_saturationlut *hs_ptr)
+{
+	if (!dev_priv || !hs_ptr) {
+		DRM_ERROR("Hue Saturation: Invalid Arguments\n");
+		return -EINVAL;
+	}
+
+	switch (hs_ptr->sprite_no) {
+	/* Sprite plane */
+	case SPRITEA:
+		if (is_sprite_enabled(dev_priv, 0, 0) || dev_priv->is_resuming)
+			I915_WRITE(SPRITEA_HS_REG, hs_ptr->val);
+	break;
+	case SPRITEB:
+		if (is_sprite_enabled(dev_priv, 0, 1) || dev_priv->is_resuming)
+			I915_WRITE(SPRITEB_HS_REG, hs_ptr->val);
+	break;
+	case SPRITEC:
+		if (is_sprite_enabled(dev_priv, 1, 0) || dev_priv->is_resuming)
+			I915_WRITE(SPRITEC_HS_REG, hs_ptr->val);
+	break;
+	case SPRITED:
+		if (is_sprite_enabled(dev_priv, 1, 1) || dev_priv->is_resuming)
+			I915_WRITE(SPRITED_HS_REG, hs_ptr->val);
+	break;
+	default:
+		DRM_ERROR("Invalid Sprite Number\n");
+		return -EINVAL;
+	}
+	return 0;
+}

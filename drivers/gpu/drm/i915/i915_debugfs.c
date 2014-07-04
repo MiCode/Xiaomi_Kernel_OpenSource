@@ -1949,6 +1949,172 @@ const struct file_operations i915_gamma_enable_fops = {
 	.llseek = default_llseek,
 };
 
+ssize_t i915_cb_adjust_read(struct file *filp,
+		 char __user *ubuf,
+		 size_t max,
+		 loff_t *ppos)
+{
+	/* To do: Not implemented yet */
+	DRM_ERROR("Contrast Brightness adjust: Read Not implemented\n");
+	return -EINVAL;
+}
+
+ssize_t i915_cb_adjust_write(struct file *filp,
+		  const char __user *ubuf,
+		  size_t count,
+		  loff_t *ppos)
+{
+	int ret = 0;
+	struct drm_device *dev = filp->private_data;
+	struct cont_brightlut *cb_ptr = NULL;
+	struct drm_i915_private *dev_priv = dev->dev_private;
+	char *buf = NULL;
+
+	/* Validate input */
+	if (!count) {
+		DRM_ERROR("Contrast Brightness: insufficient data\n");
+		return -EINVAL;
+	}
+
+	buf = kzalloc(count, GFP_KERNEL);
+	if (!buf) {
+		DRM_ERROR("Contrast Brightness adjust: insufficient memory\n");
+		return -ENOMEM;
+	}
+
+	cb_ptr = kzalloc(sizeof(struct cont_brightlut), GFP_KERNEL);
+	if (!cb_ptr) {
+		DRM_ERROR("Contrast Brightness adjust: insufficient memory\n");
+		kfree(buf);
+		return -ENOMEM;
+	}
+
+	/* Get the data */
+	if (copy_from_user(buf, ubuf, count)) {
+		DRM_ERROR("Contrast Brightness: copy failed\n");
+		ret = -EINVAL;
+		goto EXIT;
+	}
+
+	/* Parse input data */
+	ret = parse_clrmgr_input((uint *)cb_ptr, buf, 2, count);
+	if (ret < 0)
+		DRM_ERROR("Contrast Brightness loading failed\n");
+	else
+		DRM_DEBUG("Contrast Brightness loading done\n");
+
+	if (cb_ptr->sprite_no < SPRITEA || cb_ptr->sprite_no > SPRITED ||
+			cb_ptr->sprite_no == PLANEB) {
+		DRM_ERROR("Sprite value out of range. Enter 2,3, 5 or 6\n");
+		goto EXIT;
+	}
+
+	DRM_DEBUG("sprite = %d Val=0x%x,\n", cb_ptr->sprite_no, cb_ptr->val);
+
+	if (intel_sprite_cb_adjust(dev_priv, cb_ptr))
+		DRM_ERROR("Contrast Brightness update failed\n");
+
+EXIT:
+	kfree(cb_ptr);
+	kfree(buf);
+	/* If cant read the full buffer, read from last left */
+	if (ret < count-1)
+		return ret;
+
+	return count;
+}
+
+ssize_t i915_hs_adjust_read(struct file *filp,
+		 char __user *ubuf,
+		 size_t max,
+		 loff_t *ppos)
+{
+	/* To do: Not implemented yet */
+	DRM_ERROR("Hue Saturation adjust: Read Not implemented\n");
+	return -EINVAL;
+}
+ssize_t i915_hs_adjust_write(struct file *filp,
+		  const char __user *ubuf,
+		  size_t count,
+		  loff_t *ppos)
+{
+	int ret = count;
+	struct drm_device *dev = filp->private_data;
+	struct hue_saturationlut *hs_ptr = NULL;
+	struct drm_i915_private *dev_priv = dev->dev_private;
+	char *buf = NULL;
+
+	/* Validate input */
+	if (!count) {
+		DRM_ERROR("Hue Saturation: insufficient data\n");
+		return -EINVAL;
+	}
+
+	buf = kzalloc(count, GFP_KERNEL);
+	if (!buf) {
+		DRM_ERROR("Hue Saturation adjust: insufficient memory\n");
+		return -ENOMEM;
+	}
+
+	hs_ptr = kzalloc(sizeof(struct hue_saturationlut), GFP_KERNEL);
+	if (!hs_ptr) {
+		DRM_ERROR("Hue Saturation adjust: insufficient memory\n");
+		kfree(buf);
+		return -ENOMEM;
+	}
+
+	/* Get the data */
+	if (copy_from_user(buf, ubuf, count)) {
+		DRM_ERROR("Hue Saturation: copy failed\n");
+		ret = -EINVAL;
+		goto EXIT;
+	}
+
+	/* Parse input data */
+	ret = parse_clrmgr_input((uint *)hs_ptr, buf, 2, count);
+	if (ret < 0)
+		DRM_ERROR("Hue Saturation loading failed\n");
+	else
+		DRM_DEBUG("Hue Saturation loading done\n");
+
+	if (hs_ptr->sprite_no < SPRITEA || hs_ptr->sprite_no > SPRITED ||
+			hs_ptr->sprite_no == PLANEB) {
+		DRM_ERROR("sprite = %d Val=0x%x,\n", hs_ptr->sprite_no,
+					hs_ptr->val);
+		goto EXIT;
+	}
+
+	DRM_DEBUG("sprite = %d Val=0x%x,\n", hs_ptr->sprite_no, hs_ptr->val);
+
+	if (intel_sprite_hs_adjust(dev_priv, hs_ptr))
+		DRM_ERROR("Hue Saturation update failed\n");
+
+EXIT:
+	kfree(hs_ptr);
+	kfree(buf);
+	/* If cant read the full buffer, read from last left */
+	if (ret < count-1)
+		return ret;
+
+	return count;
+}
+
+static const struct file_operations i915_cb_adjust_fops = {
+	.owner = THIS_MODULE,
+	.open = simple_open,
+	.read = i915_cb_adjust_read,
+	.write = i915_cb_adjust_write,
+	.llseek = default_llseek,
+};
+
+static const struct file_operations i915_hs_adjust_fops = {
+	.owner = THIS_MODULE,
+	.open = simple_open,
+	.read = i915_hs_adjust_read,
+	.write = i915_hs_adjust_write,
+	.llseek = default_llseek,
+};
+
 
 
 
@@ -4651,6 +4817,18 @@ int i915_debugfs_init(struct drm_minor *minor)
 		if (ret)
 			return ret;
 	}
+
+	ret = i915_debugfs_create(minor->debugfs_root, minor,
+					"cb_adjust",
+					&i915_cb_adjust_fops);
+	if (ret)
+		return ret;
+
+	ret = i915_debugfs_create(minor->debugfs_root, minor,
+					"hs_adjust",
+					&i915_hs_adjust_fops);
+	if (ret)
+		return ret;
 
 	ret = i915_debugfs_create(minor->debugfs_root, minor,
 					"csc_adjust",

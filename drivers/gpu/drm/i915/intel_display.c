@@ -11929,6 +11929,8 @@ static void intel_crtc_init(struct drm_device *dev, int pipe)
 	intel_crtc->sprite0_alpha = true;
 	intel_crtc->sprite1_alpha = true;
 	intel_crtc->rotate180 = false;
+	/* Flag for wake from sleep */
+	dev_priv->is_resuming = false;
 
 	WARN_ON(drm_crtc_index(&intel_crtc->base) != intel_crtc->pipe);
 }

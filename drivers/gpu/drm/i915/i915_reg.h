@@ -4163,6 +4163,19 @@ enum punit_power_well {
 #define _DSPBOFFSET		(dev_priv->info.display_mmio_offset + 0x711A4)
 #define _DSPBSURFLIVE		(dev_priv->info.display_mmio_offset + 0x711AC)
 
+/* Sprite Contrast and Brightness Registers */
+#define SPRITEA_CB_REG		(dev_priv->info.display_mmio_offset + 0x721d0)
+#define SPRITEB_CB_REG		(dev_priv->info.display_mmio_offset + 0x722d0)
+#define SPRITEC_CB_REG		(dev_priv->info.display_mmio_offset + 0x723d0)
+#define SPRITED_CB_REG		(dev_priv->info.display_mmio_offset + 0x724d0)
+
+/* Sprite Hue and Saturation Registers */
+#define SPRITEA_HS_REG         (dev_priv->info.display_mmio_offset + 0x721d4)
+#define SPRITEB_HS_REG         (dev_priv->info.display_mmio_offset + 0x722d4)
+#define SPRITEC_HS_REG         (dev_priv->info.display_mmio_offset + 0x723d4)
+#define SPRITED_HS_REG         (dev_priv->info.display_mmio_offset + 0x724d4)
+
+
 /* Sprite A control */
 #define _DVSACNTR		0x72180
 #define   DVS_ENABLE		(1<<31)

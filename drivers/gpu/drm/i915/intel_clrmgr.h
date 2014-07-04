@@ -29,6 +29,15 @@
 #ifndef _I915_CLR_MNGR_H_
 #define _I915_CLR_MNGR_H_
 
+struct cont_brightlut {
+	short sprite_no;
+	u32 val;
+};
+
+struct hue_saturationlut {
+	short sprite_no;
+	u32 val;
+};
 /* CSC correction */
 #define CSC_MAX_COEFF_COUNT		6
 #define CLR_MGR_PARSE_MAX		128
@@ -83,5 +92,9 @@ int do_intel_enable_csc(struct drm_device *dev, void *data,
 void do_intel_disable_csc(struct drm_device *dev, struct drm_crtc *crtc);
 int intel_crtc_enable_gamma(struct drm_crtc *crtc, u32 identifier);
 int intel_crtc_disable_gamma(struct drm_crtc *crtc, u32 identifier);
+int intel_sprite_cb_adjust(struct drm_i915_private *dev_priv,
+		struct cont_brightlut *cb_ptr);
+int intel_sprite_hs_adjust(struct drm_i915_private *dev_priv,
+		struct hue_saturationlut *hs_ptr);
 
 #endif
