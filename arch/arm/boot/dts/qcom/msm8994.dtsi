@@ -576,6 +576,7 @@
 		vreg-1.8-supply = <&pm8994_l12>;
 		vreg-0.9-supply = <&pm8994_l28>;
 
+		qcom,l1-supported;
 		qcom,l1ss-supported;
 		qcom,aux-clk-sync;
 
