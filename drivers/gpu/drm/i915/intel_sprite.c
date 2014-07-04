@@ -320,10 +320,20 @@ int i915_set_plane_zorder(struct drm_device *dev, void *data,
 
 	/* Clear the older Z-order */
 	val = I915_READ(SPCNTR(pipe, 0));
+	if (dev_priv->maxfifo_enabled && !(val & SPRITE_ZORDER_ENABLE)) {
+		I915_WRITE(FW_BLC_SELF_VLV, ~FW_CSPWRDWNEN);
+		dev_priv->maxfifo_enabled = false;
+		intel_wait_for_vblank(dev, pipe);
+	}
 	val &= ~(SPRITE_FORCE_BOTTOM | SPRITE_ZORDER_ENABLE);
 	I915_WRITE(SPCNTR(pipe, 0), val);
 
 	val = I915_READ(SPCNTR(pipe, 1));
+	if (dev_priv->maxfifo_enabled && !(val & SPRITE_ZORDER_ENABLE)) {
+		I915_WRITE(FW_BLC_SELF_VLV, ~FW_CSPWRDWNEN);
+		dev_priv->maxfifo_enabled = false;
+		intel_wait_for_vblank(dev, pipe);
+	}
 	val &= ~(SPRITE_FORCE_BOTTOM | SPRITE_ZORDER_ENABLE);
 	I915_WRITE(SPCNTR(pipe, 1), val);
 
@@ -1539,6 +1549,7 @@ static int
 intel_disable_plane(struct drm_plane *plane)
 {
 	struct drm_device *dev = plane->dev;
+	struct drm_i915_private *dev_priv = dev->dev_private;
 	struct intel_plane *intel_plane = to_intel_plane(plane);
 	struct intel_crtc *intel_crtc;
 	struct intel_plane *intel_plane_wq;
@@ -1556,6 +1567,11 @@ intel_disable_plane(struct drm_plane *plane)
 
 	/* To support deffered plane disable */
 	INIT_WORK(&intel_plane_wq->work, intel_disable_plane_unpin_work_fn);
+
+	if (dev_priv->maxfifo_enabled) {
+		I915_WRITE(FW_BLC_SELF_VLV, ~FW_CSPWRDWNEN);
+		dev_priv->maxfifo_enabled = false;
+	}
 
 	if (intel_crtc->active) {
 		bool primary_was_enabled = intel_crtc->primary_enabled;

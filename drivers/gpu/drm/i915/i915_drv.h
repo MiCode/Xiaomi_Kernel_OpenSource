@@ -1496,6 +1496,7 @@ struct drm_i915_private {
 	} dpst;
 
 	bool is_first_modeset;
+	bool maxfifo_enabled;
 
 	/* PCH chipset type */
 	enum intel_pch pch_type;
