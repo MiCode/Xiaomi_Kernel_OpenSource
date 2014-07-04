@@ -1099,10 +1099,12 @@ intel_plane_queue_unpin(struct intel_plane *plane,
 	 * However, if the old object isn't currently 'live', we can just
 	 * unpin right away.
 	 */
-	if (plane->current_surface(&plane->base) != i915_gem_obj_ggtt_offset(obj)) {
-		intel_unpin_fb_obj(obj);
-		return;
-	}
+	if (plane->current_surface)
+		if (plane->current_surface(&plane->base) !=
+					i915_gem_obj_ggtt_offset(obj)) {
+			intel_unpin_fb_obj(obj);
+			return;
+		}
 
 	intel_crtc_queue_unpin(to_intel_crtc(plane->base.crtc), obj);
 }
