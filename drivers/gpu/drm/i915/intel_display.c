@@ -402,6 +402,59 @@ bool intel_pipe_has_type(struct drm_crtc *crtc, int type)
 	return false;
 }
 
+void i915_update_plane_stat(struct drm_i915_private *dev_priv, int pipe,
+		int plane, bool enable, int planes)
+{
+	switch (pipe) {
+	case 0:
+		if (planes == DISPLAY_PLANE) {
+			if (enable)
+				dev_priv->plane_stat.primary = true;
+			else
+				dev_priv->plane_stat.primary = false;
+		} else {
+			switch (plane) {
+			case 0:
+				if (enable)
+					dev_priv->plane_stat.sprite_a = true;
+				else
+					dev_priv->plane_stat.sprite_a = false;
+				break;
+			case 1:
+				if (enable)
+					dev_priv->plane_stat.sprite_b = true;
+				else
+					dev_priv->plane_stat.sprite_b = false;
+				break;
+			}
+		}
+		break;
+	case 1:
+		if (planes == DISPLAY_PLANE) {
+			if (enable)
+				dev_priv->plane_stat.secondary = true;
+			else
+				dev_priv->plane_stat.secondary = false;
+		} else {
+			switch (plane) {
+			case 0:
+				if (enable)
+					dev_priv->plane_stat.sprite_c = true;
+				else
+					dev_priv->plane_stat.sprite_c = false;
+				break;
+			case 1:
+				if (enable)
+					dev_priv->plane_stat.sprite_d = true;
+				else
+					dev_priv->plane_stat.sprite_d = false;
+				break;
+			}
+		}
+		break;
+	}
+}
+
 static const intel_limit_t *intel_ironlake_limit(struct drm_crtc *crtc,
 						int refclk)
 {
@@ -1375,6 +1428,29 @@ static void assert_plane(struct drm_i915_private *dev_priv,
 	     plane_name(plane), state_string(state), state_string(cur_state));
 }
 
+bool is_maxfifo_needed(struct drm_i915_private *dev_priv)
+{
+	int cnt = 0;
+
+	if (dev_priv->plane_stat.primary)
+		cnt++;
+	if (dev_priv->plane_stat.secondary)
+		cnt++;
+	if (dev_priv->plane_stat.sprite_a)
+		cnt++;
+	if (dev_priv->plane_stat.sprite_b)
+		cnt++;
+	if (dev_priv->plane_stat.sprite_c)
+		cnt++;
+	if (dev_priv->plane_stat.sprite_d)
+		cnt++;
+
+	if (cnt == 1)
+		return true;
+	else
+		return false;
+}
+
 #define assert_plane_enabled(d, p) assert_plane(d, p, true)
 #define assert_plane_disabled(d, p) assert_plane(d, p, false)
 
@@ -2263,6 +2339,7 @@ static void intel_enable_primary_hw_plane(struct drm_i915_private *dev_priv,
 	WARN_ON(val & DISPLAY_PLANE_ENABLE);
 
 	I915_WRITE(reg, val | DISPLAY_PLANE_ENABLE);
+	i915_update_plane_stat(dev_priv, pipe, plane, true, DISPLAY_PLANE);
 	intel_flush_primary_plane(dev_priv, plane);
 
 	/*
@@ -2300,6 +2377,7 @@ static void intel_disable_primary_hw_plane(struct drm_i915_private *dev_priv,
 	WARN_ON((val & DISPLAY_PLANE_ENABLE) == 0);
 
 	I915_WRITE(reg, val & ~DISPLAY_PLANE_ENABLE);
+	i915_update_plane_stat(dev_priv, pipe, plane, false, DISPLAY_PLANE);
 	intel_flush_primary_plane(dev_priv, plane);
 }
 

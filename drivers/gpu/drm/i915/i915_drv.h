@@ -55,6 +55,11 @@
 #define DRIVER_DESC		"Intel Graphics"
 #define DRIVER_DATE		"20080730"
 
+enum planes {
+	DISPLAY_PLANE = 0,
+	SPRITE_PLANE,
+};
+
 enum pipe {
 	INVALID_PIPE = -1,
 	PIPE_A = 0,
@@ -1366,6 +1371,15 @@ struct i915_dpst_registers {
 	uint32_t blm_hist_bin_count_mask;
 };
 
+struct i915_plane_stat {
+	bool primary;
+	bool secondary;
+	bool sprite_a;
+	bool sprite_b;
+	bool sprite_c;
+	bool sprite_d;
+};
+
 struct drm_i915_private {
 	struct drm_device *dev;
 	struct kmem_cache *slab;
@@ -1501,6 +1515,7 @@ struct drm_i915_private {
 	bool csc_enabled;
 	bool gamma_enabled;
 	bool is_resuming;
+	struct i915_plane_stat plane_stat;
 
 	/* PCH chipset type */
 	enum intel_pch pch_type;

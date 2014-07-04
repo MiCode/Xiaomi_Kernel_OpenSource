@@ -131,13 +131,20 @@ static void intel_update_primary_plane(struct intel_crtc *crtc)
 	struct drm_i915_private *dev_priv = crtc->base.dev->dev_private;
 	int reg = DSPCNTR(crtc->plane);
 	int plane = crtc->plane;
+	bool flagret = true;
+	int pipe = crtc->pipe;
 
-	if (crtc->primary_enabled)
+	if (crtc->primary_enabled) {
 		I915_WRITE(reg, I915_READ(reg) | DISPLAY_PLANE_ENABLE);
+			flagret = true;
+	}
 	else {
 		I915_WRITE(reg, I915_READ(reg) & ~DISPLAY_PLANE_ENABLE);
 		I915_WRITE(DSPSURF(plane), I915_READ(DSPSURF(plane)));
+		flagret = false;
 	}
+	i915_update_plane_stat(dev_priv, pipe,
+		plane, flagret, DISPLAY_PLANE);
 }
 
 void
@@ -518,6 +525,7 @@ vlv_update_plane(struct drm_plane *dplane, struct drm_crtc *crtc,
 		sprctl &= ~DISPPLANE_180_ROTATION_ENABLE;
 
 	I915_WRITE(SPCNTR(pipe, plane), sprctl);
+	i915_update_plane_stat(dev_priv, pipe, plane, true, SPRITE_PLANE);
 	I915_MODIFY_DISPBASE(SPSURF(pipe, plane),
 		i915_gem_obj_ggtt_offset(obj) + sprsurf_offset);
 	intel_flush_primary_plane(dev_priv, intel_crtc->plane);
@@ -546,6 +554,7 @@ vlv_disable_plane(struct drm_plane *dplane, struct drm_crtc *crtc)
 
 	I915_WRITE(SPCNTR(pipe, plane), I915_READ(SPCNTR(pipe, plane)) &
 		   ~SP_ENABLE);
+	i915_update_plane_stat(dev_priv, pipe, plane, false, SPRITE_PLANE);
 	/* Activate double buffered register update */
 	I915_MODIFY_DISPBASE(SPSURF(pipe, plane), 0);
 
