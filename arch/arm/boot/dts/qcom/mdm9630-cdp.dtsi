@@ -37,7 +37,7 @@
 
 &spi_2 {
 	ethernet-switch@0 {
-		compatible = "simtec,ks8851";
+		compatible = "micrel,ks8851";
 		reg = <0>;
 		interrupt-parent = <&msmgpio>;
 		spi-max-frequency = <2400000>;
