@@ -21,6 +21,7 @@
 #include "diagfwd_hsic.h"
 #include "diag_dci.h"
 #include "diagmem.h"
+#include "diag_masks.h"
 
 #define FEATURE_SUPPORTED(x)	((feature_mask << (i * 8)) & (1 << x))
 
@@ -236,6 +237,288 @@ static void process_incoming_feature_mask(uint8_t *buf, uint32_t len,
 			process_hdlc_encoding_feature(smd_info);
 		if (FEATURE_SUPPORTED(F_DIAG_STM))
 			enable_stm_feature(smd_info);
+		if (FEATURE_SUPPORTED(F_DIAG_MASK_CENTRALIZATION))
+			driver->mask_centralization[smd_info->peripheral] = 1;
+	}
+}
+
+static void process_last_event_report(uint8_t *buf, uint32_t len,
+				      struct diag_smd_info *smd_info)
+{
+	struct diag_ctrl_last_event_report *header = NULL;
+	uint8_t *ptr = buf;
+	uint8_t *temp = NULL;
+	uint32_t pkt_len = sizeof(uint32_t) + sizeof(uint16_t);
+	uint16_t event_size = 0;
+
+	if (!buf || !smd_info || len != pkt_len)
+		return;
+
+	mutex_lock(&event_mask.lock);
+	header = (struct diag_ctrl_last_event_report *)ptr;
+	event_size = ((header->event_last_id / 8) + 1);
+	if (event_size >= driver->event_mask_size) {
+		pr_debug("diag: In %s, receiving event mask size more that Apps can handle\n",
+			 __func__);
+		temp = krealloc(driver->event_mask->ptr, event_size,
+				GFP_KERNEL);
+		if (!temp) {
+			pr_err("diag: In %s, unable to reallocate event mask to support events from %d\n",
+			       __func__, smd_info->peripheral);
+			goto err;
+		}
+		driver->event_mask->ptr = temp;
+		driver->event_mask_size = event_size;
+	}
+
+	driver->num_event_id[smd_info->peripheral] = header->event_last_id;
+	if (header->event_last_id > driver->last_event_id)
+		driver->last_event_id = header->event_last_id;
+err:
+	mutex_unlock(&event_mask.lock);
+}
+
+static void process_log_range_report(uint8_t *buf, uint32_t len,
+				     struct diag_smd_info *smd_info)
+{
+	int i;
+	int read_len = 0;
+	int peripheral = 0;
+	int header_len = sizeof(struct diag_ctrl_log_range_report);
+	uint8_t *ptr = buf;
+	uint8_t *temp = NULL;
+	uint32_t mask_size;
+	struct diag_ctrl_log_range_report *header = NULL;
+	struct diag_ctrl_log_range *log_range = NULL;
+	struct diag_log_mask_t *mask_ptr = NULL;
+
+	if (!buf || !smd_info || len < 0)
+		return;
+
+	peripheral = smd_info->peripheral;
+	header = (struct diag_ctrl_log_range_report *)ptr;
+	ptr += header_len;
+	read_len += header_len;
+
+	mutex_lock(&log_mask.lock);
+	driver->num_equip_id[peripheral] = header->num_ranges;
+	for (i = 0; i < header->num_ranges && read_len < len; i++) {
+		log_range = (struct diag_ctrl_log_range *)ptr;
+		ptr += sizeof(struct diag_ctrl_log_range);
+		read_len += sizeof(struct diag_ctrl_log_range);
+
+		if (log_range->equip_id >= MAX_EQUIP_ID) {
+			pr_err("diag: receiving log equip id %d more than supported equip id: %d from peripheral: %d\n",
+			       log_range->equip_id, MAX_EQUIP_ID, peripheral);
+			continue;
+		}
+		mask_ptr = (struct diag_log_mask_t *)log_mask.ptr;
+		mask_ptr = &mask_ptr[log_range->equip_id];
+		mask_size = LOG_ITEMS_TO_SIZE(log_range->num_items);
+		if (mask_size < mask_ptr->range)
+			goto proceed;
+
+		temp = krealloc(mask_ptr->ptr, mask_size, GFP_KERNEL);
+		if (!temp) {
+			pr_err("diag: In %s, Unable to reallocate log mask ptr to size: %d, equip_id: %d\n",
+			       __func__, mask_size, log_range->equip_id);
+			continue;
+		}
+		mask_ptr->ptr = temp;
+		mask_ptr->range = mask_size;
+proceed:
+		if (log_range->num_items > mask_ptr->num_items)
+			mask_ptr->num_items = log_range->num_items;
+	}
+	mutex_unlock(&log_mask.lock);
+}
+
+static int update_msg_mask_tbl_entry(struct diag_msg_mask_t *mask,
+				     struct diag_ssid_range_t *range)
+{
+	uint32_t temp_range;
+	uint32_t *temp = NULL;
+
+	if (!mask || !range)
+		return -EIO;
+	if (range->ssid_last < range->ssid_first) {
+		pr_err("diag: In %s, invalid ssid range, first: %d, last: %d\n",
+		       __func__, range->ssid_first, range->ssid_last);
+		return -EINVAL;
+	}
+	if (range->ssid_last >= mask->ssid_last) {
+		temp_range = range->ssid_last - mask->ssid_first + 1;
+		temp = krealloc(mask->ptr, temp_range * sizeof(uint32_t),
+				GFP_KERNEL);
+		if (!temp)
+			return -ENOMEM;
+		mask->ptr = temp;
+		mask->ssid_last = range->ssid_last;
+		mask->range = temp_range;
+	}
+
+	return 0;
+}
+
+static void process_ssid_range_report(uint8_t *buf, uint32_t len,
+				      struct diag_smd_info *smd_info)
+{
+	int i;
+	int j;
+	int read_len = 0;
+	int found = 0;
+	int new_size = 0;
+	int err = 0;
+	struct diag_ctrl_ssid_range_report *header = NULL;
+	struct diag_ssid_range_t *ssid_range = NULL;
+	int header_len = sizeof(struct diag_ctrl_ssid_range_report);
+	struct diag_msg_mask_t *mask_ptr = NULL;
+	uint8_t *ptr = buf;
+	uint8_t *temp = NULL;
+	uint32_t min_len = header_len - sizeof(struct diag_ctrl_pkt_header_t);
+
+	if (!buf || !smd_info || len < min_len)
+		return;
+
+	header = (struct diag_ctrl_ssid_range_report *)ptr;
+	ptr += header_len;
+	read_len += header_len;
+
+	mutex_lock(&msg_mask.lock);
+	driver->max_ssid_count[smd_info->peripheral] = header->count;
+	for (i = 0; i < header->count && read_len < len; i++) {
+		ssid_range = (struct diag_ssid_range_t *)ptr;
+		ptr += sizeof(struct diag_ssid_range_t);
+		read_len += sizeof(struct diag_ssid_range_t);
+		mask_ptr = (struct diag_msg_mask_t *)msg_mask.ptr;
+		found = 0;
+		for (j = 0; j < driver->msg_mask_tbl_count; j++, mask_ptr++) {
+			if (mask_ptr->ssid_first != ssid_range->ssid_first)
+				continue;
+			err = update_msg_mask_tbl_entry(mask_ptr, ssid_range);
+			if (err == -ENOMEM) {
+				pr_err("diag: In %s, unable to increase the msg mask table range\n",
+				       __func__);
+			}
+			found = 1;
+			break;
+		}
+
+		if (found)
+			continue;
+
+		new_size = (driver->msg_mask_tbl_count + 1) *
+			   sizeof(struct diag_msg_mask_t);
+		temp = krealloc(msg_mask.ptr, new_size, GFP_KERNEL);
+		if (!temp) {
+			pr_err("diag: In %s, Unable to add new ssid table to msg mask, ssid first: %d, last: %d\n",
+			       __func__, ssid_range->ssid_first,
+			       ssid_range->ssid_last);
+			continue;
+		}
+		msg_mask.ptr = temp;
+		err = diag_create_msg_mask_table_entry(mask_ptr, ssid_range);
+		if (err) {
+			pr_err("diag: In %s, Unable to create a new msg mask table entry, first: %d last: %d err: %d\n",
+			       __func__, ssid_range->ssid_first,
+			       ssid_range->ssid_last, err);
+			continue;
+		}
+		driver->msg_mask_tbl_count += 1;
+	}
+	mutex_unlock(&msg_mask.lock);
+}
+
+static void diag_build_time_mask_update(uint8_t *buf,
+					struct diag_ssid_range_t *range)
+{
+	int i;
+	int j;
+	int num_items = 0;
+	int err = 0;
+	int found = 0;
+	int new_size = 0;
+	uint8_t *temp = NULL;
+	uint32_t *mask_ptr = (uint32_t *)buf;
+	uint32_t *dest_ptr = NULL;
+	struct diag_msg_mask_t *build_mask = NULL;
+
+	if (!range || !buf)
+		return;
+
+	if (range->ssid_last < range->ssid_first) {
+		pr_err("diag: In %s, invalid ssid range, first: %d, last: %d\n",
+		       __func__, range->ssid_first, range->ssid_last);
+		return;
+	}
+
+	build_mask = (struct diag_msg_mask_t *)(driver->build_time_mask->ptr);
+	num_items = range->ssid_last - range->ssid_first + 1;
+
+	mutex_lock(&driver->build_time_mask->lock);
+	for (i = 0; i < driver->msg_mask_tbl_count; i++, build_mask++) {
+		if (build_mask->ssid_first != range->ssid_first)
+			continue;
+		found = 1;
+		err = update_msg_mask_tbl_entry(build_mask, range);
+		if (err == -ENOMEM) {
+			pr_err("diag: In %s, unable to increase the msg build mask table range\n",
+			       __func__);
+		}
+		dest_ptr = build_mask->ptr;
+		for (j = 0; j < build_mask->range; j++, mask_ptr++, dest_ptr++)
+			*(uint32_t *)dest_ptr |= *mask_ptr;
+		break;
+	}
+
+	if (found)
+		goto end;
+	new_size = (driver->msg_mask_tbl_count + 1) *
+		   sizeof(struct diag_msg_mask_t);
+	temp = krealloc(driver->build_time_mask->ptr, new_size, GFP_KERNEL);
+	if (!temp) {
+		pr_err("diag: In %s, unable to create a new entry for build time mask\n",
+		       __func__);
+		goto end;
+	}
+	driver->build_time_mask->ptr = temp;
+	err = diag_create_msg_mask_table_entry(build_mask, range);
+	if (err) {
+		pr_err("diag: In %s, Unable to create a new msg mask table entry, err: %d\n",
+		       __func__, err);
+		goto end;
+	}
+	driver->msg_mask_tbl_count += 1;
+end:
+	mutex_unlock(&driver->build_time_mask->lock);
+}
+
+static void process_build_mask_report(uint8_t *buf, uint32_t len,
+				      struct diag_smd_info *smd_info)
+{
+	int i;
+	int read_len = 0;
+	int num_items = 0;
+	int header_len = sizeof(struct diag_ctrl_build_mask_report);
+	uint8_t *ptr = buf;
+	struct diag_ctrl_build_mask_report *header = NULL;
+	struct diag_ssid_range_t *range = NULL;
+
+	if (!buf || !smd_info || len < header_len)
+		return;
+
+	header = (struct diag_ctrl_build_mask_report *)ptr;
+	ptr += header_len;
+	read_len += header_len;
+
+	for (i = 0; i < header->count && read_len < len; i++) {
+		range = (struct diag_ssid_range_t *)ptr;
+		ptr += sizeof(struct diag_ssid_range_t);
+		read_len += sizeof(struct diag_ssid_range_t);
+		num_items = range->ssid_last - range->ssid_first + 1;
+		diag_build_time_mask_update(ptr, range);
+		ptr += num_items * sizeof(uint32_t);
+		read_len += num_items * sizeof(uint32_t);
 	}
 }
 
@@ -261,6 +544,21 @@ int diag_process_smd_cntl_read_data(struct diag_smd_info *smd_info, void *buf,
 		case DIAG_CTRL_MSG_FEATURE:
 			process_incoming_feature_mask(ptr, ctrl_pkt->len,
 						      smd_info);
+			break;
+		case DIAG_CTRL_MSG_LAST_EVENT_REPORT:
+			process_last_event_report(ptr, ctrl_pkt->len,
+						  smd_info);
+			break;
+		case DIAG_CTRL_MSG_LOG_RANGE_REPORT:
+			process_log_range_report(ptr, ctrl_pkt->len, smd_info);
+			break;
+		case DIAG_CTRL_MSG_SSID_RANGE_REPORT:
+			process_ssid_range_report(ptr, ctrl_pkt->len,
+						  smd_info);
+			break;
+		case DIAG_CTRL_MSG_BUILD_MASK_REPORT:
+			process_build_mask_report(ptr, ctrl_pkt->len,
+						  smd_info);
 			break;
 		default:
 			pr_debug("diag: Control packet %d not supported\n",

@@ -443,6 +443,7 @@ struct diagchar_dev {
 	int separate_cmdrsp[NUM_SMD_CONTROL_CHANNELS];
 	unsigned char *usb_buf_out;
 	uint8_t peripheral_feature[NUM_SMD_CONTROL_CHANNELS][FEATURE_MASK_LEN];
+	uint8_t mask_centralization[NUM_SMD_CONTROL_CHANNELS];
 	unsigned char *apps_rsp_buf;
 	unsigned char *user_space_data_buf;
 	/* buffer for updating mask to peripherals */
@@ -499,6 +500,10 @@ struct diagchar_dev {
 	uint8_t msg_mask_tbl_count;
 	uint16_t event_mask_size;
 	uint16_t last_event_id;
+	/* Variables for Mask Centralization */
+	uint16_t num_event_id[NUM_SMD_CONTROL_CHANNELS];
+	uint32_t num_equip_id[NUM_SMD_CONTROL_CHANNELS];
+	uint32_t max_ssid_count[NUM_SMD_CONTROL_CHANNELS];
 #ifdef CONFIG_DIAGFWD_BRIDGE_CODE
 	/* common for all bridges */
 	struct work_struct diag_connect_work;
