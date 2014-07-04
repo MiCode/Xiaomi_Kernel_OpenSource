@@ -3102,6 +3102,7 @@ skip_dma_resources:
 
 	spin_lock_init(&dd->queue_lock);
 	mutex_init(&dd->core_lock);
+	init_waitqueue_head(&dd->continue_suspend);
 
 	if (!devm_request_mem_region(&pdev->dev, dd->mem_phys_addr,
 					dd->mem_size, SPI_DRV_NAME)) {
