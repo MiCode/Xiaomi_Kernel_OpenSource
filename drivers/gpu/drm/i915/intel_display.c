@@ -2733,6 +2733,8 @@ static void ironlake_update_primary_plane(struct drm_crtc *crtc,
 	intel_fb = to_intel_framebuffer(fb);
 	obj = intel_fb->obj;
 
+	intel_update_watermarks(crtc);
+
 	reg = DSPCNTR(plane);
 	dspcntr = I915_READ(reg);
 	/* Mask out pixel format bits in case we change it */

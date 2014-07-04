@@ -1077,3 +1077,14 @@ void intel_uncore_check_errors(struct drm_device *dev)
 		__raw_i915_write32(dev_priv, FPGA_DBG, FPGA_DBG_RM_NOCLAIM);
 	}
 }
+
+void i915_write_bits32(struct drm_i915_private *dev_priv,
+	u32 reg, u32 val, u32 mask, bool trace)
+{
+	u32 tmp;
+	tmp = I915_READ(reg);
+	tmp &= ~mask;
+	val &= mask;
+	val |= tmp;
+	I915_WRITE(reg, val);
+}

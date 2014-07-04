@@ -480,9 +480,9 @@ struct vlv_MA_component_enabled {
 	union {
 		u8 component;
 		struct {
-			u8 EnPlane:1;
-			u8 EnSprite:1;
-			u8 EnCursor:1;
+			u8 plane_enabled:1;
+			u8 sprite_enabled:1;
+			u8 cursor_enabled:1;
 			u8 reserved:5;
 		};
 	};

@@ -2762,6 +2762,9 @@ int vlv_freq_opcode(struct drm_i915_private *dev_priv, int val);
 int i915_perfmon_ioctl(struct drm_device *dev, void *data,
 	struct drm_file *file);
 
+extern void i915_write_bits32(struct drm_i915_private *dev_priv,
+	u32 reg, u32 val, u32 mask, bool trace);
+
 #define I915_READ8(reg)		dev_priv->uncore.funcs.mmio_readb(dev_priv, (reg), true)
 #define I915_WRITE8(reg, val)	dev_priv->uncore.funcs.mmio_writeb(dev_priv, (reg), (val), true)
 
@@ -2797,6 +2800,9 @@ int i915_perfmon_ioctl(struct drm_device *dev, void *data,
 
 #define POSTING_READ(reg)	(void)I915_READ_NOTRACE(reg)
 #define POSTING_READ16(reg)	(void)I915_READ16_NOTRACE(reg)
+
+#define I915_WRITE_BITS(reg, val, mask) \
+	i915_write_bits32(dev_priv, (reg), (val), (mask), true)
 
 /* "Broadcast RGB" property */
 #define INTEL_BROADCAST_RGB_AUTO 0
