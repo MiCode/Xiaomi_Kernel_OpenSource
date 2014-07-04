@@ -2121,7 +2121,7 @@ static void intel_enable_pipe(struct intel_crtc *crtc)
 
 			I915_WRITE(SPCNTR(pipe, i), (val & ~SP_ENABLE));
 			/* Activate double buffered register update */
-			I915_WRITE(SPSURF(pipe, i), 0);
+			I915_MODIFY_DISPBASE(SPSURF(pipe, i), 0);
 			POSTING_READ(SPSURF(pipe, i));
 		}
 	}
@@ -2644,7 +2644,7 @@ static void i9xx_update_primary_plane(struct drm_crtc *crtc,
 		      fb->pitches[0]);
 	I915_WRITE(DSPSTRIDE(plane), fb->pitches[0]);
 	if (INTEL_INFO(dev)->gen >= 4) {
-		I915_WRITE(DSPSURF(plane),
+		I915_MODIFY_DISPBASE(DSPSURF(plane),
 			   i915_gem_obj_ggtt_offset(obj) + intel_crtc->dspaddr_offset);
 		if (rotate) {
 			I915_WRITE(DSPTILEOFF(plane), ((intel_fb->base.height
@@ -2732,8 +2732,8 @@ static void ironlake_update_primary_plane(struct drm_crtc *crtc,
 		      i915_gem_obj_ggtt_offset(obj), linear_offset, x, y,
 		      fb->pitches[0]);
 	I915_WRITE(DSPSTRIDE(plane), fb->pitches[0]);
-	I915_WRITE(DSPSURF(plane),
-		   i915_gem_obj_ggtt_offset(obj) + intel_crtc->dspaddr_offset);
+	I915_MODIFY_DISPBASE(DSPSURF(plane),
+		i915_gem_obj_ggtt_offset(obj) + intel_crtc->dspaddr_offset);
 	if (IS_HASWELL(dev) || IS_BROADWELL(dev)) {
 		I915_WRITE(DSPOFFSET(plane), (y << 16) | x);
 	} else {
@@ -9995,7 +9995,7 @@ static int intel_gen7_queue_flip(struct drm_device *dev,
 	 */
 	if (intel_crtc->disable_sprite) {
 		/* Activate double buffered register update */
-		I915_WRITE(SPRSURF(intel_crtc->pipe), 0);
+		I915_MODIFY_DISPBASE(SPRSURF(intel_crtc->pipe), 0);
 		POSTING_READ(SPRSURF(intel_crtc->pipe));
 		intel_crtc->disable_sprite = false;
 	}

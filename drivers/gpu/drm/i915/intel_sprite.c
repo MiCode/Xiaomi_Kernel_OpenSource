@@ -507,9 +507,8 @@ vlv_update_plane(struct drm_plane *dplane, struct drm_crtc *crtc,
 		sprctl |= DISPPLANE_180_ROTATION_ENABLE;
 
 	I915_WRITE(SPCNTR(pipe, plane), sprctl);
-	I915_WRITE(SPSURF(pipe, plane), i915_gem_obj_ggtt_offset(obj) +
-		   sprsurf_offset);
-
+	I915_MODIFY_DISPBASE(SPSURF(pipe, plane),
+		i915_gem_obj_ggtt_offset(obj) + sprsurf_offset);
 	intel_flush_primary_plane(dev_priv, intel_crtc->plane);
 
 	if (atomic_update)
@@ -535,7 +534,7 @@ vlv_disable_plane(struct drm_plane *dplane, struct drm_crtc *crtc)
 	I915_WRITE(SPCNTR(pipe, plane), I915_READ(SPCNTR(pipe, plane)) &
 		   ~SP_ENABLE);
 	/* Activate double buffered register update */
-	I915_WRITE(SPSURF(pipe, plane), 0);
+	I915_MODIFY_DISPBASE(SPSURF(pipe, plane), 0);
 
 	intel_flush_primary_plane(dev_priv, intel_crtc->plane);
 
@@ -703,7 +702,7 @@ ivb_update_plane(struct drm_plane *plane, struct drm_crtc *crtc,
 	if (intel_plane->can_scale)
 		I915_WRITE(SPRSCALE(pipe), sprscale);
 	I915_WRITE(SPRCTL(pipe), sprctl);
-	I915_WRITE(SPRSURF(pipe),
+	I915_MODIFY_DISPBASE(SPRSURF(pipe),
 		   i915_gem_obj_ggtt_offset(obj) + sprsurf_offset);
 
 	intel_flush_primary_plane(dev_priv, intel_crtc->plane);
@@ -910,7 +909,7 @@ ilk_update_plane(struct drm_plane *plane, struct drm_crtc *crtc,
 	I915_WRITE(DVSSIZE(pipe), (crtc_h << 16) | crtc_w);
 	I915_WRITE(DVSSCALE(pipe), dvsscale);
 	I915_WRITE(DVSCNTR(pipe), dvscntr);
-	I915_WRITE(DVSSURF(pipe),
+	I915_MODIFY_DISPBASE(DVSSURF(pipe),
 		   i915_gem_obj_ggtt_offset(obj) + dvssurf_offset);
 
 	intel_flush_primary_plane(dev_priv, intel_crtc->plane);
@@ -938,7 +937,7 @@ ilk_disable_plane(struct drm_plane *plane, struct drm_crtc *crtc)
 	/* Disable the scaler */
 	I915_WRITE(DVSSCALE(pipe), 0);
 	/* Flush double buffered register updates */
-	I915_WRITE(DVSSURF(pipe), 0);
+	I915_MODIFY_DISPBASE(DVSSURF(pipe), 0);
 
 	intel_flush_primary_plane(dev_priv, intel_crtc->plane);
 
