@@ -104,6 +104,7 @@ enum mdss_hw_index {
 	MDSS_HW_DSI1,
 	MDSS_HW_HDMI,
 	MDSS_HW_EDP,
+	MDSS_HW_IOMMU,
 	MDSS_MAX_HW_BLK
 };
 
