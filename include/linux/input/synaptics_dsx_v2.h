@@ -35,6 +35,16 @@ struct synaptics_dsx_cap_button_map {
 };
 
 /*
+ * struct synaptics_virtual_key_map - 2d button map
+ * @nkeys: number of virtual keys
+ * @map: pointer to array of virtual keys
+ */
+struct synaptics_rmi4_virtual_key_map {
+	unsigned char nkeys;
+	unsigned int *map;
+};
+
+/*
  * struct synaptics_dsx_board_data - dsx board data
  * @x_flip: x flip flag
  * @y_flip: y flip flag
@@ -77,6 +87,7 @@ struct synaptics_dsx_board_data {
 	unsigned int package_id;
 	int (*gpio_config)(int gpio, bool configure, int dir, int state);
 	struct synaptics_dsx_cap_button_map *cap_button_map;
+	struct synaptics_rmi4_virtual_key_map *virtual_key_map;
 	u32 panel_minx;
 	u32 panel_miny;
 	u32 panel_maxx;
