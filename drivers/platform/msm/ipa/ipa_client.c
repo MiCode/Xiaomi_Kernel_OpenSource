@@ -696,6 +696,7 @@ int ipa_connect_wdi_pipe(struct ipa_wdi_in_params *in,
 	wmb();
 	ep->valid = 1;
 	ep->client = in->sys.client;
+	ep->keep_ipa_awake = in->sys.keep_ipa_awake;
 	result = ipa_disable_data_path(ipa_ep_idx);
 	if (result) {
 		IPAERR("disable data path failed res=%d clnt=%d.\n", result,
@@ -743,7 +744,9 @@ int ipa_connect_wdi_pipe(struct ipa_wdi_in_params *in,
 	if (!ep->skip_ep_cfg && IPA_CLIENT_IS_PROD(in->sys.client))
 		ipa_install_dflt_flt_rules(ipa_ep_idx);
 
-	ipa_dec_client_disable_clks();
+	if (!ep->keep_ipa_awake)
+		ipa_dec_client_disable_clks();
+
 	dma_pool_free(ipa_ctx->wdi.dma_pool, cmd.base, cmd.phys_base);
 	ep->wdi_state |= IPA_WDI_CONNECTED;
 	IPADBG("client %d (ep: %d) connected\n", in->sys.client, ipa_ep_idx);
@@ -799,7 +802,9 @@ int ipa_disconnect_wdi_pipe(u32 clnt_hdl)
 		return -EFAULT;
 	}
 
-	ipa_inc_client_enable_clks();
+	if (!ep->keep_ipa_awake)
+		ipa_inc_client_enable_clks();
+
 	tear.params.ipa_pipe_number = clnt_hdl;
 	mutex_lock(&ipa_ctx->wdi.lock);
 	ipa_ctx->wdi.ipa_sram_mmio->common.cmdParams = tear.raw32b;
@@ -1070,15 +1075,15 @@ int ipa_resume_wdi_pipe(u32 clnt_hdl)
 	}
 	mutex_unlock(&ipa_ctx->wdi.lock);
 
-	if (IPA_CLIENT_IS_PROD(ep->client)) {
-		/* un-delay IPA consumer pipe */
+	if (IPA_CLIENT_IS_PROD(ep->client) ||
+		(IPA_CLIENT_IS_CONS(ep->client) && ep->keep_ipa_awake)) {
 		memset(&ep_cfg_ctrl, 0 , sizeof(struct ipa_ep_cfg_ctrl));
 		result = ipa_cfg_ep_ctrl(clnt_hdl, &ep_cfg_ctrl);
 		if (result)
-			IPAERR("client (ep: %d) failed to un-delay result=%d\n",
+			IPAERR("client (ep: %d) fail un-susp/delay result=%d\n",
 					clnt_hdl, result);
 		else
-			IPADBG("client (ep: %d) un-delayed\n", clnt_hdl);
+			IPADBG("client (ep: %d) un-susp/delay\n", clnt_hdl);
 	}
 
 	ep->wdi_state |= IPA_WDI_RESUMED;
