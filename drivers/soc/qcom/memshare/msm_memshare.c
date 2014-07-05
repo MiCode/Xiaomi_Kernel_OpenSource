@@ -55,7 +55,6 @@ static struct memshare_child *memsh_child;
 static void *curr_conn;
 static struct mem_blocks memblock[MAX_CLIENTS];
 static int client_table[1] = {GPS};
-static uint32_t size;
 static uint32_t num_clients;
 static struct msg_desc mem_share_svc_alloc_req_desc = {
 	.max_msg_len = MEM_ALLOC_REQ_MAX_MSG_LEN_V01,
@@ -234,31 +233,29 @@ static int handle_alloc_req(void *req_h, void *req)
 {
 	struct mem_alloc_req_msg_v01 *alloc_req;
 	struct mem_alloc_resp_msg_v01 alloc_resp;
-	int rc;
+	int rc = 0;
 
 	alloc_req = (struct mem_alloc_req_msg_v01 *)req;
 	pr_debug("%s: Received Alloc Request\n", __func__);
 	pr_debug("%s: req->num_bytes = %d\n", __func__, alloc_req->num_bytes);
 	mutex_lock(&memsh_drv->mem_share);
-	if (!size) {
+	if (!memblock[GPS].size) {
 		memset(&alloc_resp, 0, sizeof(struct mem_alloc_resp_msg_v01));
 		alloc_resp.resp = QMI_RESULT_FAILURE_V01;
 		rc = memshare_alloc(memsh_drv->dev, alloc_req->num_bytes,
-					&memblock[MAX_CLIENTS - 1]);
+					&memblock[GPS]);
 	}
 	alloc_resp.num_bytes_valid = 1;
 	alloc_resp.num_bytes =  alloc_req->num_bytes;
 	alloc_resp.handle_valid = 1;
-	alloc_resp.handle = memblock[MAX_CLIENTS - 1].phy_addr;
+	alloc_resp.handle = memblock[GPS].phy_addr;
 	/* Binding last client to support request coming on old idl*/
 	if (rc) {
 		alloc_resp.resp = QMI_RESULT_FAILURE_V01;
-		size = 0;
+		memblock[GPS].size = 0;
 	} else {
 		alloc_resp.resp = QMI_RESULT_SUCCESS_V01;
-		size = alloc_req->num_bytes;
 	}
-	memblock[MAX_CLIENTS - 1].size = size;
 	alloc_resp.resp = QMI_RESULT_SUCCESS_V01;
 	mutex_unlock(&memsh_drv->mem_share);
 
@@ -341,19 +338,20 @@ static int handle_free_req(void *req_h, void *req)
 	struct mem_free_resp_msg_v01 free_resp;
 	int rc;
 
-	free_req = (struct mem_free_req_msg_v01 *)req;
-	pr_debug("%s: Received Free Request\n", __func__);
 	mutex_lock(&memsh_drv->mem_free);
-	memset(&free_resp, 0, sizeof(struct mem_free_resp_msg_v01));
-	free_resp.resp = QMI_RESULT_FAILURE_V01;
-	pr_debug("In %s: pblk->virtual_addr :%lx, pblk->phy_addr: %lx\n,size: %d",
-			__func__,
-		(unsigned long int)memblock[MAX_CLIENTS - 1].virtual_addr,
-		(unsigned long int)free_req->handle, size);
-	dma_free_coherent(memsh_drv->dev, size,
-		memblock[MAX_CLIENTS - 1].virtual_addr,
-			free_req->handle);
-	size = 0;
+	if (!memblock[GPS].guarantee) {
+		free_req = (struct mem_free_req_msg_v01 *)req;
+		pr_debug("%s: Received Free Request\n", __func__);
+		memset(&free_resp, 0, sizeof(struct mem_free_resp_msg_v01));
+		pr_debug("In %s: pblk->virtual_addr :%lx, pblk->phy_addr: %lx\n,size: %d",
+				__func__,
+			(unsigned long int)memblock[GPS].virtual_addr,
+			(unsigned long int)free_req->handle,
+			memblock[GPS].size);
+		dma_free_coherent(memsh_drv->dev, memblock[GPS].size,
+			memblock[GPS].virtual_addr,
+				free_req->handle);
+	}
 	free_resp.resp = QMI_RESULT_SUCCESS_V01;
 	mutex_unlock(&memsh_drv->mem_free);
 	rc = qmi_send_resp_from_cb(mem_share_svc_handle, curr_conn, req_h,
