@@ -30,7 +30,6 @@ uint64_t a3xx_perfcounter_read(struct adreno_device *adreno_dev,
 void a3xx_perfcounter_save(struct adreno_device *adreno_dev);
 void a3xx_perfcounter_restore(struct adreno_device *adreno_dev);
 
-void a3xx_soft_reset(struct adreno_device *adreno_dev);
 void a3xx_a4xx_err_callback(struct adreno_device *adreno_dev, int bit);
 void a3xx_fatal_err_callback(struct adreno_device *adreno_dev, int bit);
 void a3xx_cp_callback(struct adreno_device *adreno_dev, int irq);

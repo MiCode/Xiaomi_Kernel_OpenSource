@@ -1479,7 +1479,6 @@ struct adreno_gpudev adreno_a4xx_gpudev = {
 	.perfcounter_restore = a3xx_perfcounter_restore,
 	.fault_detect_start = a3xx_fault_detect_start,
 	.fault_detect_stop = a3xx_fault_detect_stop,
-	.soft_reset = a3xx_soft_reset,
 	.snapshot = a4xx_snapshot,
 	.is_sptp_idle = a4xx_is_sptp_idle,
 	.enable_pc = a4xx_enable_pc,

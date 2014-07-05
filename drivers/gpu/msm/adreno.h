@@ -626,7 +626,6 @@ struct adreno_gpudev {
 		unsigned int group, unsigned int counter);
 	void (*perfcounter_write)(struct adreno_device *adreno_dev,
 		unsigned int group, unsigned int counter);
-	void (*soft_reset)(struct adreno_device *device);
 	bool (*is_sptp_idle)(struct adreno_device *);
 	void (*enable_pc)(struct adreno_device *);
 	void (*regulator_enable)(struct adreno_device *);
