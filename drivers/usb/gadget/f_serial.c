@@ -19,6 +19,7 @@
 #include <linux/uaccess.h>
 #include <linux/fs.h>
 #include <linux/usb/composite.h>
+#include <linux/tty.h>
 
 #include "usb_gadget_xport.h"
 
@@ -1268,6 +1269,7 @@ static void gser_ioctl_set_transport(struct f_gser *gser,
 	if (transport == GSERIAL_SET_XPORT_TYPE_TTY) {
 		new_transport = USB_GADGET_XPORT_TTY;
 		pr_debug("%s: Switching modem transport to TTY.", __func__);
+		gser->port.flags |= ASYNC_LOW_LATENCY;
 	} else if (transport == GSERIAL_SET_XPORT_TYPE_SMD) {
 		new_transport = USB_GADGET_XPORT_SMD;
 		pr_debug("%s: Switching modem transport to SMD.", __func__);
