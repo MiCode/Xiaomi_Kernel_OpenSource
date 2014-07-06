@@ -27,6 +27,14 @@ struct phy;
  * @exit: operation to be performed while exiting
  * @power_on: powering on the phy
  * @power_off: powering off the phy
+ * @advertise_quirks: setting specific phy quirks. this api is for an
+		      internal use of the device driver, and its
+		      purpose is to exteriorize the driver's phy quirks
+		      according to phy version (or other parameters),
+		      so further behaviour of the driver's phy is based
+		      on those quirks.
+ * @suspend: suspending the phy
+ * @resume: resuming the phy
  * @owner: the module owner containing the ops
  */
 struct phy_ops {
@@ -34,6 +42,10 @@ struct phy_ops {
 	int	(*exit)(struct phy *phy);
 	int	(*power_on)(struct phy *phy);
 	int	(*power_off)(struct phy *phy);
+	void (*advertise_quirks)(struct phy *phy);
+	int	(*suspend)(struct phy *phy);
+	int	(*resume)(struct phy *phy);
+
 	struct module *owner;
 };
 
@@ -46,6 +58,8 @@ struct phy_ops {
  * @mutex: mutex to protect phy_ops
  * @init_count: used to protect when the PHY is used by multiple consumers
  * @power_count: used to protect when the PHY is used by multiple consumers
+ * @resume_count: used to protect when the PHY is used by multiple consumers
+ *		  that resume and suspend it
  */
 struct phy {
 	struct device		dev;
@@ -55,6 +69,7 @@ struct phy {
 	struct mutex		mutex;
 	int			init_count;
 	int			power_count;
+	int			resume_count;
 };
 
 /**
@@ -125,10 +140,15 @@ void phy_pm_runtime_allow(struct phy *phy);
 void phy_pm_runtime_forbid(struct phy *phy);
 int phy_init(struct phy *phy);
 int phy_exit(struct phy *phy);
+void phy_advertise_quirks(struct phy *phy);
 int phy_power_on(struct phy *phy);
 int phy_power_off(struct phy *phy);
+int phy_suspend(struct phy *phy);
+int phy_resume(struct phy *phy);
 struct phy *phy_get(struct device *dev, const char *string);
 struct phy *devm_phy_get(struct device *dev, const char *string);
+struct phy *phy_get_by_index(struct device *dev, int index);
+struct phy *devm_phy_get_by_index(struct device *dev, int index);
 void phy_put(struct phy *phy);
 void devm_phy_put(struct device *dev, struct phy *phy);
 struct phy *of_phy_simple_xlate(struct device *dev,
@@ -199,12 +219,32 @@ static inline int phy_power_off(struct phy *phy)
 	return -ENOSYS;
 }
 
+static inline void phy_advertise_quirks(struct phy *phy)
+{
+	return;
+}
+
+static inline int phy_suspend(struct phy *phy)
+{
+	return -ENOSYS;
+}
+
+static inline int phy_resume(struct phy *phy)
+{
+	return -ENOSYS;
+}
+
 static inline struct phy *phy_get(struct device *dev, const char *string)
 {
 	return ERR_PTR(-ENOSYS);
 }
 
 static inline struct phy *devm_phy_get(struct device *dev, const char *string)
+{
+	return ERR_PTR(-ENOSYS);
+}
+
+static inline struct phy *devm_phy_get_by_index(struct device *dev, int index)
 {
 	return ERR_PTR(-ENOSYS);
 }
