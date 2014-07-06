@@ -524,6 +524,7 @@ config VLV2_PLAT_CLK
         ---help---
          Driver to enable the platform clock control for valleyview2
 
+source "drivers/misc/pwm/Kconfig"
 source "drivers/misc/c2port/Kconfig"
 source "drivers/misc/eeprom/Kconfig"
 source "drivers/misc/cb710/Kconfig"

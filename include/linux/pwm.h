@@ -305,4 +305,11 @@ static inline void pwmchip_sysfs_unexport(struct pwm_chip *chip)
 }
 #endif /* CONFIG_PWM_SYSFS */
 
+#define LPIO_PWM_CTRL 0
+int lpio_bl_read(uint8_t pwm_num, uint32_t reg);
+int lpio_bl_write(uint8_t pwm_num, uint32_t reg, uint32_t val);
+int lpio_bl_write_bits(uint8_t pwm_num, uint32_t reg, uint32_t val,
+		uint32_t mask);
+int lpio_bl_update(uint8_t pwm_num, uint32_t reg);
+
 #endif /* __LINUX_PWM_H */

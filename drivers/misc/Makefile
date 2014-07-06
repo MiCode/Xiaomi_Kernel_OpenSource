@@ -58,3 +58,4 @@ obj-y				+= mic/
 obj-$(CONFIG_GENWQE)		+= genwqe/
 obj-$(CONFIG_VLV2_PLAT_CLK)     += vlv2_plat_clock.o
 obj-$(CONFIG_DGNSS)             += dgnss/
+obj-$(CONFIG_PWM)               += pwm/

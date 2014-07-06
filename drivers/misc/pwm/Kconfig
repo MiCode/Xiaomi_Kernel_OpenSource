@@ -1,0 +1,28 @@
+if PWM
+
+config PWM_BYT_CORE
+	tristate "Intel Baytrail SoC PWM Core Logic"
+	help
+	  Core logic for generic PWM framework driver for Intel Baytrail SoC.
+
+	  To compile this driver as a module, choose M here: the module
+	  will be called pwm_byt_core.
+
+config PWM_BYT_PCI
+	tristate "Intel Baytrail SoC PWM PCI support"
+	depends on PWM && PWM_BYT_CORE
+	help
+	  PCI based generic PWM framework driver for Intel Baytrail SoC.
+
+	  To compile this driver as a module, choose M here: the module
+	  will be called pwm-byt.
+
+config PWM_BYT_PLATFORM
+	tristate "Intel Baytrail SoC PWM PCI support"
+	depends on PWM && PWM_BYT_CORE
+	help
+	  Platform driver based generic PWM framework driver for Intel Baytrail SoC.
+
+	  To compile this driver as a module, choose M here: the module
+	  will be called pwm-byt.
+endif

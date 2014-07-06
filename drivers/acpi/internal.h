@@ -73,6 +73,12 @@ void acpi_lpss_init(void);
 static inline void acpi_lpss_init(void) {}
 #endif
 
+#ifdef CONFIG_INTEL_MID_LPSS
+void acpi_mid_lpss_init(void);
+#else
+static inline void acpi_mid_lpss_init(void) {}
+#endif
+
 bool acpi_queue_hotplug_work(struct work_struct *work);
 bool acpi_scan_is_offline(struct acpi_device *adev, bool uevent);
 
