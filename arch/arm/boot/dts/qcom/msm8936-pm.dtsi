@@ -144,7 +144,7 @@
 			#address-cells = <1>;
 			#size-cells = <0>;
 			label = "system";
-			qcom,spm-device-names = "cci","l2";
+			qcom,spm-device-names = "l2", "cci";
 			qcom,default-level=<0>;
 			qcom,cpu = <&CPU0 &CPU1 &CPU2 &CPU3>;
 
