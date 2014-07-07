@@ -26,6 +26,7 @@
 #include <linux/memblock.h>
 #include <linux/fs.h>
 #include <linux/io.h>
+#include <linux/dma-contiguous.h>
 
 #include <asm/cputype.h>
 #include <asm/sections.h>
@@ -206,7 +207,8 @@ pmdval_t get_pmd_prot_sect_kernel(unsigned long addr)
 #endif
 
 static void __init alloc_init_pmd(pud_t *pud, unsigned long addr,
-				  unsigned long end, phys_addr_t phys)
+				  unsigned long end, phys_addr_t phys,
+				  bool pages)
 {
 	pmd_t *pmd;
 	unsigned long next;
@@ -223,7 +225,7 @@ static void __init alloc_init_pmd(pud_t *pud, unsigned long addr,
 	do {
 		next = pmd_addr_end(addr, end);
 		/* try section mapping first */
-		if (((addr | next | phys) & ~SECTION_MASK) == 0) {
+		if (!pages && ((addr | next | phys) & ~SECTION_MASK) == 0) {
 			pmd_t old_pmd =*pmd;
 			set_pmd(pmd,
 				__pmd(phys | get_pmd_prot_sect_kernel(addr)));
@@ -241,14 +243,15 @@ static void __init alloc_init_pmd(pud_t *pud, unsigned long addr,
 }
 
 static void __init alloc_init_pud(pgd_t *pgd, unsigned long addr,
-				  unsigned long end, unsigned long phys)
+				  unsigned long end, unsigned long phys,
+				  bool force_pages)
 {
 	pud_t *pud = pud_offset(pgd, addr);
 	unsigned long next;
 
 	do {
 		next = pud_addr_end(addr, end);
-		alloc_init_pmd(pud, addr, next, phys);
+		alloc_init_pmd(pud, addr, next, phys, force_pages);
 		phys += next - addr;
 	} while (pud++, addr = next, addr != end);
 }
@@ -258,7 +261,7 @@ static void __init alloc_init_pud(pgd_t *pgd, unsigned long addr,
  * mapping specified by 'md'.
  */
 static void __init create_mapping(phys_addr_t phys, unsigned long virt,
-				  phys_addr_t size)
+				  phys_addr_t size, bool force_pages)
 {
 	unsigned long addr, length, end, next;
 	pgd_t *pgd;
@@ -276,10 +279,56 @@ static void __init create_mapping(phys_addr_t phys, unsigned long virt,
 	end = addr + length;
 	do {
 		next = pgd_addr_end(addr, end);
-		alloc_init_pud(pgd, addr, next, phys);
+		alloc_init_pud(pgd, addr, next, phys, force_pages);
 		phys += next - addr;
 	} while (pgd++, addr = next, addr != end);
 }
+
+static inline pmd_t *pmd_off_k(unsigned long virt)
+{
+	return pmd_offset(pud_offset(pgd_offset_k(virt), virt), virt);
+}
+
+void __init remap_as_pages(unsigned long start, unsigned long size)
+{
+	unsigned long addr;
+	unsigned long end = start + size;
+
+	/*
+	 * Clear previous low-memory mapping
+	 */
+	for (addr = __phys_to_virt(start); addr < __phys_to_virt(end);
+	     addr += PMD_SIZE)
+		pmd_clear(pmd_off_k(addr));
+
+	create_mapping(start, __phys_to_virt(start), size, true);
+}
+
+struct dma_contig_early_reserve {
+	phys_addr_t base;
+	unsigned long size;
+};
+
+static struct dma_contig_early_reserve dma_mmu_remap[MAX_CMA_AREAS] __initdata;
+
+static int dma_mmu_remap_num __initdata;
+
+void __init dma_contiguous_early_fixup(phys_addr_t base, unsigned long size)
+{
+	dma_mmu_remap[dma_mmu_remap_num].base = base;
+	dma_mmu_remap[dma_mmu_remap_num].size = size;
+	dma_mmu_remap_num++;
+}
+
+static void __init dma_contiguous_remap(void)
+{
+	int i;
+	for (i = 0; i < dma_mmu_remap_num; i++)
+		remap_as_pages(dma_mmu_remap[i].base,
+			       dma_mmu_remap[i].size);
+}
+
+
 
 #ifdef CONFIG_EARLY_PRINTK
 /*
@@ -363,7 +412,8 @@ static void __init map_mem(void)
 		}
 #endif
 
-		create_mapping(start, __phys_to_virt(start), end - start);
+		create_mapping(start, __phys_to_virt(start), end - start,
+					false);
 	}
 
 	/* Limit no longer required. */
@@ -380,6 +430,7 @@ void __init paging_init(void)
 
 	init_mem_pgprot();
 	map_mem();
+	dma_contiguous_remap();
 
 	/*
 	 * Finally flush the caches and tlb to ensure that we're in a
