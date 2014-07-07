@@ -34,8 +34,9 @@
 #include <linux/delay.h>
 #include <linux/i2c.h>
 #include <linux/gpio.h>
+#include <linux/acpi.h>
+#include <linux/atomisp_gmin_platform.h>
 #include <media/v4l2-device.h>
-#include <media/v4l2-chip-ident.h>
 
 #include "mt9m114.h"
 
@@ -439,12 +440,14 @@ static int mt9m114_set_suspend(struct v4l2_subdev *sd)
 	return mt9m114_write_reg_array(client, mt9m114_standby_reg, POST_POLLING);
 }
 
+#if 0
 static int mt9m114_set_streaming(struct v4l2_subdev *sd)
 {
 	struct i2c_client *client = v4l2_get_subdevdata(sd);
 
 	return mt9m114_write_reg_array(client, mt9m114_streaming, POST_POLLING);
 }
+#endif
 
 static int mt9m114_init_common(struct v4l2_subdev *sd)
 {
@@ -455,6 +458,56 @@ static int mt9m114_init_common(struct v4l2_subdev *sd)
 	if (ret)
 		return ret;
 	//ret = mt9m114_write_reg_array(client, mt9m114_iq, NO_POLLING);
+
+	return ret;
+}
+
+static int power_ctrl(struct v4l2_subdev *sd, bool flag)
+{
+	int ret;
+	struct mt9m114_device *dev = to_mt9m114_sensor(sd);
+
+	if (!dev || !dev->platform_data)
+		return -ENODEV;
+
+	/* Non-gmin platforms use the legacy callback */
+	if (dev->platform_data->power_ctrl)
+		return dev->platform_data->power_ctrl(sd, flag);
+
+	if (flag) {
+		ret = dev->platform_data->v2p8_ctrl(sd, 1);
+		if (ret == 0) {
+			ret = dev->platform_data->v1p8_ctrl(sd, 1);
+			if (ret)
+				ret = dev->platform_data->v2p8_ctrl(sd, 0);
+		}
+	} else {
+		ret = dev->platform_data->v2p8_ctrl(sd, 0);
+		ret = dev->platform_data->v1p8_ctrl(sd, 0);
+	}
+
+	return ret;
+}
+
+static int gpio_ctrl(struct v4l2_subdev *sd, bool flag)
+{
+	int ret;
+	struct mt9m114_device *dev = to_mt9m114_sensor(sd);
+
+	if (!dev || !dev->platform_data)
+		return -ENODEV;
+
+	/* Non-gmin platforms use the legacy callback */
+	if (dev->platform_data->gpio_ctrl)
+		return dev->platform_data->gpio_ctrl(sd, flag);
+
+	if (flag) {
+		ret = dev->platform_data->gpio0_ctrl(sd, 0);
+		msleep(60);
+		ret |= dev->platform_data->gpio0_ctrl(sd, 1);
+	} else {
+		ret = dev->platform_data->gpio0_ctrl(sd, 0);
+	}
 
 	return ret;
 }
@@ -471,7 +524,7 @@ static int power_up(struct v4l2_subdev *sd)
 	}
 
 	/* power control */
-	ret = dev->platform_data->power_ctrl(sd, 1);
+	ret = power_ctrl(sd, 1);
 	if (ret)
 		goto fail_power;
 
@@ -481,7 +534,7 @@ static int power_up(struct v4l2_subdev *sd)
 		goto fail_clk;
 
 	/* gpio ctrl */
-	ret = dev->platform_data->gpio_ctrl(sd, 1);
+	ret = gpio_ctrl(sd, 1);
 	if (ret)
 		dev_err(&client->dev, "gpio failed 1\n");
 	/*
@@ -495,7 +548,7 @@ static int power_up(struct v4l2_subdev *sd)
 fail_clk:
 	dev->platform_data->flisclk_ctrl(sd, 0);
 fail_power:
-	dev->platform_data->power_ctrl(sd, 0);
+	power_ctrl(sd, 0);
 	dev_err(&client->dev, "sensor power-up failed\n");
 
 	return ret;
@@ -517,12 +570,12 @@ static int power_down(struct v4l2_subdev *sd)
 		dev_err(&client->dev, "flisclk failed\n");
 
 	/* gpio ctrl */
-	ret = dev->platform_data->gpio_ctrl(sd, 0);
+	ret = gpio_ctrl(sd, 0);
 	if (ret)
 		dev_err(&client->dev, "gpio failed 1\n");
 
 	/* power control */
-	ret = dev->platform_data->power_ctrl(sd, 0);
+	ret = power_ctrl(sd, 0);
 	if (ret)
 		dev_err(&client->dev, "vprog failed.\n");
 
@@ -659,15 +712,7 @@ static int mt9m114_get_intg_factor(struct i2c_client *client,
 				struct camera_mipi_info *info,
 				const struct mt9m114_res_struct *res)
 {
-	struct v4l2_subdev *sd = i2c_get_clientdata(client);
-	struct mt9m114_device *dev = to_mt9m114_sensor(sd);
 	struct atomisp_sensor_mode_data *buf = &info->data;
-	const unsigned int ext_clk_freq_hz = 19200000;
-	const unsigned int pll_invariant_div = 10;
-	unsigned int pix_clk_freq_hz;
-	u32 pre_pll_clk_div;
-	u32 pll_multiplier;
-	u32 op_pix_clk_div;
 	u32 reg_val;
 	int ret;
 	dev_err(&client->dev, "%s\n", __func__);
@@ -973,6 +1018,7 @@ static int mt9m114_g_vflip(struct v4l2_subdev *sd, s32 * val)
 	return 0;
 }
 
+#if 0
 static int mt9m114_s_freq(struct v4l2_subdev *sd, s32  val)
 {
 	struct i2c_client *c = v4l2_get_subdevdata(sd);
@@ -1000,7 +1046,9 @@ static int mt9m114_s_freq(struct v4l2_subdev *sd, s32  val)
 
 	return ret;
 }
+#endif
 
+#if 0
 static int mt9m114_g_2a_status(struct v4l2_subdev *sd, s32 *val)
 {
 	struct i2c_client *client = v4l2_get_subdevdata(sd);
@@ -1026,17 +1074,14 @@ static int mt9m114_g_2a_status(struct v4l2_subdev *sd, s32 *val)
 
 	return 0;
 }
+#endif
 
 static long mt9m114_s_exposure(struct v4l2_subdev *sd,
 			       struct atomisp_exposure *exposure)
 {
     struct i2c_client *client = v4l2_get_subdevdata(sd);
-    dev_err(&client->dev, "%s(0x%X 0x%X 0x%X)\n", __func__, exposure->integration_time[0], exposure->gain[0], exposure->gain[1]);
-
-    int ret = 0;
-
     struct mt9m114_device *dev = to_mt9m114_sensor(sd);
-
+    int ret = 0;
     unsigned int coarse_integration = 0;
     unsigned int fine_integration = 0;
     unsigned int FLines = 0;
@@ -1045,6 +1090,8 @@ static long mt9m114_s_exposure(struct v4l2_subdev *sd,
     u32 AnalogGainToWrite = 0;
     u16 exposure_local[3];
     u32 RegSwResetData = 0;
+
+    dev_err(&client->dev, "%s(0x%X 0x%X 0x%X)\n", __func__, exposure->integration_time[0], exposure->gain[0], exposure->gain[1]);
 
     coarse_integration = exposure->integration_time[0];
 //    fine_integration = ExposureTime.FineIntegrationTime;
@@ -1150,7 +1197,7 @@ static long mt9m114_ioctl(struct v4l2_subdev *sd, unsigned int cmd, void *arg)
 static int mt9m114_g_exposure(struct v4l2_subdev *sd, s32 *value)
 {
 	struct i2c_client *client = v4l2_get_subdevdata(sd);
-	u16 coarse;
+	u32 coarse;
 	int ret;
 
 	/* the fine integration time is currently not calculated */
@@ -1400,7 +1447,13 @@ mt9m114_s_config(struct v4l2_subdev *sd, int irq, void *platform_data)
 		return ret;
 	}
 
-	return 0;
+	ret = atomisp_register_i2c_module(sd, client, platform_data,
+					  gmin_get_var_int(&client->dev, "CamType",
+							   RAW_CAMERA),
+					  gmin_get_var_int(&client->dev, "CsiPort",
+							   ATOMISP_CAMERA_PORT_PRIMARY));
+
+	return ret;
 
 fail_csi_cfg:
 	dev->platform_data->csi_cfg(sd, 0);
@@ -1608,14 +1661,6 @@ static int mt9m114_enum_frameintervals(struct v4l2_subdev *sd,
 	return 0;
 }
 
-static int
-mt9m114_g_chip_ident(struct v4l2_subdev *sd, struct v4l2_dbg_chip_ident *chip)
-{
-	struct i2c_client *client = v4l2_get_subdevdata(sd);
-
-	return v4l2_chip_ident_i2c_client(client, chip, V4L2_IDENT_MT9M114, 0);
-}
-
 static int mt9m114_enum_mbus_code(struct v4l2_subdev *sd,
 				  struct v4l2_subdev_fh *fh,
 				  struct v4l2_subdev_mbus_code_enum *code)
@@ -1737,7 +1782,6 @@ static struct v4l2_subdev_sensor_ops mt9m114_sensor_ops = {
 };
 
 static const struct v4l2_subdev_core_ops mt9m114_core_ops = {
-	.g_chip_ident = mt9m114_g_chip_ident,
 	.queryctrl = mt9m114_queryctrl,
 	.g_ctrl = mt9m114_g_ctrl,
 	.s_ctrl = mt9m114_s_ctrl,
@@ -1784,7 +1828,7 @@ static int mt9m114_probe(struct i2c_client *client,
 		       const struct i2c_device_id *id)
 {
 	struct mt9m114_device *dev;
-	int ret;
+	int ret = 0;
 
 	/* Setup sensor configuration structure */
 	dev = kzalloc(sizeof(*dev), GFP_KERNEL);
@@ -1797,11 +1841,14 @@ static int mt9m114_probe(struct i2c_client *client,
 	if (client->dev.platform_data) {
 		ret = mt9m114_s_config(&dev->sd, client->irq,
 				       client->dev.platform_data);
-		if (ret) {
-			v4l2_device_unregister_subdev(&dev->sd);
-			kfree(dev);
-			return ret;
-		}
+	} else if (ACPI_COMPANION(&client->dev)) {
+		ret = mt9m114_s_config(&dev->sd, client->irq,
+				       gmin_camera_platform_data());
+	}
+	if (ret) {
+		v4l2_device_unregister_subdev(&dev->sd);
+		kfree(dev);
+		return ret;
 	}
 
 	/*TODO add format code here*/
@@ -1825,10 +1872,18 @@ static int mt9m114_probe(struct i2c_client *client,
 
 MODULE_DEVICE_TABLE(i2c, mt9m114_id);
 
+static struct acpi_device_id mt9m114_acpi_match[] = {
+	{ "INT33F0" },
+	{ "APTN1040" },
+        {},
+};
+MODULE_DEVICE_TABLE(acpi, mt9m114_acpi_match);
+
 static struct i2c_driver mt9m114_driver = {
 	.driver = {
 		.owner = THIS_MODULE,
-		.name = "mt9m114"
+		.name = "mt9m114",
+		.acpi_match_table = ACPI_PTR(mt9m114_acpi_match),
 	},
 	.probe = mt9m114_probe,
 	.remove = mt9m114_remove,
