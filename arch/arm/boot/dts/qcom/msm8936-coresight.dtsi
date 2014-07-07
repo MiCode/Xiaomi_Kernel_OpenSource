@@ -312,6 +312,7 @@
 		coresight-id = <18>;
 		coresight-name = "coresight-cti-cpu0";
 		coresight-nr-inports = <0>;
+		coresight-cti-cpu = <&CPU0>;
 
 		clocks = <&clock_rpm clk_qdss_clk>,
 			 <&clock_rpm clk_qdss_a_clk>;
@@ -327,6 +328,7 @@
 		coresight-id = <19>;
 		coresight-name = "coresight-cti-cpu1";
 		coresight-nr-inports = <0>;
+		coresight-cti-cpu = <&CPU1>;
 
 		clocks = <&clock_rpm clk_qdss_clk>,
 			 <&clock_rpm clk_qdss_a_clk>;
@@ -342,6 +344,7 @@
 		coresight-id = <20>;
 		coresight-name = "coresight-cti-cpu2";
 		coresight-nr-inports = <0>;
+		coresight-cti-cpu = <&CPU2>;
 
 		clocks = <&clock_rpm clk_qdss_clk>,
 			 <&clock_rpm clk_qdss_a_clk>;
@@ -357,6 +360,7 @@
 		coresight-id = <21>;
 		coresight-name = "coresight-cti-cpu3";
 		coresight-nr-inports = <0>;
+		coresight-cti-cpu = <&CPU3>;
 
 		clocks = <&clock_rpm clk_qdss_clk>,
 			 <&clock_rpm clk_qdss_a_clk>;
