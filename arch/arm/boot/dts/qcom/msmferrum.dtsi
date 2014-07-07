@@ -94,6 +94,7 @@
 
 #include "msmferrum-ion.dtsi"
 #include "msmferrum-smp2p.dtsi"
+#include "msmferrum-ipcrouter.dtsi"
 
 &soc {
 	#address-cells = <1>;
