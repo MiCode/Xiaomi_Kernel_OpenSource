@@ -66,6 +66,43 @@
 		#clock-cells = <1>;
 	};
 
+	cci_cache: qcom,cci {
+		compatible = "devfreq-simple-dev";
+		clock-names = "devfreq_clk";
+		clocks = <&clock_cpu clk_a53ssmux_cci>;
+		governor = "cpufreq";
+		freq-tbl-khz =
+			<  200000 >,
+			<  297600 >,
+			<  400000 >,
+			<  595200 >;
+	};
+
+	devfreq-cpufreq {
+		cci-cpufreq {
+		target-dev = <&cci_cache>;
+		cpu-to-dev-map-0 =
+			<  200000  200000 >,
+			<  345600  200000 >,
+			<  400000  200000 >,
+			<  422400  200000 >,
+			<  499200  200000 >,
+			<  533330  297600 >,
+			<  652800  297600 >,
+			<  800000  297600 >,
+			< 1113600  400000 >,
+			< 1267200  595200 >,
+			< 1344000  595200 >;
+		cpu-to-dev-map-4 =
+			<  200000 200000 >,
+			<  249600 200000 >,
+			<  400000 297600 >,
+			<  499200 297600 >,
+			<  800000 400000 >,
+			<  998400 400000 >;
+		};
+	};
+
 	qcom,msm-cpufreq {
 		compatible = "qcom,msm-cpufreq";
 		clock-names = "cpu0_clk", "cpu1_clk", "cpu2_clk",
