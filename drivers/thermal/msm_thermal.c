@@ -116,6 +116,8 @@ static struct attribute_group cx_attr_gp;
 static struct attribute_group gfx_attr_gp;
 static struct attribute_group mx_attr_group;
 static struct regulator *vdd_mx;
+static struct cpufreq_frequency_table *pending_freq_table_ptr;
+static int pending_cpu_freq = -1;
 
 enum thermal_threshold {
 	HOTPLUG_THRESHOLD_HIGH,
@@ -354,6 +356,18 @@ static int  msm_thermal_cpufreq_callback(struct notifier_block *nfb,
 		if (max_freq_req < min_freq_req)
 			pr_err("Invalid frequency request Max:%u Min:%u\n",
 				max_freq_req, min_freq_req);
+		break;
+
+	case CPUFREQ_CREATE_POLICY:
+		if (pending_cpu_freq != -1 &&
+			(cpumask_first(policy->related_cpus) ==
+			pending_cpu_freq)) {
+			pr_debug("Updating freq plan for cpu: %d\n",
+				policy->cpu);
+			pending_freq_table_ptr = cpufreq_frequency_get_table(
+							policy->cpu);
+			pending_cpu_freq = -1;
+		}
 		break;
 	}
 	return NOTIFY_OK;
@@ -623,7 +637,7 @@ static void update_cpu_topology(struct device *dev)
 	core_ptr->child_entity_ptr = temp_ptr;
 }
 
-static int init_cluster_freq_table(void)
+static int __ref init_cluster_freq_table(void)
 {
 	uint32_t _cluster = 0, _cpu = 0, table_len = 0, idx = 0;
 	int ret = 0;
@@ -650,6 +664,20 @@ static int init_cluster_freq_table(void)
 			} else {
 				break;
 			}
+		}
+		if (!freq_table_ptr) {
+			_cpu = first_cpu(cluster_ptr->cluster_cores);
+			pr_debug(
+			"Online cpu%d in cluster%d to read cpufreq table\n",
+				cluster_ptr->cluster_id, _cpu);
+			pending_cpu_freq = _cpu;
+			if (!cpu_online(_cpu)) {
+#ifdef CONFIG_SMP
+				cpu_up(_cpu);
+				cpu_down(_cpu);
+#endif
+			}
+			freq_table_ptr = pending_freq_table_ptr;
 		}
 		if (!freq_table_ptr) {
 			pr_debug("Error reading cluster%d cpufreq table\n",
