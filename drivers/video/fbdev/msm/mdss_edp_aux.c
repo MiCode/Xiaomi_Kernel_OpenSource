@@ -1,4 +1,4 @@
-/* Copyright (c) 2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1201,7 +1201,6 @@ static int edp_aux_link_train(struct mdss_edp_drv_pdata *ep)
 {
 	int ret = 0;
 
-	pr_debug("%s", __func__);
 	ret = edp_aux_chan_ready(ep);
 	if (ret == 0) {
 		pr_err("%s: LINK Train failed: aux chan NOT ready\n", __func__);
@@ -1229,13 +1228,13 @@ train_start:
 		if (edp_link_rate_down_shift(ep) == 0) {
 			goto train_start;
 		} else {
-			pr_err("%s: Training 1 failed", __func__);
+			pr_err("%s: Training 1 failed\n", __func__);
 			ret = -1;
 			goto clear;
 		}
 	}
 
-	pr_debug("%s: Training 1 completed successfully", __func__);
+	pr_debug("%s: Training 1 completed successfully\n", __func__);
 
 	mdss_edp_state_ctrl(ep, 0);
 	edp_clear_training_pattern(ep);
@@ -1244,13 +1243,13 @@ train_start:
 		if (edp_link_rate_down_shift(ep) == 0) {
 			goto train_start;
 		} else {
-			pr_err("%s: Training 2 failed", __func__);
+			pr_err("%s: Training 2 failed\n", __func__);
 			ret = -1;
 			goto clear;
 		}
 	}
 
-	pr_debug("%s: Training 2 completed successfully", __func__);
+	pr_debug("%s: Training 2 completed successfully\n", __func__);
 
 	mdss_edp_state_ctrl(ep, ST_SEND_VIDEO);
 clear:
