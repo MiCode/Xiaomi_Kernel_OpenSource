@@ -5627,6 +5627,12 @@ static void gen8_init_clock_gating(struct drm_device *dev)
 	I915_WRITE(GEN8_L3CNTLREG1, (I915_READ(GEN8_L3CNTLREG1) &
 			GEN8_TAG_CLK_OFFTIME_MASK) |
 			GEN8_TAG_CLK_OFFTIME);
+
+	/* WaAllocateSLML3CacheCtrlOverride:bdw */
+	I915_WRITE(GEN8_L3CNTLREG,
+			GEN8_L3CNTLREG_ALL_L3_CLIENT_POOL |
+			GEN8_L3CNTLREG_URB_ALLOCATION |
+			GEN8_L3CNTLREG_SLM_MODE_ENABLE);
 }
 
 static void haswell_init_clock_gating(struct drm_device *dev)
