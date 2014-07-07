@@ -55,7 +55,7 @@ MODULE_PARM_DESC(debug, "activates debug info");
 #define MEM2MEM_NAME		"m2m-testdev"
 
 /* Per queue */
-#define MEM2MEM_DEF_NUM_BUFS	VIDEO_MAX_FRAME
+#define MEM2MEM_DEF_NUM_BUFS	VB2_MAX_FRAME
 /* In bytes, per queue */
 #define MEM2MEM_VID_MEM_LIMIT	(16 * 1024 * 1024)
 
