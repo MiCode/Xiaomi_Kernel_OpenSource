@@ -285,19 +285,25 @@ static DEFINE_MUTEX(cpr_regulator_list_mutex);
 static LIST_HEAD(cpr_regulator_list);
 
 module_param_named(debug_enable, cpr_debug_enable, int, S_IRUGO | S_IWUSR);
-#define cpr_debug(message, ...) \
+#define cpr_debug(cpr_vreg, message, ...) \
 	do { \
 		if (cpr_debug_enable & CPR_DEBUG_MASK_API) \
-			pr_info(message, ##__VA_ARGS__); \
+			pr_info("%s: " message, (cpr_vreg)->rdesc.name, \
+				##__VA_ARGS__); \
 	} while (0)
-#define cpr_debug_irq(message, ...) \
+#define cpr_debug_irq(cpr_vreg, message, ...) \
 	do { \
 		if (cpr_debug_enable & CPR_DEBUG_MASK_IRQ) \
-			pr_info(message, ##__VA_ARGS__); \
+			pr_info("%s: " message, (cpr_vreg)->rdesc.name, \
+				##__VA_ARGS__); \
 		else \
-			pr_debug(message, ##__VA_ARGS__); \
+			pr_debug("%s: " message, (cpr_vreg)->rdesc.name, \
+				##__VA_ARGS__); \
 	} while (0)
-
+#define cpr_info(cpr_vreg, message, ...) \
+	pr_info("%s: " message, (cpr_vreg)->rdesc.name, ##__VA_ARGS__)
+#define cpr_err(cpr_vreg, message, ...) \
+	pr_err("%s: " message, (cpr_vreg)->rdesc.name, ##__VA_ARGS__)
 
 static u64 cpr_read_efuse_row(struct cpr_regulator *cpr_vreg, u32 row_num,
 				bool use_tz_api)
@@ -328,7 +334,8 @@ static u64 cpr_read_efuse_row(struct cpr_regulator *cpr_vreg, u32 row_num,
 			&req, sizeof(req), &rsp, sizeof(rsp));
 
 	if (rc) {
-		pr_err("read row %d failed, err code = %d", row_num, rc);
+		cpr_err(cpr_vreg, "read row %d failed, err code = %d",
+			row_num, rc);
 	} else {
 		efuse_bits = ((u64)(rsp.row_data[1]) << 32) +
 				(u64)rsp.row_data[0];
@@ -359,12 +366,13 @@ static u64 cpr_read_efuse_param(struct cpr_regulator *cpr_vreg, int row_start,
 	int bits_first, bits_second;
 
 	if (bit_start < 0) {
-		pr_err("Invalid LSB = %d specified\n", bit_start);
+		cpr_err(cpr_vreg, "Invalid LSB = %d specified\n", bit_start);
 		return 0;
 	}
 
 	if (bit_len < 0 || bit_len > 64) {
-		pr_err("Invalid bit length = %d specified\n", bit_len);
+		cpr_err(cpr_vreg, "Invalid bit length = %d specified\n",
+			bit_len);
 		return 0;
 	}
 
@@ -532,7 +540,7 @@ static void cpr_corner_restore(struct cpr_regulator *cpr_vreg, int corner)
 	cpr_write(cpr_vreg, REG_RBCPR_CTL, ctl);
 	irq = cpr_vreg->save_irq[corner];
 	cpr_irq_set(cpr_vreg, irq);
-	cpr_debug("gcnt = 0x%08x, ctl = 0x%08x, irq = 0x%08x\n",
+	cpr_debug(cpr_vreg, "gcnt = 0x%08x, ctl = 0x%08x, irq = 0x%08x\n",
 		  gcnt, ctl, irq);
 }
 
@@ -551,7 +559,8 @@ static int cpr_apc_set(struct cpr_regulator *cpr_vreg, u32 new_volt)
 	max_volt = cpr_vreg->ceiling_max;
 	rc = regulator_set_voltage(cpr_vreg->vdd_apc, new_volt, max_volt);
 	if (rc)
-		pr_err("set: vdd_apc = %d uV: rc=%d\n", new_volt, rc);
+		cpr_err(cpr_vreg, "set: vdd_apc = %d uV: rc=%d\n",
+			new_volt, rc);
 	return rc;
 }
 
@@ -593,13 +602,13 @@ static int cpr_mx_set(struct cpr_regulator *cpr_vreg, int corner,
 
 	rc = regulator_set_voltage(cpr_vreg->vdd_mx, vdd_mx_vmin,
 				   cpr_vreg->vdd_mx_vmax);
-	cpr_debug("[corner:%d, fuse_corner:%d] %d uV\n", corner,
+	cpr_debug(cpr_vreg, "[corner:%d, fuse_corner:%d] %d uV\n", corner,
 			fuse_corner, vdd_mx_vmin);
 
 	if (!rc) {
 		cpr_vreg->vdd_mx_vmin = vdd_mx_vmin;
 	} else {
-		pr_err("set: vdd_mx [corner:%d, fuse_corner:%d] = %d uV failed: rc=%d\n",
+		cpr_err(cpr_vreg, "set: vdd_mx [corner:%d, fuse_corner:%d] = %d uV failed: rc=%d\n",
 			corner, fuse_corner, vdd_mx_vmin, rc);
 	}
 	return rc;
@@ -655,8 +664,9 @@ static void cpr_scale(struct cpr_regulator *cpr_vreg,
 				& RBCPR_RESULT0_ERROR_STEPS_MASK;
 	last_volt = cpr_vreg->last_volt[corner];
 
-	cpr_debug_irq("last_volt[corner:%d, fuse_corner:%d] = %d uV\n", corner,
-			fuse_corner, last_volt);
+	cpr_debug_irq(cpr_vreg,
+			"last_volt[corner:%d, fuse_corner:%d] = %d uV\n",
+			corner, fuse_corner, last_volt);
 
 	gcnt = cpr_read(cpr_vreg, REG_RBCPR_GCNT_TARGET
 			(cpr_vreg->cpr_fuse_ro_sel[fuse_corner]));
@@ -673,18 +683,19 @@ static void cpr_scale(struct cpr_regulator *cpr_vreg,
 			error_steps = max(cpr_vreg->up_threshold,
 					cpr_vreg->vdd_apc_step_up_limit);
 		}
-		cpr_debug_irq("Up: cpr status = 0x%08x (error_steps=%d)\n",
-			      reg_val, error_steps);
+		cpr_debug_irq(cpr_vreg,
+				"Up: cpr status = 0x%08x (error_steps=%d)\n",
+				reg_val, error_steps);
 
 		if (last_volt >= cpr_vreg->ceiling_volt[fuse_corner]) {
-			cpr_debug_irq(
+			cpr_debug_irq(cpr_vreg,
 			"[corn:%d, fuse_corn:%d] @ ceiling: %d >= %d: NACK\n",
 				corner, fuse_corner, last_volt,
 				cpr_vreg->ceiling_volt[fuse_corner]);
 			cpr_irq_clr_nack(cpr_vreg);
 
-			cpr_debug_irq("gcnt = 0x%08x (quot = %d)\n", gcnt,
-					quot);
+			cpr_debug_irq(cpr_vreg, "gcnt = 0x%08x (quot = %d)\n",
+					gcnt, quot);
 
 			/* Maximize the UP threshold */
 			reg_mask = RBCPR_CTL_UP_THRESHOLD_MASK <<
@@ -699,7 +710,8 @@ static void cpr_scale(struct cpr_regulator *cpr_vreg,
 		}
 
 		if (error_steps > cpr_vreg->vdd_apc_step_up_limit) {
-			cpr_debug_irq("%d is over up-limit(%d): Clamp\n",
+			cpr_debug_irq(cpr_vreg,
+				      "%d is over up-limit(%d): Clamp\n",
 				      error_steps,
 				      cpr_vreg->vdd_apc_step_up_limit);
 			error_steps = cpr_vreg->vdd_apc_step_up_limit;
@@ -708,7 +720,8 @@ static void cpr_scale(struct cpr_regulator *cpr_vreg,
 		/* Calculate new voltage */
 		new_volt = last_volt + (error_steps * cpr_vreg->step_volt);
 		if (new_volt > cpr_vreg->ceiling_volt[fuse_corner]) {
-			cpr_debug_irq("new_volt(%d) >= ceiling(%d): Clamp\n",
+			cpr_debug_irq(cpr_vreg,
+				      "new_volt(%d) >= ceiling(%d): Clamp\n",
 				      new_volt,
 				      cpr_vreg->ceiling_volt[fuse_corner]);
 
@@ -733,7 +746,7 @@ static void cpr_scale(struct cpr_regulator *cpr_vreg,
 		/* Ack */
 		cpr_irq_clr_ack(cpr_vreg);
 
-		cpr_debug_irq(
+		cpr_debug_irq(cpr_vreg,
 			"UP: -> new_volt[corner:%d, fuse_corner:%d] = %d uV\n",
 			corner, fuse_corner, new_volt);
 	} else if (dir == DOWN) {
@@ -747,18 +760,19 @@ static void cpr_scale(struct cpr_regulator *cpr_vreg,
 			error_steps = max(cpr_vreg->down_threshold,
 					cpr_vreg->vdd_apc_step_down_limit);
 		}
-		cpr_debug_irq("Down: cpr status = 0x%08x (error_steps=%d)\n",
+		cpr_debug_irq(cpr_vreg,
+			      "Down: cpr status = 0x%08x (error_steps=%d)\n",
 			      reg_val, error_steps);
 
 		if (last_volt <= cpr_vreg->floor_volt[fuse_corner]) {
-			cpr_debug_irq(
+			cpr_debug_irq(cpr_vreg,
 			"[corn:%d, fuse_corner:%d] @ floor: %d <= %d: NACK\n",
 				corner, fuse_corner, last_volt,
 				cpr_vreg->floor_volt[fuse_corner]);
 			cpr_irq_clr_nack(cpr_vreg);
 
-			cpr_debug_irq("gcnt = 0x%08x (quot = %d)\n", gcnt,
-					quot);
+			cpr_debug_irq(cpr_vreg, "gcnt = 0x%08x (quot = %d)\n",
+					gcnt, quot);
 
 			/* Enable auto nack down */
 			reg_mask = RBCPR_CTL_SW_AUTO_CONT_NACK_DN_EN;
@@ -773,7 +787,8 @@ static void cpr_scale(struct cpr_regulator *cpr_vreg,
 		}
 
 		if (error_steps > cpr_vreg->vdd_apc_step_down_limit) {
-			cpr_debug_irq("%d is over down-limit(%d): Clamp\n",
+			cpr_debug_irq(cpr_vreg,
+				      "%d is over down-limit(%d): Clamp\n",
 				      error_steps,
 				      cpr_vreg->vdd_apc_step_down_limit);
 			error_steps = cpr_vreg->vdd_apc_step_down_limit;
@@ -782,7 +797,8 @@ static void cpr_scale(struct cpr_regulator *cpr_vreg,
 		/* Calculte new voltage */
 		new_volt = last_volt - (error_steps * cpr_vreg->step_volt);
 		if (new_volt < cpr_vreg->floor_volt[fuse_corner]) {
-			cpr_debug_irq("new_volt(%d) < floor(%d): Clamp\n",
+			cpr_debug_irq(cpr_vreg,
+				      "new_volt(%d) < floor(%d): Clamp\n",
 				      new_volt,
 				      cpr_vreg->floor_volt[fuse_corner]);
 			new_volt = cpr_vreg->floor_volt[fuse_corner];
@@ -807,7 +823,7 @@ static void cpr_scale(struct cpr_regulator *cpr_vreg,
 		/* Ack */
 		cpr_irq_clr_ack(cpr_vreg);
 
-		cpr_debug_irq(
+		cpr_debug_irq(cpr_vreg,
 		"DOWN: -> new_volt[corner:%d, fuse_corner:%d] = %d uV\n",
 			corner, fuse_corner, new_volt);
 	}
@@ -824,18 +840,19 @@ static irqreturn_t cpr_irq_handler(int irq, void *dev)
 	if (cpr_vreg->flags & FLAGS_IGNORE_1ST_IRQ_STATUS)
 		reg_val = cpr_read(cpr_vreg, REG_RBIF_IRQ_STATUS);
 
-	cpr_debug_irq("IRQ_STATUS = 0x%02X\n", reg_val);
+	cpr_debug_irq(cpr_vreg, "IRQ_STATUS = 0x%02X\n", reg_val);
 
 	if (!cpr_ctl_is_enabled(cpr_vreg)) {
-		cpr_debug_irq("CPR is disabled\n");
+		cpr_debug_irq(cpr_vreg, "CPR is disabled\n");
 		goto _exit;
 	} else if (cpr_ctl_is_busy(cpr_vreg)
 			&& !cpr_vreg->clamp_timer_interval) {
-		cpr_debug_irq("CPR measurement is not ready\n");
+		cpr_debug_irq(cpr_vreg, "CPR measurement is not ready\n");
 		goto _exit;
 	} else if (!cpr_is_allowed(cpr_vreg)) {
 		reg_val = cpr_read(cpr_vreg, REG_RBCPR_CTL);
-		pr_err("Interrupt broken? RBCPR_CTL = 0x%02X\n", reg_val);
+		cpr_err(cpr_vreg, "Interrupt broken? RBCPR_CTL = 0x%02X\n",
+			reg_val);
 		goto _exit;
 	}
 
@@ -850,9 +867,10 @@ static irqreturn_t cpr_irq_handler(int irq, void *dev)
 		cpr_irq_clr_nack(cpr_vreg);
 	} else if (reg_val & CPR_INT_MID) {
 		/* RBCPR_CTL_SW_AUTO_CONT_ACK_EN is enabled */
-		cpr_debug_irq("IRQ occured for Mid Flag\n");
+		cpr_debug_irq(cpr_vreg, "IRQ occured for Mid Flag\n");
 	} else {
-		pr_err("IRQ occured for unknown flag (0x%08x)\n", reg_val);
+		cpr_err(cpr_vreg, "IRQ occured for unknown flag (0x%08x)\n",
+			reg_val);
 	}
 
 	/* Save register values for the corner */
@@ -879,14 +897,15 @@ static int cpr_regulator_enable(struct regulator_dev *rdev)
 	if (cpr_vreg->vdd_mx) {
 		rc = regulator_enable(cpr_vreg->vdd_mx);
 		if (rc) {
-			pr_err("regulator_enable: vdd_mx: rc=%d\n", rc);
+			cpr_err(cpr_vreg, "regulator_enable: vdd_mx: rc=%d\n",
+				rc);
 			return rc;
 		}
 	}
 
 	rc = regulator_enable(cpr_vreg->vdd_apc);
 	if (rc) {
-		pr_err("regulator_enable: vdd_apc: rc=%d\n", rc);
+		cpr_err(cpr_vreg, "regulator_enable: vdd_apc: rc=%d\n", rc);
 		return rc;
 	}
 
@@ -913,7 +932,8 @@ static int cpr_regulator_disable(struct regulator_dev *rdev)
 			rc = regulator_disable(cpr_vreg->vdd_mx);
 
 		if (rc) {
-			pr_err("regulator_disable: vdd_mx: rc=%d\n", rc);
+			cpr_err(cpr_vreg, "regulator_disable: vdd_mx: rc=%d\n",
+				rc);
 			return rc;
 		}
 
@@ -923,7 +943,7 @@ static int cpr_regulator_disable(struct regulator_dev *rdev)
 			cpr_ctl_disable(cpr_vreg);
 		mutex_unlock(&cpr_vreg->cpr_mutex);
 	} else {
-		pr_err("regulator_disable: vdd_apc: rc=%d\n", rc);
+		cpr_err(cpr_vreg, "regulator_disable: vdd_apc: rc=%d\n", rc);
 	}
 
 	return rc;
@@ -947,8 +967,8 @@ static int cpr_regulator_set_voltage(struct regulator_dev *rdev,
 		new_volt = cpr_vreg->pvs_corner_v[fuse_corner];
 	}
 
-	cpr_debug("[corner:%d, fuse_corner:%d] = %d uV\n", corner, fuse_corner,
-		new_volt);
+	cpr_debug(cpr_vreg, "[corner:%d, fuse_corner:%d] = %d uV\n",
+		corner, fuse_corner, new_volt);
 
 	if (corner > cpr_vreg->corner)
 		change_dir = UP;
@@ -991,7 +1011,7 @@ static struct regulator_ops cpr_corner_ops = {
 #ifdef CONFIG_PM
 static int cpr_suspend(struct cpr_regulator *cpr_vreg)
 {
-	cpr_debug("suspend\n");
+	cpr_debug(cpr_vreg, "suspend\n");
 
 	mutex_lock(&cpr_vreg->cpr_mutex);
 
@@ -1008,7 +1028,7 @@ static int cpr_suspend(struct cpr_regulator *cpr_vreg)
 static int cpr_resume(struct cpr_regulator *cpr_vreg)
 
 {
-	cpr_debug("resume\n");
+	cpr_debug(cpr_vreg, "resume\n");
 
 	mutex_lock(&cpr_vreg->cpr_mutex);
 
@@ -1056,7 +1076,7 @@ static int cpr_config(struct cpr_regulator *cpr_vreg, struct device *dev)
 	/* Use 19.2 MHz clock for CPR. */
 	rbcpr_clk = ioremap(cpr_vreg->rbcpr_clk_addr, 4);
 	if (!rbcpr_clk) {
-		pr_err("Unable to map rbcpr_clk\n");
+		cpr_err(cpr_vreg, "Unable to map rbcpr_clk\n");
 		return -EINVAL;
 	}
 	reg = readl_relaxed(rbcpr_clk);
@@ -1095,7 +1115,7 @@ static int cpr_config(struct cpr_regulator *cpr_vreg, struct device *dev)
 	/* Program the delay count for the timer */
 	val = (cpr_vreg->ref_clk_khz * cpr_vreg->timer_delay_us) / 1000;
 	cpr_write(cpr_vreg, REG_RBCPR_TIMER_INTERVAL, val);
-	pr_info("Timer count: 0x%0x (for %d us)\n", val,
+	cpr_info(cpr_vreg, "Timer count: 0x%0x (for %d us)\n", val,
 		cpr_vreg->timer_delay_us);
 
 	/* Program Consecutive Up & Down */
@@ -1146,7 +1166,7 @@ static int cpr_fuse_is_setting_expected(struct cpr_regulator *cpr_vreg,
 	else
 		ret = 0;
 
-	pr_info("[row:%d] = 0x%llx @%d:%d == %d ?: %s\n",
+	cpr_info(cpr_vreg, "[row:%d] = 0x%llx @%d:%d == %d ?: %s\n",
 			sel_array[0], fuse_bits,
 			sel_array[1], sel_array[2],
 			sel_array[3],
@@ -1165,13 +1185,14 @@ static int cpr_voltage_uplift_wa_inc_volt(struct cpr_regulator *cpr_vreg,
 	rc = of_property_read_u32(of_node,
 		"qcom,cpr-uplift-voltage", &uplift_voltage);
 	if (rc < 0) {
-		pr_err("cpr-uplift-voltage is missing, rc = %d", rc);
+		cpr_err(cpr_vreg, "cpr-uplift-voltage is missing, rc = %d", rc);
 		return rc;
 	}
 	rc = of_property_read_u32(of_node,
 		"qcom,cpr-uplift-max-volt", &uplift_max_volt);
 	if (rc < 0) {
-		pr_err("cpr-uplift-max-volt is missing, rc = %d", rc);
+		cpr_err(cpr_vreg, "cpr-uplift-max-volt is missing, rc = %d",
+			rc);
 		return rc;
 	}
 
@@ -1200,30 +1221,33 @@ static int cpr_pvs_per_corner_init(struct device_node *of_node,
 
 	prop = of_find_property(of_node, "qcom,cpr-fuse-init-voltage", NULL);
 	if (!prop) {
-		pr_err("qcom,cpr-fuse-init-voltage is missing\n");
+		cpr_err(cpr_vreg, "qcom,cpr-fuse-init-voltage is missing\n");
 		return -EINVAL;
 	}
 	size = prop->length / sizeof(u32);
 	if (size != cpr_vreg->num_fuse_corners * 4) {
-		pr_err("fuse position for init voltages is invalid\n");
+		cpr_err(cpr_vreg,
+			"fuse position for init voltages is invalid\n");
 		return -EINVAL;
 	}
 	fuse_sel = kzalloc(sizeof(u32) * size, GFP_KERNEL);
 	if (!fuse_sel) {
-		pr_err("memory alloc failed.\n");
+		cpr_err(cpr_vreg, "memory alloc failed.\n");
 		return -ENOMEM;
 	}
 	rc = of_property_read_u32_array(of_node, "qcom,cpr-fuse-init-voltage",
 							fuse_sel, size);
 	if (rc < 0) {
-		pr_err("read cpr-fuse-init-voltage failed, rc = %d\n", rc);
+		cpr_err(cpr_vreg,
+			"read cpr-fuse-init-voltage failed, rc = %d\n", rc);
 		kfree(fuse_sel);
 		return rc;
 	}
 	rc = of_property_read_u32(of_node, "qcom,cpr-init-voltage-step",
 							&step_size_uv);
 	if (rc < 0) {
-		pr_err("read cpr-init-voltage-step failed, rc = %d\n", rc);
+		cpr_err(cpr_vreg,
+			"read cpr-init-voltage-step failed, rc = %d\n", rc);
 		kfree(fuse_sel);
 		return rc;
 	}
@@ -1231,7 +1255,8 @@ static int cpr_pvs_per_corner_init(struct device_node *of_node,
 	ref_uv = kzalloc((cpr_vreg->num_fuse_corners + 1) * sizeof(*ref_uv),
 			GFP_KERNEL);
 	if (!ref_uv) {
-		pr_err("Could not allocate memory for reference voltages\n");
+		cpr_err(cpr_vreg,
+			"Could not allocate memory for reference voltages\n");
 		kfree(fuse_sel);
 		return -ENOMEM;
 	}
@@ -1239,7 +1264,8 @@ static int cpr_pvs_per_corner_init(struct device_node *of_node,
 	rc = of_property_read_u32_array(of_node, "qcom,cpr-init-voltage-ref",
 		&ref_uv[CPR_FUSE_CORNER_MIN], cpr_vreg->num_fuse_corners);
 	if (rc < 0) {
-		pr_err("read qcom,cpr-init-voltage-ref failed, rc = %d\n", rc);
+		cpr_err(cpr_vreg,
+			"read qcom,cpr-init-voltage-ref failed, rc = %d\n", rc);
 		kfree(fuse_sel);
 		kfree(ref_uv);
 		return rc;
@@ -1251,7 +1277,8 @@ static int cpr_pvs_per_corner_init(struct device_node *of_node,
 					fuse_sel[1], fuse_sel[2], fuse_sel[3]);
 		sign = (efuse_bits & (1 << (fuse_sel[2] - 1))) ? -1 : 1;
 		steps = efuse_bits & ((1 << (fuse_sel[2] - 1)) - 1);
-		pr_debug("corner %d: sign = %d, steps = %d\n", i, sign, steps);
+		cpr_debug(cpr_vreg,
+			"corner %d: sign = %d, steps = %d\n", i, sign, steps);
 		cpr_vreg->pvs_corner_v[i] =
 				ref_uv[i] + sign * steps * step_size_uv;
 		cpr_vreg->pvs_corner_v[i] = DIV_ROUND_UP(
@@ -1259,13 +1286,13 @@ static int cpr_pvs_per_corner_init(struct device_node *of_node,
 				cpr_vreg->step_volt) *
 				cpr_vreg->step_volt;
 		if (cpr_vreg->pvs_corner_v[i] > cpr_vreg->ceiling_volt[i]) {
-			pr_info("Warning: initial voltage[%d] %d above ceiling %d\n",
+			cpr_info(cpr_vreg, "Warning: initial voltage[%d] %d above ceiling %d\n",
 						i, cpr_vreg->pvs_corner_v[i],
 						cpr_vreg->ceiling_volt[i]);
 			cpr_vreg->pvs_corner_v[i] = cpr_vreg->ceiling_volt[i];
 		} else if (cpr_vreg->pvs_corner_v[i] <
 				cpr_vreg->floor_volt[i]) {
-			pr_info("Warning: initial voltage[%d] %d below floor %d\n",
+			cpr_info(cpr_vreg, "Warning: initial voltage[%d] %d below floor %d\n",
 						i, cpr_vreg->pvs_corner_v[i],
 						cpr_vreg->floor_volt[i]);
 			cpr_vreg->pvs_corner_v[i] = cpr_vreg->floor_volt[i];
@@ -1300,7 +1327,7 @@ static int cpr_pvs_single_bin_init(struct device_node *of_node,
 	rc = of_property_read_u32_array(of_node, "qcom,pvs-fuse-redun-sel",
 						pvs_fuse_redun_sel, 5);
 	if (rc < 0) {
-		pr_err("pvs-fuse-redun-sel missing: rc=%d\n", rc);
+		cpr_err(cpr_vreg, "pvs-fuse-redun-sel missing: rc=%d\n", rc);
 		return rc;
 	}
 
@@ -1309,14 +1336,15 @@ static int cpr_pvs_single_bin_init(struct device_node *of_node,
 		rc = of_property_read_u32_array(of_node, "qcom,pvs-fuse-redun",
 								pvs_fuse, 4);
 		if (rc < 0) {
-			pr_err("pvs-fuse-redun missing: rc=%d\n", rc);
+			cpr_err(cpr_vreg, "pvs-fuse-redun missing: rc=%d\n",
+				rc);
 			return rc;
 		}
 	} else {
 		rc = of_property_read_u32_array(of_node, "qcom,pvs-fuse",
 							pvs_fuse, 4);
 		if (rc < 0) {
-			pr_err("pvs-fuse missing: rc=%d\n", rc);
+			cpr_err(cpr_vreg, "pvs-fuse missing: rc=%d\n", rc);
 			return rc;
 		}
 	}
@@ -1329,14 +1357,14 @@ static int cpr_pvs_single_bin_init(struct device_node *of_node,
 	stripe_size = cpr_vreg->num_fuse_corners;
 	tmp = kzalloc(sizeof(u32) * pvs_bins * stripe_size, GFP_KERNEL);
 	if (!tmp) {
-		pr_err("memory alloc failed\n");
+		cpr_err(cpr_vreg, "memory alloc failed\n");
 		return -ENOMEM;
 	}
 
 	rc = of_property_read_u32_array(of_node, "qcom,pvs-voltage-table",
 						tmp, pvs_bins * stripe_size);
 	if (rc < 0) {
-		pr_err("pvs-voltage-table missing: rc=%d\n", rc);
+		cpr_err(cpr_vreg, "pvs-voltage-table missing: rc=%d\n", rc);
 		kfree(tmp);
 		return rc;
 	}
@@ -1370,23 +1398,26 @@ static int cpr_pvs_init(struct platform_device *pdev,
 	rc = of_property_read_u32(of_node, "qcom,cpr-apc-volt-step",
 					&cpr_vreg->step_volt);
 	if (rc < 0) {
-		pr_err("read cpr-apc-volt-step failed, rc = %d\n", rc);
+		cpr_err(cpr_vreg, "read cpr-apc-volt-step failed, rc = %d\n",
+			rc);
 		return rc;
 	} else if (cpr_vreg->step_volt == 0) {
-		pr_err("apc voltage step size can't be set to 0.\n");
+		cpr_err(cpr_vreg, "apc voltage step size can't be set to 0.\n");
 		return -EINVAL;
 	}
 
 	if (of_find_property(of_node, "qcom,cpr-fuse-init-voltage", NULL)) {
 		rc = cpr_pvs_per_corner_init(of_node, cpr_vreg);
 		if (rc < 0) {
-			pr_err("get pvs per corner failed, rc = %d", rc);
+			cpr_err(cpr_vreg, "get pvs per corner failed, rc = %d",
+				rc);
 			return rc;
 		}
 	} else {
 		rc = cpr_pvs_single_bin_init(of_node, cpr_vreg);
 		if (rc < 0) {
-			pr_err("get pvs from single bin failed, rc = %d", rc);
+			cpr_err(cpr_vreg,
+				"get pvs from single bin failed, rc = %d", rc);
 			return rc;
 		}
 	}
@@ -1394,7 +1425,8 @@ static int cpr_pvs_init(struct platform_device *pdev,
 	if (cpr_vreg->flags & FLAGS_UPLIFT_QUOT_VOLT) {
 		rc = cpr_voltage_uplift_wa_inc_volt(cpr_vreg, of_node);
 		if (rc < 0) {
-			pr_err("pvs volt uplift wa apply failed: %d", rc);
+			cpr_err(cpr_vreg, "pvs volt uplift wa apply failed: %d",
+				rc);
 			return rc;
 		}
 	}
@@ -1429,7 +1461,7 @@ static int cpr_pvs_init(struct platform_device *pdev,
 			* sizeof(*buf);
 	buf = kzalloc(buflen, GFP_KERNEL);
 	if (buf == NULL) {
-		pr_err("Could not allocate memory for corner voltage logging\n");
+		cpr_err(cpr_vreg, "Could not allocate memory for corner voltage logging\n");
 		return 0;
 	}
 
@@ -1437,32 +1469,32 @@ static int cpr_pvs_init(struct platform_device *pdev,
 		pos += scnprintf(buf + pos, buflen - pos, "%u%s",
 				cpr_vreg->pvs_corner_v[i],
 				i < highest_fuse_corner ? " " : "");
-	pr_info("pvs voltage: [%s] uV\n", buf);
+	cpr_info(cpr_vreg, "pvs voltage: [%s] uV\n", buf);
 
 	for (i = CPR_FUSE_CORNER_MIN, pos = 0; i <= highest_fuse_corner; i++)
 		pos += scnprintf(buf + pos, buflen - pos, "%d%s",
 				cpr_vreg->ceiling_volt[i],
 				i < highest_fuse_corner ? " " : "");
-	pr_info("ceiling voltage: [%s] uV\n", buf);
+	cpr_info(cpr_vreg, "ceiling voltage: [%s] uV\n", buf);
 
 	for (i = CPR_FUSE_CORNER_MIN, pos = 0; i <= highest_fuse_corner; i++)
 		pos += scnprintf(buf + pos, buflen - pos, "%d%s",
 				cpr_vreg->floor_volt[i],
 				i < highest_fuse_corner ? " " : "");
-	pr_info("floor voltage: [%s] uV\n", buf);
+	cpr_info(cpr_vreg, "floor voltage: [%s] uV\n", buf);
 
 	kfree(buf);
 	return 0;
 }
 
-#define CPR_PROP_READ_U32(of_node, cpr_property, cpr_config, rc)	\
+#define CPR_PROP_READ_U32(cpr_vreg, of_node, cpr_property, cpr_config, rc) \
 do {									\
 	if (!rc) {							\
 		rc = of_property_read_u32(of_node,			\
 				"qcom," cpr_property,			\
 				cpr_config);				\
 		if (rc) {						\
-			pr_err("Missing " #cpr_property			\
+			cpr_err(cpr_vreg, "Missing " #cpr_property	\
 				": rc = %d\n", rc);			\
 		}							\
 	}								\
@@ -1484,7 +1516,7 @@ static int cpr_apc_init(struct platform_device *pdev,
 
 	if (rc) {
 		if (rc != -EPROBE_DEFER)
-			pr_err("devm_regulator_get: rc=%d\n", rc);
+			cpr_err(cpr_vreg, "devm_regulator_get: rc=%d\n", rc);
 		return rc;
 	}
 
@@ -1494,8 +1526,9 @@ static int cpr_apc_init(struct platform_device *pdev,
 		if (IS_ERR_OR_NULL(cpr_vreg->vdd_mx)) {
 			rc = PTR_RET(cpr_vreg->vdd_mx);
 			if (rc != -EPROBE_DEFER)
-				pr_err("devm_regulator_get: vdd-mx: rc=%d\n",
-				       rc);
+				cpr_err(cpr_vreg,
+					"devm_regulator_get: vdd-mx: rc=%d\n",
+					rc);
 			return rc;
 		}
 	}
@@ -1505,18 +1538,19 @@ static int cpr_apc_init(struct platform_device *pdev,
 		rc = of_property_read_u32(of_node, "qcom,vdd-mx-vmax",
 				 &cpr_vreg->vdd_mx_vmax);
 		if (rc < 0) {
-			pr_err("vdd-mx-vmax missing: rc=%d\n", rc);
+			cpr_err(cpr_vreg, "vdd-mx-vmax missing: rc=%d\n", rc);
 			return rc;
 		}
 
 		rc = of_property_read_u32(of_node, "qcom,vdd-mx-vmin-method",
 				 &cpr_vreg->vdd_mx_vmin_method);
 		if (rc < 0) {
-			pr_err("vdd-mx-vmin-method missing: rc=%d\n", rc);
+			cpr_err(cpr_vreg, "vdd-mx-vmin-method missing: rc=%d\n",
+				rc);
 			return rc;
 		}
 		if (cpr_vreg->vdd_mx_vmin_method > VDD_MX_VMIN_APC_CORNER_MAP) {
-			pr_err("Invalid vdd-mx-vmin-method(%d)\n",
+			cpr_err(cpr_vreg, "Invalid vdd-mx-vmin-method(%d)\n",
 				cpr_vreg->vdd_mx_vmin_method);
 			return -EINVAL;
 		}
@@ -1527,8 +1561,8 @@ static int cpr_apc_init(struct platform_device *pdev,
 					cpr_vreg->num_fuse_corners);
 		if (rc && cpr_vreg->vdd_mx_vmin_method ==
 			VDD_MX_VMIN_APC_CORNER_MAP) {
-			pr_err("qcom,vdd-mx-corner-map missing: rc=%d\n",
-				rc);
+			cpr_err(cpr_vreg,
+				"qcom,vdd-mx-corner-map missing: rc=%d\n", rc);
 			return rc;
 		}
 
@@ -1556,7 +1590,7 @@ static int cpr_voltage_uplift_wa_inc_quot(struct cpr_regulator *cpr_vreg,
 	rc = of_property_read_u32_array(of_node,
 			"qcom,cpr-uplift-quotient", delta_quot, 3);
 	if (rc < 0) {
-		pr_err("cpr-uplift-quotient is missing: %d", rc);
+		cpr_err(cpr_vreg, "cpr-uplift-quotient is missing: %d", rc);
 		return rc;
 	}
 	for (i = CPR_FUSE_CORNER_MIN; i <= cpr_vreg->num_fuse_corners; i++)
@@ -1578,7 +1612,7 @@ static void cpr_parse_pvs_version_fuse(struct cpr_regulator *cpr_vreg,
 				fuse_sel[0], fuse_sel[3]);
 		cpr_vreg->pvs_version = (fuse_bits >> fuse_sel[1]) &
 			((1 << fuse_sel[2]) - 1);
-		pr_info("[row: %d]: 0x%llx, pvs_version = %d\n",
+		cpr_info(cpr_vreg, "[row: %d]: 0x%llx, pvs_version = %d\n",
 				fuse_sel[0], fuse_bits, cpr_vreg->pvs_version);
 	} else {
 		cpr_vreg->pvs_version = 0;
@@ -1621,7 +1655,8 @@ static int cpr_get_corner_quot_adjustment(struct cpr_regulator *cpr_vreg,
 	cpr_vreg->corner_map = devm_kzalloc(dev, sizeof(int) * (size + 1),
 					GFP_KERNEL);
 	if (!cpr_vreg->corner_map) {
-		pr_err("Can't allocate memory for cpr_vreg->corner_map\n");
+		cpr_err(cpr_vreg,
+			"Can't allocate memory for cpr_vreg->corner_map\n");
 		return -ENOMEM;
 	}
 	cpr_vreg->num_corners = size;
@@ -1630,7 +1665,8 @@ static int cpr_get_corner_quot_adjustment(struct cpr_regulator *cpr_vreg,
 			sizeof(u32) * (cpr_vreg->num_corners + 1),
 			GFP_KERNEL);
 	if (!cpr_vreg->quot_adjust) {
-		pr_err("Can't allocate memory for cpr_vreg->quot_adjust\n");
+		cpr_err(cpr_vreg,
+			"Can't allocate memory for cpr_vreg->quot_adjust\n");
 		return -ENOMEM;
 	}
 
@@ -1644,7 +1680,8 @@ static int cpr_get_corner_quot_adjustment(struct cpr_regulator *cpr_vreg,
 			"qcom,cpr-corner-map", &cpr_vreg->corner_map[1], size);
 
 		if (rc) {
-			pr_err("qcom,cpr-corner-map missing, rc = %d\n", rc);
+			cpr_err(cpr_vreg,
+				"qcom,cpr-corner-map missing, rc = %d\n", rc);
 			return rc;
 		}
 
@@ -1655,7 +1692,7 @@ static int cpr_get_corner_quot_adjustment(struct cpr_regulator *cpr_vreg,
 		for (i = CPR_CORNER_MIN; i <= cpr_vreg->num_corners; i++) {
 			if (cpr_vreg->corner_map[i] > cpr_vreg->num_fuse_corners
 			    || cpr_vreg->corner_map[i] < CPR_FUSE_CORNER_MIN) {
-				pr_err("qcom,cpr-corner-map contains an element %d which isn't in the allowed range [%d, %d]\n",
+				cpr_err(cpr_vreg, "qcom,cpr-corner-map contains an element %d which isn't in the allowed range [%d, %d]\n",
 					cpr_vreg->corner_map[i],
 					CPR_FUSE_CORNER_MIN,
 					cpr_vreg->num_fuse_corners);
@@ -1667,21 +1704,22 @@ static int cpr_get_corner_quot_adjustment(struct cpr_regulator *cpr_vreg,
 	prop = of_find_property(dev->of_node,
 			"qcom,cpr-speed-bin-max-corners", NULL);
 	if (!prop) {
-		cpr_debug("qcom,cpr-speed-bin-max-corner missing\n");
+		cpr_debug(cpr_vreg, "qcom,cpr-speed-bin-max-corner missing\n");
 		return 0;
 	}
 
 	size = prop->length / sizeof(u32);
 	tmp = kzalloc(size * sizeof(u32), GFP_KERNEL);
 	if (!tmp) {
-		pr_err("memory alloc failed\n");
+		cpr_err(cpr_vreg, "memory alloc failed\n");
 		return -ENOMEM;
 	}
 	rc = of_property_read_u32_array(dev->of_node,
 		"qcom,cpr-speed-bin-max-corners", tmp, size);
 	if (rc < 0) {
 		kfree(tmp);
-		pr_err("get cpr-speed-bin-max-corners failed, rc = %d\n", rc);
+		cpr_err(cpr_vreg,
+			"get cpr-speed-bin-max-corners failed, rc = %d\n", rc);
 		return rc;
 	}
 
@@ -1692,7 +1730,7 @@ static int cpr_get_corner_quot_adjustment(struct cpr_regulator *cpr_vreg,
 	freq_max = kzalloc((cpr_vreg->num_fuse_corners + 1) * sizeof(*freq_max),
 				GFP_KERNEL);
 	if (corner_max == NULL || freq_max == NULL) {
-		pr_err("Could not allocate memory for quotient scaling arrays\n");
+		cpr_err(cpr_vreg, "Could not allocate memory for quotient scaling arrays\n");
 		kfree(tmp);
 		rc = -ENOMEM;
 		goto free_arrays;
@@ -1717,7 +1755,7 @@ static int cpr_get_corner_quot_adjustment(struct cpr_regulator *cpr_vreg,
 	kfree(tmp);
 
 	if (!match_found) {
-		cpr_debug("No quotient adjustment possible for speed bin=%u, pvs version=%u\n",
+		cpr_debug(cpr_vreg, "No quotient adjustment possible for speed bin=%u, pvs version=%u\n",
 			cpr_vreg->speed_bin, cpr_vreg->pvs_version);
 		goto free_arrays;
 	}
@@ -1726,7 +1764,7 @@ static int cpr_get_corner_quot_adjustment(struct cpr_regulator *cpr_vreg,
 	for (i = CPR_FUSE_CORNER_MIN; i <= highest_fuse_corner; i++) {
 		if (corner_max[i] < CPR_CORNER_MIN
 		    || corner_max[i] > cpr_vreg->num_corners) {
-			pr_err("Invalid corner=%d in qcom,cpr-speed-bin-max-corners\n",
+			cpr_err(cpr_vreg, "Invalid corner=%d in qcom,cpr-speed-bin-max-corners\n",
 				corner_max[i]);
 			goto free_arrays;
 		}
@@ -1739,7 +1777,7 @@ static int cpr_get_corner_quot_adjustment(struct cpr_regulator *cpr_vreg,
 	 */
 	if (corner_max[highest_fuse_corner]
 	    <= corner_max[highest_fuse_corner - 1]) {
-		pr_err("highest corner=%u should be larger than the second highest corner=%u\n",
+		cpr_err(cpr_vreg, "highest corner=%u should be larger than the second highest corner=%u\n",
 			corner_max[highest_fuse_corner],
 			corner_max[highest_fuse_corner - 1]);
 		goto free_arrays;
@@ -1748,28 +1786,29 @@ static int cpr_get_corner_quot_adjustment(struct cpr_regulator *cpr_vreg,
 	prop = of_find_property(dev->of_node,
 			"qcom,cpr-corner-frequency-map", NULL);
 	if (!prop) {
-		cpr_debug("qcom,cpr-corner-frequency-map missing\n");
+		cpr_debug(cpr_vreg, "qcom,cpr-corner-frequency-map missing\n");
 		goto free_arrays;
 	}
 
 	size = prop->length / sizeof(u32);
 	tmp = kzalloc(sizeof(u32) * size, GFP_KERNEL);
 	if (!tmp) {
-		pr_err("memory alloc failed\n");
+		cpr_err(cpr_vreg, "memory alloc failed\n");
 		rc = -ENOMEM;
 		goto free_arrays;
 	}
 	rc = of_property_read_u32_array(dev->of_node,
 		"qcom,cpr-corner-frequency-map", tmp, size);
 	if (rc < 0) {
-		pr_err("get cpr-corner-frequency-map failed, rc = %d\n", rc);
+		cpr_err(cpr_vreg,
+			"get cpr-corner-frequency-map failed, rc = %d\n", rc);
 		kfree(tmp);
 		goto free_arrays;
 	}
 	freq_mappings = kzalloc(sizeof(u32) * (cpr_vreg->num_corners + 1),
 			GFP_KERNEL);
 	if (!freq_mappings) {
-		pr_err("memory alloc for freq_mappings failed!\n");
+		cpr_err(cpr_vreg, "memory alloc for freq_mappings failed!\n");
 		kfree(tmp);
 		rc = -ENOMEM;
 		goto free_arrays;
@@ -1777,12 +1816,14 @@ static int cpr_get_corner_quot_adjustment(struct cpr_regulator *cpr_vreg,
 	for (i = 0; i < size; i += 2) {
 		corner = tmp[i];
 		if ((corner < 1) || (corner > cpr_vreg->num_corners)) {
-			pr_err("corner should be in 1~%d range: %d\n",
-					cpr_vreg->num_corners, corner);
+			cpr_err(cpr_vreg,
+				"corner should be in 1~%d range: %d\n",
+				cpr_vreg->num_corners, corner);
 			continue;
 		}
 		freq_mappings[corner] = tmp[i + 1];
-		cpr_debug("Frequency at virtual corner %d is %d Hz.\n",
+		cpr_debug(cpr_vreg,
+				"Frequency at virtual corner %d is %d Hz.\n",
 				corner, freq_mappings[corner]);
 	}
 	kfree(tmp);
@@ -1791,7 +1832,8 @@ static int cpr_get_corner_quot_adjustment(struct cpr_regulator *cpr_vreg,
 		"qcom,cpr-quot-adjust-scaling-factor-max",
 		&max_factor);
 	if (rc < 0) {
-		cpr_debug("get cpr-quot-adjust-scaling-factor-max failed\n");
+		cpr_debug(cpr_vreg,
+			"get cpr-quot-adjust-scaling-factor-max failed\n");
 		rc = 0;
 		goto free_arrays;
 	}
@@ -1814,7 +1856,7 @@ static int cpr_get_corner_quot_adjustment(struct cpr_regulator *cpr_vreg,
 		freq_max[i] = freq_mappings[corner_max[i]];
 	if (freq_max[highest_fuse_corner] <= freq_max[highest_fuse_corner - 1]
 	    || freq_max[highest_fuse_corner - 1] == 0) {
-		pr_err("highest corner freq=%u should be larger than second highest corner freq=%u\n",
+		cpr_err(cpr_vreg, "highest corner freq=%u should be larger than second highest corner freq=%u\n",
 		      freq_max[highest_fuse_corner],
 		      freq_max[highest_fuse_corner - 1]);
 		rc = -EINVAL;
@@ -1830,7 +1872,7 @@ static int cpr_get_corner_quot_adjustment(struct cpr_regulator *cpr_vreg,
 		  / (freq_max[highest_fuse_corner]
 			- freq_max[highest_fuse_corner - 1]);
 	scaling = min(scaling, max_factor);
-	pr_info("quotient adjustment scaling factor: %d.%03d\n",
+	cpr_info(cpr_vreg, "quotient adjustment scaling factor: %d.%03d\n",
 			scaling / 1000, scaling % 1000);
 
 	/*
@@ -1849,7 +1891,7 @@ static int cpr_get_corner_quot_adjustment(struct cpr_regulator *cpr_vreg,
 			cpr_vreg->quot_adjust[i] = scaling *
 			   (freq_max[highest_fuse_corner] - freq_corner) / 1000;
 		}
-		pr_info("adjusted quotient[%d] = %d\n", i,
+		cpr_info(cpr_vreg, "adjusted quotient[%d] = %d\n", i,
 			(cpr_vreg->cpr_fuse_target_quot[cpr_vreg->corner_map[i]]
 				- cpr_vreg->quot_adjust[i]));
 	}
@@ -1895,7 +1937,8 @@ static int cpr_init_cpr_efuse(struct platform_device *pdev,
 
 	if (bp_target_quot == NULL || bp_ro_sel == NULL || quot_adjust == NULL
 	    || target_quot_size == NULL || quot_scale == NULL) {
-		pr_err("Could not allocate memory for fuse parsing arrays\n");
+		cpr_err(cpr_vreg,
+			"Could not allocate memory for fuse parsing arrays\n");
 		rc = -ENOMEM;
 		goto error;
 	}
@@ -1905,7 +1948,8 @@ static int cpr_init_cpr_efuse(struct platform_device *pdev,
 					"qcom,cpr-fuse-redun-sel",
 					cpr_fuse_redun_sel, 5);
 		if (rc < 0) {
-			pr_err("cpr-fuse-redun-sel missing: rc=%d\n", rc);
+			cpr_err(cpr_vreg, "cpr-fuse-redun-sel missing: rc=%d\n",
+				rc);
 			goto error;
 		}
 		redundant = cpr_fuse_is_setting_expected(cpr_vreg,
@@ -1931,7 +1975,7 @@ static int cpr_init_cpr_efuse(struct platform_device *pdev,
 		&bp_target_quot[CPR_FUSE_CORNER_MIN],
 		cpr_vreg->num_fuse_corners);
 	if (rc < 0) {
-		pr_err("missing %s: rc=%d\n", targ_quot_str, rc);
+		cpr_err(cpr_vreg, "missing %s: rc=%d\n", targ_quot_str, rc);
 		goto error;
 	}
 
@@ -1941,7 +1985,7 @@ static int cpr_init_cpr_efuse(struct platform_device *pdev,
 			&target_quot_size[CPR_FUSE_CORNER_MIN],
 			cpr_vreg->num_fuse_corners);
 		if (rc < 0) {
-			pr_err("error while reading qcom,cpr-fuse-target-quot-size: rc=%d\n",
+			cpr_err(cpr_vreg, "error while reading qcom,cpr-fuse-target-quot-size: rc=%d\n",
 				rc);
 			goto error;
 		}
@@ -1961,7 +2005,7 @@ static int cpr_init_cpr_efuse(struct platform_device *pdev,
 				"qcom,cpr-fuse-target-quot-scale", i * 2,
 				&quot_scale[i + CPR_FUSE_CORNER_MIN].offset);
 			if (rc < 0) {
-				pr_err("error while reading qcom,cpr-fuse-target-quot-scale: rc=%d\n",
+				cpr_err(cpr_vreg, "error while reading qcom,cpr-fuse-target-quot-scale: rc=%d\n",
 					rc);
 				goto error;
 			}
@@ -1970,7 +2014,7 @@ static int cpr_init_cpr_efuse(struct platform_device *pdev,
 				"qcom,cpr-fuse-target-quot-scale", i * 2 + 1,
 			       &quot_scale[i + CPR_FUSE_CORNER_MIN].multiplier);
 			if (rc < 0) {
-				pr_err("error while reading qcom,cpr-fuse-target-quot-scale: rc=%d\n",
+				cpr_err(cpr_vreg, "error while reading qcom,cpr-fuse-target-quot-scale: rc=%d\n",
 					rc);
 				goto error;
 			}
@@ -1990,26 +2034,26 @@ static int cpr_init_cpr_efuse(struct platform_device *pdev,
 	rc = of_property_read_u32_array(of_node, ro_sel_str,
 		&bp_ro_sel[CPR_FUSE_CORNER_MIN], cpr_vreg->num_fuse_corners);
 	if (rc < 0) {
-		pr_err("missing %s: rc=%d\n", ro_sel_str, rc);
+		cpr_err(cpr_vreg, "missing %s: rc=%d\n", ro_sel_str, rc);
 		goto error;
 	}
 
 	/* Read the control bits of eFuse */
 	fuse_bits = cpr_read_efuse_row(cpr_vreg, cpr_fuse_row[0],
 					cpr_fuse_row[1]);
-	pr_info("[row:%d] = 0x%llx\n", cpr_fuse_row[0], fuse_bits);
+	cpr_info(cpr_vreg, "[row:%d] = 0x%llx\n", cpr_fuse_row[0], fuse_bits);
 
 	if (redundant) {
 		if (of_property_read_bool(of_node,
 				"qcom,cpr-fuse-redun-bp-cpr-disable")) {
-			CPR_PROP_READ_U32(of_node,
+			CPR_PROP_READ_U32(cpr_vreg, of_node,
 					  "cpr-fuse-redun-bp-cpr-disable",
 					  &bp_cpr_disable, rc);
 			disable_fuse_valid = true;
 			if (of_find_property(of_node,
 					"qcom,cpr-fuse-redun-bp-scheme",
 					NULL)) {
-				CPR_PROP_READ_U32(of_node,
+				CPR_PROP_READ_U32(cpr_vreg, of_node,
 						"cpr-fuse-redun-bp-scheme",
 						&bp_scheme, rc);
 				scheme_fuse_valid = true;
@@ -2023,7 +2067,7 @@ static int cpr_init_cpr_efuse(struct platform_device *pdev,
 			/* Use original fuse if no optional property */
 			if (of_property_read_bool(of_node,
 					"qcom,cpr-fuse-bp-cpr-disable")) {
-				CPR_PROP_READ_U32(of_node,
+				CPR_PROP_READ_U32(cpr_vreg, of_node,
 					"cpr-fuse-bp-cpr-disable",
 					&bp_cpr_disable, rc);
 				disable_fuse_valid = true;
@@ -2031,7 +2075,7 @@ static int cpr_init_cpr_efuse(struct platform_device *pdev,
 			if (of_find_property(of_node,
 					"qcom,cpr-fuse-bp-scheme",
 					NULL)) {
-				CPR_PROP_READ_U32(of_node,
+				CPR_PROP_READ_U32(cpr_vreg, of_node,
 						"cpr-fuse-bp-scheme",
 						&bp_scheme, rc);
 				scheme_fuse_valid = true;
@@ -2044,20 +2088,20 @@ static int cpr_init_cpr_efuse(struct platform_device *pdev,
 
 			fuse_bits_2 = cpr_read_efuse_row(cpr_vreg, temp_row[0],
 							temp_row[1]);
-			pr_info("[original row:%d] = 0x%llx\n",
+			cpr_info(cpr_vreg, "[original row:%d] = 0x%llx\n",
 				temp_row[0], fuse_bits_2);
 		}
 	} else {
 		if (of_property_read_bool(of_node,
 					"qcom,cpr-fuse-bp-cpr-disable")) {
-			CPR_PROP_READ_U32(of_node,
+			CPR_PROP_READ_U32(cpr_vreg, of_node,
 				"cpr-fuse-bp-cpr-disable", &bp_cpr_disable, rc);
 			disable_fuse_valid = true;
 		}
 		if (of_find_property(of_node, "qcom,cpr-fuse-bp-scheme",
 							NULL)) {
-			CPR_PROP_READ_U32(of_node, "cpr-fuse-bp-scheme",
-					&bp_scheme, rc);
+			CPR_PROP_READ_U32(cpr_vreg, of_node,
+					"cpr-fuse-bp-scheme", &bp_scheme, rc);
 			scheme_fuse_valid = true;
 		}
 		if (rc)
@@ -2068,14 +2112,15 @@ static int cpr_init_cpr_efuse(struct platform_device *pdev,
 	if (disable_fuse_valid) {
 		cpr_vreg->cpr_fuse_disable =
 					(fuse_bits_2 >> bp_cpr_disable) & 0x01;
-		pr_info("CPR disable fuse = %d\n", cpr_vreg->cpr_fuse_disable);
+		cpr_info(cpr_vreg, "CPR disable fuse = %d\n",
+			cpr_vreg->cpr_fuse_disable);
 	} else {
 		cpr_vreg->cpr_fuse_disable = false;
 	}
 
 	if (scheme_fuse_valid) {
 		cpr_vreg->cpr_fuse_local = (fuse_bits_2 >> bp_scheme) & 0x01;
-		pr_info("local = %d\n", cpr_vreg->cpr_fuse_local);
+		cpr_info(cpr_vreg, "local = %d\n", cpr_vreg->cpr_fuse_local);
 	} else {
 		cpr_vreg->cpr_fuse_local = true;
 	}
@@ -2092,7 +2137,8 @@ static int cpr_init_cpr_efuse(struct platform_device *pdev,
 		/* Unpack the target quotient by scaling. */
 		cpr_vreg->cpr_fuse_target_quot[i] *= quot_scale[i].multiplier;
 		cpr_vreg->cpr_fuse_target_quot[i] += quot_scale[i].offset;
-		pr_info("Corner[%d]: ro_sel = %d, target quot = %d\n", i,
+		cpr_info(cpr_vreg,
+			"Corner[%d]: ro_sel = %d, target quot = %d\n", i,
 			cpr_vreg->cpr_fuse_ro_sel[i],
 			cpr_vreg->cpr_fuse_target_quot[i]);
 	}
@@ -2103,7 +2149,8 @@ static int cpr_init_cpr_efuse(struct platform_device *pdev,
 		for (i = CPR_FUSE_CORNER_MIN; i <= cpr_vreg->num_fuse_corners;
 		     i++) {
 			cpr_vreg->cpr_fuse_target_quot[i] += quot_adjust[i];
-			pr_info("Corner[%d]: adjusted target quot = %d\n",
+			cpr_info(cpr_vreg,
+				"Corner[%d]: adjusted target quot = %d\n",
 				i, cpr_vreg->cpr_fuse_target_quot[i]);
 		}
 	}
@@ -2112,7 +2159,8 @@ static int cpr_init_cpr_efuse(struct platform_device *pdev,
 		cpr_voltage_uplift_wa_inc_quot(cpr_vreg, of_node);
 		for (i = CPR_FUSE_CORNER_MIN; i <= cpr_vreg->num_fuse_corners;
 		     i++) {
-			pr_info("Corner[%d]: uplifted target quot = %d\n",
+			cpr_info(cpr_vreg,
+				"Corner[%d]: uplifted target quot = %d\n",
 				i, cpr_vreg->cpr_fuse_target_quot[i]);
 		}
 	}
@@ -2124,7 +2172,8 @@ static int cpr_init_cpr_efuse(struct platform_device *pdev,
 	cpr_vreg->cpr_fuse_bits = fuse_bits;
 	if (!cpr_vreg->cpr_fuse_bits) {
 		cpr_vreg->cpr_fuse_disable = true;
-		pr_err("cpr_fuse_bits == 0; permanently disabling CPR\n");
+		cpr_err(cpr_vreg,
+			"cpr_fuse_bits == 0; permanently disabling CPR\n");
 	} else {
 		/*
 		 * Check if the target quotients for the highest two fuse
@@ -2145,7 +2194,7 @@ static int cpr_init_cpr_efuse(struct platform_device *pdev,
 
 		if (!valid_fuse) {
 			cpr_vreg->cpr_fuse_disable = true;
-			pr_err("invalid quotient values; permanently disabling CPR\n");
+			cpr_err(cpr_vreg, "invalid quotient values; permanently disabling CPR\n");
 		}
 	}
 
@@ -2184,51 +2233,51 @@ static int cpr_init_cpr_parameters(struct platform_device *pdev,
 	struct device_node *of_node = pdev->dev.of_node;
 	int rc = 0;
 
-	CPR_PROP_READ_U32(of_node, "cpr-ref-clk",
+	CPR_PROP_READ_U32(cpr_vreg, of_node, "cpr-ref-clk",
 			  &cpr_vreg->ref_clk_khz, rc);
 	if (rc)
 		return rc;
-	CPR_PROP_READ_U32(of_node, "cpr-timer-delay",
+	CPR_PROP_READ_U32(cpr_vreg, of_node, "cpr-timer-delay",
 			  &cpr_vreg->timer_delay_us, rc);
 	if (rc)
 		return rc;
-	CPR_PROP_READ_U32(of_node, "cpr-timer-cons-up",
+	CPR_PROP_READ_U32(cpr_vreg, of_node, "cpr-timer-cons-up",
 			  &cpr_vreg->timer_cons_up, rc);
 	if (rc)
 		return rc;
-	CPR_PROP_READ_U32(of_node, "cpr-timer-cons-down",
+	CPR_PROP_READ_U32(cpr_vreg, of_node, "cpr-timer-cons-down",
 			  &cpr_vreg->timer_cons_down, rc);
 	if (rc)
 		return rc;
-	CPR_PROP_READ_U32(of_node, "cpr-irq-line",
+	CPR_PROP_READ_U32(cpr_vreg, of_node, "cpr-irq-line",
 			  &cpr_vreg->irq_line, rc);
 	if (rc)
 		return rc;
-	CPR_PROP_READ_U32(of_node, "cpr-step-quotient",
+	CPR_PROP_READ_U32(cpr_vreg, of_node, "cpr-step-quotient",
 			  &cpr_vreg->step_quotient, rc);
 	if (rc)
 		return rc;
-	CPR_PROP_READ_U32(of_node, "cpr-up-threshold",
+	CPR_PROP_READ_U32(cpr_vreg, of_node, "cpr-up-threshold",
 			  &cpr_vreg->up_threshold, rc);
 	if (rc)
 		return rc;
-	CPR_PROP_READ_U32(of_node, "cpr-down-threshold",
+	CPR_PROP_READ_U32(cpr_vreg, of_node, "cpr-down-threshold",
 			  &cpr_vreg->down_threshold, rc);
 	if (rc)
 		return rc;
-	CPR_PROP_READ_U32(of_node, "cpr-idle-clocks",
+	CPR_PROP_READ_U32(cpr_vreg, of_node, "cpr-idle-clocks",
 			  &cpr_vreg->idle_clocks, rc);
 	if (rc)
 		return rc;
-	CPR_PROP_READ_U32(of_node, "cpr-gcnt-time",
+	CPR_PROP_READ_U32(cpr_vreg, of_node, "cpr-gcnt-time",
 			  &cpr_vreg->gcnt_time_us, rc);
 	if (rc)
 		return rc;
-	CPR_PROP_READ_U32(of_node, "vdd-apc-step-up-limit",
+	CPR_PROP_READ_U32(cpr_vreg, of_node, "vdd-apc-step-up-limit",
 			  &cpr_vreg->vdd_apc_step_up_limit, rc);
 	if (rc)
 		return rc;
-	CPR_PROP_READ_U32(of_node, "vdd-apc-step-down-limit",
+	CPR_PROP_READ_U32(cpr_vreg, of_node, "vdd-apc-step-down-limit",
 			  &cpr_vreg->vdd_apc_step_down_limit, rc);
 	if (rc)
 		return rc;
@@ -2236,7 +2285,8 @@ static int cpr_init_cpr_parameters(struct platform_device *pdev,
 	rc = of_property_read_u32(of_node, "qcom,cpr-clamp-timer-interval",
 				  &cpr_vreg->clamp_timer_interval);
 	if (rc && rc != -EINVAL) {
-		pr_err("error reading qcom,cpr-clamp-timer-interval, rc=%d\n",
+		cpr_err(cpr_vreg,
+			"error reading qcom,cpr-clamp-timer-interval, rc=%d\n",
 			rc);
 		return rc;
 	}
@@ -2246,7 +2296,7 @@ static int cpr_init_cpr_parameters(struct platform_device *pdev,
 
 	/* Init module parameter with the DT value */
 	cpr_vreg->enable = of_property_read_bool(of_node, "qcom,cpr-enable");
-	pr_info("CPR is %s by default.\n",
+	cpr_info(cpr_vreg, "CPR is %s by default.\n",
 		cpr_vreg->enable ? "enabled" : "disabled");
 
 	return 0;
@@ -2260,7 +2310,7 @@ static int cpr_init_cpr(struct platform_device *pdev,
 
 	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "rbcpr_clk");
 	if (!res || !res->start) {
-		pr_err("missing rbcpr_clk address: res=%p\n", res);
+		cpr_err(cpr_vreg, "missing rbcpr_clk address: res=%p\n", res);
 		return -EINVAL;
 	}
 	cpr_vreg->rbcpr_clk_addr = res->start;
@@ -2271,7 +2321,7 @@ static int cpr_init_cpr(struct platform_device *pdev,
 
 	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "rbcpr");
 	if (!res || !res->start) {
-		pr_err("missing rbcpr address: res=%p\n", res);
+		cpr_err(cpr_vreg, "missing rbcpr address: res=%p\n", res);
 		return -EINVAL;
 	}
 	cpr_vreg->rbcpr_base = devm_ioremap(&pdev->dev, res->start,
@@ -2290,7 +2340,7 @@ static int cpr_init_cpr(struct platform_device *pdev,
 	/* Get and Init interrupt */
 	cpr_vreg->cpr_irq = platform_get_irq(pdev, 0);
 	if (!cpr_vreg->cpr_irq) {
-		pr_err("missing CPR IRQ\n");
+		cpr_err(cpr_vreg, "missing CPR IRQ\n");
 		return -EINVAL;
 	}
 
@@ -2303,7 +2353,7 @@ static int cpr_init_cpr(struct platform_device *pdev,
 				  IRQF_ONESHOT | IRQF_TRIGGER_RISING, "cpr",
 				  cpr_vreg);
 	if (rc) {
-		pr_err("CPR: request irq failed for IRQ %d\n",
+		cpr_err(cpr_vreg, "CPR: request irq failed for IRQ %d\n",
 				cpr_vreg->cpr_irq);
 		return rc;
 	}
@@ -2319,18 +2369,18 @@ static int cpr_efuse_init(struct platform_device *pdev,
 
 	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "efuse_addr");
 	if (!res || !res->start) {
-		pr_err("efuse_addr missing: res=%p\n", res);
+		cpr_err(cpr_vreg, "efuse_addr missing: res=%p\n", res);
 		return -EINVAL;
 	}
 
 	cpr_vreg->efuse_addr = res->start;
 	len = res->end - res->start + 1;
 
-	pr_info("efuse_addr = %pa (len=0x%x)\n", &res->start, len);
+	cpr_info(cpr_vreg, "efuse_addr = %pa (len=0x%x)\n", &res->start, len);
 
 	cpr_vreg->efuse_base = ioremap(cpr_vreg->efuse_addr, len);
 	if (!cpr_vreg->efuse_base) {
-		pr_err("Unable to map efuse_addr %pa\n",
+		cpr_err(cpr_vreg, "Unable to map efuse_addr %pa\n",
 				&cpr_vreg->efuse_addr);
 		return -EINVAL;
 	}
@@ -2378,7 +2428,7 @@ static void cpr_parse_speed_bin_fuse(struct cpr_regulator *cpr_vreg,
 				fuse_sel[0], fuse_sel[3]);
 		speed_bits = (fuse_bits >> fuse_sel[1]) &
 			((1 << fuse_sel[2]) - 1);
-		pr_info("[row: %d]: 0x%llx, speed_bits = %d\n",
+		cpr_info(cpr_vreg, "[row: %d]: 0x%llx, speed_bits = %d\n",
 				fuse_sel[0], fuse_bits, speed_bits);
 		cpr_vreg->speed_bin = speed_bits;
 	} else {
@@ -2400,7 +2450,8 @@ static int cpr_voltage_uplift_enable_check(struct cpr_regulator *cpr_vreg,
 				"qcom,cpr-uplift-speed-bin",
 				&uplift_speed_bin);
 		if (rc < 0) {
-			pr_err("qcom,cpr-uplift-speed-bin missing\n");
+			cpr_err(cpr_vreg,
+				"qcom,cpr-uplift-speed-bin missing\n");
 			return rc;
 		}
 		if (cpr_fuse_is_setting_expected(cpr_vreg, fuse_sel)
@@ -2425,13 +2476,13 @@ static int cpr_fuse_corner_array_alloc(struct device *dev,
 	rc = of_property_read_u32(dev->of_node, "qcom,cpr-fuse-corners",
 				&cpr_vreg->num_fuse_corners);
 	if (rc < 0) {
-		pr_err("qcom,cpr-fuse-corners missing: rc=%d\n", rc);
+		cpr_err(cpr_vreg, "qcom,cpr-fuse-corners missing: rc=%d\n", rc);
 		return rc;
 	}
 
 	if (cpr_vreg->num_fuse_corners < CPR_FUSE_CORNER_MIN
 	    || cpr_vreg->num_fuse_corners > CPR_FUSE_CORNER_LIMIT) {
-		pr_err("corner count=%d is invalid\n",
+		cpr_err(cpr_vreg, "corner count=%d is invalid\n",
 			cpr_vreg->num_fuse_corners);
 		return -EINVAL;
 	}
@@ -2460,7 +2511,7 @@ static int cpr_fuse_corner_array_alloc(struct device *dev,
 	    || cpr_vreg->ceiling_volt == NULL || cpr_vreg->floor_volt == NULL
 	    || cpr_vreg->vdd_mx_corner_map == NULL
 	    || cpr_vreg->cpr_fuse_target_quot == NULL) {
-		pr_err("Could not allocate memory for CPR arrays\n");
+		cpr_err(cpr_vreg, "Could not allocate memory for CPR arrays\n");
 		return -ENOMEM;
 	}
 
@@ -2478,7 +2529,7 @@ static int cpr_voltage_plan_init(struct platform_device *pdev,
 		&cpr_vreg->ceiling_volt[CPR_FUSE_CORNER_MIN],
 		cpr_vreg->num_fuse_corners);
 	if (rc < 0) {
-		pr_err("cpr-voltage-ceiling missing: rc=%d\n", rc);
+		cpr_err(cpr_vreg, "cpr-voltage-ceiling missing: rc=%d\n", rc);
 		return rc;
 	}
 
@@ -2486,7 +2537,7 @@ static int cpr_voltage_plan_init(struct platform_device *pdev,
 		&cpr_vreg->floor_volt[CPR_FUSE_CORNER_MIN],
 		cpr_vreg->num_fuse_corners);
 	if (rc < 0) {
-		pr_err("cpr-voltage-floor missing: rc=%d\n", rc);
+		cpr_err(cpr_vreg, "cpr-voltage-floor missing: rc=%d\n", rc);
 		return rc;
 	}
 
@@ -2494,7 +2545,8 @@ static int cpr_voltage_plan_init(struct platform_device *pdev,
 	cpr_parse_speed_bin_fuse(cpr_vreg, of_node);
 	rc = cpr_voltage_uplift_enable_check(cpr_vreg, of_node);
 	if (rc < 0) {
-		pr_err("voltage uplift enable check failed, %d\n", rc);
+		cpr_err(cpr_vreg, "voltage uplift enable check failed, %d\n",
+			rc);
 		return rc;
 	}
 	if (cpr_vreg->flags & FLAGS_SET_MIN_VOLTAGE) {
@@ -2524,8 +2576,9 @@ static int cpr_mem_acc_init(struct platform_device *pdev,
 		if (IS_ERR_OR_NULL(cpr_vreg->mem_acc_vreg)) {
 			rc = PTR_RET(cpr_vreg->mem_acc_vreg);
 			if (rc != -EPROBE_DEFER)
-				pr_err("devm_regulator_get: mem-acc: rc=%d\n",
-				       rc);
+				cpr_err(cpr_vreg,
+					"devm_regulator_get: mem-acc: rc=%d\n",
+					rc);
 			return rc;
 		}
 	}
@@ -2540,7 +2593,7 @@ static int cpr_enable_set(void *data, u64 val)
 	bool old_cpr_enable;
 
 	if (!cpr_vreg) {
-		pr_err("cpr-regulator pointer missing\n");
+		cpr_err(cpr_vreg, "cpr-regulator pointer missing\n");
 		return -ENXIO;
 	}
 
@@ -2553,14 +2606,13 @@ static int cpr_enable_set(void *data, u64 val)
 		goto _exit;
 
 	if (cpr_vreg->enable && cpr_vreg->cpr_fuse_disable) {
-		pr_info("%s: CPR permanently disabled due to fuse values\n",
-			cpr_vreg->rdesc.name);
+		cpr_info(cpr_vreg,
+			"CPR permanently disabled due to fuse values\n");
 		cpr_vreg->enable = false;
 		goto _exit;
 	}
 
-	cpr_debug("%s: %s CPR [corner=%d, fuse_corner=%d]\n",
-		cpr_vreg->rdesc.name,
+	cpr_debug(cpr_vreg, "%s CPR [corner=%d, fuse_corner=%d]\n",
 		cpr_vreg->enable ? "enabling" : "disabling",
 		cpr_vreg->corner, cpr_vreg->corner_map[cpr_vreg->corner]);
 
@@ -2587,7 +2639,7 @@ static int cpr_enable_get(void *data, u64 *val)
 	struct cpr_regulator *cpr_vreg = data;
 
 	if (!cpr_vreg) {
-		pr_err("cpr-regulator pointer missing\n");
+		cpr_err(cpr_vreg, "cpr-regulator pointer missing\n");
 		return -ENXIO;
 	}
 
@@ -2616,7 +2668,7 @@ static ssize_t cpr_debug_info_read(struct file *file, char __user *buff,
 	int fuse_corner;
 
 	if (!cpr_vreg) {
-		pr_err("cpr-regulator pointer missing\n");
+		cpr_err(cpr_vreg, "cpr-regulator pointer missing\n");
 		return -ENXIO;
 	}
 
@@ -2705,38 +2757,29 @@ static void cpr_debugfs_init(struct cpr_regulator *cpr_vreg)
 {
 	struct dentry *temp;
 
-	if (!cpr_vreg->rdesc.name) {
-		pr_err("Could not create debugfs nodes since regulator name is missing\n");
-		return;
-	}
-
 	if (IS_ERR_OR_NULL(cpr_debugfs_base)) {
-		pr_err("Could not create debugfs nodes for %s since base directory is missing\n",
-			cpr_vreg->rdesc.name);
+		cpr_err(cpr_vreg, "Could not create debugfs nodes since base directory is missing\n");
 		return;
 	}
 
 	cpr_vreg->debugfs = debugfs_create_dir(cpr_vreg->rdesc.name,
 						cpr_debugfs_base);
 	if (IS_ERR_OR_NULL(cpr_vreg->debugfs)) {
-		pr_err("debugfs directory creation for %s failed\n",
-			cpr_vreg->rdesc.name);
+		cpr_err(cpr_vreg, "debugfs directory creation failed\n");
 		return;
 	}
 
 	temp = debugfs_create_file("debug_info", S_IRUGO, cpr_vreg->debugfs,
 					cpr_vreg, &cpr_debug_info_fops);
 	if (IS_ERR_OR_NULL(temp)) {
-		pr_err("debug_info node creation for %s failed\n",
-			cpr_vreg->rdesc.name);
+		cpr_err(cpr_vreg, "debug_info node creation failed\n");
 		return;
 	}
 
 	temp = debugfs_create_file("cpr_enable", S_IRUGO | S_IWUSR,
 			cpr_vreg->debugfs, cpr_vreg, &cpr_enable_fops);
 	if (IS_ERR_OR_NULL(temp)) {
-		pr_err("cpr_enable node creation for %s failed\n",
-			cpr_vreg->rdesc.name);
+		cpr_err(cpr_vreg, "cpr_enable node creation failed\n");
 		return;
 	}
 }
@@ -2779,17 +2822,18 @@ static int cpr_regulator_probe(struct platform_device *pdev)
 	struct regulator_config reg_config = {};
 	struct cpr_regulator *cpr_vreg;
 	struct regulator_desc *rdesc;
+	struct device *dev = &pdev->dev;
 	struct regulator_init_data *init_data = pdev->dev.platform_data;
 	int rc;
 
 	if (!pdev->dev.of_node) {
-		pr_err("Device tree node is missing\n");
+		dev_err(dev, "Device tree node is missing\n");
 		return -EINVAL;
 	}
 
 	init_data = of_get_regulator_init_data(&pdev->dev, pdev->dev.of_node);
 	if (!init_data) {
-		pr_err("regulator init data is missing\n");
+		dev_err(dev, "regulator init data is missing\n");
 		return -EINVAL;
 	} else {
 		init_data->constraints.input_uV
@@ -2801,8 +2845,14 @@ static int cpr_regulator_probe(struct platform_device *pdev)
 	cpr_vreg = devm_kzalloc(&pdev->dev, sizeof(struct cpr_regulator),
 				GFP_KERNEL);
 	if (!cpr_vreg) {
-		pr_err("Can't allocate cpr_regulator memory\n");
+		dev_err(dev, "Can't allocate cpr_regulator memory\n");
 		return -ENOMEM;
+	}
+
+	cpr_vreg->rdesc.name = init_data->constraints.name;
+	if (cpr_vreg->rdesc.name == NULL) {
+		dev_err(dev, "regulator-name missing\n");
+		return -EINVAL;
 	}
 
 	rc = cpr_fuse_corner_array_alloc(&pdev->dev, cpr_vreg);
@@ -2811,38 +2861,38 @@ static int cpr_regulator_probe(struct platform_device *pdev)
 
 	rc = cpr_mem_acc_init(pdev, cpr_vreg);
 	if (rc) {
-		pr_err("mem_acc intialization error rc=%d\n", rc);
+		cpr_err(cpr_vreg, "mem_acc intialization error rc=%d\n", rc);
 		return rc;
 	}
 
 	rc = cpr_efuse_init(pdev, cpr_vreg);
 	if (rc) {
-		pr_err("Wrong eFuse address specified: rc=%d\n", rc);
+		cpr_err(cpr_vreg, "Wrong eFuse address specified: rc=%d\n", rc);
 		return rc;
 	}
 
 	rc = cpr_voltage_plan_init(pdev, cpr_vreg);
 	if (rc) {
-		pr_err("Wrong DT parameter specified: rc=%d\n", rc);
+		cpr_err(cpr_vreg, "Wrong DT parameter specified: rc=%d\n", rc);
 		goto err_out;
 	}
 
 	rc = cpr_pvs_init(pdev, cpr_vreg);
 	if (rc) {
-		pr_err("Initialize PVS wrong: rc=%d\n", rc);
+		cpr_err(cpr_vreg, "Initialize PVS wrong: rc=%d\n", rc);
 		goto err_out;
 	}
 
 	rc = cpr_apc_init(pdev, cpr_vreg);
 	if (rc) {
 		if (rc != -EPROBE_DEFER)
-			pr_err("Initialize APC wrong: rc=%d\n", rc);
+			cpr_err(cpr_vreg, "Initialize APC wrong: rc=%d\n", rc);
 		goto err_out;
 	}
 
 	rc = cpr_init_cpr(pdev, cpr_vreg);
 	if (rc) {
-		pr_err("Initialize CPR failed: rc=%d\n", rc);
+		cpr_err(cpr_vreg, "Initialize CPR failed: rc=%d\n", rc);
 		goto err_out;
 	}
 
@@ -2860,7 +2910,6 @@ static int cpr_regulator_probe(struct platform_device *pdev)
 	rdesc->owner		= THIS_MODULE;
 	rdesc->type		= REGULATOR_VOLTAGE;
 	rdesc->ops		= &cpr_corner_ops;
-	rdesc->name		= init_data->constraints.name;
 
 	reg_config.dev = &pdev->dev;
 	reg_config.init_data = init_data;
@@ -2869,7 +2918,7 @@ static int cpr_regulator_probe(struct platform_device *pdev)
 	cpr_vreg->rdev = regulator_register(rdesc, &reg_config);
 	if (IS_ERR(cpr_vreg->rdev)) {
 		rc = PTR_ERR(cpr_vreg->rdev);
-		pr_err("regulator_register failed: rc=%d\n", rc);
+		cpr_err(cpr_vreg, "regulator_register failed: rc=%d\n", rc);
 
 		cpr_apc_exit(cpr_vreg);
 		return rc;
