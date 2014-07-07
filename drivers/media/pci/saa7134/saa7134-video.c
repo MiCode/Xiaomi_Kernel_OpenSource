@@ -2030,7 +2030,7 @@ int saa7134_video_init1(struct saa7134_dev *dev)
 	int ret;
 
 	/* sanitycheck insmod options */
-	if (gbuffers < 2 || gbuffers > VIDEO_MAX_FRAME)
+	if (gbuffers < 2 || gbuffers > VB2_MAX_FRAME)
 		gbuffers = 2;
 	if (gbufsize > gbufsize_max)
 		gbufsize = gbufsize_max;
