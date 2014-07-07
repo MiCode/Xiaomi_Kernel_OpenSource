@@ -169,13 +169,13 @@ static int bt_configure_gpios(int on)
 			BT_PWR_ERR("Unable to set direction\n");
 			return rc;
 		}
-
+		msleep(50);
 		rc = gpio_direction_output(bt_reset_gpio, 1);
 		if (rc) {
 			BT_PWR_ERR("Unable to set direction\n");
 			return rc;
 		}
-		msleep(100);
+		msleep(50);
 	} else {
 		gpio_set_value(bt_reset_gpio, 0);
 		msleep(100);
