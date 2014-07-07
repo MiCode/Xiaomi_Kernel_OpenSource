@@ -5612,6 +5612,10 @@ static void gen8_init_clock_gating(struct drm_device *dev)
 	/* WaDisableFfDopClockGating:bdw */
 	I915_WRITE(GEN7_MISCCPCTL, I915_READ(GEN7_MISCCPCTL) &
 			~GEN8_DOP_CLOCK_GATE_CFCLK_ENABLE);
+
+	/* WaFlushCoherentL3CacheLinesAtContextSwitch:bdw */
+	I915_WRITE(GEN8_L3SQCREG4, I915_READ(GEN8_L3SQCREG4) |
+			GEN8_PIPELINE_FLUSH_COHERENT_LINES);
 }
 
 static void haswell_init_clock_gating(struct drm_device *dev)
