@@ -3864,7 +3864,9 @@ void intel_crtc_wait_for_pending_flips(struct drm_crtc *crtc)
 	flush_work(&to_intel_crtc(crtc)->vblank_work.work);
 
 	WARN_ON(waitqueue_active(&dev_priv->pending_flip_queue));
+#if 0
 	flush_workqueue(dev_priv->flipwq);
+#endif
 
 	obj = to_intel_framebuffer(crtc->primary->fb)->obj;
 	if (wait_event_timeout(dev_priv->pending_flip_queue,
