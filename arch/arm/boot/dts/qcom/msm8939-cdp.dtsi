@@ -38,18 +38,15 @@
 				synaptics,package-id = <3408>;
 				synaptics,display-coords = <0 0 1079 1919>;
 				synaptics,panel-coords = <0 0 1079 2084>;
+				synaptics,key-codes = <158 139 172 217>;
+			};
+			synaptics,device3 {
+				synaptics,package-id = <3528>;
+				synaptics,display-coords = <0 0 1599 2559>;
+				synaptics,panel-coords = <0 0 1599 2703>;
+				synaptics,key-codes = <158 139 172 217>;
 			};
 		};
-	};
-
-	gen-vkeys {
-		compatible = "qcom,gen-vkeys";
-		label = "synaptics_dsx";
-		qcom,disp-maxx = <1079>;
-		qcom,disp-maxy = <1919>;
-		qcom,panel-maxx = <1079>;
-		qcom,panel-maxy = <2084>;
-		qcom,key-codes = <158 139 172 217>;
 	};
 
 	i2c@78ba000 { /* BLSP1 QUP6 */
