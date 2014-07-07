@@ -578,4 +578,7 @@ static inline __u32 scsi_to_u32(__u8 *ptr)
 
 struct scsi_disk *scsi_disk_get_from_dev(struct device *dev);
 
+struct gendisk *scsi_gendisk_get_from_dev(struct device *dev);
+void scsi_gendisk_put(struct device *dev);
+
 #endif /* _SCSI_SCSI_H */

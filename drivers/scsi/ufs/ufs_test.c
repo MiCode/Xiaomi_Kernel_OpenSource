@@ -19,10 +19,10 @@
 #include <linux/delay.h>
 #include <linux/module.h>
 #include <linux/test-iosched.h>
+#include <scsi/scsi.h>
 #include <scsi/scsi_device.h>
 #include <scsi/scsi_cmnd.h>
 #include <scsi/scsi_host.h>
-#include <../sd.h>
 #include "ufshcd.h"
 #include "ufs.h"
 
@@ -425,29 +425,47 @@ static struct gendisk *ufs_test_get_rq_disk(void)
 {
 	struct request_queue *req_q = test_iosched_get_req_queue();
 	struct scsi_device *sd;
-	struct device *dev;
-	struct scsi_disk *sdkp;
-	struct gendisk *gd;
 
 	if (!req_q) {
 		pr_info("%s: Could not fetch request_queue", __func__);
-		gd = NULL;
 		goto exit;
 	}
 
 	sd = (struct scsi_device *)req_q->queuedata;
-
-	dev = &sd->sdev_gendev;
-	sdkp = scsi_disk_get_from_dev(dev);
-	if (!sdkp) {
-		pr_info("%s: Could not fatch scsi disk", __func__);
-		gd = NULL;
+	if (!sd) {
+		pr_info("%s: req_q is missing required queuedata", __func__);
 		goto exit;
 	}
 
-	gd = sdkp->disk;
+	return scsi_gendisk_get_from_dev(&sd->sdev_gendev);
+
 exit:
-	return gd;
+	return NULL;
+}
+
+static int ufs_test_put_gendisk(struct test_data *td)
+{
+	struct request_queue *req_q = test_iosched_get_req_queue();
+	struct scsi_device *sd;
+	int ret = 0;
+
+	if (!req_q) {
+		pr_info("%s: Could not fetch request_queue", __func__);
+		ret = -EINVAL;
+		goto exit;
+	}
+
+	sd = (struct scsi_device *)req_q->queuedata;
+	if (!sd) {
+		pr_info("%s: req_q is missing required queuedata", __func__);
+		ret = -EINVAL;
+		goto exit;
+	}
+
+	scsi_gendisk_put(&sd->sdev_gendev);
+
+exit:
+	return ret;
 }
 
 static int ufs_test_check_result(struct test_data *td)
@@ -1057,7 +1075,7 @@ static int long_rand_test_calc_iops(struct test_data *td)
 
 	pr_info("%s: IOPS: %lu IOP/sec\n", __func__, iops);
 
-	return 0;
+	return ufs_test_put_gendisk(td);
 }
 
 static int long_seq_test_calc_throughput(struct test_data *td)
@@ -1206,6 +1224,7 @@ static ssize_t ufs_test_write(struct file *file, const char __user *buf,
 	utd->test_info.testcase = test_case;
 	utd->test_info.get_rq_disk_fn = ufs_test_get_rq_disk;
 	utd->test_info.check_test_result_fn = ufs_test_check_result;
+	utd->test_info.post_test_fn = ufs_test_put_gendisk;
 	utd->test_stage = DEFAULT;
 
 	switch (test_case) {
