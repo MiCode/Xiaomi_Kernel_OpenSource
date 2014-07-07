@@ -287,3 +287,5 @@
 	};
 
 };
+
+#include "msmferrum-regulator.dtsi"
