@@ -41,6 +41,7 @@ import subprocess
 
 allowed_warnings = set([
     "return_address.c:62",
+    "hci_conn.c:407",
  ])
 
 # Capture the name of the object file, can find it.
