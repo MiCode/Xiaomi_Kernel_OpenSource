@@ -2374,11 +2374,10 @@ int arizona_set_fll(struct arizona_fll *fll, int source,
 	fll->sync_freq = Fref;
 	fll->fout = Fout;
 
-	if (Fout) {
+	if (Fout)
 		arizona_enable_fll(fll);
-	} else {
+	else
 		arizona_disable_fll(fll);
-	}
 
 	return 0;
 }
