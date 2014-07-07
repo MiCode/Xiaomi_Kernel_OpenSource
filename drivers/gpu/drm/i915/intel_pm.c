@@ -5618,6 +5618,15 @@ static void gen8_init_clock_gating(struct drm_device *dev)
 	/* WaFlushCoherentL3CacheLinesAtContextSwitch:bdw */
 	I915_WRITE(GEN8_L3SQCREG4, I915_READ(GEN8_L3SQCREG4) |
 			GEN8_PIPELINE_FLUSH_COHERENT_LINES);
+
+	/*
+	 * WaIncreaseTagClockTimer:bdw
+	 * This register is not masked and the default value is not all zero.
+	 * Use the mask with and to clear out bits 23:20.
+	 */
+	I915_WRITE(GEN8_L3CNTLREG1, (I915_READ(GEN8_L3CNTLREG1) &
+			GEN8_TAG_CLK_OFFTIME_MASK) |
+			GEN8_TAG_CLK_OFFTIME);
 }
 
 static void haswell_init_clock_gating(struct drm_device *dev)

@@ -4744,6 +4744,10 @@ enum punit_power_well {
 #define GEN8_L3SQCREG1				0xb100
 #define  GEN8_L3SQCREG1_DEFAULT_VALUE	0x784000
 
+#define GEN8_L3CNTLREG1				0xb10c
+#define  GEN8_TAG_CLK_OFFTIME			(1<<23)
+#define  GEN8_TAG_CLK_OFFTIME_MASK		(~((1<<23) | (1<<22) | (1<<21) | (1<<20)))
+
 #define GEN8_L3SQCREG4				0xb118
 #define  GEN8_PIPELINE_FLUSH_COHERENT_LINES	(1<<21)
 
