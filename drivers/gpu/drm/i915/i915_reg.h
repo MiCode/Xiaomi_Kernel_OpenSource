@@ -4739,6 +4739,10 @@ enum punit_power_well {
 #define  HDC_FENCE_DESTINATION_TO_SLM_DISABLE	(1<<14)
 #define  HDC_FORCE_NON_COHERENT			(1<<4)
 
+/* WaProgramL3SqcReg1Default */
+#define GEN8_L3SQCREG1				0xb100
+#define  GEN8_L3SQCREG1_DEFAULT_VALUE	0x784000
+
 /* WaCatErrorRejectionIssue */
 #define GEN7_SQ_CHICKEN_MBCUNIT_CONFIG		0x9030
 #define  GEN7_SQ_CHICKEN_MBCUNIT_SQINTMOB	(1<<11)
