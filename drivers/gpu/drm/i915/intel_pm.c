@@ -5617,8 +5617,10 @@ static void gen8_init_clock_gating(struct drm_device *dev)
 	I915_WRITE(GEN7_MISCCPCTL, I915_READ(GEN7_MISCCPCTL) &
 			~GEN8_DOP_CLOCK_GATE_CFCLK_ENABLE);
 
+	/* WaDisableLSQCROPERFforOCL:bdw */
 	/* WaFlushCoherentL3CacheLinesAtContextSwitch:bdw */
 	I915_WRITE(GEN8_L3SQCREG4, I915_READ(GEN8_L3SQCREG4) |
+			GEN8_L3SQCREG4_LQSC_RO_PERF_DISABLE |
 			GEN8_PIPELINE_FLUSH_COHERENT_LINES);
 
 	/*

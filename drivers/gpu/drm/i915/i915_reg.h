@@ -4754,6 +4754,7 @@ enum punit_power_well {
 #define  GEN8_TAG_CLK_OFFTIME_MASK		(~((1<<23) | (1<<22) | (1<<21) | (1<<20)))
 
 #define GEN8_L3SQCREG4				0xb118
+#define  GEN8_L3SQCREG4_LQSC_RO_PERF_DISABLE	(1<<27)
 #define  GEN8_PIPELINE_FLUSH_COHERENT_LINES	(1<<21)
 
 /* WaCatErrorRejectionIssue */
