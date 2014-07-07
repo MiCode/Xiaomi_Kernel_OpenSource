@@ -1139,6 +1139,17 @@ void mdss_edp_aux_clk_disable(struct mdss_edp_drv_pdata *edp_drv)
 	clk_disable(edp_drv->mdp_core_clk);
 }
 
+static void mdss_edp_clk_set_rate(struct mdss_edp_drv_pdata *edp_drv)
+{
+	if (clk_set_rate(edp_drv->link_clk, edp_drv->link_rate * 27000000) < 0)
+		pr_err("%s: link_clk - clk_set_rate failed\n",
+					__func__);
+
+	if (clk_set_rate(edp_drv->pixel_clk, edp_drv->pixel_rate) < 0)
+		pr_err("%s: pixel_clk - clk_set_rate failed\n",
+					__func__);
+}
+
 int mdss_edp_clk_enable(struct mdss_edp_drv_pdata *edp_drv)
 {
 	int ret;
@@ -1261,6 +1272,8 @@ void mdss_edp_unprepare_aux_clocks(struct mdss_edp_drv_pdata *edp_drv)
 int mdss_edp_prepare_clocks(struct mdss_edp_drv_pdata *edp_drv)
 {
 	int ret;
+
+	mdss_edp_clk_set_rate(edp_drv);
 
 	/* ahb clock should be prepared first */
 	ret = clk_prepare(edp_drv->ahb_clk);
