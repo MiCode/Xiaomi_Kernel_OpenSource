@@ -487,7 +487,7 @@ static int pft_get_file_tag(struct dentry *dentry, u32 *tag_ptr)
 		pft_tag_inode_encrypted(inode, key);
 		*tag_ptr = pft_get_inode_tag(inode);
 	} else {
-		pr_err("getxattr() failure, ret=%d.\n", size);
+		pr_err("getxattr() failure, ret=%zu\n", size);
 		return -EINVAL;
 	}
 
@@ -704,7 +704,7 @@ static struct inode *pft_bio_get_inode(struct bio *bio)
 
 		/* Using direct-io (O_DIRECT) without page cache */
 		inode = dio_bio_get_inode(bio);
-		pr_debug("inode on direct-io, inode = 0x%x.\n", (int) inode);
+		pr_debug("inode on direct-io, inode = 0x%p.\n", inode);
 
 		return inode;
 	}

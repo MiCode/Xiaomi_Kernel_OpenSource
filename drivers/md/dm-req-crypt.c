@@ -19,6 +19,7 @@
 #include <linux/mempool.h>
 #include <linux/slab.h>
 #include <linux/crypto.h>
+#include <linux/qcrypto.h>
 #include <linux/workqueue.h>
 #include <linux/backing-dev.h>
 #include <linux/atomic.h>
@@ -27,13 +28,13 @@
 #include <linux/printk.h>
 #include <linux/pft.h>
 
-#include <crypto/scatterwalk.h>
 #include <asm/page.h>
 #include <asm/unaligned.h>
+
+#include <crypto/scatterwalk.h>
 #include <crypto/hash.h>
 #include <crypto/md5.h>
 #include <crypto/algapi.h>
-#include <linux/qcrypto.h>
 
 #define DM_MSG_PREFIX "req-crypt"
 
@@ -592,8 +593,8 @@ static void req_cryptd_crypt(struct work_struct *work)
 		else
 			req_cryptd_crypt_read_plain(io);
 	} else {
-		DMERR("%s received non-write request for Clone %u\n",
-				__func__, (unsigned int)io->cloned_request);
+		DMERR("%s received non-write request for Clone 0x%p\n",
+				__func__, io->cloned_request);
 	}
 }
 

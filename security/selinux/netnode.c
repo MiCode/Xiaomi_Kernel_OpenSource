@@ -42,6 +42,7 @@
 
 #include "netnode.h"
 #include "objsec.h"
+#include "avc.h"
 
 #define SEL_NETNODE_HASH_SIZE       256
 #define SEL_NETNODE_HASH_BKT_LIMIT   16
