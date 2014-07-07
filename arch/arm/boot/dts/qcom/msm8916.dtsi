@@ -1633,6 +1633,13 @@
 		qcom,irq-is-percpu;
 		interrupts = <1 7 0xf00>;
 	};
+
+	qcom,avtimer {
+		compatible = "qcom,avtimer";
+		reg = <0x0770600C 0x4>,
+			<0x07706010 0x4>;
+		reg-names = "avtimer_lsb_addr", "avtimer_msb_addr";
+	};
 };
 
 &gdsc_venus {
