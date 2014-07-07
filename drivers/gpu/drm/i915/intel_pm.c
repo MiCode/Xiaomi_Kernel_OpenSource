@@ -769,6 +769,88 @@ void intel_init_drrs_idleness_detection(struct drm_device *dev,
 	dev_priv->drrs.drrs_work = work;
 }
 
+#ifdef CONFIG_SUPPORT_LPDMA_HDMI_AUDIO
+
+static struct drm_device *gdev;
+
+/* Check for current runtime state */
+bool i915_is_device_active(struct drm_device *drm_dev)
+{
+	if (!HAS_RUNTIME_PM(drm_dev))
+		return false;
+	if (drm_dev->dev->power.runtime_status == RPM_ACTIVE)
+		return true;
+	else
+		return false;
+}
+
+bool i915_is_device_resuming(struct drm_device *drm_dev)
+{
+	if (!HAS_RUNTIME_PM(drm_dev))
+		return false;
+	if (drm_dev->dev->power.runtime_status == RPM_RESUMING)
+		return true;
+	else
+		return false;
+}
+
+bool i915_is_device_suspended(struct drm_device *drm_dev)
+{
+	if (!HAS_RUNTIME_PM(drm_dev))
+		return false;
+	if (drm_dev->dev->power.runtime_status == RPM_SUSPENDED)
+		return true;
+	else
+		return false;
+}
+
+bool i915_is_device_suspending(struct drm_device *drm_dev)
+{
+	if (!HAS_RUNTIME_PM(drm_dev))
+		return false;
+	if (drm_dev->dev->power.runtime_status == RPM_SUSPENDING)
+		return true;
+	else
+		return false;
+}
+
+/* HDMI Audio HAD and Display interfaces */
+bool ospm_power_is_hw_on(int hw_islands)
+{
+#if 0
+	struct drm_i915_private *dev_priv = gdev->dev_private;
+	unsigned long flags;
+	bool ret = false;
+	u32 data = vlv_punit_read(dev_priv, VLV_IOSFSB_PWRGT_STATUS);
+	if ((VLV_POWER_GATE_DISPLAY_MASK & data)
+			== VLV_POWER_GATE_DISPLAY_MASK) {
+		DRM_ERROR("Display Island not ON\n");
+		return false;
+	} else {
+		return true;
+	}
+#endif
+	return true;
+}
+EXPORT_SYMBOL(ospm_power_is_hw_on);
+
+/* Enable this once psb_powermgmt.h is really used */
+/* bool ospm_power_using_hw_begin(int hw_island, UHBUsage usage) */
+bool ospm_power_using_hw_begin(int hw_island)
+{
+	intel_runtime_pm_get(gdev->dev_private);
+	return i915_is_device_active(gdev);
+}
+EXPORT_SYMBOL(ospm_power_using_hw_begin);
+
+void ospm_power_using_hw_end(int hw_island)
+{
+	intel_runtime_pm_put(gdev->dev_private);
+}
+EXPORT_SYMBOL(ospm_power_using_hw_end);
+
+#endif
+
 static void i915_pineview_get_mem_freq(struct drm_device *dev)
 {
 	struct drm_i915_private *dev_priv = dev->dev_private;
@@ -7003,6 +7085,9 @@ void intel_init_pm(struct drm_device *dev)
 {
 	struct drm_i915_private *dev_priv = dev->dev_private;
 
+#ifdef CONFIG_SUPPORT_LPDMA_HDMI_AUDIO
+	gdev = dev;
+#endif
 	if (HAS_FBC(dev)) {
 		if (INTEL_INFO(dev)->gen >= 7) {
 			dev_priv->display.fbc_enabled = ironlake_fbc_enabled;
