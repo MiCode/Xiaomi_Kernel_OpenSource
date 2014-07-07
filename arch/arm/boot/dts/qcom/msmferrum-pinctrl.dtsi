@@ -149,5 +149,55 @@
 				drive-strength = <2>; /* 2 MA */
 			};
 		};
+		spi0_active {
+                        /* MOSI, MISO, CLK */
+                        qcom,pins = <&gp 8>, <&gp 9>, <&gp 11>;
+                        qcom,num-grp-pins = <3>;
+                        qcom,pin-func = <1>;
+                        label = "spi0-active";
+                        /* active state */
+                        spi0_default: default {
+                                drive-strength = <12>; /* 12 MA */
+                                bias-disable = <0>; /* No PULL */
+                        };
+                };
+
+                spi0_suspend {
+                        /* MOSI, MISO, CLK */
+                        qcom,pins = <&gp 8>, <&gp 9>, <&gp 11>;
+                        qcom,num-grp-pins = <3>;
+                        qcom,pin-func = <0>;
+                        label = "spi0-suspend";
+                        /* suspended state */
+                        spi0_sleep: sleep {
+                                drive-strength = <2>; /* 2 MA */
+                                bias-pull-down; /* pull down */
+                        };
+                };
+                spi0_cs0_active {
+                        /* CS */
+                        qcom,pins = <&gp 10>;
+                        qcom,num-grp-pins = <1>;
+                        qcom,pin-func = <1>;
+                        label = "spi0-cs0-active";
+                        spi0_cs0_active: cs0_active {
+                                drive-strength = <2>;
+                                bias-disable = <0>;
+                        };
+                };
+
+
+                spi0_cs0_suspend {
+                        /* CS */
+                        qcom,pins = <&gp 10>;
+                        qcom,num-grp-pins = <1>;
+                        qcom,pin-func = <0>;
+                        label = "spi0-cs0-suspend";
+                        spi0_cs0_sleep: cs0_sleep {
+                                drive-strength = <2>;
+                                bias-disable = <0>;
+                        };
+                };
+
 	};
 };
