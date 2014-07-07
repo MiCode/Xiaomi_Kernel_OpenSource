@@ -1040,6 +1040,9 @@ intel_hdmi_detect(struct drm_connector *connector, bool force)
 	struct edid *edid;
 	enum intel_display_power_domain power_domain;
 	enum drm_connector_status status = connector_status_disconnected;
+#ifdef CONFIG_SUPPORT_LPDMA_HDMI_AUDIO
+	bool inform_audio = false;
+#endif
 
 	DRM_DEBUG_KMS("[CONNECTOR:%d:%s]\n",
 		      connector->base.id, connector->name);
@@ -1050,6 +1053,16 @@ intel_hdmi_detect(struct drm_connector *connector, bool force)
 	intel_hdmi->has_hdmi_sink = false;
 	intel_hdmi->has_audio = false;
 	intel_hdmi->rgb_quant_range_selectable = false;
+
+#ifdef CONFIG_SUPPORT_LPDMA_HDMI_AUDIO
+	if (IS_VALLEYVIEW(dev)) {
+		/* Need to inform audio about the event */
+		if (intel_hdmi->has_audio)
+			inform_audio = true;
+		intel_hdmi->has_audio = false;
+	}
+#endif
+
 	edid = drm_get_edid(connector,
 			    intel_gmbus_get_adapter(dev_priv,
 						    intel_hdmi->ddc_bus));
@@ -1068,10 +1081,33 @@ intel_hdmi_detect(struct drm_connector *connector, bool force)
 	}
 
 	if (status == connector_status_connected) {
+		/*
+		* If HDMI status is conencted, the event to audio will be
+		* sent on basis of current audio status,
+		* but if its disconnected, the
+		* status will be sent based on previous audio status
+		*/
+#ifdef CONFIG_SUPPORT_LPDMA_HDMI_AUDIO
+		if ((status != i915_hdmi_state) && (IS_VALLEYVIEW(dev))) {
+			if (intel_hdmi->has_audio)
+				i915_notify_had = 1;
+		}
+#endif
 		if (intel_hdmi->force_audio != HDMI_AUDIO_AUTO)
 			intel_hdmi->has_audio =
 				(intel_hdmi->force_audio == HDMI_AUDIO_ON);
 		intel_encoder->type = INTEL_OUTPUT_HDMI;
+	} else {
+#ifdef CONFIG_SUPPORT_LPDMA_HDMI_AUDIO
+		if ((status != i915_hdmi_state) && (IS_VALLEYVIEW(dev))) {
+			/* Send a disconnect event to audio */
+			if (inform_audio) {
+				DRM_DEBUG_DRIVER("Sending event to audio");
+				mid_hdmi_audio_signal_event(dev_priv->dev,
+					HAD_EVENT_HOT_UNPLUG);
+			}
+		}
+#endif
 	}
 
 	if (IS_ENABLED(CONFIG_SWITCH)) {
@@ -1089,6 +1125,11 @@ intel_hdmi_detect(struct drm_connector *connector, bool force)
 	}
 
 	intel_display_power_put(dev_priv, power_domain);
+
+#ifdef CONFIG_SUPPORT_LPDMA_HDMI_AUDIO
+	if (IS_VALLEYVIEW(dev))
+		i915_hdmi_state = status;
+#endif
 
 	return status;
 }
