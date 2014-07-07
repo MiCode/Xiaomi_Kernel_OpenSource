@@ -5643,6 +5643,7 @@ enum punit_power_well {
 #define   GEN6_RC7			4
 
 #define GEN7_MISCCPCTL			(0x9424)
+#define   GEN8_DOP_CLOCK_GATE_CFCLK_ENABLE	(1<<2)
 #define   GEN7_DOP_CLOCK_GATE_ENABLE	(1<<0)
 
 /* IVYBRIDGE DPF */

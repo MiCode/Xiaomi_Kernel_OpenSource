@@ -5608,6 +5608,10 @@ static void gen8_init_clock_gating(struct drm_device *dev)
 
 	/* WaProgramL3SqcReg1Default:bdw */
 	I915_WRITE(GEN8_L3SQCREG1, GEN8_L3SQCREG1_DEFAULT_VALUE);
+
+	/* WaDisableFfDopClockGating:bdw */
+	I915_WRITE(GEN7_MISCCPCTL, I915_READ(GEN7_MISCCPCTL) &
+			~GEN8_DOP_CLOCK_GATE_CFCLK_ENABLE);
 }
 
 static void haswell_init_clock_gating(struct drm_device *dev)
