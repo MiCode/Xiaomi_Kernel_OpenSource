@@ -4737,6 +4737,7 @@ enum punit_power_well {
 /* GEN8 chicken */
 #define HDC_CHICKEN0				0x7300
 #define  HDC_FENCE_DESTINATION_TO_SLM_DISABLE	(1<<14)
+#define  HDC_DONOT_FETCH_MEM_WHEN_MASKED		(1<<11)
 #define  HDC_FORCE_NON_COHERENT			(1<<4)
 
 /* WaProgramL3SqcReg1Default */
