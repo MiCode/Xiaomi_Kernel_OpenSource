@@ -26,6 +26,8 @@
 #include <linux/memblock.h>
 #include <linux/fs.h>
 #include <linux/io.h>
+#include <linux/dma-contiguous.h>
+#include <linux/cma.h>
 
 #include <asm/cputype.h>
 #include <asm/sections.h>
@@ -259,7 +261,7 @@ static void __init alloc_init_pte(pmd_t *pmd, unsigned long addr,
 
 static void __init alloc_init_pmd(pud_t *pud, unsigned long addr,
 				  unsigned long end, phys_addr_t phys,
-				  int map_io)
+				  int map_io, bool pages)
 {
 	pmd_t *pmd;
 	unsigned long next;
@@ -286,7 +288,7 @@ static void __init alloc_init_pmd(pud_t *pud, unsigned long addr,
 	do {
 		next = pmd_addr_end(addr, end);
 		/* try section mapping first */
-		if (((addr | next | phys) & ~SECTION_MASK) == 0) {
+		if (!pages && ((addr | next | phys) & ~SECTION_MASK) == 0) {
 			pmd_t old_pmd =*pmd;
 			set_pmd(pmd, __pmd(phys | prot_sect));
 			/*
@@ -305,7 +307,7 @@ static void __init alloc_init_pmd(pud_t *pud, unsigned long addr,
 
 static void __init alloc_init_pud(pgd_t *pgd, unsigned long addr,
 				  unsigned long end, phys_addr_t phys,
-				  int map_io)
+				  int map_io, bool force_pages)
 {
 	pud_t *pud;
 	unsigned long next;
@@ -341,7 +343,7 @@ static void __init alloc_init_pud(pgd_t *pgd, unsigned long addr,
 				flush_tlb_all();
 			}
 		} else {
-			alloc_init_pmd(pud, addr, next, phys, map_io);
+			alloc_init_pmd(pud, addr, next, phys, map_io, force_pages);
 		}
 		phys += next - addr;
 	} while (pud++, addr = next, addr != end);
@@ -353,7 +355,7 @@ static void __init alloc_init_pud(pgd_t *pgd, unsigned long addr,
  */
 static void __init __create_mapping(pgd_t *pgd, phys_addr_t phys,
 				    unsigned long virt, phys_addr_t size,
-				    int map_io)
+				    int map_io, bool force_pages)
 {
 	unsigned long addr, length, end, next;
 
@@ -363,20 +365,64 @@ static void __init __create_mapping(pgd_t *pgd, phys_addr_t phys,
 	end = addr + length;
 	do {
 		next = pgd_addr_end(addr, end);
-		alloc_init_pud(pgd, addr, next, phys, map_io);
+		alloc_init_pud(pgd, addr, next, phys, map_io, force_pages);
 		phys += next - addr;
 	} while (pgd++, addr = next, addr != end);
 }
 
 static void __init create_mapping(phys_addr_t phys, unsigned long virt,
-				  phys_addr_t size)
+				  phys_addr_t size, bool force_pages)
 {
 	if (virt < VMALLOC_START) {
 		pr_warn("BUG: not creating mapping for %pa at 0x%016lx - outside kernel range\n",
 			&phys, virt);
 		return;
 	}
-	__create_mapping(pgd_offset_k(virt & PAGE_MASK), phys, virt, size, 0);
+	__create_mapping(pgd_offset_k(virt & PAGE_MASK), phys, virt, size, 0, force_pages);
+}
+
+static inline pmd_t *pmd_off_k(unsigned long virt)
+{
+	return pmd_offset(pud_offset(pgd_offset_k(virt), virt), virt);
+}
+
+void __init remap_as_pages(unsigned long start, unsigned long size)
+{
+	unsigned long addr;
+	unsigned long end = start + size;
+
+	/*
+	 * Clear previous low-memory mapping
+	 */
+	for (addr = __phys_to_virt(start); addr < __phys_to_virt(end);
+	     addr += PMD_SIZE)
+		pmd_clear(pmd_off_k(addr));
+
+	create_mapping(start, __phys_to_virt(start), size, true);
+}
+
+struct dma_contig_early_reserve {
+	phys_addr_t base;
+	unsigned long size;
+};
+
+static struct dma_contig_early_reserve dma_mmu_remap[MAX_CMA_AREAS] __initdata;
+
+static int dma_mmu_remap_num __initdata;
+
+void __init dma_contiguous_early_fixup(phys_addr_t base, unsigned long size)
+{
+	dma_mmu_remap[dma_mmu_remap_num].base = base;
+	dma_mmu_remap[dma_mmu_remap_num].size = size;
+	dma_mmu_remap_num++;
+}
+
+static void __init dma_contiguous_remap(void)
+{
+	int i;
+	for (i = 0; i < dma_mmu_remap_num; i++)
+		remap_as_pages(dma_mmu_remap[i].base,
+			       dma_mmu_remap[i].size);
 }
 
 void __init create_id_mapping(phys_addr_t addr, phys_addr_t size, int map_io)
@@ -386,7 +432,7 @@ void __init create_id_mapping(phys_addr_t addr, phys_addr_t size, int map_io)
 		return;
 	}
 	__create_mapping(&idmap_pg_dir[pgd_index(addr)],
-			 addr, addr, size, map_io);
+			 addr, addr, size, map_io, false);
 }
 
 static void __init map_mem(void)
@@ -434,7 +480,8 @@ static void __init map_mem(void)
 		}
 #endif
 
-		create_mapping(start, __phys_to_virt(start), end - start);
+		create_mapping(start, __phys_to_virt(start), end - start,
+					false);
 	}
 
 	/* Limit no longer required. */
@@ -450,6 +497,7 @@ void __init paging_init(void)
 	void *zero_page;
 
 	map_mem();
+	dma_contiguous_remap();
 
 	/*
 	 * Finally flush the caches and tlb to ensure that we're in a
