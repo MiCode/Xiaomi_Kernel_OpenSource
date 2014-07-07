@@ -1,0 +1,28 @@
+#
+# SLIMBUS driver configuration
+#
+menuconfig SLIMBUS
+	bool "Slimbus support"
+	depends on HAS_IOMEM
+	help
+	  Slimbus is standard interface between baseband and
+	  application processors and peripheral components in mobile
+	  terminals.
+
+if SLIMBUS
+config SLIMBUS_MSM_CTRL
+	tristate "Qualcomm Slimbus Master Component"
+	default n
+	help
+	  Select driver for Qualcomm's Slimbus Master Component.
+
+config SLIMBUS_MSM_NGD
+	tristate "Qualcomm Slimbus Satellite Component"
+	help
+	  Select driver for Qualcomm's Slimbus Satellite Component.
+	  This is light-weight slimbus controller driver responsible for
+	  communicating with slave HW directly over the bus using messaging
+	  interface, and communicating with master component residing on ADSP
+	  for bandwidth and data-channel management.
+
+endif
