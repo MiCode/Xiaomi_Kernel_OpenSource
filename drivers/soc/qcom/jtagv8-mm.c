@@ -26,6 +26,8 @@
 #include <linux/io.h>
 #include <linux/platform_device.h>
 #include <linux/bitops.h>
+#include <linux/of.h>
+#include <linux/notifier.h>
 #include <soc/qcom/scm.h>
 #include <soc/qcom/jtag.h>
 
@@ -227,6 +229,33 @@ static struct etm_ctx etm;
 
 static struct clk *clock[NR_CPUS];
 
+ATOMIC_NOTIFIER_HEAD(etm_save_notifier_list);
+ATOMIC_NOTIFIER_HEAD(etm_restore_notifier_list);
+
+int msm_jtag_save_register(struct notifier_block *nb)
+{
+	return atomic_notifier_chain_register(&etm_save_notifier_list, nb);
+}
+EXPORT_SYMBOL(msm_jtag_save_register);
+
+int msm_jtag_save_unregister(struct notifier_block *nb)
+{
+	return atomic_notifier_chain_unregister(&etm_save_notifier_list, nb);
+}
+EXPORT_SYMBOL(msm_jtag_save_unregister);
+
+int msm_jtag_restore_register(struct notifier_block *nb)
+{
+	return atomic_notifier_chain_register(&etm_restore_notifier_list, nb);
+}
+EXPORT_SYMBOL(msm_jtag_restore_register);
+
+int msm_jtag_restore_unregister(struct notifier_block *nb)
+{
+	return atomic_notifier_chain_unregister(&etm_restore_notifier_list, nb);
+}
+EXPORT_SYMBOL(msm_jtag_restore_unregister);
+
 static void etm_os_lock(struct etm_cpu_ctx *etmdata)
 {
 	if (etm.os_lock_present) {
@@ -340,6 +369,9 @@ static inline void etm_save_state(struct etm_cpu_ctx *etmdata)
 			udelay(1);
 		if (count == 0)
 			pr_err_ratelimited("timeout waiting for idle state\n");
+
+		atomic_notifier_call_chain(&etm_save_notifier_list, 0, NULL);
+
 		break;
 	default:
 		pr_err_ratelimited("unsupported etm arch %d in %s\n", etm.arch,
@@ -358,6 +390,8 @@ static inline void etm_restore_state(struct etm_cpu_ctx *etmdata)
 
 	switch (etm.arch) {
 	case ETM_ARCH_V4:
+		atomic_notifier_call_chain(&etm_restore_notifier_list, 0, NULL);
+
 		/* check OS lock is locked */
 		if (BVAL(etm_readl(etmdata, TRCOSLSR), 1) != 1) {
 			pr_err_ratelimited("OS lock is unlocked\n");

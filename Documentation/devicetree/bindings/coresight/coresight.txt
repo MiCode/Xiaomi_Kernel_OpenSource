@@ -177,6 +177,12 @@ Optional properties:
 		  cti-trigout-pctrl. Used for cti component
 - pinctrl-<n>: list of pinctrl phandles for the different pinctrl states. Refer
 	       to "Documentation/devicetree/bindings/pinctrl/pinctrl-bindings.txt".
+-qcom,funnel-save-restore : boolean, indicating funnel port needs to be disabled
+			    for the ETM whose CPU is being powered down. The port
+			    state is restored when CPU is powered up. Used for
+			    funnel component.
+-qcom,tmc-flush-powerdown : boolean, indicating trace data needs to be flushed before
+			    powering down CPU. Used for TMC component.
 
 Examples:
 
