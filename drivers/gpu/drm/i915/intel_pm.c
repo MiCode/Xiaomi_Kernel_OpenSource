@@ -5527,8 +5527,10 @@ static void gen8_init_clock_gating(struct drm_device *dev)
 		   _MASKED_BIT_ENABLE(PARTIAL_INSTRUCTION_SHOOTDOWN_DISABLE));
 
 	/* WaDisableThreadStallDopClockGating:bdw */
-	/* FIXME: Unclear whether we really need this on production bdw. */
+	/* WaDisableInstructionShootdown:bdw */
+	/* FIXME: Unclear whether we really need these on production bdw. */
 	I915_WRITE(GEN8_ROW_CHICKEN,
+		   _MASKED_BIT_ENABLE(INSTRUCTION_SHOOTDOWN_DISABLE) |
 		   _MASKED_BIT_ENABLE(STALL_DOP_GATING_DISABLE));
 
 	/*
