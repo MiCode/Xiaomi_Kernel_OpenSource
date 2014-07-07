@@ -45,6 +45,10 @@
 #include <linux/intel-iommu.h>
 #include <linux/kref.h>
 #include <linux/pm_qos.h>
+#ifdef CONFIG_SUPPORT_LPDMA_HDMI_AUDIO
+	#include "hdmi_audio_if.h"
+#endif
+
 
 /* General customization:
  */
@@ -1557,6 +1561,15 @@ struct drm_i915_private {
 		struct i915_dpst_registers reg;
 		struct intel_connector *connector;
 	} dpst;
+
+#ifdef CONFIG_SUPPORT_LPDMA_HDMI_AUDIO
+	had_event_call_back had_event_callbacks;
+	struct snd_intel_had_interface *had_interface;
+	void *had_pvt_data;
+	int tmds_clock_speed;
+	int hdmi_audio_interrupt_mask;
+	struct work_struct hdmi_audio_wq;
+#endif
 
 	bool is_first_modeset;
 	bool maxfifo_enabled;

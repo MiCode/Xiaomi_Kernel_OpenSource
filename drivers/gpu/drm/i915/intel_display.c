@@ -2675,6 +2675,13 @@ static void i9xx_update_primary_plane(struct drm_crtc *crtc,
 
 	intel_update_watermarks(crtc);
 
+#ifdef CONFIG_SUPPORT_LPDMA_HDMI_AUDIO
+	if (IS_VALLEYVIEW(dev) && intel_pipe_has_type(crtc,
+		INTEL_OUTPUT_HDMI)) {
+		dev_priv->tmds_clock_speed = intel_crtc->config.port_clock;
+	}
+#endif
+
 	reg = DSPCNTR(plane);
 	dspcntr = I915_READ(reg);
 	/* Mask out pixel format bits in case we change it */

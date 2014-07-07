@@ -81,3 +81,10 @@ config DRM_I915_UMS
 	  enable this only if you have ancient versions of the DDX drivers.
 
 	  If in doubt, say "N".
+
+config SUPPORT_LPDMA_HDMI_AUDIO
+	bool "Enable LP DMA HDMI audio"
+	depends on DRM_I915
+	default y
+	help
+	Choose this option for enabling HDMI audio.

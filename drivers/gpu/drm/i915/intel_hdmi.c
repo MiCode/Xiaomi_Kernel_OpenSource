@@ -1616,11 +1616,27 @@ void intel_hdmi_init_connector(struct intel_digital_port *intel_dig_port,
 	}
 }
 
+#ifdef CONFIG_SUPPORT_LPDMA_HDMI_AUDIO
+void i915_had_wq(struct work_struct *work)
+{
+	struct drm_i915_private *dev_priv = container_of(work,
+		struct drm_i915_private, hdmi_audio_wq);
+
+	if (i915_hdmi_state == connector_status_connected)
+		mid_hdmi_audio_signal_event(dev_priv->dev,
+			HAD_EVENT_HOT_PLUG);
+}
+#endif
+
 void intel_hdmi_init(struct drm_device *dev, int hdmi_reg, enum port port)
 {
 	struct intel_digital_port *intel_dig_port;
 	struct intel_encoder *intel_encoder;
 	struct intel_connector *intel_connector;
+#ifdef CONFIG_SUPPORT_LPDMA_HDMI_AUDIO
+	struct drm_i915_private *dev_priv = dev->dev_private;
+	struct hdmi_audio_priv *hdmi_priv;
+#endif
 
 	intel_dig_port = kzalloc(sizeof(*intel_dig_port), GFP_KERNEL);
 	if (!intel_dig_port)
@@ -1678,4 +1694,19 @@ void intel_hdmi_init(struct drm_device *dev, int hdmi_reg, enum port port)
 	intel_dig_port->dp.output_reg = 0;
 
 	intel_hdmi_init_connector(intel_dig_port, intel_connector);
+
+#ifdef CONFIG_SUPPORT_LPDMA_HDMI_AUDIO
+	INIT_WORK(&dev_priv->hdmi_audio_wq, i915_had_wq);
+	hdmi_priv = kzalloc(sizeof(struct hdmi_audio_priv), GFP_KERNEL);
+	if (!hdmi_priv) {
+		pr_err("failed to allocate memory");
+	} else {
+		hdmi_priv->dev = dev;
+		hdmi_priv->hdmib_reg = HDMIB;
+		hdmi_priv->monitor_type = MONITOR_TYPE_HDMI;
+		hdmi_priv->is_hdcp_supported = true;
+		i915_hdmi_audio_init(hdmi_priv);
+	}
+#endif
+
 }
