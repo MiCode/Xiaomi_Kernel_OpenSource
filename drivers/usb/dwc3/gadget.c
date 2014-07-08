@@ -466,6 +466,10 @@ int dwc3_send_gadget_ep_cmd(struct dwc3 *dwc, unsigned ep,
 		 */
 		timeout--;
 		if (!timeout) {
+			dev_err(dwc->dev, "%s command timeout for %s\n",
+				dwc3_gadget_ep_cmd_string(cmd),
+				dep->name);
+			WARN_ON_ONCE(1);
 			ret = -ETIMEDOUT;
 			break;
 		}
@@ -639,21 +643,30 @@ static int __dwc3_gadget_ep_enable(struct dwc3_ep *dep,
 
 	if (!(dep->flags & DWC3_EP_ENABLED)) {
 		ret = dwc3_gadget_start_config(dwc, dep);
-		if (ret)
+		if (ret) {
+			dev_err(dwc->dev, "start_config() failed for %s\n",
+								dep->name);
 			return ret;
+		}
 	}
 
 	ret = dwc3_gadget_set_ep_config(dwc, dep, desc, comp_desc, ignore);
-	if (ret)
+	if (ret) {
+		dev_err(dwc->dev, "set_ep_config() failed for %s\n",
+							dep->name);
 		return ret;
+	}
 
 	if (!(dep->flags & DWC3_EP_ENABLED)) {
 		struct dwc3_trb	*trb_st_hw;
 		struct dwc3_trb	*trb_link;
 
 		ret = dwc3_gadget_set_xfer_resource(dwc, dep);
-		if (ret)
+		if (ret) {
+			dev_err(dwc->dev, "set_xfer_resource() failed for %s\n",
+								dep->name);
 			return ret;
+		}
 
 		dep->endpoint.desc = desc;
 		dep->comp_desc = comp_desc;
@@ -2790,7 +2803,12 @@ static void dwc3_gadget_usb2_phy_suspend(struct dwc3 *dwc, int suspend)
 {
 	u32			reg;
 
-	if (dwc->hsphy_auto_suspend_disable)
+	/*
+	 * Disable usb2 phy autosuspend functionality where it is not
+	 * enabled by default. Possible case where it is enabled to put
+	 * usb into LPM.
+	 */
+	if (dwc->hsphy_auto_suspend_disable && suspend)
 		return;
 
 	reg = dwc3_readl(dwc->regs, DWC3_GUSB2PHYCFG(0));
