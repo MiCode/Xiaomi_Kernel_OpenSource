@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -55,6 +55,7 @@ MODULE_PARM_DESC(ss_phy_override_deemphasis, "Override SSPHY demphasis value");
 struct msm_ssphy {
 	struct usb_phy		phy;
 	void __iomem		*base;
+	struct clk		*core_clk;	/* USB3 master clock */
 	struct clk		*com_reset_clk;	/* PHY common block reset */
 	struct clk		*reset_clk;	/* SS PHY reset */
 	struct regulator	*vdd;
@@ -215,6 +216,9 @@ static int msm_ssphy_init(struct usb_phy *uphy)
 	struct msm_ssphy *phy = container_of(uphy, struct msm_ssphy, phy);
 	u32 val;
 
+	/* Ensure clock is on before accessing QSCRATCH registers */
+	clk_prepare_enable(phy->core_clk);
+
 	/* read initial value */
 	val = readl_relaxed(phy->base + SS_PHY_CTRL_REG);
 
@@ -240,6 +244,8 @@ static int msm_ssphy_init(struct usb_phy *uphy)
 	val |= LANE0_PWR_PRESENT | REF_SS_PHY_EN;
 	writel_relaxed(val, phy->base + SS_PHY_CTRL_REG);
 	usleep_range(2000, 2200);
+
+	clk_disable_unprepare(phy->core_clk);
 
 	return 0;
 }
@@ -333,6 +339,9 @@ static int msm_ssphy_set_suspend(struct usb_phy *uphy, int suspend)
 		return 0;
 	}
 
+	/* Ensure clock is on before accessing QSCRATCH registers */
+	clk_prepare_enable(phy->core_clk);
+
 	if (suspend) {
 		/* Clear REF_SS_PHY_EN */
 		msm_usb_write_readback(base, SS_PHY_CTRL_REG, REF_SS_PHY_EN, 0);
@@ -391,6 +400,7 @@ static int msm_ssphy_set_suspend(struct usb_phy *uphy, int suspend)
 	}
 
 done:
+	clk_disable_unprepare(phy->core_clk);
 	phy->suspended = !!suspend; /* double-NOT coerces to bool value */
 	return ret;
 }
@@ -448,6 +458,12 @@ static int msm_ssphy_probe(struct platform_device *pdev)
 	if (!phy->base) {
 		dev_err(dev, "ioremap failed\n");
 		return -ENODEV;
+	}
+
+	phy->core_clk = devm_clk_get(dev, "core_clk");
+	if (IS_ERR(phy->core_clk)) {
+		dev_err(dev, "unable to get core_clk\n");
+		return PTR_ERR(phy->core_clk);
 	}
 
 	phy->com_reset_clk = devm_clk_get(dev, "com_reset_clk");
