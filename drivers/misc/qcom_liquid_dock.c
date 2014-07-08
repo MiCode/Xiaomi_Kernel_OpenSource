@@ -23,7 +23,7 @@
 #include <linux/of.h>
 #include <linux/of_platform.h>
 #include <linux/of_gpio.h>
-#include <soc/qcom/apq8084_dock.h>
+#include <soc/qcom/liquid_dock.h>
 
 static int docked;
 static BLOCKING_NOTIFIER_HEAD(dock_notifier_list);
@@ -58,7 +58,7 @@ void unregister_liquid_dock_notify(struct notifier_block *nb)
 }
 EXPORT_SYMBOL(unregister_liquid_dock_notify);
 
-struct apq8084_dock {
+struct liquid_dock {
 	struct device		*dev;
 	struct work_struct	dock_work;
 	int			dock_detect;
@@ -70,7 +70,7 @@ struct apq8084_dock {
 
 static void dock_detected_work(struct work_struct *w)
 {
-	struct apq8084_dock *dock = container_of(w, struct apq8084_dock,
+	struct liquid_dock *dock = container_of(w, struct liquid_dock,
 						 dock_work);
 	docked = gpio_get_value(dock->dock_detect);
 	gpio_direction_output(dock->dock_enable, 0);
@@ -102,7 +102,7 @@ static void dock_detected_work(struct work_struct *w)
 
 static irqreturn_t dock_detected(int irq, void *data)
 {
-	struct apq8084_dock *dock = data;
+	struct liquid_dock *dock = data;
 
 	/* Ensure suspend can't happen until after work function commpletes */
 	pm_stay_awake(dock->dev);
@@ -110,11 +110,11 @@ static irqreturn_t dock_detected(int irq, void *data)
 	return IRQ_HANDLED;
 }
 
-static int apq8084_dock_probe(struct platform_device *pdev)
+static int liquid_dock_probe(struct platform_device *pdev)
 {
 	struct device_node *node = pdev->dev.of_node;
 	struct device_node *usb3_node;
-	struct apq8084_dock *dock;
+	struct liquid_dock *dock;
 	int ret;
 
 	dock = devm_kzalloc(&pdev->dev, sizeof(*dock), GFP_KERNEL);
@@ -197,9 +197,9 @@ static int apq8084_dock_probe(struct platform_device *pdev)
 	return 0;
 }
 
-static int apq8084_dock_remove(struct platform_device *pdev)
+static int liquid_dock_remove(struct platform_device *pdev)
 {
-	struct apq8084_dock *dock = platform_get_drvdata(pdev);
+	struct liquid_dock *dock = platform_get_drvdata(pdev);
 
 	disable_irq_wake(gpio_to_irq(dock->dock_detect));
 	cancel_work_sync(&dock->dock_work);
@@ -209,20 +209,21 @@ static int apq8084_dock_remove(struct platform_device *pdev)
 }
 
 static struct of_device_id of_match_table[] = {
+	{ .compatible = "qcom,liquid-dock", },
 	{ .compatible = "qcom,apq8084-dock", },
 	{ },
 };
 
-static struct platform_driver apq8084_dock_driver = {
+static struct platform_driver liquid_dock_driver = {
 	.driver         = {
-		.name   = "apq8084-dock-driver",
+		.name   = "liquid-dock-driver",
 		.of_match_table = of_match_table,
 	},
-	.probe          = apq8084_dock_probe,
-	.remove		= apq8084_dock_remove,
+	.probe          = liquid_dock_probe,
+	.remove		= liquid_dock_remove,
 };
 
-module_platform_driver(apq8084_dock_driver);
+module_platform_driver(liquid_dock_driver);
 
 MODULE_LICENSE("GPL v2");
-MODULE_DESCRIPTION("QTI APQ8084 Docking Station driver");
+MODULE_DESCRIPTION("QTI LiQUID Docking Station driver");
