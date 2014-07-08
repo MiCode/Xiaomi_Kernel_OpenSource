@@ -342,6 +342,7 @@ struct intel_engine_cs {
 #define I915_DISPATCH_SECURE            (1 << 0)
 #define I915_DISPATCH_PINNED            (1 << 1)
 #define I915_DISPATCH_LAUNCH_CB2        (1 << 2)
+#define I915_DISPATCH_RS		(1 << 3)
 	void		(*cleanup)(struct intel_engine_cs *ring);
 	int (*enable)(struct intel_engine_cs *ring, struct intel_context *ctx);
 	int (*disable)(struct intel_engine_cs *ring, struct intel_context *ctx);

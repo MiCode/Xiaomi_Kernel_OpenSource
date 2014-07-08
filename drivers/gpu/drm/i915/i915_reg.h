@@ -321,6 +321,7 @@
 #define   MI_BATCH_GTT		    (2<<6) /* aliased with (1<<7) on gen4 */
 #define   MI_BATCH_2ND_LEVEL_HSW    (1<<22)
 #define   MI_BATCH_ADD_OFFSET_HSW   (1<<16)
+#define   MI_BATCH_RESOURCE_STREAMER	(1<<10)
 #define MI_BATCH_BUFFER_START_GEN8	MI_INSTR(0x31, 1)
 
 

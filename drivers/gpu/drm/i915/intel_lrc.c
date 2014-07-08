@@ -1943,7 +1943,10 @@ static int gen8_emit_bb_start(struct intel_ringbuffer *ringbuf,
 		return ret;
 
 	/* FIXME(BDW): Address space and security selectors. */
-	intel_logical_ring_emit(ringbuf, MI_BATCH_BUFFER_START_GEN8 | (ppgtt<<8));
+	intel_logical_ring_emit(ringbuf, MI_BATCH_BUFFER_START_GEN8 |
+			(ppgtt<<8) |
+			(flags &
+			 I915_DISPATCH_RS ? MI_BATCH_RESOURCE_STREAMER : 0));
 	intel_logical_ring_emit(ringbuf, lower_32_bits(offset));
 	intel_logical_ring_emit(ringbuf, upper_32_bits(offset));
 	intel_logical_ring_emit(ringbuf, MI_NOOP);

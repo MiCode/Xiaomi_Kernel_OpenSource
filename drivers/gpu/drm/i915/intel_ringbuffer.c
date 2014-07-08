@@ -2693,7 +2693,9 @@ gen8_ring_dispatch_execbuffer(struct intel_engine_cs *ring,
 		return ret;
 
 	/* FIXME(BDW): Address space and security selectors. */
-	intel_ring_emit(ring, MI_BATCH_BUFFER_START_GEN8 | (ppgtt<<8));
+	intel_ring_emit(ring, MI_BATCH_BUFFER_START_GEN8 | (ppgtt<<8) |
+			(flags &
+			 I915_DISPATCH_RS ? MI_BATCH_RESOURCE_STREAMER : 0));
 	intel_ring_emit(ring, lower_32_bits(offset));
 	intel_ring_emit(ring, upper_32_bits(offset));
 	intel_ring_emit(ring, MI_NOOP);

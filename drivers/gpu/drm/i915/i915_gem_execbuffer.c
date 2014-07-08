@@ -1427,6 +1427,20 @@ i915_gem_do_execbuffer(struct drm_device *dev, void *data,
 	} else
 		ring = &dev_priv->ring[(args->flags & I915_EXEC_RING_MASK) - 1];
 
+	if (args->flags & I915_EXEC_RESOURCE_STREAMER) {
+		if (INTEL_INFO(dev)->gen < 8) {
+			DRM_DEBUG("RS is only allowed for Gen8 and above\n");
+			return -EINVAL;
+		}
+		if (ring->id != RCS) {
+			DRM_DEBUG("RS is not available on %s)\n",
+				  ring->name);
+			return -EINVAL;
+		}
+
+		dispatch_flags |= I915_DISPATCH_RS;
+	}
+
 	if (!intel_ring_initialized(ring)) {
 		DRM_DEBUG("execbuf with invalid ring: %d\n",
 			  (int)(args->flags & I915_EXEC_RING_MASK));
