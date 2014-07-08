@@ -42,6 +42,9 @@ extern int vpu_init_port_mdss(struct vpu_dev_session *session,
 		    (session)->port_info[port].port_ops.priv) : 0)
 /*
  * Events/Callbacks handling
+ *
+ * Notify events of given type ID.
+ * If data is not null then it points to a payload of predefined size (<=64).
  */
 static void __prepare_v4l2_event(struct v4l2_event *event,
 		u32 type, u8 *data, u32 size)
@@ -55,7 +58,7 @@ static void __prepare_v4l2_event(struct v4l2_event *event,
 		memcpy(event->u.data, data, size);
 }
 
-void notify_vpu_event_client(struct vpu_client *client,
+static void notify_vpu_event_client(struct vpu_client *client,
 		u32 type, u8 *data, u32 size)
 {
 	struct v4l2_event event = {0};
@@ -66,7 +69,7 @@ void notify_vpu_event_client(struct vpu_client *client,
 	v4l2_event_queue_fh(&client->vfh, &event);
 }
 
-void notify_vpu_event_session(struct vpu_dev_session *session,
+static void notify_vpu_event_session(struct vpu_dev_session *session,
 		u32 type, u8 *data, u32 size)
 {
 	struct v4l2_event event = {0};
@@ -77,6 +80,28 @@ void notify_vpu_event_session(struct vpu_dev_session *session,
 	__prepare_v4l2_event(&event, type, data, size);
 	list_for_each_entry_safe(clnt, n,
 				      &session->clients_list, clients_entry)
+		v4l2_event_queue_fh(&clnt->vfh, &event);
+}
+
+static void notify_vpu_event_system(struct vpu_dev_core *core,
+		u32 type, u8 *data, u32 size)
+{
+	struct v4l2_event event = {0};
+	struct vpu_client *clnt, *n;
+	int i;
+	if (!core)
+		return;
+
+	__prepare_v4l2_event(&event, type, data, size);
+
+	for (i = 0; i < VPU_NUM_SESSIONS; i++) {
+		list_for_each_entry_safe(clnt, n,
+				&core->sessions[i]->clients_list, clients_entry)
+			v4l2_event_queue_fh(&clnt->vfh, &event);
+	}
+
+	list_for_each_entry_safe(clnt, n,
+				      &core->unattached_list, clients_entry)
 		v4l2_event_queue_fh(&clnt->vfh, &event);
 }
 
@@ -315,20 +340,17 @@ int vpu_close_client(struct vpu_client *client)
 	return 0;
 }
 
-int vpu_attach_client(struct vpu_client *client, int session_num)
+static int __vpu_attach_client(struct vpu_client *client,
+		struct vpu_dev_session *session)
 {
 	struct vpu_dev_core *core;
-	struct vpu_dev_session *session;
 	int ret = 0;
-	if (!client || session_num < 0 || session_num >= VPU_NUM_SESSIONS) {
-		pr_err("invalid session attach # %d\n", session_num);
+
+	if (!client)
 		return -EINVAL;
-	}
-
 	core = client->core;
-	session = core->sessions[session_num];
 
-	pr_debug("Attach client %p to session %d\n", client, session_num);
+	pr_debug("Attach client %p to session %d\n", client, session->id);
 
 	if (client->session == session) {
 		return 0; /* client already attached to this session */
@@ -339,8 +361,6 @@ int vpu_attach_client(struct vpu_client *client, int session_num)
 
 	if (session->client_count >= VPU_MAX_CLIENTS_PER_SESSION)
 		return -EBUSY;
-
-	mutex_lock(&session->lock);
 
 	if (session->client_count++ == 0) {
 
@@ -358,15 +378,17 @@ int vpu_attach_client(struct vpu_client *client, int session_num)
 			pr_err("could not open IPC channel\n");
 			goto err_deinit_controller;
 		}
+
+		notify_vpu_event_system(core, VPU_EVENT_SESSION_CREATED,
+				(u8 *)&session->id, sizeof(session->id));
 	}
 
 	/* remove from unattached_list and add to session's clients list */
 	list_del_init(&client->clients_entry);
 	list_add_tail(&client->clients_entry, &session->clients_list);
 	client->session = session;
-	mutex_unlock(&session->lock);
 
-	pr_debug("Attach to session %d successful\n", session_num);
+	pr_debug("Attach to session %d successful\n", session->id);
 	return 0;
 
 err_deinit_controller:
@@ -374,7 +396,87 @@ err_deinit_controller:
 	session->controller = NULL;
 err_dec_count:
 	session->client_count--;
+	return ret;
+}
+
+int vpu_create_session(struct vpu_client *client)
+{
+	struct vpu_dev_core *core;
+	struct vpu_dev_session *session;
+	int ret, i;
+
+	if (!client)
+		return -EINVAL;
+	core = client->core;
+
+	/* find an inactive session */
+	for (i = 0; i < VPU_NUM_SESSIONS; i++) {
+		session = core->sessions[i];
+
+		mutex_lock(&session->lock);
+
+		if (session->client_count > 0) {
+			mutex_unlock(&session->lock);
+		} else {
+			ret = __vpu_attach_client(client, session);
+			if (ret)
+				pr_err("Failed attach, ret = %d\n", ret);
+			else
+				ret = session->id; /* return session number */
+			mutex_unlock(&session->lock);
+
+			return ret;
+		}
+	}
+
+	pr_warn("No idle sessions available\n");
+	return -EBUSY;
+}
+
+int vpu_join_session(struct vpu_client *client, int session_num)
+{
+	struct vpu_dev_core *core;
+	struct vpu_dev_session *session;
+	int ret = -ENODEV;
+
+	if (!client || session_num < 0 || session_num >= VPU_NUM_SESSIONS) {
+		pr_err("invalid session # %d\n", session_num);
+		return -EINVAL;
+	}
+
+	core = client->core;
+	session = core->sessions[session_num];
+
+	mutex_lock(&session->lock);
+
+	if (session->client_count == 0)
+		pr_err("Session %d is not created yet\n", session_num);
+	else
+		ret = __vpu_attach_client(client, session);
+
 	mutex_unlock(&session->lock);
+
+	return ret;
+}
+
+int vpu_attach_session_deprecated(struct vpu_client *client, int session_num)
+{
+	struct vpu_dev_core *core;
+	struct vpu_dev_session *session;
+	int ret;
+
+	if (!client || session_num < 0 || session_num >= VPU_NUM_SESSIONS) {
+		pr_err("invalid session # %d\n", session_num);
+		return -EINVAL;
+	}
+
+	core = client->core;
+	session = core->sessions[session_num];
+
+	mutex_lock(&session->lock);
+	ret = __vpu_attach_client(client, session);
+	mutex_unlock(&session->lock);
+
 	return ret;
 }
 
@@ -420,10 +522,19 @@ void vpu_detach_client(struct vpu_client *client)
 		session->streaming_state = 0;
 		session->commit_state = 0;
 		session->dual_output = false;
+
+		notify_vpu_event_system(client->core,
+				VPU_EVENT_SESSION_FREED,
+				(u8 *)&session->id, sizeof(session->id));
 	}
 
 	list_del_init(&client->clients_entry); /* remove from attached list */
 	client->session = NULL;
+
+	/* notify remaining session clients of the new client count */
+	notify_vpu_event_session(session, VPU_EVENT_SESSION_CLIENT_EXITED,
+		(u8 *)&session->client_count, sizeof(session->client_count));
+
 	mutex_unlock(&session->lock);
 
 	/* add back to global unattached list */

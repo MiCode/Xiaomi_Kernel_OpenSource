@@ -128,13 +128,28 @@ static long v4l2_vpu_private_ioctls(struct file *file, void *fh,
 	switch (cmd) {
 	case VPU_QUERY_SESSIONS:
 		pr_debug("Received ioctl VPU_QUERY_SESSIONS\n");
-		ret = get_vpu_num_sessions((unsigned *)arg);
+		ret = get_vpu_num_sessions((int *)arg);
 		break;
 
 	case VPU_ATTACH_TO_SESSION:
 		pr_debug("Received ioctl VPU_ATTACH_TO_SESSION\n");
-		session_num = *((unsigned *)arg);
-		ret = vpu_attach_client(client, session_num);
+		session_num = *((int *)arg);
+		ret = vpu_attach_session_deprecated(client, session_num);
+		break;
+
+	case VPU_CREATE_SESSION:
+		pr_debug("Received ioctl VPU_CREATE_SESSION\n");
+		session_num = vpu_create_session(client);
+		if (session_num < 0)
+			ret = session_num;
+		else
+			*((int *)arg) = session_num;
+		break;
+
+	case VPU_JOIN_SESSION:
+		pr_debug("Received ioctl VPU_JOIN_SESSION\n");
+		session_num = *((int *)arg);
+		ret = vpu_join_session(client, session_num);
 		break;
 
 	case VPU_CREATE_OUTPUT2:
