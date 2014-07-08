@@ -87,6 +87,10 @@
 #define DW_IC_INTR_STOP_DET	0x200
 #define DW_IC_INTR_START_DET	0x400
 #define DW_IC_INTR_GEN_CALL	0x800
+#define	DW_IC_RESETS		0x804
+# define	DW_IC_RESETS_FUNC	BIT(0)
+# define	DW_IC_RESETS_APB	BIT(1)
+#define	DW_IC_GENERAL		0x808
 
 #define DW_IC_INTR_DEFAULT_MASK		(DW_IC_INTR_RX_FULL | \
 					 DW_IC_INTR_TX_EMPTY | \
@@ -287,6 +291,27 @@ int i2c_dw_init(struct dw_i2c_dev *dev)
 	u32 input_clock_khz;
 	u32 hcnt, lcnt;
 	u32 reg;
+	int timeout = TIMEOUT;
+
+	do {
+		/*
+		 * We need to reset the controller if it's not accessible
+		 */
+		if (dw_readl(dev, DW_IC_COMP_TYPE) == DW_IC_COMP_TYPE_VALUE)
+			break;
+		/*
+		 * reset apb and clock domain
+		 */
+		dw_writel(dev, 0, DW_IC_RESETS);
+		dw_writel(dev, 0, DW_IC_GENERAL);
+		usleep_range(10, 100);
+		dw_writel(dev, DW_IC_RESETS_APB | DW_IC_RESETS_FUNC,
+				DW_IC_RESETS);
+		usleep_range(10, 100);
+	} while (timeout--);
+
+	if (unlikely(timeout == 0))
+		dev_err(dev->dev, "controller time out\n");
 
 	input_clock_khz = dev->get_clk_rate_khz(dev);
 
