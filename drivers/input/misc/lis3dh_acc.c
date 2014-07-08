@@ -298,10 +298,11 @@ static int lis3dh_acc_config_regulator(struct lis3dh_acc_data *acc, bool on)
 				lis3dh_acc_vreg[i].name);
 			if (IS_ERR(lis3dh_acc_vreg[i].vreg)) {
 				rc = PTR_ERR(lis3dh_acc_vreg[i].vreg);
-				pr_err("%s:regulator get failed rc=%d\n",
-								__func__, rc);
+				dev_err(&acc->client->dev,
+					"Regulator(%s) get failed rc=%d\n",
+					lis3dh_acc_vreg[i].name, rc);
 				lis3dh_acc_vreg[i].vreg = NULL;
-				goto error_vdd;
+				goto deinit_vregs;
 			}
 
 			if (regulator_count_voltages(
@@ -311,46 +312,66 @@ static int lis3dh_acc_config_regulator(struct lis3dh_acc_data *acc, bool on)
 					lis3dh_acc_vreg[i].min_uV,
 					lis3dh_acc_vreg[i].max_uV);
 				if (rc) {
-					pr_err("%s: set voltage failed rc=%d\n",
-					__func__, rc);
+					dev_err(&acc->client->dev,
+					"Regulator(%s)Set voltage failed rc=%d\n",
+					lis3dh_acc_vreg[i].name, rc);
 					regulator_put(lis3dh_acc_vreg[i].vreg);
 					lis3dh_acc_vreg[i].vreg = NULL;
-					goto error_vdd;
+					goto deinit_vregs;
 				}
-			}
-
-			rc = regulator_enable(lis3dh_acc_vreg[i].vreg);
-			if (rc) {
-				pr_err("%s: regulator_enable failed rc =%d\n",
-					__func__, rc);
-				if (regulator_count_voltages(
-					lis3dh_acc_vreg[i].vreg) > 0) {
-					regulator_set_voltage(
-						lis3dh_acc_vreg[i].vreg, 0,
-						lis3dh_acc_vreg[i].max_uV);
-				}
-				regulator_put(lis3dh_acc_vreg[i].vreg);
-				lis3dh_acc_vreg[i].vreg = NULL;
-				goto error_vdd;
 			}
 		}
 		return rc;
 	} else {
 		i = num_reg;
+		goto deinit_vregs;
 	}
 
-error_vdd:
+deinit_vregs:
 	while (--i >= 0) {
 		if (!IS_ERR_OR_NULL(lis3dh_acc_vreg[i].vreg)) {
-			if (regulator_count_voltages(
-			lis3dh_acc_vreg[i].vreg) > 0) {
-				regulator_set_voltage(lis3dh_acc_vreg[i].vreg,
-						0, lis3dh_acc_vreg[i].max_uV);
-			}
-			regulator_disable(lis3dh_acc_vreg[i].vreg);
 			regulator_put(lis3dh_acc_vreg[i].vreg);
 			lis3dh_acc_vreg[i].vreg = NULL;
 		}
+	}
+	return rc;
+}
+
+static int lis3dh_acc_set_regulator(struct lis3dh_acc_data *acc, bool on)
+{
+	int rc = 0, i;
+	int num_reg = sizeof(lis3dh_acc_vreg) / sizeof(struct sensor_regulator);
+
+	if (on) {
+		for (i = 0; i < num_reg; i++) {
+			if (!IS_ERR_OR_NULL(lis3dh_acc_vreg[i].vreg)) {
+				rc = regulator_enable(lis3dh_acc_vreg[i].vreg);
+				if (rc) {
+					dev_err(&acc->client->dev,
+					"Enable regulator(%s) failed rc=%d\n",
+					lis3dh_acc_vreg[i].name, rc);
+					goto disable_regulator;
+				}
+			}
+		}
+		return rc;
+	} else {
+		for (i = (num_reg - 1); i >= 0; i--) {
+			if (!IS_ERR_OR_NULL(lis3dh_acc_vreg[i].vreg)) {
+				rc = regulator_disable(lis3dh_acc_vreg[i].vreg);
+				if (rc)
+					dev_err(&acc->client->dev,
+					"Disable regulator(%s) failed rc=%d\n",
+					lis3dh_acc_vreg[i].name, rc);
+			}
+		}
+		return 0;
+	}
+
+disable_regulator:
+	while (--i >= 0) {
+		if (!IS_ERR_OR_NULL(lis3dh_acc_vreg[i].vreg))
+			regulator_disable(lis3dh_acc_vreg[i].vreg);
 	}
 	return rc;
 }
@@ -520,7 +541,7 @@ static void lis3dh_acc_device_power_off(struct lis3dh_acc_data *acc)
 	if (err < 0)
 		dev_err(&acc->client->dev, "soft power off failed: %d\n", err);
 
-	lis3dh_acc_config_regulator(acc, false);
+	lis3dh_acc_set_regulator(acc, false);
 
 	if (acc->hw_initialized) {
 		if (gpio_is_valid(acc->pdata->gpio_int1)
@@ -539,7 +560,7 @@ static int lis3dh_acc_device_power_on(struct lis3dh_acc_data *acc)
 {
 	int err = -1;
 
-	err = lis3dh_acc_config_regulator(acc, true);
+	err = lis3dh_acc_set_regulator(acc, true);
 	if (err < 0) {
 		dev_err(&acc->client->dev,
 				"power_on failed: %d\n", err);
@@ -552,7 +573,7 @@ static int lis3dh_acc_device_power_on(struct lis3dh_acc_data *acc)
 	if (!acc->hw_initialized) {
 		err = lis3dh_acc_hw_init(acc);
 		if (acc->hw_working == 1 && err < 0) {
-			lis3dh_acc_device_power_off(acc);
+			lis3dh_acc_set_regulator(acc, false);
 			return err;
 		}
 	}
@@ -1535,10 +1556,17 @@ static int lis3dh_acc_probe(struct i2c_client *client,
 		acc->resume_state[RES_CTRL_REG3] = CONFIG_IRQ_DRDY1;
 		acc->resume_state[RES_CTRL_REG4] = CONFIG_BLOCK_READ;
 	}
+
+	err = lis3dh_acc_config_regulator(acc, true);
+	if (err < 0) {
+		dev_err(&client->dev, "Configure power failed: %d\n", err);
+		goto err_pdata_init;
+	}
+
 	err = lis3dh_acc_device_power_on(acc);
 	if (err < 0) {
 		dev_err(&client->dev, "power on failed: %d\n", err);
-		goto err_pdata_init;
+		goto err_regulator_init;
 	}
 
 	atomic_set(&acc->enabled, 1);
@@ -1628,6 +1656,8 @@ err_input_cleanup:
 	lis3dh_acc_input_cleanup(acc);
 err_power_off:
 	lis3dh_acc_device_power_off(acc);
+err_regulator_init:
+	lis3dh_acc_config_regulator(acc, false);
 err_pdata_init:
 	if (acc->pdata->exit)
 		acc->pdata->exit();
@@ -1658,6 +1688,7 @@ static int lis3dh_acc_remove(struct i2c_client *client)
 	sensors_classdev_unregister(&acc->cdev);
 	lis3dh_acc_input_cleanup(acc);
 	lis3dh_acc_device_power_off(acc);
+	lis3dh_acc_config_regulator(acc, false);
 	remove_sysfs_interfaces(&client->dev);
 
 	if (acc->pdata->exit)
