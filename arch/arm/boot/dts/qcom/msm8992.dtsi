@@ -119,6 +119,30 @@
 	memory {
 		#address-cells = <2>;
 		#size-cells = <2>;
+
+		removed_regions: removed_regions@0 {
+			linux,reserve-contiguous-region;
+			linux,reserve-region;
+			linux,remove-completely;
+			reg = <0 0x06300000 0 0xD00000>;
+			label = "memory_hole";
+		};
+
+		peripheral_mem: peripheral_region@0 {
+			linux,reserve-contiguous-region;
+			linux,reserve-region;
+			linux,remove-completely;
+			reg = <0 0x0c800000 0 0x1b00000>;
+			label = "peripheral_mem";
+		};
+
+		modem_mem: modem_region@0 {
+			linux,reserve-contiguous-region;
+			linux,reserve-region;
+			linux,remove-completely;
+			reg = <0 0x07000000 0 0x5800000>;
+			label = "modem_mem";
+		};
 	};
 };
 
