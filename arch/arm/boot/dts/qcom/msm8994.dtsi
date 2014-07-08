@@ -320,6 +320,12 @@
 		clock-frequency = <19200000>;
 	};
 
+	qcom,mpm2-sleep-counter@fc4a3000 {
+		compatible = "qcom,mpm2-sleep-counter";
+		reg = <0xfc4a3000 0x1000>;
+		clock-frequency = <32768>;
+	};
+
 	timer@f9020000 {
 		#address-cells = <1>;
 		#size-cells = <1>;
@@ -707,6 +713,11 @@
 		restart_reason@65c {
 			compatible = "qcom,msm-imem-restart_reason";
 			reg = <0x65c 4>;
+		};
+
+		boot_stats@6b0 {
+			compatible = "qcom,msm-imem-boot_stats";
+			reg = <0x6b0 32>;
 		};
 
 		pil@94c {
