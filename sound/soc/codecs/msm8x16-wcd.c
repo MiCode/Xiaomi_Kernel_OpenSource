@@ -118,11 +118,6 @@ enum {
 	BAND_MAX,
 };
 
-enum {
-	ON_DEMAND_MICBIAS = 0,
-	ON_DEMAND_SUPPLIES_MAX,
-};
-
 struct hpf_work {
 	struct msm8x16_wcd_priv *msm8x16_wcd;
 	u32 decimator;
@@ -132,31 +127,8 @@ struct hpf_work {
 
 static struct hpf_work tx_hpf_work[NUM_DECIMATORS];
 
-struct on_demand_supply {
-	struct regulator *supply;
-	atomic_t ref;
-};
-
 static char on_demand_supply_name[][MAX_ON_DEMAND_SUPPLY_NAME_LENGTH] = {
 	"cdc-vdd-mic-bias",
-};
-
-struct msm8x16_wcd_priv {
-	struct snd_soc_codec *codec;
-	u16 pmic_rev;
-	u32 adc_count;
-	u32 rx_bias_count;
-	s32 dmic_1_2_clk_cnt;
-	u32 mute_mask;
-	bool mclk_enabled;
-	bool clock_active;
-	bool config_mode_active;
-	bool spk_boost_set;
-	bool ear_pa_boost_set;
-	bool dec_active[NUM_DECIMATORS];
-	struct on_demand_supply on_demand_list[ON_DEMAND_SUPPLIES_MAX];
-	/* mbhc module */
-	struct wcd_mbhc mbhc;
 };
 
 static unsigned long rx_digital_gain_reg[] = {
@@ -208,6 +180,31 @@ static const struct wcd_mbhc_cb mbhc_cb = {
 	.enable_mb_source = msm8x16_wcd_enable_ext_mb_source,
 };
 
+int msm8x16_unregister_notifier(struct snd_soc_codec *codec,
+				     struct notifier_block *nblock)
+{
+	struct msm8x16_wcd_priv *msm8x16_wcd = snd_soc_codec_get_drvdata(codec);
+
+	return blocking_notifier_chain_unregister(&msm8x16_wcd->notifier,
+			nblock);
+}
+
+int msm8x16_register_notifier(struct snd_soc_codec *codec,
+				     struct notifier_block *nblock)
+{
+	struct msm8x16_wcd_priv *msm8x16_wcd = snd_soc_codec_get_drvdata(codec);
+
+	return blocking_notifier_chain_register(&msm8x16_wcd->notifier, nblock);
+}
+
+void msm8x16_notifier_call(struct snd_soc_codec *codec,
+				  const enum wcd_notify_event event)
+{
+	struct msm8x16_wcd_priv *msm8x16_wcd = snd_soc_codec_get_drvdata(codec);
+
+	pr_debug("%s: notifier call event %d\n", __func__, event);
+	blocking_notifier_call_chain(&msm8x16_wcd->notifier, event, codec);
+}
 
 static int get_spmi_msm8x16_wcd_device_info(u16 *reg,
 			struct msm8x16_wcd_spmi **msm8x16_wcd)
@@ -1838,6 +1835,7 @@ static int msm8x16_wcd_codec_enable_micbias(struct snd_soc_dapm_widget *w,
 			snd_soc_update_bits(codec, micb_int_reg, 0x08, 0x08);
 		else if (strnstr(w->name, internal3_text, 30))
 			snd_soc_update_bits(codec, micb_int_reg, 0x01, 0x01);
+		msm8x16_notifier_call(codec, WCD_EVENT_PRE_MICBIAS_2_ON);
 		break;
 	case SND_SOC_DAPM_POST_PMD:
 		if (strnstr(w->name, internal1_text, 30)) {
@@ -1851,6 +1849,7 @@ static int msm8x16_wcd_codec_enable_micbias(struct snd_soc_dapm_widget *w,
 		}
 		snd_soc_update_bits(codec, MSM8X16_WCD_A_ANALOG_MICB_1_EN,
 				0x45, 0x01);
+		msm8x16_notifier_call(codec, WCD_EVENT_PRE_MICBIAS_2_OFF);
 		break;
 	}
 	return 0;
@@ -3233,6 +3232,8 @@ static int msm8x16_wcd_codec_probe(struct snd_soc_codec *codec)
 				codec->control_data,
 				on_demand_supply_name[ON_DEMAND_MICBIAS]);
 	atomic_set(&msm8x16_wcd_priv->on_demand_list[ON_DEMAND_MICBIAS].ref, 0);
+
+	BLOCKING_INIT_NOTIFIER_HEAD(&msm8x16_wcd_priv->notifier);
 
 	wcd_mbhc_init(&msm8x16_wcd_priv->mbhc, codec, &mbhc_cb, &intr_ids,
 			false);
