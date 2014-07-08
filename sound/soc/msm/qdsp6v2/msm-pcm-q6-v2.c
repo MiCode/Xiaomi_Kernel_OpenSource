@@ -347,16 +347,27 @@ static int msm_pcm_capture_prepare(struct snd_pcm_substream *substream)
 	struct snd_pcm_runtime *runtime = substream->runtime;
 	struct msm_audio *prtd = runtime->private_data;
 	struct snd_soc_pcm_runtime *soc_prtd = substream->private_data;
+	struct msm_plat_data *pdata;
 	struct snd_pcm_hw_params *params;
 	struct msm_pcm_routing_evt event;
 	int ret = 0;
 	int i = 0;
 	uint16_t bits_per_sample = 16;
 
+	pdata = (struct msm_plat_data *)
+		dev_get_drvdata(soc_prtd->platform->dev);
+	if (!pdata) {
+		pr_err("%s: platform data not populated\n", __func__);
+		return -EINVAL;
+	}
+
 	pr_debug("%s\n", __func__);
 	params = &soc_prtd->dpcm[substream->stream].hw_params;
 	if (params_format(params) == SNDRV_PCM_FORMAT_S24_LE)
 		bits_per_sample = 24;
+
+	prtd->audio_client->perf_mode = pdata->perf_mode;
+	pr_debug("%s: perf_mode: 0x%x\n", __func__, pdata->perf_mode);
 
 	pr_debug("%s Opening %d-ch PCM read stream\n",
 			__func__, params_channels(params));
