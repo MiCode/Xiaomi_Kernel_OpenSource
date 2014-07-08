@@ -1615,14 +1615,22 @@ static void notify_all(int event, unsigned long data)
 	unsigned long flags;
 	struct list_head *temp;
 	struct outside_notify_func *func;
+	void (*notify)(void *, int, unsigned long);
+	void *priv;
 
 	BAM_DMUX_LOG("%s: event=%d, data=%lu\n", __func__, event, data);
 
 	for (i = 0; i < BAM_DMUX_NUM_CHANNELS; ++i) {
+		notify = NULL;
+		priv = NULL;
 		spin_lock_irqsave(&bam_ch[i].lock, flags);
-		if (bam_ch_is_open(i))
-			bam_ch[i].notify(bam_ch[i].priv, event, data);
+		if (bam_ch_is_open(i)) {
+			notify = bam_ch[i].notify;
+			priv = bam_ch[i].priv;
+		}
 		spin_unlock_irqrestore(&bam_ch[i].lock, flags);
+		if (notify)
+			notify(priv, event, data);
 	}
 
 	__list_for_each(temp, &bam_other_notify_funcs) {
