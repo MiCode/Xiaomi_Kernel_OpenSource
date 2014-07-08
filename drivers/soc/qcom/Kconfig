@@ -346,6 +346,13 @@ config MSM_RUN_QUEUE_STATS
 	 This information is exported to usespace via sysfs entries and userspace
 	 algorithms uses info and decide when to turn on/off the cpu cores.
 
+config MSM_BOOT_STATS
+	bool "Use MSM boot stats reporting"
+	help
+	 Use this to report msm boot stats such as bootloader throughput,
+	 display init, total boot time.
+	 This figures are reported in mpm sleep clock cycles and have a
+	 resolution of 31 bits as 1 bit is used as an overflow check.
 
 endif # ARCH_QCOM
 
