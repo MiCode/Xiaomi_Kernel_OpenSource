@@ -392,15 +392,18 @@ int mdss_mdp_overlay_req_check(struct msm_fb_data_type *mfd,
 }
 
 static int __mdp_pipe_tune_perf(struct mdss_mdp_pipe *pipe,
-	bool is_single_layer)
+	u32 flags)
 {
 	struct mdss_data_type *mdata = pipe->mixer_left->ctl->mdata;
 	struct mdss_mdp_perf_params perf;
 	int rc;
 
+	flags |= PERF_CALC_PIPE_APPLY_CLK_FUDGE |
+		PERF_CALC_PIPE_CALC_SMP_SIZE;
+
 	for (;;) {
-		rc = mdss_mdp_perf_calc_pipe(pipe, &perf, NULL, true,
-			is_single_layer);
+		rc = mdss_mdp_perf_calc_pipe(pipe, &perf, NULL,
+			flags);
 
 		if (!rc && (perf.mdp_clk_rate <= mdata->max_mdp_clk_rate)) {
 			rc = mdss_mdp_perf_bw_check_pipe(&perf, pipe);
@@ -505,6 +508,7 @@ int mdss_mdp_overlay_pipe_setup(struct msm_fb_data_type *mfd,
 	u32 rot90;
 	bool is_vig_needed = false;
 	u32 left_lm_w = left_lm_w_from_mfd(mfd);
+	u32 flags = 0;
 
 	if (mdp5_data->ctl == NULL)
 		return -ENODEV;
@@ -877,7 +881,10 @@ int mdss_mdp_overlay_pipe_setup(struct msm_fb_data_type *mfd,
 		}
 	}
 
-	ret = __mdp_pipe_tune_perf(pipe, is_single_layer);
+	if (is_single_layer)
+		flags |= PERF_CALC_PIPE_SINGLE_LAYER;
+
+	ret = __mdp_pipe_tune_perf(pipe, flags);
 	if (ret) {
 		pr_debug("unable to satisfy performance. ret=%d\n", ret);
 		goto exit_fail;

@@ -468,7 +468,7 @@ static bool mdss_mdp_traffic_shaper_helper(struct mdss_mdp_ctl *ctl,
 
 		if (enable) {
 			if (mdss_mdp_perf_calc_pipe(pipe, &perf, &mixer->roi,
-				false, true))
+				PERF_CALC_PIPE_SINGLE_LAYER))
 				continue;
 
 			clk_rate = max(mdss_mdp_get_mdp_clk_rate(ctl->mdata),
