@@ -65,6 +65,10 @@
 #define PERF_STATUS_DONE 0
 #define PERF_STATUS_BUSY 1
 
+#define PERF_CALC_PIPE_APPLY_CLK_FUDGE	BIT(0)
+#define PERF_CALC_PIPE_SINGLE_LAYER	BIT(1)
+#define PERF_CALC_PIPE_CALC_SMP_SIZE	BIT(2)
+
 enum mdss_mdp_perf_state_type {
 	PERF_SW_COMMIT_STATE = 0,
 	PERF_HW_MDP_STATE,
@@ -715,7 +719,10 @@ int mdss_mdp_perf_bw_check_pipe(struct mdss_mdp_perf_params *perf,
 		struct mdss_mdp_pipe *pipe);
 int mdss_mdp_perf_calc_pipe(struct mdss_mdp_pipe *pipe,
 	struct mdss_mdp_perf_params *perf, struct mdss_rect *roi,
-	bool apply_fudge, bool is_single_layer);
+	u32 flags);
+u32 mdss_mdp_calc_latency_buf_bytes(bool is_yuv, bool is_bwc,
+	bool is_tile, u32 src_w, u32 bpp, bool use_latency_buf_percentage,
+	u32 smp_bytes);
 u32 mdss_mdp_get_mdp_clk_rate(struct mdss_data_type *mdata);
 int mdss_mdp_ctl_notify(struct mdss_mdp_ctl *ctl, int event);
 void mdss_mdp_ctl_notifier_register(struct mdss_mdp_ctl *ctl,
@@ -805,6 +812,7 @@ int mdss_mdp_pipe_map(struct mdss_mdp_pipe *pipe);
 void mdss_mdp_pipe_unmap(struct mdss_mdp_pipe *pipe);
 struct mdss_mdp_pipe *mdss_mdp_pipe_alloc_dma(struct mdss_mdp_mixer *mixer);
 
+u32 mdss_mdp_smp_calc_num_blocks(struct mdss_mdp_pipe *pipe);
 u32 mdss_mdp_smp_get_size(struct mdss_mdp_pipe *pipe);
 int mdss_mdp_smp_reserve(struct mdss_mdp_pipe *pipe);
 void mdss_mdp_smp_unreserve(struct mdss_mdp_pipe *pipe);

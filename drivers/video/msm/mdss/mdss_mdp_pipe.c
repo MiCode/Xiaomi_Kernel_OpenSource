@@ -19,6 +19,7 @@
 #include <linux/mutex.h>
 
 #include "mdss_mdp.h"
+#include "mdss_mdp_trace.h"
 
 #define SMP_MB_SIZE		(mdss_res->smp_mb_size)
 #define SMP_MB_CNT		(mdss_res->smp_mb_cnt)
@@ -41,6 +42,10 @@ static int mdss_mdp_smp_mmb_set(int client_id, unsigned long *smp);
 static void mdss_mdp_smp_mmb_free(unsigned long *smp, bool write);
 static struct mdss_mdp_pipe *mdss_mdp_pipe_search_by_client_id(
 	struct mdss_data_type *mdata, int client_id);
+static int mdss_mdp_calc_stride(struct mdss_mdp_pipe *pipe,
+	struct mdss_mdp_plane_sizes *ps);
+static u32 mdss_mdp_calc_per_plane_num_blks(u32 ystride,
+	struct mdss_mdp_pipe *pipe);
 
 static inline void mdss_mdp_pipe_write(struct mdss_mdp_pipe *pipe,
 				       u32 reg, u32 val)
@@ -161,6 +166,30 @@ static void mdss_mdp_smp_mmb_free(unsigned long *smp, bool write)
 	}
 }
 
+u32 mdss_mdp_smp_calc_num_blocks(struct mdss_mdp_pipe *pipe)
+{
+	struct mdss_mdp_plane_sizes ps;
+	int rc = 0;
+	int i, num_blks = 0;
+
+	rc = mdss_mdp_calc_stride(pipe, &ps);
+	if (rc) {
+		pr_err("wrong stride calc\n");
+		return 0;
+	}
+
+	for (i = 0; i < ps.num_planes; i++) {
+		num_blks += mdss_mdp_calc_per_plane_num_blks(ps.ystride[i],
+			pipe);
+		pr_debug("SMP for BW %d mmb for pnum=%d plane=%d\n",
+			num_blks, pipe->num, i);
+	}
+
+	pr_debug("SMP blks %d mb_cnt for pnum=%d\n",
+		num_blks, pipe->num);
+	return num_blks;
+}
+
 /**
  * @mdss_mdp_smp_get_size - get allocated smp size for a pipe
  * @pipe: pointer to a pipe
@@ -187,23 +216,37 @@ u32 mdss_mdp_smp_get_size(struct mdss_mdp_pipe *pipe)
 		smp_size = mb_cnt * SMP_MB_SIZE;
 	}
 
+	pr_debug("SMP size %d for pnum=%d\n",
+		smp_size, pipe->num);
+
 	return smp_size;
 }
 
 static void mdss_mdp_smp_set_wm_levels(struct mdss_mdp_pipe *pipe, int mb_cnt)
 {
-	u32 useable_space, val, wm[3];
+	struct mdss_data_type *mdata = mdss_mdp_get_mdata();
+	u32 useable_space, latency_bytes, val, wm[3];
+	struct mdss_mdp_mixer *mixer = pipe->mixer_left;
 
 	useable_space = mb_cnt * SMP_MB_SIZE;
 
 	/*
-	 * when source format is macrotile then useable space within total
-	 * allocated SMP space is limited to src_w * bpp * nlines. Unlike
-	 * linear format, any extra space left over is not filled.
+	 * For 1.3.x version, when source format is macrotile then useable
+	 * space within total allocated SMP space is limited to src_w *
+	 * bpp * nlines. Unlike linear format, any extra space left over is
+	 * not filled.
+	 *
+	 * All other versions, in case of linear we calculate the latency
+	 * bytes as the bytes to be used for the latency buffer lines, so the
+	 * transactions when filling the full SMPs have the lowest priority.
 	 */
-	if (pipe->src_fmt->tile) {
-		useable_space = pipe->src.w * pipe->src_fmt->bpp;
-	} else if (pipe->flags & MDP_FLIP_LR) {
+
+	latency_bytes = mdss_mdp_calc_latency_buf_bytes(pipe->src_fmt->is_yuv,
+		pipe->bwc_mode, pipe->src_fmt->tile, pipe->src.w,
+		pipe->src_fmt->bpp,
+		false, useable_space);
+
+	if ((pipe->flags & MDP_FLIP_LR) && !pipe->src_fmt->tile) {
 		/*
 		 * when doing hflip, one line is reserved to be consumed down
 		 * the pipeline. This line will always be marked as full even
@@ -213,23 +256,36 @@ static void mdss_mdp_smp_set_wm_levels(struct mdss_mdp_pipe *pipe, int mb_cnt)
 		 */
 		u8 bpp = pipe->src_fmt->is_yuv ? 1 :
 			pipe->src_fmt->bpp;
-		useable_space -= (pipe->src.w * bpp);
+		latency_bytes -= (pipe->src.w * bpp);
 	}
 
-	if (pipe->src_fmt->tile) {
-		val = useable_space / SMP_MB_ENTRY_SIZE;
+	if (IS_MDSS_MAJOR_MINOR_SAME(mdata->mdp_rev, MDSS_MDP_HW_REV_103) &&
+		(pipe->src_fmt->tile)) {
+		val = latency_bytes / SMP_MB_ENTRY_SIZE;
 
 		wm[0] = (val * 5) / 8;
 		wm[1] = (val * 6) / 8;
 		wm[2] = (val * 7) / 8;
+	} else if (mixer->rotator_mode ||
+		(mixer->ctl->intf_num == MDSS_MDP_NO_INTF)) {
+		/* any non real time pipe */
+		wm[0]  = 0xffff;
+		wm[1]  = 0xffff;
+		wm[2]  = 0xffff;
 	} else {
-		/* 1/4 of SMP pool that is being fetched */
-		val = (useable_space / SMP_MB_ENTRY_SIZE) >> 2;
+		/*
+		 *  1/3 of the latency buffer bytes from the
+		 *  SMP pool that is being fetched
+		 */
+		val = (latency_bytes / SMP_MB_ENTRY_SIZE) / 3;
 
 		wm[0] = val;
 		wm[1] = wm[0] + val;
 		wm[2] = wm[1] + val;
 	}
+
+	trace_mdp_perf_set_wm_levels(pipe->num, useable_space, latency_bytes,
+		wm[0], wm[1], wm[2], mb_cnt, SMP_MB_SIZE);
 
 	pr_debug("pnum=%d useable_space=%u watermarks %u,%u,%u\n", pipe->num,
 			useable_space, wm[0], wm[1], wm[2]);
@@ -266,16 +322,13 @@ void mdss_mdp_smp_unreserve(struct mdss_mdp_pipe *pipe)
 	mutex_unlock(&mdss_mdp_smp_lock);
 }
 
-int mdss_mdp_smp_reserve(struct mdss_mdp_pipe *pipe)
+static int mdss_mdp_calc_stride(struct mdss_mdp_pipe *pipe,
+	struct mdss_mdp_plane_sizes *ps)
 {
 	struct mdss_data_type *mdata = mdss_mdp_get_mdata();
-	u32 num_blks = 0, reserved = 0;
-	struct mdss_mdp_plane_sizes ps;
-	int i;
-	int rc = 0, rot_mode = 0, wb_mixer = 0;
-	bool force_alloc = 0;
-	u32 nlines, format, seg_w;
 	u16 width;
+	int rc = 0;
+	u32 format, seg_w = 0;
 
 	if (mdata->has_pixel_ram)
 		return 0;
@@ -284,7 +337,7 @@ int mdss_mdp_smp_reserve(struct mdss_mdp_pipe *pipe)
 
 	if (pipe->bwc_mode) {
 		rc = mdss_mdp_get_rau_strides(pipe->src.w, pipe->src.h,
-			pipe->src_fmt, &ps);
+			pipe->src_fmt, ps);
 		if (rc)
 			return rc;
 		/*
@@ -295,23 +348,23 @@ int mdss_mdp_smp_reserve(struct mdss_mdp_pipe *pipe)
 		 */
 		seg_w = DIV_ROUND_UP(pipe->src.w, 16);
 		if (pipe->src_fmt->fetch_planes == MDSS_MDP_PLANE_INTERLEAVED) {
-			ps.ystride[0] = ALIGN(seg_w, 32) * 16 * ps.rau_h[0] *
+			ps->ystride[0] = ALIGN(seg_w, 32) * 16 * ps->rau_h[0] *
 					pipe->src_fmt->bpp;
-			ps.ystride[1] = 0;
+			ps->ystride[1] = 0;
 		} else {
 			u32 bwc_width = ALIGN(seg_w, 64) * 16;
-			ps.ystride[0] = bwc_width * ps.rau_h[0];
-			ps.ystride[1] = bwc_width * ps.rau_h[1];
+			ps->ystride[0] = bwc_width * ps->rau_h[0];
+			ps->ystride[1] = bwc_width * ps->rau_h[1];
 			/*
 			 * Since chroma for H1V2 is not subsampled it needs
 			 * to be accounted for with bpp factor
 			 */
 			if (pipe->src_fmt->chroma_sample ==
 				MDSS_MDP_CHROMA_H1V2)
-				ps.ystride[1] *= 2;
+				ps->ystride[1] *= 2;
 		}
 		pr_debug("BWC SMP strides ystride0=%x ystride1=%x\n",
-			ps.ystride[0], ps.ystride[1]);
+			ps->ystride[0], ps->ystride[1]);
 	} else {
 		format = pipe->src_fmt->format;
 		/*
@@ -331,14 +384,12 @@ int mdss_mdp_smp_reserve(struct mdss_mdp_pipe *pipe)
 			}
 		}
 		rc = mdss_mdp_get_plane_sizes(format, width, pipe->src.h,
-			&ps, 0, 0);
+			ps, 0, 0);
 		if (rc)
 			return rc;
 
-		if (pipe->mixer_left && pipe->mixer_left->rotator_mode) {
-			rot_mode = 1;
-		} else if (pipe->mixer_left && (ps.num_planes == 1)) {
-			ps.ystride[0] = MAX_BPP *
+		if (pipe->mixer_left && (ps->num_planes == 1)) {
+			ps->ystride[0] = MAX_BPP *
 				max(pipe->mixer_left->width, width);
 		} else if (mdata->has_decimation) {
 			/*
@@ -349,20 +400,63 @@ int mdss_mdp_smp_reserve(struct mdss_mdp_pipe *pipe)
 			switch (pipe->src_fmt->chroma_sample) {
 			case MDSS_MDP_CHROMA_H2V1:
 			case MDSS_MDP_CHROMA_420:
-				ps.ystride[1] <<= 1;
+				ps->ystride[1] <<= 1;
 				break;
 			}
 		}
 	}
 
-	if (pipe->src_fmt->tile)
-		nlines = 8;
-	else
-		nlines = pipe->bwc_mode ? 1 : 2;
+	return rc;
+}
 
-	if (pipe->mixer_left &&
-		pipe->mixer_left->type == MDSS_MDP_MIXER_TYPE_WRITEBACK)
-		wb_mixer = 1;
+static u32 mdss_mdp_calc_per_plane_num_blks(u32 ystride,
+	struct mdss_mdp_pipe *pipe)
+{
+	struct mdss_data_type *mdata = mdss_mdp_get_mdata();
+	u32 num_blks = 0;
+	u32 nlines = 0;
+
+	if (pipe->mixer_left && (pipe->mixer_left->rotator_mode ||
+		(pipe->mixer_left->type == MDSS_MDP_MIXER_TYPE_WRITEBACK))) {
+		if (pipe->src_fmt->tile)
+			num_blks = 4;
+		else
+			num_blks = 1;
+	} else {
+		if (pipe->src_fmt->tile)
+			nlines = 8;
+		else
+			nlines = pipe->bwc_mode ? 1 : 2;
+
+		num_blks = DIV_ROUND_UP(ystride * nlines,
+				SMP_MB_SIZE);
+
+		if (mdata->mdp_rev == MDSS_MDP_HW_REV_100)
+			num_blks = roundup_pow_of_two(num_blks);
+
+		if (mdata->smp_mb_per_pipe &&
+			(num_blks > mdata->smp_mb_per_pipe) &&
+			!(pipe->flags & MDP_FLIP_LR))
+			num_blks = mdata->smp_mb_per_pipe;
+	}
+
+	pr_debug("mtype:%d tile:%d bwc:%d ystride%d pipeblks:%d blks:%d\n",
+		pipe->mixer_left->type, pipe->src_fmt->tile, pipe->bwc_mode,
+		ystride, mdata->smp_mb_per_pipe, num_blks);
+
+	return num_blks;
+}
+
+int mdss_mdp_smp_reserve(struct mdss_mdp_pipe *pipe)
+{
+	u32 num_blks = 0, reserved = 0;
+	struct mdss_mdp_plane_sizes ps;
+	int i, rc = 0;
+	bool force_alloc = 0;
+
+	rc = mdss_mdp_calc_stride(pipe, &ps);
+	if (rc)
+		return rc;
 
 	/*
 	 * Don't want to allow SMP changes for backend composition pipes
@@ -382,21 +476,8 @@ int mdss_mdp_smp_reserve(struct mdss_mdp_pipe *pipe)
 	}
 
 	for (i = 0; i < ps.num_planes; i++) {
-		if (rot_mode || wb_mixer) {
-			num_blks = 1;
-		} else {
-			num_blks = DIV_ROUND_UP(ps.ystride[i] * nlines,
-					SMP_MB_SIZE);
-
-			if (mdata->mdp_rev == MDSS_MDP_HW_REV_100)
-				num_blks = roundup_pow_of_two(num_blks);
-
-			if (mdata->smp_mb_per_pipe &&
-				(num_blks > mdata->smp_mb_per_pipe) &&
-				!(pipe->flags & MDP_FLIP_LR))
-				num_blks = mdata->smp_mb_per_pipe;
-		}
-
+		num_blks = mdss_mdp_calc_per_plane_num_blks(ps.ystride[i],
+			pipe);
 		pr_debug("reserving %d mmb for pnum=%d plane=%d\n",
 				num_blks, pipe->num, i);
 		reserved = mdss_mdp_smp_mmb_reserve(&pipe->smp_map[i],
