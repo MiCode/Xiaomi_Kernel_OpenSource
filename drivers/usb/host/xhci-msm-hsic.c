@@ -842,11 +842,13 @@ static int mxhci_hsic_suspend(struct mxhci_hsic_hcd *mxhci)
 	}
 
 	disable_irq(hcd->irq);
+	disable_irq(mxhci->pwr_event_irq);
 
 	/* make sure we don't race against a remote wakeup */
 	if (test_bit(HCD_FLAG_WAKEUP_PENDING, &hcd->flags) ||
 	    (readl_relaxed(MSM_HSIC_PORTSC) & PORT_PLS_MASK) == XDEV_RESUME) {
 		dev_dbg(mxhci->dev, "wakeup pending, aborting suspend\n");
+		enable_irq(mxhci->pwr_event_irq);
 		enable_irq(hcd->irq);
 		return -EBUSY;
 	}
@@ -876,6 +878,7 @@ static int mxhci_hsic_suspend(struct mxhci_hsic_hcd *mxhci)
 
 	mxhci->in_lpm = 1;
 
+	enable_irq(mxhci->pwr_event_irq);
 	enable_irq(hcd->irq);
 
 	if (mxhci->wakeup_irq) {
