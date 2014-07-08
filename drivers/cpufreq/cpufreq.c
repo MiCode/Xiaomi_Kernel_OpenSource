@@ -657,10 +657,15 @@ static ssize_t show(struct kobject *kobj, struct attribute *attr, char *buf)
 {
 	struct cpufreq_policy *policy = to_policy(kobj);
 	struct freq_attr *fattr = to_attr(attr);
-	ssize_t ret;
+	ssize_t ret = -EINVAL;
+
+	get_online_cpus();
+
+	if (!cpu_online(policy->cpu))
+		goto unlock;
 
 	if (!down_read_trylock(&cpufreq_rwsem))
-		return -EINVAL;
+		goto unlock;
 
 	down_read(&policy->rwsem);
 
@@ -671,7 +676,8 @@ static ssize_t show(struct kobject *kobj, struct attribute *attr, char *buf)
 
 	up_read(&policy->rwsem);
 	up_read(&cpufreq_rwsem);
-
+unlock:
+	put_online_cpus();
 	return ret;
 }
 
