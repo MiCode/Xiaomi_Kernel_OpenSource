@@ -357,7 +357,6 @@ err_power:
 	return ret;
 }
 
-#define MBA_SIZE SZ_1M
 int pil_mss_reset_load_mba(struct pil_desc *pil)
 {
 	struct q6v5_data *drv = container_of(pil, struct q6v5_data, desc);
@@ -380,10 +379,11 @@ int pil_mss_reset_load_mba(struct pil_desc *pil)
 		return ret;
 	}
 
+	drv->mba_size = SZ_1M;
 	md->mba_mem_dev.coherent_dma_mask =
 		DMA_BIT_MASK(sizeof(dma_addr_t) * 8);
-	mba_virt = dma_alloc_coherent(&md->mba_mem_dev, MBA_SIZE, &mba_phys,
-					GFP_KERNEL);
+	mba_virt = dma_alloc_coherent(&md->mba_mem_dev, drv->mba_size,
+					&mba_phys, GFP_KERNEL);
 	if (!mba_virt) {
 		dev_err(pil->dev, "MBA metadata buffer allocation failed\n");
 		ret = -ENOMEM;
@@ -410,7 +410,7 @@ int pil_mss_reset_load_mba(struct pil_desc *pil)
 	return 0;
 
 err_mss_reset:
-	dma_free_coherent(&md->mba_mem_dev, MBA_SIZE, drv->mba_virt,
+	dma_free_coherent(&md->mba_mem_dev, drv->mba_size, drv->mba_virt,
 				drv->mba_phys);
 err_dma_alloc:
 	release_firmware(fw);
@@ -523,7 +523,7 @@ static int pil_msa_mba_auth(struct pil_desc *pil)
 
 	if (drv->q6 && drv->q6->mba_virt)
 		/* Reclaim MBA memory. */
-		dma_free_coherent(&drv->mba_mem_dev, MBA_SIZE,
+		dma_free_coherent(&drv->mba_mem_dev, drv->q6->mba_size,
 					drv->q6->mba_virt, drv->q6->mba_phys);
 	if (ret)
 		modem_log_rmb_regs(drv->rmb_base);

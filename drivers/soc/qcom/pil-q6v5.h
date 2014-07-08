@@ -46,6 +46,7 @@ struct q6v5_data {
 	bool self_auth;
 	phys_addr_t mba_phys;
 	void *mba_virt;
+	size_t mba_size;
 	bool qdsp6v55;
 	bool qdsp6v5_2_0;
 	bool qdsp6v56;
