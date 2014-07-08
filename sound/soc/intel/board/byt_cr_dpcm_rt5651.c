@@ -31,7 +31,6 @@
 #include <linux/slab.h>
 #include <linux/vlv2_plat_clock.h>
 #include <linux/input.h>
-#include <linux/dmi.h>
 #include <asm/intel-mid.h>
 #include <asm/platform_byt_audio.h>
 #include <sound/pcm.h>
@@ -39,6 +38,8 @@
 #include <sound/soc.h>
 #include <sound/jack.h>
 #include "../../codecs/rt5651.h"
+
+#include "byt_cr_board_configs.h"
 
 #define BYT_PLAT_CLK_3_HZ	25000000
 
@@ -714,6 +715,7 @@ static int snd_byt_mc_probe(struct platform_device *pdev)
 	struct byt_mc_private *drv;
 	struct snd_soc_card *card;
 	const struct snd_soc_dapm_route *routes;
+	const struct board_config *conf;
 
 	pr_debug("%s: Enter.\n", __func__);
 
@@ -739,8 +741,17 @@ static int snd_byt_mc_probe(struct platform_device *pdev)
 
 	mutex_init(&drv->jack_mlock);
 
-	card = &snd_soc_card_byt_default;
-	routes = &byt_audio_map_default[0];
+	/* Get board-specific HW-settings */
+	conf = get_board_config(get_mc_link());
+	switch (conf->idx) {
+	case RT5651_ANCHOR8:
+	case RT5651_DEFAULT:
+		card = &snd_soc_card_byt_default;
+		routes = &byt_audio_map_default[0];
+		break;
+	default:
+		BUG_ON(true);
+	}
 
 	/* Register the soc-card */
 	card->dev = &pdev->dev;
@@ -759,9 +770,12 @@ static int snd_byt_mc_probe(struct platform_device *pdev)
 		return ret_val;
 	}
 
-	pr_err("%s: Setting special-bit for ANCHOR8-board.\n", __func__);
-	snd_soc_update_bits(byt_get_codec(card), RT5651_JD_CTRL1,
-			RT5651_JD_MASK, RT5651_JD_JD1_IN4P);
+	if (conf->idx == RT5651_ANCHOR8) {
+		pr_err("%s: Setting special-bit for ANCHOR8-board.\n",
+			__func__);
+		snd_soc_update_bits(byt_get_codec(card), RT5651_JD_CTRL1,
+				RT5651_JD_MASK, RT5651_JD_JD1_IN4P);
+	}
 
 	pr_debug("%s: Exit.\n", __func__);
 	return ret_val;

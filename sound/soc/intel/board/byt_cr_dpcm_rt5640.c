@@ -38,6 +38,8 @@
 #include <sound/jack.h>
 #include "../../codecs/rt5640.h"
 
+#include "byt_cr_board_configs.h"
+
 #define BYT_PLAT_CLK_3_HZ	25000000
 #define BYT_CODEC_GPIO_IDX      0
 #define BYT_JD_GPIO_IDX         1
@@ -960,47 +962,13 @@ static struct snd_soc_card snd_soc_card_byt_t100 = {
 	.num_dapm_routes = ARRAY_SIZE(byt_audio_map),
 };
 
-enum board_id {
-	BOARD_DEFAULT = 0,
-	BOARD_T100 = 1,
-};
-
-static enum board_id get_board_id(void)
-{
-	static const struct dmi_system_id dmi_machine_table[] = {
-		{
-			/*  ASUS T100 */
-			.ident = "T100",
-			.matches = {
-				DMI_MATCH(DMI_BOARD_NAME, "T100TA"),
-				DMI_MATCH(DMI_BOARD_VERSION, "1.0"),
-			},
-		},
-		{ }
-	};
-	const struct dmi_system_id* dmi_machine;
-
-	dmi_machine = dmi_first_match(dmi_machine_table);
-	if (!dmi_machine) {
-		pr_debug("No dmi entries found using default!\n");
-		return BOARD_DEFAULT;
-	}
-
-	if (!strncmp(dmi_machine->ident, "T100", 4)) {
-		pr_debug("%s: Machine is T100\n", __func__);
-		return BOARD_T100;
-	}
-
-	return BOARD_DEFAULT;
-}
-
 static int snd_byt_mc_probe(struct platform_device *pdev)
 {
 	int ret_val = 0;
 	struct byt_mc_private *drv;
 	struct snd_soc_card *card;
 	const struct snd_soc_dapm_route *routes;
-	enum board_id bid;
+	const struct board_config *conf;
 
 	pr_debug("Entry %s\n", __func__);
 
@@ -1010,15 +978,20 @@ static int snd_byt_mc_probe(struct platform_device *pdev)
 		return -ENOMEM;
 	}
 
-	bid = get_board_id();
-	switch (bid) {
-	case BOARD_T100:
+	/* Get board-specific HW-settings */
+	conf = get_board_config(get_mc_link());
+	switch (conf->idx) {
+	case RT5640_T100:
 		card = &snd_soc_card_byt_t100;
 		routes = &byt_audio_map_t100[0];
 		break;
-	default:
+	case RT5640_MRD7:
+	case RT5640_DEFAULT:
 		card = &snd_soc_card_byt_default;
 		routes = &byt_audio_map_default[0];
+		break;
+	default:
+		BUG_ON(true);
 	}
 
 	/* register the soc card */
@@ -1037,7 +1010,7 @@ static int snd_byt_mc_probe(struct platform_device *pdev)
 		return ret_val;
 	}
 
-	if (bid != BOARD_T100) {
+	if (conf->idx != RT5640_T100) {
 		snd_soc_update_bits(byt_get_codec(card), RT5640_JD_CTRL,
 				RT5640_JD_MASK, RT5640_JD_JD1_IN4P);
 	}

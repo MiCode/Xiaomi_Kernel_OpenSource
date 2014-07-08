@@ -1,13 +1,13 @@
-
 #EXTRA CFLAGS
 ccflags-y += -Werror
 
 EXTRA_CFLAGS += -DDEBUG
 
 # Baytrail board
+
 snd-byt-cr-dpcm-rt5640-objs := byt_cr_dpcm_rt5640.o
+obj-$(CONFIG_SND_SOC_INTEL_MRD7) += snd-byt-cr-dpcm-rt5640.o  byt_cr_board_configs.o
+
 snd-byt-cr-dpcm-rt5651-objs := byt_cr_dpcm_rt5651.o
-obj-$(CONFIG_SND_BYT_MACHINE) += snd-byt-cr-dpcm-rt5640.o snd-byt-cr-dpcm-rt5651.o
-
-
+obj-$(CONFIG_SND_SOC_INTEL_ANCHOR8) += snd-byt-cr-dpcm-rt5651.o  byt_cr_board_configs.o
 

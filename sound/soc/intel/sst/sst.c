@@ -48,6 +48,8 @@
 #include "../platform_ipc_v2.h"
 #include "sst.h"
 
+#include "../board/byt_cr_board_configs.h"
+
 #define CREATE_TRACE_POINTS
 #include "sst_trace.h"
 
@@ -526,14 +528,19 @@ static const struct dmi_system_id dmi_machine_table[] = {
 int sst_request_firmware_async(struct intel_sst_drv *ctx)
 {
 	int ret = 0;
-	const struct dmi_system_id* dmi_machine;
-	dmi_machine = dmi_first_match(dmi_machine_table);
-	if (!dmi_machine) {
-		pr_err("%s: Unsupported machine!\n", __func__);
-		return -ENOENT;	
+	struct mach_codec_link const *mc_link;
+	struct board_config const *conf;
+
+	mc_link = get_mc_link();
+	if (mc_link == NULL) {
+		pr_err("%s: Unsupported machine! Cannot load firmware!\n",
+			__func__);
+		return -ENOENT;
 	}
+	conf = get_board_config(mc_link);
+
 	snprintf(ctx->firmware_name, sizeof(ctx->firmware_name),
-			"fw_sst_%04x_%s.bin", ctx->pci_id, (const char*)dmi_machine->driver_data);
+			"fw_sst_%04x_ssp%d.bin", ctx->pci_id, conf->i2s_port);
 	pr_err("Requesting FW %s now...\n", ctx->firmware_name);
 
 	trace_sst_fw_download("Request firmware async", ctx->sst_state);
@@ -545,6 +552,7 @@ int sst_request_firmware_async(struct intel_sst_drv *ctx)
 
 	return ret;
 }
+
 /*
 * intel_sst_probe - PCI probe function
 *
@@ -565,7 +573,8 @@ static int intel_sst_probe(struct pci_dev *pci,
 	u32 dma_base_add;
 	u32 len;
 
-
+	/* Detect and setup board-configuration */
+	set_mc_link();
 
 	pr_debug("Probe for DID %x\n", pci->device);
 	ret = sst_alloc_drv_context(&pci->dev);

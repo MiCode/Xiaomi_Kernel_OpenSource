@@ -1,8 +1,22 @@
-
-config SND_BYT_MACHINE
-	tristate "SOC Machine Audio driver for Intel Baytrail MID platform"
+config SND_SOC_INTEL_MRD7
+	tristate "SOC Machine Audio driver for Intel(R) MRD7 device"
 	depends on X86
 	select SND_SOC_RT5640
+	select SND_SST_PLATFORM
+	select SND_SST_MACHINE
+	select SND_INTEL_SST
+	select SND_HWDEP
+	default n
+
+	help
+	  This adds support for ASoC machine driver for Intel(R) MRD7 device
+          based on the BYT-CR platform and RT5640 codec.
+          Say Y if you have such a device
+          If unsure select "N".
+
+config SND_SOC_INTEL_ANCHOR8
+	tristate "SOC Machine Audio driver for Intel(R) Anchor8 device"
+	depends on X86
 	select SND_SOC_RT5651
 	select SND_SST_PLATFORM
 	select SND_SST_MACHINE
@@ -11,8 +25,8 @@ config SND_BYT_MACHINE
 	default n
 
 	help
-	  This adds support for ASoC machine driver for Intel(R) MID Baytrail platform
-          used as alsa device in audio substem in Intel(R) MID devices
+	  This adds support for ASoC machine driver for Intel(R) Anchor8 device
+          based on the BYT-CR platform and RT5651 codec.
           Say Y if you have such a device
           If unsure select "N".
 
