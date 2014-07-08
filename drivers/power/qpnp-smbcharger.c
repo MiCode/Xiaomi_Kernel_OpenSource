@@ -116,7 +116,10 @@ struct smbchg_chip {
 	int				dcin_uv_irq;
 	int				usbin_uv_irq;
 	int				src_detect_irq;
+	int				otg_fail_irq;
+	int				otg_oc_irq;
 	int				aicl_done_irq;
+	int				usbid_change_irq;
 	int				chg_inhibit_irq;
 	int				chg_error_irq;
 
@@ -284,6 +287,24 @@ static int smbchg_sec_masked_write(struct smbchg_chip *chip, u16 base, u8 mask,
 out:
 	spin_unlock_irqrestore(&chip->sec_access_lock, flags);
 	return rc;
+}
+
+#define RID_STS				0xB
+#define RID_MASK			0xF
+static bool is_otg_present(struct smbchg_chip *chip)
+{
+	int rc;
+	u8 reg;
+
+	rc = smbchg_read(chip, &reg, chip->usb_chgpth_base + RID_STS, 1);
+	if (rc < 0) {
+		pr_err("Couldn't read usb rid status rc = %d\n", rc);
+		return false;
+	}
+
+	pr_debug("RID_STS = %02x\n", reg);
+
+	return (reg & RID_MASK) == 0;
 }
 
 #define USBIN_9V			BIT(5)
@@ -1787,6 +1808,25 @@ static irqreturn_t src_detect_handler(int irq, void *_chip)
 }
 
 /**
+ * otg_oc_handler() - called when the usb otg goes over current
+ */
+static irqreturn_t otg_oc_handler(int irq, void *_chip)
+{
+	pr_debug("triggered\n");
+	return IRQ_HANDLED;
+}
+
+/**
+ * otg_fail_handler() - called when the usb otg fails
+ * (when vbat < OTG UVLO threshold)
+ */
+static irqreturn_t otg_fail_handler(int irq, void *_chip)
+{
+	pr_debug("triggered\n");
+	return IRQ_HANDLED;
+}
+
+/**
  * aicl_done_handler() - called when the usb AICL algorithm is finished
  *			and a current is set.
  */
@@ -1798,6 +1838,33 @@ static irqreturn_t aicl_done_handler(int irq, void *_chip)
 	pr_debug("aicl_done triggered\n");
 	if (chip->parallel.avail && usb_present)
 		smbchg_parallel_usb_determine_current(chip);
+	return IRQ_HANDLED;
+}
+
+/**
+ * usbid_change_handler() - called when the usb RID changes.
+ * This is used mostly for detecting OTG
+ */
+static irqreturn_t usbid_change_handler(int irq, void *_chip)
+{
+	struct smbchg_chip *chip = _chip;
+	bool otg_present;
+
+	pr_debug("triggered\n");
+
+	/*
+	 * After the falling edge of the usbid change interrupt occurs,
+	 * there may still be some time before the ADC conversion for USB RID
+	 * finishes in the fuel gauge.
+	 *
+	 * Sleep for a bit to wait for the conversion to finish and the USB RID
+	 * status register to be updated before trying to detect OTG insertions.
+	 */
+	usleep_range(5000, 20000);
+	otg_present = is_otg_present(chip);
+	if (chip->usb_psy)
+		power_supply_set_usb_otg(chip->usb_psy, otg_present ? 1 : 0);
+
 	return IRQ_HANDLED;
 }
 
@@ -1834,6 +1901,7 @@ static int determine_initial_status(struct smbchg_chip *chip)
 	batt_cool_handler(0, chip);
 	batt_cold_handler(0, chip);
 	chg_term_handler(0, chip);
+	usbid_change_handler(0, chip);
 
 	chip->usb_present = is_usb_present(chip);
 	chip->dc_present = is_dc_present(chip);
@@ -2339,7 +2407,7 @@ static int smb_parse_dt(struct smbchg_chip *chip)
 #define SMBCHG_USB_CHGPTH_SUBTYPE	0x4
 #define SMBCHG_DC_CHGPTH_SUBTYPE	0x5
 #define SMBCHG_MISC_SUBTYPE		0x7
-#define REQUEST_IRQ(chip, resource, irq_num, irq_name, irq_handler, rc)	\
+#define REQUEST_IRQ(chip, resource, irq_num, irq_name, irq_handler, flags, rc)\
 do {									\
 	irq_num = spmi_get_irq_byname(chip->spmi,			\
 					resource, irq_name);		\
@@ -2348,9 +2416,8 @@ do {									\
 		return -ENXIO;						\
 	}								\
 	rc = devm_request_threaded_irq(chip->dev,			\
-			irq_num, NULL, irq_handler,			\
-			IRQF_TRIGGER_RISING | IRQF_TRIGGER_FALLING	\
-			| IRQF_ONESHOT, irq_name, chip);		\
+			irq_num, NULL, irq_handler, flags, irq_name,	\
+			chip);						\
 	if (rc < 0) {							\
 		dev_err(chip->dev, "Unable to request " irq_name " irq: %d\n",\
 				rc);					\
@@ -2365,6 +2432,8 @@ static int smbchg_request_irqs(struct smbchg_chip *chip)
 	struct spmi_resource *spmi_resource;
 	u8 subtype;
 	struct spmi_device *spmi = chip->spmi;
+	unsigned long flags = IRQF_TRIGGER_RISING | IRQF_TRIGGER_FALLING
+							| IRQF_ONESHOT;
 
 	spmi_for_each_container_dev(spmi_resource, chip->spmi) {
 		if (!spmi_resource) {
@@ -2391,34 +2460,34 @@ static int smbchg_request_irqs(struct smbchg_chip *chip)
 		switch (subtype) {
 		case SMBCHG_CHGR_SUBTYPE:
 			REQUEST_IRQ(chip, spmi_resource, chip->chg_error_irq,
-					"chg-error", chg_error_handler, rc);
+				"chg-error", chg_error_handler, flags, rc);
 			REQUEST_IRQ(chip, spmi_resource, chip->taper_irq,
-					"chg-taper-thr", taper_handler, rc);
+				"chg-taper-thr", taper_handler, flags, rc);
 			REQUEST_IRQ(chip, spmi_resource, chip->chg_term_irq,
-					"chg-tcc-thr", chg_term_handler, rc);
+				"chg-tcc-thr", chg_term_handler, flags, rc);
 			REQUEST_IRQ(chip, spmi_resource, chip->chg_inhibit_irq,
-					"chg-inhibit", chg_inhibit_handler, rc);
+				"chg-inhibit", chg_inhibit_handler, flags, rc);
 			REQUEST_IRQ(chip, spmi_resource, chip->recharge_irq,
-					"chg-rechg-thr", recharge_handler, rc);
+				"chg-rechg-thr", recharge_handler, flags, rc);
 			REQUEST_IRQ(chip, spmi_resource, chip->fastchg_irq,
-					"chg-p2f-thr", fastchg_handler, rc);
+				"chg-p2f-thr", fastchg_handler, flags, rc);
 			enable_irq_wake(chip->chg_term_irq);
 			enable_irq_wake(chip->chg_error_irq);
 			enable_irq_wake(chip->fastchg_irq);
 			break;
 		case SMBCHG_BAT_IF_SUBTYPE:
 			REQUEST_IRQ(chip, spmi_resource, chip->batt_hot_irq,
-					"batt-hot", batt_hot_handler, rc);
+				"batt-hot", batt_hot_handler, flags, rc);
 			REQUEST_IRQ(chip, spmi_resource, chip->batt_warm_irq,
-					"batt-warm", batt_warm_handler, rc);
+				"batt-warm", batt_warm_handler, flags, rc);
 			REQUEST_IRQ(chip, spmi_resource, chip->batt_cool_irq,
-					"batt-cool", batt_cool_handler, rc);
+				"batt-cool", batt_cool_handler, flags, rc);
 			REQUEST_IRQ(chip, spmi_resource, chip->batt_cold_irq,
-					"batt-cold", batt_cold_handler, rc);
+				"batt-cold", batt_cold_handler, flags, rc);
 			REQUEST_IRQ(chip, spmi_resource, chip->batt_missing_irq,
-					"batt-missing", batt_pres_handler, rc);
+				"batt-missing", batt_pres_handler, flags, rc);
 			REQUEST_IRQ(chip, spmi_resource, chip->vbat_low_irq,
-					"batt-low", vbat_low_handler, rc);
+				"batt-low", vbat_low_handler, flags, rc);
 			enable_irq_wake(chip->batt_hot_irq);
 			enable_irq_wake(chip->batt_warm_irq);
 			enable_irq_wake(chip->batt_cool_irq);
@@ -2428,30 +2497,42 @@ static int smbchg_request_irqs(struct smbchg_chip *chip)
 			break;
 		case SMBCHG_USB_CHGPTH_SUBTYPE:
 			REQUEST_IRQ(chip, spmi_resource, chip->usbin_uv_irq,
-					"usbin-uv", usbin_uv_handler, rc);
+				"usbin-uv", usbin_uv_handler, flags, rc);
 			REQUEST_IRQ(chip, spmi_resource, chip->src_detect_irq,
-					"usbin-src-det",
-					src_detect_handler, rc);
+				"usbin-src-det",
+				src_detect_handler, flags, rc);
+			REQUEST_IRQ(chip, spmi_resource, chip->otg_fail_irq,
+				"otg-fail", otg_fail_handler, flags, rc);
+			REQUEST_IRQ(chip, spmi_resource, chip->otg_oc_irq,
+				"otg-oc", otg_oc_handler,
+				(IRQF_TRIGGER_RISING | IRQF_ONESHOT), rc);
 			REQUEST_IRQ(chip, spmi_resource, chip->aicl_done_irq,
-					"aicl-done",
-					aicl_done_handler, rc);
+				"aicl-done",
+				aicl_done_handler, flags, rc);
+			REQUEST_IRQ(chip, spmi_resource,
+				chip->usbid_change_irq, "usbid-change",
+				usbid_change_handler,
+				(IRQF_TRIGGER_FALLING | IRQF_ONESHOT), rc);
 			enable_irq_wake(chip->usbin_uv_irq);
 			enable_irq_wake(chip->src_detect_irq);
+			enable_irq_wake(chip->otg_fail_irq);
+			enable_irq_wake(chip->otg_oc_irq);
+			enable_irq_wake(chip->usbid_change_irq);
 			break;
 		case SMBCHG_DC_CHGPTH_SUBTYPE:
 			REQUEST_IRQ(chip, spmi_resource, chip->dcin_uv_irq,
-					"dcin-uv", dcin_uv_handler, rc);
+				"dcin-uv", dcin_uv_handler, flags, rc);
 			enable_irq_wake(chip->dcin_uv_irq);
 			break;
 		case SMBCHG_MISC_SUBTYPE:
 			REQUEST_IRQ(chip, spmi_resource, chip->power_ok_irq,
-					"power-ok", power_ok_handler, rc);
+				"power-ok", power_ok_handler, flags, rc);
 			REQUEST_IRQ(chip, spmi_resource, chip->chg_hot_irq,
-					"temp-shutdown", chg_hot_handler, rc);
+				"temp-shutdown", chg_hot_handler, flags, rc);
 			REQUEST_IRQ(chip, spmi_resource,
-					chip->safety_timeout_irq,
-					"safety-timeout",
-					safety_timeout_handler, rc);
+				chip->safety_timeout_irq,
+				"safety-timeout",
+				safety_timeout_handler, flags, rc);
 			enable_irq_wake(chip->chg_hot_irq);
 			enable_irq_wake(chip->safety_timeout_irq);
 			break;
