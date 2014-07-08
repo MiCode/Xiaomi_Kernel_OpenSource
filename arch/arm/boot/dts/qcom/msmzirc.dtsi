@@ -474,6 +474,17 @@
 		compatible = "qcom,msm-rtb";
 		qcom,rtb-size = <0x100000>;
 	};
+
+	jtag_mm0: jtagmm@842000 {
+		compatible = "qcom,jtagv8-mm";
+		reg = <0x842000 0x1000>,
+		      <0x840000 0x1000>;
+		reg-names = "etm-base","debug-base";
+
+		clocks = <&clock_rpm clk_qdss_clk>,
+			 <&clock_rpm clk_qdss_a_clk>;
+		clock-names = "core_clk", "core_a_clk";
+	};
 };
 
 #include "msmzirc-regulator.dtsi"
