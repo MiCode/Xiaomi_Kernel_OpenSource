@@ -817,7 +817,17 @@ static void pmic_fg_init_config_regs(struct pmic_fg_info *info)
 	if (ret < 0) {
 		dev_warn(&info->pdev->dev, "FG CNTL reg read err!!\n");
 	} else if ((ret & FG_CNTL_OCV_ADJ_EN) && (ret & FG_CNTL_CAP_ADJ_EN)) {
-		dev_info(&info->pdev->dev, "FG data is already initialized\n");
+		dev_info(&info->pdev->dev,
+			 "FG data except the OCV curve is initialized\n");
+		/*
+		 * ocv curve will be set to default values
+		 * at every boot, so it is needed to explicitly write
+		 * the ocv curve data for each boot
+		 */
+		ret = pmic_fg_program_ocv_curve(info);
+		if (ret < 0)
+			dev_err(&info->pdev->dev,
+				"set ocv curve fail:%d\n", ret);
 		pmic_fg_dump_init_regs(info);
 		return;
 	} else {
