@@ -600,6 +600,11 @@ static int mdss_debugfs_perf_init(struct mdss_debug_data *mdd,
 	debugfs_create_file("perf_mode", 0644, mdd->perf,
 		(u32 *)&mdata->perf_tune, &mdss_perf_mode_fops);
 
+	/* Initialize percentage to 0% */
+	mdata->latency_buff_per = 0;
+	debugfs_create_u32("latency_buff_per", 0644, mdd->perf,
+		(u32 *)&mdata->latency_buff_per);
+
 	return 0;
 }
 

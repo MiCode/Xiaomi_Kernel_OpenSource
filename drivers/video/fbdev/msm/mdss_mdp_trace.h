@@ -65,7 +65,7 @@ DECLARE_EVENT_CLASS(mdp_sspp_template,
 			__entry->dst_h = pipe->dst.h;
 	),
 
-	TP_printk("num=%d mixer=%d play_cnt=%d flags=0x%x stage=%d format=%d img=%dx%d src=[%d,%d,%d,%d] dst=[%d,%d,%d,%d]",
+	TP_printk("pnum=%d mixer=%d play_cnt=%d flags=0x%x stage=%d format=%d img=%dx%d src=[%d,%d,%d,%d] dst=[%d,%d,%d,%d]",
 			__entry->num, __entry->mixer, __entry->play_cnt,
 			__entry->flags, __entry->stage,
 			__entry->format, __entry->img_w, __entry->img_h,
@@ -83,6 +83,74 @@ DEFINE_EVENT(mdp_sspp_template, mdp_sspp_set,
 DEFINE_EVENT(mdp_sspp_template, mdp_sspp_change,
 	TP_PROTO(struct mdss_mdp_pipe *pipe),
 	TP_ARGS(pipe)
+);
+
+TRACE_EVENT(mdp_perf_set_wm_levels,
+	TP_PROTO(u32 pnum, u32 use_space, u32 priority_bytes, u32 wm0, u32 wm1,
+		u32 wm2, u32 mb_cnt, u32 mb_size),
+	TP_ARGS(pnum, use_space, priority_bytes, wm0, wm1, wm2, mb_cnt,
+		mb_size),
+	TP_STRUCT__entry(
+			__field(u32, pnum)
+			__field(u32, use_space)
+			__field(u32, priority_bytes)
+			__field(u32, wm0)
+			__field(u32, wm1)
+			__field(u32, wm2)
+			__field(u32, mb_cnt)
+			__field(u32, mb_size)
+	),
+	TP_fast_assign(
+			__entry->pnum = pnum;
+			__entry->use_space = use_space;
+			__entry->priority_bytes = priority_bytes;
+			__entry->wm0 = wm0;
+			__entry->wm1 = wm1;
+			__entry->wm2 = wm2;
+			__entry->mb_cnt = mb_cnt;
+			__entry->mb_size = mb_size;
+	),
+	TP_printk("pnum:%d useable_space:%d priority_bytes:%d watermark:[%d | %d | %d] nmb=%d mb_size=%d",
+			__entry->pnum, __entry->use_space,
+			__entry->priority_bytes, __entry->wm0, __entry->wm1,
+			__entry->wm2, __entry->mb_cnt, __entry->mb_size)
+);
+
+TRACE_EVENT(mdp_perf_prefill_calc,
+	TP_PROTO(u32 pnum, u32 latency_buf, u32 ot, u32 y_buf, u32 y_scaler,
+		u32 pp_lines, u32 pp_bytes, u32 post_sc, u32 fbc_bytes,
+		u32 prefill_bytes),
+	TP_ARGS(pnum, latency_buf, ot, y_buf, y_scaler, pp_lines, pp_bytes,
+		post_sc, fbc_bytes, prefill_bytes),
+	TP_STRUCT__entry(
+			__field(u32, pnum)
+			__field(u32, latency_buf)
+			__field(u32, ot)
+			__field(u32, y_buf)
+			__field(u32, y_scaler)
+			__field(u32, pp_lines)
+			__field(u32, pp_bytes)
+			__field(u32, post_sc)
+			__field(u32, fbc_bytes)
+			__field(u32, prefill_bytes)
+	),
+	TP_fast_assign(
+			__entry->pnum = pnum;
+			__entry->latency_buf = latency_buf;
+			__entry->ot = ot;
+			__entry->y_buf = y_buf;
+			__entry->y_scaler = y_scaler;
+			__entry->pp_lines = pp_lines;
+			__entry->pp_bytes = pp_bytes;
+			__entry->post_sc = post_sc;
+			__entry->fbc_bytes = fbc_bytes;
+			__entry->prefill_bytes = prefill_bytes;
+	),
+	TP_printk("pnum:%d latency_buf:%d ot:%d y_buf:%d y_scaler:%d pp_lines:%d, pp_bytes=%d post_sc:%d fbc_bytes:%d prefill:%d",
+			__entry->pnum, __entry->latency_buf, __entry->ot,
+			__entry->y_buf, __entry->y_scaler, __entry->pp_lines,
+			__entry->pp_bytes, __entry->post_sc,
+			__entry->fbc_bytes, __entry->prefill_bytes)
 );
 
 TRACE_EVENT(mdp_mixer_update,
