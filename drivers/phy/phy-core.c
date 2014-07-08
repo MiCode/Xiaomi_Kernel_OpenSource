@@ -239,23 +239,86 @@ out:
 }
 EXPORT_SYMBOL_GPL(phy_power_off);
 
+int phy_suspend(struct phy *phy)
+{
+	int ret = -ENOTSUPP;
+
+	if (!phy->ops->suspend)
+		return ret;
+
+	mutex_lock(&phy->mutex);
+
+	if (--phy->resume_count == 0) {
+		ret =  phy->ops->suspend(phy);
+		if (ret) {
+			dev_err(&phy->dev, "phy suspend failed --> %d\n", ret);
+			/* reverting the resume_count since suspend failed */
+			phy->resume_count++;
+			goto out;
+		}
+	}
+out:
+	mutex_unlock(&phy->mutex);
+	return ret;
+}
+EXPORT_SYMBOL(phy_suspend);
+
+int phy_resume(struct phy *phy)
+{
+	int ret = -ENOTSUPP;
+
+	if (!phy->ops->resume)
+		return ret;
+
+	mutex_lock(&phy->mutex);
+
+	if (phy->resume_count++ == 0) {
+		ret =  phy->ops->resume(phy);
+		if (ret) {
+			dev_err(&phy->dev, "phy resume failed --> %d\n", ret);
+			/* reverting the resume_count since resume failed */
+			phy->resume_count--;
+			goto out;
+		}
+	}
+out:
+	mutex_unlock(&phy->mutex);
+	return ret;
+}
+EXPORT_SYMBOL(phy_resume);
+
+void phy_advertise_quirks(struct phy *phy)
+{
+	if (phy->ops->advertise_quirks) {
+		mutex_lock(&phy->mutex);
+		phy->ops->advertise_quirks(phy);
+		mutex_unlock(&phy->mutex);
+	}
+}
+EXPORT_SYMBOL(phy_advertise_quirks);
+
 /**
- * of_phy_get() - lookup and obtain a reference to a phy by phandle
+ * phy_get_by_index() - lookup and obtain a reference to a phy by index
  * @dev: device that requests this phy
  * @index: the index of the phy
  *
- * Returns the phy associated with the given phandle value,
+ * Returns the phy associated with the given index value,
  * after getting a refcount to it or -ENODEV if there is no such phy or
- * -EPROBE_DEFER if there is a phandle to the phy, but the device is
+ * -EPROBE_DEFER if there is an index to the phy, but the device is
  * not yet loaded. This function uses of_xlate call back function provided
  * while registering the phy_provider to find the phy instance.
  */
-static struct phy *of_phy_get(struct device *dev, int index)
+struct phy *phy_get_by_index(struct device *dev, int index)
 {
 	int ret;
 	struct phy_provider *phy_provider;
 	struct phy *phy = NULL;
 	struct of_phandle_args args;
+
+	if (!dev || !(dev->of_node)) {
+		dev_err(dev, "%s dev %p", __func__, dev);
+		return ERR_PTR(-ENODEV);
+	}
 
 	ret = of_parse_phandle_with_args(dev->of_node, "phys", "#phy-cells",
 		index, &args);
@@ -281,6 +344,36 @@ err0:
 
 	return phy;
 }
+EXPORT_SYMBOL(phy_get_by_index);
+
+/**
+ * devm_phy_get_by_index() - lookup and obtain a reference to a phy by index
+ * @dev: device that requests this phy
+ * @index: the index of the phy
+ *
+ * Gets the phy using phy_get_by_index(), and associates a device
+ * with it using devres. On driver detach, release function is invoked
+ * on the devres data, then, devres data is freed.
+ */
+struct phy *devm_phy_get_by_index(struct device *dev, int index)
+{
+	struct phy **ptr, *phy;
+
+	ptr = devres_alloc(devm_phy_release, sizeof(*ptr), GFP_KERNEL);
+	if (!ptr)
+		return ERR_PTR(-ENOMEM);
+
+	phy = phy_get_by_index(dev, index);
+	if (!IS_ERR(phy)) {
+		*ptr = phy;
+		devres_add(dev, ptr);
+	} else {
+		devres_free(ptr);
+	}
+
+	return phy;
+}
+EXPORT_SYMBOL(devm_phy_get_by_index);
 
 /**
  * phy_put() - release the PHY
@@ -370,15 +463,15 @@ struct phy *phy_get(struct device *dev, const char *string)
 	if (dev->of_node) {
 		index = of_property_match_string(dev->of_node, "phy-names",
 			string);
-		phy = of_phy_get(dev, index);
+		phy = phy_get_by_index(dev, index);
 		if (IS_ERR(phy)) {
-			dev_err(dev, "unable to find phy\n");
+			dev_err(dev, "unable to find phy by index\n");
 			return phy;
 		}
 	} else {
 		phy = phy_lookup(dev, string);
 		if (IS_ERR(phy)) {
-			dev_err(dev, "unable to find phy\n");
+			dev_err(dev, "unable to find phy by lookup\n");
 			return phy;
 		}
 	}

@@ -61,9 +61,9 @@ struct phy *devm_phy_create(struct device *dev, const struct phy_ops *ops,
 The PHY drivers can use one of the above 2 APIs to create the PHY by passing
 the device pointer, phy ops and init_data.
 phy_ops is a set of function pointers for performing PHY operations such as
-init, exit, power_on and power_off. *init_data* is mandatory to get a reference
-to the PHY in the case of non-dt boot. See section *Board File Initialization*
-on how init_data should be used.
+init, exit, power_on, power_off, suspend, resume and advertise_quirks.
+*init_data* is mandatory to get a reference to the PHY in the case of non-dt
+boot. See section *Board File Initialization* on how init_data should be used.
 
 Inorder to dereference the private data (in phy_ops), the phy provider driver
 can use phy_set_drvdata() after creating the PHY and use phy_get_drvdata() in
@@ -76,6 +76,7 @@ it. This framework provides the following APIs to get a reference to the PHY.
 
 struct phy *phy_get(struct device *dev, const char *string);
 struct phy *devm_phy_get(struct device *dev, const char *string);
+struct phy *devm_phy_get_by_index(struct device *dev, int index)
 
 phy_get and devm_phy_get can be used to get the PHY. In the case of dt boot,
 the string arguments should contain the phy name as given in the dt data and
@@ -83,6 +84,10 @@ in the case of non-dt boot, it should contain the label of the PHY.
 The only difference between the two APIs is that devm_phy_get associates the
 device with the PHY using devres on successful PHY get. On driver detach,
 release function is invoked on the the devres data and devres data is freed.
+devm_phy_get_by_index can also be used to get the PHY. In this case,
+the index is that of the relevant phy
+devm_phy_get_by_index is using phy_get_by_index that tries to match the given
+index with #phy-cells attribute in dt file, on every phys in "phys" list.
 
 5. Releasing a reference to the PHY
 
