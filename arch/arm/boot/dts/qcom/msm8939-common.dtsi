@@ -595,6 +595,15 @@
 		#clock-cells = <1>;
 	};
 
+	qcom,cpu-bwmon {
+		compatible = "qcom,bimc-bwmon";
+		reg = <0x408000 0x300>, <0x401000 0x200>;
+		reg-names = "base", "global_base";
+		interrupts = <0 183 1>;
+		qcom,mport = <0>;
+		qcom,target-dev = <&cpubw>;
+	};
+
 	qcom_tzlog: tz-log@8600720 {
 		compatible = "qcom,tz-log";
 		reg = <0x08600720 0x1000>;
