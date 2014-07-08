@@ -15,8 +15,5 @@ struct dev_avtimer_data {
 	uint32_t avtimer_msw_phy_addr;
 	uint32_t avtimer_lsw_phy_addr;
 };
-int avcs_core_open(void);
-int avcs_core_disable_power_collapse(int disable);/* true or flase */
-uint64_t avcs_core_query_timer(void);
 
 #endif
