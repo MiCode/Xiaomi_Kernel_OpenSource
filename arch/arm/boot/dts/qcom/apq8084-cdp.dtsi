@@ -135,6 +135,10 @@
 	qcom,cont-splash-enabled;
 };
 
+&mdss_edp {
+	qcom,cont-splash-enabled;
+};
+
 &mdss_mdp {
 	qcom,mdss-pref-prim-intf = "dsi";
 	vdd-cx-supply = <&pma8084_s2_corner>;
