@@ -327,6 +327,7 @@
 		coresight-id = <19>;
 		coresight-name = "coresight-cti-cpu0";
 		coresight-nr-inports = <0>;
+		coresight-cti-cpu = <&CPU0>;
 
 		clocks = <&clock_rpm clk_qdss_clk>,
 			 <&clock_rpm clk_qdss_a_clk>;
