@@ -455,6 +455,23 @@ config MSM_XPU_ERR_FATAL
 	help
 	 Select if XPU violations have to be configured as fatal errors.
 
+config MSM_CACHE_DUMP
+	bool "Cache dumping support"
+	help
+	  Add infrastructure to dump the L1 and L2 caches to an allocated buffer.
+	  This allows for analysis of the caches in case cache corruption is
+	  suspected.
+	  If unsure, say N
+
+config MSM_CACHE_DUMP_ON_PANIC
+	bool "Dump caches on panic"
+	depends on MSM_CACHE_DUMP
+	help
+	  By default, the caches are flushed on panic. This means that trying to
+	  look at them in a RAM dump will give useless data. Select this if you
+	  want to dump the L1 and L2 caches on panic before any flush occurs.
+	  If unsure, say N
+
 source "drivers/soc/qcom/memshare/Kconfig"
 
 endif # ARCH_MSM
