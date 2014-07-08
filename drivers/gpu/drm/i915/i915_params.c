@@ -50,6 +50,7 @@ struct i915_params i915 __read_mostly = {
 	.enable_cmd_parser = 0,
 	.disable_vtd_wa = 0,
 	.drrs_interval = 2000,
+	.use_mmio_flip = 0,
 };
 module_param_named(limitbw, i915.limitbw, int, 0400);
 MODULE_PARM_DESC(limitbw,
@@ -168,3 +169,7 @@ MODULE_PARM_DESC(drrs_interval,
 	"If this field is set to 0, then seamless DRRS feature "
 	"based on idleness detection is disabled."
 	"The interval is to be set in milliseconds.");
+
+module_param_named(use_mmio_flip, i915.use_mmio_flip, int, 0600);
+MODULE_PARM_DESC(use_mmio_flip,
+		 "use MMIO flips (-1=never, 0=driver discretion [default], 1=always)");
