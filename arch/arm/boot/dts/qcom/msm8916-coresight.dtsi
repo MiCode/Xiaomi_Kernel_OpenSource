@@ -205,7 +205,6 @@
 		coresight-child-list = <&funnel_apss>;
 		coresight-child-ports = <0>;
 
-		qcom,round-robin;
 		clocks = <&clock_rpm clk_qdss_clk>,
 			 <&clock_rpm clk_qdss_a_clk>;
 		clock-names = "core_clk", "core_a_clk";
@@ -223,7 +222,6 @@
 		coresight-child-list = <&funnel_apss>;
 		coresight-child-ports = <1>;
 
-		qcom,round-robin;
 		clocks = <&clock_rpm clk_qdss_clk>,
 			 <&clock_rpm clk_qdss_a_clk>;
 		clock-names = "core_clk", "core_a_clk";
@@ -242,7 +240,6 @@
 		coresight-child-list = <&funnel_apss>;
 		coresight-child-ports = <2>;
 
-		qcom,round-robin;
 		clocks = <&clock_rpm clk_qdss_clk>,
 			 <&clock_rpm clk_qdss_a_clk>;
 		clock-names = "core_clk", "core_a_clk";
@@ -260,7 +257,6 @@
 		coresight-child-list = <&funnel_apss>;
 		coresight-child-ports = <3>;
 
-		qcom,round-robin;
 		clocks = <&clock_rpm clk_qdss_clk>,
 			 <&clock_rpm clk_qdss_a_clk>;
 		clock-names = "core_clk", "core_a_clk";
