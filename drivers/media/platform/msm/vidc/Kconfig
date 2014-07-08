@@ -6,3 +6,5 @@ menuconfig MSM_VIDC_V4L2
 	bool "Qualcomm MSM V4L2 based video driver"
 	depends on ARCH_MSM && VIDEO_V4L2
 	select VIDEOBUF2_CORE
+
+source "drivers/media/platform/msm/vidc/vmem/Kconfig"
