@@ -773,6 +773,7 @@
 		reg = <0x4044000 0x19000>;
 		interrupts = <0 29 1>;
 		qcom,rx-ring-size = <32>;
+		qcom,max-rx-mtu = <4096>;
 	};
 
 	qcom_tzlog: tz-log@8600720 {
