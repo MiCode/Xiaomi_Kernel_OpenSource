@@ -58,6 +58,7 @@ Optional Properties:
 - qcom,stat-pulsed-irq:		A boolean flag to indicate the state-irq pin will generate pulse
 				signal when interrupt happened. If this property is not specified,
 				the default configuration is static level irq.
+- qcom,shdn-after-pwroff:	A bool property to configure smb1360 for shutdown at power-off.
 
 Example:
 	i2c@f9967000 {
