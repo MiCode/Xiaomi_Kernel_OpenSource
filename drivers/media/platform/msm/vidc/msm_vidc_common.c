@@ -27,8 +27,18 @@
 	__rc; \
 })
 
-#define IS_VALID_DCVS_SESSION(__load, __min_load) \
-		((__load) > (__min_load))
+#define IS_VALID_DCVS_SESSION(__cur_mbpf, __min_mbpf) \
+		((__cur_mbpf) >= (__min_mbpf))
+
+#define SUM_ARRAY(__arr, __start, __end) ({\
+		int __index;\
+		typeof((__arr)[0]) __sum = 0;\
+		for (__index = (__start); __index <= (__end); __index++) {\
+			if (__index >= 0 && __index < ARRAY_SIZE(__arr))\
+				__sum += __arr[__index];\
+		} \
+		__sum;\
+})
 
 #define V4L2_EVENT_SEQ_CHANGED_SUFFICIENT \
 		V4L2_EVENT_MSM_VIDC_PORT_SETTINGS_CHANGED_SUFFICIENT
@@ -96,6 +106,33 @@ static int msm_comm_get_mbs_per_sec(struct msm_vidc_inst *inst)
 	width = max(inst->prop.width[CAPTURE_PORT],
 		inst->prop.width[OUTPUT_PORT]);
 	return NUM_MBS_PER_SEC(height, width, inst->prop.fps);
+}
+
+static inline int msm_comm_get_mbs_per_frame(struct msm_vidc_inst *inst)
+{
+	int height, width;
+	height = inst->prop.height[CAPTURE_PORT];
+	width = inst->prop.width[CAPTURE_PORT];
+	return NUM_MBS_PER_FRAME(height, width);
+}
+
+static inline int msm_comm_count_active_instances(struct msm_vidc_core *core)
+{
+	int active_instances = 0;
+	struct msm_vidc_inst *inst = NULL;
+	if (!core) {
+		dprintk(VIDC_ERR, "%s: Invalid args: %p\n", __func__, core);
+		return -EINVAL;
+	}
+
+	mutex_lock(&core->lock);
+	list_for_each_entry(inst, &core->instances, list) {
+		if (inst->state >= MSM_VIDC_START_DONE &&
+			inst->state < MSM_VIDC_STOP_DONE)
+			active_instances++;
+	}
+	mutex_unlock(&core->lock);
+	return active_instances;
 }
 
 enum load_calc_quirks {
@@ -1700,7 +1737,6 @@ void handle_cmd_response(enum command_response cmd, void *data)
 static inline int get_pending_bufs_fw(struct msm_vidc_inst *inst)
 {
 	int fw_out_qsize = 0;
-
 	if (!inst) {
 		dprintk(VIDC_ERR, "%s Invalid args\n", __func__);
 		return -EINVAL;
@@ -1771,16 +1807,16 @@ void msm_comm_init_dcvs_load(struct msm_vidc_inst *inst)
 
 	/* calculating the min and max threshold */
 	if (output_buf_req->buffer_count_actual) {
-		dcvs->min_threshold =
-			2 * DCVS_MIN_DRAIN_RATE + DCVS_BUFFER_WITH_DEC;
+		dcvs->min_threshold = DCVS_MIN_DRAIN_RATE;
 		dcvs->max_threshold =
 			output_buf_req->buffer_count_actual -
-			(DCVS_BUFFER_WITH_DEC + DCVS_BUFFER_RELEASED_DEC);
+			(DCVS_BUFFER_WITH_DEC + DCVS_BUFFER_SAFEGUARD +
+			DCVS_BUFFER_RELEASED_DEC);
 
 	if (dcvs->max_threshold - dcvs->min_threshold <
-		DCVS_MIN_THRESHOLD_DIFF)
-		dcvs->max_threshold = dcvs->min_threshold +
-			DCVS_MIN_THRESHOLD_DIFF;
+		DCVS_BUFFER_SAFEGUARD)
+		dcvs->max_threshold =
+			dcvs->min_threshold + DCVS_BUFFER_SAFEGUARD;
 
 	dcvs->threshold_disp_buf_low =
 		clamp(dcvs->threshold_disp_buf_low,
@@ -1791,6 +1827,24 @@ void msm_comm_init_dcvs_load(struct msm_vidc_inst *inst)
 		clamp(dcvs->threshold_disp_buf_high,
 				dcvs->min_threshold,
 				dcvs->max_threshold);
+	}
+
+	if (dcvs->threshold_disp_buf_high - dcvs->threshold_disp_buf_low
+		< DCVS_MIN_THRESHOLD_DIFF) {
+		if (dcvs->max_threshold - dcvs->min_threshold <=
+			DCVS_MIN_THRESHOLD_DIFF) {
+			dcvs->threshold_disp_buf_low = dcvs->min_threshold;
+			dcvs->threshold_disp_buf_high = dcvs->max_threshold;
+		} else if (dcvs->threshold_disp_buf_low ==
+			dcvs->min_threshold) {
+			dcvs->threshold_disp_buf_high =
+				dcvs->threshold_disp_buf_low +
+				DCVS_MIN_THRESHOLD_DIFF;
+		} else {
+			dcvs->threshold_disp_buf_high = dcvs->max_threshold;
+			dcvs->threshold_disp_buf_low =
+				dcvs->max_threshold - DCVS_MIN_THRESHOLD_DIFF;
+		}
 	}
 	msm_comm_print_dcvs_stats(dcvs);
 }
@@ -1812,6 +1866,7 @@ void msm_comm_init_dcvs(struct msm_vidc_inst *inst)
 static void msm_comm_monitor_ftb(struct msm_vidc_inst *inst)
 {
 	int new_ftb = 0;
+	int new_ftb_temp = 0;
 	int i;
 	struct dcvs_stats *dcvs;
 
@@ -1838,21 +1893,20 @@ static void msm_comm_monitor_ftb(struct msm_vidc_inst *inst)
 
 		/*
 		* Low threshold =
-		* max( max(Number of FTB in stats window) + 2, 4)
+		* min( max(avg of 4 FTB in stats window), max threshold)
 		*/
-		new_ftb = DCVS_TURBO_THRESHOLD;
-		for (i = 0; i < dcvs->ftb_counter; i++) {
-			if (dcvs->num_ftb[i] +
-				DCVS_BUFFER_WITH_DEC > new_ftb)
-				new_ftb = dcvs->num_ftb[i] +
-					DCVS_BUFFER_WITH_DEC;
+		for (i = 0; i <= dcvs->ftb_counter - DCVS_FTB_STAT_SAMPLES;
+			i++) {
+			new_ftb_temp = SUM_ARRAY(dcvs->num_ftb, i,
+				i + DCVS_FTB_STAT_SAMPLES - 1);
+			new_ftb_temp = DIV_ROUND_UP(new_ftb_temp,
+				DCVS_FTB_STAT_SAMPLES);
+			new_ftb = max(new_ftb_temp, new_ftb);
 		}
 		dprintk(VIDC_PROF,
 			"DCVS: Max FTB_count for Low_thr %d\n", new_ftb);
 
-		new_ftb = clamp(new_ftb,
-						dcvs->min_threshold,
-						dcvs->max_threshold);
+		new_ftb = min(new_ftb, dcvs->max_threshold);
 		dcvs->threshold_disp_buf_low = new_ftb;
 
 		/*
@@ -1889,16 +1943,15 @@ static void msm_comm_monitor_ftb(struct msm_vidc_inst *inst)
 				dcvs->max_threshold);
 
 		/*
-		* Maintain a diff of atleast DCVS_MIN_THRESHOLD_DIFF
-		* between  Low and High Threshold
+		* Ensure that high threshold is
+		* always greater than low threshold
 		*/
 
-		if (dcvs->threshold_disp_buf_high -
-				dcvs->threshold_disp_buf_low <
-				DCVS_MIN_THRESHOLD_DIFF) {
+		if (dcvs->threshold_disp_buf_high <
+				dcvs->threshold_disp_buf_low) {
 			dcvs->threshold_disp_buf_high =
 				dcvs->threshold_disp_buf_low +
-				DCVS_MIN_THRESHOLD_DIFF;
+				DCVS_BUFFER_SAFEGUARD;
 		}
 	}
 
@@ -4121,8 +4174,8 @@ int msm_vidc_check_scaling_supported(struct msm_vidc_inst *inst)
 static int msm_comm_check_dcvs_supported(struct msm_vidc_inst *inst)
 {
 	int rc = 0;
-	int num_mbs_per_sec = 0;
-	u32 instance_count = 0;
+	int num_mbs_per_frame = 0;
+	int instance_count = 0;
 	bool codec_supported = false;
 	struct msm_vidc_inst *temp = NULL;
 	struct msm_vidc_core *core;
@@ -4137,28 +4190,21 @@ static int msm_comm_check_dcvs_supported(struct msm_vidc_inst *inst)
 
 	core = inst->core;
 	dcvs = &inst->dcvs;
-	mutex_lock(&core->lock);
-	list_for_each_entry(temp, &core->instances, list) {
-		if (temp->state >= MSM_VIDC_START_DONE &&
-			temp->state < MSM_VIDC_STOP_DONE)
-			instance_count++;
-	}
-	mutex_unlock(&core->lock);
+	instance_count = msm_comm_count_active_instances(core);
 
 	if (instance_count == 1 && inst->session_type == MSM_VIDC_DECODER) {
+
 		mutex_lock(&inst->lock);
-		num_mbs_per_sec = msm_comm_get_inst_load(inst,
-			LOAD_CALC_NO_QUIRKS);
+		num_mbs_per_frame = msm_comm_get_mbs_per_frame(inst);
 		output_buf_req = get_buff_req_buffer(inst,
 			msm_comm_get_hal_output_buffer(inst));
 		mutex_unlock(&inst->lock);
 
 		codec = get_hal_codec_type(inst->fmts[OUTPUT_PORT]->fourcc);
-		codec_supported = (codec == HAL_VIDEO_CODEC_H264) ||
-			(codec == HAL_VIDEO_CODEC_VP8);
+		codec_supported = (codec == HAL_VIDEO_CODEC_H264);
 		if (!(codec_supported &&
-			IS_VALID_DCVS_SESSION(num_mbs_per_sec,
-				DCVS_NOMINAL_LOAD)))
+			IS_VALID_DCVS_SESSION(num_mbs_per_frame,
+				DCVS_MIN_SUPPORTED_MBPERFRAME)))
 				return -ENOTSUPP;
 
 		if (!output_buf_req) {
@@ -4189,6 +4235,16 @@ static int msm_comm_check_dcvs_supported(struct msm_vidc_inst *inst)
 					"%s: Failed to Scale clocks. Perf might be impacted\n",
 					__func__);
 			}
+		}
+		/*
+		* For multiple instance use case turn OFF DCVS algorithm
+		* immediately
+		*/
+		if (instance_count > 1) {
+			mutex_lock(&core->lock);
+			list_for_each_entry(temp, &core->instances, list)
+				temp->dcvs_mode = false;
+			mutex_unlock(&core->lock);
 		}
 	}
 	return rc;
