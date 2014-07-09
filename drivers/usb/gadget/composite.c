@@ -424,17 +424,21 @@ int usb_func_wakeup(struct usb_function *func)
 	if (ret) {
 		if (ret == -EAGAIN) {
 			DBG(func->config->cdev,
-				"Function wakeup for %s could not be complete. Retry is needed.\n",
+				"Function wakeup for %s could not complete due to suspend state. Delayed until after bus resume.\n",
 				func->name ? func->name : "");
+			func->func_wakeup_pending = true;
+			ret = 0;
 		} else {
 			ERROR(func->config->cdev,
 				"Failed to wake function %s from suspend state. interface id: %d, ret=%d. Canceling USB request.\n",
 				func->name ? func->name : "",
 				interface_id, ret);
 		}
+
 		return ret;
 	}
 
+	func->func_wakeup_pending = false;
 	return 0;
 }
 EXPORT_SYMBOL_GPL(usb_func_wakeup);
@@ -2266,6 +2270,7 @@ void composite_resume(struct usb_gadget *gadget)
 	struct usb_composite_dev	*cdev = get_gadget_data(gadget);
 	struct usb_function		*f;
 	u16				maxpower;
+	int				ret;
 
 	/* REVISIT:  should we have config level
 	 * suspend/resume callbacks?
@@ -2275,6 +2280,14 @@ void composite_resume(struct usb_gadget *gadget)
 		cdev->driver->resume(cdev);
 	if (cdev->config) {
 		list_for_each_entry(f, &cdev->config->functions, list) {
+			if (f->func_wakeup_pending) {
+				ret = usb_func_wakeup(f);
+				if (ret)
+					ERROR(cdev,
+						"Failed to send function wakeup notification for the %s function. Error code: %d\n",
+						f->name ? f->name : "", ret);
+			}
+
 			if (f->resume)
 				f->resume(f);
 		}
