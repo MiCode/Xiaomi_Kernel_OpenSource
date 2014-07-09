@@ -207,6 +207,7 @@ typedef enum
 struct apds993x_data {
 	struct i2c_client *client;
 	struct mutex update_lock;
+	struct mutex op_mutex;
 	struct delayed_work	dwork;		/* for PS interrupt */
 	struct delayed_work	als_dwork;	/* for ALS polling */
 	struct input_dev *input_dev_als;
@@ -1115,6 +1116,7 @@ static int apds993x_enable_als_sensor(struct i2c_client *client, int val)
 		return -EINVAL;
 	}
 
+	mutex_lock(&data->op_mutex);
 	if (val == 1) {
 		/* turn on light  sensor */
 		if ((data->enable_als_sensor == 0) &&
@@ -1126,6 +1128,7 @@ static int apds993x_enable_als_sensor(struct i2c_client *client, int val)
 			rc = apds993x_init_device(client);
 			if (rc) {
 				dev_err(&client->dev, "Failed to init apds993x\n");
+				mutex_unlock(&data->op_mutex);
 				return rc;
 			}
 		}
@@ -1168,8 +1171,7 @@ static int apds993x_enable_als_sensor(struct i2c_client *client, int val)
 			 * schedules will not change the scheduled time
 			 * that's why we have to cancel it first.
 			 */
-			cancel_delayed_work(&data->als_dwork);
-			flush_delayed_work(&data->als_dwork);
+			cancel_delayed_work_sync(&data->als_dwork);
 			queue_delayed_work(apds993x_workqueue, &data->als_dwork, msecs_to_jiffies(data->als_poll_delay));
 #endif
 		}
@@ -1200,8 +1202,7 @@ static int apds993x_enable_als_sensor(struct i2c_client *client, int val)
 		 * will not change the scheduled time that's why we have
 		 * to cancel it first.
 		 */
-		cancel_delayed_work(&data->als_dwork);
-		flush_delayed_work(&data->als_dwork);
+		cancel_delayed_work_sync(&data->als_dwork);
 #endif
 	}
 
@@ -1211,6 +1212,7 @@ static int apds993x_enable_als_sensor(struct i2c_client *client, int val)
 		(pdata->power_on))
 		pdata->power_on(false);
 
+	mutex_unlock(&data->op_mutex);
 	return 0;
 }
 
@@ -1223,6 +1225,7 @@ static int apds993x_set_als_poll_delay(struct i2c_client *client,
 	int atime_index=0;
 
 	pr_debug("%s: val=%d\n", __func__, val);
+	mutex_lock(&data->op_mutex);
 
 	/* minimum 3ms */
 	if (val < 3)
@@ -1242,18 +1245,17 @@ static int apds993x_set_als_poll_delay(struct i2c_client *client,
 		pr_debug("poll delay %d, atime_index %d\n",
 				data->als_poll_delay, data->als_atime_index);
 	} else {
+		mutex_unlock(&data->op_mutex);
 		return ret;
 	}
 
-	/*
-	 * If work is already scheduled then subsequent schedules will not
-	 * change the scheduled time that's why we have to cancel it first.
-	 */
-	cancel_delayed_work(&data->als_dwork);
-	flush_delayed_work(&data->als_dwork);
-	queue_delayed_work(apds993x_workqueue,
-			&data->als_dwork,
-			msecs_to_jiffies(data->als_poll_delay));
+	if (data->enable_als_sensor) {
+		mod_delayed_work(apds993x_workqueue,
+				&data->als_dwork,
+				msecs_to_jiffies(data->als_poll_delay));
+	}
+
+	mutex_unlock(&data->op_mutex);
 
 	return 0;
 }
@@ -1345,8 +1347,7 @@ static int apds993x_enable_ps_sensor(struct i2c_client *client, int val)
 			 * schedules will not change the scheduled time
 			 * that's why we have to cancel it first.
 			 */
-			cancel_delayed_work(&data->als_dwork);
-			flush_delayed_work(&data->als_dwork);
+			cancel_delayed_work_sync(&data->als_dwork);
 			/* 100ms */
 			queue_delayed_work(apds993x_workqueue,
 					&data->als_dwork,
@@ -1378,8 +1379,7 @@ static int apds993x_enable_ps_sensor(struct i2c_client *client, int val)
 			 * schedules will not change the scheduled time
 			 * that's why we have to cancel it first.
 			 */
-			cancel_delayed_work(&data->als_dwork);
-			flush_delayed_work(&data->als_dwork);
+			cancel_delayed_work_sync(&data->als_dwork);
 #endif
 		}
 	}
@@ -2489,6 +2489,7 @@ static int apds993x_probe(struct i2c_client *client,
 	}
 
 	mutex_init(&data->update_lock);
+	mutex_init(&data->op_mutex);
 
 	INIT_DELAYED_WORK(&data->dwork, apds993x_work_handler);
 
