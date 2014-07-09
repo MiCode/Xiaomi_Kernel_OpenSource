@@ -1378,6 +1378,20 @@ static int subsys_setup_irqs(struct subsys_device *subsys)
 	return 0;
 }
 
+static void subsys_free_irqs(struct subsys_device *subsys)
+{
+	struct subsys_desc *desc = subsys->desc;
+
+	if (desc->err_fatal_irq && desc->err_fatal_handler)
+		devm_free_irq(desc->dev, desc->err_fatal_irq, desc);
+	if (desc->stop_ack_irq && desc->stop_ack_handler)
+		devm_free_irq(desc->dev, desc->stop_ack_irq, desc);
+	if (desc->wdog_bite_irq && desc->wdog_bite_handler)
+		devm_free_irq(desc->dev, desc->wdog_bite_irq, desc);
+	if (desc->err_ready_irq)
+		devm_free_irq(desc->dev, desc->err_ready_irq, subsys);
+}
+
 struct subsys_device *subsys_register(struct subsys_desc *desc)
 {
 	struct subsys_device *subsys;
@@ -1479,8 +1493,10 @@ void subsys_unregister(struct subsys_device *subsys)
 				list_del(&subsys->list);
 		mutex_unlock(&subsys_list_lock);
 
-		if (device)
+		if (device) {
+			subsys_free_irqs(subsys);
 			subsys_remove_restart_order(device);
+		}
 		mutex_lock(&subsys->track.lock);
 		WARN_ON(subsys->count);
 		device_unregister(&subsys->dev);
