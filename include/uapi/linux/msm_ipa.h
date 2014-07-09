@@ -172,6 +172,15 @@ enum ipa_client_type {
 	(client) == IPA_CLIENT_WLAN3_CONS || \
 	(client) == IPA_CLIENT_WLAN4_CONS)
 
+#define IPA_CLIENT_IS_Q6_CONS(client) \
+	((client) == IPA_CLIENT_Q6_LAN_CONS || \
+	(client) == IPA_CLIENT_Q6_WAN_CONS || \
+	(client) == IPA_CLIENT_Q6_DUN_CONS)
+
+#define IPA_CLIENT_IS_Q6_PROD(client) \
+	((client) == IPA_CLIENT_Q6_LAN_PROD || \
+	(client) == IPA_CLIENT_Q6_CMD_PROD)
+
 /**
  * enum ipa_ip_type - Address family: IPv4 or IPv6
  */

@@ -26,6 +26,7 @@
 #define IPA_DFLT_WAN_RT_TBL_NAME "ipa_dflt_wan_rt"
 #define MAX_NUM_Q6_RULE 20
 #define DEV_NAME "ipa-wan"
+#define SUBSYS_MODEM "modem"
 
 #define IPAWANDBG(fmt, args...) \
 	pr_debug(DEV_NAME " %s:%d " fmt, __func__, __LINE__, ## args)
@@ -40,7 +41,7 @@ struct rmnet_mux_val {
 	bool mux_hdr_set;
 };
 
-int ipa_qmi_service_init(void);
+int ipa_qmi_service_init(bool load_uc);
 void ipa_qmi_service_exit(void);
 
 /* sending filter-install-request to modem*/
@@ -56,6 +57,10 @@ int wwan_update_mux_channel_prop(void);
 
 int wan_ioctl_init(void);
 
+void wan_ioctl_stop_qmi_messages(void);
+
+void wan_ioctl_deinit(void);
+
 extern struct elem_info ipa_init_modem_driver_req_msg_data_v01_ei[];
 extern struct elem_info ipa_init_modem_driver_resp_msg_data_v01_ei[];
 extern struct elem_info ipa_indication_reg_req_msg_data_v01_ei[];
@@ -65,5 +70,15 @@ extern struct elem_info ipa_install_fltr_rule_req_msg_data_v01_ei[];
 extern struct elem_info ipa_install_fltr_rule_resp_msg_data_v01_ei[];
 extern struct elem_info ipa_fltr_installed_notif_req_msg_data_v01_ei[];
 extern struct elem_info ipa_fltr_installed_notif_resp_msg_data_v01_ei[];
+
+/**
+ * struct ipa_rmnet_context - IPA rmnet context
+ * @ipa_rmnet_ssr: support modem SSR
+ */
+struct ipa_rmnet_context {
+	bool ipa_rmnet_ssr;
+};
+
+extern struct ipa_rmnet_context ipa_rmnet_ctx;
 #endif /* IPA_QMI_SERVICE_H
  */
