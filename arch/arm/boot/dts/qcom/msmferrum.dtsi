@@ -389,6 +389,44 @@
 			qcom,smdpkt-dev-name = "smd_pkt_loopback";
 		};
 	};
+
+	usb_otg: usb@78d9000 {
+		compatible = "qcom,hsusb-otg";
+
+		reg = <0x78d9000 0x400>;
+		interrupts = <0 134 0>,<0 140 0>;
+		interrupt-names = "core_irq", "async_irq";
+
+		hsusb_vdd_dig-supply = <&pmferrum_s1_corner>;
+		HSUSB_1p8-supply = <&pmferrum_l7>;
+		HSUSB_3p3-supply = <&pmferrum_l13>;
+		qcom,vdd-voltage-level = <1 5 7>;
+
+		qcom,hsusb-otg-phy-init-seq =
+			<0x44 0x80 0x6B 0x81 0x24 0x82 0x13 0x83 0xffffffff>;
+		qcom,hsusb-otg-phy-type = <2>; /* SNPS 28nm Pico PHY */
+		qcom,hsusb-otg-mode = <1>; /* DEVICE only */
+		qcom,hsusb-otg-otg-control = <1>; /* PHY */
+		qcom,dp-manual-pullup;
+
+		qcom,msm-bus,name = "usb2";
+		qcom,msm-bus,num-cases = <3>;
+		qcom,msm-bus,num-paths = <1>;
+		qcom,msm-bus,vectors-KBps =
+				<87 512 0 0>,
+				<87 512 60000 960000>,
+				<87 512 6000  6000>;
+		clocks = <&clock_gcc clk_gcc_usb_hs_ahb_clk>,
+			 <&clock_gcc clk_gcc_usb_hs_system_clk>,
+			 <&clock_gcc clk_gcc_usb2a_phy_sleep_clk>,
+			 <&clock_rpm clk_xo_otg_clk>;
+		clock-names = "iface_clk", "core_clk", "sleep_clk",
+				"xo";
+	};
+
+	android_usb {
+		compatible = "qcom,android-usb";
+	};
 };
 
 #include "msmferrum-regulator.dtsi"
