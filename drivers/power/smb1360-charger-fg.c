@@ -106,6 +106,10 @@
 #define BATT_CHG_FLT_VTG_REG		0x15
 #define VFLOAT_MASK			SMB1360_MASK(6, 0)
 
+#define SHDN_CTRL_REG			0x1A
+#define SHDN_CMD_USE_BIT		BIT(1)
+#define SHDN_CMD_POLARITY_BIT		BIT(2)
+
 /* Command Registers */
 #define CMD_I2C_REG			0x40
 #define ALLOW_VOLATILE_BIT		BIT(6)
@@ -115,6 +119,7 @@
 #define USB_100_BIT			0x01
 #define USB_500_BIT			0x00
 #define USB_AC_BIT			0x02
+#define SHDN_CMD_BIT			BIT(7)
 
 #define CMD_CHG_REG			0x42
 #define CMD_CHG_EN			BIT(1)
@@ -224,6 +229,7 @@ struct smb1360_chip {
 	bool				recharge_disabled;
 	bool				chg_inhibit_disabled;
 	bool				iterm_disabled;
+	bool				shdn_after_pwroff;
 	int				iterm_ma;
 	int				vfloat_mv;
 	int				safety_time;
@@ -2046,6 +2052,51 @@ static void smb1360_check_feature_support(struct smb1360_chip *chip)
 	}
 }
 
+static int smb1360_enable(struct smb1360_chip *chip, bool enable)
+{
+	int rc = 0;
+	u8 val, shdn_status, shdn_cmd_en, shdn_cmd_polar;
+
+	rc = smb1360_read(chip, SHDN_CTRL_REG, &val);
+	if (rc < 0) {
+		dev_err(chip->dev, "Couldn't read 0x1A reg rc = %d\n", rc);
+		return rc;
+	}
+	shdn_cmd_en = val & SHDN_CMD_USE_BIT;
+	shdn_cmd_polar = !!(val & SHDN_CMD_POLARITY_BIT);
+	shdn_status = val & SHDN_CMD_BIT;
+
+	val = (shdn_cmd_polar ^ enable) ? SHDN_CMD_BIT : 0;
+
+	if (shdn_cmd_en) {
+		if (shdn_status != val) {
+			rc = smb1360_masked_write(chip, CMD_IL_REG,
+					SHDN_CMD_BIT, val);
+			if (rc < 0) {
+				dev_err(chip->dev, "Couldn't shutdown smb1360 rc = %d\n",
+									rc);
+				return rc;
+			}
+		}
+	} else {
+		dev_dbg(chip->dev, "SMB not configured for CMD based shutdown\n");
+	}
+
+	return rc;
+}
+
+static inline int smb1360_poweroff(struct smb1360_chip *chip)
+{
+	pr_debug("power off smb1360\n");
+	return smb1360_enable(chip, false);
+}
+
+static inline int smb1360_poweron(struct smb1360_chip *chip)
+{
+	pr_debug("power on smb1360\n");
+	return smb1360_enable(chip, true);
+}
+
 static int smb1360_hw_init(struct smb1360_chip *chip)
 {
 	int rc;
@@ -2059,6 +2110,14 @@ static int smb1360_hw_init(struct smb1360_chip *chip)
 		dev_err(chip->dev, "Couldn't configure for volatile rc = %d\n",
 				rc);
 		return rc;
+	}
+
+	if (chip->shdn_after_pwroff) {
+		rc = smb1360_poweron(chip);
+		if (rc < 0) {
+			pr_err("smb1360 power on failed\n");
+			return rc;
+		}
 	}
 	/*
 	 * set chg en by cmd register, set chg en by writing bit 1,
@@ -2353,6 +2412,9 @@ static int smb_parse_dt(struct smb1360_chip *chip)
 
 	chip->batt_id_disabled = of_property_read_bool(node,
 						"qcom,batt-id-disabled");
+
+	chip->shdn_after_pwroff = of_property_read_bool(node,
+						"qcom,shdn-after-pwroff");
 
 	if (of_find_property(node, "qcom,thermal-mitigation",
 					&chip->thermal_levels)) {
@@ -2729,6 +2791,19 @@ static int smb1360_resume(struct device *dev)
 	return 0;
 }
 
+static void smb1360_shutdown(struct i2c_client *client)
+{
+	int rc;
+	struct smb1360_chip *chip = i2c_get_clientdata(client);
+
+	if (chip->shdn_after_pwroff) {
+		rc = smb1360_poweroff(chip);
+		if (rc)
+			pr_err("Couldn't shutdown smb1360, rc = %d\n", rc);
+		pr_info("smb1360 power off\n");
+	}
+}
+
 static const struct dev_pm_ops smb1360_pm_ops = {
 	.resume		= smb1360_resume,
 	.suspend_noirq	= smb1360_suspend_noirq,
@@ -2755,6 +2830,7 @@ static struct i2c_driver smb1360_driver = {
 	},
 	.probe		= smb1360_probe,
 	.remove		= smb1360_remove,
+	.shutdown	= smb1360_shutdown,
 	.id_table	= smb1360_id,
 };
 
