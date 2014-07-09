@@ -2418,6 +2418,7 @@ enum punit_power_well {
 #define	_PIPEBCSC	(dev_priv->info.display_mmio_offset + 0x610b0)
 #define	PIPECONF_CSC_ENABLE	(1<<15)
 
+#define CHV_CLK_CTL1			0x101100
 #define VLV_CLK_CTL2			0x101104
 #define   CLK_CTL2_CZCOUNT_30NS_SHIFT	28
 
