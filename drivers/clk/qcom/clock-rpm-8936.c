@@ -105,11 +105,12 @@ static struct mux_clk rpm_debug_mux = {
 	MUX_SRC_LIST(
 	{&snoc_clk.c,  0x0000},
 	{&pcnoc_clk.c, 0x0008},
-	/* BIMC_CLK is 2x clock to the BIMC Core as well as DDR, while the
-	 * axi clock is for the BIMC AXI interface. The AXI clock is 1/2 of
-	 * the BIMC Clock. measure the gcc_bimc_apss_axi_clk.
+	/* BIMC_CLK is 2x clock to the BIMC Core as well as DDR.
+	 * The BIMC Clock gcc_bimc_clk is 1/2 of BIMC_CLK, and
+	 * gcc_bimc_apss_axi_clk s not in-sync with gcc_bimc_clk,
+	 * so measure gcc_bimc_clk.
 	 */
-	{&bimc_clk.c,  0x0155},
+	{&bimc_clk.c,  0x0154},
 	),
 	.c = {
 		.dbg_name = "rpm_debug_mux",
