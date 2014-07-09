@@ -1040,7 +1040,8 @@ int ipa_reset_rt(enum ipa_ip_type ip)
 		return -EINVAL;
 	}
 
-	if (ipa_ctx->ipa_hw_type == IPA_HW_v2_0) {
+	if (ipa_ctx->ipa_hw_type == IPA_HW_v2_0 ||
+			ipa_ctx->ipa_hw_type == IPA_HW_v2_5) {
 		if (ip == IPA_IP_v4)
 			apps_start_idx = IPA_v2_V4_APPS_RT_INDEX_LO;
 		else

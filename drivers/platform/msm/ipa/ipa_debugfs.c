@@ -713,7 +713,8 @@ static ssize_t ipa_read_stats(struct file *file, char __user *ubuf,
 	for (i = 0; i < IPA_NUM_PIPES; i++)
 		connect |= (ipa_ctx->ep[i].valid << i);
 
-	if (ipa_ctx->ipa_hw_type == IPA_HW_v2_0) {
+	if (ipa_ctx->ipa_hw_type == IPA_HW_v2_0 ||
+		ipa_ctx->ipa_hw_type == IPA_HW_v2_5) {
 		nbytes = scnprintf(dbg_buff, IPA_MAX_MSG_LEN,
 			"sw_tx=%u\n"
 			"hw_tx=%u\n"

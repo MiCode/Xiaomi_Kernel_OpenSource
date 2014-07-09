@@ -2274,7 +2274,8 @@ static int ipa_assign_policy(struct ipa_sys_connect_params *in,
 			WARN_ON(1);
 			return -EINVAL;
 		}
-	} else if (ipa_ctx->ipa_hw_type == IPA_HW_v2_0) {
+	} else if (ipa_ctx->ipa_hw_type == IPA_HW_v2_0 ||
+			ipa_ctx->ipa_hw_type == IPA_HW_v2_5) {
 		sys->ep->status.status_en = true;
 		if (IPA_CLIENT_IS_PROD(in->client)) {
 			if (!sys->ep->skip_ep_cfg) {

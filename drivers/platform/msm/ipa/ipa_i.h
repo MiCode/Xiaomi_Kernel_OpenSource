@@ -596,12 +596,15 @@ struct ipa_nat_mem {
  * @IPA_HW_v1_0: IPA hardware version 1.0, corresponding to ELAN 1.0
  * @IPA_HW_v1_1: IPA hardware version 1.1, corresponding to ELAN 2.0
  * @IPA_HW_v2_0: IPA hardware version 2.0
+ * @IPA_HW_v2_5: IPA hardware version 2.5
  */
 enum ipa_hw_type {
 	IPA_HW_None = 0,
 	IPA_HW_v1_0 = 1,
 	IPA_HW_v1_1 = 2,
-	IPA_HW_v2_0 = 3
+	IPA_HW_v2_0 = 3,
+	IPA_HW_v2_1 = 4,
+	IPA_HW_v2_5 = 5
 };
 
 /**
@@ -840,6 +843,8 @@ struct ipa_controller {
 	u32 ipa_clk_rate_hi;
 	u32 ipa_clk_rate_lo;
 	u32 clock_scaling_bw_threshold;
+	u32 ipa_reg_base_ofst;
+	u32 max_holb_tmr_val;
 	void (*ipa_sram_read_settings)(void);
 	void (*ipa_cfg_ep_hdr)(u32 pipe_number,
 			const struct ipa_ep_cfg_hdr *ipa_ep_hdr_cfg);
