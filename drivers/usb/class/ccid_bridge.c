@@ -21,6 +21,8 @@
 #include <linux/usb.h>
 #include <linux/wait.h>
 #include <linux/cdev.h>
+#include <linux/ktime.h>
+#include <linux/debugfs.h>
 
 #include <linux/usb/ccid_bridge.h>
 
@@ -71,6 +73,14 @@ struct ccid_bridge {
 	struct cdev cdev;
 	struct class *class;
 	struct device *device;
+
+	struct dentry *dbg_root;
+	unsigned n_write;
+	unsigned n_read;
+	unsigned n_write_timeout;
+	unsigned n_read_timeout;
+	unsigned long write_max_time;
+	unsigned long read_max_time;
 };
 
 static struct ccid_bridge *__ccid_bridge_dev;
@@ -260,6 +270,7 @@ static ssize_t ccid_bridge_write(struct file *fp, const char __user *ubuf,
 	struct ccid_bridge *ccid = fp->private_data;
 	int ret;
 	char *kbuf;
+	ktime_t start_t, delta_t;
 
 	pr_debug("called with %d", count);
 
@@ -269,6 +280,9 @@ static ssize_t ccid_bridge_write(struct file *fp, const char __user *ubuf,
 	}
 
 	mutex_lock(&ccid->write_mutex);
+
+	ccid->n_write++;
+	start_t = ktime_get();
 
 	if (!count || count > CCID_BRIDGE_MSG_SZ) {
 		pr_err("invalid count");
@@ -311,10 +325,18 @@ static ssize_t ccid_bridge_write(struct file *fp, const char __user *ubuf,
 			msecs_to_jiffies(ccid_bulk_msg_timeout));
 	if (!ret || ret == -ERESTARTSYS) { /* timedout or interrupted */
 		usb_kill_urb(ccid->writeurb);
-		if (!ret)
+		if (!ret) {
+			ccid->n_write_timeout++;
 			ret = -ETIMEDOUT;
+		}
 	} else {
 		ret = ccid->write_result;
+	}
+
+	if (ret >= 0) {
+		delta_t = ktime_sub(ktime_get(), start_t);
+		if (ktime_to_ms(delta_t) > ccid->write_max_time)
+			ccid->write_max_time = ktime_to_ms(delta_t);
 	}
 
 	pr_debug("returning %d", ret);
@@ -336,6 +358,7 @@ static ssize_t ccid_bridge_read(struct file *fp, char __user *ubuf,
 	struct ccid_bridge *ccid = fp->private_data;
 	int ret;
 	char *kbuf;
+	ktime_t start_t, delta_t;
 
 	pr_debug("called with %d", count);
 	if (!ccid->intf) {
@@ -344,6 +367,9 @@ static ssize_t ccid_bridge_read(struct file *fp, char __user *ubuf,
 	}
 
 	mutex_lock(&ccid->read_mutex);
+
+	ccid->n_read++;
+	start_t = ktime_get();
 
 	if (!count || count > CCID_BRIDGE_MSG_SZ) {
 		pr_err("invalid count");
@@ -376,22 +402,26 @@ static ssize_t ccid_bridge_read(struct file *fp, char __user *ubuf,
 		goto free_kbuf;
 	}
 
-
 	ret = wait_event_interruptible_timeout(ccid->read_wq,
 			ccid->read_result != 0,
 			msecs_to_jiffies(ccid_bulk_msg_timeout));
 	if (!ret || ret == -ERESTARTSYS) { /* timedout or interrupted */
 		usb_kill_urb(ccid->readurb);
-		if (!ret)
+		if (!ret) {
+			ccid->n_read_timeout++;
 			ret = -ETIMEDOUT;
+		}
 	} else {
 		ret = ccid->read_result;
 	}
 
-
 	if (ret > 0) {
 		if (copy_to_user(ubuf, kbuf, ret))
 			ret = -EFAULT;
+
+		delta_t = ktime_sub(ktime_get(), start_t);
+		if (ktime_to_ms(delta_t) > ccid->read_max_time)
+			ccid->read_max_time = ktime_to_ms(delta_t);
 	}
 
 	usb_autopm_put_interface(ccid->intf);
@@ -537,6 +567,16 @@ ccid_bridge_ioctl(struct file *fp, unsigned int cmd, unsigned long arg)
 	return ret;
 }
 
+static void ccid_bridge_reset_stats(struct ccid_bridge *ccid)
+{
+	ccid->n_write = 0;
+	ccid->n_read = 0;
+	ccid->n_write_timeout = 0;
+	ccid->n_read_timeout = 0;
+	ccid->write_max_time = 0;
+	ccid->read_max_time = 0;
+}
+
 static int ccid_bridge_release(struct inode *ip, struct file *fp)
 {
 	struct ccid_bridge *ccid = fp->private_data;
@@ -563,6 +603,7 @@ static int ccid_bridge_release(struct inode *ip, struct file *fp)
 	ccid->opened = false;
 	mutex_unlock(&ccid->open_mutex);
 done:
+	ccid_bridge_reset_stats(ccid);
 	return 0;
 }
 
@@ -792,6 +833,80 @@ static struct usb_driver ccid_bridge_driver = {
 	.supports_autosuspend = 1,
 };
 
+static int ccid_bridge_stats_show(struct seq_file *s, void *unused)
+{
+	struct ccid_bridge *ccid = s->private;
+
+	seq_printf(s, "ccid_bridge: %s\n",
+			ccid->intf ? "connected" : "disconnected");
+	seq_printf(s, "ccid_bridge: %s\n",
+			ccid->opened ? "opened" : "closed");
+
+	seq_printf(s, "total writes: %u\n", ccid->n_write);
+	seq_printf(s, "total reads: %u\n", ccid->n_write);
+
+	seq_printf(s, "write/read timeout val: %u\n", ccid_bulk_msg_timeout);
+
+	seq_printf(s, "write_timeout: %u\n", ccid->n_write_timeout);
+	seq_printf(s, "read_timeout: %u\n", ccid->n_read_timeout);
+
+	seq_printf(s, "write_max_time (msec): %lu\n", ccid->write_max_time);
+	seq_printf(s, "read_max_time: (msec): %lu\n", ccid->read_max_time);
+
+	return 0;
+}
+
+static int ccid_bridge_stats_open(struct inode *inode, struct file *file)
+{
+	return single_open(file, ccid_bridge_stats_show, inode->i_private);
+}
+
+static ssize_t ccid_bridge_stats_write(struct file *file,
+				const char __user *ubuf,
+				size_t count, loff_t *ppos)
+{
+	struct seq_file *s = file->private_data;
+	struct ccid_bridge *ccid = s->private;
+
+	ccid_bridge_reset_stats(ccid);
+	return count;
+}
+
+const struct file_operations ccid_bridge_stats_ops = {
+	.open = ccid_bridge_stats_open,
+	.read = seq_read,
+	.write = ccid_bridge_stats_write,
+	.llseek = seq_lseek,
+	.release = single_release,
+};
+
+static int ccid_bridge_debugfs_init(struct ccid_bridge *ccid)
+{
+	struct dentry *dir;
+	int ret = 0;
+
+	dir = debugfs_create_dir("ccid_bridge", NULL);
+
+	if (!dir || IS_ERR(dir)) {
+		ret = -ENODEV;
+		goto out;
+	}
+
+	ccid->dbg_root = dir;
+
+	dir = debugfs_create_file("stats", 0644, ccid->dbg_root, ccid,
+			&ccid_bridge_stats_ops);
+
+	if (!dir) {
+		debugfs_remove_recursive(ccid->dbg_root);
+		ccid->dbg_root = NULL;
+		ret = -ENODEV;
+	}
+
+out:
+	return ret;
+}
+
 static int __init ccid_bridge_init(void)
 {
 	int ret;
@@ -849,6 +964,8 @@ static int __init ccid_bridge_init(void)
 		goto del_cdev;
 	}
 
+	ccid_bridge_debugfs_init(ccid);
+
 	pr_info("success");
 
 	return 0;
@@ -877,6 +994,8 @@ static void __exit ccid_bridge_exit(void)
 	struct ccid_bridge *ccid = __ccid_bridge_dev;
 
 	pr_debug("called");
+
+	debugfs_remove_recursive(ccid->dbg_root);
 	device_destroy(ccid->class, ccid->chrdev);
 	cdev_del(&ccid->cdev);
 	class_destroy(ccid->class);
