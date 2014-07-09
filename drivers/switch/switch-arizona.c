@@ -31,7 +31,6 @@
 #include <linux/delay.h>
 #include <linux/regmap.h>
 #include <linux/switch-arizona.h>
-#include <linux/wakelock.h>
 
 #include <sound/soc.h>
 
@@ -106,7 +105,7 @@ struct arizona_extcon_info {
 	const struct arizona_jd_state *state;
 	struct delayed_work state_timeout_work;
 
-	struct wake_lock detection_wake_lock;
+	struct wakeup_source detection_wake_lock;
 };
 
 static const struct arizona_micd_config micd_default_modes[] = {
@@ -1501,8 +1500,8 @@ static irqreturn_t arizona_jackdet(int irq, void *data)
 		dev_dbg(arizona->dev, "Detected jack\n");
 
 		if (arizona->pdata.jd_wake_time)
-			wake_lock_timeout(&info->detection_wake_lock,
-				msecs_to_jiffies(arizona->pdata.jd_wake_time));
+			__pm_wakeup_event(&info->detection_wake_lock,
+				arizona->pdata.jd_wake_time);
 
 		if (!arizona->pdata.hpdet_acc_id) {
 			info->mic = false;
@@ -1720,8 +1719,7 @@ static int arizona_extcon_probe(struct platform_device *pdev)
 	}
 
 	mutex_init(&info->lock);
-	wake_lock_init(&info->detection_wake_lock, WAKE_LOCK_SUSPEND,
-		       "arizona-jack-detection");
+	wakeup_source_init(&info->detection_wake_lock, "arizona-jack-detection");
 	info->arizona = arizona;
 	info->dev = &pdev->dev;
 	info->last_jackdet = ~(ARIZONA_MICD_CLAMP_STS | ARIZONA_JD1_STS);
@@ -2034,7 +2032,7 @@ err_register:
 	pm_runtime_disable(&pdev->dev);
 	switch_dev_unregister(&info->edev);
 err_wakelock:
-	wake_lock_destroy(&info->detection_wake_lock);
+	wakeup_source_trash(&info->detection_wake_lock);
 err:
 	return ret;
 }
@@ -2072,7 +2070,7 @@ static int arizona_extcon_remove(struct platform_device *pdev)
 
 	device_remove_file(&pdev->dev, &dev_attr_hp_impedance);
 	switch_dev_unregister(&info->edev);
-	wake_lock_destroy(&info->detection_wake_lock);
+	wakeup_source_trash(&info->detection_wake_lock);
 
 	return 0;
 }
