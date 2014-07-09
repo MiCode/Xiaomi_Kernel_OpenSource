@@ -37,8 +37,11 @@ static BLOCKING_NOTIFIER_HEAD(dock_notifier_list);
  */
 void register_liquid_dock_notify(struct notifier_block *nb)
 {
+	if (!nb)
+		return;
+
 	/* inform new client of current state */
-	if (nb && nb->notifier_call)
+	if (nb->notifier_call)
 		nb->notifier_call(nb, docked, NULL);
 
 	blocking_notifier_chain_register(&dock_notifier_list, nb);
