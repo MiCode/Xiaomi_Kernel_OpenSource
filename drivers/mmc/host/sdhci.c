@@ -3401,6 +3401,27 @@ static int sdhci_is_adma2_64bit(struct sdhci_host *host)
 }
 #endif
 
+#ifdef CONFIG_SMP
+static void sdhci_set_pmqos_req_type(struct sdhci_host *host)
+{
+
+	/*
+	 * The default request type PM_QOS_REQ_ALL_CORES is
+	 * applicable to all CPU cores that are online and
+	 * this would have a power impact when there are more
+	 * number of CPUs. This new PM_QOS_REQ_AFFINE_IRQ request
+	 * type shall update/apply the vote only to that CPU to
+	 * which this IRQ's affinity is set to.
+	 */
+	host->pm_qos_req_dma.type = PM_QOS_REQ_AFFINE_IRQ;
+	host->pm_qos_req_dma.irq = host->irq;
+}
+#else
+static void sdhci_set_pmqos_req_type(struct sdhci_host *host)
+{
+}
+#endif
+
 int sdhci_add_host(struct sdhci_host *host)
 {
 	struct mmc_host *mmc;
@@ -3924,6 +3945,7 @@ int sdhci_add_host(struct sdhci_host *host)
 
 	if (host->cpu_dma_latency_us) {
 		host->pm_qos_timeout_us = 10000; /* default value */
+		sdhci_set_pmqos_req_type(host);
 		pm_qos_add_request(&host->pm_qos_req_dma,
 				PM_QOS_CPU_DMA_LATENCY, PM_QOS_DEFAULT_VALUE);
 
