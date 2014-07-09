@@ -511,6 +511,10 @@
 					05 01 00 00 78 00 02 10 00];
 		qcom,mdss-dsi-on-command-state = "dsi_lp_mode";
 		qcom,mdss-dsi-off-command-state = "dsi_hs_mode";
+		qcom,dynamic-mode-switch-enabled;
+		qcom,video-to-cmd-mode-switch-commands = [15 01 00 00 00 00 02 C2 0B
+					15 01 00 00 00 00 02 C2 08];
+		qcom,cmd-to-video-mode-switch-commands = [15 01 00 00 00 00 02 C2 03];
 		qcom,mdss-dsi-h-sync-pulse = <1>;
 		qcom,mdss-dsi-traffic-mode = "burst_mode";
 		qcom,mdss-dsi-bllp-eof-power-mode;
