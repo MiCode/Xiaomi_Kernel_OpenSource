@@ -14,6 +14,7 @@
 
 #include "msm8939.dtsi"
 #include "msm8939-mtp.dtsi"
+#include "msm8939-audio-external_codec.dtsi"
 
 / {
 	model = "Qualcomm Technologies, Inc. MSM 8939 WCD9306 MTP";
@@ -47,108 +48,4 @@
 &pm8916_bms {
 	status = "ok";
 	qcom,disable-bms;
-};
-
-&soc{
-	wcd9xxx_intc: wcd9xxx-irq {
-		compatible = "qcom,wcd9xxx-irq";
-		interrupt-controller;
-		#interrupt-cells = <1>;
-		interrupt-parent = <&msm_gpio>;
-		interrupts = <66 0>;
-		interrupt-names = "cdc-int";
-	};
-
-	slim_msm {
-		status = "ok";
-		tapan_codec {
-			compatible = "qcom,tapan-slim-pgd";
-			elemental-addr = [00 01 E0 00 17 02];
-
-			interrupt-parent = <&wcd9xxx_intc>;
-			interrupts = <0 1 2 3 4 5 6>, <7 8 9 10 11 12 13>,
-					<14 15 16 17 18 19 20>, <21 22 23 24 25 26 27 28>;
-			qcom,cdc-reset-gpio = <&msm_gpio 67 0>;
-
-			qcom,cdc-micbias1-ext-cap;
-
-			cdc-vdd-buck-supply = <&pm8916_s4>;
-			qcom,cdc-vdd-buck-voltage = <1800000 2150000>;
-			qcom,cdc-vdd-buck-current = <650000>;
-
-			cdc-vdd-tx-h-supply = <&pm8916_l5>;
-			qcom,cdc-vdd-tx-h-voltage = <1800000 1800000>;
-			qcom,cdc-vdd-tx-h-current = <45000>;
-
-			cdc-vdd-rx-h-supply = <&pm8916_l5>;
-			qcom,cdc-vdd-rx-h-voltage = <1800000 1800000>;
-			qcom,cdc-vdd-rx-h-current = <45000>;
-
-			cdc-vdd-px-supply = <&pm8916_l5>;
-			qcom,cdc-vdd-px-voltage = <1800000 1800000>;
-			qcom,cdc-vdd-px-current = <45000>;
-
-			cdc-vdd-cx-supply = <&pm8916_l2>;
-			qcom,cdc-vdd-cx-voltage = <1200000 1200000>;
-			qcom,cdc-vdd-cx-current = <10000>;
-
-			qcom,cdc-static-supplies = "cdc-vdd-tx-h",
-						   "cdc-vdd-rx-h",
-						   "cdc-vdd-px",
-						   "cdc-vdd-cx";
-			qcom,cdc-cp-supplies = "cdc-vdd-buck";
-
-			qcom,cdc-micbias-ldoh-v = <0x3>;
-			qcom,cdc-micbias-cfilt1-mv = <1800>;
-			qcom,cdc-micbias-cfilt2-mv = <2700>;
-			qcom,cdc-micbias-cfilt3-mv = <1800>;
-
-			qcom,cdc-micbias1-cfilt-sel = <0x0>;
-			qcom,cdc-micbias2-cfilt-sel = <0x1>;
-			qcom,cdc-micbias3-cfilt-sel = <0x2>;
-			qcom,cdc-micbias4-cfilt-sel = <0x2>;
-
-			qcom,cdc-dmic-sample-rate = <4800000>;
-			qcom,cdc-mclk-clk-rate = <9600000>;
-			qcom,cdc-slim-ifd = "tapan-slim-ifd";
-			qcom,cdc-slim-ifd-elemental-addr = [00 00 E0 00 17 02];
-		};
-	};
-	sound-9306 {
-		compatible = "qcom,msm8939-audio-codec";
-		qcom,model = "msm8939-tapan-snd-card";
-		qcom,tapan-mclk-clk-freq = <9600000>;
-		pinctrl-names = "cdc_slim_lines_act", "cdc_slim_lines_sus",
-				"cross_conn_det_act","cross_conn_det_sus",
-				"cdc_vdd_spkr_act","cdc_vdd_spkr_sus";
-		pinctrl-0 = <&cdc_slim_lines_act>;
-		pinctrl-1 = <&cdc_slim_lines_sus>;
-		pinctrl-2 = <&cross_conn_det_act>;
-		pinctrl-3 = <&cross_conn_det_sus>;
-		pinctrl-4 = <&cdc_vdd_spkr_act>;
-		pinctrl-5 = <&cdc_vdd_spkr_sus>;
-		qcom,cdc-us-euro-gpios = <&msm_gpio 120 0>;
-		qcom,cdc-vdd-spkr-gpios = <&msm_gpio 121 0>;
-		qcom,audio-routing =
-			"RX_BIAS", "MCLK",
-			"LDO_H", "MCLK",
-			"SPK_OUT", "MCLK",
-			"SPK_OUT", "EXT_VDD_SPKR",
-			"AMIC1", "MIC BIAS1 Internal1",
-			"MIC BIAS1 Internal1", "Handset Mic",
-			"AMIC2", "MIC BIAS2 External",
-			"MIC BIAS2 External", "Headset Mic",
-			"AMIC4", "MIC BIAS2 External",
-			"MIC BIAS2 External", "ANCRight Headset Mic",
-			"AMIC5", "MIC BIAS2 External",
-			"MIC BIAS2 External", "ANCLeft Headset Mic",
-			"DMIC1", "MIC BIAS1 External",
-			"MIC BIAS1 External", "Digital Mic1",
-			"DMIC2", "MIC BIAS1 External",
-			"MIC BIAS1 External", "Digital Mic2",
-			"DMIC3", "MIC BIAS3 External",
-			"MIC BIAS3 External", "Digital Mic3",
-			"DMIC4", "MIC BIAS3 External",
-			"MIC BIAS3 External", "Digital Mic4";
-	};
 };
