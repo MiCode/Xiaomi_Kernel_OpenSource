@@ -1461,20 +1461,17 @@ static int bam_data_wake_cb(void *param)
 	 * allowed to do so by the host. This is done in order to support non
 	 * fully USB 3.0 compatible hosts.
 	 */
-	if ((gadget->speed == USB_SPEED_SUPER) && (func->func_is_suspended) &&
-		!func->func_wakeup_allowed)
-		return -ENOTSUPP;
+	if ((gadget->speed == USB_SPEED_SUPER) && (func->func_is_suspended)) {
+		if (!func->func_wakeup_allowed)
+			return -ENOTSUPP;
+		else
+			usb_func_wakeup(func);
+	}
 
 	ret = usb_gadget_wakeup(gadget);
 	if (ret) {
 		pr_err("Failed to wake up the USB core. ret=%d", ret);
 		return ret;
-	}
-
-	if (gadget->speed == USB_SPEED_SUPER) {
-		ret = usb_func_wakeup(func);
-		if (ret)
-			return ret;
 	}
 
 	return 0;

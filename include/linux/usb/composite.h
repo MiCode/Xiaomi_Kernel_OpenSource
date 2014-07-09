@@ -99,6 +99,9 @@ struct usb_configuration;
  *	Function Suspend state (used in Super Speed mode only).
  * @func_wakeup_allowed: Tells whether Function Remote Wakeup has been allowed
  *	by the USB host (used in Super Speed mode only).
+ * @func_wakeup_pending: Marks that the function has issued a Function Wakeup
+ *	while the USB bus was suspended and therefore a Function Wakeup
+ *	notification needs to be sent once the USB bus is resumed.
  *
  * A single USB function uses one or more interfaces, and should in most
  * cases support operation at both full and high speeds.  Each function is
@@ -164,6 +167,7 @@ struct usb_function {
 						u8 suspend_opt);
 	unsigned		func_is_suspended:1;
 	unsigned		func_wakeup_allowed:1;
+	unsigned		func_wakeup_pending:1;
 	/* private: */
 	/* internals */
 	struct list_head		list;
