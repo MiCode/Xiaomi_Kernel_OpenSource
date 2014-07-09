@@ -90,11 +90,6 @@ Required properties
 				offset within status register. Number of tuples
 				defined should match the number of offsets
 				defined in property: qcom,mdss-pipe-dma-off
-- qcom,mdss-smp-data:		Array of shared memory pool data. There should
-				be only two values in this property. The first
-				value corresponds to the number of smp blocks
-				and the second is the size of each block
-				present in the mdss hardware.
 - qcom,mdss-ctl-off:		Array of offset addresses for the available ctl
 				hw blocks within MDP, these offsets are
 				calculated from register "mdp_phys" defined in
@@ -238,6 +233,12 @@ Optional properties:
 			settings used to setup MDSS QoS for best performance.
 			The key used should be offset from "mdp_phys" register
 			defined in reg property.
+- qcom,mdss-smp-data:	Array of shared memory pool data for dynamic SMP. There
+			should be only two values in this property. The first
+			value corresponds to the number of smp blocks and the
+			second is the size of each block present in the mdss
+			hardware. This property is optional for MDP hardware
+			with fix pixel latency ram.
 - qcom,mdss-rot-block-size:	The size of a memory block (in pixels) to be used
 				by the rotator. If this property is not specified,
 				then a default value of 128 pixels would be used.

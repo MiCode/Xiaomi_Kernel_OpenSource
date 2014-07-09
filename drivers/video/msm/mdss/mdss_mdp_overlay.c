@@ -2615,8 +2615,10 @@ static int mdss_fb_get_hw_caps(struct msm_fb_data_type *mfd,
 	if (mdata->has_decimation)
 		caps->features |= MDP_DECIMATION_EN;
 
-	caps->max_smp_cnt = mdss_res->smp_mb_cnt;
-	caps->smp_per_pipe = mdata->smp_mb_per_pipe;
+	if (mdata->smp_mb_cnt) {
+		caps->max_smp_cnt = mdata->smp_mb_cnt;
+		caps->smp_per_pipe = mdata->smp_mb_per_pipe;
+	}
 
 	return 0;
 }
