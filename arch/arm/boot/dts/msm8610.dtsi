@@ -470,14 +470,25 @@
 
 	qcom,clock-a7@f9011050 {
 		compatible = "qcom,clock-a7-8226";
-		reg = <0xf9011050 0x8>;
-		reg-names = "rcg-base";
+		reg = <0xf9011050 0x8>,
+		      <0xfc4b80b8 0x8>;
+		reg-names = "rcg-base", "efuse";
 		clock-names = "clk-4", "clk-5";
 		qcom,speed0-bin-v0 =
 			<         0 0>,
 			< 384000000 1>,
 			< 787200000 2>,
 			<1190400000 3>;
+		qcom,speed1-bin-v0 =
+			<         0 0>,
+			< 384000000 1>,
+			< 787200000 2>,
+			<1094400000 3>;
+		qcom,speed1-bin-v2 =
+			<         0 0>,
+			< 384000000 1>,
+			< 787200000 2>,
+			<1094400000 3>;
 
 		cpu-vdd-supply = <&apc_vreg_corner>;
 	};
@@ -500,6 +511,7 @@
 			<  600000 1525 >,
 			<  787200 1525 >,
 			<  998400 2540 >,
+			< 1094400 2540 >,
 			< 1190400 2540 >;
 	};
 
