@@ -22,6 +22,7 @@ Required properties:
 				KGSL_CLK_MEM    0x00000008
 				KGSL_CLK_MEM_IFACE 0x00000010
 				KGSL_CLK_AXI    0x00000020
+				KGSL_CLK_RBBMTIMER 0x00000080
 
 - clocks:		List of phandle and clock specifier pairs, one pair
 			for each clock input to the device.
@@ -29,7 +30,8 @@ Required properties:
 			order as the clocks property.
 				Current values of clock-names are:
 				"src_clk", "core_clk", "iface_clk", "mem_clk", "mem_iface_clk",
-				"alt_mem_iface_clk"
+				"alt_mem_iface_clk", "rbbmtimer_clk"
+				"core_clk" and "iface_clk" are required and others are optional
 
 Bus Scaling Data:
 - qcom,msm-bus,name: String property to describe the name of the 3D graphics processor.
