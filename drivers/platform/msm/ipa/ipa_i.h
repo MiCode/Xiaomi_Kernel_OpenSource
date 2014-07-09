@@ -786,6 +786,7 @@ struct ipa_context {
 	spinlock_t idr_lock;
 	u32 enable_clock_scaling;
 	u32 curr_ipa_clk_rate;
+	bool q6_proxy_clk_vote_valid;
 
 	struct ipa_wlan_comm_memb wc_memb;
 	struct ipa_wdi_ctx wdi;

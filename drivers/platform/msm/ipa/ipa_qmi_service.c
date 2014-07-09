@@ -541,6 +541,7 @@ static void ipa_q6_clnt_svc_arrive(struct work_struct *work)
 	IPAWANDBG("send qmi_init_modem_send_sync_msg to modem\n");
 	rc = qmi_init_modem_send_sync_msg();
 	qmi_modem_init_fin = true;
+	ipa_q6_init_done();
 	IPAWANDBG("complete, qmi_modem_init_fin : %d\n",
 		qmi_modem_init_fin);
 
