@@ -861,6 +861,10 @@ static int arizona_update_input(struct arizona* arizona, bool enable)
 	regmap_write(arizona->regmap, 0x80,  0x3);
 
 	if (enable) {
+		arizona_florida_mute_analog(arizona, ARIZONA_IN1L_MUTE);
+
+		msleep(10);
+
 		regmap_write(arizona->regmap, 0x3A6, 0x5555);
 		regmap_write(arizona->regmap, 0x3A5, 0x3);
 	} else {
@@ -871,6 +875,8 @@ static int arizona_update_input(struct arizona* arizona, bool enable)
 			regmap_write(arizona->regmap, 0x3A6, 0x0);
 			msleep(5);
 		}
+
+		arizona_florida_mute_analog(arizona, 0);
 	}
 
 	regmap_write(arizona->regmap, 0x80,  0x0);
