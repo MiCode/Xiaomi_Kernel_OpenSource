@@ -77,6 +77,7 @@ struct silabs_fm_device {
 	u8 cmd;
 	u8 antenna;
 	u8 g_search_mode;
+	bool is_search_cancelled;
 	unsigned int mode;
 	/* regional settings */
 	enum silabs_region_t region;
@@ -651,6 +652,15 @@ static void silabs_scan(struct work_struct *work)
 	else
 		FMDBG("In %s, received STC for tune\n", __func__);
 	while (1) {
+		/* If scan is cancelled or FM is not ON, break */
+		if (radio->is_search_cancelled == true) {
+			FMDBG("%s: scan cancelled\n", __func__);
+			goto seek_cancelled;
+		} else if (radio->mode != FM_RECV) {
+			FMDERR("%s: FM is not in proper state\n", __func__);
+			return;
+		}
+
 		retval = silabs_seek(radio, SRCH_DIR_UP, WRAP_DISABLE);
 		if (retval < 0) {
 			FMDERR("Scan operation failed with error %d\n", retval);
@@ -658,9 +668,11 @@ static void silabs_scan(struct work_struct *work)
 		}
 		/* wait for seek to complete */
 		if (!wait_for_completion_timeout(&radio->sync_req_done,
-					msecs_to_jiffies(WAIT_TIMEOUT_MSEC)))
+					msecs_to_jiffies(WAIT_TIMEOUT_MSEC))) {
 			FMDERR("%s: didn't receive STC for seek\n", __func__);
-		else
+			/* FM is not correct state or scan is cancelled */
+			continue;
+		} else
 			FMDBG("%s: received STC for seek\n", __func__);
 
 		mutex_lock(&radio->lock);
@@ -695,6 +707,18 @@ static void silabs_scan(struct work_struct *work)
 			FMDBG("bltf bit is set\n");
 			break;
 		}
+		/*
+		 * If scan is cancelled or FM is not ON, break ASAP so that we
+		 * don't need to sleep for dwell time.
+		 */
+		if (radio->is_search_cancelled == true) {
+			FMDBG("%s: scan cancelled\n", __func__);
+			goto seek_cancelled;
+		} else if (radio->mode != FM_RECV) {
+			FMDERR("%s: FM is not in proper state\n", __func__);
+			return;
+		}
+
 		/* sleep for dwell period */
 		msleep(radio->dwell_time_sec * 1000);
 
@@ -714,6 +738,7 @@ seek_tune_fail:
 		else
 			FMDBG("%s: received STC for tune\n", __func__);
 	}
+seek_cancelled:
 	silabs_fm_q_event(radio, SILABS_EVT_SEEK_COMPLETE);
 	radio->seek_tune_status = NO_SEEK_TUNE_PENDING;
 }
@@ -1376,6 +1401,7 @@ static int cancel_seek(struct silabs_fm_device *radio)
 		FMDERR("%s: cancel_seek failed, error %d\n", __func__, retval);
 
 	mutex_unlock(&radio->lock);
+	radio->is_search_cancelled = true;
 
 	return retval;
 
@@ -2270,6 +2296,8 @@ static int silabs_fm_vidioc_s_hw_freq_seek(struct file *file, void *priv,
 		dir = SRCH_DIR_UP;
 	else
 		dir = SRCH_DIR_DOWN;
+
+	radio->is_search_cancelled = false;
 
 	if (radio->g_search_mode == 0) {
 		/* seek */
