@@ -2405,6 +2405,8 @@ struct afe_port_cmdrsp_get_param_v2 {
 #define VPM_TX_DM_FLUENCE_COPP_TOPOLOGY			0x00010F72
 #define VPM_TX_QMIC_FLUENCE_COPP_TOPOLOGY		0x00010F75
 #define VPM_TX_DM_RFECNS_COPP_TOPOLOGY			0x00010F86
+#define ADM_CMD_COPP_OPEN_TOPOLOGY_ID_DTS_HPX_0		0x00010347
+#define ADM_CMD_COPP_OPEN_TOPOLOGY_ID_DTS_HPX_1		0x00010348
 
 /* Memory map regions command payload used by the
  * #ASM_CMD_SHARED_MEM_MAP_REGIONS ,#ADM_CMD_SHARED_MEM_MAP_REGIONS
@@ -6915,6 +6917,21 @@ struct srs_trumedia_params {
 	struct srs_trumedia_params_HL		hl;
 } __packed;
 /* SRS TruMedia end */
+
+/* DTS Eagle */
+#define AUDPROC_MODULE_ID_DTS_HPX_PREMIX 0x0001077C
+#define AUDPROC_MODULE_ID_DTS_HPX_POSTMIX 0x0001077B
+#define ASM_STREAM_POSTPROC_TOPO_ID_DTS_HPX 0x00010DED
+struct asm_dts_eagle_param {
+	struct apr_hdr	hdr;
+	struct asm_stream_cmd_set_pp_params_v2 param;
+	struct asm_stream_param_data_v2 data;
+} __packed;
+
+struct asm_dts_eagle_param_get {
+	struct apr_hdr	hdr;
+	struct asm_stream_cmd_get_pp_params_v2 param;
+} __packed;
 
 /* LSM Specific */
 #define VW_FEAT_DIM					(39)
