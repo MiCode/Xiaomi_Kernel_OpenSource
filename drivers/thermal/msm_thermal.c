@@ -6364,6 +6364,9 @@ static int msm_thermal_dev_probe(struct platform_device *pdev)
 	struct device_node *node = pdev->dev.of_node;
 	struct msm_thermal_data data;
 
+	if (!mitigation)
+		return ret;
+
 	memset(&data, 0, sizeof(struct msm_thermal_data));
 	data.pdev = pdev;
 
@@ -6526,6 +6529,18 @@ static int msm_thermal_dev_exit(struct platform_device *inp_dev)
 	}
 	return 0;
 }
+
+static int __init ktm_params(char *str)
+{
+	if (str != NULL && !strcmp(str, "disable")) {
+		pr_info("KTM Disabled at Boot\n");
+		mitigation = 0;
+	}
+
+	return 0;
+}
+
+early_param("qcomthermal", ktm_params);
 
 static struct of_device_id msm_thermal_match_table[] = {
 	{.compatible = "qcom,msm-thermal"},
