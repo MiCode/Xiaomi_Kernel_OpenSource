@@ -1600,9 +1600,12 @@ static int arizona_startup(struct snd_pcm_substream *substream,
 
 	switch (dai_priv->clk) {
 	case ARIZONA_CLK_SYSCLK:
+	case ARIZONA_CLK_SYSCLK_2:
+	case ARIZONA_CLK_SYSCLK_3:
 		base_rate = priv->sysclk;
 		break;
 	case ARIZONA_CLK_ASYNCCLK:
+	case ARIZONA_CLK_ASYNCCLK_2:
 		base_rate = priv->asyncclk;
 		break;
 	default:
@@ -1683,7 +1686,28 @@ static int arizona_hw_params_rate(struct snd_pcm_substream *substream,
 				    ARIZONA_SAMPLE_RATE_1_MASK, sr_val);
 		if (base)
 			snd_soc_update_bits(codec, base + ARIZONA_AIF_RATE_CTRL,
-					    ARIZONA_AIF1_RATE_MASK, 0);
+					    ARIZONA_AIF1_RATE_MASK,
+					    0 << ARIZONA_AIF1_RATE_SHIFT);
+		break;
+	case ARIZONA_CLK_SYSCLK_2:
+		arizona_wm5102_set_dac_comp(codec, params_rate(params));
+
+		snd_soc_update_bits(codec, ARIZONA_SAMPLE_RATE_2,
+				    ARIZONA_SAMPLE_RATE_2_MASK, sr_val);
+		if (base)
+			snd_soc_update_bits(codec, base + ARIZONA_AIF_RATE_CTRL,
+					    ARIZONA_AIF1_RATE_MASK,
+					    1 << ARIZONA_AIF1_RATE_SHIFT);
+		break;
+	case ARIZONA_CLK_SYSCLK_3:
+		arizona_wm5102_set_dac_comp(codec, params_rate(params));
+
+		snd_soc_update_bits(codec, ARIZONA_SAMPLE_RATE_3,
+				    ARIZONA_SAMPLE_RATE_3_MASK, sr_val);
+		if (base)
+			snd_soc_update_bits(codec, base + ARIZONA_AIF_RATE_CTRL,
+					    ARIZONA_AIF1_RATE_MASK,
+					    2 << ARIZONA_AIF1_RATE_SHIFT);
 		break;
 	case ARIZONA_CLK_ASYNCCLK:
 		snd_soc_update_bits(codec, ARIZONA_ASYNC_SAMPLE_RATE_1,
@@ -1692,6 +1716,14 @@ static int arizona_hw_params_rate(struct snd_pcm_substream *substream,
 			snd_soc_update_bits(codec, base + ARIZONA_AIF_RATE_CTRL,
 					    ARIZONA_AIF1_RATE_MASK,
 					    8 << ARIZONA_AIF1_RATE_SHIFT);
+		break;
+	case ARIZONA_CLK_ASYNCCLK_2:
+		snd_soc_update_bits(codec, ARIZONA_ASYNC_SAMPLE_RATE_2,
+				    ARIZONA_ASYNC_SAMPLE_RATE_2_MASK, sr_val);
+		if (base)
+			snd_soc_update_bits(codec, base + ARIZONA_AIF_RATE_CTRL,
+					    ARIZONA_AIF1_RATE_MASK,
+					    9 << ARIZONA_AIF1_RATE_SHIFT);
 		break;
 	default:
 		arizona_aif_err(dai, "Invalid clock %d\n", dai_priv->clk);
@@ -1794,8 +1826,11 @@ static const char *arizona_dai_clk_str(int clk_id)
 {
 	switch (clk_id) {
 	case ARIZONA_CLK_SYSCLK:
+	case ARIZONA_CLK_SYSCLK_2:
+	case ARIZONA_CLK_SYSCLK_3:
 		return "SYSCLK";
 	case ARIZONA_CLK_ASYNCCLK:
+	case ARIZONA_CLK_ASYNCCLK_2:
 		return "ASYNCCLK";
 	default:
 		return "Unknown clock";
@@ -1812,7 +1847,10 @@ static int arizona_dai_set_sysclk(struct snd_soc_dai *dai,
 
 	switch (clk_id) {
 	case ARIZONA_CLK_SYSCLK:
+	case ARIZONA_CLK_SYSCLK_2:
+	case ARIZONA_CLK_SYSCLK_3:
 	case ARIZONA_CLK_ASYNCCLK:
+	case ARIZONA_CLK_ASYNCCLK_2:
 		break;
 	default:
 		return -EINVAL;
@@ -1836,6 +1874,8 @@ static int arizona_dai_set_sysclk(struct snd_soc_dai *dai,
 
 	switch (clk_id) {
 	case ARIZONA_CLK_SYSCLK:
+	case ARIZONA_CLK_SYSCLK_2:
+	case ARIZONA_CLK_SYSCLK_3:
 		routes[0].source = arizona_dai_clk_str(dai_priv->clk);
 		routes[1].source = arizona_dai_clk_str(dai_priv->clk);
 		snd_soc_dapm_del_routes(&codec->dapm, routes,
@@ -1847,6 +1887,7 @@ static int arizona_dai_set_sysclk(struct snd_soc_dai *dai,
 
 	switch (clk_id) {
 	case ARIZONA_CLK_ASYNCCLK:
+	case ARIZONA_CLK_ASYNCCLK_2:
 		routes[0].source = arizona_dai_clk_str(clk_id);
 		routes[1].source = arizona_dai_clk_str(clk_id);
 		snd_soc_dapm_add_routes(&codec->dapm, routes,
