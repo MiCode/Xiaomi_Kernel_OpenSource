@@ -46,6 +46,7 @@
 #define AC_INPUT_PIN_HIGH_BIT		BIT(6)
 #define RESET_STATE_USB_500		BIT(5)
 #define INPUT_CURR_LIM_MASK		SMB1360_MASK(3, 0)
+#define INPUT_CURR_LIM_300MA		0x0
 
 #define CFG_GLITCH_FLT_REG		0x06
 #define AICL_ENABLED_BIT		BIT(0)
@@ -199,8 +200,6 @@ enum {
 
 enum {
 	USER	= BIT(0),
-	THERMAL = BIT(1),
-	CURRENT = BIT(2),
 };
 
 enum fg_i2c_access_type {
@@ -819,6 +818,28 @@ static int smb1360_get_prop_current_now(struct smb1360_chip *chip)
 	return temp * 1000;
 }
 
+static int smb1360_set_minimum_usb_current(struct smb1360_chip *chip)
+{
+	int rc = 0;
+
+	pr_debug("set USB current to minimum\n");
+	/* set input current limit to minimum (300mA)*/
+	rc = smb1360_masked_write(chip, CFG_BATT_CHG_ICL_REG,
+					INPUT_CURR_LIM_MASK,
+					INPUT_CURR_LIM_300MA);
+	if (rc)
+		pr_err("Couldn't set ICL mA rc=%d\n", rc);
+
+	if (!(chip->workaround_flags & WRKRND_USB100_FAIL)) {
+		rc = smb1360_masked_write(chip, CMD_IL_REG,
+				USB_CTRL_MASK, USB_100_BIT);
+		if (rc)
+			pr_err("Couldn't configure for USB100 rc=%d\n", rc);
+	}
+
+	return rc;
+}
+
 static int smb1360_set_appropriate_usb_current(struct smb1360_chip *chip)
 {
 	int rc = 0, i, therm_ma, current_ma;
@@ -849,14 +870,15 @@ static int smb1360_set_appropriate_usb_current(struct smb1360_chip *chip)
 
 	if (current_ma <= 2) {
 		/*
-		 * SMB1360 does not support USB suspend so
-		 * disable charging if current <= 2
+		 * SMB1360 does not support USB suspend -
+		 * so set the current-limit to minimum in suspend.
 		 */
-		pr_debug("current_ma=%d <= 2 disable charging\n", current_ma);
-
-		rc = smb1360_charging_disable(chip, CURRENT, true);
+		pr_debug("current_ma=%d <= 2 set USB current to minimum\n",
+								current_ma);
+		rc = smb1360_set_minimum_usb_current(chip);
 		if (rc < 0)
-			pr_err("Unable to disable charging rc=%d\n", rc);
+			pr_err("Couldn't to set minimum USB current rc = %d\n",
+								rc);
 
 		return rc;
 	}
@@ -921,11 +943,6 @@ static int smb1360_set_appropriate_usb_current(struct smb1360_chip *chip)
 		pr_debug("fast-chg current set to = %d\n", fastchg_current[i]);
 	}
 
-	/* enable charging, as it could have been disabled earlier */
-	rc = smb1360_charging_disable(chip, CURRENT, false);
-	if (rc < 0)
-		pr_err("Unable to enable charging rc=%d\n", rc);
-
 	return rc;
 }
 
@@ -957,30 +974,18 @@ static int smb1360_system_temp_level_set(struct smb1360_chip *chip,
 	mutex_lock(&chip->current_change_lock);
 	prev_therm_lvl = chip->therm_lvl_sel;
 	chip->therm_lvl_sel = lvl_sel;
+
 	if (chip->therm_lvl_sel == (chip->thermal_levels - 1)) {
-		/* Disable charging if highest value selected */
-		rc = smb1360_charging_disable(chip, THERMAL, true);
-		if (rc < 0) {
-			pr_err("Couldn't disable charging rc %d\n", rc);
-			goto out;
-		}
-		goto out;
+		rc = smb1360_set_minimum_usb_current(chip);
+		if (rc)
+			pr_err("Couldn't set USB current to minimum rc = %d\n",
+							rc);
+	} else {
+		rc = smb1360_set_appropriate_usb_current(chip);
+		if (rc)
+			pr_err("Couldn't set USB current rc = %d\n", rc);
 	}
 
-	smb1360_set_appropriate_usb_current(chip);
-
-	if (prev_therm_lvl == chip->thermal_levels - 1) {
-		/*
-		 * If previously highest value was selected charging must have
-		 * been disabed. Hence enable charging.
-		 */
-		rc = smb1360_charging_disable(chip, THERMAL, false);
-		if (rc < 0) {
-			pr_err("Couldn't enable charging rc %d\n", rc);
-			goto out;
-		}
-	}
-out:
 	mutex_unlock(&chip->current_change_lock);
 	return rc;
 }
