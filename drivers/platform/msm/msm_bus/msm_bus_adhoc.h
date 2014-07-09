@@ -86,10 +86,14 @@ struct msm_bus_node_info_type {
 	int *qport;
 	struct qos_params_type qos_params;
 	unsigned int num_connections;
+	unsigned int num_blist;
 	bool is_fab_dev;
 	bool virt_dev;
+	bool is_traversed;
 	unsigned int *connections;
+	unsigned int *black_listed_connections;
 	struct device **dev_connections;
+	struct device **black_connections;
 	unsigned int bus_device_id;
 	struct device *bus_device;
 	unsigned int buswidth;

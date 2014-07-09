@@ -267,6 +267,26 @@ static struct msm_bus_node_info_type *get_node_info_data(
 		of_node_put(con_node);
 	}
 
+	if (of_get_property(dev_node, "qcom,blacklist", &size)) {
+		node_info->num_blist = size/sizeof(u32);
+		node_info->black_listed_connections = devm_kzalloc(&pdev->dev,
+		size, GFP_KERNEL);
+	} else {
+		node_info->num_blist = 0;
+		node_info->black_listed_connections = 0;
+	}
+
+	for (i = 0; i < node_info->num_blist; i++) {
+		con_node = of_parse_phandle(dev_node, "qcom,blacklist", i);
+		if (IS_ERR_OR_NULL(con_node))
+			goto node_info_err;
+
+		if (of_property_read_u32(con_node, "cell-id",
+				&node_info->black_listed_connections[i]))
+			goto node_info_err;
+		of_node_put(con_node);
+	}
+
 	bus_dev = of_parse_phandle(dev_node, "qcom,bus-dev", 0);
 	if (!IS_ERR_OR_NULL(bus_dev)) {
 		if (of_property_read_u32(bus_dev, "cell-id",
@@ -440,8 +460,13 @@ struct msm_bus_device_node_registration
 		for (j = 0; j < pdata->info[i].node_info->num_connections;
 									j++) {
 			dev_dbg(&pdev->dev, "connection[%d]: %d\n", j,
-					pdata->info[i].node_info->
-					connections[j]);
+				pdata->info[i].node_info->connections[j]);
+		}
+		for (j = 0; j < pdata->info[i].node_info->num_blist;
+									 j++) {
+			dev_dbg(&pdev->dev, "black_listed_node[%d]: %d\n", j,
+				pdata->info[i].node_info->
+				black_listed_connections[j]);
 		}
 		if (pdata->info[i].fabdev)
 			dev_dbg(&pdev->dev, "base_addr %zu\nbus_type %d\n",

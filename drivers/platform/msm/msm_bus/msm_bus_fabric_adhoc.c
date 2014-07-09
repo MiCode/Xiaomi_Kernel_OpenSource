@@ -817,6 +817,7 @@ static int msm_bus_copy_node_info(struct msm_bus_node_device_type *pdata,
 	node_info->mas_rpm_id = pdata_node_info->mas_rpm_id;
 	node_info->slv_rpm_id = pdata_node_info->slv_rpm_id;
 	node_info->num_connections = pdata_node_info->num_connections;
+	node_info->num_blist = pdata_node_info->num_blist;
 	node_info->num_qports = pdata_node_info->num_qports;
 	node_info->buswidth = pdata_node_info->buswidth;
 	node_info->virt_dev = pdata_node_info->virt_dev;
@@ -855,6 +856,36 @@ static int msm_bus_copy_node_info(struct msm_bus_node_device_type *pdata,
 		pdata_node_info->connections,
 		sizeof(int) * pdata_node_info->num_connections);
 
+	node_info->black_connections = devm_kzalloc(bus_dev,
+			sizeof(struct device *) *
+				pdata_node_info->num_blist,
+			GFP_KERNEL);
+	if (!node_info->black_connections) {
+		MSM_BUS_ERR("%s: Bus black connections alloc failed\n",
+			__func__);
+		devm_kfree(bus_dev, node_info->dev_connections);
+		devm_kfree(bus_dev, node_info->connections);
+		ret = -ENOMEM;
+		goto exit_copy_node_info;
+	}
+
+	node_info->black_listed_connections = devm_kzalloc(bus_dev,
+			pdata_node_info->num_blist * sizeof(int),
+			GFP_KERNEL);
+	if (!node_info->black_listed_connections) {
+		MSM_BUS_ERR("%s:Bus black list connections alloc failed\n",
+					__func__);
+		devm_kfree(bus_dev, node_info->black_connections);
+		devm_kfree(bus_dev, node_info->dev_connections);
+		devm_kfree(bus_dev, node_info->connections);
+		ret = -ENOMEM;
+		goto exit_copy_node_info;
+	}
+
+	memcpy(node_info->black_listed_connections,
+		pdata_node_info->black_listed_connections,
+		sizeof(int) * pdata_node_info->num_blist);
+
 	node_info->qport = devm_kzalloc(bus_dev,
 			sizeof(int) * pdata_node_info->num_qports,
 			GFP_KERNEL);
@@ -862,6 +893,7 @@ static int msm_bus_copy_node_info(struct msm_bus_node_device_type *pdata,
 		MSM_BUS_ERR("%s:Bus qport allocation failed\n", __func__);
 		devm_kfree(bus_dev, node_info->dev_connections);
 		devm_kfree(bus_dev, node_info->connections);
+		devm_kfree(bus_dev, node_info->black_listed_connections);
 		ret = -ENOMEM;
 		goto exit_copy_node_info;
 	}
@@ -934,6 +966,8 @@ static struct device *msm_bus_device_init(
 		devm_kfree(bus_dev, bus_node);
 		devm_kfree(bus_dev, node_info->dev_connections);
 		devm_kfree(bus_dev, node_info->connections);
+		devm_kfree(bus_dev, node_info->black_connections);
+		devm_kfree(bus_dev, node_info->black_listed_connections);
 		devm_kfree(bus_dev, node_info);
 		kfree(bus_dev);
 		bus_dev = NULL;
@@ -975,6 +1009,8 @@ static int msm_bus_setup_dev_conn(struct device *bus_dev, void *data)
 		bus_node->node_info->bus_device = bus_parent_device;
 	}
 
+	bus_node->node_info->is_traversed = false;
+
 	for (j = 0; j < bus_node->node_info->num_connections; j++) {
 		bus_node->node_info->dev_connections[j] =
 			bus_find_device(&msm_bus_type, NULL,
@@ -985,6 +1021,23 @@ static int msm_bus_setup_dev_conn(struct device *bus_dev, void *data)
 			MSM_BUS_ERR("%s: Error finding conn %d for device %d",
 				__func__, bus_node->node_info->connections[j],
 				 bus_node->node_info->id);
+			ret = -ENODEV;
+			goto exit_setup_dev_conn;
+		}
+	}
+
+	for (j = 0; j < bus_node->node_info->num_blist; j++) {
+		bus_node->node_info->black_connections[j] =
+			bus_find_device(&msm_bus_type, NULL,
+				(void *)&bus_node->node_info->
+				black_listed_connections[j],
+				msm_bus_device_match_adhoc);
+
+		if (!bus_node->node_info->black_connections[j]) {
+			MSM_BUS_ERR("%s: Error finding conn %d for device %d\n",
+				__func__, bus_node->node_info->
+				black_listed_connections[j],
+				bus_node->node_info->id);
 			ret = -ENODEV;
 			goto exit_setup_dev_conn;
 		}
