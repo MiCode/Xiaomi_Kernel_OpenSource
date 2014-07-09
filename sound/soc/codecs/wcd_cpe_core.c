@@ -96,6 +96,7 @@ struct wcd_cpe_core * (*wcd_get_cpe_core) (struct snd_soc_codec *);
 static struct wcd_cmi_afe_port_data afe_ports[WCD_CPE_AFE_MAX_PORTS + 1];
 static void wcd_cpe_svc_event_cb(const struct cpe_svc_notification *param);
 static int wcd_cpe_setup_irqs(struct wcd_cpe_core *core);
+static void wcd_cpe_cleanup_irqs(struct wcd_cpe_core *core);
 
 /* wcd_cpe_lsm_session_active: check if any session is active
  * return true if any session is active.
@@ -595,6 +596,9 @@ static void wcd_cpe_clr_ready_status(struct wcd_cpe_core *core,
 {
 	WCD_CPE_GRAB_LOCK(&core->ssr_lock, "SSR");
 	core->ready_status &= ~(value);
+	dev_dbg(core->dev,
+		"%s: ready_status = 0x%x\n",
+		__func__, core->ready_status);
 	WCD_CPE_REL_LOCK(&core->ssr_lock, "SSR");
 }
 
@@ -611,10 +615,11 @@ static void wcd_cpe_set_and_complete(struct wcd_cpe_core *core,
 {
 	WCD_CPE_GRAB_LOCK(&core->ssr_lock, "SSR");
 	core->ready_status |= value;
-	if (core->ready_status & WCD_CPE_READY_TO_DLOAD) {
+	if ((core->ready_status & WCD_CPE_READY_TO_DLOAD) ==
+	    WCD_CPE_READY_TO_DLOAD) {
 		dev_dbg(core->dev,
-			"%s: marking ready completion\n",
-			__func__);
+			"%s: marking ready, status = 0x%x\n",
+			__func__, core->ready_status);
 		complete(&core->ready_compl);
 	}
 	WCD_CPE_REL_LOCK(&core->ssr_lock, "SSR");
@@ -748,6 +753,8 @@ int wcd_cpe_ssr_event(void *core_handle,
 		break;
 
 	case WCD_CPE_BUS_UP_EVENT:
+		wcd_cpe_cleanup_irqs(core);
+		wcd_cpe_setup_irqs(core);
 		wcd_cpe_set_and_complete(core, WCD_CPE_BUS_READY);
 		/*
 		 * In case of bus up event ssr_type will be changed
@@ -971,6 +978,30 @@ static void wcd_cpe_svc_event_cb(const struct cpe_svc_notification *param)
 	}
 
 	return;
+}
+
+/*
+ * wcd_cpe_cleanup_irqs: free the irq resources required by cpe
+ * @core: handle the cpe core
+ *
+ * This API will free the IRQs for CPE but does not mask the
+ * CPE interrupts. If masking is needed, it has to be done
+ * explicity by caller.
+ */
+static void wcd_cpe_cleanup_irqs(struct wcd_cpe_core *core)
+{
+
+	struct snd_soc_codec *codec = core->codec;
+	struct wcd9xxx *wcd9xxx = codec->control_data;
+	struct wcd9xxx_core_resource *core_res = &wcd9xxx->core_res;
+
+	wcd9xxx_free_irq(core_res,
+			 WCD9330_IRQ_SVASS_ENGINE,
+			 core);
+	wcd9xxx_free_irq(core_res,
+			 WCD9330_IRQ_SVASS_ERR_EXCEPTION,
+			 core);
+
 }
 
 /*
