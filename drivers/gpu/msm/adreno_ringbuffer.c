@@ -710,7 +710,8 @@ adreno_ringbuffer_addcmds(struct adreno_ringbuffer *rb,
 	bool profile_ready;
 	struct adreno_context *drawctxt = rb->drawctxt_active;
 
-	if (drawctxt != NULL && kgsl_context_detached(&drawctxt->base))
+	if (drawctxt != NULL && kgsl_context_detached(&drawctxt->base) &&
+		!(flags & KGSL_CMD_FLAGS_INTERNAL_ISSUE))
 		return -EINVAL;
 
 	rb->timestamp++;
