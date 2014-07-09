@@ -717,6 +717,8 @@ struct dwc3_scratchpad_array {
 #define DWC3_CORE_PM_RESUME_EVENT			6
 #define DWC3_CONTROLLER_POST_INITIALIZATION_EVENT	7
 #define DWC3_CONTROLLER_CONNDONE_EVENT			8
+
+#define MAX_INTR_STATS				10
 /**
  * struct dwc3 - representation of our controller
  * @ctrl_req: usb control request which is used for ep0
@@ -773,6 +775,11 @@ struct dwc3_scratchpad_array {
  * @usb3_u1u2_disable: if true, disable U1U2 low power modes in Superspeed mode.
  * @hird_thresh: value to configure in DCTL[HIRD_Thresh]
  * @in_lpm: if 1, indicates that the controller is in low power mode (no clocks)
+ * @irq: irq number
+ * @bh: tasklet which handles the interrupt
+ * @bh_completion_time: time taken for taklet completion
+ * @bh_handled_evt_cnt: no. of events handled by tasklet per interrupt
+ * @bh_dbg_index: index for capturing bh_completion_time and bh_handled_evt_cnt
  */
 struct dwc3 {
 	struct usb_ctrlrequest	*ctrl_req;
@@ -886,6 +893,13 @@ struct dwc3 {
 	u8			hird_thresh;
 	atomic_t		in_lpm;
 	struct dwc3_gadget_events	dbg_gadget_events;
+
+	/* offload IRQ handling to tasklet */
+	int			irq;
+	struct tasklet_struct	bh;
+	unsigned                bh_completion_time[MAX_INTR_STATS];
+	unsigned                bh_handled_evt_cnt[MAX_INTR_STATS];
+	unsigned                bh_dbg_index;
 };
 
 /* -------------------------------------------------------------------------- */

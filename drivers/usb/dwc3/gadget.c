@@ -2118,8 +2118,8 @@ static int dwc3_gadget_start(struct usb_gadget *g,
 
 	pm_runtime_get_sync(dwc->dev);
 	irq = platform_get_irq(to_platform_device(dwc->dev), 0);
-	ret = request_threaded_irq(irq, dwc3_interrupt, dwc3_thread_interrupt,
-			IRQF_SHARED | IRQF_ONESHOT, "dwc3", dwc);
+	dwc->irq = irq;
+	ret = request_irq(irq, dwc3_interrupt, IRQF_SHARED, "dwc3", dwc);
 	if (ret) {
 		dev_err(dwc->dev, "failed to request irq #%d --> %d\n",
 				irq, ret);
@@ -2172,9 +2172,12 @@ static int dwc3_gadget_stop(struct usb_gadget *g,
 	unsigned long		flags;
 	int			irq;
 
+	dwc3_gadget_disable_irq(dwc);
+
+	tasklet_kill(&dwc->bh);
+
 	spin_lock_irqsave(&dwc->lock, flags);
 
-	dwc3_gadget_disable_irq(dwc);
 	__dwc3_gadget_ep_disable(dwc->eps[0]);
 	__dwc3_gadget_ep_disable(dwc->eps[1]);
 
@@ -3292,6 +3295,10 @@ static irqreturn_t dwc3_thread_interrupt(int irq, void *_dwc)
 	unsigned long flags;
 	irqreturn_t ret = IRQ_NONE;
 	int i;
+	unsigned temp_cnt = 0, temp_time;
+	ktime_t start_time;
+
+	start_time = ktime_get();
 
 	spin_lock_irqsave(&dwc->lock, flags);
 
@@ -3301,6 +3308,7 @@ static irqreturn_t dwc3_thread_interrupt(int irq, void *_dwc)
 
 		evt = dwc->ev_buffs[i];
 		left = evt->count;
+		temp_cnt = temp_cnt + evt->count;
 
 		if (!(evt->flags & DWC3_EVENT_PENDING))
 			continue;
@@ -3334,6 +3342,12 @@ static irqreturn_t dwc3_thread_interrupt(int irq, void *_dwc)
 
 	spin_unlock_irqrestore(&dwc->lock, flags);
 
+	temp_time = ktime_to_us(ktime_sub(ktime_get(), start_time));
+	temp_cnt = temp_cnt / 4;
+	dwc->bh_handled_evt_cnt[dwc->bh_dbg_index] = temp_cnt;
+	dwc->bh_completion_time[dwc->bh_dbg_index] = temp_time;
+	dwc->bh_dbg_index = (dwc->bh_dbg_index + 1) % 10;
+
 	pm_runtime_put(dwc->dev);
 	return ret;
 }
@@ -3356,6 +3370,15 @@ static irqreturn_t dwc3_process_event_buf(struct dwc3 *dwc, u32 buf)
 	return IRQ_WAKE_THREAD;
 }
 
+static void dwc3_interrupt_bh(unsigned long param)
+{
+	struct dwc3 *dwc = (struct dwc3 *) param;
+
+	pm_runtime_get(dwc->dev);
+	dwc3_thread_interrupt(dwc->irq, dwc);
+	enable_irq(dwc->irq);
+}
+
 static irqreturn_t dwc3_interrupt(int irq, void *_dwc)
 {
 	struct dwc3			*dwc = _dwc;
@@ -3374,10 +3397,11 @@ static irqreturn_t dwc3_interrupt(int irq, void *_dwc)
 
 	spin_unlock(&dwc->lock);
 
-	if (ret == IRQ_WAKE_THREAD)
-		pm_runtime_get(dwc->dev);
-
-	return ret;
+	if (ret == IRQ_WAKE_THREAD) {
+		disable_irq_nosync(irq);
+		tasklet_schedule(&dwc->bh);
+	}
+	return IRQ_HANDLED;
 }
 
 /**
@@ -3432,6 +3456,9 @@ int dwc3_gadget_init(struct dwc3 *dwc)
 		ret = -ENOMEM;
 		goto err3;
 	}
+
+	dwc->bh.func = dwc3_interrupt_bh;
+	dwc->bh.data = (unsigned long)dwc;
 
 	dwc->gadget.ops			= &dwc3_gadget_ops;
 	if (dwc->maximum_speed == USB_SPEED_SUPER)
