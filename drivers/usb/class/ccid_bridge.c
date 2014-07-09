@@ -543,6 +543,14 @@ static int ccid_bridge_release(struct inode *ip, struct file *fp)
 
 	pr_debug("called");
 
+	mutex_lock(&ccid->open_mutex);
+	if (ccid->intf == NULL) {
+		ccid->opened = false;
+		mutex_unlock(&ccid->open_mutex);
+		goto done;
+	}
+	mutex_unlock(&ccid->open_mutex);
+
 	usb_kill_urb(ccid->writeurb);
 	usb_kill_urb(ccid->readurb);
 	if (ccid->int_pipe)
@@ -554,6 +562,7 @@ static int ccid_bridge_release(struct inode *ip, struct file *fp)
 	mutex_lock(&ccid->open_mutex);
 	ccid->opened = false;
 	mutex_unlock(&ccid->open_mutex);
+done:
 	return 0;
 }
 
