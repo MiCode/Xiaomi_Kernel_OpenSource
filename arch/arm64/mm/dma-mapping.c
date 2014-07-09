@@ -24,13 +24,16 @@
 #include <linux/dma-contiguous.h>
 #include <linux/vmalloc.h>
 #include <linux/swiotlb.h>
+#include <linux/sched.h>
 
 #include <asm/cacheflush.h>
+#include <asm/tlbflush.h>
 
 struct dma_map_ops *dma_ops;
 EXPORT_SYMBOL(dma_ops);
 
 #define DEFAULT_DMA_COHERENT_POOL_SIZE  SZ_256K
+#define NO_KERNEL_MAPPING_DUMMY 0x2222
 
 struct dma_pool {
 	size_t size;
@@ -128,6 +131,41 @@ static int __free_from_pool(void *start, size_t size)
 	return 1;
 }
 
+static int __dma_update_pte(pte_t *pte, pgtable_t token, unsigned long addr,
+			    void *data)
+{
+	struct page *page = virt_to_page(addr);
+	pgprot_t prot = *(pgprot_t *)data;
+
+	set_pte(pte, mk_pte(page, prot));
+	return 0;
+}
+
+static int __dma_clear_pte(pte_t *pte, pgtable_t token, unsigned long addr,
+			    void *data)
+{
+	pte_clear(&init_mm, addr, pte);
+	return 0;
+}
+
+static void __dma_remap(struct page *page, size_t size, pgprot_t prot,
+			bool no_kernel_map)
+{
+	unsigned long start = (unsigned long) page_address(page);
+	unsigned end = start + size;
+	int (*func)(pte_t *pte, pgtable_t token, unsigned long addr,
+			    void *data);
+
+	if (no_kernel_map)
+		func = __dma_clear_pte;
+	else
+		func = __dma_update_pte;
+
+	apply_to_page_range(&init_mm, start, size, func, &prot);
+	mb();
+	flush_tlb_kernel_range(start, end);
+}
+
 
 
 static void *arm64_swiotlb_alloc_coherent(struct device *dev, size_t size,
@@ -153,6 +191,8 @@ static void *arm64_swiotlb_alloc_coherent(struct device *dev, size_t size,
 		return addr;
 	} else if (IS_ENABLED(CONFIG_CMA)) {
 		unsigned long pfn;
+		struct page *page;
+		void *addr;
 
 		size = PAGE_ALIGN(size);
 		pfn = dma_alloc_from_contiguous(dev, size >> PAGE_SHIFT,
@@ -160,8 +200,19 @@ static void *arm64_swiotlb_alloc_coherent(struct device *dev, size_t size,
 		if (!pfn)
 			return NULL;
 
+		page = pfn_to_page(pfn);
+		addr = page_address(page);
+
+		if (dma_get_attr(DMA_ATTR_NO_KERNEL_MAPPING, attrs)) {
+			/*
+			 * flush the caches here because we can't do it later
+			 */
+			__dma_flush_range(addr, addr + size);
+			__dma_remap(page, size, 0, true);
+		}
+
 		*dma_handle = phys_to_dma(dev, __pfn_to_phys(pfn));
-		return page_address(pfn_to_page(pfn));
+		return addr;
 	} else {
 		return swiotlb_alloc_coherent(dev, size, dma_handle, flags);
 	}
@@ -182,6 +233,10 @@ static void arm64_swiotlb_free_coherent(struct device *dev, size_t size,
 		return;
 	} else if (IS_ENABLED(CONFIG_CMA)) {
 		phys_addr_t paddr = dma_to_phys(dev, dma_handle);
+
+		if (dma_get_attr(DMA_ATTR_NO_KERNEL_MAPPING, attrs))
+			__dma_remap(phys_to_page(paddr), size, PAGE_KERNEL,
+					false);
 
 		dma_release_from_contiguous(dev,
 					__phys_to_pfn(paddr),
@@ -221,21 +276,26 @@ static void *arm64_swiotlb_alloc_noncoherent(struct device *dev, size_t size,
 	if (!(flags & __GFP_WAIT))
 		return ptr;
 
-	map = kmalloc(sizeof(struct page *) << order, flags & ~GFP_DMA);
-	if (!map)
-		goto no_map;
+	if (dma_get_attr(DMA_ATTR_NO_KERNEL_MAPPING, attrs)) {
+		coherent_ptr = (void *)NO_KERNEL_MAPPING_DUMMY;
 
-	/* remove any dirty cache lines on the kernel alias */
-	__dma_flush_range(ptr, ptr + size);
+	} else {
+		/* remove any dirty cache lines on the kernel alias */
+		__dma_flush_range(ptr, ptr + size);
 
-	/* create a coherent mapping */
-	page = virt_to_page(ptr);
-	for (i = 0; i < (size >> PAGE_SHIFT); i++)
-		map[i] = page + i;
-	coherent_ptr = vmap(map, size >> PAGE_SHIFT, VM_MAP, prot);
-	kfree(map);
-	if (!coherent_ptr)
-		goto no_map;
+		map = kmalloc(sizeof(struct page *) << order, flags & ~GFP_DMA);
+		if (!map)
+			goto no_map;
+
+		/* create a coherent mapping */
+		page = virt_to_page(ptr);
+		for (i = 0; i < (size >> PAGE_SHIFT); i++)
+			map[i] = page + i;
+		coherent_ptr = vmap(map, size >> PAGE_SHIFT, VM_MAP, prot);
+		kfree(map);
+		if (!coherent_ptr)
+			goto no_map;
+	}
 
 	return coherent_ptr;
 
@@ -256,7 +316,8 @@ static void arm64_swiotlb_free_noncoherent(struct device *dev, size_t size,
 
 	if (__free_from_pool(vaddr, size))
 		return;
-	vunmap(vaddr);
+	if (!dma_get_attr(DMA_ATTR_NO_KERNEL_MAPPING, attrs))
+		vunmap(vaddr);
 	arm64_swiotlb_free_coherent(dev, size, swiotlb_addr, dma_handle, attrs);
 }
 
