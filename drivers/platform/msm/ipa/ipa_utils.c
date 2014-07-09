@@ -100,6 +100,12 @@ static const int ep_mapping[2][IPA_CLIENT_MAX] = {
 	[IPA_2_0][IPA_CLIENT_APPS_CMD_PROD]      =  3,
 	[IPA_2_0][IPA_CLIENT_Q6_LAN_PROD]        =  6,
 	[IPA_2_0][IPA_CLIENT_Q6_CMD_PROD]        =  7,
+	/* Only for test purpose */
+	[IPA_2_0][IPA_CLIENT_TEST_PROD]          = 19,
+	[IPA_2_0][IPA_CLIENT_TEST1_PROD]         = 19,
+	[IPA_2_0][IPA_CLIENT_TEST2_PROD]         = 12,
+	[IPA_2_0][IPA_CLIENT_TEST3_PROD]         = 13,
+	[IPA_2_0][IPA_CLIENT_TEST4_PROD]         =  0,
 
 	[IPA_2_0][IPA_CLIENT_HSIC1_CONS]         = -1,
 	[IPA_2_0][IPA_CLIENT_WLAN1_CONS]         = 14,
@@ -122,6 +128,12 @@ static const int ep_mapping[2][IPA_CLIENT_MAX] = {
 	[IPA_2_0][IPA_CLIENT_Q6_LAN_CONS]        =  8,
 	[IPA_2_0][IPA_CLIENT_Q6_WAN_CONS]        =  9,
 	[IPA_2_0][IPA_CLIENT_Q6_DUN_CONS]        = 10,
+	/* Only for test purpose */
+	[IPA_2_0][IPA_CLIENT_TEST_CONS]          = 14,
+	[IPA_2_0][IPA_CLIENT_TEST1_CONS]         = 14,
+	[IPA_2_0][IPA_CLIENT_TEST2_CONS]         = 16,
+	[IPA_2_0][IPA_CLIENT_TEST3_CONS]         = 17,
+	[IPA_2_0][IPA_CLIENT_TEST4_CONS]         = 18,
 };
 
 static struct msm_bus_vectors ipa_init_vectors_v1_1[]  = {
