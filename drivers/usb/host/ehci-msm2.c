@@ -296,16 +296,9 @@ static int msm_ehci_config_vddcx(struct msm_hcd *mhcd, int high)
 static void msm_ehci_vbus_power(struct msm_hcd *mhcd, bool on)
 {
 	int ret;
-	const struct msm_usb_host_platform_data *pdata;
 
-	pdata = mhcd->dev->platform_data;
-	if (pdata && pdata->is_uicc)
+	if (!mhcd->vbus)
 		return;
-
-	if (!mhcd->vbus) {
-		pr_err("vbus is NULL.");
-		return;
-	}
 
 	if (mhcd->vbus_on == on)
 		return;
@@ -354,13 +347,8 @@ static int msm_ehci_init_vbus(struct msm_hcd *mhcd, int init)
 	int rc = 0;
 	struct usb_hcd *hcd = mhcd_to_hcd(mhcd);
 	const struct msm_usb_host_platform_data *pdata;
-	int ret = 0;
 
 	pdata = mhcd->dev->platform_data;
-
-	/* For uicc card connection, external vbus is not required */
-	if (pdata && pdata->is_uicc)
-		return 0;
 
 	if (!init) {
 		if (pdata && pdata->dock_connect_irq)
@@ -369,13 +357,12 @@ static int msm_ehci_init_vbus(struct msm_hcd *mhcd, int init)
 	}
 
 	mhcd->vbus = devm_regulator_get(mhcd->dev, "vbus");
-	ret = PTR_ERR(mhcd->vbus);
-	if (ret == -EPROBE_DEFER) {
-		pr_debug("failed to get vbus handle, defer probe\n");
-		return ret;
-	} else if (IS_ERR(mhcd->vbus)) {
-		pr_err("Unable to get vbus\n");
-		return -ENODEV;
+	if (PTR_ERR(mhcd->vbus) == -EPROBE_DEFER) {
+		dev_dbg(mhcd->dev, "failed to get vbus handle, defer probe\n");
+		return -EPROBE_DEFER;
+	} else {
+		dev_dbg(mhcd->dev, "vbus-supply not specified\n");
+		mhcd->vbus = NULL;
 	}
 
 	if (pdata) {
@@ -1521,10 +1508,8 @@ static int ehci_msm2_probe(struct platform_device *pdev)
 	}
 
 	ret = msm_ehci_init_vbus(mhcd, 1);
-	if (ret) {
-		dev_err(&pdev->dev, "unable to get vbus\n");
+	if (ret)
 		goto disable_ldo;
-	}
 
 	hcd->phy = devm_usb_get_phy_by_phandle(&pdev->dev, "usb-phy", 0);
 	if (IS_ERR(hcd->phy)) {
