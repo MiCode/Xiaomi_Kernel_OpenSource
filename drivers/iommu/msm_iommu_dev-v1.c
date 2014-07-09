@@ -197,7 +197,7 @@ static int msm_iommu_parse_dt(struct platform_device *pdev,
 	if (ret)
 		goto fail;
 
-	for_each_child_of_node(pdev->dev.of_node, child)
+	for_each_available_child_of_node(pdev->dev.of_node, child)
 		drvdata->ncb++;
 
 	drvdata->asid = devm_kzalloc(&pdev->dev, drvdata->ncb * sizeof(int),
