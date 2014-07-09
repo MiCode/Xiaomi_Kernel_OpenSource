@@ -50,6 +50,21 @@ static bool chk_bl_list(struct list_head *black_list, unsigned int id)
 	return false;
 }
 
+static void copy_remaining_nodes(struct list_head *edge_list, struct list_head
+	*traverse_list, struct list_head *route_list)
+{
+	struct bus_search_type *search_node;
+
+	if (list_empty(edge_list) && list_empty(traverse_list))
+		return;
+
+	search_node = kzalloc(sizeof(struct bus_search_type), GFP_KERNEL);
+	INIT_LIST_HEAD(&search_node->node_list);
+	list_splice_init(edge_list, traverse_list);
+	list_splice_init(traverse_list, &search_node->node_list);
+	list_add_tail(&search_node->link, route_list);
+}
+
 /*
  * Duplicate instantiaion from msm_bus_arb.c. Todo there needs to be a
  * "util" file for these common func/macros.
@@ -198,7 +213,7 @@ exit_remove_lnode:
 static int prune_path(struct list_head *route_list, int dest, int src,
 				struct list_head *black_list, int found)
 {
-	struct bus_search_type *search_node;
+	struct bus_search_type *search_node, *temp_search_node;
 	struct msm_bus_node_device_type *bus_node;
 	struct list_head *bl_list;
 	struct list_head *temp_bl_list;
@@ -217,6 +232,7 @@ static int prune_path(struct list_head *route_list, int dest, int src,
 	}
 
 	lnode_hop = gen_lnode(dest_dev, search_dev_id, lnode_hop);
+
 	list_for_each_entry_reverse(search_node, route_list, link) {
 		list_for_each_entry(bus_node, &search_node->node_list, link) {
 			unsigned int i;
@@ -248,30 +264,33 @@ static int prune_path(struct list_head *route_list, int dest, int src,
 		}
 	}
 reset_links:
-	list_for_each_entry_reverse(search_node, route_list, link) {
-		list_for_each_entry(bus_node, &search_node->node_list, link) {
-			bus_node->node_info->is_traversed = false;
-			if (search_node->link.next != route_list) {
-				struct bus_search_type *del_node;
-				struct list_head *del_link;
+	list_for_each_entry_safe(search_node, temp_search_node, route_list,
+									link) {
+			list_for_each_entry(bus_node, &search_node->node_list,
+									link)
+				bus_node->node_info->is_traversed = false;
 
-				del_link = search_node->link.next;
-				del_node = list_entry(del_link,
-						struct bus_search_type, link);
-				list_del(del_link);
-				kfree(del_node);
-			}
-		}
+			list_del(&search_node->link);
+			kfree(search_node);
 	}
-	search_node = list_entry(route_list->next,
-				struct bus_search_type , link);
-	kfree(search_node);
 
 	list_for_each_safe(bl_list, temp_bl_list, black_list)
 		list_del(bl_list);
 
 exit_prune_path:
 	return lnode_hop;
+}
+
+static void setup_bl_list(struct msm_bus_node_device_type *node,
+				struct list_head *black_list)
+{
+	unsigned int i;
+
+	for (i = 0; i < node->node_info->num_blist; i++) {
+		struct msm_bus_node_device_type *bdev;
+		bdev = node->node_info->black_connections[i]->platform_data;
+		list_add_tail(&bdev->link, black_list);
+	}
 }
 
 static int getpath(int src, int dest)
@@ -304,7 +323,6 @@ static int getpath(int src, int dest)
 		MSM_BUS_ERR("%s:Fatal, Source dev %d not found", __func__, src);
 		goto exit_getpath;
 	}
-
 	list_add_tail(&src_node->link, &traverse_list);
 
 	while ((!found && !list_empty(&traverse_list))) {
@@ -312,26 +330,18 @@ static int getpath(int src, int dest)
 		/* Locate dest_id in the traverse list */
 		list_for_each_entry(bus_node, &traverse_list, link) {
 			if (bus_node->node_info->id == dest) {
-				MSM_BUS_DBG("%s: Dest found", __func__);
 				found = 1;
 				break;
 			}
 		}
 
 		if (!found) {
+			unsigned int i;
 			/* Setup the new edge list */
 			list_for_each_entry(bus_node, &traverse_list, link) {
-				unsigned int i;
-				for (i = 0; i < bus_node->node_info->
-						num_blist; i++) {
-					struct msm_bus_node_device_type
-							*blist;
-					blist = bus_node->node_info->
-						black_connections[i]->
-						platform_data;
-					list_add_tail(&blist->link,
-						&black_list);
-				}
+				/* Setup list of black-listed nodes */
+				setup_bl_list(bus_node, &black_list);
+
 				for (i = 0; i < bus_node->node_info->
 						num_connections; i++) {
 					bool skip;
@@ -342,10 +352,9 @@ static int getpath(int src, int dest)
 						platform_data;
 					if (node_conn->node_info->
 							is_traversed) {
-						MSM_BUS_ERR("%s:Circ node %d\n",
-							__func__, node_conn->
-							node_info->id);
-						goto reset_traversal;
+						MSM_BUS_ERR("Circ Path %d\n",
+						node_conn->node_info->id);
+						goto reset_traversed;
 					}
 					skip = chk_bl_list(&black_list,
 							bus_node->node_info->
@@ -353,7 +362,7 @@ static int getpath(int src, int dest)
 					if (!skip) {
 						list_add_tail(&node_conn->link,
 							&edge_list);
-						bus_node->node_info->
+						node_conn->node_info->
 							is_traversed = true;
 					}
 				}
@@ -361,10 +370,10 @@ static int getpath(int src, int dest)
 
 			/* Keep tabs of the previous search list */
 			search_node = kzalloc(sizeof(struct bus_search_type),
-								GFP_KERNEL);
+					 GFP_KERNEL);
 			INIT_LIST_HEAD(&search_node->node_list);
 			list_splice_init(&traverse_list,
-						&search_node->node_list);
+					 &search_node->node_list);
 			/* Add the previous search list to a route list */
 			list_add_tail(&search_node->link, &route_list);
 			/* Advancing the list depth */
@@ -372,7 +381,8 @@ static int getpath(int src, int dest)
 			list_splice_init(&edge_list, &traverse_list);
 		}
 	}
-reset_traversal:
+reset_traversed:
+	copy_remaining_nodes(&edge_list, &traverse_list, &route_list);
 	first_hop = prune_path(&route_list, dest, src, &black_list, found);
 
 exit_getpath:
