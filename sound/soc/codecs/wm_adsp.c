@@ -665,9 +665,14 @@ static int wm_coeff_get(struct snd_kcontrol *kcontrol,
 			struct snd_ctl_elem_value *ucontrol)
 {
 	struct wm_coeff_ctl *ctl = (struct wm_coeff_ctl *)kcontrol->private_value;
+	struct wm_adsp *adsp = ctl->adsp;
 	char *p = ucontrol->value.bytes.data;
 
 	mutex_lock(&ctl->lock);
+
+	if (adsp->running)
+		wm_coeff_read_control(kcontrol, ctl->cache, ctl->len);
+
 	memcpy(p, ctl->cache, ctl->len);
 	mutex_unlock(&ctl->lock);
 	return 0;
