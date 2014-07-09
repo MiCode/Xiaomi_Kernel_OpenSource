@@ -20,8 +20,7 @@
 #include <linux/types.h>
 #include <asm-generic/dma-contiguous.h>
 
-static inline void
-dma_contiguous_early_fixup(phys_addr_t base, unsigned long size) { }
+void dma_contiguous_early_fixup(phys_addr_t base, unsigned long size);
 static inline void __init dma_contiguous_early_removal_fixup(void) { }
 
 #endif
