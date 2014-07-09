@@ -210,6 +210,7 @@ enum hal_property {
 	HAL_PARAM_VPE_COLOR_SPACE_CONVERSION,
 	HAL_PARAM_VENC_VPX_ERROR_RESILIENCE_MODE,
 	HAL_PARAM_VENC_H264_NAL_SVC_EXT,
+	HAL_CONFIG_VENC_PERF_MODE,
 };
 
 enum hal_domain {
@@ -1026,6 +1027,10 @@ struct hal_ltr_use {
 
 struct hal_ltr_mark {
 	u32 mark_frame;
+};
+
+struct hal_venc_perf_mode {
+	u32 mode;
 };
 
 struct hfi_scs_threshold {
