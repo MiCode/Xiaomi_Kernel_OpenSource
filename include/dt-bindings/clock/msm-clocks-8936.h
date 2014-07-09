@@ -100,6 +100,8 @@
 #define clk_gcc_smmu_cfg_clk			0x75eaefa5
 #define clk_gcc_venus_tbu_clk			0x7e0b97ce
 #define clk_gcc_vfe_tbu_clk			0x061f2f95
+#define clk_gcc_cpp_tbu_clk			0xab6f19ab
+#define clk_gcc_mdp_rt_tbu_clk			0x51e8fc68
 #define clk_gcc_blsp1_qup1_i2c_apps_clk		0xc303fae9
 #define clk_gcc_blsp1_qup1_spi_apps_clk		0x759a76b0
 #define clk_gcc_blsp1_qup2_i2c_apps_clk		0x1076f220
