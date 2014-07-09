@@ -1,0 +1,154 @@
+QTI MSM Clock controller
+
+QTI MSM Clock controller devices contain subnodes describing PLLs, root
+clock generators and other clock hardware blocks that provide stable, low
+power clock signals to a QTI SOC.
+
+Required Properties:
+- compatible:		Must be "qcom,msm-clock-controller"
+- reg:			Pairs of physical base addresses and region sizes of
+			memory mapped registers.
+- reg-names:		"cc-base" is expected.
+
+Optional Properties:
+- <regulator_name>-supply:
+			A regulator phandle. Multiple such properties may exist.
+
+- qcom,regulator-names: A list of regulator_name for iterating through all
+			<regulator_name>-supply properties.
+
+Example:
+
+clock-gcc: gcc-cc {
+	compatible = "qcom,msm-clock-controller";
+	reg = <0xfc400000 0x4000>;
+	reg-names = "cc-base";
+	#clock-cells = <1>;
+
+	gcc-vdd-dig-supply = <&pma8084_s2_corner>;
+	qcom,regulator-names = "gcc-vdd-dig";
+
+	GCC-vdd-dig: gcc-vdd-dig {
+		compatible = "qcom,simple-vdd-class";
+		qcom,regulators = <&pma8084_s2_corner>;
+		qcom,levels =
+				<RPM_REGULATOR_CORNER_NONE>,
+				<RPM_REGULATOR_CORNER_SVS_SOC>,
+				<RPM_REGULATOR_CORNER_NOMINAL>,
+				<RPM_REGULATOR_CORNER_SUPER_TURBO>;
+	};
+
+	xo: xo {
+		compatible = "qcom,rpm-clk";
+		qcom,res-type = "clk0";
+		qcom,res-id = <0>;
+		qcom,key = "Enable";
+		qcom,rpm-peer = <&xo_a_clk_src>;
+		qcom,rate = <19200000>;
+	};
+
+	xo_a_clk_src: xo_a_clk_src {
+		compatible = "qcom,rpm-a-clk";
+		qcom,res-type = "clk0";
+		qcom,res-id = <0>;
+		qcom,key = "Enable";
+		qcom,rpm-peer = <&xo>;
+		qcom,rate = <19200000>;
+	};
+
+	gpll0: gpll0 {
+		compatible = "qcom,alpha-pll-20p";
+		qcom,base-offset = <GCC_APCS_GPLL_ENA_VOTE>;
+		qcom,config-rate = <600000000>;
+	};
+
+	usb30_master_clk_src {
+		qcom,freq-tbl =
+			<  19200000    1    0    0    0  &xo>,
+			< 125000000    1    0    5    24 &gpll0>;
+	};
+
+	usb30_master_clk_src: usb30_master_clk_src {
+		compatible = "qcom,rcg-mn";
+		qcom,base-offset = <GCC_USB30_MASTER_CMD_RCGR>;
+		qcom,parents =
+			<    0 &xo>,
+			<    1 &gpll0>;
+
+		qcom,supply-group = <&GCC_vdd_dig>;
+		qcom,clk-fmax =
+			<FMAX_LOW 100000000>,
+			<FMAX_NOM 125000000>,
+			<FMAX_TURBO 125000000>;
+	};
+};
+
+*****************************************************************************
+"qcom,simple-vdd-class"
+
+On QTI MSMs, voting for device frequency/voltage requirements is done by
+the clock driver. This subnode describes a set of regulator configurations.
+
+Required Properties:
+- compatible		Must be "qcom,simple-vdd-class"
+
+- qcom,regulators:	List of regulator_phandle.
+			The regulators for which these perfomance levels will be
+			applied to. The regulators must have corresponding
+			<regulator_name>-supply and qcom,regulator-names
+			properties in the parent qcom,msm-clock-controller node.
+
+- qcom,uV-levels:	2d array of voltage(uV) values.
+
+Optional Properties:
+- qcom,uA-levels:	2d array of current(uA) values.
+			If this property is present, it must have the same length
+			as the qcom,uV-levels array.
+
+GCC-vdd-dig: gcc-vdd-dig {
+	compatible = "qcom,simple-vdd-class";
+	qcom,regulators = <&pma8084_s2_corner &pma8082_s3>;
+	qcom,uV-levels =
+		/*pma 8084_s2_corner*/		/*pma8082_s3*/
+		<LOWEST_VOLTAGE_LEVEL		LOW>,
+		<MED_VOLTAGE_LEVEL		MED>,
+		<HIGH_VOLTAGE_LEVEL		HIGH>;
+	qcom,uA-levels =
+		<LOWEST_CURRENT_LEVEL		LOW>,
+		<MED_CURRENT_LEVEL		MED>,
+		<HIGH_CURRENT_LEVEL		HIGH>;
+};
+
+*****************************************************************************
+General Optional Properties available to any Clock Subnode
+
+- qcom,clk-flags:	Refer to include/linux/clk/msm-clock.h
+
+- qcom,parent:		Phandle.
+			This property is used by clocks with a single parent.
+			Clocks with multiple parents may not use this property.
+
+- qcom,supply-group:	Phandle.
+			Reference to a vdd_class subnode.
+
+- qcom,clk-fmax:	List of <vdd_class_performance_level  maximum_frequency>.
+			If this property is defined, qcom,supply-group must
+			also be defined and vice-versa.
+			When a clock changes frequency, the MSM clock framework
+			will look through this table to find the minimum supply
+			group level required.
+
+- qcom,depends:		Phandle.
+			Some clocks may require other clocks other than their parent
+			clocks to be turned on to operate properly.
+
+mmssnoc_axi: mmssnoc_axi {
+	qcom,clk-flags = <0x1000>;
+	qcom,parent = <&xo>;
+	qcom,supply-group = <&MMSS_vdd_dig>;
+	qcom,clk-fmax =
+		<FMAX_LOW 150000000>,
+		<FMAX_NOM 333430000>,
+		<FMAX_TURBO 400000000>;
+	qcom,depends = <&mmss_mmssnoc_axi_clk>;
+};
