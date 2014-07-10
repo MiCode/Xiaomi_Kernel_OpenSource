@@ -584,7 +584,7 @@ static int mmc3416x_set_poll_delay(struct sensors_classdev *sensors_cdev,
 	if (memsic->poll_interval != delay_msec)
 		memsic->poll_interval = delay_msec;
 
-	if (memsic->auto_report)
+	if (memsic->auto_report && memsic->enable)
 		mod_delayed_work(system_wq, &memsic->dwork,
 				msecs_to_jiffies(delay_msec));
 	mutex_unlock(&memsic->ops_lock);
@@ -719,6 +719,7 @@ static int mmc3416x_suspend(struct device *dev)
 	struct mmc3416x_data *memsic = dev_get_drvdata(dev);
 
 	dev_dbg(dev, "suspended\n");
+	mutex_lock(&memsic->ops_lock);
 
 	if (memsic->enable) {
 		if (memsic->auto_report)
@@ -731,6 +732,7 @@ static int mmc3416x_suspend(struct device *dev)
 		}
 	}
 exit:
+	mutex_unlock(&memsic->ops_lock);
 	return res;
 }
 
