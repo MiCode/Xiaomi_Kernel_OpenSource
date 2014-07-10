@@ -32,6 +32,21 @@
 			vcc_i2c-supply = <&pm8916_l6>;
 		};
 	};
+
+	sound {
+		qcom,model = "msm8x16-skuhf-snd-card";
+		qcom,msm-hs-micbias-type = "internal";
+		qcom,audio-routing =
+			"RX_BIAS", "MCLK",
+			"SPK_RX_BIAS", "MCLK",
+			"INT_LDO_H", "MCLK",
+			"MIC BIAS Internal1", "Handset Mic",
+			"MIC BIAS Internal2", "Headset Mic",
+			"MIC BIAS Internal1", "Secondary Mic",
+			"AMIC1", "MIC BIAS Internal1",
+			"AMIC2", "MIC BIAS Internal2",
+			"AMIC3", "MIC BIAS Internal1";
+	};
 };
 
 #include "dsi-panel-otm1283a-720p-video.dtsi"
