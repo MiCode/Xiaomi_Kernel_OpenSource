@@ -1694,7 +1694,6 @@ int dsi_panel_device_register(struct device_node *pan_node,
 		mdss_dsi_clk_ctrl(ctrl_pdata, DSI_ALL_CLKS, 1);
 		ctrl_pdata->ctrl_state |=
 			(CTRL_STATE_PANEL_INIT | CTRL_STATE_MDP_ACTIVE);
-		ctrl_pdata->ctrl_rev = MIPI_INP(ctrl_pdata->ctrl_base);
 	} else {
 		pinfo->panel_power_on = 0;
 	}

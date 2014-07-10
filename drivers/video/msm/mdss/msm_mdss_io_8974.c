@@ -26,6 +26,297 @@
 
 static struct dsi_clk_desc dsi_pclk;
 
+void mdss_dsi_phy_sw_reset(unsigned char *ctrl_base)
+{
+	/* start phy sw reset */
+	MIPI_OUTP(ctrl_base + 0x12c, 0x0001);
+	udelay(1000);
+	wmb();
+	/* end phy sw reset */
+	MIPI_OUTP(ctrl_base + 0x12c, 0x0000);
+	udelay(100);
+	wmb();
+}
+
+void mdss_dsi_phy_disable(struct mdss_dsi_ctrl_pdata *ctrl)
+{
+	struct mdss_dsi_ctrl_pdata *ctrl0 = NULL;
+
+	if (ctrl == NULL) {
+		pr_err("%s: Invalid input data\n", __func__);
+		return;
+	}
+
+	/*
+	 * In dual-dsi configuration, the phy should be disabled for the
+	 * first controller only when the second controller is disabled.
+	 * This is true regardless of whether broadcast mode is enabled
+	 * or not.
+	 */
+	if ((ctrl->ndx == DSI_CTRL_0) &&
+		mdss_dsi_get_ctrl_by_index(DSI_CTRL_1)) {
+		pr_debug("%s: Dual dsi detected. skipping config for ctrl%d\n",
+			__func__, ctrl->ndx);
+		return;
+	}
+
+	if (ctrl->ndx == DSI_CTRL_1) {
+		ctrl0 = mdss_dsi_get_ctrl_by_index(DSI_CTRL_0);
+		if (ctrl0) {
+			MIPI_OUTP(ctrl0->phy_io.base + 0x0170, 0x000);
+			MIPI_OUTP(ctrl0->phy_io.base + 0x0298, 0x000);
+		} else {
+			pr_warn("%s: Unable to get control%d\n",
+				__func__, DSI_CTRL_0);
+		}
+	}
+
+	MIPI_OUTP(ctrl->phy_io.base + 0x0170, 0x000);
+	MIPI_OUTP(ctrl->phy_io.base + 0x0298, 0x000);
+
+	/*
+	 * Wait for the registers writes to complete in order to
+	 * ensure that the phy is completely disabled
+	 */
+	wmb();
+}
+
+static void mdss_dsi_phy_init(struct mdss_panel_data *pdata)
+{
+	struct mdss_dsi_phy_ctrl *pd;
+	int i, off, ln, offset;
+	struct mdss_dsi_ctrl_pdata *ctrl_pdata = NULL, *temp_ctrl = NULL;
+	u32 ctrl_rev;
+
+	ctrl_pdata = container_of(pdata, struct mdss_dsi_ctrl_pdata,
+				panel_data);
+	if (!ctrl_pdata) {
+		pr_err("%s: Invalid input data\n", __func__);
+		return;
+	}
+	temp_ctrl = ctrl_pdata;
+
+	pd = &(((ctrl_pdata->panel_data).panel_info.mipi).dsi_phy_db);
+
+	/* Strength ctrl 0 */
+	MIPI_OUTP((ctrl_pdata->phy_io.base) + 0x0184, pd->strength[0]);
+
+	/*
+	 * Phy regulator ctrl settings.
+	 * In dual dsi configuration, the second controller also uses
+	 * the regulators of the first controller, irrespective of whether
+	 * broadcast mode is enabled or not.
+	 */
+	if (ctrl_pdata->ndx == DSI_CTRL_1) {
+		temp_ctrl = mdss_dsi_get_ctrl_by_index(DSI_CTRL_0);
+		if (!temp_ctrl) {
+			pr_err("%s: Unable to get master ctrl\n", __func__);
+			return;
+		}
+	}
+
+	/* Regulator ctrl 0 */
+	MIPI_OUTP((temp_ctrl->phy_io.base) + 0x280, 0x0);
+	/* Regulator ctrl - CAL_PWR_CFG */
+	MIPI_OUTP((temp_ctrl->phy_io.base) + 0x298, pd->regulator[6]);
+
+	/* Regulator ctrl - TEST */
+	MIPI_OUTP((temp_ctrl->phy_io.base) + 0x294, pd->regulator[5]);
+	/* Regulator ctrl 3 */
+	MIPI_OUTP((temp_ctrl->phy_io.base) + 0x28c, pd->regulator[3]);
+	/* Regulator ctrl 2 */
+	MIPI_OUTP((temp_ctrl->phy_io.base) + 0x288, pd->regulator[2]);
+	/* Regulator ctrl 1 */
+	MIPI_OUTP((temp_ctrl->phy_io.base) + 0x284, pd->regulator[1]);
+	/* Regulator ctrl 0 */
+	MIPI_OUTP((temp_ctrl->phy_io.base) + 0x280, pd->regulator[0]);
+	/* Regulator ctrl 4 */
+	MIPI_OUTP((temp_ctrl->phy_io.base) + 0x290, pd->regulator[4]);
+
+	/* LDO ctrl */
+	if (pd->reg_ldo_mode)
+		MIPI_OUTP((ctrl_pdata->phy_io.base) + 0x1dc, 0x25);
+	else
+		MIPI_OUTP((ctrl_pdata->phy_io.base) + 0x1dc, 0x00);
+
+	off = 0x0140;	/* phy timing ctrl 0 - 11 */
+	for (i = 0; i < 12; i++) {
+		MIPI_OUTP((ctrl_pdata->phy_io.base) + off, pd->timing[i]);
+		wmb();
+		off += 4;
+	}
+
+	/* MMSS_DSI_0_PHY_DSIPHY_CTRL_1 */
+	MIPI_OUTP((ctrl_pdata->phy_io.base) + 0x0174, 0x00);
+	/* MMSS_DSI_0_PHY_DSIPHY_CTRL_0 */
+	MIPI_OUTP((ctrl_pdata->phy_io.base) + 0x0170, 0x5f);
+	wmb();
+
+	/* Strength ctrl 1 */
+	MIPI_OUTP((ctrl_pdata->phy_io.base) + 0x0188, pd->strength[1]);
+	wmb();
+
+	/* 4 lanes + clk lane configuration */
+	/* lane config n * (0 - 4) & DataPath setup */
+	for (ln = 0; ln < 5; ln++) {
+		off = (ln * 0x40);
+		for (i = 0; i < 9; i++) {
+			offset = i + (ln * 9);
+			MIPI_OUTP((ctrl_pdata->phy_io.base) + off,
+							pd->lanecfg[offset]);
+			wmb();
+			off += 4;
+		}
+	}
+
+	/* MMSS_DSI_0_PHY_DSIPHY_CTRL_0 */
+	MIPI_OUTP((ctrl_pdata->phy_io.base) + 0x0170, 0x5f);
+	wmb();
+
+	ctrl_rev = MIPI_INP(ctrl_pdata->ctrl_base);
+
+	/* DSI_0_PHY_DSIPHY_GLBL_TEST_CTRL */
+	if (((ctrl_pdata->panel_data).panel_info.pdest == DISPLAY_1) ||
+			(ctrl_rev == MDSS_DSI_HW_REV_103_1))
+		MIPI_OUTP((ctrl_pdata->phy_io.base) + 0x01d4, 0x01);
+	else
+		MIPI_OUTP((ctrl_pdata->phy_io.base) + 0x01d4, 0x00);
+	wmb();
+
+	off = 0x01b4;	/* phy BIST ctrl 0 - 5 */
+	for (i = 0; i < 6; i++) {
+		MIPI_OUTP((ctrl_pdata->phy_io.base) + off, pd->bistctrl[i]);
+		wmb();
+		off += 4;
+	}
+
+}
+
+static void mdss_dsi_20nm_phy_init(struct mdss_panel_data *pdata)
+{
+	struct mdss_dsi_phy_ctrl *pd;
+	int i, off, ln, offset;
+	struct mdss_dsi_ctrl_pdata *ctrl_pdata = NULL, *temp_ctrl = NULL;
+
+	ctrl_pdata = container_of(pdata, struct mdss_dsi_ctrl_pdata,
+				panel_data);
+	if (!ctrl_pdata) {
+		pr_err("%s: Invalid input data\n", __func__);
+		return;
+	}
+	temp_ctrl = ctrl_pdata;
+	pd = &(((ctrl_pdata->panel_data).panel_info.mipi).dsi_phy_db);
+
+	/* Strength ctrl 0 */
+	MIPI_OUTP((ctrl_pdata->phy_io.base) + 0x0184, pd->strength[0]);
+
+	/*
+	 * Phy regulator ctrl settings.
+	 * In dual dsi configuration, the second controller also uses
+	 * the regulators of the first controller, irrespective of whether
+	 * broadcast mode is enabled or not.
+	 */
+	if (ctrl_pdata->ndx == DSI_CTRL_1) {
+		temp_ctrl = mdss_dsi_get_ctrl_by_index(DSI_CTRL_0);
+		if (!temp_ctrl) {
+			pr_err("%s: Unable to get master ctrl\n", __func__);
+			return;
+		}
+	}
+
+	if (pd->reg_ldo_mode) {
+		/* Regulator ctrl 0 */
+		MIPI_OUTP((temp_ctrl->phy_io.base) + 0x280, 0x0);
+		/* Regulator ctrl - CAL_PWR_CFG */
+		MIPI_OUTP((temp_ctrl->phy_io.base) + 0x298, pd->regulator[6]);
+		udelay(1000);
+		/* Regulator ctrl - TEST */
+		MIPI_OUTP((temp_ctrl->phy_io.base) + 0x294, pd->regulator[5]);
+		/* Regulator ctrl 3 */
+		MIPI_OUTP((temp_ctrl->phy_io.base) + 0x28c, pd->regulator[3]);
+		/* Regulator ctrl 2 */
+		MIPI_OUTP((temp_ctrl->phy_io.base) + 0x288, pd->regulator[2]);
+		/* Regulator ctrl 1 */
+		MIPI_OUTP((temp_ctrl->phy_io.base) + 0x284, pd->regulator[1]);
+		/* Regulator ctrl 4 */
+		MIPI_OUTP((temp_ctrl->phy_io.base) + 0x290, pd->regulator[4]);
+		/* LDO ctrl */
+		MIPI_OUTP((ctrl_pdata->phy_io.base) + 0x1dc, 0x1d);
+	} else {
+		/* Regulator ctrl 0 */
+		MIPI_OUTP((temp_ctrl->phy_io.base) + 0x280, 0x0);
+		/* Regulator ctrl - CAL_PWR_CFG */
+		MIPI_OUTP((temp_ctrl->phy_io.base) + 0x298, pd->regulator[6]);
+		udelay(1000);
+		/* Regulator ctrl 1 */
+		MIPI_OUTP((temp_ctrl->phy_io.base) + 0x284, pd->regulator[1]);
+		/* Regulator ctrl 2 */
+		MIPI_OUTP((temp_ctrl->phy_io.base) + 0x288, pd->regulator[2]);
+		/* Regulator ctrl 3 */
+		MIPI_OUTP((temp_ctrl->phy_io.base) + 0x28c, pd->regulator[3]);
+		/* Regulator ctrl 4 */
+		MIPI_OUTP((temp_ctrl->phy_io.base) + 0x290, pd->regulator[4]);
+		/* LDO ctrl */
+		MIPI_OUTP((ctrl_pdata->phy_io.base) + 0x1dc, 0x00);
+		/* Regulator ctrl 0 */
+		MIPI_OUTP((temp_ctrl->phy_io.base) + 0x280, pd->regulator[0]);
+	}
+
+	off = 0x0140;	/* phy timing ctrl 0 - 11 */
+	for (i = 0; i < 12; i++) {
+		MIPI_OUTP((ctrl_pdata->phy_io.base) + off, pd->timing[i]);
+		wmb();
+		off += 4;
+	}
+
+	/* Currently the Phy settings for the DSI 0 is done in clk prepare*/
+	if (ctrl_pdata->ndx == DSI_CTRL_1) {
+		/* MMSS_DSI_0_PHY_DSIPHY_CTRL_1 */
+		MIPI_OUTP((ctrl_pdata->phy_io.base) + 0x0174, 0x00);
+		/* MMSS_DSI_0_PHY_DSIPHY_CTRL_0 */
+		MIPI_OUTP((ctrl_pdata->phy_io.base) + 0x0170, 0x5f);
+		wmb();
+
+		/* Strength ctrl 1 */
+		MIPI_OUTP((ctrl_pdata->phy_io.base) + 0x0188, pd->strength[1]);
+		wmb();
+
+		/* MMSS_DSI_0_PHY_DSIPHY_CTRL_0 */
+		MIPI_OUTP((ctrl_pdata->phy_io.base) + 0x0170, 0x7f);
+		wmb();
+
+		/* DSI_0_PHY_DSIPHY_GLBL_TEST_CTRL */
+		MIPI_OUTP((ctrl_pdata->phy_io.base) + 0x01d4, 0x00);
+
+		/* MMSS_DSI_0_PHY_DSIPHY_CTRL_2 */
+		MIPI_OUTP((ctrl_pdata->phy_io.base) + 0x0178, 0x00);
+		MIPI_OUTP((ctrl_pdata->phy_io.base) + 0x0178, 0x02);
+		MIPI_OUTP((ctrl_pdata->phy_io.base) + 0x0178, 0x03);
+		wmb();
+	}
+
+	/* 4 lanes + clk lane configuration */
+	/* lane config n * (0 - 4) & DataPath setup */
+	for (ln = 0; ln < 5; ln++) {
+		off = (ln * 0x40);
+		for (i = 0; i < 9; i++) {
+			offset = i + (ln * 9);
+			MIPI_OUTP((ctrl_pdata->phy_io.base) + off,
+							pd->lanecfg[offset]);
+			wmb();
+			off += 4;
+		}
+	}
+
+	off = 0x01b4;	/* phy BIST ctrl 0 - 5 */
+	for (i = 0; i < 6; i++) {
+		MIPI_OUTP((ctrl_pdata->phy_io.base) + off, pd->bistctrl[i]);
+		wmb();
+		off += 4;
+	}
+
+}
+
 int mdss_dsi_clk_init(struct platform_device *pdev,
 	struct mdss_dsi_ctrl_pdata *ctrl)
 {
@@ -725,6 +1016,7 @@ static int mdss_dsi_core_power_ctrl(struct mdss_dsi_ctrl_pdata *ctrl,
 {
 	int rc = 0;
 	struct mdss_panel_data *pdata = NULL;
+	u32 ctrl_rev;
 
 	if (!ctrl) {
 		pr_err("%s: invalid input\n", __func__);
@@ -767,7 +1059,11 @@ static int mdss_dsi_core_power_ctrl(struct mdss_dsi_ctrl_pdata *ctrl,
 		 */
 		if (!pdata->panel_info.panel_power_on)
 			mdss_dsi_phy_sw_reset(ctrl->ctrl_base);
-		mdss_dsi_phy_init(pdata);
+		ctrl_rev = MIPI_INP(ctrl->ctrl_base);
+		if (ctrl_rev == MDSS_DSI_HW_REV_103)
+			mdss_dsi_20nm_phy_init(pdata);
+		else
+			mdss_dsi_phy_init(pdata);
 
 		mdss_dsi_ctrl_setup(pdata);
 
@@ -1089,297 +1385,6 @@ no_error:
 		m_link_changed && m_bus_changed, enable);
 
 	return rc;
-}
-
-void mdss_dsi_phy_sw_reset(unsigned char *ctrl_base)
-{
-	/* start phy sw reset */
-	MIPI_OUTP(ctrl_base + 0x12c, 0x0001);
-	udelay(1000);
-	wmb();
-	/* end phy sw reset */
-	MIPI_OUTP(ctrl_base + 0x12c, 0x0000);
-	udelay(100);
-	wmb();
-}
-
-void mdss_dsi_phy_disable(struct mdss_dsi_ctrl_pdata *ctrl)
-{
-	struct mdss_dsi_ctrl_pdata *ctrl0 = NULL;
-
-	if (ctrl == NULL) {
-		pr_err("%s: Invalid input data\n", __func__);
-		return;
-	}
-
-	/*
-	 * In dual-dsi configuration, the phy should be disabled for the
-	 * first controller only when the second controller is disabled.
-	 * This is true regardless of whether broadcast mode is enabled
-	 * or not.
-	 */
-	if ((ctrl->ndx == DSI_CTRL_0) &&
-		mdss_dsi_get_ctrl_by_index(DSI_CTRL_1)) {
-		pr_debug("%s: Dual dsi detected. skipping config for ctrl%d\n",
-			__func__, ctrl->ndx);
-		return;
-	}
-
-	if (ctrl->ndx == DSI_CTRL_1) {
-		ctrl0 = mdss_dsi_get_ctrl_by_index(DSI_CTRL_0);
-		if (ctrl0) {
-			MIPI_OUTP(ctrl0->phy_io.base + 0x0170, 0x000);
-			MIPI_OUTP(ctrl0->phy_io.base + 0x0298, 0x000);
-		} else {
-			pr_warn("%s: Unable to get control%d\n",
-				__func__, DSI_CTRL_0);
-		}
-	}
-
-	MIPI_OUTP(ctrl->phy_io.base + 0x0170, 0x000);
-	MIPI_OUTP(ctrl->phy_io.base + 0x0298, 0x000);
-
-	/*
-	 * Wait for the registers writes to complete in order to
-	 * ensure that the phy is completely disabled
-	 */
-	wmb();
-}
-
-void mdss_dsi_phy_init(struct mdss_panel_data *pdata)
-{
-	struct mdss_dsi_phy_ctrl *pd;
-	int i, off, ln, offset;
-	struct mdss_dsi_ctrl_pdata *ctrl_pdata = NULL, *temp_ctrl = NULL;
-	u32 ctrl_rev;
-
-	ctrl_pdata = container_of(pdata, struct mdss_dsi_ctrl_pdata,
-				panel_data);
-	if (!ctrl_pdata) {
-		pr_err("%s: Invalid input data\n", __func__);
-		return;
-	}
-	temp_ctrl = ctrl_pdata;
-
-	pd = &(((ctrl_pdata->panel_data).panel_info.mipi).dsi_phy_db);
-
-	/* Strength ctrl 0 */
-	MIPI_OUTP((ctrl_pdata->phy_io.base) + 0x0184, pd->strength[0]);
-
-	/*
-	 * Phy regulator ctrl settings.
-	 * In dual dsi configuration, the second controller also uses
-	 * the regulators of the first controller, irrespective of whether
-	 * broadcast mode is enabled or not.
-	 */
-	if (ctrl_pdata->ndx == DSI_CTRL_1) {
-		temp_ctrl = mdss_dsi_get_ctrl_by_index(DSI_CTRL_0);
-		if (!temp_ctrl) {
-			pr_err("%s: Unable to get master ctrl\n", __func__);
-			return;
-		}
-	}
-
-	/* Regulator ctrl 0 */
-	MIPI_OUTP((temp_ctrl->phy_io.base) + 0x280, 0x0);
-	/* Regulator ctrl - CAL_PWR_CFG */
-	MIPI_OUTP((temp_ctrl->phy_io.base) + 0x298, pd->regulator[6]);
-
-	/* Regulator ctrl - TEST */
-	MIPI_OUTP((temp_ctrl->phy_io.base) + 0x294, pd->regulator[5]);
-	/* Regulator ctrl 3 */
-	MIPI_OUTP((temp_ctrl->phy_io.base) + 0x28c, pd->regulator[3]);
-	/* Regulator ctrl 2 */
-	MIPI_OUTP((temp_ctrl->phy_io.base) + 0x288, pd->regulator[2]);
-	/* Regulator ctrl 1 */
-	MIPI_OUTP((temp_ctrl->phy_io.base) + 0x284, pd->regulator[1]);
-	/* Regulator ctrl 0 */
-	MIPI_OUTP((temp_ctrl->phy_io.base) + 0x280, pd->regulator[0]);
-	/* Regulator ctrl 4 */
-	MIPI_OUTP((temp_ctrl->phy_io.base) + 0x290, pd->regulator[4]);
-
-	/* LDO ctrl */
-	if (pd->reg_ldo_mode)
-		MIPI_OUTP((ctrl_pdata->phy_io.base) + 0x1dc, 0x25);
-	else
-		MIPI_OUTP((ctrl_pdata->phy_io.base) + 0x1dc, 0x00);
-
-	off = 0x0140;	/* phy timing ctrl 0 - 11 */
-	for (i = 0; i < 12; i++) {
-		MIPI_OUTP((ctrl_pdata->phy_io.base) + off, pd->timing[i]);
-		wmb();
-		off += 4;
-	}
-
-	/* MMSS_DSI_0_PHY_DSIPHY_CTRL_1 */
-	MIPI_OUTP((ctrl_pdata->phy_io.base) + 0x0174, 0x00);
-	/* MMSS_DSI_0_PHY_DSIPHY_CTRL_0 */
-	MIPI_OUTP((ctrl_pdata->phy_io.base) + 0x0170, 0x5f);
-	wmb();
-
-	/* Strength ctrl 1 */
-	MIPI_OUTP((ctrl_pdata->phy_io.base) + 0x0188, pd->strength[1]);
-	wmb();
-
-	/* 4 lanes + clk lane configuration */
-	/* lane config n * (0 - 4) & DataPath setup */
-	for (ln = 0; ln < 5; ln++) {
-		off = (ln * 0x40);
-		for (i = 0; i < 9; i++) {
-			offset = i + (ln * 9);
-			MIPI_OUTP((ctrl_pdata->phy_io.base) + off,
-							pd->lanecfg[offset]);
-			wmb();
-			off += 4;
-		}
-	}
-
-	/* MMSS_DSI_0_PHY_DSIPHY_CTRL_0 */
-	MIPI_OUTP((ctrl_pdata->phy_io.base) + 0x0170, 0x5f);
-	wmb();
-
-	ctrl_rev = MIPI_INP(ctrl_pdata->ctrl_base);
-
-	/* DSI_0_PHY_DSIPHY_GLBL_TEST_CTRL */
-	if (((ctrl_pdata->panel_data).panel_info.pdest == DISPLAY_1) ||
-			(ctrl_rev == MDSS_DSI_HW_REV_103_1))
-		MIPI_OUTP((ctrl_pdata->phy_io.base) + 0x01d4, 0x01);
-	else
-		MIPI_OUTP((ctrl_pdata->phy_io.base) + 0x01d4, 0x00);
-	wmb();
-
-	off = 0x01b4;	/* phy BIST ctrl 0 - 5 */
-	for (i = 0; i < 6; i++) {
-		MIPI_OUTP((ctrl_pdata->phy_io.base) + off, pd->bistctrl[i]);
-		wmb();
-		off += 4;
-	}
-
-}
-
-void mdss_dsi_20nm_phy_init(struct mdss_panel_data *pdata)
-{
-	struct mdss_dsi_phy_ctrl *pd;
-	int i, off, ln, offset;
-	struct mdss_dsi_ctrl_pdata *ctrl_pdata = NULL, *temp_ctrl = NULL;
-
-	ctrl_pdata = container_of(pdata, struct mdss_dsi_ctrl_pdata,
-				panel_data);
-	if (!ctrl_pdata) {
-		pr_err("%s: Invalid input data\n", __func__);
-		return;
-	}
-	temp_ctrl = ctrl_pdata;
-	pd = &(((ctrl_pdata->panel_data).panel_info.mipi).dsi_phy_db);
-
-	/* Strength ctrl 0 */
-	MIPI_OUTP((ctrl_pdata->phy_io.base) + 0x0184, pd->strength[0]);
-
-	/*
-	 * Phy regulator ctrl settings.
-	 * In dual dsi configuration, the second controller also uses
-	 * the regulators of the first controller, irrespective of whether
-	 * broadcast mode is enabled or not.
-	 */
-	if (ctrl_pdata->ndx == DSI_CTRL_1) {
-		temp_ctrl = mdss_dsi_get_ctrl_by_index(DSI_CTRL_0);
-		if (!temp_ctrl) {
-			pr_err("%s: Unable to get master ctrl\n", __func__);
-			return;
-		}
-	}
-
-	if (pd->reg_ldo_mode) {
-		/* Regulator ctrl 0 */
-		MIPI_OUTP((temp_ctrl->phy_io.base) + 0x280, 0x0);
-		/* Regulator ctrl - CAL_PWR_CFG */
-		MIPI_OUTP((temp_ctrl->phy_io.base) + 0x298, pd->regulator[6]);
-		udelay(1000);
-		/* Regulator ctrl - TEST */
-		MIPI_OUTP((temp_ctrl->phy_io.base) + 0x294, pd->regulator[5]);
-		/* Regulator ctrl 3 */
-		MIPI_OUTP((temp_ctrl->phy_io.base) + 0x28c, pd->regulator[3]);
-		/* Regulator ctrl 2 */
-		MIPI_OUTP((temp_ctrl->phy_io.base) + 0x288, pd->regulator[2]);
-		/* Regulator ctrl 1 */
-		MIPI_OUTP((temp_ctrl->phy_io.base) + 0x284, pd->regulator[1]);
-		/* Regulator ctrl 4 */
-		MIPI_OUTP((temp_ctrl->phy_io.base) + 0x290, pd->regulator[4]);
-		/* LDO ctrl */
-		MIPI_OUTP((ctrl_pdata->phy_io.base) + 0x1dc, 0x1d);
-	} else {
-		/* Regulator ctrl 0 */
-		MIPI_OUTP((temp_ctrl->phy_io.base) + 0x280, 0x0);
-		/* Regulator ctrl - CAL_PWR_CFG */
-		MIPI_OUTP((temp_ctrl->phy_io.base) + 0x298, pd->regulator[6]);
-		udelay(1000);
-		/* Regulator ctrl 1 */
-		MIPI_OUTP((temp_ctrl->phy_io.base) + 0x284, pd->regulator[1]);
-		/* Regulator ctrl 2 */
-		MIPI_OUTP((temp_ctrl->phy_io.base) + 0x288, pd->regulator[2]);
-		/* Regulator ctrl 3 */
-		MIPI_OUTP((temp_ctrl->phy_io.base) + 0x28c, pd->regulator[3]);
-		/* Regulator ctrl 4 */
-		MIPI_OUTP((temp_ctrl->phy_io.base) + 0x290, pd->regulator[4]);
-		/* LDO ctrl */
-		MIPI_OUTP((ctrl_pdata->phy_io.base) + 0x1dc, 0x00);
-		/* Regulator ctrl 0 */
-		MIPI_OUTP((temp_ctrl->phy_io.base) + 0x280, pd->regulator[0]);
-	}
-
-	off = 0x0140;	/* phy timing ctrl 0 - 11 */
-	for (i = 0; i < 12; i++) {
-		MIPI_OUTP((ctrl_pdata->phy_io.base) + off, pd->timing[i]);
-		wmb();
-		off += 4;
-	}
-
-	/* Currently the Phy settings for the DSI 0 is done in clk prepare*/
-	if (ctrl_pdata->ndx == DSI_CTRL_1) {
-		/* MMSS_DSI_0_PHY_DSIPHY_CTRL_1 */
-		MIPI_OUTP((ctrl_pdata->phy_io.base) + 0x0174, 0x00);
-		/* MMSS_DSI_0_PHY_DSIPHY_CTRL_0 */
-		MIPI_OUTP((ctrl_pdata->phy_io.base) + 0x0170, 0x5f);
-		wmb();
-
-		/* Strength ctrl 1 */
-		MIPI_OUTP((ctrl_pdata->phy_io.base) + 0x0188, pd->strength[1]);
-		wmb();
-
-		/* MMSS_DSI_0_PHY_DSIPHY_CTRL_0 */
-		MIPI_OUTP((ctrl_pdata->phy_io.base) + 0x0170, 0x7f);
-		wmb();
-
-		/* DSI_0_PHY_DSIPHY_GLBL_TEST_CTRL */
-		MIPI_OUTP((ctrl_pdata->phy_io.base) + 0x01d4, 0x00);
-
-		/* MMSS_DSI_0_PHY_DSIPHY_CTRL_2 */
-		MIPI_OUTP((ctrl_pdata->phy_io.base) + 0x0178, 0x00);
-		MIPI_OUTP((ctrl_pdata->phy_io.base) + 0x0178, 0x02);
-		MIPI_OUTP((ctrl_pdata->phy_io.base) + 0x0178, 0x03);
-		wmb();
-	}
-
-	/* 4 lanes + clk lane configuration */
-	/* lane config n * (0 - 4) & DataPath setup */
-	for (ln = 0; ln < 5; ln++) {
-		off = (ln * 0x40);
-		for (i = 0; i < 9; i++) {
-			offset = i + (ln * 9);
-			MIPI_OUTP((ctrl_pdata->phy_io.base) + off,
-							pd->lanecfg[offset]);
-			wmb();
-			off += 4;
-		}
-	}
-
-	off = 0x01b4;	/* phy BIST ctrl 0 - 5 */
-	for (i = 0; i < 6; i++) {
-		MIPI_OUTP((ctrl_pdata->phy_io.base) + off, pd->bistctrl[i]);
-		wmb();
-		off += 4;
-	}
-
 }
 
 void mdss_edp_clk_deinit(struct mdss_edp_drv_pdata *edp_drv)
