@@ -56,12 +56,13 @@ static int vlv_sideband_rw(struct drm_i915_private *dev_priv, u32 devfn,
 		(port << IOSF_PORT_SHIFT) | (be << IOSF_BYTE_ENABLES_SHIFT) |
 		(bar << IOSF_BAR_SHIFT);
 
-	WARN_ON(!mutex_is_locked(&dev_priv->dpio_lock));
+	mutex_lock(&dev_priv->new_dpio_lock);
 
 	if (wait_for_atomic((I915_READ(VLV_IOSF_DOORBELL_REQ)
 					& IOSF_SB_BUSY) == 0, 5)) {
 		DRM_DEBUG_DRIVER("IOSF sideband idle wait (%s) timed out\n",
 				 is_read ? "read" : "write");
+		mutex_unlock(&dev_priv->new_dpio_lock);
 		return -EAGAIN;
 	}
 
@@ -74,12 +75,14 @@ static int vlv_sideband_rw(struct drm_i915_private *dev_priv, u32 devfn,
 					& IOSF_SB_BUSY) == 0, 5)) {
 		DRM_DEBUG_DRIVER("IOSF sideband finish wait (%s) timed out\n",
 				 is_read ? "read" : "write");
+		mutex_unlock(&dev_priv->new_dpio_lock);
 		return -ETIMEDOUT;
 	}
 
 	if (is_read)
 		*val = I915_READ(VLV_IOSF_DATA);
 	I915_WRITE(VLV_IOSF_DATA, 0);
+	mutex_unlock(&dev_priv->new_dpio_lock);
 
 	return 0;
 }
