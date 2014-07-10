@@ -22,7 +22,6 @@
 #include <linux/msm-bus-board.h>
 #include "msm_bus_core.h"
 
-#define KBTOB(a) (a * 1000ULL)
 static const char * const hw_sel_name[] = {"RPM", "NoC", "BIMC", NULL};
 static const char * const mode_sel_name[] = {"Fixed", "Limiter", "Bypass",
 						"Regulator", NULL};
