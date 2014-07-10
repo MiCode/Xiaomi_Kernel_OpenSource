@@ -2471,7 +2471,7 @@ static ssize_t etm_store_resource_ctrl(struct device *dev,
 	/* For odd idx pair inversal bit is RES0 */
 	if (idx % 2 != 0)
 		val &= ~BIT(21);
-	drvdata->cntr_ctrl[idx] = val;
+	drvdata->resource_ctrl[idx] = val;
 	spin_unlock(&drvdata->spinlock);
 	return size;
 }
