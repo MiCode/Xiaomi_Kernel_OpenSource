@@ -1393,6 +1393,7 @@
 			<0x106 0x2>,
 			<0x480 0x3>;
 		qcom,max-hw-load = <489600>; /* 1080p @ 30 + 1080p @ 30 */
+		qcom,enable-idle-indicator;
 		qcom,vidc-iommu-domains {
 			qcom,domain-ns {
 				qcom,vidc-domain-phandle = <&venus_domain_ns>;
