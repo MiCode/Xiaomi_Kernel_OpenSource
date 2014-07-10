@@ -858,42 +858,6 @@ Retry_Sense:
 		srb->result = DID_ERROR << 16;
 
 	last_sector_hacks(us, srb);
-
-	/*
-	 * TMC UICC cards expect 5 TEST_UNIT_READY commands after
-	 * writing some data. The card performs the flash related
-	 * house keeping operations after receiving these commands.
-	 * Send 5 TEST_UNIT_READY commands for every 8 WRITE_10
-	 * commands.
-	 */
-	if (unlikely((us->fflags & US_FL_TUR_AFTER_WRITE) &&
-				srb->cmnd[0] == WRITE_10)) {
-		int i;
-		int temp_result;
-		struct scsi_eh_save ses;
-		unsigned char cmd[] = {
-			TEST_UNIT_READY, 0, 0, 0, 0, 0,
-		};
-
-		us->tur_count[srb->device->lun]++;
-
-		if (++us->tur_count[srb->device->lun] == 8) {
-
-			us->tur_count[srb->device->lun] = 0;
-
-			scsi_eh_prep_cmnd(srb, &ses, cmd, 6, 0);
-			for (i = 0; i < 5; i++) {
-				temp_result = us->transport(us->srb, us);
-				if (temp_result != USB_STOR_TRANSPORT_GOOD) {
-					usb_stor_dbg(us, "TUR failed %d %d\n",
-							i, temp_result);
-					break;
-				}
-			}
-			scsi_eh_restore_cmnd(srb, &ses);
-		}
-	}
-
 	return;
 
 	/* Error and abort processing: try to resynchronize with the device
