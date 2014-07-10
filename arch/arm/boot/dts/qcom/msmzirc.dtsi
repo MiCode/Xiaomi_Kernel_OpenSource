@@ -215,6 +215,12 @@
 		status = "disabled";
 	};
 
+	qcom,sps {
+		compatible = "qcom,msm_sps_4k";
+		qcom,device-type = <3>;
+		qcom,pipe-attr-ee;
+	};
+
 	qcom,clock-a7@0b011050 {
 		compatible = "qcom,clock-a7-zirc";
 		reg = <0x0b011050 0x8>;
