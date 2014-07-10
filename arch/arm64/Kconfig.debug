@@ -44,4 +44,17 @@ config FORCE_PAGES
 
           If unsure say N.
 
+config FREE_PAGES_RDONLY
+        bool "Set pages as read only while on the buddy list"
+        select FORCE_PAGES
+        select PAGE_POISONING
+        help
+          Pages are always mapped in the kernel. This means that anyone
+          can write to the page if they have the address. Enable this option
+          to mark pages as read only to trigger a fault if any code attempts
+          to write to a page on the buddy list. This may have a performance
+          impact.
+
+          If unsure, say N.
+
 endmenu
