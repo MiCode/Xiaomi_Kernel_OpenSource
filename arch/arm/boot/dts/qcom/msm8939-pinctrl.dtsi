@@ -321,7 +321,7 @@
                         /* suspended state */
                         spi0_sleep: sleep {
                                 drive-strength = <2>; /* 2 MA */
-                                bias-disable = <0>; /* No PULL */
+			        bias-pull-down; /* PULL Down */
                         };
                 };
 
