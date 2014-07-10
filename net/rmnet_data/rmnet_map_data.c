@@ -22,6 +22,14 @@
 #include <linux/spinlock.h>
 #include <linux/workqueue.h>
 #include <linux/net_map.h>
+#include <linux/ip.h>
+#include <linux/ipv6.h>
+#include <linux/udp.h>
+#include <linux/tcp.h>
+#include <linux/in.h>
+#include <net/ip.h>
+#include <net/checksum.h>
+#include <net/ip6_checksum.h>
 #include "rmnet_data_config.h"
 #include "rmnet_map.h"
 #include "rmnet_data_private.h"
@@ -283,3 +291,279 @@ schedule:
 	return;
 }
 
+
+/* ***************** Checksum Offload ************************************** */
+
+static inline uint16_t *rmnet_map_get_checksum_field(unsigned char protocol,
+						 const void *txporthdr)
+{
+	uint16_t *check = 0;
+	switch (protocol) {
+	case IPPROTO_TCP:
+		check = &(((struct tcphdr *)txporthdr)->check);
+		break;
+
+	case IPPROTO_UDP:
+		check = &(((struct udphdr *)txporthdr)->check);
+		break;
+
+	default:
+		check = 0;
+		break;
+	}
+
+	return check;
+}
+
+static inline uint16_t rmnet_map_add_checksums(uint16_t val1, uint16_t val2)
+{
+	int sum = val1+val2;
+	sum = (((sum&0xFFFF0000)>>16) + sum) & 0x0000FFFF;
+	return (uint16_t) (sum&0x0000FFFF);
+}
+
+static inline uint16_t rmnet_map_subtract_checksums(uint16_t val1,
+	uint16_t val2)
+{
+	return rmnet_map_add_checksums(val1, ~val2);
+}
+
+/**
+ * rmnet_map_validate_ipv4_packet_checksum() - Validates TCP/UDP checksum
+ *	value for IPv4 packet
+ * @map_payload:	Pointer to the beginning of the map payload
+ * @cksum_trailer:	Pointer to the checksum trailer
+ *
+ * Validates the TCP/UDP checksum for the packet using the checksum value
+ * from the checksum trailer added to the packet.
+ * The validation formula is the following:
+ * 1. Performs 1's complement over the checksum value from the trailer
+ * 2. Computes 1's complement checksum over IPv4 header and subtracts it from
+ *    the value from step 1
+ * 3. Computes 1's complement checksum over IPv4 pseudo header and adds it to
+ *    the value from step 2
+ * 4. Subtracts the checksum value from the TCP/UDP header from the value from
+ *    step 3
+ * 5. Compares the value from step 4 to the checksum value from the TCP/UDP
+ *    header
+ *
+ * Fragmentation and tunneling are not supported.
+ *
+ * Return: 0 is validation succeeded.
+ */
+static int rmnet_map_validate_ipv4_packet_checksum(unsigned char *map_payload,
+	struct rmnet_map_dl_checksum_trailer_s *cksum_trailer)
+{
+	struct iphdr *ip4h;
+	uint16_t *checksum_field;
+	void *txporthdr;
+	uint16_t pseudo_checksum;
+	uint16_t ip_hdr_checksum;
+	uint16_t checksum_value;
+	uint16_t ip_payload_checksum;
+	uint16_t ip_pseudo_payload_checksum;
+	uint16_t checksum_value_final;
+
+	ip4h = (struct iphdr *) map_payload;
+	if ((ntohs(ip4h->frag_off) & IP_MF)
+		|| ((ntohs(ip4h->frag_off) & IP_OFFSET) > 0))
+		return RMNET_MAP_CHECKSUM_FRAGMENTED_PACKET;
+
+	txporthdr = map_payload + ip4h->ihl*4;
+
+	checksum_field = rmnet_map_get_checksum_field(ip4h->protocol,
+		txporthdr);
+
+	if (unlikely(!checksum_field))
+		return RMNET_MAP_CHECKSUM_ERR_UNKNOWN_TRANSPORT;
+
+	checksum_value = ~ntohs(cksum_trailer->checksum_value);
+	ip_hdr_checksum = ~ip_fast_csum(ip4h, (int)ip4h->ihl);
+	ip_payload_checksum = rmnet_map_subtract_checksums(checksum_value,
+		ip_hdr_checksum);
+
+	pseudo_checksum = ~ntohs(csum_tcpudp_magic(ip4h->saddr, ip4h->daddr,
+		(uint16_t)(ntohs(ip4h->tot_len) - ip4h->ihl*4),
+		(uint16_t)ip4h->protocol, 0));
+	ip_pseudo_payload_checksum = rmnet_map_add_checksums(
+		ip_payload_checksum, pseudo_checksum);
+
+	checksum_value_final = ~rmnet_map_subtract_checksums(
+		ip_pseudo_payload_checksum, ntohs(*checksum_field));
+
+	if (unlikely(checksum_value_final == 0)) {
+		switch (ip4h->protocol) {
+		case IPPROTO_UDP:
+			/* RFC 768 */
+			LOGD("DL4 1's complement rule for UDP checksum 0");
+			checksum_value_final = ~checksum_value_final;
+			break;
+
+		case IPPROTO_TCP:
+			if (*checksum_field == 0xFFFF) {
+				LOGD(
+				"DL4 Non-RFC compliant TCP checksum found");
+				checksum_value_final = ~checksum_value_final;
+			}
+			break;
+		}
+	}
+
+	LOGD(
+	"DL4 cksum: ~HW: %04X, field: %04X, pseudo header: %04X, final: %04X",
+	~ntohs(cksum_trailer->checksum_value), ntohs(*checksum_field),
+	pseudo_checksum, checksum_value_final);
+
+	if (checksum_value_final == ntohs(*checksum_field))
+		return RMNET_MAP_CHECKSUM_OK;
+	else
+		return RMNET_MAP_CHECKSUM_VALIDATION_FAILED;
+}
+
+/**
+ * rmnet_map_validate_ipv6_packet_checksum() - Validates TCP/UDP checksum
+ *	value for IPv6 packet
+ * @map_payload:	Pointer to the beginning of the map payload
+ * @cksum_trailer:	Pointer to the checksum trailer
+ *
+ * Validates the TCP/UDP checksum for the packet using the checksum value
+ * from the checksum trailer added to the packet.
+ * The validation formula is the following:
+ * 1. Performs 1's complement over the checksum value from the trailer
+ * 2. Computes 1's complement checksum over IPv6 header and subtracts it from
+ *    the value from step 1
+ * 3. Computes 1's complement checksum over IPv6 pseudo header and adds it to
+ *    the value from step 2
+ * 4. Subtracts the checksum value from the TCP/UDP header from the value from
+ *    step 3
+ * 5. Compares the value from step 4 to the checksum value from the TCP/UDP
+ *    header
+ *
+ * Fragmentation, extension headers and tunneling are not supported.
+ *
+ * Return: 0 is validation succeeded.
+ */
+static int rmnet_map_validate_ipv6_packet_checksum(unsigned char *map_payload,
+	struct rmnet_map_dl_checksum_trailer_s *cksum_trailer)
+{
+	struct ipv6hdr *ip6h;
+	uint16_t *checksum_field;
+	void *txporthdr;
+	uint16_t pseudo_checksum;
+	uint16_t ip_hdr_checksum;
+	uint16_t checksum_value;
+	uint16_t ip_payload_checksum;
+	uint16_t ip_pseudo_payload_checksum;
+	uint16_t checksum_value_final;
+	uint32_t length;
+
+	ip6h = (struct ipv6hdr *) map_payload;
+
+	txporthdr = map_payload + sizeof(struct ipv6hdr);
+	checksum_field = rmnet_map_get_checksum_field(ip6h->nexthdr,
+		txporthdr);
+
+	if (unlikely(!checksum_field))
+		return RMNET_MAP_CHECKSUM_ERR_UNKNOWN_TRANSPORT;
+
+	checksum_value = ~ntohs(cksum_trailer->checksum_value);
+	ip_hdr_checksum = ~ntohs(ip_compute_csum(ip6h,
+		(int)(txporthdr - (void *)map_payload)));
+	ip_payload_checksum = rmnet_map_subtract_checksums(checksum_value,
+		ip_hdr_checksum);
+
+	length = (ip6h->nexthdr == IPPROTO_UDP) ?
+		ntohs(((struct udphdr *)txporthdr)->len) :
+		ntohs(ip6h->payload_len);
+	pseudo_checksum = ~ntohs(csum_ipv6_magic(&ip6h->saddr, &ip6h->daddr,
+		length, ip6h->nexthdr, 0));
+	ip_pseudo_payload_checksum = rmnet_map_add_checksums(
+		ip_payload_checksum, pseudo_checksum);
+
+	checksum_value_final = ~rmnet_map_subtract_checksums(
+		ip_pseudo_payload_checksum, ntohs(*checksum_field));
+
+	if (unlikely(checksum_value_final == 0)) {
+		switch (ip6h->nexthdr) {
+		case IPPROTO_UDP:
+			/* RFC 2460 section 8.1 */
+			LOGD("DL6 One's complement rule for UDP checksum 0");
+			checksum_value_final = ~checksum_value_final;
+			break;
+
+		case IPPROTO_TCP:
+			if (*checksum_field == 0xFFFF) {
+				LOGD(
+				"DL6 Non-RFC compliant TCP checksum found");
+				checksum_value_final = ~checksum_value_final;
+			}
+			break;
+		}
+	}
+
+	LOGD(
+	"DL6 cksum: ~HW: %04X, field: %04X, pseudo header: %04X, final: %04X",
+	~ntohs(cksum_trailer->checksum_value), ntohs(*checksum_field),
+	pseudo_checksum, checksum_value_final);
+
+	if (checksum_value_final == ntohs(*checksum_field))
+		return RMNET_MAP_CHECKSUM_OK;
+	else
+		return RMNET_MAP_CHECKSUM_VALIDATION_FAILED;
+	}
+
+/**
+ * rmnet_map_checksum_downlink_packet() - Validates checksum on
+ * a downlink packet
+ * @skb:	Pointer to the packet's skb.
+ *
+ * Validates packet checksums. Function takes a pointer to
+ * the beginning of a buffer which contains the entire MAP
+ * frame: MAP header + IP payload + padding + checksum trailer.
+ * Currently, only IPv4 and IPv6 are supported along with
+ * TCP & UDP. Fragmented or tunneled packets are not supported.
+ *
+ * Return:
+ *   - RMNET_MAP_CHECKSUM_OK: Validation of checksum succeeded.
+ *   - RMNET_MAP_CHECKSUM_ERR_BAD_BUFFER: Skb buffer given is corrupted.
+ *   - RMNET_MAP_CHECKSUM_VALID_FLAG_NOT_SET: Valid flag is not set in the
+ *					      checksum trailer.
+ *   - RMNET_MAP_CHECKSUM_FRAGMENTED_PACKET: The packet is a fragment.
+ *   - RMNET_MAP_CHECKSUM_ERR_UNKNOWN_TRANSPORT: The transport header is
+ *						   not TCP/UDP.
+ *   - RMNET_MAP_CHECKSUM_ERR_UNKNOWN_IP_VERSION: Unrecognized IP header.
+ *   - RMNET_MAP_CHECKSUM_VALIDATION_FAILED: In case the validation failed.
+ */
+int rmnet_map_checksum_downlink_packet(struct sk_buff *skb)
+{
+	struct rmnet_map_dl_checksum_trailer_s *cksum_trailer;
+	unsigned int data_len;
+	unsigned char *map_payload;
+	unsigned char ip_version;
+
+	data_len = RMNET_MAP_GET_LENGTH(skb);
+
+	if (unlikely(skb->len < (sizeof(struct rmnet_map_header_s) + data_len +
+	    sizeof(struct rmnet_map_dl_checksum_trailer_s))))
+		return RMNET_MAP_CHECKSUM_ERR_BAD_BUFFER;
+
+	cksum_trailer = (struct rmnet_map_dl_checksum_trailer_s *)
+			(skb->data + data_len
+			+ sizeof(struct rmnet_map_header_s));
+
+	if (unlikely(!ntohs(cksum_trailer->valid)))
+		return RMNET_MAP_CHECKSUM_VALID_FLAG_NOT_SET;
+
+	map_payload = (unsigned char *)(skb->data
+		+ sizeof(struct rmnet_map_header_s));
+
+	ip_version = (*map_payload & 0xF0) >> 4;
+	if (ip_version == 0x04)
+		return rmnet_map_validate_ipv4_packet_checksum(map_payload,
+			cksum_trailer);
+	else if (ip_version == 0x06)
+		return rmnet_map_validate_ipv6_packet_checksum(map_payload,
+			cksum_trailer);
+
+	return RMNET_MAP_CHECKSUM_ERR_UNKNOWN_IP_VERSION;
+}

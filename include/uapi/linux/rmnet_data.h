@@ -29,6 +29,7 @@
 #define RMNET_INGRESS_FORMAT_DEAGGREGATION      (1<<2)
 #define RMNET_INGRESS_FORMAT_DEMUXING           (1<<3)
 #define RMNET_INGRESS_FORMAT_MAP_COMMANDS       (1<<4)
+#define RMNET_INGRESS_FORMAT_MAP_CKSUMV3        (1<<5)
 
 /* ***************** Netlink API ******************************************** */
 #define RMNET_NETLINK_PROTO 31
