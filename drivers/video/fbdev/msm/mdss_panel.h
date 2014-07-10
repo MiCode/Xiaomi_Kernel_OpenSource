@@ -15,6 +15,7 @@
 #define MDSS_PANEL_H
 
 #include <linux/platform_device.h>
+#include <linux/stringify.h>
 #include <linux/types.h>
 
 /* panel id type */
@@ -41,6 +42,24 @@ struct panel_id {
 #define WRITEBACK_PANEL		10	/* Wifi display */
 #define LVDS_PANEL		11	/* LVDS */
 #define EDP_PANEL		12	/* LVDS */
+
+static inline const char *mdss_panel2str(u32 panel)
+{
+	static const char const *names[] = {
+#define PANEL_NAME(n) [n ## _PANEL] = __stringify(n)
+		PANEL_NAME(MIPI_VIDEO),
+		PANEL_NAME(MIPI_CMD),
+		PANEL_NAME(EDP),
+		PANEL_NAME(HDMI),
+		PANEL_NAME(WRITEBACK),
+#undef PANEL_NAME
+	};
+
+	if (panel >= ARRAY_SIZE(names))
+		return "UNKNOWN";
+
+	return names[panel];
+}
 
 /* panel class */
 enum {

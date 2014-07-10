@@ -15,6 +15,8 @@
 #define MDSS_DEBUG_H
 
 #include <stdarg.h>
+#include <linux/debugfs.h>
+#include <linux/list.h>
 #include <linux/mdss_io_util.h>
 
 #include "mdss.h"
@@ -65,6 +67,19 @@ struct mdss_debug_data {
 	struct dentry *perf;
 	struct list_head base_list;
 	struct debug_log logd;
+};
+
+#define DEFINE_MDSS_DEBUGFS_SEQ_FOPS(__prefix)				\
+static int __prefix ## _open(struct inode *inode, struct file *file)	\
+{									\
+	return single_open(file, __prefix ## _show, inode->i_private);	\
+}									\
+static const struct file_operations __prefix ## _fops = {		\
+	.owner = THIS_MODULE,						\
+	.open = __prefix ## _open,					\
+	.release = single_release,					\
+	.read = seq_read,						\
+	.llseek = seq_lseek,						\
 };
 
 int mdss_debugfs_init(struct mdss_data_type *mdata);

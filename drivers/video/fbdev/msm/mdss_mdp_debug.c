@@ -1,0 +1,202 @@
+/*
+ * Copyright (c) 2014, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+#include <linux/debugfs.h>
+#include <linux/seq_file.h>
+
+#include "mdss_mdp.h"
+#include "mdss_panel.h"
+#include "mdss_debug.h"
+#include "mdss_mdp_debug.h"
+
+static void __dump_pipe(struct seq_file *s, struct mdss_mdp_pipe *pipe)
+{
+	struct mdss_mdp_img_data *buf;
+	int format;
+	int smps[4];
+
+	seq_printf(s, "\nSSPP #%d type=%s ndx=%x flags=0x%08x play_cnt=%u\n",
+			pipe->num, mdss_mdp_pipetype2str(pipe->type),
+			pipe->ndx, pipe->flags, pipe->play_cnt);
+	seq_printf(s, "\tstage=%d alpha=0x%x transp=0x%x blend_op=%d\n",
+			pipe->mixer_stage, pipe->alpha,
+			pipe->transp, pipe->blend_op);
+
+	format = pipe->src_fmt->format;
+	seq_printf(s, "\tsrc w=%d h=%d format=%d (%s)\n",
+			pipe->img_width, pipe->img_height, format,
+			mdss_mdp_format2str(format));
+	seq_printf(s, "\tsrc_rect x=%d y=%d w=%d h=%d H.dec=%d V.dec=%d\n",
+			pipe->src.x, pipe->src.y, pipe->src.w, pipe->src.h,
+			pipe->horz_deci, pipe->vert_deci);
+	seq_printf(s, "\tdst_rect x=%d y=%d w=%d h=%d\n",
+			pipe->dst.x, pipe->dst.y, pipe->dst.w, pipe->dst.h);
+
+	smps[0] = bitmap_weight(pipe->smp_map[0].allocated,
+			MAX_DRV_SUP_MMB_BLKS);
+	smps[1] = bitmap_weight(pipe->smp_map[1].allocated,
+			MAX_DRV_SUP_MMB_BLKS);
+	smps[2] = bitmap_weight(pipe->smp_map[0].reserved,
+			MAX_DRV_SUP_MMB_BLKS);
+	smps[3] = bitmap_weight(pipe->smp_map[1].reserved,
+			MAX_DRV_SUP_MMB_BLKS);
+
+	seq_printf(s, "\tSMP allocated=[%d %d] reserved=[%d %d]\n",
+			smps[0], smps[1], smps[2], smps[3]);
+
+	seq_puts(s, "Data:\n");
+	if (pipe->front_buf.num_planes) {
+		buf = pipe->front_buf.p;
+		seq_printf(s, "\tfront_buf ihdl=0x%p addr=%pa size=%lu\n",
+				buf->srcp_ihdl, &buf->addr, buf->len);
+	}
+
+	if (pipe->back_buf.num_planes) {
+		buf = pipe->back_buf.p;
+		seq_printf(s, "\tback_buf ihdl=0x%p addr=%pa size=%lu\n",
+				buf->srcp_ihdl, &buf->addr, buf->len);
+	}
+}
+
+static void __dump_mixer(struct seq_file *s, struct mdss_mdp_mixer *mixer)
+{
+	struct mdss_mdp_pipe *pipe;
+	int i, cnt = 0;
+
+	if (!mixer)
+		return;
+
+	seq_printf(s, "\n%s Mixer #%d  res=%dx%d  %s\n",
+		mixer->type == MDSS_MDP_MIXER_TYPE_INTF ? "Intf" : "Writeback",
+		mixer->num, mixer->width, mixer->height,
+		mixer->cursor_enabled ? "w/cursor" : "");
+
+	for (i = 0; i < ARRAY_SIZE(mixer->stage_pipe); i++) {
+		pipe = mixer->stage_pipe[i];
+		if (pipe) {
+			__dump_pipe(s, pipe);
+			cnt++;
+		}
+	}
+
+	seq_printf(s, "\nTotal pipes=%d\n", cnt);
+}
+
+static void __dump_ctl(struct seq_file *s, struct mdss_mdp_ctl *ctl)
+{
+	struct mdss_mdp_perf_params *perf;
+	if (!ctl->power_on)
+		return;
+
+	seq_printf(s, "\n--[ Control path #%d - ", ctl->num);
+
+	if (ctl->panel_data) {
+		seq_puts(s, mdss_panel2str(ctl->panel_data->panel_info.type));
+	} else {
+		struct mdss_mdp_mixer *mixer;
+		mixer = ctl->mixer_left;
+		if (mixer) {
+			seq_printf(s, "%s%d",
+					(mixer->rotator_mode ? "rot" : "wb"),
+					mixer->num);
+		} else {
+			seq_puts(s, "unknown");
+		}
+	}
+	perf = &ctl->cur_perf;
+	seq_puts(s, "]--\n");
+	seq_printf(s, "MDP Clk=%u  Final BW=%llu\n",
+			perf->mdp_clk_rate,
+			perf->bw_ctl);
+	seq_printf(s, "Play Count=%u  Underrun Count=%u\n",
+			ctl->play_cnt, ctl->underrun_cnt);
+
+	__dump_mixer(s, ctl->mixer_left);
+	__dump_mixer(s, ctl->mixer_right);
+}
+
+static int __dump_mdp(struct seq_file *s, struct mdss_data_type *mdata)
+{
+	struct mdss_mdp_ctl *ctl;
+	int i, ignore_ndx = -1;
+
+	for (i = 0; i < mdata->nctl; i++) {
+		ctl = mdata->ctl_off + i;
+		/* ignore slave ctl in split display case */
+		if (ctl->num == ignore_ndx)
+			continue;
+		if (ctl->mixer_right && (ctl->mixer_right->ctl != ctl))
+			ignore_ndx = ctl->mixer_right->ctl->num;
+		__dump_ctl(s, ctl);
+	}
+	return 0;
+}
+
+#define DUMP_CHUNK 256
+#define DUMP_SIZE SZ_32K
+void mdss_mdp_dump(struct mdss_data_type *mdata)
+{
+	struct seq_file s = {
+		.size = DUMP_SIZE - 1,
+	};
+	int i;
+
+	s.buf = kzalloc(DUMP_SIZE, GFP_KERNEL);
+	if (!s.buf)
+		return;
+
+	__dump_mdp(&s, mdata);
+	seq_puts(&s, "\n");
+
+	pr_info("MDP DUMP\n------------------------\n");
+	for (i = 0; i < s.count; i += DUMP_CHUNK) {
+		if ((s.count - i) > DUMP_CHUNK) {
+			char c = s.buf[i + DUMP_CHUNK];
+			s.buf[i + DUMP_CHUNK] = 0;
+			pr_cont("%s", s.buf + i);
+			s.buf[i + DUMP_CHUNK] = c;
+		} else {
+			s.buf[s.count] = 0;
+			pr_cont("%s", s.buf + i);
+		}
+	}
+
+	kfree(s.buf);
+}
+
+#ifdef CONFIG_DEBUG_FS
+static int mdss_debugfs_dump_show(struct seq_file *s, void *v)
+{
+	struct mdss_data_type *mdata = (struct mdss_data_type *)s->private;
+
+	return __dump_mdp(s, mdata);
+}
+DEFINE_MDSS_DEBUGFS_SEQ_FOPS(mdss_debugfs_dump);
+
+int mdss_mdp_debugfs_init(struct mdss_data_type *mdata)
+{
+	struct mdss_debug_data *mdd;
+
+	if (!mdata)
+		return -ENODEV;
+
+	mdd = mdata->debug_inf.debug_data;
+	if (!mdd)
+		return -ENOENT;
+
+	debugfs_create_file("dump", 0644, mdd->root, mdata,
+			&mdss_debugfs_dump_fops);
+
+	return 0;
+}
+#endif
