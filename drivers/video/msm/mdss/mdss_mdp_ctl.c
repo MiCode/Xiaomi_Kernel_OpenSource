@@ -2030,6 +2030,12 @@ int mdss_mdp_ctl_start(struct mdss_mdp_ctl *ctl, bool handoff)
 
 	sctl = mdss_mdp_get_split_ctl(ctl);
 
+	if (sctl) {
+		/* split display */
+		ctl->panel_data->panel_info.is_split_display = true;
+		sctl->panel_data->panel_info.is_split_display = true;
+	}
+
 	mutex_lock(&ctl->lock);
 
 	/*
