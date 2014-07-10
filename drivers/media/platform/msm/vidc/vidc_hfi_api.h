@@ -924,13 +924,14 @@ struct hal_vpe_color_space_conversion {
 };
 
 enum vidc_resource_id {
-	VIDC_RESOURCE_OCMEM = 0x00000001,
-	VIDC_UNUSED_RESORUCE = 0x10000000,
+	VIDC_RESOURCE_NONE,
+	VIDC_RESOURCE_OCMEM,
+	VIDC_UNUSED_RESOURCE = 0x10000000,
 };
 
 struct vidc_resource_hdr {
 	enum vidc_resource_id resource_id;
-	u32 resource_handle;
+	void *resource_handle;
 	u32 size;
 };
 

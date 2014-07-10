@@ -46,6 +46,18 @@ fail_read:
 	return 0;
 }
 
+static inline enum imem_type read_imem_type(struct platform_device *pdev)
+{
+	bool is_compatible(char *compat)
+	{
+		return !!of_find_compatible_node(NULL, NULL, compat);
+	}
+
+	return is_compatible("qcom,msm-ocmem") ? IMEM_OCMEM :
+						IMEM_NONE;
+
+}
+
 int read_hfi_type(struct platform_device *pdev)
 {
 	struct device_node *np = pdev->dev.of_node;
@@ -59,9 +71,9 @@ int read_hfi_type(struct platform_device *pdev)
 				"Failed to read hfi from device tree\n");
 			goto err_hfi_read;
 		}
-		if (!strcmp(hfi_name, "venus"))
+		if (!strcasecmp(hfi_name, "venus"))
 			rc = VIDC_HFI_VENUS;
-		else if (!strcmp(hfi_name, "q6"))
+		else if (!strcasecmp(hfi_name, "q6"))
 			rc = VIDC_HFI_Q6;
 		else
 			rc = -EINVAL;
@@ -607,7 +619,8 @@ int read_platform_resources_from_dt(
 	res->irq = kres ? kres->start : -1;
 
 	of_property_read_u32(pdev->dev.of_node,
-			"qcom,ocmem-size", &res->ocmem_size);
+			"qcom,ocmem-size", &res->imem_size);
+	res->imem_type = read_imem_type(pdev);
 
 	res->dynamic_bw_update = of_property_read_bool(pdev->dev.of_node,
 			"qcom,use-dynamic-bw-update");

@@ -101,6 +101,12 @@ struct bus_set {
 	u32 count;
 };
 
+enum imem_type {
+	IMEM_NONE,
+	IMEM_OCMEM,
+	IMEM_MAX,
+};
+
 struct msm_vidc_platform_resources {
 	phys_addr_t firmware_base;
 	phys_addr_t register_base;
@@ -111,7 +117,8 @@ struct msm_vidc_platform_resources {
 	struct reg_set reg_set;
 	struct iommu_set iommu_group_set;
 	struct buffer_usage_set buffer_usage_set;
-	uint32_t ocmem_size;
+	uint32_t imem_size;
+	enum imem_type imem_type;
 	uint32_t max_load;
 	struct platform_device *pdev;
 	struct regulator_set regulator_set;
