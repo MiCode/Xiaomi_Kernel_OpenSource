@@ -1554,7 +1554,7 @@
 		mmpll4_analog-supply = <&pm8994_l12>;
 		clock-names = "xo", "gpll0", "mmssnoc_ahb",
 			"oxili_gfx3d_clk", "pclk0_src", "pclk1_src",
-			"byte0_src", "byte1_src";
+			"byte0_src", "byte1_src", "extpclk_src";
 		clocks = <&clock_rpm clk_cxo_clk_src>,
 		         <&clock_gcc clk_gpll0_out_mmsscc>,
 			 <&clock_rpm clk_mmssnoc_ahb_clk>,
@@ -1562,7 +1562,8 @@
 			 <&mdss_dsi0_pll clk_pixel_clk_src>,
 			 <&mdss_dsi0_pll clk_pixel_clk_src>,
 			 <&mdss_dsi0_pll clk_byte_clk_src>,
-			 <&mdss_dsi0_pll clk_byte_clk_src>;
+			 <&mdss_dsi0_pll clk_byte_clk_src>,
+			 <&mdss_hdmi_pll clk_hdmi_20nm_vco_clk>;
 		#clock-cells = <1>;
 	};
 
