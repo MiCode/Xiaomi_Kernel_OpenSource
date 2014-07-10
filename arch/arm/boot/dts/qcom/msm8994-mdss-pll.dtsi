@@ -60,4 +60,53 @@
 			};
 		};
 	};
+
+	mdss_hdmi_pll: qcom,mdss_hdmi_pll@0xfd9a8600 {
+		compatible = "qcom,mdss_hdmi_pll_8994";
+		label = "MDSS HDMI PLL";
+		#clock-cells = <1>;
+
+		reg = <0xfd9a8600 0xac4>, <0xfd9a9200 0x0C8>;
+		reg-names = "pll_base", "phy_base";
+
+		gdsc-supply = <&gdsc_mdss>;
+		vddio-supply = <&pm8994_l12>;
+		vcca-supply = <&pm8994_l28>;
+
+		clocks = <&clock_mmss clk_mdss_ahb_clk>;
+		clock-names = "iface_clk";
+		clock-rate = <0>;
+
+		qcom,platform-supply-entries {
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			qcom,platform-supply-entry@0 {
+				reg = <0>;
+				qcom,supply-name = "gdsc";
+				qcom,supply-min-voltage = <0>;
+				qcom,supply-max-voltage = <0>;
+				qcom,supply-enable-load = <0>;
+				qcom,supply-disable-load = <0>;
+			};
+
+			qcom,platform-supply-entry@1 {
+				reg = <1>;
+				qcom,supply-name = "vddio";
+				qcom,supply-min-voltage = <1800000>;
+				qcom,supply-max-voltage = <1800000>;
+				qcom,supply-enable-load = <100000>;
+				qcom,supply-disable-load = <100>;
+			};
+
+			qcom,platform-supply-entry@2 {
+				reg = <2>;
+				qcom,supply-name = "vcca";
+				qcom,supply-min-voltage = <1000000>;
+				qcom,supply-max-voltage = <1000000>;
+				qcom,supply-enable-load = <10000>;
+				qcom,supply-disable-load = <100>;
+			};
+		};
+	};
 };
