@@ -211,6 +211,21 @@ struct csc_coeff {
 	unsigned int csc_mode;
 };
 
+struct i915_ext_ioctl_data {
+	u32 sub_cmd;	/* Extended ioctl to call */
+	u8  table;	/* Reserved, must be zero */
+	u8  pad1;	/* Alignment pad */
+	u16 pad2;	/* Alignment pad */
+
+	/*
+	 * User-space pointer could be 32-bits or 64-bits
+	 * so use u64 to guarantee compatibility with 64-bit kernels
+	 * This obviates the need to provide both a compat_ioctl and standard
+	 * ioctl for this interface
+	 */
+	u64 args_ptr;
+};
+
 /* due to userspace building against these headers we need some compat here */
 #define planeA_x pipeA_x
 #define planeA_y pipeA_y
@@ -292,6 +307,9 @@ struct csc_coeff {
 #define DRM_I915_PERFMON		0x3e
 #define DRM_I915_CMD_PARSER_APPEND	0x3f
 
+/* Special, two-level, extended ioctl */
+#define DRM_I915_EXT_IOCTL		0x5F
+
 #define DRM_IOCTL_I915_INIT		DRM_IOW( DRM_COMMAND_BASE + DRM_I915_INIT, drm_i915_init_t)
 #define DRM_IOCTL_I915_FLUSH		DRM_IO ( DRM_COMMAND_BASE + DRM_I915_FLUSH)
 #define DRM_IOCTL_I915_FLIP		DRM_IO ( DRM_COMMAND_BASE + DRM_I915_FLIP)
@@ -368,6 +386,11 @@ struct csc_coeff {
 #define DRM_IOCTL_I915_CMD_PARSER_APPEND	\
 		DRM_IOW (DRM_COMMAND_BASE + DRM_I915_CMD_PARSER_APPEND, \
 		struct drm_i915_cmd_parser_append)
+
+#define DRM_IOCTL_I915_EXT_IOCTL	\
+		DRM_IOW(DRM_COMMAND_BASE + DRM_I915_EXT_IOCTL, \
+		struct i915_ext_ioctl_data)
+
 
 /* Allow drivers to submit batchbuffers directly to hardware, relying
  * on the security mechanisms provided by hardware.

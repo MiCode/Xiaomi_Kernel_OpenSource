@@ -296,7 +296,7 @@ static int drm_version(struct drm_device *dev, void *data,
  * indicated permissions. If so, returns zero. Otherwise returns an
  * error code suitable for ioctl return.
  */
-static int drm_ioctl_permit(u32 flags, struct drm_file *file_priv)
+int drm_ioctl_permit(u32 flags, struct drm_file *file_priv)
 {
 	/* ROOT_ONLY is only for CAP_SYS_ADMIN */
 	if (unlikely((flags & DRM_ROOT_ONLY) && !capable(CAP_SYS_ADMIN)))

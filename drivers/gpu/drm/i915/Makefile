@@ -84,6 +84,9 @@ i915-y += dvo_ch7017.o \
 i915-y += i915_dma.o \
 	  i915_ums.o
 
+# Extended ioctl interface
+i915-y += i915_ext_ioctl.o
+
 obj-$(CONFIG_DRM_I915)  += i915.o
 
 obj-$(CONFIG_DRM_I915_SYNC)  += intel_sync.o

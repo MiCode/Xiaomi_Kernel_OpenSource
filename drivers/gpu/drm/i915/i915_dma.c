@@ -49,6 +49,7 @@
 #include <linux/pm.h>
 #include <linux/pm_runtime.h>
 #include <linux/oom.h>
+#include "i915_ext_ioctl.h"
 
 #define LP_RING(d) (&((struct drm_i915_private *)(d))->ring[RCS])
 
@@ -2196,6 +2197,14 @@ const struct drm_ioctl_desc i915_ioctls[] = {
 							DRM_AUTH|DRM_UNLOCKED),
 	DRM_IOCTL_DEF_DRV(I915_CMD_PARSER_APPEND, i915_cmd_parser_append_ioctl,
 			  DRM_UNLOCKED|DRM_ROOT_ONLY),
+
+/*
+ * Extended ioctl layers extra ioctls into a single master ioctl
+ * Must allow full access to this ioctl - The i915_extended_ioctl
+ * handler will apply appropriate tests for the underlying ioctl
+*/
+	DRM_IOCTL_DEF_DRV(I915_EXT_IOCTL, i915_extended_ioctl,
+			  DRM_UNLOCKED|DRM_CONTROL_ALLOW|DRM_RENDER_ALLOW),
 };
 
 int i915_max_ioctl = ARRAY_SIZE(i915_ioctls);
