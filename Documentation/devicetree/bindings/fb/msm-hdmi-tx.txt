@@ -24,7 +24,6 @@ Required properties:
 - qcom,hdmi-tx-cec: gpio for Consumer Electronics Control (cec) line.
 - qcom,hdmi-tx-ddc-clk: gpio for Display Data Channel (ddc) clock line.
 - qcom,hdmi-tx-ddc-data: gpio for ddc data line.
-- qcom,hdmi-tx-hpd: gpio required for HDMI hot-plug detect.
 
 Optional properties:
 - hpd-5v-en-supply: phandle to the 5V boost enable regulator device tree node.
@@ -38,6 +37,8 @@ Optional properties:
   selection on liquid devices. Required property for liquid devices.
 - qcom,conditional-power-on: Enables HPD conditionally on MTP targets.
   Required property for MTP devices which are reworked to expose HDMI port.
+- qcom,hdmi-tx-hpd: gpio required for HDMI hot-plug detect. Required on
+  platforms where companion chip is not used.
 
 [Optional child nodes]: These nodes are for devices which are
 dependent on HDMI Tx controller. If HDMI Tx controller is disabled then
