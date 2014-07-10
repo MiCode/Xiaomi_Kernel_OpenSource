@@ -99,8 +99,30 @@ static int q6lsm_callback(struct apr_client_data *data, void *priv)
 	pr_debug("%s: Session %d opcode 0x%x token 0x%x payload size %d\n"
 			 "payload [0] = 0x%x\n", __func__, client->session,
 		data->opcode, data->token, data->payload_size, payload[0]);
-
-	if (data->opcode == APR_BASIC_RSP_RESULT) {
+	if (data->opcode == LSM_DATA_EVENT_READ_DONE) {
+		struct lsm_cmd_read_done read_done;
+		token = data->token;
+		if (data->payload_size > sizeof(read_done)) {
+			pr_err("%s: read done error payload size %d expected size %zd\n",
+				__func__, data->payload_size,
+				sizeof(read_done));
+			return -EINVAL;
+		}
+		pr_debug("%s: opcode %x status %x lsw %x msw %x mem_map handle %x\n",
+			__func__, data->opcode, payload[0], payload[1],
+			payload[2], payload[3]);
+		read_done.status = payload[0];
+		read_done.buf_addr_lsw = payload[1];
+		read_done.buf_addr_msw = payload[2];
+		read_done.mem_map_handle = payload[3];
+		read_done.total_size = payload[4];
+		read_done.offset = payload[5];
+		if (client->cb)
+			client->cb(data->opcode, data->token,
+					(void *)&read_done,
+					client->priv);
+		return 0;
+	} else if (data->opcode == APR_BASIC_RSP_RESULT) {
 		token = data->token;
 		switch (payload[0]) {
 		case LSM_SESSION_CMD_START:
@@ -111,6 +133,8 @@ static int q6lsm_callback(struct apr_client_data *data, void *priv)
 		case LSM_SESSION_CMD_REGISTER_SOUND_MODEL:
 		case LSM_SESSION_CMD_DEREGISTER_SOUND_MODEL:
 		case LSM_SESSION_CMD_SHARED_MEM_UNMAP_REGIONS:
+		case LSM_SESSION_CMD_EOB:
+		case LSM_SESSION_CMD_READ:
 			if (token != client->session &&
 			    payload[0] !=
 				LSM_SESSION_CMD_DEREGISTER_SOUND_MODEL) {
@@ -118,6 +142,9 @@ static int q6lsm_callback(struct apr_client_data *data, void *priv)
 					__func__, token, client->session);
 				return -EINVAL;
 			}
+			if (payload[1] != 0)
+				pr_err("%s: cmd %d failed status %d\n",
+				__func__, payload[0], payload[1]);
 			if (atomic_cmpxchg(&client->cmd_state,
 					   CMD_STATE_WAIT_RESP,
 					   CMD_STATE_CLEARED) ==
@@ -1065,12 +1092,13 @@ static int q6lsm_cmd(struct lsm_client *client, int opcode, bool wait)
 	struct apr_hdr hdr;
 	int rc;
 
-	pr_debug("%s: enter opcode %d wait %d\n", __func__, opcode, wait);
+	pr_debug("%s: enter opcode %x wait %d\n", __func__, opcode, wait);
 	q6lsm_add_hdr(client, &hdr, sizeof(hdr), true);
 	switch (opcode) {
 	case LSM_SESSION_CMD_START:
 	case LSM_SESSION_CMD_STOP:
 	case LSM_SESSION_CMD_CLOSE_TX:
+	case LSM_SESSION_CMD_EOB:
 		hdr.opcode = opcode;
 		break;
 	default:
@@ -1098,6 +1126,183 @@ int q6lsm_stop(struct lsm_client *client, bool wait)
 int q6lsm_close(struct lsm_client *client)
 {
 	return q6lsm_cmd(client, LSM_SESSION_CMD_CLOSE_TX, true);
+}
+
+int q6lsm_lab_control(struct lsm_client *client, u32 enable)
+{
+	int rc = 0;
+	struct lsm_params_lab_enable lab_enable;
+	struct lsm_params_lab_config lab_config;
+
+	if (!client) {
+		pr_err("%s: invalid param client %p\n", __func__, client);
+		return -EINVAL;
+	}
+	/* enable/disable lab on dsp */
+	q6lsm_add_hdr(client, &lab_enable.hdr, sizeof(lab_enable), true);
+	lab_enable.hdr.opcode = LSM_SESSION_CMD_SET_PARAMS;
+	lab_enable.data_payload_size = sizeof(struct lsm_lab_enable);
+	lab_enable.data_payload_addr_lsw = 0;
+	lab_enable.data_payload_addr_msw = 0;
+	lab_enable.mem_map_handle = 0;
+	lab_enable.lab_enable.common.module_id = LSM_MODULE_ID_LAB;
+	lab_enable.lab_enable.common.param_id = LSM_PARAM_ID_LAB_ENABLE;
+	lab_enable.lab_enable.common.param_size = sizeof(struct lsm_lab_enable)
+	- sizeof(struct lsm_param_payload_common);
+	lab_enable.lab_enable.enable = (enable) ? 1 : 0;
+	rc = q6lsm_apr_send_pkt(client, client->apr, &lab_enable, true, NULL);
+	if (rc) {
+		pr_err("%s: Lab enable failed rc %d\n", __func__, rc);
+		return rc;
+	}
+	if (!enable)
+		goto exit;
+	/* lab session is being enabled set the config values */
+	q6lsm_add_hdr(client, &lab_config.hdr, sizeof(lab_config), true);
+	lab_config.hdr.opcode = LSM_SESSION_CMD_SET_PARAMS;
+	lab_config.data_payload_size = sizeof(struct lsm_lab_enable);
+	lab_config.data_payload_addr_lsw = 0;
+	lab_config.data_payload_addr_msw = 0;
+	lab_config.mem_map_handle = 0;
+	lab_config.lab_config.common.module_id = LSM_MODULE_ID_LAB;
+	lab_config.lab_config.common.param_id = LSM_PARAM_ID_LAB_ENABLE;
+	lab_config.lab_config.common.param_size = sizeof(struct lsm_lab_config)
+	- sizeof(struct lsm_param_payload_common);
+	lab_config.lab_config.minor_version = 1;
+	lab_config.lab_config.wake_up_latency_ms = 250;
+	rc = q6lsm_apr_send_pkt(client, client->apr, &lab_config, true, NULL);
+	if (rc) {
+		pr_err("%s: Lab config failed rc %d disable lab\n",
+		 __func__, rc);
+		/* Lab config failed disable lab */
+		lab_enable.lab_enable.enable = 0;
+		if (q6lsm_apr_send_pkt(client, client->apr,
+			&lab_enable, true, NULL))
+			pr_err("%s: Lab disable failed\n", __func__);
+	}
+exit:
+	return rc;
+}
+
+int q6lsm_stop_lab(struct lsm_client *client)
+{
+	int rc = 0;
+	if (!client) {
+		pr_err("%s: invalid param client %p\n", __func__, client);
+		return -EINVAL;
+	}
+	rc = q6lsm_cmd(client, LSM_SESSION_CMD_EOB, true);
+	if (rc)
+		pr_err("%s: Lab stop failed %d\n", __func__, rc);
+	return rc;
+}
+
+int q6lsm_read(struct lsm_client *client, struct lsm_cmd_read *read)
+{
+	int rc = 0;
+	if (!client || !read) {
+		pr_err("%s: Invalid params client %p read %p\n", __func__,
+			client, read);
+		return -EINVAL;
+	}
+	pr_debug("%s: read call memmap handle %x address %x%x size %d\n",
+		 __func__, read->mem_map_handle, read->buf_addr_msw,
+		read->buf_addr_lsw, read->buf_size);
+	q6lsm_add_hdr(client, &read->hdr, sizeof(struct lsm_cmd_read), true);
+	read->hdr.opcode = LSM_SESSION_CMD_READ;
+	rc = q6lsm_apr_send_pkt(client, client->apr, read, false, NULL);
+	if (rc)
+		pr_err("%s: read buffer call failed rc %d\n", __func__, rc);
+	return rc;
+}
+
+int q6lsm_lab_buffer_alloc(struct lsm_client *client, bool alloc)
+{
+	int ret = 0, i = 0;
+	size_t allocate_size = 0, len = 0;
+	if (!client) {
+		pr_err("%s: invalid client\n", __func__);
+		return -EINVAL;
+	}
+	if (alloc) {
+		if (client->lab_buffer) {
+			pr_err("%s: buffers are allocated period count %d period size %d\n",
+				__func__,
+				client->hw_params.period_count,
+				client->hw_params.buf_sz);
+			return -EINVAL;
+		}
+		allocate_size = client->hw_params.period_count *
+				client->hw_params.buf_sz;
+		allocate_size = PAGE_ALIGN(allocate_size);
+		client->lab_buffer =
+			kzalloc(sizeof(struct lsm_lab_buffer) *
+			client->hw_params.period_count, GFP_KERNEL);
+		if (!client->lab_buffer) {
+			pr_err("%s: memory allocation for lab buffer failed count %d\n"
+				, __func__,
+				client->hw_params.period_count);
+			return -ENOMEM;
+		}
+		ret = msm_audio_ion_alloc("lsm_lab",
+			&client->lab_buffer[0].client,
+			&client->lab_buffer[0].handle,
+			allocate_size, &client->lab_buffer[0].phys,
+			&len,
+			&client->lab_buffer[0].data);
+		if (ret)
+			pr_err("%s: ion alloc failed ret %d size %zd\n",
+				__func__, ret, allocate_size);
+		else {
+			ret = q6lsm_memory_map_regions(client,
+				client->lab_buffer[0].phys, len,
+				&client->lab_buffer[0].mem_map_handle);
+			if (ret) {
+				pr_err("%s: memory map filed ret %d size %zd\n",
+				__func__, ret, len);
+				msm_audio_ion_free(
+				client->lab_buffer[0].client,
+				client->lab_buffer[0].handle);
+			}
+		}
+		if (ret) {
+			pr_err("%s: alloc lab buffer failed ret %d\n",
+				__func__, ret);
+			kfree(client->lab_buffer);
+			client->lab_buffer = NULL;
+		} else {
+			pr_debug("%s: Memory map handle %x phys %pa size %d\n",
+				__func__,
+				client->lab_buffer[0].mem_map_handle,
+				&client->lab_buffer[0].phys,
+				client->hw_params.buf_sz);
+			for (i = 0; i < client->hw_params.period_count; i++) {
+				client->lab_buffer[i].phys =
+				client->lab_buffer[0].phys +
+				(i * client->hw_params.buf_sz);
+				client->lab_buffer[i].size =
+				client->hw_params.buf_sz;
+				client->lab_buffer[i].data =
+				(u8 *)(client->lab_buffer[0].data) +
+				(i * client->hw_params.buf_sz);
+				client->lab_buffer[i].mem_map_handle =
+				client->lab_buffer[0].mem_map_handle;
+			}
+		}
+	} else {
+		ret = q6lsm_memory_unmap_regions(client,
+			client->lab_buffer[0].mem_map_handle);
+		if (!ret)
+			msm_audio_ion_free(
+			client->lab_buffer[0].client,
+			client->lab_buffer[0].handle);
+		else
+			pr_err("%s: unmap failed not freeing memory\n",
+			__func__);
+		kfree(client->lab_buffer);
+		client->lab_buffer = NULL;
+	}
+	return ret;
 }
 
 static int q6lsm_alloc_cal(int32_t cal_type,

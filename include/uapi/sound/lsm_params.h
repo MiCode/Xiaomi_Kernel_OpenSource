@@ -60,7 +60,7 @@ struct snd_lsm_event_status {
 #define SNDRV_LSM_SET_SESSION_DATA _IOW('U', 0x06, struct snd_lsm_session_data)
 #define SNDRV_LSM_REG_SND_MODEL_V2 _IOW('U', 0x07,\
 					struct snd_lsm_sound_model_v2)
-#define SNDRV_LSM_LAB_CONTROL	_IOW('U', 0x08, bool)
+#define SNDRV_LSM_LAB_CONTROL	_IOW('U', 0x08, uint32_t)
 #define SNDRV_LSM_STOP_LAB	_IO('U', 0x09)
 
 #endif

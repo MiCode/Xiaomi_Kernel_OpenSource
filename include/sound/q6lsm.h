@@ -45,6 +45,22 @@ struct snd_lsm_event_status_v2 {
 	uint8_t  confidence_value[0];
 };
 
+struct lsm_lab_buffer {
+	dma_addr_t phys;
+	void *data;
+	size_t size;
+	struct ion_handle *handle;
+	struct ion_client *client;
+	uint32_t mem_map_handle;
+};
+
+struct lsm_lab_hw_params {
+	u16 sample_rate;
+	u16 sample_size;
+	u32 buf_sz;
+	u32 period_count;
+};
+
 struct lsm_client {
 	enum lsm_snd_model_in_use snd_model_ver_inuse;
 	int		session;
@@ -66,6 +82,10 @@ struct lsm_client {
 	dma_addr_t	lsm_cal_phy_addr;
 	uint32_t	lsm_cal_size;
 	uint16_t	app_id;
+	bool		lab_enable;
+	bool		lab_started;
+	struct lsm_lab_buffer *lab_buffer;
+	struct lsm_lab_hw_params hw_params;
 };
 
 struct lsm_stream_cmd_open_tx {
@@ -168,6 +188,58 @@ struct lsm_cmd_reg_snd_model {
 	uint32_t	mem_map_handle;
 } __packed;
 
+struct lsm_lab_enable {
+	struct lsm_param_payload_common common;
+	uint16_t enable;
+	uint16_t reserved;
+} __packed;
+
+struct lsm_params_lab_enable {
+	struct apr_hdr  hdr;
+	uint32_t	data_payload_size;
+	uint32_t	data_payload_addr_lsw;
+	uint32_t	data_payload_addr_msw;
+	uint32_t	mem_map_handle;
+	struct lsm_lab_enable lab_enable;
+} __packed;
+
+struct lsm_lab_config {
+	struct lsm_param_payload_common common;
+	uint32_t minor_version;
+	uint32_t wake_up_latency_ms;
+} __packed;
+
+
+struct lsm_params_lab_config {
+	struct apr_hdr  hdr;
+	uint32_t	data_payload_size;
+	uint32_t	data_payload_addr_lsw;
+	uint32_t	data_payload_addr_msw;
+	uint32_t	mem_map_handle;
+	struct lsm_lab_config lab_config;
+} __packed;
+
+struct lsm_cmd_read {
+	struct apr_hdr hdr;
+	uint32_t buf_addr_lsw;
+	uint32_t buf_addr_msw;
+	uint32_t mem_map_handle;
+	uint32_t buf_size;
+} __packed;
+
+struct lsm_cmd_read_done {
+	struct apr_hdr hdr;
+	uint32_t status;
+	uint32_t buf_addr_lsw;
+	uint32_t buf_addr_msw;
+	uint32_t mem_map_handle;
+	uint32_t total_size;
+	uint32_t offset;
+	uint32_t timestamp_lsw;
+	uint32_t timestamp_msw;
+	uint32_t flags;
+} __packed;
+
 struct lsm_client *q6lsm_client_alloc(lsm_app_cb cb, void *priv);
 void q6lsm_client_free(struct lsm_client *client);
 int q6lsm_open(struct lsm_client *client, uint16_t app_id);
@@ -184,4 +256,8 @@ int q6lsm_set_kw_sensitivity_level(struct lsm_client *client,
 				u16 minkeyword, u16 minuser);
 void set_lsm_port(int);
 int get_lsm_port(void);
+int q6lsm_lab_control(struct lsm_client *client, u32 enable);
+int q6lsm_stop_lab(struct lsm_client *client);
+int q6lsm_read(struct lsm_client *client, struct lsm_cmd_read *read);
+int q6lsm_lab_buffer_alloc(struct lsm_client *client, bool alloc);
 #endif /* __Q6LSM_H__ */

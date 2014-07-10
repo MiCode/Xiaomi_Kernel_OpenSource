@@ -19,6 +19,7 @@
 #include <linux/slab.h>
 #include <linux/dma-mapping.h>
 #include <linux/of.h>
+#include <linux/msm_audio_ion.h>
 #include <sound/core.h>
 #include <sound/soc.h>
 #include <sound/soc-dapm.h>
@@ -28,18 +29,135 @@
 #include <sound/control.h>
 #include <sound/q6lsm.h>
 #include <sound/lsm_params.h>
+#include <sound/pcm_params.h>
 #include "msm-pcm-routing-v2.h"
+
+#define CAPTURE_MIN_NUM_PERIODS     2
+#define CAPTURE_MAX_NUM_PERIODS     8
+#define CAPTURE_MAX_PERIOD_SIZE     4096
+#define CAPTURE_MIN_PERIOD_SIZE     320
+
+#define LAB_BUFFER_ALLOC 1
+#define LAB_BUFFER_DEALLOC 0
+
+static struct snd_pcm_hardware msm_pcm_hardware_capture = {
+	.info =                 (SNDRV_PCM_INFO_MMAP |
+				SNDRV_PCM_INFO_BLOCK_TRANSFER |
+				SNDRV_PCM_INFO_INTERLEAVED |
+				SNDRV_PCM_INFO_PAUSE | SNDRV_PCM_INFO_RESUME),
+	.formats =              SNDRV_PCM_FMTBIT_S16_LE,
+	.rates =                SNDRV_PCM_RATE_16000,
+	.rate_min =             16000,
+	.rate_max =             16000,
+	.channels_min =         1,
+	.channels_max =         1,
+	.buffer_bytes_max =     CAPTURE_MAX_NUM_PERIODS *
+				CAPTURE_MAX_PERIOD_SIZE,
+	.period_bytes_min =	CAPTURE_MIN_PERIOD_SIZE,
+	.period_bytes_max =     CAPTURE_MAX_PERIOD_SIZE,
+	.periods_min =          CAPTURE_MIN_NUM_PERIODS,
+	.periods_max =          CAPTURE_MAX_NUM_PERIODS,
+	.fifo_size =            0,
+};
+
+/* Conventional and unconventional sample rate supported */
+static unsigned int supported_sample_rates[] = {
+	16000,
+};
+
+static struct snd_pcm_hw_constraint_list constraints_sample_rates = {
+	.count = ARRAY_SIZE(supported_sample_rates),
+	.list = supported_sample_rates,
+	.mask = 0,
+};
 
 struct lsm_priv {
 	struct snd_pcm_substream *substream;
 	struct lsm_client *lsm_client;
-
 	struct snd_lsm_event_status *event_status;
 	spinlock_t event_lock;
 	wait_queue_head_t event_wait;
 	unsigned long event_avail;
 	atomic_t event_wait_stop;
+	atomic_t buf_count;
+	atomic_t read_abort;
+	wait_queue_head_t period_wait;
+	int appl_cnt;
+	int dma_write;
 };
+
+static int msm_lsm_queue_lab_buffer(struct lsm_priv *prtd, int i)
+{
+	int rc = 0;
+	struct lsm_cmd_read cmd_read;
+
+	if (!prtd || !prtd->lsm_client) {
+		pr_err("%s: Invalid params prtd %p lsm client %p\n",
+			__func__, prtd, ((!prtd) ? NULL : prtd->lsm_client));
+		return -EINVAL;
+	}
+	if (!prtd->lsm_client->lab_buffer ||
+		i >= prtd->lsm_client->hw_params.period_count) {
+		pr_err("%s: Lab buffer not setup %p incorrect index %d period count %d\n",
+			__func__, prtd->lsm_client->lab_buffer, i,
+			prtd->lsm_client->hw_params.period_count);
+		return -EINVAL;
+	}
+	cmd_read.buf_addr_lsw =
+		lower_32_bits(prtd->lsm_client->lab_buffer[i].phys);
+	cmd_read.buf_addr_msw =
+		upper_32_bits(prtd->lsm_client->lab_buffer[i].phys);
+	cmd_read.buf_size = prtd->lsm_client->lab_buffer[i].size;
+	cmd_read.mem_map_handle =
+		prtd->lsm_client->lab_buffer[i].mem_map_handle;
+	rc = q6lsm_read(prtd->lsm_client, &cmd_read);
+	if (rc)
+		pr_err("%s: error in queuing the lab buffer rc %d\n",
+			 __func__, rc);
+	return rc;
+}
+
+static int lsm_lab_buffer_sanity(struct lsm_priv *prtd,
+		struct lsm_cmd_read_done *read_done, int *index)
+{
+	int i = 0, rc = -EINVAL;
+	if (!prtd || !read_done || !index) {
+		pr_err("%s: Invalid params prtd %p read_done %p index %p\n",
+			__func__, prtd, read_done, index);
+		return -EINVAL;
+	}
+	if (!prtd->lsm_client->lab_enable || !prtd->lsm_client->lab_buffer) {
+		pr_err("%s: Lab not enabled %d invalid lab buffer %p\n",
+			__func__, prtd->lsm_client->lab_enable,
+			prtd->lsm_client->lab_buffer);
+		return -EINVAL;
+	}
+	for (i = 0; i < prtd->lsm_client->hw_params.period_count; i++) {
+		if ((lower_32_bits(prtd->lsm_client->lab_buffer[i].phys) ==
+			read_done->buf_addr_lsw) &&
+			(upper_32_bits(prtd->lsm_client->lab_buffer[i].phys) ==
+			read_done->buf_addr_msw) &&
+			(prtd->lsm_client->lab_buffer[i].mem_map_handle ==
+			read_done->mem_map_handle)) {
+			pr_debug("%s: Buffer found %pa memmap handle %d\n",
+			__func__, &prtd->lsm_client->lab_buffer[i].phys,
+			prtd->lsm_client->lab_buffer[i].mem_map_handle);
+			if (read_done->total_size >
+				prtd->lsm_client->lab_buffer[i].size) {
+				pr_err("%s: Size mismatch call back size %d actual size %zd\n",
+				__func__, read_done->total_size,
+				prtd->lsm_client->lab_buffer[i].size);
+				rc = -EINVAL;
+				break;
+			} else {
+				*index = i;
+				rc = 0;
+				break;
+			}
+		}
+	}
+	return rc;
+}
 
 static void lsm_event_handler(uint32_t opcode, uint32_t token,
 			      void *payload, void *priv)
@@ -53,6 +171,46 @@ static void lsm_event_handler(uint32_t opcode, uint32_t token,
 
 	pr_debug("%s: Opcode 0x%x\n", __func__, opcode);
 	switch (opcode) {
+	case LSM_DATA_EVENT_READ_DONE: {
+		int rc;
+		struct lsm_cmd_read_done *read_done = payload;
+		int buf_index = 0;
+		if (prtd->lsm_client->session != token
+		  || !read_done) {
+			pr_err("%s: EVENT_READ_DONE invalid callback client session %d callback sesson %d payload %p",
+			__func__, prtd->lsm_client->session, token, read_done);
+			return;
+		}
+		if (atomic_read(&prtd->read_abort)) {
+			pr_info("%s: read abort set skip data\n", __func__);
+			return;
+		}
+		if (!lsm_lab_buffer_sanity(prtd, read_done, &buf_index)) {
+			pr_debug("%s: process read done index %d\n",
+				__func__, buf_index);
+			if (buf_index >=
+				prtd->lsm_client->hw_params.period_count) {
+				pr_err("%s: Invalid index %d buf_index max cnt %d\n"
+				, __func__, buf_index,
+				prtd->lsm_client->hw_params.period_count);
+				return;
+			}
+			prtd->dma_write += read_done->total_size;
+			atomic_inc(&prtd->buf_count);
+			snd_pcm_period_elapsed(substream);
+			wake_up(&prtd->period_wait);
+			/* queue the next period buffer */
+			buf_index = (buf_index + 1) %
+			prtd->lsm_client->hw_params.period_count;
+			rc = msm_lsm_queue_lab_buffer(prtd, buf_index);
+			if (rc)
+				pr_err("%s: error in queuing the lab buffer rc %d\n",
+					__func__, rc);
+		} else
+			pr_err("%s: Invalid lab buffer returned by dsp\n",
+			__func__);
+		break;
+	}
 	case LSM_SESSION_EVENT_DETECTION_STATUS:
 		status = (uint16_t)((uint8_t *)payload)[0];
 		payload_size = (uint16_t)((uint8_t *)payload)[2];
@@ -95,6 +253,46 @@ static void lsm_event_handler(uint32_t opcode, uint32_t token,
 		if (substream->timer_running)
 			snd_timer_interrupt(substream->timer, 1);
 	}
+}
+
+static int msm_lsm_lab_buffer_alloc(struct lsm_priv *lsm, int alloc)
+{
+	int ret = 0;
+	struct snd_dma_buffer *dma_buf = NULL;
+	if (!lsm) {
+		pr_err("%s: Invalid param lsm %p\n", __func__, lsm);
+		return -EINVAL;
+	}
+	if (alloc) {
+		if (!lsm->substream) {
+			pr_err("%s: substream is NULL\n", __func__);
+			return -EINVAL;
+		}
+		ret = q6lsm_lab_buffer_alloc(lsm->lsm_client, alloc);
+		if (ret) {
+			pr_err("%s: alloc lab buffer failed ret %d\n",
+				__func__, ret);
+			goto exit;
+		}
+		dma_buf = &lsm->substream->dma_buffer;
+		dma_buf->dev.type = SNDRV_DMA_TYPE_DEV;
+		dma_buf->dev.dev = lsm->substream->pcm->card->dev;
+		dma_buf->private_data = NULL;
+		dma_buf->area = lsm->lsm_client->lab_buffer[0].data;
+		dma_buf->addr = lsm->lsm_client->lab_buffer[0].phys;
+		dma_buf->bytes = lsm->lsm_client->hw_params.buf_sz *
+		lsm->lsm_client->hw_params.period_count;
+		snd_pcm_set_runtime_buffer(lsm->substream, dma_buf);
+	} else {
+		ret = q6lsm_lab_buffer_alloc(lsm->lsm_client, alloc);
+		if (ret)
+			pr_err("%s: free lab buffer failed ret %d\n",
+				__func__, ret);
+		kfree(lsm->lsm_client->lab_buffer);
+		lsm->lsm_client->lab_buffer = NULL;
+	}
+exit:
+	return ret;
 }
 
 static int msm_lsm_ioctl_shared(struct snd_pcm_substream *substream,
@@ -277,6 +475,18 @@ static int msm_lsm_ioctl_shared(struct snd_pcm_substream *substream,
 	case SNDRV_LSM_START:
 		pr_debug("%s: Starting LSM client session\n", __func__);
 		if (!prtd->lsm_client->started) {
+			if (prtd->lsm_client->lab_enable &&
+				!prtd->lsm_client->lab_started) {
+				atomic_set(&prtd->read_abort, 0);
+				/* Push the first period buffer */
+				ret = msm_lsm_queue_lab_buffer(prtd, 0);
+				if (ret) {
+					pr_err("%s: failed to queue buffers for LAB read %d\n"
+					, __func__, ret);
+					break;
+				}
+				prtd->lsm_client->lab_started = true;
+			}
 			ret = q6lsm_start(prtd->lsm_client, true);
 			if (!ret) {
 				prtd->lsm_client->started = true;
@@ -286,9 +496,24 @@ static int msm_lsm_ioctl_shared(struct snd_pcm_substream *substream,
 		}
 		break;
 
-	case SNDRV_LSM_STOP:
+	case SNDRV_LSM_STOP: {
 		pr_debug("%s: Stopping LSM client session\n", __func__);
 		if (prtd->lsm_client->started) {
+			if (prtd->lsm_client->lab_enable) {
+				atomic_set(&prtd->read_abort, 1);
+				if (prtd->lsm_client->lab_started) {
+					ret = q6lsm_stop_lab(prtd->lsm_client);
+					if (ret)
+						pr_err("%s: stop lab failed ret %d\n",
+						__func__, ret);
+					prtd->lsm_client->lab_started = false;
+				}
+				ret = msm_lsm_lab_buffer_alloc(prtd,
+					LAB_BUFFER_DEALLOC);
+				if (ret)
+					pr_err("%s: lab buffer de-alloc failed rc %d",
+					__func__, rc);
+			}
 			ret = q6lsm_stop(prtd->lsm_client, true);
 			if (!ret)
 				pr_debug("%s: LSM client session stopped %d\n",
@@ -296,7 +521,61 @@ static int msm_lsm_ioctl_shared(struct snd_pcm_substream *substream,
 			prtd->lsm_client->started = false;
 		}
 		break;
-
+	}
+	case SNDRV_LSM_LAB_CONTROL: {
+		u32 *enable = NULL;
+		pr_debug("%s: ioctl %s\n", __func__, "SNDRV_LSM_LAB_CONTROL");
+		if (!arg) {
+			pr_err("%s: Invalid param arg for ioctl %s session %d\n",
+			__func__, "SNDRV_LSM_LAB_CONTROL",
+			prtd->lsm_client->session);
+			rc = -EINVAL;
+			break;
+		}
+		enable = (int *)arg;
+		if (!prtd->lsm_client->started) {
+			if (prtd->lsm_client->lab_enable == *enable) {
+				pr_info("%s: Lab for session %d already %s\n",
+				 __func__, prtd->lsm_client->session,
+				((*enable) ? "enabled" : "disabled"));
+				rc = 0;
+				break;
+			}
+			rc = q6lsm_lab_control(prtd->lsm_client, *enable);
+			if (rc)
+				pr_err("%s: ioctl %s failed rc %d to %s lab for session %d\n",
+				__func__, "SNDRV_LAB_CONTROL", rc,
+				((*enable) ? "enable" : "disable"),
+				prtd->lsm_client->session);
+			else {
+				rc = msm_lsm_lab_buffer_alloc(prtd,
+					((*enable) ? LAB_BUFFER_ALLOC
+					: LAB_BUFFER_DEALLOC));
+				if (rc)
+					pr_err("%s: msm_lsm_lab_buffer_alloc failed rc %d for %s",
+					__func__, rc,
+					((*enable) ? "ALLOC" : "DEALLOC"));
+				if (!rc)
+					prtd->lsm_client->lab_enable = *enable;
+			}
+		} else {
+			pr_err("%s: ioctl %s issued after start", __func__
+			, "SNDRV_LSM_LAB_CONTROL");
+			rc = -EINVAL;
+		}
+		break;
+	}
+	case SNDRV_LSM_STOP_LAB:
+		if (prtd->lsm_client->lab_enable &&
+			prtd->lsm_client->lab_started) {
+			atomic_set(&prtd->read_abort, 1);
+			rc = q6lsm_stop_lab(prtd->lsm_client);
+			if (rc)
+				pr_err("%s: Lab stop failed for session %d rc %d\n"
+				, __func__, prtd->lsm_client->session, rc);
+			prtd->lsm_client->lab_started = false;
+		}
+	break;
 	default:
 		pr_debug("%s: Falling into default snd_lib_ioctl cmd 0x%x\n",
 			 __func__, cmd);
@@ -589,6 +868,7 @@ static int msm_lsm_open(struct snd_pcm_substream *substream)
 {
 	struct snd_pcm_runtime *runtime = substream->runtime;
 	struct lsm_priv *prtd;
+	int ret = 0;
 
 	pr_debug("%s\n", __func__);
 	prtd = kzalloc(sizeof(struct lsm_priv), GFP_KERNEL);
@@ -599,15 +879,50 @@ static int msm_lsm_open(struct snd_pcm_substream *substream)
 	}
 	spin_lock_init(&prtd->event_lock);
 	init_waitqueue_head(&prtd->event_wait);
+	init_waitqueue_head(&prtd->period_wait);
 	prtd->substream = substream;
+	runtime->private_data = prtd;
+	runtime->hw = msm_pcm_hardware_capture;
+
+	ret = snd_pcm_hw_constraint_list(runtime, 0,
+				SNDRV_PCM_HW_PARAM_RATE,
+				&constraints_sample_rates);
+	if (ret < 0)
+		pr_info("%s: snd_pcm_hw_constraint_list failed ret %d\n",
+			 __func__, ret);
+	/* Ensure that buffer size is a multiple of period size */
+	ret = snd_pcm_hw_constraint_integer(runtime,
+			    SNDRV_PCM_HW_PARAM_PERIODS);
+	if (ret < 0)
+		pr_info("%s: snd_pcm_hw_constraint_integer failed ret %d\n",
+			__func__, ret);
+
+	ret = snd_pcm_hw_constraint_minmax(runtime,
+		SNDRV_PCM_HW_PARAM_BUFFER_BYTES,
+		CAPTURE_MIN_NUM_PERIODS * CAPTURE_MIN_PERIOD_SIZE,
+		CAPTURE_MAX_NUM_PERIODS * CAPTURE_MAX_PERIOD_SIZE);
+	if (ret < 0)
+		pr_info("%s: constraint for buffer bytes min max ret = %d\n",
+			__func__, ret);
+	ret = snd_pcm_hw_constraint_step(runtime, 0,
+		SNDRV_PCM_HW_PARAM_PERIOD_BYTES, 32);
+	if (ret < 0) {
+		pr_info("%s: constraint for period bytes step ret = %d\n",
+			__func__, ret);
+	}
+	ret = snd_pcm_hw_constraint_step(runtime, 0,
+		SNDRV_PCM_HW_PARAM_BUFFER_BYTES, 32);
+	if (ret < 0)
+		pr_info("%s: constraint for buffer bytes step ret = %d\n",
+			__func__, ret);
 	prtd->lsm_client = q6lsm_client_alloc(
 				(lsm_app_cb)lsm_event_handler, prtd);
 	if (!prtd->lsm_client) {
 		pr_err("%s: Could not allocate memory\n", __func__);
 		kfree(prtd);
+		runtime->private_data = NULL;
 		return -ENOMEM;
 	}
-	runtime->private_data = prtd;
 	return 0;
 }
 
@@ -655,12 +970,116 @@ static int msm_lsm_close(struct snd_pcm_substream *substream)
 	return 0;
 }
 
+static int msm_lsm_hw_params(struct snd_pcm_substream *substream,
+				struct snd_pcm_hw_params *params)
+{
+	struct snd_pcm_runtime *runtime = substream->runtime;
+	struct lsm_priv *prtd = runtime->private_data;
+	struct lsm_lab_hw_params *hw_params = NULL;
+
+	if (!prtd || !params) {
+		pr_err("%s: invalid params prtd %p params %p",
+		 __func__, prtd, params);
+		return -EINVAL;
+	}
+	hw_params = &prtd->lsm_client->hw_params;
+	hw_params->sample_rate = params_rate(params);
+	hw_params->sample_size =
+	(params_format(params) == SNDRV_PCM_FORMAT_S16_LE) ? 16 : 0;
+	hw_params->period_count = params_periods(params);
+	if (hw_params->sample_rate != 16000 || hw_params->sample_size != 16 ||
+		hw_params->period_count == 0) {
+		pr_err("%s: Invalid params sample rate %d sample size %d period count %d"
+		, __func__, hw_params->sample_rate, hw_params->sample_size,
+		hw_params->period_count);
+		return -EINVAL;
+	}
+	hw_params->buf_sz = params_buffer_bytes(params) /
+	hw_params->period_count;
+	pr_debug("%s: sample rate %d sample size %d buffer size %d period count %d\n",
+		__func__, hw_params->sample_rate, hw_params->sample_size,
+		hw_params->buf_sz, hw_params->period_count);
+	return 0;
+}
+
+static snd_pcm_uframes_t msm_lsm_pcm_pointer(
+	struct snd_pcm_substream *substream)
+{
+	struct snd_pcm_runtime *runtime = substream->runtime;
+	struct lsm_priv *prtd = runtime->private_data;
+
+	if (!prtd) {
+		pr_err("%s: Invalid param %p\n", __func__, prtd);
+		return 0;
+	}
+
+	if (prtd->dma_write >= snd_pcm_lib_buffer_bytes(substream))
+		prtd->dma_write = 0;
+	pr_debug("%s: dma post = %d\n", __func__, prtd->dma_write);
+	return bytes_to_frames(runtime, prtd->dma_write);
+}
+
+static int msm_lsm_pcm_copy(struct snd_pcm_substream *substream, int ch,
+	snd_pcm_uframes_t hwoff, void __user *buf, snd_pcm_uframes_t frames)
+{
+	struct snd_pcm_runtime *runtime = substream->runtime;
+	struct lsm_priv *prtd = runtime->private_data;
+	char *pcm_buf = NULL;
+	int fbytes = 0, rc = 0;
+
+	if (!prtd) {
+		pr_err("%s: Invalid param %p\n", __func__, prtd);
+		return -EINVAL;
+	}
+
+	fbytes = frames_to_bytes(runtime, frames);
+	if (runtime->status->state == SNDRV_PCM_STATE_XRUN ||
+	    runtime->status->state == SNDRV_PCM_STATE_PREPARED) {
+		pr_err("%s: runtime state incorrect %d", __func__,
+		       runtime->status->state);
+		return 0;
+	}
+	rc = wait_event_timeout(prtd->period_wait,
+		(atomic_read(&prtd->buf_count) |
+		atomic_read(&prtd->read_abort)), (2 * HZ));
+	if (!rc) {
+		pr_err("%s: timeout for read retry\n", __func__);
+		return -EAGAIN;
+	}
+	if (atomic_read(&prtd->read_abort)) {
+		pr_err("%s: Read abort recieved\n", __func__);
+		return -EIO;
+	}
+	prtd->appl_cnt = prtd->appl_cnt %
+		prtd->lsm_client->hw_params.period_count;
+	pcm_buf = prtd->lsm_client->lab_buffer[prtd->appl_cnt].data;
+	pr_debug("%s: copy the pcm data size %d\n", __func__,
+		fbytes);
+	if (pcm_buf) {
+		if (copy_to_user(buf, pcm_buf, fbytes)) {
+			pr_err("%s: failed to copy bytes %d\n", __func__,
+				fbytes);
+			return -EINVAL;
+		}
+	} else {
+		pr_err("%s: Invalid pcm buffer\n", __func__);
+		return -EINVAL;
+	}
+	prtd->appl_cnt = (prtd->appl_cnt + 1) %
+		prtd->lsm_client->hw_params.period_count;
+	atomic_dec(&prtd->buf_count);
+	return 0;
+}
+
 static struct snd_pcm_ops msm_lsm_ops = {
 	.open           = msm_lsm_open,
 	.close          = msm_lsm_close,
 	.ioctl          = msm_lsm_ioctl,
 	.prepare	= msm_lsm_prepare,
 	.compat_ioctl   = msm_lsm_ioctl_compat,
+	.hw_params      = msm_lsm_hw_params,
+	.copy           = msm_lsm_pcm_copy,
+	.pointer        = msm_lsm_pcm_pointer,
 };
 
 static int msm_asoc_lsm_new(struct snd_soc_pcm_runtime *rtd)
