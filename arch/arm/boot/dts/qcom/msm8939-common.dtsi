@@ -1380,7 +1380,7 @@
 			<&clock_gcc clk_gcc_venus0_axi_clk>;
 		clock-names = "core_clk", "core0_clk", "core1_clk", "iface_clk", "bus_clk";
 		qcom,clock-names = "core_clk", "core0_clk", "core1_clk", "iface_clk", "bus_clk";
-		qcom,clock-configs = <0x3 0x0 0x0 0x0 0x0>;
+		qcom,clock-configs = <0x1 0x0 0x0 0x0 0x0>;
 		qcom,sw-power-collapse;
 		qcom,load-freq-tbl = <352800 266670000>,
 			<244800 200000000>,
