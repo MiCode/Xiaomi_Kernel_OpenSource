@@ -258,3 +258,5 @@
 		#clock-cells = <1>;
 	};
 };
+
+#include "msm8992-ion.dtsi"
