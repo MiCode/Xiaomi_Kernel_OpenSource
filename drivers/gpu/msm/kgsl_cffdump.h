@@ -25,6 +25,8 @@ struct kgsl_device_private;
 
 #ifdef CONFIG_MSM_KGSL_CFF_DUMP
 
+#define CFF_OP_WRITE_MEM        0x0000000b
+
 void kgsl_cffdump_init(void);
 void kgsl_cffdump_destroy(void);
 void kgsl_cffdump_open(struct kgsl_device *device);
