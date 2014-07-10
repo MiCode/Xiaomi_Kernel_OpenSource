@@ -41,7 +41,8 @@
 		qcom,mdss-dsi-lane-map = "lane_map_0123";
 		qcom,mdss-dsi-bllp-eof-power-mode;
 		qcom,mdss-dsi-bllp-power-mode;
-		qcom,mdss-dsi-panel-broadcast-mode;
+		qcom,cmd-sync-wait-broadcast;
+		qcom,cmd-sync-wait-trigger;
 		qcom,mdss-dsi-lane-0-state;
 		qcom,mdss-dsi-lane-1-state;
 		qcom,mdss-dsi-lane-2-state;

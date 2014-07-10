@@ -80,7 +80,10 @@ Optional properties:
 					to specify the memory reserved for the splash
 					screen using the qcom,memblock-reserve binding
 					for the framebuffer device attached to the panel.
-- qcom,mdss-dsi-panel-broadcast-mode:	Boolean used to enable broadcast mode.
+- qcom,cmd-sync-wait-broadcast:		Boolean used to broadcast dcs command to panels.
+- qcom,cmd-sync-wait-trigger:		Boolean used to identify the which panel in a dual-dsi
+					configuration will be used to trigger the DCS commands.
+					This flag should be set only for one of the two panels.
 - qcom,mdss-dsi-fbc-enable:		Boolean used to enable frame buffer compression mode.
 - qcom,mdss-dsi-fbc-bpp:		Compressed bpp supported by the panel.
 					Specified color order is used as default value.
@@ -356,7 +359,8 @@ Example:
 		qcom,mdss-dsi-bpp = <24>;
 		qcom,mdss-dsi-pixel-packing = <0>;
 		qcom,mdss-dsi-panel-destination = "display_1";
-		qcom,mdss-dsi-panel-broadcast-mode;
+		qcom,cmd-sync-wait-broadcast;
+		qcom,cmd-sync-wait-trigger;
 		qcom,mdss-dsi-fbc-enable;
 		qcom,mdss-dsi-fbc-bpp = <0>;
 		qcom,mdss-dsi-fbc-packing = <0>;

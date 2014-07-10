@@ -43,7 +43,8 @@
 		qcom,mdss-dsi-lane-1-state;
 		qcom,mdss-dsi-lane-2-state;
 		qcom,mdss-dsi-lane-3-state;
-		qcom,mdss-dsi-panel-broadcast-mode;
+		qcom,cmd-sync-wait-broadcast;
+		qcom,cmd-sync-wait-trigger;
 		qcom,mdss-dsi-panel-timings = [cd 32 22 00 60 64 26 34 29 03
 									04 00];
 		qcom,mdss-dsi-t-clk-post = <0x03>;

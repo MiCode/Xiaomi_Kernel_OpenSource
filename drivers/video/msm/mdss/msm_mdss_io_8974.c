@@ -1277,14 +1277,14 @@ int mdss_dsi_clk_ctrl(struct mdss_dsi_ctrl_pdata *ctrl,
 	}
 
 	/*
-	 * In broadcast mode, we need to enable clocks for the
-	 * master controller as well when enabling clocks for the
-	 * slave controller
+	 * In sync_wait_broadcast mode, we need to enable clocks
+	 * for the other controller as well when enabling clocks
+	 * for the trigger controller
 	 */
-	if (mdss_dsi_is_slave_ctrl(ctrl)) {
-		mctrl = mdss_dsi_get_master_ctrl();
+	if (mdss_dsi_sync_wait_trigger(ctrl)) {
+		mctrl = mdss_dsi_get_other_ctrl(ctrl);
 		if (!mctrl)
-			pr_warn("%s: Unable to get master control\n", __func__);
+			pr_warn("%s: Unable to get left control\n", __func__);
 	}
 
 	pr_debug("%s++: ndx=%d clk_type=%d bus_clk_cnt=%d link_clk_cnt=%d\n",
