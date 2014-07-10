@@ -1496,12 +1496,23 @@ static void mbim_disable(struct usb_function *f)
 
 	pr_info("SET DEVICE OFFLINE\n");
 	atomic_set(&mbim->online, 0);
-	mbim->data_alt_int = 0;
 
+	 /* Disable Control Path */
+	if (mbim->not_port.notify->driver_data) {
+		usb_ep_disable(mbim->not_port.notify);
+		mbim->not_port.notify->driver_data = NULL;
+	}
+	atomic_set(&mbim->not_port.notify_count, 0);
 	mbim->not_port.notify_state = MBIM_NOTIFY_NONE;
 
 	mbim_clear_queues(mbim);
 	mbim_reset_function_queue(mbim);
+
+	/* Disable Data Path  - only if it was initialized already (alt=1) */
+	if (mbim->data_alt_int == 0) {
+		pr_debug("MBIM data interface is not opened. Returning\n");
+		return;
+	}
 
 	if (mbim->xport == USB_GADGET_XPORT_BAM2BAM_IPA &&
 			gadget_is_dwc3(cdev->gadget)) {
@@ -1511,13 +1522,7 @@ static void mbim_disable(struct usb_function *f)
 
 	mbim_bam_disconnect(mbim);
 
-	if (mbim->not_port.notify->driver_data) {
-		usb_ep_disable(mbim->not_port.notify);
-		mbim->not_port.notify->driver_data = NULL;
-	}
-
-	atomic_set(&mbim->not_port.notify_count, 0);
-
+	mbim->data_alt_int = 0;
 	pr_info("mbim deactivated\n");
 }
 
