@@ -620,6 +620,9 @@ static void a4xx_start(struct adreno_device *adreno_dev)
 	}
 
 	a4xx_protect_init(adreno_dev);
+
+	/* Enable SP/TP power collapse for GPUs that support it */
+	set_bit(ADRENO_SPTP_PC_CTRL, &adreno_dev->pwrctrl_flag);
 }
 
 int a4xx_perfcounter_enable_vbif(struct adreno_device *adreno_dev,
