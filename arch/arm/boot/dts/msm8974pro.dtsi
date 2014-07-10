@@ -1723,7 +1723,11 @@
 		<3240000 1600000>,
 		<4048000 1600000>,
 		<4264000 1600000>;
-	qcom,max-hw-load = <1216800>; /* 3840 X 2160 @ 30 fps + 1920 X 1088 @ 30 fps */
+    /*
+     * Performance is guaranteed only upto POR specification. Anything
+     * above that specification is best effort and might even be rejected.
+     */
+	qcom,max-hw-load = <1281600>; /* max(4k X 2304 @ 24, 4k X 2160 @ 30) + 1080p @ 30 */
 	qcom,buffer-type-tz-usage-table = <0x241 0x1>,
 					<0x106 0x2>,
 					<0x480 0x3>;

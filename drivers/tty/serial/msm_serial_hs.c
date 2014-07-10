@@ -2938,6 +2938,7 @@ struct msm_serial_hs_platform_data
 		return ERR_PTR(-ENOMEM);
 	}
 
+	pdev->id = of_alias_get_id(pdev->dev.of_node, "uart");
 	/* UART TX GPIO */
 	pdata->uart_tx_gpio = of_get_named_gpio(node,
 					"qcom,tx-gpio", 0);
@@ -3201,13 +3202,47 @@ deregister_bam:
 	return rc;
 }
 
-#define BLSP_UART_NR	12
-static int deviceid[BLSP_UART_NR] = {0};
-static atomic_t msm_serial_hs_next_id = ATOMIC_INIT(0);
+
+static bool deviceid[UARTDM_NR] = {0};
+/*
+ * The mutex synchronizes grabbing next free device number
+ * both in case of an alias being used or not. When alias is
+ * used, the msm_hs_dt_to_pdata gets it and the boolean array
+ * is accordingly updated with device_id_set_used. If no alias
+ * is used, then device_id_grab_next_free sets that array.
+ */
+static DEFINE_MUTEX(mutex_next_device_id);
+
+static int device_id_grab_next_free(void)
+{
+	int i;
+	int ret = -ENODEV;
+	mutex_lock(&mutex_next_device_id);
+	for (i = 0; i < UARTDM_NR; i++)
+		if (!deviceid[i]) {
+			ret = i;
+			deviceid[i] = true;
+			break;
+		}
+	mutex_unlock(&mutex_next_device_id);
+	return ret;
+}
+
+static int device_id_set_used(int index)
+{
+	int ret = 0;
+	mutex_lock(&mutex_next_device_id);
+	if (deviceid[index])
+		ret = -ENODEV;
+	else
+		deviceid[index] = true;
+	mutex_unlock(&mutex_next_device_id);
+	return ret;
+}
 
 static int __devinit msm_hs_probe(struct platform_device *pdev)
 {
-	int ret = 0, alias_num = -1;
+	int ret = 0;
 	struct uart_port *uport;
 	struct msm_hs_port *msm_uport;
 	struct resource *core_resource;
@@ -3224,33 +3259,21 @@ static int __devinit msm_hs_probe(struct platform_device *pdev)
 		if (IS_ERR(pdata))
 			return PTR_ERR(pdata);
 
-		if (pdev->id == -1) {
-			pdev->id = atomic_inc_return(&msm_serial_hs_next_id)-1;
-			deviceid[pdev->id] = 1;
-		}
-
-		/* Use alias from device tree if present
-		 * Alias is used as an optional property
-		 */
-		alias_num = of_alias_get_id(pdev->dev.of_node, "uart");
-		if (alias_num >= 0) {
-			/* If alias_num is between 0 and 11, check that it not
-			 * equal to previous incremented pdev-ids. If it is
-			 * equal to previous pdev.ids , fail deviceprobe.
-			 */
-			if (alias_num < BLSP_UART_NR) {
-				if (deviceid[alias_num] == 0) {
-					pdev->id = alias_num;
-				} else {
-					MSM_HS_ERR("alias_num=%d already used\n",
-								alias_num);
-					return -EINVAL;
-				}
-			} else {
-				pdev->id = alias_num;
+		if (pdev->id < 0) {
+			pdev->id = device_id_grab_next_free();
+			if (pdev->id < 0) {
+				dev_err(&pdev->dev,
+					"Error grabbing next free device id");
+				return pdev->id;
+			}
+		} else {
+			ret = device_id_set_used(pdev->id);
+			if (ret < 0) {
+				dev_err(&pdev->dev, "%d alias taken",
+					pdev->id);
+				return ret;
 			}
 		}
-
 		pdev->dev.platform_data = pdata;
 	}
 
