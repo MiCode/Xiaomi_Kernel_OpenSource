@@ -983,13 +983,6 @@ static int msm_mi2s_snd_startup(struct snd_pcm_substream *substream)
 		}
 		/* Enable the codec mclk config */
 		msm8x16_wcd_mclk_enable(codec, 1, true);
-		ret = mi2s_clk_ctl(substream, true);
-		if (ret < 0) {
-			pr_err("%s failed to enable the sclk %x\n",
-					__func__,
-					LPASS_CSR_GP_IO_MUX_SPKR_CTL);
-			return -ENOMEM;
-		}
 		ret = pinctrl_select_state(pinctrl_info.pinctrl,
 					pinctrl_info.cdc_lines_act);
 		if (ret < 0) {
