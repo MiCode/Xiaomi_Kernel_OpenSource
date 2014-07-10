@@ -4220,6 +4220,11 @@ static struct snd_soc_card *populate_snd_card_dailinks(struct device *dev)
 	const struct of_device_id *match;
 
 	match = of_match_node(apq8084_asoc_machine_of_match, dev->of_node);
+	if (!match) {
+		dev_err(dev, "%s: No DT match found for sound card\n",
+			__func__);
+		return NULL;
+	}
 
 	if (!strcmp(match->data, "tomtom_codec")) {
 		card = &snd_soc_card_tomtom_apq8084;
@@ -4329,6 +4334,12 @@ static int apq8084_asoc_machine_probe(struct platform_device *pdev)
 
 	match = of_match_node(apq8084_asoc_machine_of_match,
 			      pdev->dev.of_node);
+	if (!match) {
+		dev_err(&pdev->dev, "%s: No DT match found for sound card\n",
+			__func__);
+		ret = -EINVAL;
+		goto err;
+	}
 	if (!strcmp(match->data, "tomtom_codec"))
 		mclk_freq_prop_name = "qcom,tomtom-mclk-clk-freq";
 	else
