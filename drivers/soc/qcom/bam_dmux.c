@@ -1612,14 +1612,17 @@ static void debug_create(const char *name, mode_t mode,
 static void notify_all(int event, unsigned long data)
 {
 	int i;
+	unsigned long flags;
 	struct list_head *temp;
 	struct outside_notify_func *func;
 
 	BAM_DMUX_LOG("%s: event=%d, data=%lu\n", __func__, event, data);
 
 	for (i = 0; i < BAM_DMUX_NUM_CHANNELS; ++i) {
+		spin_lock_irqsave(&bam_ch[i].lock, flags);
 		if (bam_ch_is_open(i))
 			bam_ch[i].notify(bam_ch[i].priv, event, data);
+		spin_unlock_irqrestore(&bam_ch[i].lock, flags);
 	}
 
 	__list_for_each(temp, &bam_other_notify_funcs) {
