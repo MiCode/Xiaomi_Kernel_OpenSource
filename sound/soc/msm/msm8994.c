@@ -20,6 +20,7 @@
 #include <linux/regulator/consumer.h>
 #include <linux/io.h>
 #include <linux/module.h>
+#include <linux/switch.h>
 #include <sound/core.h>
 #include <sound/soc.h>
 #include <sound/soc-dapm.h>
@@ -27,6 +28,7 @@
 #include <sound/jack.h>
 #include <sound/q6afe-v2.h>
 #include <sound/pcm_params.h>
+#include <device_event.h>
 #include "qdsp6v2/msm-pcm-routing-v2.h"
 #include "qdsp6v2/q6core.h"
 #include "../codecs/wcd9xxx-common.h"
@@ -113,6 +115,16 @@ static int clk_users;
 static atomic_t prim_auxpcm_rsc_ref;
 static atomic_t sec_auxpcm_rsc_ref;
 
+struct msm8994_liquid_dock_dev {
+	int dock_plug_gpio;
+	int dock_plug_irq;
+	int dock_plug_det;
+	struct work_struct irq_work;
+	struct switch_dev audio_sdev;
+};
+
+static struct msm8994_liquid_dock_dev *msm8994_liquid_dock_dev;
+
 static const char *const pin_states[] = {"Disable", "active"};
 static const char *const spk_function[] = {"Off", "On"};
 static const char *const slim0_rx_ch_text[] = {"One", "Two"};
@@ -197,6 +209,103 @@ static void param_set_mask(struct snd_pcm_hw_params *p, int n, unsigned bit)
 		m->bits[1] = 0;
 		m->bits[bit >> 5] |= (1 << (bit & 31));
 	}
+}
+
+static void msm8994_liquid_docking_irq_work(struct work_struct *work)
+{
+	struct msm8994_liquid_dock_dev *dock_dev =
+		container_of(work, struct msm8994_liquid_dock_dev, irq_work);
+
+	dock_dev->dock_plug_det =
+		gpio_get_value(dock_dev->dock_plug_gpio);
+
+	switch_set_state(&dock_dev->audio_sdev, dock_dev->dock_plug_det);
+	/*notify to audio deamon*/
+	sysfs_notify(&dock_dev->audio_sdev.dev->kobj, NULL, "state");
+}
+
+static irqreturn_t msm8994_liquid_docking_irq_handler(int irq, void *dev)
+{
+	struct msm8994_liquid_dock_dev *dock_dev = dev;
+
+	/* switch speakers should not run in interrupt context */
+	schedule_work(&dock_dev->irq_work);
+	return IRQ_HANDLED;
+}
+
+static int msm8994_liquid_init_docking(void)
+{
+	int ret = 0;
+	int dock_plug_gpio = 0;
+
+	/* plug in docking speaker+plug in device OR unplug one of them */
+	u32 dock_plug_irq_flags = IRQF_TRIGGER_RISING | IRQF_TRIGGER_FALLING |
+					IRQF_SHARED;
+
+	dock_plug_gpio = of_get_named_gpio(spdev->dev.of_node,
+					   "qcom,dock-plug-det-irq", 0);
+
+	if (dock_plug_gpio >= 0) {
+		msm8994_liquid_dock_dev =
+		 kzalloc(sizeof(*msm8994_liquid_dock_dev), GFP_KERNEL);
+		if (!msm8994_liquid_dock_dev) {
+			pr_err("msm8994_liquid_dock_dev alloc fail.\n");
+			ret = -ENOMEM;
+			goto exit;
+		}
+
+		msm8994_liquid_dock_dev->dock_plug_gpio = dock_plug_gpio;
+
+		ret = gpio_request(msm8994_liquid_dock_dev->dock_plug_gpio,
+					   "dock-plug-det-irq");
+		if (ret) {
+			pr_err("%s:failed request msm8994_liquid_dock_plug_gpio err = %d\n",
+				__func__, ret);
+			ret = -EINVAL;
+			goto fail_dock_gpio;
+		}
+
+		msm8994_liquid_dock_dev->dock_plug_det =
+			gpio_get_value(msm8994_liquid_dock_dev->dock_plug_gpio);
+		msm8994_liquid_dock_dev->dock_plug_irq =
+			gpio_to_irq(msm8994_liquid_dock_dev->dock_plug_gpio);
+
+		ret = request_irq(msm8994_liquid_dock_dev->dock_plug_irq,
+				  msm8994_liquid_docking_irq_handler,
+				  dock_plug_irq_flags,
+				  "liquid_dock_plug_irq",
+				  msm8994_liquid_dock_dev);
+		if (ret < 0) {
+			pr_err("%s: Request Irq Failed err = %d\n",
+				__func__, ret);
+			goto fail_dock_gpio;
+		}
+
+		msm8994_liquid_dock_dev->audio_sdev.name =
+						QC_AUDIO_EXTERNAL_SPK_1_EVENT;
+
+		if (switch_dev_register(
+			 &msm8994_liquid_dock_dev->audio_sdev) < 0) {
+			pr_err("%s: dock device register in switch diretory failed\n",
+				__func__);
+			goto fail_switch_dev;
+		}
+
+		INIT_WORK(
+			&msm8994_liquid_dock_dev->irq_work,
+			msm8994_liquid_docking_irq_work);
+	}
+	return 0;
+
+fail_switch_dev:
+	free_irq(msm8994_liquid_dock_dev->dock_plug_irq,
+				msm8994_liquid_dock_dev);
+fail_dock_gpio:
+	gpio_free(msm8994_liquid_dock_dev->dock_plug_gpio);
+exit:
+	kfree(msm8994_liquid_dock_dev);
+	msm8994_liquid_dock_dev = NULL;
+	return ret;
 }
 
 static void msm8994_ext_control(struct snd_soc_codec *codec)
@@ -1466,6 +1575,13 @@ static int msm_audrx_init(struct snd_soc_pcm_runtime *rtd)
 	if (err < 0) {
 		pr_err("%s: add_codec_controls failed, err%d\n",
 			__func__, err);
+		return err;
+	}
+
+	err = msm8994_liquid_init_docking();
+	if (err) {
+		pr_err("%s: 8994 init Docking stat IRQ failed (%d)\n",
+			   __func__, err);
 		return err;
 	}
 
@@ -2961,6 +3077,20 @@ static int msm8994_asoc_machine_remove(struct platform_device *pdev)
 
 	gpio_free(pdata->mclk_gpio);
 	gpio_free(pdata->us_euro_gpio);
+
+	if (msm8994_liquid_dock_dev != NULL) {
+		switch_dev_unregister(&msm8994_liquid_dock_dev->audio_sdev);
+
+		if (msm8994_liquid_dock_dev->dock_plug_irq)
+			free_irq(msm8994_liquid_dock_dev->dock_plug_irq,
+				 msm8994_liquid_dock_dev);
+
+		if (msm8994_liquid_dock_dev->dock_plug_gpio)
+			gpio_free(msm8994_liquid_dock_dev->dock_plug_gpio);
+
+		kfree(msm8994_liquid_dock_dev);
+		msm8994_liquid_dock_dev = NULL;
+	}
 	msm_auxpcm_release_pinctrl(pdev, SEC_MI2S_PCM);
 	msm_mi2s_release_pinctrl(pdev, PRI_MI2S_PCM);
 	snd_soc_unregister_card(card);
