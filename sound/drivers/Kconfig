@@ -24,6 +24,14 @@ config SND_AC97_CODEC
 	select AC97_BUS
 	select SND_VMASTER
 
+config SND_INTEL_HDMI
+	tristate
+	depends on SUPPORT_HDMI_AUDIO
+	default y
+	help
+	  Choose this option to enable HDMI Audio by using direct DMA
+	  transfer.
+
 menuconfig SND_DRIVERS
 	bool "Generic sound devices"
 	default y
@@ -219,5 +227,6 @@ config SND_AC97_POWER_SAVE_DEFAULT
 	  power-save mode.  0 means to disable the power-save mode.
 
 	  See SND_AC97_POWER_SAVE for more details.
+
 
 endif	# SND_DRIVERS
