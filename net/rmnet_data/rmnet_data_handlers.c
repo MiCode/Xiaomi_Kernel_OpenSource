@@ -255,6 +255,7 @@ static rx_handler_result_t _rmnet_map_ingress_handler(struct sk_buff *skb,
 	struct rmnet_logical_ep_conf_s *ep;
 	uint8_t mux_id;
 	uint16_t len;
+	int ckresult;
 
 	mux_id = RMNET_MAP_GET_MUX_ID(skb);
 	len = RMNET_MAP_GET_LENGTH(skb)
@@ -280,6 +281,21 @@ static rx_handler_result_t _rmnet_map_ingress_handler(struct sk_buff *skb,
 
 	if (config->ingress_data_format & RMNET_INGRESS_FORMAT_DEMUXING)
 		skb->dev = ep->egress_dev;
+
+	if (config->ingress_data_format & RMNET_INGRESS_FORMAT_MAP_CKSUMV3) {
+		ckresult = rmnet_map_checksum_downlink_packet(skb);
+		trace_rmnet_map_checksum_downlink_packet(skb, ckresult);
+		if (likely(ckresult == RMNET_MAP_CHECKSUM_OK))
+			skb->ip_summed |= CHECKSUM_UNNECESSARY;
+		else if (ckresult != RMNET_MAP_CHECKSUM_ERR_UNKNOWN_IP_VERSION
+			&& ckresult != RMNET_MAP_CHECKSUM_ERR_UNKNOWN_TRANSPORT
+			&& ckresult != RMNET_MAP_CHECKSUM_VALID_FLAG_NOT_SET
+			&& ckresult != RMNET_MAP_CHECKSUM_FRAGMENTED_PACKET) {
+			rmnet_kfree_skb(skb,
+				RMNET_STATS_SKBFREE_INGRESS_BAD_MAP_CKSUM);
+			return RX_HANDLER_CONSUMED;
+		}
+	}
 
 	/* Subtract MAP header */
 	skb_pull(skb, sizeof(struct rmnet_map_header_s));
