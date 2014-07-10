@@ -2151,6 +2151,8 @@ static int msm8x16_asoc_machine_probe(struct platform_device *pdev)
 	pdata->digital_cdc_clk.clk_val = pdata->mclk_freq;
 	pdata->digital_cdc_clk.clk_root = 5;
 	pdata->digital_cdc_clk.reserved = 0;
+	/* Initialize loopback mode to false */
+	pdata->lb_mode = false;
 
 	msm8x16_setup_hs_jack(pdev, pdata);
 
