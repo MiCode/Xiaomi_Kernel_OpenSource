@@ -21,7 +21,7 @@
  * software in any way with any other Broadcom software provided under a license
  * other than the GPL, without Broadcom's express prior written consent.
  *
- * $Id: pcicfg.h 413666 2013-07-20 01:16:40Z $
+ * $Id: pcicfg.h 465082 2014-03-26 17:37:28Z $
  */
 
 #ifndef	_h_pcicfg_
@@ -73,6 +73,26 @@
 #define	PCI_GPIO_IN		0xb0	/* pci config space gpio input (>=rev3) */
 #define	PCI_GPIO_OUT		0xb4	/* pci config space gpio output (>=rev3) */
 #define	PCI_GPIO_OUTEN		0xb8	/* pci config space gpio output enable (>=rev3) */
+#define	PCI_L1SS_CTRL2		0x24c	/* The L1 PM Substates Control register */
+
+/* Private Registers */
+#define	PCI_STAT_CTRL		0xa80
+#define	PCI_L0_EVENTCNT		0xa84
+#define	PCI_L0_STATETMR		0xa88
+#define	PCI_L1_EVENTCNT		0xa8c
+#define	PCI_L1_STATETMR		0xa90
+#define	PCI_L1_1_EVENTCNT	0xa94
+#define	PCI_L1_1_STATETMR	0xa98
+#define	PCI_L1_2_EVENTCNT	0xa9c
+#define	PCI_L1_2_STATETMR	0xaa0
+#define	PCI_L2_EVENTCNT		0xaa4
+#define	PCI_L2_STATETMR		0xaa8
+
+#define	PCI_PMCR_REFUP		0x1814	/* Trefup time */
+#define	PCI_PMCR_REFUP_EXT	0x1818	/* Trefup extend Max */
+#define PCI_TPOWER_SCALE_MASK 0x3
+#define PCI_TPOWER_SCALE_SHIFT 3 /* 0:1 is scale and 2 is rsvd */
+
 
 #define	PCI_BAR0_SHADOW_OFFSET	(2 * 1024)	/* bar0 + 2K accesses sprom shadow (in pci core) */
 #define	PCI_BAR0_SPROM_OFFSET	(4 * 1024)	/* bar0 + 4K accesses external sprom */

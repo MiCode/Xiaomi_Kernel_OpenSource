@@ -21,7 +21,7 @@
  *
  * Fundamental types and constants relating to WFA P2P (aka WiFi Direct)
  *
- * $Id: p2p.h 444066 2013-12-18 12:49:24Z $
+ * $Id: p2p.h 457033 2014-02-20 19:39:45Z $
  */
 
 #ifndef _P2P_H_
@@ -63,6 +63,9 @@ typedef struct wifi_p2p_ie wifi_p2p_ie_t;
 #define P2P_ATTR_LEN_LEN	2	/* length field length */
 #define P2P_ATTR_HDR_LEN	3 /* ID + 2-byte length field spec 1.02 */
 
+#define P2P_WFDS_HASH_LEN		6
+#define P2P_WFDS_MAX_SVC_NAME_LEN	32
+
 /* P2P IE Subelement IDs from WiFi P2P Technical Spec 1.00 */
 #define P2P_SEID_STATUS			0	/* Status */
 #define P2P_SEID_MINOR_RC		1	/* Minor Reason Code */
@@ -83,6 +86,15 @@ typedef struct wifi_p2p_ie wifi_p2p_ie_t;
 #define P2P_SEID_P2P_IF			16	/* P2P Interface */
 #define P2P_SEID_OP_CHANNEL		17	/* Operating Channel */
 #define P2P_SEID_INVITE_FLAGS		18	/* Invitation Flags */
+#define P2P_SEID_SERVICE_HASH		21	/* Service hash */
+#define P2P_SEID_SESSION		22	/* Session information */
+#define P2P_SEID_CONNECT_CAP		23	/* Connection capability */
+#define P2P_SEID_ADVERTISE_ID		24	/* Advertisement ID */
+#define P2P_SEID_ADVERTISE_SERVICE	25	/* Advertised service */
+#define P2P_SEID_SESSION_ID		26	/* Session ID */
+#define P2P_SEID_FEATURE_CAP		27	/* Feature capability */
+#define	P2P_SEID_PERSISTENT_GROUP	28	/* Persistent group */
+#define P2P_SEID_SESSION_INFO_RESP	29	/* Session Information Response */
 #define P2P_SEID_VNDR			221	/* Vendor-specific subelement */
 
 #define P2P_SE_VS_ID_SERVICES	0x1b
@@ -204,6 +216,8 @@ typedef struct wifi_p2p_status_se_s wifi_p2p_status_se_t;
 				/* Failed, incompatible provisioning method */
 #define P2P_STATSE_FAIL_USER_REJECT		11
 				/* Failed, rejected by user */
+#define P2P_STATSE_SUCCESS_USER_ACCEPT		12
+				/* Success, accepted by user */
 
 /* WiFi P2P IE attribute: Extended Listen Timing */
 BWL_PRE_PACKED_STRUCT struct wifi_p2p_ext_se_s {
@@ -357,6 +371,93 @@ BWL_PRE_PACKED_STRUCT struct wifi_p2p_invite_flags_se_s {
 } BWL_POST_PACKED_STRUCT;
 typedef struct wifi_p2p_invite_flags_se_s wifi_p2p_invite_flags_se_t;
 
+/* WiFi P2P IE subelement: Service Hash */
+BWL_PRE_PACKED_STRUCT struct wifi_p2p_serv_hash_se_s {
+	uint8	eltId;			/* SE ID: P2P_SEID_SERVICE_HASH */
+	uint8	len[2];			/* SE length not including eltId, len fields
+					 * in multiple of 6 Bytes
+					*/
+	uint8	hash[1];		/* Variable length - SHA256 hash of
+					 * service names (can be more than one hashes)
+					*/
+} BWL_POST_PACKED_STRUCT;
+typedef struct wifi_p2p_serv_hash_se_s wifi_p2p_serv_hash_se_t;
+
+/* WiFi P2P IE subelement: Service Instance Data */
+BWL_PRE_PACKED_STRUCT struct wifi_p2p_serv_inst_data_se_s {
+	uint8	eltId;			/* SE ID: P2P_SEID_SESSION */
+	uint8	len[2];			/* SE length not including eltId, len */
+	uint8	ssn_info[1];		/* Variable length - Session information as specified by
+					 * the service layer, type matches serv. name
+					*/
+} BWL_POST_PACKED_STRUCT;
+typedef struct wifi_p2p_serv_inst_data_se_s wifi_p2p_serv_inst_data_se_t;
+
+
+/* WiFi P2P IE subelement: Connection capability */
+BWL_PRE_PACKED_STRUCT struct wifi_p2p_conn_cap_data_se_s {
+	uint8	eltId;			/* SE ID: P2P_SEID_CONNECT_CAP */
+	uint8	len[2];			/* SE length not including eltId, len */
+	uint8	conn_cap;		/* 1byte capability as specified by the
+					 * service layer, valid bitmask/values
+					*/
+} BWL_POST_PACKED_STRUCT;
+typedef struct wifi_p2p_conn_cap_data_se_s wifi_p2p_conn_cap_data_se_t;
+
+
+/* WiFi P2P IE subelement: Advertisement ID */
+BWL_PRE_PACKED_STRUCT struct wifi_p2p_advt_id_se_s {
+	uint8	eltId;			/* SE ID: P2P_SEID_ADVERTISE_ID */
+	uint8	len[2];			/* SE length not including eltId, len fixed 4 Bytes */
+	uint8	advt_id[4];		/* 4byte Advertisement ID of the peer device sent in
+					 * PROV Disc in Network byte order
+					*/
+	uint8	advt_mac[6];			/* P2P device address of the service advertiser */
+} BWL_POST_PACKED_STRUCT;
+typedef struct wifi_p2p_advt_id_se_s wifi_p2p_advt_id_se_t;
+
+
+/* WiFi P2P IE subelement: Advertise Service Hash */
+BWL_PRE_PACKED_STRUCT struct wifi_p2p_adv_serv_info_s {
+	uint8	advt_id[4];		/* SE Advertise ID for the service */
+	uint16	nw_cfg_method;	/* SE Network Config method for the service */
+	uint8	serv_name_len;	/* SE length of the service name */
+	uint8	serv_name[1];	/* Variable length service name field */
+} BWL_POST_PACKED_STRUCT;
+typedef struct wifi_p2p_adv_serv_info_s wifi_p2p_adv_serv_info_t;
+
+
+/* WiFi P2P IE subelement: Advertise Service Hash */
+BWL_PRE_PACKED_STRUCT struct wifi_p2p_advt_serv_se_s {
+	uint8	eltId;			/* SE ID: P2P_SEID_ADVERTISE_SERVICE */
+	uint8	len[2];			/* SE length not including eltId, len fields mutiple len of
+					 * wifi_p2p_adv_serv_info_t entries
+					*/
+	wifi_p2p_adv_serv_info_t	p_advt_serv_info[1]; /* Variable length
+								of multiple instances
+								of the advertise service info
+								*/
+} BWL_POST_PACKED_STRUCT;
+typedef struct wifi_p2p_advt_serv_se_s wifi_p2p_advt_serv_se_t;
+
+
+/* WiFi P2P IE subelement: Session ID */
+BWL_PRE_PACKED_STRUCT struct wifi_p2p_ssn_id_se_s {
+	uint8	eltId;			/* SE ID: P2P_SEID_SESSION_ID */
+	uint8	len[2];			/* SE length not including eltId, len fixed 4 Bytes */
+	uint8	ssn_id[4];		/* 4byte Session ID of the peer device sent in
+							 * PROV Disc in Network byte order
+							 */
+	uint8	ssn_mac[6];		/* P2P device address of the seeker - session mac */
+} BWL_POST_PACKED_STRUCT;
+typedef struct wifi_p2p_ssn_id_se_s wifi_p2p_ssn_id_se_t;
+
+
+#define P2P_ADVT_SERV_SE_FIXED_LEN	3	/* Includes only the element ID and len */
+#define P2P_ADVT_SERV_INFO_FIXED_LEN	7	/* Per ADV Service Instance advt_id +
+						 * nw_config_method + serv_name_len
+						 */
+
 /* WiFi P2P Action Frame */
 BWL_PRE_PACKED_STRUCT struct wifi_p2p_action_frame {
 	uint8	category;	/* P2P_AF_CATEGORY */
@@ -483,6 +584,7 @@ typedef enum p2psd_svc_protype {
 	SVC_RPOTYPE_BONJOUR = 1,
 	SVC_RPOTYPE_UPNP = 2,
 	SVC_RPOTYPE_WSD = 3,
+	SVC_RPOTYPE_WFDS = 11,
 	SVC_RPOTYPE_VENDOR = 255
 } p2psd_svc_protype_t;
 

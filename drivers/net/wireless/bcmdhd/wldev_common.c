@@ -21,7 +21,7 @@
  * software in any way with any other Broadcom software provided under a license
  * other than the GPL, without Broadcom's express prior written consent.
  *
- * $Id: wldev_common.c 432642 2013-10-29 04:23:40Z $
+ * $Id: wldev_common.c 467328 2014-04-03 01:23:40Z $
  */
 
 #include <osl.h>

@@ -21,7 +21,7 @@
  * software in any way with any other Broadcom software provided under a license
  * other than the GPL, without Broadcom's express prior written consent.
  *
- * $Id: bcmsdstd.h 421078 2013-08-30 08:35:01Z $
+ * $Id: bcmsdstd.h 455390 2014-02-13 22:14:56Z $
  */
 #ifndef	_BCM_SD_STD_H
 #define	_BCM_SD_STD_H
@@ -237,8 +237,8 @@ extern void sdstd_spinbits(sdioh_info_t *sd, uint16 norm, uint16 err);
  */
 
 /* Register mapping routines */
-extern uint32 *sdstd_reg_map(osl_t *osh, int32 addr, int size);
-extern void sdstd_reg_unmap(osl_t *osh, int32 addr, int size);
+extern uint32 *sdstd_reg_map(osl_t *osh, ulong addr, int size);
+extern void sdstd_reg_unmap(osl_t *osh, ulong addr, int size);
 
 /* Interrupt (de)registration routines */
 extern int sdstd_register_irq(sdioh_info_t *sd, uint irq);
@@ -277,6 +277,6 @@ extern void sdstd_3_osclean_tuning(sdioh_info_t *sd);
 
 extern void sdstd_enable_disable_periodic_timer(sdioh_info_t * sd, uint val);
 
-extern sdioh_info_t *sdioh_attach(osl_t *osh, int32 bar0, uint irq);
+extern sdioh_info_t *sdioh_attach(osl_t *osh, void *bar0, uint irq);
 extern SDIOH_API_RC sdioh_detach(osl_t *osh, sdioh_info_t *sd);
 #endif /* _BCM_SD_STD_H */

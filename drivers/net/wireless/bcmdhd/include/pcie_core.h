@@ -21,11 +21,14 @@
  * software in any way with any other Broadcom software provided under a license
  * other than the GPL, without Broadcom's express prior written consent.
  *
- * $Id: pcie_core.h 430913 2013-10-21 21:46:10Z $
+ * $Id: pcie_core.h 468449 2014-04-07 21:50:10Z $
  */
 #ifndef	_PCIE_CORE_H
 #define	_PCIE_CORE_H
+
 #include <sbhnddma.h>
+#include <siutils.h>
+
 /* cpp contortions to concatenate w/arg prescan */
 #ifndef PAD
 #define	_PADLINE(line)	pad ## line
@@ -59,18 +62,22 @@
 /* dma regs to control the flow between host2dev and dev2host  */
 typedef struct pcie_devdmaregs {
 	dma64regs_t	tx;
-	uint32 		PAD[2];
+	uint32		PAD[2];
 	dma64regs_t	rx;
-	uint32 		PAD[2];
+	uint32		PAD[2];
 } pcie_devdmaregs_t;
 
+#define PCIE_DB_HOST2DEV_0		0x1
+#define PCIE_DB_HOST2DEV_1		0x2
+#define PCIE_DB_DEV2HOST_0		0x3
+#define PCIE_DB_DEV2HOST_1		0x4
 
 /* door bell register sets */
 typedef struct pcie_doorbell {
-	uint32 		host2dev_0;
-	uint32 		host2dev_1;
-	uint32 		dev2host_0;
-	uint32 		dev2host_1;
+	uint32		host2dev_0;
+	uint32		host2dev_1;
+	uint32		dev2host_0;
+	uint32		dev2host_1;
 } pcie_doorbell_t;
 
 /* SB side: PCIE core and host control registers */
@@ -155,7 +162,9 @@ typedef struct sbpcieregs {
 #define PCIE_RST	0x02	/* Value driven out to pin */
 #define PCIE_SPERST	0x04	/* SurvivePeRst */
 #define PCIE_DISABLE_L1CLK_GATING	0x10
+#define PCIE_DLYPERST	0x100	/* Delay PeRst to CoE Core */
 #define PCIE_DISSPROMLD	0x200	/* DisableSpromLoadOnPerst */
+#define PCIE_WakeModeL2	0x1000	/* Wake on L2 */
 
 #define	PCIE_CFGADDR	0x120	/* offsetof(configaddr) */
 #define	PCIE_CFGDATA	0x124	/* offsetof(configdata) */
@@ -459,12 +468,13 @@ typedef struct sbpcieregs {
 #define PCIE_CAP_DEVCTRL2_OBFF_ENAB_MASK 0x6000	/* Enable OBFF mechanism, select signaling method */
 
 /* LTR registers in PCIE Cap */
-#define PCIE_CAP_LTR0_REG_OFFSET	0x798	/* ltr0_reg offset in pcie cap */
-#define PCIE_CAP_LTR1_REG_OFFSET	0x79C	/* ltr1_reg offset in pcie cap */
-#define PCIE_CAP_LTR2_REG_OFFSET	0x7A0	/* ltr2_reg offset in pcie cap */
-#define PCIE_CAP_LTR0_REG			0		/* ltr0_reg */
-#define PCIE_CAP_LTR1_REG			1		/* ltr1_reg */
-#define PCIE_CAP_LTR2_REG			2		/* ltr2_reg */
+#define PCIE_LTR0_REG_OFFSET	0x844	/* ltr0_reg offset in pcie cap */
+#define PCIE_LTR1_REG_OFFSET	0x848	/* ltr1_reg offset in pcie cap */
+#define PCIE_LTR2_REG_OFFSET	0x84c	/* ltr2_reg offset in pcie cap */
+#define PCIE_LTR0_REG_DEFAULT_60	0x883c883c	/* active latency default to 60usec */
+#define PCIE_LTR0_REG_DEFAULT_150	0x88968896	/* active latency default to 150usec */
+#define PCIE_LTR1_REG_DEFAULT		0x88648864	/* idle latency default to 100usec */
+#define PCIE_LTR2_REG_DEFAULT		0x90039003	/* sleep latency default to 3msec */
 
 /* Status reg PCIE_PLP_STATUSREG */
 #define PCIE_PLP_POLARITYINV_STAT	0x10
@@ -499,14 +509,28 @@ typedef struct sbpcieregs {
 /* definition of configuration space registers of PCIe gen2
  * http://hwnbu-twiki.sj.broadcom.com/twiki/pub/Mwgroup/CurrentPcieGen2ProgramGuide/pcie_ep.htm
  */
-#define PCIECFGREG_PML1_SUB_CTRL1		0x248
-#define PCI_PM_L1_2_ENA_MASK			0x00000001	/* PCI-PM L1.2 Enabled */
-#define PCI_PM_L1_1_ENA_MASK			0x00000002	/* PCI-PM L1.1 Enabled */
-#define ASPM_L1_2_ENA_MASK			0x00000004	/* ASPM L1.2 Enabled */
-#define ASPM_L1_1_ENA_MASK			0x00000008	/* ASPM L1.1 Enabled */
+#define PCIECFGREG_STATUS_CMD		0x4
+#define PCIECFGREG_PM_CSR		0x4C
+#define PCIECFGREG_MSI_CAP		0x58
+#define PCIECFGREG_MSI_ADDR_L		0x5C
+#define PCIECFGREG_MSI_ADDR_H		0x60
+#define PCIECFGREG_MSI_DATA		0x64
+#define PCIECFGREG_LINK_STATUS_CTRL	0xBC
+#define PCIECFGREG_LINK_STATUS_CTRL2	0xDC
+#define PCIECFGREG_RBAR_CTRL		0x228
+#define PCIECFGREG_PML1_SUB_CTRL1	0x248
+#define PCIECFGREG_REG_BAR2_CONFIG	0x4E0
+#define PCIECFGREG_REG_BAR3_CONFIG	0x4F4
+#define PCIECFGREG_PDL_CTRL1		0x1004
+#define PCIECFGREG_PDL_IDDQ		0x1814
+#define PCIECFGREG_REG_PHY_CTL7		0x181c
 
-#define PCIECFGREG_PDL_CTRL1			0x1004
-#define PCIECFGREG_REG_PHY_CTL7			0x181c
+/* PCIECFGREG_PML1_SUB_CTRL1 Bit Definition */
+#define PCI_PM_L1_2_ENA_MASK		0x00000001	/* PCI-PM L1.2 Enabled */
+#define PCI_PM_L1_1_ENA_MASK		0x00000002	/* PCI-PM L1.1 Enabled */
+#define ASPM_L1_2_ENA_MASK		0x00000004	/* ASPM L1.2 Enabled */
+#define ASPM_L1_1_ENA_MASK		0x00000008	/* ASPM L1.1 Enabled */
+
 /* PCIe gen2 mailbox interrupt masks */
 #define I_MB    0x3
 #define I_BIT0  0x1
@@ -547,9 +571,10 @@ typedef struct sbpcieregs {
  * Sleep is most tolerant
  */
 #define LTR_ACTIVE				2
-#define LTR_ACTIVE_IDLE			1
+#define LTR_ACTIVE_IDLE				1
 #define LTR_SLEEP				0
-
+#define LTR_FINAL_MASK				0x300
+#define LTR_FINAL_SHIFT				8
 
 /* pwrinstatus, pwrintmask regs */
 #define PCIEGEN2_PWRINT_D0_STATE_SHIFT		0
@@ -577,5 +602,34 @@ typedef struct sbpcieregs {
 #define SBTOPCIE_MB_FUNC1_SHIFT 10
 #define SBTOPCIE_MB_FUNC2_SHIFT 12
 #define SBTOPCIE_MB_FUNC3_SHIFT 14
+
+/* pcieiocstatus */
+#define PCIEGEN2_IOC_D0_STATE_SHIFT		8
+#define PCIEGEN2_IOC_D1_STATE_SHIFT		9
+#define PCIEGEN2_IOC_D2_STATE_SHIFT		10
+#define PCIEGEN2_IOC_D3_STATE_SHIFT		11
+#define PCIEGEN2_IOC_L0_LINK_SHIFT		12
+#define PCIEGEN2_IOC_L1_LINK_SHIFT		13
+#define PCIEGEN2_IOC_L1L2_LINK_SHIFT		14
+#define PCIEGEN2_IOC_L2_L3_LINK_SHIFT		15
+
+#define PCIEGEN2_IOC_D0_STATE_MASK		(1 << PCIEGEN2_IOC_D0_STATE_SHIFT)
+#define PCIEGEN2_IOC_D1_STATE_MASK		(1 << PCIEGEN2_IOC_D1_STATE_SHIF)
+#define PCIEGEN2_IOC_D2_STATE_MASK		(1 << PCIEGEN2_IOC_D2_STATE_SHIF)
+#define PCIEGEN2_IOC_D3_STATE_MASK		(1 << PCIEGEN2_IOC_D3_STATE_SHIF)
+#define PCIEGEN2_IOC_L0_LINK_MASK		(1 << PCIEGEN2_IOC_L0_LINK_SHIF)
+#define PCIEGEN2_IOC_L1_LINK_MASK		(1 << PCIEGEN2_IOC_L1_LINK_SHIF)
+#define PCIEGEN2_IOC_L1L2_LINK_MASK		(1 << PCIEGEN2_IOC_L1L2_LINK_SHIFT)
+#define PCIEGEN2_IOC_L2_L3_LINK_MASK		(1 << PCIEGEN2_IOC_L2_L3_LINK_SHIFT)
+
+/* stat_ctrl */
+#define PCIE_STAT_CTRL_RESET		0x1
+#define PCIE_STAT_CTRL_ENABLE		0x2
+#define PCIE_STAT_CTRL_INTENABLE	0x4
+#define PCIE_STAT_CTRL_INTSTATUS	0x8
+
+#ifdef BCMDRIVER
+void pcie_watchdog_reset(osl_t *osh, si_t *sih, sbpcieregs_t *sbpcieregs);
+#endif /* BCMDRIVER */
 
 #endif	/* _PCIE_CORE_H */

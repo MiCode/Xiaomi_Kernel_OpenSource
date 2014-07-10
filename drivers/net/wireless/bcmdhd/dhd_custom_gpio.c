@@ -20,7 +20,7 @@
 * software in any way with any other Broadcom software provided under a license
 * other than the GPL, without Broadcom's express prior written consent.
 *
-* $Id: dhd_custom_gpio.c 447089 2014-01-08 04:05:58Z $
+* $Id: dhd_custom_gpio.c 447105 2014-01-08 05:27:09Z $
 */
 
 #include <typedefs.h>
@@ -36,6 +36,11 @@
 
 #define WL_ERROR(x) printf x
 #define WL_TRACE(x)
+
+#if defined(CUSTOMER_HW2)
+
+
+#endif 
 
 #if defined(OOB_INTR_ONLY)
 

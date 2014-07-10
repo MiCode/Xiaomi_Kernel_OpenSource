@@ -23,7 +23,7 @@
  * software in any way with any other Broadcom software provided under a license
  * other than the GPL, without Broadcom's express prior written consent.
  *
- * $Id: bcmsdh.h 433655 2013-11-01 20:46:06Z $
+ * $Id: bcmsdh.h 450676 2014-01-22 22:45:13Z $
  */
 
 /**
@@ -40,7 +40,8 @@ extern const uint bcmsdh_msglevel;
 #define BCMSDH_ERROR(x)
 #define BCMSDH_INFO(x)
 
-#if (defined(BCMSDIOH_STD) || defined(BCMSDIOH_BCM) || defined(BCMSDIOH_SPI))
+#if defined(BCMSDIO) && (defined(BCMSDIOH_STD) || defined(BCMSDIOH_BCM) || \
+	defined(BCMSDIOH_SPI))
 #define BCMSDH_ADAPTER
 #endif /* BCMSDIO && (BCMSDIOH_STD || BCMSDIOH_BCM || BCMSDIOH_SPI) */
 
@@ -48,7 +49,7 @@ extern const uint bcmsdh_msglevel;
 typedef struct bcmsdh_info bcmsdh_info_t;
 typedef void (*bcmsdh_cb_fn_t)(void *);
 
-extern bcmsdh_info_t *bcmsdh_attach(osl_t *osh, void *sdioh, uint32 *regsva);
+extern bcmsdh_info_t *bcmsdh_attach(osl_t *osh, void *sdioh, ulong *regsva);
 /**
  * BCMSDH API context
  */

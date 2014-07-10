@@ -21,7 +21,7 @@
  * software in any way with any other Broadcom software provided under a license
  * other than the GPL, without Broadcom's express prior written consent.
  *
- * $Id: wl_cfgp2p.h 444054 2013-12-18 11:33:42Z $
+ * $Id: wl_cfgp2p.h 472818 2014-04-25 08:07:56Z $
  */
 #ifndef _wl_cfgp2p_h_
 #define _wl_cfgp2p_h_
@@ -187,7 +187,7 @@ enum wl_cfgp2p_status {
 		add_timer(timer); \
 	} while (0);
 
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(3, 8, 0))
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(3, 8, 0)) && !defined(WL_CFG80211_P2P_DEV_IF)
 #define WL_CFG80211_P2P_DEV_IF
 
 #ifdef WL_ENABLE_P2P_IF
@@ -197,6 +197,13 @@ enum wl_cfgp2p_status {
 #ifdef WL_SUPPORT_BACKPORTED_KPATCHES
 #undef WL_SUPPORT_BACKPORTED_KPATCHES
 #endif
+#else
+#ifdef WLP2P
+#ifndef WL_ENABLE_P2P_IF
+/* Enable P2P network Interface if P2P support is enabled */
+#define WL_ENABLE_P2P_IF
+#endif /* WL_ENABLE_P2P_IF */
+#endif /* WLP2P */
 #endif /* (LINUX_VERSION >= VERSION(3, 8, 0)) */
 
 #ifndef WL_CFG80211_P2P_DEV_IF

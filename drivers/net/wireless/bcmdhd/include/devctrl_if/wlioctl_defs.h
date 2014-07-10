@@ -85,6 +85,12 @@
 
 #define HIGHEST_SINGLE_STREAM_MCS	7 /* MCS values greater than this enable multiple streams */
 
+/* given a proprietary MCS, get number of spatial streams */
+#define GET_PROPRIETARY_11N_MCS_NSS(mcs) (1 + ((mcs) - 85) / 8)
+
+#define GET_11N_MCS_NSS(mcs) ((mcs) < 32 ? (1 + ((mcs) / 8)) \
+				: ((mcs) == 32 ? 1 : GET_PROPRIETARY_11N_MCS_NSS(mcs)))
+
 #define MAX_CCA_CHANNELS 38	/* Max number of 20 Mhz wide channels */
 #define MAX_CCA_SECS	60	/* CCA keeps this many seconds history */
 
@@ -196,6 +202,7 @@
 #define WL_SCANFLAGS_PROHIBITED	0x04	/* allow scanning prohibited channels */
 #define WL_SCANFLAGS_OFFCHAN	0x08	/* allow scanning/reporting off-channel APs */
 #define WL_SCANFLAGS_HOTSPOT	0x10	/* automatic ANQP to hotspot APs */
+#define WL_SCANFLAGS_SWTCHAN	0x20	/* Force channel switch for differerent bandwidth */
 
 /* wl_iscan_results status values */
 #define WL_SCAN_RESULTS_SUCCESS	0
@@ -271,6 +278,7 @@
 #define WL_RM_TYPE_BASIC	1
 #define WL_RM_TYPE_CCA		2
 #define WL_RM_TYPE_RPI		3
+#define WL_RM_TYPE_ABORT	-1	/* ABORT any in-progress RM request */
 
 #define WL_RM_FLAG_PARALLEL	(1<<0)
 
@@ -332,6 +340,8 @@
 #define WL_BSS_FLAGS_HS20		0x08	/* hotspot 2.0 capable */
 #define WL_BSS_FLAGS_RSSI_INVALID	0x10	/* BSS contains invalid RSSI */
 #define WL_BSS_FLAGS_RSSI_INACCURATE	0x20	/* BSS contains inaccurate RSSI */
+#define WL_BSS_FLAGS_SNR_INVALID	0x40	/* BSS contains invalid SNR */
+#define WL_BSS_FLAGS_NF_INVALID		0x80	/* BSS contains invalid noise floor */
 
 /* bssinfo flag for nbss_cap */
 #define VHT_BI_SGI_80MHZ			0x00000100
@@ -434,11 +444,16 @@
 /* pmkid */
 #define	MAXPMKID		16
 
+#ifdef SROM12
+#define	WLC_IOCTL_MAXLEN		10000	/* max length ioctl buffer required */
+#else
 #define	WLC_IOCTL_MAXLEN		8192	/* max length ioctl buffer required */
+#endif /* SROM12 */
+
 #define	WLC_IOCTL_SMLEN			256	/* "small" length ioctl buffer required */
 #define WLC_IOCTL_MEDLEN		1536    /* "med" length ioctl buffer required */
 #if defined(LCNCONF) || defined(LCN40CONF)
-#define WLC_SAMPLECOLLECT_MAXLEN	8192	/* Max Sample Collect buffer */
+#define WLC_SAMPLECOLLECT_MAXLEN	1024	/* Max Sample Collect buffer */
 #else
 #define WLC_SAMPLECOLLECT_MAXLEN	10240	/* Max Sample Collect buffer for two cores */
 #endif
@@ -773,8 +788,9 @@
 #define WLC_SET_TXBF_RATESET			319
 #define WLC_SCAN_CQ				320
 #define WLC_GET_RSSI_QDB			321 /* qdB portion of the RSSI */
-
-#define WLC_LAST				322
+#define WLC_DUMP_RATESET			322
+#define WLC_ECHO				323
+#define WLC_LAST				324
 #ifndef EPICTRL_COOKIE
 #define EPICTRL_COOKIE		0xABADCEDE
 #endif
@@ -890,8 +906,27 @@
 #define WL_CHAN_FREQ_RANGE_5G_BAND2     3
 #define WL_CHAN_FREQ_RANGE_5G_BAND3     4
 
-#define WL_CHAN_FREQ_RANGE_5G_4BAND	5
+#ifdef SROM12
+#define WL_CHAN_FREQ_RANGE_5G_BAND4 5
+#define WL_CHAN_FREQ_RANGE_2G_40 6
+#define WL_CHAN_FREQ_RANGE_5G_BAND0_40 7
+#define WL_CHAN_FREQ_RANGE_5G_BAND1_40 8
+#define WL_CHAN_FREQ_RANGE_5G_BAND2_40 9
+#define WL_CHAN_FREQ_RANGE_5G_BAND3_40 10
+#define WL_CHAN_FREQ_RANGE_5G_BAND4_40 11
+#define WL_CHAN_FREQ_RANGE_5G_BAND0_80 12
+#define WL_CHAN_FREQ_RANGE_5G_BAND1_80 13
+#define WL_CHAN_FREQ_RANGE_5G_BAND2_80 14
+#define WL_CHAN_FREQ_RANGE_5G_BAND3_80 15
+#define WL_CHAN_FREQ_RANGE_5G_BAND4_80 16
 
+#define WL_CHAN_FREQ_RANGE_5G_4BAND	17
+#define WL_CHAN_FREQ_RANGE_5G_5BAND	18
+#define WL_CHAN_FREQ_RANGE_5G_5BAND_40	19
+#define WL_CHAN_FREQ_RANGE_5G_5BAND_80	20
+#else
+#define WL_CHAN_FREQ_RANGE_5G_4BAND	5
+#endif /* SROM12 */
 /* MAC list modes */
 #define WLC_MACMODE_DISABLED	0	/* MAC list disabled */
 #define WLC_MACMODE_DENY	1	/* Deny specified (i.e. allow unspecified) */
@@ -1009,7 +1044,8 @@
 #define ACPHY_ACI_HWACI_PKTGAINLMT 2      /* bit 1 */
 #define ACPHY_ACI_W2NB_PKTGAINLMT 4       /* bit 2 */
 #define ACPHY_ACI_PREEMPTION 8            /* bit 3 */
-#define ACPHY_ACI_MAX_MODE 15
+#define ACPHY_HWACI_MITIGATION 16            /* bit 4 */
+#define ACPHY_ACI_MAX_MODE 31
 
 /* AP environment */
 #define AP_ENV_DETECT_NOT_USED		0 /* We aren't using AP environment detection */
@@ -1078,6 +1114,7 @@
 #define WL_BW_40MHZ		1
 #define WL_BW_80MHZ		2
 #define WL_BW_160MHZ		3
+#define WL_BW_8080MHZ		4
 
 /* tx_power_t.flags bits */
 #define WL_TX_POWER_F_ENABLED	1
@@ -1101,6 +1138,7 @@
 #define WL_PRUSR_VAL		0x00000200
 #define WL_PS_VAL		0x00000400
 #define WL_TXPWR_VAL		0x00000800	/* retired in TOT on 6/10/2009 */
+#define WL_MODE_SWITCH_VAL	0x00000800 /* Using retired TXPWR val */
 #define WL_PORT_VAL		0x00001000
 #define WL_DUAL_VAL		0x00002000
 #define WL_WSEC_VAL		0x00004000
@@ -1109,13 +1147,14 @@
 #define WL_NRSSI_VAL		0x00020000	/* retired in TOT on 6/10/2009 */
 #define WL_LOFT_VAL		0x00040000	/* retired in TOT on 6/10/2009 */
 #define WL_REGULATORY_VAL	0x00080000
-#define WL_PHYCAL_VAL		0x00100000	/* retired in TOT on 6/10/2009 */
+#define WL_TAF_VAL		0x00100000
 #define WL_RADAR_VAL		0x00200000	/* retired in TOT on 6/10/2009 */
 #define WL_MPC_VAL		0x00400000
 #define WL_APSTA_VAL		0x00800000
 #define WL_DFS_VAL		0x01000000
 #define WL_BA_VAL		0x02000000	/* retired in TOT on 6/14/2010 */
 #define WL_ACI_VAL		0x04000000
+#define WL_PRMAC_VAL		0x04000000
 #define WL_MBSS_VAL		0x04000000
 #define WL_CAC_VAL		0x08000000
 #define WL_AMSDU_VAL		0x10000000
@@ -1148,14 +1187,12 @@
 #define WL_TXBF_VAL		0x00100000
 #define WL_P2PO_VAL		0x00200000
 #define WL_TBTT_VAL		0x00400000
-#define WL_NIC_VAL		0x00800000
 #define WL_MQ_VAL		0x01000000
 
 /* This level is currently used in Phoenix2 only */
 #define WL_SRSCAN_VAL		0x02000000
 
 #define WL_WNM_VAL		0x04000000
-#define WL_AWDL_VAL		0x08000000
 #define WL_PWRSEL_VAL		0x10000000
 #define WL_NET_DETECT_VAL	0x20000000
 #define WL_PCIE_VAL		0x40000000
@@ -1278,7 +1315,12 @@
 #define WL_NUMCHANNELS		64
 
 /* max number of chanspecs (used by the iovar to calc. buf space) */
+#ifdef WL11AC_80P80
+#define WL_NUMCHANSPECS 206
+#else
 #define WL_NUMCHANSPECS 110
+#endif
+
 
 /* WDS link local endpoint WPA role */
 #define WL_WDS_WPA_ROLE_AUTH	0	/* authenticator */
@@ -1375,6 +1417,8 @@
 #define WL_WOWL_FW_HALT         (1 << 21)   /* Firmware died in wowl mode */
 #define WL_WOWL_ENAB_HWRADIO    (1 << 22)   /* Enable detection of radio button changes */
 #define WL_WOWL_MIC_FAIL        (1 << 23)   /* Offloads detected MIC failure(s) */
+#define WL_WOWL_UNASSOC         (1 << 24)   /* Wakeup in Unassociated state (Net/Magic Pattern) */
+#define WL_WOWL_SECURE          (1 << 25)   /* Wakeup if received matched secured pattern */
 #define WL_WOWL_LINKDOWN        (1 << 31)   /* Link Down indication in WoWL mode */
 
 #define WL_WOWL_TCPKEEP         (1 << 20)   /* temp copy to satisfy automerger */
@@ -1752,6 +1796,9 @@
 #define IMMEDIATE_EVENT_BIT		8
 #define SUPPRESS_SSID_BIT		9
 #define ENABLE_NET_OFFLOAD_BIT		10
+/* report found/lost events for SSID and BSSID networks seperately */
+#define REPORT_SEPERATELY_BIT		11
+#define BESTN_BSSID_ONLY_BIT		12
 
 #define SORT_CRITERIA_MASK		0x0001
 #define AUTO_NET_SWITCH_MASK		0x0002
@@ -1764,6 +1811,9 @@
 #define IMMEDIATE_EVENT_MASK		0x0100
 #define SUPPRESS_SSID_MASK		0x0200
 #define ENABLE_NET_OFFLOAD_MASK		0x0400
+/* report found/lost events for SSID and BSSID networks seperately */
+#define REPORT_SEPERATELY_MASK		0x0800
+#define BESTN_BSSID_ONLY_MASK		0x1000
 
 #define PFN_VERSION			2
 #define PFN_SCANRESULT_VERSION		1
@@ -1777,23 +1827,34 @@
 #define DEFAULT_REPEAT			10
 #define DEFAULT_EXP				2
 
+#define PFN_PARTIAL_SCAN_BIT		0
+#define PFN_PARTIAL_SCAN_MASK		1
+
 #define WL_PFN_SUPPRESSFOUND_MASK	0x08
 #define WL_PFN_SUPPRESSLOST_MASK	0x10
-#define WL_PFN_RSSI_MASK			0xff00
-#define WL_PFN_RSSI_SHIFT			8
+#define WL_PFN_RSSI_MASK		0xff00
+#define WL_PFN_RSSI_SHIFT		8
 
 #define WL_PFN_REPORT_ALLNET    0
 #define WL_PFN_REPORT_SSIDNET   1
 #define WL_PFN_REPORT_BSSIDNET  2
 
 #define WL_PFN_CFG_FLAGS_PROHIBITED	0x00000001	/* Accept and use prohibited channels */
-#define WL_PFN_CFG_FLAGS_RESERVED	0xfffffffe	/* Remaining reserved for future use */
+#define WL_PFN_CFG_FLAGS_HISTORY_OFF	0x00000002	/* Scan history suppressed */
 
 #define WL_PFN_HIDDEN_BIT		2
 #define PNO_SCAN_MAX_FW			508*1000	/* max time scan time in msec */
 #define PNO_SCAN_MAX_FW_SEC		PNO_SCAN_MAX_FW/1000 /* max time scan time in SEC */
 #define PNO_SCAN_MIN_FW_SEC		10			/* min time scan time in SEC */
 #define WL_PFN_HIDDEN_MASK		0x4
+
+#ifndef BESTN_MAX
+#define BESTN_MAX			8
+#endif
+
+#ifndef MSCAN_MAX
+#define MSCAN_MAX			32
+#endif
 
 /* TCP Checksum Offload error injection for testing */
 #define TOE_ERRTEST_TX_CSUM	0x00000001
@@ -1814,27 +1875,6 @@
 #define ND_MULTIHOMING_MAX 10	/* Maximum local host IP addresses */
 #define ND_REQUEST_MAX		5	/* Max set of offload params */
 
-/* AWDL AF flags for awdl_oob_af iovar */
-#define AWDL_OOB_AF_FILL_TSF_PARAMS			0x00000001
-#define AWDL_OOB_AF_FILL_SYNC_PARAMS		0x00000002
-#define AWDL_OOB_AF_FILL_ELECT_PARAMS		0x00000004
-#define AWDL_OOB_AF_PARAMS_SIZE 38
-
-#define AWDL_OPMODE_AUTO	0
-#define AWDL_OPMODE_FIXED	1
-
-#define AWDL_PEER_STATE_OPEN	0
-#define AWDL_PEER_STATE_CLOSE	1
-
-#define SYNC_ROLE_SLAVE			0
-#define SYNC_ROLE_NE_MASTER		1	/* Non-election master */
-#define SYNC_ROLE_MASTER		2
-
-/* peer opcode */
-#define AWDL_PEER_OP_ADD	0
-#define AWDL_PEER_OP_DEL	1
-#define AWDL_PEER_OP_INFO	2
-#define AWDL_PEER_OP_UPD	3
 
 /* AOAC wake event flag */
 #define WAKE_EVENT_NLO_DISCOVERY_BIT		1
@@ -1842,7 +1882,9 @@
 #define WAKE_EVENT_GTK_HANDSHAKE_ERROR_BIT 4
 #define WAKE_EVENT_4WAY_HANDSHAKE_REQUEST_BIT 8
 
-#define MAX_NUM_WOL_PATTERN	16 /* LOGO requirements min 16 */
+
+#define MAX_NUM_WOL_PATTERN	22 /* LOGO requirements min 22 */
+
 
 /* Packet filter operation mode */
 /* True: 1; False: 0 */
@@ -2002,5 +2044,20 @@
 /* TCP Checksum Offload defines */
 #define TOE_TX_CSUM_OL		0x00000001
 #define TOE_RX_CSUM_OL		0x00000002
+
+/* Wi-Fi Display Services (WFDS) */
+#define WL_P2P_SOCIAL_CHANNELS_MAX  WL_NUMCHANNELS
+#define MAX_WFDS_SEEK_SVC 4	/* Max # of wfds services to seek */
+#define MAX_WFDS_ADVERT_SVC 4	/* Max # of wfds services to advertise */
+#define MAX_WFDS_SVC_NAME_LEN 200	/* maximum service_name length */
+#define MAX_WFDS_ADV_SVC_INFO_LEN 65000	/* maximum adv service_info length */
+#define P2P_WFDS_HASH_LEN 6		/* Length of a WFDS service hash */
+#define MAX_WFDS_SEEK_SVC_INFO_LEN 255	/* maximum seek service_info req length */
+#define MAX_WFDS_SEEK_SVC_NAME_LEN 200	/* maximum service_name length */
+
+/* ap_isolate bitmaps */
+#define AP_ISOLATE_DISABLED		0x0
+#define AP_ISOLATE_SENDUP_ALL		0x01
+#define AP_ISOLATE_SENDUP_MCAST		0x02
 
 #endif /* wlioctl_defs_h */

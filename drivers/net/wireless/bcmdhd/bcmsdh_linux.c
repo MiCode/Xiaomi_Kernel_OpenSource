@@ -21,7 +21,7 @@
  * software in any way with any other Broadcom software provided under a license
  * other than the GPL, without Broadcom's express prior written consent.
  *
- * $Id: bcmsdh_linux.c 444405 2013-12-19 12:28:07Z $
+ * $Id: bcmsdh_linux.c 461444 2014-03-12 02:55:28Z $
  */
 
 /**
@@ -44,6 +44,9 @@ extern void dhdsdio_isr(void * args);
 #include <bcmutils.h>
 #include <dngl_stats.h>
 #include <dhd.h>
+#if defined(CONFIG_ARCH_ODIN)
+#include <linux/platform_data/gpio-odin.h>
+#endif /* defined(CONFIG_ARCH_ODIN) */
 #include <dhd_linux.h>
 
 /* driver info, initialized when bcmsdh_register is called */
@@ -133,7 +136,7 @@ bcmsdh_chipmatch(uint16 vendor, uint16 device)
 void* bcmsdh_probe(osl_t *osh, void *dev, void *sdioh, void *adapter_info, uint bus_type,
 	uint bus_num, uint slot_num)
 {
-	uint32 regs;
+	ulong regs;
 	bcmsdh_info_t *bcmsdh;
 	uint32 vendevid;
 	bcmsdh_os_info_t *bcmsdh_osinfo = NULL;
@@ -174,7 +177,7 @@ void* bcmsdh_probe(osl_t *osh, void *dev, void *sdioh, void *adapter_info, uint 
 	vendevid = bcmsdh_query_device(bcmsdh);
 	/* try to attach to the target device */
 	bcmsdh_osinfo->context = drvinfo.probe((vendevid >> 16), (vendevid & 0xFFFF), bus_num,
-		slot_num, 0, bus_type, (void *)(uintptr)regs, osh, bcmsdh);
+		slot_num, 0, bus_type, (void *)regs, osh, bcmsdh);
 	if (bcmsdh_osinfo->context == NULL) {
 		SDLX_MSG(("%s: device attach failed\n", __FUNCTION__));
 		goto err;
@@ -338,8 +341,13 @@ int bcmsdh_oob_intr_register(bcmsdh_info_t *bcmsdh, bcmsdh_cb_fn_t oob_irq_handl
 		(int)bcmsdh_osinfo->oob_irq_num, (int)bcmsdh_osinfo->oob_irq_flags));
 	bcmsdh_osinfo->oob_irq_handler = oob_irq_handler;
 	bcmsdh_osinfo->oob_irq_handler_context = oob_irq_handler_context;
+#if defined(CONFIG_ARCH_ODIN)
+	err = odin_gpio_sms_request_irq(bcmsdh_osinfo->oob_irq_num, wlan_oob_irq,
+		bcmsdh_osinfo->oob_irq_flags, "bcmsdh_sdmmc", bcmsdh);
+#else
 	err = request_irq(bcmsdh_osinfo->oob_irq_num, wlan_oob_irq,
 		bcmsdh_osinfo->oob_irq_flags, "bcmsdh_sdmmc", bcmsdh);
+#endif /* defined(CONFIG_ARCH_ODIN) */
 	if (err) {
 		SDLX_MSG(("%s: request_irq failed with %d\n", __FUNCTION__, err));
 		return err;

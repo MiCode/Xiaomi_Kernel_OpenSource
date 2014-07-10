@@ -19,6 +19,11 @@ config BCM4354
 	tristate "BCM4354 support"
 	depends on BCMDHD
 
+config BCM4356
+	tristate "BCM4356 support"
+	depends on BCMDHD
+	default n
+
 config BCMDHD_FW_PATH
 	depends on BCMDHD
 	string "Firmware path"

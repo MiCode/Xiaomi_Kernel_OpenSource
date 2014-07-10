@@ -18,7 +18,7 @@
  *      Notwithstanding the above, under no circumstances may you combine this
  * software in any way with any other Broadcom software provided under a license
  * other than the GPL, without Broadcom's express prior written consent.
- * $Id: typedefs.h 409715 2013-06-26 16:10:24Z $
+ * $Id: typedefs.h 473326 2014-04-29 00:37:35Z $
  */
 
 #ifndef _TYPEDEFS_H_
@@ -86,7 +86,6 @@ typedef long unsigned int size_t;
 #define TYPEDEF_ULONG
 #endif
 
-
 /*
  * If this is either a Linux hybrid build or the per-port code of a hybrid build
  * then use the Linux header files to get some of the typedefs.  Otherwise, define
@@ -114,8 +113,6 @@ typedef long unsigned int size_t;
 #endif	/* == 2.6.18 */
 #endif	/* __KERNEL__ */
 #endif  /* !defined(LINUX_HYBRID) || defined(LINUX_PORT) */
-
-
 
 
 /* Do not support the (u)int64 types with strict ansi for GNU C */
@@ -149,13 +146,11 @@ typedef long unsigned int size_t;
 
 #else
 
-
 #include <sys/types.h>
 
 #endif /* linux && __KERNEL__ */
 
 #endif 
-
 
 
 /* use the default typedefs in the next section of this file */

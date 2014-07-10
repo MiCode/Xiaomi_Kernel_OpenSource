@@ -126,6 +126,7 @@ extern "C" {
 #define WPS_WFA_SUBID_NW_KEY_SHAREABLE    0x02
 #define WPS_WFA_SUBID_REQ_TO_ENROLL       0x03
 #define WPS_WFA_SUBID_SETTINGS_DELAY_TIME 0x04
+#define WPS_WFA_SUBID_REG_CFG_METHODS     0x05
 
 
 /* WCN-NET Windows Rally Vertical Pairing Vendor Extensions */
@@ -174,6 +175,7 @@ extern "C" {
 #define WPS_WFA_SUBID_NW_KEY_SHAREABLE_S    1
 #define WPS_WFA_SUBID_REQ_TO_ENROLL_S       1
 #define WPS_WFA_SUBID_SETTINGS_DELAY_TIME_S 1
+#define WPS_WFA_SUBID_REG_CFG_METHODS_S     2
 
 /* Association states */
 #define WPS_ASSOC_NOT_ASSOCIATED  0
@@ -226,6 +228,8 @@ extern "C" {
 #define WPS_ERROR_MSG_TIMEOUT             16	/* Deprecated in WSC 2.0 */
 #define WPS_ERROR_REG_SESSION_TIMEOUT     17	/* Deprecated in WSC 2.0 */
 #define WPS_ERROR_DEV_PWD_AUTH_FAIL       18
+#define WPS_ERROR_60GHZ_NOT_SUPPORT       19
+#define WPS_ERROR_PKH_MISMATCH            20	/* Public Key Hash Mismatch */
 
 /* Connection types */
 #define WPS_CONNTYPE_ESS    0x01
@@ -238,6 +242,9 @@ extern "C" {
 #define WPS_DEVICEPWDID_REKEY            0x0003
 #define WPS_DEVICEPWDID_PUSH_BTN         0x0004
 #define WPS_DEVICEPWDID_REG_SPEC         0x0005
+#define WPS_DEVICEPWDID_IBSS             0x0006
+#define WPS_DEVICEPWDID_NFC_CHO          0x0007	/* NFC-Connection-Handover */
+#define WPS_DEVICEPWDID_WFDS             0x0008	/* Wi-Fi Direct Services Specification */
 
 /* Encryption type */
 #define WPS_ENCRTYPE_NONE    0x0001

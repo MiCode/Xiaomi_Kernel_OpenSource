@@ -21,7 +21,7 @@
  * software in any way with any other Broadcom software provided under a license
  * other than the GPL, without Broadcom's express prior written consent.
  *
- * $Id: msgtrace.h 369735 2012-11-19 22:50:22Z $
+ * $Id: msgtrace.h 439681 2013-11-27 15:39:50Z $
  */
 
 #ifndef	_MSGTRACE_H
@@ -34,7 +34,8 @@
 
 /* This marks the start of a packed structure section. */
 #include <packed_section_start.h>
-
+/* for osl_t */
+#include <osl_decl.h>
 #define MSGTRACE_VERSION 1
 
 /* Message trace header */

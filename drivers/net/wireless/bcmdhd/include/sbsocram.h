@@ -57,7 +57,8 @@ typedef volatile struct sbsocramregs {
 	uint32	cambankmaskreg;
 	uint32	PAD[1];
 	uint32	bankinfo;	/* corev 8 */
-	uint32	PAD[15];
+	uint32	bankpda;
+	uint32	PAD[14];
 	uint32	extmemconfig;
 	uint32	extmemparitycsr;
 	uint32	extmemparityerrdata;

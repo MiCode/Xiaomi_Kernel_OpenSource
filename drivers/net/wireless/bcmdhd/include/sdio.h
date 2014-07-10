@@ -28,6 +28,7 @@
 #ifndef	_SDIO_H
 #define	_SDIO_H
 
+#ifdef BCMSDIO
 
 /* CCCR structure for function 0 */
 typedef volatile struct {
@@ -616,4 +617,6 @@ typedef volatile struct {
 /* command issue options */
 #define CMD_OPTION_DEFAULT	0
 #define CMD_OPTION_TUNING	1
+
+#endif /* def BCMSDIO */
 #endif /* _SDIO_H */

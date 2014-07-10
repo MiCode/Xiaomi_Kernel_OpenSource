@@ -1,5 +1,5 @@
 /*
- * Console support for hndrte.
+ * Console support for RTE - for host use only.
  *
  * Copyright (C) 1999-2014, Broadcom Corporation
  * 
@@ -21,12 +21,13 @@
  * software in any way with any other Broadcom software provided under a license
  * other than the GPL, without Broadcom's express prior written consent.
  *
- * $Id: hndrte_cons.h 427140 2013-10-02 18:07:07Z $
+ * $Id: hnd_cons.h 473343 2014-04-29 01:45:22Z $
  */
-#ifndef	_HNDRTE_CONS_H
-#define	_HNDRTE_CONS_H
+#ifndef	_hnd_cons_h_
+#define	_hnd_cons_h_
 
 #include <typedefs.h>
+#include <siutils.h>
 
 #if defined(RWL_DONGLE) || defined(UART_REFLECTOR)
 /* For Dongle uart tranport max cmd len is 256 bytes + header length (16 bytes)
@@ -41,12 +42,21 @@
 
 #define LOG_BUF_LEN	1024
 
+#ifdef BOOTLOADER_CONSOLE_OUTPUT
+#undef RWL_MAX_DATA_LEN
+#undef CBUF_LEN
+#undef LOG_BUF_LEN
+#define RWL_MAX_DATA_LEN (4 * 1024 + 8)
+#define CBUF_LEN	(RWL_MAX_DATA_LEN + 64)
+#define LOG_BUF_LEN (16 * 1024)
+#endif
+
 typedef struct {
 	uint32		buf;		/* Can't be pointer on (64-bit) hosts */
 	uint		buf_size;
 	uint		idx;
 	uint		out_idx;	/* output index */
-} hndrte_log_t;
+} hnd_log_t;
 
 typedef struct {
 	/* Virtual UART
@@ -63,7 +73,7 @@ typedef struct {
 	 *   The host may read the output when it sees log_idx advance.
 	 *   Output will be lost if the output wraps around faster than the host polls.
 	 */
-	hndrte_log_t	log;
+	hnd_log_t	log;
 
 	/* Console input line buffer
 	 *   Characters are read one at a time into cbuf until <CR> is received, then
@@ -71,8 +81,6 @@ typedef struct {
 	 */
 	uint		cbuf_idx;
 	char		cbuf[CBUF_LEN];
-} hndrte_cons_t;
+} hnd_cons_t;
 
-hndrte_cons_t *hndrte_get_active_cons_state(void);
-
-#endif /* _HNDRTE_CONS_H */
+#endif /* _hnd_cons_h_ */

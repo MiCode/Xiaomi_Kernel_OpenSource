@@ -21,7 +21,7 @@
  * software in any way with any other Broadcom software provided under a license
  * other than the GPL, without Broadcom's express prior written consent.
  *
- * $Id: bcmdefs.h 433011 2013-10-30 09:19:54Z $
+ * $Id: bcmdefs.h 474209 2014-04-30 12:16:47Z $
  */
 
 #ifndef	_bcmdefs_h_
@@ -93,18 +93,7 @@
  */
 	#define BCMRAMFN(_fn)	_fn
 
-
-
-/* Put some library data/code into ROM to reduce RAM requirements */
-#define _data	_data
-#define BCMROMDAT_NAME(_data)	_data
-#define _fn		_fn
-#define _fn	_fn
 #define STATIC	static
-#define BCMROMDAT_ARYSIZ(data)	ARRAYSIZE(data)
-#define BCMROMDAT_SIZEOF(data)	sizeof(data)
-#define BCMROMDAT_APATCH(data)
-#define BCMROMDAT_SPATCH(data)
 
 /* Bus types */
 #define	SI_BUS			0	/* SOC Interconnect */
@@ -156,8 +145,10 @@
 /* Defines for DMA Address Width - Shared between OSL and HNDDMA */
 #define DMADDR_MASK_32 0x0		/* Address mask for 32-bits */
 #define DMADDR_MASK_30 0xc0000000	/* Address mask for 30-bits */
+#define DMADDR_MASK_26 0xFC000000	/* Address maks for 26-bits */
 #define DMADDR_MASK_0  0xffffffff	/* Address mask for 0-bits (hi-part) */
 
+#define	DMADDRWIDTH_26  26 /* 26-bit addressing capability */
 #define	DMADDRWIDTH_30  30 /* 30-bit addressing capability */
 #define	DMADDRWIDTH_32  32 /* 32-bit addressing capability */
 #define	DMADDRWIDTH_63  63 /* 64-bit addressing capability */
@@ -196,6 +187,7 @@ typedef unsigned long dmaaddr_t;
 		(_pa) = (_val);			\
 	} while (0)
 #endif /* BCMDMA64OSL */
+#define PHYSADDRISZERO(_pa) (PHYSADDRLO(_pa) == 0 && PHYSADDRHI(_pa) == 0)
 
 /* One physical DMA segment */
 typedef struct  {
@@ -340,9 +332,7 @@ typedef struct {
 #define NVRAM_ARRAY_MAXSIZE	MAXSZ_NVRAM_VARS
 #endif /* DL_NVRAM */
 
-#ifdef BCMUSBDEV_ENABLED
 extern uint32 gFWID;
-#endif
 
 
 #endif /* _bcmdefs_h_ */

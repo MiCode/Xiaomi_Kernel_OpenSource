@@ -20,7 +20,7 @@
  *      Notwithstanding the above, under no circumstances may you combine this
  * software in any way with any other Broadcom software provided under a license
  * other than the GPL, without Broadcom's express prior written consent.
- * $Id: bcmutils.c 446873 2014-01-07 11:26:18Z $
+ * $Id: bcmutils.c 473326 2014-04-29 00:37:35Z $
  */
 
 #include <bcm_cfg.h>
@@ -62,6 +62,7 @@
 
 
 void *_bcmutils_dummy_fn = NULL;
+
 
 
 
@@ -256,489 +257,6 @@ pktoffset(osl_t *osh, void *p,  uint offset)
 	return p;
 }
 
-/*
- * osl multiple-precedence packet queue
- * hi_prec is always >= the number of the highest non-empty precedence
- */
-void * BCMFASTPATH
-pktq_penq(struct pktq *pq, int prec, void *p)
-{
-	struct pktq_prec *q;
-
-	ASSERT(prec >= 0 && prec < pq->num_prec);
-	ASSERT(PKTLINK(p) == NULL);         /* queueing chains not allowed */
-
-	ASSERT(!pktq_full(pq));
-	ASSERT(!pktq_pfull(pq, prec));
-
-	q = &pq->q[prec];
-
-	if (q->head)
-		PKTSETLINK(q->tail, p);
-	else
-		q->head = p;
-
-	q->tail = p;
-	q->len++;
-
-	pq->len++;
-
-	if (pq->hi_prec < prec)
-		pq->hi_prec = (uint8)prec;
-
-	return p;
-}
-
-void * BCMFASTPATH
-pktq_penq_head(struct pktq *pq, int prec, void *p)
-{
-	struct pktq_prec *q;
-
-	ASSERT(prec >= 0 && prec < pq->num_prec);
-	ASSERT(PKTLINK(p) == NULL);         /* queueing chains not allowed */
-
-	ASSERT(!pktq_full(pq));
-	ASSERT(!pktq_pfull(pq, prec));
-
-	q = &pq->q[prec];
-
-	if (q->head == NULL)
-		q->tail = p;
-
-	PKTSETLINK(p, q->head);
-	q->head = p;
-	q->len++;
-
-	pq->len++;
-
-	if (pq->hi_prec < prec)
-		pq->hi_prec = (uint8)prec;
-
-	return p;
-}
-
-void * BCMFASTPATH
-pktq_pdeq(struct pktq *pq, int prec)
-{
-	struct pktq_prec *q;
-	void *p;
-
-	ASSERT(prec >= 0 && prec < pq->num_prec);
-
-	q = &pq->q[prec];
-
-	if ((p = q->head) == NULL)
-		return NULL;
-
-	if ((q->head = PKTLINK(p)) == NULL)
-		q->tail = NULL;
-
-	q->len--;
-
-	pq->len--;
-
-	PKTSETLINK(p, NULL);
-
-	return p;
-}
-
-void * BCMFASTPATH
-pktq_pdeq_prev(struct pktq *pq, int prec, void *prev_p)
-{
-	struct pktq_prec *q;
-	void *p;
-
-	ASSERT(prec >= 0 && prec < pq->num_prec);
-
-	q = &pq->q[prec];
-
-	if (prev_p == NULL)
-		return NULL;
-
-	if ((p = PKTLINK(prev_p)) == NULL)
-		return NULL;
-
-	q->len--;
-
-	pq->len--;
-
-	PKTSETLINK(prev_p, PKTLINK(p));
-	PKTSETLINK(p, NULL);
-
-	return p;
-}
-
-void * BCMFASTPATH
-pktq_pdeq_with_fn(struct pktq *pq, int prec, ifpkt_cb_t fn, int arg)
-{
-	struct pktq_prec *q;
-	void *p, *prev = NULL;
-
-	ASSERT(prec >= 0 && prec < pq->num_prec);
-
-	q = &pq->q[prec];
-	p = q->head;
-
-	while (p) {
-		if (fn == NULL || (*fn)(p, arg)) {
-			break;
-		} else {
-			prev = p;
-			p = PKTLINK(p);
-		}
-	}
-	if (p == NULL)
-		return NULL;
-
-	if (prev == NULL) {
-		if ((q->head = PKTLINK(p)) == NULL) {
-			q->tail = NULL;
-		}
-	} else {
-		PKTSETLINK(prev, PKTLINK(p));
-		if (q->tail == p) {
-			q->tail = prev;
-		}
-	}
-
-	q->len--;
-
-	pq->len--;
-
-	PKTSETLINK(p, NULL);
-
-	return p;
-}
-
-void * BCMFASTPATH
-pktq_pdeq_tail(struct pktq *pq, int prec)
-{
-	struct pktq_prec *q;
-	void *p, *prev;
-
-	ASSERT(prec >= 0 && prec < pq->num_prec);
-
-	q = &pq->q[prec];
-
-	if ((p = q->head) == NULL)
-		return NULL;
-
-	for (prev = NULL; p != q->tail; p = PKTLINK(p))
-		prev = p;
-
-	if (prev)
-		PKTSETLINK(prev, NULL);
-	else
-		q->head = NULL;
-
-	q->tail = prev;
-	q->len--;
-
-	pq->len--;
-
-	return p;
-}
-
-void
-pktq_pflush(osl_t *osh, struct pktq *pq, int prec, bool dir, ifpkt_cb_t fn, int arg)
-{
-	struct pktq_prec *q;
-	void *p, *prev = NULL;
-
-	q = &pq->q[prec];
-	p = q->head;
-	while (p) {
-		if (fn == NULL || (*fn)(p, arg)) {
-			bool head = (p == q->head);
-			if (head)
-				q->head = PKTLINK(p);
-			else
-				PKTSETLINK(prev, PKTLINK(p));
-			PKTSETLINK(p, NULL);
-			PKTFREE(osh, p, dir);
-			q->len--;
-			pq->len--;
-			p = (head ? q->head : PKTLINK(prev));
-		} else {
-			prev = p;
-			p = PKTLINK(p);
-		}
-	}
-
-	if (q->head == NULL) {
-		ASSERT(q->len == 0);
-		q->tail = NULL;
-	}
-}
-
-bool BCMFASTPATH
-pktq_pdel(struct pktq *pq, void *pktbuf, int prec)
-{
-	struct pktq_prec *q;
-	void *p;
-
-	ASSERT(prec >= 0 && prec < pq->num_prec);
-
-	if (!pktbuf)
-		return FALSE;
-
-	q = &pq->q[prec];
-
-	if (q->head == pktbuf) {
-		if ((q->head = PKTLINK(pktbuf)) == NULL)
-			q->tail = NULL;
-	} else {
-		for (p = q->head; p && PKTLINK(p) != pktbuf; p = PKTLINK(p))
-			;
-		if (p == NULL)
-			return FALSE;
-
-		PKTSETLINK(p, PKTLINK(pktbuf));
-		if (q->tail == pktbuf)
-			q->tail = p;
-	}
-
-	q->len--;
-	pq->len--;
-	PKTSETLINK(pktbuf, NULL);
-	return TRUE;
-}
-
-void
-pktq_init(struct pktq *pq, int num_prec, int max_len)
-{
-	int prec;
-
-	ASSERT(num_prec > 0 && num_prec <= PKTQ_MAX_PREC);
-
-	/* pq is variable size; only zero out what's requested */
-	bzero(pq, OFFSETOF(struct pktq, q) + (sizeof(struct pktq_prec) * num_prec));
-
-	pq->num_prec = (uint16)num_prec;
-
-	pq->max = (uint16)max_len;
-
-	for (prec = 0; prec < num_prec; prec++)
-		pq->q[prec].max = pq->max;
-}
-
-void
-pktq_set_max_plen(struct pktq *pq, int prec, int max_len)
-{
-	ASSERT(prec >= 0 && prec < pq->num_prec);
-
-	if (prec < pq->num_prec)
-		pq->q[prec].max = (uint16)max_len;
-}
-
-void * BCMFASTPATH
-pktq_deq(struct pktq *pq, int *prec_out)
-{
-	struct pktq_prec *q;
-	void *p;
-	int prec;
-
-	if (pq->len == 0)
-		return NULL;
-
-	while ((prec = pq->hi_prec) > 0 && pq->q[prec].head == NULL)
-		pq->hi_prec--;
-
-	q = &pq->q[prec];
-
-	if ((p = q->head) == NULL)
-		return NULL;
-
-	if ((q->head = PKTLINK(p)) == NULL)
-		q->tail = NULL;
-
-	q->len--;
-
-	pq->len--;
-
-	if (prec_out)
-		*prec_out = prec;
-
-	PKTSETLINK(p, NULL);
-
-	return p;
-}
-
-void * BCMFASTPATH
-pktq_deq_tail(struct pktq *pq, int *prec_out)
-{
-	struct pktq_prec *q;
-	void *p, *prev;
-	int prec;
-
-	if (pq->len == 0)
-		return NULL;
-
-	for (prec = 0; prec < pq->hi_prec; prec++)
-		if (pq->q[prec].head)
-			break;
-
-	q = &pq->q[prec];
-
-	if ((p = q->head) == NULL)
-		return NULL;
-
-	for (prev = NULL; p != q->tail; p = PKTLINK(p))
-		prev = p;
-
-	if (prev)
-		PKTSETLINK(prev, NULL);
-	else
-		q->head = NULL;
-
-	q->tail = prev;
-	q->len--;
-
-	pq->len--;
-
-	if (prec_out)
-		*prec_out = prec;
-
-	PKTSETLINK(p, NULL);
-
-	return p;
-}
-
-void *
-pktq_peek(struct pktq *pq, int *prec_out)
-{
-	int prec;
-
-	if (pq->len == 0)
-		return NULL;
-
-	while ((prec = pq->hi_prec) > 0 && pq->q[prec].head == NULL)
-		pq->hi_prec--;
-
-	if (prec_out)
-		*prec_out = prec;
-
-	return (pq->q[prec].head);
-}
-
-void *
-pktq_peek_tail(struct pktq *pq, int *prec_out)
-{
-	int prec;
-
-	if (pq->len == 0)
-		return NULL;
-
-	for (prec = 0; prec < pq->hi_prec; prec++)
-		if (pq->q[prec].head)
-			break;
-
-	if (prec_out)
-		*prec_out = prec;
-
-	return (pq->q[prec].tail);
-}
-
-void
-pktq_flush(osl_t *osh, struct pktq *pq, bool dir, ifpkt_cb_t fn, int arg)
-{
-	int prec;
-
-	/* Optimize flush, if pktq len = 0, just return.
-	 * pktq len of 0 means pktq's prec q's are all empty.
-	 */
-	if (pq->len == 0) {
-		return;
-	}
-
-	for (prec = 0; prec < pq->num_prec; prec++)
-		pktq_pflush(osh, pq, prec, dir, fn, arg);
-	if (fn == NULL)
-		ASSERT(pq->len == 0);
-}
-
-/* Return sum of lengths of a specific set of precedences */
-int
-pktq_mlen(struct pktq *pq, uint prec_bmp)
-{
-	int prec, len;
-
-	len = 0;
-
-	for (prec = 0; prec <= pq->hi_prec; prec++)
-		if (prec_bmp & (1 << prec))
-			len += pq->q[prec].len;
-
-	return len;
-}
-
-/* Priority peek from a specific set of precedences */
-void * BCMFASTPATH
-pktq_mpeek(struct pktq *pq, uint prec_bmp, int *prec_out)
-{
-	struct pktq_prec *q;
-	void *p;
-	int prec;
-
-	if (pq->len == 0)
-	{
-		return NULL;
-	}
-	while ((prec = pq->hi_prec) > 0 && pq->q[prec].head == NULL)
-		pq->hi_prec--;
-
-	while ((prec_bmp & (1 << prec)) == 0 || pq->q[prec].head == NULL)
-		if (prec-- == 0)
-			return NULL;
-
-	q = &pq->q[prec];
-
-	if ((p = q->head) == NULL)
-		return NULL;
-
-	if (prec_out)
-		*prec_out = prec;
-
-	return p;
-}
-/* Priority dequeue from a specific set of precedences */
-void * BCMFASTPATH
-pktq_mdeq(struct pktq *pq, uint prec_bmp, int *prec_out)
-{
-	struct pktq_prec *q;
-	void *p;
-	int prec;
-
-	if (pq->len == 0)
-		return NULL;
-
-	while ((prec = pq->hi_prec) > 0 && pq->q[prec].head == NULL)
-		pq->hi_prec--;
-
-	while ((pq->q[prec].head == NULL) || ((prec_bmp & (1 << prec)) == 0))
-		if (prec-- == 0)
-			return NULL;
-
-	q = &pq->q[prec];
-
-	if ((p = q->head) == NULL)
-		return NULL;
-
-	if ((q->head = PKTLINK(p)) == NULL)
-		q->tail = NULL;
-
-	q->len--;
-
-	if (prec_out)
-		*prec_out = prec;
-
-	pq->len--;
-
-	PKTSETLINK(p, NULL);
-
-	return p;
-}
-
 #endif /* BCMDRIVER */
 
 #if !defined(BCMROMOFFLOAD_EXCLUDE_BCMUTILS_FUNCS)
@@ -849,13 +367,23 @@ bcmstrstr(const char *haystack, const char *needle)
 	if ((haystack == NULL) || (needle == NULL))
 		return DISCARD_QUAL(haystack, char);
 
-	nlen = strlen(needle);
-	len = strlen(haystack) - nlen + 1;
+	nlen = (int)strlen(needle);
+	len = (int)strlen(haystack) - nlen + 1;
 
 	for (i = 0; i < len; i++)
 		if (memcmp(needle, &haystack[i], nlen) == 0)
 			return DISCARD_QUAL(&haystack[i], char);
 	return (NULL);
+}
+
+char *
+bcmstrnstr(const char *s, uint s_len, const char *substr, uint substr_len)
+{
+	for (; s_len >= substr_len; s++, s_len--)
+		if (strncmp(s, substr, substr_len) == 0)
+			return DISCARD_QUAL(s, char);
+
+	return NULL;
 }
 
 char *
@@ -1242,7 +770,8 @@ pktsetprio(void *pkt, bool update_vtag)
 		vlan_tag = ntoh16(evh->vlan_tag);
 		vlan_prio = (int) (vlan_tag >> VLAN_PRI_SHIFT) & VLAN_PRI_MASK;
 
-		if (evh->ether_type == hton16(ETHER_TYPE_IP)) {
+		if ((evh->ether_type == hton16(ETHER_TYPE_IP)) ||
+			(evh->ether_type == hton16(ETHER_TYPE_IPV6))) {
 			uint8 *ip_body = pktdata + sizeof(struct ethervlan_header);
 			uint8 tos_tc = IP_TOS46(ip_body);
 			dscp_prio = (int)(tos_tc >> IPV4_TOS_PREC_SHIFT);
@@ -1269,7 +798,8 @@ pktsetprio(void *pkt, bool update_vtag)
 			evh->vlan_tag = hton16(vlan_tag);
 			rc |= PKTPRIO_UPD;
 		}
-	} else if (eh->ether_type == hton16(ETHER_TYPE_IP)) {
+	} else if ((eh->ether_type == hton16(ETHER_TYPE_IP)) ||
+		(eh->ether_type == hton16(ETHER_TYPE_IPV6))) {
 		uint8 *ip_body = pktdata + sizeof(struct ether_header);
 		uint8 tos_tc = IP_TOS46(ip_body);
 		uint8 dscp = tos_tc >> IPV4_TOS_DSCP_SHIFT;
@@ -1303,6 +833,43 @@ pktsetprio(void *pkt, bool update_vtag)
 	return (rc | priority);
 }
 
+/* Returns TRUE and DSCP if IP header found, FALSE otherwise.
+ */
+bool BCMFASTPATH
+pktgetdscp(uint8 *pktdata, uint pktlen, uint8 *dscp)
+{
+	struct ether_header *eh;
+	struct ethervlan_header *evh;
+	uint8 *ip_body;
+	bool rc = FALSE;
+
+	/* minimum length is ether header and IP header */
+	if (pktlen < sizeof(struct ether_header) + IPV4_MIN_HEADER_LEN)
+		return FALSE;
+
+	eh = (struct ether_header *) pktdata;
+
+	if (eh->ether_type == HTON16(ETHER_TYPE_IP)) {
+		ip_body = pktdata + sizeof(struct ether_header);
+		*dscp = IP_DSCP46(ip_body);
+		rc = TRUE;
+	}
+	else if (eh->ether_type == HTON16(ETHER_TYPE_8021Q)) {
+		evh = (struct ethervlan_header *)eh;
+
+		/* minimum length is ethervlan header and IP header */
+		if (pktlen >= sizeof(struct ethervlan_header) + IPV4_MIN_HEADER_LEN &&
+			evh->ether_type == HTON16(ETHER_TYPE_IP)) {
+			ip_body = pktdata + sizeof(struct ethervlan_header);
+			*dscp = IP_DSCP46(ip_body);
+			rc = TRUE;
+		}
+	}
+
+	return rc;
+}
+
+/* The 0.5KB string table is not removed by compiler even though it's unused */
 
 static char bcm_undeferrstr[32];
 static const char *bcmerrorstrtable[] = BCMERRSTRINGTABLE;
@@ -1327,6 +894,7 @@ bcmerrorstr(int bcmerror)
 
 
 /* iovar table lookup */
+/* could mandate sorted tables and do a binary search */
 const bcm_iovar_t*
 bcm_iovar_lookup(const bcm_iovar_t *table, const char *name)
 {
@@ -1831,6 +1399,22 @@ bcm_parse_tlvs(void *buf, int buflen, uint key)
 /*
  * Traverse a string of 1-byte tag/1-byte length/variable-length value
  * triples, returning a pointer to the substring whose first element
+ * matches tag
+ * return NULL if not found or length field < min_varlen
+ */
+bcm_tlv_t *
+bcm_parse_tlvs_min_bodylen(void *buf, int buflen, uint key, int min_bodylen)
+{
+	bcm_tlv_t * ret = bcm_parse_tlvs(buf, buflen, key);
+	if (ret == NULL || ret->len < min_bodylen) {
+		return NULL;
+	}
+	return ret;
+}
+
+/*
+ * Traverse a string of 1-byte tag/1-byte length/variable-length value
+ * triples, returning a pointer to the substring whose first element
  * matches tag.  Stop parsing when we see an element whose ID is greater
  * than the target key.
  */
@@ -2059,7 +1643,7 @@ printbig(char *buf)
 	uint len, max_len;
 	char c;
 
-	len = strlen(buf);
+	len = (uint)strlen(buf);
 
 	max_len = BUFSIZE_TODUMP_ATONCE;
 
@@ -2110,7 +1694,7 @@ bcm_mkiovar(char *name, char *data, uint datalen, char *buf, uint buflen)
 {
 	uint len;
 
-	len = strlen(name) + 1;
+	len = (uint)strlen(name) + 1;
 
 	if ((len + datalen) > buflen)
 		return 0;
@@ -2532,6 +2116,35 @@ isclr(const void *array, uint bit)
 #endif /* setbit */
 
 void
+set_bitrange(void *array, uint start, uint end, uint maxbit)
+{
+	uint startbyte = start/NBBY;
+	uint endbyte = end/NBBY;
+	uint i, startbytelastbit, endbytestartbit;
+
+	if (end >= start) {
+		if (endbyte - startbyte > 1)
+		{
+			startbytelastbit = (startbyte+1)*NBBY - 1;
+			endbytestartbit = endbyte*NBBY;
+			for (i = startbyte+1; i < endbyte; i++)
+				((uint8 *)array)[i] = 0xFF;
+			for (i = start; i <= startbytelastbit; i++)
+				setbit(array, i);
+			for (i = endbytestartbit; i <= end; i++)
+				setbit(array, i);
+		} else {
+			for (i = start; i <= end; i++)
+				setbit(array, i);
+		}
+	}
+	else {
+		set_bitrange(array, start, maxbit, maxbit);
+		set_bitrange(array, 0, end, maxbit);
+	}
+}
+
+void
 bcm_bitprint32(const uint32 u32)
 {
 	int i;
@@ -2540,6 +2153,27 @@ bcm_bitprint32(const uint32 u32)
 		if ((i % NBBY) == 0) printf(" ");
 	}
 	printf("\n");
+}
+
+/* calculate checksum for ip header, tcp / udp header / data */
+uint16
+bcm_ip_cksum(uint8 *buf, uint32 len, uint32 sum)
+{
+	while (len > 1) {
+		sum += (buf[0] << 8) | buf[1];
+		buf += 2;
+		len -= 2;
+	}
+
+	if (len > 0) {
+		sum += (*buf) << 8;
+	}
+
+	while (sum >> 16) {
+		sum = (sum & 0xffff) + (sum >> 16);
+	}
+
+	return ((uint16)~sum);
 }
 
 #ifdef BCMDRIVER
@@ -2709,7 +2343,7 @@ bcm_mwbmap_fini(osl_t * osh, struct bcm_mwbmap * mwbmap_hdl)
 }
 
 /* Allocate a unique small index using a multiword bitmap index allocator.    */
-uint32
+uint32 BCMFASTPATH
 bcm_mwbmap_alloc(struct bcm_mwbmap * mwbmap_hdl)
 {
 	bcm_mwbmap_t * mwbmap_p;
@@ -2845,7 +2479,7 @@ bcm_mwbmap_force(struct bcm_mwbmap * mwbmap_hdl, uint32 bitix)
 }
 
 /* Free a previously allocated index back into the multiword bitmap allocator */
-void
+void BCMFASTPATH
 bcm_mwbmap_free(struct bcm_mwbmap * mwbmap_hdl, uint32 bitix)
 {
 	bcm_mwbmap_t * mwbmap_p;
@@ -2998,9 +2632,225 @@ bcm_mwbmap_audit(struct bcm_mwbmap * mwbmap_hdl)
 		}
 	}
 
-	ASSERT(free_cnt == mwbmap_p->ifree);
+	ASSERT((int)free_cnt == mwbmap_p->ifree);
 }
 /* END : Multiword bitmap based 64bit to Unique 32bit Id allocator. */
+
+/* Simple 16bit Id allocator using a stack implementation. */
+typedef struct id16_map {
+	uint16  total;     /* total number of ids managed by allocator */
+	uint16  start;     /* start value of 16bit ids to be managed */
+	uint32  failures;  /* count of failures */
+	void    *dbg;      /* debug placeholder */
+	int     stack_idx; /* index into stack of available ids */
+	uint16  stack[0];  /* stack of 16 bit ids */
+} id16_map_t;
+
+#define ID16_MAP_SZ(items)      (sizeof(id16_map_t) + \
+	                             (sizeof(uint16) * (items)))
+
+#if defined(BCM_DBG)
+
+/* Uncomment BCM_DBG_ID16 to debug double free */
+/* #define BCM_DBG_ID16 */
+
+typedef struct id16_map_dbg {
+	uint16  total;
+	bool    avail[0];
+} id16_map_dbg_t;
+#define ID16_MAP_DBG_SZ(items)  (sizeof(id16_map_dbg_t) + \
+	                             (sizeof(bool) * (items)))
+#define ID16_MAP_MSG(x)         print x
+#else
+#define ID16_MAP_MSG(x)
+#endif /* BCM_DBG */
+
+void * /* Construct an id16 allocator: [start_val16 .. start_val16+total_ids) */
+id16_map_init(osl_t *osh, uint16 total_ids, uint16 start_val16)
+{
+	uint16 idx, val16;
+	id16_map_t * id16_map;
+
+	ASSERT(total_ids > 0);
+	ASSERT((start_val16 + total_ids) < ID16_INVALID);
+
+	id16_map = (id16_map_t *) MALLOC(osh, ID16_MAP_SZ(total_ids));
+	if (id16_map == NULL) {
+		return NULL;
+	}
+
+	id16_map->total = total_ids;
+	id16_map->start = start_val16;
+	id16_map->failures = 0;
+	id16_map->dbg = NULL;
+
+	/* Populate stack with 16bit id values, commencing with start_val16 */
+	id16_map->stack_idx = 0;
+	val16 = start_val16;
+
+	for (idx = 0; idx < total_ids; idx++, val16++) {
+		id16_map->stack_idx = idx;
+		id16_map->stack[id16_map->stack_idx] = val16;
+	}
+
+#if defined(BCM_DBG) && defined(BCM_DBG_ID16)
+	id16_map->dbg = MALLOC(osh, ID16_MAP_DBG_SZ(total_ids));
+
+	if (id16_map->dbg) {
+		id16_map_dbg_t *id16_map_dbg = (id16_map_dbg_t *)id16_map->dbg;
+
+		id16_map_dbg->total = total_ids;
+		for (idx = 0; idx < total_ids; idx++) {
+			id16_map_dbg->avail[idx] = TRUE;
+		}
+	}
+#endif /* BCM_DBG && BCM_DBG_ID16 */
+
+	return (void *)id16_map;
+}
+
+void * /* Destruct an id16 allocator instance */
+id16_map_fini(osl_t *osh, void * id16_map_hndl)
+{
+	uint16 total_ids;
+	id16_map_t * id16_map;
+
+	if (id16_map_hndl == NULL)
+		return NULL;
+
+	id16_map = (id16_map_t *)id16_map_hndl;
+
+	total_ids = id16_map->total;
+	ASSERT(total_ids > 0);
+
+#if defined(BCM_DBG) && defined(BCM_DBG_ID16)
+	if (id16_map->dbg) {
+		MFREE(osh, id16_map->dbg, ID16_MAP_DBG_SZ(total_ids));
+		id16_map->dbg = NULL;
+	}
+#endif /* BCM_DBG && BCM_DBG_ID16 */
+
+	id16_map->total = 0;
+	MFREE(osh, id16_map, ID16_MAP_SZ(total_ids));
+
+	return NULL;
+}
+
+uint16 BCMFASTPATH /* Allocate a unique 16bit id */
+id16_map_alloc(void * id16_map_hndl)
+{
+	uint16 val16;
+	id16_map_t * id16_map;
+
+	ASSERT(id16_map_hndl != NULL);
+
+	id16_map = (id16_map_t *)id16_map_hndl;
+
+	ASSERT(id16_map->total > 0);
+
+	if (id16_map->stack_idx < 0) {
+		id16_map->failures++;
+		return ID16_INVALID;
+	}
+
+	val16 = id16_map->stack[id16_map->stack_idx];
+	id16_map->stack_idx--;
+
+#if defined(BCM_DBG) && defined(BCM_DBG_ID16)
+
+	ASSERT(val16 < (id16_map->start + id16_map->total));
+
+	if (id16_map->dbg) { /* Validate val16 */
+		id16_map_dbg_t *id16_map_dbg = (id16_map_dbg_t *)id16_map->dbg;
+
+		ASSERT(id16_map_dbg->avail[val16 - id16_map->start] == TRUE);
+		id16_map_dbg->avail[val16 - id16_map->start] = FALSE;
+	}
+#endif /* BCM_DBG && BCM_DBG_ID16 */
+
+	return val16;
+}
+
+
+void BCMFASTPATH /* Free a 16bit id value into the id16 allocator */
+id16_map_free(void * id16_map_hndl, uint16 val16)
+{
+	id16_map_t * id16_map;
+
+	ASSERT(id16_map_hndl != NULL);
+
+	id16_map = (id16_map_t *)id16_map_hndl;
+
+#if defined(BCM_DBG) && defined(BCM_DBG_ID16)
+
+	ASSERT(val16 < (id16_map->start + id16_map->total));
+
+	if (id16_map->dbg) { /* Validate val16 */
+		id16_map_dbg_t *id16_map_dbg = (id16_map_dbg_t *)id16_map->dbg;
+
+		ASSERT(id16_map_dbg->avail[val16 - id16_map->start] == FALSE);
+		id16_map_dbg->avail[val16 - id16_map->start] = TRUE;
+	}
+#endif /* BCM_DBG && BCM_DBG_ID16 */
+
+	id16_map->stack_idx++;
+	id16_map->stack[id16_map->stack_idx] = val16;
+}
+
+uint32 /* Returns number of failures to allocate an unique id16 */
+id16_map_failures(void * id16_map_hndl)
+{
+	ASSERT(id16_map_hndl != NULL);
+	return ((id16_map_t *)id16_map_hndl)->failures;
+}
+
+bool
+id16_map_audit(void * id16_map_hndl)
+{
+	int idx;
+	int insane = 0;
+	id16_map_t * id16_map;
+
+	ASSERT(id16_map_hndl != NULL);
+
+	id16_map = (id16_map_t *)id16_map_hndl;
+
+	ASSERT((id16_map->stack_idx > 0) && (id16_map->stack_idx < id16_map->total));
+	for (idx = 0; idx <= id16_map->stack_idx; idx++) {
+		ASSERT(id16_map->stack[idx] >= id16_map->start);
+		ASSERT(id16_map->stack[idx] < (id16_map->start + id16_map->total));
+
+#if defined(BCM_DBG) && defined(BCM_DBG_ID16)
+		if (id16_map->dbg) {
+			uint16 val16 = id16_map->stack[idx];
+			if (((id16_map_dbg_t *)(id16_map->dbg))->avail[val16] != TRUE) {
+				insane |= 1;
+				ID16_MAP_MSG(("id16_map<%p>: stack_idx %u invalid val16 %u\n",
+				              id16_map_hndl, idx, val16));
+			}
+		}
+#endif /* BCM_DBG && BCM_DBG_ID16 */
+	}
+
+#if defined(BCM_DBG) && defined(BCM_DBG_ID16)
+	if (id16_map->dbg) {
+		uint16 avail = 0; /* Audit available ids counts */
+		for (idx = 0; idx < id16_map_dbg->total; idx++) {
+			if (((id16_map_dbg_t *)(id16_map->dbg))->avail[idx16] == TRUE)
+				avail++;
+		}
+		if (avail && (avail != (id16_map->stack_idx + 1))) {
+			insane |= 1;
+			ID16_MAP_MSG(("id16_map<%p>: avail %u stack_idx %u\n",
+			              id16_map_hndl, avail, id16_map->stack_idx));
+		}
+	}
+#endif /* BCM_DBG && BCM_DBG_ID16 */
+
+	return (!!insane);
+}
+/* END: Simple id16 allocator */
+
 
 #endif /* BCMDRIVER */
 
@@ -3050,3 +2900,114 @@ bcm_sub_64(uint32* r_hi, uint32* r_lo, uint32 offset)
 	if (*r_lo > r1_lo)
 		(*r_hi) --;
 }
+
+#ifdef DEBUG_COUNTER
+#if (OSL_SYSUPTIME_SUPPORT == TRUE)
+void counter_printlog(counter_tbl_t *ctr_tbl)
+{
+	uint32 now;
+
+	if (!ctr_tbl->enabled)
+		return;
+
+	now = OSL_SYSUPTIME();
+
+	if (now - ctr_tbl->prev_log_print > ctr_tbl->log_print_interval) {
+		uint8 i = 0;
+		printf("counter_print(%s %d):", ctr_tbl->name, now - ctr_tbl->prev_log_print);
+
+		for (i = 0; i < ctr_tbl->needed_cnt; i++) {
+			printf(" %u", ctr_tbl->cnt[i]);
+		}
+		printf("\n");
+
+		ctr_tbl->prev_log_print = now;
+		bzero(ctr_tbl->cnt, CNTR_TBL_MAX * sizeof(uint));
+	}
+}
+#else
+/* OSL_SYSUPTIME is not supported so no way to get time */
+#define counter_printlog(a) do {} while (0)
+#endif /* OSL_SYSUPTIME_SUPPORT == TRUE */
+#endif /* DEBUG_COUNTER */
+
+#ifdef BCMDRIVER
+void
+dll_pool_detach(void * osh, dll_pool_t * pool, uint16 elems_max, uint16 elem_size)
+{
+	uint32 mem_size;
+	mem_size = sizeof(dll_pool_t) + (elems_max * elem_size);
+	if (pool)
+		MFREE(osh, pool, mem_size);
+}
+dll_pool_t *
+dll_pool_init(void * osh, uint16 elems_max, uint16 elem_size)
+{
+	uint32 mem_size, i;
+	dll_pool_t * dll_pool_p;
+	dll_t * elem_p;
+
+	ASSERT(elem_size > sizeof(dll_t));
+
+	mem_size = sizeof(dll_pool_t) + (elems_max * elem_size);
+
+	if ((dll_pool_p = (dll_pool_t *)MALLOC(osh, mem_size)) == NULL) {
+		printf("dll_pool_init: elems_max<%u> elem_size<%u> malloc failure\n",
+			elems_max, elem_size);
+		ASSERT(0);
+		return dll_pool_p;
+	}
+
+	bzero(dll_pool_p, mem_size);
+
+	dll_init(&dll_pool_p->free_list);
+	dll_pool_p->elems_max = elems_max;
+	dll_pool_p->elem_size = elem_size;
+
+	elem_p = dll_pool_p->elements;
+	for (i = 0; i < elems_max; i++) {
+		dll_append(&dll_pool_p->free_list, elem_p);
+		elem_p = (dll_t *)((uintptr)elem_p + elem_size);
+	}
+
+	dll_pool_p->free_count = elems_max;
+
+	return dll_pool_p;
+}
+
+
+void *
+dll_pool_alloc(dll_pool_t * dll_pool_p)
+{
+	dll_t * elem_p;
+
+	if (dll_pool_p->free_count == 0) {
+		ASSERT(dll_empty(&dll_pool_p->free_list));
+		return NULL;
+	}
+
+	elem_p = dll_head_p(&dll_pool_p->free_list);
+	dll_delete(elem_p);
+	dll_pool_p->free_count -= 1;
+
+	return (void *)elem_p;
+}
+
+void
+dll_pool_free(dll_pool_t * dll_pool_p, void * elem_p)
+{
+	dll_t * node_p = (dll_t *)elem_p;
+	dll_prepend(&dll_pool_p->free_list, node_p);
+	dll_pool_p->free_count += 1;
+}
+
+
+void
+dll_pool_free_tail(dll_pool_t * dll_pool_p, void * elem_p)
+{
+	dll_t * node_p = (dll_t *)elem_p;
+	dll_append(&dll_pool_p->free_list, node_p);
+	dll_pool_p->free_count += 1;
+}
+
+#endif /* BCMDRIVER */

@@ -5,13 +5,13 @@
  * DHD OS, bus, and protocol modules.
  *
  * Copyright (C) 1999-2014, Broadcom Corporation
- * 
+ *
  *      Unless you and Broadcom execute a separate written software license
  * agreement governing use of this software, this software is licensed to you
  * under the terms of the GNU General Public License version 2 (the "GPL"),
  * available at http://www.broadcom.com/licenses/GPLv2.php, with the
  * following added to such license:
- * 
+ *
  *      As a special exception, the copyright holders of this software give you
  * permission to link this software with independent modules, and to copy and
  * distribute the resulting executable under terms of your choice, provided that
@@ -19,12 +19,12 @@
  * the license of that module.  An independent module is a module which is not
  * derived from this software.  The special exception does not apply to any
  * modifications of the software.
- * 
+ *
  *      Notwithstanding the above, under no circumstances may you combine this
  * software in any way with any other Broadcom software provided under a license
  * other than the GPL, without Broadcom's express prior written consent.
  *
- * $Id: dhd_bus.h 442838 2013-12-13 00:56:44Z $
+ * $Id: dhd_bus.h 469959 2014-04-11 23:07:39Z $
  */
 
 #ifndef _dhd_bus_h_
@@ -110,7 +110,11 @@ extern void *dhd_bus_pub(struct dhd_bus *bus);
 extern void *dhd_bus_txq(struct dhd_bus *bus);
 extern void *dhd_bus_sih(struct dhd_bus *bus);
 extern uint dhd_bus_hdrlen(struct dhd_bus *bus);
-
+#ifdef BCMSDIO
+extern void dhd_bus_set_dotxinrx(struct dhd_bus *bus, bool val);
+#else
+#define dhd_bus_set_dotxinrx(a, b) do {} while (0)
+#endif
 
 #define DHD_SET_BUS_STATE_DOWN(_bus)  do { \
 	(_bus)->dhd->busstate = DHD_BUS_DOWN; \
@@ -126,33 +130,58 @@ extern int dhd_bus_get_ids(struct dhd_bus *bus, uint32 *bus_type, uint32 *bus_nu
 #ifdef BCMPCIE
 enum {
 	DNGL_TO_HOST_BUF_IOCT,
-	DNGL_TO_HOST_BUF_ADDR,
-	HOST_TO_DNGL_BUF_ADDR,
-	HOST_TO_DNGL_WPTR,
-	HOST_TO_DNGL_RPTR,
-	DNGL_TO_HOST_WPTR,
-	DNGL_TO_HOST_RPTR,
+	DNGL_TO_HOST_DMA_SCRATCH_BUFFER,
+	DNGL_TO_HOST_DMA_SCRATCH_BUFFER_LEN,
+	HOST_TO_DNGL_DMA_WRITEINDX_BUFFER,
+	HOST_TO_DNGL_DMA_READINDX_BUFFER,
+	DNGL_TO_HOST_DMA_WRITEINDX_BUFFER,
+	DNGL_TO_HOST_DMA_READINDX_BUFFER,
 	TOTAL_LFRAG_PACKET_CNT,
-	HOST_TO_DNGL_CTRLBUF_ADDR,
-	DNGL_TO_HOST_CTRLBUF_ADDR,
-	HTOD_CTRL_RPTR,
-	HTOD_CTRL_WPTR,
-	DTOH_CTRL_RPTR,
-	DTOH_CTRL_WPTR,
 	HTOD_MB_DATA,
 	DTOH_MB_DATA,
+	RING_BUF_ADDR,
+	H2D_DMA_WRITEINDX,
+	H2D_DMA_READINDX,
+	D2H_DMA_WRITEINDX,
+	D2H_DMA_READINDX,
+	RING_READ_PTR,
+	RING_WRITE_PTR,
+	RING_LEN_ITEMS,
+	RING_MAX_ITEM,
 	MAX_HOST_RXBUFS
 };
 typedef void (*dhd_mb_ring_t) (struct dhd_bus *, uint32);
-extern void dhd_bus_cmn_writeshared(struct dhd_bus *bus, void * data, uint32 len, uint8 type);
+extern void dhd_bus_cmn_writeshared(struct dhd_bus *bus, void * data, uint32 len, uint8 type,
+	uint16 ringid);
 extern void dhd_bus_ringbell(struct dhd_bus *bus, uint32 value);
-extern void dhd_bus_cmn_readshared(struct dhd_bus *bus, void* data, uint8 type);
+extern void dhd_bus_cmn_readshared(struct dhd_bus *bus, void* data, uint8 type, uint16 ringid);
 extern uint32 dhd_bus_get_sharedflags(struct dhd_bus *bus);
 extern void dhd_bus_rx_frame(struct dhd_bus *bus, void* pkt, int ifidx, uint pkt_count);
 extern void dhd_bus_start_queue(struct dhd_bus *bus);
 extern void dhd_bus_stop_queue(struct dhd_bus *bus);
-extern void dhd_bus_update_retlen(struct dhd_bus *bus, uint32 retlen, uint32 cmd_id, uint32 status,
-	uint32 inline_data);
+extern void dhd_bus_update_retlen(struct dhd_bus *bus, uint32 retlen, uint32 cmd_id, uint16 status,
+	uint32 resp_len);
 extern dhd_mb_ring_t dhd_bus_get_mbintr_fn(struct dhd_bus *bus);
+extern void dhd_bus_write_flow_ring_states(struct dhd_bus *bus,
+	void * data, uint16 flowid);
+extern void dhd_bus_read_flow_ring_states(struct dhd_bus *bus,
+	void * data, uint8 flowid);
+extern int dhd_bus_flow_ring_create_request(struct dhd_bus *bus, void *flow_ring_node);
+extern void dhd_bus_clean_flow_ring(struct dhd_bus *bus, uint16 flowid);
+extern void dhd_bus_flow_ring_create_response(struct dhd_bus *bus, uint16 flow_id, int32 status);
+extern int dhd_bus_flow_ring_delete_request(struct dhd_bus *bus, void *flow_ring_node);
+extern void dhd_bus_flow_ring_delete_response(struct dhd_bus *bus, uint16 flowid, uint32 status);
+extern int dhd_bus_flow_ring_flush_request(struct dhd_bus *bus, void *flow_ring_node);
+extern void dhd_bus_flow_ring_flush_response(struct dhd_bus *bus, uint16 flowid, uint32 status);
+extern uint8 dhd_bus_is_txmode_push(struct dhd_bus *bus);
+extern uint32 dhd_bus_max_h2d_queues(struct dhd_bus *bus, uint8 *txpush);
+extern int dhd_bus_schedule_queue(struct dhd_bus *bus, uint16 flow_id, bool txs);
+extern int dhdpcie_bus_clock_start(struct dhd_bus *bus);
+extern int dhdpcie_bus_clock_stop(struct dhd_bus *bus);
+extern int dhdpcie_bus_enable_device(struct dhd_bus *bus);
+extern int dhdpcie_bus_disable_device(struct dhd_bus *bus);
+extern bool dhdpcie_bus_dongle_attach(struct dhd_bus *bus);
+extern int dhd_bus_release_dongle(struct dhd_bus *bus);
+
 #endif /* BCMPCIE */
 #endif /* _dhd_bus_h_ */

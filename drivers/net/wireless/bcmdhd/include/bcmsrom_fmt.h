@@ -21,7 +21,7 @@
  * software in any way with any other Broadcom software provided under a license
  * other than the GPL, without Broadcom's express prior written consent.
  *
- * $Id: bcmsrom_fmt.h 427005 2013-10-02 00:15:10Z $
+ * $Id: bcmsrom_fmt.h 473704 2014-04-29 15:49:57Z $
  */
 
 #ifndef	_bcmsrom_fmt_h_
@@ -29,8 +29,8 @@
 
 #define SROM_MAXREV		11	/* max revisiton supported by driver */
 
-/* Maximum srom: 6 Kilobits == 768 bytes */
-#define	SROM_MAX		768
+/* Maximum srom: 12 Kilobits == 1536 bytes */
+#define	SROM_MAX		1536
 #define SROM_MAXW		384
 #define VARS_MAX		4096
 

@@ -22,7 +22,7 @@
  * software in any way with any other Broadcom software provided under a license
  * other than the GPL, without Broadcom's express prior written consent.
  *
- * $Id: aiutils.c 432226 2013-10-26 04:34:36Z $
+ * $Id: aiutils.c 467150 2014-04-02 17:30:43Z $
  */
 #include <bcm_cfg.h>
 #include <typedefs.h>
@@ -39,6 +39,7 @@
 #define BCM47162_DMP() (0)
 #define BCM5357_DMP() (0)
 #define BCM4707_DMP() (0)
+#define PMU_DMP() (0)
 #define remap_coreid(sih, coreid)	(coreid)
 #define remap_corerev(sih, corerev)	(corerev)
 
@@ -144,10 +145,12 @@ ai_scan(si_t *sih, void *regs, uint devid)
 		eromptr = regs;
 		break;
 
+#ifdef BCMSDIO
 	case SPI_BUS:
 	case SDIO_BUS:
 		eromptr = (uint32 *)(uintptr)erombase;
 		break;
+#endif	/* BCMSDIO */
 
 	case PCMCIA_BUS:
 	default:
@@ -209,7 +212,8 @@ ai_scan(si_t *sih, void *regs, uint devid)
 					sii->oob_router = addrl;
 				}
 			}
-			if (cid != GMAC_COMMON_4706_CORE_ID && cid != NS_CCB_CORE_ID)
+			if (cid != GMAC_COMMON_4706_CORE_ID && cid != NS_CCB_CORE_ID &&
+				cid != PMU_CORE_ID && cid != GCI_CORE_ID)
 				continue;
 		}
 
@@ -337,6 +341,9 @@ error:
 	return;
 }
 
+#define AI_SETCOREIDX_MAPSIZE(coreid) \
+	(((coreid) == NS_CCB_CORE_ID) ? 15 * SI_CORE_SIZE : SI_CORE_SIZE)
+
 /* This function changes the logical "focus" to the indicated core.
  * Return the current core's virtual address.
  */
@@ -364,7 +371,8 @@ ai_setcoreidx(si_t *sih, uint coreidx)
 	case SI_BUS:
 		/* map new one */
 		if (!cores_info->regs[coreidx]) {
-			cores_info->regs[coreidx] = REG_MAP(addr, SI_CORE_SIZE);
+			cores_info->regs[coreidx] = REG_MAP(addr,
+				AI_SETCOREIDX_MAPSIZE(cores_info->coreid[coreidx]));
 			ASSERT(GOODREGS(cores_info->regs[coreidx]));
 		}
 		sii->curmap = regs = cores_info->regs[coreidx];
@@ -386,11 +394,13 @@ ai_setcoreidx(si_t *sih, uint coreidx)
 			OSL_PCI_WRITE_CONFIG(sii->osh, PCI_BAR0_WIN2, 4, wrap);
 		break;
 
+#ifdef BCMSDIO
 	case SPI_BUS:
 	case SDIO_BUS:
 		sii->curmap = regs = (void *)((uintptr)addr);
 		sii->curwrap = (void *)((uintptr)wrap);
 		break;
+#endif	/* BCMSDIO */
 
 	case PCMCIA_BUS:
 	default:
@@ -560,7 +570,17 @@ ai_flag(si_t *sih)
 			__FUNCTION__));
 		return sii->curidx;
 	}
+
+#ifdef REROUTE_OOBINT
+	if (PMU_DMP()) {
+		SI_ERROR(("%s: Attempting to read PMU DMP registers\n",
+			__FUNCTION__));
+		return PMU_OOB_BIT;
+	}
+#endif /* REROUTE_OOBINT */
+
 	ai = sii->curwrap;
+	ASSERT(ai != NULL);
 
 	return (R_REG(sii->osh, &ai->oobselouta30) & 0x1f);
 }
@@ -584,6 +604,14 @@ ai_flag_alt(si_t *sih)
 			__FUNCTION__));
 		return sii->curidx;
 	}
+#ifdef REROUTE_OOBINT
+	if (PMU_DMP()) {
+		SI_ERROR(("%s: Attempting to read PMU DMP registers\n",
+			__FUNCTION__));
+		return PMU_OOB_BIT;
+	}
+#endif /* REROUTE_OOBINT */
+
 	ai = sii->curwrap;
 
 	return ((R_REG(sii->osh, &ai->oobselouta30) >> AI_OOBSEL_1_SHIFT) & AI_OOBSEL_MASK);
@@ -918,6 +946,11 @@ ai_core_cflags_wo(si_t *sih, uint32 mask, uint32 val)
 			__FUNCTION__));
 		return;
 	}
+	if (PMU_DMP()) {
+		SI_ERROR(("%s: Accessing PMU DMP register (ioctrl)\n",
+			__FUNCTION__));
+		return;
+	}
 
 	ASSERT(GOODREGS(sii->curwrap));
 	ai = sii->curwrap;
@@ -953,6 +986,11 @@ ai_core_cflags(si_t *sih, uint32 mask, uint32 val)
 		return 0;
 	}
 
+	if (PMU_DMP()) {
+		SI_ERROR(("%s: Accessing PMU DMP register (ioctrl)\n",
+			__FUNCTION__));
+		return 0;
+	}
 	ASSERT(GOODREGS(sii->curwrap));
 	ai = sii->curwrap;
 
@@ -988,6 +1026,11 @@ ai_core_sflags(si_t *sih, uint32 mask, uint32 val)
 			__FUNCTION__));
 		return 0;
 	}
+	if (PMU_DMP()) {
+		SI_ERROR(("%s: Accessing PMU DMP register (ioctrl)\n",
+			__FUNCTION__));
+		return 0;
+	}
 
 	ASSERT(GOODREGS(sii->curwrap));
 	ai = sii->curwrap;
@@ -1002,3 +1045,71 @@ ai_core_sflags(si_t *sih, uint32 mask, uint32 val)
 
 	return R_REG(sii->osh, &ai->iostatus);
 }
+
+#if defined(BCMDBG_PHYDUMP)
+/* print interesting aidmp registers */
+void
+ai_dumpregs(si_t *sih, struct bcmstrbuf *b)
+{
+	si_info_t *sii = SI_INFO(sih);
+	si_cores_info_t *cores_info = (si_cores_info_t *)sii->cores_info;
+	osl_t *osh;
+	aidmp_t *ai;
+	uint i;
+
+	osh = sii->osh;
+
+	for (i = 0; i < sii->numcores; i++) {
+		si_setcoreidx(&sii->pub, i);
+		ai = sii->curwrap;
+
+		bcm_bprintf(b, "core 0x%x: \n", cores_info->coreid[i]);
+		if (BCM47162_DMP()) {
+			bcm_bprintf(b, "Skipping mips74k in 47162a0\n");
+			continue;
+		}
+		if (BCM5357_DMP()) {
+			bcm_bprintf(b, "Skipping usb20h in 5357\n");
+			continue;
+		}
+		if (BCM4707_DMP()) {
+			bcm_bprintf(b, "Skipping chipcommonb in 4707\n");
+			continue;
+		}
+
+		if (PMU_DMP()) {
+			bcm_bprintf(b, "Skipping pmu core\n");
+			continue;
+		}
+
+		bcm_bprintf(b, "ioctrlset 0x%x ioctrlclear 0x%x ioctrl 0x%x iostatus 0x%x"
+			    "ioctrlwidth 0x%x iostatuswidth 0x%x\n"
+			    "resetctrl 0x%x resetstatus 0x%x resetreadid 0x%x resetwriteid 0x%x\n"
+			    "errlogctrl 0x%x errlogdone 0x%x errlogstatus 0x%x"
+			    "errlogaddrlo 0x%x errlogaddrhi 0x%x\n"
+			    "errlogid 0x%x errloguser 0x%x errlogflags 0x%x\n"
+			    "intstatus 0x%x config 0x%x itcr 0x%x\n",
+			    R_REG(osh, &ai->ioctrlset),
+			    R_REG(osh, &ai->ioctrlclear),
+			    R_REG(osh, &ai->ioctrl),
+			    R_REG(osh, &ai->iostatus),
+			    R_REG(osh, &ai->ioctrlwidth),
+			    R_REG(osh, &ai->iostatuswidth),
+			    R_REG(osh, &ai->resetctrl),
+			    R_REG(osh, &ai->resetstatus),
+			    R_REG(osh, &ai->resetreadid),
+			    R_REG(osh, &ai->resetwriteid),
+			    R_REG(osh, &ai->errlogctrl),
+			    R_REG(osh, &ai->errlogdone),
+			    R_REG(osh, &ai->errlogstatus),
+			    R_REG(osh, &ai->errlogaddrlo),
+			    R_REG(osh, &ai->errlogaddrhi),
+			    R_REG(osh, &ai->errlogid),
+			    R_REG(osh, &ai->errloguser),
+			    R_REG(osh, &ai->errlogflags),
+			    R_REG(osh, &ai->intstatus),
+			    R_REG(osh, &ai->config),
+			    R_REG(osh, &ai->itcr));
+	}
+}
+#endif	

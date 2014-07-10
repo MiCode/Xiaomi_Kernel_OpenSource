@@ -21,7 +21,7 @@
  * software in any way with any other Broadcom software provided under a license
  * other than the GPL, without Broadcom's express prior written consent.
  *
- * $Id: siutils_priv.h 431423 2013-10-23 16:07:35Z $
+ * $Id: siutils_priv.h 474902 2014-05-02 18:31:33Z $
  */
 
 #ifndef	_siutils_priv_h_
@@ -113,6 +113,7 @@ typedef struct si_info {
 
 	void *cores_info;
 	gci_gpio_item_t	*gci_gpio_head;	/* gci gpio interrupts head */
+	uint	chipnew;		/* new chip number */
 } si_info_t;
 
 
@@ -211,6 +212,9 @@ extern uint32 sb_set_initiator_to(si_t *sih, uint32 to, uint idx);
 
 extern bool sb_taclear(si_t *sih, bool details);
 
+#if defined(BCMDBG_PHYDUMP)
+extern void sb_dumpregs(si_t *sih, struct bcmstrbuf *b);
+#endif 
 
 /* Wake-on-wireless-LAN (WOWL) */
 extern bool sb_pci_pmecap(si_t *sih);
@@ -240,13 +244,20 @@ extern void ai_core_cflags_wo(si_t *sih, uint32 mask, uint32 val);
 extern uint32 ai_core_sflags(si_t *sih, uint32 mask, uint32 val);
 extern uint ai_corereg(si_t *sih, uint coreidx, uint regoff, uint mask, uint val);
 extern void ai_core_reset(si_t *sih, uint32 bits, uint32 resetbits);
+extern void ai_d11rsdb_core_reset(si_t *sih, uint32 bits,
+	uint32 resetbits, void *p, void *s);
 extern void ai_core_disable(si_t *sih, uint32 bits);
+extern void ai_d11rsdb_core_disable(const si_info_t *sii, uint32 bits,
+	aidmp_t *pmacai, aidmp_t *smacai);
 extern int ai_numaddrspaces(si_t *sih);
 extern uint32 ai_addrspace(si_t *sih, uint asidx);
 extern uint32 ai_addrspacesize(si_t *sih, uint asidx);
 extern void ai_coreaddrspaceX(si_t *sih, uint asidx, uint32 *addr, uint32 *size);
 extern uint ai_wrap_reg(si_t *sih, uint32 offset, uint32 mask, uint32 val);
 
+#if defined(BCMDBG_PHYDUMP)
+extern void ai_dumpregs(si_t *sih, struct bcmstrbuf *b);
+#endif 
 
 
 #define ub_scan(a, b, c) do {} while (0)

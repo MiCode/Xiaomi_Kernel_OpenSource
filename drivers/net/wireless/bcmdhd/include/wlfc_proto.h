@@ -18,7 +18,7 @@
 *      Notwithstanding the above, under no circumstances may you combine this
 * software in any way with any other Broadcom software provided under a license
 * other than the GPL, without Broadcom's express prior written consent.
-* $Id: wlfc_proto.h 431159 2013-10-22 19:40:51Z $
+* $Id: wlfc_proto.h 455301 2014-02-13 12:42:13Z $
 *
 */
 #ifndef __wlfc_proto_definitions_h__
@@ -98,6 +98,9 @@
 
 #define WLFC_CTL_TYPE_TRANS_ID			18
 #define WLFC_CTL_TYPE_COMP_TXSTATUS		19
+
+#define WLFC_CTL_TYPE_TID_OPEN			20
+#define WLFC_CTL_TYPE_TID_CLOSE			21
 
 
 #define WLFC_CTL_TYPE_FILLER			255
