@@ -1784,13 +1784,10 @@ begin:
 				return rc;
 			}
 
-			if (!status->exception)
-				pad_len_byte = *(u8 *)(status+1);
-			else
-				pad_len_byte = ((status->pkt_len + 3) & ~3) -
+			pad_len_byte = ((status->pkt_len + 3) & ~3) -
 					status->pkt_len;
 
-			len = status->pkt_len + (pad_len_byte & 0x3f);
+			len = status->pkt_len + pad_len_byte;
 			IPADBG("pad %d pkt_len %d len %d\n", pad_len_byte,
 					status->pkt_len, len);
 
