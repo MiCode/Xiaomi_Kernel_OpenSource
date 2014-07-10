@@ -964,17 +964,6 @@ static void wcd_mbhc_swch_irq_handler(struct wcd_mbhc *mbhc)
 		snd_soc_update_bits(codec,
 				MSM8X16_WCD_A_ANALOG_MBHC_FSM_CTL,
 				0xB0, 0x00);
-		/*
-		 * if it is unsupported cable playback happens through speaker
-		 * disabling MASTERBIAS results in noise on speaker.So don't
-		 * disable MASTERBIAS.
-		 */
-		if (mbhc->current_plug != MBHC_PLUG_TYPE_GND_MIC_SWAP
-			&& mbhc->current_plug != MBHC_PLUG_TYPE_HIGH_HPH)
-			/* Make sure MASTER_BIAS_CTL is disabled */
-		snd_soc_update_bits(codec,
-				    MSM8X16_WCD_A_ANALOG_MASTER_BIAS_CTL,
-				    0x30, 0x00);
 		mbhc->btn_press_intr = false;
 		if (mbhc->current_plug == MBHC_PLUG_TYPE_HEADPHONE) {
 			wcd_mbhc_report_plug(mbhc, 0, SND_JACK_HEADPHONE);
