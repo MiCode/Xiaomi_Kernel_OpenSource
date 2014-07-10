@@ -41,6 +41,7 @@
 #include <linux/delay.h>
 #include <linux/acpi.h>
 #include <linux/dmi.h>
+#include <linux/platform_device.h>
 #include <asm/intel-mid.h>
 #include <asm/platform_sst_audio.h>
 #include <asm/platform_sst.h>
@@ -577,6 +578,7 @@ static int intel_sst_probe(struct pci_dev *pci,
 	set_mc_link();
 
 	pr_debug("Probe for DID %x\n", pci->device);
+
 	ret = sst_alloc_drv_context(&pci->dev);
 	if (ret)
 		return ret;

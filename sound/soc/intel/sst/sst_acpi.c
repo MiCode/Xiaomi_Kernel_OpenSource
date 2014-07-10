@@ -512,6 +512,14 @@ static int sst_platform_get_resources(const char *hid,
 	}
 }
 
+#if IS_ENABLED(CONFIG_SND_INTEL_HDMI)
+struct platform_device byt_hdmi_dev = {
+	.name           = "hdmi-audio",
+	.id             = -1,
+	.num_resources  = 0,
+};
+#endif
+
 int sst_acpi_probe(struct platform_device *pdev)
 {
 	struct device *dev = &pdev->dev;
@@ -520,6 +528,12 @@ int sst_acpi_probe(struct platform_device *pdev)
 	const char *hid;
 	int i, ret = 0;
 	struct intel_sst_drv *ctx;
+
+#if IS_ENABLED(CONFIG_SND_INTEL_HDMI)
+	ret = platform_device_register(&byt_hdmi_dev);
+	if (ret < 0)
+		pr_debug("%s: Could not register HDMI device\n", __func__);
+#endif
 
 	ret = acpi_bus_get_device(handle, &device);
 	if (ret) {
