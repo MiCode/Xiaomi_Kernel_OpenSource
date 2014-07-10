@@ -17,6 +17,7 @@
 #include <linux/device.h>
 #include <linux/msm-bus-board.h>
 #include <linux/msm-bus.h>
+#include <linux/msm_bus_rules.h>
 #include "msm_bus_core.h"
 
 struct msm_bus_node_device_type;
@@ -37,6 +38,10 @@ struct msm_bus_noc_ops {
 	int (*set_bw)(struct msm_bus_node_device_type *dev,
 			void __iomem *qos_base, uint32_t qos_off,
 			uint32_t qos_delta, uint32_t qos_freq);
+	int (*limit_mport)(struct msm_bus_node_device_type *dev,
+			void __iomem *qos_base, uint32_t qos_off,
+			uint32_t qos_delta, uint32_t qos_freq, bool enable_lim,
+			uint64_t lim_bw);
 };
 
 struct nodebw {
@@ -58,6 +63,19 @@ struct msm_bus_fab_device_type {
 	bool bypass_qos_prg;
 };
 
+struct qos_params_type {
+	int mode;
+	unsigned int prio_lvl;
+	unsigned int prio_rd;
+	unsigned int prio_wr;
+	unsigned int prio1;
+	unsigned int prio0;
+	unsigned int gp;
+	unsigned int thmp;
+	unsigned int ws;
+	int cur_mode;
+};
+
 struct msm_bus_node_info_type {
 	const char *name;
 	unsigned int id;
@@ -66,6 +84,7 @@ struct msm_bus_node_info_type {
 	int num_ports;
 	int num_qports;
 	int *qport;
+	struct qos_params_type qos_params;
 	unsigned int num_connections;
 	bool is_fab_dev;
 	bool virt_dev;
@@ -74,13 +93,8 @@ struct msm_bus_node_info_type {
 	unsigned int bus_device_id;
 	struct device *bus_device;
 	unsigned int buswidth;
-	int ws;
-	int mode;
-	unsigned int prio_lvl;
-	unsigned int prio_rd;
-	unsigned int prio_wr;
-	unsigned int prio1;
-	unsigned int prio0;
+	struct rule_update_path_info rule;
+	uint64_t lim_bw;
 };
 
 struct msm_bus_node_device_type {
@@ -96,6 +110,8 @@ struct msm_bus_node_device_type {
 	struct nodeclk qos_clk;
 };
 
+int msm_bus_enable_limiter(struct msm_bus_node_device_type *nodedev,
+				bool throttle_en, uint64_t lim_bw);
 int msm_bus_update_clks(struct msm_bus_node_device_type *nodedev,
 	int ctx, int **dirty_nodes, int *num_dirty);
 int msm_bus_commit_data(int *dirty_nodes, int ctx, int num_dirty);
@@ -109,4 +125,9 @@ extern struct msm_bus_device_node_registration
 extern void msm_bus_arb_setops_adhoc(struct msm_bus_arb_ops *arb_ops);
 extern int msm_bus_bimc_set_ops(struct msm_bus_node_device_type *bus_dev);
 extern int msm_bus_noc_set_ops(struct msm_bus_node_device_type *bus_dev);
+extern int msm_bus_of_get_static_rules(struct platform_device *pdev,
+					struct bus_rule_type **static_rule);
+extern int msm_rules_update_path(struct list_head *input_list,
+				struct list_head *output_list);
+extern void print_all_rules(void);
 #endif /* _ARCH_ARM_MACH_MSM_BUS_ADHOC_H */

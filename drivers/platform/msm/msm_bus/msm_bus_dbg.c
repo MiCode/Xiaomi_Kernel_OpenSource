@@ -24,7 +24,9 @@
 #include <linux/hrtimer.h>
 #include <linux/msm-bus-board.h>
 #include <linux/msm-bus.h>
+#include <linux/msm_bus_rules.h>
 #include "msm_bus_core.h"
+#include "msm_bus_adhoc.h"
 
 #define CREATE_TRACE_POINTS
 #include <trace/events/trace_msm_bus.h>
@@ -58,6 +60,8 @@ struct msm_bus_fab_list {
 	struct list_head list;
 	char buffer[MAX_BUFF_SIZE];
 };
+
+static char *rules_buf;
 
 LIST_HEAD(fabdata_list);
 LIST_HEAD(cl_list);
@@ -517,6 +521,28 @@ static const struct file_operations fabric_data_fops = {
 	.read		= fabric_data_read,
 };
 
+static ssize_t rules_dbg_read(struct file *file, char __user *buf,
+	size_t count, loff_t *ppos)
+{
+	ssize_t ret;
+	memset(rules_buf, 0, MAX_BUFF_SIZE);
+	print_rules_buf(rules_buf, MAX_BUFF_SIZE);
+	ret = simple_read_from_buffer(buf, count, ppos,
+		rules_buf, MAX_BUFF_SIZE);
+	return ret;
+}
+
+static int rules_dbg_open(struct inode *inode, struct file *file)
+{
+	file->private_data = inode->i_private;
+	return 0;
+}
+
+static const struct file_operations rules_dbg_fops = {
+	.open		= rules_dbg_open,
+	.read		= rules_dbg_read,
+};
+
 static int msm_bus_dbg_record_fabric(const char *fabname, struct dentry *file)
 {
 	struct msm_bus_fab_list *fablist;
@@ -657,7 +683,7 @@ EXPORT_SYMBOL(msm_bus_dbg_commit_data);
 
 static int __init msm_bus_debugfs_init(void)
 {
-	struct dentry *commit, *shell_client;
+	struct dentry *commit, *shell_client, *rules_dbg;
 	struct msm_bus_fab_list *fablist;
 	struct msm_bus_cldata *cldata = NULL;
 	uint64_t val = 0;
@@ -686,6 +712,16 @@ static int __init msm_bus_debugfs_init(void)
 		goto err;
 	}
 
+	rules_dbg = debugfs_create_dir("rules-dbg", dir);
+	if ((!rules_dbg) || IS_ERR(rules_dbg)) {
+		MSM_BUS_ERR("Couldn't create rules-dbg\n");
+		goto err;
+	}
+
+	if (debugfs_create_file("print_rules", S_IRUGO | S_IWUSR,
+		rules_dbg, &val, &rules_dbg_fops) == NULL)
+		goto err;
+
 	if (debugfs_create_file("update_request", S_IRUGO | S_IWUSR,
 		shell_client, &val, &shell_client_en_fops) == NULL)
 		goto err;
@@ -705,6 +741,12 @@ static int __init msm_bus_debugfs_init(void)
 		clients, NULL, &msm_bus_dbg_update_request_fops) == NULL)
 		goto err;
 
+	rules_buf = kzalloc(MAX_BUFF_SIZE, GFP_KERNEL);
+	if (!rules_buf) {
+		MSM_BUS_ERR("Failed to alloc rules_buf");
+		goto err;
+	}
+
 	list_for_each_entry(cldata, &cl_list, list) {
 		if (cldata->pdata->name == NULL) {
 			MSM_BUS_DBG("Client name not found\n");
@@ -720,6 +762,7 @@ static int __init msm_bus_debugfs_init(void)
 			commit, (void *)fablist->name, &fabric_data_fops);
 		if (fablist->file == NULL) {
 			MSM_BUS_DBG("Cannot create files for commit data\n");
+			kfree(rules_buf);
 			goto err;
 		}
 	}
@@ -748,6 +791,7 @@ static void __exit msm_bus_dbg_teardown(void)
 		list_del(&fablist->list);
 		kfree(fablist);
 	}
+	kfree(rules_buf);
 	mutex_unlock(&msm_bus_dbg_fablist_lock);
 }
 module_exit(msm_bus_dbg_teardown);
