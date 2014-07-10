@@ -233,4 +233,14 @@
 		compatible = "qcom,dummycc";
 		#clock-cells = <1>;
 	};
+
+	clock_rpm: qcom,rpmcc@fc401880 {
+		compatible = "qcom,dummycc";
+		#clock-cells = <1>;
+	};
+
+	clock_mmss: qcom,mmsscc@fd8c0000 {
+		compatible = "qcom,dummycc";
+		#clock-cells = <1>;
+	};
 };
