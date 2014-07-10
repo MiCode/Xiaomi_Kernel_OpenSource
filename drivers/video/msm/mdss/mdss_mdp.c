@@ -52,6 +52,7 @@
 #include "mdss_mdp.h"
 #include "mdss_panel.h"
 #include "mdss_debug.h"
+#include "mdss_mdp_debug.h"
 
 #define CREATE_TRACE_POINTS
 #include "mdss_mdp_trace.h"
@@ -1130,6 +1131,12 @@ static int mdss_mdp_debug_init(struct mdss_data_type *mdata)
 	rc = mdss_debugfs_init(mdata);
 	if (rc)
 		return rc;
+
+	rc = mdss_mdp_debugfs_init(mdata);
+	if (rc) {
+		mdss_debugfs_remove(mdata);
+		return rc;
+	}
 
 	mdss_debug_register_io("mdp", &mdata->mdss_io);
 	mdss_debug_register_io("vbif", &mdata->vbif_io);
