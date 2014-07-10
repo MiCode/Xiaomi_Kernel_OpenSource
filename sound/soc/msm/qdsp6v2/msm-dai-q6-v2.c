@@ -794,6 +794,11 @@ static int msm_dai_q6_spdif_dai_probe(struct snd_soc_dai *dai)
 	const struct snd_kcontrol_new *kcontrol;
 	int rc = 0;
 	struct snd_soc_dapm_route intercon;
+
+	if (!dai) {
+		pr_err("%s: dai not found!!\n", __func__);
+		return -EINVAL;
+	}
 	dai_data = kzalloc(sizeof(struct msm_dai_q6_spdif_dai_data),
 			GFP_KERNEL);
 
