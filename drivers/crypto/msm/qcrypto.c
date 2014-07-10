@@ -4938,6 +4938,8 @@ static int  _qcrypto_suspend(struct platform_device *pdev, pm_message_t state)
 	if (ret)
 		return ret;
 	else {
+		cancel_work_sync(&pengine->bw_allocate_ws);
+		del_timer_sync(&pengine->bw_reaper_timer);
 		if (qce_pm_table.suspend)
 			qce_pm_table.suspend(pengine->qce);
 		return 0;
@@ -4967,6 +4969,9 @@ static int  _qcrypto_resume(struct platform_device *pdev)
 
 		if (qce_pm_table.resume)
 			qce_pm_table.resume(pengine->qce);
+
+		init_timer(&(pengine->bw_reaper_timer));
+		qcrypto_bw_set_timeout(pengine);
 
 		qcrypto_ce_set_bus(pengine, true);
 
