@@ -46,6 +46,7 @@ u32 evt_type_base[4] = {0xcc, 0xd0, 0xd4, 0xd8};
 #define VENUM_BASE_OFFSET 3
 
 #define KRAIT_MAX_L1_REG 3
+#define KRAIT_MAX_VENUM_REG 0
 
 /*
  * Every 4 bytes represents a prefix.
@@ -214,7 +215,7 @@ static unsigned int get_krait_evtinfo(unsigned int krait_evt_type,
 		return -EINVAL;
 
 	if (prefix == KRAIT_VENUMEVT_PREFIX) {
-		if (code & 0xe0)
+		if ((code & 0xe0) || (reg > KRAIT_MAX_VENUM_REG))
 			return -EINVAL;
 		else
 			reg += VENUM_BASE_OFFSET;
