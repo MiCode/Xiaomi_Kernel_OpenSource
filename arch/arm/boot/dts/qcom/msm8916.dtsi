@@ -1610,8 +1610,8 @@
 			<244800 160000000>,
 			<108000 100000000>;
 		qcom,hfi = "venus";
-		qcom,reg-presets = <0xE0020 0x0aaaaaaa>,
-			<0xE0024 0x0aaaaaaa>,
+		qcom,reg-presets = <0xE0020 0x05555556>,
+			<0xE0024 0x05555556>,
 			<0x80124 0x00000003>;
 		qcom,buffer-type-tz-usage-table = <0x241 0x1>,
 			<0x106 0x2>,
