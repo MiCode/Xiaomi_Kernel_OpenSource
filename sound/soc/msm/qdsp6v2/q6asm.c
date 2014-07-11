@@ -2008,6 +2008,8 @@ static int __q6asm_open_read(struct audio_client *ac,
 	open.src_endpointype = ASM_END_POINT_DEVICE_MATRIX;
 
 	open.preprocopo_id = q6asm_get_asm_topology();
+
+	ac->topology = open.preprocopo_id;
 	open.bits_per_sample = bits_per_sample;
 	open.mode_flags = 0x0;
 
@@ -2140,6 +2142,7 @@ static int __q6asm_open_write(struct audio_client *ac, uint32_t format,
 	if (open.postprocopo_id == ASM_STREAM_POSTPROC_TOPO_ID_DTS_HPX)
 		open.bits_per_sample = 24;
 
+	ac->topology = open.postprocopo_id;
 	switch (format) {
 	case FORMAT_LINEAR_PCM:
 		open.dec_fmt_id = ASM_MEDIA_FMT_MULTI_CHANNEL_PCM_V2;
@@ -2219,9 +2222,10 @@ int q6asm_stream_open_write_v2(struct audio_client *ac, uint32_t format,
 					 stream_id, is_gapless_mode);
 }
 
-int q6asm_open_read_write(struct audio_client *ac,
-			uint32_t rd_format,
-			uint32_t wr_format)
+static int __q6asm_open_read_write(struct audio_client *ac, uint32_t rd_format,
+				   uint32_t wr_format, bool is_meta_data_mode,
+				   uint32_t bits_per_sample,
+				   bool overwrite_topology, int topology)
 {
 	int rc = 0x00;
 	struct asm_stream_cmd_open_readwrite_v2 open;
@@ -2243,13 +2247,17 @@ int q6asm_open_read_write(struct audio_client *ac,
 	atomic_set(&ac->cmd_state, 1);
 	open.hdr.opcode = ASM_STREAM_CMD_OPEN_READWRITE_V2;
 
-	open.mode_flags = BUFFER_META_ENABLE;
-	open.bits_per_sample = 16;
+	open.mode_flags = is_meta_data_mode ? BUFFER_META_ENABLE : 0;
+	open.bits_per_sample = bits_per_sample;
 	/* source endpoint : matrix */
 	open.postprocopo_id = q6asm_get_asm_topology();
 
+	open.postprocopo_id = overwrite_topology ?
+			      topology : open.postprocopo_id;
+	ac->topology = open.postprocopo_id;
 	switch (wr_format) {
 	case FORMAT_LINEAR_PCM:
+	case FORMAT_MULTI_CHANNEL_LINEAR_PCM:
 		open.dec_fmt_id = ASM_MEDIA_FMT_MULTI_CHANNEL_PCM_V2;
 		break;
 	case FORMAT_MPEG4_AAC:
@@ -2296,6 +2304,7 @@ int q6asm_open_read_write(struct audio_client *ac,
 
 	switch (rd_format) {
 	case FORMAT_LINEAR_PCM:
+	case FORMAT_MULTI_CHANNEL_LINEAR_PCM:
 		open.enc_cfg_id = ASM_MEDIA_FMT_MULTI_CHANNEL_PCM_V2;
 		break;
 	case FORMAT_MPEG4_AAC:
@@ -2344,6 +2353,25 @@ fail_cmd:
 	return -EINVAL;
 }
 
+int q6asm_open_read_write(struct audio_client *ac, uint32_t rd_format,
+			  uint32_t wr_format)
+{
+	return __q6asm_open_read_write(ac, rd_format, wr_format,
+				       true/*meta data mode*/,
+				       16 /*bits_per_sample*/,
+				       false /*overwrite_topology*/, 0);
+}
+
+int q6asm_open_read_write_v2(struct audio_client *ac, uint32_t rd_format,
+			     uint32_t wr_format, bool is_meta_data_mode,
+			     uint32_t bits_per_sample, bool overwrite_topology,
+			     int topology)
+{
+	return __q6asm_open_read_write(ac, rd_format, wr_format,
+				       is_meta_data_mode, bits_per_sample,
+				       overwrite_topology, topology);
+}
+
 int q6asm_open_loopback_v2(struct audio_client *ac, uint16_t bits_per_sample)
 {
 	int rc = 0x00;
@@ -2368,6 +2396,8 @@ int q6asm_open_loopback_v2(struct audio_client *ac, uint16_t bits_per_sample)
 	open.sink_endpointype = 0;
 	/* source endpoint : matrix */
 	open.postprocopo_id = q6asm_get_asm_topology();
+
+	ac->topology = open.postprocopo_id;
 	open.bits_per_sample = bits_per_sample;
 	open.reserved = 0;
 
@@ -4202,11 +4232,12 @@ fail_cmd:
 	return rc;
 }
 
-int q6asm_set_volume(struct audio_client *ac, int volume)
+static int __q6asm_set_volume(struct audio_client *ac, int volume, int instance)
 {
 	struct asm_volume_ctrl_master_gain vol;
 	int sz = 0;
 	int rc  = 0;
+	int module_id;
 
 	if (ac == NULL) {
 		pr_err("%s: APR handle NULL\n", __func__);
@@ -4219,6 +4250,16 @@ int q6asm_set_volume(struct audio_client *ac, int volume)
 		goto fail_cmd;
 	}
 
+	switch (instance) {
+	case SOFT_VOLUME_INSTANCE_2:
+		module_id = ASM_MODULE_ID_VOL_CTRL2;
+		break;
+	case SOFT_VOLUME_INSTANCE_1:
+	default:
+		module_id = ASM_MODULE_ID_VOL_CTRL;
+		break;
+	}
+
 	sz = sizeof(struct asm_volume_ctrl_master_gain);
 	q6asm_add_hdr_async(ac, &vol.hdr, sz, TRUE);
 	atomic_set(&ac->cmd_state, 1);
@@ -4228,7 +4269,7 @@ int q6asm_set_volume(struct audio_client *ac, int volume)
 	vol.param.mem_map_handle = 0;
 	vol.param.data_payload_size = sizeof(vol) -
 		sizeof(vol.hdr) - sizeof(vol.param);
-	vol.data.module_id = ASM_MODULE_ID_VOL_CTRL;
+	vol.data.module_id = module_id;
 	vol.data.param_id = ASM_PARAM_ID_VOL_CTRL_MASTER_GAIN;
 	vol.data.param_size = vol.param.data_payload_size - sizeof(vol.data);
 	vol.data.reserved = 0;
@@ -4261,6 +4302,16 @@ int q6asm_set_volume(struct audio_client *ac, int volume)
 	rc = 0;
 fail_cmd:
 	return rc;
+}
+
+int q6asm_set_volume(struct audio_client *ac, int volume)
+{
+	return __q6asm_set_volume(ac, volume, SOFT_VOLUME_INSTANCE_1);
+}
+
+int q6asm_set_volume_v2(struct audio_client *ac, int volume, int instance)
+{
+	return __q6asm_set_volume(ac, volume, instance);
 }
 
 int q6asm_set_softpause(struct audio_client *ac,
@@ -4329,12 +4380,14 @@ fail_cmd:
 	return rc;
 }
 
-int q6asm_set_softvolume(struct audio_client *ac,
-			struct asm_softvolume_params *softvol_param)
+static int __q6asm_set_softvolume(struct audio_client *ac,
+				  struct asm_softvolume_params *softvol_param,
+				  int instance)
 {
 	struct asm_soft_step_volume_params softvol;
 	int sz = 0;
 	int rc  = 0;
+	int module_id;
 
 	if (ac == NULL) {
 		pr_err("%s: APR handle NULL\n", __func__);
@@ -4347,6 +4400,16 @@ int q6asm_set_softvolume(struct audio_client *ac,
 		goto fail_cmd;
 	}
 
+	switch (instance) {
+	case SOFT_VOLUME_INSTANCE_2:
+		module_id = ASM_MODULE_ID_VOL_CTRL2;
+		break;
+	case SOFT_VOLUME_INSTANCE_1:
+	default:
+		module_id = ASM_MODULE_ID_VOL_CTRL;
+		break;
+	}
+
 	sz = sizeof(struct asm_soft_step_volume_params);
 	q6asm_add_hdr_async(ac, &softvol.hdr, sz, TRUE);
 	atomic_set(&ac->cmd_state, 1);
@@ -4356,7 +4419,7 @@ int q6asm_set_softvolume(struct audio_client *ac,
 	softvol.param.mem_map_handle = 0;
 	softvol.param.data_payload_size = sizeof(softvol) -
 		sizeof(softvol.hdr) - sizeof(softvol.param);
-	softvol.data.module_id = ASM_MODULE_ID_VOL_CTRL;
+	softvol.data.module_id = module_id;
 	softvol.data.param_id = ASM_PARAM_ID_SOFT_VOL_STEPPING_PARAMETERS;
 	softvol.data.param_size = softvol.param.data_payload_size -
 		sizeof(softvol.data);
@@ -4391,6 +4454,20 @@ int q6asm_set_softvolume(struct audio_client *ac,
 	rc = 0;
 fail_cmd:
 	return rc;
+}
+
+int q6asm_set_softvolume(struct audio_client *ac,
+			 struct asm_softvolume_params *softvol_param)
+{
+	return __q6asm_set_softvolume(ac, softvol_param,
+				      SOFT_VOLUME_INSTANCE_1);
+}
+
+int q6asm_set_softvolume_v2(struct audio_client *ac,
+			    struct asm_softvolume_params *softvol_param,
+			    int instance)
+{
+	return __q6asm_set_softvolume(ac, softvol_param, instance);
 }
 
 int q6asm_equalizer(struct audio_client *ac, void *eq_p)
@@ -4484,7 +4561,8 @@ fail_cmd:
 	return rc;
 }
 
-int q6asm_read(struct audio_client *ac)
+static int __q6asm_read(struct audio_client *ac, bool is_custom_len_reqd,
+			int len)
 {
 	struct asm_data_cmd_read_v2 read;
 	struct asm_buffer_node *buf_node = NULL;
@@ -4538,7 +4616,7 @@ int q6asm_read(struct audio_client *ac)
 		}
 		dev_vdbg(ac->dev, "memory_map handle in q6asm_read: [%0x]:",
 				read.mem_map_handle);
-		read.buf_size = ab->size;
+		read.buf_size = is_custom_len_reqd ? len : ab->size;
 		read.seq_id = port->dsp_buf;
 		read.hdr.token = port->dsp_buf;
 		port->dsp_buf = (port->dsp_buf + 1) & (port->max_buf_cnt - 1);
@@ -4556,6 +4634,15 @@ int q6asm_read(struct audio_client *ac)
 	}
 fail_cmd:
 	return -EINVAL;
+}
+
+int q6asm_read(struct audio_client *ac)
+{
+	return __q6asm_read(ac, false/*is_custom_len_reqd*/, 0);
+}
+int q6asm_read_v2(struct audio_client *ac, uint32_t len)
+{
+	return __q6asm_read(ac, true /*is_custom_len_reqd*/, len);
 }
 
 int q6asm_read_nolock(struct audio_client *ac)

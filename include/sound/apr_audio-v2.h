@@ -5686,6 +5686,7 @@ struct adm_qensemble_param_set_new_angle {
  * - #ASM_PARAM_ID_MULTICHANNEL_MUTE
  */
 #define ASM_MODULE_ID_VOL_CTRL   0x00010BFE
+#define ASM_MODULE_ID_VOL_CTRL2  0x00010910
 
 /* @addtogroup audio_pp_param_ids */
 /* ID of the master gain parameter used by the #ASM_MODULE_ID_VOL_CTRL

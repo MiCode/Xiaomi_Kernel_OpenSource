@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -30,4 +30,12 @@ int msm_audio_effects_virtualizer_handler(struct audio_client *ac,
 int msm_audio_effects_popless_eq_handler(struct audio_client *ac,
 					 struct eq_params *eq,
 					 long *values);
+
+int msm_audio_effects_volume_handler(struct audio_client *ac,
+				     struct soft_volume_params *vol,
+				     long *values);
+
+int msm_audio_effects_volume_handler_v2(struct audio_client *ac,
+					struct soft_volume_params *vol,
+					long *values, int instance);
 #endif /*_MSM_AUDIO_EFFECTS_H*/
