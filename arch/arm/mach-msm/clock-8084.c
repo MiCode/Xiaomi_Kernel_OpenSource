@@ -6120,7 +6120,8 @@ static struct clk_lookup apq_clocks_8084[] = {
 	CLK_LOOKUP("sleep_clk", gcc_usb30_sleep_clk.c, "f9200000.ssusb"),
 	CLK_LOOKUP("sleep_a_clk", gcc_usb2a_phy_sleep_clk.c, "f9200000.ssusb"),
 	CLK_LOOKUP("utmi_clk",   gcc_usb30_mock_utmi_clk.c, "f9200000.ssusb"),
-
+	CLK_LOOKUP("phy_sleep_clk", gcc_usb2a_phy_sleep_clk.c,
+			"f92f8800.hsphy"),
 	CLK_LOOKUP("com_reset_clk", gcc_usb30_phy_com_clk.c, "f92f8800.ssphy"),
 	CLK_LOOKUP("reset_clk",	gcc_usb3_phy_clk.c, "f92f8800.ssphy"),
 
@@ -6135,6 +6136,8 @@ static struct clk_lookup apq_clocks_8084[] = {
 	CLK_LOOKUP("sleep_a_clk", gcc_usb2a_phy_sleep_clk.c, "f9400000.ssusb"),
 	CLK_LOOKUP("utmi_clk",  gcc_usb30_sec_mock_utmi_clk.c,
 			"f9400000.ssusb"),
+	CLK_LOOKUP("phy_sleep_clk", gcc_usb2a_phy_sleep_clk.c,
+			"f94f8800.hsphy"),
 
 	CLK_LOOKUP("",	gcc_usb2b_phy_sleep_clk.c,	""),
 	CLK_LOOKUP("mem_clk",	gcc_usb30_master_clk.c,	"f9304000.qcom,usbbam"),
