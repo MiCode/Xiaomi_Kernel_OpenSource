@@ -311,6 +311,8 @@
 #include "dsi-panel-jdi-1080p-video.dtsi"
 #include "dsi-panel-nt35590-720p-video.dtsi"
 #include "dsi-panel-nt35590-720p-cmd.dtsi"
+#include "dsi-panel-sharp-dualmipi0-wqxga-video.dtsi"
+#include "dsi-panel-sharp-dualmipi1-wqxga-video.dtsi"
 
 &mdss_mdp {
 	qcom,mdss-pref-prim-intf = "dsi";
@@ -359,6 +361,13 @@
 	qcom,platform-enable-gpio = <&msm_gpio 97 0>;
 	qcom,platform-reset-gpio = <&msm_gpio 25 0>;
 	qcom,platform-bklight-en-gpio = <&msm_gpio 98 0>;
+};
+
+&dsi_dual_sharp_video_0 {
+        qcom,mdss-dsi-bl-pmic-control-type = "bl_ctrl_pwm";
+        qcom,mdss-dsi-bl-pmic-pwm-frequency = <100>;
+        qcom,mdss-dsi-bl-pmic-bank-select = <0>;
+        qcom,mdss-dsi-pwm-gpio = <&pm8916_mpps 4 0>;
 };
 
 &pm8916_mpps {
