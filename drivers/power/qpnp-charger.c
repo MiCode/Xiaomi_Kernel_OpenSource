@@ -2466,11 +2466,6 @@ get_prop_batt_status(struct qpnp_chg_chip *chip)
 	int rc;
 	u8 chgr_sts, bat_if_sts;
 
-	if ((qpnp_chg_is_usb_chg_plugged_in(chip) ||
-		qpnp_chg_is_dc_chg_plugged_in(chip)) && chip->chg_done) {
-		return POWER_SUPPLY_STATUS_FULL;
-	}
-
 	rc = qpnp_chg_read(chip, &chgr_sts, INT_RT_STS(chip->chgr_base), 1);
 	if (rc) {
 		pr_err("failed to read interrupt sts %d\n", rc);
@@ -2488,10 +2483,14 @@ get_prop_batt_status(struct qpnp_chg_chip *chip)
 	if (chgr_sts & FAST_CHG_ON_IRQ && bat_if_sts & BAT_FET_ON_IRQ)
 		return POWER_SUPPLY_STATUS_CHARGING;
 
-	/* report full if state of charge is 100 and a charger is connected */
+	/*
+	 * Report full if state of charge is 100 or chg_done is true
+	 * when a charger is connected and boost is disabled
+	 */
 	if ((qpnp_chg_is_usb_chg_plugged_in(chip) ||
-		qpnp_chg_is_dc_chg_plugged_in(chip))
-			&& get_batt_capacity(chip) == 100) {
+		qpnp_chg_is_dc_chg_plugged_in(chip)) &&
+		(chip->chg_done || get_batt_capacity(chip) == 100)
+		&& qpnp_chg_is_boost_en_set(chip) == 0) {
 		return POWER_SUPPLY_STATUS_FULL;
 	}
 
@@ -3245,10 +3244,10 @@ static int
 qpnp_chg_regulator_boost_enable(struct regulator_dev *rdev)
 {
 	struct qpnp_chg_chip *chip = rdev_get_drvdata(rdev);
+	int usb_present = qpnp_chg_is_usb_chg_plugged_in(chip);
 	int rc;
 
-	if (qpnp_chg_is_usb_chg_plugged_in(chip) &&
-			(chip->flags & BOOST_FLASH_WA)) {
+	if (usb_present && (chip->flags & BOOST_FLASH_WA)) {
 
 		if (ext_ovp_isns_present && chip->ext_ovp_ic_gpio_enabled) {
 			pr_debug("EXT OVP IC ISNS disabled\n");
@@ -3276,10 +3275,24 @@ qpnp_chg_regulator_boost_enable(struct regulator_dev *rdev)
 		}
 	}
 
-	return qpnp_chg_masked_write(chip,
+	rc = qpnp_chg_masked_write(chip,
 		chip->boost_base + BOOST_ENABLE_CONTROL,
 		BOOST_PWR_EN,
 		BOOST_PWR_EN, 1);
+	if (rc) {
+		pr_err("failed to enable boost rc = %d\n", rc);
+		return rc;
+	}
+	/*
+	 * update battery status when charger is connected and state is full
+	 */
+	if (usb_present && (chip->chg_done
+			|| (get_batt_capacity(chip) == 100)
+			|| (get_prop_batt_status(chip) ==
+			POWER_SUPPLY_STATUS_FULL)))
+		power_supply_changed(&chip->batt_psy);
+
+	return rc;
 }
 
 /* Boost regulator operations */
@@ -3370,6 +3383,20 @@ qpnp_chg_regulator_boost_disable(struct regulator_dev *rdev)
 		usleep(1000);
 
 		qpnp_chg_usb_suspend_enable(chip, 0);
+	}
+
+	/*
+	 * When a charger is connected,if state of charge is not full
+	 * resumeing charging else update battery status
+	 */
+	if (qpnp_chg_is_usb_chg_plugged_in(chip)) {
+		if (get_batt_capacity(chip) < 100 || !chip->chg_done) {
+			chip->chg_done = false;
+			chip->resuming_charging = true;
+			qpnp_chg_set_appropriate_vbatdet(chip);
+		} else if (chip->chg_done) {
+			power_supply_changed(&chip->batt_psy);
+		}
 	}
 
 	if (ext_ovp_isns_present && chip->ext_ovp_ic_gpio_enabled) {
