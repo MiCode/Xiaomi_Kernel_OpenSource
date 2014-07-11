@@ -2580,6 +2580,7 @@
 		pinctrl-names = "default";
 		pinctrl-0 = <&cnss_default>;
 		qcom,wlan-rc-num = <1>;
+		qcom,wlan-uart-access;
 
 		qcom,msm-bus,name = "msm-cnss";
 		qcom,msm-bus,num-cases = <4>;
