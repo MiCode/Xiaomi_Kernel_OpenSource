@@ -84,6 +84,7 @@ struct wcd_mbhc {
 	bool hs_detect_work_stop;
 	bool micbias_enable;
 	bool btn_press_intr;
+	bool is_hs_recording;
 
 	struct snd_soc_codec *codec;
 
