@@ -485,6 +485,26 @@ krait_out:
 	raw_spin_unlock_irqrestore(&events->pmu_lock, flags);
 }
 
+#ifdef CONFIG_PERF_EVENTS_USERMODE
+static void krait_init_usermode(void)
+{
+	u32 val;
+
+	/* Set PMACTLR[UEN] */
+	asm volatile("mrc p15, 0, %0, c9, c15, 5" : "=r" (val));
+	val |= 1;
+	asm volatile("mcr p15, 0, %0, c9, c15, 5" : : "r" (val));
+	/* Set PMUSERENR[UEN] */
+	asm volatile("mrc p15, 0, %0, c9, c14, 0" : "=r" (val));
+	val |= 1;
+	asm volatile("mcr p15, 0, %0, c9, c14, 0" : : "r" (val));
+}
+#else
+static inline void krait_init_usermode(void)
+{
+}
+#endif
+
 static void krait_pmu_reset(void *info)
 {
 	u32 idx, nb_cnt = cpu_pmu->num_events;
@@ -497,6 +517,8 @@ static void krait_pmu_reset(void *info)
 
 	/* Clear all pmresrs */
 	krait_clear_pmuregs();
+
+	krait_init_usermode();
 
 	/* Reset irq stat reg */
 	armv7_pmnc_getreset_flags();
