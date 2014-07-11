@@ -427,6 +427,114 @@ static const struct file_operations mdss_perf_mode_fops = {
 	.write = mdss_debug_perf_mode_write,
 };
 
+static ssize_t mdss_debug_perf_panic_read(struct file *file,
+			char __user *buff, size_t count, loff_t *ppos)
+{
+	struct mdss_data_type *mdata = file->private_data;
+	int len = 0;
+	char buf[40];
+
+	if (!mdata)
+		return -ENODEV;
+
+	if (*ppos)
+		return 0; /* the end */
+
+	len = snprintf(buf, sizeof(buf), "%d\n",
+		!mdata->has_panic_ctrl);
+	if (len < 0)
+		return 0;
+
+	if (copy_to_user(buff, buf, len))
+		return -EFAULT;
+
+	*ppos += len;   /* increase offset */
+
+	return len;
+}
+
+static int mdss_debug_set_panic_signal(struct mdss_mdp_pipe *pipe_pool,
+	u32 pool_size, struct mdss_data_type *mdata, bool enable)
+{
+	int i, cnt = 0;
+	struct mdss_mdp_pipe *pipe;
+
+	for (i = 0; i < pool_size; i++) {
+		pipe = pipe_pool + i;
+		if (pipe && (atomic_read(&pipe->kref.refcount) != 0) &&
+			mdss_mdp_panic_signal_supported(mdata, pipe)) {
+			mdss_mdp_pipe_panic_signal_ctrl(pipe, enable);
+			pr_debug("pnum:%d count:%d img:%dx%d ",
+				pipe->num, pipe->play_cnt, pipe->img_width,
+				pipe->img_height);
+			pr_cont("src[%d,%d,%d,%d] dst[%d,%d,%d,%d]\n",
+				pipe->src.x, pipe->src.y, pipe->src.w,
+				pipe->src.h, pipe->dst.x, pipe->dst.y,
+				pipe->dst.w, pipe->dst.h);
+			cnt++;
+		} else if (pipe) {
+			pr_debug("Inactive pipe num:%d supported:%d\n",
+				atomic_read(&pipe->kref.refcount),
+				mdss_mdp_panic_signal_supported(mdata, pipe));
+		}
+	}
+	return cnt;
+}
+
+static void mdss_debug_set_panic_state(struct mdss_data_type *mdata,
+	bool enable)
+{
+	pr_debug("VIG:\n");
+	if (!mdss_debug_set_panic_signal(mdata->vig_pipes, mdata->nvig_pipes,
+		mdata, enable))
+		pr_debug("no active pipes found\n");
+	pr_debug("RGB:\n");
+	if (!mdss_debug_set_panic_signal(mdata->rgb_pipes, mdata->nrgb_pipes,
+		mdata, enable))
+		pr_debug("no active pipes found\n");
+	pr_debug("DMA:\n");
+	if (!mdss_debug_set_panic_signal(mdata->vig_pipes, mdata->ndma_pipes,
+		mdata, enable))
+		pr_debug("no active pipes found\n");
+}
+
+static ssize_t mdss_debug_perf_panic_write(struct file *file,
+		    const char __user *user_buf, size_t count, loff_t *ppos)
+{
+	struct mdss_data_type *mdata = file->private_data;
+	int disable_panic;
+	char buf[10];
+
+	if (!mdata)
+		return -EFAULT;
+
+	if (copy_from_user(buf, user_buf, count))
+		return -EFAULT;
+
+	if (sscanf(buf, "%d", &disable_panic) != 1)
+		return -EFAULT;
+
+	if (disable_panic) {
+		/* Disable panic signal for all active pipes */
+		pr_debug("Disabling panic:\n");
+		mdss_debug_set_panic_state(mdata, false);
+		mdata->has_panic_ctrl = false;
+	} else {
+		/* Enable panic signal for all active pipes */
+		pr_debug("Enabling panic:\n");
+		mdata->has_panic_ctrl = true;
+		mdss_debug_set_panic_state(mdata, true);
+	}
+
+	return count;
+}
+
+static const struct file_operations mdss_perf_panic_enable = {
+	.open = simple_open,
+	.read = mdss_debug_perf_panic_read,
+	.write = mdss_debug_perf_panic_write,
+};
+
 static int mdss_debugfs_cleanup(struct mdss_debug_data *mdd)
 {
 	struct mdss_debug_base *base, *tmp;
@@ -455,6 +563,9 @@ static int mdss_debugfs_perf_init(struct mdss_debug_data *mdd,
 
 	debugfs_create_u64("min_bus_vote", 0644, mdd->perf,
 		(u64 *)&mdata->perf_tune.min_bus_vote);
+
+	debugfs_create_file("disable_panic", 0644, mdd->perf,
+		(struct mdss_data_type *)mdata, &mdss_perf_panic_enable);
 
 	debugfs_create_file("ab_factor", 0644, mdd->perf,
 		&mdata->ab_factor, &mdss_factor_fops);
