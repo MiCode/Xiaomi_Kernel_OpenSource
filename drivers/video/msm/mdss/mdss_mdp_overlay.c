@@ -2559,7 +2559,7 @@ static int mdss_mdp_histo_ioctl(struct msm_fb_data_type *mfd, u32 cmd,
 		if (!mfd->panel_power_on)
 			return -EPERM;
 
-		if (mdata->reg_bus_hdl) {
+		if (mdata->needs_hist_vote && (mdata->reg_bus_hdl)) {
 			req = msm_bus_scale_client_update_request(
 					mdata->reg_bus_hdl,
 					REG_CLK_CFG_LOW);
@@ -2584,7 +2584,7 @@ static int mdss_mdp_histo_ioctl(struct msm_fb_data_type *mfd, u32 cmd,
 		if (ret)
 			return ret;
 
-		if (mdata->reg_bus_hdl && !req) {
+		if (mdata->needs_hist_vote && (mdata->reg_bus_hdl && !req)) {
 			req = msm_bus_scale_client_update_request(
 				mdata->reg_bus_hdl,
 				REG_CLK_CFG_OFF);
