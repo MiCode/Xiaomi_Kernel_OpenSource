@@ -354,10 +354,6 @@
 	status = "ok";
 };
 
-&ssphy1 {
-	status = "ok";
-};
-
 &pma8084_gpios {
 	gpio@c000 { /* GPIO 1 */
 		qcom,mode = <0>;
