@@ -51,16 +51,20 @@
 
 #define QCA6174_VENDOR_ID	(0x168C)
 #define QCA6174_DEVICE_ID	(0x003E)
+#define BEELINER_DEVICE_ID      (0x0040)
 #define QCA6174_REV_ID_OFFSET	(0x08)
 #define QCA6174_FW_1_1	(0x11)
 #define QCA6174_FW_1_3	(0x13)
 #define QCA6174_FW_2_0	(0x20)
 #define QCA6174_FW_3_0	(0x30)
+#define BEELINER_FW	(0x00)
 #define AR6320_REV1_VERSION             0x5000000
 #define AR6320_REV1_1_VERSION           0x5000001
 #define AR6320_REV1_3_VERSION           0x5000003
 #define AR6320_REV2_1_VERSION           0x5010000
 #define AR6320_REV3_VERSION             0x5020000
+#define AR900B_DEV_VERSION              0x1000000
+
 static struct cnss_fw_files FW_FILES_QCA6174_FW_1_1 = {
 "qwlan11.bin", "bdwlan11.bin", "otp11.bin", "utf11.bin", "utfbd11.bin"};
 static struct cnss_fw_files FW_FILES_QCA6174_FW_2_0 = {
@@ -741,6 +745,7 @@ static struct notifier_block cnss_pm_notifier = {
 
 static DEFINE_PCI_DEVICE_TABLE(cnss_wlan_pci_id_table) = {
 	{ QCA6174_VENDOR_ID, QCA6174_DEVICE_ID, PCI_ANY_ID, PCI_ANY_ID },
+	{ QCA6174_VENDOR_ID, BEELINER_DEVICE_ID, PCI_ANY_ID, PCI_ANY_ID },
 	{ 0 }
 };
 MODULE_DEVICE_TABLE(pci, cnss_wlan_pci_id_table);
