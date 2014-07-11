@@ -140,6 +140,7 @@ struct mdss_data_type {
 	u8 has_non_scalar_rgb;
 	bool has_src_split;
 	bool idle_pc_enabled;
+	bool has_dst_split;
 
 	u32 rotator_ot_limit;
 	u32 mdp_irq_mask;

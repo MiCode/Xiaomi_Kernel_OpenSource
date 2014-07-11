@@ -1543,6 +1543,17 @@ static int mdss_mdp_ctl_fbc_enable(int enable,
 	return 0;
 }
 
+static inline u32 get_panel_width(struct mdss_mdp_ctl *ctl)
+{
+	u32 width;
+
+	width = ctl->panel_data->panel_info.xres;
+	width += (ctl->panel_data->next && is_split_dst(ctl->mfd)) ?
+			ctl->panel_data->next->panel_info.xres : 0;
+
+	return width;
+}
+
 int mdss_mdp_ctl_setup(struct mdss_mdp_ctl *ctl)
 {
 	struct mdss_mdp_ctl *split_ctl;
@@ -1557,7 +1568,7 @@ int mdss_mdp_ctl_setup(struct mdss_mdp_ctl *ctl)
 
 	split_ctl = mdss_mdp_get_split_ctl(ctl);
 
-	width = ctl->panel_data->panel_info.xres;
+	width = get_panel_width(ctl);
 	height = ctl->panel_data->panel_info.yres;
 	max_mixer_width = ctl->mdata->max_mixer_width;
 
@@ -1601,7 +1612,7 @@ int mdss_mdp_ctl_setup(struct mdss_mdp_ctl *ctl)
 	ctl->mixer_left->height = height;
 	ctl->mixer_left->roi = (struct mdss_rect) {0, 0, width, height};
 
-	if (split_ctl) {
+	if (is_panel_split(ctl->mfd)) {
 		pr_debug("split display detected\n");
 		return 0;
 	}
@@ -1853,9 +1864,13 @@ static void mdss_mdp_ctl_split_display_enable(int enable,
 {
 	u32 upper = 0, lower = 0;
 
-	pr_debug("split main ctl=%d intf=%d slave ctl=%d intf=%d\n",
-			main_ctl->num, main_ctl->intf_num,
+	pr_debug("split main ctl=%d intf=%d\n",
+			main_ctl->num, main_ctl->intf_num);
+
+	if (slave_ctl)
+		pr_debug("split slave ctl=%d intf=%d\n",
 			slave_ctl->num, slave_ctl->intf_num);
+
 	if (enable) {
 		if (main_ctl->opmode & MDSS_MDP_CTL_OP_CMD_MODE) {
 			upper |= BIT(1);
@@ -1881,6 +1896,23 @@ static void mdss_mdp_ctl_split_display_enable(int enable,
 		writel_relaxed(enable ? 0x1 : 0x0,
 			main_ctl->mdata->mdp_base +
 			MMSS_MDP_MDP_SSPP_SPARE_0);
+}
+
+static void mdss_mdp_ctl_dst_split_display_enable(int enable,
+	struct mdss_mdp_ctl *ctl)
+{
+	u32 config = 0, cntl = 0;
+
+	mdss_mdp_ctl_split_display_enable(enable, ctl, NULL);
+
+	if (enable) {
+		config = BIT(16); /* Set horizontal split*/
+		cntl = BIT(5); /* enable dst split*/
+	}
+	writel_relaxed(config, ctl->mdata->mdp_base +
+		MDSS_MDP_REG_PPB0_CONFIG);
+	writel_relaxed(cntl, ctl->mdata->mdp_base +
+		MDSS_MDP_REG_PPB0_CNTL);
 }
 
 int mdss_mdp_ctl_destroy(struct mdss_mdp_ctl *ctl)
@@ -1999,6 +2031,9 @@ static int mdss_mdp_ctl_start_sub(struct mdss_mdp_ctl *ctl, bool handoff)
 	temp = readl_relaxed(ctl->mdata->mdp_base +
 		MDSS_MDP_REG_DISP_INTF_SEL);
 	temp |= (ctl->intf_type << ((ctl->intf_num - MDSS_MDP_INTF0) * 8));
+	if (is_split_dst(ctl->mfd))
+		temp |= (ctl->intf_type << (ctl->intf_num * 8));
+
 	writel_relaxed(temp, ctl->mdata->mdp_base +
 		MDSS_MDP_REG_DISP_INTF_SEL);
 
@@ -2057,7 +2092,7 @@ int mdss_mdp_ctl_start(struct mdss_mdp_ctl *ctl, bool handoff)
 
 	ret = mdss_mdp_ctl_start_sub(ctl, handoff);
 	if (ret == 0) {
-		if (sctl) { /* split display is available */
+		if (is_split_lm(ctl->mfd)) { /* split display is available */
 			ret = mdss_mdp_ctl_start_sub(sctl, handoff);
 			if (!ret)
 				mdss_mdp_ctl_split_display_enable(1, ctl, sctl);
@@ -2070,8 +2105,11 @@ int mdss_mdp_ctl_start(struct mdss_mdp_ctl *ctl, bool handoff)
 			out = (mixer->height << 16) | mixer->width;
 			mdp_mixer_write(mixer, MDSS_MDP_REG_LM_OUT_SIZE, out);
 			mdss_mdp_ctl_write(ctl, MDSS_MDP_REG_CTL_PACK_3D, 0);
+		} else if (is_split_dst(ctl->mfd)) {
+			mdss_mdp_ctl_dst_split_display_enable(1, ctl);
 		}
 	}
+
 	mdss_mdp_hist_intr_setup(&mdata->hist_intr, MDSS_IRQ_RESUME);
 
 	mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_OFF);
