@@ -497,4 +497,10 @@ config MSM_PIL_MSS_QDSP6V5
 
 	  If unsure, say N.
 
+config MSM_SHARED_HEAP_ACCESS
+	bool "Shared Heap access"
+	help
+	 Enable support to provide access to clients to certain HLOS regions
+	 which are protected by the secure environment.
+
 endif # ARCH_MSM
