@@ -983,14 +983,6 @@ config MSM_UARTDM_Core_v14
 	help
 		Select if BLSP based UART Core v.14 or higher is present.
 
-config MSM_BOOT_STATS
-	bool "Use MSM boot stats reporting"
-	help
-	 Use this to report msm boot stats such as bootloader throughput,
-	 display init, total boot time.
-	 This figures are reported in mpm sleep clock cycles and have a
-	 resolution of 31 bits as 1 bit is used as an overflow check.
-
 config KRAIT_REGULATOR
 	bool "Support Kraits powered via ganged regulators in the pmic"
 	help

@@ -430,6 +430,14 @@ config MSM_OCMEM_POWER_DISABLE
           Enable this configuration if OCMEM is being exclusively
           used as GMEM or OCIMEM.
 
+config MSM_BOOT_STATS
+	bool "Use MSM boot stats reporting"
+	help
+	 Use this to report msm boot stats such as bootloader throughput,
+	 display init, total boot time.
+	 This figures are reported in mpm sleep clock cycles and have a
+	 resolution of 31 bits as 1 bit is used as an overflow check.
+
 config MSM_SCM
 	bool "Secure Channel Manager (SCM) support"
 	default n
