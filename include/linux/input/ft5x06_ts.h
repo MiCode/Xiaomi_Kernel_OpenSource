@@ -1,14 +1,22 @@
 #ifndef __LINUX_FT5X0X_TS_H__
 #define __LINUX_FT5X0X_TS_H__
 
-#define SCREEN_MAX_X    1024
-#define SCREEN_MAX_Y    600
-#define PRESS_MAX       255
+#define SCREEN_MAX_X		800
+#define SCREEN_MAX_Y		1280
+#define PRESS_MAX		255
 
 #define FT5X0X_RST_MS		500
 #define FT5X0X_DEVMODE_MS	500
 
-#define MAX_TS_NUM	10
+#define CFG_MAX_TOUCH_POINTS	10
+#define FT_PRESS		8
+#define FT_TOUCH_STEP		6
+#define FT_TOUCH_X_H_POS	3
+#define FT_TOUCH_X_L_POS	4
+#define FT_TOUCH_Y_H_POS	5
+#define FT_TOUCH_Y_L_POS	6
+#define FT_TOUCH_EVENT_POS	3
+#define FT_TOUCH_ID_POS		5
 
 struct ft5x0x_ts_platform_data {
 	u16 irq; /* irq gpio */

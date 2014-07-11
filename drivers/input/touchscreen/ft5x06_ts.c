@@ -41,6 +41,16 @@
 #define BYTES_PER_LINE 16
 #define MAX_REG_LEN 256
 
+struct ts_event {
+	u16 au16_x[CFG_MAX_TOUCH_POINTS];	/*x coordinate */
+	u16 au16_y[CFG_MAX_TOUCH_POINTS];	/*y coordinate */
+	u8 au8_touch_event[CFG_MAX_TOUCH_POINTS];	/*touch event:
+					0 -- down; 1-- contact; 2 -- contact */
+	u8 au8_finger_id[CFG_MAX_TOUCH_POINTS];	/*touch ID */
+	u16 pressure;
+	u8 touch_point;
+};
+
 struct ft5x0x_ts_data {
 	struct i2c_client *client;
 	struct input_dev *input_dev;
@@ -57,6 +67,7 @@ struct ft5x0x_ts_data {
 	struct gpio_desc *gpio_reset;
 	u8 power_mode;
 	u8 op_mode;
+	struct ts_event event;
 };
 
 static int ft5x0x_i2c_rxdata(struct i2c_client *client,
@@ -212,65 +223,90 @@ static int ft5x0x_wake_device(struct ft5x0x_ts_data *ts_data)
 	return 0;
 }
 
-static void ft5x0x_report_touch(struct ft5x0x_ts_data *ft)
+static int ft5x0x_report_touch(struct ft5x0x_ts_data *ft)
 {
+	struct ts_event *event = &ft->event;
 	u8 buf[62] = {0};
-	u8 reg, num, id, flag;
-	int i, ret = -1;
-	u16 points = 0;
-	u32 x, y;
+	u8 num_touch, pointid, i = 0;
+	int ret, uppoint = 0;
 
 	ret = ft5x0x_i2c_rxdata(ft->client, buf, 62);
 	if (ret < 0) {
 		dev_err(&ft->client->dev, "ft5x0x %s i2c_rxdata failed: %d",
 			__func__, ret);
-		return;
+		return ret;
 	}
 
-	num = buf[FT5X0X_REG_TS_NUM];
-	reg = FT5X0X_REG_DATA;
+	memset(event, 0, sizeof(struct ts_event));
+	event->touch_point = 0;
 
-	for (i = 0; i < num; i++) {
-		flag = buf[reg] >> 6;
-		id = buf[reg + 2] >> 4;
-		input_mt_slot(ft->input_dev, id);
-		input_mt_report_slot_state(ft->input_dev,
-				MT_TOOL_FINGER, true);
+	num_touch = buf[FT5X0X_REG_TS_NUM];
 
-		x = ((u16)(buf[reg] & 0x0f)) << 8 | buf[reg + 1];
-		y = ((u16)(buf[reg + 2] & 0x0f)) << 8 | buf[reg + 3];
-
-		if (ft->swap_axis)
-			swap(x, y);
-		if (ft->x_flip)
-			x = SCREEN_MAX_X - x;
-		if (ft->y_flip)
-			y = SCREEN_MAX_Y - y;
-		input_report_abs(ft->input_dev, ABS_MT_POSITION_X, x);
-		input_report_abs(ft->input_dev, ABS_MT_POSITION_Y, y);
-		/* record the put down points */
-		points |= (1 << id);
-		reg += 6;
-		dev_dbg(&ft->client->dev,
-			"ft5x0x num=%d, i=%d, id=%d, flag=%d, touch_points=0x%x, points=0x%x",
-				num, i, id, flag, ft->touch_points, points);
-	}
-	/* get the put up touch points */
-	ft->touch_points &= ~points;
-
-	/* release the put up touch points */
-	for (i = 0; ft->touch_points != 0; i++) {
-		if (ft->touch_points & 0x01) {
-			dev_dbg(&ft->client->dev,
-					"ft5x0x release touch id=%d", i);
+	if (!num_touch) {
+		for (i = 0; i < CFG_MAX_TOUCH_POINTS; i++) {
 			input_mt_slot(ft->input_dev, i);
 			input_mt_report_slot_state(ft->input_dev,
-					MT_TOOL_FINGER, false);
+				MT_TOOL_FINGER, false);
 		}
-		ft->touch_points >>= 1;
 	}
+
+	for (i = 0; i < CFG_MAX_TOUCH_POINTS; i++) {
+		pointid = (buf[FT_TOUCH_ID_POS + FT_TOUCH_STEP * i]) >> 4;
+		if (pointid >= 0x0F)
+			break;
+		else
+			event->touch_point++;
+
+		event->au16_x[i] =
+		    (s16) (buf[FT_TOUCH_X_H_POS + FT_TOUCH_STEP * i] & 0x0F) <<
+		    8 | (s16) buf[FT_TOUCH_X_L_POS + FT_TOUCH_STEP * i];
+		event->au16_y[i] =
+		    (s16) (buf[FT_TOUCH_Y_H_POS + FT_TOUCH_STEP * i] & 0x0F) <<
+		    8 | (s16) buf[FT_TOUCH_Y_L_POS + FT_TOUCH_STEP * i];
+
+		event->au8_touch_event[i] =
+		    buf[FT_TOUCH_EVENT_POS + FT_TOUCH_STEP * i] >> 6;
+		event->au8_finger_id[i] =
+		    (buf[FT_TOUCH_ID_POS + FT_TOUCH_STEP * i]) >> 4;
+
+	}
+
+	event->pressure = FT_PRESS;
+
+	/* report the touch*/
+	for (i = 0; i < event->touch_point; i++) {
+		input_mt_slot(ft->input_dev, event->au8_finger_id[i]);
+
+		if (event->au8_touch_event[i] == 0
+			|| event->au8_touch_event[i] == 2) {
+
+			input_mt_report_slot_state(ft->input_dev,
+				MT_TOOL_FINGER,
+				true);
+			input_report_abs(ft->input_dev, ABS_MT_TOUCH_MAJOR,
+					event->pressure);
+
+			input_report_abs(ft->input_dev, ABS_MT_POSITION_X,
+					event->au16_x[i]);
+
+			input_report_abs(ft->input_dev, ABS_MT_POSITION_Y,
+					event->au16_y[i]);
+		} else {
+			uppoint++;
+			input_mt_report_slot_state(ft->input_dev,
+				MT_TOOL_FINGER,
+				false);
+		}
+	}
+
+	if (event->touch_point == uppoint)
+		input_report_key(ft->input_dev, BTN_TOUCH, 0);
+	else
+		input_report_key(ft->input_dev, BTN_TOUCH,
+				event->touch_point > 0);
 	input_sync(ft->input_dev);
-	ft->touch_points = points;
+
+	return 0;
 }
 
 static irqreturn_t ft5x0x_irq_handler(int irq, void *dev_id)
@@ -597,13 +633,17 @@ static int ft5x0x_ts_probe(struct i2c_client *client,
 	}
 
 	input_dev->name = FT5X0X_NAME;
-	input_mt_init_slots(ts_data->input_dev, MAX_TS_NUM, 0);
-	input_set_abs_params(ts_data->input_dev,
-			     ABS_MT_POSITION_X, 0, SCREEN_MAX_X, 0, 0);
-	input_set_abs_params(ts_data->input_dev,
-			     ABS_MT_POSITION_Y, 0, SCREEN_MAX_Y, 0, 0);
+	input_mt_init_slots(ts_data->input_dev, CFG_MAX_TOUCH_POINTS, 0);
+	input_set_abs_params(ts_data->input_dev, ABS_MT_TOUCH_MAJOR,
+				0, PRESS_MAX, 0, 0);
+	input_set_abs_params(ts_data->input_dev, ABS_MT_POSITION_X,
+				0, SCREEN_MAX_X, 0, 0);
+	input_set_abs_params(ts_data->input_dev, ABS_MT_POSITION_Y,
+				0, SCREEN_MAX_Y, 0, 0);
 
 	__set_bit(EV_ABS, ts_data->input_dev->evbit);
+	__set_bit(EV_KEY, ts_data->input_dev->evbit);
+	__set_bit(BTN_TOUCH, ts_data->input_dev->keybit);
 
 	input_set_drvdata(input_dev, ts_data);
 	i2c_set_clientdata(client, ts_data);
