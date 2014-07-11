@@ -145,7 +145,7 @@ static int mdss_mdp_cmd_tearcheck_cfg(struct mdss_mdp_ctl *ctl,
 
 		cfg |= vclks_line;
 
-		pr_debug("%s: yres=%d vclks=%x height=%d init=%d rd=%d start=%d ",
+		pr_debug("%s: yres=%d vclks=%x height=%d init=%d rd=%d start=%d\n",
 			__func__, pinfo->yres, vclks_line, te->sync_cfg_height,
 			 te->vsync_init_val, te->rd_ptr_irq, te->start_pos);
 		pr_debug("thrd_start =%d thrd_cont=%d\n",

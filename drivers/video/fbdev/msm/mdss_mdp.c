@@ -1836,7 +1836,7 @@ static int mdss_mdp_parse_dt_pipe(struct platform_device *pdev)
 	nxids += mdss_mdp_parse_dt_prop_len(pdev, "qcom,mdss-pipe-rgb-xin-id");
 	nxids += mdss_mdp_parse_dt_prop_len(pdev, "qcom,mdss-pipe-dma-xin-id");
 	if (npipes != nxids) {
-		pr_err("device tree err: unequal number of pipes and xin ids");
+		pr_err("device tree err: unequal number of pipes and xin ids\n");
 		return -EINVAL;
 	}
 
