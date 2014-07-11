@@ -1,0 +1,148 @@
+Key management offload is a mechanism where a station's device driver
+or firmware/hardware does the exchange with the AP to establish the
+temporal keys to be used for communications protection, rather than
+having the supplicant do it.  This exchange takes place in a Robust
+Security Network during initial connection or after a roam between
+APs occurs.  It might also happen during after the device handles a
+PTK rekeying operation.
+
+This design only supports key managment offload in a station
+(non-AP STA).
+
+There are a couple of possible advantages to offloading key
+management.
+   - Connection time might be reduced (initial connection and after
+     roaming) since fewer software components will be involved and
+     there will not need to be a switch between kernel space (device
+     driver) and user space (wpa_supplicant).
+   - Power savings might be achieved since user space modules might
+     run on a processor separate from the device driver and/or
+     firmware and that processor could be kept in a power saving mode
+     since it need not be involved in key manaqgement.
+
+Key management can be offloaded in the following cases.
+   - WPA or WPA2 with PSK
+   - 802.11r (Fast Transition) with PSK
+   - Opportunistic Key Caching (OKC)
+
+For WPA/WPA2 or 802.11r with PSK, the PSK is supplied to the device
+driver by the supplicant.  For the OKC case, the supplicant will handle
+the initial 802.1X authentication.  It will pass the resulting PMK
+(session key) to the driver.  The driver can subsequently use this key
+for connection to an AP that has cached the security association
+(PMKSA), allowing the device to offload key management while not having
+to do the full 802.1X authentication.
+
+The following topics will now be covered.
+   1. Advertisement - The capabilities of the device with relation to
+      key management offloads are made known to the supplicant.
+   2. Information Passing - The supplicant provides necessary
+      information to the device to allow it to accomplish the offload.
+   3. Indication - Mechanism for the driver to update the supplicant
+      that key management has taken place.
+   4. Example - An example of how the interface is used to allow key
+      management offload to take place.
+
+Advertisement
+-------------
+
+The host driver's capability to offload key management is advertised by
+the wiphy capability flag WIPHY_FLAG_HAS_KEY_MGMT_OFFLOAD.  Individual
+key management and key derivation capabilities are advertised as part
+of the device attributes.
+
+The following key management offload capabilities can be advertised.
+   NL80211_KEY_MGMT_OFFLOAD_SUPPORT_PSK
+   NL80211_KEY_MGMT_OFFLOAD_SUPPORT_FT_PSK
+   NL80211_KEY_MGMT_OFFLOAD_SUPPORT_PMKSA
+
+The following key derivation capabilities can be advertised.
+   NL80211_KEY_DERIVE_OFFLOAD_SUPPORT_IGTK
+
+The decision to enable key management offload for a particular
+connection is indicated to the driver by the flag
+ASSOC_REQ_OFFLOAD_KEY_MGMT in cfg80211_assoc_req_flags which is passed
+in a cfg80211_connect command.
+
+Information Passing
+-------------------
+The device will need information from the supplicant to handle the key
+management offload.  For each type of key management offload, the
+following information is needed.
+
+NL80211_KEY_MGMT_OFFLOAD_SUPPORT_PSK
+   The PSK will be needed.  The PSK will be included in the
+   cfg80211_connect_params that is passed as part of cfg80211_connect.
+
+NL80211_KEY_MGMT_OFFLOAD_SUPPORT_FT_PSK
+   The PSK will be needed.  The PSK will be included in the
+   cfg80211_connect_params that is passed as part of cfg80211_connect.
+
+NL80211_KEY_MGMT_OFFLOAD_SUPPORT_PMKSA
+   The PMK (MSK) will be needed.  It is not available at initial
+   association connect time because the 802.1X authentication must
+   first take place before the PMK is established.  The PMK will be
+   passed to the driver using cfg80211_key_mgmt_set_pmk in this case
+   once it is known.  A new cipher suite type is defined to identify
+   the value as a PMK when cfg80211_add_key is used in this way.
+
+Indication
+----------
+
+On a successful key management offload, the driver will invoke
+cfg80211_authorization_event with status NL80211_AUTHORIZED.  If the
+key management offload is not successful, then NL80211_CONNECTED is
+passed as the status in cfg80211_authorization_event and it is expected
+the supplicant will take over key management.
+
+The last used EAPOL key reply counter value is passed to the supplicant
+in cfg80211_authorization_event.
+
+In the case of key management offload after roaming,
+cfg80211_authorization_event will always be called immediately after a
+call to cfg80211_roamed.
+
+In the case of PTK rekeying, cfg80211_authorization_event is called
+after the device has handled rekeying.  This allows the supplicant
+to recieve an updated EAPOL key reply counter value.
+
+Example
+-------
+
+As an example of how this interface can be used, the case of key
+management offloading for a WPA2 connection is examined.
+
+   1. The driver advertises general key management offload capability
+      with the wiphy flag WIPHY_FLAG_HAS_KEY_MGMT_OFFLOAD.  Device
+      attributes NL80211_KEY_MGMT_OFFLOAD_SUPPORT_PSK and
+      NL80211_KEY_DERIVE_OFFLOAD_SUPPORT_IGTK are advertised.
+
+   2. Using existing mechanisms, the supplicant decides that a
+      connection should be made to a network.  The network is an RSN
+      supporting WPA2 and Protected Management Frames.  Seeing that the
+      device supports key management offload for WPA2 and key derivation
+      for IGTK, it signals to the driver that it wants to take advantage
+      of key management offload by specifying ASSOC_REQ_OFFLOAD_KEY_MGMT
+      in cfg80211_assoc_req_flags in the cfg80211_connect command.  The
+      PSK for the connection is also included in cfg80211_connect.
+
+   3. The supplicant enters the "connected" state as it currently does,
+      waiting for the first EAPOL frame to arrive so that the security
+      exchange can be done.  The EAPOL frame is presented to the
+      supplicant and it completes the security exchange.  This is all
+      existing functionality.  No key management offload took place
+      during this initial connection (but it could have).
+
+   4. Sometime later, the supplicant gets a cfg80211_roamed indication,
+      telling the supplicant that the device roamed to a different AP.
+      Again, the supplicant enters "connected" state, waiting for the
+      first EAPOL frame so that the security exchange can be done with
+      the new AP.
+
+   5. Immediately, the supplicant gets a cfg80211_authorization_event
+      with success status, indicating that the key management has been
+      done by the device.  The supplicant enters "authorized" state for
+      the connection and allows transmission and reception of data
+      frames on the network.  Here, during roaming, the key management
+      was offloaded to the device and did not need to be handled by the
+      supplicant.
