@@ -103,6 +103,7 @@ struct wcd_mbhc {
 	const struct wcd_mbhc_intr *intr_ids;
 	/* Work to correct accessory type */
 	struct work_struct correct_plug_swch;
+	struct notifier_block nblock;
 };
 
 #define WCD_MBHC_CAL_BTN_DET_PTR(cali) ( \
