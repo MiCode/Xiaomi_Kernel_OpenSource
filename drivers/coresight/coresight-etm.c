@@ -1853,6 +1853,20 @@ static ssize_t etm_store_pcsave(struct device *dev,
 static DEVICE_ATTR(pcsave, S_IRUGO | S_IWUSR, etm_show_pcsave,
 		   etm_store_pcsave);
 
+static ssize_t etm_show_cpu(struct device *dev,
+				   struct device_attribute *attr,
+				   char *buf)
+{
+	struct etm_drvdata *drvdata = dev_get_drvdata(dev->parent);
+	int cpu;
+
+	cpu = drvdata->cpu;
+	if (cpu < 0)
+		return -EINVAL;
+	return scnprintf(buf, PAGE_SIZE, "%#x\n", cpu);
+}
+static DEVICE_ATTR(cpu, S_IRUGO, etm_show_cpu, NULL);
+
 static struct attribute *etm_attrs[] = {
 	&dev_attr_nr_addr_cmp.attr,
 	&dev_attr_nr_cntr.attr,
@@ -1887,6 +1901,7 @@ static struct attribute *etm_attrs[] = {
 	&dev_attr_ctxid_mask.attr,
 	&dev_attr_sync_freq.attr,
 	&dev_attr_timestamp_event.attr,
+	&dev_attr_cpu.attr,
 	NULL,
 };
 
