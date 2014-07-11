@@ -628,6 +628,16 @@ config ARM64_REG_REBALANCE_ON_CTX_SW
 	 Forcefully re-balance register rename pools on context switches for
 	 improved performance on some devices.
 
+config PERF_EVENTS_USERMODE
+	bool "Enable usermode access for perf events"
+	depends on PERF_EVENTS
+	help
+	  Enable user-mode access to performance counters for perf events.
+	  If enabled, the access permissions allowing CPU performance
+	  counters to be accessed from user-mode are set.
+
+	  If you want user-mode programs to access perf events, say Y
+
 config SYS_SUPPORTS_HUGETLBFS
 	def_bool y
 
