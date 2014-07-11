@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -39,6 +39,7 @@ enum elem_type {
 	QMI_SIGNED_2_BYTE_ENUM,
 	QMI_SIGNED_4_BYTE_ENUM,
 	QMI_STRUCT,
+	QMI_STRING,
 	QMI_EOTI,
 };
 
