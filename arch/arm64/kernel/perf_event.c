@@ -1282,6 +1282,22 @@ static int armv8pmu_set_event_filter(struct hw_perf_event *event,
 	return 0;
 }
 
+#ifdef CONFIG_PERF_EVENTS_USERMODE
+static void armv8pmu_init_usermode(void)
+{
+	/* Enable access from userspace. */
+	asm volatile("msr pmuserenr_el0, %0" :: "r" (0xF));
+
+}
+#else
+static inline void armv8pmu_init_usermode(void)
+{
+	/* Disable access from userspace. */
+	asm volatile("msr pmuserenr_el0, %0" :: "r" (0));
+
+}
+#endif
+
 static void armv8pmu_reset(void *info)
 {
 	u32 idx, nb_cnt = cpu_pmu->num_events;
@@ -1293,8 +1309,7 @@ static void armv8pmu_reset(void *info)
 	/* Initialize & Reset PMNC: C and P bits. */
 	armv8pmu_pmcr_write(ARMV8_PMCR_P | ARMV8_PMCR_C);
 
-	/* Disable access from userspace. */
-	asm volatile("msr pmuserenr_el0, %0" :: "r" (0));
+	armv8pmu_init_usermode();
 }
 
 static int armv8_pmuv3_map_event(struct perf_event *event)
