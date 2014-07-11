@@ -3386,8 +3386,6 @@ static void msm_hs_shutdown(struct uart_port *uport)
 	hrtimer_cancel(&msm_uport->clk_off_timer);
 	flush_work(&msm_uport->clock_off_w);
 
-	/* Stop remote side from sending data */
-	msm_hs_disable_flow_control(uport);
 	if (use_low_power_wakeup(msm_uport))
 		irq_set_irq_wake(msm_uport->wakeup.irq, 0);
 
@@ -3408,6 +3406,8 @@ static void msm_hs_shutdown(struct uart_port *uport)
 		MSM_HS_WARN("Shutdown called when tx buff not empty");
 
 	msm_hs_clock_vote(msm_uport);
+	/* Stop remote side from sending data */
+	msm_hs_disable_flow_control(uport);
 	/* make sure rx tasklet finishes */
 	tasklet_kill(&msm_uport->rx.tlet);
 	if (msm_uport->rx.flush == FLUSH_STOP)
