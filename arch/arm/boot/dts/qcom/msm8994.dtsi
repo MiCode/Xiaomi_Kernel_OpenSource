@@ -1261,6 +1261,9 @@
 		qcom,ext-vbus-id;
 		qcom,vbus-valid-override;
 		qcom,set-pllbtune;
+		qcom,sleep-clk-reset;
+		clocks = <&clock_gcc clk_gcc_usb2_hs_phy_sleep_clk>;
+		clock-names = "phy_sleep_clk";
 	};
 
 	ssphy0: ssphy@f9b38000 {
