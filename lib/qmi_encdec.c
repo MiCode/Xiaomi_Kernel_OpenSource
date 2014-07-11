@@ -428,9 +428,10 @@ static int _qmi_kernel_encode(struct elem_info *ei_array,
 						   1, data_len_sz);
 			UPDATE_ENCODE_VARIABLES(temp_ei, buf_dst,
 				encoded_bytes, tlv_len, encode_tlv, rc);
-			encode_tlv = 0;
 			if (!data_len_value)
 				temp_ei = skip_to_next_elem(temp_ei, enc_level);
+			else
+				encode_tlv = 0;
 			break;
 
 		case QMI_UNSIGNED_1_BYTE:
