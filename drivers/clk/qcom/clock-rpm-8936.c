@@ -104,6 +104,7 @@ static struct mux_clk rpm_debug_mux = {
 	.base = &virt_base,
 	MUX_SRC_LIST(
 	{&snoc_clk.c,  0x0000},
+	{&sysmmnoc_clk.c, 0x0001},
 	{&pcnoc_clk.c, 0x0008},
 	/* BIMC_CLK is 2x clock to the BIMC Core as well as DDR.
 	 * The BIMC Clock gcc_bimc_clk is 1/2 of BIMC_CLK, and
