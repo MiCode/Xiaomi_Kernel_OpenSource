@@ -4904,10 +4904,10 @@
 		qcom,clock-names= "core_clk", "core0_clk", "core1_clk", "iface_clk", "bus_clk", "mem_clk";
 		qcom,clock-configs = <0x3 0x0 0x0 0x0 0x0 0x0>;
 		qcom,sw-power-collapse;
-		qcom,load-freq-tbl = <979200 465000000>,
-			<783360 465000000>,
-			<489600 266670000>,
-			<244800 133330000>;
+		qcom,load-freq-tbl = <979200 465000000 0xffffffff>,
+			<783360 465000000 0xffffffff>,
+			<489600 266670000 0xffffffff>,
+			<244800 133330000 0xffffffff>;
 		qcom,reg-presets = <0x800B0 0x00101001>,
 			<0x800B0 0x00101001>,
 			<0x800B4 0x00101010>,

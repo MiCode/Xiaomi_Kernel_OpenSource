@@ -116,10 +116,10 @@
 };
 
 &msm_vidc {
-	qcom,load-freq-tbl = <979200 410000000>,
-		<783360 410000000>,
-		<489600 266670000>,
-		<244800 133330000>;
+	qcom,load-freq-tbl = <979200 410000000 0xffffffff>,
+		<783360 410000000 0xffffffff>,
+		<489600 266670000 0xffffffff>,
+		<244800 133330000 0xffffffff>;
 	qcom,reg-presets = <0x80004 0x1>,
 		<0x80178 0x00001FFF>,
 		<0x8017c 0x1FFF1FFF>,

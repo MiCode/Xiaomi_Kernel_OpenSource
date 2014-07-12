@@ -1382,9 +1382,24 @@
 		qcom,clock-names = "core_clk", "core0_clk", "core1_clk", "iface_clk", "bus_clk";
 		qcom,clock-configs = <0x1 0x0 0x0 0x0 0x0>;
 		qcom,sw-power-collapse;
-		qcom,load-freq-tbl = <352800 266670000>,
-			<244800 200000000>,
-			<108000 133330000>;
+		qcom,load-freq-tbl =
+			<489600 266670000 0x0c000000>, /* HEVC  decoder 1080p 60fps  */
+			<489600 266670000 0x030fcfff>, /* Legacy decoder 1080p 60fps  */
+			<489600 266670000 0x01000414>, /* Encoder turbo (wfd) */
+			<244800 133330000 0x0c000000>, /* HEVC decoder 1080p 30fps   */
+			<244800 133330000 0x030fcfff>, /* Legacy decoder 1080p 30fps   */
+			<244800 200000000 0x01000414>, /* Legacy encoder 1080p 30fps   */
+			<220800 133330000 0x0c000000>, /* HEVC  decoder 720p 60fps  */
+			<220800 133330000 0x030fcfff>, /* Legacy decoder 720p 60fps  */
+			<108000 133330000 0x0c000000>, /* HEVC decoder 720p 30fps   */
+			<108000 133330000 0x030fcfff>, /* Legacy decoder 720p 30fps   */
+			<108000 200000000 0x01000414>, /* Legacy encoder 720p 30fps   */
+			<72000 133330000 0x0c000000>, /* HEVC decoder VGA 60fps   */
+			<72000 133330000 0x030fcfff>, /* Legacy decoder VGA 60fps   */
+			<36000 133330000 0x0c000000>, /* HEVC VGA 30 fps  */
+			<36000 133330000 0x030fcfff> ,/* Legacy decoder VGA 30 fps  */
+			<36000 133330000 0x01000414>; /* Legacy encoder VGA 30 fps   */
+
 		qcom,hfi = "venus";
 		qcom,reg-presets = <0xE0020 0x0aaaaaaa>,
 			<0xE0024 0x0aaaaaaa>,
@@ -1420,31 +1435,37 @@
 				qcom,msm-bus,num-paths = <1>;
 				qcom,msm-bus,vectors-KBps =
 					<63 512 0 0>,
-					<63 512 133600 674400>,
-					<63 512 400900 1079000>,
-					<63 512 908600 1537600>;
+					<63 512 136806 1236684>,
+					<63 512 410521 1859686>,
+					<63 512 930406 1859686>;
 				qcom,bus-configs = <0x01000414>;
 			};
 			qcom,msm-bus-client@1 {
 				qcom,msm-bus,name = "vdec-core0-ddr";
-				qcom,msm-bus,num-cases = <4>;
+				qcom,msm-bus,num-cases = <7>;
 				qcom,msm-bus,num-paths = <1>;
 				qcom,msm-bus,vectors-KBps =
 					<63 512 0 0>,
-					<63 512 99600 831900>,
-					<63 512 298900 831900>,
-					<63 512 677600 1331000>;
+					<63 512 101991 644403>,
+					<63 512 204083 1288704>,
+					<63 512 306074 644403>,
+					<63 512 612250 1288704>,
+					<63 512 693863 644403>,
+					<63 512 1387725 2577408>;
 				qcom,bus-configs = <0x030fcfff>;
 			};
 			qcom,msm-bus-client@2 {
 				qcom,msm-bus,name = "vdec-core1-ddr";
-				qcom,msm-bus,num-cases = <4>;
+				qcom,msm-bus,num-cases = <7>;
 				qcom,msm-bus,num-paths = <1>;
 				qcom,msm-bus,vectors-KBps =
 					<63 512 0 0>,
-					<63 512 99600 831900>,
-					<63 512 298900 831900>,
-					<63 512 677600 1331000>;
+					<63 512 96051 572826>,
+					<63 512 192103 1145754>,
+					<63 512 288256 572826>,
+					<63 512 576410 1145754>,
+					<63 512 653312 572826>,
+					<63 512 1306624 2291405>;
 				qcom,bus-configs = <0x0c000000>;
 			};
 		};

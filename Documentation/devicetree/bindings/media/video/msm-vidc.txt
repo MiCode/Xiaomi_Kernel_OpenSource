@@ -13,7 +13,8 @@ Optional properties:
 - reg : offset and length of the register set for the device.
 - interrupts : should contain the vidc interrupt.
 - qcom,load-freq-tbl : load (in macroblocks/sec) and corresponding vcodec
-  clock required for optimal performance in descending order.
+  clock required along with codec's config (same as qcom,bus-configs mentioned below)
+  for optimal performance in descending order.
 - qcom,reg-presets : list of offset-value pairs for registers to be written.
   The offsets are from the base offset specified in 'reg'. This is mainly
   used for QoS, VBIF, etc. presets for video.
@@ -115,12 +116,13 @@ Example:
 		venus-supply = <&gdsc>;
 		venus-core0-supply = <&gdsc1>;
 		venus-core1-supply = <&gdsc2>;
-		qcom,load-freq-tbl = <979200 410000000>,
-				<560145 266670000>,
-				<421161 200000000>,
-				<243000 133330000>,
-				<108000 100000000>,
-				<36000 50000000>;
+		qcom,load-freq-tbl =
+			<489600 266670000 0x030fcfff>, /* Legacy decoder 1080p 60fps  */
+			<108000 133330000 0x030fcfff>, /* Legacy decoder 720p 30fps   */
+			<108000 200000000 0x01000414>, /* Legacy encoder 720p 30fps   */
+			<72000 133330000 0x0c000000>, /* HEVC decoder VGA 60fps   */
+			<36000 133330000 0x0c000000>, /* HEVC VGA 30 fps  */
+			<36000 133330000 0x01000414>; /* Legacy encoder VGA 30 fps   */
 		qcom,ocmem-size = <4096>;
 		qcom,hfi = "venus";
 		qcom,reg-presets = <0x80004 0x1>,
