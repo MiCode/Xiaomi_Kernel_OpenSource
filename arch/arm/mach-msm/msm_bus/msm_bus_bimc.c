@@ -1808,12 +1808,12 @@ static void free_commit_data(void *cdata)
 static void bke_switch(
 	void __iomem *baddr, uint32_t mas_index, bool req, int mode)
 {
-	uint32_t reg_val, val;
+	uint32_t reg_val, val, cur_val;
 
 	val = req << M_BKE_EN_EN_SHFT;
-	reg_val = readl_relaxed(M_BKE_EN_ADDR(baddr, mas_index)) &
-		M_BKE_EN_RMSK;
-	if (val == reg_val)
+	reg_val = readl_relaxed(M_BKE_EN_ADDR(baddr, mas_index)); 
+	cur_val = reg_val & M_BKE_EN_RMSK;
+	if (val == cur_val)
 		return;
 
 	if (!req && mode == BIMC_QOS_MODE_FIXED)
