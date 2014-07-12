@@ -196,7 +196,7 @@
 			qcom,ap-owned;
 			qcom,qport = <11>;
 			qcom,bus-dev = <&fab_snoc>;
-			qom,buswidth = <4>;
+			qcom,buswidth = <4>;
 			qcom,qos-mode = "fixed";
 			qcom,prio1 = <1>;
 			qcom,prio0 = <1>;
@@ -208,7 +208,7 @@
 			qcom,connections = <&slv_srvc_snoc>;
 			qcom,bus-dev = <&fab_snoc>;
 			qcom,qos-mode = "bypass";
-			qom,buswidth = <4>;
+			qcom,buswidth = <4>;
 			qcom,mas-rpm-id = <20>;
 		};
 
@@ -222,7 +222,7 @@
 			qcom,qos-mode = "fixed";
 			qcom,prio1 = <1>;
 			qcom,prio0 = <1>;
-			qom,buswidth = <8>;
+			qcom,buswidth = <8>;
 		};
 
 		snoc_int_0: snoc-int-0 {
@@ -377,7 +377,7 @@
 			qcom,prio-lvl = <0>;
 			qcom,prio-rd = <0>;
 			qcom,prio-wr = <0>;
-			qom,buswidth = <16>;
+			qcom,buswidth = <16>;
 		};
 
 		mas_tcu0: mas-tcu0 {
@@ -391,7 +391,7 @@
 			qcom,prio-lvl = <2>;
 			qcom,prio-rd = <2>;
 			qcom,prio-wr = <2>;
-			qom,buswidth = <16>;
+			qcom,buswidth = <16>;
 		};
 
 		mas_gfx: mas-gfx {
@@ -405,7 +405,7 @@
 			qcom,prio-lvl = <0>;
 			qcom,prio-rd = <0>;
 			qcom,prio-wr = <0>;
-			qom,buswidth = <16>;
+			qcom,buswidth = <16>;
 		};
 
 		bimc_snoc_mas: bimc-snoc-mas {
@@ -414,7 +414,7 @@
 			qcom,ap-owned;
 			qcom,bus-dev = <&fab_bimc>;
 			qcom,connections = <&bimc_snoc_slv>;
-			qom,buswidth = <8>;
+			qcom,buswidth = <8>;
 		};
 
 		snoc_bimc_0_slv: snoc-bimc-0-slv {
@@ -423,7 +423,7 @@
 			qcom,connections = <&slv_ebi_ch0>;
 			qcom,bus-dev = <&fab_bimc>;
 			qcom,ap-owned;
-			qom,buswidth = <16>;
+			qcom,buswidth = <16>;
 		};
 
 		snoc_bimc_1_slv: snoc_bimc_1_slv {
@@ -432,7 +432,7 @@
 			qcom,connections = <&slv_ebi_ch0>;
 			qcom,slv-rpm-id = <104>;
 			qcom,bus-dev = <&fab_bimc>;
-			qom,buswidth = <8>;
+			qcom,buswidth = <8>;
 		};
 
 		snoc_bimc_2_slv: snoc_bimc_2_slv {
@@ -441,7 +441,7 @@
 			qcom,connections = <&slv_ebi_ch0>;
 			qcom,ap-owned;
 			qcom,bus-dev = <&fab_bimc>;
-			qom,buswidth = <16>;
+			qcom,buswidth = <16>;
 		};
 
 		slv_ebi_ch0: slv-ebi-ch0 {
@@ -449,14 +449,14 @@
 			label = "slv-ebi-ch0";
 			qcom,bus-dev = <&fab_bimc>;
 			qcom,slv-rpm-id = <0>;
-			qom,buswidth = <16>;
+			qcom,buswidth = <16>;
 		};
 
 		slv_apps_l2: slv-apps-l2 {
 			cell-id = <MSM_BUS_SLAVE_AMPSS_L2>;
 			label = "slv-apps-l2";
 			qcom,bus-dev = <&fab_bimc>;
-			qom,buswidth = <16>;
+			qcom,buswidth = <16>;
 		};
 
 		/* PNOC nodes */
@@ -474,7 +474,7 @@
 			qcom,connections = <&pnoc_snoc_mas &pnoc_s_0 &pnoc_s_1 &pnoc_s_2
 					&pnoc_s_3 &pnoc_s_4 &pnoc_s_8 &pnoc_s_9>;
 			qcom,bus-dev = <&fab_pnoc>;
-			qom,buswidth = <8>;
+			qcom,buswidth = <8>;
 		};
 
 		pnoc_int_1: pnoc-int-1 {
@@ -482,7 +482,7 @@
 			label = "pnoc-int-1";
 			qcom,connections = <&pnoc_snoc_mas>;
 			qcom,bus-dev = <&fab_pnoc>;
-			qom,buswidth = <8>;
+			qcom,buswidth = <8>;
 		};
 
 		pnoc_m_0: pnoc-m-0 {
@@ -490,7 +490,7 @@
 			label = "pnoc-m-0";
 			qcom,connections = <&pnoc_int_0>;
 			qcom,bus-dev = <&fab_pnoc>;
-			qom,buswidth = <8>;
+			qcom,buswidth = <8>;
 		};
 
 		pnoc_m_1: pnoc-m-1 {
@@ -498,7 +498,7 @@
 			label = "pnoc-m-1";
 			qcom,connections = <&pnoc_snoc_mas>;
 			qcom,bus-dev = <&fab_pnoc>;
-			qom,buswidth = <8>;
+			qcom,buswidth = <8>;
 		};
 
 		pnoc_s_0: pnoc-s-0 {
@@ -507,7 +507,7 @@
 			qcom,connections = <&slv_clk_ctl &slv_tlmm &slv_tcsr
 				&slv_security &slv_mss>;
 			qcom,bus-dev = <&fab_pnoc>;
-			qom,buswidth = <4>;
+			qcom,buswidth = <4>;
 		};
 
 		pnoc_s_1: pnoc-s-1 {
@@ -516,7 +516,7 @@
 			qcom,connections = <&slv_imem_cfg &slv_crypto_0_cfg
 					&slv_msg_ram &slv_pdm &slv_prng>;
 			qcom,bus-dev = <&fab_pnoc>;
-			qom,buswidth = <4>;
+			qcom,buswidth = <4>;
 		};
 
 		pnoc_s_2: pnoc-s-2 {
@@ -525,7 +525,7 @@
 			qcom,connections = <&slv_spdm &slv_boot_rom &slv_bimc_cfg
 					&slv_pnoc_cfg &slv_pmic_arb>;
 			qcom,bus-dev = <&fab_pnoc>;
-			qom,buswidth = <4>;
+			qcom,buswidth = <4>;
 		};
 
 		pnoc_s_3: pnoc-s-3 {
@@ -534,7 +534,7 @@
 			qcom,connections = <&slv_mpm &slv_snoc_cfg &slv_rbcpr_cfg
 					&slv_qdss_cfg &slv_dehr_cfg>;
 			qcom,bus-dev = <&fab_pnoc>;
-			qom,buswidth = <4>;
+			qcom,buswidth = <4>;
 		};
 
 		pnoc_s_4: pnoc-s-4 {
@@ -543,7 +543,7 @@
 			qcom,connections = <&slv_venus_cfg &slv_camera_cfg
 					&slv_display_cfg>;
 			qcom,bus-dev = <&fab_pnoc>;
-			qom,buswidth = <4>;
+			qcom,buswidth = <4>;
 		};
 
 		pnoc_s_8: pnoc-s-8 {
@@ -551,7 +551,7 @@
 			label = "pnoc-s-8";
 			qcom,connections = <&slv_usb_hs &slv_sdcc_1 &slv_blsp_1>;
 			qcom,bus-dev = <&fab_pnoc>;
-			qom,buswidth = <4>;
+			qcom,buswidth = <4>;
 		};
 
 		pnoc_s_9: pnoc-s-9 {
@@ -559,7 +559,7 @@
 			label = "pnoc-s-9";
 			qcom,connections = <&slv_sdcc_2 &slv_audio &slv_gfx_cfg &slv_usb_hs2>;
 			qcom,bus-dev = <&fab_pnoc>;
-			qom,buswidth = <4>;
+			qcom,buswidth = <4>;
 		};
 
 		slv_imem_cfg: slv-imem-cfg {
