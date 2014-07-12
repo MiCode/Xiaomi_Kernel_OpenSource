@@ -918,7 +918,7 @@ static void mdss_fb_scale_bl(struct msm_fb_data_type *mfd, u32 *bl_lvl)
 {
 	u32 temp = *bl_lvl;
 
-	pr_debug("input = %d, scale = %d", temp, mfd->bl_scale);
+	pr_debug("input = %d, scale = %d\n", temp, mfd->bl_scale);
 	if (temp >= mfd->bl_min_lvl) {
 		if (temp > mfd->panel_info->bl_max) {
 			pr_warn("%s: invalid bl level\n",
@@ -940,7 +940,7 @@ static void mdss_fb_scale_bl(struct msm_fb_data_type *mfd, u32 *bl_lvl)
 		if (temp < mfd->bl_min_lvl)
 			temp = mfd->bl_min_lvl;
 	}
-	pr_debug("output = %d", temp);
+	pr_debug("output = %d\n", temp);
 
 	(*bl_lvl) = temp;
 }
@@ -1187,7 +1187,7 @@ int mdss_fb_alloc_fb_ion_memory(struct msm_fb_data_type *mfd, size_t fb_size)
 	void *vaddr;
 
 	if (!mfd) {
-		pr_err("Invalid input param - no mfd");
+		pr_err("Invalid input param - no mfd\n");
 		return -EINVAL;
 	}
 
@@ -1199,7 +1199,7 @@ int mdss_fb_alloc_fb_ion_memory(struct msm_fb_data_type *mfd, size_t fb_size)
 		}
 	}
 
-	pr_debug("size for mmap = %zu", fb_size);
+	pr_debug("size for mmap = %zu\n", fb_size);
 	mfd->fb_ion_handle = ion_alloc(mfd->fb_ion_client, fb_size, SZ_4K,
 			ION_HEAP(ION_SYSTEM_HEAP_ID), 0);
 	if (IS_ERR_OR_NULL(mfd->fb_ion_handle)) {
@@ -1217,7 +1217,7 @@ int mdss_fb_alloc_fb_ion_memory(struct msm_fb_data_type *mfd, size_t fb_size)
 			goto fb_mmap_failed;
 		}
 	} else {
-		pr_err("No IOMMU Domain");
+		pr_err("No IOMMU Domain\n");
 		goto fb_mmap_failed;
 
 	}
@@ -1280,14 +1280,14 @@ static int mdss_fb_fbmem_ion_mmap(struct fb_info *info,
 	req_size = vma->vm_end - vma->vm_start;
 	fb_size = mfd->fbi->fix.smem_len;
 	if (req_size > fb_size) {
-		pr_warn("requested map is greater than framebuffer");
+		pr_warn("requested map is greater than framebuffer\n");
 		return -EOVERFLOW;
 	}
 
 	if (!mfd->fbi->screen_base) {
 		rc = mdss_fb_alloc_fb_ion_memory(mfd, fb_size);
 		if (rc < 0) {
-			pr_err("fb mmap failed!!!!");
+			pr_err("fb mmap failed!!!!\n");
 			return rc;
 		}
 	}
@@ -1410,7 +1410,7 @@ static int mdss_fb_mmap(struct fb_info *info, struct vm_area_struct *vma)
 		rc = mdss_fb_physical_mmap(info, vma);
 
 	if (rc < 0)
-		pr_err("fb mmap failed with rc = %d", rc);
+		pr_err("fb mmap failed with rc = %d\n", rc);
 
 	return rc;
 }
@@ -2638,7 +2638,7 @@ int mdss_fb_dcm(struct msm_fb_data_type *mfd, int req_state)
 	int ret = 0;
 
 	if (req_state == mfd->dcm_state) {
-		pr_warn("Already in correct DCM/DTM state");
+		pr_warn("Already in correct DCM/DTM state\n");
 		return ret;
 	}
 
@@ -2779,7 +2779,7 @@ static int mdss_fb_handle_buf_sync_ioctl(struct msm_sync_pt_data *sync_pt_data,
 		ret = copy_from_user(acq_fen_fd, buf_sync->acq_fen_fd,
 				buf_sync->acq_fen_fd_cnt * sizeof(int));
 	if (ret) {
-		pr_err("%s: copy_from_user failed", sync_pt_data->fence_name);
+		pr_err("%s: copy_from_user failed\n", sync_pt_data->fence_name);
 		return ret;
 	}
 
@@ -2902,7 +2902,7 @@ static int mdss_fb_display_commit(struct fb_info *info,
 	ret = copy_from_user(&disp_commit, argp,
 			sizeof(disp_commit));
 	if (ret) {
-		pr_err("%s:copy_from_user failed", __func__);
+		pr_err("%s:copy_from_user failed\n", __func__);
 		return ret;
 	}
 	ret = mdss_fb_pan_display_ex(info, &disp_commit);
@@ -3146,7 +3146,7 @@ EXPORT_SYMBOL(mdss_register_panel);
 int mdss_fb_register_mdp_instance(struct msm_mdp_interface *mdp)
 {
 	if (mdp_instance) {
-		pr_err("multiple MDP instance registration");
+		pr_err("multiple MDP instance registration\n");
 		return -EINVAL;
 	}
 

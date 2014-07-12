@@ -946,7 +946,7 @@ int mdss_mdp_overlay_get_buf(struct msm_fb_data_type *mfd,
 
 	rc = mdss_iommu_ctrl(1);
 	if (IS_ERR_VALUE(rc)) {
-		pr_err("Iommu attach failed");
+		pr_err("Iommu attach failed\n");
 		goto end;
 	}
 
@@ -976,7 +976,7 @@ int mdss_mdp_overlay_free_buf(struct mdss_mdp_data *data)
 
 	rc = mdss_iommu_ctrl(1);
 	if (IS_ERR_VALUE(rc)) {
-		pr_err("Iommu attach failed");
+		pr_err("Iommu attach failed\n");
 		return rc;
 	}
 
@@ -2093,7 +2093,7 @@ static ssize_t mdss_mdp_vsync_show_event(struct device *dev,
 
 	vsync_ticks = ktime_to_ns(mdp5_data->vsync_time);
 
-	pr_debug("fb%d vsync=%llu", mfd->index, vsync_ticks);
+	pr_debug("fb%d vsync=%llu\n", mfd->index, vsync_ticks);
 	ret = scnprintf(buf, PAGE_SIZE, "VSYNC=%llu\n", vsync_ticks);
 
 	return ret;

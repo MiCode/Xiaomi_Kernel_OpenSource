@@ -492,7 +492,7 @@ int mdss_mdp_smp_handoff(struct mdss_data_type *mdata)
 			 * such cases, we do not need to do anything
 			 * here.
 			 */
-			pr_debug("smp mmb %d already assigned to pipe %d (client_id %d)"
+			pr_debug("smp mmb %d already assigned to pipe %d (client_id %d)\n"
 				, i, pipe->num, client_id);
 			continue;
 		}
@@ -511,7 +511,7 @@ int mdss_mdp_smp_handoff(struct mdss_data_type *mdata)
 			}
 
 			if (!pipe->is_handed_off) {
-				pr_warn("SMP MMB %d assigned to a pipe not marked for handoff (client id %d)"
+				pr_warn("SMP MMB %d assigned to a pipe not marked for handoff (client id %d)\n"
 					, i, client_id);
 				continue;
 			}
@@ -534,7 +534,7 @@ void mdss_mdp_pipe_unmap(struct mdss_mdp_pipe *pipe)
 {
 	if (kref_put_mutex(&pipe->kref, mdss_mdp_pipe_free,
 			&mdss_mdp_sspp_lock)) {
-		WARN(1, "Unexpected free pipe during unmap");
+		WARN(1, "Unexpected free pipe during unmap\n");
 		mutex_unlock(&mdss_mdp_sspp_lock);
 	}
 }
@@ -1483,7 +1483,7 @@ int mdss_mdp_pipe_queue_data(struct mdss_mdp_pipe *pipe,
 	}
 
 	if (src_data == NULL || !pipe->has_buf) {
-		pr_debug("src_data=%p has_buf=%d pipe num=%dx",
+		pr_debug("src_data=%p has_buf=%d pipe num=%dx\n",
 				src_data, pipe->has_buf, pipe->num);
 		goto update_nobuf;
 	}
