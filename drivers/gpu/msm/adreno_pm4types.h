@@ -163,6 +163,9 @@
 /* PFP waits until the FIFO between the PFP and the ME is empty */
 #define CP_WAIT_FOR_ME		0x13
 
+/* Record the real-time when this packet is processed by PFP */
+#define CP_RECORD_PFP_TIMESTAMP	0x11
+
 /*
  * for a20x
  * program an offset that will added to the BIN_BASE value of
