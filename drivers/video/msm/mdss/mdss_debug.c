@@ -285,55 +285,6 @@ off_fail:
 	return -ENODEV;
 }
 
-
-static int mdss_debug_stat_open(struct inode *inode, struct file *file)
-{
-	/* non-seekable */
-	file->f_mode &= ~(FMODE_LSEEK | FMODE_PREAD | FMODE_PWRITE);
-	file->private_data = inode->i_private;
-	return 0;
-}
-
-static int mdss_debug_stat_release(struct inode *inode, struct file *file)
-{
-	return 0;
-}
-
-static ssize_t mdss_debug_stat_read(struct file *file, char __user *buff,
-		size_t count, loff_t *ppos)
-{
-	struct mdss_data_type *mdata = file->private_data;
-	int len, tot;
-	char bp[512];
-
-	if (*ppos)
-		return 0;	/* the end */
-
-	len = sizeof(bp);
-
-	tot = scnprintf(bp, len, "\nmdp:\n");
-
-	if (mdata->debug_inf.debug_dump_stats)
-		tot += mdata->debug_inf.debug_dump_stats(mdata,
-						bp + tot, len - tot);
-
-
-	tot += scnprintf(bp + tot, len - tot, "\n");
-
-	if (copy_to_user(buff, bp, tot))
-		return -EFAULT;
-
-	*ppos += tot;	/* increase offset */
-
-	return tot;
-}
-
-static const struct file_operations mdss_stat_fops = {
-	.open = mdss_debug_stat_open,
-	.release = mdss_debug_stat_release,
-	.read = mdss_debug_stat_read,
-};
-
 static ssize_t mdss_debug_factor_write(struct file *file,
 		    const char __user *user_buf, size_t count, loff_t *ppos)
 {
@@ -551,7 +502,6 @@ int mdss_debugfs_init(struct mdss_data_type *mdata)
 		       PTR_ERR(mdd->root));
 		goto err;
 	}
-	debugfs_create_file("stat", 0644, mdd->root, mdata, &mdss_stat_fops);
 
 	mdd->perf = debugfs_create_dir("perf", mdd->root);
 	if (IS_ERR_OR_NULL(mdd->perf)) {
