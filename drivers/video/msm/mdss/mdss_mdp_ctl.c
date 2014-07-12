@@ -2530,13 +2530,14 @@ int mdss_mdp_mixer_addr_setup(struct mdss_data_type *mdata,
 
 	for (i = 0; i < len; i++) {
 		head[i].type = type;
-		head[i].base = mdata->mdss_base + mixer_offsets[i];
+		head[i].base = mdata->mdss_io.base + mixer_offsets[i];
 		head[i].ref_cnt = 0;
 		head[i].num = i;
 		if (type == MDSS_MDP_MIXER_TYPE_INTF) {
-			head[i].dspp_base = mdata->mdss_base + dspp_offsets[i];
-			head[i].pingpong_base = mdata->mdss_base +
-				pingpong_offsets[i];
+			head[i].dspp_base = mdata->mdss_io.base +
+					dspp_offsets[i];
+			head[i].pingpong_base = mdata->mdss_io.base +
+					pingpong_offsets[i];
 		}
 	}
 
@@ -2597,8 +2598,8 @@ int mdss_mdp_ctl_addr_setup(struct mdss_data_type *mdata,
 
 	for (i = 0; i < len; i++) {
 		head[i].num = i;
-		head[i].base = (mdata->mdss_base) + ctl_offsets[i];
-		head[i].wb_base = (mdata->mdss_base) + wb_offsets[i];
+		head[i].base = (mdata->mdss_io.base) + ctl_offsets[i];
+		head[i].wb_base = (mdata->mdss_io.base) + wb_offsets[i];
 		head[i].ref_cnt = 0;
 	}
 
