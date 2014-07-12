@@ -446,14 +446,15 @@ static void _ringbuffer_setup_common(struct adreno_ringbuffer *rb)
 {
 	struct kgsl_device *device = rb->device;
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
+	struct adreno_ringbuffer *rb_temp;
 	int i;
 
-	for (i = 0; i < adreno_dev->num_ringbuffers; i++) {
-		kgsl_sharedmem_set(rb->device,
-			&(adreno_dev->ringbuffers[i].buffer_desc), 0,
+	FOR_EACH_RINGBUFFER(adreno_dev, rb_temp, i) {
+		kgsl_sharedmem_set(rb_temp->device,
+			&(rb_temp->buffer_desc), 0,
 			0xAA, KGSL_RB_SIZE);
-		adreno_dev->ringbuffers[i].wptr = 0;
-		adreno_dev->ringbuffers[i].rptr = 0;
+		rb_temp->wptr = 0;
+		rb_temp->rptr = 0;
 	}
 
 	/*
@@ -622,10 +623,11 @@ int adreno_ringbuffer_cold_start(struct adreno_device *adreno_dev)
 void adreno_ringbuffer_stop(struct adreno_device *adreno_dev)
 {
 	struct kgsl_device *device = &adreno_dev->dev;
+	struct adreno_ringbuffer *rb;
 	int i;
-	for (i = 0; i < adreno_dev->num_ringbuffers; i++)
+	FOR_EACH_RINGBUFFER(adreno_dev, rb, i)
 		kgsl_cancel_events(device,
-			&(adreno_dev->ringbuffers[i].mmu_events));
+			&(rb->mmu_events));
 }
 
 static int _adreno_ringbuffer_init(struct adreno_device *adreno_dev,
@@ -653,12 +655,12 @@ int adreno_ringbuffer_init(struct kgsl_device *device)
 	int status = 0;
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
 	struct adreno_gpudev *gpudev = ADRENO_GPU_DEVICE(adreno_dev);
+	struct adreno_ringbuffer *rb;
 	int i;
 
 	adreno_dev->num_ringbuffers = gpudev->num_prio_levels;
-	for (i = 0; i < adreno_dev->num_ringbuffers; i++) {
-		status = _adreno_ringbuffer_init(adreno_dev,
-			&(adreno_dev->ringbuffers[i]), i);
+	FOR_EACH_RINGBUFFER(adreno_dev, rb, i) {
+		status = _adreno_ringbuffer_init(adreno_dev, rb, i);
 		if (status)
 			break;
 	}
@@ -681,6 +683,7 @@ static void _adreno_ringbuffer_close(struct adreno_ringbuffer *rb)
 
 void adreno_ringbuffer_close(struct adreno_device *adreno_dev)
 {
+	struct adreno_ringbuffer *rb;
 	int i;
 
 	kfree(adreno_dev->pfp_fw);
@@ -689,13 +692,12 @@ void adreno_ringbuffer_close(struct adreno_device *adreno_dev)
 	adreno_dev->pfp_fw = NULL;
 	adreno_dev->pm4_fw = NULL;
 
-	for (i = 0; i < adreno_dev->num_ringbuffers; i++)
-		_adreno_ringbuffer_close(&(adreno_dev->ringbuffers[i]));
+	FOR_EACH_RINGBUFFER(adreno_dev, rb, i)
+		_adreno_ringbuffer_close(rb);
 }
 
 static int
 adreno_ringbuffer_addcmds(struct adreno_ringbuffer *rb,
-				struct adreno_context *drawctxt,
 				unsigned int flags, unsigned int *cmds,
 				int sizedwords, uint32_t timestamp)
 {
@@ -706,6 +708,7 @@ adreno_ringbuffer_addcmds(struct adreno_ringbuffer *rb,
 	unsigned int context_id = 0;
 	unsigned int gpuaddr = rb->device->memstore.gpuaddr;
 	bool profile_ready;
+	struct adreno_context *drawctxt = rb->drawctxt_active;
 
 	if (drawctxt != NULL && kgsl_context_detached(&drawctxt->base))
 		return -EINVAL;
@@ -899,20 +902,14 @@ adreno_ringbuffer_addcmds(struct adreno_ringbuffer *rb,
 }
 
 int
-adreno_ringbuffer_issuecmds(struct kgsl_device *device,
-						struct adreno_context *drawctxt,
-						unsigned int flags,
-						unsigned int *cmds,
-						int sizedwords)
+adreno_ringbuffer_issuecmds(struct adreno_ringbuffer *rb,
+				unsigned int flags,
+				unsigned int *cmds,
+				int sizedwords)
 {
-	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
-	struct adreno_ringbuffer *rb = ADRENO_CURRENT_RINGBUFFER(adreno_dev);
-
 	flags |= KGSL_CMD_FLAGS_INTERNAL_ISSUE;
-	if (drawctxt)
-		rb = adreno_ctx_get_rb(adreno_dev, drawctxt);
 
-	return adreno_ringbuffer_addcmds(rb, drawctxt, flags, cmds,
+	return adreno_ringbuffer_addcmds(rb, flags, cmds,
 		sizedwords, 0);
 }
 
@@ -1227,7 +1224,7 @@ int adreno_ringbuffer_submitcmd(struct adreno_device *adreno_dev,
 	list_for_each_entry(ib, &cmdbatch->cmdlist, node)
 		numibs++;
 
-	rb = adreno_ctx_get_rb(adreno_dev, drawctxt);
+	rb = drawctxt->rb;
 
 	/* process any profiling results that are available into the log_buf */
 	adreno_profile_process_results(adreno_dev);
@@ -1261,7 +1258,7 @@ int adreno_ringbuffer_submitcmd(struct adreno_device *adreno_dev,
 
 	if ((drawctxt->base.flags & KGSL_CONTEXT_PREAMBLE) &&
 		!test_bit(CMDBATCH_FLAG_FORCE_PREAMBLE, &cmdbatch->priv) &&
-		(adreno_dev->drawctxt_active == drawctxt))
+		(rb->drawctxt_active == drawctxt))
 		use_preamble = false;
 
 	/*
@@ -1369,13 +1366,6 @@ int adreno_ringbuffer_submitcmd(struct adreno_device *adreno_dev,
 	*cmds++ = cp_nop_packet(1);
 	*cmds++ = KGSL_END_OF_IB_IDENTIFIER;
 
-	ret = kgsl_setstate(&device->mmu, context->id,
-		      kgsl_mmu_pt_get_flags(device->mmu.hwpagetable,
-					device->id));
-
-	if (ret)
-		goto done;
-
 	ret = adreno_drawctxt_switch(adreno_dev, rb, drawctxt, cmdbatch->flags);
 
 	/*
@@ -1413,7 +1403,7 @@ int adreno_ringbuffer_submitcmd(struct adreno_device *adreno_dev,
 			a4xx_alwayson_counter_read(adreno_dev);
 	}
 
-	ret = adreno_ringbuffer_addcmds(rb, drawctxt, flags,
+	ret = adreno_ringbuffer_addcmds(rb, flags,
 					&link[0], (cmds - link),
 					cmdbatch->timestamp);
 

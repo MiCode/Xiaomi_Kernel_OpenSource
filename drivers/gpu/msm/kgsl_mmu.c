@@ -657,25 +657,6 @@ void kgsl_mmu_putpagetable(struct kgsl_pagetable *pagetable)
 }
 EXPORT_SYMBOL(kgsl_mmu_putpagetable);
 
-int kgsl_setstate(struct kgsl_mmu *mmu, unsigned int context_id,
-			uint32_t flags)
-{
-	struct kgsl_device *device = mmu->device;
-
-	if (!(flags & (KGSL_MMUFLAGS_TLBFLUSH | KGSL_MMUFLAGS_PTUPDATE)))
-		return 0;
-
-	if (KGSL_MMU_TYPE_NONE == kgsl_mmu_type)
-		return 0;
-	else if (device->ftbl->setstate)
-		return device->ftbl->setstate(device, context_id, flags);
-	else if (mmu->mmu_ops->mmu_device_setstate)
-		return mmu->mmu_ops->mmu_device_setstate(mmu, flags);
-
-	return 0;
-}
-EXPORT_SYMBOL(kgsl_setstate);
-
 /**
  * kgsl_mmu_get_gpuaddr - Assign a memdesc with a gpuadddr from the gen pool
  * @pagetable - pagetable whose pool is to be used
@@ -782,8 +763,7 @@ kgsl_mmu_map(struct kgsl_pagetable *pagetable,
 
 	if (KGSL_MMU_TYPE_IOMMU != kgsl_mmu_get_mmutype())
 		spin_lock(&pagetable->lock);
-	ret = pagetable->pt_ops->mmu_map(pagetable, memdesc,
-						&pagetable->tlb_flags);
+	ret = pagetable->pt_ops->mmu_map(pagetable, memdesc);
 	if (KGSL_MMU_TYPE_IOMMU == kgsl_mmu_get_mmutype())
 		spin_lock(&pagetable->lock);
 
@@ -883,8 +863,7 @@ kgsl_mmu_unmap(struct kgsl_pagetable *pagetable,
 
 	if (KGSL_MMU_TYPE_IOMMU != kgsl_mmu_get_mmutype())
 		spin_lock(&pagetable->lock);
-	pagetable->pt_ops->mmu_unmap(pagetable, memdesc,
-					&pagetable->tlb_flags);
+	pagetable->pt_ops->mmu_unmap(pagetable, memdesc);
 
 	/* If buffer is unmapped 0 fault addr */
 	if ((pagetable->fault_addr >= start_addr) &&
@@ -917,24 +896,6 @@ int kgsl_mmu_close(struct kgsl_device *device)
 	return ret;
 }
 EXPORT_SYMBOL(kgsl_mmu_close);
-
-int kgsl_mmu_pt_get_flags(struct kgsl_pagetable *pt,
-			enum kgsl_deviceid id)
-{
-	unsigned int result = 0;
-
-	if (pt == NULL)
-		return 0;
-
-	spin_lock(&pt->lock);
-	if (pt->tlb_flags & (1<<id)) {
-		result = KGSL_MMUFLAGS_TLBFLUSH;
-		pt->tlb_flags &= ~(1<<id);
-	}
-	spin_unlock(&pt->lock);
-	return result;
-}
-EXPORT_SYMBOL(kgsl_mmu_pt_get_flags);
 
 int kgsl_mmu_enabled(void)
 {

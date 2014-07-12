@@ -41,6 +41,7 @@ struct kgsl_device_private;
  * events
  * @mmu_events: A kgsl_event_group for this context - contains the list of mmu
  * events
+ * @drawctxt_active: The last pagetable that this ringbuffer is set to
  */
 struct adreno_ringbuffer {
 	struct kgsl_device *device;
@@ -55,6 +56,7 @@ struct adreno_ringbuffer {
 	unsigned int timestamp;
 	struct kgsl_event_group events;
 	struct kgsl_event_group mmu_events;
+	struct adreno_context *drawctxt_active;
 };
 
 /**
@@ -104,8 +106,7 @@ void adreno_ringbuffer_stop(struct adreno_device *adreno_dev);
 
 void adreno_ringbuffer_close(struct adreno_device *adreno_dev);
 
-int adreno_ringbuffer_issuecmds(struct kgsl_device *device,
-					struct adreno_context *drawctxt,
+int adreno_ringbuffer_issuecmds(struct adreno_ringbuffer *rb,
 					unsigned int flags,
 					unsigned int *cmdaddr,
 					int sizedwords);

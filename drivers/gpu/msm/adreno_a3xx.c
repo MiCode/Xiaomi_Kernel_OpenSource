@@ -1084,8 +1084,9 @@ int a3xx_perfcounter_enable(struct adreno_device *adreno_dev,
 		cmds[1] = 0;
 		cmds[2] = cp_type0_packet(reg->select, 1);
 		cmds[3] = countable;
-		ret = adreno_ringbuffer_issuecmds(device, NULL, 0, cmds,
-				4);
+		/* submit to highest priority RB always */
+		ret = adreno_ringbuffer_issuecmds(&adreno_dev->ringbuffers[0],
+				0, cmds, 4);
 		if (ret)
 			goto done;
 		/* wait for the above commands submitted to complete */
