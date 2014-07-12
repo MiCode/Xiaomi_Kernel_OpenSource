@@ -161,6 +161,9 @@
 #define	TAP_TLAT_MASK		NO_MASK
 #define	TAP_TW_MASK		NO_MASK
 
+/*soc irq set*/
+#define CONFIG_IRQ_DRDY1	0x10
+#define CONFIG_BLOCK_READ	0x80
 
 /* TAP_SOURCE_REG BIT */
 #define	DTAP			0x20
@@ -241,16 +244,17 @@ struct lis3dh_acc_data {
 	u8 resume_state[RESUME_ENTRIES];
 
 	int irq1;
-	struct work_struct irq1_work;
-	struct workqueue_struct *irq1_work_queue;
 	int irq2;
-	struct work_struct irq2_work;
-	struct workqueue_struct *irq2_work_queue;
 
 #ifdef DEBUG
 	u8 reg_addr;
 #endif
 };
+
+static int lis3dh_acc_get_acceleration_data(struct lis3dh_acc_data *acc,
+					int *xyz);
+static void lis3dh_acc_report_values(struct lis3dh_acc_data *acc,
+							int *xyz);
 
 static struct sensors_classdev lis3dh_acc_cdev = {
 	.name = "lis3dh-accel",
@@ -519,10 +523,14 @@ static void lis3dh_acc_device_power_off(struct lis3dh_acc_data *acc)
 	lis3dh_acc_config_regulator(acc, false);
 
 	if (acc->hw_initialized) {
-		if (gpio_is_valid(acc->pdata->gpio_int1))
+		if (gpio_is_valid(acc->pdata->gpio_int1)
+				&& acc->pdata->enable_int) {
 			disable_irq_nosync(acc->irq1);
-		if (gpio_is_valid(acc->pdata->gpio_int2))
+		}
+		if (gpio_is_valid(acc->pdata->gpio_int2)
+				&& acc->pdata->enable_int) {
 			disable_irq_nosync(acc->irq2);
+		}
 		acc->hw_initialized = 0;
 	}
 }
@@ -550,9 +558,11 @@ static int lis3dh_acc_device_power_on(struct lis3dh_acc_data *acc)
 	}
 
 	if (acc->hw_initialized) {
-		if (gpio_is_valid(acc->pdata->gpio_int1))
+		if (gpio_is_valid(acc->pdata->gpio_int1)
+				&& acc->pdata->enable_int)
 			enable_irq(acc->irq1);
-		if (gpio_is_valid(acc->pdata->gpio_int2))
+		if (gpio_is_valid(acc->pdata->gpio_int2)
+				&& acc->pdata->enable_int)
 			enable_irq(acc->irq2);
 	}
 	return 0;
@@ -561,43 +571,28 @@ static int lis3dh_acc_device_power_on(struct lis3dh_acc_data *acc)
 static irqreturn_t lis3dh_acc_isr1(int irq, void *dev)
 {
 	struct lis3dh_acc_data *acc = dev;
-
-	disable_irq_nosync(irq);
-	queue_work(acc->irq1_work_queue, &acc->irq1_work);
-
+	int err;
+	int xyz[3] = { 0 };
+	err = lis3dh_acc_get_acceleration_data(acc, xyz);
+	if (err < 0)
+		dev_err(&acc->client->dev, "get_acceleration_data failed\n");
+	else
+		lis3dh_acc_report_values(acc, xyz);
 	return IRQ_HANDLED;
 }
 
 static irqreturn_t lis3dh_acc_isr2(int irq, void *dev)
 {
 	struct lis3dh_acc_data *acc = dev;
-
-	disable_irq_nosync(irq);
-	queue_work(acc->irq2_work_queue, &acc->irq2_work);
+	int err;
+	int xyz[3] = { 0 };
+	err = lis3dh_acc_get_acceleration_data(acc, xyz);
+	if (err < 0)
+		dev_err(&acc->client->dev, "get_acceleration_data failed\n");
+	else
+		lis3dh_acc_report_values(acc, xyz);
 
 	return IRQ_HANDLED;
-}
-
-static void lis3dh_acc_irq1_work_func(struct work_struct *work)
-{
-
-	struct lis3dh_acc_data *acc =
-	container_of(work, struct lis3dh_acc_data, irq1_work);
-
-	goto exit;
-exit:
-	enable_irq(acc->irq1);
-}
-
-static void lis3dh_acc_irq2_work_func(struct work_struct *work)
-{
-
-	struct lis3dh_acc_data *acc =
-	container_of(work, struct lis3dh_acc_data, irq2_work);
-
-	goto exit;
-exit:
-	enable_irq(acc->irq2);
 }
 
 int lis3dh_acc_update_g_range(struct lis3dh_acc_data *acc, u8 new_g_range)
@@ -777,8 +772,9 @@ static int lis3dh_acc_enable(struct lis3dh_acc_data *acc)
 			atomic_set(&acc->enabled, 0);
 			return err;
 		}
-		schedule_delayed_work(&acc->input_work,
-			msecs_to_jiffies(acc->pdata->poll_interval));
+		if (!acc->pdata->enable_int)
+			schedule_delayed_work(&acc->input_work,
+				msecs_to_jiffies(acc->pdata->poll_interval));
 	}
 
 	return 0;
@@ -787,7 +783,8 @@ static int lis3dh_acc_enable(struct lis3dh_acc_data *acc)
 static int lis3dh_acc_disable(struct lis3dh_acc_data *acc)
 {
 	if (atomic_cmpxchg(&acc->enabled, 1, 0)) {
-		cancel_delayed_work_sync(&acc->input_work);
+		if (!acc->pdata->enable_int)
+			cancel_delayed_work_sync(&acc->input_work);
 		lis3dh_acc_device_power_off(acc);
 		if (pinctrl_select_state(acc->pinctrl, acc->pin_sleep))
 			dev_err(&acc->client->dev,
@@ -1248,7 +1245,8 @@ static int lis3dh_acc_input_init(struct lis3dh_acc_data *acc)
 {
 	int err;
 
-	INIT_DELAYED_WORK(&acc->input_work, lis3dh_acc_input_work_func);
+	if (!acc->pdata->enable_int)
+		INIT_DELAYED_WORK(&acc->input_work, lis3dh_acc_input_work_func);
 	acc->input_dev = input_allocate_device();
 	if (!acc->input_dev) {
 		err = -ENOMEM;
@@ -1406,6 +1404,8 @@ static int lis3dh_parse_dt(struct device *dev,
 
 	pdata->negate_z = of_property_read_bool(np, "st,negate-z");
 
+	pdata->enable_int = of_property_read_bool(np, "st,enable-int");
+
 	pdata->gpio_int1 = of_get_named_gpio_flags(dev->of_node,
 				"st,gpio-int1", 0, NULL);
 
@@ -1503,10 +1503,10 @@ static int lis3dh_acc_probe(struct i2c_client *client,
 		}
 	}
 
-	if (gpio_is_valid(acc->pdata->gpio_int1))
+	if (gpio_is_valid(acc->pdata->gpio_int1) && acc->pdata->enable_int)
 		acc->irq1 = gpio_to_irq(acc->pdata->gpio_int1);
 
-	if (gpio_is_valid(acc->pdata->gpio_int2))
+	if (gpio_is_valid(acc->pdata->gpio_int2) && acc->pdata->enable_int)
 		acc->irq2 = gpio_to_irq(acc->pdata->gpio_int2);
 
 	memset(acc->resume_state, 0, ARRAY_SIZE(acc->resume_state));
@@ -1530,6 +1530,11 @@ static int lis3dh_acc_probe(struct i2c_client *client,
 	acc->resume_state[RES_TT_TLAT] = 0x00;
 	acc->resume_state[RES_TT_TW] = 0x00;
 
+	if (gpio_is_valid(acc->pdata->gpio_int1)
+			&& acc->pdata->enable_int) {
+		acc->resume_state[RES_CTRL_REG3] = CONFIG_IRQ_DRDY1;
+		acc->resume_state[RES_CTRL_REG4] = CONFIG_BLOCK_READ;
+	}
 	err = lis3dh_acc_device_power_on(acc);
 	if (err < 0) {
 		dev_err(&client->dev, "power on failed: %d\n", err);
@@ -1579,44 +1584,28 @@ static int lis3dh_acc_probe(struct i2c_client *client,
 	/* As default, do not report information */
 	atomic_set(&acc->enabled, 0);
 
-	if (gpio_is_valid(acc->pdata->gpio_int1)) {
-		INIT_WORK(&acc->irq1_work, lis3dh_acc_irq1_work_func);
-		acc->irq1_work_queue =
-			create_singlethread_workqueue("lis3dh_acc_wq1");
-		if (!acc->irq1_work_queue) {
-			err = -ENOMEM;
+	if (gpio_is_valid(acc->pdata->gpio_int1) && acc->pdata->enable_int) {
+		err = request_threaded_irq(acc->irq1, NULL,
+				lis3dh_acc_isr1,
+				IRQF_TRIGGER_RISING
+				| IRQF_ONESHOT, "lis3dh_acc_irq1", acc);
+		if (err < 0) {
 			dev_err(&client->dev,
-					"cannot create work queue1: %d\n", err);
+					"request irq1 failed: %d\n", err);
 			goto err_unreg_sensor_class;
 		}
-		err = request_irq(acc->irq1, lis3dh_acc_isr1,
-				IRQF_TRIGGER_RISING | IRQF_ONESHOT,
-				"lis3dh_acc_irq1", acc);
-		if (err < 0) {
-			dev_err(&client->dev, "request irq1 failed: %d\n", err);
-			goto err_destoyworkqueue1;
-		}
-		disable_irq_nosync(acc->irq1);
 	}
 
-	if (gpio_is_valid(acc->pdata->gpio_int2)) {
-		INIT_WORK(&acc->irq2_work, lis3dh_acc_irq2_work_func);
-		acc->irq2_work_queue =
-			create_singlethread_workqueue("lis3dh_acc_wq2");
-		if (!acc->irq2_work_queue) {
-			err = -ENOMEM;
+	if (gpio_is_valid(acc->pdata->gpio_int2) && acc->pdata->enable_int) {
+		err = request_threaded_irq(acc->irq2, NULL,
+				lis3dh_acc_isr2,
+				IRQF_TRIGGER_RISING
+				| IRQF_ONESHOT, "lis3dh_acc_irq2", acc);
+		if (err < 0) {
 			dev_err(&client->dev,
-					"cannot create work queue2: %d\n", err);
+					"request irq2 failed: %d\n", err);
 			goto err_free_irq1;
 		}
-		err = request_irq(acc->irq2, lis3dh_acc_isr2,
-				IRQF_TRIGGER_RISING | IRQF_ONESHOT,
-				"lis3dh_acc_irq2", acc);
-		if (err < 0) {
-			dev_err(&client->dev, "request irq2 failed: %d\n", err);
-			goto err_destoyworkqueue2;
-		}
-		disable_irq_nosync(acc->irq2);
 	}
 
 	if (pinctrl_select_state(acc->pinctrl, acc->pin_sleep))
@@ -1629,14 +1618,8 @@ static int lis3dh_acc_probe(struct i2c_client *client,
 
 	return 0;
 
-err_destoyworkqueue2:
-	if (gpio_is_valid(acc->pdata->gpio_int2))
-		destroy_workqueue(acc->irq2_work_queue);
 err_free_irq1:
 	free_irq(acc->irq1, acc);
-err_destoyworkqueue1:
-	if (gpio_is_valid(acc->pdata->gpio_int1))
-		destroy_workqueue(acc->irq1_work_queue);
 err_unreg_sensor_class:
 	sensors_classdev_unregister(&acc->cdev);
 err_remove_sysfs_int:
@@ -1662,16 +1645,14 @@ static int lis3dh_acc_remove(struct i2c_client *client)
 {
 	struct lis3dh_acc_data *acc = i2c_get_clientdata(client);
 
-	if (gpio_is_valid(acc->pdata->gpio_int1)) {
+	if (gpio_is_valid(acc->pdata->gpio_int1) && acc->pdata->enable_int) {
 		free_irq(acc->irq1, acc);
 		gpio_free(acc->pdata->gpio_int1);
-		destroy_workqueue(acc->irq1_work_queue);
 	}
 
-	if (gpio_is_valid(acc->pdata->gpio_int2)) {
+	if (gpio_is_valid(acc->pdata->gpio_int2) && acc->pdata->enable_int) {
 		free_irq(acc->irq2, acc);
 		gpio_free(acc->pdata->gpio_int2);
-		destroy_workqueue(acc->irq2_work_queue);
 	}
 
 	sensors_classdev_unregister(&acc->cdev);

@@ -48,6 +48,8 @@ Optional properties:
  - st,negate-z	: Boolean to select negate of Z-axis data is
 				required, if this property is defined, Z-axis
 				data will be negated.
+ - st,enable-int: Boolean to select interrupt mode,if this property is defined
+				interrupt mode will be selected.
  - st,gpio-int1	: 1st irq gpio which is to provide interrupts
 				to host, interrupt events can be route to any of
 				these two irq pins according device configuration.
@@ -76,5 +78,6 @@ Example:
 			st,negate-x;
 			st,negate-y;
 			st,negate-z;
+			st,enable-int;
 		};
 	};
