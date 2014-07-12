@@ -140,8 +140,8 @@ static DEFINE_VDD_REGULATORS(vdd_dig, VDD_DIG_NUM, 1, vdd_corner, NULL);
  *
  */
 
-DEFINE_CLK_DUMMY(a53_safe_parent, 200000000);
-DEFINE_CLK_DUMMY(a57_safe_parent, 200000000);
+DEFINE_CLK_DUMMY(a53_safe_parent, 199200000);
+DEFINE_CLK_DUMMY(a57_safe_parent, 199200000);
 
 DEFINE_FIXED_SLAVE_DIV_CLK(a53_safe_clk, 1, &a53_safe_parent.c);
 DEFINE_FIXED_SLAVE_DIV_CLK(a57_safe_clk, 1, &a57_safe_parent.c);
@@ -529,7 +529,7 @@ static struct mux_clk a53_hf_mux = {
 		{ &sys_apcsaux_clk.c, 2 },
 	),
 	.safe_parent = &a53_lf_mux.c,
-	.safe_freq = 200000000,
+	.safe_freq = 199200000,
 	.ops = &cpu_mux_ops,
 	.mask = 0x3,
 	.shift = 3,
@@ -569,7 +569,7 @@ static struct mux_clk a57_hf_mux = {
 		{ &sys_apcsaux_clk.c, 2 },
 	),
 	.safe_parent = &a57_lf_mux.c,
-	.safe_freq = 200000000,
+	.safe_freq = 199200000,
 	.ops = &cpu_mux_ops,
 	.mask = 0x3,
 	.shift = 3,
@@ -1094,7 +1094,7 @@ static int cpu_clock_8994_driver_probe(struct platform_device *pdev)
 	 * characterization OKs higher frequencies.
 	 */
 	clk_set_rate(&a53_clk.c, 384000000);
-	clk_set_rate(&a57_clk.c, 200000000);
+	clk_set_rate(&a57_clk.c, 199200000);
 	clk_set_rate(&cci_clk.c, 150000000);
 
 	put_online_cpus();
