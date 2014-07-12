@@ -28,7 +28,7 @@
 		qcom,saw2-pmic-data0 = <0x00030000>; /* VDD_APC0 off */
 		qcom,saw2-pmic-data1 = <0x02030080>; /* VDD_APC0 on  */
 		qcom,pfm-port = <0x2>;
-		qcom,saw2-spm-cmd-ret = [00 07 00 0f];
+		qcom,saw2-spm-cmd-ret = [00 03 00 0f];
 		qcom,saw2-spm-cmd-pc = [00 60 70 50 01 07 11 3f 3f 3f 3f 50 00
 			60 70 0f];
 	};
