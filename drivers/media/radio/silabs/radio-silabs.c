@@ -29,25 +29,37 @@
 /* kernel includes */
 #include <linux/kernel.h>
 #include <linux/module.h>
-#include <linux/version.h>
 #include <linux/videodev2.h>
 #include <linux/mutex.h>
 #include <linux/unistd.h>
 #include <linux/atomic.h>
-#include <linux/platform_device.h>
 #include <linux/workqueue.h>
 #include <linux/slab.h>
+#include <linux/err.h>
+#include <linux/pwm.h>
+#include <linux/regulator/consumer.h>
+#include <linux/pinctrl/consumer.h>
+#include <linux/clk.h>
+#include <linux/of_gpio.h>
 #include <media/v4l2-common.h>
 #include <media/v4l2-ioctl.h>
 #include "radio-silabs.h"
-#include "radio-silabs-transport.h"
 
 struct silabs_fm_device {
+	struct i2c_client *client;
+	struct pwm_device *pwm;
+	bool is_len_gpio_valid;
+	struct fm_power_vreg_data *dreg;
+	struct fm_power_vreg_data *areg;
+	int reset_gpio;
+	int int_gpio;
+	int status_gpio;
+	struct pinctrl *fm_pinctrl;
+	struct pinctrl_state *gpio_state_active;
+	struct pinctrl_state *gpio_state_suspend;
 	struct video_device *videodev;
 	/* driver management */
 	atomic_t users;
-	struct device *dev;
-	unsigned int chipID;
 	/* To send commands*/
 	u8 write_buf[WRITE_REG_NUM];
 	/* TO read events, data*/
@@ -88,8 +100,7 @@ struct silabs_fm_device {
 	wait_queue_head_t read_queue;
 	int irq;
 	int tuned_freq_khz;
-	int dwell_time;
-	int search_on;
+	int dwell_time_sec;
 	u16 pi; /* PI of tuned channel */
 	u8 pty; /* programe type of the tuned channel */
 	u16 block[NO_OF_RDS_BLKS];
@@ -98,20 +109,330 @@ struct silabs_fm_device {
 	u8 rt_tmp1[MAX_RT_LEN]; /* low probability RT */
 	u8 rt_cnt[MAX_RT_LEN];  /* high probability RT's hit count */
 	u8 rt_flag;          /* A/B flag of RT */
-	u8 valid_rt_flg;     /* validity of A/B flag */
+	bool valid_rt_flg;     /* validity of A/B flag */
 	u8 ps_display[MAX_PS_LEN];    /* PS that will be displayed */
 	u8 ps_tmp0[MAX_PS_LEN]; /* high probability PS */
 	u8 ps_tmp1[MAX_PS_LEN]; /* low probability PS */
 	u8 ps_cnt[MAX_PS_LEN];  /* high probability PS's hit count */
 };
 
-static struct silabs_fm_device *g_radio;
 static int silabs_fm_request_irq(struct silabs_fm_device *radio);
 static int tune(struct silabs_fm_device *radio, u32 freq);
 static int silabs_seek(struct silabs_fm_device *radio, int dir, int wrap);
 static int cancel_seek(struct silabs_fm_device *radio);
 static void silabs_fm_q_event(struct silabs_fm_device *radio,
 				enum silabs_evt_t event);
+
+static int silabs_fm_i2c_read(struct silabs_fm_device *radio, u8 len)
+{
+	int i = 0, retval = 0;
+	struct i2c_msg msgs[1];
+
+	msgs[0].addr = radio->client->addr;
+	msgs[0].len = len;
+	msgs[0].flags = I2C_M_RD;
+	msgs[0].buf = (u8 *)radio->read_buf;
+
+	for (i = 0; i < 2; i++) {
+		retval = i2c_transfer(radio->client->adapter, msgs, 1);
+		if (retval == 1)
+			break;
+	}
+
+	return retval;
+}
+
+static int silabs_fm_i2c_write(struct silabs_fm_device *radio, u8 len)
+{
+	struct i2c_msg msgs[1];
+	int i = 0, retval = 0;
+
+	msgs[0].addr = radio->client->addr;
+	msgs[0].len = len;
+	msgs[0].flags = 0;
+	msgs[0].buf = (u8 *)radio->write_buf;
+
+	for (i = 0; i < 2; i++) {
+		retval = i2c_transfer(radio->client->adapter, msgs, 1);
+		if (retval == 1)
+			break;
+	}
+
+	return retval;
+}
+
+static int silabs_fm_pinctrl_select(struct silabs_fm_device *radio, bool on)
+{
+	struct pinctrl_state *pins_state;
+	int ret;
+
+	pins_state = on ? radio->gpio_state_active
+			: radio->gpio_state_suspend;
+
+	if (!IS_ERR_OR_NULL(pins_state)) {
+		ret = pinctrl_select_state(radio->fm_pinctrl, pins_state);
+		if (ret) {
+			FMDERR("%s: cannot set pin state\n", __func__);
+			return ret;
+		}
+	} else {
+		FMDERR("%s: not a valid %s pin state\n", __func__,
+				on ? "pmx_fm_active" : "pmx_fm_suspend");
+	}
+
+	return 0;
+}
+
+static int fm_configure_gpios(struct silabs_fm_device *radio, bool on)
+{
+	int rc = 0;
+	int fm_reset_gpio = radio->reset_gpio;
+	int fm_int_gpio = radio->int_gpio;
+	int fm_status_gpio = radio->status_gpio;
+
+	if (on) {
+		/*
+		 * Turn ON sequence
+		 * GPO1/status gpio configuration.
+		 * Keep the GPO1 to high till device comes out of reset.
+		 */
+		if (fm_status_gpio > 0) {
+			FMDERR("status gpio is provided, setting it to high\n");
+			rc = gpio_direction_output(fm_status_gpio, 1);
+			if (rc) {
+				FMDERR("unable to set gpio %d direction(%d)\n",
+				fm_status_gpio, rc);
+				return rc;
+			}
+			/* Wait for the value to take effect on gpio. */
+			msleep(100);
+		}
+
+		/*
+		 * GPO2/Interrupt gpio configuration.
+		 * Keep the GPO2 to low till device comes out of reset.
+		 */
+		rc = gpio_direction_output(fm_int_gpio, 0);
+		if (rc) {
+			FMDERR("unable to set the gpio %d direction(%d)\n",
+			fm_int_gpio, rc);
+			return rc;
+		}
+		/* Wait for the value to take effect on gpio. */
+		msleep(100);
+
+		/*
+		 * Reset pin configuration.
+		 * write "0'' to make sure the chip is in reset.
+		 */
+		rc = gpio_direction_output(fm_reset_gpio, 0);
+		if (rc) {
+			FMDERR("Unable to set direction\n");
+			return rc;
+		}
+		/* Wait for the value to take effect on gpio. */
+		msleep(100);
+		/* write "1" to bring the chip out of reset.*/
+		rc = gpio_direction_output(fm_reset_gpio, 1);
+		if (rc) {
+			FMDERR("Unable to set direction\n");
+			return rc;
+		}
+		/* Wait for the value to take effect on gpio. */
+		msleep(100);
+
+		rc = gpio_direction_input(fm_int_gpio);
+		if (rc) {
+			FMDERR("unable to set the gpio %d direction(%d)\n",
+						fm_int_gpio, rc);
+			return rc;
+		}
+
+	} else {
+		/*Turn OFF sequence */
+		gpio_set_value(fm_reset_gpio, 0);
+
+		rc = gpio_direction_input(fm_reset_gpio);
+		if (rc)
+			FMDERR("Unable to set direction\n");
+		/* Wait for some time for the value to take effect. */
+		msleep(100);
+
+		if (fm_status_gpio > 0) {
+			rc = gpio_direction_input(fm_status_gpio);
+			if (rc)
+				FMDERR("Unable to set dir for status gpio\n");
+			msleep(100);
+		}
+	}
+	return rc;
+}
+
+static int silabs_fm_areg_cfg(struct silabs_fm_device *radio, bool on)
+{
+	int rc = 0;
+	struct fm_power_vreg_data *vreg;
+
+	vreg = radio->areg;
+	if (!vreg) {
+		FMDERR("In %s, areg is NULL\n", __func__);
+		return rc;
+	}
+	if (on) {
+		FMDBG("vreg is : %s", vreg->name);
+		if (vreg->set_voltage_sup) {
+			rc = regulator_set_voltage(vreg->reg,
+						vreg->low_vol_level,
+						vreg->high_vol_level);
+			if (rc < 0) {
+				FMDERR("set_vol(%s) fail %d\n", vreg->name, rc);
+				return rc;
+			}
+		}
+		rc = regulator_enable(vreg->reg);
+		if (rc < 0) {
+			FMDERR("reg enable(%s) failed.rc=%d\n", vreg->name, rc);
+			if (vreg->set_voltage_sup) {
+				regulator_set_voltage(vreg->reg,
+						0,
+						vreg->high_vol_level);
+			}
+			return rc;
+		}
+		vreg->is_enabled = true;
+
+	} else {
+		rc = regulator_disable(vreg->reg);
+		if (rc < 0) {
+			FMDERR("reg disable(%s) fail rc=%d\n", vreg->name, rc);
+			return rc;
+		}
+		vreg->is_enabled = false;
+
+		if (vreg->set_voltage_sup) {
+			/* Set the min voltage to 0 */
+			rc = regulator_set_voltage(vreg->reg,
+						0,
+						vreg->high_vol_level);
+			if (rc < 0) {
+				FMDERR("set_vol(%s) fail %d\n", vreg->name, rc);
+				return rc;
+			}
+		}
+	}
+	return rc;
+}
+
+static int silabs_fm_dreg_cfg(struct silabs_fm_device *radio, bool on)
+{
+	int rc = 0;
+	struct fm_power_vreg_data *vreg;
+
+	vreg = radio->dreg;
+	if (!vreg) {
+		FMDERR("In %s, dreg is NULL\n", __func__);
+		return rc;
+	}
+
+	if (on) {
+		FMDBG("vreg is : %s", vreg->name);
+		if (vreg->set_voltage_sup) {
+			rc = regulator_set_voltage(vreg->reg,
+						vreg->low_vol_level,
+						vreg->high_vol_level);
+			if (rc < 0) {
+				FMDERR("set_vol(%s) fail %d\n", vreg->name, rc);
+				return rc;
+			}
+		}
+
+		rc = regulator_enable(vreg->reg);
+		if (rc < 0) {
+			FMDERR("reg enable(%s) failed.rc=%d\n", vreg->name, rc);
+			if (vreg->set_voltage_sup) {
+				regulator_set_voltage(vreg->reg,
+						0,
+						vreg->high_vol_level);
+			}
+			return rc;
+		}
+			vreg->is_enabled = true;
+	} else {
+		rc = regulator_disable(vreg->reg);
+		if (rc < 0) {
+			FMDERR("reg disable(%s) fail. rc=%d\n", vreg->name, rc);
+			return rc;
+		}
+		vreg->is_enabled = false;
+
+		if (vreg->set_voltage_sup) {
+			/* Set the min voltage to 0 */
+			rc = regulator_set_voltage(vreg->reg,
+						0,
+						vreg->high_vol_level);
+			if (rc < 0) {
+				FMDERR("set_vol(%s) fail %d\n", vreg->name, rc);
+				return rc;
+			}
+		}
+	}
+	return rc;
+}
+
+static int silabs_fm_power_cfg(struct silabs_fm_device *radio, bool on)
+{
+	int rc = 0;
+
+	if (on) {
+		/* Turn ON sequence */
+		rc = silabs_fm_dreg_cfg(radio, on);
+		if (rc < 0) {
+			FMDERR("In %s, dreg cfg failed %x\n", __func__, rc);
+			return rc;
+		}
+		rc = silabs_fm_areg_cfg(radio, on);
+		if (rc < 0) {
+			FMDERR("In %s, areg cfg failed %x\n", __func__, rc);
+			silabs_fm_dreg_cfg(radio, false);
+			return rc;
+		}
+		/* If pinctrl is supported, select active state */
+		if (radio->fm_pinctrl) {
+			rc = silabs_fm_pinctrl_select(radio, true);
+			if (rc)
+				FMDERR("%s: error setting active pin state\n",
+								__func__);
+		}
+
+		rc = fm_configure_gpios(radio, on);
+		if (rc < 0) {
+			FMDERR("fm_power gpio config failed\n");
+			silabs_fm_dreg_cfg(radio, false);
+			silabs_fm_areg_cfg(radio, false);
+			return rc;
+		}
+	} else {
+		/* Turn OFF sequence */
+		rc = fm_configure_gpios(radio, on);
+		if (rc < 0)
+			FMDERR("fm_power gpio config failed");
+
+		/* If pinctrl is supported, select suspend state */
+		if (radio->fm_pinctrl) {
+			rc = silabs_fm_pinctrl_select(radio, false);
+			if (rc)
+				FMDERR("%s: error setting suspend pin state\n",
+								__func__);
+		}
+		rc = silabs_fm_dreg_cfg(radio, on);
+		if (rc < 0)
+			FMDERR("In %s, dreg cfg failed %x\n", __func__, rc);
+		rc = silabs_fm_areg_cfg(radio, on);
+		if (rc < 0)
+			FMDERR("In %s, areg cfg failed %x\n", __func__, rc);
+	}
+	return rc;
+}
 
 static bool is_enable_rx_possible(struct silabs_fm_device *radio)
 {
@@ -130,7 +451,7 @@ static int read_cts_bit(struct silabs_fm_device *radio)
 	for (i = 0; i < CTS_RETRY_COUNT; i++) {
 		memset(radio->read_buf, 0, READ_REG_NUM);
 
-		retval = silabs_fm_i2c_read(radio->read_buf, READ_REG_NUM);
+		retval = silabs_fm_i2c_read(radio, READ_REG_NUM);
 
 		if (retval < 0) {
 			FMDERR("%s: failure reading the response, error %d\n",
@@ -193,16 +514,17 @@ static int read_cts_bit(struct silabs_fm_device *radio)
 		}
 
 		if (radio->read_buf[0] & CTS_INT_BIT_MASK) {
-			FMDERR("In %s, CTS bit is set\n", __func__);
+			FMDBG("In %s, CTS bit is set\n", __func__);
 			break;
 		}
-		/* Give some time if the chip is not done with processing
+		/*
+		 * Give some time if the chip is not done with processing
 		 * previous command.
 		 */
 		msleep(100);
 	}
 
-	FMDERR("In %s, status byte is %x\n",  __func__, radio->read_buf[0]);
+	FMDBG("In %s, status byte is %x\n",  __func__, radio->read_buf[0]);
 
 bad_cmd_arg:
 	return retval;
@@ -212,12 +534,7 @@ static int send_cmd(struct silabs_fm_device *radio, u8 total_len)
 {
 	int retval = 0;
 
-	if (unlikely(radio == NULL)) {
-		FMDERR(":radio is null");
-		return -EINVAL;
-	}
-
-	retval = silabs_fm_i2c_write(radio->write_buf, total_len);
+	retval = silabs_fm_i2c_write(radio, total_len);
 
 	if (retval > 0)	{
 		FMDBG("In %s, successfully written command %x to soc\n",
@@ -308,8 +625,7 @@ static void silabs_scan(struct work_struct *work)
 	int retval = 0;
 
 	FMDBG("+%s, getting radio handle from work struct\n", __func__);
-
-	radio = g_radio;
+	radio = container_of(work, struct silabs_fm_device, work_scan.work);
 
 	if (unlikely(radio == NULL)) {
 		FMDERR(":radio is null");
@@ -335,7 +651,7 @@ static void silabs_scan(struct work_struct *work)
 	else
 		FMDBG("In %s, received STC for tune\n", __func__);
 	while (1) {
-		silabs_seek(radio, SRCH_DIR_UP, 0);
+		retval = silabs_seek(radio, SRCH_DIR_UP, WRAP_DISABLE);
 		if (retval < 0) {
 			FMDERR("Scan operation failed with error %d\n", retval);
 			goto seek_tune_fail;
@@ -361,8 +677,8 @@ static void silabs_scan(struct work_struct *work)
 					__func__, retval);
 		}
 
-		valid = radio->read_buf[1] & 0x01;
-		bltf = radio->read_buf[1] & 0x80;
+		valid = radio->read_buf[1] & VALID_MASK;
+		bltf = radio->read_buf[1] & BLTF_MASK;
 
 		temp_freq_khz = ((u32)(radio->read_buf[2] << 8) +
 					radio->read_buf[3])*
@@ -380,7 +696,7 @@ static void silabs_scan(struct work_struct *work)
 			break;
 		}
 		/* sleep for dwell period */
-		msleep(radio->dwell_time * 1000);
+		msleep(radio->dwell_time_sec * 1000);
 
 		/* need to queue the event when the seek completes */
 		silabs_fm_q_event(radio, SILABS_EVT_SCAN_NEXT);
@@ -402,18 +718,13 @@ seek_tune_fail:
 	radio->seek_tune_status = NO_SEEK_TUNE_PENDING;
 }
 
-static int silabs_search(struct silabs_fm_device *radio, bool on)
+static void silabs_search(struct silabs_fm_device *radio, bool on)
 {
-	int retval = 0;
-	int saved_val;
 	int current_freq_khz;
 
-	saved_val = radio->search_on;
-	radio->search_on = on;
 	current_freq_khz = radio->tuned_freq_khz;
 
 	if (on) {
-		g_radio = radio;
 		FMDBG("%s: Queuing the work onto scan work q\n", __func__);
 		queue_delayed_work(radio->wqueue_scan, &radio->work_scan,
 					msecs_to_jiffies(SILABS_DELAY_MSEC));
@@ -421,13 +732,9 @@ static int silabs_search(struct silabs_fm_device *radio, bool on)
 		cancel_seek(radio);
 		silabs_fm_q_event(radio, SILABS_EVT_SEEK_COMPLETE);
 	}
-
-	if (retval < 0)
-		radio->search_on = saved_val;
-	return retval;
 }
 
-void get_rds_status(struct silabs_fm_device *radio)
+static void get_rds_status(struct silabs_fm_device *radio)
 {
 	int retval = 0;
 
@@ -446,7 +753,7 @@ void get_rds_status(struct silabs_fm_device *radio)
 
 	memset(radio->read_buf, 0, sizeof(radio->read_buf));
 
-	retval = silabs_fm_i2c_read(radio->read_buf, RDS_RSP_LEN);
+	retval = silabs_fm_i2c_read(radio, RDS_RSP_LEN);
 
 	if (retval < 0) {
 		FMDERR("In %s, failed to read the resp from soc %d\n",
@@ -457,7 +764,6 @@ void get_rds_status(struct silabs_fm_device *radio)
 		FMDBG("In %s, successfully read the response from soc\n",
 								__func__);
 	}
-	mutex_unlock(&radio->lock);
 
 	radio->block[0] = ((u16)radio->read_buf[MSB_OF_BLK_0] << 8) |
 					(u16)radio->read_buf[LSB_OF_BLK_0];
@@ -467,6 +773,7 @@ void get_rds_status(struct silabs_fm_device *radio)
 					(u16)radio->read_buf[LSB_OF_BLK_2];
 	radio->block[3] = ((u16)radio->read_buf[MSB_OF_BLK_3] << 8) |
 					(u16)radio->read_buf[LSB_OF_BLK_3];
+	mutex_unlock(&radio->lock);
 }
 
 static void pi_handler(struct silabs_fm_device *radio, u16 current_pi)
@@ -492,9 +799,9 @@ static void pty_handler(struct silabs_fm_device *radio, u8 current_pty)
 static void update_ps(struct silabs_fm_device *radio, u8 addr, u8 ps)
 {
 	u8 i;
-	u8 ps_txt_chg = 0;
-	u8 ps_cmplt = 1;
-	char *data;
+	bool ps_txt_chg = false;
+	bool ps_cmplt = true;
+	u8 *data;
 	struct kfifo *data_b;
 
 	if (radio->ps_tmp0[addr] == ps) {
@@ -506,7 +813,7 @@ static void update_ps(struct silabs_fm_device *radio, u8 addr, u8 ps)
 		}
 	} else if (radio->ps_tmp1[addr] == ps) {
 		if (radio->ps_cnt[addr] >= PS_VALIDATE_LIMIT) {
-			ps_txt_chg = 1;
+			ps_txt_chg = true;
 			radio->ps_cnt[addr] = PS_VALIDATE_LIMIT + 1;
 		} else {
 			radio->ps_cnt[addr] = PS_VALIDATE_LIMIT;
@@ -529,7 +836,7 @@ static void update_ps(struct silabs_fm_device *radio, u8 addr, u8 ps)
 
 	for (i = 0; i < MAX_PS_LEN; i++) {
 		if (radio->ps_cnt[i] < PS_VALIDATE_LIMIT) {
-			ps_cmplt = 0;
+			ps_cmplt = false;
 			return;
 		}
 	}
@@ -570,13 +877,13 @@ static void update_ps(struct silabs_fm_device *radio, u8 addr, u8 ps)
 static void display_rt(struct silabs_fm_device *radio)
 {
 	u8 len = 0, i = 0;
-	char *data;
+	u8 *data;
 	struct kfifo *data_b;
-	u8 rt_cmplt = 1;
+	bool rt_cmplt = true;
 
 	for (i = 0; i < MAX_RT_LEN; i++) {
 		if (radio->rt_cnt[i] < RT_VALIDATE_LIMIT) {
-			rt_cmplt = 0;
+			rt_cmplt = false;
 			return;
 		}
 		if (radio->rt_tmp0[i] == END_OF_RT)
@@ -620,7 +927,7 @@ static void rt_handler(struct silabs_fm_device *radio, u8 ab_flg,
 					u8 cnt, u8 addr, u8 *rt)
 {
 	u8 i;
-	u8 rt_txt_chg = 0;
+	bool rt_txt_chg = 0;
 
 	if (ab_flg != radio->rt_flag && radio->valid_rt_flg) {
 		for (i = 0; i < sizeof(radio->rt_cnt); i++) {
@@ -635,7 +942,7 @@ static void rt_handler(struct silabs_fm_device *radio, u8 ab_flg,
 	}
 
 	radio->rt_flag = ab_flg;
-	radio->valid_rt_flg = 1;
+	radio->valid_rt_flg = true;
 
 	for (i = 0; i < cnt; i++) {
 		if (radio->rt_tmp0[addr+i] == rt[i]) {
@@ -647,7 +954,7 @@ static void rt_handler(struct silabs_fm_device *radio, u8 ab_flg,
 			}
 		} else if (radio->rt_tmp1[addr+i] == rt[i]) {
 			if (radio->rt_cnt[addr+i] >= RT_VALIDATE_LIMIT) {
-				rt_txt_chg = 1;
+				rt_txt_chg = true;
 				radio->rt_cnt[addr+i] = RT_VALIDATE_LIMIT + 1;
 			} else {
 				radio->rt_cnt[addr+i] = RT_VALIDATE_LIMIT;
@@ -672,7 +979,7 @@ static void rt_handler(struct silabs_fm_device *radio, u8 ab_flg,
 }
 
 /* When RDS interrupt is received, read and process RDS data. */
-void rds_handler(struct work_struct *worker)
+static void rds_handler(struct work_struct *worker)
 {
 	struct silabs_fm_device *radio;
 	u8  rt_blks[NO_OF_RDS_BLKS];
@@ -700,13 +1007,13 @@ void rds_handler(struct work_struct *worker)
 	if (grp_type & 0x01)
 		pi_handler(radio, radio->block[2]);
 
-	pty_handler(radio, (radio->block[1] >> OFFSET_OF_PTY) & 0x1f);
+	pty_handler(radio, (radio->block[1] >> OFFSET_OF_PTY) & PTY_MASK);
 
 	switch (grp_type) {
 	case RDS_TYPE_0A:
 		/*  fall through */
 	case RDS_TYPE_0B:
-		addr = (radio->block[1] & 0x3) * 2;
+		addr = (radio->block[1] & PS_MASK) * NO_OF_CHARS_IN_EACH_ADD;
 		FMDBG("RDS is PS\n");
 		update_ps(radio, addr+0, radio->block[3] >> 8);
 		update_ps(radio, addr+1, radio->block[3] & 0xff);
@@ -985,7 +1292,7 @@ static int tune(struct silabs_fm_device *radio, u32 freq_khz)
 		/* 48khz sample rate */
 		retval = set_property(radio,
 					DIGITAL_OUTPUT_SAMPLE_RATE_PROP,
-					0xBB80);
+					SAMPLE_RATE_48_KHZ);
 		if (retval < 0)	{
 			FMDERR("%s: set sample rate prop failed, error %d\n",
 					__func__, retval);
@@ -1115,7 +1422,7 @@ static void silabs_interrupts_handler(struct silabs_fm_device *radio)
 		  __func__, radio->read_buf[0]);
 
 	if (radio->read_buf[0] & RDS_INT_BIT_MASK) {
-		FMDERR("RDS interrupt received\n");
+		FMDBG("RDS interrupt received\n");
 		schedule_work(&radio->rds_worker);
 		return;
 	}
@@ -1195,11 +1502,6 @@ static int silabs_fm_request_irq(struct silabs_fm_device *radio)
 	int retval;
 	int irq;
 
-	if (unlikely(radio == NULL)) {
-		FMDERR("%s:radio is null", __func__);
-		return -EINVAL;
-	}
-
 	irq = radio->irq;
 
 	/*
@@ -1226,7 +1528,6 @@ static int silabs_fm_fops_open(struct file *file)
 {
 	struct silabs_fm_device *radio = video_get_drvdata(video_devdata(file));
 	int retval = -ENODEV;
-	int gpio_num = -1;
 
 	if (unlikely(radio == NULL)) {
 		FMDERR("%s:radio is null", __func__);
@@ -1245,13 +1546,12 @@ static int silabs_fm_fops_open(struct file *file)
 	}
 
 	/* initial gpio pin config & Power up */
-	retval = silabs_fm_power_cfg(1);
+	retval = silabs_fm_power_cfg(radio, TURNING_ON);
 	if (retval) {
 		FMDERR("%s: failed config gpio & pmic\n", __func__);
 		goto open_err_setup;
 	}
-	gpio_num = get_int_gpio_number();
-	radio->irq = gpio_to_irq(gpio_num);
+	radio->irq = gpio_to_irq(radio->int_gpio);
 
 	if (radio->irq < 0) {
 		FMDERR("%s: gpio_to_irq returned %d\n", __func__, radio->irq);
@@ -1271,7 +1571,7 @@ static int silabs_fm_fops_open(struct file *file)
 	return 0;
 
 open_err_req_irq:
-	silabs_fm_power_cfg(0);
+	silabs_fm_power_cfg(radio, TURNING_OFF);
 open_err_setup:
 	radio->handle_irq = 1;
 	atomic_inc(&radio->users);
@@ -1297,7 +1597,7 @@ static int silabs_fm_fops_release(struct file *file)
 	/* disable irq */
 	silabs_fm_disable_irq(radio);
 
-	retval = silabs_fm_power_cfg(0);
+	retval = silabs_fm_power_cfg(radio, TURNING_OFF);
 	if (retval < 0)
 		FMDERR("%s: failed to configure gpios\n", __func__);
 
@@ -1664,15 +1964,16 @@ static int silabs_fm_vidioc_s_ctrl(struct file *file, void *priv,
 		}
 		break;
 	case V4L2_CID_PRIVATE_SILABS_SCANDWELL:
-		if ((ctrl->value >= 0) && (ctrl->value <= 0x0F)) {
-			radio->dwell_time = ctrl->value;
+		if ((ctrl->value >= MIN_DWELL_TIME) &&
+			(ctrl->value <= MAX_DWELL_TIME)) {
+			radio->dwell_time_sec = ctrl->value;
 		} else {
 			FMDERR("%s: scandwell period is not valid\n", __func__);
 			retval = -EINVAL;
 		}
 		break;
 	case V4L2_CID_PRIVATE_SILABS_SRCHON:
-		retval = silabs_search(radio, (bool)ctrl->value);
+		silabs_search(radio, (bool)ctrl->value);
 		break;
 	case V4L2_CID_PRIVATE_SILABS_RDS_STD:
 		return retval;
@@ -1681,7 +1982,9 @@ static int silabs_fm_vidioc_s_ctrl(struct file *file, void *priv,
 		return retval;
 		break;
 	case V4L2_CID_PRIVATE_SILABS_RDSGROUP_MASK:
-		retval = set_property(radio, FM_RDS_INT_SOURCE_PROP, 0x01);
+		retval = set_property(radio,
+				FM_RDS_INT_SOURCE_PROP,
+				RDS_INT_BIT);
 		if (retval < 0) {
 			FMDERR("In %s, FM_RDS_INT_SOURCE_PROP failed %d\n",
 				__func__, retval);
@@ -1689,11 +1992,15 @@ static int silabs_fm_vidioc_s_ctrl(struct file *file, void *priv,
 		}
 		break;
 	case V4L2_CID_PRIVATE_SILABS_RDSD_BUF:
-		retval = set_property(radio, FM_RDS_INT_FIFO_COUNT_PROP, 0x10);
+		retval = set_property(radio,
+				FM_RDS_INT_FIFO_COUNT_PROP,
+				FIFO_CNT_16);
 		break;
 	case V4L2_CID_PRIVATE_SILABS_RDSGROUP_PROC:
 		/* Enabled all with uncorrectable */
-		retval = set_property(radio, FM_RDS_CONFIG_PROP, 0xFF01);
+		retval = set_property(radio,
+				FM_RDS_CONFIG_PROP,
+				UNCORRECTABLE_RDS_EN);
 		if (retval < 0) {
 			FMDERR("In %s, FM_RDS_CONFIG_PROP failed %d\n",
 				__func__, retval);
@@ -1970,13 +2277,13 @@ static int silabs_fm_vidioc_s_hw_freq_seek(struct file *file, void *priv,
 
 		radio->seek_tune_status = SEEK_PENDING;
 
-		return silabs_seek(radio, dir, 1);
+		return silabs_seek(radio, dir, WRAP_ENABLE);
 
 	} else if (radio->g_search_mode == 1) {
 		/* scan */
 		FMDBG("starting scan\n");
 
-		return silabs_search(radio, 1);
+		silabs_search(radio, START_SCAN);
 
 	} else {
 		retval = -EINVAL;
@@ -1996,14 +2303,14 @@ static int silabs_fm_vidioc_dqbuf(struct file *file, void *priv,
 	u8 buf_fifo[STD_BUF_SIZE] = {0};
 	struct kfifo *data_fifo = NULL;
 	u8 *buf = NULL;
-	unsigned int len = 0, retval = -1;
+	int len = 0, retval = -1;
 
 	if ((radio == NULL) || (buffer == NULL)) {
 		FMDERR("radio/buffer is NULL\n");
 		return -ENXIO;
 	}
 	buf_type = buffer->index;
-	buf = (unsigned char *)buffer->m.userptr;
+	buf = (u8 *)buffer->m.userptr;
 	len = buffer->length;
 	FMDBG("%s: requesting buffer %d\n", __func__, buf_type);
 
@@ -2033,6 +2340,118 @@ static int silabs_fm_vidioc_dqbuf(struct file *file, void *priv,
 	}
 
 	return retval;
+}
+
+static int silabs_fm_pinctrl_init(struct silabs_fm_device *radio)
+{
+	int retval = 0;
+
+	radio->fm_pinctrl = devm_pinctrl_get(&radio->client->dev);
+	if (IS_ERR_OR_NULL(radio->fm_pinctrl)) {
+		FMDERR("%s: target does not use pinctrl\n", __func__);
+		retval = PTR_ERR(radio->fm_pinctrl);
+		return retval;
+	}
+
+	radio->gpio_state_active =
+			pinctrl_lookup_state(radio->fm_pinctrl,
+						"pmx_fm_active");
+	if (IS_ERR_OR_NULL(radio->gpio_state_active)) {
+		FMDERR("%s: cannot get FM active state\n", __func__);
+		retval = PTR_ERR(radio->gpio_state_active);
+		goto err_active_state;
+	}
+
+	radio->gpio_state_suspend =
+				pinctrl_lookup_state(radio->fm_pinctrl,
+							"pmx_fm_suspend");
+	if (IS_ERR_OR_NULL(radio->gpio_state_suspend)) {
+		FMDERR("%s: cannot get FM suspend state\n", __func__);
+		retval = PTR_ERR(radio->gpio_state_suspend);
+		goto err_suspend_state;
+	}
+
+	return retval;
+
+err_suspend_state:
+	radio->gpio_state_suspend = 0;
+
+err_active_state:
+	radio->gpio_state_active = 0;
+
+	return retval;
+}
+
+static int silabs_parse_dt(struct device *dev,
+			struct silabs_fm_device *radio)
+{
+	int rc = 0;
+	struct device_node *np = dev->of_node;
+
+	radio->reset_gpio = of_get_named_gpio(np, "silabs,reset-gpio", 0);
+	if (radio->reset_gpio < 0) {
+		FMDERR("silabs-reset-gpio not provided in device tree");
+		return radio->reset_gpio;
+	}
+
+	rc = gpio_request(radio->reset_gpio, "fm_rst_gpio_n");
+	if (rc) {
+		FMDERR("unable to request gpio %d (%d)\n",
+					radio->reset_gpio, rc);
+		return rc;
+	}
+
+	radio->int_gpio = of_get_named_gpio(np, "silabs,int-gpio", 0);
+	if (radio->int_gpio < 0) {
+		FMDERR("silabs-int-gpio not provided in device tree");
+		rc = radio->int_gpio;
+		goto err_int_gpio;
+	}
+
+	rc = gpio_request(radio->int_gpio, "silabs_fm_int_n");
+	if (rc) {
+		FMDERR("unable to request gpio %d (%d)\n",
+						radio->int_gpio, rc);
+		goto err_int_gpio;
+	}
+
+	radio->status_gpio = of_get_named_gpio(np, "silabs,status-gpio", 0);
+	if (radio->status_gpio < 0) {
+		FMDERR("silabs-status-gpio not provided in device tree");
+	} else {
+		rc = gpio_request(radio->status_gpio, "silabs_fm_stat_n");
+		if (rc) {
+			FMDERR("unable to request status gpio %d (%d)\n",
+							radio->status_gpio, rc);
+			goto err_status_gpio;
+		}
+	}
+	return rc;
+
+err_status_gpio:
+	gpio_free(radio->int_gpio);
+err_int_gpio:
+	gpio_free(radio->reset_gpio);
+
+	return rc;
+}
+
+static int silabs_dt_parse_vreg_info(struct device *dev,
+			struct fm_power_vreg_data *vreg, const char *vreg_name)
+{
+	int ret = 0;
+	u32 vol_suply[2];
+	struct device_node *np = dev->of_node;
+
+	ret = of_property_read_u32_array(np, vreg_name, vol_suply, 2);
+	if (ret < 0) {
+		FMDERR("Invalid property name\n");
+		ret =  -EINVAL;
+	} else {
+		vreg->low_vol_level = vol_suply[0];
+		vreg->high_vol_level = vol_suply[1];
+	}
+	return ret;
 }
 
 static int silabs_fm_vidioc_g_fmt_type_private(struct file *file, void *priv,
@@ -2074,17 +2493,34 @@ static const struct video_device silabs_fm_viddev_template = {
 	.release                = video_device_release,
 };
 
-static int silabs_fm_probe(struct platform_device *pdev)
+static int silabs_fm_probe(struct i2c_client *client,
+				const struct i2c_device_id *id)
 {
 
 	struct silabs_fm_device *radio;
+	struct regulator *vreg = NULL;
 	int retval = 0;
 	int i = 0;
 	int kfifo_alloc_rc = 0;
 
-	if (unlikely(pdev == NULL)) {
-		FMDERR("%s:pdev is null", __func__);
-		return -EINVAL;
+	if (!i2c_check_functionality(client->adapter, I2C_FUNC_I2C)) {
+		FMDERR("%s: no support for i2c read/write byte data\n",
+								__func__);
+		return -EIO;
+	}
+
+	vreg = regulator_get(&client->dev, "va");
+
+	if (IS_ERR(vreg)) {
+		/*
+		 * if analog voltage regulator, VA is not ready yet, return
+		 * -EPROBE_DEFER to kernel so that probe will be called at
+		 * later point of time.
+		 */
+		if (PTR_ERR(vreg) == -EPROBE_DEFER) {
+			FMDERR("In %s, areg probe defer\n", __func__);
+			return PTR_ERR(vreg);
+		}
 	}
 	/* private data allocation */
 	radio = kzalloc(sizeof(struct silabs_fm_device), GFP_KERNEL);
@@ -2093,7 +2529,80 @@ static int silabs_fm_probe(struct platform_device *pdev)
 		retval = -ENOMEM;
 		goto err_initial;
 	}
-	radio->dev = &pdev->dev;
+
+	retval = silabs_parse_dt(&client->dev, radio);
+	if (retval) {
+		FMDERR("%s: Parsing DT failed(%d)", __func__, retval);
+		regulator_put(vreg);
+		kfree(radio);
+		return retval;
+	}
+
+	radio->client = client;
+
+	i2c_set_clientdata(client, radio);
+	if (!IS_ERR(vreg)) {
+		radio->areg = devm_kzalloc(&client->dev,
+					sizeof(struct fm_power_vreg_data),
+					GFP_KERNEL);
+		if (!radio->areg) {
+			FMDERR("%s: allocating memory for areg failed\n",
+								__func__);
+			regulator_put(vreg);
+			kfree(radio);
+			return -ENOMEM;
+		}
+
+		radio->areg->reg = vreg;
+		radio->areg->name = "va";
+		radio->areg->is_enabled = 0;
+		retval = silabs_dt_parse_vreg_info(&client->dev,
+				radio->areg, "silabs,va-supply-voltage");
+		if (retval < 0) {
+			FMDERR("%s: parsing va-supply failed\n", __func__);
+			goto mem_alloc_fail;
+		}
+	}
+
+	vreg = regulator_get(&client->dev, "vdd");
+
+	if (IS_ERR(vreg)) {
+		FMDERR("In %s, vdd supply is not provided\n", __func__);
+	} else {
+		radio->dreg = devm_kzalloc(&client->dev,
+					sizeof(struct fm_power_vreg_data),
+					GFP_KERNEL);
+		if (!radio->dreg) {
+			FMDERR("%s: allocating memory for dreg failed\n",
+								__func__);
+			retval = -ENOMEM;
+			regulator_put(vreg);
+			goto mem_alloc_fail;
+		}
+
+		radio->dreg->reg = vreg;
+		radio->dreg->name = "vdd";
+		radio->dreg->is_enabled = 0;
+		retval = silabs_dt_parse_vreg_info(&client->dev,
+				radio->dreg, "silabs,vdd-supply-voltage");
+		if (retval < 0) {
+			FMDERR("%s: parsing vdd-supply failed\n", __func__);
+			goto err_dreg;
+		}
+	}
+
+	/* Initialize pin control*/
+	retval = silabs_fm_pinctrl_init(radio);
+	if (retval) {
+		FMDERR("%s: silabs_fm_pinctrl_init returned %d\n",
+							__func__, retval);
+		/* if pinctrl is not supported, -EINVAL is returned*/
+		if (retval == -EINVAL)
+			retval = 0;
+	} else {
+		FMDBG("silabs_fm_pinctrl_init success\n");
+	}
+
 	radio->wqueue = NULL;
 	radio->wqueue_scan = NULL;
 	radio->wqueue_rds = NULL;
@@ -2102,7 +2611,7 @@ static int silabs_fm_probe(struct platform_device *pdev)
 	radio->videodev = video_device_alloc();
 	if (!radio->videodev) {
 		FMDERR("radio->videodev is NULL\n");
-		goto err_radio;
+		goto err_dreg;
 	}
 	/* initial configuration */
 	memcpy(radio->videodev, &silabs_fm_viddev_template,
@@ -2145,9 +2654,6 @@ static int silabs_fm_probe(struct platform_device *pdev)
 	/* initialize wait queue for raw rds read */
 	init_waitqueue_head(&radio->read_queue);
 
-	radio->dev = &pdev->dev;
-
-	platform_set_drvdata(pdev, radio);
 	video_set_drvdata(radio->videodev, radio);
 
 	/*
@@ -2183,7 +2689,6 @@ static int silabs_fm_probe(struct platform_device *pdev)
 		FMDERR("Could not register video device\n");
 		goto err_all;
 	}
-	g_radio = radio;
 	return 0;
 
 err_all:
@@ -2196,22 +2701,40 @@ err_fifo_alloc:
 	for (i--; i >= 0; i--)
 		kfifo_free(&radio->data_buf[i]);
 	video_device_release(radio->videodev);
-err_radio:
+err_dreg:
+	if (radio->dreg && radio->dreg->reg) {
+		regulator_put(radio->dreg->reg);
+		devm_kfree(&client->dev, radio->dreg);
+	}
+mem_alloc_fail:
+	if (radio->areg && radio->areg->reg) {
+		regulator_put(radio->areg->reg);
+		devm_kfree(&client->dev, radio->areg);
+	}
 	kfree(radio);
 err_initial:
 	return retval;
 }
 
-static int silabs_fm_remove(struct platform_device *pdev)
+static int silabs_fm_remove(struct i2c_client *client)
 {
 	int i;
-	struct silabs_fm_device *radio = platform_get_drvdata(pdev);
+	struct silabs_fm_device *radio = i2c_get_clientdata(client);
 
 	if (unlikely(radio == NULL)) {
 		FMDERR("%s:radio is null", __func__);
 		return -EINVAL;
 	}
 
+	if (radio->dreg && radio->dreg->reg) {
+		regulator_put(radio->dreg->reg);
+		devm_kfree(&client->dev, radio->dreg);
+	}
+
+	if (radio->areg && radio->areg->reg) {
+		regulator_put(radio->areg->reg);
+		devm_kfree(&client->dev, radio->areg);
+	}
 	/* disable irq */
 	destroy_workqueue(radio->wqueue);
 	destroy_workqueue(radio->wqueue_scan);
@@ -2226,17 +2749,21 @@ static int silabs_fm_remove(struct platform_device *pdev)
 	/* free state struct */
 	kfree(radio);
 
-	platform_set_drvdata(pdev, NULL);
-
 	return 0;
 }
 
+static const struct i2c_device_id silabs_i2c_id[] = {
+	{ DRIVER_NAME, 0 },
+	{ },
+};
+MODULE_DEVICE_TABLE(i2c, silabs_i2c_id);
+
 static const struct of_device_id silabs_fm_match[] = {
-	{.compatible = "silabs,silabs-fm"},
+	{.compatible = "silabs,si4705"},
 	{}
 };
 
-static struct platform_driver silabs_fm_driver = {
+static struct i2c_driver silabs_fm_driver = {
 	.probe  = silabs_fm_probe,
 	.driver = {
 		.owner  = THIS_MODULE,
@@ -2244,18 +2771,19 @@ static struct platform_driver silabs_fm_driver = {
 		.of_match_table = silabs_fm_match,
 	},
 	.remove  = silabs_fm_remove,
+	.id_table       = silabs_i2c_id,
 };
 
 
 static int __init radio_module_init(void)
 {
-	return platform_driver_register(&silabs_fm_driver);
+	return i2c_add_driver(&silabs_fm_driver);
 }
 module_init(radio_module_init);
 
 static void __exit radio_module_exit(void)
 {
-	platform_driver_unregister(&silabs_fm_driver);
+	i2c_del_driver(&silabs_fm_driver);
 }
 module_exit(radio_module_exit);
 
