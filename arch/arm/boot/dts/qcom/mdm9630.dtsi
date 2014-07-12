@@ -501,7 +501,6 @@
 
 		USB3_GDSC-supply = <&gdsc_usb30>;
 		qcom,otg-capability;
-		qcom,suspend_event_enable;
 		qcom,usb-dbm = <&dbm_1p5>;
 
 		qcom,msm-bus,name = "usb3";
@@ -527,6 +526,7 @@
 				snps,core-reset-after-phy-init;
 				snps,hsphy-auto-suspend-disable;
 				snps,hird_thresh = <0x10>;
+				snps,bus-suspend-enable;
 				tx-fifo-resize;
 		};
         };
