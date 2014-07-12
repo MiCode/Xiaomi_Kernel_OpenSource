@@ -28,7 +28,6 @@ Optional properties :
 	received externally (e.g. PMIC)
 - qcom,otg-capability: If present then depend on PMIC for VBUS notifications,
   otherwise depend on PHY.
-- qcom,suspend_event_enable: If present then suspend interrupt event is enabled.
 - qcom,charging-disabled: If present then battery charging using USB
   is disabled.
 - qcom,skip-charger-detection: If present then charger detection using BC1.2

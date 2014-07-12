@@ -882,7 +882,7 @@ struct dwc3 {
 	bool			hsphy_auto_suspend_disable;
 	bool			ssphy_clear_auto_suspend_on_disconnect;
 	bool			usb3_u1u2_disable;
-	bool			enable_suspend_event;
+	bool			enable_bus_suspend;
 	u8			hird_thresh;
 	atomic_t		in_lpm;
 	struct dwc3_gadget_events	dbg_gadget_events;

@@ -24,6 +24,8 @@ Optional properties:
  - snps,usb3-u1u2-disable: If present, disable u1u2 low power modes for DWC3 core controller in SS mode.
  - snps,hird_thresh: If present, will determine the value of DCTL[HIRD_Thresh] which, in turn,
 	controls the UTMI sleep mechanism vs. the PHY. Default value is 12.
+ - snps,bus-suspend-enable: If present then controller supports low power mode
+	during bus suspend.
 
 This is usually a subnode to DWC3 glue to which it is connected.
 

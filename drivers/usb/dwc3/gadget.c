@@ -1970,7 +1970,7 @@ static void dwc3_gadget_enable_irq(struct dwc3 *dwc)
 	 */
 	if (dwc->revision < DWC3_REVISION_230A)
 		reg |= DWC3_DEVTEN_ULSTCNGEN;
-	else if (dwc->enable_suspend_event)
+	else
 		reg |= DWC3_DEVTEN_SUSPEND;
 
 	dwc3_writel(dwc->regs, DWC3_DEVTEN, reg);
@@ -3159,7 +3159,9 @@ static void dwc3_gadget_suspend_interrupt(struct dwc3 *dwc,
 		spin_unlock(&dwc->lock);
 		dwc->gadget_driver->suspend(&dwc->gadget);
 		spin_lock(&dwc->lock);
-		pm_runtime_put(dwc->dev);
+
+		if (dwc->enable_bus_suspend)
+			pm_runtime_put(dwc->dev);
 	}
 
 	dwc->link_state = next;
@@ -3224,7 +3226,11 @@ static void dwc3_gadget_interrupt(struct dwc3 *dwc,
 			dev_vdbg(dwc->dev, "U3/L1-L2 Suspend Event\n");
 			dbg_event(0xFF, "SUSPEND", 0);
 			dwc->dbg_gadget_events.suspend++;
-			dwc3_gadget_suspend_interrupt(dwc, event->event_info);
+
+			/* ignore if usb cable is not connected */
+			if (dwc->vbus_active)
+				dwc3_gadget_suspend_interrupt(dwc,
+							event->event_info);
 		}
 		break;
 	case DWC3_DEVICE_EVENT_SOF:

@@ -214,7 +214,6 @@ struct dwc3_msm {
 
 	bool power_collapse; /* power collapse on cable disconnect */
 	bool power_collapse_por; /* perform POR sequence after power collapse */
-	bool enable_suspend_event;
 
 	unsigned int		irq_to_affin;
 	struct notifier_block	dwc3_cpu_notifier;
@@ -1197,7 +1196,7 @@ static void dwc3_block_reset_usb_work(struct work_struct *w)
 	 */
 	if (dwc3_msm_read_reg(mdwc->base, DWC3_GSNPSID) < DWC3_REVISION_230A)
 		reg |= DWC3_DEVTEN_ULSTCNGEN;
-	else if (mdwc->enable_suspend_event)
+	else
 		reg |= DWC3_DEVTEN_SUSPEND;
 
 	dwc3_msm_write_reg(mdwc->base, DWC3_DEVTEN, reg);
@@ -2894,9 +2893,6 @@ static int dwc3_msm_probe(struct platform_device *pdev)
 	dev_dbg(&pdev->dev, "power collapse=%d, POR=%d\n",
 		mdwc->power_collapse, mdwc->power_collapse_por);
 
-	mdwc->enable_suspend_event = of_property_read_bool(node,
-				"qcom,suspend_event_enable");
-
 	ret = of_property_read_u32(node, "qcom,lpm-to-suspend-delay-ms",
 				&mdwc->lpm_to_suspend_delay);
 	if (ret) {
@@ -3166,8 +3162,6 @@ static int dwc3_msm_probe(struct platform_device *pdev)
 	dwc = platform_get_drvdata(mdwc->dwc3);
 	if (dwc && dwc->dotg)
 		mdwc->otg_xceiv = dwc->dotg->otg.phy;
-	if (dwc)
-		dwc->enable_suspend_event = mdwc->enable_suspend_event;
 	/* Register with OTG if present */
 	if (mdwc->otg_xceiv) {
 		/* Skip charger detection for simulator targets */
