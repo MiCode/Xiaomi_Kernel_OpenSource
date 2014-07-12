@@ -785,6 +785,7 @@ extern void intel_crtc_load_lut(struct drm_crtc *crtc);
 void intel_crtc_restore_mode(struct drm_crtc *crtc);
 void intel_crtc_queue_unpin(struct intel_crtc *crtc,
 			    struct drm_i915_gem_object *obj);
+void intel_crtc_control(struct drm_crtc *crtc, bool enable);
 void intel_crtc_update_dpms(struct drm_crtc *crtc);
 void intel_encoder_destroy(struct drm_encoder *encoder);
 void intel_connector_dpms(struct drm_connector *, int mode);
