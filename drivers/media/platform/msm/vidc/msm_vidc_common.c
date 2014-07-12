@@ -48,9 +48,9 @@
 		V4L2_EVENT_MSM_VIDC_RELEASE_BUFFER_REFERENCE
 
 #define IS_SESSION_CMD_VALID(cmd) (((cmd) >= SESSION_MSG_START) && \
-		(((cmd) - SESSION_MSG_START) <= SESSION_MSG_END))
+		((cmd) <= SESSION_MSG_END))
 #define IS_SYS_CMD_VALID(cmd) (((cmd) >= SYS_MSG_START) && \
-		(((cmd) - SYS_MSG_START) <= SYS_MSG_END))
+		((cmd) <= SYS_MSG_END))
 
 struct getprop_buf {
 	struct list_head list;
