@@ -549,7 +549,7 @@
 				<&gp 90>,	/* TSIF0 Enable */
 				<&gp 91>;	/* TSIF0 DATA */
 			qcom,num-grp-pins = <3>;
-			qcom,pins-func = <1>;
+			qcom,pin-func = <1>;
 			label = "tsif0-signals";
 			tsif0_signals_active: tsif0_signals_active {
 				drive_strength = <2>;	/* 2 mA */
@@ -561,7 +561,7 @@
 		tsif0_sync {
 			qcom,pins = <&gp 92>;	/* TSIF0 SYNC */
 			qcom,num-grp-pins = <1>;
-			qcom,pins-func = <1>;
+			qcom,pin-func = <1>;
 			label = "tsif0-sync";
 			tsif0_sync_active: tsif0_sync_active {
 				drive_strength = <2>;	/* 2 mA */
@@ -574,7 +574,7 @@
 				<&gp 94>,	/* TSIF1 Enable */
 				<&gp 95>;	/* TSIF1 DATA */
 			qcom,num-grp-pins = <3>;
-			qcom,pins-func = <1>;
+			qcom,pin-func = <1>;
 			label = "tsif1-signals";
 			tsif1_signals_active: tsif1_signals_active {
 				drive_strength = <2>;	/* 2 mA */
@@ -586,7 +586,7 @@
 		tsif1_sync {
 			qcom,pins = <&gp 96>;	/* TSIF1 SYNC */
 			qcom,num-grp-pins = <1>;
-			qcom,pins-func = <1>;
+			qcom,pin-func = <1>;
 			label = "tsif1-sync";
 			tsif1_sync_active: tsif1_sync_active {
 				drive_strength = <2>;	/* 2 mA */
