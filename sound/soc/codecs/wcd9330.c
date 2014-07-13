@@ -7067,8 +7067,11 @@ static void tomtom_init_slim_slave_cfg(struct snd_soc_codec *codec)
 static int tomtom_device_down(struct wcd9xxx *wcd9xxx)
 {
 	struct snd_soc_codec *codec;
+	struct tomtom_priv *priv;
 
 	codec = (struct snd_soc_codec *)(wcd9xxx->ssr_priv);
+	priv = snd_soc_codec_get_drvdata(codec);
+	wcd_cpe_ssr_event(priv->cpe_core, WCD_CPE_BUS_DOWN_EVENT);
 	snd_soc_card_change_online_state(codec->card, 0);
 
 	return 0;
@@ -7544,7 +7547,7 @@ static int tomtom_post_reset_cb(struct wcd9xxx *wcd9xxx)
 
 	tomtom_init_slim_slave_cfg(codec);
 	tomtom_slim_interface_init_reg(codec);
-
+	wcd_cpe_ssr_event(tomtom->cpe_core, WCD_CPE_BUS_UP_EVENT);
 	wcd9xxx_resmgr_post_ssr(&tomtom->resmgr);
 
 	if (tomtom->mbhc_started) {
