@@ -1741,7 +1741,7 @@ begin:
 			BUG();
 		}
 		if (status->status_mask & IPA_HW_PKT_STATUS_MASK_TAG_VALID) {
-			struct completion *comp;
+			struct ipa_tag_completion *comp;
 			IPADBG("TAG packet arrived\n");
 			if (status->tag_f_2 == IPA_COOKIE) {
 				skb_pull(skb, IPA_PKT_STATUS_SIZE);
@@ -1751,7 +1751,9 @@ begin:
 				}
 				memcpy(&comp, skb->data, sizeof(comp));
 				skb_pull(skb, sizeof(comp));
-				complete(comp);
+				complete(&comp->comp);
+				if (atomic_dec_return(&comp->cnt) == 0)
+					kfree(comp);
 				continue;
 			} else {
 				IPADBG("ignoring TAG with wrong cookie\n");
