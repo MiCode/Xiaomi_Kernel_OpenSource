@@ -891,11 +891,21 @@ static void gbam_start(void *param, enum usb_bam_pipe_dir dir)
 	struct usb_gadget *gadget = NULL;
 	struct bam_ch_info *d;
 
-	if (port) {
-		gadget = port->port_usb->gadget;
-		d = &port->data_ch;
-	} else {
+	if (port == NULL) {
 		pr_err("%s: port is NULL\n", __func__);
+		return;
+	}
+
+	if (port->port_usb == NULL) {
+		pr_err("%s: port_usb is NULL, disconnected\n", __func__);
+		return;
+	}
+
+	gadget = port->port_usb->gadget;
+	d = &port->data_ch;
+
+	if (gadget == NULL) {
+		pr_err("%s: gadget is NULL\n", __func__);
 		return;
 	}
 
