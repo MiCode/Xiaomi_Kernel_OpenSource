@@ -145,7 +145,6 @@ struct dwc3_msm {
 	struct clk		*core_clk;
 	struct clk		*iface_clk;
 	struct clk		*sleep_clk;
-	struct clk		*hsphy_sleep_clk;
 	struct clk		*utmi_clk;
 	struct clk		*phy_com_reset;
 	unsigned int		utmi_clk_rate;
@@ -209,7 +208,6 @@ struct dwc3_msm {
 	bool ext_chg_active;
 	struct completion ext_chg_wait;
 	unsigned int scm_dev_id;
-	bool reset_hsphy_sleep_clk;
 	bool suspend_resume_no_support;
 
 	bool power_collapse; /* power collapse on cable disconnect */
@@ -1431,28 +1429,6 @@ static void dwc3_start_chg_det(struct dwc3_charger *charger, bool start)
 	queue_delayed_work(system_nrt_wq, &mdwc->chg_work, 0);
 }
 
-static int dwc3_hsphy_reset(struct dwc3_msm *mdwc)
-{
-	int ret;
-
-	/* Reset hsusb phy */
-	ret = clk_reset(mdwc->hsphy_sleep_clk, CLK_RESET_ASSERT);
-	if (ret) {
-		dev_err(mdwc->dev, "hsphy_sleep_clk assert failed\n");
-		goto reset_hsphy_exit;
-	}
-
-	usleep_range(1000, 1200);
-	ret = clk_reset(mdwc->hsphy_sleep_clk, CLK_RESET_DEASSERT);
-	if (ret) {
-		dev_err(mdwc->dev, "hsphy_sleep_clk reset deassert failed\n");
-		goto reset_hsphy_exit;
-	}
-
-reset_hsphy_exit:
-	return ret;
-}
-
 static void dwc3_msm_power_collapse_por(struct dwc3_msm *mdwc)
 {
 	u32		reg;
@@ -1819,12 +1795,10 @@ static int dwc3_msm_resume(struct dwc3_msm *mdwc)
 			__func__, mdwc->power_collapse_por);
 
 		/* Reset HSPHY */
-		if (mdwc->reset_hsphy_sleep_clk) {
-			ret = dwc3_hsphy_reset(mdwc);
-			if (ret) {
-				dev_err(mdwc->dev, "hsphy reset failed\n");
-				return ret;
-			}
+		ret = usb_phy_reset(mdwc->hs_phy);
+		if (ret) {
+			dev_err(mdwc->dev, "hsphy reset failed\n");
+			return ret;
 		}
 
 		ret = dwc3_msm_restore_sec_config(mdwc->scm_dev_id);
@@ -2820,17 +2794,6 @@ static int dwc3_msm_probe(struct platform_device *pdev)
 	clk_set_rate(mdwc->sleep_clk, 32000);
 	clk_prepare_enable(mdwc->sleep_clk);
 
-	mdwc->hsphy_sleep_clk = devm_clk_get(&pdev->dev, "phy_sleep_clk");
-	if (IS_ERR(mdwc->hsphy_sleep_clk)) {
-		mdwc->hsphy_sleep_clk = devm_clk_get(&pdev->dev, "sleep_a_clk");
-		if (IS_ERR(mdwc->hsphy_sleep_clk)) {
-			dev_err(&pdev->dev, "failed to get sleep_a_clk\n");
-			ret = PTR_ERR(mdwc->hsphy_sleep_clk);
-			goto disable_sleep_clk;
-		}
-	}
-	clk_prepare_enable(mdwc->hsphy_sleep_clk);
-
 	ret = of_property_read_u32(node, "qcom,utmi-clk-rate",
 				   (u32 *)&mdwc->utmi_clk_rate);
 	if (ret)
@@ -2840,7 +2803,7 @@ static int dwc3_msm_probe(struct platform_device *pdev)
 	if (IS_ERR(mdwc->utmi_clk)) {
 		dev_err(&pdev->dev, "failed to get utmi_clk\n");
 		ret = PTR_ERR(mdwc->utmi_clk);
-		goto disable_hsphy_sleep_clk;
+		goto disable_sleep_clk;
 	}
 
 	if (mdwc->utmi_clk_rate == 24000000) {
@@ -2853,7 +2816,7 @@ static int dwc3_msm_probe(struct platform_device *pdev)
 		if (IS_ERR(mdwc->utmi_clk_src)) {
 			dev_err(&pdev->dev, "failed to get utmi_clk_src\n");
 			ret = PTR_ERR(mdwc->utmi_clk_src);
-			goto disable_hsphy_sleep_clk;
+			goto disable_sleep_clk;
 		}
 		clk_set_rate(mdwc->utmi_clk_src, 48000000);
 		/* 1 means divide utmi_clk_src by 2 */
@@ -3226,16 +3189,6 @@ static int dwc3_msm_probe(struct platform_device *pdev)
 		enable_irq_wake(mdwc->pmic_id_irq);
 	}
 
-	mdwc->reset_hsphy_sleep_clk = of_property_read_bool(node,
-					"qcom,reset_hsphy_sleep_clk_on_init");
-	if (mdwc->reset_hsphy_sleep_clk) {
-		ret = dwc3_hsphy_reset(mdwc);
-		if (ret) {
-			dev_err(&pdev->dev, "hsphy_sleep_clk reset failed\n");
-			goto put_dwc3;
-		}
-	}
-
 	msm_bam_set_usb_dev(mdwc->dev);
 
 	return 0;
@@ -3252,8 +3205,6 @@ disable_ref_clk:
 	clk_disable_unprepare(mdwc->ref_clk);
 disable_utmi_clk:
 	clk_disable_unprepare(mdwc->utmi_clk);
-disable_hsphy_sleep_clk:
-	clk_disable_unprepare(mdwc->hsphy_sleep_clk);
 disable_sleep_clk:
 	clk_disable_unprepare(mdwc->sleep_clk);
 disable_iface_clk:
@@ -3296,7 +3247,6 @@ static int dwc3_msm_remove(struct platform_device *pdev)
 		clk_prepare_enable(mdwc->core_clk);
 		clk_prepare_enable(mdwc->iface_clk);
 		clk_prepare_enable(mdwc->sleep_clk);
-		clk_prepare_enable(mdwc->hsphy_sleep_clk);
 		clk_prepare_enable(mdwc->ref_clk);
 		clk_prepare_enable(mdwc->xo_clk);
 	}
@@ -3339,7 +3289,6 @@ static int dwc3_msm_remove(struct platform_device *pdev)
 	clk_disable_unprepare(mdwc->core_clk);
 	clk_disable_unprepare(mdwc->iface_clk);
 	clk_disable_unprepare(mdwc->sleep_clk);
-	clk_disable_unprepare(mdwc->hsphy_sleep_clk);
 	clk_disable_unprepare(mdwc->ref_clk);
 	clk_disable_unprepare(mdwc->xo_clk);
 	clk_put(mdwc->xo_clk);

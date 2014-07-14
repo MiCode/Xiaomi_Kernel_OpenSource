@@ -16,6 +16,8 @@
 #include <linux/kernel.h>
 #include <linux/err.h>
 #include <linux/slab.h>
+#include <linux/clk.h>
+#include <linux/clk/msm-clk.h>
 #include <linux/delay.h>
 #include <linux/io.h>
 #include <linux/of.h>
@@ -118,6 +120,9 @@ struct msm_hsphy {
 	int			hsphy_init_seq;
 	bool			set_pllbtune;
 	u32			core_ver;
+
+	struct clk		*sleep_clk;
+	bool			sleep_clk_reset;
 
 	struct regulator	*vdd;
 	struct regulator	*vdda33;
@@ -252,10 +257,11 @@ static void msm_usb_write_readback(void *base, u32 offset,
 			__func__, val, offset);
 }
 
-static int msm_hsphy_init(struct usb_phy *uphy)
+static int msm_hsphy_reset(struct usb_phy *uphy)
 {
 	struct msm_hsphy *phy = container_of(uphy, struct msm_hsphy, phy);
 	u32 val;
+	int ret;
 
 	if (phy->tcsr) {
 		val = readl_relaxed(phy->tcsr);
@@ -264,7 +270,31 @@ static int msm_hsphy_init(struct usb_phy *uphy)
 		writel_relaxed((val | TCSR_HSPHY_ARES), phy->tcsr);
 		usleep(1000);
 		writel_relaxed((val & ~TCSR_HSPHY_ARES), phy->tcsr);
+	} else if (phy->sleep_clk_reset) {
+		/* Reset PHY using sleep clock */
+		ret = clk_reset(phy->sleep_clk, CLK_RESET_ASSERT);
+		if (ret) {
+			dev_err(uphy->dev, "hsphy_sleep_clk assert failed\n");
+			return ret;
+		}
+
+		usleep_range(1000, 1200);
+		ret = clk_reset(phy->sleep_clk, CLK_RESET_DEASSERT);
+		if (ret) {
+			dev_err(uphy->dev, "hsphy_sleep_clk reset deassert failed\n");
+			return ret;
+		}
 	}
+
+	return 0;
+}
+
+static int msm_hsphy_init(struct usb_phy *uphy)
+{
+	struct msm_hsphy *phy = container_of(uphy, struct msm_hsphy, phy);
+	u32 val;
+
+	msm_hsphy_reset(uphy);
 
 	/* different sequences based on core version */
 	phy->core_ver = readl_relaxed(phy->base);
@@ -662,6 +692,16 @@ static int msm_hsphy_probe(struct platform_device *pdev)
 		goto disable_hs_vdd;
 	}
 
+	phy->sleep_clk = devm_clk_get(&pdev->dev, "phy_sleep_clk");
+	if (IS_ERR(phy->sleep_clk)) {
+		dev_err(&pdev->dev, "failed to get phy_sleep_clk\n");
+		ret = PTR_ERR(phy->sleep_clk);
+		goto disable_hs_ldo;
+	}
+	clk_prepare_enable(phy->sleep_clk);
+	phy->sleep_clk_reset = of_property_read_bool(dev->of_node,
+						"qcom,sleep-clk-reset");
+
 	if (of_property_read_u32(dev->of_node, "qcom,hsphy-init",
 					&phy->hsphy_init_seq))
 		dev_dbg(dev, "unable to read hsphy init seq\n");
@@ -673,7 +713,7 @@ static int msm_hsphy_probe(struct platform_device *pdev)
 		phy->num_ports = 1;
 	else if (phy->num_ports > 3) {
 		dev_err(dev, " number of ports more that 3 is not supported\n");
-		goto disable_hs_vdd;
+		goto disable_clk;
 	}
 
 	phy->set_pllbtune = of_property_read_bool(dev->of_node,
@@ -688,15 +728,18 @@ static int msm_hsphy_probe(struct platform_device *pdev)
 	phy->phy.set_suspend		= msm_hsphy_set_suspend;
 	phy->phy.notify_connect		= msm_hsphy_notify_connect;
 	phy->phy.notify_disconnect	= msm_hsphy_notify_disconnect;
+	phy->phy.reset			= msm_hsphy_reset;
 	/*FIXME: this conflicts with dwc3_otg */
 	/*phy->phy.type			= USB_PHY_TYPE_USB2; */
 
 	ret = usb_add_phy_dev(&phy->phy);
 	if (ret)
-		goto disable_hs_ldo;
+		goto disable_clk;
 
 	return 0;
 
+disable_clk:
+	clk_disable_unprepare(phy->sleep_clk);
 disable_hs_ldo:
 	msm_hsusb_ldo_enable(phy, 0);
 disable_hs_vdd:
@@ -715,6 +758,7 @@ static int msm_hsphy_remove(struct platform_device *pdev)
 		return 0;
 
 	usb_remove_phy(&phy->phy);
+	clk_disable_unprepare(phy->sleep_clk);
 	msm_hsusb_ldo_enable(phy, 0);
 	regulator_disable(phy->vdd);
 	msm_hsusb_config_vdd(phy, 0);
