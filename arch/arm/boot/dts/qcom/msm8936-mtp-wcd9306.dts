@@ -14,6 +14,7 @@
 
 #include "msm8936.dtsi"
 #include "msm8939-mtp.dtsi"
+#include "msm8939-audio-external_codec.dtsi"
 
 / {
 	model = "Qualcomm Technologies, Inc. MSM 8936 WCD9306 MTP";
