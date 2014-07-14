@@ -2510,8 +2510,6 @@ static struct clk_lookup msm_clocks_gcc_8974[] = {
 	CLK_LOOKUP_OF("iface_clk", gcc_sys_noc_usb3_axi_clk, "msm_dwc3"),
 	CLK_LOOKUP_OF("iface_clk", gcc_sys_noc_usb3_axi_clk, "msm_usb3"),
 	CLK_LOOKUP_OF("sleep_clk", gcc_usb30_sleep_clk, "msm_dwc3"),
-	CLK_LOOKUP_OF("sleep_a_clk", gcc_usb2a_phy_sleep_clk, "msm_dwc3"),
-	CLK_LOOKUP_OF("sleep_b_clk", gcc_usb2b_phy_sleep_clk, "msm_dwc3"),
 	CLK_LOOKUP_OF("phy_sleep_clk", gcc_usb2a_phy_sleep_clk,
 			"f92f8800.hsphy"),
 	CLK_LOOKUP_OF("iface_clk", gcc_usb_hs_ahb_clk,     "msm_otg"),
