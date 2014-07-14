@@ -2706,10 +2706,13 @@ static void i9xx_update_primary_plane(struct drm_crtc *crtc,
 		rotate = true;
 
 	if (INTEL_INFO(dev)->gen >= 4) {
-		if (obj->tiling_mode != I915_TILING_NONE)
+		if (obj->tiling_mode != I915_TILING_NONE) {
 			dspcntr |= DISPPLANE_TILED;
-		else
+			dev_priv->is_tiled = true;
+		} else {
 			dspcntr &= ~DISPPLANE_TILED;
+			dev_priv->is_tiled = false;
+		}
 	}
 
 	if (IS_G4X(dev))
