@@ -2018,12 +2018,6 @@ UNUSUAL_DEV( 0xed10, 0x7636, 0x0001, 0x0001,
 		"Digital MP3 Audio Player",
 		USB_SC_DEVICE, USB_PR_DEVICE, NULL, US_FL_NOT_LOCKABLE ),
 
-/* Reported by Pavankumar Kondeti <pkondeti@codeaurora.org> */
-UNUSUAL_DEV(0x0925, 0x9011, 0x0100, 0x0100,
-		"TMC",
-		"USB DISK",
-		USB_SC_DEVICE, USB_PR_DEVICE, NULL, US_FL_TUR_AFTER_WRITE),
-
 /* Control/Bulk transport for all SubClass values */
 USUAL_DEV(USB_SC_RBC, USB_PR_CB, USB_US_TYPE_STOR),
 USUAL_DEV(USB_SC_8020, USB_PR_CB, USB_US_TYPE_STOR),
