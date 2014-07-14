@@ -162,8 +162,6 @@ struct us_data {
 	int			use_last_sector_hacks;
 	int			last_sector_retries;
 	int			sdev_autosuspend_delay;
-	/* consecutive TEST_UNIT_READY commands during write */
-	int			tur_count[16];
 };
 
 /* Convert between us_data and the corresponding Scsi_Host */
