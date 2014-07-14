@@ -951,15 +951,15 @@ static int power_ctrl(struct v4l2_subdev *sd, bool flag)
 		return dev->platform_data->power_ctrl(sd, flag);
 
 	if (flag) {
-		ret = dev->platform_data->v1p8_ctrl(sd, 1);
+		ret = dev->platform_data->v2p8_ctrl(sd, 1);
 		if (ret == 0) {
-			ret = dev->platform_data->v2p8_ctrl(sd, 1);
+			ret = dev->platform_data->v1p8_ctrl(sd, 1);
 			if (ret)
-				ret = dev->platform_data->v1p8_ctrl(sd, 0);
+				ret = dev->platform_data->v2p8_ctrl(sd, 0);
 		}
 	} else {
-		ret = dev->platform_data->v2p8_ctrl(sd, 0);
-		ret |= dev->platform_data->v1p8_ctrl(sd, 0);
+		ret = dev->platform_data->v1p8_ctrl(sd, 0);
+		ret |= dev->platform_data->v2p8_ctrl(sd, 0);
 	}
 
 	return ret;
