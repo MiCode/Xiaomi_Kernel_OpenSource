@@ -34,8 +34,9 @@
 #include <linux/gpio.h>
 #include <linux/moduleparam.h>
 #include <media/v4l2-device.h>
-#include <media/v4l2-chip-ident.h>
 #include <linux/io.h>
+#include <linux/acpi.h>
+#include <linux/atomisp_gmin_platform.h>
 
 #include "ov5693.h"
 
@@ -937,6 +938,58 @@ static int ov5693_init(struct v4l2_subdev *sd)
 	return 0;
 }
 
+static int power_ctrl(struct v4l2_subdev *sd, bool flag)
+{
+	int ret;
+	struct ov5693_device *dev = to_ov5693_sensor(sd);
+
+	if (!dev || !dev->platform_data)
+		return -ENODEV;
+
+	/* Non-gmin platforms use the legacy callback */
+	if (dev->platform_data->power_ctrl)
+		return dev->platform_data->power_ctrl(sd, flag);
+
+	if (flag) {
+		ret = dev->platform_data->v1p8_ctrl(sd, 1);
+		if (ret == 0) {
+			ret = dev->platform_data->v2p8_ctrl(sd, 1);
+			if (ret)
+				ret = dev->platform_data->v1p8_ctrl(sd, 0);
+		}
+	} else {
+		ret = dev->platform_data->v2p8_ctrl(sd, 0);
+		ret |= dev->platform_data->v1p8_ctrl(sd, 0);
+	}
+
+	return ret;
+}
+
+static int gpio_ctrl(struct v4l2_subdev *sd, bool flag)
+{
+	int ret;
+	struct ov5693_device *dev = to_ov5693_sensor(sd);
+
+	if (!dev || !dev->platform_data)
+		return -ENODEV;
+
+	/* Non-gmin platforms use the legacy callback */
+	if (dev->platform_data->gpio_ctrl)
+		return dev->platform_data->gpio_ctrl(sd, flag);
+
+	/* Note 1: CTS driver would, on flag==1 pulse reset low for
+	 * 60ms first before setting it high if CONFIG_BOARD_CTP is
+	 * set.  On which hardware is that needed? */
+
+	/* Note 2: the GPIO order is asymmetric: always RESET#
+	 * before PWDN# when turning it on or off. */
+
+	ret = dev->platform_data->gpio0_ctrl(sd, flag);
+	ret |= dev->platform_data->gpio1_ctrl(sd, flag);
+
+	return ret;
+}
+
 
 static int power_up(struct v4l2_subdev *sd)
 {
@@ -951,7 +1004,7 @@ static int power_up(struct v4l2_subdev *sd)
 	}
 
 	/* power control */
-	ret = dev->platform_data->power_ctrl(sd, 1);
+	ret = power_ctrl(sd, 1);
 	if (ret)
 		goto fail_power;
 
@@ -959,9 +1012,9 @@ static int power_up(struct v4l2_subdev *sd)
 	usleep_range(5000, 6000);
 
 	/* gpio ctrl */
-	ret = dev->platform_data->gpio_ctrl(sd, 1);
+	ret = gpio_ctrl(sd, 1);
 	if (ret) {
-		ret = dev->platform_data->gpio_ctrl(sd, 1);
+		ret = gpio_ctrl(sd, 1);
 		if (ret)
 			goto fail_power;
 	}
@@ -977,9 +1030,9 @@ static int power_up(struct v4l2_subdev *sd)
 	return 0;
 
 fail_clk:
-	dev->platform_data->gpio_ctrl(sd, 0);
+	gpio_ctrl(sd, 0);
 fail_power:
-	dev->platform_data->power_ctrl(sd, 0);
+	power_ctrl(sd, 0);
 	dev_err(&client->dev, "sensor power-up failed\n");
 
 	return ret;
@@ -1003,15 +1056,15 @@ static int power_down(struct v4l2_subdev *sd)
 		dev_err(&client->dev, "flisclk failed\n");
 
 	/* gpio ctrl */
-	ret = dev->platform_data->gpio_ctrl(sd, 0);
+	ret = gpio_ctrl(sd, 0);
 	if (ret) {
-		ret = dev->platform_data->gpio_ctrl(sd, 0);
+		ret = gpio_ctrl(sd, 0);
 		if (ret)
 			dev_err(&client->dev, "gpio failed 2\n");
 	}
 
 	/* power control */
-	ret = dev->platform_data->power_ctrl(sd, 0);
+	ret = power_ctrl(sd, 0);
 	if (ret)
 		dev_err(&client->dev, "vprog failed.\n");
 
@@ -1356,7 +1409,14 @@ static int ov5693_s_config(struct v4l2_subdev *sd,
 	}
 	mutex_unlock(&dev->input_lock);
 
-	return 0;
+
+	ret = atomisp_register_i2c_module(sd, client, platform_data,
+					  gmin_get_var_int(&client->dev, "CamType",
+							   RAW_CAMERA),
+					  gmin_get_var_int(&client->dev, "CsiPort",
+							   ATOMISP_CAMERA_PORT_PRIMARY));
+
+	return ret;
 
 fail_csi_cfg:
 	dev->platform_data->csi_cfg(sd, 0);
@@ -1561,7 +1621,7 @@ static int ov5693_probe(struct i2c_client *client,
 			const struct i2c_device_id *id)
 {
 	struct ov5693_device *dev;
-	int ret;
+	int ret = 0;
 
 	dev = kzalloc(sizeof(*dev), GFP_KERNEL);
 	if (!dev) {
@@ -1577,9 +1637,12 @@ static int ov5693_probe(struct i2c_client *client,
 	if (client->dev.platform_data) {
 		ret = ov5693_s_config(&dev->sd, client->irq,
 				       client->dev.platform_data);
-		if (ret)
-			goto out_free;
+	} else if (ACPI_COMPANION(&client->dev)) {
+		ret = ov5693_s_config(&dev->sd, client->irq,
+				      gmin_camera_platform_data());
 	}
+	if (ret)
+		goto out_free;
 
 	dev->sd.flags |= V4L2_SUBDEV_FL_HAS_DEVNODE;
 	dev->pad.flags = MEDIA_PAD_FL_SOURCE;
@@ -1598,10 +1661,18 @@ out_free:
 }
 
 MODULE_DEVICE_TABLE(i2c, ov5693_id);
+
+static struct acpi_device_id ov5693_acpi_match[] = {
+	{"INT33BE"},
+	{},
+};
+MODULE_DEVICE_TABLE(acpi, ov5693_acpi_match);
+
 static struct i2c_driver ov5693_driver = {
 	.driver = {
 		.owner = THIS_MODULE,
 		.name = OV5693_NAME,
+		.acpi_match_table = ACPI_PTR(ov5693_acpi_match),
 	},
 	.probe = ov5693_probe,
 	.remove = ov5693_remove,
