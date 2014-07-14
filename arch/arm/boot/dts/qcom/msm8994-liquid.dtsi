@@ -371,7 +371,7 @@
 	ts_xvdd_vreg: ts_xvdd_vreg {
 		compatible = "regulator-fixed";
 		regulator-name = "ts_xvdd_vreg";
-		startup-delay-us = <2500>;
+		startup-delay-us = <4000>;
 		enable-active-high;
 		gpio = <&msm_gpio 109 0>;
 		status = "ok";
