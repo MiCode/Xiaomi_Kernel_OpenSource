@@ -695,8 +695,157 @@ TRACE_EVENT(ion_prefetching,
 		__entry->len)
 	);
 
+DECLARE_EVENT_CLASS(ion_secure_cma_allocate,
 
+	TP_PROTO(const char *heap_name,
+		unsigned long len,
+		unsigned long align,
+		unsigned long flags),
 
+	TP_ARGS(heap_name, len, align, flags),
+
+	TP_STRUCT__entry(
+		__field(const char *, heap_name)
+		__field(unsigned long, len)
+		__field(unsigned long, align)
+		__field(unsigned long, flags)
+		),
+
+	TP_fast_assign(
+		__entry->heap_name = heap_name;
+		__entry->len = len;
+		__entry->align = align;
+		__entry->flags = flags;
+		),
+
+	TP_printk("heap_name=%s len=%lx align=%lx flags=%lx",
+		__entry->heap_name,
+		__entry->len,
+		__entry->align,
+		__entry->flags)
+	);
+
+DEFINE_EVENT(ion_secure_cma_allocate, ion_secure_cma_allocate_start,
+	TP_PROTO(const char *heap_name,
+		unsigned long len,
+		unsigned long align,
+		unsigned long flags),
+
+	TP_ARGS(heap_name, len, align, flags)
+	);
+
+DEFINE_EVENT(ion_secure_cma_allocate, ion_secure_cma_allocate_end,
+	TP_PROTO(const char *heap_name,
+		unsigned long len,
+		unsigned long align,
+		unsigned long flags),
+
+	TP_ARGS(heap_name, len, align, flags)
+	);
+
+DECLARE_EVENT_CLASS(ion_cp_secure_buffer,
+
+	TP_PROTO(const char *heap_name,
+		unsigned long len,
+		unsigned long align,
+		unsigned long flags),
+
+	TP_ARGS(heap_name, len, align, flags),
+
+	TP_STRUCT__entry(
+		__field(const char *, heap_name)
+		__field(unsigned long, len)
+		__field(unsigned long, align)
+		__field(unsigned long, flags)
+		),
+
+	TP_fast_assign(
+		__entry->heap_name = heap_name;
+		__entry->len = len;
+		__entry->align = align;
+		__entry->flags = flags;
+		),
+
+	TP_printk("heap_name=%s len=%lx align=%lx flags=%lx",
+		__entry->heap_name,
+		__entry->len,
+		__entry->align,
+		__entry->flags)
+	);
+
+DEFINE_EVENT(ion_cp_secure_buffer, ion_cp_secure_buffer_start,
+	TP_PROTO(const char *heap_name,
+		unsigned long len,
+		unsigned long align,
+		unsigned long flags),
+
+	TP_ARGS(heap_name, len, align, flags)
+	);
+
+DEFINE_EVENT(ion_cp_secure_buffer, ion_cp_secure_buffer_end,
+	TP_PROTO(const char *heap_name,
+		unsigned long len,
+		unsigned long align,
+		unsigned long flags),
+
+	TP_ARGS(heap_name, len, align, flags)
+	);
+
+DECLARE_EVENT_CLASS(iommu_sec_ptbl_map_range,
+
+	TP_PROTO(int sec_id,
+		int num,
+		unsigned long va,
+		unsigned int pa,
+		size_t len),
+
+	TP_ARGS(sec_id, num, va, pa, len),
+
+	TP_STRUCT__entry(
+		__field(int, sec_id)
+		__field(int, num)
+		__field(unsigned long, va)
+		__field(unsigned int, pa)
+		__field(size_t, len)
+	),
+
+	TP_fast_assign(
+		__entry->sec_id = sec_id;
+		__entry->num = num;
+		__entry->va = va;
+		__entry->pa = pa;
+		__entry->len = len;
+	),
+
+	TP_printk("sec_id=%d num=%d va=%lx pa=%u len=%zu",
+		__entry->sec_id,
+		__entry->num,
+		__entry->va,
+		__entry->pa,
+		__entry->len)
+	);
+
+DEFINE_EVENT(iommu_sec_ptbl_map_range, iommu_sec_ptbl_map_range_start,
+
+	TP_PROTO(int sec_id,
+		int num,
+		unsigned long va,
+		unsigned int pa,
+		size_t len),
+
+	TP_ARGS(sec_id, num, va, pa, len)
+	);
+
+DEFINE_EVENT(iommu_sec_ptbl_map_range, iommu_sec_ptbl_map_range_end,
+
+	TP_PROTO(int sec_id,
+		int num,
+		unsigned long va,
+		unsigned int pa,
+		size_t len),
+
+	TP_ARGS(sec_id, num, va, pa, len)
+	);
 #endif /* _TRACE_KMEM_H */
 
 /* This part must be outside protection */
