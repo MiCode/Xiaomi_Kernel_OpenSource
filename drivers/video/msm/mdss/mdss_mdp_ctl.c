@@ -3178,16 +3178,6 @@ int mdss_mdp_display_commit(struct mdss_mdp_ctl *ctl, void *arg,
 		ATRACE_END("mixer_programming");
 	}
 
-	ATRACE_BEGIN("frame_ready");
-	if (ctl->shared_lock) {
-		mutex_unlock(ctl->shared_lock);
-		mdss_mdp_ctl_notify(ctl, MDP_NOTIFY_FRAME_READY);
-		mutex_lock(ctl->shared_lock);
-	} else {
-		mdss_mdp_ctl_notify(ctl, MDP_NOTIFY_FRAME_READY);
-	}
-	ATRACE_END("frame_ready");
-
 	ctl->roi_bkup.w = ctl->roi.w;
 	ctl->roi_bkup.h = ctl->roi.h;
 
@@ -3211,17 +3201,6 @@ int mdss_mdp_display_commit(struct mdss_mdp_ctl *ctl, void *arg,
 	}
 	ATRACE_END("postproc_programming");
 
-	ATRACE_BEGIN("flush_kickoff");
-	mdss_mdp_ctl_write(ctl, MDSS_MDP_REG_CTL_FLUSH, ctl->flush_bits);
-	if (sctl && sctl->flush_bits) {
-		mdss_mdp_ctl_write(sctl, MDSS_MDP_REG_CTL_FLUSH,
-			sctl->flush_bits);
-		sctl->flush_bits = 0;
-	}
-	wmb();
-	ctl->flush_reg_data = ctl->flush_bits;
-	ctl->flush_bits = 0;
-
 	mdss_mdp_xlog_mixer_reg(ctl);
 
 	if (ctl->panel_data &&
@@ -3235,12 +3214,16 @@ int mdss_mdp_display_commit(struct mdss_mdp_ctl *ctl, void *arg,
 			sctl->panel_data->panel_info.roi = sctl->roi;
 	}
 
-	if (ctl->wait_pingpong) {
-		if (commit_cb)
-			commit_cb->commit_cb_fnc(
-				MDP_COMMIT_STAGE_WAIT_FOR_PINGPONG,
-				commit_cb->data);
+	ATRACE_BEGIN("frame_ready");
+	mdss_mdp_ctl_notify(ctl, MDP_NOTIFY_FRAME_CFG_DONE);
+	if (commit_cb)
+		commit_cb->commit_cb_fnc(
+			MDP_COMMIT_STAGE_SETUP_DONE,
+			commit_cb->data);
+	mdss_mdp_ctl_notify(ctl, MDP_NOTIFY_FRAME_READY);
+	ATRACE_END("frame_ready");
 
+	if (ctl->wait_pingpong) {
 		ATRACE_BEGIN("wait_pingpong");
 		ctl->wait_pingpong(ctl, NULL);
 		ATRACE_END("wait_pingpong");
@@ -3250,11 +3233,21 @@ int mdss_mdp_display_commit(struct mdss_mdp_ctl *ctl, void *arg,
 			sctl->wait_pingpong(sctl, NULL);
 			ATRACE_END("wait_pingpong sctl");
 		}
-
-		if (commit_cb)
-			commit_cb->commit_cb_fnc(MDP_COMMIT_STAGE_PINGPONG_DONE,
-				commit_cb->data);
 	}
+	if (commit_cb)
+		commit_cb->commit_cb_fnc(MDP_COMMIT_STAGE_READY_FOR_KICKOFF,
+			commit_cb->data);
+
+	ATRACE_BEGIN("flush_kickoff");
+	mdss_mdp_ctl_write(ctl, MDSS_MDP_REG_CTL_FLUSH, ctl->flush_bits);
+	if (sctl && sctl->flush_bits) {
+		mdss_mdp_ctl_write(sctl, MDSS_MDP_REG_CTL_FLUSH,
+			sctl->flush_bits);
+		sctl->flush_bits = 0;
+	}
+	wmb();
+	ctl->flush_reg_data = ctl->flush_bits;
+	ctl->flush_bits = 0;
 
 	if (sctl && !ctl->valid_roi && sctl->valid_roi) {
 		/*
