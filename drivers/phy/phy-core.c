@@ -150,15 +150,30 @@ int phy_init(struct phy *phy)
 {
 	int ret;
 
+	if (!phy->ops->init)
+		return -ENOTSUPP;
+
 	ret = phy_pm_runtime_get_sync(phy);
 	if (ret < 0 && ret != -ENOTSUPP)
 		return ret;
 
+	/*
+	 * If we got here, phy_pm_runtime_get_sync() returned
+	 * either 0 or -ENOTSUPP. In both cases the return value is
+	 * a "non-error" value. Specifically, -ENOTSUPP means no
+	 * phy_pm_runtime_sync support. We should ignore this value
+	 * and continue as usual, since phy_pm_runtime support is not
+	 * mandatory.
+	 */
+	ret = 0;
 	mutex_lock(&phy->mutex);
-	if (phy->init_count++ == 0 && phy->ops->init) {
+
+	if (phy->init_count++ == 0) {
 		ret = phy->ops->init(phy);
 		if (ret < 0) {
 			dev_err(&phy->dev, "phy init failed --> %d\n", ret);
+			/* reverting the init_count since init failed */
+			phy->init_count--;
 			goto out;
 		}
 	}
@@ -174,15 +189,30 @@ int phy_exit(struct phy *phy)
 {
 	int ret;
 
+	if (!phy->ops->exit)
+		return -ENOTSUPP;
+
 	ret = phy_pm_runtime_get_sync(phy);
 	if (ret < 0 && ret != -ENOTSUPP)
 		return ret;
 
+	/*
+	 * If we got here, phy_pm_runtime_get_sync() returned
+	 * either 0 or -ENOTSUPP. In both cases the return value is
+	 * a "non-error" value. Specifically, -ENOTSUPP means no
+	 * phy_pm_runtime_sync support. We should ignore this value
+	 * and continue as usual, since phy_pm_runtime support is not
+	 * mandatory.
+	 */
+	ret = 0;
 	mutex_lock(&phy->mutex);
-	if (--phy->init_count == 0 && phy->ops->exit) {
+
+	if (--phy->init_count == 0) {
 		ret = phy->ops->exit(phy);
 		if (ret < 0) {
 			dev_err(&phy->dev, "phy exit failed --> %d\n", ret);
+			/* reverting the init_count since exit failed */
+			phy->init_count++;
 			goto out;
 		}
 	}
@@ -196,17 +226,33 @@ EXPORT_SYMBOL_GPL(phy_exit);
 
 int phy_power_on(struct phy *phy)
 {
-	int ret = -ENOTSUPP;
+	int ret;
+
+	if (!phy->ops->power_on)
+		return -ENOTSUPP;
 
 	ret = phy_pm_runtime_get_sync(phy);
 	if (ret < 0 && ret != -ENOTSUPP)
 		return ret;
 
+	/*
+	 * If we got here, phy_pm_runtime_get_sync() returned
+	 * either 0 or -ENOTSUPP. In both cases the return value is
+	 * a "non-error" value. Specifically, -ENOTSUPP means no
+	 * phy_pm_runtime_sync support. We should ignore this value
+	 * and continue as usual, since phy_pm_runtime support is not
+	 * mandatory.
+	 */
+	ret = 0;
 	mutex_lock(&phy->mutex);
-	if (phy->power_count++ == 0 && phy->ops->power_on) {
+
+	if (phy->power_count++ == 0) {
 		ret = phy->ops->power_on(phy);
 		if (ret < 0) {
-			dev_err(&phy->dev, "phy poweron failed --> %d\n", ret);
+			dev_err(&phy->dev, "phy power_on failed --> %d\n",
+				ret);
+			/* reverting the power_count since power_on failed */
+			phy->power_count--;
 			goto out;
 		}
 	}
@@ -220,13 +266,20 @@ EXPORT_SYMBOL_GPL(phy_power_on);
 
 int phy_power_off(struct phy *phy)
 {
-	int ret = -ENOTSUPP;
+	int ret = 0;
+
+	if (!phy->ops->power_off)
+		return -ENOTSUPP;
 
 	mutex_lock(&phy->mutex);
-	if (--phy->power_count == 0 && phy->ops->power_off) {
+
+	if (--phy->power_count == 0) {
 		ret =  phy->ops->power_off(phy);
 		if (ret < 0) {
-			dev_err(&phy->dev, "phy poweroff failed --> %d\n", ret);
+			dev_err(&phy->dev, "phy power_off failed --> %d\n",
+				ret);
+			/* reverting the power_count since power_off failed */
+			phy->power_count++;
 			goto out;
 		}
 	}
@@ -241,10 +294,10 @@ EXPORT_SYMBOL_GPL(phy_power_off);
 
 int phy_suspend(struct phy *phy)
 {
-	int ret = -ENOTSUPP;
+	int ret = 0;
 
 	if (!phy->ops->suspend)
-		return ret;
+		return -ENOTSUPP;
 
 	mutex_lock(&phy->mutex);
 
@@ -265,10 +318,10 @@ EXPORT_SYMBOL(phy_suspend);
 
 int phy_resume(struct phy *phy)
 {
-	int ret = -ENOTSUPP;
+	int ret = 0;
 
 	if (!phy->ops->resume)
-		return ret;
+		return -ENOTSUPP;
 
 	mutex_lock(&phy->mutex);
 
