@@ -466,14 +466,11 @@ static irqreturn_t kxcjk1013_trigger_handler(int irq, void *p)
 			 indio_dev->masklength) {
 		ret = kxcjk1013_get_acc_reg(data, bit);
 		if (ret < 0) {
-			kxcjk1013_chip_ack_intr(data);
 			mutex_unlock(&data->mutex);
 			goto err;
 		}
 		data->buffer[i++] = ret;
 	}
-
-	kxcjk1013_chip_ack_intr(data);
 
 	mutex_unlock(&data->mutex);
 
@@ -482,6 +479,17 @@ err:
 	iio_trigger_notify_done(indio_dev->trig);
 
 	return IRQ_HANDLED;
+}
+
+static int kxcjk1013_trig_try_reen(struct iio_trigger *trig)
+{
+	struct iio_dev *indio_dev = iio_trigger_get_drvdata(trig);
+	struct kxcjk1013_data *data = iio_priv(indio_dev);
+	int ret;
+
+	ret = kxcjk1013_chip_ack_intr(data);
+
+	return ret;
 }
 
 static int kxcjk1013_data_rdy_trigger_set_state(struct iio_trigger *trig,
@@ -506,6 +514,7 @@ static int kxcjk1013_data_rdy_trigger_set_state(struct iio_trigger *trig,
 
 static const struct iio_trigger_ops kxcjk1013_trigger_ops = {
 	.set_trigger_state = kxcjk1013_data_rdy_trigger_set_state,
+	.try_reenable = kxcjk1013_trig_try_reen,
 	.owner = THIS_MODULE,
 };
 
@@ -657,8 +666,9 @@ static int kxcjk1013_probe(struct i2c_client *client,
 	data->trig_mode = true;
 
 	ret = devm_request_irq(&client->dev, client->irq,
-			iio_trigger_generic_data_rdy_poll,
-			IRQF_TRIGGER_RISING, KXCJK1013_IRQ_NAME, trig);
+				iio_trigger_generic_data_rdy_poll,
+				IRQF_TRIGGER_RISING | IRQF_ONESHOT,
+				KXCJK1013_IRQ_NAME, trig);
 	if (ret) {
 		dev_err(&client->dev, "unable to request IRQ\n");
 		goto err_trigger_free;
