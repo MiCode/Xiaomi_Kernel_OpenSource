@@ -90,13 +90,22 @@ struct sensors_classdev {
 	int			fifo_reserved_event_count;
 	int			fifo_max_event_count;
 	unsigned int		enabled;
+	unsigned int		batch_enable;
+	unsigned int		batch_mode;
 	unsigned int		delay_msec;
+	unsigned int		batch_timeout_ms;
 	/* enable and disable the sensor handle*/
 	int	(*sensors_enable)(struct sensors_classdev *sensors_cdev,
 					unsigned int enabled);
 	int	(*sensors_poll_delay)(struct sensors_classdev *sensors_cdev,
 					unsigned int delay_msec);
 	int	(*sensors_self_test)(struct sensors_classdev *sensors_cdev);
+	int	(*sensors_batch)(struct sensors_classdev *sensor_cdev,
+					unsigned int enable,
+					unsigned int mode,
+					unsigned int period_ms,
+					unsigned int timeout_ms);
+	int	(*sensors_flush)(struct sensors_classdev *sensors_cdev);
 };
 
 extern int sensors_classdev_register(struct device *parent,
