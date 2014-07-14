@@ -263,7 +263,6 @@ enum mdss_mdp_sspp_chroma_samp_type {
 #define MDSS_MDP_REG_SCALE_INIT_PHASE_X			0x220
 #define MDSS_MDP_REG_SCALE_INIT_PHASE_Y			0x224
 
-#define MDSS_MDP_REG_VIG_CSC_0_BASE			0x280
 #define MDSS_MDP_REG_VIG_CSC_1_BASE			0x320
 
 #define MDSS_MDP_REG_VIG_HIST_CTL_BASE			0x2C4
