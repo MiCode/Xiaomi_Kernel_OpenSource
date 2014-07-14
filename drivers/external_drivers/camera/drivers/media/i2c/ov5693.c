@@ -1621,7 +1621,19 @@ static int ov5693_probe(struct i2c_client *client,
 			const struct i2c_device_id *id)
 {
 	struct ov5693_device *dev;
+	int i2c;
 	int ret = 0;
+
+	/* Firmware workaround: Some modules use a "secondary default"
+	 * address of 0x10 which doesn't appear on schematics, and
+	 * some BIOS versions haven't gotten the memo.  Work around
+	 * via config. */
+	i2c = gmin_get_var_int(&client->dev, "I2CAddr", -1);
+	if (i2c != -1) {
+		dev_info(&client->dev, "Overriding firmware-provided I2C address (0x%x) with 0x%x\n",
+			 client->addr, i2c);
+		client->addr = i2c;
+	}
 
 	dev = kzalloc(sizeof(*dev), GFP_KERNEL);
 	if (!dev) {

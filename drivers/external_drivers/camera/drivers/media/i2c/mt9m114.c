@@ -501,12 +501,20 @@ static int gpio_ctrl(struct v4l2_subdev *sd, bool flag)
 	if (dev->platform_data->gpio_ctrl)
 		return dev->platform_data->gpio_ctrl(sd, flag);
 
+	/* Note: current modules wire only one GPIO signal (RESET#),
+	 * but the schematic wires up two to the connector.  BIOS
+	 * versions have been unfortunately inconsistent with which
+	 * ACPI index RESET# is on, so hit both */
+
 	if (flag) {
 		ret = dev->platform_data->gpio0_ctrl(sd, 0);
+		ret = dev->platform_data->gpio1_ctrl(sd, 0);
 		msleep(60);
 		ret |= dev->platform_data->gpio0_ctrl(sd, 1);
+		ret |= dev->platform_data->gpio1_ctrl(sd, 1);
 	} else {
 		ret = dev->platform_data->gpio0_ctrl(sd, 0);
+		ret = dev->platform_data->gpio1_ctrl(sd, 0);
 	}
 
 	return ret;
@@ -1874,7 +1882,7 @@ MODULE_DEVICE_TABLE(i2c, mt9m114_id);
 
 static struct acpi_device_id mt9m114_acpi_match[] = {
 	{ "INT33F0" },
-	{ "APTN1040" },
+	{ "CRMT1040" },
         {},
 };
 MODULE_DEVICE_TABLE(acpi, mt9m114_acpi_match);
