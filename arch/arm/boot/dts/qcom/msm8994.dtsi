@@ -1234,7 +1234,6 @@
 				<61 512 0 0>,
 				<61 512 240000 960000>;
 
-		qcom,reset_hsphy_sleep_clk_on_init;
 		qcom,power-collapse-on-cable-disconnect;
 		qcom,por-after-power-collapse;
 
@@ -1242,11 +1241,10 @@
 			 <&clock_gcc clk_gcc_sys_noc_usb3_axi_clk>,
 			 <&clock_gcc clk_gcc_usb30_mock_utmi_clk>,
 			 <&clock_gcc clk_gcc_usb30_sleep_clk>,
-			 <&clock_gcc clk_gcc_usb2_hs_phy_sleep_clk>,
 			 <&clock_rpm clk_ln_bb_clk>,
 			 <&clock_rpm clk_cxo_dwc3_clk>;
 		clock-names = "core_clk", "iface_clk", "utmi_clk", "sleep_clk",
-				"phy_sleep_clk", "ref_clk", "xo";
+				"ref_clk", "xo";
 
 		dwc3@f9200000 {
 			compatible = "synopsys,dwc3";
