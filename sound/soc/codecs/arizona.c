@@ -1235,8 +1235,8 @@ int arizona_hp_ev(struct snd_soc_dapm_widget *w,
 	priv->arizona->hp_ena &= ~mask;
 	priv->arizona->hp_ena |= val;
 
-	/* Force off if HPDET magic is active */
-	if (priv->arizona->hpdet_magic ||
+	/* Force off if HPDET clamp is active */
+	if (priv->arizona->hpdet_clamp ||
 	    priv->arizona->hp_impedance <= priv->arizona->pdata.hpdet_short_circuit_imp)
 		val = 0;
 
