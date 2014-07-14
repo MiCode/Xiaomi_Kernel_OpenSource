@@ -99,14 +99,22 @@ struct wcd9xxx_spmi_map map;
 void wcd9xxx_spmi_enable_irq(int irq)
 {
 	pr_debug("%s: irqno =%d\n", __func__, irq);
-	if ((irq >= 0) && (irq <= 7))
+	if ((irq >= 0) && (irq <= 7)) {
+		snd_soc_update_bits(map.codec,
+				MSM8X16_WCD_A_DIGITAL_INT_EN_CLR,
+				(0x01 << irq), 0x00);
 		snd_soc_update_bits(map.codec,
 				MSM8X16_WCD_A_DIGITAL_INT_EN_SET,
 				(0x01 << irq), (0x01 << irq));
-	if ((irq > 7) && (irq <= 15))
+	}
+	if ((irq > 7) && (irq <= 15)) {
+		snd_soc_update_bits(map.codec,
+				MSM8X16_WCD_A_ANALOG_INT_EN_CLR,
+				(0x01 << (irq - 8)), 0x00);
 		snd_soc_update_bits(map.codec,
 				MSM8X16_WCD_A_ANALOG_INT_EN_SET,
 				(0x01 << (irq - 8)), (0x01 << (irq - 8)));
+	}
 
 	if (!(map.mask[BIT_BYTE(irq)] & (BYTE_BIT_MASK(irq))))
 		return;
@@ -120,14 +128,23 @@ void wcd9xxx_spmi_enable_irq(int irq)
 void wcd9xxx_spmi_disable_irq(int irq)
 {
 	pr_debug("%s: irqno =%d\n", __func__, irq);
-	if ((irq >= 0) && (irq <= 7))
+	if ((irq >= 0) && (irq <= 7)) {
 		snd_soc_update_bits(map.codec,
 				MSM8X16_WCD_A_DIGITAL_INT_EN_SET,
-				(0x01 << irq), 0x00);
-	if ((irq > 7) && (irq <= 15))
+				(0x01 << (irq)), 0x00);
+		snd_soc_update_bits(map.codec,
+				MSM8X16_WCD_A_DIGITAL_INT_EN_CLR,
+				(0x01 << irq), (0x01 << irq));
+	}
+
+	if ((irq > 7) && (irq <= 15)) {
 		snd_soc_update_bits(map.codec,
 				MSM8X16_WCD_A_ANALOG_INT_EN_SET,
 				(0x01 << (irq - 8)), 0x00);
+		snd_soc_update_bits(map.codec,
+				MSM8X16_WCD_A_ANALOG_INT_EN_CLR,
+				(0x01 << (irq - 8)), (0x01 << (irq - 8)));
+	}
 
 	if (map.mask[BIT_BYTE(irq)] & (BYTE_BIT_MASK(irq)))
 		return;

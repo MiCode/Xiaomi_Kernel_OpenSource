@@ -673,10 +673,11 @@ static bool wcd_check_cross_conn(struct wcd_mbhc *mbhc)
 	u16 result1, swap_res;
 	struct snd_soc_codec *codec = mbhc->codec;
 	enum wcd_mbhc_plug_type plug_type = mbhc->current_plug;
-	s16 reg, reg1;
+	s16 reg, reg1, reg2;
 
 	reg = snd_soc_read(codec, MSM8X16_WCD_A_ANALOG_MBHC_FSM_CTL);
 	reg1 = snd_soc_read(codec, MSM8X16_WCD_A_ANALOG_MBHC_DET_CTL_2);
+	reg2 = snd_soc_read(codec, MSM8X16_WCD_A_ANALOG_MICB_2_EN);
 	/*
 	 * Check if there is any cross connection,
 	 * Micbias and schmitt trigger (HPHL-HPHR)
@@ -702,11 +703,9 @@ static bool wcd_check_cross_conn(struct wcd_mbhc *mbhc)
 		pr_debug("%s: No Cross connection found\n", __func__);
 	}
 
-	/* Disable micbias and schmitt trigger */
+	/* Disable schmitt trigger and restore micbias */
+	snd_soc_write(codec, MSM8X16_WCD_A_ANALOG_MICB_2_EN, reg2);
 	snd_soc_write(codec, MSM8X16_WCD_A_ANALOG_MBHC_DET_CTL_2, reg1);
-	snd_soc_update_bits(codec,
-			MSM8X16_WCD_A_ANALOG_MICB_2_EN,
-			0x80, 0x00);
 	snd_soc_write(codec, MSM8X16_WCD_A_ANALOG_MBHC_FSM_CTL, reg);
 	pr_debug("%s: leave, plug type: %d\n", __func__,  plug_type);
 
@@ -926,7 +925,7 @@ static void wcd_mbhc_detect_plug_type(struct wcd_mbhc *mbhc)
 			goto exit;
 		}
 	} else {
-		if (!result1 && !result2)
+		if (!result1 && !(result2 & 0x01))
 			plug_type = MBHC_PLUG_TYPE_HEADPHONE;
 		else {
 			plug_type = MBHC_PLUG_TYPE_INVALID;
@@ -1315,7 +1314,6 @@ static int wcd_mbhc_initialise(struct wcd_mbhc *mbhc)
 	wcd9xxx_spmi_enable_irq(mbhc->intr_ids->mbhc_sw_intr);
 	wcd9xxx_spmi_enable_irq(mbhc->intr_ids->mbhc_btn_press_intr);
 	wcd9xxx_spmi_enable_irq(mbhc->intr_ids->mbhc_btn_release_intr);
-	wcd9xxx_spmi_enable_irq(mbhc->intr_ids->mbhc_hs_ins_rem_intr);
 	wcd9xxx_spmi_enable_irq(mbhc->intr_ids->hph_left_ocp);
 	wcd9xxx_spmi_enable_irq(mbhc->intr_ids->hph_right_ocp);
 	pr_debug("%s: leave\n", __func__);
@@ -1468,6 +1466,7 @@ int wcd_mbhc_init(struct wcd_mbhc *mbhc, struct snd_soc_codec *codec,
 		       mbhc->intr_ids->mbhc_hs_ins_rem_intr);
 		goto err_mbhc_hs_ins_rem_irq;
 	}
+	wcd9xxx_spmi_disable_irq(mbhc->intr_ids->mbhc_hs_ins_rem_intr);
 
 	ret = wcd9xxx_spmi_request_irq(mbhc->intr_ids->hph_left_ocp,
 				  wcd_mbhc_hphl_ocp_irq, "HPH_L OCP detect",
