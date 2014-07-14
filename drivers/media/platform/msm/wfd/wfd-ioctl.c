@@ -294,6 +294,11 @@ static int wfd_allocate_input_buffers(struct wfd_device *wfd_dev,
 		mpair = kzalloc(sizeof(*mpair), GFP_KERNEL);
 		enc_mregion = kzalloc(sizeof(*enc_mregion), GFP_KERNEL);
 		mdp_mregion = kzalloc(sizeof(*enc_mregion), GFP_KERNEL);
+		if (!mpair || !enc_mregion || !mdp_mregion) {
+			WFD_MSG_ERR("%s: failed to alloc memory\n", __func__);
+			goto alloc_fail;
+		}
+
 		enc_mregion->size = ALIGN(inst->input_buf_size, SZ_4K);
 
 		rc = wfd_allocate_ion_buffer(wfd_dev->ion_client,
@@ -543,6 +548,12 @@ static int wfd_vidbuf_buf_init(struct vb2_buffer *vb)
 		(struct wfd_device *)video_drvdata(priv_data);
 	struct mem_info *minfo = vb2_plane_cookie(vb, 0);
 	struct mem_region mregion;
+
+	if (!minfo || !inst) {
+		WFD_MSG_ERR("%s: invalid arguments\n", __func__);
+		return -EINVAL;
+	}
+
 	mregion.fd = minfo->fd;
 	mregion.offset = minfo->offset;
 	mregion.cookie = (u32)vb;
@@ -755,6 +766,12 @@ static void wfd_vidbuf_buf_queue(struct vb2_buffer *vb)
 	struct wfd_inst *inst = file_to_inst(priv_data);
 	struct mem_region mregion;
 	struct mem_info *minfo = vb2_plane_cookie(vb, 0);
+
+	if (!minfo) {
+		WFD_MSG_ERR("%s: invalid minfo\n", __func__);
+		return;
+	}
+
 	mregion.fd = minfo->fd;
 	mregion.offset = minfo->offset;
 	mregion.cookie = (u32)vb;
@@ -933,6 +950,10 @@ static int wfd_register_out_buf(struct wfd_inst *inst,
 	if (!minfo) {
 		minfo_entry = kzalloc(sizeof(struct mem_info_entry),
 				GFP_KERNEL);
+		if (!minfo_entry) {
+			WFD_MSG_ERR("%s: failed to allocate mem\n", __func__);
+			return -EINVAL;
+		}
 		if (copy_from_user(&minfo_entry->minfo, (void *)b->reserved,
 					sizeof(struct mem_info))) {
 			WFD_MSG_ERR(" copy_from_user failed. Populate"
