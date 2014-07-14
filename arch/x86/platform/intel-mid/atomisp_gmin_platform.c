@@ -9,6 +9,7 @@
 #include <linux/vlv2_plat_clock.h>
 #include <linux/regulator/consumer.h>
 #include <linux/gpio/consumer.h>
+#include <linux/gpio.h>
 #include <linux/platform_device.h>
 #include <linux/atomisp_platform.h>
 #include <linux/atomisp_gmin_platform.h>
@@ -78,6 +79,16 @@ static const struct atomisp_platform_data pdata = {
 	.subdevs = pdata_subdevs,
 	.spid = &spid,
 };
+
+/*
+ * Something of a hack.  The ECS E7 board drives camera 2.8v from an
+ * external regulator instead of the PMIC.  There's a gmin_CamV2P8
+ * config variable that specifies the GPIO to handle this particular
+ * case, but this needs a broader architecture for handling camera
+ * power.
+ */
+enum { V2P8_GPIO_UNSET = -2, V2P8_GPIO_NONE = -1 };
+static int v2p8_gpio = V2P8_GPIO_UNSET;
 
 /*
  * Legacy/stub behavior copied from upstream platform_camera.c.  The
@@ -458,10 +469,30 @@ int gmin_v1p8_ctrl(struct v4l2_subdev *subdev, int on)
 int gmin_v2p8_ctrl(struct v4l2_subdev *subdev, int on)
 {
 	struct gmin_subdev *gs = find_gmin_subdev(subdev);
+	int ret;
+
+	if (v2p8_gpio == V2P8_GPIO_UNSET) {
+		v2p8_gpio = gmin_get_var_int(NULL, "V2P8GPIO", V2P8_GPIO_NONE);
+		if (v2p8_gpio != V2P8_GPIO_NONE) {
+			pr_info("atomisp_gmin_platform: 2.8v power on GPIO %d\n",
+				v2p8_gpio);
+			ret = gpio_request(v2p8_gpio, "camera_v2p8");
+			if (!ret)
+				ret = gpio_direction_output(v2p8_gpio, 0);
+			if (ret)
+				pr_err("V2P8 GPIO initialization failed\n");
+		}
+	}
+
 
 	if (gs && gs->v2p8_on == on)
 		return 0;
 	gs->v2p8_on = on;
+
+	if (gs && v2p8_gpio >= 0) {
+		gpio_set_value(v2p8_gpio, on);
+		return 0;
+	}
 
 	if (gs && gs->v2p8_reg) {
 		if (on)
