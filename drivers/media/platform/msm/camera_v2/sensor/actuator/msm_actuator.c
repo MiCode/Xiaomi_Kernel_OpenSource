@@ -45,7 +45,7 @@ static int32_t msm_actuator_piezo_set_default_focus(
 	struct msm_camera_i2c_reg_setting reg_setting;
 	CDBG("Enter\n");
 
-	if (a_ctrl->curr_step_pos != 0 || !a_ctrl->valid_position) {
+	if (a_ctrl->curr_step_pos != 0) {
 		a_ctrl->i2c_tbl_index = 0;
 		a_ctrl->func_tbl->actuator_parse_i2c_params(a_ctrl,
 			a_ctrl->initial_code, 0, 0);
@@ -64,7 +64,6 @@ static int32_t msm_actuator_piezo_set_default_focus(
 		}
 		a_ctrl->i2c_tbl_index = 0;
 		a_ctrl->curr_step_pos = 0;
-		a_ctrl->valid_position = 1;
 	}
 	CDBG("Exit\n");
 	return rc;
@@ -181,7 +180,6 @@ static int32_t msm_actuator_init_focus(struct msm_actuator_ctrl_t *a_ctrl,
 	}
 
 	a_ctrl->curr_step_pos = 0;
-	a_ctrl->valid_position = 0;
 	/*
 	 * Recover register addr_type after the init
 	 * settings are written.
@@ -264,7 +262,6 @@ static int32_t msm_actuator_piezo_move_focus(
 	}
 	a_ctrl->i2c_tbl_index = 0;
 	a_ctrl->curr_step_pos = dest_step_position;
-	a_ctrl->valid_position = 1;
 	CDBG("Exit\n");
 	return rc;
 }
@@ -295,7 +292,7 @@ static int32_t msm_actuator_move_focus(
 
 	CDBG("called, dir %d, num_steps %d\n", dir, num_steps);
 
-	if (dest_step_pos == a_ctrl->curr_step_pos && a_ctrl->valid_position)
+	if (dest_step_pos == a_ctrl->curr_step_pos)
 		return rc;
 
 	if ((sign_dir > MSM_ACTUATOR_MOVE_SIGNED_NEAR) ||
@@ -348,7 +345,6 @@ static int32_t msm_actuator_move_focus(
 			a_ctrl->curr_region_index += sign_dir;
 		}
 		a_ctrl->curr_step_pos = target_step_pos;
-		a_ctrl->valid_position = 1;
 	}
 
 	move_params->curr_lens_pos = curr_lens_pos;
@@ -379,7 +375,6 @@ static int32_t msm_actuator_park_lens(struct msm_actuator_ctrl_t *a_ctrl)
 		(!a_ctrl->park_lens.max_step) ||
 		(!a_ctrl->step_position_table) ||
 		(!a_ctrl->i2c_reg_tbl) ||
-		(!a_ctrl->valid_position) ||
 		(!a_ctrl->func_tbl) ||
 		(!a_ctrl->func_tbl->actuator_parse_i2c_params)) {
 		pr_err("%s:%d Failed to park lens.\n",
@@ -488,7 +483,7 @@ static int32_t msm_actuator_set_default_focus(
 	int32_t rc = 0;
 	CDBG("Enter\n");
 
-	if (a_ctrl->curr_step_pos != 0 || !a_ctrl->valid_position)
+	if (a_ctrl->curr_step_pos != 0)
 		rc = a_ctrl->func_tbl->actuator_move_focus(a_ctrl, move_params);
 	CDBG("Exit\n");
 	return rc;
@@ -549,7 +544,6 @@ static int32_t msm_actuator_power_down(struct msm_actuator_ctrl_t *a_ctrl)
 		a_ctrl->i2c_reg_tbl = NULL;
 		a_ctrl->i2c_tbl_index = 0;
 		a_ctrl->actuator_state = ACTUATOR_POWER_DOWN;
-		a_ctrl->valid_position = 0;
 	}
 	CDBG("Exit\n");
 	return rc;
@@ -721,7 +715,6 @@ static int32_t msm_actuator_set_param(struct msm_actuator_ctrl_t *a_ctrl,
 			actuator_init_step_table(a_ctrl, set_info);
 
 	a_ctrl->curr_step_pos = 0;
-	a_ctrl->valid_position = 0;
 	a_ctrl->curr_region_index = 0;
 	a_ctrl->actuator_state = ACTUATOR_POWER_UP;
 	CDBG("Exit\n");
@@ -1042,7 +1035,6 @@ static int32_t msm_actuator_power_up(struct msm_actuator_ctrl_t *a_ctrl)
 		}
 	}
 
-	a_ctrl->valid_position = 0;
 	CDBG("Exit\n");
 	return rc;
 }
@@ -1114,7 +1106,6 @@ static int32_t msm_actuator_i2c_probe(struct i2c_client *client,
 	act_ctrl_t->i2c_driver = &msm_actuator_i2c_driver;
 	act_ctrl_t->i2c_client.client = client;
 	act_ctrl_t->curr_step_pos = 0,
-	act_ctrl_t->valid_position = 0;
 	act_ctrl_t->curr_region_index = 0,
 	act_ctrl_t->actuator_state = ACTUATOR_POWER_DOWN;
 	/* Set device type as I2C */

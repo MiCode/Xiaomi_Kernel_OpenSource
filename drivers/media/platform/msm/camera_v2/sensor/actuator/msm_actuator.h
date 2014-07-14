@@ -102,7 +102,6 @@ struct msm_actuator_ctrl_t {
 	uint32_t subdev_id;
 	enum msm_actuator_state_t actuator_state;
 	struct msm_actuator_vreg vreg_cfg;
-	uint32_t valid_position;
 	struct park_lens_data_t park_lens;
 	uint32_t max_code_size;
 };
