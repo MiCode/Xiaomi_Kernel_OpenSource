@@ -55,8 +55,8 @@
 
 &dsi_dual_jdi_4k_video_0 {
 	qcom,mdss-dsi-bl-pmic-control-type = "bl_ctrl_pwm";
-	qcom,mdss-dsi-bl-pmic-pwm-frequency = <100>;
-	qcom,mdss-dsi-bl-pmic-bank-select = <0>;
+	qcom,mdss-dsi-bl-pmic-pwm-frequency = <50>;
+	qcom,mdss-dsi-bl-pmic-bank-select = <3>;
 	qcom,mdss-dsi-pwm-gpio = <&pmi8994_mpps 1 0>;
 };
 
@@ -713,8 +713,8 @@
 	mpp@a000 { /* MPP 1 */
 		/* Backlight PWM */
 		qcom,mode = <1>;	/* Digital output */
-		qcom,invert = <1>;	/* Enable invert */
-		qcom,src-sel = <0>;	/* FUNC GPIO */
+		qcom,invert = <0>;	/* Disable invert */
+		qcom,src-sel = <4>;	/* DTEST1 */
 		qcom,vin-sel = <0>;	/* VPH_PWR */
 		qcom,master-en = <1>;	/* Enable MPP */
 	};
