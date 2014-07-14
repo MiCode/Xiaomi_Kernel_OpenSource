@@ -984,9 +984,10 @@ static int _gbam_start_io(struct gbam_port *port, bool in)
 		queue_size = bam_mux_rx_q_size;
 		ep_complete = gbam_epout_complete;
 	}
-	spin_unlock_irqrestore(spinlock, flags);
+
 	ret = gbam_alloc_requests(ep, idle, queue_size, ep_complete,
-			GFP_KERNEL);
+			GFP_ATOMIC);
+	spin_unlock_irqrestore(spinlock, flags);
 	if (ret)
 		pr_err("%s: allocation failed\n", __func__);
 
