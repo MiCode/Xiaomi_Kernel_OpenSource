@@ -915,6 +915,48 @@ sound {
 	qcom,cdc-vdd-spkr-gpios = <&pm8226_gpios 3 0>;
 };
 
+* MSM8939 Slimbus ASoC Machine driver
+
+Required properties:
+- compatible : "qcom,msm8939-audio-codec"
+- qcom,model : The user-visible name of this sound card.
+- qcom,tapan-mclk-clk-freq : Tapan mclk Freq in Hz. currently only 9600000Hz
+				is supported.
+- pinctrl-states: the names of the pinctrl states that used by the driver to
+	configure the TLMM pins. The allowed states are subset of the following
+	list: "cdc_slim_lines_act", "cdc_slim_lines_sus",
+		"cross_conn_det_act","cross_conn_det_sus",
+		"cdc_vdd_spkr_act","cdc_vdd_spkr_sus";.
+- pinctrl-#: a list of pinctrl phandles for the different pinctrl states. Refer
+	to "Documentation/devicetree/bindings/pinctrl/pinctrl-bindings.txt" for the
+	pinctrl handles definitions. Each pinctrl-# corresponds to the respective
+	state name that appears under pinctrl-state list.
+
+
+Optional Properties:
+- qcom,cdc-us-euro-gpios : GPIO on which gnd/mic swap signal is coming.
+- qcom,cdc-vdd-spkr-gpios : GPIO which controls PA for VDD speaker
+- qcom,headset-jack-type-NC: Set if the headset jack type is NC (Normally Closed)
+
+Example:
+
+sound-9306 {
+	compatible = "qcom,msm8939-audio-codec";
+	qcom,model = "msm8939-tapan-snd-card";
+	qcom,tapan-mclk-clk-freq = <9600000>;
+	pinctrl-names = "cdc_slim_lines_act", "cdc_slim_lines_sus",
+			"cross_conn_det_act","cross_conn_det_sus",
+			"cdc_vdd_spkr_act","cdc_vdd_spkr_sus";
+	pinctrl-0 = <&cdc_slim_lines_act>;
+	pinctrl-1 = <&cdc_slim_lines_sus>;
+	pinctrl-2 = <&cross_conn_det_act>;
+	pinctrl-3 = <&cross_conn_det_sus>;
+	pinctrl-4 = <&cdc_vdd_spkr_act>;
+	pinctrl-5 = <&cdc_vdd_spkr_sus>;
+	qcom,cdc-us-euro-gpios = <&msm_gpio 120 0>;
+	qcom,cdc-vdd-spkr-gpios = <&msm_gpio 121 0>;
+	qcom,headset-jack-type-NC;
+};
 
 * MDM9630 ASoC Machine driver
 
