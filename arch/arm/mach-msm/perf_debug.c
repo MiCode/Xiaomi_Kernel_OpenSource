@@ -44,6 +44,7 @@ static char *descriptions =
 	"19 Perf: Enable pmuv3 on 32 bit kernel\n"
 	"20 msm: perf: set filter bits for cycle counter on krait\n"
 	"21 Perf: Fix hrtimer operation across hotplug\n"
+	"22 Perf: add perf user-mode permissions\n"
 ;
 
 static ssize_t desc_read(struct file *fp, char __user *buf,

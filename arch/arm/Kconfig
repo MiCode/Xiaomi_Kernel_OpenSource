@@ -1769,6 +1769,14 @@ config HW_PERF_EVENTS
 	  Enable hardware performance counter support for perf events. If
 	  disabled, perf events will use software events only.
 
+config PERF_EVENTS_USERMODE
+	bool "Enable usermode access for perf events"
+	depends on PERF_EVENTS
+	help
+	  Enable user-mode access to performance counters for perf events.
+	  If enabled, the access permissions allowing CPU performance
+	  counters to be accessed from user-mode are set.
+
 source "mm/Kconfig"
 
 config ARCH_MEMORY_PROBE
