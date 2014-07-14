@@ -88,6 +88,15 @@ config MSM_BIMC_BWMON
 	  has the capability to raise an IRQ when the count exceeds a
 	  programmable limit.
 
+config ARMBW_HWMON
+	tristate "ARM PMU Bandwidth monitor hardware"
+	depends on ARCH_MSM8916 || ARCH_MSM8226 || ARCH_MSM8610
+	help
+	  The PMU present on these ARM cores allow for the use of counters to
+	  monitor the traffic coming from each core to the bus. It also has the
+	  capability to raise an IRQ when the counter overflows, which can be
+	  used to get an IRQ when the count exceeds a certain value
+
 config DEVFREQ_GOV_MSM_BW_HWMON
 	tristate "HW monitor based governor for device BW"
 	depends on ARCH_MSM_KRAIT || ARCH_MSM_BIMC_BWMON
