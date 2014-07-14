@@ -59,13 +59,11 @@
 
 #define EXTRADATA_IDX(__num_planes) (__num_planes - 1)
 
-#define NUM_MBS_PER_SEC(__height, __width, __fps) ({\
-	(__height / 16) * (__width  / 16) * __fps; \
-})
+#define NUM_MBS_PER_SEC(__height, __width, __fps) \
+	(NUM_MBS_PER_FRAME(__height, __width) * __fps)
 
-#define NUM_MBS_PER_FRAME(__height, __width) ({\
-	((__height + 15) >> 4) * ((__width + 15) >> 4); \
-})
+#define NUM_MBS_PER_FRAME(__height, __width) \
+	((ALIGN(__height, 16) / 16) * (ALIGN(__width, 16) / 16))
 
 /* Default threshold to reduce the core frequency */
 #define DCVS_NOMINAL_THRESHOLD 8
@@ -106,7 +104,7 @@ enum vidc_core_state {
 	VIDC_CORE_INVALID
 };
 
-/*Donot change the enum values unless
+/* Do not change the enum values unless
  * you know what you are doing*/
 enum instance_state {
 	MSM_VIDC_CORE_UNINIT_DONE = 0x0001,
