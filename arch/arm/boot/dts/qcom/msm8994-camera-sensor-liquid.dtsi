@@ -48,6 +48,19 @@
 		qcom,cam-vreg-op-mode = <100000>;
 	};
 
+	ois0: qcom,ois@0 {
+		cell-index = <0>;
+		reg = <0x0>;
+		compatible = "qcom,ois";
+		qcom,cci-master = <0>;
+		cam_vaf-supply = <&pm8994_l23>;
+		qcom,cam-vreg-name = "cam_vaf";
+		qcom,cam-vreg-type = <0>;
+		qcom,cam-vreg-min-voltage = <2800000>;
+		qcom,cam-vreg-max-voltage = <2800000>;
+		qcom,cam-vreg-op-mode = <100000>;
+	};
+
 	eeprom0: qcom,eeprom@0 {
 		cell-index = <0>;
 		reg = <0x0>;
@@ -169,6 +182,7 @@
 		qcom,mount-angle = <0>;
                 qcom,eeprom-src = <&eeprom0>;
 		qcom,actuator-src = <&actuator0>;
+		qcom,ois-src = <&ois0>;
 		qcom,led-flash-src = <&led_flash0>;
 		cam_vdig-supply = <&pm8994_l27>;
 		cam_vio-supply = <&pm8994_lvs1>;
