@@ -22,6 +22,9 @@
 #define IPA_V1_1_CLK_RATE (100 * 1000 * 1000UL)
 #define IPA_V2_0_CLK_RATE_LOW (75 * 1000 * 1000UL)
 #define IPA_V2_0_CLK_RATE_HIGH (150 * 1000 * 1000UL)
+#define IPA_V1_MAX_HOLB_TMR_VAL (512 - 1)
+#define IPA_V2_0_MAX_HOLB_TMR_VAL (65536 - 1)
+#define IPA_V2_5_MAX_HOLB_TMR_VAL (4294967296 - 1)
 
 #define IPA_V2_0_BW_THRESHOLD_MBPS (800)
 
@@ -713,7 +716,8 @@ int ipa_get_ep_mapping(enum ipa_client_type client)
 		return -EINVAL;
 	}
 
-	if (ipa_ctx->ipa_hw_type == IPA_HW_v2_0)
+	if (ipa_ctx->ipa_hw_type == IPA_HW_v2_0 ||
+		ipa_ctx->ipa_hw_type == IPA_HW_v2_5)
 		hw_type_index = IPA_2_0;
 
 	return ep_mapping[hw_type_index][client];
@@ -2198,19 +2202,14 @@ static int _ipa_cfg_ep_hdr_ext_v1_1(u32 clnt_hdl,
 	return 0;
 }
 
-static int _ipa_cfg_ep_hdr_ext_v2_0(u32 clnt_hdl,
-				const struct ipa_ep_cfg_hdr_ext *ep_hdr_ext)
+static int _ipa_cfg_ep_hdr_ext(u32 clnt_hdl,
+		const struct ipa_ep_cfg_hdr_ext *ep_hdr_ext, u32 reg_val)
 {
-	u32 reg_val = 0;
 	u8 hdr_endianess = ep_hdr_ext->hdr_little_endian ? 0 : 1;
 
 	IPA_SETFIELD_IN_REG(reg_val, ep_hdr_ext->hdr_total_len_or_pad_offset,
 		IPA_ENDP_INIT_HDR_EXT_n_HDR_TOTAL_LEN_OR_PAD_OFFSET_SHFT,
 		IPA_ENDP_INIT_HDR_EXT_n_HDR_TOTAL_LEN_OR_PAD_OFFSET_BMSK);
-
-	IPA_SETFIELD_IN_REG(reg_val, ep_hdr_ext->hdr_pad_to_alignment,
-		IPA_ENDP_INIT_HDR_EXT_n_HDR_PAD_TO_ALIGNMENT_SHFT,
-		IPA_ENDP_INIT_HDR_EXT_n_HDR_PAD_TO_ALIGNMENT_BMSK);
 
 	IPA_SETFIELD_IN_REG(reg_val, ep_hdr_ext->hdr_payload_len_inc_padding,
 		IPA_ENDP_INIT_HDR_EXT_n_HDR_PAYLOAD_LEN_INC_PADDING_SHFT,
@@ -2234,6 +2233,30 @@ static int _ipa_cfg_ep_hdr_ext_v2_0(u32 clnt_hdl,
 	return 0;
 }
 
+static int _ipa_cfg_ep_hdr_ext_v2_0(u32 clnt_hdl,
+				const struct ipa_ep_cfg_hdr_ext *ep_hdr_ext)
+{
+	u32 reg_val = 0;
+
+	IPA_SETFIELD_IN_REG(reg_val, ep_hdr_ext->hdr_pad_to_alignment,
+		IPA_ENDP_INIT_HDR_EXT_n_HDR_PAD_TO_ALIGNMENT_SHFT,
+		IPA_ENDP_INIT_HDR_EXT_n_HDR_PAD_TO_ALIGNMENT_BMSK_v2_0);
+
+	return _ipa_cfg_ep_hdr_ext(clnt_hdl, ep_hdr_ext, reg_val);
+}
+
+static int _ipa_cfg_ep_hdr_ext_v2_5(u32 clnt_hdl,
+				const struct ipa_ep_cfg_hdr_ext *ep_hdr_ext)
+{
+	u32 reg_val = 0;
+
+	IPA_SETFIELD_IN_REG(reg_val, ep_hdr_ext->hdr_pad_to_alignment,
+		IPA_ENDP_INIT_HDR_EXT_n_HDR_PAD_TO_ALIGNMENT_SHFT,
+		IPA_ENDP_INIT_HDR_EXT_n_HDR_PAD_TO_ALIGNMENT_BMSK_v2_5);
+
+	return _ipa_cfg_ep_hdr_ext(clnt_hdl, ep_hdr_ext, reg_val);
+
+}
 /**
  * ipa_cfg_ep_hdr_ext() -  IPA end-point extended header configuration
  * @clnt_hdl:	[in] opaque client handle assigned by IPA to client
@@ -2677,7 +2700,8 @@ int ipa_cfg_ep_route(u32 clnt_hdl, const struct ipa_ep_cfg_route *ep_route)
 			ep_route->rt_tbl_hdl);
 
 	/* always use "default" routing table when programming EP ROUTE reg */
-	if (ipa_ctx->ipa_hw_type == IPA_HW_v2_0)
+	if (ipa_ctx->ipa_hw_type == IPA_HW_v2_0 ||
+		ipa_ctx->ipa_hw_type == IPA_HW_v2_5)
 		ipa_ctx->ep[clnt_hdl].rt_tbl_idx = IPA_v2_V4_APPS_RT_INDEX_LO;
 	else
 		ipa_ctx->ep[clnt_hdl].rt_tbl_idx = 0;
@@ -2708,10 +2732,22 @@ void _ipa_cfg_ep_holb_v1_1(u32 pipe_number,
 
 	ipa_write_reg(ipa_ctx->mmio,
 			IPA_ENDP_INIT_HOL_BLOCK_TIMER_N_OFST_v1_1(pipe_number),
-			ep_holb->tmr_val);
+			(u16)ep_holb->tmr_val);
 }
 
 void _ipa_cfg_ep_holb_v2_0(u32 pipe_number,
+			const struct ipa_ep_cfg_holb *ep_holb)
+{
+	ipa_write_reg(ipa_ctx->mmio,
+			IPA_ENDP_INIT_HOL_BLOCK_EN_N_OFST_v2_0(pipe_number),
+			ep_holb->en);
+
+	ipa_write_reg(ipa_ctx->mmio,
+			IPA_ENDP_INIT_HOL_BLOCK_TIMER_N_OFST_v2_0(pipe_number),
+			(u16)ep_holb->tmr_val);
+}
+
+void _ipa_cfg_ep_holb_v2_5(u32 pipe_number,
 			const struct ipa_ep_cfg_holb *ep_holb)
 {
 	ipa_write_reg(ipa_ctx->mmio,
@@ -2741,7 +2777,8 @@ int ipa_cfg_ep_holb(u32 clnt_hdl, const struct ipa_ep_cfg_holb *ep_holb)
 {
 	if (clnt_hdl >= IPA_NUM_PIPES ||
 	    ipa_ctx->ep[clnt_hdl].valid == 0 || ep_holb == NULL ||
-	    ep_holb->tmr_val > 511 || ep_holb->en > 1) {
+	    ep_holb->tmr_val > ipa_ctx->ctrl->max_holb_tmr_val ||
+	    ep_holb->en > 1) {
 		IPAERR("bad parm.\n");
 		return -EINVAL;
 	}
@@ -3251,6 +3288,41 @@ void ipa_bam_reg_dump(void)
 EXPORT_SYMBOL(ipa_bam_reg_dump);
 
 /**
+ * ipa_controller_shared_static_bind() - set the appropriate shared methods for
+ * for IPA HW version 2.0 and 2.5
+ *
+ *  @ctrl: data structure which holds the function pointers
+ */
+void ipa_controller_shared_static_bind(struct ipa_controller *ctrl)
+{
+	ctrl->ipa_sram_read_settings = _ipa_sram_settings_read_v2_0;
+	ctrl->ipa_cfg_ep_hdr = _ipa_cfg_ep_hdr_v2_0;
+	ctrl->ipa_cfg_ep_nat = _ipa_cfg_ep_nat_v2_0;
+	ctrl->ipa_cfg_ep_aggr = _ipa_cfg_ep_aggr_v2_0;
+	ctrl->ipa_cfg_ep_deaggr = _ipa_cfg_ep_deaggr_v2_0;
+	ctrl->ipa_cfg_ep_mode = _ipa_cfg_ep_mode_v2_0;
+	ctrl->ipa_cfg_ep_route = _ipa_cfg_ep_route_v2_0;
+	ctrl->ipa_cfg_route = _ipa_cfg_route_v2_0;
+	ctrl->ipa_cfg_ep_status = _ipa_cfg_ep_status_v2_0;
+	ctrl->ipa_cfg_ep_cfg = _ipa_cfg_ep_cfg_v2_0;
+	ctrl->ipa_cfg_ep_metadata_mask = _ipa_cfg_ep_metadata_mask_v2_0;
+	ctrl->ipa_clk_rate_hi = IPA_V2_0_CLK_RATE_HIGH;
+	ctrl->ipa_clk_rate_lo = IPA_V2_0_CLK_RATE_LOW;
+	ctrl->ipa_read_gen_reg = _ipa_read_gen_reg_v2_0;
+	ctrl->ipa_read_ep_reg = _ipa_read_ep_reg_v2_0;
+	ctrl->ipa_write_dbg_cnt = _ipa_write_dbg_cnt_v2_0;
+	ctrl->ipa_read_dbg_cnt = _ipa_read_dbg_cnt_v2_0;
+	ctrl->ipa_commit_flt = __ipa_commit_flt_v2;
+	ctrl->ipa_commit_rt = __ipa_commit_rt_v2;
+	ctrl->ipa_commit_hdr = __ipa_commit_hdr_v2;
+	ctrl->ipa_enable_clks = _ipa_enable_clks_v2_0;
+	ctrl->ipa_disable_clks = _ipa_disable_clks_v2_0;
+	ctrl->msm_bus_data_ptr = &ipa_bus_client_pdata_v2_0;
+	ctrl->ipa_cfg_ep_metadata = _ipa_cfg_ep_metadata_v2_0;
+	ctrl->clock_scaling_bw_threshold = IPA_V2_0_BW_THRESHOLD_MBPS;
+}
+
+/**
  * ipa_ctrl_static_bind() - set the appropriate methods for
  *  IPA Driver based on the HW version
  *
@@ -3291,6 +3363,8 @@ int ipa_controller_static_bind(struct ipa_controller *ctrl,
 		ctrl->ipa_disable_clks = _ipa_disable_clks_v1;
 		ctrl->msm_bus_data_ptr = &ipa_bus_client_pdata_v1_1;
 		ctrl->ipa_cfg_ep_metadata = _ipa_cfg_ep_metadata_v1_1;
+		ctrl->ipa_reg_base_ofst = IPA_REG_BASE_OFST_v2_0;
+		ctrl->max_holb_tmr_val = IPA_V1_MAX_HOLB_TMR_VAL;
 		break;
 	case (IPA_HW_v1_1):
 		ctrl->ipa_sram_read_settings = _ipa_sram_settings_read_v1_1;
@@ -3319,35 +3393,22 @@ int ipa_controller_static_bind(struct ipa_controller *ctrl,
 		ctrl->ipa_disable_clks = _ipa_disable_clks_v1;
 		ctrl->msm_bus_data_ptr = &ipa_bus_client_pdata_v1_1;
 		ctrl->ipa_cfg_ep_metadata = _ipa_cfg_ep_metadata_v1_1;
+		ctrl->ipa_reg_base_ofst = IPA_REG_BASE_OFST_v2_0;
+		ctrl->max_holb_tmr_val = IPA_V1_MAX_HOLB_TMR_VAL;
 		break;
 	case (IPA_HW_v2_0):
-		ctrl->ipa_sram_read_settings = _ipa_sram_settings_read_v2_0;
-		ctrl->ipa_cfg_ep_hdr = _ipa_cfg_ep_hdr_v2_0;
-		ctrl->ipa_cfg_ep_hdr_ext = _ipa_cfg_ep_hdr_ext_v2_0;
-		ctrl->ipa_cfg_ep_nat = _ipa_cfg_ep_nat_v2_0;
-		ctrl->ipa_cfg_ep_aggr = _ipa_cfg_ep_aggr_v2_0;
-		ctrl->ipa_cfg_ep_deaggr = _ipa_cfg_ep_deaggr_v2_0;
-		ctrl->ipa_cfg_ep_mode = _ipa_cfg_ep_mode_v2_0;
-		ctrl->ipa_cfg_ep_route = _ipa_cfg_ep_route_v2_0;
+		ipa_controller_shared_static_bind(ctrl);
 		ctrl->ipa_cfg_ep_holb = _ipa_cfg_ep_holb_v2_0;
-		ctrl->ipa_cfg_route = _ipa_cfg_route_v2_0;
-		ctrl->ipa_cfg_ep_status = _ipa_cfg_ep_status_v2_0;
-		ctrl->ipa_cfg_ep_cfg = _ipa_cfg_ep_cfg_v2_0;
-		ctrl->ipa_cfg_ep_metadata_mask = _ipa_cfg_ep_metadata_mask_v2_0;
-		ctrl->ipa_clk_rate_hi = IPA_V2_0_CLK_RATE_HIGH;
-		ctrl->ipa_clk_rate_lo = IPA_V2_0_CLK_RATE_LOW;
-		ctrl->ipa_read_gen_reg = _ipa_read_gen_reg_v2_0;
-		ctrl->ipa_read_ep_reg = _ipa_read_ep_reg_v2_0;
-		ctrl->ipa_write_dbg_cnt = _ipa_write_dbg_cnt_v2_0;
-		ctrl->ipa_read_dbg_cnt = _ipa_read_dbg_cnt_v2_0;
-		ctrl->ipa_commit_flt = __ipa_commit_flt_v2;
-		ctrl->ipa_commit_rt = __ipa_commit_rt_v2;
-		ctrl->ipa_commit_hdr = __ipa_commit_hdr_v2;
-		ctrl->ipa_enable_clks = _ipa_enable_clks_v2_0;
-		ctrl->ipa_disable_clks = _ipa_disable_clks_v2_0;
-		ctrl->msm_bus_data_ptr = &ipa_bus_client_pdata_v2_0;
-		ctrl->ipa_cfg_ep_metadata = _ipa_cfg_ep_metadata_v2_0;
-		ctrl->clock_scaling_bw_threshold = IPA_V2_0_BW_THRESHOLD_MBPS;
+		ctrl->ipa_reg_base_ofst = IPA_REG_BASE_OFST_v2_0;
+		ctrl->max_holb_tmr_val = IPA_V2_0_MAX_HOLB_TMR_VAL;
+		ctrl->ipa_cfg_ep_hdr_ext = _ipa_cfg_ep_hdr_ext_v2_0;
+		break;
+	case (IPA_HW_v2_5):
+		ipa_controller_shared_static_bind(ctrl);
+		ctrl->ipa_cfg_ep_holb = _ipa_cfg_ep_holb_v2_5;
+		ctrl->ipa_reg_base_ofst = IPA_REG_BASE_OFST_v2_5;
+		ctrl->max_holb_tmr_val = IPA_V2_5_MAX_HOLB_TMR_VAL;
+		ctrl->ipa_cfg_ep_hdr_ext = _ipa_cfg_ep_hdr_ext_v2_5;
 		break;
 	default:
 		return -EPERM;

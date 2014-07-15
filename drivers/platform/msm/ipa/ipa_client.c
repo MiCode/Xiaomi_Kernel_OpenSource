@@ -528,9 +528,17 @@ int ipa_wdi_init(void)
 
 	mutex_init(&ipa_ctx->wdi.lock);
 
-	phys_addr = ipa_ctx->ipa_wrapper_base + IPA_REG_BASE_OFST +
-		IPA_SRAM_DIRECT_ACCESS_N_OFST_v2_0(
-				ipa_ctx->smem_restricted_bytes / 4);
+	if (ipa_ctx->ipa_hw_type == IPA_HW_v2_5) {
+		phys_addr = ipa_ctx->ipa_wrapper_base +
+			ipa_ctx->ctrl->ipa_reg_base_ofst +
+			IPA_SRAM_SW_FIRST_v2_5;
+	} else {
+		phys_addr = ipa_ctx->ipa_wrapper_base +
+			ipa_ctx->ctrl->ipa_reg_base_ofst +
+			IPA_SRAM_DIRECT_ACCESS_N_OFST_v2_0(
+			ipa_ctx->smem_restricted_bytes / 4);
+	}
+
 	ipa_ctx->wdi.ipa_sram_mmio = ioremap(phys_addr, IPA_RAM_WDI_SMEM_SIZE);
 	if (!ipa_ctx->wdi.ipa_sram_mmio) {
 		IPAERR("fail to ioremap IPA SRAM\n");
@@ -1264,9 +1272,10 @@ int ipa_enable_data_path(u32 clnt_hdl)
 	if (ipa_ctx->ipa_hw_mode == IPA_HW_MODE_VIRTUAL)
 		return 0;
 
-	/* On IPA 2.0, disable HOLB */
-	if (ipa_ctx->ipa_hw_type == IPA_HW_v2_0 &&
-	    IPA_CLIENT_IS_CONS(ep->client)) {
+	/* From IPA 2.0, disable HOLB */
+	if ((ipa_ctx->ipa_hw_type == IPA_HW_v2_0 ||
+		ipa_ctx->ipa_hw_type == IPA_HW_v2_5) &&
+		IPA_CLIENT_IS_CONS(ep->client)) {
 		memset(&holb_cfg, 0 , sizeof(holb_cfg));
 		holb_cfg.en = IPA_HOLB_TMR_DIS;
 		holb_cfg.tmr_val = 0;
@@ -1301,8 +1310,9 @@ int ipa_disable_data_path(u32 clnt_hdl)
 		return 0;
 
 	/* On IPA 2.0, enable HOLB in order to prevent IPA from stalling */
-	if (ipa_ctx->ipa_hw_type == IPA_HW_v2_0 &&
-	    IPA_CLIENT_IS_CONS(ep->client)) {
+	if ((ipa_ctx->ipa_hw_type == IPA_HW_v2_0 ||
+		ipa_ctx->ipa_hw_type == IPA_HW_v2_5) &&
+		IPA_CLIENT_IS_CONS(ep->client)) {
 		memset(&holb_cfg, 0, sizeof(holb_cfg));
 		holb_cfg.en = IPA_HOLB_TMR_EN;
 		holb_cfg.tmr_val = 0;
@@ -1519,8 +1529,9 @@ int ipa_connect(const struct ipa_connect_params *in, struct ipa_sps_params *sps,
 	IPADBG("Data FIFO pa=%pa, size=%d\n", &ep->connect.data.phys_base,
 	       ep->connect.data.size);
 
-	if (ipa_ctx->ipa_hw_type == IPA_HW_v2_0 &&
-					IPA_CLIENT_IS_USB_CONS(in->client))
+	if ((ipa_ctx->ipa_hw_type == IPA_HW_v2_0 ||
+		ipa_ctx->ipa_hw_type == IPA_HW_v2_5) &&
+		IPA_CLIENT_IS_USB_CONS(in->client))
 		ep->connect.event_thresh = IPA_USB_EVENT_THRESHOLD;
 	else
 		ep->connect.event_thresh = IPA_EVENT_THRESHOLD;

@@ -85,7 +85,8 @@ static int ipa_nat_mmap(struct file *filp, struct vm_area_struct *vma)
 			result = -EINVAL;
 			goto bail;
 		}
-		phys_addr = ipa_ctx->ipa_wrapper_base + IPA_REG_BASE_OFST +
+		phys_addr = ipa_ctx->ipa_wrapper_base +
+			ipa_ctx->ctrl->ipa_reg_base_ofst +
 			IPA_SRAM_DIRECT_ACCESS_N_OFST(IPA_NAT_PHYS_MEM_OFFSET);
 
 		if (remap_pfn_range(
