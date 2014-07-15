@@ -8,3 +8,4 @@ CFLAGS_scm.o :=$(call as-instr,.arch_extension sec,-DREQUIRES_SEC=1)
 obj-$(CONFIG_QCOM_SCM_ERRATA) += scm-errata.o
 obj-$(CONFIG_QCOM_SCM)  +=      scm.o scm-boot.o
 obj-$(CONFIG_QCOM_SCM_XPU) += scm-xpu.o
+obj-$(CONFIG_QCOM_WATCHDOG_V2) += watchdog_v2.o
