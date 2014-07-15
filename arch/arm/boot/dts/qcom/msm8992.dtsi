@@ -150,7 +150,7 @@
 };
 
 #include "msm-gdsc.dtsi"
-
+#include "msm8992-mdss.dtsi"
 &soc {
 	#address-cells = <1>;
 	#size-cells = <1>;
