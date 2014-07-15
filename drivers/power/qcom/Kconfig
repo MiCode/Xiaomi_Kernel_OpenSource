@@ -14,6 +14,13 @@ config MSM_NOPM
 	  This enables bare minimum support of power management at platform level.
 	  i.e WFI
 
+config APSS_CORE_EA
+	depends on CPU_FREQ && PM_OPP
+	bool "Qualcomm Technology Inc specific power aware driver"
+	help
+	  Platform specific power aware driver to provide power
+	  and temperature information to the scheduler.
+
 if MSM_PM
 menuconfig MSM_IDLE_STATS
 	bool "Collect idle statistics"

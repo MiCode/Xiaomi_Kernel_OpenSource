@@ -1,0 +1,77 @@
+MSM Core Energy Aware driver
+
+The Energy Aware driver provides per core power and temperature
+information to the scheduler for it to make more power efficient
+scheduling decision.
+
+The required nodes for the Energy-aware driver are:
+
+- compatible:    "qcom,apss-core-ea"
+
+Required properties:
+- qcom,core-mapping: Parent node that lists characteristics of
+                 the cpus. Requires the child node for each
+                 cpu.
+
+Optional properties:
+- qcom,low-hyst-temp: Degrees C below which the power numbers
+                 need to be recomputed for the cores and reset
+                 the threshold. If this is not present, the default
+                 value is 10C.
+- qcom,high-hyst-temp: Degrees C above which the power numbers
+                 need to be recomputed for the cores and reset
+                 the threshold. If this property is not present,
+                 the default value is 5C.
+- qcom,polling-interval: Interval for which the power numbers
+                 need to be recomputed for the cores if there
+                 is no change in threshold. If this property is not
+                 present, the power is recalculated only on
+                 temperature threshold notifications.
+
+[Second level nodes]
+Required properties to define per core characteristics:
+- qcom,cpu-name: CPU phandle to read the mpidr value
+- qcom,apc-rail: CPU rail phandle to get frequency and voltage
+                 information.
+
+Optional properties to define per core characteristics:
+- qcom,sensor:  Sensor phandle to map a particular sensor to the core.
+                If this property is not present, then the core is assumed
+                to be at 40C for all the power estimations. No sensor
+                threshold is set.
+
+Example
+
+qcom,msm-core {
+	compatible = "qcom,apss-core-ea";
+	qcom,low-hyst-temp = <10>;
+	qcom,high-hyst-temp = <5>;
+	qcom,polling-interval = <50>;
+
+	qcom,core-mapping {
+		qcom,cpu0-chars {
+			qcom,sensor = <&sensor_information0>;
+			qcom,cpu-name = <&CPU0>;
+			qcom,apc-rail = <&apc0_vreg_corner>;
+		};
+
+		qcom,cpu1-chars {
+			qcom,sensor = <&sensor_information1>;
+			qcom,cpu-name = <&CPU1>;
+			qcom,apc-rail = <&apc0_vreg_corner>;
+		};
+
+		qcom,cpu2-chars {
+			qcom,sensor = <&sensor_information2>;
+			qcom,cpu-name = <&CPU2>;
+			qcom,apc-rail = <&apc0_vreg_corner>;
+		};
+
+		qcom,cpu3-chars {
+			qcom,sensor = <&sensor_information3>;
+			qcom,cpu-name = <&CPU3>;
+			qcom,apc-rail = <&apc0_vreg_corner>;
+		};
+	};
+};
+
