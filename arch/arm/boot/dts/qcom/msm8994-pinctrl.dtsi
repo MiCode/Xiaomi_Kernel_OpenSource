@@ -81,6 +81,45 @@
 			};
 		};
 
+		pmx_hdmi_cec: pmx_hdmi_cec {
+			qcom,pin-func = <1>;
+			label = "hdmi-cec-pins";
+			mdss_hdmi_cec_active: cec_active {
+				drive-strength = <2>;
+				bias-pull-up;
+			};
+			mdss_hdmi_cec_suspend: cec_suspend {
+				drive-strength = <2>;
+				bias-pull-down;
+			};
+		};
+
+		pmx_hdmi_ddc: pmx_hdmi_ddc {
+			qcom,pin-func = <1>;
+			label = "hdmi-ddc-pins";
+			mdss_hdmi_ddc_active: ddc_active {
+				drive-strength = <2>;
+				bias-pull-up;
+			};
+			mdss_hdmi_ddc_suspend: ddc_suspend {
+				drive-strength = <2>;
+				bias-pull-down;
+			};
+		};
+
+		pmx_hdmi_hpd: pmx_hdmi_hpd {
+			qcom,pin-func = <1>;
+			label = "hdmi-hpd-pin";
+			mdss_hdmi_hpd_active: hpd_active {
+				drive-strength = <16>;
+				bias-pull-down;
+			};
+			mdss_hdmi_hpd_suspend: hpd_suspend {
+				drive-strength = <2>;
+				bias-pull-down;
+			};
+		};
+
 		spi_0 {
 			qcom,pins = <&gp 0>, <&gp 1>, <&gp 3>;
 			qcom,num-grp-pins = <3>;
