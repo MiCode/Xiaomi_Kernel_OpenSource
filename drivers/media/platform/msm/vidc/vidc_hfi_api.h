@@ -1294,6 +1294,7 @@ struct hfi_device {
 	int (*session_clean)(void *sess);
 	int (*get_core_capabilities)(void);
 	int (*power_enable)(void *dev);
+	int (*suspend)(void *dev);
 };
 
 typedef void (*hfi_cmd_response_callback) (enum command_response cmd,
