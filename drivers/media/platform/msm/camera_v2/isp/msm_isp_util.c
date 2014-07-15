@@ -26,6 +26,7 @@ static struct msm_isp_bandwidth_mgr isp_bandwidth_mgr;
 
 #define MSM_ISP_MIN_AB 450000000
 #define MSM_ISP_MIN_IB 900000000
+#define MSM_MIN_REQ_VFE_CPP_BW 1700000000
 
 #define VFE40_8974V2_VERSION 0x1001001A
 static struct msm_bus_vectors msm_isp_init_vectors[] = {
@@ -163,6 +164,10 @@ int msm_isp_update_bandwidth(enum msm_isp_hw_client client,
 				isp_bandwidth_mgr.client_info[i].ib;
 		}
 	}
+	/*All the clients combined i.e. VFE + CPP should use atleast
+	minimum recommended bandwidth*/
+	if (path->vectors[0].ib < MSM_MIN_REQ_VFE_CPP_BW)
+		path->vectors[0].ib = MSM_MIN_REQ_VFE_CPP_BW;
 	msm_bus_scale_client_update_request(isp_bandwidth_mgr.bus_client,
 		isp_bandwidth_mgr.bus_vector_active_idx);
 	mutex_unlock(&bandwidth_mgr_mutex);
