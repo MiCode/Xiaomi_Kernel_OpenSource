@@ -3497,8 +3497,7 @@ int ipa_tag_process(struct ipa_desc desc[],
 	int i;
 	struct sk_buff *dummy_skb;
 	int res;
-	DECLARE_COMPLETION_ONSTACK(comp);
-	void *comp_ptr = &comp;
+	struct ipa_tag_completion *comp;
 
 	/* Not enough room for the required descriptors for the tag process */
 	if (IPA_TAG_MAX_DESC - descs_num < REQUIRED_TAG_PROCESS_DESCRIPTORS) {
@@ -3578,16 +3577,26 @@ int ipa_tag_process(struct ipa_desc desc[],
 		sizeof(struct ipa_desc));
 	desc_idx += descs_num;
 
+	comp = kzalloc(sizeof(*comp), GFP_KERNEL);
+	if (!comp) {
+		IPAERR("no mem\n");
+		res = -ENOMEM;
+		goto fail_free_desc;
+	}
+	init_completion(&comp->comp);
+
+	/* completion needs to be released from both here and rx handler */
+	atomic_set(&comp->cnt, 2);
+
 	/* dummy packet to send to IPA. packet payload is a completion object */
 	dummy_skb = alloc_skb(sizeof(comp), GFP_KERNEL);
 	if (!dummy_skb) {
 		IPAERR("failed to allocate memory\n");
 		res = -ENOMEM;
-		goto fail_free_desc;
+		goto fail_free_skb;
 	}
 
-	memcpy(skb_put(dummy_skb, sizeof(comp_ptr)), &comp_ptr,
-		sizeof(comp_ptr));
+	memcpy(skb_put(dummy_skb, sizeof(comp)), &comp, sizeof(comp));
 
 	tag_desc[desc_idx].pyld = dummy_skb->data;
 	tag_desc[desc_idx].len = dummy_skb->len;
@@ -3607,14 +3616,18 @@ int ipa_tag_process(struct ipa_desc desc[],
 	tag_desc = NULL;
 
 	IPADBG("waiting for TAG response\n");
-	res = wait_for_completion_timeout(&comp, timeout);
+	res = wait_for_completion_timeout(&comp->comp, timeout);
 	if (res == 0) {
 		IPAERR("timeout for waiting for TAG response\n");
 		WARN_ON(1);
+		if (atomic_dec_return(&comp->cnt) == 0)
+			kfree(comp);
 		return -ETIME;
 	}
 
 	IPADBG("TAG response arrived!\n");
+	if (atomic_dec_return(&comp->cnt) == 0)
+		kfree(comp);
 
 	/* sleep for short period to ensure IPA wrote all packets to BAM */
 	usleep_range(IPA_TAG_SLEEP_MIN_USEC, IPA_TAG_SLEEP_MAX_USEC);
@@ -3624,6 +3637,8 @@ int ipa_tag_process(struct ipa_desc desc[],
 fail_send:
 	dev_kfree_skb_any(dummy_skb);
 	desc_idx--;
+fail_free_skb:
+	kfree(comp);
 fail_free_desc:
 	/*
 	 * Free only the first descriptors allocated here.

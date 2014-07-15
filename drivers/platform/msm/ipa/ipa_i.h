@@ -646,6 +646,11 @@ struct ipa_active_clients {
 	int cnt;
 };
 
+struct ipa_tag_completion {
+	struct completion comp;
+	atomic_t cnt;
+};
+
 struct ipa_controller;
 
 struct ipa_wdi_ctx {
