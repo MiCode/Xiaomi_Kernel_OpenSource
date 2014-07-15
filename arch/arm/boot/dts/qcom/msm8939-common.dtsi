@@ -514,7 +514,7 @@
 		qcom,core-temp-hysteresis = <10>;
 		qcom,core-control-mask = <0xfe>;
 		qcom,hotplug-temp = <95>;
-		qcom,hotplug-temp-hysteresis = <10>;
+		qcom,hotplug-temp-hysteresis = <20>;
 		qcom,cpu-sensors = "tsens_tz_sensor5", "tsens_tz_sensor6",
 				"tsens_tz_sensor7", "tsens_tz_sensor8",
 				"tsens_tz_sensor9", "tsens_tz_sensor9",
