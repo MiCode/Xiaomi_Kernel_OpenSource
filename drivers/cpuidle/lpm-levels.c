@@ -1041,27 +1041,41 @@ void lpm_cpu_hotplug_enter(unsigned int cpu)
 	int i;
 	int idx = -1;
 
-	if (lpm_cpu_mode_allow(cpu, MSM_PM_SLEEP_MODE_POWER_COLLAPSE,
-				false))
-		mode = MSM_PM_SLEEP_MODE_POWER_COLLAPSE;
-	else if (lpm_cpu_mode_allow(cpu,
-			MSM_PM_SLEEP_MODE_POWER_COLLAPSE_STANDALONE, false))
-		mode = MSM_PM_SLEEP_MODE_POWER_COLLAPSE_STANDALONE;
-	else
-		__WARN_printf("Power collapse modes not enabled for hotpug\n");
+	/*
+	 * If lpm isn't probed yet, try to put cpu into the one of the modes
+	 * available
+	 */
+	if (!cluster) {
+		if (msm_spm_is_mode_avail(MSM_SPM_MODE_POWER_COLLAPSE)) {
+			mode = MSM_PM_SLEEP_MODE_POWER_COLLAPSE;
+		} else if (msm_spm_is_mode_avail(
+				MSM_SPM_MODE_RETENTION)) {
+			mode = MSM_PM_SLEEP_MODE_RETENTION;
+		} else {
+			pr_err("No mode avail for cpu%d hotplug\n", cpu);
+			BUG_ON(1);
+			return;
+		}
+	} else {
+		struct lpm_cpu *lpm_cpu;
+		uint32_t ss_pwr = ~0U;
 
-	if (mode == MSM_PM_SLEEP_MODE_NR)
-		return;
+		lpm_cpu = cluster->cpu;
+		for (i = 0; i < lpm_cpu->nlevels; i++) {
+			if (ss_pwr < lpm_cpu->levels[i].pwr.ss_power)
+				continue;
+			ss_pwr = lpm_cpu->levels[i].pwr.ss_power;
+			idx = i;
+			mode = lpm_cpu->levels[i].mode;
+		}
 
-	if (cluster) {
-		for (i = cluster->cpu->nlevels - 1; i > -1; i--)
-			if ((idx < 0) && cluster->cpu->levels[i].mode == mode)
-				idx = i;
+		if (mode == MSM_PM_SLEEP_MODE_NR)
+			return;
 
 		BUG_ON(idx < 0);
-
 		cluster_prepare(cluster, get_cpu_mask(cpu), idx, false);
 	}
+
 	msm_cpu_pm_enter_sleep(mode, false);
 }
 

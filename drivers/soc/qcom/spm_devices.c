@@ -297,6 +297,24 @@ void msm_spm_reinit(void)
 }
 EXPORT_SYMBOL(msm_spm_reinit);
 
+/*
+ * msm_spm_is_mode_avail() - Specifies if a mode is available for the cpu
+ * It should only be used to decide a mode before lpm driver is probed.
+ * @mode: SPM LPM mode to be selected
+ */
+bool msm_spm_is_mode_avail(unsigned int mode)
+{
+	struct msm_spm_device *dev = &__get_cpu_var(msm_cpu_spm_device);
+	int i;
+
+	for (i = 0; i < dev->num_modes; i++) {
+		if (dev->modes[i].mode == mode)
+			return true;
+	}
+
+	return false;
+}
+
 /**
  * msm_spm_set_low_power_mode() - Configure SPM start address for low power mode
  * @mode: SPM LPM mode to enter
