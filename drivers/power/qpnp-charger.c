@@ -116,7 +116,9 @@
 #define BOOST_VSET				0x41
 #define BOOST_ENABLE_CONTROL			0x46
 #define COMP_OVR1				0xEA
+#define BAT_IF_COMP_OVR0			0xE5
 #define BAT_IF_BTC_CTRL				0x49
+#define BAT_IF_BAT_TEMP_STATUS			0x09
 #define USB_OCP_THR				0x52
 #define USB_OCP_CLR				0x53
 #define BAT_IF_TEMP_STATUS			0x09
@@ -172,6 +174,8 @@
 #define OCP_THR_500_MA			0x01
 #define OCP_THR_200_MA			0x00
 #define DC_HIGHER_PRIORITY		BIT(7)
+#define BATT_TEMP_HOT			BIT(6)
+#define BATT_TEMP_OK			BIT(7)
 
 /* Interrupt definitions */
 /* smbb_chg_interrupts */
@@ -380,6 +384,7 @@ struct qpnp_chg_chip {
 	struct delayed_work		aicl_check_work;
 	struct work_struct		insertion_ocv_work;
 	struct work_struct		ocp_clear_work;
+	struct work_struct		btc_hot_irq_debounce_work;
 	struct qpnp_chg_regulator	otg_vreg;
 	struct qpnp_chg_regulator	boost_vreg;
 	struct qpnp_chg_regulator	batfet_vreg;
@@ -1785,16 +1790,55 @@ qpnp_chg_usb_usbin_valid_irq_handler(int irq, void *_chip)
 	return IRQ_HANDLED;
 }
 
-#define TEST_EN_SMBC_LOOP		0xE5
-#define IBAT_REGULATION_DISABLE		BIT(2)
+#define BAT_TOO_HOT_BYPASS	0x04
+static int
+bypass_btc_hot_comparator(struct qpnp_chg_chip *chip, bool bypass)
+{
+	int rc;
+
+	pr_debug("bypass %d\n", bypass);
+	rc = qpnp_chg_masked_write(chip,
+			chip->bat_if_base + SEC_ACCESS, 0xA5, 0xA5, 1);
+
+	rc |= qpnp_chg_masked_write(chip,
+			chip->bat_if_base + BAT_IF_COMP_OVR0, 0xFF,
+			bypass ? BAT_TOO_HOT_BYPASS : 0, 1);
+	if (rc)
+		pr_err("Failed to bypass BAT_TOO_HOT rc = %d\n", rc);
+
+	return rc;
+}
+
+#define TEST_EN_SMBC_LOOP			0xE5
+#define IBAT_REGULATION_DISABLE			BIT(2)
+#define BATT_TEMP_STAT_MASK			(BIT(6) | BIT(7))
+#define BATT_TEMP_COLD			0
 static irqreturn_t
 qpnp_chg_bat_if_batt_temp_irq_handler(int irq, void *_chip)
 {
 	struct qpnp_chg_chip *chip = _chip;
 	int batt_temp_good, batt_present, rc;
+	u8 batt_temp, batt_hot_sts;
 
 	batt_temp_good = qpnp_chg_is_batt_temp_ok(chip);
 	pr_debug("batt-temp triggered: %d\n", batt_temp_good);
+
+	/* Read battery temp status */
+	rc = qpnp_chg_read(chip, &batt_temp,
+			chip->bat_if_base + BAT_IF_BAT_TEMP_STATUS, 1);
+	if (rc) {
+		pr_err("failed to read BAT TEMP status rc=%d\n", rc);
+		return rc;
+	}
+
+	batt_hot_sts = batt_temp & BATT_TEMP_STAT_MASK;
+
+	/*
+	 * If BTC is triggered at HOT_THD, start a work to double check the
+	 * battery thermal voltage
+	 */
+	if (batt_hot_sts == BATT_TEMP_HOT)
+			schedule_work(&chip->btc_hot_irq_debounce_work);
 
 	batt_present = qpnp_chg_is_batt_present(chip);
 	if (batt_present) {
@@ -2395,8 +2439,6 @@ get_prop_batt_present(struct qpnp_chg_chip *chip)
 	return (batt_present & BATT_PRES_BIT) ? 1 : 0;
 }
 
-#define BATT_TEMP_HOT	BIT(6)
-#define BATT_TEMP_OK	BIT(7)
 static int
 get_prop_batt_health(struct qpnp_chg_chip *chip)
 {
@@ -3710,6 +3752,71 @@ stop_eoc:
 	vbat_low_count = 0;
 	count = 0;
 	pm_relax(chip->dev);
+}
+
+#define BATT_HOT_MV			630
+static void
+qpnp_chg_btc_hot_irq_debounce_work(struct work_struct *work)
+{
+	struct qpnp_chg_chip *chip = container_of(work,
+				struct qpnp_chg_chip,
+				btc_hot_irq_debounce_work);
+	struct qpnp_vadc_result results;
+	bool hot_thd_35_pct = false;
+	int rc, bat_therm_volt;
+	u8 reg;
+
+	/* Get current BTC HOT_THD settings */
+	rc = qpnp_chg_read(chip, &reg,
+			chip->bat_if_base + BAT_IF_BTC_CTRL, 1);
+	if (rc) {
+		pr_err("failed to read BTC_CTRL rc=%d\n", rc);
+		return;
+	}
+
+	hot_thd_35_pct = (reg & BTC_HOT) ? true : false;
+
+	/*  Read battery temperature by using VADC */
+	rc = qpnp_vadc_read(chip->vadc_dev, LR_MUX1_BATT_THERM,
+			&results);
+	if (rc) {
+		pr_err("Unable to read batt temperature rc=%d\n",
+				rc);
+		return;
+	}
+
+	bat_therm_volt = results.measurement;
+
+	pr_debug("hot_thd_35_pct = %d, bat_therm_volt = %dmV\n",
+			hot_thd_35_pct, bat_therm_volt);
+
+	if (hot_thd_35_pct && (bat_therm_volt > BATT_HOT_MV)) {
+		rc = qpnp_chg_masked_write(chip,
+				chip->bat_if_base + BAT_IF_BTC_CTRL,
+				BTC_HOT, btc_value[HOT_THD_25_PCT], 1);
+		if (rc) {
+			pr_err("failed to change HOT_THD to 25%% rc=%d\n",
+					rc);
+			return;
+		}
+		bypass_btc_hot_comparator(chip, 1);
+
+		/*
+		 * Wait for 2s to take charging back. Clear
+		 * override BAT_TOO_HOT comparator, and restore
+		 * HOT_THD to 35%.
+		 */
+		msleep(2000);
+		bypass_btc_hot_comparator(chip, 0);
+		rc = qpnp_chg_masked_write(chip,
+				chip->bat_if_base + BAT_IF_BTC_CTRL,
+				BTC_HOT, btc_value[HOT_THD_35_PCT], 1);
+		if (rc) {
+			pr_err("failed to change HOT_THD to 35%% rc=%d\n",
+					rc);
+			return;
+		}
+	}
 }
 
 static void
@@ -5085,6 +5192,8 @@ qpnp_charger_probe(struct spmi_device *spmi)
 			qpnp_chg_insertion_ocv_work);
 	INIT_WORK(&chip->batfet_lcl_work,
 			qpnp_chg_batfet_lcl_work);
+	INIT_WORK(&chip->btc_hot_irq_debounce_work,
+			qpnp_chg_btc_hot_irq_debounce_work);
 
 	/* Get all device tree properties */
 	rc = qpnp_charger_read_dt_props(chip);
