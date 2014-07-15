@@ -465,6 +465,16 @@
 			status = "okay";
 		};
 	};
+
+	rpm-regulator-bbyb {
+		status = "okay";
+		pmi8994_boostbypass: regulator-bby {
+			status = "okay";
+			regulator-min-microvolt = <3150000>;
+			regulator-max-microvolt = <3600000>;
+			qcom,init-voltage = <3150000>;
+		};
+	};
 };
 
 /* SPM controlled regulators: */
