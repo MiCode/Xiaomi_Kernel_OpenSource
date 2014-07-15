@@ -165,6 +165,7 @@ int i915_gem_render_state_init(struct intel_engine_cs *ring)
 	ret = ring->dispatch_execbuffer(ring,
 					so.ggtt_offset,
 					so.rodata->batch_items * 4,
+					NULL, 0,
 					I915_DISPATCH_SECURE);
 	if (ret)
 		goto out;

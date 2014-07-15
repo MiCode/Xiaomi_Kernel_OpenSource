@@ -1055,37 +1055,55 @@ i915_gem_ringbuffer_submission(struct drm_device *dev, struct drm_file *file,
 	u32 seqno;
 	int sync_err = 0;
 	void *handle = NULL;
+	void *priv_data = NULL;
+	u32 priv_length = 0;
 
 	if (args->num_cliprects != 0) {
-		if (ring != &dev_priv->ring[RCS]) {
-			DRM_DEBUG("clip rectangles are only valid with the render ring\n");
-			return -EINVAL;
-		}
+		if (INTEL_INFO(dev)->gen <= 4) {
+			/* Pre-Gen5 definition of cliprects */
+			if (ring != &dev_priv->ring[RCS]) {
+				DRM_DEBUG("clip rectangles are only valid with "
+					  "the render ring\n");
+				return -EINVAL;
+			}
 
-		if (INTEL_INFO(dev)->gen >= 5) {
-			DRM_DEBUG("clip rectangles are only valid on pre-gen5\n");
-			return -EINVAL;
-		}
+			if (args->num_cliprects > 
+					UINT_MAX / sizeof(*cliprects)) {
+				DRM_DEBUG("execbuf with %u cliprects\n",
+					  args->num_cliprects);
+				return -EINVAL;
+			}
 
-		if (args->num_cliprects > UINT_MAX / sizeof(*cliprects)) {
-			DRM_DEBUG("execbuf with %u cliprects\n",
-				  args->num_cliprects);
-			return -EINVAL;
-		}
+			cliprects = kcalloc(args->num_cliprects,
+					    sizeof(*cliprects),
+					    GFP_KERNEL);
+			if (cliprects == NULL) {
+				ret = -ENOMEM;
+				goto error;
+			}
 
-		cliprects = kcalloc(args->num_cliprects,
-				    sizeof(*cliprects),
-				    GFP_KERNEL);
-		if (cliprects == NULL) {
-			ret = -ENOMEM;
-			goto error;
-		}
+			if (copy_from_user(cliprects,
+				    to_user_ptr(args->cliprects_ptr),
+				    sizeof(*cliprects)*args->num_cliprects)) {
+				ret = -EFAULT;
+				goto error;
+			}
+		} else {
+			/* Gen5 and later definition of cliprects */
+			priv_data = kmalloc(args->num_cliprects, GFP_KERNEL);
+			if (priv_data == NULL) {
+				ret = -ENOMEM;
+				goto error;
+			}
 
-		if (copy_from_user(cliprects,
-				   to_user_ptr(args->cliprects_ptr),
-				   sizeof(*cliprects)*args->num_cliprects)) {
-			ret = -EFAULT;
-			goto error;
+			priv_length = args->num_cliprects;
+			if (copy_from_user(
+					priv_data,
+					to_user_ptr(args->cliprects_ptr),
+					priv_length)) {
+				ret = -EFAULT;
+				goto error;
+			}
 		}
 	} else {
 		if (args->DR4 == 0xffffffff) {
@@ -1179,6 +1197,7 @@ i915_gem_ringbuffer_submission(struct drm_device *dev, struct drm_file *file,
 
 	exec_len = args->batch_len;
 	if (cliprects) {
+		/* Non-NULL cliprects only possible for Gen <= 4 */
 		for (i = 0; i < args->num_cliprects; i++) {
 			ret = i915_emit_box(dev, &cliprects[i],
 					    args->DR1, args->DR4);
@@ -1187,16 +1206,19 @@ i915_gem_ringbuffer_submission(struct drm_device *dev, struct drm_file *file,
 
 			ret = ring->dispatch_execbuffer(ring,
 							exec_start, exec_len,
+							NULL, 0,
 							flags);
 			if (ret)
 				goto error;
 		}
 	} else {
+		/* Execution path for all Gen >= 5 */
 		ret = ring->dispatch_execbuffer(ring,
 						exec_start, exec_len,
+						priv_data, priv_length,
 						flags);
 		if (ret)
-			return ret;
+			goto error;
 	}
 
 	sync_err = i915_sync_finish_request(handle, args, ring);
@@ -1226,6 +1248,7 @@ error:
 		i915_sync_cancel_request(handle, args, ring);
 
 	kfree(cliprects);
+	kfree(priv_data);
 	return ret;
 }
 
@@ -1291,6 +1314,7 @@ i915_gem_do_execbuffer(struct drm_device *dev, void *data,
 	struct intel_engine_cs *ring;
 	struct intel_context *ctx;
 	struct i915_address_space *vm;
+
 	const u32 ctx_id = i915_execbuffer2_get_context_id(*args);
 	u64 exec_start = args->batch_start_offset;
 	u32 flags;
