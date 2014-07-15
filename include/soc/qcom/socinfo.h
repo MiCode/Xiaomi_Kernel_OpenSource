@@ -74,6 +74,8 @@
 	of_flat_dt_is_compatible(of_get_flat_dt_root(), "qcom,msm8994")
 #define early_machine_is_msm8992()	\
 	of_flat_dt_is_compatible(of_get_flat_dt_root(), "qcom,msm8992")
+#define early_machine_is_fsm9010()	\
+	of_flat_dt_is_compatible(of_get_flat_dt_root(), "qcom,fsm9010")
 #else
 #define of_board_is_sim()		0
 #define of_board_is_rumi()		0
@@ -102,6 +104,7 @@
 #define early_machine_is_apq8084()	0
 #define early_machine_is_mdm9630()	0
 #define early_machine_is_fsm9900()	0
+#define early_machine_is_fsm9010()	0
 #endif
 
 #define PLATFORM_SUBTYPE_MDM	1
@@ -153,6 +156,7 @@ enum msm_cpu {
 	MSM_CPU_ZIRC,
 	MSM_CPU_8994,
 	MSM_CPU_8992,
+	FSM_CPU_9010,
 };
 
 struct msm_soc_info {
