@@ -46,13 +46,23 @@ static ssize_t diag_dbgfs_read_status(struct file *file, char __user *ubuf,
 		"modem ch: 0x%p\n"
 		"lpass ch: 0x%p\n"
 		"riva ch: 0x%p\n"
+		"sensors ch: 0x%p\n"
 		"modem dci ch: 0x%p\n"
 		"lpass dci ch: 0x%p\n"
+		"riva dci ch: 0x%p\n"
+		"sensors dci ch: 0x%p\n"
 		"modem cntl_ch: 0x%p\n"
 		"lpass cntl_ch: 0x%p\n"
 		"riva cntl_ch: 0x%p\n"
+		"sensors cntl_ch: 0x%p\n"
 		"modem cmd ch: 0x%p\n"
+		"adsp cmd ch: 0x%p\n"
+		"riva cmd ch: 0x%p\n"
+		"sensors cmd ch: 0x%p\n"
 		"modem dci cmd ch: 0x%p\n"
+		"lpass dci cmd ch: 0x%p\n"
+		"riva dci cmd ch: 0x%p\n"
+		"sensors dci cmd ch: 0x%p\n"
 		"CPU Tools id: %d\n"
 		"Apps only: %d\n"
 		"Apps master: %d\n"
@@ -63,69 +73,120 @@ static ssize_t diag_dbgfs_read_status(struct file *file, char __user *ubuf,
 		"Modem separate cmdrsp: %d\n"
 		"LPASS separate cmdrsp: %d\n"
 		"RIVA separate cmdrsp: %d\n"
+		"SENSORS separate cmdrsp: %d\n"
 		"Modem in_busy_1: %d\n"
 		"Modem in_busy_2: %d\n"
 		"LPASS in_busy_1: %d\n"
 		"LPASS in_busy_2: %d\n"
 		"RIVA in_busy_1: %d\n"
 		"RIVA in_busy_2: %d\n"
+		"SENSORS in_busy_1: %d\n"
+		"SENSORS in_busy_2: %d\n"
 		"DCI Modem in_busy_1: %d\n"
+		"DCI LPASS in_busy_1: %d\n"
+		"DCI WCNSS in_busy_1: %d\n"
+		"DCI SENSORS in_busy_1: %d\n"
 		"Modem CMD in_busy_1: %d\n"
 		"Modem CMD in_busy_2: %d\n"
 		"DCI CMD Modem in_busy_1: %d\n"
+		"DCI CMD LPASS in_busy_1: %d\n"
+		"DCI CMD WCNSS in_busy_1: %d\n"
+		"DCI CMD SENSORS in_busy_1: %d\n"
+		"ADSP CMD in_busy_1: %d\n"
+		"ADSP CMD in_busy_2: %d\n"
+		"RIVA CMD in_busy_1: %d\n"
+		"RIVA CMD in_busy_2: %d\n"
+		"SENSORS CMD in_busy_1: %d\n"
+		"SENSORS CMD in_busy_2: %d\n"
 		"Modem supports STM: %d\n"
 		"LPASS supports STM: %d\n"
 		"RIVA supports STM: %d\n"
+		"SENSORS supports STM: %d\n"
 		"Modem STM state: %d\n"
 		"LPASS STM state: %d\n"
 		"RIVA STM state: %d\n"
+		"SENSORS STM state: %d\n"
 		"APPS STM state: %d\n"
 		"Modem STM requested state: %d\n"
 		"LPASS STM requested state: %d\n"
 		"RIVA STM requested state: %d\n"
+		"SENSORS STM requested state: %d\n"
 		"APPS STM requested state: %d\n"
 		"supports apps hdlc encoding: %d\n"
 		"Modem hdlc encoding: %d\n"
 		"Lpass hdlc encoding: %d\n"
 		"RIVA hdlc encoding: %d\n"
+		"SENSORS hdlc encoding: %d\n"
 		"Modem CMD hdlc encoding: %d\n"
+		"ADSP CMD hdlc encoding: %d\n"
+		"RIVA CMD hdlc encoding: %d\n"
+		"SENSORS CMD hdlc encoding: %d\n"
 		"Modem DATA in_buf_1_size: %d\n"
 		"Modem DATA in_buf_2_size: %d\n"
 		"ADSP DATA in_buf_1_size: %d\n"
 		"ADSP DATA in_buf_2_size: %d\n"
 		"RIVA DATA in_buf_1_size: %d\n"
 		"RIVA DATA in_buf_2_size: %d\n"
+		"SENSORS DATA in_buf_1_size: %d\n"
+		"SENSORS DATA in_buf_2_size: %d\n"
 		"Modem DATA in_buf_1_raw_size: %d\n"
 		"Modem DATA in_buf_2_raw_size: %d\n"
 		"ADSP DATA in_buf_1_raw_size: %d\n"
 		"ADSP DATA in_buf_2_raw_size: %d\n"
 		"RIVA DATA in_buf_1_raw_size: %d\n"
 		"RIVA DATA in_buf_2_raw_size: %d\n"
+		"SENSORS DATA in_buf_1_raw_size: %d\n"
+		"SENSORS DATA in_buf_2_raw_size: %d\n"
 		"Modem CMD in_buf_1_size: %d\n"
 		"Modem CMD in_buf_1_raw_size: %d\n"
+		"ADSP CMD in_buf_1_size: %d\n"
+		"ADSP CMD in_buf_1_raw_size: %d\n"
+		"RIVA CMD in_buf_1_size: %d\n"
+		"RIVA CMD in_buf_1_raw_size: %d\n"
+		"SENSORS CMD in_buf_1_size: %d\n"
+		"SENSORS CMD in_buf_1_raw_size: %d\n"
 		"Modem CNTL in_buf_1_size: %d\n"
 		"ADSP CNTL in_buf_1_size: %d\n"
 		"RIVA CNTL in_buf_1_size: %d\n"
+		"SENSORS CNTL in_buf_1_size: %d\n"
 		"Modem DCI in_buf_1_size: %d\n"
 		"Modem DCI CMD in_buf_1_size: %d\n"
+		"LPASS DCI in_buf_1_size: %d\n"
+		"LPASS DCI CMD in_buf_1_size: %d\n"
+		"WCNSS DCI in_buf_1_size: %d\n"
+		"WCNSS DCI CMD in_buf_1_size: %d\n"
+		"SENSORS DCI in_buf_1_size: %d\n"
+		"SENSORS DCI CMD in_buf_1_size: %d\n"
 		"Received Feature mask from Modem: %d\n"
 		"Received Feature mask from LPASS: %d\n"
 		"Received Feature mask from WCNSS: %d\n"
+		"Received Feature mask from SENSORS: %d\n"
 		"Mask Centralization Support on Modem: %d\n"
 		"Mask Centralization Support on LPASS: %d\n"
 		"Mask Centralization Support on WCNSS: %d\n"
+		"Mask Centralization Support on SENSORS: %d\n"
 		"logging_mode: %d\n"
 		"rsp_in_busy: %d\n",
 		driver->smd_data[MODEM_DATA].ch,
 		driver->smd_data[LPASS_DATA].ch,
 		driver->smd_data[WCNSS_DATA].ch,
+		driver->smd_data[SENSORS_DATA].ch,
 		driver->smd_dci[MODEM_DATA].ch,
 		driver->smd_dci[LPASS_DATA].ch,
+		driver->smd_dci[WCNSS_DATA].ch,
+		driver->smd_dci[SENSORS_DATA].ch,
 		driver->smd_cntl[MODEM_DATA].ch,
 		driver->smd_cntl[LPASS_DATA].ch,
 		driver->smd_cntl[WCNSS_DATA].ch,
+		driver->smd_cntl[SENSORS_DATA].ch,
 		driver->smd_cmd[MODEM_DATA].ch,
+		driver->smd_cmd[LPASS_DATA].ch,
+		driver->smd_cmd[WCNSS_DATA].ch,
+		driver->smd_cmd[SENSORS_DATA].ch,
 		driver->smd_dci_cmd[MODEM_DATA].ch,
+		driver->smd_dci_cmd[LPASS_DATA].ch,
+		driver->smd_dci_cmd[WCNSS_DATA].ch,
+		driver->smd_dci_cmd[SENSORS_DATA].ch,
 		chk_config_get_id(),
 		chk_apps_only(),
 		chk_apps_master(),
@@ -136,57 +197,98 @@ static ssize_t diag_dbgfs_read_status(struct file *file, char __user *ubuf,
 		driver->separate_cmdrsp[MODEM_DATA],
 		driver->separate_cmdrsp[LPASS_DATA],
 		driver->separate_cmdrsp[WCNSS_DATA],
+		driver->separate_cmdrsp[SENSORS_DATA],
 		driver->smd_data[MODEM_DATA].in_busy_1,
 		driver->smd_data[MODEM_DATA].in_busy_2,
 		driver->smd_data[LPASS_DATA].in_busy_1,
 		driver->smd_data[LPASS_DATA].in_busy_2,
 		driver->smd_data[WCNSS_DATA].in_busy_1,
 		driver->smd_data[WCNSS_DATA].in_busy_2,
+		driver->smd_data[SENSORS_DATA].in_busy_1,
+		driver->smd_data[SENSORS_DATA].in_busy_2,
 		driver->smd_dci[MODEM_DATA].in_busy_1,
+		driver->smd_dci[LPASS_DATA].in_busy_1,
+		driver->smd_dci[WCNSS_DATA].in_busy_1,
+		driver->smd_dci[SENSORS_DATA].in_busy_1,
 		driver->smd_cmd[MODEM_DATA].in_busy_1,
 		driver->smd_cmd[MODEM_DATA].in_busy_2,
+		driver->smd_cmd[LPASS_DATA].in_busy_1,
+		driver->smd_cmd[LPASS_DATA].in_busy_2,
+		driver->smd_cmd[WCNSS_DATA].in_busy_1,
+		driver->smd_cmd[WCNSS_DATA].in_busy_2,
+		driver->smd_cmd[SENSORS_DATA].in_busy_1,
+		driver->smd_cmd[SENSORS_DATA].in_busy_2,
 		driver->smd_dci_cmd[MODEM_DATA].in_busy_1,
+		driver->smd_dci_cmd[LPASS_DATA].in_busy_1,
+		driver->smd_dci_cmd[WCNSS_DATA].in_busy_1,
+		driver->smd_dci_cmd[SENSORS_DATA].in_busy_1,
 		driver->peripheral_supports_stm[MODEM_DATA],
 		driver->peripheral_supports_stm[LPASS_DATA],
 		driver->peripheral_supports_stm[WCNSS_DATA],
+		driver->peripheral_supports_stm[SENSORS_DATA],
 		driver->stm_state[MODEM_DATA],
 		driver->stm_state[LPASS_DATA],
 		driver->stm_state[WCNSS_DATA],
+		driver->stm_state[SENSORS_DATA],
 		driver->stm_state[APPS_DATA],
 		driver->stm_state_requested[MODEM_DATA],
 		driver->stm_state_requested[LPASS_DATA],
 		driver->stm_state_requested[WCNSS_DATA],
+		driver->stm_state_requested[SENSORS_DATA],
 		driver->stm_state_requested[APPS_DATA],
 		driver->supports_apps_hdlc_encoding,
 		driver->smd_data[MODEM_DATA].encode_hdlc,
 		driver->smd_data[LPASS_DATA].encode_hdlc,
 		driver->smd_data[WCNSS_DATA].encode_hdlc,
+		driver->smd_data[SENSORS_DATA].encode_hdlc,
 		driver->smd_cmd[MODEM_DATA].encode_hdlc,
+		driver->smd_cmd[LPASS_DATA].encode_hdlc,
+		driver->smd_cmd[WCNSS_DATA].encode_hdlc,
+		driver->smd_cmd[SENSORS_DATA].encode_hdlc,
 		(unsigned int)driver->smd_data[MODEM_DATA].buf_in_1_size,
 		(unsigned int)driver->smd_data[MODEM_DATA].buf_in_2_size,
 		(unsigned int)driver->smd_data[LPASS_DATA].buf_in_1_size,
 		(unsigned int)driver->smd_data[LPASS_DATA].buf_in_2_size,
 		(unsigned int)driver->smd_data[WCNSS_DATA].buf_in_1_size,
 		(unsigned int)driver->smd_data[WCNSS_DATA].buf_in_2_size,
+		(unsigned int)driver->smd_data[SENSORS_DATA].buf_in_1_size,
+		(unsigned int)driver->smd_data[SENSORS_DATA].buf_in_2_size,
 		(unsigned int)driver->smd_data[MODEM_DATA].buf_in_1_raw_size,
 		(unsigned int)driver->smd_data[MODEM_DATA].buf_in_2_raw_size,
 		(unsigned int)driver->smd_data[LPASS_DATA].buf_in_1_raw_size,
 		(unsigned int)driver->smd_data[LPASS_DATA].buf_in_2_raw_size,
 		(unsigned int)driver->smd_data[WCNSS_DATA].buf_in_1_raw_size,
 		(unsigned int)driver->smd_data[WCNSS_DATA].buf_in_2_raw_size,
+		(unsigned int)driver->smd_data[SENSORS_DATA].buf_in_1_raw_size,
+		(unsigned int)driver->smd_data[SENSORS_DATA].buf_in_2_raw_size,
 		(unsigned int)driver->smd_cmd[MODEM_DATA].buf_in_1_size,
 		(unsigned int)driver->smd_cmd[MODEM_DATA].buf_in_1_raw_size,
+		(unsigned int)driver->smd_cmd[LPASS_DATA].buf_in_1_size,
+		(unsigned int)driver->smd_cmd[LPASS_DATA].buf_in_1_raw_size,
+		(unsigned int)driver->smd_cmd[WCNSS_DATA].buf_in_1_size,
+		(unsigned int)driver->smd_cmd[WCNSS_DATA].buf_in_1_raw_size,
+		(unsigned int)driver->smd_cmd[SENSORS_DATA].buf_in_1_size,
+		(unsigned int)driver->smd_cmd[SENSORS_DATA].buf_in_1_raw_size,
 		(unsigned int)driver->smd_cntl[MODEM_DATA].buf_in_1_size,
 		(unsigned int)driver->smd_cntl[LPASS_DATA].buf_in_1_size,
 		(unsigned int)driver->smd_cntl[WCNSS_DATA].buf_in_1_size,
+		(unsigned int)driver->smd_cntl[SENSORS_DATA].buf_in_1_size,
 		(unsigned int)driver->smd_dci[MODEM_DATA].buf_in_1_size,
 		(unsigned int)driver->smd_dci_cmd[MODEM_DATA].buf_in_1_size,
+		(unsigned int)driver->smd_dci[LPASS_DATA].buf_in_1_size,
+		(unsigned int)driver->smd_dci_cmd[LPASS_DATA].buf_in_1_size,
+		(unsigned int)driver->smd_dci[WCNSS_DATA].buf_in_1_size,
+		(unsigned int)driver->smd_dci_cmd[WCNSS_DATA].buf_in_1_size,
+		(unsigned int)driver->smd_dci[SENSORS_DATA].buf_in_1_size,
+		(unsigned int)driver->smd_dci_cmd[SENSORS_DATA].buf_in_1_size,
 		driver->rcvd_feature_mask[MODEM_DATA],
 		driver->rcvd_feature_mask[LPASS_DATA],
 		driver->rcvd_feature_mask[WCNSS_DATA],
+		driver->rcvd_feature_mask[SENSORS_DATA],
 		driver->mask_centralization[MODEM_DATA],
 		driver->mask_centralization[LPASS_DATA],
 		driver->mask_centralization[WCNSS_DATA],
+		driver->mask_centralization[SENSORS_DATA],
 		driver->logging_mode,
 		driver->rsp_buf_busy);
 
@@ -354,17 +456,27 @@ static ssize_t diag_dbgfs_read_workpending(struct file *file,
 		"Modem data diag_read_smd_work: %d\n"
 		"LPASS data diag_read_smd_work: %d\n"
 		"RIVA data diag_read_smd_work: %d\n"
+		"SENSORS data diag_read_smd_work: %d\n"
 		"Modem cntl diag_read_smd_work: %d\n"
 		"LPASS cntl diag_read_smd_work: %d\n"
 		"RIVA cntl diag_read_smd_work: %d\n"
+		"SENSORS cntl diag_read_smd_work: %d\n"
 		"Modem dci diag_read_smd_work: %d\n"
+		"LPASS dci diag_read_smd_work: %d\n"
+		"WCNSS dci diag_read_smd_work: %d\n"
+		"SENSORS dci diag_read_smd_work: %d\n"
 		"Modem data diag_notify_update_smd_work: %d\n"
 		"LPASS data diag_notify_update_smd_work: %d\n"
 		"RIVA data diag_notify_update_smd_work: %d\n"
+		"SENSORS data diag_notify_update_smd_work: %d\n"
 		"Modem cntl diag_notify_update_smd_work: %d\n"
 		"LPASS cntl diag_notify_update_smd_work: %d\n"
 		"RIVA cntl diag_notify_update_smd_work: %d\n"
-		"Modem dci diag_notify_update_smd_work: %d\n",
+		"SENSORS cntl diag_notify_update_smd_work: %d\n"
+		"Modem dci diag_notify_update_smd_work: %d\n"
+		"LPASS dci diag_notify_update_smd_work: %d\n"
+		"WCNSS dci diag_notify_update_smd_work: %d\n"
+		"SENSORS dci diag_notify_update_smd_work: %d\n",
 		work_pending(&(driver->diag_drain_work)),
 		work_pending(&(driver->smd_data[MODEM_DATA].
 							diag_read_smd_work)),
@@ -372,13 +484,23 @@ static ssize_t diag_dbgfs_read_workpending(struct file *file,
 							diag_read_smd_work)),
 		work_pending(&(driver->smd_data[WCNSS_DATA].
 							diag_read_smd_work)),
+		work_pending(&(driver->smd_data[SENSORS_DATA].
+							diag_read_smd_work)),
 		work_pending(&(driver->smd_cntl[MODEM_DATA].
 							diag_read_smd_work)),
 		work_pending(&(driver->smd_cntl[LPASS_DATA].
 							diag_read_smd_work)),
 		work_pending(&(driver->smd_cntl[WCNSS_DATA].
 							diag_read_smd_work)),
+		work_pending(&(driver->smd_cntl[SENSORS_DATA].
+							diag_read_smd_work)),
 		work_pending(&(driver->smd_dci[MODEM_DATA].
+							diag_read_smd_work)),
+		work_pending(&(driver->smd_dci[LPASS_DATA].
+							diag_read_smd_work)),
+		work_pending(&(driver->smd_dci[WCNSS_DATA].
+							diag_read_smd_work)),
+		work_pending(&(driver->smd_dci[SENSORS_DATA].
 							diag_read_smd_work)),
 		work_pending(&(driver->smd_data[MODEM_DATA].
 						diag_notify_update_smd_work)),
@@ -386,13 +508,23 @@ static ssize_t diag_dbgfs_read_workpending(struct file *file,
 						diag_notify_update_smd_work)),
 		work_pending(&(driver->smd_data[WCNSS_DATA].
 						diag_notify_update_smd_work)),
+		work_pending(&(driver->smd_data[SENSORS_DATA].
+						diag_notify_update_smd_work)),
 		work_pending(&(driver->smd_cntl[MODEM_DATA].
 						diag_notify_update_smd_work)),
 		work_pending(&(driver->smd_cntl[LPASS_DATA].
 						diag_notify_update_smd_work)),
 		work_pending(&(driver->smd_cntl[WCNSS_DATA].
 						diag_notify_update_smd_work)),
+		work_pending(&(driver->smd_cntl[SENSORS_DATA].
+						diag_notify_update_smd_work)),
 		work_pending(&(driver->smd_dci[MODEM_DATA].
+						diag_notify_update_smd_work)),
+		work_pending(&(driver->smd_dci[LPASS_DATA].
+						diag_notify_update_smd_work)),
+		work_pending(&(driver->smd_dci[WCNSS_DATA].
+						diag_notify_update_smd_work)),
+		work_pending(&(driver->smd_dci[SENSORS_DATA].
 						diag_notify_update_smd_work)));
 
 #ifdef CONFIG_DIAG_OVER_USB

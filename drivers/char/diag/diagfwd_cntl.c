@@ -885,19 +885,24 @@ static int diag_smd_cntl_probe(struct platform_device *pdev)
 
 	/* open control ports only on 8960 & newer targets */
 	if (chk_apps_only()) {
-		if (pdev->id == SMD_APPS_MODEM) {
+		switch (pdev->id) {
+		case SMD_APPS_MODEM:
 			index = MODEM_DATA;
 			channel_name = "DIAG_CNTL";
-		}
-		else if (pdev->id == SMD_APPS_QDSP) {
+			break;
+		case SMD_APPS_QDSP:
 			index = LPASS_DATA;
 			channel_name = "DIAG_CNTL";
-		}
-		else if (pdev->id == SMD_APPS_WCNSS) {
+			break;
+		case SMD_APPS_WCNSS:
 			index = WCNSS_DATA;
 			channel_name = "APPS_RIVA_CTRL";
+			break;
+		case SMD_APPS_DSPS:
+			index = SENSORS_DATA;
+			channel_name = "DIAG_CNTL";
+			break;
 		}
-
 		if (index != -1) {
 			r = smd_named_open_on_edge(channel_name,
 				pdev->id,
