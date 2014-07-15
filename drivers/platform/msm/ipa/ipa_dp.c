@@ -111,11 +111,8 @@ static void ipa_wq_write_done_status(int src_pipe)
 		return;
 
 	sys = ipa_ctx->ep[src_pipe].sys;
-	if (!sys) {
-		IPAERR("null sys pipe src %d\n", src_pipe);
-		WARN_ON(1);
+	if (!sys)
 		return;
-	}
 
 	spin_lock_bh(&sys->spinlock);
 	if (unlikely(list_empty(&sys->head_desc_list))) {

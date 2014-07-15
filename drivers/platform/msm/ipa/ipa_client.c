@@ -587,6 +587,7 @@ int ipa_connect_wdi_pipe(struct ipa_wdi_in_params *in,
 	struct IpaHwWdiTxSetUpCmdData_t *tx;
 	struct IpaHwWdiRxSetUpCmdData_t *rx;
 	struct ipa_ep_cfg_ctrl ep_cfg_ctrl;
+	struct ipa_ep_cfg_status status;
 
 	if (in == NULL || out == NULL || in->sys.client >= IPA_CLIENT_MAX) {
 		IPAERR("bad parm. in=%p out=%p\n", in, out);
@@ -733,6 +734,16 @@ int ipa_connect_wdi_pipe(struct ipa_wdi_in_params *in,
 		if (ipa_cfg_ep(ipa_ep_idx, &in->sys.ipa_ep_cfg)) {
 			IPAERR("fail to configure EP.\n");
 			goto ipa_cfg_ep_fail;
+		}
+		if (IPA_CLIENT_IS_PROD(in->sys.client)) {
+			status.status_en = true;
+			status.status_ep =
+				ipa_get_ep_mapping(IPA_CLIENT_APPS_LAN_CONS);
+			if (ipa_cfg_ep_status(ipa_ep_idx, &status)) {
+				IPAERR("fail to configure status of EP %d\n",
+					ipa_ep_idx);
+				goto ipa_cfg_ep_fail;
+			}
 		}
 		IPADBG("ep configuration successful\n");
 	} else {
