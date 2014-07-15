@@ -2765,8 +2765,11 @@ int msm_ipc_router_read_msg(struct msm_ipc_port *port_ptr,
 	}
 
 	*data = msm_ipc_router_skb_to_buf(pkt->pkt_fragment_q, ret);
-	if (!(*data))
+	if (!(*data)) {
 		IPC_RTR_ERR("%s: Buf conversion failed\n", __func__);
+		release_pkt(pkt);
+		return -ENOMEM;
+	}
 
 	*len = ret;
 	release_pkt(pkt);
