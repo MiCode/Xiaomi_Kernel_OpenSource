@@ -289,12 +289,15 @@ static ssize_t mdss_debug_factor_write(struct file *file,
 		    const char __user *user_buf, size_t count, loff_t *ppos)
 {
 	struct mdss_fudge_factor *factor  = file->private_data;
-	u32 numer = factor->numer;
-	u32 denom = factor->denom;
+	u32 numer;
+	u32 denom;
 	char buf[32];
 
 	if (!factor)
 		return -ENODEV;
+
+	numer = factor->numer;
+	denom = factor->denom;
 
 	if (count >= sizeof(buf))
 		return -EFAULT;
@@ -714,16 +717,22 @@ int mdss_misr_set(struct mdss_data_type *mdata,
 	bool use_mdp_up_misr = false;
 
 	map = mdss_misr_get_map(req->block_id, ctl, mdata);
-	use_mdp_up_misr = switch_mdp_misr_offset(map, mdata->mdp_rev,
-				req->block_id);
+
 	if (!map) {
 		pr_err("Invalid MISR Block=%d\n", req->block_id);
 		return -EINVAL;
 	}
+	use_mdp_up_misr = switch_mdp_misr_offset(map, mdata->mdp_rev,
+				req->block_id);
 
 	mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_ON);
 	if (req->block_id == DISPLAY_MISR_MDP) {
 		mixer = mdss_mdp_mixer_get(ctl, MDSS_MDP_MIXER_MUX_DEFAULT);
+		if (!mixer) {
+			pr_err("%s: failed to get default mixer, Block=%d\n",
+				__func__, req->block_id);
+			return -EINVAL;
+		}
 		mixer_num = mixer->num;
 		pr_debug("SET MDP MISR BLK to MDSS_MDP_LP_MISR_SEL_LMIX%d_GC\n",
 			req->block_id);
@@ -798,11 +807,12 @@ int mdss_misr_get(struct mdss_data_type *mdata,
 	int i;
 
 	map = mdss_misr_get_map(resp->block_id, ctl, mdata);
-	switch_mdp_misr_offset(map, mdata->mdp_rev, resp->block_id);
 	if (!map) {
 		pr_err("Invalid MISR Block=%d\n", resp->block_id);
 		return -EINVAL;
 	}
+	switch_mdp_misr_offset(map, mdata->mdp_rev, resp->block_id);
+
 	mixer = mdss_mdp_mixer_get(ctl, MDSS_MDP_MIXER_MUX_DEFAULT);
 
 	mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_ON);
@@ -871,9 +881,9 @@ void mdss_misr_crc_collect(struct mdss_data_type *mdata, int block_id)
 	bool crc_stored = false;
 
 	map = mdss_misr_get_map(block_id, NULL, mdata);
-	switch_mdp_misr_offset(map, mdata->mdp_rev, block_id);
 	if (!map || (map->crc_op_mode != MISR_OP_BM))
 		return;
+	switch_mdp_misr_offset(map, mdata->mdp_rev, block_id);
 
 	status = readl_relaxed(mdata->mdp_base + map->ctrl_reg);
 	if (MDSS_MDP_MISR_CTRL_STATUS & status) {
