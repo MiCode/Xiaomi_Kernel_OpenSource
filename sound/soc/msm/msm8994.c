@@ -1674,6 +1674,21 @@ static int msm_audrx_init(struct snd_soc_pcm_runtime *rtd)
 	tomtom_register_ext_clk_cb(msm_snd_enable_codec_ext_clk,
 				   msm_snd_get_ext_clk_cnt,
 				   rtd->codec);
+
+	err = msm_snd_enable_codec_ext_clk(rtd->codec, 1, false);
+	if (IS_ERR_VALUE(err)) {
+		pr_err("%s: Failed to enable mclk, err = 0x%x\n",
+			__func__, err);
+		goto out;
+	}
+	tomtom_enable_qfuse_sensing(rtd->codec);
+	err = msm_snd_enable_codec_ext_clk(rtd->codec, 0, false);
+	if (IS_ERR_VALUE(err)) {
+		pr_err("%s: Failed to disable mclk, err = 0x%x\n",
+			__func__, err);
+		goto out;
+	}
+
 	return 0;
 out:
 	clk_put(codec_clk);
