@@ -366,7 +366,7 @@ int pil_mss_reset_load_mba(struct pil_desc *pil)
 	char fw_name[10] = "mba.mbn";
 	char *fw_name_p;
 	void *mba_virt;
-	dma_addr_t mba_phys;
+	dma_addr_t mba_phys, mba_phys_end;
 	int ret, count;
 	const u8 *data;
 
@@ -392,7 +392,10 @@ int pil_mss_reset_load_mba(struct pil_desc *pil)
 
 	drv->mba_phys = mba_phys;
 	drv->mba_virt = mba_virt;
+	mba_phys_end = mba_phys + drv->mba_size;
 
+	dev_info(pil->dev, "MBA: loading from %pa to %pa\n", &mba_phys,
+								&mba_phys_end);
 	/* Load the MBA image into memory */
 	count = fw->size;
 	data = fw ? fw->data : NULL;
