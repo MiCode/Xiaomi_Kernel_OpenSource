@@ -1057,15 +1057,21 @@ static void *def_msm8x16_wcd_mbhc_cal(void)
 	btn_low = btn_cfg->_v_btn_low;
 	btn_high = btn_cfg->_v_btn_high;
 
-	btn_low[0] = 0;
+	/*
+	 * In SW we are maintaining two sets of threshold register
+	 * one for current source and another for Micbias.
+	 * all btn_low corresponds to threshold for current source
+	 * all bt_high corresponds to threshold for Micbias
+	 */
+	btn_low[0] = 25;
 	btn_high[0] = 25;
-	btn_low[1] = 25;
+	btn_low[1] = 50;
 	btn_high[1] = 50;
-	btn_low[2] = 50;
+	btn_low[2] = 75;
 	btn_high[2] = 75;
-	btn_low[3] = 75;
+	btn_low[3] = 112;
 	btn_high[3] = 112;
-	btn_low[4] = 112;
+	btn_low[4] = 137;
 	btn_high[4] = 137;
 
 	return msm8x16_wcd_cal;

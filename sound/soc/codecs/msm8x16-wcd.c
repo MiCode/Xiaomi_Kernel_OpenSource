@@ -2222,12 +2222,17 @@ static int msm8x16_wcd_hph_pa_event(struct snd_soc_dapm_widget *w,
 
 	switch (event) {
 	case SND_SOC_DAPM_PRE_PMU:
-		if (w->shift == 5)
+		if (w->shift == 5) {
 			snd_soc_update_bits(codec,
 				MSM8X16_WCD_A_ANALOG_RX_HPH_L_TEST, 0x04, 0x04);
-		else if (w->shift == 4)
+			msm8x16_notifier_call(codec,
+					WCD_EVENT_PRE_HPHL_PA_ON);
+		} else if (w->shift == 4) {
 			snd_soc_update_bits(codec,
 				MSM8X16_WCD_A_ANALOG_RX_HPH_R_TEST, 0x04, 0x04);
+			msm8x16_notifier_call(codec,
+					WCD_EVENT_PRE_HPHR_PA_ON);
+		}
 		snd_soc_update_bits(codec,
 				MSM8X16_WCD_A_ANALOG_NCP_FBCTRL, 0x20, 0x20);
 		break;
