@@ -66,6 +66,13 @@ struct mux_clk {
 	 */
 	bool		try_get_rate;
 	struct clk_mux_ops *ops;
+	/*
+	 * Set if you need the mux to try a new parent before falling back to
+	 * the current parent. If the safe_parent field above is set, then the
+	 * safe_sel intermediate source will only be used if we fall back to
+	 * to the current parent during mux_set_rate.
+	 */
+	bool		try_new_parent;
 
 	/* Fields not used by helper function. */
 	void *const __iomem *base;
