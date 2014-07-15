@@ -269,11 +269,12 @@ Optional properties:
 				the maximum virtual voltage corner corresponding to each fuse corner.  The value N
 				corresponds to the number of fuse corners specified by qcom,cpr-fuse-corners.
 				The elements in one tuple are:
-				[0]: =>		the speed bin of the CPU.
-				[1]: =>		the PVS version of the CPU. If device does't have PVS version fuse,
-						set the value to 0.
-				[2 - N+1]: =>	the max virtual voltage corner value corresponding each fuse corner
-						for this speed bin ordered from lowest voltage corner to highest
+				[0]: =>		the speed bin of the CPU. If the device doesn't have a speed bin,
+						fuse, then set the value to 0xFFFFFFFF.
+				[1]: =>		the PVS version of the CPU. If the device doesn't have a PVS version
+						fuse, then set the value to 0.
+				[2 - N+1]: =>	the max virtual voltage corner value corresponding to each fuse corner
+						for this speed bin, ordered from lowest voltage corner to highest
 						voltage corner.
 				No CPR target quotient scaling is applied on chips which have a speed bin + PVS version
 				pair that does not appear in one of the tuples in this property. If the property is
