@@ -12,8 +12,12 @@ Each powerlevel definition is as follows:
 - reg:              Index of the power level (lower is considered higher
 		    performance)
 - qcom,gpu-freq:    The GPU frequency for the power level (in HZ)
-- qcom,bus-freq:    An index representing the bus scaling usecase appropriate
+- qcom,bus-freq:    An index representing the default bus scaling appropriate
 		    for the power level
+- qcom,bus-min:     An optional index representing the minimum bus scaling
+		    appropriate for the power level
+- qcom,bus-max:     An optional index representing the maximum bus scaling
+		    appropriate for the power level
 
 Sample usage:
 
@@ -29,6 +33,8 @@ qcom,kgsl-3d0@fdb00000 {
 			reg = <0>;
 			qcom,gpu-freq = <5000000000>;
 			qcom,bus-freq = <3>;
+			qcom,bus-min = <2>;
+			qcom,bus-max = <4>;
 		};
 	};
 

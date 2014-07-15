@@ -874,6 +874,14 @@ static int adreno_of_get_pwrlevels(struct device_node *parent,
 		if (adreno_of_read_property(child, "qcom,bus-freq",
 			&level->bus_freq))
 			goto done;
+
+		if (of_property_read_u32(child, "qcom,bus-min",
+			&level->bus_min))
+			level->bus_min = level->bus_freq;
+
+		if (of_property_read_u32(child, "qcom,bus-max",
+			&level->bus_max))
+			level->bus_max = level->bus_freq;
 	}
 
 	if (of_property_read_u32(parent, "qcom,initial-pwrlevel",
