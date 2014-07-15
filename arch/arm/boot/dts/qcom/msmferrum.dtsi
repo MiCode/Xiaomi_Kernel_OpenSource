@@ -112,6 +112,7 @@
 #include "msmferrum-ion.dtsi"
 #include "msmferrum-smp2p.dtsi"
 #include "msmferrum-ipcrouter.dtsi"
+#include "msm-gdsc-8916.dtsi"
 
 &soc {
 	#address-cells = <1>;
@@ -479,3 +480,24 @@
 };
 
 #include "msmferrum-regulator.dtsi"
+
+&gdsc_venus {
+	status = "okay";
+};
+
+&gdsc_venus_core0 {
+	qcom,support-hw-trigger;
+	status = "okay";
+};
+
+&gdsc_mdss {
+	status = "okay";
+};
+
+&gdsc_vfe {
+	status = "okay";
+};
+
+&gdsc_oxili_gx {
+	status = "okay";
+};
