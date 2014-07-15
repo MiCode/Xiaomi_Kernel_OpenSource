@@ -64,3 +64,4 @@ obj-$(CONFIG_VEXPRESS_SYSCFG)	+= vexpress-syscfg.o
 obj-$(CONFIG_CXL_BASE)		+= cxl/
 obj-$(CONFIG_UID_CPUTIME) += uid_cputime.o
 obj-y				+= qcom/
+obj-$(CONFIG_QPNP_MISC) 	+= qpnp-misc.o
