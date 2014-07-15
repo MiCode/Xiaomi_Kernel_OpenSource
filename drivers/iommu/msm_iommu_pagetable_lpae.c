@@ -65,6 +65,8 @@
 #define TL_NS                     (0x1 << 5)
 #define TL_AP_RO                  (0x3 << 6) /* Access Permission: R */
 #define TL_AP_RW                  (0x1 << 6) /* Access Permission: RW */
+#define TL_AP_PR_RW               (0x0 << 6) /* Privileged Mode RW */
+#define TL_AP_PR_RO               (0x2 << 6) /* Privileged Mode R */
 #define TL_SH_ISH                 (0x3 << 8) /* Inner shareable */
 #define TL_SH_OSH                 (0x2 << 8) /* Outer shareable */
 #define TL_SH_NSH                 (0x0 << 8) /* Non-shareable */
@@ -226,7 +228,10 @@ static inline void __get_attr(s32 prot, u64 *upper_attr, u64 *lower_attr)
 	*lower_attr |= attr_idx;
 	*lower_attr |= TL_NG | TL_AF;
 	*lower_attr |= (prot & IOMMU_CACHE) ? TL_SH_ISH : TL_SH_NSH;
-	*lower_attr |= (prot & IOMMU_WRITE) ? TL_AP_RW : TL_AP_RO;
+	if (prot & IOMMU_PRIV)
+		*lower_attr |= (prot & IOMMU_WRITE) ? TL_AP_PR_RW : TL_AP_PR_RO;
+	else
+		*lower_attr |= (prot & IOMMU_WRITE) ? TL_AP_RW : TL_AP_RO;
 }
 
 static inline u64 *make_second_level_tbl(struct msm_iommu_pt *pt, u32 offset)

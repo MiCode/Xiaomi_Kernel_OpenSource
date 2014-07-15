@@ -186,14 +186,16 @@ static int __get_pgprot(int prot, int len)
 		pgprot |= tex & 0x01 ? FL_BUFFERABLE : 0;
 		pgprot |= tex & 0x02 ? FL_CACHEABLE : 0;
 		pgprot |= tex & 0x04 ? FL_TEX0 : 0;
-		pgprot |= FL_AP0 | FL_AP1;
+		pgprot |= prot & IOMMU_PRIV ? FL_AP0 :
+			(FL_AP0 | FL_AP1);
 		pgprot |= prot & IOMMU_WRITE ? 0 : FL_AP2;
 	} else	{
 		pgprot = SL_SHARED;
 		pgprot |= tex & 0x01 ? SL_BUFFERABLE : 0;
 		pgprot |= tex & 0x02 ? SL_CACHEABLE : 0;
 		pgprot |= tex & 0x04 ? SL_TEX0 : 0;
-		pgprot |= SL_AP0 | SL_AP1;
+		pgprot |= prot & IOMMU_PRIV ? SL_AP0 :
+			(SL_AP0 | SL_AP1);
 		pgprot |= prot & IOMMU_WRITE ? 0 : SL_AP2;
 	}
 
