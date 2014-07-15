@@ -723,5 +723,5 @@ int mdss_mdp_writeback_display_commit(struct mdss_mdp_ctl *ctl, void *arg)
 			ctl->mixer_right->params_changed++;
 	}
 
-	return mdss_mdp_display_commit(ctl, arg);
+	return mdss_mdp_display_commit(ctl, arg, NULL);
 }

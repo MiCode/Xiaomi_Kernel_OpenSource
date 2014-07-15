@@ -1298,15 +1298,40 @@ static void __overlay_kickoff_requeue(struct msm_fb_data_type *mfd)
 {
 	struct mdss_mdp_ctl *ctl = mfd_to_ctl(mfd);
 
-	mdss_mdp_display_commit(ctl, NULL);
+	mdss_mdp_display_commit(ctl, NULL, NULL);
 	mdss_mdp_display_wait4comp(ctl);
 
 	ATRACE_BEGIN("sspp_programming");
 	__overlay_queue_pipes(mfd);
 	ATRACE_END("sspp_programming");
 
-	mdss_mdp_display_commit(ctl, NULL);
+	mdss_mdp_display_commit(ctl, NULL,  NULL);
 	mdss_mdp_display_wait4comp(ctl);
+}
+
+static int mdss_mdp_commit_cb(enum mdp_commit_stage_type commit_stage,
+	void *data)
+{
+	int ret = 0;
+	struct msm_fb_data_type *mfd = (struct msm_fb_data_type *)data;
+	struct mdss_overlay_private *mdp5_data = mfd_to_mdp5_data(mfd);
+	struct mdss_mdp_ctl *ctl;
+
+	switch (commit_stage) {
+	case MDP_COMMIT_STAGE_WAIT_FOR_PINGPONG:
+		ctl = mfd_to_ctl(mfd);
+		mdss_mdp_ctl_notify(ctl, MDP_NOTIFY_FRAME_START);
+		mutex_unlock(&mdp5_data->ov_lock);
+		break;
+	case MDP_COMMIT_STAGE_PINGPONG_DONE:
+		mutex_lock(&mdp5_data->ov_lock);
+		break;
+	default:
+		pr_err("Invalid commit stage %x", commit_stage);
+		break;
+	}
+
+	return ret;
 }
 
 int mdss_mdp_overlay_kickoff(struct msm_fb_data_type *mfd,
@@ -1319,6 +1344,7 @@ int mdss_mdp_overlay_kickoff(struct msm_fb_data_type *mfd,
 	int ret = 0;
 	int sd_in_pipe = 0;
 	bool need_cleanup = false;
+	struct mdss_mdp_commit_cb commit_cb;
 
 	ATRACE_BEGIN(__func__);
 	if (ctl->shared_lock) {
@@ -1392,13 +1418,22 @@ int mdss_mdp_overlay_kickoff(struct msm_fb_data_type *mfd,
 		ATRACE_BEGIN("wb_kickoff");
 		ret = mdss_mdp_wb_kickoff(mfd);
 		ATRACE_END("wb_kickoff");
+	} else if (!need_cleanup) {
+		ATRACE_BEGIN("display_commit");
+		commit_cb.commit_cb_fnc = mdss_mdp_commit_cb;
+		commit_cb.data = mfd;
+		ret = mdss_mdp_display_commit(mdp5_data->ctl, NULL,
+			&commit_cb);
+		ATRACE_END("display_commit");
 	} else {
 		ATRACE_BEGIN("display_commit");
-		ret = mdss_mdp_display_commit(mdp5_data->ctl, NULL);
+		ret = mdss_mdp_display_commit(mdp5_data->ctl, NULL,
+			NULL);
 		ATRACE_END("display_commit");
 	}
 
-	if (!need_cleanup)
+	/* MDP_NOTIFY_FRAME_START is sent in cb for command panel */
+	if ((!need_cleanup) && (!mdp5_data->ctl->wait_pingpong))
 		mdss_mdp_ctl_notify(ctl, MDP_NOTIFY_FRAME_START);
 
 	if (IS_ERR_VALUE(ret))
