@@ -11,7 +11,7 @@
  */
 
 #include "msm8994-pinctrl.dtsi"
-#include "msm8994-camera-sensor-cdp.dtsi"
+#include "msm8994-camera-sensor-mtp.dtsi"
 
 / {
 	bt_qca6174 {
