@@ -231,15 +231,15 @@ static const struct gmin_cfg_var mrd7_vars[] = {
 	{ "INT33BE:00_CamType",  "1" },
 	{ "INT33BE:00_CsiPort",  "1" },
 	{ "INT33BE:00_CsiLanes", "2" },
-	{ "INT33BE:00_CsiFmt",   "13" }, /* FIXME: correct? */
-	{ "INT33BE:00_CsiBayer", "0" }, /* FIXME: correct? */
+	{ "INT33BE:00_CsiFmt",   "13" },
+	{ "INT33BE:00_CsiBayer", "2" },
 	{ "INT33BE:00_CamClk", "0" },
 	{ "INT33BE:00_I2CAddr", "16" }, /* BIOS ACPI bug workaround */
 	/* MT9M114 user-facing camera: */
 	{ "CRMT1040:00_CamType",  "1" },
 	{ "CRMT1040:00_CsiPort",  "0" },
 	{ "CRMT1040:00_CsiLanes", "1" },
-	{ "CRMT1040:00_CsiFmt",   "13" }, /* FIXME: correct? */
+	{ "CRMT1040:00_CsiFmt",   "13" },
 	{ "CRMT1040:00_CsiBayer", "0" }, /* FIXME: correct? */
 	{ "CRMT1040:00_CamClk", "1" },
 	{},
