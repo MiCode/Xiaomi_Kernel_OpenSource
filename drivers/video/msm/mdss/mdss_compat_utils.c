@@ -2454,6 +2454,7 @@ int mdss_compat_overlay_ioctl(struct fb_info *info, unsigned int cmd,
 	struct mdp_overlay_list32 __user *ovlist32;
 	size_t layers_refs_sz, layers_sz, prepare_sz;
 	void __user *total_mem_chunk;
+	uint32_t num_overlays;
 	int ret;
 
 	if (!info || !info->par)
@@ -2492,12 +2493,14 @@ int mdss_compat_overlay_ioctl(struct fb_info *info, unsigned int cmd,
 		break;
 	case MSMFB_OVERLAY_PREPARE:
 		ovlist32 = compat_ptr(arg);
+		if (get_user(num_overlays, &ovlist32->num_overlays)) {
+			pr_err("compat mdp prepare failed: invalid arg\n");
+			return -EFAULT;
+		}
 
-		layers_sz = ovlist32->num_overlays *
-					sizeof(struct mdp_overlay);
+		layers_sz = num_overlays * sizeof(struct mdp_overlay);
 		prepare_sz = sizeof(struct mdp_overlay_list);
-		layers_refs_sz = ovlist32->num_overlays *
-					sizeof(struct mdp_overlay *);
+		layers_refs_sz = num_overlays * sizeof(struct mdp_overlay *);
 
 		total_mem_chunk = compat_alloc_user_space(
 			prepare_sz + layers_refs_sz + layers_sz);
@@ -2510,7 +2513,7 @@ int mdss_compat_overlay_ioctl(struct fb_info *info, unsigned int cmd,
 
 		layers_head = total_mem_chunk + prepare_sz;
 		mdss_compat_align_list(total_mem_chunk, layers_head,
-					ovlist32->num_overlays);
+					num_overlays);
 		ovlist = (struct mdp_overlay_list *)total_mem_chunk;
 
 		ret = __from_user_mdp_overlaylist(ovlist, ovlist32,
