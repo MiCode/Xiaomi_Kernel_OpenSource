@@ -526,6 +526,7 @@
 		qcom,therm-reset-temp = <115>;
 		qcom,online-hotplug-core;
 		qcom,synchronous-cluster-id = <0 1>;
+		qcom,synchronous-cluster-map = <1 0x0F>, <0 0xF0>;
 	};
 
 	qcom,bcl {
