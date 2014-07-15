@@ -639,7 +639,7 @@ static struct platform_driver msm_cpu_pm_snoc_client_driver = {
 };
 
 struct msm_pc_debug_counters_buffer {
-	int *reg;
+	long *reg;
 	u32 len;
 	char buf[MAX_BUF_SIZE];
 };
@@ -673,7 +673,7 @@ static int msm_pc_debug_counters_copy(
 
 		data->len += len;
 
-		for (j = 0; j < MSM_PC_NUM_COUNTERS; j++) {
+		for (j = 0; j < MSM_PC_NUM_COUNTERS - 1; j++) {
 			stat = data->reg[offset + j];
 			len = scnprintf(data->buf + data->len,
 					 sizeof(data->buf) - data->len,
@@ -681,7 +681,11 @@ static int msm_pc_debug_counters_copy(
 
 			data->len += len;
 		}
+		len = scnprintf(data->buf + data->len,
+			 sizeof(data->buf) - data->len,
+			"\n");
 
+		data->len += len;
 	}
 
 	return data->len;
@@ -730,7 +734,7 @@ static int msm_pc_debug_counters_file_open(struct inode *inode,
 	}
 
 	buf = file->private_data;
-	buf->reg = (int *)inode->i_private;
+	buf->reg = (long *)inode->i_private;
 
 	return 0;
 }
