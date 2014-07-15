@@ -9,3 +9,14 @@ config QCOM_GSBI
           functions for connecting the underlying serial UART, SPI, and I2C
           devices to the output pins.
 
+if ARCH_MSM
+
+config MSM_WATCHDOG_V2
+	bool "MSM Watchdog Support"
+	help
+	  This enables the watchdog module. It causes kernel panic if the
+	  watchdog times out. It allows for detection of cpu hangs and
+	  deadlocks. It does not run during the bootup process, so it will
+	  not catch any early lockups.
+
+endif # ARCH_MSM

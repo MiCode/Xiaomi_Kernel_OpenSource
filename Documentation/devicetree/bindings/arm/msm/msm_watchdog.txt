@@ -1,0 +1,40 @@
+* Qualcomm MSM Watchdog
+
+Watchdog timer is configured with a bark and a bite time.
+if the watchdog is not "pet" at regular intervals, the system
+is assumed to have become non responsive and needs to be reset.
+A warning in the form of a bark timeout leads to a bark interrupt
+and a kernel panic. if the watchdog timer is still not reset,
+a bite timeout occurs, which is an interrupt in the secure mode,
+which leads to a reset of the SOC via the secure watchdog. The
+driver needs the petting time, and the bark timeout to be programmed
+into the watchdog, as well as the bark and bite irqs.
+
+The device tree parameters for the watchdog are:
+
+Required properties:
+
+- compatible : "qcom,msm-watchdog"
+- reg : offset and length of the register set for the watchdog block.
+- reg-names : names corresponding to each reg property value.
+	"wdt-base" - physical base address of watchdog timer registers
+	"wdt-absent-base" - physical base address of watchdog absent register
+- interrupts : should contain bark and bite irq numbers
+- qcom,pet-time : Non zero time interval at which watchdog should be pet in ms.
+- qcom,bark-time : Non zero timeout value for a watchdog bark in ms.
+
+Optional properties:
+
+- qcom,ipi-ping : (boolean) send keep alive ping to other cpus if present
+
+Example:
+
+	qcom,wdt@f9017000 {
+		compatible = "qcom,msm-watchdog";
+		reg = <0xf9017000 0x1000>;
+		reg-names = "wdt-base";
+		interrupts = <0 3 0>, <0 4 0>;
+		qcom,bark-time = <11000>;
+		qcom,pet-time = <10000>;
+		qcom,ipi-ping;
+	};
