@@ -258,10 +258,17 @@ static inline void msm_fd_hw_srst(struct msm_fd_device *fd)
 int msm_fd_hw_get_face_count(struct msm_fd_device *fd)
 {
 	u32 reg;
+	u32 value;
 
 	reg = msm_fd_hw_read_reg(fd, MSM_FD_IOMEM_CORE, MSM_FD_RESULT_CNT);
 
-	return reg & MSM_FD_RESULT_CNT_MASK;
+	value = reg & MSM_FD_RESULT_CNT_MASK;
+	if (value > MSM_FD_MAX_FACES_DETECTED) {
+		dev_warn(fd->dev, "Face count %d out of limit\n", value);
+		value = MSM_FD_MAX_FACES_DETECTED;
+	}
+
+	return value;
 }
 
 /*
