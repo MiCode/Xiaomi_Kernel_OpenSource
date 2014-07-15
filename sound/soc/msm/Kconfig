@@ -267,6 +267,7 @@ config SND_SOC_MSM8994
 	select MSM_QDSP6_APRV2
 	select MSM_QDSP6V2_CODECS
 	select SND_SOC_WCD9330
+	select SND_SOC_MSM_HDMI_CODEC_RX
 	help
 	 To add support for SoC audio on MSM8994.
 	 This will enable sound soc drivers which
