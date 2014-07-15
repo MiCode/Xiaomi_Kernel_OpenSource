@@ -45,6 +45,7 @@ static void *curr_conn;
 static bool qmi_modem_init_fin, qmi_indication_fin;
 static struct work_struct ipa_qmi_service_init_work;
 static bool is_load_uc;
+static uint32_t ipa_wan_platform;
 
 
 /* QMI A5 service */
@@ -336,7 +337,7 @@ static int qmi_init_modem_send_sync_msg(void)
 	memset(&req, 0, sizeof(struct ipa_init_modem_driver_req_msg_v01));
 	memset(&resp, 0, sizeof(struct ipa_init_modem_driver_resp_msg_v01));
 	req.platform_type_valid = true;
-	req.platform_type = QMI_IPA_PLATFORM_TYPE_LE_V01;
+	req.platform_type = ipa_wan_platform;
 	req.hdr_tbl_info_valid = true;
 	req.hdr_tbl_info.modem_offset_start = IPA_v2_RAM_MODEM_HDR_OFST + 256;
 	req.hdr_tbl_info.modem_offset_end = IPA_v2_RAM_MODEM_HDR_OFST + 256
@@ -454,7 +455,7 @@ int qmi_filter_notify_send(struct ipa_fltr_installed_notif_req_msg_v01 *req)
 
 	/* check if the filter rules from IPACM is valid */
 	if (req->filter_index_list_len == 0) {
-		IPAERR(" delete UL filter rule for pipe %d\n",
+		IPAWANERR(" delete UL filter rule for pipe %d\n",
 		req->source_pipe_index);
 		return -EINVAL;
 	}
@@ -651,8 +652,9 @@ static void ipa_qmi_service_init_worker(struct work_struct *work)
 	return;
 }
 
-int ipa_qmi_service_init(bool load_uc)
+int ipa_qmi_service_init(bool load_uc, uint32_t wan_platform_type)
 {
+	ipa_wan_platform = wan_platform_type;
 	is_load_uc = load_uc;
 	if (!ipa_svc_handle) {
 		INIT_WORK(&ipa_qmi_service_init_work,
