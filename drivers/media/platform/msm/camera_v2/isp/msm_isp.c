@@ -231,6 +231,7 @@ static int vfe_probe(struct platform_device *pdev)
 	}
 
 	INIT_LIST_HEAD(&vfe_dev->tasklet_q);
+	INIT_LIST_HEAD(&vfe_dev->tasklet_regupdate_q);
 	tasklet_init(&vfe_dev->vfe_tasklet,
 		msm_isp_do_tasklet, (unsigned long)vfe_dev);
 

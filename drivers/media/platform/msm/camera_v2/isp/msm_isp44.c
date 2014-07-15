@@ -1353,6 +1353,15 @@ static void msm_vfe44_get_error_mask(
 	*error_mask1 = 0x01FFFEFF;
 }
 
+static int msm_vfe44_get_reg_update(uint32_t irq0_status,
+	uint32_t irq1_statuss)
+{
+	int rc = 0;
+	if (irq0_status & 0xF0)
+		rc = 1;
+	return rc;
+}
+
 static struct msm_vfe_axi_hardware_info msm_vfe44_axi_hw_info = {
 	.num_wm = 5,
 	.num_comp_mask = 3,
@@ -1436,6 +1445,7 @@ struct msm_vfe_hardware_info vfe44_hw_info = {
 			.get_platform_data = msm_vfe44_get_platform_data,
 			.get_error_mask = msm_vfe44_get_error_mask,
 			.process_error_status = msm_vfe44_process_error_status,
+			.get_regupdate_status = msm_vfe44_get_reg_update,
 		},
 		.stats_ops = {
 			.get_stats_idx = msm_vfe44_get_stats_idx,

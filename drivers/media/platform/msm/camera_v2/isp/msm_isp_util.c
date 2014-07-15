@@ -1297,9 +1297,11 @@ irqreturn_t msm_isp_process_irq(int irq_num, void *data)
 {
 	unsigned long flags;
 	struct msm_vfe_tasklet_queue_cmd *queue_cmd;
+	struct msm_vfe_tasklet_queue_cmd *regupdate_q_cmd;
 	struct vfe_device *vfe_dev = (struct vfe_device *) data;
 	uint32_t irq_status0, irq_status1;
 	uint32_t error_mask0, error_mask1;
+	struct msm_isp_timestamp ts;
 
 	vfe_dev->hw_info->vfe_ops.irq_ops.
 		read_irq_status(vfe_dev, &irq_status0, &irq_status1);
@@ -1326,7 +1328,7 @@ irqreturn_t msm_isp_process_irq(int irq_num, void *data)
 		ISP_DBG("%s: error_mask0/1 & error_count are set!\n", __func__);
 		return IRQ_HANDLED;
 	}
-
+	msm_isp_get_timestamp(&ts);
 	spin_lock_irqsave(&vfe_dev->tasklet_lock, flags);
 	queue_cmd = &vfe_dev->tasklet_queue_cmd[vfe_dev->taskletq_idx];
 	if (queue_cmd->cmd_used) {
@@ -1338,11 +1340,32 @@ irqreturn_t msm_isp_process_irq(int irq_num, void *data)
 	}
 	queue_cmd->vfeInterruptStatus0 = irq_status0;
 	queue_cmd->vfeInterruptStatus1 = irq_status1;
-	msm_isp_get_timestamp(&queue_cmd->ts);
+	queue_cmd->ts = ts;
 	queue_cmd->cmd_used = 1;
 	vfe_dev->taskletq_idx =
 		(vfe_dev->taskletq_idx + 1) % MSM_VFE_TASKLETQ_SIZE;
 	list_add_tail(&queue_cmd->list, &vfe_dev->tasklet_q);
+	if (vfe_dev->hw_info->vfe_ops.
+		core_ops.get_regupdate_status(irq_status0, irq_status1)) {
+		regupdate_q_cmd = &vfe_dev->
+			tasklet_regupdate_queue_cmd[vfe_dev->
+			taskletq_reg_update_idx];
+		if (regupdate_q_cmd->cmd_used) {
+			pr_err_ratelimited("%s: Tasklet Overflow", __func__);
+			list_del(&regupdate_q_cmd->list);
+		} else {
+			atomic_add(1, &vfe_dev->reg_update_cnt);
+		}
+		regupdate_q_cmd->vfeInterruptStatus0 = irq_status0;
+		regupdate_q_cmd->vfeInterruptStatus1 = irq_status1;
+		regupdate_q_cmd->ts = ts;
+		regupdate_q_cmd->cmd_used = 1;
+		vfe_dev->taskletq_reg_update_idx =
+			(vfe_dev->taskletq_reg_update_idx + 1) %
+			MSM_VFE_TASKLETQ_SIZE;
+		list_add_tail(&regupdate_q_cmd->list,
+			&vfe_dev->tasklet_regupdate_q);
+	}
 	spin_unlock_irqrestore(&vfe_dev->tasklet_lock, flags);
 	tasklet_schedule(&vfe_dev->vfe_tasklet);
 	return IRQ_HANDLED;
@@ -1354,46 +1377,74 @@ void msm_isp_do_tasklet(unsigned long data)
 	struct vfe_device *vfe_dev = (struct vfe_device *) data;
 	struct msm_vfe_irq_ops *irq_ops = &vfe_dev->hw_info->vfe_ops.irq_ops;
 	struct msm_vfe_tasklet_queue_cmd *queue_cmd;
+	struct msm_vfe_tasklet_queue_cmd *reg_update_q_cmd;
 	struct msm_isp_timestamp ts;
 	uint32_t irq_status0, irq_status1;
-	while (atomic_read(&vfe_dev->irq_cnt)) {
-		spin_lock_irqsave(&vfe_dev->tasklet_lock, flags);
-		queue_cmd = list_first_entry(&vfe_dev->tasklet_q,
-		struct msm_vfe_tasklet_queue_cmd, list);
-		if (!queue_cmd) {
-			atomic_set(&vfe_dev->irq_cnt, 0);
+	while (atomic_read(&vfe_dev->irq_cnt) ||
+		(atomic_read(&vfe_dev->reg_update_cnt))) {
+		if (atomic_read(&vfe_dev->irq_cnt)) {
+			spin_lock_irqsave(&vfe_dev->tasklet_lock, flags);
+			queue_cmd = list_first_entry(&vfe_dev->tasklet_q,
+			struct msm_vfe_tasklet_queue_cmd, list);
+			if (!queue_cmd) {
+				atomic_set(&vfe_dev->irq_cnt, 0);
+				spin_unlock_irqrestore(&vfe_dev->tasklet_lock,
+					flags);
+				continue;
+			}
+			atomic_sub(1, &vfe_dev->irq_cnt);
+			list_del(&queue_cmd->list);
+			queue_cmd->cmd_used = 0;
+			irq_status0 = queue_cmd->vfeInterruptStatus0;
+			irq_status1 = queue_cmd->vfeInterruptStatus1;
+			ts = queue_cmd->ts;
 			spin_unlock_irqrestore(&vfe_dev->tasklet_lock, flags);
-			return;
-		}
-		atomic_sub(1, &vfe_dev->irq_cnt);
-		list_del(&queue_cmd->list);
-		queue_cmd->cmd_used = 0;
-		irq_status0 = queue_cmd->vfeInterruptStatus0;
-		irq_status1 = queue_cmd->vfeInterruptStatus1;
-		ts = queue_cmd->ts;
-		spin_unlock_irqrestore(&vfe_dev->tasklet_lock, flags);
-		if (atomic_read(&vfe_dev->error_info.overflow_state) !=
-			NO_OVERFLOW) {
-			pr_err_ratelimited("There is Overflow, kicking up recovery !!!!");
-			msm_isp_process_overflow_recovery(vfe_dev,
+			if (atomic_read(&vfe_dev->error_info.overflow_state) !=
+				NO_OVERFLOW) {
+				pr_err_ratelimited("There is Overflow, kicking up recovery !!!!");
+				msm_isp_process_overflow_recovery(vfe_dev,
+					irq_status0, irq_status1);
+				continue;
+			}
+			ISP_DBG("%s: status0: 0x%x status1: 0x%x\n",
+				__func__, irq_status0, irq_status1);
+			irq_ops->process_reset_irq(vfe_dev,
 				irq_status0, irq_status1);
-			continue;
+			irq_ops->process_halt_irq(vfe_dev,
+				irq_status0, irq_status1);
+			irq_ops->process_camif_irq(vfe_dev,
+				irq_status0, irq_status1, &ts);
+			irq_ops->process_axi_irq(vfe_dev,
+				irq_status0, irq_status1, &ts);
+			irq_ops->process_stats_irq(vfe_dev,
+				irq_status0, irq_status1, &ts);
+			msm_isp_process_error_info(vfe_dev);
 		}
-		ISP_DBG("%s: status0: 0x%x status1: 0x%x\n",
-			__func__, irq_status0, irq_status1);
-		irq_ops->process_reset_irq(vfe_dev,
-			irq_status0, irq_status1);
-		irq_ops->process_halt_irq(vfe_dev,
-			irq_status0, irq_status1);
-		irq_ops->process_camif_irq(vfe_dev,
-			irq_status0, irq_status1, &ts);
-		irq_ops->process_axi_irq(vfe_dev,
-			irq_status0, irq_status1, &ts);
-		irq_ops->process_stats_irq(vfe_dev,
-			irq_status0, irq_status1, &ts);
-		irq_ops->process_reg_update(vfe_dev,
-			irq_status0, irq_status1, &ts);
-		msm_isp_process_error_info(vfe_dev);
+		if (atomic_read(&vfe_dev->reg_update_cnt)) {
+			spin_lock_irqsave(&vfe_dev->tasklet_lock, flags);
+			reg_update_q_cmd = list_first_entry(
+				&vfe_dev->tasklet_regupdate_q,
+				struct msm_vfe_tasklet_queue_cmd, list);
+			if (!reg_update_q_cmd) {
+				atomic_set(&vfe_dev->reg_update_cnt, 0);
+				spin_unlock_irqrestore(&vfe_dev->tasklet_lock,
+					flags);
+				continue;
+			}
+			atomic_sub(1, &vfe_dev->reg_update_cnt);
+			list_del(&reg_update_q_cmd->list);
+			reg_update_q_cmd->cmd_used = 0;
+			irq_status0 = reg_update_q_cmd->vfeInterruptStatus0;
+			irq_status1 = reg_update_q_cmd->vfeInterruptStatus1;
+			ts = reg_update_q_cmd->ts;
+			spin_unlock_irqrestore(&vfe_dev->tasklet_lock, flags);
+			if (atomic_read(&vfe_dev->error_info.overflow_state) !=
+				NO_OVERFLOW) {
+				continue;
+			}
+			irq_ops->process_reg_update(vfe_dev,
+				irq_status0, irq_status1, &ts);
+		}
 	}
 }
 
