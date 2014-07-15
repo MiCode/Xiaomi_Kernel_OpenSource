@@ -7831,8 +7831,7 @@ static int tomtom_codec_probe(struct snd_soc_codec *codec)
 	else if (wcd9xxx->mclk_rate == TOMTOM_MCLK_CLK_9P6MHZ)
 		snd_soc_update_bits(codec, TOMTOM_A_CHIP_CTL, 0x06, 0x2);
 	tomtom_codec_init_reg(codec);
-	/* set QFuse for LAB FIFO detection */
-	snd_soc_write(codec, TOMTOM_A_QFUSE_CTL, 0x3);
+
 	ret = tomtom_handle_pdata(tomtom);
 	if (IS_ERR_VALUE(ret)) {
 		pr_err("%s: bad pdata\n", __func__);
