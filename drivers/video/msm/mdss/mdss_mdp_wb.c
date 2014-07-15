@@ -343,12 +343,12 @@ static int mdss_mdp_wb_stop(struct msm_fb_data_type *mfd)
 static int mdss_mdp_wb_register_node(struct mdss_mdp_wb *wb,
 				     struct mdss_mdp_wb_data *node)
 {
-	node->state = REGISTERED;
-	list_add_tail(&node->registered_entry, &wb->register_queue);
 	if (!node) {
 		pr_err("Invalid wb node\n");
 		return -EINVAL;
 	}
+	node->state = REGISTERED;
+	list_add_tail(&node->registered_entry, &wb->register_queue);
 
 	return 0;
 }

@@ -1174,15 +1174,17 @@ void mdss_mdp_pipe_sspp_term(struct mdss_mdp_pipe *pipe)
 	struct pp_hist_col_info *hist_info;
 	char __iomem *ctl_base;
 
-	if (!pipe && pipe->pp_res.hist.col_en) {
-		done_bit = 3 << (pipe->num * 4);
-		hist_info = &pipe->pp_res.hist;
-		ctl_base = pipe->base +
-			MDSS_MDP_REG_VIG_HIST_CTL_BASE;
-		pp_histogram_disable(hist_info, done_bit, ctl_base);
+	if (pipe) {
+		if (pipe->pp_res.hist.col_en) {
+			done_bit = 3 << (pipe->num * 4);
+			hist_info = &pipe->pp_res.hist;
+			ctl_base = pipe->base +
+				MDSS_MDP_REG_VIG_HIST_CTL_BASE;
+			pp_histogram_disable(hist_info, done_bit, ctl_base);
+		}
+		memset(&pipe->pp_cfg, 0, sizeof(struct mdp_overlay_pp_params));
+		memset(&pipe->pp_res, 0, sizeof(struct mdss_pipe_pp_res));
 	}
-	memset(&pipe->pp_cfg, 0, sizeof(struct mdp_overlay_pp_params));
-	memset(&pipe->pp_res, 0, sizeof(struct mdss_pipe_pp_res));
 }
 
 int mdss_mdp_pipe_sspp_setup(struct mdss_mdp_pipe *pipe, u32 *op)
@@ -1251,10 +1253,10 @@ static int pp_mixer_setup(u32 disp_num,
 	struct pp_sts_type *pp_sts;
 	struct mdss_mdp_ctl *ctl;
 	char __iomem *addr;
-	dspp_num = mixer->num;
 
 	if (!mixer || !mixer->ctl)
 		return -EINVAL;
+	dspp_num = mixer->num;
 	ctl = mixer->ctl;
 
 	/* no corresponding dspp */
@@ -1815,7 +1817,7 @@ int mdss_mdp_pp_init(struct device *dev)
 			}
 		}
 	}
-	if (mdata) {
+	if (mdata && mdata->vig_pipes) {
 		vig = mdata->vig_pipes;
 		for (i = 0; i < mdata->nvig_pipes; i++) {
 			mutex_init(&vig[i].pp_res.hist.hist_mutex);
@@ -1844,6 +1846,7 @@ int mdss_mdp_pp_init(struct device *dev)
 	mutex_unlock(&mdss_pp_mutex);
 	return ret;
 }
+
 void mdss_mdp_pp_term(struct device *dev)
 {
 	struct mdss_data_type *mdata = mdss_mdp_get_mdata();
@@ -3763,8 +3766,7 @@ void mdss_mdp_hist_intr_done(u32 isr)
 			hist_info = &pipe->pp_res.hist;
 		}
 		/* Histogram Done Interrupt */
-		if (hist_info && (isr_blk & 0x1) &&
-			(hist_info->col_en)) {
+		if (hist_info && (isr_blk & 0x1) && (hist_info->col_en)) {
 			spin_lock(&hist_info->hist_lock);
 			hist_info->col_state = HIST_READY;
 			spin_unlock(&hist_info->hist_lock);
@@ -3774,8 +3776,7 @@ void mdss_mdp_hist_intr_done(u32 isr)
 			}
 		}
 		/* Histogram Reset Done Interrupt */
-		if ((isr_blk & 0x2) &&
-			(hist_info->col_en)) {
+		if (hist_info && (isr_blk & 0x2) && (hist_info->col_en)) {
 				spin_lock(&hist_info->hist_lock);
 				hist_info->col_state = HIST_IDLE;
 				spin_unlock(&hist_info->hist_lock);
