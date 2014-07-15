@@ -46,6 +46,7 @@
 #define HORSCALER_NUM_FILTER_TAPS	8
 #define HORSCALER_COEFF_NUM		17
 #define MDP_MIN_VBP		4
+#define MDP_MIN_FETCH		9
 #define MAX_FREE_LIST_SIZE	12
 
 #define C3_ALPHA	3	/* alpha */
@@ -230,6 +231,7 @@ struct mdss_mdp_ctl {
 
 	void *priv_data;
 	u32 wb_type;
+	bool prg_fet;
 };
 
 struct mdss_mdp_mixer {
