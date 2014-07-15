@@ -854,6 +854,62 @@ int mdss_mdp_video_reconfigure_splash_done(struct mdss_mdp_ctl *ctl,
 	return ret;
 }
 
+static bool mdss_mdp_fetch_programable(struct mdss_mdp_ctl *ctl)
+{
+	struct mdss_panel_info *pinfo = &ctl->panel_data->panel_info;
+	struct mdss_data_type *mdata;
+	bool ret;
+
+	mdata = ctl->mdata;
+
+	if (mdata->mdp_rev >= MDSS_MDP_HW_REV_105) {
+		if ((pinfo->lcdc.v_back_porch + pinfo->lcdc.v_front_porch) <
+				MDP_MIN_FETCH) {
+			pr_warn("low vbp+vfp may lead to perf issues in some cases\n");
+		}
+		ret = true;
+
+		if (pinfo->lcdc.v_back_porch > MDP_MIN_FETCH)
+			ret = false;
+	} else {
+		if (pinfo->lcdc.v_back_porch < MDP_MIN_FETCH)
+			pr_warn("low vbp may lead to display performance issues");
+		ret = false;
+	}
+
+	return ret;
+}
+
+static void mdss_mdp_fetch_start_config(struct mdss_mdp_video_ctx *ctx,
+		struct mdss_mdp_ctl *ctl)
+{
+	int fetch_start, fetch_enable, v_total, h_total;
+	struct mdss_data_type *mdata;
+	struct mdss_panel_info *pinfo = &ctl->panel_data->panel_info;
+
+	mdata = ctl->mdata;
+
+	if (!mdss_mdp_fetch_programable(ctl)) {
+		pr_debug("programmable fetch is not needed/supported\n");
+		ctl->prg_fet = false;
+		return;
+	}
+
+	/*
+	 * Fetch should always be outside the active lines. If the fetching
+	 * is programmed within active region, hardware behavior is unknown.
+	 */
+	v_total = mdss_panel_get_vtotal(pinfo);
+	h_total = mdss_panel_get_htotal(pinfo, true);
+	fetch_start = (v_total - mdss_mdp_max_fetch_lines(pinfo)) * h_total;
+	fetch_enable = BIT(31);
+	ctl->prg_fet = true;
+
+	pr_debug("ctl:%d, fetch start=%d\n", ctl->num, fetch_start);
+	mdp_video_write(ctx, MDSS_MDP_REG_INTF_PROG_FETCH_START, fetch_start);
+	mdp_video_write(ctx, MDSS_MDP_REG_INTF_CONFIG, fetch_enable);
+}
+
 static int mdss_mdp_video_intfs_setup(struct mdss_mdp_ctl *ctl,
 	struct mdss_panel_data *pdata, int inum)
 {
@@ -935,6 +991,7 @@ static int mdss_mdp_video_intfs_setup(struct mdss_mdp_ctl *ctl,
 		return -EINVAL;
 	}
 
+	mdss_mdp_fetch_start_config(ctx, ctl);
 	mdp_video_write(ctx, MDSS_MDP_REG_INTF_PANEL_FORMAT, ctl->dst_format);
 
 	return 0;
