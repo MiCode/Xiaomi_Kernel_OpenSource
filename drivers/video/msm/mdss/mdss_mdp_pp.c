@@ -472,7 +472,10 @@ int mdss_mdp_csc_setup_data(u32 block, u32 blk_idx, u32 tbl_idx,
 	case MDSS_MDP_BLOCK_WB:
 		if (blk_idx < mdata->nctl) {
 			ctl = mdata->ctl_off + blk_idx;
-			base = ctl->wb_base + MDSS_MDP_REG_WB_CSC_BASE;
+			if (ctl->wb_base)
+				base = ctl->wb_base + MDSS_MDP_REG_WB_CSC_BASE;
+			else
+				ret = -EINVAL;
 		} else {
 			ret = -EINVAL;
 		}
@@ -1400,6 +1403,9 @@ static char __iomem *mdss_mdp_get_dspp_addr_off(u32 dspp_num)
 	if (mdata->nmixers_intf <= dspp_num) {
 		pr_err("Invalid dspp_num=%d\n", dspp_num);
 		return ERR_PTR(-EINVAL);
+	} else if (mdata->ndspp <= dspp_num) {
+		pr_err("destination not supported dspp_num=%d", dspp_num);
+		return ERR_PTR(-EINVAL);
 	}
 	mixer = mdata->mixer_intf + dspp_num;
 	return mixer->dspp_base;
@@ -1428,6 +1434,10 @@ static int pp_hist_setup(u32 *op, u32 block, struct mdss_mdp_mixer *mix)
 			op_flags |= BIT(17);
 		hist_info = &mdss_pp_res->dspp_hist[mix->num];
 		base = mdss_mdp_get_dspp_addr_off(PP_BLOCK(block));
+		if (IS_ERR(base)) {
+			ret = -EPERM;
+			goto error;
+		}
 		kick_base = MDSS_MDP_REG_DSPP_HIST_CTL_BASE;
 	} else if (PP_LOCAT(block) == MDSS_PP_SSPP_CFG && is_hist_v1) {
 		pipe = mdss_mdp_pipe_get(mdata, BIT(PP_BLOCK(block)));
@@ -1579,6 +1589,8 @@ static int pp_dspp_setup(u32 disp_num, struct mdss_mdp_mixer *mixer)
 		(dspp_num >= mdata->nmixers_intf))
 		return -EINVAL;
 	base = mdss_mdp_get_dspp_addr_off(dspp_num);
+	if (IS_ERR(base))
+		return -EINVAL;
 
 	mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_ON);
 
@@ -1923,9 +1935,10 @@ int mdss_mdp_pp_init(struct device *dev)
 					mutex_init(&hist[i].hist_mutex);
 					spin_lock_init(&hist[i].hist_lock);
 					hist[i].intr_shift = (i * 4) + 12;
-					hist[i].base =
+					hist[i].base = i < mdata->ndspp ?
 						mdss_mdp_get_dspp_addr_off(i) +
-						MDSS_MDP_REG_DSPP_HIST_CTL_BASE;
+						MDSS_MDP_REG_DSPP_HIST_CTL_BASE
+						: NULL;
 					init_completion(&hist[i].comp);
 					init_completion(&hist[i].first_kick);
 				}
@@ -1978,7 +1991,7 @@ static int pp_get_dspp_num(u32 disp_num, u32 *dspp_num)
 		if (mixer_id[i] < mdata->nmixers_intf)
 			break;
 	}
-	if (i >= mixer_cnt)
+	if (i >= mixer_cnt || mixer_id[i] > mdata->ndspp)
 		return -EPERM;
 	*dspp_num = mixer_id[i];
 	return 0;
@@ -3672,6 +3685,12 @@ int mdss_mdp_hist_collect(struct mdp_histogram_data *hist)
 		}
 		for (i = 0; i < hist_cnt; i++) {
 			dspp_num = mixer_id[i];
+			if (dspp_num > mdata->ndspp) {
+				pr_err("%s, hist destination not supported",
+					__func__);
+				ret = -EPERM;
+				goto hist_collect_exit;
+			}
 			ctl_base = mdss_mdp_get_dspp_addr_off(dspp_num) +
 				MDSS_MDP_REG_DSPP_HIST_CTL_BASE;
 			exp_sum = (mdata->mixer_intf[dspp_num].width *

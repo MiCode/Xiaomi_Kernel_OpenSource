@@ -199,6 +199,8 @@ struct mdss_data_type {
 
 	struct mdss_mdp_ctl *ctl_off;
 	u32 nctl;
+	u32 nwb;
+	u32 ndspp;
 
 	struct mdss_mdp_dp_intf *dp_off;
 	u32 ndp;
