@@ -541,7 +541,8 @@ static int byt_set_bias_level(struct snd_soc_card *card,
 		return -EINVAL;
 	}
 
-	card->dapm.bias_level = level;
+	if (&card->dapm == dapm)
+		card->dapm.bias_level = level;
 	pr_debug("card(%s)->bias_level %u\n", card->name,
 			card->dapm.bias_level);
 	return 0;
@@ -551,7 +552,6 @@ static int byt_init(struct snd_soc_pcm_runtime *runtime)
 {
 	int ret;
 	struct snd_soc_codec *codec;
-	struct snd_soc_dapm_context *dapm = &codec->dapm;
 	struct snd_soc_card *card = runtime->card;
 	struct byt_mc_private *ctx = snd_soc_card_get_drvdata(runtime->card);
 	int codec_gpio, jd_gpio;
@@ -574,8 +574,6 @@ static int byt_init(struct snd_soc_pcm_runtime *runtime)
 	pr_info("%s: JD GPIO = %d", __func__, jd_gpio);
 	hs_gpio[0].gpio = jd_gpio;
 
-	/* Set codec bias level */
-	byt_set_bias_level(card, dapm, SND_SOC_BIAS_OFF);
 	card->dapm.idle_bias_off = true;
 	/* Set overcurrent detection threshold base and scale factor
 	   for jack type identification and button events. */

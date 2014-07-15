@@ -653,7 +653,8 @@ static int byt_set_bias_level(struct snd_soc_card *card,
 		pr_err("%s: Invalid bias level=%d\n", __func__, level);
 		return -EINVAL;
 	}
-	card->dapm.bias_level = level;
+	if (&card->dapm == dapm)
+		card->dapm.bias_level = level;
 	pr_debug("card(%s)->bias_level %u\n", card->name,
 			card->dapm.bias_level);
 	return 0;
@@ -674,8 +675,6 @@ static int byt_init(struct snd_soc_pcm_runtime *runtime)
 		return -EIO;
 	}
 
-	/* Set codec bias level */
-	byt_set_bias_level(card, &card->dapm, SND_SOC_BIAS_OFF);
 	card->dapm.idle_bias_off = true;
 
 	/* Threshold base = 2000uA; scale factor = 0.5 =>
