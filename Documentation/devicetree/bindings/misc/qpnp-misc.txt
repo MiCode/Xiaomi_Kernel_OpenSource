@@ -1,0 +1,27 @@
+QPNP-MISC
+
+QPNP-MISC provides a way to read the PMIC part number and revision.
+
+Required properties:
+- compatible : should be "qcom,qpnp-misc"
+- reg : offset and length of the PMIC peripheral register map.
+
+Example:
+	qcom,spmi@fc4c0000 {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		interrupt-controller;
+		#interrupt-cells = <3>;
+
+		qcom,pm8941@0 {
+			spmi-slave-container;
+			reg = <0x0>;
+			#address-cells = <1>;
+			#size-cells = <1>;
+
+			qcom,misc@900 {
+				compatible = "qcom,qpnp-misc";
+				reg = <0x900 0x100>;
+			};
+		}
+	};
