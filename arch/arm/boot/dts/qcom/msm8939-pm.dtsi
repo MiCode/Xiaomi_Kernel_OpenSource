@@ -267,10 +267,10 @@
 				reg = <1>;
 				label = "system-cci-retention";
 				qcom,spm-cci-mode = "retention";
-				qcom,latency-us = <100>;
-				qcom,ss-power = <400>;
-				qcom,energy-overhead = <300000>;
-				qcom,time-overhead = <200>;
+				qcom,latency-us = <472>;
+				qcom,ss-power = <585>;
+				qcom,energy-overhead = <760366>;
+				qcom,time-overhead = <1300>;
 				qcom,min-child-idx = <1>;
 			};
 
@@ -278,10 +278,10 @@
 				reg = <2>;
 				label = "system-cci-pc";
 				qcom,spm-cci-mode = "pc";
-				qcom,latency-us = <12500>;
-				qcom,ss-power = <50>;
-				qcom,energy-overhead = <5777396>;
-				qcom,time-overhead = <3500>;
+				qcom,latency-us = <12000>;
+				qcom,ss-power = <560>;
+				qcom,energy-overhead = <2349550>;
+				qcom,time-overhead = <3200>;
 				qcom,min-child-idx = <1>;
 				qcom,notify-rpm;
 			};
@@ -309,10 +309,10 @@
 					reg = <1>;
 					label = "power-l2-pc";
 					qcom,spm-l2-mode = "pc";
-					qcom,latency-us = <900>;
-					qcom,ss-power = <490>;
-					qcom,energy-overhead = <950000>;
-					qcom,time-overhead = <1450>;
+					qcom,latency-us = <410>;
+					qcom,ss-power = <590>;
+					qcom,energy-overhead = <742249>;
+					qcom,time-overhead = <1250>;
 					qcom,min-child-idx = <2>;
 				};
 
@@ -324,28 +324,28 @@
 						reg = <0>;
 						qcom,spm-cpu-mode = "wfi";
 						qcom,latency-us = <1>;
-						qcom,ss-power = <560>;
-						qcom,energy-overhead = <12000>;
-						qcom,time-overhead = <20>;
+						qcom,ss-power = <640>;
+						qcom,energy-overhead = <46420>;
+						qcom,time-overhead = <80>;
 					};
 
 					qcom,pm-cpu-level@1 {
 						reg = <1>;
 						qcom,spm-cpu-mode = "standalone_pc";
-						qcom,latency-us = <180>;
-						qcom,ss-power = <550>;
-						qcom,energy-overhead = <160000>;
-						qcom,time-overhead = <280>;
+						qcom,latency-us = <370>;
+						qcom,ss-power = <615>;
+						qcom,energy-overhead = <333266>;
+						qcom,time-overhead = <540>;
 						qcom,use-broadcast-timer;
 					};
 
 					qcom,pm-cpu-level@2 {
 						reg = <2>;
 						qcom,spm-cpu-mode = "pc";
-						qcom,latency-us = <230>;
-						qcom,ss-power = <535>;
-						qcom,energy-overhead = <200000>;
-						qcom,time-overhead = <330>;
+						qcom,latency-us = <400>;
+						qcom,ss-power = <600>;
+						qcom,energy-overhead = <352240>;
+						qcom,time-overhead = <580>;
 						qcom,use-broadcast-timer;
 					};
 				};
@@ -374,10 +374,10 @@
 					reg = <1>;
 					label = "performance-l2-pc";
 					qcom,spm-l2-mode = "pc";
-					qcom,latency-us = <900>;
-					qcom,ss-power = <550>;
-					qcom,energy-overhead = <980000>;
-					qcom,time-overhead = <1450>;
+					qcom,latency-us = <430>;
+					qcom,ss-power = <600>;
+					qcom,energy-overhead = <742249>;
+					qcom,time-overhead = <1250>;
 					qcom,min-child-idx = <2>;
 				};
 
@@ -389,28 +389,28 @@
 						reg = <0>;
 						qcom,spm-cpu-mode = "wfi";
 						qcom,latency-us = <1>;
-						qcom,ss-power = <600>;
-						qcom,energy-overhead = <13000>;
-						qcom,time-overhead = <20>;
+						qcom,ss-power = <693>;
+						qcom,energy-overhead = <46421>;
+						qcom,time-overhead = <80>;
 					};
 
 					qcom,pm-cpu-level@1 {
 						reg = <1>;
 						qcom,spm-cpu-mode = "standalone_pc";
-						qcom,latency-us = <180>;
-						qcom,ss-power = <500>;
-						qcom,energy-overhead = <180000>;
-						qcom,time-overhead = <280>;
+						qcom,latency-us = <330>;
+						qcom,ss-power = <652>;
+						qcom,energy-overhead = <349126>;
+						qcom,time-overhead = <550>;
 						qcom,use-broadcast-timer;
 					};
 
 					qcom,pm-cpu-level@2 {
 						reg = <2>;
 						qcom,spm-cpu-mode = "pc";
-						qcom,latency-us = <230>;
-						qcom,ss-power = <400>;
-						qcom,energy-overhead = <300000>;
-						qcom,time-overhead = <330>;
+						qcom,latency-us = <350>;
+						qcom,ss-power = <640>;
+						qcom,energy-overhead = <399922>;
+						qcom,time-overhead = <650>;
 						qcom,use-broadcast-timer;
 					};
 				};
