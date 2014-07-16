@@ -97,46 +97,34 @@ out:
 	return err;
 }
 
-static void ufs_msm_phy_qmp_28nm_calibrate(struct ufs_msm_phy *ufs_msm_phy)
+static int ufs_msm_phy_qmp_28nm_calibrate(struct ufs_msm_phy *ufs_msm_phy)
 {
-	struct ufs_msm_phy_calibration *tbl;
-	int tbl_size;
-	int i;
+	struct ufs_msm_phy_calibration *tbl_A, *tbl_B;
+	int tbl_size_A, tbl_size_B;
+	int rate = UFS_MSM_LIMIT_HS_RATE;
 	u8 major = ufs_msm_phy->host_ctrl_rev_major;
 	u16 minor = ufs_msm_phy->host_ctrl_rev_minor;
 	u16 step = ufs_msm_phy->host_ctrl_rev_step;
+	int err;
 
 	if ((major == 0x1) && (minor == 0x001) && (step == 0x0000)) {
-		tbl_size = ARRAY_SIZE(phy_cal_table_ctrl_1_1_0_rate_A);
-		tbl = phy_cal_table_ctrl_1_1_0_rate_A;
+		tbl_size_A = ARRAY_SIZE(phy_cal_table_ctrl_1_1_0_rate_A);
+		tbl_A = phy_cal_table_ctrl_1_1_0_rate_A;
 	} else if ((major == 0x1) && (minor == 0x001) && (step == 0x0001)) {
-		tbl_size = ARRAY_SIZE(phy_cal_table_ctrl_1_1_1_rate_A);
-		tbl = phy_cal_table_ctrl_1_1_1_rate_A;
+		tbl_size_A = ARRAY_SIZE(phy_cal_table_ctrl_1_1_1_rate_A);
+		tbl_A = phy_cal_table_ctrl_1_1_1_rate_A;
 	}
 
-	/*
-	 * calibration according phy_cal_table_ctrl_x_x_x_rate_A
-	 * happens regardless of the rate we intend to work with.
-	 * Only in case we would like to work in rate B, we need
-	 * to override a subset of registers of
-	 * phy_cal_table_ctrl_x_x_x_rate_A table, with phy_cal_table_rate_B
-	 * table.
-	 */
-	for (i = 0; i < tbl_size; i++)
-		writel_relaxed(tbl[i].cfg_value,
-				ufs_msm_phy->mmio + tbl[i].reg_offset);
+	tbl_B = phy_cal_table_rate_B;
+	tbl_size_B = ARRAY_SIZE(phy_cal_table_rate_B);
 
-	if (UFS_MSM_LIMIT_HS_RATE == PA_HS_MODE_B) {
-		tbl = phy_cal_table_rate_B;
-		tbl_size = ARRAY_SIZE(phy_cal_table_rate_B);
+	err = ufs_msm_phy_calibrate(ufs_msm_phy, tbl_A, tbl_size_A,
+			      tbl_B, tbl_size_B, rate);
+	if (err)
+		dev_err(ufs_msm_phy->dev, "%s: ufs_msm_phy_calibrate() failed %d\n",
+			__func__, err);
 
-		for (i = 0; i < tbl_size; i++)
-			writel_relaxed(tbl[i].cfg_value,
-				ufs_msm_phy->mmio + tbl[i].reg_offset);
-	}
-
-	/* flush buffered writes */
-	mb();
+	return err;
 }
 
 static
@@ -286,7 +274,7 @@ static int ufs_msm_phy_qmp_28nm_resume(struct phy *generic_phy)
 	return err;
 }
 
-struct phy_ops ufs_msm_phy_ops = {
+struct phy_ops ufs_msm_phy_qmp_28nm_phy_ops = {
 	.init		= ufs_msm_phy_qmp_28nm_init,
 	.exit		= ufs_msm_phy_exit,
 	.power_on	= ufs_msm_phy_power_on,
@@ -312,7 +300,6 @@ static int ufs_msm_phy_qmp_28nm_probe(struct platform_device *pdev)
 	struct device *dev = &pdev->dev;
 	int err = 0;
 	struct phy *generic_phy;
-	struct phy_provider *phy_provider;
 
 	phy = devm_kzalloc(dev, sizeof(*phy), GFP_KERNEL);
 	if (!phy) {
@@ -321,37 +308,26 @@ static int ufs_msm_phy_qmp_28nm_probe(struct platform_device *pdev)
 		goto out;
 	}
 
-	err = ufs_msm_phy_base_init(pdev, &phy->common_cfg);
-	if (err) {
-		dev_err(dev, "%s: phy base init failed %d\n", __func__, err);
-		goto out;
-	}
-
-	phy->common_cfg.phy_spec_ops = &phy_28nm_ops;
 	phy->common_cfg.cached_regs =
 			(struct ufs_msm_phy_calibration *)cached_phy_regs;
 	phy->common_cfg.cached_regs_table_size =
 				ARRAY_SIZE(cached_phy_regs);
 
-	phy_provider = devm_of_phy_provider_register(dev, of_phy_simple_xlate);
-	if (IS_ERR(phy_provider)) {
-		err = PTR_ERR(phy_provider);
-		dev_err(dev, "%s: failed to register phy %d\n", __func__, err);
+	generic_phy = ufs_msm_phy_generic_probe(pdev, &phy->common_cfg,
+				&ufs_msm_phy_qmp_28nm_phy_ops, &phy_28nm_ops);
+
+	if (!generic_phy) {
+		dev_err(dev, "%s: ufs_msm_phy_generic_probe() failed\n",
+			__func__);
+		err = -EIO;
 		goto out;
 	}
 
-	generic_phy = devm_phy_create(dev, &ufs_msm_phy_ops, NULL);
-	if (IS_ERR(generic_phy)) {
-		err =  PTR_ERR(generic_phy);
-		dev_err(dev, "%s: failed to create phy %d\n", __func__, err);
-		goto out;
-	}
-
-	phy->common_cfg.dev = dev;
 	phy_set_drvdata(generic_phy, phy);
 
 	strlcpy(phy->common_cfg.name, UFS_PHY_NAME,
 			sizeof(phy->common_cfg.name));
+
 out:
 	return err;
 }

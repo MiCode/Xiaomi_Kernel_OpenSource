@@ -30,36 +30,27 @@
 
 #define UFS_PHY_NAME "ufs_msm_phy_qmp_20nm"
 
-static void ufs_msm_phy_qmp_20nm_phy_calibrate(struct ufs_msm_phy *phy)
+static int ufs_msm_phy_qmp_20nm_phy_calibrate(struct ufs_msm_phy *ufs_msm_phy)
 {
-	struct ufs_msm_phy_calibration *tbl;
-	int tbl_size;
-	int i;
+	struct ufs_msm_phy_calibration *tbl_A, *tbl_B;
+	int tbl_size_A, tbl_size_B;
+	int rate = UFS_MSM_LIMIT_HS_RATE;
+	int err;
 
-	tbl_size = ARRAY_SIZE(phy_cal_table_rate_A);
-	tbl = phy_cal_table_rate_A;
+	tbl_size_A = ARRAY_SIZE(phy_cal_table_rate_A);
+	tbl_A = phy_cal_table_rate_A;
 
-	/*
-	 * calibration according phy_cal_table_rate_A happens
-	 * regardless of the rate we intend to work with.
-	 * Only in case we would like to work in rate B, we need
-	 * to override a subset of registers of phy_cal_table_rate_A
-	 * table, with phy_cal_table_rate_B table.
-	 */
-	for (i = 0; i < tbl_size; i++)
-		writel_relaxed(tbl[i].cfg_value, phy->mmio + tbl[i].reg_offset);
+	tbl_size_B = ARRAY_SIZE(phy_cal_table_rate_B);
+	tbl_B = phy_cal_table_rate_B;
 
-	if (UFS_MSM_LIMIT_HS_RATE == PA_HS_MODE_B) {
-		tbl = phy_cal_table_rate_B;
-		tbl_size = ARRAY_SIZE(phy_cal_table_rate_B);
+	err = ufs_msm_phy_calibrate(ufs_msm_phy, tbl_A, tbl_size_A,
+						tbl_B, tbl_size_B, rate);
 
-		for (i = 0; i < tbl_size; i++)
-			writel_relaxed(tbl[i].cfg_value,
-					phy->mmio + tbl[i].reg_offset);
-	}
+	if (err)
+		dev_err(ufs_msm_phy->dev, "%s: ufs_msm_phy_calibrate() failed %d\n",
+			__func__, err);
 
-	/* flush buffered writes */
-	mb();
+	return err;
 }
 
 static int ufs_msm_phy_qmp_20nm_init(struct phy *generic_phy)
@@ -192,7 +183,6 @@ static int ufs_msm_phy_qmp_20nm_probe(struct platform_device *pdev)
 	struct device *dev = &pdev->dev;
 	struct phy *generic_phy;
 	struct ufs_msm_phy_qmp_20nm *phy;
-	struct phy_provider *phy_provider;
 	int err = 0;
 
 	phy = devm_kzalloc(dev, sizeof(*phy), GFP_KERNEL);
@@ -202,35 +192,20 @@ static int ufs_msm_phy_qmp_20nm_probe(struct platform_device *pdev)
 		goto out;
 	}
 
-	err = ufs_msm_phy_base_init(pdev, &phy->common_cfg);
-	if (err) {
-		dev_err(dev, "%s: phy base init failed %d\n", __func__, err);
+	generic_phy = ufs_msm_phy_generic_probe(pdev, &phy->common_cfg,
+				&ufs_msm_phy_qmp_20nm_phy_ops, &phy_20nm_ops);
+
+	if (!generic_phy) {
+		dev_err(dev, "%s: ufs_msm_phy_generic_probe() failed\n",
+			__func__);
+		err = -EIO;
 		goto out;
 	}
 
-	phy->common_cfg.phy_spec_ops = &phy_20nm_ops;
-	phy->common_cfg.cached_regs = NULL;
-
-	phy_provider = devm_of_phy_provider_register(dev, of_phy_simple_xlate);
-	if (IS_ERR(phy_provider)) {
-		err = PTR_ERR(phy_provider);
-		dev_err(dev, "%s: failed to register phy %d\n", __func__, err);
-		goto out;
-	}
-
-	generic_phy = devm_phy_create(dev, &ufs_msm_phy_qmp_20nm_phy_ops, NULL);
-	if (IS_ERR(generic_phy)) {
-		devm_of_phy_provider_unregister(dev, phy_provider);
-		err =  PTR_ERR(generic_phy);
-		dev_err(dev, "%s: failed to create phy %d\n", __func__, err);
-		goto out;
-	}
-
-	phy->common_cfg.dev = dev;
 	phy_set_drvdata(generic_phy, phy);
 
 	strlcpy(phy->common_cfg.name, UFS_PHY_NAME,
-				sizeof(phy->common_cfg.name));
+			sizeof(phy->common_cfg.name));
 
 out:
 	return err;
