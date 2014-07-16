@@ -9,7 +9,7 @@ Required properties:
 - reg               : <registers mapping>
 
 Optional properties:
-- ufs-phy               : phandle to UFS PHY node
+- phys                  : phandle to UFS PHY node
 - vdd-hba-supply        : phandle to UFS host controller supply regulator node
 - vcc-supply            : phandle to VCC supply regulator node
 - vccq-supply           : phandle to VCCQ supply regulator node

@@ -4656,8 +4656,9 @@
 	};
 
 	ufsphy1: ufsphy@0xfc597000 {
-		compatible = "qcom,ufsphy";
+		compatible = "qcom,ufs-msm-phy-qmp-28nm";
 		reg = <0xfc597000 0x87c>;
+		#phy-cells = <0>;
 		vdda-phy-supply = <&pma8084_l3>;
 		vdda-pll-supply = <&pma8084_l12>;
 		vdda-phy-max-microamp = <50000>;
@@ -4670,8 +4671,7 @@
 		compatible = "qcom,ufshc";
 		reg = <0xfc594000 0x800>;
 		interrupts = <0 28 0>;
-
-		ufs-phy = <&ufsphy1>;
+		phys = <&ufsphy1>;
 		vcc-supply = <&pma8084_l19>;
 		vccq-supply = <&pma8084_l4>;
 		vccq2-supply = <&pma8084_s4>;

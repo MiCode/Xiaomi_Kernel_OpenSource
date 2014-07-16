@@ -937,20 +937,23 @@
 	};
 
 	ufsphy1: ufsphy@fc597000 {
-			compatible = "qcom,ufsphy";
+			compatible = "qcom,ufs-msm-phy-qmp-20nm";
 			reg = <0xfc597000 0xda8>;
+			#phy-cells = <0>;
 			vdda-phy-supply = <&pm8994_l28>;
 			vdda-pll-supply = <&pm8994_l12>;
 			vdda-phy-max-microamp = <45000>;
 			vdda-pll-max-microamp = <100>;
-			clock-names = "ref_clk_src", "ref_clk_parent", "ref_clk", "tx_iface_clk",
-			"rx_iface_clk";
-			clocks =
-			<&clock_rpm clk_ln_bb_clk>,
-			<&clock_gcc clk_pcie_1_phy_ldo >,
-			<&clock_gcc clk_ufs_phy_ldo>,
-			<&clock_gcc clk_gcc_ufs_tx_cfg_clk>,
-			<&clock_gcc clk_gcc_ufs_rx_cfg_clk>;
+			clock-names = "ref_clk_src",
+				"ref_clk_parent",
+				"ref_clk",
+				"tx_iface_clk",
+				"rx_iface_clk";
+			clocks = <&clock_rpm clk_ln_bb_clk>,
+				<&clock_gcc clk_pcie_1_phy_ldo >,
+				<&clock_gcc clk_ufs_phy_ldo>,
+				<&clock_gcc clk_gcc_ufs_tx_cfg_clk>,
+				<&clock_gcc clk_gcc_ufs_rx_cfg_clk>;
 			status = "disabled";
 		};
 
@@ -958,7 +961,7 @@
 			compatible = "qcom,ufshc";
 			reg = <0xfc594000 0x2500>;
 			interrupts = <0 265 0>;
-			ufs-phy = <&ufsphy1>;
+			phys = <&ufsphy1>;
 			vdd-hba-supply = <&gdsc_ufs>;
 			vdd-hba-fixed-regulator;
 			vcc-supply = <&pm8994_l20>;
