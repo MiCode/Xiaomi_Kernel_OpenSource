@@ -34,11 +34,11 @@
 #include <sound/soc.h>
 #include <sound/soc-dapm.h>
 #include <sound/tlv.h>
+#include <sound/q6core.h>
 #include <linux/qdsp6v2/apr.h>
 #include "msm8x10-wcd.h"
 #include "wcd9xxx-resmgr.h"
 #include "msm8x10_wcd_registers.h"
-#include "../msm/qdsp6v2/q6core.h"
 #include "wcd9xxx-common.h"
 
 #define MSM8X10_WCD_RATES (SNDRV_PCM_RATE_8000 | SNDRV_PCM_RATE_16000 |\

@@ -30,6 +30,7 @@
 #include <sound/tlv.h>
 #include <sound/asound.h>
 #include <sound/pcm_params.h>
+#include <sound/q6core.h>
 #include <linux/slab.h>
 
 #include "msm-pcm-routing-v2.h"
@@ -37,7 +38,6 @@
 #include "msm-dts-srs-tm-config.h"
 #include "msm-dolby-dap-config.h"
 #include "q6voice.h"
-#include "q6core.h"
 #include "sound/q6lsm.h"
 #include "audio_cal_utils.h"
 
