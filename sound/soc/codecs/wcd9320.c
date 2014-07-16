@@ -1197,6 +1197,7 @@ static int taiko_mad_input_put(struct snd_kcontrol *kcontrol,
 	u32  mic_bias_found = 0;
 	u32 i;
 	int ret = 0;
+	char *mad_input;
 
 	taiko_mad_input = ucontrol->value.integer.value[0];
 
@@ -1214,8 +1215,14 @@ static int taiko_mad_input_put(struct snd_kcontrol *kcontrol,
 
 	if (strnstr(taiko_conn_mad_text[taiko_mad_input],
 				"ADC", sizeof("ADC"))) {
-		ret = kstrtouint(strpbrk(taiko_conn_mad_text[taiko_mad_input]
-					, "123456"), 10, &adc);
+		mad_input = strpbrk(taiko_conn_mad_text[taiko_mad_input],
+				"123456");
+		if (!mad_input) {
+			dev_err(codec->dev, "%s: Invalid MAD input = %s\n",
+			__func__, taiko_conn_mad_text[taiko_mad_input]);
+			return -EINVAL;
+		}
+		ret = kstrtouint(mad_input, 10, &adc);
 		if ((ret < 0) || (adc > 6)) {
 			pr_err("%s: Invalid ADC = %s\n", __func__,
 				taiko_conn_mad_text[taiko_mad_input]);
@@ -2039,6 +2046,7 @@ static int wcd9320_put_dec_enum(struct snd_kcontrol *kcontrol,
 	u16 tx_mux_ctl_reg;
 	u8 adc_dmic_sel = 0x0;
 	int ret = 0;
+	char *dec;
 
 	if (ucontrol->value.enumerated.item[0] > e->max - 1)
 		return -EINVAL;
@@ -2057,8 +2065,14 @@ static int wcd9320_put_dec_enum(struct snd_kcontrol *kcontrol,
 		ret =  -EINVAL;
 		goto out;
 	}
-
-	ret = kstrtouint(strpbrk(dec_name, "123456789"), 10, &decimator);
+	dec = strpbrk(dec_name, "123456789");
+	if (!dec) {
+		dev_err(w->dapm->dev, "%s: decimator index not found\n",
+			__func__);
+		ret =  -EINVAL;
+		goto out;
+	}
+	ret = kstrtouint(dec, 10, &decimator);
 	if (ret < 0) {
 		pr_err("%s: Invalid decimator = %s\n", __func__, dec_name);
 		ret =  -EINVAL;
@@ -2727,8 +2741,14 @@ static int taiko_codec_enable_dmic(struct snd_soc_dapm_widget *w,
 	s32 *dmic_clk_cnt;
 	unsigned int dmic;
 	int ret;
+	char *wname;
 
-	ret = kstrtouint(strpbrk(w->name, "123456"), 10, &dmic);
+	wname = strpbrk(w->name, "123456");
+	if (!wname) {
+		dev_err(codec->dev, "%s: widget not found\n", __func__);
+		return -EINVAL;
+	}
+	ret = kstrtouint(wname, 10, &dmic);
 	if (ret < 0) {
 		pr_err("%s: Invalid DMIC line on the codec\n", __func__);
 		return -EINVAL;
@@ -3092,7 +3112,7 @@ static int taiko_codec_enable_dec(struct snd_soc_dapm_widget *w,
 	u16 dec_reset_reg, tx_vol_ctl_reg, tx_mux_ctl_reg;
 	u8 dec_hpf_cut_of_freq;
 	int offset;
-
+	char *dec;
 
 	pr_debug("%s %d\n", __func__, event);
 
@@ -3109,7 +3129,15 @@ static int taiko_codec_enable_dec(struct snd_soc_dapm_widget *w,
 		goto out;
 	}
 
-	ret = kstrtouint(strpbrk(dec_name, "123456789"), 10, &decimator);
+	dec = strpbrk(dec_name, "123456789");
+	if (!dec) {
+		dev_err(codec->dev, "%s: decimator index not found\n",
+			__func__);
+		ret =  -EINVAL;
+		goto out;
+	}
+
+	ret = kstrtouint(dec, 10, &decimator);
 	if (ret < 0) {
 		pr_err("%s: Invalid decimator = %s\n", __func__, dec_name);
 		ret =  -EINVAL;
@@ -4630,8 +4658,9 @@ static int taiko_set_channel_map(struct snd_soc_dai *dai,
 	struct wcd9xxx_codec_dai_data *dai_data = NULL;
 	struct taiko_priv *taiko = snd_soc_codec_get_drvdata(dai->codec);
 	struct wcd9xxx *core = dev_get_drvdata(dai->codec->dev->parent);
-	if (!tx_slot && !rx_slot) {
-		pr_err("%s: Invalid\n", __func__);
+	if (!tx_slot || !rx_slot) {
+		pr_err("%s: Invalid tx_slot=%p, rx_slot=%p\n", __func__,
+			tx_slot, rx_slot);
 		return -EINVAL;
 	}
 	pr_debug("%s(): dai_name = %s DAI-ID %x tx_ch %d rx_ch %d\n"
