@@ -113,6 +113,41 @@ static const char *const h263_profile[] = {
 	"High Latency",
 };
 
+static const char *const hevc_tier_level[] = {
+	"Main Tier Level 1",
+	"Main Tier Level 2",
+	"Main Tier Level 2.1",
+	"Main Tier Level 3",
+	"Main Tier Level 3.1",
+	"Main Tier Level 4",
+	"Main Tier Level 4.1",
+	"Main Tier Level 5",
+	"Main Tier Level 5.1",
+	"Main Tier Level 5.2",
+	"Main Tier Level 6",
+	"Main Tier Level 6.1",
+	"Main Tier Level 6.2",
+	"High Tier Level 1",
+	"High Tier Level 2",
+	"High Tier Level 2.1",
+	"High Tier Level 3",
+	"High Tier Level 3.1",
+	"High Tier Level 4",
+	"High Tier Level 4.1",
+	"High Tier Level 5",
+	"High Tier Level 5.1",
+	"High Tier Level 5.2",
+	"High Tier Level 6",
+	"High Tier Level 6.1",
+	"High Tier Level 6.2",
+};
+
+static const char *const hevc_profile[] = {
+	"Main",
+	"Main10",
+	"Main Still Pic",
+};
+
 static const char *const vp8_profile_level[] = {
 	"Unused",
 	"0.0",
@@ -390,6 +425,52 @@ static struct msm_vidc_ctrl msm_venc_ctrls[] = {
 		(1 << V4L2_MPEG_VIDC_VIDEO_VP8_VERSION_1)
 		),
 		.qmenu = vp8_profile_level,
+	},
+	{
+		.id = V4L2_CID_MPEG_VIDC_VIDEO_HEVC_PROFILE,
+		.name = "HEVC Profile",
+		.type = V4L2_CTRL_TYPE_MENU,
+		.minimum = V4L2_MPEG_VIDC_VIDEO_HEVC_PROFILE_MAIN,
+		.maximum = V4L2_MPEG_VIDC_VIDEO_HEVC_PROFILE_MAIN_STILL_PIC,
+		.default_value = V4L2_MPEG_VIDC_VIDEO_HEVC_PROFILE_MAIN,
+		.step = 0,
+		.menu_skip_mask =  ~(
+		(1 << V4L2_MPEG_VIDC_VIDEO_HEVC_PROFILE_MAIN) |
+		(1 << V4L2_MPEG_VIDC_VIDEO_HEVC_PROFILE_MAIN10) |
+		(1 << V4L2_MPEG_VIDC_VIDEO_HEVC_PROFILE_MAIN_STILL_PIC)
+		),
+		.qmenu = hevc_profile,
+	},
+	{
+		.id = V4L2_CID_MPEG_VIDC_VIDEO_HEVC_TIER_LEVEL,
+		.name = "HEVC Tier and Level",
+		.type = V4L2_CTRL_TYPE_MENU,
+		.minimum = V4L2_MPEG_VIDC_VIDEO_HEVC_LEVEL_MAIN_TIER_LEVEL_1,
+		.maximum = V4L2_MPEG_VIDC_VIDEO_HEVC_LEVEL_HIGH_TIER_LEVEL_6_2,
+		.default_value =
+			V4L2_MPEG_VIDC_VIDEO_HEVC_LEVEL_MAIN_TIER_LEVEL_1,
+		.step = 0,
+		.menu_skip_mask = ~(
+		(1 << V4L2_MPEG_VIDC_VIDEO_HEVC_LEVEL_HIGH_TIER_LEVEL_1) |
+		(1 << V4L2_MPEG_VIDC_VIDEO_HEVC_LEVEL_HIGH_TIER_LEVEL_2) |
+		(1 << V4L2_MPEG_VIDC_VIDEO_HEVC_LEVEL_HIGH_TIER_LEVEL_2_1) |
+		(1 << V4L2_MPEG_VIDC_VIDEO_HEVC_LEVEL_HIGH_TIER_LEVEL_3) |
+		(1 << V4L2_MPEG_VIDC_VIDEO_HEVC_LEVEL_HIGH_TIER_LEVEL_3_1) |
+		(1 << V4L2_MPEG_VIDC_VIDEO_HEVC_LEVEL_HIGH_TIER_LEVEL_4) |
+		(1 << V4L2_MPEG_VIDC_VIDEO_HEVC_LEVEL_HIGH_TIER_LEVEL_4_1) |
+		(1 << V4L2_MPEG_VIDC_VIDEO_HEVC_LEVEL_HIGH_TIER_LEVEL_5) |
+		(1 << V4L2_MPEG_VIDC_VIDEO_HEVC_LEVEL_HIGH_TIER_LEVEL_5_1) |
+		(1 << V4L2_MPEG_VIDC_VIDEO_HEVC_LEVEL_MAIN_TIER_LEVEL_1) |
+		(1 << V4L2_MPEG_VIDC_VIDEO_HEVC_LEVEL_MAIN_TIER_LEVEL_2) |
+		(1 << V4L2_MPEG_VIDC_VIDEO_HEVC_LEVEL_MAIN_TIER_LEVEL_2_1) |
+		(1 << V4L2_MPEG_VIDC_VIDEO_HEVC_LEVEL_MAIN_TIER_LEVEL_3) |
+		(1 << V4L2_MPEG_VIDC_VIDEO_HEVC_LEVEL_MAIN_TIER_LEVEL_3_1) |
+		(1 << V4L2_MPEG_VIDC_VIDEO_HEVC_LEVEL_MAIN_TIER_LEVEL_4) |
+		(1 << V4L2_MPEG_VIDC_VIDEO_HEVC_LEVEL_MAIN_TIER_LEVEL_4_1) |
+		(1 << V4L2_MPEG_VIDC_VIDEO_HEVC_LEVEL_MAIN_TIER_LEVEL_5) |
+		(1 << V4L2_MPEG_VIDC_VIDEO_HEVC_LEVEL_MAIN_TIER_LEVEL_5_1)
+		),
+		.qmenu = hevc_tier_level,
 	},
 	{
 		.id = V4L2_CID_MPEG_VIDC_VIDEO_ROTATION,
@@ -1552,6 +1633,72 @@ static inline int venc_v4l2_to_hal(int id, int value)
 		default:
 			goto unknown_value;
 		}
+	case V4L2_CID_MPEG_VIDC_VIDEO_HEVC_PROFILE:
+		switch (value) {
+		case V4L2_MPEG_VIDC_VIDEO_HEVC_PROFILE_MAIN:
+			return HAL_HEVC_PROFILE_MAIN;
+		case V4L2_MPEG_VIDC_VIDEO_HEVC_PROFILE_MAIN10:
+			return HAL_HEVC_PROFILE_MAIN10;
+		case V4L2_MPEG_VIDC_VIDEO_HEVC_PROFILE_MAIN_STILL_PIC:
+			return HAL_HEVC_PROFILE_MAIN_STILL_PIC;
+		default:
+			goto unknown_value;
+		}
+	case V4L2_CID_MPEG_VIDC_VIDEO_HEVC_TIER_LEVEL:
+		switch (value) {
+		case V4L2_MPEG_VIDC_VIDEO_HEVC_LEVEL_MAIN_TIER_LEVEL_1:
+			return HAL_HEVC_MAIN_TIER_LEVEL_1;
+		case V4L2_MPEG_VIDC_VIDEO_HEVC_LEVEL_MAIN_TIER_LEVEL_2:
+			return HAL_HEVC_MAIN_TIER_LEVEL_2;
+		case V4L2_MPEG_VIDC_VIDEO_HEVC_LEVEL_MAIN_TIER_LEVEL_2_1:
+			return HAL_HEVC_MAIN_TIER_LEVEL_2_1;
+		case V4L2_MPEG_VIDC_VIDEO_HEVC_LEVEL_MAIN_TIER_LEVEL_3:
+			return HAL_HEVC_MAIN_TIER_LEVEL_3;
+		case V4L2_MPEG_VIDC_VIDEO_HEVC_LEVEL_MAIN_TIER_LEVEL_3_1:
+			return HAL_HEVC_MAIN_TIER_LEVEL_3_1;
+		case V4L2_MPEG_VIDC_VIDEO_HEVC_LEVEL_MAIN_TIER_LEVEL_4:
+			return HAL_HEVC_MAIN_TIER_LEVEL_4;
+		case V4L2_MPEG_VIDC_VIDEO_HEVC_LEVEL_MAIN_TIER_LEVEL_4_1:
+			return HAL_HEVC_MAIN_TIER_LEVEL_4_1;
+		case V4L2_MPEG_VIDC_VIDEO_HEVC_LEVEL_MAIN_TIER_LEVEL_5:
+			return HAL_HEVC_MAIN_TIER_LEVEL_5;
+		case V4L2_MPEG_VIDC_VIDEO_HEVC_LEVEL_MAIN_TIER_LEVEL_5_1:
+			return HAL_HEVC_MAIN_TIER_LEVEL_5_1;
+		case V4L2_MPEG_VIDC_VIDEO_HEVC_LEVEL_MAIN_TIER_LEVEL_5_2:
+			return HAL_HEVC_MAIN_TIER_LEVEL_5_2;
+		case V4L2_MPEG_VIDC_VIDEO_HEVC_LEVEL_MAIN_TIER_LEVEL_6:
+			return HAL_HEVC_MAIN_TIER_LEVEL_6;
+		case V4L2_MPEG_VIDC_VIDEO_HEVC_LEVEL_MAIN_TIER_LEVEL_6_1:
+			return HAL_HEVC_MAIN_TIER_LEVEL_6_1;
+		case V4L2_MPEG_VIDC_VIDEO_HEVC_LEVEL_MAIN_TIER_LEVEL_6_2:
+			return HAL_HEVC_MAIN_TIER_LEVEL_6_2;
+		case V4L2_MPEG_VIDC_VIDEO_HEVC_LEVEL_HIGH_TIER_LEVEL_1:
+			return HAL_HEVC_HIGH_TIER_LEVEL_1;
+		case V4L2_MPEG_VIDC_VIDEO_HEVC_LEVEL_HIGH_TIER_LEVEL_2:
+			return HAL_HEVC_HIGH_TIER_LEVEL_2;
+		case V4L2_MPEG_VIDC_VIDEO_HEVC_LEVEL_HIGH_TIER_LEVEL_2_1:
+			return HAL_HEVC_HIGH_TIER_LEVEL_2_1;
+		case V4L2_MPEG_VIDC_VIDEO_HEVC_LEVEL_HIGH_TIER_LEVEL_3:
+			return HAL_HEVC_HIGH_TIER_LEVEL_3;
+		case V4L2_MPEG_VIDC_VIDEO_HEVC_LEVEL_HIGH_TIER_LEVEL_3_1:
+			return HAL_HEVC_HIGH_TIER_LEVEL_3_1;
+		case V4L2_MPEG_VIDC_VIDEO_HEVC_LEVEL_HIGH_TIER_LEVEL_4:
+			return HAL_HEVC_HIGH_TIER_LEVEL_4;
+		case V4L2_MPEG_VIDC_VIDEO_HEVC_LEVEL_HIGH_TIER_LEVEL_4_1:
+			return HAL_HEVC_HIGH_TIER_LEVEL_4_1;
+		case V4L2_MPEG_VIDC_VIDEO_HEVC_LEVEL_HIGH_TIER_LEVEL_5:
+			return HAL_HEVC_HIGH_TIER_LEVEL_5;
+		case V4L2_MPEG_VIDC_VIDEO_HEVC_LEVEL_HIGH_TIER_LEVEL_5_1:
+			return HAL_HEVC_HIGH_TIER_LEVEL_5_1;
+		case V4L2_MPEG_VIDC_VIDEO_HEVC_LEVEL_HIGH_TIER_LEVEL_5_2:
+			return HAL_HEVC_HIGH_TIER_LEVEL_5_2;
+		case V4L2_MPEG_VIDC_VIDEO_HEVC_LEVEL_HIGH_TIER_LEVEL_6:
+			return HAL_HEVC_HIGH_TIER_LEVEL_6;
+		case V4L2_MPEG_VIDC_VIDEO_HEVC_LEVEL_HIGH_TIER_LEVEL_6_1:
+			return HAL_HEVC_HIGH_TIER_LEVEL_6_1;
+		default:
+			goto unknown_value;
+		}
 	case V4L2_CID_MPEG_VIDC_VIDEO_ROTATION:
 		switch (value) {
 		case V4L2_CID_MPEG_VIDC_VIDEO_ROTATION_NONE:
@@ -1914,6 +2061,29 @@ static int try_set_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 				V4L2_CID_MPEG_VIDC_VIDEO_VP8_PROFILE_LEVEL,
 				ctrl->val);
 		profile_level.level = HAL_VPX_PROFILE_UNUSED;
+		pdata = &profile_level;
+		break;
+	case V4L2_CID_MPEG_VIDC_VIDEO_HEVC_PROFILE:
+		temp_ctrl =
+			TRY_GET_CTRL(V4L2_CID_MPEG_VIDC_VIDEO_HEVC_TIER_LEVEL);
+
+		property_id = HAL_PARAM_PROFILE_LEVEL_CURRENT;
+		profile_level.profile = venc_v4l2_to_hal(ctrl->id,
+							ctrl->val);
+		profile_level.level = venc_v4l2_to_hal(
+				V4L2_CID_MPEG_VIDC_VIDEO_HEVC_TIER_LEVEL,
+				temp_ctrl->val);
+		pdata = &profile_level;
+		break;
+	case V4L2_CID_MPEG_VIDC_VIDEO_HEVC_TIER_LEVEL:
+		temp_ctrl = TRY_GET_CTRL(V4L2_CID_MPEG_VIDC_VIDEO_HEVC_PROFILE);
+
+		property_id = HAL_PARAM_PROFILE_LEVEL_CURRENT;
+		profile_level.level = venc_v4l2_to_hal(ctrl->id,
+							ctrl->val);
+		profile_level.profile = venc_v4l2_to_hal(
+				V4L2_CID_MPEG_VIDC_VIDEO_HEVC_PROFILE,
+				temp_ctrl->val);
 		pdata = &profile_level;
 		break;
 	case V4L2_CID_MPEG_VIDC_VIDEO_ROTATION:
