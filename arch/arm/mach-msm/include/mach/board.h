@@ -630,6 +630,7 @@ void msm_map_fsm9xxx_io(void);
 void msm_map_fsm9900_io(void);
 void fsm9900_init_gpiomux(void);
 void fsm9900_rf_init_gpiomux(void);
+void msm_map_fsm9010_io(void);
 void msm_map_8974_io(void);
 void msm_map_8084_io(void);
 void msm_map_mdm9630_io(void);
