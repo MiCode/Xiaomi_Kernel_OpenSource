@@ -65,6 +65,7 @@ SECTIONS
 #endif
 	.text : {			/* Real text segment		*/
 		_stext = .;		/* Text and read-only data	*/
+			*(.latehead.text)
 			__exception_text_start = .;
 			*(.exception.text)
 			__exception_text_end = .;
