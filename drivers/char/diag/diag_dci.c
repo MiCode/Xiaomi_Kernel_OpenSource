@@ -1290,8 +1290,8 @@ unsigned char *dci_get_buffer_from_bridge(int index)
 	unsigned char *buf = NULL;
 
 	do {
-		buf = diagmem_alloc(driver, WRITE_HSIC_BUF_SIZE_DCI,
-			POOL_TYPE_HSIC_DCI_WRITE + index);
+		buf = diagmem_alloc(driver, DIAG_MDM_DCI_BUF_SIZE,
+				    POOL_TYPE_MDM_DCI_WRITE + index);
 		if (!buf) {
 			usleep_range(5000, 5100);
 			retries++;
@@ -1376,7 +1376,7 @@ static int diag_send_dci_pkt_remote(unsigned char *data, int len, int tag,
 	if (ret != write_len) {
 		pr_err("diag: In %s, unable to write to DCI HSIC channel, err: %d\n",
 			__func__, ret);
-		diagmem_free(driver, buf, POOL_TYPE_HSIC_DCI_WRITE + b_index);
+		diagmem_free(driver, buf, POOL_TYPE_MDM_DCI_WRITE + b_index);
 	} else {
 		ret = DIAG_DCI_NO_ERROR;
 	}
@@ -2004,7 +2004,7 @@ int diag_send_dci_event_mask_remote(int token)
 	err = diag_dci_write_bridge(b_index, buf, write_len);
 	if (err != write_len) {
 		pr_err("diag: error writing to hsic channel, err: %d\n", err);
-		diagmem_free(driver, buf, POOL_TYPE_HSIC_DCI_WRITE + b_index);
+		diagmem_free(driver, buf, POOL_TYPE_MDM_DCI_WRITE + b_index);
 		ret = err;
 	} else {
 		ret = DIAG_DCI_NO_ERROR;
@@ -2182,7 +2182,7 @@ int diag_send_dci_log_mask_remote(int token)
 			pr_err("diag: error writing log mask to MDM hsic channel, equip_id: %d, err: %d\n",
 									i, err);
 			diagmem_free(driver, buf,
-				     POOL_TYPE_HSIC_DCI_WRITE + b_index);
+				     POOL_TYPE_MDM_DCI_WRITE + b_index);
 			updated = 0;
 		}
 		if (updated)

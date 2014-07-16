@@ -314,6 +314,7 @@ int diagfwd_bridge_init(int index)
 #ifdef CONFIG_DIAG_OVER_USB
 		INIT_WORK(&(diag_bridge[index].diag_read_work),
 		      diag_read_usb_hsic_work_fn);
+		diagmem_init(driver, POOL_TYPE_MDM_USB + index);
 		if (index == HSIC_DATA_CH)
 			diag_bridge[index].ch = usb_diag_open(DIAG_MDM,
 				 (void *)index, diagfwd_bridge_notifier);
@@ -368,7 +369,7 @@ void diagfwd_bridge_exit(void)
 		diag_hsic[i].hsic_inited = 0;
 		kfree(diag_hsic[i].hsic_buf_tbl);
 	}
-	diagmem_exit(driver, POOL_TYPE_ALL);
+
 	if (driver->diag_smux_enabled) {
 		driver->lcid = LCID_INVALID;
 		kfree(driver->buf_in_smux);
@@ -387,6 +388,8 @@ void diagfwd_bridge_exit(void)
 			kfree(diag_bridge[i].usb_read_ptr);
 			destroy_workqueue(diag_bridge[i].wq);
 			diag_bridge[i].enabled = 0;
+			diagmem_exit(driver, POOL_TYPE_MDM + i);
+			diagmem_exit(driver, POOL_TYPE_MDM_USB + i);
 		}
 	}
 	kfree(driver->write_ptr_mdm);
@@ -441,12 +444,12 @@ void diagfwd_bridge_dci_exit(void)
 		diag_hsic_dci[i].hsic_inited = 0;
 	}
 
-	diagmem_exit(driver, POOL_TYPE_ALL);
-
 	for (i = 0; i < MAX_BRIDGES_DCI; i++) {
 		if (diag_bridge_dci[i].enabled) {
 			destroy_workqueue(diag_bridge_dci[i].wq);
 			diag_bridge_dci[i].enabled = 0;
+			diagmem_exit(driver, POOL_TYPE_MDM_DCI + i);
+			diagmem_exit(driver, POOL_TYPE_MDM_DCI_WRITE + i);
 		}
 	}
 }

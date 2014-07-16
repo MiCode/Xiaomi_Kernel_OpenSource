@@ -34,42 +34,8 @@
 /* Size of the buffer used for deframing a packet
   reveived from the PC tool*/
 #define HDLC_MAX 4096
-#define HDLC_OUT_BUF_SIZE	8192
-#define POOL_TYPE_COPY		1
-#define POOL_TYPE_HDLC		2
-#define POOL_TYPE_USER		3
-#define POOL_TYPE_WRITE_STRUCT	4
-#define POOL_TYPE_HSIC		5
-#define POOL_TYPE_HSIC_2	6
-#define POOL_TYPE_HSIC_DCI	7
-#define POOL_TYPE_HSIC_DCI_2	8
-#define POOL_TYPE_HSIC_WRITE	11
-#define POOL_TYPE_HSIC_2_WRITE	12
-#define POOL_TYPE_HSIC_DCI_WRITE	13
-#define POOL_TYPE_HSIC_DCI_2_WRITE	14
-#define POOL_TYPE_ALL		10
-#define POOL_TYPE_DCI		20
-
-#define POOL_COPY_IDX		0
-#define POOL_HDLC_IDX		1
-#define POOL_USER_IDX		2
-#define POOL_WRITE_STRUCT_IDX	3
-#define POOL_DCI_IDX		4
-#define POOL_BRIDGE_BASE	POOL_DCI_IDX
-#define POOL_HSIC_IDX		(POOL_BRIDGE_BASE + 1)
-#define POOL_HSIC_DCI_IDX	(POOL_BRIDGE_BASE + 2)
-#define POOL_HSIC_3_IDX		(POOL_BRIDGE_BASE + 3)
-#define POOL_HSIC_4_IDX		(POOL_BRIDGE_BASE + 4)
-#define POOL_HSIC_WRITE_IDX	(POOL_BRIDGE_BASE + 5)
-#define POOL_HSIC_DCI_WRITE_IDX	(POOL_BRIDGE_BASE + 6)
-#define POOL_HSIC_3_WRITE_IDX	(POOL_BRIDGE_BASE + 7)
-#define POOL_HSIC_4_WRITE_IDX	(POOL_BRIDGE_BASE + 8)
-
-#ifdef CONFIG_DIAGFWD_BRIDGE_CODE
-#define NUM_MEMORY_POOLS	13
-#else
-#define NUM_MEMORY_POOLS	5
-#endif
+#define HDLC_OUT_BUF_SIZE	(driver->itemsize_hdlc)
+#define DIAG_HDLC_BUF_SIZE	8195
 
 #define MAX_SSID_PER_RANGE	200
 
@@ -184,6 +150,10 @@
 #define VOTE_UP				1
 
 #define DIAG_TS_SIZE	50
+
+#define DIAG_MDM_BUF_SIZE	2048
+/* The Maximum request size is 2k + DCI header + footer (6 bytes) */
+#define DIAG_MDM_DCI_BUF_SIZE	(2048 + 6)
 
 #define MAX_HSIC_DATA_CH	2
 #define MAX_HSIC_DCI_CH		2
@@ -401,30 +371,14 @@ struct diagchar_dev {
 	unsigned char *apps_dci_buf;
 	int dci_state;
 	struct workqueue_struct *diag_dci_wq;
-	/* Memory pool parameters */
+	/* Sizes that reflect memory pool sizes */
 	unsigned int itemsize;
 	unsigned int poolsize;
 	unsigned int itemsize_hdlc;
 	unsigned int poolsize_hdlc;
-	unsigned int itemsize_user;
-	unsigned int poolsize_user;
-	unsigned int itemsize_write_struct;
-	unsigned int poolsize_write_struct;
 	unsigned int itemsize_dci;
 	unsigned int poolsize_dci;
 	unsigned int debug_flag;
-	/* State for the mempool for the char driver */
-	mempool_t *diagpool;
-	mempool_t *diag_hdlc_pool;
-	mempool_t *diag_user_pool;
-	mempool_t *diag_write_struct_pool;
-	mempool_t *diag_dci_pool;
-	spinlock_t diag_mem_lock;
-	int count;
-	int count_hdlc_pool;
-	int count_user_pool;
-	int count_write_struct_pool;
-	int count_dci_pool;
 	int used;
 	/* Buffers for masks */
 	struct mutex diag_cntl_mutex;

@@ -727,7 +727,7 @@ static void diag_send_diag_mode_update_by_hsic(int index, int real_time)
 	err = diag_dci_write_bridge(index, buf, write_len);
 	if (err != write_len) {
 		pr_err("diag: cannot send nrt mode ctrl pkt, err: %d\n", err);
-		diagmem_free(driver, buf, POOL_TYPE_HSIC_DCI_WRITE + index);
+		diagmem_free(driver, buf, POOL_TYPE_MDM_DCI_WRITE + index);
 	} else {
 		driver->real_time_mode[index + 1] = real_time;
 	}
