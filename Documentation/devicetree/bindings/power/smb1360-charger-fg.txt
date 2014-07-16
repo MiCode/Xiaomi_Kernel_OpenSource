@@ -72,6 +72,13 @@ Optional Properties:
 - qcom,batt-id-rpullup-kohm	The pull-up resistor connected on the battery-ID
 				(vref) line.
 - qcom,smb1360-vadc		VADC device phandle (used for reading the RID)
+- qcom,fg-batt-capacity-mah	The new battery capacity to be supported.
+				This updates the NOMINAL_CAPACITY of the profile.
+- qcom,fg-cc-soc-coeff		The CC_TO_SOC_COEFF of the new battery capacity.
+				This is updated only if 'fg-batt-capacity-mah'
+				is specified. This value is calculated from the
+				batt-capacity and then encoded as floating number.
+				cc_soc_coeff = HALF_ENCODING(8192 / batt-capacity)
 
 Example:
 	i2c@f9967000 {
@@ -90,6 +97,10 @@ Example:
 			qcom,batt-id-rpullup-kohm = <100>;
 			qcom,profile-a-rid-kohm = <78>;
 			qcom,profile-b-rid-kohm = <200>;
+
+			/* battery capacity */
+			qcom,fg-batt-capacity-mah = <4000>;
+			qcom,fg-cc-soc-coeff = <0x8009>
 
 			qcom,float-voltage-mv = <4200>;
 			qcom,iterm-ma = <100>;
