@@ -248,7 +248,6 @@ int intel_mid_dw_i2c_acquire_ownership(void)
 			pr_err("PUNIT SEM: %d\n",
 					intel_mid_msgbus_read32(PUNIT_PORT,
 						PUNIT_SEMAPHORE));
-			WARN_ON(1);
 			return ret;
 		}
 	}
