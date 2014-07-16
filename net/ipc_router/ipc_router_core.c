@@ -187,7 +187,9 @@ static void do_read_data(struct work_struct *work);
 static LIST_HEAD(xprt_info_list);
 static DECLARE_RWSEM(xprt_info_list_lock_lha5);
 
-static DECLARE_COMPLETION(msm_ipc_local_router_up);
+static DEFINE_MUTEX(ipc_router_init_lock);
+static bool is_ipc_router_inited;
+static int msm_ipc_router_init(void);
 #define IPC_ROUTER_INIT_TIMEOUT (10 * HZ)
 
 static uint32_t next_port_id;
@@ -2795,9 +2797,10 @@ struct msm_ipc_port *msm_ipc_router_create_port(
 	struct msm_ipc_port *port_ptr;
 	int ret;
 
-	ret = wait_for_completion_interruptible(&msm_ipc_local_router_up);
+	ret = msm_ipc_router_init();
 	if (ret < 0) {
-		IPC_RTR_ERR("%s: Error waiting for local router\n", __func__);
+		IPC_RTR_ERR("%s: Error %d initializing IPC Router\n",
+			    __func__, ret);
 		return NULL;
 	}
 
@@ -3311,16 +3314,13 @@ void msm_ipc_router_xprt_notify(struct msm_ipc_router_xprt *xprt,
 	struct msm_ipc_router_xprt_info *xprt_info = xprt->priv;
 	struct msm_ipc_router_xprt_work *xprt_work;
 	struct rr_packet *pkt;
-	unsigned long ret;
+	int ret;
 
-	if (!msm_ipc_router_workqueue) {
-		ret = wait_for_completion_timeout(&msm_ipc_local_router_up,
-						  IPC_ROUTER_INIT_TIMEOUT);
-		if (!ret || !msm_ipc_router_workqueue) {
-			IPC_RTR_ERR("%s: IPC Router not initialized\n",
-								__func__);
-			return;
-		}
+	ret = msm_ipc_router_init();
+	if (ret < 0) {
+		IPC_RTR_ERR("%s: Error %d initializing IPC Router\n",
+			    __func__, ret);
+		return;
 	}
 
 	switch (event) {
@@ -3374,10 +3374,16 @@ void msm_ipc_router_xprt_notify(struct msm_ipc_router_xprt *xprt,
 	queue_work(xprt_info->workqueue, &xprt_info->read_data);
 }
 
-static int __init msm_ipc_router_init(void)
+static int msm_ipc_router_init(void)
 {
 	int i, ret;
 	struct msm_ipc_routing_table_entry *rt_entry;
+
+	mutex_lock(&ipc_router_init_lock);
+	if (likely(is_ipc_router_inited)) {
+		mutex_unlock(&ipc_router_init_lock);
+		return 0;
+	}
 
 	msm_ipc_router_debug_mask |= SMEM_LOG;
 	ipc_rtr_log_ctxt = ipc_log_context_create(IPC_RTR_LOG_PAGES,
@@ -3413,9 +3419,12 @@ static int __init msm_ipc_router_init(void)
 
 	msm_ipc_router_workqueue =
 		create_singlethread_workqueue("msm_ipc_router");
-	if (!msm_ipc_router_workqueue)
+	if (!msm_ipc_router_workqueue) {
+		mutex_unlock(&ipc_router_init_lock);
 		return -ENOMEM;
-	complete_all(&msm_ipc_local_router_up);
+	}
+	is_ipc_router_inited = true;
+	mutex_unlock(&ipc_router_init_lock);
 	return ret;
 }
 
