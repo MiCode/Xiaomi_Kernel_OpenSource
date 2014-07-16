@@ -18,6 +18,7 @@
 #include <linux/delay.h>
 #include <linux/module.h>
 #include <linux/interrupt.h>
+#include <linux/math64.h>
 #include <linux/slab.h>
 #include <linux/power_supply.h>
 #include <linux/regulator/driver.h>
@@ -26,6 +27,7 @@
 #include <linux/of.h>
 #include <linux/of_gpio.h>
 #include <linux/bitops.h>
+#include <linux/qpnp/qpnp-adc.h>
 
 #define _SMB1360_MASK(BITS, POS) \
 	((unsigned char)(((1 << (BITS)) - 1) << (POS)))
@@ -78,6 +80,9 @@
 #define BATT_ID_ENABLED_BIT		BIT(5)
 #define CHG_BATT_ID_FAIL		BIT(4)
 #define BATT_ID_FAIL_SELECT_PROFILE	BIT(3)
+#define BATT_PROFILE_SELECT_MASK	SMB1360_MASK(3, 0)
+#define BATT_PROFILEA_MASK		0x0
+#define BATT_PROFILEB_MASK		0xF
 
 #define IRQ_CFG_REG			0x0F
 #define IRQ_BAT_HOT_COLD_HARD_BIT	BIT(7)
@@ -114,6 +119,8 @@
 /* Command Registers */
 #define CMD_I2C_REG			0x40
 #define ALLOW_VOLATILE_BIT		BIT(6)
+#define FG_ACCESS_ENABLED_BIT		BIT(5)
+#define FG_RESET_BIT			BIT(4)
 
 #define CMD_IL_REG			0x41
 #define USB_CTRL_MASK			SMB1360_MASK(1 , 0)
@@ -164,6 +171,9 @@
 
 #define IRQ_H_REG			0x57
 #define IRQ_I_REG			0x58
+#define FG_ACCESS_ALLOWED_BIT		BIT(0)
+#define BATT_ID_RESULT_BIT		SMB1360_MASK(6, 4)
+#define BATT_ID_SHIFT			4
 
 /* FG registers - IRQ config register */
 #define SOC_MAX_REG			0x24
@@ -174,6 +184,9 @@
 
 /* FG SHADOW registers */
 #define SHDW_FG_ESR_ACTUAL		0x20
+#define SHDW_FG_BATT_STATUS		0x60
+#define BATTERY_PROFILE_BIT		BIT(0)
+
 #define SHDW_FG_MSYS_SOC		0x61
 #define SHDW_FG_CAPACITY		0x62
 #define SHDW_FG_VTG_NOW			0x69
@@ -208,6 +221,12 @@ enum fg_i2c_access_type {
 	FG_ACCESS_PROFILE_B = 0x3
 };
 
+enum {
+	BATTERY_PROFILE_A,
+	BATTERY_PROFILE_B,
+	BATTERY_PROFILE_MAX,
+};
+
 struct smb1360_otg_regulator {
 	struct regulator_desc	rdesc;
 	struct regulator_dev	*rdev;
@@ -233,6 +252,7 @@ struct smb1360_chip {
 	int				vfloat_mv;
 	int				safety_time;
 	int				resume_delta_mv;
+	u32				default_batt_profile;
 	unsigned int			thermal_levels;
 	unsigned int			therm_lvl_sel;
 	unsigned int			*thermal_mitigation;
@@ -259,6 +279,8 @@ struct smb1360_chip {
 	u8				irq_cfg_mask[3];
 	int				usb_psy_ma;
 	int				charging_disabled_status;
+	u32				connected_rid;
+	u32				profile_rid[BATTERY_PROFILE_MAX];
 
 	u32				peek_poke_address;
 	u32				fg_access_type;
@@ -267,6 +289,7 @@ struct smb1360_chip {
 	int				skip_reads;
 	struct dentry			*debug_root;
 
+	struct qpnp_vadc_chip		*vadc_dev;
 	struct power_supply		*usb_psy;
 	struct power_supply		batt_psy;
 	struct smb1360_otg_regulator	otg_vreg;
@@ -1261,6 +1284,14 @@ static int fg_access_allowed_handler(struct smb1360_chip *chip, u8 rt_stat)
 	return 0;
 }
 
+static int batt_id_complete_handler(struct smb1360_chip *chip, u8 rt_stat)
+{
+	pr_debug("batt_id = %x\n", (rt_stat & BATT_ID_RESULT_BIT)
+						>> BATT_ID_SHIFT);
+
+	return 0;
+}
+
 struct smb_irq_info {
 	const char		*name;
 	int			(*smb_irq)(struct smb1360_chip *chip,
@@ -1430,10 +1461,8 @@ static struct irq_handler_info handlers[] = {
 				.name		= "fg_data_recovery",
 			},
 			{
-				.name		= "batt_id_result",
-			},
-			{
 				.name		= "batt_id_complete",
+				.smb_irq	= batt_id_complete_handler,
 			},
 		},
 	},
@@ -1441,6 +1470,8 @@ static struct irq_handler_info handlers[] = {
 
 #define IRQ_LATCHED_MASK	0x02
 #define IRQ_STATUS_MASK		0x01
+#define BATT_ID_LATCHED_MASK	0x08
+#define BATT_ID_STATUS_MASK	0x07
 #define BITS_PER_IRQ		2
 static irqreturn_t smb1360_stat_handler(int irq, void *dev_id)
 {
@@ -1448,7 +1479,7 @@ static irqreturn_t smb1360_stat_handler(int irq, void *dev_id)
 	int i, j;
 	u8 triggered;
 	u8 changed;
-	u8 rt_stat, prev_rt_stat;
+	u8 rt_stat, prev_rt_stat, irq_latched_mask, irq_status_mask;
 	int rc;
 	int handler_count = 0;
 
@@ -1472,12 +1503,19 @@ static irqreturn_t smb1360_stat_handler(int irq, void *dev_id)
 		}
 
 		for (j = 0; j < ARRAY_SIZE(handlers[i].irq_info); j++) {
+			if (handlers[i].stat_reg == IRQ_I_REG && j == 2) {
+				irq_latched_mask = BATT_ID_LATCHED_MASK;
+				irq_status_mask = BATT_ID_STATUS_MASK;
+			} else {
+				irq_latched_mask = IRQ_LATCHED_MASK;
+				irq_status_mask = IRQ_STATUS_MASK;
+			}
 			triggered = handlers[i].val
-			       & (IRQ_LATCHED_MASK << (j * BITS_PER_IRQ));
+			       & (irq_latched_mask << (j * BITS_PER_IRQ));
 			rt_stat = handlers[i].val
-				& (IRQ_STATUS_MASK << (j * BITS_PER_IRQ));
+				& (irq_status_mask << (j * BITS_PER_IRQ));
 			prev_rt_stat = handlers[i].prev_val
-				& (IRQ_STATUS_MASK << (j * BITS_PER_IRQ));
+				& (irq_status_mask << (j * BITS_PER_IRQ));
 			changed = prev_rt_stat ^ rt_stat;
 
 			if (triggered || changed)
@@ -1513,6 +1551,8 @@ static int show_irq_count(struct seq_file *m, void *data)
 
 	for (i = 0; i < ARRAY_SIZE(handlers); i++)
 		for (j = 0; j < 4; j++) {
+			if (!handlers[i].irq_info[j].name)
+				continue;
 			seq_printf(m, "%s=%d\t(high=%d low=%d)\n",
 						handlers[i].irq_info[j].name,
 						handlers[i].irq_info[j].high
@@ -1902,6 +1942,144 @@ static int smb1360_regulator_init(struct smb1360_chip *chip)
 	return rc;
 }
 
+static int smb1360_check_batt_profile(struct smb1360_chip *chip)
+{
+	int rc, i, timeout = 50;
+	u8 reg = 0, loaded_profile, new_profile = 0, bid_mask;
+
+	if (!chip->connected_rid) {
+		pr_debug("Skip batt-profile loading connected_rid=%d\n",
+						chip->connected_rid);
+		return 0;
+	}
+
+	rc = smb1360_read(chip, SHDW_FG_BATT_STATUS, &reg);
+	if (rc) {
+		pr_err("Couldn't read FG_BATT_STATUS rc=%d\n", rc);
+		goto fail_profile;
+	}
+
+	loaded_profile = !!(reg & BATTERY_PROFILE_BIT) ?
+			BATTERY_PROFILE_B : BATTERY_PROFILE_A;
+
+	pr_debug("fg_batt_status=%x loaded_profile=%d\n", reg, loaded_profile);
+
+	for (i = 0; i < BATTERY_PROFILE_MAX; i++) {
+		pr_debug("profile=%d profile_rid=%d connected_rid=%d\n", i,
+						chip->profile_rid[i],
+						chip->connected_rid);
+		if (abs(chip->profile_rid[i] - chip->connected_rid) <
+				(div_u64(chip->connected_rid, 10)))
+			break;
+	}
+
+	if (i == BATTERY_PROFILE_MAX) {
+		pr_err("None of the battery-profiles match the connected-RID\n");
+		return 0;
+	} else {
+		if (i == loaded_profile) {
+			pr_debug("Loaded Profile-RID == connected-RID\n");
+			return 0;
+		} else {
+			new_profile = (loaded_profile == BATTERY_PROFILE_A) ?
+					BATTERY_PROFILE_B : BATTERY_PROFILE_A;
+			bid_mask = (new_profile == BATTERY_PROFILE_A) ?
+					BATT_PROFILEA_MASK : BATT_PROFILEB_MASK;
+			pr_info("Loaded Profile-RID != connected-RID, switch-profile old_profile=%d new_profile=%d\n",
+						loaded_profile, new_profile);
+		}
+	}
+
+	/* set the BID mask */
+	rc = smb1360_masked_write(chip, CFG_FG_BATT_CTRL_REG,
+				BATT_PROFILE_SELECT_MASK, bid_mask);
+	if (rc) {
+		pr_err("Couldn't reset battery-profile rc=%d\n", rc);
+		goto fail_profile;
+	}
+
+	/* enable FG access */
+	rc = smb1360_masked_write(chip, CMD_I2C_REG, FG_ACCESS_ENABLED_BIT,
+							FG_ACCESS_ENABLED_BIT);
+	if (rc) {
+		pr_err("Couldn't enable FG access rc=%d\n", rc);
+		goto fail_profile;
+	}
+
+	while (timeout) {
+		/* delay for FG access to be granted */
+		msleep(100);
+		rc = smb1360_read(chip, IRQ_I_REG, &reg);
+		if (rc) {
+			pr_err("Could't read IRQ_I_REG rc=%d\n", rc);
+			goto restore_fg;
+		}
+		if (reg & FG_ACCESS_ALLOWED_BIT)
+			break;
+		timeout--;
+	}
+	if (!timeout) {
+		pr_err("FG access timed-out\n");
+		rc = -EAGAIN;
+		goto restore_fg;
+	}
+
+	/* delay after handshaking for profile-switch to continue */
+	msleep(1500);
+
+	/* reset FG */
+	rc = smb1360_masked_write(chip, CMD_I2C_REG, FG_RESET_BIT,
+						FG_RESET_BIT);
+	if (rc) {
+		pr_err("Couldn't reset FG rc=%d\n", rc);
+		goto restore_fg;
+	}
+
+	/* un-reset FG */
+	rc = smb1360_masked_write(chip, CMD_I2C_REG, FG_RESET_BIT, 0);
+	if (rc) {
+		pr_err("Couldn't un-reset FG rc=%d\n", rc);
+		goto restore_fg;
+	}
+
+	/*  disable FG access */
+	rc = smb1360_masked_write(chip, CMD_I2C_REG, FG_ACCESS_ENABLED_BIT, 0);
+	if (rc) {
+		pr_err("Couldn't disable FG access rc=%d\n", rc);
+		goto restore_fg;
+	}
+
+	timeout = 10;
+	while (timeout) {
+		/* delay for profile to change */
+		msleep(500);
+		rc = smb1360_read(chip, SHDW_FG_BATT_STATUS, &reg);
+		if (rc) {
+			pr_err("Could't read FG_BATT_STATUS rc=%d\n", rc);
+			goto restore_fg;
+		}
+
+		reg = !!(reg & BATTERY_PROFILE_BIT);
+		if (reg == new_profile) {
+			pr_info("New profile=%d loaded\n", new_profile);
+			break;
+		}
+		timeout--;
+	}
+
+	if (!timeout) {
+		pr_err("New profile could not be loaded\n");
+		return -EBUSY;
+	}
+
+	return 0;
+
+restore_fg:
+	smb1360_masked_write(chip, CMD_I2C_REG, FG_ACCESS_ENABLED_BIT, 0);
+fail_profile:
+	return rc;
+}
+
 static int determine_initial_status(struct smb1360_chip *chip)
 {
 	int rc;
@@ -2125,6 +2303,11 @@ static int smb1360_hw_init(struct smb1360_chip *chip)
 			return rc;
 		}
 	}
+
+	rc = smb1360_check_batt_profile(chip);
+	if (rc)
+		pr_err("Unable to modify battery profile\n");
+
 	/*
 	 * set chg en by cmd register, set chg en by writing bit 1,
 	 * enable auto pre to fast
@@ -2367,6 +2550,78 @@ static int smb1360_hw_init(struct smb1360_chip *chip)
 	return rc;
 }
 
+static int smb_parse_batt_id(struct smb1360_chip *chip)
+{
+	int rc = 0, rpull = 0, vref = 0;
+	int64_t denom, batt_id_uv;
+	struct device_node *node = chip->dev->of_node;
+	struct qpnp_vadc_result result;
+
+	chip->vadc_dev = qpnp_get_vadc(chip->dev, "smb1360");
+	if (IS_ERR(chip->vadc_dev)) {
+		rc = PTR_ERR(chip->vadc_dev);
+		if (rc == -EPROBE_DEFER)
+			pr_err("vadc not found - defer rc=%d\n", rc);
+		else
+			pr_err("vadc property missing, rc=%d\n", rc);
+
+		return rc;
+	}
+
+	rc = of_property_read_u32(node, "qcom,profile-a-rid-kohm",
+						&chip->profile_rid[0]);
+	if (rc < 0) {
+		pr_err("Couldn't read profile-a-rid-kohm rc=%d\n", rc);
+		return rc;
+	}
+
+	rc = of_property_read_u32(node, "qcom,profile-b-rid-kohm",
+						&chip->profile_rid[1]);
+	if (rc < 0) {
+		pr_err("Couldn't read profile-b-rid-kohm rc=%d\n", rc);
+		return rc;
+	}
+
+	rc = of_property_read_u32(node, "qcom,batt-id-vref-uv", &vref);
+	if (rc < 0) {
+		pr_err("Couldn't read batt-id-vref-uv rc=%d\n", rc);
+		return rc;
+	}
+
+	rc = of_property_read_u32(node, "qcom,batt-id-rpullup-kohm", &rpull);
+	if (rc < 0) {
+		pr_err("Couldn't read batt-id-rpullup-kohm rc=%d\n", rc);
+		return rc;
+	}
+
+	/* read battery ID */
+	rc = qpnp_vadc_read(chip->vadc_dev, LR_MUX2_BAT_ID, &result);
+	if (rc) {
+		pr_err("error reading batt id channel = %d, rc = %d\n",
+					LR_MUX2_BAT_ID, rc);
+		return rc;
+	}
+	batt_id_uv = result.physical;
+
+	if (batt_id_uv == 0) {
+		/* vadc not correct or batt id line grounded, report 0 kohms */
+		pr_err("batt_id_uv = 0, batt-id grounded using same profile\n");
+		return 0;
+	}
+
+	denom = div64_s64(vref * 1000000LL, batt_id_uv) - 1000000LL;
+	if (denom == 0) {
+		/* batt id connector might be open, return 0 kohms */
+		return 0;
+	}
+	chip->connected_rid = div64_s64(rpull * 1000000LL + denom/2, denom);
+
+	pr_debug("batt_id_voltage = %lld, connected_rid = %d\n",
+			batt_id_uv, chip->connected_rid);
+
+	return 0;
+}
+
 static int smb_parse_dt(struct smb1360_chip *chip)
 {
 	int rc;
@@ -2375,6 +2630,15 @@ static int smb_parse_dt(struct smb1360_chip *chip)
 	if (!node) {
 		dev_err(chip->dev, "device tree info. missing\n");
 		return -EINVAL;
+	}
+
+	if (of_property_read_bool(node, "qcom,batt-profile-select")) {
+		rc = smb_parse_batt_id(chip);
+		if (rc < 0) {
+			if (rc != -EPROBE_DEFER)
+				pr_err("Unable to parse batt-id rc=%d\n", rc);
+			return rc;
+		}
 	}
 
 	chip->pulsed_irq = of_property_read_bool(node, "qcom,stat-pulsed-irq");
