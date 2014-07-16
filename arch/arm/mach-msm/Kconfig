@@ -158,6 +158,25 @@ config ARCH_FSM9900
 	select MIGHT_HAVE_PCI
 	select MSM_IRQ
 
+config ARCH_FSM9010
+	bool "FSM9010"
+	select ARM_GIC
+	select GIC_SECURE
+	select ARCH_MSM_CORTEXMP
+	select CPU_V7
+	select GPIO_MSM_V3
+	select HAVE_ARM_ARCH_TIMER
+	select MSM_NATIVE_RESTART
+	select MSM_CORTEX_A7
+	select PM_DEVFREQ
+	select MSM_DEVFREQ_CPUBW
+	select MSM_PIL
+	select ARM_HAS_SG_CHAIN
+	select REGULATOR
+	select MSM_NOPM
+	select MSM_JTAG_MM if CORESIGHT_ETM
+	select MSM_IRQ
+
 config ARCH_MDM9630
 	bool "MDM9630"
 	select ARM_GIC
@@ -368,6 +387,7 @@ config PHYS_OFFSET
 	default "0x00000000" if ARCH_MSM8226
 	default "0x00000000" if ARCH_MSM8610
 	default "0x0b600000" if ARCH_FSM9900
+	default "0x00000000" if ARCH_FSM9010
 	default "0x00000000" if ARCH_MDM9630
 	default "0x80000000" if ARCH_MSMZIRC
 	default "0x00200000" if !MSM_STACKED_MEMORY
@@ -460,6 +480,16 @@ choice
 		help
 		  Say Y here if you want the debug print routines to direct
 		  their output to the serial port on FSM9900 devices.
+
+	config DEBUG_FSM9010_UART
+		bool "Kernel low-level debugging messages via FSM9010 UART"
+		depends on ARCH_FSM9010
+		select MSM_HAS_DEBUG_UART_HS_V14
+		help
+		  Say Y here if you want the debug print routines to
+		  direct their output to the serial port on FSM9010
+		  devices. This is useful in the early kernel
+		  development.
 
 	config DEBUG_MSM8226_UART
 		bool "Kernel low-level debugging messages via MSM 8226 UART"
