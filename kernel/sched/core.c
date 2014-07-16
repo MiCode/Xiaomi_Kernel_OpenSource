@@ -3690,6 +3690,8 @@ need_resched:
 	clear_preempt_need_resched();
 	rq->skip_clock_update = 0;
 
+	BUG_ON(task_cpu(next) != cpu_of(rq));
+
 	if (likely(prev != next)) {
 		rq->nr_switches++;
 		rq->curr = next;
