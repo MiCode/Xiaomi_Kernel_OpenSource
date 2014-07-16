@@ -130,7 +130,7 @@ struct ufs_msm_phy {
  * and writes to QSERDES_RX_SIGDET_CNTRL attribute
  */
 struct ufs_msm_phy_specific_ops {
-	void (*calibrate_phy) (struct ufs_msm_phy *phy);
+	int (*calibrate_phy) (struct ufs_msm_phy *phy);
 	void (*start_serdes) (struct ufs_msm_phy *phy);
 	void (*save_configuration)(struct ufs_msm_phy *phy);
 	int (*is_physical_coding_sublayer_ready) (struct ufs_msm_phy *phy);
@@ -173,4 +173,12 @@ int ufs_msm_phy_init_vregulators(struct phy *generic_phy,
 			struct ufs_msm_phy *phy_common);
 int ufs_msm_phy_remove(struct phy *generic_phy,
 		       struct ufs_msm_phy *ufs_msm_phy);
+struct phy *ufs_msm_phy_generic_probe(struct platform_device *pdev,
+			struct ufs_msm_phy *common_cfg,
+			struct phy_ops *ufs_msm_phy_gen_ops,
+			struct ufs_msm_phy_specific_ops *phy_spec_ops);
+int ufs_msm_phy_calibrate(struct ufs_msm_phy *ufs_msm_phy,
+			struct ufs_msm_phy_calibration *tbl_A, int tbl_size_A,
+			struct ufs_msm_phy_calibration *tbl_B, int tbl_size_B,
+			int rate);
 #endif
