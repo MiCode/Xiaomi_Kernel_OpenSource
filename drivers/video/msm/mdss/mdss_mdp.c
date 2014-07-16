@@ -1812,6 +1812,9 @@ static int mdss_mdp_parse_dt_pipe(struct platform_device *pdev)
 
 	struct mdss_data_type *mdata = platform_get_drvdata(pdev);
 
+	mdata->has_pixel_ram = !mdss_mdp_parse_dt_prop_len(pdev,
+						"qcom,mdss-smp-data");
+
 	mdata->nvig_pipes = mdss_mdp_parse_dt_prop_len(pdev,
 				"qcom,mdss-pipe-vig-off");
 	mdata->nrgb_pipes = mdss_mdp_parse_dt_prop_len(pdev,
@@ -1821,15 +1824,17 @@ static int mdss_mdp_parse_dt_pipe(struct platform_device *pdev)
 
 	npipes = mdata->nvig_pipes + mdata->nrgb_pipes + mdata->ndma_pipes;
 
-	nfids  += mdss_mdp_parse_dt_prop_len(pdev,
-			"qcom,mdss-pipe-vig-fetch-id");
-	nfids  += mdss_mdp_parse_dt_prop_len(pdev,
-			"qcom,mdss-pipe-rgb-fetch-id");
-	nfids  += mdss_mdp_parse_dt_prop_len(pdev,
-			"qcom,mdss-pipe-dma-fetch-id");
-	if (npipes != nfids) {
-		pr_err("device tree err: unequal number of pipes and smp ids");
-		return -EINVAL;
+	if (!mdata->has_pixel_ram) {
+		nfids  += mdss_mdp_parse_dt_prop_len(pdev,
+				"qcom,mdss-pipe-vig-fetch-id");
+		nfids  += mdss_mdp_parse_dt_prop_len(pdev,
+				"qcom,mdss-pipe-rgb-fetch-id");
+		nfids  += mdss_mdp_parse_dt_prop_len(pdev,
+				"qcom,mdss-pipe-dma-fetch-id");
+		if (npipes != nfids) {
+			pr_err("device tree err: unequal number of pipes and smp ids");
+			return -EINVAL;
+		}
 	}
 
 	nxids += mdss_mdp_parse_dt_prop_len(pdev, "qcom,mdss-pipe-vig-xin-id");
@@ -1846,7 +1851,7 @@ static int mdss_mdp_parse_dt_pipe(struct platform_device *pdev)
 		return -ENOMEM;
 	}
 
-	ftch_id = kzalloc(sizeof(u32) * nfids, GFP_KERNEL);
+	ftch_id = kzalloc(sizeof(u32) * npipes, GFP_KERNEL);
 	if (!ftch_id) {
 		pr_err("no mem assigned for ftch_id: kzalloc fail\n");
 		rc = -ENOMEM;
@@ -1887,10 +1892,13 @@ static int mdss_mdp_parse_dt_pipe(struct platform_device *pdev)
 		}
 	}
 
-	rc = mdss_mdp_parse_dt_handler(pdev, "qcom,mdss-pipe-vig-fetch-id",
-		ftch_id, mdata->nvig_pipes);
-	if (rc)
-		goto parse_fail;
+	if (nfids) {
+		rc = mdss_mdp_parse_dt_handler(pdev,
+			"qcom,mdss-pipe-vig-fetch-id", ftch_id,
+			mdata->nvig_pipes);
+		if (rc)
+			goto parse_fail;
+	}
 
 	rc = mdss_mdp_parse_dt_handler(pdev, "qcom,mdss-pipe-vig-xin-id",
 		xin_id, mdata->nvig_pipes);
@@ -1910,10 +1918,13 @@ static int mdss_mdp_parse_dt_pipe(struct platform_device *pdev)
 
 	setup_cnt += len;
 
-	rc = mdss_mdp_parse_dt_handler(pdev, "qcom,mdss-pipe-rgb-fetch-id",
-		ftch_id + mdata->nvig_pipes, mdata->nrgb_pipes);
-	if (rc)
-		goto parse_fail;
+	if (nfids) {
+		rc = mdss_mdp_parse_dt_handler(pdev,
+			"qcom,mdss-pipe-rgb-fetch-id",
+			ftch_id + mdata->nvig_pipes, mdata->nrgb_pipes);
+		if (rc)
+			goto parse_fail;
+	}
 
 	rc = mdss_mdp_parse_dt_handler(pdev, "qcom,mdss-pipe-rgb-xin-id",
 		xin_id + mdata->nvig_pipes, mdata->nrgb_pipes);
@@ -1938,11 +1949,13 @@ static int mdss_mdp_parse_dt_pipe(struct platform_device *pdev)
 	if (mdata->ndma_pipes) {
 		dma_off = mdata->nvig_pipes + mdata->nrgb_pipes;
 
-		rc = mdss_mdp_parse_dt_handler(pdev,
-			"qcom,mdss-pipe-dma-fetch-id",
-			ftch_id + dma_off, mdata->ndma_pipes);
-		if (rc)
-			goto parse_fail;
+		if (nfids) {
+			rc = mdss_mdp_parse_dt_handler(pdev,
+				"qcom,mdss-pipe-dma-fetch-id",
+				ftch_id + dma_off, mdata->ndma_pipes);
+			if (rc)
+				goto parse_fail;
+		}
 
 		rc = mdss_mdp_parse_dt_handler(pdev,
 			"qcom,mdss-pipe-dma-xin-id",
@@ -2300,8 +2313,13 @@ static int mdss_mdp_parse_dt_smp(struct platform_device *pdev)
 	const u32 *arr;
 
 	num = mdss_mdp_parse_dt_prop_len(pdev, "qcom,mdss-smp-data");
-
-	if (num != 2)
+	/*
+	 * This property is optional for targets with fix pixel ram. Rest
+	 * must provide no. of smp and size of each block.
+	 */
+	if (!num)
+		return 0;
+	else if (num != 2)
 		return -EINVAL;
 
 	rc = mdss_mdp_parse_dt_handler(pdev, "qcom,mdss-smp-data", data, num);

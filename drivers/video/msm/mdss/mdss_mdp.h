@@ -30,6 +30,7 @@
 #define MDSS_MDP_CURSOR_WIDTH 64
 #define MDSS_MDP_CURSOR_HEIGHT 64
 #define MDSS_MDP_CURSOR_SIZE (MDSS_MDP_CURSOR_WIDTH*MDSS_MDP_CURSOR_WIDTH*4)
+#define MDSS_MDP_PIXEL_RAM_SIZE (50 * 1024)
 
 #define MDP_CLK_DEFAULT_RATE	200000000
 #define PHASE_STEP_SHIFT	21
@@ -614,6 +615,12 @@ static inline int mdss_mdp_get_wb_ctl_support(struct mdss_data_type *mdata,
 	 */
 	return rotator_session ? (mdata->nctl - mdata->nmixers_wb) :
 				(mdata->nctl - mdata->nwb);
+}
+
+static inline int mdss_mdp_get_pixel_ram_size(struct mdss_data_type *mdata)
+{
+	return (mdata->mdp_rev == MDSS_MDP_HW_REV_107) ?
+						MDSS_MDP_PIXEL_RAM_SIZE : 0;
 }
 
 irqreturn_t mdss_mdp_isr(int irq, void *ptr);

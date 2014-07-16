@@ -171,14 +171,23 @@ static void mdss_mdp_smp_mmb_free(unsigned long *smp, bool write)
  */
 u32 mdss_mdp_smp_get_size(struct mdss_mdp_pipe *pipe)
 {
-	int i, mb_cnt = 0;
+	int i, mb_cnt = 0, smp_size;
+	struct mdss_data_type *mdata = mdss_mdp_get_mdata();
 
-	for (i = 0; i < MAX_PLANES; i++) {
-		mb_cnt += bitmap_weight(pipe->smp_map[i].allocated, SMP_MB_CNT);
-		mb_cnt += bitmap_weight(pipe->smp_map[i].fixed, SMP_MB_CNT);
+	if (mdata->has_pixel_ram) {
+		smp_size = mdss_mdp_get_pixel_ram_size(mdata);
+	} else {
+		for (i = 0; i < MAX_PLANES; i++) {
+			mb_cnt += bitmap_weight(pipe->smp_map[i].allocated,
+								SMP_MB_CNT);
+			mb_cnt += bitmap_weight(pipe->smp_map[i].fixed,
+								SMP_MB_CNT);
+		}
+
+		smp_size = mb_cnt * SMP_MB_SIZE;
 	}
 
-	return mb_cnt * SMP_MB_SIZE;
+	return smp_size;
 }
 
 static void mdss_mdp_smp_set_wm_levels(struct mdss_mdp_pipe *pipe, int mb_cnt)
@@ -232,6 +241,9 @@ static void mdss_mdp_smp_set_wm_levels(struct mdss_mdp_pipe *pipe, int mb_cnt)
 static void mdss_mdp_smp_free(struct mdss_mdp_pipe *pipe)
 {
 	int i;
+	struct mdss_data_type *mdata = mdss_mdp_get_mdata();
+	if (mdata->has_pixel_ram)
+		return;
 
 	mutex_lock(&mdss_mdp_smp_lock);
 	for (i = 0; i < MAX_PLANES; i++) {
@@ -244,6 +256,9 @@ static void mdss_mdp_smp_free(struct mdss_mdp_pipe *pipe)
 void mdss_mdp_smp_unreserve(struct mdss_mdp_pipe *pipe)
 {
 	int i;
+	struct mdss_data_type *mdata = mdss_mdp_get_mdata();
+	if (mdata->has_pixel_ram)
+		return;
 
 	mutex_lock(&mdss_mdp_smp_lock);
 	for (i = 0; i < MAX_PLANES; i++)
@@ -261,6 +276,9 @@ int mdss_mdp_smp_reserve(struct mdss_mdp_pipe *pipe)
 	bool force_alloc = 0;
 	u32 nlines, format, seg_w;
 	u16 width;
+
+	if (mdata->has_pixel_ram)
+		return 0;
 
 	width = pipe->src.w >> pipe->horz_deci;
 
@@ -416,6 +434,10 @@ static int mdss_mdp_smp_alloc(struct mdss_mdp_pipe *pipe)
 {
 	int i;
 	int cnt = 0;
+	struct mdss_data_type *mdata = mdss_mdp_get_mdata();
+
+	if (mdata->has_pixel_ram)
+		return 0;
 
 	mutex_lock(&mdss_mdp_smp_lock);
 	for (i = 0; i < MAX_PLANES; i++) {
@@ -439,6 +461,10 @@ static int mdss_mdp_smp_alloc(struct mdss_mdp_pipe *pipe)
 
 void mdss_mdp_smp_release(struct mdss_mdp_pipe *pipe)
 {
+	struct mdss_data_type *mdata = mdss_mdp_get_mdata();
+	if (mdata->has_pixel_ram)
+		return;
+
 	mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_ON);
 	mdss_mdp_smp_free(pipe);
 	mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_OFF);
@@ -474,6 +500,9 @@ int mdss_mdp_smp_handoff(struct mdss_data_type *mdata)
 	int i, client_id, prev_id = 0;
 	u32 off, s, data;
 	struct mdss_mdp_pipe *pipe = NULL;
+
+	if (mdata->has_pixel_ram)
+		return 0;
 
 	/*
 	 * figure out what SMP MMBs are allocated for each of the pipes
