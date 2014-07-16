@@ -864,11 +864,27 @@ static int mdss_dsi_ulps_config(struct mdss_dsi_ctrl_pdata *ctrl,
 		ctrl->ulps = true;
 	} else if (!enable && ctrl->ulps) {
 		/*
+		 * Clear out any phy errors prior to exiting ULPS
+		 * This fixes certain instances where phy does not exit
+		 * ULPS cleanly.
+		 */
+		mdss_dsi_dln0_phy_err(ctrl);
+
+		/*
 		 * ULPS Exit Request
 		 * Hardware requirement is to wait for at least 1ms
 		 */
 		MIPI_OUTP(ctrl->ctrl_base + 0x0AC, active_lanes << 8);
 		usleep(1000);
+
+		/*
+		 * Sometimes when exiting ULPS, it is possible that some DSI
+		 * lanes are not in the stop state which could lead to DSI
+		 * commands not going through. To avoid this, force the lanes
+		 * to be in stop state.
+		 */
+		MIPI_OUTP(ctrl->ctrl_base + 0x0AC, active_lanes << 16);
+
 		MIPI_OUTP(ctrl->ctrl_base + 0x0AC, 0x0);
 
 		/*
@@ -1066,6 +1082,7 @@ static int mdss_dsi_core_power_ctrl(struct mdss_dsi_ctrl_pdata *ctrl,
 			mdss_dsi_phy_init(pdata);
 
 		mdss_dsi_ctrl_setup(pdata);
+		mdss_dsi_reset(ctrl);
 
 		if (ctrl->ulps) {
 			/*
@@ -1077,7 +1094,12 @@ static int mdss_dsi_core_power_ctrl(struct mdss_dsi_ctrl_pdata *ctrl,
 			 * controller to ULPS which will match the state of the
 			 * DSI phy. This needs to be done prior to disabling
 			 * the DSI clamps.
+			 *
+			 * Also, reset the ulps flag so that ulps_config
+			 * function would reconfigure the controller state to
+			 * ULPS.
 			 */
+			ctrl->ulps = false;
 			rc = mdss_dsi_ulps_config(ctrl, 1);
 			if (rc) {
 				pr_err("%s: Failed to enter ULPS. rc=%d\n",
@@ -1166,7 +1188,6 @@ static int mdss_dsi_clk_ctrl_sub(struct mdss_dsi_ctrl_pdata *ctrl,
 {
 	int rc = 0;
 	struct mdss_panel_data *pdata;
-	bool core_power_enabled = false;
 
 	if (!ctrl) {
 		pr_err("%s: Invalid arg\n", __func__);
@@ -1186,7 +1207,6 @@ static int mdss_dsi_clk_ctrl_sub(struct mdss_dsi_ctrl_pdata *ctrl,
 					__func__, rc);
 				goto error;
 			}
-			core_power_enabled = true;
 		}
 		if (clk_type & DSI_LINK_CLKS) {
 			rc = mdss_dsi_link_clk_start(ctrl);
@@ -1204,13 +1224,6 @@ static int mdss_dsi_clk_ctrl_sub(struct mdss_dsi_ctrl_pdata *ctrl,
 					goto error_ulps_exit;
 				}
 			}
-
-			/*
-			 * If we are coming out of idle power collapse, then
-			 * reset DSI controller state
-			 */
-			if (core_power_enabled)
-				mdss_dsi_reset(ctrl);
 		}
 	} else {
 		if (clk_type & DSI_LINK_CLKS) {
