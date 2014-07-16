@@ -708,7 +708,7 @@ static void pcie_phy_init(struct msm_pcie_dev_t *dev)
 	msm_pcie_write_reg(dev->phy, QSERDES_COM_PLLLOCK_CMP1, 0x41);
 	msm_pcie_write_reg(dev->phy, QSERDES_COM_PLLLOCK_CMP2, 0x03);
 	msm_pcie_write_reg(dev->phy, QSERDES_COM_PLL_CRCTRL, 0x7C);
-	msm_pcie_write_reg(dev->phy, QSERDES_COM_PLL_CP_SETI, 0x02);
+	msm_pcie_write_reg(dev->phy, QSERDES_COM_PLL_CP_SETI, 0x07);
 	msm_pcie_write_reg(dev->phy, QSERDES_COM_PLL_IP_SETP, 0x1F);
 	msm_pcie_write_reg(dev->phy, QSERDES_COM_PLL_CP_SETP, 0x0F);
 	msm_pcie_write_reg(dev->phy, QSERDES_COM_PLL_IP_SETI, 0x01);
@@ -723,8 +723,8 @@ static void pcie_phy_init(struct msm_pcie_dev_t *dev)
 	msm_pcie_write_reg(dev->phy, QSERDES_COM_PLL_VCOTAIL_EN, 0xE1);
 
 	/* Calibration Settings */
-	msm_pcie_write_reg(dev->phy, QSERDES_COM_RESETSM_CNTRL, 0x90);
-	msm_pcie_write_reg(dev->phy, QSERDES_COM_RESETSM_CNTRL2, 0x7);
+	msm_pcie_write_reg(dev->phy, QSERDES_COM_RESETSM_CNTRL, 0x91);
+	msm_pcie_write_reg(dev->phy, QSERDES_COM_RESETSM_CNTRL2, 0x07);
 
 	/* Additional writes */
 	msm_pcie_write_reg(dev->phy, QSERDES_COM_RES_CODE_START_SEG1, 0x20);
