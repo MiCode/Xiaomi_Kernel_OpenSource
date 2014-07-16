@@ -28,7 +28,7 @@ static int msm_isp_stats_cfg_ping_pong_address(struct vfe_device *vfe_dev,
 	uint32_t stats_idx = STATS_IDX(stream_info->stream_handle);
 
 	if (stats_idx >= vfe_dev->hw_info->stats_hw_info->num_stats_type ||
-		stats_idx > MSM_ISP_STATS_MAX) {
+		stats_idx >= MSM_ISP_STATS_MAX) {
 		pr_err("%s Invalid stats index %d", __func__, stats_idx);
 		return -EINVAL;
 	}
