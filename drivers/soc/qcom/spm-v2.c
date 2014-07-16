@@ -252,6 +252,18 @@ void msm_spm_drv_flush_seq_entry(struct msm_spm_driver_data *dev)
 	mb();
 }
 
+void dump_regs(struct msm_spm_driver_data *dev, int cpu)
+{
+	msm_spm_drv_load_shadow(dev, MSM_SPM_REG_SAW2_SPM_STS);
+	mb();
+	pr_err("CPU%d: spm register MSM_SPM_REG_SAW2_SPM_STS: 0x%x\n", cpu,
+			dev->reg_shadow[MSM_SPM_REG_SAW2_SPM_STS]);
+	msm_spm_drv_load_shadow(dev, MSM_SPM_REG_SAW2_SPM_CTL);
+	mb();
+	pr_err("CPU%d: spm register MSM_SPM_REG_SAW2_SPM_CTL: 0x%x\n", cpu,
+			dev->reg_shadow[MSM_SPM_REG_SAW2_SPM_CTL]);
+}
+
 int msm_spm_drv_write_seq_data(struct msm_spm_driver_data *dev,
 		uint8_t *cmd, uint32_t *offset)
 {
