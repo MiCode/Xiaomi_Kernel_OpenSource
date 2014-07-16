@@ -3889,6 +3889,8 @@ need_resched:
 	clear_tsk_need_resched(prev);
 	rq->skip_clock_update = 0;
 
+	BUG_ON(task_cpu(next) != cpu_of(rq));
+
 	if (likely(prev != next)) {
 		rq->nr_switches++;
 		rq->curr = next;
