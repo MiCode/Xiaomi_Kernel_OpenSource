@@ -212,6 +212,10 @@ static bool debugger;
 module_param(debugger, bool, S_IRUGO | S_IWUSR);
 MODULE_PARM_DESC(debugger, "true to use the debug port");
 
+static bool uicc_card_present;
+module_param(uicc_card_present, bool, S_IRUGO | S_IWUSR);
+MODULE_PARM_DESC(uicc_card_present, "UICC card is inserted");
+
 static inline struct ice40_hcd *hcd_to_ihcd(struct usb_hcd *hcd)
 {
 	return *((struct ice40_hcd **) hcd->hcd_priv);
@@ -2275,6 +2279,12 @@ static int ice40_spi_probe(struct spi_device *spi)
 {
 	struct ice40_hcd *ihcd;
 	int ret, i;
+
+	if (!uicc_card_present) {
+		pr_debug("UICC card is not inserted\n");
+		ret = -ENODEV;
+		goto out;
+	}
 
 	ihcd = devm_kzalloc(&spi->dev, sizeof(*ihcd), GFP_KERNEL);
 	if (!ihcd) {
