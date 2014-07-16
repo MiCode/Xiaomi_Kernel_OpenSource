@@ -289,7 +289,7 @@ static int fuse_probe(struct platform_device *pdev)
 		drvdata->fuse_nidnt = devm_kzalloc(dev,
 						   sizeof(*drvdata->fuse_nidnt),
 						   GFP_KERNEL);
-		if (!drvdata)
+		if (!drvdata->fuse_nidnt)
 			return -ENOMEM;
 
 		drvdata->fuse_nidnt->base = devm_ioremap(dev, res->start,
