@@ -20,9 +20,7 @@
 	compatible = "qcom,msm8916-qrd-skuh", "qcom,msm8916-qrd", "qcom,msm8916", "qcom,qrd";
 	qcom,board-id = <0x1000b 0>, <0x1000b 4>,
 			<0x1010b 0>, <0x1010b 4>,
-			<0x11010b 0>, <0x11010b 4>,
-			<0x2010b 0>, <0x2010b 4>,
-			<0x12010b 0>, <0x12010b 4>;
+			<0x2010b 0>, <0x2010b 4>;
 };
 
 &soc {
