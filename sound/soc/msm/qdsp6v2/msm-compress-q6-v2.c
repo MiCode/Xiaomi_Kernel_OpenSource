@@ -1183,6 +1183,11 @@ static int msm_compr_trigger(struct snd_compr_stream *cstream, int cmd)
 		atomic_set(&prtd->start, 1);
 		q6asm_run_nowait(prtd->audio_client, 0, 0, 0);
 
+		msm_compr_set_volume(cstream, 0, 0);
+		if (rc)
+			pr_err("%s : Set Volume (0,0) failed : %d\n",
+				__func__, rc);
+
 		msm_compr_set_volume(cstream, volume[0], volume[1]);
 		if (rc)
 			pr_err("%s : Set Volume failed : %d\n",
