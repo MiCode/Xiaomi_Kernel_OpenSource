@@ -193,6 +193,9 @@
 #define SHDW_FG_CURR_NOW		0x6B
 #define SHDW_FG_BATT_TEMP		0x6D
 
+#define CC_TO_SOC_COEFF			0xBA
+#define NOMINAL_CAPACITY_REG		0xBC
+
 #define FG_I2C_CFG_MASK			SMB1360_MASK(2, 1)
 #define FG_CFG_I2C_ADDR			0x2
 #define FG_PROFILE_A_ADDR		0x4
@@ -263,6 +266,8 @@ struct smb1360_chip {
 	int				delta_soc;
 	int				voltage_min_mv;
 	int				voltage_empty_mv;
+	int				batt_capacity_mah;
+	int				cc_soc_coeff;
 
 	/* status tracking */
 	bool				usb_present;
@@ -456,6 +461,27 @@ static int smb1360_read_bytes(struct smb1360_chip *chip, int reg,
 	return (rc < 0) ? rc : 0;
 }
 
+static int smb1360_write_bytes(struct smb1360_chip *chip, int reg,
+						u8 *val, u8 bytes)
+{
+	s32 rc;
+
+	if (chip->skip_writes) {
+		*val = 0;
+		return 0;
+	}
+
+	mutex_lock(&chip->read_write_lock);
+	rc = i2c_smbus_write_i2c_block_data(chip->client, reg, bytes, val);
+	if (rc < 0)
+		dev_err(chip->dev,
+			"i2c write fail: can't read %d bytes from %02x: %d\n",
+							bytes, reg, rc);
+	mutex_unlock(&chip->read_write_lock);
+
+	return (rc < 0) ? rc : 0;
+}
+
 static int smb1360_masked_write(struct smb1360_chip *chip, int reg,
 						u8 mask, u8 val)
 {
@@ -480,6 +506,48 @@ static int smb1360_masked_write(struct smb1360_chip *chip, int reg,
 	}
 out:
 	mutex_unlock(&chip->read_write_lock);
+	return rc;
+}
+
+static int smb1360_enable_fg_access(struct smb1360_chip *chip)
+{
+	int rc;
+	u8 reg = 0, timeout = 50;
+
+	rc = smb1360_masked_write(chip, CMD_I2C_REG, FG_ACCESS_ENABLED_BIT,
+							FG_ACCESS_ENABLED_BIT);
+	if (rc) {
+		pr_err("Couldn't enable FG access rc=%d\n", rc);
+		return rc;
+	}
+
+	while (timeout) {
+		/* delay for FG access to be granted */
+		msleep(200);
+		rc = smb1360_read(chip, IRQ_I_REG, &reg);
+		if (rc)
+			pr_err("Could't read IRQ_I_REG rc=%d\n", rc);
+		else if (reg & FG_ACCESS_ALLOWED_BIT)
+			break;
+		timeout--;
+	}
+
+	pr_debug("timeout=%d\n", timeout);
+
+	if (!timeout)
+		return -EBUSY;
+
+	return 0;
+}
+
+static int smb1360_disable_fg_access(struct smb1360_chip *chip)
+{
+	int rc;
+
+	rc = smb1360_masked_write(chip, CMD_I2C_REG, FG_ACCESS_ENABLED_BIT, 0);
+	if (rc)
+		pr_err("Couldn't disable FG access rc=%d\n", rc);
+
 	return rc;
 }
 
@@ -2134,8 +2202,8 @@ static int determine_initial_status(struct smb1360_chip *chip)
 
 static int smb1360_fg_config(struct smb1360_chip *chip)
 {
-	int rc, temp;
-	u8 reg = 0;
+	int rc = 0, temp, fcc_mah;
+	u8 reg = 0, reg2[2];
 
 	/*
 	 * The below IRQ thresholds are not accessible in REV_1
@@ -2210,7 +2278,53 @@ static int smb1360_fg_config(struct smb1360_chip *chip)
 		}
 	}
 
-	return 0;
+	/* scratch-pad register config */
+	if (chip->batt_capacity_mah != -EINVAL) {
+		rc = smb1360_enable_fg_access(chip);
+		if (rc) {
+			pr_err("Couldn't enable FG access rc=%d\n", rc);
+			return rc;
+		}
+		rc = smb1360_read_bytes(chip, NOMINAL_CAPACITY_REG,
+							reg2, 2);
+		if (rc) {
+			pr_err("Failed to read NOM CAPACITY rc=%d\n",
+								rc);
+			goto disable_fg;
+		}
+		fcc_mah = (reg2[1] << 8) | reg2[0];
+		if (fcc_mah == chip->batt_capacity_mah) {
+			pr_debug("battery capacity correct\n");
+			goto disable_fg;
+		}
+		/* Update the battery capacity */
+		reg2[1] = (chip->batt_capacity_mah & 0xFF00) >> 8;
+		reg2[0] = (chip->batt_capacity_mah & 0xFF);
+		rc = smb1360_write_bytes(chip, NOMINAL_CAPACITY_REG,
+							reg2, 2);
+		if (rc) {
+			pr_err("Couldn't write batt-capacity rc=%d\n",
+								rc);
+			goto disable_fg;
+		}
+		/* Update CC to SOC COEFF */
+		if (chip->cc_soc_coeff != -EINVAL) {
+			reg2[1] = (chip->cc_soc_coeff & 0xFF00) >> 8;
+			reg2[0] = (chip->cc_soc_coeff & 0xFF);
+			rc = smb1360_write_bytes(chip, CC_TO_SOC_COEFF,
+							reg2, 2);
+			if (rc) {
+				pr_err("Couldn't write cc_soc_coeff rc=%d\n",
+									rc);
+				goto disable_fg;
+			}
+		}
+disable_fg:
+		/* disable FG access */
+		smb1360_disable_fg_access(chip);
+	}
+
+	return rc;
 }
 
 static void smb1360_check_feature_support(struct smb1360_chip *chip)
@@ -2540,7 +2654,11 @@ static int smb1360_hw_init(struct smb1360_chip *chip)
 	}
 
 
-	smb1360_fg_config(chip);
+	rc = smb1360_fg_config(chip);
+	if (rc < 0) {
+		pr_err("Couldn't configure FG rc=%d\n", rc);
+		return rc;
+	}
 
 	rc = smb1360_charging_disable(chip, USER, !!chip->charging_disabled);
 	if (rc)
@@ -2729,6 +2847,16 @@ static int smb_parse_dt(struct smb1360_chip *chip)
 					&chip->voltage_empty_mv);
 	if (rc < 0)
 		chip->voltage_empty_mv = -EINVAL;
+
+	rc = of_property_read_u32(node, "qcom,fg-batt-capacity-mah",
+					&chip->batt_capacity_mah);
+	if (rc < 0)
+		chip->batt_capacity_mah = -EINVAL;
+
+	rc = of_property_read_u32(node, "qcom,fg-cc-soc-coeff",
+					&chip->cc_soc_coeff);
+	if (rc < 0)
+		chip->cc_soc_coeff = -EINVAL;
 
 	return 0;
 }
