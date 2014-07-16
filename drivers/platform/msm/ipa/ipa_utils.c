@@ -87,7 +87,7 @@ static const int ep_mapping[2][IPA_CLIENT_MAX] = {
 
 
 	[IPA_2_0][IPA_CLIENT_HSIC1_PROD]         = -1,
-	[IPA_2_0][IPA_CLIENT_WLAN1_PROD]         = 19,
+	[IPA_2_0][IPA_CLIENT_WLAN1_PROD]         = 18,
 	[IPA_2_0][IPA_CLIENT_HSIC2_PROD]         = -1,
 	[IPA_2_0][IPA_CLIENT_USB2_PROD]          = 12,
 	[IPA_2_0][IPA_CLIENT_HSIC3_PROD]         = -1,
@@ -105,16 +105,16 @@ static const int ep_mapping[2][IPA_CLIENT_MAX] = {
 	[IPA_2_0][IPA_CLIENT_Q6_CMD_PROD]        =  7,
 
 	[IPA_2_0][IPA_CLIENT_HSIC1_CONS]         = -1,
-	[IPA_2_0][IPA_CLIENT_WLAN1_CONS]         = 14,
+	[IPA_2_0][IPA_CLIENT_WLAN1_CONS]         = 17,
 	[IPA_2_0][IPA_CLIENT_HSIC2_CONS]         = -1,
 	[IPA_2_0][IPA_CLIENT_USB2_CONS]          = -1,
 	[IPA_2_0][IPA_CLIENT_WLAN2_CONS]         = 16,
 	[IPA_2_0][IPA_CLIENT_HSIC3_CONS]         = -1,
 	[IPA_2_0][IPA_CLIENT_USB3_CONS]          = -1,
-	[IPA_2_0][IPA_CLIENT_WLAN3_CONS]         = 17,
+	[IPA_2_0][IPA_CLIENT_WLAN3_CONS]         = 14,
 	[IPA_2_0][IPA_CLIENT_HSIC4_CONS]         = -1,
 	[IPA_2_0][IPA_CLIENT_USB4_CONS]          = -1,
-	[IPA_2_0][IPA_CLIENT_WLAN4_CONS]         = 18,
+	[IPA_2_0][IPA_CLIENT_WLAN4_CONS]         = 19,
 	[IPA_2_0][IPA_CLIENT_HSIC5_CONS]         = -1,
 	[IPA_2_0][IPA_CLIENT_USB_CONS]           = 15,
 	[IPA_2_0][IPA_CLIENT_A2_EMBEDDED_CONS]   = -1,
