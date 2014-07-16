@@ -43,7 +43,7 @@
 #define MASK_SIZE		32
 #define SCM_SET_REGSAVE_CMD	0x2
 #define SCM_SVC_SEC_WDOG_DIS	0x7
-#define MAX_CPU_CTX_SIZE	1024
+#define MAX_CPU_CTX_SIZE	2048
 
 static struct workqueue_struct *wdog_wq;
 static struct msm_watchdog_data *wdog_data;
