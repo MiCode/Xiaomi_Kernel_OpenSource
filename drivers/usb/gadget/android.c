@@ -643,6 +643,8 @@ static int functionfs_ready_callback(struct ffs_data *ffs)
 
 	config->data = ffs;
 	config->opened = true;
+	/* Save dev in case the adb function will get disabled */
+	config->dev = dev;
 
 	if (config->enabled && dev)
 		android_enable(dev);
