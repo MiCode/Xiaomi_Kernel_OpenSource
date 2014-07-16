@@ -877,6 +877,8 @@ static int intel_sst_probe(struct pci_dev *pci,
 			sst_set_gpio_conf(&sst_drv_ctx->pdata->ssp_data->gpio);
 	}
 	pci_set_drvdata(pci, sst_drv_ctx);
+	pm_runtime_set_autosuspend_delay(sst_drv_ctx->dev, SST_SUSPEND_DELAY);
+	pm_runtime_use_autosuspend(sst_drv_ctx->dev);
 	pm_runtime_allow(sst_drv_ctx->dev);
 	pm_runtime_put_noidle(sst_drv_ctx->dev);
 	register_sst(sst_drv_ctx->dev);
@@ -1137,21 +1139,6 @@ static int intel_sst_suspend(struct device *dev)
 	return retval;
 }
 
-static int intel_sst_runtime_idle(struct device *dev)
-{
-	struct intel_sst_drv *ctx = dev_get_drvdata(dev);
-
-	pr_info("runtime_idle called\n");
-	if (ctx->sst_state != SST_RESET) {
-		pm_schedule_suspend(dev, SST_SUSPEND_DELAY);
-		return -EBUSY;
-	} else {
-		return 0;
-	}
-	return -EBUSY;
-
-}
-
 static void sst_do_shutdown(struct intel_sst_drv *ctx)
 {
 	int retval = 0;
@@ -1229,7 +1216,6 @@ static const struct dev_pm_ops intel_sst_pm = {
 	.resume = intel_sst_runtime_resume,
 	.runtime_suspend = intel_sst_runtime_suspend,
 	.runtime_resume = intel_sst_runtime_resume,
-	.runtime_idle = intel_sst_runtime_idle,
 };
 
 static const struct acpi_device_id sst_acpi_ids[];

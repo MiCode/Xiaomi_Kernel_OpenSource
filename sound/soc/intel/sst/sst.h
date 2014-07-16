@@ -696,7 +696,8 @@ static inline int sst_pm_runtime_put(struct intel_sst_drv *sst_drv)
 {
 	int ret;
 
-	ret = pm_runtime_put_sync(sst_drv->dev);
+	pm_runtime_mark_last_busy(sst_drv->dev);
+	ret = pm_runtime_put_autosuspend(sst_drv->dev);
 	if (ret < 0)
 		return ret;
 	atomic_dec(&sst_drv->pm_usage_count);

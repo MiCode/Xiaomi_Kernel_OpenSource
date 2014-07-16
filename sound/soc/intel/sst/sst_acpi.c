@@ -645,6 +645,8 @@ int sst_acpi_probe(struct platform_device *pdev)
 	}
 
 	platform_set_drvdata(pdev, ctx);
+	pm_runtime_set_autosuspend_delay(dev, SST_SUSPEND_DELAY);
+	pm_runtime_use_autosuspend(dev);
 	pm_runtime_set_active(dev);
 	pm_runtime_enable(dev);
 	register_sst(dev);
