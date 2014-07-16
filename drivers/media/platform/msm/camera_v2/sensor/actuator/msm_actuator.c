@@ -997,6 +997,12 @@ static long msm_actuator_subdev_do_ioctl(
 				compat_ptr(u32->cfg.move.ringing_params);
 			parg = &actuator_data;
 			break;
+		case CFG_SET_POSITION:
+			actuator_data.cfgtype = u32->cfgtype;
+			actuator_data.is_af_supported = u32->is_af_supported;
+			memcpy(&actuator_data.cfg.setpos, &(u32->cfg.setpos),
+				sizeof(struct msm_actuator_set_position_t));
+			break;
 		default:
 			actuator_data.cfgtype = u32->cfgtype;
 			parg = &actuator_data;
