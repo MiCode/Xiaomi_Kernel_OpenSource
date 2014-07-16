@@ -823,6 +823,42 @@ static inline int rt_se_prio(struct sched_rt_entity *rt_se)
 	return rt_task_of(rt_se)->prio;
 }
 
+static void dump_throttled_rt_tasks(struct rt_rq *rt_rq)
+{
+	struct rt_prio_array *array = &rt_rq->active;
+	struct sched_rt_entity *rt_se;
+	char buf[500];
+	char *pos = buf;
+	char *end = buf + sizeof(buf);
+	int idx;
+
+	pos += snprintf(pos, sizeof(buf),
+		"sched: RT throttling activated for rt_rq %p (cpu %d)\n",
+		rt_rq, cpu_of(rq_of_rt_rq(rt_rq)));
+
+	if (bitmap_empty(array->bitmap, MAX_RT_PRIO))
+		goto out;
+
+	pos += snprintf(pos, end - pos, "potential CPU hogs:\n");
+	idx = sched_find_first_bit(array->bitmap);
+	while (idx < MAX_RT_PRIO) {
+		list_for_each_entry(rt_se, array->queue + idx, run_list) {
+			struct task_struct *p;
+
+			if (!rt_entity_is_task(rt_se))
+				continue;
+
+			p = rt_task_of(rt_se);
+			if (pos < end)
+				pos += snprintf(pos, end - pos, "\t%s (%d)\n",
+					p->comm, p->pid);
+		}
+		idx = find_next_bit(array->bitmap, MAX_RT_PRIO, idx + 1);
+	}
+out:
+	printk_sched("%s", buf);
+}
+
 static int sched_rt_runtime_exceeded(struct rt_rq *rt_rq)
 {
 	u64 runtime = sched_rt_runtime(rt_rq);
@@ -852,7 +888,7 @@ static int sched_rt_runtime_exceeded(struct rt_rq *rt_rq)
 
 			if (!once) {
 				once = true;
-				printk_sched("sched: RT throttling activated\n");
+				dump_throttled_rt_tasks(rt_rq);
 			}
 		} else {
 			/*
