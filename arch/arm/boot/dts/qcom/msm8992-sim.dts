@@ -24,6 +24,6 @@
 	qcom,board-id = <16 0>;
 };
 
-&blsp1_uart2 {
+&blsp1_uart5 {
 	status = "ok";
 };
