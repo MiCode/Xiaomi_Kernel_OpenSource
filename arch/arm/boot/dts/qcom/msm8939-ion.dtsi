@@ -37,7 +37,7 @@
 		qcom,ion-heap@27 { /* QSEECOM HEAP */
 			compatible = "qcom,msm-ion-reserve";
 			reg = <27>;
-			linux,contiguous-region = <&venus_qseecom_mem>;
+			linux,contiguous-region = <&qseecom_mem>;
 			qcom,ion-heap-type = "DMA";
 		};
 
