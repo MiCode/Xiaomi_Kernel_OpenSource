@@ -414,6 +414,7 @@
 		regulator-name = "spk_ext_vreg";
 		gpio = <&pm8994_mpps 5 0>;
 		status = "ok";
+		enable-active-high;
 	};
 
 	sound {
