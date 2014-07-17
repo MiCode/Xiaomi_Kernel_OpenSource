@@ -693,6 +693,7 @@ static int32_t msm_cci_init(struct v4l2_subdev *sd,
 		CDBG("%s ref_count %d\n", __func__, cci_dev->ref_count);
 		master = c_ctrl->cci_info->cci_i2c_master;
 		CDBG("%s:%d master %d\n", __func__, __LINE__, master);
+		msm_cci_set_clk_param(cci_dev, c_ctrl);
 		if (master < MASTER_MAX && master >= 0) {
 			mutex_lock(&cci_dev->cci_master_info[master].mutex);
 			/* Set reset pending flag to TRUE */
