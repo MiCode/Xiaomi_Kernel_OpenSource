@@ -1232,7 +1232,19 @@ static int dispatcher_do_fault(struct kgsl_device *device)
 
 	if (!test_bit(KGSL_FT_SKIP_PMDUMP, &cmdbatch->fault_policy)) {
 		adreno_fault_header(device, cmdbatch);
+
+		/*
+		 * Disable coresight if it is enabled, before snapshot.
+		 * We check inside adreno_coresight_stop() if coresight
+		 * is currently enabled or not.
+		 */
+		adreno_coresight_stop(adreno_dev);
+
 		kgsl_device_snapshot(device, cmdbatch->context);
+
+		/* Re-enable coresight after snapshot */
+		adreno_coresight_start(adreno_dev);
+
 	}
 
 	mutex_unlock(&device->mutex);

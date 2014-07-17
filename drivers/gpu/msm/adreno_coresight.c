@@ -155,7 +155,13 @@ static void adreno_coresight_disable(struct coresight_device *csdev)
 	mutex_unlock(&device->mutex);
 }
 
-static int _adreno_coresight_get(struct adreno_device *adreno_dev)
+/**
+ * _adreno_coresight_get_and_clear(): Save the current value of coresight
+ * registers and clear the registers subsequently. Clearing registers
+ * has the effect of disabling coresight.
+ * @adreno_dev: Pointer to adreno device struct
+ */
+static int _adreno_coresight_get_and_clear(struct adreno_device *adreno_dev)
 {
 	struct adreno_gpudev *gpudev = ADRENO_GPU_DEVICE(adreno_dev);
 	struct kgsl_device *device = &adreno_dev->dev;
@@ -166,10 +172,17 @@ static int _adreno_coresight_get(struct adreno_device *adreno_dev)
 		return -ENODEV;
 
 	if (!kgsl_active_count_get(device)) {
-		for (i = 0; i < coresight->count; i++)
+
+		/*
+		 * Save the current value of each coresight register
+		 * and then clear each register
+		 */
+		for (i = 0; i < coresight->count; i++) {
 			kgsl_regread(device, coresight->registers[i].offset,
 				&coresight->registers[i].value);
-
+			kgsl_regwrite(device, coresight->registers[i].offset,
+				0);
+		}
 		kgsl_active_count_put(device);
 	}
 
@@ -254,7 +267,7 @@ static int adreno_coresight_enable(struct coresight_device *csdev)
 void adreno_coresight_stop(struct adreno_device *adreno_dev)
 {
 	if (test_bit(ADRENO_DEVICE_CORESIGHT, &adreno_dev->priv))
-		_adreno_coresight_get(adreno_dev);
+		_adreno_coresight_get_and_clear(adreno_dev);
 }
 
 /**
