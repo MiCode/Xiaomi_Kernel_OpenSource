@@ -53,7 +53,7 @@
 
 #ifdef	__KERNEL__
 struct lis3dh_acc_platform_data {
-	int poll_interval;
+	int init_interval;
 	int min_interval;
 
 	u8 g_range;
