@@ -27,6 +27,87 @@
 #include "ufs-msm.h"
 #include "ufs-msm-phy.h"
 
+int ufs_msm_phy_calibrate(struct ufs_msm_phy *ufs_msm_phy,
+			struct ufs_msm_phy_calibration *tbl_A, int tbl_size_A,
+			struct ufs_msm_phy_calibration *tbl_B, int tbl_size_B,
+			int rate)
+{
+	int i;
+	int ret = 0;
+
+	if (!tbl_A) {
+		dev_err(ufs_msm_phy->dev, "%s: tbl_A is NULL", __func__);
+		ret = EINVAL;
+		goto out;
+	}
+
+	for (i = 0; i < tbl_size_A; i++)
+		writel_relaxed(tbl_A[i].cfg_value,
+				ufs_msm_phy->mmio + tbl_A[i].reg_offset);
+
+	/*
+	 * In case we would like to work in rate B, we need
+	 * to override a registers that were configured in rate A table
+	 * with registers of rate B table.
+	 * table.
+	 */
+	if (rate == PA_HS_MODE_B) {
+		if (!tbl_B) {
+			dev_err(ufs_msm_phy->dev, "%s: tbl_B is NULL",
+				__func__);
+			ret = EINVAL;
+			goto out;
+		}
+
+		for (i = 0; i < tbl_size_B; i++)
+			writel_relaxed(tbl_B[i].cfg_value,
+				ufs_msm_phy->mmio + tbl_B[i].reg_offset);
+	}
+
+	/* flush buffered writes */
+	mb();
+
+out:
+	return ret;
+}
+
+struct phy *ufs_msm_phy_generic_probe(struct platform_device *pdev,
+			  struct ufs_msm_phy *common_cfg,
+			  struct phy_ops *ufs_msm_phy_gen_ops,
+			  struct ufs_msm_phy_specific_ops *phy_spec_ops)
+{
+	int err;
+	struct device *dev = &pdev->dev;
+	struct phy *generic_phy = NULL;
+	struct phy_provider *phy_provider;
+
+	err = ufs_msm_phy_base_init(pdev, common_cfg);
+	if (err) {
+		dev_err(dev, "%s: phy base init failed %d\n", __func__, err);
+		goto out;
+	}
+
+	phy_provider = devm_of_phy_provider_register(dev, of_phy_simple_xlate);
+	if (IS_ERR(phy_provider)) {
+		err = PTR_ERR(phy_provider);
+		dev_err(dev, "%s: failed to register phy %d\n", __func__, err);
+		goto out;
+	}
+
+	generic_phy = devm_phy_create(dev, ufs_msm_phy_gen_ops, NULL);
+	if (IS_ERR(generic_phy)) {
+		err =  PTR_ERR(generic_phy);
+		dev_err(dev, "%s: failed to create phy %d\n", __func__, err);
+		goto out;
+	}
+
+	common_cfg->phy_spec_ops = phy_spec_ops;
+	common_cfg->dev = dev;
+
+out:
+	return generic_phy;
+}
+
 /*
  * This assumes the embedded phy structure inside generic_phy is of type
  * struct ufs_msm_phy. In order to function properly it's crucial
@@ -447,8 +528,10 @@ int ufs_msm_phy_calibrate_phy(struct phy *generic_phy)
 			__func__);
 		ret = -ENOTSUPP;
 	} else {
-		ufs_msm_phy->phy_spec_ops->
-			calibrate_phy(ufs_msm_phy);
+		ret = ufs_msm_phy->phy_spec_ops->
+				calibrate_phy(ufs_msm_phy);
+		dev_err(ufs_msm_phy->dev, "%s: calibrate_phy() failed %d\n",
+			__func__, ret);
 	}
 
 	return ret;
