@@ -544,6 +544,7 @@ struct i2c_msm_resources {
  *            is compared against len to find out if buffer is done processing.
  * @len       number of bytes in current buffer.
  * @is_rx when true, current buffer is pointing to a i2c read operation.
+ * @slv_addr 8 bit address. This is the i2c_msg->addr + rd/wr bit.
  *
  * Keep track of current position in the client's transfer request and
  * pre-process a transfer's buffer and tags.
@@ -556,6 +557,7 @@ struct i2c_msm_xfer_buf {
 	size_t                     len;
 	bool                       is_rx;
 	bool                       is_last;
+	u16                        slv_addr;
 	struct i2c_msm_tag         in_tag;
 	struct i2c_msm_tag         out_tag;
 };
