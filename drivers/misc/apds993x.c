@@ -1623,7 +1623,10 @@ static ssize_t apds993x_show_pdata(struct device *dev,
 	int pdata;
 
 	mutex_lock(&data->update_lock);
-	pdata = i2c_smbus_read_word_data(client, CMD_WORD|APDS993X_PDATAL_REG);
+	pdata = i2c_smbus_read_word_data(client,
+			CMD_WORD|APDS993X_PDATAL_REG);
+	pdata |= i2c_smbus_read_word_data(client,
+			CMD_WORD|APDS993X_PDATAH_REG) << 8;
 	mutex_unlock(&data->update_lock);
 
 	return sprintf(buf, "%d\n", pdata);
