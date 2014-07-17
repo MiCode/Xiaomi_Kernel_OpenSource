@@ -615,3 +615,7 @@
 		interrupt-names = "silabs_fm_int";
 	};
 };
+
+&pmi8994_haptics {
+	status = "okay";
+};
