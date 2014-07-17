@@ -999,9 +999,19 @@ static int cpp_open_node(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh)
 {
 	int rc;
 	uint32_t i;
-	struct cpp_device *cpp_dev = v4l2_get_subdevdata(sd);
+	struct cpp_device *cpp_dev = NULL;
 	CPP_DBG("E\n");
 
+	if (!sd || !fh) {
+		pr_err("Wrong input parameters sd %p fh %p!",
+			sd, fh);
+		return -EINVAL;
+	}
+	cpp_dev = v4l2_get_subdevdata(sd);
+	if (!cpp_dev) {
+		pr_err("failed: cpp_dev %p\n", cpp_dev);
+		return -EINVAL;
+	}
 	mutex_lock(&cpp_dev->mutex);
 	if (cpp_dev->cpp_open_cnt == MAX_ACTIVE_CPP_INSTANCE) {
 		pr_err("No free CPP instance\n");
@@ -1044,9 +1054,15 @@ static int cpp_open_node(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh)
 static int cpp_close_node(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh)
 {
 	uint32_t i;
-	struct cpp_device *cpp_dev = v4l2_get_subdevdata(sd);
+	struct cpp_device *cpp_dev = NULL;
 	struct msm_device_queue *processing_q = NULL;
 	struct msm_device_queue *eventData_q = NULL;
+
+	if (!sd) {
+		pr_err("Wrong input sd parameter");
+		return -EINVAL;
+	}
+	cpp_dev =  v4l2_get_subdevdata(sd);
 
 	if (!cpp_dev) {
 		pr_err("failed: cpp_dev %p\n", cpp_dev);
@@ -1693,14 +1709,16 @@ void msm_cpp_clean_queue(struct cpp_device *cpp_dev)
 long msm_cpp_subdev_ioctl(struct v4l2_subdev *sd,
 			unsigned int cmd, void *arg)
 {
-	struct cpp_device *cpp_dev = v4l2_get_subdevdata(sd);
+	struct cpp_device *cpp_dev = NULL;
 	struct msm_camera_v4l2_ioctl_t *ioctl_ptr = arg;
 	int rc = 0;
 
-	if ((ioctl_ptr == NULL) || (ioctl_ptr->ioctl_ptr == NULL)) {
-		pr_err("ioctl_ptr is null\n");
+	if ((sd == NULL) || (ioctl_ptr == NULL) ||
+		(ioctl_ptr->ioctl_ptr == NULL)) {
+		pr_err("Wrong ioctl_ptr %p, sd %p\n", ioctl_ptr, sd);
 		return -EINVAL;
 	}
+	cpp_dev = v4l2_get_subdevdata(sd);
 	if (cpp_dev == NULL) {
 		pr_err("cpp_dev is null\n");
 		return -EINVAL;
@@ -2149,9 +2167,22 @@ static const struct v4l2_subdev_ops msm_cpp_subdev_ops = {
 static long msm_cpp_subdev_do_ioctl(
 	struct file *file, unsigned int cmd, void *arg)
 {
-	struct video_device *vdev = video_devdata(file);
-	struct v4l2_subdev *sd = vdev_to_v4l2_subdev(vdev);
-	struct v4l2_fh *vfh = file->private_data;
+	struct video_device *vdev;
+	struct v4l2_subdev *sd;
+	struct v4l2_fh *vfh = NULL;
+
+	if ((arg == NULL) || (file == NULL)) {
+		pr_err("Invalid input parameters arg %p, file %p\n", arg, file);
+		return -EINVAL;
+	}
+	vdev = video_devdata(file);
+	sd = vdev_to_v4l2_subdev(vdev);
+
+	if (sd == NULL) {
+		pr_err("Invalid input parameter sd %p\n", sd);
+		return -EINVAL;
+	}
+	vfh = file->private_data;
 
 	switch (cmd) {
 	case VIDIOC_DQEVENT:
@@ -2334,16 +2365,24 @@ static long msm_cpp_subdev_fops_compat_ioctl(struct file *file,
 {
 	struct video_device *vdev = video_devdata(file);
 	struct v4l2_subdev *sd = vdev_to_v4l2_subdev(vdev);
-	struct cpp_device *cpp_dev = v4l2_get_subdevdata(sd);
+	struct cpp_device *cpp_dev = NULL;
+
 	int32_t rc = 0;
 	struct msm_camera_v4l2_ioctl_t kp_ioctl;
 	struct msm_camera_v4l2_ioctl32_t up32_ioctl;
 	struct msm_cpp_clock_settings_t clock_settings;
 	void __user *up = (void __user *)arg;
 
-	if (!vdev || !sd || !cpp_dev)
+	if (sd == NULL) {
+		pr_err("%s: Subdevice is NULL\n", __func__);
 		return -EINVAL;
-
+	}
+	cpp_dev = v4l2_get_subdevdata(sd);
+	if (!vdev || !cpp_dev) {
+		pr_err("Invalid vdev %p or cpp_dev %p structures!",
+			vdev, cpp_dev);
+		return -EINVAL;
+	}
 	/*
 	 * copy the user space 32 bit pointer to kernel space 32 bit compat
 	 * pointer
@@ -2465,6 +2504,10 @@ static long msm_cpp_subdev_fops_compat_ioctl(struct file *file,
 
 		CPP_DBG("VIDIOC_MSM_CPP_GET_EVENTPAYLOAD\n");
 		event_qcmd = msm_dequeue(queue, list_eventdata);
+		if (!event_qcmd) {
+			pr_err("no queue cmd available");
+			return -EINVAL;
+		}
 		process_frame = event_qcmd->command;
 
 		get_compat_frame_from_64bit(process_frame, &k32_process_frame);
