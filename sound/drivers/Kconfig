@@ -26,8 +26,8 @@ config SND_AC97_CODEC
 
 config SND_INTEL_HDMI
 	tristate
-	depends on SUPPORT_HDMI_AUDIO
-	default y
+	depends on SUPPORT_LPDMA_HDMI_AUDIO
+	default n
 	help
 	  Choose this option to enable HDMI Audio by using direct DMA
 	  transfer.
