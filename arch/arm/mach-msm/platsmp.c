@@ -16,7 +16,6 @@
 #include <linux/interrupt.h>
 #include <linux/io.h>
 #include <linux/regulator/krait-regulator.h>
-#include <soc/qcom/spm.h>
 #include <soc/qcom/pm.h>
 #include <soc/qcom/scm-boot.h>
 #include <soc/qcom/cpu_pwr_ctl.h>

@@ -8,24 +8,24 @@ Required properties:
 - compatible:	Can be one of:
 		"qcom,8994-l2ccc"
 		"qcom,8916-l2ccc"
-
 - reg:		This specifies the base address and size of
 		the register region.
-		The second tuple specifies the address of the voltage control
-		register. This register is only required if the qcom,vctl-val
-		is specified.
 
 Optional properties:
- - qcom,vctl-val: The voltage control register value that must be set before
+- reg:		An optional second tuple specifies the shared common base
+		address required to trigger the L2 SPM out of power collapse.
+- qcom,vctl-node: Reference to a node that controls the power rails for the
+ cluster.
+- qcom,vctl-val: The voltage control register value that must be set before
 		the caches can be turned on. This would be a required property
 		if the target necessitates a voltage rail be turned on before
 		turning on the cache.
-
 Example:
 
 	clock-controller@f900f000 {
 		compatible = "qcom,8994-l2ccc"";
 		reg = <0xf900f000 0x1000>,
-		      <0xf901301c 4>;
+			<0xf911210c 0x4>;
+		qcom,vctl-node = <&cluster_node>;
 		qcom,vctl-val = <0xb8>;
 	}

@@ -25,6 +25,7 @@
 
 #include <soc/qcom/cpu_pwr_ctl.h>
 #include <soc/qcom/spm.h>
+#include <soc/qcom/scm.h>
 
 #include <asm/barrier.h>
 #include <asm/cacheflush.h>
@@ -40,6 +41,12 @@
 #define L2_PWR_STATUS		0x18
 #define	L2_CORE_CBCR		0x58
 #define L1_RST_DIS		0x284
+
+#define L2_SPM_STS		0xc
+#define L2_VREG_CTL		0x1c
+
+#define SCM_IO_READ		1
+#define SCM_IO_WRITE		2
 
 /*
  * struct msm_l2ccc_of_info: represents of data for l2 cache clock controller.
@@ -114,24 +121,75 @@ static int power_on_l2_msm8916(struct device_node *l2ccc_node, u32 pon_mask,
 	return 0;
 }
 
+static int kick_l2spm_8994(struct device_node *l2ccc_node,
+				struct device_node *vctl_node)
+{
+	struct resource res;
+	int val, ret = 0;
+	void __iomem *l2spm_base = of_iomap(vctl_node, 0);
+
+	if (!l2spm_base)
+		return -ENOMEM;
+
+	if (!(__raw_readl(l2spm_base + L2_SPM_STS) & 0xFFFF0000))
+		goto bail_l2_pwr_bit;
+
+	ret = of_address_to_resource(l2ccc_node, 1, &res);
+	if (ret)
+		goto bail_l2_pwr_bit;
+
+	/* L2 is executing sleep state machine,
+	 * let's softly kick it awake
+	 */
+	val = scm_call_atomic1(SCM_SVC_IO, SCM_IO_READ, (u32)res.start);
+	val |= BIT(0);
+	scm_call_atomic2(SCM_SVC_IO, SCM_IO_WRITE, (u32)res.start, val);
+
+	/* Wait until the SPM status indicates that the PWR_CTL
+	 * bits are clear.
+	 */
+	while (readl_relaxed(l2spm_base + L2_SPM_STS) & 0xFFFF0000) {
+		int timeout = 10;
+
+		BUG_ON(!timeout--);
+		cpu_relax();
+		usleep(100);
+	}
+
+	val = scm_call_atomic1(SCM_SVC_IO, SCM_IO_READ, (u32)res.start);
+	val &= ~BIT(0);
+	scm_call_atomic2(SCM_SVC_IO, SCM_IO_WRITE, (u32)res.start, val);
+
+bail_l2_pwr_bit:
+	iounmap(l2spm_base);
+	return ret;
+}
+
 static int power_on_l2_msm8994(struct device_node *l2ccc_node, u32 pon_mask,
 				int cpu)
 {
 	u32 pon_status;
 	void __iomem *l2_base;
-	int ret;
+	int ret = 0;
 	uint32_t val;
-	void __iomem *reg;
+	struct device_node *vctl_node;
+
+	vctl_node = of_parse_phandle(l2ccc_node, "qcom,vctl-node", 0);
+
+	if (!vctl_node)
+		return -ENODEV;
 
 	l2_base = of_iomap(l2ccc_node, 0);
 	if (!l2_base)
 		return -ENOMEM;
 
 	pon_status = (__raw_readl(l2_base + L2_PWR_CTL) & pon_mask) == pon_mask;
-	/* Skip power-on sequence if l2 cache is already powered on*/
+
+	/* Check L2 SPM Status */
 	if (pon_status) {
+		ret = kick_l2spm_8994(l2ccc_node, vctl_node);
 		iounmap(l2_base);
-		return 0;
+		return ret;
 	}
 
 	/* Need to power on the rail */
@@ -142,14 +200,7 @@ static int power_on_l2_msm8994(struct device_node *l2ccc_node, u32 pon_mask,
 		return -EFAULT;
 	}
 
-	reg = of_iomap(l2ccc_node, 1);
-	if (!reg) {
-		iounmap(l2_base);
-		return -ENOMEM;
-	}
-
-	ret = msm_spm_turn_on_cpu_rail(reg, val, cpu);
-	iounmap(reg);
+	ret = msm_spm_turn_on_cpu_rail(vctl_node, val, cpu, L2_VREG_CTL);
 	if (ret) {
 		iounmap(l2_base);
 		pr_err("Error turning on power rail.\n");
