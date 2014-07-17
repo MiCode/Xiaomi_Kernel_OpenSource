@@ -121,6 +121,7 @@
 #define ALLOW_VOLATILE_BIT		BIT(6)
 #define FG_ACCESS_ENABLED_BIT		BIT(5)
 #define FG_RESET_BIT			BIT(4)
+#define CYCLE_STRETCH_CLEAR_BIT		BIT(3)
 
 #define CMD_IL_REG			0x41
 #define USB_CTRL_MASK			SMB1360_MASK(1 , 0)
@@ -143,6 +144,9 @@
 #define BATT_FAST_CHG_VAL		0x2
 #define BATT_TAPER_CHG_VAL		0x3
 #define CHG_EN_BIT			BIT(0)
+
+#define STATUS_4_REG			0x4C
+#define CYCLE_STRETCH_ACTIVE_BIT	BIT(5)
 
 #define REVISION_CTRL_REG		0x4F
 #define DEVICE_REV_MASK			SMB1360_MASK(3, 0)
@@ -353,6 +357,7 @@ static int __smb1360_read(struct smb1360_chip *chip, int reg,
 	} else {
 		*val = ret;
 	}
+	pr_debug("Reading 0x%02x=0x%02x\n", reg, *val);
 
 	return 0;
 }
@@ -1891,34 +1896,216 @@ static const struct file_operations irq_stat_debugfs_ops = {
 	.release	= single_release,
 };
 
-#define FIRST_FG_CFG_REG	0x24
-#define LAST_FG_CFG_REG		0x2F
-static int show_fg_cfg_regs(struct seq_file *m, void *data)
+static int data_8(u8 *reg)
 {
-	struct smb1360_chip *chip = m->private;
-	int rc;
-	u8 reg;
-	u8 addr;
-
-	for (addr = FIRST_FG_CFG_REG; addr <= LAST_FG_CFG_REG; addr++) {
-		rc = smb1360_read(chip, addr, &reg);
-		if (!rc)
-			seq_printf(m, "0x%02x = 0x%02x\n", addr, reg);
-	}
-
-	return 0;
+	return reg[0];
+}
+static int data_16(u8 *reg)
+{
+	return (reg[1] << 8) | reg[0];
+}
+static int data_24(u8 *reg)
+{
+	return  (reg[2] << 16) | (reg[1] << 8) | reg[0];
+}
+static int data_28(u8 *reg)
+{
+	return  ((reg[3] & 0xF) << 24) | (reg[2] << 16) |
+					(reg[1] << 8) | reg[0];
+}
+static int data_32(u8 *reg)
+{
+	return  (reg[3]  << 24) | (reg[2] << 16) |
+				(reg[1] << 8) | reg[0];
 }
 
-static int fg_cfg_debugfs_open(struct inode *inode, struct file *file)
+struct fg_regs {
+	int index;
+	int length;
+	char *param_name;
+	int (*calc_func) (u8 *);
+};
+
+static struct fg_regs fg_scratch_pad[] = {
+	{0, 2, "v_current_predicted", data_16},
+	{2, 2, "v_cutoff_predicted", data_16},
+	{4, 2, "v_full_predicted", data_16},
+	{6, 2, "ocv_estimate", data_16},
+	{8, 2, "rslow_drop", data_16},
+	{10, 2, "voltage_old", data_16},
+	{12, 2, "current_old", data_16},
+	{14, 4, "current_average_full", data_32},
+	{18, 2, "temperature", data_16},
+	{20, 2, "temp_last_track", data_16},
+	{22, 2, "ESR_nominal", data_16},
+	{26, 2, "Rslow", data_16},
+	{28, 2, "counter_imptr", data_16},
+	{30, 2, "counter_pulse", data_16},
+	{32, 1, "IRQ_delta_prev", data_8},
+	{33, 1, "cap_learning_counter", data_8},
+	{34, 4, "Vact_int_error", data_24},
+	{38, 3, "SOC_cutoff", data_24},
+	{41, 3, "SOC_full", data_24},
+	{44, 3, "SOC_auto_rechrge_temp", data_24},
+	{47, 3, "Battery_SOC", data_24},
+	{50, 4, "CC_SOC", data_28},
+	{54, 2, "SOC_filtered", data_16},
+	{56, 2, "SOC_Monotonic", data_16},
+	{58, 2, "CC_SOC_coeff", data_16},
+	{60, 2, "nominal_capacity", data_16},
+	{62, 2, "actual_capacity", data_16},
+	{68, 1, "temperature_counter", data_8},
+	{69, 3, "Vbatt_filtered", data_24},
+	{72, 3, "Ibatt_filtered", data_24},
+	{75, 2, "Current_CC_shadow", data_16},
+	{79, 2, "Ibatt_standby", data_16},
+	{82, 1, "Auto_recharge_SOC_threshold", data_8},
+	{83, 2, "System_cutoff_voltage", data_16},
+	{85, 2, "System_CC_to_CV_voltage", data_16},
+	{87, 2, "System_term_current", data_16},
+	{89, 2, "System_fake_term_current", data_16},
+};
+
+static struct fg_regs fg_cfg[] = {
+	{0, 2, "ESR_actual", data_16},
+	{4, 1, "IRQ_SOC_max", data_8},
+	{5, 1, "IRQ_SOC_min", data_8},
+	{6, 1, "IRQ_volt_empty", data_8},
+	{7, 1, "Temp_external", data_8},
+	{8, 1, "IRQ_delta_threshold", data_8},
+	{9, 1, "JIETA_soft_cold", data_8},
+	{10, 1, "JIETA_soft_hot", data_8},
+	{11, 1, "IRQ_volt_min", data_8},
+	{14, 2, "ESR_sys_replace", data_16},
+};
+
+static struct fg_regs fg_shdw[] = {
+	{0, 1, "Latest_battery_info", data_8},
+	{1, 1, "Latest_Msys_SOC", data_8},
+	{2, 2, "Battery_capacity", data_16},
+	{4, 2, "Rslow_drop", data_16},
+	{6, 1, "Latest_SOC", data_8},
+	{7, 1, "Latest_Cutoff_SOC", data_8},
+	{8, 1, "Latest_full_SOC", data_8},
+	{9, 2, "Voltage_shadow", data_16},
+	{11, 2, "Current_shadow", data_16},
+	{13, 2, "Latest_temperature", data_16},
+	{15, 1, "Latest_system_sbits", data_8},
+};
+
+#define FIRST_FG_CFG_REG		0x20
+#define LAST_FG_CFG_REG			0x2F
+#define FIRST_FG_SHDW_REG		0x60
+#define LAST_FG_SHDW_REG		0x6F
+#define FG_SCRATCH_PAD_MAX		90
+#define FG_SCRATCH_PAD_BASE_REG		0x80
+#define SMB1360_I2C_READ_LENGTH		32
+
+static int smb1360_check_cycle_stretch(struct smb1360_chip *chip)
+{
+	int rc = 0;
+	u8 reg;
+
+	rc = smb1360_read(chip, STATUS_4_REG, &reg);
+	if (rc) {
+		pr_err("Unable to read status regiseter\n");
+	} else if (reg & CYCLE_STRETCH_ACTIVE_BIT) {
+		/* clear cycle stretch */
+		rc = smb1360_masked_write(chip, CMD_I2C_REG,
+			CYCLE_STRETCH_CLEAR_BIT, CYCLE_STRETCH_CLEAR_BIT);
+		if (rc)
+			pr_err("Unable to clear cycle stretch\n");
+	}
+
+	return rc;
+}
+
+static int show_fg_regs(struct seq_file *m, void *data)
+{
+	struct smb1360_chip *chip = m->private;
+	int rc, i , j, rem_length;
+	u8 reg[FG_SCRATCH_PAD_MAX];
+
+	rc = smb1360_check_cycle_stretch(chip);
+	if (rc)
+		pr_err("Unable to check cycle-stretch\n");
+
+	rc = smb1360_enable_fg_access(chip);
+	if (rc) {
+		pr_err("Couldn't request FG access rc=%d\n", rc);
+		return rc;
+	}
+
+	for (i = 0; i < (FG_SCRATCH_PAD_MAX / SMB1360_I2C_READ_LENGTH); i++) {
+		j = i * SMB1360_I2C_READ_LENGTH;
+		rc = smb1360_read_bytes(chip, FG_SCRATCH_PAD_BASE_REG + j,
+					&reg[j], SMB1360_I2C_READ_LENGTH);
+		if (rc) {
+			pr_err("Couldn't read scratch registers rc=%d\n", rc);
+			break;
+		}
+	}
+
+	j = i * SMB1360_I2C_READ_LENGTH;
+	rem_length = FG_SCRATCH_PAD_MAX % SMB1360_I2C_READ_LENGTH;
+	if (rem_length) {
+		rc = smb1360_read_bytes(chip, FG_SCRATCH_PAD_BASE_REG + j,
+						&reg[j], rem_length);
+		if (rc)
+			pr_err("Couldn't read scratch registers rc=%d\n", rc);
+	}
+
+	rc = smb1360_disable_fg_access(chip);
+	if (rc) {
+		pr_err("Couldn't disable FG access rc=%d\n", rc);
+		return rc;
+	}
+
+	rc = smb1360_check_cycle_stretch(chip);
+	if (rc)
+		pr_err("Unable to check cycle-stretch\n");
+
+
+	seq_puts(m, "FG scratch-pad registers\n");
+	for (i = 0; i < ARRAY_SIZE(fg_scratch_pad); i++)
+		seq_printf(m, "\t%s = %x\n", fg_scratch_pad[i].param_name,
+		fg_scratch_pad[i].calc_func(&reg[fg_scratch_pad[i].index]));
+
+	rem_length = LAST_FG_CFG_REG - FIRST_FG_CFG_REG + 1;
+	rc = smb1360_read_bytes(chip, FIRST_FG_CFG_REG,
+					&reg[0], rem_length);
+	if (rc)
+		pr_err("Couldn't read config registers rc=%d\n", rc);
+
+	seq_puts(m, "FG config registers\n");
+	for (i = 0; i < ARRAY_SIZE(fg_cfg); i++)
+		seq_printf(m, "\t%s = %x\n", fg_cfg[i].param_name,
+				fg_cfg[i].calc_func(&reg[fg_cfg[i].index]));
+
+	rem_length = LAST_FG_SHDW_REG - FIRST_FG_SHDW_REG + 1;
+	rc = smb1360_read_bytes(chip, FIRST_FG_SHDW_REG,
+					&reg[0], rem_length);
+	if (rc)
+		pr_err("Couldn't read shadow registers rc=%d\n", rc);
+
+	seq_puts(m, "FG shadow registers\n");
+	for (i = 0; i < ARRAY_SIZE(fg_shdw); i++)
+		seq_printf(m, "\t%s = %x\n", fg_shdw[i].param_name,
+				fg_shdw[i].calc_func(&reg[fg_shdw[i].index]));
+
+	return rc;
+}
+
+static int fg_regs_open(struct inode *inode, struct file *file)
 {
 	struct smb1360_chip *chip = inode->i_private;
 
-	return single_open(file, show_fg_cfg_regs, chip);
+	return single_open(file, show_fg_regs, chip);
 }
 
-static const struct file_operations fg_cfg_debugfs_ops = {
+static const struct file_operations fg_regs_debugfs_ops = {
 	.owner		= THIS_MODULE,
-	.open		= fg_cfg_debugfs_open,
+	.open		= fg_regs_open,
 	.read		= seq_read,
 	.llseek		= seq_lseek,
 	.release	= single_release,
@@ -3004,12 +3191,12 @@ static int smb1360_probe(struct i2c_client *client,
 				"Couldn't create cmd debug file rc = %d\n",
 				rc);
 
-		ent = debugfs_create_file("fg_config_registers",
+		ent = debugfs_create_file("fg_regs",
 				S_IFREG | S_IRUGO, chip->debug_root, chip,
-						  &fg_cfg_debugfs_ops);
+					  &fg_regs_debugfs_ops);
 		if (!ent)
 			dev_err(chip->dev,
-				"Couldn't create fg_config debug file rc = %d\n",
+				"Couldn't create fg_scratch_pad debug file rc = %d\n",
 				rc);
 
 		ent = debugfs_create_x32("address", S_IFREG | S_IWUSR | S_IRUGO,
