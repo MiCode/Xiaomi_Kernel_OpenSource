@@ -277,6 +277,7 @@
 			qcom,volatge-soc-timeout-ms = <60000>;
 			qcom,low-voltage-threshold = <3450000>;
 			qcom,s3-ocv-tolerence-uv = <1200>;
+			qcom,s2-fifo-length = <5>;
 			qcom,low-soc-fifo-length = <2>;
 			qcom,bms-vadc = <&pm8916_vadc>;
 			qcom,bms-adc_tm = <&pm8916_adc_tm>;
