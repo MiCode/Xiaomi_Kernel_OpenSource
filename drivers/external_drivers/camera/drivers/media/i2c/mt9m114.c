@@ -1455,12 +1455,6 @@ mt9m114_s_config(struct v4l2_subdev *sd, int irq, void *platform_data)
 		return ret;
 	}
 
-	ret = atomisp_register_i2c_module(sd, client, platform_data,
-					  gmin_get_var_int(&client->dev, "CamType",
-							   RAW_CAMERA),
-					  gmin_get_var_int(&client->dev, "CsiPort",
-							   ATOMISP_CAMERA_PORT_PRIMARY));
-
 	return ret;
 
 fail_csi_cfg:
@@ -1837,6 +1831,7 @@ static int mt9m114_probe(struct i2c_client *client,
 {
 	struct mt9m114_device *dev;
 	int ret = 0;
+	void *pdata;
 
 	/* Setup sensor configuration structure */
 	dev = kzalloc(sizeof(*dev), GFP_KERNEL);
@@ -1846,17 +1841,25 @@ static int mt9m114_probe(struct i2c_client *client,
 	}
 
 	v4l2_i2c_subdev_init(&dev->sd, client, &mt9m114_ops);
-	if (client->dev.platform_data) {
-		ret = mt9m114_s_config(&dev->sd, client->irq,
-				       client->dev.platform_data);
-	} else if (ACPI_COMPANION(&client->dev)) {
-		ret = mt9m114_s_config(&dev->sd, client->irq,
-				       gmin_camera_platform_data());
-	}
-	if (ret) {
+
+	pdata = client->dev.platform_data;
+	if (ACPI_COMPANION(&client->dev))
+		pdata = gmin_camera_platform_data();
+
+	if (pdata)
+		ret = mt9m114_s_config(&dev->sd, client->irq, pdata);
+	if (!pdata || ret) {
 		v4l2_device_unregister_subdev(&dev->sd);
 		kfree(dev);
 		return ret;
+	}
+
+	ret = atomisp_register_i2c_module(&dev->sd, client, pdata, RAW_CAMERA,
+					  gmin_get_var_int(&client->dev, "CsiPort",
+							   ATOMISP_CAMERA_PORT_PRIMARY));
+	if (ret) {
+		v4l2_device_unregister_subdev(&dev->sd);
+		kfree(dev);
 	}
 
 	/*TODO add format code here*/

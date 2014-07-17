@@ -1409,13 +1409,6 @@ static int ov5693_s_config(struct v4l2_subdev *sd,
 	}
 	mutex_unlock(&dev->input_lock);
 
-
-	ret = atomisp_register_i2c_module(sd, client, platform_data,
-					  gmin_get_var_int(&client->dev, "CamType",
-							   RAW_CAMERA),
-					  gmin_get_var_int(&client->dev, "CsiPort",
-							   ATOMISP_CAMERA_PORT_PRIMARY));
-
 	return ret;
 
 fail_csi_cfg:
@@ -1623,6 +1616,7 @@ static int ov5693_probe(struct i2c_client *client,
 	struct ov5693_device *dev;
 	int i2c;
 	int ret = 0;
+	void *pdata = client->dev.platform_data;
 
 	/* Firmware workaround: Some modules use a "secondary default"
 	 * address of 0x10 which doesn't appear on schematics, and
@@ -1646,13 +1640,18 @@ static int ov5693_probe(struct i2c_client *client,
 	dev->fmt_idx = 0;
 	v4l2_i2c_subdev_init(&(dev->sd), client, &ov5693_ops);
 
-	if (client->dev.platform_data) {
-		ret = ov5693_s_config(&dev->sd, client->irq,
-				       client->dev.platform_data);
-	} else if (ACPI_COMPANION(&client->dev)) {
-		ret = ov5693_s_config(&dev->sd, client->irq,
-				      gmin_camera_platform_data());
-	}
+	if (ACPI_COMPANION(&client->dev))
+		pdata = gmin_camera_platform_data();
+	if (!pdata)
+		goto out_free;
+
+	ret = ov5693_s_config(&dev->sd, client->irq, pdata);
+	if (ret)
+		goto out_free;
+
+	ret = atomisp_register_i2c_module(&dev->sd, client, pdata, RAW_CAMERA,
+					  gmin_get_var_int(&client->dev, "CsiPort",
+							   ATOMISP_CAMERA_PORT_PRIMARY));
 	if (ret)
 		goto out_free;
 

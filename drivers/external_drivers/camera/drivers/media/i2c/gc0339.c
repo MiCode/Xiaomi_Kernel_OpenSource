@@ -1260,19 +1260,6 @@ static int gc0339_s_config(struct v4l2_subdev *sd,
 		goto fail_csi_cfg;
 	}
 
-	/* Register the atomisp platform data prior to the ISP module
-	 * load.  Ideally this would be stored as data on the
-	 * subdevices, but this API matches upstream better. */
-	ret = atomisp_register_i2c_module(sd, client, platform_data,
-					  gmin_get_var_int(&client->dev, "CamType",
-						     RAW_CAMERA),
-					  gmin_get_var_int(&client->dev, "CsiPort",
-						     ATOMISP_CAMERA_PORT_PRIMARY));
-	if (ret) {
-		dev_err(&client->dev,
-			"gc2235 atomisp_register_i2c_module failed.\n");
-		goto fail_csi_cfg;
-	}
 	mutex_unlock(&dev->input_lock);
 
 	pr_info("%s E\n", __func__);
@@ -1497,7 +1484,8 @@ static int gc0339_probe(struct i2c_client *client,
 			const struct i2c_device_id *id)
 {
 	struct gc0339_device *dev;
-	int ret;
+	int ret = -1;
+	void *pdata = client->dev.platform_data;
 
 	pr_info("%s S\n", __func__);
 	dev = kzalloc(sizeof(*dev), GFP_KERNEL);
@@ -1511,21 +1499,20 @@ static int gc0339_probe(struct i2c_client *client,
 	dev->fmt_idx = 0;
 	v4l2_i2c_subdev_init(&(dev->sd), client, &gc0339_ops);
 
-	if (client->dev.platform_data) {
-		ret = gc0339_s_config(&dev->sd, client->irq,
-				       client->dev.platform_data);
-		if (ret)
-			goto out_free;
-	} else if (ACPI_COMPANION(&client->dev)) {
-		/*
-		 * If no SFI firmware, grab the platform struct
-		 * directly and configure via ACPI/EFIvars instead
-		 */
-		ret = gc0339_s_config(&dev->sd, client->irq,
-				      gmin_camera_platform_data());
-		if (ret)
-			goto out_free;
-	}
+	if (ACPI_COMPANION(&client->dev))
+		pdata = gmin_camera_platform_data();
+	if (!pdata)
+		goto out_free;
+
+	ret = gc0339_s_config(&dev->sd, client->irq, pdata);
+	if (ret)
+		goto out_free;
+
+	ret = atomisp_register_i2c_module(&dev->sd, client, pdata, RAW_CAMERA,
+					  gmin_get_var_int(&client->dev, "CsiPort",
+							   ATOMISP_CAMERA_PORT_PRIMARY));
+	if (ret)
+		goto out_free;
 
 	dev->sd.flags |= V4L2_SUBDEV_FL_HAS_DEVNODE;
 	dev->pad.flags = MEDIA_PAD_FL_SOURCE;
