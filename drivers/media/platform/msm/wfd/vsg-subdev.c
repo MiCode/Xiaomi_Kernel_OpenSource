@@ -135,6 +135,9 @@ static void vsg_work_func(struct work_struct *task)
 	}
 
 	encode_work = kmalloc(sizeof(*encode_work), GFP_KERNEL);
+	if (!encode_work)
+		goto err_skip_encode;
+
 	encode_work->buf = buf_info;
 	encode_work->context = context;
 	INIT_WORK(&encode_work->work, vsg_encode_helper_func);
@@ -298,6 +301,11 @@ static int vsg_open(struct v4l2_subdev *sd, void *arg)
 		return -EINVAL;
 
 	context = kzalloc(sizeof(*context), GFP_KERNEL);
+	if (!context) {
+		WFD_MSG_ERR("ERROR, failed to allocate context %s\n", __func__);
+		return -ENOMEM;
+	}
+
 	INIT_LIST_HEAD(&context->free_queue.node);
 	INIT_LIST_HEAD(&context->busy_queue.node);
 
@@ -477,9 +485,11 @@ static long vsg_queue_buffer(struct v4l2_subdev *sd, void *arg)
 		struct vsg_work *new_work =
 			kzalloc(sizeof(*new_work), GFP_KERNEL);
 
-		INIT_WORK(&new_work->work, vsg_work_func);
-		new_work->context = context;
-		queue_work(context->work_queue, &new_work->work);
+		if (new_work) {
+			INIT_WORK(&new_work->work, vsg_work_func);
+			new_work->context = context;
+			queue_work(context->work_queue, &new_work->work);
+		}
 	}
 
 	mutex_unlock(&context->mutex);
