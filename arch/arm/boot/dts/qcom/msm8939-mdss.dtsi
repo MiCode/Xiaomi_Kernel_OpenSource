@@ -87,6 +87,8 @@
 			 <&clock_gcc clk_gcc_mdss_vsync_clk>;
 		clock-names = "iface_clk", "bus_clk", "core_clk_src",
 				"core_clk", "vsync_clk";
+		qcom,vbif-settings = <0x030 0x0000006f>,
+				     <0x034 0x00001040>;
 		qcom,mdp-settings = <0x0000117C 0x00005555>,
 				    <0x000011e4 0x00000000>,
 				    <0x00065048 0x00000008>,
