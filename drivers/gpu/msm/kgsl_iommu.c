@@ -2089,7 +2089,7 @@ struct kgsl_protected_registers *kgsl_iommu_get_prot_regs(struct kgsl_mmu *mmu)
 		return &iommuv1_regs;
 }
 
-struct kgsl_mmu_ops iommu_ops = {
+struct kgsl_mmu_ops kgsl_iommu_ops = {
 	.mmu_init = kgsl_iommu_init,
 	.mmu_close = kgsl_iommu_close,
 	.mmu_start = kgsl_iommu_start,
