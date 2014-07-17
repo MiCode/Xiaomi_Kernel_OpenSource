@@ -93,13 +93,29 @@ struct fg_mem_setting {
 	int	value;
 };
 
+struct fg_mem_data {
+	u16	address;
+	u8	offset;
+	unsigned int len;
+	int	value;
+};
+
 /* FG_MEMIF setting index */
 enum fg_mem_setting_index {
-	FG_MEM_SOFT_COLD,
+	FG_MEM_SOFT_COLD = 0,
 	FG_MEM_SOFT_HOT,
 	FG_MEM_HARD_COLD,
 	FG_MEM_HARD_HOT,
 	FG_MEM_SETTING_MAX,
+};
+
+/* FG_MEMIF data index */
+enum fg_mem_data_index {
+	FG_DATA_BATT_TEMP = 0,
+	FG_DATA_OCV,
+	FG_DATA_VOLTAGE,
+	FG_DATA_CURRENT,
+	FG_DATA_MAX,
 };
 
 #define SETTING(_idx, _address, _offset, _value)	\
@@ -115,6 +131,22 @@ static struct fg_mem_setting settings[FG_MEM_SETTING_MAX] = {
 	SETTING(SOFT_HOT,        0x454,   1,      400),
 	SETTING(HARD_COLD,       0x454,   2,      50),
 	SETTING(HARD_HOT,        0x454,   3,      450),
+};
+
+#define DATA(_idx, _address, _offset, _length,  _value)	\
+	[FG_DATA_##_idx] = {				\
+		.address = _address,			\
+		.offset = _offset,			\
+		.len = _length,			\
+		.value = _value,			\
+	}						\
+
+static struct fg_mem_data fg_data[FG_DATA_MAX] = {
+	/*       ID           Address, Offset, Length, Value*/
+	DATA(BATT_TEMP,       0x550,   2,      2,     -EINVAL),
+	DATA(OCV,             0x588,   3,      2,     -EINVAL),
+	DATA(VOLTAGE,         0x5CC,   1,      2,     -EINVAL),
+	DATA(CURRENT,         0x5CC,   3,      2,     -EINVAL),
 };
 
 static int fg_debug_mask;
@@ -177,6 +209,7 @@ struct fg_chip {
 	bool			profile_loaded;
 	bool			use_otp_profile;
 	struct delayed_work	update_jeita_setting;
+	struct delayed_work	update_sram_data;
 	char			*batt_profile;
 	unsigned int		batt_profile_len;
 };
@@ -663,54 +696,21 @@ static int get_prop_capacity(struct fg_chip *chip)
 	return capacity;
 }
 
-static int get_prop_current_now(struct fg_chip *chip)
+#define DEFAULT_TEMP_DEGC	250
+#define SRAM_DATA_DELAY_MS	1000
+static int get_sram_prop_now(struct fg_chip *chip, unsigned int type)
 {
-	s8 ibat_ma;
-	int rc, current_now_ua;
-
-	if (!chip->ibat_adc_addr)
-		return 0;
-
-	rc = fg_read(chip, &ibat_ma, chip->ibat_adc_addr, 1);
-	if (rc) {
-		pr_err("spmi read failed: addr=%03x, rc=%d\n",
-			chip->ibat_adc_addr, rc);
-		return rc;
-	}
-
-	/* convert to uA */
-	current_now_ua = MA_MV_BIT_RES * ibat_ma * 1000;
-
 	if (fg_debug_mask & FG_POWER_SUPPLY)
-		pr_info("current %d uA\n", current_now_ua);
-	return current_now_ua;
-}
+		pr_info("addr 0x%02X, offset %d value %d\n",
+			fg_data[type].address, fg_data[type].offset,
+			fg_data[type].value);
 
-static int get_prop_voltage_now(struct fg_chip *chip)
-{
-	s8 vbat_mv;
-	int rc, voltage_now_uv;
+	cancel_delayed_work_sync(
+		&chip->update_sram_data);
+	schedule_delayed_work(
+		&chip->update_sram_data, msecs_to_jiffies(SRAM_DATA_DELAY_MS));
 
-	if (!chip->vbat_adc_addr)
-		return 0;
-
-	rc = fg_read(chip, &vbat_mv, chip->vbat_adc_addr, 1);
-	if (rc) {
-		pr_err("spmi read failed: addr=%03x, rc=%d\n",
-			chip->vbat_adc_addr, rc);
-		return rc;
-	}
-
-	/* convert to uV */
-	voltage_now_uv = MA_MV_BIT_RES * vbat_mv * 1000;
-
-	if (vbat_mv & MSB_SIGN)
-		voltage_now_uv *= -1;
-
-	if (fg_debug_mask & FG_POWER_SUPPLY)
-		pr_info("voltage %d uV\n", voltage_now_uv);
-
-	return voltage_now_uv;
+	return fg_data[type].value;
 }
 
 #define MIN_TEMP_DEGC	-300
@@ -744,6 +744,53 @@ static int set_prop_jeita_temp(struct fg_chip *chip,
 	return rc;
 }
 
+#define LSB_16B		153
+#define TEMP_LSB_16B	625
+#define DECIKELVIN	2730
+#define SRAM_PERIOD_UPDATE_MS	30000
+static void update_sram_data(struct work_struct *work)
+{
+	struct fg_chip *chip = container_of(work,
+				struct fg_chip,
+				update_sram_data.work);
+	int i, rc = 0;
+	u8 reg[2];
+	s16 temp;
+
+	for (i = 0; i < FG_DATA_MAX; i++) {
+		rc = fg_mem_read(chip, reg, fg_data[i].address,
+			fg_data[i].len, fg_data[i].offset,
+			(i+1 == FG_DATA_MAX) ? 0 : 1);
+		if (rc) {
+			pr_err("Failed ro update sram data\n");
+			break;
+		}
+
+		temp = reg[0] | (reg[1] << 8);
+
+		switch (i) {
+		case FG_DATA_BATT_TEMP:
+			fg_data[i].value = (temp * TEMP_LSB_16B / 1000)
+				- DECIKELVIN;
+			break;
+		case FG_DATA_OCV:
+		case FG_DATA_VOLTAGE:
+			fg_data[i].value = ((u16) temp) * LSB_16B;
+			break;
+		case FG_DATA_CURRENT:
+			fg_data[i].value = temp * LSB_16B;
+			break;
+		};
+
+		if (fg_debug_mask & FG_MEM_DEBUG_READS)
+			pr_info("%d %d %d\n", i, temp, fg_data[i].value);
+	}
+
+	schedule_delayed_work(
+		&chip->update_sram_data,
+		msecs_to_jiffies(SRAM_PERIOD_UPDATE_MS));
+}
+
 static void update_jeita_setting(struct work_struct *work)
 {
 	struct fg_chip *chip = container_of(work,
@@ -765,6 +812,8 @@ static enum power_supply_property fg_power_props[] = {
 	POWER_SUPPLY_PROP_CAPACITY,
 	POWER_SUPPLY_PROP_CURRENT_NOW,
 	POWER_SUPPLY_PROP_VOLTAGE_NOW,
+	POWER_SUPPLY_PROP_VOLTAGE_OCV,
+	POWER_SUPPLY_PROP_TEMP,
 	POWER_SUPPLY_PROP_COOL_TEMP,
 	POWER_SUPPLY_PROP_WARM_TEMP,
 };
@@ -780,10 +829,16 @@ static int fg_power_get_property(struct power_supply *psy,
 		val->intval = get_prop_capacity(chip);
 		break;
 	case POWER_SUPPLY_PROP_CURRENT_NOW:
-		val->intval = get_prop_current_now(chip);
+		val->intval = get_sram_prop_now(chip, FG_DATA_CURRENT);
 		break;
 	case POWER_SUPPLY_PROP_VOLTAGE_NOW:
-		val->intval = get_prop_voltage_now(chip);
+		val->intval = get_sram_prop_now(chip, FG_DATA_VOLTAGE);
+		break;
+	case POWER_SUPPLY_PROP_VOLTAGE_OCV:
+		val->intval = get_sram_prop_now(chip, FG_DATA_OCV);
+		break;
+	case POWER_SUPPLY_PROP_TEMP:
+		val->intval = get_sram_prop_now(chip, FG_DATA_BATT_TEMP);
 		break;
 	case POWER_SUPPLY_PROP_COOL_TEMP:
 		val->intval = get_prop_jeita_temp(chip, FG_MEM_SOFT_COLD);
@@ -1598,6 +1653,7 @@ static int fg_probe(struct spmi_device *spmi)
 	mutex_init(&chip->rw_lock);
 	INIT_DELAYED_WORK(&chip->update_jeita_setting,
 			update_jeita_setting);
+	INIT_DELAYED_WORK(&chip->update_sram_data, update_sram_data);
 	INIT_WORK(&chip->batt_profile_init,
 			batt_profile_init);
 	init_completion(&chip->sram_access);
