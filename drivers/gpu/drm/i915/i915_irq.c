@@ -1435,6 +1435,14 @@ static void gen6_pm_rps_work(struct work_struct *work)
 		return;
 	}
 
+	/* Make sure we have current freq updated properly. Doing this
+	 * here becuase, on VLV, P-Unit doesnt garauntee that last requested
+	 * freq by driver is actually the current running frequency
+	 */
+
+	if (IS_CHERRYVIEW(dev_priv->dev))
+		chv_update_rps_cur_delay(dev_priv);
+
 	adj = dev_priv->rps.last_adj;
 	if (pm_iir & GEN6_PM_RP_UP_THRESHOLD) {
 		if (adj > 0)

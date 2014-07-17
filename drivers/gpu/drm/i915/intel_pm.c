@@ -3772,6 +3772,34 @@ void gen6_rps_boost(struct drm_i915_private *dev_priv)
 	}
 	mutex_unlock(&dev_priv->rps.hw_lock);
 }
+/*
+ * Wait until the previous freq change has completed,
+ * or the timeout elapsed, and then update our notion
+ * of the current GPU frequency.
+ */
+void chv_update_rps_cur_delay(struct drm_i915_private *dev_priv)
+{
+	u32 pval;
+
+	WARN_ON(!mutex_is_locked(&dev_priv->rps.hw_lock));
+
+	if (wait_for_atomic((
+		(vlv_punit_read(dev_priv, PUNIT_REG_GPU_FREQ_STS))
+			& GENFREQSTATUS) == 0, 10))
+		DRM_DEBUG_DRIVER("Timed out waiting for Punit\n");
+
+	pval = vlv_punit_read(dev_priv, PUNIT_REG_GPU_FREQ_STS);
+	pval = (pval >> 8) & 0xff;
+
+	if (pval != dev_priv->rps.cur_freq)
+		DRM_DEBUG_DRIVER("Punit overrode GPU freq: %d MHz (%u) requested, but got %d Mhz (%u)\n",
+				vlv_gpu_freq(dev_priv, dev_priv->rps.cur_freq),
+				dev_priv->rps.cur_freq,
+				vlv_gpu_freq(dev_priv, pval), pval);
+
+	dev_priv->rps.cur_freq = pval;
+	return;
+}
 
 void valleyview_set_rps(struct drm_device *dev, u8 val)
 {
@@ -3780,6 +3808,9 @@ void valleyview_set_rps(struct drm_device *dev, u8 val)
 	WARN_ON(!mutex_is_locked(&dev_priv->rps.hw_lock));
 	WARN_ON(val > dev_priv->rps.max_freq_softlimit);
 	WARN_ON(val < dev_priv->rps.min_freq_softlimit);
+
+	if (IS_CHERRYVIEW(dev))
+		chv_update_rps_cur_delay(dev_priv);
 
 	DRM_DEBUG_DRIVER("GPU freq request from %d MHz (%u) to %d MHz (%u)\n",
 			 vlv_gpu_freq(dev_priv, dev_priv->rps.cur_freq),
