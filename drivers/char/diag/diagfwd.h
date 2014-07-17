@@ -19,6 +19,16 @@
 #define RESET_AND_NO_QUEUE 0
 #define RESET_AND_QUEUE 1
 
+/*
+ * The context applies to Diag SMD data buffers. It is used to identify the
+ * buffer once these buffers are writtent to USB.
+ */
+#define SET_BUF_CTXT(p, d, n) \
+	(((p & 0xFF) << 16) | ((d & 0xFF) << 8) | (n & 0xFF))
+#define GET_BUF_PERIPHERAL(p)	((p & 0xFF0000) >> 16)
+#define GET_BUF_TYPE(d)		((d & 0x00FF00) >> 8)
+#define GET_BUF_NUM(n)		((n & 0x0000FF))
+
 #define CHK_OVERFLOW(bufStart, start, end, length) \
 	((((bufStart) <= (start)) && ((end) - (start) >= (length))) ? 1 : 0)
 
@@ -29,7 +39,7 @@ void diag_process_hdlc(void *data, unsigned len);
 void diag_smd_send_req(struct diag_smd_info *smd_info);
 void diag_usb_legacy_notifier(void *, unsigned, struct diag_request *);
 long diagchar_ioctl(struct file *, unsigned int, unsigned long);
-int diag_device_write(void *, int, struct diag_request *);
+int diag_device_write(void *buf, int len, int data_type, int ctxt);
 int mask_request_validate(unsigned char mask_buf[]);
 void diag_clear_reg(int);
 int chk_config_get_id(void);

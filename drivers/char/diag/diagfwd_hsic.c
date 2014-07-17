@@ -250,11 +250,10 @@ static void diag_hsic_read_complete_callback(void *ctxt, char *buf,
 			 * Send data in buf to be written on the
 			 * appropriate device, e.g. USB MDM channel
 			 */
-			diag_bridge[index].write_len = actual_size;
 			if (driver->logging_mode == MEMORY_DEVICE_MODE)
 				diag_ws_on_notify();
-			err = diag_device_write((void *)buf, index+HSIC_DATA,
-									NULL);
+			err = diag_device_write((void *)buf, actual_size,
+						index + HSIC_DATA, index);
 			/* If an error, return buffer to the pool */
 			if (err) {
 				if (driver->logging_mode == MEMORY_DEVICE_MODE)

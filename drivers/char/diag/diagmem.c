@@ -61,6 +61,14 @@ struct diag_mempool_t diag_mempools[NUM_MEMORY_POOLS] = {
 		.count = 0
 	},
 	{
+		.id = POOL_TYPE_USB_PERIPHERALS,
+		.name = "POOL_USB_PERIPHERALS",
+		.pool = NULL,
+		.itemsize = 0,
+		.poolsize = 0,
+		.count = 0
+	},
+	{
 		.id = POOL_TYPE_DCI,
 		.name = "POOL_DCI",
 		.pool = NULL,
@@ -128,6 +136,14 @@ struct diag_mempool_t diag_mempools[NUM_MEMORY_POOLS] = {
 	{
 		.id = POOL_TYPE_MDM2_DCI_WRITE,
 		.name = "POOL_MDM2_DCI_WRITE",
+		.pool = NULL,
+		.itemsize = 0,
+		.poolsize = 0,
+		.count = 0
+	},
+	{
+		.id = POOL_TYPE_QSC_USB,
+		.name = "POOL_QSC_USB",
 		.pool = NULL,
 		.itemsize = 0,
 		.poolsize = 0,

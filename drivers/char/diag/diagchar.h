@@ -308,8 +308,8 @@ struct diag_smd_info {
 	unsigned int buf_in_1_raw_size;
 	unsigned int buf_in_2_raw_size;
 
-	struct diag_request *write_ptr_1;
-	struct diag_request *write_ptr_2;
+	int buf_in_1_ctxt;
+	int buf_in_2_ctxt;
 
 	struct workqueue_struct *wq;
 
@@ -384,9 +384,10 @@ struct diagchar_dev {
 	struct mutex diag_cntl_mutex;
 	/* Members for Sending response */
 	unsigned char *encoded_rsp_buf;
+	int encoded_rsp_len;
 	uint8_t rsp_buf_busy;
-	struct diag_request *rsp_write_ptr;
 	spinlock_t rsp_buf_busy_lock;
+	int rsp_buf_ctxt;
 	/* State for diag forwarding */
 	struct diag_smd_info smd_data[NUM_SMD_DATA_CHANNELS];
 	struct diag_smd_info smd_cntl[NUM_SMD_CONTROL_CHANNELS];
@@ -436,7 +437,6 @@ struct diagchar_dev {
 	uint32_t dci_pkt_length;
 	int in_busy_dcipktdata;
 	struct diag_request *usb_read_ptr;
-	struct diag_request *write_ptr_svc;
 	int logging_mode;
 	int mask_check;
 	int logging_process_id;
@@ -465,10 +465,10 @@ struct diagchar_dev {
 	/* SGLTE variables */
 	int lcid;
 	unsigned char *buf_in_smux;
+	int smux_buf_len;
 	int in_busy_smux;
 	int diag_smux_enabled;
 	int smux_connected;
-	struct diag_request *write_ptr_mdm;
 #endif
 };
 
