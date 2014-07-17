@@ -154,6 +154,8 @@ struct msm_vfe_axi_ops {
 	int (*halt) (struct vfe_device *vfe_dev, uint32_t blocking);
 	int (*restart) (struct vfe_device *vfe_dev, uint32_t blocking,
 		uint32_t enable_camif);
+	void (*update_cgc_override) (struct vfe_device *vfe_dev,
+		uint8_t wm_idx, uint8_t cgc_override);
 };
 
 struct msm_vfe_core_ops {
@@ -216,6 +218,9 @@ struct msm_vfe_stats_ops {
 	uint32_t (*get_wm_mask) (uint32_t irq_status0, uint32_t irq_status1);
 	uint32_t (*get_comp_mask) (uint32_t irq_status0, uint32_t irq_status1);
 	uint32_t (*get_pingpong_status) (struct vfe_device *vfe_dev);
+
+	void (*update_cgc_override) (struct vfe_device *vfe_dev,
+		uint32_t stats_mask, uint8_t enable);
 };
 
 struct msm_vfe_ops {
