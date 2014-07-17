@@ -423,6 +423,7 @@ u64 arch_counter_get_cntvct(void)
 {
 	return arch_timer_read_counter();
 }
+EXPORT_SYMBOL(arch_counter_get_cntvct);
 
 static struct clocksource clocksource_counter = {
 	.name	= "arch_sys_counter",
