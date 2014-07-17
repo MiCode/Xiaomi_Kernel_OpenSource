@@ -1,4 +1,4 @@
-/* Copyright (c) 2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012,2014 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -16,6 +16,17 @@
 #include <linux/smux.h>
 #define LCID_VALID	SMUX_USB_DIAG_0
 #define LCID_INVALID	0
+
+struct diag_smux_info {
+	int lcid;
+	unsigned char *read_buf;
+	int read_len;
+	int in_busy;
+	int enabled;
+	int connected;
+};
+
+extern struct diag_smux_info *diag_smux;
 
 int diagfwd_read_complete_smux(void);
 int diagfwd_write_complete_smux(void);

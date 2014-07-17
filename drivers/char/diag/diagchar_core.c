@@ -571,7 +571,7 @@ uint16_t diag_get_remote_device_mask(void)
 			remote_dev |= 1 << i;
 
 	/* Check for QSC processor */
-	if (driver->diag_smux_enabled)
+	if (diag_smux->enabled)
 		remote_dev |= 1 << SMUX;
 
 	return remote_dev;
@@ -658,7 +658,7 @@ drop_hsic:
 		}
 		remote_token--;
 	}
-	if (driver->in_busy_smux == 1) {
+	if (diag_smux->in_busy == 1) {
 		remote_token = diag_get_remote(QSC);
 		num_data++;
 
@@ -667,13 +667,12 @@ drop_hsic:
 			remote_token, 4);
 		/* Copy the length of data being passed */
 		COPY_USER_SPACE_OR_EXIT(buf+ret,
-			(driver->smux_buf_len), 4);
+			(diag_smux->read_len), 4);
 		/* Copy the actual data being passed */
-		COPY_USER_SPACE_OR_EXIT(buf+ret,
-			*(driver->buf_in_smux),
-			driver->smux_buf_len);
+		COPY_USER_SPACE_OR_EXIT(buf+ret, *(diag_smux->read_buf),
+					diag_smux->read_len);
 		pr_debug("diag: SMUX  data copied\n");
-		driver->in_busy_smux = 0;
+		diag_smux->in_busy = 0;
 	}
 	exit_stat = 0;
 	if (copy_data)
@@ -1923,10 +1922,10 @@ static ssize_t diagchar_write(struct file *file, const char __user *buf,
 				 }
 			 }
 		}
-		if (driver->diag_smux_enabled && (remote_proc == QSC)
-						&& driver->lcid) {
+		if (diag_smux->enabled && (remote_proc == QSC)
+						&& diag_smux->lcid) {
 			if (payload_size > 0) {
-				err = msm_smux_write(driver->lcid, NULL,
+				err = msm_smux_write(diag_smux->lcid, NULL,
 					(char *)buf_hdlc, payload_size + 3);
 				if (err) {
 					pr_err("diag:send mask to MDM err %d",
@@ -2021,10 +2020,10 @@ static ssize_t diagchar_write(struct file *file, const char __user *buf,
 				 }
 			 }
 		}
-		if (driver->diag_smux_enabled && (remote_proc == QSC)
-						&& driver->lcid) {
+		if (diag_smux->enabled && (remote_proc == QSC)
+						&& diag_smux->lcid) {
 			if (payload_size > 0) {
-				err = msm_smux_write(driver->lcid, NULL,
+				err = msm_smux_write(diag_smux->lcid, NULL,
 					driver->user_space_data_buf +
 						token_offset,
 						payload_size);
@@ -2602,6 +2601,12 @@ static int __init diagchar_init(void)
 				sizeof(struct diag_hsic_dci_dev), GFP_KERNEL);
 	if (!diag_hsic_dci) {
 		pr_warn("diag: could not allocate memory for hsic dci ch\n");
+		goto fail;
+	}
+
+	diag_smux = kzalloc(sizeof(struct diag_smux_info), GFP_KERNEL);
+	if (!diag_smux) {
+		pr_warn("diag: could not allocate memory for smux ch\n");
 		goto fail;
 	}
 #endif
