@@ -631,15 +631,15 @@ static int functionfs_ready_callback(struct ffs_data *ffs)
 	struct functionfs_config *config = ffs_function.config;
 	int ret = 0;
 
-	if (dev) {
-		ret = functionfs_bind(ffs, dev->cdev);
-		if (ret)
-			return ret;
-	}
-
 	/* dev is null in case ADB is not in the composition */
-	if (dev)
+	if (dev) {
 		mutex_lock(&dev->mutex);
+		ret = functionfs_bind(ffs, dev->cdev);
+		if (ret) {
+			mutex_unlock(&dev->mutex);
+			return ret;
+		}
+	}
 
 	config->data = ffs;
 	config->opened = true;
@@ -675,13 +675,13 @@ static void functionfs_closed_callback(struct ffs_data *ffs)
 
 	config->dev = NULL;
 
-	if (dev)
-		mutex_unlock(&dev->mutex);
-
 	config->opened = false;
 	config->data = NULL;
 
 	functionfs_unbind(ffs);
+
+	if (dev)
+		mutex_unlock(&dev->mutex);
 }
 
 static void *functionfs_acquire_dev_callback(const char *dev_name)
