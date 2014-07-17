@@ -890,19 +890,23 @@ static void gbam_start(void *param, enum usb_bam_pipe_dir dir)
 	struct gbam_port *port = param;
 	struct usb_gadget *gadget = NULL;
 	struct bam_ch_info *d;
+	unsigned long flags;
 
 	if (port == NULL) {
 		pr_err("%s: port is NULL\n", __func__);
 		return;
 	}
 
+	spin_lock_irqsave(&port->port_lock, flags);
 	if (port->port_usb == NULL) {
 		pr_err("%s: port_usb is NULL, disconnected\n", __func__);
+		spin_unlock_irqrestore(&port->port_lock, flags);
 		return;
 	}
 
 	gadget = port->port_usb->gadget;
 	d = &port->data_ch;
+	spin_unlock_irqrestore(&port->port_lock, flags);
 
 	if (gadget == NULL) {
 		pr_err("%s: gadget is NULL\n", __func__);
@@ -1196,8 +1200,6 @@ static void gbam2bam_connect_work(struct work_struct *w)
 	}
 
 	port->is_connected = true;
-	d = &port->data_ch;
-	gadget = port->port_usb->gadget;
 
 	spin_lock_irqsave(&port->port_lock_ul, flags_ul);
 	spin_lock(&port->port_lock_dl);
@@ -1208,6 +1210,10 @@ static void gbam2bam_connect_work(struct work_struct *w)
 		spin_unlock_irqrestore(&port->port_lock, flags);
 		return;
 	}
+
+	gadget = port->port_usb->gadget;
+	d = &port->data_ch;
+
 	d->rx_req = usb_ep_alloc_request(port->port_usb->out, GFP_ATOMIC);
 	if (!d->rx_req) {
 		spin_unlock(&port->port_lock_dl);
@@ -1462,11 +1468,19 @@ static void gbam2bam_connect_work(struct work_struct *w)
 static int gbam_wake_cb(void *param)
 {
 	struct gbam_port	*port = (struct gbam_port *)param;
-	struct bam_ch_info *d;
-	struct usb_gadget *gadget;
+	struct usb_gadget	*gadget;
+	unsigned long flags;
+
+	spin_lock_irqsave(&port->port_lock, flags);
+	if (!port->port_usb) {
+		pr_debug("%s: usb cable is disconnected, exiting\n",
+				__func__);
+		spin_unlock_irqrestore(&port->port_lock, flags);
+		return -ENODEV;
+	}
 
 	gadget = port->port_usb->gadget;
-	d = &port->data_ch;
+	spin_unlock_irqrestore(&port->port_lock, flags);
 
 	pr_debug("%s: woken up by peer\n", __func__);
 
@@ -1523,9 +1537,9 @@ static void gbam2bam_resume_work(struct work_struct *w)
 
 	spin_lock_irqsave(&port->port_lock, flags);
 
-	if (port->last_event == U_BAM_DISCONNECT_E) {
-		pr_debug("%s: Port is about to disconnect. Bailing out.\n",
-		__func__);
+	if (port->last_event == U_BAM_DISCONNECT_E || !port->port_usb) {
+		pr_debug("%s: usb cable is disconnected, exiting\n",
+			__func__);
 		goto exit;
 	}
 
@@ -1563,10 +1577,19 @@ static int gbam_peer_reset_cb(void *param)
 	struct bam_ch_info *d;
 	struct usb_gadget *gadget;
 	int ret;
+	unsigned long flags;
+
+	spin_lock_irqsave(&port->port_lock, flags);
+	if (!port->port_usb) {
+		pr_debug("%s: usb cable is disconnected, exiting\n",
+			__func__);
+		spin_unlock_irqrestore(&port->port_lock, flags);
+		return -ENODEV;
+	}
 
 	d = &port->data_ch;
-
 	gadget = port->port_usb->gadget;
+	spin_unlock_irqrestore(&port->port_lock, flags);
 
 	pr_debug("%s: reset by peer\n", __func__);
 
