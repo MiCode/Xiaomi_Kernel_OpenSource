@@ -240,8 +240,14 @@ static const struct gmin_cfg_var mrd7_vars[] = {
 	{ "CRMT1040:00_CsiPort",  "0" },
 	{ "CRMT1040:00_CsiLanes", "1" },
 	{ "CRMT1040:00_CsiFmt",   "13" },
-	{ "CRMT1040:00_CsiBayer", "0" }, /* FIXME: correct? */
+	{ "CRMT1040:00_CsiBayer", "0" },
 	{ "CRMT1040:00_CamClk", "1" },
+	{ "INT33F0:00_CamType",  "1" },
+	{ "INT33F0:00_CsiPort",  "0" },
+	{ "INT33F0:00_CsiLanes", "1" },
+	{ "INT33F0:00_CsiFmt",   "13" },
+	{ "INT33F0:00_CsiBayer", "0" },
+	{ "INT33F0:00_CamClk", "1" },
 	{},
 };
 
