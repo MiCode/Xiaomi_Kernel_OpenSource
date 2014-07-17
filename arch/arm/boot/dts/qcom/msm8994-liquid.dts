@@ -16,6 +16,7 @@
 #include "msm8994.dtsi"
 #include "msm8994-pinctrl.dtsi"
 #include "msm8994-liquid.dtsi"
+#include "msm8994-camera-sensor-liquid.dtsi"
 
 / {
 	model = "Qualcomm Technologies, Inc. MSM8994 LiQUID";
