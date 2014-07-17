@@ -232,6 +232,8 @@ static int pil_femto_modem_start(struct femto_modem_data *drv)
 					 * Modem 0 must load.
 					 */
 					pil_shutdown(&drv->q6->desc);
+					SET_SYSFS_VALUE(drv, mba_status,
+						MODEM_STATUS_MBA_ERROR);
 					break;
 				} else
 					/* This image didn't load, but it's not
@@ -256,12 +258,17 @@ static int pil_femto_modem_start(struct femto_modem_data *drv)
 		/* Free the allocated name */
 		kfree(pmi_name);
 
-		if (index == (drv->max_num_modems - 1))
+		if (index == (drv->max_num_modems - 1)) {
 			/* Tell the MBA this was the last RMB */
 			ret = pil_femto_modem_send_rmb_advance(
 				image->rmb_base,
 				RMB_ADVANCE_COMPLETE);
-		else {
+
+			/* If the advance fails, the MBA is in an error state */
+			if (ret)
+				SET_SYSFS_VALUE(drv, mba_status,
+					MODEM_STATUS_MBA_ERROR);
+		} else {
 			/* Tell the MBA to move to the next RMB.
 			 * Note that the MBA needs the actual id of the
 			 * modem specified in the device tree,
@@ -277,6 +284,9 @@ static int pil_femto_modem_start(struct femto_modem_data *drv)
 				 */
 				SET_SYSFS_VALUE(modem, status,
 					MODEM_STATUS_ADVANCE_FAILED);
+				SET_SYSFS_VALUE(drv, mba_status,
+					MODEM_STATUS_MBA_ERROR);
+
 				pil_shutdown(&drv->q6->desc);
 				break;
 			}
