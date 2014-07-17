@@ -933,12 +933,11 @@ int kgsl_cma_alloc_secure(struct kgsl_device *device,
 		goto err;
 
 	/*
-	 * Flush the phys addr range before sending the memory to the
+	 * Flush the virt addr range before sending the memory to the
 	 * secure environment to ensure the data is actually present
 	 * in RAM
 	 */
-	dmac_flush_range((void *)memdesc->physaddr,
-			(void *)memdesc->physaddr + memdesc->size);
+	dmac_flush_range(memdesc->hostptr, memdesc->hostptr + memdesc->size);
 
 	request.chunks.chunk_list = memdesc->physaddr;
 	request.chunks.chunk_list_size = 1;
