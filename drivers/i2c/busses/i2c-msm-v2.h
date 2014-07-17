@@ -232,6 +232,7 @@ enum msm_i2c_power_state {
 #define I2C_MSM_TIMEOUT_SAFTY_COEF      (10)
 #define I2C_MSM_TIMEOUT_MIN_USEC        (500000)
 #define I2C_MSM_HS_ADDR                 (0x0f)
+#define I2C_QUP_MAX_BUS_RECOVERY_RETRY  (10)
 
 /* QUP v2 tags */
 #define QUP_TAG2_DATA_WRITE        (0x82ULL)
