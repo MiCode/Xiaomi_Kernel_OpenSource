@@ -639,6 +639,10 @@ static int functionfs_ready_callback(struct ffs_data *ffs)
 			mutex_unlock(&dev->mutex);
 			return ret;
 		}
+	} else {
+		/* android ffs_func requires daemon to start only after enable*/
+		pr_debug("start adbd only in ADB composition\n");
+		return -ENODEV;
 	}
 
 	config->data = ffs;
@@ -646,11 +650,10 @@ static int functionfs_ready_callback(struct ffs_data *ffs)
 	/* Save dev in case the adb function will get disabled */
 	config->dev = dev;
 
-	if (config->enabled && dev)
+	if (config->enabled)
 		android_enable(dev);
 
-	if (dev)
-		mutex_unlock(&dev->mutex);
+	mutex_unlock(&dev->mutex);
 
 	return 0;
 }
@@ -660,17 +663,19 @@ static void functionfs_closed_callback(struct ffs_data *ffs)
 	struct android_dev *dev = ffs_function.android_dev;
 	struct functionfs_config *config = ffs_function.config;
 
-	/* In case new composition is without ADB, use saved one */
+	/*
+	 * In case new composition is without ADB or ADB got disabled by the
+	 * time ffs_daemon was stopped then use saved one
+	 */
 	if (!dev)
 		dev = config->dev;
 
+	/* fatal-error: It should never happen */
 	if (!dev)
 		pr_err("adb_closed_callback: config->dev is NULL");
 
 	if (dev)
 		mutex_lock(&dev->mutex);
-
-	config->opened = false;
 
 	if (config->enabled && dev)
 		android_disable(dev);
