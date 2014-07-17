@@ -337,12 +337,24 @@ static inline void dwc3_msm_write_readback(void *base, u32 offset,
 			__func__, val, offset);
 }
 
-static inline bool dwc3_msm_is_superspeed(struct dwc3_msm *mdwc)
+static inline bool dwc3_msm_is_dev_superspeed(struct dwc3_msm *mdwc)
 {
 	u8 speed;
 
 	speed = dwc3_msm_read_reg(mdwc->base, DWC3_DSTS) & DWC3_DSTS_CONNECTSPD;
 	return !!(speed & DSTS_CONNECTSPD_SS);
+}
+
+static inline bool dwc3_msm_is_superspeed(struct dwc3_msm *mdwc)
+{
+	u8 speed;
+
+	if (mdwc->scope == POWER_SUPPLY_SCOPE_SYSTEM) {
+		speed = dwc3_msm_read_reg(mdwc->base, USB3_PORTSC) & PORT_PE;
+		return speed;
+	}
+
+	return dwc3_msm_is_dev_superspeed(mdwc);
 }
 
 /**
@@ -737,7 +749,7 @@ static int dwc3_msm_ep_queue(struct usb_ep *ep,
 		return ret;
 	}
 
-	superspeed = dwc3_msm_is_superspeed(mdwc);
+	superspeed = dwc3_msm_is_dev_superspeed(mdwc);
 	dbm_set_speed(mdwc->dbm, (u8)superspeed);
 
 	return 0;
@@ -1484,7 +1496,7 @@ static int dwc3_msm_prepare_suspend(struct dwc3_msm *mdwc)
 		if (!atomic_read(&mdwc->in_p3)) {
 			dev_err(mdwc->dev,
 				"Not in P3, stoping LPM sequence\n");
-			return -EPERM;
+			return -EBUSY;
 		}
 	} else {
 		/* Clear previous L2 events */
@@ -1511,7 +1523,7 @@ static int dwc3_msm_prepare_suspend(struct dwc3_msm *mdwc)
 		if (!(reg & PWR_EVNT_LPM_IN_L2_MASK)) {
 			dev_err(mdwc->dev,
 				"could not transition HS PHY to L2\n");
-			return -EPERM;
+			return -EBUSY;
 		}
 	}
 
@@ -1647,7 +1659,7 @@ static int dwc3_msm_suspend(struct dwc3_msm *mdwc)
 		dwc3_msm_write_reg(mdwc->base, QSCRATCH_CTRL_REG,
 			mdwc->qscratch_ctl_val);
 
-	if (dwc->softconnect && cable_connected) {
+	if (host_bus_suspend || (dwc->softconnect && cable_connected)) {
 		ret = dwc3_msm_prepare_suspend(mdwc);
 		if (ret)
 			return ret;
