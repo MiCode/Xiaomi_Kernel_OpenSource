@@ -247,6 +247,11 @@
 
 #include "dsi-panel-sharp-dualmipi0-wqxga-video.dtsi"
 #include "dsi-panel-sharp-dualmipi1-wqxga-video.dtsi"
+#include "dsi-panel-jdi-dualmipi0-video.dtsi"
+#include "dsi-panel-jdi-dualmipi1-video.dtsi"
+#include "dsi-panel-jdi-dualmipi0-cmd.dtsi"
+#include "dsi-panel-jdi-dualmipi1-cmd.dtsi"
+
 &mdss_mdp {
 	qcom,mdss-pref-prim-intf = "dsi";
 };
@@ -256,13 +261,20 @@
 	qcom,pins = <&gp 78>;
 };
 
+&pmx_mdss_te {
+	qcom,num-grp-pins = <1>;
+	qcom,pins = <&gp 10>;
+};
+
 &mdss_dsi0 {
 	qcom,dsi-pref-prim-pan = <&dsi_dual_sharp_video_0>;
 	pinctrl-names = "mdss_default", "mdss_sleep";
-	pinctrl-0 = <&mdss_dsi_active>;
-	pinctrl-1 = <&mdss_dsi_suspend>;
+	pinctrl-0 = <&mdss_dsi_active &mdss_te_active>;
+	pinctrl-1 = <&mdss_dsi_suspend &mdss_te_suspend>;
 	qcom,dsi-panel-bias-vreg;
 	qcom,platform-reset-gpio = <&msm_gpio 78 0>;
+
+	qcom,platform-enable-gpio = <&pm8994_gpios 14 0>;
 };
 
 &mdss_dsi1 {
@@ -270,6 +282,18 @@
 };
 
 &dsi_dual_sharp_video_0 {
+	qcom,mdss-dsi-bl-pmic-control-type = "bl_ctrl_wled";
+	qcom,mdss-dsi-bl-min-level = <1>;
+	qcom,mdss-dsi-bl-max-level = <4095>;
+};
+
+&dsi_dual_jdi_video_0 {
+	qcom,mdss-dsi-bl-pmic-control-type = "bl_ctrl_wled";
+	qcom,mdss-dsi-bl-min-level = <1>;
+	qcom,mdss-dsi-bl-max-level = <4095>;
+};
+
+&dsi_dual_jdi_cmd_0 {
 	qcom,mdss-dsi-bl-pmic-control-type = "bl_ctrl_wled";
 	qcom,mdss-dsi-bl-min-level = <1>;
 	qcom,mdss-dsi-bl-max-level = <4095>;
@@ -495,6 +519,13 @@
 		qcom,src-sel = <0>;      /* GPIO */
 		qcom,invert = <0>;       /* Invert */
 		qcom,master-en = <1>;    /* Enable GPIO */
+	};
+	gpio@cd00 { /* GPIO 14 */
+		qcom,mode = <1>;
+		qcom,vin-sel = <2>;
+		qcom,src-sel = <1>;	/* sel = 1 is high */
+		qcom,invert = <0>; 	/* need invert = 0 */
+		qcom,master-en = <1>;
 	};
 };
 
