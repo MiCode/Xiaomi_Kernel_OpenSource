@@ -1279,6 +1279,10 @@ int vpu_hfi_dump_csr_regs(char *buf, size_t buf_size)
 
 	/* read one at a time. Print 4 registers per line */
 	for (off = 0; off <= VPU_CSR_LAST_REG; off += sizeof(u32)) {
+
+		if (i >= ARRAY_SIZE(restricted_csr_addrs))
+			break;
+
 		if ((off % 0x10) == 0) {
 			snprintf(temp, temp_size, "@0x%08x -", off + p_base);
 			strlcat(buf, temp, buf_size);

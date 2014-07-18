@@ -172,8 +172,12 @@ static void __sys_buffer_callback_handler(u32 sid, struct vpu_buffer *pbuf,
 		return;
 	}
 
-	port = get_queue_port_number(pbuf->vb.vb2_queue);
 	session = vb2_get_drv_priv(pbuf->vb.vb2_queue);
+	port = get_queue_port_number(pbuf->vb.vb2_queue);
+	if (port < 0) {
+		pr_warn("Invalid callback buffer queue\n");
+		return;
+	}
 
 	if (data) {
 		pr_debug("%s (%d) buffer callback session %d port %d buff %d\n",
@@ -688,6 +692,9 @@ static int __vpu_get_framerate(struct vpu_client *client, u32 *framerate,
 	struct vpu_dev_session *session = client ? client->session : 0;
 	int ret = 0;
 
+	if (!session)
+		return -EPERM;
+
 	if (port == INPUT_PORT) {
 		ret = vpu_hw_session_g_input_params(session->id,
 				translate_port_id(port), &in_param);
@@ -706,6 +713,9 @@ static int __vpu_set_framerate(struct vpu_client *client, u32 framerate,
 {
 	struct vpu_dev_session *session = client ? client->session : 0;
 	int ret = 0;
+
+	if (!session)
+		return -EPERM;
 
 	mutex_lock(&session->lock);
 	session->port_info[port].framerate = framerate;

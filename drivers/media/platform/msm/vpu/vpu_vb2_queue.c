@@ -108,6 +108,9 @@ static int vpu_vb2_ops_buf_init(struct vb2_buffer *vb)
 	int i, port, ret = 0;
 
 	port = get_queue_port_number(vb->vb2_queue);
+	if (port < 0)
+		return -EINVAL;
+
 	secure = session->port_info[port].secure_content ? true : false;
 
 	for (i = 0; i < vb->num_planes; i++) {
@@ -167,6 +170,10 @@ static void vpu_vb2_ops_buf_queue(struct vb2_buffer *vb)
 
 	vpu_buf = to_vpu_buffer(vb);
 	port = get_queue_port_number(q);
+	if (port < 0) {
+		pr_err("Invalid buffer queue\n");
+		return;
+	}
 
 	if (session->streaming_state != ALL_STREAMING ||
 		!list_empty(&session->pending_list[port])) {
@@ -241,6 +248,9 @@ static int vpu_vb2_ops_stop_streaming(struct vb2_queue *q)
 	int port = get_queue_port_number(q);
 
 	pr_debug("called for port %d\n", port);
+
+	if (port < 0)
+		return -EINVAL;
 
 	/* Flush/Retrieve all queued buffers */
 	vpu_vb2_flush_buffers(session, port);
