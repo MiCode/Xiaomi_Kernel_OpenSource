@@ -3048,7 +3048,7 @@ static ssize_t afe_debug_write(struct file *filp,
 				goto afe_error;
 			}
 
-			if (param[1] < 0 || param[1] > 100) {
+			if (param[1] > 100) {
 				pr_err("%s: Error, volume shoud be 0 to 100 percentage param = %lu\n",
 					__func__, param[1]);
 				rc = -EINVAL;
