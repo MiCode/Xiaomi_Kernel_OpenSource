@@ -1,0 +1,16 @@
+ARM CPU memory latency monitor device
+
+arm-memlat-mon is a device that represents the use of the PMU in ARM cores
+to measure the parameters for latency driven memory access patterns.
+
+Required properties:
+- compatible:			Must be "qcom,arm-memlat-mon"
+- qcom,firstcpu:		First CPU of the cluster to be monitored
+- qcom,target-dev:		The DT device that corresponds to this master port
+
+Example:
+	qcom,arm-memlat-mon {
+		compatible = "qcom,arm-memlat-mon";
+		qcom,firstcpu = <&CPU0>;
+		qcom,target-dev = <&memlat0>;
+	};

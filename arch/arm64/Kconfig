@@ -220,6 +220,8 @@ config ARCH_MSM
 	select ARCH_HAS_OPP
 	select THERMAL_WRITABLE_TRIPS
 	select CPU_FREQ_MSM
+	select ARM_MEMLAT_MON
+	select DEVFREQ_GOV_MEMLAT
 	help
 	  This enables support for the ARMv8 based Qualcomm chipsets.
 

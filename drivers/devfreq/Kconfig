@@ -106,6 +106,15 @@ config ARMBW_HWMON
 	  capability to raise an IRQ when the counter overflows, which can be
 	  used to get an IRQ when the count exceeds a certain value
 
+config ARM_MEMLAT_MON
+	tristate "ARM CPU Memory Latency monitor hardware"
+	depends on ARCH_MSM
+	help
+	  The PMU present on these ARM cores allow for the use of counters to
+	  monitor the memory latency characteristics of an ARM CPU workload.
+	  This driver uses these counters to implement the APIs needed by
+	  the mem_latency devfreq governor.
+
 config MSMCCI_HWMON
 	tristate "MSM CCI Cache monitor hardware"
 	depends on ARCH_MSM
@@ -151,6 +160,16 @@ config DEVFREQ_GOV_SPDM_HYP
 	  for MSM chipsets.
 	  Sets the frequency using a "on-demand" algorithm.
 	  This governor is unlikely to be useful for other devices.
+
+config DEVFREQ_GOV_MEMLAT
+	tristate "HW monitor based governor for device BW"
+	depends on ARM_MEMLAT_MON
+	help
+	  HW monitor based governor for device to DDR bandwidth voting.
+	  This governor sets the CPU BW vote based on stats obtained from memalat
+	  monitor if it determines that a workload is memory latency bound. Since
+	  this uses target specific counters it can conflict with existing profiling
+	  tools.
 
 comment "DEVFREQ Drivers"
 
