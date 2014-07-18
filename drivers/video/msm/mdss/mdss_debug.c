@@ -573,6 +573,9 @@ static int mdss_debugfs_perf_init(struct mdss_debug_data *mdd,
 	debugfs_create_bool("enable_bw_release", 0644, mdd->perf,
 		(u32 *)&mdata->enable_bw_release);
 
+	debugfs_create_bool("enable_rotator_bw_release", 0644, mdd->perf,
+		(u32 *)&mdata->enable_rotator_bw_release);
+
 	debugfs_create_file("ab_factor", 0644, mdd->perf,
 		&mdata->ab_factor, &mdss_factor_fops);
 
