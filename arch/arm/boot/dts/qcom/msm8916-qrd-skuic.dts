@@ -13,10 +13,10 @@
 /dts-v1/;
 
 #include "msm8916-qrd-skuic.dtsi"
-#include "msm8916-memory.dtsi"
+#include "msm8916-512mb-memory.dtsi"
 
 / {
 	model = "Qualcomm Technologies, Inc. MSM 8916 QRD SKUIC";
 	compatible = "qcom,msm8916-qrd-skuic", "qcom,msm8916-qrd", "qcom,msm8916", "qcom,qrd";
-	qcom,board-id = <0x11010b 5>;
+	qcom,board-id = <0x11010b 0x105>;
 };
