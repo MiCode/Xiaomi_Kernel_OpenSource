@@ -752,6 +752,9 @@ void extract_dci_ctrl_pkt(unsigned char *buf, int len, int token)
 		case WCNSS_DATA:
 			peripheral_mask = DIAG_CON_WCNSS;
 			break;
+		case SENSORS_DATA:
+			peripheral_mask = DIAG_CON_SENSORS;
+			break;
 		default:
 			pr_err("diag: In %s, unknown peripheral, peripheral: %d\n",
 				__func__, *(uint8_t *)temp);
@@ -2240,36 +2243,35 @@ static int diag_dci_probe(struct platform_device *pdev)
 	int err = 0;
 	int index;
 
-	if (pdev->id == SMD_APPS_MODEM) {
+	switch (pdev->id) {
+	case SMD_APPS_MODEM:
 		index = MODEM_DATA;
-		err = smd_named_open_on_edge("DIAG_2",
-			SMD_APPS_MODEM,
-			&driver->smd_dci[index].ch,
-			&driver->smd_dci[index],
-			diag_smd_notify);
-		driver->smd_dci[index].ch_save =
-			driver->smd_dci[index].ch;
-		if (err)
-			pr_err("diag: In %s, cannot open DCI Modem port, Id = %d, err: %d\n",
-				__func__, pdev->id, err);
-		else
-			diag_smd_buffer_init(&driver->smd_dci[index]);
-	}
-
-	if (pdev->id == SMD_APPS_QDSP) {
+		break;
+	case SMD_APPS_QDSP:
 		index = LPASS_DATA;
-		err = smd_named_open_on_edge("DIAG_2",
-					     SMD_APPS_QDSP,
-					     &driver->smd_dci[index].ch,
-					     &driver->smd_dci[index],
-					     diag_smd_notify);
-		driver->smd_dci[index].ch_save = driver->smd_dci[index].ch;
-		if (err)
-			pr_err("diag: In %s, cannot open DCI Lpass port, Id = %d, err: %d\n",
-				__func__, pdev->id, err);
-		else
-			diag_smd_buffer_init(&driver->smd_dci[index]);
+		break;
+	case SMD_APPS_WCNSS:
+		index = WCNSS_DATA;
+		break;
+	case SMD_APPS_DSPS:
+		index = SENSORS_DATA;
+		break;
+	default:
+		pr_debug("diag: In %s Received probe for invalid index %d",
+			__func__, pdev->id);
+		return 0;
 	}
+	err = smd_named_open_on_edge("DIAG_2",
+				     pdev->id,
+				     &driver->smd_dci[index].ch,
+				     &driver->smd_dci[index],
+				     diag_smd_notify);
+	driver->smd_dci[index].ch_save = driver->smd_dci[index].ch;
+	if (err)
+		pr_err("diag: In %s, cannot open DCI Lpass port, Id = %d, err: %d\n",
+			__func__, pdev->id, err);
+	else
+		diag_smd_buffer_init(&driver->smd_dci[index]);
 
 	return err;
 }
@@ -2279,21 +2281,36 @@ static int diag_dci_cmd_probe(struct platform_device *pdev)
 	int err = 0;
 	int index;
 
-	if (pdev->id == SMD_APPS_MODEM) {
+	switch (pdev->id) {
+	case SMD_APPS_MODEM:
 		index = MODEM_DATA;
-		err = smd_named_open_on_edge("DIAG_2_CMD",
+		break;
+	case SMD_APPS_QDSP:
+		index = LPASS_DATA;
+		break;
+	case SMD_APPS_WCNSS:
+		index = WCNSS_DATA;
+		break;
+	case SMD_APPS_DSPS:
+		index = SENSORS_DATA;
+		break;
+	default:
+		pr_debug("diag: In %s Received probe for invalid index %d",
+			__func__, pdev->id);
+		return 0;
+	}
+	err = smd_named_open_on_edge("DIAG_2_CMD",
 			pdev->id,
 			&driver->smd_dci_cmd[index].ch,
 			&driver->smd_dci_cmd[index],
 			diag_smd_notify);
-		driver->smd_dci_cmd[index].ch_save =
+	driver->smd_dci_cmd[index].ch_save =
 			driver->smd_dci_cmd[index].ch;
-		if (err)
-			pr_err("diag: In %s, cannot open DCI Modem CMD port, Id = %d, err: %d\n",
+	if (err)
+		pr_err("diag: In %s, cannot open DCI Modem CMD port, Id = %d, err: %d\n",
 				__func__, pdev->id, err);
-		else
-			diag_smd_buffer_init(&driver->smd_dci_cmd[index]);
-	}
+	else
+		diag_smd_buffer_init(&driver->smd_dci_cmd[index]);
 
 	return err;
 }
@@ -2872,26 +2889,19 @@ int diag_dci_deinit_client(struct diag_dci_client_tbl *entry)
 int diag_dci_write_proc(int peripheral, int pkt_type, char *buf, int len)
 {
 	struct diag_smd_info *smd_info = NULL;
-	int i;
 	int err = 0;
 
 	if (!buf || (peripheral < 0 || peripheral > NUM_SMD_DCI_CHANNELS)
-								|| len < 0) {
+		|| !driver->rcvd_feature_mask[peripheral] || len < 0) {
 		pr_err("diag: In %s, invalid data 0x%p, peripheral: %d, len: %d\n",
 				__func__, buf, peripheral, len);
 		return -EINVAL;
 	}
 
 	if (pkt_type == DIAG_DATA_TYPE) {
-		for (i = 0; i < NUM_SMD_DCI_CMD_CHANNELS; i++)
-			if (peripheral == i)
-				smd_info = &driver->smd_dci_cmd[peripheral];
-		/*
-		 * This peripheral doesn't support separate channel for
-		 * command response.
-		 */
-		if (!smd_info)
-			smd_info = &driver->smd_dci[peripheral];
+		smd_info = driver->separate_cmdrsp[peripheral] ?
+			&driver->smd_dci_cmd[peripheral] :
+			&driver->smd_dci[peripheral];
 	} else if (pkt_type == DIAG_CNTL_TYPE) {
 		smd_info = &driver->smd_cntl[peripheral];
 	} else {

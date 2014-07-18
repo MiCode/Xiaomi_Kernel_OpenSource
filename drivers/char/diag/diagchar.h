@@ -43,10 +43,12 @@
 #define MODEM_DATA		0
 #define LPASS_DATA		1
 #define WCNSS_DATA		2
-#define APPS_DATA		3
-#define HSIC_DATA		4
-#define HSIC_2_DATA		5
-#define SMUX_DATA		10
+#define SENSORS_DATA    3
+#define LAST_PERIPHERAL SENSORS_DATA
+#define APPS_DATA		(LAST_PERIPHERAL + 1)
+#define HSIC_DATA		(LAST_PERIPHERAL + 2)
+#define HSIC_2_DATA		(LAST_PERIPHERAL + 3)
+#define SMUX_DATA		(LAST_PERIPHERAL + 8)
 #define APPS_PROC		1
 
 #define USER_SPACE_DATA 8192
@@ -61,13 +63,14 @@
 #define DIAG_CON_MPSS (0x0002)	/* Bit mask for MPSS */
 #define DIAG_CON_LPASS (0x0004)	/* Bit mask for LPASS */
 #define DIAG_CON_WCNSS (0x0008)	/* Bit mask for WCNSS */
+#define DIAG_CON_SENSORS (0x0016)
 
-#define NUM_STM_PROCESSORS	4
 
 #define DIAG_STM_MODEM	0x01
 #define DIAG_STM_LPASS	0x02
 #define DIAG_STM_WCNSS	0x04
 #define DIAG_STM_APPS	0x08
+#define DIAG_STM_SENSORS 0x16
 
 #define DIAG_CMD_VERSION	0
 #define DIAG_CMD_DOWNLOAD	0x3A
@@ -119,12 +122,16 @@
 #define MODE_REALTIME 1
 #define MODE_NONREALTIME 0
 
-#define NUM_SMD_DATA_CHANNELS 3
+#define NUM_SMD_DATA_CHANNELS 4
 #define NUM_SMD_CONTROL_CHANNELS NUM_SMD_DATA_CHANNELS
-#define NUM_SMD_DCI_CHANNELS 2
-#define NUM_SMD_CMD_CHANNELS 1
-#define NUM_SMD_DCI_CMD_CHANNELS 1
-
+#define NUM_SMD_DCI_CHANNELS 4
+#define NUM_SMD_CMD_CHANNELS 4
+#define NUM_SMD_DCI_CMD_CHANNELS 4
+/*
+ * Number of stm processors includes all the peripherals and
+ * apps.Added 1 below to indicate apps
+ */
+#define NUM_STM_PROCESSORS	(NUM_SMD_CONTROL_CHANNELS + 1)
 /*
  * Indicates number of peripherals that can support DCI and Apps
  * processor. This doesn't mean that a peripheral has the
