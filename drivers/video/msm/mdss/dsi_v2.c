@@ -133,8 +133,8 @@ static int dsi_panel_handler(struct mdss_panel_data *pdata, int enable)
 		pdata->panel_info.panel_power_on = 0;
 		if (!pdata->panel_info.dynamic_switch_pending) {
 			if (pdata->panel_info.type == MIPI_CMD_PANEL)
-				mdss_dsi_panel_reset(pdata, 0);
-			dsi_ctrl_gpio_free(ctrl_pdata);
+				dsi_ctrl_gpio_free(ctrl_pdata);
+			mdss_dsi_panel_reset(pdata, 0);
 		}
 	}
 	return rc;
