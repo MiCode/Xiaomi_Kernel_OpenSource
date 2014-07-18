@@ -2625,6 +2625,18 @@
 		qcom,irq-is-percpu;
 		interrupts = <1 14 0xff00>;
 	};
+
+	audio_heap {
+		compatible = "qcom,msm-shared-memory";
+		qcom,proc-id = <1>;
+		linux,contiguous-region = <&audio_mem>;
+	};
+
+	adsp_heap {
+		compatible = "qcom,msm-shared-memory";
+		qcom,proc-id = <1>;
+		linux,contiguous-region = <&adsp_mem>;
+	};
 };
 
 &gdsc_usb30 {
