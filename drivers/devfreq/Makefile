@@ -7,10 +7,12 @@ obj-$(CONFIG_DEVFREQ_GOV_POWERSAVE)	+= governor_powersave.o
 obj-$(CONFIG_DEVFREQ_GOV_USERSPACE)	+= governor_userspace.o
 obj-$(CONFIG_DEVFREQ_GOV_PASSIVE)	+= governor_passive.o
 obj-$(CONFIG_QCOM_BIMC_BWMON)		+= bimc-bwmon.o
+obj-$(CONFIG_ARM_MEMLAT_MON)		+= arm-memlat-mon.o
 obj-$(CONFIG_QCOMCCI_HWMON)		+= msmcci-hwmon.o
 obj-$(CONFIG_QCOM_M4M_HWMON)		+= m4m-hwmon.o
 obj-$(CONFIG_DEVFREQ_GOV_QCOM_BW_HWMON)	+= governor_bw_hwmon.o
 obj-$(CONFIG_DEVFREQ_GOV_QCOM_CACHE_HWMON)	+= governor_cache_hwmon.o
+obj-$(CONFIG_DEVFREQ_GOV_MEMLAT)       += governor_memlat.o
 
 # DEVFREQ Drivers
 obj-$(CONFIG_ARM_EXYNOS_BUS_DEVFREQ)	+= exynos-bus.o

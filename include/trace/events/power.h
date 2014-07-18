@@ -747,6 +747,74 @@ TRACE_EVENT(cache_hwmon_update,
 	TP_printk("dev=%s freq=%lu", __get_str(name), __entry->freq)
 );
 
+TRACE_EVENT(memlat_dev_meas,
+
+	TP_PROTO(const char *name, unsigned int dev_id, unsigned long inst,
+		 unsigned long mem, unsigned long freq, unsigned int ratio),
+
+	TP_ARGS(name, dev_id, inst, mem, freq, ratio),
+
+	TP_STRUCT__entry(
+		__string(name, name)
+		__field(unsigned int, dev_id)
+		__field(unsigned long, inst)
+		__field(unsigned long, mem)
+		__field(unsigned long, freq)
+		__field(unsigned int, ratio)
+	),
+
+	TP_fast_assign(
+		__assign_str(name, name);
+		__entry->dev_id = dev_id;
+		__entry->inst = inst;
+		__entry->mem = mem;
+		__entry->freq = freq;
+		__entry->ratio = ratio;
+	),
+
+	TP_printk("dev: %s, id=%u, inst=%lu, mem=%lu, freq=%lu, ratio=%u",
+		__get_str(name),
+		__entry->dev_id,
+		__entry->inst,
+		__entry->mem,
+		__entry->freq,
+		__entry->ratio)
+);
+
+TRACE_EVENT(memlat_dev_update,
+
+	TP_PROTO(const char *name, unsigned int dev_id, unsigned long inst,
+		 unsigned long mem, unsigned long freq, unsigned long vote),
+
+	TP_ARGS(name, dev_id, inst, mem, freq, vote),
+
+	TP_STRUCT__entry(
+		__string(name, name)
+		__field(unsigned int, dev_id)
+		__field(unsigned long, inst)
+		__field(unsigned long, mem)
+		__field(unsigned long, freq)
+		__field(unsigned long, vote)
+	),
+
+	TP_fast_assign(
+		__assign_str(name, name);
+		__entry->dev_id = dev_id;
+		__entry->inst = inst;
+		__entry->mem = mem;
+		__entry->freq = freq;
+		__entry->vote = vote;
+	),
+
+	TP_printk("dev: %s, id=%u, inst=%lu, mem=%lu, freq=%lu, vote=%lu",
+		__get_str(name),
+		__entry->dev_id,
+		__entry->inst,
+		__entry->mem,
+		__entry->freq,
+		__entry->vote)
+);
+
 #endif /* _TRACE_POWER_H */
 
 /* This part must be outside protection */
