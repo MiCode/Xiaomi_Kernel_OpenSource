@@ -570,6 +570,9 @@ static int mdss_debugfs_perf_init(struct mdss_debug_data *mdd,
 	debugfs_create_file("disable_panic", 0644, mdd->perf,
 		(struct mdss_data_type *)mdata, &mdss_perf_panic_enable);
 
+	debugfs_create_bool("enable_bw_release", 0644, mdd->perf,
+		(u32 *)&mdata->enable_bw_release);
+
 	debugfs_create_file("ab_factor", 0644, mdd->perf,
 		&mdata->ab_factor, &mdss_factor_fops);
 

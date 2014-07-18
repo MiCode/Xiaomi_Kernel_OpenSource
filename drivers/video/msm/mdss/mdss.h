@@ -182,6 +182,8 @@ struct mdss_data_type {
 	u32 *clock_levels;
 	u32 nclk_lvl;
 
+	u32 enable_bw_release;
+
 	struct mdss_hw_settings *hw_settings;
 
 	struct mdss_mdp_pipe *vig_pipes;
