@@ -31,7 +31,8 @@ msm_adreno-y += \
 	adreno_a4xx_snapshot.o \
 	adreno.o \
 	adreno_cp_parser.o \
-	adreno_iommu.o
+	adreno_iommu.o \
+	adreno_perfcounter.o
 
 msm_adreno-$(CONFIG_DEBUG_FS) += adreno_debugfs.o adreno_profile.o
 msm_adreno-$(CONFIG_COMPAT) += adreno_compat.o

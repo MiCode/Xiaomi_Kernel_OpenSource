@@ -22,13 +22,10 @@ void a3xx_busy_cycles(struct adreno_device *adreno_dev,
 int a3xx_rb_init(struct adreno_device *adreno_dev,
 			struct adreno_ringbuffer *rb);
 int a3xx_perfcounter_init(struct adreno_device *adreno_dev);
-void a3xx_perfcounter_close(struct adreno_device *adreno_dev);
 int a3xx_perfcounter_enable(struct adreno_device *adreno_dev,
 	unsigned int group, unsigned int counter, unsigned int countable);
 uint64_t a3xx_perfcounter_read(struct adreno_device *adreno_dev,
 	unsigned int group, unsigned int counter);
-void a3xx_perfcounter_save(struct adreno_device *adreno_dev);
-void a3xx_perfcounter_restore(struct adreno_device *adreno_dev);
 
 void a3xx_a4xx_err_callback(struct adreno_device *adreno_dev, int bit);
 void a3xx_fatal_err_callback(struct adreno_device *adreno_dev, int bit);

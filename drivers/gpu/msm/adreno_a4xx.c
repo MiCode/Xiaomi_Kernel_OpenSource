@@ -1297,8 +1297,7 @@ static int a4xx_perfcounter_init(struct adreno_device *adreno_dev)
 
 		gpudev->invalid_countables = a420_perfctr_invalid_countables;
 	}
-
-	return a3xx_perfcounter_init(adreno_dev);
+	return 0;
 }
 
 static ADRENO_CORESIGHT_ATTR(cfg_debbus_ctrlt, &a4xx_coresight_registers[0]);
@@ -1485,7 +1484,6 @@ struct adreno_gpudev adreno_a4xx_gpudev = {
 	.num_prio_levels = 1,
 
 	.perfcounter_init = a4xx_perfcounter_init,
-	.perfcounter_close = a3xx_perfcounter_close,
 	.rb_init = a3xx_rb_init,
 	.irq_control = a3xx_irq_control,
 	.irq_handler = a3xx_irq_handler,
@@ -1495,8 +1493,6 @@ struct adreno_gpudev adreno_a4xx_gpudev = {
 	.start = a4xx_start,
 	.perfcounter_enable = a3xx_perfcounter_enable,
 	.perfcounter_read = a3xx_perfcounter_read,
-	.perfcounter_save = a3xx_perfcounter_save,
-	.perfcounter_restore = a3xx_perfcounter_restore,
 	.snapshot = a4xx_snapshot,
 	.is_sptp_idle = a4xx_is_sptp_idle,
 	.enable_pc = a4xx_enable_pc,
