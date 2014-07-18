@@ -19,37 +19,29 @@
 */
 
 
-#ifndef _dan_ipc_if_HW_REGS_H
-#define _dan_ipc_if_HW_REGS_H
+#ifndef _DAN_IPC_IF_HW_REGS_H
+#define _DAN_IPC_IF_HW_REGS_H
 
 /*****************************************
  *   dan_ipc_0 (Prototype: dan_ipc)
  ****************************************/
 
 /* define offsets */
-#define dan_ipc_if_FIFO_WR_ACCESS_0_OFFSET  (0x4)
-#define dan_ipc_if_FIFO_RD_ACCESS_0_OFFSET  (0x8)
-#define dan_ipc_if_FIFO_WR_ACCESS_1_OFFSET  (0xC)
-#define dan_ipc_if_FIFO_RD_ACCESS_1_OFFSET  (0x10)
-#define dan_ipc_if_FIFO_WR_ACCESS_2_OFFSET  (0x14)
-#define dan_ipc_if_FIFO_RD_ACCESS_2_OFFSET  (0x18)
-#define dan_ipc_if_FIFO_WR_ACCESS_3_OFFSET  (0x1C)
-#define dan_ipc_if_FIFO_RD_ACCESS_3_OFFSET  (0x20)
-#define dan_ipc_if_FIFO_WR_ACCESS_4_OFFSET  (0x4)
-#define dan_ipc_if_FIFO_RD_ACCESS_4_OFFSET  (0x8)
-#define dan_ipc_if_FIFO_WR_ACCESS_5_OFFSET  (0xC)
-#define dan_ipc_if_FIFO_RD_ACCESS_5_OFFSET  (0x10)
-#define dan_ipc_if_FIFO_WR_ACCESS_6_OFFSET  (0x14)
-#define dan_ipc_if_FIFO_RD_ACCESS_6_OFFSET  (0x18)
-#define dan_ipc_if_FIFO_WR_ACCESS_7_OFFSET  (0x1C)
-#define dan_ipc_if_FIFO_RD_ACCESS_7_OFFSET  (0x20)
-#define dan_ipc_if_FIFO_0_STATUS_OFFSET  (0x24)
-#define dan_ipc_if_FIFO_1_STATUS_OFFSET  (0x28)
-#define dan_ipc_if_FIFO_2_STATUS_OFFSET  (0x2C)
-#define dan_ipc_if_FIFO_3_STATUS_OFFSET  (0x30)
-#define dan_ipc_if_FIFO_4_STATUS_OFFSET  (0x24)
-#define dan_ipc_if_FIFO_5_STATUS_OFFSET  (0x28)
-#define dan_ipc_if_FIFO_6_STATUS_OFFSET  (0x2C)
-#define dan_ipc_if_FIFO_7_STATUS_OFFSET  (0x30)
+#define DAN_IPC_IF_FIFO_WR_0	0x4
+#define DAN_IPC_IF_FIFO_RD_0	0x8
+#define DAN_IPC_IF_FIFO_WR_1	0xC
+#define DAN_IPC_IF_FIFO_RD_1	0x10
+#define DAN_IPC_IF_FIFO_WR_2	0x14
+#define DAN_IPC_IF_FIFO_RD_2	0x18
+#define DAN_IPC_IF_FIFO_WR_3	0x1C
+#define DAN_IPC_IF_FIFO_RD_3	0x20
+#define DAN_IPC_IF_FIFO_WR_4	0x4
+#define DAN_IPC_IF_FIFO_RD_4	0x8
+#define DAN_IPC_IF_FIFO_WR_5	0xC
+#define DAN_IPC_IF_FIFO_RD_5	0x10
+#define DAN_IPC_IF_FIFO_WR_6	0x14
+#define DAN_IPC_IF_FIFO_RD_6	0x18
+#define DAN_IPC_IF_FIFO_WR_7	0x1C
+#define DAN_IPC_IF_FIFO_RD_7	0x20
 
-#endif /* _dan_ipc_if_HW_REGS_H*/
+#endif /* _DAN_IPC_IF_HW_REGS_H */

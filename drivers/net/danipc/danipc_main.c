@@ -32,7 +32,6 @@
 #include <linux/ioctl.h>
 
 #include "danipc_k.h"
-#include <linux/danipc_ioctl.h>
 #include "ipc_api.h"
 #include "danipc_lowlevel.h"
 
@@ -191,9 +190,9 @@ static int parse_resources(struct platform_device *pdev,
 		"qdsp6_3_ipc", NULL, NULL, NULL
 	};
 	const char		*resource[RESOURCE_NUM] = {
-			"ipc_bufs", "agent_table", "krait_ipc_intr_en"
+		"ipc_bufs", "agent_table", "krait_ipc_intr_en"
 	};
-	const char      *shm_sizes[PLATFORM_MAX_NUM_OF_NODES] = {
+	const char		*shm_sizes[PLATFORM_MAX_NUM_OF_NODES] = {
 		"qcom,cpu0-shm-size", "qcom,cpu1-shm-size",
 		"qcom,cpu2-shm-size", "qcom,cpu3-shm-size",
 		"qcom,dsp0-shm-size", "qcom,dsp1-shm-size",
@@ -208,7 +207,7 @@ static int parse_resources(struct platform_device *pdev,
 
 	if (node) {
 		struct resource	*res;
-		int shm_size;
+		int		shm_size;
 		int		r;
 		priv->irq = irq_of_parse_and_map(node, 0);
 		if (!priv->irq || priv->irq == NO_IRQ) {
@@ -236,8 +235,8 @@ static int parse_resources(struct platform_device *pdev,
 								IORESOURCE_MEM,
 								regs[r]);
 			if (res) {
-				IPC_array_hw_access_phys[r] = res->start;
-				IPC_hw_access_phys_len[r] = resource_size(res);
+				ipc_regs_phys[r] = res->start;
+				ipc_regs_len[r] = resource_size(res);
 			} else {
 				pr_err("cannot get resource %s\n", regs[r]);
 				parse_err = true;
@@ -245,11 +244,10 @@ static int parse_resources(struct platform_device *pdev,
 
 			if (of_property_read_u32((&pdev->dev)->of_node,
 					shm_sizes[r],
-					&shm_size)) {
-				IPC_shared_mem_sizes[r] = 0;
-			} else {
-				IPC_shared_mem_sizes[r] = shm_size;
-			}
+					&shm_size))
+				ipc_shared_mem_sizes[r] = 0;
+			else
+				ipc_shared_mem_sizes[r] = shm_size;
 		}
 
 		rc = (!parse_err) ? 0 : -ENOMEM;
