@@ -496,11 +496,12 @@ static int cluster_configure(struct lpm_cluster *cluster, int idx,
 
 failed_set_mode:
 	for (i = 0; i < cluster->ndevices; i++) {
+		int rc = 0;
 		level = &cluster->levels[cluster->default_level];
-		ret = cluster->lpm_dev[i].set_mode(&cluster->lpm_dev[i],
+		rc = cluster->lpm_dev[i].set_mode(&cluster->lpm_dev[i],
 				level->mode[i],
 				level->notify_rpm);
-		BUG_ON(ret);
+		BUG_ON(rc);
 	}
 	spin_unlock(&cluster->sync_lock);
 	return ret;
