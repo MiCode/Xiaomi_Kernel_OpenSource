@@ -364,6 +364,7 @@ struct mdss_dsi_ctrl_pdata {
 
 	int horizontal_idle_cnt;
 	struct panel_horizontal_idle *line_idle;
+	struct mdss_util_intf *mdss_util;
 };
 
 struct dsi_status_data {

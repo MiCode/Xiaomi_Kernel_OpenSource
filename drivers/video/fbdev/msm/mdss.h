@@ -115,6 +115,7 @@ struct mdss_data_type {
 	bool batfet_required;
 	struct regulator *batfet;
 	u32 max_mdp_clk_rate;
+	struct mdss_util_intf *mdss_util;
 
 	struct platform_device *pdev;
 	struct dss_io_data mdss_io;
@@ -257,14 +258,20 @@ struct mdss_hw {
 	irqreturn_t (*irq_handler)(int irq, void *ptr);
 };
 
-int mdss_register_irq(struct mdss_hw *hw);
-void mdss_enable_irq(struct mdss_hw *hw);
-void mdss_disable_irq(struct mdss_hw *hw);
-void mdss_disable_irq_nosync(struct mdss_hw *hw);
 void mdss_bus_bandwidth_ctrl(int enable);
 int mdss_iommu_ctrl(int enable);
 int mdss_bus_scale_set_quota(int client, u64 ab_quota_rt, u64 ab_quota_nrt,
 		u64 ib_quota);
+
+struct mdss_util_intf {
+	int (*register_irq)(struct mdss_hw *hw);
+	void (*enable_irq)(struct mdss_hw *hw);
+	void (*disable_irq)(struct mdss_hw *hw);
+	void (*disable_irq_nosync)(struct mdss_hw *hw);
+	int (*irq_dispatch)(u32 hw_ndx, int irq, void *ptr);
+};
+
+struct mdss_util_intf *mdss_get_util_intf(void);
 
 static inline struct ion_client *mdss_get_ionclient(void)
 {
