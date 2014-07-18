@@ -7470,8 +7470,8 @@ static enum wcd9xxx_cdc_type tomtom_get_cdc_type(void)
 
 static bool tomtom_mbhc_ins_rem_status(struct snd_soc_codec *codec)
 {
-	return snd_soc_read(codec, WCD9XXX_A_MBHC_INSERT_DET_STATUS) &
-			    (1 << 1);
+	return !(snd_soc_read(codec, WCD9XXX_A_MBHC_INSERT_DET_STATUS) &
+			    (1 << 4));
 }
 
 static void tomtom_mbhc_micb_pulldown_ctrl(struct wcd9xxx_mbhc *mbhc,
