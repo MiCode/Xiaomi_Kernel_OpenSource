@@ -82,36 +82,41 @@ void ufs_msm_phy_qmp_20nm_power_control(struct ufs_msm_phy *phy, bool val)
 		writel_relaxed(0x1, phy->mmio + UFS_PHY_POWER_DOWN_CONTROL);
 		/*
 		 * Before any transactions involving PHY, ensure PHY knows
-		 * that it's analog rail is powered ON. This also ensures
-		 * that PHY is out of power collapse before enabling the
-		 * SIGDET.
+		 * that it's analog rail is powered ON.
 		 */
 		mb();
+
 		if (phy->quirks &
-			MSM_UFS_PHY_DIS_SIGDET_BEFORE_PWR_COLLAPSE) {
-			writel_relaxed(0xC0,
-				phy->mmio + QSERDES_RX_SIGDET_CNTRL(0));
-			writel_relaxed(0xC0,
-				phy->mmio + QSERDES_RX_SIGDET_CNTRL(1));
+			MSM_UFS_PHY_QUIRK_HIBERN8_EXIT_AFTER_PHY_PWR_COLLAPSE) {
 			/*
-			 * make sure that SIGDET is enabled before proceeding
-			 * further.
+			 * Give atleast 1us delay after restoring PHY analog
+			 * power.
 			 */
-			 mb();
-		}
-	} else {
-		 if (phy->quirks &
-			MSM_UFS_PHY_DIS_SIGDET_BEFORE_PWR_COLLAPSE) {
-			writel_relaxed(0x0,
-				phy->mmio + QSERDES_RX_SIGDET_CNTRL(0));
-			writel_relaxed(0x0,
-				phy->mmio + QSERDES_RX_SIGDET_CNTRL(1));
+			usleep_range(1, 2);
+			writel_relaxed(0x0A, phy->mmio +
+				       QSERDES_COM_SYSCLK_EN_SEL_TXBAND);
+			writel_relaxed(0x08, phy->mmio +
+				       QSERDES_COM_SYSCLK_EN_SEL_TXBAND);
 			/*
-			 * Ensure that SIGDET is disabled before PHY power
-			 * collapse
+			 * Make sure workaround is deactivated before proceeding
+			 * with normal PHY operations.
 			 */
 			mb();
 		}
+	} else {
+		if (phy->quirks &
+			MSM_UFS_PHY_QUIRK_HIBERN8_EXIT_AFTER_PHY_PWR_COLLAPSE) {
+			writel_relaxed(0x0A, phy->mmio +
+				       QSERDES_COM_SYSCLK_EN_SEL_TXBAND);
+			writel_relaxed(0x02, phy->mmio +
+				       QSERDES_COM_SYSCLK_EN_SEL_TXBAND);
+			/*
+			 * Make sure that above workaround is activated before
+			 * PHY analog power collapse.
+			 */
+			mb();
+		}
+
 		writel_relaxed(0x0, phy->mmio + UFS_PHY_POWER_DOWN_CONTROL);
 		/*
 		 * ensure that PHY knows its PHY analog rail is going
@@ -158,7 +163,8 @@ static void ufs_msm_phy_qmp_20nm_advertise_quirks(struct phy *generic_phy)
 	struct ufs_msm_phy_qmp_20nm *phy =  phy_get_drvdata(generic_phy);
 	struct ufs_msm_phy *phy_common = &(phy->common_cfg);
 
-	phy_common->quirks = 0;
+	phy_common->quirks =
+		MSM_UFS_PHY_QUIRK_HIBERN8_EXIT_AFTER_PHY_PWR_COLLAPSE;
 }
 
 struct phy_ops ufs_msm_phy_qmp_20nm_phy_ops = {

@@ -108,6 +108,15 @@ struct ufs_msm_phy {
 	*/
 	#define MSM_UFS_PHY_DIS_SIGDET_BEFORE_PWR_COLLAPSE	(1 << 1)
 
+	/*
+	* If UFS link is put into Hibern8 and if UFS PHY analog hardware is
+	* power collapsed (by clearing UFS_PHY_POWER_DOWN_CONTROL), Hibern8
+	* exit might fail even after powering on UFS PHY analog hardware.
+	* Enabling this quirk will help to solve above issue by doing
+	* custom PHY settings just before PHY analog power collapse.
+	*/
+	#define MSM_UFS_PHY_QUIRK_HIBERN8_EXIT_AFTER_PHY_PWR_COLLAPSE	(1 << 2)
+
 	char name[UFS_MSM_PHY_NAME_LEN];
 	struct ufs_msm_phy_calibration *cached_regs;
 	int cached_regs_table_size;
