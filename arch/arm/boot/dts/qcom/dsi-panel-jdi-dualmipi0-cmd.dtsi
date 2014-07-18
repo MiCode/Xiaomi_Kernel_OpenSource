@@ -41,11 +41,13 @@
 		qcom,mdss-dsi-lane-map = "lane_map_0123";
 		qcom,mdss-dsi-bllp-eof-power-mode;
 		qcom,mdss-dsi-bllp-power-mode;
-		qcom,cmd-sync-wait-broadcast;
 		qcom,mdss-dsi-lane-0-state;
 		qcom,mdss-dsi-lane-1-state;
 		qcom,mdss-dsi-lane-2-state;
 		qcom,mdss-dsi-lane-3-state;
+		qcom,mdss-dsi-hor-line-idle = 	<0 40 256>,
+						<40 120 128>,
+						<120 240 64>;
 		qcom,mdss-dsi-panel-timings = [cd 32 22 00 60 64 26 34 29 03
 									04 00];
 		qcom,mdss-dsi-reset-sequence = <1 10>, <0 10>, <1 10>;
