@@ -2785,6 +2785,15 @@
 			};
 		};
 	};
+
+	qcom,system-health-monitor {
+		compatible = "qcom,system-health-monitor";
+
+		qcom,system-health-monitor-modem {
+			qcom,subsys-name = "msm_mpss";
+			qcom,ssrestart-string = "modem";
+		};
+	};
 };
 
 &gdsc_usb30 {
