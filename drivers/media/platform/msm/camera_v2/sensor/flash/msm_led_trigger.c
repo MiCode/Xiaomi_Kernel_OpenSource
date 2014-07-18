@@ -181,7 +181,11 @@ static int32_t msm_led_trigger_probe(struct platform_device *pdev)
 			rc = of_property_read_string(flash_src_node,
 				"linux,default-trigger",
 				&fctrl.flash_trigger_name[i]);
-			if (rc < 0) {
+
+			rc_1 = of_property_read_string(flash_src_node,
+				"qcom,default-led-trigger",
+				&fctrl.flash_trigger_name[i]);
+			if ((rc < 0) && (rc_1 < 0)) {
 				pr_err("default-trigger: read failed\n");
 				of_node_put(flash_src_node);
 				continue;
@@ -227,7 +231,11 @@ static int32_t msm_led_trigger_probe(struct platform_device *pdev)
 			rc = of_property_read_string(flash_src_node,
 				"linux,default-trigger",
 				&fctrl.torch_trigger_name);
-			if (rc < 0) {
+
+			rc_1 = of_property_read_string(flash_src_node,
+				"qcom,default-led-trigger",
+				&fctrl.torch_trigger_name);
+			if ((rc < 0) && (rc_1 < 0)) {
 				pr_err("default-trigger: read failed\n");
 				goto torch_failed;
 			}
