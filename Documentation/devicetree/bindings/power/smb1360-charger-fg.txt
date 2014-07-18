@@ -97,6 +97,9 @@ Optional Properties:
 				thermistor inside the battery. This value is
 				16-bit float encoded value determined from the
 				NTC-c1_coeff mapping.
+- qcom,otg-batt-curr-limit	This property defines the current threshold draw
+				from battery when device working at OTG mode.
+				The possible values are: 350, 550, 950, 1500mA.
 
 Example:
 	i2c@f9967000 {
@@ -133,5 +136,7 @@ Example:
 			qcom,fg-soc-max = <85>;
 			qcom,fg-soc-min = <15>;
 			qcom,thermal-mitigation = <1500 700 300 0>;
+
+			qcom,otg-batt-curr-limit = <950>;
 		};
 	};

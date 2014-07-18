@@ -42,6 +42,8 @@
 #define CHG_ITERM_200MA			0x7
 #define RECHG_MV_MASK			SMB1360_MASK(6, 5)
 #define RECHG_MV_SHIFT			5
+#define OTG_CURRENT_MASK		SMB1360_MASK(4, 3)
+#define OTG_CURRENT_SHIFT		3
 
 #define CFG_BATT_CHG_ICL_REG		0x05
 #define AC_INPUT_ICL_PIN_BIT		BIT(7)
@@ -240,6 +242,8 @@ enum {
 	BATTERY_PROFILE_MAX,
 };
 
+static int otg_curr_ma[] = {350, 550, 950, 1500};
+
 struct smb1360_otg_regulator {
 	struct regulator_desc	rdesc;
 	struct regulator_dev	*rdev;
@@ -269,6 +273,7 @@ struct smb1360_chip {
 	unsigned int			thermal_levels;
 	unsigned int			therm_lvl_sel;
 	unsigned int			*thermal_mitigation;
+	int				otg_batt_curr_limit;
 
 	/* configuration data - fg */
 	int				soc_max;
@@ -2992,6 +2997,22 @@ static int smb1360_hw_init(struct smb1360_chip *chip)
 		}
 	}
 
+	/* USB OTG current limit configuration */
+	if (chip->otg_batt_curr_limit != -EINVAL) {
+		for (i = 0; i < ARRAY_SIZE(otg_curr_ma); i++) {
+			if (otg_curr_ma[i] >= chip->otg_batt_curr_limit)
+				break;
+		}
+
+		if (i == ARRAY_SIZE(otg_curr_ma))
+			i = i - 1;
+
+		rc = smb1360_masked_write(chip, CFG_BATT_CHG_REG,
+						OTG_CURRENT_MASK,
+					i << OTG_CURRENT_SHIFT);
+		if (rc)
+			pr_err("Couldn't set OTG current limit, rc = %d\n", rc);
+	}
 
 	rc = smb1360_fg_config(chip);
 	if (rc < 0) {
@@ -3221,6 +3242,11 @@ static int smb_parse_dt(struct smb1360_chip *chip)
 					&chip->fg_cc_to_cv_mv);
 	if (rc < 0)
 		chip->fg_cc_to_cv_mv = -EINVAL;
+
+	rc = of_property_read_u32(node, "qcom,otg-batt-curr-limit",
+					&chip->otg_batt_curr_limit);
+	if (rc < 0)
+		chip->otg_batt_curr_limit = -EINVAL;
 
 	return 0;
 }
