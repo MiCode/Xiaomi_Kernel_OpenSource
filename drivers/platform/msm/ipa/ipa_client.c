@@ -1560,13 +1560,12 @@ int ipa_connect(const struct ipa_connect_params *in, struct ipa_sps_params *sps,
 	memcpy(&sps->desc, &ep->connect.desc, sizeof(struct sps_mem_buffer));
 	memcpy(&sps->data, &ep->connect.data, sizeof(struct sps_mem_buffer));
 
+	ipa_ctx->skip_ep_cfg_shadow[ipa_ep_idx] = ep->skip_ep_cfg;
 	if (!ep->skip_ep_cfg && IPA_CLIENT_IS_PROD(in->client))
 		ipa_install_dflt_flt_rules(ipa_ep_idx);
 
 	if (!ep->keep_ipa_awake)
 		ipa_dec_client_disable_clks();
-
-	ipa_ctx->skip_ep_cfg_shadow[ipa_ep_idx] = ep->skip_ep_cfg;
 
 	IPADBG("client %d (ep: %d) connected\n", in->client, ipa_ep_idx);
 
