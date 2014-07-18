@@ -133,6 +133,7 @@ enum {
 	i915_sf_dump_force          = (1 << 8),
 	i915_sf_dump_details        = (1 << 9),
 	i915_sf_dump_dependencies   = (1 << 10),
+	i915_sf_dump_seqno          = (1 << 11),
 };
 const char *i915_scheduler_flag_str(uint32_t flags);
 

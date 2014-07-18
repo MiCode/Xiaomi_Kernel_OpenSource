@@ -149,6 +149,7 @@ const char *i915_scheduler_flag_str(uint32_t flags)
 	TEST_FLAG(i915_sf_dump_force,         "DumpForce|");
 	TEST_FLAG(i915_sf_dump_details,       "DumpDetails|");
 	TEST_FLAG(i915_sf_dump_dependencies,  "DumpDeps|");
+	TEST_FLAG(i915_sf_dump_seqno,         "DumpSeqno|");
 
 #undef TEST_FLAG
 
@@ -817,6 +818,7 @@ int i915_scheduler_dump_all_locked(struct drm_device *dev, const char *msg)
 	for_each_ring(ring, dev_priv, i) {
 		scheduler->flags[ring->id] |= i915_sf_dump_force   |
 					      i915_sf_dump_details |
+					      i915_sf_dump_seqno   |
 					      i915_sf_dump_dependencies;
 		r = i915_scheduler_dump_locked(ring, msg);
 		if (ret == 0)
@@ -898,6 +900,14 @@ int i915_scheduler_dump_locked(struct intel_engine_cs *ring, const char *msg)
 				 i915_gem_request_get_seqno(ring->outstanding_lazy_request), msg); */
 
 		return 0;
+	}
+
+	if (scheduler->flags[ring->id] & i915_sf_dump_seqno) {
+		uint32_t    seqno;
+
+		seqno    = ring->get_seqno(ring, true);
+
+		DRM_DEBUG_DRIVER("<%s> Seqno = %d\n", ring->name, seqno);
 	}
 
 	if (scheduler->flags[ring->id] & i915_sf_dump_details) {
