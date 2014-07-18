@@ -657,6 +657,27 @@ void kgsl_mmu_putpagetable(struct kgsl_pagetable *pagetable)
 }
 EXPORT_SYMBOL(kgsl_mmu_putpagetable);
 
+static int _nommu_get_gpuaddr(struct kgsl_memdesc *memdesc)
+{
+	if (memdesc->sglen > 1) {
+		KGSL_CORE_ERR(
+			"Attempt to map non-contiguous memory with NOMMU\n");
+		return -EINVAL;
+	}
+
+	memdesc->gpuaddr = (uint64_t) sg_dma_address(memdesc->sg);
+
+	if (memdesc->gpuaddr == 0)
+		memdesc->gpuaddr = (uint64_t) sg_phys(memdesc->sg);
+
+	if (memdesc->gpuaddr == 0) {
+		KGSL_CORE_ERR("Unable to get a physical address\n");
+		return -EINVAL;
+	}
+
+	return 0;
+}
+
 /**
  * kgsl_mmu_get_gpuaddr - Assign a memdesc with a gpuadddr from the gen pool
  * @pagetable - pagetable whose pool is to be used
@@ -669,73 +690,64 @@ kgsl_mmu_get_gpuaddr(struct kgsl_pagetable *pagetable,
 			struct kgsl_memdesc *memdesc)
 {
 	int size;
-	int page_align = ilog2(PAGE_SIZE);
+	unsigned long bit;
 
-	if (kgsl_mmu_type == KGSL_MMU_TYPE_NONE) {
-		if (memdesc->sglen == 1) {
-			memdesc->gpuaddr = sg_dma_address(memdesc->sg);
-			if (!memdesc->gpuaddr)
-				memdesc->gpuaddr = sg_phys(memdesc->sg);
-			if (!memdesc->gpuaddr) {
-				KGSL_CORE_ERR("Unable to get a valid physical "
-					"address for memdesc\n");
-				return -EINVAL;
-			}
-			return 0;
-		} else {
-			KGSL_CORE_ERR("Memory is not contigious "
-					"(sglen = %d)\n", memdesc->sglen);
-			return -EINVAL;
-		}
-	}
+	if (kgsl_mmu_type == KGSL_MMU_TYPE_NONE)
+		return _nommu_get_gpuaddr(memdesc);
 
 	/* Add space for the guard page when allocating the mmu VA. */
 	size = memdesc->size;
 	if (kgsl_memdesc_has_guard_page(memdesc))
 		size += PAGE_SIZE;
 
-	if (KGSL_MMU_TYPE_IOMMU == kgsl_mmu_get_mmutype()) {
-		/* Allocate aligned virtual addresses for iommu. This allows
-		 * more efficient pagetable entries if the physical memory
-		 * is also aligned.
-		 */
+	/*
+	 * Allocate aligned virtual addresses for iommu. This allows
+	 * more efficient pagetable entries if the physical memory
+	 * is also aligned.
+	 */
+
+	if (kgsl_memdesc_use_cpu_map(memdesc)) {
+		if (memdesc->gpuaddr == 0)
+			return -EINVAL;
+		bitmap_set(pagetable->mem_bitmap,
+			(int) (memdesc->gpuaddr >> PAGE_SHIFT),
+			(int) (size >> PAGE_SHIFT));
+		memdesc->priv |= KGSL_MEMDESC_BITMAP_ALLOC;
+		return 0;
+	}
+
+	/*
+	 * Try to map external memory in the upper region first and then fall
+	 * back to user region if that fails.  All memory allocated by the user
+	 * goes into the user region first.
+	 */
+	if ((KGSL_MEMFLAGS_USERMEM_MASK & memdesc->flags) != 0) {
+		unsigned int page_align = ilog2(PAGE_SIZE);
+
 		if (kgsl_memdesc_get_align(memdesc) > 0)
 			page_align = kgsl_memdesc_get_align(memdesc);
-		if (kgsl_memdesc_use_cpu_map(memdesc)) {
-			if (memdesc->gpuaddr == 0)
-				return -EINVAL;
-			bitmap_set(pagetable->mem_bitmap,
-				memdesc->gpuaddr >> PAGE_SHIFT,
-				size >> PAGE_SHIFT);
-			memdesc->priv |= KGSL_MEMDESC_BITMAP_ALLOC;
+
+		memdesc->gpuaddr = gen_pool_alloc_aligned(pagetable->pool,
+			size, page_align);
+
+		if (memdesc->gpuaddr) {
+			memdesc->priv |= KGSL_MEMDESC_GENPOOL_ALLOC;
 			return 0;
 		}
 	}
 
-	if (KGSL_MEMFLAGS_USERMEM_MASK & memdesc->flags) {
-		memdesc->gpuaddr = gen_pool_alloc_aligned(pagetable->pool, size,
-						page_align);
-		if (memdesc->gpuaddr)
-			memdesc->priv |= KGSL_MEMDESC_GENPOOL_ALLOC;
-	} else {
-		unsigned int gpuaddr = bitmap_find_next_zero_area(
-				pagetable->mem_bitmap,
-				KGSL_SVM_UPPER_BOUND >> PAGE_SHIFT, 1,
-				size >> PAGE_SHIFT, 0);
+	bit = bitmap_find_next_zero_area(pagetable->mem_bitmap,
+		KGSL_SVM_UPPER_BOUND >> PAGE_SHIFT, 1,
+		(unsigned int) (size >> PAGE_SHIFT), 0);
 
-		if (gpuaddr < (KGSL_SVM_UPPER_BOUND >> PAGE_SHIFT)) {
-			bitmap_set(pagetable->mem_bitmap,
-				gpuaddr, size >> PAGE_SHIFT);
-			memdesc->gpuaddr = gpuaddr << PAGE_SHIFT;
-		}
-		if (memdesc->gpuaddr)
-			memdesc->priv |= KGSL_MEMDESC_BITMAP_ALLOC;
+	if (bit && (bit < (KGSL_SVM_UPPER_BOUND >> PAGE_SHIFT))) {
+		bitmap_set(pagetable->mem_bitmap,
+				(int) bit, (int) (size >> PAGE_SHIFT));
+		memdesc->gpuaddr = (bit << PAGE_SHIFT);
+		memdesc->priv |= KGSL_MEMDESC_BITMAP_ALLOC;
 	}
 
-	if (memdesc->gpuaddr == 0)
-		return -ENOMEM;
-
-	return 0;
+	return (memdesc->gpuaddr == 0) ? -ENOMEM : 0;
 }
 EXPORT_SYMBOL(kgsl_mmu_get_gpuaddr);
 
