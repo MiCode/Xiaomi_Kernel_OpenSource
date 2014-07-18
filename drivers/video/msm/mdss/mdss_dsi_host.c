@@ -85,7 +85,7 @@ void mdss_dsi_ctrl_init(struct device *ctrl_dev,
 
 	ctrl_list[ctrl->ndx] = ctrl;	/* keep it */
 
-	if (mdss_register_irq(ctrl->dsi_hw))
+	if (ctrl->mdss_util->register_irq(ctrl->dsi_hw))
 		pr_err("%s: mdss_register_irq failed.\n", __func__);
 
 	pr_debug("%s: ndx=%d base=%p\n", __func__, ctrl->ndx, ctrl->ctrl_base);
@@ -155,7 +155,7 @@ void mdss_dsi_enable_irq(struct mdss_dsi_ctrl_pdata *ctrl, u32 term)
 	}
 	if (ctrl->dsi_irq_mask == 0) {
 		MDSS_XLOG(ctrl->ndx, term);
-		mdss_enable_irq(ctrl->dsi_hw);
+		ctrl->mdss_util->enable_irq(ctrl->dsi_hw);
 		pr_debug("%s: IRQ Enable, ndx=%d mask=%x term=%x\n", __func__,
 			ctrl->ndx, (int)ctrl->dsi_irq_mask, (int)term);
 	}
@@ -175,7 +175,7 @@ void mdss_dsi_disable_irq(struct mdss_dsi_ctrl_pdata *ctrl, u32 term)
 	ctrl->dsi_irq_mask &= ~term;
 	if (ctrl->dsi_irq_mask == 0) {
 		MDSS_XLOG(ctrl->ndx, term);
-		mdss_disable_irq(ctrl->dsi_hw);
+		ctrl->mdss_util->disable_irq(ctrl->dsi_hw);
 		pr_debug("%s: IRQ Disable, ndx=%d mask=%x term=%x\n", __func__,
 			ctrl->ndx, (int)ctrl->dsi_irq_mask, (int)term);
 	}
@@ -196,7 +196,7 @@ void mdss_dsi_disable_irq_nosync(struct mdss_dsi_ctrl_pdata *ctrl, u32 term)
 	ctrl->dsi_irq_mask &= ~term;
 	if (ctrl->dsi_irq_mask == 0) {
 		MDSS_XLOG(ctrl->ndx, term);
-		mdss_disable_irq_nosync(ctrl->dsi_hw);
+		ctrl->mdss_util->disable_irq_nosync(ctrl->dsi_hw);
 		pr_debug("%s: IRQ Disable, ndx=%d mask=%x term=%x\n", __func__,
 			ctrl->ndx, (int)ctrl->dsi_irq_mask, (int)term);
 	}

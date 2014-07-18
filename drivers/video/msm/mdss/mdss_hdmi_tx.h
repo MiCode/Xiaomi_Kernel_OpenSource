@@ -62,6 +62,8 @@ struct hdmi_tx_ctrl {
 	struct platform_device *pdev;
 	struct hdmi_tx_platform_data pdata;
 	struct mdss_panel_data panel_data;
+	struct mdss_util_intf *mdss_util;
+
 
 	struct hdmi_tx_pinctrl pin_res;
 	struct hdmi_audio audio_data;

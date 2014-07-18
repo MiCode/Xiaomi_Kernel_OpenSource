@@ -273,6 +273,7 @@ struct mdss_edp_drv_pdata {
 	u32 mask2;
 
 	struct mdss_panel_data panel_data;
+	struct mdss_util_intf *mdss_util;
 
 	int edp_on_cnt;
 	int edp_off_cnt;
