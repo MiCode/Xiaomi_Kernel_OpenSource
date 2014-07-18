@@ -1981,8 +1981,16 @@ static int try_set_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 		pdata = &hal_property;
 		break;
 	case V4L2_CID_MPEG_VIDC_VIDEO_SYNC_FRAME_DECODE:
-		property_id =
-			HAL_PARAM_VDEC_SYNC_FRAME_DECODE;
+		switch (ctrl->val) {
+		case V4L2_MPEG_VIDC_VIDEO_SYNC_FRAME_DECODE_DISABLE:
+			inst->flags &= ~VIDC_THUMBNAIL;
+			break;
+		case V4L2_MPEG_VIDC_VIDEO_SYNC_FRAME_DECODE_ENABLE:
+			inst->flags |= VIDC_THUMBNAIL;
+			break;
+		}
+
+		property_id = HAL_PARAM_VDEC_SYNC_FRAME_DECODE;
 		hal_property.enable = ctrl->val;
 		pdata = &hal_property;
 		break;
