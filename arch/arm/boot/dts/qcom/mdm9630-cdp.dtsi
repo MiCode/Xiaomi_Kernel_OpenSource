@@ -11,7 +11,7 @@
  */
 
 #include "mdm9630-display.dtsi"
-#include "qpic-panel-ili-qvga.dtsi"
+#include "qpic-panel-hx-hvga.dtsi"
 
 &soc {
 };
