@@ -1278,6 +1278,13 @@ static int mdss_dsi_ctrl_probe(struct platform_device *pdev)
 		platform_set_drvdata(pdev, ctrl_pdata);
 	}
 
+	ctrl_pdata->mdss_util = mdss_get_util_intf();
+	if (ctrl_pdata->mdss_util == NULL) {
+		pr_err("Failed to get mdss utility functions\n");
+		rc = -ENODEV;
+		goto error_no_mem;
+	}
+
 	ctrl_name = of_get_property(pdev->dev.of_node, "label", NULL);
 	if (!ctrl_name)
 		pr_info("%s:%d, DSI Ctrl name not specified\n",
