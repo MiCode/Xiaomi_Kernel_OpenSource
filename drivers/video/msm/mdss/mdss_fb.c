@@ -474,11 +474,12 @@ static int mdss_fb_lpm_enable(struct msm_fb_data_type *mfd, int mode)
 		pr_debug("Already in requested mode!\n");
 		return 0;
 	}
+	pr_debug("Enter mode: %d\n", mode);
 
 	pdata = dev_get_platdata(&mfd->pdev->dev);
 
-	pr_debug("Enter mode: %d\n", mode);
 	pdata->panel_info.dynamic_switch_pending = true;
+	mdss_fb_pan_idle(mfd);
 
 	mutex_lock(&mfd->bl_lock);
 	bl_lvl = mfd->bl_level;
@@ -2956,6 +2957,7 @@ int mdss_fb_do_ioctl(struct fb_info *info, unsigned int cmd,
 	struct mdp_buf_sync buf_sync;
 	struct msm_sync_pt_data *sync_pt_data = NULL;
 	unsigned int dsi_mode = 0;
+	struct mdss_panel_data *pdata = NULL;
 
 	if (!info || !info->par)
 		return -EINVAL;
@@ -2965,6 +2967,10 @@ int mdss_fb_do_ioctl(struct fb_info *info, unsigned int cmd,
 		return -EINVAL;
 
 	if (mfd->shutdown_pending)
+		return -EPERM;
+
+	pdata = dev_get_platdata(&mfd->pdev->dev);
+	if (!pdata || pdata->panel_info.dynamic_switch_pending)
 		return -EPERM;
 
 	atomic_inc(&mfd->ioctl_ref_cnt);
