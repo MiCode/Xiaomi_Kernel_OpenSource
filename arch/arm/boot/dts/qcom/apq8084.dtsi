@@ -4376,6 +4376,8 @@
 		qcom,misc-ref = <&pma8084_misc>;
 		qcom,restore-sec-cfg-for-scm-dev-id = <9>;
 		qcom,usb-dbm = <&dbm0_1p4>;
+		qcom,power-collapse-on-cable-disconnect;
+		qcom,por-after-power-collapse;
 
 		qcom,msm-bus,name = "usb3";
 		qcom,msm-bus,num-cases = <2>;
@@ -4407,6 +4409,8 @@
 		USB3_GDSC-supply = <&gdsc_usb30_sec>;
 		qcom,restore-sec-cfg-for-scm-dev-id = <10>;
 		qcom,charging-disabled;
+		qcom,power-collapse-on-cable-disconnect;
+		qcom,por-after-power-collapse;
 		status = "disabled";
 
 		qcom,msm-bus,name = "usb3_sec";
