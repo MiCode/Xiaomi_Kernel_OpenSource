@@ -1032,9 +1032,9 @@ void mdss_mdp_ctl_perf_release_bw(struct mdss_mdp_ctl *ctl)
 	 * released.
 	 */
 	for (i = 0; i < mdata->nctl; i++) {
-		struct mdss_mdp_ctl *ctl = mdata->ctl_off + i;
+		struct mdss_mdp_ctl *ctl_local = mdata->ctl_off + i;
 
-		if (ctl->power_on && ctl->is_video_mode)
+		if (ctl_local->power_on && ctl_local->is_video_mode)
 			goto exit;
 	}
 
@@ -1043,10 +1043,18 @@ void mdss_mdp_ctl_perf_release_bw(struct mdss_mdp_ctl *ctl)
 
 	/*Release the bandwidth only if there are no transactions pending*/
 	if (!transaction_status) {
-		trace_mdp_cmd_release_bw(ctl->num);
-		ctl->cur_perf.bw_ctl = 0;
-		ctl->new_perf.bw_ctl = 0;
-		pr_debug("Release BW ctl=%d\n", ctl->num);
+		/*
+		 * for splitdisplay if release_bw is called using secondary
+		 * then find the main ctl and release BW for main ctl because
+		 * BW is always calculated/stored using main ctl.
+		 */
+		struct mdss_mdp_ctl *ctl_local =
+			mdss_mdp_get_main_ctl(ctl) ? : ctl;
+
+		trace_mdp_cmd_release_bw(ctl_local->num);
+		ctl_local->cur_perf.bw_ctl = 0;
+		ctl_local->new_perf.bw_ctl = 0;
+		pr_debug("Release BW ctl=%d\n", ctl_local->num);
 		mdss_mdp_ctl_perf_update_bus(mdata, 0);
 	}
 exit:
