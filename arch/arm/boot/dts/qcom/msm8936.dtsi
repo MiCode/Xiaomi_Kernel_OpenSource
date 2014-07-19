@@ -27,6 +27,15 @@
 };
 
 &soc {
+	timer {
+		compatible = "arm,armv7-timer";
+		interrupts = <1 2 0xf008>,
+			     <1 3 0xf008>,
+			     <1 4 0xf008>,
+			     <1 1 0xf008>;
+		clock-frequency = <19200000>;
+	};
+
 	clock_cpu: qcom,cpu-clock-8936@b011050 {
 		compatible = "qcom,cpu-clock-8936";
 		reg = <0xb011050 0x8>,
