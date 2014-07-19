@@ -146,6 +146,8 @@ struct msm_isp_buf_ops {
 		const char *ctx_name, uint16_t num_buf_q);
 	int (*buf_mgr_deinit) (struct msm_isp_buf_mgr *buf_mgr);
 	int (*buf_mgr_debug) (struct msm_isp_buf_mgr *buf_mgr);
+	struct msm_isp_bufq * (*get_bufq)(struct msm_isp_buf_mgr *buf_mgr,
+		uint32_t bufq_handle);
 };
 
 struct msm_isp_buf_mgr {
