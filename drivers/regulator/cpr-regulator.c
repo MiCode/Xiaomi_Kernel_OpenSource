@@ -278,7 +278,7 @@ struct cpr_regulator {
 #define CPR_DEBUG_MASK_IRQ	BIT(0)
 #define CPR_DEBUG_MASK_API	BIT(1)
 
-static int cpr_debug_enable = CPR_DEBUG_MASK_IRQ;
+static int cpr_debug_enable;
 #if defined(CONFIG_DEBUG_FS)
 static struct dentry *cpr_debugfs_base;
 #endif
