@@ -660,3 +660,7 @@
 &pmi8994_haptics {
 	status = "okay";
 };
+
+&pmi8994_charger {
+	qcom,dc-psy-type = "Wireless";
+};
