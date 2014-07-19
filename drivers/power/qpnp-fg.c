@@ -224,7 +224,7 @@ static struct fg_dbgfs dbgfs_data = {
 "FG Debug-FS support\n"
 "\n"
 "Hierarchy schema:\n"
-"/sys/kernel/debug/spmi\n"
+"/sys/kernel/debug/fg_memif\n"
 "       /help            -- Static help text\n"
 "       /address  -- Starting register address for reads or writes\n"
 "       /count    -- Number of registers to read (only used for reads)\n"
@@ -430,15 +430,22 @@ static int fg_set_ram_addr(struct fg_chip *chip, u16 *address)
 	return rc;
 }
 
+#define BUF_LEN		4
 static int fg_mem_read(struct fg_chip *chip, u8 *val, u16 address, int len,
-		bool keep_access)
+		int offset, bool keep_access)
 {
-	int rc = 0, user_cnt = 0;
+	int rc = 0, user_cnt = 0, total_len = 0;
 	u8 *rd_data = val;
 	bool otp;
+	char str[DEBUG_PRINT_BUFFER_SIZE];
 
 	if (address < RAM_OFFSET)
 		otp = 1;
+
+	if (offset > 3) {
+		pr_err("offset too large %d\n", offset);
+		return -EINVAL;
+	}
 
 	user_cnt = atomic_add_return(1, &chip->memif_user_cnt);
 	if (fg_debug_mask & FG_MEM_DEBUG_READS)
@@ -459,22 +466,40 @@ static int fg_mem_read(struct fg_chip *chip, u8 *val, u16 address, int len,
 		goto out;
 
 	if (fg_debug_mask & FG_MEM_DEBUG_READS)
-		pr_info("length %d addr=%02X\n", len, address);
+		pr_info("length %d addr=%02X keep_access %d\n",
+				len, address, keep_access);
 
+	total_len = len;
 	while (len > 0) {
-		rc = fg_read(chip, rd_data,
-				chip->mem_base + MEM_INTF_RD_DATA0,
-				(len > 4) ? 4 : len);
+		if (!offset) {
+			rc = fg_read(chip, rd_data,
+					chip->mem_base + MEM_INTF_RD_DATA0,
+					(len > BUF_LEN) ? BUF_LEN : len);
+		} else {
+			rc = fg_read(chip, rd_data,
+				chip->mem_base + MEM_INTF_RD_DATA0 + offset,
+				BUF_LEN - offset);
+
+			/* manually set address to allow continous reads */
+			address += BUF_LEN;
+
+			rc = fg_set_ram_addr(chip, &address);
+			if (rc)
+				goto out;
+		}
 		if (rc) {
 			pr_err("spmi read failed: addr=%03x, rc=%d\n",
 				chip->mem_base + MEM_INTF_RD_DATA0, rc);
 			goto out;
 		}
-		rd_data += 4;
-		if (len >= 4)
-			len -= 4;
-		else
-			len = 0;
+		rd_data += (BUF_LEN - offset);
+		len -= (BUF_LEN - offset);
+		offset = 0;
+	}
+
+	if (fg_debug_mask & FG_MEM_DEBUG_READS) {
+		fill_string(str, DEBUG_PRINT_BUFFER_SIZE, val, total_len);
+		pr_info("data: %s\n", str);
 	}
 
 out:
@@ -579,7 +604,7 @@ static int fg_mem_masked_write(struct fg_chip *chip, u16 addr,
 	u8 reg[4];
 	char str[DEBUG_PRINT_BUFFER_SIZE];
 
-	rc = fg_mem_read(chip, reg, addr, 4, 1);
+	rc = fg_mem_read(chip, reg, addr, 4, 0, 1);
 	if (rc) {
 		pr_err("spmi read failed: addr=%03X, rc=%d\n", addr, rc);
 		return rc;
@@ -1261,7 +1286,7 @@ write_next_line_to_log(struct fg_trans *trans, int offset, size_t *pcnt)
 		goto done;
 
 	/* Read the desired number of "items" */
-	rc = fg_mem_read(trans->chip, data, offset, items_to_read,
+	rc = fg_mem_read(trans->chip, data, offset, items_to_read, 0,
 				*pcnt > items_to_read ? 1 : 0);
 	if (rc)
 		return -EINVAL;
