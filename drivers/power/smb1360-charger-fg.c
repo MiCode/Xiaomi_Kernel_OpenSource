@@ -514,6 +514,45 @@ out:
 	return rc;
 }
 
+#define EXPONENT_MASK		0xF800
+#define MANTISSA_MASK		0x3FF
+#define SIGN_MASK		0x400
+#define EXPONENT_SHIFT		11
+#define MICRO_UNIT		1000000ULL
+static int64_t float_decode(u16 reg)
+{
+	int64_t final_val, exponent_val, mantissa_val;
+	int exponent, mantissa, n;
+	bool sign;
+
+	exponent = (reg & EXPONENT_MASK) >> EXPONENT_SHIFT;
+	mantissa = (reg & MANTISSA_MASK);
+	sign = !!(reg & SIGN_MASK);
+
+	pr_debug("exponent=%d mantissa=%d sign=%d\n", exponent, mantissa, sign);
+
+	mantissa_val = mantissa * MICRO_UNIT;
+
+	n = exponent - 15;
+	if (n < 0)
+		exponent_val = MICRO_UNIT >> -n;
+	else
+		exponent_val = MICRO_UNIT << n;
+
+	n = n - 10;
+	if (n < 0)
+		mantissa_val >>= -n;
+	else
+		mantissa_val <<= n;
+
+	final_val = exponent_val + mantissa_val;
+
+	if (sign)
+		final_val *= -1;
+
+	return final_val;
+}
+
 static int smb1360_enable_fg_access(struct smb1360_chip *chip)
 {
 	int rc;
@@ -880,18 +919,24 @@ static int smb1360_get_prop_voltage_now(struct smb1360_chip *chip)
 
 static int smb1360_get_prop_batt_resistance(struct smb1360_chip *chip)
 {
-	u8 reg = 0;
+	u8 reg[2];
+	u16 temp;
 	int rc;
+	int64_t resistance;
 
-	rc = smb1360_read(chip, SHDW_FG_ESR_ACTUAL, &reg);
+	rc = smb1360_read_bytes(chip, SHDW_FG_ESR_ACTUAL, reg, 2);
 	if (rc) {
 		pr_err("Failed to read FG_ESR_ACTUAL rc=%d\n", rc);
 		return rc;
 	}
+	temp = (reg[1] << 8) | reg[0];
 
-	pr_debug("reg=0x%02x resistance=%d\n", reg, reg * 2);
+	resistance = float_decode(temp) * 2;
 
-	return reg * 2;
+	pr_debug("reg=0x%02x resistance=%lld\n", temp, resistance);
+
+	/* resistance in uohms */
+	return resistance;
 }
 
 static int smb1360_get_prop_current_now(struct smb1360_chip *chip)
