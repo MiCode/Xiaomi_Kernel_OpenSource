@@ -257,6 +257,13 @@
 		compatible = "qcom,dummycc";
 		#clock-cells = <1>;
 	};
+
+	dummy_vreg: dummy_vreg {
+		compatible = "regulator-fixed";
+		status = "ok";
+		regulator-name = "dummy_vreg";
+		regulator-always-on;
+	};
 };
 
 #include "msm8992-ion.dtsi"
