@@ -140,6 +140,7 @@ struct flash_node_data {
 	struct regulator		*boost_regulator;
 	struct work_struct		work;
 	struct delayed_work		dwork;
+	u32				boost_voltage_max;
 	u16				duration;
 	u16				max_current;
 	u16				current_addr;
@@ -444,12 +445,24 @@ static void qpnp_flash_led_work(struct work_struct *work)
 	flash_node->prgm_current = brightness;
 
 	if (flash_node->boost_regulator && !flash_node->flash_on) {
+		if (regulator_count_voltages(flash_node->boost_regulator)
+									> 0) {
+			rc = regulator_set_voltage(flash_node->boost_regulator,
+				flash_node->boost_voltage_max,
+				flash_node->boost_voltage_max);
+			if (rc) {
+				dev_err(&led->spmi_dev->dev,
+				"boost regulator set voltage failed\n");
+				mutex_unlock(&led->flash_led_lock);
+				return;
+			}
+		}
+
 		rc = regulator_enable(flash_node->boost_regulator);
 		if (rc) {
 			dev_err(&led->spmi_dev->dev,
 				"Boost regulator enablement failed\n");
-			mutex_unlock(&led->flash_led_lock);
-			return;
+			goto error_regulator_enable;
 		}
 	}
 
@@ -611,8 +624,13 @@ turn_off:
 	}
 
 exit_flash_led_work:
-	if (flash_node->boost_regulator && flash_node->flash_on)
+	if (flash_node->boost_regulator && flash_node->flash_on) {
 		regulator_disable(flash_node->boost_regulator);
+error_regulator_enable:
+		if (regulator_count_voltages(flash_node->boost_regulator) > 0)
+			regulator_set_voltage(flash_node->boost_regulator,
+				0, flash_node->boost_voltage_max);
+	}
 
 	flash_node->flash_on = false;
 	mutex_unlock(&led->flash_led_lock);
@@ -899,8 +917,21 @@ static int qpnp_flash_led_parse_each_led_dt(struct qpnp_flash_led *led,
 				IS_ERR(flash_node->boost_regulator))
 			schedule_delayed_work(&flash_node->dwork,
 					FLASH_BOOST_REGULATOR_PROBE_DELAY_MS);
+
+		rc = of_property_read_u32(node, "boost-voltage-max", &val);
+		if (!rc)
+			flash_node->boost_voltage_max = val;
+		else {
+			dev_err(&led->spmi_dev->dev,
+			"Unable to read maximum boost regulator voltage\n");
+			goto error_regulator_config;
+		}
 	}
 
+	return rc;
+
+error_regulator_config:
+	regulator_put(flash_node->boost_regulator);
 	return rc;
 }
 

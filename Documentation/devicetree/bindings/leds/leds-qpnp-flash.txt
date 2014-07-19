@@ -61,6 +61,8 @@ Optional properties inside child node:
 - qcom,current		: default current intensity for LED. Accepted values should be
 			  integer from 0 t 1000 inclusive, indicating 0 to 1000 mA.
 - boost-supply		: flash LED boost power source for flash LED
+- boost-voltage-max	: maximum voltage for flash LED boost regulator in uV. This attribute is
+			: required if boost-supply is defined.
 - qcom,duration		: duration for flash LED. When duration time expires, hardware
 			  will turn off flash LED. Values should be from 10 ms to 1280 ms
 			  with 10 ms incremental step. Not applicable to torch.
@@ -107,6 +109,7 @@ Example:
 			qcom,max-current = <200>;
 			qcom,id = <0>;
 			qcom,current = <120>;
+			boost-voltage-max = <3600000>;
 		};
 	};
 
