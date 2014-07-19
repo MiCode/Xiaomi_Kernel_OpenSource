@@ -1953,7 +1953,7 @@ static inline int migration_needed(struct rq *rq, struct task_struct *p)
 {
 	int nice = TASK_NICE(p);
 
-	if (is_small_task(p))
+	if (is_small_task(p) || p->state != TASK_RUNNING)
 		return 0;
 
 	/* Todo: cgroup-based control? */
@@ -6548,7 +6548,8 @@ static int active_load_balance_cpu_stop(void *data)
 
 	push_task = busiest_rq->push_task;
 	if (push_task) {
-		if (push_task->on_rq && task_cpu(push_task) == busiest_cpu &&
+		if (push_task->on_rq && push_task->state == TASK_RUNNING &&
+		    task_cpu(push_task) == busiest_cpu &&
 		    cpu_online(target_cpu))
 			move_task(push_task, &env);
 		put_task_struct(push_task);
