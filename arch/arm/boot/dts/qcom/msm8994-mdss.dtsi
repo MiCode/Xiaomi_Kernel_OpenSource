@@ -40,9 +40,9 @@
 		qcom,mdss-vbif-qos-nrt-setting = <1 1 1 1>;
 
 		qcom,mdss-mdp-reg-offset = <0x00001000>;
-		qcom,max-bandwidth-low-kbps = <6000000>;
-		qcom,max-bandwidth-high-kbps = <6000000>;
-		qcom,max-bandwidth-per-pipe-kbps = <1650000>;
+		qcom,max-bandwidth-low-kbps = <7300000>;
+		qcom,max-bandwidth-high-kbps = <7300000>;
+		qcom,max-bandwidth-per-pipe-kbps = <1800000>;
 		qcom,max-clk-rate = <400000000>;
 
 		qcom,mdss-pipe-vig-off = <0x00005000 0x00007000
