@@ -147,6 +147,8 @@
 
 #define BYTES_PER_FUSE_ROW		8
 
+#define SPEED_BIN_NONE			UINT_MAX
+
 #define FLAGS_IGNORE_1ST_IRQ_STATUS	BIT(0)
 #define FLAGS_SET_MIN_VOLTAGE		BIT(1)
 #define FLAGS_UPLIFT_QUOT_VOLT		BIT(2)
@@ -2432,7 +2434,7 @@ static void cpr_parse_speed_bin_fuse(struct cpr_regulator *cpr_vreg,
 				fuse_sel[0], fuse_bits, speed_bits);
 		cpr_vreg->speed_bin = speed_bits;
 	} else {
-		cpr_vreg->speed_bin = UINT_MAX;
+		cpr_vreg->speed_bin = SPEED_BIN_NONE;
 	}
 }
 
