@@ -396,6 +396,7 @@
 		qcom,cdc-micbias2-headset-only;
 		qcom,us-euro-gpios = <&pm8994_mpps 2 0>;
 		qcom,mbhc-audio-jack-type = "6-pole-jack";
+		qcom,hdmi-audio-rx;
 	};
 
 	usb1_vreg: usb1_vreg {

@@ -425,6 +425,7 @@
 		qcom,cdc-micbias2-headset-only;
 		qcom,mbhc-audio-jack-type = "6-pole-jack";
 		qcom,ext-ult-spk-amp-gpio = <&pmi8994_gpios 1 0>;
+		qcom,hdmi-audio-rx;
 	};
 };
 
