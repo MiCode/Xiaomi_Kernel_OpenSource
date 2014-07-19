@@ -547,6 +547,7 @@
 					<0 10>,
 					<0 10>,
 					<0 10>;
+		qcom,cpr-quotient-adjustment = <116 0 73>;
 		qcom,cpr-fuse-ro-sel = <82 82 82>;
 		qcom,cpr-fuse-init-voltage =
 					<138  0 6 0>,
@@ -597,6 +598,7 @@
 					<0 10>,
 					<0 10>,
 					<0 10>;
+		qcom,cpr-quotient-adjustment = <36 45 0>;
 		qcom,cpr-fuse-ro-sel = <72 72 72>;
 		qcom,cpr-fuse-init-voltage =
 					<138 54 6 0>,
