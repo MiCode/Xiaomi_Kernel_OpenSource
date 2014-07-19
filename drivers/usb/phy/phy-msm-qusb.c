@@ -182,7 +182,7 @@ static int qusb_phy_probe(struct platform_device *pdev)
 		return PTR_ERR(qphy->ref_clk);
 	clk_set_rate(qphy->ref_clk, 19200000);
 
-	qphy->phy_reset = devm_clk_get(dev, "cfg_ahb_clk");
+	qphy->cfg_ahb_clk = devm_clk_get(dev, "cfg_ahb_clk");
 	if (IS_ERR(qphy->cfg_ahb_clk))
 		return PTR_ERR(qphy->cfg_ahb_clk);
 
