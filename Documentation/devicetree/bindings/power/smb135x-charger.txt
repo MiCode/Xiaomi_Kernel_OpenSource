@@ -55,6 +55,7 @@ Optional Properties:
 					charging. In this case the input current from USB is split
 					between a main charger and smb135x for reducing thermal impact
 					of high current charging from USB path.
+- qcom,inhibit-disabled:	Disables the charger-inhibit function.
 
 Example:
 	i2c@f9967000 {
