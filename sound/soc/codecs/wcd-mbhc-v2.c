@@ -119,6 +119,39 @@ static void hphlocp_off_report(struct wcd_mbhc *mbhc, u32 jack_status)
 			    mbhc->intr_ids->hph_left_ocp);
 }
 
+static void wcd_program_btn_threshold(const struct wcd_mbhc *mbhc, bool micbias)
+{
+	struct wcd_mbhc_btn_detect_cfg *btn_det;
+	struct snd_soc_codec *codec = mbhc->codec;
+	struct snd_soc_card *card = codec->card;
+	u16 i;
+	u32 course, fine, reg_val;
+	u16 reg_addr = MSM8X16_WCD_A_ANALOG_MBHC_BTN0_ZDETL_CTL;
+	s16 *btn_voltage;
+
+	if (mbhc->mbhc_cfg->calibration == NULL) {
+		dev_err(card->dev, "%s: calibration data is NULL\n", __func__);
+		return;
+	}
+
+	btn_det = WCD_MBHC_CAL_BTN_DET_PTR(mbhc->mbhc_cfg->calibration);
+
+	if (micbias)
+		btn_voltage = btn_det->_v_btn_high;
+	else
+		btn_voltage = btn_det->_v_btn_low;
+	for (i = 0; i <  btn_det->num_btn; i++) {
+		course = (btn_voltage[i] / 100);
+		fine = ((btn_voltage[i] % 100) / 12);
+
+		reg_val = (course << 5) | (fine << 2);
+		snd_soc_update_bits(codec, reg_addr, 0xFC, reg_val);
+		pr_err("%s: course: %d fine: %d reg_addr: %x reg_val: %x\n",
+				__func__, course, fine, reg_addr, reg_val);
+		reg_addr++;
+	}
+}
+
 static int wcd_event_notify(struct notifier_block *self, unsigned long val,
 				void *data)
 {
@@ -144,6 +177,8 @@ static int wcd_event_notify(struct notifier_block *self, unsigned long val,
 				    MSM8X16_WCD_A_ANALOG_MBHC_FSM_CTL,
 				    0xB0, 0x80);
 		mbhc->is_hs_recording = true;
+		/* Program Button threshold registers */
+		wcd_program_btn_threshold(mbhc, true);
 		break;
 	/* MICBIAS usage change */
 	case WCD_EVENT_PRE_MICBIAS_2_OFF:
@@ -157,14 +192,28 @@ static int wcd_event_notify(struct notifier_block *self, unsigned long val,
 				    MSM8X16_WCD_A_ANALOG_MBHC_FSM_CTL,
 				    0xB0, 0xB0);
 		mbhc->is_hs_recording = false;
+		/* Program Button threshold registers */
+		wcd_program_btn_threshold(mbhc, false);
 		break;
 	case WCD_EVENT_POST_HPHL_PA_OFF:
 		if (mbhc->hph_status & SND_JACK_OC_HPHL)
 			hphlocp_off_report(mbhc, SND_JACK_OC_HPHL);
+		snd_soc_update_bits(codec,
+				MSM8X16_WCD_A_ANALOG_MICB_2_EN,
+				0x40, 0x0);
 		break;
 	case WCD_EVENT_POST_HPHR_PA_OFF:
 		if (mbhc->hph_status & SND_JACK_OC_HPHR)
 			hphrocp_off_report(mbhc, SND_JACK_OC_HPHR);
+		snd_soc_update_bits(codec,
+				MSM8X16_WCD_A_ANALOG_MICB_2_EN,
+				0x40, 0x00);
+		break;
+	case WCD_EVENT_PRE_HPHL_PA_ON:
+	case WCD_EVENT_PRE_HPHR_PA_ON:
+		snd_soc_update_bits(codec,
+				MSM8X16_WCD_A_ANALOG_MICB_2_EN,
+				0x40, 0x40);
 		break;
 	default:
 		break;
@@ -184,33 +233,6 @@ static int wcd_cancel_btn_work(struct wcd_mbhc *mbhc)
 	if (r)
 		wcd9xxx_spmi_unlock_sleep();
 	return r;
-}
-
-static void wcd_program_btn_threshold(const struct wcd_mbhc *mbhc)
-{
-	struct wcd_mbhc_btn_detect_cfg *btn_det;
-	struct snd_soc_codec *codec = mbhc->codec;
-	struct snd_soc_card *card = codec->card;
-	u16 i;
-	u32 course, fine, reg_val;
-	u16 reg_addr = MSM8X16_WCD_A_ANALOG_MBHC_BTN0_ZDETL_CTL;
-
-	if (mbhc->mbhc_cfg->calibration == NULL) {
-		dev_err(card->dev, "%s: calibration data is NULL\n", __func__);
-		return;
-	}
-
-	btn_det = WCD_MBHC_CAL_BTN_DET_PTR(mbhc->mbhc_cfg->calibration);
-
-	for (i = 0; i <  btn_det->num_btn; i++) {
-		course = (btn_det->_v_btn_high[i] / 100);
-		fine = ((btn_det->_v_btn_high[i] % 100) / 12);
-		reg_val = (course << 5) | (fine << 2);
-		snd_soc_update_bits(codec, reg_addr, 0xFC, reg_val);
-		pr_debug("%s: course: %d fine: %d reg_addr: %x reg_val: %x\n",
-				__func__, course, fine, reg_addr, reg_val);
-		reg_addr++;
-	}
 }
 
 static bool wcd_swch_level_remove(struct wcd_mbhc *mbhc)
@@ -1604,7 +1626,7 @@ static int wcd_mbhc_initialise(struct wcd_mbhc *mbhc)
 			MSM8X16_WCD_A_DIGITAL_CDC_DIG_CLK_CTL,
 			0x08, 0x08);
 	/* Program Button threshold registers */
-	wcd_program_btn_threshold(mbhc);
+	wcd_program_btn_threshold(mbhc, false);
 
 	INIT_WORK(&mbhc->correct_plug_swch, wcd_correct_swch_plug);
 	/* enable the WCD MBHC IRQ's */
