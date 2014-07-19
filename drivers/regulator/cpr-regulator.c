@@ -869,10 +869,10 @@ static irqreturn_t cpr_irq_handler(int irq, void *dev)
 		cpr_irq_clr_nack(cpr_vreg);
 	} else if (reg_val & CPR_INT_MID) {
 		/* RBCPR_CTL_SW_AUTO_CONT_ACK_EN is enabled */
-		cpr_debug_irq(cpr_vreg, "IRQ occured for Mid Flag\n");
+		cpr_debug_irq(cpr_vreg, "IRQ occurred for Mid Flag\n");
 	} else {
-		cpr_err(cpr_vreg, "IRQ occured for unknown flag (0x%08x)\n",
-			reg_val);
+		cpr_debug_irq(cpr_vreg,
+			"IRQ occurred for unknown flag (0x%08x)\n", reg_val);
 	}
 
 	/* Save register values for the corner */
