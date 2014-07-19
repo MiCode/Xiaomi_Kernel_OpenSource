@@ -306,6 +306,7 @@ struct smb135x_chg {
 	int				version;
 
 	bool				chg_enabled;
+	bool				chg_disabled_permanently;
 
 	bool				usb_present;
 	bool				dc_present;
@@ -1145,6 +1146,12 @@ static int __smb135x_charging(struct smb135x_chg *chip, int enable)
 	int rc = 0;
 
 	pr_debug("charging enable = %d\n", enable);
+
+	if (chip->chg_disabled_permanently) {
+		pr_debug("charging is disabled permanetly\n");
+		return -EINVAL;
+	}
+
 
 	rc = smb135x_masked_write(chip, CMD_CHG_REG,
 			CMD_CHG_EN, enable ? CMD_CHG_EN : 0);
@@ -3260,8 +3267,9 @@ static int smb_parse_dt(struct smb135x_chg *chip)
 	chip->iterm_disabled = of_property_read_bool(node,
 						"qcom,iterm-disabled");
 
-	chip->chg_enabled = !(of_property_read_bool(node,
+	chip->chg_disabled_permanently = (of_property_read_bool(node,
 						"qcom,charging-disabled"));
+	chip->chg_enabled = !chip->chg_disabled_permanently;
 
 	rc = of_property_read_string(node, "qcom,bms-psy-name",
 						&chip->bms_psy_name);
