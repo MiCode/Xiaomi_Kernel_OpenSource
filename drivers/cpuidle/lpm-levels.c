@@ -459,13 +459,15 @@ static int cluster_configure(struct lpm_cluster *cluster, int idx,
 		return -EPERM;
 	}
 
-	update_debug_pc_event(CLUSTER_ENTER, idx,
+	if (idx != cluster->default_level) {
+		update_debug_pc_event(CLUSTER_ENTER, idx,
 			cluster->num_childs_in_sync.bits[0],
 			cluster->child_cpus.bits[0], from_idle);
-	trace_cluster_enter(cluster->cluster_name, idx,
+		trace_cluster_enter(cluster->cluster_name, idx,
 			cluster->num_childs_in_sync.bits[0],
 			cluster->child_cpus.bits[0], from_idle);
-
+		lpm_stats_cluster_enter(cluster->stats, idx);
+	}
 
 	for (i = 0; i < cluster->ndevices; i++) {
 		ret = cluster->lpm_dev[i].set_mode(&cluster->lpm_dev[i],
@@ -490,7 +492,6 @@ static int cluster_configure(struct lpm_cluster *cluster, int idx,
 		msm_mpm_enter_sleep((uint32_t)us, from_idle, &nextcpu);
 	}
 	cluster->last_level = idx;
-	lpm_stats_cluster_enter(cluster->stats, idx);
 	spin_unlock(&cluster->sync_lock);
 	return 0;
 
