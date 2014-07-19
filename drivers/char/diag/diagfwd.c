@@ -2279,6 +2279,9 @@ int diagfwd_init(void)
 	driver->rsp_buf_busy = 0;
 	spin_lock_init(&driver->rsp_buf_busy_lock);
 
+	diagmem_init(driver, POOL_TYPE_USB_APPS);
+	diagmem_init(driver, POOL_TYPE_USB_PERIPHERALS);
+
 	for (i = 0; i < NUM_SMD_CONTROL_CHANNELS; i++) {
 		driver->separate_cmdrsp[i] = 0;
 		driver->peripheral_supports_stm[i] = DISABLE_STM;
