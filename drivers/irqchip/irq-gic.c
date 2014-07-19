@@ -2,6 +2,7 @@
  *  linux/arch/arm/common/gic.c
  *
  *  Copyright (C) 2002 ARM Limited, All Rights Reserved.
+ *  Copyright (c) 2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -240,6 +241,31 @@ static int gic_suspend(void)
 }
 
 extern int msm_show_resume_irq_mask;
+
+/*
+ * gic_show_pending_irq - Shows the pending interrupts
+ * Note: Interrupts should be disabled on the cpu from which
+ * this is called to get accurate list of pending interrupts.
+ */
+void gic_show_pending_irq(void)
+{
+	void __iomem *base;
+	unsigned long pending[32];
+	u32 enabled;
+	unsigned int i, j;
+
+	for (i = 0; i < MAX_GIC_NR; i++) {
+		base = gic_data_dist_base(&gic_data[i]);
+		for (j = 0; j * 32 < gic_data[i].gic_irqs; j++) {
+			enabled = readl_relaxed(base +
+						GIC_DIST_ENABLE_SET + j * 4);
+			pending[j] = readl_relaxed(base +
+						GIC_DIST_PENDING_SET + j * 4);
+			pending[j] &= enabled;
+			pr_err("Pending irqs[%d] %lx\n", j, pending[j]);
+		}
+	}
+}
 
 static void gic_show_resume_irq(struct gic_chip_data *gic)
 {
