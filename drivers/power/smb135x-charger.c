@@ -326,6 +326,7 @@ struct smb135x_chg {
 	int				*usb_current_table;
 	int				dc_current_arr_size;
 	int				*dc_current_table;
+	bool				inhibit_disabled;
 	u8				irq_cfg_mask[3];
 	int				otg_oc_count;
 
@@ -1461,19 +1462,23 @@ static int smb135x_set_resume_threshold(struct smb135x_chg *chip,
 	int rc;
 	u8 reg;
 
-	if (resume_delta_mv < 100)
-		reg = CHG_INHIBIT_50MV_VAL;
-	else if (resume_delta_mv < 200)
-		reg = CHG_INHIBIT_100MV_VAL;
-	else if (resume_delta_mv < 300)
-		reg = CHG_INHIBIT_200MV_VAL;
-	else
-		reg = CHG_INHIBIT_300MV_VAL;
+	if (!chip->inhibit_disabled) {
+		if (resume_delta_mv < 100)
+			reg = CHG_INHIBIT_50MV_VAL;
+		else if (resume_delta_mv < 200)
+			reg = CHG_INHIBIT_100MV_VAL;
+		else if (resume_delta_mv < 300)
+			reg = CHG_INHIBIT_200MV_VAL;
+		else
+			reg = CHG_INHIBIT_300MV_VAL;
 
-	rc = smb135x_masked_write(chip, CFG_4_REG, CHG_INHIBIT_MASK, reg);
-	if (rc < 0) {
-		dev_err(chip->dev, "Couldn't set inhibit val rc = %d\n", rc);
-		return rc;
+		rc = smb135x_masked_write(chip, CFG_4_REG, CHG_INHIBIT_MASK,
+						reg);
+		if (rc < 0) {
+			dev_err(chip->dev, "Couldn't set inhibit val rc = %d\n",
+						rc);
+			return rc;
+		}
 	}
 
 	if (resume_delta_mv < 200)
@@ -2811,7 +2816,7 @@ DEFINE_SIMPLE_ATTRIBUTE(force_irq_ops, NULL, force_irq_set, "0x%02llx\n");
 
 static int force_rechg_set(void *data, u64 val)
 {
-	int rc;
+	int rc = 0;
 	struct smb135x_chg *chip = data;
 
 	if (!chip->chg_enabled) {
@@ -2819,19 +2824,27 @@ static int force_rechg_set(void *data, u64 val)
 		return -EINVAL;
 	}
 
-	rc = smb135x_masked_write(chip, CFG_14_REG, EN_CHG_INHIBIT_BIT, 0);
-	if (rc)
-		dev_err(chip->dev,
-			"Couldn't disable charge-inhibit rc=%d\n", rc);
-	/* delay for charge-inhibit to take affect */
-	msleep(500);
+	if (!chip->inhibit_disabled) {
+		rc = smb135x_masked_write(chip, CFG_14_REG, EN_CHG_INHIBIT_BIT,
+					0);
+		if (rc)
+			dev_err(chip->dev,
+				"Couldn't disable charge-inhibit rc=%d\n", rc);
+
+		/* delay for charge-inhibit to take affect */
+		msleep(500);
+	}
+
 	rc |= smb135x_charging(chip, false);
 	rc |= smb135x_charging(chip, true);
-	rc |= smb135x_masked_write(chip, CFG_14_REG, EN_CHG_INHIBIT_BIT,
-						EN_CHG_INHIBIT_BIT);
-	if (rc)
-		dev_err(chip->dev,
-			"Couldn't enable charge-inhibit rc=%d\n", rc);
+
+	if (!chip->inhibit_disabled) {
+		rc |= smb135x_masked_write(chip, CFG_14_REG,
+				EN_CHG_INHIBIT_BIT, EN_CHG_INHIBIT_BIT);
+		if (rc)
+			dev_err(chip->dev,
+				"Couldn't enable charge-inhibit rc=%d\n", rc);
+	}
 
 	return rc;
 }
@@ -3016,12 +3029,17 @@ static int smb135x_hw_init(struct smb135x_chg *chip)
 	/*
 	 * set chg en by cmd register, set chg en by writing bit 1,
 	 * enable auto pre to fast, enable current termination, enable
-	 * auto recharge, enable chg inhibition
+	 * auto recharge, enable chg inhibition based on the dt flag
 	 */
+	if (chip->inhibit_disabled)
+		reg = 0;
+	else
+		reg = EN_CHG_INHIBIT_BIT;
+
 	rc = smb135x_masked_write(chip, CFG_14_REG,
 			CHG_EN_BY_PIN_BIT | CHG_EN_ACTIVE_LOW_BIT
 			| PRE_TO_FAST_REQ_CMD_BIT | DISABLE_AUTO_RECHARGE_BIT
-			| EN_CHG_INHIBIT_BIT, EN_CHG_INHIBIT_BIT);
+			| EN_CHG_INHIBIT_BIT, reg);
 	if (rc < 0) {
 		dev_err(chip->dev, "Couldn't set cfg 14 rc=%d\n", rc);
 		return rc;
@@ -3314,6 +3332,9 @@ static int smb_parse_dt(struct smb135x_chg *chip)
 	chip->chg_disabled_permanently = (of_property_read_bool(node,
 						"qcom,charging-disabled"));
 	chip->chg_enabled = !chip->chg_disabled_permanently;
+
+	chip->inhibit_disabled  = of_property_read_bool(node,
+						"qcom,inhibit-disabled");
 
 	rc = of_property_read_string(node, "qcom,bms-psy-name",
 						&chip->bms_psy_name);
