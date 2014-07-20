@@ -124,6 +124,7 @@ struct kgsl_mmu_pt_ops {
 	int (*mmu_unmap) (struct kgsl_pagetable *pt,
 			struct kgsl_memdesc *memdesc);
 	void *(*mmu_create_pagetable) (void);
+	void *(*mmu_create_secure_pagetable) (void);
 	void (*mmu_destroy_pagetable) (struct kgsl_pagetable *);
 	phys_addr_t (*get_ptbase) (struct kgsl_pagetable *);
 };

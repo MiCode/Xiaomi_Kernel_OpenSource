@@ -584,9 +584,19 @@ done:
 
 }
 
-static int adreno_of_get_iommu(struct device_node *parent,
+static inline struct adreno_device *adreno_get_dev(struct platform_device *pdev)
+{
+	const struct of_device_id *of_id =
+		of_match_device(adreno_match_table, &pdev->dev);
+
+	return of_id ? (struct adreno_device *) of_id->data : NULL;
+}
+
+static int adreno_of_get_iommu(struct platform_device *pdev,
 	struct kgsl_device_platform_data *pdata)
 {
+	struct device_node *parent = pdev->dev.of_node;
+	struct adreno_device *adreno_dev = adreno_get_dev(pdev);
 	int result = -EINVAL;
 	struct device_node *node, *child;
 	struct kgsl_device_iommu_data *data = NULL;
@@ -597,6 +607,10 @@ static int adreno_of_get_iommu(struct device_node *parent,
 	node = of_parse_phandle(parent, "iommu", 0);
 	if (node == NULL)
 		return -EINVAL;
+
+	if (adreno_dev)
+		adreno_dev->dev.mmu.secured =
+			of_property_read_bool(node, "qcom,iommu-secure-id");
 
 	data = kzalloc(sizeof(*data), GFP_KERNEL);
 	if (data == NULL) {
@@ -718,7 +732,7 @@ static int adreno_of_get_pdata(struct platform_device *pdev)
 		goto err;
 	}
 
-	ret = adreno_of_get_iommu(pdev->dev.of_node, pdata);
+	ret = adreno_of_get_iommu(pdev, pdata);
 	if (ret)
 		goto err;
 
@@ -784,14 +798,6 @@ adreno_ocmem_free(struct adreno_device *adreno_dev)
 }
 #endif
 
-static inline struct adreno_device *adreno_get_dev(struct platform_device *pdev)
-{
-	const struct of_device_id *of_id =
-		of_match_device(adreno_match_table, &pdev->dev);
-
-	return of_id ? (struct adreno_device *) of_id->data : NULL;
-}
-
 int adreno_probe(struct platform_device *pdev)
 {
 	struct kgsl_device *device;
@@ -816,6 +822,17 @@ int adreno_probe(struct platform_device *pdev)
 
 	/* Identify the specific GPU */
 	adreno_identify_gpu(adreno_dev);
+
+	/*
+	 * qcom,iommu-secure-id is used to identify MMUs that can handle secure
+	 * content but that is only part of the story - the GPU also has to be
+	 * able to handle secure content.  Unfortunately in a classic catch-22
+	 * we cannot identify the GPU until after the DT is parsed. tl;dr -
+	 * check the GPU capabilities here and modify mmu->secured accordingly
+	 */
+
+	if (!ADRENO_FEATURE(adreno_dev, ADRENO_CONTENT_PROTECTION))
+		device->mmu.secured = false;
 
 	status = kgsl_device_platform_probe(device);
 	if (status) {

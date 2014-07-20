@@ -3042,6 +3042,9 @@ long kgsl_ioctl_map_user_mem(struct kgsl_device_private *dev_priv,
 
 		break;
 	case KGSL_MEM_ENTRY_ION:
+		if (kgsl_mmu_is_secured(&dev_priv->device->mmu) &&
+			(param->flags & KGSL_MEMFLAGS_SECURE))
+			entry->memdesc.priv &= ~KGSL_MEMDESC_GUARD_PAGE;
 		result = kgsl_setup_ion(entry, private->pagetable, data,
 					dev_priv->device);
 		break;
@@ -3401,6 +3404,11 @@ long kgsl_ioctl_gpumem_alloc(struct kgsl_device_private *dev_priv,
 	if (result)
 		return result;
 
+	if (param->flags & KGSL_MEMFLAGS_SECURE) {
+		entry->memdesc.priv |= KGSL_MEMDESC_SECURE;
+		entry->memdesc.priv &= ~KGSL_MEMDESC_GUARD_PAGE;
+	}
+
 	result = kgsl_mem_entry_attach_process(entry, dev_priv);
 	if (result != 0)
 		goto err;
@@ -3435,6 +3443,9 @@ long kgsl_ioctl_gpumem_alloc_id(struct kgsl_device_private *dev_priv,
 	result = _gpumem_alloc(dev_priv, &entry, param->size, param->flags);
 	if (result != 0)
 		goto err;
+
+	if (param->flags & KGSL_MEMFLAGS_SECURE)
+		entry->memdesc.priv |= KGSL_MEMDESC_SECURE;
 
 	result = kgsl_mem_entry_attach_process(entry, dev_priv);
 	if (result != 0)

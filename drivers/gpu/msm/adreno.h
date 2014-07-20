@@ -81,6 +81,8 @@
 #define ADRENO_PPD BIT(6)
 /* The microcode supports register to register copy and compare */
 #define ADRENO_HAS_REG_TO_REG_CMDS BIT(7)
+/* The GPU supports content protection */
+#define ADRENO_CONTENT_PROTECTION BIT(8)
 
 /* Flags to control command packet settings */
 #define KGSL_CMD_FLAGS_NONE             0

@@ -717,6 +717,7 @@ adreno_ringbuffer_addcmds(struct adreno_ringbuffer *rb,
 	unsigned int gpuaddr = rb->device->memstore.gpuaddr;
 	bool profile_ready;
 	struct adreno_context *drawctxt = rb->drawctxt_active;
+	bool secured_ctxt = false;
 
 	if (drawctxt != NULL && kgsl_context_detached(&drawctxt->base) &&
 		!(flags & KGSL_CMD_FLAGS_INTERNAL_ISSUE))
@@ -736,8 +737,11 @@ adreno_ringbuffer_addcmds(struct adreno_ringbuffer *rb,
 	 * here. As a result, any other code that accesses this variable
 	 * must also use device->mutex.
 	 */
-	if (drawctxt)
+	if (drawctxt) {
 		drawctxt->internal_timestamp = rb->timestamp;
+		if (drawctxt->base.flags & KGSL_CONTEXT_SECURE)
+			secured_ctxt = true;
+	}
 
 	/*
 	 * If in stream ib profiling is enabled and there are counters
@@ -759,6 +763,8 @@ adreno_ringbuffer_addcmds(struct adreno_ringbuffer *rb,
 	total_sizedwords += 2;
 	/* internal ib command identifier for the ringbuffer */
 	total_sizedwords += (flags & KGSL_CMD_FLAGS_INTERNAL_ISSUE) ? 2 : 0;
+
+	total_sizedwords += (secured_ctxt) ? 26 : 0;
 
 	/* Add two dwords for the CP_INTERRUPT */
 	total_sizedwords +=
@@ -835,6 +841,33 @@ adreno_ringbuffer_addcmds(struct adreno_ringbuffer *rb,
 			KGSL_MEMSTORE_RB_OFFSET(rb, soptimestamp);
 	*ringcmds++ = timestamp;
 
+	if (secured_ctxt) {
+		*ringcmds++ = cp_type3_packet(CP_WAIT_FOR_IDLE, 1);
+		*ringcmds++ = 0x00000000;
+		/*
+		 * The two commands will stall the PFP until the PFP-ME-AHB
+		 * is drained and the GPU is idle. As soon as this happens,
+		 * the PFP will start moving again.
+		 */
+		*ringcmds++ = cp_type3_packet(CP_WAIT_FOR_ME, 1);
+		*ringcmds++ = 0x00000000;
+		/*
+		 * Below commands are processed by ME. GPU will be
+		 * idle when they are processed. But the PFP will continue
+		 * to fetch instructions at the same time.
+		 */
+		*ringcmds++ = cp_type3_packet(CP_SET_PROTECTED_MODE, 1);
+		*ringcmds++ = 0;
+		*ringcmds++ = cp_type3_packet(CP_WIDE_REG_WRITE, 2);
+		*ringcmds++ = A4XX_RBBM_SECVID_TRUST_CONTROL;
+		*ringcmds++ = 1;
+		*ringcmds++ = cp_type3_packet(CP_SET_PROTECTED_MODE, 1);
+		*ringcmds++ = 1;
+		/* Stall PFP until all above commands are complete */
+		*ringcmds++ = cp_type3_packet(CP_WAIT_FOR_ME, 1);
+		*ringcmds++ = 0x00000000;
+	}
+
 	if (flags & KGSL_CMD_FLAGS_PMODE) {
 		/* disable protected mode error checking */
 		*ringcmds++ = cp_type3_packet(CP_SET_PROTECTED_MODE, 1);
@@ -902,6 +935,22 @@ adreno_ringbuffer_addcmds(struct adreno_ringbuffer *rb,
 
 	if (flags & KGSL_CMD_FLAGS_WFI) {
 		*ringcmds++ = cp_type3_packet(CP_WAIT_FOR_IDLE, 1);
+		*ringcmds++ = 0x00000000;
+	}
+
+	if (secured_ctxt) {
+		*ringcmds++ = cp_type3_packet(CP_WAIT_FOR_IDLE, 1);
+		*ringcmds++ = 0x00000000;
+		*ringcmds++ = cp_type3_packet(CP_WAIT_FOR_ME, 1);
+		*ringcmds++ = 0x00000000;
+		*ringcmds++ = cp_type3_packet(CP_SET_PROTECTED_MODE, 1);
+		*ringcmds++ = 0;
+		*ringcmds++ = cp_type3_packet(CP_WIDE_REG_WRITE, 2);
+		*ringcmds++ = A4XX_RBBM_SECVID_TRUST_CONTROL;
+		*ringcmds++ = 0;
+		*ringcmds++ = cp_type3_packet(CP_SET_PROTECTED_MODE, 1);
+		*ringcmds++ = 1;
+		*ringcmds++ = cp_type3_packet(CP_WAIT_FOR_ME, 1);
 		*ringcmds++ = 0x00000000;
 	}
 
@@ -1214,7 +1263,6 @@ int adreno_ringbuffer_submitcmd(struct adreno_device *adreno_dev,
 	struct kgsl_context *context;
 	struct adreno_context *drawctxt;
 	bool use_preamble = true;
-	bool secured_ctxt = false;
 	bool cmdbatch_profiling = false;
 	int flags = KGSL_CMD_FLAGS_NONE;
 	int ret;
@@ -1284,23 +1332,17 @@ int adreno_ringbuffer_submitcmd(struct adreno_device *adreno_dev,
 	/*
 	 * Worst case size:
 	 * 2 - start of IB identifier
-	 * 6 - secure IB start
 	 * 2 - cmdbatch profiling
 	 * 1 - skip preamble
 	 * 3 * numibs - 3 per IB
 	 * 2 - cmdbatch profiling
-	 * 6 - secure IB end
 	 * 2 - end of IB identifier
 	 */
-	if (context->flags & KGSL_CONTEXT_SECURE)
-		secured_ctxt = true;
-
 	if (cmdbatch->flags & KGSL_CMDBATCH_PROFILING &&
 		adreno_is_a4xx(adreno_dev) && profile_buffer)
 		cmdbatch_profiling = true;
 
 	cmds = link = kzalloc(sizeof(unsigned int) * (numibs * 3 + 5 +
-					(secured_ctxt ? 14 : 0) +
 					(cmdbatch_profiling ? 4 : 0)),
 				GFP_KERNEL);
 	if (!link) {
@@ -1310,16 +1352,6 @@ int adreno_ringbuffer_submitcmd(struct adreno_device *adreno_dev,
 
 	*cmds++ = cp_nop_packet(1);
 	*cmds++ = KGSL_START_OF_IB_IDENTIFIER;
-
-	if (secured_ctxt) {
-		*cmds++ = cp_type3_packet(CP_SET_PROTECTED_MODE, 1);
-		*cmds++ = 0;
-		*cmds++ = cp_type3_packet(CP_WIDE_REG_WRITE, 2);
-		*cmds++ = A4XX_RBBM_SECVID_TRUST_CONTROL;
-		*cmds++ = 1;
-		*cmds++ = cp_type3_packet(CP_SET_PROTECTED_MODE, 1);
-		*cmds++ = 1;
-	}
 
 	/*
 	 * Add cmds to read the GPU ticks at the start of the cmdbatch and
@@ -1362,16 +1394,6 @@ int adreno_ringbuffer_submitcmd(struct adreno_device *adreno_dev,
 		*cmds++ = cmdbatch->profiling_buffer_gpuaddr +
 				offsetof(struct kgsl_cmdbatch_profiling_buffer,
 				gpu_ticks_retired);
-	}
-
-	if (secured_ctxt) {
-		*cmds++ = cp_type3_packet(CP_SET_PROTECTED_MODE, 1);
-		*cmds++ = 0;
-		*cmds++ = cp_type3_packet(CP_WIDE_REG_WRITE, 2);
-		*cmds++ = A4XX_RBBM_SECVID_TRUST_CONTROL;
-		*cmds++ = 0;
-		*cmds++ = cp_type3_packet(CP_SET_PROTECTED_MODE, 1);
-		*cmds++ = 1;
 	}
 
 	*cmds++ = cp_nop_packet(1);

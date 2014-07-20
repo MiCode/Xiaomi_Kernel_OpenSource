@@ -650,6 +650,44 @@ static void *kgsl_iommu_create_pagetable(void)
 }
 
 /*
+ * kgsl_iommu_create_secure_pagetable - Create a secure IOMMU pagetable
+ *
+ * Allocate memory to hold a pagetable and allocate the secure IOMMU
+ * domain which is the actual IOMMU pagetable
+ * Return - void
+ */
+static void *kgsl_iommu_create_secure_pagetable(void)
+{
+	int domain_num;
+	struct kgsl_iommu_pt *iommu_pt;
+
+	struct msm_iova_layout kgsl_secure_layout = {
+		/* we manage VA space ourselves, so partitions aren't needed */
+		.partitions = NULL,
+		.npartitions = 0,
+		.client_name = "kgsl_secure",
+		.domain_flags = 0,
+		.is_secure = 1,
+	};
+
+	iommu_pt = kzalloc(sizeof(struct kgsl_iommu_pt), GFP_KERNEL);
+	if (!iommu_pt)
+		return NULL;
+
+	domain_num = msm_register_domain(&kgsl_secure_layout);
+	if (domain_num >= 0) {
+		iommu_pt->domain = msm_get_iommu_domain(domain_num);
+
+		if (iommu_pt->domain)
+			return iommu_pt;
+	}
+
+	KGSL_CORE_ERR("Failed to create secure iommu domain\n");
+	kfree(iommu_pt);
+	return NULL;
+}
+
+/*
  * kgsl_detach_pagetable_iommu_domain - Detach the IOMMU unit from a
  * pagetable
  * @mmu - Pointer to the device mmu structure
@@ -1273,7 +1311,6 @@ static int kgsl_iommu_init(struct kgsl_mmu *mmu)
 	int status = 0;
 	struct kgsl_iommu *iommu;
 	struct platform_device *pdev = mmu->device->pdev;
-	struct kgsl_device *device = mmu->device;
 	size_t secured_pool_sz = 0;
 
 	atomic_set(&mmu->fault, 0);
@@ -1289,19 +1326,13 @@ static int kgsl_iommu_init(struct kgsl_mmu *mmu)
 	if (status)
 		goto done;
 
+	if (mmu->secured)
+		secured_pool_sz = KGSL_IOMMU_SECURE_MEM_SIZE;
+
 	if (KGSL_MMU_USE_PER_PROCESS_PT &&
 		of_property_match_string(pdev->dev.of_node, "clock-names",
 						"gtcu_iface_clk") >= 0)
 		iommu->gtcu_iface_clk = clk_get(&pdev->dev, "gtcu_iface_clk");
-
-	if (mmu->secured) {
-		kgsl_regwrite(device, A4XX_RBBM_SECVID_TSB_CONTROL, 0x0);
-		kgsl_regwrite(device, A4XX_RBBM_SECVID_TSB_TRUSTED_BASE,
-					  KGSL_IOMMU_SECURE_MEM_BASE);
-		kgsl_regwrite(device, A4XX_RBBM_SECVID_TSB_TRUSTED_SIZE,
-					  KGSL_IOMMU_SECURE_MEM_SIZE);
-		secured_pool_sz = KGSL_IOMMU_SECURE_MEM_SIZE;
-	}
 
 	mmu->pt_base = KGSL_MMU_MAPPED_MEM_BASE;
 	mmu->pt_size = (KGSL_MMU_MAPPED_MEM_SIZE - secured_pool_sz);
@@ -1538,7 +1569,12 @@ static int kgsl_iommu_start(struct kgsl_mmu *mmu)
 		struct kgsl_iommu_unit *iommu_unit = &iommu->iommu_units[i];
 		for (j = 0; j < iommu_unit->dev_count; j++) {
 
-			if (!iommu_unit->dev[j].attached)
+			/*
+			 *  1) HLOS cannot program secure context bank.
+			 *  2) If context bank is not attached skip.
+			 */
+			if ((!iommu_unit->dev[j].attached) ||
+				(KGSL_IOMMU_CONTEXT_SECURE == j))
 				continue;
 
 			/*
@@ -1574,6 +1610,15 @@ static int kgsl_iommu_start(struct kgsl_mmu *mmu)
 				cp_nop_packet(1));
 
 	kgsl_iommu_disable_clk(mmu, KGSL_IOMMU_MAX_UNITS);
+
+	if (mmu->secured) {
+		kgsl_regwrite(mmu->device, A4XX_RBBM_SECVID_TRUST_CONFIG, 0x2);
+		kgsl_regwrite(mmu->device, A4XX_RBBM_SECVID_TSB_CONTROL, 0x1);
+		kgsl_regwrite(mmu->device, A4XX_RBBM_SECVID_TSB_TRUSTED_BASE,
+						KGSL_IOMMU_SECURE_MEM_BASE);
+		kgsl_regwrite(mmu->device, A4XX_RBBM_SECVID_TSB_TRUSTED_SIZE,
+						KGSL_IOMMU_SECURE_MEM_SIZE);
+	}
 
 done:
 	return status;
@@ -1729,8 +1774,15 @@ static void kgsl_iommu_pagefault_resume(struct kgsl_mmu *mmu)
 			struct kgsl_iommu_unit *iommu_unit =
 						&iommu->iommu_units[i];
 			for (j = 0; j < iommu_unit->dev_count; j++) {
-				if (!iommu_unit->dev[j].attached)
+
+				/*
+				 *  1) HLOS cannot program secure context bank.
+				 *  2) If context bank is not attached skip.
+				 */
+				if ((!iommu_unit->dev[j].attached) ||
+					(KGSL_IOMMU_CONTEXT_SECURE == j))
 					continue;
+
 				if (iommu_unit->dev[j].fault) {
 					_iommu_lock(iommu);
 					KGSL_IOMMU_SET_CTX_REG(iommu,
@@ -2022,8 +2074,15 @@ static int kgsl_iommu_set_pf_policy(struct kgsl_mmu *mmu,
 	for (i = 0; i < iommu->unit_count; i++) {
 		struct kgsl_iommu_unit *iommu_unit = &iommu->iommu_units[i];
 		for (j = 0; j < iommu_unit->dev_count; j++) {
-			if (!iommu_unit->dev[j].attached)
+
+			/*
+			 *  1) HLOS cannot program secure context bank.
+			 *  2) If context bank is not attached skip.
+			 */
+			if ((!iommu_unit->dev[j].attached) ||
+				(KGSL_IOMMU_CONTEXT_SECURE == j))
 				continue;
+
 			sctlr_val = KGSL_IOMMU_GET_CTX_REG(iommu,
 					iommu_unit,
 					iommu_unit->dev[j].ctx_id,
@@ -2067,8 +2126,15 @@ static void kgsl_iommu_set_pagefault(struct kgsl_mmu *mmu)
 	/* Loop through all IOMMU devices to check for fault */
 	for (i = 0; i < iommu->unit_count; i++) {
 		for (j = 0; j < iommu->iommu_units[i].dev_count; j++) {
-			if (!iommu->iommu_units[i].dev[j].attached)
+
+			/*
+			 *  1) HLOS cannot program secure context bank.
+			 *  2) If context bank is not attached skip.
+			 */
+			if ((!iommu->iommu_units[i].dev[j].attached) ||
+				(KGSL_IOMMU_CONTEXT_SECURE == j))
 				continue;
+
 			fsr = KGSL_IOMMU_GET_CTX_REG(iommu,
 				(&(iommu->iommu_units[i])),
 				iommu->iommu_units[i].dev[j].ctx_id, FSR);
@@ -2137,6 +2203,7 @@ struct kgsl_mmu_pt_ops iommu_pt_ops = {
 	.mmu_map = kgsl_iommu_map,
 	.mmu_unmap = kgsl_iommu_unmap,
 	.mmu_create_pagetable = kgsl_iommu_create_pagetable,
+	.mmu_create_secure_pagetable = kgsl_iommu_create_secure_pagetable,
 	.mmu_destroy_pagetable = kgsl_iommu_destroy_pagetable,
 	.get_ptbase = kgsl_iommu_get_ptbase,
 };

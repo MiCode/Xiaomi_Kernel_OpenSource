@@ -129,6 +129,8 @@ struct kgsl_memdesc_ops {
 #define KGSL_MEMDESC_PRIVATE BIT(7)
 /* Memory is accessible in privileged mode */
 #define KGSL_MEMDESC_PRIVILEGED BIT(8)
+/* The memdesc is TZ locked content protection */
+#define KGSL_MEMDESC_TZ_LOCKED BIT(9)
 
 /* shared memory allocation */
 struct kgsl_memdesc {
