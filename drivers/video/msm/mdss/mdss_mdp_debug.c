@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2014, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -12,6 +12,7 @@
  */
 
 #include <linux/debugfs.h>
+#include <linux/time.h>
 #include <linux/seq_file.h>
 
 #include "mdss_mdp.h"
@@ -19,9 +20,44 @@
 #include "mdss_debug.h"
 #include "mdss_mdp_debug.h"
 
+static void __print_time(char *buf, u32 size, u64 ts)
+{
+	unsigned long rem_ns = do_div(ts, NSEC_PER_SEC);
+
+	snprintf(buf, size, "%llu.%06lu", ts, rem_ns);
+}
+
+static void __print_buf(struct seq_file *s, struct mdss_mdp_data *buf,
+		bool show_pipe)
+{
+	char tmpbuf[20];
+	const char const *stmap[] = {
+		[MDP_BUF_STATE_UNUSED]  = "UNUSED ",
+		[MDP_BUF_STATE_READY]   = "READY  ",
+		[MDP_BUF_STATE_ACTIVE]  = "ACTIVE ",
+		[MDP_BUF_STATE_CLEANUP] = "CLEANUP",
+	};
+
+	seq_puts(s, "\t");
+	if (show_pipe && buf->last_pipe)
+		seq_printf(s, "pnum=%d ", buf->last_pipe->num);
+
+	seq_printf(s, "state=%s addr=%pa size=%lu ",
+		buf->state < ARRAY_SIZE(stmap) ? stmap[buf->state] : "?",
+		&buf->p[0].addr, buf->p[0].len);
+
+	__print_time(tmpbuf, sizeof(tmpbuf), buf->last_alloc);
+	seq_printf(s, "alloc_time=%s ", tmpbuf);
+	if (buf->state == MDP_BUF_STATE_UNUSED) {
+		__print_time(tmpbuf, sizeof(tmpbuf), buf->last_freed);
+		seq_printf(s, "freed_time=%s ", tmpbuf);
+	}
+	seq_puts(s, "\n");
+}
+
 static void __dump_pipe(struct seq_file *s, struct mdss_mdp_pipe *pipe)
 {
-	struct mdss_mdp_img_data *buf;
+	struct mdss_mdp_data *buf;
 	int format;
 	int smps[4];
 
@@ -55,17 +91,9 @@ static void __dump_pipe(struct seq_file *s, struct mdss_mdp_pipe *pipe)
 			smps[0], smps[1], smps[2], smps[3]);
 
 	seq_puts(s, "Data:\n");
-	if (pipe->front_buf.num_planes) {
-		buf = pipe->front_buf.p;
-		seq_printf(s, "\tfront_buf ihdl=0x%p addr=%pa size=%lu\n",
-				buf->srcp_dma_buf, &buf->addr, buf->len);
-	}
 
-	if (pipe->back_buf.num_planes) {
-		buf = pipe->back_buf.p;
-		seq_printf(s, "\tback_buf ihdl=0x%p addr=%pa size=%lu\n",
-				buf->srcp_dma_buf, &buf->addr, buf->len);
-	}
+	list_for_each_entry(buf, &pipe->buf_queue, pipe_list)
+		__print_buf(s, buf, false);
 }
 
 static void __dump_mixer(struct seq_file *s, struct mdss_mdp_mixer *mixer)
