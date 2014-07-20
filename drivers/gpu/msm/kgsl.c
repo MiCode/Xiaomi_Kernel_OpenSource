@@ -4414,7 +4414,7 @@ int kgsl_device_platform_probe(struct kgsl_device *device)
 						device->shadermemname);
 
 		if (res == NULL) {
-			KGSL_DRV_ERR(device,
+			KGSL_DRV_WARN(device,
 			"Shader memory: platform_get_resource_byname failed\n");
 		}
 
@@ -4427,7 +4427,7 @@ int kgsl_device_platform_probe(struct kgsl_device *device)
 					device->shader_mem_phys,
 					device->shader_mem_len,
 						device->name)) {
-			KGSL_DRV_ERR(device, "request_mem_region_failed\n");
+			KGSL_DRV_WARN(device, "request_mem_region_failed\n");
 		}
 	}
 
