@@ -1926,8 +1926,7 @@ static int soc_pcm_compat_ioctl(struct snd_pcm_substream *substream,
 	if (platform->driver->ops->compat_ioctl)
 		return platform->driver->ops->compat_ioctl(substream,
 			cmd, arg);
-	pr_debug("%s: compat mode not supported\n", __func__);
-	return -ENOIOCTLCMD;
+	return snd_pcm_lib_ioctl(substream, cmd, arg);
 }
 
 static int soc_pcm_ioctl(struct snd_pcm_substream *substream,
