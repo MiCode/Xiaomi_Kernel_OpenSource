@@ -298,7 +298,13 @@ static struct mdss_mdp_pipe *mdss_mdp_splash_get_pipe(
 		return NULL;
 	}
 
-	buf = &pipe->back_buf;
+	buf = mdss_mdp_overlay_buf_alloc(mfd, pipe);
+	if (!buf) {
+		pr_err("unable to allocate memory for splash buffer\n");
+		mdss_mdp_pipe_unmap(pipe);
+		return NULL;
+	}
+
 	buf->p[0].addr = mfd->splash_info.iova;
 	buf->p[0].len = image_size;
 	buf->num_planes = 1;
