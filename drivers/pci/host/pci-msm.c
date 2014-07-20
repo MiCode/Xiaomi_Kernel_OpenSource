@@ -2008,6 +2008,8 @@ int msm_pcie_enable(struct msm_pcie_dev_t *dev, u32 options)
 	goto out;
 
 link_fail:
+	msm_pcie_write_reg(dev->phy, PCIE_PHY_SW_RESET, 0x1);
+	msm_pcie_write_reg(dev->phy, PCIE_PHY_POWER_DOWN_CONTROL, 0);
 	msm_pcie_clk_deinit(dev);
 clk_fail:
 	msm_pcie_vreg_deinit(dev);
@@ -2040,6 +2042,9 @@ void msm_pcie_disable(struct msm_pcie_dev_t *dev, u32 options)
 
 	gpio_set_value(dev->gpio[MSM_PCIE_GPIO_PERST].num,
 				dev->gpio[MSM_PCIE_GPIO_PERST].on);
+
+	msm_pcie_write_reg(dev->phy, PCIE_PHY_SW_RESET, 0x1);
+	msm_pcie_write_reg(dev->phy, PCIE_PHY_POWER_DOWN_CONTROL, 0);
 
 	if (options & PM_CLK) {
 		msm_pcie_write_mask(dev->parf + PCIE20_PARF_PHY_CTRL, 0,
