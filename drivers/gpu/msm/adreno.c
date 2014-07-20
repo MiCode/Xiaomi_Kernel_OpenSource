@@ -2186,8 +2186,11 @@ static int adreno_setproperty(struct kgsl_device_private *dev_priv,
 				device->pwrctrl.ctrl_flags = 0;
 				adreno_dev->fast_hang_detect = 1;
 
-				if (gpudev->fault_detect_start)
+				if (gpudev->fault_detect_start &&
+				!kgsl_active_count_get(&adreno_dev->dev)) {
 					gpudev->fault_detect_start(adreno_dev);
+					kgsl_active_count_put(&adreno_dev->dev);
+				}
 
 				kgsl_pwrscale_enable(device);
 			} else {
