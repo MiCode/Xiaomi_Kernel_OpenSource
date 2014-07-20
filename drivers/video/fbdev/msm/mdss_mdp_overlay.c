@@ -44,6 +44,8 @@
 #define IS_RIGHT_MIXER_OV(flags, dst_x, left_lm_w)	\
 	((flags & MDSS_MDP_RIGHT_MIXER) || (dst_x >= left_lm_w))
 
+#define BUF_POOL_SIZE 32
+
 static int mdss_mdp_overlay_free_fb_pipe(struct msm_fb_data_type *mfd);
 static int mdss_mdp_overlay_fb_parse_dt(struct msm_fb_data_type *mfd);
 static int mdss_mdp_overlay_off(struct msm_fb_data_type *mfd);
@@ -1011,6 +1013,86 @@ static int mdss_mdp_overlay_set(struct msm_fb_data_type *mfd,
 	return ret;
 }
 
+struct mdss_mdp_data *mdss_mdp_overlay_buf_alloc(struct msm_fb_data_type *mfd,
+		struct mdss_mdp_pipe *pipe)
+{
+	struct mdss_overlay_private *mdp5_data = mfd_to_mdp5_data(mfd);
+	struct mdss_mdp_data *buf;
+	int i;
+
+	if (list_empty(&mdp5_data->bufs_pool)) {
+		pr_debug("allocating %u bufs for fb%d\n",
+					BUF_POOL_SIZE, mfd->index);
+
+		buf = kzalloc(sizeof(*buf) * BUF_POOL_SIZE, GFP_KERNEL);
+		if (!buf) {
+			pr_err("Unable to allocate buffer pool\n");
+			return NULL;
+		}
+
+		list_add(&buf->chunk_list, &mdp5_data->bufs_chunks);
+		for (i = 0; i < BUF_POOL_SIZE; i++)
+			list_add(&buf[i].buf_list, &mdp5_data->bufs_pool);
+	}
+
+	buf = list_first_entry(&mdp5_data->bufs_pool,
+			struct mdss_mdp_data, buf_list);
+	list_move_tail(&buf->buf_list, &mdp5_data->bufs_used);
+	buf->last_alloc = local_clock();
+	buf->last_pipe = pipe;
+
+	list_add_tail(&buf->pipe_list, &pipe->buf_queue);
+	buf->state = MDP_BUF_STATE_READY;
+
+	pr_debug("buffer alloc: %p\n", buf);
+
+	return buf;
+}
+
+static void mdss_mdp_overlay_buf_deinit(struct msm_fb_data_type *mfd)
+{
+	struct mdss_overlay_private *mdp5_data = mfd_to_mdp5_data(mfd);
+	struct mdss_mdp_data *buf, *t;
+
+	pr_debug("performing cleanup of buffers pool on fb%d\n", mfd->index);
+
+	BUG_ON(!list_empty(&mdp5_data->bufs_used));
+
+	list_for_each_entry_safe(buf, t, &mdp5_data->bufs_pool, buf_list)
+		list_del(&buf->buf_list);
+
+	list_for_each_entry_safe(buf, t, &mdp5_data->bufs_chunks, chunk_list) {
+		list_del(&buf->chunk_list);
+		kfree(buf);
+	}
+}
+
+void mdss_mdp_overlay_buf_free(struct msm_fb_data_type *mfd,
+		struct mdss_mdp_data *buf)
+{
+	struct mdss_overlay_private *mdp5_data = mfd_to_mdp5_data(mfd);
+
+	if (!list_empty(&buf->pipe_list))
+		list_del_init(&buf->pipe_list);
+
+	mdss_mdp_data_free(buf);
+
+	buf->last_freed = local_clock();
+	buf->state = MDP_BUF_STATE_UNUSED;
+
+	pr_debug("buffer freed: %p\n", buf);
+
+	list_move_tail(&buf->buf_list, &mdp5_data->bufs_pool);
+}
+
+static inline void __pipe_buf_mark_cleanup(struct msm_fb_data_type *mfd,
+		struct mdss_mdp_data *buf)
+{
+	/* buffer still in bufs_used, marking it as cleanup will clean it up */
+	buf->state = MDP_BUF_STATE_CLEANUP;
+	list_del_init(&buf->pipe_list);
+}
+
 /**
  * __mdss_mdp_overlay_free_list_purge() - clear free list of buffers
  * @mfd:	Msm frame buffer data structure for the associated fb
@@ -1020,34 +1102,33 @@ static int mdss_mdp_overlay_set(struct msm_fb_data_type *mfd,
 static void __mdss_mdp_overlay_free_list_purge(struct msm_fb_data_type *mfd)
 {
 	struct mdss_overlay_private *mdp5_data = mfd_to_mdp5_data(mfd);
-	int i;
+	struct mdss_mdp_data *buf, *t;
 
 	pr_debug("purging fb%d free list\n", mfd->index);
-	for (i = 0; i < mdp5_data->free_list_size; i++)
-		mdss_mdp_data_free(&mdp5_data->free_list[i]);
-	mdp5_data->free_list_size = 0;
+
+	list_for_each_entry_safe(buf, t, &mdp5_data->bufs_freelist, buf_list)
+		mdss_mdp_overlay_buf_free(mfd, buf);
 }
 
-/**
- * __mdss_mdp_overlay_free_list_add() - add a buffer to free list
- * @mfd:	Msm frame buffer data structure for the associated fb
- */
-static void __mdss_mdp_overlay_free_list_add(struct msm_fb_data_type *mfd,
-		struct mdss_mdp_data *buf)
+static void __overlay_pipe_cleanup(struct msm_fb_data_type *mfd,
+		struct mdss_mdp_pipe *pipe)
 {
 	struct mdss_overlay_private *mdp5_data = mfd_to_mdp5_data(mfd);
-	int i;
+	struct mdss_mdp_data *buf, *tmpbuf;
 
-	/* if holding too many buffers free current list */
-	if (mdp5_data->free_list_size >= MAX_FREE_LIST_SIZE) {
-		pr_warn("max free list size for fb%d, purging\n", mfd->index);
-		__mdss_mdp_overlay_free_list_purge(mfd);
+	list_for_each_entry_safe(buf, tmpbuf, &pipe->buf_queue, pipe_list) {
+		__pipe_buf_mark_cleanup(mfd, buf);
+		list_move(&buf->buf_list, &mdp5_data->bufs_freelist);
+
+		/*
+		 * in case of secure UI, the buffer needs to be released as
+		 * soon as session is closed.
+		 */
+		if (pipe->flags & MDP_SECURE_DISPLAY_OVERLAY_SESSION)
+			mdss_mdp_overlay_buf_free(mfd, buf);
 	}
 
-	BUG_ON(mdp5_data->free_list_size >= MAX_FREE_LIST_SIZE);
-	i = mdp5_data->free_list_size++;
-	mdp5_data->free_list[i] = *buf;
-	memset(buf, 0, sizeof(*buf));
+	mdss_mdp_pipe_destroy(pipe);
 }
 
 /**
@@ -1065,6 +1146,7 @@ static void mdss_mdp_overlay_cleanup(struct msm_fb_data_type *mfd,
 	struct mdss_overlay_private *mdp5_data = mfd_to_mdp5_data(mfd);
 	struct mdss_mdp_ctl *ctl = mfd_to_ctl(mfd);
 	bool recovery_mode = false;
+	struct mdss_mdp_data *buf, *tmpbuf;
 
 	mutex_lock(&mdp5_data->list_lock);
 	list_for_each_entry(pipe, destroy_pipes, list) {
@@ -1094,30 +1176,18 @@ static void mdss_mdp_overlay_cleanup(struct msm_fb_data_type *mfd,
 
 	__mdss_mdp_overlay_free_list_purge(mfd);
 
-	list_for_each_entry(pipe, &mdp5_data->pipes_used, list) {
-		if (pipe->back_buf.num_planes) {
-			/* make back buffer active */
-			__mdss_mdp_overlay_free_list_add(mfd, &pipe->front_buf);
-			swap(pipe->back_buf, pipe->front_buf);
-		}
+	list_for_each_entry_safe(buf, tmpbuf, &mdp5_data->bufs_used, buf_list) {
+		if (buf->state == MDP_BUF_STATE_CLEANUP)
+			list_move(&buf->buf_list, &mdp5_data->bufs_freelist);
 	}
 
 	list_for_each_entry_safe(pipe, tmp, destroy_pipes, list) {
-		/*
-		 * in case of secure UI, the buffer needs to be released as
-		 * soon as session is closed.
-		 */
-		if (pipe->flags & MDP_SECURE_DISPLAY_OVERLAY_SESSION)
-			mdss_mdp_data_free(&pipe->front_buf);
-		else
-			__mdss_mdp_overlay_free_list_add(mfd, &pipe->front_buf);
-		mdss_mdp_data_free(&pipe->back_buf);
 		list_del_init(&pipe->list);
 		if (recovery_mode) {
 			mdss_mdp_mixer_pipe_unstage(pipe, pipe->mixer_left);
 			mdss_mdp_mixer_pipe_unstage(pipe, pipe->mixer_right);
 		}
-		mdss_mdp_pipe_destroy(pipe);
+		__overlay_pipe_cleanup(mfd, pipe);
 	}
 	mutex_unlock(&mdp5_data->list_lock);
 }
@@ -1322,29 +1392,62 @@ static int __overlay_queue_pipes(struct msm_fb_data_type *mfd)
 					MDSS_MDP_MIXER_MUX_DEFAULT);
 		}
 
-		/* ensure pipes are always reconfigured after power off/on */
+		buf = list_first_entry_or_null(&pipe->buf_queue,
+				struct mdss_mdp_data, pipe_list);
+		if (buf) {
+			switch (buf->state) {
+			case MDP_BUF_STATE_READY:
+				pr_debug("pnum=%d buf=%p first buffer ready\n",
+						pipe->num, buf);
+				break;
+			case MDP_BUF_STATE_ACTIVE:
+				if (list_is_last(&buf->pipe_list,
+						&pipe->buf_queue)) {
+					pr_debug("pnum=%d no buf update\n",
+							pipe->num);
+				} else {
+					struct mdss_mdp_data *tmp = buf;
+					/*
+					 * buffer flip, new buffer will
+					 * replace currently active one,
+					 * mark currently active for cleanup
+					 */
+					buf = list_next_entry(tmp, pipe_list);
+					__pipe_buf_mark_cleanup(mfd, tmp);
+				}
+				break;
+			default:
+				pr_err("invalid state of buf %p=%d\n",
+						buf, buf->state);
+				BUG();
+				break;
+			}
+		}
+
+		/* ensure pipes are reconfigured after power off/on */
 		if (ctl->play_cnt == 0)
 			pipe->params_changed++;
 
-		if (pipe->back_buf.num_planes) {
-			buf = &pipe->back_buf;
-
+		if (buf && (buf->state == MDP_BUF_STATE_READY)) {
+			buf->state = MDP_BUF_STATE_ACTIVE;
 			ret = mdss_mdp_data_map(buf);
 		} else if (!pipe->params_changed) {
+			/* nothing to update so continue with next */
 			continue;
-		} else if (pipe->front_buf.num_planes) {
-			buf = &pipe->front_buf;
-		} else {
-			pr_debug("no buf detected pnum=%d use solid fill\n",
+		} else if (buf) {
+			BUG_ON(buf->state != MDP_BUF_STATE_ACTIVE);
+			pr_debug("requeueing active buffer on pnum=%d\n",
 					pipe->num);
-			if ((pipe->flags & MDP_SOLID_FILL) == 0) {
-				pr_warn("commit without buffer on pipe %d\n",
-					pipe->num);
-				ret = -EINVAL;
-			}
-			buf = NULL;
+		} else if ((pipe->flags & MDP_SOLID_FILL) == 0) {
+			pr_warn("commit without buffer on pipe %d\n",
+				pipe->num);
+			ret = -EINVAL;
 		}
 
+		/*
+		 * if we reach here without errors and buf == NULL
+		 * then solid fill will be set
+		 */
 		if (!IS_ERR_VALUE(ret))
 			ret = mdss_mdp_pipe_queue_data(pipe, buf);
 
@@ -1353,6 +1456,9 @@ static int __overlay_queue_pipes(struct msm_fb_data_type *mfd)
 					pipe->num);
 			mdss_mdp_mixer_pipe_unstage(pipe, pipe->mixer_left);
 			mdss_mdp_mixer_pipe_unstage(pipe, pipe->mixer_right);
+
+			if (buf)
+				__pipe_buf_mark_cleanup(mfd, buf);
 		}
 	}
 
@@ -1644,16 +1750,15 @@ int mdss_mdp_overlay_release(struct msm_fb_data_type *mfd, int ndx)
 
 			pipe->pid = 0;
 			destroy_pipe = pipe->play_cnt == 0;
-
-			if (destroy_pipe)
-				list_del_init(&pipe->list);
-			else
+			if (!destroy_pipe)
 				list_move(&pipe->list,
 						&mdp5_data->pipes_cleanup);
+			else
+				list_del_init(&pipe->list);
 
 			mdss_mdp_pipe_unmap(pipe);
 			if (destroy_pipe)
-				mdss_mdp_pipe_destroy(pipe);
+				__overlay_pipe_cleanup(mfd, pipe);
 
 			if (unset_ndx == ndx)
 				break;
@@ -1789,6 +1894,7 @@ static int mdss_mdp_overlay_play_wait(struct msm_fb_data_type *mfd,
 static int mdss_mdp_overlay_queue(struct msm_fb_data_type *mfd,
 				  struct msmfb_overlay_data *req)
 {
+	struct mdss_overlay_private *mdp5_data = mfd_to_mdp5_data(mfd);
 	struct mdss_mdp_pipe *pipe;
 	struct mdss_mdp_data *src_data;
 	int ret;
@@ -1814,17 +1920,20 @@ static int mdss_mdp_overlay_queue(struct msm_fb_data_type *mfd,
 
 	flags = (pipe->flags & MDP_SECURE_OVERLAY_SESSION);
 
-	src_data = &pipe->back_buf;
-	if (src_data->num_planes) {
-		pr_warn("dropped buffer pnum=%d play=%d addr=0x%pa\n",
-			pipe->num, pipe->play_cnt, &src_data->p[0].addr);
-		mdss_mdp_data_free(src_data);
+	mutex_lock(&mdp5_data->list_lock);
+	src_data = mdss_mdp_overlay_buf_alloc(mfd, pipe);
+	if (!src_data) {
+		pr_err("unable to allocate source buffer\n");
+		ret = -ENOMEM;
+	} else {
+		ret = mdss_mdp_data_get(src_data, &req->data, 1, flags,
+			&mfd->pdev->dev);
+		if (IS_ERR_VALUE(ret)) {
+			mdss_mdp_overlay_buf_free(mfd, src_data);
+			pr_err("src_data pmem error\n");
+		}
 	}
-
-	ret = mdss_mdp_data_get(src_data, &req->data, 1, flags,
-		&mfd->pdev->dev);
-	if (IS_ERR_VALUE(ret))
-		pr_err("src_data pmem error\n");
+	mutex_unlock(&mdp5_data->list_lock);
 
 	mdss_mdp_pipe_unmap(pipe);
 
@@ -1952,7 +2061,7 @@ static int mdss_mdp_overlay_get_fb_pipe(struct msm_fb_data_type *mfd,
 
 static void mdss_mdp_overlay_pan_display(struct msm_fb_data_type *mfd)
 {
-	struct mdss_mdp_data *buf;
+	struct mdss_mdp_data *buf_l = NULL, *buf_r = NULL;
 	struct mdss_mdp_pipe *pipe;
 	struct fb_info *fbi;
 	struct mdss_overlay_private *mdp5_data;
@@ -2023,21 +2132,27 @@ static void mdss_mdp_overlay_pan_display(struct msm_fb_data_type *mfd)
 		goto pan_display_error;
 	}
 
-	buf = &pipe->back_buf;
+	buf_l = mdss_mdp_overlay_buf_alloc(mfd, pipe);
+	if (!buf_l) {
+		pr_err("unable to allocate memory for fb buffer\n");
+		goto pan_display_error;
+	}
+
 	if (mdata->mdss_util->iommu_attached()) {
 		if (!mfd->iova) {
 			pr_err("mfd iova is zero\n");
 			mdss_mdp_pipe_unmap(pipe);
 			goto pan_display_error;
 		}
-		buf->p[0].addr = mfd->iova;
+		buf_l->p[0].addr = mfd->iova;
 	} else {
-		buf->p[0].addr = fbi->fix.smem_start;
+		buf_l->p[0].addr = fbi->fix.smem_start;
 	}
 
-	buf->p[0].addr += offset;
-	buf->p[0].len = fbi->fix.smem_len - offset;
-	buf->num_planes = 1;
+	buf_l->p[0].addr += offset;
+	buf_l->p[0].len = fbi->fix.smem_len - offset;
+	buf_l->num_planes = 1;
+
 	mdss_mdp_pipe_unmap(pipe);
 
 	if (fbi->var.xres > mdata->max_pipe_width || is_split_lm(mfd)) {
@@ -2056,7 +2171,15 @@ static void mdss_mdp_overlay_pan_display(struct msm_fb_data_type *mfd)
 			goto pan_display_error;
 		}
 
-		pipe->back_buf = *buf;
+		buf_r = mdss_mdp_overlay_buf_alloc(mfd, pipe);
+		if (!buf_r) {
+			pr_err("unable to allocate memory for fb buffer\n");
+			goto pan_display_error;
+		}
+
+		buf_r->p[0] = buf_l->p[0];
+		buf_r->num_planes = 1;
+
 		mdss_mdp_pipe_unmap(pipe);
 	}
 	mutex_unlock(&mdp5_data->ov_lock);
@@ -2070,6 +2193,10 @@ static void mdss_mdp_overlay_pan_display(struct msm_fb_data_type *mfd)
 	return;
 
 pan_display_error:
+	if (buf_l)
+		mdss_mdp_overlay_buf_free(mfd, buf_l);
+	if (buf_r)
+		mdss_mdp_overlay_buf_free(mfd, buf_r);
 	mdss_iommu_ctrl(0);
 	mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_OFF);
 	mutex_unlock(&mdp5_data->ov_lock);
@@ -4007,6 +4134,8 @@ ctl_stop:
 		if (mdss_fb_is_power_off(mfd)) {
 			mutex_lock(&mdp5_data->list_lock);
 			__mdss_mdp_overlay_free_list_purge(mfd);
+			if (!mfd->ref_cnt)
+				mdss_mdp_overlay_buf_deinit(mfd);
 			mutex_unlock(&mdp5_data->list_lock);
 			mdss_mdp_ctl_notifier_unregister(mdp5_data->ctl,
 					&mfd->mdp_sync_pt_data.notifier);
@@ -4351,6 +4480,10 @@ int mdss_mdp_overlay_init(struct msm_fb_data_type *mfd)
 
 	INIT_LIST_HEAD(&mdp5_data->pipes_used);
 	INIT_LIST_HEAD(&mdp5_data->pipes_cleanup);
+	INIT_LIST_HEAD(&mdp5_data->bufs_pool);
+	INIT_LIST_HEAD(&mdp5_data->bufs_chunks);
+	INIT_LIST_HEAD(&mdp5_data->bufs_used);
+	INIT_LIST_HEAD(&mdp5_data->bufs_freelist);
 	INIT_LIST_HEAD(&mdp5_data->rot_proc_list);
 	mutex_init(&mdp5_data->list_lock);
 	mutex_init(&mdp5_data->ov_lock);

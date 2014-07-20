@@ -903,6 +903,7 @@ static struct mdss_mdp_pipe *mdss_mdp_pipe_init(struct mdss_mdp_mixer *mixer,
 		mutex_init(&pipe->pp_res.hist.hist_mutex);
 		spin_lock_init(&pipe->pp_res.hist.hist_lock);
 		kref_init(&pipe->kref);
+		INIT_LIST_HEAD(&pipe->buf_queue);
 		is_realtime = !((mixer->ctl->intf_num == MDSS_MDP_NO_INTF)
 				|| mixer->rotator_mode);
 		mdss_mdp_qos_vbif_remapper_setup(mdata, pipe, is_realtime);
@@ -1333,6 +1334,7 @@ int mdss_mdp_pipe_handoff(struct mdss_mdp_pipe *pipe)
 	pipe->is_handed_off = true;
 	pipe->play_cnt = 1;
 	kref_init(&pipe->kref);
+	INIT_LIST_HEAD(&pipe->buf_queue);
 
 error:
 	return rc;
@@ -1592,8 +1594,6 @@ static int mdss_mdp_src_addr_setup(struct mdss_mdp_pipe *pipe,
 	int ret = 0;
 
 	pr_debug("pnum=%d\n", pipe->num);
-
-	data.bwc_enabled = pipe->bwc_mode;
 
 	ret = mdss_mdp_data_check(&data, &pipe->src_planes, pipe->src_fmt);
 	if (ret)
