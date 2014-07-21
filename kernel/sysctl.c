@@ -328,13 +328,6 @@ static struct ctl_table kern_table[] = {
 #endif
 #ifdef CONFIG_SCHED_HMP
 	{
-		.procname	= "sched_enable_hmp_task_placement",
-		.data		= &sysctl_sched_enable_hmp_task_placement,
-		.maxlen		= sizeof(unsigned int),
-		.mode		= 0644,
-		.proc_handler	= proc_dointvec,
-	},
-	{
 		.procname	= "sched_small_task",
 		.data		= &sysctl_sched_small_task_pct,
 		.maxlen		= sizeof(unsigned int),
@@ -396,13 +389,6 @@ static struct ctl_table kern_table[] = {
 		.maxlen		= sizeof(unsigned int),
 		.mode		= 0644,
 		.proc_handler	= sched_hmp_proc_update_handler,
-	},
-	{
-		.procname	= "sched_enable_power_aware",
-		.data		= &sysctl_sched_enable_power_aware,
-		.maxlen		= sizeof(unsigned int),
-		.mode		= 0644,
-		.proc_handler	= proc_dointvec,
 	},
 	{
 		.procname	= "sched_power_band_limit",

@@ -1286,7 +1286,7 @@ select_task_rq_rt(struct task_struct *p, int sd_flag, int flags)
 	if (p->nr_cpus_allowed == 1)
 		goto out;
 
-	if (sysctl_sched_enable_hmp_task_placement)
+	if (sched_enable_hmp)
 		return select_task_rq_rt_hmp(p, sd_flag, flags);
 
 	/* For anything but wake ups, just return the task_cpu */
@@ -1561,7 +1561,7 @@ static int find_lowest_rq(struct task_struct *task)
 	int this_cpu = smp_processor_id();
 	int cpu      = task_cpu(task);
 
-	if (sysctl_sched_enable_hmp_task_placement)
+	if (sched_enable_hmp)
 		return find_lowest_rq_hmp(task);
 
 	/* Make sure the mask is initialized first */
