@@ -43,5 +43,105 @@
 				bias-pull-down;
 			};
 		};
+
+		spi0_active {
+			/* MOSI, MISO, CLK */
+			qcom,pins = <&gp 0>, <&gp 1>, <&gp 3>;
+			qcom,num-grp-pins = <3>;
+			qcom,pin-func = <1>;
+			label = "spi0-active";
+			/* active state */
+			spi0_default: default {
+				drive-strength = <12>; /* 12 MA */
+				bias-disable = <0>; /* No PULL */
+			};
+		};
+
+		spi0_suspend {
+			/* MOSI, MISO, CLK */
+			qcom,pins = <&gp 0>, <&gp 1>, <&gp 3>;
+			qcom,num-grp-pins = <3>;
+			qcom,pin-func = <0>;
+			label = "spi0-suspend";
+			/* suspended state */
+			spi0_sleep: sleep {
+				drive-strength = <2>; /* 2 MA */
+				bias-pull-down; /* pull down */
+			};
+		};
+
+		spi0_cs2_active {
+			/* CS */
+			qcom,pins = <&gp 9>;
+			qcom,num-grp-pins = <1>;
+			qcom,pin-func = <4>;
+			label = "spi0-cs2-active";
+			spi0_cs2_active: cs2_active {
+				drive-strength = <2>;
+				bias-disable = <0>;
+			};
+		};
+
+		spi0_cs2_suspend {
+			/* CS */
+			qcom,pins = <&gp 9>;
+			qcom,num-grp-pins = <1>;
+			qcom,pin-func = <4>;
+			label = "spi0-cs2-suspend";
+			spi0_cs2_sleep: cs2_sleep {
+				drive-strength = <2>;
+				bias-disable = <0>;
+			};
+		};
+
+		spi1_active {
+			/* MOSI, MISO, CLK */
+			qcom,pins = <&gp 4>, <&gp 5>, <&gp 7>;
+			qcom,num-grp-pins = <3>;
+			qcom,pin-func = <1>;
+			label = "spi1-active";
+			/* active state */
+			spi1_default: default {
+				drive-strength = <12>; /* 12 MA */
+				bias-disable = <0>; /* No PULL */
+			};
+		};
+
+		spi1_suspend {
+			/* MOSI, MISO, CLK */
+			qcom,pins = <&gp 4>, <&gp 5>, <&gp 7>;
+			qcom,num-grp-pins = <3>;
+			qcom,pin-func = <0>;
+			label = "spi1-suspend";
+			/* suspended state */
+			spi1_sleep: sleep {
+				drive-strength = <2>; /* 2 MA */
+				bias-pull-down; /* pull down */
+			};
+		};
+
+		spi1_cs2_active {
+			/* CS */
+			qcom,pins = <&gp 6>;
+			qcom,num-grp-pins = <1>;
+			qcom,pin-func = <1>;
+			label = "spi1-cs2-active";
+			spi1_cs2_active: cs2_active {
+				drive-strength = <2>;
+				bias-disable = <0>;
+			};
+		};
+
+		spi1_cs2_suspend {
+			/* CS */
+			qcom,pins = <&gp 6>;
+			qcom,num-grp-pins = <1>;
+			qcom,pin-func = <0>;
+			label = "spi1-cs2-suspend";
+			spi1_cs2_sleep: cs2_sleep {
+				drive-strength = <2>;
+				bias-disable = <0>;
+			};
+		};
 	};
 };

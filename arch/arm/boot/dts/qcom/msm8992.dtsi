@@ -20,6 +20,7 @@
 	interrupt-parent = <&intc>;
 
 	aliases {
+		spi0 = &spi_0;
 	};
 
 	cpus {
@@ -264,6 +265,27 @@
 		regulator-name = "dummy_vreg";
 		regulator-always-on;
 	};
+
+	spi_0: spi@f9923000 {
+		compatible = "qcom,spi-qup-v2";
+		#address-cells = <1>;
+		#size-cells = <0>;
+		reg-names = "spi_physical";
+		reg = <0xf9923000 0x600>;
+		interrupt-names = "spi_irq";
+		interrupts = <0 95 0>;
+		spi-max-frequency = <50000000>;
+		pinctrl-names = "default", "sleep";
+		pinctrl-0 = <&spi1_default &spi1_cs2_active>;
+		pinctrl-1 = <&spi1_sleep &spi1_cs2_sleep>;
+		clocks = <&clock_gcc clk_gcc_blsp1_ahb_clk>,
+			 <&clock_gcc clk_gcc_blsp1_qup2_spi_apps_clk>;
+		clock-names = "iface_clk", "core_clk";
+		qcom,infinite-mode = <0>;
+		qcom,use-pinctrl;
+		qcom,ver-reg-exists;
+		qcom,master-id = <86>;
+        };
 };
 
 #include "msm8992-ion.dtsi"
