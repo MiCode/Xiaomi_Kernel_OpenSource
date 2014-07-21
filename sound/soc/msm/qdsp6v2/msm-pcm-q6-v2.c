@@ -249,6 +249,7 @@ static void event_handler(uint32_t opcode,
 		pr_debug("%s RESET_EVENTS\n", __func__);
 		prtd->pcm_irq_pos += prtd->pcm_count;
 		atomic_inc(&prtd->out_count);
+		atomic_inc(&prtd->in_count);
 		prtd->reset_event = true;
 		if (atomic_read(&prtd->start))
 			snd_pcm_period_elapsed(substream);
