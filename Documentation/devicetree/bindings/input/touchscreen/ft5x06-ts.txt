@@ -43,6 +43,8 @@ Required properties:
 			config defined in pin groups of interrupt and reset gpio.
 			"pmx_ts_suspend" : Disabled configuration of pins, this should specify sleep
 			config defined in pin groups of interrupt and reset gpio.
+			"pmx_ts_release" : Release configuration of pins, this should specify
+			release config defined in pin groups of interrupt and reset gpio.
 
 Optional properties:
 
@@ -69,9 +71,10 @@ Example:
 			interrupts = <1 0x2>;
 			vdd-supply = <&pm8110_l19>;
 			vcc_i2c-supply = <&pm8110_l14>;
-			pinctrl-names = "pmx_ts_active","pmx_ts_suspend";
+			pinctrl-names = "pmx_ts_active","pmx_ts_suspend","pmx_ts_release";
 			pinctrl-0 = <&ts_int_active &ts_reset_active>;
 			pinctrl-1 = <&ts_int_suspend &ts_reset_suspend>;
+			pinctrl-2 = <&ts_release>;
 			focaltech,name = "ft6x06";
 			focaltech,family-id = <0x06>;
 			focaltech,reset-gpio = <&msmgpio 0 0x00>;
