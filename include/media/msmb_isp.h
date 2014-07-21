@@ -103,6 +103,7 @@ enum msm_isp_stats_type {
 	MSM_ISP_STATS_BF_SCALE,  /* Bayer Focus scale */
 	MSM_ISP_STATS_HDR_BE,    /* HDR Bayer Exposure */
 	MSM_ISP_STATS_HDR_BHIST, /* HDR Bayer Hist */
+	MSM_ISP_STATS_AEC_BG,   /* AEC BG */
 	MSM_ISP_STATS_MAX    /* MAX */
 };
 
