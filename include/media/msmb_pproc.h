@@ -383,6 +383,9 @@ struct msm_pproc_queue_buf_info32_t {
 #define VIDIOC_MSM_CPP_QUEUE_BUF32 \
 	_IOWR('V', BASE_VIDIOC_PRIVATE + 14, struct msm_camera_v4l2_ioctl32_t)
 
+#define VIDIOC_MSM_CPP_APPEND_STREAM_BUFF_INFO32 \
+	_IOWR('V', BASE_VIDIOC_PRIVATE + 15, struct msm_camera_v4l2_ioctl32_t)
+
 #define VIDIOC_MSM_CPP_SET_CLOCK32 \
 	_IOWR('V', BASE_VIDIOC_PRIVATE + 16, struct msm_camera_v4l2_ioctl32_t)
 
