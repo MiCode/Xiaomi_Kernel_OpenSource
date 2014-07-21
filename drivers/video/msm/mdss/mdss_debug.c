@@ -564,6 +564,9 @@ static int mdss_debugfs_perf_init(struct mdss_debug_data *mdd,
 	debugfs_create_u64("min_bus_vote", 0644, mdd->perf,
 		(u64 *)&mdata->perf_tune.min_bus_vote);
 
+	debugfs_create_u32("disable_prefill", 0644, mdd->perf,
+		(u32 *)&mdata->disable_prefill);
+
 	debugfs_create_file("disable_panic", 0644, mdd->perf,
 		(struct mdss_data_type *)mdata, &mdss_perf_panic_enable);
 
