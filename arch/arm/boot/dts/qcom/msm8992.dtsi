@@ -249,7 +249,7 @@
 		interrupts = <0 112 0>;
 		status = "disabled";
 		clock-names = "core_clk", "iface_clk";
-		clocks = <&clock_gcc clk_gcc_blsp1_uart2_apps_clk>,
+		clocks = <&clock_gcc clk_gcc_blsp1_uart5_apps_clk>,
 			 <&clock_gcc clk_gcc_blsp1_ahb_clk>;
 	};
 
