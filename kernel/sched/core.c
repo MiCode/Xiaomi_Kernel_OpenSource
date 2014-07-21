@@ -1673,6 +1673,89 @@ static int register_sched_callback(void)
  */
 core_initcall(register_sched_callback);
 
+static void fixup_busy_time(struct task_struct *p, int new_cpu)
+{
+	struct rq *src_rq = task_rq(p);
+	struct rq *dest_rq = cpu_rq(new_cpu);
+	u64 wallclock;
+
+	if (p->state == TASK_WAKING)
+		double_rq_lock(src_rq, dest_rq);
+
+	wallclock = sched_clock();
+
+	update_task_ravg(task_rq(p)->curr, task_rq(p),
+			 TASK_UPDATE,
+			 wallclock, NULL);
+	update_task_ravg(dest_rq->curr, dest_rq,
+			 TASK_UPDATE, wallclock, NULL);
+
+	/*
+	 * In case of migration of task on runqueue, on_rq =1,
+	 * however its load is removed from its runqueue.
+	 * update_task_ravg() below can update its demand, which
+	 * will require its load on runqueue to be adjusted to
+	 * reflect new demand. Restore load temporarily for such
+	 * task on its runqueue
+	 */
+	if (p->on_rq) {
+		inc_cumulative_runnable_avg(src_rq, p);
+		if (p->sched_class == &fair_sched_class)
+			inc_nr_big_small_task(src_rq, p);
+	}
+
+	update_task_ravg(p, task_rq(p), TASK_MIGRATE,
+			 wallclock, NULL);
+
+	/*
+	 * Remove task's load from rq as its now migrating to
+	 * another cpu.
+	 */
+	if (p->on_rq) {
+		dec_cumulative_runnable_avg(src_rq, p);
+		if (p->sched_class == &fair_sched_class)
+			dec_nr_big_small_task(src_rq, p);
+	}
+
+	if (p->ravg.sum) {
+		src_rq->curr_runnable_sum -= p->ravg.partial_demand;
+		dest_rq->curr_runnable_sum += p->ravg.partial_demand;
+	}
+
+	if (p->ravg.prev_window) {
+		src_rq->prev_runnable_sum -= p->ravg.demand;
+		dest_rq->prev_runnable_sum += p->ravg.demand;
+	}
+
+	BUG_ON((int)src_rq->prev_runnable_sum < 0);
+	BUG_ON((int)src_rq->curr_runnable_sum < 0);
+
+	trace_sched_migration_update_sum(src_rq);
+	trace_sched_migration_update_sum(dest_rq);
+
+	if (p->state == TASK_WAKING)
+		double_rq_unlock(src_rq, dest_rq);
+
+	if (cpumask_test_cpu(new_cpu,
+			     &src_rq->freq_domain_cpumask))
+		return;
+
+	/* Evaluate possible frequency notifications for
+	 * source and destination CPUs in different frequency
+	 * domains. */
+	if (rq_freq_margin(dest_rq) <
+	    sysctl_sched_freq_inc_notify_slack_pct)
+		atomic_notifier_call_chain(
+			&load_alert_notifier_head, 0,
+			(void *)(long)new_cpu);
+
+	if (rq_freq_margin(src_rq) >
+	    sysctl_sched_freq_dec_notify_slack_pct)
+		atomic_notifier_call_chain(
+			&load_alert_notifier_head, 0,
+			(void *)(long)task_cpu(p));
+}
+
 #else	/* CONFIG_SCHED_FREQ_INPUT || CONFIG_SCHED_HMP */
 
 static inline void
@@ -1693,6 +1776,8 @@ static inline void mark_task_starting(struct task_struct *p) {}
 static inline void set_window_start(struct rq *rq) {}
 
 static inline void migrate_sync_cpu(int cpu) {}
+
+static inline void fixup_busy_time(struct task_struct *p, int new_cpu) {}
 
 #endif	/* CONFIG_SCHED_FREQ_INPUT || CONFIG_SCHED_HMP */
 
@@ -1739,97 +1824,10 @@ void set_task_cpu(struct task_struct *p, unsigned int new_cpu)
 
 		atomic_notifier_call_chain(&task_migration_notifier, 0, &tmn);
 
-#if defined(CONFIG_SCHED_FREQ_INPUT) || defined(CONFIG_SCHED_HMP)
-		if (p->on_rq || p->state == TASK_WAKING) {
-			struct rq *src_rq = task_rq(p);
-			struct rq *dest_rq = cpu_rq(new_cpu);
-			u64 wallclock;
-
-			if (p->state == TASK_WAKING)
-				double_rq_lock(src_rq, dest_rq);
-
-			wallclock = sched_clock();
-
-			update_task_ravg(task_rq(p)->curr, task_rq(p),
-					 TASK_UPDATE,
-					 wallclock, NULL);
-			update_task_ravg(dest_rq->curr, dest_rq,
-					 TASK_UPDATE, wallclock, NULL);
-
-			/*
-			 * In case of migration of task on runqueue, on_rq =1,
-			 * however its load is removed from its runqueue.
-			 * update_task_ravg() below can update its demand, which
-			 * will require its load on runqueue to be adjusted to
-			 * reflect new demand. Restore load temporarily for such
-			 * task on its runqueue
-			 */
-			if (p->on_rq) {
-				inc_cumulative_runnable_avg(src_rq, p);
-				if (p->sched_class == &fair_sched_class)
-					inc_nr_big_small_task(src_rq, p);
-			}
-
-			update_task_ravg(p, task_rq(p), TASK_MIGRATE,
-					 wallclock, NULL);
-
-			/*
-			 * Remove task's load from rq as its now migrating to
-			 * another cpu.
-			 */
-			if (p->on_rq) {
-				dec_cumulative_runnable_avg(src_rq, p);
-				if (p->sched_class == &fair_sched_class)
-					dec_nr_big_small_task(src_rq, p);
-			}
-
-			if (p->ravg.sum) {
-				src_rq->curr_runnable_sum -=
-					p->ravg.partial_demand;
-				dest_rq->curr_runnable_sum +=
-					p->ravg.partial_demand;
-			}
-
-			if (p->ravg.prev_window) {
-				src_rq->prev_runnable_sum -= p->ravg.demand;
-				dest_rq->prev_runnable_sum += p->ravg.demand;
-			}
-
-			BUG_ON((int)src_rq->prev_runnable_sum < 0);
-			BUG_ON((int)src_rq->curr_runnable_sum < 0);
-
-			trace_sched_migration_update_sum(src_rq);
-			trace_sched_migration_update_sum(dest_rq);
-
-			if (p->state == TASK_WAKING)
-				double_rq_unlock(src_rq, dest_rq);
-
-			if (cpumask_test_cpu(new_cpu,
-					     &src_rq->freq_domain_cpumask))
-				goto done;
-
-			/* Evaluate possible frequency notifications for
-			 * source and destination CPUs in different frequency
-			 * domains. */
-			if (rq_freq_margin(dest_rq) <
-			    sysctl_sched_freq_inc_notify_slack_pct)
-				atomic_notifier_call_chain(
-					&load_alert_notifier_head, 0,
-					(void *)(long)new_cpu);
-
-			if (rq_freq_margin(src_rq) >
-			    sysctl_sched_freq_dec_notify_slack_pct)
-				atomic_notifier_call_chain(
-					&load_alert_notifier_head, 0,
-					(void *)(long)task_cpu(p));
-
-		}
-#endif
+		if (p->on_rq || p->state == TASK_WAKING)
+			fixup_busy_time(p, new_cpu);
 	}
 
-#if defined(CONFIG_SCHED_FREQ_INPUT) || defined(CONFIG_SCHED_HMP)
-done:
-#endif
 	__set_task_cpu(p, new_cpu);
 }
 
