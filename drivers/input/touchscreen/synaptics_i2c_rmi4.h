@@ -76,6 +76,10 @@
 
 #define NAME_BUFFER_SIZE 256
 
+#define PINCTRL_STATE_ACTIVE	"pmx_ts_active"
+#define PINCTRL_STATE_SUSPEND	"pmx_ts_suspend"
+#define PINCTRL_STATE_RELEASE	"pmx_ts_release"
+
 /*
  * struct synaptics_rmi4_fn_desc - function descriptor fields in PDT
  * @query_base_addr: base address for query registers
@@ -270,8 +274,9 @@ struct synaptics_rmi4_data {
 #endif
 #endif
 	struct pinctrl *ts_pinctrl;
-	struct pinctrl_state *gpio_state_active;
-	struct pinctrl_state *gpio_state_suspend;
+	struct pinctrl_state *pinctrl_state_active;
+	struct pinctrl_state *pinctrl_state_suspend;
+	struct pinctrl_state *pinctrl_state_release;
 #if defined(CONFIG_SECURE_TOUCH)
 	atomic_t st_enabled;
 	atomic_t st_pending_irqs;
