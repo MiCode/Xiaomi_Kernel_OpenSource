@@ -270,6 +270,9 @@ Optional properties:
 				support on write back framebuffer.
 - qcom,mdss-no-lut-read: 	Boolean property to indicate reading of LUT is
 				not supported.
+- qcom,mdss-no-hist-vote	Boolean property to indicate histogram reads
+				and histogram LUT writes do not need additional
+				bandwidth voting.
 - qcom,mdss-mdp-wfd-mode:	A string that specifies what is the mode of
 				   writeback wfd block.
 				"intf" = Writeback wfd block is
@@ -500,6 +503,7 @@ Example:
 		qcom,mdss-has-source-split;
 		qcom,mdss-wfd-mode = "intf";
 		qcom,mdss-no-lut-read;
+		qcom,mdss-no-hist-vote;
 		qcom,mdss-traffic-shaper-enabled;
 
 		qcom,mdss-has-dst-split;
