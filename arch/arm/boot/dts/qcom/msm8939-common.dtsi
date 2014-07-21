@@ -1525,6 +1525,7 @@
 		reg = <0x0770600C 0x4>,
 			<0x07706010 0x4>;
 		reg-names = "avtimer_lsb_addr", "avtimer_msb_addr";
+		qcom,clk_div = <27>;
 	};
 };
 
