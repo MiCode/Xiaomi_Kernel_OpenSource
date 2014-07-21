@@ -3400,6 +3400,8 @@ int msm_pcie_pm_control(enum msm_pcie_pm_opt pm_opt, u32 busnr, void *user,
 
 	switch (pm_opt) {
 	case MSM_PCIE_SUSPEND:
+		PCIE_DBG(&msm_pcie_dev[rc_idx],
+			"User of RC%d requests to suspend the link\n", rc_idx);
 		if (msm_pcie_dev[rc_idx].link_status != MSM_PCIE_LINK_ENABLED)
 			PCIE_DBG(&msm_pcie_dev[rc_idx],
 				"PCIe: RC%d: requested to suspend when link is not enabled:%d.\n",
