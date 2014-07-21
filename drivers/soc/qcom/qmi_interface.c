@@ -1737,7 +1737,7 @@ static struct svc_event_nb *find_and_add_svc_event_nb(uint32_t service_id,
 	temp->svc_driver.probe = qmi_svc_event_probe;
 	temp->svc_driver.remove = qmi_svc_event_remove;
 	scnprintf(temp->pdriver_name, sizeof(temp->pdriver_name),
-		  "QMI%08x:%08x", service_id, instance_id);
+		  "SVC%08x:%08x", service_id, instance_id);
 	temp->svc_driver.driver.name = temp->pdriver_name;
 	RAW_INIT_NOTIFIER_HEAD(&temp->svc_event_rcvr_list);
 
