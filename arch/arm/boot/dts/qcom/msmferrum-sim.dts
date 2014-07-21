@@ -77,3 +77,11 @@
 
 	status = "ok";
 };
+
+&pmferrum_mpps {
+	status = "disabled";
+};
+
+&pmferrum_gpios {
+	status = "disabled";
+};

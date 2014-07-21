@@ -551,6 +551,7 @@
 
 };
 
+#include "msm-pmferrum.dtsi"
 #include "msmferrum-regulator.dtsi"
 
 &gdsc_venus {
