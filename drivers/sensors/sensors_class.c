@@ -195,6 +195,95 @@ static ssize_t sensors_test_show(struct device *dev,
 			ret ? "fail" : "pass");
 }
 
+static ssize_t sensors_batch_store(struct device *dev,
+		struct device_attribute *attr, const char *buf, size_t size)
+{
+	struct sensors_classdev *sensors_cdev = dev_get_drvdata(dev);
+	unsigned int enable, mode, period_ms, timeout_ms;
+	int ret = -EINVAL;
+
+	ret = sscanf(buf, "enable=%u, mode=%u, period_ms=%u, timeout_ms=%u",
+		&enable, &mode, &period_ms, &timeout_ms);
+
+	if (ret != 4)
+		return -EINVAL;
+	if (enable && (timeout_ms == 0)) {
+		dev_err(dev,
+			"Cannot set timeout to zero while enable batch mode\n");
+		return -EINVAL;
+	}
+	if (enable && ((period_ms * 1000) < sensors_cdev->min_delay)) {
+		dev_err(dev,
+			"batch: invalid value of delay, delay(ms)=%u\n",
+				period_ms);
+		return -EINVAL;
+	}
+	if (sensors_cdev->sensors_batch == NULL) {
+		dev_err(dev, "Invalid sensor class batch handle\n");
+		return -EINVAL;
+	}
+	ret = sensors_cdev->sensors_batch(sensors_cdev,
+			enable, mode, period_ms, timeout_ms);
+	if (ret)
+		return ret;
+
+	sensors_cdev->batch_enable = enable;
+	sensors_cdev->batch_mode = mode;
+	sensors_cdev->delay_msec = period_ms;
+	sensors_cdev->batch_timeout_ms = timeout_ms;
+	return size;
+}
+
+static ssize_t sensors_batch_show(struct device *dev,
+		struct device_attribute *attr, char *buf)
+{
+	struct sensors_classdev *sensors_cdev = dev_get_drvdata(dev);
+	return snprintf(buf, PAGE_SIZE,
+		"enable=%u, mode=%u, period_ms=%u, timeout_ms=%u\n",
+			sensors_cdev->batch_enable,
+			sensors_cdev->batch_mode,
+			sensors_cdev->delay_msec,
+			sensors_cdev->batch_timeout_ms);
+}
+
+static ssize_t sensors_flush_store(struct device *dev,
+		struct device_attribute *attr, const char *buf, size_t size)
+{
+	struct sensors_classdev *sensors_cdev = dev_get_drvdata(dev);
+	ssize_t ret = -EINVAL;
+	unsigned long data = 0;
+
+	ret = kstrtoul(buf, 10, &data);
+	if (ret)
+		return ret;
+	if (data != 1) {
+		dev_err(dev, "Flush: Invalid value of input, input=%ld\n",
+				data);
+		return -EINVAL;
+	}
+
+	if (sensors_cdev->sensors_flush == NULL) {
+		dev_err(dev, "Invalid sensor class flush handle\n");
+		return -EINVAL;
+	}
+	ret = sensors_cdev->sensors_flush(sensors_cdev);
+	if (ret)
+		return ret;
+
+	return size;
+}
+
+static ssize_t sensors_flush_show(struct device *dev,
+		struct device_attribute *attr, char *buf)
+{
+	struct sensors_classdev *sensors_cdev = dev_get_drvdata(dev);
+	return snprintf(buf, PAGE_SIZE,
+		"Flush handler %s\n",
+			(sensors_cdev->sensors_flush == NULL)
+				? "not exist" : "exist");
+}
+
+
 static struct device_attribute sensors_class_attrs[] = {
 	__ATTR(name, 0444, sensors_name_show, NULL),
 	__ATTR(vendor, 0444, sensors_vendor_show, NULL),
@@ -210,6 +299,8 @@ static struct device_attribute sensors_class_attrs[] = {
 	__ATTR(enable, 0664, sensors_enable_show, sensors_enable_store),
 	__ATTR(poll_delay, 0664, sensors_delay_show, sensors_delay_store),
 	__ATTR(self_test, 0440, sensors_test_show, NULL),
+	__ATTR(batch, 0660, sensors_batch_show, sensors_batch_store),
+	__ATTR(flush, 0660, sensors_flush_show, sensors_flush_store),
 	__ATTR_NULL,
 };
 
