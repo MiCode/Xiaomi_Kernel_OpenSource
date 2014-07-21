@@ -45,7 +45,7 @@ static void handle_skbs(struct work_struct *work)
 		struct danipc_pair *pair = (struct danipc_pair *)
 					&(dskb->skb->cb[HADDR_CB_OFFSET]);
 		struct ipc_to_virt_map	*map =
-			&ipc_to_virt_map[IPC_GetNode(pair->dst)][pair->prio];
+			&ipc_to_virt_map[ipc_get_node(pair->dst)][pair->prio];
 		unsigned long	flags;
 
 		spin_lock_irqsave(&skbs_lock, flags);

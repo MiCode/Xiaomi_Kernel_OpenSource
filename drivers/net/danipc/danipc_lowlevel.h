@@ -32,13 +32,13 @@
 						IPC_BUF_SIZE_MAX)
 
 extern uint8_t __iomem			*ipc_buffers;
-extern uint32_t				IPC_array_hw_access_phys[];
-extern unsigned				IPC_hw_access_phys_len[];
-extern void __iomem			*IPC_array_hw_access[];
-extern uint32_t				IPC_shared_mem_sizes[];
-extern struct agentNameEntry __iomem	*agentTable;
+extern uint32_t				ipc_regs_phys[];
+extern unsigned				ipc_regs_len[];
+extern uintptr_t			ipc_regs[];
+extern uint32_t				ipc_shared_mem_sizes[];
+extern struct agent_entry __iomem	*agent_table;
 
-#define PLATFORM_my_ipc_id	/*CHIP_IPC_KRAIT_ADDR*/ 8
+#define LOCAL_IPC_ID		8 /*CHIP_IPC_KRAIT_ADDR*/
 
 struct ipc_to_virt_map {
 	/* Physical address of the FIFO data buffer *without* bit 31 set. */
@@ -59,30 +59,30 @@ extern void *ipc_to_virt(const int cpuid, const unsigned prio,
 			(((cpuid&(PLATFORM_MAX_NUM_OF_NODES-1)) << 4) +	\
 				(0x0f & (lid)))
 
-extern unsigned	IPC_init(void);
-extern void	IPC_trns_fifo_buff_init(uint8_t cpu_id);
-extern void	IPC_routeTableInit(struct IPC_transport_func const *ptr);
-extern char	*IPC_trns_fifo_buffer_alloc(uint8_t dest_agent_id,
-						   enum IPC_trns_priority pri);
-extern void	IPC_trns_fifo_buffer_free(char *ptr, uint8_t dest_agent_id,
-						enum IPC_trns_priority pri);
-extern int32_t	IPC_trns_fifo_buf_send(char *ptr, uint8_t destId,
-						enum IPC_trns_priority pri);
-extern char	*IPC_trns_fifo2eth_buffer_alloc(uint8_t dest_agent_id,
-						enum IPC_trns_priority pri);
-extern void	IPC_trns_fifo2eth_buffer_free(char *ptr, uint8_t dest_agent_id,
-						enum IPC_trns_priority pri);
-extern int32_t	IPC_trns_fifo2eth_buffer_send(char *ptr, uint8_t destId,
-						enum IPC_trns_priority pri);
-extern char	*IPC_trns_fifo_buf_read(enum IPC_trns_priority pri);
-extern void	IPC_agent_table_clean(void);
-extern uint8_t	IPC_getOwnNode(void);
-extern struct IPC_transport_func const *IPC_getUtilFuncVector(uint8_t nodeId);
+extern unsigned	ipc_init(void);
+extern void	ipc_trns_fifo_buf_init(uint8_t cpu_id);
+extern void	ipc_route_table_init(struct ipc_trns_func const *ptr);
+extern char	*ipc_trns_fifo_buf_alloc(uint8_t dest_aid,
+						   enum ipc_trns_prio pri);
+extern void	ipc_trns_fifo_buf_free(char *ptr, uint8_t dest_aid,
+						enum ipc_trns_prio pri);
+extern int32_t	ipc_trns_fifo_buf_send(char *ptr, uint8_t destId,
+						enum ipc_trns_prio pri);
+extern char	*ipc_trns_fifo2eth_buf_alloc(uint8_t dest_aid,
+						enum ipc_trns_prio pri);
+extern void	ipc_trns_fifo2eth_buf_free(char *ptr, uint8_t dest_aid,
+						enum ipc_trns_prio pri);
+extern int32_t	ipc_trns_fifo2eth_buf_send(char *ptr, uint8_t destId,
+						enum ipc_trns_prio pri);
+extern char	*ipc_trns_fifo_buf_read(enum ipc_trns_prio pri);
+extern void	ipc_agent_table_clean(void);
+extern uint8_t	ipc_get_own_node(void);
+extern struct ipc_trns_func const *get_trns_funcs(uint8_t cpuid);
 
 
 extern void	handle_incoming_packet(char *const packet,
 					uint8_t cpu_id,
-					enum IPC_trns_priority pri);
+					enum ipc_trns_prio pri);
 
 extern struct ipc_to_virt_map	ipc_to_virt_map[PLATFORM_MAX_NUM_OF_NODES][2];
 

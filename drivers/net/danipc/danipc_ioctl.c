@@ -28,8 +28,6 @@
 #include <linux/ioctl.h>
 
 #include "danipc_k.h"
-#include <linux/danipc_ioctl.h>
-
 #include "ipc_api.h"
 #include "danipc_lowlevel.h"
 
@@ -86,7 +84,7 @@ static int
 second_registration(struct danipc_reg *danipc_reg_p, const int aid,
 			const unsigned lid)
 {
-	return (danipc_strncmp(agentTable[aid].agentName, danipc_reg_p->name,
+	return (danipc_strncmp(agent_table[aid].name, danipc_reg_p->name,
 			MAX_AGENT_NAME_LEN, MAX_AGENT_NAME) &&
 		agent_data[lid].task == current) ? 1 : 0;
 }
@@ -107,16 +105,15 @@ register_agent(struct net_device *dev, struct danipc_reg *danipc_reg_p)
 	r_lid = danipc_reg.requested_lid;
 
 	if (r_lid != INVALID_ID) {
-		const unsigned r_aid = __IPC_AGENT_ID(PLATFORM_my_ipc_id,
-							r_lid);
+		const unsigned r_aid = __IPC_AGENT_ID(LOCAL_IPC_ID, r_lid);
 
 		/* Requested ID is not used, so assign it */
-		if (!*agentTable[r_aid].agentName ||
-			second_registration(&danipc_reg, r_aid, r_lid) ||
-			(danipc_strncmp(danipc_reg.name,
-			agentTable[r_aid].agentName,
-			MAX_AGENT_NAME, MAX_AGENT_NAME_LEN) &&
-			agent_data[r_lid].task == NULL)) {
+		if (!*agent_table[r_aid].name ||
+		    second_registration(&danipc_reg, r_aid, r_lid) ||
+		    (danipc_strncmp(danipc_reg.name,
+				agent_table[r_aid].name,
+				MAX_AGENT_NAME, MAX_AGENT_NAME_LEN) &&
+			 agent_data[r_lid].task == NULL)) {
 			if (put_user(r_lid, &danipc_reg_p->assigned_lid))
 				return -EFAULT;
 			agent_id = r_aid;
@@ -127,10 +124,9 @@ register_agent(struct net_device *dev, struct danipc_reg *danipc_reg_p)
 		unsigned	lid;
 		/* Scan for the ID already assigned */
 		for (lid = 0; lid < MAX_LOCAL_AGENT; lid++) {
-			const unsigned aid = __IPC_AGENT_ID(PLATFORM_my_ipc_id,
-								lid);
+			const unsigned aid = __IPC_AGENT_ID(LOCAL_IPC_ID, lid);
 			if (danipc_strncmp(danipc_reg.name,
-				agentTable[aid].agentName,
+				agent_table[aid].name,
 					MAX_AGENT_NAME, MAX_AGENT_NAME_LEN)
 					&& agent_data[lid].task == NULL) {
 				if (put_user(lid, &danipc_reg_p->assigned_lid))
@@ -145,9 +141,8 @@ register_agent(struct net_device *dev, struct danipc_reg *danipc_reg_p)
 		unsigned	lid;
 		/* Scan for the 1st free ID */
 		for (lid = 0; lid < MAX_LOCAL_AGENT; lid++) {
-			const unsigned aid = __IPC_AGENT_ID(PLATFORM_my_ipc_id,
-								lid);
-			if (!*agentTable[aid].agentName ||
+			const unsigned aid = __IPC_AGENT_ID(LOCAL_IPC_ID, lid);
+			if (!*agent_table[aid].name ||
 				second_registration(&danipc_reg, aid, lid)) {
 				if (put_user(lid, &danipc_reg_p->assigned_lid))
 					return -EFAULT;
@@ -158,19 +153,20 @@ register_agent(struct net_device *dev, struct danipc_reg *danipc_reg_p)
 	}
 
 	if (agent_id != INVALID_ID) {
-		const unsigned an_siz = sizeof(agentTable[agent_id].agentName);
+		const unsigned an_siz = sizeof(agent_table[agent_id].name);
 		const uint16_t cookie = cpu_to_be16(AGENTID_TO_COOKIE(agent_id,
 							danipc_reg.prio));
-		strlcpy(agentTable[agent_id].agentName, danipc_reg.name,
+		strlcpy(agent_table[agent_id].name, danipc_reg.name,
 			an_siz);
-		agentTable[agent_id].agentName[an_siz-1] = 0;
+		agent_table[agent_id].name[an_siz-1] = 0;
 		if (put_user(cookie, &danipc_reg_p->cookie))
 			rc = -EFAULT;
-		agent_data[IPC_LocalId(agent_id)].task	= current;
-		agent_data[IPC_LocalId(agent_id)].pid	= current->pid;
-		netdev_dbg(dev, "%s(): agent_id=0x%x assigned_lid=0x%x agentTable[]=\"%s\"\n",
+		agent_data[ipc_lid(agent_id)].task	= current;
+		agent_data[ipc_lid(agent_id)].pid	= current->pid;
+		netdev_dbg(dev,
+			"%s: agent_id=0x%x assigned_lid=0x%x agent_table[]=\"%s\"\n",
 			__func__, agent_id, danipc_reg.assigned_lid,
-			agentTable[agent_id].agentName);
+			agent_table[agent_id].name);
 	} else
 		rc = -ENOBUFS;
 
@@ -187,15 +183,15 @@ get_name_by_addr(struct net_device *dev, struct danipc_name *danipc_name_p)
 	if (get_user(addr, &danipc_name_p->addr))
 		return -EFAULT;
 
-	if (*agentTable[addr].agentName) {
+	if (*agent_table[addr].name) {
 		if (copy_to_user(danipc_name_p->name,
-				agentTable[danipc_name_p->addr].agentName,
+				agent_table[danipc_name_p->addr].name,
 				sizeof(danipc_name_p->name)))
 			rc = -EFAULT;
 		else
 			rc = 0;
 		netdev_dbg(dev, "%s(): addr=0x%x -> name=%s\n", __func__,
-			addr, agentTable[danipc_name_p->addr].agentName);
+			addr, agent_table[danipc_name_p->addr].name);
 	}
 
 	return rc;
@@ -213,7 +209,7 @@ get_addr_by_name(struct net_device *dev, struct danipc_name *danipc_name_p)
 		return -EFAULT;
 
 	for (aid = 0; aid < MAX_AGENTS; aid++) {
-		if (danipc_strncmp(name, agentTable[aid].agentName,
+		if (danipc_strncmp(name, agent_table[aid].name,
 				MAX_AGENT_NAME, MAX_AGENT_NAME_LEN)) {
 			const unsigned cpuid = aid / MAX_LOCAL_AGENT;
 			const unsigned lid = aid % MAX_LOCAL_AGENT;
@@ -222,9 +218,8 @@ get_addr_by_name(struct net_device *dev, struct danipc_name *danipc_name_p)
 				rc = -EFAULT;
 			else
 				rc = 0;
-			netdev_dbg(dev,
-				"%s(): name=%s -> addr=0x%x\n", __func__,
-				agentTable[aid].agentName, aid);
+			netdev_dbg(dev, "%s: name=%s -> addr=0x%x\n", __func__,
+				agent_table[aid].name, aid);
 		}
 	}
 
