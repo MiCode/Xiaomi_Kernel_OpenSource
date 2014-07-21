@@ -370,6 +370,7 @@ struct drm_crtc {
 	void *helper_private;
 
 	struct drm_object_properties properties;
+	bool panning_en;
 };
 
 

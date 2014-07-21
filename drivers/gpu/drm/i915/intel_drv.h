@@ -429,6 +429,12 @@ struct intel_crtc {
 	bool cpu_fifo_underrun_disabled;
 	bool pch_fifo_underrun_disabled;
 
+	/* panel fitter input src size */
+	uint32_t scaling_src_size;
+
+	/* panel fitter status flag */
+	bool	pfit_en_status;
+
 	/* per-pipe watermark state */
 	struct {
 		/* watermarks currently being used  */
@@ -539,7 +545,8 @@ struct intel_hdmi {
 	bool has_hdmi_sink;
 	bool has_audio;
 	enum hdmi_force_audio force_audio;
-	enum hdmi_panel_fitter pfit;
+	enum panel_fitter pfit;
+	struct intel_connector *attached_connector;
 	bool rgb_quant_range_selectable;
 	void (*write_infoframe)(struct drm_encoder *encoder,
 				enum hdmi_infoframe_type type,
@@ -959,6 +966,8 @@ int intel_ddc_get_modes(struct drm_connector *c, struct i2c_adapter *adapter);
 void intel_attach_force_audio_property(struct drm_connector *connector);
 void intel_attach_broadcast_rgb_property(struct drm_connector *connector);
 void intel_attach_force_pfit_property(struct drm_connector *connector);
+extern void
+	intel_attach_scaling_src_size_property(struct drm_connector *connector);
 
 
 /* intel_overlay.c */

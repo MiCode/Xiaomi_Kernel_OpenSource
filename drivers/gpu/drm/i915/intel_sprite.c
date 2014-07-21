@@ -397,6 +397,7 @@ vlv_update_plane(struct drm_plane *dplane, struct drm_crtc *crtc,
 	bool alpha = true;
 	unsigned long sprsurf_offset, linear_offset;
 	int pixel_size = drm_format_plane_cpp(fb->pixel_format, 0);
+	struct drm_display_mode *mode = &intel_crtc->config.requested_mode;
 	u32 start_vbl_count;
 	bool atomic_update;
 
@@ -523,6 +524,20 @@ vlv_update_plane(struct drm_plane *dplane, struct drm_crtc *crtc,
 	atomic_update = intel_pipe_update_start(intel_crtc, &start_vbl_count);
 
 	intel_update_primary_plane(intel_crtc);
+
+	/* if panel fitter is enabled program the input src size */
+	if (intel_crtc->scaling_src_size &&
+			intel_crtc->config.gmch_pfit.control) {
+		I915_WRITE(PIPESRC(pipe), intel_crtc->scaling_src_size);
+		I915_WRITE(PFIT_CONTROL, intel_crtc->config.gmch_pfit.control);
+		intel_crtc->pfit_en_status = true;
+	} else if (intel_crtc->pfit_en_status) {
+		I915_WRITE(PIPESRC(pipe),
+			((mode->hdisplay - 1) << SCALING_SRCSIZE_SHIFT) |
+			(mode->vdisplay - 1));
+		I915_WRITE(PFIT_CONTROL, 0);
+		intel_crtc->pfit_en_status = false;
+	}
 
 	I915_WRITE(SPSTRIDE(pipe, plane), fb->pitches[0]);
 
@@ -1297,7 +1312,7 @@ intel_update_plane(struct drm_plane *plane, struct drm_crtc *crtc,
 		.y1 = crtc_y,
 		.y2 = crtc_y + crtc_h,
 	};
-	const struct drm_rect clip = {
+	struct drm_rect clip = {
 		.x2 = intel_crtc->active ? intel_crtc->config.pipe_src_w : 0,
 		.y2 = intel_crtc->active ? intel_crtc->config.pipe_src_h : 0,
 	};
@@ -1346,6 +1361,15 @@ intel_update_plane(struct drm_plane *plane, struct drm_crtc *crtc,
 	 */
 	max_scale = intel_plane->max_downscale << 16;
 	min_scale = intel_plane->can_scale ? 1 : (1 << 16);
+
+	if (IS_VALLEYVIEW(dev) && intel_crtc->scaling_src_size &&
+		intel_crtc->config.gmch_pfit.control) {
+		clip.x2 = ((intel_crtc->scaling_src_size >>
+				SCALING_SRCSIZE_SHIFT) &
+				SCALING_SRCSIZE_MASK) + 1;
+		clip.y2 = (intel_crtc->scaling_src_size &
+				SCALING_SRCSIZE_MASK) + 1;
+	}
 
 	hscale = drm_rect_calc_hscale_relaxed(&src, &dst, min_scale, max_scale);
 	BUG_ON(hscale < 0);

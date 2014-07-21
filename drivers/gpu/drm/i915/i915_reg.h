@@ -2982,8 +2982,9 @@ enum punit_power_well {
 #define PP_DIVISOR	0x61210
 
 /* Panel fitting */
-#define PFIT_CONTROL	(dev_priv->info.display_mmio_offset + 0x61230)
-#define   PFIT_ENABLE		(1 << 31)
+#define	PFIT_CONTROL	(dev_priv->info.display_mmio_offset + 0x61230)
+#define	PFIT_ENABLE		(1 << 31)
+#define	  PFIT_DISABLE	(0 << 31)
 #define   PFIT_PIPE_MASK	(3 << 29)
 #define   PFIT_PIPE_SHIFT	29
 #define   VERT_INTERP_DISABLE	(0 << 10)
@@ -3000,7 +3001,11 @@ enum punit_power_well {
 #define   PFIT_SCALING_PROGRAMMED (1 << 26)
 #define   PFIT_SCALING_PILLAR	(2 << 26)
 #define   PFIT_SCALING_LETTER	(3 << 26)
-#define PFIT_PGM_RATIOS	(dev_priv->info.display_mmio_offset + 0x61234)
+#define	MASK_PFIT_SCALING_MODE	(0xe3ffffff)
+#define	PFIT_PGM_RATIOS	(dev_priv->info.display_mmio_offset + 0x61234)
+#define	PFIT_SIZE_LIMIT	2000
+#define	SCALING_SRCSIZE_SHIFT	16
+#define	SCALING_SRCSIZE_MASK	0xffff
 /* Pre-965 */
 #define		PFIT_VERT_SCALE_SHIFT		20
 #define		PFIT_VERT_SCALE_MASK		0xfff00000

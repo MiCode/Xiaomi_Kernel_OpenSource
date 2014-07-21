@@ -707,22 +707,6 @@ static void intel_hdmi_prepare(struct intel_encoder *encoder)
 	else
 		hdmi_val |= SDVO_PIPE_SEL(crtc->pipe);
 
-	if (intel_hdmi->pfit) {
-		u32 val = 0;
-		if (intel_hdmi->pfit == AUTOSCALE)
-			val =  PFIT_ENABLE | (crtc->pipe <<
-				PFIT_PIPE_SHIFT) | PFIT_SCALING_AUTO;
-		if (intel_hdmi->pfit == PILLARBOX)
-			val =  PFIT_ENABLE | (crtc->pipe <<
-				PFIT_PIPE_SHIFT) | PFIT_SCALING_PILLAR;
-		else if (intel_hdmi->pfit == LETTERBOX)
-			val =  PFIT_ENABLE | (crtc->pipe <<
-				PFIT_PIPE_SHIFT) | PFIT_SCALING_LETTER;
-		DRM_DEBUG_DRIVER("pfit val = %x", val);
-
-		I915_WRITE(PFIT_CONTROL, val);
-	}
-
 	I915_WRITE(intel_hdmi->hdmi_reg, hdmi_val);
 	POSTING_READ(intel_hdmi->hdmi_reg);
 }
@@ -825,22 +809,6 @@ static void intel_enable_hdmi(struct intel_encoder *encoder)
 
 	I915_WRITE(intel_hdmi->hdmi_reg, temp);
 	POSTING_READ(intel_hdmi->hdmi_reg);
-
-	if (intel_hdmi->pfit) {
-		u32 val = 0;
-		if (intel_hdmi->pfit == AUTOSCALE)
-			val =  PFIT_ENABLE | (intel_crtc->pipe <<
-				PFIT_PIPE_SHIFT) | PFIT_SCALING_AUTO;
-		if (intel_hdmi->pfit == PILLARBOX)
-			val =  PFIT_ENABLE | (intel_crtc->pipe <<
-				PFIT_PIPE_SHIFT) | PFIT_SCALING_PILLAR;
-		else if (intel_hdmi->pfit == LETTERBOX)
-			val =  PFIT_ENABLE | (intel_crtc->pipe <<
-				PFIT_PIPE_SHIFT) | PFIT_SCALING_LETTER;
-		DRM_DEBUG_DRIVER("pfit val = %x", val);
-
-		I915_WRITE(PFIT_CONTROL, val);
-	}
 
 	/* HW workaround, need to write this twice for issue that may result
 	 * in first write getting masked.
@@ -980,6 +948,9 @@ bool intel_hdmi_compute_config(struct intel_encoder *encoder,
 	struct intel_hdmi *intel_hdmi = enc_to_intel_hdmi(&encoder->base);
 	struct drm_device *dev = encoder->base.dev;
 	struct drm_display_mode *adjusted_mode = &pipe_config->adjusted_mode;
+	struct intel_crtc *intel_crtc = encoder->new_crtc;
+	struct intel_connector *intel_connector =
+		intel_hdmi->attached_connector;
 	int clock_12bpc = pipe_config->adjusted_mode.crtc_clock * 3 / 2;
 	int portclock_limit = hdmi_portclock_limit(intel_hdmi, false);
 	int desired_bpp;
@@ -987,6 +958,11 @@ bool intel_hdmi_compute_config(struct intel_encoder *encoder,
 	pipe_config->has_hdmi_sink = intel_hdmi->has_hdmi_sink;
 
 	intel_hdmi_compute_color_range(intel_hdmi, adjusted_mode);
+
+	if (IS_VALLEYVIEW(dev)) {
+		intel_gmch_panel_fitting(intel_crtc, pipe_config,
+			intel_connector->panel.fitting_mode);
+	}
 
 	if (intel_hdmi->color_range)
 		pipe_config->limited_color_range = true;
@@ -1199,6 +1175,9 @@ intel_hdmi_set_property(struct drm_connector *connector,
 	struct intel_digital_port *intel_dig_port =
 		hdmi_to_dig_port(intel_hdmi);
 	struct drm_i915_private *dev_priv = connector->dev->dev_private;
+	struct intel_connector *intel_connector = to_intel_connector(connector);
+	struct intel_encoder *encoder = intel_connector->encoder;
+	struct intel_crtc *intel_crtc = encoder->new_crtc;
 	int ret;
 
 	ret = drm_object_property_set_value(&connector->base, property, val);
@@ -1254,14 +1233,24 @@ intel_hdmi_set_property(struct drm_connector *connector,
 	}
 
 	if (property == dev_priv->force_pfit_property) {
-		if (val == intel_hdmi->pfit)
+		if (intel_connector->panel.fitting_mode == val)
 			return 0;
 
-		DRM_DEBUG_DRIVER("val = %lld", val);
-		intel_hdmi->pfit = val;
-		goto done;
+		intel_connector->panel.fitting_mode = val;
+		if (IS_VALLEYVIEW(dev_priv->dev)) {
+			intel_gmch_panel_fitting(intel_crtc,
+				&intel_crtc->config,
+				intel_connector->panel.fitting_mode);
+			return 0;
+		} else
+			goto done;
 	}
-
+	if (property == dev_priv->scaling_src_size_property) {
+		intel_crtc->scaling_src_size = val;
+		DRM_DEBUG_DRIVER("src size = %u\n",
+			intel_crtc->scaling_src_size);
+		return 0;
+	}
 	return -EINVAL;
 
 done:
@@ -1654,6 +1643,7 @@ intel_hdmi_add_properties(struct intel_hdmi *intel_hdmi, struct drm_connector *c
 	intel_attach_force_audio_property(connector);
 	intel_attach_broadcast_rgb_property(connector);
 	intel_attach_force_pfit_property(connector);
+	intel_attach_scaling_src_size_property(connector);
 	intel_hdmi->color_range_auto = true;
 }
 
@@ -1674,7 +1664,6 @@ void intel_hdmi_init_connector(struct intel_digital_port *intel_dig_port,
 	connector->interlace_allowed = 0;
 	connector->doublescan_allowed = 0;
 	connector->stereo_allowed = 1;
-	intel_hdmi->pfit = 0;
 
 	switch (port) {
 	case PORT_B:
@@ -1752,6 +1741,9 @@ void intel_hdmi_init_connector(struct intel_digital_port *intel_dig_port,
 		u32 temp = I915_READ(PEG_BAND_GAP_DATA);
 		I915_WRITE(PEG_BAND_GAP_DATA, (temp & ~0xf) | 0xd);
 	}
+
+	/* Load initialized connector */
+	intel_hdmi->attached_connector = intel_connector;
 }
 
 #ifdef CONFIG_SUPPORT_LPDMA_HDMI_AUDIO
@@ -1833,6 +1825,7 @@ void intel_hdmi_init(struct drm_device *dev, int hdmi_reg, enum port port)
 	intel_dig_port->dp.output_reg = 0;
 
 	intel_hdmi_init_connector(intel_dig_port, intel_connector);
+	intel_connector->panel.fitting_mode = 0;
 
 #ifdef CONFIG_SUPPORT_LPDMA_HDMI_AUDIO
 	INIT_WORK(&dev_priv->hdmi_audio_wq, i915_had_wq);

@@ -87,11 +87,30 @@ static bool intel_dsi_compute_config(struct intel_encoder *encoder,
 	struct drm_display_mode *fixed_mode = intel_connector->panel.fixed_mode;
 	struct drm_display_mode *adjusted_mode = &config->adjusted_mode;
 	struct drm_display_mode *mode = &config->requested_mode;
+	struct intel_crtc *intel_crtc = encoder->new_crtc;
+	struct drm_device *dev = encoder->base.dev;
+	struct drm_i915_private *dev_priv = dev->dev_private;
 
 	DRM_DEBUG_KMS("\n");
 
 	if (fixed_mode)
 		intel_fixed_panel_mode(fixed_mode, adjusted_mode);
+
+	/*
+	 * Panel native resolution and desired mode can be different in
+	 * these two cases:
+	 * 1. Generic driver specifies scaling reqd flag.
+	 * 2. For restricted bandwidth devices
+	 */
+	if (dev_priv->scaling_reqd || i915.limitbw)  {
+		intel_connector->panel.fitting_mode = AUTOSCALE;
+		DRM_DEBUG("Enabling PF scaling required flag set\n");
+	}
+
+	if (IS_VALLEYVIEW(dev)) {
+		intel_gmch_panel_fitting(intel_crtc, config,
+			intel_connector->panel.fitting_mode);
+	}
 
 	if (intel_dsi->dev.dev_ops->mode_fixup)
 		return intel_dsi->dev.dev_ops->mode_fixup(&intel_dsi->dev,
@@ -923,6 +942,53 @@ static void intel_dsi_destroy(struct drm_connector *connector)
 	kfree(connector);
 }
 
+static int intel_dsi_set_property(struct drm_connector *connector,
+		struct drm_property *property,
+		uint64_t val)
+{
+	struct intel_dsi *intel_dsi = intel_attached_dsi(connector);
+	struct drm_i915_private *dev_priv = connector->dev->dev_private;
+	struct intel_connector *intel_connector = to_intel_connector(connector);
+	struct intel_encoder *encoder = intel_connector->encoder;
+	struct intel_crtc *intel_crtc = encoder->new_crtc;
+	int ret;
+
+	ret = drm_object_property_set_value(&connector->base, property, val);
+	if (ret)
+		return ret;
+
+	if (property == dev_priv->force_pfit_property) {
+		if (intel_connector->panel.fitting_mode == val)
+			return 0;
+
+		intel_connector->panel.fitting_mode = val;
+		if (IS_VALLEYVIEW(dev_priv->dev)) {
+			if (dev_priv->scaling_reqd || i915.limitbw) {
+				if (intel_connector->panel.fitting_mode
+					== PFIT_OFF)
+					return 0;
+			}
+			intel_gmch_panel_fitting(intel_crtc,
+				&intel_crtc->config,
+				intel_connector->panel.fitting_mode);
+			DRM_DEBUG_DRIVER("panel fitting mode = %u\n",
+				intel_connector->panel.fitting_mode);
+			return 0;
+		} else
+			goto done;
+	}
+
+	if (property == dev_priv->scaling_src_size_property) {
+		intel_crtc->scaling_src_size = val;
+		DRM_DEBUG_DRIVER("src size = %u", intel_crtc->scaling_src_size);
+		return 0;
+	}
+done:
+	if (intel_dsi->base.base.crtc)
+		intel_crtc_restore_mode(intel_dsi->base.base.crtc);
+	return 0;
+}
+
 static const struct drm_encoder_funcs intel_dsi_funcs = {
 	.destroy = intel_encoder_destroy,
 };
@@ -938,6 +1004,7 @@ static const struct drm_connector_funcs intel_dsi_connector_funcs = {
 	.detect = intel_dsi_detect,
 	.destroy = intel_dsi_destroy,
 	.fill_modes = drm_helper_probe_single_connector_modes,
+	.set_property = intel_dsi_set_property,
 };
 
 void intel_dsi_pmic_backlight_on(struct intel_dsi_device *dsi)
@@ -980,6 +1047,14 @@ void intel_dsi_soc_backlight_off(struct intel_dsi_device *dsi)
 	vlv_gpio_write(dev_priv, IOSF_PORT_GPIO_NC,
 			PANEL1_BKLTEN_GPIONC_10_PAD, 0x00000004);
 	udelay(500);
+}
+
+static void
+intel_dsi_add_properties(struct intel_dsi *intel_dsi,
+				struct drm_connector *connector)
+{
+	intel_attach_force_pfit_property(connector);
+	intel_attach_scaling_src_size_property(connector);
 }
 
 bool intel_dsi_init(struct drm_device *dev)
@@ -1069,6 +1144,7 @@ bool intel_dsi_init(struct drm_device *dev)
 	connector->interlace_allowed = false;
 	connector->doublescan_allowed = false;
 
+	intel_dsi_add_properties(intel_dsi, connector);
 	intel_connector_attach_encoder(intel_connector, intel_encoder);
 
 	drm_connector_register(connector);
@@ -1104,8 +1180,15 @@ bool intel_dsi_init(struct drm_device *dev)
 
 	fixed_mode->type |= DRM_MODE_TYPE_PREFERRED;
 	intel_panel_init(&intel_connector->panel, fixed_mode, NULL);
+	intel_connector->panel.fitting_mode = 0;
 
 	intel_panel_setup_backlight(connector);
+
+	if (dev_priv->scaling_reqd || i915.limitbw)  {
+		intel_connector->panel.fitting_mode = AUTOSCALE;
+		DRM_DEBUG_DRIVER
+			("Enabling pfit as scaling reqd flag set\n");
+	}
 	return true;
 
 err:

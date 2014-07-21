@@ -2576,6 +2576,7 @@ static void i9xx_update_primary_plane(struct drm_crtc *crtc,
 	u32 dspcntr;
 	u32 reg;
 	int pixel_size;
+	struct drm_display_mode *mode = &intel_crtc->config.requested_mode;
 
 	pixel_size = drm_format_plane_cpp(fb->pixel_format, 0);
 	intel_fb = to_intel_framebuffer(fb);
@@ -2670,6 +2671,24 @@ static void i9xx_update_primary_plane(struct drm_crtc *crtc,
 		dspcntr |= DISPPLANE_180_ROTATION_ENABLE;
 	else
 		dspcntr &= ~DISPPLANE_180_ROTATION_ENABLE;
+
+	if (IS_VALLEYVIEW(dev)) {
+		/* if panel fitter is enabled program the input src size */
+		if (intel_crtc->scaling_src_size &&
+			intel_crtc->config.gmch_pfit.control) {
+			I915_WRITE(PFIT_CONTROL,
+				intel_crtc->config.gmch_pfit.control);
+			I915_WRITE(PIPESRC(pipe),
+				intel_crtc->scaling_src_size);
+			intel_crtc->pfit_en_status = true;
+		} else if (intel_crtc->pfit_en_status) {
+			I915_WRITE(PIPESRC(pipe),
+				((mode->hdisplay - 1) <<
+				SCALING_SRCSIZE_SHIFT) | (mode->vdisplay - 1));
+			I915_WRITE(PFIT_CONTROL, 0);
+			intel_crtc->pfit_en_status = false;
+		}
+	}
 
 	I915_WRITE(reg, dspcntr);
 
@@ -4791,7 +4810,8 @@ static void i9xx_pfit_enable(struct intel_crtc *crtc)
 	 * The panel fitter should only be adjusted whilst the pipe is disabled,
 	 * according to register description and PRM.
 	 */
-	WARN_ON(I915_READ(PFIT_CONTROL) & PFIT_ENABLE);
+	if (I915_READ(PFIT_CONTROL) & PFIT_ENABLE)
+		return;
 	assert_pipe_disabled(dev_priv, crtc->pipe);
 
 	I915_WRITE(PFIT_PGM_RATIOS, pipe_config->gmch_pfit.pgm_ratios);
@@ -4800,6 +4820,7 @@ static void i9xx_pfit_enable(struct intel_crtc *crtc)
 	/* Border color in case we don't scale up to the full screen. Black by
 	 * default, change to something else for debugging. */
 	I915_WRITE(BCLRPAT(crtc->pipe), 0);
+	crtc->pfit_en_status = true;
 }
 
 enum intel_display_power_domain
@@ -5362,6 +5383,7 @@ static void i9xx_pfit_disable(struct intel_crtc *crtc)
 	DRM_DEBUG_DRIVER("disabling pfit, current: 0x%08x\n",
 			 I915_READ(PFIT_CONTROL));
 	I915_WRITE(PFIT_CONTROL, 0);
+	crtc->pfit_en_status = false;
 }
 
 static void i9xx_crtc_disable(struct drm_crtc *crtc)
@@ -6481,7 +6503,11 @@ static void intel_set_pipe_timings(struct intel_crtc *intel_crtc)
 	/* pipesrc controls the size that is scaled from, which should
 	 * always be the user's requested size.
 	 */
-	I915_WRITE(PIPESRC(pipe),
+	if (IS_VALLEYVIEW(dev) && intel_crtc->scaling_src_size &&
+			intel_crtc->config.gmch_pfit.control)
+		I915_WRITE(PIPESRC(pipe), intel_crtc->scaling_src_size);
+	else
+		I915_WRITE(PIPESRC(pipe),
 		   ((intel_crtc->config.pipe_src_w - 1) << 16) |
 		   (intel_crtc->config.pipe_src_h - 1));
 
@@ -11988,6 +12014,9 @@ static void intel_crtc_init(struct drm_device *dev, int pipe)
 	dev_priv->pipe_to_crtc_mapping[intel_crtc->pipe] = &intel_crtc->base;
 
 	drm_crtc_helper_add(&intel_crtc->base, &intel_helper_funcs);
+	intel_crtc->base.panning_en = false;
+	intel_crtc->scaling_src_size = 0;
+	intel_crtc->pfit_en_status = false;
 	intel_crtc->sprite_unpin_work = NULL;
 
 	/*

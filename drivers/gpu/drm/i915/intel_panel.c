@@ -309,14 +309,49 @@ void intel_gmch_panel_fitting(struct intel_crtc *intel_crtc,
 {
 	struct drm_device *dev = intel_crtc->base.dev;
 	u32 pfit_control = 0, pfit_pgm_ratios = 0, border = 0;
-	struct drm_display_mode *adjusted_mode;
+	struct drm_display_mode *mode, *adjusted_mode;
+	uint32_t scaling_src_w, scaling_src_h = 0;
 
+	intel_crtc->base.panning_en = false;
+
+	mode = &pipe_config->requested_mode;
 	adjusted_mode = &pipe_config->adjusted_mode;
 
-	/* Native modes don't need fitting */
-	if (adjusted_mode->hdisplay == pipe_config->pipe_src_w &&
-	    adjusted_mode->vdisplay == pipe_config->pipe_src_h)
+	if (IS_VALLEYVIEW(dev)) {
+		scaling_src_w = ((intel_crtc->scaling_src_size >>
+				SCALING_SRCSIZE_SHIFT) &
+				SCALING_SRCSIZE_MASK) + 1;
+		scaling_src_h = (intel_crtc->scaling_src_size &
+				SCALING_SRCSIZE_MASK) + 1;
+
+		/* The input src size should be < 2kx2k */
+		if ((scaling_src_w > PFIT_SIZE_LIMIT) ||
+			(scaling_src_h > PFIT_SIZE_LIMIT)) {
+			DRM_ERROR("Wrong panel fitter input src conf");
+			goto out;
+		}
+
+		if (fitting_mode == AUTOSCALE)
+			pfit_control = PFIT_SCALING_AUTO;
+		else if (fitting_mode == PILLARBOX)
+			pfit_control = PFIT_SCALING_PILLAR;
+		else if (fitting_mode == LETTERBOX)
+			pfit_control = PFIT_SCALING_LETTER;
+		else {
+			pfit_control = 0;
+			intel_crtc->base.panning_en = false;
+			goto out;
+		}
+		pfit_control |= (PFIT_ENABLE | (intel_crtc->pipe
+					<< PFIT_PIPE_SHIFT));
+		intel_crtc->base.panning_en = true;
 		goto out;
+
+		/* Native modes don't need fitting */
+		if (adjusted_mode->hdisplay == mode->hdisplay &&
+		    adjusted_mode->vdisplay == mode->vdisplay)
+			goto out;
+	}
 
 	switch (fitting_mode) {
 	case DRM_MODE_SCALE_CENTER:
@@ -372,6 +407,7 @@ out:
 	if ((pfit_control & PFIT_ENABLE) == 0) {
 		pfit_control = 0;
 		pfit_pgm_ratios = 0;
+		intel_crtc->scaling_src_size = 0;
 	}
 
 	pipe_config->gmch_pfit.control = pfit_control;

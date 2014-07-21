@@ -599,7 +599,7 @@ struct intel_device_info {
 #undef DEFINE_FLAG
 #undef SEP_SEMICOLON
 
-enum hdmi_panel_fitter {
+enum panel_fitter {
 	PFIT_OFF,
 	AUTOSCALE,
 	PILLARBOX,
@@ -1582,6 +1582,7 @@ struct drm_i915_private {
 	struct i915_drrs drrs;
 	struct intel_opregion opregion;
 	struct intel_vbt_data vbt;
+	bool scaling_reqd;
 
 	struct kobject memtrack_kobj;
 	/* overlay */
@@ -1769,6 +1770,7 @@ struct drm_i915_private {
 	struct drm_property *broadcast_rgb_property;
 	struct drm_property *force_audio_property;
 	struct drm_property *force_pfit_property;
+	struct drm_property *scaling_src_size_property;
 
 	uint32_t hw_context_size;
 	struct list_head context_list;
