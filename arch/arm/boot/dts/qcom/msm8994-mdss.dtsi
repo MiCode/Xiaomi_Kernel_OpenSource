@@ -106,6 +106,7 @@
 				      0x0006C800 0x0006D000>;
 		qcom,mdss-pingpong-off = <0x00071000 0x00071800 0x00072000
 					  0x00072800>;
+		qcom,mdss-ad-off = <0x0079000 0x00079800 0x0007A000>;
 		qcom,mdss-has-decimation;
 		qcom,mdss-wfd-mode = "intf";
 		qcom,mdss-ctl-len = <0x00000200>;
