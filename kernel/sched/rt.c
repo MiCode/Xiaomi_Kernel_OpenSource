@@ -1258,20 +1258,12 @@ static void yield_task_rt(struct rq *rq)
 #ifdef CONFIG_SMP
 static int find_lowest_rq(struct task_struct *task);
 
-/* TODO: Move this to a power aware config feature. There's
- * no strict dependency between SCHED_HMP and this. Its just
- * a different algorithm optimizing for power
- */
-#ifdef CONFIG_SCHED_HMP
 static int
-select_task_rq_rt(struct task_struct *p, int sd_flag, int flags)
+select_task_rq_rt_hmp(struct task_struct *p, int sd_flag, int flags)
 {
 	int cpu, target;
 
 	cpu = task_cpu(p);
-
-	if (p->nr_cpus_allowed == 1)
-		goto out;
 
 	rcu_read_lock();
 	target = find_lowest_rq(p);
@@ -1279,11 +1271,9 @@ select_task_rq_rt(struct task_struct *p, int sd_flag, int flags)
 		cpu = target;
 	rcu_read_unlock();
 
-out:
 	return cpu;
 }
 
-#else /* CONFIG_SCHED_HMP */
 static int
 select_task_rq_rt(struct task_struct *p, int sd_flag, int flags)
 {
@@ -1295,6 +1285,9 @@ select_task_rq_rt(struct task_struct *p, int sd_flag, int flags)
 
 	if (p->nr_cpus_allowed == 1)
 		goto out;
+
+	if (sysctl_sched_enable_hmp_task_placement)
+		return select_task_rq_rt_hmp(p, sd_flag, flags);
 
 	/* For anything but wake ups, just return the task_cpu */
 	if (sd_flag != SD_BALANCE_WAKE && sd_flag != SD_BALANCE_FORK)
@@ -1341,7 +1334,6 @@ select_task_rq_rt(struct task_struct *p, int sd_flag, int flags)
 out:
 	return cpu;
 }
-#endif /* CONFIG_SCHED_HMP */
 
 static void check_preempt_equal_prio(struct rq *rq, struct task_struct *p)
 {
@@ -1521,12 +1513,7 @@ next_idx:
 
 static DEFINE_PER_CPU(cpumask_var_t, local_cpu_mask);
 
-/* TODO: Move this to a power aware config feature. There's
- * no strict dependency between SCHED_HMP and this. Its just
- * a different algorithm optimizing for power
- */
-#ifdef CONFIG_SCHED_HMP
-static int find_lowest_rq(struct task_struct *task)
+static int find_lowest_rq_hmp(struct task_struct *task)
 {
 	struct cpumask *lowest_mask = __get_cpu_var(local_cpu_mask);
 	int cpu_cost, min_cost = INT_MAX;
@@ -1566,13 +1553,16 @@ static int find_lowest_rq(struct task_struct *task)
 	}
 	return best_cpu;
 }
-#else /* CONFIG_SCHED_HMP */
+
 static int find_lowest_rq(struct task_struct *task)
 {
 	struct sched_domain *sd;
 	struct cpumask *lowest_mask = __get_cpu_var(local_cpu_mask);
 	int this_cpu = smp_processor_id();
 	int cpu      = task_cpu(task);
+
+	if (sysctl_sched_enable_hmp_task_placement)
+		return find_lowest_rq_hmp(task);
 
 	/* Make sure the mask is initialized first */
 	if (unlikely(!lowest_mask))
@@ -1640,7 +1630,6 @@ static int find_lowest_rq(struct task_struct *task)
 		return cpu;
 	return -1;
 }
-#endif /* CONFIG_SCHED_HMP */
 
 /* Will lock the rq it finds */
 static struct rq *find_lock_lowest_rq(struct task_struct *task, struct rq *rq)

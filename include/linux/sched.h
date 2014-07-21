@@ -1981,7 +1981,7 @@ extern unsigned long long
 task_sched_runtime(struct task_struct *task);
 
 /* sched_exec is called by processes performing an exec */
-#if defined(CONFIG_SMP) && !defined(CONFIG_SCHED_HMP)
+#if defined(CONFIG_SMP)
 extern void sched_exec(void);
 #else
 #define sched_exec()   {}
