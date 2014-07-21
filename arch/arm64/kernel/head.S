@@ -308,6 +308,13 @@ __create_page_tables:
 	create_block_map x0, x7, x3, x5, x5, idmap=1
 
 	/*
+	 * adrp is fine here, we don't really care about the lower order bits
+	 */
+	adrp	x3, cpu_resume_mmu
+	create_pgd_entry x25, x0, x3, x5, x6
+	create_block_map x0, x7, x3, x5, x5, idmap=1
+
+	/*
 	 * Map the kernel image (starting with PHYS_OFFSET).
 	 */
 	add	x0, x26, #PAGE_SIZE		// section table address
@@ -518,6 +525,29 @@ ENTRY(__secondary_switched)
 	b	secondary_start_kernel
 ENDPROC(__secondary_switched)
 #endif	/* CONFIG_SMP */
+
+	.align 3
+ENTRY(cpu_resume_mmu)
+	ldr	x3, =cpu_resume_after_mmu
+	msr	sctlr_el1, x0		// restore sctlr_el1
+	isb
+	br	x3			// global jump to virtual address
+ENDPROC(cpu_resume_mmu)
+
+/*
+ * x0 must contain the sctlr value retrieved from restored context
+ */
+cpu_resume_after_mmu:
+	mov	x0, #0			// return zero on success
+	ldp	x19, x20, [sp, #16]
+	ldp	x21, x22, [sp, #32]
+	ldp	x23, x24, [sp, #48]
+	ldp	x25, x26, [sp, #64]
+	ldp	x27, x28, [sp, #80]
+	ldp	x29, lr, [sp], #96
+	ret
+ENDPROC(cpu_resume_after_mmu)
+
 
 /*
  * Setup common bits before finally enabling the MMU. Essentially this is just
