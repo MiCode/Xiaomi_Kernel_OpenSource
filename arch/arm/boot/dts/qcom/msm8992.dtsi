@@ -233,16 +233,6 @@
 		reg = <0xfc4ab000 0x4>;
 	};
 
-	blsp1_uart2: serial@f991e000 {
-		compatible = "qcom,msm-lsuart-v14";
-		reg = <0xf991e000 0x1000>;
-		interrupts = <0 108 0>;
-		status = "disabled";
-                clock-names = "core_clk", "iface_clk";
-                clocks = <&clock_gcc clk_gcc_blsp1_uart2_apps_clk>,
-			 <&clock_gcc clk_gcc_blsp1_ahb_clk>;
-	};
-
 	blsp1_uart5: serial@f9922000 {
 		compatible = "qcom,msm-lsuart-v14";
 		reg = <0xf9922000 0x1000>;
