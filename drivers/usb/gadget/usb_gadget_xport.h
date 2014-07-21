@@ -60,6 +60,9 @@ static char *xport_to_str(enum transport_type t)
 
 static enum transport_type str_to_xport(const char *name)
 {
+	if (!name)
+		return USB_GADGET_XPORT_UNDEF;
+
 	if (!strncasecmp("TTY", name, XPORT_STR_LEN))
 		return USB_GADGET_XPORT_TTY;
 	if (!strncasecmp("SMD", name, XPORT_STR_LEN))
