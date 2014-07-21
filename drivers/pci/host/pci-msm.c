@@ -2424,7 +2424,12 @@ static irqreturn_t handle_wake_irq(int irq, void *data)
 
 	if (!dev->enumerated) {
 		PCIE_DBG(dev, "Start enumeating RC%d\n", dev->rc_idx);
-		schedule_work(&dev->handle_wake_work);
+		if (dev->ep_wakeirq)
+			schedule_work(&dev->handle_wake_work);
+		else
+			PCIE_DBG(dev,
+				"wake irq is received but ep_wakeirq is not supported for RC%d.\n",
+				dev->rc_idx);
 	} else {
 		PCIE_DBG(dev, "Wake up RC%d\n", dev->rc_idx);
 		__pm_stay_awake(&dev->ws);
