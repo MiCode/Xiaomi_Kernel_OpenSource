@@ -165,12 +165,23 @@ static int wcd_event_notify(struct notifier_block *self, unsigned long val,
 	/* MICBIAS usage change */
 	case WCD_EVENT_PRE_MICBIAS_2_ON:
 		if (mbhc->micbias_enable) {
+			snd_soc_update_bits(codec,
+					MSM8X16_WCD_A_ANALOG_MICB_1_CTL,
+					0x60, 0x60);
 			snd_soc_write(codec,
 					MSM8X16_WCD_A_ANALOG_MICB_1_VAL,
 					0xC0);
+			/*
+			 * Special headset needs MICBIAS as 2.7V so wait for
+			 * 50 msec for the MICBIAS to reach 2.7 volts.
+			 */
+			msleep(50);
 			snd_soc_update_bits(codec,
 					MSM8X16_WCD_A_ANALOG_MICB_2_EN,
 					0x18, 0x10);
+			snd_soc_update_bits(codec,
+					MSM8X16_WCD_A_ANALOG_MICB_1_CTL,
+					0x60, 0x00);
 		}
 		/* Disable current source if micbias enabled */
 		snd_soc_update_bits(codec,
