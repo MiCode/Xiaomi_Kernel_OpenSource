@@ -530,8 +530,9 @@ int ufs_msm_phy_calibrate_phy(struct phy *generic_phy)
 	} else {
 		ret = ufs_msm_phy->phy_spec_ops->
 				calibrate_phy(ufs_msm_phy);
-		dev_err(ufs_msm_phy->dev, "%s: calibrate_phy() failed %d\n",
-			__func__, ret);
+		if (ret)
+			dev_err(ufs_msm_phy->dev, "%s: calibrate_phy() failed %d\n",
+				__func__, ret);
 	}
 
 	return ret;
