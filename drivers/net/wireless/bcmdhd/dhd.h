@@ -337,6 +337,9 @@ typedef struct dhd_pub {
 #ifdef PNO_SUPPORT
 	void *pno_state;
 #endif
+#ifdef RTT_SUPPORT
+	void *rtt_state;
+#endif
 #ifdef ROAM_AP_ENV_DETECTION
 	bool	roam_env_detection;
 #endif

@@ -55,6 +55,9 @@
 #ifdef PNO_SUPPORT
 #include <dhd_pno.h>
 #endif
+#ifdef RTT_SUPPORT
+#include <dhd_rtt.h>
+#endif
 
 #define htod32(i) (i)
 #define htod16(i) (i)
@@ -1736,6 +1739,11 @@ wl_host_event(dhd_pub_t *dhd_pub, int *ifidx, void *pktdata,
 		dhd_pno_event_handler(dhd_pub, event, (void *)event_data);
 		break;
 #endif
+#if defined(RTT_SUPPORT)
+	case WLC_E_PROXD:
+		dhd_rtt_event_handler(dhd_pub, event, (void *)event_data);
+		break;
+#endif /* RTT_SUPPORT */
 		/* These are what external supplicant/authenticator wants */
 	case WLC_E_ASSOC_IND:
 	case WLC_E_AUTH_IND:

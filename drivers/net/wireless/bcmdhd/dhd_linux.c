@@ -92,6 +92,9 @@
 #ifdef PNO_SUPPORT
 #include <dhd_pno.h>
 #endif
+#ifdef RTT_SUPPORT
+#include <dhd_rtt.h>
+#endif
 
 #ifdef CONFIG_COMPAT
 #include <linux/compat.h>
@@ -5554,6 +5557,9 @@ dhd_preinit_ioctls(dhd_pub_t *dhd)
 #ifdef WLTDLS
 	setbit(eventmask, WLC_E_TDLS_PEER_EVENT);
 #endif /* WLTDLS */
+#ifdef RTT_SUPPORT
+	setbit(eventmask, WLC_E_PROXD);
+#endif /* RTT_SUPPORT */
 #ifdef WL_CFG80211
 	setbit(eventmask, WLC_E_ESCAN_RESULT);
 	if (dhd->op_mode & DHD_FLAG_P2P_MODE) {
@@ -5732,6 +5738,12 @@ dhd_preinit_ioctls(dhd_pub_t *dhd)
 		dhd_pno_init(dhd);
 	}
 #endif
+#ifdef RTT_SUPPORT
+	if (!dhd->rtt_state) {
+		dhd_rtt_init(dhd);
+	}
+#endif
+
 #ifdef WL11U
 	dhd_interworking_enable(dhd);
 #endif /* WL11U */
@@ -6370,6 +6382,10 @@ void dhd_detach(dhd_pub_t *dhdp)
 	if (dhdp->pno_state)
 		dhd_pno_deinit(dhdp);
 #endif
+#ifdef RTT_SUPPORT
+	if (dhdp->rtt_state)
+		dhd_rtt_deinit(dhdp);
+#endif
 #if defined(CONFIG_PM_SLEEP)
 	if (dhd_pm_notifier_registered) {
 		unregister_pm_notifier(&dhd_pm_notifier);
@@ -6989,16 +7005,22 @@ dhd_net_bus_devreset(struct net_device *dev, uint8 flag)
 			DHD_TRACE(("%s: wl down failed\n", __FUNCTION__));
 		}
 #ifdef PROP_TXSTATUS
-		if (dhd->pub.wlfc_enabled)
+		if (dhd->pub.wlfc_enabled) {
 			dhd_wlfc_deinit(&dhd->pub);
+		}
 #endif /* PROP_TXSTATUS */
 #ifdef PNO_SUPPORT
-	if (dhd->pub.pno_state)
-		dhd_pno_deinit(&dhd->pub);
-#endif
+		if (dhd->pub.pno_state) {
+			dhd_pno_deinit(&dhd->pub);
+		}
+#endif /* PNO_SUPPORT */
+#ifdef RTT_SUPPORT
+		if (dhd->pub.rtt_state) {
+			dhd_rtt_deinit(&dhd->pub);
+		}
+#endif /* RTT_SUPPORT */
 	}
-
-#if defined (BCMSDIO)
+#ifdef BCMSDIO
 	if (!flag) {
 		dhd_update_fw_nv_path(dhd);
 		/* update firmware and nvram path to sdio bus */
@@ -7515,6 +7537,46 @@ int dhd_dev_retrieve_batch_scan(struct net_device *dev)
 }
 
 #endif /* GSCAN_SUPPORT */
+#ifdef RTT_SUPPORT
+/* Linux wrapper to call common dhd_pno_set_cfg_gscan */
+int
+dhd_dev_rtt_set_cfg(struct net_device *dev, void *buf)
+{
+	dhd_info_t *dhd = *(dhd_info_t **)netdev_priv(dev);
+
+	return (dhd_rtt_set_cfg(&dhd->pub, buf));
+}
+int
+dhd_dev_rtt_cancel_cfg(struct net_device *dev, struct ether_addr *mac_list, int mac_cnt)
+{
+	dhd_info_t *dhd = *(dhd_info_t **)netdev_priv(dev);
+
+	return (dhd_rtt_stop(&dhd->pub, mac_list, mac_cnt));
+}
+
+int
+dhd_dev_rtt_register_noti_callback(struct net_device *dev, void *ctx, dhd_rtt_compl_noti_fn noti_fn)
+{
+	dhd_info_t *dhd = *(dhd_info_t **)netdev_priv(dev);
+
+	return (dhd_rtt_register_noti_callback(&dhd->pub, ctx, noti_fn));
+}
+int
+dhd_dev_rtt_unregister_noti_callback(struct net_device *dev, dhd_rtt_compl_noti_fn noti_fn)
+{
+	dhd_info_t *dhd = *(dhd_info_t **)netdev_priv(dev);
+
+	return (dhd_rtt_unregister_noti_callback(&dhd->pub, noti_fn));
+}
+
+int
+dhd_dev_rtt_capability(struct net_device *dev, rtt_capabilities_t *capa)
+{
+	dhd_info_t *dhd = *(dhd_info_t **)netdev_priv(dev);
+
+	return (dhd_rtt_capability(&dhd->pub, capa));
+}
+#endif /* RTT_SUPPORT */
 
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 27))
 static void dhd_hang_process(void *dhd_info, void *event_info, u8 event)
