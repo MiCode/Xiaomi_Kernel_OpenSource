@@ -29,8 +29,8 @@
 			<22 512 0 6400000>, <23 512 0 6400000>;
 
 		/* Fudge factors */
-		qcom,mdss-ab-factor = <2 1>;		/* 2 times    */
-		qcom,mdss-ib-factor = <6 5>;		/* 1.2 times  */
+		qcom,mdss-ab-factor = <1 1>;		/* 1 times (removes fudge factor) */
+		qcom,mdss-ib-factor = <1 1>;		/* 1 times (removes fudge factor) */
 		qcom,mdss-clk-factor = <105 100>;	/* 1.05 times */
 
 		qcom,max-mixer-width = <2048>;
