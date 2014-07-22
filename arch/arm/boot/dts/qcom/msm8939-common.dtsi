@@ -543,6 +543,7 @@
 
 	qcom,bcl {
 		compatible = "qcom,bcl";
+		qcom,bcl-no-bms;
 	};
 
 	qcom,memshare {
