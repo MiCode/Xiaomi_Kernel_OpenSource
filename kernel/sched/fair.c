@@ -1633,6 +1633,9 @@ static int best_small_task_cpu(struct task_struct *p)
 
 	cpumask_and(&search_cpus,  tsk_cpus_allowed(p), cpu_online_mask);
 
+	if (cpumask_empty(&search_cpus))
+		return task_cpu(p);
+
 	/* Take a first pass to find the lowest power cost CPU. This
 	   will avoid a potential O(n^2) search */
 	for_each_cpu(i, &search_cpus) {
