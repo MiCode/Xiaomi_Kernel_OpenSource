@@ -870,6 +870,7 @@ static void process_tx_w(struct work_struct *w)
 	unsigned long		flags;
 	bool			header_on = false;
 	int			req_cnt = 0;
+	bool			port_usb_active;
 
 	spin_lock_irqsave(&dev->lock, flags);
 	if (dev->port_usb) {
@@ -952,13 +953,16 @@ static void process_tx_w(struct work_struct *w)
 
 		sg_mark_end(&req->sg[req->num_sgs - 1]);
 
-		in = NULL;
 		spin_lock_irqsave(&dev->lock, flags);
-		if (dev->port_usb)
+		if (dev->port_usb) {
 			in = dev->port_usb->in_ep;
+			port_usb_active = 1;
+		} else {
+			port_usb_active = 0;
+		}
 		spin_unlock_irqrestore(&dev->lock, flags);
 
-		if (!in) {
+		if (!port_usb_active) {
 			__skb_queue_purge(&sg_ctx->skbs);
 			kfree(req->sg);
 			kfree(req->context);
