@@ -41,6 +41,17 @@
 	{ KGSL_CONSTRAINT_PWR_MIN, "Min" }, \
 	{ KGSL_CONSTRAINT_PWR_MAX, "Max" }
 
+/*
+ * States for thermal cycling.  _DISABLE means that no cycling has been
+ * requested.  _ENABLE means that cycling has been requested, but GPU
+ * DCVS is currently recommending running at a lower frequency than the
+ * cycle frequency.  _ACTIVE means that the frequency is actively being
+ * cycled.
+ */
+#define CYCLE_DISABLE	0
+#define CYCLE_ENABLE	1
+#define CYCLE_ACTIVE	2
+
 struct platform_device;
 
 struct kgsl_clk_stats {
@@ -122,6 +133,11 @@ struct kgsl_pwrctrl {
 	uint64_t bus_ib[KGSL_MAX_PWRLEVELS];
 	struct kgsl_pwr_constraint constraint;
 	bool superfast;
+	struct work_struct thermal_cycle_ws;
+	struct timer_list thermal_timer;
+	uint32_t thermal_timeout;
+	uint32_t thermal_cycle;
+	uint32_t thermal_highlow;
 };
 
 void kgsl_pwrctrl_irq(struct kgsl_device *device, int state);

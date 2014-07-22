@@ -189,6 +189,21 @@ void kgsl_pwrscale_enable(struct kgsl_device *device)
 }
 EXPORT_SYMBOL(kgsl_pwrscale_enable);
 
+static int _thermal_adjust(struct kgsl_pwrctrl *pwr, int level)
+{
+	if (level < pwr->active_pwrlevel)
+		return pwr->active_pwrlevel;
+
+	/*
+	 * A lower frequency has been recommended!  Stop thermal
+	 * cycling (but keep the upper thermal limit) and switch to
+	 * the lower frequency.
+	 */
+	pwr->thermal_cycle = CYCLE_ENABLE;
+	del_timer_sync(&pwr->thermal_timer);
+	return level;
+}
+
 /*
  * kgsl_devfreq_target - devfreq_dev_profile.target callback
  * @dev: see devfreq.h
@@ -232,7 +247,10 @@ int kgsl_devfreq_target(struct device *dev, unsigned long *freq, u32 flags)
 		level = pwr->max_pwrlevel;
 		for (i = pwr->min_pwrlevel; i >= pwr->max_pwrlevel; i--)
 			if (*freq <= pwr->pwrlevels[i].gpu_freq) {
-				level = i;
+				if (pwr->thermal_cycle == CYCLE_ACTIVE)
+					level = _thermal_adjust(pwr, i);
+				else
+					level = i;
 				break;
 			}
 		if (level != pwr->active_pwrlevel)
