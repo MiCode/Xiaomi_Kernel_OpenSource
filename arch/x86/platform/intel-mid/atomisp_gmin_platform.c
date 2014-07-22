@@ -559,6 +559,7 @@ int gmin_get_config_var(struct device *dev, const char *var, char *out, size_t *
 	struct device *adev;
 	char var8[CFG_VAR_NAME_MAX];
 	unsigned short var16[CFG_VAR_NAME_MAX];
+	struct efivar_entry ev;
 	u32 efiattr_dummy;
 	int i, j, ret;
 	unsigned long efilen;
@@ -607,8 +608,26 @@ int gmin_get_config_var(struct device *dev, const char *var, char *out, size_t *
 	if (!efi.get_variable)
 		return -EINVAL;
 
-	ret = efi.get_variable(var16, &GMIN_CFG_VAR_EFI_GUID, &efiattr_dummy,
-			       &efilen, out);
+	/* Not sure this API usage is kosher; efivar_entry_get()'s
+	 * implementation simply uses VariableName and VendorGuid from
+	 * the struct and ignores the rest, but it seems like there
+	 * ought to be an "official" efivar_entry registered
+	 * somewhere? */
+	memset(&ev, 0, sizeof(ev));
+	memcpy(&ev.var.VariableName, var16, sizeof(var16));
+	ev.var.VendorGuid = GMIN_CFG_VAR_EFI_GUID;
+
+	/* Frustratingly, existing hardware doesn't like seeing EFI
+	 * variable requests arrive in quick succession.  They will
+	 * fail spuriously (but more or less deterministically),
+	 * returning EFI_NOT_FOUND (which becomes -ENOENT as seen
+	 * here) unless we retry with delays. */
+	for (i=0; i<10; i++) {
+		ret = efivar_entry_get(&ev, &efiattr_dummy, &efilen, out);
+		if (!ret)
+			break;
+		msleep(10);
+	}
 	*out_len = efilen;
 
 	return ret == EFI_SUCCESS ? 0 : -EINVAL;
