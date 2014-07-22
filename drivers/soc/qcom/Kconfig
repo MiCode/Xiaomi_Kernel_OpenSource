@@ -384,11 +384,11 @@ config MSM_PIL_MSS_QDSP6V5
 	  If unsure, say N.
 
 config MSM_PIL_FEMTO
-	tristate "FSM99XX Boot Support"
-	depends on MSM_PIL && ARCH_FSM9900
+	tristate "FSM9900 and FSM9010 Boot Support"
+	depends on MSM_PIL && (ARCH_FSM9900 || ARCH_FSM9010)
 	help
 	  Support for loading and booting firmware images for multiple
-	  modems on the FSM9900 family targets.
+	  modems on the FSM9900 and FSM9010 family targets.
 	  Select Y if you want the modems to boot.
 	  If unsure, select N.
 

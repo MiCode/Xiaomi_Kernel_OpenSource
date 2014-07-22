@@ -783,4 +783,4 @@ static void __exit pil_femto_modem_exit(void)
 module_exit(pil_femto_modem_exit);
 
 MODULE_LICENSE("GPL v2");
-MODULE_DESCRIPTION("Support for booting FSM99XX modems");
+MODULE_DESCRIPTION("Support for booting FSM99XX and FSM90XX modems");

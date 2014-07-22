@@ -1,7 +1,8 @@
-Qualcomm Femtocell (FSM99XX) Peripheral Image Loader
+Qualcomm Femtocell (FSM99XX and FSM90XX) Peripheral Image Loader
 
 pil-femto-modem is a peripheral image loader (PIL) driver. It is used for
-loading firmware images on multiple modems resident on the FSM99XX platform.
+loading firmware images on multiple modems resident on the FSM99XX and
+FSM90XX platforms.
 
 The top-level device tree entry has the following properties:
 
@@ -33,7 +34,6 @@ Optional properties:
                         which will cause the PIL entry address check
                         to fail.  This parameter will disable the
                         check.
-- qcom,restart-group: List of subsystems that will need to restart together.
 
 Example:
         qcom,modem-femto@fbc00000 {
