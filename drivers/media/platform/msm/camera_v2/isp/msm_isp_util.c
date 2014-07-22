@@ -160,6 +160,10 @@ int msm_isp_update_bandwidth(enum msm_isp_hw_client client,
 
 void msm_isp_deinit_bandwidth_mgr(enum msm_isp_hw_client client)
 {
+	if (client >= MAX_ISP_CLIENT) {
+		pr_err("invalid Client id %d", client);
+		return;
+	}
 	mutex_lock(&bandwidth_mgr_mutex);
 	memset(&isp_bandwidth_mgr.client_info[client], 0,
 		   sizeof(struct msm_isp_bandwidth_info));
@@ -549,7 +553,7 @@ static int msm_isp_proc_cmd_list_compat(struct vfe_device *vfe_dev, void *arg)
 			break;
 		}
 		if (copy_from_user(&cmd_next, compat_ptr(cmd.next),
-			sizeof(struct msm_vfe_cfg_cmd_list))) {
+			sizeof(struct msm_vfe_cfg_cmd_list_32))) {
 			rc = -EFAULT;
 			continue;
 		}
