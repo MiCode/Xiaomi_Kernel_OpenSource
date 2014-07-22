@@ -151,9 +151,7 @@ typedef BWL_PRE_PACKED_STRUCT struct bcm_event {
 #define WLC_E_IF		54	/* I/F change (for dongle host notification) */
 #define WLC_E_P2P_DISC_LISTEN_COMPLETE	55	/* listen state expires */
 #define WLC_E_RSSI		56	/* indicate RSSI change based on configured levels */
-#define WLC_E_PFN_SCAN_COMPLETE	57	/* PFN completed scan of network list */
-/* PFN best network batching event, re-use obsolete WLC_E_PFN_SCAN_COMPLETE */
-#define WLC_E_PFN_BEST_BATCHING	57
+#define WLC_E_PFN_BEST_BATCHING	57 /* PFN best network batching event */
 #define WLC_E_EXTLOG_MSG	58
 #define WLC_E_ACTION_FRAME      59	/* Action frame Rx */
 #define WLC_E_ACTION_FRAME_COMPLETE	60	/* Action frame Tx complete */
@@ -227,12 +225,9 @@ typedef BWL_PRE_PACKED_STRUCT struct bcm_event {
 #define WLC_E_RSSI_LQM			133	/* Enhancement addition for WLC_E_RSSI */
 #define WLC_E_PFN_GSCAN_FULL_RESULT		134 /* Full probe/beacon (IEs etc) results */
 #define WLC_E_PFN_SWC		135 /* Significant change in rssi of bssids being tracked */
+#define WLC_E_PFN_SCAN_COMPLETE		138	/* PFN completed scan of network list */
 #define WLC_E_RMC_EVENT			139	/* RMC event */
 #define WLC_E_LAST			140	/* highest val + 1 for range checking */
-
-#if (WLC_E_LAST > 140)
-#error "WLC_E_LAST: Invalid value for last event; must be <= 140."
-#endif /* WLC_E_LAST */
 
 /* define an API for getting the string name of an event */
 extern const char *bcmevent_get_name(uint event_type);
