@@ -95,6 +95,12 @@
 #define WCD9XXX_MEAS_INVALD_RANGE_LOW_MV 20
 #define WCD9XXX_MEAS_INVALD_RANGE_HIGH_MV 80
 
+/* Threshold in milliohm used for mono/stereo
+ * plug classification
+ */
+#define WCD9XXX_MONO_HS_DIFF_THR 20000000
+#define WCD9XXX_MONO_HS_MIN_THR 2000
+
 /*
  * Invalid voltage range for the detection
  * of plug type with current source
@@ -748,7 +754,7 @@ static void wcd9xxx_clr_and_turnon_hph_padac(struct wcd9xxx_mbhc *mbhc)
 	}
 
 	if (pa_turned_on) {
-		pr_debug("%s: PA was turned off by MBHC and not by DAPM\n",
+		pr_debug("%s: PA was turned on by MBHC and not by DAPM\n",
 			 __func__);
 		usleep_range(wg_time * 1000, wg_time * 1000 + 50);
 	}
@@ -865,6 +871,7 @@ static void wcd9xxx_report_plug(struct wcd9xxx_mbhc *mbhc, int insertion,
 						mbhc->mbhc_cfg->micbias);
 		}
 		mbhc->zl = mbhc->zr = 0;
+		mbhc->hph_type = MBHC_HPH_NONE;
 		pr_debug("%s: Reporting removal %d(%x)\n", __func__,
 			 jack_type, mbhc->hph_status);
 		wcd9xxx_jack_report(mbhc, &mbhc->headset_jack, mbhc->hph_status,
@@ -4832,8 +4839,6 @@ static s16 wcd9xxx_read_impedance_regs(struct wcd9xxx_mbhc *mbhc)
 			WCD9XXX_BOX_CAR_AVRG_MAX);
 		z_loop = WCD9XXX_BOX_CAR_AVRG_MAX;
 	}
-	dev_dbg(codec->dev, "%s: z_det_box_car_avg = %d, z_loop = %d\n",
-		 __func__, z_det_box_car_avg, z_loop);
 
 	/* Take box car average if needed */
 	for (i = 0; i < z_loop; i++) {
@@ -4847,126 +4852,143 @@ static s16 wcd9xxx_read_impedance_regs(struct wcd9xxx_mbhc *mbhc)
 	return bias_value;
 }
 
-static int wcd9xxx_remeasure_z_value(struct wcd9xxx_mbhc *mbhc,
-					s16 l[3], s16 r[3])
+static int wcd9xxx_remeasure_z_values(struct wcd9xxx_mbhc *mbhc,
+					s16 l[3], s16 r[3],
+					uint32_t *zl, uint32_t *zr,
+					u32 *zl_stereo, u32 *zl_mono)
 {
-	int i;
-	s16 *z[] = {
-		&r[2], &l[2], &l[1], &r[1], &r[0], &l[0],
-	};
+	s16 l_t[3] = {0}, r_t[3] = {0};
+	s16 l2_stereo, l2_mono;
+	bool left, right;
 	struct snd_soc_codec *codec = mbhc->codec;
-	const struct wcd9xxx_reg_mask_val reg_set_mux[] = {
-		/* V2 */
-		/* Set MBHC_MUX for HPHR without ical */
-		{WCD9XXX_A_MBHC_SCALING_MUX_2, 0xFF, 0xF0},
-		/* Set MBHC_MUX for HPHL without ical */
-		{WCD9XXX_A_MBHC_SCALING_MUX_1, 0xFF, 0xC0},
-		/* V1 */
-		/* Set MBHC_MUX for HPHL with ical */
-		{WCD9XXX_A_MBHC_SCALING_MUX_2, 0xFF, 0xF8},
-		/* Set MBHC_MUX for HPHR with ical */
-		{WCD9XXX_A_MBHC_SCALING_MUX_1, 0xFF, 0xA0},
-		/* V0 */
-		/* Set MBHC_MUX for HPHR without ical */
-		{WCD9XXX_A_MBHC_SCALING_MUX_2, 0xFF, 0xF0},
-		/* Set MBHC_MUX for HPHL without ical */
-		{WCD9XXX_A_MBHC_SCALING_MUX_1, 0xFF, 0xC0},
-	};
 
-	if (!mbhc->mbhc_cb || !mbhc->mbhc_cb->setup_zdet) {
+	if (!mbhc->mbhc_cb || !mbhc->mbhc_cb->setup_zdet ||
+		!mbhc->mbhc_cb->compute_impedance) {
 		dev_err(codec->dev, "%s: Invalid parameters\n", __func__);
 		return -EINVAL;
 	}
 
+	left = !!(l);
+	right = !!(r);
+
 	dev_dbg(codec->dev, "%s: Remeasuring impedance values\n", __func__);
+	dev_dbg(codec->dev, "%s: l: %p, r: %p, left=%d, right=%d\n", __func__,
+		 l, r, left, right);
+
 	/* Remeasure V2 values */
-	for (i = 0; i < ARRAY_SIZE(reg_set_mux) - 4; i++) {
-		snd_soc_update_bits(codec, reg_set_mux[i].reg,
-				    reg_set_mux[i].mask,
-				    reg_set_mux[i].val);
-		*(z[i]) = wcd9xxx_read_impedance_regs(mbhc);
+	snd_soc_update_bits(codec, WCD9XXX_A_MBHC_SCALING_MUX_2, 0xFF, 0xF0);
+	if (right)
+		r_t[2] = wcd9xxx_read_impedance_regs(mbhc);
+	snd_soc_update_bits(codec, WCD9XXX_A_MBHC_SCALING_MUX_1, 0xFF, 0xC0);
+	if (left)
+		l_t[2] = wcd9xxx_read_impedance_regs(mbhc);
+
+	/* Ramp down HPHR */
+	mbhc->mbhc_cb->setup_zdet(mbhc, MBHC_ZDET_HPHR_RAMP_DISABLE);
+
+	if (right) {
+		/* Take R0'/R1' */
+		snd_soc_update_bits(codec, WCD9XXX_A_MBHC_SCALING_MUX_2,
+				    0xFF, 0xF8);
+		snd_soc_update_bits(codec, WCD9XXX_A_MBHC_SCALING_MUX_1,
+				    0xFF, 0xA0);
+		r_t[1] = wcd9xxx_read_impedance_regs(mbhc);
+		snd_soc_update_bits(codec, WCD9XXX_A_MBHC_SCALING_MUX_2,
+				    0xFF, 0xF0);
+		r_t[0] = wcd9xxx_read_impedance_regs(mbhc);
 	}
 
-	mbhc->mbhc_cb->setup_zdet(mbhc, MBHC_ZDET_RAMP_DISABLE);
+	/* Put back gain to 1x */
+	if (!left && right)
+		mbhc->mbhc_cb->setup_zdet(mbhc, MBHC_ZDET_GAIN_0);
 
-	/* Remeasure V1 and V0 values */
-	for (; i < ARRAY_SIZE(reg_set_mux); i++) {
-		snd_soc_update_bits(codec, reg_set_mux[i].reg,
-				    reg_set_mux[i].mask,
-				    reg_set_mux[i].val);
-		*(z[i]) = wcd9xxx_read_impedance_regs(mbhc);
+	snd_soc_update_bits(codec, WCD9XXX_A_MBHC_SCALING_MUX_1, 0xFF, 0xC0);
+	/* Take L2'' measurement */
+	l2_stereo = wcd9xxx_read_impedance_regs(mbhc);
+
+	/* Turn off HPHR PA and take L2''' */
+	mbhc->mbhc_cb->setup_zdet(mbhc, MBHC_ZDET_HPHR_PA_DISABLE);
+	l2_mono = wcd9xxx_read_impedance_regs(mbhc);
+
+	/* Ramp HPHL from -15mV to 0V */
+	mbhc->mbhc_cb->setup_zdet(mbhc, MBHC_ZDET_HPHL_RAMP_DISABLE);
+
+	/* Take L0' and L1' with iCal */
+	l_t[0] = wcd9xxx_read_impedance_regs(mbhc);
+	snd_soc_update_bits(codec, WCD9XXX_A_MBHC_SCALING_MUX_2, 0xFF, 0xF8);
+	l_t[1] = wcd9xxx_read_impedance_regs(mbhc);
+
+	if (left) {
+		l[0] = l_t[0];
+		l[1] = l_t[1];
+		l[2] = l_t[2];
 	}
+	if (right) {
+		r[0] = r_t[0];
+		r[1] = r_t[1];
+		r[2] = r_t[2];
+	}
+
+	/* compute the new impedance values */
+	mbhc->mbhc_cb->compute_impedance(mbhc, l, r, zl, zr);
+
+	if (!left && right)
+		mbhc->mbhc_cb->setup_zdet(mbhc, MBHC_ZDET_GAIN_UPDATE_1X);
+	/* compute the new ZL'' value */
+	l_t[2] = l2_stereo;
+	mbhc->mbhc_cb->compute_impedance(mbhc, l_t, NULL, zl_stereo, NULL);
+	/* compute the new ZL''' value */
+	l_t[2] = l2_mono;
+	mbhc->mbhc_cb->compute_impedance(mbhc, l_t, NULL, zl_mono, NULL);
+
+	pr_debug("%s: L0': 0x%x, L1': 0x%x L2_stereo: 0x%x, L2_mono: 0x%x\n",
+		 __func__, l_t[0] & 0xffff, l_t[1] & 0xffff,
+		 l2_stereo & 0xffff, l2_mono & 0xffff);
+	pr_debug("%s: ZL_stereo = %u, ZL_mono = %u\n",
+		 __func__, *zl_stereo, *zl_mono);
 
 	return 0;
 }
 
-static int wcd9xxx_remeasure_l_r_z_value(struct wcd9xxx_mbhc *mbhc, bool left,
-			bool right, s16 l[3], s16 r[3])
+static enum mbhc_zdet_zones wcd9xxx_assign_zdet_zone(uint32_t zl, uint32_t zr,
+						     int32_t *gain)
 {
-	int i;
-	int k;
-	int reg_array_size;
-	s16 *z;
-	struct snd_soc_codec *codec = mbhc->codec;
-	const struct wcd9xxx_reg_mask_val *reg_set_mux;
-	const struct wcd9xxx_reg_mask_val reg_set_mux_left[] = {
-		/* Set MBHC_MUX for HPHL without ical */
-		{WCD9XXX_A_MBHC_SCALING_MUX_1, 0xFF, 0xC0},
-		/* Set MBHC_MUX for HPHL with ical */
-		{WCD9XXX_A_MBHC_SCALING_MUX_2, 0xFF, 0xF8},
-		/* Set MBHC_MUX for HPHL without ical */
-		{WCD9XXX_A_MBHC_SCALING_MUX_2, 0xFF, 0xF0},
-	};
-	const struct wcd9xxx_reg_mask_val reg_set_mux_right[] = {
-		/* Set MBHC_MUX for HPHR without ical and wait for 25us */
-		{WCD9XXX_A_MBHC_SCALING_MUX_1, 0xFF, 0xA0},
-		/* Set MBHC_MUX for HPHR with ical */
-		{WCD9XXX_A_MBHC_SCALING_MUX_2, 0xFF, 0xF8},
-		/* Set MBHC_MUX for HPHL without ical */
-		{WCD9XXX_A_MBHC_SCALING_MUX_2, 0xFF, 0xF0},
-	};
+	enum mbhc_zdet_zones zdet_zone;
 
-	if (!mbhc->mbhc_cb || !mbhc->mbhc_cb->setup_zdet) {
-		dev_err(codec->dev, "%s: Invalid parameters\n", __func__);
-		return -EINVAL;
-	}
-
-	if (left && l) {
-		reg_set_mux = reg_set_mux_left;
-		z = l;
-		reg_array_size = ARRAY_SIZE(reg_set_mux_left);
-	} else if (right && r) {
-		reg_set_mux = reg_set_mux_right;
-		z = r;
-		reg_array_size = ARRAY_SIZE(reg_set_mux_right);
+	if (WCD9XXX_IS_IN_ZDET_ZONE_1(zl) &&
+		 WCD9XXX_IS_IN_ZDET_ZONE_1(zr)) {
+		zdet_zone = ZL_ZONE1__ZR_ZONE1;
+		*gain = 0;
+	} else if (WCD9XXX_IS_IN_ZDET_ZONE_2(zl) &&
+		 WCD9XXX_IS_IN_ZDET_ZONE_2(zr)) {
+		zdet_zone = ZL_ZONE2__ZR_ZONE2;
+		*gain = MBHC_ZDET_GAIN_1;
+	} else if (WCD9XXX_IS_IN_ZDET_ZONE_3(zl) &&
+		 WCD9XXX_IS_IN_ZDET_ZONE_3(zr)) {
+		zdet_zone = ZL_ZONE3__ZR_ZONE3;
+		*gain = MBHC_ZDET_GAIN_2;
+	} else if (WCD9XXX_IS_IN_ZDET_ZONE_2(zl) &&
+		 WCD9XXX_IS_IN_ZDET_ZONE_1(zr)) {
+		zdet_zone = ZL_ZONE2__ZR_ZONE1;
+		*gain = MBHC_ZDET_GAIN_1;
+	} else if (WCD9XXX_IS_IN_ZDET_ZONE_3(zl) &&
+		 WCD9XXX_IS_IN_ZDET_ZONE_1(zr)) {
+		zdet_zone = ZL_ZONE3__ZR_ZONE1;
+		*gain = MBHC_ZDET_GAIN_2;
+	} else if (WCD9XXX_IS_IN_ZDET_ZONE_1(zl) &&
+		 WCD9XXX_IS_IN_ZDET_ZONE_2(zr)) {
+		zdet_zone = ZL_ZONE1__ZR_ZONE2;
+		*gain = MBHC_ZDET_GAIN_1;
+	} else if (WCD9XXX_IS_IN_ZDET_ZONE_1(zl) &&
+		 WCD9XXX_IS_IN_ZDET_ZONE_3(zr)) {
+		zdet_zone = ZL_ZONE1__ZR_ZONE3;
+		*gain = MBHC_ZDET_GAIN_2;
 	} else {
-		dev_err(codec->dev,
-			"%s: Invalid parameters, left = %d, l = %p, right = %d, r = %p\n",
-			__func__, left, l, right, r);
-		return -EINVAL;
+		zdet_zone = ZL_ZR_NOT_IN_ZONE1;
+		*gain = MBHC_ZDET_GAIN_1;
 	}
 
-	dev_dbg(codec->dev, "%s: Remeasuring %s impedence values\n", __func__,
-		left ? "left" : "right");
-	/* Remeasure V2 value */
-	for (i = 0, k = 2; i < (reg_array_size - 2) && k >= 2; i++, k--) {
-		snd_soc_update_bits(codec, reg_set_mux[i].reg,
-				    reg_set_mux[i].mask,
-				    reg_set_mux[i].val);
-		z[k] = wcd9xxx_read_impedance_regs(mbhc);
-	}
-
-	/* Remeasure V1 and V0 values. V1 first and then V0 */
-	mbhc->mbhc_cb->setup_zdet(mbhc, MBHC_ZDET_RAMP_DISABLE);
-
-	for (; i < reg_array_size && k >= 0; i++, k--) {
-		snd_soc_update_bits(codec, reg_set_mux[i].reg,
-				    reg_set_mux[i].mask,
-				    reg_set_mux[i].val);
-		z[k] = wcd9xxx_read_impedance_regs(mbhc);
-	}
-
-	return 0;
+	return zdet_zone;
 }
 
 static int wcd9xxx_detect_impedance(struct wcd9xxx_mbhc *mbhc, uint32_t *zl,
@@ -4979,6 +5001,8 @@ static int wcd9xxx_detect_impedance(struct wcd9xxx_mbhc *mbhc, uint32_t *zl,
 	s16 *z[] = {
 		&l[0], &r[0], &r[1], &l[1], &l[2], &r[2],
 	};
+	u32 zl_stereo, zl_mono;
+	u32 zl_diff_1, zl_diff_2;
 	bool override_en;
 	struct snd_soc_codec *codec = mbhc->codec;
 	const int mux_wait_us = 25;
@@ -5094,109 +5118,80 @@ static int wcd9xxx_detect_impedance(struct wcd9xxx_mbhc *mbhc, uint32_t *zl,
 	 */
 	if (mbhc->mbhc_cb->get_cdc_type &&
 	     mbhc->mbhc_cb->get_cdc_type() == WCD9XXX_CDC_TYPE_TOMTOM) {
-		uint32_t zl_t, zr_t;
-		if (WCD9XXX_IS_IN_ZDET_ZONE_1(*zl) &&
-		    WCD9XXX_IS_IN_ZDET_ZONE_1(*zr)) {
-			pr_debug("%s: zl < 80 Ohm & zr < 80 Ohm\n", __func__);
-		} else if (WCD9XXX_IS_IN_ZDET_ZONE_2(*zl) &&
-			   WCD9XXX_IS_IN_ZDET_ZONE_2(*zr)) {
-			pr_debug("%s: 80 < (zl & zr both) < 800 Ohm\n",
-				__func__);
-			mbhc->mbhc_cb->setup_zdet(mbhc, MBHC_ZDET_GAIN_1);
+		uint32_t zl_t = 0, zr_t = 0;
+		s16 *l_p, *r_p;
+		enum mbhc_zdet_zones zdet_zone;
+		int32_t gain;
 
-			ret = wcd9xxx_remeasure_z_value(mbhc, l, r);
-			if (!ret) {
-				/* compute the new impedance values */
-				mbhc->mbhc_cb->compute_impedance(mbhc, l, r,
-								 zl, zr);
-				goto disable_pa;
-			}
-		} else if (WCD9XXX_IS_IN_ZDET_ZONE_3(*zl) &&
-			   WCD9XXX_IS_IN_ZDET_ZONE_3(*zr)) {
-			pr_debug("%s: (zl & zr both) > 800 Ohm\n", __func__);
-			mbhc->mbhc_cb->setup_zdet(mbhc, MBHC_ZDET_GAIN_2);
+		zdet_zone = wcd9xxx_assign_zdet_zone(*zl, *zr, &gain);
+		switch (zdet_zone) {
+		case ZL_ZONE1__ZR_ZONE1:
+			l_p = NULL;
+			r_p = NULL;
+			break;
+		case ZL_ZONE2__ZR_ZONE2:
+		case ZL_ZONE3__ZR_ZONE3:
+		case ZL_ZR_NOT_IN_ZONE1:
+			l_p = l;
+			r_p = r;
+			break;
+		case ZL_ZONE2__ZR_ZONE1:
+		case ZL_ZONE3__ZR_ZONE1:
+		/* If ZR falls in Zone 1, further computations with
+		 * gain update are not required
+		 */
+			l_p = l;
+			r_p = NULL;
+			break;
+		case ZL_ZONE1__ZR_ZONE2:
+		case ZL_ZONE1__ZR_ZONE3:
+		/* If ZL falls in Zone 1, further computations with
+		 * gain update are not required
+		 */
+			l_p = NULL;
+			r_p = r;
+			break;
+		}
+		pr_debug("%s:zdet_zone = %d, gain = %d\n", __func__,
+			 zdet_zone, gain);
+		if (gain)
+			mbhc->mbhc_cb->setup_zdet(mbhc, gain);
 
-			ret = wcd9xxx_remeasure_z_value(mbhc, l, r);
-			if (!ret) {
-				/* compute the new impedance values */
-				mbhc->mbhc_cb->compute_impedance(mbhc, l, r,
-								 zl, zr);
-				goto disable_pa;
-			}
-		} else if (WCD9XXX_IS_IN_ZDET_ZONE_2(*zl) &&
-			   WCD9XXX_IS_IN_ZDET_ZONE_1(*zr)) {
-			/* remeasure the higher one (zl in this case) */
-			pr_debug("%s: 80 < zl < 800 Ohm\n", __func__);
-			mbhc->mbhc_cb->setup_zdet(mbhc, MBHC_ZDET_GAIN_1);
+		wcd9xxx_remeasure_z_values(mbhc, l_p, r_p, &zl_t, &zr_t,
+					   &zl_stereo, &zl_mono);
 
-			ret = wcd9xxx_remeasure_l_r_z_value(mbhc, 1,
-							    0, l, NULL);
-			if (!ret) {
-				/* Send a dummy pointer and compute z values */
-				mbhc->mbhc_cb->compute_impedance(mbhc, l, r,
-								 zl, &zr_t);
-				goto disable_pa;
-			}
-		} else if (WCD9XXX_IS_IN_ZDET_ZONE_3(*zl) &&
-			   WCD9XXX_IS_IN_ZDET_ZONE_1(*zr)) {
-			/* remeasure the higher one (zl in this case) */
-			pr_debug("%s: zl > 800 Ohm\n", __func__);
-			mbhc->mbhc_cb->setup_zdet(mbhc, MBHC_ZDET_GAIN_2);
+		*zl = (zl_t) ? zl_t : *zl;
+		*zr = (zr_t) ? zr_t : *zr;
 
-			ret = wcd9xxx_remeasure_l_r_z_value(mbhc, 1,
-							    0, l, NULL);
-			if (!ret) {
-				/* Send a dummy pointer and compute z values */
-				mbhc->mbhc_cb->compute_impedance(mbhc, l, r,
-								 zl, &zr_t);
-				goto disable_pa;
-			}
-		} else if (WCD9XXX_IS_IN_ZDET_ZONE_1(*zl) &&
-			   WCD9XXX_IS_IN_ZDET_ZONE_2(*zr)) {
-			/* remeasure the higher one (zr in this case) */
-			pr_debug("%s: 80 < zr < 800 Ohm\n", __func__);
-			mbhc->mbhc_cb->setup_zdet(mbhc, MBHC_ZDET_GAIN_1);
-			ret = wcd9xxx_remeasure_l_r_z_value(mbhc, 0,
-							    1, NULL, r);
-			if (!ret) {
-				/* Send a dummy pointer and compute z values */
-				mbhc->mbhc_cb->compute_impedance(mbhc, l, r,
-								 &zl_t, zr);
-				goto disable_pa;
-			}
-		} else if (WCD9XXX_IS_IN_ZDET_ZONE_1(*zl) &&
-			   WCD9XXX_IS_IN_ZDET_ZONE_3(*zr)) {
-			/* remeasure the higher one (zr in this case) */
-			pr_debug("%s: zr > 800 Ohm\n", __func__);
-			mbhc->mbhc_cb->setup_zdet(mbhc, MBHC_ZDET_GAIN_2);
+		/* Check for Mono/Stereo Type
+		 * Conditions to classify Mono/Stereo
+		 * i. Difference of zl_stereo and zl_mono > (1/2) of zl_mono
+		 * ii. Absolute difference of zl and zr above a threshold
+		 */
+		zl_diff_1 = (zl_mono > zl_stereo) ? (zl_mono - zl_stereo) :
+						  (zl_stereo - zl_mono);
+		zl_diff_2 = (*zl > *zr) ? (*zl - *zr) : (*zr - *zl);
 
-			ret = wcd9xxx_remeasure_l_r_z_value(mbhc, 0,
-							    1, NULL, r);
-			if (!ret) {
-				/* Send a dummy pointer and compute z values */
-				mbhc->mbhc_cb->compute_impedance(mbhc, l, r,
-								 &zl_t, zr);
-				goto disable_pa;
-			}
-		} else {
-			/* The corner cases where impedence for one channel is
-			 * in Zone2 and the other is in Zone3 use Gain 10x and
-			 * re-measure both Left and Right impedences.
-			 */
-			mbhc->mbhc_cb->setup_zdet(mbhc, MBHC_ZDET_GAIN_1);
-			ret = wcd9xxx_remeasure_z_value(mbhc, l, r);
-			if (!ret) {
-				/* compute the new impedance values */
-				mbhc->mbhc_cb->compute_impedance(mbhc, l, r,
-								 zl, zr);
-				goto disable_pa;
+		mbhc->hph_type = MBHC_HPH_NONE;
+		if (mbhc->current_plug != PLUG_TYPE_HIGH_HPH) {
+			if ((zl_diff_1 > (zl_mono >> 1)) ||
+			    (zl_diff_2 > WCD9XXX_MONO_HS_DIFF_THR) ||
+			    ((*zl < WCD9XXX_MONO_HS_MIN_THR) &&
+			     (*zr > WCD9XXX_MONO_HS_MIN_THR)) ||
+			    ((*zr < WCD9XXX_MONO_HS_MIN_THR) &&
+			     (*zl > WCD9XXX_MONO_HS_MIN_THR))) {
+				pr_debug("%s: MONO plug type detected\n",
+					 __func__);
+				mbhc->hph_type = MBHC_HPH_MONO;
+				*zl = zl_mono;
+			} else {
+				pr_debug("%s: STEREO plug type detected\n",
+					 __func__);
+				mbhc->hph_type = MBHC_HPH_STEREO;
 			}
 		}
-
-		mbhc->mbhc_cb->setup_zdet(mbhc, MBHC_ZDET_RAMP_DISABLE);
 	}
 
-disable_pa:
 	mbhc->mbhc_cb->setup_zdet(mbhc, MBHC_ZDET_PA_DISABLE);
 
 	/* Calculate z values based on the Q-fuse registers, if used */
@@ -5277,6 +5272,7 @@ int wcd9xxx_mbhc_init(struct wcd9xxx_mbhc *mbhc, struct wcd9xxx_resmgr *resmgr,
 	mbhc->mbhc_cb = mbhc_cb;
 	mbhc->intr_ids = mbhc_cdc_intr_ids;
 	mbhc->impedance_detect = impedance_det_en;
+	mbhc->hph_type = MBHC_HPH_NONE;
 
 	if (mbhc->intr_ids == NULL) {
 		pr_err("%s: Interrupt mapping not provided\n", __func__);
@@ -5330,7 +5326,8 @@ int wcd9xxx_mbhc_init(struct wcd9xxx_mbhc *mbhc, struct wcd9xxx_resmgr *resmgr,
 
 	/* Disable Impedance detection by default for certain codec types */
 	if (mbhc->mbhc_cb && mbhc->mbhc_cb->get_cdc_type &&
-	    mbhc->mbhc_cb->get_cdc_type() == WCD9XXX_CDC_TYPE_HELICON)
+	    ((mbhc->mbhc_cb->get_cdc_type() == WCD9XXX_CDC_TYPE_HELICON) ||
+	    (mbhc->mbhc_cb->get_cdc_type() == WCD9XXX_CDC_TYPE_TOMTOM)))
 		impedance_detect_en = 0;
 	else
 		impedance_detect_en = impedance_det_en ? 1 : 0;

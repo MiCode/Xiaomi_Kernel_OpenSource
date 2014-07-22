@@ -39,6 +39,8 @@
 #define WCD9330_DMIC_B2_CTL_DIV_3 0x12
 #define WCD9330_DMIC_B2_CTL_DIV_4 0x24
 
+#define TOMTOM_ZDET_SUPPORTED true
+
 extern const u8 tomtom_reg_readable[TOMTOM_CACHE_SIZE];
 extern const u8 tomtom_reset_reg_defaults[TOMTOM_CACHE_SIZE];
 struct tomtom_codec_dai_data {
@@ -59,6 +61,13 @@ enum tomtom_mbhc_analog_pwr_cfg {
 	TOMTOM_ANALOG_PWR_COLLAPSED = 0,
 	TOMTOM_ANALOG_PWR_ON,
 	TOMTOM_NUM_ANALOG_PWR_CONFIGS,
+};
+
+enum {
+	HPH_PA_NONE = 0,
+	HPH_PA_R,
+	HPH_PA_L,
+	HPH_PA_L_R,
 };
 
 /* Number of input and output Slimbus port */
