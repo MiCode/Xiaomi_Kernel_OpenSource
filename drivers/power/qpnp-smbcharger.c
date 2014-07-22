@@ -135,7 +135,6 @@ struct smbchg_chip {
 	bool				psy_registered;
 
 	struct smbchg_regulator		otg_vreg;
-	struct delayed_work		wireless_insertion_work;
 	struct work_struct		usb_set_online_work;
 	spinlock_t			sec_access_lock;
 	struct mutex			current_change_lock;
@@ -1488,16 +1487,6 @@ static void smbchg_regulator_deinit(struct smbchg_chip *chip)
 		regulator_unregister(chip->otg_vreg.rdev);
 }
 
-static void wireless_insertion_work(struct work_struct *work)
-{
-	struct smbchg_chip *chip =
-		container_of(work, struct smbchg_chip,
-				wireless_insertion_work.work);
-
-	/* unsuspend dc */
-	smbchg_dc_en(chip, false, REASON_WIRELESS);
-}
-
 #define HOT_BAT_HARD_BIT	BIT(0)
 #define HOT_BAT_SOFT_BIT	BIT(1)
 #define COLD_BAT_HARD_BIT	BIT(2)
@@ -1688,25 +1677,12 @@ static irqreturn_t dcin_uv_handler(int irq, void *_chip)
 	pr_debug("chip->dc_present = %d dc_present = %d\n",
 			chip->dc_present, dc_present);
 
-	if (chip->dc_present && !dc_present) {
-		/* dc removed */
+	if (chip->dc_present != dc_present) {
+		/* dc changed */
 		chip->dc_present = dc_present;
-		if (chip->dc_psy_type == POWER_SUPPLY_TYPE_WIRELESS) {
-			cancel_delayed_work_sync(
-				&chip->wireless_insertion_work);
-			smbchg_dc_en(chip, true, REASON_WIRELESS);
-		}
+		if (chip->psy_registered)
+			power_supply_changed(&chip->dc_psy);
 	}
-
-	if (!chip->dc_present && dc_present) {
-		/* dc inserted */
-		chip->dc_present = dc_present;
-		if (chip->dc_psy_type == POWER_SUPPLY_TYPE_WIRELESS)
-			schedule_delayed_work(&chip->wireless_insertion_work,
-				msecs_to_jiffies(DCIN_UNSUSPEND_DELAY_MS));
-	}
-	if (chip->psy_registered)
-		power_supply_changed(&chip->dc_psy);
 
 	return IRQ_HANDLED;
 }
@@ -1937,18 +1913,6 @@ static int determine_initial_status(struct smbchg_chip *chip)
 	else
 		handle_usb_removal(chip);
 
-	if (chip->dc_psy_type != -EINVAL) {
-		if (chip->dc_psy_type == POWER_SUPPLY_TYPE_WIRELESS) {
-			/*
-			 * put the dc path in suspend state if it is powered
-			 * by wireless charger
-			 */
-			if (chip->dc_present)
-				smbchg_dc_en(chip, false, REASON_WIRELESS);
-			else
-				smbchg_dc_en(chip, true, REASON_WIRELESS);
-		}
-	}
 	return 0;
 }
 
@@ -2698,8 +2662,6 @@ static int smbchg_probe(struct spmi_device *spmi)
 		return -ENOMEM;
 	}
 
-	INIT_DELAYED_WORK(&chip->wireless_insertion_work,
-					wireless_insertion_work);
 	INIT_WORK(&chip->usb_set_online_work, smbchg_usb_update_online_work);
 	chip->spmi = spmi;
 	chip->dev = &spmi->dev;
@@ -2807,7 +2769,6 @@ static int smbchg_remove(struct spmi_device *spmi)
 {
 	struct smbchg_chip *chip = dev_get_drvdata(&spmi->dev);
 
-	cancel_delayed_work_sync(&chip->wireless_insertion_work);
 	if (chip->dc_psy_type != -EINVAL)
 		power_supply_unregister(&chip->dc_psy);
 
