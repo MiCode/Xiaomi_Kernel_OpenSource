@@ -185,3 +185,9 @@
 &android_usb {
 	qcom,android-usb-cdrom;
 };
+
+&apc_vreg_corner {
+	vdd-apc-supply = <&fan53555>;
+	qcom,cpr-step-quotient = <26>;
+	qcom,cpr-apc-volt-step = <12500>;
+};
