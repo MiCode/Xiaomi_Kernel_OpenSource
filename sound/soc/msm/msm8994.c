@@ -98,7 +98,6 @@ static int msm_slim_0_rx_ch = 1;
 static int msm_slim_0_tx_ch = 1;
 
 static int msm_btsco_rate = SAMPLING_RATE_8KHZ;
-static int msm_btsco_ch = 1;
 static int msm_hdmi_rx_ch = 2;
 static int msm_proxy_rx_ch = 2;
 static int hdmi_rx_sample_rate = SAMPLING_RATE_48KHZ;
@@ -742,21 +741,6 @@ static int hdmi_rx_sample_rate_put(struct snd_kcontrol *kcontrol,
 
 	pr_debug("%s: hdmi_rx_sample_rate = %d\n", __func__,
 			hdmi_rx_sample_rate);
-
-	return 0;
-}
-
-static int msm_btsco_be_hw_params_fixup(struct snd_soc_pcm_runtime *rtd,
-					struct snd_pcm_hw_params *params)
-{
-	struct snd_interval *rate = hw_param_interval(params,
-					SNDRV_PCM_HW_PARAM_RATE);
-
-	struct snd_interval *channels = hw_param_interval(params,
-					SNDRV_PCM_HW_PARAM_CHANNELS);
-
-	rate->min = rate->max = msm_btsco_rate;
-	channels->min = channels->max = msm_btsco_ch;
 
 	return 0;
 }
@@ -2562,33 +2546,7 @@ static struct snd_soc_dai_link msm8994_common_dai_links[] = {
 		.be_id = MSM_FRONTEND_DAI_MULTIMEDIA16,
 	},
 	/* End of FE DAI LINK */
-	/* Backend BT/FM DAI Links */
-	{
-		.name = LPASS_BE_INT_BT_SCO_RX,
-		.stream_name = "Internal BT-SCO Playback",
-		.cpu_dai_name = "msm-dai-q6-dev.12288",
-		.platform_name = "msm-pcm-routing",
-		.codec_name = "msm-stub-codec.1",
-		.codec_dai_name = "msm-stub-rx",
-		.no_pcm = 1,
-		.be_id = MSM_BACKEND_DAI_INT_BT_SCO_RX,
-		.be_hw_params_fixup = msm_btsco_be_hw_params_fixup,
-		/* this dainlink has playback support */
-		.ignore_pmdown_time = 1,
-		.ignore_suspend = 1,
-	},
-	{
-		.name = LPASS_BE_INT_BT_SCO_TX,
-		.stream_name = "Internal BT-SCO Capture",
-		.cpu_dai_name = "msm-dai-q6-dev.12289",
-		.platform_name = "msm-pcm-routing",
-		.codec_name = "msm-stub-codec.1",
-		.codec_dai_name = "msm-stub-tx",
-		.no_pcm = 1,
-		.be_id = MSM_BACKEND_DAI_INT_BT_SCO_TX,
-		.be_hw_params_fixup = msm_btsco_be_hw_params_fixup,
-		.ignore_suspend = 1,
-	},
+	/* Backend FM DAI Links */
 	{
 		.name = LPASS_BE_INT_FM_RX,
 		.stream_name = "Internal FM Playback",
