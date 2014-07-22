@@ -3874,7 +3874,8 @@ static int cherryview_irq_postinstall(struct drm_device *dev)
 		I915_DISPLAY_PIPE_B_EVENT_INTERRUPT |
 		I915_DISPLAY_PIPE_C_EVENT_INTERRUPT;
 	u32 pipestat_enable = PLANE_FLIP_DONE_INT_STATUS_VLV |
-		PIPE_CRC_DONE_INTERRUPT_STATUS;
+		PIPE_CRC_DONE_INTERRUPT_STATUS |
+		PIPE_DPST_EVENT_STATUS;
 	unsigned long irqflags;
 	int pipe;
 
