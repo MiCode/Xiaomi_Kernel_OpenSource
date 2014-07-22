@@ -3036,8 +3036,13 @@ int mdss_mdp_display_commit(struct mdss_mdp_ctl *ctl, void *arg,
 	}
 
 	ATRACE_BEGIN("frame_ready");
-	if (!ctl->shared_lock)
+	if (ctl->shared_lock) {
+		mutex_unlock(ctl->shared_lock);
 		mdss_mdp_ctl_notify(ctl, MDP_NOTIFY_FRAME_READY);
+		mutex_lock(ctl->shared_lock);
+	} else {
+		mdss_mdp_ctl_notify(ctl, MDP_NOTIFY_FRAME_READY);
+	}
 	ATRACE_END("frame_ready");
 
 	ctl->roi_bkup.w = ctl->roi.w;
