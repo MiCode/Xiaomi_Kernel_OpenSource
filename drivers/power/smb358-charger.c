@@ -592,8 +592,8 @@ static int smb358_regulator_init(struct smb358_charger *chip)
 
 	init_data = of_get_regulator_init_data(chip->dev, chip->dev->of_node);
 	if (!init_data) {
-		dev_err(chip->dev, "Get regulator init data failed\n");
-		return -EINVAL;
+		dev_err(chip->dev, "Allocate memory failed\n");
+		return -ENOMEM;
 	}
 
 	/* Give the name, then will register */
@@ -1985,6 +1985,16 @@ static int smb_parse_dt(struct smb358_charger *chip)
 	else
 		chip->bat_present_decidegc = -batt_present_degree_negative;
 
+	if (of_get_property(node, "qcom,vcc-i2c-supply", NULL)) {
+		chip->vcc_i2c = devm_regulator_get(chip->dev, "vcc-i2c");
+		if (IS_ERR(chip->vcc_i2c)) {
+			dev_err(chip->dev,
+				"%s: Failed to get vcc_i2c regulator\n",
+								__func__);
+			return PTR_ERR(chip->vcc_i2c);
+		}
+	}
+
 	pr_debug("inhibit-disabled = %d, recharge-disabled = %d, recharge-mv = %d,",
 		chip->inhibit_disabled, chip->recharge_disabled,
 						chip->recharge_mv);
@@ -2180,33 +2190,31 @@ static int smb358_charger_probe(struct i2c_client *client,
 		return rc;
 	}
 
-	/* i2c pull up Regulator configuration */
-	chip->vcc_i2c = regulator_get(&client->dev, "vcc-i2c");
-	if (IS_ERR(chip->vcc_i2c)) {
-		dev_err(&client->dev,
-				"%s: Failed to get vcc_i2c regulator\n",
-					__func__);
-		rc = PTR_ERR(chip->vcc_i2c);
-		goto err_get_vtg_i2c;
+	rc = smb_parse_dt(chip);
+	if (rc) {
+		dev_err(&client->dev, "Couldn't parse DT nodes rc=%d\n", rc);
+		return rc;
 	}
-
-	if (regulator_count_voltages(chip->vcc_i2c) > 0) {
-		rc = regulator_set_voltage(chip->vcc_i2c,
+	/* i2c pull up regulator configuration */
+	if (chip->vcc_i2c) {
+		if (regulator_count_voltages(chip->vcc_i2c) > 0) {
+			rc = regulator_set_voltage(chip->vcc_i2c,
 				SMB_I2C_VTG_MIN_UV, SMB_I2C_VTG_MAX_UV);
+			if (rc) {
+				dev_err(&client->dev,
+				"regulator vcc_i2c set failed, rc = %d\n",
+								rc);
+				return rc;
+			}
+		}
+
+		rc = regulator_enable(chip->vcc_i2c);
 		if (rc) {
 			dev_err(&client->dev,
-				"regulator vcc_i2c set failed, rc = %d\n",
-					rc);
+				"Regulator vcc_i2c enable failed rc = %d\n",
+									rc);
 			goto err_set_vtg_i2c;
 		}
-	}
-
-	rc = regulator_enable(chip->vcc_i2c);
-	if (rc) {
-		dev_err(&client->dev,
-			"Regulator vcc_i2c enable failed "
-				"rc=%d\n", rc);
-		goto err_set_vtg_i2c;
 	}
 
 	mutex_init(&chip->irq_complete);
@@ -2217,12 +2225,6 @@ static int smb358_charger_probe(struct i2c_client *client,
 	rc = smb358_read_reg(chip, CHG_OTH_CURRENT_CTRL_REG, &reg);
 	if (rc) {
 		pr_err("Failed to detect SMB358, device absent, rc = %d\n", rc);
-		goto err_set_vtg_i2c;
-	}
-
-	rc = smb_parse_dt(chip);
-	if (rc) {
-		dev_err(&client->dev, "Couldn't parse DT nodes rc=%d\n", rc);
 		goto err_set_vtg_i2c;
 	}
 
@@ -2266,7 +2268,7 @@ static int smb358_charger_probe(struct i2c_client *client,
 	if  (rc) {
 		dev_err(&client->dev,
 			"Couldn't initialize smb358 ragulator rc=%d\n", rc);
-		goto err_set_vtg_i2c;
+		goto fail_regulator_register;
 	}
 
 	rc = smb358_hw_init(chip);
@@ -2384,13 +2386,14 @@ fail_irq_gpio:
 	if (gpio_is_valid(chip->irq_gpio))
 		gpio_free(chip->irq_gpio);
 fail_smb358_hw_init:
-	power_supply_unregister(&chip->batt_psy);
 	regulator_unregister(chip->otg_vreg.rdev);
+fail_regulator_register:
+	power_supply_unregister(&chip->batt_psy);
 err_set_vtg_i2c:
-	if (regulator_count_voltages(chip->vcc_i2c) > 0)
-		regulator_set_voltage(chip->vcc_i2c, 0, SMB_I2C_VTG_MAX_UV);
-err_get_vtg_i2c:
-	regulator_put(chip->vcc_i2c);
+	if (chip->vcc_i2c)
+		if (regulator_count_voltages(chip->vcc_i2c) > 0)
+			regulator_set_voltage(chip->vcc_i2c, 0,
+						SMB_I2C_VTG_MAX_UV);
 	return rc;
 }
 
@@ -2402,8 +2405,9 @@ static int smb358_charger_remove(struct i2c_client *client)
 	if (gpio_is_valid(chip->chg_valid_gpio))
 		gpio_free(chip->chg_valid_gpio);
 
-	regulator_disable(chip->vcc_i2c);
-	regulator_put(chip->vcc_i2c);
+	if (chip->vcc_i2c)
+		regulator_disable(chip->vcc_i2c);
+
 	mutex_destroy(&chip->irq_complete);
 	debugfs_remove_recursive(chip->debug_root);
 	return 0;
@@ -2439,12 +2443,14 @@ static int smb358_suspend(struct device *dev)
 			"Couldn't set status_irq_cfg rc = %d\n", rc);
 
 	mutex_lock(&chip->irq_complete);
-	rc = regulator_disable(chip->vcc_i2c);
-	if (rc) {
-		dev_err(chip->dev,
-			"Regulator vcc_i2c disable failed rc=%d\n", rc);
-		mutex_unlock(&chip->irq_complete);
-		return rc;
+	if (chip->vcc_i2c) {
+		rc = regulator_disable(chip->vcc_i2c);
+		if (rc) {
+			dev_err(chip->dev,
+				"Regulator vcc_i2c disable failed rc=%d\n", rc);
+			mutex_unlock(&chip->irq_complete);
+			return rc;
+		}
 	}
 
 	chip->resume_completed = false;
@@ -2471,6 +2477,14 @@ static int smb358_resume(struct device *dev)
 	int rc;
 	int i;
 
+	if (chip->vcc_i2c) {
+		rc = regulator_enable(chip->vcc_i2c);
+		if (rc) {
+			dev_err(chip->dev,
+				"Regulator vcc_i2c enable failed rc=%d\n", rc);
+			return rc;
+		}
+	}
 	/* Restore IRQ config */
 	for (i = 0; i < 2; i++) {
 		rc = smb358_write_reg(chip, FAULT_INT_REG + i,
@@ -2481,15 +2495,7 @@ static int smb358_resume(struct device *dev)
 	}
 
 	mutex_lock(&chip->irq_complete);
-	rc = regulator_enable(chip->vcc_i2c);
-	if (rc) {
-		dev_err(chip->dev,
-			"Regulator vcc_i2c enable failed rc=%d\n", rc);
-		mutex_unlock(&chip->irq_complete);
-		return rc;
-	}
 	chip->resume_completed = true;
-
 	mutex_unlock(&chip->irq_complete);
 	if (chip->irq_waiting) {
 		smb358_chg_stat_handler(client->irq, chip);
