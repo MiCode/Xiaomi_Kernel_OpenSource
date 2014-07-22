@@ -1968,14 +1968,23 @@ long msm_cpp_subdev_ioctl(struct v4l2_subdev *sd,
 			mutex_unlock(&cpp_dev->mutex);
 			return -EINVAL;
 		}
-
-		rc = (copy_from_user(&clock_settings,
-			(void __user *)ioctl_ptr->ioctl_ptr,
-			ioctl_ptr->len) ? -EFAULT : 0);
-		if (rc) {
-			ERR_COPY_FROM_USER();
-			mutex_unlock(&cpp_dev->mutex);
-			return -EINVAL;
+#ifdef CONFIG_COMPAT
+		/* For compat task, source ptr is in kernel space
+		 * otherwise it is in user space*/
+		if (is_compat_task()) {
+			memcpy(&clock_settings, ioctl_ptr->ioctl_ptr,
+					ioctl_ptr->len);
+		} else
+#endif
+		{
+			rc = (copy_from_user(&clock_settings,
+				(void __user *)ioctl_ptr->ioctl_ptr,
+				ioctl_ptr->len) ? -EFAULT : 0);
+			if (rc) {
+				ERR_COPY_FROM_USER();
+				mutex_unlock(&cpp_dev->mutex);
+				return -EINVAL;
+			}
 		}
 
 		if (clock_settings.clock_rate > 0) {
@@ -2329,6 +2338,7 @@ static long msm_cpp_subdev_fops_compat_ioctl(struct file *file,
 	int32_t rc = 0;
 	struct msm_camera_v4l2_ioctl_t kp_ioctl;
 	struct msm_camera_v4l2_ioctl32_t up32_ioctl;
+	struct msm_cpp_clock_settings_t clock_settings;
 	void __user *up = (void __user *)arg;
 
 	if (!vdev || !sd || !cpp_dev)
@@ -2388,8 +2398,28 @@ static long msm_cpp_subdev_fops_compat_ioctl(struct file *file,
 		break;
 	}
 	case VIDIOC_MSM_CPP_GET_HW_INFO32:
+	{
+		struct cpp_hw_info_32_t u32_cpp_hw_info;
+		uint32_t i;
+
+		u32_cpp_hw_info.cpp_hw_version =
+			cpp_dev->hw_info.cpp_hw_version;
+		u32_cpp_hw_info.cpp_hw_caps = cpp_dev->hw_info.cpp_hw_caps;
+		memset(&u32_cpp_hw_info.freq_tbl, 0x00,
+				sizeof(u32_cpp_hw_info.freq_tbl));
+		for (i = 0; i < cpp_dev->hw_info.freq_tbl_count; i++)
+			u32_cpp_hw_info.freq_tbl[i] =
+				cpp_dev->hw_info.freq_tbl[i];
+
+		u32_cpp_hw_info.freq_tbl_count =
+			cpp_dev->hw_info.freq_tbl_count;
+		if (copy_to_user((void __user *)kp_ioctl.ioctl_ptr,
+			&u32_cpp_hw_info, sizeof(struct cpp_hw_info_32_t)))
+			return -EINVAL;
+
 		cmd = VIDIOC_MSM_CPP_GET_HW_INFO;
 		break;
+	}
 	case VIDIOC_MSM_CPP_LOAD_FIRMWARE32:
 		cmd = VIDIOC_MSM_CPP_LOAD_FIRMWARE;
 		break;
@@ -2450,8 +2480,24 @@ static long msm_cpp_subdev_fops_compat_ioctl(struct file *file,
 		break;
 	}
 	case VIDIOC_MSM_CPP_SET_CLOCK32:
+	{
+		struct msm_cpp_clock_settings32_t *clock_settings32 =
+			(struct msm_cpp_clock_settings32_t *)kp_ioctl.ioctl_ptr;
+		clock_settings.clock_rate = clock_settings32->clock_rate;
+		clock_settings.avg = clock_settings32->avg;
+		clock_settings.inst = clock_settings32->inst;
+		kp_ioctl.ioctl_ptr = (void *)&clock_settings;
+		if (is_compat_task()) {
+			if (kp_ioctl.len != sizeof(
+				struct msm_cpp_clock_settings32_t))
+				return -EINVAL;
+			else
+				kp_ioctl.len =
+					sizeof(struct msm_cpp_clock_settings_t);
+		}
 		cmd = VIDIOC_MSM_CPP_SET_CLOCK;
 		break;
+	}
 	case VIDIOC_MSM_CPP_QUEUE_BUF32:
 	{
 		struct msm_pproc_queue_buf_info32_t *u32_queue_buf =
@@ -2486,7 +2532,6 @@ static long msm_cpp_subdev_fops_compat_ioctl(struct file *file,
 	}
 
 	switch (cmd) {
-	case VIDIOC_MSM_CPP_GET_HW_INFO:
 	case VIDIOC_MSM_CPP_LOAD_FIRMWARE:
 	case VIDIOC_MSM_CPP_FLUSH_QUEUE:
 	case VIDIOC_MSM_CPP_ENQUEUE_STREAM_BUFF_INFO:
@@ -2499,6 +2544,7 @@ static long msm_cpp_subdev_fops_compat_ioctl(struct file *file,
 	case MSM_SD_SHUTDOWN:
 		rc = v4l2_subdev_call(sd, core, ioctl, cmd, &kp_ioctl);
 		break;
+	case VIDIOC_MSM_CPP_GET_HW_INFO:
 	case VIDIOC_MSM_CPP_CFG:
 	case VIDIOC_MSM_CPP_GET_EVENTPAYLOAD:
 		break;

@@ -327,6 +327,12 @@ struct msm_cpp_frame_info32_t {
 	struct msm_cpp_buffer_info_t tnr_scratch_buffer_info[2];
 };
 
+struct msm_cpp_clock_settings32_t {
+	compat_long_t clock_rate;
+	uint64_t avg;
+	uint64_t inst;
+};
+
 struct msm_cpp_stream_buff_info32_t {
 	uint32_t identity;
 	uint32_t num_buffs;
@@ -337,6 +343,14 @@ struct msm_pproc_queue_buf_info32_t {
 	struct msm_buf_mngr_info32_t buff_mgr_info;
 	uint8_t is_buf_dirty;
 };
+
+struct cpp_hw_info_32_t {
+	uint32_t cpp_hw_version;
+	uint32_t cpp_hw_caps;
+	compat_long_t freq_tbl[MAX_FREQ_TBL];
+	uint32_t freq_tbl_count;
+};
+
 
 #define VIDIOC_MSM_CPP_CFG32 \
 	_IOWR('V', BASE_VIDIOC_PRIVATE, struct msm_camera_v4l2_ioctl32_t)
