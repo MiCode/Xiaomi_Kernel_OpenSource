@@ -677,8 +677,14 @@ static int cnss_wlan_pci_suspend(struct pci_dev *pdev, pm_message_t state)
 	if (!wdriver)
 		goto out;
 
-	if (wdriver->suspend)
+	if (wdriver->suspend) {
 		ret = wdriver->suspend(pdev, state);
+
+		if (penv->pcie_link_state) {
+			pci_save_state(pdev);
+			penv->saved_state = pci_store_saved_state(pdev);
+		}
+	}
 
 out:
 	return ret;
@@ -696,8 +702,14 @@ static int cnss_wlan_pci_resume(struct pci_dev *pdev)
 	if (!wdriver)
 		goto out;
 
-	if (wdriver->resume && !penv->pcie_link_down_ind)
+	if (wdriver->resume && !penv->pcie_link_down_ind) {
+		if (penv->saved_state)
+			pci_load_and_free_saved_state(pdev,
+				&penv->saved_state);
+		pci_restore_state(pdev);
+
 		ret = wdriver->resume(pdev);
+	}
 
 out:
 	return ret;
