@@ -600,28 +600,38 @@ static int msm8x16_enable_codec_ext_clk(struct snd_soc_codec *codec,
 		   __func__, codec->name, enable,
 		   atomic_read(&pdata->mclk_rsc_ref));
 	if (enable) {
-		if (atomic_inc_return(&pdata->mclk_rsc_ref) == 1) {
+		if (!atomic_read(&pdata->mclk_rsc_ref)) {
 			cancel_delayed_work_sync(
 					&pdata->disable_mclk_work);
 			mutex_lock(&pdata->cdc_mclk_mutex);
 			if (atomic_read(&pdata->mclk_enabled) == false) {
 				pdata->digital_cdc_clk.clk_val =
 							pdata->mclk_freq;
-				afe_set_digital_codec_core_clock(
+				ret = afe_set_digital_codec_core_clock(
 						AFE_PORT_ID_PRIMARY_MI2S_RX,
 						&pdata->digital_cdc_clk);
+				if (ret < 0) {
+					pr_err("%s: failed to enable MCLK\n",
+							__func__);
+					mutex_unlock(&pdata->cdc_mclk_mutex);
+					return ret;
+				}
 				atomic_set(&pdata->mclk_enabled, true);
 			}
 			mutex_unlock(&pdata->cdc_mclk_mutex);
 		}
+		atomic_inc(&pdata->mclk_rsc_ref);
 	} else {
 		cancel_delayed_work_sync(&pdata->disable_mclk_work);
 		mutex_lock(&pdata->cdc_mclk_mutex);
 		if (atomic_read(&pdata->mclk_enabled) == true) {
 			pdata->digital_cdc_clk.clk_val = 0;
-			afe_set_digital_codec_core_clock(
+			ret = afe_set_digital_codec_core_clock(
 					AFE_PORT_ID_PRIMARY_MI2S_RX,
 					&pdata->digital_cdc_clk);
+			if (ret < 0)
+				pr_err("%s: failed to disable MCLK\n",
+						__func__);
 			atomic_set(&pdata->mclk_enabled, false);
 		}
 		mutex_unlock(&pdata->cdc_mclk_mutex);
