@@ -2044,11 +2044,6 @@ static inline int power_cost(struct task_struct *p, int cpu)
 	return SCHED_POWER_SCALE;
 }
 
-static unsigned int power_cost_at_freq(int cpu, unsigned int freq)
-{
-	return 1;
-}
-
 static inline int
 spill_threshold_crossed(struct task_struct *p, struct rq *rq, int cpu)
 {
@@ -6073,6 +6068,7 @@ ret:
 	return NULL;
 }
 
+#ifdef CONFIG_SCHED_HMP
 static struct rq *find_busiest_queue_hmp(struct lb_env *env,
 				     struct sched_group *group)
 {
@@ -6094,6 +6090,13 @@ static struct rq *find_busiest_queue_hmp(struct lb_env *env,
 
 	return busiest;
 }
+#else
+static inline struct rq *find_busiest_queue_hmp(struct lb_env *env,
+				     struct sched_group *group)
+{
+	return NULL;
+}
+#endif
 
 /*
  * find_busiest_queue - find the busiest runqueue among the cpus in group.
@@ -6908,6 +6911,7 @@ end:
 	clear_bit(NOHZ_BALANCE_KICK, nohz_flags(this_cpu));
 }
 
+#ifdef CONFIG_SCHED_HMP
 static inline int _nohz_kick_needed_hmp(struct rq *rq, int cpu, int *type)
 {
 	struct sched_domain *sd;
@@ -6942,6 +6946,12 @@ static inline int _nohz_kick_needed_hmp(struct rq *rq, int cpu, int *type)
 
 	return 0;
 }
+#else
+static inline int _nohz_kick_needed_hmp(struct rq *rq, int cpu, int *type)
+{
+	return 0;
+}
+#endif
 
 static inline int _nohz_kick_needed(struct rq *rq, int cpu, int *type)
 {

@@ -782,6 +782,8 @@ static inline void dec_nr_big_small_task(struct rq *rq, struct task_struct *p)
 {
 }
 
+#define power_cost_at_freq(...) 0
+
 #define trace_sched_cpu_load(...)
 
 #endif /* CONFIG_SCHED_HMP */

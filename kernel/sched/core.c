@@ -8094,11 +8094,13 @@ void __init sched_init(void)
 	int i, j;
 	unsigned long alloc_size = 0, ptr;
 
+#ifdef CONFIG_SCHED_HMP
 	if (num_possible_cpus() > 4)
 		sched_enable_hmp = sched_enable_power_aware = 1;
 
 	if (sched_enable_hmp)
 		pr_info("HMP scheduling enabled.\n");
+#endif
 
 	BUG_ON(num_possible_cpus() > BITS_PER_LONG);
 
