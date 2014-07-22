@@ -45,6 +45,9 @@ Optional parameters:
 - qcom,bcl-hotplug-list = <hotplug-phandle-list>: List of phandles to the cores
 		that are to be hotplugged, when battery current limit condition
 		is reached.
+- qcom,bcl-no-bms: This is an optional node for BCL IAVAIL monitor mode.
+		If this property is defined, BCL IAVAIL monitor gets rbat value
+		from power supply battery module instead of bms module.
 
 Optional nodes:
 - qcom,ibat-monitor: This optional node defines all the parameters for the
@@ -92,6 +95,7 @@ Example:
 		compatible = "qcom,bcl";
 		qcom,ibat-vadc = <&pma8084_vadc>;
 		qcom,ibat-threshold-adc_tm = <&pma8084_adc_tm>;
+		qcom,bcl-no-bms;
 		qcom,ibat-monitor {
 			qcom,high-threshold-uamp = <1500>;
 			qcom,low-threshold-uamp = <500>;
