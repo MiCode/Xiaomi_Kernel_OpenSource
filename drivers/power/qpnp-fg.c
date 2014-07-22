@@ -115,6 +115,7 @@ enum fg_mem_data_index {
 	FG_DATA_OCV,
 	FG_DATA_VOLTAGE,
 	FG_DATA_CURRENT,
+	FG_DATA_BATT_ESR,
 	FG_DATA_MAX,
 };
 
@@ -147,6 +148,7 @@ static struct fg_mem_data fg_data[FG_DATA_MAX] = {
 	DATA(OCV,             0x588,   3,      2,     -EINVAL),
 	DATA(VOLTAGE,         0x5CC,   1,      2,     -EINVAL),
 	DATA(CURRENT,         0x5CC,   3,      2,     -EINVAL),
+	DATA(BATT_ESR,        0x554,   2,      2,     -EINVAL),
 };
 
 static int fg_debug_mask;
@@ -744,6 +746,45 @@ static int set_prop_jeita_temp(struct fg_chip *chip,
 	return rc;
 }
 
+#define EXPONENT_MASK		0xF800
+#define MANTISSA_MASK		0x3FF
+#define SIGN			BIT(10)
+#define EXPONENT_SHIFT		11
+#define MICRO_UNIT		1000000ULL
+static int64_t float_decode(u16 reg)
+{
+	int64_t final_val, exponent_val, mantissa_val;
+	int exponent, mantissa, n;
+	bool sign;
+
+	exponent = (reg & EXPONENT_MASK) >> EXPONENT_SHIFT;
+	mantissa = (reg & MANTISSA_MASK);
+	sign = !!(reg & SIGN);
+
+	pr_debug("exponent=%d mantissa=%d sign=%d\n", exponent, mantissa, sign);
+
+	mantissa_val = mantissa * MICRO_UNIT;
+
+	n = exponent - 15;
+	if (n < 0)
+		exponent_val = MICRO_UNIT >> -n;
+	else
+		exponent_val = MICRO_UNIT << n;
+
+	n = n - 10;
+	if (n < 0)
+		mantissa_val >>= -n;
+	else
+		mantissa_val <<= n;
+
+	final_val = exponent_val + mantissa_val;
+
+	if (sign)
+		final_val *= -1;
+
+	return final_val;
+}
+
 #define LSB_16B		153
 #define TEMP_LSB_16B	625
 #define DECIKELVIN	2730
@@ -780,6 +821,8 @@ static void update_sram_data(struct work_struct *work)
 		case FG_DATA_CURRENT:
 			fg_data[i].value = temp * LSB_16B;
 			break;
+		case FG_DATA_BATT_ESR:
+			fg_data[i].value = float_decode((u16) temp);
 		};
 
 		if (fg_debug_mask & FG_MEM_DEBUG_READS)
@@ -816,6 +859,7 @@ static enum power_supply_property fg_power_props[] = {
 	POWER_SUPPLY_PROP_TEMP,
 	POWER_SUPPLY_PROP_COOL_TEMP,
 	POWER_SUPPLY_PROP_WARM_TEMP,
+	POWER_SUPPLY_PROP_RESISTANCE,
 };
 
 static int fg_power_get_property(struct power_supply *psy,
@@ -845,6 +889,9 @@ static int fg_power_get_property(struct power_supply *psy,
 		break;
 	case POWER_SUPPLY_PROP_WARM_TEMP:
 		val->intval = get_prop_jeita_temp(chip, FG_MEM_SOFT_HOT);
+		break;
+	case POWER_SUPPLY_PROP_RESISTANCE:
+		val->intval = get_sram_prop_now(chip, FG_DATA_BATT_ESR);
 		break;
 	default:
 		return -EINVAL;
