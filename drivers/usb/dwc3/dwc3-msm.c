@@ -3224,6 +3224,8 @@ static int dwc3_msm_probe(struct platform_device *pdev)
 
 put_dwc3:
 	platform_device_put(mdwc->dwc3);
+	if (mdwc->bus_perf_client)
+		msm_bus_scale_unregister_client(mdwc->bus_perf_client);
 disable_vbus:
 	if (!IS_ERR_OR_NULL(mdwc->vbus_otg))
 		regulator_disable(mdwc->vbus_otg);
@@ -3305,6 +3307,9 @@ static int dwc3_msm_remove(struct platform_device *pdev)
 	pm_runtime_put_sync(mdwc->dev);
 	pm_runtime_set_suspended(mdwc->dev);
 	device_wakeup_disable(mdwc->dev);
+
+	if (mdwc->bus_perf_client)
+		msm_bus_scale_unregister_client(mdwc->bus_perf_client);
 
 	if (!IS_ERR_OR_NULL(mdwc->vbus_otg))
 		regulator_disable(mdwc->vbus_otg);
