@@ -7001,7 +7001,8 @@ static void taiko_compute_impedance(struct wcd9xxx_mbhc *mbhc, s16 *l, s16 *r,
 					uint32_t *zl, uint32_t *zr)
 {
 
-	int64_t rl, rr = 0; /* milliohm */
+	int64_t rl = 0, rr = 0; /* milliohm */
+	int zld, zrd;
 	const int alphal = 364; /* 0.005555 * 65536 = 364.05 */
 	const int alphar = 364; /* 0.005555 * 65536 = 364.05 */
 	const int beta = 3855; /* 0.011765 * 5 * 65536 = 3855.15 */
@@ -7013,14 +7014,18 @@ static void taiko_compute_impedance(struct wcd9xxx_mbhc *mbhc, s16 *l, s16 *r,
 		return;
 	}
 
-	rl = (int)(l[0] - l[1]) * 1000 / (l[0] - l[2]);
+	zld = l[0] - l[2];
+	if (zld)
+		rl = (int)(l[0] - l[1]) * 1000 / zld;
 	rl = rl * rref * alphal;
 	rl = rl >> shift;
 	rl = rl * beta;
 	rl = rl >> shift;
 	*zl = rl;
 
-	rr = (int)(r[0] - r[1]) * 1000 / (r[0] - r[2]);
+	zrd = r[0] - r[2];
+	if (zrd)
+		rr = (int)(r[0] - r[1]) * 1000 / zrd;
 	rr = rr * rref  * alphar;
 	rr = rr >> shift;
 	rr = rr * beta;
