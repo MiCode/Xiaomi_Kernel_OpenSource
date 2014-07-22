@@ -643,6 +643,16 @@
 		qcom,vin-sel = <2>;
 		qcom,src-sel = <0>;
 	};
+
+	gpio@c800 { /* GPIO 9 */
+		qcom,mode = <1>;		/* Digital output */
+		qcom,output-type = <0>;		/* CMOS logic */
+		qcom,invert = <1>;		/* Output high */
+		qcom,vin-sel = <0>;		/* VPH_PWR */
+		qcom,src-sel = <0>;		/* Constant */
+		qcom,out-strength = <1>;	/* High drive strength */
+		qcom,master-en = <1>;		/* Enable GPIO */
+	};
 };
 
 &pmi8994_gpios {
