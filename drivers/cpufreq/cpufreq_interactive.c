@@ -1263,19 +1263,27 @@ static void save_tunables(struct cpufreq_policy *policy,
 {
 	int cpu;
 
-	if (have_governor_per_policy()) {
-		for_each_cpu(cpu, policy->related_cpus) {
-			WARN_ON(per_cpu(cached_tunables, cpu) &&
-				per_cpu(cached_tunables, cpu) != tunables);
-			per_cpu(cached_tunables, cpu) = tunables;
-		}
-	} else {
-		for_each_possible_cpu(cpu) {
-			WARN_ON(per_cpu(cached_tunables, cpu) &&
-				per_cpu(cached_tunables, cpu) != tunables);
-			per_cpu(cached_tunables, cpu) = tunables;
-		}
-	}
+	if (have_governor_per_policy())
+		cpu = cpumask_first(policy->related_cpus);
+	else
+		cpu = 0;
+
+	WARN_ON(per_cpu(cached_tunables, cpu) &&
+		per_cpu(cached_tunables, cpu) != tunables);
+	per_cpu(cached_tunables, cpu) = tunables;
+}
+
+static struct cpufreq_interactive_tunables *restore_tunables(
+						struct cpufreq_policy *policy)
+{
+	int cpu;
+
+	if (have_governor_per_policy())
+		cpu = cpumask_first(policy->related_cpus);
+	else
+		cpu = 0;
+
+	return per_cpu(cached_tunables, cpu);
 }
 
 static int cpufreq_governor_interactive(struct cpufreq_policy *policy,
@@ -1305,7 +1313,7 @@ static int cpufreq_governor_interactive(struct cpufreq_policy *policy,
 			return 0;
 		}
 
-		tunables = per_cpu(cached_tunables, policy->cpu);
+		tunables = restore_tunables(policy);
 		if (!tunables) {
 			tunables = alloc_tunable(policy);
 			if (IS_ERR(tunables))
