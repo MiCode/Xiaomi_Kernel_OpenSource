@@ -2692,36 +2692,53 @@ dhdpcie_bus_suspend(struct  dhd_bus *bus, bool state)
 	if (bus->dhd->dongle_reset)
 		return -EIO;
 
-	if (state == (bus->dhd->busstate == DHD_BUS_SUSPEND)) /* Set to same state */
-		return BCME_OK;
 
 	if (bus->suspended == state) /* Set to same state */
 		return BCME_OK;
 
 	if (state) {
 		bus->wait_for_d3_ack = 0;
+		bus->suspended = TRUE;
+		bus->dhd->busstate = DHD_BUS_SUSPEND;
 		DHD_OS_WAKE_LOCK_WAIVE(bus->dhd);
+		dhd_os_set_ioctl_resp_timeout(DEFAULT_IOCTL_RESP_TIMEOUT);
 		dhdpcie_send_mb_data(bus, H2D_HOST_D3_INFORM);
 		timeleft = dhd_os_ioctl_resp_wait(bus->dhd, &bus->wait_for_d3_ack, &pending);
+		dhd_os_set_ioctl_resp_timeout(IOCTL_RESP_TIMEOUT);
 		DHD_OS_WAKE_LOCK_RESTORE(bus->dhd);
 		if (bus->wait_for_d3_ack) {
 			/* Got D3 Ack. Suspend the bus */
-			DHD_ERROR(("dhdpcie_send_mb_data ack received\n"));
-			rc = dhdpcie_pci_suspend_resume(bus->dev, state);
-			bus->suspended = TRUE;
-			bus->dhd->busstate = DHD_BUS_SUSPEND;
+			if (dhd_os_check_wakelock_all(bus->dhd)) {
+				DHD_ERROR(("Suspend failed because of wakelock\n"));
+				bus->dev->current_state = PCI_D3hot;
+				pci_set_master(bus->dev);
+				rc = pci_set_power_state(bus->dev, PCI_D0);
+				if (rc) {
+					DHD_ERROR(("%s: pci_set_power_state failed:"
+						" current_state[%d], ret[%d]\n",
+						__FUNCTION__, bus->dev->current_state, rc));
+				}
+				bus->suspended = FALSE;
+				bus->dhd->busstate = DHD_BUS_DATA;
+				rc = BCME_ERROR;
+			} else {
+				dhdpcie_bus_intr_disable(bus);
+				rc = dhdpcie_pci_suspend_resume(bus->dev, state);
+			}
 		} else if (timeleft == 0) {
 			DHD_ERROR(("%s: resumed on timeout\n", __FUNCTION__));
-			return -ETIMEDOUT;
+			bus->suspended = FALSE;
+			bus->dhd->busstate = DHD_BUS_DATA;
+			rc = -ETIMEDOUT;
 		}
 		bus->wait_for_d3_ack = 1;
-	}
-	else {
+	} else {
 		/* Resume */
 		DHD_ERROR(("dhdpcie_bus_suspend resume\n"));
 		rc = dhdpcie_pci_suspend_resume(bus->dev, state);
 		bus->suspended = FALSE;
 		bus->dhd->busstate = DHD_BUS_DATA;
+		dhdpcie_bus_intr_enable(bus);
 	}
 	return rc;
 }
