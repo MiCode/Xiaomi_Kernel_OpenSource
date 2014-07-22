@@ -206,51 +206,6 @@ static const struct gmin_cfg_var ffrd8_vars[] = {
 	{},
 };
 
-static const struct gmin_cfg_var mrd7_vars[] = {
-	/* GC2235 world-facing camera: */
-	{ "INT33F8:00_CamType",  "1" },
-	{ "INT33F8:00_CsiPort",  "1" },
-	{ "INT33F8:00_CsiLanes", "2" },
-	{ "INT33F8:00_CsiFmt",   "13" },
-	{ "INT33F8:00_CsiBayer", "0" },
-	{ "INT33F8:00_CamClk", "0" },
-	/* GC0339 user-facing camera: */
-	{ "INT33F9:00_CamType",  "1" },
-	{ "INT33F9:00_CsiPort",  "0" },
-	{ "INT33F9:00_CsiLanes", "1" },
-	{ "INT33F9:00_CsiFmt",   "13" },
-	{ "INT33F9:00_CsiBayer", "0" },
-	{ "INT33F9:00_CamClk", "1" },
-
-	/* These values are actually for the ecs_e7 board, which sadly
-	 * identifies itself with identical DMI data to the MRD7.  But
-	 * we can get away with it because the ACPI IDs are
-	 * different. */
-	{ "gmin_V2P8GPIO", "402" },
-	/* OV5693 world-facing camera: */
-	{ "INT33BE:00_CamType",  "1" },
-	{ "INT33BE:00_CsiPort",  "1" },
-	{ "INT33BE:00_CsiLanes", "2" },
-	{ "INT33BE:00_CsiFmt",   "13" },
-	{ "INT33BE:00_CsiBayer", "2" },
-	{ "INT33BE:00_CamClk", "0" },
-	{ "INT33BE:00_I2CAddr", "16" }, /* BIOS ACPI bug workaround */
-	/* MT9M114 user-facing camera: */
-	{ "CRMT1040:00_CamType",  "1" },
-	{ "CRMT1040:00_CsiPort",  "0" },
-	{ "CRMT1040:00_CsiLanes", "1" },
-	{ "CRMT1040:00_CsiFmt",   "13" },
-	{ "CRMT1040:00_CsiBayer", "0" },
-	{ "CRMT1040:00_CamClk", "1" },
-	{ "INT33F0:00_CamType",  "1" },
-	{ "INT33F0:00_CsiPort",  "0" },
-	{ "INT33F0:00_CsiLanes", "1" },
-	{ "INT33F0:00_CsiFmt",   "13" },
-	{ "INT33F0:00_CsiBayer", "0" },
-	{ "INT33F0:00_CamClk", "1" },
-	{},
-};
-
 /* Cribbed from MCG defaults in the mt9m114 driver, not actually verified
  * vs. T100 hardware */
 static const struct gmin_cfg_var t100_vars[] = {
@@ -268,7 +223,6 @@ static const struct {
 	const struct gmin_cfg_var *vars;
 } hard_vars[] = {
 	{ "BYT-T FFD8", ffrd8_vars },
-	{ "TABLET", mrd7_vars },
 	{ "T100TA", t100_vars },
 };
 
