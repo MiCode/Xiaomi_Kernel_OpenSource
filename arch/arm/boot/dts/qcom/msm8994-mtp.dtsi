@@ -417,6 +417,7 @@
 		qcom,model = "msm8994-tomtom-mtp-snd-card";
 
 		qcom,audio-routing =
+			"AIF4 VI", "MCLK",
 			"RX_BIAS", "MCLK",
 			"LDO_H", "MCLK",
 			"AIF4 MAD", "MCLK",
