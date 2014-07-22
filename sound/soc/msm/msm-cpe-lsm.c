@@ -102,10 +102,28 @@ struct cpe_lsm_data {
 static struct cpe_priv *cpe_get_private_data(
 	struct snd_pcm_substream *substream)
 {
-	struct snd_soc_pcm_runtime *rtd = substream->private_data;
-	struct snd_soc_platform *platform = rtd->platform;
+	struct snd_soc_pcm_runtime *rtd;
 
-	return snd_soc_platform_get_drvdata(platform);
+	if (!substream || !substream->private_data) {
+		pr_err("%s: %s is invalid\n",
+			__func__,
+			(!substream) ? "substream" : "private_data");
+		goto err_ret;
+	}
+
+	rtd = substream->private_data;
+
+	if (!rtd || !rtd->platform) {
+		pr_err("%s: %s is invalid\n",
+			 __func__,
+			(!rtd) ? "runtime" : "platform");
+		goto err_ret;
+	}
+
+	return snd_soc_platform_get_drvdata(rtd->platform);
+
+err_ret:
+	return NULL;
 }
 
 /*
@@ -231,9 +249,10 @@ static int msm_cpe_lab_thread(void *data)
 
 	pr_debug("%s: Lab thread start\n", __func__);
 
-	if (core == NULL) {
-		pr_err("%s: Invalid handle to core\n",
-			__func__);
+	if (!core || !cpe) {
+		pr_err("%s: Handle to %s is invalid\n",
+			__func__,
+			(!core) ? "core" : "cpe");
 		return 0;
 	}
 
