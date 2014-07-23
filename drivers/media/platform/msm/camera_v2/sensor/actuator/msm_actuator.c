@@ -526,11 +526,6 @@ static int32_t msm_actuator_power_down(struct msm_actuator_ctrl_t *a_ctrl)
 				pr_err("%s:%d Lens park failed.\n",
 					__func__, __LINE__);
 		}
-		if (a_ctrl->vcm_enable) {
-			rc = gpio_direction_output(a_ctrl->vcm_pwd, 0);
-			if (!rc)
-				gpio_free(a_ctrl->vcm_pwd);
-		}
 
 		rc = msm_actuator_vreg_control(a_ctrl, 0);
 		if (rc < 0) {
@@ -716,7 +711,6 @@ static int32_t msm_actuator_set_param(struct msm_actuator_ctrl_t *a_ctrl,
 
 	a_ctrl->curr_step_pos = 0;
 	a_ctrl->curr_region_index = 0;
-	a_ctrl->actuator_state = ACTUATOR_POWER_UP;
 	CDBG("Exit\n");
 
 	return rc;
@@ -1024,22 +1018,13 @@ static int32_t msm_actuator_power_up(struct msm_actuator_ctrl_t *a_ctrl)
 	int rc = 0;
 	CDBG("%s called\n", __func__);
 
-	CDBG("vcm info: %d %d\n", a_ctrl->vcm_pwd,
-		a_ctrl->vcm_enable);
-
 	rc = msm_actuator_vreg_control(a_ctrl, 1);
 	if (rc < 0) {
 		pr_err("%s failed %d\n", __func__, __LINE__);
 		return rc;
 	}
 
-	if (a_ctrl->vcm_enable) {
-		rc = gpio_request(a_ctrl->vcm_pwd, "msm_actuator");
-		if (!rc) {
-			CDBG("Enable VCM PWD\n");
-			gpio_direction_output(a_ctrl->vcm_pwd, 1);
-		}
-	}
+	a_ctrl->actuator_state = ACTUATOR_POWER_UP;
 
 	CDBG("Exit\n");
 	return rc;
