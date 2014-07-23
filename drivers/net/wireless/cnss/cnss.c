@@ -1107,6 +1107,12 @@ void cnss_get_monotonic_boottime(struct timespec *ts)
 }
 EXPORT_SYMBOL(cnss_get_monotonic_boottime);
 
+void cnss_get_boottime(struct timespec *ts)
+{
+	ktime_get_ts(ts);
+}
+EXPORT_SYMBOL(cnss_get_boottime);
+
 int cnss_get_ramdump_mem(unsigned long *address, unsigned long *size)
 {
 	struct resource *res;

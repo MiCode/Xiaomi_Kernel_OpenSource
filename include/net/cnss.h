@@ -86,6 +86,7 @@ extern int cnss_get_fw_files_for_target(struct cnss_fw_files *pfw_files,
 extern void cnss_flush_work(void *work);
 extern void cnss_flush_delayed_work(void *dwork);
 extern void cnss_get_monotonic_boottime(struct timespec *ts);
+extern void cnss_get_boottime(struct timespec *ts);
 extern int cnss_request_bus_bandwidth(int bandwidth);
 
 extern void cnss_pm_wake_lock_init(struct wakeup_source *ws, const char *name);
