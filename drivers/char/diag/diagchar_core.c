@@ -289,16 +289,18 @@ void diag_add_client(int i, struct file *file)
 
 static void diag_mempool_init(void)
 {
-	int i = 0;
-	for (i = 0; i < POOL_TYPE_LOCAL_LAST; i++)
-		diagmem_init(driver, i);
+	diagmem_init(driver, POOL_TYPE_COPY);
+	diagmem_init(driver, POOL_TYPE_HDLC);
+	diagmem_init(driver, POOL_TYPE_USER);
+	diagmem_init(driver, POOL_TYPE_DCI);
 }
 
 static void diag_mempool_exit(void)
 {
-	int i = 0;
-	for (i = 0; i < POOL_TYPE_LOCAL_LAST; i++)
-		diagmem_exit(driver, i);
+	diagmem_exit(driver, POOL_TYPE_COPY);
+	diagmem_exit(driver, POOL_TYPE_HDLC);
+	diagmem_exit(driver, POOL_TYPE_USER);
+	diagmem_exit(driver, POOL_TYPE_DCI);
 }
 
 static int diagchar_open(struct inode *inode, struct file *file)
