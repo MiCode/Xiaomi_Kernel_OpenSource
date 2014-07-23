@@ -2401,21 +2401,29 @@ static int interpolate_current_comp(int die_temp)
 
 static void adjust_pon_ocv(struct qpnp_bms_chip *chip, int batt_temp)
 {
-	int rc, current_ma, rbatt_mohm, die_temp, delta_uv, soc;
+	int rc, current_ma, rbatt_mohm, die_temp, delta_uv, pc;
 	struct qpnp_vadc_result result;
 
 	rc = qpnp_vadc_read(chip->vadc_dev, DIE_TEMP, &result);
 	if (rc) {
 		pr_err("error reading adc channel=%d, rc=%d\n", DIE_TEMP, rc);
 	} else {
-		soc = lookup_soc_ocv(chip, chip->last_ocv_uv, batt_temp);
-		rbatt_mohm = get_rbatt(chip, soc, batt_temp);
+		pc = interpolate_pc(chip->batt_data->pc_temp_ocv_lut,
+					batt_temp, chip->last_ocv_uv / 1000);
+		/*
+		* For pc < 2, use the rbatt of pc = 2. This is to avoid
+		* the huge rbatt values at pc < 2 which can disrupt the pon_ocv
+		* calculations.
+		*/
+		if (pc < 2)
+			pc = 2;
+		rbatt_mohm = get_rbatt(chip, pc, batt_temp);
 		/* convert die_temp to DECIDEGC */
 		die_temp = (int)result.physical / 100;
 		current_ma = interpolate_current_comp(die_temp);
 		delta_uv = rbatt_mohm * current_ma;
-		pr_debug("PON OCV chaged from %d to %d soc=%d rbatt=%d current_ma=%d die_temp=%d batt_temp=%d delta_uv=%d\n",
-			chip->last_ocv_uv, chip->last_ocv_uv + delta_uv, soc,
+		pr_debug("PON OCV changed from %d to %d pc=%d rbatt=%d current_ma=%d die_temp=%d batt_temp=%d delta_uv=%d\n",
+			chip->last_ocv_uv, chip->last_ocv_uv + delta_uv, pc,
 			rbatt_mohm, current_ma, die_temp, batt_temp, delta_uv);
 
 		chip->last_ocv_uv += delta_uv;
