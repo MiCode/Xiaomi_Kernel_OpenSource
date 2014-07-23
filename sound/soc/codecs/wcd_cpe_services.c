@@ -1441,6 +1441,8 @@ static enum cpe_svc_result cpe_tgt_tomtom_boot(int debug_mode)
 			__func__);
 
 	rc = cpe_update_bits(TOMTOM_A_SVASS_CLKRST_CTL,
+			     0x02, 0x00);
+	rc = cpe_update_bits(TOMTOM_A_SVASS_CLKRST_CTL,
 			     0x0C, 0x04);
 	rc = cpe_update_bits(TOMTOM_A_SVASS_CPAR_CFG,
 			     0x01, 0x01);
@@ -1468,12 +1470,17 @@ static enum cpe_svc_result cpe_tgt_tomtom_reset(void)
 {
 	enum cpe_svc_result rc = CPE_SVC_SUCCESS;
 
+	rc = cpe_update_bits(TOMTOM_A_SVASS_CPAR_WDOG_CFG,
+			     0x30, 0x00);
+
 	rc = cpe_update_bits(TOMTOM_A_SVASS_CPAR_CFG,
 			     0x01, 0x00);
 	rc = cpe_update_bits(TOMTOM_A_MEM_LEAKAGE_CTL,
 			     0x07, 0x03);
 	rc = cpe_update_bits(TOMTOM_A_SVASS_CLKRST_CTL,
 			     0x08, 0x08);
+	rc = cpe_update_bits(TOMTOM_A_SVASS_CLKRST_CTL,
+			     0x02, 0x02);
 	return rc;
 }
 
