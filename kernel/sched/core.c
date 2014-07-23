@@ -1121,6 +1121,15 @@ __read_mostly unsigned int sched_ravg_window = 10000000;
 __read_mostly unsigned int sysctl_sched_window_stats_policy =
 	WINDOW_STATS_USE_AVG;
 
+/*
+ * copy of sysctl_sched_window_stats_policy. Required for atomically
+ * changing policy (see sched_window_stats_policy_update_handler() for details).
+ *
+ * Initialize both to same value!!
+ */
+static __read_mostly unsigned int sched_window_stats_policy =
+	 WINDOW_STATS_USE_AVG;
+
 /* 1 -> use PELT based load stats, 0 -> use window-based load stats */
 unsigned int __read_mostly sched_use_pelt;
 
@@ -1241,9 +1250,9 @@ update_history(struct rq *rq, struct task_struct *p, u32 runtime, int samples,
 compute_demand:
 	avg = div64_u64(sum, RAVG_HIST_SIZE);
 
-	if (sysctl_sched_window_stats_policy == WINDOW_STATS_USE_RECENT)
+	if (sched_window_stats_policy == WINDOW_STATS_USE_RECENT)
 		demand = runtime;
-	else if (sysctl_sched_window_stats_policy == WINDOW_STATS_USE_MAX)
+	else if (sched_window_stats_policy == WINDOW_STATS_USE_MAX)
 		demand = max;
 	else
 		demand = max(avg, runtime);
@@ -1513,7 +1522,8 @@ unsigned long sched_get_busy(int cpu)
 }
 
 /* Called with IRQs disabled */
-void reset_all_window_stats(u64 window_start, unsigned int window_size)
+void reset_all_window_stats(u64 window_start, unsigned int window_size,
+				 int policy)
 {
 	int cpu;
 	u64 wallclock;
@@ -1555,6 +1565,9 @@ void reset_all_window_stats(u64 window_start, unsigned int window_size)
 		fixup_nr_big_small_task(cpu);
 	}
 
+	if (policy >= 0)
+		sched_window_stats_policy = policy;
+
 	for_each_online_cpu(cpu) {
 		struct rq *rq = cpu_rq(cpu);
 		raw_spin_unlock(&rq->lock);
@@ -1587,7 +1600,7 @@ int sched_set_window(u64 window_start, unsigned int window_size)
 
 	BUG_ON(sched_clock() < ws);
 
-	reset_all_window_stats(ws, window_size);
+	reset_all_window_stats(ws, window_size, -1);
 
 	local_irq_restore(flags);
 
