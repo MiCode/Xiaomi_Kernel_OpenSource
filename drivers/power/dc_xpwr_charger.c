@@ -796,13 +796,18 @@ static void dc_xpwr_otg_event_worker(struct work_struct *work)
 		gpio_direction_output(info->pdata->otg_gpio, info->id_short);
 }
 
+static bool is_usb_host_mode(struct extcon_dev *evdev)
+{
+	return !!evdev->state;
+}
+
 static int dc_xpwr_handle_otg_event(struct notifier_block *nb,
 				   unsigned long event, void *param)
 {
 	struct pmic_chrg_info *info =
 	    container_of(nb, struct pmic_chrg_info, id_nb);
 	struct extcon_dev *edev = param;
-	int usb_host = !!edev->state;
+	int usb_host = is_usb_host_mode(edev);
 
 	dev_info(&info->pdev->dev,
 		"[extcon notification] evt:USB-Host val:%s\n",
@@ -896,6 +901,9 @@ static int pmic_chrg_probe(struct platform_device *pdev)
 				       &info->id_nb);
 	if (ret)
 		dev_err(&pdev->dev, "failed to register extcon notifier\n");
+
+	if (info->cable_obj.edev)
+		info->id_short = is_usb_host_mode(info->cable_obj.edev);
 
 	info->psy_usb.name = DEV_NAME;
 	info->psy_usb.type = POWER_SUPPLY_TYPE_USB;
