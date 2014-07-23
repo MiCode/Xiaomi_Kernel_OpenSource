@@ -94,6 +94,18 @@ int core_get_low_power_segments(
 			struct avcs_cmd_rsp_get_low_power_segments_info_t **);
 bool q6core_is_adsp_ready(void);
 
+#define ADSP_CMD_SET_DTS_EAGLE_DATA_ID 0x00012919
+#define DTS_EAGLE_LICENSE_ID           0x00028346
+struct adsp_dts_eagle {
+	struct apr_hdr hdr;
+	uint32_t id;
+	uint32_t overwrite;
+	uint32_t size;
+	char data[];
+};
+int core_dts_eagle_set(int size, char *data);
+int core_dts_eagle_get(int id, int size, char *data);
+
 #define ADSP_CMD_SET_DOLBY_MANUFACTURER_ID 0x00012918
 
 struct adsp_dolby_manufacturer_id {

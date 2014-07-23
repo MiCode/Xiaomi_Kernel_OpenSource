@@ -35,6 +35,12 @@ struct route_payload {
 int srs_trumedia_open(int port_id, int copp_idx, int srs_tech_id,
 		      void *srs_params);
 
+int adm_dts_eagle_set(int port_id, int copp_idx, int param_id,
+		      void *data, int size);
+
+int adm_dts_eagle_get(int port_id, int copp_idx, int param_id,
+		      void *data, int size);
+
 int adm_get_params(int port_id, int copp_idx, uint32_t module_id,
 		   uint32_t param_id, uint32_t params_length, char *params);
 

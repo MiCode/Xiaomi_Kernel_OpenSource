@@ -44,6 +44,7 @@
 #include "msm-pcm-routing-v2.h"
 #include "audio_ocmem.h"
 #include "msm-audio-effects-q6-v2.h"
+#include "msm-dts-eagle.h"
 
 #define DSP_PP_BUFFERING_IN_MSEC	25
 #define PARTIAL_DRAIN_ACK_EARLY_BY_MSEC	150
@@ -209,6 +210,15 @@ static int msm_compr_set_volume(struct snd_compr_stream *cstream,
 		if (rc < 0) {
 			pr_err("%s: Send Volume command failed rc=%d\n",
 				__func__, rc);
+		} else {
+			pr_debug("%s: now calling msm_dts_eagle_set_volume\n",
+				 __func__);
+			rc = msm_dts_eagle_set_volume(prtd->audio_client,
+						      volume_l, volume_r);
+			if (rc < 0) {
+				pr_err("%s: Send Volume command failed (DTS_EAGLE) rc=%d\n",
+						__func__, rc);
+			}
 		}
 	}
 
@@ -1908,6 +1918,10 @@ static int msm_compr_audio_effects_config_put(struct snd_kcontrol *kcontrol,
 		msm_audio_effects_popless_eq_handler(prtd->audio_client,
 						    &(audio_effects->equalizer),
 						     values);
+		break;
+	case DTS_EAGLE_MODULE:
+		pr_debug("%s: DTS_EAGLE_MODULE\n", __func__);
+		msm_dts_eagle_handler_pre(prtd->audio_client, values);
 		break;
 	default:
 		pr_err("%s Invalid effects config module\n", __func__);
