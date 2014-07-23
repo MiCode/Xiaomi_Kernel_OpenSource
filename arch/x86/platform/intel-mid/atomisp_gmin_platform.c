@@ -64,6 +64,10 @@ struct gmin_subdev {
 	struct gpio_desc *gpio1;
 	struct regulator *v1p8_reg;
 	struct regulator *v2p8_reg;
+	enum atomisp_camera_port csi_port;
+	unsigned int csi_lanes;
+	enum atomisp_input_format csi_fmt;
+	enum atomisp_bayer_order csi_bayer;
 	bool v1p8_on;
 	bool v2p8_on;
 };
@@ -90,6 +94,8 @@ static const struct atomisp_platform_data pdata = {
 enum { V2P8_GPIO_UNSET = -2, V2P8_GPIO_NONE = -1 };
 static int v2p8_gpio = V2P8_GPIO_UNSET;
 
+static struct gmin_subdev *find_gmin_subdev(struct v4l2_subdev *subdev);
+
 /*
  * Legacy/stub behavior copied from upstream platform_camera.c.  The
  * atomisp driver relies on these values being non-NULL in a few
@@ -108,21 +114,6 @@ const struct atomisp_camera_caps *atomisp_get_default_camera_caps(void)
 }
 EXPORT_SYMBOL_GPL(atomisp_get_default_camera_caps);
 
-/*
- *   struct intel_v4l2_subdev_i2c_board_info {
- *       struct i2c_board_info board_info;
- *       int i2c_adapter_id;
- *   };
- *   struct intel_v4l2_subdev_table {
- *       struct intel_v4l2_subdev_i2c_board_info v4l2_subdev;
- *       enum intel_v4l2_subdev_qtype type;
- *       enum atomisp_camera_port port;
- *   };
- *   struct atomisp_platform_data {
- *       struct intel_v4l2_subdev_table *subdevs;
- *       const struct soft_platform_id *spid;
- *   };
- */
 const struct atomisp_platform_data *atomisp_get_platform_data(void)
 {
 	return &pdata;
@@ -162,8 +153,11 @@ int atomisp_register_i2c_module(struct i2c_client *client,
 {
 	int i;
 	struct i2c_board_info *bi;
+	struct gmin_subdev *gs;
+        struct i2c_client *client = v4l2_get_subdevdata(subdev);
 
-	dev_info(&client->dev, "register atomisp i2c module type %d on port %d\n", type, port);
+	dev_info(&client->dev, "register atomisp i2c module type %d\n", type);
+
 
 	for (i=0; i < MAX_SUBDEVS; i++)
 		if (!pdata.subdevs[i].type)
@@ -172,8 +166,14 @@ int atomisp_register_i2c_module(struct i2c_client *client,
 	if (pdata.subdevs[i].type)
 		return -ENOMEM;
 
+	/* Note subtlety of initialization order: at the point where
+	 * this registration API gets called, the platform data
+	 * callbacks have probably already been invoked, so the
+	 * gmin_subdev struct is already initialized for us. */
+	gs = find_gmin_subdev(subdev);
+
 	pdata.subdevs[i].type = type;
-	pdata.subdevs[i].port = port;
+	pdata.subdevs[i].port = gs->csi_port;
 	pdata.subdevs[i].v4l2_subdev.i2c_adapter_id = client->adapter->nr;
 
 	/* Convert i2c_client to i2c_board_info */
@@ -197,11 +197,8 @@ struct gmin_cfg_var {
 
 static const struct gmin_cfg_var ffrd8_vars[] = {
 	{ "INTCF1B:00_ImxId",    "0x134" },
-	{ "INTCF1B:00_CamType",  "1" },
 	{ "INTCF1B:00_CsiPort",  "1" },
 	{ "INTCF1B:00_CsiLanes", "4" },
-	{ "INTCF1B:00_CsiFmt",   "13" },
-	{ "INTCF1B:00_CsiBayer", "1" },
 	{ "INTCF1B:00_CamClk", "0" },
 	{},
 };
@@ -209,11 +206,8 @@ static const struct gmin_cfg_var ffrd8_vars[] = {
 /* Cribbed from MCG defaults in the mt9m114 driver, not actually verified
  * vs. T100 hardware */
 static const struct gmin_cfg_var t100_vars[] = {
-	{ "INT33F0:00_CamType",  "2" },
 	{ "INT33F0:00_CsiPort",  "0" },
 	{ "INT33F0:00_CsiLanes", "1" },
-	{ "INT33F0:00_CsiFmt",   "0" },
-	{ "INT33F0:00_CsiBayer", "0" },
 	{ "INT33F0:00_CamClk",   "1" },
 	{},
 };
@@ -284,6 +278,8 @@ static struct gmin_subdev *gmin_subdev_add(struct v4l2_subdev *subdev)
 	gmin_subdevs[i].clock_num = gmin_get_var_int(dev, "CamClk", 0);
 	gmin_subdevs[i].gpio0 = gpiod_get_index(dev, "cam_gpio0", 0);
 	gmin_subdevs[i].gpio1 = gpiod_get_index(dev, "cam_gpio1", 1);
+	gmin_subdevs[i].csi_port = gmin_get_var_int(dev, "CsiPort", 0);
+	gmin_subdevs[i].csi_lanes = gmin_get_var_int(dev, "CsiLanes", 1);
 
 	if (!IS_ERR(gmin_subdevs[i].gpio0)) {
 		ret = gpiod_direction_output(gmin_subdevs[i].gpio0, 0);
@@ -513,25 +509,14 @@ int gmin_flisclk_ctrl(struct v4l2_subdev *subdev, int on)
 
 static int gmin_csi_cfg(struct v4l2_subdev *sd, int flag)
 {
-	int port, lanes, format, bayer;
-	struct device *dev;
 	struct i2c_client *client = v4l2_get_subdevdata(sd);
+	struct gmin_subdev *gs = find_gmin_subdev(sd);
 
-	if (!client)
+	if (!client || !gs)
 		return -ENODEV;
-	dev = &client->dev;
 
-	port = gmin_get_var_int(dev, "CsiPort", -1);
-	lanes = gmin_get_var_int(dev, "CsiLanes", -1);
-	format = gmin_get_var_int(dev, "CsiFmt", -1);
-	bayer = gmin_get_var_int(dev, "CsiBayer", -1);
-
-	if (port < 0 || lanes < 0 || format < 0 || bayer < 0) {
-		dev_err(dev, "Incomplete camera CSI configuration\n");
-		return -EINVAL;
-	}
-
-	return camera_sensor_csi(sd, port, lanes, format, bayer, flag);
+	return camera_sensor_csi(sd, gs->csi_port, gs->csi_lanes,
+				 gs->csi_fmt, gs->csi_bayer, flag);
 }
 
 static struct camera_sensor_platform_data gmin_plat = {
@@ -545,8 +530,15 @@ static struct camera_sensor_platform_data gmin_plat = {
 	.csi_cfg = gmin_csi_cfg,
 };
 
-struct camera_sensor_platform_data *gmin_camera_platform_data(void)
+struct camera_sensor_platform_data *gmin_camera_platform_data(
+		struct v4l2_subdev *subdev,
+		enum atomisp_input_format csi_format,
+		enum atomisp_bayer_order csi_bayer)
 {
+	struct gmin_subdev *gs = find_gmin_subdev(subdev);
+	gs->csi_fmt = csi_format;
+	gs->csi_bayer = csi_bayer;
+
 	return &gmin_plat;
 }
 EXPORT_SYMBOL_GPL(gmin_camera_platform_data);
@@ -559,7 +551,7 @@ int gmin_get_config_var(struct device *dev, const char *var, char *out, size_t *
 	struct device *adev;
 	char var8[CFG_VAR_NAME_MAX];
 	unsigned short var16[CFG_VAR_NAME_MAX];
-	struct efivar_entry ev;
+	struct efivar_entry *ev;
 	u32 efiattr_dummy;
 	int i, j, ret;
 	unsigned long efilen;
@@ -613,9 +605,11 @@ int gmin_get_config_var(struct device *dev, const char *var, char *out, size_t *
 	 * the struct and ignores the rest, but it seems like there
 	 * ought to be an "official" efivar_entry registered
 	 * somewhere? */
-	memset(&ev, 0, sizeof(ev));
-	memcpy(&ev.var.VariableName, var16, sizeof(var16));
-	ev.var.VendorGuid = GMIN_CFG_VAR_EFI_GUID;
+	ev = kzalloc(sizeof(*ev), GFP_KERNEL);
+	if (!ev)
+		return -ENOMEM;
+	memcpy(&ev->var.VariableName, var16, sizeof(var16));
+	ev->var.VendorGuid = GMIN_CFG_VAR_EFI_GUID;
 
 	/* Frustratingly, existing hardware doesn't like seeing EFI
 	 * variable requests arrive in quick succession.  They will
@@ -623,11 +617,12 @@ int gmin_get_config_var(struct device *dev, const char *var, char *out, size_t *
 	 * returning EFI_NOT_FOUND (which becomes -ENOENT as seen
 	 * here) unless we retry with delays. */
 	for (i=0; i<10; i++) {
-		ret = efivar_entry_get(&ev, &efiattr_dummy, &efilen, out);
+		ret = efivar_entry_get(ev, &efiattr_dummy, &efilen, out);
 		if (!ret)
 			break;
 		msleep(10);
 	}
+	kfree(ev);
 	*out_len = efilen;
 
 	return ret == EFI_SUCCESS ? 0 : -EINVAL;

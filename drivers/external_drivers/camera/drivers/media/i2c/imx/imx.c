@@ -2322,7 +2322,9 @@ static int imx_probe(struct i2c_client *client,
 
 	pdata = client->dev.platform_data;
 	if (!pdata || ACPI_COMPANION(&client->dev))
-		pdata = gmin_camera_platform_data();
+		pdata = gmin_camera_platform_data(&dev->sd,
+						  ATOMISP_INPUT_FORMAT_RAW_10,
+						  atomisp_bayer_order_grbg);
 
 	if (!pdata) {
 		v4l2_err(client, "No imx platform data\n");
@@ -2380,11 +2382,8 @@ static int imx_probe(struct i2c_client *client,
 	 * subdevices, but this API matches upstream better. */
 	/* FIXME: type and port need to come from ACPI/EFI config,
 	 * this is hard coded to FFRD8 */
-	ret = atomisp_register_i2c_module(client,
-					  gmin_get_var_int(&client->dev, "CamType",
-						     RAW_CAMERA),
-					  gmin_get_var_int(&client->dev, "CsiPort",
-						     ATOMISP_CAMERA_PORT_PRIMARY));
+	ret = atomisp_register_i2c_module(&dev->sd, pdata, RAW_CAMERA);
+
 	if (ret) {
 		imx_remove(client);
 		return ret;

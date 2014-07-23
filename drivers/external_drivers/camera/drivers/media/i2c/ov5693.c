@@ -1641,7 +1641,9 @@ static int ov5693_probe(struct i2c_client *client,
 	v4l2_i2c_subdev_init(&(dev->sd), client, &ov5693_ops);
 
 	if (ACPI_COMPANION(&client->dev))
-		pdata = gmin_camera_platform_data();
+		pdata = gmin_camera_platform_data(&dev->sd,
+						  ATOMISP_INPUT_FORMAT_RAW_10,
+						  atomisp_bayer_order_bggr);
 	if (!pdata)
 		goto out_free;
 
@@ -1649,9 +1651,7 @@ static int ov5693_probe(struct i2c_client *client,
 	if (ret)
 		goto out_free;
 
-	ret = atomisp_register_i2c_module(&dev->sd, client, pdata, RAW_CAMERA,
-					  gmin_get_var_int(&client->dev, "CsiPort",
-							   ATOMISP_CAMERA_PORT_PRIMARY));
+	ret = atomisp_register_i2c_module(&dev->sd, pdata, RAW_CAMERA);
 	if (ret)
 		goto out_free;
 

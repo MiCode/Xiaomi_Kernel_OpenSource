@@ -1844,7 +1844,9 @@ static int mt9m114_probe(struct i2c_client *client,
 
 	pdata = client->dev.platform_data;
 	if (ACPI_COMPANION(&client->dev))
-		pdata = gmin_camera_platform_data();
+		pdata = gmin_camera_platform_data(&dev->sd,
+						  ATOMISP_INPUT_FORMAT_RAW_10,
+						  atomisp_bayer_order_grbg);
 
 	if (pdata)
 		ret = mt9m114_s_config(&dev->sd, client->irq, pdata);
@@ -1854,9 +1856,7 @@ static int mt9m114_probe(struct i2c_client *client,
 		return ret;
 	}
 
-	ret = atomisp_register_i2c_module(&dev->sd, client, pdata, RAW_CAMERA,
-					  gmin_get_var_int(&client->dev, "CsiPort",
-							   ATOMISP_CAMERA_PORT_PRIMARY));
+	ret = atomisp_register_i2c_module(&dev->sd, pdata, RAW_CAMERA);
 	if (ret) {
 		v4l2_device_unregister_subdev(&dev->sd);
 		kfree(dev);

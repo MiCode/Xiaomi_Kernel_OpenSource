@@ -1399,7 +1399,9 @@ static int ov2722_probe(struct i2c_client *client,
 	ovpdev = client->dev.platform_data;
 	if (config_enabled(CONFIG_GMIN_INTEL_MID) &&
 	    ACPI_COMPANION(&client->dev))
-		ovpdev = ov2722_platform_data(NULL);
+		ovpdev = gmin_camera_platform_data(&dev->sd,
+						   ATOMISP_INPUT_FORMAT_RAW_10,
+						   atomisp_bayer_order_grbg);
 
 	ret = ov2722_s_config(&dev->sd, client->irq, ovpdev);
 	if (ret)
@@ -1418,13 +1420,7 @@ static int ov2722_probe(struct i2c_client *client,
 	if (ret)
 		ov2722_remove(client);
 
-	ret = atomisp_register_i2c_module(&dev->sd, client, ovpdev,
-					  gmin_get_var_int(&client->dev, "CamType",
-						     RAW_CAMERA),
-					  gmin_get_var_int(&client->dev, "CsiPort",
-						     ATOMISP_CAMERA_PORT_SECONDARY));
-
-	printk("\0010ANDY %s:%d\n", __func__, __LINE__);
+	ret = atomisp_register_i2c_module(&dev->sd, ovpdev, RAW_CAMERA);
 
 	return ret;
 

@@ -21,16 +21,17 @@ const struct atomisp_camera_caps *atomisp_get_default_camera_caps(void);
 const struct atomisp_platform_data *atomisp_get_platform_data(void);
 const struct camera_af_platform_data *camera_get_af_platform_data(void);
 int atomisp_register_i2c_module(struct v4l2_subdev *subdev,
-                                struct i2c_client *client,
                                 struct camera_sensor_platform_data *plat_data,
-                                enum intel_v4l2_subdev_type type,
-                                enum atomisp_camera_port port);
+                                enum intel_v4l2_subdev_type type);
 struct v4l2_subdev *atomisp_gmin_find_subdev(struct i2c_adapter *adapter,
 					     struct i2c_board_info *board_info);
 int gmin_get_config_var(struct device *dev, const char *var, char *out, size_t *out_len);
 int gmin_get_var_int(struct device *dev, const char *var, int def);
 int camera_sensor_csi(struct v4l2_subdev *sd, u32 port,
                       u32 lanes, u32 format, u32 bayer_order, int flag);
-struct camera_sensor_platform_data *gmin_camera_platform_data(void);
+struct camera_sensor_platform_data *gmin_camera_platform_data(
+		struct v4l2_subdev *subdev,
+		enum atomisp_input_format csi_format,
+		enum atomisp_bayer_order csi_bayer);
 
 #endif
