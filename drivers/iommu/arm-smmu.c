@@ -2482,7 +2482,7 @@ static int __init arm_smmu_init(void)
 		bus_set_iommu(&amba_bustype, &arm_smmu_ops);
 #endif
 
-#ifdef CONFIG_PCI
+#if defined(CONFIG_PCI) && !defined(CONFIG_ARM_SMMU_DONT_USE_PCI)
 	if (!iommu_present(&pci_bus_type))
 		bus_set_iommu(&pci_bus_type, &arm_smmu_ops);
 #endif
