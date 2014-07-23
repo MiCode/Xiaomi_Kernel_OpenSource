@@ -774,30 +774,6 @@ static int diag_cmd_toggle_events(unsigned char *src_buf, int src_len,
 	return write_len;
 }
 
-static int diag_cmd_log_on_demand(unsigned char *src_buf, int src_len,
-				  unsigned char *dest_buf, int dest_len)
-{
-	int write_len = 0;
-	struct diag_log_on_demand_rsp_t header;
-
-	if (driver->smd_cntl[MODEM_DATA].ch && !driver->log_on_demand_support)
-		return 0;
-
-	if (!src_buf || !dest_buf || src_len <= 0 || dest_len <= 0) {
-		pr_err("diag: Invalid input in %s, src_buf: %p, src_len: %d, dest_buf: %p, dest_len: %d",
-		       __func__, src_buf, src_len, dest_buf, dest_len);
-		return -EINVAL;
-	}
-
-	header.cmd_code = DIAG_CMD_LOG_ON_DMND;
-	header.log_code = *(uint16_t *)(src_buf + 1);
-	header.status = 1;
-	memcpy(dest_buf, &header, sizeof(struct diag_log_on_demand_rsp_t));
-	write_len += sizeof(struct diag_log_on_demand_rsp_t);
-
-	return write_len;
-}
-
 static int diag_cmd_get_log_mask(unsigned char *src_buf, int src_len,
 				 unsigned char *dest_buf, int dest_len)
 {
@@ -1551,8 +1527,6 @@ int diag_process_apps_masks(unsigned char *buf, int len)
 		hdlr = diag_cmd_update_event_mask;
 	} else if (*buf == DIAG_CMD_EVENT_TOGGLE) {
 		hdlr = diag_cmd_toggle_events;
-	} else if (*buf == DIAG_CMD_LOG_ON_DMND) {
-		hdlr = diag_cmd_log_on_demand;
 	}
 
 	if (hdlr)

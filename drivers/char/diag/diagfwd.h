@@ -46,6 +46,9 @@ int chk_config_get_id(void);
 int chk_apps_only(void);
 int chk_apps_master(void);
 int chk_polling_response(void);
+int diag_cmd_log_on_demand(unsigned char *src_buf, int src_len,
+			   unsigned char *dest_buf, int dest_len);
+int diag_check_common_cmd(struct diag_pkt_header_t *header);
 void diag_update_userspace_clients(unsigned int type);
 void diag_update_sleeping_process(int process_id, int data_type);
 void encode_rsp_and_send(int buf_length);

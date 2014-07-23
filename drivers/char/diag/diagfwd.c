@@ -59,6 +59,11 @@ struct diag_master_table entry;
 int wrap_enabled;
 uint16_t wrap_count;
 
+#define DIAG_NUM_COMMON_CMD	1
+static uint8_t common_cmds[DIAG_NUM_COMMON_CMD] = {
+	DIAG_CMD_LOG_ON_DMND
+};
+
 /* Determine if this device uses a device tree */
 #ifdef CONFIG_OF
 static int has_device_tree(void)
@@ -1193,6 +1198,45 @@ int diag_process_stm_cmd(unsigned char *buf, unsigned char *dest_buf)
 	return STM_RSP_NUM_BYTES;
 }
 
+int diag_cmd_log_on_demand(unsigned char *src_buf, int src_len,
+			   unsigned char *dest_buf, int dest_len)
+{
+	int write_len = 0;
+	struct diag_log_on_demand_rsp_t header;
+
+	if (driver->smd_cntl[MODEM_DATA].ch && !driver->log_on_demand_support)
+		return 0;
+
+	if (!src_buf || !dest_buf || src_len <= 0 || dest_len <= 0) {
+		pr_err("diag: Invalid input in %s, src_buf: %p, src_len: %d, dest_buf: %p, dest_len: %d",
+		       __func__, src_buf, src_len, dest_buf, dest_len);
+		return -EINVAL;
+	}
+
+	header.cmd_code = DIAG_CMD_LOG_ON_DMND;
+	header.log_code = *(uint16_t *)(src_buf + 1);
+	header.status = 1;
+	memcpy(dest_buf, &header, sizeof(struct diag_log_on_demand_rsp_t));
+	write_len += sizeof(struct diag_log_on_demand_rsp_t);
+
+	return write_len;
+}
+
+int diag_check_common_cmd(struct diag_pkt_header_t *header)
+{
+	int i;
+
+	if (!header)
+		return -EIO;
+
+	for (i = 0; i < DIAG_NUM_COMMON_CMD; i++) {
+		if (header->cmd_code == common_cmds[i])
+			return 1;
+	}
+
+	return 0;
+}
+
 int diag_process_apps_pkt(unsigned char *buf, int len)
 {
 	uint16_t subsys_cmd_code;
@@ -1202,6 +1246,7 @@ int diag_process_apps_pkt(unsigned char *buf, int len)
 	int data_type;
 	int mask_ret;
 	int status = 0;
+	int write_len = 0;
 
 	/* Check if the command is a supported mask command */
 	mask_ret = diag_process_apps_masks(buf, len);
@@ -1329,6 +1374,15 @@ int diag_process_apps_pkt(unsigned char *buf, int len)
 		memcpy(driver->apps_rsp_buf, buf, 4);
 		driver->apps_rsp_buf[4] = wrap_count;
 		encode_rsp_and_send(5);
+		return 0;
+	}
+	/* Log on Demand Rsp */
+	else if (*buf == DIAG_CMD_LOG_ON_DMND) {
+		write_len = diag_cmd_log_on_demand(buf, len,
+						   driver->apps_rsp_buf,
+						   APPS_BUF_SIZE);
+		if (write_len > 0)
+			encode_rsp_and_send(write_len - 1);
 		return 0;
 	}
 	 /*
