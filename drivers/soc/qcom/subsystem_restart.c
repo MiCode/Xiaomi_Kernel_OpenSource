@@ -1407,6 +1407,7 @@ struct subsys_device *subsys_register(struct subsys_desc *desc)
 	subsys->dev.bus = &subsys_bus_type;
 	subsys->dev.release = subsys_device_release;
 	subsys->notif_state = -1;
+	subsys->desc->sysmon_pid = -1;
 
 	subsys->notify = subsys_notif_add_subsys(desc->name);
 
@@ -1456,6 +1457,12 @@ struct subsys_device *subsys_register(struct subsys_desc *desc)
 					"qcom,ssctl-instance-id",
 					&desc->ssctl_instance_id))
 			pr_debug("Reading instance-id for %s failed\n",
+								desc->name);
+
+		if (of_property_read_u32(desc->dev->of_node,
+					"qcom,sysmon-id",
+					&subsys->desc->sysmon_pid))
+			pr_debug("Reading sysmon-id for %s failed\n",
 								desc->name);
 	}
 

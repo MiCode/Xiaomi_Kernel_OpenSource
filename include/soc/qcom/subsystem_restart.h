@@ -45,6 +45,7 @@ struct module;
  * @no_auth: Set if subsystem does not rely on PIL to authenticate and bring
  * it out of reset
  * @ssctl_instance_id: Instance id used to connect with SSCTL service
+ * @sysmon_pid:	pdev id that sysmon is probed with for the subsystem
  */
 struct subsys_desc {
 	const char *name;
@@ -67,6 +68,7 @@ struct subsys_desc {
 	int force_stop_gpio;
 	bool no_auth;
 	int ssctl_instance_id;
+	u32 sysmon_pid;
 };
 
 /**

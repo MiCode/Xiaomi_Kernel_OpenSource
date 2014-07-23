@@ -53,6 +53,7 @@ Optional properties:
 - qcom,restart-group: List of subsystems that will need to restart together.
 - qcom,ssctl-instance-id: Instance id used by the subsystem to connect with the SSCTL
 			  service.
+- qcom,sysmon-id:	platform device id that sysmon is probed with for the subsystem.
 
 Example:
 	qcom,venus@fdce0000 {
@@ -116,4 +117,5 @@ Example:
 		/* GPIO output to lpass */
 		qcom,gpio-force-stop = <&smp2pgpio_ssr_smp2p_2_out 0 0>;
 		qcom,ssctl-instance-id = <14>;
+		qcom,sysmon-id = <1>;
 	};

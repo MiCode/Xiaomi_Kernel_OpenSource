@@ -104,6 +104,7 @@ Optional driver parameters:
 - qcom,mdm-dual-link: Boolean indicates wheter both links can used for
 		communication.
 - qcom,ssctl-instance-id: Instance id used by the subsystem to connect with the SSCTL service.
+- qcom,sysmon-id: platform device id that sysmon is probed with for the subsystem.
 
 Example:
 	mdm0: qcom,mdm0 {
@@ -140,4 +141,5 @@ Example:
                 qcom,vddmin-modes  = "normal";
                 qcom,vddmin-drive-strength = <8>;
 		qcom,ssctl-instance-id = <10>;
+		qcom,sysmon-id = <20>;
         };

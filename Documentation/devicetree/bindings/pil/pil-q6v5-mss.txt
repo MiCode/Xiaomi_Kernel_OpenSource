@@ -53,6 +53,7 @@ Optional properties:
 				format.
 - qcom,ssctl-instance-id: Instance id used by the subsystem to connect with the SSCTL
 			  service.
+- qcom,sysmon-id:	platform device id that sysmon is probed with for the subsystem.
 
 Example:
 	qcom,mss@fc880000 {
@@ -90,4 +91,5 @@ Example:
 		/* GPIO output to mss */
 		qcom,gpio-force-stop = <&smp2pgpio_ssr_smp2p_1_out 0 0>;
 		qcom,ssctl-instance-id = <12>;
+		qcom,sysmon-id = <0>;
 	};
