@@ -208,7 +208,8 @@ static int dhdpcie_suspend_dev(struct pci_dev *dev)
 	dhdpcie_pme_active(dev, TRUE);
 	pci_save_state(dev);
 	pci_enable_wake(dev, PCI_D0, TRUE);
-	pci_disable_device(dev);
+	if (pci_is_enabled(dev))
+		pci_disable_device(dev);
 	ret = pci_set_power_state(dev, PCI_D3hot);
 	return ret;
 }
