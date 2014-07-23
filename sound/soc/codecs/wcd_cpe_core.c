@@ -720,6 +720,12 @@ int wcd_cpe_ssr_event(void *core_handle,
 {
 	struct wcd_cpe_core *core = core_handle;
 
+	if (!core) {
+		pr_err("%s: Invalid handle to core\n",
+			__func__);
+		return -EINVAL;
+	}
+
 	dev_dbg(core->dev,
 		"%s: Schedule ssr work, event = %d\n",
 		__func__, core->ssr_type);
