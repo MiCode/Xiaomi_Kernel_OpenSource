@@ -43,21 +43,38 @@
 			label = "external_image_mem";
 		};
 
-		adsp_pil_mem: adsp_region@3300000 {
+		adsp_pil_mem: adsp_region@3900000 {
 			linux,reserve-contiguous-region;
 			linux,reserve-region;
 			linux,remove-completely;
-			reg = <0x03300000 0x900000>;
+			reg = <0x03900000 0x1400000>;
 			label = "adsp_pil_mem";
 		};
 
-		peripheral_mem: peripheral_region@3c00000 {
+		peripheral_mem: peripheral_region@3300000 {
 			linux,reserve-contiguous-region;
 			linux,reserve-region;
 			linux,remove-completely;
-			reg = <0x03c00000 0x600000>;
+			reg = <0x03300000 0x600000>;
 			label = "peripheral_mem";
 		};
+
+		modem_mem: modem_region@0x4d00000 {
+			linux,reserve-contiguous-region;
+			linux,reserve-region;
+			linux,remove-completely;
+			reg = <0x04d00000 0x1b00000>;
+			label = "modem_mem";
+		};
+
+		modem_efs: modem_efs_region@0x07f00000 {
+			linux,reserve-contiguous-region;
+			linux,reserve-region;
+			linux,remove-completely;
+			reg = <0x07F00000 0x100000>;
+			label = "modem_efs";
+		};
+
 	};
 };
 

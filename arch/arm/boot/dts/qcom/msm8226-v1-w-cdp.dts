@@ -25,7 +25,7 @@
 
 &mdss_fb0 {
 	/* cont_splash memory*/
-	qcom,memblock-reserve = <0x04200000 0x64000>;
+	qcom,memblock-reserve = <0x07e9c000 0x64000>;
 };
 
 &mdss_dsi0 {
