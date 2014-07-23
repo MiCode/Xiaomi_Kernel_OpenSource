@@ -1145,9 +1145,14 @@ update_history(struct rq *rq, struct task_struct *p, u32 runtime, int samples,
 		return;
 
 	if (!new_window) {
-		for (ridx = 0; ridx < RAVG_HIST_SIZE - 1; ++ridx)
+		for (ridx = 0; ridx < RAVG_HIST_SIZE - 1; ++ridx) {
 			sum += hist[ridx];
+			if (hist[ridx] > max)
+				max = hist[ridx];
+		}
 		sum += runtime;
+		if (runtime > max)
+			max = runtime;
 		goto compute_demand;
 	}
 
