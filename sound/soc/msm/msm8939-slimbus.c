@@ -2025,8 +2025,8 @@ static bool msm8939_swap_gnd_mic(struct snd_soc_codec *codec)
 		return false;
 	}
 	value = gpio_get_value_cansleep(pdata->us_euro_gpio);
+	gpio_direction_output(pdata->us_euro_gpio, !value);
 	pr_debug("%s: swap select switch %d to %d\n", __func__, value, !value);
-	gpio_set_value_cansleep(pdata->us_euro_gpio, !value);
 	ret = pinctrl_select_state(pinctrl_info.pinctrl,
 				pinctrl_info.cross_conn_det_sus);
 	if (ret < 0) {
