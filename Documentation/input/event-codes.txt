@@ -91,6 +91,11 @@ sent in the evdev event stream.
     event and query the device (using EVIOCG* ioctls) to obtain its
     current state.
 
+* SYN_TIME_SEC, SYN_TIME_NSEC:
+  - Used to report the timestamp from the hardware. The timestamp should record
+    the exact time when the hardware events happens. The timestamp is
+    CLOCK_MONOTONIC based.
+
 EV_KEY:
 ----------
 EV_KEY events take the form KEY_<name> or BTN_<name>. For example, KEY_A is used
