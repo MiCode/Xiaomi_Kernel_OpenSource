@@ -737,6 +737,111 @@ typedef void (*ipa_irq_handler_t)(enum ipa_irq_type interrupt,
 				void *interrupt_data);
 
 /**
+ * struct IpaHwBamStats_t - Strucuture holding the BAM statistics
+ *
+ * @bamFifoFull : Number of times Bam Fifo got full - For In Ch: Good,
+ * For Out Ch: Bad
+ * @bamFifoEmpty : Number of times Bam Fifo got empty - For In Ch: Bad,
+ * For Out Ch: Good
+ * @bamFifoUsageHigh : Number of times Bam fifo usage went above 75% -
+ * For In Ch: Good, For Out Ch: Bad
+ * @bamFifoUsageLow : Number of times Bam fifo usage went below 25% -
+ * For In Ch: Bad, For Out Ch: Good
+*/
+struct IpaHwBamStats_t {
+	u32 bamFifoFull;
+	u32 bamFifoEmpty;
+	u32 bamFifoUsageHigh;
+	u32 bamFifoUsageLow;
+} __packed;
+
+/**
+ * struct IpaHwRingStats_t - Strucuture holding the Ring statistics
+ *
+ * @ringFull : Number of times Transfer Ring got full - For In Ch: Good,
+ * For Out Ch: Bad
+ * @ringEmpty : Number of times Transfer Ring got empty - For In Ch: Bad,
+ * For Out Ch: Good
+ * @ringUsageHigh : Number of times Transfer Ring usage went above 75% -
+ * For In Ch: Good, For Out Ch: Bad
+ * @ringUsageLow : Number of times Transfer Ring usage went below 25% -
+ * For In Ch: Bad, For Out Ch: Good
+*/
+struct IpaHwRingStats_t {
+	u32 ringFull;
+	u32 ringEmpty;
+	u32 ringUsageHigh;
+	u32 ringUsageLow;
+} __packed;
+
+/**
+ * struct IpaHwStatsWDIRxInfoData_t - Structure holding the WDI Rx channel
+ * structures
+ *
+ * @max_outstanding_pkts : Number of outstanding packets in Rx Ring
+ * @num_pkts_processed : Number of packets processed - cumulative
+ * @rx_ring_rp_value : Read pointer last advertized to the WLAN FW
+ * @rx_ind_ring_stats : Ring info
+ * @bam_stats : BAM info
+ * @num_bam_int_handled : Number of Bam Interrupts handled by FW
+ * @num_db : Number of times the doorbell was rung
+ * @num_unexpected_db : Number of unexpected doorbells
+*/
+struct IpaHwStatsWDIRxInfoData_t {
+	u32 max_outstanding_pkts;
+	u32 num_pkts_processed;
+	u32 rx_ring_rp_value;
+	struct IpaHwRingStats_t rx_ind_ring_stats;
+	struct IpaHwBamStats_t bam_stats;
+	u32 num_bam_int_handled;
+	u32 num_db;
+	u32 num_unexpected_db;
+	u32 reserved1;
+	u32 reserved2;
+} __packed;
+
+/**
+ * struct IpaHwStatsWDITxInfoData_t  - Structure holding the WDI Tx channel
+ * structures
+ *
+ * @num_pkts_processed : Number of packets processed - cumulative
+ * @copy_engine_doorbell_value : latest value of doorbell written to copy engine
+ * @num_db_fired : Number of DB from uC FW to Copy engine
+ * @tx_comp_ring_stats : ring info
+ * @bam_stats : BAM info
+ * @num_db : Number of times the doorbell was rung
+ * @num_unexpected_db : Number of unexpected doorbells
+ * @num_bam_int_handled : Number of Bam Interrupts handled by FW
+ * @num_bam_int_in_non_runnning_state : Number of Bam interrupts while not in
+ * Running state
+ * @num_qmb_int_handled : Number of QMB interrupts handled
+*/
+struct IpaHwStatsWDITxInfoData_t {
+	u32 num_pkts_processed;
+	u32 copy_engine_doorbell_value;
+	u32 num_db_fired;
+	struct IpaHwRingStats_t tx_comp_ring_stats;
+	struct IpaHwBamStats_t bam_stats;
+	u32 num_db;
+	u32 num_unexpected_db;
+	u32 num_bam_int_handled;
+	u32 num_bam_int_in_non_runnning_state;
+	u32 num_qmb_int_handled;
+} __packed;
+
+/**
+ * struct IpaHwStatsWDIInfoData_t - Structure holding the WDI channel structures
+ *
+ * @rx_ch_stats : RX stats
+ * @tx_ch_stats : TX stats
+*/
+struct IpaHwStatsWDIInfoData_t {
+	struct IpaHwStatsWDIRxInfoData_t rx_ch_stats;
+	struct IpaHwStatsWDITxInfoData_t tx_ch_stats;
+} __packed;
+
+
+/**
  * struct  ipa_wdi_ul_params - WDI_RX configuration
  * @rdy_ring_base_pa: physical address of the base of the Rx ring (containing
  * Rx buffers)
@@ -956,6 +1061,7 @@ int ipa_enable_wdi_pipe(u32 clnt_hdl);
 int ipa_disable_wdi_pipe(u32 clnt_hdl);
 int ipa_resume_wdi_pipe(u32 clnt_hdl);
 int ipa_suspend_wdi_pipe(u32 clnt_hdl);
+int ipa_get_wdi_stats(struct IpaHwStatsWDIInfoData_t *stats);
 
 /*
  * Resource manager
@@ -1524,6 +1630,11 @@ static inline int ipa_resume_wdi_pipe(u32 clnt_hdl)
 }
 
 static inline int ipa_suspend_wdi_pipe(u32 clnt_hdl)
+{
+	return -EPERM;
+}
+
+static inline int ipa_get_wdi_stats(struct IpaHwStatsWDIInfoData_t *stats)
 {
 	return -EPERM;
 }

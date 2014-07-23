@@ -171,8 +171,11 @@ enum ipa_hw_2_cpu_responses {
 enum ipa_hw_2_cpu_events {
 	IPA_HW_2_CPU_EVENT_ERROR     =
 		FEATURE_ENUM_VAL(IPA_HW_FEATURE_COMMON, 1),
+	IPA_HW_2_CPU_EVENT_LOG_INFO  =
+		FEATURE_ENUM_VAL(IPA_HW_FEATURE_COMMON, 2),
 	IPA_HW_2_CPU_EVENT_WDI_ERROR =
 		FEATURE_ENUM_VAL(IPA_HW_FEATURE_WDI, 0),
+
 };
 
 /**
@@ -439,6 +442,216 @@ union IpaHwWdiErrorEventData_t {
 	u32 raw32b;
 } __packed;
 
+/**
+ * union IpaHwFeatureInfoData_t - parameters for stats/config blob
+ *
+ * @offset : Location of a feature within the EventInfoData
+ * @size : Size of the feature
+ */
+union IpaHwFeatureInfoData_t {
+	struct IpaHwFeatureInfoParams_t {
+		u32 offset:16;
+		u32 size:16;
+	} __packed params;
+	u32 raw32b;
+} __packed;
+
+/**
+ * struct IpaHwEventInfoData_t - Structure holding the parameters for
+ * statistics and config info
+ *
+ * @baseAddrOffset : Base Address Offset of the statistics or config
+ * structure from IPA_WRAPPER_BASE
+ * @IpaHwFeatureInfoData_t : Location and size of each feature within
+ * the statistics or config structure
+ *
+ * @note    Information about each feature in the featureInfo[]
+ * array is populated at predefined indices per the IPA_HW_FEATURES
+ * enum definition
+*/
+struct IpaHwEventInfoData_t {
+	u32 baseAddrOffset;
+	union IpaHwFeatureInfoData_t featureInfo[IPA_HW_NUM_FEATURES];
+} __packed;
+
+
+/**
+ * struct IpaHwEventLogInfoData_t - Structure holding the parameters for
+ * IPA_HW_2_CPU_EVENT_LOG_INFO Event
+ *
+ * @featureMask : Mask indicating the features enabled in HW.
+ * Refer IPA_HW_FEATURE_MASK
+ * @circBuffBaseAddrOffset : Base Address Offset of the Circular Event
+ * Log Buffer structure
+ * @statsInfo : Statistics related information
+ * @configInfo : Configuration related information
+ *
+ * @note    The offset location of this structure from IPA_WRAPPER_BASE
+ * will be provided as Event Params for the IPA_HW_2_CPU_EVENT_LOG_INFO
+ * Event
+*/
+struct IpaHwEventLogInfoData_t {
+	u32 featureMask;
+	u32 circBuffBaseAddrOffset;
+	struct IpaHwEventInfoData_t statsInfo;
+	struct IpaHwEventInfoData_t configInfo;
+
+} __packed;
+
+/**
+ * ipa_get_wdi_stats() - Query WDI statistics from uc
+ * @stats:	[inout] stats blob from client populated by driver
+ *
+ * Returns:	0 on success, negative on failure
+ *
+ * @note Cannot be called from atomic context
+ *
+ */
+int ipa_get_wdi_stats(struct IpaHwStatsWDIInfoData_t *stats)
+{
+#define TX_STATS(y) stats->tx_ch_stats.y = \
+	ipa_ctx->wdi.uc_wdi_stats_mmio->tx_ch_stats.y
+#define RX_STATS(y) stats->rx_ch_stats.y = \
+	ipa_ctx->wdi.uc_wdi_stats_mmio->rx_ch_stats.y
+
+	if (!stats || !ipa_ctx->wdi.uc_top_mmio ||
+		!ipa_ctx->wdi.uc_wdi_stats_mmio) {
+		IPAERR("bad parms stats=%p uc_top=%p wdi_stats=%p\n",
+			stats,
+			ipa_ctx->wdi.uc_top_mmio,
+			ipa_ctx->wdi.uc_wdi_stats_mmio);
+		return -EINVAL;
+	}
+
+	ipa_inc_client_enable_clks();
+
+	TX_STATS(num_pkts_processed);
+	TX_STATS(copy_engine_doorbell_value);
+	TX_STATS(num_db_fired);
+	TX_STATS(tx_comp_ring_stats.ringFull);
+	TX_STATS(tx_comp_ring_stats.ringEmpty);
+	TX_STATS(tx_comp_ring_stats.ringUsageHigh);
+	TX_STATS(tx_comp_ring_stats.ringUsageLow);
+	TX_STATS(bam_stats.bamFifoFull);
+	TX_STATS(bam_stats.bamFifoEmpty);
+	TX_STATS(bam_stats.bamFifoUsageHigh);
+	TX_STATS(bam_stats.bamFifoUsageLow);
+	TX_STATS(num_db);
+	TX_STATS(num_unexpected_db);
+	TX_STATS(num_bam_int_handled);
+	TX_STATS(num_bam_int_in_non_runnning_state);
+	TX_STATS(num_qmb_int_handled);
+
+	RX_STATS(max_outstanding_pkts);
+	RX_STATS(num_pkts_processed);
+	RX_STATS(rx_ring_rp_value);
+	RX_STATS(rx_ind_ring_stats.ringFull);
+	RX_STATS(rx_ind_ring_stats.ringEmpty);
+	RX_STATS(rx_ind_ring_stats.ringUsageHigh);
+	RX_STATS(rx_ind_ring_stats.ringUsageLow);
+	RX_STATS(bam_stats.bamFifoFull);
+	RX_STATS(bam_stats.bamFifoEmpty);
+	RX_STATS(bam_stats.bamFifoUsageHigh);
+	RX_STATS(bam_stats.bamFifoUsageLow);
+	RX_STATS(num_bam_int_handled);
+	RX_STATS(num_db);
+	RX_STATS(num_unexpected_db);
+	RX_STATS(reserved1);
+	RX_STATS(reserved2);
+
+	ipa_dec_client_disable_clks();
+
+	return 0;
+}
+EXPORT_SYMBOL(ipa_get_wdi_stats);
+
+/* TODO: add support for IPA_HW_v2_5 */
+static void ipa_log_evt_hdlr(void)
+{
+	if (!ipa_ctx->wdi.uc_top_ofst) {
+		ipa_ctx->wdi.uc_top_ofst =
+			ipa_ctx->wdi.ipa_sram_mmio->common.eventParams;
+		if (ipa_ctx->wdi.uc_top_ofst +
+				sizeof(struct IpaHwEventLogInfoData_t) >=
+				ipa_ctx->ctrl->ipa_reg_base_ofst +
+				IPA_SRAM_DIRECT_ACCESS_N_OFST_v2_0(0) +
+				ipa_ctx->smem_sz) {
+			IPAERR("uc_top 0x%x outside SRAM\n",
+					ipa_ctx->wdi.uc_top_ofst);
+			goto bad_uc_top_ofst;
+		}
+
+		ipa_ctx->wdi.uc_top_mmio = ioremap(ipa_ctx->ipa_wrapper_base +
+				ipa_ctx->wdi.uc_top_ofst,
+				sizeof(struct IpaHwEventLogInfoData_t));
+		if (!ipa_ctx->wdi.uc_top_mmio) {
+			IPAERR("fail to ioremap uc top\n");
+			goto bad_uc_top_ofst;
+		}
+
+		if ((ipa_ctx->wdi.uc_top_mmio->featureMask &
+					(1 << IPA_HW_FEATURE_WDI)) == 0) {
+			IPAERR("WDI feature missing 0x%x\n",
+					ipa_ctx->wdi.uc_top_mmio->featureMask);
+			goto feat_miss;
+		}
+
+		if (ipa_ctx->wdi.uc_top_mmio->statsInfo.
+			featureInfo[IPA_HW_FEATURE_WDI].params.size !=
+			sizeof(struct IpaHwStatsWDIInfoData_t)) {
+			IPAERR("wdi stats size invalid exp=%zu is=%u\n",
+				sizeof(struct IpaHwStatsWDIInfoData_t),
+				ipa_ctx->wdi.uc_top_mmio->statsInfo.
+				featureInfo[IPA_HW_FEATURE_WDI].
+				params.size);
+			goto feat_miss;
+		}
+
+		ipa_ctx->wdi.uc_wdi_stats_ofst = ipa_ctx->wdi.
+			uc_top_mmio->statsInfo.baseAddrOffset +
+			ipa_ctx->wdi.uc_top_mmio->statsInfo.
+			featureInfo[IPA_HW_FEATURE_WDI].params.offset;
+		IPAERR("WDI stats ofst=0x%x\n",
+				ipa_ctx->wdi.uc_wdi_stats_ofst);
+		if (ipa_ctx->wdi.uc_wdi_stats_ofst +
+				sizeof(struct IpaHwStatsWDIInfoData_t) >=
+				ipa_ctx->ctrl->ipa_reg_base_ofst +
+				IPA_SRAM_DIRECT_ACCESS_N_OFST_v2_0(0) +
+				ipa_ctx->smem_sz) {
+			IPAERR("uc_wdi_stats 0x%x outside SRAM\n",
+					ipa_ctx->wdi.uc_wdi_stats_ofst);
+			goto bad_stats_ofst;
+		}
+
+		ipa_ctx->wdi.uc_wdi_stats_mmio =
+			ioremap(ipa_ctx->ipa_wrapper_base +
+				ipa_ctx->wdi.uc_wdi_stats_ofst,
+				sizeof(struct IpaHwStatsWDIInfoData_t));
+		if (!ipa_ctx->wdi.uc_wdi_stats_mmio) {
+			IPAERR("fail to ioremap uc wdi stats\n");
+			goto bad_stats_ofst;
+		}
+	} else {
+		if (ipa_ctx->wdi.ipa_sram_mmio->common.eventParams !=
+				ipa_ctx->wdi.uc_top_ofst) {
+			IPAERR("uc top ofst changed new=%u cur=%u\n",
+				ipa_ctx->wdi.uc_top_mmio->statsInfo.
+				featureInfo[IPA_HW_FEATURE_WDI].params.size,
+				ipa_ctx->wdi.uc_top_ofst);
+		}
+	}
+
+	return;
+
+bad_stats_ofst:
+	ipa_ctx->wdi.uc_wdi_stats_ofst = 0;
+feat_miss:
+	iounmap(ipa_ctx->wdi.uc_top_mmio);
+bad_uc_top_ofst:
+	ipa_ctx->wdi.uc_top_ofst = 0;
+	return;
+}
+
 static void ipa_wdi_evt_handler(enum ipa_irq_type interrupt,
 				void *private_data,
 				void *interrupt_data)
@@ -467,6 +680,11 @@ static void ipa_wdi_evt_handler(enum ipa_irq_type interrupt,
 				ipa_ctx->wdi.ipa_sram_mmio->wdi_tx_ch_0_state,
 				ipa_ctx->wdi.ipa_sram_mmio->wdi_rx_ch_0_state);
 
+	} else if (ipa_ctx->wdi.ipa_sram_mmio->common.eventOp ==
+			IPA_HW_2_CPU_EVENT_LOG_INFO) {
+		IPAERR("WDI evt log info ofst=0x%x\n",
+				ipa_ctx->wdi.ipa_sram_mmio->common.eventParams);
+		ipa_log_evt_hdlr();
 	} else {
 		IPAERR("unsupported WDI evt opcode=%u\n",
 				ipa_ctx->wdi.ipa_sram_mmio->common.eventOp);
