@@ -1647,7 +1647,7 @@ int msm_vdec_cmd(struct msm_vidc_inst *inst, struct v4l2_decoder_cmd *dec)
 					"Failed to recover from session_error: %d\n",
 					rc);
 		}
-		rc = msm_comm_release_scratch_buffers(inst);
+		rc = msm_comm_release_scratch_buffers(inst, false);
 		if (rc)
 			dprintk(VIDC_ERR,
 				"Failed to release scratch buffers: %d\n", rc);

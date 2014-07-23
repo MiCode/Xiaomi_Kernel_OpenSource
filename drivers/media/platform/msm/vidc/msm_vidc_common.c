@@ -2780,19 +2780,158 @@ err_no_mem:
 	return rc;
 }
 
+static inline char *get_internal_buffer_name(enum hal_buffer buffer_type)
+{
+	switch (buffer_type) {
+	case HAL_BUFFER_INTERNAL_SCRATCH: return "scratch";
+	case HAL_BUFFER_INTERNAL_SCRATCH_1: return "scratch_1";
+	case HAL_BUFFER_INTERNAL_SCRATCH_2: return "scratch_2";
+	case HAL_BUFFER_INTERNAL_PERSIST: return "persist";
+	case HAL_BUFFER_INTERNAL_PERSIST_1: return "persist_1";
+	default: return "unknown";
+	}
+}
+
+static int set_internal_buf_on_fw(struct msm_vidc_inst *inst,
+				enum hal_buffer buffer_type,
+				struct msm_smem *handle, bool reuse)
+{
+	struct vidc_buffer_addr_info buffer_info;
+	struct hfi_device *hdev;
+	int rc = 0;
+
+	if (!inst || !inst->core || !inst->core->device || !handle) {
+		dprintk(VIDC_ERR, "%s - invalid params\n", __func__);
+		return -EINVAL;
+	}
+
+	hdev = inst->core->device;
+
+	rc = msm_comm_smem_cache_operations(inst,
+					handle, SMEM_CACHE_CLEAN);
+	if (rc) {
+		dprintk(VIDC_WARN,
+			"Failed to clean cache. May cause undefined behavior\n");
+	}
+
+	buffer_info.buffer_size = handle->size;
+	buffer_info.buffer_type = buffer_type;
+	buffer_info.num_buffers = 1;
+	buffer_info.align_device_addr = handle->device_addr;
+	dprintk(VIDC_DBG, "%s %s buffer : 0x%pa\n",
+				reuse ? "Reusing" : "Allocated",
+				get_internal_buffer_name(buffer_type),
+				&buffer_info.align_device_addr);
+
+	rc = call_hfi_op(hdev, session_set_buffers,
+		(void *) inst->session, &buffer_info);
+	if (rc) {
+		dprintk(VIDC_ERR,
+			"vidc_hal_session_set_buffers failed\n");
+		return rc;
+	}
+	return 0;
+}
+
+static bool reuse_scratch_buffers(struct msm_vidc_inst *inst,
+			enum hal_buffer buffer_type)
+{
+	struct internal_buf *buf;
+	int rc = 0;
+	bool reused = false;
+
+	if (!inst) {
+		dprintk(VIDC_ERR, "%s: invalid params\n", __func__);
+		return false;
+	}
+
+	mutex_lock(&inst->lock);
+	list_for_each_entry(buf, &inst->internalbufs, list) {
+		if (!buf->handle) {
+			reused = false;
+			break;
+		}
+
+		if (buf->buffer_type != buffer_type)
+			continue;
+
+		rc = set_internal_buf_on_fw(inst, buffer_type,
+				buf->handle, true);
+		if (rc) {
+			dprintk(VIDC_ERR,
+				"%s: session_set_buffers failed\n", __func__);
+			reused = false;
+			break;
+		}
+		reused = true;
+	}
+	mutex_unlock(&inst->lock);
+	return reused;
+}
+
+static int allocate_and_set_internal_bufs(struct msm_vidc_inst *inst,
+			struct hal_buffer_requirements *internal_bufreq,
+			struct list_head *buflist)
+{
+	struct msm_smem *handle;
+	struct internal_buf *binfo;
+	u32 smem_flags = 0;
+	int rc = 0;
+	int i = 0;
+
+	if (!inst || !internal_bufreq || !buflist)
+		return -EINVAL;
+
+	if (!internal_bufreq->buffer_size)
+		return 0;
+
+	if (inst->flags & VIDC_SECURE)
+		smem_flags |= SMEM_SECURE;
+
+	for (i = 0; i < internal_bufreq->buffer_count_actual; i++) {
+		handle = msm_comm_smem_alloc(inst, internal_bufreq->buffer_size,
+				1, smem_flags, internal_bufreq->buffer_type, 0);
+		if (!handle) {
+			dprintk(VIDC_ERR,
+				"Failed to allocate scratch memory\n");
+			rc = -ENOMEM;
+			goto err_no_mem;
+		}
+
+		binfo = kzalloc(sizeof(*binfo), GFP_KERNEL);
+		if (!binfo) {
+			dprintk(VIDC_ERR, "Out of memory\n");
+			rc = -ENOMEM;
+			goto fail_kzalloc;
+		}
+
+		binfo->handle = handle;
+		binfo->buffer_type = internal_bufreq->buffer_type;
+
+		rc = set_internal_buf_on_fw(inst, internal_bufreq->buffer_type,
+				handle, false);
+		if (rc)
+			goto fail_set_buffers;
+
+		mutex_lock(&inst->lock);
+		list_add_tail(&binfo->list, buflist);
+		mutex_unlock(&inst->lock);
+	}
+	return rc;
+
+fail_set_buffers:
+	kfree(binfo);
+fail_kzalloc:
+	msm_comm_smem_free(inst, handle);
+err_no_mem:
+	return rc;
+
+}
+
 static int set_scratch_buffers(struct msm_vidc_inst *inst,
 	enum hal_buffer buffer_type)
 {
-	int rc = 0;
-	struct msm_smem *handle;
-	struct internal_buf *binfo;
-	struct vidc_buffer_addr_info buffer_info;
-	u32 smem_flags = 0;
 	struct hal_buffer_requirements *scratch_buf;
-	int i;
-	struct hfi_device *hdev;
-
-	hdev = inst->core->device;
 
 	scratch_buf = get_buff_req_buffer(inst, buffer_type);
 	if (!scratch_buf) {
@@ -2806,75 +2945,21 @@ static int set_scratch_buffers(struct msm_vidc_inst *inst,
 		scratch_buf->buffer_count_actual,
 		scratch_buf->buffer_size);
 
-	if (inst->flags & VIDC_SECURE)
-		smem_flags |= SMEM_SECURE;
+	/*
+	* Try reusing existing scratch buffers first.
+	* If it's not possible to reuse, allocate new buffers.
+	*/
+	if (reuse_scratch_buffers(inst, buffer_type))
+		return 0;
 
-	if (scratch_buf->buffer_size) {
-		for (i = 0; i < scratch_buf->buffer_count_actual;
-				i++) {
-			handle = msm_comm_smem_alloc(inst,
-				scratch_buf->buffer_size, 1, smem_flags,
-				buffer_type, 0);
-			if (!handle) {
-				dprintk(VIDC_ERR,
-					"Failed to allocate scratch memory\n");
-				rc = -ENOMEM;
-				goto err_no_mem;
-			}
-			rc = msm_comm_smem_cache_operations(inst,
-					handle, SMEM_CACHE_CLEAN);
-			if (rc) {
-				dprintk(VIDC_WARN,
-				"Failed to clean cache may cause undefined behavior\n");
-			}
-			binfo = kzalloc(sizeof(*binfo), GFP_KERNEL);
-			if (!binfo) {
-				dprintk(VIDC_ERR, "Out of memory\n");
-				rc = -ENOMEM;
-				goto fail_kzalloc;
-			}
-			binfo->handle = handle;
-			buffer_info.buffer_size = scratch_buf->buffer_size;
-			buffer_info.buffer_type = buffer_type;
-			binfo->buffer_type = buffer_type;
-			buffer_info.num_buffers = 1;
-			buffer_info.align_device_addr = handle->device_addr;
-			dprintk(VIDC_DBG, "Scratch buffer address: 0x%pa\n",
-					&buffer_info.align_device_addr);
-			rc = call_hfi_op(hdev, session_set_buffers,
-				(void *) inst->session, &buffer_info);
-			if (rc) {
-				dprintk(VIDC_ERR,
-					"vidc_hal_session_set_buffers failed\n");
-				goto fail_set_buffers;
-			}
-			mutex_lock(&inst->lock);
-			list_add_tail(&binfo->list, &inst->internalbufs);
-			mutex_unlock(&inst->lock);
-		}
-	}
-	return rc;
-fail_set_buffers:
-	kfree(binfo);
-fail_kzalloc:
-	msm_comm_smem_free(inst, handle);
-err_no_mem:
-	return rc;
+	return allocate_and_set_internal_bufs(inst, scratch_buf,
+				&inst->internalbufs);
 }
 
 static int set_persist_buffers(struct msm_vidc_inst *inst,
 	enum hal_buffer buffer_type)
 {
-	int rc = 0;
-	struct msm_smem *handle;
-	struct internal_buf *binfo;
-	struct vidc_buffer_addr_info buffer_info;
-	u32 smem_flags = 0;
 	struct hal_buffer_requirements *persist_buf;
-	int i;
-	struct hfi_device *hdev;
-
-	hdev = inst->core->device;
 
 	persist_buf = get_buff_req_buffer(inst, buffer_type);
 	if (!persist_buf) {
@@ -2891,62 +2976,11 @@ static int set_persist_buffers(struct msm_vidc_inst *inst,
 	if (!list_empty(&inst->persistbufs)) {
 		dprintk(VIDC_ERR,
 			"Persist buffers already allocated\n");
-		return rc;
+		return 0;
 	}
 
-	if (inst->flags & VIDC_SECURE)
-		smem_flags |= SMEM_SECURE;
-
-	if (persist_buf->buffer_size) {
-		for (i = 0; i < persist_buf->buffer_count_actual; i++) {
-			handle = msm_comm_smem_alloc(inst,
-				persist_buf->buffer_size, 1, smem_flags,
-				buffer_type, 0);
-			if (!handle) {
-				dprintk(VIDC_ERR,
-					"Failed to allocate persist memory\n");
-				rc = -ENOMEM;
-				goto err_no_mem;
-			}
-			rc = msm_comm_smem_cache_operations(inst,
-					handle, SMEM_CACHE_CLEAN);
-			if (rc) {
-				dprintk(VIDC_WARN,
-				"Failed to clean cache may cause undefined behavior\n");
-			}
-			binfo = kzalloc(sizeof(*binfo), GFP_KERNEL);
-			if (!binfo) {
-				dprintk(VIDC_ERR, "Out of memory\n");
-				rc = -ENOMEM;
-				goto fail_kzalloc;
-			}
-			binfo->handle = handle;
-			buffer_info.buffer_size = persist_buf->buffer_size;
-			buffer_info.buffer_type = buffer_type;
-			binfo->buffer_type = buffer_type;
-			buffer_info.num_buffers = 1;
-			buffer_info.align_device_addr = handle->device_addr;
-			dprintk(VIDC_DBG, "Persist buffer address: 0x%pa\n",
-					&buffer_info.align_device_addr);
-			rc = call_hfi_op(hdev, session_set_buffers,
-					(void *) inst->session, &buffer_info);
-			if (rc) {
-				dprintk(VIDC_ERR,
-					"vidc_hal_session_set_buffers failed\n");
-				goto fail_set_buffers;
-			}
-			mutex_lock(&inst->lock);
-			list_add_tail(&binfo->list, &inst->persistbufs);
-			mutex_unlock(&inst->lock);
-		}
-	}
-	return rc;
-fail_set_buffers:
-	kfree(binfo);
-fail_kzalloc:
-	msm_comm_smem_free(inst, handle);
-err_no_mem:
-	return rc;
+	return allocate_and_set_internal_bufs(inst, persist_buf,
+				&inst->persistbufs);
 }
 
 int msm_comm_try_state(struct msm_vidc_inst *inst, int state)
@@ -3522,7 +3556,51 @@ int msm_comm_release_output_buffers(struct msm_vidc_inst *inst)
 	return rc;
 }
 
-int msm_comm_release_scratch_buffers(struct msm_vidc_inst *inst)
+static enum hal_buffer scratch_buf_sufficient(struct msm_vidc_inst *inst,
+					enum hal_buffer buffer_type)
+{
+	struct hal_buffer_requirements *bufreq = NULL;
+	struct internal_buf *buf;
+	int count = 0;
+
+	if (!inst) {
+		dprintk(VIDC_ERR, "%s - invalid param\n", __func__);
+		goto not_sufficient;
+	}
+
+	bufreq = get_buff_req_buffer(inst, buffer_type);
+	if (!bufreq)
+		goto not_sufficient;
+
+	/* Check if current scratch buffers are sufficient */
+	mutex_lock(&inst->lock);
+	list_for_each_entry(buf, &inst->internalbufs, list) {
+		if (!buf->handle) {
+			dprintk(VIDC_ERR, "%s: invalid buf handle\n", __func__);
+			mutex_unlock(&inst->lock);
+			goto not_sufficient;
+		}
+		if (buf->buffer_type == buffer_type &&
+			buf->handle->size >= bufreq->buffer_size)
+			count++;
+	}
+	mutex_unlock(&inst->lock);
+
+	if (count != bufreq->buffer_count_actual)
+		goto not_sufficient;
+
+	dprintk(VIDC_DBG,
+		"Existing scratch buffer is sufficient for buffer type 0x%x\n",
+		buffer_type);
+
+	return buffer_type;
+
+not_sufficient:
+	return HAL_BUFFER_NONE;
+}
+
+int msm_comm_release_scratch_buffers(struct msm_vidc_inst *inst,
+					bool check_for_reuse)
 {
 	struct msm_smem *handle;
 	struct list_head *ptr, *next;
@@ -3531,6 +3609,7 @@ int msm_comm_release_scratch_buffers(struct msm_vidc_inst *inst)
 	int rc = 0;
 	struct msm_vidc_core *core;
 	struct hfi_device *hdev;
+	enum hal_buffer sufficiency = HAL_BUFFER_NONE;
 	if (!inst) {
 		dprintk(VIDC_ERR,
 				"Invalid instance pointer = %p\n", inst);
@@ -3547,46 +3626,68 @@ int msm_comm_release_scratch_buffers(struct msm_vidc_inst *inst)
 		dprintk(VIDC_ERR, "Invalid device pointer = %p\n", hdev);
 		return -EINVAL;
 	}
+
+	if (check_for_reuse) {
+		sufficiency |= scratch_buf_sufficient(inst,
+					HAL_BUFFER_INTERNAL_SCRATCH);
+
+		sufficiency |= scratch_buf_sufficient(inst,
+					HAL_BUFFER_INTERNAL_SCRATCH_1);
+
+		sufficiency |= scratch_buf_sufficient(inst,
+					HAL_BUFFER_INTERNAL_SCRATCH_2);
+	}
+
 	mutex_lock(&inst->lock);
-	if (!list_empty(&inst->internalbufs)) {
-		list_for_each_safe(ptr, next, &inst->internalbufs) {
-			buf = list_entry(ptr, struct internal_buf,
-					list);
-			handle = buf->handle;
-			buffer_info.buffer_size = handle->size;
-			buffer_info.buffer_type = buf->buffer_type;
-			buffer_info.num_buffers = 1;
-			buffer_info.align_device_addr = handle->device_addr;
-			if (inst->state != MSM_VIDC_CORE_INVALID &&
-					core->state != VIDC_CORE_INVALID) {
-				buffer_info.response_required = true;
-				init_completion(
-				   &inst->completions[SESSION_MSG_INDEX
-				   (SESSION_RELEASE_BUFFER_DONE)]);
-				rc = call_hfi_op(hdev, session_release_buffers,
-					(void *)inst->session, &buffer_info);
-				if (rc)
-					dprintk(VIDC_WARN,
-						"Rel scrtch buf fail:0x%pa, %d\n",
-						&buffer_info.align_device_addr,
-						buffer_info.buffer_size);
-				mutex_unlock(&inst->lock);
-				rc = wait_for_sess_signal_receipt(inst,
-					SESSION_RELEASE_BUFFER_DONE);
-				if (rc) {
-					change_inst_state(inst,
-						MSM_VIDC_CORE_INVALID);
-					msm_comm_kill_session(inst);
-				}
-				mutex_lock(&inst->lock);
-			}
-			list_del(&buf->list);
+	list_for_each_safe(ptr, next, &inst->internalbufs) {
+		buf = list_entry(ptr, struct internal_buf,
+				list);
+		if (!buf || !buf->handle) {
+			dprintk(VIDC_ERR, "%s - buf->handle NULL\n", __func__);
+			rc = -EINVAL;
+			goto exit;
+		}
+		handle = buf->handle;
+		buffer_info.buffer_size = handle->size;
+		buffer_info.buffer_type = buf->buffer_type;
+		buffer_info.num_buffers = 1;
+		buffer_info.align_device_addr = handle->device_addr;
+		if (inst->state != MSM_VIDC_CORE_INVALID &&
+				core->state != VIDC_CORE_INVALID) {
+			buffer_info.response_required = true;
+			init_completion(
+			   &inst->completions[SESSION_MSG_INDEX
+			   (SESSION_RELEASE_BUFFER_DONE)]);
+			rc = call_hfi_op(hdev, session_release_buffers,
+				(void *)inst->session, &buffer_info);
+			if (rc)
+				dprintk(VIDC_WARN,
+					"Rel scrtch buf fail:0x%pa, %d\n",
+					&buffer_info.align_device_addr,
+					buffer_info.buffer_size);
 			mutex_unlock(&inst->lock);
-			msm_comm_smem_free(inst, buf->handle);
-			kfree(buf);
+			rc = wait_for_sess_signal_receipt(inst,
+				SESSION_RELEASE_BUFFER_DONE);
+			if (rc) {
+				change_inst_state(inst,
+					MSM_VIDC_CORE_INVALID);
+				msm_comm_kill_session(inst);
+			}
 			mutex_lock(&inst->lock);
 		}
+
+		/*If scratch buffers can be reused, do not free the buffers*/
+		if (sufficiency & buf->buffer_type)
+			continue;
+
+		list_del(&buf->list);
+		mutex_unlock(&inst->lock);
+		msm_comm_smem_free(inst, buf->handle);
+		kfree(buf);
+		mutex_lock(&inst->lock);
 	}
+
+exit:
 	mutex_unlock(&inst->lock);
 	return rc;
 }
@@ -3719,7 +3820,7 @@ int msm_comm_set_scratch_buffers(struct msm_vidc_inst *inst)
 		return -EINVAL;
 	}
 
-	if (msm_comm_release_scratch_buffers(inst))
+	if (msm_comm_release_scratch_buffers(inst, true))
 		dprintk(VIDC_WARN, "Failed to release scratch buffers\n");
 
 	rc = set_scratch_buffers(inst, HAL_BUFFER_INTERNAL_SCRATCH);
@@ -3736,7 +3837,7 @@ int msm_comm_set_scratch_buffers(struct msm_vidc_inst *inst)
 
 	return rc;
 error:
-	msm_comm_release_scratch_buffers(inst);
+	msm_comm_release_scratch_buffers(inst, false);
 	return rc;
 }
 

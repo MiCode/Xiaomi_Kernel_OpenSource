@@ -1362,7 +1362,7 @@ static void cleanup_instance(struct msm_vidc_inst *inst)
 		}
 		if (!list_empty(&inst->internalbufs)) {
 			mutex_unlock(&inst->lock);
-			if (msm_comm_release_scratch_buffers(inst))
+			if (msm_comm_release_scratch_buffers(inst, false))
 				dprintk(VIDC_ERR,
 					"Failed to release scratch buffers\n");
 

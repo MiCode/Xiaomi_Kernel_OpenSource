@@ -2861,7 +2861,7 @@ int msm_venc_cmd(struct msm_vidc_inst *inst, struct v4l2_encoder_cmd *enc)
 					V4L2_EVENT_MSM_VIDC_CLOSE_DONE);
 			return rc;
 		}
-		rc = msm_comm_release_scratch_buffers(inst);
+		rc = msm_comm_release_scratch_buffers(inst, false);
 		if (rc)
 			dprintk(VIDC_ERR, "Failed to release scratch buf:%d\n",
 				rc);
