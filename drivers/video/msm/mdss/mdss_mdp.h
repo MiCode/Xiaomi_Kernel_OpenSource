@@ -531,6 +531,7 @@ struct mdss_overlay_private {
 	struct list_head bufs_freelist;
 
 	int ad_state;
+	int dyn_pu_state;
 
 	bool handoff;
 	u32 splash_mem_addr;
