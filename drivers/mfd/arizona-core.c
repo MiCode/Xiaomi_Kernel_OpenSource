@@ -875,6 +875,9 @@ static int arizona_of_get_core_pdata(struct arizona *arizona)
 
 	arizona_of_read_u32(arizona, "wlf,wm5102t-output-pwr", false,
 				&pdata->wm5102t_output_pwr);
+
+	arizona_of_read_u32(arizona, "wlf,hpdet-ext-res", false,
+				&pdata->hpdet_ext_res);
 	return 0;
 }
 

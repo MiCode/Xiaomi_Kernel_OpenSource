@@ -252,6 +252,8 @@ struct arizona_pdata {
 	struct wm_adsp_fw_defs *fw_defs[ARIZONA_MAX_DSP];
 	int num_fw_defs[ARIZONA_MAX_DSP];
 
+	/** Some platforms add a series resistor for hpdet to suppress pops */
+	int hpdet_ext_res;
 };
 
 #endif

@@ -578,7 +578,24 @@ static int arizona_hpdet_read(struct arizona_extcon_info *info)
 		}
 	}
 
+	if (info->arizona->pdata.hpdet_ext_res) {
+
+		if (info->arizona->pdata.hpdet_ext_res >=  val) {
+			dev_err(arizona->dev,
+				"External resistor (%d) >= measurement (%d)\n",
+				info->arizona->pdata.hpdet_ext_res,
+				val);
+		} else {
+			dev_dbg(arizona->dev,
+				"Compensating for external %d ohm resistor\n",
+				info->arizona->pdata.hpdet_ext_res);
+
+			val -= info->arizona->pdata.hpdet_ext_res;
+		}
+	}
+
 	dev_dbg(arizona->dev, "HP impedance %d ohms\n", val);
+
 
 	return val;
 }
