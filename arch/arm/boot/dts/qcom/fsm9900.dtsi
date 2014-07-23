@@ -1420,6 +1420,7 @@
 		qcom,emac-gpio-mdc = <&msmgpio 123 0>;
 		qcom,emac-gpio-mdio = <&msmgpio 124 0>;
 		qcom,emac-tstamp-en;
+		qcom,emac-ptp-frac-ns-adj = <125000000 1>;
 		phy-mode = "sgmii";
 		phy-addr = <0>;
 		status = "disable";
@@ -1455,6 +1456,7 @@
 		qcom,emac-gpio-mdc = <&msmgpio 125 0>;
 		qcom,emac-gpio-mdio = <&msmgpio 126 0>;
 		qcom,emac-tstamp-en;
+		qcom,emac-ptp-frac-ns-adj = <125000000 1>;
 		phy-mode = "sgmii";
 		phy-addr = <1>;
 		status = "disable";
