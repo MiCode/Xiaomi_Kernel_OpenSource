@@ -108,5 +108,6 @@
 #define clk_gcc_pcie_axi_mstr_clk 0x54d09178
 #define clk_pcie_pipe_clk_src 0x3ef3897d
 #define clk_pcie_aux_clk_src 0xebc50566
+#define clk_pcie_gpio_ldo 0xe72584b3
 
 #endif
