@@ -1539,6 +1539,7 @@ static void msm_hs_start_tx_locked(struct uart_port *uport )
 
 	if (msm_uport->clk_state != MSM_HS_CLK_ON) {
 		MSM_HS_WARN("%s: Failed.Clocks are OFF\n", __func__);
+		return;
 	}
 	if ((msm_uport->tx.tx_ready_int_en == 0) &&
 		(msm_uport->tx.dma_in_flight == 0))
@@ -2132,6 +2133,8 @@ void msm_hs_request_clock_on(struct uart_port *uport)
 	case MSM_HS_CLK_ON:
 		break;
 	case MSM_HS_CLK_PORT_OFF:
+		MSM_HS_ERR("%s:Clock ON failed;UART Port is Closed\n",
+								__func__);
 		break;
 	}
 
@@ -2852,6 +2855,11 @@ static int __devinit msm_hs_probe(struct platform_device *pdev)
 
 	msm_uport = devm_kzalloc(&pdev->dev, sizeof(struct msm_hs_port),
 			GFP_KERNEL);
+	if (!msm_uport) {
+		MSM_HS_ERR("Memory allocation failed\n");
+		return -ENOMEM;
+	}
+
 	msm_uport->uport.type = PORT_UNKNOWN;
 	uport = &msm_uport->uport;
 	uport->dev = &pdev->dev;
@@ -3018,15 +3026,16 @@ static int __devinit msm_hs_probe(struct platform_device *pdev)
 	msm_hs_write(uport, UART_DM_MR2, data);
 	mb();
 
-	msm_uport->clk_state = MSM_HS_CLK_PORT_OFF;
 	hrtimer_init(&msm_uport->clk_off_timer, CLOCK_MONOTONIC,
 		     HRTIMER_MODE_REL);
 	msm_uport->clk_off_timer.function = msm_hs_clk_off_retry;
 	msm_uport->clk_off_delay = ktime_set(0, 1000000);  /* 1ms */
 
 	ret = sysfs_create_file(&pdev->dev.kobj, &dev_attr_clock.attr);
-	if (unlikely(ret))
+	if (unlikely(ret)) {
+		MSM_HS_ERR("Probe Failed as sysfs failed\n");
 		goto err_clock;
+	}
 
 	msm_serial_debugfs_init(msm_uport, pdev->id);
 
@@ -3036,6 +3045,7 @@ static int __devinit msm_hs_probe(struct platform_device *pdev)
 	ret = uart_add_one_port(&msm_hs_driver, uport);
 	if (!ret) {
 		msm_hs_clock_unvote(msm_uport);
+		msm_uport->clk_state = MSM_HS_CLK_PORT_OFF;
 		return ret;
 	}
 
