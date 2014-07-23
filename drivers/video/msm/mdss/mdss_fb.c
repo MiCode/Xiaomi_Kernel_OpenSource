@@ -276,16 +276,27 @@ static ssize_t mdss_fb_get_type(struct device *dev,
 	return ret;
 }
 
+static int mdss_fb_get_panel_xres(struct mdss_panel_info *pinfo)
+{
+	struct mdss_panel_data *pdata;
+	int xres;
+
+	pdata = container_of(pinfo, struct mdss_panel_data, panel_info);
+
+	xres = pinfo->xres;
+	if (pdata->next)
+		xres += mdss_fb_get_panel_xres(&pdata->next->panel_info);
+
+	return xres;
+}
+
 static inline int mdss_fb_validate_split(int left, int right,
 			struct msm_fb_data_type *mfd)
 {
 	int rc = -EINVAL;
-	u32 panel_xres = mfd->panel_info->xres;
+	u32 panel_xres = mdss_fb_get_panel_xres(mfd->panel_info);
 	/* more validate condition could be added if needed */
 	if (left && right) {
-		if (is_panel_split(mfd))
-			panel_xres *= 2;
-
 		if (panel_xres == left + right) {
 			mfd->split_fb_left = left;
 			mfd->split_fb_right = right;
@@ -293,7 +304,8 @@ static inline int mdss_fb_validate_split(int left, int right,
 		}
 	} else {
 		if (is_split_lm(mfd)) {
-			mfd->split_fb_left = mfd->split_fb_right = panel_xres;
+			mfd->split_fb_left = mfd->panel_info->xres;
+			mfd->split_fb_right = panel_xres - mfd->split_fb_left;
 			rc = 0;
 		} else {
 			mfd->split_fb_left = mfd->split_fb_right = 0;
@@ -1812,9 +1824,7 @@ static int mdss_fb_register(struct msm_fb_data_type *mfd)
 		return ret;
 	}
 
-	var->xres = panel_info->xres;
-	if (is_panel_split(mfd))
-		var->xres *= 2;
+	var->xres = mdss_fb_get_panel_xres(panel_info);
 
 	fix->type = panel_info->is_3d_panel;
 	if (mfd->mdp.fb_stride)
