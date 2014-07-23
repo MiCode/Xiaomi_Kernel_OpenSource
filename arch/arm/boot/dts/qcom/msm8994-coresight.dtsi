@@ -20,6 +20,7 @@
 		interrupt-names = "byte-cntr-irq";
 
 		qcom,memory-size = <0x1400000>;
+		qcom,tmc-flush-powerdown;
 
 		coresight-id = <0>;
 		coresight-name = "coresight-tmc-etr";
@@ -89,6 +90,8 @@
 		coresight-default-sink;
 		coresight-ctis = <&cti0 &cti8>;
 
+		qcom,tmc-flush-powerdown;
+
 		clocks = <&clock_rpm clk_qdss_clk>,
 			 <&clock_rpm clk_qdss_a_clk>;
 		clock-names = "core_clk", "core_a_clk";
@@ -156,6 +159,8 @@
 		coresight-outports = <0>;
 		coresight-child-list = <&funnel_in1>;
 		coresight-child-ports = <6>;
+
+		qcom,funnel-save-restore;
 
 		clocks = <&clock_rpm clk_qdss_clk>,
 			 <&clock_rpm clk_qdss_a_clk>;
