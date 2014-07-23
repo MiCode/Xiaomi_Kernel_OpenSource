@@ -1455,13 +1455,60 @@ unsigned long sched_get_busy(int cpu)
 			  NSEC_PER_USEC);
 }
 
-int sched_set_window(u64 window_start, unsigned int window_size)
+/* Called with IRQs disabled */
+void reset_all_window_stats(u64 window_start, unsigned int window_size)
 {
 	int cpu;
-	u64 wallclock, ws, now;
+	u64 wallclock;
+	struct task_struct *g, *p;
+
+	for_each_online_cpu(cpu) {
+		struct rq *rq = cpu_rq(cpu);
+		raw_spin_lock(&rq->lock);
+	}
+
+	if (window_size) {
+		sched_ravg_window = window_size * TICK_NSEC;
+		set_hmp_defaults();
+	}
+
+	wallclock = sched_clock();
+
+	read_lock(&tasklist_lock);
+	do_each_thread(g, p) {
+		int i;
+
+		p->ravg.sum = 0;
+		p->ravg.demand = 0;
+		p->ravg.partial_demand = 0;
+		p->ravg.prev_window = 0;
+		for (i = 0; i < RAVG_HIST_SIZE; ++i)
+			p->ravg.sum_history[i] = 0;
+		p->ravg.mark_start = wallclock;
+	}  while_each_thread(g, p);
+	read_unlock(&tasklist_lock);
+
+	for_each_online_cpu(cpu) {
+		struct rq *rq = cpu_rq(cpu);
+
+		if (window_start)
+			rq->window_start = window_start;
+		rq->curr_runnable_sum = rq->prev_runnable_sum = 0;
+		rq->cumulative_runnable_avg = 0;
+		fixup_nr_big_small_task(cpu);
+	}
+
+	for_each_online_cpu(cpu) {
+		struct rq *rq = cpu_rq(cpu);
+		raw_spin_unlock(&rq->lock);
+	}
+}
+
+int sched_set_window(u64 window_start, unsigned int window_size)
+{
+	u64 ws, now;
 	int delta;
 	unsigned long flags;
-	struct task_struct *g, *p;
 
 	if (sched_use_pelt ||
 		 (window_size * TICK_NSEC <  MIN_SCHED_RAVG_WINDOW))
@@ -1483,38 +1530,7 @@ int sched_set_window(u64 window_start, unsigned int window_size)
 
 	BUG_ON(sched_clock() < ws);
 
-	for_each_online_cpu(cpu) {
-		struct rq *rq = cpu_rq(cpu);
-		raw_spin_lock(&rq->lock);
-	}
-
-	sched_ravg_window = window_size * TICK_NSEC;
-	set_hmp_defaults();
-
-	wallclock = sched_clock();
-
-	read_lock(&tasklist_lock);
-	do_each_thread(g, p) {
-		p->ravg.sum = p->ravg.prev_window = 0;
-	}  while_each_thread(g, p);
-	read_unlock(&tasklist_lock);
-
-	for_each_online_cpu(cpu) {
-		struct rq *rq = cpu_rq(cpu);
-
-		rq->window_start = ws;
-		rq->curr_runnable_sum = rq->prev_runnable_sum = 0;
-		if (!is_idle_task(rq->curr)) {
-			rq->curr->ravg.mark_start = wallclock;
-			rq->curr_runnable_sum += rq->curr->ravg.partial_demand;
-		}
-		fixup_nr_big_small_task(cpu);
-	}
-
-	for_each_online_cpu(cpu) {
-		struct rq *rq = cpu_rq(cpu);
-		raw_spin_unlock(&rq->lock);
-	}
+	reset_all_window_stats(ws, window_size);
 
 	local_irq_restore(flags);
 
