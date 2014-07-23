@@ -111,12 +111,19 @@ static int funnel_enable_cpu_port(struct notifier_block *this,
 	struct funnel_drvdata *drvdata = container_of(this,
 						      struct funnel_drvdata,
 						      jtag_restore_blk);
+	int port;
 	int cpu = raw_smp_processor_id();
 
+	port = coresight_etm_get_funnel_port(cpu);
+	if (port < 0) {
+		pr_warn_ratelimited("error retrieving ETM funnel port: %#x\n",
+				     port);
+		return notifier_from_errno(port);
+	}
 	spin_lock(&drvdata->spinlock);
-	if (!test_bit(cpu, drvdata->inport))
+	if (!test_bit(port, drvdata->inport))
 		goto out;
-	__funnel_enable(drvdata, cpu);
+	__funnel_enable(drvdata, port);
 out:
 	spin_unlock(&drvdata->spinlock);
 	return NOTIFY_OK;
@@ -156,12 +163,19 @@ static int funnel_disable_cpu_port(struct notifier_block *this,
 	struct funnel_drvdata *drvdata = container_of(this,
 						      struct funnel_drvdata,
 						      jtag_save_blk);
+	int port;
 	int cpu = raw_smp_processor_id();
 
+	port = coresight_etm_get_funnel_port(cpu);
+	if (port < 0) {
+		pr_warn_ratelimited("error retrieving ETM funnel port: %#x\n",
+				     port);
+		return notifier_from_errno(port);
+	}
 	spin_lock(&drvdata->spinlock);
-	if (!test_bit(cpu, drvdata->inport))
+	if (!test_bit(port, drvdata->inport))
 		goto out;
-	__funnel_disable(drvdata, cpu);
+	__funnel_disable(drvdata, port);
 out:
 	spin_unlock(&drvdata->spinlock);
 	return NOTIFY_OK;
