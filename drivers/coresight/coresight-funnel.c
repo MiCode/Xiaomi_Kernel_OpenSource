@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -20,8 +20,12 @@
 #include <linux/err.h>
 #include <linux/slab.h>
 #include <linux/clk.h>
+#include <linux/of.h>
 #include <linux/of_coresight.h>
 #include <linux/coresight.h>
+#include <linux/spinlock.h>
+#include <linux/notifier.h>
+#include <soc/qcom/jtag.h>
 
 #include "coresight-priv.h"
 
@@ -51,6 +55,7 @@ do {									\
 #define FUNNEL_HOLDTIME_MASK	(0xF00)
 #define FUNNEL_HOLDTIME_SHFT	(0x8)
 #define FUNNEL_HOLDTIME		(0x7 << FUNNEL_HOLDTIME_SHFT)
+#define FUNNEL_NR_PORTS		8
 
 struct funnel_drvdata {
 	void __iomem		*base;
@@ -58,6 +63,11 @@ struct funnel_drvdata {
 	struct coresight_device	*csdev;
 	struct clk		*clk;
 	uint32_t		priority;
+	spinlock_t		spinlock;
+	DECLARE_BITMAP(inport, FUNNEL_NR_PORTS);
+	bool			notify;
+	struct notifier_block	jtag_save_blk;
+	struct notifier_block	jtag_restore_blk;
 };
 
 static void __funnel_enable(struct funnel_drvdata *drvdata, int port)
@@ -86,10 +96,30 @@ static int funnel_enable(struct coresight_device *csdev, int inport,
 	if (ret)
 		return ret;
 
+	spin_lock(&drvdata->spinlock);
 	__funnel_enable(drvdata, inport);
+	__set_bit(inport, drvdata->inport);
+	spin_unlock(&drvdata->spinlock);
 
 	dev_info(drvdata->dev, "FUNNEL inport %d enabled\n", inport);
 	return 0;
+}
+
+static int funnel_enable_cpu_port(struct notifier_block *this,
+				  unsigned long event, void *ptr)
+{
+	struct funnel_drvdata *drvdata = container_of(this,
+						      struct funnel_drvdata,
+						      jtag_restore_blk);
+	int cpu = raw_smp_processor_id();
+
+	spin_lock(&drvdata->spinlock);
+	if (!test_bit(cpu, drvdata->inport))
+		goto out;
+	__funnel_enable(drvdata, cpu);
+out:
+	spin_unlock(&drvdata->spinlock);
+	return NOTIFY_OK;
 }
 
 static void __funnel_disable(struct funnel_drvdata *drvdata, int inport)
@@ -110,11 +140,31 @@ static void funnel_disable(struct coresight_device *csdev, int inport,
 {
 	struct funnel_drvdata *drvdata = dev_get_drvdata(csdev->dev.parent);
 
+	spin_lock(&drvdata->spinlock);
 	__funnel_disable(drvdata, inport);
+	__clear_bit(inport, drvdata->inport);
+	spin_unlock(&drvdata->spinlock);
 
 	clk_disable_unprepare(drvdata->clk);
 
 	dev_info(drvdata->dev, "FUNNEL inport %d disabled\n", inport);
+}
+
+static int funnel_disable_cpu_port(struct notifier_block *this,
+				   unsigned long event, void *ptr)
+{
+	struct funnel_drvdata *drvdata = container_of(this,
+						      struct funnel_drvdata,
+						      jtag_save_blk);
+	int cpu = raw_smp_processor_id();
+
+	spin_lock(&drvdata->spinlock);
+	if (!test_bit(cpu, drvdata->inport))
+		goto out;
+	__funnel_disable(drvdata, cpu);
+out:
+	spin_unlock(&drvdata->spinlock);
+	return NOTIFY_OK;
 }
 
 static const struct coresight_ops_link funnel_link_ops = {
@@ -206,6 +256,12 @@ static int funnel_probe(struct platform_device *pdev)
 	if (ret)
 		return ret;
 
+	spin_lock_init(&drvdata->spinlock);
+
+	if (pdev->dev.of_node)
+		drvdata->notify = of_property_read_bool(pdev->dev.of_node,
+						"qcom,funnel-save-restore");
+
 	desc = devm_kzalloc(dev, sizeof(*desc), GFP_KERNEL);
 	if (!desc)
 		return -ENOMEM;
@@ -220,6 +276,29 @@ static int funnel_probe(struct platform_device *pdev)
 	if (IS_ERR(drvdata->csdev))
 		return PTR_ERR(drvdata->csdev);
 
+	if (drvdata->notify) {
+		drvdata->jtag_save_blk.notifier_call = funnel_disable_cpu_port;
+		ret = msm_jtag_save_register(&drvdata->jtag_save_blk);
+		if (ret) {
+			dev_err(dev,
+				"Jtag save notifier register failed:%d\n",
+				ret);
+			drvdata->notify = false;
+			goto out;
+		}
+
+		drvdata->jtag_restore_blk.notifier_call =
+							funnel_enable_cpu_port;
+		ret = msm_jtag_restore_register(&drvdata->jtag_restore_blk);
+		if (ret) {
+			dev_err(dev,
+				"Jtag restore notifier register failed:%d\n",
+				ret);
+			msm_jtag_save_unregister(&drvdata->jtag_save_blk);
+			drvdata->notify = false;
+		}
+	}
+out:
 	dev_info(dev, "FUNNEL initialized\n");
 	return 0;
 }
@@ -228,6 +307,10 @@ static int funnel_remove(struct platform_device *pdev)
 {
 	struct funnel_drvdata *drvdata = platform_get_drvdata(pdev);
 
+	if (drvdata->notify) {
+		msm_jtag_restore_unregister(&drvdata->jtag_restore_blk);
+		msm_jtag_save_unregister(&drvdata->jtag_save_blk);
+	}
 	coresight_unregister(drvdata->csdev);
 	return 0;
 }
