@@ -872,7 +872,7 @@ dhd_tcpdata_info_get(dhd_pub_t *dhdp, void *pkt)
 				bcopy(last_tdata_info, tdata_info_tmp, sizeof(tcpdata_info_t));
 			}
 			bzero(last_tdata_info, sizeof(tcpdata_info_t));
-			DHD_ERROR(("%s %d: tcpdata_info(idx %d) is aged out. ttl cnt is now %d\n",
+			DHD_TRACE(("%s %d: tcpdata_info(idx %d) is aged out. ttl cnt is now %d\n",
 				__FUNCTION__, __LINE__, i, tcpack_sup_mod->tcpdata_info_cnt));
 			/* Don't increase "i" here, so that the prev last tcpdata_info is checked */
 		} else
@@ -901,7 +901,7 @@ dhd_tcpdata_info_get(dhd_pub_t *dhdp, void *pkt)
 		/* No TCP flow with the same IP addr and TCP port is found
 		 * in tcp_data_info_tbl. So add this flow to the table.
 		 */
-		DHD_ERROR(("%s %d: Add data info to tbl[%d]: IP addr "IPV4_ADDR_STR" "IPV4_ADDR_STR
+		DHD_TRACE(("%s %d: Add data info to tbl[%d]: IP addr "IPV4_ADDR_STR" "IPV4_ADDR_STR
 			" TCP port %d %d\n",
 			__FUNCTION__, __LINE__, tcpack_sup_mod->tcpdata_info_cnt,
 			IPV4_ADDR_TO_STR(ntoh32_ua(&ip_hdr[IPV4_SRC_IP_OFFSET])),
