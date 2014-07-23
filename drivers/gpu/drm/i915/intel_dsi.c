@@ -147,6 +147,8 @@ static void intel_dsi_enable(struct intel_encoder *encoder)
 		/* assert ip_tg_enable signal */
 		temp = I915_READ(MIPI_PORT_CTRL(pipe)) & ~LANE_CONFIGURATION_MASK;
 		temp = temp | intel_dsi->port_bits;
+		if (IS_CHERRYVIEW(dev))
+			temp |= 0xe82d0000;
 		I915_WRITE(MIPI_PORT_CTRL(pipe), temp | DPI_ENABLE);
 		POSTING_READ(MIPI_PORT_CTRL(pipe));
 	}
