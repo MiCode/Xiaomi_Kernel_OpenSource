@@ -55,13 +55,20 @@ struct msm_sensor_fn_t {
 	int (*sensor_match_id) (struct msm_sensor_ctrl_t *);
 };
 
+struct msm_sensor_power_setting_info {
+	struct msm_sensor_power_setting *power_setting;
+	uint16_t size;
+	struct msm_sensor_power_setting *power_down_setting;
+	uint16_t size_down;
+};
+
 struct msm_sensor_ctrl_t {
 	struct platform_device *pdev;
 	struct mutex *msm_sensor_mutex;
 
 	enum msm_camera_device_type_t sensor_device_type;
 	struct msm_camera_sensor_board_info *sensordata;
-	struct msm_sensor_power_setting_array power_setting_array;
+	struct msm_sensor_power_setting_info power_setting_array;
 	struct msm_sensor_packed_cfg_t *cfg_override;
 	struct msm_sd_subdev msm_sd;
 	enum cci_i2c_master_t cci_i2c_master;
