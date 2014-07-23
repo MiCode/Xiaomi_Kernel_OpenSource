@@ -92,7 +92,6 @@ struct devfreq_governor_data {
  *			has registered devfreq->nb at a notifier-head,
  *			this is the time to unregister it.
  * @freq_table:	Optional list of frequencies to support statistics.
- * @freq_ab_table: Optional list of absolute frequencies to support statistics.
  * @max_state:	The size of freq_table.
  * @governor_data:	Optional array of private data for governors.
  *			This is used to set devfreq->data correctly
@@ -111,7 +110,6 @@ struct devfreq_dev_profile {
 	void (*exit)(struct device *dev);
 
 	unsigned int *freq_table;
-	unsigned int *freq_ab_table;
 	unsigned int max_state;
 	const struct devfreq_governor_data *governor_data;
 	unsigned int num_governor_data;
