@@ -1134,7 +1134,7 @@
 				bias-pull-down;		/* PULL DOWN */
 			};
 			pri_mi2s_active: pri_mi2s_active {
-				drive-strength = <8>;	/* 8 mA */
+				drive-strength = <2>;	/* 2 mA */
 				bias-disable;		/* NO PULL */
 				output-high;
 			};
@@ -1150,7 +1150,7 @@
 				bias-pull-down;		/* PULL DOWN */
 			};
 			pri_mi2s_sd0_active: pri_mi2s_sd0_active {
-				drive-strength = <8>;	/* 8 mA */
+				drive-strength = <2>;	/* 2 mA */
 				bias-disable;		/* NO PULL */
 			};
 		};
