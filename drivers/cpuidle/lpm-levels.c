@@ -32,6 +32,7 @@
 #include <linux/dma-mapping.h>
 #include <linux/coresight-cti.h>
 #include <linux/moduleparam.h>
+#include <linux/sched.h>
 #include <soc/qcom/spm.h>
 #include <soc/qcom/pm.h>
 #include <soc/qcom/rpm-notifier.h>
@@ -655,11 +656,17 @@ static int lpm_cpuidle_enter(struct cpuidle_device *dev,
 	bool success = true;
 	int idx = cpu_power_select(dev, cluster->cpu, &index);
 	const struct cpumask *cpumask = get_cpu_mask(dev->cpu);
+	struct power_params *pwr_params;
 
 	if (idx < 0) {
 		local_irq_enable();
 		return -EPERM;
 	}
+
+	pwr_params = &cluster->cpu->levels[idx].pwr;
+	sched_set_cpu_cstate(smp_processor_id(), idx,
+		pwr_params->energy_overhead, pwr_params->latency_us);
+
 	cpu_prepare(cluster, idx, true);
 
 	cluster_prepare(cluster, cpumask, idx, true);
@@ -670,6 +677,8 @@ static int lpm_cpuidle_enter(struct cpuidle_device *dev,
 	trace_cpu_idle_exit(idx, success);
 	cluster_unprepare(cluster, cpumask, idx, true);
 	cpu_unprepare(cluster, idx, true);
+
+	sched_set_cpu_cstate(smp_processor_id(), 0, 0, 0);
 
 	time = ktime_to_ns(ktime_get()) - time;
 	do_div(time, 1000);

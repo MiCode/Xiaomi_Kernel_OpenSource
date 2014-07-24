@@ -212,6 +212,13 @@ static unsigned long *__cpu_capacity;
 
 static unsigned long middle_capacity = 1;
 
+static DEFINE_PER_CPU(unsigned long, cpu_efficiency) = SCHED_POWER_SCALE;
+
+unsigned long arch_get_cpu_efficiency(int cpu)
+{
+	return per_cpu(cpu_efficiency, cpu);
+}
+
 /*
  * Iterate all CPUs' descriptor in DT and compute the efficiency
  * (as per table_efficiency). Also calculate a middle efficiency
@@ -294,6 +301,8 @@ static void __init parse_dt_cpu_power(void)
 			pr_warn("%s: Unknown CPU type\n", cn->full_name);
 			continue;
 		}
+
+		per_cpu(cpu_efficiency, cpu) = cpu_eff->efficiency;
 
 		rate = of_get_property(cn, "clock-frequency", &len);
 		if (!rate || len != 4) {
