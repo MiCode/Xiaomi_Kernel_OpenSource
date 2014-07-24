@@ -112,8 +112,8 @@ static inline void flush_tlb_page(struct vm_area_struct *vma,
 #endif
 }
 
-static inline void flush_tlb_range(struct vm_area_struct *vma,
-					unsigned long start, unsigned long end)
+static inline void __flush_tlb_range(struct vm_area_struct *vma,
+				     unsigned long start, unsigned long end)
 {
 #ifdef CONFIG_ARCH_MSM8994_V1_TLBI_WA
 	asm("tlbi	vmalle1is");
@@ -132,7 +132,7 @@ static inline void flush_tlb_range(struct vm_area_struct *vma,
 #endif
 }
 
-static inline void flush_tlb_kernel_range(unsigned long start, unsigned long end)
+static inline void __flush_tlb_kernel_range(unsigned long start, unsigned long end)
 {
 #ifdef CONFIG_ARCH_MSM8994_V1_TLBI_WA
 	asm("tlbi	vmalle1is");
@@ -148,6 +148,29 @@ static inline void flush_tlb_kernel_range(unsigned long start, unsigned long end
 		asm("tlbi vaae1is, %0" : : "r"(addr));
 	dsb(ish);
 #endif
+}
+
+/*
+ * This is meant to avoid soft lock-ups on large TLB flushing ranges and not
+ * necessarily a performance improvement.
+ */
+#define MAX_TLB_RANGE	(1024UL << PAGE_SHIFT)
+
+static inline void flush_tlb_range(struct vm_area_struct *vma,
+				   unsigned long start, unsigned long end)
+{
+	if ((end - start) <= MAX_TLB_RANGE)
+		__flush_tlb_range(vma, start, end);
+	else
+		flush_tlb_mm(vma->vm_mm);
+}
+
+static inline void flush_tlb_kernel_range(unsigned long start, unsigned long end)
+{
+	if ((end - start) <= MAX_TLB_RANGE)
+		__flush_tlb_kernel_range(start, end);
+	else
+		flush_tlb_all();
 }
 
 /*
