@@ -124,11 +124,11 @@ the appropriate macros. */
 
 /* This needs to be modified manually now, when we add
  a new RANGE of SSIDs to the msg_mask_tbl */
-#define MSG_MASK_TBL_CNT		24
-#define EVENT_LAST_ID			0x09F6
+#define MSG_MASK_TBL_CNT		25
+#define EVENT_LAST_ID			0x0A22
 
 #define MSG_SSID_0			0
-#define MSG_SSID_0_LAST			101
+#define MSG_SSID_0_LAST			105
 #define MSG_SSID_1			500
 #define MSG_SSID_1_LAST			506
 #define MSG_SSID_2			1000
@@ -142,7 +142,7 @@ the appropriate macros. */
 #define MSG_SSID_6			4500
 #define MSG_SSID_6_LAST			4526
 #define MSG_SSID_7			4600
-#define MSG_SSID_7_LAST			4614
+#define MSG_SSID_7_LAST			4615
 #define MSG_SSID_8			5000
 #define MSG_SSID_8_LAST			5031
 #define MSG_SSID_9			5500
@@ -173,8 +173,10 @@ the appropriate macros. */
 #define MSG_SSID_21_LAST		10300
 #define MSG_SSID_22			10350
 #define MSG_SSID_22_LAST		10377
-#define MSG_SSID_23			0xC000
-#define MSG_SSID_23_LAST		0xC063
+#define MSG_SSID_23			10400
+#define MSG_SSID_23_LAST		10414
+#define MSG_SSID_24			0xC000
+#define MSG_SSID_24_LAST		0xC063
 
 struct diagpkt_delay_params {
 	void *rsp_ptr;
@@ -302,7 +304,11 @@ static const uint32_t msg_bld_masks_0[] = {
 	MSG_LVL_HIGH,
 	MSG_LVL_LOW,
 	MSG_LVL_HIGH,
-	MSG_LVL_HIGH
+	MSG_LVL_LOW|MSG_LVL_MED|MSG_LVL_HIGH|MSG_LVL_ERROR|MSG_LVL_FATAL,
+	MSG_LVL_MED|MSG_LVL_HIGH|MSG_LVL_ERROR,
+	MSG_LVL_MED|MSG_LVL_HIGH|MSG_LVL_ERROR,
+	MSG_LVL_MED|MSG_LVL_HIGH,
+	MSG_LVL_MED|MSG_LVL_HIGH
 };
 
 static const uint32_t msg_bld_masks_1[] = {
@@ -417,7 +423,8 @@ static const uint32_t msg_bld_masks_7[] = {
 	MSG_LVL_MED,
 	MSG_LVL_LOW,
 	MSG_LVL_LOW,
-	MSG_LVL_LOW
+	MSG_LVL_LOW,
+	MSG_LVL_LOW|MSG_LVL_MED|MSG_LVL_HIGH|MSG_LVL_ERROR|MSG_LVL_FATAL
 };
 
 static const uint32_t msg_bld_masks_8[] = {
@@ -742,10 +749,28 @@ static const uint32_t msg_bld_masks_22[] = {
 	MSG_LVL_LOW
 };
 
+static const uint32_t msg_bld_masks_23[] = {
+	MSG_LVL_LOW,
+	MSG_LVL_LOW,
+	MSG_LVL_LOW,
+	MSG_LVL_LOW,
+	MSG_LVL_LOW,
+	MSG_LVL_LOW,
+	MSG_LVL_LOW,
+	MSG_LVL_LOW,
+	MSG_LVL_LOW,
+	MSG_LVL_LOW,
+	MSG_LVL_LOW,
+	MSG_LVL_LOW,
+	MSG_LVL_LOW,
+	MSG_LVL_LOW,
+	MSG_LVL_LOW
+};
+
 /* LOG CODES */
 static const uint32_t log_code_last_tbl[] = {
 	0x0,	/* EQUIP ID 0 */
-	0x184A,	/* EQUIP ID 1 */
+	0x1871,	/* EQUIP ID 1 */
 	0x0,	/* EQUIP ID 2 */
 	0x0,	/* EQUIP ID 3 */
 	0x4910,	/* EQUIP ID 4 */
