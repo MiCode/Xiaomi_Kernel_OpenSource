@@ -475,6 +475,12 @@
 		qcom,rtb-size = <0x100000>;
 	};
 
+	jtag_fuse: jtagfuse@5e01c {
+		compatible = "qcom,jtag-fuse";
+		reg = <0x5e01c 0x8>;
+		reg-names = "fuse-base";
+	};
+
 	jtag_mm0: jtagmm@842000 {
 		compatible = "qcom,jtagv8-mm";
 		reg = <0x842000 0x1000>,
