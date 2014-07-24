@@ -227,6 +227,9 @@ config ARCH_MSMZIRC
 	select PCI
 	select MSM_IRQ
 	select MSM_JTAG_MM if CORESIGHT_ETM
+	select MSM_QDSP6_APRV3
+	select MSM_QDSP6V2_CODECS
+	select MSM_AUDIO_QDSP6V2 if SND_SOC
 
 config ARCH_MDMFERRUM
 	bool "MDMFERRUM"
