@@ -95,6 +95,25 @@ const unsigned char MAX_SRCH_MODE = 0x01;
 #define PTY_MASK 0x1F
 #define NO_OF_CHARS_IN_EACH_ADD 2
 
+#define MIN_SNR 0
+#define MAX_SNR 127
+#define MIN_RSSI 0
+#define MAX_RSSI 127
+#define DEFAULT_SNR_TH 2
+#define DEFAULT_RSSI_TH 7
+
+#define DEFAULT_AF_RSSI_LOW_TH 25
+#define MAX_NO_OF_AF 25
+#define MIN_AF_FREQ_CODE 1
+#define MAX_AF_FREQ_CODE 204
+/* 25 AFs supported for a freq. 224 means 1 AF. 225 means 2 AFs and so on */
+#define NO_AF_CNT_CODE 224
+#define MIN_AF_CNT_CODE 225
+#define MAX_AF_CNT_CODE 249
+/* freqs are divided by 10. */
+#define SCALE_AF_CODE_TO_FREQ_KHZ(x) (87500 + (x*100))
+
+
 /* commands */
 #define POWER_UP_CMD  0x01
 #define GET_REV_CMD 0x10
@@ -123,7 +142,8 @@ const unsigned char MAX_SRCH_MODE = 0x01;
 #define FM_DEEMPHASIS_PROP 0x1100
 #define FM_CHANNEL_FILTER_PROP 0x1102
 #define FM_ANTENNA_INPUT_PROP 0x1107
-
+#define FM_RSQ_INT_SOURCE_PROP 0x1200
+#define FM_RSQ_RSSI_LO_THRESHOLD_PROP 0x1204
 
 #define FM_SEEK_BAND_BOTTOM_PROP 0x1400
 #define FM_SEEK_BAND_TOP_PROP 0x1401
@@ -135,6 +155,7 @@ const unsigned char MAX_SRCH_MODE = 0x01;
 #define FM_RDS_INT_FIFO_COUNT_PROP 0x1501
 #define FM_RDS_CONFIG_PROP 0x1502
 
+#define RX_HARD_MUTE_PROP 0x4001
 
 /* BIT MASKS */
 #define ENABLE_CTS_INT_MASK        (1 << 7)
@@ -155,7 +176,10 @@ const unsigned char MAX_SRCH_MODE = 0x01;
 #define RSQ_INT_BIT_MASK           (1 << 3)
 #define RDS_INT_BIT_MASK           (1 << 2)
 #define STC_INT_BIT_MASK            1
-
+#define RSSI_LOW_TH_INT_BIT_MASK    1
+#define RDS_INT_DISABLE_MASK	    0x9
+#define RSQ_INT_DISABLE_MASK	    0x5
+#define HARD_MUTE_MASK		    0x3
 
 #define DCLK_FALLING_EDGE_MASK     (1 << 7)
 
@@ -168,6 +192,7 @@ const unsigned char MAX_SRCH_MODE = 0x01;
 #define TUNE_FREQ_CMD_LEN 5
 #define SEEK_CMD_LEN 2
 #define TUNE_STATUS_CMD_LEN 2
+#define RSQ_STATUS_CMD_LEN 2
 
 #define HIGH_BYTE_16BIT(x)         (x >> 8)
 #define LOW_BYTE_16BIT(x)          (x & 0xFF)
@@ -379,7 +404,11 @@ enum silabs_region_t {
 enum silabs_interrupts_t {
 	DISABLE_ALL_INTERRUPTS,
 	ENABLE_STC_RDS_INTERRUPTS,
-	ENABLE_STC_INTERRUPTS
+	ENABLE_STC_INTERRUPTS,
+	ENABLE_RDS_INTERRUPTS,
+	DISABLE_RDS_INTERRUPTS,
+	ENABLE_RSQ_INTERRUPTS,
+	DISABLE_RSQ_INTERRUPTS
 };
 
 struct silabs_fm_recv_conf_req {
@@ -388,6 +417,21 @@ struct silabs_fm_recv_conf_req {
 	/* limits stored as actual freq / TUNE_STEP_SIZE */
 	__u16	band_low_limit;
 	__u16	band_high_limit;
+};
+
+struct silabs_af_info {
+	/* Flag to identify repeated AF list */
+	bool is_new_af_list;
+	/* no. of AFs in the list. */
+	u8 cnt;
+	/* actual size of the list */
+	u8 size;
+	/* index of currently tuned station in the AF list. */
+	u8 index;
+	/* freq to which AF list belongs to. */
+	u32 orig_freq_khz;
+	/* AF list */
+	u32 af_list[MAX_NO_OF_AF];
 };
 
 static inline bool is_valid_chan_spacing(int spacing)
