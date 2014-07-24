@@ -464,7 +464,6 @@
 
 &pcie0 {
 	vreg-3.3-supply = <&wigig_vreg>;
-	status = "disabled";
 };
 
 &pcie1 {
