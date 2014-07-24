@@ -1443,6 +1443,16 @@ static int boost_refcount;
 static DEFINE_SPINLOCK(boost_lock);
 static DEFINE_MUTEX(boost_mutex);
 
+static void boost_kick_cpus(void)
+{
+	int i;
+
+	for_each_online_cpu(i) {
+		if (cpu_rq(i)->capacity != max_capacity)
+			boost_kick(i);
+	}
+}
+
 static inline int sched_boost(void)
 {
 	return boost_refcount > 0;
@@ -1452,11 +1462,14 @@ int sched_set_boost(int enable)
 {
 	unsigned long flags;
 	int ret = 0;
+	int old_refcount;
 
 	if (!sched_enable_hmp)
 		return -EINVAL;
 
 	spin_lock_irqsave(&boost_lock, flags);
+
+	old_refcount = boost_refcount;
 
 	if (enable == 1) {
 		boost_refcount++;
@@ -1468,6 +1481,9 @@ int sched_set_boost(int enable)
 	} else {
 		ret = -EINVAL;
 	}
+
+	if (!old_refcount && boost_refcount)
+		boost_kick_cpus();
 
 	spin_unlock_irqrestore(&boost_lock, flags);
 
