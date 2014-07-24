@@ -389,6 +389,36 @@ static int dwc3_otg_set_peripheral(struct usb_otg *otg,
 }
 
 /**
+ * dwc3_otg_set_suspend -  Set or clear OTG suspend bit and schedule OTG state machine
+ * work.
+ *
+ * @phy: Pointer to the phy structure.
+ * @suspend: 1 - Ask OTG state machine to issue low power mode entry.
+ *                 0 - Cancel low-power mode entry request.
+ * Returns 0 on success otherwise negative errno.
+ */
+static int dwc3_otg_set_suspend(struct usb_phy *phy, int suspend)
+{
+	const unsigned int lpm_after_suspend_delay = 500;
+
+	struct dwc3_otg *dotg = container_of(phy->otg, struct dwc3_otg, otg);
+
+	if (!dotg->dwc->enable_bus_suspend)
+		return 0;
+
+	if (suspend) {
+		set_bit(DWC3_OTG_SUSPEND, &dotg->inputs);
+		queue_delayed_work(system_nrt_wq,
+			&dotg->sm_work,
+			msecs_to_jiffies(lpm_after_suspend_delay));
+	} else {
+		clear_bit(DWC3_OTG_SUSPEND, &dotg->inputs);
+	}
+
+	return 0;
+}
+
+/**
  * dwc3_ext_chg_det_done - callback to handle charger detection completion
  * @otg: Pointer to the otg transceiver structure
  * @charger: Pointer to the external charger structure
@@ -850,6 +880,9 @@ static void dwc3_otg_sm_work(struct work_struct *w)
 			if (charger)
 				charger->chg_type = DWC3_INVALID_CHARGER;
 			work = 1;
+		} else if (test_bit(DWC3_OTG_SUSPEND, &dotg->inputs) &&
+			test_bit(B_SESS_VLD, &dotg->inputs)) {
+			pm_runtime_put_sync(phy->dev);
 		}
 		break;
 
@@ -997,6 +1030,7 @@ int dwc3_otg_init(struct dwc3 *dwc)
 	dotg->otg.phy->set_power = dwc3_otg_set_power;
 	dotg->otg.set_peripheral = dwc3_otg_set_peripheral;
 	dotg->otg.set_host = dwc3_otg_set_host;
+	dotg->otg.phy->set_suspend = dwc3_otg_set_suspend;
 	dotg->otg.phy->state = OTG_STATE_UNDEFINED;
 
 	/*
