@@ -1673,6 +1673,8 @@ static irqreturn_t gen8_gt_irq_handler(struct drm_device *dev,
 				notify_ring(dev, &dev_priv->ring[RCS]);
 			if (bcs & GT_RENDER_USER_INTERRUPT)
 				notify_ring(dev, &dev_priv->ring[BCS]);
+			if ((rcs | bcs) & GT_CONTEXT_SWITCH_INTERRUPT)
+				DRM_DEBUG_DRIVER("TODO: Context switch\n");
 		} else
 			DRM_ERROR("The master control interrupt lied (GT0)!\n");
 	}
@@ -1685,9 +1687,13 @@ static irqreturn_t gen8_gt_irq_handler(struct drm_device *dev,
 			vcs = tmp >> GEN8_VCS1_IRQ_SHIFT;
 			if (vcs & GT_RENDER_USER_INTERRUPT)
 				notify_ring(dev, &dev_priv->ring[VCS]);
+			if (vcs & GT_CONTEXT_SWITCH_INTERRUPT)
+				DRM_DEBUG_DRIVER("TODO: Context switch\n");
 			vcs = tmp >> GEN8_VCS2_IRQ_SHIFT;
 			if (vcs & GT_RENDER_USER_INTERRUPT)
 				notify_ring(dev, &dev_priv->ring[VCS2]);
+			if (vcs & GT_CONTEXT_SWITCH_INTERRUPT)
+				DRM_DEBUG_DRIVER("TODO: Context switch\n");
 		} else
 			DRM_ERROR("The master control interrupt lied (GT1)!\n");
 	}
@@ -1711,6 +1717,8 @@ static irqreturn_t gen8_gt_irq_handler(struct drm_device *dev,
 			vcs = tmp >> GEN8_VECS_IRQ_SHIFT;
 			if (vcs & GT_RENDER_USER_INTERRUPT)
 				notify_ring(dev, &dev_priv->ring[VECS]);
+			if (vcs & GT_CONTEXT_SWITCH_INTERRUPT)
+				DRM_DEBUG_DRIVER("TODO: Context switch\n");
 		} else
 			DRM_ERROR("The master control interrupt lied (GT3)!\n");
 	}
@@ -3824,12 +3832,17 @@ static void gen8_gt_irq_postinstall(struct drm_i915_private *dev_priv)
 	/* These are interrupts we'll toggle with the ring mask register */
 	uint32_t gt_interrupts[] = {
 		GT_RENDER_USER_INTERRUPT << GEN8_RCS_IRQ_SHIFT |
+			GT_CONTEXT_SWITCH_INTERRUPT << GEN8_RCS_IRQ_SHIFT |
 			GT_RENDER_L3_PARITY_ERROR_INTERRUPT |
-			GT_RENDER_USER_INTERRUPT << GEN8_BCS_IRQ_SHIFT,
+			GT_RENDER_USER_INTERRUPT << GEN8_BCS_IRQ_SHIFT |
+			GT_CONTEXT_SWITCH_INTERRUPT << GEN8_BCS_IRQ_SHIFT,
 		GT_RENDER_USER_INTERRUPT << GEN8_VCS1_IRQ_SHIFT |
-			GT_RENDER_USER_INTERRUPT << GEN8_VCS2_IRQ_SHIFT,
+			GT_CONTEXT_SWITCH_INTERRUPT << GEN8_VCS1_IRQ_SHIFT |
+			GT_RENDER_USER_INTERRUPT << GEN8_VCS2_IRQ_SHIFT |
+			GT_CONTEXT_SWITCH_INTERRUPT << GEN8_VCS2_IRQ_SHIFT,
 		0,
-		GT_RENDER_USER_INTERRUPT << GEN8_VECS_IRQ_SHIFT
+		GT_RENDER_USER_INTERRUPT << GEN8_VECS_IRQ_SHIFT |
+			GT_CONTEXT_SWITCH_INTERRUPT << GEN8_VECS_IRQ_SHIFT
 		};
 
 	dev_priv->pm_irq_mask = 0xffffffff;
