@@ -3890,7 +3890,8 @@ static void cherryview_disable_rps(struct drm_device *dev)
 {
 	struct drm_i915_private *dev_priv = dev->dev_private;
 
-	I915_WRITE(GEN6_RC_CONTROL, 0);
+	/* Disable rc6 */
+	vlv_set_rc6_mode(dev, true);
 
 	gen8_disable_rps_interrupts(dev);
 }
@@ -4684,9 +4685,12 @@ static void cherryview_enable_rps(struct drm_device *dev)
 	DRM_DEBUG_DRIVER("PCBR offset : 0x%x\n", pcbr);
 
 	/* 3: Enable RC6 */
+	rc6_mode = GEN7_RC_CTL_TO_MODE;
+	dev_priv->rps.rc6_mask = rc6_mode;
+
 	if ((intel_enable_rc6(dev) & INTEL_RC6_ENABLE) &&
 						(pcbr >> VLV_PCBR_ADDR_SHIFT))
-		rc6_mode = GEN7_RC_CTL_TO_MODE;
+		vlv_set_rc6_mode(dev, false);
 
 	I915_WRITE(GEN6_RC_CONTROL, rc6_mode);
 
