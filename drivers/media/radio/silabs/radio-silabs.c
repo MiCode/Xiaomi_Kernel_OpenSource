@@ -115,6 +115,14 @@ struct silabs_fm_device {
 	u8 ps_tmp0[MAX_PS_LEN]; /* high probability PS */
 	u8 ps_tmp1[MAX_PS_LEN]; /* low probability PS */
 	u8 ps_cnt[MAX_PS_LEN];  /* high probability PS's hit count */
+	u8 rt_plus_carrier;
+	u8 ert_carrier;
+	u8 ert_buf[MAX_ERT_LEN];
+	u8 ert_len;
+	u8 c_byt_pair_index;
+	u8 utf_8_flag;
+	u8 rt_ert_flag;
+	u8 formatting_dir;
 };
 
 static int silabs_fm_request_irq(struct silabs_fm_device *radio);
@@ -1003,14 +1011,202 @@ static void rt_handler(struct silabs_fm_device *radio, u8 ab_flg,
 	display_rt(radio);
 }
 
+static void silabs_ev_ert(struct silabs_fm_device *radio)
+{
+	u8 *data = NULL;
+	struct kfifo *data_b;
+
+	if (radio->ert_len <= 0)
+		return;
+
+	data = kmalloc((radio->ert_len + ERT_OFFSET), GFP_ATOMIC);
+	if (data != NULL) {
+		data[0] = radio->ert_len;
+		data[1] = radio->utf_8_flag;
+		data[2] = radio->formatting_dir;
+		memcpy((data + ERT_OFFSET), radio->ert_buf, radio->ert_len);
+		data_b = &radio->data_buf[SILABS_FM_BUF_ERT];
+		kfifo_in_locked(data_b, data, (radio->ert_len + ERT_OFFSET),
+				&radio->buf_lock[SILABS_FM_BUF_ERT]);
+		silabs_fm_q_event(radio, SILABS_EVT_NEW_ERT);
+		kfree(data);
+	}
+}
+
+static void silabs_buff_ert(struct silabs_fm_device *radio)
+{
+	int i;
+	u16 info_byte = 0;
+	u8 byte_pair_index;
+
+	byte_pair_index = radio->block[1] & APP_GRP_typ_MASK;
+	if (byte_pair_index == 0) {
+		radio->c_byt_pair_index = 0;
+		radio->ert_len = 0;
+	}
+	FMDBG("c_byt_pair_index = %x\n", radio->c_byt_pair_index);
+	if (radio->c_byt_pair_index == byte_pair_index) {
+		for (i = 2; i <= 3; i++) {
+			info_byte = radio->block[i];
+			FMDBG("info_byte = %x\n", info_byte);
+			FMDBG("ert_len = %x\n", radio->ert_len);
+			if (radio->ert_len > (MAX_ERT_LEN - 2))
+				return;
+			radio->ert_buf[radio->ert_len] = radio->block[i] >> 8;
+			radio->ert_buf[radio->ert_len + 1] =
+							radio->block[i] & 0xFF;
+			radio->ert_len += ERT_CNT_PER_BLK;
+			FMDBG("utf_8_flag = %d\n", radio->utf_8_flag);
+			if ((radio->utf_8_flag == 0) &&
+					(info_byte == END_OF_RT)) {
+				radio->ert_len -= ERT_CNT_PER_BLK;
+				break;
+			} else if ((radio->utf_8_flag == 1) &&
+					(radio->block[i] >> 8 == END_OF_RT)) {
+				info_byte = END_OF_RT;
+				radio->ert_len -= ERT_CNT_PER_BLK;
+				break;
+			} else if ((radio->utf_8_flag == 1) &&
+					((radio->block[i] & 0xFF)
+						 == END_OF_RT)) {
+				info_byte = END_OF_RT;
+				radio->ert_len--;
+				break;
+			}
+		}
+		if ((byte_pair_index == MAX_ERT_SEGMENT) ||
+			(info_byte == END_OF_RT)) {
+			silabs_ev_ert(radio);
+			radio->c_byt_pair_index = 0;
+			radio->ert_len = 0;
+		}
+		radio->c_byt_pair_index++;
+	} else {
+		radio->ert_len = 0;
+		radio->c_byt_pair_index = 0;
+	}
+}
+
+
+static void silabs_rt_plus(struct silabs_fm_device *radio)
+{
+	u8 tag_type1, tag_type2;
+	u8 *data = NULL;
+	int len = 0;
+	u16 grp_typ;
+	struct kfifo *data_b;
+
+	grp_typ = radio->block[1] & APP_GRP_typ_MASK;
+	/*
+	 *right most 3 bits of Lsb of block 2
+	 * and left most 3 bits of Msb of block 3
+	 */
+	tag_type1 = (((grp_typ & TAG1_MSB_MASK) << TAG1_MSB_OFFSET) |
+			 (radio->block[2] >> TAG1_LSB_OFFSET));
+	/*
+	 *right most 1 bit of lsb of 3rd block
+	 * and left most 5 bits of Msb of 4th block
+	 */
+	tag_type2 = (((radio->block[2] & TAG2_MSB_MASK)
+			 << TAG2_MSB_OFFSET) |
+			 (radio->block[2] >> TAG2_LSB_OFFSET));
+
+	if (tag_type1 != DUMMY_CLASS)
+		len += RT_PLUS_LEN_1_TAG;
+	if (tag_type2 != DUMMY_CLASS)
+		len += RT_PLUS_LEN_1_TAG;
+
+	if (len != 0) {
+		len += RT_PLUS_OFFSET;
+		data = kmalloc(len, GFP_ATOMIC);
+	} else {
+		FMDERR("%s:Len is zero\n", __func__);
+		return;
+	}
+	if (data != NULL) {
+		data[0] = len;
+		len = RT_ERT_FLAG_OFFSET;
+		data[len++] = radio->rt_ert_flag;
+		if (tag_type1 != DUMMY_CLASS) {
+			data[len++] = tag_type1;
+			/*
+			 *start position of tag1
+			 *right most 5 bits of msb of 3rd block
+			 *and left most bit of lsb of 3rd block
+			 */
+			 data[len++] = (radio->block[2] >> TAG1_POS_LSB_OFFSET)
+							& TAG1_POS_MSB_MASK;
+			/*
+			 *length of tag1
+			 *left most 6 bits of lsb of 3rd block
+			 */
+			data[len++] = (radio->block[2] >> TAG1_LEN_OFFSET) &
+								TAG1_LEN_MASK;
+		}
+		if (tag_type2 != DUMMY_CLASS) {
+			data[len++] = tag_type2;
+			/*
+			 *start position of tag2
+			 *right most 3 bit of msb of 4th block
+			 *and left most 3 bits of lsb of 4th block
+			 */
+			data[len++] = (radio->block[3] >> TAG2_POS_LSB_OFFSET) &
+							TAG2_POS_MSB_MASK;
+			/*
+			 *length of tag2
+			 *right most 5 bits of lsb of 4th block
+			 */
+			data[len++] = radio->block[3] & TAG2_LEN_MASK;
+		}
+		data_b = &radio->data_buf[SILABS_FM_BUF_RT_PLUS];
+		kfifo_in_locked(data_b, data, len,
+				&radio->buf_lock[SILABS_FM_BUF_RT_PLUS]);
+		silabs_fm_q_event(radio, SILABS_EVT_NEW_RT_PLUS);
+		kfree(data);
+	} else {
+		FMDERR("%s:memory allocation failed\n", __func__);
+	}
+}
+
+static void silabs_raw_rds_handler(struct silabs_fm_device *radio)
+{
+	u16 aid, app_grp_typ;
+
+	aid = radio->block[3];
+	app_grp_typ = radio->block[1] & APP_GRP_typ_MASK;
+	FMDBG("app_grp_typ = %x\n", app_grp_typ);
+	FMDBG("AID = %x", aid);
+
+	switch (aid) {
+	case ERT_AID:
+		radio->utf_8_flag = (radio->block[2] & 1);
+		radio->formatting_dir = EXTRACT_BIT(radio->block[2],
+							ERT_FORMAT_DIR_BIT);
+		if (radio->ert_carrier != app_grp_typ) {
+			silabs_fm_q_event(radio, SILABS_EVT_NEW_ODA);
+			radio->ert_carrier = app_grp_typ;
+		}
+		break;
+	case RT_PLUS_AID:
+		/*Extract 5th bit of MSB (b7b6b5b4b3b2b1b0)*/
+		radio->rt_ert_flag = EXTRACT_BIT(radio->block[2],
+				 RT_ERT_FLAG_BIT);
+		if (radio->rt_plus_carrier != app_grp_typ) {
+			silabs_fm_q_event(radio, SILABS_EVT_NEW_ODA);
+			radio->rt_plus_carrier = app_grp_typ;
+		}
+		break;
+	default:
+		FMDBG("Not handling the AID of %x\n", aid);
+		break;
+	}
+}
 /* When RDS interrupt is received, read and process RDS data. */
 static void rds_handler(struct work_struct *worker)
 {
 	struct silabs_fm_device *radio;
-	u8  rt_blks[NO_OF_RDS_BLKS];
-	u8 grp_type;
-	u8 addr;
-	u8 ab_flg;
+	u8 rt_blks[NO_OF_RDS_BLKS];
+	u8 grp_type, addr, ab_flg;
 
 	radio = container_of(worker, struct silabs_fm_device, rds_worker);
 
@@ -1066,10 +1262,20 @@ static void rds_handler(struct work_struct *worker)
 		radio->rt_cnt[MAX_LEN_2B_GRP_RT] = RT_VALIDATE_LIMIT;
 		rt_handler(radio, ab_flg, CNT_FOR_2B_GRP_RT, addr, rt_blks);
 		break;
+	case RDS_TYPE_3A:
+		FMDBG("RDS is 3A group\n");
+		silabs_raw_rds_handler(radio);
+		break;
 	default:
 		FMDERR("Not handling the group type %d\n", grp_type);
 		break;
 	}
+	FMDBG("rt_plus_carrier = %x\n", radio->rt_plus_carrier);
+	FMDBG("ert_carrier = %x\n", radio->ert_carrier);
+	if (grp_type == radio->rt_plus_carrier)
+		silabs_rt_plus(radio);
+	else if (grp_type == radio->ert_carrier)
+		silabs_buff_ert(radio);
 	return;
 }
 
