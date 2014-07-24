@@ -1,0 +1,48 @@
+/* Copyright (c) 2014, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+/*
+ * As a general rule, only chipset-specific property overrides should be placed
+ * inside this file.
+ */
+
+#include "msm8994-pm8994-pmi8994-pm8004.dtsi"
+
+/ {
+	qcom,pmic-id = <0x10009 0x1000C 0x0 0x0>;
+};
+
+&rpm_bus {
+	/delete-node/ rpm-regulator-bstb;
+	/delete-node/ rpm-regulator-bbyb;
+	/delete-node/ rpm-regulator-smpb1;
+	/delete-node/ rpm-regulator-smpc2;
+
+	rpm-regulator-smpb2 {
+		pm8004_s2_corner: regulator-s2-corner {
+			regulator-name = "pm8004_s2_corner";
+		};
+
+		pm8004_s2_floor_corner: regulator-s2-floor-corner {
+			regulator-name = "pm8004_s2_floor_corner";
+		};
+	};
+};
+
+&spmi_bus {
+	/delete-node/ qcom,pmi8994@2;
+	/delete-node/ qcom,pmi8994@3;
+};
+
+&usb3 {
+	/delete-property/ vbus_dwc3-supply;
+};
