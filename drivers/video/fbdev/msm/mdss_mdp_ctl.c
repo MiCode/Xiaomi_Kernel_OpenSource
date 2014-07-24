@@ -1325,6 +1325,10 @@ static struct mdss_mdp_mixer *mdss_mdp_mixer_alloc(
 			alt_mixer = mixer_pool;
 			mixer_pool++;
 			nmixers--;
+		} else if (ctl->panel_data->panel_info.type ==
+							WRITEBACK_PANEL) {
+			mixer_pool += mdss_mdp_get_wb_ctl_support(ctl->mdata,
+									false);
 		}
 		break;
 
