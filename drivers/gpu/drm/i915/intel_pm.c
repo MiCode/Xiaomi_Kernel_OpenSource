@@ -3519,8 +3519,13 @@ static u32 gen6_rps_pm_mask(struct drm_i915_private *dev_priv, u8 val)
 {
 	u32 mask = 0;
 
-	if (val > dev_priv->rps.min_freq_softlimit)
-		mask |= GEN6_PM_RP_DOWN_THRESHOLD | GEN6_PM_RP_DOWN_TIMEOUT;
+	if (val > dev_priv->rps.min_freq_softlimit) {
+		mask |= GEN6_PM_RP_DOWN_THRESHOLD;
+
+		if (INTEL_INFO(dev_priv->dev)->gen <= 7)
+			mask |= GEN6_PM_RP_DOWN_TIMEOUT;
+	}
+
 	if (val < dev_priv->rps.max_freq_softlimit)
 		mask |= GEN6_PM_RP_UP_THRESHOLD;
 
