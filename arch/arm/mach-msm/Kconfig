@@ -201,6 +201,7 @@ config ARCH_MSMZIRC
 	select PINCTRL_MSM_TLMM
 	select USE_PINCTRL_IRQ
 	select MSM_IRQ
+	select MSM_JTAG_MM if CORESIGHT_ETM
 
 config ARCH_MSM8610
 	bool "MSM8610"
