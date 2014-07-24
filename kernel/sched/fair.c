@@ -2827,16 +2827,17 @@ static int task_will_fit(struct task_struct *p, int cpu)
 	int upmigrate = sched_upmigrate;
 	int nice = task_nice(p);
 
-	/* Todo: Provide cgroup-based control as well? */
-	if (nice > sysctl_sched_upmigrate_min_nice ||
-			 rq->capacity == max_capacity)
+	if (rq->capacity == max_capacity)
 		return 1;
 
 	if (sched_boost()) {
 		if (rq->capacity > prev_rq->capacity)
 			return 1;
-
 	} else {
+		/* Todo: Provide cgroup-based control as well? */
+		if (nice > sysctl_sched_upmigrate_min_nice)
+			return 1;
+
 		load = scale_load_to_cpu(task_load(p), cpu);
 
 		if (prev_rq->capacity > rq->capacity)
@@ -3020,7 +3021,7 @@ static int select_best_cpu(struct task_struct *p, int target)
 
 	trace_sched_task_load(p);
 
-	if (small_task) {
+	if (small_task && !sched_boost()) {
 		best_cpu = best_small_task_cpu(p);
 		goto done;
 	}
@@ -3314,8 +3315,13 @@ static inline int migration_needed(struct rq *rq, struct task_struct *p)
 {
 	int nice = task_nice(p);
 
-	if (is_small_task(p) || p->state != TASK_RUNNING ||
-			!sched_enable_hmp)
+	if (!sched_enable_hmp || p->state != TASK_RUNNING)
+		return 0;
+
+	if (sched_boost())
+		return (rq->capacity != max_capacity);
+
+	if (is_small_task(p))
 		return 0;
 
 	/* Todo: cgroup-based control? */
