@@ -95,6 +95,7 @@ config ARCH_MSMFERRUM
 	select MSM_QDSP6V2_CODECS
 	select MSM_AUDIO_QDSP6V2 if SND_SOC
 	select MSM_CORTEX_A7
+	select MSM_IRQ
 
 config ARCH_MSM8916
 	bool "MSM8916"
