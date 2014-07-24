@@ -821,8 +821,17 @@ irqreturn_t i2c_dw_isr(int this_irq, void *dev_id)
 	 */
 
 tx_aborted:
-	if ((stat & (DW_IC_INTR_TX_ABRT | DW_IC_INTR_STOP_DET)) || dev->msg_err)
+	if ((stat & (DW_IC_INTR_TX_ABRT | DW_IC_INTR_STOP_DET)) || dev->msg_err) {
+		/*
+		 * Check DW_IC_RXFLR register and
+		 * read from the RX FIFO if it's not
+		 * empty.
+		 */
+		if ((stat & DW_IC_INTR_STOP_DET) &&
+			dw_readl(dev, DW_IC_RXFLR) > 0)
+			i2c_dw_read(dev);
 		complete(&dev->cmd_complete);
+	}
 
 	return IRQ_HANDLED;
 }
