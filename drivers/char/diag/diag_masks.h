@@ -122,7 +122,7 @@ struct diag_log_mask_userspace_t {
 #define MAX_EQUIP_ID	16
 #define MSG_MASK_SIZE	(MSG_MASK_TBL_CNT * sizeof(struct diag_msg_mask_t))
 #define LOG_MASK_SIZE	(MAX_EQUIP_ID * sizeof(struct diag_log_mask_t))
-#define EVENT_MASK_SIZE	512
+#define EVENT_MASK_SIZE 513
 #define MAX_ITEMS_PER_EQUIP_ID	512
 
 #define LOG_MASK_CTRL_HEADER_LEN	11
