@@ -329,6 +329,7 @@ static int dw_i2c_probe(struct platform_device *pdev)
 		dev->rx_fifo_depth = ((param1 >> 8)  & 0xff) + 1;
 		dev->adapter.nr = pdev->id;
 	}
+
 	r = i2c_dw_init(dev);
 	if (r)
 		return r;
@@ -401,8 +402,10 @@ static int dw_i2c_suspend(struct device *dev)
 	struct platform_device *pdev = to_platform_device(dev);
 	struct dw_i2c_dev *i_dev = platform_get_drvdata(pdev);
 
-	i2c_dw_disable(i_dev);
-	clk_disable_unprepare(i_dev->clk);
+	if (!i_dev->shared_host) {
+		i2c_dw_disable(i_dev);
+		clk_disable_unprepare(i_dev->clk);
+	}
 
 	return 0;
 }
@@ -412,11 +415,11 @@ static int dw_i2c_resume(struct device *dev)
 	struct platform_device *pdev = to_platform_device(dev);
 	struct dw_i2c_dev *i_dev = platform_get_drvdata(pdev);
 
-	clk_prepare_enable(i_dev->clk);
 
-	if (!i_dev->shared_host)
+	if (!i_dev->shared_host) {
+		clk_prepare_enable(i_dev->clk);
 		i2c_dw_init(i_dev);
-
+	}
 	return 0;
 }
 #endif
