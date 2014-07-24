@@ -39,6 +39,8 @@
 
 static void gen6_disable_rps_interrupts(struct drm_device *dev);
 static void gen6_enable_rps_interrupts(struct drm_device *dev);
+static void gen8_disable_rps_interrupts(struct drm_device *dev);
+static void gen8_enable_rps_interrupts(struct drm_device *dev);
 
 #define RPM_PROC_ENTRY_FILENAME     "i915_rpm_op"
 #define RPM_PROC_ENTRY_DIRECTORY        "driver/i915rpm"
@@ -3705,10 +3707,16 @@ void vlv_set_rps_mode(struct drm_device *dev, bool disable)
 
 	if (disable) {
 		I915_WRITE(GEN6_RP_CONTROL, 0);
-		gen6_disable_rps_interrupts(dev);
+		if (IS_CHERRYVIEW(dev))
+			gen8_disable_rps_interrupts(dev);
+		else
+			gen6_disable_rps_interrupts(dev);
 	} else {
 		I915_WRITE(GEN6_RP_CONTROL, dev_priv->rps.rps_mask);
-		gen6_enable_rps_interrupts(dev);
+		if (IS_CHERRYVIEW(dev))
+			gen8_enable_rps_interrupts(dev);
+		else
+			gen6_enable_rps_interrupts(dev);
 	}
 }
 
@@ -3893,7 +3901,8 @@ static void cherryview_disable_rps(struct drm_device *dev)
 	/* Disable rc6 */
 	vlv_set_rc6_mode(dev, true);
 
-	gen8_disable_rps_interrupts(dev);
+	/* Disable rps */
+	vlv_set_rps_mode(dev, true);
 }
 
 static void valleyview_disable_rps(struct drm_device *dev)
@@ -4707,12 +4716,11 @@ static void cherryview_enable_rps(struct drm_device *dev)
 	I915_WRITE(0xA810, I915_READ(0xA810) & 0xffffff00);
 
 	/* 5: Enable RPS */
-	I915_WRITE(GEN6_RP_CONTROL,
-		   GEN6_RP_MEDIA_HW_NORMAL_MODE |
+	dev_priv->rps.rps_mask = GEN6_RP_MEDIA_HW_NORMAL_MODE |
 		   GEN6_RP_MEDIA_IS_GFX | /* WaSetMaskForGfxBusyness:chv (pre-production hw ?) */
 		   GEN6_RP_ENABLE |
 		   GEN6_RP_UP_BUSY_AVG |
-		   GEN6_RP_DOWN_IDLE_AVG);
+		   GEN6_RP_DOWN_IDLE_AVG;
 
 	val = vlv_punit_read(dev_priv, PUNIT_REG_GPU_FREQ_STS);
 
@@ -4730,7 +4738,7 @@ static void cherryview_enable_rps(struct drm_device *dev)
 
 	valleyview_set_rps(dev_priv->dev, dev_priv->rps.efficient_freq);
 
-	gen8_enable_rps_interrupts(dev);
+	vlv_set_rps_mode(dev, false);
 
 	gen6_gt_force_wake_put(dev_priv, FORCEWAKE_ALL);
 }
