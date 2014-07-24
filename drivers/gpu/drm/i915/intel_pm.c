@@ -4824,9 +4824,6 @@ static void valleyview_enable_rps(struct drm_device *dev)
 
 	valleyview_set_rps(dev_priv->dev, dev_priv->rps.efficient_freq);
 
-	dev_priv->rps.rp_up_masked = false;
-	dev_priv->rps.rp_down_masked = false;
-
 	/* enable WA for RC6+turbo to work together */
 	dev_priv->rps.use_RC0_residency_for_turbo = true;
 

@@ -1487,7 +1487,6 @@ static void gen6_pm_rps_work(struct work_struct *work)
 			    dev_priv->rps.min_freq_softlimit,
 			    dev_priv->rps.max_freq_softlimit);
 
-	gen6_set_pm_mask(dev_priv, pm_iir, new_delay);
 	dev_priv->rps.last_adj = new_delay - dev_priv->rps.cur_freq;
 
 	if (IS_VALLEYVIEW(dev_priv->dev))
