@@ -27,6 +27,8 @@ Optional:
 - qcom,use-ipa-bamdma-a2-bridge: determine if a2/ipa hw bridge will be used
 - qcom,ee: which EE is assigned to (non-secure) APPS from IPA-BAM POV. This
 is a number
+- qcom,ipa-hw-mode: IPA hardware mode - Normal, Virtual memory allocation,
+memory allocation over a PCIe bridge
 
 IPA pipe sub nodes (A2 static pipes configurations):
 
