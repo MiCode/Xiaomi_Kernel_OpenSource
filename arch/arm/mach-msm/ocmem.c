@@ -841,11 +841,9 @@ static int __devinit msm_ocmem_probe(struct platform_device *pdev)
 
 	/* Parameter to be updated based on TZ */
 	/* Allow the OCMEM CSR to be programmed */
-	if (ocmem_restore_sec_program(OCMEM_SECURE_DEV_ID)) {
-		ocmem_disable_iface_clock();
-		ocmem_disable_core_clock();
+	if (ocmem_restore_sec_program(OCMEM_SECURE_DEV_ID))
 		return -EBUSY;
-	}
+	
 	ocmem_disable_iface_clock();
 	ocmem_disable_core_clock();
 
@@ -878,6 +876,7 @@ static int __devinit msm_ocmem_probe(struct platform_device *pdev)
 iface_clk_fail:
 	ocmem_disable_core_clock();
 core_clk_fail:
+	pr_err("ocmem: Failed to turn on core clk\n");
 	return rc;
 }
 
