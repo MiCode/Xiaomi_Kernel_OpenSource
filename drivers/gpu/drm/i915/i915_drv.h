@@ -2180,6 +2180,7 @@ struct drm_i915_cmd_table {
 #define I915_NEED_GFX_HWS(dev)	(INTEL_INFO(dev)->need_gfx_hws)
 
 #define HAS_HW_CONTEXTS(dev)	(INTEL_INFO(dev)->gen >= 6)
+#define HAS_LOGICAL_RING_CONTEXTS(dev)	0
 #define HAS_ALIASING_PPGTT(dev)	(INTEL_INFO(dev)->gen >= 6 && \
 				 (!IS_VALLEYVIEW(dev) || IS_CHERRYVIEW(dev)))
 #define HAS_PPGTT(dev)		(INTEL_INFO(dev)->gen >= 7 \
@@ -2270,6 +2271,7 @@ struct i915_params {
 	int enable_rc6;
 	int enable_fbc;
 	int enable_ppgtt;
+	int enable_execlists;
 	int enable_psr;
 	unsigned int preliminary_hw_support;
 	int disable_power_well;
