@@ -6474,6 +6474,9 @@ wl_cfg80211_bcn_bringup_ap(
 	s32 infra = 1;
 	s32 join_params_size = 0;
 	s32 ap = 1;
+#ifdef DISABLE_11H_SOFTAP
+	s32 spect = 0;
+#endif /* DISABLE_11H_SOFTAP */
 	s32 err = BCME_OK;
 
 	WL_DBG(("Enter dev_role: %d\n", dev_role));
@@ -6525,6 +6528,13 @@ wl_cfg80211_bcn_bringup_ap(
 			WL_ERR(("setting AP mode failed %d \n", err));
 			goto exit;
 		}
+#ifdef DISABLE_11H_SOFTAP
+		err = wldev_ioctl(dev, WLC_SET_SPECT_MANAGMENT, &spect, sizeof(s32), true);
+		if (err < 0) {
+			WL_ERR(("SET SPECT_MANAGMENT error %d\n", err));
+			goto exit;
+		}
+#endif /* DISABLE_11H_SOFTAP */
 
 		err = wldev_ioctl(dev, WLC_UP, &ap, sizeof(s32), true);
 		if (unlikely(err)) {
