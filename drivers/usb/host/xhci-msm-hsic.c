@@ -1389,10 +1389,6 @@ static int mxhci_hsic_probe(struct platform_device *pdev)
 		writel_relaxed((reg | GCTL_DSBLCLKGTNG), MSM_HSIC_GCTL);
 	}
 
-	/* enable pwr event irq for LPM_IN_L2_IRQ */
-	writel_relaxed(LPM_IN_L2_IRQ_MASK | LPM_OUT_L2_IRQ_MASK,
-			MSM_HSIC_PWR_EVNT_IRQ_MASK);
-
 	mxhci->wakeup_irq = platform_get_irq_byname(pdev, "wakeup_irq");
 	if (mxhci->wakeup_irq < 0) {
 		mxhci->wakeup_irq = 0;
@@ -1408,6 +1404,14 @@ static int mxhci_hsic_probe(struct platform_device *pdev)
 			goto pinctrl_sleep;
 		}
 	}
+
+	/* enable pwr event irq for LPM_IN_L2_IRQ */
+	if (mxhci->wakeup_irq)
+		reg = LPM_IN_L2_IRQ_MASK;
+	else
+		reg = LPM_IN_L2_IRQ_MASK | LPM_OUT_L2_IRQ_MASK;
+
+	writel_relaxed(reg, MSM_HSIC_PWR_EVNT_IRQ_MASK);
 
 	irq_set_status_flags(irq, IRQ_NOAUTOEN);
 	ret = usb_add_hcd(hcd, irq, IRQF_SHARED);
