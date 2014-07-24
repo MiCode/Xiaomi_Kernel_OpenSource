@@ -346,6 +346,10 @@ Optional properties:
 - qcom,cmd-to-video-mode-switch-commands:	List of commands that need to be sent
 					to panel in order to switch from command mode to video mode dynamically.
 					Refer to "qcom,mdss-dsi-on-command" section for adding commands.
+- qcom,mdss-dsi-panel-orientation:	String used to indicate orientation of panel
+					"180" = panel is flipped in both horizontal and vertical directions
+					"hflip" = panel is flipped in horizontal direction
+					"vflip" = panel is flipped in vertical direction
 Note, if a given optional qcom,* binding is not present, then the driver will configure
 the default values specified.
 
@@ -464,5 +468,6 @@ Example:
 		qcom,mdss-dsi-horizontal-line-idle = <0 40 256>,
 						<40 120 128>,
 						<128 240 64>;
+		qcom,mdss-dsi-panel-orientation = "180"
 	};
 };
