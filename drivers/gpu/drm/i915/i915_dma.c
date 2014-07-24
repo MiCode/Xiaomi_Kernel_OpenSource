@@ -1769,6 +1769,9 @@ int i915_driver_load(struct drm_device *dev, unsigned long flags)
 	i915_setup_sysfs(dev);
 	dev_priv->is_first_modeset = true;
 
+	if (IS_VALLEYVIEW(dev))
+		dev->vblank_always_enable_on_get = true;
+
 	if (INTEL_INFO(dev)->num_pipes) {
 		/* Must be done after probing outputs */
 		intel_opregion_init(dev);

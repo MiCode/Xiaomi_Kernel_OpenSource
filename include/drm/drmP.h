@@ -1116,6 +1116,12 @@ struct drm_device {
 	 */
 	bool vblank_disable_allowed;
 
+	/*
+	 * Should a non-rejected drm_vblank_get() always enable the
+	 * vblank interrupt regardless of the current refcount?
+	 */
+	bool vblank_always_enable_on_get;
+
 	/* array of size num_crtcs */
 	struct drm_vblank_crtc *vblank;
 

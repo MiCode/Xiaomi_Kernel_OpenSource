@@ -929,7 +929,8 @@ int drm_vblank_get(struct drm_device *dev, int crtc)
 
 	spin_lock_irqsave(&dev->vbl_lock, irqflags);
 	/* Going from 0->1 means we have to enable interrupts again */
-	if (atomic_add_return(1, &dev->vblank[crtc].refcount) == 1) {
+	if (atomic_add_return(1, &dev->vblank[crtc].refcount) == 1 ||
+		dev->vblank_always_enable_on_get) {
 		ret = drm_vblank_enable(dev, crtc);
 	} else {
 		if (!dev->vblank[crtc].enabled) {
