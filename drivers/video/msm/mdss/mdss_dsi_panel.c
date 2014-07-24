@@ -1179,6 +1179,17 @@ static int mdss_panel_parse_dt(struct device_node *np,
 	rc = of_property_read_u32(np,
 		"qcom,mdss-dsi-border-color", &tmp);
 	pinfo->lcdc.border_clr = (!rc ? tmp : 0);
+	data = of_get_property(np, "qcom,mdss-dsi-panel-orientation", NULL);
+	if (data) {
+		pr_debug("panel orientation is %s\n", data);
+		if (!strcmp(data, "180"))
+			pinfo->panel_orientation = MDP_ROT_180;
+		else if (!strcmp(data, "hflip"))
+			pinfo->panel_orientation = MDP_FLIP_LR;
+		else if (!strcmp(data, "vflip"))
+			pinfo->panel_orientation = MDP_FLIP_UD;
+	}
+
 	ctrl_pdata->bklt_ctrl = UNKNOWN_CTRL;
 	data = of_get_property(np, "qcom,mdss-dsi-bl-pmic-control-type", NULL);
 	if (data) {

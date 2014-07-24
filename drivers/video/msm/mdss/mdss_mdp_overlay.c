@@ -706,6 +706,9 @@ int mdss_mdp_overlay_pipe_setup(struct msm_fb_data_type *mfd,
 		pipe->is_right_blend = false;
 	}
 
+	if (mfd->panel_orientation)
+		req->flags ^= mfd->panel_orientation;
+
 	pipe->flags = req->flags;
 	if (bwc_enabled  &&  !mdp5_data->mdata->has_bwc) {
 		pr_err("BWC is not supported in MDP version %x\n",
@@ -725,6 +728,14 @@ int mdss_mdp_overlay_pipe_setup(struct msm_fb_data_type *mfd,
 	pipe->dst.y = req->dst_rect.y;
 	pipe->dst.w = req->dst_rect.w;
 	pipe->dst.h = req->dst_rect.h;
+
+	if (mfd->panel_orientation & MDP_FLIP_LR)
+		pipe->dst.x = pipe->mixer_left->width
+			- pipe->dst.x - pipe->dst.w;
+	if (mfd->panel_orientation & MDP_FLIP_UD)
+		pipe->dst.y = pipe->mixer_left->height
+			- pipe->dst.y - pipe->dst.h;
+
 	pipe->horz_deci = req->horz_deci;
 	pipe->vert_deci = req->vert_deci;
 
@@ -3705,6 +3716,12 @@ int mdss_mdp_overlay_init(struct msm_fb_data_type *mfd)
 	rc = mdss_mdp_overlay_fb_parse_dt(mfd);
 	if (rc)
 		return rc;
+
+	mfd->panel_orientation = mfd->panel_info->panel_orientation;
+
+	if ((mfd->panel_info->panel_orientation & MDP_FLIP_LR) &&
+		(is_split_lm(mfd)))
+		mdp5_data->mixer_swap = true;
 
 	rc = sysfs_create_group(&dev->kobj, &mdp_overlay_sysfs_group);
 	if (rc) {
