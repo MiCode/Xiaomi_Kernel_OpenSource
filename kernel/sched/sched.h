@@ -665,6 +665,7 @@ struct rq {
 
 #ifdef CONFIG_SCHED_HMP
 	int nr_small_tasks, nr_big_tasks;
+	unsigned long hmp_flags;
 #endif
 
 #ifdef CONFIG_IRQ_TIME_ACCOUNTING
@@ -1016,6 +1017,8 @@ static inline unsigned long capacity_scale_cpu_freq(int cpu)
 
 #ifdef CONFIG_SCHED_HMP
 
+#define	BOOST_KICK	0
+
 extern unsigned int sched_enable_hmp;
 extern unsigned int sched_enable_power_aware;
 
@@ -1029,6 +1032,7 @@ extern void set_hmp_defaults(void);
 extern unsigned int power_cost_at_freq(int cpu, unsigned int freq);
 extern void reset_all_window_stats(u64 window_start, unsigned int window_size,
 				 int policy);
+extern void boost_kick(int cpu);
 
 #else /* CONFIG_SCHED_HMP */
 
