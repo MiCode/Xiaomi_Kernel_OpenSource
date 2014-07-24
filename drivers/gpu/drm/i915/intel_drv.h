@@ -26,7 +26,7 @@
 #define __INTEL_DRV_H__
 
 #include <linux/i2c.h>
-#include <linux/switch.h>
+#include <linux/extcon.h>
 #include <linux/hdmi.h>
 #include <drm/i915_drm.h>
 #include "i915_drv.h"
@@ -187,9 +187,9 @@ struct intel_connector {
 	 */
 	struct intel_encoder *new_encoder;
 
-#ifdef CONFIG_SWITCH
+#ifdef CONFIG_EXTCON
 	/* Android uses switch to inform userspace about hotplug events. */
-	struct switch_dev hotplug_switch;
+	struct extcon_dev hotplug_switch;
 #endif
 
 	/* Reads out the current hw, returning true if the connector is enabled
