@@ -7,6 +7,8 @@ country 00:
 	(2474 - 2494 @ 20), (3, 20), PASSIVE-SCAN, NO-IBSS, NO-OFDM
 	# Channel 36 - 48
 	(5170 - 5250 @ 80), (3, 20), PASSIVE-SCAN, NO-IBSS
+	(5250 - 5330 @ 80), (3, 20), PASSIVE-SCAN, NO-IBSS
+	(5490 - 5710 @ 80), (3, 20), PASSIVE-SCAN, NO-IBSS
 	# NB: 5260 MHz - 5700 MHz requies DFS
 	# Channel 149 - 165
 	(5735 - 5835 @ 80), (3, 20), PASSIVE-SCAN, NO-IBSS
