@@ -90,6 +90,9 @@ conditions.
                   Documentation/devicetree/bindings/clock/clock-bindings.txt
                   for more info.
 
+- vdd-supply    : Phandle of the regulator that should be powered on during
+                  SMMU register access.
+
 Example:
 
         smmu {
