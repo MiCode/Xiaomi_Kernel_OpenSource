@@ -1397,7 +1397,8 @@ static void update_task_ravg(struct task_struct *p, struct rq *rq,
 		mark_start = window_start;
 	} while (new_window);
 
-	if ((event == TASK_WAKE) && (rq->window_start > p->ravg.mark_start) &&
+	if ((event == TASK_WAKE) && cpu_online(cpu_of(rq)) &&
+		 (rq->window_start > p->ravg.mark_start) &&
 		(rq->window_start - p->ravg.mark_start > window_size)) {
 			if (long_sleep)
 				*long_sleep = 1;
@@ -2774,8 +2775,8 @@ try_to_wake_up(struct task_struct *p, unsigned int state, int wake_flags)
 {
 	unsigned long flags;
 	int cpu, src_cpu, success = 0;
-	struct rq *rq;
 #ifdef CONFIG_SMP
+	struct rq *rq;
 	int long_sleep = 0;
 	u64 wallclock;
 #endif
@@ -2789,7 +2790,6 @@ try_to_wake_up(struct task_struct *p, unsigned int state, int wake_flags)
 	smp_mb__before_spinlock();
 	raw_spin_lock_irqsave(&p->pi_lock, flags);
 	src_cpu = cpu = task_cpu(p);
-	rq = cpu_rq(src_cpu);
 
 	if (!(p->state & state))
 		goto out;
@@ -2837,6 +2837,8 @@ try_to_wake_up(struct task_struct *p, unsigned int state, int wake_flags)
 	 * their previous state and preserve Program Order.
 	 */
 	smp_rmb();
+
+	rq = cpu_rq(task_cpu(p));
 
 	raw_spin_lock(&rq->lock);
 	wallclock = sched_clock();
