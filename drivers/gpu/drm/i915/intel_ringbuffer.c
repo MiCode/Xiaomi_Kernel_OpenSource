@@ -57,7 +57,7 @@ intel_ring_initialized(struct intel_engine_cs *ring)
 		return ring->buffer && ring->buffer->obj;
 }
 
-static inline int __ring_space(int head, int tail, int size)
+int __intel_ring_space(int head, int tail, int size)
 {
 	int space = head - (tail + I915_RING_FREE_SPACE);
 	if (space < 0)
@@ -65,12 +65,13 @@ static inline int __ring_space(int head, int tail, int size)
 	return space;
 }
 
-static inline int ring_space(struct intel_ringbuffer *ringbuf)
+int intel_ring_space(struct intel_ringbuffer *ringbuf)
 {
-	return __ring_space(ringbuf->head & HEAD_ADDR, ringbuf->tail, ringbuf->size);
+	return __intel_ring_space(ringbuf->head & HEAD_ADDR,
+				  ringbuf->tail, ringbuf->size);
 }
 
-static bool intel_ring_stopped(struct intel_engine_cs *ring)
+bool intel_ring_stopped(struct intel_engine_cs *ring)
 {
 	struct drm_i915_private *dev_priv = ring->dev->dev_private;
 	return dev_priv->gpu_error.stop_rings & intel_ring_flag(ring);
@@ -561,7 +562,7 @@ static int init_ring_common(struct intel_engine_cs *ring)
 	else {
 		ringbuf->head = I915_READ_HEAD(ring);
 		ringbuf->tail = I915_READ_TAIL(ring) & TAIL_ADDR;
-		ringbuf->space = ring_space(ringbuf);
+		ringbuf->space = intel_ring_space(ringbuf);
 		ringbuf->last_retired_head = -1;
 	}
 
@@ -1717,13 +1718,14 @@ static int intel_ring_wait_request(struct intel_engine_cs *ring, int n)
 		ringbuf->head = ringbuf->last_retired_head;
 		ringbuf->last_retired_head = -1;
 
-		ringbuf->space = ring_space(ringbuf);
+		ringbuf->space = intel_ring_space(ringbuf);
 		if (ringbuf->space >= n)
 			return 0;
 	}
 
 	list_for_each_entry(request, &ring->request_list, list) {
-		if (__ring_space(request->tail, ringbuf->tail, ringbuf->size) >= n) {
+		if (__intel_ring_space(request->tail, ringbuf->tail,
+				       ringbuf->size) >= n) {
 			seqno = request->seqno;
 			break;
 		}
@@ -1740,7 +1742,7 @@ static int intel_ring_wait_request(struct intel_engine_cs *ring, int n)
 	ringbuf->head = ringbuf->last_retired_head;
 	ringbuf->last_retired_head = -1;
 
-	ringbuf->space = ring_space(ringbuf);
+	ringbuf->space = intel_ring_space(ringbuf);
 	return 0;
 }
 
@@ -1769,7 +1771,7 @@ static int ring_wait_for_space(struct intel_engine_cs *ring, int n)
 	trace_i915_ring_wait_begin(ring);
 	do {
 		ringbuf->head = I915_READ_HEAD(ring);
-		ringbuf->space = ring_space(ringbuf);
+		ringbuf->space = intel_ring_space(ringbuf);
 		if (ringbuf->space >= n) {
 			ret = 0;
 			break;
@@ -1821,7 +1823,7 @@ static int intel_wrap_ring_buffer(struct intel_engine_cs *ring)
 		iowrite32(MI_NOOP, virt++);
 
 	ringbuf->tail = 0;
-	ringbuf->space = ring_space(ringbuf);
+	ringbuf->space = intel_ring_space(ringbuf);
 
 	return 0;
 }
