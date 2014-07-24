@@ -933,6 +933,8 @@ static int tomtom_config_gain_compander(struct snd_soc_codec *codec,
 	case COMPANDER_0:
 		snd_soc_update_bits(codec, TOMTOM_A_SPKR_DRV1_GAIN,
 				    1 << 2, !enable << 2);
+		snd_soc_update_bits(codec, TOMTOM_A_SPKR_DRV2_GAIN,
+				    1 << 2, !enable << 2);
 		break;
 	case COMPANDER_1:
 		snd_soc_update_bits(codec, TOMTOM_A_RX_HPH_L_GAIN,
@@ -1010,9 +1012,8 @@ static int tomtom_config_compander(struct snd_soc_dapm_widget *w,
 	if (!tomtom->comp_enabled[comp])
 		return 0;
 
-	/* Compander 0 has single channel */
-	mask = (comp == COMPANDER_0 ? 0x01 : 0x03);
-	enable_mask = (comp == COMPANDER_0 ? 0x02 : 0x03);
+	/* Compander 0 has two channels */
+	mask = enable_mask = 0x03;
 	buck_mv = tomtom_codec_get_buck_mv(codec);
 
 	switch (event) {
