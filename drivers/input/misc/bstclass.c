@@ -80,7 +80,7 @@ static struct device_type bst_dev_type = {
 
 
 
-static char *bst_devnode(struct device *dev, mode_t *mode)
+static char *bst_devnode(struct device *dev, umode_t *mode)
 {
 	return kasprintf(GFP_KERNEL, "%s", dev_name(dev));
 }

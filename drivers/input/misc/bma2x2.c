@@ -29,7 +29,6 @@
 #include <linux/interrupt.h>
 #include <linux/delay.h>
 #include <asm/irq.h>
-#include <asm/mach/irq.h>
 #include <linux/regulator/consumer.h>
 #include <linux/of_gpio.h>
 #include <linux/sensors.h>
