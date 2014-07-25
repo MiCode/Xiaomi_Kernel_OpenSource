@@ -440,8 +440,6 @@ struct q6v5_data *pil_q6v5_init(struct platform_device *pdev)
 
 	drv->qdsp6v55 = of_device_is_compatible(pdev->dev.of_node,
 						"qcom,pil-q6v55-mss");
-	drv->qdsp6v55 |= of_device_is_compatible(pdev->dev.of_node,
-						"qcom,pil-q6v55-lpass");
 	drv->qdsp6v56 = of_device_is_compatible(pdev->dev.of_node,
 						"qcom,pil-q6v56-mss");
 
