@@ -45,6 +45,7 @@ static char *descriptions =
 	"20 msm: perf: set filter bits for cycle counter on krait\n"
 	"21 Perf: Fix hrtimer operation across hotplug\n"
 	"22 Perf: add perf user-mode permissions\n"
+	"23 Perf: Add event type check in hrtimer hotplug fix\n"
 ;
 
 static ssize_t desc_read(struct file *fp, char __user *buf,
