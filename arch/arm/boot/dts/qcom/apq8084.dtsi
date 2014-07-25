@@ -4393,30 +4393,37 @@
 			tx-fifo-resize;
 			usb-phy = <&hsphy0>, <&ssphy0>;
 		};
+	};
 
-		usb3_sec: ssusb@f9400000 {
-			compatible = "qcom,dwc-usb3-msm";
+	usb3_sec: ssusb@f9400000 {
+		compatible = "qcom,dwc-usb3-msm";
+		reg = <0xf9400000 0xfc000>;
+		#address-cells = <1>;
+		#size-cells = <1>;
+		ranges;
+		interrupt-parent = <&intc>;
+		interrupts = <0 261 4>;
+		interrupt-names = "hs_phy_irq";
+		USB3_GDSC-supply = <&gdsc_usb30_sec>;
+		qcom,restore-sec-cfg-for-scm-dev-id = <10>;
+		qcom,charging-disabled;
+		status = "disabled";
+
+		qcom,msm-bus,name = "usb3_sec";
+		qcom,msm-bus,num-cases = <2>;
+		qcom,msm-bus,num-paths = <1>;
+		qcom,msm-bus,vectors-KBps =
+				<61 512 0 0>,
+				<61 512 240000 1920000>;
+
+		dwc3@f9400000 {
+			compatible = "synopsys,dwc3";
 			reg = <0xf9400000 0xfc000>;
-			#address-cells = <1>;
-			#size-cells = <1>;
-			ranges;
 			interrupt-parent = <&intc>;
-			interrupts = <0 261 4>;
-			interrupt-names = "hs_phy_irq";
-			USB3_GDSC-supply = <&gdsc_usb30_sec>;
-			qcom,restore-sec-cfg-for-scm-dev-id = <10>;
-			qcom,charging-disabled;
-			status = "disabled";
-
-			dwc3@f9400000 {
-				compatible = "synopsys,dwc3";
-				reg = <0xf9400000 0xfc000>;
-				interrupt-parent = <&intc>;
-				interrupts = <0 258 4>, <0 262 4>;
-				interrupt-names = "irq", "otg_irq";
-				usb-phy = <&hsphy1>, <&ssphy1>;
-				snps,host-only-mode;
-			};
+			interrupts = <0 258 4>, <0 262 4>;
+			interrupt-names = "irq", "otg_irq";
+			usb-phy = <&hsphy1>, <&ssphy0>;
+			snps,host-only-mode;
 		};
 	};
 
@@ -4464,16 +4471,6 @@
 		qcom,ext-vbus-id;
 		qcom,num-ports = <3>;
 		qcom,primary-phy = <&hsphy0>;
-		status = "disabled";
-	};
-
-	ssphy1: ssphy@f94f8800 {
-		compatible = "qcom,usb-ssphy";
-		reg = <0xf94f8800 0x3ff>;
-		vdd-supply = <&pma8084_s1>;
-		vdda18-supply = <&pma8084_l6>;
-		qcom,vdd-voltage-level = <0 900000 1050000>;
-		qcom,primary-phy = <&ssphy0>;
 		status = "disabled";
 	};
 
@@ -5526,6 +5523,7 @@
 };
 
 &gdsc_usb30_sec{
+	parent-supply = <&gdsc_usb30>;
 	status = "ok";
 };
 
