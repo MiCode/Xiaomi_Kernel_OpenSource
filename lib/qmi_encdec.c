@@ -24,6 +24,7 @@
 
 #define TLV_LEN_SIZE sizeof(uint16_t)
 #define TLV_TYPE_SIZE sizeof(uint8_t)
+#define U8_MAX 255
 
 #ifdef CONFIG_QMI_ENCDEC_DEBUG
 
@@ -120,6 +121,11 @@ static int qmi_calc_max_msg_len(struct elem_info *ei_array,
 			max_msg_len += (temp_ei->elem_len *
 					qmi_calc_max_msg_len(temp_ei->ei_array,
 							    (level + 1)));
+		} else if (temp_ei->data_type == QMI_STRING) {
+			if (level > 1)
+				max_msg_len += temp_ei->elem_len <= U8_MAX ?
+					sizeof(uint8_t) : sizeof(uint16_t);
+			max_msg_len += temp_ei->elem_len * temp_ei->elem_size;
 		} else {
 			max_msg_len += (temp_ei->elem_len * temp_ei->elem_size);
 		}
@@ -165,6 +171,12 @@ static int qmi_calc_min_msg_len(struct elem_info *ei_array,
 		} else if (temp_ei->data_type == QMI_STRUCT) {
 			min_msg_len += qmi_calc_min_msg_len(temp_ei->ei_array,
 							    (level + 1));
+			temp_ei++;
+		} else if (temp_ei->data_type == QMI_STRING) {
+			if (level > 1)
+				min_msg_len += temp_ei->elem_len <= U8_MAX ?
+					sizeof(uint8_t) : sizeof(uint16_t);
+			min_msg_len += temp_ei->elem_len * temp_ei->elem_size;
 			temp_ei++;
 		} else {
 			min_msg_len += (temp_ei->elem_len * temp_ei->elem_size);
@@ -327,6 +339,66 @@ static int qmi_encode_struct_elem(struct elem_info *ei_array,
 }
 
 /**
+ * qmi_encode_string_elem() - Encodes elements of string data type
+ * @ei_array: Struct info array descibing the string element.
+ * @buf_dst: Buffer to store the encoded information.
+ * @buf_src: Buffer containing the elements to be encoded.
+ * @out_buf_len: Available space in the encode buffer.
+ * @enc_level: Depth of the string element from the main structure.
+ *
+ * @return: Mumber of bytes of encoded information, on success.
+ *          < 0 on error.
+ *
+ * This function encodes a string element of maximum length "ei_array->elem_len"
+ * bytes from the source buffer "buf_src" and stores the encoded information in
+ * the destination buffer "buf_dst". This function returns the number of bytes
+ * of encoded information.
+ */
+static int qmi_encode_string_elem(struct elem_info *ei_array,
+				  void *buf_dst, void *buf_src,
+				  uint32_t out_buf_len, int enc_level)
+{
+	int rc;
+	int encoded_bytes = 0;
+	struct elem_info *temp_ei = ei_array;
+	uint32_t string_len;
+	uint32_t string_len_sz;
+
+	string_len = strlen(buf_src);
+	string_len_sz = temp_ei->elem_len <= U8_MAX ?
+			sizeof(uint8_t) : sizeof(uint16_t);
+	if (string_len > temp_ei->elem_len) {
+		pr_err("%s: String to be encoded is longer - %d > %d\n",
+			__func__, string_len, temp_ei->elem_len);
+		return -EINVAL;
+	}
+
+	if (enc_level == 1) {
+		if (string_len + TLV_LEN_SIZE + TLV_TYPE_SIZE >
+		    out_buf_len) {
+			pr_err("%s: Output len %d > Out Buf len %d\n",
+				__func__, string_len, out_buf_len);
+			return -ETOOSMALL;
+		}
+	} else {
+		if (string_len + string_len_sz > out_buf_len) {
+			pr_err("%s: Output len %d > Out Buf len %d\n",
+				__func__, string_len, out_buf_len);
+			return -ETOOSMALL;
+		}
+		rc = qmi_encode_basic_elem(buf_dst, &string_len,
+					   1, string_len_sz);
+		encoded_bytes += rc;
+	}
+
+	rc = qmi_encode_basic_elem(buf_dst + encoded_bytes, buf_src,
+				   string_len, temp_ei->elem_size);
+	encoded_bytes += rc;
+	QMI_ENCODE_LOG_ELEM(enc_level, string_len, temp_ei->elem_size, buf_src);
+	return encoded_bytes;
+}
+
+/**
  * skip_to_next_elem() - Skip to next element in the structure to be encoded
  * @ei_array: Struct info describing the element to be skipped.
  * @level: Depth level of encoding/decoding to identify nested structures.
@@ -466,6 +538,14 @@ static int _qmi_kernel_encode(struct elem_info *ei_array,
 				encoded_bytes, tlv_len, encode_tlv, rc);
 			break;
 
+		case QMI_STRING:
+			rc = qmi_encode_string_elem(temp_ei, buf_dst, buf_src,
+				out_buf_len - encoded_bytes, enc_level);
+			if (rc < 0)
+				return rc;
+			UPDATE_ENCODE_VARIABLES(temp_ei, buf_dst,
+				encoded_bytes, tlv_len, encode_tlv, rc);
+			break;
 		default:
 			pr_err("%s: Unrecognized data type\n", __func__);
 			return -EINVAL;
@@ -590,6 +670,61 @@ static int qmi_decode_struct_elem(struct elem_info *ei_array, void *buf_dst,
 			i, elem_len);
 		return -EFAULT;
 	}
+	return decoded_bytes;
+}
+
+/**
+ * qmi_decode_string_elem() - Decodes elements of string data type
+ * @ei_array: Struct info array descibing the string element.
+ * @buf_dst: Buffer to store the decoded element.
+ * @buf_src: Buffer containing the elements in QMI wire format.
+ * @tlv_len: Total size of the encoded inforation corresponding to
+ *           this string element.
+ * @dec_level: Depth of the string element from the main structure.
+ *
+ * @return: Total size of the decoded data elements, on success.
+ *          < 0 on error.
+ *
+ * This function decodes the string element of maximum length
+ * "ei_array->elem_len" from the source buffer "buf_src" and puts it into
+ * the destination buffer "buf_dst". This function returns number of bytes
+ * decoded from the input buffer.
+ */
+static int qmi_decode_string_elem(struct elem_info *ei_array, void *buf_dst,
+				  void *buf_src, uint32_t tlv_len,
+				  int dec_level)
+{
+	int rc;
+	int decoded_bytes = 0;
+	uint32_t string_len;
+	uint32_t string_len_sz;
+	struct elem_info *temp_ei = ei_array;
+
+	if (dec_level == 1) {
+		string_len = tlv_len;
+	} else {
+		string_len_sz = temp_ei->elem_len <= U8_MAX ?
+				sizeof(uint8_t) : sizeof(uint16_t);
+		rc = qmi_decode_basic_elem(&string_len, buf_src,
+					   1, string_len_sz);
+		decoded_bytes += rc;
+	}
+
+	if (string_len > temp_ei->elem_len) {
+		pr_err("%s: String len %d > Max Len %d\n",
+			__func__, string_len, temp_ei->elem_len);
+		return -ETOOSMALL;
+	} else if (string_len > tlv_len) {
+		pr_err("%s: String len %d > Input Buffer Len %d\n",
+			__func__, string_len, tlv_len);
+		return -EFAULT;
+	}
+
+	rc = qmi_decode_basic_elem(buf_dst, buf_src + decoded_bytes,
+				   string_len, temp_ei->elem_size);
+	*((char *)buf_dst + string_len) = '\0';
+	decoded_bytes += rc;
+	QMI_DECODE_LOG_ELEM(dec_level, string_len, temp_ei->elem_size, buf_dst);
 	return decoded_bytes;
 }
 
@@ -720,6 +855,15 @@ static int _qmi_kernel_decode(struct elem_info *ei_array,
 				return rc;
 			UPDATE_DECODE_VARIABLES(buf_src, decoded_bytes, rc);
 			break;
+
+		case QMI_STRING:
+			rc = qmi_decode_string_elem(temp_ei, buf_dst, buf_src,
+						     tlv_len, dec_level);
+			if (rc < 0)
+				return rc;
+			UPDATE_DECODE_VARIABLES(buf_src, decoded_bytes, rc);
+			break;
+
 		default:
 			pr_err("%s: Unrecognized data type\n", __func__);
 			return -EINVAL;
