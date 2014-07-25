@@ -784,6 +784,10 @@ static int mxhci_hsic_bus_suspend(struct usb_hcd *hcd)
 			/*clear STAT bit*/
 			writel_relaxed(stat, MSM_HSIC_PWR_EVENT_IRQ_STAT);
 			mb();
+		} else if (!(readl_relaxed(MSM_HSIC_PORTSC) & PORT_PE)) {
+			xhci_dbg_log_event(&dbg_hsic, NULL,
+				"Port is not enabled", 0);
+			return -EBUSY;
 		} else {
 			panic("IN_L2 power event irq timedout");
 		}
