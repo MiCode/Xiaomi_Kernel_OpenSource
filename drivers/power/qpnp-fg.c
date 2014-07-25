@@ -28,6 +28,7 @@
 #include <linux/types.h>
 #include <linux/module.h>
 #include <linux/power_supply.h>
+#include <linux/of_batterydata.h>
 #include <linux/string_helpers.h>
 
 /* Register offsets */
@@ -209,6 +210,7 @@ struct fg_chip {
 	struct fg_irq		batt_irq[FG_BATT_IRQ_COUNT];
 	struct fg_irq		mem_irq[FG_MEM_IF_IRQ_COUNT];
 	struct completion	sram_access;
+	struct completion	batt_id_avail;
 	struct power_supply	bms_psy;
 	struct mutex		rw_lock;
 	struct work_struct	batt_profile_init;
@@ -891,6 +893,8 @@ static void update_sram_data(struct work_struct *work)
 			pr_info("%d %d %d\n", i, temp, fg_data[i].value);
 	}
 
+	if (battid_valid)
+		complete_all(&chip->batt_id_avail);
 	schedule_delayed_work(
 		&chip->update_sram_data,
 		msecs_to_jiffies(SRAM_PERIOD_UPDATE_MS));
@@ -1085,14 +1089,30 @@ do {									\
 } while (0)
 
 #define LOW_LATENCY	BIT(6)
+#define PROFILE_LOAD_TIMEOUT_MS		5000
 static int fg_batt_profile_init(struct fg_chip *chip)
 {
-	int rc = 0;
+	int rc = 0, ret;
 	int len;
 	struct device_node *node = chip->spmi->dev.of_node;
-	struct device_node *batt_node;
+	struct device_node *batt_node, *profile_node;
 	const char *data;
+	bool tried_again = false;
 	u8 reg = 0;
+
+wait:
+	ret = wait_for_completion_interruptible_timeout(&chip->batt_id_avail,
+			msecs_to_jiffies(PROFILE_LOAD_TIMEOUT_MS));
+	/* If we were interrupted wait again one more time. */
+	if (ret == -ERESTARTSYS && !tried_again) {
+		tried_again = true;
+		pr_debug("interrupted, waiting again\n");
+		goto wait;
+	} else if (ret <= 0) {
+		rc = -ETIMEDOUT;
+		pr_err("profile loading timed out rc=%d\n", rc);
+		return rc;
+	}
 
 	batt_node = of_find_node_by_name(node, "qcom,battery-data");
 	if (!batt_node) {
@@ -1100,14 +1120,16 @@ static int fg_batt_profile_init(struct fg_chip *chip)
 		return 0;
 	}
 
-	for_each_child_of_node(batt_node, node) {
-		data = of_get_property(node, "qcom,fg-profile-data", &len);
-		if (!data) {
-			pr_err("no battery profile loaded\n");
-			return 0;
-		} else {
-			break;
-		}
+	profile_node = of_batterydata_get_best_profile(batt_node, "bms");
+	if (!profile_node) {
+		pr_err("couldn't find profile handle\n");
+		return -ENODATA;
+	}
+
+	data = of_get_property(profile_node, "qcom,fg-profile-data", &len);
+	if (!data) {
+		pr_err("no battery profile loaded\n");
+		return 0;
 	}
 
 	chip->batt_profile = devm_kzalloc(chip->dev,
@@ -1183,7 +1205,7 @@ static void batt_profile_init(struct work_struct *work)
 				batt_profile_init);
 
 	if (fg_batt_profile_init(chip))
-		pr_err("failed to update JEITA setting\n");
+		pr_err("failed to initialize profile\n");
 }
 
 static int fg_of_init(struct fg_chip *chip)
@@ -1770,6 +1792,7 @@ static int fg_probe(struct spmi_device *spmi)
 	INIT_WORK(&chip->batt_profile_init,
 			batt_profile_init);
 	init_completion(&chip->sram_access);
+	init_completion(&chip->batt_id_avail);
 
 	spmi_for_each_container_dev(spmi_resource, spmi) {
 		if (!spmi_resource) {
