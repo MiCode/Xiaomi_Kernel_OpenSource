@@ -216,7 +216,7 @@
 	rpm-regulator-ldoa3 {
 		status = "okay";
 		pm8916_l3: regulator-l3 {
-			regulator-min-microvolt = <750000>;
+			regulator-min-microvolt = <500000>;
 			regulator-max-microvolt = <1287500>;
 			status = "okay";
 		};
