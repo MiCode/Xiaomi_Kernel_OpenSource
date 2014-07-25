@@ -15,7 +15,6 @@
 
 #include <linux/errno.h>
 #include <linux/mutex.h>
-#include <linux/genalloc.h>
 #include <linux/rbtree.h>
 #include <linux/msm_ion.h>
 
@@ -23,7 +22,8 @@
 
 struct mem_pool {
 	struct mutex pool_mutex;
-	struct gen_pool *gpool;
+	unsigned long *bitmap;
+	unsigned long nr_pages;
 	phys_addr_t paddr;
 	unsigned long size;
 	unsigned long free;

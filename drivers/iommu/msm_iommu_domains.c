@@ -387,7 +387,10 @@ int msm_allocate_iova_address(unsigned int iommu_domain,
 	struct msm_iova_data *data;
 	struct mem_pool *pool;
 	unsigned long va;
-	unsigned long aligned_order;
+	unsigned long pageno;
+	unsigned long nbits = PAGE_ALIGN(size) >> PAGE_SHIFT;
+	int ret;
+
 
 	data = find_domain(iommu_domain);
 
@@ -399,24 +402,25 @@ int msm_allocate_iova_address(unsigned int iommu_domain,
 
 	pool = &data->pools[partition_no];
 
-	if (!pool->gpool)
+	if (!pool->bitmap)
 		return -EINVAL;
 
-	aligned_order = get_alignment_order(align);
-
+	ret = -ENOMEM;
 	mutex_lock(&pool->pool_mutex);
-	va = gen_pool_alloc_aligned(pool->gpool, size, aligned_order);
-	mutex_unlock(&pool->pool_mutex);
-	if (va) {
+	align = (1 << get_order(align)) - 1;
+
+	pageno = bitmap_find_next_zero_area(pool->bitmap, pool->nr_pages,
+						0, nbits, align);
+	if (pageno < pool->nr_pages) {
 		pool->free -= size;
-		/* Offset because genpool can't handle 0 addresses */
-		if (pool->paddr == 0)
-			va -= SZ_4K;
+		bitmap_set(pool->bitmap, pageno, nbits);
+		va = pool->paddr + pageno * PAGE_SIZE;
 		*iova = va;
-		return 0;
+		ret = 0;
 	}
 
-	return -ENOMEM;
+	mutex_unlock(&pool->pool_mutex);
+	return ret;
 }
 
 void msm_free_iova_address(unsigned long iova,
@@ -447,12 +451,9 @@ void msm_free_iova_address(unsigned long iova,
 
 	pool->free += size;
 
-	/* Offset because genpool can't handle 0 addresses */
-	if (pool->paddr == 0)
-		iova += SZ_4K;
-
 	mutex_lock(&pool->pool_mutex);
-	gen_pool_free(pool->gpool, iova, size);
+	bitmap_clear(pool->bitmap, (iova - pool->paddr) >> PAGE_SHIFT,
+				PAGE_ALIGN(size) >> PAGE_SHIFT);
 	mutex_unlock(&pool->pool_mutex);
 }
 
@@ -482,31 +483,16 @@ int msm_register_domain(struct msm_iova_layout *layout)
 		if (layout->partitions[i].size == 0)
 			continue;
 
-		pools[i].gpool = gen_pool_create(PAGE_SHIFT, -1);
-
-		if (!pools[i].gpool)
-			continue;
-
 		pools[i].paddr = layout->partitions[i].start;
 		pools[i].size = layout->partitions[i].size;
 		mutex_init(&pools[i].pool_mutex);
-
-		/*
-		 * genalloc can't handle a pool starting at address 0.
-		 * For now, solve this problem by offsetting the value
-		 * put in by 4k.
-		 * gen pool address = actual address + 4k
-		 */
-		if (pools[i].paddr == 0)
-			layout->partitions[i].start += SZ_4K;
-
-		if (gen_pool_add(pools[i].gpool,
-			layout->partitions[i].start,
-			layout->partitions[i].size, -1)) {
-			gen_pool_destroy(pools[i].gpool);
-			pools[i].gpool = NULL;
+		pools[i].nr_pages = PAGE_ALIGN(layout->partitions[i].size)
+					>> PAGE_SHIFT;
+		pools[i].bitmap = kzalloc(
+				BITS_TO_LONGS(pools[i].nr_pages) * sizeof(long),
+					GFP_KERNEL);
+		if (!pools[i].bitmap)
 			continue;
-		}
 	}
 
 	bus = layout->is_secure == MSM_IOMMU_DOMAIN_SECURE ?
@@ -538,8 +524,7 @@ free_domain_num:
 
 free_pools:
 	for (i = 0; i < layout->npartitions; i++) {
-		if (pools[i].gpool)
-			gen_pool_destroy(pools[i].gpool);
+		kfree(pools[i].bitmap);
 	}
 	kfree(pools);
 free_data:
@@ -569,8 +554,7 @@ int msm_unregister_domain(struct iommu_domain *domain)
 	ida_simple_remove(&domain_nums, data->domain_num);
 
 	for (i = 0; i < data->npools; ++i)
-		if (data->pools[i].gpool)
-			gen_pool_destroy(data->pools[i].gpool);
+		kfree(data->pools[i].bitmap);
 
 	kfree(data->pools);
 	kfree(data);
