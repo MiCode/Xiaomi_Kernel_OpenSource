@@ -240,6 +240,7 @@ struct mdss_data_type {
 	bool traffic_shaper_en;
 	int iommu_ref_cnt;
 	u32 latency_buff_per;
+	atomic_t active_intf_cnt;
 
 	u64 ab[MDSS_MAX_HW_BLK];
 	u64 ib[MDSS_MAX_HW_BLK];
