@@ -747,6 +747,9 @@ static int qdss_bind_config(struct usb_configuration *c, unsigned char portno)
 	else
 		name = kasprintf(GFP_ATOMIC, "qdss%d", portno);
 
+	if (!name)
+		return -ENOMEM;
+
 	spin_lock_irqsave(&d_lock, flags);
 
 	list_for_each_entry(ch, &usb_qdss_ch_list, list) {
