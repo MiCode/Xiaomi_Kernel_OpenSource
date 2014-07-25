@@ -119,10 +119,10 @@ void __init msm_map_mdm9630_io(void)
 }
 #endif /* CONFIG_ARCH_MDM9630 */
 
-#ifdef CONFIG_ARCH_MSMFERRUM
+#if defined(CONFIG_ARCH_MSMFERRUM) || defined(CONFIG_ARCH_MDMFERRUM)
 static struct map_desc msmferrum_io_desc[] __initdata = {
 	MSM_CHIP_DEVICE(APCS_GCC, MSMFERRUM),
-#ifdef CONFIG_DEBUG_MSMFERRUM_UART
+#if defined(CONFIG_DEBUG_MSMFERRUM_UART) || defined(CONFIG_DEBUG_MDMFERRUM_UART)
 	MSM_DEVICE(DEBUG_UART),
 #endif
 };
@@ -131,7 +131,7 @@ void __init msm_map_msmferrum_io(void)
 {
 	iotable_init(msmferrum_io_desc, ARRAY_SIZE(msmferrum_io_desc));
 }
-#endif /* CONFIG_ARCH_MSMFERRUM */
+#endif /* CONFIG_ARCH_MSMFERRUM || CONFIG_ARCH_MDMFERRUM */
 
 #ifdef CONFIG_ARCH_MSM8916
 static struct map_desc msm8916_io_desc[] __initdata = {
