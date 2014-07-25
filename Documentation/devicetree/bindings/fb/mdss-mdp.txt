@@ -90,6 +90,18 @@ Required properties
 				offset within status register. Number of tuples
 				defined should match the number of offsets
 				defined in property: qcom,mdss-pipe-dma-off
+- qcom,mdss-pipe-cursor-off:	Array of offsets for MDP source surface pipes of
+				type cursor, the offsets are calculated from
+				register "mdp_phys" defined in reg property.
+				The number of offsets defined here should
+				reflect the amount of cursor pipes that can be
+				active in MDP for this configuration. Meant for
+				hardware that has hw cursors support as a
+				source pipe.
+- qcom,mdss-pipe-cursor-xin-id:	Array of VBIF clients ids (xins) corresponding
+				to the respective cursor pipes. Number of xin ids
+				defined should match the number of offsets
+				defined in property: qcom,mdss-pipe-cursor-off
 - qcom,mdss-ctl-off:		Array of offset addresses for the available ctl
 				hw blocks within MDP, these offsets are
 				calculated from register "mdp_phys" defined in
@@ -480,6 +492,7 @@ Example:
 		qcom,mdss-pipe-rgb-off = <0x00001E00 0x00002200
 					  0x00002600>;
 		qcom,mdss-pipe-dma-off = <0x00002A00 0x00002E00>;
+		qcom,mdss-pipe-cursor-off = <0x00035000 0x00037000>;
 		qcom,mdss-pipe-vig-fetch-id = <1 4 7>;
 		qcom,mdss-pipe-rgb-fetch-id = <16 17 18>;
 		qcom,mdss-pipe-dma-fetch-id = <10 13>;
@@ -510,6 +523,7 @@ Example:
 		qcom,mdss-pipe-vig-xin-id = <0 4 8>;
 		qcom,mdss-pipe-rgb-xin-id = <1 5 9>;
 		qcom,mdss-pipe-dma-xin-id = <2 10>;
+		qcom,mdss-pipe-cursor-xin-id = <7 7>;
 
 		qcom,mdss-pipe-vig-clk-ctrl-offsets = <0x3AC 0 0>,
 						      <0x3B4 0 0>,

@@ -680,6 +680,11 @@ static struct mdss_mdp_pipe *mdss_mdp_pipe_init(struct mdss_mdp_mixer *mixer,
 			pipe_share = true;
 		break;
 
+	case MDSS_MDP_PIPE_TYPE_CURSOR:
+		pipe_pool = mdata->cursor_pipes;
+		npipes = mdata->ncursor_pipes;
+		break;
+
 	default:
 		npipes = 0;
 		pr_err("invalid pipe type %d\n", type);
@@ -694,6 +699,9 @@ static struct mdss_mdp_pipe *mdss_mdp_pipe_init(struct mdss_mdp_mixer *mixer,
 		}
 		pipe = NULL;
 	}
+
+	if (type == MDSS_MDP_PIPE_TYPE_CURSOR)
+		goto cursor_done;
 
 	if (left_blend_pipe && pipe &&
 	    pipe->priority <= left_blend_pipe->priority) {
@@ -746,9 +754,11 @@ static struct mdss_mdp_pipe *mdss_mdp_pipe_init(struct mdss_mdp_mixer *mixer,
 			return NULL;
 		kref_get(&pipe->kref);
 		pr_debug("pipe sharing for pipe=%d\n", pipe->num);
-	} else {
-		pr_err("no %d type pipes available\n", type);
 	}
+
+cursor_done:
+	if (!pipe)
+		pr_err("no %d type pipes available\n", type);
 
 	return pipe;
 }
@@ -1517,7 +1527,8 @@ int mdss_mdp_pipe_queue_data(struct mdss_mdp_pipe *pipe,
 		goto update_nobuf;
 	}
 
-	mdss_mdp_smp_alloc(pipe);
+	if (pipe->type != MDSS_MDP_PIPE_TYPE_CURSOR)
+		mdss_mdp_smp_alloc(pipe);
 	ret = mdss_mdp_src_addr_setup(pipe, src_data);
 	if (ret) {
 		pr_err("addr setup error for pnum=%d\n", pipe->num);
