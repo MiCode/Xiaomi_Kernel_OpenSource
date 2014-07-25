@@ -2115,7 +2115,8 @@ int mdss_mdp_ctl_start(struct mdss_mdp_ctl *ctl, bool handoff)
 
 	ret = mdss_mdp_ctl_start_sub(ctl, handoff);
 	if (ret == 0) {
-		if (is_split_lm(ctl->mfd)) { /* split display is available */
+		if (sctl && is_split_lm(ctl->mfd)) {
+			/*split display available */
 			ret = mdss_mdp_ctl_start_sub(sctl, handoff);
 			if (!ret)
 				mdss_mdp_ctl_split_display_enable(1, ctl, sctl);
@@ -2685,7 +2686,7 @@ struct mdss_mdp_pipe *mdss_mdp_get_staged_pipe(struct mdss_mdp_ctl *ctl,
 	BUG_ON(index > MAX_PIPES_PER_LM);
 
 	mixer = mdss_mdp_mixer_get(ctl, mux);
-	if (mixer)
+	if (mixer && (index < MAX_PIPES_PER_LM))
 		pipe = mixer->stage_pipe[index];
 
 	pr_debug("%pS index=%d pipe%d\n", __builtin_return_address(0),
@@ -3250,7 +3251,7 @@ static inline int __mdss_mdp_ctl_get_mixer_off(struct mdss_mdp_mixer *mixer)
 
 u32 mdss_mdp_get_mixercfg(struct mdss_mdp_mixer *mixer)
 {
-	if (!mixer && !mixer->ctl)
+	if (!mixer || !mixer->ctl)
 		return 0;
 
 	return mdss_mdp_ctl_read(mixer->ctl,
