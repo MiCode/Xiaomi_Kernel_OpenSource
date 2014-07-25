@@ -197,6 +197,10 @@
 	qcom,use-phase-switching;
 };
 
+&mdss_mdp {
+    vdd-cx-supply = <&pma8084_s2_corner>;
+};
+
 &tspp {
 	vdd_cx-supply = <&pma8084_s2_corner>;
 };
