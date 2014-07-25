@@ -50,6 +50,7 @@
 		qcom,mdss-pipe-rgb-off = <0x00015000 0x00017000
 					  0x00019000 0x0001B000>;
 		qcom,mdss-pipe-dma-off = <0x00025000 0x00027000>;
+		qcom,mdss-pipe-cursor-off = <0x00035000 0x00037000>;
 
 		qcom,mdss-pipe-vig-fetch-id = <1 4 7 19>;
 		qcom,mdss-pipe-rgb-fetch-id = <16 17 18 22>;
@@ -58,6 +59,7 @@
 		qcom,mdss-pipe-vig-xin-id = <0 4 8 12>;
 		qcom,mdss-pipe-rgb-xin-id = <1 5 9 13>;
 		qcom,mdss-pipe-dma-xin-id = <2 10>;
+		qcom,mdss-pipe-cursor-xin-id = <7 7>;
 
 		qcom,mdss-has-panic-ctrl;
 		qcom,mdss-pipe-vig-panic-ctrl-offsets = <0 1 2 3>;
