@@ -178,6 +178,7 @@
 
 /* EMAC_INT_STATUS */
 #define DIS_INT                                              0x80000000
+#define PTP_INT                                              0x40000000
 #define RFD4_UR_INT                                          0x20000000
 #define TX_PKT_INT3                                           0x4000000
 #define TX_PKT_INT2                                           0x2000000
@@ -370,6 +371,9 @@
 #define REAL_TIME_1_BMSK                                         0xffff
 #define REAL_TIME_1_SHFT                                              0
 
+/* EMAC_P1588_EXPANDED_INT_STATUS */
+#define PPS_IN                                                     0x20
+
 /* EMAC_P1588_RTC_EXPANDED_CONFIG */
 #define RTC_READ_MODE                                              0x20
 #define RTC_SNAPSHOT                                               0x10
@@ -386,6 +390,10 @@
 
 /* EMAC_P1588_RTC_PRELOADED_1 */
 #define RTC_PRELOADED_1_BMSK                                     0xffff
+
+/* EMAC_P1588_GRAND_MASTER_CONFIG_0 */
+#define GRANDMASTER_MODE                                           0x40
+#define GM_PPS_SYNC                                                0x20
 
 /* EMAC_QSERDES_COM_SYS_CLK_CTRL */
 #define SYSCLK_CM                                                  0x10

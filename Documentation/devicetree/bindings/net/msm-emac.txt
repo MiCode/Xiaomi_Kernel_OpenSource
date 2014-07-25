@@ -49,7 +49,16 @@ Optional properties:
 - qcom,no-external-phy : Indicates there is no external PHY connected to EMAC.
 			 Include this only if the EMAC is directly connected to
 			 the peer end without EPHY.
-
+- qcom,emac-ptp-grandmaster : Enable the PTP (1588) grandmaster mode.
+			      Include this only if PTP (1588) is configured as
+			      grandmaster.
+- qcom,emac-ptp-frac-ns-adj : The vector table to adjust the fractional ns per
+			      RTC clock cycle.
+			     Include this only if there is accuracy loss of
+			     fractional ns per RTC clock cycle. For individual
+			     table entry, the first field indicates the RTC
+			     reference clock rate. The second field indicates
+			     the number of adjustment in 2 ^ -26 ns.
 Example:
 	emac0: qcom,emac@feb20000 {
 		cell-index = <0>;
