@@ -37,6 +37,7 @@ struct mdss_mdp_writeback_ctx {
 	char __iomem *base;
 	u8 ref_cnt;
 	u8 type;
+	bool is_vbif_nrt;
 	struct completion wb_comp;
 	int comp_cnt;
 
@@ -612,10 +613,12 @@ static int mdss_mdp_writeback_display(struct mdss_mdp_ctl *ctl, void *arg)
 		reg_off = (ctx->xin_id / 4) * 4;
 		bit_off = (ctx->xin_id % 4) * 8;
 
-		val = MDSS_VBIF_READ(ctl->mdata, VBIF_WR_LIM_CONF + reg_off);
+		val = MDSS_VBIF_READ(ctl->mdata, VBIF_WR_LIM_CONF + reg_off,
+							ctx->is_vbif_nrt);
 		val &= ~(0xFF << bit_off);
 		val |= (ctx->wr_lim) << bit_off;
-		MDSS_VBIF_WRITE(ctl->mdata, VBIF_WR_LIM_CONF + reg_off, val);
+		MDSS_VBIF_WRITE(ctl->mdata, VBIF_WR_LIM_CONF + reg_off, val,
+							ctx->is_vbif_nrt);
 	}
 
 	wb_args = (struct mdss_mdp_writeback_arg *) arg;
@@ -666,7 +669,6 @@ int mdss_mdp_writeback_start(struct mdss_mdp_ctl *ctl)
 {
 	struct mdss_mdp_writeback_ctx *ctx;
 	u32 mem_sel;
-	int ret = 0;
 
 	pr_debug("start ctl=%d\n", ctl->num);
 
@@ -707,7 +709,10 @@ int mdss_mdp_writeback_start(struct mdss_mdp_ctl *ctl)
 	ctl->add_vsync_handler = mdss_mdp_wb_add_vsync_handler;
 	ctl->remove_vsync_handler = mdss_mdp_wb_remove_vsync_handler;
 
-	return ret;
+	ctx->is_vbif_nrt = IS_MDSS_MAJOR_MINOR_SAME(ctl->mdata->mdp_rev,
+							MDSS_MDP_HW_REV_107);
+
+	return 0;
 }
 
 int mdss_mdp_writeback_display_commit(struct mdss_mdp_ctl *ctl, void *arg)

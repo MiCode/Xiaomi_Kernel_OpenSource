@@ -232,6 +232,9 @@ Optional properties:
 			settings used to setup MDSS QoS for optimum performance.
 			The key used should be offset from "vbif_phys" register
 			defined in reg property.
+- qcom,vbif-nrt-settings : The key used should be offset from "vbif_nrt_phys"
+			register defined in reg property. Refer qcom,vbif-settings
+			for a detailed description of this binding.
 - qcom,mdp-settings :	Array with key-value pairs of constant MDP register
 			settings used to setup MDSS QoS for best performance.
 			The key used should be offset from "mdp_phys" register
@@ -442,8 +445,9 @@ Example:
 	mdss_mdp: qcom,mdss_mdp@fd900000 {
 		compatible = "qcom,mdss_mdp";
 		reg = <0xfd900000 0x22100>,
-			<0xfd924000 0x1000>;
-		reg-names = "mdp_phys", "vbif_phys";
+			<0xfd924000 0x1000>,
+			<0xfd925000 0x1000>;
+		reg-names = "mdp_phys", "vbif_phys", "vbif_nrt_phys";
 		interrupts = <0 72 0>;
 		vdd-supply = <&gdsc_mdss>;
 		batfet-supply = <&pm8941_chg_batif>;
@@ -476,6 +480,8 @@ Example:
 		qcom,max-mixer-width = <2048>;
 		qcom,max-clk-rate = <320000000>;
 		qcom,vbif-settings = <0x0004 0x00000001>,
+				     <0x00D8 0x00000707>;
+		qcom,vbif-nrt-settings = <0x0004 0x00000001>,
 				     <0x00D8 0x00000707>;
 		qcom,mdp-settings = <0x02E0 0x000000AA>,
 				    <0x02E4 0x00000055>;

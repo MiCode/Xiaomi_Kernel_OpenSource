@@ -81,6 +81,28 @@ end:
 	return 0;
 }
 
+static void mdss_mdp_pipe_nrt_vbif_setup(struct mdss_data_type *mdata,
+					struct mdss_mdp_pipe *pipe)
+{
+	uint32_t nrt_vbif_client_sel;
+
+	if (pipe->type != MDSS_MDP_PIPE_TYPE_DMA)
+		return;
+
+	mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_ON);
+	nrt_vbif_client_sel = readl_relaxed(mdata->mdp_base +
+				MMSS_MDP_RT_NRT_VBIF_CLIENT_SEL);
+	if (mdss_mdp_is_nrt_vbif_client(mdata, pipe))
+		nrt_vbif_client_sel |= BIT(pipe->num - MDSS_MDP_SSPP_DMA0);
+	else
+		nrt_vbif_client_sel &= ~BIT(pipe->num - MDSS_MDP_SSPP_DMA0);
+	writel_relaxed(nrt_vbif_client_sel,
+			mdata->mdp_base + MMSS_MDP_RT_NRT_VBIF_CLIENT_SEL);
+	mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_OFF);
+
+	return;
+}
+
 static u32 mdss_mdp_smp_mmb_reserve(struct mdss_mdp_pipe_smp_map *smp_map,
 	size_t n, bool force_alloc)
 {
@@ -669,19 +691,22 @@ static void mdss_mdp_qos_vbif_remapper_setup(struct mdss_data_type *mdata,
 			struct mdss_mdp_pipe *pipe, bool is_realtime)
 {
 	u32 mask, reg_val, i, vbif_qos;
+	bool is_nrt_vbif = mdss_mdp_is_nrt_vbif_client(mdata, pipe);
 
 	if (mdata->npriority_lvl == 0)
 		return;
 
 	mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_ON);
 	for (i = 0; i < mdata->npriority_lvl; i++) {
-		reg_val = MDSS_VBIF_READ(mdata, MDSS_VBIF_QOS_REMAP_BASE + i*4);
+		reg_val = MDSS_VBIF_READ(mdata, MDSS_VBIF_QOS_REMAP_BASE + i*4,
+								is_nrt_vbif);
 		mask = 0x3 << (pipe->xin_id * 2);
 		reg_val &= ~(mask);
 		vbif_qos = is_realtime ?
 			mdata->vbif_rt_qos[i] : mdata->vbif_nrt_qos[i];
 		reg_val |= vbif_qos << (pipe->xin_id * 2);
-		MDSS_VBIF_WRITE(mdata, MDSS_VBIF_QOS_REMAP_BASE + i*4, reg_val);
+		MDSS_VBIF_WRITE(mdata, MDSS_VBIF_QOS_REMAP_BASE + i*4, reg_val,
+								is_nrt_vbif);
 	}
 	mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_OFF);
 }
@@ -698,19 +723,20 @@ static void mdss_mdp_fixed_qos_arbiter_setup(struct mdss_data_type *mdata,
 		struct mdss_mdp_pipe *pipe, bool is_realtime)
 {
 	u32 mask, reg_val;
+	bool is_nrt_vbif = mdss_mdp_is_nrt_vbif_client(mdata, pipe);
 
 	if (!mdata->has_fixed_qos_arbiter_enabled)
 		return;
 
 	mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_ON);
 	mutex_lock(&mdata->reg_lock);
-	reg_val = MDSS_VBIF_READ(mdata, MDSS_VBIF_FIXED_SORT_EN);
+	reg_val = MDSS_VBIF_READ(mdata, MDSS_VBIF_FIXED_SORT_EN, is_nrt_vbif);
 	mask = 0x1 << pipe->xin_id;
 	reg_val |= mask;
 
 	/* Enable the fixed sort for the client */
-	MDSS_VBIF_WRITE(mdata, MDSS_VBIF_FIXED_SORT_EN, reg_val);
-	reg_val = MDSS_VBIF_READ(mdata, MDSS_VBIF_FIXED_SORT_SEL0);
+	MDSS_VBIF_WRITE(mdata, MDSS_VBIF_FIXED_SORT_EN, reg_val, is_nrt_vbif);
+	reg_val = MDSS_VBIF_READ(mdata, MDSS_VBIF_FIXED_SORT_SEL0, is_nrt_vbif);
 	mask = 0x1 << (pipe->xin_id * 2);
 	if (is_realtime) {
 		reg_val &= ~mask;
@@ -722,7 +748,7 @@ static void mdss_mdp_fixed_qos_arbiter_setup(struct mdss_data_type *mdata,
 				pipe->type, pipe->num);
 	}
 	/* Set the fixed_sort regs as per RT/NRT client */
-	MDSS_VBIF_WRITE(mdata, MDSS_VBIF_FIXED_SORT_SEL0, reg_val);
+	MDSS_VBIF_WRITE(mdata, MDSS_VBIF_FIXED_SORT_SEL0, reg_val, is_nrt_vbif);
 	mutex_unlock(&mdata->reg_lock);
 	mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_OFF);
 }
@@ -826,6 +852,8 @@ static struct mdss_mdp_pipe *mdss_mdp_pipe_init(struct mdss_mdp_mixer *mixer,
 				|| mixer->rotator_mode);
 		mdss_mdp_qos_vbif_remapper_setup(mdata, pipe, is_realtime);
 		mdss_mdp_fixed_qos_arbiter_setup(mdata, pipe, is_realtime);
+		if (mdata->vbif_nrt_io.base)
+			mdss_mdp_pipe_nrt_vbif_setup(mdata, pipe);
 	} else if (pipe_share) {
 		/*
 		 * when there is no dedicated wfd blk, DMA pipe can be
@@ -1015,7 +1043,7 @@ static bool mdss_mdp_check_pipe_in_use(struct mdss_mdp_pipe *pipe)
 }
 
 static int mdss_mdp_is_pipe_idle(struct mdss_mdp_pipe *pipe,
-	bool ignore_force_on)
+	bool ignore_force_on, bool is_nrt_vbif)
 {
 	u32 reg_val;
 	u32 vbif_idle_mask, forced_on_mask, clk_status_idle_mask;
@@ -1048,7 +1076,7 @@ static int mdss_mdp_is_pipe_idle(struct mdss_mdp_pipe *pipe,
 		goto exit;
 
 	vbif_idle_mask = BIT(pipe->xin_id + 16);
-	reg_val = MDSS_VBIF_READ(mdata, MMSS_VBIF_XIN_HALT_CTRL1);
+	reg_val = MDSS_VBIF_READ(mdata, MMSS_VBIF_XIN_HALT_CTRL1, is_nrt_vbif);
 
 	if (reg_val & vbif_idle_mask)
 		is_idle = true;
@@ -1078,12 +1106,14 @@ int mdss_mdp_pipe_fetch_halt(struct mdss_mdp_pipe *pipe)
 	bool is_idle, in_use = false;
 	int rc = 0;
 	u32 reg_val, idle_mask, status;
+	void __iomem *vbif_base;
 	struct mdss_data_type *mdata = mdss_mdp_get_mdata();
 	bool sw_reset_avail = mdss_mdp_pipe_is_sw_reset_available(mdata);
+	bool is_nrt_vbif = mdss_mdp_is_nrt_vbif_client(mdata, pipe);
 	u32 sw_reset_off = pipe->sw_reset.reg_off;
 	u32 clk_ctrl_off = pipe->clk_ctrl.reg_off;
 
-	is_idle = mdss_mdp_is_pipe_idle(pipe, true);
+	is_idle = mdss_mdp_is_pipe_idle(pipe, true, is_nrt_vbif);
 	if (!is_idle)
 		in_use = mdss_mdp_check_pipe_in_use(pipe);
 
@@ -1096,20 +1126,25 @@ int mdss_mdp_pipe_fetch_halt(struct mdss_mdp_pipe *pipe)
 		mutex_lock(&mdata->reg_lock);
 		idle_mask = BIT(pipe->xin_id + 16);
 
-		reg_val = MDSS_VBIF_READ(mdata, MMSS_VBIF_XIN_HALT_CTRL0);
+		reg_val = MDSS_VBIF_READ(mdata, MMSS_VBIF_XIN_HALT_CTRL0,
+								is_nrt_vbif);
 		MDSS_VBIF_WRITE(mdata, MMSS_VBIF_XIN_HALT_CTRL0,
-				reg_val | BIT(pipe->xin_id));
+				reg_val | BIT(pipe->xin_id), is_nrt_vbif);
 
 		if (sw_reset_avail) {
-			reg_val = MDSS_VBIF_READ(mdata, sw_reset_off);
+			reg_val = MDSS_VBIF_READ(mdata, sw_reset_off,
+								is_nrt_vbif);
 			MDSS_VBIF_WRITE(mdata, sw_reset_off,
-					reg_val | BIT(pipe->sw_reset.bit_off));
+				reg_val | BIT(pipe->sw_reset.bit_off),
+				is_nrt_vbif);
 			wmb();
 		}
 		mutex_unlock(&mdata->reg_lock);
 
-		rc = readl_poll_timeout(mdata->vbif_io.base +
-			MMSS_VBIF_XIN_HALT_CTRL1, status, (status & idle_mask),
+		vbif_base = is_nrt_vbif ? mdata->vbif_nrt_io.base :
+					mdata->vbif_io.base;
+		rc = readl_poll_timeout(vbif_base + MMSS_VBIF_XIN_HALT_CTRL1,
+			status, (status & idle_mask),
 			1000, PIPE_HALT_TIMEOUT_US);
 		if (rc == -ETIMEDOUT)
 			pr_err("VBIF client %d not halting. TIMEDOUT.\n",
@@ -1118,19 +1153,22 @@ int mdss_mdp_pipe_fetch_halt(struct mdss_mdp_pipe *pipe)
 			pr_debug("VBIF client %d is halted\n", pipe->xin_id);
 
 		mutex_lock(&mdata->reg_lock);
-		reg_val = MDSS_VBIF_READ(mdata, MMSS_VBIF_XIN_HALT_CTRL0);
+		reg_val = MDSS_VBIF_READ(mdata, MMSS_VBIF_XIN_HALT_CTRL0,
+								is_nrt_vbif);
 		MDSS_VBIF_WRITE(mdata, MMSS_VBIF_XIN_HALT_CTRL0,
-				reg_val & ~BIT(pipe->xin_id));
+				reg_val & ~BIT(pipe->xin_id), is_nrt_vbif);
 
 		if (sw_reset_avail) {
-			MDSS_VBIF_WRITE(mdata, sw_reset_off,
-					reg_val & ~BIT(pipe->sw_reset.bit_off));
+			MDSS_VBIF_WRITE(mdata, sw_reset_off, reg_val &
+				~BIT(pipe->sw_reset.bit_off), is_nrt_vbif);
 			wmb();
 
-			reg_val = MDSS_VBIF_READ(mdata, clk_ctrl_off);
+			reg_val = MDSS_VBIF_READ(mdata, clk_ctrl_off,
+								is_nrt_vbif);
 			reg_val |= BIT(pipe->clk_ctrl.bit_off +
 				CLK_FORCE_OFF_OFFSET);
-			MDSS_VBIF_WRITE(mdata, clk_ctrl_off, reg_val);
+			MDSS_VBIF_WRITE(mdata, clk_ctrl_off, reg_val,
+								is_nrt_vbif);
 		}
 		mutex_unlock(&mdata->reg_lock);
 		mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_OFF);
