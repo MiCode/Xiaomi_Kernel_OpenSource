@@ -480,6 +480,12 @@ config MSM_CACHE_DUMP_ON_PANIC
 	  want to dump the L1 and L2 caches on panic before any flush occurs.
 	  If unsure, say N
 
+config MSM_SHARED_HEAP_ACCESS
+	bool "Shared Heap access"
+	help
+	 Enable support to provide access to clients to certain HLOS regions
+	 which are protected by the secure environment.
+
 source "drivers/soc/qcom/memshare/Kconfig"
 
 endif # ARCH_MSM

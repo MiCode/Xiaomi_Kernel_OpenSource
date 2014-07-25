@@ -1,0 +1,18 @@
+MSM Shared memory driver
+
+msm-shared-memory driver is responsible for calling into the secure environemnt
+to allow clients to use the HLOS memory that is assigned to them, which is
+locked by the secure world.
+
+Required Properties for shared memory:
+- compatible:		   Must be "qcom,msm-shared-memory"
+- qcom,proc-id :	   The id of the processor that needs access to the
+			   HLOS memory
+- linux,contiguous-region: phandle reference to a CMA region.
+
+Example:
+	adsp_heap {
+		compatible = "qcom,msm-shared-memory";
+		qcom,proc-id = <1>;
+		linux,contiguous-region = <&adsp_mem>;
+	};
