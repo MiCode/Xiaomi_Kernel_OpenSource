@@ -2687,7 +2687,8 @@ qpnp_batt_external_power_changed(struct power_supply *psy)
 							OVP_USB_WALL_TRSH_MA);
 					} else if (unlikely(
 							ext_ovp_isns_present)) {
-						qpnp_chg_iusb_trim_set(chip, 0);
+						qpnp_chg_iusb_trim_set(chip,
+							chip->usb_trim_default);
 						qpnp_chg_iusbmax_set(chip,
 							IOVP_USB_WALL_TRSH_MA);
 					} else {
