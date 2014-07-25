@@ -130,6 +130,11 @@ static void *pil_femto_modem_map_fw_mem(phys_addr_t paddr, size_t size, void *d)
 	return ioremap_cached(paddr, size);
 }
 
+static void pil_femto_modem_unmap_fw_mem(void *vaddr, size_t size, void *data)
+{
+	iounmap(vaddr);
+}
+
 static int pil_femto_modem_send_rmb_advance(void __iomem *rmb_base, u32 id)
 {
 	int ret;
@@ -617,7 +622,7 @@ static int pil_femto_modem_desc_probe(struct platform_device *pdev)
 	mba_desc->proxy_timeout = 0;
 	mba_desc->flags = skip_entry ? PIL_SKIP_ENTRY_CHECK : 0;
 	mba_desc->map_fw_mem = pil_femto_modem_map_fw_mem;
-	mba_desc->unmap_fw_mem = NULL;
+	mba_desc->unmap_fw_mem = pil_femto_modem_unmap_fw_mem;
 
 	ret = pil_desc_init(mba_desc);
 	if (ret)
@@ -688,7 +693,7 @@ static int pil_femto_modem_driver_probe(
 	q6_desc->owner = THIS_MODULE;
 	q6_desc->proxy_timeout = 0;
 	q6_desc->map_fw_mem = pil_femto_modem_map_fw_mem;
-	q6_desc->unmap_fw_mem = NULL;
+	q6_desc->unmap_fw_mem = pil_femto_modem_unmap_fw_mem;
 
 	/* For this target, PBL interactions are different. */
 	pil_msa_mss_ops.proxy_vote = NULL;
