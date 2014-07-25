@@ -1288,7 +1288,7 @@ static struct msm_ipc_server *msm_ipc_router_create_server(
 	INIT_LIST_HEAD(&server->server_port_list);
 	list_add_tail(&server->list, &server_list[key]);
 	scnprintf(server->pdev_name, sizeof(server->pdev_name),
-		  "QMI%08x:%08x", service, instance);
+		  "SVC%08x:%08x", service, instance);
 	server->next_pdev_id = 1;
 
 create_srv_port:
