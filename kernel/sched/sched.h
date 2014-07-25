@@ -755,6 +755,29 @@ static inline unsigned long capacity_scale_cpu_freq(int cpu)
 #ifdef CONFIG_SCHED_HMP
 
 #define	BOOST_KICK	0
+#define	CPU_RESERVED	1
+
+static inline int is_reserved(int cpu)
+{
+	struct rq *rq = cpu_rq(cpu);
+
+	return test_bit(CPU_RESERVED, &rq->hmp_flags);
+}
+
+static inline int mark_reserved(int cpu)
+{
+	struct rq *rq = cpu_rq(cpu);
+
+	/* Name boost_flags as hmp_flags? */
+	return test_and_set_bit(CPU_RESERVED, &rq->hmp_flags);
+}
+
+static inline void clear_reserved(int cpu)
+{
+	struct rq *rq = cpu_rq(cpu);
+
+	clear_bit(CPU_RESERVED, &rq->hmp_flags);
+}
 
 extern unsigned int sched_enable_hmp;
 extern unsigned int sched_enable_power_aware;
@@ -787,6 +810,8 @@ static inline void inc_nr_big_small_task(struct rq *rq, struct task_struct *p)
 static inline void dec_nr_big_small_task(struct rq *rq, struct task_struct *p)
 {
 }
+
+static inline void clear_reserved(int cpu) { }
 
 #define power_cost_at_freq(...) 0
 
