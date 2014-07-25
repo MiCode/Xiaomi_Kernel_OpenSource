@@ -1347,6 +1347,17 @@ int sps_get_bam_debug_info(unsigned long dev, u32 option, u32 para,
  *
  */
 int sps_ctrl_bam_dma_clk(bool clk_on);
+
+/*
+ * sps_pipe_reset - reset a pipe of a BAM.
+ * @dev:	BAM device handle
+ * @pipe:	pipe index
+ *
+ * This function resets a pipe of a BAM.
+ *
+ * Return: 0 on success, negative value on error
+ */
+int sps_pipe_reset(unsigned long dev, u32 pipe);
 #else
 static inline int sps_register_bam_device(const struct sps_bam_props
 			*bam_props, unsigned long *dev_handle)
@@ -1511,6 +1522,11 @@ static inline int sps_get_bam_debug_info(unsigned long dev, u32 option,
 }
 
 static inline int sps_ctrl_bam_dma_clk(bool clk_on)
+{
+	return -EPERM;
+}
+
+static inline int sps_pipe_reset(unsigned long dev, u32 pipe)
 {
 	return -EPERM;
 }

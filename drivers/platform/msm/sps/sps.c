@@ -2309,6 +2309,37 @@ int sps_timer_ctrl(struct sps_pipe *h,
 }
 EXPORT_SYMBOL(sps_timer_ctrl);
 
+/*
+ * Reset a BAM pipe
+ */
+int sps_pipe_reset(unsigned long dev, u32 pipe)
+{
+	struct sps_bam *bam;
+
+	SPS_DBG("sps:%s.", __func__);
+
+	if (!dev) {
+		SPS_ERR("sps:%s:BAM handle is NULL.\n", __func__);
+		return SPS_ERROR;
+	}
+
+	if (pipe >= BAM_MAX_PIPES) {
+		SPS_ERR("sps:%s:pipe index is invalid.\n", __func__);
+		return SPS_ERROR;
+	}
+
+	bam = sps_h2bam(dev);
+	if (bam == NULL) {
+		SPS_ERR("sps:%s:BAM is not found by handle.\n", __func__);
+		return SPS_ERROR;
+	}
+
+	bam_pipe_reset(bam->base, pipe);
+
+	return 0;
+}
+EXPORT_SYMBOL(sps_pipe_reset);
+
 /**
  * Allocate client state context
  *
