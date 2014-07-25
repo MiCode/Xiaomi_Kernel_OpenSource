@@ -158,7 +158,7 @@ static int _spm_regulator_set_voltage(struct regulator_dev *rdev)
 		/* Set voltage control register via SPM. */
 		rc = msm_spm_set_vdd(vreg->cpu_num, vreg->vlevel);
 		if (rc) {
-			pr_err("%s: msm_spm_set_vdd failed, rc=%d; falling back on SPMI write\n",
+			pr_debug("%s: msm_spm_set_vdd failed, rc=%d; falling back on SPMI write\n",
 				vreg->rdesc.name, rc);
 			spm_failed = true;
 		}
