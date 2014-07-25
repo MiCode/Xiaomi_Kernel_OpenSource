@@ -172,16 +172,10 @@ int gqti_ctrl_connect(struct grmnet *gr, u8 port_num, unsigned intf)
 	}
 	port = ctrl_port[port_num];
 
-	if (!gr) {
+	if (!gr || !port) {
 		pr_err("%s: grmnet port is null\n", __func__);
 		return -ENODEV;
 	}
-
-	if (port_num >= NR_QTI_PORTS) {
-		pr_err("%s: Invalid QTI port %d\n", __func__, port_num);
-		return -ENODEV;
-	}
-	port = ctrl_port[port_num];
 
 	spin_lock_irqsave(&port->lock, flags);
 	port->port_usb = gr;
@@ -193,7 +187,7 @@ int gqti_ctrl_connect(struct grmnet *gr, u8 port_num, unsigned intf)
 	atomic_set(&port->connected, 1);
 	wake_up(&port->read_wq);
 
-	if (port && port->port_usb && port->port_usb->connect)
+	if (port->port_usb && port->port_usb->connect)
 		port->port_usb->connect(port->port_usb);
 
 	return 0;
@@ -207,18 +201,19 @@ void gqti_ctrl_disconnect(struct grmnet *gr, u8 port_num)
 
 	pr_debug("%s: grmnet:%p\n", __func__, gr);
 
-	if (!gr) {
-		pr_err("%s: grmnet port is null\n", __func__);
-		return;
-	}
-
 	if (port_num >= NR_QTI_PORTS) {
 		pr_err("%s: Invalid QTI port %d\n", __func__, port_num);
 		return;
 	}
 
 	port = ctrl_port[port_num];
-	if (port && port->port_usb && port->port_usb->disconnect)
+
+	if (!gr || !port) {
+		pr_err("%s: grmnet port is null\n", __func__);
+		return;
+	}
+
+	if (port->port_usb && port->port_usb->disconnect)
 		port->port_usb->disconnect(port->port_usb);
 
 	atomic_set(&port->connected, 0);
