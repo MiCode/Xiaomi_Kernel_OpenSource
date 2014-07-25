@@ -471,15 +471,6 @@ static void _ringbuffer_setup_common(struct adreno_ringbuffer *rb)
 	adreno_writereg(adreno_dev, ADRENO_REG_CP_RB_BASE,
 					rb->buffer_desc.gpuaddr);
 
-	/* setup scratch/timestamp */
-	adreno_writereg(adreno_dev, ADRENO_REG_SCRATCH_ADDR,
-				device->memstore.gpuaddr +
-				KGSL_MEMSTORE_RB_OFFSET(rb,
-					soptimestamp));
-
-	adreno_writereg(adreno_dev, ADRENO_REG_SCRATCH_UMSK,
-			     GSL_RB_MEMPTRS_SCRATCH_MASK);
-
 	/* CP ROQ queue sizes (bytes) - RB:16, ST:16, IB1:32, IB2:64 */
 	if (adreno_is_a305(adreno_dev) || adreno_is_a305c(adreno_dev) ||
 		adreno_is_a306(adreno_dev) || adreno_is_a320(adreno_dev))
