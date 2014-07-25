@@ -1022,6 +1022,9 @@ static int ufs_msm_init(struct ufs_hba *hba)
 	struct device *dev = hba->dev;
 	struct ufs_msm_host *host;
 
+	if (strlen(android_boot_dev) && strcmp(android_boot_dev, dev_name(dev)))
+		return -ENODEV;
+
 	host = devm_kzalloc(dev, sizeof(*host), GFP_KERNEL);
 	if (!host) {
 		err = -ENOMEM;
