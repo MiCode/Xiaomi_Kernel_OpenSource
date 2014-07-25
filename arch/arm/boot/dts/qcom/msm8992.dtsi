@@ -276,8 +276,8 @@
 		interrupts = <0 95 0>;
 		spi-max-frequency = <50000000>;
 		pinctrl-names = "default", "sleep";
-		pinctrl-0 = <&spi1_default &spi1_cs2_active>;
-		pinctrl-1 = <&spi1_sleep &spi1_cs2_sleep>;
+		pinctrl-0 = <&spi0_default &spi0_cs2_active>;
+		pinctrl-1 = <&spi0_sleep &spi0_cs2_sleep>;
 		clocks = <&clock_gcc clk_gcc_blsp1_ahb_clk>,
 			 <&clock_gcc clk_gcc_blsp1_qup2_spi_apps_clk>;
 		clock-names = "iface_clk", "core_clk";

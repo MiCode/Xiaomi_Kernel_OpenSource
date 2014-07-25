@@ -38,6 +38,6 @@
 		vdd-io-supply = <&dummy_vreg>;
 		vdd-phy-supply = <&dummy_vreg>;
 		pinctrl-names = "default";
-		pinctrl-0 = <&eth_irq_default>;
+		pinctrl-0 = <&eth_irq_default &spi0_unused_cs_default>;
 	};
 };
