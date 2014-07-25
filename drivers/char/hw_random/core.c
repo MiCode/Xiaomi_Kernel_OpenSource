@@ -333,7 +333,7 @@ static int hwrng_fillfn(void *unused)
 			continue;
 		}
 		add_hwgenerator_randomness((void *)rng_fillbuf, rc,
-					   (rc*current_quality)>>10);
+					   rc * current_quality * 8 >> 10);
 	}
 	hwrng_fill = 0;
 	return 0;
