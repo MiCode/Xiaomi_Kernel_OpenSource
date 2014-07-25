@@ -51,6 +51,7 @@
 #include "gadget.h"
 #include "dbm.h"
 #include "debug.h"
+#include "xhci.h"
 
 /* cpu to fix usb interrupt */
 static int cpu_to_affin;
@@ -83,8 +84,10 @@ static bool usb_lpm_override;
 module_param(usb_lpm_override, bool, S_IRUGO | S_IWUSR);
 MODULE_PARM_DESC(usb_lpm_override, "Override no_suspend_resume with USB");
 
-#define USB3_PORTSC		(0x430)
-#define PORT_PE			(0x1 << 1)
+/* XHCI registers */
+#define USB3_HCSPARAMS1		(0x4)
+#define USB3_PORTSC		(0x420)
+
 /**
  *  USB QSCRATCH Hardware registers
  *
@@ -337,6 +340,23 @@ static inline void dwc3_msm_write_readback(void *base, u32 offset,
 			__func__, val, offset);
 }
 
+static bool dwc3_msm_is_host_superspeed(struct dwc3_msm *mdwc)
+{
+	int i, num_ports;
+	u32 reg;
+
+	reg = dwc3_msm_read_reg(mdwc->base, USB3_HCSPARAMS1);
+	num_ports = HCS_MAX_PORTS(reg);
+
+	for (i = 0; i < num_ports; i++) {
+		reg = dwc3_msm_read_reg(mdwc->base, USB3_PORTSC + i*0x10);
+		if ((reg & PORT_PE) && DEV_SUPERSPEED(reg))
+			return true;
+	}
+
+	return false;
+}
+
 static inline bool dwc3_msm_is_dev_superspeed(struct dwc3_msm *mdwc)
 {
 	u8 speed;
@@ -347,12 +367,8 @@ static inline bool dwc3_msm_is_dev_superspeed(struct dwc3_msm *mdwc)
 
 static inline bool dwc3_msm_is_superspeed(struct dwc3_msm *mdwc)
 {
-	u8 speed;
-
-	if (mdwc->scope == POWER_SUPPLY_SCOPE_SYSTEM) {
-		speed = dwc3_msm_read_reg(mdwc->base, USB3_PORTSC) & PORT_PE;
-		return speed;
-	}
+	if (mdwc->scope == POWER_SUPPLY_SCOPE_SYSTEM)
+		return dwc3_msm_is_host_superspeed(mdwc);
 
 	return dwc3_msm_is_dev_superspeed(mdwc);
 }
@@ -1625,7 +1641,7 @@ static int dwc3_msm_suspend(struct dwc3_msm *mdwc)
 		return -EBUSY;
 	}
 
-	host_ss_active = dwc3_msm_read_reg(mdwc->base, USB3_PORTSC) & PORT_PE;
+	host_ss_active = dwc3_msm_is_host_superspeed(mdwc);
 	if (mdwc->hs_phy_irq)
 		disable_irq(mdwc->hs_phy_irq);
 
