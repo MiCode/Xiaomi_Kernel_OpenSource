@@ -371,12 +371,24 @@ struct smb135x_chg {
 	struct mutex			current_change_lock;
 };
 
+#define RETRY_COUNT 5
+int retry_sleep_ms[RETRY_COUNT] = {
+	10, 20, 30, 40, 50
+};
+
 static int __smb135x_read(struct smb135x_chg *chip, int reg,
 				u8 *val)
 {
 	s32 ret;
+	int retry_count = 0;
 
+retry:
 	ret = i2c_smbus_read_byte_data(chip->client, reg);
+	if (ret < 0 && retry_count < RETRY_COUNT) {
+		/* sleep for few ms before retrying */
+		msleep(retry_sleep_ms[retry_count++]);
+		goto retry;
+	}
 	if (ret < 0) {
 		dev_err(chip->dev,
 			"i2c read fail: can't read from %02x: %d\n", reg, ret);
@@ -392,8 +404,15 @@ static int __smb135x_write(struct smb135x_chg *chip, int reg,
 						u8 val)
 {
 	s32 ret;
+	int retry_count = 0;
 
+retry:
 	ret = i2c_smbus_write_byte_data(chip->client, reg, val);
+	if (ret < 0 && retry_count < RETRY_COUNT) {
+		/* sleep for few ms before retrying */
+		msleep(retry_sleep_ms[retry_count++]);
+		goto retry;
+	}
 	if (ret < 0) {
 		dev_err(chip->dev,
 			"i2c write fail: can't write %02x to %02x: %d\n",
