@@ -12,6 +12,8 @@
 #ifndef __MSM_PERIPHERAL_LOADER_H
 #define __MSM_PERIPHERAL_LOADER_H
 
+#include <linux/dma-attrs.h>
+
 struct device;
 struct module;
 struct pil_priv;
@@ -25,6 +27,7 @@ struct pil_priv;
  * @proxy_timeout: delay in ms until proxy vote is removed
  * @flags: bitfield for image flags
  * @priv: DON'T USE - internal only
+ * @attrs: DMA attributes to be used during dma allocation.
  * @proxy_unvote_irq: IRQ to trigger a proxy unvote. proxy_timeout
  * is ignored if this is set.
  * @map_fw_mem: Custom function used to map physical address space to virtual.
@@ -41,9 +44,10 @@ struct pil_desc {
 	unsigned long flags;
 #define PIL_SKIP_ENTRY_CHECK	BIT(0)
 	struct pil_priv *priv;
+	struct dma_attrs attrs;
 	unsigned int proxy_unvote_irq;
 	void * (*map_fw_mem)(phys_addr_t phys, size_t size, void *data);
-	void (*unmap_fw_mem)(void *virt, void *data);
+	void (*unmap_fw_mem)(void *virt, size_t size, void *data);
 	void *map_data;
 };
 
