@@ -2741,7 +2741,8 @@ static void msm_otg_sm_work(struct work_struct *w)
 			 * switch from ACA to PMIC.  Check ID state
 			 * before entering into low power mode.
 			 */
-			if (!msm_otg_read_pmic_id_state(motg)) {
+			if ((motg->pdata->otg_control == OTG_PMIC_CONTROL) &&
+					!msm_otg_read_pmic_id_state(motg)) {
 				pr_debug("process missed ID intr\n");
 				clear_bit(ID, &motg->inputs);
 				work = 1;
@@ -3526,9 +3527,12 @@ static int msm_otg_mode_show(struct seq_file *s, void *unused)
 	struct usb_otg *otg = motg->phy.otg;
 
 	switch (otg->phy->state) {
+	case OTG_STATE_A_WAIT_BCON:
 	case OTG_STATE_A_HOST:
+	case OTG_STATE_A_SUSPEND:
 		seq_printf(s, "host\n");
 		break;
+	case OTG_STATE_B_IDLE:
 	case OTG_STATE_B_PERIPHERAL:
 		seq_printf(s, "peripheral\n");
 		break;
@@ -3576,7 +3580,9 @@ static ssize_t msm_otg_mode_write(struct file *file, const char __user *ubuf,
 	switch (req_mode) {
 	case USB_NONE:
 		switch (phy->state) {
+		case OTG_STATE_A_WAIT_BCON:
 		case OTG_STATE_A_HOST:
+		case OTG_STATE_A_SUSPEND:
 		case OTG_STATE_B_PERIPHERAL:
 			set_bit(ID, &motg->inputs);
 			clear_bit(B_SESS_VLD, &motg->inputs);
@@ -3588,7 +3594,9 @@ static ssize_t msm_otg_mode_write(struct file *file, const char __user *ubuf,
 	case USB_PERIPHERAL:
 		switch (phy->state) {
 		case OTG_STATE_B_IDLE:
+		case OTG_STATE_A_WAIT_BCON:
 		case OTG_STATE_A_HOST:
+		case OTG_STATE_A_SUSPEND:
 			set_bit(ID, &motg->inputs);
 			set_bit(B_SESS_VLD, &motg->inputs);
 			break;
