@@ -65,6 +65,13 @@
 #endif
 
 /*
+ * To accommodate legacy GPU address mmapping we need to make sure that the GPU
+ * object won't conflict with the address space so define the IDs to start
+ * at the top of the user address space region
+ */
+#define KGSL_GPUOBJ_ID_MIN    (KGSL_SVM_UPPER_BOUND >> PAGE_SHIFT)
+
+/*
  * Define an kmem cache for the memobj structures since we allocate and free
  * them so frequently
  */
@@ -410,7 +417,8 @@ kgsl_mem_entry_attach_process(struct kgsl_mem_entry *entry,
 		return -EBADF;
 	idr_preload(GFP_KERNEL);
 	spin_lock(&process->mem_lock);
-	id = idr_alloc(&process->mem_idr, entry, 1, 0, GFP_NOWAIT);
+	id = idr_alloc(&process->mem_idr, entry, KGSL_GPUOBJ_ID_MIN, 0,
+		GFP_NOWAIT);
 	spin_unlock(&process->mem_lock);
 	idr_preload_end();
 
@@ -3765,10 +3773,14 @@ get_mmap_entry(struct kgsl_process_private *private,
 	int ret = 0;
 	struct kgsl_mem_entry *entry;
 
-	entry = kgsl_sharedmem_find_id(private, pgoff);
-	if (entry == NULL) {
+	/*
+	 * GPU object IDs start at KGSL_SVM_UPPER_BOUND >> PAGE_SHIFT.  Anything
+	 * less is legacy GPU memory being mapped by address
+	 */
+	if (pgoff >= KGSL_GPUOBJ_ID_MIN)
+		entry = kgsl_sharedmem_find_id(private, pgoff);
+	else
 		entry = kgsl_sharedmem_find(private, pgoff << PAGE_SHIFT);
-	}
 
 	if (!entry)
 		return -EINVAL;
@@ -3776,6 +3788,12 @@ get_mmap_entry(struct kgsl_process_private *private,
 	if (!entry->memdesc.ops ||
 		!entry->memdesc.ops->vmflags ||
 		!entry->memdesc.ops->vmfault) {
+		ret = -EINVAL;
+		goto err_put;
+	}
+
+	/* External memory cannot be mapped */
+	if ((KGSL_MEMFLAGS_USERMEM_MASK & entry->memdesc.flags) != 0) {
 		ret = -EINVAL;
 		goto err_put;
 	}
