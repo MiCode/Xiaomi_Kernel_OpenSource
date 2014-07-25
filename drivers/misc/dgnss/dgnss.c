@@ -26,6 +26,7 @@
 
 #ifdef CONFIG_ACPI
 #define ACPI_DEVICE_ID_BCM4752 "BCM4752"
+#define ACPI_DEVICE_ID_BCM4752E "BCM4752E"
 #endif
 
 static int dgnss_enable_status;
@@ -155,6 +156,7 @@ static void dgnss_shutdown(struct platform_device *pdev)
 static const struct acpi_device_id acpi_gps_id_table[] = {
 	/* ACPI IDs here */
 	{ACPI_DEVICE_ID_BCM4752},
+	{ACPI_DEVICE_ID_BCM4752E},
 	{ }
 };
 MODULE_DEVICE_TABLE(acpi, acpi_gps_id_table);
