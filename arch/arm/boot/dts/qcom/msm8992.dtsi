@@ -289,3 +289,4 @@
 };
 
 #include "msm8992-ion.dtsi"
+#include "msm8992-regulator.dtsi"
