@@ -313,7 +313,7 @@ static int hdmi_cec_msg_parser(struct hdmi_cec_ctrl *cec_ctrl,
 static int hdmi_cec_msg_send(struct hdmi_cec_ctrl *cec_ctrl,
 	struct hdmi_cec_msg *msg)
 {
-	int i, line_check_retry = 10;
+	int i, line_check_retry = 10, rc = 0;
 	u32 frame_retransmit = RETRANSMIT_MAX_NUM;
 	bool frame_type;
 	unsigned long flags;
@@ -377,15 +377,17 @@ static int hdmi_cec_msg_send(struct hdmi_cec_ctrl *cec_ctrl,
 	}
 
 	spin_lock_irqsave(&cec_ctrl->lock, flags);
-	if (cec_ctrl->cec_msg_wr_status == CEC_STATUS_WR_ERROR)
+	if (cec_ctrl->cec_msg_wr_status == CEC_STATUS_WR_ERROR) {
+		rc = -ENXIO;
 		DEV_ERR("%s: msg write failed.\n", __func__);
-	else
+	} else {
 		DEV_DBG("%s: CEC write frame done (frame len=%d)", __func__,
 			msg->frame_size);
+	}
 	spin_unlock_irqrestore(&cec_ctrl->lock, flags);
 	hdmi_cec_dump_msg(cec_ctrl, msg);
 
-	return 0;
+	return rc;
 } /* hdmi_cec_msg_send */
 
 static void hdmi_cec_msg_recv(struct work_struct *work)
@@ -741,6 +743,13 @@ static ssize_t hdmi_wta_cec_msg(struct device *dev,
 			__func__);
 		return -EPERM;
 	}
+
+	if (!cec_ctrl->cec_engine_configed) {
+		spin_unlock_irqrestore(&cec_ctrl->lock, flags);
+		DEV_ERR("%s: CEC engine is not configed.\n",
+			__func__);
+		return -EPERM;
+	}
 	spin_unlock_irqrestore(&cec_ctrl->lock, flags);
 
 	if (msg->frame_size > MAX_OPERAND_SIZE) {
@@ -895,10 +904,13 @@ int hdmi_cec_config(void *input)
 	DSS_REG_W(io, HDMI_CEC_RD_FILTER, BIT(0) | (0x7FF << 4));
 	DSS_REG_W(io, HDMI_CEC_TIME, BIT(0) | ((7 * 0x30) << 7));
 
-	if (cec_ctrl->cec_enabled)
-		hdmi_cec_enable(cec_ctrl);
-
 	spin_lock_irqsave(&cec_ctrl->lock, flags);
+	if (cec_ctrl->cec_enabled) {
+		hdmi_cec_write_logical_addr(cec_ctrl,
+			cec_ctrl->cec_logical_addr);
+		hdmi_cec_enable(cec_ctrl);
+	}
+
 	cec_ctrl->cec_engine_configed = true;
 	spin_unlock_irqrestore(&cec_ctrl->lock, flags);
 
