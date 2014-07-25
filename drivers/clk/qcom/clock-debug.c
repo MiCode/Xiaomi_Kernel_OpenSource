@@ -286,9 +286,9 @@ static int clock_debug_print_clock(struct clk *c, struct seq_file *m)
 	clock_debug_output(m, 0, "\t");
 	do {
 		if (c->vdd_class)
-			clock_debug_output(m, 1, "%s%s:%u:%u [%ld, %lu]", start,
+			clock_debug_output(m, 1, "%s%s:%u:%u [%ld, %d]", start,
 				c->dbg_name, c->prepare_count, c->count,
-				c->rate, c->vdd_class->cur_level);
+				c->rate, find_vdd_level(c, c->rate));
 		else
 			clock_debug_output(m, 1, "%s%s:%u:%u [%ld]", start,
 				c->dbg_name, c->prepare_count, c->count,
