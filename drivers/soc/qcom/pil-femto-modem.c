@@ -127,7 +127,7 @@ static void *pil_femto_modem_map_fw_mem(phys_addr_t paddr, size_t size, void *d)
 	/* Due to certain memory areas on the platform requiring 32-bit wide
 	 * accesses, we must cache the firmware to avoid bus errors.
 	 */
-	return ioremap_cached(paddr, size);
+	return ioremap_cache(paddr, size);
 }
 
 static void pil_femto_modem_unmap_fw_mem(void *vaddr, size_t size, void *data)

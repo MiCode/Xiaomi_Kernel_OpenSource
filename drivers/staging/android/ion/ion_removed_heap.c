@@ -179,7 +179,7 @@ void *ion_removed_heap_map_kernel(struct ion_heap *heap,
 		return ERR_PTR(-EAGAIN);
 
 	if (ION_IS_CACHED(buffer->flags))
-		ret_value = ioremap_cached(buffer->priv_phys, buffer->size);
+		ret_value = ioremap_cache(buffer->priv_phys, buffer->size);
 	else
 		ret_value = ioremap(buffer->priv_phys, buffer->size);
 
