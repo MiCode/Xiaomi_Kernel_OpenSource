@@ -17,5 +17,6 @@ struct dev_avtimer_data {
 };
 int avcs_core_open(void);
 int avcs_core_disable_power_collapse(int disable);/* true or flase */
+uint64_t avcs_core_query_timer(void);
 
 #endif
