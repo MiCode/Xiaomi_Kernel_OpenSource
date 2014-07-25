@@ -433,7 +433,7 @@ static int _ringbuffer_bootstrap_ucode(struct adreno_ringbuffer *rb,
 	}
 
 	/* idle device to validate bootstrap */
-	return adreno_idle(device);
+	return adreno_spin_idle(device);
 }
 
 /**
