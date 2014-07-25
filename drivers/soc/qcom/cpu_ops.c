@@ -29,6 +29,7 @@
 #include <soc/qcom/scm-boot.h>
 #include <soc/qcom/socinfo.h>
 #include <soc/qcom/pm.h>
+#include <soc/qcom/spm.h>
 #include <soc/qcom/jtag.h>
 
 #include <asm/barrier.h>
@@ -167,6 +168,8 @@ void msm_cpu_postboot(void)
 	 * Let the primary processor know we're out of the pen.
 	 */
 	write_pen_release(INVALID_HWID);
+
+	msm_spm_set_low_power_mode(MSM_SPM_MODE_CLOCK_GATING, false);
 
 	/*
 	 * Synchronise with the boot thread.
