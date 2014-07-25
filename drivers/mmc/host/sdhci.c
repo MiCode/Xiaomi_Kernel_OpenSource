@@ -584,8 +584,6 @@ static int sdhci_pre_dma_transfer(struct sdhci_host *host,
 static int sdhci_adma_table_pre(struct sdhci_host *host,
 	struct mmc_data *data)
 {
-	int direction;
-
 	u8 *desc;
 	u8 *align;
 	dma_addr_t addr;
@@ -602,22 +600,9 @@ static int sdhci_adma_table_pre(struct sdhci_host *host,
 	 * We currently guess that it is LE.
 	 */
 
-	if (data->flags & MMC_DATA_READ)
-		direction = DMA_FROM_DEVICE;
-	else
-		direction = DMA_TO_DEVICE;
-
-	host->align_addr = dma_map_single(mmc_dev(host->mmc),
-					  host->align_buffer,
-					  host->align_buf_sz,
-					  direction);
-	if (dma_mapping_error(mmc_dev(host->mmc), host->align_addr))
-		goto fail;
-	BUG_ON(host->align_addr & (host->align_bytes - 1));
-
 	host->sg_count = sdhci_pre_dma_transfer(host, data, NULL);
 	if (host->sg_count < 0)
-		goto unmap_align;
+		goto fail;
 
 	desc = host->adma_desc;
 	align = host->align_buffer;
@@ -697,19 +682,9 @@ static int sdhci_adma_table_pre(struct sdhci_host *host,
 		sdhci_set_adma_desc(host, desc, 0, 0, 0x3);
 	}
 
-	/*
-	 * Resync align buffer as we might have changed it.
-	 */
-	if (data->flags & MMC_DATA_WRITE) {
-		dma_sync_single_for_device(mmc_dev(host->mmc),
-			host->align_addr, 128 * 4, direction);
-	}
 
 	return 0;
 
-unmap_align:
-	dma_unmap_single(mmc_dev(host->mmc), host->align_addr,
-			 host->align_buf_sz, direction);
 fail:
 	return -EINVAL;
 }
@@ -728,22 +703,17 @@ static void sdhci_adma_table_post(struct sdhci_host *host,
 
 	trace_mmc_adma_table_post(command, data->sg_len);
 
-	if (data->flags & MMC_DATA_READ)
-		direction = DMA_FROM_DEVICE;
-	else
-		direction = DMA_TO_DEVICE;
-
-	dma_unmap_single(mmc_dev(host->mmc), host->align_addr,
-		128 * 4, direction);
-
-	/* Do a quick scan of the SG list for any unaligned mappings */
 	if (data->flags & MMC_DATA_READ) {
+		direction = DMA_FROM_DEVICE;
+		/* Do a quick scan of the SG list for any unaligned mappings */
 		for_each_sg(data->sg, sg, host->sg_count, i) {
 			if (sg_dma_address(sg) & (host->align_bytes - 1)) {
 				has_unaligned = true;
 				break;
 			}
 		}
+	} else {
+		direction = DMA_TO_DEVICE;
 	}
 
 	if (has_unaligned) {
@@ -3409,13 +3379,20 @@ int sdhci_add_host(struct sdhci_host *host)
 						&host->adma_addr,
 						GFP_KERNEL);
 		
-		host->align_buffer = kmalloc(host->align_buf_sz, GFP_KERNEL);
+		host->align_buffer = dma_alloc_coherent(mmc_dev(host->mmc),
+							host->align_buf_sz,
+							&host->align_addr,
+							GFP_KERNEL);
 		if (!host->adma_desc || !host->align_buffer) {
 			dma_free_coherent(mmc_dev(host->mmc),
 					host->adma_desc_sz,
 					host->adma_desc, host->adma_addr);
-			kfree(host->align_buffer);
-			pr_warn("%s: Unable to allocate ADMA buffers - falling back to standard DMA\n",
+			dma_free_coherent(mmc_dev(host->mmc),
+					  host->align_buf_sz,
+					  host->align_buffer,
+					  host->align_addr);
+			pr_warning("%s: Unable to allocate ADMA "
+				"buffers. Falling back to standard DMA.\n",
 				mmc_hostname(mmc));
 			host->flags &= ~SDHCI_USE_ADMA;
 			host->adma_desc = NULL;
@@ -3428,7 +3405,10 @@ int sdhci_add_host(struct sdhci_host *host)
 					host->adma_desc_sz,
 					host->adma_desc,
 					host->adma_addr);
-			kfree(host->align_buffer);
+			dma_free_coherent(mmc_dev(host->mmc),
+					  host->align_buf_sz,
+					  host->align_buffer,
+					  host->align_addr);
 			host->adma_desc = NULL;
 			host->align_buffer = NULL;
 		}
@@ -3931,7 +3911,9 @@ void sdhci_remove_host(struct sdhci_host *host, int dead)
 	if (host->adma_desc)
 		dma_free_coherent(mmc_dev(host->mmc), host->adma_desc_sz,
 				  host->adma_desc, host->adma_addr);
-	kfree(host->align_buffer);
+	if (host->align_buffer)
+		dma_free_coherent(mmc_dev(host->mmc), host->align_buf_sz,
+				  host->align_buffer, host->align_addr);
 
 	host->adma_desc = NULL;
 	host->align_buffer = NULL;
