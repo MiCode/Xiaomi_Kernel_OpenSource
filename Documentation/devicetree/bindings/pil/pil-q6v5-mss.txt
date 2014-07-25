@@ -54,6 +54,7 @@ Optional properties:
 - qcom,ssctl-instance-id: Instance id used by the subsystem to connect with the SSCTL
 			  service.
 - qcom,sysmon-id:	platform device id that sysmon is probed with for the subsystem.
+- qcom,override-acc: Boolean- Present if we need to override the default ACC settings
 
 Example:
 	qcom,mss@fc880000 {
@@ -82,6 +83,7 @@ Example:
 		qcom,firmware-name = "mba";
 		qcom,pil-self-auth;
 		qcom,mba-image-is-not-elf;
+		qcom,override-acc;
 
 		/* GPIO inputs from mss */
 		qcom,gpio-err-fatal = <&smp2pgpio_ssr_smp2p_1_in 0 0>;
