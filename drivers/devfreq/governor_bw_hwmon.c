@@ -149,7 +149,8 @@ static struct hwmon_node *find_hwmon_node(struct devfreq *df)
 	list_for_each_entry(node, &hwmon_list, list)
 		if (node->hw->dev == df->dev.parent ||
 		    node->hw->of_node == df->dev.parent->of_node ||
-		    node->gov == df->governor) {
+		    (!node->hw->dev && !node->hw->of_node &&
+		     node->gov == df->governor)) {
 			found = node;
 			break;
 		}
