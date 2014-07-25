@@ -33,7 +33,6 @@
 
 /* VENUS WRAPPER registers */
 #define VENUS_WRAPPER_HW_VERSION			0x0
-#define VENUS_WRAPPER_CLOCK_CONFIG			0x4
 
 #define VENUS_WRAPPER_VBIF_SS_SEC_CPA_START_ADDR_v1	0x1018
 #define VENUS_WRAPPER_VBIF_SS_SEC_CPA_END_ADDR_v1	0x101C
@@ -45,7 +44,6 @@
 #define VENUS_WRAPPER_VBIF_SS_SEC_FW_START_ADDR_v2	0x1028
 #define VENUS_WRAPPER_VBIF_SS_SEC_FW_END_ADDR_v2	0x102C
 
-#define VENUS_WRAPPER_CPU_CLOCK_CONFIG			0x2000
 #define VENUS_WRAPPER_SW_RESET				0x3000
 
 /* VENUS VBIF registers */
@@ -61,9 +59,6 @@
 
 /* Poll interval in uS */
 #define POLL_INTERVAL_US				50
-
-#define VENUS_WRAPPER_CLOCK_CONFIG			0x4
-#define VENUS_WRAPPER_CPU_CLOCK_CONFIG			0x2000
 
 #define VENUS_REGION_START				0x0C800000
 #define VENUS_REGION_SIZE				0x00500000
@@ -224,11 +219,7 @@ int pil_venus_auth_and_reset(struct platform_device *pdev)
 	writel_relaxed(0, wrapper_base + fw_start_addr);
 	writel_relaxed(venus_data->fw_sz, wrapper_base + fw_end_addr);
 
-	/* Enable all Venus internal clocks */
-	writel_relaxed(0, wrapper_base + VENUS_WRAPPER_CLOCK_CONFIG);
-	writel_relaxed(0, wrapper_base + VENUS_WRAPPER_CPU_CLOCK_CONFIG);
-
-	/* Make sure clocks are enabled */
+	/* Make sure all register writes are committed. */
 	mb();
 
 	/*
