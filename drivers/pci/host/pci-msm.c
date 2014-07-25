@@ -177,7 +177,6 @@
 #define PCIE20_BUSNUMBERS		  0x18
 #define PCIE20_MEMORY_BASE_LIMIT	 0x20
 #define PCIE20_L1SUB_CONTROL1	    0x158
-#define PCIE20_EP_L1SUB_CTL1_OFFSET    0x30
 #define PCIE20_DEVICE_CONTROL_STATUS	0x78
 #define PCIE20_DEVICE_CONTROL2_STATUS2 0x98
 
@@ -195,6 +194,9 @@
 
 #define PCIE20_CTRL1_TYPE_CFG0		0x04
 #define PCIE20_CTRL1_TYPE_CFG1		0x05
+
+#define L1SUB_CAP_ID			0x1E
+#define PCIE_EXT_CAP_OFFSET		0x100
 
 #define PCIE_VENDOR_ID_RCP		 0x17cb
 #define PCIE_DEVICE_ID_RCP		 0x0300
@@ -1496,10 +1498,10 @@ static void msm_pcie_config_controller(struct msm_pcie_dev_t *dev)
 
 static void msm_pcie_config_link_state(struct msm_pcie_dev_t *dev)
 {
-	u32 offset = 0;
-
-	if (dev->rc_idx)
-		offset = PCIE20_EP_L1SUB_CTL1_OFFSET;
+	u32 val;
+	u32 current_offset;
+	u32 ep_l1sub_ctrl1_offset = 0;
+	u32 ep_l1sub_cap_reg1_offset = 0;
 
 	/* Enable the AUX Clock and the Core Clk to be synchronous for L1SS*/
 	if (!dev->aux_clk_sync && dev->l1ss_supported)
@@ -1547,27 +1549,50 @@ static void msm_pcie_config_link_state(struct msm_pcie_dev_t *dev)
 	}
 
 	if (dev->l1ss_supported) {
-		msm_pcie_write_mask(dev->dm_core + PCIE20_L1SUB_CONTROL1, 0,
-					BIT(3)|BIT(2)|BIT(1)|BIT(0));
+		current_offset = PCIE_EXT_CAP_OFFSET;
+		while (current_offset) {
+			val = readl_relaxed(dev->conf + current_offset);
+			if ((val & 0xffff) == L1SUB_CAP_ID) {
+				ep_l1sub_cap_reg1_offset = current_offset + 0x4;
+				ep_l1sub_ctrl1_offset = current_offset + 0x8;
+				break;
+			}
+			current_offset = val >> 20;
+		}
+		if (!ep_l1sub_ctrl1_offset) {
+			PCIE_DBG(dev,
+				"RC%d endpoint does not support l1ss registers\n",
+				dev->rc_idx);
+			return;
+		}
+
+		val = readl_relaxed(dev->conf + ep_l1sub_cap_reg1_offset);
+
+		PCIE_DBG(dev, "EP's L1SUB_CAPABILITY_REG_1: 0x%x\n", val);
+		PCIE_DBG(dev, "RC%d: ep_l1sub_ctrl1_offset: 0x%x\n",
+				dev->rc_idx, ep_l1sub_ctrl1_offset);
+
+		val &= 0xf;
+
+		msm_pcie_write_reg_field(dev->dm_core, PCIE20_L1SUB_CONTROL1,
+					0xf, val);
 		msm_pcie_write_mask(dev->dm_core +
 					PCIE20_DEVICE_CONTROL2_STATUS2,
 					0, BIT(10));
-		msm_pcie_write_mask(dev->conf + PCIE20_L1SUB_CONTROL1 +
-					offset, 0,
-					BIT(3)|BIT(2)|BIT(1)|BIT(0));
+		msm_pcie_write_reg_field(dev->conf, ep_l1sub_ctrl1_offset,
+					0xf, val);
 		msm_pcie_write_mask(dev->conf + PCIE20_DEVICE_CONTROL2_STATUS2,
 					0, BIT(10));
 		if (dev->shadow_en) {
-			msm_pcie_write_mask(dev->rc_shadow +
-					PCIE20_L1SUB_CONTROL1 / 4, 0,
-					BIT(3)|BIT(2)|BIT(1)|BIT(0));
+			msm_pcie_write_reg_field(dev->rc_shadow,
+					PCIE20_L1SUB_CONTROL1 / 4, 0xf,
+					val);
 			msm_pcie_write_mask(dev->rc_shadow +
 					PCIE20_DEVICE_CONTROL2_STATUS2 / 4,
 					0, BIT(10));
-			msm_pcie_write_mask(dev->ep_shadow[0] +
-					PCIE20_L1SUB_CONTROL1 / 4 +
-					PCIE20_EP_L1SUB_CTL1_OFFSET / 4, 0,
-					BIT(3)|BIT(2)|BIT(1)|BIT(0));
+			msm_pcie_write_reg_field(dev->ep_shadow[0],
+					ep_l1sub_ctrl1_offset / 4, 0xf,
+					val);
 			msm_pcie_write_mask(dev->ep_shadow[0] +
 					PCIE20_DEVICE_CONTROL2_STATUS2 / 4,
 					0, BIT(10));
@@ -1578,8 +1603,7 @@ static void msm_pcie_config_link_state(struct msm_pcie_dev_t *dev)
 			readl_relaxed(dev->dm_core +
 			PCIE20_DEVICE_CONTROL2_STATUS2));
 		PCIE_DBG(dev, "EP's L1SUB_CONTROL1:0x%x\n",
-			readl_relaxed(dev->conf + PCIE20_L1SUB_CONTROL1 +
-			offset));
+			readl_relaxed(dev->conf + ep_l1sub_ctrl1_offset));
 		PCIE_DBG(dev, "EP's DEVICE_CONTROL2_STATUS2:0x%x\n",
 			readl_relaxed(dev->conf +
 			PCIE20_DEVICE_CONTROL2_STATUS2));
