@@ -1046,7 +1046,7 @@ void mdss_mdp_ctl_perf_release_bw(struct mdss_mdp_ctl *ctl)
 	pr_debug("transaction_status=0x%x\n", transaction_status);
 
 	/*Release the bandwidth only if there are no transactions pending*/
-	if (!transaction_status) {
+	if (!transaction_status && mdata->enable_bw_release) {
 		/*
 		 * for splitdisplay if release_bw is called using secondary
 		 * then find the main ctl and release BW for main ctl because
