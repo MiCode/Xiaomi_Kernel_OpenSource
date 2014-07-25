@@ -648,6 +648,13 @@ static inline int mdss_mdp_get_pixel_ram_size(struct mdss_data_type *mdata)
 						MDSS_MDP_PIXEL_RAM_SIZE : 0;
 }
 
+static inline bool mdss_mdp_is_nrt_vbif_client(struct mdss_data_type *mdata,
+					struct mdss_mdp_pipe *pipe)
+{
+	return mdata->vbif_nrt_io.base && pipe->mixer_left &&
+			pipe->mixer_left->rotator_mode;
+}
+
 irqreturn_t mdss_mdp_isr(int irq, void *ptr);
 int mdss_iommu_attach(struct mdss_data_type *mdata);
 int mdss_iommu_dettach(struct mdss_data_type *mdata);

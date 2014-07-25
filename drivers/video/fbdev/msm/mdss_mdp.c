@@ -173,13 +173,13 @@ static int mdss_mdp_parse_dt_bus_scale(struct platform_device *pdev);
  * mdss_mdp_vbif_axi_halt() - Halt MDSS AXI ports
  * @mdata: pointer to the global mdss data structure.
  *
- * Check if MDSS AXI ports are idle or not. If not send a halt request and
- * wait for it be idle.
+ * Check if MDSS AXI ports connected to RealTime(RT) VBIF are idle or not. If
+ * not send a halt request and wait for it be idle.
  *
  * This function can be called during deep suspend, display off or for
- * debugging purposes. On success it should be assumed that AXI ports are in
- * idle state and would not fetch any more data. This function cannot be
- * called from interrupt context.
+ * debugging purposes. On success it should be assumed that AXI ports connected
+ * to RT VBIF are in idle state and would not fetch any more data. This function
+ * cannot be called from interrupt context.
  */
 int mdss_mdp_vbif_axi_halt(struct mdss_data_type *mdata)
 {
@@ -192,13 +192,13 @@ int mdss_mdp_vbif_axi_halt(struct mdss_data_type *mdata)
 		idle_mask |= BIT(5);
 
 	mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_ON);
-	reg_val = MDSS_VBIF_READ(mdata, MMSS_VBIF_AXI_HALT_CTRL1);
+	reg_val = MDSS_VBIF_READ(mdata, MMSS_VBIF_AXI_HALT_CTRL1, false);
 
 	is_idle = (reg_val & idle_mask) ? true : false;
 	if (!is_idle) {
 		pr_err("axi is not idle. halt_ctrl1=%d\n", reg_val);
 
-		MDSS_VBIF_WRITE(mdata, MMSS_VBIF_AXI_HALT_CTRL0, 1);
+		MDSS_VBIF_WRITE(mdata, MMSS_VBIF_AXI_HALT_CTRL0, 1, false);
 
 		rc = readl_poll_timeout(mdata->vbif_io.base +
 			MMSS_VBIF_AXI_HALT_CTRL1, status, (status & idle_mask),
@@ -208,7 +208,7 @@ int mdss_mdp_vbif_axi_halt(struct mdss_data_type *mdata)
 		else
 			pr_debug("VBIF axi is halted\n");
 
-		MDSS_VBIF_WRITE(mdata, MMSS_VBIF_AXI_HALT_CTRL0, 0);
+		MDSS_VBIF_WRITE(mdata, MMSS_VBIF_AXI_HALT_CTRL0, 0, false);
 	}
 	mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_OFF);
 
@@ -1470,6 +1470,13 @@ static int mdss_mdp_probe(struct platform_device *pdev)
 		(int) (unsigned long) mdata->vbif_io.base,
 		mdata->vbif_io.len);
 
+	rc = msm_dss_ioremap_byname(pdev, &mdata->vbif_nrt_io, "vbif_nrt_phys");
+	if (rc)
+		pr_debug("unable to map MDSS VBIF non-realtime base\n");
+	else
+		pr_debug("MDSS VBIF NRT HW Base addr=%p len=0x%x\n",
+			mdata->vbif_nrt_io.base, mdata->vbif_nrt_io.len);
+
 	res = platform_get_resource(pdev, IORESOURCE_IRQ, 0);
 	if (!res) {
 		pr_err("unable to get MDSS irq\n");
@@ -1567,8 +1574,8 @@ int mdss_mdp_parse_dt_hw_settings(struct platform_device *pdev)
 {
 	struct mdss_data_type *mdata = platform_get_drvdata(pdev);
 	struct mdss_hw_settings *hws;
-	const u32 *vbif_arr, *mdp_arr;
-	int vbif_len, mdp_len;
+	const u32 *vbif_arr, *mdp_arr, *vbif_nrt_arr;
+	int vbif_len, mdp_len, vbif_nrt_len;
 
 	vbif_arr = of_get_property(pdev->dev.of_node, "qcom,vbif-settings",
 			&vbif_len);
@@ -1578,6 +1585,14 @@ int mdss_mdp_parse_dt_hw_settings(struct platform_device *pdev)
 	}
 	vbif_len /= 2 * sizeof(u32);
 
+	vbif_nrt_arr = of_get_property(pdev->dev.of_node,
+				"qcom,vbif-nrt-settings", &vbif_nrt_len);
+	if (!vbif_nrt_arr || (vbif_nrt_len & 1)) {
+		pr_debug("MDSS VBIF non-realtime settings not found\n");
+		vbif_nrt_len = 0;
+	}
+	vbif_nrt_len /= 2 * sizeof(u32);
+
 	mdp_arr = of_get_property(pdev->dev.of_node, "qcom,mdp-settings",
 			&mdp_len);
 	if (!mdp_arr || (mdp_len & 1)) {
@@ -1586,16 +1601,18 @@ int mdss_mdp_parse_dt_hw_settings(struct platform_device *pdev)
 	}
 	mdp_len /= 2 * sizeof(u32);
 
-	if ((mdp_len + vbif_len) == 0)
+	if (!(mdp_len + vbif_len + vbif_nrt_len))
 		return 0;
 
-	hws = devm_kzalloc(&pdev->dev, sizeof(*hws) * (vbif_len + mdp_len + 1),
-			GFP_KERNEL);
+	hws = devm_kzalloc(&pdev->dev, sizeof(*hws) * (vbif_len + mdp_len +
+			vbif_nrt_len + 1), GFP_KERNEL);
 	if (!hws)
 		return -ENOMEM;
 
 	mdss_mdp_parse_dt_regs_array(vbif_arr, &mdata->vbif_io,
 			hws, vbif_len);
+	mdss_mdp_parse_dt_regs_array(vbif_nrt_arr, &mdata->vbif_nrt_io,
+			hws, vbif_nrt_len);
 	mdss_mdp_parse_dt_regs_array(mdp_arr, &mdata->mdss_io,
 		hws + vbif_len, mdp_len);
 
