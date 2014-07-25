@@ -143,5 +143,16 @@
 				bias-disable = <0>;
 			};
 		};
+
+		eth-irq {
+			qcom,pins = <&gp 75>;
+			qcom,num-grp-pins = <1>;
+			qcom,pin-func = <0>;
+			label = "eth-irq";
+			eth_irq_default: default {
+				drive-strength = <2>;
+				bias-pull-up;
+			};
+		};
 	};
 };
