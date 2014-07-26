@@ -907,7 +907,7 @@ static enum cpe_svc_result cpe_mt_validate_cmd(
 {
 	enum cpe_svc_result rc = CPE_SVC_SUCCESS;
 
-	if (t_info && t_info->initialized == false) {
+	if ((t_info == NULL) || t_info->initialized == false) {
 		pr_err("%s: cpe service is not ready\n",
 			__func__);
 		return CPE_SVC_NOT_READY;
