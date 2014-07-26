@@ -768,6 +768,13 @@ static int __handoff_clk(struct clk *clk)
 		pr_debug("Handed off %s rate=%lu\n", clk->dbg_name, clk->rate);
 	}
 
+	if (clk->init_rate && clk_set_rate(clk, clk->init_rate))
+		pr_err("failed to set an init rate of %lu on %s\n",
+			clk->init_rate, clk->dbg_name);
+	if (clk->always_on && clk->init_rate && clk_prepare_enable(clk))
+		pr_err("failed to enable always-on clock %s\n",
+			clk->dbg_name);
+
 	clk->flags |= CLKFLAG_INIT_DONE;
 	/* if the clk is on orphan list, remove it */
 	list_del_init(&clk->list);
