@@ -23,6 +23,13 @@
 #include "msm_bus_noc.h"
 #include "msm_bus_bimc.h"
 
+struct static_rules_type {
+	int num_rules;
+	struct bus_rule_type *rules;
+};
+
+static struct static_rules_type static_rules;
+
 static int enable_nodeclk(struct nodeclk *nclk)
 {
 	int ret = 0;
@@ -587,6 +594,49 @@ exit_enable_qos_clk:
 	return ret;
 }
 
+int msm_bus_enable_limiter(struct msm_bus_node_device_type *node_dev,
+				bool enable, uint64_t lim_bw)
+{
+	int ret = 0;
+	struct msm_bus_node_device_type *bus_node_dev;
+
+	if (!node_dev) {
+		MSM_BUS_ERR("No device specified");
+		ret = -ENXIO;
+		goto exit_enable_limiter;
+	}
+
+	if (!node_dev->ap_owned) {
+		MSM_BUS_ERR("Device is not AP owned %d.",
+						node_dev->node_info->id);
+		ret = -ENXIO;
+		goto exit_enable_limiter;
+	}
+
+	bus_node_dev = node_dev->node_info->bus_device->platform_data;
+	if (!bus_node_dev) {
+		MSM_BUS_ERR("Unable to get bus device infofor %d",
+			node_dev->node_info->id);
+		ret = -ENXIO;
+		goto exit_enable_limiter;
+	}
+	if (bus_node_dev->fabdev &&
+		bus_node_dev->fabdev->noc_ops.limit_mport) {
+		msm_bus_qos_enable_clk(node_dev);
+		bus_node_dev->fabdev->noc_ops.limit_mport(
+				node_dev,
+				bus_node_dev->fabdev->qos_base,
+				bus_node_dev->fabdev->base_offset,
+				bus_node_dev->fabdev->qos_off,
+				bus_node_dev->fabdev->qos_freq,
+				enable, lim_bw);
+		msm_bus_qos_disable_clk(node_dev);
+	}
+
+exit_enable_limiter:
+	return ret;
+}
+
 static int msm_bus_dev_init_qos(struct device *dev, void *data)
 {
 	int ret = 0;
@@ -619,7 +669,7 @@ static int msm_bus_dev_init_qos(struct device *dev, void *data)
 			bus_node_info->fabdev->noc_ops.qos_init) {
 
 			if (node_dev->ap_owned &&
-				(node_dev->node_info->mode) != -1) {
+				(node_dev->node_info->qos_params.mode) != -1) {
 
 				if (bus_node_info->fabdev->bypass_qos_prg)
 					goto exit_init_qos;
@@ -678,6 +728,7 @@ static int msm_bus_fabric_init(struct device *dev,
 	fabdev->qos_range = pdata->fabdev->qos_range;
 	fabdev->base_offset = pdata->fabdev->base_offset;
 	fabdev->qos_off = pdata->fabdev->qos_off;
+	fabdev->qos_freq = pdata->fabdev->qos_freq;
 	fabdev->bus_type = pdata->fabdev->bus_type;
 	fabdev->bypass_qos_prg = pdata->fabdev->bypass_qos_prg;
 	fabdev->util_fact = pdata->fabdev->util_fact;
@@ -757,12 +808,15 @@ static int msm_bus_copy_node_info(struct msm_bus_node_device_type *pdata,
 	node_info->buswidth = pdata_node_info->buswidth;
 	node_info->virt_dev = pdata_node_info->virt_dev;
 	node_info->is_fab_dev = pdata_node_info->is_fab_dev;
-	node_info->mode = pdata_node_info->mode;
-	node_info->prio1 = pdata_node_info->prio1;
-	node_info->prio0 = pdata_node_info->prio0;
-	node_info->prio_lvl = pdata_node_info->prio_lvl;
-	node_info->prio_rd = pdata_node_info->prio_rd;
-	node_info->prio_wr = pdata_node_info->prio_wr;
+	node_info->qos_params.mode = pdata_node_info->qos_params.mode;
+	node_info->qos_params.prio1 = pdata_node_info->qos_params.prio1;
+	node_info->qos_params.prio0 = pdata_node_info->qos_params.prio0;
+	node_info->qos_params.prio_lvl = pdata_node_info->qos_params.prio_lvl;
+	node_info->qos_params.prio_rd = pdata_node_info->qos_params.prio_rd;
+	node_info->qos_params.prio_wr = pdata_node_info->qos_params.prio_wr;
+	node_info->qos_params.gp = pdata_node_info->qos_params.gp;
+	node_info->qos_params.thmp = pdata_node_info->qos_params.thmp;
+	node_info->qos_params.ws = pdata_node_info->qos_params.ws;
 
 	node_info->dev_connections = devm_kzalloc(bus_dev,
 			sizeof(struct device *) *
@@ -1021,6 +1075,36 @@ exit_device_probe:
 	return ret;
 }
 
+static int msm_bus_device_rules_probe(struct platform_device *pdev)
+{
+	struct bus_rule_type *rule_data = NULL;
+	int num_rules = 0;
+
+	num_rules = msm_bus_of_get_static_rules(pdev, &rule_data);
+
+	if (!rule_data)
+		goto exit_rules_probe;
+
+	msm_rule_register(num_rules, rule_data, NULL);
+	static_rules.num_rules = num_rules;
+	static_rules.rules = rule_data;
+	pdev->dev.platform_data = &static_rules;
+
+exit_rules_probe:
+	return 0;
+}
+
+int msm_bus_device_rules_remove(struct platform_device *pdev)
+{
+	struct static_rules_type *static_rules = NULL;
+
+	static_rules = pdev->dev.platform_data;
+	if (static_rules)
+		msm_rule_unregister(static_rules->num_rules,
+					static_rules->rules, NULL);
+	return 0;
+}
+
 static int msm_bus_free_dev(struct device *dev, void *data)
 {
 	struct msm_bus_node_device_type *bus_node = NULL;
@@ -1040,6 +1124,21 @@ int msm_bus_device_remove(struct platform_device *pdev)
 	return 0;
 }
 
+static struct of_device_id rules_match[] = {
+	{.compatible = "qcom,msm-bus-static-bw-rules"},
+	{}
+};
+
+static struct platform_driver msm_bus_rules_driver = {
+	.probe = msm_bus_device_rules_probe,
+	.remove = msm_bus_device_rules_remove,
+	.driver = {
+		.name = "msm_bus_rules_device",
+		.owner = THIS_MODULE,
+		.of_match_table = rules_match,
+	},
+};
+
 static struct of_device_id fabric_match[] = {
 	{.compatible = "qcom,msm-bus-device"},
 	{}
@@ -1057,7 +1156,15 @@ static struct platform_driver msm_bus_device_driver = {
 
 int __init msm_bus_device_init_driver(void)
 {
+	int rc;
+
 	MSM_BUS_ERR("msm_bus_fabric_init_driver\n");
-	return platform_driver_register(&msm_bus_device_driver);
+	rc =  platform_driver_register(&msm_bus_device_driver);
+
+	if (rc) {
+		MSM_BUS_ERR("Failed to register bus device driver");
+		return rc;
+	}
+	return platform_driver_register(&msm_bus_rules_driver);
 }
 subsys_initcall(msm_bus_device_init_driver);

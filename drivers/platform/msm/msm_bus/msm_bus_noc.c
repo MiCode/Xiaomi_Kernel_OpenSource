@@ -642,8 +642,8 @@ static int msm_bus_noc_qos_init(struct msm_bus_node_device_type *info,
 	int ret = 0;
 	int i;
 
-	prio.p1 = info->node_info->prio1;
-	prio.p0 = info->node_info->prio0;
+	prio.p1 = info->node_info->qos_params.prio1;
+	prio.p0 = info->node_info->qos_params.prio0;
 
 	if (!info->node_info->qport) {
 		MSM_BUS_DBG("No QoS Ports to init\n");
@@ -652,26 +652,28 @@ static int msm_bus_noc_qos_init(struct msm_bus_node_device_type *info,
 	}
 
 	for (i = 0; i < info->node_info->num_qports; i++) {
-		if (info->node_info->mode != NOC_QOS_MODE_BYPASS) {
+		if (info->node_info->qos_params.mode != NOC_QOS_MODE_BYPASS) {
 			noc_set_qos_priority(qos_base, qos_off,
 					info->node_info->qport[i], qos_delta,
 					&prio);
 
-			if (info->node_info->mode != NOC_QOS_MODE_FIXED) {
+			if (info->node_info->qos_params.mode !=
+							NOC_QOS_MODE_FIXED) {
 				struct msm_bus_noc_qos_bw qbw;
-				qbw.ws = info->node_info->ws;
+				qbw.ws = info->node_info->qos_params.ws;
 				qbw.bw = 0;
 				msm_bus_noc_set_qos_bw(qos_base, qos_off,
-						qos_freq,
-						info->node_info->qport[i],
-						qos_delta,
-						info->node_info->mode, &qbw);
+					qos_freq,
+					info->node_info->qport[i],
+					qos_delta,
+					info->node_info->qos_params.mode,
+					&qbw);
 			}
 		}
 
 		noc_set_qos_mode(qos_base, qos_off, info->node_info->qport[i],
-				qos_delta, info->node_info->mode,
-				(1 << info->node_info->mode));
+				qos_delta, info->node_info->qos_params.mode,
+				(1 << info->node_info->qos_params.mode));
 	}
 err_qos_init:
 	return ret;
@@ -687,7 +689,10 @@ static int msm_bus_noc_set_bw(struct msm_bus_node_device_type *dev,
 	int i;
 	struct msm_bus_node_info_type *info = dev->node_info;
 
-	if (info && info->num_qports) {
+	if (info && info->num_qports &&
+		((info->qos_params.mode == NOC_QOS_MODE_REGULATOR) ||
+		(info->qos_params.mode ==
+			NOC_QOS_MODE_LIMITER))) {
 		struct msm_bus_noc_qos_bw qos_bw;
 
 		bw = msm_bus_div64(info->num_qports,
@@ -700,10 +705,10 @@ static int msm_bus_noc_set_bw(struct msm_bus_node_device_type *dev,
 			}
 
 			qos_bw.bw = bw;
-			qos_bw.ws = info->ws;
+			qos_bw.ws = info->qos_params.ws;
 			msm_bus_noc_set_qos_bw(qos_base, qos_off, qos_freq,
 				info->qport[i], qos_delta,
-				info->mode, &qos_bw);
+				info->qos_params.mode, &qos_bw);
 			MSM_BUS_DBG("NOC: QoS: Update mas_bw: ws: %u\n",
 				qos_bw.ws);
 		}
@@ -736,6 +741,7 @@ int msm_bus_noc_set_ops(struct msm_bus_node_device_type *bus_dev)
 	else {
 		bus_dev->fabdev->noc_ops.qos_init = msm_bus_noc_qos_init;
 		bus_dev->fabdev->noc_ops.set_bw = msm_bus_noc_set_bw;
+		bus_dev->fabdev->noc_ops.limit_mport = NULL;
 	}
 	return 0;
 }
