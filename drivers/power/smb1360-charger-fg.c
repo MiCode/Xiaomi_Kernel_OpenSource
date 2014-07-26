@@ -198,7 +198,7 @@
 #define SHDW_FG_BATT_TEMP		0x6D
 
 #define CC_TO_SOC_COEFF			0xBA
-#define NOMINAL_CAPACITY_REG		0xBC
+#define ACTUAL_CAPACITY_REG		0xBE
 
 #define FG_I2C_CFG_MASK			SMB1360_MASK(2, 1)
 #define FG_CFG_I2C_ADDR			0x2
@@ -1988,7 +1988,7 @@ static struct fg_regs fg_scratch_pad[] = {
 	{30, 2, "counter_pulse", data_16},
 	{32, 1, "IRQ_delta_prev", data_8},
 	{33, 1, "cap_learning_counter", data_8},
-	{34, 4, "Vact_int_error", data_24},
+	{34, 4, "Vact_int_error", data_32},
 	{38, 3, "SOC_cutoff", data_24},
 	{41, 3, "SOC_full", data_24},
 	{44, 3, "SOC_auto_rechrge_temp", data_24},
@@ -2009,6 +2009,7 @@ static struct fg_regs fg_scratch_pad[] = {
 	{85, 2, "System_CC_to_CV_voltage", data_16},
 	{87, 2, "System_term_current", data_16},
 	{89, 2, "System_fake_term_current", data_16},
+	{91, 2, "thermistor_c1_coeff", data_16},
 };
 
 static struct fg_regs fg_cfg[] = {
@@ -2042,7 +2043,7 @@ static struct fg_regs fg_shdw[] = {
 #define LAST_FG_CFG_REG			0x2F
 #define FIRST_FG_SHDW_REG		0x60
 #define LAST_FG_SHDW_REG		0x6F
-#define FG_SCRATCH_PAD_MAX		90
+#define FG_SCRATCH_PAD_MAX		93
 #define FG_SCRATCH_PAD_BASE_REG		0x80
 #define SMB1360_I2C_READ_LENGTH		32
 
@@ -2092,7 +2093,7 @@ static int show_fg_regs(struct seq_file *m, void *data)
 	}
 
 	j = i * SMB1360_I2C_READ_LENGTH;
-	rem_length = FG_SCRATCH_PAD_MAX % SMB1360_I2C_READ_LENGTH;
+	rem_length = (FG_SCRATCH_PAD_MAX % SMB1360_I2C_READ_LENGTH) + 1;
 	if (rem_length) {
 		rc = smb1360_read_bytes(chip, FG_SCRATCH_PAD_BASE_REG + j,
 						&reg[j], rem_length);
@@ -2517,7 +2518,7 @@ static int smb1360_fg_config(struct smb1360_chip *chip)
 			pr_err("Couldn't enable FG access rc=%d\n", rc);
 			return rc;
 		}
-		rc = smb1360_read_bytes(chip, NOMINAL_CAPACITY_REG,
+		rc = smb1360_read_bytes(chip, ACTUAL_CAPACITY_REG,
 							reg2, 2);
 		if (rc) {
 			pr_err("Failed to read NOM CAPACITY rc=%d\n",
@@ -2532,7 +2533,7 @@ static int smb1360_fg_config(struct smb1360_chip *chip)
 		/* Update the battery capacity */
 		reg2[1] = (chip->batt_capacity_mah & 0xFF00) >> 8;
 		reg2[0] = (chip->batt_capacity_mah & 0xFF);
-		rc = smb1360_write_bytes(chip, NOMINAL_CAPACITY_REG,
+		rc = smb1360_write_bytes(chip, ACTUAL_CAPACITY_REG,
 							reg2, 2);
 		if (rc) {
 			pr_err("Couldn't write batt-capacity rc=%d\n",
