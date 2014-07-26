@@ -1056,7 +1056,8 @@ struct ipa_ecm_msg {
  * CnE need to pass the name of default wan iface when connected/disconnected.
  */
 struct ipa_wan_msg {
-	char name[IPA_RESOURCE_NAME_MAX];
+	char upstream_ifname[IPA_RESOURCE_NAME_MAX];
+	char tethered_ifname[IPA_RESOURCE_NAME_MAX];
 	enum ipa_ip_type ip;
 };
 
