@@ -1678,13 +1678,13 @@ static int fg_probe(struct spmi_device *spmi)
 	u8 subtype;
 	int rc = 0;
 
-	if (!spmi->dev.of_node) {
-		pr_err("device node missing\n");
+	if (!spmi) {
+		pr_err("no valid spmi pointer\n");
 		return -ENODEV;
 	}
 
-	if (!spmi) {
-		pr_err("no valid spmi pointer\n");
+	if (!spmi->dev.of_node) {
+		pr_err("device node missing\n");
 		return -ENODEV;
 	}
 
