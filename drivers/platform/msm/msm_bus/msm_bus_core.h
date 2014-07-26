@@ -40,6 +40,7 @@
 	? -msm_bus_div64((ports), (-bw)) : msm_bus_div64((ports), (bw))) : (bw))
 #define INTERLEAVED_VAL(fab_pdata, n) \
 	((fab_pdata->il_flag) ? (n) : 1)
+#define KBTOB(a) (a * 1000ULL)
 
 enum msm_bus_dbg_op_type {
 	MSM_BUS_DBG_UNREGISTER = -2,
