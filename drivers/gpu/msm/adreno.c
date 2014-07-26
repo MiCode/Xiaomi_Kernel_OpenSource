@@ -228,6 +228,30 @@ static int adreno_init_sysfs(struct kgsl_device *device);
 static void adreno_uninit_sysfs(struct kgsl_device *device);
 static int adreno_soft_reset(struct kgsl_device *device);
 
+/*
+ * _soft_reset() - Soft reset GPU
+ * @adreno_dev: Pointer to adreno device
+ *
+ * Soft reset the GPU by doing a AHB write of value 1 to RBBM_SW_RESET
+ * register. This is used when we want to reset the GPU without
+ * turning off GFX power rail. The reset when asserted resets
+ * all the HW logic, restores GPU registers to default state and
+ * flushes out pending VBIF transactions.
+ */
+void _soft_reset(struct adreno_device *adreno_dev)
+{
+	unsigned int reg;
+
+	adreno_writereg(adreno_dev, ADRENO_REG_RBBM_SW_RESET_CMD, 1);
+	/*
+	 * Do a dummy read to get a brief read cycle delay for the reset to take
+	 * effect
+	 */
+	adreno_readreg(adreno_dev, ADRENO_REG_RBBM_SW_RESET_CMD, &reg);
+	adreno_writereg(adreno_dev, ADRENO_REG_RBBM_SW_RESET_CMD, 0);
+}
+
+
 static inline void adreno_irqctrl(struct adreno_device *adreno_dev, int state)
 {
 	struct adreno_gpudev *gpudev = ADRENO_GPU_DEVICE(adreno_dev);
@@ -1339,13 +1363,9 @@ static int _adreno_start(struct adreno_device *adreno_dev)
 		goto error_mmu_off;
 	}
 
-	if (regulator_left_on && gpudev->soft_reset) {
-		/*
-		 * Reset the GPU for A3xx. A2xx does a soft reset in
-		 * the start function.
-		 */
-		gpudev->soft_reset(adreno_dev);
-	}
+	/* Soft reset GPU if regulator is stuck on*/
+	if (regulator_left_on)
+		_soft_reset(adreno_dev);
 
 	/* Restore performance counter registers with saved values */
 	adreno_perfcounter_restore(adreno_dev);
@@ -2278,10 +2298,7 @@ static int adreno_soft_reset(struct kgsl_device *device)
 	struct adreno_gpudev *gpudev = ADRENO_GPU_DEVICE(adreno_dev);
 	int ret;
 
-	if (gpudev->soft_reset == NULL) {
-		dev_WARN_ONCE(device->dev, 1, "Soft reset not supported");
-		return -EINVAL;
-	}
+	_soft_reset(adreno_dev);
 
 	adreno_set_active_ctx_null(adreno_dev);
 
@@ -2303,7 +2320,7 @@ static int adreno_soft_reset(struct kgsl_device *device)
 
 	kgsl_cffdump_close(device);
 	/* Reset the GPU */
-	gpudev->soft_reset(adreno_dev);
+	_soft_reset(adreno_dev);
 
 	/* start of new CFF after reset */
 	kgsl_cffdump_open(device);
