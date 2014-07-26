@@ -1755,8 +1755,8 @@ static int try_set_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 	struct hfi_device *hdev;
 	struct hal_extradata_enable extra;
 	struct hal_mpeg4_time_resolution time_res;
-	struct hal_ltruse useltr;
-	struct hal_ltrmark markltr;
+	struct hal_ltr_use use_ltr;
+	struct hal_ltr_mark mark_ltr;
 	u32 hier_p_layers;
 
 	if (!inst || !inst->core || !inst->core->device) {
@@ -2561,19 +2561,19 @@ static int try_set_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 		break;
 	}
 	case V4L2_CID_MPEG_VIDC_VIDEO_REQUEST_SEQ_HEADER:
-		atomic_inc(&inst->get_seq_hdr_cnt);
+		atomic_inc(&inst->seq_hdr_reqs);
 		break;
 	case V4L2_CID_MPEG_VIDC_VIDEO_USELTRFRAME:
 		property_id = HAL_CONFIG_VENC_USELTRFRAME;
-		useltr.refltr = (1 << ctrl->val);
-		useltr.useconstrnt = false;
-		useltr.frames = 0;
-		pdata = &useltr;
+		use_ltr.ref_ltr = (1 << ctrl->val);
+		use_ltr.use_constraint = false;
+		use_ltr.frames = 0;
+		pdata = &use_ltr;
 		break;
 	case V4L2_CID_MPEG_VIDC_VIDEO_MARKLTRFRAME:
 		property_id = HAL_CONFIG_VENC_MARKLTRFRAME;
-		markltr.markframe = ctrl->val;
-		pdata = &markltr;
+		mark_ltr.mark_frame = ctrl->val;
+		pdata = &mark_ltr;
 		break;
 	case V4L2_CID_MPEG_VIDC_VIDEO_HIER_P_NUM_LAYERS:
 		property_id = HAL_CONFIG_VENC_HIER_P_NUM_FRAMES;
@@ -2626,7 +2626,7 @@ static int try_set_ext_ctrl(struct msm_vidc_inst *inst,
 	int rc = 0, i;
 	struct v4l2_ext_control *control;
 	struct hfi_device *hdev;
-	struct hal_ltrmode ltrmode;
+	struct hal_ltr_mode ltr_mode;
 	struct hal_vc1e_perf_cfg_type search_range = { {0} };
 	u32 property_id = 0;
 	void *pdata = NULL;
@@ -2651,28 +2651,28 @@ static int try_set_ext_ctrl(struct msm_vidc_inst *inst,
 				if (rc)
 					break;
 			}
-			ltrmode.ltrmode = control[i].value;
-			ltrmode.trustmode = 1;
+			ltr_mode.mode = control[i].value;
+			ltr_mode.trust_mode = 1;
 			property_id = HAL_PARAM_VENC_LTRMODE;
-			pdata = &ltrmode;
+			pdata = &ltr_mode;
 			break;
 		case V4L2_CID_MPEG_VIDC_VIDEO_LTRCOUNT:
-			ltrmode.ltrcount =  control[i].value;
-			if (ltrmode.ltrcount > cap->ltr_count.max) {
+			ltr_mode.count =  control[i].value;
+			if (ltr_mode.count > cap->ltr_count.max) {
 				dprintk(VIDC_ERR,
 					"Invalid LTR count %d. Supported max: %d\n",
-					ltrmode.ltrcount,
+					ltr_mode.count,
 					cap->ltr_count.max);
 				/*
 				 * FIXME: Return an error (-EINVALID)
 				 * here once VP8 supports LTR count
 				 * capability
 				 */
-				ltrmode.ltrcount = 1;
+				ltr_mode.count = 1;
 			}
-			ltrmode.trustmode = 1;
+			ltr_mode.trust_mode = 1;
 			property_id = HAL_PARAM_VENC_LTRMODE;
-			pdata = &ltrmode;
+			pdata = &ltr_mode;
 			break;
 		case V4L2_CID_MPEG_VIDC_VIDEO_ENABLE_INITIAL_QP:
 			property_id = HAL_PARAM_VENC_ENABLE_INITIAL_QP;

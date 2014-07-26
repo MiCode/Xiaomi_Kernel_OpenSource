@@ -590,20 +590,20 @@ struct hfi_quantization_range {
 #define HFI_LTR_MODE_MANUAL		0x1
 #define HFI_LTR_MODE_PERIODIC	0x2
 
-struct hfi_ltrmode {
-	u32 ltrmode;
-	u32 ltrcount;
-	u32 trustmode;
+struct hfi_ltr_mode {
+	u32 ltr_mode;
+	u32 ltr_count;
+	u32 trust_mode;
 };
 
-struct hfi_ltruse {
-	u32 refltr;
-	u32 useconstrnt;
+struct hfi_ltr_use {
+	u32 ref_ltr;
+	u32 use_constrnt;
 	u32 frames;
 };
 
-struct hfi_ltrmark {
-	u32 markframe;
+struct hfi_ltr_mark {
+	u32 mark_frame;
 };
 
 struct hfi_frame_size {
