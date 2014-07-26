@@ -429,7 +429,8 @@ void msm_slim_tx_msg_return(struct msm_slim_ctrl *dev)
 				pr_err("SLIM TX get IOVEC failed:%d", ret);
 			return;
 		}
-		idx = (int) ((iovec.addr - mem->phys_base) / SLIM_MSGQ_BUF_LEN);
+		idx = (int) ((iovec.addr - (unsigned long) mem->phys_base)
+			/ SLIM_MSGQ_BUF_LEN);
 		if (idx < MSM_TX_BUFS && dev->wr_comp[idx]) {
 			struct completion *comp = dev->wr_comp[idx];
 			dev->wr_comp[idx] = NULL;
