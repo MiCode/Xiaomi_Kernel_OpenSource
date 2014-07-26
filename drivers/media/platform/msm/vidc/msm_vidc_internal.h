@@ -78,8 +78,8 @@
 #define DCVS_BUFFER_SAFEGUARD 1
 /* Considering one output buffer in transition after decode */
 #define DCVS_BUFFER_RELEASED_DEC 1
-/* Considering atleast one FTB between each FBD */
-#define DCVS_MIN_DRAIN_RATE 1
+/* Considering at least two FTB's between each FBD */
+#define DCVS_MIN_DRAIN_RATE 2
 /* Ensures difference of 4 between min and max threshold always*/
 #define DCVS_MIN_THRESHOLD_DIFF 4
 /* Maintains the number of FTB's between each FBD over a window */
