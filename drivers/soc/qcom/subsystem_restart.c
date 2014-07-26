@@ -593,6 +593,12 @@ static int subsys_start(struct subsys_device *subsys)
 
 static void subsys_stop(struct subsys_device *subsys)
 {
+	const char *name = subsys->desc->name;
+
+	subsys->desc->sysmon_shutdown_ret = sysmon_send_shutdown(subsys->desc);
+	if (subsys->desc->sysmon_shutdown_ret)
+		pr_debug("Graceful shutdown failed for %s\n", name);
+
 	notify_each_subsys_device(&subsys, 1, SUBSYS_BEFORE_SHUTDOWN, NULL);
 	subsys->desc->shutdown(subsys->desc, false);
 	subsys_set_state(subsys, SUBSYS_OFFLINE);

@@ -17,8 +17,6 @@
 #include <linux/spinlock.h>
 #include <linux/interrupt.h>
 
-#define SUBSYS_NAME_MAX_LENGTH 40
-
 struct subsys_device;
 
 enum {
@@ -46,6 +44,7 @@ struct module;
  * it out of reset
  * @ssctl_instance_id: Instance id used to connect with SSCTL service
  * @sysmon_pid:	pdev id that sysmon is probed with for the subsystem
+ * @sysmon_shutdown_ret: Return value for the call to sysmon_send_shutdown
  */
 struct subsys_desc {
 	const char *name;
@@ -69,6 +68,7 @@ struct subsys_desc {
 	bool no_auth;
 	int ssctl_instance_id;
 	u32 sysmon_pid;
+	int sysmon_shutdown_ret;
 };
 
 /**

@@ -31,6 +31,7 @@ enum esoc_evt {
 enum esoc_cmd {
 	ESOC_PWR_ON = 1,
 	ESOC_PWR_OFF,
+	ESOC_FORCE_PWR_OFF,
 	ESOC_RESET,
 	ESOC_PREPARE_DEBUG,
 	ESOC_EXE_DEBUG,
