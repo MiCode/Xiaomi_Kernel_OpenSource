@@ -1426,6 +1426,8 @@ static void kgsl_iommu_lock_rb_in_tlb(struct kgsl_mmu *mmu)
 	for (i = 0; i < iommu->unit_count; i++) {
 		struct kgsl_iommu_unit *iommu_unit = &iommu->iommu_units[i];
 		for (j = 0; j < iommu_unit->dev_count; j++) {
+			if (!iommu_unit->dev[j].attached)
+				continue;
 			tlblkcr = 0;
 			tlblkcr |= (((num_tlb_entries *
 				iommu_unit->dev_count) &
@@ -1446,6 +1448,8 @@ static void kgsl_iommu_lock_rb_in_tlb(struct kgsl_mmu *mmu)
 					TLBLKCR, tlblkcr);
 		}
 		for (j = 0; j < iommu_unit->dev_count; j++) {
+			if (!iommu_unit->dev[j].attached)
+				continue;
 			/* Lock the ringbuffer virtual address into tlb */
 			vaddr = rb->buffer_desc.gpuaddr;
 			for (k = 0; k < num_tlb_entries; k++) {
@@ -1482,6 +1486,8 @@ static void kgsl_iommu_lock_rb_in_tlb(struct kgsl_mmu *mmu)
 			}
 		}
 		for (j = 0; j < iommu_unit->dev_count; j++) {
+			if (!iommu_unit->dev[j].attached)
+				continue;
 			tlblkcr = KGSL_IOMMU_GET_CTX_REG(iommu, iommu_unit,
 						iommu_unit->dev[j].ctx_id,
 						TLBLKCR);
@@ -1716,6 +1722,8 @@ static void kgsl_iommu_pagefault_resume(struct kgsl_mmu *mmu)
 			struct kgsl_iommu_unit *iommu_unit =
 						&iommu->iommu_units[i];
 			for (j = 0; j < iommu_unit->dev_count; j++) {
+				if (!iommu_unit->dev[j].attached)
+					continue;
 				if (iommu_unit->dev[j].fault) {
 					_iommu_lock(iommu);
 					KGSL_IOMMU_SET_CTX_REG(iommu,
@@ -2007,6 +2015,8 @@ static int kgsl_iommu_set_pf_policy(struct kgsl_mmu *mmu,
 	for (i = 0; i < iommu->unit_count; i++) {
 		struct kgsl_iommu_unit *iommu_unit = &iommu->iommu_units[i];
 		for (j = 0; j < iommu_unit->dev_count; j++) {
+			if (!iommu_unit->dev[j].attached)
+				continue;
 			sctlr_val = KGSL_IOMMU_GET_CTX_REG(iommu,
 					iommu_unit,
 					iommu_unit->dev[j].ctx_id,
@@ -2050,6 +2060,8 @@ static void kgsl_iommu_set_pagefault(struct kgsl_mmu *mmu)
 	/* Loop through all IOMMU devices to check for fault */
 	for (i = 0; i < iommu->unit_count; i++) {
 		for (j = 0; j < iommu->iommu_units[i].dev_count; j++) {
+			if (!iommu->iommu_units[i].dev[j].attached)
+				continue;
 			fsr = KGSL_IOMMU_GET_CTX_REG(iommu,
 				(&(iommu->iommu_units[i])),
 				iommu->iommu_units[i].dev[j].ctx_id, FSR);
