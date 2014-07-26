@@ -1303,6 +1303,7 @@ int msm_isp_axi_restart(struct vfe_device *vfe_dev,
 	int rc = 0, i, j;
 	struct msm_vfe_axi_stream *stream_info;
 	struct msm_vfe_axi_shared_data *axi_data = &vfe_dev->axi_data;
+	uint32_t wm_reload_mask = 0x0;
 
 	for (i = 0, j = 0; j < axi_data->num_active_stream &&
 		i < MAX_NUM_STREAM; i++, j++) {
@@ -1311,10 +1312,11 @@ int msm_isp_axi_restart(struct vfe_device *vfe_dev,
 			j--;
 			continue;
 		}
-
+		msm_isp_get_stream_wm_mask(stream_info, &wm_reload_mask);
 		msm_isp_init_stream_ping_pong_reg(vfe_dev, stream_info);
 	}
 
+	vfe_dev->hw_info->vfe_ops.axi_ops.reload_wm(vfe_dev, wm_reload_mask);
 	rc = vfe_dev->hw_info->vfe_ops.axi_ops.restart(vfe_dev, 0,
 		restart_cmd->enable_camif);
 	if (rc < 0)
