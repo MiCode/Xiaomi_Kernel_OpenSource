@@ -87,7 +87,10 @@ static int secondary_pen_release(unsigned int cpu)
 
 static int __init msm_cpu_init(struct device_node *dn, unsigned int cpu)
 {
-	/*Nothing to do here but needed to keep framework happy */
+	/* Mark CPU0 cold boot flag as done */
+	if (!cpu && !per_cpu(cold_boot_done, cpu))
+		per_cpu(cold_boot_done, cpu) = true;
+
 	return 0;
 }
 

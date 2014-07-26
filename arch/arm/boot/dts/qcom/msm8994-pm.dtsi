@@ -33,7 +33,7 @@
 			60 70 0f];
 	};
 
-	qcom,spm@f9012000 {
+	cluster0_spm: qcom,spm@f9012000 {
 		compatible = "qcom,spm-v2";
 		#address-cells = <1>;
 		#size-cells = <1>;
@@ -50,7 +50,7 @@
 			30 50 08 0f];
 	};
 
-	qcom,spm@f9013000 {
+	cluster1_spm: qcom,spm@f9013000 {
 		compatible = "qcom,spm-v2";
 		#address-cells = <1>;
 		#size-cells = <1>;

@@ -262,33 +262,48 @@ spm_failed_malloc:
 
 /**
  * msm_spm_turn_on_cpu_rail(): Power on cpu rail before turning on core
- * @base: The SAW VCTL register which would set the voltage up.
+ * @node: The SPM node that controls the voltage for the CPU
  * @val: The value to be set on the rail
  * @cpu: The cpu for this with rail is being powered on
  */
-int msm_spm_turn_on_cpu_rail(void __iomem *base, unsigned int val, int cpu)
+int msm_spm_turn_on_cpu_rail(struct device_node *vctl_node,
+		unsigned int val, int cpu, int vctl_offset)
 {
 	uint32_t timeout = 2000; /* delay for voltage to settle on the core */
 	struct msm_spm_device *dev = per_cpu(cpu_vctl_device, cpu);
+	void __iomem *base;
 
-	/*
-	 * If clock drivers have already set up the voltage,
-	 * do not overwrite that value.
-	 */
+	base = of_iomap(vctl_node, 1);
+	if (base) {
+		/*
+		 * Program Q2S to disable SPM legacy mode and ignore Q2S
+		 * channel requests
+		 */
+		writel_relaxed(0x1, base);
+		mb();
+		iounmap(base);
+	}
+
+	base = of_iomap(vctl_node, 0);
+	if (!base)
+		return -ENOMEM;
+
 	if (dev && (dev->cpu_vdd != VDD_DEFAULT))
 		return 0;
 
 	/* Set the CPU supply regulator voltage */
 	val = (val & 0xFF);
-	writel_relaxed(val, base);
+	writel_relaxed(val, base + vctl_offset);
 	mb();
 	udelay(timeout);
 
 	/* Enable the CPU supply regulator*/
 	val = 0x30080;
-	writel_relaxed(val, base);
+	writel_relaxed(val, base + vctl_offset);
 	mb();
 	udelay(timeout);
+
+	iounmap(base);
 
 	return 0;
 }
