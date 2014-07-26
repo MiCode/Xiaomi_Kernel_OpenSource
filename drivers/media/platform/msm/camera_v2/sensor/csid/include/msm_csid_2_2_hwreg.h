@@ -13,7 +13,7 @@
 #ifndef MSM_CSID_2_2_HWREG_H
 #define MSM_CSID_2_2_HWREG_H
 
-#include "msm_csid.h"
+#include <sensor/csid/msm_csid.h>
 
 struct csid_reg_parms_t csid_v2_2 = {
 	/* MIPI	CSID registers */
