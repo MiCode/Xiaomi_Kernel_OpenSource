@@ -68,7 +68,7 @@
 		interrupts = <0 15 0>;
 		regulator-name = "apc_corner";
 		regulator-min-microvolt = <1>;
-		regulator-max-microvolt = <3>;
+		regulator-max-microvolt = <20>;
 
 		qcom,cpr-fuse-corners = <3>;
 		qcom,cpr-voltage-ceiling = <1050000 1150000 1350000>;
@@ -105,6 +105,33 @@
 					<27 18 6 0>,
 					<27 0 6 0>;
 		qcom,cpr-init-voltage-step = <10000>;
+		qcom,cpr-corner-map = <1 1 1 2 2 2 2 2 2 3 3 3 3 3 3 3 3 3 3 3>;
+		qcom,cpr-corner-frequency-map =
+					<1 200000000>,
+					<2 345600000>,
+					<3 400000000>,
+					<4 422400000>,
+					<5 499200000>,
+					<6 533330000>,
+					<7 652800000>,
+					<8 729600000>,
+					<9 800000000>,
+					<10 806400000>,
+					<11 883200000>,
+					<12 960000000>,
+					<13 1036800000>,
+					<14 1113600000>,
+					<15 1190400000>,
+					<16 1267200000>,
+					<17 1344000000>,
+					<18 1420800000>,
+					<19 1497600000>,
+					<20 1536000000>;
+		qcom,speed-bin-fuse-sel = <1 34 3 0>;
+		qcom,cpr-speed-bin-max-corners =
+					<0 0 3 9 17>,
+					<2 0 3 9 20>;
+		qcom,cpr-quot-adjust-scaling-factor-max = <900>;
 		qcom,cpr-enable;
 	};
 };
