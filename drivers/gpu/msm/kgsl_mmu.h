@@ -148,7 +148,7 @@ struct kgsl_mmu {
 	bool secured;
 };
 
-extern struct kgsl_mmu_ops iommu_ops;
+extern struct kgsl_mmu_ops kgsl_iommu_ops;
 extern struct kgsl_mmu_pt_ops iommu_pt_ops;
 
 struct kgsl_pagetable *kgsl_mmu_getpagetable(struct kgsl_mmu *,

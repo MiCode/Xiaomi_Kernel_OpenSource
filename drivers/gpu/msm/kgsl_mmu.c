@@ -516,7 +516,7 @@ int kgsl_mmu_init(struct kgsl_device *device)
 				"qcom,secure-context");
 
 	if (KGSL_MMU_TYPE_IOMMU == kgsl_mmu_type) {
-		mmu->mmu_ops = &iommu_ops;
+		mmu->mmu_ops = &kgsl_iommu_ops;
 		status =  mmu->mmu_ops->mmu_init(mmu);
 	}
 
