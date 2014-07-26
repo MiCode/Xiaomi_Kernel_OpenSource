@@ -81,6 +81,21 @@
 			};
 		};
 
+		pmx_mdss_te: pmx_mdss_te {
+			label = "mdss-te-pins";
+			qcom,pin-func = <1>;
+			mdss_te_active: active {
+				drive-strength = <2>; /* 8 mA */
+				bias-pull-down = <0>; /* pull down*/
+				input-debounce = <0>;
+			};
+			mdss_te_suspend: suspend {
+				drive-strength = <2>; /* 2 mA */
+				bias-pull-down; /* pull down */
+				input-debounce = <0>;
+			};
+		};
+
 		pmx_hdmi_cec: pmx_hdmi_cec {
 			qcom,pin-func = <1>;
 			label = "hdmi-cec-pins";
