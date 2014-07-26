@@ -136,8 +136,8 @@ struct diag_log_mask_userspace_t {
 #define MSG_STATUS_FAIL		0
 #define MSG_STATUS_SUCCESS	1
 
-#define EVENT_STATUS_SUCCESS	1
-#define EVENT_STATUS_FAIL	0
+#define EVENT_STATUS_SUCCESS	0
+#define EVENT_STATUS_FAIL	1
 
 #define DIAG_CTRL_MASK_INVALID		0
 #define DIAG_CTRL_MASK_ALL_DISABLED	1
