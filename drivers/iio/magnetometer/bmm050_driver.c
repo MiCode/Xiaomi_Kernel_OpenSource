@@ -157,7 +157,8 @@ static const long op_mode_maps[] = {
 	{ \
 		.type = device_type, \
 		.modified = 1, \
-		.info_mask_separate = BIT(IIO_CHAN_INFO_RAW), \
+		.info_mask_separate = BIT(IIO_CHAN_INFO_RAW) | \
+				BIT(IIO_CHAN_INFO_SCALE), \
 		.scan_index = si, \
 		.channel2 = mod, \
 		.address = addr, \
@@ -1008,8 +1009,10 @@ static int bmm_read_raw(struct iio_dev *indio_dev,
 			struct iio_chan_spec const *ch, int *val,
 							int *val2, long mask)
 {
-	int ret, result;
+	int ret, result, err;
 	struct bmm050_iio_mdata_s32 raw_data = {0, 0};
+	struct  bmm_client_data *client_data = iio_priv(indio_dev);
+	struct  i2c_client *client = client_data->client;
 
 	switch (mask) {
 	case IIO_CHAN_INFO_RAW:
@@ -1019,18 +1022,40 @@ static int bmm_read_raw(struct iio_dev *indio_dev,
 		mutex_lock(&indio_dev->mlock);
 		switch (ch->type) {
 		case IIO_MAGN:
+			err = bmm_set_op_mode(client_data, BMM_VAL_NAME(NORMAL_MODE));
+			if (err) {
+				dev_err(&client->dev, "fail to set opmode %d",
+							BMM_VAL_NAME(NORMAL_MODE));
+				ret = -EIO;
+				break;
+			} else
+				client_data->op_mode = BMM_VAL_NAME(NORMAL_MODE);
+
 			result = bmm_read_axis_data(indio_dev, ch, &raw_data);
 			*val  = raw_data.data;
+			err = bmm_set_op_mode(client_data, BMM_VAL_NAME(SUSPEND_MODE));
+			if (err) {
+				dev_err(&client->dev, "fail to set opmode %d",
+							BMM_VAL_NAME(SUSPEND_MODE));
+				ret = -EIO;
+				break;
+			} else
+				client_data->op_mode = BMM_VAL_NAME(SUSPEND_MODE);
+
 			break;
 		default:
 			ret = -EINVAL;
 			break;
 		}
 		mutex_unlock(&indio_dev->mlock);
-	if (result < 0)
-		return result;
-	return ret;
+		if (result < 0)
+			return result;
+		return ret;
 	}
+	case IIO_CHAN_INFO_SCALE:
+		*val = 0;
+		*val2 = 10000;
+		return IIO_VAL_INT_PLUS_MICRO;
 	default:
 		return -EINVAL;
 	}
@@ -1285,6 +1310,7 @@ static int bmm_probe(struct i2c_client *client, const struct i2c_device_id *id)
 	client_data->rept_xy = BMM_DEFAULT_REPETITION_XY;
 	client_data->rept_z = BMM_DEFAULT_REPETITION_Z;
 
+#ifdef BMM050_TRIGGER_ENABLE
 	err = iio_triggered_buffer_setup(indio_dev,
 					    &iio_pollfunc_store_time,
 					    &bmm_buffer_handler,
@@ -1299,6 +1325,7 @@ static int bmm_probe(struct i2c_client *client, const struct i2c_device_id *id)
 		dev_err(indio_dev->dev.parent, "trigger probe fail %d\n", err);
 		goto err_unreg_ring;
 	}
+#endif
 
 #if 0
 	err = bmm_restore_hw_cfg(client);
@@ -1337,8 +1364,10 @@ static int bmm_probe(struct i2c_client *client, const struct i2c_device_id *id)
 exit_err_sysfs:
 	if (err)
 		bmm_input_destroy(client_data);
+#ifdef BMM050_TRIGGER_ENABLE
 err_unreg_ring:
 	bmm_deallocate_ring(indio_dev);
+#endif
 exit_err_clean:
 	if (err)
 		bmm_client = NULL;
