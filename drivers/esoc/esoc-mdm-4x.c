@@ -351,7 +351,7 @@ static int mdm_cmd_exe(enum esoc_cmd cmd, struct esoc_clink *esoc)
 		mdm->ready = false;
 		mdm->trig_cnt = 0;
 
-		ret = sysmon_send_shutdown(esoc->subsys.name);
+		ret = sysmon_send_shutdown(&esoc->subsys);
 		if (ret)
 			dev_err(mdm->dev, "Graceful shutdown fail, ret = %d\n",
 									ret);
@@ -466,7 +466,7 @@ static void mdm_get_restart_reason(struct work_struct *work)
 	struct device *dev = mdm->dev;
 
 	do {
-		ret = sysmon_get_reason(mdm->esoc->subsys.name, sfr_buf,
+		ret = sysmon_get_reason(&mdm->esoc->subsys, sfr_buf,
 							sizeof(sfr_buf));
 		if (!ret) {
 			dev_err(dev, "mdm restart reason is %s\n", sfr_buf);
