@@ -13,6 +13,13 @@ Required properties:
 			subsystem to DDR. The list of values depend on the
 			supported DDR frequencies and the bus widths.
 
+Optional properties:
+- qcom,ab-tbl:		A list of pre-calculated absolute bandwidth values
+			(in MB/s) that can be requested from the CPU subsystem
+			to DDR for particular instantaneous bandwidth. The list
+			of values could depend on a certain percentage of
+			instantaneous bandwidth.
+
 Example:
 
 	qcom,cpubw {
