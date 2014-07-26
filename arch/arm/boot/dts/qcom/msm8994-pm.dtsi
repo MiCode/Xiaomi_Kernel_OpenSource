@@ -533,12 +533,12 @@
 
 	};
 
-	qcom,pm@fe875664 {
+	qcom,pm@fe87f664 {
 		compatible = "qcom,pm";
 		#address-cells = <1>;
 		#size-cells = <1>;
 		ranges;
-		reg = <0xfe875664 0x40>;
+		reg = <0xfe87f664 0x40>;
 		clock-names = "cpu0_clk", "cpu1_clk", "cpu2_clk",
 				"cpu3_clk", "cpu4_clk", "cpu5_clk",
 				"cpu6_clk", "cpu7_clk", "l2_clk";
