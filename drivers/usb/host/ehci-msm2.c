@@ -1036,6 +1036,8 @@ static ssize_t debug_read_phy_data(struct file *file, char __user *ubuf,
 	int ret = 0;
 
 	kbuf = kzalloc(sizeof(char) * BUF_SIZE, GFP_KERNEL);
+	if (!kbuf)
+		return -ENOMEM;
 	pm_runtime_get(mhcd->dev);
 	data = msm_ulpi_read(mhcd, addr);
 	pm_runtime_put(mhcd->dev);
