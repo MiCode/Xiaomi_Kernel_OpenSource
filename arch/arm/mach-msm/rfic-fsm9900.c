@@ -59,6 +59,7 @@
 #define WTR_RXGAIN_REG1  0x80
 #define WTR_RXGAIN_REG2  0x81
 #define MTR_RXGAIN_REG   0x7E
+#define MTR_RXGAIN_NL    0x102
 /*
  * FTR8700, WTR1605  RFIC
  */
@@ -121,7 +122,7 @@ struct ftr_dev_file_info {
 	int ftrid;
 };
 
-int n_dev;
+static int n_dev;
 /*
  * File interface
  */
@@ -399,10 +400,11 @@ static long ftr_ioctl(struct file *file,
 			if (param.grfcid >= RFIC_GRFC_REG_NUM)
 				return -EINVAL;
 
-			__raw_writel(param.maskvalue,
-				grfc_base + 0x20 + param.grfcid * 4);
+			__raw_writel(0, grfc_base + 0x20 + param.grfcid * 4);
 			__raw_writel(param.ctrlvalue,
 				grfc_base + param.grfcid * 4);
+			__raw_writel(param.maskvalue,
+				grfc_base + 0x20 + param.grfcid * 4);
 			mb();
 		}
 		break;
@@ -834,6 +836,7 @@ void rfic_pvc_enable(void __iomem *pvc_addr, int rfic)
 		break;
 	case 3:
 		writel_relaxed(MTR_RXGAIN_REG, pvc_addr + PVC_ADDR1);
+		writel_relaxed(MTR_RXGAIN_NL, pvc_addr + PVC_ADDR2);
 		break;
 	default:
 		pr_err("%s: Unsupported RFIC\n", __func__);
