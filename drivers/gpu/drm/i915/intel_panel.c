@@ -475,9 +475,8 @@ static u32 intel_panel_get_backlight(struct intel_connector *connector)
 	struct drm_device *dev = connector->base.dev;
 	struct drm_i915_private *dev_priv = dev->dev_private;
 	u32 val;
-	unsigned long flags;
 
-	spin_lock_irqsave(&dev_priv->backlight_lock, flags);
+	mutex_lock(&dev_priv->backlight_lock);
 
 	val = dev_priv->display.get_backlight(connector);
 
@@ -491,7 +490,7 @@ static u32 intel_panel_get_backlight(struct intel_connector *connector)
 	else
 		val = intel_panel_compute_brightness(connector, val);
 
-	spin_unlock_irqrestore(&dev_priv->backlight_lock, flags);
+	mutex_unlock(&dev_priv->backlight_lock);
 
 	DRM_DEBUG_DRIVER("get backlight PWM = %d\n", val);
 	return val;
@@ -575,13 +574,12 @@ void intel_panel_set_backlight(struct intel_connector *connector, u32 level,
 	struct intel_panel *panel = &connector->panel;
 	enum pipe pipe = intel_get_pipe_from_connector(connector);
 	u32 freq;
-	unsigned long flags;
 	u64 n;
 
 	if (!panel->backlight.present || pipe == INVALID_PIPE)
 		return;
 
-	spin_lock_irqsave(&dev_priv->backlight_lock, flags);
+	mutex_lock(&dev_priv->backlight_lock);
 
 	WARN_ON(panel->backlight.max == 0);
 
@@ -602,7 +600,7 @@ void intel_panel_set_backlight(struct intel_connector *connector, u32 level,
 			intel_panel_actually_set_backlight(connector, level);
 	}
 
-	spin_unlock_irqrestore(&dev_priv->backlight_lock, flags);
+	mutex_unlock(&dev_priv->backlight_lock);
 }
 
 static void pch_disable_backlight(struct intel_connector *connector)
@@ -656,7 +654,6 @@ void intel_panel_disable_backlight(struct intel_connector *connector)
 	struct drm_i915_private *dev_priv = dev->dev_private;
 	struct intel_panel *panel = &connector->panel;
 	enum pipe pipe = intel_get_pipe_from_connector(connector);
-	unsigned long flags;
 
 	if (!panel->backlight.present || pipe == INVALID_PIPE)
 		return;
@@ -672,12 +669,12 @@ void intel_panel_disable_backlight(struct intel_connector *connector)
 		return;
 	}
 
-	spin_lock_irqsave(&dev_priv->backlight_lock, flags);
+	mutex_lock(&dev_priv->backlight_lock);
 
 	panel->backlight.enabled = false;
 	dev_priv->display.disable_backlight(connector);
 
-	spin_unlock_irqrestore(&dev_priv->backlight_lock, flags);
+	mutex_unlock(&dev_priv->backlight_lock);
 }
 
 static void bdw_enable_backlight(struct intel_connector *connector)
@@ -862,14 +859,13 @@ void intel_panel_enable_backlight(struct intel_connector *connector)
 	struct drm_i915_private *dev_priv = dev->dev_private;
 	struct intel_panel *panel = &connector->panel;
 	enum pipe pipe = intel_get_pipe_from_connector(connector);
-	unsigned long flags;
 
 	if (!panel->backlight.present || pipe == INVALID_PIPE)
 		return;
 
 	DRM_DEBUG_KMS("pipe %c\n", pipe_name(pipe));
 
-	spin_lock_irqsave(&dev_priv->backlight_lock, flags);
+	mutex_lock(&dev_priv->backlight_lock);
 
 	WARN_ON(panel->backlight.max == 0);
 
@@ -885,7 +881,7 @@ void intel_panel_enable_backlight(struct intel_connector *connector)
 	dev_priv->display.enable_backlight(connector);
 	panel->backlight.enabled = true;
 
-	spin_unlock_irqrestore(&dev_priv->backlight_lock, flags);
+	mutex_unlock(&dev_priv->backlight_lock);
 }
 
 #if IS_ENABLED(CONFIG_BACKLIGHT_CLASS_DEVICE)
@@ -1133,7 +1129,6 @@ int intel_panel_setup_backlight(struct drm_connector *connector)
 	struct drm_i915_private *dev_priv = dev->dev_private;
 	struct intel_connector *intel_connector = to_intel_connector(connector);
 	struct intel_panel *panel = &intel_connector->panel;
-	unsigned long flags;
 	int ret;
 
 	if (!dev_priv->vbt.backlight.present) {
@@ -1142,9 +1137,9 @@ int intel_panel_setup_backlight(struct drm_connector *connector)
 	}
 
 	/* set level and max in panel struct */
-	spin_lock_irqsave(&dev_priv->backlight_lock, flags);
+	mutex_lock(&dev_priv->backlight_lock);
 	ret = dev_priv->display.setup_backlight(intel_connector);
-	spin_unlock_irqrestore(&dev_priv->backlight_lock, flags);
+	mutex_unlock(&dev_priv->backlight_lock);
 
 	if (ret) {
 		DRM_DEBUG_KMS("failed to setup backlight for connector %s\n",

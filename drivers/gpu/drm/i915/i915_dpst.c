@@ -126,7 +126,6 @@ i915_dpst_disable_hist_interrupt(struct drm_device *dev)
 	struct intel_panel *panel = &dev_priv->dpst.connector->panel;
 
 	u32 blm_hist_guard, blm_hist_ctl;
-	unsigned long spin_lock_flags;
 
 	dev_priv->dpst.enabled = false;
 	dev_priv->dpst.blc_adjustment = DPST_MAX_FACTOR;
@@ -147,10 +146,10 @@ i915_dpst_disable_hist_interrupt(struct drm_device *dev)
 	/* DPST interrupt in DE_IER register is disabled in irq_uninstall */
 
 	/* Setting blc level to what it would be without dpst adjustment */
-	spin_lock_irqsave(&dev_priv->backlight_lock, spin_lock_flags);
+	mutex_lock(&dev_priv->backlight_lock);
 	intel_panel_actually_set_backlight(dev_priv->dpst.connector
 			, panel->backlight.level);
-	spin_unlock_irqrestore(&dev_priv->backlight_lock, spin_lock_flags);
+	mutex_unlock(&dev_priv->backlight_lock);
 
 	return 0;
 }
@@ -190,7 +189,6 @@ i915_dpst_apply_luma(struct drm_device *dev,
 
 	u32 diet_factor, i;
 	u32 blm_hist_ctl;
-	unsigned long spin_lock_flags;
 
 	/* This is an invalid call if we are disabled by the user
 	 * If pipe_mismatch is true, the luma data is calculated from the
@@ -233,9 +231,9 @@ i915_dpst_apply_luma(struct drm_device *dev,
 
 	/* Avoid warning messages */
 	mutex_lock(&dev->mode_config.mutex);
-	spin_lock_irqsave(&dev_priv->backlight_lock, spin_lock_flags);
+	mutex_lock(&dev_priv->backlight_lock);
 	i915_dpst_set_brightness(dev, panel->backlight.level);
-	spin_unlock_irqrestore(&dev_priv->backlight_lock, spin_lock_flags);
+	mutex_unlock(&dev_priv->backlight_lock);
 	mutex_unlock(&dev->mode_config.mutex);
 
 	/* Enable Image Enhancement Table */
@@ -268,7 +266,6 @@ i915_dpst_restore_luma(struct drm_device *dev)
 	struct drm_i915_private *dev_priv = dev->dev_private;
 	struct intel_panel *panel = &dev_priv->dpst.connector->panel;
 	u32 blm_hist_ctl;
-	unsigned long spin_lock_flags;
 
 	/* Only restore if valid settings were previously saved */
 	if (!dev_priv->dpst.saved.is_valid)
@@ -278,9 +275,9 @@ i915_dpst_restore_luma(struct drm_device *dev)
 
 	/* Avoid warning messages */
 	mutex_lock(&dev->mode_config.mutex);
-	spin_lock_irqsave(&dev_priv->backlight_lock, spin_lock_flags);
+	mutex_lock(&dev_priv->backlight_lock);
 	i915_dpst_set_brightness(dev, panel->backlight.level);
-	spin_unlock_irqrestore(&dev_priv->backlight_lock, spin_lock_flags);
+	mutex_unlock(&dev_priv->backlight_lock);
 	mutex_unlock(&dev->mode_config.mutex);
 
 	/* IE mod table entries are saved in the hardware even if the table

@@ -1474,6 +1474,9 @@ struct drm_i915_private {
 	struct mutex dpio_lock;
 	struct mutex new_dpio_lock;
 
+	/* backlight registers and fields in struct intel_panel */
+	struct mutex backlight_lock;
+
 	/** Cached value of IMR to avoid reads in updating the bitfield */
 	union {
 		u32 irq_mask;
@@ -1504,9 +1507,6 @@ struct drm_i915_private {
 
 	/* overlay */
 	struct intel_overlay *overlay;
-
-	/* backlight registers and fields in struct intel_panel */
-	spinlock_t backlight_lock;
 
 	/* LVDS info */
 	bool no_aux_handshake;
