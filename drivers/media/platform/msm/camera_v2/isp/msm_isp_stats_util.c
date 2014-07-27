@@ -567,6 +567,53 @@ static int msm_isp_stats_update_cgc_override(struct vfe_device *vfe_dev,
 	return 0;
 }
 
+int msm_isp_stats_reset(struct vfe_device *vfe_dev)
+{
+	int i = 0;
+	struct msm_vfe_stats_stream *stream_info = NULL;
+	struct msm_vfe_stats_shared_data *stats_data = &vfe_dev->stats_data;
+	struct msm_isp_bufq *bufq = NULL;
+
+	for (i = 0; i < MSM_ISP_STATS_MAX; i++) {
+		stream_info = &stats_data->stream_info[i];
+		if (stream_info->state != STATS_ACTIVE)
+			continue;
+
+		bufq = vfe_dev->buf_mgr->ops->get_bufq(vfe_dev->buf_mgr,
+			stream_info->bufq_handle);
+		if (!bufq) {
+			pr_err("%s Error! bufq is NULL\n", __func__);
+			continue;
+		}
+
+		if (bufq->buf_type != ISP_SHARE_BUF)
+			msm_isp_deinit_stats_ping_pong_reg(vfe_dev,
+				stream_info);
+		else
+			vfe_dev->buf_mgr->ops->flush_buf(vfe_dev->buf_mgr,
+				stream_info->bufq_handle,
+				MSM_ISP_BUFFER_FLUSH_ALL);
+	}
+
+	return 0;
+}
+
+int msm_isp_stats_restart(struct vfe_device *vfe_dev)
+{
+	int i = 0;
+	struct msm_vfe_stats_stream *stream_info = NULL;
+	struct msm_vfe_stats_shared_data *stats_data = &vfe_dev->stats_data;
+
+	for (i = 0; i < MSM_ISP_STATS_MAX; i++) {
+		stream_info = &stats_data->stream_info[i];
+			if (stream_info->state < STATS_ACTIVE)
+				continue;
+		msm_isp_init_stats_ping_pong_reg(vfe_dev, stream_info);
+	}
+
+	return 0;
+}
+
 static int msm_isp_start_stats_stream(struct vfe_device *vfe_dev,
 	struct msm_vfe_stats_stream_cfg_cmd *stream_cfg_cmd)
 {
