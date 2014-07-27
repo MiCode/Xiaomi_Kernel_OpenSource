@@ -205,8 +205,44 @@ const unsigned char MAX_SRCH_MODE = 0x01;
 #define RDS_TYPE_0B     (0 * 2 + 1)
 #define RDS_TYPE_2A     (2 * 2 + 0)
 #define RDS_TYPE_2B     (2 * 2 + 1)
+#define RDS_TYPE_3A     (3 * 2 + 0)
 #define UNCORRECTABLE           3
-#define RT_VALIDATE_LIMIT 2
+#define RT_VALIDATE_LIMIT	2
+
+#define APP_GRP_typ_MASK	0x1F
+/*ERT*/
+#define ERT_AID			0x6552
+#define MAX_ERT_SEGMENT		31
+#define MAX_ERT_LEN		256
+#define ERT_OFFSET		3
+#define ERT_FORMAT_DIR_BIT	1
+#define ERT_CNT_PER_BLK		2
+/*RT PLUS*/
+#define DUMMY_CLASS		0
+#define RT_PLUS_LEN_1_TAG	3
+#define RT_ERT_FLAG_BIT		13
+#define RT_PLUS_AID             0x4bd7
+#define RT_ERT_FLAG_OFFSET	1
+#define RT_PLUS_OFFSET		2
+/*TAG1*/
+#define TAG1_MSB_OFFSET		3
+#define TAG1_MSB_MASK		7
+#define TAG1_LSB_OFFSET		13
+#define TAG1_POS_MSB_MASK	0x3F
+#define TAG1_POS_MSB_OFFSET	1
+#define TAG1_POS_LSB_OFFSET	7
+#define TAG1_LEN_OFFSET		1
+#define TAG1_LEN_MASK		0x3F
+/*TAG2*/
+#define TAG2_MSB_OFFSET		5
+#define TAG2_MSB_MASK		9
+#define TAG2_LSB_OFFSET		11
+#define TAG2_POS_MSB_MASK	0x3F
+#define TAG2_POS_MSB_OFFSET	3
+#define TAG2_POS_LSB_OFFSET	5
+#define TAG2_LEN_MASK		0x1F
+
+#define EXTRACT_BIT(data, bit_pos) ((data >> bit_pos) & 1)
 
 /* FM states */
 enum radio_state_t {
@@ -302,6 +338,8 @@ enum silabs_buf_t {
 	SILABS_FM_BUF_PS_RDS,
 	SILABS_FM_BUF_RAW_RDS,
 	SILABS_FM_BUF_AF_LIST,
+	SILABS_FM_BUF_RT_PLUS = 11,
+	SILABS_FM_BUF_ERT,
 	SILABS_FM_BUF_MAX
 };
 
@@ -324,7 +362,10 @@ enum silabs_evt_t {
 	SILABS_EVT_NEW_AF_LIST,
 	SILABS_EVT_TXRDSDAT,
 	SILABS_EVT_TXRDSDONE,
-	SILABS_EVT_RADIO_DISABLED
+	SILABS_EVT_RADIO_DISABLED,
+	SILABS_EVT_NEW_ODA,
+	SILABS_EVT_NEW_RT_PLUS,
+	SILABS_EVT_NEW_ERT
 };
 
 enum silabs_region_t {
