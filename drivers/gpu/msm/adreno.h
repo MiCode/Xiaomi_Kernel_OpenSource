@@ -422,14 +422,10 @@ enum adreno_regs {
 	ADRENO_REG_RBBM_PERFCTR_PWR_1_LO,
 	ADRENO_REG_RBBM_INT_0_MASK,
 	ADRENO_REG_RBBM_INT_0_STATUS,
-	ADRENO_REG_RBBM_AHB_ERROR_STATUS,
 	ADRENO_REG_RBBM_PM_OVERRIDE2,
-	ADRENO_REG_RBBM_AHB_CMD,
 	ADRENO_REG_RBBM_INT_CLEAR_CMD,
 	ADRENO_REG_RBBM_SW_RESET_CMD,
 	ADRENO_REG_RBBM_CLOCK_CTL,
-	ADRENO_REG_RBBM_AHB_ME_SPLIT_STATUS,
-	ADRENO_REG_RBBM_AHB_PFP_SPLIT_STATUS,
 	ADRENO_REG_VPC_DEBUG_RAM_SEL,
 	ADRENO_REG_VPC_DEBUG_RAM_READ,
 	ADRENO_REG_PA_SC_AA_CONFIG,
@@ -604,10 +600,7 @@ struct adreno_gpudev {
 	struct adreno_irq *irq;
 	int num_prio_levels;
 	/* GPU specific function hooks */
-	irqreturn_t (*irq_handler)(struct adreno_device *);
-	void (*irq_control)(struct adreno_device *, int);
-	unsigned int (*irq_pending)(struct adreno_device *);
-	void (*irq_setup)(struct adreno_device *);
+	void (*irq_trace)(struct adreno_device *, unsigned int status);
 	void (*snapshot)(struct adreno_device *, struct kgsl_snapshot *);
 	int (*rb_init)(struct adreno_device *, struct adreno_ringbuffer *);
 	int (*perfcounter_init)(struct adreno_device *);
@@ -800,6 +793,9 @@ void adreno_iommu_set_pt_generate_rb_cmds(struct adreno_ringbuffer *rb,
 
 void adreno_fault_detect_start(struct adreno_device *adreno_dev);
 void adreno_fault_detect_stop(struct adreno_device *adreno_dev);
+
+void adreno_hang_int_callback(struct adreno_device *adreno_dev, int bit);
+void adreno_cp_callback(struct adreno_device *adreno_dev, int bit);
 
 static inline int adreno_is_a3xx(struct adreno_device *adreno_dev)
 {
