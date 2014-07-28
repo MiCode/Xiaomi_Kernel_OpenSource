@@ -937,7 +937,8 @@ static int mdss_mdp_irq_clk_setup(struct mdss_data_type *mdata)
 	/* vsync_clk is optional for non-smart panels */
 	mdss_mdp_irq_clk_register(mdata, "vsync_clk", MDSS_CLK_MDP_VSYNC);
 
-	mdss_mdp_set_clk_rate(MDP_CLK_DEFAULT_RATE);
+	/* Setting the default clock rate to the max supported.*/
+	mdss_mdp_set_clk_rate(mdata->max_mdp_clk_rate);
 	pr_debug("mdp clk rate=%ld\n", mdss_mdp_get_clk_rate(MDSS_CLK_MDP_SRC));
 
 	return 0;
