@@ -39,12 +39,12 @@
 #include <sound/soc.h>
 #include <sound/soc-dapm.h>
 #include <sound/tlv.h>
+#include <sound/q6core.h>
 #include <soc/qcom/subsystem_notif.h>
 #include "msm8x16-wcd.h"
 #include "wcd-mbhc-v2.h"
 #include "msm8916-wcd-irq.h"
 #include "msm8x16_wcd_registers.h"
-#include "../msm/qdsp6v2/q6core.h"
 
 #define MSM8X16_WCD_RATES (SNDRV_PCM_RATE_8000 | SNDRV_PCM_RATE_16000 |\
 			SNDRV_PCM_RATE_32000 | SNDRV_PCM_RATE_48000)
@@ -153,7 +153,8 @@ static const struct wcd_mbhc_intr intr_ids = {
 	.mbhc_sw_intr =  MSM8X16_WCD_IRQ_MBHC_HS_DET,
 	.mbhc_btn_press_intr = MSM8X16_WCD_IRQ_MBHC_PRESS,
 	.mbhc_btn_release_intr = MSM8X16_WCD_IRQ_MBHC_RELEASE,
-	.mbhc_hs_ins_rem_intr = MSM8X16_WCD_IRQ_MBHC_INSREM_DET,
+	.mbhc_hs_ins_intr = MSM8X16_WCD_IRQ_MBHC_INSREM_DET1,
+	.mbhc_hs_rem_intr = MSM8X16_WCD_IRQ_MBHC_INSREM_DET,
 	.hph_left_ocp = MSM8X16_WCD_IRQ_HPHL_OCP,
 	.hph_right_ocp = MSM8X16_WCD_IRQ_HPHR_OCP,
 };
@@ -344,7 +345,7 @@ static int __msm8x16_wcd_reg_read(struct snd_soc_codec *codec,
 		ret = msm8x16_wcd_spmi_read(reg, 1, &temp);
 	else if (MSM8X16_WCD_IS_DIGITAL_REG(reg)) {
 		mutex_lock(&pdata->cdc_mclk_mutex);
-		if (atomic_read(&pdata->dis_work_mclk) == false) {
+		if (atomic_read(&pdata->mclk_enabled) == false) {
 			pdata->digital_cdc_clk.clk_val = pdata->mclk_freq;
 			ret = afe_set_digital_codec_core_clock(
 					AFE_PORT_ID_PRIMARY_MI2S_RX,
@@ -356,8 +357,8 @@ static int __msm8x16_wcd_reg_read(struct snd_soc_codec *codec,
 			pr_debug("%s: MCLK not enabled\n", __func__);
 			ret = msm8x16_wcd_ahb_read_device(
 					msm8x16_wcd, reg, 1, &temp);
-			atomic_set(&pdata->dis_work_mclk, true);
-			schedule_delayed_work(&pdata->enable_mclk_work, 50);
+			atomic_set(&pdata->mclk_enabled, true);
+			schedule_delayed_work(&pdata->disable_mclk_work, 50);
 err:
 			mutex_unlock(&pdata->cdc_mclk_mutex);
 			mutex_unlock(&msm8x16_wcd->io_lock);
@@ -394,7 +395,7 @@ static int __msm8x16_wcd_reg_write(struct snd_soc_codec *codec,
 		ret = msm8x16_wcd_spmi_write(reg, 1, &val);
 	else if (MSM8X16_WCD_IS_DIGITAL_REG(reg)) {
 		mutex_lock(&pdata->cdc_mclk_mutex);
-		if (atomic_read(&pdata->dis_work_mclk) == false) {
+		if (atomic_read(&pdata->mclk_enabled) == false) {
 			pr_debug("MCLK not enabled %s:\n", __func__);
 			pdata->digital_cdc_clk.clk_val = pdata->mclk_freq;
 			ret = afe_set_digital_codec_core_clock(
@@ -407,8 +408,8 @@ static int __msm8x16_wcd_reg_write(struct snd_soc_codec *codec,
 			}
 			ret = msm8x16_wcd_ahb_write_device(
 						msm8x16_wcd, reg, &val, 1);
-			atomic_set(&pdata->dis_work_mclk, true);
-			schedule_delayed_work(&pdata->enable_mclk_work, 50);
+			atomic_set(&pdata->mclk_enabled, true);
+			schedule_delayed_work(&pdata->disable_mclk_work, 50);
 err:
 			mutex_unlock(&pdata->cdc_mclk_mutex);
 			mutex_unlock(&msm8x16_wcd->io_lock);
@@ -774,6 +775,43 @@ static int msm8x16_wcd_pa_gain_get(struct snd_kcontrol *kcontrol,
 	return 0;
 }
 
+static int msm8x16_wcd_loopback_mode_get(struct snd_kcontrol *kcontrol,
+				struct snd_ctl_elem_value *ucontrol)
+{
+	struct snd_soc_codec *codec = snd_kcontrol_chip(kcontrol);
+	struct msm8916_asoc_mach_data *pdata = NULL;
+
+	pdata = snd_soc_card_get_drvdata(codec->card);
+	dev_dbg(codec->dev, "%s: ucontrol->value.integer.value[0] = %ld\n",
+		__func__, ucontrol->value.integer.value[0]);
+
+	return pdata->lb_mode;
+}
+
+static int msm8x16_wcd_loopback_mode_put(struct snd_kcontrol *kcontrol,
+				struct snd_ctl_elem_value *ucontrol)
+{
+	struct snd_soc_codec *codec = snd_kcontrol_chip(kcontrol);
+	struct msm8916_asoc_mach_data *pdata = NULL;
+
+	pdata = snd_soc_card_get_drvdata(codec->card);
+	dev_dbg(codec->dev, "%s: ucontrol->value.integer.value[0] = %ld\n",
+		__func__, ucontrol->value.integer.value[0]);
+
+	switch (ucontrol->value.integer.value[0]) {
+	case 0:
+		pdata->lb_mode = false;
+		break;
+	case 1:
+		pdata->lb_mode = true;
+		break;
+	default:
+		return -EINVAL;
+	}
+
+	return 0;
+}
+
 static int msm8x16_wcd_pa_gain_put(struct snd_kcontrol *kcontrol,
 				struct snd_ctl_elem_value *ucontrol)
 {
@@ -1041,6 +1079,12 @@ static int msm8x16_wcd_put_iir_band_audio_mixer(
 	return 0;
 }
 
+static const char * const msm8x16_wcd_loopback_mode_ctrl_text[] = {
+		"DISABLE", "ENABLE"};
+static const struct soc_enum msm8x16_wcd_loopback_mode_ctl_enum[] = {
+		SOC_ENUM_SINGLE_EXT(2, msm8x16_wcd_loopback_mode_ctrl_text),
+};
+
 static const char * const msm8x16_wcd_ear_pa_boost_ctrl_text[] = {
 		"DISABLE", "ENABLE"};
 static const struct soc_enum msm8x16_wcd_ear_pa_boost_ctl_enum[] = {
@@ -1089,6 +1133,9 @@ static const struct snd_kcontrol_new msm8x16_wcd_snd_controls[] = {
 
 	SOC_ENUM_EXT("Speaker Boost", msm8x16_wcd_spk_boost_ctl_enum[0],
 		msm8x16_wcd_spk_boost_get, msm8x16_wcd_spk_boost_set),
+
+	SOC_ENUM_EXT("LOOPBACK Mode", msm8x16_wcd_loopback_mode_ctl_enum[0],
+		msm8x16_wcd_loopback_mode_get, msm8x16_wcd_loopback_mode_put),
 
 	SOC_SINGLE_TLV("ADC1 Volume", MSM8X16_WCD_A_ANALOG_TX_1_EN, 3,
 					8, 0, analog_gain),
@@ -1889,6 +1936,7 @@ static int msm8x16_wcd_codec_enable_dec(struct snd_soc_dapm_widget *w,
 	struct snd_kcontrol *kcontrol, int event)
 {
 	struct snd_soc_codec *codec = w->codec;
+	struct msm8916_asoc_mach_data *pdata = NULL;
 	unsigned int decimator;
 	struct msm8x16_wcd_priv *msm8x16_wcd = snd_soc_codec_get_drvdata(codec);
 	char *dec_name = NULL;
@@ -1899,6 +1947,7 @@ static int msm8x16_wcd_codec_enable_dec(struct snd_soc_dapm_widget *w,
 	u8 dec_hpf_cut_of_freq;
 	int offset;
 
+	pdata = snd_soc_card_get_drvdata(codec->card);
 	dev_dbg(codec->dev, "%s %d\n", __func__, event);
 
 	widget_name = kstrndup(w->name, 15, GFP_KERNEL);
@@ -1982,6 +2031,11 @@ static int msm8x16_wcd_codec_enable_dec(struct snd_soc_dapm_widget *w,
 				  snd_soc_read(codec,
 				  tx_digital_gain_reg[w->shift + offset])
 				  );
+		if (pdata->lb_mode) {
+			pr_debug("%s: loopback mode unmute the DEC\n",
+							__func__);
+			snd_soc_update_bits(codec, tx_vol_ctl_reg, 0x01, 0x00);
+		}
 		break;
 	case SND_SOC_DAPM_PRE_PMD:
 		snd_soc_update_bits(codec, tx_vol_ctl_reg, 0x01, 0x01);
@@ -3340,37 +3394,23 @@ int msm8x16_wcd_suspend(struct snd_soc_codec *codec)
 	struct msm8x16_wcd_pdata *msm8x16_pdata = msm8x16->dev->platform_data;
 
 	pdata = snd_soc_card_get_drvdata(codec->card);
-	pr_debug("%s: mclk cnt = %d, dis_work_mclk = %d"
-			"mclk_act = %d\n",
+	pr_debug("%s: mclk cnt = %d, mclk_enabled = %d\n",
 			__func__, atomic_read(&pdata->mclk_rsc_ref),
-			atomic_read(&pdata->dis_work_mclk),
-			atomic_read(&pdata->mclk_act));
-	mutex_lock(&pdata->cdc_mclk_mutex);
-	if ((atomic_read(&pdata->dis_work_mclk) == true) ||
-		(atomic_read(&pdata->mclk_rsc_ref) > 0)) {
-		pdata->digital_cdc_clk.clk_val = 0;
-		afe_set_digital_codec_core_clock(
+			atomic_read(&pdata->mclk_enabled));
+	if (atomic_read(&pdata->mclk_enabled) == true) {
+		cancel_delayed_work_sync(
+				&pdata->disable_mclk_work);
+		mutex_lock(&pdata->cdc_mclk_mutex);
+		if (atomic_read(&pdata->mclk_enabled) == true) {
+			pdata->digital_cdc_clk.clk_val = 0;
+			afe_set_digital_codec_core_clock(
 					AFE_PORT_ID_PRIMARY_MI2S_RX,
 					&pdata->digital_cdc_clk);
-		/*
-		 * set mclk activity to resource as
-		 * it will get updated accordingly going further in this
-		 * function.
-		 */
-		atomic_set(&pdata->mclk_act, MCLK_SUS_RSC);
-		if (atomic_read(&pdata->dis_work_mclk) == true) {
-			cancel_delayed_work_sync(
-					&pdata->enable_mclk_work);
-			atomic_set(&pdata->mclk_act, MCLK_SUS_DIS);
-			atomic_set(&pdata->dis_work_mclk, false);
+			atomic_set(&pdata->mclk_enabled, false);
 		}
-	} else
-		/*
-		 * mark no activity on mclk in this suspend
-		 */
-		atomic_set(&pdata->mclk_act, MCLK_SUS_NO_ACT);
+		mutex_unlock(&pdata->cdc_mclk_mutex);
+	}
 	msm8x16_wcd_disable_static_supplies_to_optimum(msm8x16, msm8x16_pdata);
-	mutex_unlock(&pdata->cdc_mclk_mutex);
 	return 0;
 }
 
@@ -3382,34 +3422,6 @@ int msm8x16_wcd_resume(struct snd_soc_codec *codec)
 
 	pdata = snd_soc_card_get_drvdata(codec->card);
 	msm8x16_wcd_enable_static_supplies_to_optimum(msm8x16, msm8x16_pdata);
-	pr_debug("%s: mclk cnt = %d, dis_work_mclk = %d"
-			"mclk_act = %d\n",
-			__func__, atomic_read(&pdata->mclk_rsc_ref),
-			atomic_read(&pdata->dis_work_mclk),
-			atomic_read(&pdata->mclk_act));
-	if (atomic_read(&pdata->mclk_act) == MCLK_SUS_NO_ACT)
-		/*
-		 * no activity in suspend just return
-		 */
-		return 0;
-	mutex_lock(&pdata->cdc_mclk_mutex);
-	if ((atomic_read(&pdata->dis_work_mclk) == false) ||
-		(atomic_read(&pdata->mclk_rsc_ref) > 0)) {
-		pdata->digital_cdc_clk.clk_val = pdata->mclk_freq;
-		afe_set_digital_codec_core_clock(
-					AFE_PORT_ID_PRIMARY_MI2S_RX,
-					&pdata->digital_cdc_clk);
-		if (atomic_read(&pdata->mclk_act) == MCLK_SUS_DIS) {
-			/*
-			 * MCLK activity marked as the disabled during suspend
-			 * this indicated MCLK was enabled to read and write the
-			 * AHB bus.
-			 */
-			atomic_set(&pdata->dis_work_mclk, true);
-			schedule_delayed_work(&pdata->enable_mclk_work, 50);
-		}
-	}
-	mutex_unlock(&pdata->cdc_mclk_mutex);
 	return 0;
 }
 

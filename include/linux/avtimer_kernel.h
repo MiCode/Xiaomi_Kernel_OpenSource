@@ -1,4 +1,5 @@
-/* Copyright (c) 2014, The Linux Foundation. All rights reserved.
+/*
+ * Copyright (c) 2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -8,15 +9,16 @@
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
+ *
  */
 
-/dts-v1/;
+#ifndef _AVTIMER_H
+#define _AVTIMER_H
 
-#include "msm8916-qrd-skuic.dtsi"
-#include "msm8916-512mb-memory.dtsi"
+#include <uapi/linux/avtimer.h>
 
-/ {
-	model = "Qualcomm Technologies, Inc. MSM 8916 QRD SKUIC";
-	compatible = "qcom,msm8916-qrd-skuic", "qcom,msm8916-qrd", "qcom,msm8916", "qcom,qrd";
-	qcom,board-id = <0x11010b 0x105>;
-};
+int avcs_core_open(void);
+int avcs_core_disable_power_collapse(int disable);/* true or flase */
+int avcs_core_query_timer(uint64_t *avtimer_tick);
+
+#endif

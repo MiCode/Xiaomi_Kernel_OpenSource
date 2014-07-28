@@ -22,7 +22,6 @@
 #include <linux/msm-bus-board.h>
 #include "msm_bus_core.h"
 
-#define KBTOB(a) (a * 1000ULL)
 static const char * const hw_sel_name[] = {"RPM", "NoC", "BIMC", NULL};
 static const char * const mode_sel_name[] = {"Fixed", "Limiter", "Bypass",
 						"Regulator", NULL};
@@ -327,6 +326,7 @@ static struct msm_bus_node_info *get_nodes(struct device_node *of_node,
 	struct device_node *child_node = NULL;
 	int i = 0, ret;
 	int num_bw = 0;
+	u32 temp;
 
 	for_each_child_of_node(of_node, child_node) {
 		i++;
@@ -443,6 +443,7 @@ static struct msm_bus_node_info *get_nodes(struct device_node *of_node,
 
 		ret = of_property_read_string(child_node, "qcom,mode",
 				&sel_str);
+
 		if (ret)
 			info[i].mode = 0;
 		else {
@@ -454,6 +455,28 @@ static struct msm_bus_node_info *get_nodes(struct device_node *of_node,
 
 			info[i].mode = ret;
 		}
+
+		info[i].nr_lim =
+			of_property_read_bool(child_node, "qcom,nr-lim");
+
+		ret = of_property_read_u32(child_node, "qcom,ff",
+							&info[i].ff);
+		if (ret) {
+			pr_debug("fudge factor not present %d", info[i].id);
+			info[i].ff = 0;
+		}
+
+		ret = of_property_read_u32(child_node, "qcom,floor-bw",
+						&temp);
+		if (ret) {
+			pr_debug("fabdev floor bw not present %d", info[i].id);
+			info[i].floor_bw = 0;
+		} else {
+			info[i].floor_bw = KBTOB(temp);
+		}
+
+		info[i].rt_mas =
+			of_property_read_bool(child_node, "qcom,rt-mas");
 
 		ret = of_property_read_string(child_node, "qcom,perm-mode",
 			&sel_str);
@@ -551,6 +574,7 @@ struct msm_bus_fabric_registration
 	bool mem_err = false;
 	int ret = 0;
 	const char *sel_str;
+	u32 temp;
 
 	if (!pdev) {
 		pr_err("Error: Null platform device\n");
@@ -639,6 +663,23 @@ struct msm_bus_fabric_registration
 
 	if (of_property_read_bool(of_node, "qcom,rpm-en"))
 		pdata->rpm_enabled = 1;
+
+	ret = of_property_read_u32(of_node, "qcom,nr-lim-thresh",
+						&temp);
+
+	if (ret) {
+		pr_err("nr-lim threshold not specified");
+		pdata->nr_lim_thresh = 0;
+	} else {
+		pdata->nr_lim_thresh = KBTOB(temp);
+	}
+
+	ret = of_property_read_u32(of_node, "qcom,eff-fact",
+						&pdata->eff_fact);
+	if (ret) {
+		pr_err("Fab eff-factor not present");
+		pdata->eff_fact = 0;
+	}
 
 	pdata->info = get_nodes(of_node, pdev, pdata);
 	return pdata;

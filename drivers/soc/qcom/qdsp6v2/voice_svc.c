@@ -56,7 +56,14 @@ struct apr_response_list {
 
 static struct voice_svc_device *voice_svc_dev;
 static struct class *voice_svc_class;
+static bool reg_dummy_sess;
+static void *dummy_q6_mvm;
+static void *dummy_q6_cvs;
 dev_t device_num;
+
+static int voice_svc_dummy_reg(void);
+static int32_t qdsp_dummy_apr_callback(struct apr_client_data *data,
+					void *priv);
 
 static int32_t qdsp_apr_callback(struct apr_client_data *data, void *priv)
 {
@@ -136,6 +143,12 @@ static int32_t qdsp_apr_callback(struct apr_client_data *data, void *priv)
 		       __func__);
 	}
 
+	return 0;
+}
+
+static int32_t qdsp_dummy_apr_callback(struct apr_client_data *data, void *priv)
+{
+	/* Do Nothing */
 	return 0;
 }
 
@@ -236,6 +249,13 @@ static int voice_svc_reg(char *svc, uint32_t src_port,
 
 	if (*handle != NULL) {
 		pr_err("%s: svc handle not NULL\n", __func__);
+		ret = -EINVAL;
+		goto done;
+	}
+
+	if (src_port == (APR_MAX_PORTS - 1)) {
+		pr_err("%s: SRC port reserved for dummy session\n", __func__);
+		pr_err("%s: Unable to register %s\n", __func__, svc);
 		ret = -EINVAL;
 		goto done;
 	}
@@ -479,6 +499,37 @@ done:
 	return ret;
 }
 
+static int voice_svc_dummy_reg()
+{
+	uint32_t src_port = APR_MAX_PORTS - 1;
+
+	pr_debug("%s\n", __func__);
+	dummy_q6_mvm = apr_register("ADSP", "MVM",
+				qdsp_dummy_apr_callback,
+				src_port,
+				NULL);
+	if (dummy_q6_mvm == NULL) {
+		pr_err("%s: Unable to register dummy MVM\n", __func__);
+		goto err;
+	}
+
+	dummy_q6_cvs = apr_register("ADSP", "CVS",
+				qdsp_dummy_apr_callback,
+				src_port,
+				NULL);
+	if (dummy_q6_cvs == NULL) {
+		pr_err("%s: Unable to register dummy CVS\n", __func__);
+		goto err;
+	}
+	return 0;
+err:
+	if (dummy_q6_mvm != NULL) {
+		apr_deregister(dummy_q6_mvm);
+		dummy_q6_mvm = NULL;
+	}
+	return -EINVAL;
+}
+
 static int voice_svc_open(struct inode *inode, struct file *file)
 {
 	struct voice_svc_prvt *prtd = NULL;
@@ -501,6 +552,16 @@ static int voice_svc_open(struct inode *inode, struct file *file)
 	spin_lock_init(&prtd->response_lock);
 	file->private_data = (void *)prtd;
 
+	/* Current APR implementation doesn't support session based
+	 * multiple service registrations. The apr_deregister()
+	 * function sets the destination and client IDs to zero, if
+	 * deregister is called for a single service instance.
+	 * To avoid this, register for additional services.
+	 */
+	if (!reg_dummy_sess) {
+		voice_svc_dummy_reg();
+		reg_dummy_sess = 1;
+	}
 	return 0;
 }
 

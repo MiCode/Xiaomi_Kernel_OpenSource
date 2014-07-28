@@ -835,7 +835,8 @@ static int lookup_soc_ocv(struct qpnp_bms_chip *chip, int ocv_uv, int batt_temp)
 	soc_cutoff = interpolate_pc(chip->batt_data->pc_temp_ocv_lut,
 				batt_temp, chip->dt.cfg_v_cutoff_uv / 1000);
 
-	soc_final = (100 * (soc_ocv - soc_cutoff)) / (100 - soc_cutoff);
+	soc_final = DIV_ROUND_CLOSEST(100 * (soc_ocv - soc_cutoff),
+							(100 - soc_cutoff));
 
 	if (chip->batt_data->ibat_acc_lut) {
 		/* Apply  ACC logic only if we discharging */
@@ -853,11 +854,12 @@ static int lookup_soc_ocv(struct qpnp_bms_chip *chip, int ocv_uv, int batt_temp)
 				else
 					acc = fcc;
 			}
-			soc_uuc = ((fcc - acc) * 100) / acc;
+			soc_uuc = ((fcc - acc) * 100) / fcc;
 
 			soc_uuc = adjust_uuc(chip, soc_uuc);
 
-			soc_acc = soc_final - soc_uuc;
+			soc_acc = DIV_ROUND_CLOSEST(100 * (soc_ocv - soc_uuc),
+							(100 - soc_uuc));
 
 			pr_debug("fcc=%d acc=%d soc_final=%d soc_uuc=%d soc_acc=%d current_now=%d iavg_ma=%d\n",
 				fcc, acc, soc_final, soc_uuc,

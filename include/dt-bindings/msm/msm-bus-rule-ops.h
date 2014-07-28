@@ -10,13 +10,23 @@
  * GNU General Public License for more details.
  */
 
-/dts-v1/;
+#ifndef __MSM_BUS_RULE_OPS_H
+#define __MSM_BUS_RULE_OPS_H
 
-#include "msm8916-qrd-skuic.dtsi"
-#include "msm8916-512mb-memory.dtsi"
+#define FLD_IB	0
+#define FLD_AB	1
+#define FLD_CLK	2
 
-/ {
-	model = "Qualcomm Technologies, Inc. MSM 8916 QRD SKUIC";
-	compatible = "qcom,msm8916-qrd-skuic", "qcom,msm8916-qrd", "qcom,msm8916", "qcom,qrd";
-	qcom,board-id = <0x11010b 0x105>;
-};
+#define OP_LE	0
+#define OP_LT	1
+#define OP_GE	2
+#define OP_GT	3
+#define OP_NOOP	4
+
+#define RULE_STATE_NOT_APPLIED	0
+#define RULE_STATE_APPLIED	1
+
+#define THROTTLE_ON	0
+#define THROTTLE_OFF	1
+
+#endif

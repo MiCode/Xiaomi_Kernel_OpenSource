@@ -42,6 +42,8 @@ struct msm_bus_fabric_registration {
 	void *hw_data;
 	uint32_t qos_freq;
 	uint32_t qos_baseoffset;
+	u64 nr_lim_thresh;
+	uint32_t eff_fact;
 	uint32_t qos_delta;
 	bool virt;
 };

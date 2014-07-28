@@ -18,7 +18,7 @@
 / {
 	model = "Qualcomm Technologies, Inc. MSM 8916 QRD SKUI";
 	compatible = "qcom,msm8916-qrd-skui", "qcom,msm8916-qrd", "qcom,msm8916", "qcom,qrd";
-	qcom,board-id = <0x1000b 5> , <0x1010b 5>;
+	qcom,board-id = <0x1000b 5> , <0x1010b 5> , <0x3010b 5>;
 };
 
 &soc {

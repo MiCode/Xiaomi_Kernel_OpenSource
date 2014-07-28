@@ -17,6 +17,8 @@
 #ifndef _I2C_MSM_V2_H
 #define _I2C_MSM_V2_H
 
+#include <linux/bitops.h>
+
 enum msm_i2_debug_level {
 	MSM_ERR,	/* Error messages only. Always on */
 	MSM_PROF,	/* High level events. Use for profiling */
@@ -100,6 +102,8 @@ enum {
 	QUP_INPUT_SERVICE_FLAG   = 1U << 9,
 	QUP_MAX_OUTPUT_DONE_FLAG = 1U << 10,
 	QUP_MAX_INPUT_DONE_FLAG  = 1U << 11,
+	QUP_OUT_BLOCK_WRITE_REQ  = BIT(12),
+	QUP_IN_BLOCK_READ_REQ    = BIT(13),
 };
 
 /* Register:QUP_OPERATIONAL_MASK fields */
@@ -426,9 +430,36 @@ struct i2c_msm_xfer_mode_fifo {
 	int                      out_buf_idx;
 };
 
+/* i2c_msm_xfer_mode_blk: operations and state of Block mode
+ *
+ * @in_blk_sz size of input/rx block
+ * @out_blk_sz size of output/tx block
+ * @tx_cache internal buffer to store tx data
+ * @rx_cache internal buffer to store rx data
+ * @rx_cache_idx points to the next unread index in rx cache
+ * @tx_cache_idx points to the next unwritten index in tx cache
+ * @wait_rx_blk completion object to wait on for end of blk rx transfer.
+ * @wait_tx_blk completion object to wait on for end of blk tx transfer.
+ * @complete_mask applied to QUP_OPERATIONAL to determine when blk
+ *  xfer is complete.
+ */
+struct i2c_msm_xfer_mode_blk {
+	struct i2c_msm_xfer_mode ops;
+	size_t                   in_blk_sz;
+	size_t                   out_blk_sz;
+	u8                       *tx_cache;
+	u8                       *rx_cache;
+	int                      rx_cache_idx;
+	int                      tx_cache_idx;
+	struct completion        wait_rx_blk;
+	struct completion        wait_tx_blk;
+	u32                      complete_mask;
+};
+
 /* INPUT_MODE and OUTPUT_MODE filds of QUP_IO_MODES register */
 enum i2c_msm_xfer_mode_id {
 	I2C_MSM_XFER_MODE_FIFO,
+	I2C_MSM_XFER_MODE_BLOCK,
 	I2C_MSM_XFER_MODE_BAM,
 	I2C_MSM_XFER_MODE_NONE, /* keep last as a counter */
 };
@@ -436,7 +467,6 @@ enum i2c_msm_xfer_mode_id {
 /*
  * i2c_msm_ctrl_ver: info that is different between i2c controller versions
  *
- * @create   Called once on probe. Allocate transfer modes
  * @destroy  Called once on exit.  Deallocate transfer modes
  * @init     Initialises the controller.
  * @teardown Teardown the controller and the transfer modes.
@@ -453,14 +483,13 @@ enum i2c_msm_xfer_mode_id {
  *                 is a "base class" to the particular transfer mode.
  */
 struct i2c_msm_ctrl_ver {
-	int			  (*create)     (struct i2c_msm_ctrl *);
 	void			  (*destroy)    (struct i2c_msm_ctrl *);
 	int			  (*init)       (struct i2c_msm_ctrl *);
 	void			  (*teardown)   (struct i2c_msm_ctrl *);
 	int			  (*reset)      (struct i2c_msm_ctrl *);
 	int			  (*init_rsrcs) (struct platform_device *,
 						 struct i2c_msm_ctrl *);
-	void			  (*choose_mode)(struct i2c_msm_ctrl *);
+	enum i2c_msm_xfer_mode_id (*choose_mode)(struct i2c_msm_ctrl *);
 	int			  (*post_xfer)  (struct i2c_msm_ctrl *,
 								int err);
 
@@ -524,7 +553,6 @@ struct i2c_msm_resources {
 	bool                         disable_dma;
 	u32                          bam_pipe_idx_cons;
 	u32                          bam_pipe_idx_prod;
-	bool                         clk_ctl_xfer;
 	struct pinctrl              *pinctrl;
 	struct pinctrl_state        *gpio_state_active;
 	struct pinctrl_state        *gpio_state_suspend;
@@ -544,6 +572,7 @@ struct i2c_msm_resources {
  *            is compared against len to find out if buffer is done processing.
  * @len       number of bytes in current buffer.
  * @is_rx when true, current buffer is pointing to a i2c read operation.
+ * @slv_addr 8 bit address. This is the i2c_msg->addr + rd/wr bit.
  *
  * Keep track of current position in the client's transfer request and
  * pre-process a transfer's buffer and tags.
@@ -556,6 +585,7 @@ struct i2c_msm_xfer_buf {
 	size_t                     len;
 	bool                       is_rx;
 	bool                       is_last;
+	u16                        slv_addr;
 	struct i2c_msm_tag         in_tag;
 	struct i2c_msm_tag         out_tag;
 };
@@ -604,8 +634,10 @@ enum i2c_msm_err_bit_field {
  * @tx_cnt       number of output bytes in the client's request.
  * @rx_ovrhd_cnt number of input  bytes due to tags.
  * @tx_ovrhd_cnt number of output bytes due to tags.
- * @event     profiling data. An array of timestamps of transfer events
- * @event_cnt number of items in event array.
+ * @event        profiling data. An array of timestamps of transfer events
+ * @event_cnt    number of items in event array.
+ * @is_active    true during xfer process and false after xfer end
+ * @mtx          mutex to solve multithreaded problem in xfer
  */
 struct i2c_msm_xfer {
 	struct i2c_msg            *msgs;
@@ -622,6 +654,8 @@ struct i2c_msm_xfer {
 	enum i2c_msm_err_bit_field err;
 	struct i2c_msm_prof_event  event[I2C_MSM_PROF_MAX_EVNTS];
 	atomic_t                   event_cnt;
+	atomic_t                   is_active;
+	struct mutex               mtx;
 };
 
 /*
@@ -651,8 +685,6 @@ struct i2c_msm_ctrl {
 	int                        noise_rjct_sda;
 	struct i2c_msm_v2_platform_data *pdata;
 	enum msm_i2c_power_state   pwr_state;
-	atomic_t		   is_ctrl_active;
-	struct mutex               mlock;
 };
 
 #endif  /* _I2C_MSM_V2_H */

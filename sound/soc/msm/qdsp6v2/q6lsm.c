@@ -25,12 +25,12 @@
 #include <linux/atomic.h>
 #include <sound/apr_audio-v2.h>
 #include <sound/lsm_params.h>
+#include <sound/q6core.h>
 #include <sound/q6lsm.h>
 #include <asm/ioctls.h>
 #include <linux/memory.h>
 #include <linux/msm_audio_ion.h>
 #include "audio_acdb.h"
-#include "q6core.h"
 
 #define APR_TIMEOUT	(5 * HZ)
 #define LSM_CAL_SIZE	4096

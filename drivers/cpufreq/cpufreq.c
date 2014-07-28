@@ -657,10 +657,15 @@ static ssize_t show(struct kobject *kobj, struct attribute *attr, char *buf)
 {
 	struct cpufreq_policy *policy = to_policy(kobj);
 	struct freq_attr *fattr = to_attr(attr);
-	ssize_t ret;
+	ssize_t ret = -EINVAL;
+
+	get_online_cpus();
+
+	if (!cpu_online(policy->cpu))
+		goto unlock;
 
 	if (!down_read_trylock(&cpufreq_rwsem))
-		return -EINVAL;
+		goto unlock;
 
 	down_read(&policy->rwsem);
 
@@ -671,7 +676,8 @@ static ssize_t show(struct kobject *kobj, struct attribute *attr, char *buf)
 
 	up_read(&policy->rwsem);
 	up_read(&cpufreq_rwsem);
-
+unlock:
+	put_online_cpus();
 	return ret;
 }
 
@@ -1267,10 +1273,10 @@ static int __cpufreq_remove_dev_finish(struct device *dev,
 	unsigned long flags;
 	struct cpufreq_policy *policy;
 
-	read_lock_irqsave(&cpufreq_driver_lock, flags);
+	write_lock_irqsave(&cpufreq_driver_lock, flags);
 	policy = per_cpu(cpufreq_cpu_data, cpu);
 	per_cpu(cpufreq_cpu_data, cpu) = NULL;
-	read_unlock_irqrestore(&cpufreq_driver_lock, flags);
+	write_unlock_irqrestore(&cpufreq_driver_lock, flags);
 
 	if (!policy) {
 		pr_debug("%s: No cpu_data found\n", __func__);
@@ -1436,11 +1442,16 @@ EXPORT_SYMBOL(cpufreq_quick_get_max);
 
 static unsigned int __cpufreq_get(unsigned int cpu)
 {
-	struct cpufreq_policy *policy = per_cpu(cpufreq_cpu_data, cpu);
+	struct cpufreq_policy *policy;
 	unsigned int ret_freq = 0;
+	unsigned long flags;
 
 	if (!cpufreq_driver->get)
 		return ret_freq;
+
+	read_lock_irqsave(&cpufreq_driver_lock, flags);
+	policy = per_cpu(cpufreq_cpu_data, cpu);
+	read_unlock_irqrestore(&cpufreq_driver_lock, flags);
 
 	ret_freq = cpufreq_driver->get(cpu);
 
@@ -1465,11 +1476,16 @@ static unsigned int __cpufreq_get(unsigned int cpu)
  */
 unsigned int cpufreq_get(unsigned int cpu)
 {
-	struct cpufreq_policy *policy = per_cpu(cpufreq_cpu_data, cpu);
+	struct cpufreq_policy *policy;
 	unsigned int ret_freq = 0;
+	unsigned long flags;
 
 	if (cpufreq_disabled() || !cpufreq_driver)
 		return -ENOENT;
+
+	read_lock_irqsave(&cpufreq_driver_lock, flags);
+	policy = per_cpu(cpufreq_cpu_data, cpu);
+	read_unlock_irqrestore(&cpufreq_driver_lock, flags);
 
 	BUG_ON(!policy);
 

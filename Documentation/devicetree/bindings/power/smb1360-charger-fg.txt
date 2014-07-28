@@ -58,6 +58,27 @@ Optional Properties:
 - qcom,stat-pulsed-irq:		A boolean flag to indicate the state-irq pin will generate pulse
 				signal when interrupt happened. If this property is not specified,
 				the default configuration is static level irq.
+- qcom,shdn-after-pwroff:	A bool property to configure smb1360 for shutdown at power-off.
+- qcom,batt-profile-select	A boolean flag to indicate of battery-profile
+				selection is enabled.
+- qcom,profile-a-rid-kohm	The battery-ID resistor (RID) in Kohm supported by
+				profile-A of SMB1360. This should be specified
+				if 'batt-profile-select' is defined.
+- qcom,profile-b-rid-kohm	The battery-ID resistor (RID) in Kohm supported by
+				profile-B of SMB1360. This should be specified
+				if 'batt-profile-select' is defined.
+- qcom,batt-id-vref-uv		The reference voltage on the battery-ID line
+				specified in micro-volts.
+- qcom,batt-id-rpullup-kohm	The pull-up resistor connected on the battery-ID
+				(vref) line.
+- qcom,smb1360-vadc		VADC device phandle (used for reading the RID)
+- qcom,fg-batt-capacity-mah	The new battery capacity to be supported.
+				This updates the NOMINAL_CAPACITY of the profile.
+- qcom,fg-cc-soc-coeff		The CC_TO_SOC_COEFF of the new battery capacity.
+				This is updated only if 'fg-batt-capacity-mah'
+				is specified. This value is calculated from the
+				batt-capacity and then encoded as floating number.
+				cc_soc_coeff = HALF_ENCODING(8192 / batt-capacity)
 
 Example:
 	i2c@f9967000 {
@@ -68,6 +89,19 @@ Example:
 			interrupts = <0x00 0xcd 0>;
 			pinctrl-names = "default";
 			pinctrl-0 = <&smb_int_default>;
+
+			/* battery-profile selection properties */
+			qcom,batt-profile-select;
+			qcom,smb1360-vadc = <&pm8916_vadc>;
+			qcom,batt-id-vref-uv = <1800000>;
+			qcom,batt-id-rpullup-kohm = <100>;
+			qcom,profile-a-rid-kohm = <78>;
+			qcom,profile-b-rid-kohm = <200>;
+
+			/* battery capacity */
+			qcom,fg-batt-capacity-mah = <4000>;
+			qcom,fg-cc-soc-coeff = <0x8009>
+
 			qcom,float-voltage-mv = <4200>;
 			qcom,iterm-ma = <100>;
 			qcom,charging-disabled;
