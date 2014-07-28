@@ -1,0 +1,52 @@
+#
+# External soc control infrastructure and drivers
+#
+menuconfig ESOC
+	bool "External SOCs Control"
+	help
+	  External SOCs can be powered on and monitored by user
+	  space or kernel drivers. Additionally they can be controlled
+	  to respond to control commands. This framework provides an
+	  interface to track events related to the external slave socs.
+
+if ESOC
+
+config ESOC_DEV
+	bool "ESOC userspace interface"
+	help
+	  Say yes here to enable a userspace representation of the control
+	  link. Userspace can register a request engine or a command engine
+	  for the external soc. It can receive event notifications from the
+	  control link.
+
+config ESOC_CLIENT
+	bool "ESOC client interface"
+	depends on OF
+	help
+	  Say yes here to enable client interface for external socs.
+	  Clients can specify the external soc that they are interested in
+	  by using device tree phandles. Based on this, clients can register
+	  for notifications from a specific soc.
+
+config ESOC_DEBUG
+	bool "ESOC debug support"
+	help
+	  Say yes here to enable debugging support in the ESOC framework
+	  and individual esoc drivers.
+
+config ESOC_MDM_4x
+	bool "Add support for external mdm9x25/mdm9x35"
+	help
+	  In some qualcomm boards, an external modem such as mdm9x25 or mdm9x35
+	  is connected to a primary msm. The primary soc can control/monitor
+	  the modem via gpios. The data communication with such modems can
+	  occur over PCIE or HSIC.
+
+config ESOC_MDM_DRV
+	tristate "Command engine for 4x series external modems"
+	help
+	  Provides a command engine to control the behavior of an external modem
+	  such as mdm9x25/mdm9x35/QSC. Allows the primary soc to put the
+	  external modem in a specific mode. Also listens for events on the
+	  external modem.
+endif
