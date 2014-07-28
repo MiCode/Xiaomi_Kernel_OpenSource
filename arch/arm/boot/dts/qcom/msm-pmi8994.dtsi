@@ -485,14 +485,16 @@
 			qcom,pmic-charger-support;
 			qcom,self-check-enabled;
 			qcom,thermal-derate-enabled;
-			qcom,thermal-derate-threshold = <80>;
-			qcom,thermal-derate-rate = "4_PERCENT";
+			qcom,thermal-derate-threshold = <100>;
+			qcom,thermal-derate-rate = "5_PERCENT";
 			qcom,current-ramp-enabled;
-			qcom,ramp_up_step = "27US";
-			qcom,ramp_dn_step = "27US";
+			qcom,ramp_up_step = "6P7_US";
+			qcom,ramp_dn_step = "6P7_US";
 			qcom,vph-pwr-droop-enabled;
-			qcom,vph-pwr-droop-threshold = <3200>;
+			qcom,vph-pwr-droop-threshold = <3000>;
 			qcom,vph-pwr-droop-debounce-time = <10>;
+			qcom,headroom-sense-ch0-enabled;
+			qcom,headroom-sense-ch1-enabled;
 
 			pmi8994_flash0: qcom,flash_0 {
 				label = "flash";
