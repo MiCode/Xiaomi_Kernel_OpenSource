@@ -951,6 +951,9 @@ static int cpu_clock_8994_resources_init(struct platform_device *pdev)
 		return PTR_ERR(vdd_a57.regulator[0]);
 	}
 
+	/* Leakage constraints disallow a turbo vote during bootup */
+	vdd_a57.skip_handoff = true;
+
 	vdd_cci.regulator[0] = devm_regulator_get(&pdev->dev, "vdd-cci");
 	if (IS_ERR(vdd_cci.regulator[0])) {
 		if (PTR_ERR(vdd_cci.regulator[0]) != -EPROBE_DEFER)
