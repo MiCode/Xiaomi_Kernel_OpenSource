@@ -35,6 +35,7 @@ void mdss_dsi_panel_pwm_cfg(struct mdss_dsi_ctrl_pdata *ctrl)
 		pr_err("%s: Error: lpg_chan=%d pwm request failed",
 				__func__, ctrl->pwm_lpg_chan);
 	}
+	ctrl->pwm_enabled = 0;
 }
 
 static void mdss_dsi_panel_bklt_pwm(struct mdss_dsi_ctrl_pdata *ctrl, int level)
@@ -65,11 +66,6 @@ static void mdss_dsi_panel_bklt_pwm(struct mdss_dsi_ctrl_pdata *ctrl, int level)
 	pr_debug("%s: ndx=%d level=%d duty=%d\n", __func__,
 					ctrl->ndx, level, duty);
 
-	if (ctrl->pwm_enabled) {
-		pwm_disable(ctrl->pwm_bl);
-		ctrl->pwm_enabled = 0;
-	}
-
 	if (ctrl->pwm_period >= USEC_PER_SEC) {
 		ret = pwm_config_us(ctrl->pwm_bl, duty, ctrl->pwm_period);
 		if (ret) {
@@ -89,10 +85,13 @@ static void mdss_dsi_panel_bklt_pwm(struct mdss_dsi_ctrl_pdata *ctrl, int level)
 		}
 	}
 
-	ret = pwm_enable(ctrl->pwm_bl);
-	if (ret)
-		pr_err("%s: pwm_enable() failed err=%d\n", __func__, ret);
-	ctrl->pwm_enabled = 1;
+	if (!ctrl->pwm_enabled) {
+		ret = pwm_enable(ctrl->pwm_bl);
+		if (ret)
+			pr_err("%s: pwm_enable() failed err=%d\n", __func__,
+				ret);
+		ctrl->pwm_enabled = 1;
+	}
 }
 
 static char dcs_cmd[2] = {0x54, 0x00}; /* DTYPE_DCS_READ */
