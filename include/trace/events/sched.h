@@ -115,9 +115,9 @@ TRACE_EVENT(sched_enq_deq_task,
 
 TRACE_EVENT(sched_task_load,
 
-	TP_PROTO(struct task_struct *p),
+	TP_PROTO(struct task_struct *p, int boost, int reason),
 
-	TP_ARGS(p),
+	TP_ARGS(p, boost, reason),
 
 	TP_STRUCT__entry(
 		__array(	char,	comm,	TASK_COMM_LEN	)
@@ -126,6 +126,8 @@ TRACE_EVENT(sched_task_load,
 		__field(unsigned int,	sum_scaled		)
 		__field(unsigned int,	period			)
 		__field(unsigned int,	demand			)
+		__field(	int,	boost			)
+		__field(	int,	reason			)
 	),
 
 	TP_fast_assign(
@@ -135,11 +137,14 @@ TRACE_EVENT(sched_task_load,
 		__entry->sum_scaled	= p->se.avg.runnable_avg_sum_scaled;
 		__entry->period		= p->se.avg.runnable_avg_period;
 		__entry->demand		= p->ravg.demand;
+		__entry->boost		= boost;
+		__entry->reason		= reason;
 	),
 
-	TP_printk("%d (%s): sum=%u, sum_scaled=%u, period=%u demand=%u",
+	TP_printk("%d (%s): sum=%u, sum_scaled=%u, period=%u demand=%u boost=%d reason=%d",
 		__entry->pid, __entry->comm, __entry->sum,
-		__entry->sum_scaled, __entry->period, __entry->demand)
+		__entry->sum_scaled, __entry->period, __entry->demand,
+		__entry->boost, __entry->reason)
 );
 
 TRACE_EVENT(sched_cpu_load,
@@ -185,6 +190,23 @@ TRACE_EVENT(sched_cpu_load,
 	__entry->load_scale_factor, __entry->capacity,
 	__entry->cumulative_runnable_avg, __entry->cur_freq, __entry->max_freq,
 	__entry->power_cost)
+);
+
+TRACE_EVENT(sched_set_boost,
+
+	TP_PROTO(int ref_count),
+
+	TP_ARGS(ref_count),
+
+	TP_STRUCT__entry(
+		__field(unsigned int, ref_count			)
+	),
+
+	TP_fast_assign(
+		__entry->ref_count = ref_count;
+	),
+
+	TP_printk("ref_count=%d", __entry->ref_count)
 );
 
 #endif	/* CONFIG_SCHED_HMP */

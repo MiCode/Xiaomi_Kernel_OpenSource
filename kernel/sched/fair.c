@@ -2564,6 +2564,7 @@ int sched_set_boost(int enable)
 	if (!old_refcount && boost_refcount)
 		boost_kick_cpus();
 
+	trace_sched_set_boost(boost_refcount);
 	spin_unlock_irqrestore(&boost_lock, flags);
 
 	return ret;
@@ -2829,10 +2830,11 @@ static int select_best_cpu(struct task_struct *p, int target, int reason)
 	int cpu_cost, min_cost = INT_MAX;
 	u64 load, min_load = ULLONG_MAX, min_fallback_load = ULLONG_MAX;
 	int small_task = is_small_task(p);
+	int boost = sched_boost();
 
-	trace_sched_task_load(p);
+	trace_sched_task_load(p, boost, reason);
 
-	if (small_task && !sched_boost()) {
+	if (small_task && !boost) {
 		best_cpu = best_small_task_cpu(p);
 		goto done;
 	}
