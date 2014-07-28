@@ -158,8 +158,7 @@ static int ufs_msm_phy_qmp_20nm_is_pcs_ready(struct ufs_msm_phy *phy_common)
 	return err;
 }
 
-static void __maybe_unused
-ufs_msm_phy_qmp_20nm_advertise_quirks(struct phy *generic_phy)
+static void ufs_msm_phy_qmp_20nm_advertise_quirks(struct phy *generic_phy)
 {
 	struct ufs_msm_phy_qmp_20nm *phy =  phy_get_drvdata(generic_phy);
 	struct ufs_msm_phy *phy_common = &(phy->common_cfg);
@@ -173,12 +172,13 @@ struct phy_ops ufs_msm_phy_qmp_20nm_phy_ops = {
 	.exit		= ufs_msm_phy_exit,
 	.power_on	= ufs_msm_phy_power_on,
 	.power_off	= ufs_msm_phy_power_off,
+	.advertise_quirks = ufs_msm_phy_qmp_20nm_advertise_quirks,
 	.owner		= THIS_MODULE,
 };
 
 struct ufs_msm_phy_specific_ops phy_20nm_ops = {
-	.calibrate_phy = ufs_msm_phy_qmp_20nm_phy_calibrate,
-	.start_serdes = ufs_msm_phy_qmp_20nm_start_serdes,
+	.calibrate_phy		= ufs_msm_phy_qmp_20nm_phy_calibrate,
+	.start_serdes		= ufs_msm_phy_qmp_20nm_start_serdes,
 	.is_physical_coding_sublayer_ready = ufs_msm_phy_qmp_20nm_is_pcs_ready,
 	.set_tx_lane_enable	= ufs_msm_phy_qmp_20nm_set_tx_lane_enable,
 	.power_control		= ufs_msm_phy_qmp_20nm_power_control,
