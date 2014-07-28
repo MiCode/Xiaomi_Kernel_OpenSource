@@ -100,6 +100,7 @@ Optional Properties:
 - qcom,otg-batt-curr-limit	This property defines the current threshold draw
 				from battery when device working at OTG mode.
 				The possible values are: 350, 550, 950, 1500mA.
+- qcom,fg-auto-recharge-soc	This property defines the auto recharging SOC threshold.
 
 Example:
 	i2c@f9967000 {
@@ -135,6 +136,7 @@ Example:
 			qcom,recharge-thresh-mv = <100>;
 			qcom,fg-soc-max = <85>;
 			qcom,fg-soc-min = <15>;
+			qcom,fg-auto-recharge-soc = <99>;
 			qcom,thermal-mitigation = <1500 700 300 0>;
 
 			qcom,otg-batt-curr-limit = <950>;
