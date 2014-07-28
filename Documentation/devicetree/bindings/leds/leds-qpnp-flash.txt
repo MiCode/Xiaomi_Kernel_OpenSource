@@ -26,8 +26,8 @@ Optional properties:
 				should be 80, 90, 100, 110, 120, 130 in C.
 - qcom,thermal-derate-rate	: derate rate when module temperature
 				reaches threshold. Values should be
-				"2_PERCENT", "2P5_PERCENT", "4_PERCENT",
-				"5_PERCENT" in string.
+				"1_PERCENT", "1P25_PERCENT", "2_PERCENT",
+				"2P5_PERCENT", "5_PERCENT" in string.
 - qcom,current-ramp-enabled	: boolean type. stepped current ramp enablement
 - qcom,ramp-up-step		: current ramp up rate. Values should be
 				  "0P2US", "0P4US", "0P8US", "1P6US", "3P3US",
@@ -45,6 +45,10 @@ Optional properties:
 				     in us.
 - qcom,pmic-charger-support	: Boolean type. This tells if flash utilizes charger boost
 				  support
+- qcom,headroom-sense-ch0-enabled: Boolean type. This configures headroom sensing enablement
+				   for LED channel 0
+- qcom,headroom-sense-ch1-enabled: Boolean type. This configures headroom sensing enablement
+				   for LED channel 1
 
 Required properties inside child node. Chile node contains settings for each individual LED:
 - label			: type of led that will be used, either "flash" or "torch".
@@ -87,6 +91,8 @@ Example:
 		qcom,vph-pwr-droop-enabled;
 		qcom,vph-pwr-droop-threshold = <3200>;
 		qcom,vph-pwr-droop-debounce-time = <10>;
+		qcom,headroom-sense-ch0-enabled;
+		qcom,headroom-sense-ch1-enabled;
 
 		pm8226_flash0: qcom,flash_0 {
 			label = "flash";
