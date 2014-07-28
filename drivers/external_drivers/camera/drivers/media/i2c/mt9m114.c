@@ -1875,9 +1875,6 @@ static int mt9m114_probe(struct i2c_client *client,
 		return ret;
 	}
 
-	/* set res index to be invalid */
-	dev->res = -1;
-
 	return 0;
 }
 
