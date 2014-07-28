@@ -28,6 +28,7 @@
 #include <sound/control.h>
 #include <sound/q6asm-v2.h>
 #include <sound/pcm_params.h>
+#include <sound/audio_effects.h>
 #include <asm/dma.h>
 #include <linux/dma-mapping.h>
 #include <linux/msm_audio_ion.h>
@@ -156,6 +157,7 @@ struct msm_compr_audio_effects {
 	struct virtualizer_params virtualizer;
 	struct reverb_params reverb;
 	struct eq_params equalizer;
+	struct soft_volume_params volume;
 };
 
 struct msm_compr_dec_params {
@@ -666,6 +668,56 @@ static int msm_compr_send_media_format_block(struct snd_compr_stream *cstream,
 	return ret;
 }
 
+static int msm_compr_init_pp_params(struct snd_compr_stream *cstream,
+				    struct audio_client *ac)
+{
+	int ret = 0;
+	struct asm_softvolume_params softvol = {
+		.period = SOFT_VOLUME_PERIOD,
+		.step = SOFT_VOLUME_STEP,
+		.rampingcurve = SOFT_VOLUME_CURVE_LINEAR,
+	};
+
+	switch (ac->topology) {
+	case ASM_STREAM_POSTPROC_TOPO_ID_HPX_PLUS: /* HPX + SA+ topology */
+
+		ret = q6asm_set_softvolume_v2(ac, &softvol,
+					      SOFT_VOLUME_INSTANCE_1);
+		if (ret < 0)
+			pr_err("%s: Send SoftVolume Param failed ret=%d\n",
+			__func__, ret);
+
+		ret = q6asm_set_softvolume_v2(ac, &softvol,
+					      SOFT_VOLUME_INSTANCE_2);
+		if (ret < 0)
+			pr_err("%s: Send SoftVolume2 Param failed ret=%d\n",
+			__func__, ret);
+
+		ret = msm_compr_set_volume(cstream, 0, 0);
+		if (ret < 0)
+			pr_err("%s : Set Volume failed : %d", __func__, ret);
+
+	case ASM_STREAM_POSTPROC_TOPO_ID_DTS_HPX:
+
+		msm_dts_eagle_init_pre(ac);
+
+		break;
+	default:
+		ret = q6asm_set_softvolume_v2(ac, &softvol,
+					      SOFT_VOLUME_INSTANCE_1);
+		if (ret < 0)
+			pr_err("%s: Send SoftVolume Param failed ret=%d\n",
+			__func__, ret);
+
+		ret = msm_compr_set_volume(cstream, 0, 0);
+		if (ret < 0)
+			pr_err("%s : Set Volume failed : %d", __func__, ret);
+
+		break;
+	}
+	return ret;
+}
+
 static int msm_compr_configure_dsp(struct snd_compr_stream *cstream)
 {
 	struct snd_compr_runtime *runtime = cstream->runtime;
@@ -675,17 +727,12 @@ static int msm_compr_configure_dsp(struct snd_compr_stream *cstream)
 	int dir = IN, ret = 0;
 	struct audio_client *ac = prtd->audio_client;
 	uint32_t stream_index;
-	struct asm_softvolume_params softvol = {
-		.period = SOFT_VOLUME_PERIOD,
-		.step = SOFT_VOLUME_STEP,
-		.rampingcurve = SOFT_VOLUME_CURVE_LINEAR,
-	};
+
+	pr_debug("%s: stream_id %d\n", __func__, ac->stream_id);
 	if (prtd->codec_param.codec.format == SNDRV_PCM_FORMAT_S24_LE)
 		bits_per_sample = 24;
 	if (prtd->codec_param.codec.format == SNDRV_PCM_FORMAT_S32_LE)
 		bits_per_sample = 32;
-
-	pr_debug("%s: stream_id %d\n", __func__, ac->stream_id);
 	ret = q6asm_stream_open_write_v2(ac,
 				prtd->codec, bits_per_sample,
 				ac->stream_id,
@@ -712,20 +759,7 @@ static int msm_compr_configure_dsp(struct snd_compr_stream *cstream)
 		return ret;
 	}
 
-	/*
-	 * Setting the master volume gain to 0 while
-	 * configuring ASM session. This is to address
-	 * DSP pop noise issue where. This change is
-	 * there from begining may be DSP limitation
-	 */
-	ret = msm_compr_set_volume(cstream, 0, 0);
-	if (ret < 0)
-		pr_err("%s : Set Volume failed : %d", __func__, ret);
-
-	ret = q6asm_set_softvolume(ac, &softvol);
-	if (ret < 0)
-		pr_err("%s: Send SoftVolume Param failed ret=%d\n",
-			__func__, ret);
+	msm_compr_init_pp_params(cstream, ac);
 
 	ret = q6asm_set_io_mode(ac, (COMPRESSED_STREAM_IO | ASYNC_IO_MODE));
 	if (ret < 0) {
@@ -1902,31 +1936,51 @@ static int msm_compr_audio_effects_config_put(struct snd_kcontrol *kcontrol,
 	switch (effects_module) {
 	case VIRTUALIZER_MODULE:
 		pr_debug("%s: VIRTUALIZER_MODULE\n", __func__);
-		msm_audio_effects_virtualizer_handler(prtd->audio_client,
+		if (msm_audio_effects_is_effmodule_supp_in_top(effects_module,
+						prtd->audio_client->topology))
+			msm_audio_effects_virtualizer_handler(
+						prtd->audio_client,
 						&(audio_effects->virtualizer),
 						values);
 		break;
 	case REVERB_MODULE:
 		pr_debug("%s: REVERB_MODULE\n", __func__);
-		msm_audio_effects_reverb_handler(prtd->audio_client,
+		if (msm_audio_effects_is_effmodule_supp_in_top(effects_module,
+						prtd->audio_client->topology))
+			msm_audio_effects_reverb_handler(prtd->audio_client,
 						 &(audio_effects->reverb),
 						 values);
 		break;
 	case BASS_BOOST_MODULE:
 		pr_debug("%s: BASS_BOOST_MODULE\n", __func__);
-		msm_audio_effects_bass_boost_handler(prtd->audio_client,
+		if (msm_audio_effects_is_effmodule_supp_in_top(effects_module,
+						prtd->audio_client->topology))
+			msm_audio_effects_bass_boost_handler(prtd->audio_client,
 						   &(audio_effects->bass_boost),
 						     values);
 		break;
 	case EQ_MODULE:
 		pr_debug("%s: EQ_MODULE\n", __func__);
-		msm_audio_effects_popless_eq_handler(prtd->audio_client,
+		if (msm_audio_effects_is_effmodule_supp_in_top(effects_module,
+						prtd->audio_client->topology))
+			msm_audio_effects_popless_eq_handler(prtd->audio_client,
 						    &(audio_effects->equalizer),
 						     values);
 		break;
 	case DTS_EAGLE_MODULE:
 		pr_debug("%s: DTS_EAGLE_MODULE\n", __func__);
 		msm_dts_eagle_handler_pre(prtd->audio_client, values);
+		break;
+	case SOFT_VOLUME_MODULE:
+		pr_debug("%s: SOFT_VOLUME_MODULE\n", __func__);
+		break;
+	case SOFT_VOLUME2_MODULE:
+		pr_debug("%s: SOFT_VOLUME2_MODULE\n", __func__);
+		if (msm_audio_effects_is_effmodule_supp_in_top(effects_module,
+						prtd->audio_client->topology))
+			msm_audio_effects_volume_handler_v2(prtd->audio_client,
+						&(audio_effects->volume),
+						values, SOFT_VOLUME_INSTANCE_2);
 		break;
 	default:
 		pr_err("%s Invalid effects config module\n", __func__);
