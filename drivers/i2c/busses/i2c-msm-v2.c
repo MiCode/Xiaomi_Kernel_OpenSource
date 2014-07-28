@@ -1073,26 +1073,65 @@ bool i2c_msm_xfer_is_high_speed(struct i2c_msm_ctrl *ctrl)
 }
 
 /*
+ * i2c_msm_clk_div_fld:
+ * @clk_freq_out output clock frequency
+ * @fs_div fs divider value
+ * @ht_div high time divider value
+ */
+struct i2c_msm_clk_div_fld {
+	u32                clk_freq_out;
+	u8                 fs_div;
+	u8                 ht_div;
+};
+
+/*
+ * divider values as per HW Designers
+ */
+static struct i2c_msm_clk_div_fld i2c_msm_clk_div_map[] = {
+	{KHz(100), 124, 62},
+	{KHz(400),  28, 14},
+	{KHz(1000),  8,  5},
+};
+
+/* @return zero on success */
+static int i2c_msm_set_mstr_clk_ctl(struct i2c_msm_ctrl *ctrl)
+{
+	int fs_div = 0;
+	int ht_div = 0;
+	bool match = false;
+	int i;
+	u32 reg_val = 0;
+	struct i2c_msm_clk_div_fld *itr = i2c_msm_clk_div_map;
+
+	/* set noise rejection values for scl and sda */
+	reg_val = I2C_MSM_SCL_NOISE_REJECTION(reg_val, ctrl->noise_rjct_scl);
+	reg_val = I2C_MSM_SDA_NOISE_REJECTION(reg_val, ctrl->noise_rjct_sda);
+
+	/* set divider values */
+	for (i = 0; i < ARRAY_SIZE(i2c_msm_clk_div_map); ++i, ++itr) {
+		if (ctrl->rsrcs.clk_freq_out == itr->clk_freq_out) {
+			fs_div = itr->fs_div;
+			ht_div = itr->ht_div;
+			match  = true;
+			break;
+		}
+	}
+	ctrl->mstr_clk_ctl = (reg_val & (~0xff07ff)) | ((ht_div & 0xff) << 16)
+				|(fs_div & 0xff);
+
+	if (!match)
+		dev_err(ctrl->dev, "error clock frequency %dKHz is not supported\n"
+					, (ctrl->rsrcs.clk_freq_out / 1000));
+	return !match;
+}
+
+/*
  * i2c_msm_qup_xfer_init_run_state: set qup regs which must be set *after* reset
  */
 static void i2c_msm_qup_xfer_init_run_state(struct i2c_msm_ctrl *ctrl)
 {
 	void __iomem *base = ctrl->rsrcs.base;
-	u32 val = 0;
-
-	if (i2c_msm_xfer_is_high_speed(ctrl)) {
-		val = I2C_MSM_SCL_NOISE_REJECTION(val, ctrl->noise_rjct_scl);
-		val = I2C_MSM_SDA_NOISE_REJECTION(val, ctrl->noise_rjct_sda);
-		val = I2C_MSM_CLK_DIV(val, ctrl->rsrcs.clk_freq_in,
-					ctrl->rsrcs.clk_freq_out, true);
-	} else {
-		val = I2C_MSM_SCL_NOISE_REJECTION(val, ctrl->noise_rjct_scl);
-		val = I2C_MSM_SDA_NOISE_REJECTION(val, ctrl->noise_rjct_sda);
-		val = I2C_MSM_CLK_DIV(val, ctrl->rsrcs.clk_freq_in,
-					ctrl->rsrcs.clk_freq_out, false);
-	}
-
-	writel_relaxed(val, base + QUP_I2C_MASTER_CLK_CTL);
+	writel_relaxed(ctrl->mstr_clk_ctl, base + QUP_I2C_MASTER_CLK_CTL);
 
 	/* Ensure that QUP configuration is written before leaving this func */
 	wmb();
@@ -2156,6 +2195,7 @@ static void i2c_msm_bam_teardown(struct i2c_msm_ctrl *ctrl)
 	dma_free_coherent(ctrl->dev, I2C_MSM_BAM_TAG_MEM_SZ,
 			tags_space_virt_addr, tags_space_phy_addr);
 
+	iounmap(bam->base);
 	bam->is_init      = false;
 	bam->is_core_init = false;
 }
@@ -3644,60 +3684,6 @@ static void i2c_msm_rsrcs_clk_teardown(struct i2c_msm_ctrl *ctrl)
 }
 
 #ifdef CONFIG_DEBUG_FS
-static int i2c_msm_dbgfs_noise_scl_read(void *data, u64 *val)
-{
-	struct i2c_msm_ctrl *ctrl = data;
-	*val = ctrl->noise_rjct_scl;
-	return 0;
-}
-
-static int i2c_msm_dbgfs_noise_scl_write(void *data, u64 val)
-{
-	struct i2c_msm_ctrl *ctrl = data;
-
-	if (val < 0 || val > 3) {
-		dev_err(ctrl->dev,
-			"error dbgfs attempt to set invalid value for noise"
-			" reject. Should be 0..3\n");
-		return -EINVAL;
-	}
-
-	ctrl->noise_rjct_scl = val;
-	return 0;
-}
-
-DEFINE_SIMPLE_ATTRIBUTE(i2c_msm_dbgfs_noise_scl_fops,
-			i2c_msm_dbgfs_noise_scl_read,
-			i2c_msm_dbgfs_noise_scl_write,
-			"0x%llx");
-
-static int i2c_msm_dbgfs_noise_sda_read(void *data, u64 *val)
-{
-	struct i2c_msm_ctrl *ctrl = data;
-	*val = ctrl->noise_rjct_sda;
-	return 0;
-}
-
-static int i2c_msm_dbgfs_noise_sda_write(void *data, u64 val)
-{
-	struct i2c_msm_ctrl *ctrl = data;
-
-	if (val < 0 || val > 3) {
-		dev_err(ctrl->dev,
-			"error dbgfs attempt to set invalid value for noise"
-			" reject. Should be 0..3\n");
-		return -EINVAL;
-	}
-
-	ctrl->noise_rjct_sda = val;
-	return 0;
-}
-
-DEFINE_SIMPLE_ATTRIBUTE(i2c_msm_dbgfs_noise_sda_fops,
-			i2c_msm_dbgfs_noise_sda_read,
-			i2c_msm_dbgfs_noise_sda_write,
-			"0x%llx");
-
 /*
  * i2c_msm_dbgfs_clk_wrapper: take care of clocks before calling func
  *
@@ -3828,16 +3814,10 @@ static void i2c_msm_dbgfs_init(struct i2c_msm_ctrl *ctrl)
 				NULL, &ctrl->dbgfs.dbg_lvl},
 		{"xfer-force-mode", I2C_MSM_DFS_MD_RW, I2C_MSM_DFS_U8,
 				NULL, &ctrl->dbgfs.force_xfer_mode},
-		{"noise-rjct-scl",  I2C_MSM_DFS_MD_RW, I2C_MSM_DFS_FILE,
-				&i2c_msm_dbgfs_noise_scl_fops,     NULL},
-		{"noise-rjct-sda",  I2C_MSM_DFS_MD_RW, I2C_MSM_DFS_FILE,
-				&i2c_msm_dbgfs_noise_sda_fops,     NULL},
 		{"dump-regs",       I2C_MSM_DFS_MD_W, I2C_MSM_DFS_FILE,
 				&i2c_msm_dbgfs_reg_dump_fops,      NULL},
 		{"bus-clear",       I2C_MSM_DFS_MD_W, I2C_MSM_DFS_FILE,
 				&i2c_msm_dbgfs_do_bus_clear_fops,  NULL},
-		{"freq-out-hz",     I2C_MSM_DFS_MD_RW, I2C_MSM_DFS_U32,
-				NULL, &ctrl->rsrcs.clk_freq_out},
 		{NULL, 0, 0, NULL , NULL}, /* null terminator */
 	};
 	return i2c_msm_dbgfs_create(ctrl, i2c_msm_dbgfs_map);
@@ -4061,6 +4041,12 @@ static int i2c_msm_probe(struct platform_device *pdev)
 		dev_err(ctrl->dev, "error in enabling clocks:%d\n", ret);
 		goto clk_err;
 	}
+
+	/* set divider and noise reject values */
+	ret = i2c_msm_set_mstr_clk_ctl(ctrl);
+	if (ret)
+		goto clk_err;
+
 	ret = i2c_msm_ctrl_ver_detect_and_set(ctrl);
 	if (ret) {
 		i2c_msm_pm_clk_disable_unprepare(ctrl);
