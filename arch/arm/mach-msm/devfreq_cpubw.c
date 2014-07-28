@@ -77,19 +77,6 @@ static int set_bw(int new_ib, int new_ab)
 	return ret;
 }
 
-static unsigned int find_ab(struct devfreq_dev_profile *p, unsigned long *freq)
-{
-	int i;
-	unsigned long  f;
-
-	for (i = 0; i < p->max_state; i++) {
-		f = p->freq_table[i];
-		if (f == *freq)
-			break;
-	}
-	return p->freq_ab_table[i];
-}
-
 static void find_freq(struct devfreq_dev_profile *p, unsigned long *freq,
 			u32 flags)
 {
@@ -114,13 +101,10 @@ static void find_freq(struct devfreq_dev_profile *p, unsigned long *freq,
 
 struct devfreq_dev_profile cpubw_profile;
 static long gov_ab;
-static bool vote_ab;
 
 int cpubw_target(struct device *dev, unsigned long *freq, u32 flags)
 {
 	find_freq(&cpubw_profile, freq, flags);
-	if (vote_ab)
-		gov_ab = find_ab(&cpubw_profile, freq);
 	return set_bw(*freq, gov_ab);
 }
 
@@ -141,7 +125,6 @@ struct devfreq_dev_profile cpubw_profile = {
 
 #define PROP_PORTS "qcom,cpu-mem-ports"
 #define PROP_TBL "qcom,bw-tbl"
-#define PROP_AB_TBL "qcom,ab-tbl"
 
 static int __init cpubw_probe(struct platform_device *pdev)
 {
@@ -197,28 +180,6 @@ static int __init cpubw_probe(struct platform_device *pdev)
 		for (i = 0; i < len; i++)
 			p->freq_table[i] = data[i];
 		p->max_state = len;
-	}
-
-	if (of_find_property(dev->of_node, PROP_AB_TBL, &len)) {
-		len /= sizeof(*data);
-		data = devm_kzalloc(dev, len * sizeof(*data), GFP_KERNEL);
-		if (!data)
-			return -ENOMEM;
-
-		p->freq_ab_table = devm_kzalloc(dev,
-					len * sizeof(*p->freq_ab_table),
-					GFP_KERNEL);
-		if (!p->freq_ab_table)
-			return -ENOMEM;
-
-		ret = of_property_read_u32_array(dev->of_node, PROP_AB_TBL,
-						data, len);
-		if (ret)
-			return ret;
-
-		for (i = 0; i < len; i++)
-			p->freq_ab_table[i] = data[i];
-		vote_ab = true;
 	}
 
 	bus_client = msm_bus_scale_register_client(&bw_data);
