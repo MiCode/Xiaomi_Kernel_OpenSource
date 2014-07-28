@@ -36,6 +36,42 @@ config MSM_DEBUG_LAR_UNLOCK
 	 system crash. This is useful in getting correct crash
 	 location.
 
+config MSM_JTAG
+	bool "Debug and ETM trace support across power collapse"
+	help
+	  Enables support for debugging (specifically breakpoints) and ETM
+	  processor tracing across power collapse both for JTag and OS hosted
+	  software running on the target. Enabling this will ensure debug
+	  and ETM registers are saved and restored across power collapse.
+
+	  If unsure, say 'N' here to avoid potential power, performance and
+	  memory penalty.
+
+config MSM_JTAG_MM
+	bool "Debug and ETM trace support across power collapse using memory mapped access"
+	help
+	  Enables support for debugging (specifically breakpoints) and ETM
+	  processor tracing across power collapse both for JTag and OS hosted
+	  software running on the target. Enabling this will ensure debug
+	  and ETM registers are saved and restored across power collapse.
+
+	  Required on targets on which cp14 access to debug and ETM registers is
+	  not permitted and so memory mapped access is necessary.
+
+	  If unsure, say 'N' here to avoid potential power, performance and
+	  memory penalty.
+
+config MSM_JTAGV8
+	bool "Debug and ETM trace support across power collapse for ARMv8"
+	help
+	  Enables support for debugging (specifically breakpoints) and ETM
+	  processor tracing across power collapse both for JTag and OS hosted
+	  software running on ARMv8 target. Enabling this will ensure debug
+	  and ETM registers are saved and restored across power collapse.
+
+	  If unsure, say 'N' here to avoid potential power, performance and
+	  memory penalty.
+
 config MSM_BOOT_STATS
 	bool "Use MSM boot stats reporting"
 	help
