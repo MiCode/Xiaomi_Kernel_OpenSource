@@ -489,6 +489,11 @@
 		qcom,ipi-ping;
 	};
 
+	qcom,msm-rtb {
+		compatible = "qcom,msm-rtb";
+		qcom,rtb-size = <0x100000>; /* 1M EBI1 buffer */
+	};
+
 	spi_0: spi@78ba000 { /* BLSP1 QUP6 */
                 compatible = "qcom,spi-qup-v2";
                 #address-cells = <1>;
