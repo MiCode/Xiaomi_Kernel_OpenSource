@@ -633,6 +633,7 @@ int mdss_mdp_rotator_play(struct msm_fb_data_type *mfd,
 	struct mdss_mdp_rotator_session *rot;
 	int ret;
 	u32 flgs;
+	struct mdss_mdp_data src_buf;
 
 	mutex_lock(&rotator_lock);
 	rot = mdss_mdp_rotator_session_get(req->id);
@@ -642,6 +643,8 @@ int mdss_mdp_rotator_play(struct msm_fb_data_type *mfd,
 		goto dst_buf_fail;
 	}
 
+	memset(&src_buf, 0, sizeof(struct mdss_mdp_data));
+
 	flgs = rot->flags & MDP_SECURE_OVERLAY_SESSION;
 
 	ret = mdss_mdp_rotator_busy_wait_ex(rot);
@@ -650,12 +653,14 @@ int mdss_mdp_rotator_play(struct msm_fb_data_type *mfd,
 		goto dst_buf_fail;
 	}
 
-	mdss_mdp_overlay_free_buf(&rot->src_buf);
-	ret = mdss_mdp_overlay_get_buf(mfd, &rot->src_buf, &req->data, 1, flgs);
+	ret = mdss_mdp_overlay_get_buf(mfd, &src_buf, &req->data, 1, flgs);
 	if (ret) {
 		pr_err("src_data pmem error\n");
+		mdss_mdp_overlay_free_buf(&rot->src_buf);
 		goto dst_buf_fail;
 	}
+	mdss_mdp_overlay_free_buf(&rot->src_buf);
+	memcpy(&rot->src_buf, &src_buf, sizeof(struct mdss_mdp_data));
 
 	mdss_mdp_overlay_free_buf(&rot->dst_buf);
 	ret = mdss_mdp_overlay_get_buf(mfd, &rot->dst_buf,
