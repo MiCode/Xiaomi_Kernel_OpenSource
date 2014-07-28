@@ -1400,6 +1400,7 @@ static void subsys_free_irqs(struct subsys_device *subsys)
 struct subsys_device *subsys_register(struct subsys_desc *desc)
 {
 	struct subsys_device *subsys;
+	struct device_node *ofnode = desc->dev->of_node;
 	int ret;
 
 	subsys = kzalloc(sizeof(*subsys), GFP_KERNEL);
@@ -1447,7 +1448,7 @@ struct subsys_device *subsys_register(struct subsys_desc *desc)
 		goto err_register;
 	}
 
-	if (desc->dev->of_node) {
+	if (ofnode) {
 		ret = subsys_parse_devicetree(desc);
 		if (ret)
 			goto err_register;
@@ -1456,16 +1457,14 @@ struct subsys_device *subsys_register(struct subsys_desc *desc)
 
 		ret = subsys_setup_irqs(subsys);
 		if (ret < 0)
-			goto err_register;
+			goto err_setup_irqs;
 
-		if (of_property_read_u32(desc->dev->of_node,
-					"qcom,ssctl-instance-id",
+		if (of_property_read_u32(ofnode, "qcom,ssctl-instance-id",
 					&desc->ssctl_instance_id))
 			pr_debug("Reading instance-id for %s failed\n",
 								desc->name);
 
-		if (of_property_read_u32(desc->dev->of_node,
-					"qcom,sysmon-id",
+		if (of_property_read_u32(ofnode, "qcom,sysmon-id",
 					&subsys->desc->sysmon_pid))
 			pr_debug("Reading sysmon-id for %s failed\n",
 								desc->name);
@@ -1477,7 +1476,9 @@ struct subsys_device *subsys_register(struct subsys_desc *desc)
 	mutex_unlock(&subsys_list_lock);
 
 	return subsys;
-
+err_setup_irqs:
+	if (ofnode)
+		subsys_remove_restart_order(ofnode);
 err_register:
 	subsys_debugfs_remove(subsys);
 err_debugfs:
