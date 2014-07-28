@@ -163,4 +163,5 @@ obj-$(CONFIG_POWERCAP)		+= powercap/
 obj-$(CONFIG_MCB)		+= mcb/
 obj-$(CONFIG_RAS)		+= ras/
 obj-$(CONFIG_THUNDERBOLT)	+= thunderbolt/
+obj-$(CONFIG_CORESIGHT)		+= coresight/
 obj-$(CONFIG_ESOC)		+= esoc/

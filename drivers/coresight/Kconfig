@@ -1,0 +1,271 @@
+menuconfig CORESIGHT
+	bool "CoreSight Tracing Support"
+	help
+	  CoreSight components are compliant with the ARM CoreSight
+	  architecture specification and can be connected in various
+	  topologies to suite a particular SoCs tracing needs. These trace
+	  components can generally be classified as sources, links and
+	  sinks. Trace data produced by one or more sources flows through
+	  the intermediate links connecting the source to the currently
+	  selected sink.
+
+	  This framework provides an interface for the CoreSight debug and
+	  trace drivers to register themselves with. It's intended to build
+	  up a topological view of the CoreSight components and configure
+	  the right series of components on user input via sysfs. It also
+	  provides status information to user space applications through
+	  sysfs interface.
+
+	  If unsure, say 'N' here to avoid potential power, performance and
+	  memory penalty.
+
+if CORESIGHT
+
+config CORESIGHT_EVENT
+	tristate "CoreSight Event driver"
+	help
+	  This driver provides support for registering with various events
+	  and performing CoreSight actions like aborting trace on their
+	  occurrence. These events can be controlled by using module
+	  parameters.
+
+config HAVE_CORESIGHT_SINK
+	bool
+
+config CORESIGHT_FUSE
+	bool "CoreSight Fuse driver"
+	help
+	  This driver provides support for CoreSight Fuse state checks that
+	  other CoreSight drivers can query to determine existence of
+	  Hardware functionality they support. Drivers can then take necessary
+	  actions like failing the probe if the Hardware they manage is
+	  functionally disabled.
+
+config CORESIGHT_CTI
+	bool "CoreSight Cross Trigger Interface driver"
+	help
+	  This driver provides support for Cross Trigger Interface that is
+	  used to input or output i.e. pass cross trigger events from one
+	  hardware component to another. It can also be used to pass
+	  software generated events.
+
+config CORESIGHT_CSR
+	bool "CoreSight Slave Register driver"
+	help
+	  This driver provides support for CoreSight Slave Register block
+	  that hosts miscellaneous configuration registers.
+
+config CORESIGHT_TMC
+	bool "CoreSight Trace Memory Controller driver"
+	select CORESIGHT_CTI
+	select CORESIGHT_CSR
+	select HAVE_CORESIGHT_SINK
+	help
+	  This driver provides support for Trace Memory Controller which
+	  can be configured as either an ETB (Embedded Trace Buffer),
+	  ETR (Embedded Trace Router) or ETF (Embedded Trace Fifo). It acts
+	  as sink when configured as ETB, ETR or ETF in circular buffer mode
+	  whereas it is a link when configured as ETF in hardware fifo mode.
+
+	  ETB collects trace data in a circular buffer whereas ETR can be
+	  used to route trace data to memory allocated in RAM. ETF in
+	  circular buffer mode is like an ETB whereas in hardware fifo mode
+	  it is a fifo link.
+
+config CORESIGHT_TPIU
+	bool "CoreSight Trace Port Interface Unit driver"
+	select HAVE_CORESIGHT_SINK
+	help
+	  This driver provides support for Trace Port Interface Unit which
+	  acts as a conduit for offchip trace collection.
+
+if HAVE_CORESIGHT_SINK
+
+config CORESIGHT_FUNNEL
+	bool "CoreSight Funnel driver"
+	help
+	  This driver provides support for Funnel which is a link that
+	  typically has multiple input ports and a single output port. Input
+	  trace data streams from the input ports are interleaved into a
+	  single output trace data stream coming out of the output port.
+
+config CORESIGHT_REPLICATOR
+	bool "CoreSight Replicator driver"
+	help
+	  This driver provides support for Replicator that typically has
+	  a single input port and two output ports. Single trace data
+	  stream on the input port is replicated to produce two identical
+	  trace data output streams coming out of the two output ports.
+
+config CORESIGHT_STM
+	bool "CoreSight System Trace Macrocell driver"
+	help
+	  This driver provides support for hardware assisted software
+	  instrumentation based tracing. This is primarily useful for
+	  logging useful software events or data.
+
+config CORESIGHT_STM_DEFAULT_ENABLE
+	bool "Turn on STM tracing by default"
+	depends on CORESIGHT_STM
+	help
+	  Turns on CoreSight STM tracing (hardware assisted software
+	  instrumentation based tracing) by default. Otherwise, tracing is
+	  disabled by default but can be enabled via sysfs.
+
+	  If unsure, say 'N' here to avoid potential power and performance
+	  penalty.
+
+config CORESIGHT_HWEVENT
+	bool "CoreSight Hardware Event driver"
+	depends on CORESIGHT_STM
+	select CORESIGHT_CSR
+	help
+	  This driver provides support for monitoring and tracing CoreSight
+	  Hardware Event across STM interface. It configures Coresight
+	  Hardware Event mux control registers to select hardware events
+	  based on user input.
+
+config CORESIGHT_ETM
+	bool "CoreSight Embedded Trace Macrocell driver"
+	help
+	  This driver provides support for processor tracing which allows
+	  tracing the instructions that the processor is executing. This is
+	  primarily useful for instruction level tracing.
+
+config CORESIGHT_ETM_DEFAULT_RESET
+	bool "Reset ETM by default"
+	depends on CORESIGHT_ETM
+	help
+	  Reset CoreSight ETM tracing (processor tracing) parameters by
+	  default. This configures ETM parameters to reset values instead
+	  of preconfigured values on bootup. Otherwise, ETM parameters take
+          preconfigured values by default but these can be reset via sysfs.
+
+config CORESIGHT_ETM_DEFAULT_ENABLE
+	bool "Turn on ETM tracing by default"
+	depends on CORESIGHT_ETM
+	help
+	  Turns on CoreSight ETM tracing (processor tracing) by default.
+	  Otherwise, tracing is disabled by default but can be enabled via
+	  sysfs.
+
+	  If unsure, say 'N' here to avoid potential power and performance
+	  penalty.
+
+config CORESIGHT_ETM_PCSAVE_DEFAULT_ENABLE
+	bool "Turn on PC saving by default"
+	depends on CORESIGHT_ETM
+	help
+	  Turns on program counter saving on reset by default. Otherwise,
+	  PC saving is disabled by default but can be enabled via sysfs.
+
+	  If unsure, say 'N' here to avoid potential power penalty.
+
+config CORESIGHT_ETMV4
+	bool "CoreSight Embedded Trace Macrocell v4 driver"
+	help
+	  This driver provides support for processor tracing which allows
+	  tracing the instructions that the processor is executing on ARMv8
+	  architecture. This is primarily useful for instruction level
+	  tracing.
+
+config CORESIGHT_ETMV4_DEFAULT_RESET
+	bool "Reset ETMV4 by default"
+	depends on CORESIGHT_ETMV4
+	help
+	  Reset CoreSight ETMV4 tracing (processor tracing) parameters by
+	  default. This configures ETMV4 parameters to reset values instead
+	  of preconfigured values on bootup. Otherwise, ETMV4 parameters take
+          preconfigured values by default but these can be reset via sysfs.
+
+config CORESIGHT_ETMV4_DEFAULT_ENABLE
+	bool "Turn on ETMV4 tracing by default"
+	depends on CORESIGHT_ETMV4
+	help
+	  Turns on CoreSight ETMV4 tracing (processor tracing) by default.
+	  Otherwise, tracing is disabled by default but can be enabled via
+	  sysfs.
+
+	  If unsure, say 'N' here to avoid potential power and performance
+	  penalty.
+
+config CORESIGHT_AUDIO_ETM
+	bool "Audio processor ETM trace support"
+	help
+	  Enables support for ETM trace collection on audio processor using
+	  CoreSight framework. Enabling this will allow turning on ETM tracing
+	  on audio processor via sysfs by configuring the required CoreSight
+	  components.
+
+config CORESIGHT_AUDIO_ETM_DEFAULT_ENABLE
+	bool "Turn on audio processor ETM tracing by default"
+	help
+	  Turns on CoreSight audio processor ETM tracing by default. Otherwise,
+	  tracing is disabled by default but can be enabled via sysfs.
+
+	  If unsure, say 'N' here to avoid potential power and performance
+	  penalty.
+
+config CORESIGHT_MODEM_ETM
+	bool "Modem processor ETM trace support"
+	help
+	  Enables support for ETM trace collection on modem processor using
+	  CoreSight framework. Enabling this will allow turning on ETM tracing
+	  on modem processor via sysfs by configuring the required CoreSight
+	  components.
+
+config CORESIGHT_MODEM_ETM_DEFAULT_ENABLE
+	bool "Turn on modem processor ETM tracing by default"
+	help
+	  Turns on CoreSight modem processor ETM tracing by default. Otherwise,
+	  tracing is disabled by default but can be enabled via sysfs.
+
+	  If unsure, say 'N' here to avoid potential power and performance
+	  penalty.
+
+config CORESIGHT_WCN_ETM
+	bool "Wireless subsystem processor ETM trace support"
+	help
+	  Enables support for ETM trace collection on wireless subsystem
+	  processor  using CoreSight framework. Enabling this will allow
+	  turning on ETM tracing on wireless subsystem via sysfs by configuring
+	  the required CoreSight components.
+
+config CORESIGHT_WCN_ETM_DEFAULT_ENABLE
+	bool "Turn on wireless subsystem processor ETM tracing by default"
+	help
+	  Turns on CoreSight wireless subsystem processor ETM tracing by
+	  default. Otherwise, tracing is disabled by default but can be enabled
+	  via sysfs.
+
+	  If unsure, say 'N' here to avoid potential power and performance
+	  penalty.
+
+config CORESIGHT_RPM_ETM
+	bool "RPM processor ETM trace support"
+	help
+	  Enables support for ETM trace collection on RPM processor using
+	  CoreSight framework. Enabling this will allow turning on ETM
+	  tracing on RPM processor via sysfs by configuring the required
+	  CoreSight components.
+
+config CORESIGHT_RPM_ETM_DEFAULT_ENABLE
+	bool "Turn on RPM processor ETM tracing by default"
+	help
+	  Turns on CoreSight RPM processor ETM tracing by default. Otherwise,
+	  tracing is disabled by default but can be enabled via sysfs.
+
+	  If unsure, say 'N' here to avoid potential power and performance
+	  penalty.
+
+endif
+
+config CORESIGHT_QPDI
+	bool "CoreSight PMIC debug interface support"
+	help
+	  This driver provides support for controlling the PMIC debug interface
+	  feature. When enabled via sysfs it allows disagnostic access to the
+	  PMIC. Similarly this debug feature can be disabled via sysfs which
+	  prevents debug dongle detection.
+
+endif
