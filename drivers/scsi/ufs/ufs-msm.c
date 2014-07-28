@@ -496,8 +496,6 @@ static int ufs_msm_resume(struct ufs_hba *hba, enum ufs_pm_op pm_op)
 		 * voltage, current to settle down before starting serdes.
 		 */
 		usleep_range(1000, 1100);
-
-		err = phy_resume(host->generic_phy);
 	}
 
 	hba->is_sys_suspended = false;
@@ -787,7 +785,7 @@ out:
  */
 static void ufs_msm_advertise_quirks(struct ufs_hba *hba)
 {
-	struct ufs_msm_host *host = hba->priv;
+	struct ufs_msm_host __maybe_unused *host = hba->priv;
 	u8 major;
 	u16 minor, step;
 
@@ -802,8 +800,6 @@ static void ufs_msm_advertise_quirks(struct ufs_hba *hba)
 		hba->quirks |= (UFSHCD_QUIRK_DELAY_BEFORE_DME_CMDS
 			      | UFSHCD_QUIRK_BROKEN_PA_RXHSUNTERMCAP
 			      | UFSHCD_QUIRK_BROKEN_LCC);
-
-	phy_advertise_quirks(host->generic_phy);
 }
 
 static int ufs_msm_get_bus_vote(struct ufs_msm_host *host,
@@ -1033,7 +1029,7 @@ static int ufs_msm_init(struct ufs_hba *hba)
 	}
 
 	host->hba = hba;
-	host->generic_phy = devm_phy_get_by_index(dev, 0);
+	host->generic_phy = NULL;
 
 	if (IS_ERR(host->generic_phy)) {
 		err = PTR_ERR(host->generic_phy);
