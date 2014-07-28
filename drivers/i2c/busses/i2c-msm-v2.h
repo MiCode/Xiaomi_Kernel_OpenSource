@@ -34,6 +34,7 @@ enum msm_i2_debug_level {
 #define BITS_AT(val, idx, n_bits)(((val) & (((1 << n_bits) - 1) << idx)) >> idx)
 #define MASK_IS_SET(val, mask)      ((val & mask) == mask)
 #define MASK_IS_SET_BOOL(val, mask) (MASK_IS_SET(val, mask) ? 1 : 0)
+#define KHz(freq) (1000 * freq)
 
 /* QUP Registers */
 enum {
@@ -142,7 +143,6 @@ enum {
 };
 
 enum {
-	I2C_MSM_CLK_FAST_FREQ_HS     =  400000,
 	I2C_MSM_CLK_FAST_MAX_FREQ    = 1000000,
 	I2C_MSM_CLK_HIGH_MAX_FREQ    = 3400000,
 };
@@ -152,24 +152,6 @@ enum {
 		(((reg_val) & ~(0x3 << 24)) | (((noise_rej_val) & 0x3) << 24))
 #define I2C_MSM_SDA_NOISE_REJECTION(reg_val, noise_rej_val) \
 		(((reg_val) & ~(0x3 << 26)) | (((noise_rej_val) & 0x3) << 26))
-static inline u32 I2C_MSM_CLK_DIV(u32 reg_val, u32 clk_freq_in,
-				u32 clk_freq_out, bool is_high_speed)
-{
-	int fs_div;
-	int hs_div;
-
-	if (is_high_speed) {
-		fs_div = I2C_MSM_CLK_FAST_FREQ_HS;
-		hs_div = (clk_freq_in / (clk_freq_out * 3));
-	} else {
-		fs_div = (clk_freq_in / (clk_freq_out * 2)) - 3;
-		hs_div = 0;
-	}
-	/* Protect hs_div from overflow (it is represented in HW by 3 bits */
-	hs_div = min_t(int, hs_div, 0x7);
-
-	return (reg_val & (~0x7ff)) | ((hs_div & 0x7) << 8) | (fs_div & 0xff);
-}
 
 /* Register:QUP_ERROR_FLAGS_EN flags */
 enum {
@@ -674,6 +656,7 @@ struct i2c_msm_xfer {
  * @noise_rjct_sda noise rejection value for the sda line (a field of
  *           I2C_MASTER_CLK_CTL).
  * @pdata    the platform data (values from board-file or from device-tree)
+ * @mstr_clk_ctl cached value for programming to mstr_clk_ctl register
  */
 struct i2c_msm_ctrl {
 	struct device             *dev;
@@ -684,6 +667,7 @@ struct i2c_msm_ctrl {
 	struct i2c_msm_resources   rsrcs;
 	int                        noise_rjct_scl;
 	int                        noise_rjct_sda;
+	u32                        mstr_clk_ctl;
 	struct i2c_msm_v2_platform_data *pdata;
 	enum msm_i2c_power_state   pwr_state;
 };
