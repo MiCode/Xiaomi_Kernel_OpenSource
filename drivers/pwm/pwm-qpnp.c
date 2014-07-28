@@ -307,6 +307,7 @@ struct _qpnp_pwm_config {
 struct qpnp_pwm_chip {
 	struct	spmi_device	*spmi_dev;
 	struct pwm_chip         chip;
+	bool			enabled;
 	struct _qpnp_pwm_config	pwm_config;
 	struct	qpnp_lpg_config	lpg_config;
 	spinlock_t		lpg_lock;
@@ -1102,6 +1103,9 @@ static int _pwm_config(struct qpnp_pwm_chip *chip,
 	if (rc)
 		goto out;
 
+	if (!rc && chip->enabled)
+		rc = qpnp_lpg_configure_pwm_state(chip, QPNP_PWM_ENABLE);
+
 	pr_debug("duty/period=%u/%u %s: pwm_value=%d (of %d)\n",
 		 (unsigned)duty_value, (unsigned)period_value,
 		 (tm_lvl == LVL_USEC) ? "usec" : "nsec",
@@ -1172,6 +1176,9 @@ after_table_write:
 
 	rc = qpnp_lpg_change_lut(chip);
 
+	if (!rc && chip->enabled)
+		rc = qpnp_lpg_configure_lut_state(chip, QPNP_LUT_ENABLE);
+
 	return rc;
 }
 
@@ -1190,6 +1197,9 @@ static int _pwm_enable(struct qpnp_pwm_chip *chip)
 			rc = qpnp_lpg_configure_lut_state(chip,
 						QPNP_LUT_ENABLE);
 	}
+
+	if (!rc)
+		chip->enabled = true;
 
 	spin_unlock_irqrestore(&chip->lpg_lock, flags);
 
@@ -1214,6 +1224,7 @@ static void qpnp_pwm_free(struct pwm_chip *pwm_chip,
 	if (!(chip->flags & QPNP_PWM_LUT_NOT_SUPPORTED))
 		qpnp_lpg_configure_lut_state(chip, QPNP_LUT_DISABLE);
 
+	chip->enabled = false;
 	spin_unlock_irqrestore(&chip->lpg_lock, flags);
 }
 
@@ -1296,6 +1307,9 @@ static void qpnp_pwm_disable(struct pwm_chip *pwm_chip,
 	else if (!(chip->flags & QPNP_PWM_LUT_NOT_SUPPORTED))
 		rc = qpnp_lpg_configure_lut_state(chip,
 					QPNP_LUT_DISABLE);
+
+	if (!rc)
+		chip->enabled = false;
 
 	spin_unlock_irqrestore(&chip->lpg_lock, flags);
 
