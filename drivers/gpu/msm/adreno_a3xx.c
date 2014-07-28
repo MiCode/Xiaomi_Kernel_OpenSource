@@ -177,7 +177,9 @@ const unsigned int a3xx_cp_addr_regs[ADRENO_CP_ADDR_MAX] = {
 unsigned int adreno_a3xx_rbbm_clock_ctl_default(struct adreno_device
 							*adreno_dev)
 {
-	if (adreno_is_a305(adreno_dev))
+	if (adreno_is_a304(adreno_dev))
+		return A304_RBBM_CLOCK_CTL_DEFAULT;
+	else if (adreno_is_a305(adreno_dev))
 		return A305_RBBM_CLOCK_CTL_DEFAULT;
 	else if (adreno_is_a305c(adreno_dev))
 		return A305C_RBBM_CLOCK_CTL_DEFAULT;
@@ -810,7 +812,7 @@ static int a3xx_perfcounter_enable_pwr(struct adreno_device *adreno_dev,
 	return 0;
 }
 
-static int a306_perfcounter_enable_vbif(struct adreno_device *adreno_dev,
+static int a3xx_perfcounter_enable_vbif2(struct adreno_device *adreno_dev,
 					 unsigned int counter,
 					 unsigned int countable)
 {
@@ -821,21 +823,20 @@ static int a306_perfcounter_enable_vbif(struct adreno_device *adreno_dev,
 	if (counters == NULL)
 		return -EINVAL;
 
-	if (counter > 3 || countable > A306_VBIF_PERF_CNT_SEL_MASK)
+	if (counter > 3 || countable > A3XX_VBIF2_PERF_CNT_SEL_MASK)
 		return -EINVAL;
 
 	reg = &counters->groups[KGSL_PERFCOUNTER_GROUP_VBIF].regs[counter];
 	/* Write 1, followed by 0 to CLR register for clearing the counter */
-	kgsl_regwrite(device, reg->select - A306_VBIF_PERF_CLR_REG_SEL_OFF, 1);
-	kgsl_regwrite(device, reg->select - A306_VBIF_PERF_CLR_REG_SEL_OFF, 0);
+	kgsl_regwrite(device, reg->select - A3XX_VBIF2_PERF_CLR_REG_SEL_OFF, 1);
+	kgsl_regwrite(device, reg->select - A3XX_VBIF2_PERF_CLR_REG_SEL_OFF, 0);
 	kgsl_regwrite(device, reg->select, countable);
 	/* enable reg is 8 DWORDS before select reg */
-	kgsl_regwrite(device, reg->select - A306_VBIF_PERF_EN_REG_SEL_OFF, 1);
+	kgsl_regwrite(device, reg->select - A3XX_VBIF2_PERF_EN_REG_SEL_OFF, 1);
 	counters->groups[KGSL_PERFCOUNTER_GROUP_VBIF].regs[counter].value = 0;
 	return 0;
 
 }
-
 
 static int a3xx_perfcounter_enable_vbif(struct adreno_device *adreno_dev,
 					 unsigned int counter,
@@ -870,7 +871,7 @@ static int a3xx_perfcounter_enable_vbif(struct adreno_device *adreno_dev,
 	return 0;
 }
 
-static int a306_perfcounter_enable_vbif_pwr(struct adreno_device *adreno_dev,
+static int a3xx_perfcounter_enable_vbif2_pwr(struct adreno_device *adreno_dev,
 					     unsigned int counter)
 {
 	struct kgsl_device *device = &adreno_dev->dev;
@@ -882,9 +883,9 @@ static int a306_perfcounter_enable_vbif_pwr(struct adreno_device *adreno_dev,
 
 	reg = &counters->groups[KGSL_PERFCOUNTER_GROUP_VBIF_PWR].regs[counter];
 	/* Write 1, followed by 0 to CLR register for clearing the counter */
-	kgsl_regwrite(device, reg->select + A306_VBIF_PERF_PWR_CLR_REG_EN_OFF,
+	kgsl_regwrite(device, reg->select + A3XX_VBIF2_PERF_PWR_CLR_REG_EN_OFF,
 			1);
-	kgsl_regwrite(device, reg->select + A306_VBIF_PERF_PWR_CLR_REG_EN_OFF,
+	kgsl_regwrite(device, reg->select + A3XX_VBIF2_PERF_PWR_CLR_REG_EN_OFF,
 			0);
 	kgsl_regwrite(device, reg->select, 1);
 	counters->groups[KGSL_PERFCOUNTER_GROUP_VBIF_PWR]
@@ -947,8 +948,10 @@ int a3xx_perfcounter_enable(struct adreno_device *adreno_dev,
 		if (adreno_is_a4xx(adreno_dev))
 			return a4xx_perfcounter_enable_vbif(adreno_dev, counter,
 								countable);
-		else if (adreno_is_a306(adreno_dev))
-			return a306_perfcounter_enable_vbif(adreno_dev, counter,
+		else if (adreno_is_a306(adreno_dev) ||
+			adreno_is_a304(adreno_dev))
+			return a3xx_perfcounter_enable_vbif2(adreno_dev,
+								counter,
 								countable);
 		else
 			return a3xx_perfcounter_enable_vbif(adreno_dev, counter,
@@ -959,8 +962,9 @@ int a3xx_perfcounter_enable(struct adreno_device *adreno_dev,
 		if (adreno_is_a4xx(adreno_dev))
 			return a4xx_perfcounter_enable_vbif_pwr(adreno_dev,
 								counter);
-		else if (adreno_is_a306(adreno_dev))
-			return a306_perfcounter_enable_vbif_pwr(adreno_dev,
+		else if (adreno_is_a306(adreno_dev) ||
+			adreno_is_a304(adreno_dev))
+			return a3xx_perfcounter_enable_vbif2_pwr(adreno_dev,
 								counter);
 		else
 			return a3xx_perfcounter_enable_vbif_pwr(adreno_dev,
@@ -1071,7 +1075,7 @@ static uint64_t a3xx_perfcounter_read_pwr(struct adreno_device *adreno_dev,
 				.regs[counter].value;
 }
 
-static uint64_t a306_perfcounter_read_vbif(struct adreno_device *adreno_dev,
+static uint64_t a3xx_perfcounter_read_vbif2(struct adreno_device *adreno_dev,
 				unsigned int counter)
 {
 	struct kgsl_device *device = &adreno_dev->dev;
@@ -1085,12 +1089,12 @@ static uint64_t a306_perfcounter_read_vbif(struct adreno_device *adreno_dev,
 	reg = &counters->groups[KGSL_PERFCOUNTER_GROUP_VBIF].regs[counter];
 
 	/* freeze counter */
-	kgsl_regwrite(device, reg->select - A306_VBIF_PERF_EN_REG_SEL_OFF, 0);
+	kgsl_regwrite(device, reg->select - A3XX_VBIF2_PERF_EN_REG_SEL_OFF, 0);
 	kgsl_regread(device, reg->offset, &lo);
 	kgsl_regread(device, reg->offset_hi, &hi);
 
 	/* un-freeze counter */
-	kgsl_regwrite(device, reg->select - A306_VBIF_PERF_EN_REG_SEL_OFF, 1);
+	kgsl_regwrite(device, reg->select - A3XX_VBIF2_PERF_EN_REG_SEL_OFF, 1);
 
 	return ((((uint64_t) hi) << 32) | lo)
 		+ counters->groups[KGSL_PERFCOUNTER_GROUP_VBIF]
@@ -1129,7 +1133,8 @@ static uint64_t a3xx_perfcounter_read_vbif(struct adreno_device *adreno_dev,
 				.regs[counter].value;
 }
 
-static uint64_t a306_perfcounter_read_vbif_pwr(struct adreno_device *adreno_dev,
+static uint64_t
+	a3xx_perfcounter_read_vbif2_pwr(struct adreno_device *adreno_dev,
 				unsigned int counter)
 {
 	struct kgsl_device *device = &adreno_dev->dev;
@@ -1154,7 +1159,6 @@ static uint64_t a306_perfcounter_read_vbif_pwr(struct adreno_device *adreno_dev,
 		+ counters->groups[KGSL_PERFCOUNTER_GROUP_VBIF_PWR]
 			.regs[counter].value;
 }
-
 
 static uint64_t a3xx_perfcounter_read_vbif_pwr(struct adreno_device *adreno_dev,
 				unsigned int counter)
@@ -1208,8 +1212,9 @@ uint64_t a3xx_perfcounter_read(struct adreno_device *adreno_dev,
 		if (adreno_is_a4xx(adreno_dev))
 			return a4xx_perfcounter_read_vbif_pwr(adreno_dev,
 								counter);
-		else if (adreno_is_a306(adreno_dev))
-			return a306_perfcounter_read_vbif_pwr(adreno_dev,
+		else if (adreno_is_a306(adreno_dev) ||
+			adreno_is_a304(adreno_dev))
+			return a3xx_perfcounter_read_vbif2_pwr(adreno_dev,
 								counter);
 		else
 			return a3xx_perfcounter_read_vbif_pwr(adreno_dev,
@@ -1220,8 +1225,9 @@ uint64_t a3xx_perfcounter_read(struct adreno_device *adreno_dev,
 		if (adreno_is_a4xx(adreno_dev))
 			return a4xx_perfcounter_read_vbif(adreno_dev,
 							counter);
-		else if (adreno_is_a306(adreno_dev))
-			return a306_perfcounter_read_vbif(adreno_dev,
+		else if (adreno_is_a306(adreno_dev) ||
+			adreno_is_a304(adreno_dev))
+			return a3xx_perfcounter_read_vbif2(adreno_dev,
 							counter);
 		else
 			return a3xx_perfcounter_read_vbif(adreno_dev,
@@ -1365,6 +1371,11 @@ void a3xx_busy_cycles(struct adreno_device *adreno_dev,
 }
 
 /* VBIF registers start after 0x3000 so use 0x0 as end of list marker */
+static const struct adreno_vbif_data a304_vbif[] = {
+	{ A3XX_VBIF_ROUND_ROBIN_QOS_ARB, 0x0003 },
+	{0, 0},
+};
+
 static const struct adreno_vbif_data a305_vbif[] = {
 	/* Set up 16 deep read/write request queues */
 	{ A3XX_VBIF_IN_RD_LIM_CONF0, 0x10101010 },
@@ -1504,6 +1515,7 @@ static const struct adreno_vbif_data a330v21_vbif[] = {
 };
 
 static const struct adreno_vbif_platform a3xx_vbif_platforms[] = {
+	{ adreno_is_a304, a304_vbif },
 	{ adreno_is_a305, a305_vbif },
 	{ adreno_is_a305c, a305c_vbif },
 	{ adreno_is_a306, a306_vbif },
@@ -1677,27 +1689,33 @@ static struct adreno_perfcount_register a3xx_perfcounters_vbif_pwr[] = {
 	{ KGSL_PERFCOUNTER_NOT_USED, 0, 0, A3XX_VBIF_PERF_PWR_CNT2_LO,
 		A3XX_VBIF_PERF_PWR_CNT2_HI, -1, 0 },
 };
-static struct adreno_perfcount_register a306_perfcounters_vbif[] = {
-	{ KGSL_PERFCOUNTER_NOT_USED, 0, 0, A306_VBIF_PERF_CNT_LOW0,
-		A306_VBIF_PERF_CNT_HIGH0, -1, A306_VBIF_PERF_CNT_SEL0 },
-	{ KGSL_PERFCOUNTER_NOT_USED, 0, 0, A306_VBIF_PERF_CNT_LOW1,
-		A306_VBIF_PERF_CNT_HIGH1, -1, A306_VBIF_PERF_CNT_SEL1 },
-	{ KGSL_PERFCOUNTER_NOT_USED, 0, 0, A306_VBIF_PERF_CNT_LOW2,
-		A306_VBIF_PERF_CNT_HIGH2, -1, A306_VBIF_PERF_CNT_SEL2 },
-	{ KGSL_PERFCOUNTER_NOT_USED, 0, 0, A306_VBIF_PERF_CNT_LOW3,
-		A306_VBIF_PERF_CNT_HIGH3, -1, A306_VBIF_PERF_CNT_SEL3 },
+static struct adreno_perfcount_register a3xx_perfcounters_vbif2[] = {
+	{ KGSL_PERFCOUNTER_NOT_USED, 0, 0, A3XX_VBIF2_PERF_CNT_LOW0,
+		A3XX_VBIF2_PERF_CNT_HIGH0, -1, A3XX_VBIF2_PERF_CNT_SEL0 },
+	{ KGSL_PERFCOUNTER_NOT_USED, 0, 0, A3XX_VBIF2_PERF_CNT_LOW1,
+		A3XX_VBIF2_PERF_CNT_HIGH1, -1, A3XX_VBIF2_PERF_CNT_SEL1 },
+	{ KGSL_PERFCOUNTER_NOT_USED, 0, 0, A3XX_VBIF2_PERF_CNT_LOW2,
+		A3XX_VBIF2_PERF_CNT_HIGH2, -1, A3XX_VBIF2_PERF_CNT_SEL2 },
+	{ KGSL_PERFCOUNTER_NOT_USED, 0, 0, A3XX_VBIF2_PERF_CNT_LOW3,
+		A3XX_VBIF2_PERF_CNT_HIGH3, -1, A3XX_VBIF2_PERF_CNT_SEL3 },
 };
 /*
  * Placing EN register in select field since vbif perf counters
  * dont have select register to program
  */
-static struct adreno_perfcount_register a306_perfcounters_vbif_pwr[] = {
-	{ KGSL_PERFCOUNTER_NOT_USED, 0, 0, A306_VBIF_PERF_PWR_CNT_LOW0,
-		A306_VBIF_PERF_PWR_CNT_HIGH0, -1, A306_VBIF_PERF_PWR_CNT_EN0 },
-	{ KGSL_PERFCOUNTER_NOT_USED, 0, 0, A306_VBIF_PERF_PWR_CNT_LOW1,
-		A306_VBIF_PERF_PWR_CNT_HIGH1, -1, A306_VBIF_PERF_PWR_CNT_EN1 },
-	{ KGSL_PERFCOUNTER_NOT_USED, 0, 0, A4XX_VBIF_PERF_PWR_CNT_LOW2,
-		A306_VBIF_PERF_PWR_CNT_HIGH2, -1, A306_VBIF_PERF_PWR_CNT_EN2 },
+static struct adreno_perfcount_register a3xx_perfcounters_vbif2_pwr[] = {
+	{ KGSL_PERFCOUNTER_NOT_USED, 0,
+		0, A3XX_VBIF2_PERF_PWR_CNT_LOW0,
+		A3XX_VBIF2_PERF_PWR_CNT_HIGH0, -1,
+		A3XX_VBIF2_PERF_PWR_CNT_EN0 },
+	{ KGSL_PERFCOUNTER_NOT_USED, 0,
+		0, A3XX_VBIF2_PERF_PWR_CNT_LOW1,
+		A3XX_VBIF2_PERF_PWR_CNT_HIGH1, -1,
+		A3XX_VBIF2_PERF_PWR_CNT_EN1 },
+	{ KGSL_PERFCOUNTER_NOT_USED, 0,
+		0, A3XX_VBIF2_PERF_PWR_CNT_LOW2,
+		A3XX_VBIF2_PERF_PWR_CNT_HIGH2, -1,
+		A3XX_VBIF2_PERF_PWR_CNT_EN2 },
 };
 
 #define A3XX_PERFCOUNTER_GROUP(offset, name) \
@@ -1753,11 +1771,12 @@ int a3xx_perfcounter_init(struct adreno_device *adreno_dev)
 	if (adreno_is_a330(adreno_dev))
 		a3xx_perfcounters_sp[3].countable = KGSL_PERFCOUNTER_BROKEN;
 
-	if (adreno_is_a306(adreno_dev)) {
+	if (adreno_is_a306(adreno_dev) ||
+		adreno_is_a304(adreno_dev)) {
 		counters->groups[KGSL_PERFCOUNTER_GROUP_VBIF].regs =
-			a306_perfcounters_vbif;
+			a3xx_perfcounters_vbif2;
 		counters->groups[KGSL_PERFCOUNTER_GROUP_VBIF_PWR].regs =
-			a306_perfcounters_vbif_pwr;
+			a3xx_perfcounters_vbif2_pwr;
 	}
 
 	return 0;
