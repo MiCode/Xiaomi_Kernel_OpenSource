@@ -916,6 +916,7 @@ struct vlv_s0ix_state {
 	u32 gu_ctl0;
 	u32 gu_ctl1;
 	u32 clock_gate_dis2;
+	u32 dpio_cfg_data;
 };
 
 #ifdef CONFIG_DEBUG_FS
