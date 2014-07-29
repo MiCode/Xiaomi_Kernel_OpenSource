@@ -82,7 +82,7 @@ struct silabs_fm_device {
 	/* regional settings */
 	enum silabs_region_t region;
 	/* power mode */
-	int lp_mode;
+	bool lp_mode;
 	int handle_irq;
 	/* global lock */
 	struct mutex lock;
@@ -91,10 +91,12 @@ struct silabs_fm_device {
 	/* work queue */
 	struct workqueue_struct *wqueue;
 	struct workqueue_struct *wqueue_scan;
+	struct workqueue_struct *wqueue_af;
 	struct workqueue_struct *wqueue_rds;
 	struct work_struct rds_worker;
 	struct delayed_work work;
 	struct delayed_work work_scan;
+	struct delayed_work work_af;
 	/* wait queue for blocking event read */
 	wait_queue_head_t event_queue;
 	/* wait queue for raw rds read */
@@ -123,12 +125,17 @@ struct silabs_fm_device {
 	u8 utf_8_flag;
 	u8 rt_ert_flag;
 	u8 formatting_dir;
+	bool is_af_jump_enabled;
+	bool is_af_tune_in_progress;
+	u8 af_rssi_th; /* allowed rssi is 0-127 */
+	struct silabs_af_info af_info;
 };
 
 static int silabs_fm_request_irq(struct silabs_fm_device *radio);
 static int tune(struct silabs_fm_device *radio, u32 freq);
 static int silabs_seek(struct silabs_fm_device *radio, int dir, int wrap);
 static int cancel_seek(struct silabs_fm_device *radio);
+static int configure_interrupts(struct silabs_fm_device *radio, u8 val);
 static void silabs_fm_q_event(struct silabs_fm_device *radio,
 				enum silabs_evt_t event);
 
@@ -1201,6 +1208,226 @@ static void silabs_raw_rds_handler(struct silabs_fm_device *radio)
 		break;
 	}
 }
+
+static int set_hard_mute(struct silabs_fm_device *radio, bool val)
+{
+	int retval = 0;
+
+	if (val == true) {
+		retval = set_property(radio, RX_HARD_MUTE_PROP, HARD_MUTE_MASK);
+
+		if (retval < 0)
+			FMDERR("%s: set_hard_mute failed with error %d\n",
+				__func__, retval);
+	} else {
+		retval = set_property(radio, RX_HARD_MUTE_PROP, 0);
+
+		if (retval < 0)
+			FMDERR("%s: set_hard_mute failed with error %d\n",
+				__func__, retval);
+	}
+
+	return retval;
+}
+
+static int get_rssi(struct silabs_fm_device *radio, u8 *prssi)
+{
+	int retval = 0;
+
+	mutex_lock(&radio->lock);
+
+	memset(radio->write_buf, 0, WRITE_REG_NUM);
+
+	/* track command that is being sent to chip.*/
+	radio->cmd = FM_RSQ_STATUS_CMD;
+	radio->write_buf[0] = FM_RSQ_STATUS_CMD;
+	radio->write_buf[1] = 1;
+
+	retval = send_cmd(radio, RSQ_STATUS_CMD_LEN);
+
+	if (retval < 0)
+		FMDERR("%s: get_rsq_status failed with error %d\n",
+				__func__, retval);
+
+	FMDBG("%s: rssi is %d\n", __func__, radio->read_buf[4]);
+	*prssi = radio->read_buf[4];
+	mutex_unlock(&radio->lock);
+
+	return retval;
+}
+
+static void reset_af_info(struct silabs_fm_device *radio)
+{
+	radio->af_info.is_new_af_list = false;
+	radio->af_info.cnt = 0;
+	radio->af_info.index = 0;
+	radio->af_info.size = 0;
+	radio->af_info.orig_freq_khz = 0;
+	memset(radio->af_info.af_list, 0, sizeof(radio->af_info.af_list));
+}
+
+static void update_af_list(struct silabs_fm_device *radio)
+{
+	u8 first_byte, sec_byte;
+	u16 af_data = radio->block[2];
+
+	first_byte = af_data >> 8;
+	sec_byte = af_data & 0xFF;
+
+	if (first_byte >= MIN_AF_CNT_CODE && first_byte <= MAX_AF_CNT_CODE) {
+		/* AF count. */
+		reset_af_info(radio);
+
+		radio->af_info.cnt = first_byte - NO_AF_CNT_CODE;
+
+		radio->af_info.orig_freq_khz = radio->tuned_freq_khz;
+		FMDBG("%s: current freq is %u, AF cnt is %u\n",
+			__func__, radio->tuned_freq_khz, radio->af_info.cnt);
+
+		radio->af_info.af_list[radio->af_info.size++] =
+				SCALE_AF_CODE_TO_FREQ_KHZ(sec_byte);
+		FMDBG("%s: AF is %u\n", __func__,
+			SCALE_AF_CODE_TO_FREQ_KHZ(sec_byte));
+	} else if (first_byte >= MIN_AF_FREQ_CODE &&
+				first_byte <= MAX_AF_FREQ_CODE) {
+		/* update the AF list */
+		radio->af_info.af_list[radio->af_info.size++] =
+			SCALE_AF_CODE_TO_FREQ_KHZ(first_byte);
+		FMDBG("%s: first AF is %u\n", __func__,
+			SCALE_AF_CODE_TO_FREQ_KHZ(first_byte));
+
+		if (radio->af_info.size < radio->af_info.cnt) {
+			radio->af_info.af_list[radio->af_info.size++] =
+				SCALE_AF_CODE_TO_FREQ_KHZ(sec_byte);
+			FMDBG("%s: second AF is %u\n", __func__,
+				SCALE_AF_CODE_TO_FREQ_KHZ(sec_byte));
+		}
+	}
+}
+
+static void silabs_af_tune(struct work_struct *work)
+{
+	struct silabs_fm_device *radio;
+	int retval = 0;
+	u8 rssi = 0;
+	u32 freq = 0;
+
+	radio = container_of(work, struct silabs_fm_device, work_af.work);
+
+	if (radio->af_info.size == 0) {
+		FMDBG("%s: Empty AF list\n", __func__);
+		radio->is_af_tune_in_progress = false;
+		return;
+	}
+
+	/* Disable all other interrupts except STC */
+	retval = configure_interrupts(radio, ENABLE_STC_INTERRUPTS);
+
+	/* Mute until AF tuning finishes */
+	retval = set_hard_mute(radio, true);
+
+	while (1) {
+		if (radio->mode != FM_RECV) {
+			FMDERR("%s: Drv is not in proper state\n", __func__);
+			goto end;
+		}
+
+		if (radio->seek_tune_status != NO_SEEK_TUNE_PENDING) {
+			FMDBG("%s: manual tune, search issued\n", __func__);
+			break;
+		}
+
+		if (radio->is_af_jump_enabled != true) {
+			FMDBG("%s: AF jump is disabled\n", __func__);
+			break;
+		}
+
+		/* If no more AFs left, tune to original frequency and break */
+		if (radio->af_info.index >= radio->af_info.size) {
+			FMDBG("%s: No more AFs, tuning to original freq %u\n",
+				__func__, radio->af_info.orig_freq_khz);
+
+			freq = radio->af_info.orig_freq_khz;
+
+			retval = tune(radio, freq);
+			if (retval < 0) {
+				FMDERR("%s: tune failed, error %d\n",
+					__func__, retval);
+				goto err_tune_fail;
+			}
+
+			/* wait for tune to finish */
+			if (!wait_for_completion_timeout(&radio->sync_req_done,
+				msecs_to_jiffies(WAIT_TIMEOUT_MSEC))) {
+				FMDERR("%s: didn't receive STC for tune\n",
+					__func__);
+				/* FM is not correct state */
+				continue;
+			} else
+				FMDBG("%s: received STC for tune\n", __func__);
+
+			goto err_tune_fail;
+		}
+
+		freq = radio->af_info.af_list[radio->af_info.index++];
+
+		FMDBG("%s: tuning to freq %u\n", __func__, freq);
+
+		retval = tune(radio, freq);
+		if (retval < 0) {
+			FMDERR("%s: tune failed, error %d\n",
+				__func__, retval);
+			goto err_tune_fail;
+		}
+
+		/* wait for tune to finish */
+		if (!wait_for_completion_timeout(&radio->sync_req_done,
+			msecs_to_jiffies(WAIT_TIMEOUT_MSEC))) {
+			FMDERR("%s: didn't receive STC for tune\n",
+				__func__);
+			/* FM is not correct state */
+			continue;
+		} else
+			FMDBG("%s: received STC for tune\n", __func__);
+
+		retval = get_rssi(radio, &rssi);
+		if (retval < 0) {
+			FMDERR("%s: getting rssi failed\n", __func__);
+			goto err_tune_fail;
+		}
+
+		if (rssi >= radio->af_rssi_th) {
+			FMDBG("%s: found AF freq(%u) >= AF threshold\n",
+				__func__, freq);
+			/* Notify FM UI about the new freq */
+			FMDBG("%s: posting TUNE_SUCC event\n", __func__);
+			silabs_fm_q_event(radio, SILABS_EVT_TUNE_SUCC);
+
+			break;
+		}
+	}
+
+err_tune_fail:
+	/*
+	 * At this point, we are tuned to either original freq or AF with >=
+	 * AF rssi threshold
+	 */
+	reset_af_info(radio);
+
+	radio->is_af_tune_in_progress = false;
+
+	/* Clear the stale RDS int bit. */
+	get_rds_status(radio);
+	retval = configure_interrupts(radio, ENABLE_STC_RDS_INTERRUPTS);
+
+	/* Clear the stale RSQ int bit. */
+	get_rssi(radio, &rssi);
+	retval = configure_interrupts(radio, ENABLE_RSQ_INTERRUPTS);
+
+end:
+	return;
+}
+
 /* When RDS interrupt is received, read and process RDS data. */
 static void rds_handler(struct work_struct *worker)
 {
@@ -1232,6 +1459,7 @@ static void rds_handler(struct work_struct *worker)
 
 	switch (grp_type) {
 	case RDS_TYPE_0A:
+		update_af_list(radio);
 		/*  fall through */
 	case RDS_TYPE_0B:
 		addr = (radio->block[1] & PS_MASK) * NO_OF_CHARS_IN_EACH_ADD;
@@ -1290,15 +1518,16 @@ static int configure_interrupts(struct silabs_fm_device *radio, u8 val)
 		prop_val = 0;
 		retval = set_property(radio, GPO_IEN_PROP, prop_val);
 		if (retval < 0)
-			FMDERR("In %s, error disabling interrupts\n", __func__);
+			FMDERR("%s: error disabling interrupts\n", __func__);
 		break;
 	case ENABLE_STC_RDS_INTERRUPTS:
-		/* enable interrupts. */
+		/* enable STC and RDS interrupts. */
 		prop_val = RDS_INT_BIT_MASK | STC_INT_BIT_MASK;
 
 		retval = set_property(radio, GPO_IEN_PROP, prop_val);
 		if (retval < 0)
-			FMDERR("In %s, error enabling interrupts\n", __func__);
+			FMDERR("%s: error enabling STC, RDS interrupts\n",
+				__func__);
 		break;
 	case ENABLE_STC_INTERRUPTS:
 		/* enable STC interrupts only. */
@@ -1306,7 +1535,51 @@ static int configure_interrupts(struct silabs_fm_device *radio, u8 val)
 
 		retval = set_property(radio, GPO_IEN_PROP, prop_val);
 		if (retval < 0)
-			FMDERR("In %s, error enabling interrupts\n", __func__);
+			FMDERR("%s: error enabling STC interrupts\n", __func__);
+		break;
+	case ENABLE_RDS_INTERRUPTS:
+		/* enable RDS interrupts. */
+		prop_val = RDS_INT_BIT_MASK | STC_INT_BIT_MASK;
+		if (radio->is_af_jump_enabled)
+			prop_val |= RSQ_INT_BIT_MASK;
+
+		retval = set_property(radio, GPO_IEN_PROP, prop_val);
+		if (retval < 0)
+			FMDERR("%s: error enabling RDS interrupts\n",
+				__func__);
+		break;
+	case DISABLE_RDS_INTERRUPTS:
+		/* disable RDS interrupts. */
+		prop_val = STC_INT_BIT_MASK;
+		if (radio->is_af_jump_enabled)
+			prop_val |= RSQ_INT_BIT_MASK;
+
+		retval = set_property(radio, GPO_IEN_PROP, prop_val);
+		if (retval < 0)
+			FMDERR("%s: error disabling RDS interrupts\n",
+				__func__);
+		break;
+	case ENABLE_RSQ_INTERRUPTS:
+		/* enable RSQ interrupts. */
+		prop_val = RSQ_INT_BIT_MASK | STC_INT_BIT_MASK;
+		if (radio->lp_mode != true)
+			prop_val |= RDS_INT_BIT_MASK;
+
+		retval = set_property(radio, GPO_IEN_PROP, prop_val);
+		if (retval < 0)
+			FMDERR("%s: error enabling RSQ interrupts\n",
+				__func__);
+		break;
+	case DISABLE_RSQ_INTERRUPTS:
+		/* disable RSQ interrupts. */
+		prop_val = STC_INT_BIT_MASK;
+		if (radio->lp_mode != true)
+			prop_val |= RDS_INT_BIT_MASK;
+
+		retval = set_property(radio, GPO_IEN_PROP, prop_val);
+		if (retval < 0)
+			FMDERR("%s: error disabling RSQ interrupts\n",
+				__func__);
 		break;
 	default:
 		FMDERR("%s: invalid value %u\n", __func__, val);
@@ -1358,16 +1631,40 @@ static int initialize_recv(struct silabs_fm_device *radio)
 {
 	int retval = 0;
 
-	retval = set_property(radio, FM_SEEK_TUNE_SNR_THRESHOLD_PROP, 2);
+	retval = set_property(radio,
+				FM_SEEK_TUNE_SNR_THRESHOLD_PROP,
+				DEFAULT_SNR_TH);
 	if (retval < 0)	{
 		FMDERR("%s: FM_SEEK_TUNE_SNR_THRESHOLD_PROP fail error %d\n",
 				__func__, retval);
 		goto set_prop_fail;
 	}
 
-	retval = set_property(radio, FM_SEEK_TUNE_RSSI_THRESHOLD_PROP, 7);
+	retval = set_property(radio,
+				FM_SEEK_TUNE_RSSI_THRESHOLD_PROP,
+				DEFAULT_RSSI_TH);
 	if (retval < 0)	{
 		FMDERR("%s: FM_SEEK_TUNE_RSSI_THRESHOLD_PROP fail error %d\n",
+				__func__, retval);
+		goto set_prop_fail;
+	}
+
+	retval = set_property(radio,
+				FM_RSQ_RSSI_LO_THRESHOLD_PROP,
+				DEFAULT_AF_RSSI_LOW_TH);
+	if (retval < 0)	{
+		FMDERR("%s: FM_RSQ_RSSI_LO_THRESHOLD_PROP fail error %d\n",
+				__func__, retval);
+		goto set_prop_fail;
+	}
+
+	radio->af_rssi_th = DEFAULT_AF_RSSI_LOW_TH;
+
+	retval = set_property(radio,
+				FM_RSQ_INT_SOURCE_PROP,
+				RSSI_LOW_TH_INT_BIT_MASK);
+	if (retval < 0)	{
+		FMDERR("%s: FM_RSQ_INT_SOURCE_PROP fail error %d\n",
 				__func__, retval);
 		goto set_prop_fail;
 	}
@@ -1630,13 +1927,37 @@ static void silabs_fm_q_event(struct silabs_fm_device *radio,
 		wake_up_interruptible(&radio->event_queue);
 }
 
-static void silabs_interrupts_handler(struct silabs_fm_device *radio)
+static int clear_stc_int(struct silabs_fm_device *radio)
 {
 	int retval = 0;
 
+	mutex_lock(&radio->lock);
+
+	memset(radio->write_buf, 0, WRITE_REG_NUM);
+
+	/* track command that is being sent to chip. */
+	radio->cmd = FM_TUNE_STATUS_CMD;
+
+	radio->write_buf[0] = FM_TUNE_STATUS_CMD;
+	radio->write_buf[1] = INTACK_MASK;
+
+	retval = send_cmd(radio, TUNE_STATUS_CMD_LEN);
+	if (retval < 0)
+		FMDERR("%s: clear_stc_int fail, error %d\n", __func__, retval);
+
+	mutex_unlock(&radio->lock);
+
+	return retval;
+}
+
+static void silabs_interrupts_handler(struct silabs_fm_device *radio)
+{
+	int retval = 0;
+	u8 rssi = 0;
+
 	if (unlikely(radio == NULL)) {
-			FMDERR("%s:radio is null", __func__);
-			return;
+		FMDERR("%s:radio is null", __func__);
+		return;
 	}
 
 	FMDBG("%s: ISR fired for cmd %x, reading status bytes\n",
@@ -1653,11 +1974,7 @@ static void silabs_interrupts_handler(struct silabs_fm_device *radio)
 	FMDBG("%s: successfully read the resp from soc, status byte is %x\n",
 		  __func__, radio->read_buf[0]);
 
-	if (radio->read_buf[0] & RDS_INT_BIT_MASK) {
-		FMDBG("RDS interrupt received\n");
-		schedule_work(&radio->rds_worker);
-		return;
-	}
+
 	if (radio->read_buf[0] & STC_INT_BIT_MASK) {
 		FMDBG("%s: STC bit set for cmd %x\n", __func__, radio->cmd);
 		if (radio->seek_tune_status == TUNE_PENDING) {
@@ -1682,8 +1999,53 @@ static void silabs_interrupts_handler(struct silabs_fm_device *radio)
 			 */
 			FMDBG("In %s, signalling scan thread\n", __func__);
 			complete(&radio->sync_req_done);
+		} else if (radio->is_af_tune_in_progress == true) {
+			/*
+			 * when AF tune is going on and STC int is set, signal
+			 * so that AF tune can proceed.
+			 */
+			FMDBG("In %s, signalling AF tune thread\n", __func__);
+			complete(&radio->sync_req_done);
 		}
+		/* clear the STC interrupt. */
+		clear_stc_int(radio);
 		reset_rds(radio); /* Clear the existing RDS data */
+		return;
+	}
+
+	if (radio->read_buf[0] & RSQ_INT_BIT_MASK) {
+		FMDBG("RSQ interrupt received, clearing the RSQ int bit\n");
+
+		/* clear RSQ, RDS interrupt bits until AF tune is complete. */
+		(void)get_rssi(radio, &rssi);
+		(void)get_rds_status(radio);
+		/* Don't process RSQ until AF tune is complete. */
+		if (radio->is_af_tune_in_progress == true)
+			return;
+
+		if (radio->is_af_jump_enabled &&
+			radio->af_info.size != 0 &&
+			rssi <= radio->af_rssi_th) {
+
+			radio->is_af_tune_in_progress = true;
+			FMDBG("%s: Queuing to AF work Q, freq %u, rssi %u\n",
+					__func__, radio->tuned_freq_khz, rssi);
+			queue_delayed_work(radio->wqueue_af, &radio->work_af,
+					msecs_to_jiffies(SILABS_DELAY_MSEC));
+		}
+		return;
+	}
+
+	if (radio->read_buf[0] & RDS_INT_BIT_MASK) {
+		FMDBG("RDS interrupt received\n");
+		/* Don't process RDS until AF tune is complete. */
+		if (radio->is_af_tune_in_progress == true) {
+			/* clear RDS int bit and return */
+			get_rds_status(radio);
+			return;
+		}
+		schedule_work(&radio->rds_worker);
+		return;
 	}
 	return;
 }
@@ -1710,6 +2072,8 @@ static void silabs_fm_disable_irq(struct silabs_fm_device *radio)
 	flush_workqueue(radio->wqueue);
 	cancel_delayed_work_sync(&radio->work_scan);
 	flush_workqueue(radio->wqueue_scan);
+	cancel_delayed_work_sync(&radio->work_af);
+	flush_workqueue(radio->wqueue_af);
 }
 
 static irqreturn_t silabs_fm_isr(int irq, void *dev_id)
@@ -1768,6 +2132,7 @@ static int silabs_fm_fops_open(struct file *file)
 
 	INIT_DELAYED_WORK(&radio->work, read_int_stat);
 	INIT_DELAYED_WORK(&radio->work_scan, silabs_scan);
+	INIT_DELAYED_WORK(&radio->work_af, silabs_af_tune);
 	INIT_WORK(&radio->rds_worker, rds_handler);
 
 	init_completion(&radio->sync_req_done);
@@ -2242,19 +2607,42 @@ static int silabs_fm_vidioc_s_ctrl(struct file *file, void *priv,
 	case V4L2_CID_PRIVATE_SILABS_LP_MODE:
 		FMDBG("In %s, V4L2_CID_PRIVATE_SILABS_LP_MODE, val is %d\n",
 			__func__, ctrl->value);
-		if (ctrl->value)
+		if (ctrl->value) {
 			/* disable RDS interrupts */
 			retval = configure_interrupts(radio,
-					ENABLE_STC_INTERRUPTS);
-		else
+					ENABLE_RDS_INTERRUPTS);
+			radio->lp_mode = true;
+		} else {
 			/* enable RDS interrupts */
 			retval = configure_interrupts(radio,
-					ENABLE_STC_RDS_INTERRUPTS);
+					DISABLE_RDS_INTERRUPTS);
+			radio->lp_mode = false;
+		}
+
 		if (retval < 0) {
 			FMDERR("In %s, setting low power mode failed %d\n",
 				__func__, retval);
 			goto end;
 		}
+		break;
+	case V4L2_CID_PRIVATE_SILABS_AF_JUMP:
+		FMDBG("%s: V4L2_CID_PRIVATE_SILABS_AF_JUMP, val is %d\n",
+			__func__, ctrl->value);
+		if (ctrl->value)
+			/* enable RSQ interrupts */
+			retval = configure_interrupts(radio,
+					ENABLE_RSQ_INTERRUPTS);
+		else
+			/* disable RSQ interrupts */
+			retval = configure_interrupts(radio,
+					DISABLE_RSQ_INTERRUPTS);
+		if (retval < 0) {
+			FMDERR("%s: setting AF jump mode failed %d\n",
+				__func__, retval);
+			goto end;
+		}
+		/* Save the AF jump state */
+		radio->is_af_jump_enabled = ctrl->value;
 		break;
 	default:
 		retval = -EINVAL;
@@ -2475,8 +2863,13 @@ static int silabs_fm_vidioc_s_frequency(struct file *file, void *priv,
 	retval = tune(radio, f);
 
 	/* save the current frequency if tune is successful. */
-	if (retval > 0)
+	if (retval > 0) {
 		radio->tuned_freq_khz = f;
+		/* Clear AF list */
+		reset_af_info(radio);
+		cancel_delayed_work_sync(&radio->work_af);
+		flush_workqueue(radio->wqueue_af);
+	}
 
 	return retval;
 }
@@ -2511,7 +2904,7 @@ static int silabs_fm_vidioc_s_hw_freq_seek(struct file *file, void *priv,
 
 		radio->seek_tune_status = SEEK_PENDING;
 
-		return silabs_seek(radio, dir, WRAP_ENABLE);
+		retval = silabs_seek(radio, dir, WRAP_ENABLE);
 
 	} else if (radio->g_search_mode == 1) {
 		/* scan */
@@ -2523,6 +2916,13 @@ static int silabs_fm_vidioc_s_hw_freq_seek(struct file *file, void *priv,
 		retval = -EINVAL;
 		FMDERR("In %s, invalid search mode %d\n",
 			__func__, radio->g_search_mode);
+	}
+
+	if (retval > 0) {
+		/* Clear AF list */
+		reset_af_info(radio);
+		cancel_delayed_work_sync(&radio->work_af);
+		flush_workqueue(radio->wqueue_af);
 	}
 
 	return retval;
@@ -2839,6 +3239,7 @@ static int silabs_fm_probe(struct i2c_client *client,
 
 	radio->wqueue = NULL;
 	radio->wqueue_scan = NULL;
+	radio->wqueue_af = NULL;
 	radio->wqueue_rds = NULL;
 
 	/* video device allocation */
@@ -2875,8 +3276,8 @@ static int silabs_fm_probe(struct i2c_client *client,
 	/* initializing the device count  */
 	atomic_set(&radio->users, 1);
 
-	/* radio initializes to low power mode */
-	radio->lp_mode = 1;
+	/* radio initializes to normal mode */
+	radio->lp_mode = 0;
 	radio->handle_irq = 1;
 	/* init lock */
 	mutex_init(&radio->lock);
@@ -2908,6 +3309,15 @@ static int silabs_fm_probe(struct i2c_client *client,
 		retval = -ENOMEM;
 		goto err_wqueue_scan;
 	}
+
+	FMDBG("%s: creating work q for af\n", __func__);
+	radio->wqueue_af  = create_singlethread_workqueue("sifmradioaf");
+
+	if (!radio->wqueue_af) {
+		retval = -ENOMEM;
+		goto err_wqueue_af;
+	}
+
 	radio->wqueue_rds  = create_singlethread_workqueue("sifmradiords");
 
 	if (!radio->wqueue_rds) {
@@ -2928,6 +3338,8 @@ static int silabs_fm_probe(struct i2c_client *client,
 err_all:
 	destroy_workqueue(radio->wqueue_rds);
 err_wqueue_rds:
+	destroy_workqueue(radio->wqueue_af);
+err_wqueue_af:
 	destroy_workqueue(radio->wqueue_scan);
 err_wqueue_scan:
 	destroy_workqueue(radio->wqueue);
@@ -2972,6 +3384,7 @@ static int silabs_fm_remove(struct i2c_client *client)
 	/* disable irq */
 	destroy_workqueue(radio->wqueue);
 	destroy_workqueue(radio->wqueue_scan);
+	destroy_workqueue(radio->wqueue_af);
 	destroy_workqueue(radio->wqueue_rds);
 
 	video_unregister_device(radio->videodev);
