@@ -3273,6 +3273,12 @@ static int mdss_mdp_overlay_on(struct msm_fb_data_type *mfd)
 		ctl = mdp5_data->ctl;
 	}
 
+	if (mdss_fb_is_panel_power_on(mfd)) {
+		pr_debug("panel was never turned off\n");
+		rc = mdss_mdp_ctl_start(mdp5_data->ctl, false);
+		goto panel_on;
+	}
+
 	if (!mfd->panel_info->cont_splash_enabled &&
 		(mfd->panel_info->type != DTV_PANEL)) {
 		rc = mdss_mdp_overlay_start(mfd);
@@ -3288,6 +3294,7 @@ static int mdss_mdp_overlay_on(struct msm_fb_data_type *mfd)
 			goto end;
 	}
 
+panel_on:
 	if (IS_ERR_VALUE(rc)) {
 		pr_err("Failed to turn on fb%d\n", mfd->index);
 		mdss_mdp_overlay_off(mfd);
@@ -3329,6 +3336,11 @@ static int mdss_mdp_overlay_off(struct msm_fb_data_type *mfd)
 	 */
 	pm_runtime_get_sync(&mfd->pdev->dev);
 
+	if (mfd->panel_power_state != MDSS_PANEL_POWER_OFF) {
+		pr_debug("panel not turned off. keeping overlay on\n");
+		goto ctl_stop;
+	}
+
 	mutex_lock(&mdp5_data->ov_lock);
 
 	mdss_mdp_overlay_free_fb_pipe(mfd);
@@ -3365,29 +3377,33 @@ static int mdss_mdp_overlay_off(struct msm_fb_data_type *mfd)
 		__vsync_retire_signal(mfd, mdp5_data->retire_cnt);
 	}
 
+ctl_stop:
 	mutex_lock(&mdp5_data->ov_lock);
 	rc = mdss_mdp_ctl_stop(mdp5_data->ctl, mfd->panel_power_state);
 	if (rc == 0) {
-		mutex_lock(&mdp5_data->list_lock);
-		__mdss_mdp_overlay_free_list_purge(mfd);
-		mutex_unlock(&mdp5_data->list_lock);
-		mdss_mdp_ctl_notifier_unregister(mdp5_data->ctl,
-				&mfd->mdp_sync_pt_data.notifier);
+		if (mfd->panel_power_state == MDSS_PANEL_POWER_OFF) {
+			mutex_lock(&mdp5_data->list_lock);
+			__mdss_mdp_overlay_free_list_purge(mfd);
+			mutex_unlock(&mdp5_data->list_lock);
+			mdss_mdp_ctl_notifier_unregister(mdp5_data->ctl,
+					&mfd->mdp_sync_pt_data.notifier);
 
-		if (!mfd->ref_cnt) {
-			mdp5_data->borderfill_enable = false;
-			mdss_mdp_ctl_destroy(mdp5_data->ctl);
-			mdp5_data->ctl = NULL;
-		}
+			if (!mfd->ref_cnt) {
+				mdp5_data->borderfill_enable = false;
+				mdss_mdp_ctl_destroy(mdp5_data->ctl);
+				mdp5_data->ctl = NULL;
+			}
 
-		if (atomic_dec_return(&mdp5_data->mdata->active_intf_cnt) == 0)
-			mdss_mdp_rotator_release_all();
+			if (atomic_dec_return(
+				&mdp5_data->mdata->active_intf_cnt) == 0)
+				mdss_mdp_rotator_release_all();
 
-		if (!mdp5_data->mdata->idle_pc_enabled) {
-			rc = pm_runtime_put(&mfd->pdev->dev);
-			if (rc)
-				pr_err("unable to suspend w/pm_runtime_put (%d)\n",
-					rc);
+			if (!mdp5_data->mdata->idle_pc_enabled) {
+				rc = pm_runtime_put(&mfd->pdev->dev);
+				if (rc)
+					pr_err("unable to suspend w/pm_runtime_put (%d)\n",
+						rc);
+			}
 		}
 	}
 	mutex_unlock(&mdp5_data->ov_lock);
