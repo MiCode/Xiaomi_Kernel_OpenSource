@@ -124,7 +124,11 @@ dtb-$(CONFIG_ARCH_MDM9630) += mdm9630-sim.dtb \
 	mdm9630-v1-cdp.dtb \
 	mdm9630-v1-mtp.dtb \
 	mdm9630-v2-cdp.dtb \
-	mdm9630-v2-mtp.dtb
+	mdm9630-v2-mtp.dtb \
+	mdm9630-v2-tsmc-cdp.dtb \
+	mdm9630-v2-gf-cdp.dtb  \
+	mdm9630-v2-tsmc-mtp.dtb \
+	mdm9630-v2-gf-mtp.dtb
 dtb-$(CONFIG_ARCH_MSMZIRC) += msmzirc-sim.dtb \
 	msmzirc-rumi.dtb \
 	msmzirc-cdp.dtb \

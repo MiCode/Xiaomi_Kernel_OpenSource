@@ -10,13 +10,10 @@
  * GNU General Public License for more details.
  */
 
-#include "mdm9630.dtsi"
+#include "mdm9630-v2.dtsi"
 
 / {
 	qcom,msm-id = <0xbb 0x20000>, <0xe3 0x20000>, <0xe4 0x20000>,
 		      <0xe5 0x20000>, <0xe6 0x20000>, <0xe7 0x20000>;
 };
 
-&ssphy0 {
-	qcom,override-pll-calibration;
-};
