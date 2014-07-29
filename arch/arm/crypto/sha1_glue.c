@@ -23,6 +23,7 @@
 #include <linux/types.h>
 #include <crypto/sha.h>
 #include <asm/byteorder.h>
+#include <asm/crypto/sha1.h>
 
 struct SHA1_CTX {
 	uint32_t h0,h1,h2,h3,h4;
@@ -71,8 +72,8 @@ static int __sha1_update(struct SHA1_CTX *sctx, const u8 *data,
 }
 
 
-static int sha1_update(struct shash_desc *desc, const u8 *data,
-			     unsigned int len)
+int sha1_update_arm(struct shash_desc *desc, const u8 *data,
+		    unsigned int len)
 {
 	struct SHA1_CTX *sctx = shash_desc_ctx(desc);
 	unsigned int partial = sctx->count % SHA1_BLOCK_SIZE;
@@ -87,6 +88,7 @@ static int sha1_update(struct shash_desc *desc, const u8 *data,
 	res = __sha1_update(sctx, data, len, partial);
 	return res;
 }
+EXPORT_SYMBOL_GPL(sha1_update_arm);
 
 
 /* Add padding and return the message digest. */
@@ -141,7 +143,7 @@ static int sha1_import(struct shash_desc *desc, const void *in)
 static struct shash_alg alg = {
 	.digestsize	=	SHA1_DIGEST_SIZE,
 	.init		=	sha1_init,
-	.update		=	sha1_update,
+	.update		=	sha1_update_arm,
 	.final		=	sha1_final,
 	.export		=	sha1_export,
 	.import		=	sha1_import,
