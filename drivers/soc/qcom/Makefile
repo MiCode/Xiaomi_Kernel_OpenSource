@@ -9,3 +9,6 @@ obj-$(CONFIG_QCOM_SCM_ERRATA) += scm-errata.o
 obj-$(CONFIG_QCOM_SCM)  +=      scm.o scm-boot.o
 obj-$(CONFIG_QCOM_SCM_XPU) += scm-xpu.o
 obj-$(CONFIG_QCOM_WATCHDOG_V2) += watchdog_v2.o
+obj-$(CONFIG_QCOM_MEMORY_DUMP) += memory_dump.o
+obj-$(CONFIG_QCOM_MEMORY_DUMP_V2) += memory_dump_v2.o
+obj-$(CONFIG_QCOM_WATCHDOG_V2) += watchdog_v2.o

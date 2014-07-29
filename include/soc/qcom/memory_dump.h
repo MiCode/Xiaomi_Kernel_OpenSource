@@ -38,7 +38,7 @@ struct msm_client_dump {
 	unsigned long end_addr;
 };
 
-#ifdef CONFIG_MSM_MEMORY_DUMP
+#ifdef CONFIG_QCOM_MEMORY_DUMP
 extern int msm_dump_tbl_register(struct msm_client_dump *client_entry);
 #else
 static inline int msm_dump_tbl_register(struct msm_client_dump *entry)
@@ -48,7 +48,7 @@ static inline int msm_dump_tbl_register(struct msm_client_dump *entry)
 #endif
 
 
-#if defined(CONFIG_MSM_MEMORY_DUMP) || defined(CONFIG_MSM_MEMORY_DUMP_V2)
+#if defined(CONFIG_QCOM_MEMORY_DUMP) || defined(CONFIG_QCOM_MEMORY_DUMP_V2)
 extern uint32_t msm_dump_table_version(void);
 #else
 static inline uint32_t msm_dump_table_version(void)
@@ -106,7 +106,7 @@ struct msm_dump_entry {
 	uint64_t addr;
 };
 
-#ifdef CONFIG_MSM_MEMORY_DUMP_V2
+#ifdef CONFIG_QCOM_MEMORY_DUMP_V2
 extern int msm_dump_data_register(enum msm_dump_table_ids id,
 				  struct msm_dump_entry *entry);
 #else
