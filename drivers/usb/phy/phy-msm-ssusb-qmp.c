@@ -202,6 +202,7 @@ struct msm_ssphy_qmp {
 	bool			in_suspend;
 	bool			override_pll_cal;
 	bool			switch_pipe_clk_src;
+	bool			emulation;
 };
 
 static inline char *get_cable_status_str(struct msm_ssphy_qmp *phy)
@@ -370,6 +371,9 @@ static int msm_ssphy_qmp_init(struct usb_phy *uphy)
 	const struct qmp_reg_val *reg = NULL;
 
 	dev_dbg(uphy->dev, "Initializing QMP phy\n");
+
+	if (phy->emulation)
+		return 0;
 
 	if (!phy->clk_enabled) {
 		ret = msm_ssphy_qmp_init_clocks(phy);
@@ -666,6 +670,9 @@ static int msm_ssphy_qmp_probe(struct platform_device *pdev)
 		dev_err(dev, "couldn't find qmp_ahb2phy_base address.\n");
 		phy->ahb2phy = NULL;
 	}
+
+	phy->emulation = of_property_read_bool(dev->of_node,
+						"qcom,emulation");
 
 	ret = of_property_read_u32_array(dev->of_node, "qcom,vdd-voltage-level",
 					 (u32 *) phy->vdd_levels,
