@@ -1642,8 +1642,6 @@ static int dwc3_msm_suspend(struct dwc3_msm *mdwc)
 	}
 
 	host_ss_active = dwc3_msm_is_host_superspeed(mdwc);
-	if (mdwc->hs_phy_irq)
-		disable_irq(mdwc->hs_phy_irq);
 
 	if (cancel_delayed_work_sync(&mdwc->chg_work))
 		dev_dbg(mdwc->dev, "%s: chg_work was pending\n", __func__);
@@ -1671,15 +1669,18 @@ static int dwc3_msm_suspend(struct dwc3_msm *mdwc)
 	device_bus_suspend = ((mdwc->charger.chg_type == DWC3_SDP_CHARGER) ||
 				 (mdwc->charger.chg_type == DWC3_CDP_CHARGER));
 
-	if (!dcp && !host_bus_suspend)
-		dwc3_msm_write_reg(mdwc->base, QSCRATCH_CTRL_REG,
-			mdwc->qscratch_ctl_val);
-
 	if (host_bus_suspend || (dwc->softconnect && cable_connected)) {
 		ret = dwc3_msm_prepare_suspend(mdwc);
 		if (ret)
 			return ret;
 	}
+
+	if (mdwc->hs_phy_irq)
+		disable_irq(mdwc->hs_phy_irq);
+
+	if (!dcp && !host_bus_suspend)
+		dwc3_msm_write_reg(mdwc->base, QSCRATCH_CTRL_REG,
+			mdwc->qscratch_ctl_val);
 
 	/* Enable wakeup from LPM */
 	dwc3_msm_wake_interrupt_enable(mdwc, true);
