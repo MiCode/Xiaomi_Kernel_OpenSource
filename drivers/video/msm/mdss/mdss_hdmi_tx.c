@@ -501,6 +501,26 @@ static inline bool hdmi_tx_is_panel_on(struct hdmi_tx_ctrl *hdmi_ctrl)
 	return hdmi_ctrl->hpd_state && hdmi_ctrl->panel_power_on;
 }
 
+static inline bool hdmi_tx_is_cec_wakeup_en(struct hdmi_tx_ctrl *hdmi_ctrl)
+{
+	if (!hdmi_ctrl || !hdmi_ctrl->feature_data[HDMI_TX_FEAT_CEC_HW])
+		return false;
+
+	return hdmi_cec_is_wakeup_en(
+			hdmi_ctrl->feature_data[HDMI_TX_FEAT_CEC_HW]);
+}
+
+static inline void hdmi_tx_cec_device_suspend(struct hdmi_tx_ctrl *hdmi_ctrl,
+		bool suspend)
+{
+	if (!hdmi_ctrl || !hdmi_ctrl->feature_data[HDMI_TX_FEAT_CEC_HW])
+		return;
+
+	hdmi_cec_device_suspend(hdmi_ctrl->feature_data[HDMI_TX_FEAT_CEC_HW],
+			suspend);
+}
+
+
 static inline void hdmi_tx_send_cable_notification(
 	struct hdmi_tx_ctrl *hdmi_ctrl, int val)
 {
@@ -2986,7 +3006,7 @@ static int hdmi_tx_enable_power(struct hdmi_tx_ctrl *hdmi_ctrl,
 		goto error;
 	}
 
-	if (enable) {
+	if (enable && !hdmi_ctrl->power_data_enable[module]) {
 		if (hdmi_ctrl->panel_data.panel_info.cont_splash_enabled) {
 			DEV_DBG("%s: %s already eanbled by splash\n",
 				__func__, hdmi_pm_name(module));
@@ -3033,7 +3053,10 @@ static int hdmi_tx_enable_power(struct hdmi_tx_ctrl *hdmi_ctrl,
 				__func__, hdmi_tx_pm_name(module), rc);
 			goto disable_gpio;
 		}
-	} else {
+		hdmi_ctrl->power_data_enable[module] = true;
+	} else if (!enable && hdmi_ctrl->power_data_enable[module] &&
+		(!hdmi_tx_is_cec_wakeup_en(hdmi_ctrl) ||
+		((module != HDMI_TX_HPD_PM) && (module != HDMI_TX_CEC_PM)))) {
 		msm_dss_enable_clk(power_data->clk_config,
 			power_data->num_clk, 0);
 		mdss_update_reg_bus_vote(hdmi_ctrl->pdata.reg_bus_clt[module],
@@ -3043,6 +3066,7 @@ static int hdmi_tx_enable_power(struct hdmi_tx_ctrl *hdmi_ctrl,
 		hdmi_tx_pinctrl_set_state(hdmi_ctrl, module, 0);
 		msm_dss_enable_vreg(power_data->vreg_config,
 			power_data->num_vreg, 0);
+		hdmi_ctrl->power_data_enable[module] = false;
 	}
 
 	return rc;
@@ -4100,9 +4124,13 @@ static void hdmi_tx_hpd_off(struct hdmi_tx_ctrl *hdmi_ctrl)
 	/* Turn off HPD interrupts */
 	DSS_REG_W(io, HDMI_HPD_INT_CTRL, 0);
 
-	hdmi_ctrl->mdss_util->disable_irq(&hdmi_tx_hw);
 
-	hdmi_tx_set_mode(hdmi_ctrl, false);
+	if (hdmi_tx_is_cec_wakeup_en(hdmi_ctrl)) {
+		hdmi_ctrl->mdss_util->enable_wake_irq(&hdmi_tx_hw);
+	} else {
+		hdmi_ctrl->mdss_util->disable_irq(&hdmi_tx_hw);
+		hdmi_tx_set_mode(hdmi_ctrl, false);
+	}
 
 	rc = hdmi_tx_enable_power(hdmi_ctrl, HDMI_TX_HPD_PM, 0);
 	if (rc)
@@ -4155,6 +4183,9 @@ static int hdmi_tx_hpd_on(struct hdmi_tx_ctrl *hdmi_ctrl)
 		}
 
 		DSS_REG_W(io, HDMI_USEC_REFTIMER, 0x0001001B);
+
+		if (hdmi_tx_is_cec_wakeup_en(hdmi_ctrl))
+			hdmi_ctrl->mdss_util->disable_wake_irq(&hdmi_tx_hw);
 
 		hdmi_ctrl->mdss_util->enable_irq(&hdmi_tx_hw);
 
@@ -4585,6 +4616,7 @@ static int hdmi_tx_panel_event_handler(struct mdss_panel_data *panel_data,
 
 	case MDSS_EVENT_RESUME:
 		hdmi_ctrl->panel_suspend = false;
+		hdmi_tx_cec_device_suspend(hdmi_ctrl, hdmi_ctrl->panel_suspend);
 
 		if (!hdmi_ctrl->hpd_feature_on)
 			goto end;
@@ -4665,6 +4697,7 @@ static int hdmi_tx_panel_event_handler(struct mdss_panel_data *panel_data,
 			hdmi_tx_hpd_off(hdmi_ctrl);
 
 		hdmi_ctrl->panel_suspend = true;
+		hdmi_tx_cec_device_suspend(hdmi_ctrl, hdmi_ctrl->panel_suspend);
 		break;
 
 	case MDSS_EVENT_BLANK:
