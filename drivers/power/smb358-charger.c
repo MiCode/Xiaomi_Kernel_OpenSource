@@ -76,6 +76,7 @@
 #define CHG_CTRL_CURR_TERM_END_CHG_BIT		0x0
 #define CHG_CTRL_BATT_MISSING_DET_THERM_IO	(BIT(5) | BIT(4))
 #define CHG_CTRL_AUTO_RECHARGE_MASK		BIT(7)
+#define CHG_AUTO_RECHARGE_DIS_BIT		BIT(7)
 #define CHG_CTRL_CURR_TERM_END_MASK		BIT(6)
 #define CHG_CTRL_BATT_MISSING_DET_MASK		(BIT(5) | BIT(4))
 #define CHG_CTRL_APSD_EN_BIT			BIT(2)
@@ -180,6 +181,7 @@ struct smb358_charger {
 	struct i2c_client	*client;
 	struct device		*dev;
 
+	bool			inhibit_disabled;
 	bool			recharge_disabled;
 	int			recharge_mv;
 	bool			iterm_disabled;
@@ -481,12 +483,23 @@ static int smb358_term_current_set(struct smb358_charger *chip)
 #define VFLT_100MV			0x04
 #define VFLT_50MV			0x00
 #define VFLT_MASK			0x0C
-static int smb358_recharge_set(struct smb358_charger *chip)
+static int smb358_recharge_and_inhibit_set(struct smb358_charger *chip)
 {
 	u8 reg = 0;
 	int rc;
 
 	if (chip->recharge_disabled)
+		rc = smb358_masked_write(chip, CHG_CTRL_REG,
+		CHG_CTRL_AUTO_RECHARGE_MASK, CHG_AUTO_RECHARGE_DIS_BIT);
+	else
+		rc = smb358_masked_write(chip, CHG_CTRL_REG,
+			CHG_CTRL_AUTO_RECHARGE_MASK, 0x0);
+	if (rc) {
+		dev_err(chip->dev,
+			"Couldn't set auto recharge en reg rc = %d\n", rc);
+	}
+
+	if (chip->inhibit_disabled)
 		rc = smb358_masked_write(chip, CHG_OTH_CURRENT_CTRL_REG,
 					CHG_INHI_EN_MASK, 0x0);
 	else
@@ -495,7 +508,6 @@ static int smb358_recharge_set(struct smb358_charger *chip)
 	if (rc) {
 		dev_err(chip->dev,
 			"Couldn't set inhibit en reg rc = %d\n", rc);
-		return rc;
 	}
 
 	if (chip->recharge_mv != -EINVAL) {
@@ -759,7 +771,7 @@ static int smb358_hw_init(struct smb358_charger *chip)
 		dev_err(chip->dev, "Couldn't set term current rc=%d\n", rc);
 
 	/* set recharge */
-	rc = smb358_recharge_set(chip);
+	rc = smb358_recharge_and_inhibit_set(chip);
 	if (rc)
 		dev_err(chip->dev, "Couldn't set recharge para rc=%d\n", rc);
 
@@ -1876,6 +1888,8 @@ static int smb_parse_dt(struct smb358_charger *chip)
 	chip->charging_disabled = of_property_read_bool(node,
 					"qcom,charger-disabled");
 
+	chip->inhibit_disabled = of_property_read_bool(node,
+					"qcom,chg-inhibit-disabled");
 	chip->chg_autonomous_mode = of_property_read_bool(node,
 					"qcom,chg-autonomous-mode");
 
@@ -1941,8 +1955,9 @@ static int smb_parse_dt(struct smb358_charger *chip)
 	else
 		chip->bat_present_decidegc = -batt_present_degree_negative;
 
-	pr_debug("recharge-disabled = %d, recharge-mv = %d,",
-			chip->recharge_disabled, chip->recharge_mv);
+	pr_debug("inhibit-disabled = %d, recharge-disabled = %d, recharge-mv = %d,",
+		chip->inhibit_disabled, chip->recharge_disabled,
+						chip->recharge_mv);
 	pr_debug("vfloat-mv = %d, iterm-disabled = %d,",
 			chip->vfloat_mv, chip->iterm_ma);
 	pr_debug("fastchg-current = %d, charging-disabled = %d,",

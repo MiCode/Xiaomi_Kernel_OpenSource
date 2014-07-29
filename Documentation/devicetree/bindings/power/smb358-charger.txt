@@ -41,6 +41,10 @@ Optional Properties:
 				as which the charger restarts charging. Possible
 				values are 50mV to 300mV.
 - qcom,recharge-disabled	Boolean value which disables the auto-recharge.
+- qcom,chg-inhibit-disabled	This is a bool property which disables charger inhibit.
+				Charger inhibit option prevents battery charging upon insertion
+				of the charger when battery voltage is above the programmed inhibit
+				threshold.
 - qcom,chg-adc_tm		phandle to the corresponding VADC device to read the ADC channels.
 - qcom,cold-bat-decidegc	Cold battery temperature in decidegC.
 - qcom,hot-bat-decidegc		Hot battery temperature in decidegC.
@@ -59,6 +63,7 @@ Example:
 			qcom,vcc-i2c-supply = <&pm8226_lvs1>;
 			qcom,float-voltage-mv = <4350>;
 			qcom,disable-apsd;
+			qcom,chg-inhibit-disabled;
 			qcom,fastchg-current-max-ma = <1500>;
 			qcom,bms-psy-name = "bms";
 			qcom,chg-vadc = <&pm8226_vadc>;
