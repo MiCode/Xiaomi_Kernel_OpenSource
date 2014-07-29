@@ -607,7 +607,7 @@ int mdss_mdp_wb_kickoff(struct msm_fb_data_type *mfd)
 		return -ENODEV;
 	}
 
-	if (!ctl->power_on)
+	if (!mdss_mdp_ctl_is_power_on(ctl))
 		return 0;
 
 	memset(&wb_args, 0, sizeof(wb_args));
