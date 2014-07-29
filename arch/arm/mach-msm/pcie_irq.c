@@ -66,7 +66,7 @@ static void msm_pcie_notify_client(struct msm_pcie_dev_t *dev,
 			return;
 		}
 	} else {
-		PCIE_DBG(dev,
+		PCIE_DBG2(dev,
 			"PCIe: Client of RC%d does not have registration for event %d.\n",
 			dev->rc_idx, event);
 	}
@@ -135,14 +135,14 @@ static irqreturn_t handle_wake_irq(int irq, void *data)
 	PCIE_DBG(dev, "PCIe: No. %ld wake IRQ for RC%d\n",
 			dev->wake_counter, dev->rc_idx);
 
-	PCIE_DBG(dev, "PCIe WAKE is asserted by Endpoint of RC%d\n",
+	PCIE_DBG2(dev, "PCIe WAKE is asserted by Endpoint of RC%d\n",
 		dev->rc_idx);
 
 	if (!dev->enumerated) {
 		PCIE_DBG(dev, "Start enumeating RC%d\n", dev->rc_idx);
 		schedule_work(&dev->handle_wake_work);
 	} else {
-		PCIE_DBG(dev, "Wake up RC%d\n", dev->rc_idx);
+		PCIE_DBG2(dev, "Wake up RC%d\n", dev->rc_idx);
 		__pm_stay_awake(&dev->ws);
 		__pm_relax(&dev->ws);
 		msm_pcie_notify_client(dev, MSM_PCIE_EVENT_WAKEUP);
