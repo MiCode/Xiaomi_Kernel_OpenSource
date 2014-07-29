@@ -1423,12 +1423,30 @@ static void sdhci_request(struct mmc_host *mmc, struct mmc_request *mrq)
 			}
 		}
 
+		if (!(sdhci_readw(host, SDHCI_CLOCK_CONTROL) &
+					SDHCI_CLOCK_CARD_EN)) {
+			/*
+			 * SD bus clock is stopped. no interrupts will be
+			 * generate in this case.
+			 */
+			pr_warn("%s:%s: SD bus clock not enabled for CMD %d\n",
+					__func__, mmc_hostname(mmc),
+					host->mrq->cmd->opcode);
+			pr_warn("%s:%s: host->pwr 0x%x, host->clock %d\n",
+					__func__, mmc_hostname(mmc),
+					host->pwr, host->clock);
+			host->mrq->cmd->error = -EIO;
+			tasklet_schedule(&host->finish_tasklet);
+			goto out;
+		}
+
 		if (mrq->sbc && !(host->flags & SDHCI_AUTO_CMD23))
 			sdhci_send_command(host, mrq->sbc);
 		else
 			sdhci_send_command(host, mrq->cmd);
 	}
 
+out:
 	mmiowb();
 	spin_unlock_irqrestore(&host->lock, flags);
 }
