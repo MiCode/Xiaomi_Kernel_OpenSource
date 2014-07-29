@@ -74,6 +74,13 @@ struct kgsl_device_platform_data {
 	unsigned int pm_qos_wakeup_latency;
 };
 
+/* Limits mitigations APIs */
+void *kgsl_pwr_limits_add(enum kgsl_deviceid id);
+void kgsl_pwr_limits_del(void *limit);
+int kgsl_pwr_limits_set_freq(void *limit, unsigned int freq);
+void kgsl_pwr_limits_set_default(void *limit);
+unsigned int kgsl_pwr_limits_get_freq(enum kgsl_deviceid id);
+
 #ifdef CONFIG_MSM_KGSL_DRM
 int kgsl_gem_obj_addr(int drm_fd, int handle, unsigned long *start,
 			unsigned long *len);
