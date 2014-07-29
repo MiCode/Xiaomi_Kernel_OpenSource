@@ -17,6 +17,7 @@
 #include "q6audio_common.h"
 #include "audio_utils_aio.h"
 #include <sound/msm-audio-effects-q6-v2.h>
+#include <sound/msm-dts-eagle.h>
 
 #define MAX_CHANNELS_SUPPORTED		8
 #define MAX_PP_PARAMS_SZ		128
@@ -60,12 +61,31 @@ static void audio_effects_init_pp(struct audio_client *ac)
 		pr_err("%s: audio client null to init pp\n", __func__);
 		return;
 	}
-	/* Add topology specific handling here when needed in future */
-	ret = q6asm_set_softvolume_v2(ac, &softvol,
-				      SOFT_VOLUME_INSTANCE_1);
-	if (ret < 0)
-		pr_err("%s: Send SoftVolume Param failed ret=%d\n",
-			__func__, ret);
+	switch (ac->topology) {
+	case ASM_STREAM_POSTPROC_TOPO_ID_HPX_MASTER:
+
+		ret = q6asm_set_softvolume_v2(ac, &softvol,
+					      SOFT_VOLUME_INSTANCE_1);
+		if (ret < 0)
+			pr_err("%s: Send SoftVolume1 Param failed ret=%d\n",
+				__func__, ret);
+		ret = q6asm_set_softvolume_v2(ac, &softvol,
+					      SOFT_VOLUME_INSTANCE_2);
+		if (ret < 0)
+			pr_err("%s: Send SoftVolume2 Param failed ret=%d\n",
+				 __func__, ret);
+
+		msm_dts_eagle_init_master_module(ac);
+
+		break;
+	default:
+		ret = q6asm_set_softvolume_v2(ac, &softvol,
+					      SOFT_VOLUME_INSTANCE_1);
+		if (ret < 0)
+			pr_err("%s: Send SoftVolume Param failed ret=%d\n",
+				__func__, ret);
+		break;
+	}
 }
 
 static void audio_effects_deinit_pp(struct audio_client *ac)
@@ -74,7 +94,13 @@ static void audio_effects_deinit_pp(struct audio_client *ac)
 		pr_err("%s: audio client null to deinit pp\n", __func__);
 		return;
 	}
-	/* Add topology specific handling here when needed in future */
+	switch (ac->topology) {
+	case ASM_STREAM_POSTPROC_TOPO_ID_HPX_MASTER:
+		msm_dts_eagle_deinit_master_module(ac);
+		break;
+	default:
+		break;
+	}
 }
 
 static void audio_effects_event_handler(uint32_t opcode, uint32_t token,
@@ -135,8 +161,8 @@ static int audio_effects_shared_ioctl(struct file *file, unsigned cmd,
 					FORMAT_MULTI_CHANNEL_LINEAR_PCM,
 					effects->config.meta_mode_enabled,
 					effects->config.output.bits_per_sample,
-					effects->config.overwrite_topology,
-					effects->config.topology);
+					true /*overwrite topology*/,
+					ASM_STREAM_POSTPROC_TOPO_ID_HPX_MASTER);
 		if (rc < 0) {
 			pr_err("%s: Open failed for hw accelerated effects:rc=%d\n",
 				__func__, rc);
@@ -374,6 +400,18 @@ static long audio_effects_set_pp_param(struct q6audio_effects *effects,
 			msm_audio_effects_volume_handler_v2(effects->ac,
 			      &(effects->audio_effects.topo_switch_vol),
 			      (long *)&values[1], SOFT_VOLUME_INSTANCE_2);
+		break;
+	case DTS_EAGLE_MODULE_ENABLE:
+		pr_debug("%s: DTS_EAGLE_MODULE_BYPASS\n", __func__);
+		if (msm_audio_effects_is_effmodule_supp_in_top(
+			effects_module, effects->ac->topology)) {
+			msm_dts_eagle_enable_asm(effects->ac,
+				(bool)values[1],
+				AUDPROC_MODULE_ID_DTS_HPX_PREMIX);
+			msm_dts_eagle_enable_asm(effects->ac,
+				(bool)values[1],
+				AUDPROC_MODULE_ID_DTS_HPX_POSTMIX);
+		}
 		break;
 	default:
 		pr_err("%s: Invalid effects config module\n", __func__);
