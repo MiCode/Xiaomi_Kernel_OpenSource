@@ -215,6 +215,8 @@ struct adreno_busy_data {
  * @pm4_bstrp_size: Size of the bootstrap loader for PM4 microcode
  * @pfp_bstrp_size: Size of the bootstrap loader for PFP microcde
  * @pfp_bstrp_ver: Version of the PFP microcode that supports bootstraping
+ * @shader_offset: Offset of shader from gpu reg base
+ * @shader_size: Shader size
  */
 struct adreno_gpu_core {
 	enum adreno_gpurev gpurev;
@@ -233,6 +235,8 @@ struct adreno_gpu_core {
 	unsigned int pm4_bstrp_size;
 	unsigned int pfp_bstrp_size;
 	unsigned int pfp_bstrp_ver;
+	unsigned long shader_offset;
+	unsigned int shader_size;
 };
 
 struct adreno_device {

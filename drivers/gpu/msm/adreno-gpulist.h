@@ -191,5 +191,7 @@ static const struct adreno_gpu_core adreno_gpulist[] = {
 		.pm4_bstrp_size = 0x06,
 		.pfp_bstrp_size = 0x28,
 		.pfp_bstrp_ver = 0x4ff091,
+		.shader_offset = 0x20000,
+		.shader_size = 0x10000,
 	},
 };

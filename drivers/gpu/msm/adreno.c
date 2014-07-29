@@ -1306,6 +1306,23 @@ static int adreno_init(struct kgsl_device *device)
 
 	set_bit(ADRENO_DEVICE_INITIALIZED, &adreno_dev->priv);
 
+	/* Use shader offset and length defined in gpudev */
+	if (adreno_dev->gpucore->shader_offset &&
+					adreno_dev->gpucore->shader_size) {
+
+		if (device->shader_mem_phys || device->shader_mem_virt)
+			KGSL_DRV_ERR(device,
+			"Shader memory already specified in device tree\n");
+		else {
+			device->shader_mem_phys = device->reg_phys +
+					adreno_dev->gpucore->shader_offset;
+			device->shader_mem_virt = device->reg_virt +
+					adreno_dev->gpucore->shader_offset;
+			device->shader_mem_len =
+					adreno_dev->gpucore->shader_size;
+		}
+	}
+
 	/* Adjust snapshot section sizes according to core */
 	if ((adreno_is_a330(adreno_dev) || adreno_is_a305b(adreno_dev))) {
 		gpudev->snapshot_data->sect_sizes->cp_state_deb =
