@@ -40,3 +40,30 @@
 		rst-gpio = <&msm_gpio 89 0>;
 	};
 };
+
+&usb3 {
+	status = "ok";
+	qcom,skip-charger-detection;
+	qcom,otg-capability;
+	qcom,vbus-present;
+	dwc3@8a00000 {
+		maximum-speed = "high-speed";
+	};
+};
+
+&qusb_phy {
+	status = "ok";
+	qcom,emulation;
+};
+
+&ssphy {
+	status = "ok";
+	qcom,emulation;
+};
+
+&soc {
+	android_usb {
+		status = "ok";
+	};
+
+};
