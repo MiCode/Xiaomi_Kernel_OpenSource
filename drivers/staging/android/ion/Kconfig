@@ -40,3 +40,17 @@ config ION_POOL_CACHE_POLICY
 	help
 	  Choose this option if need to explicity set cache policy of the
 	  pages in the page pool.
+
+config ION_MSM
+	tristate "Ion for MSM"
+	depends on ARCH_QCOM && ION
+	select MSM_SECURE_BUFFER
+	help
+	  Choose this option if you wish to use ion on an MSM target.
+
+config ALLOC_BUFFERS_IN_4K_CHUNKS
+	bool "Turns off allocation optimization and allocate only 4K pages"
+	depends on ARCH_QCOM && ION
+	help
+          Choose this option if you want ION to allocate buffers in
+          only 4KB chunks.
