@@ -2214,7 +2214,7 @@ int mdss_mdp_ctl_start(struct mdss_mdp_ctl *ctl, bool handoff)
 
 	pr_debug("ctl_num=%d, power_state=%d\n", ctl->num, ctl->power_state);
 
-	if (mdss_mdp_ctl_is_power_on(ctl)) {
+	if (ctl->power_state == MDSS_PANEL_POWER_ON) {
 		pr_debug("%d: panel already on!\n", __LINE__);
 		return 0;
 	}
@@ -2233,7 +2233,8 @@ int mdss_mdp_ctl_start(struct mdss_mdp_ctl *ctl, bool handoff)
 
 	mutex_lock(&ctl->lock);
 
-	memset(&ctl->cur_perf, 0, sizeof(ctl->cur_perf));
+	if (ctl->power_state == MDSS_PANEL_POWER_OFF)
+		memset(&ctl->cur_perf, 0, sizeof(ctl->cur_perf));
 
 	/*
 	 * keep power_on false during handoff to avoid unexpected
@@ -2320,6 +2321,11 @@ int mdss_mdp_ctl_stop(struct mdss_mdp_ctl *ctl, int power_state)
 	}
 	if (ret) {
 		pr_warn("error powering off intf ctl=%d\n", ctl->num);
+		goto end;
+	}
+
+	if (power_state != MDSS_PANEL_POWER_OFF) {
+		pr_debug("panel is not off, leaving ctl power on\n");
 		goto end;
 	}
 

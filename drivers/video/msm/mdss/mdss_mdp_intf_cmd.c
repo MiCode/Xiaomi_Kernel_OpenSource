@@ -819,12 +819,19 @@ int mdss_mdp_cmd_intfs_stop(struct mdss_mdp_ctl *ctl, int session,
 	flush_work(&ctx->pp_done_work);
 	ctx->panel_power_state = panel_power_state;
 
+	if (panel_power_state != MDSS_PANEL_POWER_OFF) {
+		pr_debug("%s: panel always on\n", __func__);
+		goto end;
+	}
+
 	mdss_mdp_set_intr_callback(MDSS_MDP_IRQ_PING_PONG_RD_PTR,
 		ctx->pp_num, NULL, NULL);
 	mdss_mdp_set_intr_callback(MDSS_MDP_IRQ_PING_PONG_COMP,
 		ctx->pp_num, NULL, NULL);
 
 	memset(ctx, 0, sizeof(*ctx));
+
+end:
 	pr_debug("%s:-\n", __func__);
 
 	return 0;
@@ -867,6 +874,11 @@ int mdss_mdp_cmd_stop(struct mdss_mdp_ctl *ctl, int panel_power_state)
 		mdss_mdp_cmd_tearcheck_setup(ctl, false);
 	}
 
+	if (panel_power_state != MDSS_PANEL_POWER_OFF) {
+		pr_debug("%s: cmd_stop with panel always on\n", __func__);
+		goto end;
+	}
+
 	ctl->priv_data = NULL;
 	ctl->stop_fnc = NULL;
 	ctl->display_fnc = NULL;
@@ -874,6 +886,7 @@ int mdss_mdp_cmd_stop(struct mdss_mdp_ctl *ctl, int panel_power_state)
 	ctl->add_vsync_handler = NULL;
 	ctl->remove_vsync_handler = NULL;
 
+end:
 	MDSS_XLOG(ctl->num, atomic_read(&ctx->koff_cnt), ctx->clk_enabled,
 				ctx->rdptr_enabled, XLOG_FUNC_EXIT);
 	pr_debug("%s:-\n", __func__);
@@ -899,8 +912,23 @@ static int mdss_mdp_cmd_intfs_setup(struct mdss_mdp_ctl *ctl,
 
 	ctx = &mdss_mdp_cmd_ctx_list[session];
 	if (ctx->ref_cnt) {
-		pr_err("Intf %d already in use\n", session);
-		return -EBUSY;
+		if (ctx->panel_power_state != MDSS_PANEL_POWER_OFF) {
+			pr_debug("%s: ctl_start with panel always on\n",
+				__func__);
+			/*
+			 * It is possible that the resume was called from the
+			 * panel always on state without MDSS every
+			 * power-collapsed (such as a case with any other
+			 * interfaces connected). In such cases, we need to
+			 * explictly call the restore function to enable
+			 * tearcheck logic.
+			 */
+			mdss_mdp_cmd_restore(ctl);
+			return 0;
+		} else {
+			pr_err("Intf %d already in use\n", session);
+			return -EBUSY;
+		}
 	}
 	ctx->ref_cnt++;
 
