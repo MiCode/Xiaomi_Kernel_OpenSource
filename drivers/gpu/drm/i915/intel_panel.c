@@ -1247,6 +1247,7 @@ static int vlv_setup_backlight(struct intel_connector *connector)
 	struct drm_device *dev = connector->base.dev;
 	struct drm_i915_private *dev_priv = dev->dev_private;
 	struct intel_panel *panel = &connector->panel;
+	struct intel_dp *intel_dp = enc_to_intel_dp(&connector->encoder->base);
 	enum pipe pipe;
 	u32 ctl, ctl2, val;
 
@@ -1262,15 +1263,17 @@ static int vlv_setup_backlight(struct intel_connector *connector)
 			   cur_val);
 	}
 
-	ctl2 = I915_READ(VLV_BLC_PWM_CTL2(PIPE_A));
+	pipe = vlv_power_sequencer_pipe(intel_dp);
+
+	ctl2 = I915_READ(VLV_BLC_PWM_CTL2(pipe));
 	panel->backlight.active_low_pwm = ctl2 & BLM_POLARITY_I965;
 
-	ctl = I915_READ(VLV_BLC_PWM_CTL(PIPE_A));
+	ctl = I915_READ(VLV_BLC_PWM_CTL(pipe));
 	panel->backlight.max = ctl >> 16;
 	if (!panel->backlight.max)
 		return -ENODEV;
 
-	val = _vlv_get_backlight(dev, PIPE_A);
+	val = _vlv_get_backlight(dev, pipe);
 	panel->backlight.level = intel_panel_compute_brightness(connector, val);
 
 	panel->backlight.enabled = (ctl2 & BLM_PWM_ENABLE) &&
