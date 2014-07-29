@@ -153,6 +153,8 @@
 		clocks = <&clock_rpm clk_qdss_clk>,
 			 <&clock_rpm clk_qdss_a_clk>;
 		clock-names = "core_clk", "core_a_clk";
+
+		coresight-etm-cpu = <&CPU0>;
 	};
 
 	rpm_etm0 {
