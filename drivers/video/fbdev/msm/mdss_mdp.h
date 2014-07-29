@@ -168,7 +168,7 @@ struct mdss_mdp_ctl {
 	char __iomem *base;
 	char __iomem *wb_base;
 	u32 ref_cnt;
-	int power_on;
+	int power_state;
 
 	u32 intf_num;
 	u32 intf_type;
@@ -218,7 +218,7 @@ struct mdss_mdp_ctl {
 	u8 valid_roi;
 
 	int (*start_fnc) (struct mdss_mdp_ctl *ctl);
-	int (*stop_fnc) (struct mdss_mdp_ctl *ctl);
+	int (*stop_fnc) (struct mdss_mdp_ctl *ctl, int panel_power_state);
 	int (*prepare_fnc) (struct mdss_mdp_ctl *ctl, void *arg);
 	int (*display_fnc) (struct mdss_mdp_ctl *ctl, void *arg);
 	int (*wait_fnc) (struct mdss_mdp_ctl *ctl, void *arg);
@@ -656,6 +656,11 @@ static inline bool mdss_mdp_is_nrt_vbif_client(struct mdss_data_type *mdata,
 			pipe->mixer_left->rotator_mode;
 }
 
+static inline bool mdss_mdp_ctl_is_power_on(struct mdss_mdp_ctl *ctl)
+{
+	return (ctl->power_state != MDSS_PANEL_POWER_OFF);
+}
+
 irqreturn_t mdss_mdp_isr(int irq, void *ptr);
 int mdss_iommu_attach(struct mdss_data_type *mdata);
 int mdss_iommu_dettach(struct mdss_data_type *mdata);
@@ -719,7 +724,7 @@ int mdss_mdp_ctl_split_display_setup(struct mdss_mdp_ctl *ctl,
 		struct mdss_panel_data *pdata);
 int mdss_mdp_ctl_destroy(struct mdss_mdp_ctl *ctl);
 int mdss_mdp_ctl_start(struct mdss_mdp_ctl *ctl, bool handoff);
-int mdss_mdp_ctl_stop(struct mdss_mdp_ctl *ctl);
+int mdss_mdp_ctl_stop(struct mdss_mdp_ctl *ctl, int panel_power_mode);
 int mdss_mdp_ctl_intf_event(struct mdss_mdp_ctl *ctl, int event, void *arg);
 int mdss_mdp_perf_bw_check(struct mdss_mdp_ctl *ctl,
 		struct mdss_mdp_pipe **left_plist, int left_cnt,

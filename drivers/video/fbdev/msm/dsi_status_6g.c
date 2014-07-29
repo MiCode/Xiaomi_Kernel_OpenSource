@@ -65,7 +65,7 @@ void mdss_check_dsi_ctrl_status(struct work_struct *work, uint32_t interval)
 		return;
 	}
 
-	if (!ctl->power_on) {
+	if (ctl->power_state == MDSS_PANEL_POWER_OFF) {
 		schedule_delayed_work(&pstatus_data->check_status,
 			msecs_to_jiffies(interval));
 		pr_err("%s: ctl not powered on\n", __func__);
@@ -111,7 +111,7 @@ void mdss_check_dsi_ctrl_status(struct work_struct *work, uint32_t interval)
 		mutex_unlock(ctl->shared_lock);
 	mutex_unlock(&ctrl_pdata->mutex);
 
-	if ((pstatus_data->mfd->panel_power_on)) {
+	if ((pstatus_data->mfd->panel_power_state == MDSS_PANEL_POWER_ON)) {
 		if (ret > 0) {
 			schedule_delayed_work(&pstatus_data->check_status,
 				msecs_to_jiffies(interval));

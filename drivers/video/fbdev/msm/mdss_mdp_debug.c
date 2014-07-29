@@ -95,7 +95,7 @@ static void __dump_mixer(struct seq_file *s, struct mdss_mdp_mixer *mixer)
 static void __dump_ctl(struct seq_file *s, struct mdss_mdp_ctl *ctl)
 {
 	struct mdss_mdp_perf_params *perf;
-	if (!ctl->power_on)
+	if (!mdss_mdp_ctl_is_power_on(ctl))
 		return;
 
 	seq_printf(s, "\n--[ Control path #%d - ", ctl->num);

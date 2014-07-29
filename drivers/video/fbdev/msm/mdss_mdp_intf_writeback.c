@@ -390,7 +390,8 @@ exit:
 	return ret;
 }
 
-static int mdss_mdp_writeback_stop(struct mdss_mdp_ctl *ctl)
+static int mdss_mdp_writeback_stop(struct mdss_mdp_ctl *ctl,
+	int panel_power_state)
 {
 	struct mdss_mdp_writeback_ctx *ctx;
 	struct mdss_mdp_vsync_handler *t, *handle;
@@ -518,7 +519,7 @@ static void mdss_mdp_traffic_shaper(struct mdss_mdp_ctl *ctl,
 {
 	bool traffic_shaper_enabled = 0;
 
-	if (ctl->power_on) {
+	if (mdss_mdp_ctl_is_power_on(ctl)) {
 		traffic_shaper_enabled = mdss_mdp_traffic_shaper_helper
 			(ctl, ctx, enable);
 	}
