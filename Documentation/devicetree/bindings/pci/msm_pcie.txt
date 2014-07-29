@@ -63,6 +63,8 @@ Optional Properties:
   - qcom,ext-ref-clk: The reference clock is external.
   - qcom,ep-latency: The time (unit: ms) to wait for the PCIe endpoint to become
     stable after power on, before de-assert the PERST to the endpoint.
+  - qcom,tlp-rd-size: The max TLP read size (Calculation: 128 times 2 to the
+    tlp-rd-size power).
   - Refer to "Documentation/devicetree/bindings/arm/msm/msm_bus.txt" for
     below optional properties:
 	- qcom,msm-bus,name
@@ -144,6 +146,7 @@ Example:
 		qcom,msi-gicm-addr = <0xf9040040>;
 		qcom,msi-gicm-base = <0x160>;
 		qcom,ext-ref-clk;
+		qcom,tlp-rd-size = <0x5>;
 		qcom,ep-latency = <100>;
 
 		qcom,msm-bus,name = "pcie0";

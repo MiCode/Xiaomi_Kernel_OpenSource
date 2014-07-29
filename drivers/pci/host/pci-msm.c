@@ -178,6 +178,7 @@
 #define PCIE20_MEMORY_BASE_LIMIT	 0x20
 #define PCIE20_L1SUB_CONTROL1	    0x158
 #define PCIE20_EP_L1SUB_CTL1_OFFSET    0x30
+#define PCIE20_DEVICE_CONTROL_STATUS	0x78
 #define PCIE20_DEVICE_CONTROL2_STATUS2 0x98
 
 #define PCIE20_ACK_F_ASPM_CTRL_REG     0x70C
@@ -228,6 +229,7 @@
 #define MSM_PCIE_MAX_PIPE_CLK 1
 #define MAX_RC_NUM 2
 #define MAX_DEVICE_NUM 20
+#define PCIE_TLP_RD_SIZE 0x5
 #define PCIE_MSI_NR_IRQS 256
 #define PCIE_LOG_PAGES (50)
 #define PCIE_CONF_SPACE_DW			1024
@@ -436,6 +438,7 @@ struct msm_pcie_dev_t {
 	bool				 ext_ref_clk;
 	uint32_t			   ep_latency;
 	uint32_t			current_bdf;
+	uint32_t			tlp_rd_size;
 	bool				 ep_wakeirq;
 
 	uint32_t			   rc_idx;
@@ -1966,6 +1969,10 @@ int msm_pcie_enable(struct msm_pcie_dev_t *dev, u32 options)
 	usleep_range(PERST_PROPAGATION_DELAY_US_MIN,
 				 PERST_PROPAGATION_DELAY_US_MAX);
 
+	/* set max tlp read size */
+	msm_pcie_write_reg_field(dev->dm_core, PCIE20_DEVICE_CONTROL_STATUS,
+				0x7000, dev->tlp_rd_size);
+
 	/* enable link training */
 	msm_pcie_write_mask(dev->parf + PCIE20_PARF_LTSSM, 0, BIT(8));
 
@@ -2936,6 +2943,18 @@ static int msm_pcie_probe(struct platform_device *pdev)
 	else
 		PCIE_DBG(&msm_pcie_dev[rc_idx], "RC%d: ep-latency: 0x%x.\n",
 			rc_idx, msm_pcie_dev[rc_idx].ep_latency);
+
+	msm_pcie_dev[rc_idx].tlp_rd_size = PCIE_TLP_RD_SIZE;
+	ret = of_property_read_u32(pdev->dev.of_node,
+				"qcom,tlp-rd-size",
+				&msm_pcie_dev[rc_idx].tlp_rd_size);
+	if (ret)
+		PCIE_DBG(&msm_pcie_dev[rc_idx],
+			"RC%d: tlp-rd-size does not exist. tlp-rd-size: 0x%x.\n",
+			rc_idx, msm_pcie_dev[rc_idx].tlp_rd_size);
+	else
+		PCIE_DBG(&msm_pcie_dev[rc_idx], "RC%d: tlp-rd-size: 0x%x.\n",
+			rc_idx, msm_pcie_dev[rc_idx].tlp_rd_size);
 
 	msm_pcie_dev[rc_idx].msi_gicm_addr = 0;
 	msm_pcie_dev[rc_idx].msi_gicm_base = 0;
