@@ -53,7 +53,6 @@
 #define MDSS_DSI_HW_REV_103		0x10030000	/* 8994    */
 #define MDSS_DSI_HW_REV_103_1		0x10030001	/* 8916/8936 */
 
-
 enum {		/* mipi dsi panel */
 	DSI_VIDEO_MODE,
 	DSI_CMD_MODE,
@@ -309,6 +308,7 @@ struct mdss_dsi_ctrl_pdata {
 	int new_fps;
 	int pwm_enabled;
 	bool panel_bias_vreg;
+	bool dsi_irq_line;
 
 	bool cmd_sync_wait_broadcast;
 	bool cmd_sync_wait_trigger;

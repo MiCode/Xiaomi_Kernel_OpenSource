@@ -74,6 +74,7 @@ Optional properties:
 - qcom,dsi-panel-bias-vreg:		Boolean to enable control of panel bias regulator
 - qcom,mmss-ulp-clamp-ctrl-offset:	Specifies the offset for dsi ulps clamp control register.
 - qcom,mmss-phyreset-ctrl-offset:	Specifies the offset for dsi phy reset control register.
+- qcom,dsi-irq-line:			Boolean specifies if DSI has a different irq line than mdp.
 
 Example:
         mdss_dsi0: qcom,mdss_dsi@fd922800 {
@@ -111,6 +112,7 @@ Example:
 		qcom,platform-bklight-en-gpio = <&msmgpio 86 0>;
 		qcom,platform-mode-gpio = <&msmgpio 7 0>;
 		qcom,dsi-panel-bias-vreg;
+		qcom,dsi-irq-line;
 
 		qcom,core-supply-entries {
 			#address-cells = <1>;
