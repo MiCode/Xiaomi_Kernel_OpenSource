@@ -1779,15 +1779,6 @@ config PERF_EVENTS_USERMODE
 
 source "mm/Kconfig"
 
-config ARCH_MEMORY_PROBE
-	def_bool n
-
-config ARCH_MEMORY_REMOVE
-	def_bool n
-
-config ENABLE_DMM
-	def_bool n
-
 choice
 	prompt "Virtual Memory Reclaim"
 	default NO_VM_RECLAIM
