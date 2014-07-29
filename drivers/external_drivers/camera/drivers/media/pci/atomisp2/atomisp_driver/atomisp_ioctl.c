@@ -1547,46 +1547,46 @@ static unsigned int atomisp_sensor_start_stream(struct atomisp_sub_device *asd)
 	else
 		return 1;
 }
-
 static int __stream_on_master_slave_sensor(struct atomisp_device *isp)
 {
-	unsigned int master[ATOM_ISP_MAX_INPUTS], stream_on[ATOM_ISP_MAX_INPUTS];
-	int i, k = 0, j = 0, ret = 0;
+	unsigned int master = -1, slave = -1;
+	int i, ret;
 
+	/*
+	 * ISP only support 2 streams now so ignore multiple master/slave
+	 * case to reduce the delay between 2 stream_on calls.
+	 */
 	for (i = 0; i < isp->num_of_streams; i++) {
 		int sensor_index = isp->asd[i].input_curr;
-		if (isp->inputs[sensor_index].camera_caps->sensor[isp->asd[i].sensor_curr].is_slave) {
-			ret = v4l2_subdev_call(isp->inputs[sensor_index].camera,
-					       video, s_stream, 1);
-			if (ret) {
-				dev_err(isp->dev, "depth mode sensor %s stream-on failed.\n",
-						isp->inputs[sensor_index].camera->name);
-				goto failed;
-			}
-			stream_on[k++] = sensor_index;
-		} else {
-			master[j++] = sensor_index;
-		}
+		if (isp->inputs[sensor_index].camera_caps->
+				sensor[isp->asd[i].sensor_curr].is_slave)
+			slave = sensor_index;
+		else
+			master = sensor_index;
 	}
-	for (j -= 1; j >= 0; j--) {
-		ret = v4l2_subdev_call(isp->inputs[master[j]].camera,
-				       video, s_stream, 1);
-		if (ret) {
-			dev_err(isp->dev, "depth mode sensor %s stream-on failed.\n",
-				isp->inputs[master[j]].camera->name);
-			goto failed;
-		}
-		stream_on[k++] = master[j];
+
+	if (master == -1 || slave == -1) {
+		dev_err(isp->dev, "depth mode needs 2 sensors to be selected.\n");
+		return -EINVAL;
+	}
+
+	ret = v4l2_subdev_call(isp->inputs[master].camera, video, s_stream, 1);
+	if (ret) {
+		dev_err(isp->dev, "depth mode master sensor %s stream-on failed.\n",
+			isp->inputs[master].camera->name);
+		return -EINVAL;
+	}
+
+	ret = v4l2_subdev_call(isp->inputs[slave].camera, video, s_stream, 1);
+	if (ret) {
+		dev_err(isp->dev, "depth mode slave sensor %s stream-on failed.\n",
+			isp->inputs[slave].camera->name);
+		v4l2_subdev_call(isp->inputs[master].camera, video, s_stream, 0);
+
+		return -EINVAL;
 	}
 
 	return 0;
-
-failed:
-		atomisp_reset(isp);
-		for (k -= 1; k >= 0; k--)
-			v4l2_subdev_call(isp->inputs[k].camera,
-					 video, s_stream, 0);
-		return -EINVAL;
 }
 /*
  * This ioctl start the capture during streaming I/O.
