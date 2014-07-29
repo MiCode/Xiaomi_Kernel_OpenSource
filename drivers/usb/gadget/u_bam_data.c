@@ -1525,14 +1525,22 @@ static int bam_data_wake_cb(void *param)
 	if ((gadget->speed == USB_SPEED_SUPER) && (func->func_is_suspended)) {
 		if (!func->func_wakeup_allowed)
 			return -ENOTSUPP;
-		else
-			usb_func_wakeup(func);
-	}
+		else {
+			ret = usb_func_wakeup(func);
+			if (ret)
+				pr_err("Function wakeup failed. ret=%d\n", ret);
+		}
+	} else {
+		ret = usb_gadget_wakeup(gadget);
+		if (ret) {
+			if ((ret == -EBUSY) || (ret == -EAGAIN))
+				pr_debug("Remote wakeup is delayed due to low-power mode exit.\n");
+			else
+				pr_err("Failed to wake up the USB core. ret=%d.\n",
+					ret);
 
-	ret = usb_gadget_wakeup(gadget);
-	if (ret) {
-		pr_err("Failed to wake up the USB core. ret=%d", ret);
-		return ret;
+			return ret;
+		}
 	}
 
 	return 0;
