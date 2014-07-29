@@ -22,7 +22,7 @@
 #include <linux/termios.h>
 
 #include <linux/usb/msm_hsusb.h>
-#include <linux/usb/rmnet_ctrl_qti.h>
+#include <linux/usb/usb_ctrl_qti.h>
 #include <linux/usb_bam.h>
 
 #include "usb_gadget_xport.h"
