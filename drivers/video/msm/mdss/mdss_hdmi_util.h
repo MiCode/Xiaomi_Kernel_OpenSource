@@ -78,6 +78,7 @@
 #define HDMI_RAMP_CTRL2                  (0x00000100)
 #define HDMI_RAMP_CTRL3                  (0x00000104)
 #define HDMI_CS_60958_2                  (0x00000108)
+#define HDMI_HDCP_CTRL2                  (0x0000010C)
 #define HDMI_HDCP_CTRL                   (0x00000110)
 #define HDMI_HDCP_DEBUG_CTRL             (0x00000114)
 #define HDMI_HDCP_INT_CTRL               (0x00000118)
