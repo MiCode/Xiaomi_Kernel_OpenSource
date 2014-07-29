@@ -70,10 +70,4 @@ int gsmd_ctrl_connect(struct grmnet *gr, int port_num);
 void gsmd_ctrl_disconnect(struct grmnet *gr, u8 port_num);
 int gsmd_ctrl_setup(enum ctrl_client client_num, unsigned int count,
 					u8 *first_port_idx);
-int gqti_ctrl_connect(struct grmnet *gr, u8 port_num, unsigned intf,
-			enum transport_type data_transport);
-void gqti_ctrl_disconnect(struct grmnet *gr, u8 port_num);
-void gqti_ctrl_update_ipa_pipes(struct grmnet *gr, u8 port_num,
-					u32 ipa_prod, u32 ipa_cons);
-
 #endif /* __U_RMNET_H*/

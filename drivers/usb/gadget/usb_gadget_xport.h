@@ -119,4 +119,10 @@ int ghsuart_ctrl_setup(unsigned int, enum gadget_type);
 int ghsuart_data_connect(void *, int);
 void ghsuart_data_disconnect(void *, int);
 int ghsuart_data_setup(unsigned int, enum gadget_type);
+
+int gqti_ctrl_connect(void *gr, u8 port_num, unsigned intf,
+		enum transport_type dxport, enum gadget_type gtype);
+void gqti_ctrl_disconnect(void *gr, u8 port_num);
+void gqti_ctrl_update_ipa_pipes(void *, u8 port_num, u32 ipa_prod,
+					u32 ipa_cons);
 #endif
