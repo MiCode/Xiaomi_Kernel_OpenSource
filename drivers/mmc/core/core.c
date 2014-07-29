@@ -2332,6 +2332,13 @@ static int mmc_do_hw_reset(struct mmc_host *host, int check)
 	mmc_host_clk_hold(host);
 	mmc_set_clock(host, host->f_init);
 
+	/*
+	 * before HW reset card, cache needs to be flushed. Otherwise
+	 * the data in cache can be lost. But this flush may be failed
+	 * because card may be not in a good state
+	 */
+	mmc_cache_ctrl(host, 0);
+
 	host->ops->hw_reset(host);
 
 	/* If the reset has happened, then a status command will fail */
@@ -2629,6 +2636,11 @@ int mmc_power_save_host(struct mmc_host *host)
 
 	mmc_bus_put(host);
 
+	/*
+	 * disable cache before power off device
+	 */
+	mmc_cache_ctrl(host, 0);
+
 	mmc_power_off(host);
 
 	return ret;
@@ -2706,8 +2718,22 @@ int mmc_cache_ctrl(struct mmc_host *host, u8 enable)
 
 		if (card->ext_csd.cache_ctrl ^ enable) {
 			timeout = enable ? card->ext_csd.generic_cmd6_time : 0;
-			err = mmc_switch(card, EXT_CSD_CMD_SET_NORMAL,
-					EXT_CSD_CACHE_CTRL, enable, timeout);
+			if (enable)
+				err = mmc_switch(card, EXT_CSD_CMD_SET_NORMAL,
+						EXT_CSD_CACHE_CTRL, enable,
+						timeout);
+			else {
+				/*
+				 * disable cache will cause flushing data to
+				 * non-volatile storage, so we may need to
+				 * check busy state here by polling card status
+				 */
+				err = __mmc_switch(card, EXT_CSD_CMD_SET_NORMAL,
+						EXT_CSD_CACHE_CTRL, enable,
+						timeout, false, false);
+				if (!err)
+					err = mmc_busy_wait(host);
+			}
 			if (err)
 				pr_err("%s: cache %s error %d\n",
 						mmc_hostname(card->host),
@@ -2754,6 +2780,7 @@ int mmc_pm_notify(struct notifier_block *notify_block,
 			break;
 
 		/* Calling bus_ops->remove() with a claimed host can deadlock */
+		mmc_cache_ctrl(host, 0);
 		host->bus_ops->remove(host);
 		mmc_claim_host(host);
 		mmc_detach_bus(host);
