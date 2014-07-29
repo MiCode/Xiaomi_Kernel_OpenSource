@@ -287,7 +287,8 @@ int _ipa_read_ep_reg_v2_0(char *buf, int max_len, int pipe)
 		"IPA_ENDP_INIT_CTRL_%u=0x%x\n"
 		"IPA_ENDP_INIT_HOL_EN_%u=0x%x\n"
 		"IPA_ENDP_INIT_HOL_TIMER_%u=0x%x\n"
-		"IPA_ENDP_INIT_DEAGGR_%u=0x%x\n",
+		"IPA_ENDP_INIT_DEAGGR_%u=0x%x\n"
+		"IPA_ENDP_INIT_CFG_%u=0x%x\n",
 		pipe, ipa_read_reg(ipa_ctx->mmio,
 			IPA_ENDP_INIT_NAT_N_OFST_v2_0(pipe)),
 		pipe, ipa_read_reg(ipa_ctx->mmio,
@@ -307,7 +308,9 @@ int _ipa_read_ep_reg_v2_0(char *buf, int max_len, int pipe)
 		pipe, ipa_read_reg(ipa_ctx->mmio,
 			IPA_ENDP_INIT_HOL_BLOCK_TIMER_N_OFST_v2_0(pipe)),
 		pipe, ipa_read_reg(ipa_ctx->mmio,
-			IPA_ENDP_INIT_DEAGGR_n_OFST_v2_0(pipe)));
+			IPA_ENDP_INIT_DEAGGR_n_OFST_v2_0(pipe)),
+		pipe, ipa_read_reg(ipa_ctx->mmio,
+			IPA_ENDP_INIT_CFG_n_OFST(pipe)));
 }
 
 static ssize_t ipa_read_ep_reg(struct file *file, char __user *ubuf,
