@@ -56,17 +56,17 @@ void mdss_enable_irq(struct mdss_hw *hw)
 	ndx_bit = BIT(hw->hw_ndx);
 
 	pr_debug("Enable HW=%d irq ena=%d mask=%x\n", hw->hw_ndx,
-			mdss_res->irq_ena, mdss_res->irq_mask);
+			hw->irq_info->irq_ena, hw->irq_info->irq_mask);
 
 	spin_lock_irqsave(&mdss_lock, irq_flags);
-	if (mdss_res->irq_mask & ndx_bit) {
+	if (hw->irq_info->irq_mask & ndx_bit) {
 		pr_debug("MDSS HW ndx=%d is already set, mask=%x\n",
-				hw->hw_ndx, mdss_res->irq_mask);
+				hw->hw_ndx, hw->irq_info->irq_mask);
 	} else {
-		mdss_res->irq_mask |= ndx_bit;
-		if (!mdss_res->irq_ena) {
-			mdss_res->irq_ena = true;
-			enable_irq(mdss_res->irq);
+		hw->irq_info->irq_mask |= ndx_bit;
+		if (!hw->irq_info->irq_ena) {
+			hw->irq_info->irq_ena = true;
+			enable_irq(hw->irq_info->irq);
 		}
 	}
 	spin_unlock_irqrestore(&mdss_lock, irq_flags);
@@ -83,18 +83,16 @@ void mdss_disable_irq(struct mdss_hw *hw)
 	ndx_bit = BIT(hw->hw_ndx);
 
 	pr_debug("Disable HW=%d irq ena=%d mask=%x\n", hw->hw_ndx,
-			mdss_res->irq_ena, mdss_res->irq_mask);
+			hw->irq_info->irq_ena, hw->irq_info->irq_mask);
 
 	spin_lock_irqsave(&mdss_lock, irq_flags);
-	if (!(mdss_res->irq_mask & ndx_bit)) {
-		pr_warn("MDSS HW ndx=%d is NOT set, mask=%x, hist mask=%x\n",
-			hw->hw_ndx, mdss_res->mdp_irq_mask,
-			mdss_res->mdp_hist_irq_mask);
+	if (!(hw->irq_info->irq_mask & ndx_bit)) {
+		pr_warn("MDSS HW ndx=%d is NOT set\n", hw->hw_ndx);
 	} else {
-		mdss_res->irq_mask &= ~ndx_bit;
-		if (mdss_res->irq_mask == 0) {
-			mdss_res->irq_ena = false;
-			disable_irq_nosync(mdss_res->irq);
+		hw->irq_info->irq_mask &= ~ndx_bit;
+		if (hw->irq_info->irq_mask == 0) {
+			hw->irq_info->irq_ena = false;
+			disable_irq_nosync(hw->irq_info->irq);
 		}
 	}
 	spin_unlock_irqrestore(&mdss_lock, irq_flags);
@@ -111,18 +109,16 @@ void mdss_disable_irq_nosync(struct mdss_hw *hw)
 	ndx_bit = BIT(hw->hw_ndx);
 
 	pr_debug("Disable HW=%d irq ena=%d mask=%x\n", hw->hw_ndx,
-			mdss_res->irq_ena, mdss_res->irq_mask);
+			hw->irq_info->irq_ena, hw->irq_info->irq_mask);
 
 	spin_lock(&mdss_lock);
-	if (!(mdss_res->irq_mask & ndx_bit)) {
-		pr_warn("MDSS HW ndx=%d is NOT set, mask=%x, hist mask=%x\n",
-			hw->hw_ndx, mdss_res->mdp_irq_mask,
-			mdss_res->mdp_hist_irq_mask);
+	if (!(hw->irq_info->irq_mask & ndx_bit)) {
+		pr_warn("MDSS HW ndx=%d is NOT set\n", hw->hw_ndx);
 	} else {
-		mdss_res->irq_mask &= ~ndx_bit;
-		if (mdss_res->irq_mask == 0) {
-			mdss_res->irq_ena = false;
-			disable_irq_nosync(mdss_res->irq);
+		hw->irq_info->irq_mask &= ~ndx_bit;
+		if (hw->irq_info->irq_mask == 0) {
+			hw->irq_info->irq_ena = false;
+			disable_irq_nosync(hw->irq_info->irq);
 		}
 	}
 	spin_unlock(&mdss_lock);
