@@ -325,6 +325,8 @@ static int mmc_read_ext_csd(struct mmc_card *card, u8 *ext_csd)
 		ext_csd[EXT_CSD_ERASE_TIMEOUT_MULT];
 	card->ext_csd.raw_hc_erase_grp_size =
 		ext_csd[EXT_CSD_HC_ERASE_GRP_SIZE];
+	card->ext_csd.part_set_complete =
+		ext_csd[EXT_CSD_PART_SET_COMPLETE];
 	if (card->ext_csd.rev >= 3) {
 		u8 sa_shift = ext_csd[EXT_CSD_S_A_TIMEOUT];
 		card->ext_csd.part_config = ext_csd[EXT_CSD_PART_CONFIG];
@@ -1005,7 +1007,7 @@ static int mmc_init_card(struct mmc_host *host, u32 ocr,
 	 * If enhanced_area_en is TRUE, host needs to enable ERASE_GRP_DEF
 	 * bit.  This bit will be lost every time after a reset or power off.
 	 */
-	if (card->ext_csd.enhanced_area_en ||
+	if (card->ext_csd.enhanced_area_en || card->ext_csd.part_set_complete ||
 	    (card->ext_csd.rev >= 3 && (host->caps2 & MMC_CAP2_HC_ERASE_SZ))) {
 		err = mmc_switch(card, EXT_CSD_CMD_SET_NORMAL,
 				 EXT_CSD_ERASE_GROUP_DEF, 1,
@@ -1023,6 +1025,7 @@ static int mmc_init_card(struct mmc_host *host, u32 ocr,
 			 */
 			card->ext_csd.enhanced_area_offset = -EINVAL;
 			card->ext_csd.enhanced_area_size = -EINVAL;
+			card->ext_csd.erase_group_def = 0;
 		} else {
 			card->ext_csd.erase_group_def = 1;
 			/*
