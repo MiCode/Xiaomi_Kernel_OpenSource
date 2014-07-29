@@ -383,7 +383,7 @@ static int mdss_mdp_video_intfs_stop(struct mdss_mdp_ctl *ctl,
 }
 
 
-static int mdss_mdp_video_stop(struct mdss_mdp_ctl *ctl)
+static int mdss_mdp_video_stop(struct mdss_mdp_ctl *ctl, int panel_power_state)
 {
 	int intfs_num, ret = 0;
 
