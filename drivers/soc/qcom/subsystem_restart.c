@@ -378,6 +378,14 @@ out:
 	mutex_unlock(&restart_log_mutex);
 }
 
+static int is_ramdump_enabled(struct subsys_device *dev)
+{
+	if (dev->desc->ramdump_disable_gpio)
+		return !dev->desc->ramdump_disable;
+
+	return enable_ramdumps;
+}
+
 static void send_sysmon_notif(struct subsys_device *dev)
 {
 	struct subsys_device *subsys;
@@ -430,7 +438,7 @@ static void notify_each_subsys_device(struct subsys_device **list,
 			send_sysmon_notif(dev);
 
 		notif_data.crashed = subsys_get_crash_status(dev);
-		notif_data.enable_ramdump = enable_ramdumps;
+		notif_data.enable_ramdump = is_ramdump_enabled(dev);
 		notif_data.no_auth = dev->desc->no_auth;
 		notif_data.pdev = pdev;
 
@@ -502,7 +510,7 @@ static void subsystem_ramdump(struct subsys_device *dev, void *data)
 	const char *name = dev->desc->name;
 
 	if (dev->desc->ramdump)
-		if (dev->desc->ramdump(enable_ramdumps, dev->desc) < 0)
+		if (dev->desc->ramdump(is_ramdump_enabled(dev), dev->desc) < 0)
 			pr_warn("%s[%p]: Ramdump failed.\n", name, current);
 	dev->do_ramdump_on_put = false;
 }
@@ -1307,6 +1315,11 @@ static int subsys_parse_devicetree(struct subsys_desc *desc)
 		return ret;
 
 	ret = __get_gpio(desc, "qcom,gpio-force-stop", &desc->force_stop_gpio);
+	if (ret && ret != -ENOENT)
+		return ret;
+
+	ret = __get_gpio(desc, "qcom,gpio-ramdump-disable",
+			&desc->ramdump_disable_gpio);
 	if (ret && ret != -ENOENT)
 		return ret;
 
