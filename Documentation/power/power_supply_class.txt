@@ -140,6 +140,7 @@ POWER_SUPPLY_CAPACITY_LEVEL_*.
 
 RESISTANCE - battery resistance in milli ohms
 RESISTANCE_CAPACITIVE - battery capacitive resistance in milli ohms
+POWER_SUPPLY_PROP_RESISTANCE_ID - battery id resistance value in ohms
 
 TEMP - temperature of the power supply.
 TEMP_ALERT_MIN - minimum battery temperature alert value in milli centigrade.
