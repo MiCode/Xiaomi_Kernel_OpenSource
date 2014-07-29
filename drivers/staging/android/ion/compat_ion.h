@@ -22,6 +22,8 @@
 
 long compat_ion_ioctl(struct file *filp, unsigned int cmd, unsigned long arg);
 
+#define compat_ion_user_handle_t compat_int_t
+
 #else
 
 #define compat_ion_ioctl  NULL
