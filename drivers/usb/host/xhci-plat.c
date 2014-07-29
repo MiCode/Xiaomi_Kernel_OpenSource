@@ -170,7 +170,7 @@ static int xhci_plat_probe(struct platform_device *pdev)
 	pm_runtime_enable(&pdev->dev);
 	pm_runtime_get_sync(&pdev->dev);
 
-	ret = usb_add_hcd(hcd, irq, IRQF_SHARED | IRQF_ONESHOT);
+	ret = usb_add_hcd(hcd, irq, IRQF_SHARED);
 	if (ret)
 		goto unmap_registers;
 
