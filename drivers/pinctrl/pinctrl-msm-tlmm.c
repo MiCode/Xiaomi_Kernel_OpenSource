@@ -400,6 +400,19 @@ static int msm_tlmm_gp_cfg(uint pin_no, unsigned long *config,
 			data = inout_val_to_dir(inout_val);
 		}
 		break;
+	case PIN_CONFIG_INPUT_ENABLE:
+		mask = TLMM_GP_DIR_MASK;
+		shft = TLMM_GP_DIR_SHFT;
+		inout_reg = TLMM_GP_INOUT(pinfo, pin_no);
+		if (write) {
+			/* GPIO_IN (b0) of TLMM_GPIO_IN_OUT is read-only */
+			data = 0;
+		} else {
+			inout_val = readl_relaxed(inout_reg);
+			data = inout_val;
+		}
+		break;
+
 	default:
 		return -EINVAL;
 	};
