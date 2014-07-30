@@ -36,6 +36,9 @@ ACPI_MODULE_NAME("acpi_lpss");
 #define LPSS_AUTO_LTR			0x14
 #define LPSS_TX_INT			0x20
 #define LPSS_TX_INT_MASK		BIT(1)
+/* CHT LPSS I2C PRIVATE OFFSET*/
+#define LPSS_CLOCK_PARAMS		0x00
+#define HS_SOURCE_CLOCK			BIT(0)
 
 #define LPSS_PRV_REG_COUNT		9
 
@@ -150,6 +153,29 @@ static struct lpss_device_desc byt_i2c_dev_desc = {
 	.shared_clock = &i2c_clock,
 };
 
+static void cht_i2c_setup(struct lpss_private_data *pdata)
+{
+	const struct lpss_device_desc *dev_desc = pdata->dev_desc;
+	struct lpss_shared_clock *shared_clock = dev_desc->shared_clock;
+	unsigned int offset;
+	u32 reg;
+
+	offset = dev_desc->prv_offset + LPSS_CLOCK_PARAMS;
+	reg = readl(pdata->mmio_base + offset);
+
+	/* indicate if the i2c uses 133MHz or 100Mhz */
+	if ((reg & HS_SOURCE_CLOCK) && shared_clock)
+		shared_clock->rate = 133000000;
+}
+
+static struct lpss_device_desc cht_i2c_dev_desc = {
+	.clk_required = true,
+	.prv_offset = 0x800,
+	.save_ctx = true,
+	.shared_clock = &i2c_clock,
+	.setup = cht_i2c_setup,
+};
+
 static const struct acpi_device_id acpi_lpss_device_ids[] = {
 	/* Generic LPSS devices */
 	{ "INTL9C60", (unsigned long)&lpss_dma_desc },
@@ -171,6 +197,14 @@ static const struct acpi_device_id acpi_lpss_device_ids[] = {
 	{ "80860F41", (unsigned long)&byt_i2c_dev_desc },
 	{ "INT33B2", },
 	{ "INT33FC", },
+
+	/* Cherrytrail LPSS devices */
+	{ "808622C1", (unsigned long)&cht_i2c_dev_desc },
+	{ "8086228A", (unsigned long)&byt_uart_dev_desc },
+	{ "80862286", }, /* CHT DMA1 */
+	{ "808622C0", }, /* CHT DMA2 */
+	{ "8086228E", (unsigned long)&byt_spi_dev_desc },
+	{ "80862288", }, /* CHT PWM */
 
 	{ "INT3430", (unsigned long)&lpt_dev_desc },
 	{ "INT3431", (unsigned long)&lpt_dev_desc },
@@ -289,15 +323,6 @@ static int acpi_lpss_create_device(struct acpi_device *adev,
 
 	pdata->dev_desc = dev_desc;
 
-	if (dev_desc->clk_required) {
-		ret = register_device_clock(adev, pdata);
-		if (ret) {
-			/* Skip the device, but continue the namespace scan. */
-			ret = 0;
-			goto err_out;
-		}
-	}
-
 	/*
 	 * This works around a known issue in ACPI tables where LPSS devices
 	 * have _PS0 and _PS3 without _PSC (and no power resources), so
@@ -312,6 +337,15 @@ static int acpi_lpss_create_device(struct acpi_device *adev,
 
 	if (dev_desc->setup)
 		dev_desc->setup(pdata);
+
+	if (dev_desc->clk_required) {
+		ret = register_device_clock(adev, pdata);
+		if (ret) {
+			/* Skip the device, but continue the namespace scan. */
+			ret = 0;
+			goto err_out;
+		}
+	}
 
 	adev->driver_data = pdata;
 	ret = acpi_create_platform_device(adev, id);
