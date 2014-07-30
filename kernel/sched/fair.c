@@ -2967,6 +2967,38 @@ void post_big_small_task_count_change(void)
 
 static DEFINE_MUTEX(policy_mutex);
 
+int sched_acct_wait_time_update_handler(struct ctl_table *table, int write,
+		void __user *buffer, size_t *lenp,
+		loff_t *ppos)
+{
+	int ret;
+	unsigned int *data = (unsigned int *)table->data;
+	unsigned int old_val;
+	unsigned long flags;
+
+	if (!sched_enable_hmp)
+		return -EINVAL;
+
+	mutex_lock(&policy_mutex);
+
+	old_val = *data;
+
+	ret = proc_dointvec_minmax(table, write, buffer, lenp, ppos);
+	if (ret || !write || (write && old_val == *data))
+		goto done;
+
+	local_irq_save(flags);
+
+	reset_all_window_stats(0, 0, -1, sysctl_sched_account_wait_time);
+
+	local_irq_restore(flags);
+
+done:
+	mutex_unlock(&policy_mutex);
+
+	return ret;
+}
+
 int sched_window_stats_policy_update_handler(struct ctl_table *table, int write,
 		void __user *buffer, size_t *lenp,
 		loff_t *ppos)
@@ -2989,7 +3021,7 @@ int sched_window_stats_policy_update_handler(struct ctl_table *table, int write,
 
 	local_irq_save(flags);
 
-	reset_all_window_stats(0, 0, sysctl_sched_window_stats_policy);
+	reset_all_window_stats(0, 0, sysctl_sched_window_stats_policy, -1);
 
 	local_irq_restore(flags);
 
