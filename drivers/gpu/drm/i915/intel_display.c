@@ -5610,8 +5610,9 @@ void intel_connector_dpms(struct drm_connector *connector, int mode)
 	if (connector->encoder)
 		intel_encoder_dpms(to_intel_encoder(connector->encoder), mode);
 
-	intel_modeset_check_state(connector->dev);
-	
+	if (mode == DRM_MODE_DPMS_ON)
+		intel_modeset_check_state(connector->dev);
+
 	intel_runtime_pm_put(dev_priv);
 }
 
