@@ -451,15 +451,25 @@ int qmi_filter_notify_send(struct ipa_fltr_installed_notif_req_msg_v01 *req)
 {
 	struct ipa_fltr_installed_notif_resp_msg_v01 resp;
 	struct msg_desc req_desc, resp_desc;
-	int rc = 0;
+	int rc = 0, i = 0;
 
 	/* check if the filter rules from IPACM is valid */
 	if (req->filter_index_list_len == 0) {
 		IPAWANERR(" delete UL filter rule for pipe %d\n",
 		req->source_pipe_index);
 		return -EINVAL;
+	} else if (req->filter_index_list[0].filter_index == 0 &&
+		req->source_pipe_index !=
+		ipa_get_ep_mapping(IPA_CLIENT_APPS_LAN_WAN_PROD)) {
+		IPAWANERR(" get index wrong for pipe %d\n",
+			req->source_pipe_index);
+		for (i = 0; i < req->filter_index_list_len; i++)
+			IPAWANERR(" %d-st handle %d index %d\n",
+				i,
+				req->filter_index_list[i].filter_handle,
+				req->filter_index_list[i].filter_index);
+		return -EINVAL;
 	}
-
 	req_desc.max_msg_len =
 	QMI_IPA_FILTER_INSTALLED_NOTIF_REQ_MAX_MSG_LEN_V01;
 	req_desc.msg_id = QMI_IPA_FILTER_INSTALLED_NOTIF_REQ_V01;
