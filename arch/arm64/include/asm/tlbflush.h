@@ -113,32 +113,10 @@ static inline void flush_tlb_page(struct vm_area_struct *vma,
 }
 
 /*
- * The flush by range functions may take a very large range.
- * If we need to invalidate a large range, it may be better
- * to invalidate all tlb entries at once rather than looping
- * through and invalidating individual entries.
- *
- * Here, we just use a fixed (arbitrary) number. It would be
- * better if this was based on the actual size of the tlb...
+ * Convert calls to our calling convention.
  */
-#define MAX_TLB_LOOP 128
-
-static inline void flush_tlb_range(struct vm_area_struct *vma,
-				   unsigned long start, unsigned long end)
-{
-	if (((end - start) >> PAGE_SHIFT) < MAX_TLB_LOOP)
-		__cpu_flush_user_tlb_range(start, end, vma);
-	else
-		flush_tlb_mm(vma->vm_mm);
-}
-
-static inline void flush_tlb_kernel_range(unsigned long start, unsigned long end)
-{
-	if (((end - start) >> PAGE_SHIFT) < MAX_TLB_LOOP)
-		__cpu_flush_kern_tlb_range(start, end);
-	else
-		flush_tlb_all();
-}
+#define flush_tlb_range(vma,start,end)	__cpu_flush_user_tlb_range(start,end,vma)
+#define flush_tlb_kernel_range(s,e)	__cpu_flush_kern_tlb_range(s,e)
 
 /*
  * On AArch64, the cache coherency is handled via the set_pte_at() function.
