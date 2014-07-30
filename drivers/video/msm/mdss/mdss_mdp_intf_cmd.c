@@ -585,6 +585,26 @@ static int mdss_mdp_cmd_wait4pingpong(struct mdss_mdp_ctl *ctl, void *arg)
 					atomic_read(&ctx->koff_cnt));
 
 		if (rc <= 0) {
+			u32 status, mask;
+
+			mask = BIT(MDSS_MDP_IRQ_PING_PONG_COMP + ctx->pp_num);
+			status = mask & readl_relaxed(ctl->mdata->mdp_base +
+					MDSS_MDP_REG_INTR_STATUS);
+			if (status) {
+				WARN(1, "pp done but irq not triggered\n");
+				mdss_mdp_irq_clear(ctl->mdata,
+						MDSS_MDP_IRQ_PING_PONG_COMP,
+						ctx->pp_num);
+				local_irq_save(flags);
+				mdss_mdp_cmd_pingpong_done(ctl);
+				local_irq_restore(flags);
+				rc = 1;
+			}
+
+			rc = try_wait_for_completion(&ctx->pp_comp);
+		}
+
+		if (rc <= 0) {
 			WARN(1, "cmd kickoff timed out (%d) ctl=%d\n",
 						rc, ctl->num);
 			MDSS_XLOG_TOUT_HANDLER("mdp", "dsi0", "dsi1",
