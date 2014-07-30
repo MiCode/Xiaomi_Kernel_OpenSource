@@ -642,6 +642,12 @@ void msm_pcm_routing_dereg_phy_stream(int fedai_id, int stream_type)
 			for (idx = 0; idx < MAX_COPPS_PER_PORT; idx++)
 				if (test_bit(idx, &copp))
 					break;
+
+			if (idx >= MAX_COPPS_PER_PORT || idx < 0) {
+				pr_debug("%s: copp idx is invalid, exiting\n",
+								__func__);
+				continue;
+			}
 			topology = adm_get_topology_for_port_from_copp_id(
 					msm_bedais[i].port_id, idx);
 			adm_close(msm_bedais[i].port_id, fdai->perf_mode, idx);
