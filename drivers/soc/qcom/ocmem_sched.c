@@ -768,7 +768,7 @@ retry_next_step:
 			region = create_region();
 			if (!region) {
 				pr_err("ocmem: Unable to create region\n");
-				goto region_error;
+				goto internal_error;
 			}
 		}
 
@@ -851,8 +851,8 @@ region_error:
 	detach_req(region, req);
 	update_region_prio(region);
 	/* req is going to be destroyed by the caller anyways */
-internal_error:
 	destroy_region(region);
+internal_error:
 invalid_op_error:
 	return OP_FAIL;
 }
