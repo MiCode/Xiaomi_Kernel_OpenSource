@@ -274,6 +274,7 @@ enum task_event {
 	TASK_WAKE       = 2,
 	TASK_MIGRATE    = 3,
 	TASK_UPDATE     = 4,
+	IRQ_UPDATE	= 5,
 };
 
 #include <linux/spinlock.h>
