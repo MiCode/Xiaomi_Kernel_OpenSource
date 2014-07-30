@@ -2330,9 +2330,6 @@ static void vlv_init_panel_power_sequencer(struct intel_dp *intel_dp)
 	struct intel_crtc *crtc = to_intel_crtc(encoder->base.crtc);
 	struct edp_power_seq power_seq;
 
-	if (intel_dp->pipe == crtc->pipe)
-		return;
-
 	/*
 	 * If another power sequencer was being used on this
 	 * port previosuly make sure to turn off vdd there while
