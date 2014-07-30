@@ -1,0 +1,27 @@
+QTI's Boost Dynamic Controller Driver
+
+Boost Dynamic Controller changes boost regulator mode to force bypass mode or
+force boost mode according to VPH voltage level dynamically.
+
+Required properties:
+- compatible:			Must be "qcom,boost-dynamic-controller"
+- qcom,vph-threshold-adc_tm:	The phandle to the corresponding VADC_TM device.
+- qcom,vph-vadc:		The phandle to the corresponding VADC device.
+- qcom,boost-dynamic-controller-vph-high-threshold-uv: The threshold in uV for Boost Dynamic Controller to enable force bypass mode when the VPH power is larger than it.
+- qcom,boost-dynamic-controller-vph-low-threshold-uv: The threshold in uV for Boost Dynamic Controller to disable force bypass mode when the VPH power is less than it.
+- qcom,boost-dynamic-controller-boost-resource-type: A string used to describe the type of the RPM resource who controls the boost regulator.
+- qcom,boost-dynamic-controller-boost-resource-key: A string used to describe the key of the RPM resource who controls the boost regulator.
+- qcom,boost-dynamic-controller-boost-resource-id: The id of the RPM resource who controls the boost regulator.
+
+Example:
+	qcom,boost-dynamic-controller {
+		compatible = "qcom,boost-dynamic-controller";
+		qcom,vph-threshold-adc_tm = <&pma8084_adc_tm>;
+		qcom,vph-vadc = <&pma8084_vadc>;
+		qcom,boost-dynamic-controller-vph-high-threshold-uv = <3700000>;
+		qcom,boost-dynamic-controller-vph-low-threshold-uv = <3650000>;
+		qcom,boost-dynamic-controller-boost-resource-type = "bbya";
+		qcom,boost-dynamic-controller-boost-resource-key = "bypa";
+		qcom,boost-dynamic-controller-boost-resource-id = <1>;
+	};
+

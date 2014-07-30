@@ -337,6 +337,17 @@ config SENSORS_ATXP1
 	  This driver can also be built as a module.  If so, the module
 	  will be called atxp1.
 
+config SENSORS_BOOST_DYNAMIC_CONTROLLER
+	tristate "Support for Dynamically Mode Change for Boost Regulator"
+	depends on OF
+	default n
+	help
+	  Provides support for changing boost regulator status between
+	  force-bypass and force boost mode dynamically
+
+	  This driver can also be built as a module.  If so, the module
+	  will be called boost-dynamic-controller.
+
 config SENSORS_DS620
 	tristate "Dallas Semiconductor DS620"
 	depends on I2C
