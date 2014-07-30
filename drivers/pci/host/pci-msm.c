@@ -38,6 +38,7 @@
 #include <linux/irqdomain.h>
 #include <linux/pm_wakeup.h>
 #include <linux/compiler.h>
+#include <soc/qcom/scm.h>
 #include <linux/ipc_logging.h>
 #include <linux/msm_pcie.h>
 
@@ -226,6 +227,7 @@
 #define MAX_BUS_NUM 3
 #define MAX_PROP_SIZE 32
 #define MAX_RC_NAME_LEN 15
+#define PCIE_MSM_RESTORE_SCM_CFG_CMD 0x2
 #define MSM_PCIE_MAX_VREG 3
 #define MSM_PCIE_MAX_CLK 7
 #define MSM_PCIE_MAX_PIPE_CLK 1
@@ -457,6 +459,7 @@ struct msm_pcie_dev_t {
 	u32				  rc_shadow[PCIE_CONF_SPACE_DW];
 	bool				 shadow_en;
 	struct msm_pcie_register_event *event_reg;
+	unsigned int			scm_dev_id;
 	bool				 power_on;
 	void				 *ipc_log;
 	struct msm_pcie_device_info   pcidev_table[MAX_DEVICE_NUM];
@@ -763,6 +766,36 @@ static bool pcie_phy_is_ready(struct msm_pcie_dev_t *dev)
 		return false;
 	else
 		return true;
+}
+
+static int msm_pcie_restore_sec_config(struct msm_pcie_dev_t *dev)
+{
+	/* scm command buffer structrue */
+	struct msm_pcie_scm_cmd_buf {
+		unsigned int device_id;
+		unsigned int spare;
+	} cbuf;
+
+	int ret, scm_ret = 0;
+
+	if (!dev) {
+		pr_err("PCIe: the input pcie dev is NULL.\n");
+		return -ENODEV;
+	}
+
+	cbuf.device_id = dev->scm_dev_id;
+
+	ret = scm_call(SCM_SVC_MP, PCIE_MSM_RESTORE_SCM_CFG_CMD, &cbuf,
+			sizeof(cbuf), &scm_ret, sizeof(scm_ret));
+
+	if (ret || scm_ret) {
+		PCIE_ERR(dev,
+			"PCIe: RC%d failed(%d) to restore sec config, scm_ret=%d\n",
+			dev->rc_idx, ret, scm_ret);
+		return ret ? ret : -EINVAL;
+	}
+
+	return 0;
 }
 
 static bool msm_pcie_confirm_linkup(struct msm_pcie_dev_t *dev,
@@ -1927,6 +1960,11 @@ int msm_pcie_enable(struct msm_pcie_dev_t *dev, u32 options)
 			goto clk_fail;
 	}
 
+	if (dev->scm_dev_id) {
+		PCIE_DBG(dev, "RC%d: restoring sec config\n", dev->rc_idx);
+		msm_pcie_restore_sec_config(dev);
+	}
+
 	/* enable PCIe clocks and resets */
 	msm_pcie_write_mask(dev->parf + PCIE20_PARF_PHY_CTRL, BIT(0), 0);
 
@@ -3007,6 +3045,11 @@ static int msm_pcie_probe(struct platform_device *pdev)
 					msm_pcie_dev[rc_idx].msi_gicm_base);
 		}
 	}
+
+	msm_pcie_dev[rc_idx].scm_dev_id = 0;
+	ret = of_property_read_u32((&pdev->dev)->of_node,
+				"qcom,scm-dev-id",
+				&msm_pcie_dev[rc_idx].scm_dev_id);
 
 	msm_pcie_dev[rc_idx].rc_idx = rc_idx;
 	msm_pcie_dev[rc_idx].pdev = pdev;
