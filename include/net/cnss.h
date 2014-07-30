@@ -97,6 +97,8 @@ extern void cnss_pm_wake_lock_destroy(struct wakeup_source *ws);
 #ifdef CONFIG_PCI_MSM
 extern int cnss_wlan_pm_control(bool vote);
 #endif
+extern void cnss_lock_pm_sem(void);
+extern void cnss_release_pm_sem(void);
 
 extern int cnss_set_cpus_allowed_ptr(struct task_struct *task, ulong cpu);
 extern void cnss_request_pm_qos(u32 qos_val);
