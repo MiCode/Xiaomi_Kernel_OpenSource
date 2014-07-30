@@ -1099,6 +1099,13 @@ static int mdss_dsi_parse_panel_features(struct device_node *np,
 
 	pr_info("%s: dynamic switch feature enabled: %d\n", __func__,
 		pinfo->mipi.dynamic_switch_enabled);
+	pinfo->panel_ack_disabled = of_property_read_bool(np,
+				"qcom,panel-ack-disabled");
+
+	if (pinfo->panel_ack_disabled && pinfo->esd_check_enabled) {
+		pr_warn("ESD should not be enabled if panel ACK is disabled\n");
+		pinfo->esd_check_enabled = false;
+	}
 
 	return 0;
 }

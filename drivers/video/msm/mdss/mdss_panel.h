@@ -360,6 +360,7 @@ struct mdss_panel_info {
 	int pwm_period;
 	bool dynamic_fps;
 	bool ulps_feature_enabled;
+	bool panel_ack_disabled;
 	bool esd_check_enabled;
 	char dfps_update;
 	int new_fps;

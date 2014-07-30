@@ -984,6 +984,11 @@ int mdss_dsi_cmds_rx(struct mdss_dsi_ctrl_pdata *ctrl,
 	struct mdss_dsi_ctrl_pdata *mctrl = NULL;
 
 
+	if (ctrl->panel_data.panel_info.panel_ack_disabled) {
+		pr_err("%s: ACK from Client not supported\n", __func__);
+		return rlen;
+	}
+
 	/*
 	 * Turn on cmd mode in order to transmit the commands.
 	 * For video mode, do not send cmds more than one pixel line,
