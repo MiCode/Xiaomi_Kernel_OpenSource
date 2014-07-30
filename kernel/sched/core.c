@@ -1596,18 +1596,23 @@ static inline void mark_task_starting(struct task_struct *p)
 	p->ravg.flags |= PREV_WINDOW_CONTRIB;
 }
 
+static int update_alignment;
+
 static inline void set_window_start(struct rq *rq)
 {
 	int cpu = cpu_of(rq);
 	struct rq *sync_rq = cpu_rq(sync_cpu);
 
+	if (cpu == sync_cpu && !update_alignment) {
+		sched_init_jiffy = get_jiffies_64();
+		sched_clock_at_init_jiffy = sched_clock();
+	}
+
 	if (rq->window_start || !sched_enable_hmp)
 		return;
 
 	if (cpu == sync_cpu) {
-		rq->window_start = sched_clock();
-		sched_init_jiffy = get_jiffies_64();
-		sched_clock_at_init_jiffy = rq->window_start;
+		rq->window_start = sched_clock_at_init_jiffy;
 	} else {
 		raw_spin_unlock(&rq->lock);
 		double_rq_lock(rq, sync_rq);
@@ -1718,6 +1723,8 @@ int sched_set_window(u64 window_start, unsigned int window_size)
 	if (sched_use_pelt ||
 		 (window_size * TICK_NSEC <  MIN_SCHED_RAVG_WINDOW))
 			return -EINVAL;
+
+	update_alignment = 1;
 
 	local_irq_save(flags);
 
