@@ -2594,11 +2594,6 @@ static int cpr_enable_set(void *data, u64 val)
 	struct cpr_regulator *cpr_vreg = data;
 	bool old_cpr_enable;
 
-	if (!cpr_vreg) {
-		cpr_err(cpr_vreg, "cpr-regulator pointer missing\n");
-		return -ENXIO;
-	}
-
 	mutex_lock(&cpr_vreg->cpr_mutex);
 
 	old_cpr_enable = cpr_vreg->enable;
@@ -2640,11 +2635,6 @@ static int cpr_enable_get(void *data, u64 *val)
 {
 	struct cpr_regulator *cpr_vreg = data;
 
-	if (!cpr_vreg) {
-		cpr_err(cpr_vreg, "cpr-regulator pointer missing\n");
-		return -ENXIO;
-	}
-
 	*val = cpr_vreg->enable;
 
 	return 0;
@@ -2668,11 +2658,6 @@ static ssize_t cpr_debug_info_read(struct file *file, char __user *buff,
 	u32 gcnt, ro_sel, ctl, irq_status, reg, error_steps;
 	u32 step_dn, step_up, error, error_lt0, busy;
 	int fuse_corner;
-
-	if (!cpr_vreg) {
-		cpr_err(cpr_vreg, "cpr-regulator pointer missing\n");
-		return -ENXIO;
-	}
 
 	debugfs_buf = kmalloc(PAGE_SIZE, GFP_KERNEL);
 	if (!debugfs_buf)
