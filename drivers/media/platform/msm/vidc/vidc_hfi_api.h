@@ -1011,20 +1011,20 @@ enum ltr_mode {
 	HAL_LTR_MODE_PERIODIC,
 };
 
-struct hal_ltrmode {
-	enum ltr_mode ltrmode;
-	u32 ltrcount;
-	u32 trustmode;
+struct hal_ltr_mode {
+	enum ltr_mode mode;
+	u32 count;
+	u32 trust_mode;
 };
 
-struct hal_ltruse {
-	u32 refltr;
-	u32 useconstrnt;
+struct hal_ltr_use {
+	u32 ref_ltr;
+	u32 use_constraint;
 	u32 frames;
 };
 
-struct hal_ltrmark {
-	u32 markframe;
+struct hal_ltr_mark {
+	u32 mark_frame;
 };
 
 struct hfi_scs_threshold {

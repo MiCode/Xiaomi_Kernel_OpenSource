@@ -304,7 +304,6 @@ struct msm_vidc_inst {
 	u32 reconfig_width;
 	u32 reconfig_height;
 	struct dentry *debugfs_root;
-	u32 ftb_count;
 	struct vb2_buffer *vb2_seq_hdr;
 	void *priv;
 	struct msm_vidc_debug debug;
@@ -315,7 +314,7 @@ struct msm_vidc_inst {
 	enum buffer_mode_type buffer_mode_set[MAX_PORT_NUM];
 	struct list_head registered_bufs;
 	bool map_output_buffer;
-	atomic_t get_seq_hdr_cnt;
+	atomic_t seq_hdr_reqs;
 	struct v4l2_ctrl **ctrls;
 	bool dcvs_mode;
 };

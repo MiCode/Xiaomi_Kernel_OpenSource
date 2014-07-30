@@ -1705,39 +1705,39 @@ int create_pkt_cmd_session_set_property(
 	}
 	case HAL_PARAM_VENC_LTRMODE:
 	{
-		struct hfi_ltrmode *hfi;
-		struct hal_ltrmode *hal = pdata;
+		struct hfi_ltr_mode *hfi;
+		struct hal_ltr_mode *hal = pdata;
 		pkt->rg_property_data[0] =
 			HFI_PROPERTY_PARAM_VENC_LTRMODE;
-		hfi = (struct hfi_ltrmode *) &pkt->rg_property_data[1];
-		hfi->ltrmode = get_hfi_ltr_mode(hal->ltrmode);
-		hfi->ltrcount = hal->ltrcount;
-		hfi->trustmode = hal->trustmode;
-		pkt->size += sizeof(u32) + sizeof(struct hfi_ltrmode);
+		hfi = (struct hfi_ltr_mode *) &pkt->rg_property_data[1];
+		hfi->ltr_mode = get_hfi_ltr_mode(hal->mode);
+		hfi->ltr_count = hal->count;
+		hfi->trust_mode = hal->trust_mode;
+		pkt->size += sizeof(u32) + sizeof(struct hfi_ltr_mode);
 		break;
 	}
 	case HAL_CONFIG_VENC_USELTRFRAME:
 	{
-		struct hfi_ltruse *hfi;
-		struct hal_ltruse *hal = pdata;
+		struct hfi_ltr_use *hfi;
+		struct hal_ltr_use *hal = pdata;
 		pkt->rg_property_data[0] =
 			HFI_PROPERTY_CONFIG_VENC_USELTRFRAME;
-		hfi = (struct hfi_ltruse *) &pkt->rg_property_data[1];
+		hfi = (struct hfi_ltr_use *) &pkt->rg_property_data[1];
 		hfi->frames = hal->frames;
-		hfi->refltr = hal->refltr;
-		hfi->useconstrnt = hal->useconstrnt;
-		pkt->size += sizeof(u32) + sizeof(struct hfi_ltruse);
+		hfi->ref_ltr = hal->ref_ltr;
+		hfi->use_constrnt = hal->use_constraint;
+		pkt->size += sizeof(u32) + sizeof(struct hfi_ltr_use);
 		break;
 	}
 	case HAL_CONFIG_VENC_MARKLTRFRAME:
 	{
-		struct hfi_ltrmark *hfi;
-		struct hal_ltrmark *hal = pdata;
+		struct hfi_ltr_mark *hfi;
+		struct hal_ltr_mark *hal = pdata;
 		pkt->rg_property_data[0] =
 			HFI_PROPERTY_CONFIG_VENC_MARKLTRFRAME;
-		hfi = (struct hfi_ltrmark *) &pkt->rg_property_data[1];
-		hfi->markframe = hal->markframe;
-		pkt->size += sizeof(u32) + sizeof(struct hfi_ltrmark);
+		hfi = (struct hfi_ltr_mark *) &pkt->rg_property_data[1];
+		hfi->mark_frame = hal->mark_frame;
+		pkt->size += sizeof(u32) + sizeof(struct hfi_ltr_mark);
 		break;
 	}
 	case HAL_PARAM_VENC_HIER_P_MAX_ENH_LAYERS:
