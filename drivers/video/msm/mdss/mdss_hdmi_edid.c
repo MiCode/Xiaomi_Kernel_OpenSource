@@ -716,33 +716,38 @@ static void hdmi_edid_extract_3d_present(struct hdmi_edid_ctrl *edid_ctrl,
 static void hdmi_edid_extract_audio_data_blocks(
 	struct hdmi_edid_ctrl *edid_ctrl, const u8 *in_buf)
 {
-	u8 len, cnt = 0;
+	u8 len;
 	const u8 *adb = NULL;
+	u32 offset = DBC_START_OFFSET;
 
 	if (!edid_ctrl) {
 		DEV_ERR("%s: invalid input\n", __func__);
 		return;
 	}
 
-	adb = hdmi_edid_find_block(in_buf, DBC_START_OFFSET, AUDIO_DATA_BLOCK,
-		&len);
-	if ((adb == NULL) || (len > MAX_AUDIO_DATA_BLOCK_SIZE)) {
-		DEV_DBG("%s: No/Invalid Audio Data Block\n",
-			__func__);
-		return;
-	}
+	edid_ctrl->adb_size = 0;
 
-	memcpy(edid_ctrl->audio_data_block, adb + 1, len);
-	edid_ctrl->adb_size = len;
+	do {
+		adb = hdmi_edid_find_block(in_buf, offset, AUDIO_DATA_BLOCK,
+			&len);
+		if ((adb == NULL) || (len > MAX_AUDIO_DATA_BLOCK_SIZE)) {
+			if (!edid_ctrl->adb_size)
+				DEV_DBG("%s: No/Invalid Audio Data Block\n",
+					__func__);
+			else
+				DEV_DBG("%s: No more valid ADB found\n",
+					__func__);
 
-	while (len >= 3 && cnt < 16) {
-		DEV_DBG("%s: ch=%d fmt=%d sampling=0x%02x bitdepth=0x%02x\n",
-			__func__, (adb[1]&0x7)+1, adb[1]>>3, adb[2], adb[3]);
+			continue;
+		}
 
-		cnt++;
-		len -= 3;
-		adb += 3;
-	}
+		memcpy(edid_ctrl->audio_data_block + edid_ctrl->adb_size,
+			adb + 1, len);
+		offset = (adb - in_buf) + 1 + len;
+
+		edid_ctrl->adb_size += len;
+	} while (adb);
+
 } /* hdmi_edid_extract_audio_data_blocks */
 
 static void hdmi_edid_extract_speaker_allocation_data(
