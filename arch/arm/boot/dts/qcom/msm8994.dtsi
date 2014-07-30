@@ -522,6 +522,8 @@
 				<45 512 0 0>,
 				<45 512 500 800>;
 
+		qcom,scm-dev-id = <11>;
+
 		clocks = <&clock_gcc clk_gcc_pcie_0_pipe_clk>,
 			<&clock_rpm clk_ln_bb_clk>,
 			<&clock_gcc clk_gcc_pcie_0_aux_clk>,
@@ -603,6 +605,8 @@
 		qcom,msm-bus,vectors-KBps =
 				<100 512 0 0>,
 				<100 512 500 800>;
+
+		qcom,scm-dev-id = <12>;
 
 		clocks = <&clock_gcc clk_gcc_pcie_1_pipe_clk>,
 			<&clock_rpm clk_ln_bb_clk>,
