@@ -663,3 +663,16 @@ config MMC_REALTEK_PCI
 	help
 	  Say Y here to include driver code to support SD/MMC card interface
 	  of Realtek PCI-E card reader
+
+config MMC_CQ_HCI
+	tristate "Command Queue Support"
+	depends on HAS_DMA
+	help
+	  This selects the Command Queue Host Controller Interface (CQHCI)
+	  support present in host controllers of Qualcomm Technologies, Inc
+	  amongst others.
+	  This controller supports eMMC devices with command queue support.
+
+	  If you have a controller with this interface, say Y or M here.
+
+	  If unsure, say N.

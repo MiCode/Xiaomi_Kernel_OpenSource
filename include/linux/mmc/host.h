@@ -507,6 +507,13 @@ struct mmc_host {
 	bool			card_clock_off;
 	bool			wakeup_on_idle;
 	struct mmc_cmdq_context_info	cmdq_ctx;
+	/*
+	 * several cmdq supporting host controllers are extensions
+	 * of legacy controllers. This variable can be used to store
+	 * a reference to the cmdq extension of the existing host
+	 * controller.
+	 */
+	void *cmdq_private;
 	unsigned long		private[0] ____cacheline_aligned;
 };
 
@@ -528,6 +535,11 @@ extern void mmc_set_embedded_sdio_data(struct mmc_host *host,
 static inline void *mmc_priv(struct mmc_host *host)
 {
 	return (void *)host->private;
+}
+
+static inline void *mmc_cmdq_private(struct mmc_host *host)
+{
+	return host->cmdq_private;
 }
 
 #define mmc_host_is_spi(host)	((host)->caps & MMC_CAP_SPI)
