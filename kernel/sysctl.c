@@ -312,6 +312,13 @@ static struct ctl_table kern_table[] = {
 #endif
 #if defined(CONFIG_SCHED_FREQ_INPUT) || defined(CONFIG_SCHED_HMP)
 	{
+		.procname       = "sched_account_wait_time",
+		.data           = &sysctl_sched_account_wait_time,
+		.maxlen         = sizeof(unsigned int),
+		.mode           = 0644,
+		.proc_handler   = sched_acct_wait_time_update_handler,
+	},
+	{
 		.procname       = "sched_window_stats_policy",
 		.data           = &sysctl_sched_window_stats_policy,
 		.maxlen         = sizeof(unsigned int),
