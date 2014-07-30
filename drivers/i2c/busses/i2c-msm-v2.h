@@ -17,8 +17,6 @@
 #ifndef _I2C_MSM_V2_H
 #define _I2C_MSM_V2_H
 
-#include <linux/bitops.h>
-
 enum msm_i2_debug_level {
 	MSM_ERR,	/* Error messages only. Always on */
 	MSM_PROF,	/* High level events. Use for profiling */
@@ -102,8 +100,6 @@ enum {
 	QUP_INPUT_SERVICE_FLAG   = 1U << 9,
 	QUP_MAX_OUTPUT_DONE_FLAG = 1U << 10,
 	QUP_MAX_INPUT_DONE_FLAG  = 1U << 11,
-	QUP_OUT_BLOCK_WRITE_REQ  = BIT(12),
-	QUP_IN_BLOCK_READ_REQ    = BIT(13),
 };
 
 /* Register:QUP_OPERATIONAL_MASK fields */
@@ -430,36 +426,9 @@ struct i2c_msm_xfer_mode_fifo {
 	int                      out_buf_idx;
 };
 
-/* i2c_msm_xfer_mode_blk: operations and state of Block mode
- *
- * @in_blk_sz size of input/rx block
- * @out_blk_sz size of output/tx block
- * @tx_cache internal buffer to store tx data
- * @rx_cache internal buffer to store rx data
- * @rx_cache_idx points to the next unread index in rx cache
- * @tx_cache_idx points to the next unwritten index in tx cache
- * @wait_rx_blk completion object to wait on for end of blk rx transfer.
- * @wait_tx_blk completion object to wait on for end of blk tx transfer.
- * @complete_mask applied to QUP_OPERATIONAL to determine when blk
- *  xfer is complete.
- */
-struct i2c_msm_xfer_mode_blk {
-	struct i2c_msm_xfer_mode ops;
-	size_t                   in_blk_sz;
-	size_t                   out_blk_sz;
-	u8                       *tx_cache;
-	u8                       *rx_cache;
-	int                      rx_cache_idx;
-	int                      tx_cache_idx;
-	struct completion        wait_rx_blk;
-	struct completion        wait_tx_blk;
-	u32                      complete_mask;
-};
-
 /* INPUT_MODE and OUTPUT_MODE filds of QUP_IO_MODES register */
 enum i2c_msm_xfer_mode_id {
 	I2C_MSM_XFER_MODE_FIFO,
-	I2C_MSM_XFER_MODE_BLOCK,
 	I2C_MSM_XFER_MODE_BAM,
 	I2C_MSM_XFER_MODE_NONE, /* keep last as a counter */
 };
@@ -491,7 +460,7 @@ struct i2c_msm_ctrl_ver {
 	int			  (*reset)      (struct i2c_msm_ctrl *);
 	int			  (*init_rsrcs) (struct platform_device *,
 						 struct i2c_msm_ctrl *);
-	enum i2c_msm_xfer_mode_id (*choose_mode)(struct i2c_msm_ctrl *);
+	void			  (*choose_mode)(struct i2c_msm_ctrl *);
 	int			  (*post_xfer)  (struct i2c_msm_ctrl *,
 								int err);
 

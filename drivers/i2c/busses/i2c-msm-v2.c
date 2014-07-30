@@ -47,7 +47,7 @@ static const enum msm_i2_debug_level DEFAULT_DBG_LVL = MSM_ERR;
 
 /* string table for enum i2c_msm_xfer_mode_id */
 static const char * const i2c_msm_mode_str_tbl[] = {
-	"FIFO", "BLOCK", "BAM", "None",
+	"FIFO", "BAM", "None",
 };
 
 /* string table for qup_io_modes register */
@@ -58,17 +58,14 @@ static const char * const i2c_msm_qup_mode_str_tbl[] = {
 /* from enum i2c_msm_xfer_mode_id to qup_io_modes register values */
 static const u32 i2c_msm_mode_to_reg_tbl[] = {
 	0x0, /* map I2C_MSM_XFER_MODE_FIFO -> binary 00 */
-	0x1, /* map I2C_MSM_XFER_MODE_BLOCK -> binary 01 */
 	0x3  /* map I2C_MSM_XFER_MODE_BAM -> binary 11 */
 };
 
 /* Forward declarations */
 static bool i2c_msm_xfer_next_buf(struct i2c_msm_ctrl *ctrl);
-static int i2c_msm_xfer_wait_for_completion(struct i2c_msm_ctrl *ctrl,
-						struct completion *complete);
+static int  i2c_msm_xfer_wait_for_completion(struct i2c_msm_ctrl *ctrl);
 static int  i2c_msm_bam_xfer(struct i2c_msm_ctrl *ctrl);
 static int  i2c_msm_fifo_xfer(struct i2c_msm_ctrl *ctrl);
-static int  i2c_msm_blk_xfer(struct i2c_msm_ctrl *ctrl);
 static void i2c_msm_pm_resume_adptr(struct i2c_msm_ctrl *ctrl);
 static void i2c_msm_pm_suspend_adptr(struct i2c_msm_ctrl *ctrl);
 static int  i2c_msm_qup_init(struct i2c_msm_ctrl *ctrl);
@@ -100,20 +97,6 @@ static void i2c_msm_fifo_set_struct(struct i2c_msm_ctrl *ctrl,
 {
 	ctrl->ver.xfer_mode[I2C_MSM_XFER_MODE_FIFO] =
 					(struct i2c_msm_xfer_mode *) fifo;
-}
-
-static struct i2c_msm_xfer_mode_blk *i2c_msm_blk_get_struct(
-						struct i2c_msm_ctrl *ctrl)
-{
-	return (struct i2c_msm_xfer_mode_blk *)
-				ctrl->ver.xfer_mode[I2C_MSM_XFER_MODE_BLOCK];
-}
-
-static void i2c_msm_blk_set_struct(struct i2c_msm_ctrl *ctrl,
-					  struct i2c_msm_xfer_mode_blk *blk)
-{
-	ctrl->ver.xfer_mode[I2C_MSM_XFER_MODE_BLOCK] =
-					(struct i2c_msm_xfer_mode *) blk;
 }
 
 static const char * const i2c_msm_mini_core_str_tbl[] = {
@@ -262,7 +245,7 @@ static struct i2c_msm_qup_reg_fld i2c_msm_qup_op_fields_map[] = {
 	{ "MX_OUT_DN",      10,   1},
 	{ "MX_IN_DN",       11,   1},
 	{ "OUT_BLK_WR",     12,   1},
-	{ "IN_BLK_RD",      13,   1},
+	{ "IN_BLK_WR",      13,   1},
 	{ "DONE_TGL",       14,   1},
 	{ "NWD",            15,   1},
 	{ NULL,              0,   1},
@@ -369,9 +352,7 @@ static const struct i2c_msm_qup_reg_dump i2c_msm_qup_reg_dump_map[] = {
 {QUP_OUT_FIFO_CNT,       "QUP_OUT_CNT" },
 {QUP_MX_READ_COUNT,      "MX_RD_CNT"   },
 {QUP_MX_WRITE_COUNT,     "MX_WR_CNT"   },
-{QUP_MX_INPUT_COUNT,     "MX_IN_CNT"   },
-{QUP_MX_OUTPUT_COUNT,    "MX_OUT_CNT"  },
-{0,                       NULL         },
+{0,                       NULL          },
 };
 
 /*
@@ -966,10 +947,8 @@ i2c_msm_qup_xfer_init_reset_state(struct i2c_msm_ctrl *ctrl)
 {
 	struct i2c_msm_xfer *xfer = &ctrl->xfer;
 	void __iomem * const base = ctrl->rsrcs.base;
-	u32  mx_rd_cnt     = 0;
-	u32  mx_wr_cnt     = 0;
-	u32  mx_in_cnt     = 0;
-	u32  mx_out_cnt    = 0;
+	u32  in_cnt        = 0;
+	u32  out_cnt       = 0;
 	u32  no_input      = 0;
 	u32  no_output     = 0;
 	u32  input_mode    = i2c_msm_mode_to_reg_tbl[xfer->mode_id] << 12;
@@ -977,8 +956,7 @@ i2c_msm_qup_xfer_init_reset_state(struct i2c_msm_ctrl *ctrl)
 	u32  config_reg;
 	u32  io_modes_reg;
 	u32  op_mask;
-	u32  rx_cnt = 0;
-	u32  tx_cnt = 0;
+
 	/*
 	 * BAM mode:
 	 * 1. QUP_MX_*_COUNT must be zero in all cases.
@@ -988,32 +966,20 @@ i2c_msm_qup_xfer_init_reset_state(struct i2c_msm_ctrl *ctrl)
 	 * 2. QUP_MX_READ_COUNT and QUP_MX_WRITE_COUNT reflect true count
 	 * 3. QUP_NO_INPUT and QUP_NO_OUPUT are set according to counts
 	 */
-	if (xfer->mode_id != I2C_MSM_XFER_MODE_BAM) {
-		rx_cnt   = xfer->rx_cnt + xfer->rx_ovrhd_cnt;
-		tx_cnt   = xfer->tx_cnt + xfer->tx_ovrhd_cnt;
-		no_input = rx_cnt  ? 0 : QUP_NO_INPUT;
-
-		switch (xfer->mode_id) {
-		case I2C_MSM_XFER_MODE_FIFO:
-			mx_rd_cnt  = rx_cnt;
-			mx_wr_cnt  = tx_cnt;
-			break;
-		case I2C_MSM_XFER_MODE_BLOCK:
-			mx_in_cnt  = rx_cnt;
-			mx_out_cnt = tx_cnt;
-			break;
-		default:
-			break;
-		}
+	if (xfer->mode_id == I2C_MSM_XFER_MODE_FIFO) {
+		in_cnt        = xfer->rx_cnt  + xfer->rx_ovrhd_cnt;
+		out_cnt       = xfer->tx_cnt + xfer->tx_ovrhd_cnt;
+		no_input      = in_cnt  ? 0 : QUP_NO_INPUT;
+		no_output     = out_cnt ? 0 : QUP_NO_OUPUT;
 	}
 
-	/* init BAM/BLOCK modes counter */
-	writel_relaxed(mx_in_cnt,  base + QUP_MX_INPUT_COUNT);
-	writel_relaxed(mx_out_cnt, base + QUP_MX_OUTPUT_COUNT);
+	/* BAM counter initializers */
+	writel_relaxed(0, base + QUP_MX_INPUT_COUNT);
+	writel_relaxed(0, base + QUP_MX_OUTPUT_COUNT);
 
-	/* int FIFO mode counter */
-	writel_relaxed(mx_rd_cnt, base + QUP_MX_READ_COUNT);
-	writel_relaxed(mx_wr_cnt, base + QUP_MX_WRITE_COUNT);
+	/* FIFO counter initializers */
+	writel_relaxed(in_cnt , base + QUP_MX_READ_COUNT);
+	writel_relaxed(out_cnt, base + QUP_MX_WRITE_COUNT);
 
 	/*
 	 * Set QUP mini-core to I2C tags ver-2
@@ -1309,7 +1275,7 @@ static int i2c_msm_fifo_xfer_process(struct i2c_msm_ctrl *ctrl)
 		return ret;
 
 	/* wait for input done interrupt */
-	ret = i2c_msm_xfer_wait_for_completion(ctrl, &ctrl->xfer.complete);
+	ret = i2c_msm_xfer_wait_for_completion(ctrl);
 	if (ret < 0)
 		return ret;
 
@@ -1370,348 +1336,6 @@ static int i2c_msm_fifo_create_struct(struct i2c_msm_ctrl *ctrl)
 	i2c_msm_fifo_set_struct(ctrl, fifo);
 
 	return 0;
-}
-
-static void i2c_msm_blk_teardown(struct i2c_msm_ctrl *ctrl) {}
-
-static void i2c_msm_blk_destroy_struct(struct i2c_msm_ctrl *ctrl)
-{
-	struct i2c_msm_xfer_mode_blk *blk = i2c_msm_blk_get_struct(ctrl);
-	kfree(blk->tx_cache);
-	kfree(blk->rx_cache);
-	kfree(blk);
-	i2c_msm_blk_set_struct(ctrl, NULL);
-}
-
-/*
- * i2c_msm_blk_create_struct: Allocate memory and initialize blk structure
- *
- * @return 0 on success or error code
- */
-static int i2c_msm_blk_create_struct(struct i2c_msm_ctrl *ctrl)
-{
-	u32 reg_data;
-	int ret;
-	struct i2c_msm_xfer_mode_blk *blk = kmalloc(sizeof(*blk), GFP_KERNEL);
-	if (!blk) {
-		dev_err(ctrl->dev,
-		"error on allocating memory for block mode. malloc(size:%zu)\n",
-		 sizeof(*blk));
-		return -ENOMEM;
-	}
-
-	reg_data = readl_relaxed(ctrl->rsrcs.base + QUP_IO_MODES);
-
-	*blk = (struct i2c_msm_xfer_mode_blk) {
-		.in_blk_sz  = i2c_msm_reg_io_modes_in_blk_sz(reg_data),
-		.out_blk_sz = i2c_msm_reg_io_modes_out_blk_sz(reg_data),
-		.ops = (struct i2c_msm_xfer_mode) {
-			.xfer     = i2c_msm_blk_xfer,
-			.teardown = i2c_msm_blk_teardown,
-		},
-	};
-
-	blk->tx_cache = kmalloc(blk->out_blk_sz, GFP_KERNEL);
-	if (!blk->tx_cache) {
-		dev_err(ctrl->dev,
-		"error on allocating memory for block tx_cache. malloc(size:%zu)\n",
-		 blk->out_blk_sz);
-		ret = -ENOMEM;
-		goto out_buf_err;
-	}
-
-	blk->rx_cache = kmalloc(blk->in_blk_sz, GFP_KERNEL);
-	if (!blk->tx_cache) {
-		dev_err(ctrl->dev,
-		"error on allocating memory for block tx_cache. malloc(size:%zu)\n",
-		 blk->out_blk_sz);
-		ret = -ENOMEM;
-		goto in_buf_err;
-	}
-
-	i2c_msm_blk_set_struct(ctrl, blk);
-	return 0;
-
-in_buf_err:
-	kfree(blk->tx_cache);
-out_buf_err:
-	kfree(blk);
-
-	return ret;
-}
-
-/*
- * i2c_msm_blk_wr_flush: flushes internal cached block to FIFO
- *
- * @return 0 on success or error code
- */
-static int i2c_msm_blk_wr_flush(struct i2c_msm_ctrl *ctrl)
-{
-	int byte_num;
-	int ret = 0;
-	struct i2c_msm_xfer_mode_blk *blk = i2c_msm_blk_get_struct(ctrl);
-	u32 *buf_u32_ptr;
-
-	if (!blk->tx_cache_idx)
-		return 0;
-
-	/* if no blocks availble wait for interrupt */
-	ret = i2c_msm_xfer_wait_for_completion(ctrl, &blk->wait_tx_blk);
-	if (ret)
-		return ret;
-
-	/*
-	 * pause the controller until we finish loading the block in order to
-	 * avoid race conditions
-	 */
-	ret = i2c_msm_qup_state_set(ctrl, QUP_STATE_PAUSE);
-	if (ret < 0)
-		return ret;
-	i2c_msm_dbg(ctrl, MSM_DBG, "OUT-BLK:%*phC", blk->tx_cache_idx,
-							blk->tx_cache);
-
-	for (byte_num = 0; byte_num < blk->tx_cache_idx;
-						byte_num += sizeof(u32)) {
-		buf_u32_ptr = (u32 *) (blk->tx_cache + byte_num);
-		writel_relaxed(*buf_u32_ptr,
-					ctrl->rsrcs.base + QUP_OUT_FIFO_BASE);
-		*buf_u32_ptr = 0;
-	}
-
-	/* now cache is empty */
-	blk->tx_cache_idx = 0;
-	ret = i2c_msm_qup_state_set(ctrl, QUP_STATE_RUN);
-	if (ret < 0)
-		return ret;
-
-	return ret;
-}
-
-/*
- * i2c_msm_blk_wr_buf:
- *
- * @len buf size (in bytes)
- * @return number of bytes from buf which have been processed (written to
- *         FIFO or kept in out buffer and will be written later)
- */
-static size_t
-i2c_msm_blk_wr_buf(struct i2c_msm_ctrl *ctrl, const u8 *buf, size_t len)
-{
-	struct i2c_msm_xfer_mode_blk *blk = i2c_msm_blk_get_struct(ctrl);
-	int byte_num;
-	int ret = 0;
-
-	for (byte_num = 0; byte_num < len; ++byte_num, ++buf) {
-		blk->tx_cache[blk->tx_cache_idx] = *buf;
-		++blk->tx_cache_idx;
-
-		/* flush cached buffer to HW FIFO when full */
-		if (blk->tx_cache_idx == blk->out_blk_sz) {
-			ret = i2c_msm_blk_wr_flush(ctrl);
-			if (ret)
-				return ret;
-		}
-	}
-	return byte_num;
-}
-
-/*
- * i2c_msm_blk_xfer_wr_tag: buffered writing the tag of current buf
- * @return zero on success
- */
-static int i2c_msm_blk_xfer_wr_tag(struct i2c_msm_ctrl *ctrl)
-{
-	struct i2c_msm_xfer_buf *buf = &ctrl->xfer.cur_buf;
-	size_t len = 0;
-
-	if (!buf->out_tag.len)
-		return 0;
-
-	len = i2c_msm_blk_wr_buf(ctrl, (u8 *) &buf->out_tag.val,
-							buf->out_tag.len);
-	if (len != buf->out_tag.len)
-		return -EFAULT;
-
-	buf->out_tag = (struct i2c_msm_tag) {0};
-	return 0;
-}
-
-/*
- * i2c_msm_blk_wr_xfer_buf: writes ctrl->xfer.cur_buf to HW
- *
- * @return zero on success
- */
-static int i2c_msm_blk_wr_xfer_buf(struct i2c_msm_ctrl *ctrl)
-{
-	struct i2c_msm_xfer_buf *buf  = &ctrl->xfer.cur_buf;
-	size_t len;
-	size_t buf_has_bc = buf->len - buf->byte_idx;
-	int ret;
-	ret = i2c_msm_blk_xfer_wr_tag(ctrl);
-	if (ret)
-		return ret;
-
-	len = i2c_msm_blk_wr_buf(ctrl, i2c_msm_buf_to_ptr(buf), buf_has_bc);
-	if (len < buf_has_bc)
-		return -EFAULT;
-
-	buf->byte_idx += len;
-	buf->prcsed_bc = len;
-	return 0;
-}
-
-/*
- * i2c_msm_blk_rd_blk: read a block from HW FIFO to internal cache
- *
- * @return number of bytes read or negative error value
- * @need_bc number of bytes that we need
- *
- * uses internal counter to keep track of number of available blocks. When
- * zero, waits for interrupt.
- */
-static int i2c_msm_blk_rd_blk(struct i2c_msm_ctrl *ctrl, size_t need_bc)
-{
-	int byte_num;
-	int ret = 0;
-	struct i2c_msm_xfer_mode_blk *blk = i2c_msm_blk_get_struct(ctrl);
-	u32 *cache_ptr = (u32 *) blk->rx_cache;
-	int read_bc    = min_t(size_t, blk->in_blk_sz, need_bc);
-
-	/* wait for block avialble interrupt */
-	ret = i2c_msm_xfer_wait_for_completion(ctrl, &blk->wait_rx_blk);
-	if (ret)
-		return ret;
-
-	/* Read block from HW to cache */
-	for (byte_num = 0; byte_num < blk->in_blk_sz;
-					byte_num += sizeof(u32)) {
-		if (byte_num < read_bc) {
-			*cache_ptr = readl_relaxed(ctrl->rsrcs.base +
-							QUP_IN_FIFO_BASE);
-			++cache_ptr;
-		}
-	}
-	blk->rx_cache_idx = 0;
-	return read_bc;
-}
-
-/*
- * i2c_msm_blk_rd_xfer_buf: fill in ctrl->xfer.cur_buf from HW
- *
- * @return zero on success
- */
-static int i2c_msm_blk_rd_xfer_buf(struct i2c_msm_ctrl *ctrl)
-{
-	struct i2c_msm_xfer_mode_blk *blk = i2c_msm_blk_get_struct(ctrl);
-	struct i2c_msm_xfer_buf *buf      = &ctrl->xfer.cur_buf;
-	size_t bc_to_prcs                 = buf->len - buf->byte_idx;
-	struct i2c_msg *msg               = ctrl->xfer.msgs + buf->msg_idx;
-	size_t copy_bc;         /* number of bytes to copy to user's buffer */
-	int cache_avail_bc;
-	int    ret = 0;
-
-	/* write tag to out FIFO */
-	ret = i2c_msm_blk_xfer_wr_tag(ctrl);
-	if (ret)
-		return ret;
-	i2c_msm_blk_wr_flush(ctrl);
-
-	while (bc_to_prcs || buf->in_tag.len) {
-		cache_avail_bc = i2c_msm_blk_rd_blk(ctrl,
-						bc_to_prcs + buf->in_tag.len);
-
-		i2c_msm_dbg(ctrl, MSM_DBG, "IN-BLK:%*phC\n", cache_avail_bc,
-					blk->rx_cache + blk->rx_cache_idx);
-
-		if (cache_avail_bc < 0)
-			return cache_avail_bc;
-
-		/* discard tag from input FIFO */
-		if (buf->in_tag.len) {
-			size_t discard_bc = min_t(size_t, cache_avail_bc,
-							buf->in_tag.len);
-			blk->rx_cache_idx += discard_bc;
-			buf->in_tag.len   -= discard_bc;
-			cache_avail_bc    -= discard_bc;
-		}
-
-		/* copy bytes from cached block to user's buffer */
-		copy_bc = min_t(size_t, cache_avail_bc, bc_to_prcs);
-		memcpy(msg->buf + buf->byte_idx,
-			blk->rx_cache + blk->rx_cache_idx, copy_bc);
-
-		blk->rx_cache_idx += copy_bc;
-		bc_to_prcs        -= copy_bc;
-		buf->byte_idx     += copy_bc;
-	}
-	return ret;
-}
-
-/*
- * i2c_msm_blk_xfer: process transfer using block mode
- */
-static int i2c_msm_blk_xfer(struct i2c_msm_ctrl *ctrl)
-{
-	int ret = 0;
-	struct i2c_msm_xfer_buf      *buf = &ctrl->xfer.cur_buf;
-	struct i2c_msm_xfer_mode_blk *blk = i2c_msm_blk_get_struct(ctrl);
-
-	if (!blk) {
-		ret = i2c_msm_blk_create_struct(ctrl);
-		if (ret)
-			return ret;
-		blk = i2c_msm_blk_get_struct(ctrl);
-	}
-
-	init_completion(&blk->wait_rx_blk);
-	init_completion(&blk->wait_tx_blk);
-
-	/* tx_cnt > 0 always */
-	blk->complete_mask = QUP_MAX_OUTPUT_DONE_FLAG;
-	if (&ctrl->xfer.rx_cnt)
-		blk->complete_mask |= QUP_MAX_INPUT_DONE_FLAG;
-
-	/* initialize block mode for new transfer */
-	blk->tx_cache_idx = 0;
-	blk->rx_cache_idx = 0;
-
-	ret = i2c_msm_qup_state_set(ctrl, QUP_STATE_RESET);
-	if (ret < 0)
-		return ret;
-
-	/* program qup registers */
-	i2c_msm_qup_xfer_init_reset_state(ctrl);
-
-	ret = i2c_msm_qup_state_set(ctrl, QUP_STATE_RUN);
-	if (ret < 0)
-		return ret;
-
-	/* program qup registers which must be set *after* reset */
-	i2c_msm_qup_xfer_init_run_state(ctrl);
-
-	while (i2c_msm_xfer_next_buf(ctrl)) {
-		if (buf->is_rx) {
-			ret = i2c_msm_blk_rd_xfer_buf(ctrl);
-			if (ret)
-				return ret;
-			/*
-			* SW workaround to wait for extra interrupt from
-			* hardware for last block in block mode for read
-			*/
-			if (buf->is_last) {
-				ret = i2c_msm_xfer_wait_for_completion(ctrl,
-							&blk->wait_rx_blk);
-				if (!ret)
-					complete(&ctrl->xfer.complete);
-			}
-		} else {
-			ret = i2c_msm_blk_wr_xfer_buf(ctrl);
-			if (ret)
-				return ret;
-		}
-	}
-	i2c_msm_blk_wr_flush(ctrl);
-	return i2c_msm_xfer_wait_for_completion(ctrl, &ctrl->xfer.complete);
 }
 
 /*
@@ -1938,7 +1562,7 @@ static int i2c_msm_bam_xfer_process(struct i2c_msm_ctrl *ctrl)
 		}
 	}
 
-	ret = i2c_msm_xfer_wait_for_completion(ctrl, &ctrl->xfer.complete);
+	ret = i2c_msm_xfer_wait_for_completion(ctrl);
 
 bam_xfer_end:
 	return ret;
@@ -2624,12 +2248,10 @@ static irqreturn_t i2c_msm_qup_isr(int irq, void *devid)
 {
 	struct i2c_msm_ctrl *ctrl = devid;
 	void __iomem        *base = ctrl->rsrcs.base;
-	struct i2c_msm_xfer *xfer = &ctrl->xfer;
-	struct i2c_msm_xfer_mode_blk *blk;
-	u32  i2c_status      = 0;
-	u32  err_flags       = 0;
-	u32  qup_op          = 0;
-	u32  clr_flds        = 0;
+	u32  i2c_status = 0;
+	u32  err_flags  = 0;
+	u32  qup_op     = 0;
+	u32  clr_flds   = 0;
 	bool dump_details    = false;
 	bool log_event       = false;
 	bool signal_complete = false;
@@ -2656,21 +2278,6 @@ static irqreturn_t i2c_msm_qup_isr(int irq, void *devid)
 	i2c_msm_dbg(ctrl, MSM_DBG,
 	    "IRQ MASTER_STATUS:0x%08x ERROR_FLAGS:0x%08x OPERATIONAL:0x%08x\n",
 	    i2c_status, err_flags, qup_op);
-
-	/* clear interrupts fields */
-	clr_flds = i2c_status & QUP_MSTR_STTS_ERR_MASK;
-	if (clr_flds)
-		writel_relaxed(clr_flds, base + QUP_I2C_STATUS);
-
-	clr_flds = err_flags & QUP_ERR_FLGS_MASK;
-	if (clr_flds)
-		writel_relaxed(clr_flds,  base + QUP_ERROR_FLAGS);
-
-	clr_flds = qup_op & (QUP_OUTPUT_SERVICE_FLAG | QUP_INPUT_SERVICE_FLAG);
-
-	if (clr_flds)
-		writel_relaxed(clr_flds, base + QUP_OPERATIONAL);
-	mb();
 
 	if (err_flags & QUP_ERR_FLGS_MASK) {
 		dump_details    = true;
@@ -2700,57 +2307,31 @@ static irqreturn_t i2c_msm_qup_isr(int irq, void *devid)
 			ctrl->xfer.err |= I2C_MSM_ERR_BUS_ERR;
 	}
 
-	blk = i2c_msm_blk_get_struct(ctrl);
-
-	if (xfer->mode_id == I2C_MSM_XFER_MODE_BLOCK) {
-		/*For Block Mode */
-		/* block ready for writing */
-		if (qup_op & QUP_OUTPUT_SERVICE_FLAG) {
-			log_event = true;
-			if (qup_op & QUP_OUT_BLOCK_WRITE_REQ)
-				complete(&blk->wait_tx_blk);
-
-			if ((qup_op & blk->complete_mask)
-					== blk->complete_mask) {
-				log_event       = true;
-				signal_complete = true;
-			}
-		}
-		/* block ready for reading */
-		if (qup_op & QUP_INPUT_SERVICE_FLAG) {
-			log_event = true;
-			complete(&blk->wait_rx_blk);
-		}
-	} else {
-		/* for FIFO/BAM Mode*/
-		if (qup_op & QUP_MAX_INPUT_DONE_FLAG) {
-			log_event = true;
-			/*
-			 * If last transaction is an input then the entire
-			 * transfer is done
-			 */
-			if (ctrl->xfer.last_is_rx)
-				signal_complete = true;
-		}
+	if (qup_op & QUP_MAX_INPUT_DONE_FLAG) {
+		log_event = true;
 		/*
-		 * Ideally, would like to check QUP_MAX_OUTPUT_DONE_FLAG.
-		 * However, QUP_MAX_OUTPUT_DONE_FLAG is lagging behind
-		 * QUP_OUTPUT_SERVICE_FLAG. The only reason for
-		 * QUP_OUTPUT_SERVICE_FLAG to be set in FIFO mode is
-		 * QUP_MAX_OUTPUT_DONE_FLAG condition. The code checking
-		 * here QUP_OUTPUT_SERVICE_FLAG and assumes that
-		 * QUP_MAX_OUTPUT_DONE_FLAG.
+		 * If last transaction is an input then the entire transfer
+		 * is done
 		 */
-		if (qup_op & (QUP_OUTPUT_SERVICE_FLAG |
-						QUP_MAX_OUTPUT_DONE_FLAG)) {
-			log_event = true;
-			/*
-			 * If last transaction is an output then the
-			 * entire transfer is done
-			 */
-			if (!ctrl->xfer.last_is_rx)
-				signal_complete = true;
-		}
+		if (ctrl->xfer.last_is_rx)
+			signal_complete = true;
+	}
+	/*
+	 * Ideally, would like to check QUP_MAX_OUTPUT_DONE_FLAG. However,
+	 * QUP_MAX_OUTPUT_DONE_FLAG is lagging behind QUP_OUTPUT_SERVICE_FLAG.
+	 * The only reason for QUP_OUTPUT_SERVICE_FLAG to be set in FIFO mode
+	 * is QUP_MAX_OUTPUT_DONE_FLAG condition.
+	 * The code checking here QUP_OUTPUT_SERVICE_FLAG and assumes that
+	 * QUP_MAX_OUTPUT_DONE_FLAG.
+	 */
+	if (qup_op & (QUP_OUTPUT_SERVICE_FLAG | QUP_MAX_OUTPUT_DONE_FLAG)) {
+		log_event = true;
+		/*
+		 * If last transaction is an output then the entire transfer
+		 * is done
+		 */
+		if (!ctrl->xfer.last_is_rx)
+			signal_complete = true;
 	}
 
 	if (dump_details && (ctrl->dbgfs.dbg_lvl >= MSM_DBG)) {
@@ -2759,6 +2340,18 @@ static irqreturn_t i2c_msm_qup_isr(int irq, void *devid)
 		i2c_msm_dbg_xfer_dump(ctrl);
 		i2c_msm_dbg_qup_reg_dump(ctrl);
 	}
+
+	clr_flds = i2c_status & QUP_MSTR_STTS_ERR_MASK;
+	if (clr_flds)
+		writel_relaxed(clr_flds, base + QUP_I2C_STATUS);
+
+	clr_flds = err_flags & QUP_ERR_FLGS_MASK;
+	if (clr_flds)
+		writel_relaxed(clr_flds,  base + QUP_ERROR_FLAGS);
+
+	clr_flds = qup_op & (QUP_OUTPUT_SERVICE_FLAG | QUP_INPUT_SERVICE_FLAG);
+	if (clr_flds)
+		writel_relaxed(clr_flds,     base + QUP_OPERATIONAL);
 
 isr_end:
 	if (dump_details || log_event || (ctrl->dbgfs.dbg_lvl >= MSM_DBG))
@@ -2800,10 +2393,6 @@ static int i2c_msm_qup_create_struct(struct i2c_msm_ctrl *ctrl)
 	if (ret)
 		i2c_msm_bam_destroy_struct(ctrl);
 
-	ret = i2c_msm_blk_create_struct(ctrl);
-	if (ret)
-		return ret;
-
 	return ret;
 }
 
@@ -2811,7 +2400,6 @@ static void i2c_msm_qup_destroy_struct(struct i2c_msm_ctrl *ctrl)
 {
 	i2c_msm_fifo_destroy_struct(ctrl);
 	i2c_msm_bam_destroy_struct(ctrl);
-	i2c_msm_blk_destroy_struct(ctrl);
 }
 
 static int i2c_msm_qup_init(struct i2c_msm_ctrl *ctrl)
@@ -2940,8 +2528,7 @@ static int i2c_msm_qup_post_xfer(struct i2c_msm_ctrl *ctrl, int err)
 	return err;
 }
 
-static enum i2c_msm_xfer_mode_id
-i2c_msm_qup_choose_mode(struct i2c_msm_ctrl *ctrl)
+static void i2c_msm_qup_choose_mode(struct i2c_msm_ctrl *ctrl)
 {
 	struct i2c_msm_xfer_mode_fifo *fifo;
 	struct i2c_msm_xfer           *xfer = &ctrl->xfer;
@@ -2951,16 +2538,13 @@ i2c_msm_qup_choose_mode(struct i2c_msm_ctrl *ctrl)
 	fifo = i2c_msm_fifo_get_struct(ctrl);
 
 	if (ctrl->dbgfs.force_xfer_mode != I2C_MSM_XFER_MODE_NONE)
-		return ctrl->dbgfs.force_xfer_mode;
-
-	if (((rx_cnt_sum < fifo->input_fifo_sz) &&
-		(tx_cnt_sum < fifo->output_fifo_sz)))
-		return I2C_MSM_XFER_MODE_FIFO;
-
-	if (ctrl->rsrcs.disable_dma)
-		return I2C_MSM_XFER_MODE_BLOCK;
-
-	return I2C_MSM_XFER_MODE_BAM;
+		xfer->mode_id = ctrl->dbgfs.force_xfer_mode;
+	else if (((rx_cnt_sum < fifo->input_fifo_sz) &&
+		  (tx_cnt_sum < fifo->output_fifo_sz)) ||
+						ctrl->rsrcs.disable_dma)
+		xfer->mode_id = I2C_MSM_XFER_MODE_FIFO;
+	else
+		xfer->mode_id = I2C_MSM_XFER_MODE_BAM;
 }
 
 /*
@@ -3032,14 +2616,14 @@ static void i2c_msm_xfer_calc_timeout(struct i2c_msm_ctrl *ctrl)
 	ctrl->xfer.timeout = usecs_to_jiffies(xfer_max_usec);
 }
 
-static int i2c_msm_xfer_wait_for_completion(struct i2c_msm_ctrl *ctrl,
-						struct completion *complete)
+static int i2c_msm_xfer_wait_for_completion(struct i2c_msm_ctrl *ctrl)
 {
 	struct i2c_msm_xfer *xfer = &ctrl->xfer;
 	long  time_left;
 	int   ret = 0;
 
-	time_left = wait_for_completion_timeout(complete, xfer->timeout);
+	time_left = wait_for_completion_timeout(&xfer->complete,
+							xfer->timeout);
 	if (!time_left) {
 		i2c_msm_prof_evnt_add(ctrl, MSM_ERR, i2c_msm_prof_dump_cmplt_fl,
 					xfer->timeout, time_left, 0);
@@ -3234,7 +2818,7 @@ i2c_msm_frmwrk_xfer(struct i2c_adapter *adap, struct i2c_msg msgs[], int num)
 
 	i2c_msm_xfer_scan(ctrl);
 	i2c_msm_xfer_calc_timeout(ctrl);
-	xfer->mode_id = (*ctrl->ver.choose_mode)(ctrl);
+	(*ctrl->ver.choose_mode)(ctrl);
 
 	i2c_msm_prof_evnt_add(ctrl, MSM_PROF, i2c_msm_prof_dump_scan_sum,
 		((xfer->rx_cnt & 0xff) | ((xfer->rx_ovrhd_cnt & 0xff) << 16)),
