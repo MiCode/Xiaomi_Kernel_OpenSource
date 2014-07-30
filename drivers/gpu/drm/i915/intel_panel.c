@@ -1252,7 +1252,12 @@ static int vlv_setup_backlight(struct intel_connector *connector)
 	u32 ctl, ctl2, val;
 
 	for_each_pipe(pipe) {
-		u32 cur_val = I915_READ(VLV_BLC_PWM_CTL(pipe));
+		u32 cur_val;
+
+		if (pipe >= PIPE_C)
+			continue;
+
+		cur_val = I915_READ(VLV_BLC_PWM_CTL(pipe));
 
 		/* Skip if the modulation freq is already set */
 		if (cur_val & ~BACKLIGHT_DUTY_CYCLE_MASK)
