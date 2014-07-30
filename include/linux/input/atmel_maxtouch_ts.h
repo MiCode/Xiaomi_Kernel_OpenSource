@@ -32,6 +32,7 @@ struct mxt_platform_data {
 	int t15_num_keys;
 	const unsigned int *t15_keymap;
 	const char *cfg_name;
+	bool ignore_crc;
 
 	const struct mxt_config_info *config_array;
 	size_t config_array_size;
