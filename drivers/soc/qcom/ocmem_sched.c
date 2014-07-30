@@ -709,6 +709,8 @@ static int __sched_grow(struct ocmem_req *req, bool can_block)
 	struct ocmem_zone *zone = get_zone(owner);
 	struct ocmem_region *region = NULL;
 
+	BUG_ON(!zone);
+
 	matched_region = find_region_match(req->req_start, req->req_end);
 	matched_req = find_req_match(req->req_id, matched_region);
 
