@@ -199,6 +199,9 @@
 
 #define CC_TO_SOC_COEFF			0xBA
 #define ACTUAL_CAPACITY_REG		0xBE
+#define FG_SYS_CUTOFF_V_REG		0xD3
+#define FG_ITERM_REG			0xD9
+#define FG_IBATT_STANDBY_REG		0xCF
 
 #define FG_I2C_CFG_MASK			SMB1360_MASK(2, 1)
 #define FG_CFG_I2C_ADDR			0x2
@@ -272,6 +275,9 @@ struct smb1360_chip {
 	int				voltage_empty_mv;
 	int				batt_capacity_mah;
 	int				cc_soc_coeff;
+	int				v_cutoff_mv;
+	int				fg_iterm_ma;
+	int				fg_ibatt_standby_ma;
 
 	/* status tracking */
 	bool				usb_present;
@@ -2466,43 +2472,100 @@ static int smb1360_fg_config(struct smb1360_chip *chip)
 	}
 
 	/* scratch-pad register config */
-	if (chip->batt_capacity_mah != -EINVAL) {
+	if (chip->batt_capacity_mah != -EINVAL
+		|| chip->v_cutoff_mv != -EINVAL
+		|| chip->fg_iterm_ma != -EINVAL
+		|| chip->fg_ibatt_standby_ma != -EINVAL) {
+
 		rc = smb1360_enable_fg_access(chip);
 		if (rc) {
 			pr_err("Couldn't enable FG access rc=%d\n", rc);
 			return rc;
 		}
-		rc = smb1360_read_bytes(chip, ACTUAL_CAPACITY_REG,
-							reg2, 2);
-		if (rc) {
-			pr_err("Failed to read NOM CAPACITY rc=%d\n",
-								rc);
-			goto disable_fg;
+
+		/* Update battery capacity */
+		if (chip->batt_capacity_mah != -EINVAL) {
+			rc = smb1360_read_bytes(chip, ACTUAL_CAPACITY_REG,
+								reg2, 2);
+			if (rc) {
+				pr_err("Failed to read ACTUAL CAPACITY rc=%d\n",
+									rc);
+				goto disable_fg;
+			}
+			fcc_mah = (reg2[1] << 8) | reg2[0];
+			if (fcc_mah == chip->batt_capacity_mah) {
+				pr_debug("battery capacity correct\n");
+			} else {
+				/* Update the battery capacity */
+				reg2[1] =
+					(chip->batt_capacity_mah & 0xFF00) >> 8;
+				reg2[0] = (chip->batt_capacity_mah & 0xFF);
+				rc = smb1360_write_bytes(chip,
+					ACTUAL_CAPACITY_REG, reg2, 2);
+				if (rc) {
+					pr_err("Couldn't write batt-capacity rc=%d\n",
+									rc);
+					goto disable_fg;
+				}
+				/* Update CC to SOC COEFF */
+				if (chip->cc_soc_coeff != -EINVAL) {
+					reg2[1] =
+					(chip->cc_soc_coeff & 0xFF00) >> 8;
+					reg2[0] = (chip->cc_soc_coeff & 0xFF);
+					rc = smb1360_write_bytes(chip,
+						CC_TO_SOC_COEFF, reg2, 2);
+					if (rc) {
+						pr_err("Couldn't write cc_soc_coeff rc=%d\n",
+									rc);
+						goto disable_fg;
+					}
+				}
+			}
 		}
-		fcc_mah = (reg2[1] << 8) | reg2[0];
-		if (fcc_mah == chip->batt_capacity_mah) {
-			pr_debug("battery capacity correct\n");
-			goto disable_fg;
+
+		/* Update cutoff voltage for SOC = 0 */
+		if (chip->v_cutoff_mv != -EINVAL) {
+			temp = (u16) div_u64(chip->v_cutoff_mv * 0x7FFF, 5000);
+			reg2[1] = (temp & 0xFF00) >> 8;
+			reg2[0] = temp & 0xFF;
+			rc = smb1360_write_bytes(chip, FG_SYS_CUTOFF_V_REG,
+								reg2, 2);
+			if (rc) {
+				pr_err("Couldn't write cutoff_mv rc=%d\n", rc);
+				goto disable_fg;
+			}
 		}
-		/* Update the battery capacity */
-		reg2[1] = (chip->batt_capacity_mah & 0xFF00) >> 8;
-		reg2[0] = (chip->batt_capacity_mah & 0xFF);
-		rc = smb1360_write_bytes(chip, ACTUAL_CAPACITY_REG,
-							reg2, 2);
-		if (rc) {
-			pr_err("Couldn't write batt-capacity rc=%d\n",
-								rc);
-			goto disable_fg;
-		}
-		/* Update CC to SOC COEFF */
-		if (chip->cc_soc_coeff != -EINVAL) {
-			reg2[1] = (chip->cc_soc_coeff & 0xFF00) >> 8;
-			reg2[0] = (chip->cc_soc_coeff & 0xFF);
-			rc = smb1360_write_bytes(chip, CC_TO_SOC_COEFF,
+
+		/*
+		 * Update FG iterm for SOC = 100, this value is always assumed
+		 * to be -ve
+		 */
+		if (chip->fg_iterm_ma != -EINVAL) {
+			int iterm = chip->fg_iterm_ma * -1;
+			temp = (s16) div_s64(iterm * 0x7FFF, 2500);
+			reg2[1] = (temp & 0xFF00) >> 8;
+			reg2[0] = temp & 0xFF;
+			rc = smb1360_write_bytes(chip, FG_ITERM_REG,
 							reg2, 2);
 			if (rc) {
-				pr_err("Couldn't write cc_soc_coeff rc=%d\n",
-									rc);
+				pr_err("Couldn't write fg_iterm rc=%d\n", rc);
+				goto disable_fg;
+			}
+		}
+
+		/*
+		 * Update FG iterm standby for SOC = 0, this value is always
+		 * assumed to be +ve
+		 */
+		if (chip->fg_ibatt_standby_ma != -EINVAL) {
+			int iterm = chip->fg_ibatt_standby_ma;
+			temp = (u16) div_u64(iterm * 0x7FFF, 2500);
+			reg2[1] = (temp & 0xFF00) >> 8;
+			reg2[0] = temp & 0xFF;
+			rc = smb1360_write_bytes(chip, FG_IBATT_STANDBY_REG,
+								reg2, 2);
+			if (rc) {
+				pr_err("Couldn't write fg_iterm rc=%d\n", rc);
 				goto disable_fg;
 			}
 		}
@@ -3044,6 +3107,21 @@ static int smb_parse_dt(struct smb1360_chip *chip)
 					&chip->cc_soc_coeff);
 	if (rc < 0)
 		chip->cc_soc_coeff = -EINVAL;
+
+	rc = of_property_read_u32(node, "qcom,fg-cutoff-voltage-mv",
+						&chip->v_cutoff_mv);
+	if (rc < 0)
+		chip->v_cutoff_mv = -EINVAL;
+
+	rc = of_property_read_u32(node, "qcom,fg-iterm-ma",
+					&chip->fg_iterm_ma);
+	if (rc < 0)
+		chip->fg_iterm_ma = -EINVAL;
+
+	rc = of_property_read_u32(node, "qcom,fg-ibatt-standby-ma",
+					&chip->fg_ibatt_standby_ma);
+	if (rc < 0)
+		chip->fg_ibatt_standby_ma = -EINVAL;
 
 	return 0;
 }

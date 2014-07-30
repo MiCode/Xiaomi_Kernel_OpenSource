@@ -79,6 +79,16 @@ Optional Properties:
 				is specified. This value is calculated from the
 				batt-capacity and then encoded as floating number.
 				cc_soc_coeff = HALF_ENCODING(8192 / batt-capacity)
+- qcom,fg-cutoff-voltage-mv	This is the minimum allowed system voltage. The
+				FG will report SOC = 0 at this volatge. This
+				value is in mv.
+- qcom,fg-iterm-ma		This is termination current at which the
+				Monotonic SOC reports 100. The value passed here
+				is negated in the driver (assuming that the iterm
+				is always -ve). This value is in mA.
+- qcom,fg-ibatt-standby-ma	This is the minimum current value for the SOC to
+				be above 0% at the cutoff voltage. This value
+				is in mA.
 
 Example:
 	i2c@f9967000 {
@@ -100,7 +110,11 @@ Example:
 
 			/* battery capacity */
 			qcom,fg-batt-capacity-mah = <4000>;
-			qcom,fg-cc-soc-coeff = <0x8009>
+			qcom,fg-cc-soc-coeff = <0x8009>;
+
+			qcom,fg-cutoff-voltage-mv = <3300>;
+			qcom,fg-iterm-ma = <100>;
+			qcom,fg-ibatt-standby-ma = <200>;
 
 			qcom,float-voltage-mv = <4200>;
 			qcom,iterm-ma = <100>;
