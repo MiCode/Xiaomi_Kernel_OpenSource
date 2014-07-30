@@ -6974,11 +6974,8 @@ static void chv_dpio_cmn_power_well_disable(struct drm_i915_private *dev_priv,
 
 	if (power_well->data == PUNIT_POWER_WELL_DPIO_CMN_BC) {
 		phy = DPIO_PHY0;
-		assert_pll_disabled(dev_priv, PIPE_A);
-		assert_pll_disabled(dev_priv, PIPE_B);
 	} else {
 		phy = DPIO_PHY1;
-		assert_pll_disabled(dev_priv, PIPE_C);
 	}
 
 	I915_WRITE(DISPLAY_PHY_CONTROL, I915_READ(DISPLAY_PHY_CONTROL) &
