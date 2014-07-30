@@ -4674,6 +4674,7 @@
 		reg = <0xfc594000 0x800>;
 		interrupts = <0 28 0>;
 		phys = <&ufsphy1>;
+		phy-names = "ufs_msm_phy";
 		vcc-supply = <&pma8084_l19>;
 		vccq-supply = <&pma8084_l4>;
 		vccq2-supply = <&pma8084_s4>;
