@@ -1046,6 +1046,11 @@ error:
 		DEV_INFO("%s: %s: Authentication Part II successful\n",
 			__func__, HDCP_STATE_NAME);
 
+	if (!hdcp_ctrl) {
+		DEV_ERR("%s: hdcp_ctrl null. Topology not updated\n",
+			__func__);
+		return rc;
+	}
 	/* Update topology information */
 	hdcp_ctrl->current_tp.dev_count = down_stream_devices;
 	hdcp_ctrl->current_tp.max_cascade_exceeded = max_cascade_exceeded;
