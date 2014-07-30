@@ -18,7 +18,11 @@
 #include "msm_vidc_internal.h"
 #include "trace/events/msm_vidc.h"
 
-#define VIDC_DBG_TAG "msm_vidc: %4s: "
+#ifndef VIDC_DBG_LABEL
+#define VIDC_DBG_LABEL "msm_vidc"
+#endif
+
+#define VIDC_DBG_TAG VIDC_DBG_LABEL ": %4s: "
 
 /* To enable messages OR these values and
  * echo the result to debugfs file.
