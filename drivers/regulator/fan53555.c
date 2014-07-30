@@ -25,6 +25,7 @@
 #include <linux/i2c.h>
 #include <linux/slab.h>
 #include <linux/regmap.h>
+#include <linux/debugfs.h>
 #include <linux/regulator/fan53555.h>
 
 /* Voltage setting */
@@ -98,6 +99,9 @@ struct fan53555_device_info {
 	unsigned int slew_rate;
 	/* Sleep voltage cache */
 	unsigned int sleep_vol_cache;
+	unsigned int peek_poke_address;
+
+	struct dentry *debug_root;
 
 	bool disable_suspend;
 };
@@ -446,6 +450,38 @@ static int fan53555_of_init(struct device_node *node,
 	return 0;
 }
 
+static int get_reg(void *data, u64 *val)
+{
+	struct fan53555_device_info *di = data;
+	int rc;
+	unsigned int temp = 0;
+
+	rc = regmap_read(di->regmap, di->peek_poke_address, &temp);
+	if (rc < 0)
+		dev_err(di->dev, "Couldn't read reg %x rc = %d\n",
+				di->peek_poke_address, rc);
+	else
+		*val = temp;
+
+	return rc;
+}
+
+static int set_reg(void *data, u64 val)
+{
+	struct fan53555_device_info *di = data;
+	int rc;
+	unsigned int temp = 0;
+
+	temp = (unsigned int) val;
+	rc = regmap_write(di->regmap, di->peek_poke_address, temp);
+	if (rc < 0)
+		dev_err(di->dev, "Couldn't write 0x%02x to 0x%02x rc= %d\n",
+			di->peek_poke_address, temp, rc);
+
+	return rc;
+}
+DEFINE_SIMPLE_ATTRIBUTE(poke_poke_debug_ops, get_reg, set_reg, "0x%02llx\n");
+
 static int fan53555_regulator_probe(struct i2c_client *client,
 				const struct i2c_device_id *id)
 {
@@ -519,6 +555,28 @@ static int fan53555_regulator_probe(struct i2c_client *client,
 	if (ret < 0)
 		dev_err(&client->dev, "Failed to register regulator!\n");
 
+	di->debug_root = debugfs_create_dir("fan53555", NULL);
+	if (!di->debug_root)
+		dev_err(&client->dev, "Couldn't create debug dir\n");
+
+	if (di->debug_root) {
+		struct dentry *ent;
+
+		ent = debugfs_create_x32("address", S_IFREG | S_IWUSR | S_IRUGO,
+					  di->debug_root,
+					  &(di->peek_poke_address));
+		if (!ent)
+			dev_err(&client->dev, "Couldn't create address debug file rc = %d\n",
+									ret);
+
+		ent = debugfs_create_file("data", S_IFREG | S_IWUSR | S_IRUGO,
+					  di->debug_root, di,
+					  &poke_poke_debug_ops);
+		if (!ent)
+			dev_err(&client->dev, "Couldn't create data debug file rc = %d\n",
+									ret);
+	}
+
 	return ret;
 
 }
@@ -528,6 +586,9 @@ static int fan53555_regulator_remove(struct i2c_client *client)
 	struct fan53555_device_info *di = i2c_get_clientdata(client);
 
 	regulator_unregister(di->rdev);
+
+	debugfs_remove_recursive(di->debug_root);
+
 	return 0;
 }
 
