@@ -751,35 +751,32 @@ void wl_cfgvendor_rtt_evt(void *ctx, void *rtt_data)
 	/* fill in the rtt results on each entry */
 	list_for_each_entry(rtt_result, rtt_list, list) {
 		entry_len = 0;
-		if (rtt_result->TOF_type == TOF_TYPE_ONE_WAY) {
-			entry_len = sizeof(rtt_report_t);
-			rtt_report = kzalloc(entry_len, kflags);
-			if (!rtt_report) {
-				WL_ERR(("rtt_report alloc failed"));
-				goto exit;
-			}
-			rtt_report->addr = rtt_result->peer_mac;
-			rtt_report->num_measurement = 1; /* ONE SHOT */
-			rtt_report->status = rtt_result->err_code;
-			rtt_report->type = (rtt_result->TOF_type == TOF_TYPE_ONE_WAY) ? RTT_ONE_WAY: RTT_TWO_WAY;
-			rtt_report->peer = rtt_result->target_info->peer;
-			rtt_report->channel = rtt_result->target_info->channel;
-			rtt_report->rssi = rtt_result->avg_rssi;
-			/* tx_rate */
-			rtt_report->tx_rate = rtt_result->tx_rate;
-			/* RTT */
-			rtt_report->rtt = rtt_result->meanrtt;
-			rtt_report->rtt_sd = rtt_result->sdrtt;
-			/* convert to centi meter */
-			if (rtt_result->distance != 0xffffffff)
-				rtt_report->distance = (rtt_result->distance >> 2) * 25;
-			else /* invalid distance */
-				rtt_report->distance = -1;
-
-			rtt_report->ts = rtt_result->ts;
-			nla_append(skb, entry_len, rtt_report);
-			kfree(rtt_report);
+		entry_len = sizeof(rtt_report_t);
+		rtt_report = kzalloc(entry_len, kflags);
+		if (!rtt_report) {
+			WL_ERR(("rtt_report alloc failed"));
+			goto exit;
 		}
+		rtt_report->addr = rtt_result->peer_mac;
+		rtt_report->num_measurement = 1; /* ONE SHOT */
+		rtt_report->status = rtt_result->err_code;
+		rtt_report->type = (rtt_result->TOF_type == TOF_TYPE_ONE_WAY) ? RTT_ONE_WAY: RTT_TWO_WAY;
+		rtt_report->peer = rtt_result->target_info->peer;
+		rtt_report->channel = rtt_result->target_info->channel;
+		rtt_report->rssi = rtt_result->avg_rssi;
+		/* tx_rate */
+		rtt_report->tx_rate = rtt_result->tx_rate;
+		/* RTT */
+		rtt_report->rtt = rtt_result->meanrtt;
+		rtt_report->rtt_sd = rtt_result->sdrtt;
+		/* convert to centi meter */
+		if (rtt_result->distance != 0xffffffff)
+			rtt_report->distance = (rtt_result->distance >> 2) * 25;
+		else /* invalid distance */
+			rtt_report->distance = -1;
+		rtt_report->ts = rtt_result->ts;
+		nla_append(skb, entry_len, rtt_report);
+		kfree(rtt_report);
 	}
 	cfg80211_vendor_event(skb, kflags);
 exit:

@@ -26,6 +26,8 @@
 #define __DHD_RTT_H__
 
 #define RTT_MAX_TARGET_CNT 10
+#define RTT_MAX_FRAME_CNT 25
+#define RTT_MAX_RETRY_CNT 10
 #define DEFAULT_FTM_CNT 6
 #define DEFAULT_RETRY_CNT 6
 

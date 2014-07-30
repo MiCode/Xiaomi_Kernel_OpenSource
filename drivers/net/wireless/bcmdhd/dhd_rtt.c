@@ -226,11 +226,16 @@ dhd_rtt_start(dhd_pub_t *dhd) {
 	/* mac address */
 	bcopy(&rtt_target->addr, &tof_params->tgt_mac, ETHER_ADDR_LEN);
 	/* frame count */
+	if (rtt_target->ftm_cnt > RTT_MAX_FRAME_CNT)
+		rtt_target->ftm_cnt = RTT_MAX_FRAME_CNT;
 
 	if (rtt_target->ftm_cnt)
 		tof_params->ftm_cnt = htol16(rtt_target->ftm_cnt);
 	else
 		tof_params->ftm_cnt = htol16(DEFAULT_FTM_CNT);
+
+	if (rtt_target->retry_cnt > RTT_MAX_RETRY_CNT)
+		rtt_target->retry_cnt = RTT_MAX_RETRY_CNT;
 
 	/* retry count */
 	if (rtt_target->retry_cnt)
@@ -279,7 +284,7 @@ dhd_rtt_start(dhd_pub_t *dhd) {
 			break;
 		}
 		rspec |= bw;
-		tof_params->tx_rate = htol16(rspec);
+		tof_params->tx_rate = htol16(rspec & 0xffff);
 		tof_params->vht_rate = htol16(rspec >> 16);
 	}
 
@@ -460,6 +465,7 @@ dhd_rtt_event_handler(dhd_pub_t *dhd, wl_event_msg_t *event, void *event_data)
 	wl_proxd_event_data_t* evp;
 	struct rtt_noti_callback *iter;
 	rtt_result_t *rtt_result, *entry, *next;
+	gfp_t kflags;
 	NULL_CHECK(dhd, "dhd is NULL", err);
 	rtt_status = GET_RTTSTATE(dhd);
 	NULL_CHECK(rtt_status, "rtt_status is NULL", err);
@@ -471,6 +477,7 @@ dhd_rtt_event_handler(dhd_pub_t *dhd, wl_event_msg_t *event, void *event_data)
 	if (event_type != WLC_E_PROXD) {
 		goto exit;
 	}
+	kflags = in_softirq()? GFP_ATOMIC : GFP_KERNEL;
 	evp = (wl_proxd_event_data_t*)event_data;
 	DHD_RTT(("%s enter : mode: %s, reason :%d \n", __FUNCTION__,
 			(ntoh16(evp->mode) == WL_PROXD_MODE_INITIATOR)?
@@ -486,7 +493,9 @@ dhd_rtt_event_handler(dhd_pub_t *dhd, wl_event_msg_t *event, void *event_data)
 		} else {
 			DHD_RTT(("WLC_E_PROXD_COMPLETED\n"));
 		}
-		mutex_lock(&rtt_status->rtt_mutex);
+
+		if(!in_atomic())
+			mutex_lock(&rtt_status->rtt_mutex);
 		ftm_cnt = ltoh16(evp->ftm_cnt);
 
 		if (ftm_cnt > 0)
@@ -496,14 +505,15 @@ dhd_rtt_event_handler(dhd_pub_t *dhd, wl_event_msg_t *event, void *event_data)
 		/* check whether the results is already reported or not*/
 		list_for_each_entry(entry, &rtt_status->rtt_results_cache, list) {
 			if (!memcmp(&entry->peer_mac, &evp->peer_mac, ETHER_ADDR_LEN))	{
-				mutex_unlock(&rtt_status->rtt_mutex);
+				if(!in_atomic())
+					mutex_unlock(&rtt_status->rtt_mutex);
 				goto exit;
 			}
 		}
-
-		rtt_result = kzalloc(len + sizeof(ftm_sample_t) * ftm_cnt, GFP_KERNEL);
+		rtt_result = kzalloc(len + sizeof(ftm_sample_t) * ftm_cnt, kflags);
 		if (!rtt_result) {
-			mutex_unlock(&rtt_status->rtt_mutex);
+			if(!in_atomic())
+				mutex_unlock(&rtt_status->rtt_mutex);
 			err = -ENOMEM;
 			goto exit;
 		}
@@ -547,7 +557,8 @@ dhd_rtt_event_handler(dhd_pub_t *dhd, wl_event_msg_t *event, void *event_data)
 			bzero(&rtt_status->rtt_config, sizeof(rtt_config_params_t));
 			rtt_status->cur_idx = 0;
 		}
-		mutex_unlock(&rtt_status->rtt_mutex);
+		if(!in_atomic())
+			mutex_unlock(&rtt_status->rtt_mutex);
 
 		break;
 	case WLC_E_PROXD_GONE:
