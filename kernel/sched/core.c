@@ -3758,6 +3758,7 @@ void scheduler_tick(void)
 	update_rq_clock(rq);
 	update_cpu_load_active(rq);
 	curr->sched_class->task_tick(rq, curr, 0);
+	update_task_ravg(rq->curr, rq, TASK_UPDATE, sched_clock(), NULL);
 	raw_spin_unlock(&rq->lock);
 
 	perf_event_task_tick();
