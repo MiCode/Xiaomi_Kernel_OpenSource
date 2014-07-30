@@ -263,6 +263,12 @@
 		interrupts = <1 7 0xff00>;
 	};
 
+	jtag_fuse: jtagfuse@5e01c {
+		compatible = "qcom,jtag-fuse";
+		reg = <0x5e01c 0x8>;
+		reg-names = "fuse-base";
+	};
+
 	jtag_mm0: jtagmm@8fc000 {
 		compatible = "qcom,jtagv8-mm";
 		reg = <0x8fc000 0x1000>,
