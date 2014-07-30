@@ -47,6 +47,43 @@
 #define SENSOR_TYPE_STEP_COUNTER		19
 #define SENSOR_TYPE_GEOMAGNETIC_ROTATION_VECTOR	20
 
+enum LIS3DH_AXIS {
+	AXIS_X = 0,
+	AXIS_Y,
+	AXIS_Z,
+	AXIS_XYZ,
+};
+
+enum LIS3DH_THRES {
+	AXIS_THRESHOLD_H = 0,
+	AXIS_THRESHOLD_L,
+	AXIS_BIAS,
+};
+
+#define AXIS_FACTOR		0
+#define AXIS_OFFSET		1
+
+
+struct cal_result_t {
+	union {
+
+		struct {
+			int offset_x; /*axis offset of x axis*/
+			int offset_y; /*axis offset of x axis*/
+			int offset_z; /*axis offset of x axis*/
+		};
+		struct {
+			int threshold_h; /*proximity threshold_h*/
+			int threshold_l; /*proximity threshold_l*/
+			int bias; /*proximity measure data noise*/
+		};
+		int offset[3];
+	};
+	int factor; /*light sensor factor for real ligt strength*/
+	int range;
+	struct cal_result_t *node;
+};
+
 /**
  * struct sensors_classdev - hold the sensor general parameters and APIs
  * @dev:		The device to register.
@@ -74,6 +111,8 @@
  *			millisecond.
  * @sensors_enable:	The handle for enable and disable sensor.
  * @sensors_poll_delay:	The handle for set the sensor polling delay time.
+ * @params		The sensor calibrate string format params up to userspace.
+ * @cal_result		The sensor calibrate parameters, cal_result is a struct for sensor.
  */
 struct sensors_classdev {
 	struct device		*dev;
@@ -94,6 +133,8 @@ struct sensors_classdev {
 	unsigned int		batch_mode;
 	unsigned int		delay_msec;
 	unsigned int		batch_timeout_ms;
+	char			*params;
+	struct cal_result_t	cal_result;
 	/* enable and disable the sensor handle*/
 	int	(*sensors_enable)(struct sensors_classdev *sensors_cdev,
 					unsigned int enabled);
@@ -106,6 +147,10 @@ struct sensors_classdev {
 					unsigned int period_ms,
 					unsigned int timeout_ms);
 	int	(*sensors_flush)(struct sensors_classdev *sensors_cdev);
+	int	(*sensors_calibrate)(struct sensors_classdev *sensor_cdev,
+					int axis, int apply_now);
+	int	(*sensors_write_cal_params)(struct sensors_classdev
+				*sensor_cdev, struct cal_result_t *cal_result);
 };
 
 extern int sensors_classdev_register(struct device *parent,

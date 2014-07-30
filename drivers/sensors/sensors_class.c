@@ -20,6 +20,72 @@
 #include <linux/ctype.h>
 #include <linux/rwsem.h>
 #include <linux/sensors.h>
+#include <linux/string.h>
+
+#define APPLY_MASK	0x00000001
+
+#define CMD_W_L_MASK 0x00
+#define CMD_W_H_MASK 0x10
+#define CMD_W_H_L	0x10
+#define CMD_MASK	0xF
+#define DATA_MASK	0xFFFF0000
+#define DATA_AXIS_SHIFT	17
+#define DATA_APPLY_SHIFT	16
+/*
+ * CMD_GET_PARAMS(BIT, PARA, DATA) combine high 16 bit and low 16 bit
+ * as one params
+ */
+
+#define CMD_GET_PARAMS(BIT, PARA, DATA)	\
+	((BIT) ?	\
+		((DATA) & DATA_MASK)	\
+		: ((PARA) \
+		| (((DATA) & DATA_MASK) >> 16)))
+
+
+/*
+ * CMD_DO_CAL sensor do calibrate command, when do sensor calibrate must use
+ * this.
+ * AXIS_X,AXIS_Y,AXIS_Z write axis params to driver like accelerometer
+ * magnetometer,gyroscope etc.
+ * CMD_W_THRESHOLD_H,CMD_W_THRESHOLD_L,CMD_W_BIAS write theshold and bias
+ * params to proximity driver.
+ * CMD_W_FACTOR,CMD_W_OFFSET write factor and offset params to light
+ * sensor driver.
+ * CMD_COMPLETE when one sensor receive calibrate parameters complete, it
+ * must use this command to end receive the parameters and send the
+ * parameters to sensor.
+ */
+
+enum {
+	CMD_DO_CAL = 0x0,
+	CMD_W_OFFSET_X,
+	CMD_W_OFFSET_Y,
+	CMD_W_OFFSET_Z,
+	CMD_W_THRESHOLD_H,
+	CMD_W_THRESHOLD_L,
+	CMD_W_BIAS,
+	CMD_W_OFFSET,
+	CMD_W_FACTOR,
+	CMD_W_RANGE,
+	CMD_COMPLETE,
+	CMD_COUNT
+};
+
+int cal_map[] = {
+	0,
+	offsetof(struct cal_result_t, offset_x),
+	offsetof(struct cal_result_t, offset_y),
+	offsetof(struct cal_result_t, offset_z),
+	offsetof(struct cal_result_t, threshold_h),
+	offsetof(struct cal_result_t, threshold_l),
+	offsetof(struct cal_result_t, bias),
+	offsetof(struct cal_result_t, offset[0]),
+	offsetof(struct cal_result_t, offset[1]),
+	offsetof(struct cal_result_t, offset[2]),
+	offsetof(struct cal_result_t, factor),
+	offsetof(struct cal_result_t, range),
+};
 
 static struct class *sensors_class;
 
@@ -283,6 +349,65 @@ static ssize_t sensors_flush_show(struct device *dev,
 				? "not exist" : "exist");
 }
 
+static ssize_t sensors_calibrate_show(struct device *dev,
+		struct device_attribute *atte, char *buf)
+{
+	struct sensors_classdev *sensors_cdev = dev_get_drvdata(dev);
+	if (sensors_cdev->params == NULL) {
+		dev_err(dev, "Invalid sensor params\n");
+		return -EINVAL;
+	}
+	return snprintf(buf, PAGE_SIZE, "%s\n", sensors_cdev->params);
+}
+
+static ssize_t sensors_calibrate_store(struct device *dev,
+		struct device_attribute *attr, const char *buf, size_t size)
+{
+	struct sensors_classdev *sensors_cdev = dev_get_drvdata(dev);
+	ssize_t ret = -EINVAL;
+	long data;
+	int axis, apply_now;
+	int cmd, bit_h;
+
+	ret = kstrtol(buf, 0, &data);
+	if (ret)
+		return ret;
+	dev_dbg(dev, "data = %lx\n", data);
+	cmd = data & CMD_MASK;
+	if (cmd == CMD_DO_CAL) {
+		if (sensors_cdev->sensors_calibrate == NULL) {
+			dev_err(dev, "Invalid calibrate handle\n");
+			return -EINVAL;
+		}
+		/* parse the data to get the axis and apply_now value*/
+		apply_now = (int)(data >> DATA_APPLY_SHIFT) & APPLY_MASK;
+		axis = (int)data >> DATA_AXIS_SHIFT;
+		dev_dbg(dev, "apply_now = %d, axis = %d\n", apply_now, axis);
+		ret = sensors_cdev->sensors_calibrate(sensors_cdev,
+				axis, apply_now);
+		if (ret)
+			return ret;
+	} else {
+		if (sensors_cdev->sensors_write_cal_params == NULL) {
+			dev_err(dev,
+					"Invalid write_cal_params handle\n");
+			return -EINVAL;
+		}
+		bit_h = (data & CMD_W_H_L) >> 4;
+		if (cmd > CMD_DO_CAL && cmd < CMD_COMPLETE) {
+			char *p = (char *)(&sensors_cdev->cal_result)
+					+ cal_map[cmd];
+			*(int *)p = CMD_GET_PARAMS(bit_h, *(int *)p, data);
+		} else if (cmd == CMD_COMPLETE) {
+			ret = sensors_cdev->sensors_write_cal_params
+				(sensors_cdev, &sensors_cdev->cal_result);
+		} else {
+			dev_err(dev, "Invalid command\n");
+			return -EINVAL;
+		}
+	}
+	return size;
+}
 
 static struct device_attribute sensors_class_attrs[] = {
 	__ATTR(name, 0444, sensors_name_show, NULL),
@@ -301,6 +426,8 @@ static struct device_attribute sensors_class_attrs[] = {
 	__ATTR(self_test, 0440, sensors_test_show, NULL),
 	__ATTR(batch, 0660, sensors_batch_show, sensors_batch_store),
 	__ATTR(flush, 0660, sensors_flush_show, sensors_flush_store),
+	__ATTR(calibrate, 0664, sensors_calibrate_show,
+			sensors_calibrate_store),
 	__ATTR_NULL,
 };
 
