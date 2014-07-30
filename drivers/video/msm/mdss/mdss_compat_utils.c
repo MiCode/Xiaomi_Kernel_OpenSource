@@ -107,6 +107,11 @@ static int mdss_fb_compat_buf_sync(struct fb_info *info, unsigned int cmd,
 	int ret;
 
 	buf_sync = compat_alloc_user_space(sizeof(*buf_sync));
+	if (!buf_sync) {
+		pr_err("%s:%u: compat alloc error [%zu] bytes\n",
+			 __func__, __LINE__, sizeof(*buf_sync));
+		return -EINVAL;
+	}
 	buf_sync32 = compat_ptr(arg);
 
 	if (copy_in_user(&buf_sync->flags, &buf_sync32->flags,
@@ -1758,7 +1763,7 @@ static int __pp_compat_alloc(struct msmfb_mdp_pp32 __user *pp32,
 			alloc_size += r_size + g_size + b_size;
 
 			*pp = compat_alloc_user_space(alloc_size);
-			if (NULL == pp)
+			if (NULL == *pp)
 				return -ENOMEM;
 			memset(*pp, 0, alloc_size);
 
@@ -2197,6 +2202,12 @@ static int mdss_histo_compat_ioctl(struct fb_info *info, unsigned int cmd,
 		hist_req32 = compat_ptr(arg);
 		hist_req = compat_alloc_user_space(
 				sizeof(struct mdp_histogram_start_req));
+		if (!hist_req) {
+			pr_err("%s:%u: compat alloc error [%zu] bytes\n",
+				 __func__, __LINE__,
+				 sizeof(struct mdp_histogram_start_req));
+			return -EINVAL;
+		}
 		memset(hist_req, 0, sizeof(struct mdp_histogram_start_req));
 		ret = __from_user_hist_start_req(hist_req32, hist_req);
 		if (ret)
@@ -2210,6 +2221,12 @@ static int mdss_histo_compat_ioctl(struct fb_info *info, unsigned int cmd,
 		hist32 = compat_ptr(arg);
 		hist = compat_alloc_user_space(
 				sizeof(struct mdp_histogram_data));
+		if (!hist) {
+			pr_err("%s:%u: compat alloc error [%zu] bytes\n",
+				 __func__, __LINE__,
+				 sizeof(struct mdp_histogram_data));
+			return -EINVAL;
+		}
 		memset(hist, 0, sizeof(struct mdp_histogram_data));
 		ret = __from_user_hist_data(hist32, hist);
 		if (ret)
@@ -2472,6 +2489,11 @@ int mdss_compat_overlay_ioctl(struct fb_info *info, unsigned int cmd,
 		break;
 	case MSMFB_OVERLAY_GET:
 		ov = compat_alloc_user_space(sizeof(*ov));
+		if (!ov) {
+			pr_err("%s:%u: compat alloc error [%zu] bytes\n",
+				 __func__, __LINE__, sizeof(*ov));
+			return -EINVAL;
+		}
 		ov32 = compat_ptr(arg);
 		ret = __from_user_mdp_overlay(ov, ov32);
 		if (ret)
@@ -2482,6 +2504,11 @@ int mdss_compat_overlay_ioctl(struct fb_info *info, unsigned int cmd,
 		break;
 	case MSMFB_OVERLAY_SET:
 		ov = compat_alloc_user_space(sizeof(*ov));
+		if (!ov) {
+			pr_err("%s:%u: compat alloc error [%zu] bytes\n",
+				 __func__, __LINE__, sizeof(*ov));
+			return -EINVAL;
+		}
 		ov32 = compat_ptr(arg);
 		ret = __from_user_mdp_overlay(ov, ov32);
 		if (ret) {
