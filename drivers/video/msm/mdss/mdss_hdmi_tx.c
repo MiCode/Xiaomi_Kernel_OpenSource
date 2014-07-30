@@ -2350,14 +2350,20 @@ static int hdmi_tx_audio_iframe_setup(struct hdmi_tx_ctrl *hdmi_ctrl,
 		case MSM_HDMI_AUDIO_CHANNEL_2:
 			break;
 		case MSM_HDMI_AUDIO_CHANNEL_3:
+			channel_count = 2;
+			break;
 		case MSM_HDMI_AUDIO_CHANNEL_4:
 			channel_count = 3;
 			break;
 		case MSM_HDMI_AUDIO_CHANNEL_5:
+			channel_count = 4;
+			break;
 		case MSM_HDMI_AUDIO_CHANNEL_6:
 			channel_count = 5;
 			break;
 		case MSM_HDMI_AUDIO_CHANNEL_7:
+			channel_count = 6;
+			break;
 		case MSM_HDMI_AUDIO_CHANNEL_8:
 			channel_count = 7;
 			break;
