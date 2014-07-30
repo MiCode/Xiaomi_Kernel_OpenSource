@@ -1193,6 +1193,7 @@ unsigned int min_possible_efficiency = 1024;
 __read_mostly int sysctl_sched_freq_inc_notify_slack_pct;
 __read_mostly int sysctl_sched_freq_dec_notify_slack_pct = 25;
 static __read_mostly unsigned int sched_account_wait_time = 1;
+static __read_mostly unsigned int sched_io_is_busy;
 
 /*
  * Maximum possible frequency across all cpus. Task demand and cpu
@@ -1358,6 +1359,14 @@ static int __init set_sched_ravg_window(char *str)
 
 early_param("sched_ravg_window", set_sched_ravg_window);
 
+static inline int cpu_is_waiting_on_io(struct rq *rq)
+{
+	if (!sched_io_is_busy)
+		return 0;
+
+	return atomic_read(&rq->nr_iowait);
+}
+
 static inline void
 move_window_start(struct rq *rq, u64 wallclock, int update_sum,
 						 struct task_struct *p)
@@ -1373,7 +1382,7 @@ move_window_start(struct rq *rq, u64 wallclock, int update_sum,
 	nr_windows = div64_u64(delta, sched_ravg_window);
 	rq->window_start += (u64)nr_windows * (u64)sched_ravg_window;
 
-	if (is_idle_task(rq->curr)) {
+	if (is_idle_task(rq->curr) && !cpu_is_waiting_on_io(rq)) {
 		if (nr_windows == 1)
 			rq->prev_runnable_sum = rq->curr_runnable_sum;
 		else
@@ -1429,6 +1438,7 @@ static void update_task_ravg(struct task_struct *p, struct rq *rq,
 	int update_sum, new_window;
 	u64 mark_start = p->ravg.mark_start;
 	u64 window_start;
+	s64 delta = 0;
 
 	if (sched_use_pelt || !rq->window_start)
 		return;
@@ -1442,15 +1452,30 @@ static void update_task_ravg(struct task_struct *p, struct rq *rq,
 	move_window_start(rq, wallclock, update_sum, p);
 	window_start = rq->window_start;
 
-	/*
-	 * Don't bother accounting for idle task, also we would not want
-	 * to attribute its time to the aggregate RQ busy time
-	 */
-	if (is_idle_task(p))
-		return;
+	if (is_idle_task(p)) {
+		if (!(event == PUT_PREV_TASK && cpu_is_waiting_on_io(rq)))
+			goto done;
+
+		if (window_start > mark_start) {
+			delta = window_start - mark_start;
+			if (delta > window_size) {
+				rq->curr_runnable_sum = 0;
+				delta = window_size;
+			}
+			delta = scale_exec_time(delta, rq);
+			rq->curr_runnable_sum += delta;
+			rq->prev_runnable_sum = rq->curr_runnable_sum;
+			rq->curr_runnable_sum = 0;
+			mark_start = window_start;
+		}
+		delta = wallclock - mark_start;
+		delta = scale_exec_time(delta, rq);
+		rq->curr_runnable_sum += delta;
+
+		goto done;
+	}
 
 	do {
-		s64 delta = 0;
 		int nr_full_windows = 0;
 		u64 now = wallclock;
 		u32 sum = 0;
@@ -1530,6 +1555,7 @@ static void update_task_ravg(struct task_struct *p, struct rq *rq,
 		}
 	}
 
+done:
 	trace_sched_update_task_ravg(p, rq, event, wallclock);
 
 	p->ravg.mark_start = wallclock;
@@ -1685,6 +1711,11 @@ void reset_all_window_stats(u64 window_start, unsigned int window_size,
 		struct rq *rq = cpu_rq(cpu);
 		raw_spin_unlock(&rq->lock);
 	}
+}
+
+void sched_set_io_is_busy(int val)
+{
+	sched_io_is_busy = val;
 }
 
 int sched_set_window(u64 window_start, unsigned int window_size)
