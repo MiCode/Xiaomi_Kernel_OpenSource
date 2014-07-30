@@ -80,8 +80,6 @@ static inline void gic_init(unsigned int nr, int start,
 	gic_init_bases(nr, start, dist, cpu, 0, NULL);
 }
 
-bool gic_is_spi_pending(unsigned int irq);
-void gic_clear_spi_pending(unsigned int irq);
 void gic_show_pending_irq(void);
 #endif /* __ASSEMBLY */
 #endif
