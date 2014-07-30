@@ -931,7 +931,7 @@ static void display_rt(struct silabs_fm_device *radio)
 	}
 
 	if (rt_cmplt) {
-		while ((radio->rt_tmp0[len] != END_OF_RT) && (len < MAX_RT_LEN))
+		while ((len < MAX_RT_LEN) && (radio->rt_tmp0[len] != END_OF_RT))
 			len++;
 
 		for (i = 0; (i < len) &&
@@ -2416,14 +2416,12 @@ static int silabs_fm_vidioc_g_ctrl(struct file *file, void *priv,
 
 	if (unlikely(radio == NULL)) {
 		FMDERR(":radio is null");
-		retval = -EINVAL;
-		goto err_null_args;
+		return -EINVAL;
 	}
 
 	if (ctrl == NULL) {
 		FMDERR("%s, v4l2 ctrl is null\n", __func__);
-		retval = -EINVAL;
-		goto err_null_args;
+		return -EINVAL;
 	}
 
 	switch (ctrl->id) {
@@ -2441,7 +2439,6 @@ static int silabs_fm_vidioc_g_ctrl(struct file *file, void *priv,
 		break;
 	}
 
-err_null_args:
 	if (retval > 0)
 		retval = -EINVAL;
 	if (retval < 0)
