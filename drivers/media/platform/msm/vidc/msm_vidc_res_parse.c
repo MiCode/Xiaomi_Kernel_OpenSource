@@ -662,7 +662,7 @@ int read_platform_resources_from_dt(
 	res->use_non_secure_pil = of_property_read_bool(pdev->dev.of_node,
 			"qcom,use-non-secure-pil");
 
-	if (!is_iommu_present(res)) {
+	if (res->use_non_secure_pil || !is_iommu_present(res)) {
 		of_property_read_u32(pdev->dev.of_node, "qcom,fw-bias",
 				&firmware_base);
 		res->firmware_base = (phys_addr_t)firmware_base;

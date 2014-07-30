@@ -29,6 +29,7 @@
 #include "vidc_hfi_api.h"
 #include "msm_vidc_resources.h"
 #include "msm_vidc_res_parse.h"
+#include "venus_boot.h"
 
 #define BASE_DEVICE_NUMBER 32
 
@@ -535,6 +536,15 @@ static int msm_vidc_probe(struct platform_device *pdev)
 		goto err_cores_exceeded;
 	}
 
+	if (core->resources.use_non_secure_pil) {
+		rc = venus_boot_init(&core->resources);
+		if (rc) {
+			dprintk(VIDC_ERR,
+				"Failed to init non-secure PIL %d\n", rc);
+			goto err_non_sec_pil_init;
+		}
+	}
+
 	mutex_lock(&vidc_driver->lock);
 	list_add_tail(&core->list, &vidc_driver->cores);
 	mutex_unlock(&vidc_driver->lock);
@@ -542,7 +552,8 @@ static int msm_vidc_probe(struct platform_device *pdev)
 		core, vidc_driver->debugfs_root);
 	pdev->dev.platform_data = core;
 	return rc;
-
+err_non_sec_pil_init:
+	vidc_hfi_deinitialize(core->hfi_type, core->device);
 err_cores_exceeded:
 	device_remove_file(&core->vdev[MSM_VIDC_ENCODER].vdev.dev,
 			&dev_attr_link_name);
@@ -578,6 +589,9 @@ static int msm_vidc_remove(struct platform_device *pdev)
 		dprintk(VIDC_ERR, "%s invalid core", __func__);
 		return -EINVAL;
 	}
+
+	if (core->resources.use_non_secure_pil)
+		venus_boot_deinit();
 
 	vidc_hfi_deinitialize(core->hfi_type, core->device);
 	device_remove_file(&core->vdev[MSM_VIDC_ENCODER].vdev.dev,
