@@ -6499,7 +6499,7 @@ static int ufshcd_get_device_ref_clk(struct ufs_hba *hba)
 	err = ufshcd_query_attr_retry(hba, UPIU_QUERY_OPCODE_READ_ATTR,
 			QUERY_ATTR_IDN_REF_CLK_FREQ, 0, 0, &val);
 
-	if (err || val >= sizeof(arr) || val < 0) {
+	if (err || val >= ARRAY_SIZE(arr) || val < 0) {
 		dev_err(hba->dev, "%s: err = %d, val = %d",
 			 __func__, err, val);
 		goto out;
