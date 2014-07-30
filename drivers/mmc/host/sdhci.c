@@ -1402,6 +1402,9 @@ static void sdhci_request(struct mmc_host *mmc, struct mmc_request *mrq)
 		    !(present_state & (SDHCI_DOING_WRITE | SDHCI_DOING_READ)) &&
 		    (present_state & SDHCI_DATA_0_LVL_MASK)) {
 			if (mmc->card) {
+				if ((mmc->card->ext_csd.part_config & 0x07) ==
+					EXT_CSD_PART_CONFIG_ACC_RPMB)
+					goto end_tuning;
 				/* eMMC uses cmd21 but sd and sdio use cmd19 */
 				tuning_opcode =
 					mmc->card->type == MMC_TYPE_MMC ?
@@ -1418,6 +1421,7 @@ static void sdhci_request(struct mmc_host *mmc, struct mmc_request *mrq)
 				sdhci_execute_tuning(mmc, tuning_opcode);
 				spin_lock_irqsave(&host->lock, flags);
 
+end_tuning:
 				/* Restore original mmc_request structure */
 				host->mrq = mrq;
 			}
