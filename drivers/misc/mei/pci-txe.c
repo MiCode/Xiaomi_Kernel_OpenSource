@@ -37,6 +37,7 @@
 
 static const struct pci_device_id mei_txe_pci_tbl[] = {
 	{MEI_PCI_DEVICE(0x0F18, mei_txe_cfg)}, /* Baytrail */
+	{MEI_PCI_DEVICE(0x2298, mei_txe_cfg)}, /* Cherrytrail */
 	{0, }
 };
 MODULE_DEVICE_TABLE(pci, mei_txe_pci_tbl);
