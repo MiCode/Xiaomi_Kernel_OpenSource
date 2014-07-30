@@ -92,7 +92,8 @@
 #include <trace/events/sched.h>
 
 const char *task_event_names[] = {"PUT_PREV_TASK", "PICK_NEXT_TASK",
-				  "TASK_WAKE", "TASK_MIGRATE", "TASK_UPDATE"};
+				  "TASK_WAKE", "TASK_MIGRATE", "TASK_UPDATE",
+				"IRQ_UPDATE"};
 
 ATOMIC_NOTIFIER_HEAD(migration_notifier_head);
 ATOMIC_NOTIFIER_HEAD(load_alert_notifier_head);
@@ -1432,7 +1433,7 @@ static inline int add_task_demand(int event, struct task_struct *p,
 }
 
 static void update_task_ravg(struct task_struct *p, struct rq *rq,
-			     int event, u64 wallclock, int *long_sleep)
+	     int event, u64 wallclock, int *long_sleep, u64 irqtime)
 {
 	u32 window_size = sched_ravg_window;
 	int update_sum, new_window;
@@ -1453,8 +1454,12 @@ static void update_task_ravg(struct task_struct *p, struct rq *rq,
 	window_start = rq->window_start;
 
 	if (is_idle_task(p)) {
-		if (!(event == PUT_PREV_TASK && cpu_is_waiting_on_io(rq)))
+		if (!irqtime && !(event == PUT_PREV_TASK &&
+					cpu_is_waiting_on_io(rq)))
 			goto done;
+
+		if (irqtime && !cpu_is_waiting_on_io(rq))
+			mark_start = wallclock - irqtime;
 
 		if (window_start > mark_start) {
 			delta = window_start - mark_start;
@@ -1561,6 +1566,20 @@ done:
 	p->ravg.mark_start = wallclock;
 }
 
+void sched_account_irqtime(int cpu, struct task_struct *curr,
+				 u64 delta, u64 wallclock)
+{
+	struct rq *rq = cpu_rq(cpu);
+	unsigned long flags;
+
+	if (!is_idle_task(curr))
+		return;
+
+	raw_spin_lock_irqsave(&rq->lock, flags);
+	update_task_ravg(curr, rq, IRQ_UPDATE, wallclock, NULL, delta);
+	raw_spin_unlock_irqrestore(&rq->lock, flags);
+}
+
 unsigned long __weak arch_get_cpu_efficiency(int cpu)
 {
 	return SCHED_LOAD_SCALE;
@@ -1603,7 +1622,7 @@ static inline void mark_task_starting(struct task_struct *p)
 		return;
 	}
 
-	update_task_ravg(rq->curr, rq, TASK_UPDATE, wallclock, NULL);
+	update_task_ravg(rq->curr, rq, TASK_UPDATE, wallclock, NULL, 0);
 	p->ravg.mark_start = wallclock;
 	rq->prev_runnable_sum += p->ravg.demand;
 	rq->curr_runnable_sum += p->ravg.partial_demand;
@@ -1652,7 +1671,7 @@ unsigned long sched_get_busy(int cpu)
 	 * that the window stats are current by doing an update.
 	 */
 	raw_spin_lock_irqsave(&rq->lock, flags);
-	update_task_ravg(rq->curr, rq, TASK_UPDATE, sched_clock(), NULL);
+	update_task_ravg(rq->curr, rq, TASK_UPDATE, sched_clock(), NULL, 0);
 	raw_spin_unlock_irqrestore(&rq->lock, flags);
 
 	return div64_u64(scale_load_to_cpu(rq->prev_runnable_sum, cpu),
@@ -1907,7 +1926,7 @@ static int cpufreq_notifier_trans(struct notifier_block *nb,
 	BUG_ON(!new_freq);
 
 	raw_spin_lock_irqsave(&rq->lock, flags);
-	update_task_ravg(rq->curr, rq, TASK_UPDATE, sched_clock(), NULL);
+	update_task_ravg(rq->curr, rq, TASK_UPDATE, sched_clock(), NULL, 0);
 	cpu_rq(cpu)->cur_freq = new_freq;
 	raw_spin_unlock_irqrestore(&rq->lock, flags);
 
@@ -1960,9 +1979,9 @@ static void fixup_busy_time(struct task_struct *p, int new_cpu)
 
 	update_task_ravg(task_rq(p)->curr, task_rq(p),
 			 TASK_UPDATE,
-			 wallclock, NULL);
+			 wallclock, NULL, 0);
 	update_task_ravg(dest_rq->curr, dest_rq,
-			 TASK_UPDATE, wallclock, NULL);
+			 TASK_UPDATE, wallclock, NULL, 0);
 
 	/*
 	 * In case of migration of task on runqueue, on_rq =1,
@@ -1979,7 +1998,7 @@ static void fixup_busy_time(struct task_struct *p, int new_cpu)
 	}
 
 	update_task_ravg(p, task_rq(p), TASK_MIGRATE,
-			 wallclock, NULL);
+			 wallclock, NULL, 0);
 
 	/*
 	 * Remove task's load from rq as its now migrating to
@@ -2034,7 +2053,7 @@ static void fixup_busy_time(struct task_struct *p, int new_cpu)
 
 static inline void
 update_task_ravg(struct task_struct *p, struct rq *rq,
-			 int event, u64 wallclock, int *long_sleep)
+			 int event, u64 wallclock, int *long_sleep, u64 irqtime)
 {
 }
 
@@ -2745,8 +2764,8 @@ try_to_wake_up(struct task_struct *p, unsigned int state, int wake_flags)
 
 	raw_spin_lock(&rq->lock);
 	wallclock = sched_clock();
-	update_task_ravg(rq->curr, rq, TASK_UPDATE, wallclock, NULL);
-	update_task_ravg(p, rq, TASK_WAKE, wallclock,  &long_sleep);
+	update_task_ravg(rq->curr, rq, TASK_UPDATE, wallclock, NULL, 0);
+	update_task_ravg(p, rq, TASK_WAKE, wallclock,  &long_sleep, 0);
 	raw_spin_unlock(&rq->lock);
 
 	p->sched_contributes_to_load = !!task_contributes_to_load(p);
@@ -2837,8 +2856,8 @@ static void try_to_wake_up_local(struct task_struct *p)
 	if (!task_on_rq_queued(p)) {
 		u64 wallclock = sched_clock();
 
-		update_task_ravg(rq->curr, rq, TASK_UPDATE, wallclock, NULL);
-		update_task_ravg(p, rq, TASK_WAKE, wallclock, &long_sleep);
+		update_task_ravg(rq->curr, rq, TASK_UPDATE, wallclock, NULL, 0);
+		update_task_ravg(p, rq, TASK_WAKE, wallclock, &long_sleep, 0);
 		ttwu_activate(rq, p, ENQUEUE_WAKEUP);
 	}
 
@@ -3628,7 +3647,7 @@ void scheduler_tick(void)
 	update_rq_clock(rq);
 	curr->sched_class->task_tick(rq, curr, 0);
 	update_cpu_load_active(rq);
-	update_task_ravg(rq->curr, rq, TASK_UPDATE, sched_clock(), NULL);
+	update_task_ravg(rq->curr, rq, TASK_UPDATE, sched_clock(), NULL, 0);
 	raw_spin_unlock(&rq->lock);
 
 	perf_event_task_tick();
@@ -3917,8 +3936,8 @@ need_resched:
 
 	next = pick_next_task(rq, prev);
 	wallclock = sched_clock();
-	update_task_ravg(prev, rq, PUT_PREV_TASK, wallclock, NULL);
-	update_task_ravg(next, rq, PICK_NEXT_TASK, wallclock, NULL);
+	update_task_ravg(prev, rq, PUT_PREV_TASK, wallclock, NULL, 0);
+	update_task_ravg(next, rq, PICK_NEXT_TASK, wallclock, NULL, 0);
 	clear_tsk_need_resched(prev);
 	clear_preempt_need_resched();
 	rq->skip_clock_update = 0;
