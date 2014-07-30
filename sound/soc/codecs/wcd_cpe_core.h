@@ -38,8 +38,12 @@ struct wcd_cpe_cdc_cb {
 };
 
 enum wcd_cpe_ssr_state_event {
+	/* Indicates CPE is initialized */
+	WCD_CPE_INITIALIZED = 0,
+	/* Indicates CPE is enabled */
+	WCD_CPE_ENABLED,
 	/* Indicates that CPE is currently active */
-	WCD_CPE_ACTIVE = 0,
+	WCD_CPE_ACTIVE,
 	/* Event from underlying bus notifying bus is down */
 	WCD_CPE_BUS_DOWN_EVENT,
 	/* Event from CPE block, notifying CPE is down */
@@ -84,7 +88,7 @@ struct wcd_cpe_core {
 	int cpe_debug_mode;
 
 	/* callbacks for codec specific implementation */
-	struct wcd_cpe_cdc_cb cpe_cdc_cb;
+	const struct wcd_cpe_cdc_cb *cpe_cdc_cb;
 
 	/* work to handle CPE SSR*/
 	struct work_struct ssr_work;
@@ -118,7 +122,7 @@ struct wcd_cpe_params {
 	struct snd_soc_codec *codec;
 	struct wcd_cpe_core * (*get_cpe_core) (
 				struct snd_soc_codec *);
-	struct wcd_cpe_cdc_cb *cdc_cb;
+	const struct wcd_cpe_cdc_cb *cdc_cb;
 	int dbg_mode;
 	u16 cdc_major_ver;
 	u16 cdc_minor_ver;
@@ -127,5 +131,5 @@ struct wcd_cpe_params {
 
 int wcd_cpe_ssr_event(void *core_handle,
 		      enum wcd_cpe_ssr_state_event event);
-struct wcd_cpe_core *wcd_cpe_init_and_boot(const char *,
+struct wcd_cpe_core *wcd_cpe_init(const char *,
 struct snd_soc_codec *, struct wcd_cpe_params *params);
