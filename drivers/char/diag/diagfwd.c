@@ -417,7 +417,6 @@ int diag_process_smd_read_data(struct diag_smd_info *smd_info, void *buf,
 		if (err) {
 			pr_err_ratelimited("diag: In %s, diag_device_write error: %d\n",
 					   __func__, err);
-			*in_busy_ptr = 0;
 		}
 		spin_unlock_irqrestore(&smd_info->in_busy_lock, flags);
 	}
