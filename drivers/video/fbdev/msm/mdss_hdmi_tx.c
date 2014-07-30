@@ -3371,6 +3371,7 @@ static int hdmi_tx_panel_event_handler(struct mdss_panel_data *panel_data,
 
 	case MDSS_EVENT_PANEL_OFF:
 		if (hdmi_ctrl->panel_power_on) {
+			hdmi_tx_config_avmute(hdmi_ctrl, 1);
 			rc = hdmi_tx_power_off(panel_data);
 			if (rc)
 				DEV_ERR("%s: hdmi_tx_power_off failed.rc=%d\n",
