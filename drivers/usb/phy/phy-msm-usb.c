@@ -1442,8 +1442,10 @@ psy_error:
 
 static void msm_otg_set_online_status(struct msm_otg *motg)
 {
-	if (!psy)
+	if (!psy) {
 		dev_dbg(motg->phy.dev, "no usb power supply registered\n");
+		return;
+	}
 
 	/* Set power supply online status to false */
 	if (power_supply_set_online(psy, false))
