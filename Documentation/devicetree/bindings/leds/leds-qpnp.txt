@@ -19,6 +19,9 @@ Required properties for each child node, WLED, Flash and RGB:
 - qcom,max-current	: maximum current that the LED can sustain in mA
 - linux,name		: name of the led that is used in led framework
 
+Optional properties for each child node, WLED, Flash, MPP and RGB:
+- qcom,in-order-command-processing : specify if user space requests leds in order
+
 WLED is primarily used as display backlight. Display subsystem uses
 LED triggers for WLED to control the brightness as needed.
 

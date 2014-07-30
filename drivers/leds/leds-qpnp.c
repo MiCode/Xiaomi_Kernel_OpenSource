@@ -518,6 +518,7 @@ struct gpio_config_data {
  * struct qpnp_led_data - internal led data structure
  * @led_classdev - led class device
  * @delayed_work - delayed work for turning off the LED
+ * @workqueue - dedicated workqueue to handle concurrency
  * @work - workqueue for led
  * @id - led index
  * @base_reg - base register given in device tree
@@ -532,6 +533,7 @@ struct qpnp_led_data {
 	struct led_classdev	cdev;
 	struct spmi_device	*spmi_dev;
 	struct delayed_work	dwork;
+	struct workqueue_struct *workqueue;
 	struct work_struct	work;
 	int			id;
 	u16			base;
@@ -546,6 +548,7 @@ struct qpnp_led_data {
 	struct gpio_config_data	*gpio_cfg;
 	int			max_current;
 	bool			default_on;
+	bool                    in_order_command_processing;
 	int			turn_off_delay_ms;
 };
 
@@ -1718,7 +1721,10 @@ static void qpnp_led_set(struct led_classdev *led_cdev,
 		value = led->cdev.max_brightness;
 
 	led->cdev.brightness = value;
-	schedule_work(&led->work);
+	if (led->in_order_command_processing)
+		queue_work(led->workqueue, &led->work);
+	else
+		schedule_work(&led->work);
 }
 
 static void __qpnp_led_work(struct qpnp_led_data *led,
@@ -2505,6 +2511,7 @@ static void led_blink(struct qpnp_led_data *led,
 {
 	int rc;
 
+	flush_work(&led->work);
 	mutex_lock(&led->lock);
 	if (pwm_cfg->use_blink) {
 		if (led->cdev.brightness) {
@@ -3843,6 +3850,24 @@ static int qpnp_leds_probe(struct spmi_device *spmi)
 		if (led->id != QPNP_ID_FLASH1_LED0 &&
 					led->id != QPNP_ID_FLASH1_LED1)
 			mutex_init(&led->lock);
+
+		led->in_order_command_processing = of_property_read_bool
+				(temp, "qcom,in-order-command-processing");
+
+		if (led->in_order_command_processing) {
+			/*
+			 * the command order from user space needs to be
+			 * maintained use ordered workqueue to prevent
+			 * concurrency
+			 */
+			led->workqueue = alloc_ordered_workqueue
+							("led_workqueue", 0);
+			if (!led->workqueue) {
+				rc = -ENOMEM;
+				goto fail_id_check;
+			}
+		}
+
 		INIT_WORK(&led->work, qpnp_led_work);
 
 		rc =  qpnp_led_initialize(led);
@@ -3940,6 +3965,8 @@ fail_id_check:
 		if (led_array[i].id != QPNP_ID_FLASH1_LED0 &&
 				led_array[i].id != QPNP_ID_FLASH1_LED1)
 			mutex_destroy(&led_array[i].lock);
+		if (led_array[i].in_order_command_processing)
+			destroy_workqueue(led_array[i].workqueue);
 		led_classdev_unregister(&led_array[i].cdev);
 	}
 
@@ -3957,6 +3984,8 @@ static int qpnp_leds_remove(struct spmi_device *spmi)
 				led_array[i].id != QPNP_ID_FLASH1_LED1)
 			mutex_destroy(&led_array[i].lock);
 
+		if (led_array[i].in_order_command_processing)
+			destroy_workqueue(led_array[i].workqueue);
 		led_classdev_unregister(&led_array[i].cdev);
 		switch (led_array[i].id) {
 		case QPNP_ID_WLED:
