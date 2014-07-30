@@ -5601,7 +5601,7 @@ void intel_connector_dpms(struct drm_connector *connector, int mode)
 
 	connector->dpms = mode;
 
-	intel_runtime_pm_get(dev_priv);
+	intel_display_power_get(dev_priv, PIPE_A);
 
 	if (mode == DRM_MODE_DPMS_ON)
 		intel_modeset_setup_hw_state(dev, true);
@@ -5613,7 +5613,7 @@ void intel_connector_dpms(struct drm_connector *connector, int mode)
 	if (mode == DRM_MODE_DPMS_ON)
 		intel_modeset_check_state(connector->dev);
 
-	intel_runtime_pm_put(dev_priv);
+	intel_display_power_put(dev_priv, PIPE_A);
 }
 
 /* Simple connector->get_hw_state implementation for encoders that support only

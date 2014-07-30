@@ -625,7 +625,7 @@ intel_dp_aux_ch(struct intel_dp *intel_dp,
 
 	intel_dp_check_edp(intel_dp);
 
-	intel_aux_display_runtime_get(dev_priv);
+	intel_display_power_get(dev_priv, PIPE_A);
 
 	/* Try to wait for any previous AUX channel activity */
 	for (try = 0; try < 3; try++) {
@@ -719,7 +719,7 @@ intel_dp_aux_ch(struct intel_dp *intel_dp,
 	ret = recv_bytes;
 out:
 	pm_qos_update_request(&dev_priv->pm_qos, PM_QOS_DEFAULT_VALUE);
-	intel_aux_display_runtime_put(dev_priv);
+	intel_display_power_put(dev_priv, PIPE_A);
 
 	if (vdd)
 		edp_panel_vdd_off(intel_dp, false);
