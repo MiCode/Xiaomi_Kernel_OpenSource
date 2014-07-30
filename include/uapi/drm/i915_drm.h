@@ -1161,6 +1161,7 @@ struct drm_i915_reg_read {
 
 
 struct drm_i915_set_plane_zorder {
+	__u32 obj_id;
 	__u32 order;
 };
 

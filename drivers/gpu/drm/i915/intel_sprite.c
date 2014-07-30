@@ -315,12 +315,21 @@ int i915_set_plane_zorder(struct drm_device *dev, void *data,
 	struct drm_i915_private *dev_priv = dev->dev_private;
 	u32 val = 0;
 	struct drm_i915_set_plane_zorder *zorder = data;
+	struct drm_mode_object *obj;
+	struct intel_crtc *intel_crtc;
+	int pipe;
 	u32 order = zorder->order;
 	int s1_zorder, s1_bottom, s2_zorder, s2_bottom;
-	int pipe = (order >> 31) & 0x1;
 
-	struct intel_crtc *intel_crtc =
-			to_intel_crtc(dev_priv->plane_to_crtc_mapping[pipe]);
+	obj = drm_mode_object_find(dev, zorder->obj_id, DRM_MODE_OBJECT_CRTC);
+	if (!obj) {
+		DRM_ERROR("Unknown CRTC ID: %lu\n",
+				(unsigned long)zorder->obj_id);
+		return -EINVAL;
+	}
+
+	intel_crtc = to_intel_crtc(obj_to_crtc(obj));
+	pipe = intel_crtc->pipe;
 
 	s1_zorder = (order >> 3) & 0x1;
 	s1_bottom = (order >> 2) & 0x1;

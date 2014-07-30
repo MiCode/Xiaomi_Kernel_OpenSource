@@ -10718,6 +10718,7 @@ int intel_set_disp_calc_flip(struct drm_mode_set_display *disp,
 			return -ENOMEM;
 		}
 		zorder->order = disp->zorder;
+		zorder->obj_id = disp->crtc_id;
 		tmp_ret = i915_set_plane_zorder(dev, (void *)zorder, NULL);
 		if (tmp_ret) {
 			DRM_ERROR("i915_set_plane_zorder failed\n");
