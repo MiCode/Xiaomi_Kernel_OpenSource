@@ -10398,6 +10398,7 @@ static int intel_crtc_page_flip(struct drm_crtc *crtc,
 
 	work->event = event;
 	work->crtc = crtc;
+	work->old_fb = old_fb;
 	work->old_fb_obj = to_intel_framebuffer(old_fb)->obj;
 	INIT_WORK(&work->work, intel_unpin_work_fn);
 
@@ -10411,8 +10412,6 @@ static int intel_crtc_page_flip(struct drm_crtc *crtc,
 		spin_unlock_irqrestore(&dev->event_lock, flags);
 		kfree(work);
 		drm_crtc_vblank_put(crtc);
-
-		intel_crtc->unpin_work = NULL;
 		DRM_DEBUG_DRIVER("flip queue: crtc already busy\n");
 		return -EBUSY;
 	}

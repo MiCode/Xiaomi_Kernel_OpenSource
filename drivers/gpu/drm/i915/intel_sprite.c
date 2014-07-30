@@ -633,9 +633,8 @@ void intel_unpin_sprite_work_fn(struct work_struct *__work)
 			container_of(__work, struct intel_unpin_work, work);
 	struct drm_device *dev = work->crtc->dev;
 	mutex_lock(&dev->struct_mutex);
-	if (work->old_fb_obj != NULL) {
+	if (work->old_fb_obj != NULL)
 		intel_unpin_fb_obj(work->old_fb_obj);
-	}
 	mutex_unlock(&dev->struct_mutex);
 
 	kfree(work);
@@ -1448,11 +1447,11 @@ intel_update_plane(struct drm_plane *plane, struct drm_crtc *crtc,
 	 * primary plane requires 256KiB alignment with 64 PTE padding,
 	 * the sprite planes only require 128KiB alignment and 32 PTE padding.
 	 */
-	drm_gem_object_reference(&obj->base);
 	ret = intel_pin_and_fence_fb_obj(dev, obj, NULL);
 	mutex_unlock(&dev->struct_mutex);
 	if (ret) {
-		drm_gem_object_unreference(&obj->base);
+		if (event)
+			drm_vblank_put(dev, intel_crtc->pipe);
 		goto out_unlock;
 	}
 
@@ -1472,8 +1471,10 @@ intel_update_plane(struct drm_plane *plane, struct drm_crtc *crtc,
 
 		intel_crtc->primary_enabled = primary_enabled;
 
-		if (primary_was_enabled != primary_enabled)
-			intel_crtc_wait_for_pending_flips(crtc);
+		if (!IS_VALLEYVIEW(dev)) {
+			if (primary_was_enabled != primary_enabled)
+				intel_crtc_wait_for_pending_flips(crtc);
+		}
 
 		if (!IS_VALLEYVIEW(dev)) {
 			if (primary_was_enabled && !primary_enabled)
@@ -1511,8 +1512,12 @@ intel_update_plane(struct drm_plane *plane, struct drm_crtc *crtc,
 
 	/* Unpin old obj after new one is active to avoid ugliness */
 	if (old_obj && (event == NULL)) {
-		intel_plane_queue_unpin(intel_plane, old_obj);
-		drm_gem_object_unreference(&old_obj->base);
+		mutex_lock(&dev->struct_mutex);
+		if (IS_VALLEYVIEW(dev))
+			intel_unpin_fb_obj(old_obj);
+		else
+			intel_plane_queue_unpin(intel_plane, old_obj);
+		mutex_unlock(&dev->struct_mutex);
 	}
 
 out_unlock:
