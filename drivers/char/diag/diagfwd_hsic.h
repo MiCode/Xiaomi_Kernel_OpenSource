@@ -12,8 +12,11 @@
 
 #ifndef DIAGFWD_HSIC_H
 #define DIAGFWD_HSIC_H
-
+#ifdef CONFIG_DIAG_OVER_USB
+#include <linux/usb/usbdiag.h>
+#endif
 #include <linux/usb/diag_bridge.h>
+#include "diagchar.h"
 
 #define N_MDM_WRITE	8
 #define N_MDM_READ	1
@@ -23,10 +26,7 @@
 #define HSIC_DATA_TYPE		0
 #define HSIC_DCI_TYPE		1
 
-int diagfwd_write_complete_hsic(struct diag_request *, int index);
-int diagfwd_cancel_hsic(int reopen);
-void diag_read_usb_hsic_work_fn(struct work_struct *work);
-void diag_usb_read_complete_hsic_fn(struct work_struct *w);
+int diagfwd_reset_hsic(void);
 extern struct diag_bridge_ops hsic_diag_bridge_ops[MAX_HSIC_DATA_CH];
 extern struct diag_bridge_ops hsic_diag_dci_bridge_ops[MAX_HSIC_DCI_CH];
 extern struct platform_driver msm_hsic_ch_driver;

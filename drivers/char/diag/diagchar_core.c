@@ -40,6 +40,7 @@
 #include "diag_debugfs.h"
 #include "diag_masks.h"
 #include "diagfwd_bridge.h"
+#include "diag_usb.h"
 
 #include <linux/coresight-stm.h>
 #include <linux/kernel.h>
@@ -653,9 +654,6 @@ drop_hsic:
 				diagmem_free(driver,
 					(unsigned char *)(hsic_buf_tbl[i].buf),
 					index+POOL_TYPE_MDM);
-
-				/* Call the write complete function */
-				diagfwd_write_complete_hsic(NULL, index);
 			}
 		}
 		remote_token--;
@@ -900,38 +898,26 @@ static int diag_command_reg(struct bindpkt_params_per_process *pkt_params)
 #ifdef CONFIG_DIAGFWD_BRIDGE_CODE
 void diag_cmp_logging_modes_diagfwd_bridge(int old_mode, int new_mode)
 {
+	int i;
+
 	if (old_mode == MEMORY_DEVICE_MODE && new_mode
 					== NO_LOGGING_MODE) {
-		diagfwd_disconnect_bridge(0);
 		diag_clear_local_tbl();
 		diag_clear_hsic_tbl();
 	} else if (old_mode == NO_LOGGING_MODE && new_mode
 					== MEMORY_DEVICE_MODE) {
-		int i;
 		for (i = 0; i < MAX_HSIC_DATA_CH; i++)
 			if (diag_hsic[i].hsic_inited)
 				diag_hsic[i].hsic_data_requested =
 					driver->real_time_mode ? 1 : 0;
-		diagfwd_connect_bridge(0);
-	} else if (old_mode == USB_MODE && new_mode
-					 == NO_LOGGING_MODE) {
-		diagfwd_disconnect_bridge(0);
-	} else if (old_mode == NO_LOGGING_MODE && new_mode
-					== USB_MODE) {
-		diagfwd_connect_bridge(0);
 	} else if (old_mode == USB_MODE && new_mode
 					== MEMORY_DEVICE_MODE) {
-		if (driver->real_time_mode)
-			diagfwd_cancel_hsic(REOPEN_HSIC);
-		else
-			diagfwd_cancel_hsic(DONT_REOPEN_HSIC);
-		diagfwd_connect_bridge(0);
+		diagfwd_reset_hsic();
 	} else if (old_mode == MEMORY_DEVICE_MODE && new_mode
 					== USB_MODE) {
 		diag_clear_local_tbl();
 		diag_clear_hsic_tbl();
-		diagfwd_cancel_hsic(REOPEN_HSIC);
-		diagfwd_connect_bridge(0);
+		diagfwd_reset_hsic();
 	}
 }
 #else
@@ -1022,35 +1008,25 @@ static int diag_switch_logging(int requested_mode)
 	if (temp == MEMORY_DEVICE_MODE && driver->logging_mode
 						== NO_LOGGING_MODE) {
 		diag_reset_smd_data(RESET_AND_NO_QUEUE);
-		diag_cmp_logging_modes_diagfwd_bridge(temp,
-							driver->logging_mode);
 	} else if (temp == NO_LOGGING_MODE && driver->logging_mode
 						== MEMORY_DEVICE_MODE) {
 		diag_reset_smd_data(RESET_AND_QUEUE);
-		diag_cmp_logging_modes_diagfwd_bridge(temp,
-						driver->logging_mode);
 	} else if (temp == USB_MODE && driver->logging_mode
 						 == NO_LOGGING_MODE) {
-		diagfwd_disconnect();
-		diag_cmp_logging_modes_diagfwd_bridge(temp,
-						driver->logging_mode);
+		diag_usb_disconnect_all();
 	} else if (temp == NO_LOGGING_MODE && driver->logging_mode
 							== USB_MODE) {
-		diagfwd_connect();
-		diag_cmp_logging_modes_diagfwd_bridge(temp,
-						driver->logging_mode);
+		diag_usb_connect_all();
 	} else if (temp == USB_MODE && driver->logging_mode
 						== MEMORY_DEVICE_MODE) {
-		diagfwd_disconnect();
+		diag_usb_disconnect_all();
 		diag_reset_smd_data(RESET_AND_QUEUE);
-		diag_cmp_logging_modes_diagfwd_bridge(temp,
-						driver->logging_mode);
 	} else if (temp == MEMORY_DEVICE_MODE &&
 			 driver->logging_mode == USB_MODE) {
-		diagfwd_connect();
-		diag_cmp_logging_modes_diagfwd_bridge(temp,
-						driver->logging_mode);
+		diag_usb_connect_all();
 	}
+	diag_cmp_logging_modes_diagfwd_bridge(temp,
+						driver->logging_mode);
 	mutex_unlock(&driver->diagchar_mutex);
 	success = 1;
 	return success;
@@ -1986,10 +1962,8 @@ static ssize_t diagchar_write(struct file *file, const char __user *buf,
 			 * If hsic data is being requested for this remote
 			 * processor and its hsic in not open
 			 */
-			if (!diag_hsic[index].hsic_device_opened) {
+			if (!diag_hsic[index].hsic_device_opened)
 				diag_hsic[index].hsic_data_requested = 1;
-				connect_bridge(0, index);
-			}
 
 			if (diag_hsic[index].hsic_ch) {
 				/* wait sending mask updates
@@ -2546,18 +2520,6 @@ static int diagchar_cleanup(void)
 }
 
 #ifdef CONFIG_DIAGFWD_BRIDGE_CODE
-static void diag_connect_work_fn(struct work_struct *w)
-{
-	diagfwd_connect_bridge(1);
-}
-
-static void diag_disconnect_work_fn(struct work_struct *w)
-{
-	diagfwd_disconnect_bridge(1);
-}
-#endif
-
-#ifdef CONFIG_DIAGFWD_BRIDGE_CODE
 void diagfwd_bridge_fn(int type)
 {
 	if (type == EXIT) {
@@ -2633,15 +2595,16 @@ static int __init diagchar_init(void)
 	diagmem_setsize(POOL_TYPE_COPY, itemsize, poolsize);
 	diagmem_setsize(POOL_TYPE_HDLC, itemsize_hdlc, poolsize_hdlc);
 	diagmem_setsize(POOL_TYPE_USER, itemsize_user, poolsize_user);
-	/* Add 1 for responses that are generated exclusively on the Apps */
-	diagmem_setsize(POOL_TYPE_USB_APPS, itemsize_usb_apps,
-			poolsize_usb_apps + 1);
 	/*
-	 * Each Data channel has 2 buffers, Cmd Channel has 1 buffer. Make
-	 * sure the poolsize is such that we have atleast 1 entry for USB write
+	 * POOL_TYPE_USB_APPS is for USB write structures for the Local
+	 * USB channel. The number of items encompasses Diag data generated on
+	 * the Apss processor + 1 for the responses generated exclusively on
+	 * the Apps processor + data from SMD data channels (2 channels per
+	 * peripheral) + data from SMD command channels
 	 */
-	diagmem_setsize(POOL_TYPE_USB_PERIPHERALS, itemsize_usb_apps,
-			(NUM_SMD_DATA_CHANNELS * 2) + NUM_SMD_CMD_CHANNELS);
+	diagmem_setsize(POOL_TYPE_USB_APPS, itemsize_usb_apps,
+			poolsize_usb_apps + 1 + (NUM_SMD_DATA_CHANNELS * 2) +
+			NUM_SMD_CMD_CHANNELS);
 	diagmem_setsize(POOL_TYPE_DCI, itemsize_dci, poolsize_dci);
 	driver->num_clients = max_clients;
 	driver->logging_mode = USB_MODE;
@@ -2705,10 +2668,6 @@ static int __init diagchar_init(void)
 	ret = diagfwd_bridge_init(SMUX);
 	if (ret)
 		goto fail;
-	INIT_WORK(&(driver->diag_connect_work),
-					 diag_connect_work_fn);
-	INIT_WORK(&(driver->diag_disconnect_work),
-					 diag_disconnect_work_fn);
 #endif
 	ret = diagfwd_cntl_init();
 	if (ret)

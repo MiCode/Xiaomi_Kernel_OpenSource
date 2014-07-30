@@ -37,7 +37,6 @@ void diagfwd_exit(void);
 int diag_smd_write(struct diag_smd_info *smd_info, void *buf, int len);
 void diag_process_hdlc(void *data, unsigned len);
 void diag_smd_send_req(struct diag_smd_info *smd_info);
-void diag_usb_legacy_notifier(void *, unsigned, struct diag_request *);
 long diagchar_ioctl(struct file *, unsigned int, unsigned long);
 int diag_device_write(void *buf, int len, int data_type, int ctxt);
 int mask_request_validate(unsigned char mask_buf[]);
@@ -59,11 +58,6 @@ int diag_process_apps_pkt(unsigned char *buf, int len);
 void diag_reset_smd_data(int queue);
 void diag_update_pkt_buffer(unsigned char *buf, int type);
 int diag_process_stm_cmd(unsigned char *buf, unsigned char *dest_buf);
-/* State for diag forwarding */
-#ifdef CONFIG_DIAG_OVER_USB
-int diagfwd_connect(void);
-int diagfwd_disconnect(void);
-#endif
 extern int diag_debug_buf_idx;
 extern unsigned char diag_debug_buf[1024];
 extern struct platform_driver msm_diag_dci_driver;
