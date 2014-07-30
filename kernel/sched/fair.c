@@ -2206,6 +2206,7 @@ void init_new_task_load(struct task_struct *p)
 
 	p->se.avg.decay_count	= 0;
 	p->ravg.sum		= 0;
+	p->ravg.flags = 0;
 
 	for (i = 0; i < RAVG_HIST_SIZE; ++i)
 		p->ravg.sum_history[i] = sched_init_task_load_windows;

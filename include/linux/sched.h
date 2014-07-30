@@ -1067,9 +1067,12 @@ struct ravg {
 	 * may be zero if there was no task activity in that window - that is
 	 * how this quantity differs from the most recent sample in
 	 * sum_history (empty windows are ignored in sum_history).
+	 *
+	 * 'flags' can have either or both of PREV_WINDOW_CONTRIB and
+	 * CURR_WINDOW_CONTRIB set.
 	 */
 	u64 mark_start;
-	u32 sum, demand, prev_window, partial_demand;
+	u32 sum, demand, prev_window, partial_demand, flags;
 	u32 sum_history[RAVG_HIST_SIZE];
 };
 

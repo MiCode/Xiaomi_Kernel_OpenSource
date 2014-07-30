@@ -1135,6 +1135,7 @@ unsigned int min_possible_efficiency = 1024;
 
 __read_mostly int sysctl_sched_freq_inc_notify_slack_pct;
 __read_mostly int sysctl_sched_freq_dec_notify_slack_pct = 25;
+static __read_mostly unsigned int sched_account_wait_time = 1;
 
 /*
  * Maximum possible frequency across all cpus. Task demand and cpu
@@ -1157,6 +1158,9 @@ unsigned int max_load_scale_factor = 1024; /* max(rq->load_scale_factor) */
 static unsigned int sync_cpu;
 static u64 sched_init_jiffy;
 static u64 sched_clock_at_init_jiffy;
+
+#define CURR_WINDOW_CONTRIB	1
+#define PREV_WINDOW_CONTRIB	2
 
 /* Returns how undercommitted a CPU is given its current frequency and
  * task load (as measured in the previous window).  Returns this value
@@ -1200,8 +1204,12 @@ update_history(struct rq *rq, struct task_struct *p, u32 runtime, int samples,
 	u32 max = 0, avg, demand;
 	u64 sum = 0;
 
-	if (new_window)
+	if (new_window) {
+		p->ravg.flags = 0;
 		p->ravg.prev_window = runtime;
+		if (runtime)
+			p->ravg.flags |= PREV_WINDOW_CONTRIB;
+	}
 
 	/* Ignore windows where task had no activity */
 	if (!runtime && !update_sum)
@@ -1257,15 +1265,17 @@ compute_demand:
 	if (new_window)
 		p->ravg.demand = demand;
 
-	if (update_sum) {
+	if (update_sum && (p->ravg.flags & CURR_WINDOW_CONTRIB)) {
 		rq->curr_runnable_sum -= p->ravg.partial_demand;
 		BUG_ON((int)rq->curr_runnable_sum < 0);
 	}
 
 	p->ravg.partial_demand = demand;
 
-	if (update_sum)
+	if (update_sum && !new_window) {
 		rq->curr_runnable_sum += p->ravg.partial_demand;
+		p->ravg.flags |= CURR_WINDOW_CONTRIB;
+	}
 
 	if (!new_window)
 		return;
@@ -1334,12 +1344,32 @@ static inline u64 scale_exec_time(u64 delta, struct rq *rq)
 	return delta;
 }
 
+/*
+ * We depend on task's partial_demand to be always represented in
+ * rq->curr_runnable_sum and its demand to be represented in
+ * rq->prev_runnable_sum. When task wakes up (TASK_WAKE) or is picked to run
+ * (PICK_NEXT_TASK) or migrated (TASK_MIGRATE) with sched_account_wait_time ==
+ * 0, ensure this dependency is met.
+ */
+static inline int add_task_demand(int event, struct task_struct *p,
+		 struct rq *rq, int *long_sleep)
+{
+	if ((p->ravg.flags & CURR_WINDOW_CONTRIB) &&
+		(p->ravg.flags & PREV_WINDOW_CONTRIB))
+			return 0;
+
+	if (long_sleep && (rq->window_start > p->ravg.mark_start &&
+		rq->window_start - p->ravg.mark_start > sched_ravg_window))
+			*long_sleep = 1;
+
+	return 1;
+}
+
 static void update_task_ravg(struct task_struct *p, struct rq *rq,
 			     int event, u64 wallclock, int *long_sleep)
 {
 	u32 window_size = sched_ravg_window;
-	int update_sum = (event == PUT_PREV_TASK || event == TASK_UPDATE);
-	int new_window;
+	int update_sum, new_window;
 	u64 mark_start = p->ravg.mark_start;
 	u64 window_start;
 
@@ -1347,6 +1377,10 @@ static void update_task_ravg(struct task_struct *p, struct rq *rq,
 		return;
 
 	lockdep_assert_held(&rq->lock);
+
+	update_sum = (event == PUT_PREV_TASK || event == TASK_UPDATE ||
+			(sched_account_wait_time &&
+			(event == PICK_NEXT_TASK || event == TASK_MIGRATE)));
 
 	move_window_start(rq, wallclock, update_sum, p);
 	window_start = rq->window_start;
@@ -1363,6 +1397,7 @@ static void update_task_ravg(struct task_struct *p, struct rq *rq,
 		int nr_full_windows = 0;
 		u64 now = wallclock;
 		u32 sum = 0;
+		u32 partial_demand = p->ravg.partial_demand;
 
 		new_window = 0;
 
@@ -1399,24 +1434,44 @@ static void update_task_ravg(struct task_struct *p, struct rq *rq,
 		}
 
 		if (update_sum) {
-			rq->prev_runnable_sum = rq->curr_runnable_sum;
-			rq->curr_runnable_sum = p->ravg.partial_demand;
+			if (event == PUT_PREV_TASK || event == TASK_UPDATE) {
+				if (!nr_full_windows) {
+					rq->curr_runnable_sum -= partial_demand;
+					rq->curr_runnable_sum += p->ravg.demand;
+					rq->prev_runnable_sum =
+							 rq->curr_runnable_sum;
+				} else {
+					rq->prev_runnable_sum = p->ravg.demand;
+				}
+				rq->curr_runnable_sum = p->ravg.partial_demand;
+				p->ravg.flags |= CURR_WINDOW_CONTRIB;
+			} else  {
+				if (!nr_full_windows) {
+					rq->prev_runnable_sum -= partial_demand;
+					BUG_ON(rq->prev_runnable_sum < 0);
+				}
+				rq->prev_runnable_sum += p->ravg.demand;
+				rq->curr_runnable_sum += p->ravg.partial_demand;
+				p->ravg.flags |= CURR_WINDOW_CONTRIB;
+				p->ravg.flags |= PREV_WINDOW_CONTRIB;
+				/* Todo: check if freq change is needed */
+			}
 		}
 
 		mark_start = window_start;
 	} while (new_window);
 
-	if ((event == TASK_WAKE) && cpu_online(cpu_of(rq)) &&
-		 (rq->window_start > p->ravg.mark_start) &&
-		(rq->window_start - p->ravg.mark_start > window_size)) {
-			if (long_sleep)
-				*long_sleep = 1;
-			rq->prev_runnable_sum += p->ravg.demand;
-			p->ravg.prev_window = p->ravg.demand;
-	}
+	if (add_task_demand(event, p, rq, long_sleep)) {
+		if (!(p->ravg.flags & CURR_WINDOW_CONTRIB)) {
+			rq->curr_runnable_sum += p->ravg.partial_demand;
+			p->ravg.flags |= CURR_WINDOW_CONTRIB;
+		}
 
-	if (event == PICK_NEXT_TASK && !p->ravg.sum)
-		rq->curr_runnable_sum += p->ravg.partial_demand;
+		if (!(p->ravg.flags & PREV_WINDOW_CONTRIB)) {
+			rq->prev_runnable_sum += p->ravg.demand;
+			p->ravg.flags |= PREV_WINDOW_CONTRIB;
+		}
+	}
 
 	trace_sched_update_task_ravg(p, rq, event, wallclock);
 
@@ -1468,7 +1523,10 @@ static inline void mark_task_starting(struct task_struct *p)
 	update_task_ravg(rq->curr, rq, TASK_UPDATE, wallclock, NULL);
 	p->ravg.mark_start = wallclock;
 	rq->prev_runnable_sum += p->ravg.demand;
+	rq->curr_runnable_sum += p->ravg.partial_demand;
 	p->ravg.prev_window = p->ravg.demand;
+	p->ravg.flags |= CURR_WINDOW_CONTRIB;
+	p->ravg.flags |= PREV_WINDOW_CONTRIB;
 }
 
 static inline void set_window_start(struct rq *rq)
@@ -1546,6 +1604,7 @@ void reset_all_window_stats(u64 window_start, unsigned int window_size,
 		p->ravg.demand = 0;
 		p->ravg.partial_demand = 0;
 		p->ravg.prev_window = 0;
+		p->ravg.flags = 0;
 		for (i = 0; i < RAVG_HIST_SIZE; ++i)
 			p->ravg.sum_history[i] = 0;
 		p->ravg.mark_start = wallclock;
@@ -1844,12 +1903,12 @@ static void fixup_busy_time(struct task_struct *p, int new_cpu)
 			dec_nr_big_small_task(src_rq, p);
 	}
 
-	if (p->ravg.sum) {
+	if (p->ravg.flags & CURR_WINDOW_CONTRIB) {
 		src_rq->curr_runnable_sum -= p->ravg.partial_demand;
 		dest_rq->curr_runnable_sum += p->ravg.partial_demand;
 	}
 
-	if (p->ravg.prev_window) {
+	if (p->ravg.flags & PREV_WINDOW_CONTRIB) {
 		src_rq->prev_runnable_sum -= p->ravg.demand;
 		dest_rq->prev_runnable_sum += p->ravg.demand;
 	}
