@@ -1906,9 +1906,12 @@ static int sdhci_execute_tuning(struct mmc_host *mmc, u32 opcode)
 	 * If the Host Controller supports the HS200 mode then the
 	 * tuning function has to be executed.
 	 */
-	if (((ctrl & SDHCI_CTRL_UHS_MASK) == SDHCI_CTRL_UHS_SDR50) &&
-	    (host->flags & SDHCI_SDR50_NEEDS_TUNING ||
-	     host->flags & SDHCI_SDR104_NEEDS_TUNING))
+	if ((((ctrl & SDHCI_CTRL_UHS_MASK) == SDHCI_CTRL_UHS_SDR50) &&
+	    (host->flags & SDHCI_SDR50_NEEDS_TUNING) &&
+	    (mmc->ios.timing == MMC_TIMING_UHS_SDR50)) ||
+	     ((host->flags & SDHCI_SDR104_NEEDS_TUNING) &&
+	      mmc->ios.timing == MMC_TIMING_MMC_HS200) ||
+	       mmc->ios.timing == MMC_TIMING_UHS_SDR104)
 		requires_tuning_nonuhs = true;
 
 	if (((ctrl & SDHCI_CTRL_UHS_MASK) == SDHCI_CTRL_UHS_SDR104) ||
