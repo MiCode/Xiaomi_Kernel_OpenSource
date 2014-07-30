@@ -354,6 +354,9 @@ Optional properties:
 					"180" = panel is flipped in both horizontal and vertical directions
 					"hflip" = panel is flipped in horizontal direction
 					"vflip" = panel is flipped in vertical direction
+- qcom,panel-ack-disabled: A boolean property to indicate, whether we need to wait for any ACK from the panel
+			   for any commands that we send.
+
 Note, if a given optional qcom,* binding is not present, then the driver will configure
 the default values specified.
 
@@ -471,6 +474,7 @@ Example:
 		qcom,video-to-cmd-mode-switch-commands = [15 01 00 00 00 00 02 C2 0B
 						15 01 00 00 00 00 02 C2 08];
 		qcom,cmd-to-video-mode-switch-commands = [15 01 00 00 00 00 02 C2 03];
+		qcom,panel-ack-disabled;
 		qcom,mdss-dsi-horizontal-line-idle = <0 40 256>,
 						<40 120 128>,
 						<128 240 64>;
