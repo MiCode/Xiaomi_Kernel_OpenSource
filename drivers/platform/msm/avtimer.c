@@ -54,7 +54,6 @@ struct avtimer_t {
 	struct class *avtimer_class;
 	struct mutex avtimer_lock;
 	int avtimer_open_cnt;
-	struct dev_avtimer_data avtimer_pdata;
 	wait_queue_head_t adsp_resp_wait;
 	int enable_timer_resp_recieved;
 	int timer_handle;
@@ -340,6 +339,7 @@ static long avtimer_ioctl(struct file *file, unsigned int ioctl_num,
 
 static const struct file_operations avtimer_fops = {
 	.unlocked_ioctl = avtimer_ioctl,
+	.compat_ioctl = avtimer_ioctl,
 	.open = avtimer_open,
 	.release = avtimer_release
 };
