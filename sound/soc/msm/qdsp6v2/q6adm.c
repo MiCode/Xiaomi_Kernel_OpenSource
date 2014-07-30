@@ -1861,10 +1861,10 @@ int adm_matrix_map(int path, struct route_payload payload_map, int perf_mode)
 			port_idx = afe_get_port_index(payload_map.port_id[i]);
 			copp_idx = payload_map.copp_idx[i];
 			if ((atomic_read(
-				&this_adm.copp.topology[port_idx][copp_idx]) !=
+				&this_adm.copp.topology[port_idx][copp_idx]) ==
 				ADM_CMD_COPP_OPEN_TOPOLOGY_ID_DTS_HPX_0) ||
 			    (atomic_read(
-				&this_adm.copp.topology[port_idx][copp_idx]) !=
+				&this_adm.copp.topology[port_idx][copp_idx]) ==
 				ADM_CMD_COPP_OPEN_TOPOLOGY_ID_DTS_HPX_1))
 				continue;
 			rtac_add_adm_device(payload_map.port_id[i],
