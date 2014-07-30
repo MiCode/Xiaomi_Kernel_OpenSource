@@ -302,7 +302,7 @@ struct etm_drvdata {
 	uint8_t				nr_addr_cmp; /* comparator pairs */
 	uint8_t				nr_data_cmp;
 	uint8_t				nr_cntr;
-	uint8_t				nr_ext_inp;
+	uint32_t			nr_ext_inp;
 	uint8_t				nr_ext_inp_sel;
 	uint8_t				nr_ext_out;
 	uint8_t				nr_ctxid_cmp;
@@ -3025,20 +3025,71 @@ static void etm_init_arch_data(void *info)
 	/* number of resources trace unit supports */
 	etmidr4 = etm_readl(drvdata, TRCIDR4);
 	drvdata->nr_addr_cmp = BMVAL(etmidr4, 0, 3);
+	if (drvdata->nr_addr_cmp > ETM_MAX_ADDR_RANGE_CMP) {
+		dev_err(drvdata->dev,
+			"nr_addr_cmp out of bounds %u\n", drvdata->nr_addr_cmp);
+		drvdata->nr_addr_cmp = ETM_MAX_ADDR_RANGE_CMP;
+	}
 	drvdata->nr_data_cmp = BMVAL(etmidr4, 4, 7);
+	if (drvdata->nr_data_cmp > ETM_MAX_DATA_VAL_CMP) {
+		dev_err(drvdata->dev,
+			"nr_data_cmp out of bounds %u\n", drvdata->nr_data_cmp);
+		drvdata->nr_data_cmp = ETM_MAX_DATA_VAL_CMP;
+	}
+
 	if (BVAL(etmidr4, 8))
 		drvdata->data_addr_cmp_support = true;
 	else
 		drvdata->data_addr_cmp_support = false;
+
 	drvdata->nr_pe_cmp = BMVAL(etmidr4, 12, 15);
+	if (drvdata->nr_pe_cmp > ETM_MAX_PE_CMP) {
+		dev_err(drvdata->dev,
+			"nr_pe_cmp out of bounds %u\n", drvdata->nr_pe_cmp);
+		drvdata->nr_pe_cmp = ETM_MAX_PE_CMP;
+	}
 	drvdata->nr_resource = BMVAL(etmidr4, 16, 19);
+	if (drvdata->nr_resource > ETM_MAX_RES_SEL) {
+		dev_err(drvdata->dev,
+			"nr_resource out of bounds %u\n", drvdata->nr_resource);
+		drvdata->nr_resource = ETM_MAX_RES_SEL;
+	}
 	drvdata->nr_ss_cmp = BMVAL(etmidr4, 20, 23);
+	if (drvdata->nr_ss_cmp > ETM_MAX_SS_CMP) {
+		dev_err(drvdata->dev,
+			"nr_ss_cmp out of bounds %u\n", drvdata->nr_ss_cmp);
+		drvdata->nr_ss_cmp = ETM_MAX_SS_CMP;
+	}
 	drvdata->nr_ctxid_cmp = BMVAL(etmidr4, 24, 27);
+	if (drvdata->nr_ctxid_cmp > ETM_MAX_CTXID_CMP) {
+		dev_err(drvdata->dev,
+			"nr_ctxid_cmp out of bounds %u\n",
+			drvdata->nr_ctxid_cmp);
+		drvdata->nr_ctxid_cmp = ETM_MAX_CTXID_CMP;
+	}
 	drvdata->nr_vmid_cmp = BMVAL(etmidr4, 28, 31);
+	if (drvdata->nr_vmid_cmp > ETM_MAX_VMID_CMP) {
+		dev_err(drvdata->dev,
+			"nr_vmid_cmp out of bounds %u\n", drvdata->nr_vmid_cmp);
+		drvdata->nr_vmid_cmp = ETM_MAX_VMID_CMP;
+	}
 
 	etmidr5 = etm_readl(drvdata, TRCIDR5);
 	drvdata->nr_ext_inp = BMVAL(etmidr5, 0, 8);
+	if (drvdata->nr_ext_inp > ETM_MAX_EXT_INP) {
+		dev_err(drvdata->dev,
+			"nr_ext_inp out of bounds %lu\n",
+			(unsigned long)drvdata->nr_ext_inp);
+		drvdata->nr_ext_inp = ETM_MAX_EXT_INP;
+	}
 	drvdata->nr_ext_inp_sel = BMVAL(etmidr5, 9, 11);
+	if (drvdata->nr_ext_inp_sel > ETM_MAX_EXT_INP_SEL) {
+		dev_err(drvdata->dev,
+			"nr_ext_inp_sel out of bounds %u\n",
+			drvdata->nr_ext_inp_sel);
+		drvdata->nr_ext_inp_sel = ETM_MAX_EXT_INP_SEL;
+	}
+
 	drvdata->trcid_size = BMVAL(etmidr5, 16, 21);
 	if (BVAL(etmidr5, 22))
 		drvdata->atbtrig_support = true;
@@ -3048,8 +3099,21 @@ static void etm_init_arch_data(void *info)
 		drvdata->lp_override_support = true;
 	else
 		drvdata->lp_override_support = false;
+
 	drvdata->nr_seq_state = BMVAL(etmidr5, 25, 27);
+	if (drvdata->nr_seq_state > ETM_MAX_SEQ_STATES) {
+		dev_err(drvdata->dev,
+			"nr_seq_state out of bounds %u\n",
+			drvdata->nr_seq_state);
+		drvdata->nr_seq_state = ETM_MAX_SEQ_STATES;
+	}
 	drvdata->nr_cntr = BMVAL(etmidr5, 28, 30);
+	if (drvdata->nr_cntr > ETM_MAX_CNTR) {
+		dev_err(drvdata->dev,
+			"nr_cntr out of bounds %u\n", drvdata->nr_cntr);
+		drvdata->nr_cntr = ETM_MAX_CNTR;
+	}
+
 	if (BVAL(etmidr5, 31))
 		drvdata->reduced_cntr_support = true;
 	else
