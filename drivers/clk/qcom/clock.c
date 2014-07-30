@@ -673,6 +673,9 @@ static void vdd_class_init(struct clk_vdd_class *vdd)
 	if (!vdd)
 		return;
 
+	if (vdd->skip_handoff)
+		return;
+
 	list_for_each_entry(v, &handoff_vdd_list, list) {
 		if (v->vdd_class == vdd)
 			return;

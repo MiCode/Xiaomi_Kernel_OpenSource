@@ -72,6 +72,7 @@ static inline void clk_debug_print_hw(struct clk *clk, struct seq_file *f) {}
 		regulator. Optional parameter.
  * @level_votes: array of votes for each level.
  * @num_levels: specifies the size of level_votes array.
+ * @skip_handoff: do not vote for the max possible voltage during init
  * @cur_level: the currently set voltage level
  * @lock: lock to protect this struct
  */
@@ -84,6 +85,7 @@ struct clk_vdd_class {
 	int *vdd_ua;
 	int *level_votes;
 	int num_levels;
+	bool skip_handoff;
 	unsigned long cur_level;
 	struct mutex lock;
 };
