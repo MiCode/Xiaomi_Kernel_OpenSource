@@ -1402,6 +1402,10 @@ static int _adreno_start(struct adreno_device *adreno_dev)
 	if (gpudev->enable_pc)
 		gpudev->enable_pc(adreno_dev);
 
+	/* Enable peak power detect feature */
+	if (gpudev->enable_ppd)
+		gpudev->enable_ppd(adreno_dev);
+
 	status = adreno_ringbuffer_cold_start(adreno_dev);
 	if (status)
 		goto error_irq_off;
@@ -2028,13 +2032,146 @@ static const struct device_attribute *_attr_list[] = {
 	NULL,
 };
 
+/* Add a ppd directory for controlling different knobs from sysfs */
+struct adreno_ppd_attribute {
+	struct attribute attr;
+	ssize_t (*show)(struct kgsl_device *device, char *buf);
+	ssize_t (*store)(struct kgsl_device *device, const char *buf,
+		size_t count);
+};
+
+#define PPD_ATTR(_name, _mode, _show, _store) \
+struct adreno_ppd_attribute attr_##_name = { \
+	.attr = { .name = __stringify(_name), .mode = _mode }, \
+	.show = _show, \
+	.store = _store, \
+}
+
+#define to_ppd_attr(a) \
+container_of(a, struct adreno_ppd_attribute, attr)
+
+#define kobj_to_device(a) \
+container_of(a, struct kgsl_device, ppd_kobj)
+
+/**
+ * ppd_enable_store() - Enable or disable peak power detection
+ * @attr: Device attribute
+ * @buf: value to write
+ * @count: size of the value to write
+ *
+ */
+static ssize_t ppd_enable_store(struct kgsl_device *device,
+				const char *buf, size_t count)
+{
+	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
+	struct adreno_gpudev *gpudev;
+	unsigned int ret;
+	unsigned int ppd_on = 1;
+
+	if ((adreno_dev == NULL) || (device == NULL))
+		return -ENODEV;
+
+	gpudev = ADRENO_GPU_DEVICE(adreno_dev);
+	ret = kgsl_sysfs_store(buf, &ppd_on);
+	if (ret < 0)
+		return ret;
+
+	mutex_lock(&device->mutex);
+
+	kgsl_pwrctrl_change_state(device, KGSL_STATE_SUSPEND);
+	if (ppd_on)
+		set_bit(ADRENO_PPD_CTRL, &adreno_dev->pwrctrl_flag);
+	else
+		clear_bit(ADRENO_PPD_CTRL, &adreno_dev->pwrctrl_flag);
+	kgsl_pwrctrl_change_state(device, KGSL_STATE_SLUMBER);
+
+	mutex_unlock(&device->mutex);
+	return count;
+}
+
+/**
+ * ppd_enable_show() -  Show whether ppd is enabled
+ * @dev: device ptr
+ * @buf: value read
+ */
+static ssize_t ppd_enable_show(struct kgsl_device *device,
+					char *buf)
+{
+	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
+	return snprintf(buf, PAGE_SIZE, "%u\n", test_bit(ADRENO_PPD_CTRL,
+					&adreno_dev->pwrctrl_flag));
+}
+/* Add individual ppd attributes here */
+static PPD_ATTR(enable, 0644, ppd_enable_show, ppd_enable_store);
+
+static void ppd_sysfs_release(struct kobject *kobj)
+{
+}
+
+static ssize_t ppd_sysfs_show(struct kobject *kobj,
+	struct attribute *attr, char *buf)
+{
+	struct adreno_ppd_attribute *pattr = to_ppd_attr(attr);
+	struct kgsl_device *device = kobj_to_device(kobj);
+	ssize_t ret;
+
+	if (device && pattr->show)
+		ret = pattr->show(device, buf);
+	else
+		ret = -EIO;
+
+	return ret;
+}
+
+static ssize_t ppd_sysfs_store(struct kobject *kobj,
+	struct attribute *attr, const char *buf, size_t count)
+{
+	struct adreno_ppd_attribute *pattr = to_ppd_attr(attr);
+	struct kgsl_device *device = kobj_to_device(kobj);
+	ssize_t ret;
+
+	if (device && pattr->store)
+		ret = pattr->store(device, buf, count);
+	else
+		ret = -EIO;
+
+	return ret;
+}
+
+static const struct sysfs_ops ppd_sysfs_ops = {
+	.show = ppd_sysfs_show,
+	.store = ppd_sysfs_store,
+};
+
+static struct kobj_type ktype_ppd = {
+	.sysfs_ops = &ppd_sysfs_ops,
+	.default_attrs = NULL,
+	.release = ppd_sysfs_release,
+};
+
 static int adreno_init_sysfs(struct kgsl_device *device)
 {
-	return kgsl_create_device_sysfs_files(device->dev, _attr_list);
+	int ret;
+	ret =  kgsl_create_device_sysfs_files(device->dev, _attr_list);
+	if (ret)
+		goto done;
+	ret = kobject_init_and_add(&device->ppd_kobj, &ktype_ppd,
+		&device->dev->kobj, "ppd");
+	if (ret)
+		goto done;
+
+	ret  = sysfs_create_file(&device->ppd_kobj, &attr_enable.attr);
+
+done:
+	return ret;
 }
 
 static void adreno_uninit_sysfs(struct kgsl_device *device)
 {
+	sysfs_remove_file(&device->ppd_kobj, &attr_enable.attr);
+
+	kobject_put(&device->ppd_kobj);
+
 	kgsl_remove_device_sysfs_files(device->dev, _attr_list);
 }
 

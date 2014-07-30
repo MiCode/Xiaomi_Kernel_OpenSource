@@ -76,6 +76,8 @@
 #define ADRENO_HAS_IOMMU_SYNC_LOCK BIT(4)
 /* The core supports SP/TP hw controlled power collapse */
 #define ADRENO_SPTP_PC BIT(5)
+/* The core supports Peak Power Detection(PPD)*/
+#define ADRENO_PPD BIT(6)
 
 /* Flags to control command packet settings */
 #define KGSL_CMD_FLAGS_NONE             0
@@ -133,6 +135,7 @@ enum adreno_gpurev {
 #define ADRENO_IOMMU_PAGE_FAULT BIT(3)
 
 #define ADRENO_SPTP_PC_CTRL BIT(0)
+#define ADRENO_PPD_CTRL BIT(1)
 
 /*
  * Maximum size of the dispatcher ringbuffer - the actual inflight size will be
@@ -615,6 +618,7 @@ struct adreno_gpudev {
 		unsigned int group, unsigned int counter);
 	bool (*is_sptp_idle)(struct adreno_device *);
 	void (*enable_pc)(struct adreno_device *);
+	void (*enable_ppd)(struct adreno_device *);
 	void (*regulator_enable)(struct adreno_device *);
 	void (*regulator_disable)(struct adreno_device *);
 };

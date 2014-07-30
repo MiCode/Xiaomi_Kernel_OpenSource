@@ -382,6 +382,30 @@ static void a4xx_enable_pc(struct adreno_device *adreno_dev)
 };
 
 /*
+ * a4xx_enable_ppd() - Enable the Peak power detect logic in the h/w
+ * @adreno_dev: The adreno device pointer
+ *
+ * A430 can detect peak current conditions inside h/w and throttle the
+ * gpu clock to mitigate it.
+ */
+static void a4xx_enable_ppd(struct adreno_device *adreno_dev)
+{
+	struct kgsl_device *device = &adreno_dev->dev;
+
+	if (!ADRENO_FEATURE(adreno_dev, ADRENO_PPD) ||
+		!test_bit(ADRENO_PPD_CTRL, &adreno_dev->pwrctrl_flag))
+		return;
+
+	/* Program thresholds */
+	kgsl_regwrite(device, A4XX_RBBM_PPD_EPOCH_INTRA_TH_1, 0x000A800C);
+	kgsl_regwrite(device, A4XX_RBBM_PPD_EPOCH_INTRA_TH_2, 0x00140002);
+	kgsl_regwrite(device, A4XX_RBBM_PPD_EPOCH_INTER_TH_HI_CLR_TH,
+								0x00000000);
+	kgsl_regwrite(device, A4XX_RBBM_PPD_EPOCH_INTER_TH_LO, 0x00010101);
+	/* Enable PPD*/
+	kgsl_regwrite(device, A4XX_RBBM_PPD_CTRL, 0x1908E401);
+};
+/*
  * a4xx_enable_hwcg() - Program the clock control registers
  * @device: The adreno device pointer
  */
@@ -620,6 +644,9 @@ static void a4xx_start(struct adreno_device *adreno_dev)
 
 	/* Enable SP/TP power collapse for GPUs that support it */
 	set_bit(ADRENO_SPTP_PC_CTRL, &adreno_dev->pwrctrl_flag);
+
+	/* Enable Peak Power Detection(PPD) for GPUs that support it */
+	set_bit(ADRENO_PPD_CTRL, &adreno_dev->pwrctrl_flag);
 }
 
 int a4xx_perfcounter_enable_vbif(struct adreno_device *adreno_dev,
@@ -1455,6 +1482,7 @@ struct adreno_gpudev adreno_a4xx_gpudev = {
 	.snapshot = a4xx_snapshot,
 	.is_sptp_idle = a4xx_is_sptp_idle,
 	.enable_pc = a4xx_enable_pc,
+	.enable_ppd = a4xx_enable_ppd,
 	.regulator_enable = a4xx_regulator_enable,
 	.regulator_disable = a4xx_regulator_disable,
 };

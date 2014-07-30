@@ -357,6 +357,8 @@ struct kgsl_device {
 	u32 snapshot_faultcount;	/* Total number of faults since boot */
 	struct kobject snapshot_kobj;
 
+	struct kobject ppd_kobj;
+
 	/* Logging levels */
 	int cmd_log;
 	int ctxt_log;
