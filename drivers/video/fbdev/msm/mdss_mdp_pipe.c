@@ -984,10 +984,10 @@ static void mdss_mdp_pipe_free(struct kref *kref)
 	pr_debug("ndx=%x pnum=%d\n", pipe->ndx, pipe->num);
 
 	mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_ON);
-	if (pipe && mdss_mdp_panic_signal_supported(mdata, pipe))
+	if (mdss_mdp_panic_signal_supported(mdata, pipe))
 		mdss_mdp_pipe_panic_signal_ctrl(pipe, false);
 
-	if (pipe && pipe->play_cnt) {
+	if (pipe->play_cnt) {
 		mdss_mdp_pipe_fetch_halt(pipe);
 		mdss_mdp_pipe_sspp_term(pipe);
 		mdss_mdp_smp_free(pipe);
