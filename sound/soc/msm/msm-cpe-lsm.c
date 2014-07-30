@@ -160,6 +160,8 @@ static void msm_cpe_process_event_status(void *lsm_data,
 static void msm_cpe_process_event_status_done(struct cpe_lsm_data *lsm_data)
 {
 	kfree(lsm_data->ev_det_payload);
+	lsm_data->ev_det_payload = NULL;
+
 	lsm_data->ev_det_status = 0;
 	lsm_data->ev_det_pld_size = 0;
 }
@@ -498,7 +500,7 @@ static int msm_cpe_lsm_close(struct snd_pcm_substream *substream)
 }
 
 /*
- * msm_cpe_lsm_ioctl: IOCTL for this platform driver
+ * msm_cpe_lsm_ioctl_shared: Shared IOCTL for this platform driver
  * @substream: ASoC substream for which the operation is invoked
  * @cmd: command for the ioctl
  * @arg: argument for the ioctl
@@ -506,7 +508,7 @@ static int msm_cpe_lsm_close(struct snd_pcm_substream *substream)
  * Perform dedicated listen functions like register sound model,
  * deregister sound model, etc
  */
-static int msm_cpe_lsm_ioctl(struct snd_pcm_substream *substream,
+static int msm_cpe_lsm_ioctl_shared(struct snd_pcm_substream *substream,
 			 unsigned int cmd, void *arg)
 {
 	struct snd_lsm_sound_model_v2 snd_model;
@@ -515,11 +517,10 @@ static int msm_cpe_lsm_ioctl(struct snd_pcm_substream *substream,
 	struct cpe_priv *cpe = cpe_get_private_data(substream);
 	struct cpe_lsm_session *session;
 	struct wcd_cpe_lsm_ops *lsm_ops;
-	struct snd_lsm_event_status *event_status = NULL;
-	struct snd_lsm_event_status u_event_status;
 	struct wcd_cpe_lsm_lab *lab_sess = NULL;
 	struct snd_dma_buffer *dma_buf = &substream->dma_buffer;
-	int rc = 0, u_pld_size = 0;
+	struct snd_lsm_event_status *user;
+	int rc = 0;
 
 	if (!cpe || !cpe->core_handle) {
 		dev_err(rtd->dev,
@@ -562,14 +563,6 @@ static int msm_cpe_lsm_ioctl(struct snd_pcm_substream *substream,
 		return rc;
 	break;
 	case SNDRV_LSM_LAB_CONTROL:
-		if (copy_from_user(&lab_sess->lab_enable, (void *)arg,
-				   sizeof(u32))) {
-			dev_err(rtd->dev,
-				"%s: copy from user failed, size %zd\n",
-				__func__,
-				sizeof(u32));
-			return -EFAULT;
-		}
 		if (lab_sess->lab_enable) {
 			rc = lsm_ops->lsm_lab_control(cpe->core_handle,
 					session,
@@ -607,15 +600,16 @@ static int msm_cpe_lsm_ioctl(struct snd_pcm_substream *substream,
 		}
 	break;
 	case SNDRV_LSM_REG_SND_MODEL_V2:
-
-		if (copy_from_user(&snd_model, (void *)arg,
-				   sizeof(struct snd_lsm_sound_model_v2))) {
+		if (!arg) {
 			dev_err(rtd->dev,
-				"%s: copy from user failed, size %zd\n",
+				"%s: Invalid argument to ioctl %s\n",
 				__func__,
-				sizeof(struct snd_lsm_sound_model_v2));
-			return -EFAULT;
+				"SNDRV_LSM_REG_SND_MODEL_V2");
+			return -EINVAL;
 		}
+
+		memcpy(&snd_model, arg,
+			sizeof(struct snd_lsm_sound_model_v2));
 
 		if (snd_model.num_confidence_levels <= 0) {
 			dev_err(rtd->dev,
@@ -634,8 +628,8 @@ static int msm_cpe_lsm_ioctl(struct snd_pcm_substream *substream,
 		}
 
 		if (copy_from_user(session->conf_levels,
-				  snd_model.confidence_level,
-				  snd_model.num_confidence_levels)) {
+				   snd_model.confidence_level,
+				   snd_model.num_confidence_levels)) {
 			dev_err(rtd->dev,
 				"%s: copy_from_user failed for confidence levels %u\n",
 				__func__, snd_model.num_confidence_levels);
@@ -725,26 +719,15 @@ static int msm_cpe_lsm_ioctl(struct snd_pcm_substream *substream,
 		break;
 
 	case SNDRV_LSM_EVENT_STATUS:
-
-		if (copy_from_user(&u_event_status, (void *)arg,
-				   sizeof(struct snd_lsm_event_status))) {
+		if (!arg) {
 			dev_err(rtd->dev,
-				"%s: event status copy from user failed, size %zd\n",
+				"%s: Invalid argument to ioctl %s\n",
 				__func__,
-				sizeof(struct snd_lsm_event_status));
-			return -EFAULT;
-		}
-		u_pld_size = sizeof(struct snd_lsm_event_status) +
-				u_event_status.payload_size;
-
-		event_status = kzalloc(u_pld_size, GFP_KERNEL);
-		if (!event_status) {
-			dev_err(rtd->dev,
-				"%s: No memory for event status\n",
-				__func__);
-			return -ENOMEM;
+				"SNDRV_LSM_EVENT_STATUS");
+			return -EINVAL;
 		}
 
+		user = arg;
 		rc = wait_event_interruptible(lsm_d->event_wait,
 				(atomic_read(&lsm_d->event_avail) == 1) ||
 				(atomic_read(&lsm_d->event_stop) == 1));
@@ -754,53 +737,30 @@ static int msm_cpe_lsm_ioctl(struct snd_pcm_substream *substream,
 				rc = 0;
 				atomic_set(&lsm_d->event_avail, 0);
 				if (lsm_d->ev_det_pld_size >
-					u_event_status.payload_size) {
+					user->payload_size) {
 					dev_err(rtd->dev,
 						"%s: avail pld_bytes = %u, needed = %u\n",
 						__func__,
-						u_event_status.payload_size,
+						user->payload_size,
 						lsm_d->ev_det_pld_size);
-					kfree(event_status);
 					return -EINVAL;
 				}
 
-				event_status->status = lsm_d->ev_det_status;
-				event_status->payload_size =
-						lsm_d->ev_det_pld_size;
-				memcpy(event_status->payload,
+				user->status = lsm_d->ev_det_status;
+				user->payload_size = lsm_d->ev_det_pld_size;
+
+				memcpy(user->payload,
 				       lsm_d->ev_det_payload,
 				       lsm_d->ev_det_pld_size);
 
-				if (copy_to_user(arg, event_status,
-						u_pld_size)) {
-					dev_err(rtd->dev,
-						"%s: copy to user failed\n",
-						__func__);
-					kfree(event_status);
-					return -EFAULT;
-				}
-				if (lab_sess->lab_enable &&
-					event_status->status ==
-					LSM_VOICE_WAKEUP_STATUS_DETECTED) {
-					atomic_set(&lab_sess->abort_read, 0);
-					pr_debug("%s: KW detected,\n"
-					"scheduling LAB thread\n", __func__);
-					lsm_ops->lsm_lab_data_channel_open(
-						cpe->core_handle, session);
-					session->lsm_lab_thread = kthread_run(
-							msm_cpe_lab_thread,
-							&session->lab,
-							"lab_thread");
-				}
-				msm_cpe_process_event_status_done(lsm_d);
 			} else if (atomic_read(&lsm_d->event_stop) == 1) {
 				dev_dbg(rtd->dev,
 					"%s: wait_aborted\n", __func__);
+				user->payload_size = 0;
 				rc = 0;
 			}
 		}
 
-		kfree(event_status);
 		break;
 
 	case SNDRV_LSM_ABORT_EVENT:
@@ -844,6 +804,383 @@ static int msm_cpe_lsm_ioctl(struct snd_pcm_substream *substream,
 
 	return rc;
 }
+
+static int msm_cpe_lsm_lab_start(struct snd_pcm_substream *substream,
+		struct snd_lsm_event_status *event_status)
+{
+	struct snd_soc_pcm_runtime *rtd;
+	struct cpe_lsm_data *lsm_d = NULL;
+	struct cpe_priv *cpe = NULL;
+	struct cpe_lsm_session *session = NULL;
+	struct wcd_cpe_lsm_lab *lab_sess = NULL;
+	struct wcd_cpe_lsm_ops *lsm_ops;
+
+	if (!substream || !substream->private_data) {
+		pr_err("%s: invalid substream (%p)\n",
+			__func__, substream);
+		return -EINVAL;
+	}
+
+	rtd = substream->private_data;
+	lsm_d = cpe_get_lsm_data(substream);
+	cpe = cpe_get_private_data(substream);
+
+	if (!cpe || !cpe->core_handle) {
+		dev_err(rtd->dev,
+			"%s: Invalid private data\n",
+			__func__);
+		return -EINVAL;
+	}
+
+	if (!lsm_d || !lsm_d->lsm_session) {
+		dev_err(rtd->dev,
+			"%s: Invalid session data\n",
+			__func__);
+		return -EINVAL;
+	}
+
+	session = lsm_d->lsm_session;
+	lsm_ops = &cpe->lsm_ops;
+	lab_sess = &session->lab;
+
+	if (lab_sess->lab_enable &&
+	    event_status->status ==
+	    LSM_VOICE_WAKEUP_STATUS_DETECTED) {
+
+		atomic_set(&lab_sess->abort_read, 0);
+		pr_debug("%s: KW detected,\n"
+		"scheduling LAB thread\n", __func__);
+		lsm_ops->lsm_lab_data_channel_open(
+			cpe->core_handle, session);
+		session->lsm_lab_thread = kthread_run(
+				msm_cpe_lab_thread,
+				&session->lab,
+				"lab_thread");
+	}
+
+	return 0;
+}
+
+static int msm_cpe_lsm_ioctl(struct snd_pcm_substream *substream,
+			 unsigned int cmd, void *arg)
+{
+	int err = 0;
+	struct snd_soc_pcm_runtime *rtd;
+	struct cpe_priv *cpe = NULL;
+	struct cpe_lsm_data *lsm_d = NULL;
+	struct cpe_lsm_session *session = NULL;
+	struct wcd_cpe_lsm_lab *lab_sess = NULL;
+	struct wcd_cpe_lsm_ops *lsm_ops;
+
+	if (!substream || !substream->private_data) {
+		pr_err("%s: invalid substream (%p)\n",
+			__func__, substream);
+		return -EINVAL;
+	}
+
+	rtd = substream->private_data;
+	lsm_d = cpe_get_lsm_data(substream);
+	cpe = cpe_get_private_data(substream);
+
+	if (!cpe || !cpe->core_handle) {
+		dev_err(rtd->dev,
+			"%s: Invalid private data\n",
+			__func__);
+		return -EINVAL;
+	}
+
+	if (!lsm_d || !lsm_d->lsm_session) {
+		dev_err(rtd->dev,
+			"%s: Invalid session data\n",
+			__func__);
+		return -EINVAL;
+	}
+
+	session = lsm_d->lsm_session;
+	lsm_ops = &cpe->lsm_ops;
+	lab_sess = &session->lab;
+
+	switch (cmd) {
+	case SNDRV_LSM_LAB_CONTROL:
+		if (copy_from_user(&lab_sess->lab_enable, (void *)arg,
+				   sizeof(u32))) {
+			dev_err(rtd->dev,
+				"%s: copy_from_user failed, size %zd\n",
+				__func__, sizeof(bool));
+			return -EFAULT;
+		}
+		err = msm_cpe_lsm_ioctl_shared(substream, cmd, arg);
+		break;
+	case SNDRV_LSM_REG_SND_MODEL_V2: {
+		struct snd_lsm_sound_model_v2 snd_model;
+		if (copy_from_user(&snd_model, (void *)arg,
+				   sizeof(struct snd_lsm_sound_model_v2))) {
+			dev_err(rtd->dev,
+				"%s: copy from user failed, size %zd\n",
+				__func__,
+				sizeof(struct snd_lsm_sound_model_v2));
+			return -EFAULT;
+		}
+
+		err = msm_cpe_lsm_ioctl_shared(substream, cmd, arg);
+	}
+		break;
+	case SNDRV_LSM_EVENT_STATUS: {
+		struct snd_lsm_event_status u_event_status;
+		struct snd_lsm_event_status *event_status = NULL;
+		int u_pld_size = 0;
+
+		if (copy_from_user(&u_event_status, (void *)arg,
+				   sizeof(struct snd_lsm_event_status))) {
+			dev_err(rtd->dev,
+				"%s: event status copy from user failed, size %zd\n",
+				__func__,
+				sizeof(struct snd_lsm_event_status));
+			return -EFAULT;
+		}
+		u_pld_size = sizeof(struct snd_lsm_event_status) +
+				u_event_status.payload_size;
+
+		event_status = kzalloc(u_pld_size, GFP_KERNEL);
+		if (!event_status) {
+			dev_err(rtd->dev,
+				"%s: No memory for event status\n",
+				__func__);
+			return -ENOMEM;
+		} else {
+			event_status->payload_size =
+				u_event_status.payload_size;
+			err = msm_cpe_lsm_ioctl_shared(substream,
+						       cmd, event_status);
+		}
+
+		if (!err  && copy_to_user(arg, event_status, u_pld_size)) {
+			dev_err(rtd->dev,
+				"%s: copy to user failed\n",
+				__func__);
+			kfree(event_status);
+			return -EFAULT;
+		}
+
+		msm_cpe_lsm_lab_start(substream, event_status);
+		msm_cpe_process_event_status_done(lsm_d);
+		kfree(event_status);
+	}
+		break;
+
+	default:
+		err = msm_cpe_lsm_ioctl_shared(substream, cmd, arg);
+		break;
+	}
+	return err;
+}
+
+#ifdef CONFIG_COMPAT
+struct snd_lsm_event_status32 {
+	u16 status;
+	u16 payload_size;
+	u8 payload[0];
+};
+
+struct snd_lsm_sound_model_v2_32 {
+	compat_uptr_t data;
+	compat_uptr_t confidence_level;
+	u32 data_size;
+	enum lsm_detection_mode detection_mode;
+	u8 num_confidence_levels;
+	bool detect_failure;
+};
+
+enum {
+	SNDRV_LSM_EVENT_STATUS32 =
+		_IOW('U', 0x02, struct snd_lsm_event_status32),
+	SNDRV_LSM_REG_SND_MODEL_V2_32 =
+		_IOW('U', 0x07, struct snd_lsm_sound_model_v2_32),
+	SNDRV_LSM_LAB_CONTROL32 =
+		_IOW('U', 0x08, bool)
+};
+
+static int msm_cpe_lsm_ioctl_compat(struct snd_pcm_substream *substream,
+			 unsigned int cmd, void *arg)
+{
+	int err = 0;
+	struct snd_soc_pcm_runtime *rtd;
+	struct cpe_priv *cpe = NULL;
+	struct cpe_lsm_data *lsm_d = NULL;
+	struct cpe_lsm_session *session = NULL;
+	struct wcd_cpe_lsm_lab *lab_sess = NULL;
+	struct wcd_cpe_lsm_ops *lsm_ops;
+
+	if (!substream || !substream->private_data) {
+		pr_err("%s: invalid substream (%p)\n",
+			__func__, substream);
+		return -EINVAL;
+	}
+
+	rtd = substream->private_data;
+	lsm_d = cpe_get_lsm_data(substream);
+	cpe = cpe_get_private_data(substream);
+
+	if (!cpe || !cpe->core_handle) {
+		dev_err(rtd->dev,
+			"%s: Invalid private data\n",
+			__func__);
+		return -EINVAL;
+	}
+
+	if (!lsm_d || !lsm_d->lsm_session) {
+		dev_err(rtd->dev,
+			"%s: Invalid session data\n",
+			__func__);
+		return -EINVAL;
+	}
+
+	session = lsm_d->lsm_session;
+	lsm_ops = &cpe->lsm_ops;
+	lab_sess = &session->lab;
+
+	switch (cmd) {
+	case SNDRV_LSM_LAB_CONTROL32:
+		dev_dbg(rtd->dev,
+			"%s: ioctl %s\n", __func__,
+			"SNDRV_LSM_LAB_CONTROL32");
+
+		if (copy_from_user(&lab_sess->lab_enable, (void *)arg,
+				   sizeof(u32))) {
+			dev_err(rtd->dev,
+				"%s: copy_from_user failed, size %zd\n",
+				__func__, sizeof(bool));
+			return -EFAULT;
+		}
+		cmd = SNDRV_LSM_LAB_CONTROL;
+		err = msm_cpe_lsm_ioctl_shared(substream, cmd, arg);
+		if (err)
+			dev_err(rtd->dev,
+				"%s: %s failed, error = %d\n",
+				__func__, "SNDRV_LSM_LAB_CONTROL32",
+				err);
+		break;
+	case SNDRV_LSM_REG_SND_MODEL_V2_32: {
+		struct snd_lsm_sound_model_v2 snd_model;
+		struct snd_lsm_sound_model_v2_32 snd_model32;
+
+		dev_dbg(rtd->dev,
+			"%s: ioctl %s\n", __func__,
+			"SNDRV_LSM_REG_SND_MODEL_V2_32");
+
+		if (copy_from_user(&snd_model32, (void *)arg,
+				   sizeof(snd_model32))) {
+			dev_err(rtd->dev,
+				"%s: copy from user failed, size %zd\n",
+				__func__,
+				sizeof(snd_model32));
+			return -EFAULT;
+		}
+
+		snd_model.data = compat_ptr(snd_model32.data);
+		snd_model.confidence_level =
+			compat_ptr(snd_model32.confidence_level);
+		snd_model.data_size = snd_model32.data_size;
+		snd_model.detect_failure = snd_model32.detect_failure;
+		snd_model.num_confidence_levels =
+			snd_model32.num_confidence_levels;
+		snd_model.detection_mode = snd_model32.detection_mode;
+
+		cmd = SNDRV_LSM_REG_SND_MODEL_V2;
+		err = msm_cpe_lsm_ioctl_shared(substream, cmd, &snd_model);
+		if (err)
+			dev_err(rtd->dev,
+				"%s: %s failed, error = %d\n",
+				__func__,
+				"SNDRV_LSM_REG_SND_MODEL_V2_32",
+				err);
+	}
+		break;
+	case SNDRV_LSM_EVENT_STATUS32: {
+		struct snd_lsm_event_status *event_status = NULL;
+		struct snd_lsm_event_status u_event_status32;
+		struct snd_lsm_event_status *udata_32 = NULL;
+		int u_pld_size = 0;
+
+		dev_dbg(rtd->dev,
+			"%s: ioctl %s\n", __func__,
+			"SNDRV_LSM_EVENT_STATUS32");
+
+		if (copy_from_user(&u_event_status32, (void *)arg,
+				   sizeof(struct snd_lsm_event_status))) {
+			dev_err(rtd->dev,
+				"%s: event status copy from user failed, size %zd\n",
+				__func__,
+				sizeof(struct snd_lsm_event_status));
+			return -EFAULT;
+		}
+
+		u_pld_size = sizeof(struct snd_lsm_event_status) +
+				u_event_status32.payload_size;
+		event_status = kzalloc(u_pld_size, GFP_KERNEL);
+		if (!event_status) {
+			dev_err(rtd->dev,
+				"%s: No memory for event status\n",
+				__func__);
+			return -ENOMEM;
+		} else {
+			event_status->payload_size =
+				u_event_status32.payload_size;
+			cmd = SNDRV_LSM_EVENT_STATUS;
+			err = msm_cpe_lsm_ioctl_shared(substream,
+						       cmd, event_status);
+			if (err)
+				dev_err(rtd->dev,
+					"%s: %s failed, error = %d\n",
+					__func__,
+					"SNDRV_LSM_EVENT_STATUS32",
+					err);
+		}
+
+		if (!err) {
+			udata_32 = kzalloc(u_pld_size, GFP_KERNEL);
+			if (!udata_32) {
+				dev_err(rtd->dev,
+					"%s: nomem for udata\n",
+					__func__);
+				err = -EFAULT;
+			} else {
+				udata_32->status = event_status->status;
+				udata_32->payload_size =
+					event_status->payload_size;
+				memcpy(udata_32->payload,
+				       event_status->payload,
+				       u_pld_size);
+			}
+		}
+
+		if (!err  && copy_to_user(arg, udata_32,
+					  u_pld_size)) {
+			dev_err(rtd->dev,
+				"%s: copy to user failed\n",
+				__func__);
+			kfree(event_status);
+			kfree(udata_32);
+			return -EFAULT;
+		}
+
+		msm_cpe_lsm_lab_start(substream, event_status);
+		msm_cpe_process_event_status_done(lsm_d);
+		kfree(event_status);
+		kfree(udata_32);
+	}
+		break;
+
+	default:
+		err = msm_cpe_lsm_ioctl_shared(substream, cmd, arg);
+		break;
+	}
+	return err;
+}
+
+#else
+#define msm_cpe_lsm_ioctl_compat NULL
+#endif
 
 /*
  * msm_cpe_lsm_prepare: prepare call from ASoC core for this platform
@@ -1161,6 +1498,7 @@ static struct snd_pcm_ops msm_cpe_lsm_ops = {
 	.pointer = msm_cpe_lsm_pointer,
 	.copy = msm_cpe_lsm_copy,
 	.hw_params = msm_cpe_lsm_hwparams,
+	.compat_ioctl = msm_cpe_lsm_ioctl_compat,
 };
 
 static struct snd_soc_platform_driver msm_soc_cpe_platform = {
