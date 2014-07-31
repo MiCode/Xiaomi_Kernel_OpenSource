@@ -68,6 +68,7 @@
 #include "msmzirc-ipcrouter.dtsi"
 
 #include "msmzirc-coresight.dtsi"
+#include "msm-gdsc.dtsi"
 
 &soc {
 	#address-cells = <1>;
@@ -501,6 +502,16 @@
 			 <&clock_rpm clk_qdss_a_clk>;
 		clock-names = "core_clk", "core_a_clk";
 	};
+};
+
+&gdsc_pcie {
+	reg = <0x0185D044 0x4>;
+	status = "ok";
+};
+
+&gdsc_usb30 {
+	reg = <0x0185E078 0x4>;
+	status = "ok";
 };
 
 #include "msmzirc-regulator.dtsi"
