@@ -527,6 +527,36 @@ static void krait_pmu_reset(void *info)
 	armv7_pmnc_write(ARMV7_PMNC_P | ARMV7_PMNC_C);
 }
 
+#ifdef CONFIG_PERF_EVENTS_RESET_PMU_DEBUGFS
+static void (*l2_reset_pmu)(void);
+void msm_perf_register_l2_reset_callback(void (*reset_l2_pmu))
+{
+	if (reset_l2_pmu != NULL)
+		l2_reset_pmu = reset_l2_pmu;
+}
+
+static void krait_force_pmu_reset(void *info)
+{
+	/* krait specific reset */
+	krait_pmu_reset(info);
+	/* Reset column exclusion mask */
+	__get_cpu_var(pmu_bitmap) = 0;
+	/* Clear L2 PMU */
+	if (msm_perf_clear_l2_pmu && l2_reset_pmu) {
+		l2_reset_pmu();
+		msm_perf_clear_l2_pmu = 0;
+	}
+}
+#else
+static inline void krait_force_pmu_reset(void *info)
+{
+}
+
+inline void msm_perf_register_l2_reset_callback(void (*reset_l2_pmu))
+{
+}
+#endif
+
 /*
  * We check for column exclusion constraints here.
  * Two events cant have same reg and same group.
@@ -645,6 +675,7 @@ static int armv7_krait_pmu_init(struct arm_pmu *cpu_pmu)
 	cpu_pmu->start			= armv7pmu_start;
 	cpu_pmu->stop			= armv7pmu_stop;
 	cpu_pmu->reset			= krait_pmu_reset;
+	cpu_pmu->force_reset			= krait_force_pmu_reset;
 	cpu_pmu->test_set_event_constraints	= msm_test_set_ev_constraint;
 	cpu_pmu->clear_event_constraints	= msm_clear_ev_constraint;
 	cpu_pmu->save_pm_registers	= krait_save_pm_registers;

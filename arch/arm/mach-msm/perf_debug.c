@@ -46,6 +46,7 @@ static char *descriptions =
 	"21 Perf: Fix hrtimer operation across hotplug\n"
 	"22 Perf: add perf user-mode permissions\n"
 	"23 Perf: Add event type check in hrtimer hotplug fix\n"
+	"24 Perf: Add debugfs node to clear PMU\n"
 ;
 
 static ssize_t desc_read(struct file *fp, char __user *buf,

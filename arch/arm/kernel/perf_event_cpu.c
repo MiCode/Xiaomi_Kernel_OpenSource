@@ -27,6 +27,8 @@
 #include <linux/spinlock.h>
 #include <linux/cpu_pm.h>
 #include <linux/irq.h>
+#include <linux/uaccess.h>
+#include <linux/debugfs.h>
 
 #include <asm/cputype.h>
 #include <asm/irq_regs.h>
@@ -40,6 +42,9 @@ static DEFINE_PER_CPU(struct perf_event * [ARMPMU_MAX_HWEVENTS], hw_events);
 static DEFINE_PER_CPU(unsigned long [BITS_TO_LONGS(ARMPMU_MAX_HWEVENTS)], used_mask);
 static DEFINE_PER_CPU(struct pmu_hw_events, cpu_hw_events);
 static DEFINE_PER_CPU(void *, pmu_irq_cookie);
+#ifdef CONFIG_PERF_EVENTS_RESET_PMU_DEBUGFS
+static u32 msm_perf_clear_l2_pmu;
+#endif
 
 /*
  * Despite the names, these two functions are CPU-specific and are used
@@ -567,4 +572,57 @@ err_cpu_pm:
 	unregister_cpu_notifier(&cpu_pmu_hotplug_notifier);
 	return err;
 }
+
+#ifdef CONFIG_PERF_EVENTS_RESET_PMU_DEBUGFS
+static void reset_pmu_force(void)
+{
+	int cpu;
+
+	if (cpu_pmu && cpu_pmu->plat_device) {
+		cpu_pmu_free_irq(cpu_pmu);
+		if (cpu_pmu->force_reset) {
+			msm_perf_clear_l2_pmu = 1;
+			on_each_cpu(cpu_pmu->force_reset, cpu_pmu, 1);
+		}
+		for_each_possible_cpu(cpu) {
+			memset(per_cpu(used_mask, cpu), 0,
+				sizeof(per_cpu(used_mask, cpu)));
+		}
+	}
+}
+
+static int write_enabled_perfpmu_action(void *data, u64 val)
+{
+	if (val != 0)
+		reset_pmu_force();
+	return 0;
+}
+
+DEFINE_SIMPLE_ATTRIBUTE(fops_pmuaction,
+		NULL, write_enabled_perfpmu_action, "%llu\n");
+
+int __init init_pmu_actions(void)
+{
+	struct dentry *dir;
+	struct dentry *file;
+	unsigned int value = 1;
+
+	dir = debugfs_create_dir("msm_perf", NULL);
+	if (!dir)
+		return -ENOMEM;
+	file = debugfs_create_file("resetpmu", 0220, dir,
+		&value, &fops_pmuaction);
+	if (!file) {
+		debugfs_remove(dir);
+		return -ENOMEM;
+	}
+	return 0;
+}
+#else
+int __init init_pmu_actions(void)
+{
+	return 0;
+}
+#endif
 device_initcall(register_pmu_driver);
+late_initcall(init_pmu_actions);

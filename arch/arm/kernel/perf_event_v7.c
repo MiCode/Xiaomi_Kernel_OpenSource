@@ -1204,6 +1204,18 @@ static void armv7pmu_reset(void *info)
 	armv7pmu_init_usermode();
 }
 
+#ifdef CONFIG_PERF_EVENTS_RESET_PMU_DEBUGFS
+static void armv7_force_pmu_reset(void *info)
+{
+	/* simply use armv7 reset, nothing else to do here */
+	armv7pmu_reset(info);
+}
+#else
+static inline void armv7_force_pmu_reset(void *info)
+{
+}
+#endif
+
 static int armv7_a8_map_event(struct perf_event *event)
 {
 	return armpmu_map_event(event, &armv7_a8_perf_map,
@@ -1268,6 +1280,7 @@ static void armv7pmu_init(struct arm_pmu *cpu_pmu)
 	cpu_pmu->start		= armv7pmu_start;
 	cpu_pmu->stop		= armv7pmu_stop;
 	cpu_pmu->reset		= armv7pmu_reset;
+	cpu_pmu->force_reset			= armv7_force_pmu_reset;
 	cpu_pmu->max_period	= (1LLU << 32) - 1;
 	cpu_pmu->save_pm_registers	= armv7pmu_save_pm_registers;
 	cpu_pmu->restore_pm_registers	= armv7pmu_restore_pm_registers;
