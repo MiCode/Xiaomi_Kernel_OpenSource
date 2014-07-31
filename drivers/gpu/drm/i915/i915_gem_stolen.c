@@ -496,7 +496,7 @@ i915_gem_object_move_to_stolen(struct drm_i915_gem_object *obj)
 	u32 size = obj->base.size;
 	int ret = 0;
 
-	if (!IS_VALLEYVIEW(dev))
+	if (!IS_VALLEYVIEW(dev) || IS_CHERRYVIEW(dev))
 		return;
 
 	if (obj->stolen) {
