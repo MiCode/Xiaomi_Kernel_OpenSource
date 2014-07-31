@@ -666,17 +666,19 @@ static int check_wr_packing_statistics(struct test_data *td)
 {
 	struct mmc_wr_pack_stats *mmc_packed_stats;
 	struct mmc_queue *mq = td->req_q->queuedata;
-	int max_packed_reqs = mq->card->ext_csd.max_packed_writes;
+	int max_packed_reqs;
 	int i;
-	struct mmc_card *card = mq->card;
+	struct mmc_card *card;
 	struct mmc_wr_pack_stats expected_stats;
 	int *stop_reason;
 	int ret = 0;
 
-	if (!mq) {
-		pr_err("%s: NULL mq", __func__);
+	if (!mq || !mq->card) {
+		pr_err("%s: mq or mq->card are NULL", __func__);
 		return -EINVAL;
 	}
+	max_packed_reqs = mq->card->ext_csd.max_packed_writes;
+	card = mq->card;
 
 	expected_stats = mbtd->exp_packed_stats;
 
@@ -1210,9 +1212,15 @@ static int prepare_partial_followed_by_abort(struct test_data *td,
 	int i, start_address;
 	int is_err_expected = 0;
 	int ret = 0;
-	struct mmc_queue *mq = test_iosched_get_req_queue()->queuedata;
+	struct request_queue *q = test_iosched_get_req_queue();
+	struct mmc_queue *mq;
 	int max_packed_reqs;
 
+	if (!q) {
+		pr_err("%s: NULL q", __func__);
+		return -EINVAL;
+	}
+	mq = q->queuedata;
 	if (!mq) {
 		pr_err("%s: NULL mq", __func__);
 		return -EINVAL;
@@ -1373,17 +1381,27 @@ static int prepare_long_read_test_requests(struct test_data *td)
  */
 static int prepare_test(struct test_data *td)
 {
-	struct mmc_queue *mq = test_iosched_get_req_queue()->queuedata;
+	struct request_queue *q;
+	struct mmc_queue *mq;
 	int max_num_requests;
 	int num_requests = 0;
 	int ret = 0;
 	int is_random = mbtd->is_random;
-	int test_packed_trigger = mq->num_wr_reqs_to_start_packing;
+	int test_packed_trigger;
 
+	q = test_iosched_get_req_queue();
+	if (!q) {
+		pr_err("%s: q is NULL", __func__);
+		return -EINVAL;
+	}
+
+	mq = q->queuedata;
 	if (!mq) {
 		pr_err("%s: NULL mq", __func__);
 		return -EINVAL;
 	}
+
+	test_packed_trigger = mq->num_wr_reqs_to_start_packing;
 
 	max_num_requests = mq->card->ext_csd.max_packed_writes;
 
@@ -2478,11 +2496,26 @@ static ssize_t write_packing_control_test_write(struct file *file,
 	int i = 0;
 	int number = -1;
 	int j = 0;
-	struct mmc_queue *mq = test_iosched_get_req_queue()->queuedata;
-	int max_num_requests = mq->card->ext_csd.max_packed_writes;
+	struct request_queue *q;
+	struct mmc_queue *mq;
+	int max_num_requests;
 	int test_successful = 1;
 
 	pr_info("%s: -- write_packing_control TEST --", __func__);
+
+	q = test_iosched_get_req_queue();
+	if (!q) {
+		pr_err("%s: q is NULL", __func__);
+		return -EINVAL;
+	}
+
+	mq = q->queuedata;
+	if (!mq) {
+		pr_err("%s: NULL mq", __func__);
+		return -EINVAL;
+	}
+
+	max_num_requests = mq->card->ext_csd.max_packed_writes;
 
 	sscanf(buf, "%d", &number);
 
