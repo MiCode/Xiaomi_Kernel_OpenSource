@@ -26,7 +26,7 @@
 
 static struct dsi_clk_desc dsi_pclk;
 
-void mdss_dsi_phy_sw_reset(unsigned char *ctrl_base)
+static void mdss_dsi_phy_sw_reset(unsigned char *ctrl_base)
 {
 	/* start phy sw reset */
 	MIPI_OUTP(ctrl_base + 0x12c, 0x0001);
@@ -81,15 +81,13 @@ void mdss_dsi_phy_disable(struct mdss_dsi_ctrl_pdata *ctrl)
 	wmb();
 }
 
-static void mdss_dsi_phy_init(struct mdss_panel_data *pdata)
+static void mdss_dsi_28nm_phy_init(struct mdss_dsi_ctrl_pdata *ctrl_pdata)
 {
 	struct mdss_dsi_phy_ctrl *pd;
 	int i, off, ln, offset;
-	struct mdss_dsi_ctrl_pdata *ctrl_pdata = NULL, *temp_ctrl = NULL;
+	struct mdss_dsi_ctrl_pdata *temp_ctrl = NULL;
 	u32 ctrl_rev;
 
-	ctrl_pdata = container_of(pdata, struct mdss_dsi_ctrl_pdata,
-				panel_data);
 	if (!ctrl_pdata) {
 		pr_err("%s: Invalid input data\n", __func__);
 		return;
@@ -192,14 +190,12 @@ static void mdss_dsi_phy_init(struct mdss_panel_data *pdata)
 
 }
 
-static void mdss_dsi_20nm_phy_init(struct mdss_panel_data *pdata)
+static void mdss_dsi_20nm_phy_init(struct mdss_dsi_ctrl_pdata *ctrl_pdata)
 {
 	struct mdss_dsi_phy_ctrl *pd;
 	int i, off, ln, offset;
-	struct mdss_dsi_ctrl_pdata *ctrl_pdata = NULL, *temp_ctrl = NULL;
+	struct mdss_dsi_ctrl_pdata *temp_ctrl = NULL;
 
-	ctrl_pdata = container_of(pdata, struct mdss_dsi_ctrl_pdata,
-				panel_data);
 	if (!ctrl_pdata) {
 		pr_err("%s: Invalid input data\n", __func__);
 		return;
@@ -315,6 +311,22 @@ static void mdss_dsi_20nm_phy_init(struct mdss_panel_data *pdata)
 		off += 4;
 	}
 
+}
+
+static void mdss_dsi_phy_init(struct mdss_dsi_ctrl_pdata *ctrl)
+{
+	u32 ctrl_rev;
+
+	if (!ctrl) {
+		pr_err("%s: Invalid input data\n", __func__);
+		return;
+	}
+
+	ctrl_rev = MIPI_INP(ctrl->ctrl_base);
+	if (ctrl_rev == MDSS_DSI_HW_REV_103)
+		mdss_dsi_20nm_phy_init(ctrl);
+	else
+		mdss_dsi_28nm_phy_init(ctrl);
 }
 
 int mdss_dsi_clk_init(struct platform_device *pdev,
@@ -1032,7 +1044,6 @@ static int mdss_dsi_core_power_ctrl(struct mdss_dsi_ctrl_pdata *ctrl,
 {
 	int rc = 0;
 	struct mdss_panel_data *pdata = NULL;
-	u32 ctrl_rev;
 
 	if (!ctrl) {
 		pr_err("%s: invalid input\n", __func__);
@@ -1075,14 +1086,8 @@ static int mdss_dsi_core_power_ctrl(struct mdss_dsi_ctrl_pdata *ctrl,
 		 */
 		if (pdata->panel_info.blank_state == MDSS_PANEL_BLANK_BLANK)
 			mdss_dsi_phy_sw_reset(ctrl->ctrl_base);
-		ctrl_rev = MIPI_INP(ctrl->ctrl_base);
-		if (ctrl_rev == MDSS_DSI_HW_REV_103)
-			mdss_dsi_20nm_phy_init(pdata);
-		else
-			mdss_dsi_phy_init(pdata);
-
-		mdss_dsi_ctrl_setup(pdata);
-		mdss_dsi_reset(ctrl);
+		mdss_dsi_phy_init(ctrl);
+		mdss_dsi_ctrl_setup(ctrl);
 
 		if (ctrl->ulps) {
 			/*

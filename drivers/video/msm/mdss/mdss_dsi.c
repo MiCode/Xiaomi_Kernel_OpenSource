@@ -504,103 +504,6 @@ end:
 	return ret;
 }
 
-void mdss_dsi_ctrl_setup(struct mdss_panel_data *pdata)
-{
-	struct mdss_dsi_ctrl_pdata *ctrl_pdata = NULL;
-	struct mdss_panel_info *pinfo;
-	struct mipi_panel_info *mipi;
-	u32 clk_rate;
-	u32 hbp, hfp, vbp, vfp, hspw, vspw, width, height;
-	u32 ystride, bpp, data, dst_bpp;
-	u32 dummy_xres = 0, dummy_yres = 0;
-	u32 hsync_period, vsync_period;
-
-	ctrl_pdata = container_of(pdata, struct mdss_dsi_ctrl_pdata,
-				panel_data);
-
-	pinfo = &pdata->panel_info;
-
-	clk_rate = pdata->panel_info.clk_rate;
-	clk_rate = min(clk_rate, pdata->panel_info.clk_max);
-
-	dst_bpp = pdata->panel_info.fbc.enabled ?
-		(pdata->panel_info.fbc.target_bpp) : (pinfo->bpp);
-
-	hbp = mult_frac(pdata->panel_info.lcdc.h_back_porch, dst_bpp,
-			pdata->panel_info.bpp);
-	hfp = mult_frac(pdata->panel_info.lcdc.h_front_porch, dst_bpp,
-			pdata->panel_info.bpp);
-	vbp = mult_frac(pdata->panel_info.lcdc.v_back_porch, dst_bpp,
-			pdata->panel_info.bpp);
-	vfp = mult_frac(pdata->panel_info.lcdc.v_front_porch, dst_bpp,
-			pdata->panel_info.bpp);
-	hspw = mult_frac(pdata->panel_info.lcdc.h_pulse_width, dst_bpp,
-			pdata->panel_info.bpp);
-	vspw = pdata->panel_info.lcdc.v_pulse_width;
-	width = mult_frac(pdata->panel_info.xres, dst_bpp,
-			pdata->panel_info.bpp);
-	height = pdata->panel_info.yres;
-
-	if (pdata->panel_info.type == MIPI_VIDEO_PANEL) {
-		dummy_xres = pdata->panel_info.lcdc.xres_pad;
-		dummy_yres = pdata->panel_info.lcdc.yres_pad;
-	}
-
-	vsync_period = vspw + vbp + height + dummy_yres + vfp;
-	hsync_period = hspw + hbp + width + dummy_xres + hfp;
-
-	mipi = &pdata->panel_info.mipi;
-	if (pdata->panel_info.type == MIPI_VIDEO_PANEL) {
-		MIPI_OUTP((ctrl_pdata->ctrl_base) + 0x24,
-			((hspw + hbp + width + dummy_xres) << 16 |
-			(hspw + hbp)));
-		MIPI_OUTP((ctrl_pdata->ctrl_base) + 0x28,
-			((vspw + vbp + height + dummy_yres) << 16 |
-			(vspw + vbp)));
-		MIPI_OUTP((ctrl_pdata->ctrl_base) + 0x2C,
-				((vsync_period - 1) << 16)
-				| (hsync_period - 1));
-
-		MIPI_OUTP((ctrl_pdata->ctrl_base) + 0x30, (hspw << 16));
-		MIPI_OUTP((ctrl_pdata->ctrl_base) + 0x34, 0);
-		MIPI_OUTP((ctrl_pdata->ctrl_base) + 0x38, (vspw << 16));
-
-	} else {		/* command mode */
-		if (mipi->dst_format == DSI_CMD_DST_FORMAT_RGB888)
-			bpp = 3;
-		else if (mipi->dst_format == DSI_CMD_DST_FORMAT_RGB666)
-			bpp = 3;
-		else if (mipi->dst_format == DSI_CMD_DST_FORMAT_RGB565)
-			bpp = 2;
-		else
-			bpp = 3;	/* Default format set to RGB888 */
-
-		ystride = width * bpp + 1;
-
-		/* DSI_COMMAND_MODE_MDP_STREAM_CTRL */
-		data = (ystride << 16) | (mipi->vc << 8) | DTYPE_DCS_LWRITE;
-		MIPI_OUTP((ctrl_pdata->ctrl_base) + 0x60, data);
-		MIPI_OUTP((ctrl_pdata->ctrl_base) + 0x58, data);
-
-		/* DSI_COMMAND_MODE_MDP_STREAM_TOTAL */
-		data = height << 16 | width;
-		MIPI_OUTP((ctrl_pdata->ctrl_base) + 0x64, data);
-		MIPI_OUTP((ctrl_pdata->ctrl_base) + 0x5C, data);
-	}
-}
-
-void mdss_dsi_reset(struct mdss_dsi_ctrl_pdata *ctrl)
-{
-	struct mdss_panel_data *pdata = &ctrl->panel_data;
-
-	pr_debug("%s: called for ctrl%d\n", __func__, ctrl->ndx);
-
-	/* DSI controller reset and init */
-	mdss_dsi_sw_reset(pdata);
-	mdss_dsi_host_init(pdata);
-	mdss_dsi_op_mode_config(pdata->panel_info.mipi.mode, pdata);
-}
-
 static int mdss_dsi_update_panel_config(struct mdss_dsi_ctrl_pdata *ctrl_pdata,
 				int mode)
 {
@@ -672,6 +575,7 @@ int mdss_dsi_on(struct mdss_panel_data *pdata)
 	 * DSI phy
 	 */
 	mdss_dsi_clk_ctrl(ctrl_pdata, DSI_ALL_CLKS, 1);
+	mdss_dsi_sw_reset(ctrl_pdata, true);
 
 	/*
 	 * Issue hardware reset line after enabling the DSI clocks and data
@@ -835,7 +739,7 @@ static int mdss_dsi_blank(struct mdss_panel_data *pdata, int power_state)
 
 	if (pdata->panel_info.type == MIPI_VIDEO_PANEL &&
 			ctrl_pdata->off_cmds.link_state == DSI_LP_MODE) {
-		mdss_dsi_sw_reset(pdata);
+		mdss_dsi_sw_reset(ctrl_pdata, false);
 		mdss_dsi_host_init(pdata);
 	}
 
@@ -897,7 +801,8 @@ int mdss_dsi_cont_splash_on(struct mdss_panel_data *pdata)
 	WARN((ctrl_pdata->ctrl_state & CTRL_STATE_PANEL_INIT),
 		"Incorrect Ctrl state=0x%x\n", ctrl_pdata->ctrl_state);
 
-	mdss_dsi_reset(ctrl_pdata);
+	mdss_dsi_ctrl_setup(ctrl_pdata);
+	mdss_dsi_sw_reset(ctrl_pdata, true);
 	pr_debug("%s-:End\n", __func__);
 	return ret;
 }
