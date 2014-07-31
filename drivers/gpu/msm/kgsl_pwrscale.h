@@ -28,7 +28,8 @@ struct kgsl_power_stats {
 
 struct kgsl_pwrscale {
 	struct devfreq *devfreqptr;
-	struct msm_adreno_extended_profile ext_profile;
+	struct msm_adreno_extended_profile gpu_profile;
+	struct msm_busmon_extended_profile bus_profile;
 	unsigned int freq_table[KGSL_MAX_PWRLEVELS];
 	char last_governor[DEVFREQ_NAME_LEN];
 	struct kgsl_power_stats accum_stats;
@@ -59,14 +60,25 @@ int kgsl_devfreq_target(struct device *dev, unsigned long *freq, u32 flags);
 int kgsl_devfreq_get_dev_status(struct device *, struct devfreq_dev_status *);
 int kgsl_devfreq_get_cur_freq(struct device *dev, unsigned long *freq);
 
+int kgsl_busmon_target(struct device *dev, unsigned long *freq, u32 flags);
+int kgsl_busmon_get_dev_status(struct device *, struct devfreq_dev_status *);
+int kgsl_busmon_get_cur_freq(struct device *dev, unsigned long *freq);
+
+
 #define KGSL_PWRSCALE_INIT(_priv_data) { \
 	.enabled = true, \
-	.ext_profile = { \
+	.gpu_profile = { \
 		.private_data = _priv_data, \
 		.profile = { \
 			.target = kgsl_devfreq_target, \
 			.get_dev_status = kgsl_devfreq_get_dev_status, \
 			.get_cur_freq = kgsl_devfreq_get_cur_freq, \
+	} }, \
+	.bus_profile = { \
+		.private_data = _priv_data, \
+		.profile = { \
+			.target = kgsl_busmon_target, \
+			.get_dev_status = kgsl_busmon_get_dev_status, \
+			.get_cur_freq = kgsl_busmon_get_cur_freq, \
 	} } }
-
 #endif

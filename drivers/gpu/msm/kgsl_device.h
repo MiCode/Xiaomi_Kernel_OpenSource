@@ -371,6 +371,8 @@ struct kgsl_device {
 	int reset_counter; /* Track how many GPU core resets have occured */
 	int cff_dump_enable;
 	struct workqueue_struct *events_wq;
+
+	struct device *busmondev; /* pseudo dev for GPU BW voting governor */
 };
 
 

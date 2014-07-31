@@ -3071,6 +3071,47 @@ static void __exit kgsl_3d_exit(void)
 module_init(kgsl_3d_init);
 module_exit(kgsl_3d_exit);
 
+
+static struct of_device_id busmon_match_table[] = {
+	{ .compatible = "qcom,kgsl-busmon", .data = &device_3d0 },
+	{}
+};
+
+static int kgsl_busmon_probe(struct platform_device *pdev)
+{
+	struct kgsl_device *device;
+	const struct of_device_id *pdid =
+			of_match_device(busmon_match_table, &pdev->dev);
+
+	device = (struct kgsl_device *)pdid->data;
+	device->busmondev = &pdev->dev;
+	dev_set_drvdata(device->busmondev, device);
+
+	return 0;
+}
+
+static struct platform_driver kgsl_bus_platform_driver = {
+	.probe = kgsl_busmon_probe,
+	.driver = {
+		.owner = THIS_MODULE,
+		.name = "kgsl-busmon",
+	.of_match_table = busmon_match_table,
+	}
+};
+
+static int __init kgsl_busmon_init(void)
+{
+	return platform_driver_register(&kgsl_bus_platform_driver);
+}
+
+static void __exit kgsl_busmon_exit(void)
+{
+	platform_driver_unregister(&kgsl_bus_platform_driver);
+}
+
+module_init(kgsl_busmon_init);
+module_exit(kgsl_busmon_exit);
+
 MODULE_DESCRIPTION("3D Graphics driver");
 MODULE_VERSION("1.2");
 MODULE_LICENSE("GPL v2");
