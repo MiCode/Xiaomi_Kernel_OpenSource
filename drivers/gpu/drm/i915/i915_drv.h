@@ -526,6 +526,12 @@ struct intel_uncore {
 	struct timer_list force_wake_timer;
 };
 
+struct i915_rpm {
+	/* procfs related */
+	struct proc_dir_entry *i915_proc_dir;
+	struct proc_dir_entry *i915_proc_file;
+};
+
 #define DEV_INFO_FOR_EACH_FLAG(func, sep) \
 	func(is_mobile) sep \
 	func(is_i85x) sep \
@@ -1441,6 +1447,8 @@ struct drm_i915_private {
 	void __iomem *regs;
 
 	struct intel_uncore uncore;
+
+	struct i915_rpm rpm;
 
 	struct intel_gmbus gmbus[GMBUS_NUM_PORTS];
 
@@ -2975,6 +2983,11 @@ timespec_to_jiffies_timeout(const struct timespec *value)
 
 	return min_t(unsigned long, MAX_JIFFY_OFFSET, j + 1);
 }
+
+int i915_setup_rpm_procfs(struct drm_device *drm_dev);
+int i915_teardown_rpm_procfs(struct drm_device *drm_dev);
+int i915_rpm_get_procfs(struct inode *inode, struct file *file);
+int i915_rpm_put_procfs(struct inode *inode, struct file *file);
 
 /*
  * If you need to wait X milliseconds between events A and B, but event B

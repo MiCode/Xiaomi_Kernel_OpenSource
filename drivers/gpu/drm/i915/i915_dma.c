@@ -1767,6 +1767,10 @@ int i915_driver_load(struct drm_device *dev, unsigned long flags)
 	}
 
 	i915_setup_sysfs(dev);
+	ret = i915_setup_rpm_procfs(dev);
+	if (ret)
+		DRM_ERROR("Unable to initialize rpm procfs entry");
+
 	dev_priv->is_first_modeset = true;
 
 	if (IS_VALLEYVIEW(dev))
@@ -1838,6 +1842,7 @@ int i915_driver_unload(struct drm_device *dev)
 	intel_power_domains_remove(dev_priv);
 
 	i915_teardown_sysfs(dev);
+	i915_teardown_rpm_procfs(dev);
 
 	WARN_ON(unregister_oom_notifier(&dev_priv->mm.oom_notifier));
 	unregister_shrinker(&dev_priv->mm.shrinker);

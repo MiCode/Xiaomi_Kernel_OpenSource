@@ -33,9 +33,22 @@
 #include <linux/vgaarb.h>
 #include <drm/i915_powerwell.h>
 #include <linux/pm_runtime.h>
+#include <linux/proc_fs.h>  /* Needed for procfs access */
+#include <linux/fs.h>      /* For the basic file system */
+#include <linux/kernel.h>
 
 static void gen6_disable_rps_interrupts(struct drm_device *dev);
 static void gen6_enable_rps_interrupts(struct drm_device *dev);
+
+#define RPM_PROC_ENTRY_FILENAME     "i915_rpm_op"
+#define RPM_PROC_ENTRY_DIRECTORY        "driver/i915rpm"
+
+/* proc file operations supported */
+static const struct file_operations rpm_file_ops = {
+	.owner      = THIS_MODULE,
+	.open       = i915_rpm_get_procfs,
+	.release    = i915_rpm_put_procfs,
+};
 
 /**
  * RC6 is a special power stage which allows the GPU to enter an very
@@ -7310,6 +7323,82 @@ void program_pfi_credits(struct drm_i915_private *dev_priv, bool flag)
 		I915_WRITE(GCI_CONTROL, 0x78004000);
 	} else
 		DRM_ERROR("cd clk < cz clk");
+}
+
+/*
+ * These operations are caled from user mode (CoreU) to make sure
+ * Gfx is up before register accesses from user mode
+ */
+int i915_rpm_get_procfs(struct inode *inode, struct file *file)
+{
+	struct drm_device *dev = PDE_DATA(inode);
+
+	intel_runtime_pm_get(dev->dev_private);
+
+	return 0;
+}
+
+int i915_rpm_put_procfs(struct inode *inode, struct file *file)
+{
+	struct drm_device *dev = PDE_DATA(inode);
+
+	intel_runtime_pm_put(dev->dev_private);
+
+	return 0;
+}
+
+int i915_setup_rpm_procfs(struct drm_device *drm_dev)
+{
+	struct drm_i915_private *dev_priv = drm_dev->dev_private;
+	dev_priv->rpm.i915_proc_dir = NULL;
+	dev_priv->rpm.i915_proc_file = NULL;
+
+	/**
+	 * Create directory for rpm file(s)
+	 */
+	dev_priv->rpm.i915_proc_dir = proc_mkdir(RPM_PROC_ENTRY_DIRECTORY,
+						 NULL);
+	if (dev_priv->rpm.i915_proc_dir == NULL) {
+		DRM_ERROR("Could not initialize %s\n",
+				RPM_PROC_ENTRY_DIRECTORY);
+		return -ENOMEM;
+	}
+
+	/**
+	 * Create the /proc file
+	 */
+	dev_priv->rpm.i915_proc_file = proc_create_data(
+						RPM_PROC_ENTRY_FILENAME,
+						S_IRUGO | S_IWUSR,
+						dev_priv->rpm.i915_proc_dir,
+						&rpm_file_ops,
+						drm_dev);
+
+	/* check if file is created successfuly */
+	if (dev_priv->rpm.i915_proc_file == NULL) {
+		DRM_ERROR("Could not initialize %s/%s\n",
+			RPM_PROC_ENTRY_DIRECTORY, RPM_PROC_ENTRY_FILENAME);
+		return -ENOMEM;
+	}
+
+	return 0;
+}
+
+int i915_teardown_rpm_procfs(struct drm_device *drm_dev)
+{
+	struct drm_i915_private *dev_priv = drm_dev->dev_private;
+
+	/* Clean up proc file */
+	if (dev_priv->rpm.i915_proc_file) {
+		remove_proc_entry(RPM_PROC_ENTRY_FILENAME,
+				 dev_priv->rpm.i915_proc_dir);
+		dev_priv->rpm.i915_proc_file = NULL;
+	}
+	if (dev_priv->rpm.i915_proc_dir) {
+		remove_proc_entry(RPM_PROC_ENTRY_DIRECTORY, NULL);
+		dev_priv->rpm.i915_proc_dir = NULL;
+	}
+	return 0;
 }
 
 void intel_pm_setup(struct drm_device *dev)
