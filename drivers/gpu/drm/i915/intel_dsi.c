@@ -659,6 +659,7 @@ intel_dsi_detect(struct drm_connector *connector, bool force)
 static int intel_dsi_get_modes(struct drm_connector *connector)
 {
 	struct intel_connector *intel_connector = to_intel_connector(connector);
+	struct intel_dsi *intel_dsi = intel_attached_dsi(connector);
 	struct drm_display_mode *mode;
 
 	DRM_DEBUG_KMS("\n");
@@ -676,6 +677,9 @@ static int intel_dsi_get_modes(struct drm_connector *connector)
 	}
 
 	drm_mode_probed_add(connector, mode);
+
+	/*Fill the panel info here*/
+	intel_dsi->dev.dev_ops->get_info(0, connector);
 	return 1;
 }
 

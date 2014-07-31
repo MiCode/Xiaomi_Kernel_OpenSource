@@ -231,6 +231,23 @@ static void generic_exec_sequence(struct intel_dsi *intel_dsi, char *sequence)
 	}
 }
 
+static void generic_get_panel_info(int pipe, struct drm_connector *connector)
+{
+	struct intel_connector *intel_connector = to_intel_connector(connector);
+	DRM_DEBUG_KMS("\n");
+	if (!connector)
+		return;
+
+	if (pipe == 0) {
+		connector->display_info.width_mm =
+			intel_connector->panel.fixed_mode->width_mm;
+		connector->display_info.height_mm =
+			intel_connector->panel.fixed_mode->height_mm;
+	}
+
+	return;
+}
+
 static bool generic_init(struct intel_dsi_device *dsi)
 {
 	struct intel_dsi *intel_dsi = container_of(dsi, struct intel_dsi, dev);
@@ -550,6 +567,7 @@ static void generic_destroy(struct intel_dsi_device *dsi) { }
 /* Callbacks. We might not need them all. */
 struct intel_dsi_dev_ops vbt_generic_dsi_display_ops = {
 	.init = generic_init,
+	.get_info = generic_get_panel_info,
 	.mode_valid = generic_mode_valid,
 	.mode_fixup = generic_mode_fixup,
 	.panel_reset = generic_panel_reset,

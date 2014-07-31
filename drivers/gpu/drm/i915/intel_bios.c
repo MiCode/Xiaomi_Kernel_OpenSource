@@ -101,6 +101,10 @@ fill_detail_timing_data(struct drm_display_mode *panel_fixed_mode,
 		((dvo_timing->vblank_hi << 8) | dvo_timing->vblank_lo);
 	panel_fixed_mode->clock = dvo_timing->clock * 10;
 	panel_fixed_mode->type = DRM_MODE_TYPE_PREFERRED;
+	panel_fixed_mode->width_mm = dvo_timing->h_image |
+		((dvo_timing->max_hv & 15) << 8);
+	panel_fixed_mode->height_mm = dvo_timing->v_image |
+		((dvo_timing->max_hv >> 4) << 8);
 
 	if (dvo_timing->hsync_positive)
 		panel_fixed_mode->flags |= DRM_MODE_FLAG_PHSYNC;

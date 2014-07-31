@@ -70,6 +70,8 @@ struct intel_dsi_device {
 struct intel_dsi_dev_ops {
 	bool (*init)(struct intel_dsi_device *dsi);
 
+	void (*get_info)(int pipe, struct drm_connector *connector);
+
 	void (*panel_reset)(struct intel_dsi_device *dsi);
 
 	void (*disable_panel_power)(struct intel_dsi_device *dsi);
