@@ -157,6 +157,10 @@ Optional Properties:
 				This should be a flat array that denotates the
 				maximum charge current in mA for each thermal
 				level.
+- qcom,rparasitics-uohm:	The parasitic resistance of the board following
+				the line from the battery connectors through
+				vph_power. This is used to calculate maximum
+				available current of the battery.
 - qcom,soft-vfloat-comp-disabled	Set this property when the battery is
 					powered via external source and could
 					go above the float voltage.
