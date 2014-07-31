@@ -203,4 +203,9 @@
 		regulator-name = "ethernet_phy";
 		regulator-always-on;
 	};
+
+	codec_buck_vreg: codec_buck_vreg {
+		compatible = "regulator-fixed";
+		regulator-name = "codec_2.15v";
+	};
 };
