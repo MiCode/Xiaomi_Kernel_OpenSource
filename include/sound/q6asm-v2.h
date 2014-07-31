@@ -182,6 +182,7 @@ struct audio_client {
 	wait_queue_head_t      mem_wait;
 	int                    perf_mode;
 	int					   stream_id;
+	struct device *dev;
 	/* audio cache operations fptr*/
 	int (*fptr_cache_ops)(struct audio_buffer *abuff, int cache_op);
 	atomic_t               unmap_cb_success;
