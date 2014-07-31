@@ -87,6 +87,8 @@ extern void cnss_flush_work(void *work);
 extern void cnss_flush_delayed_work(void *dwork);
 extern void cnss_get_monotonic_boottime(struct timespec *ts);
 extern void cnss_get_boottime(struct timespec *ts);
+extern void cnss_init_work(struct work_struct *work, work_func_t func);
+extern void cnss_init_delayed_work(struct delayed_work *work, work_func_t func);
 extern int cnss_request_bus_bandwidth(int bandwidth);
 
 extern void cnss_pm_wake_lock_init(struct wakeup_source *ws, const char *name);
