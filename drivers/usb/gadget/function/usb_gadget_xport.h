@@ -106,6 +106,8 @@ enum gadget_type {
 	+ NUM_DUN_HSUART_PORTS)
 #define DPL_QTI_CTRL_PORT_NO 4
 
+#define DPL_QTI_CTRL_PORT_NO 4
+
 int ghsic_ctrl_connect(void *, int);
 void ghsic_ctrl_disconnect(void *, int);
 int ghsic_ctrl_setup(unsigned int, enum gadget_type);

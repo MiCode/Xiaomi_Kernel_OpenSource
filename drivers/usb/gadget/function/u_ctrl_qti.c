@@ -20,10 +20,17 @@
 #include "usb_gadget_xport.h"
 
 #define RMNET_CTRL_QTI_NAME "rmnet_ctrl"
+#define DPL_CTRL_QTI_NAME "dpl_ctrl"
+/*
+ * Use size of gadget's qti control name. Here currently RMNET and DPL
+ * gadget is using QTI as control transport. Hence using RMNET ctrl name
+ * (as it is bigger in size) for QTI_CTRL_NAME_LEN.
+ */
+#define QTI_CTRL_NAME_LEN (sizeof(RMNET_CTRL_QTI_NAME)+2)
 
 struct qti_ctrl_port {
 	void		*port_usb;
-	char		name[sizeof(RMNET_CTRL_QTI_NAME) + 2];
+	char		name[QTI_CTRL_NAME_LEN];
 	struct miscdevice ctrl_device;
 
 	bool		is_open;
@@ -122,8 +129,8 @@ static int gqti_ctrl_send_cpkt_tomodem(u8 portno, void *buf, size_t len)
 	memcpy(cpkt->buf, buf, len);
 	cpkt->len = len;
 
-	pr_debug("%s: Add to cpkt_req_q packet with len = %zu\n",
-			__func__, len);
+	pr_debug("%s: gtype:%d: Add to cpkt_req_q packet with len = %zu\n",
+			__func__, port->gtype, len);
 	spin_lock_irqsave(&port->lock, flags);
 
 	/* drop cpkt if port is not open */
@@ -168,31 +175,23 @@ int gqti_ctrl_connect(void *gr, u8 port_num, unsigned intf,
 {
 	struct qti_ctrl_port	*port;
 	struct grmnet *g_rmnet = NULL;
+	struct gqdss *g_dpl = NULL;
 	unsigned long flags;
 
-	pr_debug("%s: grmnet:%p\n", __func__, gr);
+	pr_debug("%s: gtype:%d gadget:%p\n", __func__, gtype, gr);
 	if (port_num >= NR_QTI_PORTS) {
 		pr_err("%s: Invalid QTI port %d\n", __func__, port_num);
 		return -ENODEV;
 	}
 
-	if (gtype != USB_GADGET_RMNET) {
-		pr_err("%s(): unrecognized gadget type(%d).\n",
-						__func__, gtype);
-		return -EINVAL;
-	}
-
 	port = ctrl_port[port_num];
-
-	if (!gr || !port) {
-		pr_err("%s: grmnet port is null\n", __func__);
+	if (!port) {
+		pr_err("%s: gadget port is null\n", __func__);
 		return -ENODEV;
 	}
 
-
 	spin_lock_irqsave(&port->lock, flags);
 	port->gtype = gtype;
-	port->port_usb = gr;
 	if (dxport == USB_GADGET_XPORT_BAM) {
 		/*
 		 * BAM-DMUX data transport is used for RMNET
@@ -216,16 +215,28 @@ int gqti_ctrl_connect(void *gr, u8 port_num, unsigned intf,
 		port->intf = intf;
 	}
 
-	g_rmnet = (struct grmnet *)gr;
-	g_rmnet->send_encap_cmd = gqti_ctrl_send_cpkt_tomodem;
-	g_rmnet->notify_modem = gqti_ctrl_notify_modem;
+	if (gr && port->gtype == USB_GADGET_RMNET) {
+		port->port_usb = gr;
+		g_rmnet = (struct grmnet *)gr;
+		g_rmnet->send_encap_cmd = gqti_ctrl_send_cpkt_tomodem;
+		g_rmnet->notify_modem = gqti_ctrl_notify_modem;
+	} else if (gr && port->gtype == USB_GADGET_DPL) {
+		port->port_usb = gr;
+		g_dpl = (struct gqdss *)gr;
+		g_dpl->send_encap_cmd = gqti_ctrl_send_cpkt_tomodem;
+		g_dpl->notify_modem = gqti_ctrl_notify_modem;
+		atomic_set(&port->line_state, 1);
+	} else {
+		spin_unlock_irqrestore(&port->lock, flags);
+		pr_err("%s(): Port is used without gtype.\n", __func__);
+		return -ENODEV;
+	}
 
 	spin_unlock_irqrestore(&port->lock, flags);
 
 	atomic_set(&port->connected, 1);
 	wake_up(&port->read_wq);
-
-	if (g_rmnet && g_rmnet->connect)
+	if (port->port_usb && g_rmnet && g_rmnet->connect)
 		g_rmnet->connect(port->port_usb);
 
 	return 0;
@@ -237,8 +248,9 @@ void gqti_ctrl_disconnect(void *gr, u8 port_num)
 	unsigned long		flags;
 	struct rmnet_ctrl_pkt	*cpkt;
 	struct grmnet *g_rmnet = NULL;
+	struct gqdss *g_dpl = NULL;
 
-	pr_debug("%s: grmnet:%p\n", __func__, gr);
+	pr_debug("%s: gadget:%p\n", __func__, gr);
 
 	if (port_num >= NR_QTI_PORTS) {
 		pr_err("%s: Invalid QTI port %d\n", __func__, port_num);
@@ -247,19 +259,22 @@ void gqti_ctrl_disconnect(void *gr, u8 port_num)
 
 	port = ctrl_port[port_num];
 
-	if (!gr || !port) {
-		pr_err("%s: grmnet port is null\n", __func__);
+	if (!port) {
+		pr_err("%s: gadget port is null\n", __func__);
 		return;
 	}
 
-	if (port->gtype != USB_GADGET_RMNET) {
+	if (gr && (port->gtype == USB_GADGET_RMNET)) {
+		g_rmnet = (struct grmnet *)gr;
+		g_rmnet->disconnect(port->port_usb);
+	} else if (gr && (port->gtype == USB_GADGET_DPL)) {
+		g_dpl = (struct gqdss *)gr;
+		gqti_ctrl_send_cpkt_tomodem(DPL_QTI_CTRL_PORT_NO, NULL, 0);
+	} else {
 		pr_err("%s(): unrecognized gadget type(%d).\n",
 					__func__, port->gtype);
 		return;
 	}
-
-	g_rmnet = (struct grmnet *)gr;
-	g_rmnet->disconnect(port->port_usb);
 
 	atomic_set(&port->connected, 0);
 	atomic_set(&port->line_state, 0);
@@ -269,6 +284,11 @@ void gqti_ctrl_disconnect(void *gr, u8 port_num)
 	if (g_rmnet) {
 		g_rmnet->send_encap_cmd = NULL;
 		g_rmnet->notify_modem = NULL;
+	}
+
+	if (g_dpl) {
+		g_dpl->send_encap_cmd = NULL;
+		g_dpl->notify_modem = NULL;
 	}
 
 	while (!list_empty(&port->cpkt_req_q)) {
@@ -512,6 +532,11 @@ static long qti_ctrl_ioctl(struct file *fp, unsigned cmd, unsigned long arg)
 
 	switch (cmd) {
 	case QTI_CTRL_MODEM_OFFLINE:
+		if (port && (port->gtype == USB_GADGET_DPL)) {
+			pr_err("%s(): Modem Offline not handled\n", __func__);
+			goto exit_ioctl;
+		}
+
 		if (port && port->port_usb)
 			gr = port->port_usb;
 
@@ -519,6 +544,11 @@ static long qti_ctrl_ioctl(struct file *fp, unsigned cmd, unsigned long arg)
 			gr->disconnect(gr);
 		break;
 	case QTI_CTRL_MODEM_ONLINE:
+		if (port && (port->gtype == USB_GADGET_DPL)) {
+			pr_err("%s(): Modem Online not handled\n", __func__);
+			goto exit_ioctl;
+		}
+
 		if (port && port->port_usb)
 			gr = port->port_usb;
 
@@ -536,6 +566,9 @@ static long qti_ctrl_ioctl(struct file *fp, unsigned cmd, unsigned long arg)
 				atomic_read(&port->line_state), port->gtype);
 		break;
 	case QTI_CTRL_EP_LOOKUP:
+
+		pr_debug("%s(): EP_LOOKUP for gtype:%d\n", __func__,
+							port->gtype);
 		val = atomic_read(&port->connected);
 		if (!val) {
 			pr_err("EP_LOOKUP failed - not connected");
@@ -568,6 +601,7 @@ static long qti_ctrl_ioctl(struct file *fp, unsigned cmd, unsigned long arg)
 		ret = -EINVAL;
 	}
 
+exit_ioctl:
 	qti_ctrl_unlock(&port->ioctl_excl);
 
 	return ret;
@@ -611,10 +645,23 @@ static const struct file_operations qti_ctrl_fops = {
 #endif
 	.poll = qti_ctrl_poll,
 };
+/* file operations for DPL device /dev/dpl_ctrl */
+static const struct file_operations dpl_qti_ctrl_fops = {
+	.owner = THIS_MODULE,
+	.open = qti_ctrl_open,
+	.release = qti_ctrl_release,
+	.read = qti_ctrl_read,
+	.write = NULL,
+	.unlocked_ioctl = qti_ctrl_ioctl,
+#ifdef CONFIG_COMPAT
+	.compat_ioctl = qti_ctrl_ioctl,
+#endif
+	.poll = qti_ctrl_poll,
+};
 
 static int __init gqti_ctrl_init(void)
 {
-	int ret, i, sz = sizeof(RMNET_CTRL_QTI_NAME)+2;
+	int ret, i, sz = QTI_CTRL_NAME_LEN;
 	struct qti_ctrl_port *port = NULL;
 
 	for (i = 0; i < NR_QTI_PORTS; i++) {
@@ -644,12 +691,17 @@ static int __init gqti_ctrl_init(void)
 
 		if (i == 0)
 			strlcat(port->name, RMNET_CTRL_QTI_NAME, sz);
+		else if (i == DPL_QTI_CTRL_PORT_NO)
+			strlcat(port->name, DPL_CTRL_QTI_NAME, sz);
 		else
 			snprintf(port->name, sz, "%s%d",
 					RMNET_CTRL_QTI_NAME, i);
 
 		port->ctrl_device.name = port->name;
-		port->ctrl_device.fops = &qti_ctrl_fops;
+		if (i == DPL_QTI_CTRL_PORT_NO)
+			port->ctrl_device.fops = &dpl_qti_ctrl_fops;
+		else
+			port->ctrl_device.fops = &qti_ctrl_fops;
 		port->ctrl_device.minor = MISC_DYNAMIC_MINOR;
 
 		ret = misc_register(&port->ctrl_device);
