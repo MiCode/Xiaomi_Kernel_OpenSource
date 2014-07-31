@@ -27,6 +27,12 @@
 #define WCD_CPE_READY_TO_DLOAD	\
 	(WCD_CPE_BLK_READY | WCD_CPE_BUS_READY)
 
+enum {
+	WCD_CPE_LSM_CAL_AFE = 0,
+	WCD_CPE_LSM_CAL_LSM,
+	WCD_CPE_LSM_CAL_MAX,
+};
+
 struct wcd_cpe_cdc_cb {
 	/* codec provided callback to enable RCO */
 	int (*cdc_clk_en) (struct snd_soc_codec *, bool);
@@ -116,6 +122,9 @@ struct wcd_cpe_core {
 
 	/* mutex to protect cpe ssr status variables */
 	struct mutex ssr_lock;
+
+	/* Store the calibration data needed for cpe */
+	struct cal_type_data *cal_data[WCD_CPE_LSM_CAL_MAX];
 };
 
 struct wcd_cpe_params {

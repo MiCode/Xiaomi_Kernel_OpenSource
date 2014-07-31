@@ -28,6 +28,7 @@
 #include <linux/mfd/wcd9xxx/core.h>
 #include <linux/mfd/wcd9xxx/core-resource.h>
 #include <linux/mfd/wcd9xxx/wcd9330_registers.h>
+#include <sound/audio_cal_utils.h>
 #include "wcd_cpe_core.h"
 #include "wcd_cpe_services.h"
 #include "wcd_cmi_api.h"
@@ -84,12 +85,7 @@ struct wcd_cmi_afe_port_data {
 	u32 mem_handle;
 };
 
-struct acdb_cal_block {
-	size_t		cal_size;
-	void		*cal_kvaddr;
-	phys_addr_t	cal_paddr;
-};
-
+static struct wcd_cpe_core *core_d;
 static struct cpe_lsm_session
 		*lsm_sessions[WCD_CPE_LSM_MAX_SESSIONS + 1];
 struct wcd_cpe_core * (*wcd_get_cpe_core) (struct snd_soc_codec *);
@@ -1088,6 +1084,106 @@ fail_engine_irq:
 	return ret;
 }
 
+static int wcd_cpe_get_cal_index(int32_t cal_type)
+{
+	int cal_index = -EINVAL;
+
+	if (cal_type == ULP_AFE_CAL_TYPE)
+		cal_index = WCD_CPE_LSM_CAL_AFE;
+	else if (cal_type == ULP_LSM_CAL_TYPE)
+		cal_index = WCD_CPE_LSM_CAL_LSM;
+
+	return cal_index;
+}
+
+static int wcd_cpe_alloc_cal(int32_t cal_type, size_t data_size, void *data)
+{
+	int ret = 0;
+	int cal_index;
+
+	cal_index = wcd_cpe_get_cal_index(cal_type);
+	if (cal_index < 0) {
+		pr_err("%s: invalid caltype %d\n",
+			__func__, cal_type);
+		return -EINVAL;
+	}
+
+	ret = cal_utils_alloc_cal(data_size, data,
+				  core_d->cal_data[cal_index],
+				  0, NULL);
+	if (ret < 0)
+		pr_err("%s: cal_utils_alloc_block failed, ret = %d, cal type = %d!\n",
+			__func__, ret, cal_type);
+	return ret;
+}
+
+static int wcd_cpe_dealloc_cal(int32_t cal_type, size_t data_size,
+			   void *data)
+{
+	int ret = 0;
+	int cal_index;
+
+	cal_index = wcd_cpe_get_cal_index(cal_type);
+	if (cal_index < 0) {
+		pr_err("%s: invalid caltype %d\n",
+			__func__, cal_type);
+		return -EINVAL;
+	}
+
+	ret = cal_utils_dealloc_cal(data_size, data,
+				    core_d->cal_data[cal_index]);
+	if (ret < 0)
+		pr_err("%s: cal_utils_dealloc_block failed, ret = %d, cal type = %d!\n",
+			__func__, ret, cal_type);
+	return ret;
+}
+
+static int wcd_cpe_set_cal(int32_t cal_type, size_t data_size, void *data)
+{
+	int ret = 0;
+	int cal_index;
+
+	cal_index = wcd_cpe_get_cal_index(cal_type);
+	if (cal_index < 0) {
+		pr_err("%s: invalid caltype %d\n",
+			__func__, cal_type);
+		return -EINVAL;
+	}
+
+	ret = cal_utils_set_cal(data_size, data,
+				core_d->cal_data[cal_index],
+				0, NULL);
+	if (ret < 0)
+		pr_err("%s: cal_utils_set_cal failed, ret = %d, cal type = %d!\n",
+			__func__, ret, cal_type);
+	return ret;
+}
+
+static int wcd_cpe_cal_init(struct wcd_cpe_core *core)
+{
+	int ret = 0;
+
+	struct cal_type_info cal_type_info[] = {
+		{{ULP_AFE_CAL_TYPE,
+		 {wcd_cpe_alloc_cal, wcd_cpe_dealloc_cal, NULL,
+		  wcd_cpe_set_cal, NULL, NULL} },
+		{NULL, NULL, cal_utils_match_buf_num} },
+
+		{{ULP_LSM_CAL_TYPE,
+		 {wcd_cpe_alloc_cal, wcd_cpe_dealloc_cal, NULL,
+		  wcd_cpe_set_cal, NULL, NULL} },
+		 {NULL, NULL, cal_utils_match_buf_num} },
+	};
+
+	ret = cal_utils_create_cal_types(WCD_CPE_LSM_CAL_MAX,
+					 core->cal_data,
+					 cal_type_info);
+	if (ret < 0)
+		pr_err("%s: could not create cal type!\n",
+		       __func__);
+	return ret;
+}
+
 /*
  * wcd_cpe_enable: setup the cpe interrupts and schedule
  *	the work to download image and bootup the CPE.
@@ -1319,6 +1415,16 @@ struct wcd_cpe_core *wcd_cpe_init(const char *img_fname,
 
 	core->ssr_type = WCD_CPE_INITIALIZED;
 
+	core_d = core;
+	ret = wcd_cpe_cal_init(core);
+	if (IS_ERR_VALUE(ret)) {
+		dev_err(core->dev,
+			"%s: CPE calibration init failed, err = %d\n",
+			__func__, ret);
+		goto fail_cpe_register;
+	}
+
+	core->ssr_type = WCD_CPE_INITIALIZED;
 	return core;
 
 fail_cpe_register:
@@ -1734,61 +1840,70 @@ end_ret:
 }
 
 /*
- * wcd_cpe_lsm_send_acdb_cal: send the calibration for lsm service
+ * wcd_cpe_send_lsm_cal: send the calibration for lsm service
  *			      from acdb to the cpe
  * @core: handle to cpe core
  * @session: session for which the calibration needs to be set.
  */
-static int wcd_cpe_lsm_send_acdb_cal(
+static int wcd_cpe_send_lsm_cal(
 			struct wcd_cpe_core *core,
 			struct cpe_lsm_session *session)
 {
 
 	u8 *msg_pld;
 	struct cmi_hdr *hdr;
-	struct acdb_cal_block lsm_cal;
+	struct cal_block_data *lsm_cal = NULL;
 	void *inb_msg;
 	int rc = 0;
 
-	/* No calibration available */
-	rc = -ENODEV;
-	if (rc) {
-		pr_err("%s: Fail to obtain acdb cal, err = %d\n",
-			__func__, rc);
-		return rc;
+	if (core->cal_data[WCD_CPE_LSM_CAL_LSM] == NULL) {
+		pr_err("%s: LSM cal not allocated!\n", __func__);
+		return -EINVAL;
 	}
 
-	inb_msg = kzalloc(sizeof(struct cmi_hdr) + lsm_cal.cal_size,
+	mutex_lock(&core->cal_data[WCD_CPE_LSM_CAL_LSM]->lock);
+	lsm_cal = cal_utils_get_only_cal_block(
+			core->cal_data[WCD_CPE_LSM_CAL_LSM]);
+	if (!lsm_cal) {
+		pr_err("%s: failed to get lsm cal block\n", __func__);
+		rc = -EINVAL;
+		goto unlock_cal_mutex;
+	}
+
+	inb_msg = kzalloc(sizeof(struct cmi_hdr) + lsm_cal->cal_data.size,
 			  GFP_KERNEL);
 	if (!inb_msg) {
 		pr_err("%s: no memory for lsm acdb cal\n",
 			__func__);
 		rc = -ENOMEM;
-		return rc;
+		goto unlock_cal_mutex;
 	}
 
 	hdr = (struct cmi_hdr *) inb_msg;
 
 	rc = fill_lsm_cmd_header_v0_inband(hdr, session->id,
-			lsm_cal.cal_size,
+			lsm_cal->cal_data.size,
 			CPE_LSM_SESSION_CMD_SET_PARAMS);
 	if (rc) {
 		pr_err("%s: invalid params for header, err = %d\n",
 			__func__, rc);
-		kfree(inb_msg);
-		return rc;
+		goto free_msg;
 	}
 
 	msg_pld = ((u8 *) inb_msg) + sizeof(struct cmi_hdr);
-	memcpy(msg_pld, lsm_cal.cal_kvaddr,
-	       lsm_cal.cal_size);
+	memcpy(msg_pld, lsm_cal->cal_data.kvaddr,
+	       lsm_cal->cal_data.size);
 
 	rc = wcd_cpe_cmi_send_lsm_msg(core, session, inb_msg);
 	if (rc)
 		pr_err("%s: acdb lsm_params send failed, err = %d\n",
 			__func__, rc);
 
+free_msg:
 	kfree(inb_msg);
+
+unlock_cal_mutex:
+	mutex_unlock(&core->cal_data[WCD_CPE_LSM_CAL_LSM]->lock);
 	return rc;
 
 }
@@ -1814,7 +1929,7 @@ static int wcd_cpe_lsm_set_params(
 	int ret = 0;
 	u8 pld_size = CPE_PARAM_PAYLOAD_SIZE;
 
-	ret = wcd_cpe_lsm_send_acdb_cal(core, session);
+	ret = wcd_cpe_send_lsm_cal(core, session);
 	if (ret) {
 		pr_err("%s: fail to sent acdb cal, err = %d",
 			__func__, ret);
@@ -1831,8 +1946,8 @@ static int wcd_cpe_lsm_set_params(
 		goto err_ret;
 	}
 
-	op_mode->param.module_id = LSM_MODULE_ID_VOICE_WAKEUP;
-	op_mode->param.param_id = LSM_PARAM_ID_OPERATION_MODE;
+	op_mode->param.module_id = CPE_LSM_MODULE_ID_VOICE_WAKEUP;
+	op_mode->param.param_id = CPE_LSM_PARAM_ID_OPERATION_MODE;
 	op_mode->param.param_size = PARAM_SIZE_LSM_OP_MODE;
 	op_mode->param.reserved = 0;
 	op_mode->minor_version = 1;
@@ -1846,8 +1961,8 @@ static int wcd_cpe_lsm_set_params(
 
 	op_mode->reserved = 0;
 
-	connect_port->param.module_id = LSM_MODULE_ID_VOICE_WAKEUP;
-	connect_port->param.param_id = LSM_PARAM_ID_CONNECT_TO_PORT;
+	connect_port->param.module_id = CPE_LSM_MODULE_ID_VOICE_WAKEUP;
+	connect_port->param.param_id = CPE_LSM_PARAM_ID_CONNECT_TO_PORT;
 	connect_port->param.param_size = PARAM_SIZE_LSM_CONNECT_PORT;
 	connect_port->param.reserved = 0;
 	connect_port->minor_version = 1;
@@ -1892,8 +2007,8 @@ static int wcd_cpe_lsm_set_conf_levels(
 			false, pld_size,
 			CPE_LSM_SESSION_CMD_SET_PARAMS, false);
 
-	param_d->module_id = LSM_MODULE_ID_VOICE_WAKEUP;
-	param_d->param_id = LSM_PARAM_ID_MIN_CONFIDENCE_LEVELS;
+	param_d->module_id = CPE_LSM_MODULE_ID_VOICE_WAKEUP;
+	param_d->param_id = CPE_LSM_PARAM_ID_MIN_CONFIDENCE_LEVELS;
 	param_d->param_size = pld_size -
 				sizeof(struct cpe_param_data);
 	param_d->reserved = 0;
@@ -2210,8 +2325,8 @@ static int wcd_cpe_lsm_config_lab_latency(
 	}
 
 	lab_lat->minor_ver = 1;
-	lab_lat->param.module_id = LSM_MODULE_ID_LAB;
-	lab_lat->param.param_id = LSM_PARAM_ID_LAB_CONFIG;
+	lab_lat->param.module_id = CPE_LSM_MODULE_ID_LAB;
+	lab_lat->param.param_id = CPE_LSM_PARAM_ID_LAB_CONFIG;
 	lab_lat->param.param_size = PARAM_SIZE_LSM_LATENCY_SIZE;
 	lab_lat->param.reserved = 0;
 	pr_debug("%s: Module 0x%x Param 0x%x size 0x%x pld_size 0x%x\n",
@@ -2395,8 +2510,8 @@ static int wcd_cpe_lsm_lab_enable_disable(
 		lab_enable->enable = 1;
 	else
 		lab_enable->enable = 0;
-	lab_enable->param.module_id = LSM_MODULE_ID_LAB;
-	lab_enable->param.param_id = LSM_PARAM_ID_LAB_ENABLE;
+	lab_enable->param.module_id = CPE_LSM_MODULE_ID_LAB;
+	lab_enable->param.param_id = CPE_LSM_PARAM_ID_LAB_ENABLE;
 	lab_enable->param.param_size = PARAM_SIZE_LSM_CONTROL_SIZE;
 	lab_enable->param.reserved = 0;
 	pr_debug("%s: Module 0x%x, Param 0x%x size 0x%x pld_size 0x%x\n",
@@ -2854,16 +2969,16 @@ end_ret:
 }
 
 /*
- * wcd_cpe_afe_send_acdb_cal: send the acdb calibration to AFE port
+ * wcd_cpe_send_afe_cal: send the acdb calibration to AFE port
  * @core: handle to cpe core
  * @port_d: configuration data for the port for which the
  *	      calibration needs to be appplied
  */
-static int wcd_cpe_afe_send_acdb_cal(void *core_handle,
+static int wcd_cpe_send_afe_cal(void *core_handle,
 		struct wcd_cmi_afe_port_data *port_d)
 {
 
-	struct acdb_cal_block afe_listen_cal;
+	struct cal_block_data *afe_cal = NULL;
 	struct wcd_cpe_core *core = core_handle;
 	struct cmi_obm_msg obm_msg;
 	void *inb_msg = NULL;
@@ -2871,16 +2986,24 @@ static int wcd_cpe_afe_send_acdb_cal(void *core_handle,
 	int rc = 0;
 	bool is_obm_msg;
 
-	/* No calibration available */
-	rc = -ENODEV;
-	if (IS_ERR_VALUE(rc)) {
-		dev_err(core->dev,
-			"%s: Invalid afe cal for listen, error = %d\n",
-			__func__, rc);
-		return rc;
+	if (core->cal_data[WCD_CPE_LSM_CAL_AFE] == NULL) {
+		pr_err("%s: LSM cal not allocated!\n",
+			__func__);
+		rc = -EINVAL;
+		goto rel_cal_mutex;
 	}
 
-	is_obm_msg = (afe_listen_cal.cal_size >
+	mutex_lock(&core->cal_data[WCD_CPE_LSM_CAL_AFE]->lock);
+	afe_cal = cal_utils_get_only_cal_block(
+			core->cal_data[WCD_CPE_LSM_CAL_AFE]);
+	if (!afe_cal) {
+		pr_err("%s: failed to get afe cal block\n",
+			__func__);
+		rc = -EINVAL;
+		goto rel_cal_mutex;
+	}
+
+	is_obm_msg = (afe_cal->cal_data.size >
 		      CMI_INBAND_MESSAGE_SIZE) ? true : false;
 
 	if (is_obm_msg) {
@@ -2888,12 +3011,12 @@ static int wcd_cpe_afe_send_acdb_cal(void *core_handle,
 		struct cmi_obm *pld = &(obm_msg.pld);
 
 		rc = wcd_cpe_afe_shmem_alloc(core, port_d,
-					afe_listen_cal.cal_size);
+					afe_cal->cal_data.size);
 		if (rc) {
 			dev_err(core->dev,
 				"%s: AFE shmem alloc fail %d\n",
 				__func__, rc);
-			return rc;
+			goto rel_cal_mutex;
 		}
 
 		rc = fill_cmi_header(hdr, port_d->port_id,
@@ -2904,12 +3027,13 @@ static int wcd_cpe_afe_send_acdb_cal(void *core_handle,
 			dev_err(core->dev,
 				"%s: invalid params for header, err = %d\n",
 				__func__, rc);
-			return rc;
+			wcd_cpe_afe_shmem_dealloc(core, port_d);
+			goto rel_cal_mutex;
 		}
 
 		pld->version = 0;
-		pld->size = afe_listen_cal.cal_size;
-		pld->data_ptr.kvaddr = afe_listen_cal.cal_kvaddr;
+		pld->size = afe_cal->cal_data.size;
+		pld->data_ptr.kvaddr = afe_cal->cal_data.kvaddr;
 		pld->mem_handle = port_d->mem_handle;
 		msg = &obm_msg;
 
@@ -2917,21 +3041,21 @@ static int wcd_cpe_afe_send_acdb_cal(void *core_handle,
 		u8 *msg_pld;
 		struct cmi_hdr *hdr;
 		inb_msg = kzalloc(sizeof(struct cmi_hdr) +
-					afe_listen_cal.cal_size,
+					afe_cal->cal_data.size,
 				  GFP_KERNEL);
 		if (!inb_msg) {
 			dev_err(core->dev,
 				"%s: no memory for afe cal inband\n",
 				__func__);
 			rc = -ENOMEM;
-			return rc;
+			goto rel_cal_mutex;
 		}
 
 		hdr = (struct cmi_hdr *) inb_msg;
 
 		rc = fill_cmi_header(hdr, port_d->port_id,
 				     CMI_CPE_AFE_SERVICE_ID,
-				     0, afe_listen_cal.cal_size,
+				     0, afe_cal->cal_data.size,
 				     CPE_AFE_CMD_SET_PARAM, false);
 		if (rc) {
 			dev_err(core->dev,
@@ -2939,12 +3063,12 @@ static int wcd_cpe_afe_send_acdb_cal(void *core_handle,
 				__func__, rc);
 			kfree(inb_msg);
 			inb_msg = NULL;
-			return rc;
+			goto rel_cal_mutex;
 		}
 
 		msg_pld = ((u8 *) inb_msg) + sizeof(struct cmi_hdr);
-		memcpy(msg_pld, afe_listen_cal.cal_kvaddr,
-		       afe_listen_cal.cal_size);
+		memcpy(msg_pld, afe_cal->cal_data.kvaddr,
+		       afe_cal->cal_data.size);
 
 		msg = inb_msg;
 	}
@@ -2962,6 +3086,8 @@ static int wcd_cpe_afe_send_acdb_cal(void *core_handle,
 		inb_msg = NULL;
 	}
 
+rel_cal_mutex:
+	mutex_unlock(&core->cal_data[WCD_CPE_LSM_CAL_AFE]->lock);
 	return rc;
 }
 
@@ -3019,7 +3145,7 @@ static int wcd_cpe_afe_set_params(void *core_handle,
 
 	WCD_CPE_GRAB_LOCK(&afe_port_d->afe_lock, "afe");
 
-	ret = wcd_cpe_afe_send_acdb_cal(core, afe_port_d);
+	ret = wcd_cpe_send_afe_cal(core, afe_port_d);
 	if (ret) {
 		dev_err(core->dev,
 			"%s: afe acdb cal send failed, err = %d\n",
