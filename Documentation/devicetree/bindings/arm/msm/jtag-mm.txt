@@ -13,6 +13,8 @@ compatible: component name used for driver matching, should be:
 reg: physical base address and length of the register set
 reg-names: should be "etm-base" for etm register set and "debug-base" for debug
 	register set.
+qcom,coresight-jtagmm-cpu : specifies phandle for the cpu associated with the
+			    jtag-mm device
 
 Example:
 jtag_mm: jtagmm@fc332000 {
@@ -20,4 +22,6 @@ jtag_mm: jtagmm@fc332000 {
 	reg = <0xfc332000 0x1000>,
 		<0xfc333000 0x1000>;
 	reg-names = "etm-base","debug-base";
+
+	qcom,coresight-jtagmm-cpu = <&CPU0>;
 	};
