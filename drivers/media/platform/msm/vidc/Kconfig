@@ -4,5 +4,4 @@
 
 menuconfig MSM_VIDC_V4L2
 	bool "Qualcomm MSM V4L2 based video driver"
-		depends on (ARCH_MSM8974 || ARCH_MSM8610 || ARCH_MSM8226 || ARCH_APQ8084 || \
-            ARCH_MSM8916 || ARCH_MSM8994) && VIDEO_V4L2
+		depends on ARCH_MSM && VIDEO_V4L2
