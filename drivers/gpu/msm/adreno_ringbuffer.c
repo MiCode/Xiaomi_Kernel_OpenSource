@@ -770,13 +770,23 @@ adreno_ringbuffer_issuecmds(struct adreno_ringbuffer *rb,
  * @device: The kgsl device pointer
  * @ibdesc: Pointer to the IB descriptor
  */
-static inline bool _ringbuffer_verify_ib(struct kgsl_device *device,
-		struct kgsl_memobj_node *ib)
+static inline bool _ringbuffer_verify_ib(struct kgsl_device_private *dev_priv,
+		struct kgsl_context *context, struct kgsl_memobj_node *ib)
 {
-	/* Check that the size of the IBs is under the allowable limit */
-	if (ib->sizedwords == 0 || ib->sizedwords > 0xFFFFF) {
-		KGSL_DRV_ERR(device, "Invalid IB size 0x%llX\n",
-				ib->sizedwords);
+	struct kgsl_device *device = dev_priv->device;
+	struct kgsl_process_private *private = dev_priv->process_priv;
+
+	/* The maximum allowable size for an IB in the CP is 0xFFFFF dwords */
+	if (ib->size == 0 || ((ib->size >> 2) > 0xFFFFF)) {
+		pr_context(device, context, "ctxt %d invalid ib size %lld\n",
+			context->id, ib->size);
+		return false;
+	}
+
+	/* Make sure that the address is mapped */
+	if (!kgsl_mmu_gpuaddr_in_range(private->pagetable, ib->gpuaddr)) {
+		pr_context(device, context, "ctxt %d invalid ib gpuaddr %llX\n",
+			context->id, ib->gpuaddr);
 		return false;
 	}
 
@@ -800,7 +810,7 @@ adreno_ringbuffer_issueibcmds(struct kgsl_device_private *dev_priv,
 
 	/* Verify the IBs before they get queued */
 	list_for_each_entry(ib, &cmdbatch->cmdlist, node)
-		if (!_ringbuffer_verify_ib(device, ib))
+		if (_ringbuffer_verify_ib(dev_priv, context, ib) == false)
 			return -EINVAL;
 
 	/* wait for the suspend gate */
@@ -1038,7 +1048,7 @@ int adreno_ringbuffer_submitcmd(struct adreno_device *adreno_dev,
 			*cmds++ = cp_mem_packet(adreno_dev,
 					CP_INDIRECT_BUFFER_PFE, 2, 1);
 			cmds += cp_gpuaddr(adreno_dev, cmds, ib->gpuaddr);
-			*cmds++ = (unsigned int) ib->sizedwords;
+			*cmds++ = (unsigned int) ib->size >> 2;
 			/* preamble is required on only for first command */
 			use_preamble = false;
 		}

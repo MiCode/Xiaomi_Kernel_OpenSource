@@ -368,6 +368,8 @@ static const struct kgsl_ioctl kgsl_compat_ioctl_funcs[] = {
 			kgsl_ioctl_gpuobj_import),
 	KGSL_IOCTL_FUNC(IOCTL_KGSL_GPUOBJ_SYNC,
 			kgsl_ioctl_gpuobj_sync),
+	KGSL_IOCTL_FUNC(IOCTL_KGSL_GPU_COMMAND,
+			kgsl_ioctl_gpu_command),
 };
 
 long kgsl_compat_ioctl(struct file *filep, unsigned int cmd, unsigned long arg)
@@ -390,83 +392,5 @@ long kgsl_compat_ioctl(struct file *filep, unsigned int cmd, unsigned long arg)
 		KGSL_DRV_INFO(device, "invalid ioctl code 0x%08X\n", cmd);
 	}
 
-	return ret;
-}
-
-/**
- * kgsl_cmdbatch_create_compat() - Compat helper to _kgsl_cmdbatch_create()
- * @device: Pointer to the KGSL device struct for the GPU
- * @flags: Flags passed in from the user command
- * @cmdlist: Pointer to the list of commands from the user. Should point to a
- * kgsl_ibdesc_compat struct
- * @numcmds: Number of commands in the list
- * @synclist: Pointer to the list of syncpoints from the user. Should point to
- * a kgsl_cmd_syncpoint_compat struct
- * @numsyncs: Number of syncpoints in the list
- *
- * This function is called from _kgsl_cmdbatch_create(), if the user process
- * submitting cmds is 32 bit, instead of executing rest of the function.
- * It is needed since we do multiple copy_from_user() calls which would
- * otherwise be copying user data into the wrongly sized/structured struct.
- */
-int kgsl_cmdbatch_create_compat(struct kgsl_device *device, unsigned int flags,
-			struct kgsl_cmdbatch *cmdbatch, void __user *cmdlist,
-			unsigned int numcmds, void __user *synclist,
-			unsigned int numsyncs)
-{
-	int ret = 0, i;
-
-	if (!(flags & (KGSL_CMDBATCH_SYNC | KGSL_CMDBATCH_MARKER))) {
-		struct kgsl_ibdesc_compat ibdesc32;
-		struct kgsl_ibdesc ibdesc;
-		void __user *uptr = cmdlist;
-
-		for (i = 0; i < numcmds; i++) {
-			memset(&ibdesc32, 0, sizeof(ibdesc32));
-
-			if (copy_from_user(&ibdesc32, uptr, sizeof(ibdesc32))) {
-				ret = -EFAULT;
-				goto done;
-			}
-
-			ibdesc.gpuaddr = (unsigned long)ibdesc32.gpuaddr;
-			ibdesc.sizedwords = (size_t)ibdesc32.sizedwords;
-			ibdesc.ctrl = (unsigned int)ibdesc32.ctrl;
-
-			ret = kgsl_cmdbatch_add_memobj(cmdbatch, &ibdesc);
-			if (ret)
-				goto done;
-
-			uptr += sizeof(ibdesc32);
-		}
-
-		if (cmdbatch->profiling_buf_entry == NULL)
-			cmdbatch->flags &= ~KGSL_CMDBATCH_PROFILING;
-
-	}
-	if (synclist && numsyncs) {
-
-		struct kgsl_cmd_syncpoint_compat sync32;
-		struct kgsl_cmd_syncpoint sync;
-		void __user *uptr = synclist;
-
-		for (i = 0; i < numsyncs; i++) {
-			memset(&sync32, 0, sizeof(sync32));
-
-			if (copy_from_user(&sync32, uptr, sizeof(sync32)))
-				return -EFAULT;
-
-			sync.type = sync32.type;
-			sync.priv = compat_ptr(sync32.priv);
-			sync.size = (size_t)sync32.size;
-
-			ret = kgsl_cmdbatch_add_sync(device, cmdbatch, &sync);
-			if (ret)
-				return ret;
-			uptr += sizeof(sync32);
-		}
-	}
-
-done:
 	return ret;
 }

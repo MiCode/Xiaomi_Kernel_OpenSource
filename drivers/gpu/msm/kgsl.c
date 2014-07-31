@@ -1356,7 +1356,7 @@ kgsl_sharedmem_region_empty(struct kgsl_process_private *private,
  * Caller must kgsl_mem_entry_put() the returned entry, when finished using
  * it.
  */
-static inline struct kgsl_mem_entry * __must_check
+struct kgsl_mem_entry * __must_check
 kgsl_sharedmem_find_id(struct kgsl_process_private *process, unsigned int id)
 {
 	int result = 0;
@@ -1547,7 +1547,7 @@ long kgsl_ioctl_rb_issueibcmds(struct kgsl_device_private *dev_priv,
 	struct kgsl_ringbuffer_issueibcmds *param = data;
 	struct kgsl_device *device = dev_priv->device;
 	struct kgsl_context *context;
-	struct kgsl_cmdbatch *cmdbatch;
+	struct kgsl_cmdbatch *cmdbatch = NULL;
 	long result = -EINVAL;
 
 	/* The legacy functions don't support synchronization commands */
@@ -1557,36 +1557,42 @@ long kgsl_ioctl_rb_issueibcmds(struct kgsl_device_private *dev_priv,
 	/* Get the context */
 	context = kgsl_context_get_owner(dev_priv, param->drawctxt_id);
 	if (context == NULL)
-		goto done;
+		return -EINVAL;
 
-	if (param->flags & KGSL_CMDBATCH_SUBMIT_IB_LIST) {
-		/*
-		 * Do a quick sanity check on the number of IBs in the
-		 * submission
-		 */
-
-		if (param->numibs == 0 || param->numibs > KGSL_MAX_NUMIBS)
-			goto done;
-
-		cmdbatch = kgsl_cmdbatch_create(device, context, param->flags,
-			(void __user *)param->ibdesc_addr,
-			 param->numibs, 0, 0);
-	} else
-		cmdbatch = kgsl_cmdbatch_create_legacy(device, context, param);
-
+	/* Create a command batch */
+	cmdbatch = kgsl_cmdbatch_create(device, context, param->flags);
 	if (IS_ERR(cmdbatch)) {
 		result = PTR_ERR(cmdbatch);
 		goto done;
 	}
 
-	/* Run basic sanity checking on the command */
-	if (!kgsl_cmdbatch_verify(dev_priv, cmdbatch))
-		goto free_cmdbatch;
+	if (param->flags & KGSL_CMDBATCH_SUBMIT_IB_LIST) {
+		/* Sanity check the number of IBs */
+		if (param->numibs == 0 || param->numibs > KGSL_MAX_NUMIBS) {
+			result = -EINVAL;
+			goto done;
+		}
+		result = kgsl_cmdbatch_add_ibdesc_list(device, cmdbatch,
+			(void __user *) param->ibdesc_addr,
+			param->numibs);
+	} else {
+		struct kgsl_ibdesc ibdesc;
+		/* Ultra legacy path */
+
+		ibdesc.gpuaddr = param->ibdesc_addr;
+		ibdesc.sizedwords = param->numibs;
+		ibdesc.ctrl = 0;
+
+		result = kgsl_cmdbatch_add_ibdesc(device, cmdbatch, &ibdesc);
+	}
+
+	if (result)
+		goto done;
 
 	result = dev_priv->device->ftbl->issueibcmds(dev_priv, context,
 		cmdbatch, &param->timestamp);
 
-free_cmdbatch:
+done:
 	/*
 	 * -EPROTO is a "success" error - it just tells the user that the
 	 * context had previously faulted
@@ -1594,7 +1600,6 @@ free_cmdbatch:
 	if (result && result != -EPROTO)
 		kgsl_cmdbatch_destroy(cmdbatch);
 
-done:
 	kgsl_context_put(context);
 	return result;
 }
@@ -1605,8 +1610,7 @@ long kgsl_ioctl_submit_commands(struct kgsl_device_private *dev_priv,
 	struct kgsl_submit_commands *param = data;
 	struct kgsl_device *device = dev_priv->device;
 	struct kgsl_context *context;
-	struct kgsl_cmdbatch *cmdbatch;
-
+	struct kgsl_cmdbatch *cmdbatch = NULL;
 	long result = -EINVAL;
 
 	/*
@@ -1625,27 +1629,39 @@ long kgsl_ioctl_submit_commands(struct kgsl_device_private *dev_priv,
 	else if (!(param->flags & KGSL_CMDBATCH_SYNC) && param->numcmds == 0)
 		param->flags |= KGSL_CMDBATCH_MARKER;
 
+	/* Make sure that we don't have too many syncpoints */
+	if (param->numsyncs > KGSL_MAX_NUMIBS)
+		return -EINVAL;
+
 	context = kgsl_context_get_owner(dev_priv, param->context_id);
 	if (context == NULL)
 		return -EINVAL;
 
-	cmdbatch = kgsl_cmdbatch_create(device, context, param->flags,
-		param->cmdlist, param->numcmds,
-		param->synclist, param->numsyncs);
-
+	/* Create a command batch */
+	cmdbatch = kgsl_cmdbatch_create(device, context, param->flags);
 	if (IS_ERR(cmdbatch)) {
 		result = PTR_ERR(cmdbatch);
 		goto done;
 	}
 
-	/* Run basic sanity checking on the command */
-	if (!kgsl_cmdbatch_verify(dev_priv, cmdbatch))
-		goto free_cmdbatch;
+	result = kgsl_cmdbatch_add_ibdesc_list(device, cmdbatch,
+		param->cmdlist, param->numcmds);
+	if (result)
+		goto done;
+
+	result = kgsl_cmdbatch_add_syncpoints(device, cmdbatch,
+		param->synclist, param->numsyncs);
+	if (result)
+		goto done;
+
+	/* If no profiling buffer was specified, clear the flag */
+	if (cmdbatch->profiling_buf_entry == NULL)
+		cmdbatch->flags &= ~KGSL_CMDBATCH_PROFILING;
 
 	result = dev_priv->device->ftbl->issueibcmds(dev_priv, context,
 		cmdbatch, &param->timestamp);
 
-free_cmdbatch:
+done:
 	/*
 	 * -EPROTO is a "success" error - it just tells the user that the
 	 * context had previously faulted
@@ -1653,7 +1669,82 @@ free_cmdbatch:
 	if (result && result != -EPROTO)
 		kgsl_cmdbatch_destroy(cmdbatch);
 
+	kgsl_context_put(context);
+	return result;
+}
+
+long kgsl_ioctl_gpu_command(struct kgsl_device_private *dev_priv,
+		unsigned int cmd, void *data)
+{
+	struct kgsl_gpu_command *param = data;
+	struct kgsl_device *device = dev_priv->device;
+	struct kgsl_context *context;
+	struct kgsl_cmdbatch *cmdbatch = NULL;
+
+	long result = -EINVAL;
+
+	/*
+	 * The SYNC bit is supposed to identify a dummy sync object so warn the
+	 * user if they specified any IBs with it.  A MARKER command can either
+	 * have IBs or not but if the command has 0 IBs it is automatically
+	 * assumed to be a marker.  If none of the above make sure that the user
+	 * specified a sane number of IBs
+	 */
+	if ((param->flags & KGSL_CMDBATCH_SYNC) && param->numcmds)
+		KGSL_DEV_ERR_ONCE(device,
+			"Commands specified with the SYNC flag.  They will be ignored\n");
+	else if (!(param->flags & KGSL_CMDBATCH_SYNC) && param->numcmds == 0)
+		param->flags |= KGSL_CMDBATCH_MARKER;
+
+	/* Make sure that the memobj and syncpoint count isn't too big */
+	if (param->numcmds > KGSL_MAX_NUMIBS ||
+		param->numobjs > KGSL_MAX_NUMIBS ||
+		param->numsyncs > KGSL_MAX_NUMIBS)
+		return -EINVAL;
+
+	context = kgsl_context_get_owner(dev_priv, param->context_id);
+	if (context == NULL)
+		return -EINVAL;
+
+	cmdbatch = kgsl_cmdbatch_create(device, context, param->flags);
+	if (IS_ERR(cmdbatch)) {
+		result = PTR_ERR(cmdbatch);
+		goto done;
+	}
+
+	result = kgsl_cmdbatch_add_cmdlist(device, cmdbatch,
+		(void __user *) (uintptr_t) param->cmdlist,
+		param->cmdsize, param->numcmds);
+	if (result)
+		goto done;
+
+	result = kgsl_cmdbatch_add_memlist(device, cmdbatch,
+		(void __user *) (uintptr_t) param->objlist,
+		param->objsize, param->numobjs);
+	if (result)
+		goto done;
+
+	result = kgsl_cmdbatch_add_synclist(device, cmdbatch,
+		(void __user *) (uintptr_t) param->synclist,
+		param->syncsize, param->numsyncs);
+	if (result)
+		goto done;
+
+	/* If no profiling buffer was specified, clear the flag */
+	if (cmdbatch->profiling_buf_entry == NULL)
+		cmdbatch->flags &= ~KGSL_CMDBATCH_PROFILING;
+
+	result = dev_priv->device->ftbl->issueibcmds(dev_priv, context,
+		cmdbatch, &param->timestamp);
+
 done:
+	/*
+	 * -EPROTO is a "success" error - it just tells the user that the
+	 * context had previously faulted
+	 */
+	if (result && result != -EPROTO)
+		kgsl_cmdbatch_destroy(cmdbatch);
+
 	kgsl_context_put(context);
 	return result;
 }
@@ -1810,17 +1901,6 @@ long kgsl_ioctl_gpumem_free_id(struct kgsl_device_private *dev_priv,
 	kgsl_mem_entry_put(entry);
 
 	return ret;
-}
-
-static inline int _copy_from_user(void *dest, void __user *src,
-		unsigned int ksize, unsigned int usize)
-{
-	unsigned int copy = ksize < usize ? ksize : usize;
-
-	if (copy == 0)
-		return -EINVAL;
-
-	return copy_from_user(dest, src, copy) ? -EFAULT : 0;
 }
 
 static long gpuobj_free_on_timestamp(struct kgsl_device_private *dev_priv,

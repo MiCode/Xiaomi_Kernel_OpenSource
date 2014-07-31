@@ -86,6 +86,8 @@ static const struct kgsl_ioctl kgsl_ioctl_funcs[] = {
 			kgsl_ioctl_gpuobj_import),
 	KGSL_IOCTL_FUNC(IOCTL_KGSL_GPUOBJ_SYNC,
 			kgsl_ioctl_gpuobj_sync),
+	KGSL_IOCTL_FUNC(IOCTL_KGSL_GPU_COMMAND,
+			kgsl_ioctl_gpu_command),
 };
 
 long kgsl_ioctl_copy_in(unsigned int kernel_cmd, unsigned int user_cmd,

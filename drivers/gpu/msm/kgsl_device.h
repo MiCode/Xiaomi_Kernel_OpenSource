@@ -195,15 +195,19 @@ long kgsl_ioctl_helper(struct file *filep, unsigned int cmd, unsigned long arg,
 /**
  * struct kgsl_memobj_node - Memory object descriptor
  * @node: Local list node for the cmdbatch
- * @cmdbatch: Cmdbatch the node belongs to
- * @addr: memory start address
- * @sizedwords: size of memory @addr
- * @flags: any special case flags
+ * @id: GPU memory ID for the object
+ * offset: Offset within the object
+ * @gpuaddr: GPU address for the object
+ * @flags: External flags passed by the user
+ * @priv: Internal flags set by the driver
  */
 struct kgsl_memobj_node {
 	struct list_head node;
+	unsigned int id;
+	uint64_t offset;
 	uint64_t gpuaddr;
-	uint64_t sizedwords;
+	uint64_t size;
+	unsigned long flags;
 	unsigned long priv;
 };
 
@@ -368,6 +372,19 @@ struct kgsl_context {
 	unsigned int fault_count;
 	unsigned long fault_time;
 };
+
+#define _context_comm(_c) \
+	(((_c) && (_c)->proc_priv) ? (_c)->proc_priv->comm : "unknown")
+
+/*
+ * Print log messages with the context process name/pid:
+ * [...] kgsl kgsl-3d0: kgsl-api-test[22182]:
+ */
+
+#define pr_context(_d, _c, fmt, args...) \
+		dev_err((_d)->dev, "%s[%d]: " fmt, \
+		_context_comm((_c)), \
+		(_c)->proc_priv->pid, ##args)
 
 /**
  * struct kgsl_process_private -  Private structure for a KGSL process (across
