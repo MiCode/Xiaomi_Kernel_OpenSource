@@ -26,6 +26,12 @@
 
 #define DT_CMD_HDR 6
 
+/* NT35596 panel specific status variables */
+#define NT35596_BUF_3_STATUS 0x02
+#define NT35596_BUF_4_STATUS 0x40
+#define NT35596_BUF_5_STATUS 0x80
+#define NT35596_MAX_ERR_CNT 2
+
 DEFINE_LED_TRIGGER(bl_led_trigger);
 
 void mdss_dsi_panel_pwm_cfg(struct mdss_dsi_ctrl_pdata *ctrl)
@@ -934,6 +940,50 @@ static int mdss_dsi_parse_reset_seq(struct device_node *np,
 	return 0;
 }
 
+static int mdss_dsi_gen_read_status(struct mdss_dsi_ctrl_pdata *ctrl_pdata)
+{
+	if (ctrl_pdata->status_buf.data[0] !=
+					ctrl_pdata->status_value) {
+		pr_err("%s: Read back value from panel is incorrect\n",
+							__func__);
+		return -EINVAL;
+	} else {
+		return 1;
+	}
+}
+
+static int mdss_dsi_nt35596_read_status(struct mdss_dsi_ctrl_pdata *ctrl_pdata)
+{
+	if (ctrl_pdata->status_buf.data[0] !=
+					ctrl_pdata->status_value) {
+		ctrl_pdata->status_error_count = 0;
+		pr_err("%s: Read back value from panel is incorrect\n",
+							__func__);
+		return -EINVAL;
+	} else {
+		if (ctrl_pdata->status_buf.data[3] != NT35596_BUF_3_STATUS) {
+			ctrl_pdata->status_error_count = 0;
+		} else {
+			if ((ctrl_pdata->status_buf.data[4] ==
+				NT35596_BUF_4_STATUS) ||
+				(ctrl_pdata->status_buf.data[5] ==
+				NT35596_BUF_5_STATUS))
+				ctrl_pdata->status_error_count = 0;
+			else
+				ctrl_pdata->status_error_count++;
+			if (ctrl_pdata->status_error_count >=
+					NT35596_MAX_ERR_CNT) {
+				ctrl_pdata->status_error_count = 0;
+				pr_err("%s: Read value bad. Error_cnt = %i\n",
+					 __func__,
+					ctrl_pdata->status_error_count);
+				return -EINVAL;
+			}
+		}
+		return 1;
+	}
+}
+
 static void mdss_dsi_parse_roi_alignment(struct device_node *np,
 		struct mdss_panel_info *pinfo)
 {
@@ -1382,10 +1432,20 @@ static int mdss_panel_parse_dt(struct device_node *np,
 	rc = of_property_read_string(np,
 				"qcom,mdss-dsi-panel-status-check-mode", &data);
 	if (!rc) {
-		if (!strcmp(data, "bta_check"))
+		if (!strcmp(data, "bta_check")) {
 			ctrl_pdata->status_mode = ESD_BTA;
-		else if (!strcmp(data, "reg_read"))
+		} else if (!strcmp(data, "reg_read")) {
 			ctrl_pdata->status_mode = ESD_REG;
+			ctrl_pdata->status_cmds_rlen = 0;
+			ctrl_pdata->check_read_status =
+						mdss_dsi_gen_read_status;
+		} else if (!strcmp(data, "reg_read_nt35596")) {
+			ctrl_pdata->status_mode = ESD_REG_NT35596;
+			ctrl_pdata->status_error_count = 0;
+			ctrl_pdata->status_cmds_rlen = 8;
+			ctrl_pdata->check_read_status =
+						mdss_dsi_nt35596_read_status;
+		}
 	}
 
 	rc = mdss_dsi_parse_panel_features(np, ctrl_pdata);
