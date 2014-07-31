@@ -51,6 +51,16 @@ Optional Properties:
 - qcom,bat-present-decidegc	This is a property indicating battery present temperature, if
 				higher than it, battery should exist. Default value is negative,
 				if this property is 200, it stands for -200 decidegC.
+- qcom,warm-bat-decidegc:	Warm battery temperature in decidegC. After hitting this threshold,
+				"qcom,warm-bat-ma" defines maximum charging current and
+				"qcom,warm-bat-mv" defines maximum target voltage.
+- qcom,cool-bat-decidegc:       Cool battery temperature in decidegC. After hitting this threshold,
+				"qcom,cool-bat-ma" defines maximum charging current and
+				"qcom,cool-bat-mv" defines maximum target voltage.
+- qcom,warm-bat-ma:		Maximum warm battery charge current in milli-amps.
+- qcom,cool-bat-ma:		Maximum cool battery charge current in milli-amps.
+- qcom,warm-bat-mv:		Maximum warm battery target voltage in milli-volts.
+- qcom,cool-bat-mv:		Maximum cool battery target voltage in milli-volts.
 
 Example:
 	i2c@f9967000 {
@@ -71,6 +81,12 @@ Example:
 			qcom,hot-bat-decidegc = <500>;
 			qcom,cold-bat-decidegc = <0>;
 			qcom,bat-present-decidegc = <200>;
+			qcom,warm-bat-decidegc = <450>;
+			qcom,cool-bat-decidegc = <100>;
+			qcom,warm-bat-ma = <350>;
+			qcom,cool-bat-ma = <350>;
+			qcom,warm-bat-mv = <4200>;
+			qcom,cool-bat-mv = <4200>;
 		};
 	};
 
