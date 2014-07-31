@@ -204,6 +204,7 @@
 			label = "slv-ebi";
 			qcom,bus-dev = <&fab_bimc>;
 			qcom,buswidth = <8>;
+			qcom,qport = <0 1>;
 			qcom,slv-rpm-id = <ICBID_SLAVE_EBI1>;
 		};
 
@@ -466,6 +467,7 @@
 			label = "slv-mnoc-bimc";
 			qcom,bus-dev = <&fab_mnoc>;
 			qcom,buswidth = <16>;
+			qcom,qport = <16 17>;
 			qcom,connections = <&mas_mnoc_bimc>;
 			qcom,ap-owned;
 		};
