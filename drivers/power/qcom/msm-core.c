@@ -46,6 +46,7 @@
 #define CLUSTER_OFFSET_FOR_MPIDR 8
 #define MAX_CORES_PER_CLUSTER 4
 #define MAX_NUM_OF_CLUSTERS 2
+#define NUM_OF_CORNERS 10
 
 #define ALLOCATE_2D_ARRAY(type)\
 static type **allocate_2d_array_##type(int idx)\
@@ -513,11 +514,16 @@ static int msm_get_voltage_levels(struct device *dev, int cpu,
 {
 	unsigned int *voltage;
 	int i;
-	int volt;
+	int corner;
 	struct opp *opp;
 	struct platform_device *pdev =
 		of_find_device_by_node(activity[cpu].apc_node);
-	int a53_rail[4] = {0, 900000, 1000000, 1115000};
+	/*
+	 * Convert cpr corner voltage to average voltage of both
+	 * a53 and a57 votlage value
+	 */
+	int average_voltage[NUM_OF_CORNERS] = {0, 746, 841, 843, 940, 953, 976,
+			1024, 1090, 1100};
 
 	voltage = devm_kzalloc(dev,
 			sizeof(*voltage) * sp->num_of_freqs, GFP_KERNEL);
@@ -529,8 +535,9 @@ static int msm_get_voltage_levels(struct device *dev, int cpu,
 	for (i = 0; i < sp->num_of_freqs; i++) {
 		opp = dev_pm_opp_find_freq_exact(&pdev->dev,
 				sp->table[i].frequency * 1000, true);
-		volt = dev_pm_opp_get_voltage(opp);
-		voltage[i] = a53_rail[volt] / 1000;
+		corner = dev_pm_opp_get_voltage(opp);
+		if (corner > 0 && corner < ARRAY_SIZE(average_voltage))
+			voltage[i] = average_voltage[corner];
 	}
 	rcu_read_unlock();
 
