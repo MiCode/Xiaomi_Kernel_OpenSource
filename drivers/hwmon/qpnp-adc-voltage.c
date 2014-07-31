@@ -925,6 +925,8 @@ int32_t qpnp_vbat_sns_comp_result(struct qpnp_vadc_chip *vadc,
 		return rc;
 	}
 
+	pr_debug("die-temp = %lld\n", die_temp_result.physical);
+
 	if (is_pon_ocv)
 		rc = qpnp_ocv_comp(result, vadc, die_temp_result.physical);
 	else
@@ -1609,6 +1611,7 @@ static int qpnp_vadc_probe(struct spmi_device *spmi)
 		goto err_setup;
 	}
 	vadc->id = fab_id;
+	pr_debug("fab_id = %d\n", fab_id);
 
 	rc = qpnp_vadc_read_reg(vadc, QPNP_VADC_REVISION2,
 					&vadc->revision_dig_major);
