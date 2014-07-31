@@ -222,6 +222,22 @@
 		qcom,pipe-attr-ee;
 	};
 
+	ipa_hw: qcom,ipa@07900000 {
+		compatible = "qcom,ipa";
+		reg = <0x07900000 0x4EFFC>,
+		      <0x07904000 0x26934>;
+		reg-names = "ipa-base", "bam-base";
+		interrupts = <0 31 0>,
+		             <0 34 0>;
+		interrupt-names = "ipa-irq", "bam-irq";
+		qcom,ipa-hw-ver = <5>; /* IPA core version = IPAv2.5 */
+		qcom,ipa-hw-mode = <0>; /* IPA hw type = Normal */
+		qcom,ee = <0>;
+		qcom,use-ipa-tethering-bridge;
+		clock-names = "core_clk";
+		clocks = <&clock_rpm 0xeeec2919>;
+	};
+
 	qcom,clock-a7@0b011050 {
 		compatible = "qcom,clock-a7-zirc";
 		reg = <0x0b011050 0x8>;
