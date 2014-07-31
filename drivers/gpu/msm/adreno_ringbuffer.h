@@ -13,6 +13,8 @@
 #ifndef __ADRENO_RINGBUFFER_H
 #define __ADRENO_RINGBUFFER_H
 
+#include "kgsl_iommu.h"
+
 /* Adreno ringbuffer size in bytes */
 #define KGSL_RB_SIZE (32 * 1024)
 
@@ -24,6 +26,39 @@
 
 struct kgsl_device;
 struct kgsl_device_private;
+
+/**
+ * union adreno_ttbr0 - Union describing the ttbr0 parameters used when
+ * switching pagetable in stream
+ * @ttbr0_lo: Lower 32 bits of ttbr0
+ * @ttbr0_hi: Higher 32 bits of ttbr0
+ */
+union adreno_ttbr0 {
+	unsigned int ttbr0_lo;
+	unsigned int ttbr0_hi;
+};
+
+/**
+ * struct adreno_ringbuffer_pagetable_info - Contains fields used during a
+ * pagetable switch.
+ * @current_global_ptname: The current pagetable id being used by the GPU.
+ * Only the ringbuffers[0] current_global_ptname is used to keep track of
+ * the current pagetable id
+ * @current_rb_ptname: The current pagetable active on the given RB
+ * @incoming_ptname: Contains the incoming pagetable we are switching to. After
+ * switching of pagetable this value equals current_rb_ptname.
+ * @switch_pt_enable: Flag used during pagetable switch to check if pt
+ * switch can be skipped
+ * @adreno_ttbr0: Parameters used during pagetable switch, it contains the
+ * pagetable values that need to be programmmed into the TTBR0 registers
+ */
+struct adreno_ringbuffer_pagetable_info {
+	int current_global_ptname;
+	int current_rb_ptname;
+	int incoming_ptname;
+	int switch_pt_enable;
+	union adreno_ttbr0 ttbr0[KGSL_IOMMU_MAX_UNITS];
+};
 
 /**
  * struct adreno_ringbuffer - Definition for an adreno ringbuffer object
@@ -42,6 +77,10 @@ struct kgsl_device_private;
  * @mmu_events: A kgsl_event_group for this context - contains the list of mmu
  * events
  * @drawctxt_active: The last pagetable that this ringbuffer is set to
+ * @pagetable_desc: Memory to hold information about the pagetables being used
+ * and the commands to switch pagetable on the RB
+ * @pt_update_desc: The memory descriptor containing commands that update
+ * pagetable
  */
 struct adreno_ringbuffer {
 	struct kgsl_device *device;
@@ -57,6 +96,8 @@ struct adreno_ringbuffer {
 	struct kgsl_event_group events;
 	struct kgsl_event_group mmu_events;
 	struct adreno_context *drawctxt_active;
+	struct kgsl_memdesc pagetable_desc;
+	struct kgsl_memdesc pt_update_desc;
 };
 
 /**

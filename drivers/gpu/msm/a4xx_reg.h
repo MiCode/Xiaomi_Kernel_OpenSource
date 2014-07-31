@@ -476,6 +476,7 @@ enum a4xx_rb_perfctr_rb_sel {
 #define A4XX_CP_PROTECT_CTRL		0x250
 #define A4XX_CP_SCRATCH_UMASK		0x228
 #define A4XX_CP_SCRATCH_ADDR		0x229
+#define A4XX_CP_CNTL			0x22c
 #define A4XX_CP_ME_CNTL			0x22d
 #define A4XX_CP_STATE_DEBUG_INDEX	0x22F
 #define A4XX_CP_STATE_DEBUG_DATA	0x230
@@ -494,6 +495,8 @@ enum a4xx_rb_perfctr_rb_sel {
 #define A4XX_CP_PERFCTR_CP_SEL_7	0x507
 
 #define A4XX_CP_SCRATCH_REG0		0x578
+#define A4XX_CP_SCRATCH_REG6		0x57e
+#define A4XX_CP_SCRATCH_REG7		0x57f
 
 /* SP registers */
 #define A4XX_SP_VS_OBJ_START		0x22e1

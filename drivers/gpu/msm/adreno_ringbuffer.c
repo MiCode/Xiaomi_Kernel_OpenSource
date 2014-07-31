@@ -30,7 +30,6 @@
 #include "a3xx_reg.h"
 #include "adreno_a4xx.h"
 
-#define ADRENO_NUM_RINGBUFFERS 1
 #define GSL_RB_NOP_SIZEDWORDS				2
 
 #define RB_HOSTPTR(_rb, _pos) \
@@ -455,6 +454,8 @@ static void _ringbuffer_setup_common(struct adreno_ringbuffer *rb)
 			0xAA, KGSL_RB_SIZE);
 		rb_temp->wptr = 0;
 		rb_temp->rptr = 0;
+		adreno_iommu_set_pt_generate_rb_cmds(rb_temp,
+					device->mmu.defaultpagetable);
 	}
 
 	/*
@@ -624,6 +625,7 @@ void adreno_ringbuffer_stop(struct adreno_device *adreno_dev)
 static int _adreno_ringbuffer_init(struct adreno_device *adreno_dev,
 				struct adreno_ringbuffer *rb, int id)
 {
+	int ret;
 	char name[64];
 
 	rb->device = &adreno_dev->dev;
@@ -637,8 +639,18 @@ static int _adreno_ringbuffer_init(struct adreno_device *adreno_dev,
 		adreno_rb_readtimestamp, rb);
 	rb->timestamp = 0;
 
-	return kgsl_allocate_global(&adreno_dev->dev, &rb->buffer_desc,
-			KGSL_RB_SIZE, KGSL_MEMFLAGS_GPUREADONLY);
+	/*
+	 * Allocate mem for storing RB pagetables and commands to
+	 * switch pagetable
+	 */
+	ret = kgsl_allocate_global(&adreno_dev->dev, &rb->pagetable_desc,
+		PAGE_SIZE, 0, KGSL_MEMDESC_PRIVILEGED);
+	if (ret)
+		return ret;
+
+	ret = kgsl_allocate_global(&adreno_dev->dev, &rb->buffer_desc,
+			KGSL_RB_SIZE, KGSL_MEMFLAGS_GPUREADONLY, 0);
+	return ret;
 }
 
 int adreno_ringbuffer_init(struct kgsl_device *device)
@@ -665,6 +677,11 @@ int adreno_ringbuffer_init(struct kgsl_device *device)
 
 static void _adreno_ringbuffer_close(struct adreno_ringbuffer *rb)
 {
+	if (rb->pagetable_desc.hostptr)
+		kgsl_free_global(&rb->pagetable_desc);
+
+	memset(&rb->pt_update_desc, 0, sizeof(struct kgsl_memdesc));
+
 	if (rb->buffer_desc.hostptr)
 		kgsl_free_global(&rb->buffer_desc);
 	kgsl_del_event_group(&rb->events);
@@ -794,7 +811,7 @@ adreno_ringbuffer_addcmds(struct adreno_ringbuffer *rb,
 
 		*ringcmds++ = cp_nop_packet(1);
 		*ringcmds++ = KGSL_PWRON_FIXUP_IDENTIFIER;
-		*ringcmds++ = CP_HDR_INDIRECT_BUFFER_PFD;
+		*ringcmds++ = CP_HDR_INDIRECT_BUFFER_PFE;
 		*ringcmds++ = adreno_dev->pwron_fixup.gpuaddr;
 		*ringcmds++ = adreno_dev->pwron_fixup_dwords;
 
@@ -1327,7 +1344,7 @@ int adreno_ringbuffer_submitcmd(struct adreno_device *adreno_dev,
 			if (ib->priv & MEMOBJ_SKIP)
 				*cmds++ = cp_nop_packet(2);
 			else
-				*cmds++ = CP_HDR_INDIRECT_BUFFER_PFD;
+				*cmds++ = CP_HDR_INDIRECT_BUFFER_PFE;
 
 			*cmds++ = ib->gpuaddr;
 			*cmds++ = ib->sizedwords;

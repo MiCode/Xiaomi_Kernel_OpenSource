@@ -1663,6 +1663,9 @@ kgsl_iommu_map(struct kgsl_pagetable *pt,
 	if (!(memdesc->flags & KGSL_MEMFLAGS_GPUREADONLY))
 		protflags |= IOMMU_WRITE;
 
+	if (memdesc->priv & KGSL_MEMDESC_PRIVILEGED)
+		protflags |= IOMMU_PRIV;
+
 	ret = iommu_map_range(iommu_pt->domain, iommu_virt_addr, memdesc->sg,
 				size, protflags);
 	if (ret) {

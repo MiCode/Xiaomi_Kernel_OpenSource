@@ -263,6 +263,7 @@ kgsl_allocate_contiguous(struct kgsl_device *device,
  * @memdesc: Pointer to a KGSL memory descriptor for the memory allocation
  * @size: size of the allocation
  * @flags: Allocation flags that control how the memory is mapped
+ * @priv: Priv flags that controls memory attributes
  *
  * Allocate contiguous memory for internal use and add the allocation to the
  * list of global pagetable entries that will be mapped at the same address in
@@ -270,11 +271,13 @@ kgsl_allocate_contiguous(struct kgsl_device *device,
  * ringbuffers.
  */
 static inline int kgsl_allocate_global(struct kgsl_device *device,
-	struct kgsl_memdesc *memdesc, size_t size, unsigned int flags)
+	struct kgsl_memdesc *memdesc, size_t size, unsigned int flags,
+	unsigned int priv)
 {
 	int ret;
 
 	memdesc->flags = flags;
+	memdesc->priv = priv;
 
 	ret = kgsl_allocate_contiguous(device, memdesc, size);
 

@@ -14,6 +14,7 @@
 #define __ADRENO_H
 
 #include "kgsl_device.h"
+#include "kgsl_sharedmem.h"
 #include "adreno_drawctxt.h"
 #include "adreno_ringbuffer.h"
 #include "adreno_profile.h"
@@ -78,6 +79,8 @@
 #define ADRENO_SPTP_PC BIT(5)
 /* The core supports Peak Power Detection(PPD)*/
 #define ADRENO_PPD BIT(6)
+/* The microcode supports register to register copy and compare */
+#define ADRENO_HAS_REG_TO_REG_CMDS BIT(7)
 
 /* Flags to control command packet settings */
 #define KGSL_CMD_FLAGS_NONE             0
@@ -391,12 +394,16 @@ enum adreno_regs {
 	ADRENO_REG_CP_RB_BASE,
 	ADRENO_REG_CP_RB_RPTR,
 	ADRENO_REG_CP_RB_WPTR,
+	ADRENO_REG_CP_CNTL,
 	ADRENO_REG_CP_ME_CNTL,
 	ADRENO_REG_CP_RB_CNTL,
 	ADRENO_REG_CP_IB1_BASE,
 	ADRENO_REG_CP_IB1_BUFSZ,
 	ADRENO_REG_CP_IB2_BASE,
 	ADRENO_REG_CP_IB2_BUFSZ,
+	ADRENO_REG_CP_TIMESTAMP,
+	ADRENO_REG_CP_SCRATCH_REG6,
+	ADRENO_REG_CP_SCRATCH_REG7,
 	ADRENO_REG_CP_ME_RAM_RADDR,
 	ADRENO_REG_CP_ROQ_ADDR,
 	ADRENO_REG_CP_ROQ_DATA,
@@ -407,7 +414,6 @@ enum adreno_regs {
 	ADRENO_REG_CP_MEQ_DATA,
 	ADRENO_REG_CP_HW_FAULT,
 	ADRENO_REG_CP_PROTECT_STATUS,
-	ADRENO_REG_SCRATCH_REG2,
 	ADRENO_REG_RBBM_STATUS,
 	ADRENO_REG_RBBM_PERFCTR_CTL,
 	ADRENO_REG_RBBM_PERFCTR_LOAD_CMD0,
@@ -779,6 +785,9 @@ int adreno_rb_readtimestamp(struct kgsl_device *device,
 int adreno_iommu_set_pt(struct adreno_ringbuffer *rb,
 			struct kgsl_pagetable *new_pt);
 
+void adreno_iommu_set_pt_generate_rb_cmds(struct adreno_ringbuffer *rb,
+					struct kgsl_pagetable *pt);
+
 static inline int adreno_is_a3xx(struct adreno_device *adreno_dev)
 {
 	return ((ADRENO_GPUREV(adreno_dev) >= 300) &&
@@ -878,7 +887,9 @@ static inline int __adreno_add_idle_indirect_cmds(unsigned int *cmds,
 	 * the commands in indirect buffer have completed. We need to stall
 	 * prefetch with a nop indirect buffer when updating pagetables
 	 * because it provides stabler synchronization */
-	*cmds++ = CP_HDR_INDIRECT_BUFFER_PFD;
+	*cmds++ = cp_type3_packet(CP_WAIT_FOR_ME, 1);
+	*cmds++ = 0;
+	*cmds++ = CP_HDR_INDIRECT_BUFFER_PFE;
 	*cmds++ = nop_gpuaddr;
 	*cmds++ = 2;
 	*cmds++ = cp_type3_packet(CP_WAIT_FOR_IDLE, 1);
@@ -1327,6 +1338,9 @@ static inline void adreno_set_active_ctx_null(struct adreno_device *adreno_dev)
 		if (rb->drawctxt_active)
 			kgsl_context_put(&(rb->drawctxt_active->base));
 		rb->drawctxt_active = NULL;
+		kgsl_sharedmem_writel(rb->device, &rb->pagetable_desc,
+			offsetof(struct adreno_ringbuffer_pagetable_info,
+				current_rb_ptname), 0);
 	}
 }
 
@@ -1348,6 +1362,33 @@ static inline bool adreno_use_cpu_path(struct adreno_device *adreno_dev)
 		KGSL_STATE_ACTIVE != adreno_dev->dev.state ||
 		atomic_read(&adreno_dev->dev.active_cnt) == 0 ||
 		adreno_dev->dev.cff_dump_enable);
+}
+
+/**
+ * adreno_set_apriv() - Generate commands to set/reset the APRIV
+ * @adreno_dev: Device on which the commands will execute
+ * @cmds: The memory pointer where commands are generated
+ * @set: If set then APRIV is set else reset
+ *
+ * Returns the number of commands generated
+ */
+static inline unsigned int adreno_set_apriv(struct adreno_device *adreno_dev,
+				unsigned int *cmds, int set)
+{
+	unsigned int *cmds_orig = cmds;
+
+	*cmds++ = cp_type3_packet(CP_WAIT_FOR_IDLE, 1);
+	*cmds++ = 0;
+	*cmds++ = cp_type3_packet(CP_WAIT_FOR_ME, 1);
+	*cmds++ = 0;
+	*cmds++ = cp_type0_packet(adreno_getreg(adreno_dev,
+				ADRENO_REG_CP_CNTL), 1);
+	if (set)
+		*cmds++ = 1;
+	else
+		*cmds++ = 0;
+
+	return cmds - cmds_orig;
 }
 
 #endif /*__ADRENO_H */

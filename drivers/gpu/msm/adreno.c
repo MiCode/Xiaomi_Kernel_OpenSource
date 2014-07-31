@@ -1548,6 +1548,7 @@ static int adreno_stop(struct kgsl_device *device)
  */
 int adreno_reset(struct kgsl_device *device)
 {
+	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
 	int ret = -EINVAL;
 	struct kgsl_mmu *mmu = &device->mmu;
 	int i = 0;
@@ -1587,6 +1588,10 @@ int adreno_reset(struct kgsl_device *device)
 
 	/* Set the page table back to the default page table */
 	kgsl_mmu_set_pt(&device->mmu, device->mmu.defaultpagetable);
+	kgsl_sharedmem_writel(device,
+		&adreno_dev->ringbuffers[0].pagetable_desc,
+		offsetof(struct adreno_ringbuffer_pagetable_info,
+			current_global_ptname), 0);
 
 	return ret;
 }
@@ -2641,6 +2646,10 @@ static int adreno_suspend_context(struct kgsl_device *device)
 		return status;
 	/* set the device to default pagetable */
 	kgsl_mmu_set_pt(&device->mmu, device->mmu.defaultpagetable);
+	kgsl_sharedmem_writel(device,
+		&adreno_dev->ringbuffers[0].pagetable_desc,
+		offsetof(struct adreno_ringbuffer_pagetable_info,
+			current_global_ptname), 0);
 	/* set ringbuffers to NULL ctxt */
 	adreno_set_active_ctx_null(adreno_dev);
 
