@@ -268,7 +268,7 @@ static int a4xx_preemption_pre_ibsubmit(
 	if (exec_ib) {
 		*cmds++ = cp_type3_packet(CP_INDIRECT_BUFFER_PFE, 2);
 		*cmds++ = ib->gpuaddr;
-		*cmds++ = ib->sizedwords;
+		*cmds++ = (unsigned int) ib->size >> 2;
 	}
 	/* clear preemption flag */
 	*cmds++ = cp_type3_packet(CP_MEM_WRITE, 2);
