@@ -345,10 +345,38 @@ static void platform_init_chrg_params(struct dollarcove_chrg_pdata *pdata)
 			platform_get_batt_charge_profile();
 }
 
+static void platform_set_battery_data(struct dollarcove_fg_pdata *pdata,
+	struct ps_batt_chg_prof *chg_prof)
+{
+	struct ps_pse_mod_prof *prof = (struct ps_pse_mod_prof *)
+		chg_prof->batt_prof;
+
+	/*
+	 * Get the data from ACPI Table OEM0 if it is available
+	 * Also make sure we are not setting value of 0 as acpi table may
+	 * sometimes incorrectly set them to 0.
+	 */
+	if (chg_prof->chrg_prof_type == PSE_MOD_CHRG_PROF) {
+		pdata->design_cap = prof->capacity ? prof->capacity : 4980;
+		pdata->design_max_volt = prof->voltage_max ? prof->voltage_max
+			: 4350;
+	} else {
+		pdata->design_cap = 4980;
+		pdata->design_max_volt = 4350;
+	}
+}
+
 #else
 
 static void platform_init_chrg_params(struct dollarcove_chrg_pdata *pdata)
 {
+}
+
+static void platform_set_battery_data(struct dollarcove_fg_pdata *pdata,
+	struct ps_batt_chg_prof *chg_prof)
+{
+	pdata->design_cap = 4980;
+	pdata->design_max_volt = 4350;
 }
 
 #endif
@@ -389,12 +417,10 @@ static void dc_xpwr_fg_pdata(void)
 	int i;
 
 	memcpy(pdata.battid, "INTN0001", strlen("INTN0001"));
-	pdata.design_cap = 4980;
+	platform_set_battery_data(&pdata, &ps_batt_chrg_prof);
 	pdata.design_min_volt = 3400;
-	pdata.design_max_volt = 4350;
 	pdata.max_temp = 55;
 	pdata.min_temp = 0;
-
 	pdata.cap1 = 0x8D;
 	pdata.cap0 = 0xA3;
 	pdata.rdc1 = 0xc0;
@@ -425,9 +451,9 @@ static void dc_xpwr_pwrsrc_pdata(void)
 static int dollar_cove_init(void)
 {
 	pr_info("Dollar Cove: IC_TYPE 0x%02X\n", intel_soc_pmic_readb(0x03));
+	dc_xpwr_chrg_pdata();
 	dc_xpwr_pwrsrc_pdata();
 	dc_xpwr_fg_pdata();
-	dc_xpwr_chrg_pdata();
 
 	return 0;
 }
