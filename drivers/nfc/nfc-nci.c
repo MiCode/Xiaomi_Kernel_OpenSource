@@ -1618,7 +1618,7 @@ err_irq:
 err_dis_gpio:
 	gpio_free(platform_data->dis_gpio);
 err_free_dev:
-	if (!qca199x_dev->dma_virtual_addr) {
+	if (qca199x_dev->nfc_dma_pool && qca199x_dev->dma_virtual_addr) {
 		dma_pool_free(qca199x_dev->nfc_dma_pool,
 				qca199x_dev->dma_virtual_addr,
 				qca199x_dev->dma_handle_physical_addr);
@@ -1626,7 +1626,7 @@ err_free_dev:
 		qca199x_dev->dma_virtual_addr = NULL;
 	}
 
-	if (!qca199x_dev->nfc_dma_pool) {
+	if (qca199x_dev->nfc_dma_pool) {
 		dma_pool_destroy(qca199x_dev->nfc_dma_pool);
 		qca199x_dev->nfc_dma_pool = NULL;
 	}
@@ -1654,7 +1654,7 @@ static int qca199x_remove(struct i2c_client *client)
 	if (strcmp(qca199x_dev->clk_src_name, "GPCLK2"))
 		gpio_free(qca199x_dev->clkreq_gpio);
 
-	if (!qca199x_dev->dma_virtual_addr) {
+	if (qca199x_dev->nfc_dma_pool && qca199x_dev->dma_virtual_addr) {
 		dma_pool_free(qca199x_dev->nfc_dma_pool,
 			qca199x_dev->dma_virtual_addr,
 			qca199x_dev->dma_handle_physical_addr);
@@ -1662,7 +1662,7 @@ static int qca199x_remove(struct i2c_client *client)
 		qca199x_dev->dma_virtual_addr = NULL;
 	}
 
-	if (!qca199x_dev->nfc_dma_pool) {
+	if (qca199x_dev->nfc_dma_pool) {
 		dma_pool_destroy(qca199x_dev->nfc_dma_pool);
 		qca199x_dev->nfc_dma_pool = NULL;
 	}
