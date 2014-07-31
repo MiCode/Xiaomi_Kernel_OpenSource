@@ -4894,7 +4894,7 @@ static int ufshcd_query_ioctl(struct ufs_hba *hba, u8 lun, void __user *buffer)
 	u8 index;
 	u8 *desc = NULL;
 
-	ioctl_data = kmalloc(sizeof(struct ufs_ioctl_query_data), GFP_KERNEL);
+	ioctl_data = kzalloc(sizeof(struct ufs_ioctl_query_data), GFP_KERNEL);
 	if (!ioctl_data) {
 		dev_err(hba->dev, "%s: Failed allocating %zu bytes\n", __func__,
 				sizeof(struct ufs_ioctl_query_data));
@@ -4938,7 +4938,7 @@ static int ufshcd_query_ioctl(struct ufs_hba *hba, u8 lun, void __user *buffer)
 		}
 		length = min_t(int, QUERY_DESC_MAX_SIZE,
 				ioctl_data->buf_size);
-		desc = kmalloc(length, GFP_KERNEL);
+		desc = kzalloc(length, GFP_KERNEL);
 		if (!desc) {
 			dev_err(hba->dev, "%s: Failed allocating %d bytes\n",
 					__func__, length);
