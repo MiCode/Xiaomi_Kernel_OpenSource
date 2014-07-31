@@ -22,7 +22,7 @@ Required properties:
 - cpu-vdd-supply: regulator phandle for cpu power domain.
 
 Optional properties:
-- reg-names: "efuse"
+- reg-names: "efuse", "efuse1"
 - qcom,safe-freq: Frequency in HZ
 	     When switching rates from A to B, the mux div clock will
              instead switch from A -> safe_freq -> B.
