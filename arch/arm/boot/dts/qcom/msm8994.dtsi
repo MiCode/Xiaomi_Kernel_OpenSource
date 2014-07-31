@@ -1157,7 +1157,7 @@
 		interrupts = <0 163 0>, <0 164 0>;
 		interrupt-names = "slimbus_irq", "slimbus_bam_irq";
 		qcom,apps-ch-pipes = <0x60000000>;
-		qcom,ea-pc = <0x130>;
+		qcom,ea-pc = <0x110>;
 
 		tomtom_codec {
 			compatible = "qcom,tomtom-slim-pgd";
