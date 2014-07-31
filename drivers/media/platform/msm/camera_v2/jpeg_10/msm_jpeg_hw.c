@@ -171,8 +171,8 @@ struct msm_jpeg_hw_cmd hw_cmd_irq_dmaclear[] = {
 void msm_jpegdma_hw_irq_clear(uint32_t mask, uint32_t data, void *base)
 {
 	JPEG_DBG("%s:%d] mask %0x data %0x", __func__, __LINE__, mask, data);
-	hw_cmd_irq_clear[0].mask = mask;
-	hw_cmd_irq_clear[0].data = data;
+	hw_cmd_irq_dmaclear[0].mask = mask;
+	hw_cmd_irq_dmaclear[0].data = data;
 	msm_jpeg_hw_write(&hw_cmd_irq_dmaclear[0], base);
 }
 
