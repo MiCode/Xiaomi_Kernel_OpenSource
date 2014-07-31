@@ -3,6 +3,7 @@ ccflags-y := -Iinclude/uapi/drm -Iinclude/drm -Idrivers/gpu/msm
 msm_kgsl_core-y = \
 	kgsl.o \
 	kgsl_trace.o \
+	kgsl_cmdbatch.o \
 	kgsl_ioctl.o \
 	kgsl_sharedmem.o \
 	kgsl_pwrctrl.o \

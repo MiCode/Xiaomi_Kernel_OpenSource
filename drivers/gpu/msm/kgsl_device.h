@@ -25,6 +25,7 @@
 #include "kgsl_pwrscale.h"
 #include "kgsl_snapshot.h"
 #include "kgsl_sharedmem.h"
+#include "kgsl_cmdbatch.h"
 
 #include <linux/sync.h>
 
@@ -92,14 +93,6 @@ enum kgsl_event_results {
 	{ KGSL_CONTEXT_PWR_CONSTRAINT, "PWR" }, \
 	{ KGSL_CONTEXT_SAVE_GMEM, "SAVE_GMEM" }
 
-#define KGSL_CMDBATCH_FLAGS \
-	{ KGSL_CMDBATCH_MARKER, "MARKER" }, \
-	{ KGSL_CMDBATCH_CTX_SWITCH, "CTX_SWITCH" }, \
-	{ KGSL_CMDBATCH_SYNC, "SYNC" }, \
-	{ KGSL_CMDBATCH_END_OF_FRAME, "EOF" }, \
-	{ KGSL_CMDBATCH_PWR_CONSTRAINT, "PWR_CONSTRAINT" }, \
-	{ KGSL_CMDBATCH_SUBMIT_IB_LIST, "IB_LIST" }
-
 #define KGSL_CONTEXT_TYPES \
 	{ KGSL_CONTEXT_TYPE_ANY, "ANY" }, \
 	{ KGSL_CONTEXT_TYPE_GL, "GL" }, \
@@ -119,7 +112,6 @@ struct kgsl_device_private;
 struct kgsl_context;
 struct kgsl_power_stats;
 struct kgsl_event;
-struct kgsl_cmdbatch;
 struct kgsl_snapshot;
 
 struct kgsl_functable {
@@ -213,98 +205,6 @@ struct kgsl_memobj_node {
 	uint64_t gpuaddr;
 	uint64_t sizedwords;
 	unsigned long priv;
-};
-
-/**
- * struct kgsl_cmdbatch - KGSl command descriptor
- * @device: KGSL GPU device that the command was created for
- * @context: KGSL context that created the command
- * @timestamp: Timestamp assigned to the command
- * @flags: flags
- * @priv: Internal flags
- * @fault_policy: Internal policy describing how to handle this command in case
- * of a fault
- * @fault_recovery: recovery actions actually tried for this batch
- * @expires: Point in time when the cmdbatch is considered to be hung
- * @refcount: kref structure to maintain the reference count
- * @cmdlist: List of IBs to issue
- * @memlist: List of all memory used in this command batch
- * @synclist: List of context/timestamp tuples to wait for before issuing
- * @timer: a timer used to track possible sync timeouts for this cmdbatch
- * @marker_timestamp: For markers, the timestamp of the last "real" command that
- * was queued
- * @profiling_buf_entry: Mem entry containing the profiling buffer
- * @profiling_buffer_gpuaddr: GPU virt address of the profile buffer added here
- * for easy access
- * @profile_index: Index to store the start/stop ticks in the kernel profiling
- * buffer
- * @submit_ticks: Variable to hold ticks at the time of cmdbatch submit.
- * @global_ts: The ringbuffer timestamp corresponding to this cmdbatch
- * This structure defines an atomic batch of command buffers issued from
- * userspace.
- */
-struct kgsl_cmdbatch {
-	struct kgsl_device *device;
-	struct kgsl_context *context;
-	spinlock_t lock;
-	uint32_t timestamp;
-	uint32_t flags;
-	unsigned long priv;
-	unsigned long fault_policy;
-	unsigned long fault_recovery;
-	unsigned long expires;
-	struct kref refcount;
-	struct list_head cmdlist;
-	struct list_head memlist;
-	struct list_head synclist;
-	struct timer_list timer;
-	unsigned int marker_timestamp;
-	struct kgsl_mem_entry *profiling_buf_entry;
-	uint64_t profiling_buffer_gpuaddr;
-	unsigned int profile_index;
-	uint64_t submit_ticks;
-	unsigned int global_ts;
-};
-
-/**
- * struct kgsl_cmdbatch_sync_event
- * @type: Syncpoint type
- * @node: Local list node for the cmdbatch sync point list
- * @cmdbatch: Pointer to the cmdbatch that owns the sync event
- * @context: Pointer to the KGSL context that owns the cmdbatch
- * @timestamp: Pending timestamp for the event
- * @handle: Pointer to a sync fence handle
- * @device: Pointer to the KGSL device
- * @refcount: Allow event to be destroyed asynchronously
- */
-struct kgsl_cmdbatch_sync_event {
-	int type;
-	struct list_head node;
-	struct kgsl_cmdbatch *cmdbatch;
-	struct kgsl_context *context;
-	unsigned int timestamp;
-	struct kgsl_sync_fence_waiter *handle;
-	struct kgsl_device *device;
-	struct kref refcount;
-};
-
-/**
- * enum kgsl_cmdbatch_priv - Internal cmdbatch flags
- * @CMDBATCH_FLAG_SKIP - skip the entire command batch
- * @CMDBATCH_FLAG_FORCE_PREAMBLE - Force the preamble on for the cmdbatch
- * @CMDBATCH_FLAG_WFI - Force wait-for-idle for the submission
- * @CMDBATCH_FLAG_PROFILE - store the start / retire ticks for the command batch
- * in the profiling buffer
- * @CMDBATCH_FLAG_FENCE_LOG - Set if the cmdbatch is dumping fence logs via the
- * cmdbatch timer - this is used to avoid recursion
- */
-
-enum kgsl_cmdbatch_priv {
-	CMDBATCH_FLAG_SKIP = 0,
-	CMDBATCH_FLAG_FORCE_PREAMBLE,
-	CMDBATCH_FLAG_WFI,
-	CMDBATCH_FLAG_PROFILE,
-	CMDBATCH_FLAG_FENCE_LOG,
 };
 
 struct kgsl_device {
@@ -849,13 +749,6 @@ static inline struct kgsl_context *kgsl_context_get_owner(
 	return context;
 }
 
-void kgsl_dump_syncpoints(struct kgsl_device *device,
-	struct kgsl_cmdbatch *cmdbatch);
-
-void kgsl_cmdbatch_destroy(struct kgsl_cmdbatch *cmdbatch);
-
-void kgsl_cmdbatch_destroy_object(struct kref *kref);
-
 /**
 * kgsl_process_private_get() - increment the refcount on a kgsl_process_private
 *   struct
@@ -876,16 +769,6 @@ void kgsl_process_private_put(struct kgsl_process_private *private);
 
 
 struct kgsl_process_private *kgsl_process_private_find(pid_t pid);
-
-/**
- * kgsl_cmdbatch_put() - Decrement the refcount for a command batch object
- * @cmdbatch: Pointer to the command batch object
- */
-static inline void kgsl_cmdbatch_put(struct kgsl_cmdbatch *cmdbatch)
-{
-	if (cmdbatch)
-		kref_put(&cmdbatch->refcount, kgsl_cmdbatch_destroy_object);
-}
 
 /**
  * kgsl_property_read_u32() - Read a u32 property from the device tree
