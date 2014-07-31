@@ -7534,6 +7534,25 @@ static void tomtom_mbhc_micb_pulldown_ctrl(struct wcd9xxx_mbhc *mbhc,
 	}
 }
 
+static void tomtom_codec_hph_auto_pull_down(struct snd_soc_codec *codec,
+					    bool enable)
+{
+	struct wcd9xxx *tomtom_core = dev_get_drvdata(codec->dev->parent);
+
+	if (TOMTOM_IS_1_0(tomtom_core->version))
+		return;
+
+	dev_dbg(codec->dev, "%s: %s auto pull down\n", __func__,
+			enable ? "enable" : "disable");
+	if (enable) {
+		snd_soc_update_bits(codec, TOMTOM_A_RX_HPH_L_TEST, 0x08, 0x08);
+		snd_soc_update_bits(codec, TOMTOM_A_RX_HPH_R_TEST, 0x08, 0x08);
+	} else {
+		snd_soc_update_bits(codec, TOMTOM_A_RX_HPH_L_TEST, 0x08, 0x00);
+		snd_soc_update_bits(codec, TOMTOM_A_RX_HPH_R_TEST, 0x08, 0x00);
+	}
+}
+
 static const struct wcd9xxx_mbhc_cb mbhc_cb = {
 	.get_cdc_type = tomtom_get_cdc_type,
 	.setup_zdet = tomtom_setup_zdet,
@@ -7542,6 +7561,7 @@ static const struct wcd9xxx_mbhc_cb mbhc_cb = {
 	.insert_rem_status = tomtom_mbhc_ins_rem_status,
 	.micbias_pulldown_ctrl = tomtom_mbhc_micb_pulldown_ctrl,
 	.codec_rco_ctrl = tomtom_codec_internal_rco_ctrl,
+	.hph_auto_pulldown_ctrl = tomtom_codec_hph_auto_pull_down,
 };
 
 static const struct wcd9xxx_mbhc_intr cdc_intr_ids = {

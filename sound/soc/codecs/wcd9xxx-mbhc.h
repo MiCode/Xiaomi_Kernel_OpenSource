@@ -294,6 +294,7 @@ struct wcd9xxx_mbhc_cb {
 	bool (*insert_rem_status) (struct snd_soc_codec *);
 	void (*micbias_pulldown_ctrl) (struct wcd9xxx_mbhc *, bool);
 	int (*codec_rco_ctrl) (struct snd_soc_codec *, bool);
+	void (*hph_auto_pulldown_ctrl) (struct snd_soc_codec *, bool);
 };
 
 struct wcd9xxx_mbhc {
