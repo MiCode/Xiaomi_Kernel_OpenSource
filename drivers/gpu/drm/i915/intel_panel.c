@@ -31,7 +31,9 @@
 #define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
 
 #include <linux/moduleparam.h>
+#include <linux/mfd/intel_soc_pmic.h>
 #include "intel_drv.h"
+#include "intel_dsi.h"
 
 void
 intel_fixed_panel_mode(const struct drm_display_mode *fixed_mode,
@@ -459,7 +461,11 @@ static u32 _vlv_get_backlight(struct drm_device *dev, enum pipe pipe)
 {
 	struct drm_i915_private *dev_priv = dev->dev_private;
 
-	return I915_READ(VLV_BLC_PWM_CTL(pipe)) & BACKLIGHT_DUTY_CYCLE_MASK;
+	if (dev_priv->vbt.has_mipi)
+		return intel_soc_pmic_readb(PMIC_PWM_LEVEL);
+	else
+		return I915_READ(VLV_BLC_PWM_CTL(pipe)) &
+					BACKLIGHT_DUTY_CYCLE_MASK;
 }
 
 static u32 vlv_get_backlight(struct intel_connector *connector)
@@ -476,21 +482,25 @@ static u32 intel_panel_get_backlight(struct intel_connector *connector)
 	struct drm_i915_private *dev_priv = dev->dev_private;
 	u32 val;
 
-	mutex_lock(&dev_priv->backlight_lock);
+	if (dev_priv->vbt.has_mipi) {
+		val = dev_priv->display.get_backlight(connector);
+	} else {
+		mutex_lock(&dev_priv->backlight_lock);
 
-	val = dev_priv->display.get_backlight(connector);
+		val = dev_priv->display.get_backlight(connector);
 
-	/* When DPST is enabled, reading the backlight register will
-	 * give the DPST adjusted backlight value. Since DPST works
-	 * without user knowing a perceived difference in the backlight,
-	 * the programmed backlight isn't the correct value to return.
-	 * So, get the user perceived backlight level from DPST. */
-	if (dev_priv->dpst.enabled)
-		val = i915_dpst_get_brightness(dev);
-	else
-		val = intel_panel_compute_brightness(connector, val);
+		/* When DPST is enabled, reading the backlight register will
+		 * give the DPST adjusted backlight value. Since DPST works
+		 * without user knowing a perceived difference in the backlight,
+		 * the programmed backlight isn't the correct value to return.
+		 * So, get the user perceived backlight level from DPST. */
+		if (dev_priv->dpst.enabled)
+			val = i915_dpst_get_brightness(dev);
+		else
+			val = intel_panel_compute_brightness(connector, val);
 
-	mutex_unlock(&dev_priv->backlight_lock);
+		mutex_unlock(&dev_priv->backlight_lock);
+	}
 
 	DRM_DEBUG_DRIVER("get backlight PWM = %d\n", val);
 	return val;
@@ -553,6 +563,11 @@ static void vlv_set_backlight(struct intel_connector *connector, u32 level)
 	I915_WRITE(VLV_BLC_PWM_CTL(pipe), tmp | level);
 }
 
+static void vlv_set_mipi_backlight(struct intel_connector *connector, u32 level)
+{
+	intel_soc_pmic_writeb(PMIC_PWM_LEVEL, level);
+}
+
 void
 intel_panel_actually_set_backlight(struct intel_connector *connector, u32 level)
 {
@@ -594,13 +609,16 @@ void intel_panel_set_backlight(struct intel_connector *connector, u32 level,
 		panel->backlight.device->props.brightness = level;
 
 	if (panel->backlight.enabled) {
-		if (dev_priv->dpst.enabled)
+		if (dev_priv->dpst.enabled && !dev_priv->vbt.has_mipi)
 			i915_dpst_set_brightness(dev, level);
-		else
+		else if (!dev_priv->vbt.has_mipi)
 			intel_panel_actually_set_backlight(connector, level);
 	}
 
 	mutex_unlock(&dev_priv->backlight_lock);
+
+	if (dev_priv->vbt.has_mipi)
+		intel_panel_actually_set_backlight(connector, level);
 }
 
 static void pch_disable_backlight(struct intel_connector *connector)
@@ -648,6 +666,14 @@ static void vlv_disable_backlight(struct intel_connector *connector)
 	I915_WRITE(VLV_BLC_PWM_CTL2(pipe), tmp & ~BLM_PWM_ENABLE);
 }
 
+static void vlv_disable_mipi_backlight(struct intel_connector *connector)
+{
+	intel_panel_actually_set_backlight(connector, 0);
+
+	intel_soc_pmic_writeb(PMIC_PWM_EN, 0x00);
+	intel_soc_pmic_writeb(PMIC_BKL_EN, 0x7F);
+}
+
 void intel_panel_disable_backlight(struct intel_connector *connector)
 {
 	struct drm_device *dev = connector->base.dev;
@@ -672,9 +698,20 @@ void intel_panel_disable_backlight(struct intel_connector *connector)
 	mutex_lock(&dev_priv->backlight_lock);
 
 	panel->backlight.enabled = false;
-	dev_priv->display.disable_backlight(connector);
+
+	if (!dev_priv->vbt.has_mipi) {
+		dev_priv->display.disable_backlight(connector);
+		mutex_unlock(&dev_priv->backlight_lock);
+		return;
+	}
 
 	mutex_unlock(&dev_priv->backlight_lock);
+
+	/*
+	 * in case of MIPI we use PMIC cals which cannot be done within
+	 * mutex
+	 */
+	dev_priv->display.disable_backlight(connector);
 }
 
 static void bdw_enable_backlight(struct intel_connector *connector)
@@ -853,6 +890,16 @@ static void vlv_enable_backlight(struct intel_connector *connector)
 	I915_WRITE(VLV_BLC_PWM_CTL2(pipe), ctl2 | BLM_PWM_ENABLE);
 }
 
+static void vlv_enable_mipi_backlight(struct intel_connector *connector)
+{
+	struct intel_panel *panel = &connector->panel;
+
+	intel_soc_pmic_writeb(PMIC_BKL_EN, 0xFF);
+	intel_soc_pmic_writeb(PMIC_PWM_EN, 0x01);
+
+	intel_panel_actually_set_backlight(connector, panel->backlight.level);
+}
+
 void intel_panel_enable_backlight(struct intel_connector *connector)
 {
 	struct drm_device *dev = connector->base.dev;
@@ -878,10 +925,20 @@ void intel_panel_enable_backlight(struct intel_connector *connector)
 	}
 #endif
 
-	dev_priv->display.enable_backlight(connector);
 	panel->backlight.enabled = true;
+	if (!dev_priv->vbt.has_mipi) {
+		dev_priv->display.enable_backlight(connector);
+		mutex_unlock(&dev_priv->backlight_lock);
+		return;
+	}
 
 	mutex_unlock(&dev_priv->backlight_lock);
+
+	/*
+	 * in case of MIPI, PMIC is used which cannot be called
+	 * within mutex
+	 */
+	dev_priv->display.enable_backlight(connector);
 }
 
 #if IS_ENABLED(CONFIG_BACKLIGHT_CLASS_DEVICE)
@@ -1123,6 +1180,22 @@ static int vlv_setup_backlight(struct intel_connector *connector)
 	return 0;
 }
 
+static int vlv_setup_mipi_backlight(struct intel_connector *connector)
+{
+	struct drm_device *dev = connector->base.dev;
+	struct intel_panel *panel = &connector->panel;
+	u32 val;
+
+	panel->backlight.max = 0xFF;
+
+	val = _vlv_get_backlight(dev, PIPE_A);
+	panel->backlight.level = intel_panel_compute_brightness(connector, val);
+
+	panel->backlight.enabled = (intel_soc_pmic_readb(PMIC_PWM_EN) & 0x1) &&
+						panel->backlight.level != 0;
+	return 0;
+}
+
 int intel_panel_setup_backlight(struct drm_connector *connector)
 {
 	struct drm_device *dev = connector->dev;
@@ -1136,10 +1209,14 @@ int intel_panel_setup_backlight(struct drm_connector *connector)
 		return 0;
 	}
 
-	/* set level and max in panel struct */
-	mutex_lock(&dev_priv->backlight_lock);
-	ret = dev_priv->display.setup_backlight(intel_connector);
-	mutex_unlock(&dev_priv->backlight_lock);
+	if (dev_priv->vbt.has_mipi)
+		ret = dev_priv->display.setup_backlight(intel_connector);
+	else {
+		/* set level and max in panel struct */
+		mutex_lock(&dev_priv->backlight_lock);
+		ret = dev_priv->display.setup_backlight(intel_connector);
+		mutex_unlock(&dev_priv->backlight_lock);
+	}
 
 	if (ret) {
 		DRM_DEBUG_KMS("failed to setup backlight for connector %s\n",
@@ -1187,11 +1264,26 @@ void intel_panel_init_backlight_funcs(struct drm_device *dev)
 		dev_priv->display.set_backlight = pch_set_backlight;
 		dev_priv->display.get_backlight = pch_get_backlight;
 	} else if (IS_VALLEYVIEW(dev)) {
-		dev_priv->display.setup_backlight = vlv_setup_backlight;
-		dev_priv->display.enable_backlight = vlv_enable_backlight;
-		dev_priv->display.disable_backlight = vlv_disable_backlight;
-		dev_priv->display.set_backlight = vlv_set_backlight;
+		if (dev_priv->vbt.has_mipi) {
+			dev_priv->display.setup_backlight =
+						vlv_setup_mipi_backlight;
+			dev_priv->display.enable_backlight =
+						vlv_enable_mipi_backlight;
+			dev_priv->display.disable_backlight =
+						vlv_disable_mipi_backlight;
+			dev_priv->display.set_backlight =
+						vlv_set_mipi_backlight;
+		} else {
+			dev_priv->display.setup_backlight = vlv_setup_backlight;
+			dev_priv->display.enable_backlight =
+						vlv_enable_backlight;
+			dev_priv->display.disable_backlight =
+						vlv_disable_backlight;
+			dev_priv->display.set_backlight = vlv_set_backlight;
+		}
+
 		dev_priv->display.get_backlight = vlv_get_backlight;
+
 	} else if (IS_GEN4(dev)) {
 		dev_priv->display.setup_backlight = i965_setup_backlight;
 		dev_priv->display.enable_backlight = i965_enable_backlight;

@@ -128,6 +128,7 @@ static void intel_dsi_enable(struct intel_encoder *encoder)
 	struct drm_i915_private *dev_priv = dev->dev_private;
 	struct intel_crtc *intel_crtc = to_intel_crtc(encoder->base.crtc);
 	struct intel_dsi *intel_dsi = enc_to_intel_dsi(&encoder->base);
+	struct intel_connector *intel_connector = intel_dsi->attached_connector;
 	int pipe = intel_crtc->pipe;
 	u32 temp;
 
@@ -149,6 +150,16 @@ static void intel_dsi_enable(struct intel_encoder *encoder)
 		I915_WRITE(MIPI_PORT_CTRL(pipe), temp | DPI_ENABLE);
 		POSTING_READ(MIPI_PORT_CTRL(pipe));
 	}
+
+	if (intel_dsi->backlight_on_delay >= 20)
+		msleep(intel_dsi->backlight_on_delay);
+	else
+		usleep_range(intel_dsi->backlight_on_delay * 1000,
+				(intel_dsi->backlight_on_delay * 1000) + 500);
+
+	if (dev_priv->display.enable_backlight)
+		dev_priv->display.enable_backlight(intel_connector);
+
 }
 
 static void intel_dsi_pre_enable(struct intel_encoder *encoder)
@@ -156,7 +167,6 @@ static void intel_dsi_pre_enable(struct intel_encoder *encoder)
 	struct drm_device *dev = encoder->base.dev;
 	struct drm_i915_private *dev_priv = dev->dev_private;
 	struct intel_dsi *intel_dsi = enc_to_intel_dsi(&encoder->base);
-	struct intel_crtc *intel_crtc = to_intel_crtc(encoder->base.crtc);
 	u32 tmp;
 
 	DRM_DEBUG_KMS("\n");
@@ -215,10 +225,20 @@ static void intel_dsi_disable(struct intel_encoder *encoder)
 	struct drm_i915_private *dev_priv = dev->dev_private;
 	struct intel_crtc *intel_crtc = to_intel_crtc(encoder->base.crtc);
 	struct intel_dsi *intel_dsi = enc_to_intel_dsi(&encoder->base);
+	struct intel_connector *intel_connector = intel_dsi->attached_connector;
 	int pipe = intel_crtc->pipe;
 	u32 temp;
 
 	DRM_DEBUG_KMS("\n");
+
+	if (dev_priv->display.disable_backlight)
+		dev_priv->display.disable_backlight(intel_connector);
+
+	if (intel_dsi->backlight_off_delay >= 20)
+		msleep(intel_dsi->backlight_off_delay);
+	else
+		usleep_range(intel_dsi->backlight_off_delay * 1000,
+				(intel_dsi->backlight_off_delay * 1000) + 500);
 
 	if (is_vid_mode(intel_dsi)) {
 		/* de-assert ip_tg_enable signal */
@@ -782,6 +802,7 @@ bool intel_dsi_init(struct drm_device *dev)
 	fixed_mode->type |= DRM_MODE_TYPE_PREFERRED;
 	intel_panel_init(&intel_connector->panel, fixed_mode, NULL);
 
+	intel_panel_setup_backlight(connector);
 	return true;
 
 err:
