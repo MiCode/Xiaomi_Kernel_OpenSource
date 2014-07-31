@@ -96,3 +96,66 @@ Example:
 			thermal-handle = <&msm_thermal_freq>;
 		};
 	};
+
+===============================================================================
+BCL PMIC Peripheral driver:
+===============================================================================
+In newer targets from MSM8994, the PMIC has BCL monitoring capabilities
+in the hardware. The PMIC exposes this BCL monitoring peripheral as a PMIC
+peripheral. The BCL peripheral driver interacts with the PMIC peripheral using
+the SPMI driver interfaces. The details and the configuration for the BCL
+peripheral can be inputted using the device tree.
+
+The units of the Vbat and Ibat values returned and read depends on the scaling
+factor that is given as input for BCL peripheral driver through device tree. The
+scaling factors should be configured to handle Vbat in micro-volt and Ibat in
+micro-amps.
+
+Required Parameters:
+- compatible: must be qcom,msm-bcl
+- reg: <a b> where 'a' is the starting register address of the PMIC
+	peripheral and 'b' is the size of the peripheral address space.
+-interrupts: <a b c> Where 'a' is the SLAVE ID of the PMIC, 'b' is
+		the peripheral ID and 'c' is the interrupt number in PMIC.
+- interrupt-names: user defined names for the interrupts. These
+		interrupt names will be used by the drivers to identify the
+		interrupts, instead of specifying the ID's.
+- qcom,vbat-scaling-factor: The scaling factor to be used for converting
+		the raw vbat ADC value to milli-volt.
+- qcom,vbat-gain-numerator: The numerator of the vbat gain correction factor.
+- qcom,vbat-gain-denominator: The denominator of the vbat gain correction
+		factor.
+- qcom,vbat-polling-delay-ms: Software polling interval for monitoring vbat
+		high threshold.
+- qcom,ibat-scaling-factor: The scaling factor to be used for converting
+		the raw ibat ADC value to micro-amps.
+- qcom, ibat-gain-numerator: The numerator of the ibat gain correction factor.
+- qcom, ibat-gain-denominator: The denominator of the ibat gain correction
+		factor.
+- qcom, ibat-offset-numerator: The numerator of the ibat offset correction
+		factor.
+- qcom, ibat-offset-denominator: The denominator of the ibat offset
+		correction factor.
+- qcom,ibat-polling-delay-ms: Software polling interval for monitoring ibat
+		low threshold.
+
+                bcl@4200 {
+                        compatible = "qcom,msm-bcl";
+                        reg = <0x4200 0xFF>;
+                        interrupts = <0x2 0x42 0x0>,
+                                        <0x2 0x42 0x1>;
+                        interrupt-names = "bcl-high-ibat-int",
+                                        "bcl-low-vbat-int";
+                        qcom,vbat-scaling-factor = <39>;
+                        qcom,vbat-gain-numerator = <1>;
+                        qcom,vbat-gain-denominator = <32>;
+                        qcom,vbat-polling-delay-ms = <50>;
+                        qcom,ibat-scaling-factor = <39>;
+                        qcom,ibat-gain-numerator = <1>;
+                        qcom,ibat-gain-denominator = <32>;
+                        qcom,ibat-offset-numerator = <12>;
+                        qcom,ibat-offset-denominator = <10>;
+                        qcom,ibat-polling-delay-ms = <50>;
+                };
+
+

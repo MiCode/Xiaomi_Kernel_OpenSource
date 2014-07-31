@@ -534,6 +534,15 @@ config MSM_BCL_CTL
 	  basic functionalities. This framework abstracts the underlying
 	  hardware for the top level modules.
 
+config MSM_BCL_PERIPHERAL_CTL
+	bool "BCL driver to control the PMIC BCL peripheral"
+	depends on SPMI
+	depends on MSM_BCL_CTL
+	help
+	  Say Y here to enable this BCL PMIC peripheral driver. This driver
+	  provides routines to configure and monitor the BCL
+	  PMIC peripheral.
+
 source "drivers/power/reset/Kconfig"
 
 endif # POWER_SUPPLY
