@@ -32,6 +32,7 @@
 #include "intel_drv.h"
 #include "intel_dsi.h"
 #include "intel_dsi_cmd.h"
+#include <linux/mfd/intel_soc_pmic.h>
 
 /* the sub-encoders aka panel drivers */
 static const struct intel_dsi_device intel_dsi_devices[] = {
@@ -108,15 +109,6 @@ static void intel_dsi_device_ready(struct intel_encoder *encoder)
 
 	DRM_DEBUG_KMS("\n");
 
-	mutex_lock(&dev_priv->dpio_lock);
-	/* program rcomp for compliance, reduce from 50 ohms to 45 ohms
-	 * needed everytime after power gate */
-	vlv_flisdsi_write(dev_priv, 0x04, 0x0004);
-	mutex_unlock(&dev_priv->dpio_lock);
-
-	/* bandgap reset is needed after everytime we do power gate */
-	band_gap_reset(dev_priv);
-
 	val = I915_READ(MIPI_PORT_CTRL(pipe));
 	I915_WRITE(MIPI_PORT_CTRL(pipe), val | LP_OUTPUT_HOLD);
 	usleep_range(1000, 1500);
@@ -165,28 +157,26 @@ static void intel_dsi_pre_enable(struct intel_encoder *encoder)
 	struct drm_i915_private *dev_priv = dev->dev_private;
 	struct intel_dsi *intel_dsi = enc_to_intel_dsi(&encoder->base);
 	struct intel_crtc *intel_crtc = to_intel_crtc(encoder->base.crtc);
-	enum pipe pipe = intel_crtc->pipe;
 	u32 tmp;
 
 	DRM_DEBUG_KMS("\n");
 
-	/* Disable DPOunit clock gating, can stall pipe
-	 * and we need DPLL REFA always enabled */
-	tmp = I915_READ(DPLL(pipe));
-	tmp |= DPLL_REFA_CLK_ENABLE_VLV;
-	I915_WRITE(DPLL(pipe), tmp);
+	/* Panel Enable */
+	intel_soc_pmic_writeb(PMIC_PANEL_EN, 0x01);
+	msleep(intel_dsi->panel_on_delay);
 
 	tmp = I915_READ(DSPCLK_GATE_D);
 	tmp |= DPOUNIT_CLOCK_GATE_DISABLE;
 	I915_WRITE(DSPCLK_GATE_D, tmp);
 
+
+	if (intel_dsi->dev.dev_ops->panel_reset)
+		intel_dsi->dev.dev_ops->panel_reset(&intel_dsi->dev);
+
 	/* put device in ready state */
 	intel_dsi_device_ready(encoder);
 
 	msleep(intel_dsi->panel_on_delay);
-
-	if (intel_dsi->dev.dev_ops->panel_reset)
-		intel_dsi->dev.dev_ops->panel_reset(&intel_dsi->dev);
 
 	if (intel_dsi->dev.dev_ops->send_otp_cmds)
 		intel_dsi->dev.dev_ops->send_otp_cmds(&intel_dsi->dev);
@@ -312,6 +302,9 @@ static void intel_dsi_post_disable(struct intel_encoder *encoder)
 
 	if (intel_dsi->dev.dev_ops->disable_panel_power)
 		intel_dsi->dev.dev_ops->disable_panel_power(&intel_dsi->dev);
+
+	/* Disable Panel */
+	intel_soc_pmic_writeb(PMIC_PANEL_EN, 0x00);
 
 	msleep(intel_dsi->panel_off_delay);
 	msleep(intel_dsi->panel_pwr_cycle_delay);
@@ -593,9 +586,33 @@ static void intel_dsi_prepare(struct intel_encoder *intel_encoder)
 
 static void intel_dsi_pre_pll_enable(struct intel_encoder *encoder)
 {
+	struct drm_device *dev = encoder->base.dev;
+	struct drm_i915_private *dev_priv = dev->dev_private;
+	struct intel_crtc *intel_crtc = to_intel_crtc(encoder->base.crtc);
+	int pipe = intel_crtc->pipe;
+	u32 tmp;
+
 	DRM_DEBUG_KMS("\n");
 
 	intel_dsi_prepare(encoder);
+
+	mutex_lock(&dev_priv->dpio_lock);
+	/* program rcomp for compliance, reduce from 50 ohms to 45 ohms
+	 * needed everytime after power gate */
+	vlv_flisdsi_write(dev_priv, 0x04, 0x0004);
+	mutex_unlock(&dev_priv->dpio_lock);
+
+	/* bandgap reset is needed after everytime we do power gate */
+	band_gap_reset(dev_priv);
+
+	/* Disable DPOunit clock gating, can stall pipe */
+	tmp = I915_READ(DPLL(pipe));
+	tmp |= DPLL_RESERVED_BIT;
+	I915_WRITE(DPLL(pipe), tmp);
+
+	tmp = I915_READ(DSPCLK_GATE_D);
+	tmp |= VSUNIT_CLOCK_GATE_DISABLE;
+	I915_WRITE(DSPCLK_GATE_D, tmp);
 
 	vlv_enable_dsi_pll(encoder);
 }

@@ -28,6 +28,9 @@
 #include <drm/drm_crtc.h>
 #include "intel_drv.h"
 
+#define PMIC_PANEL_EN	0x52
+#define PMIC_PWM_EN	0x51
+
 struct intel_dsi_device {
 	unsigned int panel_id;
 	const char *name;
