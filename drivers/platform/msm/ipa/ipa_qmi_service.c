@@ -520,13 +520,6 @@ static void ipa_q6_clnt_svc_arrive(struct work_struct *work)
 	int rc;
 	struct ipa_master_driver_init_complt_ind_msg_v01 ind;
 
-	/*
-	 * Setting the current connection to NULL, as due to a race between
-	 * server and client clean-up in SSR, the disconnect_cb might not
-	 * have necessarily been called
-	 */
-	curr_conn = NULL;
-
 	/* Create a Local client port for QMI communication */
 	ipa_q6_clnt = qmi_handle_create(ipa_q6_clnt_notify, NULL);
 	if (!ipa_q6_clnt) {
@@ -627,6 +620,13 @@ static void ipa_qmi_service_init_worker(struct work_struct *work)
 		destroy_workqueue(ipa_svc_workqueue);
 		return;
 	}
+
+	/*
+	 * Setting the current connection to NULL, as due to a race between
+	 * server and client clean-up in SSR, the disconnect_cb might not
+	 * have necessarily been called
+	 */
+	curr_conn = NULL;
 
 	rc = qmi_svc_register(ipa_svc_handle, &ipa_a5_svc_ops_options);
 	if (rc < 0) {
