@@ -116,6 +116,7 @@
 #include "msmferrum-ipcrouter.dtsi"
 #include "msm-gdsc-8916.dtsi"
 #include "msmferrum-iommu.dtsi"
+#include "msmferrum-gpu.dtsi"
 
 &soc {
 	#address-cells = <1>;
