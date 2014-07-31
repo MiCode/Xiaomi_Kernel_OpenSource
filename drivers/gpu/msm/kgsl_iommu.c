@@ -30,7 +30,7 @@
 #include "adreno.h"
 #include "kgsl_trace.h"
 #include "kgsl_cffdump.h"
-
+#include "kgsl_pwrctrl.h"
 
 static struct kgsl_iommu_register_list kgsl_iommuv0_reg[KGSL_IOMMU_REG_MAX] = {
 	{ 0, 0 },			/* GLOBAL_BASE */
@@ -1656,9 +1656,13 @@ static int
 kgsl_iommu_unmap(struct kgsl_pagetable *pt,
 		struct kgsl_memdesc *memdesc)
 {
+	struct kgsl_device *device = pt->mmu->device;
 	int ret = 0;
 	unsigned int range = memdesc->size;
 	struct kgsl_iommu_pt *iommu_pt = pt->priv;
+	struct kgsl_iommu *iommu = pt->mmu->priv;
+	struct kgsl_iommu_device *secure_dev =
+	&iommu->iommu_units[KGSL_IOMMU_UNIT_0].dev[KGSL_IOMMU_CONTEXT_SECURE];
 
 	/* All GPU addresses as assigned are page aligned, but some
 	   functions purturb the gpuaddr with an offset, so apply the
@@ -1672,7 +1676,18 @@ kgsl_iommu_unmap(struct kgsl_pagetable *pt,
 	if (kgsl_memdesc_has_guard_page(memdesc))
 		range += PAGE_SIZE;
 
-	ret = iommu_unmap_range(iommu_pt->domain, gpuaddr, range);
+	if (kgsl_memdesc_is_secured(memdesc) && kgsl_mmu_is_secured(pt->mmu)
+					&& !secure_dev->attached)  {
+		mutex_lock(&device->mutex);
+		ret = kgsl_active_count_get(device);
+		if (!ret) {
+			ret = iommu_unmap_range(iommu_pt->domain,
+						gpuaddr, range);
+			kgsl_active_count_put(device);
+		}
+		mutex_unlock(&device->mutex);
+	} else
+		ret = iommu_unmap_range(iommu_pt->domain, gpuaddr, range);
 	if (ret) {
 		KGSL_CORE_ERR("iommu_unmap_range(%p, %x, %d) failed "
 			"with err: %d\n", iommu_pt->domain, gpuaddr,
@@ -1695,13 +1710,16 @@ static int
 kgsl_iommu_map(struct kgsl_pagetable *pt,
 			struct kgsl_memdesc *memdesc)
 {
-	int ret;
+	int ret = 0;
 	unsigned int iommu_virt_addr;
 	struct kgsl_iommu_pt *iommu_pt = pt->priv;
 	size_t size = memdesc->size;
 	unsigned int protflags;
 	struct kgsl_device *device = pt->mmu->device;
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
+	struct kgsl_iommu *iommu = pt->mmu->priv;
+	struct kgsl_iommu_device *secure_dev =
+	&iommu->iommu_units[KGSL_IOMMU_UNIT_0].dev[KGSL_IOMMU_CONTEXT_SECURE];
 
 	BUG_ON(NULL == iommu_pt);
 
@@ -1715,8 +1733,19 @@ kgsl_iommu_map(struct kgsl_pagetable *pt,
 	if (memdesc->priv & KGSL_MEMDESC_PRIVILEGED)
 		protflags |= IOMMU_PRIV;
 
-	ret = iommu_map_range(iommu_pt->domain, iommu_virt_addr, memdesc->sg,
-				size, protflags);
+	if (kgsl_memdesc_is_secured(memdesc) && kgsl_mmu_is_secured(pt->mmu)
+						&& !secure_dev->attached) {
+		mutex_lock(&device->mutex);
+		ret = kgsl_active_count_get(device);
+		if (!ret) {
+			ret = iommu_map_range(iommu_pt->domain, iommu_virt_addr,
+					  memdesc->sg, size, protflags);
+			kgsl_active_count_put(device);
+		}
+		mutex_unlock(&device->mutex);
+	} else
+		ret = iommu_map_range(iommu_pt->domain, iommu_virt_addr,
+				memdesc->sg, size, protflags);
 	if (ret) {
 		KGSL_CORE_ERR("iommu_map_range(%p, %x, %p, %zd, %x) err: %d\n",
 			iommu_pt->domain, iommu_virt_addr, memdesc->sg, size,
