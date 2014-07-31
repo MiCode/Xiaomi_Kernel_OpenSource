@@ -360,11 +360,12 @@
 		reg = <0x8600664 0x40>;
 		clock-names =
 			"cpu0_clk", "cpu1_clk", "cpu2_clk",
-			"cpu3_clk";
+			"cpu3_clk", "l2_clk";
 		clocks = <&clock_cpu clk_a53ssmux_bc>,
 			 <&clock_cpu clk_a53ssmux_bc>,
 			 <&clock_cpu clk_a53ssmux_bc>,
-			 <&clock_cpu clk_a53ssmux_bc>;
+			 <&clock_cpu clk_a53ssmux_bc>,
+			 <&clock_cpu clk_a53ssmux_cci>;
 	};
 
 	qcom,cpu-sleep-status@b088008{
