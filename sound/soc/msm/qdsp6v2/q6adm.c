@@ -2274,6 +2274,10 @@ static int adm_init_cal_data(void)
 
 		{{ADM_RTAC_APR_CAL_TYPE,
 		{NULL, NULL, NULL, NULL, NULL, NULL} },
+		{NULL, NULL, cal_utils_match_only_block} },
+
+		{{DTS_EAGLE_CAL_TYPE,
+		{NULL, NULL, NULL, NULL, NULL, NULL} },
 		{NULL, NULL, cal_utils_match_only_block} }
 	};
 	pr_debug("%s:\n", __func__);
