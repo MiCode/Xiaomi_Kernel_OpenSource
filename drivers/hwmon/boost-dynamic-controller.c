@@ -142,7 +142,7 @@ static void boost_dynamic_controller_notification(enum qpnp_tm_state state,
 
 	if (state == ADC_TM_LOW_STATE &&
 		boost_controller->old_boost_mode != ADC_TM_LOW_STATE) {
-		ret = boost_rpm_send_message(boost_controller, 0);
+		ret = boost_rpm_send_message(boost_controller, 1);
 		if (ret) {
 			pr_err("sending boost mode to RPM failed, ret=%d\n",
 				ret);
@@ -220,7 +220,7 @@ static int boost_dynamic_controller_setup_vph_monitoring(
 	}
 
 	if (adc_result.physical > boost_controller->vph_high_thresh_uv) {
-		ret = boost_rpm_send_message(boost_controller, 1);
+		ret = boost_rpm_send_message(boost_controller, 0);
 		if (ret) {
 			pr_err("sending boost mode to RPM failed, ret=%d\n",
 				ret);
@@ -230,7 +230,7 @@ static int boost_dynamic_controller_setup_vph_monitoring(
 		boost_controller->boost_monitor_params.state_request =
 			ADC_TM_LOW_THR_ENABLE;
 	} else {
-		ret = boost_rpm_send_message(boost_controller, 0);
+		ret = boost_rpm_send_message(boost_controller, 1);
 		if (ret) {
 			pr_err("sending boost mode to RPM failed, ret=%d\n",
 				ret);
