@@ -97,7 +97,6 @@ extern struct kgsl_driver kgsl_driver;
 
 struct kgsl_pagetable;
 struct kgsl_memdesc;
-struct kgsl_cmdbatch;
 
 struct kgsl_memdesc_ops {
 	unsigned int vmflags;
@@ -314,13 +313,6 @@ long kgsl_ioctl_gpuobj_import(struct kgsl_device_private *dev_priv,
 					unsigned int cmd, void *data);
 long kgsl_ioctl_gpuobj_sync(struct kgsl_device_private *dev_priv,
 					unsigned int cmd, void *data);
-
-int kgsl_cmdbatch_add_memobj(struct kgsl_cmdbatch *cmdbatch,
-			struct kgsl_ibdesc *ibdesc);
-
-int kgsl_cmdbatch_add_sync(struct kgsl_device *device,
-			struct kgsl_cmdbatch *cmdbatch,
-			struct kgsl_cmd_syncpoint *sync);
 
 void kgsl_mem_entry_destroy(struct kref *kref);
 
