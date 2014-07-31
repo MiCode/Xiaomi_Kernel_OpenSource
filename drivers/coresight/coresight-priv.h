@@ -68,5 +68,10 @@ extern void etm_writel_cp14(uint32_t val, uint32_t off);
 static inline unsigned int etm_readl_cp14(uint32_t off) { return 0; }
 static inline void etm_writel_cp14(uint32_t val, uint32_t off) {}
 #endif
+#if defined(CONFIG_CORESIGHT_ETM) || defined(CONFIG_CORESIGHT_ETMV4)
+extern int coresight_etm_get_funnel_port(int cpu);
+#else
+static inline int coresight_etm_get_funnel_port(int cpu) { return -ENOSYS; }
+#endif
 
 #endif

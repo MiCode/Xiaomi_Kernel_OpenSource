@@ -2898,6 +2898,20 @@ static const struct attribute_group *etm_attr_grps[] = {
 	NULL,
 };
 
+int coresight_etm_get_funnel_port(int cpu)
+{
+	struct coresight_platform_data *pdata;
+
+	if (cpu > num_possible_cpus())
+		return -EINVAL;
+	if (!etmdrvdata[cpu])
+		return -ENODEV;
+
+	pdata = etmdrvdata[cpu]->dev->platform_data;
+	return pdata->child_ports[0];
+}
+EXPORT_SYMBOL(coresight_etm_get_funnel_port);
+
 static void etm_init_arch_data(void *info)
 {
 	uint32_t etmidr0;
