@@ -197,6 +197,7 @@ struct msm_fb_data_type {
 	int op_enable;
 	u32 fb_imgType;
 	int panel_reconfig;
+	u32 panel_orientation;
 
 	u32 dst_format;
 	int panel_power_on;
