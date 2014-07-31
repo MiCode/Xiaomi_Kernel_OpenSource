@@ -17,6 +17,7 @@
 #include <linux/device.h>
 #include <linux/usb/usb_qdss.h>
 #include <linux/usb/msm_hsusb.h>
+#include <linux/usb/cdc.h>
 
 #include "gadget_chips.h"
 #include "f_qdss.h"
@@ -32,6 +33,8 @@ static unsigned int no_ipa_ports;
 static struct qdss_ports {
 	enum transport_type		data_xport;
 	unsigned char			data_xport_num;
+	enum transport_type		ctrl_xport;
+	unsigned char			ctrl_xport_num;
 	unsigned	char		port_num;
 	struct f_qdss			*port;
 	struct gadget_ipa_port		ipa_port;
@@ -493,10 +496,12 @@ static void usb_qdss_disconnect_work(struct work_struct *work)
 	int status;
 	unsigned char portno;
 	enum transport_type	dxport;
+	enum transport_type     ctrl_xport;
 	struct gadget_ipa_port *gp;
 
 	qdss = container_of(work, struct f_qdss, disconnect_w);
 	dxport = qdss_ports[qdss->port_num].data_xport;
+	ctrl_xport = qdss_ports[qdss->port_num].ctrl_xport;
 	portno = qdss_ports[qdss->port_num].data_xport_num;
 
 	if (qdss->port_num >= nr_qdss_ports) {
@@ -505,6 +510,16 @@ static void usb_qdss_disconnect_work(struct work_struct *work)
 		return;
 	}
 	pr_debug("usb_qdss_disconnect_work\n");
+	switch (ctrl_xport) {
+	case USB_GADGET_XPORT_QTI:
+		gqti_ctrl_disconnect(&qdss->port, DPL_QTI_CTRL_PORT_NO);
+		break;
+	default:
+		pr_err("%s(): Un-supported transport: %u\n", __func__,
+							ctrl_xport);
+		return;
+	}
+
 	switch (dxport) {
 	case USB_GADGET_XPORT_BAM:
 		/*
@@ -635,9 +650,11 @@ static void usb_qdss_connect_work(struct work_struct *work)
 	int status;
 	unsigned char port_num;
 	enum transport_type	dxport;
+	enum transport_type     ctrl_xport;
 
 	qdss = container_of(work, struct f_qdss, connect_w);
 	dxport = qdss_ports[qdss->port_num].data_xport;
+	ctrl_xport = qdss_ports[qdss->port_num].ctrl_xport;
 	port_num = qdss_ports[qdss->port_num].data_xport_num;
 	pr_debug("%s: data xport: %s dev: %p portno: %d\n",
 			__func__, xport_to_str(dxport),
@@ -656,6 +673,25 @@ static void usb_qdss_connect_work(struct work_struct *work)
 	}
 
 	pr_debug("usb_qdss_connect_work\n");
+
+	switch (ctrl_xport) {
+	case USB_GADGET_XPORT_QTI:
+		status = gqti_ctrl_connect(&qdss->port, DPL_QTI_CTRL_PORT_NO,
+					qdss->data_iface_id, ctrl_xport,
+					USB_GADGET_DPL);
+		if (status) {
+			pr_err("%s: gqti_ctrl_connect failed: err:%d\n",
+						__func__, status);
+			return;
+		}
+		qdss->port.send_encap_cmd(DPL_QTI_CTRL_PORT_NO, NULL, 0);
+		break;
+	default:
+		pr_err("%s(): Un-supported control transport: %u\n", __func__,
+								ctrl_xport);
+		return;
+	}
+
 	switch (dxport) {
 	case USB_GADGET_XPORT_BAM:
 		status = init_data(qdss->port.data);
@@ -690,7 +726,6 @@ static void usb_qdss_connect_work(struct work_struct *work)
 			return;
 		}
 		qdss->data_enabled = 1;
-		qdss->usb_connected = 1;
 		break;
 	case USB_GADGET_XPORT_HSIC:
 		pr_debug("usb_qdss_connect_work: HSIC transport\n");
@@ -740,6 +775,7 @@ static int qdss_set_alt(struct usb_function *f, unsigned intf, unsigned alt)
 			return -EINVAL;
 
 		if (dxport == USB_GADGET_XPORT_BAM2BAM_IPA) {
+			qdss->usb_connected = 1;
 			usb_qdss_connect_work(&qdss->connect_w);
 			return 0;
 		}
@@ -1109,8 +1145,8 @@ static int qdss_setup(void)
 	return 0;
 }
 
-static int qdss_init_port(const char *data_name,
-		const char *port_name, bool debug_enable)
+static int qdss_init_port(const char *ctrl_name, const char *data_name,
+			const char *port_name, bool debug_enable)
 {
 	struct f_qdss			*dev;
 	struct qdss_ports		*qdss_port;
@@ -1140,6 +1176,19 @@ static int qdss_init_port(const char *data_name,
 	qdss_port->port_num = nr_qdss_ports;
 	qdss_port->data_xport = str_to_xport(data_name);
 	qdss_port->port->debug_inface_enabled = debug_enable;
+
+	if (ctrl_name) {
+		qdss_port->ctrl_xport = str_to_xport(ctrl_name);
+		pr_debug("%s(): ctrl_name:%s ctrl_xport:%d\n", __func__,
+				ctrl_name, qdss_port->ctrl_xport);
+		switch (qdss_port->ctrl_xport) {
+		case USB_GADGET_XPORT_QTI:
+			pr_debug("USB_GADGET_XPORT_QTI is used.\n");
+			break;
+		default:
+			pr_debug("%s(): No ctrl transport.\n", __func__);
+		}
+	}
 
 	switch (qdss_port->data_xport) {
 	case USB_GADGET_XPORT_BAM:
