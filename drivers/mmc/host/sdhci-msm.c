@@ -31,6 +31,8 @@
 #define HC_MODE_EN		0x1
 #define CORE_POWER		0x0
 #define CORE_SW_RST		BIT(7)
+#define CORE_HC_SELECT_IN_EN	(1 << 18)
+#define CORE_HC_SELECT_IN_MASK	(7 << 19)
 
 #define MAX_PHASES		16
 #define CORE_DLL_LOCK		BIT(7)
@@ -412,7 +414,7 @@ retry:
 }
 
 static const struct of_device_id sdhci_msm_dt_match[] = {
-	{ .compatible = "qcom,sdhci-msm-v4" },
+	{ .compatible = "qcom,sdhci-msm" },
 	{},
 };
 
@@ -458,7 +460,7 @@ static int sdhci_msm_probe(struct platform_device *pdev)
 	sdhci_get_of_property(pdev);
 
 	/* Setup SDCC bus voter clock. */
-	msm_host->bus_clk = devm_clk_get(&pdev->dev, "bus");
+	msm_host->bus_clk = devm_clk_get(&pdev->dev, "bus_clk");
 	if (!IS_ERR(msm_host->bus_clk)) {
 		/* Vote for max. clk rate for max. performance */
 		ret = clk_set_rate(msm_host->bus_clk, INT_MAX);
@@ -470,7 +472,7 @@ static int sdhci_msm_probe(struct platform_device *pdev)
 	}
 
 	/* Setup main peripheral bus clock */
-	msm_host->pclk = devm_clk_get(&pdev->dev, "iface");
+	msm_host->pclk = devm_clk_get(&pdev->dev, "iface_clk");
 	if (IS_ERR(msm_host->pclk)) {
 		ret = PTR_ERR(msm_host->pclk);
 		dev_err(&pdev->dev, "Perpheral clk setup failed (%d)\n", ret);
@@ -482,7 +484,7 @@ static int sdhci_msm_probe(struct platform_device *pdev)
 		goto bus_clk_disable;
 
 	/* Setup SDC MMC clock */
-	msm_host->clk = devm_clk_get(&pdev->dev, "core");
+	msm_host->clk = devm_clk_get(&pdev->dev, "core_clk");
 	if (IS_ERR(msm_host->clk)) {
 		ret = PTR_ERR(msm_host->clk);
 		dev_err(&pdev->dev, "SDC MMC clk setup failed (%d)\n", ret);
@@ -506,6 +508,12 @@ static int sdhci_msm_probe(struct platform_device *pdev)
 		ret = PTR_ERR(msm_host->core_mem);
 		goto clk_disable;
 	}
+
+	/* Disable mode selection via the vendor specific register */
+	writel_relaxed((readl_relaxed(host->ioaddr + CORE_VENDOR_SPEC)
+				& ~CORE_HC_SELECT_IN_EN
+				& ~CORE_HC_SELECT_IN_MASK),
+			host->ioaddr + CORE_VENDOR_SPEC);
 
 	/* Reset the core and Enable SDHC mode */
 	writel_relaxed(readl_relaxed(msm_host->core_mem + CORE_POWER) |
