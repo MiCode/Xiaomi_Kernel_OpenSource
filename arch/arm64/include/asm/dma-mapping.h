@@ -136,6 +136,30 @@ static inline void dma_free_attrs(struct device *dev, size_t size,
 	ops->free(dev, size, vaddr, dev_addr, attrs);
 }
 
+static inline void *dma_alloc_nonconsistent(struct device *dev, size_t size,
+					dma_addr_t *dma_handle, gfp_t flag)
+{
+	DEFINE_DMA_ATTRS(attrs);
+	dma_set_attr(DMA_ATTR_NON_CONSISTENT, &attrs);
+	return dma_alloc_attrs(dev, size, dma_handle, flag, &attrs);
+}
+
+static inline void dma_free_nonconsistent(struct device *dev, size_t size,
+					void *cpu_addr, dma_addr_t dma_handle)
+{
+	DEFINE_DMA_ATTRS(attrs);
+	dma_set_attr(DMA_ATTR_NON_CONSISTENT, &attrs);
+	return dma_free_attrs(dev, size, cpu_addr, dma_handle, &attrs);
+}
+
+static inline int dma_mmap_nonconsistent(struct device *dev,
+		struct vm_area_struct *vma, void *cpu_addr,
+		dma_addr_t dma_addr, size_t size)
+{
+	return -ENODEV;
+}
+
+
 /*
  * There is no dma_cache_sync() implementation, so just return NULL here.
  */
