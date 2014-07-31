@@ -230,11 +230,11 @@ i915_dpst_apply_luma(struct drm_device *dev,
 	ioctl_data->ie_container.dpst_blc_factor;
 
 	/* Avoid warning messages */
-	mutex_lock(&dev->mode_config.mutex);
+	drm_modeset_lock(&dev->mode_config.connection_mutex, NULL);
 	mutex_lock(&dev_priv->backlight_lock);
 	i915_dpst_set_brightness(dev, panel->backlight.level);
 	mutex_unlock(&dev_priv->backlight_lock);
-	mutex_unlock(&dev->mode_config.mutex);
+	drm_modeset_unlock(&dev->mode_config.connection_mutex);
 
 	/* Enable Image Enhancement Table */
 	blm_hist_ctl = I915_READ(dev_priv->dpst.reg.blm_hist_ctl);
