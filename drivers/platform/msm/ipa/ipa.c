@@ -2505,6 +2505,12 @@ static int ipa_init(const struct ipa_plat_drv_res *resource_p,
 
 	IPADBG("IPA Driver initialization started\n");
 
+	/*
+	 * since structure alignment is implementation dependent, add test to
+	 * avoid different and incompatible data layouts
+	 */
+	BUILD_BUG_ON(sizeof(struct ipa_hw_pkt_status) != IPA_PKT_STATUS_SIZE);
+
 	ipa_ctx = kzalloc(sizeof(*ipa_ctx), GFP_KERNEL);
 	if (!ipa_ctx) {
 		IPAERR(":kzalloc err.\n");

@@ -90,7 +90,7 @@
 #define IPA_FL_EQ			BIT(12)
 #define IPA_IHL_OFFSET_MEQ32_1		BIT(13)
 #define IPA_METADATA_COMPARE		BIT(14)
-#define IPA_IPV4_IS_FRAG		BIT(15)
+#define IPA_IS_FRAG			BIT(15)
 
 #define IPA_HDR_BIN0 0
 #define IPA_HDR_BIN1 1

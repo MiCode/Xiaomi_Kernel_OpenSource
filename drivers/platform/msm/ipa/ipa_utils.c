@@ -34,6 +34,7 @@
 #define IPA_TAG_SLEEP_MIN_USEC (1000)
 #define IPA_TAG_SLEEP_MAX_USEC (2000)
 #define IPA_FORCE_CLOSE_TAG_PROCESS_TIMEOUT (10 * HZ)
+#define IPA_BCR_REG_VAL (0xFFFFFFFF)
 
 static const int ipa_ofst_meq32[] = { IPA_OFFSET_MEQ32_0,
 					IPA_OFFSET_MEQ32_1, -1 };
@@ -698,6 +699,9 @@ int ipa_init_hw(void)
 	if (ipa_version == 0)
 		return -EFAULT;
 
+	/* set ipa_bcr to 0xFFFFFFFF for using new IPA behavior */
+	ipa_write_reg(ipa_ctx->mmio, IPA_BCR_OFST, IPA_BCR_REG_VAL);
+
 	return 0;
 }
 
@@ -1045,7 +1049,7 @@ int ipa_generate_hw_rule(enum ipa_ip_type ip,
 		}
 
 		if (attrib->attrib_mask & IPA_FLT_FRAGMENT) {
-			*en_rule |= IPA_IPV4_IS_FRAG;
+			*en_rule |= IPA_IS_FRAG;
 			*buf = ipa_pad_to_32(*buf);
 		}
 
@@ -1055,8 +1059,7 @@ int ipa_generate_hw_rule(enum ipa_ip_type ip,
 
 		/* error check */
 		if (attrib->attrib_mask & IPA_FLT_TOS ||
-		    attrib->attrib_mask & IPA_FLT_PROTOCOL ||
-		    attrib->attrib_mask & IPA_FLT_FRAGMENT) {
+		    attrib->attrib_mask & IPA_FLT_PROTOCOL) {
 			IPAERR("v4 attrib's specified for v6 rule\n");
 			return -EPERM;
 		}
@@ -1263,6 +1266,10 @@ int ipa_generate_hw_rule(enum ipa_ip_type ip,
 			*buf = ipa_pad_to_32(*buf);
 		}
 
+		if (attrib->attrib_mask & IPA_FLT_FRAGMENT) {
+			*en_rule |= IPA_IS_FRAG;
+			*buf = ipa_pad_to_32(*buf);
+		}
 	} else {
 		IPAERR("unsupported ip %d\n", ip);
 		return -EPERM;
@@ -1476,7 +1483,7 @@ int ipa_generate_flt_eq(enum ipa_ip_type ip,
 		}
 
 		if (attrib->attrib_mask & IPA_FLT_FRAGMENT) {
-			*en_rule |= IPA_IPV4_IS_FRAG;
+			*en_rule |= IPA_IS_FRAG;
 			eq_atrb->ipv4_frag_eq_present = 1;
 		}
 	} else if (ip == IPA_IP_v6) {
@@ -1485,8 +1492,7 @@ int ipa_generate_flt_eq(enum ipa_ip_type ip,
 
 		/* error check */
 		if (attrib->attrib_mask & IPA_FLT_TOS ||
-		    attrib->attrib_mask & IPA_FLT_PROTOCOL ||
-		    attrib->attrib_mask & IPA_FLT_FRAGMENT) {
+		    attrib->attrib_mask & IPA_FLT_PROTOCOL) {
 			IPAERR("v4 attrib's specified for v6 rule\n");
 			return -EPERM;
 		}
@@ -1697,6 +1703,11 @@ int ipa_generate_flt_eq(enum ipa_ip_type ip,
 			eq_atrb->metadata_meq32.offset = 0;
 			eq_atrb->metadata_meq32.mask = attrib->meta_data_mask;
 			eq_atrb->metadata_meq32.value = attrib->meta_data;
+		}
+
+		if (attrib->attrib_mask & IPA_FLT_FRAGMENT) {
+			*en_rule |= IPA_IS_FRAG;
+			eq_atrb->ipv4_frag_eq_present = 1;
 		}
 
 	} else {

@@ -290,7 +290,7 @@ struct ipa_ip_packet_tag_status {
 	u32 tag_f_2:32;
 };
 
-/*! @brief Struct for the the IPA UL packet status header */
+/*! @brief Struct for the IPAv2.0 and IPAv2.5 UL packet status header */
 struct ipa_hw_pkt_status {
 	u32 status_opcode:8;
 	u32 exception:8;
@@ -301,14 +301,29 @@ struct ipa_hw_pkt_status {
 	u32 endp_dest_idx:5;
 	u32 reserved_2:3;
 	u32 metadata:32;
-	u32 filt_local:1;
-	u32 filt_global:1;
-	u32 filt_pipe_idx:5;
-	u32 filt_match:1;
-	u32 filt_rule_idx:6;
-	u32 ret_hdr:1;
-	u32 reserved_3:1;
-	u32 tag_f_1:16;
+	union {
+		struct {
+			u32 filt_local:1;
+			u32 filt_global:1;
+			u32 filt_pipe_idx:5;
+			u32 filt_match:1;
+			u32 filt_rule_idx:6;
+			u32 ret_hdr:1;
+			u32 reserved_3:1;
+			u32 tag_f_1:16;
+
+		} ipa_hw_v2_0_pkt_status;
+		struct {
+			u32 filt_local:1;
+			u32 filt_global:1;
+			u32 filt_pipe_idx:5;
+			u32 ret_hdr:1;
+			u32 filt_rule_idx:8;
+			u32 tag_f_1:16;
+
+		} ipa_hw_v2_5_pkt_status;
+	};
+
 	u32 tag_f_2:32;
 	u32 time_day_ctr:32;
 	u32 nat_hit:1;
@@ -317,16 +332,16 @@ struct ipa_hw_pkt_status {
 	u32 route_local:1;
 	u32 route_tbl_idx:5;
 	u32 route_match:1;
-	u32 reserved_4:1;
+	u32 ucp:1;
 	u32 route_rule_idx:8;
 	u32 hdr_local:1;
 	u32 hdr_offset:10;
 	u32 frag_hit:1;
 	u32 frag_rule:4;
-	u32 reserved_5:16;
+	u32 reserved_4:16;
 };
 
-#define IPA_PKT_STATUS_SIZE sizeof(struct ipa_hw_pkt_status)
+#define IPA_PKT_STATUS_SIZE 32
 
 /*! @brief Status header opcodes */
 enum ipa_hw_status_opcode {

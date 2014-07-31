@@ -449,7 +449,7 @@ struct ipa_ipfltri_rule_eq {
 	uint8_t metadata_meq32_present;
 	/*! The metadata 32 bit masked comparison equation */
 	struct ipa_ipfltr_mask_eq_32 metadata_meq32;
-	/*! Specifies if the IPv4 Fragment equation is present in this rule */
+	/*! Specifies if the Fragment equation is present in this rule */
 	uint8_t ipv4_frag_eq_present;
 };
 
