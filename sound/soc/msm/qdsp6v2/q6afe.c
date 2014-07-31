@@ -22,7 +22,7 @@
 #include <sound/q6afe-v2.h>
 #include <sound/q6audio-v2.h>
 #include "msm-pcm-routing-v2.h"
-#include "audio_cal_utils.h"
+#include <sound/audio_cal_utils.h>
 
 enum {
 	AFE_COMMON_RX_CAL = 0,

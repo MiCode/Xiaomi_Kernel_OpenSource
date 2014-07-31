@@ -18,8 +18,8 @@
 #include <linux/mutex.h>
 #include <linux/msm_ion.h>
 #include <linux/msm_audio_ion.h>
-#include "audio_calibration.h"
-#include "audio_cal_utils.h"
+#include <sound/audio_calibration.h>
+#include <sound/audio_cal_utils.h>
 
 struct audio_cal_client_info {
 	struct list_head		list;

@@ -22,7 +22,7 @@
 #include <sound/q6adm-v2.h>
 #include <sound/q6audio-v2.h>
 #include <sound/q6afe-v2.h>
-#include "audio_cal_utils.h"
+#include <sound/audio_cal_utils.h>
 
 #include <sound/asound.h>
 #include "msm-dts-eagle.h"
