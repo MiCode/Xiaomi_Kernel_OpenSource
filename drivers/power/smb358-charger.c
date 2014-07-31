@@ -209,6 +209,10 @@ struct smb358_charger {
 	int			irq_gpio;
 	int			charging_disabled;
 	int			fastchg_current_max_ma;
+	unsigned int		cool_bat_ma;
+	unsigned int		warm_bat_ma;
+	unsigned int		cool_bat_mv;
+	unsigned int		warm_bat_mv;
 
 	/* debugfs related */
 #if defined(CONFIG_DEBUG_FS)
@@ -221,6 +225,7 @@ struct smb358_charger {
 	bool			batt_cold;
 	bool			batt_warm;
 	bool			batt_cool;
+	bool			jeita_supported;
 	int			charging_disabled_status;
 	int			usb_suspended;
 
@@ -238,6 +243,8 @@ struct smb358_charger {
 	struct qpnp_adc_tm_btm_param	adc_param;
 	int			cold_bat_decidegc;
 	int			hot_bat_decidegc;
+	int			cool_bat_decidegc;
+	int			warm_bat_decidegc;
 	int			bat_present_decidegc;
 	/* i2c pull up regulator */
 	struct regulator	*vcc_i2c;
@@ -363,31 +370,32 @@ static int smb358_enable_volatile_writes(struct smb358_charger *chip)
 	return rc;
 }
 
-static int smb358_fastchg_current_set(struct smb358_charger *chip)
+static int smb358_fastchg_current_set(struct smb358_charger *chip,
+					unsigned int fastchg_current)
 {
 	int i;
 
-	if ((chip->fastchg_current_max_ma < SMB358_FAST_CHG_MIN_MA) ||
-		(chip->fastchg_current_max_ma >  SMB358_FAST_CHG_MAX_MA)) {
+	if ((fastchg_current < SMB358_FAST_CHG_MIN_MA) ||
+		(fastchg_current >  SMB358_FAST_CHG_MAX_MA)) {
 		dev_dbg(chip->dev, "bad fastchg current mA=%d asked to set\n",
-					chip->fastchg_current_max_ma);
+						fastchg_current);
 		return -EINVAL;
 	}
 
 	for (i = ARRAY_SIZE(fast_chg_current) - 1; i >= 0; i--) {
-		if (fast_chg_current[i] <= chip->fastchg_current_max_ma)
+		if (fast_chg_current[i] <= fastchg_current)
 			break;
 	}
 
 	if (i < 0) {
 		dev_err(chip->dev, "Invalid current setting %dmA\n",
-					chip->fastchg_current_max_ma);
+						fastchg_current);
 		i = 0;
 	}
 
 	i = i << SMB358_FAST_CHG_SHIFT;
 	dev_dbg(chip->dev, "fastchg limit=%d setting %02x\n",
-			chip->fastchg_current_max_ma, i);
+					fastchg_current, i);
 
 	return smb358_masked_write(chip, CHG_CURRENT_CTRL_REG,
 				SMB_FAST_CHG_CURRENT_MASK, i);
@@ -755,7 +763,7 @@ static int smb358_hw_init(struct smb358_charger *chip)
 		return rc;
 	}
 	/* set the fast charge current limit */
-	rc = smb358_fastchg_current_set(chip);
+	rc = smb358_fastchg_current_set(chip, chip->fastchg_current_max_ma);
 	if (rc) {
 		dev_err(chip->dev, "Couldn't set fastchg current rc=%d\n", rc);
 		return rc;
@@ -1280,11 +1288,48 @@ static int chg_recharge(struct smb358_charger *chip, u8 status)
 	return 0;
 }
 
-#define HYSTERISIS_DECIDEGC 20
+static void smb358_chg_set_appropriate_battery_current(
+				struct smb358_charger *chip)
+{
+	int rc;
+	unsigned int current_max = chip->fastchg_current_max_ma;
+
+	if (chip->batt_cool)
+		current_max =
+			min(current_max, chip->cool_bat_ma);
+	if (chip->batt_warm)
+		current_max =
+			min(current_max, chip->warm_bat_ma);
+	dev_dbg(chip->dev, "setting %dmA", current_max);
+	rc = smb358_fastchg_current_set(chip, current_max);
+	if (rc)
+		dev_err(chip->dev,
+			"Couldn't set charging current rc = %d\n", rc);
+}
+
+static void smb358_chg_set_appropriate_vddmax(
+				struct smb358_charger *chip)
+{
+	int rc;
+	unsigned int vddmax = chip->vfloat_mv;
+
+	if (chip->batt_cool)
+		vddmax = min(vddmax, chip->cool_bat_mv);
+	if (chip->batt_warm)
+		vddmax = min(vddmax, chip->warm_bat_mv);
+
+	dev_dbg(chip->dev, "setting %dmV\n", vddmax);
+	rc = smb358_float_voltage_set(chip, vddmax);
+	if (rc)
+		dev_err(chip->dev,
+			"Couldn't set float voltage rc = %d\n", rc);
+}
+
 static void smb_chg_adc_notification(enum qpnp_tm_state state, void *ctx)
 {
 	struct smb358_charger *chip = ctx;
-	bool bat_hot = 0, bat_cold = 0, bat_present = 0;
+	bool bat_hot = 0, bat_cold = 0, bat_present = 0, bat_warm = 0,
+							bat_cool = 0;
 	int temp;
 
 	if (state >= ADC_TM_STATE_NUM) {
@@ -1298,32 +1343,63 @@ static void smb_chg_adc_notification(enum qpnp_tm_state state, void *ctx)
 				state == ADC_TM_WARM_STATE ? "hot" : "cold");
 
 	if (state == ADC_TM_WARM_STATE) {
-		if (temp > chip->hot_bat_decidegc) {
-			/* Normal to hot */
+		if (temp >= chip->hot_bat_decidegc) {
 			bat_hot = true;
+			bat_warm = false;
 			bat_cold = false;
+			bat_cool = false;
 			bat_present = true;
 
 			chip->adc_param.low_temp =
-				chip->hot_bat_decidegc - HYSTERISIS_DECIDEGC;
-			/* shall we need add high_temp here? */
+				chip->hot_bat_decidegc;
 			chip->adc_param.state_request =
 				ADC_TM_COOL_THR_ENABLE;
-		} else if (temp >
-			chip->cold_bat_decidegc + HYSTERISIS_DECIDEGC) {
-			/* Cool to normal */
+		} else if (temp >=
+			chip->warm_bat_decidegc && chip->jeita_supported) {
 			bat_hot = false;
+			bat_warm = true;
 			bat_cold = false;
+			bat_cool = false;
+			bat_present = true;
+
+			chip->adc_param.low_temp =
+				chip->warm_bat_decidegc;
+			chip->adc_param.high_temp =
+				chip->hot_bat_decidegc;
+		} else if (temp >=
+			chip->cool_bat_decidegc && chip->jeita_supported) {
+			bat_hot = false;
+			bat_warm = false;
+			bat_cold = false;
+			bat_cool = false;
+			bat_present = true;
+
+			chip->adc_param.low_temp =
+				chip->cool_bat_decidegc;
+			chip->adc_param.high_temp =
+				chip->warm_bat_decidegc;
+		} else if (temp >=
+			chip->cold_bat_decidegc) {
+			bat_hot = false;
+			bat_warm = false;
+			bat_cold = false;
+			bat_cool = true;
 			bat_present = true;
 
 			chip->adc_param.low_temp = chip->cold_bat_decidegc;
-			chip->adc_param.high_temp = chip->hot_bat_decidegc;
+			if (chip->jeita_supported)
+				chip->adc_param.high_temp =
+						chip->cool_bat_decidegc;
+			else
+				chip->adc_param.high_temp =
+						chip->hot_bat_decidegc;
 			chip->adc_param.state_request =
 					ADC_TM_HIGH_LOW_THR_ENABLE;
-		} else if (temp > chip->bat_present_decidegc) {
-			/* Present to cold */
+		} else if (temp >= chip->bat_present_decidegc) {
 			bat_hot = false;
+			bat_warm = false;
 			bat_cold = true;
+			bat_cool = false;
 			bat_present = true;
 
 			chip->adc_param.high_temp = chip->cold_bat_decidegc;
@@ -1333,35 +1409,66 @@ static void smb_chg_adc_notification(enum qpnp_tm_state state, void *ctx)
 		}
 	} else {
 		if (temp <= chip->bat_present_decidegc) {
-			/* Cold to present */
 			bat_cold = true;
+			bat_cool = false;
 			bat_hot = false;
+			bat_warm = false;
 			bat_present = false;
 			chip->adc_param.high_temp =
 				chip->bat_present_decidegc;
 			chip->adc_param.state_request =
 				ADC_TM_WARM_THR_ENABLE;
-		} else if (chip->bat_present_decidegc < temp &&
-				temp < chip->cold_bat_decidegc) {
-			/* Normal to cold */
+		} else if (temp <= chip->cold_bat_decidegc) {
 			bat_hot = false;
+			bat_warm = false;
 			bat_cold = true;
+			bat_cool = false;
 			bat_present = true;
 			chip->adc_param.high_temp =
-				chip->cold_bat_decidegc + HYSTERISIS_DECIDEGC;
+				chip->cold_bat_decidegc;
 			/* add low_temp to enable batt present check */
 			chip->adc_param.low_temp =
 				chip->bat_present_decidegc;
 			chip->adc_param.state_request =
 				ADC_TM_HIGH_LOW_THR_ENABLE;
-		} else if (temp <
-				chip->hot_bat_decidegc - HYSTERISIS_DECIDEGC) {
-			/* Warm to normal */
+		} else if (temp <= chip->cool_bat_decidegc &&
+					chip->jeita_supported) {
 			bat_hot = false;
+			bat_warm = false;
 			bat_cold = false;
+			bat_cool = true;
 			bat_present = true;
-
-			chip->adc_param.low_temp = chip->cold_bat_decidegc;
+			chip->adc_param.high_temp =
+				chip->cool_bat_decidegc;
+			chip->adc_param.low_temp =
+				chip->cold_bat_decidegc;
+			chip->adc_param.state_request =
+				ADC_TM_HIGH_LOW_THR_ENABLE;
+		} else if (temp <= chip->warm_bat_decidegc &&
+					chip->jeita_supported) {
+			bat_hot = false;
+			bat_warm = false;
+			bat_cold = false;
+			bat_cool = false;
+			bat_present = true;
+			chip->adc_param.high_temp =
+				chip->warm_bat_decidegc;
+			chip->adc_param.low_temp =
+				chip->cool_bat_decidegc;
+			chip->adc_param.state_request =
+				ADC_TM_HIGH_LOW_THR_ENABLE;
+		} else if (temp <= chip->hot_bat_decidegc) {
+			bat_hot = false;
+			bat_warm = true;
+			bat_cold = false;
+			bat_cool = false;
+			bat_present = true;
+			if (chip->jeita_supported)
+				chip->adc_param.low_temp =
+					chip->warm_bat_decidegc;
+			else
+				chip->adc_param.low_temp =
+					chip->cold_bat_decidegc;
 			chip->adc_param.high_temp = chip->hot_bat_decidegc;
 			chip->adc_param.state_request =
 					ADC_TM_HIGH_LOW_THR_ENABLE;
@@ -1383,9 +1490,18 @@ static void smb_chg_adc_notification(enum qpnp_tm_state state, void *ctx)
 			smb358_charging_disable(chip, THERMAL, 0);
 	}
 
-	pr_debug("hot %d, cold %d, missing %d, low = %d deciDegC, high = %d deciDegC\n",
-			chip->batt_hot, chip->batt_cold, chip->battery_missing,
-			chip->adc_param.low_temp, chip->adc_param.high_temp);
+	if ((chip->batt_warm ^ bat_warm || chip->batt_cool ^ bat_cool)
+						&& chip->jeita_supported) {
+		chip->batt_warm = bat_warm;
+		chip->batt_cool = bat_cool;
+		smb358_chg_set_appropriate_battery_current(chip);
+		smb358_chg_set_appropriate_vddmax(chip);
+	}
+
+	pr_debug("hot %d, cold %d, warm %d, cool %d, jeita supported %d, missing %d, low = %d deciDegC, high = %d deciDegC\n",
+		chip->batt_hot, chip->batt_cold, chip->batt_warm,
+		chip->batt_cool, chip->jeita_supported, chip->battery_missing,
+		chip->adc_param.low_temp, chip->adc_param.high_temp);
 	if (qpnp_adc_tm_channel_measure(chip->adc_tm_dev, &chip->adc_param))
 		pr_err("request ADC error\n");
 }
@@ -1968,6 +2084,32 @@ static int smb_parse_dt(struct smb358_charger *chip)
 	if (rc < 0)
 		chip->hot_bat_decidegc = -EINVAL;
 
+	rc = of_property_read_u32(node, "qcom,warm-bat-decidegc",
+						&chip->warm_bat_decidegc);
+
+	rc |= of_property_read_u32(node, "qcom,cool-bat-decidegc",
+						&chip->cool_bat_decidegc);
+
+	if (!rc) {
+		rc = of_property_read_u32(node, "qcom,cool-bat-mv",
+						&chip->cool_bat_mv);
+
+		rc |= of_property_read_u32(node, "qcom,warm-bat-mv",
+						&chip->warm_bat_mv);
+
+		rc |= of_property_read_u32(node, "qcom,cool-bat-ma",
+						&chip->cool_bat_ma);
+
+		rc |= of_property_read_u32(node, "qcom,warm-bat-ma",
+						&chip->warm_bat_ma);
+		if (rc)
+			chip->jeita_supported = false;
+		else
+			chip->jeita_supported = true;
+	}
+
+	pr_debug("jeita_supported = %d", chip->jeita_supported);
+
 	rc = of_property_read_u32(node, "qcom,bat-present-decidegc",
 						&batt_present_degree_negative);
 	if (rc < 0)
@@ -2344,9 +2486,14 @@ static int smb358_charger_probe(struct i2c_client *client,
 	}
 
 	if (chip->using_pmic_therm) {
-		/* add hot/cold temperature monitor */
-		chip->adc_param.low_temp = chip->cold_bat_decidegc;
-		chip->adc_param.high_temp = chip->hot_bat_decidegc;
+		if (!chip->jeita_supported) {
+			/* add hot/cold temperature monitor */
+			chip->adc_param.low_temp = chip->cold_bat_decidegc;
+			chip->adc_param.high_temp = chip->hot_bat_decidegc;
+		} else {
+			chip->adc_param.low_temp = chip->cool_bat_decidegc;
+			chip->adc_param.high_temp = chip->warm_bat_decidegc;
+		}
 		chip->adc_param.timer_interval = ADC_MEAS2_INTERVAL_1S;
 		chip->adc_param.state_request = ADC_TM_HIGH_LOW_THR_ENABLE;
 		chip->adc_param.btm_ctx = chip;
