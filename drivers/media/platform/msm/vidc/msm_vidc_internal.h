@@ -169,6 +169,7 @@ struct msm_vidc_drv {
 	struct list_head cores;
 	int num_cores;
 	struct dentry *debugfs_root;
+	int thermal_level;
 };
 
 struct msm_video_device {
@@ -389,6 +390,7 @@ int qbuf_dynamic_buf(struct msm_vidc_inst *inst,
 int unmap_and_deregister_buf(struct msm_vidc_inst *inst,
 			struct buffer_info *binfo);
 
+void msm_comm_handle_thermal_event(void);
 void *msm_smem_new_client(enum smem_type mtype,
 				void *platform_resources);
 struct msm_smem *msm_smem_alloc(void *clt, size_t size, u32 align, u32 flags,

@@ -1352,6 +1352,20 @@ static inline int venus_hfi_reset_core(struct venus_hfi_device *device)
 	return rc;
 }
 
+static struct clock_info *venus_hfi_get_clock(struct venus_hfi_device *device,
+		char *name)
+{
+	struct clock_info *vc;
+
+	venus_hfi_for_each_clock(device, vc) {
+		if (!strcmp(vc->name, name))
+			return vc;
+	}
+	dprintk(VIDC_WARN, "%s Clock %s not found\n", __func__, name);
+
+	return NULL;
+}
+
 static unsigned long venus_hfi_get_clock_rate(struct clock_info *clock,
 	int num_mbs_per_sec, int codecs_enabled)
 {
@@ -1374,6 +1388,23 @@ static unsigned long venus_hfi_get_clock_rate(struct clock_info *clock,
 	}
 	dprintk(VIDC_PROF, "Required clock rate = %lu\n", freq);
 	return freq;
+}
+
+static unsigned long venus_hfi_get_core_clock_rate(void *dev)
+{
+	struct venus_hfi_device *device = (struct venus_hfi_device *) dev;
+	struct clock_info *vc;
+
+	if (!device) {
+		dprintk(VIDC_ERR, "%s Invalid args: %p\n", __func__, device);
+		return -EINVAL;
+	}
+
+	vc = venus_hfi_get_clock(device, "core_clk");
+	if (vc)
+		return clk_get_rate(vc->clk);
+	else
+		return 0;
 }
 
 static int venus_hfi_suspend(void *dev)
@@ -4193,6 +4224,7 @@ static void venus_init_hfi_callbacks(struct hfi_device *hdev)
 	hdev->get_core_capabilities = venus_hfi_get_core_capabilities;
 	hdev->power_enable = venus_hfi_power_enable;
 	hdev->suspend = venus_hfi_suspend;
+	hdev->get_core_clock_rate = venus_hfi_get_core_clock_rate;
 }
 
 int venus_hfi_initialize(struct hfi_device *hdev, u32 device_id,

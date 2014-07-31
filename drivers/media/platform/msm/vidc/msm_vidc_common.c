@@ -1080,6 +1080,43 @@ static void handle_session_error(enum command_response cmd, void *data)
 	}
 }
 
+static void msm_comm_clean_notify_client(struct msm_vidc_core *core)
+{
+	int rc = 0;
+	struct msm_vidc_inst *inst = NULL;
+	struct hfi_device *hdev = NULL;
+	if (!core || !core->device) {
+		dprintk(VIDC_ERR, "%s: Invalid params\n", __func__);
+		return;
+	}
+
+	dprintk(VIDC_WARN, "%s: Core %p\n", __func__, core);
+	mutex_lock(&core->lock);
+	core->state = VIDC_CORE_INVALID;
+
+	list_for_each_entry(inst, &core->instances, list) {
+		mutex_lock(&inst->lock);
+		inst->state = MSM_VIDC_CORE_INVALID;
+		hdev = inst->core->device;
+		if (hdev && inst->session) {
+			dprintk(VIDC_DBG,
+				"cleaning up inst: 0x%p\n", inst);
+			rc = call_hfi_op(hdev, session_clean,
+					(void *) inst->session);
+			if (rc)
+				dprintk(VIDC_ERR,
+					"Sess clean failed :%p\n", inst);
+		}
+		inst->session = NULL;
+		mutex_unlock(&inst->lock);
+		dprintk(VIDC_WARN,
+			"%s Send sys error for inst %p\n", __func__, inst);
+		msm_vidc_queue_v4l2_event(inst,
+				V4L2_EVENT_MSM_VIDC_SYS_ERROR);
+	}
+	mutex_unlock(&core->lock);
+}
+
 struct sys_err_handler_data {
 	struct msm_vidc_core *core;
 	struct delayed_work work;
@@ -1133,9 +1170,6 @@ static void handle_sys_error(enum command_response cmd, void *data)
 	struct msm_vidc_cb_cmd_done *response = data;
 	struct msm_vidc_core *core = NULL;
 	struct sys_err_handler_data *handler = NULL;
-	struct hfi_device *hdev = NULL;
-	struct msm_vidc_inst *inst = NULL;
-	int rc = 0;
 
 	subsystem_crashed("venus");
 	if (!response) {
@@ -1152,35 +1186,7 @@ static void handle_sys_error(enum command_response cmd, void *data)
 	}
 
 	dprintk(VIDC_WARN, "SYS_ERROR %d received for core %p\n", cmd, core);
-	mutex_lock(&core->lock);
-	core->state = VIDC_CORE_INVALID;
-
-	/*
-	* 1. Delete each instance session from hfi list
-	* 2. Notify all clients about hardware error.
-	*/
-	list_for_each_entry(inst, &core->instances, list) {
-		mutex_lock(&inst->lock);
-		inst->state = MSM_VIDC_CORE_INVALID;
-		if (inst->core)
-			hdev = inst->core->device;
-		if (hdev && inst->session) {
-			dprintk(VIDC_DBG,
-			"cleaning up inst: 0x%p\n", inst);
-			rc = call_hfi_op(hdev, session_clean,
-				(void *) inst->session);
-			if (rc)
-				dprintk(VIDC_ERR,
-					"Sess clean failed :%p\n",
-					inst);
-		}
-		inst->session = NULL;
-		mutex_unlock(&inst->lock);
-		msm_vidc_queue_v4l2_event(inst,
-				V4L2_EVENT_MSM_VIDC_SYS_ERROR);
-	}
-	mutex_unlock(&core->lock);
-
+	msm_comm_clean_notify_client(core);
 
 	handler = kzalloc(sizeof(*handler), GFP_KERNEL);
 	if (!handler) {
@@ -2143,6 +2149,167 @@ void msm_comm_scale_clocks_and_bus(struct msm_vidc_inst *inst)
 	}
 }
 
+static inline enum msm_vidc_thermal_level msm_comm_vidc_thermal_level(int level)
+{
+	switch (level) {
+	case 0:
+		return VIDC_THERMAL_NORMAL;
+	case 1:
+		return VIDC_THERMAL_LOW;
+	case 2:
+		return VIDC_THERMAL_HIGH;
+	default:
+		return VIDC_THERMAL_CRITICAL;
+	}
+}
+
+static unsigned long msm_comm_get_clock_rate(struct msm_vidc_core *core)
+{
+	struct hfi_device *hdev;
+	unsigned long freq = 0;
+
+	if (!core || !core->device) {
+		dprintk(VIDC_ERR, "%s Invalid params\n", __func__);
+		return -EINVAL;
+	}
+	hdev = core->device;
+
+	freq = call_hfi_op(hdev, get_core_clock_rate, hdev->hfi_device_data);
+	dprintk(VIDC_DBG, "clock freq %ld\n", freq);
+
+	return freq;
+}
+
+static bool is_core_turbo(struct msm_vidc_core *core, unsigned long freq)
+{
+	int i = 0;
+	struct msm_vidc_platform_resources *res = &core->resources;
+	struct load_freq_table *table = res->load_freq_tbl;
+	u32 max_freq = 0;
+
+	for (i = 0; i < res->load_freq_tbl_size; i++) {
+		if (max_freq < table[i].freq)
+			max_freq = table[i].freq;
+	}
+	return freq >= max_freq;
+}
+
+static bool is_thermal_permissible(struct msm_vidc_core *core)
+{
+	enum msm_vidc_thermal_level tl;
+	unsigned long freq = 0;
+	bool is_turbo = false;
+
+	tl = msm_comm_vidc_thermal_level(vidc_driver->thermal_level);
+	freq = msm_comm_get_clock_rate(core);
+
+	is_turbo = is_core_turbo(core, freq);
+	dprintk(VIDC_DBG,
+		"Core freq %ld Thermal level %d Turbo mode %d\n",
+		freq, tl, is_turbo);
+
+	if ((!is_turbo && tl >= VIDC_THERMAL_CRITICAL) ||
+				(is_turbo && tl >= VIDC_THERMAL_LOW)) {
+		dprintk(VIDC_ERR,
+			"Video session not allowed. Turbo mode %d Thermal level %d\n",
+			is_turbo, tl);
+		return false;
+	}
+	return true;
+}
+
+static int msm_comm_session_abort(struct msm_vidc_inst *inst)
+{
+	int rc = 0, abort_completion = 0;
+	struct hfi_device *hdev;
+
+	if (!inst || !inst->core || !inst->core->device) {
+		dprintk(VIDC_ERR, "%s invalid params\n", __func__);
+		return -EINVAL;
+	}
+	hdev = inst->core->device;
+
+	rc = call_hfi_op(hdev, session_abort, (void *)inst->session);
+	if (rc) {
+		dprintk(VIDC_ERR,
+			"%s session_abort failed rc: %d\n", __func__, rc);
+		return rc;
+	}
+	abort_completion = SESSION_MSG_INDEX(SESSION_ABORT_DONE);
+	init_completion(&inst->completions[abort_completion]);
+	rc = wait_for_completion_timeout(
+			&inst->completions[abort_completion],
+			msecs_to_jiffies(msm_vidc_hw_rsp_timeout));
+	if (!rc) {
+		dprintk(VIDC_ERR,
+				"%s: Wait interrupted or timed out [%p]: %d\n",
+				__func__, inst, abort_completion);
+		rc = -EBUSY;
+	} else {
+		rc = 0;
+	}
+
+	return rc;
+}
+
+static void handle_thermal_event(struct msm_vidc_core *core)
+{
+	int rc = 0;
+	struct msm_vidc_inst *inst;
+
+	if (!core || !core->device) {
+		dprintk(VIDC_ERR, "%s Invalid params\n", __func__);
+		return;
+	}
+	mutex_lock(&core->lock);
+	list_for_each_entry(inst, &core->instances, list) {
+		if (!inst->session)
+			continue;
+
+		mutex_unlock(&core->lock);
+		if (inst->state >= MSM_VIDC_OPEN_DONE &&
+			inst->state < MSM_VIDC_CLOSE_DONE) {
+			dprintk(VIDC_WARN, "%s: abort inst %p\n",
+				__func__, inst);
+			rc = msm_comm_session_abort(inst);
+			if (rc) {
+				dprintk(VIDC_ERR,
+					"%s session_abort failed rc: %d\n",
+					__func__, rc);
+				goto err_sess_abort;
+			}
+			change_inst_state(inst, MSM_VIDC_CORE_INVALID);
+			dprintk(VIDC_WARN,
+				"%s Send sys error for inst %p\n",
+				__func__, inst);
+			msm_vidc_queue_v4l2_event(inst,
+					V4L2_EVENT_MSM_VIDC_SYS_ERROR);
+		} else {
+			msm_comm_generate_session_error(inst);
+		}
+		mutex_lock(&core->lock);
+	}
+	mutex_unlock(&core->lock);
+	return;
+
+err_sess_abort:
+	msm_comm_clean_notify_client(core);
+	return;
+}
+
+void msm_comm_handle_thermal_event()
+{
+	struct msm_vidc_core *core;
+
+	list_for_each_entry(core, &vidc_driver->cores, list) {
+		if (!is_thermal_permissible(core)) {
+			dprintk(VIDC_WARN,
+				"Thermal level critical, stop all active sessions!\n");
+			handle_thermal_event(core);
+		}
+	}
+}
+
 static int msm_comm_init_core_done(struct msm_vidc_inst *inst)
 {
 	struct msm_vidc_core *core = inst->core;
@@ -3031,6 +3198,7 @@ int msm_comm_try_state(struct msm_vidc_inst *inst, int state)
 		if (rc || state <= get_flipped_state(inst->state, state))
 			break;
 	case MSM_VIDC_CORE_UNINIT:
+	case MSM_VIDC_CORE_INVALID:
 		dprintk(VIDC_DBG, "Sending core uninit\n");
 		rc = msm_vidc_deinit_core(inst);
 		if (rc || state == get_flipped_state(inst->state, state))
@@ -4377,6 +4545,7 @@ int msm_vidc_check_session_supported(struct msm_vidc_inst *inst)
 	struct msm_vidc_core_capability *capability;
 	int rc = 0;
 	struct hfi_device *hdev;
+	struct msm_vidc_core *core;
 
 	if (!inst || !inst->core || !inst->core->device) {
 		dprintk(VIDC_WARN, "%s: Invalid parameter\n", __func__);
@@ -4384,6 +4553,7 @@ int msm_vidc_check_session_supported(struct msm_vidc_inst *inst)
 	}
 	capability = &inst->capability;
 	hdev = inst->core->device;
+	core = inst->core;
 	rc = msm_vidc_load_supported(inst);
 	if (rc) {
 		change_inst_state(inst, MSM_VIDC_CORE_INVALID);
@@ -4391,6 +4561,13 @@ int msm_vidc_check_session_supported(struct msm_vidc_inst *inst)
 			"%s: Hardware is overloaded\n", __func__);
 		return rc;
 	}
+
+	if (!is_thermal_permissible(core)) {
+		dprintk(VIDC_WARN,
+			"Thermal level critical, stop all active sessions!\n");
+		return -ENOTSUPP;
+	}
+
 	if (!rc && inst->capability.capability_set) {
 		if (inst->prop.width[CAPTURE_PORT] < capability->width.min ||
 			inst->prop.height[CAPTURE_PORT] <
@@ -4481,27 +4658,14 @@ int msm_comm_kill_session(struct msm_vidc_inst *inst)
 	 */
 	if (inst->state >= MSM_VIDC_OPEN_DONE &&
 			inst->state < MSM_VIDC_CLOSE_DONE) {
-		struct hfi_device *hdev = inst->core->device;
-		int abort_completion = SESSION_MSG_INDEX(SESSION_ABORT_DONE);
-
-		rc = call_hfi_op(hdev, session_abort, (void *) inst->session);
-		if (rc) {
-			dprintk(VIDC_ERR, "session_abort failed rc: %d\n", rc);
-			return rc;
-		}
-
-		init_completion(&inst->completions[abort_completion]);
-		rc = wait_for_completion_timeout(
-				&inst->completions[abort_completion],
-				msecs_to_jiffies(msm_vidc_hw_rsp_timeout));
-		if (!rc) {
-			dprintk(VIDC_ERR,
-					"%s: Wait interrupted or timed out [%p]: %d\n",
-					__func__, inst, abort_completion);
+		rc = msm_comm_session_abort(inst);
+		if (rc == -EBUSY) {
 			msm_comm_generate_sys_error(inst);
-		} else {
-			change_inst_state(inst, MSM_VIDC_CLOSE_DONE);
-		}
+			return 0;
+		} else if (rc)
+			return rc;
+
+		change_inst_state(inst, MSM_VIDC_CLOSE_DONE);
 	} else {
 		dprintk(VIDC_WARN,
 				"Inactive session %p, triggering an internal session error\n",
