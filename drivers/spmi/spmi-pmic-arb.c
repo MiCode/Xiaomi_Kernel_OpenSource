@@ -84,7 +84,7 @@ u32 pmic_arb_regs_v2[] = {
 #define PMIC_ARB_PERIPH_ID(spmi_addr)		(((spmi_addr) >> 8) & 0xFF)
 #define PMIC_ARB_ADDR_IN_PERIPH(spmi_addr)	((spmi_addr) & 0xFF)
 #define PMIC_ARB_REG_CHNL(chnl_num)		(0x800 + 0x4 * (chnl_num))
-#define PMIC_ARB_TO_PPID(sid, pid)	((pid & 0xFF) | ((sid << 8) & 0xF))
+#define PMIC_ARB_TO_PPID(sid, pid)	((pid & 0xFF) | ((sid & 0xF) << 8))
 
 /* Channel Status fields */
 enum pmic_arb_chnl_status {
@@ -669,16 +669,17 @@ static u32 search_mapping_table(struct spmi_pmic_arb_dev *pmic_arb, u16 ppid)
 static void dbg_dump_bad_irq_request(struct spmi_pmic_arb_dev *pmic_arb,
 					u8 apid, u16 ppid, const char *msg)
 {
-	dev_err(pmic_arb->dev, "bad request: %s APID:0x%02x PPID:0x%04x\n",
+	dev_err(pmic_arb->dev, "bad request: %s APID:0x%02x PPID:0x%03x\n",
 							msg, apid, ppid);
 
 	/* dump the stack to trace the caller */
 	dump_stack();
 
-	dev_info(pmic_arb->dev, "APID => PPID mapping tabel:\n");
+	dev_info(pmic_arb->dev, "APID => PPID mapping table:\n");
 	for (apid = pmic_arb->min_apid; apid <= pmic_arb->max_apid; ++apid)
-		dev_info(pmic_arb->dev, "0x%02x => 0x%04x\n", apid,
-						pmic_arb->periph_id_map[apid]);
+		if (is_apid_valid(pmic_arb, apid))
+			dev_info(pmic_arb->dev, "0x%02x => 0x%03x\n", apid,
+					get_peripheral_id(pmic_arb, apid));
 }
 
 /* PPID to APID */
