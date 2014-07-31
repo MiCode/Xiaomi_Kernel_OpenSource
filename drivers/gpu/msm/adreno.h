@@ -667,10 +667,10 @@ struct log_field {
 	{ BIT(KGSL_FT_THROTTLE), "throttle"}, \
 	{ BIT(KGSL_FT_SKIPCMD), "skipcmd" }
 
-#define FOR_EACH_RINGBUFFER(adreno_dev, rb, i)				\
-	for (i = 0, rb = &(adreno_dev->ringbuffers[0]);			\
-		i < adreno_dev->num_ringbuffers;			\
-		i++, rb++)
+#define FOR_EACH_RINGBUFFER(_dev, _rb, _i)			\
+	for ((_i) = 0, (_rb) = &((_dev)->ringbuffers[0]);	\
+		(_i) < (_dev)->num_ringbuffers;			\
+		(_i)++, (_rb)++)
 
 extern struct adreno_gpudev adreno_a3xx_gpudev;
 extern struct adreno_gpudev adreno_a4xx_gpudev;
