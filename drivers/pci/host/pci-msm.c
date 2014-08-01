@@ -1344,6 +1344,21 @@ static ssize_t msm_pcie_cmd_debug(struct file *file,
 				readl_relaxed(dev->conf +
 				PCIE20_DEVICE_CONTROL2_STATUS2));
 			break;
+		case 11: /* enumerate PCIe  */
+			pr_alert("\n\nPCIe: attempting to enumerate RC%d\n\n",
+				i);
+			if (dev->enumerated)
+				pr_alert("PCIe: RC%d is already enumerated\n",
+					i);
+			else {
+				if (!msm_pcie_enumerate(i))
+					pr_alert("PCIe: RC%d is successfully enumerated\n",
+						i);
+				else
+					pr_alert("PCIe: RC%d enumeration failed\n",
+						i);
+			}
+			break;
 		default:
 			pr_alert("Invalid testcase: %d.\n", testcase);
 			break;
