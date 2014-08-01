@@ -1113,6 +1113,18 @@ void cnss_get_boottime(struct timespec *ts)
 }
 EXPORT_SYMBOL(cnss_get_boottime);
 
+void cnss_init_work(struct work_struct *work, work_func_t func)
+{
+	INIT_WORK(work, func);
+}
+EXPORT_SYMBOL(cnss_init_work);
+
+void cnss_init_delayed_work(struct delayed_work *work, work_func_t func)
+{
+	INIT_DELAYED_WORK(work, func);
+}
+EXPORT_SYMBOL(cnss_init_delayed_work);
+
 int cnss_get_ramdump_mem(unsigned long *address, unsigned long *size)
 {
 	struct resource *res;
