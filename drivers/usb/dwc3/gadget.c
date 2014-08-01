@@ -1597,6 +1597,14 @@ static int dwc3_gadget_start(struct usb_gadget *g,
 
 	pm_runtime_get_sync(dwc->dev);
 
+	if (dwc->usb2_phy) {
+		ret = otg_set_peripheral(dwc->usb2_phy->otg, &dwc->gadget);
+		if (ret == -ENOTSUPP)
+			dev_info(dwc->dev, "no OTG driver registered\n");
+		else if (ret)
+			goto err0;
+	}
+
 	irq = platform_get_irq(to_platform_device(dwc->dev), 0);
 	ret = request_threaded_irq(irq, dwc3_interrupt, dwc3_thread_interrupt,
 			IRQF_SHARED, "dwc3", dwc);

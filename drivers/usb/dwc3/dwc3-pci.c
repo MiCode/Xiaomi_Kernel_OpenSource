@@ -32,6 +32,7 @@
 #define PCI_DEVICE_ID_SYNOPSYS_HAPSUSB3	0xabcd
 #define PCI_DEVICE_ID_INTEL_BYT		0x0f37
 #define PCI_DEVICE_ID_INTEL_MRFLD	0x119e
+#define PCI_DEVICE_ID_INTEL_CHT		0x22b7
 
 struct dwc3_pci {
 	struct device		*dev;
@@ -45,11 +46,19 @@ static int dwc3_pci_register_phys(struct dwc3_pci *glue)
 {
 	struct usb_phy_gen_xceiv_platform_data pdata;
 	struct platform_device	*pdev;
+	struct pci_dev	*pci_dev;
 	int			ret;
 
 	memset(&pdata, 0x00, sizeof(pdata));
 
-	pdev = platform_device_alloc("usb_phy_gen_xceiv", 0);
+	pci_dev = to_pci_dev(glue->dev);
+
+	if (pci_dev->vendor == PCI_VENDOR_ID_INTEL &&
+			pci_dev->device == PCI_DEVICE_ID_INTEL_CHT)
+		pdev = platform_device_alloc("intel-cht-otg", 0);
+	else
+		pdev = platform_device_alloc("usb_phy_gen_xceiv", 0);
+
 	if (!pdev)
 		return -ENOMEM;
 	pdev->dev.parent = glue->dev;
@@ -250,6 +259,7 @@ static const struct pci_device_id dwc3_pci_id_table[] = {
 	},
 	{ PCI_DEVICE(PCI_VENDOR_ID_INTEL, PCI_DEVICE_ID_INTEL_BYT), },
 	{ PCI_DEVICE(PCI_VENDOR_ID_INTEL, PCI_DEVICE_ID_INTEL_MRFLD), },
+	{ PCI_DEVICE(PCI_VENDOR_ID_INTEL, PCI_DEVICE_ID_INTEL_CHT), },
 	{  }	/* Terminating Entry */
 };
 MODULE_DEVICE_TABLE(pci, dwc3_pci_id_table);
