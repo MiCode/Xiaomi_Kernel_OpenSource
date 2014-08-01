@@ -447,6 +447,17 @@
 			};
 		};
 
+		pmx_ts_release {
+			qcom,pins = <&gp 13>, <&gp 12>;
+			qcom,num-grp-pins = <2>;
+			label = "pmx_ts_release";
+
+			ts_release: ts_release {
+				drive-strength = <2>;
+				bias-pull-down;
+			};
+		};
+
 		apds99xx_int_pin {
 			/* Ambient light and proximity sensor apds9930 and apds9900 */
 			qcom,pins = <&gp 113>;
