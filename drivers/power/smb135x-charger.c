@@ -1723,6 +1723,19 @@ static void smb135x_external_power_changed(struct power_supply *psy)
 		dev_err(chip->dev, "could not set usb online, rc=%d\n", rc);
 }
 
+static int smb135x_chg_otg_regulator_enable(struct regulator_dev *rdev)
+{
+	int rc = 0;
+	struct smb135x_chg *chip = rdev_get_drvdata(rdev);
+
+	chip->otg_oc_count = 0;
+	rc = smb135x_masked_write(chip, CMD_CHG_REG, OTG_EN, OTG_EN);
+	if (rc < 0)
+		dev_err(chip->dev, "Couldn't enable OTG mode rc=%d\n", rc);
+
+	return rc;
+}
+
 static bool elapsed_msec_greater(struct timeval *start_time,
 				struct timeval *end_time, int ms)
 {
@@ -1735,7 +1748,7 @@ static bool elapsed_msec_greater(struct timeval *start_time,
 }
 
 #define MAX_STEP_MS		10
-static int smb135x_chg_otg_regulator_enable(struct regulator_dev *rdev)
+static int smb135x_chg_otg_regulator_enable_rev2(struct regulator_dev *rdev)
 {
 	int rc = 0;
 	struct smb135x_chg *chip = rdev_get_drvdata(rdev);
@@ -1845,6 +1858,12 @@ static int smb135x_chg_otg_regulator_is_enable(struct regulator_dev *rdev)
 
 struct regulator_ops smb135x_chg_otg_reg_ops = {
 	.enable		= smb135x_chg_otg_regulator_enable,
+	.disable	= smb135x_chg_otg_regulator_disable,
+	.is_enabled	= smb135x_chg_otg_regulator_is_enable,
+};
+
+struct regulator_ops smb135x_chg_otg_reg_ops_rev2 = {
+	.enable		= smb135x_chg_otg_regulator_enable_rev2,
 	.disable	= smb135x_chg_otg_regulator_disable,
 	.is_enabled	= smb135x_chg_otg_regulator_is_enable,
 };
@@ -2002,7 +2021,11 @@ static int smb135x_regulator_init(struct smb135x_chg *chip)
 	if (init_data->constraints.name) {
 		chip->otg_vreg.rdesc.owner = THIS_MODULE;
 		chip->otg_vreg.rdesc.type = REGULATOR_VOLTAGE;
-		chip->otg_vreg.rdesc.ops = &smb135x_chg_otg_reg_ops;
+		if (chip->revision == REV_2)
+			chip->otg_vreg.rdesc.ops =
+				&smb135x_chg_otg_reg_ops_rev2;
+		else
+			chip->otg_vreg.rdesc.ops = &smb135x_chg_otg_reg_ops;
 		chip->otg_vreg.rdesc.name = init_data->constraints.name;
 
 		cfg.dev = chip->dev;
