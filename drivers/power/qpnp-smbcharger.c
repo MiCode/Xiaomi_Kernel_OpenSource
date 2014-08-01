@@ -1959,6 +1959,31 @@ static int chg_time[] = {
 	1536,
 };
 
+enum bpd_type {
+	BPD_TYPE_BAT_NONE,
+	BPD_TYPE_BAT_ID,
+	BPD_TYPE_BAT_THM,
+	BPD_TYPE_BAT_THM_BAT_ID,
+	BPD_TYPE_DEFAULT,
+};
+
+static const char * const bpd_label[] = {
+	[BPD_TYPE_BAT_NONE]		= "bpd_none",
+	[BPD_TYPE_BAT_ID]		= "bpd_id",
+	[BPD_TYPE_BAT_THM]		= "bpd_thm",
+	[BPD_TYPE_BAT_THM_BAT_ID]	= "bpd_thm_id",
+};
+
+static inline int get_bpd(const char *name)
+{
+	int i = 0;
+	for (i = 0; i < ARRAY_SIZE(bpd_label); i++) {
+		if (strcmp(bpd_label[i], name) == 0)
+			return i;
+	}
+	return -EINVAL;
+}
+
 #define CHGR_CFG1			0xFB
 #define RECHG_THRESHOLD_SRC_BIT		BIT(1)
 #define TERM_I_SRC_BIT			BIT(2)
@@ -2011,7 +2036,7 @@ static int chg_time[] = {
 static int smbchg_hw_init(struct smbchg_chip *chip)
 {
 	int rc, i;
-	u8 reg;
+	u8 reg, mask;
 
 	rc = smbchg_sec_masked_write(chip, chip->usb_chgpth_base + TR_RID_REG,
 			FG_INPUT_FET_DELAY_BIT, FG_INPUT_FET_DELAY_BIT);
@@ -2160,11 +2185,14 @@ static int smbchg_hw_init(struct smbchg_chip *chip)
 	}
 
 	/* battery missing detection */
-	rc = smbchg_sec_masked_write(chip, chip->bat_if_base + BM_CFG,
-			BATT_MISSING_ALGO_BIT
-			| (chip->bmd_pin_src > 0 ? BMD_PIN_SRC_MASK : 0),
-			(chip->bmd_algo_disabled ? BATT_MISSING_ALGO_BIT : 0)
-			| (chip->bmd_pin_src << PIN_SRC_SHIFT));
+	mask =  BATT_MISSING_ALGO_BIT;
+	reg = chip->bmd_algo_disabled ? BATT_MISSING_ALGO_BIT : 0;
+	if (chip->bmd_pin_src < BPD_TYPE_DEFAULT) {
+		mask |= BMD_PIN_SRC_MASK;
+		reg |= chip->bmd_pin_src << PIN_SRC_SHIFT;
+	}
+	rc = smbchg_sec_masked_write(chip,
+			chip->bat_if_base + BM_CFG, mask, reg);
 	if (rc < 0) {
 		dev_err(chip->dev, "Couldn't set batt_missing config = %d\n",
 									rc);
@@ -2257,30 +2285,6 @@ static struct of_device_id smbchg_match_table[] = {
 	{ },
 };
 
-enum bpd_type {
-	BPD_TYPE_BAT_NONE,
-	BPD_TYPE_BAT_ID,
-	BPD_TYPE_BAT_THM,
-	BPD_TYPE_BAT_THM_BAT_ID,
-};
-
-static const char * const bpd_label[] = {
-	[BPD_TYPE_BAT_NONE]		= "bpd_none",
-	[BPD_TYPE_BAT_ID]		= "bpd_id",
-	[BPD_TYPE_BAT_THM]		= "bpd_thm",
-	[BPD_TYPE_BAT_THM_BAT_ID]	= "bpd_thm_id",
-};
-
-static inline int get_bpd(const char *name)
-{
-	int i = 0;
-	for (i = 0; i < ARRAY_SIZE(bpd_label); i++) {
-		if (strcmp(bpd_label[i], name) == 0)
-			return i;
-	}
-	return -EINVAL;
-}
-
 #define DC_MA_MIN 300
 #define DC_MA_MAX 2000
 #define OF_PROP_READ(chip, prop, dt_property, retval, optional)		\
@@ -2352,7 +2356,7 @@ static int smb_parse_dt(struct smbchg_chip *chip)
 		"qcom,bmd-pin-src", &bpd);
 	if (rc) {
 		/* Select BAT_THM as default BPD scheme */
-		chip->bmd_pin_src = BPD_TYPE_BAT_THM;
+		chip->bmd_pin_src = BPD_TYPE_DEFAULT;
 		rc = 0;
 	} else {
 		chip->bmd_pin_src = get_bpd(bpd);
