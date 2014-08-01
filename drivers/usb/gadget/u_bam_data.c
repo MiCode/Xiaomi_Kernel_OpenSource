@@ -99,6 +99,9 @@ struct bam_data_ch_info {
 	struct sys2ipa_sw_data	ul_params;
 	struct list_head	rx_idle;
 	struct sk_buff_head	rx_skb_q;
+	int			total_skb;
+	int			freed_skb;
+	int			freed_rx_reqs;
 	struct sk_buff_head	rx_skb_idle;
 	enum usb_bam_pipe_type	src_pipe_type;
 	enum usb_bam_pipe_type	dst_pipe_type;
@@ -208,6 +211,7 @@ static struct sk_buff *bam_data_alloc_skb_from_pool(
 			goto alloc_exit;
 		}
 
+		d->total_skb++;
 		skb_reserve(skb, BAM_MUX_HDR);
 
 		data_port = port->port_usb;
@@ -387,6 +391,7 @@ static void bam_data_epout_complete(struct usb_ep *ep, struct usb_request *req)
 		/* cable disconnection */
 		spin_lock_irqsave(&port->port_lock, flags);
 		bam_data_free_skb_to_pool(port, skb);
+		d->freed_rx_reqs++;
 		spin_unlock_irqrestore(&port->port_lock, flags);
 		req->buf = 0;
 		usb_ep_free_request(ep, req);
@@ -648,6 +653,58 @@ static int bam_data_peer_reset_cb(void *param)
 	usb_bam_register_peer_reset_cb(NULL, NULL);
 
 	return 0;
+}
+
+static void bam2bam_free_rx_skb_idle_list(struct bam_data_port *port)
+{
+	struct bam_data_ch_info *d;
+	struct sk_buff *skb;
+	dma_addr_t dma_addr;
+	struct usb_gadget *gadget = NULL;
+
+	if (!port) {
+		pr_err("%s(): Port is NULL.\n", __func__);
+		return;
+	}
+
+	d = &port->data_ch;
+	if (!d) {
+		pr_err("%s(): port->data_ch is NULL.\n", __func__);
+		return;
+	}
+
+	if (!port->port_usb) {
+		pr_err("%s(): port->port_usb is NULL.\n", __func__);
+		return;
+	}
+
+	if (!port->port_usb->cdev) {
+		pr_err("port->port_usb->cdev is NULL");
+		return;
+	}
+
+	gadget = port->port_usb->cdev->gadget;
+	if (!gadget) {
+		pr_err("%s(): gadget is NULL.\n", __func__);
+		return;
+	}
+
+	while (d->rx_skb_idle.qlen > 0) {
+		skb = __skb_dequeue(&d->rx_skb_idle);
+		dma_addr = gbam_get_dma_from_skb(skb);
+
+		if (gadget && dma_addr != DMA_ERROR_CODE) {
+			dma_unmap_single(&gadget->dev, dma_addr,
+				bam_mux_rx_req_size, DMA_BIDIRECTIONAL);
+			dma_addr = DMA_ERROR_CODE;
+			memcpy(skb->cb, &dma_addr, sizeof(dma_addr));
+		}
+		dev_kfree_skb_any(skb);
+		d->freed_skb++;
+	}
+
+	pr_debug("%s(): Freed %d SKBs from rx_skb_idle queue\n", __func__,
+							d->freed_skb);
 }
 
 static void bam2bam_data_disconnect_work(struct work_struct *w)
@@ -1233,11 +1290,32 @@ void u_bam_data_stop_rndis_ipa(void)
 	}
 }
 
+static void bam_data_free_reqs(struct bam_data_port *port)
+{
+
+	struct list_head *head;
+	struct usb_request *req;
+
+	head = &port->data_ch.rx_idle;
+
+	while (!list_empty(head)) {
+		req = list_entry(head->next, struct usb_request, list);
+		list_del(&req->list);
+		usb_ep_free_request(port->port_usb->out, req);
+		port->data_ch.freed_rx_reqs++;
+	}
+
+	pr_debug("%s(): allocated_rx_reqs:%d freed_rx_reqs: %d\n", __func__,
+			bam_data_rx_q_size, port->data_ch.freed_rx_reqs);
+}
+
 void bam_data_disconnect(struct data_port *gr, u8 port_num)
 {
 	struct bam_data_port *port;
 	struct bam_data_ch_info	*d;
+	struct sk_buff *skb = NULL;
 	unsigned long flags;
+	int n = 0;
 
 	pr_debug("dev:%p port number:%d\n", gr, port_num);
 
@@ -1266,6 +1344,7 @@ void bam_data_disconnect(struct data_port *gr, u8 port_num)
 			port->port_usb->ipa_consumer_ep = -1;
 			port->port_usb->ipa_producer_ep = -1;
 		}
+
 		if (port->port_usb->in && port->port_usb->in->driver_data) {
 
 			/*
@@ -1277,8 +1356,26 @@ void bam_data_disconnect(struct data_port *gr, u8 port_num)
 			 */
 			spin_unlock_irqrestore(&port->port_lock, flags);
 			usb_ep_disable(port->port_usb->out);
+			usb_ep_free_request(port->port_usb->out, d->rx_req);
 			usb_ep_disable(port->port_usb->in);
+			usb_ep_free_request(port->port_usb->in, d->tx_req);
 			spin_lock_irqsave(&port->port_lock, flags);
+
+			bam_data_free_reqs(port);
+			while ((skb = __skb_dequeue(&d->rx_skb_q))) {
+				dev_kfree_skb_any(skb);
+				n++;
+			}
+
+			pr_debug("%s(): Freed %d SKB from RX_Q\n", __func__, n);
+			bam2bam_free_rx_skb_idle_list(port);
+			pr_debug("%s(): allocated_skb:%d freed_skb:%d\n",
+					__func__, d->total_skb, d->freed_skb);
+
+			/* reset all skb/reqs related statistics */
+			d->total_skb = 0;
+			d->freed_skb = 0;
+			d->freed_rx_reqs = 0;
 
 			/*
 			 * Set endless flag to false as USB Endpoint
