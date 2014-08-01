@@ -8,6 +8,12 @@ qcom,battery-data node required properties:
 - qcom,vref-batt-therm-uv : The vadc voltage used to make readings.
 			For Qualcomm VADCs this should be 1800000uV.
 
+qcom,battery-data node optional properties:
+- qcom,batt-id-range-pct : The area of variation between upper and lower bound
+			for which a given battery ID resistance is valid. This
+			value is expressed as a percentage of the specified kohm
+			resistance provided by qcom,batt-id-kohm.
+
 qcom,battery-data can also include any number of children nodes. These children
 nodes will be treated as battery profile data nodes.
 
