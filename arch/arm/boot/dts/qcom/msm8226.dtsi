@@ -214,25 +214,29 @@
 		qcom,msm-bus-clients {
 			qcom,msm-bus-client@0 {
 				qcom,msm-bus,name = "venc-ddr";
-				qcom,msm-bus,num-cases = <4>;
+				qcom,msm-bus,num-cases = <6>;
 				qcom,msm-bus,num-paths = <1>;
 				qcom,msm-bus,vectors-KBps =
 					<63 512 0 0>,
-					<63 512 129000 142000>,
-					<63 512 384000 422000>,
-					<63 512 866000 953000>;
+					<63 512 129000 142000>, /* VGA 30 fps */
+					<63 512 384000 422000>, /* VGA 60 fps */
+					<63 512 384000 422000>, /* 720p 30 fps */
+					<63 512 866000 953000>, /* 720p 60 fps */
+					<63 512 866000 953000>; /* 1080p 30 fps */
 				qcom,bus-configs = <0x1000414>;
 			};
 
 			qcom,msm-bus-client@1 {
 				qcom,msm-bus,name = "vdec-ddr";
-				qcom,msm-bus,num-cases = <4>;
+				qcom,msm-bus,num-cases = <6>;
 				qcom,msm-bus,num-paths = <1>;
 				qcom,msm-bus,vectors-KBps =
 					<63 512 0 0>,
-					<63 512 103000 134000>,
-					<63 512 268000 348000>,
-					<63 512 505000 657000>;
+					<63 512 103000 134000>, /* VGA 30 fps */
+					<63 512 268000 348000>, /* VGA 60 fps */
+					<63 512 268000 348000>, /* 720p 30 fps */
+					<63 512 505000 657000>, /* 720p 60 fps */
+					<63 512 505000 657000>; /* 1080p 30 fps */
 				qcom,bus-configs = <0x30fcfff>;
 			};
 		};

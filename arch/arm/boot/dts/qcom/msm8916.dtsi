@@ -1675,25 +1675,29 @@
 		qcom,msm-bus-clients {
 			qcom,msm-bus-client@0 {
 				qcom,msm-bus,name = "venc-ddr";
-				qcom,msm-bus,num-cases = <4>;
+				qcom,msm-bus,num-cases = <6>;
 				qcom,msm-bus,num-paths = <1>;
 				qcom,msm-bus,vectors-KBps =
 					<63 512 0 0>,
-					<63 512 133600 674400>,
-					<63 512 400900 1079000>,
-					<63 512 908600 1537600>;
+					<63 512 133600 674400>, /* VGA 30 fps */
+					<63 512 400900 1079000>, /* VGA 60 fps */
+					<63 512 400900 1079000>, /* 720p 30 fps */
+					<63 512 908600 1537600>, /* 720p 60 fps */
+					<63 512 908600 1537600>; /* 1080p 30 fps */
 				qcom,bus-configs = <0x01000414>;
 			};
 
 			qcom,msm-bus-client@1 {
 				qcom,msm-bus,name = "vdec-ddr";
-				qcom,msm-bus,num-cases = <4>;
+				qcom,msm-bus,num-cases = <6>;
 				qcom,msm-bus,num-paths = <1>;
 				qcom,msm-bus,vectors-KBps =
 					<63 512 0 0>,
-					<63 512 99600 831900>,
-					<63 512 298900 831900>,
-					<63 512 677600 1331000>;
+					<63 512 99600 831900>, /* VGA 30 fps */
+					<63 512 298900 831900>, /* VGA 60 fps */
+					<63 512 298900 831900>, /* 720p 30 fps */
+					<63 512 677600 1331000>, /* 720p 60 fps */
+					<63 512 677600 1331000>; /* 1080p 30 fps */
 				qcom,bus-configs = <0x030fcfff>;
 			};
 		};
