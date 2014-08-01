@@ -33,6 +33,7 @@
 		qcom,sfr-query;
 		qcom,support-shutdown;
 		qcom,sysmon-id = <20>;
+		qcom,ssctl-instance-id = <0x10>;
 		status = "disabled";
 	};
 
@@ -58,6 +59,7 @@
 		qcom,sfr-query;
 		qcom,support-shutdown;
 		qcom,sysmon-id = <20>;
+		qcom,ssctl-instance-id = <0x10>;
 		status = "disabled";
 	};
 };

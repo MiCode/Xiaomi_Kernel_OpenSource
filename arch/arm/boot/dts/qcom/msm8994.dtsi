@@ -1532,6 +1532,7 @@
 		qcom,pil-self-auth;
 		qcom,mba-image-is-not-elf;
 		qcom,sysmon-id = <0>;
+		qcom,ssctl-instance-id = <0x12>;
 		qcom,override-acc;
 
 		/* GPIO inputs from mss */
@@ -1567,6 +1568,7 @@
 		qcom,proxy-timeout-ms = <10000>;
 		qcom,smem-id = <423>;
 		qcom,sysmon-id = <1>;
+		qcom,ssctl-instance-id = <0x14>;
 		qcom,firmware-name = "adsp";
 
 		/* GPIO inputs from lpass */
