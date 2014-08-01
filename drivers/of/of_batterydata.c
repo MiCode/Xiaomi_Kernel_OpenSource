@@ -12,11 +12,13 @@
 
 #define pr_fmt(fmt)	"%s: " fmt, __func__
 
+#include <linux/err.h>
 #include <linux/of.h>
 #include <linux/slab.h>
 #include <linux/module.h>
 #include <linux/types.h>
 #include <linux/batterydata-lib.h>
+#include <linux/power_supply.h>
 
 static int of_batterydata_read_lut(const struct device_node *np,
 			int max_cols, int max_rows, int *ncols, int *nrows,
@@ -298,6 +300,66 @@ static int64_t of_batterydata_convert_battery_id_kohm(int batt_id_uv,
 			batt_id_uv, resistor_value_kohm);
 
 	return resistor_value_kohm;
+}
+
+struct device_node *of_batterydata_get_best_profile(
+		const struct device_node *batterydata_container_node,
+		const char *psy_name)
+{
+	struct batt_ids batt_ids;
+	struct device_node *node, *best_node = NULL;
+	struct power_supply *psy;
+	const char *battery_type = NULL;
+	union power_supply_propval ret = {0, };
+	int delta = 0, best_delta = 0, best_id_kohm = 0,
+		batt_id_kohm = 0, i = 0, rc = 0;
+
+	psy = power_supply_get_by_name(psy_name);
+	if (!psy) {
+		pr_err("%s supply not found. defer\n", psy_name);
+		return ERR_PTR(-EPROBE_DEFER);
+	}
+
+	rc = psy->get_property(psy, POWER_SUPPLY_PROP_RESISTANCE_ID, &ret);
+	if (rc) {
+		pr_err("failed to retrieve resistance value rc=%d\n", rc);
+		return ERR_PTR(-ENOSYS);
+	}
+
+	batt_id_kohm = ret.intval / 1000;
+
+	/*
+	 * Find the battery data with a battery id resistor closest to this one
+	 */
+	for_each_child_of_node(batterydata_container_node, node) {
+		rc = of_batterydata_read_batt_id_kohm(node,
+						"qcom,batt-id-kohm",
+						&batt_ids);
+		if (rc)
+			continue;
+		for (i = 0; i < batt_ids.num; i++) {
+			delta = abs(batt_ids.kohm[i] - batt_id_kohm);
+			if (delta < best_delta || !best_node) {
+				best_node = node;
+				best_delta = delta;
+				best_id_kohm = batt_ids.kohm[i];
+			}
+		}
+	}
+
+	if (best_node == NULL) {
+		pr_err("No battery data found\n");
+		return best_node;
+	}
+
+	rc = of_property_read_string(best_node, "qcom,battery-type",
+							&battery_type);
+	if (!rc)
+		pr_info("%s found\n", battery_type);
+	else
+		pr_info("%s found\n", best_node->name);
+
+	return best_node;
 }
 
 int of_batterydata_read_data(struct device_node *batterydata_container_node,
