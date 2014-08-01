@@ -753,12 +753,12 @@ static int ft5x0x_ts_resume(struct device *dev)
 
 	dev_dbg(&tsdata->client->dev, "resume");
 
+	ft5x0x_wake_device(tsdata);
+
 	ret = ft5x0x_set_pmode(tsdata, PMODE_ACTIVE);
 
 	if (ret < 0)
 		return ret;
-
-	ft5x0x_wake_device(tsdata);
 
 	enable_irq(tsdata->irq);
 
