@@ -10,6 +10,10 @@ device is to enabled:
 
 - qcom,fg-soc : The main FG device. Supports battery fuel gauge controls and
 		sensors.
+- qcom,fg-batt : The FG battery device supports interrupts and controls with
+		respect to the state of the connected battery.For example: the
+		peripheral informs the driver if the battery has been identified
+		by the fuel gauge based on a given battery resistance range.
 
 Optionally ADC nodes can be added
 - qcom,fg-adc-vbat : A subnode with a register address for the FG_ADC_USR
@@ -85,6 +89,27 @@ pmi8994_fg: qcom,fg {
 					"sw-fallbk-ocv",
 					"sw-fallbk-new-battrt-sts",
 					"fg-soc-irq-count";
+	};
+
+	qcom,fg-batt@4100 {
+		reg = <0x4100 0x100>;
+		interrupts =	<0x2 0x41 0x0>,
+				<0x2 0x41 0x1>,
+				<0x2 0x41 0x2>,
+				<0x2 0x41 0x3>,
+				<0x2 0x41 0x4>,
+				<0x2 0x41 0x5>,
+				<0x2 0x41 0x6>,
+				<0x2 0x41 0x7>;
+
+		interrupt-names =	"soft-cold",
+					"soft-hot",
+					"vbatt-low",
+					"batt-ided",
+					"batt-id-req",
+					"batt-unknown",
+					"batt-missing",
+					"batt-match";
 	};
 
 	qcom,fg-adc-vbat@4254 {

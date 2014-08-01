@@ -116,6 +116,8 @@ enum fg_mem_data_index {
 	FG_DATA_VOLTAGE,
 	FG_DATA_CURRENT,
 	FG_DATA_BATT_ESR,
+	FG_DATA_BATT_ID,
+	FG_DATA_BATT_ID_INFO,
 	FG_DATA_MAX,
 };
 
@@ -149,6 +151,8 @@ static struct fg_mem_data fg_data[FG_DATA_MAX] = {
 	DATA(VOLTAGE,         0x5CC,   1,      2,     -EINVAL),
 	DATA(CURRENT,         0x5CC,   3,      2,     -EINVAL),
 	DATA(BATT_ESR,        0x554,   2,      2,     -EINVAL),
+	DATA(BATT_ID,         0x594,   1,      1,     -EINVAL),
+	DATA(BATT_ID_INFO,    0x594,   3,      1,     -EINVAL),
 };
 
 static int fg_debug_mask;
@@ -179,7 +183,7 @@ enum fg_batt_irq {
 	VBATT_LOW,
 	BATT_IDENTIFIED,
 	BATT_ID_REQ,
-	BATT_UNKNOWN,
+	BATTERY_UNKNOWN,
 	BATT_MISSING,
 	BATT_MATCH,
 	FG_BATT_IRQ_COUNT,
@@ -698,6 +702,29 @@ static int get_prop_capacity(struct fg_chip *chip)
 	return capacity;
 }
 
+#define HIGH_BIAS	3
+#define MED_BIAS	BIT(1)
+#define LOW_BIAS	BIT(0)
+static u8 bias_ua[] = {
+	[HIGH_BIAS] = 150,
+	[MED_BIAS] = 15,
+	[LOW_BIAS] = 5,
+};
+
+static int64_t get_batt_id(unsigned int battery_id_uv, u8 bid_info)
+{
+	u64 battery_id_ohm;
+
+	if (!(bid_info & 0x3) >= 1) {
+		pr_err("can't determine battery id %d\n", bid_info);
+		return -EINVAL;
+	}
+
+	battery_id_ohm = div_u64(battery_id_uv, bias_ua[bid_info & 0x3]);
+
+	return battery_id_ohm;
+}
+
 #define DEFAULT_TEMP_DEGC	250
 #define SRAM_DATA_DELAY_MS	1000
 static int get_sram_prop_now(struct fg_chip *chip, unsigned int type)
@@ -711,6 +738,10 @@ static int get_sram_prop_now(struct fg_chip *chip, unsigned int type)
 		&chip->update_sram_data);
 	schedule_delayed_work(
 		&chip->update_sram_data, msecs_to_jiffies(SRAM_DATA_DELAY_MS));
+
+	if (type == FG_DATA_BATT_ID)
+		return get_batt_id(fg_data[type].value,
+				fg_data[FG_DATA_BATT_ID_INFO].value);
 
 	return fg_data[type].value;
 }
@@ -785,7 +816,27 @@ static int64_t float_decode(u16 reg)
 	return final_val;
 }
 
+static int fg_is_batt_id_valid(struct fg_chip *chip)
+{
+	u8 fg_batt_sts;
+	int rc;
+
+	rc = fg_read(chip, &fg_batt_sts,
+				 INT_RT_STS(chip->batt_base), 1);
+	if (rc) {
+		pr_err("spmi read failed: addr=%03X, rc=%d\n",
+				INT_RT_STS(chip->batt_base), rc);
+		return rc;
+	}
+
+	if (fg_debug_mask & FG_IRQS)
+		pr_info("fg batt sts 0x%x\n", fg_batt_sts);
+
+	return (fg_batt_sts & BATT_IDENTIFIED) ? 1 : 0;
+}
+
 #define LSB_16B		153
+#define LSB_8B		9800
 #define TEMP_LSB_16B	625
 #define DECIKELVIN	2730
 #define SRAM_PERIOD_UPDATE_MS	30000
@@ -797,6 +848,7 @@ static void update_sram_data(struct work_struct *work)
 	int i, rc = 0;
 	u8 reg[2];
 	s16 temp;
+	int battid_valid = fg_is_batt_id_valid(chip);
 
 	for (i = 0; i < FG_DATA_MAX; i++) {
 		rc = fg_mem_read(chip, reg, fg_data[i].address,
@@ -807,7 +859,8 @@ static void update_sram_data(struct work_struct *work)
 			break;
 		}
 
-		temp = reg[0] | (reg[1] << 8);
+		if (fg_data[i].len > 1)
+			temp = reg[0] | (reg[1] << 8);
 
 		switch (i) {
 		case FG_DATA_BATT_TEMP:
@@ -823,6 +876,15 @@ static void update_sram_data(struct work_struct *work)
 			break;
 		case FG_DATA_BATT_ESR:
 			fg_data[i].value = float_decode((u16) temp);
+			break;
+		case FG_DATA_BATT_ID:
+			if (battid_valid)
+				fg_data[i].value = reg[0] * LSB_8B;
+			break;
+		case FG_DATA_BATT_ID_INFO:
+			if (battid_valid)
+				fg_data[i].value = reg[0];
+			break;
 		};
 
 		if (fg_debug_mask & FG_MEM_DEBUG_READS)
@@ -860,6 +922,7 @@ static enum power_supply_property fg_power_props[] = {
 	POWER_SUPPLY_PROP_COOL_TEMP,
 	POWER_SUPPLY_PROP_WARM_TEMP,
 	POWER_SUPPLY_PROP_RESISTANCE,
+	POWER_SUPPLY_PROP_RESISTANCE_ID,
 };
 
 static int fg_power_get_property(struct power_supply *psy,
@@ -892,6 +955,9 @@ static int fg_power_get_property(struct power_supply *psy,
 		break;
 	case POWER_SUPPLY_PROP_RESISTANCE:
 		val->intval = get_sram_prop_now(chip, FG_DATA_BATT_ESR);
+		break;
+	case POWER_SUPPLY_PROP_RESISTANCE_ID:
+		val->intval = get_sram_prop_now(chip, FG_DATA_BATT_ID);
 		break;
 	default:
 		return -EINVAL;
@@ -1745,6 +1811,9 @@ static int fg_probe(struct spmi_device *spmi)
 		case FG_MEMIF:
 			chip->mem_base = resource->start;
 			break;
+		case FG_BATT:
+			chip->batt_base = resource->start;
+			break;
 		default:
 			pr_err("Invalid peripheral subtype=0x%x\n", subtype);
 			rc = -EINVAL;
@@ -1790,6 +1859,9 @@ static int fg_probe(struct spmi_device *spmi)
 	schedule_delayed_work(
 		&chip->update_jeita_setting,
 		msecs_to_jiffies(INIT_JEITA_DELAY_MS));
+
+	update_sram_data(&chip->update_sram_data.work);
+
 	if (!chip->use_otp_profile)
 		schedule_work(&chip->batt_profile_init);
 
