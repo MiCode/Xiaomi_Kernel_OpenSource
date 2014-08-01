@@ -44,6 +44,7 @@ struct route_payload {
 	unsigned int port_id[MAX_COPPS_PER_PORT];
 	int app_type;
 	int acdb_dev_id;
+	int sample_rate;
 	unsigned short num_copps;
 	unsigned int session_id;
 };

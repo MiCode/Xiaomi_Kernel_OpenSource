@@ -208,6 +208,7 @@ struct msm_pcm_routing_app_type_data {
 struct msm_pcm_stream_app_type_cfg {
 	int app_type;
 	int acdb_dev_id;
+	int sample_rate;
 };
 
 /* dai_id: front-end ID,
@@ -236,5 +237,5 @@ void msm_pcm_routing_acquire_lock(void);
 void msm_pcm_routing_release_lock(void);
 
 void msm_pcm_routing_reg_stream_app_type_cfg(int fedai_id, int app_type,
-						int acdb_dev_id);
+					int acdb_dev_id, int sample_rate);
 #endif /*_MSM_PCM_H*/
