@@ -201,6 +201,23 @@ get_lvds_fp_timing(const struct bdb_header *bdb,
 	return (const struct lvds_fp_timing *)((const u8 *)bdb + ofs);
 }
 
+static void parse_backlight_data(struct drm_i915_private *dev_priv,
+		struct bdb_header *bdb)
+{
+	struct bdb_panel_backlight *vbt_panel_bl = NULL;
+	char *bl_start = NULL;
+
+	bl_start = find_section(bdb, BDB_LVDS_BACKLIGHT);
+	if (!bl_start) {
+		DRM_DEBUG_KMS("No backlight BDB found");
+		return;
+	}
+	DRM_DEBUG_KMS("Found backlight BDB");
+	vbt_panel_bl = (struct bdb_panel_backlight *)(bl_start + 1) +
+								panel_type;
+	dev_priv->vbt.pwm_frequency = vbt_panel_bl->pwm_freq;
+}
+
 /* Try to find integrated panel data */
 static void
 parse_lfp_panel_data(struct drm_i915_private *dev_priv,
@@ -1236,6 +1253,7 @@ intel_parse_bios(struct drm_device *dev)
 	parse_device_mapping(dev_priv, bdb);
 	parse_driver_features(dev_priv, bdb);
 	parse_edp(dev_priv, bdb);
+	parse_backlight_data(dev_priv, bdb);
 	parse_mipi(dev_priv, bdb);
 	parse_ddi_ports(dev_priv, bdb);
 
