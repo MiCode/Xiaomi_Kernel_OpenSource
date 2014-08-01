@@ -664,7 +664,7 @@ static int msm_ssphy_qmp_probe(struct platform_device *pdev)
 	phy->ahb2phy = devm_ioremap_resource(dev, res);
 	if (IS_ERR(phy->ahb2phy)) {
 		dev_err(dev, "couldn't find qmp_ahb2phy_base address.\n");
-		return PTR_ERR(phy->ahb2phy);
+		phy->ahb2phy = NULL;
 	}
 
 	ret = of_property_read_u32_array(dev->of_node, "qcom,vdd-voltage-level",

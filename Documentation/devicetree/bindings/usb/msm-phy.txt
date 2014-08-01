@@ -90,7 +90,6 @@ Required properties:
  - reg: Address and length of the register set for the device
    Required regs are:
    "qmp_phy_base" : QMP PHY Base register set.
-   "qmp_ahb2phy_base" : SS AHB2PHY CSR register set.
  - <supply-name>-supply: phandle to the regulator device tree node
    Required "supply-name" examples are:
 	"vdd" : vdd supply for SSPHY digital circuit operation
@@ -100,7 +99,9 @@ Required properties:
    microvolts or a value corresponding to voltage corner
 
 Optional properties:
- - qcom,vbus-valid-override: If present, indicates VBUS pin is not connected to
+- reg: Address and length of the register set for the device
+  "qmp_ahb2phy_base" : SS AHB2PHY CSR register set.
+- qcom,vbus-valid-override: If present, indicates VBUS pin is not connected to
    the USB PHY and the controller must rely on external VBUS notification in
    order to manually relay the notification to the SSPHY.
  - qcom,no-pipe-clk-switch: If present, indicates that the pipe_clk does not need
