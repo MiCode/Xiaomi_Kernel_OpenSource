@@ -552,8 +552,14 @@ static ssize_t gamma_adjust_store(struct device *kdev,
 {
 	int ret = 0;
 	int bytes_count = 0;
-	int bytes_read = 0;
 	char *buf = NULL;
+	int pipe = 0;
+	int crtc_id = -1;
+	int bytes_read = 0;
+	struct drm_minor *minor = dev_to_drm_minor(kdev);
+	struct drm_device *dev = minor->dev;
+	struct drm_crtc *crtc = NULL;
+	struct drm_mode_object *obj;
 
 	/* Validate input */
 	if (!count) {
@@ -575,23 +581,44 @@ static ssize_t gamma_adjust_store(struct device *kdev,
 	}
 	bytes_count = count;
 
-	/* Parse data and load the gamma  table */
-	ret = parse_clrmgr_input(gamma_softlut, buf,
-		GAMMA_CORRECT_MAX_COUNT, &bytes_count);
-	if (ret < GAMMA_CORRECT_MAX_COUNT) {
-		DRM_ERROR("Gamma table loading failed\n");
+	/* Parse data and read the crtc_id */
+	ret = parse_clrmgr_input(&crtc_id, buf,
+		CRTC_ID_TOKEN_COUNT, &bytes_count);
+	if (ret < CRTC_ID_TOKEN_COUNT) {
+		DRM_ERROR("CRTC_ID loading failed\n");
 		goto EXIT;
 	} else
-		DRM_DEBUG("Gamma table loading done\n");
+		DRM_DEBUG("CRTC_ID loading done\n");
 
-	bytes_read = bytes_count;
-	if (bytes_count < count) {
+	obj = drm_mode_object_find(dev, crtc_id, DRM_MODE_OBJECT_CRTC);
+	if (!obj) {
+		DRM_DEBUG_KMS("Unknown CRTC ID %d\n", crtc_id);
+		ret = -EINVAL;
+		goto EXIT;
+	}
+	crtc = obj_to_crtc(obj);
+	DRM_DEBUG_KMS("[CRTC:%d]\n", crtc->base.id);
 
-		/* Number of bytes remaining */
-		bytes_count = count - bytes_count;
+	pipe = to_intel_crtc(crtc)->pipe;
+	bytes_read += bytes_count;
+	bytes_count = count - bytes_read;
+	if (bytes_count > 0) {
+
+		/* Parse data and load the gamma  table */
+		ret = parse_clrmgr_input(gamma_softlut[pipe], buf+bytes_read,
+			GAMMA_CORRECT_MAX_COUNT, &bytes_count);
+		if (ret < GAMMA_CORRECT_MAX_COUNT) {
+			DRM_ERROR("Gamma table loading failed\n");
+			goto EXIT;
+		} else
+			DRM_DEBUG("Gamma table loading done\n");
+	}
+	bytes_read += bytes_count;
+	bytes_count = count - bytes_read;
+	if (bytes_count > 0) {
 
 		/* Parse data and load the gcmax table */
-		ret = parse_clrmgr_input(gcmax_softlut, buf+bytes_read,
+		ret = parse_clrmgr_input(gcmax_softlut[pipe], buf+bytes_read,
 				GC_MAX_COUNT, &bytes_count);
 
 		if (ret < GC_MAX_COUNT)
@@ -616,9 +643,9 @@ static ssize_t csc_enable_show(struct device *kdev,
 	struct drm_minor *minor = dev_to_drm_minor(kdev);
 	struct drm_device *dev = minor->dev;
 	struct drm_i915_private *dev_priv = dev->dev_private;
-
-	len = scnprintf(ubuf, PAGE_SIZE, "%s\n",
-		dev_priv->csc_enabled ? "Enabled" : "Disabled");
+	len = scnprintf(ubuf, PAGE_SIZE, "Pipe 0: %s\nPipe 1: %s\n",
+		dev_priv->csc_enabled[0] ? "Enabled" : "Disabled",
+		dev_priv->csc_enabled[1] ? "Enabled" : "Disabled");
 
 	return len;
 }
@@ -628,11 +655,16 @@ static ssize_t csc_enable_store(struct device *kdev,
 				     const char *ubuf, size_t count)
 {
 	int ret = 0;
-	uint status = 0;
+	char *buf = NULL;
+	int pipe = 0;
+	int req_state = 0;
+	int bytes_read = 0;
+	int bytes_count = count;
+	int crtc_id = -1;
+	struct drm_mode_object *obj = NULL;
 	struct drm_crtc *crtc = NULL;
 	struct drm_minor *minor = dev_to_drm_minor(kdev);
 	struct drm_device *dev = minor->dev;
-	struct drm_i915_private *dev_priv = dev->dev_private;
 
 	/* Validate input */
 	if (!count) {
@@ -640,34 +672,62 @@ static ssize_t csc_enable_store(struct device *kdev,
 		return -EINVAL;
 	}
 
-	/* Finally, get the status */
-	if (kstrtouint(ubuf, 10, &status)) {
-		DRM_ERROR("CSC enable: Invalid limit\n");
+	buf = kzalloc(count, GFP_KERNEL);
+	if (!buf) {
+		DRM_ERROR("Gamma adjust: insufficient memory\n");
+		return -ENOMEM;
+	}
+
+	/* Get the data */
+	if (!strncpy(buf, ubuf, count)) {
+		DRM_ERROR("Gamma adjust: copy failed\n");
 		ret = -EINVAL;
 		goto EXIT;
 	}
 
-	dev_priv->csc_enabled = status;
+	/* Parse data and load the crtc_id */
+	ret = parse_clrmgr_input(&crtc_id, buf,
+		CRTC_ID_TOKEN_COUNT, &bytes_count);
+	if (ret < CRTC_ID_TOKEN_COUNT) {
+		DRM_ERROR("CRTC_ID_TOKEN loading failed\n");
+		goto EXIT;
+	} else
+		DRM_DEBUG("CRTC_ID_TOKEN loading done\n");
 
-	/* Search for a CRTC,
-	Assumption: Either MIPI or EDP is fix panel */
-	list_for_each_entry(crtc, &dev->mode_config.crtc_list, head) {
-		if ((intel_pipe_has_type(crtc, INTEL_OUTPUT_DSI)) ||
-			(intel_pipe_has_type(crtc, INTEL_OUTPUT_EDP)))
-			break;
-	}
-
-	/* No CRTC */
-	if (!crtc) {
-		DRM_ERROR("CSC enable: No local panel found\n");
+	obj = drm_mode_object_find(dev, crtc_id, DRM_MODE_OBJECT_CRTC);
+	if (!obj) {
+		DRM_DEBUG_KMS("Unknown CRTC ID %d\n", crtc_id);
 		ret = -EINVAL;
 		goto EXIT;
 	}
+	crtc = obj_to_crtc(obj);
+	DRM_DEBUG_KMS("[CRTC:%d]\n", crtc->base.id);
+
+	pipe = to_intel_crtc(crtc)->pipe;
+	bytes_read += bytes_count;
+	bytes_count = count - bytes_read;
+	if (bytes_count > 0) {
+
+		/* Parse data and load the gamma  table */
+		ret = parse_clrmgr_input(&req_state, buf+bytes_read,
+			ENABLE_TOKEN_MAX_COUNT, &bytes_count);
+		if (ret < ENABLE_TOKEN_MAX_COUNT) {
+			DRM_ERROR("Enable-token loading failed\n");
+			goto EXIT;
+		} else
+			DRM_DEBUG("Enable-token loading done\n");
+	} else {
+		DRM_ERROR("Enable-token loading failed\n");
+		ret = -EINVAL;
+		goto EXIT;
+	}
+	DRM_DEBUG_KMS("req_state:%d\n", req_state);
+
 
 	/* if CSC enabled, apply CSC correction */
-	if (dev_priv->csc_enabled) {
+	if (req_state) {
 		if (do_intel_enable_csc(dev,
-			(void *) csc_softlut, crtc)) {
+				(void *) csc_softlut[pipe], crtc)) {
 			DRM_ERROR("CSC correction failed\n");
 			ret = -EINVAL;
 		} else
@@ -679,7 +739,11 @@ static ssize_t csc_enable_store(struct device *kdev,
 	}
 
 EXIT:
-	return ret;
+	kfree(buf);
+	if (ret < 0)
+		return ret;
+
+	return count;
 }
 
 static ssize_t csc_adjust_store(struct device *kdev,
@@ -689,6 +753,13 @@ static ssize_t csc_adjust_store(struct device *kdev,
 	int bytes_count = count;
 	int ret = 0;
 	char *buf = NULL;
+	int bytes_read = 0;
+	int pipe = 0;
+	int crtc_id = -1;
+	struct drm_crtc *crtc = NULL;
+	struct drm_minor *minor = dev_to_drm_minor(kdev);
+	struct drm_device *dev = minor->dev;
+	struct drm_mode_object *obj = NULL;
 
 	if (!count) {
 		DRM_ERROR("CSC adjust: insufficient data\n");
@@ -708,14 +779,37 @@ static ssize_t csc_adjust_store(struct device *kdev,
 		goto EXIT;
 	}
 
-	/* Parse data and load the csc  table */
-	ret = parse_clrmgr_input(csc_softlut, buf,
-		CSC_MAX_COEFF_COUNT, &bytes_count);
-	if (ret < CSC_MAX_COEFF_COUNT)
-		DRM_ERROR("CSC table loading failed\n");
-	else
-		DRM_DEBUG("CSC table loading done\n");
+	/* Parse data and load the crtc_id */
+	ret = parse_clrmgr_input(&crtc_id, buf,
+		CRTC_ID_TOKEN_COUNT, &bytes_count);
+	if (ret < CRTC_ID_TOKEN_COUNT) {
+		DRM_ERROR("CONNECTOR_TYPE_TOKEN loading failed\n");
+		goto EXIT;
+	} else
+		DRM_DEBUG("CONNECTOR_TYPE_TOKEN loading done\n");
 
+	obj = drm_mode_object_find(dev, crtc_id, DRM_MODE_OBJECT_CRTC);
+	if (!obj) {
+		DRM_DEBUG_KMS("Unknown CRTC ID %d\n", crtc_id);
+		ret = -EINVAL;
+		goto EXIT;
+	}
+	crtc = obj_to_crtc(obj);
+	DRM_DEBUG_KMS("[CRTC:%d]\n", crtc->base.id);
+
+	pipe = to_intel_crtc(crtc)->pipe;
+	bytes_read += bytes_count;
+	bytes_count = count - bytes_read;
+	if (bytes_count > 0) {
+
+		/* Parse data and load the csc  table */
+		ret = parse_clrmgr_input(csc_softlut[pipe], buf+bytes_read,
+			CSC_MAX_COEFF_COUNT, &bytes_count);
+		if (ret < CSC_MAX_COEFF_COUNT)
+			DRM_ERROR("CSC table loading failed\n");
+		else
+			DRM_DEBUG("CSC table loading done\n");
+	}
 EXIT:
 	kfree(buf);
 	if (ret < 0)
@@ -732,8 +826,9 @@ static ssize_t gamma_enable_show(struct device *kdev,
 	struct drm_i915_private *dev_priv = dev->dev_private;
 	int len = 0;
 
-	len = scnprintf(ubuf, PAGE_SIZE, "%s\n",
-		dev_priv->gamma_enabled ? "Enabled" : "Disabled");
+	len = scnprintf(ubuf, PAGE_SIZE, "Pipe 0: %s\nPipe 1: %s\n",
+		dev_priv->gamma_enabled[0] ? "Enabled" : "Disabled",
+		dev_priv->gamma_enabled[1] ? "Enabled" : "Disabled");
 
 	return len;
 }
@@ -744,10 +839,15 @@ static ssize_t gamma_enable_store(struct device *kdev,
 {
 	struct drm_minor *minor = dev_to_drm_minor(kdev);
 	struct drm_device *dev = minor->dev;
-	struct drm_i915_private *dev_priv = dev->dev_private;
 	int ret = 0;
 	struct drm_crtc *crtc = NULL;
-	long unsigned int status = 0;
+	char *buf = NULL;
+	int bytes_read = 0;
+	int bytes_count = 0;
+	int crtc_id = -1;
+	int req_state = 0;
+	int pipe = 0;
+	struct drm_mode_object *obj;
 
 	/* Validate input */
 	if (!count) {
@@ -755,44 +855,80 @@ static ssize_t gamma_enable_store(struct device *kdev,
 		return -EINVAL;
 	}
 
-	/* Finally, get the status */
-	if (kstrtoul(ubuf, 10, &status)) {
-		DRM_ERROR("Gamma enable: Invalid limit\n");
+	buf = kzalloc(count, GFP_KERNEL);
+	if (!buf) {
+		DRM_ERROR("Gamma adjust: insufficient memory\n");
+		return -ENOMEM;
+	}
+
+	/* Get the data */
+	if (!strncpy(buf, ubuf, count)) {
+		DRM_ERROR("Gamma adjust: copy failed\n");
 		ret = -EINVAL;
 		goto EXIT;
 	}
-	dev_priv->gamma_enabled = status;
 
-	/* Search for a CRTC,
-	Assumption: Either MIPI or EDP is fix panel */
-	list_for_each_entry(crtc, &dev->mode_config.crtc_list, head) {
-		if ((intel_pipe_has_type(crtc, INTEL_OUTPUT_DSI)) ||
-			(intel_pipe_has_type(crtc, INTEL_OUTPUT_EDP)))
-			break;
+	bytes_count = count;
+
+	/* Parse data and load the crtc_id */
+	ret = parse_clrmgr_input(&crtc_id, buf,
+		CRTC_ID_TOKEN_COUNT, &bytes_count);
+	if (ret < CRTC_ID_TOKEN_COUNT) {
+		DRM_ERROR("CRTC_ID loading failed\n");
+		goto EXIT;
+	} else
+		DRM_DEBUG("CRTC_ID loading done\n");
+
+	obj = drm_mode_object_find(dev, crtc_id, DRM_MODE_OBJECT_CRTC);
+	if (!obj) {
+		DRM_DEBUG_KMS("Unknown CRTC ID %d\n", crtc_id);
+		ret = -EINVAL;
+		goto EXIT;
 	}
 
-	/* No CRTC */
-	if (!crtc) {
-		DRM_ERROR("Gamma adjust: No local panel found\n");
+	crtc = obj_to_crtc(obj);
+	pipe = to_intel_crtc(crtc)->pipe;
+	DRM_DEBUG_KMS("[CRTC:%d]\n", crtc->base.id);
+
+	bytes_read += bytes_count;
+	bytes_count = count - bytes_read;
+	if (bytes_count > 0) {
+
+		/* Parse data and load the gamma  table */
+		ret = parse_clrmgr_input(&req_state, buf+bytes_read,
+			ENABLE_TOKEN_MAX_COUNT, &bytes_count);
+		if (ret < ENABLE_TOKEN_MAX_COUNT) {
+			DRM_ERROR("Enable-token loading failed\n");
+			goto EXIT;
+		} else
+			DRM_DEBUG("Enable-token loading done\n");
+	} else {
+		DRM_ERROR("Enable-token loading failed\n");
 		ret = -EINVAL;
 		goto EXIT;
 	}
 
 	/* if gamma enabled, apply gamma correction on PIPE */
-	if (dev_priv->gamma_enabled) {
-		if (intel_crtc_enable_gamma(crtc, PIPEA)) {
+	if (req_state) {
+		if (intel_crtc_enable_gamma(crtc,
+				pipe ? PIPEB : PIPEA)) {
 			DRM_ERROR("Apply gamma correction failed\n");
 			ret = -EINVAL;
 		} else
 			ret = count;
 	} else {
 		/* Disable gamma on this plane */
-		intel_crtc_disable_gamma(crtc, PIPEA);
+		intel_crtc_disable_gamma(crtc,
+				pipe ? PIPEB : PIPEA);
 		ret = count;
 	}
 
 EXIT:
-	return ret;
+	kfree(buf);
+	if (ret < 0)
+		return ret;
+
+	return count;
 }
 
 static ssize_t cb_adjust_store(struct device *kdev,

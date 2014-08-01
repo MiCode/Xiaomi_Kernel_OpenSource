@@ -1139,6 +1139,8 @@ void intel_hdmi_hot_plug(struct intel_encoder *intel_encoder)
 	struct drm_connector *connector = NULL;
 	struct edid *edid = NULL;
 	bool need_event = false;
+	struct drm_i915_private *dev_priv = dev->dev_private;
+	int pipe = 0;
 
 	connector = &intel_hdmi->attached_connector->base;
 
@@ -1155,6 +1157,12 @@ void intel_hdmi_hot_plug(struct intel_encoder *intel_encoder)
 	} else {
 		if (connector->status == connector_status_disconnected) {
 			DRM_DEBUG_DRIVER("Hdmi: Monitor disconnected\n");
+			if (intel_encoder->type == INTEL_OUTPUT_HDMI &&
+					to_intel_crtc(encoder->crtc)) {
+				pipe = to_intel_crtc(encoder->crtc)->pipe;
+				dev_priv->gamma_enabled[pipe] = false;
+				dev_priv->csc_enabled[pipe] = false;
+			}
 			need_event = true;
 		}
 	}
