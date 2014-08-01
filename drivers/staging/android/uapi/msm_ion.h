@@ -7,6 +7,7 @@ enum msm_ion_heap_types {
 	ION_HEAP_TYPE_MSM_START = ION_HEAP_TYPE_CUSTOM + 1,
 	ION_HEAP_TYPE_SECURE_DMA = ION_HEAP_TYPE_MSM_START,
 	ION_HEAP_TYPE_SYSTEM_SECURE,
+	ION_HEAP_TYPE_HYP_CMA,
 	/*
 	 * if you add a heap type here you should also add it to
 	 * heap_types_info[] in msm_ion.c
@@ -26,7 +27,9 @@ enum ion_heap_ids {
 	INVALID_HEAP_ID = -1,
 	ION_CP_MM_HEAP_ID = 8,
 	ION_SECURE_HEAP_ID = 9,
+	ION_SECURE_DISPLAY_HEAP_ID = 10,
 	ION_CP_MFC_HEAP_ID = 12,
+	ION_SPSS_HEAP_ID = 13, /* Secure Processor ION heap */
 	ION_CP_WB_HEAP_ID = 16, /* 8660 only */
 	ION_CAMERA_HEAP_ID = 20, /* 8660 only */
 	ION_SYSTEM_CONTIG_HEAP_ID = 21,
@@ -49,6 +52,8 @@ enum ion_heap_ids {
  */
 #define ION_IOMMU_HEAP_ID ION_SYSTEM_HEAP_ID
 #define ION_HEAP_TYPE_IOMMU ION_HEAP_TYPE_SYSTEM
+
+#define ION_SPSS_HEAP_ID ION_SPSS_HEAP_ID
 
 enum ion_fixed_position {
 	NOT_FIXED,
@@ -78,6 +83,8 @@ enum cp_mem_usage {
 #define ION_FLAG_CP_CAMERA ((1 << 21))
 #define ION_FLAG_CP_HLOS ((1 << 22))
 #define ION_FLAG_CP_HLOS_FREE ((1 << 23))
+#define ION_FLAG_CP_SEC_DISPLAY ((1 << 25))
+#define ION_FLAG_CP_APP ((1 << 26))
 
 /**
  * Flag to use when allocating to indicate that a heap is secure.
@@ -119,12 +126,14 @@ enum cp_mem_usage {
 #define ION_CAMERA_HEAP_NAME	"camera_preview"
 #define ION_IOMMU_HEAP_NAME	"iommu"
 #define ION_MFC_HEAP_NAME	"mfc"
+#define ION_SPSS_HEAP_NAME	"spss"
 #define ION_WB_HEAP_NAME	"wb"
 #define ION_MM_FIRMWARE_HEAP_NAME	"mm_fw"
 #define ION_PIL1_HEAP_NAME  "pil_1"
 #define ION_PIL2_HEAP_NAME  "pil_2"
 #define ION_QSECOM_HEAP_NAME	"qsecom"
 #define ION_SECURE_HEAP_NAME	"secure_heap"
+#define ION_SECURE_DISPLAY_HEAP_NAME "secure_display"
 
 #define ION_SET_CACHED(__cache)		((__cache) | ION_FLAG_CACHED)
 #define ION_SET_UNCACHED(__cache)	((__cache) & ~ION_FLAG_CACHED)
@@ -151,9 +160,17 @@ struct ion_flush_data {
 	unsigned int length;
 };
 
+struct ion_prefetch_regions {
+	unsigned int vmid;
+	size_t __user *sizes;
+	unsigned int nr_sizes;
+};
+
 struct ion_prefetch_data {
 	int heap_id;
 	unsigned long len;
+	struct ion_prefetch_regions __user *regions;
+	unsigned int nr_regions;
 };
 
 #define ION_IOC_MSM_MAGIC 'M'

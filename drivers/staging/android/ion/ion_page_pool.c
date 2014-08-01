@@ -35,16 +35,12 @@ static void *ion_page_pool_alloc_pages(struct ion_page_pool *pool)
 	if (!page)
 		return NULL;
 
-	ion_page_pool_alloc_set_cache_policy(pool, page);
-
-/* TODO QCOM - Identify if this sync is needed */
-	ion_pages_sync_for_device(NULL, page, PAGE_SIZE << pool->order,
-				  DMA_BIDIRECTIONAL);
-
-	if (pool->gfp_mask & __GFP_ZERO) {
-		if (msm_ion_heap_high_order_page_zero(page, pool->order))
+	if (pool->gfp_mask & __GFP_ZERO)
+		if (msm_ion_heap_high_order_page_zero(pool->dev, page,
+						      pool->order))
 			goto error_free_pages;
-	}
+
+	ion_page_pool_alloc_set_cache_policy(pool, page);
 
 	return page;
 error_free_pages:
@@ -113,11 +109,30 @@ void *ion_page_pool_alloc(struct ion_page_pool *pool, bool *from_pool)
 	return page;
 }
 
+/*
+ * Tries to allocate from only the specified Pool and returns NULL otherwise
+ */
+void *ion_page_pool_alloc_pool_only(struct ion_page_pool *pool)
+{
+	struct page *page = NULL;
+
+	if (!pool)
+		return NULL;
+
+	if (mutex_trylock(&pool->mutex)) {
+		if (pool->high_count)
+			page = ion_page_pool_remove(pool, true);
+		else if (pool->low_count)
+			page = ion_page_pool_remove(pool, false);
+		mutex_unlock(&pool->mutex);
+	}
+
+	return page;
+}
+
 void ion_page_pool_free(struct ion_page_pool *pool, struct page *page)
 {
 	int ret;
-
-	BUG_ON(pool->order != compound_order(page));
 
 	ret = ion_page_pool_add(pool, page);
 	if (ret)
@@ -129,7 +144,7 @@ void ion_page_pool_free_immediate(struct ion_page_pool *pool, struct page *page)
 	ion_page_pool_free_pages(pool, page);
 }
 
-static int ion_page_pool_total(struct ion_page_pool *pool, bool high)
+int ion_page_pool_total(struct ion_page_pool *pool, bool high)
 {
 	int count = pool->low_count;
 
@@ -173,17 +188,19 @@ int ion_page_pool_shrink(struct ion_page_pool *pool, gfp_t gfp_mask,
 	return freed;
 }
 
-struct ion_page_pool *ion_page_pool_create(gfp_t gfp_mask, unsigned int order)
+struct ion_page_pool *ion_page_pool_create(struct device *dev, gfp_t gfp_mask,
+					   unsigned int order)
 {
 	struct ion_page_pool *pool = kmalloc(sizeof(*pool), GFP_KERNEL);
 
 	if (!pool)
 		return NULL;
+	pool->dev = dev;
 	pool->high_count = 0;
 	pool->low_count = 0;
 	INIT_LIST_HEAD(&pool->low_items);
 	INIT_LIST_HEAD(&pool->high_items);
-	pool->gfp_mask = gfp_mask | __GFP_COMP;
+	pool->gfp_mask = gfp_mask;
 	pool->order = order;
 	mutex_init(&pool->mutex);
 	plist_node_init(&pool->list, order);
