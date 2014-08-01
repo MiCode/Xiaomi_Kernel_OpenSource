@@ -65,6 +65,8 @@ struct subsys_desc {
 	unsigned int stop_ack_irq;
 	unsigned int wdog_bite_irq;
 	int force_stop_gpio;
+	int ramdump_disable_gpio;
+	int ramdump_disable;
 	bool no_auth;
 	int ssctl_instance_id;
 	u32 sysmon_pid;

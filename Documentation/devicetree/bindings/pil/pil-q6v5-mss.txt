@@ -48,6 +48,8 @@ Optional properties:
 - qcom,gpio-force-stop: GPIO used by the apps to force the modem to shutdown.
 - qcom,gpio-stop-ack: GPIO used by the modem to ack force stop or a graceful stop
 		      to the apps.
+- qcom,gpio-ramdump-disable: GPIO used by the modem to inform the apps that ramdump
+			     collection should be disabled.
 - qcom,restart-group: List of subsystems that will need to restart together.
 - qcom,mba-image-is-not-elf:	Boolean- Present if MBA image doesnt use the ELF
 				format.

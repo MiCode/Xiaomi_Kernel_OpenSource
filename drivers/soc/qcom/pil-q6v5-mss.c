@@ -113,6 +113,13 @@ static int modem_shutdown(const struct subsys_desc *subsys, bool force_stop)
 		gpio_set_value(subsys->force_stop_gpio, 0);
 	}
 
+	if (drv->subsys_desc.ramdump_disable_gpio) {
+		drv->subsys_desc.ramdump_disable = gpio_get_value(
+					drv->subsys_desc.ramdump_disable_gpio);
+		 pr_warn("Ramdump disable gpio value is %d\n",
+			drv->subsys_desc.ramdump_disable);
+	}
+
 	pil_shutdown(&drv->q6->desc);
 
 	return 0;
@@ -130,6 +137,7 @@ static int modem_powerup(const struct subsys_desc *subsys)
 	 * to unset the flag below.
 	 */
 	INIT_COMPLETION(drv->stop_ack);
+	drv->subsys_desc.ramdump_disable = 0;
 	drv->ignore_errors = false;
 	return pil_boot(&drv->q6->desc);
 }
