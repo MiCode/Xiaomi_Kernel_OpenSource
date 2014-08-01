@@ -1,0 +1,1449 @@
+CONTENTS
+
+1. Introduction
+   1.1 Heterogeneous Systems
+   1.2 CPU Frequency Guidance
+2. Window-Based Load Tracking Scheme
+   2.1 Synchronized Windows
+   2.2 struct ravg
+   2.3 Scaling Load Statistics
+   2.4 sched_window_stats_policy
+   2.5 Task Events
+   2.6 update_task_ravg()
+   2.7 update_history()
+3. CPU Capacity
+   3.1 Load scale factor
+   3.2 CPU Power
+4. CPU Power
+5. HMP Scheduler
+   5.1 Classification of Tasks and CPUs
+   5.2 Task Wakeup and select_best_cpu()
+   5.3 Scheduler Tick
+   5.4 Load Balancer
+   5.5 Real Time Tasks
+   5.6 Stop-Class Tasks
+6. Frequency Guidance
+   6.1 Per-CPU Window-Based Stats
+   6.1 Per-task Window-Based Stats
+   6.3 Effect of various task events
+7. Tunables
+8. HMP Scheduler Trace Points
+   8.1 sched_enq_deq_task
+   8.2 sched_task_load
+   8.3 sched_cpu_load
+   8.4 sched_update_task_ravg
+   8.5 sched_update_history
+   8.6 sched_reset_all_windows_stats
+   8.7 sched_migration_update_sum
+   8.8 sched_get_busy
+   8.9 sched_freq_alert
+   8.10 sched_set_boost
+
+===============
+1. INTRODUCTION
+===============
+
+Scheduler extensions described in this document serves two goals:
+
+1) handle heterogeneous multi-processor (HMP) systems
+2) guide cpufreq governor on proactive changes to cpu frequency
+
+*** 1.1 Heterogeneous systems
+
+Heterogeneous systems have cpus that differ with regard to their performance and
+power characteristics. Some cpus could offer peak performance better than
+others, although at cost of consuming more power. We shall refer such cpus as
+"high performance" or "performance efficient" cpus. Other cpus that offer lesser
+peak performance are referred to as "power efficient".
+
+In this situation the scheduler is tasked with the responsibility of assigning
+tasks to run on the right cpus where their performance requirements can be met
+at the least expense of power.
+
+Achieving that goal is made complicated by the fact that the scheduler has
+little clue about performance requirements of tasks and how they may change by
+running on power or performance efficient cpus!  One simplifying assumption here
+could be that a task's desire for more performance is expressed by its cpu
+utilization. A task demanding high cpu utilization on a power-efficient cpu
+would likely improve in its performance by running on a performance-efficient
+cpu. This idea forms the basis for HMP-related scheduler extensions.
+
+Key inputs required by the HMP scheduler for its task placement decisions are:
+
+a) task load - this reflects cpu utilization or demand of tasks
+b) CPU capacity - this reflects peak performance offered by cpus
+c) CPU power - this reflects power or energy cost of cpus
+
+Once all 3 pieces of information are available, the HMP scheduler can place
+tasks on the lowest power cpus where their demand can be satisfied.
+
+*** 1.2 CPU Frequency guidance
+
+A somewhat separate but related goal of the scheduler extensions described here
+is to provide guidance to the cpufreq governor on the need to change cpu
+frequency. Most governors that control cpu frequency work on a reactive basis.
+CPU utilization is sampled at regular intervals, based on which the need to
+change frequency is determined. Higher utilization leads to a frequency increase
+and vice-versa.  There are several problems with this approach that scheduler
+can help resolve.
+
+a) latency
+
+	Reactive nature introduces latency for cpus to ramp up to desired speed
+	which can hurt application performance. This is inevitable as cpufreq
+	governors can only track cpu utilization as a whole and not tasks which
+	are driving that demand. Scheduler can however keep track of individual
+	task demand and can alert the governor on changing task activity. For
+	example, request raise in frequency when tasks activity is increasing on
+	a cpu because of wakeup or migration or request frequency to be lowered
+	when task activity is decreasing because of sleep/exit or migration.
+
+b) part-picture
+
+	Most governors track utilization of each CPU independently. When a task
+	migrates from one cpu to another the task's execution time is split
+	across the two cpus. The governor can fail to see the full picture of
+	task demand in this case and thus the need for increasing frequency,
+	affecting the task's performance. Scheduler can keep track of task
+	migrations, fix up busy time upon migration and report per-cpu busy time
+	to the governor that reflects task demand accurately.
+
+The rest of this document explains key enhancements made to the scheduler to
+accomplish both of the aforementioned goals.
+
+====================================
+2. WINDOW-BASED LOAD TRACKING SCHEME
+====================================
+
+As mentioned in the introduction section, knowledge of the CPU demand exerted by
+a task is a prerequisite to knowing where to best place the task in an HMP
+system. The per-entity load tracking (PELT) scheme, present in Linux kernel
+since v3.7, has some perceived shortcomings when used to place tasks on HMP
+systems or provide recommendations on CPU frequency.
+
+Per-entity load tracking does not make a distinction between the ramp up
+vs. ramp down time of task load. It also decays task load without exception when
+a task sleeps. As an example, a cpu bound task at its peak load (LOAD_AVG_MAX or
+47742) can see its load decay to 0 after a sleep of just 213ms! A cpu-bound task
+running on a performance-efficient cpu could thus get re-classified as not
+requiring such a cpu after a short sleep. In the case of mobile workloads, tasks
+could go to sleep due to a lack of user input. When they wakeup it is very
+likely their cpu utilization pattern repeats. Resetting their load across sleep
+and incurring latency to reclassify them as requiring a high performance cpu can
+hurt application performance.
+
+The window-based load tracking scheme described in this document avoids these
+drawbacks. It keeps track of N windows of execution for every task. Windows
+where a task had no activity are ignored and not recorded. N can be tuned at
+compile time (RAVG_HIST_SIZE defined in include/linux/sched.h) or at runtime
+(/proc/sys/kernel/sched_ravg_hist_size). The window size, W, is common for all
+tasks and currently defaults to 10ms ('sched_ravg_window' defined in
+kernel/sched/core.c). The window size can be tuned at boot time via the
+sched_ravg_window=W argument to kernel. Alternately it can be tuned after boot
+via tunables provided by the interactive governor. More on this later.
+
+Based on the N samples available per-task, a per-task "demand" attribute is
+calculated which represents the cpu demand of that task. The demand attribute is
+used to classify tasks as to whether or not they need a performance-efficient
+CPU and also serves to provide inputs on frequency to the cpufreq governor. More
+on this later.  The 'sched_window_stats_policy' tunable (defined in
+kernel/sched/core.c) controls how the demand field for a task is derived from
+its N past samples.
+
+*** 2.1 Synchronized windows
+
+Windows of observation for task activity are synchronized across cpus. This
+greatly aids in the scheduler's frequency guidance feature. Scheduler currently
+relies on a synchronized clock (sched_clock()) for this feature to work. It may
+be possible to extend this feature to work on systems having an unsynchronized
+sched_clock().
+
+struct rq {
+
+	..
+
+	u64	window_start;
+
+	..
+};
+
+The 'window_start' attribute represents the time when current window began on a
+cpu.  It is updated when key task events such as wakeup or context-switch call
+update_task_ravg() to record task activity. The window_start value is expected
+to be the same for all cpus, although it could be behind on some cpus where it
+has not yet been updated because update_task_ravg() has not been recently
+called. For example, when a cpu is idle for a long time its window_start could
+be stale.  The window_start value for such cpus is rolled forward upon
+occurrence of a task event resulting in a call to update_task_ravg().
+
+*** 2.2 struct ravg
+
+The ravg struct contains information tracked per-task.
+
+struct ravg {
+	u64 mark_start;
+	u32 sum, demand;
+	u32 sum_history[RAVG_HIST_SIZE];
+#ifdef CONFIG_SCHED_FREQ_INPUT
+	u32 curr_window, prev_window;
+#endif
+};
+
+struct task_struct {
+
+	..
+
+	struct ravg ravg;
+
+	..
+};
+
+sum_history[] 	- stores cpu utilization samples from N previous windows
+		  where task had activity
+
+sum		- stores cpu utilization of the task in its most recently
+		  tracked window. Once the corresponding window terminates,
+		  'sum' will be pushed into the sum_history[] array and is then
+		  reset to 0. It is possible that the window corresponding to
+		  sum is not the current window being tracked on a cpu.  For
+		  example, a task could go to sleep in window X and wakeup in
+		  window Y (Y > X).  In this case, sum would correspond to the
+		  task's activity seen in window X.  When update_task_ravg() is
+		  called during the task's wakeup event it will be seen that
+		  window X has elapsed. The sum value will be pushed to
+		  'sum_history[]' array before being reset to 0.
+
+demand		- represents task's cpu demand and is derived from the
+		  elements in sum_history[]. The section on
+		  'sched_window_stats_policy' provides more details on how
+		  'demand' is derived from elements in sum_history[] array
+
+mark_start	- records timestamp of the beginning of the most recent task
+		  event. See section on 'Task events' for possible events that
+		  update 'mark_start'
+
+curr_window	- this is described in the section on 'Frequency guidance'
+
+prev_window	- this is described in the section on 'Frequency guidance'
+
+
+*** 2.3 Scaling load statistics
+
+Time required for a task to complete its work (and hence its load) depends on,
+among various other factors, cpu frequency and its efficiency. In a HMP system,
+some cpus are more performance efficient than others. Performance efficiency of
+a cpu can be described by its "instructions-per-cycle" (IPC) attribute. History
+of task execution could involve task having run at different frequencies and on
+cpus with different IPC attributes. To avoid ambiguity of how task load relates
+to the frequency and IPC of cpus on which a task has run, task load is captured
+in a scaled form, with scaling being done in reference to an "ideal" cpu that
+has best possible IPC and frequency. Such an "ideal" cpu, having the best
+possible frequency and IPC, may or may not exist in system.
+
+As an example, consider a HMP system, with two types of cpus, A53 and A57. A53
+has IPC count of 1024 and can run at maximum frequency of 1 GHz, while A57 has
+IPC count of 2048 and can run at maximum frequency of 2 GHz. Ideal cpu in this
+case is A57 running at 2 GHz.
+
+A unit of work that takes 100ms to finish on A53 running at 100MHz would get
+done in 10ms on A53 running at 1GHz, in 5 ms running on A57 at 1 GHz and 2.5ms
+on A57 running at 2 GHz.  Thus a load of 100ms can be expressed as 2.5ms in
+reference to ideal cpu of A57 running at 2 GHz.
+
+In order to understand how much load a task will consume on a given cpu, its
+scaled load needs to be multiplied by a factor (load scale factor). In above
+example, scaled load of 2.5ms needs to be multiplied by a factor of 4 in order
+to estimate the load of task on A53 running at 1 GHz.
+
+/proc/sched_debug provides IPC attribute and load scale factor for every cpu.
+
+In summary, task load information stored in a task's sum_history[] array is
+scaled for both frequency and efficiency. If a task runs for X ms, then the
+value stored in its 'sum' field is derived as:
+
+	X_s = X * (f_cur / max_possible_freq) *
+		  (efficiency / max_possible_efficiency)
+
+where:
+
+X   		   	= cpu utilization that needs to be accounted
+X_s 		   	= Scaled derivative of X
+f_cur		   	= current frequency of the cpu where the task was
+			  running
+max_possible_freq  	= maximum possible frequency (across all cpus)
+efficiency	   	= instructions per cycle (IPC) of cpu where task was
+			  running
+max_possible_efficiency = maximum IPC offered by any cpu in system
+
+
+*** 2.4 sched_window_stats_policy
+
+sched_window_stats_policy controls how the 'demand' attribute for a task is
+derived from elements in its 'sum_history[]' array.
+
+WINDOW_STATS_RECENT (0)
+	demand = recent
+
+WINDOW_STATS_MAX (1)
+	demand = max
+
+WINDOW_STATS_MAX_RECENT_AVG (2)
+	demand = maximum(average, recent)
+
+WINDOW_STATS_AVG (3)
+	demand = average
+
+where:
+	M 	= history size specified by
+		  /proc/sys/kernel/sched_ravg_hist_size
+	average = average of first M samples found in the sum_history[] array
+	max	= maximum value of first M samples found in the sum_history[]
+		  array
+	recent  = most recent sample (sum_history[0])
+	demand	= demand attribute found in 'struct ravg'
+
+This policy can be changed at runtime via
+/proc/sys/kernel/sched_window_stats_policy. For example, the command
+below would select WINDOW_STATS_USE_MAX policy
+
+echo 1 > /proc/sys/kernel/sched_window_stats_policy
+
+*** 2.5 Task events
+
+A number of events results in the window-based stats of a task being
+updated. These are:
+
+PICK_NEXT_TASK	- the task is about to start running on a cpu
+PUT_PREV_TASK	- the task stopped running on a cpu
+TASK_WAKE	- the task is waking from sleep
+TASK_MIGRATE	- the task is migrating from one cpu to another
+TASK_UPDATE	- this event is invoked on a currently running task to
+		  update the task's window-stats and also the cpu's
+		  window-stats such as 'window_start'
+IRQ_UPDATE	- event to record the busy time spent by an idle cpu
+		  processing interrupts
+
+*** 2.6 update_task_ravg()
+
+update_task_ravg() is called to mark the beginning of an event for a task or a
+cpu. It serves to accomplish these functions:
+
+a. Update a cpu's window_start value
+b. Update a task's window-stats (sum, sum_history[], demand and mark_start)
+
+In addition update_task_ravg() updates the busy time information for the given
+cpu, which is used for frequency guidance. This is described further in section
+6.
+
+*** 2.7 update_history()
+
+update_history() is called on a task to record its activity in an elapsed
+window. 'sum', which represents task's cpu demand in its elapsed window is
+pushed onto sum_history[] array and its 'demand' attribute is updated based on
+the sched_window_stats_policy in effect.
+
+===============
+3. CPU CAPACITY
+===============
+
+CPU capacity reflects peak performance offered by a cpu. It is defined both by
+maximum frequency at which cpu can run and its efficiency attribute. Capacity of
+a cpu is defined in reference to "least" performing cpu such that "least"
+performing cpu has capacity of 1024.
+
+	capacity = 1024 * (fmax_cur * / min_max_freq) *
+			  (efficiency / min_possible_efficiency)
+
+where:
+
+	fmax_cur    		= maximum frequency at which cpu is currently
+				  allowed to run at
+	efficiency	    		= IPC of cpu
+	min_max_freq 		= max frequency at which "least" performing cpu
+				  can run
+	min_possible_efficiency	= IPC of "least" performing cpu
+
+'fmax_cur' reflects the fact that a cpu may be constrained at runtime to run at
+a maximum frequency less than what is supported. This may be a constraint placed
+by user or drivers such as thermal that intends to reduce temperature of a cpu
+by restricting its maximum frequency.
+
+'max_possible_capacity' reflects the maximum capacity of a cpu based on the
+maximum frequency it supports.
+
+max_possible_capacity = 1024 * (fmax * / min_max_freq) *
+			       (efficiency / min_possible_efficiency)
+
+where:
+	fmax 	= maximum frequency supported by a cpu
+
+/proc/sched_debug lists capacity and maximum_capacity information for a cpu.
+
+In the example HMP system quoted in Sec 2.3, "least" performing CPU is A53 and
+thus min_max_freq = 1GHz and min_possible_efficiency = 1024.
+
+Capacity of A57 = 1024 * (2GHz / 1GHz) * (2048 / 1024) = 4096
+Capacity of A53 = 1024 * (1GHz / 1GHz) * (1024 / 1024) = 1024
+
+Capacity of A57 when constrained to run at maximum frequency of 500MHz can be
+calculated as:
+
+Capacity of A57 = 1024 * (500MHz / 1GHz) * (2048 / 1024) = 1024
+
+*** 3.1 load_scale_factor
+
+'lsf' or load scale factor attribute of a cpu is used to estimate load of a task
+on that cpu when running at its fmax_cur frequency. 'lsf' is defined in
+reference to "best" performing cpu such that it's lsf is 1024. 'lsf' for a cpu
+is defined as:
+
+	lsf = 1024 * (max_possible_freq / fmax_cur) *
+		     (max_possible_efficiency / ipc)
+
+where:
+	fmax_cur    		= maximum frequency at which cpu is currently
+				  allowed to run at
+	ipc	    		= IPC of cpu
+	max_possible_freq	= max frequency at which "best" performing cpu
+				  can run
+	max_possible_efficiency	= IPC of "best" performing cpu
+
+In the example HMP system quoted in Sec 2.3, "best" performing CPU is A57 and
+thus max_possible_freq = 2 GHz, max_possible_efficiency = 2048
+
+lsf of A57 = 1024 * (2GHz / 2GHz) * (2048 / 2048) = 1024
+lsf of A53 = 1024 * (2GHz / 1 GHz) * (2048 / 1024) = 4096
+
+lsf of A57 constrained to run at maximum frequency of 500MHz can be calculated
+as:
+
+lsf of A57 = 1024 * (2GHz / 500Mhz) * (2048 / 2048) = 4096
+
+To estimate load of a task on a given cpu running at its fmax_cur:
+
+	load = scaled_load * lsf / 1024
+
+A task with scaled load of 20% would thus be estimated to consume 80% bandwidth
+of A53 running at 1GHz. The same task with scaled load of 20% would be estimated
+to consume 160% bandwidth on A53 constrained to run at maximum frequency of
+500MHz.
+
+load_scale_factor, thus, is very useful to estimate load of a task on a given
+cpu and thus to decide whether it can fit in a cpu or not.
+
+*** 3.2 cpu_power
+
+A metric 'cpu_power' related to 'capacity' is also listed in /proc/sched_debug.
+'cpu_power' is ideally same for all cpus (1024) when they are idle and running
+at the same frequency. 'cpu_power' of a cpu can be scaled down from its ideal
+value to reflect reduced frequency it is operating at and also to reflect the
+amount of cpu bandwidth consumed by real-time tasks executing on it.
+'cpu_power' metric is used by scheduler to decide task load distribution among
+cpus. CPUs with low 'cpu_power' will be assigned less task load compared to cpus
+with higher 'cpu_power'
+
+============
+4. CPU POWER
+============
+
+The HMP scheduler extensions currently depend on an architecture-specific driver
+to provide runtime information on cpu power. In the absence of an
+architecture-specific driver, the scheduler will resort to using the
+max_possible_capacity metric of a cpu as a measure of its power.
+
+================
+5. HMP SCHEDULER
+================
+
+For normal (SCHED_OTHER/fair class) tasks there are three paths in the
+scheduler which these HMP extensions affect. The task wakeup path, the
+load balancer, and the scheduler tick are each modified.
+
+Real-time and stop-class tasks are served by different code
+paths. These will be discussed separately.
+
+Prior to delving further into the algorithm and implementation however
+some definitions are required.
+
+*** 5.1 Classification of Tasks and CPUs
+
+With the extensions described thus far, the following information is
+available to the HMP scheduler:
+
+- per-task CPU demand information from either Per-Entity Load Tracking
+  (PELT) or the window-based algorithm described above
+
+- a power value for each frequency supported by each CPU via the API
+  described in section 4
+
+- current CPU frequency, maximum CPU frequency (may be throttled by at
+  runtime due to thermal conditions), maximum possible CPU frequency supported
+  by hardware
+
+- data previously maintained within the scheduler such as the number
+  of currently runnable tasks on each CPU
+
+Combined with tunable parameters, this information can be used to classify
+both tasks and CPUs to aid in the placement of tasks.
+
+- small task
+
+  Small tasks are tasks that have relatively little CPU
+  demand. Normally it is desirable to wake a task on an idle CPU to
+  minimize the latency for it to execute - this may mean waking the
+  idle CPU up out of a deep power-saving state. For small tasks
+  however this may not be the case.  Because a small task is expected
+  to run for very little time, it may be better to put it on a CPU
+  which is not idle, but lightly loaded.
+
+  The small task threshold is set by the value
+  /proc/sys/kenrel/sched_small_task. This value is a percentage. If the
+  task consumes this much or less of the minimum CPU in the system, the
+  task is considered "small."
+
+- big task
+
+  A big task is one that exerts a CPU demand too high for a particular
+  CPU to satisfy. The scheduler will attempt to find a CPU with more
+  capacity for such a task.
+
+  The definition of "big" is specific to a task *and* a CPU. A task
+  may be considered big on one CPU in the system and not big on
+  another if the first CPU has less capacity than the second.
+
+  What task demand is "too high" for a particular CPU? One obvious
+  answer would be a task demand which, as measured by PELT or
+  window-based load tracking, matches or exceeds the capacity of that
+  CPU. A task which runs on a CPU for a long time, for example, might
+  meet this criteria as it would report 100% demand of that CPU. It
+  may be desirable however to classify tasks which use less than 100%
+  of a particular CPU as big so that the task has some "headroom" to grow
+  without its CPU bandwidth getting capped and its performance requirements
+  not being met. This task demand is therefore a tunable parameter:
+
+  /proc/sys/kernel/sched_upmigrate
+
+  This value is a percentage. If a task consumes more than this much of
+  a particular CPU, that CPU will be considered too small for the task.
+
+- mostly_idle
+
+  The "mostly_idle" classification applies to CPUs. This
+  classification attempts to answer the following question: if a task
+  is put on this CPU, is it likely to be able to run soon? One
+  possible way to answer this question would be to just check whether
+  the CPU is idle or not. That may be too conservative however. The
+  CPU may be currently executing a very small task and could become
+  idle soon. Since the scheduler is tracking the demand of each task
+  it can make an educated guess as to whether a CPU will become idle
+  in the near future.
+
+  There are two tunable parameters which are used to determine whether
+  a CPU is mostly idle:
+
+  /proc/sys/kernel/sched_mostly_idle_nr_run
+  /proc/sys/kernel/sched_mostly_idle_load
+
+  If a CPU does not have more than sched_mostly_idle_nr_run runnable
+  tasks and is not more than sched_mostly_idle_load percent busy, it
+  is considered mostly idle.
+
+- spill threshold
+
+  The spill threshold determines how much task load the scheduler
+  should put on a CPU before considering that CPU busy and putting the
+  load elsewhere. This allows a configurable level of task packing within
+  one or more CPUs in the system. How aggressively should the scheduler
+  attempt to fill CPUs with task demand before utilizing other CPUs?
+
+  These two tunable parameters together define the spill threshold.
+
+  /proc/sys/kernel/sched_spill_nr_run
+  /proc/sys/kernel/sched_spill_load
+
+  If placing a task on a CPU would cause it to have more than
+  sched_spill_nr_run runnable tasks, or would cause the CPU to be more
+  than sched_spill_load percent busy, the scheduler will interpret that as
+  causing the CPU to cross its spill threshold. Spill threshold is only
+  considered when having to consider whether a task, which can fit in
+  a power-efficient cpu, should spill over to a high-performance CPU because
+  the aggregate load of power-efficient cpus exceed their spill threshold.
+
+- power band
+
+  The scheduler may be faced with a tradeoff between power and performance when
+  placing a task. If the scheduler sees two CPUs which can accommodate a task:
+
+  CPU 1, power cost of 20, load of 10
+  CPU 2, power cost of 10, load of 15
+
+  It is not clear what the right choice of CPU is. The HMP scheduler
+  offers the sched_powerband_limit tunable to determine how this
+  situation should be handled. When the power delta between two CPUs
+  is less than sched_powerband_limit_pct, load will be prioritized as
+  the deciding factor as to which CPU is selected. If the power delta
+  between two CPUs exceeds that, the lower power CPU is considered to
+  be in a different "band" and it is selected, despite perhaps having
+  a higher current task load.
+
+*** 5.2 Task Wakeup and select_best_cpu()
+
+CPU placement of a waking task is the single most important decision
+made by the HMP scheduler. This section will describe the call flow
+and algorithm used in detail.
+
+The primary entry point for a task wakeup operation is
+try_to_wake_up(), located in kernel/sched/core.c. This function relies
+on select_task_rq() to determine the target CPU for the waking
+task. For fair-class (SCHED_OTHER) tasks, that request will be routed
+to select_task_rq_fair() in kernel/sched/fair.c. As part of these
+scheduler extensions a hook has been inserted into the top of that
+function. If HMP scheduling is enabled the normal scheduling behavior
+will be replaced by a call to select_best_cpu(). This function,
+select_best_cpu(), represents the heart of the HMP scheduling
+algorithm described in this document.
+
+The behavior of select_best_cpu() differs depending on whether the
+task being placed is a small task or not.
+
+--- Wakeup Logic a Non-Small Task "p"
+
+  The following is evaluated for every online CPU i which task p may run on:
+
+       |
+       |                    task doesn't fit, but
+       |                    is this CPU a good
+       V                    fallback candidate?
++---------------+             +-------------+            +--------+
+| does task fit |------------>|   is CPU    |----------->| ignore |
+|   on CPU      |     no      | mostly idle |     no     |   cpu  |
++---------------+             +-------------+            +--------+
+       |                             |
+       | yes                         | yes
+       |                             |         +--------------------------+
+       |                             --------->| load < min_fallback_load |
+       |                                       +--------------------------+
+       |                                         |                    |
+       |                                         | yes                | no
+       |                                         V                    V
+       |                          +-----------------------+       +------------+
+       |                          | fallback_idle_cpu = i |       | ignore cpu |
+       | task fits, prefer        +-----------------------+       +------------+
+       | mostly idle CPUs                        |                    |
+       | or non-max capacity                     V                    V
+       | CPUs that won't hit                   next CPU            next CPU
+       | spill threshold
+       V
++---------------------+           task does not meet load requirements
+| CPU mostly idle ||  |    no     +------------+
+| (!max_capacity &&   |---------->| ignore cpu |----> next CPU
+|  !(p causes spill)) |           +------------+
++---------------------+
+       |
+       | yes
+       |
+       |
+       |
+       | is CPU in a lower power band
+       V than previously seen min cost CPU        CPU in a lower power band
++---------------------+                           than previously seen min,
+| cost(p, i) is       |   yes     +----------------------------+  override
+| > band_limit % less |---------->| best_cpu = i               |  previously
+| than current min    |           | min_cost = cost(p,i)       |  seen min_load
++---------------------+           | min_load = load(i)         |  CPU
+       |                          +----------------------------+
+       | no                               |
+       |                                  ---------> next CPU
+       |
+       |
+       |
+       | does CPU have lower load than            CPU has lower load than
+       V previously seen min_load CPU             previously seen lowest load
++--------------------+    yes                   +-----------------+
+| load(i) < min_load |------------------------->| best_cpu = i    |
++--------------------+                          | min_load = load |
+       |                                        +-----------------+
+       | no                                             |
+       |                                                |
+       | if load is tied with lowest previously         |
+       | seen lowest load, is power cost less           |
+       V                                                |
++------------------------+                              |
+| load(i) == min_load && |  yes    +--------------+     |
+| cost(p, i) < min_cost  |-------->| best_cpu = i |     |
++------------------------+         +--------------+     |
+       |                                |               |
+       | no                             |              /
+       \_____________________________   |   __________/
+                                     \  |  /
+                                      | | |
+                                      V V V              if power cost of this
+                                +----------------------+ CPU is lower than
+                                | cost(p,i) < min_cost | current min, update
+                                +----------------------+ min_cost
+                                   |                |
+                                   | yes            | no
+                                   |                ----------> next CPU
+                                   V
+                           +----------------------+
+                           | min_cost = cost(p,i) |-------> next CPU
+                           +----------------------+
+
+Once this flow chart has been evaluated for every online CPU the task
+may run on, if a "best_cpu" was found, it is returned. If a best_cpu
+was not found but a fallback_idle_cpu was found, then the
+fallback_idle_cpu is returned. Finally, if no best_cpu or
+fallback_idle cpu was found, then the task's previous CPU is returned.
+
+Phew! Fortunately, all of that can be summarized relatively easily. The
+order of CPU preference for a non-small task is the following:
+
+  1. The least-loaded CPU the task is allowed to run on in the lowest
+     power band where the task will fit and where the placement will
+     not result in cpu exceeding spill level. When there is a tie of
+     two cpus at same load, their CPU with the lowest power cost is
+     chosen.
+
+  2. The least-loaded mostly idle CPU that the task is allowed to run
+     on where the task won't fit (since there was no CPU where the
+     task would fit).
+
+  3. The CPU which the task last ran on.
+
+--- Wakeup Logic a Small Task "p"
+
+The online CPUs the task is allowed to run on are scanned and the
+lowest power CPU is found. This is marked as the min_cost_cpu.
+
+If the minimum cost CPU is mostly idle but not idle, that CPU is
+immediately chosen.
+
+If the minimum cost CPU is idle or not mostly idle, then the following
+will be evaluated for every online CPU i the task is allowed to run
+on:
+      |   is CPU i in higher power band          is this CPU lower power than
+      V   than min_cost_cpu?                     best fallback CPU seen
++---------------------+                +-----------------------+
+| cost(p, i) is       |       yes      | cost(p,i) <           | no   +--------+
+| > band_limit % more |--------------->| min_fallback_cpu_cost |----->| ignore |
+| than min_cost_cpu   |                +-----------------------+      |  cpu   |
++---------------------+                           |                   +--------+
+      |                                           | yes                   |
+      | no                                        |                       V
+      |                                           |                    next cpu
+      |  is this CPU                              V
+      V  idle                          +-----------------------------------+
++-----------------+    yes             | best_fallback_cpu = i             |
+| cpu cstate > 0? |-----------         | min_fallback_cpu_cost = cost(p,i) |
++-----------------+          |         +-----------------------------------+
+      |                      |                    |
+      | no                   |                    \------> next CPU
+      |                      | is this CPU
+      |  is this CPU         | the shallowest
+      V  mostly idle         | idle CPU seen
++--------------+       +----------------------+  no  +--------+
+|   cpu i      |       | cstate < min_cstate? |----->| ignore |
+| mostly idle? |       +----------------------+      |  cpu   |--> next cpu
++--------------+                            |        +--------+
+      |       |                             | yes
+      | no    | yes                         |
+      |       |       +--------------+      |     +---------------------+
+      |       \------>| return cpu i |      ----->| min_cstate_cpu = i  |
+      |               +--------------+            | min_cstate = cstate |
+      |                                           +---------------------+
+      |                                                    |
+      | will task not cross spill                          |
+      | threshold, and is this the                         |
+      V least loaded busy CPU we've seen                   |
++-------------------------+                                \-----> next cpu
+| !(p causes spill) &&    |  no   +--------+
+| load(i) < min_busy_load |------>| ignore |---> next cpu
++-------------------------+       |  cpu   |
+      |                           +--------+
+      | yes
+      V
++----------------------+
+| best_busy_cpu = i    |
+| min_busy_load = load |--------> next cpu
++----------------------+
+
+Note that the process of evaluating the flow chart for every online
+CPU the task may run on could be interrupted if a mostly idle CPU is
+found in the lowest power band. Such a CPU will be selected
+immediately by the algorithm. Otherwise, once the flow chart has been
+evaluated for every online CPU the task is allowed to run on, a CPU is
+selected from the candidates. If one or more idle CPUs exist in the
+lowest power band then the one in the shallowest C-state is
+returned. If not, then the least loaded CPU in the lowest power band
+which would not exceed its spill threshold by accepting the task is
+selected, assuming it exists. If none of the former possibilities
+exist, the most power-efficient CPU outside the lowest power band is
+selected.
+
+Phew! But once again this can all be summarized. The order of CPU
+preference for a small task is the following:
+
+  1. The lowest-power CPU, if it is not idle but is mostly idle.
+  2. A non-idle CPU in the lowest power band which is mostly idle. The
+     first such CPU found is selected.
+  3. An idle CPU in the lowest power band that is in the least shallow
+     C-state.
+  4. The least busy CPU in the lowest power band where adding the task
+     will not result in exceeding the spill threshold.
+  5. The most power-efficient CPU outside of the lowest power band.
+
+*** 5.3 Scheduler Tick
+
+Every CPU is interrupted periodically to let kernel update various statistics
+and possibly preempt the currently running task in favor of a waiting task. This
+periodicity, determined by CONFIG_HZ value, is set at 10ms. There are various
+optimizations by which a CPU however can skip taking these interrupts (ticks).
+A cpu going idle for considerable time in one such case.
+
+HMP scheduler extensions brings in a change in processing of tick
+(scheduler_tick()) that can result in task migration. In case the currently
+running task on a cpu belongs to fair_sched class, a check is made if it needs
+to be migrated. Possible reasons for migrating task could be:
+
+a) A big task is running on a power-efficient cpu and a high-performance cpu is
+available (idle) to service it
+
+b) The task is not a small task and a more power-efficient cpu is available to
+service the task
+
+In case the test for migration turns out positive (which is expected to be rare
+event), a candidate cpu is identified for task migration. To avoid multiple task
+migrations to the same candidate cpu(s), identification of candidate cpu is
+serialized via global spinlock (migration_lock).
+
+*** 5.4 Load Balancer
+
+Load balance is a key functionality of scheduler that strives to distribute task
+across available cpus in a "fair" manner. Most of the complexity associated with
+this feature involves balancing fair_sched class tasks. Changes made to load
+balance code serve these goals:
+
+1. Restrict flow of tasks from power-efficient cpus to high-performance cpu.
+   Provide a spill-over threshold, defined in terms of number of tasks
+   (sched_spill_nr_run) and cpu demand (sched_spill_load), beyond which tasks
+   can spill over from power-efficient cpu to high-performance cpus.
+
+2. Allow idle power-efficient cpus to pick up extra load from over-loaded
+   performance-efficient cpu
+
+3. Allow idle high-performance cpu to pick up big tasks from power-efficient cpu
+
+4. Allow a cpu with lower power rating to pick up load from another cpu with
+   higher power rating. Power rating of cpus is provided by an
+   architecture-specific driver, described in Sec 4
+
+5. Allow small-task packing. Normally a cpu with more than one task would kick
+   an idle cpu in tickless state and have it pull task from it. That is
+   undesirable when, say, a cpu has couple of small tasks.
+
+*** 5.5 Real Time Tasks
+
+Minimal changes introduced in treatment of real-time tasks by HMP scheduler
+aims at preferring scheduling of real-time tasks on cpus with low
+power-rating.
+
+Prior to HMP scheduler, the fast-path cpu selection for placing a real-time task
+(at wakeup) is its previous cpu, provided the currently running task on its
+previous cpu is not a real-time task or a real-time task with lower priority.
+Failing this, cpu selection in slow-path involves building a list of candidate
+cpus where the waking real-time task will be of highest priority and thus can be
+run immediately. The first cpu from this candidate list is chosen for the waking
+real-time task. Much of the premise for this simple approach is the assumption
+that real-time tasks often execute for very short intervals and thus the focus
+is to place them on a cpu where they can be run immediately.
+
+HMP scheduler brings in a change which avoids fast-path and always resorts to
+slow-path. Further cpu with lowest power-rating from candidate list of cpus is
+chosen as cpu for placing waking real-time task.
+
+=====================
+6. FREQUENCY GUIDANCE
+=====================
+
+As mentioned in the introduction section the scheduler is in a unique
+position to assist with the determination of CPU frequency. Because
+the scheduler now maintains an estimate of per-task CPU demand, task
+activity can be tracked, aggregated and provided to the CPUfreq
+governor as a replacement for simple CPU busy time. CONFIG_SCHED_FREQ_INPUT
+kernel configuration variable needs to be enabled for this feature to be active.
+
+Two of the most popular CPUfreq governors, interactive and ondemand,
+utilize a window-based approach for measuring CPU busy time. This
+works well with the window-based load tracking scheme previously
+described. The following APIs are provided to allow the CPUfreq
+governor to query busy time from the scheduler instead of using the
+basic CPU busy time value derived via get_cpu_idle_time_us() and
+get_cpu_iowait_time_us() APIs.
+
+  int sched_set_window(u64 window_start, unsigned int window_size)
+
+    This API is invoked by governor at initialization time or whenever
+    window size is changed. 'window_size' argument (in jiffy units)
+    indicates the size of window to be used. The first window of size
+    'window_size' is set to beging at jiffy 'window_start'
+
+    -EINVAL is returned if per-entity load tracking is in use rather
+    than window-based load tracking, otherwise a success value of 0
+    is returned.
+
+  int sched_get_busy(int cpu)
+
+    Returns the busy time for the given CPU in the most recent
+    complete window. The value returned is microseconds of busy
+    time at fmax of given CPU.
+
+The values returned by sched_get_busy() take a bit of explanation,
+both in what they mean and also how they are derived.
+
+*** 6.1 Per-CPU Window-Based Stats
+
+In addition to the per-task window-based demand, the HMP scheduler
+extensions also track the aggregate demand seen on each CPU. This is
+done using the same windows that the task demand is tracked with
+(which is in turn set by the governor when frequency guidance is in
+use). There are two quantities maintained for each CPU by the HMP scheduler:
+
+  curr_runnable_sum: aggregate demand from all tasks which executed during
+  the current (not yet completed) window
+
+  prev_runnable_sum: aggregate demand from all tasks which executed during
+  the most recent completed window
+
+When the scheduler is updating a task's window-based stats it also
+updates these values. Like per-task window-based demand these
+quantities are normalized against the max possible frequency and max
+efficiency (instructions per cycle) in the system. If an update occurs
+and a window rollover is observed, curr_runnable_sum is copied into
+prev_runnable_sum before being reset to 0. The sched_get_busy() API
+returns prev_runnable_sum, scaled to the efficiency and fmax of given
+CPU.
+
+*** 6.2 Per-task window-based stats
+
+Corresponding to curr_runnable_sum and prev_runnable_sum, two counters are
+maintained per-task
+
+curr_window - represents cpu demand of task in its most recently tracked
+	      window
+prev_window - represents cpu demand of task in the window prior to the one
+	      being tracked by curr_window
+
+"cpu demand" of a task includes its execution time and can also include its
+wait time. 'sched_freq_account_wait_time' tunable controls whether task's wait
+time is included in its 'curr_window' and 'prev_window' counters or not.
+
+Needless to say, curr_runnable_sum counter of a cpu is derived from curr_window
+counter of various tasks that ran on it in its most recent window.
+
+*** 6.3 Effect of various task events
+
+We now consider various events and how they affect above mentioned counters.
+
+PICK_NEXT_TASK
+	This represents beginning of execution for a task. Provided the task
+	refers to a non-idle task, a portion of task's wait time that
+	corresponds to the current window being tracked on a cpu is added to
+	task's curr_window counter, provided sched_freq_account_wait_time is
+	set. The same quantum is also added to cpu's curr_runnable_sum counter.
+	The remaining portion, which corresponds to task's wait time in previous
+	window is added to task's prev_window and cpu's prev_runnable_sum
+	counters.
+
+PUT_PREV_TASK
+	This represents end of execution of a time-slice for a task, where the
+	task could refer to a cpu's idle task also. In case the task is non-idle
+	or (in case of task being idle with cpu having non-zero rq->nr_iowait
+	count and sched_io_is_busy =1), a portion of task's execution time, that
+	corresponds to current window being tracked on a cpu is added to task's
+	curr_window_counter and also to cpu's curr_runnable_sum counter. Portion
+	of task's execution that corresponds to the previous window is added to
+	task's prev_window and cpu's prev_runnable_sum counters.
+
+TASK_UPDATE
+	This event is called on a cpu's currently running task and hence
+	behaves effectively as PUT_PREV_TASK. Task continues executing after
+	this event, until PUT_PREV_TASK event occurs on the task (during
+	context switch).
+
+TASK_WAKE
+	This event signifies a task waking from sleep. Since many windows
+	could have elapsed since the task went to sleep, its curr_window
+	and prev_window are updated to reflect task's demand in the most
+	recent and its previous window that is being tracked on a cpu.
+
+TASK_MIGRATE
+	This event signifies task migration across cpus. It is invoked on the
+	task prior to being moved. Thus at the time of this event, the task
+	can be considered to be in "waiting" state on src_cpu. In that way
+	this event reflects actions taken under PICK_NEXT_TASK (i.e its
+	wait time is added to task's curr/prev_window counters as well
+	as src_cpu's curr/prev_runnable_sum counters, provided
+	sched_freq_account_wait_time tunable is non-zero). After that update,
+	src_cpu's curr_runnable_sum is reduced by task's curr_window value
+	and dst_cpu's curr_runnable_sum is increased by task's curr_window
+	value, provided sched_migration_fixup = 1. Similarly, src_cpu's
+	prev_runnable_sum is reduced by task's prev_window value and dst_cpu's
+	prev_runnable_sum is increased by task's prev_window value,
+	provided sched_migration_fixup = 1
+
+IRQ_UPDATE
+	This event signifies end of execution of an interrupt handler. This
+	event results in update of cpu's busy time counters, curr_runnable_sum
+	and prev_runnable_sum, provided cpu was idle.
+	When sched_io_is_busy = 0, only the interrupt handling time is added
+	to cpu's curr_runnable_sum and prev_runnable_sum counters. When
+	sched_io_is_busy = 1, the event mirrors actions taken under
+	TASK_UPDATED event i.e  time since last accounting of idle task's cpu
+	usage is added to cpu's curr_runnable_sum and prev_runnable_sum
+	counters.
+
+===========
+7. TUNABLES
+===========
+
+*** 7.1 sched_mostly_idle_nr_run
+
+Appears at: /proc/sys/kernel/sched_mostly_idle_nr_run
+
+Default value: 4
+
+If a CPU has this many runnable tasks (or less), it is considered
+"mostly idle." A mostly idle CPU is a preferred destination for a
+waking task. To be mostly idle a CPU must not have
+more than sched_mostly_idle_nr_run runnable tasks and must not be more
+than sched_mostly_idle_load percent busy.
+
+*** 7.2 sched_mostly_idle_load
+
+Appears at: /proc/sys/kernel/sched_mostly_idle_load
+
+Default value: 20
+
+This tunable is a percentage. If a CPU is busier than this, it cannot
+be considered "mostly idle." A mostly idle CPU is a preferred
+destination for a waking task. To be mostly idle a CPU must not have
+more than sched_mostly_idle_nr_run runnable tasks and must not be more
+than sched_mostly_idle_load percent busy.
+
+
+*** 7.3 sched_spill_load
+
+Appears at: /proc/sys/kernel/sched_spill_load
+
+Default value: 100
+
+CPU selection criteria for fair-sched class tasks is the lowest power cpu where
+they can fit. When the most power-efficient cpu where a task can fit is
+overloaded (aggregate demand of tasks currently queued on it exceeds
+sched_spill_load), a task can be placed on a higher-performance cpu, even though
+the task strictly doesn't need one. This applies to non-small tasks.
+
+*** 7.4 sched_spill_nr_run
+
+Appears at: /proc/sys/kernel/sched_spill_nr_run
+
+Default value: 10
+
+The intent of this tunable is similar to sched_spill_load, except it applies to
+nr_running count of a cpu. A non-small task can spill over to a
+higher-performance cpu when the most power-efficient cpu where it can normally
+fit has more tasks than sched_spill_nr_run.
+
+*** 7.5 sched_upmigrate
+
+Appears at: /proc/sys/kernel/sched_upmigrate
+
+Default value: 80
+
+This tunable is a percentage. If a task consumes more than this much
+of a CPU, the CPU is considered too small for the task and the
+scheduler will try to find a bigger CPU to place the task on.
+
+*** 7.6 sched_downmigrate
+
+Appears at: /proc/sys/kernel/sched_downmigrate
+
+Default value: 60
+
+This tunable is a percentage. It exists to control hysteresis. Lets say a task
+migrated to a high-performance cpu when it crossed 80% demand on a
+power-efficient cpu. We don't let it come back to a power-efficient cpu until
+its demand *in reference to the power-efficient cpu* drops less than 60%
+(sched_down_migrate).
+
+*** 7.7 sched_small_task
+
+Appears at: /proc/sys/kernel/sched_small_task
+
+Default value: 10
+
+This tunable is a percentage. If a task consumes this much or less of
+the minimum capacity CPU in the system, it is considered a "small
+task." The scheduler will not attempt to find an idle CPU for small
+tasks - they may be woken up on busy CPUs.
+
+*** 7.8 sched_init_task_load
+
+Appears at: /proc/sys/kernel/sched_init_task_load
+
+Default value: 15
+
+This tunable is a percentage. When a task is first created it has no
+history, so the task load tracking mechanism cannot determine a
+historical load value to assign to it. This tunable specifies the
+initial load value for newly created tasks.
+
+*** 7.9 sched_upmigrate_min_nice
+
+Appears at: /proc/sys/kernel/sched_upmigrate_min_nice
+
+Default value: 15
+
+A task whose nice value is greater than this tunable value will never
+be considered as a "big" task (it will not be allowed to run on a
+high-performance CPU).
+
+*** 7.10 sched_enable_power_aware
+
+Appears at: /proc/sys/kernel/sched_enable_power_aware
+
+Default value: 1
+
+Controls whether or not per-CPU power values are used in determining
+task placement. If this is disabled, tasks are simply placed on the
+smallest capacity CPU that will adequately meet the task's needs as
+determined by the task load tracking mechanism. If this is enabled,
+after a set of CPUs are determined which will meet the task's
+performance needs, a CPU is selected which is reported to have the
+lowest power consumption at that time.
+
+*** 7.11 sched_ravg_hist_size
+
+Appears at: /proc/sys/kernel/sched_ravg_hist_size
+
+Default value: 5
+
+This tunable controls the number of samples used from task's sum_history[]
+array for determination of its demand.
+
+*** 7.12 sched_window_stats_policy
+
+Appears at: /proc/sys/kernel/sched_window_stats_policy
+
+Default value: 2
+
+This tunable controls the policy in how window-based load tracking
+calculates an overall demand value based on the windows of CPU
+utilization it has collected for a task.
+
+Possible values for this tunable are:
+0: Just use the most recent window sample of task activity when calculating
+   task demand.
+1: Use the maximum value of first M samples found in task's cpu demand
+   history (sum_history[] array), where M = sysctl_sched_ravg_hist_size
+2: Use the maximum of (the most recent window sample, average of first M
+   samples), where M = syctl_sched_ravg_hist_size
+3. Use average of first M samples, where M = sysctl_sched_ravg_hist_size
+
+*** 7.13 sched_ravg_window
+
+Appears at: kernel command line argument
+
+Default value: 10000000 (10ms, units of tunable are nanoseconds)
+
+This specifies the duration of each window in window-based load
+tracking. By default each window is 10ms long. This quantity must
+currently be set at boot time on the kernel command line (or the
+default value of 10ms can be used).
+
+*** 7.14 RAVG_HIST_SIZE
+
+Appears at: compile time only (see RAVG_HIST_SIZE in include/linux/sched.h)
+
+Default value: 5
+
+This macro specifies the number of windows the window-based load
+tracking mechanism maintains per task. If default values are used for
+both this and sched_ravg_window then a total of 50ms of task history
+would be maintained in 5 10ms windows.
+
+*** 7.15 sched_account_wait_time
+
+Appears at: /proc/sys/kernel/sched_account_wait_time
+
+Default value: 1
+
+This controls whether a task's wait time is accounted as its demand for cpu
+and thus the values found in its sum, sum_history[] and demand attributes.
+
+*** 7.16 sched_freq_account_wait_time
+
+Appears at: /proc/sys/kernel/sched_freq_account_wait_time
+
+Default value: 0
+
+This controls whether a task's wait time is accounted in its curr_window and
+prev_window attributes and thus in a cpu's curr_runnable_sum and
+prev_runnable_sum counters.
+
+*** 7.17 sched_migration_fixup
+
+Appears at: /proc/sys/kernel/sched_migration_fixup
+
+Default value: 1
+
+This controls whether a cpu's busy time counters are adjusted during task
+migration.
+
+*** 7.18 sched_freq_inc_notify
+
+Appears at: /proc/sys/kernel/sched_freq_inc_notify
+
+Default value: 10 * 1024 * 1024 (10 Ghz)
+
+When scheduler detects that cur_freq of a cluster is insufficient to meet
+demand, it sends notification to governor, provided (freq_required - cur_freq)
+exceeds sched_freq_inc_notify, where freq_required is the frequency calculated
+by scheduler to meet current task demand. Note that sched_freq_inc_notify is
+specified in kHz units.
+
+*** 7.19 sched_freq_dec_notify
+
+Appears at: /proc/sys/kernel/sched_freq_dec_notify
+
+Default value: 10 * 1024 * 1024 (10 Ghz)
+
+When scheduler detects that cur_freq of a cluster is far greater than what is
+needed to serve current task demand, it will send notification to governor.
+More specifically, notification is sent when (cur_freq - freq_required)
+exceeds sched_freq_dec_notify, where freq_required is the frequency calculated
+by scheduler to meet current task demand. Note that sched_freq_dec_notify is
+specified in kHz units.
+
+** 7.20 sched_heavy_task
+
+Appears at: /proc/sys/kernel/sched_heavy_task
+
+Default value: 0
+
+This tunable can be used to specify a demand value for tasks above which task
+are classified as "heavy" tasks. Task's ravg.demand attribute is used for this
+comparison. Scheduler will request a raise in cpu frequency when heavy tasks
+wakeup after at least one window of sleep, where window size is defined by
+sched_ravg_window. Value 0 will disable this feature.
+
+=========================
+8. HMP SCHEDULER TRACE POINTS
+=========================
+
+*** 8.1 sched_enq_deq_task
+
+Logged when a task is either enqueued or dequeued on a CPU's run queue.
+
+  <idle>-0     [004] d.h4 12700.711665: sched_enq_deq_task: cpu=4 enqueue comm=powertop pid=13227 prio=120 nr_running=1 cpu_load=0 rt_nr_running=0 affine=ff sum_scaled=0 period=48237 demand=13364423
+
+- cpu: the CPU that the task is being enqueued on to or dequeued off of
+- enqueue/dequeue: whether this was an enqueue or dequeue event
+- comm: name of task
+- pid: PID of task
+- prio: priority of task
+- nr_running: number of runnable tasks on this CPU
+- cpu_load: current priority-weighted load on the CPU (note, this is *not*
+  the same as CPU utilization or a metric tracked by PELT/window-based tracking)
+- rt_nr_running: number of real-time processes running on this CPU
+- affine: CPU affinity mask in hex for this task (so ff is a task eligible to
+  run on CPUs 0-7)
+- sum_scaled: PELT-based task demand scaled by cpu frequency and efficiency (ns)
+- period: PELT-based decaying average of the period (1024us, ~1ms) that the
+  "sum_scaled" is relative to
+- demand: window-based task demand computed based on selected policy (recent,
+  max, or average) (ns)
+
+*** 8.2 sched_task_load
+
+Logged when selecting the best CPU to run the task (select_best_cpu()).
+
+<...>-2907 [002] d.s3 66.841363: sched_task_load: 32 (kworker/u16:1): sum=319, sum_scaled=69, period=47541 demand=192442 small=1 boost=0 reason=0
+
+- sum: PELT-based task demand (not normalized for CPU frequency) (ns)
+- sum_scaled: PELT-based task demand scaled by cpu frequency and efficiency (ns)
+- period: PELT-based decaying average of the period (1024us, ~1ms) that the
+  "sum_scaled" is relative to
+- demand: window-based task demand computed based on selected policy (recent,
+  max, or average) (ns)
+- small: whether the task is considered small
+- boost: whether boost is in effect
+- reason: reason we are picking a new CPU:
+  0: no migration - selecting a CPU for a wakeup or new task wakeup
+  1: move to big CPU (migration)
+  2: move to littlte CPU (migration)
+  3: move to power efficient CPU (migration)
+
+*** 8.3 sched_cpu_load
+
+Logged when selecting the best CPU to run a task (select_best_cpu() for fair
+class tasks, find_lowest_rq_hmp() for RT tasks) and load balancing
+(update_sg_lb_stats()).
+
+<idle>-0     [004] d.h3 12700.711541: sched_cpu_load: cpu 0 idle 1 mostly_idle 1 nr_run 0 nr_big 0 nr_small 0 lsf 1945 capacity 1045 cr_avg 0 fcur 199200 fmax 940800 power_cost 1045 cstate 1
+
+- cpu: the CPU being described
+- idle: boolean indicating whether the CPU is idle
+- mostly_idle: boolean indicating whether the CPU is mostly idle
+- nr_run: number of tasks running on CPU
+- nr_big: number of BIG tasks running on CPU
+- nr_small: number of small tasks running on CPU
+- lsf: load scale factor - multiply normalized load by this factor to determine
+  how much load task will exert on CPU
+- capacity: capacity of CPU (based on max possible frequency and efficiency)
+- cr_avg: cumulative runnable average, instantaneous sum of the demand (either
+  PELT or window-based) of all the runnable task on a CPU (ns)
+- fcur: current CPU frequency (Khz)
+- fmax: max CPU frequency (but not maximum _possible_ frequency) (KHz)
+- power_cost: cost of running this CPU at the current frequency
+- cstate: current cstate of CPU
+
+The power_cost value above differs in how it is calculated depending on the
+callsite of this tracepoint. The select_best_cpu() call to this tracepoint
+finds the minimum frequency required to satisfy the existing load on the CPU
+as well as the task being placed, and returns the power cost of that frequency.
+The load balance and real time task placement paths used a fixed frequency
+(highest frequency common to all CPUs for load balancing, minimum
+frequency of the CPU for real time task placement).
+
+*** 8.4 sched_update_task_ravg
+
+Logged when window-based stats are updated for a task. The update may happen
+for a variety of reasons, see section 2.5, "Task Events."
+
+<idle>-0     [004] d.h4 12700.711513: sched_update_task_ravg: wc 12700711473496 ws 12700691772135 delta 19701361 event TASK_WAKE cpu 4 cur_freq 199200 cur_pid 0 task 13227 (powertop) ms 12640648272532 delta 60063200964 demand 13364423 sum 0 irqtime 0 cs 0 ps 495018 cur_window 0 prev_window 0
+
+- wc: wallclock, output of sched_clock(), monotonically increasing time since
+  boot (will roll over in 585 years) (ns)
+- ws: window start, time when the current window started (ns)
+- delta: time since the window started (wc - ws) (ns)
+- event: What event caused this trace event to occur (see section 2.5 for more
+  details)
+- cpu: which CPU the task is running on
+- cur_freq: CPU's current frequency in KHz
+- curr_pid: PID of the current running task (current)
+- task: PID and name of task being updated
+- ms: mark start - timestamp of the beginning of a segment of task activity,
+  either sleeping or runnable/running (ns)
+- delta: time since last event within the window (wc - ms) (ns)
+- demand: task demand computed based on selected policy (recent, max, or
+  average) (ns)
+- sum: the task's run time during current window scaled by frequency and
+  efficiency (ns)
+- irqtime: length of interrupt activity (ns). A non-zero irqtime is seen
+  when an idle cpu handles interrupts, the time for which needs to be
+  accounted as cpu busy time
+- cs: curr_runnable_sum of cpu (ns). See section 6.1 for more details of this
+  counter.
+- ps: prev_runnable_sum of cpu (ns). See section 6.1 for more details of this
+  counter.
+- cur_window: cpu demand of task in its most recently tracked window (ns)
+- prev_window: cpu demand of task in the window prior to the one being tracked
+  by cur_window
+
+*** 8.5 sched_update_history
+
+Logged when update_task_ravg() is accounting task activity into one or
+more windows that have completed. This may occur more than once for a
+single call into update_task_ravg(). A task that ran for 24ms spanning
+four 10ms windows (the last 2ms of window 1, all of windows 2 and 3,
+and the first 2ms of window 4) would result in two calls into
+update_history() from update_task_ravg(). The first call would record activity
+in completed window 1 and second call would record activity for windows 2 and 3
+together (samples will be 2 in second call).
+
+<idle>-0     [004] d.h4 12700.711489: sched_update_history: 13227 (powertop): runtime 13364423 samples 1 event TASK_WAKE demand 13364423 (hist: 13364423 9871252 2236009 6162476 10282078) cpu 4 nr_big 0 nr_small 0
+
+- runtime: task cpu demand in recently completed window(s). This value is scaled
+  to max_possible_freq and max_possible_efficiency. This value is pushed into
+  task's demand history array. The number of windows to which runtime applies is
+  provided by samples field.
+- samples: Number of samples (windows), each having value of runtime, that is
+  recorded in task's demand history array.
+- event: What event caused this trace event to occur (see section 2.5 for more
+  details) - PUT_PREV_TASK, PICK_NEXT_TASK, TASK_WAKE, TASK_MIGRATE,
+  TASK_UPDATE
+- demand: task demand computed based on selected policy (recent, max, or
+  average) (ns)
+- hist: last 5 windows of history for the task with the most recent window
+  listed first
+- cpu: CPU the task is associated with
+- nr_big: number of big tasks on the CPU
+- nr_small: Number of small tasks on the CPU
+
+*** 8.6 sched_reset_all_windows_stats
+
+Logged when key parameters controlling window-based statistics collection are
+changed. This event signifies that all window-based statistics for tasks and
+cpus are being reset. Changes to below attributes result in such a reset:
+
+* sched_ravg_window (See Sec 2)
+* sched_window_stats_policy (See Sec 2.4)
+* sched_account_wait_time (See Sec 7.15)
+* sched_ravg_hist_size (See Sec 7.11)
+* sched_migration_fixup (See Sec 7.17)
+* sched_freq_account_wait_time (See Sec 7.16)
+
+<task>-0     [004] d.h4 12700.711489: sched_reset_all_windows_stats: time_taken 1123 window_start 0 window_size 0 reason POLICY_CHANGE old_val 0 new_val 1
+
+- time_taken: time taken for the reset function to complete (ns)
+- window_start: Beginning of first window following change to window size (ns)
+- window_size: Size of window. Non-zero if window-size is changing (in ticks)
+- reason: Reason for reset of statistics.
+- old_val: Old value of variable, change of which is triggering reset
+- new_val: New value of variable, change of which is triggering reset
+
+*** 8.7 sched_migration_update_sum
+
+Logged when CONFIG_SCHED_FREQ_INPUT feature is enabled and a task is migrating
+to another cpu.
+
+<task>-0     [004] d.h4 12700.711489: sched_migration_update_sum: cpu 0: cs XXX ps YYY pid 1234
+
+- cpu: cpu, away from which or to which, task is migrating
+- cs: curr_runnable_sum of cpu (ns). See Sec 6.1 for more details of this
+  counter.
+- ps: prev_runnable_sum of cpu (ns). See Sec 6.1 for more details of this
+  counter.
+- pid: PID of migrating task
+
+*** 8.8 sched_get_busy
+
+Logged when scheduler is returning busy time statistics for a cpu.
+
+<task>-0     [004] d.h4 12700.711489: sched_get_busy: cpu 0 load XXX
+
+- cpu: cpu, for which busy time statistic (prev_runnable_sum) is being
+  returned (ns)
+- load: corresponds to prev_runnable_sum (ns), scaled to fmax of cpu
+
+*** 8.9 sched_freq_alert
+
+Logged when scheduler is alerting cpufreq governor about need to change
+frequency
+
+<task>-0     [004] d.h4 12700.711489: sched_freq_alert: cpu 0 old_load=XXX new_load=YYY
+
+- cpu: cpu in cluster that has highest load (prev_runnable_sum)
+- old_load: cpu busy time last reported to governor. This is load scaled in
+  reference to max_possible_freq and max_possible_efficiency.
+- new_load: recent cpu busy time. This is load scaled in
+  reference to max_possible_freq and max_possible_efficiency.
+
+*** 8.10 sched_set_boost
+
+Logged when boost settings are being changed
+
+<task>-0     [004] d.h4 12700.711489: sched_set_boost: ref_count=1
+
+- ref_count: A non-zero value indicates boost is in effect
