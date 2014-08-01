@@ -77,6 +77,7 @@
 #endif
 
 #if (LINUX_VERSION_CODE > KERNEL_VERSION(3, 13, 0)) || defined(WL_VENDOR_EXT_SUPPORT)
+
 /*
  * This API is to be used for asynchronous vendor events. This
  * shouldn't be used in response to a vendor command from its
@@ -1015,6 +1016,109 @@ static int wl_cfgvendor_priv_string_handler(struct wiphy *wiphy,
 	return err;
 }
 
+#ifdef LINKSTAT_SUPPORT
+#define NUM_RATE 32
+#define NUM_PEER 1
+#define NUM_CHAN 11
+static int wl_cfgvendor_lstats_get_info(struct wiphy *wiphy,
+	struct wireless_dev *wdev, const void  *data, int len)
+{
+	static char iovar_buf[WLC_IOCTL_MAXLEN];
+	struct bcm_cfg80211 *cfg = wiphy_priv(wiphy);
+	int err = 0;
+	wifi_iface_stat *iface;
+	wifi_radio_stat *radio;
+	wl_wme_cnt_t *wl_wme_cnt;
+	wl_cnt_t *wl_cnt;
+	char *output;
+
+	WL_INFORM(("%s: Enter \n", __func__));
+
+	bzero(cfg->ioctl_buf, WLC_IOCTL_MAXLEN);
+
+	output = cfg->ioctl_buf;
+	radio = (wifi_radio_stat *)output;
+
+	err = wldev_iovar_getbuf(bcmcfg_to_prmry_ndev(cfg), "radiostat", NULL, 0,
+		output, WLC_IOCTL_MAXLEN, NULL);
+	if (unlikely(err)) {
+		WL_ERR(("error (%d) - size = %zu\n", err, sizeof(wifi_radio_stat)));
+		return err;
+	}
+
+	radio->num_channels = NUM_CHAN;
+	output += sizeof(wifi_radio_stat);
+	output += (NUM_CHAN*sizeof(wifi_channel_stat));
+
+	err = wldev_iovar_getbuf(bcmcfg_to_prmry_ndev(cfg), "wme_counters", NULL, 0,
+		iovar_buf, WLC_IOCTL_MAXLEN, NULL);
+	if (unlikely(err)) {
+		WL_ERR(("error (%d)\n", err));
+		return err;
+	}
+	wl_wme_cnt = (wl_wme_cnt_t *)iovar_buf;
+	iface = (wifi_iface_stat *)output;
+
+	iface->ac[WIFI_AC_VO].ac = WIFI_AC_VO;
+	iface->ac[WIFI_AC_VO].tx_mpdu = wl_wme_cnt->tx[AC_VO].packets;
+	iface->ac[WIFI_AC_VO].rx_mpdu = wl_wme_cnt->rx[AC_VO].packets;
+	iface->ac[WIFI_AC_VO].mpdu_lost = wl_wme_cnt->tx_failed[WIFI_AC_VO].packets;
+
+	iface->ac[WIFI_AC_VI].ac = WIFI_AC_VI;
+	iface->ac[WIFI_AC_VI].tx_mpdu = wl_wme_cnt->tx[AC_VI].packets;
+	iface->ac[WIFI_AC_VI].rx_mpdu = wl_wme_cnt->rx[AC_VI].packets;
+	iface->ac[WIFI_AC_VI].mpdu_lost = wl_wme_cnt->tx_failed[WIFI_AC_VI].packets;
+
+	iface->ac[WIFI_AC_BE].ac = WIFI_AC_BE;
+	iface->ac[WIFI_AC_BE].tx_mpdu = wl_wme_cnt->tx[AC_BE].packets;
+	iface->ac[WIFI_AC_BE].rx_mpdu = wl_wme_cnt->rx[AC_BE].packets;
+	iface->ac[WIFI_AC_BE].mpdu_lost = wl_wme_cnt->tx_failed[WIFI_AC_BE].packets;
+
+	iface->ac[WIFI_AC_BK].ac = WIFI_AC_BK;
+	iface->ac[WIFI_AC_BK].tx_mpdu = wl_wme_cnt->tx[AC_BK].packets;
+	iface->ac[WIFI_AC_BK].rx_mpdu = wl_wme_cnt->rx[AC_BK].packets;
+	iface->ac[WIFI_AC_BK].mpdu_lost = wl_wme_cnt->tx_failed[WIFI_AC_BK].packets;
+	bzero(iovar_buf, WLC_IOCTL_MAXLEN);
+
+	err = wldev_iovar_getbuf(bcmcfg_to_prmry_ndev(cfg), "counters", NULL, 0,
+		iovar_buf, WLC_IOCTL_MAXLEN, NULL);
+	if (unlikely(err)) {
+		WL_ERR(("error (%d) - size = %zu\n", err, sizeof(wl_cnt_t)));
+		return err;
+	}
+	wl_cnt = (wl_cnt_t *)iovar_buf;
+	iface->ac[WIFI_AC_BE].retries = wl_cnt->txretry;
+	iface->beacon_rx = wl_cnt->rxbeaconmbss;
+
+	err = wldev_get_rssi(bcmcfg_to_prmry_ndev(cfg), &iface->rssi_mgmt);
+	if (unlikely(err)) {
+		WL_ERR(("get_rssi error (%d)\n", err));
+		return err;
+	}
+
+	iface->num_peers = NUM_PEER;
+	iface->peer_info->num_rate = NUM_RATE;
+
+	output = (char *)iface + sizeof(wifi_iface_stat) + NUM_PEER*sizeof(wifi_peer_info);
+
+	err = wldev_iovar_getbuf(bcmcfg_to_prmry_ndev(cfg), "ratestat", NULL, 0,
+		output, WLC_IOCTL_MAXLEN, NULL);
+	if (unlikely(err)) {
+		WL_ERR(("error (%d) - size = %zu\n", err, NUM_RATE*sizeof(wifi_rate_stat)));
+		return err;
+	}
+
+	err =  wl_cfgvendor_send_cmd_reply(wiphy, bcmcfg_to_prmry_ndev(cfg),
+		cfg->ioctl_buf, sizeof(wifi_radio_stat)+NUM_CHAN*sizeof(wifi_channel_stat)+
+		sizeof(wifi_iface_stat)+NUM_PEER*sizeof(wifi_peer_info)+
+		NUM_RATE*sizeof(wifi_rate_stat));
+	if (unlikely(err))
+		WL_ERR(("Vendor Command reply failed ret:%d \n", err));
+
+	return err;
+}
+#endif /* LINKSTAT_SUPPORT */
+
 static const struct wiphy_vendor_command wl_vendor_cmds [] = {
 	{
 		{
@@ -1147,7 +1251,17 @@ static const struct wiphy_vendor_command wl_vendor_cmds [] = {
 		},
 		.flags = WIPHY_VENDOR_CMD_NEED_WDEV | WIPHY_VENDOR_CMD_NEED_NETDEV,
 		.doit = wl_cfgvendor_set_pno_mac_oui
-	}
+	},
+#ifdef LINKSTAT_SUPPORT
+	{
+		{
+			.vendor_id = OUI_GOOGLE,
+			.subcmd = LSTATS_SUBCMD_GET_INFO
+		},
+		.flags = WIPHY_VENDOR_CMD_NEED_WDEV | WIPHY_VENDOR_CMD_NEED_NETDEV,
+		.doit = wl_cfgvendor_lstats_get_info
+	},
+#endif /* LINKSTAT_SUPPORT */
 };
 
 static const struct  nl80211_vendor_cmd_info wl_vendor_events [] = {
