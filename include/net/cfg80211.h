@@ -1447,10 +1447,14 @@ struct cfg80211_auth_request {
  *
  * @ASSOC_REQ_DISABLE_HT:  Disable HT (802.11n)
  * @ASSOC_REQ_DISABLE_VHT:  Disable VHT
+ * @ASSOC_REQ_OFFLOAD_KEY_MGMT:  Requests that device handle establishment
+ *	of temporal keys if possible during initial RSN connection or after
+ *	roaming
  */
 enum cfg80211_assoc_req_flags {
 	ASSOC_REQ_DISABLE_HT		= BIT(0),
 	ASSOC_REQ_DISABLE_VHT		= BIT(1),
+	ASSOC_REQ_OFFLOAD_KEY_MGMT	= BIT(2),
 };
 
 /**
@@ -1603,6 +1607,8 @@ struct cfg80211_ibss_params {
  * @ht_capa_mask:  The bits of ht_capa which are to be used.
  * @vht_capa:  VHT Capability overrides
  * @vht_capa_mask: The bits of vht_capa which are to be used.
+ * @psk:  The Preshared Key to be used for the connection.
+ *	(only valid if ASSOC_REQ_OFFLOAD_KEY_MGMT is set)
  */
 struct cfg80211_connect_params {
 	struct ieee80211_channel *channel;
@@ -1625,6 +1631,7 @@ struct cfg80211_connect_params {
 	struct ieee80211_ht_cap ht_capa_mask;
 	struct ieee80211_vht_cap vht_capa;
 	struct ieee80211_vht_cap vht_capa_mask;
+	const u8 *psk;
 };
 
 /**
@@ -2080,6 +2087,10 @@ struct cfg80211_qos_map {
  * @set_ap_chanwidth: Set the AP (including P2P GO) mode channel width for the
  *	given interface This is used e.g. for dynamic HT 20/40 MHz channel width
  *	changes during the lifetime of the BSS.
+ *
+ * @key_mgmt_set_pmk: Used to pass the PMK to the device for key management
+ *	offload.  This will be used in the case of key management offload on an
+ *	already established PMKSA.
  */
 struct cfg80211_ops {
 	int	(*suspend)(struct wiphy *wiphy, struct cfg80211_wowlan *wow);
@@ -2323,6 +2334,9 @@ struct cfg80211_ops {
 
 	int	(*set_ap_chanwidth)(struct wiphy *wiphy, struct net_device *dev,
 				    struct cfg80211_chan_def *chandef);
+
+	int	(*key_mgmt_set_pmk)(struct wiphy *wiphy, struct net_device *dev,
+				   u8 *pmk);
 };
 
 /*
@@ -2394,6 +2408,14 @@ struct cfg80211_ops {
  * @WIPHY_FLAG_OFFCHAN_TX: Device supports direct off-channel TX.
  * @WIPHY_FLAG_HAS_REMAIN_ON_CHANNEL: Device supports remain-on-channel call.
  * @WIPHY_FLAG_DFS_OFFLOAD: The driver handles all the DFS related operations.
+ * @WIPHY_FLAG_HAS_KEY_MGMT_OFFLOAD: Device operating as a station is
+ *	capable of doing the exchange necessary to establish temporal keys
+ *	during initial RSN connection, after roaming, or during a PTK rekeying
+ *	operation.  Supplicant should expect to do the exchange itself, by
+ *	preparing to process the EAPOL-Key frames, until
+ *	NL80211_CMD_AUTHORIZATION_EVENT is sent with success status.  The
+ *	supported types of key management offload are advertised by
+ *	NL80211_ATTR_KEY_MGMT_OFFLOAD.
  */
 enum wiphy_flags {
 	WIPHY_FLAG_CUSTOM_REGULATORY		= BIT(0),
@@ -2417,7 +2439,8 @@ enum wiphy_flags {
 	WIPHY_FLAG_AP_PROBE_RESP_OFFLOAD	= BIT(19),
 	WIPHY_FLAG_OFFCHAN_TX			= BIT(20),
 	WIPHY_FLAG_HAS_REMAIN_ON_CHANNEL	= BIT(21),
-	WIPHY_FLAG_DFS_OFFLOAD                  = BIT(22)
+	WIPHY_FLAG_DFS_OFFLOAD                  = BIT(22),
+	WIPHY_FLAG_HAS_KEY_MGMT_OFFLOAD		= BIT(23),
 };
 
 /**
@@ -2700,6 +2723,14 @@ struct wiphy_vendor_command {
  *	(including P2P GO) or 0 to indicate no such limit is advertised. The
  *	driver is allowed to advertise a theoretical limit that it can reach in
  *	some cases, but may not always reach.
+ *
+ * @key_mgmt_offload_support: Bitmap of supported types of key management
+ *	that can be offloaded to the device.  See
+ *	nl80211_key_mgmt_offload_support.
+ *	Only valid when WIPHY_FLAG_HAS_KEY_MGMT_OFFLOAD is set.
+ * @key_derive_offload_support: Bitmap of supported key derivations used as
+ *	part of key management offload.  See nl80211_key_derive_offload_support.
+ *	Only valid when WIPHY_FLAG_HAS_KEY_MGMT_OFFLOAD is set.
  */
 struct wiphy {
 	/* assign these fields before you register the wiphy */
@@ -2815,6 +2846,9 @@ struct wiphy {
 	int n_vendor_commands, n_vendor_events;
 
 	u16 max_ap_assoc_sta;
+
+	u32 key_mgmt_offload_support;
+	u32 key_derive_offload_support;
 
 	char priv[0] __aligned(NETDEV_ALIGN);
 };
@@ -4469,6 +4503,34 @@ void cfg80211_ap_stopped(struct net_device *netdev, gfp_t gfp);
  * a proxy service.
  */
 bool cfg80211_is_gratuitous_arp_unsolicited_na(struct sk_buff *skb);
+
+/**
+ * cfg80211_authorization_event - indicates key management offload complete
+ * @dev: the device reporting offload
+ * @auth_status: whether offload was successful
+ * @key_replay_ctr: Key Replay Counter value last used in a valid
+ *	EAPOL-Key frame
+ * @gfp: allocation flags
+ *
+ * This function reports that the device offloaded the key management
+ * operation and established temporal keys for an RSN connection.  In
+ * this case, the device handled the exchange necessary to establish
+ * the temporal keys by processing the EAPOL-Key frames instead of
+ * the supplicant doing it.  This means the initial connection, roam
+ * operation, or PKT rekeying is complete and the supplicant should
+ * enter the authorized state for the port.  This event can be signaled
+ * after cfg80211_connect_result during initial connection or after
+ * cfg80211_roamed in the case of roaming.  This event might also be
+ * signaled after the device handles a PTK rekeying operation.  If the
+ * auth_status parameter indicates that offload was not successful,
+ * then the supplicant should expect to do the necessary key management
+ * with the AP and the EAPOL-Key frames should be delivered to
+ * the supplicant.
+ */
+void cfg80211_authorization_event(struct net_device *dev,
+				  enum nl80211_authorization_status auth_status,
+				  const u8 *key_replay_ctr,
+				  gfp_t gfp);
 
 /* Logging, debugging and troubleshooting/diagnostic helpers. */
 
