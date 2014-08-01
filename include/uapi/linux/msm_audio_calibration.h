@@ -179,6 +179,7 @@ struct audio_cal_info_adm_top {
 	/* RX_DEVICE or TX_DEVICE */
 	int32_t		path;
 	int32_t		app_type;
+	int32_t         sample_rate;
 };
 
 struct audio_cal_info_audproc {
