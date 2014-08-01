@@ -147,6 +147,8 @@
 	};
 };
 
+#include "msm-gdsc.dtsi"
+
 &soc {
 	#address-cells = <1>;
 	#size-cells = <1>;
@@ -330,6 +332,88 @@
 		qcom,ver-reg-exists;
 		qcom,master-id = <86>;
         };
+};
+
+&gdsc_usb30 {
+	reg = <0xfc4003c4 0x4>;
+	status = "ok";
+};
+
+&gdsc_pcie_0 {
+	status = "ok";
+};
+
+&gdsc_venus {
+	clock-names = "ocmem_clk", "bus_clk", "core_clk";
+	clocks = <&clock_mmss clk_venus0_ocmemnoc_clk>,
+		 <&clock_mmss clk_venus0_axi_clk>,
+		 <&clock_mmss clk_venus0_vcodec0_clk>;
+	status = "ok";
+};
+
+&gdsc_venus_core0 {
+	qcom,support-hw-trigger;
+	clock-names = "core0_clk";
+	clocks = <&clock_mmss clk_venus0_core0_vcodec_clk>;
+	status = "ok";
+};
+
+&gdsc_venus_core1 {
+	qcom,support-hw-trigger;
+	clock-names = "core1_clk";
+	clocks = <&clock_mmss clk_venus0_core1_vcodec_clk>;
+	status = "ok";
+};
+
+&gdsc_mdss {
+	clock-names = "bus_clk", "core_clk";
+	clocks = <&clock_mmss clk_mdss_axi_clk>,
+		 <&clock_mmss clk_mdss_mdp_clk>;
+	status = "ok";
+};
+
+&gdsc_camss_top {
+	clock-names = "csi0_clk", "csi1_clk", "bus_clk";
+	clocks = <&clock_mmss clk_camss_csi_vfe0_clk>,
+		 <&clock_mmss clk_camss_csi_vfe1_clk>,
+		 <&clock_mmss clk_camss_micro_ahb_clk>;
+	status = "ok";
+};
+
+&gdsc_jpeg {
+	clock-names = "bus_clk", "core0_clk";
+	clocks = <&clock_mmss clk_camss_jpeg_jpeg_axi_clk>,
+		 <&clock_mmss clk_camss_jpeg_jpeg0_clk>;
+	parent-supply = <&gdsc_camss_top>;
+	status = "ok";
+};
+
+&gdsc_vfe {
+	clock-names = "bus_clk", "core0_clk", "core1_clk";
+	clocks = <&clock_mmss clk_camss_vfe_vfe_axi_clk>,
+		 <&clock_mmss clk_camss_vfe_vfe0_clk>,
+		 <&clock_mmss clk_camss_vfe_vfe1_clk>;
+	parent-supply = <&gdsc_camss_top>;
+	status = "ok";
+};
+
+&gdsc_cpp {
+	clock-names = "bus_clk", "core_clk";
+	clocks = <&clock_mmss clk_camss_vfe_cpp_axi_clk>,
+		 <&clock_mmss clk_camss_vfe_cpp_clk>;
+	parent-supply = <&gdsc_camss_top>;
+	status = "ok";
+};
+
+&gdsc_oxili_cx {
+	status = "ok";
+};
+
+&gdsc_oxili_gx {
+	clock-names = "core_clk";
+	clocks = <&clock_mmss clk_oxili_gfx3d_clk>;
+	status = "ok";
+	parent-supply = <&pmi8992_s2_corner>;
 };
 
 #include "msm8992-ion.dtsi"
