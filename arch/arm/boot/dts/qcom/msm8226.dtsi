@@ -181,8 +181,11 @@
 		qcom,clock-configs = <0x3 0x0 0x0>;
 		qcom,sw-power-collapse;
 		qcom,load-freq-tbl = <352800 160000000 0xffffffff>,
+			<352800 160000000 0x55555555>,
 			<244800 133330000 0xffffffff>,
-			<108000  66700000 0xffffffff>;
+			<244800 133330000 0x55555555>,
+			<108000  66700000 0xffffffff>,
+			<108000  66700000 0x55555555>;
 		qcom,hfi = "venus";
 		qcom,reg-presets = <0xE0024 0x0>,
 			<0x80124 0x3>,
