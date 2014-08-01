@@ -722,8 +722,8 @@ static const struct file_operations ufsdbg_power_mode_desc = {
 void ufsdbg_add_debugfs(struct ufs_hba *hba)
 {
 	if (!hba) {
-		dev_err(hba->dev, "%s: NULL hba, exiting", __func__);
-		goto err_no_root;
+		pr_err("%s: NULL hba, exiting\n", __func__);
+		return;
 	}
 
 	hba->debugfs_files.debugfs_root = debugfs_create_dir("ufs", NULL);
