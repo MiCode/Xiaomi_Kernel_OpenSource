@@ -131,7 +131,8 @@ static int msm_csid_config(struct csid_device *csid_dev,
 	struct msm_camera_csid_params *csid_params)
 {
 	int rc = 0;
-	uint32_t val = 0;
+	uint32_t val = 0, clk_rate = 0, round_rate = 0;
+	struct clk **csid_clk_ptr;
 	void __iomem *csidbase;
 	csidbase = csid_dev->base;
 	if (!csidbase || !csid_params) {
@@ -148,6 +149,27 @@ static int msm_csid_config(struct csid_device *csid_dev,
 		csid_params->phy_sel);
 
 	msm_csid_reset(csid_dev);
+
+	csid_clk_ptr = csid_dev->csid_clk;
+	if (!csid_clk_ptr) {
+		pr_err("csi_src_clk get failed\n");
+		return -EINVAL;
+	}
+
+	clk_rate = (csid_params->csi_clk > 0) ?
+				(csid_params->csi_clk) : csid_dev->csid_max_clk;
+	round_rate = clk_round_rate(csid_clk_ptr[csid_dev->csid_clk_index],
+					clk_rate);
+	if (round_rate > csid_dev->csid_max_clk)
+		round_rate = csid_dev->csid_max_clk;
+	pr_debug("usr set rate csi_clk clk_rate = %u round_rate = %u\n",
+					clk_rate, round_rate);
+	rc = clk_set_rate(csid_clk_ptr[csid_dev->csid_clk_index],
+				round_rate);
+	if (rc < 0) {
+		pr_err("csi_src_clk set failed\n");
+		return rc;
+	}
 
 	val = csid_params->lane_cnt - 1;
 	val |= csid_params->lane_assign <<
@@ -784,7 +806,13 @@ static int msm_csid_get_clk_info(struct csid_device *csid_dev,
 	}
 	for (i = 0; i < count; i++) {
 		csid_clk_info[i].clk_rate = (rates[i] == 0) ?
-				(long)-1 : rates[i];
+			(long)-1 : rates[i];
+		if (!strcmp(csid_clk_info[i].clk_name, "csi_src_clk")) {
+			CDBG("%s:%d, copy csi_src_clk",
+				__func__, __LINE__);
+			csid_dev->csid_max_clk = rates[i];
+			csid_dev->csid_clk_index = i;
+		}
 		CDBG("%s: clk_rate[%d] = %ld\n", __func__, i,
 			csid_clk_info[i].clk_rate);
 	}

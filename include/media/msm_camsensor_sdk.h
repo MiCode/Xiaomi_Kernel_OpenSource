@@ -218,6 +218,7 @@ struct msm_camera_csid_params {
 	uint8_t lane_cnt;
 	uint16_t lane_assign;
 	uint8_t phy_sel;
+	uint32_t csi_clk;
 	struct msm_camera_csid_lut_params lut_params;
 };
 
@@ -227,6 +228,7 @@ struct msm_camera_csiphy_params {
 	uint16_t lane_mask;
 	uint8_t combo_mode;
 	uint8_t csid_core;
+	uint32_t csiphy_clk;
 };
 
 struct msm_camera_i2c_seq_reg_array {

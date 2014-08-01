@@ -48,12 +48,14 @@ static int msm_csiphy_lane_config(struct csiphy_device *csiphy_dev,
 {
 	int rc = 0;
 	int j = 0, curr_lane = 0;
-	uint32_t val = 0;
+	uint32_t val = 0, clk_rate = 0, round_rate = 0;
 	uint8_t lane_cnt = 0;
 	uint16_t lane_mask = 0;
 	void __iomem *csiphybase;
 	uint8_t csiphy_id = csiphy_dev->pdev->id;
 	int32_t lane_val = 0, lane_right = 0, num_lanes = 0;
+	struct clk **csid_phy_clk_ptr;
+	int ratio = 1;
 
 	csiphybase = csiphy_dev->base;
 	if (!csiphybase) {
@@ -67,6 +69,35 @@ static int msm_csiphy_lane_config(struct csiphy_device *csiphy_dev,
 	if (csiphy_params->lane_cnt < 1 || csiphy_params->lane_cnt > 4) {
 		pr_err("%s: unsupported lane cnt %d\n",
 			__func__, csiphy_params->lane_cnt);
+		return rc;
+	}
+
+	csid_phy_clk_ptr = csiphy_dev->csiphy_clk;
+	if (!csid_phy_clk_ptr) {
+		pr_err("csiphy_timer_src_clk get failed\n");
+		return -EINVAL;
+	}
+
+	clk_rate = (csiphy_params->csiphy_clk > 0)
+			? csiphy_params->csiphy_clk :
+			csiphy_dev->csiphy_max_clk;
+	round_rate = clk_round_rate(
+			csid_phy_clk_ptr[csiphy_dev->csiphy_clk_index],
+			clk_rate);
+	if (round_rate >= csiphy_dev->csiphy_max_clk)
+		round_rate = csiphy_dev->csiphy_max_clk;
+	else {
+		ratio = csiphy_dev->csiphy_max_clk/round_rate;
+		csiphy_params->settle_cnt = csiphy_params->settle_cnt/ratio;
+	}
+
+	CDBG("set from usr csiphy_clk clk_rate = %u round_rate = %u\n",
+			clk_rate, round_rate);
+	rc = clk_set_rate(
+		csid_phy_clk_ptr[csiphy_dev->csiphy_clk_index],
+		round_rate);
+	if (rc < 0) {
+		pr_err("csiphy_timer_src_clk set failed\n");
 		return rc;
 	}
 
@@ -778,6 +809,13 @@ static int msm_csiphy_get_clk_info(struct csiphy_device *csiphy_dev,
 	for (i = 0; i < count; i++) {
 		csiphy_clk_info[i].clk_rate = (rates[i] == 0) ?
 				(long)-1 : rates[i];
+		if (!strcmp(csiphy_clk_info[i].clk_name,
+				"csiphy_timer_src_clk")) {
+			CDBG("%s:%d, copy csiphy_timer_src_clk",
+				__func__, __LINE__);
+			csiphy_dev->csiphy_max_clk = rates[i];
+			csiphy_dev->csiphy_clk_index = i;
+		}
 		CDBG("%s: clk_rate[%d] = %ld\n", __func__, i,
 			csiphy_clk_info[i].clk_rate);
 	}
