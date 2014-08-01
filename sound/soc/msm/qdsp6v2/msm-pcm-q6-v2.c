@@ -205,7 +205,16 @@ static void event_handler(uint32_t opcode,
 			pr_debug("%s: reclaim flushed buf in_count %x\n",
 				__func__, atomic_read(&prtd->in_count));
 			prtd->pcm_irq_pos += prtd->pcm_count;
-			atomic_inc(&prtd->in_count);
+			if (prtd->mmap_flag) {
+				if (q6asm_is_cpu_buf_avail_nolock(OUT,
+				    prtd->audio_client,
+				    &size, &idx) &&
+				    (substream->runtime->status->state ==
+				    SNDRV_PCM_STATE_RUNNING))
+					q6asm_read_nolock(prtd->audio_client);
+			} else {
+				atomic_inc(&prtd->in_count);
+			}
 			if (atomic_read(&prtd->in_count) == prtd->periods) {
 				pr_info("%s: reclaimed all bufs\n", __func__);
 				if (atomic_read(&prtd->start))
