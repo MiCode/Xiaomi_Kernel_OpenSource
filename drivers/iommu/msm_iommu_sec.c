@@ -111,7 +111,7 @@ struct msm_cp_pool_size {
 struct msm_scm_fault_regs_dump {
 	uint32_t dump_size;
 	uint32_t dump_data[SEC_DUMP_SIZE];
-} __aligned(cache_line_size());
+} __aligned(PAGE_SIZE);
 
 void msm_iommu_sec_set_access_ops(struct iommu_access_ops *access_ops)
 {
