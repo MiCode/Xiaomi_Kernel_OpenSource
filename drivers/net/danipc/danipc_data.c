@@ -31,8 +31,6 @@
 #include "danipc_k.h"
 #include "danipc_lowlevel.h"
 
-#define SPURIOUS_FRAME_WORKAROUND
-
 void send_pkt(struct sk_buff *skb)
 {
 	struct danipc_pair	*pair = (struct danipc_pair *)
@@ -47,7 +45,6 @@ void send_pkt(struct sk_buff *skb)
 			skb->data,
 			skb->len,
 			0x12,
-			NULL,
 			pair->prio
 		);
 
@@ -97,34 +94,28 @@ int danipc_hard_start_xmit(struct sk_buff *skb, struct net_device *dev)
 								[pair->prio];
 	int			rc = NETDEV_TX_OK;
 
-#ifdef SPURIOUS_FRAME_WORKAROUND
-	/* After the device is opened (ifconfig danipc up) someone (kernel?)
-	 * sends 6 weird packets to our interface. Meantime just discard
-	 * these packages, afterwards will need to understand the source and
-	 * handle them properly.
-	 * Vladik, 27.11.2013
+	/* DANICP is a network device, however it does not support regular IP
+	 * packets. All packets not identified by DANIPC protcol (marked with
+	 * COOKIE_BASE bits) are discarded.
 	 */
-	if (pair->prio == 13) {	/* TODO: replace to ">= IPC_trns_prio_1 */
-		printk(
-			"%s: unknown packet; pair {src=0x%x dst=0x%x prio=%u}, ignoring\n",
-				__func__, pair->src, pair->dst, pair->prio);
+	if ((skb->protocol & __constant_htons(0xf000)) ==
+		__constant_htons(COOKIE_BASE)) {
+		if (map->paddr && atomic_read(&map->pending_skbs) == 0)
+			send_pkt(skb);
+		else
+			rc = delay_skb(skb, map);
+	} else {
 		dev_kfree_skb(skb);
-		return rc;
+		netdev_dbg(dev, "%s() discard packet with protocol=0x%x\n",
+			__func__, ntohs(skb->protocol));
 	}
-#endif
-
-	if (map->paddr && atomic_read(&map->pending_skbs) == 0)
-		send_pkt(skb);
-	else
-		rc = delay_skb(skb, map);
-
 	return rc;
 }
 
 static void
 read_ipc_message(char *const packet, char *buf,
 		struct ipc_msg_hdr *const first_hdr, const unsigned len,
-		u8 cpu_id, enum ipc_trns_prio prio)
+		u8 cpuid, enum ipc_trns_prio prio)
 {
 	unsigned		data_len = IPC_FIRST_BUF_DATA_SIZE_MAX;
 	unsigned		total_len = 0;
@@ -134,7 +125,7 @@ read_ipc_message(char *const packet, char *buf,
 	struct ipc_buf_hdr	*next_ptr = NULL;
 
 	if (first_hdr->next)
-		first_hdr->next = ipc_to_virt(cpu_id, prio,
+		first_hdr->next = ipc_to_virt(cpuid, prio,
 						(u32)first_hdr->next);
 	next_ptr = first_hdr->next;
 
@@ -144,7 +135,7 @@ read_ipc_message(char *const packet, char *buf,
 			data_ptr = (uint8_t *)(next_ptr) +
 						sizeof(struct ipc_buf_hdr);
 			if (next_ptr->next)
-				next_ptr->next = ipc_to_virt(cpu_id, prio,
+				next_ptr->next = ipc_to_virt(cpuid, prio,
 						(u32)next_ptr->next);
 			next_ptr = next_ptr->next;
 		}
@@ -162,7 +153,7 @@ read_ipc_message(char *const packet, char *buf,
 }
 
 void
-handle_incoming_packet(char *const packet, u8 cpu_id, enum ipc_trns_prio prio)
+handle_incoming_packet(char *const packet, u8 cpuid, enum ipc_trns_prio prio)
 {
 	struct ipc_msg_hdr *const first_hdr = (struct ipc_msg_hdr *)packet;
 	const unsigned			msg_len = first_hdr->msg_len;
@@ -176,7 +167,7 @@ handle_incoming_packet(char *const packet, u8 cpu_id, enum ipc_trns_prio prio)
 		pair->dst = first_hdr->dest_aid;
 		pair->src = first_hdr->src_aid;
 
-		read_ipc_message(packet, skb->data, first_hdr, msg_len, cpu_id,
+		read_ipc_message(packet, skb->data, first_hdr, msg_len, cpuid,
 					prio);
 
 		netdev_dbg(danipc_dev, "%s() pair={dst=0x%x src=0x%x}\n",

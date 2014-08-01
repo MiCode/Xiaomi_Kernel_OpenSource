@@ -96,7 +96,7 @@ char *ipc_buf_alloc(uint8_t dest_aid, enum ipc_trns_prio prio)
 	if (likely(trns_funcs)) {
 		alloc_func = trns_funcs->trns_alloc;
 		if (likely(alloc_func)) {
-			ptr = alloc_func(dest_aid, prio);
+			ptr = alloc_func(cpuid, prio);
 
 			/* Clear the 'Next buffer' field. */
 			if (likely(ptr))
@@ -150,7 +150,7 @@ int32_t ipc_buf_free(char *buf_first, enum ipc_trns_prio prio)
 					next_buf = ((struct ipc_msg_hdr *)
 					 IPC_NEXT_PTR_PART(cur_buf))->next;
 					free_func(IPC_NEXT_PTR_PART(cur_buf),
-							dest_aid, prio);
+							cpuid, prio);
 					cur_buf = next_buf;
 				} while ((uint32_t)cur_buf & IPC_BUF_TYPE_MTC);
 				res = IPC_SUCCESS;
@@ -265,7 +265,6 @@ static int32_t ipc_msg_set_reply_ptr(
  *			msg		- Pointer to message data
  *			msg_len		- Message length
  *			msg_type	- Message type
- *			reply		- Pointer to allocated reply buffer
  *			prio		- Transport priority level
  *
  *
@@ -278,7 +277,6 @@ char *ipc_msg_alloc(
 	char			*msg,
 	size_t			msg_len,
 	uint8_t			msg_type,
-	char			*reply,
 	enum ipc_trns_prio	prio
 )
 {
@@ -320,7 +318,7 @@ char *ipc_msg_alloc(
 	} else if (first_buf) {
 		ipc_msg_set_type(first_buf, msg_type);
 		ipc_msg_set_len(first_buf, msg_len);
-		ipc_msg_set_reply_ptr(first_buf, reply);
+		ipc_msg_set_reply_ptr(first_buf, NULL);
 		((struct ipc_msg_hdr *)first_buf)->dest_aid = dest_aid;
 		((struct ipc_msg_hdr *)first_buf)->src_aid = src_aid;
 		((struct ipc_msg_hdr *)first_buf)->request_num = ipc_req_sn;
@@ -388,7 +386,7 @@ int32_t ipc_msg_send(char *buf_first, enum ipc_trns_prio prio)
 		if (likely(trns_funcs)) {
 			send_func = trns_funcs->trns_send;
 			if (send_func)
-				res = send_func((char *)buf, dest_aid, prio);
+				res = send_func((char *)buf, cpuid, prio);
 		}
 	}
 	return res;

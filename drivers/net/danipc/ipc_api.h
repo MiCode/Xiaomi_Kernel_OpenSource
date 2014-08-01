@@ -236,7 +236,6 @@ int32_t ipc_buf_free(char *buf_first, enum ipc_trns_prio pri);
  *			msg		- Pointer to message data (optional)
  *			msg_len		- Message length
  *			msg_type	- Message type
- *			reply		- Pointer to allocated reply buffer
  *			pri		- Transport priority level
  *
  *
@@ -250,7 +249,6 @@ char *ipc_msg_alloc
 	char			*msg,
 	size_t			msg_len,
 	uint8_t			msg_type,
-	char			*reply,
 	enum ipc_trns_prio	pri
 );
 
