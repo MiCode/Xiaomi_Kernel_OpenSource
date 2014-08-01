@@ -898,11 +898,14 @@ static void msm_iommu_detach_dev(struct iommu_domain *domain,
 	int ret;
 	int is_secure;
 
+	if (!dev)
+		return;
+
 	msm_iommu_detached(dev->parent);
 
 	mutex_lock(&msm_iommu_lock);
 	priv = domain->priv;
-	if (!priv || !dev)
+	if (!priv)
 		goto unlock;
 
 	iommu_drvdata = dev_get_drvdata(dev->parent);
