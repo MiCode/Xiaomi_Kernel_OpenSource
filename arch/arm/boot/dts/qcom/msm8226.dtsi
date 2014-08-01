@@ -1050,6 +1050,12 @@
 			< 4066 /* 533 MHz */ >;
 	};
 
+	qcom,armbw-pm {
+		compatible = "qcom,armbw-pm";
+		interrupts = <1 7 0xF1>;
+		qcom,bytes-per-beat = <16>;
+	};
+
 	devfreq-cpufreq {
 		cpubw-cpufreq {
 			target-dev = <&cpubw>;
