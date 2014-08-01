@@ -1483,12 +1483,19 @@ struct subsys_device *subsys_register(struct subsys_desc *desc)
 								desc->name);
 	}
 
+	ret = sysmon_notifier_register(desc);
+	if (ret < 0)
+		goto err_sysmon_notifier;
+
 	mutex_lock(&subsys_list_lock);
 	INIT_LIST_HEAD(&subsys->list);
 	list_add_tail(&subsys->list, &subsys_list);
 	mutex_unlock(&subsys_list_lock);
 
 	return subsys;
+err_sysmon_notifier:
+	if (ofnode)
+		subsys_free_irqs(subsys);
 err_setup_irqs:
 	if (ofnode)
 		subsys_remove_restart_order(ofnode);
@@ -1529,6 +1536,7 @@ void subsys_unregister(struct subsys_device *subsys)
 		mutex_unlock(&subsys->track.lock);
 		subsys_debugfs_remove(subsys);
 		subsys_char_device_remove(subsys);
+		sysmon_notifier_unregister(subsys->desc);
 		put_device(&subsys->dev);
 	}
 }

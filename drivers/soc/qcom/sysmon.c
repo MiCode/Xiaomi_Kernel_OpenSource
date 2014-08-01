@@ -115,7 +115,7 @@ static int sysmon_send_msg(struct sysmon_subsys *ss, const char *tx_buf,
 }
 
 /**
- * sysmon_send_event() - Notify a subsystem of another's state change
+ * sysmon_send_event_no_qmi() - Notify a subsystem of another's state change
  * @dest_desc:	Subsystem descriptor of the subsystem the notification
  * should be sent to
  * @event_desc:	Subsystem descriptor of the subsystem that generated the
@@ -129,7 +129,7 @@ static int sysmon_send_msg(struct sysmon_subsys *ss, const char *tx_buf,
  *
  * If CONFIG_MSM_SYSMON_COMM is not defined, always return success (0).
  */
-int sysmon_send_event(struct subsys_desc *dest_desc,
+int sysmon_send_event_no_qmi(struct subsys_desc *dest_desc,
 			struct subsys_desc *event_desc,
 			enum subsys_notif_type notif)
 {
@@ -160,18 +160,23 @@ int sysmon_send_event(struct subsys_desc *dest_desc,
 
 	mutex_lock(&ss->lock);
 	ret = sysmon_send_msg(ss, tx_buf, strlen(tx_buf));
-	if (ret)
+	if (ret) {
+		pr_err("Message sending failed %d\n", ret);
 		goto out;
+	}
 
-	if (strncmp(ss->rx_buf, "ssr:ack", ARRAY_SIZE(ss->rx_buf)))
+	if (strcmp(ss->rx_buf, "ssr:ack")) {
+		pr_err("Unexpected response %s\n", ss->rx_buf);
 		ret = -ENOSYS;
+	}
 out:
 	mutex_unlock(&ss->lock);
 	return ret;
 }
+EXPORT_SYMBOL(sysmon_send_event_no_qmi);
 
 /**
- * sysmon_send_shutdown() - send shutdown command to a subsystem.
+ * sysmon_send_shutdown_no_qmi() - send shutdown command to a subsystem.
  * @dest_desc:	Subsystem descriptor of the subsystem to send to
  *
  * Returns 0 for success, -EINVAL for an invalid destination, -ENODEV if
@@ -181,12 +186,11 @@ out:
  *
  * If CONFIG_MSM_SYSMON_COMM is not defined, always return success (0).
  */
-int sysmon_send_shutdown(struct subsys_desc *dest_desc)
+int sysmon_send_shutdown_no_qmi(struct subsys_desc *dest_desc)
 {
 	struct sysmon_subsys *tmp, *ss = NULL;
 	const char tx_buf[] = "system:shutdown";
 	const char expect[] = "system:ack";
-	size_t prefix_len = ARRAY_SIZE(expect) - 1;
 	int ret;
 
 	mutex_lock(&sysmon_list_lock);
@@ -203,18 +207,23 @@ int sysmon_send_shutdown(struct subsys_desc *dest_desc)
 
 	mutex_lock(&ss->lock);
 	ret = sysmon_send_msg(ss, tx_buf, ARRAY_SIZE(tx_buf));
-	if (ret)
+	if (ret) {
+		pr_err("Message sending failed %d\n", ret);
 		goto out;
+	}
 
-	if (strncmp(ss->rx_buf, expect, prefix_len))
+	if (strcmp(ss->rx_buf, expect)) {
+		pr_err("Unexpected response %s\n", ss->rx_buf);
 		ret = -ENOSYS;
+	}
 out:
 	mutex_unlock(&ss->lock);
 	return ret;
 }
+EXPORT_SYMBOL(sysmon_send_shutdown_no_qmi);
 
 /**
- * sysmon_get_reason() - Retrieve failure reason from a subsystem.
+ * sysmon_get_reason_no_qmi() - Retrieve failure reason from a subsystem.
  * @dest_desc:	Subsystem descriptor of the subsystem to query
  * @buf:	Caller-allocated buffer for the returned NUL-terminated reason
  * @len:	Length of @buf
@@ -226,7 +235,8 @@ out:
  *
  * If CONFIG_MSM_SYSMON_COMM is not defined, always return success (0).
  */
-int sysmon_get_reason(struct subsys_desc *dest_desc, char *buf, size_t len)
+int sysmon_get_reason_no_qmi(struct subsys_desc *dest_desc,
+				char *buf, size_t len)
 {
 	struct sysmon_subsys *tmp, *ss = NULL;
 	const char tx_buf[] = "ssr:retrieve:sfr";
@@ -248,10 +258,13 @@ int sysmon_get_reason(struct subsys_desc *dest_desc, char *buf, size_t len)
 
 	mutex_lock(&ss->lock);
 	ret = sysmon_send_msg(ss, tx_buf, ARRAY_SIZE(tx_buf));
-	if (ret)
+	if (ret) {
+		pr_err("Message sending failed %d\n", ret);
 		goto out;
+	}
 
 	if (strncmp(ss->rx_buf, expect, prefix_len)) {
+		pr_err("Unexpected response %s\n", ss->rx_buf);
 		ret = -ENOSYS;
 		goto out;
 	}
@@ -260,6 +273,7 @@ out:
 	mutex_unlock(&ss->lock);
 	return ret;
 }
+EXPORT_SYMBOL(sysmon_get_reason_no_qmi);
 
 static void sysmon_smd_notify(void *priv, unsigned int smd_event)
 {
