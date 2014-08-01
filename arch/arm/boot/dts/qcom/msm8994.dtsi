@@ -2589,6 +2589,7 @@
 		compatible = "qcom,bcl";
 		qcom,bcl-enable;
 		qcom,bcl-framework-interface;
+		qcom,bcl-hotplug-mask = <0xF0>;
 		qcom,ibat-monitor {
 			low-threshold-uamp = <1500000>;
 			high-threshold-uamp = <3500000>;
