@@ -28,6 +28,7 @@ static char *descriptions =
 	" 3 Perf: arm64: enable cti workaround\n"
 	" 4 Perf: arm64: support hotplug and power collapse\n"
 	" 5 Perf: arm64: add perf user-mode permissions\n"
+	" 6 Perf: arm64: Add debugfs node to clear PMU\n"
 ;
 
 static ssize_t desc_read(struct file *fp, char __user *buf,

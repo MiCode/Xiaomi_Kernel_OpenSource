@@ -30,6 +30,7 @@
 #include <linux/spinlock.h>
 #include <linux/uaccess.h>
 #include <linux/cpu_pm.h>
+#include <linux/debugfs.h>
 
 #include <asm/cputype.h>
 #include <asm/irq.h>
@@ -1751,3 +1752,47 @@ unsigned long perf_misc_flags(struct pt_regs *regs)
 
 	return misc;
 }
+
+#ifdef CONFIG_PERF_EVENTS_RESET_PMU_DEBUGFS
+static void reset_pmu_force(void)
+{
+	if (cpu_pmu && cpu_pmu->reset)
+		on_each_cpu(cpu_pmu->reset, NULL, 1);
+	if (cpu_pmu && cpu_pmu->plat_device)
+		armpmu_release_hardware(cpu_pmu);
+}
+
+static int write_enabled_perfpmu_action(void *data, u64 val)
+{
+	if (val != 0)
+		reset_pmu_force();
+	return 0;
+}
+
+DEFINE_SIMPLE_ATTRIBUTE(fops_pmuaction,
+		NULL, write_enabled_perfpmu_action, "%llu\n");
+
+int __init init_pmu_actions(void)
+{
+	struct dentry *dir;
+	struct dentry *file;
+	unsigned int value = 1;
+
+	dir = debugfs_create_dir("msm_perf", NULL);
+	if (!dir)
+		return -ENOMEM;
+	file = debugfs_create_file("resetpmu", 0220, dir,
+		&value, &fops_pmuaction);
+	if (!file) {
+		debugfs_remove(dir);
+		return -ENOMEM;
+	}
+	return 0;
+}
+#else
+int __init init_pmu_actions(void)
+{
+	return 0;
+}
+#endif
+late_initcall(init_pmu_actions);
