@@ -160,6 +160,10 @@ enum {
 	MDP_YCBYCR_H2V1,  /* YCbYCr interleave */
 	MDP_RGB_565_TILE,	  /* RGB 565 in tile format */
 	MDP_BGR_565_TILE,	  /* BGR 565 in tile format */
+	MDP_ARGB_1555,	/*ARGB 1555*/
+	MDP_RGBA_5551,	/*RGBA 5551*/
+	MDP_ARGB_4444,	/*ARGB 4444*/
+	MDP_RGBA_4444,	/*RGBA 4444*/
 	MDP_IMGTYPE_LIMIT,
 	MDP_RGB_BORDERFILL,	/* border fill pipe */
 	MDP_FB_FORMAT = MDP_IMGTYPE2_START,    /* framebuffer format */
