@@ -83,6 +83,7 @@ struct adreno_ringbuffer_pagetable_info {
  * @pt_update_desc: The memory descriptor containing commands that update
  * pagetable
  * @dispatch_q: The dispatcher side queue for this ringbuffer
+ * @ts_expire_waitq: Wait queue to wait for rb timestamp to expire
  */
 struct adreno_ringbuffer {
 	struct kgsl_device *device;
@@ -101,6 +102,7 @@ struct adreno_ringbuffer {
 	struct kgsl_memdesc pagetable_desc;
 	struct kgsl_memdesc pt_update_desc;
 	struct adreno_dispatcher_cmdqueue dispatch_q;
+	wait_queue_head_t ts_expire_waitq;
 };
 
 /**
@@ -114,6 +116,18 @@ struct adreno_ringbuffer_mmu_disable_clk_param {
 	struct adreno_ringbuffer *rb;
 	int unit;
 	unsigned int ts;
+};
+
+/**
+ * struct adreno_ringbuffer_rb_wait_params - Structure containing parameters
+ * to handle the condition for a thread to wake up when it's corresponding event
+ * fires.
+ * @rb: The pointer to the ringbuffer on whose timestamp the thread is waiting
+ * @result: The event firing result
+ */
+struct adreno_ringbuffer_wait_params {
+	struct adreno_ringbuffer *rb;
+	int result;
 };
 
 /* enable timestamp (...scratch0) memory shadowing */
@@ -167,7 +181,16 @@ void adreno_ringbuffer_read_pfp_ucode(struct kgsl_device *device);
 void adreno_ringbuffer_read_pm4_ucode(struct kgsl_device *device);
 
 void adreno_ringbuffer_mmu_disable_clk_on_ts(struct kgsl_device *device,
-			struct adreno_ringbuffer *rb, int unit);
+			struct adreno_ringbuffer *rb, unsigned int ts,
+			int unit);
+
+int adreno_ringbuffer_waittimestamp(struct adreno_ringbuffer *rb,
+					unsigned int timestamp,
+					unsigned int msecs);
+
+int adreno_rb_readtimestamp(struct kgsl_device *device,
+	void *priv, enum kgsl_timestamp_type type,
+	unsigned int *timestamp);
 
 static inline int adreno_ringbuffer_count(struct adreno_ringbuffer *rb,
 	unsigned int rptr)
@@ -189,6 +212,26 @@ static inline unsigned int adreno_ringbuffer_dec_wrapped(unsigned int val,
 							unsigned int size)
 {
 	return (val + size - sizeof(unsigned int)) % size;
+}
+
+/* Return true if the rb wait event has signaled */
+static inline int adreno_ringbuffer_check_wait(
+			struct adreno_ringbuffer_wait_params *rb_wait_params)
+{
+	if (KGSL_EVENT_CANCELLED == rb_wait_params->result ||
+		KGSL_EVENT_RETIRED == rb_wait_params->result)
+		return 1;
+	return 0;
+}
+
+/* check if timestamp is greater than the current rb timestamp */
+static inline int adreno_ringbuffer_check_timestamp(
+			struct adreno_ringbuffer *rb,
+			unsigned int timestamp, int type)
+{
+	unsigned int ts;
+	adreno_rb_readtimestamp(rb->device, rb, type, &ts);
+	return (timestamp_cmp(ts, timestamp) >= 0);
 }
 
 #endif  /* __ADRENO_RINGBUFFER_H */

@@ -730,10 +730,6 @@ void adreno_coresight_remove(struct adreno_device *adreno_dev);
 
 bool adreno_hw_isidle(struct adreno_device *adreno_dev);
 
-int adreno_rb_readtimestamp(struct kgsl_device *device,
-	void *priv, enum kgsl_timestamp_type type,
-	unsigned int *timestamp);
-
 int adreno_iommu_set_pt(struct adreno_ringbuffer *rb,
 			struct kgsl_pagetable *new_pt);
 

@@ -2159,6 +2159,8 @@ static int adreno_soft_reset(struct kgsl_device *device)
 	kgsl_pwrctrl_irq(device, KGSL_PWRFLAGS_ON);
 	adreno_irqctrl(adreno_dev, 1);
 
+	/* stop all ringbuffers to cancel RB events */
+	adreno_ringbuffer_stop(adreno_dev);
 	/*
 	 * If we have offsets for the jump tables we can try to do a warm start,
 	 * otherwise do a full ringbuffer restart

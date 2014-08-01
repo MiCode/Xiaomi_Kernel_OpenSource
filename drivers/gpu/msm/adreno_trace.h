@@ -183,38 +183,43 @@ DEFINE_EVENT(adreno_drawctxt_template, adreno_drawctxt_invalidate,
 );
 
 TRACE_EVENT(adreno_drawctxt_wait_start,
-	TP_PROTO(unsigned int id, unsigned int ts),
-	TP_ARGS(id, ts),
+	TP_PROTO(unsigned int rb_id, unsigned int ctx_id, unsigned int ts),
+	TP_ARGS(rb_id, ctx_id, ts),
 	TP_STRUCT__entry(
-		__field(unsigned int, id)
+		__field(unsigned int, rb_id)
+		__field(unsigned int, ctx_id)
 		__field(unsigned int, ts)
 	),
 	TP_fast_assign(
-		__entry->id = id;
+		__entry->rb_id = rb_id;
+		__entry->ctx_id = ctx_id;
 		__entry->ts = ts;
 	),
 	TP_printk(
-		"ctx=%u ts=%u",
-			__entry->id, __entry->ts
+		"rb=%u ctx=%u ts=%u",
+			__entry->rb_id, __entry->ctx_id, __entry->ts
 	)
 );
 
 TRACE_EVENT(adreno_drawctxt_wait_done,
-	TP_PROTO(unsigned int id, unsigned int ts, int status),
-	TP_ARGS(id, ts, status),
+	TP_PROTO(unsigned int rb_id, unsigned int ctx_id,
+			unsigned int ts, int status),
+	TP_ARGS(rb_id, ctx_id, ts, status),
 	TP_STRUCT__entry(
-		__field(unsigned int, id)
+		__field(unsigned int, rb_id)
+		__field(unsigned int, ctx_id)
 		__field(unsigned int, ts)
 		__field(int, status)
 	),
 	TP_fast_assign(
-		__entry->id = id;
+		__entry->rb_id = rb_id;
+		__entry->ctx_id = ctx_id;
 		__entry->ts = ts;
 		__entry->status = status;
 	),
 	TP_printk(
-		"ctx=%u ts=%u status=%d",
-			__entry->id, __entry->ts, __entry->status
+		"rb=%u ctx=%u ts=%u status=%d",
+		__entry->rb_id, __entry->ctx_id, __entry->ts, __entry->status
 	)
 );
 

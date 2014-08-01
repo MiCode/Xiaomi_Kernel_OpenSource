@@ -618,8 +618,7 @@ void adreno_ringbuffer_stop(struct adreno_device *adreno_dev)
 	struct adreno_ringbuffer *rb;
 	int i;
 	FOR_EACH_RINGBUFFER(adreno_dev, rb, i)
-		kgsl_cancel_events(device,
-			&(rb->mmu_events));
+		kgsl_cancel_events(device, &(rb->events));
 }
 
 static int _adreno_ringbuffer_init(struct adreno_device *adreno_dev,
@@ -634,10 +633,8 @@ static int _adreno_ringbuffer_init(struct adreno_device *adreno_dev,
 	snprintf(name, sizeof(name), "rb_events-%d", id);
 	kgsl_add_event_group(&rb->events, NULL, name,
 		adreno_rb_readtimestamp, rb);
-	snprintf(name, sizeof(name), "rb_mmu_events-%d", id);
-	kgsl_add_event_group(&rb->mmu_events, NULL, name,
-		adreno_rb_readtimestamp, rb);
 	rb->timestamp = 0;
+	init_waitqueue_head(&rb->ts_expire_waitq);
 
 	/*
 	 * Allocate mem for storing RB pagetables and commands to
@@ -685,7 +682,6 @@ static void _adreno_ringbuffer_close(struct adreno_ringbuffer *rb)
 	if (rb->buffer_desc.hostptr)
 		kgsl_free_global(&rb->buffer_desc);
 	kgsl_del_event_group(&rb->events);
-	kgsl_del_event_group(&rb->mmu_events);
 	memset(rb, 0, sizeof(struct adreno_ringbuffer));
 }
 
@@ -1456,6 +1452,7 @@ static void adreno_ringbuffer_mmu_clk_disable_event(struct kgsl_device *device,
  * clocks
  * @device - The kgsl device pointer
  * @rb: The ringbuffer in whose event list the event is added
+ * @timestamp: The timestamp on which the event should trigger
  * @unit: IOMMU unit for which clocks are to be turned off
  *
  * Creates an event to disable the MMU clocks on timestamp and if event
@@ -1466,7 +1463,8 @@ static void adreno_ringbuffer_mmu_clk_disable_event(struct kgsl_device *device,
  */
 void
 adreno_ringbuffer_mmu_disable_clk_on_ts(struct kgsl_device *device,
-			struct adreno_ringbuffer *rb, int unit)
+			struct adreno_ringbuffer *rb, unsigned int timestamp,
+			int unit)
 {
 	struct adreno_ringbuffer_mmu_disable_clk_param *param;
 
@@ -1476,12 +1474,79 @@ adreno_ringbuffer_mmu_disable_clk_on_ts(struct kgsl_device *device,
 
 	param->rb = rb;
 	param->unit = unit;
-	param->ts = rb->timestamp;
+	param->ts = timestamp;
 
-	if (kgsl_add_event(device, &(rb->mmu_events),
+	if (kgsl_add_event(device, &(rb->events),
 		param->ts, adreno_ringbuffer_mmu_clk_disable_event, param)) {
 		KGSL_DRV_ERR(device,
 			"Failed to add IOMMU disable clk event\n");
 		kfree(param);
 	}
 }
+
+/**
+ * adreno_ringbuffer_wait_callback() - Callback function for event registered
+ * on a ringbuffer timestamp
+ * @device: Device for which the the callback is valid
+ * @context: The context of the event
+ * @priv: The private parameter of the event
+ * @result: Result of the event trigger
+ */
+static void adreno_ringbuffer_wait_callback(struct kgsl_device *device,
+		struct kgsl_context *context,
+		void *priv, int result)
+{
+	struct adreno_ringbuffer_wait_params *rb_wait_params = priv;
+	rb_wait_params->result = result;
+	wake_up_all(&(rb_wait_params->rb->ts_expire_waitq));
+}
+
+/**
+ * adreno_ringbuffer_waittimestamp() - Wait for a RB timestamp
+ * @rb: The ringbuffer to wait on
+ * @timestamp: The timestamp to wait for
+ * @msecs: The wait timeout period
+ */
+int adreno_ringbuffer_waittimestamp(struct adreno_ringbuffer *rb,
+					unsigned int timestamp,
+					unsigned int msecs)
+{
+	struct kgsl_device *device = rb->device;
+	int ret;
+	unsigned long wait_time;
+	struct adreno_ringbuffer_wait_params rb_wait_params;
+
+	/* force a timeout from caller for the wait */
+	BUG_ON(0 == msecs);
+
+	rb_wait_params.rb = rb;
+	rb_wait_params.result = 0;
+	ret = kgsl_add_event(device, &rb->events, timestamp,
+		adreno_ringbuffer_wait_callback, (void *)&rb_wait_params);
+	if (ret)
+		return ret;
+
+	mutex_unlock(&device->mutex);
+
+	wait_time = msecs_to_jiffies(msecs);
+	ret = wait_event_interruptible_timeout(rb->ts_expire_waitq,
+		adreno_ringbuffer_check_wait(&rb_wait_params),
+		wait_time);
+	if (0 == ret)
+		ret  = -ETIMEDOUT;
+	if (ret > 0)
+		ret = 0;
+
+	mutex_lock(&device->mutex);
+	/*
+	 * after wake up make sure that expected timestamp has retired
+	 * because the wakeup could have happened due to a cancel event
+	 */
+	if (!ret && !adreno_ringbuffer_check_timestamp(rb,
+		timestamp, KGSL_TIMESTAMP_RETIRED)) {
+		ret = -EAGAIN;
+	}
+
+	return ret;
+}
+
