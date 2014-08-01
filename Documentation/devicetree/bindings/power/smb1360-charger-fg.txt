@@ -73,7 +73,8 @@ Optional Properties:
 				(vref) line.
 - qcom,smb1360-vadc		VADC device phandle (used for reading the RID)
 - qcom,fg-batt-capacity-mah	The new battery capacity to be supported.
-				This updates the NOMINAL_CAPACITY of the profile.
+				This updates the ACTUAL and NOMINAL CAPACITY
+				of the profile.
 - qcom,fg-cc-soc-coeff		The CC_TO_SOC_COEFF of the new battery capacity.
 				This is updated only if 'fg-batt-capacity-mah'
 				is specified. This value is calculated from the
@@ -89,6 +90,13 @@ Optional Properties:
 - qcom,fg-ibatt-standby-ma	This is the minimum current value for the SOC to
 				be above 0% at the cutoff voltage. This value
 				is in mA.
+- qcom,fg-cc-to-cv-mv		This is the voltage at which the FG transitions
+				from CC to CV. This value should never be
+				higher than the float volatge. Its in mV.
+- qcom,thermistor-c1-coeff	This is the NTC thermistor C1 coeff for the
+				thermistor inside the battery. This value is
+				16-bit float encoded value determined from the
+				NTC-c1_coeff mapping.
 
 Example:
 	i2c@f9967000 {
@@ -115,6 +123,8 @@ Example:
 			qcom,fg-cutoff-voltage-mv = <3300>;
 			qcom,fg-iterm-ma = <100>;
 			qcom,fg-ibatt-standby-ma = <200>;
+			qcom,fg-cc-to-cv-mv = <4180>;
+			qcom,thermistor-c1-coeff = <0x86DB>;
 
 			qcom,float-voltage-mv = <4200>;
 			qcom,iterm-ma = <100>;
