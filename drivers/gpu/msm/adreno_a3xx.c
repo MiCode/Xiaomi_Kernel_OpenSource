@@ -3096,19 +3096,19 @@ static void a3xx_err_callback(struct adreno_device *adreno_dev, int bit)
 			"RBBM: PFP master split timeout\n");
 		break;
 	case A3XX_INT_RBBM_ATB_BUS_OVERFLOW:
-		KGSL_DRV_CRIT(device,
+		KGSL_DRV_CRIT_RATELIMIT(device,
 			"RBBM: ATB bus oveflow\n");
 		break;
 	case A3XX_INT_VFD_ERROR:
-		KGSL_DRV_CRIT(device,
+		KGSL_DRV_CRIT_RATELIMIT(device,
 			"VFD: Out of bounds access\n");
 		break;
 	case A3XX_INT_CP_T0_PACKET_IN_IB:
-		KGSL_DRV_CRIT(device,
+		KGSL_DRV_CRIT_RATELIMIT(device,
 			"ringbuffer TO packet in IB interrupt\n");
 		break;
 	case A3XX_INT_CP_OPCODE_ERROR:
-		KGSL_DRV_CRIT(device,
+		KGSL_DRV_CRIT_RATELIMIT(device,
 			"ringbuffer opcode error interrupt\n");
 		break;
 	case A3XX_INT_CP_RESERVED_BIT_ERROR:
