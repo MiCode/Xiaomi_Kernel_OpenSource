@@ -1682,6 +1682,8 @@ static const struct adreno_vbif_data a305c_vbif[] = {
 
 static const struct adreno_vbif_data a306_vbif[] = {
 	{ A3XX_VBIF_ROUND_ROBIN_QOS_ARB, 0x0003 },
+	{ A3XX_VBIF_OUT_RD_LIM_CONF0, 0x0000000A },
+	{ A3XX_VBIF_OUT_WR_LIM_CONF0, 0x0000000A },
 	{0, 0},
 };
 
