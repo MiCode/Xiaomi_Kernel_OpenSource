@@ -146,23 +146,6 @@ static struct msm_gpiomux_config msm_sd_card_configs[] __initdata = {
 	},
 };
 
-static struct gpiomux_setting wlan_en_cfg = {
-	.func = GPIOMUX_FUNC_GPIO,
-	.drv = GPIOMUX_DRV_16MA,
-	.pull = GPIOMUX_PULL_UP,
-	.dir = GPIOMUX_OUT_HIGH,
-};
-
-static struct msm_gpiomux_config msm_wlan_configs[] __initdata = {
-	{
-		.gpio = 70,			/* WLAN ENABLE */
-		.settings = {
-			[GPIOMUX_ACTIVE]    = &wlan_en_cfg,
-			[GPIOMUX_SUSPENDED] = &wlan_en_cfg,
-		},
-	},
-};
-
 static struct gpiomux_setting  mi2s_active_cfg = {
 	.func = GPIOMUX_FUNC_1,
 	.drv = GPIOMUX_DRV_8MA,
@@ -325,6 +308,5 @@ void __init mdm9630_init_gpiomux(void)
 #if defined(CONFIG_KS8851) || defined(CONFIG_KS8851_MODULE)
 	msm_gpiomux_install(msm_eth_config, ARRAY_SIZE(msm_eth_config));
 #endif
-	msm_gpiomux_install(msm_wlan_configs, ARRAY_SIZE(msm_wlan_configs));
 	msm9630_disp_init_gpiomux();
 }
