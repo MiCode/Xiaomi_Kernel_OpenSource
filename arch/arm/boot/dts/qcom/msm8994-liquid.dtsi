@@ -530,6 +530,7 @@
 		atmel,irq-gpio = <&msm_gpio 61 0x2008>;
 		atmel,reset-gpio = <&msm_gpio 60 0x00>;
 		atmel,i2cmode-gpio = <&msm_gpio 59 0x00>;
+		atmel,ignore-crc;
 	};
 };
 
