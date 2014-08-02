@@ -2431,7 +2431,7 @@
 				<55 512 0 0>,
 				<55 512 3936000 393600>;
 		clock-names = "core_clk", "iface_clk", "bus_clk";
-		clocks = <&clock_rpm clk_ce2_clk>,
+		clocks = <&clock_rpm clk_qcrypto_ce2_clk>,
 			 <&clock_rpm clk_gcc_ce2_ahb_m_clk>,
 			 <&clock_rpm clk_gcc_ce2_axi_m_clk>;
 		qcom,use-sw-aes-cbc-ecb-ctr-algo;
@@ -2457,7 +2457,7 @@
 				<55 512 0 0>,
 				<55 512 3936000 393600>;
 		clock-names = "core_clk", "iface_clk", "bus_clk";
-		clocks = <&clock_rpm clk_ce2_clk>,
+		clocks = <&clock_rpm clk_qcedev_ce2_clk>,
 			 <&clock_rpm clk_gcc_ce2_ahb_m_clk>,
 			 <&clock_rpm clk_gcc_ce2_axi_m_clk>;
 		status = "disabled";
