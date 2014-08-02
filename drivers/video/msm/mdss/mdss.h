@@ -119,6 +119,7 @@ struct mdss_data_type {
 	struct platform_device *pdev;
 	struct dss_io_data mdss_io;
 	struct dss_io_data vbif_io;
+	struct dss_io_data vbif_nrt_io;
 	char __iomem *mdp_base;
 
 	struct mutex reg_lock;
@@ -292,10 +293,12 @@ static inline int mdss_get_sd_client_cnt(void)
 		return atomic_read(&mdss_res->sd_client_count);
 }
 
-#define MDSS_VBIF_WRITE(mdata, offset, value) \
-		dss_reg_w(&mdata->vbif_io, offset, value, 0)
-#define MDSS_VBIF_READ(mdata, offset) \
-		dss_reg_r(&mdata->vbif_io, offset, 0)
+#define MDSS_VBIF_WRITE(mdata, offset, value, nrt_vbif) \
+		(nrt_vbif ? dss_reg_w(&mdata->vbif_nrt_io, offset, value, 0) :\
+		dss_reg_w(&mdata->vbif_io, offset, value, 0))
+#define MDSS_VBIF_READ(mdata, offset, nrt_vbif) \
+		(nrt_vbif ? dss_reg_r(&mdata->vbif_nrt_io, offset, 0) :\
+		dss_reg_r(&mdata->vbif_io, offset, 0))
 #define MDSS_REG_WRITE(mdata, offset, value) \
 		dss_reg_w(&mdata->mdss_io, offset, value, 0)
 #define MDSS_REG_READ(mdata, offset) \
