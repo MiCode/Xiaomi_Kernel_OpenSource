@@ -2649,7 +2649,7 @@
 			qcom,min-level = <1>; /* No Request */
 		};
 
-		qcom,vdd-apps-rstr{
+		msm_thermal_freq: qcom,vdd-apps-rstr{
 			qcom,vdd-rstr-reg = "vdd-apps";
 			qcom,levels = <302400 600000 600000>;
 			qcom,freq-req;
@@ -2658,6 +2658,16 @@
 
 	qcom,bcl {
 		compatible = "qcom,bcl";
+		qcom,bcl-enable;
+		qcom,bcl-framework-interface;
+		qcom,ibat-monitor {
+			low-threshold-uamp = <1500000>;
+			high-threshold-uamp = <3500000>;
+			mitigation-freq-khz = <384000>;
+			vph-high-threshold-uv = <3800000>;
+			vph-low-threshold-uv = <3500000>;
+			thermal-handle = <&msm_thermal_freq>;
+		};
 	};
 
 	cnss: qcom,cnss@06300000 {
