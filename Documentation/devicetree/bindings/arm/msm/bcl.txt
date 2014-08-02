@@ -35,6 +35,13 @@ Optional parameters:
 		are defined. Error in any of these properties will disable BTM
 		mode of operation and will fall back to the available current
 		monitor mode.
+- qcom,bcl-framework-interface: If this property is defined, then the BCL uses
+		the BCL framework for monitoring battery voltage and current.
+		When this property is defined, the 'high-threshold-uamp',
+		'low-threshold-uamp', 'mitigation-freq-khz',
+		'vph-high-threshold-uv', 'vph-low-threshold-uv' and
+		'thermal-handle' properties should be defined in the
+		'qcom,ibat-monitor' node.
 
 Optional nodes:
 - qcom,ibat-monitor: This optional node defines all the parameters for the
@@ -91,6 +98,19 @@ Example:
 			uv-to-ua-numerator = <2>;
 			uv-to-ua-denominator = <1>;
 			vph-channel = <0x07>;
+			vph-high-threshold-uv = <3700000>;
+			vph-low-threshold-uv = <3500000>;
+			thermal-handle = <&msm_thermal_freq>;
+		};
+	};
+For Using BCL peripheral interface:
+	qcom,bcl {
+		compatible = "qcom,bcl";
+		qcom,bcl-framework-interface;
+		qcom,ibat-monitor {
+			high-threshold-uamp = <1500>;
+			low-threshold-uamp = <500>;
+			mitigation-freq-khz = <1958400>;
 			vph-high-threshold-uv = <3700000>;
 			vph-low-threshold-uv = <3500000>;
 			thermal-handle = <&msm_thermal_freq>;
