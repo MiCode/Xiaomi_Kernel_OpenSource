@@ -429,7 +429,7 @@
 				1 &intc 0 239 0
 				2 &msm_gpio 46 0>;
 
-		qcom,inject-rx-on-wakeup = <1>;
+		qcom,inject-rx-on-wakeup;
 		qcom,rx-char-to-inject = <0xFD>;
 
 		qcom,bam-tx-ep-pipe-index = <2>;

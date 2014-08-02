@@ -116,7 +116,7 @@
 	qcom,rx-gpio = <&msmgpio 44 0x00>;
 	qcom,cts-gpio = <&msmgpio 45 0x00>;
 	qcom,rfr-gpio = <&msmgpio 46 0x00>;
-	qcom,inject-rx-on-wakeup = <1>;
+	qcom,inject-rx-on-wakeup;
 	qcom,rx-char-to-inject = <0xFD>;
 };
 
