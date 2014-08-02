@@ -13,9 +13,11 @@
 #include <linux/coresight-cti.h>
 #include <linux/err.h>
 #include <linux/kernel.h>
+#include <linux/percpu.h>
 #include <linux/smp.h>
 #include <soc/qcom/cti-pmu-irq.h>
 
+static DEFINE_PER_CPU(int, msm_cti_pmu_wa_done);
 static struct coresight_cti *msm_cti_cpux[NR_CPUS];
 static const char * const coresight_cpu_name[] = {
 	"coresight-cti-cpu0",
@@ -47,8 +49,11 @@ void msm_enable_cti_pmu_workaround(struct work_struct *work)
 	int trigin = 1;
 	int trigout = 2;
 	int ch = 2;
-	int cpu = smp_processor_id();
+	int cpu = raw_smp_processor_id();
 	int ret;
+
+	if (per_cpu(msm_cti_pmu_wa_done, cpu) == true)
+		return;
 
 	cti_cpux = coresight_cti_get(coresight_cpu_name[cpu]);
 	if (IS_ERR(cti_cpux))
@@ -63,6 +68,7 @@ void msm_enable_cti_pmu_workaround(struct work_struct *work)
 	if (ret)
 		goto err_out;
 	coresight_cti_enable_gate(cti_cpux, ch);
+	per_cpu(msm_cti_pmu_wa_done, cpu) = true;
 	pr_info("%s for CPU %d\n", __func__, cpu);
 
 	return;
