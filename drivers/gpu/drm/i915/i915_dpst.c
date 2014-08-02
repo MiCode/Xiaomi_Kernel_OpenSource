@@ -170,11 +170,11 @@ i915_dpst_set_user_enable(struct drm_device *dev, bool enable)
 		dev_priv->dpst.saved.is_valid = false;
 
 		/* Avoid warning messages */
-		mutex_lock(&dev->mode_config.mutex);
+		drm_modeset_lock(&dev->mode_config.connection_mutex, NULL);
 		if (dev_priv->dpst.enabled)
 			ret = i915_dpst_disable_hist_interrupt(dev);
 
-		mutex_unlock(&dev->mode_config.mutex);
+		drm_modeset_unlock(&dev->mode_config.connection_mutex);
 	}
 
 	return ret;
@@ -274,11 +274,11 @@ i915_dpst_restore_luma(struct drm_device *dev)
 	dev_priv->dpst.blc_adjustment = dev_priv->dpst.saved.blc_adjustment;
 
 	/* Avoid warning messages */
-	mutex_lock(&dev->mode_config.mutex);
+	drm_modeset_lock(&dev->mode_config.connection_mutex, NULL);
 	mutex_lock(&dev_priv->backlight_lock);
 	i915_dpst_set_brightness(dev, panel->backlight.level);
 	mutex_unlock(&dev_priv->backlight_lock);
-	mutex_unlock(&dev->mode_config.mutex);
+	drm_modeset_unlock(&dev->mode_config.connection_mutex);
 
 	/* IE mod table entries are saved in the hardware even if the table
 	 * is disabled, so we only need to re-enable the table */
