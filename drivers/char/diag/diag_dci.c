@@ -1395,7 +1395,8 @@ static int diag_send_dci_pkt_remote(unsigned char *data, int len, int tag,
 #endif
 
 static int diag_dci_process_apps_pkt(struct diag_pkt_header_t *pkt_header,
-				     unsigned char *req_buf, int tag)
+				     unsigned char *req_buf, int req_len,
+				     int tag)
 {
 	uint8_t cmd_code, subsys_id, i, goto_download = 0;
 	uint8_t header_len = sizeof(struct diag_dci_pkt_header_t);
@@ -1405,7 +1406,7 @@ static int diag_dci_process_apps_pkt(struct diag_pkt_header_t *pkt_header,
 	unsigned char *payload_ptr = driver->apps_dci_buf + header_len;
 	struct diag_dci_pkt_header_t dci_header;
 
-	if (!pkt_header || !req_buf || tag < 0)
+	if (!pkt_header || !req_buf || req_len <= 0 || tag < 0)
 		return -EIO;
 
 	cmd_code = pkt_header->cmd_code;
@@ -1435,17 +1436,10 @@ static int diag_dci_process_apps_pkt(struct diag_pkt_header_t *pkt_header,
 			goto fill_buffer;
 		}
 	} else if (cmd_code == DIAG_CMD_LOG_ON_DMND) {
-		if (driver->log_on_demand_support) {
-			*payload_ptr = DIAG_CMD_LOG_ON_DMND;
-			write_len = sizeof(uint8_t);
-			payload_ptr += sizeof(uint8_t);
-			*(uint16_t *)(payload_ptr) = *(uint16_t *)(req_buf + 1);
-			write_len += sizeof(uint16_t);
-			payload_ptr += sizeof(uint16_t);
-			*payload_ptr = 0x1; /* Unknown */
-			write_len += sizeof(uint8_t);
-			goto fill_buffer;
-		}
+		write_len = diag_cmd_log_on_demand(req_buf, req_len,
+						   payload_ptr,
+						   APPS_BUF_SIZE - header_len);
+		goto fill_buffer;
 	} else if (cmd_code != DIAG_CMD_DIAG_SUBSYS) {
 		return DIAG_DCI_TABLE_ERR;
 	}
@@ -1532,6 +1526,7 @@ fill_buffer:
 static int diag_process_dci_pkt_rsp(unsigned char *buf, int len)
 {
 	int req_uid, ret = DIAG_DCI_TABLE_ERR, i, client_id;
+	int common_cmd = 0;
 	struct diag_pkt_header_t *header = NULL;
 	unsigned char *temp = buf;
 	unsigned char *req_buf = NULL;
@@ -1580,6 +1575,13 @@ static int diag_process_dci_pkt_rsp(unsigned char *buf, int len)
 		return DIAG_DCI_SEND_DATA_FAIL;
 	}
 
+	common_cmd = diag_check_common_cmd(header);
+	if (common_cmd < 0) {
+		pr_debug("diag: error in checking common command, %d\n",
+			 common_cmd);
+		return DIAG_DCI_SEND_DATA_FAIL;
+	}
+
 	/*
 	 * Previous packet is yet to be consumed by the client. Wait
 	 * till the buffer is free.
@@ -1616,8 +1618,9 @@ static int diag_process_dci_pkt_rsp(unsigned char *buf, int len)
 	}
 
 	/* Check if it is a dedicated Apps command */
-	ret = diag_dci_process_apps_pkt(header, req_buf, req_entry->tag);
-	if (ret == DIAG_DCI_NO_ERROR || ret < 0)
+	ret = diag_dci_process_apps_pkt(header, req_buf, req_len,
+					req_entry->tag);
+	if ((ret == DIAG_DCI_NO_ERROR && !common_cmd) || ret < 0)
 		return ret;
 
 	/* Check the registration table for command entries */
@@ -1631,14 +1634,16 @@ static int diag_process_dci_pkt_rsp(unsigned char *buf, int len)
 			    entry.cmd_code_hi >= header->subsys_cmd_code) {
 			ret = diag_send_dci_pkt(entry, req_buf, req_len,
 						req_entry->tag);
-			found = 1;
+			if (!common_cmd)
+				found = 1;
 		} else if (entry.cmd_code == 255 && header->cmd_code == 75) {
 			if (entry.subsys_id == header->subsys_id &&
 			    entry.cmd_code_lo <= header->subsys_cmd_code &&
 			    entry.cmd_code_hi >= header->subsys_cmd_code) {
 				ret = diag_send_dci_pkt(entry, req_buf, req_len,
 							req_entry->tag);
-				found = 1;
+				if (!common_cmd)
+					found = 1;
 			}
 		} else if (entry.cmd_code == 255 && entry.subsys_id == 255) {
 			if (entry.cmd_code_lo <= header->cmd_code &&
@@ -1656,7 +1661,8 @@ static int diag_process_dci_pkt_rsp(unsigned char *buf, int len)
 				ret = diag_send_dci_pkt(entry, req_buf,
 							req_len,
 							req_entry->tag);
-				found = 1;
+				if (!common_cmd)
+					found = 1;
 			}
 		}
 	}
