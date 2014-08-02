@@ -184,6 +184,31 @@ exit:
 	return err;
 }
 
+static int wl_cfgvendor_set_pno_mac_oui(struct wiphy *wiphy,
+	struct wireless_dev *wdev, const void  *data, int len)
+{
+	int err = 0;
+	struct bcm_cfg80211 *cfg = wiphy_priv(wiphy);
+	int type;
+	uint8 pno_random_mac_oui[DOT11_OUI_LEN];
+
+	type = nla_type(data);
+
+	if (type == ANDR_WIFI_ATTRIBUTE_PNO_RANDOM_MAC_OUI) {
+		memcpy(pno_random_mac_oui, nla_data(data), DOT11_OUI_LEN);
+
+		err = dhd_dev_pno_set_mac_oui(bcmcfg_to_prmry_ndev(cfg), pno_random_mac_oui);
+
+		if (unlikely(err))
+			WL_ERR(("Bad OUI, could not set:%d \n", err));
+
+	} else {
+		err = -1;
+	}
+
+	return err;
+}
+
 #ifdef GSCAN_SUPPORT
 int wl_cfgvendor_send_hotlist_event(struct wiphy *wiphy,
 	struct net_device *dev, void  *data, int len, wl_vendor_event_t event)
@@ -1114,6 +1139,14 @@ static const struct wiphy_vendor_command wl_vendor_cmds [] = {
 		},
 		.flags = WIPHY_VENDOR_CMD_NEED_WDEV | WIPHY_VENDOR_CMD_NEED_NETDEV,
 		.doit = wl_cfgvendor_get_feature_set_matrix
+	},
+	{
+		{
+			.vendor_id = OUI_GOOGLE,
+			.subcmd = ANDR_WIFI_PNO_RANDOM_MAC_OUI
+		},
+		.flags = WIPHY_VENDOR_CMD_NEED_WDEV | WIPHY_VENDOR_CMD_NEED_NETDEV,
+		.doit = wl_cfgvendor_set_pno_mac_oui
 	}
 };
 

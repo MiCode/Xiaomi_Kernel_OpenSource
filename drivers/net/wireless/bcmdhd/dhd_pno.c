@@ -145,6 +145,29 @@ bool dhd_is_pno_supported(dhd_pub_t *dhd)
 	return WLS_SUPPORTED(_pno_state);
 }
 
+int dhd_pno_set_mac_oui(dhd_pub_t *dhd, uint8 *oui)
+{
+	int err = BCME_OK;
+	dhd_pno_status_info_t *_pno_state;
+
+	if (!dhd || !dhd->pno_state) {
+		DHD_ERROR(("NULL POINTER : %s\n",
+			__FUNCTION__));
+		return BCME_ERROR;
+	}
+	_pno_state = PNO_GET_PNOSTATE(dhd);
+	if (ETHER_ISMULTI(oui)) {
+		DHD_ERROR(("Expected unicast OUI\n"));
+		err = BCME_ERROR;
+	} else {
+		memcpy(_pno_state->pno_oui, oui, DOT11_OUI_LEN);
+		DHD_PNO(("PNO mac oui to be used - %02x:%02x:%02x\n", _pno_state->pno_oui[0],
+		    _pno_state->pno_oui[1], _pno_state->pno_oui[2]));
+	}
+
+	return err;
+}
+
 #ifdef GSCAN_SUPPORT
 static uint64 convert_fw_rel_time_to_systime(uint32 fw_ts_ms)
 {
@@ -171,6 +194,26 @@ exit:
 	return err;
 }
 #endif /* GSCAN_SUPPORT */
+
+static int
+dhd_pno_set_mac_addr(dhd_pub_t *dhd, struct ether_addr *macaddr)
+{
+	int err;
+	wl_pfn_macaddr_cfg_t cfg;
+
+	cfg.version = WL_PFN_MACADDR_CFG_VER;
+	if (ETHER_ISNULLADDR(macaddr))
+		cfg.flags = 0;
+	else
+		cfg.flags = (WL_PFN_MAC_OUI_ONLY_MASK | WL_PFN_SET_MAC_UNASSOC_MASK);
+	memcpy(&cfg.macaddr, macaddr, ETHER_ADDR_LEN);
+
+	err = dhd_iovar(dhd, 0, "pfn_macaddr", (char *)&cfg, sizeof(cfg), 1);
+	if (err < 0)
+		DHD_ERROR(("%s : failed to execute pfn_macaddr\n", __FUNCTION__));
+
+	return err;
+}
 
 static int
 _dhd_pno_suspend(dhd_pub_t *dhd)
@@ -247,6 +290,7 @@ _dhd_pno_set(dhd_pub_t *dhd, const dhd_pno_params_t *pno_params, dhd_pno_mode_t 
 	dhd_pno_params_t *_params;
 	dhd_pno_status_info_t *_pno_state;
 	bool combined_scan = FALSE;
+	struct ether_addr macaddr;
 	DHD_PNO(("%s enter\n", __FUNCTION__));
 
 	NULL_CHECK(dhd, "dhd is NULL", err);
@@ -396,6 +440,17 @@ _dhd_pno_set(dhd_pub_t *dhd, const dhd_pno_params_t *pno_params, dhd_pno_mode_t 
 			err = BCME_BADARG;
 			goto exit;
 		}
+	}
+
+	memset(&macaddr, 0, ETHER_ADDR_LEN);
+	memcpy(&macaddr, _pno_state->pno_oui, DOT11_OUI_LEN);
+
+	DHD_PNO(("Setting mac oui to FW - %02x:%02x:%02x\n", _pno_state->pno_oui[0],
+	    _pno_state->pno_oui[1], _pno_state->pno_oui[2]));
+	err = dhd_pno_set_mac_addr(dhd, &macaddr);
+	if (err < 0) {
+		DHD_ERROR(("%s : failed to set pno mac address, error - %d\n", __FUNCTION__, err));
+		goto exit;
 	}
 
 #ifdef GSCAN_SUPPORT
