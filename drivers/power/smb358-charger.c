@@ -572,7 +572,7 @@ static int smb358_regulator_init(struct smb358_charger *chip)
 {
 	int rc = 0;
 	struct regulator_init_data *init_data;
-	struct regulator_config cfg;
+	struct regulator_config cfg = {};
 
 	init_data = of_get_regulator_init_data(chip->dev, chip->dev->of_node);
 	if (!init_data) {
@@ -1903,7 +1903,7 @@ static int smb_parse_dt(struct smb358_charger *chip)
 	if (rc)
 		chip->fastchg_current_max_ma = SMB358_FAST_CHG_MAX_MA;
 
-	chip->ieerm_disabled = of_property_read_bool(node,
+	chip->iterm_disabled = of_property_read_bool(node,
 					"qcom,iterm-disabled");
 
 	rc = of_property_read_u32(node, "qcom,iterm-ma", &chip->iterm_ma);
