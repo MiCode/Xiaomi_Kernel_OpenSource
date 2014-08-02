@@ -3121,6 +3121,11 @@ void msm_pcie_destroy_irq(unsigned int irq, struct msm_pcie_dev_t *pcie_dev)
 	else
 		dev = irq_get_chip_data(irq);
 
+	if (!dev) {
+		PCIE_ERR(dev, "RC%d: could not get chip data\n", dev->rc_idx);
+		return;
+	}
+
 	if (dev->msi_gicm_addr) {
 		PCIE_DBG(dev, "destroy QGIC based irq %d\n", irq);
 		pos = irq - dev->msi_gicm_base;
