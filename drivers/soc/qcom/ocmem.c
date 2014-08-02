@@ -640,6 +640,11 @@ static int ocmem_zone_init(struct platform_device *pdev)
 	for (i = 0; i < pdata->nr_parts; i++) {
 		struct ocmem_partition *part = &pdata->parts[i];
 		zone = get_zone(part->id);
+		if (!zone) {
+			pr_err("Unable to get zone for client %s\n",
+						client_names[part->id]);
+			return -EBUSY;
+		}
 		zone->active = false;
 
 		dev_dbg(dev, "Partition %d, start %lx, size %lx for %s\n",
