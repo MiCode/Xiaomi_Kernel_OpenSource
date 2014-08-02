@@ -67,6 +67,14 @@ config KEYSTONE_USB_PHY
 	  interface to interact with USB 2.0 and USB 3.0 PHY that is part
 	  of the Keystone SOC.
 
+config INTEL_HSIC
+	tristate "Intel HSIC PHY Driver"
+	help
+	  Enable this to support Intel HSIC PHY connected with a modem.
+	  Naturally, HSIC doesn't support disconnect. The driver adds
+	  disconnect via a gpio, and provide sysfs interface for telephony
+	  stack to disconnect modem (i.e. enter flight mode).
+
 config MV_U3D_PHY
 	bool "Marvell USB 3.0 PHY controller Driver"
 	depends on CPU_MMP3

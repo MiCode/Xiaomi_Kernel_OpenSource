@@ -11,6 +11,7 @@ obj-$(CONFIG_USB_OTG_WAKELOCK)		+= otg-wakelock.o
 obj-$(CONFIG_AB8500_USB)		+= phy-ab8500-usb.o
 obj-$(CONFIG_FSL_USB2_OTG)		+= phy-fsl-usb.o
 obj-$(CONFIG_ISP1301_OMAP)		+= phy-isp1301-omap.o
+obj-$(CONFIG_INTEL_HSIC)		+= phy-intel-hsic.o
 obj-$(CONFIG_MV_U3D_PHY)		+= phy-mv-u3d-usb.o
 obj-$(CONFIG_NOP_USB_XCEIV)		+= phy-generic.o
 obj-$(CONFIG_TAHVO_USB)			+= phy-tahvo.o
