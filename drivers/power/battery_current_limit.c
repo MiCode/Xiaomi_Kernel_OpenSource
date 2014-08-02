@@ -1272,6 +1272,7 @@ static int bcl_probe(struct platform_device *pdev)
 {
 	struct bcl_context *bcl = NULL;
 	int ret = 0;
+	enum bcl_device_mode bcl_mode = BCL_DEVICE_DISABLED;
 
 	bcl = devm_kzalloc(&pdev->dev, sizeof(struct bcl_context), GFP_KERNEL);
 	if (!bcl) {
@@ -1282,9 +1283,10 @@ static int bcl_probe(struct platform_device *pdev)
 	/* For BCL */
 	/* Init default BCL params */
 	if (of_property_read_bool(pdev->dev.of_node, "qcom,bcl-enable"))
-		bcl->bcl_mode = BCL_DEVICE_ENABLED;
+		bcl_mode = BCL_DEVICE_ENABLED;
 	else
-		bcl->bcl_mode = BCL_DEVICE_DISABLED;
+		bcl_mode = BCL_DEVICE_DISABLED;
+	bcl->bcl_mode = BCL_DEVICE_DISABLED;
 	bcl->dev = &pdev->dev;
 	bcl->bcl_monitor_type = BCL_IAVAIL_MONITOR_TYPE;
 	bcl->bcl_threshold_mode[BCL_LOW_THRESHOLD_TYPE] =
@@ -1311,8 +1313,8 @@ static int bcl_probe(struct platform_device *pdev)
 	gbcl = bcl;
 	platform_set_drvdata(pdev, bcl);
 	INIT_DEFERRABLE_WORK(&bcl->bcl_iavail_work, bcl_iavail_work);
-	if (bcl->bcl_mode == BCL_DEVICE_ENABLED)
-		bcl_mode_set(bcl->bcl_mode);
+	if (bcl_mode == BCL_DEVICE_ENABLED)
+		bcl_mode_set(bcl_mode);
 
 	return 0;
 }
