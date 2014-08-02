@@ -3431,6 +3431,8 @@ static inline int venus_hfi_prepare_enable_clks(struct venus_hfi_device *device)
 	}
 
 	device->clk_state = ENABLED_PREPARED;
+	venus_hfi_write_register(device, VIDC_WRAPPER_CLOCK_CONFIG, 0);
+	venus_hfi_write_register(device, VIDC_WRAPPER_CPU_CLOCK_CONFIG, 0);
 	return rc;
 
 fail_clk_enable:
@@ -3443,9 +3445,9 @@ fail_clk_enable:
 		clk_disable_unprepare(cl->clk);
 	}
 	device->clk_state = DISABLED_UNPREPARED;
-
 	return rc;
 }
+
 static int venus_hfi_register_iommu_domains(struct venus_hfi_device *device,
 					struct msm_vidc_platform_resources *res)
 {
