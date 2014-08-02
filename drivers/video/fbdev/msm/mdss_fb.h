@@ -305,9 +305,25 @@ static inline bool is_split_dst(struct msm_fb_data_type *mfd)
 	return (mfd && (mfd->split_mode == MDP_SPLIT_MODE_DST));
 }
 
-static inline bool mdss_fb_is_panel_power_on(struct msm_fb_data_type *mfd)
+static inline bool mdss_fb_is_power_off(struct msm_fb_data_type *mfd)
 {
-	return (mfd->panel_power_state != MDSS_PANEL_POWER_OFF);
+	return mdss_panel_is_power_off(mfd->panel_power_state);
+}
+
+static inline bool mdss_fb_is_power_on_interactive(
+	struct msm_fb_data_type *mfd)
+{
+	return mdss_panel_is_power_on_interactive(mfd->panel_power_state);
+}
+
+static inline bool mdss_fb_is_power_on(struct msm_fb_data_type *mfd)
+{
+	return mdss_panel_is_power_on(mfd->panel_power_state);
+}
+
+static inline bool mdss_fb_is_power_on_lp(struct msm_fb_data_type *mfd)
+{
+	return mdss_panel_is_power_on_lp(mfd->panel_power_state);
 }
 
 int mdss_fb_get_phys_info(dma_addr_t *start, unsigned long *len, int fb_num);
