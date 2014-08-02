@@ -433,6 +433,24 @@
 		compatible = "qcom,android-usb";
 	};
 
+	spmi_bus: qcom,spmi@200f000 {
+		compatible = "qcom,spmi-pmic-arb";
+		reg = <0x200f000 0x1000>,
+			<0x2400000 0x400000>,
+			<0x2c00000 0x400000>,
+			<0x3800000 0x200000>,
+			<0x200a000 0x2100>;
+		reg-names = "core", "chnls", "obsrvr", "intr", "cnfg";
+		interrupts = <0 190 0>;
+		qcom,pmic-arb-channel = <0>;
+		qcom,pmic-arb-ee = <0>;
+		#interrupt-cells = <3>;
+		interrupt-controller;
+		#address-cells = <1>;
+		#size-cells = <0>;
+		cell-index = <0>;
+	};
+
 	sdhc_1: sdhci@7824000 {
 		compatible = "qcom,sdhci-msm";
 		reg = <0x07824900 0x11c>, <0x07824000 0x800>;
