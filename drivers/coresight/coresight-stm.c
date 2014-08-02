@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -148,12 +148,13 @@ static struct stm_drvdata *stmdrvdata;
 static int stm_hwevent_isenable(struct stm_drvdata *drvdata)
 {
 	int ret = 0;
+	unsigned long flags;
 
-	spin_lock(&drvdata->spinlock);
+	spin_lock_irqsave(&drvdata->spinlock, flags);
 	if (drvdata->enable)
 		if (BVAL(stm_readl(drvdata, STMHEMCR), 0))
 			ret = stm_readl(drvdata, STMHEER) == 0 ? 0 : 1;
-	spin_unlock(&drvdata->spinlock);
+	spin_unlock_irqrestore(&drvdata->spinlock, flags);
 
 	return ret;
 }
@@ -175,13 +176,14 @@ static void __stm_hwevent_enable(struct stm_drvdata *drvdata)
 static int stm_hwevent_enable(struct stm_drvdata *drvdata)
 {
 	int ret = 0;
+	unsigned long flags;
 
-	spin_lock(&drvdata->spinlock);
+	spin_lock_irqsave(&drvdata->spinlock, flags);
 	if (drvdata->enable)
 		__stm_hwevent_enable(drvdata);
 	else
 		ret = -EINVAL;
-	spin_unlock(&drvdata->spinlock);
+	spin_unlock_irqrestore(&drvdata->spinlock, flags);
 
 	return ret;
 }
@@ -189,11 +191,12 @@ static int stm_hwevent_enable(struct stm_drvdata *drvdata)
 static int stm_port_isenable(struct stm_drvdata *drvdata)
 {
 	int ret = 0;
+	unsigned long flags;
 
-	spin_lock(&drvdata->spinlock);
+	spin_lock_irqsave(&drvdata->spinlock, flags);
 	if (drvdata->enable)
 		ret = stm_readl(drvdata, STMSPER) == 0 ? 0 : 1;
-	spin_unlock(&drvdata->spinlock);
+	spin_unlock_irqrestore(&drvdata->spinlock, flags);
 
 	return ret;
 }
@@ -211,13 +214,14 @@ static void __stm_port_enable(struct stm_drvdata *drvdata)
 static int stm_port_enable(struct stm_drvdata *drvdata)
 {
 	int ret = 0;
+	unsigned long flags;
 
-	spin_lock(&drvdata->spinlock);
+	spin_lock_irqsave(&drvdata->spinlock, flags);
 	if (drvdata->enable)
 		__stm_port_enable(drvdata);
 	else
 		ret = -EINVAL;
-	spin_unlock(&drvdata->spinlock);
+	spin_unlock_irqrestore(&drvdata->spinlock, flags);
 
 	return ret;
 }
@@ -240,15 +244,16 @@ static int stm_enable(struct coresight_device *csdev)
 {
 	struct stm_drvdata *drvdata = dev_get_drvdata(csdev->dev.parent);
 	int ret;
+	unsigned long flags;
 
 	ret = clk_prepare_enable(drvdata->clk);
 	if (ret)
 		return ret;
 
-	spin_lock(&drvdata->spinlock);
+	spin_lock_irqsave(&drvdata->spinlock, flags);
 	__stm_enable(drvdata);
 	drvdata->enable = true;
-	spin_unlock(&drvdata->spinlock);
+	spin_unlock_irqrestore(&drvdata->spinlock, flags);
 
 	dev_info(drvdata->dev, "STM tracing enabled\n");
 	return 0;
@@ -267,10 +272,12 @@ static void __stm_hwevent_disable(struct stm_drvdata *drvdata)
 
 static void stm_hwevent_disable(struct stm_drvdata *drvdata)
 {
-	spin_lock(&drvdata->spinlock);
+	unsigned long flags;
+
+	spin_lock_irqsave(&drvdata->spinlock, flags);
 	if (drvdata->enable)
 		__stm_hwevent_disable(drvdata);
-	spin_unlock(&drvdata->spinlock);
+	spin_unlock_irqrestore(&drvdata->spinlock, flags);
 }
 
 static void __stm_port_disable(struct stm_drvdata *drvdata)
@@ -285,10 +292,12 @@ static void __stm_port_disable(struct stm_drvdata *drvdata)
 
 static void stm_port_disable(struct stm_drvdata *drvdata)
 {
-	spin_lock(&drvdata->spinlock);
+	unsigned long flags;
+
+	spin_lock_irqsave(&drvdata->spinlock, flags);
 	if (drvdata->enable)
 		__stm_port_disable(drvdata);
-	spin_unlock(&drvdata->spinlock);
+	spin_unlock_irqrestore(&drvdata->spinlock, flags);
 }
 
 static void __stm_disable(struct stm_drvdata *drvdata)
@@ -306,11 +315,12 @@ static void __stm_disable(struct stm_drvdata *drvdata)
 static void stm_disable(struct coresight_device *csdev)
 {
 	struct stm_drvdata *drvdata = dev_get_drvdata(csdev->dev.parent);
+	unsigned long flags;
 
-	spin_lock(&drvdata->spinlock);
+	spin_lock_irqsave(&drvdata->spinlock, flags);
 	__stm_disable(drvdata);
 	drvdata->enable = false;
-	spin_unlock(&drvdata->spinlock);
+	spin_unlock_irqrestore(&drvdata->spinlock, flags);
 
 	/* Wait for 100ms so that pending data has been written to HW */
 	msleep(100);
@@ -333,12 +343,15 @@ static uint32_t stm_channel_alloc(uint32_t off)
 {
 	struct stm_drvdata *drvdata = stmdrvdata;
 	uint32_t ch;
+	unsigned long flags;
 
+	spin_lock_irqsave(&drvdata->spinlock, flags);
 	do {
 		ch = find_next_zero_bit(drvdata->chs.bitmap,
 					NR_STM_CHANNEL, off);
 	} while ((ch < NR_STM_CHANNEL) &&
 		 test_and_set_bit(ch, drvdata->chs.bitmap));
+	spin_unlock_irqrestore(&drvdata->spinlock, flags);
 
 	return ch;
 }
@@ -346,8 +359,11 @@ static uint32_t stm_channel_alloc(uint32_t off)
 static void stm_channel_free(uint32_t ch)
 {
 	struct stm_drvdata *drvdata = stmdrvdata;
+	unsigned long flags;
 
+	spin_lock_irqsave(&drvdata->spinlock, flags);
 	clear_bit(ch, drvdata->chs.bitmap);
+	spin_unlock_irqrestore(&drvdata->spinlock, flags);
 }
 
 static int stm_send_64bit(void *addr, const void *data, uint32_t size)
