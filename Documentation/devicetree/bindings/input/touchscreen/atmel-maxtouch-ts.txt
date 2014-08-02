@@ -19,6 +19,8 @@ Required properties:
  - atmel,reset-gpio	: reset gpio
 
 Optional property:
+ - atmel,ignore-crc	: Boolean flag to ignore cyclic redundancy check (CRC) on
+			configuration
  - xvdd-supply		: x-line drive voltage supply. It is used for charging
 			the capacitors on the touch panel.
  - atmel,bl-addr	: bootloader address, by default is looked up
@@ -50,6 +52,7 @@ Example:
 			atmel,irq-gpio = <&msmgpio 48 0>;
 			atmel,reset-gpio = <&msmgpio 26 0>;
 			atmel,i2cmode-gpio = <&msmgpio 27 0>;
+			atmel,ignore-crc;
 			pinctrl-names = "pmx_ts_active","pmx_ts_suspend";
 			pinctrl-0 = <&ts_int_active &ts_reset_active &ts_i2cmode_active>;
 			pinctrl-1 = <&ts_int_suspend &ts_reset_suspend &ts_i2cmode_suspend>;

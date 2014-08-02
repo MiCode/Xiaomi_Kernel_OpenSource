@@ -2106,7 +2106,8 @@ static int mxt_read_info_block(struct mxt_data *data)
 		dev_err(&client->dev,
 			"Info Block CRC error calculated=0x%06X read=0x%06X\n",
 			data->info_crc, calculated_crc);
-		return -EIO;
+		if (!data->pdata->ignore_crc)
+			return -EIO;
 	}
 
 	/* Save pointers in device data structure */
@@ -3542,6 +3543,8 @@ static int mxt_parse_dt(struct device *dev, struct mxt_platform_data *pdata)
 	pdata->irqflags = temp_val;
 	pdata->gpio_i2cmode = of_get_named_gpio_flags(np, "atmel,i2cmode-gpio",
 				0, &temp_val);
+
+	pdata->ignore_crc = of_property_read_bool(np, "atmel,ignore-crc");
 
 	error = of_property_read_u32(np, "atmel,bl-addr", &temp_val);
 	if (error && (error != -EINVAL))
