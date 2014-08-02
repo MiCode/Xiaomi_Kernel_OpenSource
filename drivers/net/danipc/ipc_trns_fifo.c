@@ -89,11 +89,10 @@ uintptr_t		ipc_regs[PLATFORM_MAX_NUM_OF_NODES];
  * phy (i.e. using fifo based transport)
  *
  */
-char *ipc_trns_fifo_buf_alloc(uint8_t dest_aid, enum ipc_trns_prio prio)
+char *ipc_trns_fifo_buf_alloc(uint8_t cpuid, enum ipc_trns_prio prio)
 {
 	uint32_t		buff_addr;
 	uint32_t		fifo_addr;
-	const uint8_t		cpuid = ipc_get_node(dest_aid);
 
 	if (prio == ipc_trns_prio_0)
 		fifo_addr = IPC_FIFO_RD_OUT_LOW_ADDR(cpuid);
@@ -115,11 +114,9 @@ char *ipc_trns_fifo_buf_alloc(uint8_t dest_aid, enum ipc_trns_prio prio)
  * phy (i.e. using fifo based transport)
  *
  */
-void ipc_trns_fifo_buf_free(char *ptr, uint8_t dest_aid,
-				enum ipc_trns_prio prio)
+void ipc_trns_fifo_buf_free(char *ptr, uint8_t cpuid, enum ipc_trns_prio prio)
 {
 	uint32_t		fifo_addr;
-	const uint8_t		cpuid = ipc_get_node(dest_aid);
 
 	if (likely(ptr)) {
 		if (prio == ipc_trns_prio_0)
@@ -140,11 +137,10 @@ void ipc_trns_fifo_buf_free(char *ptr, uint8_t dest_aid,
  * phy (i.e. using fifo based transport)
  *
  */
-int32_t ipc_trns_fifo_buf_send(char *ptr, uint8_t dest_aid,
+int32_t ipc_trns_fifo_buf_send(char *ptr, uint8_t cpuid,
 				enum ipc_trns_prio prio)
 {
 	uint32_t		fifo_addr;
-	const uint8_t		cpuid = ipc_get_node(dest_aid);
 
 	if (prio == ipc_trns_prio_0)
 		fifo_addr = IPC_FIFO_WR_IN_LOW_ADDR(cpuid);
@@ -167,14 +163,14 @@ int32_t ipc_trns_fifo_buf_send(char *ptr, uint8_t dest_aid,
  *
  */
 char *ipc_trns_fifo2eth_buf_alloc(
-	uint8_t			dest_aid,
+	uint8_t			cpuid,
 	enum ipc_trns_prio	prio
 )
 {
 	uint32_t		buff_addr;
 	uint32_t		fifo_addr;
 
-	(void)dest_aid;
+	(void)cpuid;
 	if (prio == ipc_trns_prio_0)
 		fifo_addr = IPC_FIFO_RD_OUT_LOW_ADDR(0);
 	else
@@ -191,12 +187,12 @@ char *ipc_trns_fifo2eth_buf_alloc(
  * phy (i.e. using fifo based transport)
  *
  */
-void ipc_trns_fifo2eth_buf_free(char *ptr, uint8_t dest_aid,
+void ipc_trns_fifo2eth_buf_free(char *ptr, uint8_t cpuid,
 					enum ipc_trns_prio prio)
 {
 	uint32_t fifo_addr;
 
-	(void)dest_aid;
+	(void)cpuid;
 	if (likely(ptr)) {
 		if (prio == ipc_trns_prio_0)
 			fifo_addr = IPC_FIFO_WR_OUT_LOW_ADDR(0);
@@ -215,12 +211,12 @@ void ipc_trns_fifo2eth_buf_free(char *ptr, uint8_t dest_aid,
  * (i.e. using fifo based transport to a predefined proxy)
  *
  */
-int32_t ipc_trns_fifo2eth_buf_send(char *ptr, uint8_t dest_aid,
+int32_t ipc_trns_fifo2eth_buf_send(char *ptr, uint8_t cpuid,
 						   enum ipc_trns_prio prio)
 {
 	uint32_t fifo_addr;
 
-	(void)dest_aid;
+	(void)cpuid;
 	if (prio == ipc_trns_prio_0)
 		fifo_addr = IPC_FIFO_WR_IN_LOW_ADDR(0);
 	else

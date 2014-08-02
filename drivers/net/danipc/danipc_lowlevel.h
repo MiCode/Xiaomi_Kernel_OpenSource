@@ -60,7 +60,7 @@ extern void *ipc_to_virt(const int cpuid, const unsigned prio,
 				(0x0f & (lid)))
 
 extern unsigned	ipc_init(void);
-extern void	ipc_trns_fifo_buf_init(uint8_t cpu_id);
+extern void	ipc_trns_fifo_buf_init(uint8_t cpuid);
 extern void	ipc_route_table_init(struct ipc_trns_func const *ptr);
 extern char	*ipc_trns_fifo_buf_alloc(uint8_t dest_aid,
 						   enum ipc_trns_prio pri);
@@ -81,7 +81,7 @@ extern struct ipc_trns_func const *get_trns_funcs(uint8_t cpuid);
 
 
 extern void	handle_incoming_packet(char *const packet,
-					uint8_t cpu_id,
+					uint8_t cpuid,
 					enum ipc_trns_prio pri);
 
 extern struct ipc_to_virt_map	ipc_to_virt_map[PLATFORM_MAX_NUM_OF_NODES][2];
