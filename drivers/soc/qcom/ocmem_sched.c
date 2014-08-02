@@ -1600,6 +1600,8 @@ static void ocmem_rdm_worker(struct work_struct *work)
 	struct ocmem_req *req = handle_to_req(handle);
 	struct ocmem_buf *buffer = handle_to_buffer(handle);
 
+	BUG_ON(!req);
+
 	down_write(&req->rw_sem);
 	offset = phys_to_offset(req->req_start);
 	rc = ocmem_rdm_transfer(id, list, offset, direction);
