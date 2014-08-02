@@ -117,6 +117,25 @@
 			};
 		};
 
+		bcl@4200 {
+			compatible = "qcom,msm-bcl";
+			reg = <0x4200 0xFF>;
+			interrupts = <0x2 0x42 0x0>,
+					<0x2 0x42 0x1>;
+			interrupt-names = "bcl-high-ibat-int",
+					"bcl-low-vbat-int";
+			qcom,vbat-scaling-factor = <39000>;
+			qcom,vbat-gain-numerator = <1>;
+			qcom,vbat-gain-denominator = <32>;
+			qcom,vbat-polling-delay-ms = <50>;
+			qcom,ibat-scaling-factor = <39000>;
+			qcom,ibat-gain-numerator = <1>;
+			qcom,ibat-gain-denominator = <32>;
+			qcom,ibat-offset-numerator = <1200>;
+			qcom,ibat-offset-denominator = <1>;
+			qcom,ibat-polling-delay-ms = <50>;
+		};
+
 		pmi8994_vadc: vadc@3100 {
 			compatible = "qcom,qpnp-vadc";
 			reg = <0x3100 0x100>;
