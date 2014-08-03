@@ -591,6 +591,8 @@ struct adreno_gpudev {
 	 * so define them in the structure and use them as variables.
 	 */
 	const struct adreno_reg_offsets *reg_offsets;
+	const struct adreno_ft_perf_counters *ft_perf_counters;
+	unsigned int ft_perf_counters_count;
 
 	struct adreno_perfcounters *perfcounters;
 	const struct adreno_invalid_countables
@@ -612,8 +614,6 @@ struct adreno_gpudev {
 	void (*perfcounter_close)(struct adreno_device *);
 	void (*perfcounter_save)(struct adreno_device *);
 	void (*perfcounter_restore)(struct adreno_device *);
-	void (*fault_detect_start)(struct adreno_device *);
-	void (*fault_detect_stop)(struct adreno_device *);
 	void (*start)(struct adreno_device *);
 	void (*busy_cycles)(struct adreno_device *, struct adreno_busy_data *);
 	int (*perfcounter_enable)(struct adreno_device *, unsigned int group,
@@ -628,8 +628,6 @@ struct adreno_gpudev {
 	void (*regulator_enable)(struct adreno_device *);
 	void (*regulator_disable)(struct adreno_device *);
 };
-
-#define FT_DETECT_REGS_COUNT 14
 
 struct log_field {
 	bool show;
@@ -678,6 +676,15 @@ struct log_field {
 		(_i) < (_dev)->num_ringbuffers;			\
 		(_i)++, (_rb)++)
 
+struct adreno_ft_perf_counters {
+	unsigned int counter;
+	unsigned int countable;
+};
+
+extern unsigned int *adreno_ft_regs;
+extern unsigned int adreno_ft_regs_num;
+extern unsigned int *adreno_ft_regs_val;
+
 extern struct adreno_gpudev adreno_a3xx_gpudev;
 extern struct adreno_gpudev adreno_a4xx_gpudev;
 
@@ -704,8 +711,6 @@ extern const unsigned int a4xx_xpu_reg_cnt;
 extern const struct adreno_vbif_snapshot_registers
 				a4xx_vbif_snapshot_registers[];
 extern const unsigned int a4xx_vbif_snapshot_reg_cnt;
-
-extern unsigned int ft_detect_regs[];
 
 int adreno_spin_idle(struct kgsl_device *device);
 int adreno_idle(struct kgsl_device *device);
@@ -787,6 +792,9 @@ int adreno_iommu_set_pt(struct adreno_ringbuffer *rb,
 
 void adreno_iommu_set_pt_generate_rb_cmds(struct adreno_ringbuffer *rb,
 					struct kgsl_pagetable *pt);
+
+void adreno_fault_detect_start(struct adreno_device *adreno_dev);
+void adreno_fault_detect_stop(struct adreno_device *adreno_dev);
 
 static inline int adreno_is_a3xx(struct adreno_device *adreno_dev)
 {

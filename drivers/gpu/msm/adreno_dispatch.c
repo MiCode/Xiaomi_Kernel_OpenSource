@@ -54,9 +54,6 @@ static unsigned int _cmdbatch_timeout = 2000;
 /* Interval for reading and comparing fault detection registers */
 static unsigned int _fault_timer_interval = 200;
 
-/* Local array for the current set of fault detect registers */
-static unsigned int fault_detect_regs[FT_DETECT_REGS_COUNT];
-
 /**
  * fault_detect_read() - Read the set of fault detect registers
  * @device: Pointer to the KGSL device struct
@@ -77,11 +74,10 @@ static void fault_detect_read(struct kgsl_device *device)
 			KGSL_TIMESTAMP_RETIRED, &(rb->fault_detect_ts));
 	}
 
-	for (i = 0; i < FT_DETECT_REGS_COUNT; i++) {
-		if (ft_detect_regs[i] == 0)
+	for (i = 0; i < adreno_ft_regs_num; i++) {
+		if (adreno_ft_regs[i] == 0)
 			continue;
-		kgsl_regread(device, ft_detect_regs[i],
-			&fault_detect_regs[i]);
+		kgsl_regread(device, adreno_ft_regs[i], &adreno_ft_regs_val[i]);
 	}
 }
 
@@ -112,8 +108,8 @@ static inline bool _isidle(struct kgsl_device *device)
 	if (ts != adreno_dev->cur_rb->timestamp)
 		return false;
 ret:
-	for (i = 0; i < FT_DETECT_REGS_COUNT; i++)
-		fault_detect_regs[i] = 0;
+	for (i = 0; i < adreno_ft_regs_num; i++)
+		adreno_ft_regs_val[i] = 0;
 	return true;
 }
 
@@ -137,15 +133,15 @@ static int fault_detect_read_compare(struct kgsl_device *device)
 	if (_isidle(device) == true)
 		ret = 1;
 
-	for (i = 0; i < FT_DETECT_REGS_COUNT; i++) {
+	for (i = 0; i < adreno_ft_regs_num; i++) {
 		unsigned int val;
 
-		if (ft_detect_regs[i] == 0)
+		if (adreno_ft_regs[i] == 0)
 			continue;
-		kgsl_regread(device, ft_detect_regs[i], &val);
-		if (val != fault_detect_regs[i])
+		kgsl_regread(device, adreno_ft_regs[i], &val);
+		if (val != adreno_ft_regs_val[i])
 			ret = 1;
-		fault_detect_regs[i] = val;
+		adreno_ft_regs_val[i] = val;
 	}
 
 	if (!adreno_rb_readtimestamp(device, adreno_dev->cur_rb,
