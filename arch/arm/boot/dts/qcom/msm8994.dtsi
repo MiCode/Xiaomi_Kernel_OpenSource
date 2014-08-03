@@ -1914,12 +1914,14 @@
 		qcom,msm-bus-clients {
 			qcom,msm-bus-client@0 {
 				qcom,msm-bus,name = "venc-core0-ddr";
-				qcom,msm-bus,num-cases = <8>;
+				qcom,msm-bus,num-cases = <10>;
 				qcom,msm-bus,num-paths = <1>;
 				qcom,msm-bus,vectors-KBps =
 					<63 512 0 0>,
 					<63 512 133600 0>,
 					<63 512 402200 0>,
+					<63 512 402200 0>,
+					<63 512 916600 0>,
 					<63 512 916600 0>,
 					<63 512 1778400 0>,
 					<63 512 2812400 0>,
@@ -1930,12 +1932,14 @@
 
 			qcom,msm-bus-client@1 {
 				qcom,msm-bus,name = "vdec-core0-ddr";
-				qcom,msm-bus,num-cases = <8>;
+				qcom,msm-bus,num-cases = <10>;
 				qcom,msm-bus,num-paths = <1>;
 				qcom,msm-bus,vectors-KBps =
 					<63 512 0 0>,
 					<63 512 303200 0>,
 					<63 512 787200 0>,
+					<63 512 787200 0>,
+					<63 512 1498200 0>,
 					<63 512 1498200 0>,
 					<63 512 2921400 0>,
 					<63 512 4629200 0>,
@@ -1946,12 +1950,14 @@
 
 			qcom,msm-bus-client@2 {
 				qcom,msm-bus,name = "vdec-core1-ddr";
-				qcom,msm-bus,num-cases = <8>;
+				qcom,msm-bus,num-cases = <10>;
 				qcom,msm-bus,num-paths = <1>;
 				qcom,msm-bus,vectors-KBps =
 					<63 512 0 0>,
 					<63 512 227800 0>,
 					<63 512 593400 0>,
+					<63 512 593400 0>,
+					<63 512 1142800 0>,
 					<63 512 1142800 0>,
 					<63 512 2177000 0>,
 					<63 512 3417800 0>,
@@ -1962,12 +1968,14 @@
 
 			qcom,msm-bus-client@3 {
 				qcom,msm-bus,name = "venc-core2-ddr";
-				qcom,msm-bus,num-cases = <8>;
+				qcom,msm-bus,num-cases = <10>;
 				qcom,msm-bus,num-paths = <1>;
 				qcom,msm-bus,vectors-KBps =
 					<63 512 0 0>,
 					<63 512 178000 0>,
 					<63 512 540000 0>,
+					<63 512 540000 0>,
+					<63 512 1518000 0>,
 					<63 512 1518000 0>,
 					<63 512 2100000 0>,
 					<63 512 2798000 0>,
@@ -1977,12 +1985,14 @@
 			};
 			qcom,msm-bus-client@4 {
 				qcom,msm-bus,name = "venc-core1-ocmem";
-				qcom,msm-bus,num-cases = <8>;
+				qcom,msm-bus,num-cases = <10>;
 				qcom,msm-bus,num-paths = <1>;
 				qcom,msm-bus,vectors-KBps =
 					<68 604 0 0>,
 					<68 604 138000 2384000>,
 					<68 604 414000 2384000>,
+					<68 604 414000 2384000>,
+					<68 604 940000 2384000>,
 					<68 604 940000 2384000>,
 					<68 604 1880000 3632000>,
 					<68 604 3574000 3632000>,
@@ -1992,12 +2002,14 @@
 			};
 			qcom,msm-bus-client@5 {
 				qcom,msm-bus,name = "venc-core2-ocmem";
-				qcom,msm-bus,num-cases = <8>;
+				qcom,msm-bus,num-cases = <10>;
 				qcom,msm-bus,num-paths = <1>;
 				qcom,msm-bus,vectors-KBps =
 					<68 604 0 0>,
 					<68 604 142000 2384000>,
 					<68 604 428000 2384000>,
+					<68 604 428000 2384000>,
+					<68 604 1128000 2384000>,
 					<68 604 1128000 2384000>,
 					<68 604 20050000 3632000>,
 					<68 604 40800000 3632000>,
@@ -2008,12 +2020,14 @@
 
 			qcom,msm-bus-client@6 {
 				qcom,msm-bus,name = "vdec-core0-ocmem";
-				qcom,msm-bus,num-cases = <8>;
+				qcom,msm-bus,num-cases = <10>;
 				qcom,msm-bus,num-paths = <1>;
 				qcom,msm-bus,vectors-KBps =
 					<68 604 0 0>,
 					<68 604 158000 2384000>,
 					<68 604 401000 2384000>,
+					<68 604 401000 2384000>,
+					<68 604 734000 2384000>,
 					<68 604 734000 2384000>,
 					<68 604 1469000 3632000>,
 					<68 604 2350000 3632000>,
@@ -2024,12 +2038,14 @@
 
 			qcom,msm-bus-client@7 {
 				qcom,msm-bus,name = "vdec-core1-ocmem";
-				qcom,msm-bus,num-cases = <8>;
+				qcom,msm-bus,num-cases = <10>;
 				qcom,msm-bus,num-paths = <1>;
 				qcom,msm-bus,vectors-KBps =
 					<68 604 0 0>,
 					<68 604 176000 2384000>,
 					<68 604 456000 2384000>,
+					<68 604 456000 2384000>,
+					<68 604 864000 2384000>,
 					<68 604 864000 2384000>,
 					<68 604 1729000 3632000>,
 					<68 604 2747000 3632000>,
