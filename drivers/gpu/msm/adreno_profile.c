@@ -92,7 +92,7 @@ static const char *get_api_type_str(unsigned int type)
 static inline void _create_ib_ref(struct kgsl_memdesc *memdesc,
 		unsigned int *cmd, unsigned int cnt, unsigned int off)
 {
-	cmd[0] = CP_HDR_INDIRECT_BUFFER_PFD;
+	cmd[0] = CP_HDR_INDIRECT_BUFFER_PFE;
 	cmd[1] = memdesc->gpuaddr + off;
 	cmd[2] = cnt;
 }
@@ -1023,7 +1023,7 @@ void adreno_profile_init(struct adreno_device *adreno_dev)
 	/* allocate shared_buffer, which includes pre_ib and post_ib */
 	profile->shared_size = ADRENO_PROFILE_SHARED_BUF_SIZE_DWORDS;
 	ret = kgsl_allocate_global(device, &profile->shared_buffer,
-			profile->shared_size * sizeof(unsigned int), 0);
+			profile->shared_size * sizeof(unsigned int), 0, 0);
 
 	if (ret) {
 		profile->shared_size = 0;

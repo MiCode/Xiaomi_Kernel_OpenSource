@@ -23,6 +23,22 @@
 
 
 /* type3 packets */
+
+/* copy from ME scratch RAM to a register */
+#define CP_SCRATCH_TO_REG      0x4d
+
+/* Copy from REG to ME scratch RAM */
+#define CP_REG_TO_SCRATCH      0x4a
+
+/* Wait for memory writes to complete */
+#define CP_WAIT_MEM_WRITES     0x12
+
+/* Conditional execution based on register comparison */
+#define CP_COND_REG_EXEC       0x47
+
+/* Memory to REG copy */
+#define CP_MEM_TO_REG          0x42
+
 /* initialize CP's micro-engine */
 #define CP_ME_INIT		0x48
 
