@@ -1112,6 +1112,7 @@ static int mdp3_parse_dt(struct platform_device *pdev)
 {
 	struct resource *res;
 	struct property *prop = NULL;
+	bool panic_ctrl;
 	int rc;
 
 	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "mdp_phys");
@@ -1148,6 +1149,10 @@ static int mdp3_parse_dt(struct platform_device *pdev)
 
 	prop = of_find_property(pdev->dev.of_node, "batfet-supply", NULL);
 	mdp3_res->batfet_required = prop ? true : false;
+
+	panic_ctrl = of_property_read_bool(
+				pdev->dev.of_node, "qcom,mdss-has-panic-ctrl");
+	mdp3_res->dma[MDP3_DMA_P].has_panic_ctrl = panic_ctrl;
 
 	return 0;
 }
