@@ -418,8 +418,8 @@
 			label = "pmx_ts_int_suspend";
 
 			ts_int_suspend: ts_int_suspend {
-				drive-strength = <16>;
-				bias-disable;
+				drive-strength = <2>;
+				bias-pull-down;
 			};
 		};
 
@@ -442,8 +442,8 @@
 			label = "pmx_ts_reset_suspend";
 
 			ts_reset_suspend: ts_reset_suspend {
-				drive-strength = <16>;
-				bias-disable;
+				drive-strength = <2>;
+				bias-pull-down;
 			};
 		};
 
