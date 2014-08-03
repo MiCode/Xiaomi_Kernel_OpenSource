@@ -1716,6 +1716,8 @@ struct us_xx_info_type32 {
 	uint16_t params_data_size;
 /* Pointer to the parameters, ptr to uint8_t */
 	compat_uptr_t params_data;
+/* Max size of buffer for get and set parameter */
+	uint32_t max_get_set_param_buf_size;
 };
 
 struct us_tx_info_type32 {
@@ -1826,6 +1828,8 @@ static void usf_compat_xx_info_type(struct us_xx_info_type32 *us_xx_info32,
 	us_xx_info->bits_per_sample = us_xx_info32->bits_per_sample;
 	us_xx_info->params_data_size = us_xx_info32->params_data_size;
 	us_xx_info->params_data = compat_ptr(us_xx_info32->params_data);
+	us_xx_info->max_get_set_param_buf_size =
+			    us_xx_info32->max_get_set_param_buf_size;
 }
 
 static int usf_set_tx_info32(struct usf_type *usf, unsigned long arg)
