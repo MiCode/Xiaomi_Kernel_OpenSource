@@ -611,16 +611,11 @@ struct adreno_gpudev {
 	void (*snapshot)(struct adreno_device *, struct kgsl_snapshot *);
 	int (*rb_init)(struct adreno_device *, struct adreno_ringbuffer *);
 	int (*perfcounter_init)(struct adreno_device *);
-	void (*perfcounter_close)(struct adreno_device *);
-	void (*perfcounter_save)(struct adreno_device *);
-	void (*perfcounter_restore)(struct adreno_device *);
 	void (*start)(struct adreno_device *);
 	void (*busy_cycles)(struct adreno_device *, struct adreno_busy_data *);
 	int (*perfcounter_enable)(struct adreno_device *, unsigned int group,
 		unsigned int counter, unsigned int countable);
 	uint64_t (*perfcounter_read)(struct adreno_device *adreno_dev,
-		unsigned int group, unsigned int counter);
-	void (*perfcounter_write)(struct adreno_device *adreno_dev,
 		unsigned int group, unsigned int counter);
 	bool (*is_sptp_idle)(struct adreno_device *);
 	void (*enable_pc)(struct adreno_device *);
@@ -758,6 +753,16 @@ int adreno_reset(struct kgsl_device *device);
 void adreno_fault_skipcmd_detached(struct kgsl_device *device,
 					 struct adreno_context *drawctxt,
 					 struct kgsl_cmdbatch *cmdbatch);
+
+void adreno_perfcounter_close(struct adreno_device *adreno_dev);
+
+void adreno_perfcounter_restore(struct adreno_device *adreno_dev);
+
+void adreno_perfcounter_save(struct adreno_device *adreno_dev);
+
+int adreno_perfcounter_start(struct adreno_device *adreno_dev);
+
+int adreno_perfcounter_init(struct adreno_device *adreno_dev);
 
 int adreno_perfcounter_get_groupid(struct adreno_device *adreno_dev,
 					const char *name);
