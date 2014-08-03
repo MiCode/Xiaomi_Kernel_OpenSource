@@ -894,6 +894,9 @@ static int mdp3_dma_start(struct mdp3_dma *dma, struct mdp3_intf *intf)
 	init_completion(&dma->vsync_comp);
 	spin_unlock_irqrestore(&dma->dma_lock, flag);
 
+	if (dma->dma_sel == MDP3_DMA_P && dma->has_panic_ctrl)
+		MDP3_REG_WRITE(MDP3_PANIC_ROBUST_CTRL, BIT(0));
+
 	mdp3_dma_callback_enable(dma, cb_type);
 	pr_debug("mdp3_dma_start wait for vsync_comp in\n");
 	wait_for_completion_killable(&dma->vsync_comp);
@@ -912,6 +915,9 @@ static int mdp3_dma_stop(struct mdp3_dma *dma, struct mdp3_intf *intf)
 		display_status_bit = BIT(7);
 	else
 		return -EINVAL;
+
+	if (dma->dma_sel == MDP3_DMA_P && dma->has_panic_ctrl)
+		MDP3_REG_WRITE(MDP3_PANIC_ROBUST_CTRL, 0);
 
 	if (dma->output_config.out_sel == MDP3_DMA_OUTPUT_SEL_DSI_VIDEO)
 		display_status_bit |= BIT(11);

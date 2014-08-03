@@ -64,6 +64,9 @@
 /*clock control*/
 #define MDP3_REG_CGC_EN					0x0100
 
+/*danger safe*/
+#define MDP3_PANIC_ROBUST_CTRL				0x900A0
+
 /*DMA_P*/
 #define MDP3_REG_DMA_P_CONFIG				0x90000
 #define MDP3_REG_DMA_P_SIZE				0x90004
