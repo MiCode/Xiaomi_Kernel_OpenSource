@@ -4477,11 +4477,7 @@ static int ufshcd_abort(struct scsi_cmnd *cmd)
 
 	clear_bit_unlock(tag, &hba->lrb_in_use);
 	wake_up(&hba->dev_cmd.tag_wq);
-	/*
-	 * This ufshcd_release() corresponds to the original scsi cmd that got
-	 * aborted here (as we won't get any IRQ for it).
-	 */
-	ufshcd_release(hba);
+
 out:
 	if (!err) {
 		err = SUCCESS;
@@ -4489,6 +4485,11 @@ out:
 		dev_err(hba->dev, "%s: failed with err %d\n", __func__, err);
 		err = FAILED;
 	}
+
+	/*
+	 * This ufshcd_release() corresponds to the original scsi cmd that got
+	 * aborted here (as we won't get any IRQ for it).
+	 */
 	ufshcd_release(hba);
 	return err;
 }
