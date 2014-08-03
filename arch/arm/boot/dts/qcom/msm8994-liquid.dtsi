@@ -451,13 +451,13 @@
 			"AMIC2", "MIC BIAS2 External",
 			"MIC BIAS2 External", "Headset Mic",
 			"AMIC3", "MIC BIAS3 External",
-			"MIC BIAS2 External", "Analog Mic 7",
+			"MIC BIAS2 External", "Analog Mic7",
 			"AMIC4", "MIC BIAS2 External",
 			"MIC BIAS2 External", "ANCRight Headset Mic",
 			"AMIC5", "MIC BIAS2 External",
 			"MIC BIAS3 External", "ANCLeft Headset Mic",
 			"AMIC6", "MIC BIAS3 External",
-			"MIC BIAS3 External", "Analog Mic 8",
+			"MIC BIAS3 External", "Analog Mic8",
 			"DMIC1", "MIC BIAS1 External",
 			"MIC BIAS1 External", "Digital Mic1",
 			"DMIC2", "MIC BIAS1 External",
@@ -470,7 +470,7 @@
 			"MIC BIAS3 External", "Digital Mic3",
 			"DMIC6", "MIC BIAS3 External",
 			"MIC BIAS3 External", "Digital Mic5";
-
+		qcom,hdmi-audio-rx;
 		qcom,cdc-micbias2-headset-only;
 		qcom,mbhc-audio-jack-type = "6-pole-jack";
 		qcom,dock-plug-det-irq = <&pm8994_gpios 13 0x1>;
