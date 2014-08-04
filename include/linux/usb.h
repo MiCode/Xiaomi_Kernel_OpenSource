@@ -593,6 +593,7 @@ extern struct usb_device *usb_get_dev(struct usb_device *dev);
 extern void usb_put_dev(struct usb_device *dev);
 extern struct usb_device *usb_hub_find_child(struct usb_device *hdev,
 	int port1);
+extern void usb_notify_port_change(struct usb_device *hdev, int port1);
 
 /**
  * usb_hub_for_each_child - iterate over all child devices on the hub

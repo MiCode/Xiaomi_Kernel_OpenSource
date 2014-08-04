@@ -582,6 +582,28 @@ void usb_kick_khubd(struct usb_device *hdev)
 		kick_khubd(hub);
 }
 
+/**
+ * usb_notify_port_change - Let usb core know that a port change has
+ * happened under @port1 of the @hdev.
+ * @hdev: USB device belonging to the usb hub
+ * @port1: port num to indicate which port the child device
+ *  is attached to.
+ *
+ * HSIC port disconnect can't cause a port change, thus usb core won't
+ * disconnect the existing device under the port. HSIC PHY driver calls
+ * the function to notify a port change to usb core.
+ */
+void usb_notify_port_change(struct usb_device *hdev, int port1)
+{
+	struct usb_hub *hub = usb_hub_to_struct_hub(hdev);
+
+	if (hub) {
+		set_bit(port1, hub->change_bits);
+		kick_khubd(hub);
+	}
+}
+EXPORT_SYMBOL_GPL(usb_notify_port_change);
+
 /*
  * Let the USB core know that a USB 3.0 device has sent a Function Wake Device
  * Notification, which indicates it had initiated remote wakeup.
