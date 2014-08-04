@@ -1054,6 +1054,30 @@ static int _adreno_start(struct adreno_device *adreno_dev)
 	if (regulator_left_on)
 		_soft_reset(adreno_dev);
 
+	if (device->pwrctrl.bus_control) {
+		/* VBIF waiting for RAM */
+		if (!adreno_dev->starved_ram_lo) {
+			status |= adreno_perfcounter_get(adreno_dev,
+					KGSL_PERFCOUNTER_GROUP_VBIF_PWR, 0,
+					&adreno_dev->starved_ram_lo, NULL,
+					PERFCOUNTER_FLAG_KERNEL);
+		}
+
+		/* VBIF DDR cycles */
+		if (!adreno_dev->ram_cycles_lo) {
+			status |= adreno_perfcounter_get(adreno_dev,
+					KGSL_PERFCOUNTER_GROUP_VBIF,
+					VBIF_AXI_TOTAL_BEATS,
+					&adreno_dev->ram_cycles_lo, NULL,
+					PERFCOUNTER_FLAG_KERNEL);
+		}
+	}
+	if (status) {
+		KGSL_DRV_ERR(device,
+			"Unable to get perf counters for Bus DCVS\n");
+		goto error_mmu_off;
+	}
+
 	/* Restore performance counter registers with saved values */
 	adreno_perfcounter_restore(adreno_dev);
 
