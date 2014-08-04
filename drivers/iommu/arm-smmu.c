@@ -531,25 +531,32 @@ static int insert_smmu_master(struct arm_smmu_device *smmu,
 	return 0;
 }
 
+struct iommus_entry {
+	struct list_head list;
+	struct device_node *node;
+	u16 streamids[MAX_MASTER_STREAMIDS];
+	int num_sids;
+};
+
 static int register_smmu_master(struct arm_smmu_device *smmu,
-				struct device *dev,
-				struct of_phandle_args *masterspec)
+				struct iommus_entry *entry)
 {
 	int i;
 	struct arm_smmu_master *master;
+	struct device *dev = smmu->dev;
 
-	master = find_smmu_master(smmu, masterspec->np);
+	master = find_smmu_master(smmu, entry->node);
 	if (master) {
 		dev_err(dev,
 			"rejecting multiple registrations for master device %s\n",
-			masterspec->np->name);
+			entry->node->name);
 		return -EBUSY;
 	}
 
-	if (masterspec->args_count > MAX_MASTER_STREAMIDS) {
+	if (entry->num_sids > MAX_MASTER_STREAMIDS) {
 		dev_err(dev,
 			"reached maximum number (%d) of stream IDs for master device %s\n",
-			MAX_MASTER_STREAMIDS, masterspec->np->name);
+			MAX_MASTER_STREAMIDS, entry->node->name);
 		return -ENOSPC;
 	}
 
@@ -557,22 +564,72 @@ static int register_smmu_master(struct arm_smmu_device *smmu,
 	if (!master)
 		return -ENOMEM;
 
-	master->of_node			= masterspec->np;
-	master->cfg.num_streamids	= masterspec->args_count;
+	master->of_node			= entry->node;
+	master->cfg.num_streamids	= entry->num_sids;
 
 	for (i = 0; i < master->cfg.num_streamids; ++i) {
-		u16 streamid = masterspec->args[i];
+		u16 streamid = entry->streamids[i];
 
 		if (!(smmu->features & ARM_SMMU_FEAT_STREAM_MATCH) &&
 		     (streamid >= smmu->num_mapping_groups)) {
 			dev_err(dev,
 				"stream ID for master device %s greater than maximum allowed (%d)\n",
-				masterspec->np->name, smmu->num_mapping_groups);
+				entry->node->name, smmu->num_mapping_groups);
 			return -ERANGE;
 		}
 		master->cfg.streamids[i] = streamid;
 	}
 	return insert_smmu_master(smmu, master);
+}
+
+static int arm_smmu_parse_iommus_properties(struct arm_smmu_device *smmu,
+					int *num_masters)
+{
+	struct of_phandle_args iommuspec;
+	struct device_node *master;
+
+	*num_masters = 0;
+
+	for_each_node_with_property(master, "iommus") {
+		int arg_ind = 0;
+		struct iommus_entry *entry, *n;
+		LIST_HEAD(iommus);
+
+		while (!of_parse_phandle_with_args(
+				master, "iommus", "#iommu-cells",
+				arg_ind, &iommuspec)) {
+			if (iommuspec.np != smmu->dev->of_node) {
+				arg_ind++;
+				continue;
+			}
+
+			list_for_each_entry(entry, &iommus, list)
+				if (entry->node == master)
+					break;
+			if (&entry->list == &iommus) {
+				entry = devm_kzalloc(smmu->dev, sizeof(*entry),
+						GFP_KERNEL);
+				if (!entry)
+					return -ENOMEM;
+				entry->node = master;
+				list_add(&entry->list, &iommus);
+			}
+			BUG_ON(iommuspec.args_count != 1);
+			entry->num_sids++;
+			entry->streamids[entry->num_sids - 1]
+				= iommuspec.args[0];
+			arg_ind++;
+		}
+
+		list_for_each_entry_safe(entry, n, &iommus, list) {
+			register_smmu_master(smmu, entry);
+			(*num_masters)++;
+			list_del(&entry->list);
+			devm_kfree(smmu->dev, entry);
+		}
+	}
+
+	return 0;
 }
 
 static struct arm_smmu_device *find_smmu_for_device(struct device *dev)
@@ -2140,8 +2197,7 @@ static int arm_smmu_device_dt_probe(struct platform_device *pdev)
 	struct arm_smmu_device *smmu;
 	struct device *dev = &pdev->dev;
 	struct rb_node *node;
-	struct of_phandle_args masterspec;
-	int num_irqs, i, err;
+	int num_irqs, i, err, num_masters;
 
 	smmu = devm_kzalloc(dev, sizeof(*smmu), GFP_KERNEL);
 	if (!smmu) {
@@ -2198,19 +2254,11 @@ static int arm_smmu_device_dt_probe(struct platform_device *pdev)
 
 	i = 0;
 	smmu->masters = RB_ROOT;
-	while (!of_parse_phandle_with_args(dev->of_node, "mmu-masters",
-					   "#stream-id-cells", i,
-					   &masterspec)) {
-		err = register_smmu_master(smmu, dev, &masterspec);
-		if (err) {
-			dev_err(dev, "failed to add master %s\n",
-				masterspec.np->name);
-			goto out_put_masters;
-		}
+	err = arm_smmu_parse_iommus_properties(smmu, &num_masters);
+	if (err)
+		goto out_put_masters;
 
-		i++;
-	}
-	dev_notice(dev, "registered %d master devices\n", i);
+	dev_notice(dev, "registered %d master devices\n", num_masters);
 
 	err = arm_smmu_init_regulators(smmu);
 	if (err)
