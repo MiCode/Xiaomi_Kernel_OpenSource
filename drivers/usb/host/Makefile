@@ -16,6 +16,7 @@ xhci-hcd-y := xhci.o xhci-mem.o
 xhci-hcd-y += xhci-ring.o xhci-hub.o xhci-dbg.o
 xhci-hcd-y += xhci-trace.o
 xhci-hcd-$(CONFIG_PCI)	+= xhci-pci.o
+xhci-hcd-y += xhci-intel-cap.o
 
 ifneq ($(CONFIG_USB_XHCI_PLATFORM), )
 	xhci-hcd-y		+= xhci-plat.o
