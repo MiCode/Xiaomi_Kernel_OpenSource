@@ -48,18 +48,6 @@ static struct gpiomux_setting gpio_uart_config = {
 	.pull = GPIOMUX_PULL_NONE,
 };
 
-static struct gpiomux_setting gpio_spi_config = {
-	.func = GPIOMUX_FUNC_1,
-	.drv = GPIOMUX_DRV_6MA,
-	.pull = GPIOMUX_PULL_NONE,
-};
-
-static struct gpiomux_setting gpio_spi_cs_config = {
-	.func = GPIOMUX_FUNC_1,
-	.drv = GPIOMUX_DRV_6MA,
-	.pull = GPIOMUX_PULL_DOWN,
-};
-
 static struct gpiomux_setting gpio_smb_stat_int_act_config = {
 	.func = GPIOMUX_FUNC_GPIO,
 	.drv  = GPIOMUX_DRV_8MA,
@@ -70,6 +58,18 @@ static struct gpiomux_setting gpio_smb_stat_int_sus_config = {
 	.func = GPIOMUX_FUNC_GPIO,
 	.drv  = GPIOMUX_DRV_2MA,
 	.pull = GPIOMUX_PULL_UP,
+};
+
+static struct gpiomux_setting gpio_uart_active_cfg = {
+	.func = GPIOMUX_FUNC_2,
+	.drv  = GPIOMUX_DRV_16MA,
+	.pull = GPIOMUX_PULL_NONE,
+};
+
+static struct gpiomux_setting gpio_uart_suspend_cfg = {
+	.func = GPIOMUX_FUNC_GPIO,
+	.drv = GPIOMUX_DRV_2MA,
+	.pull = GPIOMUX_PULL_DOWN,
 };
 
 static struct msm_gpiomux_config msm_blsp_configs[] __initdata = {
@@ -105,27 +105,31 @@ static struct msm_gpiomux_config msm_blsp_configs[] __initdata = {
 		},
 	},
 	{
-		.gpio      = 4,		/* BLSP1 QUP2 SPI_DATA_MOSI */
+		.gpio      = 4,	/* BLSP1 UART2 TX */
 		.settings = {
-			[GPIOMUX_SUSPENDED] = &gpio_spi_config,
+			[GPIOMUX_ACTIVE]    = &gpio_uart_active_cfg,
+			[GPIOMUX_SUSPENDED] = &gpio_uart_suspend_cfg,
 		},
 	},
 	{
-		.gpio      = 5,		/* BLSP1 QUP2 SPI_DATA_MISO */
+		.gpio      = 5,  /* BLSP1 UART2 RX */
 		.settings = {
-			[GPIOMUX_SUSPENDED] = &gpio_spi_config,
+			[GPIOMUX_ACTIVE]    = &gpio_uart_active_cfg,
+			[GPIOMUX_SUSPENDED] = &gpio_uart_suspend_cfg,
 		},
 	},
 	{
-		.gpio      = 6,		/* BLSP1 QUP2 SPI_CS */
+		.gpio      = 6,  /* BLSP1 UART2 CTS */
 		.settings = {
-			[GPIOMUX_SUSPENDED] = &gpio_spi_cs_config,
+			[GPIOMUX_ACTIVE]    = &gpio_uart_active_cfg,
+			[GPIOMUX_SUSPENDED] = &gpio_uart_suspend_cfg,
 		},
 	},
 	{
-		.gpio      = 7,		/* BLSP1 QUP2 SPI_CLK */
+		.gpio      = 7,  /* BLSP1 UART2 RTS */
 		.settings = {
-			[GPIOMUX_SUSPENDED] = &gpio_spi_config,
+			[GPIOMUX_ACTIVE]    = &gpio_uart_active_cfg,
+			[GPIOMUX_SUSPENDED] = &gpio_uart_suspend_cfg,
 		},
 	},
 };
