@@ -37,10 +37,10 @@ Optional parameters:
 		monitor mode.
 - qcom,bcl-framework-interface: If this property is defined, then the BCL uses
 		the BCL framework for monitoring battery voltage and current.
-		When this property is defined, the 'high-threshold-uamp',
-		'low-threshold-uamp', 'mitigation-freq-khz',
-		'vph-high-threshold-uv', 'vph-low-threshold-uv' and
-		'thermal-handle' properties should be defined in the
+		When this property is defined, the 'qcom,high-threshold-uamp',
+		'qcom,low-threshold-uamp', 'qcom,mitigation-freq-khz',
+		'qcom,vph-high-threshold-uv', 'qcom,vph-low-threshold-uv' and
+		'qcom,thermal-handle' properties should be defined in the
 		'qcom,ibat-monitor' node.
 - qcom,bcl-hotplug-list = <hotplug-phandle-list>: List of phandles to the cores
 		that are to be hotplugged, when battery current limit condition
@@ -54,33 +54,33 @@ Optional nodes:
 		qcom,ibat-threshold-adc_tm are defined. Error in any of these
 		properties will disable BTM mode of operation and will fall
 		back to the available current monitor mode.
-	* high-threshold-uamp: The battery current, in microampere, after which
-		the BCL driver should cap the maximum frequency.
-	* low-threshold-uamp: The battery current, in microampere, below which
-		the BCL driver should clear the CPU frequency mitigation.
-	* mitigation-freq-khz: The maximum frequency value the BCL driver
+	* qcom,high-threshold-uamp: The battery current, in microampere, after
+		which the BCL driver should cap the maximum frequency.
+	* qcom,low-threshold-uamp: The battery current, in microampere, below
+		which the BCL driver should clear the CPU frequency mitigation.
+	* qcom,mitigation-freq-khz: The maximum frequency value the BCL driver
 		should mitigate the CPUS's with. This frequency shouldn't be
 		less than the minimum frequency request that the kernel thermal
 		monitor driver places during vdd restriction.
-	* ibat-channel: The ADC hardware's Ibat channel number.
-	* uv-to-ua-numerator: The conversion parameter required for converting
+	* qcom,ibat-channel: The ADC hardware's Ibat channel number.
+	* qcom,uv-to-ua-numerator: The conversion parameter required for converting
 		the voltage measure from ADC hardware to current value.
-	* uv-to-ua-denominator: The conversion parameter required for
+	* qcom,uv-to-ua-denominator: The conversion parameter required for
 		converting the voltage measure from ADC hardware to current.
 		The microvolt to microampere (or vice-versa) conversion uses
 		the below conversion formulae.
 		ua = (uv * uv-to-ua-numerator) / uv-to-ua-denominator
-	* adc-interval-usec: The polling interval, in microseconds, for the ADC
+	* qcom,adc-interval-usec: The polling interval, in microseconds, for the ADC
 		hardware.
-	* vph-channel: The ADC hardware's Vph channel number.
-	* vph-high-threshold-uv: The battery voltage threshold above which the
+	* qcom,vph-channel: The ADC hardware's Vph channel number.
+	* qcom,vph-high-threshold-uv: The battery voltage threshold above which the
 		BCL driver clears the previously applied mitigation, disables
 		the battery current monitoring, and starts monitoring for low
 		battery voltage.
-	* vph-low-threshold-uv: The battery voltage threshold below which the
+	* qcom,vph-low-threshold-uv: The battery voltage threshold below which the
 		BCL driver starts monitoring the battery current thresholds and
 		mitigates the CPU on the event of high load.
-	* thermal-handle = <&phandle_to_vdd_apps>: phandle to the "qcom,msm_thermal"
+	* qcom,thermal-handle = <&phandle_to_vdd_apps>: phandle to the "qcom,msm_thermal"
 		vdd restriction property, "qcom,vdd-apps-rstr". This phandle is
 		used by BCL driver to get the minimum frequency request that the
 		thermal driver places during vdd restriction. This frequency
@@ -93,17 +93,17 @@ Example:
 		qcom,ibat-vadc = <&pma8084_vadc>;
 		qcom,ibat-threshold-adc_tm = <&pma8084_adc_tm>;
 		qcom,ibat-monitor {
-			high-threshold-uamp = <1500>;
-			low-threshold-uamp = <500>;
-			mitigation-freq-khz = <1958400>;
-			ibat-channel = <0x15>;
-			adc-interval-usec = <3900>;
-			uv-to-ua-numerator = <2>;
-			uv-to-ua-denominator = <1>;
-			vph-channel = <0x07>;
-			vph-high-threshold-uv = <3700000>;
-			vph-low-threshold-uv = <3500000>;
-			thermal-handle = <&msm_thermal_freq>;
+			qcom,high-threshold-uamp = <1500>;
+			qcom,low-threshold-uamp = <500>;
+			qcom,mitigation-freq-khz = <1958400>;
+			qcom,ibat-channel = <0x15>;
+			qcom,adc-interval-usec = <3900>;
+			qcom,uv-to-ua-numerator = <2>;
+			qcom,uv-to-ua-denominator = <1>;
+			qcom,vph-channel = <0x07>;
+			qcom,vph-high-threshold-uv = <3700000>;
+			qcom,vph-low-threshold-uv = <3500000>;
+			qcom,thermal-handle = <&msm_thermal_freq>;
 		};
 	};
 For Using BCL peripheral interface:
@@ -112,12 +112,12 @@ For Using BCL peripheral interface:
 		qcom,bcl-framework-interface;
 		qcom,bcl-hotplug-list = <&CPU5 &CPU6 &CPU7>;
 		qcom,ibat-monitor {
-			high-threshold-uamp = <1500>;
-			low-threshold-uamp = <500>;
-			mitigation-freq-khz = <1958400>;
-			vph-high-threshold-uv = <3700000>;
-			vph-low-threshold-uv = <3500000>;
-			thermal-handle = <&msm_thermal_freq>;
+			qcom,high-threshold-uamp = <1500>;
+			qcom,low-threshold-uamp = <500>;
+			qcom,mitigation-freq-khz = <1958400>;
+			qcom,vph-high-threshold-uv = <3700000>;
+			qcom,vph-low-threshold-uv = <3500000>;
+			qcom,thermal-handle = <&msm_thermal_freq>;
 		};
 	};
 

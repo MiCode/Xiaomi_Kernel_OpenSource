@@ -1375,7 +1375,7 @@ static void get_vdd_rstr_freq(struct bcl_context *bcl,
 	struct device_node *phandle = NULL;
 	char *key = NULL;
 
-	key = "thermal-handle";
+	key = "qcom,thermal-handle";
 	phandle = of_parse_phandle(ibat_node, key, 0);
 	if (!phandle) {
 		pr_err("Thermal handle not present\n");
@@ -1409,15 +1409,15 @@ static int probe_bcl_periph_prop(struct bcl_context *bcl)
 		goto ibat_probe_exit;
 	}
 
-	BCL_FETCH_DT_U32(ibat_node, key, "low-threshold-uamp", ret,
+	BCL_FETCH_DT_U32(ibat_node, key, "qcom,low-threshold-uamp", ret,
 		bcl->ibat_low_thresh.trip_value, ibat_probe_exit);
-	BCL_FETCH_DT_U32(ibat_node, key, "high-threshold-uamp", ret,
+	BCL_FETCH_DT_U32(ibat_node, key, "qcom,high-threshold-uamp", ret,
 		bcl->ibat_high_thresh.trip_value, ibat_probe_exit);
-	BCL_FETCH_DT_U32(ibat_node, key, "mitigation-freq-khz", ret,
+	BCL_FETCH_DT_U32(ibat_node, key, "qcom,mitigation-freq-khz", ret,
 		bcl->bcl_p_freq_max, ibat_probe_exit);
-	BCL_FETCH_DT_U32(ibat_node, key, "vph-high-threshold-uv", ret,
+	BCL_FETCH_DT_U32(ibat_node, key, "qcom,vph-high-threshold-uv", ret,
 		bcl->vbat_high_thresh.trip_value, ibat_probe_exit);
-	BCL_FETCH_DT_U32(ibat_node, key, "vph-low-threshold-uv", ret,
+	BCL_FETCH_DT_U32(ibat_node, key, "qcom,vph-low-threshold-uv", ret,
 		bcl->vbat_low_thresh.trip_value, ibat_probe_exit);
 	bcl->vbat_high_thresh.trip_notify
 		= bcl->vbat_low_thresh.trip_notify = bcl_periph_vbat_notify;
@@ -1461,57 +1461,57 @@ static int probe_btm_properties(struct bcl_context *bcl)
 		goto btm_probe_exit;
 	}
 
-	key = "uv-to-ua-numerator";
+	key = "qcom,uv-to-ua-numerator";
 	ret = of_property_read_u32(ibat_node, key,
 			&bcl->btm_uv_to_ua_numerator);
 	if (ret < 0)
 		goto btm_probe_exit;
 
-	key = "uv-to-ua-denominator";
+	key = "qcom,uv-to-ua-denominator";
 	ret = of_property_read_u32(ibat_node, key,
 			&bcl->btm_uv_to_ua_denominator);
 	if (ret < 0)
 		goto btm_probe_exit;
 
-	key = "low-threshold-uamp";
+	key = "qcom,low-threshold-uamp";
 	ret = of_property_read_u32(ibat_node, key, &curr_ua);
 	if (ret < 0)
 		goto btm_probe_exit;
 	bcl->btm_low_threshold_uv = current_to_voltage(bcl, curr_ua);
 
-	key = "high-threshold-uamp";
+	key = "qcom,high-threshold-uamp";
 	ret = of_property_read_u32(ibat_node, key, &curr_ua);
 	if (ret < 0)
 		goto btm_probe_exit;
 	bcl->btm_high_threshold_uv = current_to_voltage(bcl, curr_ua);
 
-	key = "mitigation-freq-khz";
+	key = "qcom,mitigation-freq-khz";
 	ret = of_property_read_u32(ibat_node, key, &bcl->btm_freq_max);
 	if (ret < 0)
 		goto btm_probe_exit;
 
-	key = "ibat-channel";
+	key = "qcom,ibat-channel";
 	ret = of_property_read_u32(ibat_node, key, &bcl->btm_ibat_chan);
 	if (ret < 0)
 		goto btm_probe_exit;
 
-	key = "adc-interval-usec";
+	key = "qcom,adc-interval-usec";
 	ret = of_property_read_u32(ibat_node, key, &adc_interval_us);
 	if (ret < 0)
 		goto btm_probe_exit;
 	bcl->btm_adc_interval = uSec_to_adc_time(bcl, adc_interval_us);
 
-	key = "vph-channel";
+	key = "qcom,vph-channel";
 	ret = of_property_read_u32(ibat_node, key, &bcl->btm_vph_chan);
 	if (ret < 0)
 		goto btm_probe_exit;
 
-	key = "vph-high-threshold-uv";
+	key = "qcom,vph-high-threshold-uv";
 	ret = of_property_read_u32(ibat_node, key, &bcl->btm_vph_high_thresh);
 	if (ret < 0)
 		goto btm_probe_exit;
 
-	key = "vph-low-threshold-uv";
+	key = "qcom,vph-low-threshold-uv";
 	ret = of_property_read_u32(ibat_node, key, &bcl->btm_vph_low_thresh);
 	if (ret < 0)
 		goto btm_probe_exit;
