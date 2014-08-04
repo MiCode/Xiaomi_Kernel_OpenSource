@@ -385,6 +385,10 @@ int interpolate_slope(struct pc_temp_ocv_lut *pc_temp_ocv,
 	if (batt_temp == pc_temp_ocv->temp[i] * DEGC_SCALE) {
 		slope = (pc_temp_ocv->ocv[row1][i] -
 				pc_temp_ocv->ocv[row2][i]);
+		if (slope <= 0) {
+			pr_warn("Slope=%d for pc=%d, using 1\n", slope, pc);
+			slope = 1;
+		}
 		slope *= 1000;
 		slope /= (pc_temp_ocv->percent[row1] -
 			pc_temp_ocv->percent[row2]);
@@ -405,6 +409,10 @@ int interpolate_slope(struct pc_temp_ocv_lut *pc_temp_ocv,
 				batt_temp);
 
 	slope = (ocvrow1 - ocvrow2);
+	if (slope <= 0) {
+		pr_warn("Slope=%d for pc=%d, using 1\n", slope, pc);
+		slope = 1;
+	}
 	slope *= 1000;
 	slope /= (pc_temp_ocv->percent[row1] - pc_temp_ocv->percent[row2]);
 
