@@ -1675,8 +1675,12 @@ void mmc_power_off(struct mmc_host *host)
 void mmc_power_cycle(struct mmc_host *host, u32 ocr)
 {
 	mmc_power_off(host);
-	/* Wait at least 1 ms according to SD spec */
-	mmc_delay(1);
+	/*
+	 * Wait at least 1 ms according to SD spec
+	 * some of the SD card seems only 1ms is not enough,
+	 * change the actual delay to be 10ms for safe
+	 */
+	mmc_delay(10);
 	mmc_power_up(host, ocr);
 }
 
