@@ -25,6 +25,7 @@ static char *descriptions =
 	" 0 arm64: perf: add debug patch logging framework\n"
 	" 1 Perf: arm64: Add L1 counters to tracepoints\n"
 	" 2 Perf: arm64: add support for msm8994v1 irq\n"
+	" 3 Perf: arm64: enable cti workaround\n"
 ;
 
 static ssize_t desc_read(struct file *fp, char __user *buf,

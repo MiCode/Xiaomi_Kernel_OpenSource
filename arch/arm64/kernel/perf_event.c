@@ -50,6 +50,7 @@ static DEFINE_PER_CPU(struct pmu_hw_events, cpu_hw_events);
 
 #define to_arm_pmu(p) (container_of(p, struct arm_pmu, pmu))
 static struct pmu_hw_events *armpmu_get_cpu_events(void);
+static atomic_t cti_irq_workaround;
 
 /* Set at runtime when we know what CPU type we are. */
 static struct arm_pmu *cpu_pmu;
@@ -468,6 +469,9 @@ armpmu_reserve_hardware(struct arm_pmu *armpmu)
 	if (!msm_pmu_use_irq) {
 		pr_info("EDAC driver requests for the PMU interrupt\n");
 		goto out;
+	} else {
+		if (atomic_add_return(1, &cti_irq_workaround) == 1)
+			schedule_on_each_cpu(msm_enable_cti_pmu_workaround);
 	}
 
 	if (irq_is_percpu(irq)) {
