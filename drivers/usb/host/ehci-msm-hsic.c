@@ -1133,6 +1133,10 @@ static int ehci_hsic_reset(struct usb_hcd *hcd)
 	ehci->caps = USB_CAPLENGTH;
 	hcd->has_tt = 1;
 
+
+	/* Disable streaming mode and select host mode */
+	writel_relaxed(0x13, USB_USBMODE);
+
 	retval = ehci_setup(hcd);
 	if (retval)
 		return retval;
