@@ -20,6 +20,7 @@ Required properties:
 - qcom,clock-rates: clock rate in Hz.
 - qcom,min-clock-rate: minimum clock rate in Hz, to be set to CPP hardware in
   case dynamic clock scaling based on prevalent streams need lower clock rate.
+- bus_master: Flag for presence of CPP bus master
 
 Example:
 
@@ -45,4 +46,5 @@ Example:
 			"camss_vfe_cpp_clk","micro_iface_clk", "camss_ahb_clk";
 		qcom,clock-rates = <0 465000000 0 0 465000000 0 0>;
 		qcom,min-clock-rate = <465000000>;
+		bus_master = <0>;
 	};
