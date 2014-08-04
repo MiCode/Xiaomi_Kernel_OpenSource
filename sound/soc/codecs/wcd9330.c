@@ -7683,10 +7683,12 @@ static const struct snd_soc_dapm_widget tomtom_1_dapm_widgets[] = {
 			   SND_SOC_DAPM_POST_PMD),
 	SND_SOC_DAPM_ADC_E("ADC5", NULL, TOMTOM_A_TX_5_GAIN, 7, 0,
 			   tomtom_codec_enable_adc,
-			   SND_SOC_DAPM_POST_PMU),
+			   SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMU |
+			   SND_SOC_DAPM_POST_PMD),
 	SND_SOC_DAPM_ADC_E("ADC6", NULL, TOMTOM_A_TX_6_GAIN, 7, 0,
 			   tomtom_codec_enable_adc,
-			   SND_SOC_DAPM_POST_PMU),
+			   SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMU |
+			   SND_SOC_DAPM_POST_PMD),
 };
 
 static struct regulator *tomtom_codec_find_regulator(struct snd_soc_codec *cdc,
