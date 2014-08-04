@@ -41,6 +41,7 @@ static struct apr_client client[APR_DEST_MAX][APR_CLIENT_MAX];
 
 static wait_queue_head_t dsp_wait;
 static wait_queue_head_t modem_wait;
+int is_modem_up = 0;
 /* Subsystem restart: QDSP6 data, functions */
 static struct workqueue_struct *apr_reset_workqueue;
 static void apr_reset_deregister(struct work_struct *work);
@@ -646,6 +647,7 @@ static int modem_notifier_cb(struct notifier_block *this, unsigned long code,
 		if (apr_cmpxchg_modem_state(APR_SUBSYS_DOWN, APR_SUBSYS_UP) ==
 						APR_SUBSYS_DOWN)
 			wake_up(&modem_wait);
+                is_modem_up = 1;
 		pr_debug("M-Notify: Bootup Completed\n");
 		break;
 	default:
