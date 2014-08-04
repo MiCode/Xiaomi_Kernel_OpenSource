@@ -2409,7 +2409,6 @@ static int msm_vidc_load_resources(int flipped_state,
 	int rc = 0;
 	struct hfi_device *hdev;
 	int num_mbs_per_sec = 0;
-	int height, width;
 	struct msm_vidc_core *core;
 	enum load_calc_quirks quirks = LOAD_CALC_IGNORE_TURBO_LOAD |
 		LOAD_CALC_IGNORE_THUMBNAIL_LOAD;
@@ -2452,10 +2451,6 @@ static int msm_vidc_load_resources(int flipped_state,
 		goto exit;
 	}
 	if (core->resources.ocmem_size) {
-		height = max(inst->prop.height[CAPTURE_PORT],
-			inst->prop.height[OUTPUT_PORT]);
-		width = max(inst->prop.width[CAPTURE_PORT],
-			inst->prop.width[OUTPUT_PORT]);
 		rc = msm_comm_vote_bus(core);
 		if (!rc) {
 			mutex_lock(&core->lock);
