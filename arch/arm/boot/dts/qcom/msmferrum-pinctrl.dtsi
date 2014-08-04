@@ -217,6 +217,41 @@
                         };
                 };
 
+		pmx_i2c_3 {
+                        /* CLK, DATA */
+			qcom,pins = <&gp 29>, <&gp 30>;
+			qcom,num-grp-pins = <2>;
+			qcom,pin-func = <1>;
+			label = "pmx_i2c_3";
+
+			i2c_3_active: i2c_3_active {
+				drive-strength = <2>; /* 2 MA */
+				bias-disable = <0>; /* No PULL */
+			};
+
+			i2c_3_sleep: i2c_3_sleep {
+				drive-strength = <2>; /* 2 MA */
+				bias-disable = <0>; /* No PULL */
+			};
+		};
+
+		pmx_i2c_1 {
+                        /* CLK, DATA */
+			qcom,pins = <&gp 6>, <&gp 7>;
+			qcom,num-grp-pins = <2>;
+			qcom,pin-func = <3>;
+			label = "pmx_i2c_1";
+
+			i2c_1_active: i2c_1_active {
+				drive-strength = <2>; /* 2 MA */
+				bias-disable = <0>; /* No PULL */
+			};
+
+			i2c_1_sleep: i2c_1_sleep {
+				drive-strength = <2>; /* 2 MA */
+				bias-disable = <0>; /* No PULL */
+			};
+		};
 
 	};
 };
