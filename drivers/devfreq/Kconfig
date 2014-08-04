@@ -71,6 +71,18 @@ config DEVFREQ_GOV_CPUFREQ
 	  CPU frequency to device frequency mapping table(s). This governor
 	  can be useful for controlling devices such as DDR, cache, CCI, etc.
 
+config DEVFREQ_GOV_MSM_BW_HWMON
+	tristate "HW monitor based governor for device BW"
+	depends on ARCH_MSM_KRAIT || ARCH_MSM_BIMC_BWMON
+	help
+	  HW monitor based governor for device to DDR bandwidth voting.
+
+	  When this governor is used for Krait CPUs, it sets the Krait CPU BW
+	  vote by using L2 PM counters to monitor the Krait's use of DDR.
+	  Since this uses some of the Krait PM counters it can conflict with
+	  existing profiling tools.  This governor is unlikely to be useful
+	  for non-MSM devices.
+
 config DEVFREQ_GOV_MSM_CACHE_HWMON
 	tristate "HW monitor based governor for cache frequency"
 	help
