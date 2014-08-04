@@ -552,7 +552,8 @@ int msm_pcm_routing_reg_phy_stream(int fedai_id, int perf_mode,
 					    sample_rate, channels, topology,
 					    perf_mode, bits_per_sample,
 					    app_type);
-			if ((copp_idx < 0) && (copp_idx > MAX_COPPS_PER_PORT)) {
+			if ((copp_idx < 0) ||
+			    (copp_idx >= MAX_COPPS_PER_PORT)) {
 				pr_err("%s: adm open failed copp_idx:%d\n",
 					__func__, copp_idx);
 				return -EINVAL;
@@ -749,7 +750,12 @@ static void msm_pcm_routing_process_audio(u16 reg, u16 val, int set)
 					    sample_rate, channels, topology,
 					    fdai->perf_mode, bits_per_sample,
 					    app_type);
-
+			if ((copp_idx < 0) ||
+			    (copp_idx >= MAX_COPPS_PER_PORT)) {
+				pr_err("%s: adm open failed\n", __func__);
+				mutex_unlock(&routing_lock);
+				return;
+			}
 			pr_debug("%s: setting idx bit of fe:%d, type: %d, be:%d\n",
 				 __func__, val, session_type, reg);
 			set_bit(copp_idx,
@@ -5087,7 +5093,8 @@ static int msm_pcm_routing_prepare(struct snd_pcm_substream *substream)
 					    sample_rate, channels, topology,
 					    fdai->perf_mode, bits_per_sample,
 					    app_type);
-			if ((copp_idx < 0) && (copp_idx > MAX_COPPS_PER_PORT)) {
+			if ((copp_idx < 0) ||
+			    (copp_idx >= MAX_COPPS_PER_PORT)) {
 				pr_err("%s: adm open failed\n", __func__);
 				return -EINVAL;
 			}
