@@ -623,7 +623,11 @@ static void handle_event_change(enum command_response cmd, void *data)
 		rc = msm_vidc_check_session_supported(inst);
 		if (!rc) {
 			msm_vidc_queue_v4l2_event(inst, event);
+		} else if (rc) {
+			msm_vidc_queue_v4l2_event(inst,
+				V4L2_EVENT_MSM_VIDC_HW_OVERLOAD);
 		}
+		wake_up(&inst->kernel_event_queue);
 
 		return;
 	} else {
@@ -3488,11 +3492,8 @@ int msm_vidc_check_session_supported(struct msm_vidc_inst *inst)
 	if (rc) {
 		change_inst_state(inst, MSM_VIDC_CORE_INVALID);
 		msm_comm_kill_session(inst);
-		msm_vidc_queue_v4l2_event(inst,
-					V4L2_EVENT_MSM_VIDC_HW_OVERLOAD);
 		dprintk(VIDC_WARN,
 			"%s: Hardware is overloaded\n", __func__);
-		wake_up(&inst->kernel_event_queue);
 	}
 	return rc;
 }
