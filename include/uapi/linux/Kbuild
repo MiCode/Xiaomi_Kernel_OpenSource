@@ -20,6 +20,7 @@ header-y += netfilter_ipv4/
 header-y += netfilter_ipv6/
 header-y += usb/
 header-y += wimax/
+header-y += ../../../drivers/staging/android/uapi/
 
 genhdr-y += version.h
 
@@ -191,6 +192,7 @@ header-y += inet_diag.h
 header-y += inotify.h
 header-y += input.h
 header-y += ioctl.h
+header-y += ion.h
 header-y += ip.h
 header-y += ip6_tunnel.h
 header-y += ip_vs.h
@@ -261,6 +263,8 @@ header-y += mroute.h
 header-y += mroute6.h
 header-y += msdos_fs.h
 header-y += msg.h
+header-y += msm_ion.h
+header-y += msm_ipc.h
 header-y += msm_rmnet.h
 header-y += mtio.h
 header-y += n_r3964.h
