@@ -36,6 +36,7 @@ enum smem_prop {
  * in arch/arm/boot/dts/<arch>.dtsi
  */
 enum hal_buffer {
+	HAL_BUFFER_NONE = 0x0,
 	HAL_BUFFER_INPUT = 0x1,
 	HAL_BUFFER_OUTPUT = 0x2,
 	HAL_BUFFER_OUTPUT2 = 0x4,
