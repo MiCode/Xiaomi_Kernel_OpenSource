@@ -161,6 +161,11 @@ module_param_named(
 	debug_mask, fg_debug_mask, int, S_IRUSR | S_IWUSR
 );
 
+static int fg_est_dump;
+module_param_named(
+	first_est_dump, fg_est_dump, int, S_IRUSR | S_IWUSR
+);
+
 struct fg_irq {
 	int			irq;
 	unsigned long		disabled;
@@ -214,6 +219,7 @@ struct fg_chip {
 	struct power_supply	bms_psy;
 	struct mutex		rw_lock;
 	struct work_struct	batt_profile_init;
+	struct work_struct	dump_sram;
 	bool			profile_loaded;
 	bool			use_otp_profile;
 	struct delayed_work	update_jeita_setting;
@@ -290,9 +296,9 @@ static void fill_string(char *str, size_t str_len, u8 *buf, int buf_len)
 	int i;
 
 	for (i = 0; i < buf_len; i++) {
-		pos += scnprintf(str + pos, str_len - pos, "0x%02X", buf[i]);
+		pos += scnprintf(str + pos, str_len - pos, "%02X", buf[i]);
 		if (i < buf_len - 1)
-			pos += scnprintf(str + pos, str_len - pos, ", ");
+			pos += scnprintf(str + pos, str_len - pos, " ");
 	}
 }
 
@@ -1007,6 +1013,47 @@ static int fg_property_is_writeable(struct power_supply *psy,
 	return 0;
 }
 
+#define SCRATCHPAD_OFFSET	0x540
+#define BATT_PROFILE_OFFSET	0x4C0
+#define SCRATCHPAD_LEN		192
+static void dump_sram(struct work_struct *work)
+{
+	int i, rc;
+	u8 buffer[4];
+	u16 addr = BATT_PROFILE_OFFSET;
+	char str[16];
+	struct fg_chip *chip = container_of(work,
+				struct fg_chip,
+				dump_sram);
+
+	for (i = 0; i < chip->batt_profile_len; i += 4) {
+		rc = fg_mem_read(chip, buffer, addr, 4, 0,
+				i >= chip->batt_profile_len ? 0 : 1);
+		if (rc) {
+			pr_err("read failed: addr=%03X, rc=%d\n", addr, rc);
+			break;
+		}
+		str[0] = '\0';
+		fill_string(str, DEBUG_PRINT_BUFFER_SIZE, buffer, 4);
+		pr_info("%03X %s\n", addr, str);
+		addr += 4;
+	}
+
+	addr = SCRATCHPAD_OFFSET;
+	for (i = 0; i < SCRATCHPAD_LEN; i += 4) {
+		rc = fg_mem_read(chip, buffer, addr, 4, 0,
+				i >= SCRATCHPAD_LEN ? 0 : 1);
+		if (rc) {
+			pr_err("read failed: addr=%03X, rc=%d\n", addr, rc);
+			break;
+		}
+		str[0] = '\0';
+		fill_string(str, DEBUG_PRINT_BUFFER_SIZE, buffer, 4);
+		pr_info("%03X %s\n", addr, str);
+		addr += 4;
+	}
+}
+
 static irqreturn_t fg_mem_avail_irq_handler(int irq, void *_chip)
 {
 	struct fg_chip *chip = _chip;
@@ -1067,6 +1114,9 @@ static irqreturn_t fg_first_soc_irq_handler(int irq, void *_chip)
 
 	if (fg_debug_mask & FG_IRQS)
 		pr_info("triggered\n");
+
+	if (fg_est_dump)
+		schedule_work(&chip->dump_sram);
 
 	power_supply_changed(&chip->bms_psy);
 	return IRQ_HANDLED;
@@ -1160,7 +1210,7 @@ wait:
 	}
 	chip->fast_access = true;
 
-	rc = fg_mem_write(chip, chip->batt_profile, 0x4C0,
+	rc = fg_mem_write(chip, chip->batt_profile, BATT_PROFILE_OFFSET,
 			chip->batt_profile_len, 0, 1);
 	if (rc)
 		pr_err("failed to write profile rc=%d\n", rc);
@@ -1363,6 +1413,7 @@ static int fg_remove(struct spmi_device *spmi)
 	mutex_destroy(&chip->rw_lock);
 	cancel_delayed_work_sync(&chip->update_jeita_setting);
 	cancel_work_sync(&chip->batt_profile_init);
+	cancel_work_sync(&chip->dump_sram);
 	power_supply_unregister(&chip->bms_psy);
 	dev_set_drvdata(&spmi->dev, NULL);
 	return 0;
@@ -1791,6 +1842,7 @@ static int fg_probe(struct spmi_device *spmi)
 	INIT_DELAYED_WORK(&chip->update_sram_data, update_sram_data);
 	INIT_WORK(&chip->batt_profile_init,
 			batt_profile_init);
+	INIT_WORK(&chip->dump_sram, dump_sram);
 	init_completion(&chip->sram_access);
 	init_completion(&chip->batt_id_avail);
 
