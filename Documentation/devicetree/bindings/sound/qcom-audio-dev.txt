@@ -400,6 +400,11 @@ Example:
 			qcom,msm-dai-q6-dev-id = <16393>;
 		};
 
+		qcom,msm-dai-q6-sb-5-tx {
+			compatible = "qcom,msm-dai-q6-dev";
+			qcom,msm-dai-q6-dev-id = <16395>;
+		};
+
 		qcom,msm-dai-q6-sb-6-rx {
 			compatible = "qcom,msm-dai-q6-dev";
 			qcom,msm-dai-q6-dev-id = <16396>;
