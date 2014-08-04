@@ -764,10 +764,20 @@ static int smb358_hw_init(struct smb358_charger *chip)
 		dev_err(chip->dev, "Couldn't set recharge para rc=%d\n", rc);
 
 	/* enable/disable charging */
-	rc = smb358_charging_disable(chip, USER, !!chip->charging_disabled);
-	if (rc)
-		dev_err(chip->dev, "Couldn't '%s' charging rc = %d\n",
+	if (chip->charging_disabled) {
+		rc = smb358_charging_disable(chip, USER, 1);
+		if (rc)
+			dev_err(chip->dev, "Couldn't '%s' charging rc = %d\n",
 			chip->charging_disabled ? "disable" : "enable", rc);
+	} else {
+		/*
+		 * Enable charging explictly,
+		 * because not sure the default behavior.
+		 */
+		rc = __smb358_charging_disable(chip, 0);
+		if (rc)
+			dev_err(chip->dev, "Couldn't enable charging\n");
+	}
 
 	return rc;
 }
