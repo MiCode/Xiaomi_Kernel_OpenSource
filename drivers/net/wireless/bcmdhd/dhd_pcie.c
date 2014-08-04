@@ -1527,8 +1527,6 @@ dhd_bus_schedule_queue(struct dhd_bus  *bus, uint16 flow_id, bool txs)
 		DHD_QUEUE_LOCK(queue->lock, flags);
 
 		while ((txp = dhd_flow_queue_dequeue(bus->dhd, queue)) != NULL) {
-			PKTORPHAN(txp);
-
 #ifdef DHDTCPACK_SUPPRESS
 		dhd_tcpack_check_xmit(bus->dhd, txp);
 #endif /* DHDTCPACK_SUPPRESS */
