@@ -71,6 +71,8 @@ struct gic_chip_data {
 };
 
 static DEFINE_RAW_SPINLOCK(irq_controller_lock);
+/* Synchronize switching CPU interface and sending SGIs */
+static DEFINE_RAW_SPINLOCK(gic_sgi_lock);
 
 /*
  * The GIC mapping of CPU interfaces does not necessarily match
@@ -624,7 +626,7 @@ static void gic_raise_softirq(const struct cpumask *mask, unsigned int irq)
 	int cpu;
 	unsigned long flags, map = 0;
 
-	raw_spin_lock_irqsave(&irq_controller_lock, flags);
+	raw_spin_lock_irqsave(&gic_sgi_lock, flags);
 
 	/* Convert our logical CPU mask into a physical one. */
 	for_each_cpu(cpu, mask)
@@ -639,7 +641,7 @@ static void gic_raise_softirq(const struct cpumask *mask, unsigned int irq)
 	/* this always happens on GIC0 */
 	writel_relaxed(map << 16 | irq, gic_data_dist_base(&gic_data[0]) + GIC_DIST_SOFTINT);
 
-	raw_spin_unlock_irqrestore(&irq_controller_lock, flags);
+	raw_spin_unlock_irqrestore(&gic_sgi_lock, flags);
 }
 #endif
 
@@ -709,6 +711,7 @@ void gic_migrate_target(unsigned int new_cpu_id)
 	ror_val = (cur_cpu_id - new_cpu_id) & 31;
 
 	raw_spin_lock(&irq_controller_lock);
+	raw_spin_lock(&gic_sgi_lock);
 
 	/* Update the target interface for this logical CPU */
 	gic_cpu_map[cpu] = 1 << new_cpu_id;
@@ -728,6 +731,7 @@ void gic_migrate_target(unsigned int new_cpu_id)
 		}
 	}
 
+	raw_spin_unlock(&gic_sgi_lock);
 	raw_spin_unlock(&irq_controller_lock);
 
 	/*
