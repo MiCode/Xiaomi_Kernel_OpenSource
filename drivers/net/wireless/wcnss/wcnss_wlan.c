@@ -1194,6 +1194,11 @@ void wcnss_wlan_unregister_pm_ops(struct device *dev,
 				const struct dev_pm_ops *pm_ops)
 {
 	if (penv && dev && (dev == &penv->pdev->dev) && pm_ops) {
+		if (penv->pm_ops == NULL) {
+			pr_err("%s: pm_ops is already unregistered.\n",
+				__func__);
+			return;
+		}
 		if (pm_ops->suspend != penv->pm_ops->suspend ||
 				pm_ops->resume != penv->pm_ops->resume)
 			pr_err("PM APIs dont match with registered APIs\n");
