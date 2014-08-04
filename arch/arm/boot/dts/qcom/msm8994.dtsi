@@ -2678,12 +2678,12 @@
 		qcom,bcl-framework-interface;
 		qcom,bcl-hotplug-list = <&CPU4 &CPU5 &CPU6 &CPU7>;
 		qcom,ibat-monitor {
-			low-threshold-uamp = <1500000>;
-			high-threshold-uamp = <3500000>;
-			mitigation-freq-khz = <384000>;
-			vph-high-threshold-uv = <3800000>;
-			vph-low-threshold-uv = <3500000>;
-			thermal-handle = <&msm_thermal_freq>;
+			qcom,low-threshold-uamp = <1500000>;
+			qcom,high-threshold-uamp = <3500000>;
+			qcom,mitigation-freq-khz = <384000>;
+			qcom,vph-high-threshold-uv = <3800000>;
+			qcom,vph-low-threshold-uv = <3500000>;
+			qcom,thermal-handle = <&msm_thermal_freq>;
 		};
 	};
 
