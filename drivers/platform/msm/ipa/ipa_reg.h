@@ -75,6 +75,13 @@
  * End of IPA 2.0 Registers
  */
 
+/*
+ * IPA HW 2.5 Registers
+ */
+#define IPA_BCR_OFST 0x000005B0
+ /*
+ * End of IPA 2.5 Registers
+ */
 
 /*
 Common Registers
