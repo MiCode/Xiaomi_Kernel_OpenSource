@@ -18,6 +18,7 @@
 #include "adreno_drawctxt.h"
 #include "adreno_ringbuffer.h"
 #include "adreno_profile.h"
+#include "adreno_dispatch.h"
 #include "kgsl_iommu.h"
 #include <linux/stat.h>
 #include <linux/delay.h>
@@ -63,6 +64,13 @@
  */
 #define ADRENO_FEATURE(_dev, _bit) \
 	((_dev)->gpucore->features & (_bit))
+
+/*
+ * return the dispatcher cmdqueue in which the given cmdbatch should
+ * be submitted
+ */
+#define ADRENO_CMDBATCH_DISPATCH_CMDQUEUE(c)	\
+	(&((ADRENO_CONTEXT(c->context))->rb->dispatch_q))
 
 /* Adreno core features */
 /* The core uses OCMEM for GMEM/binning memory */
@@ -139,56 +147,6 @@ enum adreno_gpurev {
 
 #define ADRENO_SPTP_PC_CTRL BIT(0)
 #define ADRENO_PPD_CTRL BIT(1)
-
-/*
- * Maximum size of the dispatcher ringbuffer - the actual inflight size will be
- * smaller then this but this size will allow for a larger range of inflight
- * sizes that can be chosen at runtime
- */
-
-#define ADRENO_DISPATCH_CMDQUEUE_SIZE 128
-
-#define CMDQUEUE_NEXT(_i, _s) (((_i) + 1) % (_s))
-
-/**
- * struct adreno_dispatcher - container for the adreno GPU dispatcher
- * @mutex: Mutex to protect the structure
- * @state: Current state of the dispatcher (active or paused)
- * @timer: Timer to monitor the progress of the command batches
- * @inflight: Number of command batch operations pending in the ringbuffer
- * @fault: Non-zero if a fault was detected.
- * @pending: Priority list of contexts waiting to submit command batches
- * @plist_lock: Spin lock to protect the pending queue
- * @cmdqueue: Queue of command batches currently flight
- * @head: pointer to the head of of the cmdqueue.  This is the oldest pending
- * operation
- * @tail: pointer to the tail of the cmdqueue.  This is the most recently
- * submitted operation
- * @work: work_struct to put the dispatcher in a work queue
- * @kobj: kobject for the dispatcher directory in the device sysfs node
- * @idle_gate: Gate to wait on for dispatcher to idle
- */
-struct adreno_dispatcher {
-	struct mutex mutex;
-	unsigned long priv;
-	struct timer_list timer;
-	struct timer_list fault_timer;
-	unsigned int inflight;
-	atomic_t fault;
-	struct plist_head pending;
-	spinlock_t plist_lock;
-	struct kgsl_cmdbatch *cmdqueue[ADRENO_DISPATCH_CMDQUEUE_SIZE];
-	unsigned int head;
-	unsigned int tail;
-	struct work_struct work;
-	struct kobject kobj;
-	struct completion idle_gate;
-};
-
-enum adreno_dispatcher_flags {
-	ADRENO_DISPATCHER_POWER = 0,
-	ADRENO_DISPATCHER_ACTIVE = 1,
-};
 
 struct adreno_gpudev;
 
@@ -732,21 +690,6 @@ void adreno_snapshot(struct kgsl_device *device,
 		struct kgsl_snapshot *snapshot,
 		struct kgsl_context *context);
 
-void adreno_dispatcher_start(struct kgsl_device *device);
-int adreno_dispatcher_init(struct adreno_device *adreno_dev);
-void adreno_dispatcher_close(struct adreno_device *adreno_dev);
-int adreno_dispatcher_idle(struct adreno_device *adreno_dev);
-void adreno_dispatcher_irq_fault(struct kgsl_device *device);
-void adreno_dispatcher_stop(struct adreno_device *adreno_dev);
-
-int adreno_dispatcher_queue_cmd(struct adreno_device *adreno_dev,
-		struct adreno_context *drawctxt, struct kgsl_cmdbatch *cmdbatch,
-		uint32_t *timestamp);
-
-void adreno_dispatcher_schedule(struct kgsl_device *device);
-void adreno_dispatcher_pause(struct adreno_device *adreno_dev);
-void adreno_dispatcher_queue_context(struct kgsl_device *device,
-	struct adreno_context *drawctxt);
 int adreno_reset(struct kgsl_device *device);
 
 void adreno_fault_skipcmd_detached(struct kgsl_device *device,

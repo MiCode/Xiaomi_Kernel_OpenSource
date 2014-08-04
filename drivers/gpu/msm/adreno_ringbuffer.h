@@ -14,6 +14,7 @@
 #define __ADRENO_RINGBUFFER_H
 
 #include "kgsl_iommu.h"
+#include "adreno_dispatch.h"
 
 /* Adreno ringbuffer size in bytes */
 #define KGSL_RB_SIZE (32 * 1024)
@@ -81,6 +82,7 @@ struct adreno_ringbuffer_pagetable_info {
  * and the commands to switch pagetable on the RB
  * @pt_update_desc: The memory descriptor containing commands that update
  * pagetable
+ * @dispatch_q: The dispatcher side queue for this ringbuffer
  */
 struct adreno_ringbuffer {
 	struct kgsl_device *device;
@@ -98,6 +100,7 @@ struct adreno_ringbuffer {
 	struct adreno_context *drawctxt_active;
 	struct kgsl_memdesc pagetable_desc;
 	struct kgsl_memdesc pt_update_desc;
+	struct adreno_dispatcher_cmdqueue dispatch_q;
 };
 
 /**
