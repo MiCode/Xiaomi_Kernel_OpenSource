@@ -1138,6 +1138,9 @@ static ssize_t hotplug_mask_store(struct device *dev,
 {
 	int ret = 0, val = 0;
 
+	if (!bcl_hotplug_enabled)
+		return -ENODEV;
+
 	ret = convert_to_int(buf, &val);
 	if (ret)
 		return ret;
@@ -1549,8 +1552,9 @@ btm_probe_exit:
 static int bcl_probe(struct platform_device *pdev)
 {
 	struct bcl_context *bcl = NULL;
-	int ret = 0;
+	int ret = 0, i = 0, cpu = 0;
 	enum bcl_device_mode bcl_mode = BCL_DEVICE_DISABLED;
+	struct device_node *core_phandle = NULL;
 
 	bcl = devm_kzalloc(&pdev->dev, sizeof(struct bcl_context), GFP_KERNEL);
 	if (!bcl) {
@@ -1578,15 +1582,19 @@ static int bcl_probe(struct platform_device *pdev)
 			bcl_type[BCL_IAVAIL_MONITOR_TYPE]);
 	bcl->bcl_poll_interval_msec = BCL_POLL_INTERVAL;
 
-	ret = of_property_read_u32(pdev->dev.of_node,
-			"qcom,bcl-hotplug-mask",
-			&bcl_hotplug_mask);
-	if (ret) {
-		bcl_hotplug_enabled = false;
-		ret = 0;
-	} else {
+	core_phandle = of_parse_phandle(pdev->dev.of_node,
+			"qcom,bcl-hotplug-list", i++);
+	while (core_phandle) {
 		bcl_hotplug_enabled = true;
+		for_each_possible_cpu(cpu) {
+			if (of_get_cpu_node(cpu, NULL) == core_phandle)
+				bcl_hotplug_mask |= BIT(cpu);
+		}
+		core_phandle = of_parse_phandle(pdev->dev.of_node,
+			"qcom,bcl-hotplug-list", i++);
 	}
+	if (!bcl_hotplug_mask)
+		bcl_hotplug_enabled = false;
 
 	if (of_property_read_bool(pdev->dev.of_node,
 		"qcom,bcl-framework-interface"))

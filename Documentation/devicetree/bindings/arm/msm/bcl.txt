@@ -42,11 +42,9 @@ Optional parameters:
 		'vph-high-threshold-uv', 'vph-low-threshold-uv' and
 		'thermal-handle' properties should be defined in the
 		'qcom,ibat-monitor' node.
-- qcom,bcl-hotplug-mask = <hotplug-mask>: Mask indicating the cores to hotplug,
-		when battery current limit condition is reached. Here the bits
-		0-7 corresponds to cores 0-7 respectively. If the value of the
-		bit is set to 1, then the corresponding core will be
-		hotplugged on battery current limit condition.
+- qcom,bcl-hotplug-list = <hotplug-phandle-list>: List of phandles to the cores
+		that are to be hotplugged, when battery current limit condition
+		is reached.
 
 Optional nodes:
 - qcom,ibat-monitor: This optional node defines all the parameters for the
@@ -112,7 +110,7 @@ For Using BCL peripheral interface:
 	qcom,bcl {
 		compatible = "qcom,bcl";
 		qcom,bcl-framework-interface;
-		qcom,bcl-hotplug-mask = <0xFO>;
+		qcom,bcl-hotplug-list = <&CPU5 &CPU6 &CPU7>;
 		qcom,ibat-monitor {
 			high-threshold-uamp = <1500>;
 			low-threshold-uamp = <500>;
