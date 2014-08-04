@@ -824,6 +824,7 @@ static int64_t float_decode(u16 reg)
 	return final_val;
 }
 
+#define BATT_IDED	BIT(3)
 static int fg_is_batt_id_valid(struct fg_chip *chip)
 {
 	u8 fg_batt_sts;
@@ -840,7 +841,7 @@ static int fg_is_batt_id_valid(struct fg_chip *chip)
 	if (fg_debug_mask & FG_IRQS)
 		pr_info("fg batt sts 0x%x\n", fg_batt_sts);
 
-	return (fg_batt_sts & BATT_IDENTIFIED) ? 1 : 0;
+	return (fg_batt_sts & BATT_IDED) ? 1 : 0;
 }
 
 #define LSB_16B		153
