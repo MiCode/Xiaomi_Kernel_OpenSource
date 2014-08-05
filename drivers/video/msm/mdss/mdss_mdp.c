@@ -424,7 +424,7 @@ static int mdss_mdp_bus_scale_register(struct mdss_data_type *mdata)
 					mdata->reg_bus_hdl);
 	}
 
-	return mdss_bus_scale_set_quota(MDSS_HW_MDP, AB_QUOTA, IB_QUOTA);
+	return mdss_bus_scale_set_quota(MDSS_HW_MDP, AB_QUOTA, 0, IB_QUOTA);
 }
 
 static void mdss_mdp_bus_scale_unregister(struct mdss_data_type *mdata)
@@ -442,16 +442,18 @@ static void mdss_mdp_bus_scale_unregister(struct mdss_data_type *mdata)
 	}
 }
 
-int mdss_mdp_bus_scale_set_quota(u64 ab_quota, u64 ib_quota)
+int mdss_mdp_bus_scale_set_quota(u64 ab_quota_rt, u64 ab_quota_nrt,
+		u64 ib_quota)
 {
 	int new_uc_idx;
+	u64 ab_quota[2];
 
 	if (mdss_res->bus_hdl < 1) {
 		pr_err("invalid bus handle %d\n", mdss_res->bus_hdl);
 		return -EINVAL;
 	}
 
-	if ((ab_quota | ib_quota) == 0) {
+	if (((ab_quota_rt + ab_quota_nrt) || ib_quota) == 0) {
 		new_uc_idx = 0;
 	} else {
 		int i;
@@ -466,8 +468,15 @@ int mdss_mdp_bus_scale_set_quota(u64 ab_quota, u64 ib_quota)
 		}
 
 		size = SZ_64M / mdss_res->axi_port_cnt;
-
-		ab_quota = div_u64(ab_quota, mdss_res->axi_port_cnt);
+		if (mdss_res->has_fixed_qos_arbiter_enabled &&
+				mdss_res->axi_port_cnt > 1) {
+			ab_quota[0] = ab_quota_rt;
+			ab_quota[1] = ab_quota_nrt;
+		} else {
+			ab_quota[0] = div_u64(ab_quota_rt + ab_quota_nrt,
+					mdss_res->axi_port_cnt);
+			ab_quota[1] = ab_quota[0];
+		}
 
 		new_uc_idx = (mdss_res->curr_bw_uc_idx %
 			(bw_table->num_usecases - 1)) + 1;
@@ -477,14 +486,14 @@ int mdss_mdp_bus_scale_set_quota(u64 ab_quota, u64 ib_quota)
 				vectors[i];
 
 			/* avoid performing updates for small changes */
-			if ((ALIGN(ab_quota, size) == ALIGN(vect->ab, size)) &&
-			    (ALIGN(ib_quota, size) == ALIGN(vect->ib, size))) {
+			if ((ALIGN(ab_quota[i], size) == ALIGN(vect->ab, size))
+			&& (ALIGN(ib_quota, size) == ALIGN(vect->ib, size))) {
 				pr_debug("skip bus scaling, no changes\n");
 				return 0;
 			}
 
 			vect = &bw_table->usecase[new_uc_idx].vectors[i];
-			vect->ab = ab_quota;
+			vect->ab = ab_quota[i];
 			vect->ib = ib_quota;
 
 			pr_debug("uc_idx=%d path_idx=%d ab=%llu ib=%llu\n",
@@ -497,23 +506,26 @@ int mdss_mdp_bus_scale_set_quota(u64 ab_quota, u64 ib_quota)
 		new_uc_idx);
 }
 
-int mdss_bus_scale_set_quota(int client, u64 ab_quota, u64 ib_quota)
+int mdss_bus_scale_set_quota(int client, u64 ab_quota_rt, u64 ab_quota_nrt,
+		u64 ib_quota)
 {
 	int rc = 0;
 	int i;
-	u64 total_ab = 0;
+	u64 total_ab_rt = 0, total_ab_nrt = 0;
 	u64 total_ib = 0;
 
 	mutex_lock(&bus_bw_lock);
 
-	mdss_res->ab[client] = ab_quota;
+	mdss_res->ab_rt[client] = ab_quota_rt;
+	mdss_res->ab_nrt[client] = ab_quota_nrt;
 	mdss_res->ib[client] = ib_quota;
 	for (i = 0; i < MDSS_MAX_HW_BLK; i++) {
-		total_ab += mdss_res->ab[i];
+		total_ab_rt += mdss_res->ab_rt[i];
+		total_ab_nrt += mdss_res->ab_nrt[i];
 		total_ib = max(total_ib, mdss_res->ib[i]);
 	}
 
-	rc = mdss_mdp_bus_scale_set_quota(total_ab, total_ib);
+	rc = mdss_mdp_bus_scale_set_quota(total_ab_rt, total_ab_nrt, total_ib);
 
 	mutex_unlock(&bus_bw_lock);
 

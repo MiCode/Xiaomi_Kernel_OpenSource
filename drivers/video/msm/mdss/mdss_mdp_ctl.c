@@ -1083,13 +1083,14 @@ static void mdss_mdp_ctl_perf_update_traffic_shaper_bw(struct mdss_mdp_ctl *ctl,
 static inline void mdss_mdp_ctl_perf_update_bus(struct mdss_data_type *mdata,
 		u32 mdp_clk)
 {
-	u64 bw_sum_of_intfs = 0;
-	u64 bus_ab_quota, bus_ib_quota;
+	u64 bw_sum_of_intfs_rt = 0, bw_sum_of_intfs_nrt = 0;
+	u64 bus_ab_quota_rt, bus_ab_quota_nrt, bus_ib_quota;
 	int i;
 
 	ATRACE_BEGIN(__func__);
 	for (i = 0; i < mdata->nctl; i++) {
 		struct mdss_mdp_ctl *ctl;
+		struct mdss_mdp_mixer *mixer;
 		ctl = mdata->ctl_off + i;
 		if (ctl->power_on) {
 			/*
@@ -1099,18 +1100,31 @@ static inline void mdss_mdp_ctl_perf_update_bus(struct mdss_data_type *mdata,
 			if (ctl->traffic_shaper_enabled)
 				mdss_mdp_ctl_perf_update_traffic_shaper_bw
 					(ctl, mdp_clk);
-			bw_sum_of_intfs += ctl->cur_perf.bw_ctl;
+			mixer = ctl->mixer_left;
+			if (ctl->intf_num ==  MDSS_MDP_NO_INTF ||
+					mixer->rotator_mode)
+				bw_sum_of_intfs_nrt += ctl->cur_perf.bw_ctl;
+			else
+				bw_sum_of_intfs_rt += ctl->cur_perf.bw_ctl;
+
 			pr_debug("ctl_num=%d bw=%llu\n", ctl->num,
 				ctl->cur_perf.bw_ctl);
 		}
 	}
-	bus_ib_quota = max(bw_sum_of_intfs, mdata->perf_tune.min_bus_vote);
-	bus_ab_quota = apply_fudge_factor(bus_ib_quota,
+	bw_sum_of_intfs_rt = max(bw_sum_of_intfs_rt,
+			mdata->perf_tune.min_bus_vote);
+	bus_ib_quota = bw_sum_of_intfs_rt + bw_sum_of_intfs_nrt;
+	bus_ab_quota_rt = apply_fudge_factor(bw_sum_of_intfs_rt,
 		&mdss_res->ab_factor);
-	trace_mdp_perf_update_bus(bus_ab_quota, bus_ib_quota);
+	bus_ab_quota_nrt = apply_fudge_factor(bw_sum_of_intfs_nrt,
+		&mdss_res->ab_factor);
+	trace_mdp_perf_update_bus(bus_ab_quota_rt, bus_ab_quota_nrt
+			, bus_ib_quota);
 	ATRACE_INT("bus_quota", bus_ib_quota);
-	mdss_bus_scale_set_quota(MDSS_HW_MDP, bus_ab_quota, bus_ib_quota);
-	pr_debug("ab=%llu ib=%llu\n", bus_ab_quota, bus_ib_quota);
+	mdss_bus_scale_set_quota(MDSS_HW_MDP, bus_ab_quota_rt, bus_ab_quota_nrt
+			, bus_ib_quota);
+	pr_debug("ab_rt=%llu ab_nrt=%llu ib=%llu\n",
+			bus_ab_quota_rt, bus_ab_quota_nrt, bus_ib_quota);
 	ATRACE_END(__func__);
 }
 
