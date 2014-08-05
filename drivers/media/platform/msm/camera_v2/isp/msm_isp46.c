@@ -514,7 +514,7 @@ static long msm_vfe46_reset_hardware(struct vfe_device *vfe_dev,
 		msm_camera_io_w(0xFFFFFEFF, vfe_dev->vfe_base + 0x68);
 		msm_camera_io_w(0x1, vfe_dev->vfe_base + 0x58);
 		vfe_dev->hw_info->vfe_ops.axi_ops.
-			reload_wm(vfe_dev, 0x0003FFFF);
+			reload_wm(vfe_dev, 0x0001FFFF);
 	}
 
 	if (blocking_call) {

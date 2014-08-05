@@ -247,8 +247,8 @@ static void msm_vfe44_init_hardware_reg(struct vfe_device *vfe_dev)
 	msm_camera_io_w(0xFBFFFFFF, vfe_dev->vfe_base + 0x14);
 	msm_camera_io_w(0xC001FF7F, vfe_dev->vfe_base + 0x974);
 	/* BUS_CFG */
-	msm_camera_io_w(0x10000003, vfe_dev->vfe_base + 0x50);
-	msm_camera_io_w(0xE10000F3, vfe_dev->vfe_base + 0x28);
+	msm_camera_io_w(0x10000001, vfe_dev->vfe_base + 0x50);
+	msm_camera_io_w(0xE00000F3, vfe_dev->vfe_base + 0x28);
 	msm_camera_io_w_mb(0xFFFFFFFF, vfe_dev->vfe_base + 0x2C);
 	msm_camera_io_w(0xFFFFFFFF, vfe_dev->vfe_base + 0x30);
 	msm_camera_io_w_mb(0xFFFFFFFF, vfe_dev->vfe_base + 0x34);
@@ -531,7 +531,7 @@ static long msm_vfe44_reset_hardware(struct vfe_device *vfe_dev,
 		msm_camera_io_w(0xFEFFFEFF, vfe_dev->vfe_base + 0x34);
 		msm_camera_io_w(0x1, vfe_dev->vfe_base + 0x24);
 		vfe_dev->hw_info->vfe_ops.axi_ops.
-			reload_wm(vfe_dev, 0x0003FFFF);
+			reload_wm(vfe_dev, 0x0001FFFF);
 	}
 
 	if (blocking_call) {
@@ -794,6 +794,16 @@ static void msm_vfe44_cfg_fetch_engine(struct vfe_device *vfe_dev,
 			__func__, fe_cfg->buf_width, fe_cfg->buf_height,
 			fe_cfg->fetch_width, fe_cfg->fetch_height);
 
+		temp = msm_camera_io_r(vfe_dev->vfe_base + 0x50);
+		temp &= 0xFFFFFFFD;
+		temp |= (1 << 1);
+		msm_camera_io_w(temp, vfe_dev->vfe_base + 0x50);
+
+		temp = msm_camera_io_r(vfe_dev->vfe_base + 0x28);
+		temp &= 0xFEFFFFFF;
+		temp |= (1 << 24);
+		msm_camera_io_w(temp, vfe_dev->vfe_base + 0x28);
+
 		temp = fe_cfg->fetch_height - 1;
 		msm_camera_io_w(temp & 0xFFF, vfe_dev->vfe_base + 0x238);
 
@@ -816,7 +826,10 @@ static void msm_vfe44_cfg_fetch_engine(struct vfe_device *vfe_dev,
 		msm_camera_io_w(0xF6543210, vfe_dev->vfe_base + 0x248);
 		msm_camera_io_w(0xF, vfe_dev->vfe_base + 0x264);
 
-		msm_camera_io_w_mb(0x20000, vfe_dev->vfe_base + 0x1C);
+		temp = msm_camera_io_r(vfe_dev->vfe_base + 0x1C);
+		temp |= 2 << 16;
+		msm_camera_io_w(temp, vfe_dev->vfe_base + 0x1C);
+
 		vfe_dev->hw_info->vfe_ops.core_ops.reg_update(vfe_dev);
 	} else {
 		pr_err("%s: Invalid mux configuration - mux: %d", __func__,
