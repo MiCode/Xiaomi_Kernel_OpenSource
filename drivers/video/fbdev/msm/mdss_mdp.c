@@ -1140,6 +1140,7 @@ static void mdss_mdp_hw_rev_caps_init(struct mdss_data_type *mdata)
 {
 	switch (mdata->mdp_rev) {
 	case MDSS_MDP_HW_REV_105:
+	case MDSS_MDP_HW_REV_110:
 		mdata->max_target_zorder = MDSS_MDP_MAX_STAGE;
 		mdata->max_cursor_size = 128;
 		break;
