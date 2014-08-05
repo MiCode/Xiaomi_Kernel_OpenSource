@@ -66,6 +66,7 @@
 
 &usb3 {
 	qcom,usbin-vadc = <&pm8941_vadc>;
+	qcom,utmi-clk-rate = <24000000>;
 };
 
 &krait_regulator_pmic {
