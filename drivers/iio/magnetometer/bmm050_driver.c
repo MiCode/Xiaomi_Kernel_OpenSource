@@ -41,6 +41,8 @@
 #include <string.h>
 #endif
 
+#include <linux/pm.h>
+#include <linux/pm_runtime.h>
 #include <linux/iio/iio.h>
 #include <linux/iio/sysfs.h>
 #include <asm/unaligned.h>
@@ -1022,39 +1024,28 @@ static int bmm_read_raw(struct iio_dev *indio_dev,
 		mutex_lock(&indio_dev->mlock);
 		switch (ch->type) {
 		case IIO_MAGN:
-			err = bmm_set_op_mode(client_data, BMM_VAL_NAME(NORMAL_MODE));
-			if (err) {
-				dev_err(&client->dev, "fail to set opmode %d",
-							BMM_VAL_NAME(NORMAL_MODE));
-				ret = -EIO;
-				break;
-			} else
-				client_data->op_mode = BMM_VAL_NAME(NORMAL_MODE);
-
+			err = pm_runtime_get_sync(&client_data->client->dev);
+			if (err < 0) {
+				mutex_unlock(&indio_dev->mlock);
+				return err;
+			}
 			result = bmm_read_axis_data(indio_dev, ch, &raw_data);
-			*val  = raw_data.data;
-			err = bmm_set_op_mode(client_data, BMM_VAL_NAME(SUSPEND_MODE));
-			if (err) {
-				dev_err(&client->dev, "fail to set opmode %d",
-							BMM_VAL_NAME(SUSPEND_MODE));
-				ret = -EIO;
-				break;
-			} else
-				client_data->op_mode = BMM_VAL_NAME(SUSPEND_MODE);
-
+			*val  = raw_data.data / 16;
+			pm_runtime_mark_last_busy(&client_data->client->dev);
+			pm_runtime_put_autosuspend(&client_data->client->dev);
 			break;
 		default:
 			ret = -EINVAL;
 			break;
 		}
 		mutex_unlock(&indio_dev->mlock);
-		if (result < 0)
-			return result;
-		return ret;
+	if (result < 0)
+		return result;
+	return ret;
 	}
 	case IIO_CHAN_INFO_SCALE:
 		*val = 0;
-		*val2 = 10000;
+		*val2 = 3000;
 		return IIO_VAL_INT_PLUS_MICRO;
 	default:
 		return -EINVAL;
@@ -1327,18 +1318,6 @@ static int bmm_probe(struct i2c_client *client, const struct i2c_device_id *id)
 	}
 #endif
 
-#if 0
-	err = bmm_restore_hw_cfg(client);
-#else
-
-	err = bmm_set_op_mode(client_data, BMM_VAL_NAME(SUSPEND_MODE));
-	if (err) {
-		dev_err(&client->dev, "fail to init h/w of %s", SENSOR_NAME);
-		err = -EIO;
-		goto exit_err_sysfs;
-	}
-#endif
-
 #ifdef CONFIG_HAS_EARLYSUSPEND
 	client_data->early_suspend_handler.level =
 		EARLY_SUSPEND_LEVEL_BLANK_SCREEN + 1;
@@ -1357,6 +1336,11 @@ static int bmm_probe(struct i2c_client *client, const struct i2c_device_id *id)
 	dev_dbg(&client->dev,
 		"i2c_client: %p client_data: %p i2c_device: %p input: %p",
 		client, client_data, &client->dev, client_data->input);
+
+	pm_runtime_set_active(&client->dev);
+	pm_runtime_enable(&client->dev);
+	pm_runtime_set_autosuspend_delay(&client->dev, 2000);
+	pm_runtime_use_autosuspend(&client->dev);
 
 	return 0;
 
@@ -1447,9 +1431,10 @@ static void bmm_late_resume(struct early_suspend *handler)
 }
 #else
 #ifdef CONFIG_PM
-static int bmm_suspend(struct i2c_client *client, pm_message_t mesg)
+static int bmm_suspend(struct device *dev)
 {
 	int err = 0;
+	struct i2c_client *client = to_i2c_client(dev);
 	struct bmm_client_data *client_data =
 		(struct bmm_client_data *)i2c_get_clientdata(client);
 	u8 power_mode;
@@ -1467,9 +1452,10 @@ static int bmm_suspend(struct i2c_client *client, pm_message_t mesg)
 	return err;
 }
 
-static int bmm_resume(struct i2c_client *client)
+static int bmm_resume(struct device *dev)
 {
 	int err = 0;
+	struct i2c_client *client = to_i2c_client(dev);
 	struct bmm_client_data *client_data =
 		(struct bmm_client_data *)i2c_get_clientdata(client);
 
@@ -1487,17 +1473,58 @@ static int bmm_resume(struct i2c_client *client)
 #endif /* CONFIG_PM */
 #endif
 
+#ifdef CONFIG_PM_RUNTIME
+static int bmm_runtime_suspend(struct device *dev)
+{
+	int err;
+	struct i2c_client *client = to_i2c_client(dev);
+	struct bmm_client_data *client_data =
+		(struct bmm_client_data *)i2c_get_clientdata(client);
+
+	err = bmm_set_op_mode(client_data, BMM_VAL_NAME(SUSPEND_MODE));
+	if (err) {
+		dev_err(&client->dev, "fail to set opmode %d",
+					BMM_VAL_NAME(SUSPEND_MODE));
+		return err;
+	} else
+		client_data->op_mode = BMM_VAL_NAME(SUSPEND_MODE);
+
+	return 0;
+}
+
+static int bmm_runtime_resume(struct device *dev)
+{
+	int err;
+	struct i2c_client *client = to_i2c_client(dev);
+	struct bmm_client_data *client_data =
+		(struct bmm_client_data *)i2c_get_clientdata(client);
+
+	err = bmm_set_op_mode(client_data, BMM_VAL_NAME(NORMAL_MODE));
+	if (err) {
+		dev_err(&client->dev, "fail to set opmode %d",
+					BMM_VAL_NAME(NORMAL_MODE));
+		return err;
+	} else
+		client_data->op_mode = BMM_VAL_NAME(NORMAL_MODE);
+
+	return 0;
+}
+#endif
+
 static int bmm_remove(struct i2c_client *client)
 {
 	int err = 0;
 	struct  iio_dev *indio_dev = i2c_get_clientdata(client);
 	struct bmm_client_data *client_data  = iio_priv(indio_dev);
 
+	pm_runtime_disable(&client->dev);
+	pm_runtime_set_suspended(&client->dev);
+	pm_runtime_put_noidle(&client->dev);
+
 	if (NULL != client_data) {
 #ifdef CONFIG_HAS_EARLYSUSPEND
 		unregister_early_suspend(&client_data->early_suspend_handler);
 #endif
-
 		mutex_lock(&client_data->mutex_op_mode);
 		if (BMM_VAL_NAME(NORMAL_MODE) == client_data->op_mode) {
 			cancel_delayed_work_sync(&client_data->work);
@@ -1509,7 +1536,6 @@ static int bmm_remove(struct i2c_client *client)
 		mdelay(BMM_I2C_WRITE_DELAY_TIME);
 
 		bmm_input_destroy(client_data);
-
 #ifdef CONFIG_BMM_USE_PLATFORM_DATA
 			if (NULL != client_data->bst_pd) {
 				kfree(client_data->bst_pd);
@@ -1523,6 +1549,12 @@ static int bmm_remove(struct i2c_client *client)
 
 	return err;
 }
+
+static const struct dev_pm_ops bmm_pm_ops = {
+	SET_SYSTEM_SLEEP_PM_OPS(bmm_suspend, bmm_resume)
+	SET_RUNTIME_PM_OPS(bmm_runtime_suspend,
+			   bmm_runtime_resume, NULL)
+};
 
 static const struct i2c_device_id bmm_id[] = {
 	{SENSOR_NAME, 0},
@@ -1541,15 +1573,12 @@ static struct i2c_driver bmm_driver = {
 		.owner = THIS_MODULE,
 		.name = SENSOR_NAME,
 		.acpi_match_table = ACPI_PTR(bmm050_acpi_match),
+		.pm = &bmm_pm_ops,
 	},
 	.class = I2C_CLASS_HWMON,
 	.id_table = bmm_id,
 	.probe = bmm_probe,
 	.remove = bmm_remove,
-#if defined(CONFIG_PM) && !defined(CONFIG_HAS_EARLYSUSPEND)
-	.suspend = bmm_suspend,
-	.resume = bmm_resume,
-#endif
 };
 module_i2c_driver(bmm_driver);
 
