@@ -187,6 +187,7 @@ struct dwc3_msm {
 	struct clk		*sleep_clk;
 	struct clk		*hsphy_sleep_clk;
 	struct clk		*utmi_clk;
+	unsigned long		ref_clk_rate;
 	struct regulator	*hsusb_3p3;
 	struct regulator	*hsusb_1p8;
 	struct regulator	*hsusb_vddcx;
@@ -1445,6 +1446,48 @@ static void dwc3_msm_ss_phy_reg_init(struct dwc3_msm *mdwc)
 				0x07f03f07, 0x07f01605);
 }
 
+static void dwc3_msm_update_ref_clk(struct dwc3_msm *mdwc)
+{
+	u32 guctl, gfladj = 0;
+
+	guctl = dwc3_msm_read_reg(mdwc->base, DWC3_GUCTL);
+	guctl &= ~DWC3_GUCTL_REFCLKPER;
+
+	/* GFLADJ register is used starting with revision 2.50a */
+	if (dwc3_msm_read_reg(mdwc->base, DWC3_GSNPSID) >= DWC3_REVISION_250A) {
+		gfladj = dwc3_msm_read_reg(mdwc->base, DWC3_GFLADJ);
+		gfladj &= ~DWC3_GFLADJ_REFCLK_240MHZDECR_PLS1;
+		gfladj &= ~DWC3_GFLADJ_REFCLK_240MHZ_DECR;
+		gfladj &= ~DWC3_GFLADJ_REFCLK_LPM_SEL;
+		gfladj &= ~DWC3_GFLADJ_REFCLK_FLADJ;
+	}
+
+	/* Refer to SNPS Databook Table 6-55 for calculations used */
+	switch (mdwc->ref_clk_rate) {
+	case 19200000:
+		guctl |= 52 << __ffs(DWC3_GUCTL_REFCLKPER);
+		gfladj |= 12 << __ffs(DWC3_GFLADJ_REFCLK_240MHZ_DECR);
+		gfladj |= DWC3_GFLADJ_REFCLK_240MHZDECR_PLS1;
+		gfladj |= DWC3_GFLADJ_REFCLK_LPM_SEL;
+		gfladj |= 200 << __ffs(DWC3_GFLADJ_REFCLK_FLADJ);
+		break;
+	case 24000000:
+		guctl |= 41 << __ffs(DWC3_GUCTL_REFCLKPER);
+		gfladj |= 10 << __ffs(DWC3_GFLADJ_REFCLK_240MHZ_DECR);
+		gfladj |= DWC3_GFLADJ_REFCLK_LPM_SEL;
+		gfladj |= 2032 << __ffs(DWC3_GFLADJ_REFCLK_FLADJ);
+		break;
+	default:
+		dev_warn(mdwc->dev, "Unsupported ref_clk_rate: %lu\n",
+				mdwc->ref_clk_rate);
+		break;
+	}
+
+	dwc3_msm_write_reg(mdwc->base, DWC3_GUCTL, guctl);
+	if (gfladj)
+		dwc3_msm_write_reg(mdwc->base, DWC3_GFLADJ, gfladj);
+}
+
 /* Initialize QSCRATCH registers for HSPHY and SSPHY operation */
 static void dwc3_msm_qscratch_reg_init(struct dwc3_msm *mdwc,
 						unsigned event_status)
@@ -1529,6 +1572,7 @@ static void dwc3_msm_notify_event(struct dwc3 *dwc, unsigned event)
 				"DWC3_CONTROLLER_POST_RESET_EVENT received\n");
 		dwc3_msm_qscratch_reg_init(mdwc,
 					DWC3_CONTROLLER_POST_RESET_EVENT);
+		dwc3_msm_update_ref_clk(mdwc);
 		dwc->tx_fifo_size = mdwc->tx_fifo_size;
 		break;
 	case DWC3_CONTROLLER_POST_INITIALIZATION_EVENT:
@@ -2876,12 +2920,18 @@ static int __devinit dwc3_msm_probe(struct platform_device *pdev)
 	}
 	clk_prepare_enable(mdwc->hsphy_sleep_clk);
 
+	ret = of_property_read_u32(node, "qti,ref-clk-rate",
+				   (u32 *)&mdwc->ref_clk_rate);
+	if (ret)
+		mdwc->ref_clk_rate = 60000000;
+
 	mdwc->utmi_clk = devm_clk_get(&pdev->dev, "utmi_clk");
 	if (IS_ERR(mdwc->utmi_clk)) {
 		dev_err(&pdev->dev, "failed to get utmi_clk\n");
 		ret = PTR_ERR(mdwc->utmi_clk);
 		goto disable_sleep_a_clk;
 	}
+	clk_set_rate(mdwc->ref_clk, mdwc->ref_clk_rate);
 	clk_prepare_enable(mdwc->utmi_clk);
 
 	mdwc->ref_clk = devm_clk_get(&pdev->dev, "ref_clk");
