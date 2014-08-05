@@ -553,6 +553,13 @@ static const struct snd_soc_dapm_route byt_audio_map[] = {
 	{"codec_in0", NULL, "ssp2 Rx"},
 	{"codec_in1", NULL, "ssp2 Rx"},
 	{"ssp2 Rx", NULL, "AIF1 Capture"},
+
+	{"Dummy Playback", NULL, "ssp1 Tx"},
+	{"ssp1 Rx", NULL, "Dummy Capture"},
+
+	{ "ssp1 Tx", NULL, "bt_fm_out"},
+	{ "bt_fm_in", NULL, "ssp1 Rx" },
+
 };
 
 static const struct snd_soc_dapm_route byt_audio_map_default[] = {
