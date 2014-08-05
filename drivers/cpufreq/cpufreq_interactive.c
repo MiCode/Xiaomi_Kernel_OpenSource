@@ -54,7 +54,6 @@ struct cpufreq_interactive_cpuinfo {
 	u64 hispeed_validate_time;
 	struct rw_semaphore enable_sem;
 	int governor_enabled;
-	int prev_load;
 };
 
 static DEFINE_PER_CPU(struct cpufreq_interactive_cpuinfo, cpuinfo);
@@ -122,16 +121,6 @@ struct cpufreq_interactive_tunables {
 
 	/* Sampling down factor to be applied to min_sample_time at max freq */
 	unsigned int sampling_down_factor;
-
-	/*
-	 * If the max load among other CPUs is higher than
-	 * up_threshold_any_cpu_load and if the highest frequency among the
-	 * other CPUs is higher than up_threshold_any_cpu_freq then do not let
-	 * the frequency to drop below sync_freq
-	 */
-	unsigned int up_threshold_any_cpu_load;
-	unsigned int sync_freq;
-	unsigned int up_threshold_any_cpu_freq;
 };
 
 /* For cases where we have single governor instance for system */
@@ -367,9 +356,6 @@ static void cpufreq_interactive_timer(unsigned long data)
 	unsigned long flags;
 	bool boosted;
 	unsigned long mod_min_sample_time;
-	int i, max_load;
-	unsigned int max_freq;
-	struct cpufreq_interactive_cpuinfo *picpu;
 
 	if (!down_read_trylock(&pcpu->enable_sem))
 		return;
@@ -389,7 +375,6 @@ static void cpufreq_interactive_timer(unsigned long data)
 	do_div(cputime_speedadj, delta_time);
 	loadadjfreq = (unsigned int)cputime_speedadj * 100;
 	cpu_load = loadadjfreq / pcpu->target_freq;
-	pcpu->prev_load = cpu_load;
 	boosted = tunables->boost_val || now < tunables->boostpulse_endtime;
 
 	if (cpu_load >= tunables->go_hispeed_load || boosted) {
@@ -403,27 +388,6 @@ static void cpufreq_interactive_timer(unsigned long data)
 		}
 	} else {
 		new_freq = choose_freq(pcpu, loadadjfreq);
-
-		if (tunables->sync_freq && new_freq < tunables->sync_freq) {
-
-			max_load = 0;
-			max_freq = 0;
-
-			for_each_online_cpu(i) {
-				picpu = &per_cpu(cpuinfo, i);
-
-				if (i == data || picpu->prev_load <
-					tunables->up_threshold_any_cpu_load)
-					continue;
-
-				max_load = max(max_load, picpu->prev_load);
-				max_freq = max(max_freq, picpu->target_freq);
-			}
-
-			if (max_freq > tunables->up_threshold_any_cpu_freq &&
-			    max_load >= tunables->up_threshold_any_cpu_load)
-				new_freq = tunables->sync_freq;
-		}
 	}
 
 	if (pcpu->target_freq >= tunables->hispeed_freq &&
@@ -891,9 +855,6 @@ static ssize_t store_##file_name(					\
 	return count;							\
 }
 show_store_one(sampling_down_factor);
-show_store_one(up_threshold_any_cpu_load);
-show_store_one(sync_freq);
-show_store_one(up_threshold_any_cpu_freq);
 
 static ssize_t show_go_hispeed_load(struct cpufreq_interactive_tunables
 		*tunables, char *buf)
@@ -1105,9 +1066,6 @@ store_gov_pol_sys(boostpulse);
 show_store_gov_pol_sys(boostpulse_duration);
 show_store_gov_pol_sys(io_is_busy);
 show_store_gov_pol_sys(sampling_down_factor);
-show_store_gov_pol_sys(up_threshold_any_cpu_load);
-show_store_gov_pol_sys(sync_freq);
-show_store_gov_pol_sys(up_threshold_any_cpu_freq);
 
 #define gov_sys_attr_rw(_name)						\
 static struct global_attr _name##_gov_sys =				\
@@ -1132,9 +1090,6 @@ gov_sys_pol_attr_rw(boost);
 gov_sys_pol_attr_rw(boostpulse_duration);
 gov_sys_pol_attr_rw(io_is_busy);
 gov_sys_pol_attr_rw(sampling_down_factor);
-gov_sys_pol_attr_rw(up_threshold_any_cpu_load);
-gov_sys_pol_attr_rw(sync_freq);
-gov_sys_pol_attr_rw(up_threshold_any_cpu_freq);
 
 static struct global_attr boostpulse_gov_sys =
 	__ATTR(boostpulse, 0200, NULL, store_boostpulse_gov_sys);
@@ -1156,9 +1111,6 @@ static struct attribute *interactive_attributes_gov_sys[] = {
 	&boostpulse_duration_gov_sys.attr,
 	&io_is_busy_gov_sys.attr,
 	&sampling_down_factor_gov_sys.attr,
-	&sync_freq_gov_sys.attr,
-	&up_threshold_any_cpu_load_gov_sys.attr,
-	&up_threshold_any_cpu_freq_gov_sys.attr,
 	NULL,
 };
 
@@ -1181,9 +1133,6 @@ static struct attribute *interactive_attributes_gov_pol[] = {
 	&boostpulse_duration_gov_pol.attr,
 	&io_is_busy_gov_pol.attr,
 	&sampling_down_factor_gov_pol.attr,
-	&sync_freq_gov_pol.attr,
-	&up_threshold_any_cpu_load_gov_pol.attr,
-	&up_threshold_any_cpu_freq_gov_pol.attr,
 	NULL,
 };
 
