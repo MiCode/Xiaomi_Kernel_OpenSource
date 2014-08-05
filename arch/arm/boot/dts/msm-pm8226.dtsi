@@ -91,7 +91,7 @@
 			qcom,cool-bat-mv = <4100>;
 			qcom,ibatmax-cool-ma = <350>;
 
-			qcom,chgr@1000 {
+			pm8226_chg_chgr: qcom,chgr@1000 {
 				status = "disabled";
 				reg = <0x1000 0x100>;
 				interrupts =	<0x0 0x10 0x0>,
