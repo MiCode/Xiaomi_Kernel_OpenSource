@@ -24,6 +24,11 @@ Required properties:
  - avago,als-D					: Tuning value of COE_D parameter.
  - avago,ga-value				: Tuning value of the gain for light sensor.
 
+ Optional properties:
+
+ - avago,cross-talk                             : Calibrate the threshold of proximity sensor.
+					the cross-talk value is raw data of proximity.
+
  Example:
 
 &i2c_0 { /* BLSP1 QUP2 */
@@ -40,6 +45,7 @@ Required properties:
 		 avago,irq-gpio = <&msmgpio 80 0x2>;
 		 avago,ps_threshold = <600>;
 		 avago,ps_hysteresis_threshold = <500>;
+		 avago,cross-talk = <0>;
 		 avago,ps_pulse = <8>;
 		 avago,ps_pgain = <0>;
 		 avago,als_B = <223>;

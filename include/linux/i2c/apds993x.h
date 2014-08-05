@@ -106,6 +106,7 @@ struct apds993x_platform_data {
 	unsigned int prox_pulse;
 	unsigned int prox_gain;
 	unsigned int als_threshold_hsyteresis;
+	unsigned int cross_talk;
 	unsigned int als_B;
 	unsigned int als_C;
 	unsigned int als_D;
