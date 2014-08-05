@@ -725,7 +725,7 @@
 		/* Backlight PWM */
 		qcom,mode = <1>;	/* Digital output */
 		qcom,invert = <0>;	/* Disable invert */
-		qcom,src-sel = <4>;	/* DTEST1 */
+		qcom,src-sel = <7>;	/* DTEST4 */
 		qcom,vin-sel = <0>;	/* VPH_PWR */
 		qcom,master-en = <1>;	/* Enable MPP */
 	};
