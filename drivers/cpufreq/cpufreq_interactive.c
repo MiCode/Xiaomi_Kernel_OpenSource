@@ -55,7 +55,6 @@ struct cpufreq_interactive_cpuinfo {
 	struct rw_semaphore enable_sem;
 	int governor_enabled;
 	int prev_load;
-	bool limits_changed;
 };
 
 static DEFINE_PER_CPU(struct cpufreq_interactive_cpuinfo, cpuinfo);
@@ -458,14 +457,6 @@ static void cpufreq_interactive_timer(unsigned long data)
 		mod_min_sample_time = tunables->sampling_down_factor;
 	else
 		mod_min_sample_time = tunables->min_sample_time;
-
-	if (pcpu->limits_changed) {
-		if (tunables->sampling_down_factor &&
-			(pcpu->policy->cur != pcpu->policy->max))
-			mod_min_sample_time = 0;
-
-		pcpu->limits_changed = false;
-	}
 
 	if (new_freq < pcpu->floor_freq) {
 		if (now - pcpu->floor_validate_time < mod_min_sample_time) {
@@ -1450,7 +1441,6 @@ static int cpufreq_governor_interactive(struct cpufreq_policy *policy,
 			}
 
 			pcpu->max_freq = policy->max;
-			pcpu->limits_changed = true;
 		}
 		break;
 	}
