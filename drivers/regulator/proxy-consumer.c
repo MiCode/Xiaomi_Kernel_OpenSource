@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -60,9 +60,9 @@ struct proxy_consumer *regulator_proxy_consumer_register(struct device *reg_dev,
 	int rc;
 
 	/* Return immediately if no proxy consumer properties are specified. */
-	if (!of_property_read_bool(reg_node, "qcom,proxy-consumer-enable")
-	    && !of_property_read_bool(reg_node, "qcom,proxy-consumer-voltage")
-	    && !of_property_read_bool(reg_node, "qcom,proxy-consumer-current"))
+	if (!of_find_property(reg_node, "qcom,proxy-consumer-enable", NULL)
+	    && !of_find_property(reg_node, "qcom,proxy-consumer-voltage", NULL)
+	    && !of_find_property(reg_node, "qcom,proxy-consumer-current", NULL))
 		return NULL;
 
 	mutex_lock(&proxy_consumer_list_mutex);
