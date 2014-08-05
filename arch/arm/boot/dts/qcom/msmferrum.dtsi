@@ -497,6 +497,64 @@
 		qcom,client-id = <0x011013ed>;
 	};
 
+	jtag_fuse: jtagfuse@5e01c {
+		compatible = "qcom,jtag-fuse";
+		reg = <0x5e01c 0x8>;
+		reg-names = "fuse-base";
+	};
+
+	jtag_mm0: jtagmm@84c000 {
+		compatible = "qcom,jtag-mm";
+		reg = <0x84c000 0x1000>,
+		      <0x840000 0x1000>;
+		reg-names = "etm-base","debug-base";
+
+		clocks = <&clock_rpm clk_qdss_clk>,
+			 <&clock_rpm clk_qdss_a_clk>;
+		clock-names = "core_clk", "core_a_clk";
+
+		qcom,coresight-jtagmm-cpu = <&CPU0>;
+	};
+
+	jtag_mm1: jtagmm@84d000 {
+		compatible = "qcom,jtag-mm";
+		reg = <0x84d000 0x1000>,
+		      <0x842000 0x1000>;
+		reg-names = "etm-base","debug-base";
+
+		clocks = <&clock_rpm clk_qdss_clk>,
+			 <&clock_rpm clk_qdss_a_clk>;
+		clock-names = "core_clk", "core_a_clk";
+
+		qcom,coresight-jtagmm-cpu = <&CPU1>;
+	};
+
+	jtag_mm2: jtagmm@84e000 {
+		compatible = "qcom,jtag-mm";
+		reg = <0x84e000 0x1000>,
+		      <0x844000 0x1000>;
+		reg-names = "etm-base","debug-base";
+
+		clocks = <&clock_rpm clk_qdss_clk>,
+			 <&clock_rpm clk_qdss_a_clk>;
+		clock-names = "core_clk", "core_a_clk";
+
+		qcom,coresight-jtagmm-cpu = <&CPU2>;
+	};
+
+	jtag_mm3: jtagmm@84f000 {
+		compatible = "qcom,jtag-mm";
+		reg = <0x84f000 0x1000>,
+		      <0x846000 0x1000>;
+		reg-names = "etm-base","debug-base";
+
+		clocks = <&clock_rpm clk_qdss_clk>,
+			 <&clock_rpm clk_qdss_a_clk>;
+		clock-names = "core_clk", "core_a_clk";
+
+		qcom,coresight-jtagmm-cpu = <&CPU3>;
+	};
+
 	sdhc_1: sdhci@7824000 {
 		compatible = "qcom,sdhci-msm";
 		reg = <0x07824900 0x11c>, <0x07824000 0x800>;
