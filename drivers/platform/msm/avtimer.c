@@ -1,5 +1,4 @@
-
-/* Copyright (c) 2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
 
 * This program is free software; you can redistribute it and/or modify
 * it under the terms of the GNU General Public License version 2 and
@@ -21,6 +20,7 @@
 #include <linux/io.h>
 #include <linux/platform_device.h>
 #include <linux/avtimer.h>
+#include <linux/of.h>
 #include <mach/qdsp6v2/apr.h>
 
 #define DEVICE_NAME "avtimer"
@@ -30,11 +30,17 @@
 
 static int major;	/* Major number assigned to our device driver */
 struct avtimer_t {
+	struct apr_svc *core_handle_q;
 	struct cdev myc;
 	struct class *avtimer_class;
 	struct mutex avtimer_lock;
 	int avtimer_open_cnt;
-	struct dev_avtimer_data *avtimer_pdata;
+	struct dev_avtimer_data avtimer_pdata;
+	wait_queue_head_t adsp_resp_wait;
+	int enable_timer_resp_recieved;
+	int timer_handle;
+	void __iomem *p_avtimer_msw;
+	void __iomem *p_avtimer_lsw;
 };
 static struct avtimer_t avtimer;
 
@@ -200,56 +206,35 @@ static int avtimer_release(struct inode *inode, struct file *file)
 static long avtimer_ioctl(struct file *file, unsigned int ioctl_num,
 				unsigned long ioctl_param)
 {
-	struct avtimer_t *pavtimer = &avtimer;
-	pr_debug("avtimer_ioctl: ioctlnum=%d,param=%lx\n",
-				ioctl_num, ioctl_param);
-
 	switch (ioctl_num) {
 	case IOCTL_GET_AVTIMER_TICK:
 	{
-		void __iomem *p_avtimer_msw = NULL, *p_avtimer_lsw = NULL;
 		uint32_t avtimer_msw_1st = 0, avtimer_lsw = 0;
 		uint32_t avtimer_msw_2nd = 0;
 		uint64_t avtimer_tick;
-
-		if (pavtimer->avtimer_pdata) {
-			p_avtimer_lsw = ioremap(
-			pavtimer->avtimer_pdata->avtimer_lsw_phy_addr, 4);
-			p_avtimer_msw = ioremap(
-			pavtimer->avtimer_pdata->avtimer_msw_phy_addr, 4);
-		}
-		if (!p_avtimer_lsw || !p_avtimer_msw) {
-			pr_err("ioremap failed\n");
-			return -EIO;
-		}
 		do {
-			avtimer_msw_1st = ioread32(p_avtimer_msw);
-			avtimer_lsw = ioread32(p_avtimer_lsw);
-			avtimer_msw_2nd = ioread32(p_avtimer_msw);
+			avtimer_msw_1st = ioread32(avtimer.p_avtimer_msw);
+			avtimer_lsw = ioread32(avtimer.p_avtimer_lsw);
+			avtimer_msw_2nd = ioread32(avtimer.p_avtimer_msw);
 		} while (avtimer_msw_1st != avtimer_msw_2nd);
 
 		avtimer_tick =
 		((uint64_t) avtimer_msw_1st << 32) | avtimer_lsw;
 
-		pr_debug("AV Timer tick: msw: %d, lsw: %d\n", avtimer_msw_1st,
-				avtimer_lsw);
+		pr_debug("%s: AV Timer tick: msw: %x, lsw: %x time %llx\n",
+		__func__, avtimer_msw_1st, avtimer_lsw, avtimer_tick);
 		if (copy_to_user((void *) ioctl_param, &avtimer_tick,
 				sizeof(avtimer_tick))) {
 					pr_err("copy_to_user failed\n");
-					iounmap(p_avtimer_lsw);
-					iounmap(p_avtimer_msw);
 					return -EFAULT;
 			}
-		iounmap(p_avtimer_lsw);
-		iounmap(p_avtimer_msw);
 		}
 		break;
 
 	default:
-		pr_err("invalid cmd\n");
-		break;
+		pr_err("%s: invalid cmd\n", __func__);
+		return -EINVAL;
 	}
-
 	return 0;
 }
 
@@ -264,8 +249,41 @@ static int dev_avtimer_probe(struct platform_device *pdev)
 	int result;
 	dev_t dev = MKDEV(major, 0);
 	struct device *device_handle;
-	struct avtimer_t *pavtimer = &avtimer;
+	struct resource *reg_lsb = NULL, *reg_msb = NULL;
 
+	if (!pdev) {
+		pr_err("%s: Invalid params\n", __func__);
+		return -EINVAL;
+	}
+	reg_lsb = platform_get_resource_byname(pdev,
+		IORESOURCE_MEM, "avtimer_lsb_addr");
+	if (!reg_lsb) {
+		dev_err(&pdev->dev, "%s: Looking up %s property",
+			"avtimer_lsb_addr", __func__);
+		return -EINVAL;
+	}
+	reg_msb = platform_get_resource_byname(pdev,
+		IORESOURCE_MEM, "avtimer_msb_addr");
+	if (!reg_msb) {
+		dev_err(&pdev->dev, "%s: Looking up %s property",
+			"avtimer_msb_addr", __func__);
+		return -EINVAL;
+	}
+	avtimer.p_avtimer_lsw = devm_ioremap_nocache(&pdev->dev,
+				reg_lsb->start, resource_size(reg_lsb));
+	if (!avtimer.p_avtimer_lsw) {
+		dev_err(&pdev->dev, "%s: ioremap failed for lsb avtimer register",
+			__func__);
+		return -ENOMEM;
+	}
+
+	avtimer.p_avtimer_msw = devm_ioremap_nocache(&pdev->dev,
+				reg_msb->start, resource_size(reg_msb));
+	if (!avtimer.p_avtimer_msw) {
+		dev_err(&pdev->dev, "%s: ioremap failed for msb avtimer register",
+			__func__);
+		goto unmap;
+	}
 	/* get the device number */
 	if (major)
 		result = register_chrdev_region(dev, 1, DEVICE_NAME);
@@ -275,68 +293,84 @@ static int dev_avtimer_probe(struct platform_device *pdev)
 	}
 
 	if (result < 0) {
-		pr_err("Registering avtimer device failed\n");
-		return result;
+		pr_err("%s: Registering avtimer device failed\n", __func__);
+		goto unmap;
 	}
 
-	pavtimer->avtimer_class = class_create(THIS_MODULE, "avtimer");
-	if (IS_ERR(pavtimer->avtimer_class)) {
-		result = PTR_ERR(pavtimer->avtimer_class);
-		pr_err("Error creating avtimer class: %d\n", result);
+	avtimer.avtimer_class = class_create(THIS_MODULE, "avtimer");
+	if (IS_ERR(avtimer.avtimer_class)) {
+		result = PTR_ERR(avtimer.avtimer_class);
+		pr_err("%s: Error creating avtimer class: %d\n",
+			__func__, result);
 		goto unregister_chrdev_region;
 	}
-	pavtimer->avtimer_pdata = pdev->dev.platform_data;
 
-	cdev_init(&pavtimer->myc, &avtimer_fops);
-	result = cdev_add(&pavtimer->myc, dev, 1);
+	cdev_init(&avtimer.myc, &avtimer_fops);
+	result = cdev_add(&avtimer.myc, dev, 1);
 
 	if (result < 0) {
-		pr_err("Registering file operations failed\n");
+		pr_err("%s: Registering file operations failed\n", __func__);
 		goto class_destroy;
 	}
 
-	device_handle = device_create(pavtimer->avtimer_class,
-			NULL, pavtimer->myc.dev, NULL, "avtimer");
+	device_handle = device_create(avtimer.avtimer_class,
+			NULL, avtimer.myc.dev, NULL, "avtimer");
 	if (IS_ERR(device_handle)) {
 		result = PTR_ERR(device_handle);
-		pr_err("device_create failed: %d\n", result);
+		pr_err("%s: device_create failed: %d\n", __func__, result);
 		goto class_destroy;
 	}
+	init_waitqueue_head(&avtimer.adsp_resp_wait);
+	mutex_init(&avtimer.avtimer_lock);
+	avtimer.avtimer_open_cnt = 0;
 
-	mutex_init(&pavtimer->avtimer_lock);
-	core_handle = NULL;
-	pavtimer->avtimer_open_cnt = 0;
-
-	pr_debug("Device create done for avtimer major=%d\n", major);
+	pr_debug("%s: Device create done for avtimer major=%d\n",
+			__func__, major);
 
 	return 0;
 
 class_destroy:
-	class_destroy(pavtimer->avtimer_class);
+	class_destroy(avtimer.avtimer_class);
 unregister_chrdev_region:
 	unregister_chrdev_region(MKDEV(major, 0), 1);
+unmap:
+	if (avtimer.p_avtimer_lsw)
+		devm_iounmap(&pdev->dev, avtimer.p_avtimer_lsw);
+	if (avtimer.p_avtimer_msw)
+		devm_iounmap(&pdev->dev, avtimer.p_avtimer_msw);
+	avtimer.p_avtimer_lsw = NULL;
+	avtimer.p_avtimer_msw = NULL;
 	return result;
 
 }
 
 static int __devexit dev_avtimer_remove(struct platform_device *pdev)
 {
-	struct avtimer_t *pavtimer = &avtimer;
+	pr_debug("%s: dev_avtimer_remove\n", __func__);
 
-	pr_debug("dev_avtimer_remove\n");
-
-	device_destroy(pavtimer->avtimer_class, pavtimer->myc.dev);
-	cdev_del(&pavtimer->myc);
-	class_destroy(pavtimer->avtimer_class);
+	if (avtimer.p_avtimer_lsw)
+		devm_iounmap(&pdev->dev, avtimer.p_avtimer_lsw);
+	if (avtimer.p_avtimer_msw)
+		devm_iounmap(&pdev->dev, avtimer.p_avtimer_msw);
+	device_destroy(avtimer.avtimer_class, avtimer.myc.dev);
+	cdev_del(&avtimer.myc);
+	class_destroy(avtimer.avtimer_class);
 	unregister_chrdev_region(MKDEV(major, 0), 1);
 
 	return 0;
 }
 
+static const struct of_device_id avtimer_machine_of_match[]  = {
+	{ .compatible = "qcom,avtimer", },
+	{},
+};
 static struct platform_driver dev_avtimer_driver = {
 	.probe = dev_avtimer_probe,
-	.remove = __exit_p(dev_avtimer_remove),
-	.driver = {.name = "dev_avtimer"}
+	.remove = dev_avtimer_remove,
+	.driver = {
+		.name = "dev_avtimer",
+		.of_match_table = avtimer_machine_of_match,
+	},
 };
 
 static int  __init avtimer_init(void)
@@ -344,21 +378,21 @@ static int  __init avtimer_init(void)
 	s32 rc;
 	rc = platform_driver_register(&dev_avtimer_driver);
 	if (IS_ERR_VALUE(rc)) {
-		pr_err("platform_driver_register failed.\n");
+		pr_err("%s: platform_driver_register failed\n", __func__);
 		goto error_platform_driver;
 	}
-	pr_debug("dev_avtimer_init : done\n");
+	pr_debug("%s: dev_avtimer_init : done\n", __func__);
 
 	return 0;
 error_platform_driver:
 
-	pr_err("encounterd error\n");
-	return -ENODEV;
+	pr_err("%s: encounterd error\n", __func__);
+	return rc;
 }
 
 static void __exit avtimer_exit(void)
 {
-	pr_debug("avtimer_exit\n");
+	pr_debug("%s: avtimer_exit\n", __func__);
 	platform_driver_unregister(&dev_avtimer_driver);
 }
 
