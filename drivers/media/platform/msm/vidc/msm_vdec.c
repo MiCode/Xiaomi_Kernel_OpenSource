@@ -936,7 +936,7 @@ int msm_vdec_g_fmt(struct msm_vidc_inst *inst, struct v4l2_format *f)
 	unsigned int extra_idx = 0;
 	int rc = 0;
 	int i;
-	struct hal_buffer_requirements *buff_req_buffer;
+	struct hal_buffer_requirements *bufreq;
 
 	if (!inst || !f || !inst->core || !inst->core->device) {
 		dprintk(VIDC_ERR,
@@ -956,135 +956,112 @@ int msm_vdec_g_fmt(struct msm_vidc_inst *inst, struct v4l2_format *f)
 		fmt = inst->fmts[CAPTURE_PORT];
 	else if (f->type == V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE)
 		fmt = inst->fmts[OUTPUT_PORT];
+	else
+		return -ENOTSUPP;
 
-	if (fmt) {
-		f->fmt.pix_mp.pixelformat = fmt->fourcc;
-		f->fmt.pix_mp.num_planes = fmt->num_planes;
-		if (inst->in_reconfig == true) {
-			if (msm_comm_get_stream_output_mode(inst) ==
+	f->fmt.pix_mp.pixelformat = fmt->fourcc;
+	f->fmt.pix_mp.num_planes = fmt->num_planes;
+	if (inst->in_reconfig) {
+		if (msm_comm_get_stream_output_mode(inst) ==
 				HAL_VIDEO_DECODER_PRIMARY) {
-				inst->prop.height[CAPTURE_PORT] =
-					inst->reconfig_height;
-				inst->prop.width[CAPTURE_PORT] =
-					inst->reconfig_width;
-				inst->prop.height[OUTPUT_PORT] =
-					inst->reconfig_height;
-				inst->prop.width[OUTPUT_PORT] =
-					inst->reconfig_width;
-			} else {
-				inst->prop.height[OUTPUT_PORT] =
-					inst->reconfig_height;
-				inst->prop.width[OUTPUT_PORT] =
-					inst->reconfig_width;
-			}
-			rc = msm_vidc_check_session_supported(inst);
-			if (rc) {
-				dprintk(VIDC_ERR,
-				"%s: session not supported\n", __func__);
-				goto exit;
-			}
+			inst->prop.height[CAPTURE_PORT] = inst->reconfig_height;
+			inst->prop.width[CAPTURE_PORT] = inst->reconfig_width;
+			inst->prop.height[OUTPUT_PORT] = inst->reconfig_height;
+			inst->prop.width[OUTPUT_PORT] = inst->reconfig_width;
+		} else {
+			inst->prop.height[OUTPUT_PORT] = inst->reconfig_height;
+			inst->prop.width[OUTPUT_PORT] = inst->reconfig_width;
 		}
-		f->fmt.pix_mp.height = inst->prop.height[CAPTURE_PORT];
-		f->fmt.pix_mp.width = inst->prop.width[CAPTURE_PORT];
-		stride = inst->prop.width[CAPTURE_PORT];
-		scanlines = inst->prop.height[CAPTURE_PORT];
-		rc = msm_comm_try_get_bufreqs(inst);
+		rc = msm_vidc_check_session_supported(inst);
 		if (rc) {
 			dprintk(VIDC_ERR,
-				"%s: Failed : Buffer requirements\n", __func__);
+					"%s: unsupported session\n", __func__);
 			goto exit;
 		}
-		if (f->type == V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE) {
-			plane_sizes =
-			&inst->bufq[OUTPUT_PORT].vb2_bufq.plane_sizes[0];
-			for (i = 0; i < fmt->num_planes; ++i) {
-				if (plane_sizes[i] == 0) {
-					f->fmt.pix_mp.plane_fmt[i].sizeimage =
-						get_frame_size(inst, fmt,
-								f->type, i);
-					plane_sizes[i] =
-						f->fmt.pix_mp.plane_fmt[i].
-							sizeimage;
-				} else
-					f->fmt.pix_mp.plane_fmt[i].sizeimage =
-						plane_sizes[i];
-			}
-		} else {
-			switch (fmt->fourcc) {
+	}
+
+	f->fmt.pix_mp.height = inst->prop.height[CAPTURE_PORT];
+	f->fmt.pix_mp.width = inst->prop.width[CAPTURE_PORT];
+	stride = inst->prop.width[CAPTURE_PORT];
+	scanlines = inst->prop.height[CAPTURE_PORT];
+
+	rc = msm_comm_try_get_bufreqs(inst);
+	if (rc) {
+		dprintk(VIDC_ERR,
+				"%s: Failed : Buffer requirements\n", __func__);
+		goto exit;
+	}
+
+	if (f->type == V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE) {
+		plane_sizes = &inst->bufq[OUTPUT_PORT].vb2_bufq.plane_sizes[0];
+		for (i = 0; i < fmt->num_planes; ++i) {
+			if (plane_sizes[i] == 0) {
+				f->fmt.pix_mp.plane_fmt[i].sizeimage =
+					get_frame_size(inst, fmt, f->type, i);
+				plane_sizes[i] = f->fmt.pix_mp.plane_fmt[i].
+					sizeimage;
+			} else
+				f->fmt.pix_mp.plane_fmt[i].sizeimage =
+					plane_sizes[i];
+		}
+	} else {
+		switch (fmt->fourcc) {
 			case V4L2_PIX_FMT_NV12:
 				call_hfi_op(hdev, get_stride_scanline,
-					COLOR_FMT_NV12,
-					inst->prop.width[CAPTURE_PORT],
-					inst->prop.height[CAPTURE_PORT],
-					&stride, &scanlines);
+						COLOR_FMT_NV12,
+						inst->prop.width[CAPTURE_PORT],
+						inst->prop.height[CAPTURE_PORT],
+						&stride, &scanlines);
 				break;
 			default:
 				dprintk(VIDC_WARN,
-					"Color format not recognized\n");
-			}
-			buff_req_buffer =
-				get_buff_req_buffer(inst,
-					msm_comm_get_hal_output_buffer(inst));
-			if (buff_req_buffer)
-				f->fmt.pix_mp.plane_fmt[0].sizeimage =
-				buff_req_buffer->buffer_size;
-			else
-				f->fmt.pix_mp.plane_fmt[0].sizeimage = 0;
+						"Color format not recognized\n");
+				break;
+		}
 
-			extra_idx = EXTRADATA_IDX(fmt->num_planes);
-			if (extra_idx && (extra_idx < VIDEO_MAX_PLANES)) {
-				buff_req_buffer =
-					get_buff_req_buffer(inst,
+		bufreq = get_buff_req_buffer(inst,
+				msm_comm_get_hal_output_buffer(inst));
+		f->fmt.pix_mp.plane_fmt[0].sizeimage =
+			bufreq ? bufreq->buffer_size : 0;
+
+		extra_idx = EXTRADATA_IDX(fmt->num_planes);
+		if (extra_idx && (extra_idx < VIDEO_MAX_PLANES)) {
+			bufreq = get_buff_req_buffer(inst,
 					HAL_BUFFER_EXTRADATA_OUTPUT);
-				if (buff_req_buffer)
-					f->fmt.pix_mp.plane_fmt[extra_idx].
-						sizeimage =
-						buff_req_buffer->buffer_size;
-				else
-					f->fmt.pix_mp.plane_fmt[extra_idx].
-						sizeimage = 0;
-			}
-			for (i = 0; i < fmt->num_planes; ++i)
-				inst->bufq[CAPTURE_PORT].
-					vb2_bufq.plane_sizes[i] =
-					f->fmt.pix_mp.plane_fmt[i].sizeimage;
-		}
-		if (stride && scanlines) {
-			f->fmt.pix_mp.plane_fmt[0].bytesperline =
-				(__u16)stride;
-			f->fmt.pix_mp.plane_fmt[0].reserved[0] =
-				(__u16)scanlines;
-		} else {
-			f->fmt.pix_mp.plane_fmt[0].bytesperline =
-				(__u16)inst->prop.width[CAPTURE_PORT];
-			f->fmt.pix_mp.plane_fmt[0].reserved[0] =
-				(__u16)inst->prop.height[CAPTURE_PORT];
+			f->fmt.pix_mp.plane_fmt[extra_idx].sizeimage =
+				bufreq ? bufreq->buffer_size : 0;
 		}
 
-		if (msm_comm_get_stream_output_mode(inst) ==
-			HAL_VIDEO_DECODER_SECONDARY) {
-			if (f->type == V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE) {
-				f->fmt.pix_mp.height =
-					inst->prop.height[CAPTURE_PORT];
-				f->fmt.pix_mp.width =
-					inst->prop.width[CAPTURE_PORT];
-			} else if (f->type ==
-					V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE) {
-				f->fmt.pix_mp.height =
-					inst->prop.height[OUTPUT_PORT];
-				f->fmt.pix_mp.width =
-					inst->prop.width[OUTPUT_PORT];
-				f->fmt.pix_mp.plane_fmt[0].bytesperline =
-					(__u16)inst->prop.width[OUTPUT_PORT];
-				f->fmt.pix_mp.plane_fmt[0].reserved[0] =
-					(__u16)inst->prop.height[OUTPUT_PORT];
-			}
-		}
+		for (i = 0; i < fmt->num_planes; ++i)
+			inst->bufq[CAPTURE_PORT].vb2_bufq.plane_sizes[i] =
+				f->fmt.pix_mp.plane_fmt[i].sizeimage;
+	}
+
+	if (stride && scanlines) {
+		f->fmt.pix_mp.plane_fmt[0].bytesperline =
+			(__u16)stride;
+		f->fmt.pix_mp.plane_fmt[0].reserved[0] =
+			(__u16)scanlines;
 	} else {
-		dprintk(VIDC_ERR,
-			"Buf type not recognized, type = %d\n",
-			f->type);
-		rc = -EINVAL;
+		f->fmt.pix_mp.plane_fmt[0].bytesperline =
+			(__u16)inst->prop.width[CAPTURE_PORT];
+		f->fmt.pix_mp.plane_fmt[0].reserved[0] =
+			(__u16)inst->prop.height[CAPTURE_PORT];
+	}
+
+	if (msm_comm_get_stream_output_mode(inst) ==
+			HAL_VIDEO_DECODER_SECONDARY) {
+		if (f->type == V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE) {
+			f->fmt.pix_mp.height = inst->prop.height[CAPTURE_PORT];
+			f->fmt.pix_mp.width = inst->prop.width[CAPTURE_PORT];
+		} else if (f->type == V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE) {
+			f->fmt.pix_mp.height = inst->prop.height[OUTPUT_PORT];
+			f->fmt.pix_mp.width = inst->prop.width[OUTPUT_PORT];
+			f->fmt.pix_mp.plane_fmt[0].bytesperline =
+				(__u16)inst->prop.width[OUTPUT_PORT];
+			f->fmt.pix_mp.plane_fmt[0].reserved[0] =
+				(__u16)inst->prop.height[OUTPUT_PORT];
+		}
 	}
 exit:
 	return rc;
@@ -1135,6 +1112,7 @@ int msm_vdec_s_parm(struct msm_vidc_inst *inst, struct v4l2_streamparm *a)
 exit:
 	return rc;
 }
+
 int msm_vdec_s_fmt(struct msm_vidc_inst *inst, struct v4l2_format *f)
 {
 	struct msm_vidc_format *fmt = NULL;
@@ -1143,15 +1121,15 @@ int msm_vdec_s_fmt(struct msm_vidc_inst *inst, struct v4l2_format *f)
 	int rc = 0;
 	int ret = 0;
 	int i;
-	struct hal_buffer_requirements *buff_req_buffer;
+	struct hal_buffer_requirements *bufreq;
 	int max_input_size = 0;
 
 	if (!inst || !f) {
 		dprintk(VIDC_ERR, "%s invalid parameters\n", __func__);
 		return -EINVAL;
 	}
-	if (f->type == V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE) {
 
+	if (f->type == V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE) {
 		fmt = msm_comm_get_pixel_fmt_fourcc(vdec_formats,
 			ARRAY_SIZE(vdec_formats), f->fmt.pix_mp.pixelformat,
 			CAPTURE_PORT);
@@ -1162,6 +1140,7 @@ int msm_vdec_s_fmt(struct msm_vidc_inst *inst, struct v4l2_format *f)
 			rc = -EINVAL;
 			goto err_invalid_fmt;
 		}
+
 		inst->prop.width[CAPTURE_PORT] = f->fmt.pix_mp.width;
 		inst->prop.height[CAPTURE_PORT] = f->fmt.pix_mp.height;
 		if (msm_comm_get_stream_output_mode(inst) ==
@@ -1169,6 +1148,7 @@ int msm_vdec_s_fmt(struct msm_vidc_inst *inst, struct v4l2_format *f)
 			inst->prop.width[OUTPUT_PORT] = f->fmt.pix_mp.width;
 			inst->prop.height[OUTPUT_PORT] = f->fmt.pix_mp.height;
 		}
+
 		inst->fmts[fmt->type] = fmt;
 		if (msm_comm_get_stream_output_mode(inst) ==
 			HAL_VIDEO_DECODER_SECONDARY) {
@@ -1182,6 +1162,7 @@ int msm_vdec_s_fmt(struct msm_vidc_inst *inst, struct v4l2_format *f)
 			ret = msm_comm_try_set_prop(inst,
 				HAL_PARAM_FRAME_SIZE, &frame_sz);
 		}
+
 		ret = ret || msm_comm_try_get_bufreqs(inst);
 		if (ret) {
 			for (i = 0; i < fmt->num_planes; ++i) {
@@ -1189,27 +1170,20 @@ int msm_vdec_s_fmt(struct msm_vidc_inst *inst, struct v4l2_format *f)
 					get_frame_size(inst, fmt, f->type, i);
 			}
 		} else {
-			buff_req_buffer =
-				get_buff_req_buffer(inst,
+			bufreq = get_buff_req_buffer(inst,
 					msm_comm_get_hal_output_buffer(inst));
-			if (buff_req_buffer)
-				f->fmt.pix_mp.plane_fmt[0].sizeimage =
-				buff_req_buffer->buffer_size;
-			else
-				f->fmt.pix_mp.plane_fmt[0].sizeimage = 0;
+			f->fmt.pix_mp.plane_fmt[0].sizeimage =
+				bufreq ? bufreq->buffer_size : 0;
+
 			extra_idx = EXTRADATA_IDX(fmt->num_planes);
 			if (extra_idx && (extra_idx < VIDEO_MAX_PLANES)) {
-				buff_req_buffer =
-					get_buff_req_buffer(inst,
+				bufreq = get_buff_req_buffer(inst,
 					HAL_BUFFER_EXTRADATA_OUTPUT);
-				if (buff_req_buffer)
-					f->fmt.pix_mp.plane_fmt[1].sizeimage =
-					buff_req_buffer->buffer_size;
-				else
-					f->fmt.pix_mp.plane_fmt[1].sizeimage =
-					0;
+				f->fmt.pix_mp.plane_fmt[1].sizeimage =
+					bufreq ? bufreq->buffer_size : 0;
 			}
 		}
+
 		f->fmt.pix_mp.num_planes = fmt->num_planes;
 		for (i = 0; i < fmt->num_planes; ++i) {
 			inst->bufq[CAPTURE_PORT].vb2_bufq.plane_sizes[i] =
@@ -1223,12 +1197,14 @@ int msm_vdec_s_fmt(struct msm_vidc_inst *inst, struct v4l2_format *f)
 			inst->prop.width[CAPTURE_PORT] = f->fmt.pix_mp.width;
 			inst->prop.height[CAPTURE_PORT] = f->fmt.pix_mp.height;
 		}
+
 		rc = msm_vidc_check_session_supported(inst);
 		if (rc) {
 			dprintk(VIDC_ERR,
 				"%s: session not supported\n", __func__);
 			goto err_invalid_fmt;
 		}
+
 		fmt = msm_comm_get_pixel_fmt_fourcc(vdec_formats,
 				ARRAY_SIZE(vdec_formats),
 				f->fmt.pix_mp.pixelformat,
@@ -1240,11 +1216,13 @@ int msm_vdec_s_fmt(struct msm_vidc_inst *inst, struct v4l2_format *f)
 			rc = -EINVAL;
 			goto err_invalid_fmt;
 		}
+
 		rc = msm_comm_try_state(inst, MSM_VIDC_CORE_INIT_DONE);
 		if (rc) {
 			dprintk(VIDC_ERR, "Failed to initialize instance\n");
 			goto err_invalid_fmt;
 		}
+
 		if (!(get_hal_codec_type(fmt->fourcc) &
 			inst->core->dec_codec_supported)) {
 			dprintk(VIDC_ERR,
@@ -1254,12 +1232,14 @@ int msm_vdec_s_fmt(struct msm_vidc_inst *inst, struct v4l2_format *f)
 			rc = -EINVAL;
 			goto err_invalid_fmt;
 		}
+
 		inst->fmts[fmt->type] = fmt;
 		rc = msm_comm_try_state(inst, MSM_VIDC_OPEN_DONE);
 		if (rc) {
 			dprintk(VIDC_ERR, "Failed to open instance\n");
 			goto err_invalid_fmt;
 		}
+
 		frame_sz.buffer_type = HAL_BUFFER_INPUT;
 		frame_sz.width = inst->prop.width[OUTPUT_PORT];
 		frame_sz.height = inst->prop.height[OUTPUT_PORT];
@@ -1268,6 +1248,7 @@ int msm_vdec_s_fmt(struct msm_vidc_inst *inst, struct v4l2_format *f)
 			frame_sz.buffer_type, frame_sz.width,
 			frame_sz.height);
 		msm_comm_try_set_prop(inst, HAL_PARAM_FRAME_SIZE, &frame_sz);
+
 		max_input_size = get_frame_size(inst, fmt, f->type, 0);
 		if (f->fmt.pix_mp.plane_fmt[0].sizeimage > max_input_size ||
 			f->fmt.pix_mp.plane_fmt[0].sizeimage == 0) {
