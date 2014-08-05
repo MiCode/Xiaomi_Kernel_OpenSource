@@ -160,6 +160,11 @@ struct arizona_pdata {
 	/** Callback notifying mic presence */
 	void (*micd_cb)(bool mic);
 
+	/** If non-zero, specifies the maximum impedance in ohms
+	 * that will be considered as a short circuit.
+	 */
+	int hpdet_short_circuit_imp;
+
 	/** Use HPDETL to check for moisture, this value specifies the
 	 * threshold impedance in ohms above which it will be considered
 	 * a false detection

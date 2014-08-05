@@ -119,6 +119,9 @@ Optional properties:
   - wlf,fixed-hpdet-imp : Do not perform any headphone detection, just use
     the fixed value specified here as the headphone impedance.
 
+  - wlf,hpdet-short-circuit-imp : Specifies the maximum impedance in ohms
+    that will be considered as a short circuit
+
   - DCVDD-supply, MICVDD-supply : Power supplies, only need to be specified if
     they are being externally supplied. As covered in
     Documentation/devicetree/bindings/regulator/regulator.txt
