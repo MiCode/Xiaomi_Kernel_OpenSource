@@ -28,6 +28,7 @@
 #include <linux/platform_device.h>
 #include <soc/qcom/scm.h>
 #include <soc/qcom/memory_dump.h>
+#include <soc/qcom/watchdog.h>
 
 #define MODULE_NAME "msm_watchdog"
 #define WDT0_ACCSCSSNBARK_INT 0
@@ -378,6 +379,24 @@ static int msm_watchdog_remove(struct platform_device *pdev)
 	return 0;
 }
 
+void msm_trigger_wdog_bite(void)
+{
+	if (!wdog_data)
+		return;
+	pr_info("Causing a watchdog bite!");
+	__raw_writel(1, wdog_data->base + WDT0_BITE_TIME);
+	mb();
+	__raw_writel(1, wdog_data->base + WDT0_RST);
+	mb();
+	/* Delay to make sure bite occurs */
+	mdelay(1);
+	pr_err("Wdog - STS: 0x%x, CTL: 0x%x, BARK TIME: 0x%x, BITE TIME: 0x%x",
+		__raw_readl(wdog_data->base + WDT0_STS),
+		__raw_readl(wdog_data->base + WDT0_EN),
+		__raw_readl(wdog_data->base + WDT0_BARK_TIME),
+		__raw_readl(wdog_data->base + WDT0_BITE_TIME));
+}
+
 static irqreturn_t wdog_bark_handler(int irq, void *dev_id)
 {
 	struct msm_watchdog_data *wdog_dd = (struct msm_watchdog_data *)dev_id;
@@ -393,18 +412,7 @@ static irqreturn_t wdog_bark_handler(int irq, void *dev_id)
 		wdog_dd->last_pet, nanosec_rem / 1000);
 	if (wdog_dd->do_ipi_ping)
 		dump_cpu_alive_mask(wdog_dd);
-	printk(KERN_INFO "Causing a watchdog bite!");
-	__raw_writel(1, wdog_dd->base + WDT0_BITE_TIME);
-	mb();
-	__raw_writel(1, wdog_dd->base + WDT0_RST);
-	mb();
-	/* Delay to make sure bite occurs */
-	mdelay(1);
-	pr_err("Wdog - STS: 0x%x, CTL: 0x%x, BARK TIME: 0x%x, BITE TIME: 0x%x",
-		__raw_readl(wdog_dd->base + WDT0_STS),
-		__raw_readl(wdog_dd->base + WDT0_EN),
-		__raw_readl(wdog_dd->base + WDT0_BARK_TIME),
-		__raw_readl(wdog_dd->base + WDT0_BITE_TIME));
+	msm_trigger_wdog_bite();
 	panic("Failed to cause a watchdog bite! - Falling back to kernel panic!");
 	return IRQ_HANDLED;
 }
