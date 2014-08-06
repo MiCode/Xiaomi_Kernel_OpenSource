@@ -34,6 +34,10 @@
 #include <linux/gpio/consumer.h>
 #include <linux/input/ft5x06_ts.h>
 
+#ifdef CONFIG_PM_SLEEP
+#include <linux/power_hal_sysfs.h>
+#endif
+
 #define FT5X0X_NAME "ft5x0x"
 #define FT5X0X_IRQ_NAME "ft5x0x_gpio_irq"
 #define FT5X0X_RESET_NAME "ft5x0x_gpio_reset"
@@ -69,7 +73,20 @@ struct ft5x0x_ts_data {
 	u8 power_mode;
 	u8 op_mode;
 	struct ts_event event;
+
+#ifdef CONFIG_PM_SLEEP
+	struct mutex suspend_lock;
+	bool suspended;
+	bool power_hal_want_suspend;
+#endif
 };
+
+#ifdef CONFIG_PM_SLEEP
+static void ft5x0x_ts_power_hal_suspend(struct device *dev);
+static void ft5x0x_ts_power_hal_resume(struct device *dev);
+static int ft5x0x_ts_power_hal_suspend_init(struct device *dev);
+static void ft5x0x_ts_power_hal_suspend_destroy(struct device *dev);
+#endif
 
 static int ft5x0x_i2c_rxdata(struct i2c_client *client,
 	char *rxdata, int length)
@@ -631,6 +648,10 @@ static int ft5x0x_ts_probe(struct i2c_client *client,
 
 	mutex_init(&ts_data->lock);
 
+#ifdef CONFIG_PM_SLEEP
+	mutex_init(&ts_data->suspend_lock);
+#endif
+
 	ts_data->client = client;
 	ts_data->input_dev = input_dev;
 
@@ -708,6 +729,14 @@ static int ft5x0x_ts_probe(struct i2c_client *client,
 
 	dev_dbg(&client->dev, "probe end\n");
 
+#ifdef CONFIG_PM_SLEEP
+	err = ft5x0x_ts_power_hal_suspend_init(&client->dev);
+	if (err < 0)
+		dev_err(&client->dev, "unable to register for power hal");
+
+	ts_data->suspended = false;
+#endif
+
 	return 0;
 
 err_sysfs_create:
@@ -725,6 +754,10 @@ static int ft5x0x_ts_remove(struct i2c_client *client)
 	input_unregister_device(ts_data->input_dev);
 	i2c_set_clientdata(client, NULL);
 
+#ifdef CONFIG_PM_SLEEP
+	ft5x0x_ts_power_hal_suspend_destroy(&client->dev);
+#endif
+
 	return 0;
 }
 
@@ -732,7 +765,12 @@ static int ft5x0x_ts_remove(struct i2c_client *client)
 static int ft5x0x_ts_suspend(struct device *dev)
 {
 	struct ft5x0x_ts_data *tsdata = i2c_get_clientdata(to_i2c_client(dev));
-	int ret;
+	int ret = 0;
+
+	mutex_lock(&tsdata->suspend_lock);
+
+	if (tsdata->suspended)
+		goto out;
 
 	dev_dbg(&tsdata->client->dev, "suspend");
 
@@ -741,15 +779,27 @@ static int ft5x0x_ts_suspend(struct device *dev)
 	ret = ft5x0x_set_pmode(tsdata, PMODE_HIBERNATE);
 
 	if (ret < 0)
-		return ret;
+		goto out;
 
-	return 0;
+	tsdata->suspended = true;
+
+out:
+	mutex_unlock(&tsdata->suspend_lock);
+	return ret;
 }
 
 static int ft5x0x_ts_resume(struct device *dev)
 {
 	struct ft5x0x_ts_data *tsdata = i2c_get_clientdata(to_i2c_client(dev));
-	int ret;
+	int ret = 0;
+
+	mutex_lock(&tsdata->suspend_lock);
+
+	if (!tsdata->suspended)
+		goto out;
+
+	if (tsdata->power_hal_want_suspend)
+		goto out;
 
 	dev_dbg(&tsdata->client->dev, "resume");
 
@@ -758,11 +808,72 @@ static int ft5x0x_ts_resume(struct device *dev)
 	ret = ft5x0x_set_pmode(tsdata, PMODE_ACTIVE);
 
 	if (ret < 0)
-		return ret;
+		goto out;
 
 	enable_irq(tsdata->irq);
 
-	return 0;
+	tsdata->suspended = false;
+
+out:
+	mutex_unlock(&tsdata->suspend_lock);
+	return ret;
+}
+
+static ssize_t ft5x0x_ts_power_hal_suspend_store(struct device *dev,
+						 struct device_attribute *attr,
+						 const char *buf, size_t count)
+{
+	struct i2c_client *client = to_i2c_client(dev);
+	struct ft5x0x_ts_data *ts = i2c_get_clientdata(client);
+
+	if (!strncmp(buf, POWER_HAL_SUSPEND_ON,
+		     POWER_HAL_SUSPEND_STATUS_LEN)) {
+		if (!ts->suspended)
+			ft5x0x_ts_power_hal_suspend(dev);
+	} else {
+		if (ts->suspended)
+			ft5x0x_ts_power_hal_resume(dev);
+	}
+
+	return count;
+}
+static DEVICE_POWER_HAL_SUSPEND_ATTR(ft5x0x_ts_power_hal_suspend_store);
+
+static int ft5x0x_ts_power_hal_suspend_init(struct device *dev)
+{
+	int ret = 0;
+
+	ret = device_create_file(dev, &dev_attr_power_HAL_suspend);
+	if (ret)
+	return ret;
+
+	return register_power_hal_suspend_device(dev);
+}
+
+static void ft5x0x_ts_power_hal_suspend_destroy(struct device *dev)
+{
+	device_remove_file(dev, &dev_attr_power_HAL_suspend);
+	unregister_power_hal_suspend_device(dev);
+}
+
+static void ft5x0x_ts_power_hal_suspend(struct device *dev)
+{
+	struct i2c_client *client = to_i2c_client(dev);
+	struct ft5x0x_ts_data *ts = i2c_get_clientdata(client);
+
+	ts->power_hal_want_suspend = true;
+
+	ft5x0x_ts_suspend(dev);
+}
+
+static void ft5x0x_ts_power_hal_resume(struct device *dev)
+{
+	struct i2c_client *client = to_i2c_client(dev);
+	struct ft5x0x_ts_data *ts = i2c_get_clientdata(client);
+
+	ts->power_hal_want_suspend = false;
+
+	ft5x0x_ts_resume(dev);
 }
 #endif
 
