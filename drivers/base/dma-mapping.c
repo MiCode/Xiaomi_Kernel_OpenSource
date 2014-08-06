@@ -294,7 +294,7 @@ void *dma_common_contiguous_remap(struct page *page, size_t size,
 			unsigned long vm_flags,
 			pgprot_t prot, const void *caller)
 {
-	int i;
+	unsigned long i;
 	struct page **pages;
 	struct vm_struct *area;
 
