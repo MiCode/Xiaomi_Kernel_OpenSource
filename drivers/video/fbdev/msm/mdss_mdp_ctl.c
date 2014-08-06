@@ -450,7 +450,7 @@ int mdss_mdp_perf_calc_pipe(struct mdss_mdp_pipe *pipe,
 {
 	struct mdss_mdp_mixer *mixer;
 	int fps = DEFAULT_FRAME_RATE;
-	u32 quota, rate, v_total, src_h, xres = 0, h_total = 0;
+	u32 quota, rate, v_total = 0, src_h, xres = 0, h_total = 0;
 	struct mdss_rect src, dst;
 	bool is_fbc = false;
 	struct mdss_mdp_prefill_params prefill_params;
@@ -466,7 +466,6 @@ int mdss_mdp_perf_calc_pipe(struct mdss_mdp_pipe *pipe,
 
 	if (mixer->rotator_mode) {
 		fps = DEFAULT_ROTATOR_FRAME_RATE;
-		v_total = pipe->flags & MDP_ROT_90 ? pipe->dst.w : pipe->dst.h;
 	} else if (mixer->type == MDSS_MDP_MIXER_TYPE_INTF) {
 		struct mdss_panel_info *pinfo;
 
@@ -517,15 +516,18 @@ int mdss_mdp_perf_calc_pipe(struct mdss_mdp_pipe *pipe,
 	else
 		quota *= pipe->src_fmt->bpp;
 
-	rate = dst.w;
-	if (src_h > dst.h)
-		rate = (rate * src_h) / dst.h;
-
-	rate *= v_total * fps;
 	if (mixer->rotator_mode) {
+		rate = pipe->src.w * pipe->src.h * fps;
 		rate /= 4; /* block mode fetch at 4 pix/clk */
+
 		quota *= 2; /* bus read + write */
 	} else {
+		rate = dst.w;
+		if (src_h > dst.h)
+			rate = (rate * src_h) / dst.h;
+
+		rate *= v_total * fps;
+
 		quota = mult_frac(quota, v_total, dst.h);
 		if (!mixer->ctl->is_video_mode)
 			quota = mult_frac(quota, h_total, xres);
