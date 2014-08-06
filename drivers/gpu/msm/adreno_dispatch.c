@@ -1784,8 +1784,10 @@ static int dispatcher_do_fault(struct kgsl_device *device)
 			hung_rb = rb;
 			adreno_readreg(adreno_dev, ADRENO_REG_CP_RB_RPTR,
 				&hung_rb->rptr);
-			if (adreno_dev->cur_rb != hung_rb)
+			if (adreno_dev->cur_rb != hung_rb) {
+				adreno_dev->prev_rb = adreno_dev->cur_rb;
 				adreno_dev->cur_rb = hung_rb;
+			}
 		}
 		if (ADRENO_DISPATCHER_RB_STARVE_TIMER_ELAPSED ==
 			rb->starve_timer_state) {
