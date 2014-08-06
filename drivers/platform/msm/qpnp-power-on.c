@@ -113,6 +113,8 @@
 
 #define QPNP_PON_BUFFER_SIZE			9
 
+#define QPNP_POFF_REASON_UVLO			13
+
 enum pon_type {
 	PON_KPDPWR,
 	PON_RESIN,
@@ -1346,7 +1348,7 @@ static int qpnp_pon_debugfs_uvlo_set(void *data, u64 val)
 	struct qpnp_pon *pon = (struct qpnp_pon *) data;
 
 	if (pon->pon_trigger_reason == PON_SMPL ||
-		pon->pon_power_off_reason == PON_POWER_OFF_UVLO)
+		pon->pon_power_off_reason == QPNP_POFF_REASON_UVLO)
 		panic("An UVLO was occurred.\n");
 	pon->uvlo = val;
 
@@ -1487,7 +1489,7 @@ static int qpnp_pon_probe(struct spmi_device *spmi)
 	}
 
 	if (pon->pon_trigger_reason == PON_SMPL ||
-		pon->pon_power_off_reason == PON_POWER_OFF_UVLO) {
+		pon->pon_power_off_reason == QPNP_POFF_REASON_UVLO) {
 		if (of_property_read_bool(spmi->dev.of_node,
 						"qcom,uvlo-panic"))
 			panic("An UVLO was occurred.");
