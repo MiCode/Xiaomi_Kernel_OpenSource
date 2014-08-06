@@ -21,3 +21,4 @@ else
 endif
 
 obj-$(CONFIG_DEBUG_FS) += msm_bus_dbg.o
+obj-$(CONFIG_MSM_BUSPM_DEV) += msm-buspm-dev.o
