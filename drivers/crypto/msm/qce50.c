@@ -238,40 +238,28 @@ static int _probe_ce_engine(struct qce_device *pce_dev)
 	return 0;
 };
 
-static int _ce_get_hash_cmdlistinfo(struct qce_device *pce_dev,
-				struct qce_sha_req *sreq,
-				struct qce_cmdlist_info **cmdplistinfo)
+static struct qce_cmdlist_info *_ce_get_hash_cmdlistinfo(
+			struct qce_device *pce_dev, struct qce_sha_req *sreq)
 {
 	struct qce_cmdlistptr_ops *cmdlistptr = &pce_dev->ce_sps.cmdlistptr;
 
 	switch (sreq->alg) {
 	case QCE_HASH_SHA1:
-		*cmdplistinfo = &cmdlistptr->auth_sha1;
-		break;
-
+		return &cmdlistptr->auth_sha1;
 	case QCE_HASH_SHA256:
-		*cmdplistinfo = &cmdlistptr->auth_sha256;
-		break;
-
+		return &cmdlistptr->auth_sha256;
 	case QCE_HASH_SHA1_HMAC:
-		*cmdplistinfo = &cmdlistptr->auth_sha1_hmac;
-			break;
-
+		return &cmdlistptr->auth_sha1_hmac;
 	case QCE_HASH_SHA256_HMAC:
-		*cmdplistinfo = &cmdlistptr->auth_sha256_hmac;
-		break;
-
+		return &cmdlistptr->auth_sha256_hmac;
 	case QCE_HASH_AES_CMAC:
 		if (sreq->authklen == AES128_KEY_SIZE)
-			*cmdplistinfo = &cmdlistptr->auth_aes_128_cmac;
-		else
-			*cmdplistinfo = &cmdlistptr->auth_aes_256_cmac;
-		break;
-
+			return &cmdlistptr->auth_aes_128_cmac;
+		return &cmdlistptr->auth_aes_256_cmac;
 	default:
-		break;
+		return NULL;
 	}
-	return 0;
+	return NULL;
 }
 
 static int _ce_setup_hash(struct qce_device *pce_dev,
@@ -598,70 +586,48 @@ static int _ce_setup_aead(struct qce_device *pce_dev, struct qce_req *q_req,
 
 };
 
-static int _ce_get_cipher_cmdlistinfo(struct qce_device *pce_dev,
-				struct qce_req *creq,
-				struct qce_cmdlist_info **cmdlistinfo)
+static struct qce_cmdlist_info *_ce_get_cipher_cmdlistinfo(
+			struct qce_device *pce_dev, struct qce_req *creq)
 {
 	struct qce_cmdlistptr_ops *cmdlistptr = &pce_dev->ce_sps.cmdlistptr;
 
 	if (creq->alg != CIPHER_ALG_AES) {
 		switch (creq->alg) {
 		case CIPHER_ALG_DES:
-			if (creq->mode ==  QCE_MODE_ECB)
-				*cmdlistinfo = &cmdlistptr->cipher_des_ecb;
-			else
-				*cmdlistinfo = &cmdlistptr->cipher_des_cbc;
-			break;
-
+			if (creq->mode == QCE_MODE_ECB)
+				return &cmdlistptr->cipher_des_ecb;
+			return &cmdlistptr->cipher_des_cbc;
 		case CIPHER_ALG_3DES:
-			if (creq->mode ==  QCE_MODE_ECB)
-				*cmdlistinfo =
-					&cmdlistptr->cipher_3des_ecb;
-			else
-				*cmdlistinfo =
-					&cmdlistptr->cipher_3des_cbc;
-			break;
+			if (creq->mode == QCE_MODE_ECB)
+				return &cmdlistptr->cipher_3des_ecb;
+			return &cmdlistptr->cipher_3des_cbc;
 		default:
-			break;
+			return NULL;
 		}
 	} else {
 		switch (creq->mode) {
 		case QCE_MODE_ECB:
-			if (creq->encklen ==  AES128_KEY_SIZE)
-				*cmdlistinfo = &cmdlistptr->cipher_aes_128_ecb;
-			else
-				*cmdlistinfo = &cmdlistptr->cipher_aes_256_ecb;
-			break;
-
+			if (creq->encklen == AES128_KEY_SIZE)
+				return &cmdlistptr->cipher_aes_128_ecb;
+			return &cmdlistptr->cipher_aes_256_ecb;
 		case QCE_MODE_CBC:
 		case QCE_MODE_CTR:
-			if (creq->encklen ==  AES128_KEY_SIZE)
-				*cmdlistinfo =
-					&cmdlistptr->cipher_aes_128_cbc_ctr;
-			else
-				*cmdlistinfo =
-					&cmdlistptr->cipher_aes_256_cbc_ctr;
-			break;
-
+			if (creq->encklen == AES128_KEY_SIZE)
+				return &cmdlistptr->cipher_aes_128_cbc_ctr;
+			return &cmdlistptr->cipher_aes_256_cbc_ctr;
 		case QCE_MODE_XTS:
-			if (creq->encklen/2 ==  AES128_KEY_SIZE)
-				*cmdlistinfo = &cmdlistptr->cipher_aes_128_xts;
-			else
-				*cmdlistinfo = &cmdlistptr->cipher_aes_256_xts;
-			break;
-
+			if (creq->encklen/2 == AES128_KEY_SIZE)
+				return &cmdlistptr->cipher_aes_128_xts;
+			return &cmdlistptr->cipher_aes_256_xts;
 		case QCE_MODE_CCM:
-			if (creq->encklen ==  AES128_KEY_SIZE)
-				*cmdlistinfo = &cmdlistptr->aead_aes_128_ccm;
-			else
-				*cmdlistinfo = &cmdlistptr->aead_aes_256_ccm;
-			break;
-
+			if (creq->encklen == AES128_KEY_SIZE)
+				return &cmdlistptr->aead_aes_128_ccm;
+			return &cmdlistptr->aead_aes_256_ccm;
 		default:
-			break;
+			return NULL;
 		}
 	}
-	return 0;
+	return NULL;
 }
 
 static int _ce_setup_cipher(struct qce_device *pce_dev, struct qce_req *creq,
@@ -4297,7 +4263,12 @@ static int _qce_aead_ccm_req(void *handle, struct qce_req *q_req)
 	}
 
 	if (pce_dev->support_cmd_dscr) {
-		_ce_get_cipher_cmdlistinfo(pce_dev, q_req, &cmdlistinfo);
+		cmdlistinfo = _ce_get_cipher_cmdlistinfo(pce_dev, q_req);
+		if (cmdlistinfo == NULL) {
+			pr_err("Unsupported cipher algorithm %d, mode %d\n",
+						q_req->alg, q_req->mode);
+			return -EINVAL;
+		}
 		/* set up crypto device */
 		rc = _ce_setup_cipher(pce_dev, q_req, totallen_in,
 					areq->assoclen, cmdlistinfo);
@@ -4725,7 +4696,12 @@ int qce_ablk_cipher_req(void *handle, struct qce_req *c_req)
 
 	/* set up crypto device */
 	if (pce_dev->support_cmd_dscr) {
-		_ce_get_cipher_cmdlistinfo(pce_dev, c_req, &cmdlistinfo);
+		cmdlistinfo = _ce_get_cipher_cmdlistinfo(pce_dev, c_req);
+		if (cmdlistinfo == NULL) {
+			pr_err("Unsupported cipher algorithm %d, mode %d\n",
+						c_req->alg, c_req->mode);
+			return -EINVAL;
+		}
 		rc = _ce_setup_cipher(pce_dev, c_req, areq->nbytes, 0,
 							cmdlistinfo);
 	} else {
@@ -4809,7 +4785,11 @@ int qce_process_sha_req(void *handle, struct qce_sha_req *sreq)
 							DMA_TO_DEVICE);
 
 	if (pce_dev->support_cmd_dscr) {
-		_ce_get_hash_cmdlistinfo(pce_dev, sreq, &cmdlistinfo);
+		cmdlistinfo = _ce_get_hash_cmdlistinfo(pce_dev, sreq);
+		if (cmdlistinfo == NULL) {
+			pr_err("Unsupported hash algorithm %d\n", sreq->alg);
+			return -EINVAL;
+		}
 		rc = _ce_setup_hash(pce_dev, sreq, cmdlistinfo);
 	} else {
 		rc = _ce_setup_hash_direct(pce_dev, sreq);
