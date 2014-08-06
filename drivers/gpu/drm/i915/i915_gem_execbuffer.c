@@ -1453,8 +1453,9 @@ i915_gem_do_execbuffer(struct drm_device *dev, void *data,
 
 	i915_gem_context_reference(ctx);
 
-	vm = ctx->vm;
-	if (!USES_FULL_PPGTT(dev))
+	if (ctx->ppgtt)
+		vm = &ctx->ppgtt->base;
+	else
 		vm = &dev_priv->gtt.base;
 
 	eb = eb_create(args);
