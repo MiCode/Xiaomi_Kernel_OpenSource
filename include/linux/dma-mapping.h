@@ -110,6 +110,10 @@ struct dma_map_ops {
 	int (*mapping_error)(struct device *dev, dma_addr_t dma_addr);
 	int (*dma_supported)(struct device *dev, u64 mask);
 	int (*set_dma_mask)(struct device *dev, u64 mask);
+	void *(*remap)(struct device *dev, void *cpu_addr, dma_addr_t handle,
+			size_t size, unsigned long attrs);
+	void (*unremap)(struct device *dev, void *remapped_address,
+			size_t size);
 #ifdef ARCH_HAS_DMA_GET_REQUIRED_MASK
 	u64 (*get_required_mask)(struct device *dev);
 #endif
@@ -350,7 +354,8 @@ void *dma_common_contiguous_remap(struct page *page, size_t size,
 void *dma_common_pages_remap(struct page **pages, size_t size,
 			unsigned long vm_flags, pgprot_t prot,
 			const void *caller);
-void dma_common_free_remap(void *cpu_addr, size_t size, unsigned long vm_flags);
+void dma_common_free_remap(void *cpu_addr, size_t size, unsigned long vm_flags,
+			   bool nowarn);
 
 /**
  * dma_mmap_attrs - map a coherent DMA allocation into user space
@@ -509,6 +514,35 @@ static inline int dma_set_mask(struct device *dev, u64 mask)
 	return 0;
 }
 #endif
+static inline void *dma_remap(struct device *dev, void *cpu_addr,
+		dma_addr_t dma_handle, size_t size, unsigned long attrs)
+{
+	const struct dma_map_ops *ops = get_dma_ops(dev);
+
+	if (!ops->remap) {
+		WARN_ONCE(1, "Remap function not implemented for %pS\n",
+				ops->remap);
+		return NULL;
+	}
+
+	return ops->remap(dev, cpu_addr, dma_handle, size, attrs);
+}
+
+
+static inline void dma_unremap(struct device *dev, void *remapped_addr,
+				size_t size)
+{
+	const struct dma_map_ops *ops = get_dma_ops(dev);
+
+	if (!ops->unremap) {
+		WARN_ONCE(1, "unremap function not implemented for %pS\n",
+				ops->unremap);
+		return;
+	}
+
+	return ops->unremap(dev, remapped_addr, size);
+}
+
 
 static inline u64 dma_get_mask(struct device *dev)
 {

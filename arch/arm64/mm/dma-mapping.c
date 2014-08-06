@@ -416,7 +416,7 @@ static int __init atomic_pool_init(void)
 	goto out;
 
 remove_mapping:
-	dma_common_free_remap(addr, atomic_pool_size, VM_USERMAP);
+	dma_common_free_remap(addr, atomic_pool_size, VM_USERMAP, false);
 destroy_genpool:
 	gen_pool_destroy(atomic_pool);
 	atomic_pool = NULL;
@@ -637,7 +637,7 @@ static void __iommu_free_attrs(struct device *dev, size_t size, void *cpu_addr,
 		if (WARN_ON(!area || !area->pages))
 			return;
 		iommu_dma_free(dev, area->pages, iosize, &handle);
-		dma_common_free_remap(cpu_addr, size, VM_USERMAP);
+		dma_common_free_remap(cpu_addr, size, VM_USERMAP, false);
 	} else {
 		iommu_dma_unmap_page(dev, handle, iosize, 0, 0);
 		__free_pages(virt_to_page(cpu_addr), get_order(size));
