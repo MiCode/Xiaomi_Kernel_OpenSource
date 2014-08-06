@@ -667,7 +667,7 @@ static int msm_core_tsens_init(struct device_node *node, int cpu)
 	if (!node)
 		return -ENODEV;
 
-	key = "qcom,sensor";
+	key = "sensor";
 	phandle = of_parse_phandle(node, key, 0);
 	if (!phandle) {
 		pr_info("%s: No sensor mapping found for the core\n",
@@ -710,22 +710,11 @@ static int msm_core_tsens_init(struct device_node *node, int cpu)
 	return ret;
 }
 
-static int msm_core_mpidr_init(struct device_node *node)
+static int msm_core_mpidr_init(struct device_node *phandle)
 {
 	int ret = 0;
 	char *key = NULL;
-	struct device_node *phandle;
 	int mpidr;
-
-	if (!node)
-		return -ENODEV;
-
-	key = "qcom,cpu-name";
-	phandle = of_parse_phandle(node, key, 0);
-	if (!phandle) {
-		pr_err("%s: Cannot map cpu handle\n", __func__);
-		return -ENODEV;
-	}
 
 	key = "reg";
 	ret = of_property_read_u32(phandle, key,
@@ -853,32 +842,32 @@ static int msm_core_params_init(struct platform_device *pdev)
 {
 	int ret = 0;
 	unsigned long cpu = 0;
-	struct device_node *node = NULL;
 	struct device_node *child_node = NULL;
+	struct device_node *ea_node = NULL;
+	char *key = NULL;
 	int mpidr;
 
-	node = of_find_node_by_name(pdev->dev.of_node,
-				"qcom,core-mapping");
-	if (!node) {
-		pr_err("No per core params found\n");
-		return -ENODEV;
-	}
+	for_each_possible_cpu(cpu) {
+		child_node = of_get_cpu_node(cpu, NULL);
 
-	for_each_child_of_node(node, child_node) {
 		mpidr = msm_core_mpidr_init(child_node);
 		if (mpidr < 0)
 			return mpidr;
-
-		for_each_possible_cpu(cpu)
-			if (cpu_logical_map(cpu) == mpidr)
-				break;
 
 		if (cpu >= num_possible_cpus())
 			continue;
 
 		activity[cpu].mpidr = mpidr;
 
-		ret = msm_core_tsens_init(child_node, cpu);
+		key = "qcom,ea";
+		ea_node = of_parse_phandle(child_node, key, 0);
+		if (!ea_node) {
+			pr_err("%s Couldn't find the ea_node for cpu%lu\n",
+				__func__, cpu);
+			return -ENODEV;
+		}
+
+		ret = msm_core_tsens_init(ea_node, cpu);
 		if (ret)
 			return ret;
 
