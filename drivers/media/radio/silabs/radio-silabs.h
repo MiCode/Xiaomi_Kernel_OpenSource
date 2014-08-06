@@ -40,6 +40,9 @@ const unsigned char MAX_SRCH_MODE = 0x01;
 #define RADIO_NR -1
 #define TURNING_ON 1
 #define TURNING_OFF 0
+#define CH_SPACING_200 200
+#define CH_SPACING_100 100
+#define CH_SPACING_50 50
 
 /* to distinguish between seek, tune during STC int. */
 #define NO_SEEK_TUNE_PENDING 0
@@ -106,7 +109,11 @@ const unsigned char MAX_SRCH_MODE = 0x01;
 #define DEFAULT_RSSI_TH 7
 
 #define DEFAULT_AF_RSSI_LOW_TH 25
+#define NO_OF_AF_IN_GRP 2
 #define MAX_NO_OF_AF 25
+#define MAX_AF_LIST_SIZE (MAX_NO_OF_AF * 4) /* 4 bytes per freq */
+#define GET_AF_EVT_LEN(x) (7 + x*4)
+#define GET_AF_LIST_LEN(x) (x*4)
 #define MIN_AF_FREQ_CODE 1
 #define MAX_AF_FREQ_CODE 204
 /* 25 AFs supported for a freq. 224 means 1 AF. 225 means 2 AFs and so on */
@@ -432,15 +439,24 @@ struct silabs_fm_recv_conf_req {
 	__u16	band_high_limit;
 };
 
+struct af_list_ev {
+	__le32   tune_freq_khz;
+	__le16   pi_code;
+	__u8    af_size;
+	__u8    af_list[MAX_AF_LIST_SIZE];
+} __packed;
+
 struct silabs_af_info {
-	/* Flag to identify repeated AF list */
-	bool is_new_af_list;
+	/* no. of invalid AFs. */
+	u8 inval_freq_cnt;
 	/* no. of AFs in the list. */
 	u8 cnt;
 	/* actual size of the list */
 	u8 size;
 	/* index of currently tuned station in the AF list. */
 	u8 index;
+	/* PI of the frequency */
+	u16 pi;
 	/* freq to which AF list belongs to. */
 	u32 orig_freq_khz;
 	/* AF list */

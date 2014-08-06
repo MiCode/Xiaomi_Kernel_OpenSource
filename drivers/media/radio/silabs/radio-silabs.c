@@ -131,7 +131,8 @@ struct silabs_fm_device {
 	u8 rssi_th; /* 0 - 127 */
 	u8 sinr_th; /* 0 - 127 */
 	u8 rds_fifo_cnt; /* 0 - 25 */
-	struct silabs_af_info af_info;
+	struct silabs_af_info af_info1;
+	struct silabs_af_info af_info2;
 };
 
 static int silabs_fm_request_irq(struct silabs_fm_device *radio);
@@ -1286,51 +1287,181 @@ static int get_rssi(struct silabs_fm_device *radio, u8 *prssi)
 	return retval;
 }
 
+static bool is_valid_freq(struct silabs_fm_device *radio, u32 freq)
+{
+	u32 band_low_limit = radio->recv_conf.band_low_limit * TUNE_STEP_SIZE;
+	u32 band_high_limit = radio->recv_conf.band_high_limit * TUNE_STEP_SIZE;
+	u8 spacing;
+
+	if (radio->recv_conf.ch_spacing == 0)
+		spacing = CH_SPACING_200;
+	else if (radio->recv_conf.ch_spacing == 1)
+		spacing = CH_SPACING_100;
+	else if (radio->recv_conf.ch_spacing == 2)
+		spacing = CH_SPACING_50;
+
+	if ((freq >= band_low_limit) &&
+		(freq <= band_high_limit) &&
+		((freq - band_low_limit) % spacing == 0))
+		return true;
+
+	return false;
+}
+
+static bool is_new_freq(struct silabs_fm_device *radio, u32 freq)
+{
+	u8 i = 0;
+
+	for (i = 0; i < radio->af_info2.size; i++) {
+		if (freq == radio->af_info2.af_list[i])
+			return false;
+	}
+
+	return true;
+}
+
+static bool is_different_af_list(struct silabs_fm_device *radio)
+{
+	u8 i = 0, j = 0;
+	u32 freq;
+
+	if (radio->af_info1.orig_freq_khz != radio->af_info2.orig_freq_khz)
+		return true;
+
+	/* freq is same, check if the AFs are same. */
+	for (i = 0; i < radio->af_info1.size; i++) {
+		freq = radio->af_info1.af_list[i];
+		for (j = 0; j < radio->af_info2.size; j++) {
+			if (freq == radio->af_info2.af_list[j])
+				break;
+		}
+
+		/* freq is not there in list2 i.e list1, list2 are different.*/
+		if (j == radio->af_info2.size)
+			return true;
+	}
+
+	return false;
+}
+
 static void reset_af_info(struct silabs_fm_device *radio)
 {
-	radio->af_info.is_new_af_list = false;
-	radio->af_info.cnt = 0;
-	radio->af_info.index = 0;
-	radio->af_info.size = 0;
-	radio->af_info.orig_freq_khz = 0;
-	memset(radio->af_info.af_list, 0, sizeof(radio->af_info.af_list));
+	radio->af_info1.inval_freq_cnt = 0;
+	radio->af_info1.cnt = 0;
+	radio->af_info1.index = 0;
+	radio->af_info1.size = 0;
+	radio->af_info1.orig_freq_khz = 0;
+	memset(radio->af_info1.af_list, 0, sizeof(radio->af_info1.af_list));
+
+	radio->af_info2.inval_freq_cnt = 0;
+	radio->af_info2.cnt = 0;
+	radio->af_info2.index = 0;
+	radio->af_info2.size = 0;
+	radio->af_info2.orig_freq_khz = 0;
+	memset(radio->af_info2.af_list, 0, sizeof(radio->af_info2.af_list));
 }
 
 static void update_af_list(struct silabs_fm_device *radio)
 {
-	u8 first_byte, sec_byte;
-	u16 af_data = radio->block[2];
+	bool retval;
+	u8 i = 0;
+	u8 af_data = radio->block[2] >> 8;
+	u32 af_freq_khz;
 
-	first_byte = af_data >> 8;
-	sec_byte = af_data & 0xFF;
+	struct kfifo *buff;
+	struct af_list_ev ev;
+	spinlock_t lock = radio->buf_lock[SILABS_FM_BUF_AF_LIST];
 
-	if (first_byte >= MIN_AF_CNT_CODE && first_byte <= MAX_AF_CNT_CODE) {
-		/* AF count. */
-		reset_af_info(radio);
+	for (; i < NO_OF_AF_IN_GRP; i++, af_data = radio->block[2] & 0xFF) {
 
-		radio->af_info.cnt = first_byte - NO_AF_CNT_CODE;
+		if (af_data >= MIN_AF_CNT_CODE && af_data <= MAX_AF_CNT_CODE) {
 
-		radio->af_info.orig_freq_khz = radio->tuned_freq_khz;
-		FMDBG("%s: current freq is %u, AF cnt is %u\n",
-			__func__, radio->tuned_freq_khz, radio->af_info.cnt);
+			FMDBG("%s: resetting af info, freq %u, pi %u\n",
+				__func__, radio->tuned_freq_khz, radio->pi);
+			radio->af_info2.inval_freq_cnt = 0;
+			radio->af_info2.cnt = 0;
+			radio->af_info2.index = 0;
+			radio->af_info2.size = 0;
+			radio->af_info2.orig_freq_khz = 0;
+			memset(radio->af_info2.af_list,
+				0,
+				sizeof(radio->af_info2.af_list));
 
-		radio->af_info.af_list[radio->af_info.size++] =
-				SCALE_AF_CODE_TO_FREQ_KHZ(sec_byte);
-		FMDBG("%s: AF is %u\n", __func__,
-			SCALE_AF_CODE_TO_FREQ_KHZ(sec_byte));
-	} else if (first_byte >= MIN_AF_FREQ_CODE &&
-				first_byte <= MAX_AF_FREQ_CODE) {
-		/* update the AF list */
-		radio->af_info.af_list[radio->af_info.size++] =
-			SCALE_AF_CODE_TO_FREQ_KHZ(first_byte);
-		FMDBG("%s: first AF is %u\n", __func__,
-			SCALE_AF_CODE_TO_FREQ_KHZ(first_byte));
+			/* AF count. */
+			radio->af_info2.cnt = af_data - NO_AF_CNT_CODE;
+			radio->af_info2.orig_freq_khz = radio->tuned_freq_khz;
+			radio->af_info2.pi = radio->pi;
 
-		if (radio->af_info.size < radio->af_info.cnt) {
-			radio->af_info.af_list[radio->af_info.size++] =
-				SCALE_AF_CODE_TO_FREQ_KHZ(sec_byte);
-			FMDBG("%s: second AF is %u\n", __func__,
-				SCALE_AF_CODE_TO_FREQ_KHZ(sec_byte));
+			FMDBG("%s: current freq is %u, AF cnt is %u\n",
+			__func__, radio->tuned_freq_khz, radio->af_info2.cnt);
+
+		} else if (af_data >= MIN_AF_FREQ_CODE &&
+				af_data <= MAX_AF_FREQ_CODE &&
+				radio->af_info2.orig_freq_khz != 0 &&
+				radio->af_info2.size < MAX_NO_OF_AF) {
+
+			af_freq_khz = SCALE_AF_CODE_TO_FREQ_KHZ(af_data);
+			retval = is_valid_freq(radio, af_freq_khz);
+			if (retval == false) {
+				FMDBG("%s: Invalid AF\n", __func__);
+				radio->af_info2.inval_freq_cnt++;
+				continue;
+			}
+
+			retval = is_new_freq(radio, af_freq_khz);
+			if (retval == false) {
+				FMDBG("%s: Duplicate AF\n", __func__);
+				radio->af_info2.inval_freq_cnt++;
+				continue;
+			}
+
+			/* update the AF list */
+			radio->af_info2.af_list[radio->af_info2.size++] =
+								af_freq_khz;
+			FMDBG("%s: AF is %u\n", __func__, af_freq_khz);
+			if ((radio->af_info2.size +
+				radio->af_info2.inval_freq_cnt ==
+				radio->af_info2.cnt) &&
+				is_different_af_list(radio)) {
+
+				/* Copy the list to af_info1. */
+				radio->af_info1.cnt = radio->af_info2.cnt;
+				radio->af_info1.size = radio->af_info2.size;
+				radio->af_info1.pi = radio->af_info2.pi;
+				radio->af_info1.orig_freq_khz =
+					radio->af_info2.orig_freq_khz;
+				memset(radio->af_info1.af_list,
+					0,
+					sizeof(radio->af_info1.af_list));
+
+				memcpy(radio->af_info1.af_list,
+					radio->af_info2.af_list,
+					sizeof(radio->af_info2.af_list));
+
+				/* AF list changed, post it to user space */
+				memset(&ev, 0, sizeof(struct af_list_ev));
+
+				ev.tune_freq_khz =
+						radio->af_info1.orig_freq_khz;
+				ev.pi_code = radio->pi;
+				ev.af_size = radio->af_info1.size;
+
+				memcpy(&ev.af_list[0],
+					radio->af_info1.af_list,
+					GET_AF_LIST_LEN(ev.af_size));
+
+				buff = &radio->data_buf[SILABS_FM_BUF_AF_LIST];
+				kfifo_in_locked(buff,
+						(u8 *)&ev,
+						GET_AF_EVT_LEN(ev.af_size),
+						&lock);
+
+				FMDBG("%s: posting AF list evt, curr freq %u\n",
+					__func__, ev.tune_freq_khz);
+
+				silabs_fm_q_event(radio,
+						SILABS_EVT_NEW_AF_LIST);
+			}
 		}
 	}
 }
@@ -1344,7 +1475,7 @@ static void silabs_af_tune(struct work_struct *work)
 
 	radio = container_of(work, struct silabs_fm_device, work_af.work);
 
-	if (radio->af_info.size == 0) {
+	if (radio->af_info1.size == 0) {
 		FMDBG("%s: Empty AF list\n", __func__);
 		radio->is_af_tune_in_progress = false;
 		return;
@@ -1373,11 +1504,11 @@ static void silabs_af_tune(struct work_struct *work)
 		}
 
 		/* If no more AFs left, tune to original frequency and break */
-		if (radio->af_info.index >= radio->af_info.size) {
+		if (radio->af_info1.index >= radio->af_info1.size) {
 			FMDBG("%s: No more AFs, tuning to original freq %u\n",
-				__func__, radio->af_info.orig_freq_khz);
+				__func__, radio->af_info1.orig_freq_khz);
 
-			freq = radio->af_info.orig_freq_khz;
+			freq = radio->af_info1.orig_freq_khz;
 
 			retval = tune(radio, freq);
 			if (retval < 0) {
@@ -1399,7 +1530,7 @@ static void silabs_af_tune(struct work_struct *work)
 			goto err_tune_fail;
 		}
 
-		freq = radio->af_info.af_list[radio->af_info.index++];
+		freq = radio->af_info1.af_list[radio->af_info1.index++];
 
 		FMDBG("%s: tuning to freq %u\n", __func__, freq);
 
@@ -1438,8 +1569,6 @@ static void silabs_af_tune(struct work_struct *work)
 	}
 
 err_tune_fail:
-	/* Unmute */
-	retval = set_hard_mute(radio, false);
 	/*
 	 * At this point, we are tuned to either original freq or AF with >=
 	 * AF rssi threshold
@@ -1457,6 +1586,8 @@ err_tune_fail:
 	retval = configure_interrupts(radio, ENABLE_RSQ_INTERRUPTS);
 
 end:
+	/* Unmute */
+	retval = set_hard_mute(radio, false);
 	return;
 }
 
@@ -2071,7 +2202,7 @@ static void silabs_interrupts_handler(struct silabs_fm_device *radio)
 			return;
 
 		if (radio->is_af_jump_enabled &&
-			radio->af_info.size != 0 &&
+			radio->af_info1.size != 0 &&
 			rssi <= radio->af_rssi_th) {
 
 			radio->is_af_tune_in_progress = true;
