@@ -1489,6 +1489,7 @@ void dhd_wait_batch_results_complete(dhd_pub_t *dhd)
 {
 	dhd_pno_status_info_t *_pno_state;
 	dhd_pno_params_t *_params;
+	int err = 0;
 
 	_pno_state = PNO_GET_PNOSTATE(dhd);
 	_params = &_pno_state->pno_params_arr[INDEX_OF_GSCAN_PARAMS];
@@ -1497,7 +1498,30 @@ void dhd_wait_batch_results_complete(dhd_pub_t *dhd)
 	if (_params->params_gscan.get_batch_flag == GSCAN_BATCH_RETRIEVAL_IN_PROGRESS) {
 		DHD_PNO(("%s: Waiting to complete retrieval..\n", __FUNCTION__));
 		wait_for_completion(&_pno_state->get_batch_done);
+	} else { /* GSCAN_BATCH_RETRIEVAL_COMPLETE */
+		gscan_results_cache_t *iter;
+		uint16 num_results = 0;
+
+		mutex_lock(&_pno_state->pno_mutex);
+		iter = _params->params_gscan.gscan_batch_cache;
+		while (iter) {
+			num_results += iter->tot_count - iter->tot_consumed;
+			iter = iter->next;
+		}
+		mutex_unlock(&_pno_state->pno_mutex);
+
+		/* All results consumed/No results cached??
+		 * Get fresh results from FW
+		 */
+		if (!num_results) {
+			DHD_PNO(("%s: No results cached, getting from FW..\n", __FUNCTION__));
+			err = dhd_retreive_batch_scan_results(dhd);
+			if ((err >= 0) && (_params->params_gscan.get_batch_flag ==
+			    GSCAN_BATCH_RETRIEVAL_IN_PROGRESS))
+				wait_for_completion(&_pno_state->get_batch_done);
+		}
 	}
+	DHD_PNO(("%s: Wait complete\n", __FUNCTION__));
 
 	return;
 }
@@ -3382,15 +3406,15 @@ int dhd_retreive_batch_scan_results(dhd_pub_t *dhd)
 
 	params_batch = &_pno_state->pno_params_arr[INDEX_OF_BATCH_PARAMS].params_batch;
 	if (_params->params_gscan.get_batch_flag == GSCAN_BATCH_RETRIEVAL_COMPLETE) {
-		DHD_PNO(("WLC_E_PFN_BEST_BATCHING\n"));
+		DHD_PNO(("Retreive batch results\n"));
 		params_batch->get_batch.buf = NULL;
 		params_batch->get_batch.bufsize = 0;
 		params_batch->get_batch.reason = PNO_STATUS_EVENT;
 		_params->params_gscan.get_batch_flag = GSCAN_BATCH_RETRIEVAL_IN_PROGRESS;
 		schedule_work(&_pno_state->work);
 	} else {
-		DHD_PNO(("%s : WLC_E_PFN_BEST_BATCHING"
-			"will skip this event\n", __FUNCTION__));
+		DHD_PNO(("%s : WLC_E_PFN_BEST_BATCHING retrieval"
+			"already in progress, will skip\n", __FUNCTION__));
 		err = -1;
 	}
 
@@ -3545,7 +3569,7 @@ dhd_process_full_gscan_result(dhd_pub_t *dhd, const void *data, int *size)
 
 	memcpy(result->ssid, bi->SSID, bi->SSID_len);
 	result->ssid[bi->SSID_len] = '\0';
-	channel = CHSPEC_CHANNEL(bi->chanspec);
+	channel = wf_chspec_ctlchan(bi->chanspec);
 	result->channel = wf_channel2mhz(channel,
 		(channel <= CH_MAX_2G_CHANNEL?
 		WF_CHAN_FACTOR_2_4_G : WF_CHAN_FACTOR_5_G));
