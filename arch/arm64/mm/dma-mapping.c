@@ -341,6 +341,52 @@ static int __swiotlb_get_sgtable(struct device *dev, struct sg_table *sgt,
 	return ret;
 }
 
+static void *arm64_dma_remap(struct device *dev, void *cpu_addr,
+			dma_addr_t handle, size_t size,
+			struct dma_attrs *attrs)
+{
+	struct page *page = phys_to_page(dma_to_phys(dev, handle));
+	pgprot_t prot = __get_dma_pgprot(PAGE_KERNEL, attrs);
+	unsigned long offset = handle & ~PAGE_MASK;
+	struct vm_struct *area;
+	unsigned long addr;
+
+	size = PAGE_ALIGN(size + offset);
+
+	/*
+	 * DMA allocation can be mapped to user space, so lets
+	 * set VM_USERMAP flags too.
+	 */
+	area = get_vm_area(size, VM_USERMAP);
+	if (!area)
+		return NULL;
+
+	addr = (unsigned long)area->addr;
+	area->phys_addr = __pfn_to_phys(page_to_pfn(page));
+
+	if (ioremap_page_range(addr, addr + size, area->phys_addr, prot)) {
+		vunmap((void *)addr);
+		return NULL;
+	}
+	return (void *)addr + offset;
+}
+
+static void arm64_dma_unremap(struct device *dev, void *remapped_addr,
+				size_t size)
+{
+	struct vm_struct *area;
+
+	remapped_addr = (void *)((unsigned long)remapped_addr & PAGE_MASK);
+
+	area = find_vm_area(remapped_addr);
+	if (!area) {
+		WARN(1, "trying to free invalid coherent area: %p\n",
+			remapped_addr);
+		return;
+	}
+	vunmap(remapped_addr);
+}
+
 static struct dma_map_ops swiotlb_dma_ops = {
 	.alloc = __dma_alloc,
 	.free = __dma_free,
@@ -356,6 +402,8 @@ static struct dma_map_ops swiotlb_dma_ops = {
 	.sync_sg_for_device = __swiotlb_sync_sg_for_device,
 	.dma_supported = swiotlb_dma_supported,
 	.mapping_error = swiotlb_dma_mapping_error,
+	.dma_remap = arm64_dma_remap,
+	.dma_unremap = arm64_dma_unremap,
 };
 
 static int __init atomic_pool_init(void)
@@ -406,7 +454,7 @@ static int __init atomic_pool_init(void)
 	goto out;
 
 remove_mapping:
-	dma_common_free_remap(addr, atomic_pool_size, VM_USERMAP);
+	dma_common_free_remap(addr, atomic_pool_size, VM_USERMAP, true);
 destroy_genpool:
 	gen_pool_destroy(atomic_pool);
 	atomic_pool = NULL;
@@ -624,7 +672,7 @@ static void __iommu_free_attrs(struct device *dev, size_t size, void *cpu_addr,
 		if (WARN_ON(!area || !area->pages))
 			return;
 		iommu_dma_free(dev, area->pages, iosize, &handle);
-		dma_common_free_remap(cpu_addr, size, VM_USERMAP);
+		dma_common_free_remap(cpu_addr, size, VM_USERMAP, true);
 	} else {
 		iommu_dma_unmap_page(dev, handle, iosize, 0, NULL);
 		__free_pages(virt_to_page(cpu_addr), get_order(size));
