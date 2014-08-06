@@ -1524,6 +1524,8 @@ int msm_isp_set_src_state(struct vfe_device *vfe_dev, void *arg)
 		return -EINVAL;
 	vfe_dev->axi_data.src_info[src_state->input_src].active =
 	src_state->src_active;
+	vfe_dev->axi_data.src_info[src_state->input_src].frame_id =
+	src_state->src_frame_id;
 	return 0;
 }
 
