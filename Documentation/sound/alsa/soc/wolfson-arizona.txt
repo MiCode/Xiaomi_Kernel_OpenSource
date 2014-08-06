@@ -32,14 +32,15 @@ Set low/high pass filter coeffs through ALSA controls Y       Y       Y       Y
 Set DRC coefficient through ALSA controls             Y       Y       Y       Y
 Noise Gates controlled via ALSA controls              Y       Y       Y       Y
 Configure inputs as analogue or digital mic [note 1]  Y       Y       Y       Y
-Input mux controls [note 9]                           -       Y       -       -
+Input mux controls [note 8]                           -       Y       -       -
 Config analogue inputs as single-ended
           or differential [note 1]                    Y       Y       Y       Y
 Host I2S routing to any AIF                           Y       Y       Y       Y
 I2S TDM (multi-channel) [note 2]                      Y       Y       Y       Y
-Configure TDM slot order                              N       N       N       N
+Configure TDM active slots [note 2]                   Y       Y       Y       Y
+Configure TDM slot size [note 2]                      Y       Y       Y       Y
 AEC loopback control                                  Y       Y       Y       Y
-ANC block control [note 8]                            -       -       -       N
+ANC block control                                     -       -       -       Y
 Configure ADSP firmware for each ADSP core [note 3]   -       -       Y       Y
 Runtime-configurable ADSP firmware selection [note 6] -       -       Y       Y
 Auto-load ADSP firmware when ADSP is in audio path    -       -       Y       Y
@@ -73,7 +74,12 @@ Support trace firmware                                -       -       -       Y
 
 Notes:
 1. Integration-time configuration. Not possible to change at runtime
-2. TDM is only possible if host I2S controller and driver support TDM
+2. TDM is only possible if host I2S controller and I2S driver support TDM
+    The set_tdm_slot() function is implemented to enable configuration of the
+    slot size and which slots the codec will use. Codec channels are mapped in
+    ascending order to the active slots - for example if the active TX slots in
+    the I2S frame are 0, 1, and 7 then they will be mapped
+    0->AIFTX1 1->AIFTX2 7->AIFTX3
 3. Currently limited to set of known firmwares
 4. Limited control of domain 2/3 frequency
 5. Configured in ASoC machine driver
@@ -83,9 +89,7 @@ Notes:
         active path
 7. Configuration from device tree is work-in-progress so there may be some
         pdata settings that have not yet been migrated to device tree
-8. The ANC is normally used by ADSP firmwares and there is currently no support
-        for using it directly from the host
-9. See below for a description of the input mux routing on WM8998. The input
+8. See below for a description of the input mux routing on WM8998. The input
         mux should be set _before_ connecting it into an audio path. If one
         input is configured as digital, that setting will be applied only when
         the input is powered up as part of an active audio route - the
