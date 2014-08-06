@@ -589,6 +589,22 @@ int ufs_msm_phy_save_configuration(struct phy *generic_phy)
 	return ret;
 }
 
+int ufs_msm_phy_restore_configuration(struct phy *generic_phy)
+{
+	struct ufs_msm_phy *ufs_msm_phy = get_ufs_msm_phy(generic_phy);
+	int ret = 0;
+
+	if (!ufs_msm_phy->phy_spec_ops->restore_configuration) {
+		dev_err(ufs_msm_phy->dev, "%s: restore_configuration() callback is not supported\n",
+			__func__);
+		ret = -ENOTSUPP;
+	} else {
+		ufs_msm_phy->phy_spec_ops->restore_configuration(ufs_msm_phy);
+	}
+
+	return ret;
+}
+
 int ufs_msm_phy_power_on(struct phy *generic_phy)
 {
 	struct ufs_msm_phy *phy_common = get_ufs_msm_phy(generic_phy);
