@@ -852,6 +852,7 @@
 			reg = <0xd300 0x100>;
 			label = "flash";
 			flash-boost-supply = <&pm8226_chg_boost>;
+			flash-wa-supply = <&pm8226_chg_chgr>;
 			pm8226_flash0: qcom,flash_0 {
 				qcom,max-current = <1000>;
 				qcom,default-state = "off";
