@@ -3801,7 +3801,7 @@ wl_cfg80211_connect(struct wiphy *wiphy, struct net_device *dev,
 #endif /* ROAM_CHANNEL_CACHE */
 	int ret;
 	int wait_cnt;
-
+	bool use_chan_cache = FALSE;
 	WL_DBG(("In\n"));
 
 	if (unlikely(!sme->ssid)) {
@@ -3949,7 +3949,7 @@ wl_cfg80211_connect(struct wiphy *wiphy, struct net_device *dev,
 #ifdef ROAM_CHANNEL_CACHE
 		wlc_ssid_t ssid;
 		int band;
-
+		use_chan_cache = TRUE;
 		err = wldev_get_band(dev, &band);
 		if (!err) {
 			set_roam_band(band);
@@ -4028,23 +4028,23 @@ wl_cfg80211_connect(struct wiphy *wiphy, struct net_device *dev,
 		memcpy(&ext_join_params->assoc.bssid, &ether_bcast, ETH_ALEN);
 	ext_join_params->assoc.chanspec_num = chan_cnt;
 	if (chan_cnt) {
-#ifdef ROAM_CHANNEL_CACHE
-		memcpy(ext_join_params->assoc.chanspec_list, chanspec_list,
-			sizeof(chanspec_t) * chan_cnt);
-#else
-		u16 channel, band, bw, ctl_sb;
-		chanspec_t chspec;
-		channel = cfg->channel;
-		band = (channel <= CH_MAX_2G_CHANNEL) ? WL_CHANSPEC_BAND_2G
-			: WL_CHANSPEC_BAND_5G;
-		bw = WL_CHANSPEC_BW_20;
-		ctl_sb = WL_CHANSPEC_CTL_SB_NONE;
-		chspec = (channel | band | bw | ctl_sb);
-		ext_join_params->assoc.chanspec_list[0]  &= WL_CHANSPEC_CHAN_MASK;
-		ext_join_params->assoc.chanspec_list[0] |= chspec;
-		ext_join_params->assoc.chanspec_list[0] =
-			wl_chspec_host_to_driver(ext_join_params->assoc.chanspec_list[0]);
-#endif /* ROAM_CHANNEL_CACHE */
+		if (use_chan_cache) {
+			memcpy(ext_join_params->assoc.chanspec_list, chanspec_list,
+				sizeof(chanspec_t) * chan_cnt);
+		} else {
+			u16 channel, band, bw, ctl_sb;
+			chanspec_t chspec;
+			channel = cfg->channel;
+			band = (channel <= CH_MAX_2G_CHANNEL) ? WL_CHANSPEC_BAND_2G
+				: WL_CHANSPEC_BAND_5G;
+			bw = WL_CHANSPEC_BW_20;
+			ctl_sb = WL_CHANSPEC_CTL_SB_NONE;
+			chspec = (channel | band | bw | ctl_sb);
+			ext_join_params->assoc.chanspec_list[0]  &= WL_CHANSPEC_CHAN_MASK;
+			ext_join_params->assoc.chanspec_list[0] |= chspec;
+			ext_join_params->assoc.chanspec_list[0] =
+				wl_chspec_host_to_driver(ext_join_params->assoc.chanspec_list[0]);
+		}
 	}
 	ext_join_params->assoc.chanspec_num = htod32(ext_join_params->assoc.chanspec_num);
 	if (ext_join_params->ssid.SSID_len < IEEE80211_MAX_SSID_LEN) {
