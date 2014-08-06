@@ -14,6 +14,7 @@
 
 #include "apq8084-v1.1.dtsi"
 #include "apq8084-mtp.dtsi"
+#include "apq8084-taiko-i2s-codec.dtsi"
 
 / {
 	model = "Qualcomm Technologies, Inc. APQ 8084 v1.1, SMB1359 MDM9x35 ALT MTP";
@@ -80,6 +81,19 @@
 	esoc-0 = <&mdm1>;
 };
 
+&pma8084_gpios {
+	gpio@c000 { /* GPIO 1 */
+		qcom,mode = <1>;
+		qcom,output-type = <0>;		/* CMOS logic */
+		qcom,pull = <5>;		/* QPNP_PIN_PULL_NO */
+		qcom,vin-sel = <2>;		/* PMA8084 S4 = 1.8 V */
+		qcom,src-sel = <0>;		/* GPIO */
+		qcom,invert = <0>;		/* Do not invert the output */
+		qcom,master-en = <1>;		/* Enable GPIO */
+		qcom,out-strength = <3>;        /* High drive strength */
+	};
+};
+
 &soc {
 	qcom,boost-dynamic-controller {
 		compatible = "qcom,boost-dynamic-controller";
@@ -90,5 +104,56 @@
 		qcom,boost-dynamic-controller-boost-resource-type = "bbya";
 		qcom,boost-dynamic-controller-boost-resource-key = "bypa";
 		qcom,boost-dynamic-controller-boost-resource-id = <1>;
+	};
+
+	sound {
+		compatible = "qcom,apq8084-audio-i2s-taiko";
+		qcom,model = "apq8084-taiko-i2s-mtp-snd-card";
+
+		qcom,audio-routing =
+			"RX_BIAS", "MCLK",
+			"LDO_H", "MCLK",
+			"AIF4 MAD", "MCLK",
+			"AMIC1", "MIC BIAS1 Internal1",
+			"MIC BIAS1 Internal1", "Handset Mic",
+			"AMIC2", "MIC BIAS2 External",
+			"MIC BIAS2 External", "Headset Mic",
+			"AMIC3", "MIC BIAS2 External",
+			"MIC BIAS2 External", "ANCRight Headset Mic",
+			"AMIC4", "MIC BIAS2 External",
+			"MIC BIAS2 External", "ANCLeft Headset Mic",
+			"DMIC1", "MIC BIAS1 External",
+			"MIC BIAS1 External", "Digital Mic1",
+			"DMIC4", "MIC BIAS3 External",
+			"MIC BIAS3 External", "Digital Mic4";
+
+		qcom,codec-mclk-clk-freq = <12288000>;
+		qcom,cdc-micbias2-headset-only;
+		qcom,mclk-ctrl-gpio  = <&pma8084_gpios 1 0>;
+		qcom,prim-auxpcm-gpio-set = "prim-gpio-prim";
+		pinctrl-names = "pmx-pri-mi2s-active",
+				"pmx-pri-quad-mi2s-active",
+				"pmx-quad-mi2s-active",
+				"pmx-pri-quad-mi2s-sleep";
+		pinctrl-0 = <&pri_mi2s_active &quad_mi2s_sleep>;
+		pinctrl-1 = <&pri_mi2s_active &quad_mi2s_active>;
+		pinctrl-2 = <&pri_mi2s_sleep &quad_mi2s_active>;
+		pinctrl-3 = <&pri_mi2s_sleep &quad_mi2s_sleep>;
+	};
+
+	qcom,msm-dai-mi2s {
+		qcom,msm-dai-q6-mi2s-prim {
+			compatible = "qcom,msm-dai-q6-mi2s";
+			qcom,msm-dai-q6-mi2s-dev-id = <0>;
+			qcom,msm-mi2s-rx-lines = <2>;
+			qcom,msm-mi2s-tx-lines = <1>;
+		};
+
+		qcom,msm-dai-q6-mi2s-quat {
+			compatible = "qcom,msm-dai-q6-mi2s";
+			qcom,msm-dai-q6-mi2s-dev-id = <3>;
+			qcom,msm-mi2s-rx-lines = <2>;
+			qcom,msm-mi2s-tx-lines = <1>;
+		};
 	};
 };
