@@ -242,7 +242,8 @@ static int ufs_msm_power_up_sequence(struct ufs_hba *hba)
 	 * voltage, current to settle down before starting serdes.
 	 */
 	usleep_range(1000, 1100);
-	if (ufs_msm_phy_start_serdes(phy)) {
+	ret = ufs_msm_phy_start_serdes(phy);
+	if (ret) {
 		dev_err(hba->dev, "%s: ufs_msm_phy_start_serdes() failed, ret = %d\n",
 			__func__, ret);
 		goto out;
@@ -497,7 +498,26 @@ static int ufs_msm_resume(struct ufs_hba *hba, enum ufs_pm_op pm_op)
 		 */
 		usleep_range(1000, 1100);
 
-		err = phy_resume(host->generic_phy);
+		err = ufs_msm_phy_start_serdes(phy);
+		if (err) {
+			dev_err(hba->dev, "%s: ufs_msm_phy_start_serdes() failed, err = %d\n",
+				__func__, err);
+			goto out;
+		}
+
+		err = ufs_msm_phy_restore_configuration(phy);
+		if (err) {
+			dev_err(hba->dev, "%s: ufs_msm_phy_restore_configuration() failed, err = %d\n",
+				__func__, err);
+			goto out;
+		}
+
+		err = ufs_msm_phy_is_pcs_ready(phy);
+		if (err) {
+			dev_err(hba->dev, "%s: is_physical_coding_sublayer_ready() failed, err = %d\n",
+				__func__, err);
+			goto out;
+		}
 	}
 
 	hba->is_sys_suspended = false;
@@ -787,7 +807,6 @@ out:
  */
 static void ufs_msm_advertise_quirks(struct ufs_hba *hba)
 {
-	struct ufs_msm_host *host = hba->priv;
 	u8 major;
 	u16 minor, step;
 
@@ -802,8 +821,6 @@ static void ufs_msm_advertise_quirks(struct ufs_hba *hba)
 		hba->quirks |= (UFSHCD_QUIRK_DELAY_BEFORE_DME_CMDS
 			      | UFSHCD_QUIRK_BROKEN_PA_RXHSUNTERMCAP
 			      | UFSHCD_QUIRK_BROKEN_LCC);
-
-	phy_advertise_quirks(host->generic_phy);
 }
 
 static int ufs_msm_get_bus_vote(struct ufs_msm_host *host,
