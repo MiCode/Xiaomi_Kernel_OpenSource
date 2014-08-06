@@ -2563,9 +2563,7 @@ gen8_ring_dispatch_execbuffer(struct intel_engine_cs *ring,
 			      void *priv_data, u32 priv_length,
 			      unsigned flags)
 {
-	struct drm_i915_private *dev_priv = ring->dev->dev_private;
-	bool ppgtt = dev_priv->mm.aliasing_ppgtt != NULL &&
-		!(flags & I915_DISPATCH_SECURE);
+	bool ppgtt = USES_PPGTT(ring->dev) && !(flags & I915_DISPATCH_SECURE);
 	int ret;
 
 	ret = intel_ring_begin(ring, 4);
