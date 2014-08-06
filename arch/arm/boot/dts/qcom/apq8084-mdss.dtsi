@@ -144,6 +144,7 @@
 		mdss_fb1: qcom,mdss_fb_external {
 			cell-index = <1>;
 			compatible = "qcom,mdss-fb";
+			qcom,memblock-reserve = <0x05200000 0x01E00000>;
 		};
 
 		mdss_fb2: qcom,mdss_fb_wfd {
@@ -358,6 +359,7 @@
 		qcom,hdmi-tx-ddc-data = <&msmgpio 33 0>;
 		qcom,hdmi-tx-hpd = <&msmgpio 34 0>;
 		qcom,mdss-fb-map = <&mdss_fb1>;
+		qcom,cont-splash-enabled;
 		qcom,msm-hdmi-audio-rx {
 			compatible = "qcom,msm-hdmi-audio-codec-rx";
 		};
