@@ -331,6 +331,52 @@ static int __swiotlb_mmap_coherent(struct device *dev,
 	return __dma_common_mmap(dev, vma, cpu_addr, dma_addr, size);
 }
 
+static void *arm64_dma_remap(struct device *dev, void *cpu_addr,
+			dma_addr_t handle, size_t size,
+			struct dma_attrs *attrs)
+{
+	struct page *page = phys_to_page(dma_to_phys(dev, handle));
+	pgprot_t prot = __get_dma_pgprot(PAGE_KERNEL, attrs);
+	unsigned long offset = handle & ~PAGE_MASK;
+	struct vm_struct *area;
+	unsigned long addr;
+
+	size = PAGE_ALIGN(size + offset);
+
+	/*
+	 * DMA allocation can be mapped to user space, so lets
+	 * set VM_USERMAP flags too.
+	 */
+	area = get_vm_area(size, VM_USERMAP);
+	if (!area)
+		return NULL;
+
+	addr = (unsigned long)area->addr;
+	area->phys_addr = __pfn_to_phys(page_to_pfn(page));
+
+	if (ioremap_page_range(addr, addr + size, area->phys_addr, prot)) {
+		vunmap((void *)addr);
+		return NULL;
+	}
+	return (void *)addr + offset;
+}
+
+static void arm64_dma_unremap(struct device *dev, void *remapped_addr,
+				size_t size)
+{
+	struct vm_struct *area;
+
+	remapped_addr = (void *)((unsigned long)remapped_addr & PAGE_MASK);
+
+	area = find_vm_area(remapped_addr);
+	if (!area) {
+		WARN(1, "trying to free invalid coherent area: %p\n",
+			remapped_addr);
+		return;
+	}
+	vunmap(remapped_addr);
+}
+
 const struct dma_map_ops noncoherent_swiotlb_dma_ops = {
 	.alloc = __dma_alloc_noncoherent,
 	.free = __dma_free_noncoherent,
@@ -345,6 +391,8 @@ const struct dma_map_ops noncoherent_swiotlb_dma_ops = {
 	.sync_sg_for_device = __swiotlb_sync_sg_for_device,
 	.dma_supported = swiotlb_dma_supported,
 	.mapping_error = swiotlb_dma_mapping_error,
+	.dma_remap = arm64_dma_remap,
+	.dma_unremap = arm64_dma_unremap,
 };
 EXPORT_SYMBOL(noncoherent_swiotlb_dma_ops);
 
@@ -415,7 +463,7 @@ static int __init atomic_pool_init(void)
 	goto out;
 
 remove_mapping:
-	dma_common_free_remap(addr, atomic_pool_size, VM_USERMAP);
+	dma_common_free_remap(addr, atomic_pool_size, VM_USERMAP, true);
 destroy_genpool:
 	gen_pool_destroy(atomic_pool);
 	atomic_pool = NULL;
@@ -861,7 +909,7 @@ void arm_iommu_free_attrs(struct device *dev, size_t size, void *cpu_addr,
 	}
 
 	if (!dma_get_attr(DMA_ATTR_NO_KERNEL_MAPPING, attrs))
-		dma_common_free_remap(cpu_addr, size, VM_USERMAP);
+		dma_common_free_remap(cpu_addr, size, VM_USERMAP, true);
 
 	__iommu_remove_mapping(dev, handle, size);
 	__iommu_free_buffer(dev, pages, size, attrs);
