@@ -1304,8 +1304,6 @@ struct hfi_device {
 	int (*session_release_res)(void *sess);
 	int (*session_start)(void *sess);
 	int (*session_stop)(void *sess);
-	int (*session_suspend)(void *sess);
-	int (*session_resume)(void *sess);
 	int (*session_etb)(void *sess,
 			struct vidc_frame_data *input_frame);
 	int (*session_ftb)(void *sess,

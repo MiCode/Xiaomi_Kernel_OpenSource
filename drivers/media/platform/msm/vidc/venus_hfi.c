@@ -2684,18 +2684,6 @@ static int venus_hfi_session_stop(void *sess)
 		HFI_CMD_SESSION_STOP);
 }
 
-static int venus_hfi_session_suspend(void *sess)
-{
-	return venus_hfi_send_session_cmd(sess,
-		HFI_CMD_SESSION_SUSPEND);
-}
-
-static int venus_hfi_session_resume(void *sess)
-{
-	return venus_hfi_send_session_cmd(sess,
-		HFI_CMD_SESSION_RESUME);
-}
-
 static int venus_hfi_session_etb(void *sess,
 				struct vidc_frame_data *input_frame)
 {
@@ -4237,8 +4225,6 @@ static void venus_init_hfi_callbacks(struct hfi_device *hdev)
 	hdev->session_release_res = venus_hfi_session_release_res;
 	hdev->session_start = venus_hfi_session_start;
 	hdev->session_stop = venus_hfi_session_stop;
-	hdev->session_suspend = venus_hfi_session_suspend;
-	hdev->session_resume = venus_hfi_session_resume;
 	hdev->session_etb = venus_hfi_session_etb;
 	hdev->session_ftb = venus_hfi_session_ftb;
 	hdev->session_parse_seq_hdr = venus_hfi_session_parse_seq_hdr;
