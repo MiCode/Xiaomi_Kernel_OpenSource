@@ -276,64 +276,6 @@ int phy_power_off(struct phy *phy)
 }
 EXPORT_SYMBOL_GPL(phy_power_off);
 
-int phy_suspend(struct phy *phy)
-{
-	int ret = 0;
-
-	if (!phy->ops->suspend)
-		return -ENOTSUPP;
-
-	mutex_lock(&phy->mutex);
-
-	if (--phy->resume_count == 0) {
-		ret =  phy->ops->suspend(phy);
-		if (ret) {
-			dev_err(&phy->dev, "phy suspend failed --> %d\n", ret);
-			/* reverting the resume_count since suspend failed */
-			phy->resume_count++;
-			goto out;
-		}
-	}
-out:
-	mutex_unlock(&phy->mutex);
-	return ret;
-}
-EXPORT_SYMBOL(phy_suspend);
-
-int phy_resume(struct phy *phy)
-{
-	int ret = 0;
-
-	if (!phy->ops->resume)
-		return -ENOTSUPP;
-
-	mutex_lock(&phy->mutex);
-
-	if (phy->resume_count++ == 0) {
-		ret =  phy->ops->resume(phy);
-		if (ret) {
-			dev_err(&phy->dev, "phy resume failed --> %d\n", ret);
-			/* reverting the resume_count since resume failed */
-			phy->resume_count--;
-			goto out;
-		}
-	}
-out:
-	mutex_unlock(&phy->mutex);
-	return ret;
-}
-EXPORT_SYMBOL(phy_resume);
-
-void phy_advertise_quirks(struct phy *phy)
-{
-	if (phy->ops->advertise_quirks) {
-		mutex_lock(&phy->mutex);
-		phy->ops->advertise_quirks(phy);
-		mutex_unlock(&phy->mutex);
-	}
-}
-EXPORT_SYMBOL(phy_advertise_quirks);
-
 /**
  * _of_phy_get() - lookup and obtain a reference to a phy by phandle
  * @np: device_node for which to get the phy
