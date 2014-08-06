@@ -189,29 +189,27 @@ int set_l2_mode(struct low_power_ops *ops, int mode, bool notify_rpm)
 {
 	int lpm = mode;
 	int rc = 0;
-	static bool coresight_saved;
 
-	ops->tz_flag = MSM_SCM_L2_ON;
+	if (ops->tz_flag == MSM_SCM_L2_OFF ||
+			ops->tz_flag == MSM_SCM_L2_GDHS)
+		coresight_cti_ctx_restore();
+
 
 	switch (mode) {
 	case MSM_SPM_MODE_POWER_COLLAPSE:
 		ops->tz_flag = MSM_SCM_L2_OFF;
 		coresight_cti_ctx_save();
-		coresight_saved = true;
 		break;
 	case MSM_SPM_MODE_GDHS:
 		ops->tz_flag = MSM_SCM_L2_GDHS;
 		coresight_cti_ctx_save();
-		coresight_saved = true;
 		break;
 	case MSM_SPM_MODE_RETENTION:
 	case MSM_SPM_MODE_DISABLED:
-		if (coresight_saved) {
-			coresight_cti_ctx_restore();
-			coresight_saved = false;
-		}
+		ops->tz_flag = MSM_SCM_L2_ON;
 		break;
 	default:
+		ops->tz_flag = MSM_SCM_L2_ON;
 		lpm = MSM_SPM_MODE_DISABLED;
 		break;
 	}
