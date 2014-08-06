@@ -1333,7 +1333,7 @@ compute_demand:
 
 	if (update_sum && (p->ravg.flags & CURR_WINDOW_CONTRIB)) {
 		rq->curr_runnable_sum -= p->ravg.partial_demand;
-		BUG_ON((int)rq->curr_runnable_sum < 0);
+		BUG_ON((s64)rq->curr_runnable_sum < 0);
 	}
 
 	p->ravg.partial_demand = demand;
@@ -1542,7 +1542,7 @@ static void update_task_ravg(struct task_struct *p, struct rq *rq,
 			} else  {
 				if (!nr_full_windows) {
 					rq->prev_runnable_sum -= partial_demand;
-					BUG_ON(rq->prev_runnable_sum < 0);
+					BUG_ON((s64)rq->prev_runnable_sum < 0);
 				}
 				rq->prev_runnable_sum += p->ravg.demand;
 				rq->curr_runnable_sum += p->ravg.partial_demand;
@@ -2030,8 +2030,8 @@ static void fixup_busy_time(struct task_struct *p, int new_cpu)
 		dest_rq->prev_runnable_sum += p->ravg.demand;
 	}
 
-	BUG_ON((int)src_rq->prev_runnable_sum < 0);
-	BUG_ON((int)src_rq->curr_runnable_sum < 0);
+	BUG_ON((s64)src_rq->prev_runnable_sum < 0);
+	BUG_ON((s64)src_rq->curr_runnable_sum < 0);
 
 	trace_sched_migration_update_sum(src_rq);
 	trace_sched_migration_update_sum(dest_rq);
