@@ -88,10 +88,6 @@ static int secondary_pen_release(unsigned int cpu)
 
 static int __init msm_cpu_init(struct device_node *dn, unsigned int cpu)
 {
-	/* Mark CPU0 cold boot flag as done */
-	if (!cpu && !per_cpu(cold_boot_done, cpu))
-		per_cpu(cold_boot_done, cpu) = true;
-
 	return 0;
 }
 
@@ -122,6 +118,10 @@ static int __init msm_cpu_prepare(unsigned int cpu)
 			return -ENOSYS;
 		}
 	}
+
+	/* Mark CPU0 cold boot flag as done */
+	if (per_cpu(cold_boot_done, 0) == false)
+		per_cpu(cold_boot_done, 0) = true;
 
 	return 0;
 }
