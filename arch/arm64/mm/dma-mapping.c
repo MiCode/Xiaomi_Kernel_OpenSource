@@ -30,19 +30,22 @@
 #include <linux/io.h>
 
 #include <asm/cacheflush.h>
+#include <asm/tlbflush.h>
 
 static int swiotlb __read_mostly;
 
 static pgprot_t __get_dma_pgprot(unsigned long attrs, pgprot_t prot,
 				 bool coherent)
 {
-	if (!coherent || (attrs & DMA_ATTR_WRITE_COMBINE))
+	if (attrs & DMA_ATTR_STRONGLY_ORDERED)
+		return pgprot_noncached(prot);
+	else if (!coherent || (attrs & DMA_ATTR_WRITE_COMBINE))
 		return pgprot_writecombine(prot);
 	return prot;
 }
 
 static struct gen_pool *atomic_pool;
-
+#define NO_KERNEL_MAPPING_DUMMY 0x2222
 #define DEFAULT_DMA_COHERENT_POOL_SIZE  SZ_256K
 static size_t atomic_pool_size __initdata = DEFAULT_DMA_COHERENT_POOL_SIZE;
 
@@ -90,6 +93,42 @@ static int __free_from_pool(void *start, size_t size)
 	return 1;
 }
 
+static int __dma_update_pte(pte_t *pte, pgtable_t token, unsigned long addr,
+			    void *data)
+{
+	struct page *page = virt_to_page(addr);
+	pgprot_t prot = *(pgprot_t *)data;
+
+	set_pte(pte, mk_pte(page, prot));
+	return 0;
+}
+
+static int __dma_clear_pte(pte_t *pte, pgtable_t token, unsigned long addr,
+			    void *data)
+{
+	pte_clear(&init_mm, addr, pte);
+	return 0;
+}
+
+static void __dma_remap(struct page *page, size_t size, pgprot_t prot,
+			bool no_kernel_map)
+{
+	unsigned long start = (unsigned long) page_address(page);
+	unsigned long end = start + size;
+	int (*func)(pte_t *pte, pgtable_t token, unsigned long addr,
+			    void *data);
+
+	if (no_kernel_map)
+		func = __dma_clear_pte;
+	else
+		func = __dma_update_pte;
+
+	apply_to_page_range(&init_mm, start, size, func, &prot);
+	/* ensure prot is applied before returning */
+	mb();
+	flush_tlb_kernel_range(start, end);
+}
+
 static void *__dma_alloc_coherent(struct device *dev, size_t size,
 				  dma_addr_t *dma_handle, gfp_t flags,
 				  unsigned long attrs)
@@ -114,6 +153,16 @@ static void *__dma_alloc_coherent(struct device *dev, size_t size,
 		*dma_handle = phys_to_dma(dev, page_to_phys(page));
 		addr = page_address(page);
 		memset(addr, 0, size);
+
+		if ((attrs & DMA_ATTR_NO_KERNEL_MAPPING) ||
+		    (attrs & DMA_ATTR_STRONGLY_ORDERED)) {
+			/*
+			 * flush the caches here because we can't later
+			 */
+			__dma_flush_range(addr, addr + size);
+			__dma_remap(page, size, __pgprot(0), true);
+		}
+
 		return addr;
 	} else {
 		return swiotlb_alloc_coherent(dev, size, dma_handle, flags);
@@ -127,10 +176,15 @@ static void __dma_free_coherent(struct device *dev, size_t size,
 	bool freed;
 	phys_addr_t paddr = dma_to_phys(dev, dma_handle);
 
+	size = PAGE_ALIGN(size);
 	if (dev == NULL) {
 		WARN_ONCE(1, "Use an actual device structure for DMA allocation\n");
 		return;
 	}
+
+	if ((attrs & DMA_ATTR_NO_KERNEL_MAPPING) ||
+	    (attrs & DMA_ATTR_STRONGLY_ORDERED))
+		__dma_remap(phys_to_page(paddr), size, PAGE_KERNEL, false);
 
 	freed = dma_release_from_contiguous(dev,
 					phys_to_page(paddr),
@@ -146,7 +200,6 @@ static void *__dma_alloc(struct device *dev, size_t size,
 	struct page *page;
 	void *ptr, *coherent_ptr;
 	bool coherent = is_device_dma_coherent(dev);
-	pgprot_t prot = __get_dma_pgprot(attrs, PAGE_KERNEL, false);
 
 	size = PAGE_ALIGN(size);
 
@@ -168,16 +221,23 @@ static void *__dma_alloc(struct device *dev, size_t size,
 	if (coherent)
 		return ptr;
 
-	/* remove any dirty cache lines on the kernel alias */
-	__dma_flush_range(ptr, ptr + size);
+	if (attrs & DMA_ATTR_NO_KERNEL_MAPPING) {
+		coherent_ptr = (void *)NO_KERNEL_MAPPING_DUMMY;
+	} else {
+		pgprot_t prot;
 
-	/* create a coherent mapping */
-	page = virt_to_page(ptr);
-	coherent_ptr = dma_common_contiguous_remap(page, size, VM_USERMAP,
-						   prot, __builtin_return_address(0));
-	if (!coherent_ptr)
-		goto no_map;
+		if (!(attrs & DMA_ATTR_STRONGLY_ORDERED))
+			/* remove any dirty cache lines on the kernel alias */
+			__dma_flush_range(ptr, ptr + size);
 
+		/* create a coherent mapping */
+		page = virt_to_page(ptr);
+		prot = __get_dma_pgprot(attrs, __pgprot(PROT_NORMAL_NC), false);
+		coherent_ptr = dma_common_contiguous_remap(
+					page, size, VM_USERMAP, prot, NULL);
+		if (!coherent_ptr)
+			goto no_map;
+	}
 	return coherent_ptr;
 
 no_map:
@@ -198,7 +258,8 @@ static void __dma_free(struct device *dev, size_t size,
 	if (!is_device_dma_coherent(dev)) {
 		if (__free_from_pool(vaddr, size))
 			return;
-		vunmap(vaddr);
+		if (!(attrs & DMA_ATTR_NO_KERNEL_MAPPING))
+			vunmap(vaddr);
 	}
 	__dma_free_coherent(dev, size, swiotlb_addr, dma_handle, attrs);
 }
