@@ -251,6 +251,12 @@ static acpi_status pnpacpi_allocated_resource(struct acpi_resource *res,
 	case ACPI_RESOURCE_TYPE_GENERIC_REGISTER:
 		break;
 
+	case ACPI_RESOURCE_TYPE_GPIO:
+		break;
+
+	case ACPI_RESOURCE_TYPE_SERIAL_BUS:
+		break;
+
 	default:
 		dev_warn(&dev->dev, "unknown resource type %d in _CRS\n",
 			 res->type);
