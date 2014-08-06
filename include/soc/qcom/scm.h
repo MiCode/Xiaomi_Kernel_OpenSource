@@ -115,6 +115,7 @@ extern u32 scm_get_version(void);
 extern int scm_is_call_available(u32 svc_id, u32 cmd_id);
 extern int scm_get_feat_version(u32 feat);
 extern bool is_scm_armv8(void);
+extern int scm_restore_sec_cfg(u32 device_id, u32 spare, int *scm_ret);
 
 #define SCM_HDCP_MAX_REG 5
 
@@ -195,5 +196,9 @@ static inline bool is_scm_armv8(void)
 	return true;
 }
 
+static inline int scm_restore_sec_cfg(u32 device_id, u32 spare, int *scm_ret)
+{
+	return 0;
+}
 #endif
 #endif
