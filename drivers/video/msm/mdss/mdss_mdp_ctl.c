@@ -2707,7 +2707,8 @@ int mdss_mdp_mixer_addr_setup(struct mdss_data_type *mdata,
 		head[i].base = mdata->mdss_io.base + mixer_offsets[i];
 		head[i].ref_cnt = 0;
 		head[i].num = i;
-		if (type == MDSS_MDP_MIXER_TYPE_INTF) {
+		if (type == MDSS_MDP_MIXER_TYPE_INTF && dspp_offsets
+				&& pingpong_offsets) {
 			if (mdata->ndspp > i)
 				head[i].dspp_base = mdata->mdss_io.base +
 						dspp_offsets[i];
