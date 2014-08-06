@@ -53,6 +53,13 @@ static int ufs_msm_phy_qmp_20nm_phy_calibrate(struct ufs_msm_phy *ufs_msm_phy)
 	return err;
 }
 
+static
+void ufs_msm_phy_qmp_20nm_advertise_quirks(struct ufs_msm_phy *phy_common)
+{
+	phy_common->quirks =
+		MSM_UFS_PHY_QUIRK_HIBERN8_EXIT_AFTER_PHY_PWR_COLLAPSE;
+}
+
 static int ufs_msm_phy_qmp_20nm_init(struct phy *generic_phy)
 {
 	struct ufs_msm_phy_qmp_20nm *phy = phy_get_drvdata(generic_phy);
@@ -67,9 +74,13 @@ static int ufs_msm_phy_qmp_20nm_init(struct phy *generic_phy)
 	}
 
 	err = ufs_msm_phy_init_vregulators(generic_phy, phy_common);
-	if (err)
+	if (err) {
 		dev_err(phy_common->dev, "%s: ufs_msm_phy_init_vregulators() failed %d\n",
 			__func__, err);
+		goto out;
+	}
+
+	ufs_msm_phy_qmp_20nm_advertise_quirks(phy_common);
 
 out:
 	return err;
@@ -158,21 +169,11 @@ static int ufs_msm_phy_qmp_20nm_is_pcs_ready(struct ufs_msm_phy *phy_common)
 	return err;
 }
 
-static void ufs_msm_phy_qmp_20nm_advertise_quirks(struct phy *generic_phy)
-{
-	struct ufs_msm_phy_qmp_20nm *phy =  phy_get_drvdata(generic_phy);
-	struct ufs_msm_phy *phy_common = &(phy->common_cfg);
-
-	phy_common->quirks =
-		MSM_UFS_PHY_QUIRK_HIBERN8_EXIT_AFTER_PHY_PWR_COLLAPSE;
-}
-
 struct phy_ops ufs_msm_phy_qmp_20nm_phy_ops = {
 	.init		= ufs_msm_phy_qmp_20nm_init,
 	.exit		= ufs_msm_phy_exit,
 	.power_on	= ufs_msm_phy_power_on,
 	.power_off	= ufs_msm_phy_power_off,
-	.advertise_quirks = ufs_msm_phy_qmp_20nm_advertise_quirks,
 	.owner		= THIS_MODULE,
 };
 

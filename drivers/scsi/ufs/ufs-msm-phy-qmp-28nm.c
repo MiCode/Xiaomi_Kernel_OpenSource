@@ -75,6 +75,13 @@ void ufs_msm_phy_qmp_28nm_power_control(struct ufs_msm_phy *phy, bool val)
 	}
 }
 
+static
+void ufs_msm_phy_qmp_28nm_advertise_quirks(struct ufs_msm_phy *phy_common)
+{
+	phy_common->quirks = MSM_UFS_PHY_QUIRK_CFG_RESTORE
+				| MSM_UFS_PHY_DIS_SIGDET_BEFORE_PWR_COLLAPSE;
+}
+
 static int ufs_msm_phy_qmp_28nm_init(struct phy *generic_phy)
 {
 	struct ufs_msm_phy_qmp_28nm *phy = phy_get_drvdata(generic_phy);
@@ -89,9 +96,13 @@ static int ufs_msm_phy_qmp_28nm_init(struct phy *generic_phy)
 	}
 
 	err = ufs_msm_phy_init_vregulators(generic_phy, phy_common);
-	if (err)
+	if (err) {
 		dev_err(phy_common->dev, "%s: ufs_msm_phy_init_vregulators() failed %d\n",
 			__func__, err);
+		goto out;
+	}
+
+	ufs_msm_phy_qmp_28nm_advertise_quirks(phy_common);
 
 out:
 	return err;
@@ -151,6 +162,27 @@ u32 ufs_msm_phy_qmp_28nm_read_attr(struct ufs_msm_phy *phy_common, u32 attr)
 	return l0;
 }
 
+static void
+ufs_msm_phy_qmp_28nm_write_attr(struct ufs_msm_phy *phy_common,
+				u32 attr, u32 val)
+{
+	writel_relaxed(attr, phy_common->mmio + UFS_PHY_RMMI_ATTRID);
+	writel_relaxed(val, phy_common->mmio + UFS_PHY_RMMI_ATTRWRVAL);
+	/* update attribute for both lanes */
+	writel_relaxed((UFS_PHY_RMMI_CFGWR_L0 | UFS_PHY_RMMI_CFGWR_L1),
+		       phy_common->mmio + UFS_PHY_RMMI_ATTR_CTRL);
+	if (is_mphy_tx_attr(attr))
+		writel_relaxed((UFS_PHY_RMMI_TX_CFGUPDT_L0 |
+				UFS_PHY_RMMI_TX_CFGUPDT_L1),
+			       phy_common->mmio + UFS_PHY_RMMI_ATTR_CTRL);
+	else
+		writel_relaxed((UFS_PHY_RMMI_RX_CFGUPDT_L0 |
+				UFS_PHY_RMMI_RX_CFGUPDT_L1),
+			       phy_common->mmio + UFS_PHY_RMMI_ATTR_CTRL);
+
+	writel_relaxed(0x00, phy_common->mmio + UFS_PHY_RMMI_ATTR_CTRL);
+}
+
 static
 void ufs_msm_phy_qmp_28nm_save_configuration(struct ufs_msm_phy *phy_common)
 {
@@ -165,6 +197,16 @@ void ufs_msm_phy_qmp_28nm_save_configuration(struct ufs_msm_phy *phy_common)
 		cached_phy_attr[i].value =
 			ufs_msm_phy_qmp_28nm_read_attr(phy_common,
 					cached_phy_attr[i].att);
+}
+
+static
+void ufs_msm_phy_qmp_28nm_restore_configuration(struct ufs_msm_phy *phy_common)
+{
+	int i;
+
+	for (i = 0; i < ARRAY_SIZE(cached_phy_attr); i++)
+		ufs_msm_phy_qmp_28nm_write_attr(phy_common,
+			cached_phy_attr[i].att, cached_phy_attr[i].value);
 }
 
 static
@@ -186,38 +228,6 @@ static inline void ufs_msm_phy_qmp_28nm_start_serdes(struct ufs_msm_phy *phy)
 	mb();
 }
 
-static void
-ufs_msm_phy_qmp_28nm_write_attr(struct phy *generic_phy, u32 attr, u32 val)
-{
-	struct ufs_msm_phy_qmp_28nm *phy =  phy_get_drvdata(generic_phy);
-	struct ufs_msm_phy *phy_common = &(phy->common_cfg);
-
-	writel_relaxed(attr, phy_common->mmio + UFS_PHY_RMMI_ATTRID);
-	writel_relaxed(val, phy_common->mmio + UFS_PHY_RMMI_ATTRWRVAL);
-	/* update attribute for both lanes */
-	writel_relaxed((UFS_PHY_RMMI_CFGWR_L0 | UFS_PHY_RMMI_CFGWR_L1),
-		       phy_common->mmio + UFS_PHY_RMMI_ATTR_CTRL);
-	if (is_mphy_tx_attr(attr))
-		writel_relaxed((UFS_PHY_RMMI_TX_CFGUPDT_L0 |
-				UFS_PHY_RMMI_TX_CFGUPDT_L1),
-			       phy_common->mmio + UFS_PHY_RMMI_ATTR_CTRL);
-	else
-		writel_relaxed((UFS_PHY_RMMI_RX_CFGUPDT_L0 |
-				UFS_PHY_RMMI_RX_CFGUPDT_L1),
-			       phy_common->mmio + UFS_PHY_RMMI_ATTR_CTRL);
-
-	writel_relaxed(0x00, phy_common->mmio + UFS_PHY_RMMI_ATTR_CTRL);
-}
-
-static void ufs_msm_phy_qmp_28nm_restore_attrs(struct phy *generic_phy)
-{
-	int i;
-
-	for (i = 0; i < ARRAY_SIZE(cached_phy_attr); i++)
-		ufs_msm_phy_qmp_28nm_write_attr(generic_phy,
-			cached_phy_attr[i].att, cached_phy_attr[i].value);
-}
-
 static int ufs_msm_phy_qmp_28nm_is_pcs_ready(struct ufs_msm_phy *phy_common)
 {
 	int err = 0;
@@ -232,55 +242,11 @@ static int ufs_msm_phy_qmp_28nm_is_pcs_ready(struct ufs_msm_phy *phy_common)
 	return err;
 }
 
-static void ufs_msm_phy_qmp_28nm_advertise_quirks(struct phy *generic_phy)
-{
-	struct ufs_msm_phy_qmp_28nm *phy =  phy_get_drvdata(generic_phy);
-	struct ufs_msm_phy *phy_common = &(phy->common_cfg);
-
-	phy_common->quirks = MSM_UFS_PHY_QUIRK_CFG_RESTORE
-				| MSM_UFS_PHY_DIS_SIGDET_BEFORE_PWR_COLLAPSE;
-}
-
-static int ufs_msm_phy_qmp_28nm_suspend(struct phy *generic_phy)
-{
-	struct ufs_msm_phy_qmp_28nm *phy =  phy_get_drvdata(generic_phy);
-	struct ufs_msm_phy *phy_common = &(phy->common_cfg);
-
-	ufs_msm_phy_disable_ref_clk(generic_phy);
-	ufs_msm_phy_qmp_28nm_power_control(phy_common, false);
-
-	ufs_msm_phy_disable_vreg(generic_phy, &phy_common->vdda_phy);
-	ufs_msm_phy_disable_vreg(generic_phy, &phy_common->vdda_pll);
-
-	return 0;
-}
-
-static int ufs_msm_phy_qmp_28nm_resume(struct phy *generic_phy)
-{
-	struct ufs_msm_phy_qmp_28nm *phy = phy_get_drvdata(generic_phy);
-	struct ufs_msm_phy *phy_common = &phy->common_cfg;
-	int err = 0;
-
-	ufs_msm_phy_qmp_28nm_start_serdes(phy_common);
-
-	ufs_msm_phy_qmp_28nm_restore_attrs(generic_phy);
-
-	err = ufs_msm_phy_qmp_28nm_is_pcs_ready(phy_common);
-	if (err)
-		dev_err(phy_common->dev, "%s: failed to init phy = %d\n",
-			__func__, err);
-
-	return err;
-}
-
 struct phy_ops ufs_msm_phy_qmp_28nm_phy_ops = {
 	.init		= ufs_msm_phy_qmp_28nm_init,
 	.exit		= ufs_msm_phy_exit,
 	.power_on	= ufs_msm_phy_power_on,
 	.power_off	= ufs_msm_phy_power_off,
-	.advertise_quirks = ufs_msm_phy_qmp_28nm_advertise_quirks,
-	.suspend	= ufs_msm_phy_qmp_28nm_suspend,
-	.resume		= ufs_msm_phy_qmp_28nm_resume,
 	.owner		= THIS_MODULE,
 };
 
@@ -288,6 +254,7 @@ struct ufs_msm_phy_specific_ops phy_28nm_ops = {
 	.calibrate_phy		= ufs_msm_phy_qmp_28nm_calibrate,
 	.start_serdes		= ufs_msm_phy_qmp_28nm_start_serdes,
 	.save_configuration	= ufs_msm_phy_qmp_28nm_save_configuration,
+	.restore_configuration	= ufs_msm_phy_qmp_28nm_restore_configuration,
 	.is_physical_coding_sublayer_ready = ufs_msm_phy_qmp_28nm_is_pcs_ready,
 	.set_tx_lane_enable	= ufs_msm_phy_qmp_28nm_set_tx_lane_enable,
 	.power_control		= ufs_msm_phy_qmp_28nm_power_control,
