@@ -34,6 +34,8 @@
 #ifndef __I915_GEM_GTT_H__
 #define __I915_GEM_GTT_H__
 
+struct drm_i915_file_private;
+
 typedef uint32_t gen6_gtt_pte_t;
 typedef uint64_t gen8_gtt_pte_t;
 typedef gen8_gtt_pte_t gen8_ppgtt_pde_t;
@@ -261,7 +263,7 @@ struct i915_hw_ppgtt {
 	};
 	dma_addr_t scratch_dma_addr;
 
-	struct intel_context *ctx;
+	struct drm_i915_file_private *file_priv;
 
 	int (*enable)(struct i915_hw_ppgtt *ppgtt);
 	int (*switch_mm)(struct i915_hw_ppgtt *ppgtt,
@@ -278,6 +280,8 @@ void i915_gem_setup_global_gtt(struct drm_device *dev, unsigned long start,
 
 int i915_ppgtt_init(struct drm_device *dev, struct i915_hw_ppgtt *ppgtt);
 void i915_ppgtt_release(struct kref *kref);
+struct i915_hw_ppgtt *i915_ppgtt_create(struct drm_device *dev,
+					struct drm_i915_file_private *fpriv);
 static inline void i915_ppgtt_get(struct i915_hw_ppgtt *ppgtt)
 {
 	if (ppgtt)
