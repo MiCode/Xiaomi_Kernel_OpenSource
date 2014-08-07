@@ -118,6 +118,19 @@ static struct mfd_cell crystal_cove_dev[] = {
 		.num_resources = ARRAY_SIZE(gpio_resources),
 		.resources = gpio_resources,
 	},
+	{
+		.name = "reg-fixed-voltage",
+		.id = 0,
+		.num_resources = 0,
+		.resources = NULL,
+	},
+	{
+		.name = "gpio-regulator",
+		.id = 0,
+		.num_resources = 0,
+		.resources = NULL,
+	},
+
 	{NULL, },
 };
 
