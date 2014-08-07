@@ -8424,6 +8424,7 @@ static int active_load_balance_cpu_stop(void *data)
 	BUG_ON(busiest_rq == target_rq);
 
 	push_task = busiest_rq->push_task;
+	target_cpu = busiest_rq->push_cpu;
 	if (push_task) {
 		if (task_on_rq_queued(push_task) &&
 			push_task->state == TASK_RUNNING &&
@@ -8456,6 +8457,8 @@ static int active_load_balance_cpu_stop(void *data)
 	rcu_read_unlock();
 out_unlock:
 	busiest_rq->active_balance = 0;
+	push_task = busiest_rq->push_task;
+	target_cpu = busiest_rq->push_cpu;
 
 	if (push_task)
 		busiest_rq->push_task = NULL;
