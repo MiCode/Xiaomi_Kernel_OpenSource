@@ -156,6 +156,7 @@ enum ipa_client_type {
 	IPA_CLIENT_WLAN4_CONS,
 	IPA_CLIENT_HSIC5_CONS,
 	IPA_CLIENT_USB_CONS,
+	IPA_CLIENT_USB_DPL_CONS,
 	IPA_CLIENT_A2_EMBEDDED_CONS,
 	IPA_CLIENT_A2_TETHERED_CONS,
 	IPA_CLIENT_A5_LAN_WAN_CONS,
@@ -180,6 +181,7 @@ enum ipa_client_type {
 	((client) == IPA_CLIENT_USB_CONS || \
 	(client) == IPA_CLIENT_USB2_CONS || \
 	(client) == IPA_CLIENT_USB3_CONS || \
+	(client) == IPA_CLIENT_USB_DPL_CONS || \
 	(client) == IPA_CLIENT_USB4_CONS)
 
 #define IPA_CLIENT_IS_WLAN_CONS(client) \
