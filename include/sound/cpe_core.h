@@ -53,7 +53,7 @@ struct wcd_cpe_lab_hw_params {
 };
 
 struct wcd_cpe_lsm_lab {
-	bool lab_enable;
+	u32 lab_enable;
 	void *slim_handle;
 	void *core_handle;
 	atomic_t in_count;

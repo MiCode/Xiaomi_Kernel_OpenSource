@@ -544,7 +544,7 @@ static int msm_cpe_lsm_ioctl(struct snd_pcm_substream *substream,
 
 	switch (cmd) {
 	case SNDRV_LSM_STOP_LAB:
-		if (lab_sess->lab_enable == true &&
+		if (lab_sess->lab_enable &&
 			lab_sess->thread_status != MSM_LSM_LAB_THREAD_STOP) {
 			rc = 1;
 			atomic_inc(&lab_sess->abort_read);
@@ -563,14 +563,14 @@ static int msm_cpe_lsm_ioctl(struct snd_pcm_substream *substream,
 	break;
 	case SNDRV_LSM_LAB_CONTROL:
 		if (copy_from_user(&lab_sess->lab_enable, (void *)arg,
-				   sizeof(bool))) {
+				   sizeof(u32))) {
 			dev_err(rtd->dev,
 				"%s: copy from user failed, size %zd\n",
 				__func__,
-				sizeof(int));
+				sizeof(u32));
 			return -EFAULT;
 		}
-		if (lab_sess->lab_enable == true) {
+		if (lab_sess->lab_enable) {
 			rc = lsm_ops->lsm_lab_control(cpe->core_handle,
 					session,
 					lab_sess->hw_params.buf_sz,
@@ -692,7 +692,7 @@ static int msm_cpe_lsm_ioctl(struct snd_pcm_substream *substream,
 		break;
 
 	case SNDRV_LSM_DEREG_SND_MODEL:
-		if (lab_sess->lab_enable == true) {
+		if (lab_sess->lab_enable) {
 			rc = lsm_ops->lsm_lab_control(cpe->core_handle,
 					session, lab_sess->hw_params.buf_sz,
 					lab_sess->hw_params.period_count,
@@ -779,7 +779,7 @@ static int msm_cpe_lsm_ioctl(struct snd_pcm_substream *substream,
 					kfree(event_status);
 					return -EFAULT;
 				}
-				if (lab_sess->lab_enable == true &&
+				if (lab_sess->lab_enable &&
 					event_status->status ==
 					LSM_VOICE_WAKEUP_STATUS_DETECTED) {
 					atomic_set(&lab_sess->abort_read, 0);
@@ -819,7 +819,7 @@ static int msm_cpe_lsm_ioctl(struct snd_pcm_substream *substream,
 		break;
 
 	case SNDRV_LSM_STOP:
-		if ((lab_sess->lab_enable == true &&
+		if ((lab_sess->lab_enable &&
 		     lab_sess->thread_status ==
 		     MSM_LSM_LAB_THREAD_RUNNING)) {
 			pr_err("%s:session could not be stopped,disable lab\n"
