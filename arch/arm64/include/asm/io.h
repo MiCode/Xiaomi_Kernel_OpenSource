@@ -56,6 +56,35 @@ static inline void __raw_writeq_no_log(u64 val, volatile void __iomem *addr)
 	asm volatile("str %0, [%1]" : : "r" (val), "r" (addr));
 }
 
+#ifdef CONFIG_ARM64_A57_ERRATA_832075
+static inline u8 __raw_readb_no_log(const volatile void __iomem *addr)
+{
+	u8 val;
+	asm volatile("ldarb %w0, [%1]" : "=r" (val) : "r" (addr));
+	return val;
+}
+
+static inline u16 __raw_readw_no_log(const volatile void __iomem *addr)
+{
+	u16 val;
+	asm volatile("ldarh %w0, [%1]" : "=r" (val) : "r" (addr));
+	return val;
+}
+
+static inline u32 __raw_readl_no_log(const volatile void __iomem *addr)
+{
+	u32 val;
+	asm volatile("ldar %w0, [%1]" : "=r" (val) : "r" (addr));
+	return val;
+}
+
+static inline u64 __raw_readq_no_log(const volatile void __iomem *addr)
+{
+	u64 val;
+	asm volatile("ldar %0, [%1]" : "=r" (val) : "r" (addr));
+	return val;
+}
+#else
 static inline u8 __raw_readb_no_log(const volatile void __iomem *addr)
 {
 	u8 val;
@@ -83,6 +112,7 @@ static inline u64 __raw_readq_no_log(const volatile void __iomem *addr)
 	asm volatile("ldr %0, [%1]" : "=r" (val) : "r" (addr));
 	return val;
 }
+#endif /* CONFIG_ARM64_A57_ERRATA_832075 */
 
 /*
  * There may be cases when  clients don't want to support or can't support the
