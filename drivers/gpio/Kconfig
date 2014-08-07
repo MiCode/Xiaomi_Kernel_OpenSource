@@ -106,6 +106,14 @@ config GPIO_DA9055
 config GPIO_MAX730X
 	tristate
 
+config GPIO_VIRTUAL
+	tristate "Virtual GPIO Controller"
+	help
+	  Say yes here to enable the Virtual GPIO Controller driver. This
+	  driver enables USH wakeup from D0i3.
+
+	  If driver is built as a module it will be called gpio-virtual.
+
 comment "Memory mapped GPIO drivers:"
 
 config GPIO_CLPS711X

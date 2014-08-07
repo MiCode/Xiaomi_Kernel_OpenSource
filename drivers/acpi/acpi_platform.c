@@ -51,6 +51,10 @@ static const struct acpi_device_id acpi_platform_device_ids[] = {
 	{ "ADMA0F28", 0 },
 	{ "808622A8", 0 },
 	{ "VIBR22A8", 0 },
+	{ "ADMA0F28", 0 },
+
+	{ "INT0002", 0 },
+
 	{ }
 };
 
