@@ -321,7 +321,6 @@ static struct mdss_mdp_pipe *mdss_mdp_splash_get_pipe(
 	buf->p[0].addr = mfd->splash_info.iova;
 	buf->p[0].len = image_size;
 	buf->num_planes = 1;
-	pipe->has_buf = 1;
 	mdss_mdp_pipe_unmap(pipe);
 
 	return pipe;
