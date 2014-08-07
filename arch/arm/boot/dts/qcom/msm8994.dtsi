@@ -2484,7 +2484,8 @@
 		reg = <0x6500000 0x300000>;
 		reg-names = "secapp-region";
 		qcom,disk-encrypt-pipe-pair = <2>;
-		qcom,hlos-ce-hw-instance = <0>;
+		qcom,file-encrypt-pipe-pair = <0>;
+		qcom,hlos-ce-hw-instance = <1>;
 		qcom,qsee-ce-hw-instance = <0>;
 		qcom,msm-bus,name = "qseecom-noc";
 		qcom,msm-bus,num-cases = <4>;
