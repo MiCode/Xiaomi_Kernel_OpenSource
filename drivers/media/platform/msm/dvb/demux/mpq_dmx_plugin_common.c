@@ -934,10 +934,12 @@ static int mpq_map_buffer_to_kernel(
 	} else {
 		unsigned long tmp;
 		*kernel_mem = ion_map_kernel(client, ion_handle);
-		if (*kernel_mem == NULL) {
-			MPQ_DVB_ERR_PRINT("%s: ion_map_kernel failed\n",
-				__func__);
-			ret = -ENOMEM;
+		if (IS_ERR_OR_NULL(*kernel_mem)) {
+			ret = PTR_ERR(*kernel_mem);
+			MPQ_DVB_ERR_PRINT("%s: ion_map_kernel failed, ret=%d\n",
+				__func__, ret);
+			if (!ret)
+				ret = -ENOMEM;
 			goto map_buffer_failed_free_buff;
 		}
 		ion_handle_get_size(client, ion_handle, &tmp);
@@ -3527,15 +3529,19 @@ static int mpq_sdmx_get_buffer_chunks(struct mpq_demux *mpq_demux,
 	struct sg_table *sg_ptr;
 	struct scatterlist *sg;
 	u32 chunk_size;
+	int ret;
 
 	memset(buff_chunks, 0,
 		sizeof(struct sdmx_buff_descr) * SDMX_MAX_PHYSICAL_CHUNKS);
 
 	sg_ptr = ion_sg_table(mpq_demux->ion_client, buff_handle);
-	if (sg_ptr == NULL) {
-		MPQ_DVB_ERR_PRINT("%s: ion_sg_table failed\n",
-			__func__);
-		return -EINVAL;
+	if (IS_ERR_OR_NULL(sg_ptr)) {
+		ret = PTR_ERR(sg_ptr);
+		MPQ_DVB_ERR_PRINT("%s: ion_sg_table failed, ret=%d\n",
+			__func__, ret);
+		if (!ret)
+			ret = -EINVAL;
+		return ret;
 	}
 
 	if (sg_ptr->nents == 0) {
