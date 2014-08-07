@@ -142,6 +142,11 @@ static struct rpm_regulator_mode_map mode_mapping[] = {
 		= {RPM_REGULATOR_LDO_MODE_HPM,   RPM_REGULATOR_SMPS_MODE_PWM},
 };
 
+/* Indices for use with pin control enable via enable/disable feature. */
+#define RPM_VREG_PIN_CTRL_STATE_DISABLE	0
+#define RPM_VREG_PIN_CTRL_STATE_ENABLE	1
+#define RPM_VREG_PIN_CTRL_STATE_COUNT	2
+
 struct rpm_vreg_request {
 	u32			param[RPM_REGULATOR_PARAM_MAX];
 	u32			valid;
@@ -176,10 +181,12 @@ struct rpm_regulator {
 	bool			set_sleep;
 	bool			always_send_voltage;
 	bool			always_send_current;
+	bool			use_pin_ctrl_for_enable;
 	struct rpm_vreg_request	req;
 	int			system_load;
 	int			min_uV;
 	int			max_uV;
+	u32			pin_ctrl_mask[RPM_VREG_PIN_CTRL_STATE_COUNT];
 };
 
 /*
@@ -609,7 +616,11 @@ static int rpm_vreg_is_enabled(struct regulator_dev *rdev)
 {
 	struct rpm_regulator *reg = rdev_get_drvdata(rdev);
 
-	return reg->req.param[RPM_REGULATOR_PARAM_ENABLE];
+	if (likely(!reg->use_pin_ctrl_for_enable))
+		return reg->req.param[RPM_REGULATOR_PARAM_ENABLE];
+	else
+		return reg->req.param[RPM_REGULATOR_PARAM_PIN_CTRL_ENABLE]
+			== reg->pin_ctrl_mask[RPM_VREG_PIN_CTRL_STATE_ENABLE];
 }
 
 static int rpm_vreg_enable(struct regulator_dev *rdev)
@@ -620,12 +631,26 @@ static int rpm_vreg_enable(struct regulator_dev *rdev)
 
 	rpm_vreg_lock(reg->rpm_vreg);
 
-	prev_enable = reg->req.param[RPM_REGULATOR_PARAM_ENABLE];
-	RPM_VREG_SET_PARAM(reg, ENABLE, 1);
-	rc = rpm_vreg_aggregate_requests(reg);
-	if (rc) {
-		vreg_err(reg, "enable failed, rc=%d", rc);
-		RPM_VREG_SET_PARAM(reg, ENABLE, prev_enable);
+	if (likely(!reg->use_pin_ctrl_for_enable)) {
+		/* Enable using swen KVP. */
+		prev_enable = reg->req.param[RPM_REGULATOR_PARAM_ENABLE];
+		RPM_VREG_SET_PARAM(reg, ENABLE, 1);
+		rc = rpm_vreg_aggregate_requests(reg);
+		if (rc) {
+			vreg_err(reg, "enable failed, rc=%d", rc);
+			RPM_VREG_SET_PARAM(reg, ENABLE, prev_enable);
+		}
+	} else {
+		/* Enable using pcen KVP. */
+		prev_enable
+			= reg->req.param[RPM_REGULATOR_PARAM_PIN_CTRL_ENABLE];
+		RPM_VREG_SET_PARAM(reg, PIN_CTRL_ENABLE,
+			reg->pin_ctrl_mask[RPM_VREG_PIN_CTRL_STATE_ENABLE]);
+		rc = rpm_vreg_aggregate_requests(reg);
+		if (rc) {
+			vreg_err(reg, "enable failed, rc=%d", rc);
+			RPM_VREG_SET_PARAM(reg, PIN_CTRL_ENABLE, prev_enable);
+		}
 	}
 
 	rpm_vreg_unlock(reg->rpm_vreg);
@@ -641,12 +666,26 @@ static int rpm_vreg_disable(struct regulator_dev *rdev)
 
 	rpm_vreg_lock(reg->rpm_vreg);
 
-	prev_enable = reg->req.param[RPM_REGULATOR_PARAM_ENABLE];
-	RPM_VREG_SET_PARAM(reg, ENABLE, 0);
-	rc = rpm_vreg_aggregate_requests(reg);
-	if (rc) {
-		vreg_err(reg, "enable failed, rc=%d", rc);
-		RPM_VREG_SET_PARAM(reg, ENABLE, prev_enable);
+	if (likely(!reg->use_pin_ctrl_for_enable)) {
+		/* Disable using swen KVP. */
+		prev_enable = reg->req.param[RPM_REGULATOR_PARAM_ENABLE];
+		RPM_VREG_SET_PARAM(reg, ENABLE, 0);
+		rc = rpm_vreg_aggregate_requests(reg);
+		if (rc) {
+			vreg_err(reg, "disable failed, rc=%d", rc);
+			RPM_VREG_SET_PARAM(reg, ENABLE, prev_enable);
+		}
+	} else {
+		/* Disable using pcen KVP. */
+		prev_enable
+			= reg->req.param[RPM_REGULATOR_PARAM_PIN_CTRL_ENABLE];
+		RPM_VREG_SET_PARAM(reg, PIN_CTRL_ENABLE,
+			reg->pin_ctrl_mask[RPM_VREG_PIN_CTRL_STATE_DISABLE]);
+		rc = rpm_vreg_aggregate_requests(reg);
+		if (rc) {
+			vreg_err(reg, "disable failed, rc=%d", rc);
+			RPM_VREG_SET_PARAM(reg, PIN_CTRL_ENABLE, prev_enable);
+		}
 	}
 
 	rpm_vreg_unlock(reg->rpm_vreg);
@@ -904,6 +943,47 @@ static int rpm_vreg_send_defaults(struct rpm_regulator *reg)
 	rpm_vreg_unlock(reg->rpm_vreg);
 
 	return rc;
+}
+
+static int rpm_vreg_configure_pin_control_enable(struct rpm_regulator *reg,
+		struct device_node *node)
+{
+	struct rpm_regulator_param *pcen_param =
+			&params[RPM_REGULATOR_PARAM_PIN_CTRL_ENABLE];
+	int rc, i;
+
+	if (!of_find_property(node, "qcom,enable-with-pin-ctrl", NULL))
+		return 0;
+
+	if (pcen_param->supported_regulator_types
+			& BIT(reg->rpm_vreg->regulator_type)) {
+		rc = of_property_read_u32_array(node,
+			"qcom,enable-with-pin-ctrl", reg->pin_ctrl_mask,
+			RPM_VREG_PIN_CTRL_STATE_COUNT);
+		if (rc) {
+			vreg_err(reg, "could not read qcom,enable-with-pin-ctrl, rc=%d\n",
+				rc);
+			return rc;
+		}
+
+		/* Verify that the mask values are valid. */
+		for (i = 0; i < RPM_VREG_PIN_CTRL_STATE_COUNT; i++) {
+			if (reg->pin_ctrl_mask[i] < pcen_param->min
+			    || reg->pin_ctrl_mask[i] > pcen_param->max) {
+				vreg_err(reg, "device tree property: qcom,enable-with-pin-ctrl[%d]=%u is outside allowed range [%u, %u]\n",
+					i, reg->pin_ctrl_mask[i],
+					pcen_param->min, pcen_param->max);
+				return -EINVAL;
+			}
+		}
+
+		reg->use_pin_ctrl_for_enable = true;
+	} else {
+		pr_warn("%s: regulator type=%d does not support device tree property: qcom,enable-with-pin-ctrl\n",
+			reg->rdesc.name, reg->rpm_vreg->regulator_type);
+	}
+
+	return 0;
 }
 
 /**
@@ -1508,6 +1588,13 @@ static int rpm_vreg_device_probe(struct platform_device *pdev)
 	}
 
 	of_property_read_u32(node, "qcom,system-load", &reg->system_load);
+
+	rc = rpm_vreg_configure_pin_control_enable(reg, node);
+	if (rc) {
+		vreg_err(reg, "could not configure pin control enable, rc=%d\n",
+			rc);
+		goto fail_free_reg;
+	}
 
 	rpm_vreg_lock(rpm_vreg);
 	list_add(&reg->list, &rpm_vreg->reg_list);
