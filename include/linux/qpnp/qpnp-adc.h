@@ -1561,7 +1561,7 @@ static inline int32_t qpnp_adc_scale_qrd_skuh_batt_therm(
 			struct qpnp_vadc_chip *vdev, int32_t adc_code,
 			const struct qpnp_adc_properties *adc_prop,
 			const struct qpnp_vadc_chan_properties *chan_prop,
-			struct qpnp_vadc_result *chan_rslt);
+			struct qpnp_vadc_result *chan_rslt)
 { return -ENXIO; }
 static inline int32_t qpnp_adc_scale_smb_batt_therm(struct qpnp_vadc_chip *vadc,
 			int32_t adc_code,
@@ -1851,7 +1851,8 @@ static inline int32_t qpnp_adc_tm_channel_measure(
 					struct qpnp_adc_tm_btm_param *param)
 { return -ENXIO; }
 static inline int32_t qpnp_adc_tm_disable_chan_meas(
-					struct qpnp_adc_tm_chip *chip)
+					struct qpnp_adc_tm_chip *chip,
+					struct qpnp_adc_tm_btm_param *param)
 { return -ENXIO; }
 static inline struct qpnp_adc_tm_chip *qpnp_get_adc_tm(struct device *dev,
 							const char *name)
