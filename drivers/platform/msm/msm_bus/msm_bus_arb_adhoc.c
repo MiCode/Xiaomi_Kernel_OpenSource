@@ -97,6 +97,9 @@ static int gen_lnode(struct device *dev,
 	struct msm_bus_node_device_type *cur_dev = NULL;
 	int lnode_idx = -1;
 
+	if (!dev)
+		goto exit_gen_lnode;
+
 	cur_dev = dev->platform_data;
 	if (!cur_dev) {
 		MSM_BUS_ERR("%s: Null device ptr", __func__);
@@ -107,6 +110,9 @@ static int gen_lnode(struct device *dev,
 		cur_dev->lnode_list = devm_kzalloc(dev,
 				sizeof(struct link_node) * NUM_LNODES,
 								GFP_KERNEL);
+		if (!cur_dev->lnode_list)
+			goto exit_gen_lnode;
+
 		lnode = cur_dev->lnode_list;
 		cur_dev->num_lnodes = NUM_LNODES;
 		lnode_idx = 0;
@@ -218,19 +224,25 @@ static int prune_path(struct list_head *route_list, int dest, int src,
 									i++) {
 				if (bus_node->node_info->connections[i] ==
 								search_dev_id) {
-						dest_dev = bus_find_device(
-							&msm_bus_type,
-							NULL,
-							(void *)
-							&bus_node->node_info->
-								id,
+					dest_dev = bus_find_device(
+						&msm_bus_type,
+						NULL,
+						(void *)
+						&bus_node->node_info->
+						id,
 						msm_bus_device_match_adhoc);
-						lnode_hop = gen_lnode(dest_dev,
-								search_dev_id,
-								lnode_hop);
-						search_dev_id =
-							bus_node->node_info->id;
-						break;
+
+					if (!dest_dev) {
+						lnode_hop = -1;
+						goto reset_links;
+					}
+
+					lnode_hop = gen_lnode(dest_dev,
+							search_dev_id,
+							lnode_hop);
+					search_dev_id =
+						bus_node->node_info->id;
+					break;
 				}
 			}
 		}
@@ -696,12 +708,17 @@ static void unregister_client_adhoc(uint32_t cl)
 		goto exit_unregister_client;
 	}
 	client = handle_list.cl_list[cl];
-	curr = client->curr;
 	pdata = client->pdata;
 	if (!pdata) {
 		MSM_BUS_ERR("%s: Null pdata passed to unregister\n",
 				__func__);
 		goto exit_unregister_client;
+	}
+
+	curr = client->curr;
+	if (curr >= pdata->num_usecases) {
+		MSM_BUS_ERR("Invalid index Defaulting curr to 0");
+		curr = 0;
 	}
 
 	MSM_BUS_DBG("%s: Unregistering client %p", __func__, client);
@@ -713,10 +730,6 @@ static void unregister_client_adhoc(uint32_t cl)
 		lnode = client->src_pnode[i];
 		cur_clk = client->pdata->usecase[curr].vectors[i].ib;
 		cur_bw = client->pdata->usecase[curr].vectors[i].ab;
-		if (curr < 0) {
-			cur_clk = 0;
-			cur_bw = 0;
-		}
 		remove_path(src, dest, cur_clk, cur_bw, lnode,
 						pdata->active_only);
 	}

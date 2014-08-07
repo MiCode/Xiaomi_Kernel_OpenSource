@@ -233,8 +233,7 @@ static int flush_clk_data(struct device *node_device, int ctx)
 
 	node = node_device->platform_data;
 	if (!node) {
-		MSM_BUS_ERR("%s: Unable to find bus device for device %d",
-			__func__, node->node_info->id);
+		MSM_BUS_ERR("Unable to find bus device");
 		ret = -ENODEV;
 		goto exit_flush_clk_data;
 	}
@@ -282,7 +281,8 @@ exit_flush_clk_data:
 	if (node->node_info->is_fab_dev)
 		node->cur_clk_hz[ctx] = 0;
 
-	nodeclk->dirty = 0;
+	if (nodeclk)
+		nodeclk->dirty = 0;
 	return ret;
 }
 
@@ -300,6 +300,11 @@ int msm_bus_commit_data(int *dirty_nodes, int ctx, int num_dirty)
 					bus_find_device(&msm_bus_type, NULL,
 						(void *)&dirty_nodes[i],
 						msm_bus_device_match_adhoc);
+
+		if (!node_device) {
+			MSM_BUS_ERR("Can't find device for %d", dirty_nodes[i]);
+			continue;
+		}
 
 		ret = flush_bw_data(node_device, ctx);
 		if (ret)
