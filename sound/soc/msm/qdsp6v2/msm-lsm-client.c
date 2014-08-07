@@ -458,8 +458,26 @@ static int msm_lsm_ioctl_shared(struct snd_pcm_substream *substream,
 					 __func__, user->payload_size,
 					 prtd->event_status->payload_size);
 				rc = -ENOMEM;
-			} else
+			} else {
 				memcpy(user, prtd->event_status, size);
+				if (prtd->lsm_client->lab_enable
+					&& atomic_read(&prtd->read_abort)
+					&& prtd->event_status->status ==
+					LSM_VOICE_WAKEUP_STATUS_DETECTED) {
+					atomic_set(&prtd->read_abort, 0);
+					atomic_set(&prtd->buf_count, 0);
+					prtd->appl_cnt = 0;
+					prtd->dma_write = 0;
+					rc = msm_lsm_queue_lab_buffer(prtd,
+						0);
+					if (rc)
+						pr_err("%s: Queue buffer failed for lab rc = %d\n",
+							__func__, rc);
+					else
+						prtd->lsm_client->lab_started
+						= true;
+				}
+			}
 		} else if (xchg) {
 			pr_debug("%s: Wait aborted\n", __func__);
 			rc = 0;
