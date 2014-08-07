@@ -114,6 +114,7 @@
 #include "msmferrum-smp2p.dtsi"
 #include "msmferrum-ipcrouter.dtsi"
 #include "msm-gdsc-8916.dtsi"
+#include "msmferrum-iommu.dtsi"
 
 &soc {
 	#address-cells = <1>;
