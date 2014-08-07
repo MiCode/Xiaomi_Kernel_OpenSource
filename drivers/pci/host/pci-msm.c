@@ -3160,7 +3160,7 @@ void msm_pcie_destroy_irq(unsigned int irq, struct msm_pcie_dev_t *pcie_dev)
 		dev = irq_get_chip_data(irq);
 
 	if (!dev) {
-		PCIE_ERR(dev, "RC%d: could not get chip data\n", dev->rc_idx);
+		pr_err("PCIe: device is null. IRQ:%d\n", irq);
 		return;
 	}
 
