@@ -1627,7 +1627,7 @@ int mdss_mdp_pipe_queue_data(struct mdss_mdp_pipe *pipe,
 		 (pipe->mixer_left->type == MDSS_MDP_MIXER_TYPE_WRITEBACK) &&
 		 (ctl->mdata->mixer_switched)) || ctl->roi_changed;
 	if ((!(pipe->flags & MDP_VPU_PIPE) &&
-			(src_data == NULL || !pipe->has_buf)) ||
+			(src_data == NULL)) ||
 			(pipe->flags & MDP_SOLID_FILL)) {
 		pipe->params_changed = 0;
 		mdss_mdp_pipe_solidfill_setup(pipe);
@@ -1664,9 +1664,9 @@ int mdss_mdp_pipe_queue_data(struct mdss_mdp_pipe *pipe,
 			mdss_mdp_pipe_panic_signal_ctrl(pipe, true);
 	}
 
-	if (src_data == NULL || !pipe->has_buf) {
-		pr_debug("src_data=%p has_buf=%d pipe num=%dx\n",
-				src_data, pipe->has_buf, pipe->num);
+	if (src_data == NULL) {
+		pr_debug("src_data=%p pipe num=%dx\n",
+				src_data, pipe->num);
 		goto update_nobuf;
 	}
 
