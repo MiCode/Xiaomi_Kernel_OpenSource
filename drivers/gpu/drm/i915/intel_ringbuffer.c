@@ -2121,10 +2121,11 @@ launch_cb2(struct intel_engine_cs *ring)
 		if (ret)
 			return ret;
 
-		intel_ring_emit(ring, 0x10400002); /* SDI - DW0 */
-		intel_ring_emit(ring, 0);	/* SDI - DW1 */
-		intel_ring_emit(ring, hws_pga);	/* SDI - Address */
-		intel_ring_emit(ring, 0);	/* SDI - Data */
+		intel_ring_emit(ring, MI_STORE_DWORD_INDEX);
+		intel_ring_emit(ring, I915_GEM_HWS_SCRATCH_INDEX <<
+					MI_STORE_DWORD_INDEX_SHIFT);
+		intel_ring_emit(ring, 0);
+		intel_ring_emit(ring, MI_NOOP);
 		intel_ring_advance(ring);
 	}
 
@@ -2156,10 +2157,11 @@ launch_cb2(struct intel_engine_cs *ring)
 		if (ret)
 			return ret;
 
-		intel_ring_emit(ring, 0x10400002); /* SDI - DW0 */
-		intel_ring_emit(ring, 0);	/* SDI - DW1 */
-		intel_ring_emit(ring, hws_pga);	/* SDI - Address */
-		intel_ring_emit(ring, 0);	/* SDI - Data */
+		intel_ring_emit(ring, MI_STORE_DWORD_INDEX);
+		intel_ring_emit(ring, I915_GEM_HWS_SCRATCH_INDEX <<
+					MI_STORE_DWORD_INDEX_SHIFT);
+		intel_ring_emit(ring, 0);
+		intel_ring_emit(ring, MI_NOOP);
 		intel_ring_advance(ring);
 	}
 
