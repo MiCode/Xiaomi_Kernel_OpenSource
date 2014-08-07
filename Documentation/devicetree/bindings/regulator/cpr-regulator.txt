@@ -343,10 +343,19 @@ Optional properties:
 				init_voltage_min(f) = fuse_init_voltage(f) - (fuse_f_max - f) * max_factor
 				If this property is not specified, then the initial voltage for each virtual
 				corner will be set to the initial voltage of the associated fuse corner.
-- qcom,cpr-quot-adjust-scaling-factor-max: The maximum allowed CPR target quotient scaling factor to use when
-				calculating the quotient adjustment for a given virtual voltage corner. It
-				corresponds to 'scaling' in this equation:
-				quot_adjust = (freq_max - freq_corner) * scaling / 1000.
+- qcom,cpr-quot-adjust-scaling-factor-max: Array of values which define the maximum allowed scaling factor to
+				apply when calculating per-virtual-corner target quotients for each fuse
+				corner.  Two data formats are allowed for this property.  The primary one
+				requires that the array be of length equal to the value of the
+				qcom,cpr-fuse-corners property.  When using this format, each element in the
+				array maps to the fuse corners in increasing order.  The second depreciated
+				format allows for only a single element to be specified which defines the
+				maximum scaling factor for the highest fuse corner.  In this case, a value of
+				0 is assumed for the lower fuse corners.  The elements of this property have
+				units of QUOT/GHz.  Each element corresponds to 'max_factor' in the following
+				equation:
+				quot_min(f) = fuse_quot(f) - (fuse_f_max - f) * max_factor / 1000
+				where f and fuse_f_max have units of MHz.
 				This property is required if qcom,cpr-speed-bin-max-corners is present.
 - qcom,cpr-fuse-init-voltage:	Array of quadruples in which each quadruple specifies a fuse location to
 				read in order to get an initial voltage for a fuse corner. The fuse values
@@ -487,7 +496,7 @@ Example:
 				<0 1>,
 				<0 1>,
 				<0 1>;
-		qcom,cpr-quot-adjust-scaling-factor-max = <650>;
+		qcom,cpr-quot-adjust-scaling-factor-max = <0 650 650>;
 		qcom,cpr-fuse-init-voltage =
 				<27 36 6 0>,
 				<27 18 6 0>,

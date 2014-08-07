@@ -1789,10 +1789,11 @@ static int cpr_populate_opp_table(struct cpr_regulator *cpr_vreg,
  *
  * Get the virtual corner to fuse corner mapping and virtual corner to APC clock
  * frequency mapping from device tree.
- * Calculate the quotient adjustment scaling factor for those corners mapping
- * to the highest fuse corner.
- * Calculate the quotient adjustment for each virtual corner which maps to the
- * highest fuse corner.
+ * Calculate the quotient adjustment scaling factor for those corners mapping to
+ * all fuse corners except for the lowest one using linear interpolation.
+ * Calculate the quotient adjustment for each of these virtual corners using the
+ * min of the calculated scaling factor and the constant max scaling factor
+ * defined for each fuse corner in device tree.
  */
 static int cpr_get_corner_quot_adjustment(struct cpr_regulator *cpr_vreg,
 					struct device *dev)
@@ -1802,9 +1803,11 @@ static int cpr_get_corner_quot_adjustment(struct cpr_regulator *cpr_vreg,
 	int i, j, size;
 	struct property *prop;
 	bool corners_mapped, match_found;
-	u32 *tmp, *freq_mappings = NULL;
-	u32 scaling, max_factor, corner, freq_corner;
+	u32 *tmp, *freq_map = NULL;
+	u32 corner, freq_corner;
 	u32 *freq_max = NULL;
+	u32 *scaling = NULL;
+	u32 *max_factor = NULL;
 	u32 *corner_max = NULL;
 	bool maps_valid = false;
 
@@ -1941,12 +1944,12 @@ static int cpr_get_corner_quot_adjustment(struct cpr_regulator *cpr_vreg,
 	 * qcom,cpr-speed-bin-max-corners property are incorrect.  This allows
 	 * the driver to continue to run without quotient scaling.
 	 */
-	if (corner_max[highest_fuse_corner]
-	    <= corner_max[highest_fuse_corner - 1]) {
-		cpr_err(cpr_vreg, "highest corner=%u should be larger than the second highest corner=%u\n",
-			corner_max[highest_fuse_corner],
-			corner_max[highest_fuse_corner - 1]);
-		goto free_arrays;
+	for (i = CPR_FUSE_CORNER_MIN + 1; i <= highest_fuse_corner; i++) {
+		if (corner_max[i] <= corner_max[i - 1]) {
+			cpr_err(cpr_vreg, "fuse corner=%d (%u) should be larger than the fuse corner=%d (%u)\n",
+				i, corner_max[i], i - 1, corner_max[i - 1]);
+			goto free_arrays;
+		}
 	}
 
 	prop = of_find_property(dev->of_node,
@@ -1971,10 +1974,10 @@ static int cpr_get_corner_quot_adjustment(struct cpr_regulator *cpr_vreg,
 		kfree(tmp);
 		goto free_arrays;
 	}
-	freq_mappings = kzalloc(sizeof(u32) * (cpr_vreg->num_corners + 1),
+	freq_map = kzalloc(sizeof(u32) * (cpr_vreg->num_corners + 1),
 			GFP_KERNEL);
-	if (!freq_mappings) {
-		cpr_err(cpr_vreg, "memory alloc for freq_mappings failed!\n");
+	if (!freq_map) {
+		cpr_err(cpr_vreg, "memory alloc for freq_map failed!\n");
 		kfree(tmp);
 		rc = -ENOMEM;
 		goto free_arrays;
@@ -1987,19 +1990,49 @@ static int cpr_get_corner_quot_adjustment(struct cpr_regulator *cpr_vreg,
 				cpr_vreg->num_corners, corner);
 			continue;
 		}
-		freq_mappings[corner] = tmp[i + 1];
+		freq_map[corner] = tmp[i + 1];
 		cpr_debug(cpr_vreg,
 				"Frequency at virtual corner %d is %d Hz.\n",
-				corner, freq_mappings[corner]);
+				corner, freq_map[corner]);
 	}
 	kfree(tmp);
 
-	rc = of_property_read_u32(dev->of_node,
-		"qcom,cpr-quot-adjust-scaling-factor-max",
-		&max_factor);
+	prop = of_find_property(dev->of_node,
+			"qcom,cpr-quot-adjust-scaling-factor-max", NULL);
+	if (!prop) {
+		cpr_debug(cpr_vreg, "qcom,cpr-quot-adjust-scaling-factor-max missing\n");
+		rc = 0;
+		goto free_arrays;
+	}
+
+	size = prop->length / sizeof(u32);
+	if ((size != 1) && (size != cpr_vreg->num_fuse_corners)) {
+		cpr_err(cpr_vreg, "The size of qcom,cpr-quot-adjust-scaling-factor-max should be 1 or %d\n",
+			cpr_vreg->num_fuse_corners);
+		rc = 0;
+		goto free_arrays;
+	}
+
+	max_factor = kzalloc(sizeof(u32) * (cpr_vreg->num_fuse_corners + 1),
+			GFP_KERNEL);
+	if (!max_factor) {
+		cpr_err(cpr_vreg, "Could not allocate memory for max_factor array\n");
+		rc = -ENOMEM;
+		goto free_arrays;
+	}
+	/*
+	 * Leave max_factor[CPR_FUSE_CORNER_MIN ... highest_fuse_corner-1] = 0
+	 * if cpr-quot-adjust-scaling-factor-max is a single value in order to
+	 * maintain backward compatibility.
+	 */
+	i = (size == cpr_vreg->num_fuse_corners) ? CPR_FUSE_CORNER_MIN
+						 : highest_fuse_corner;
+	rc = of_property_read_u32_array(dev->of_node,
+			"qcom,cpr-quot-adjust-scaling-factor-max",
+			&max_factor[i], size);
 	if (rc < 0) {
-		cpr_debug(cpr_vreg,
-			"get cpr-quot-adjust-scaling-factor-max failed\n");
+		cpr_debug(cpr_vreg, "could not read qcom,cpr-quot-adjust-scaling-factor-max, rc=%d\n",
+			rc);
 		rc = 0;
 		goto free_arrays;
 	}
@@ -2009,70 +2042,79 @@ static int cpr_get_corner_quot_adjustment(struct cpr_regulator *cpr_vreg,
 	 * scaling = min(1000 * (QUOT(corner_N) - QUOT(corner_N-1))
 	 *		/ (freq(corner_N) - freq(corner_N-1)), max_factor)
 	 *
-	 * QUOT(corner_N):	quotient read from fuse for highest fuse corner
-	 * QUOT(corner_N-1):	quotient read from fuse for second highest fuse
-	 *			  corner
-	 * freq(corner_N):	max frequency in MHz supported by the highest
-	 *			  fuse corner
-	 * freq(corner_N-1):	max frequency in MHz supported by the second
-	 *			  highest fuse corner
+	 * QUOT(corner_N):	quotient read from fuse for fuse corner N
+	 * QUOT(corner_N-1):	quotient read from fuse for fuse corner (N - 1)
+	 * freq(corner_N):	max frequency in MHz supported by fuse corner N
+	 * freq(corner_N-1):	max frequency in MHz supported by fuse corner
+	 *			 (N - 1)
 	 */
 
 	for (i = CPR_FUSE_CORNER_MIN; i <= highest_fuse_corner; i++)
-		freq_max[i] = freq_mappings[corner_max[i]];
-	if (freq_max[highest_fuse_corner] <= freq_max[highest_fuse_corner - 1]
-	    || freq_max[highest_fuse_corner - 1] == 0) {
-		cpr_err(cpr_vreg, "highest corner freq=%u should be larger than second highest corner freq=%u\n",
-		      freq_max[highest_fuse_corner],
-		      freq_max[highest_fuse_corner - 1]);
-		rc = -EINVAL;
+		freq_max[i] = freq_map[corner_max[i]];
+	for (i = CPR_FUSE_CORNER_MIN + 1; i <= highest_fuse_corner; i++) {
+		if (freq_max[i] <= freq_max[i - 1] || freq_max[i - 1] == 0) {
+			cpr_err(cpr_vreg, "fuse corner %d freq=%u should be larger than fuse corner %d freq=%u\n",
+			      i, freq_max[i], i - 1, freq_max[i - 1]);
+			rc = -EINVAL;
+			goto free_arrays;
+		}
+	}
+	scaling = kzalloc((cpr_vreg->num_fuse_corners + 1) * sizeof(*scaling),
+			GFP_KERNEL);
+	if (!scaling) {
+		cpr_err(cpr_vreg, "Could not allocate memory for scaling array\n");
+		rc = -ENOMEM;
 		goto free_arrays;
 	}
-
 	/* Convert corner max frequencies from Hz to MHz. */
 	for (i = CPR_FUSE_CORNER_MIN; i <= highest_fuse_corner; i++)
 		freq_max[i] /= 1000000;
 
-	scaling = 1000 * (cpr_vreg->cpr_fuse_target_quot[highest_fuse_corner]
-		      - cpr_vreg->cpr_fuse_target_quot[highest_fuse_corner - 1])
-		  / (freq_max[highest_fuse_corner]
-			- freq_max[highest_fuse_corner - 1]);
-	scaling = min(scaling, max_factor);
-	cpr_info(cpr_vreg, "quotient adjustment scaling factor: %d.%03d\n",
-			scaling / 1000, scaling % 1000);
+	for (i = CPR_FUSE_CORNER_MIN + 1; i <= highest_fuse_corner; i++) {
+		scaling[i] = 1000 * (cpr_vreg->cpr_fuse_target_quot[i]
+			      - cpr_vreg->cpr_fuse_target_quot[i - 1])
+			  / (freq_max[i] - freq_max[i - 1]);
+		scaling[i] = min(scaling[i], max_factor[i]);
+		cpr_info(cpr_vreg, "fuse corner %d quotient adjustment scaling factor: %d.%03d\n",
+			i, scaling[i] / 1000, scaling[i] % 1000);
+	}
 
 	/*
-	 * Walk through the virtual corners mapped to the highest fuse corner
+	 * Walk through the virtual corners mapped to each fuse corner
 	 * and calculate the quotient adjustment for each one using the
 	 * following formula:
 	 * quot_adjust = (freq_max - freq_corner) * scaling / 1000
 	 *
-	 * @freq_max: max frequency in MHz supported by the highest fuse corner
+	 * @freq_max: max frequency in MHz supported by the fuse corner
 	 * @freq_corner: frequency in MHz corresponding to the virtual corner
 	 */
-	for (i = corner_max[highest_fuse_corner];
-	     i > corner_max[highest_fuse_corner - 1]; i--) {
-		freq_corner = freq_mappings[i] / 1000000; /* MHz */
-		if (freq_corner > 0) {
-			cpr_vreg->quot_adjust[i] = scaling *
-			   (freq_max[highest_fuse_corner] - freq_corner) / 1000;
+	for (j = CPR_FUSE_CORNER_MIN + 1; j <= highest_fuse_corner; j++) {
+		for (i = corner_max[j - 1] + 1; i < corner_max[j]; i++) {
+			freq_corner = freq_map[i] / 1000000; /* MHz */
+			if (freq_corner > 0) {
+				cpr_vreg->quot_adjust[i] = scaling[j] *
+				   (freq_max[j] - freq_corner) / 1000;
+			}
 		}
-		cpr_info(cpr_vreg, "adjusted quotient[%d] = %d\n", i,
-			(cpr_vreg->cpr_fuse_target_quot[cpr_vreg->corner_map[i]]
-				- cpr_vreg->quot_adjust[i]));
 	}
+	for (i = CPR_CORNER_MIN; i <= cpr_vreg->num_corners; i++)
+		cpr_info(cpr_vreg, "adjusted quotient[%d] = %d\n", i,
+			cpr_vreg->cpr_fuse_target_quot[cpr_vreg->corner_map[i]]
+			- cpr_vreg->quot_adjust[i]);
 	maps_valid = true;
 
 free_arrays:
 	if (!rc) {
 		rc = cpr_get_open_loop_voltage(cpr_vreg, dev, corner_max,
-						freq_mappings, maps_valid);
+						freq_map, maps_valid);
 		if (rc)
 			cpr_err(cpr_vreg, "could not fill open loop voltage array, rc=%d\n",
 				rc);
 	}
 
-	kfree(freq_mappings);
+	kfree(max_factor);
+	kfree(scaling);
+	kfree(freq_map);
 	kfree(corner_max);
 	kfree(freq_max);
 	return rc;
