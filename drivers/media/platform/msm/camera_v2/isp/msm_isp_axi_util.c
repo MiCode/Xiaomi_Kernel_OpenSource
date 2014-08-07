@@ -1464,13 +1464,11 @@ static int msm_isp_stop_axi_stream(struct vfe_device *vfe_dev,
 				stream_info->stream_src == RDI_INTF_1 ||
 				stream_info->stream_src == RDI_INTF_2)
 				wait_for_complete = 1;
-			else {
+		} else if (camif_update != DISABLE_CAMIF_IMMEDIATELY)
+				wait_for_complete = 1;
+		if (wait_for_complete == 0) {
 			msm_isp_axi_stream_enable_cfg(vfe_dev, stream_info);
 			stream_info->state = INACTIVE;
-			}
-		} else {
-			if (camif_update != DISABLE_CAMIF_IMMEDIATELY)
-				wait_for_complete = 1;
 		}
 		rc = 0;
 	}
@@ -1488,9 +1486,6 @@ static int msm_isp_stop_axi_stream(struct vfe_device *vfe_dev,
 				stream_info->state = INACTIVE;
 			}
 		}
-	} else {
-		msm_isp_axi_stream_enable_cfg(vfe_dev, stream_info);
-		stream_info->state = INACTIVE;
 	}
 
 	if (camif_update == DISABLE_CAMIF) {
