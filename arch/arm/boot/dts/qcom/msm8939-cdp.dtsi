@@ -371,10 +371,12 @@
         qcom,mdss-dsi-bl-pmic-bank-select = <0>;
         qcom,mdss-dsi-pwm-gpio = <&pm8916_mpps 4 0>;
 	qcom,mdss-dsi-lane-map = "lane_map_0123";
+	qcom,cont-splash-enabled;
 };
 
 &dsi_dual_sharp_video_1 {
         qcom,mdss-dsi-lane-map = "lane_map_3210";
+	qcom,cont-splash-enabled;
 };
 
 &pm8916_mpps {
