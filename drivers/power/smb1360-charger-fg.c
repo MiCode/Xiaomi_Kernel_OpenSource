@@ -2692,32 +2692,29 @@ static void smb1360_check_feature_support(struct smb1360_chip *chip)
 static int smb1360_enable(struct smb1360_chip *chip, bool enable)
 {
 	int rc = 0;
-	u8 val, shdn_status, shdn_cmd_en, shdn_cmd_polar;
+	u8 val = 0, shdn_cmd_polar;
 
 	rc = smb1360_read(chip, SHDN_CTRL_REG, &val);
 	if (rc < 0) {
 		dev_err(chip->dev, "Couldn't read 0x1A reg rc = %d\n", rc);
 		return rc;
 	}
-	shdn_cmd_en = val & SHDN_CMD_USE_BIT;
-	shdn_cmd_polar = !!(val & SHDN_CMD_POLARITY_BIT);
-	shdn_status = val & SHDN_CMD_BIT;
 
+	/* Ignore if a CMD based shutdown is not enabled */
+	if (!(val & SHDN_CMD_USE_BIT)) {
+		pr_debug("SMB not configured for CMD based shutdown\n");
+		return 0;
+	}
+
+	shdn_cmd_polar = !!(val & SHDN_CMD_POLARITY_BIT);
 	val = (shdn_cmd_polar ^ enable) ? SHDN_CMD_BIT : 0;
 
-	if (shdn_cmd_en) {
-		if (shdn_status != val) {
-			rc = smb1360_masked_write(chip, CMD_IL_REG,
-					SHDN_CMD_BIT, val);
-			if (rc < 0) {
-				dev_err(chip->dev, "Couldn't shutdown smb1360 rc = %d\n",
-									rc);
-				return rc;
-			}
-		}
-	} else {
-		dev_dbg(chip->dev, "SMB not configured for CMD based shutdown\n");
-	}
+	pr_debug("enable=%d shdn_polarity=%d value=%d\n", enable,
+						shdn_cmd_polar, val);
+
+	rc = smb1360_masked_write(chip, CMD_IL_REG, SHDN_CMD_BIT, val);
+	if (rc < 0)
+		pr_err("Couldn't shutdown smb1360 rc = %d\n", rc);
 
 	return rc;
 }
@@ -2749,12 +2746,11 @@ static int smb1360_hw_init(struct smb1360_chip *chip)
 		return rc;
 	}
 
-	if (chip->shdn_after_pwroff) {
-		rc = smb1360_poweron(chip);
-		if (rc < 0) {
-			pr_err("smb1360 power on failed\n");
-			return rc;
-		}
+	/* Bring SMB1360 out of shutdown, if it was enabled by default */
+	rc = smb1360_poweron(chip);
+	if (rc < 0) {
+		pr_err("smb1360 power on failed\n");
+		return rc;
 	}
 
 	rc = smb1360_check_batt_profile(chip);
