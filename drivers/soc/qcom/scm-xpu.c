@@ -1,4 +1,4 @@
-/* Copyright (c) 2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -27,11 +27,17 @@ static int __init xpu_err_fatal_init(void)
 		unsigned int config;
 		unsigned int spare;
 	} cmd;
-	cmd.config = ERR_FATAL_ENABLE;
-	cmd.spare = 0;
+	struct scm_desc desc = {0};
 
-	ret = scm_call(SCM_SVC_MP, XPU_ERR_FATAL, &cmd, sizeof(cmd), &response,
-			sizeof(response));
+	desc.arginfo = SCM_ARGS(2);
+	desc.args[0] = cmd.config = ERR_FATAL_ENABLE;
+	desc.args[1] = cmd.spare = 0;
+
+	if (!is_scm_armv8())
+		ret = scm_call(SCM_SVC_MP, XPU_ERR_FATAL, &cmd, sizeof(cmd),
+				&response, sizeof(response));
+	else
+		ret = scm_call2(SCM_SIP_FNID(SCM_SVC_MP, XPU_ERR_FATAL), &desc);
 
 	if (ret != 0)
 		pr_warn("Failed to set XPU violations as fatal errors: %d\n",
