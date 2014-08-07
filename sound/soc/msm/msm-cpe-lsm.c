@@ -499,6 +499,43 @@ static int msm_cpe_lsm_close(struct snd_pcm_substream *substream)
 	return rc;
 }
 
+static int msm_cpe_lsm_get_conf_levels(
+		struct cpe_lsm_session *session,
+		u8 *conf_levels_ptr)
+{
+	int rc = 0;
+
+	if (session->num_confidence_levels <= 0) {
+		pr_debug("%s: conf_levels (%u), skip set params\n",
+			 __func__,
+			session->num_confidence_levels);
+		goto done;
+	}
+
+	session->conf_levels = kzalloc(session->num_confidence_levels,
+				       GFP_KERNEL);
+	if (!session->conf_levels) {
+		pr_err("%s: No memory for confidence levels %u\n",
+			__func__, session->num_confidence_levels);
+		rc = -ENOMEM;
+		goto done;
+	}
+
+	if (copy_from_user(session->conf_levels,
+			   conf_levels_ptr,
+			   session->num_confidence_levels)) {
+		pr_err("%s: copy_from_user failed for confidence levels %u\n",
+			__func__, session->num_confidence_levels);
+		kfree(session->conf_levels);
+		session->conf_levels = NULL;
+		rc = -EFAULT;
+		goto done;
+	}
+
+done:
+	return rc;
+}
+
 /*
  * msm_cpe_lsm_ioctl_shared: Shared IOCTL for this platform driver
  * @substream: ASoC substream for which the operation is invoked
@@ -520,6 +557,7 @@ static int msm_cpe_lsm_ioctl_shared(struct snd_pcm_substream *substream,
 	struct wcd_cpe_lsm_lab *lab_sess = NULL;
 	struct snd_dma_buffer *dma_buf = &substream->dma_buffer;
 	struct snd_lsm_event_status *user;
+	struct snd_lsm_detection_params det_params;
 	int rc = 0;
 
 	if (!cpe || !cpe->core_handle) {
@@ -629,33 +667,17 @@ static int msm_cpe_lsm_ioctl_shared(struct snd_pcm_substream *substream,
 		memcpy(&snd_model, arg,
 			sizeof(struct snd_lsm_sound_model_v2));
 
-		if (snd_model.num_confidence_levels <= 0) {
-			dev_err(rtd->dev,
-				"%s: Invalid number of confidence levels %u\n",
-				__func__, snd_model.num_confidence_levels);
-			return -EINVAL;
-		}
-
-		session->conf_levels = kzalloc(snd_model.num_confidence_levels,
-					       GFP_KERNEL);
-		if (!session->conf_levels) {
-			dev_err(rtd->dev,
-				"%s: No memory for confidence levels %u\n",
-				__func__, snd_model.num_confidence_levels);
-			return -ENOMEM;
-		}
-
-		if (copy_from_user(session->conf_levels,
-				   snd_model.confidence_level,
-				   snd_model.num_confidence_levels)) {
-			dev_err(rtd->dev,
-				"%s: copy_from_user failed for confidence levels %u\n",
-				__func__, snd_model.num_confidence_levels);
-			kfree(session->conf_levels);
-			return -EFAULT;
-		}
 		session->num_confidence_levels =
 				snd_model.num_confidence_levels;
+		rc = msm_cpe_lsm_get_conf_levels(session,
+				snd_model.confidence_level);
+		if (rc) {
+			dev_err(rtd->dev,
+				"%s: %s get_conf_levels fail, err = %d\n",
+				__func__, "SNDRV_LSM_REG_SND_MODEL_V2",
+				rc);
+			break;
+		}
 
 		session->snd_model_data = kzalloc(snd_model.data_size,
 						  GFP_KERNEL);
@@ -728,6 +750,8 @@ static int msm_cpe_lsm_ioctl_shared(struct snd_pcm_substream *substream,
 
 		kfree(session->snd_model_data);
 		kfree(session->conf_levels);
+		session->snd_model_data = NULL;
+		session->conf_levels = NULL;
 
 		rc = lsm_ops->lsm_shmem_dealloc(cpe->core_handle, session);
 		if (rc != 0) {
@@ -831,9 +855,54 @@ static int msm_cpe_lsm_ioctl_shared(struct snd_pcm_substream *substream,
 		}
 		break;
 
+	case SNDRV_LSM_SET_PARAMS:
+		if (!arg) {
+			dev_err(rtd->dev,
+				"%s: %s Invalid argument\n",
+				__func__, "SNDRV_LSM_SET_PARAMS");
+			return -EINVAL;
+		}
+		memcpy(&det_params, arg,
+			sizeof(det_params));
+		if (det_params.num_confidence_levels <= 0) {
+			dev_err(rtd->dev,
+				"%s: %s: Invalid confidence levels %u\n",
+				__func__, "SNDRV_LSM_SET_PARAMS",
+				det_params.num_confidence_levels);
+			return -EINVAL;
+		}
+
+		session->num_confidence_levels =
+				det_params.num_confidence_levels;
+		rc = msm_cpe_lsm_get_conf_levels(session,
+						det_params.conf_level);
+		if (rc) {
+			dev_err(rtd->dev,
+				"%s: %s get_conf_levels fail, err = %d\n",
+				__func__, "SNDRV_LSM_SET_PARAMS",
+				rc);
+			break;
+		}
+
+		rc = lsm_ops->lsm_set_data(cpe->core_handle, session,
+					   det_params.detect_mode,
+					   det_params.detect_failure);
+		if (rc) {
+			dev_err(rtd->dev,
+				"%s: lsm_set_data failed, err = %d\n",
+				__func__, rc);
+			return rc;
+		}
+
+		kfree(session->conf_levels);
+		session->conf_levels = NULL;
+
+		break;
+
 	default:
-		dev_dbg(rtd->dev, "%s: Default snd_lib_ioctl cmd 0x%x\n",
-		       __func__, cmd);
+		dev_dbg(rtd->dev,
+			"%s: Default snd_lib_ioctl cmd 0x%x\n",
+			__func__, cmd);
 		rc = snd_pcm_lib_ioctl(substream, cmd, arg);
 	}
 
@@ -947,7 +1016,8 @@ static int msm_cpe_lsm_ioctl(struct snd_pcm_substream *substream,
 			return -EFAULT;
 		}
 
-		err = msm_cpe_lsm_ioctl_shared(substream, cmd, arg);
+		err = msm_cpe_lsm_ioctl_shared(substream, cmd,
+					       &snd_model);
 	}
 		break;
 	case SNDRV_LSM_EVENT_STATUS: {
@@ -992,7 +1062,22 @@ static int msm_cpe_lsm_ioctl(struct snd_pcm_substream *substream,
 		kfree(event_status);
 	}
 		break;
+	case SNDRV_LSM_SET_PARAMS: {
+		struct snd_lsm_detection_params det_params;
 
+		if (copy_from_user(&det_params, (void *) arg,
+				   sizeof(det_params))) {
+			dev_err(rtd->dev,
+				"%s: %s: copy_from_user failed, size = %zd\n",
+				__func__, "SNDRV_LSM_SET_PARAMS",
+				sizeof(det_params));
+			return -EFAULT;
+		}
+
+		err = msm_cpe_lsm_ioctl_shared(substream, cmd,
+					       &det_params);
+	}
+		break;
 	default:
 		err = msm_cpe_lsm_ioctl_shared(substream, cmd, arg);
 		break;
@@ -1016,11 +1101,20 @@ struct snd_lsm_sound_model_v2_32 {
 	bool detect_failure;
 };
 
+struct snd_lsm_detection_params_32 {
+	compat_uptr_t conf_level;
+	enum lsm_detection_mode detect_mode;
+	u8 num_confidence_levels;
+	bool detect_failure;
+};
+
 enum {
 	SNDRV_LSM_EVENT_STATUS32 =
 		_IOW('U', 0x02, struct snd_lsm_event_status32),
 	SNDRV_LSM_REG_SND_MODEL_V2_32 =
 		_IOW('U', 0x07, struct snd_lsm_sound_model_v2_32),
+	SNDRV_LSM_SET_PARAMS32 =
+		_IOW('U', 0x0A, struct snd_lsm_detection_params_32),
 };
 
 static int msm_cpe_lsm_ioctl_compat(struct snd_pcm_substream *substream,
@@ -1173,6 +1267,36 @@ static int msm_cpe_lsm_ioctl_compat(struct snd_pcm_substream *substream,
 		kfree(udata_32);
 	}
 		break;
+	case SNDRV_LSM_SET_PARAMS32: {
+		struct snd_lsm_detection_params_32 det_params32;
+		struct snd_lsm_detection_params det_params;
+		if (copy_from_user(&det_params32, arg,
+				   sizeof(det_params32))) {
+			err = -EFAULT;
+			dev_err(rtd->dev,
+				"%s: %s: copy_from_user failed, size = %zd\n",
+				__func__, "SNDRV_LSM_SET_PARAMS_32",
+				sizeof(det_params32));
+		} else {
+			det_params.conf_level =
+				compat_ptr(det_params32.conf_level);
+			det_params.detect_mode =
+				det_params32.detect_mode;
+			det_params.num_confidence_levels =
+				det_params32.num_confidence_levels;
+			det_params.detect_failure =
+				det_params32.detect_failure;
+			cmd = SNDRV_LSM_SET_PARAMS;
+			err = msm_cpe_lsm_ioctl_shared(substream, cmd,
+						  &det_params);
+			if (err)
+				dev_err(rtd->dev,
+					"%s: ioctl %s failed\n", __func__,
+					"SNDRV_LSM_SET_PARAMS");
+		}
+
+		break;
+	}
 
 	default:
 		err = msm_cpe_lsm_ioctl_shared(substream, cmd, arg);

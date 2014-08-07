@@ -2036,6 +2036,44 @@ static int wcd_cpe_lsm_set_conf_levels(
 	return ret;
 }
 
+int wcd_cpe_lsm_set_data(void *core_handle,
+			struct cpe_lsm_session *session,
+			enum lsm_detection_mode detect_mode,
+			bool detect_failure)
+{
+	struct wcd_cpe_core *core = core_handle;
+	int ret = 0;
+
+	WCD_CPE_GRAB_LOCK(&session->lsm_lock, "lsm");
+	if (session->num_confidence_levels > 0) {
+		ret = wcd_cpe_lsm_set_params(core, session, detect_mode,
+				       detect_failure);
+		if (ret) {
+			dev_err(core->dev,
+				"%s: lsm set params failed, rc = %d\n",
+				__func__, ret);
+			goto err_ret;
+		}
+
+		ret = wcd_cpe_lsm_set_conf_levels(core, session);
+		if (ret) {
+			dev_err(core->dev,
+				"%s: lsm confidence levels failed, rc = %d\n",
+				__func__, ret);
+			goto err_ret;
+		}
+	} else {
+		dev_dbg(core->dev,
+			"%s: no conf levels to set\n",
+			__func__);
+	}
+
+err_ret:
+	WCD_CPE_REL_LOCK(&session->lsm_lock, "lsm");
+	return ret;
+}
+EXPORT_SYMBOL(wcd_cpe_lsm_set_data);
+
 /*
  * wcd_cpe_lsm_reg_snd_model: register the sound model for listen
  * @session: session for which to register the sound model
@@ -2059,23 +2097,16 @@ static int wcd_cpe_lsm_reg_snd_model(void *core_handle,
 	if (ret)
 		return ret;
 
-	WCD_CPE_GRAB_LOCK(&session->lsm_lock, "lsm");
-	ret = wcd_cpe_lsm_set_params(core, session, detect_mode,
-			       detect_failure);
+	ret = wcd_cpe_lsm_set_data(core_handle, session,
+				   detect_mode, detect_failure);
 	if (ret) {
 		dev_err(core->dev,
-			"%s: lsm set params failed, rc = %d\n",
+			"%s: fail to set lsm data, err = %d\n",
 			__func__, ret);
-		goto err_ret;
+		return ret;
 	}
 
-	ret = wcd_cpe_lsm_set_conf_levels(core, session);
-	if (ret) {
-		dev_err(core->dev,
-			"%s: lsm confidence levels failed, rc = %d\n",
-			__func__, ret);
-		goto err_ret;
-	}
+	WCD_CPE_GRAB_LOCK(&session->lsm_lock, "lsm");
 
 	ret = fill_cmi_header(&obm_msg.hdr, session->id,
 			CMI_CPE_LSM_SERVICE_ID, 0, 20,
@@ -2812,6 +2843,7 @@ int wcd_cpe_get_lsm_ops(struct wcd_cpe_lsm_ops *lsm_ops)
 	lsm_ops->lsm_lab_data_channel_read = slim_master_read;
 	lsm_ops->lsm_lab_data_channel_read_status = slim_master_read_status;
 	lsm_ops->lsm_lab_data_channel_open = slim_master_read_enable;
+	lsm_ops->lsm_set_data = wcd_cpe_lsm_set_data;
 	return 0;
 }
 EXPORT_SYMBOL(wcd_cpe_get_lsm_ops);
