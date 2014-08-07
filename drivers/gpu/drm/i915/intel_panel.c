@@ -636,7 +636,9 @@ void intel_panel_set_backlight(struct intel_connector *connector, u32 level,
 
 	mutex_unlock(&dev_priv->backlight_lock);
 
-	if (dev_priv->vbt.has_mipi)
+	if (dev_priv->vbt.has_mipi && dev_priv->dpst.enabled)
+		i915_dpst_set_brightness(dev, level);
+	else if (dev_priv->vbt.has_mipi)
 		intel_panel_actually_set_backlight(connector, level);
 }
 
