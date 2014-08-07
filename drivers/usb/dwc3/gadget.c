@@ -1385,27 +1385,9 @@ static int __dwc3_gadget_ep_queue(struct dwc3_ep *dep, struct dwc3_request *req)
 static int dwc3_gadget_wakeup(struct usb_gadget *g)
 {
 	struct dwc3		*dwc = gadget_to_dwc(g);
-	unsigned long		flags;
-	int			ret = 0;
 
-	spin_lock_irqsave(&dwc->lock, flags);
-
-	if (atomic_read(&dwc->in_lpm)) {
-		schedule_work(&dwc->wakeup_work);
-		pr_debug("Core is in low-power mode. Scheduling wakeup work.\n");
-		ret = -EBUSY;
-	} else {
-		pr_debug("Core is active. Initiating remote wakeup.\n");
-		ret = dwc3_gadget_wakeup_int(dwc);
-		if (ret)
-			pr_err("Remote wakeup failed. ret = %d\n", ret);
-		else
-			pr_debug("Remote wake up succeeded.\n");
-	}
-
-	spin_unlock_irqrestore(&dwc->lock, flags);
-
-	return ret;
+	schedule_work(&dwc->wakeup_work);
+	return 0;
 }
 
 static inline enum dwc3_link_state dwc3_get_link_state(struct dwc3 *dwc)
@@ -1740,7 +1722,6 @@ static int dwc3_gadget_wakeup_int(struct dwc3 *dwc)
 	if (!link_recover_only)
 		dwc3_gadget_wakeup_interrupt(dwc);
 out:
-
 	return ret;
 }
 
@@ -1760,6 +1741,11 @@ static int dwc_gadget_func_wakeup(struct usb_gadget *g, int interface_id)
 
 	ret = dwc3_send_gadget_generic_command(dwc,
 		DWC3_DGCMD_XMIT_FUNCTION, interface_id);
+
+	if (ret)
+		pr_err("Function wakeup HW command failed.\n");
+	else
+		pr_debug("Function wakeup HW command succeeded.\n");
 
 	return ret;
 }
