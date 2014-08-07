@@ -700,7 +700,8 @@ int ipa_init_hw(void)
 		return -EFAULT;
 
 	/* set ipa_bcr to 0xFFFFFFFF for using new IPA behavior */
-	ipa_write_reg(ipa_ctx->mmio, IPA_BCR_OFST, IPA_BCR_REG_VAL);
+	if (ipa_ctx->ipa_hw_type == IPA_HW_v2_5)
+		ipa_write_reg(ipa_ctx->mmio, IPA_BCR_OFST, IPA_BCR_REG_VAL);
 
 	return 0;
 }
@@ -2355,7 +2356,6 @@ int ipa_cfg_ep_ctrl(u32 clnt_hdl, const struct ipa_ep_cfg_ctrl *ep_ctrl)
 
 }
 EXPORT_SYMBOL(ipa_cfg_ep_ctrl);
-
 
 const char *ipa_get_mode_type_str(enum ipa_mode_type mode)
 {
