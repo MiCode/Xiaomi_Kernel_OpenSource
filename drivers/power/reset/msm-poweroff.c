@@ -74,6 +74,25 @@ static struct notifier_block panic_blk = {
 	.notifier_call	= panic_prep_restart,
 };
 
+int scm_set_dload_mode(int arg1, int arg2)
+{
+	struct scm_desc desc = {
+		.args[0] = arg1,
+		.args[1] = arg2,
+		.arginfo = SCM_ARGS(2),
+	};
+
+	if (!scm_dload_supported)
+		return 0;
+
+	if (!is_scm_armv8())
+		return scm_call_atomic2(SCM_SVC_BOOT, SCM_DLOAD_CMD, arg1,
+					arg2);
+
+	return scm_call2_atomic(SCM_SIP_FNID(SCM_SVC_BOOT, SCM_DLOAD_CMD),
+				&desc);
+}
+
 static void set_dload_mode(int on)
 {
 	int ret;
@@ -85,12 +104,9 @@ static void set_dload_mode(int on)
 		mb();
 	}
 
-	if (scm_dload_supported) {
-		ret = scm_call_atomic2(SCM_SVC_BOOT,
-				SCM_DLOAD_CMD, on ? SCM_DLOAD_MODE : 0, 0);
-		if (ret)
-			pr_err("Failed to set DLOAD mode: %d\n", ret);
-	}
+	ret = scm_set_dload_mode(on ? SCM_DLOAD_MODE : 0, 0);
+	if (ret)
+		pr_err("Failed to set secure DLOAD mode: %d\n", ret);
 
 	dload_mode_enabled = on;
 }
@@ -120,12 +136,9 @@ static void enable_emergency_dload_mode(void)
 		mb();
 	}
 
-	if (scm_dload_supported) {
-		ret = scm_call_atomic2(SCM_SVC_BOOT,
-				SCM_DLOAD_CMD, SCM_EDLOAD_MODE, 0);
-		if (ret)
-			pr_err("Failed to set EDLOAD mode: %d\n", ret);
-	}
+	ret = scm_set_dload_mode(SCM_EDLOAD_MODE, 0);
+	if (ret)
+		pr_err("Failed to set secure EDLOAD mode: %d\n", ret);
 }
 
 static int dload_set(const char *val, struct kernel_param *kp)
@@ -176,9 +189,19 @@ EXPORT_SYMBOL(msm_set_restart_mode);
  */
 static void halt_spmi_pmic_arbiter(void)
 {
+	struct scm_desc desc = {
+		.args[0] = 0,
+		.arginfo = SCM_ARGS(1),
+	};
+
 	if (scm_pmic_arbiter_disable_supported) {
 		pr_crit("Calling SCM to disable SPMI PMIC arbiter\n");
-		scm_call_atomic1(SCM_SVC_PWR, SCM_IO_DISABLE_PMIC_ARBITER, 0);
+		if (!is_scm_armv8())
+			scm_call_atomic1(SCM_SVC_PWR,
+					 SCM_IO_DISABLE_PMIC_ARBITER, 0);
+		else
+			scm_call2_atomic(SCM_SIP_FNID(SCM_SVC_PWR,
+				  SCM_IO_DISABLE_PMIC_ARBITER), &desc);
 	}
 }
 
@@ -234,16 +257,25 @@ static void msm_restart_prepare(const char *cmd)
 static void do_msm_restart(enum reboot_mode reboot_mode, const char *cmd)
 {
 	int ret;
+	struct scm_desc desc = {
+		.args[0] = 1,
+		.args[1] = 0,
+		.arginfo = SCM_ARGS(2),
+	};
 
 	pr_notice("Going down for restart now\n");
 
 	msm_restart_prepare(cmd);
 
 	/* Needed to bypass debug image on some chips */
-	ret = scm_call_atomic2(SCM_SVC_BOOT,
+	if (!is_scm_armv8())
+		ret = scm_call_atomic2(SCM_SVC_BOOT,
 			       SCM_WDOG_DEBUG_BOOT_PART, 1, 0);
+	else
+		ret = scm_call2_atomic(SCM_SIP_FNID(SCM_SVC_BOOT,
+			  SCM_WDOG_DEBUG_BOOT_PART), &desc);
 	if (ret)
-		pr_err("Failed to disable wdog debug: %d\n", ret);
+		pr_err("Failed to disable secure wdog debug: %d\n", ret);
 
 	halt_spmi_pmic_arbiter();
 	__raw_writel(0, msm_ps_hold);
@@ -254,6 +286,11 @@ static void do_msm_restart(enum reboot_mode reboot_mode, const char *cmd)
 static void do_msm_poweroff(void)
 {
 	int ret;
+	struct scm_desc desc = {
+		.args[0] = 1,
+		.args[1] = 0,
+		.arginfo = SCM_ARGS(2),
+	};
 
 	pr_notice("Powering off the SoC\n");
 #ifdef CONFIG_MSM_DLOAD_MODE
@@ -261,8 +298,12 @@ static void do_msm_poweroff(void)
 #endif
 	qpnp_pon_system_pwr_off(PON_POWER_OFF_SHUTDOWN);
 	/* Needed to bypass debug image on some chips */
-	ret = scm_call_atomic2(SCM_SVC_BOOT,
+	if (!is_scm_armv8())
+		ret = scm_call_atomic2(SCM_SVC_BOOT,
 			       SCM_WDOG_DEBUG_BOOT_PART, 1, 0);
+	else
+		ret = scm_call2_atomic(SCM_SIP_FNID(SCM_SVC_BOOT,
+			  SCM_WDOG_DEBUG_BOOT_PART), &desc);
 	if (ret)
 		pr_err("Failed to disable wdog debug: %d\n", ret);
 
