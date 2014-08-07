@@ -73,7 +73,6 @@ static const struct net_device_ops wl_cfgp2p_if_ops = {
 };
 #endif /* WL_ENABLE_P2P_IF */
 
-
 bool wl_cfgp2p_is_pub_action(void *frame, u32 frame_len)
 {
 	wifi_p2p_pub_act_frame_t *pact_frm;
@@ -1592,7 +1591,7 @@ wl_cfgp2p_listen_complete(struct bcm_cfg80211 *cfg, bcm_struct_cfgdev *cfgdev,
 #endif /* WL_CFG80211_VSDB_PRIORITIZE_SCAN_REQUEST */
 			if (ndev && (ndev->ieee80211_ptr != NULL)) {
 #if defined(WL_CFG80211_P2P_DEV_IF)
-				cfg80211_remain_on_channel_expired(cfgdev, cfg->last_roc_id,
+				cfg80211_remain_on_channel_expired(bcmcfg_to_p2p_wdev(cfg), cfg->last_roc_id,
 					&cfg->remain_on_chan, GFP_KERNEL);
 #else
 				cfg80211_remain_on_channel_expired(cfgdev, cfg->last_roc_id,
@@ -1648,7 +1647,7 @@ wl_cfgp2p_cancel_listen(struct bcm_cfg80211 *cfg, struct net_device *ndev,
 		if (notify) {
 #if defined(WL_CFG80211_P2P_DEV_IF)
 			if (wdev)
-				cfg80211_remain_on_channel_expired(wdev, cfg->last_roc_id,
+				cfg80211_remain_on_channel_expired(bcmcfg_to_p2p_wdev(cfg), cfg->last_roc_id,
 					&cfg->remain_on_chan, GFP_KERNEL);
 #else
 			if (ndev && ndev->ieee80211_ptr)
