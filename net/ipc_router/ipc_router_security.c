@@ -42,7 +42,7 @@ struct security_rule {
 	uint32_t instance_id;
 	unsigned reserved;
 	int num_group_info;
-	gid_t *group_id;
+	kgid_t *group_id;
 };
 
 static DECLARE_RWSEM(security_rules_lock_lha4);
@@ -82,7 +82,8 @@ void signal_irsc_completion(void)
 int check_permissions(void)
 {
 	int rc = 0;
-	if (!current_euid() || in_egroup_p(AID_NET_RAW))
+	if (uid_eq(current_euid(), GLOBAL_ROOT_UID) ||
+	    in_egroup_p(KGIDT_INIT(AID_NET_RAW)))
 		rc = 1;
 	return rc;
 }
@@ -103,10 +104,13 @@ int msm_ipc_config_sec_rules(void *arg)
 	struct config_sec_rules_args sec_rules_arg;
 	struct security_rule *rule, *temp_rule;
 	int key;
-	size_t group_info_sz;
+	size_t kgroup_info_sz;
 	int ret;
+	size_t group_info_sz;
+	gid_t *group_id = NULL;
+	int loop;
 
-	if (current_euid())
+	if (!uid_eq(current_euid(), GLOBAL_ROOT_UID))
 		return -EPERM;
 
 	ret = copy_from_user(&sec_rules_arg, (void *)arg,
@@ -124,15 +128,30 @@ int msm_ipc_config_sec_rules(void *arg)
 	}
 	group_info_sz = sec_rules_arg.num_group_info * sizeof(gid_t);
 
+	if (sec_rules_arg.num_group_info > (SIZE_MAX / sizeof(kgid_t))) {
+		pr_err("%s: Integer Overflow %zu * %d\n", __func__,
+			sizeof(kgid_t), sec_rules_arg.num_group_info);
+		return -EINVAL;
+	}
+	kgroup_info_sz = sec_rules_arg.num_group_info * sizeof(kgid_t);
+
 	rule = kzalloc(sizeof(struct security_rule), GFP_KERNEL);
 	if (!rule) {
 		pr_err("%s: security_rule alloc failed\n", __func__);
 		return -ENOMEM;
 	}
 
-	rule->group_id = kzalloc(group_info_sz, GFP_KERNEL);
+	rule->group_id = kzalloc(kgroup_info_sz, GFP_KERNEL);
 	if (!rule->group_id) {
+		pr_err("%s: kgroup_id alloc failed\n", __func__);
+		kfree(rule);
+		return -ENOMEM;
+	}
+
+	group_id = kzalloc(group_info_sz, GFP_KERNEL);
+	if (!group_id) {
 		pr_err("%s: group_id alloc failed\n", __func__);
+		kfree(rule->group_id);
 		kfree(rule);
 		return -ENOMEM;
 	}
@@ -141,14 +160,17 @@ int msm_ipc_config_sec_rules(void *arg)
 	rule->instance_id = sec_rules_arg.instance_id;
 	rule->reserved = sec_rules_arg.reserved;
 	rule->num_group_info = sec_rules_arg.num_group_info;
-	ret = copy_from_user(rule->group_id,
-			     ((void *)(arg + sizeof(sec_rules_arg))),
+	ret = copy_from_user(group_id, ((void *)(arg + sizeof(sec_rules_arg))),
 			     group_info_sz);
 	if (ret) {
+		kfree(group_id);
 		kfree(rule->group_id);
 		kfree(rule);
 		return -EFAULT;
 	}
+	for (loop = 0; loop < rule->num_group_info; loop++)
+		rule->group_id[loop] = KGIDT_INIT(group_id[loop]);
+	kfree(group_id);
 
 	key = rule->service_id & (SEC_RULES_HASH_SZ - 1);
 	down_write(&security_rules_lock_lha4);
@@ -192,7 +214,7 @@ static int msm_ipc_add_default_rule(void)
 		return -ENOMEM;
 	}
 
-	rule->group_id = kzalloc(sizeof(int), GFP_KERNEL);
+	rule->group_id = kzalloc(sizeof(*(rule->group_id)), GFP_KERNEL);
 	if (!rule->group_id) {
 		pr_err("%s: group_id alloc failed\n", __func__);
 		kfree(rule);
@@ -202,7 +224,7 @@ static int msm_ipc_add_default_rule(void)
 	rule->service_id = ALL_SERVICE;
 	rule->instance_id = ALL_INSTANCE;
 	rule->num_group_info = 1;
-	*(rule->group_id) = AID_NET_RAW;
+	*(rule->group_id) = KGIDT_INIT(AID_NET_RAW);
 	down_write(&security_rules_lock_lha4);
 	key = (ALL_SERVICE & (SEC_RULES_HASH_SZ - 1));
 	list_add_tail(&rule->list, &security_rules[key]);
@@ -277,7 +299,7 @@ int msm_ipc_check_send_permissions(void *data)
 	struct security_rule *rule = (struct security_rule *)data;
 
 	/* Source/Sender is Root user */
-	if (!current_euid())
+	if (uid_eq(current_euid(), GLOBAL_ROOT_UID))
 		return 1;
 
 	/* Destination has no rules defined, possibly a client. */
