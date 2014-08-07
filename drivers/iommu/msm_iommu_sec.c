@@ -677,7 +677,7 @@ static int msm_iommu_sec_ptbl_unmap(struct msm_iommu_drvdata *iommu_drvdata,
 	return ret;
 }
 
-static int msm_iommu_domain_init(struct iommu_domain *domain, int flags)
+static int msm_iommu_domain_init(struct iommu_domain *domain)
 {
 	struct msm_iommu_priv *priv;
 
