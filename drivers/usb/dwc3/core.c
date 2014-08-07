@@ -139,6 +139,94 @@ cleanup:
 
 }
 
+static int ulpi_write(struct dwc3 *dwc, u32 val, u32 reg)
+{
+	u32 val32 = 0, count = 200;
+	u8 tmp;
+
+	while (count) {
+		if (dwc3_readl(dwc->regs, GUSB2PHYACC0) & GUSB2PHYACC0_VSTSBSY)
+			udelay(1);
+		else
+			break;
+		count--;
+	}
+
+	if (!count) {
+		dev_err(dwc->dev, "USB2 PHY always busy!!\n");
+		return -EBUSY;
+	}
+
+	count = 10000;
+	if (reg & EXTEND_ULPI_REGISTER_ACCESS_MASK) {
+		dev_dbg(dwc->dev, "Access extend registers 0x%x\n", reg);
+		val32 = GUSB2PHYACC0_NEWREGREQ
+			| GUSB2PHYACC0_REGADDR(ULPI_ACCESS_EXTENDED)
+			| GUSB2PHYACC0_VCTRL(reg)
+			| GUSB2PHYACC0_REGWR | GUSB2PHYACC0_REGDATA(val);
+	} else {
+		dev_dbg(dwc->dev, "Access normal registers 0x%x\n", reg);
+		val32 = GUSB2PHYACC0_NEWREGREQ
+			| GUSB2PHYACC0_REGADDR(reg)
+			| GUSB2PHYACC0_REGWR
+			| GUSB2PHYACC0_REGDATA(val);
+	}
+	dwc3_writel(dwc->regs, GUSB2PHYACC0, val32);
+
+	while (count) {
+		if (dwc3_readl(dwc->regs, GUSB2PHYACC0) &
+			GUSB2PHYACC0_VSTSDONE) {
+			dev_dbg(dwc->dev, "%s - reg 0x%x data 0x%x write done\n",
+				__func__, reg, val);
+			goto cleanup;
+		}
+
+		udelay(1);
+		count--;
+	}
+
+	dev_err(dwc->dev, "%s write PHY data failed.\n", __func__);
+
+	return -ETIMEDOUT;
+
+cleanup:
+	/* Clear GUSB2PHYACC0[16:21] before return.
+	 * Otherwise, it will cause PHY can't in workable
+	 * state. This is one dwc3 controller silicon bug. */
+	tmp = dwc3_readl(dwc->regs, GUSB2PHYACC0);
+	dwc3_writel(dwc->regs, GUSB2PHYACC0, tmp &
+		~GUSB2PHYACC0_REGADDR(0x3F));
+	return 0;
+}
+
+/* HACK: set optimal drive strength in phy, two improvements needed:
+ * 1. this code should be in a separate phy driver such that phy specific
+ *    setting is not tied to controllers.
+ * 2. platform specific tuning data should come from platform data, ACPI, etc.
+ *    Currently use max drive strength with default impedence.
+ */
+#define TUSB1211_VENDOR_SPECIFIC1_SET      0x81
+#define PWCTRL_SW_CONTROL (1 << 0)
+#define TUSB1211_POWER_CONTROL_SET 0x3E
+#define TUSB1211_EYE_DIAGRAM_TUNING 0x4f
+
+static void set_phy_eye_optim(struct dwc3 *dwc)
+{
+	if (ulpi_write(dwc, PWCTRL_SW_CONTROL, TUSB1211_POWER_CONTROL_SET))
+		return;
+	/* Modify VS1 for better quality in eye diagram */
+	if (ulpi_write(dwc, 0x4f, TUSB1211_VENDOR_SPECIFIC1_SET))
+		dev_err(dwc->dev, "Tuning ULPI phy eye diagram failed.\n");
+}
+
+static void dwc3_check_ulpi(struct dwc3 *dwc)
+{
+	if (ulpi_read(dwc, ULPI_VENDOR_ID_LOW) < 0)
+		dev_err(dwc->dev, "ULPI not working after DCTL soft reset\n");
+	else
+		dev_info(dwc->dev, "ULPI is working well");
+}
+
 /**
  * dwc3_core_soft_reset - Issues core soft reset and PHY reset
  * @dwc: pointer to our context structure
@@ -183,10 +271,8 @@ static void dwc3_core_soft_reset(struct dwc3 *dwc)
 	reg &= ~DWC3_GCTL_CORESOFTRESET;
 	dwc3_writel(dwc->regs, DWC3_GCTL, reg);
 
-	if (ulpi_read(dwc, ULPI_VENDOR_ID_LOW) < 0)
-		dev_err(dwc->dev, "ULPI not working after DCTL soft reset\n");
-	else
-		dev_info(dwc->dev, "ULPI is working well");
+	dwc3_check_ulpi(dwc);
+	set_phy_eye_optim(dwc);
  }
 
 /**
@@ -853,8 +939,11 @@ static int dwc3_resume_common(struct device *dev)
 		/* do nothing */
 		break;
 	}
+	set_phy_eye_optim(dwc);
 
 	spin_unlock_irqrestore(&dwc->lock, flags);
+
+	dwc3_check_ulpi(dwc);
 
 	return 0;
 }
