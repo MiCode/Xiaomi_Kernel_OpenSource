@@ -1578,7 +1578,8 @@ static void handle_fbd(enum command_response cmd, void *data)
 		default:
 			break;
 		}
-		if (msm_vidc_dcvs_mode && inst->dcvs_mode) {
+		if (msm_vidc_dcvs_mode && inst->dcvs_mode &&
+			fill_buf_done->filled_len1) {
 			msm_comm_monitor_ftb(inst);
 			rc = msm_comm_scale_clocks_dcvs(inst, true);
 			if (rc)
@@ -1994,10 +1995,10 @@ static int msm_comm_scale_clocks_dcvs(struct msm_vidc_inst *inst, bool fbd)
 		* more than high threshold
 		*/
 		if (!dcvs->change_initial_freq &&
-			buffers_outside_fw > dcvs->threshold_disp_buf_high)
+			buffers_outside_fw >= dcvs->threshold_disp_buf_high)
 			dcvs->change_initial_freq = true;
 
-		if (buffers_outside_fw > dcvs->threshold_disp_buf_high &&
+		if (buffers_outside_fw >= dcvs->threshold_disp_buf_high &&
 			!dcvs->prev_freq_increased) {
 			dcvs->load = dcvs->load_low;
 			dcvs->prev_freq_lowered = true;
