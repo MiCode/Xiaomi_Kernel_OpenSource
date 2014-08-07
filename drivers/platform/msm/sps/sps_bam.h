@@ -569,4 +569,13 @@ int sps_bam_pipe_timer_ctrl(struct sps_bam *dev, u32 pipe_index,
 int sps_bam_pipe_get_unused_desc_num(struct sps_bam *dev, u32 pipe_index,
 					u32 *desc_num);
 
+/*
+ * sps_bam_check_irq - check IRQ of a BAM device.
+ * @dev - pointer to BAM device descriptor
+ *
+ * This function checks any pending interrupt of a BAM device.
+ *
+ * Return: 0 on success, negative value on error
+ */
+int sps_bam_check_irq(struct sps_bam *dev);
 #endif	/* _SPSBAM_H_ */
