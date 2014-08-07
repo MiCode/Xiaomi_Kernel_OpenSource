@@ -7303,8 +7303,9 @@ int dhd_dev_get_feature_set(struct net_device *dev)
 		if (FW_SUPPORTED(dhd, rttd2d))
 			feature_set |= WIFI_FEATURE_D2D_RTT;
 	}
-	if (FW_SUPPORTED(dhd, proxd))
-		feature_set |= WIFI_FEATURE_D2AP_RTT;
+#ifdef RTT_SUPPORT
+	feature_set |= WIFI_FEATURE_D2AP_RTT;
+#endif /* RTT_SUPPORT */
 
 	/* Supports STA + STA always */
 	feature_set |= WIFI_FEATURE_ADDITIONAL_STA;
