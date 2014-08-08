@@ -40,6 +40,9 @@
 #include <mach/msm_pcie.h>
 #endif
 #include <net/cnss.h>
+#include <linux/crypto.h>
+#include <linux/scatterlist.h>
+
 #define subsys_to_drv(d) container_of(d, struct cnss_data, subsys_desc)
 
 #define VREG_ON			1
@@ -1746,6 +1749,34 @@ void cnss_set_driver_status(enum cnss_driver_status driver_status)
 	penv->driver_status = driver_status;
 }
 EXPORT_SYMBOL(cnss_set_driver_status);
+
+int cnss_get_sha_hash(const u8 *data, u32 data_len, u8 *hash_idx, u8 *out)
+{
+	struct scatterlist sg;
+	struct hash_desc desc;
+	int ret = 0;
+
+	if (!out) {
+		pr_err("memory for output buffer is not allocated\n");
+		ret = -EINVAL;
+		goto end;
+	}
+
+	desc.flags = CRYPTO_TFM_REQ_MAY_SLEEP;
+	desc.tfm   = crypto_alloc_hash(hash_idx, 0, CRYPTO_ALG_ASYNC);
+	if (IS_ERR(desc.tfm)) {
+		pr_err("crypto_alloc_hash failed:%ld\n", PTR_ERR(desc.tfm));
+		ret = PTR_ERR(desc.tfm);
+		goto end;
+	}
+
+	sg_init_one(&sg, data, data_len);
+	ret = crypto_hash_digest(&desc, &sg, sg.length, out);
+	crypto_free_hash(desc.tfm);
+end:
+	return ret;
+}
+EXPORT_SYMBOL(cnss_get_sha_hash);
 
 module_init(cnss_initialize);
 module_exit(cnss_exit);
