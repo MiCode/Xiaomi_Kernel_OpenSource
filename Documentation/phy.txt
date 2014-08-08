@@ -61,9 +61,9 @@ struct phy *devm_phy_create(struct device *dev, const struct phy_ops *ops,
 The PHY drivers can use one of the above 2 APIs to create the PHY by passing
 the device pointer, phy ops and init_data.
 phy_ops is a set of function pointers for performing PHY operations such as
-init, exit, power_on and power_off, , suspend, resume and advertise_quirks.
-*init_data* is mandatory to get a reference to the PHY in the case of non-dt
-boot. See section *Board File Initialization* on how init_data should be used.
+init, exit, power_on and power_off. *init_data* is mandatory to get a reference
+to the PHY in the case of non-dt boot. See section *Board File Initialization*
+on how init_data should be used.
 
 Inorder to dereference the private data (in phy_ops), the phy provider driver
 can use phy_set_drvdata() after creating the PHY and use phy_get_drvdata() in
