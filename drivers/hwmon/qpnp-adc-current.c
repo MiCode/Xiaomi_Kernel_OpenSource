@@ -70,7 +70,6 @@
 #define QPNP_ADC_DEC_RATIO_SEL_MASK			0xc
 #define QPNP_ADC_DIG_DEC_RATIO_SEL_SHIFT		2
 
-#define QPNP_HW_SETTLE_DELAY				0x51
 #define QPNP_CONV_REQ					0x52
 #define QPNP_CONV_REQ_SET				BIT(7)
 #define QPNP_CONV_SEQ_CTL				0x54
@@ -163,6 +162,7 @@ struct qpnp_iadc_chip {
 	bool					iadc_poll_eoc;
 	u16					batt_id_trim_cnst_rds;
 	int					rds_trim_default_type;
+	int					max_channels_available;
 	bool					rds_trim_default_check;
 	int32_t					rsense_workaround_value;
 	struct sensor_device_attribute		sens_attr[0];
@@ -802,13 +802,6 @@ static int32_t qpnp_iadc_configure(struct qpnp_iadc_chip *iadc,
 		return rc;
 	}
 
-	rc = qpnp_iadc_write_reg(iadc, QPNP_HW_SETTLE_DELAY,
-				iadc->adc->amux_prop->hw_settle_time);
-	if (rc < 0) {
-		pr_err("qpnp adc configure error for hw settling time setup\n");
-		return rc;
-	}
-
 	rc = qpnp_iadc_write_reg(iadc, QPNP_FAST_AVG_CTL,
 					iadc->adc->amux_prop->fast_avg_setup);
 	if (rc < 0) {
@@ -926,6 +919,9 @@ int32_t qpnp_iadc_calibrate_for_trim(struct qpnp_iadc_chip *iadc,
 		pr_debug("acquiring iadc eoc wakelock\n");
 		pm_stay_awake(iadc->dev);
 	}
+
+	iadc->adc->amux_prop->decimation = DECIMATION_TYPE1;
+	iadc->adc->amux_prop->fast_avg_setup = ADC_FAST_AVG_SAMPLE_1;
 
 	rc = qpnp_iadc_configure(iadc, GAIN_CALIBRATION_17P857MV,
 						&raw_data, mode_sel);
@@ -1170,6 +1166,7 @@ int32_t qpnp_iadc_read(struct qpnp_iadc_chip *iadc,
 	int32_t rsense_u_ohms = 0;
 	int64_t result_current;
 	uint16_t raw_data;
+	int dt_index = 0;
 
 	if (qpnp_iadc_is_valid(iadc) < 0)
 		return -EPROBE_DEFER;
@@ -1186,6 +1183,22 @@ int32_t qpnp_iadc_read(struct qpnp_iadc_chip *iadc,
 	}
 
 	mutex_lock(&iadc->adc->adc_lock);
+
+	while (((enum qpnp_iadc_channels)
+		iadc->adc->adc_channels[dt_index].channel_num
+		!= channel) && (dt_index < iadc->max_channels_available))
+		dt_index++;
+
+	if (dt_index >= iadc->max_channels_available) {
+		pr_err("not a valid IADC channel\n");
+		rc = -EINVAL;
+		goto fail;
+	}
+
+	iadc->adc->amux_prop->decimation =
+			iadc->adc->adc_channels[dt_index].adc_decimation;
+	iadc->adc->amux_prop->fast_avg_setup =
+			iadc->adc->adc_channels[dt_index].fast_avg_setup;
 
 	if (iadc->iadc_poll_eoc) {
 		pr_debug("acquiring iadc eoc wakelock\n");
@@ -1289,6 +1302,7 @@ int32_t qpnp_iadc_vadc_sync_read(struct qpnp_iadc_chip *iadc,
 	enum qpnp_vadc_channels v_channel, struct qpnp_vadc_result *v_result)
 {
 	int rc = 0, mode_sel = 0, num = 0, rsense_n_ohms = 0, sign = 0;
+	int dt_index = 0;
 	uint16_t raw_data;
 	int32_t rsense_u_ohms = 0;
 	int64_t result_current;
@@ -1315,6 +1329,22 @@ int32_t qpnp_iadc_vadc_sync_read(struct qpnp_iadc_chip *iadc,
 		pr_err("Configuring VADC failed\n");
 		goto fail;
 	}
+
+	while (((enum qpnp_iadc_channels)
+		iadc->adc->adc_channels[dt_index].channel_num
+		!= i_channel) && (dt_index < iadc->max_channels_available))
+		dt_index++;
+
+	if (dt_index >= iadc->max_channels_available) {
+		pr_err("not a valid IADC channel\n");
+		rc = -EINVAL;
+		goto fail;
+	}
+
+	iadc->adc->amux_prop->decimation =
+			iadc->adc->adc_channels[dt_index].adc_decimation;
+	iadc->adc->amux_prop->fast_avg_setup =
+			iadc->adc->adc_channels[dt_index].fast_avg_setup;
 
 	rc = qpnp_iadc_configure(iadc, i_channel, &raw_data, mode_sel);
 	if (rc < 0) {
@@ -1529,6 +1559,7 @@ static int qpnp_iadc_probe(struct spmi_device *spmi)
 		goto fail;
 	}
 
+	iadc->max_channels_available = count_adc_channel_list;
 	INIT_WORK(&iadc->trigger_completion_work, qpnp_iadc_trigger_completion);
 	INIT_DELAYED_WORK(&iadc->iadc_work, qpnp_iadc_work);
 	rc = qpnp_iadc_comp_info(iadc);
