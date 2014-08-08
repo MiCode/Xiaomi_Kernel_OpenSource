@@ -545,9 +545,10 @@ static void wcd9xxx_bring_down(struct wcd9xxx *wcd9xxx)
 static int wcd9xxx_reset(struct wcd9xxx *wcd9xxx)
 {
 	int ret;
+	struct wcd9xxx_pdata *pdata = wcd9xxx->dev->platform_data;
 
 	if (wcd9xxx->reset_gpio && wcd9xxx->slim_device_bootup
-			&& !wcd9xxx->use_pinctrl) {
+			&& !pdata->use_pinctrl) {
 		ret = gpio_request(wcd9xxx->reset_gpio, "CDC_RESET");
 		if (ret) {
 			pr_err("%s: Failed to request gpio %d\n", __func__,
@@ -557,19 +558,8 @@ static int wcd9xxx_reset(struct wcd9xxx *wcd9xxx)
 		}
 	}
 	if (wcd9xxx->reset_gpio) {
-		if (wcd9xxx->use_pinctrl) {
+		if (pdata->use_pinctrl) {
 			/* Reset the CDC PDM TLMM pins to a default state */
-			ret = pinctrl_select_state(pinctrl_info.pinctrl,
-				pinctrl_info.extncodec_act);
-			if (ret != 0) {
-				pr_err("%s: Failed to enable gpio pins; ret=%d\n",
-						__func__, ret);
-				return ret;
-			}
-			gpio_set_value_cansleep(wcd9xxx->reset_gpio, 0);
-			msleep(20);
-			gpio_set_value_cansleep(wcd9xxx->reset_gpio, 1);
-			msleep(20);
 			ret = pinctrl_select_state(pinctrl_info.pinctrl,
 					pinctrl_info.extncodec_sus);
 			if (ret != 0) {
@@ -577,6 +567,15 @@ static int wcd9xxx_reset(struct wcd9xxx *wcd9xxx)
 						__func__, ret);
 				return ret;
 			}
+			msleep(20);
+			ret = pinctrl_select_state(pinctrl_info.pinctrl,
+				pinctrl_info.extncodec_act);
+			if (ret != 0) {
+				pr_err("%s: Failed to enable gpio pins; ret=%d\n",
+						__func__, ret);
+				return ret;
+			}
+			msleep(20);
 		} else {
 			gpio_direction_output(wcd9xxx->reset_gpio, 0);
 			msleep(20);
@@ -589,8 +588,9 @@ static int wcd9xxx_reset(struct wcd9xxx *wcd9xxx)
 
 static void wcd9xxx_free_reset(struct wcd9xxx *wcd9xxx)
 {
+	struct wcd9xxx_pdata *pdata = wcd9xxx->dev->platform_data;
 	if (wcd9xxx->reset_gpio) {
-		if (!wcd9xxx->use_pinctrl) {
+		if (!pdata->use_pinctrl) {
 			gpio_free(wcd9xxx->reset_gpio);
 			wcd9xxx->reset_gpio = 0;
 		} else
@@ -1297,9 +1297,9 @@ static int wcd9xxx_i2c_probe(struct i2c_client *client,
 		}
 		ret = extcodec_get_pinctrl(&client->dev);
 		if (ret < 0)
-			wcd9xxx->use_pinctrl = false;
+			pdata->use_pinctrl = false;
 		else
-			wcd9xxx->use_pinctrl = true;
+			pdata->use_pinctrl = true;
 
 		if (i2c_check_functionality(client->adapter,
 					    I2C_FUNC_I2C) == 0) {
@@ -1814,6 +1814,12 @@ static int wcd9xxx_slim_probe(struct slim_device *slim)
 	wcd9xxx->dev = &slim->dev;
 	wcd9xxx->mclk_rate = pdata->mclk_rate;
 	wcd9xxx->slim_device_bootup = true;
+
+	ret = extcodec_get_pinctrl(&slim->dev);
+	if (ret < 0)
+		pdata->use_pinctrl = false;
+	else
+		pdata->use_pinctrl = true;
 
 	ret = wcd9xxx_init_supplies(wcd9xxx, pdata);
 	if (ret) {
