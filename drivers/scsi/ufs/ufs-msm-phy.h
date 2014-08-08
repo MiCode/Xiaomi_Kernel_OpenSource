@@ -142,6 +142,7 @@ struct ufs_msm_phy_specific_ops {
 	int (*calibrate_phy) (struct ufs_msm_phy *phy);
 	void (*start_serdes) (struct ufs_msm_phy *phy);
 	void (*save_configuration)(struct ufs_msm_phy *phy);
+	void (*restore_configuration)(struct ufs_msm_phy *phy);
 	int (*is_physical_coding_sublayer_ready) (struct ufs_msm_phy *phy);
 	void (*set_tx_lane_enable) (struct ufs_msm_phy *phy, u32 val);
 	void (*power_control) (struct ufs_msm_phy *phy, bool val);
@@ -171,6 +172,7 @@ int ufs_msm_phy_set_tx_lane_enable(struct phy *generic_phy, u32 tx_lanes);
 int ufs_msm_phy_calibrate_phy(struct phy *generic_phy);
 int ufs_msm_phy_is_pcs_ready(struct phy *generic_phy);
 int ufs_msm_phy_save_configuration(struct phy *generic_phy);
+int ufs_msm_phy_restore_configuration(struct phy *generic_phy);
 void ufs_msm_phy_save_controller_version(struct phy *generic_phy,
 			u8 major, u16 minor, u16 step);
 int ufs_msm_phy_power_on(struct phy *generic_phy);
