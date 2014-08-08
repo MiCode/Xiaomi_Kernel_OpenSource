@@ -10,9 +10,6 @@
  * GNU General Public License for more details.
  */
 
-
-/dts-v1/;
-
 #include "msm8994.dtsi"
 #include "msm8994-pinctrl.dtsi"
 

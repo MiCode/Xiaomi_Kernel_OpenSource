@@ -10,6 +10,9 @@
  * GNU General Public License for more details.
  */
 
+
+/dts-v1/;
+
 #include "apq8094.dtsi"
 #include "msm8994-mtp.dtsi"
 
