@@ -160,6 +160,7 @@ struct _mem_entry {
 	unsigned int size;
 	unsigned int flags;
 	unsigned int priv;
+	int pending_free;
 	pid_t pid;
 };
 
@@ -190,6 +191,7 @@ static void _prev_entry(struct kgsl_process_private *priv,
 			ret->size = entry->memdesc.size;
 			ret->flags = entry->memdesc.flags;
 			ret->priv = entry->memdesc.priv;
+			ret->pending_free = entry->pending_free;
 			ret->pid = priv->pid;
 		}
 
@@ -224,6 +226,7 @@ static void _next_entry(struct kgsl_process_private *priv,
 			ret->size = entry->memdesc.size;
 			ret->flags = entry->memdesc.flags;
 			ret->priv = entry->memdesc.priv;
+			ret->pending_free = entry->pending_free;
 			ret->pid = priv->pid;
 		}
 
@@ -268,10 +271,11 @@ static void _print_entry(struct kgsl_device *device, struct _mem_entry *entry)
 	kgsl_get_memory_usage(name, sizeof(name) - 1, entry->flags);
 
 	KGSL_LOG_DUMP(device,
-		"[%8.8X - %8.8X] %s (pid = %d) (%s)\n",
+		"[%8.8X - %8.8X] %s %s (pid = %d) (%s)\n",
 		entry->gpuaddr,
 		entry->gpuaddr + entry->size,
 		entry->priv & KGSL_MEMDESC_GUARD_PAGE ? "(+guard)" : "",
+		entry->pending_free ? "(pending free)" : "",
 		entry->pid, name);
 }
 
