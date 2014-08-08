@@ -219,6 +219,7 @@ config ARCH_MSMZIRC
 	select PINCTRL
 	select PINCTRL_MSM_TLMM
 	select USE_PINCTRL_IRQ
+	select PCI
 	select MSM_IRQ
 	select MSM_JTAG_MM if CORESIGHT_ETM
 
