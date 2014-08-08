@@ -430,6 +430,7 @@ struct arm_smmu_domain {
 	struct arm_smmu_device		*smmu;
 	struct arm_smmu_cfg		cfg;
 	spinlock_t			lock;
+	u32				attributes;
 };
 
 static DEFINE_SPINLOCK(arm_smmu_devices_lock);
@@ -837,14 +838,18 @@ static irqreturn_t arm_smmu_global_fault(int irq, void *dev)
 	return IRQ_HANDLED;
 }
 
-static void arm_smmu_flush_pgtable(struct arm_smmu_device *smmu, void *addr,
-				   size_t size)
+static void arm_smmu_flush_pgtable(struct arm_smmu_domain *smmu_domain,
+				   void *addr, size_t size)
 {
+	struct arm_smmu_device *smmu = smmu_domain->smmu;
 	unsigned long offset = (unsigned long)addr & ~PAGE_MASK;
+	int coherent_htw_disable = smmu_domain->attributes &
+		(1 << DOMAIN_ATTR_COHERENT_HTW_DISABLE);
 
 
 	/* Ensure new page tables are visible to the hardware walker */
-	if (smmu->features & ARM_SMMU_FEAT_COHERENT_WALK) {
+	if ((smmu->features & ARM_SMMU_FEAT_COHERENT_WALK)
+		&& !coherent_htw_disable) {
 		dsb(ishst);
 	} else {
 		/*
@@ -866,6 +871,8 @@ static void arm_smmu_init_context_bank(struct arm_smmu_domain *smmu_domain)
 	struct arm_smmu_cfg *cfg = &smmu_domain->cfg;
 	struct arm_smmu_device *smmu = smmu_domain->smmu;
 	void __iomem *cb_base, *gr0_base, *gr1_base;
+	int coherent_htw_disable = smmu_domain->attributes &
+		(1 << DOMAIN_ATTR_COHERENT_HTW_DISABLE);
 
 	gr0_base = ARM_SMMU_GR0(smmu);
 	gr1_base = ARM_SMMU_GR1(smmu);
@@ -949,7 +956,7 @@ static void arm_smmu_init_context_bank(struct arm_smmu_domain *smmu_domain)
 	}
 
 	/* TTBR0 */
-	arm_smmu_flush_pgtable(smmu, cfg->pgd,
+	arm_smmu_flush_pgtable(smmu_domain, cfg->pgd,
 			       PTRS_PER_PGD * sizeof(pgd_t));
 	reg = __pa(cfg->pgd);
 	writel_relaxed(reg, cb_base + ARM_SMMU_CB_TTBR0_LO);
@@ -959,8 +966,8 @@ static void arm_smmu_init_context_bank(struct arm_smmu_domain *smmu_domain)
 	writel_relaxed(reg, cb_base + ARM_SMMU_CB_TTBR0_HI);
 
 	/*
-	 * TTBCR
-	 * We use long descriptor, with inner-shareable WBWA tables in TTBR0.
+	 * TTBCR We use long descriptor, with inner-shareable WBWA tables
+	 * in TTBR0 when !coherent_htw_disable.
 	 */
 	if (smmu->version > ARM_SMMU_V1) {
 		if (PAGE_SIZE == SZ_4K)
@@ -998,10 +1005,13 @@ static void arm_smmu_init_context_bank(struct arm_smmu_domain *smmu_domain)
 		reg = 0;
 	}
 
-	reg |= TTBCR_EAE |
-	      (TTBCR_SH_IS << TTBCR_SH0_SHIFT) |
-	      (TTBCR_RGN_WBWA << TTBCR_ORGN0_SHIFT) |
-	      (TTBCR_RGN_WBWA << TTBCR_IRGN0_SHIFT);
+	reg |= TTBCR_EAE;
+
+	if (!coherent_htw_disable) {
+		reg |= (TTBCR_SH_IS << TTBCR_SH0_SHIFT) |
+			(TTBCR_RGN_WBWA << TTBCR_ORGN0_SHIFT) |
+			(TTBCR_RGN_WBWA << TTBCR_IRGN0_SHIFT);
+	}
 
 	if (!stage1)
 		reg |= (TTBCR_SL0_LVL_1 << TTBCR_SL0_SHIFT);
@@ -1451,7 +1461,8 @@ static bool arm_smmu_pte_is_contiguous_range(unsigned long addr,
 		(addr + ARM_SMMU_PTE_CONT_SIZE <= end);
 }
 
-static int arm_smmu_alloc_init_pte(struct arm_smmu_device *smmu, pmd_t *pmd,
+static int arm_smmu_alloc_init_pte(struct arm_smmu_domain *smmu_domain,
+				   pmd_t *pmd,
 				   unsigned long addr, unsigned long end,
 				   unsigned long pfn, int prot, int stage)
 {
@@ -1465,9 +1476,10 @@ static int arm_smmu_alloc_init_pte(struct arm_smmu_device *smmu, pmd_t *pmd,
 		if (!table)
 			return -ENOMEM;
 
-		arm_smmu_flush_pgtable(smmu, page_address(table), PAGE_SIZE);
+		arm_smmu_flush_pgtable(smmu_domain, page_address(table),
+				PAGE_SIZE);
 		pmd_populate(NULL, pmd, table);
-		arm_smmu_flush_pgtable(smmu, pmd, sizeof(*pmd));
+		arm_smmu_flush_pgtable(smmu_domain, pmd, sizeof(*pmd));
 	}
 
 	if (stage == 1) {
@@ -1541,7 +1553,7 @@ static int arm_smmu_alloc_init_pte(struct arm_smmu_device *smmu, pmd_t *pmd,
 				pte_val(*(cont_start + j)) &=
 					~ARM_SMMU_PTE_CONT;
 
-			arm_smmu_flush_pgtable(smmu, cont_start,
+			arm_smmu_flush_pgtable(smmu_domain, cont_start,
 					       sizeof(*pte) *
 					       ARM_SMMU_PTE_CONT_ENTRIES);
 		}
@@ -1551,11 +1563,13 @@ static int arm_smmu_alloc_init_pte(struct arm_smmu_device *smmu, pmd_t *pmd,
 		} while (pte++, pfn++, addr += PAGE_SIZE, --i);
 	} while (addr != end);
 
-	arm_smmu_flush_pgtable(smmu, start, sizeof(*pte) * (pte - start));
+	arm_smmu_flush_pgtable(smmu_domain, start,
+			sizeof(*pte) * (pte - start));
 	return 0;
 }
 
-static int arm_smmu_alloc_init_pmd(struct arm_smmu_device *smmu, pud_t *pud,
+static int arm_smmu_alloc_init_pmd(struct arm_smmu_domain *smmu_domain,
+				   pud_t *pud,
 				   unsigned long addr, unsigned long end,
 				   phys_addr_t phys, int prot, int stage)
 {
@@ -1569,9 +1583,9 @@ static int arm_smmu_alloc_init_pmd(struct arm_smmu_device *smmu, pud_t *pud,
 		if (!pmd)
 			return -ENOMEM;
 
-		arm_smmu_flush_pgtable(smmu, pmd, PAGE_SIZE);
+		arm_smmu_flush_pgtable(smmu_domain, pmd, PAGE_SIZE);
 		pud_populate(NULL, pud, pmd);
-		arm_smmu_flush_pgtable(smmu, pud, sizeof(*pud));
+		arm_smmu_flush_pgtable(smmu_domain, pud, sizeof(*pud));
 
 		pmd += pmd_index(addr);
 	} else
@@ -1580,7 +1594,7 @@ static int arm_smmu_alloc_init_pmd(struct arm_smmu_device *smmu, pud_t *pud,
 
 	do {
 		next = pmd_addr_end(addr, end);
-		ret = arm_smmu_alloc_init_pte(smmu, pmd, addr, next, pfn,
+		ret = arm_smmu_alloc_init_pte(smmu_domain, pmd, addr, next, pfn,
 					      prot, stage);
 		phys += next - addr;
 		pfn = __phys_to_pfn(phys);
@@ -1589,7 +1603,8 @@ static int arm_smmu_alloc_init_pmd(struct arm_smmu_device *smmu, pud_t *pud,
 	return ret;
 }
 
-static int arm_smmu_alloc_init_pud(struct arm_smmu_device *smmu, pgd_t *pgd,
+static int arm_smmu_alloc_init_pud(struct arm_smmu_domain *smmu_domain,
+				   pgd_t *pgd,
 				   unsigned long addr, unsigned long end,
 				   phys_addr_t phys, int prot, int stage)
 {
@@ -1603,9 +1618,9 @@ static int arm_smmu_alloc_init_pud(struct arm_smmu_device *smmu, pgd_t *pgd,
 		if (!pud)
 			return -ENOMEM;
 
-		arm_smmu_flush_pgtable(smmu, pud, PAGE_SIZE);
+		arm_smmu_flush_pgtable(smmu_domain, pud, PAGE_SIZE);
 		pgd_populate(NULL, pgd, pud);
-		arm_smmu_flush_pgtable(smmu, pgd, sizeof(*pgd));
+		arm_smmu_flush_pgtable(smmu_domain, pgd, sizeof(*pgd));
 
 		pud += pud_index(addr);
 	} else
@@ -1614,8 +1629,8 @@ static int arm_smmu_alloc_init_pud(struct arm_smmu_device *smmu, pgd_t *pgd,
 
 	do {
 		next = pud_addr_end(addr, end);
-		ret = arm_smmu_alloc_init_pmd(smmu, pud, addr, next, phys,
-					      prot, stage);
+		ret = arm_smmu_alloc_init_pmd(smmu_domain, pud, addr, next,
+					      phys, prot, stage);
 		phys += next - addr;
 	} while (pud++, addr = next, addr < end);
 
@@ -1662,8 +1677,8 @@ static int arm_smmu_handle_mapping(struct arm_smmu_domain *smmu_domain,
 	do {
 		unsigned long next = pgd_addr_end(iova, end);
 
-		ret = arm_smmu_alloc_init_pud(smmu, pgd, iova, next, paddr,
-					      prot, stage);
+		ret = arm_smmu_alloc_init_pud(smmu_domain, pgd, iova, next,
+					      paddr, prot, stage);
 		if (ret)
 			goto out_unlock;
 
@@ -1887,18 +1902,51 @@ static void arm_smmu_remove_device(struct device *dev)
 	iommu_group_remove_device(dev);
 }
 
+static int arm_smmu_domain_get_attr(struct iommu_domain *domain,
+				    enum iommu_attr attr, void *data)
+{
+	struct arm_smmu_domain *smmu_domain = domain->priv;
+
+	switch (attr) {
+	case DOMAIN_ATTR_COHERENT_HTW_DISABLE:
+		*((int *)data) = !!(smmu_domain->attributes &
+				(1 << DOMAIN_ATTR_COHERENT_HTW_DISABLE));
+		return 0;
+	default:
+		return -ENODEV;
+	}
+}
+
+static int arm_smmu_domain_set_attr(struct iommu_domain *domain,
+				    enum iommu_attr attr, void *data)
+{
+	struct arm_smmu_domain *smmu_domain = domain->priv;
+
+	switch (attr) {
+	case DOMAIN_ATTR_COHERENT_HTW_DISABLE:
+		if (*((int *)data))
+			smmu_domain->attributes |=
+				(1 << DOMAIN_ATTR_COHERENT_HTW_DISABLE);
+		return 0;
+	default:
+		return -ENODEV;
+	}
+}
+
 static struct iommu_ops arm_smmu_ops = {
-	.capable	= arm_smmu_capable,
-	.domain_init	= arm_smmu_domain_init,
-	.domain_destroy	= arm_smmu_domain_destroy,
-	.attach_dev	= arm_smmu_attach_dev,
-	.detach_dev	= arm_smmu_detach_dev,
-	.map		= arm_smmu_map,
-	.unmap		= arm_smmu_unmap,
-	.iova_to_phys	= arm_smmu_iova_to_phys,
-	.add_device	= arm_smmu_add_device,
-	.remove_device	= arm_smmu_remove_device,
-	.pgsize_bitmap	= (SECTION_SIZE |
+	.capable		= arm_smmu_capable,
+	.domain_init		= arm_smmu_domain_init,
+	.domain_destroy		= arm_smmu_domain_destroy,
+	.attach_dev		= arm_smmu_attach_dev,
+	.detach_dev		= arm_smmu_detach_dev,
+	.map			= arm_smmu_map,
+	.unmap			= arm_smmu_unmap,
+	.iova_to_phys		= arm_smmu_iova_to_phys,
+	.add_device		= arm_smmu_add_device,
+	.remove_device		= arm_smmu_remove_device,
+	.domain_get_attr	= arm_smmu_domain_get_attr,
+	.domain_set_attr	= arm_smmu_domain_set_attr,
+	.pgsize_bitmap		= (SECTION_SIZE |
 			   ARM_SMMU_PTE_CONT_SIZE |
 			   PAGE_SIZE),
 };
