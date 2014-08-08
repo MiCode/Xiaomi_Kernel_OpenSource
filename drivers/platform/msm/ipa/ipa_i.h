@@ -591,23 +591,6 @@ struct ipa_nat_mem {
 };
 
 /**
- * enum ipa_hw_type - IPA hardware version type
- * @IPA_HW_None: IPA hardware version not defined
- * @IPA_HW_v1_0: IPA hardware version 1.0, corresponding to ELAN 1.0
- * @IPA_HW_v1_1: IPA hardware version 1.1, corresponding to ELAN 2.0
- * @IPA_HW_v2_0: IPA hardware version 2.0
- * @IPA_HW_v2_5: IPA hardware version 2.5
- */
-enum ipa_hw_type {
-	IPA_HW_None = 0,
-	IPA_HW_v1_0 = 1,
-	IPA_HW_v1_1 = 2,
-	IPA_HW_v2_0 = 3,
-	IPA_HW_v2_1 = 4,
-	IPA_HW_v2_5 = 5
-};
-
-/**
  * enum ipa_hw_mode - IPA hardware mode
  * @IPA_HW_Normal: Regular IPA hardware
  * @IPA_HW_Virtual: IPA hardware supporting virtual memory allocation

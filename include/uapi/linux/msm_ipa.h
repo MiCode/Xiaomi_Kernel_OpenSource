@@ -281,6 +281,25 @@ enum ipa_rm_resource_name {
 };
 
 /**
+ * enum ipa_hw_type - IPA hardware version type
+ * @IPA_HW_None: IPA hardware version not defined
+ * @IPA_HW_v1_0: IPA hardware version 1.0
+ * @IPA_HW_v1_1: IPA hardware version 1.1
+ * @IPA_HW_v2_0: IPA hardware version 2.0
+ * @IPA_HW_v2_1: IPA hardware version 2.1
+ * @IPA_HW_v2_5: IPA hardware version 2.5
+ */
+enum ipa_hw_type {
+	IPA_HW_None = 0,
+	IPA_HW_v1_0 = 1,
+	IPA_HW_v1_1 = 2,
+	IPA_HW_v2_0 = 3,
+	IPA_HW_v2_1 = 4,
+	IPA_HW_v2_5 = 5,
+	IPA_HW_MAX
+};
+
+/**
  * struct ipa_rule_attrib - attributes of a routing/filtering
  * rule, all in LE
  * @attrib_mask: what attributes are valid
