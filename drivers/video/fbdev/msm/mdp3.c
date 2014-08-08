@@ -38,8 +38,9 @@
 #include <linux/bootmem.h>
 #include <linux/memblock.h>
 #include <linux/iopoll.h>
+#include <linux/clk/msm-clk.h>
+
 #include <mach/board.h>
-#include <mach/clk.h>
 #include <mach/hardware.h>
 #include <mach/msm_bus.h>
 #include <mach/msm_bus_board.h>
