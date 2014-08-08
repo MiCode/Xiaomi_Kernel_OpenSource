@@ -35,7 +35,7 @@
 #define HCIUARTGETFLAGS		_IOR('U', 204, int)
 
 /* UART protocols */
-#define HCI_UART_MAX_PROTO	6
+#define HCI_UART_MAX_PROTO	7
 
 #define HCI_UART_H4	0
 #define HCI_UART_BCSP	1
@@ -50,6 +50,8 @@
 #define HCI_UART_CREATE_AMP	2
 #define HCI_UART_INIT_PENDING	3
 #define HCI_UART_EXT_CONFIG	4
+
+#include <linux/interrupt.h>
 
 struct hci_uart;
 
@@ -111,6 +113,11 @@ int ll_deinit(void);
 #ifdef CONFIG_BT_HCIUART_ATH3K
 int ath_init(void);
 int ath_deinit(void);
+#endif
+
+#ifdef CONFIG_BT_HCIUART_IBS
+int ibs_init(void);
+int ibs_deinit(void);
 #endif
 
 #ifdef CONFIG_BT_HCIUART_3WIRE
