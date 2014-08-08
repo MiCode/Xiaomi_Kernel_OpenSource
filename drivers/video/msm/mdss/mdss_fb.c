@@ -49,7 +49,7 @@
 #include <mach/board.h>
 #include <mach/memory.h>
 #include <mach/iommu.h>
-#include <mach/iommu_domains.h>
+#include <linux/msm_iommu_domains.h>
 #include <mach/msm_memtypes.h>
 
 #include "mdss_fb.h"

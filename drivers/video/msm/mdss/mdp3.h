@@ -19,7 +19,7 @@
 #include <linux/platform_device.h>
 #include <linux/io.h>
 
-#include <mach/iommu_domains.h>
+#include <linux/msm_iommu_domains.h>
 
 #include "mdp3_dma.h"
 #include "mdss_fb.h"
