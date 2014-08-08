@@ -21,7 +21,7 @@
 #include <linux/iommu.h>
 
 #include <mach/iommu.h>
-#include <mach/iommu_domains.h>
+#include <linux/msm_iommu_domains.h>
 
 #include "mdss_mdp.h"
 #include "mdss_fb.h"
