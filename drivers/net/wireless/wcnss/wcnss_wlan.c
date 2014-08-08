@@ -1333,6 +1333,12 @@ struct device *wcnss_wlan_get_device(void)
 }
 EXPORT_SYMBOL(wcnss_wlan_get_device);
 
+void wcnss_get_monotonic_boottime(struct timespec *ts)
+{
+	get_monotonic_boottime(ts);
+}
+EXPORT_SYMBOL(wcnss_get_monotonic_boottime);
+
 struct platform_device *wcnss_get_platform_device(void)
 {
 	if (penv && penv->pdev)
