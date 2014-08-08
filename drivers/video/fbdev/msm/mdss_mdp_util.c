@@ -16,7 +16,7 @@
 #include <linux/errno.h>
 #include <linux/file.h>
 #include <linux/msm_ion.h>
-#include <linux/iommu.h>
+#include <linux/qcom_iommu.h>
 #include <linux/msm_kgsl.h>
 #include <linux/spinlock.h>
 #include <linux/types.h>
