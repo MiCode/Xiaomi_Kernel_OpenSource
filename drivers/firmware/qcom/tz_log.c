@@ -586,9 +586,19 @@ static void tzdbg_register_qsee_log_buf(void)
 	req.phy_addr = (uint32_t)pa;
 	req.len = len;
 
-	/*  SCM_CALL  to register the log buffer */
-	ret = scm_call(SCM_SVC_TZSCHEDULER, 1,  &req, sizeof(req),
-		&resp, sizeof(resp));
+	if (!is_scm_armv8()) {
+		/*  SCM_CALL  to register the log buffer */
+		ret = scm_call(SCM_SVC_TZSCHEDULER, 1,  &req, sizeof(req),
+			&resp, sizeof(resp));
+	} else {
+		struct scm_desc desc = {0};
+		desc.args[0] = (uint32_t)pa;
+		desc.args[1] = len;
+		desc.arginfo = 0x22;
+		ret = scm_call2(SCM_QSEEOS_FNID(1, 6), &desc);
+		resp.result = desc.ret[0];
+	}
+
 	if (ret) {
 		pr_err("%s: scm_call to register log buffer failed\n",
 			__func__);
