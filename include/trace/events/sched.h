@@ -237,7 +237,6 @@ TRACE_EVENT(sched_update_task_ravg,
 		__field(unsigned int,	demand			)
 		__field(unsigned int,	partial_demand		)
 		__field(unsigned int,	sum			)
-		__field(unsigned int,	prev_window		)
 		__field(	 int,	cpu			)
 	),
 
@@ -258,16 +257,15 @@ TRACE_EVENT(sched_update_task_ravg,
 		__entry->demand         = p->ravg.demand;
 		__entry->partial_demand = p->ravg.partial_demand;
 		__entry->sum            = p->ravg.sum;
-		__entry->prev_window    = p->ravg.prev_window;
 	),
 
-	TP_printk("wc %llu ws %llu delta %llu event %s cpu %d cur_freq %u cs %u ps %u cur_pid %d task %d (%s) ms %llu delta %llu demand %u partial_demand %u sum %u prev_window %u",
+	TP_printk("wc %llu ws %llu delta %llu event %s cpu %d cur_freq %u cs %u ps %u cur_pid %d task %d (%s) ms %llu delta %llu demand %u partial_demand %u sum %u",
 		__entry->wallclock, __entry->win_start, __entry->delta,
 		task_event_names[__entry->evt], __entry->cpu,
 		__entry->cur_freq, __entry->cs, __entry->ps, __entry->cur_pid,
 		__entry->pid, __entry->comm, __entry->mark_start,
 		__entry->delta_m, __entry->demand, __entry->partial_demand,
-		__entry->sum, __entry->prev_window)
+		__entry->sum)
 );
 
 TRACE_EVENT(sched_update_history,
