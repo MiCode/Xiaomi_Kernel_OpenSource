@@ -9436,7 +9436,7 @@ static struct genl_ops nl80211_ops[] = {
 				  NL80211_FLAG_NEED_RTNL,
 	},
 	{
-	.cmd = NL80211_CMD_KEY_MGMT_SET_PMK,
+		.cmd = NL80211_CMD_KEY_MGMT_SET_PMK,
 		.doit = nl80211_key_mgmt_set_pmk,
 		.policy = nl80211_policy,
 		.flags = GENL_ADMIN_PERM,

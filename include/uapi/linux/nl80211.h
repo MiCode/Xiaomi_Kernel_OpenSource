@@ -700,7 +700,9 @@
  * @NL80211_CMD_KEY_MGMT_SET_PMK: Used to pass the PMK to the device for
  *	key management offload.  This will be used in the case of key
  *	management offload on an already established PMKSA.  The PMK is passed
- *	in NL80211_ATTR_PMK once it is known by the supplicant.
+ *	in NL80211_ATTR_PMK once it is known by the supplicant.  If connection
+ *	is FT (802.11r) enabled with 802.1X, then the second 256 bits of the
+ *	MSK is passed instead of the PMK.
  *
  * @NL80211_CMD_MAX: highest used command number
  * @__NL80211_CMD_AFTER_LAST: internal use
@@ -4000,11 +4002,15 @@ enum nl80211_tdls_peer_capability {
  * @NL80211_KEY_MGMT_OFFLOAD_SUPPORT_PMKSA: Key management on already
  *	established PMKSA.  The PMK will be passed using
  *	NL80211_CMD_KEY_MGMT_SET_PMK once it is known.
+ * @NL80211_KEY_MGMT_OFFLOAD_SUPPORT_FT_802_1X: 802.11r (FT) with
+ *	802.1X.  The second 256 bits of the MSK is passed using
+ *	NL80211_CMD_KEY_MGMT_SET_PMK once it is known.
  */
 enum nl80211_key_mgmt_offload_support {
-	NL80211_KEY_MGMT_OFFLOAD_SUPPORT_PSK	= 1 << 0,
-	NL80211_KEY_MGMT_OFFLOAD_SUPPORT_FT_PSK	= 1 << 1,
-	NL80211_KEY_MGMT_OFFLOAD_SUPPORT_PMKSA	= 1 << 2,
+	NL80211_KEY_MGMT_OFFLOAD_SUPPORT_PSK		= 1 << 0,
+	NL80211_KEY_MGMT_OFFLOAD_SUPPORT_FT_PSK		= 1 << 1,
+	NL80211_KEY_MGMT_OFFLOAD_SUPPORT_PMKSA		= 1 << 2,
+	NL80211_KEY_MGMT_OFFLOAD_SUPPORT_FT_802_1X	= 1 << 3,
 };
 
 /**
@@ -4015,9 +4021,11 @@ enum nl80211_key_mgmt_offload_support {
  * by default for all supported key management offload types.
  *
  * @NL80211_KEY_DERIVE_OFFLOAD_SUPPORT_IGTK: IGTK key derivation.
+ * @NL80211_KEY_DERIVE_OFFLOAD_SUPPORT_SHA256: SHA-256 key derivation.
  */
 enum nl80211_key_derive_offload_support {
-	NL80211_KEY_DERIVE_OFFLOAD_SUPPORT_IGTK	= 1 << 0,
+	NL80211_KEY_DERIVE_OFFLOAD_SUPPORT_IGTK		= 1 << 0,
+	NL80211_KEY_DERIVE_OFFLOAD_SUPPORT_SHA256	= 1 << 1,
 };
 
 /**

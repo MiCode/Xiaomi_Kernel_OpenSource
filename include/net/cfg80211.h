@@ -2090,7 +2090,9 @@ struct cfg80211_qos_map {
  *
  * @key_mgmt_set_pmk: Used to pass the PMK to the device for key management
  *	offload.  This will be used in the case of key management offload on an
- *	already established PMKSA.
+ *	already established PMKSA.  If connection is FT (802.11r) enabled with
+ *	802.1X, then the second 256 bits of the MSK is passed instead of the
+ *	PMK.
  */
 struct cfg80211_ops {
 	int	(*suspend)(struct wiphy *wiphy, struct cfg80211_wowlan *wow);
@@ -2336,7 +2338,7 @@ struct cfg80211_ops {
 				    struct cfg80211_chan_def *chandef);
 
 	int	(*key_mgmt_set_pmk)(struct wiphy *wiphy, struct net_device *dev,
-				   u8 *pmk);
+				    const u8 *pmk);
 };
 
 /*
@@ -2726,8 +2728,8 @@ struct wiphy_vendor_command {
  *
  * @key_mgmt_offload_support: Bitmap of supported types of key management
  *	that can be offloaded to the device.  See
- *	nl80211_key_mgmt_offload_support.
- *	Only valid when WIPHY_FLAG_HAS_KEY_MGMT_OFFLOAD is set.
+ *	nl80211_key_mgmt_offload_support.  Only valid when
+ *	WIPHY_FLAG_HAS_KEY_MGMT_OFFLOAD is set.
  * @key_derive_offload_support: Bitmap of supported key derivations used as
  *	part of key management offload.  See nl80211_key_derive_offload_support.
  *	Only valid when WIPHY_FLAG_HAS_KEY_MGMT_OFFLOAD is set.
