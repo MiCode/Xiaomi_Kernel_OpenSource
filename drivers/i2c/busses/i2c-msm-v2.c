@@ -3235,6 +3235,8 @@ static void i2c_msm_pm_xfer_end(struct i2c_msm_ctrl *ctrl)
 {
 	/* efectively disabling our ISR */
 	atomic_set(&ctrl->xfer.is_active, 0);
+	if (ctrl->xfer.mode_id == I2C_MSM_XFER_MODE_BAM)
+		i2c_msm_bam_teardown(ctrl);
 	i2c_msm_pm_clk_disable_unprepare(ctrl);
 	if (pm_runtime_enabled(ctrl->dev)) {
 		pm_runtime_mark_last_busy(ctrl->dev);
@@ -3244,8 +3246,6 @@ static void i2c_msm_pm_xfer_end(struct i2c_msm_ctrl *ctrl)
 	}
 
 	disable_irq(ctrl->rsrcs.irq);
-	if (ctrl->xfer.mode_id == I2C_MSM_XFER_MODE_BAM)
-		i2c_msm_bam_teardown(ctrl);
 	mutex_unlock(&ctrl->xfer.mtx);
 }
 
