@@ -445,6 +445,13 @@
 		qcom,client-id = <0x00000001>;
 	};
 
+	qcom,nl_debug_sharedmem@1a100000 {
+		compatible = "qcom,sharedmem-uio";
+		reg = <0x1a100000 0x01000000>;
+		reg-names = "nl_debug";
+		qcom,client-id = <0x00000001>;
+	};
+
 	qcom,ion {
 		compatible = "qcom,msm-ion";
 		#address-cells = <1>;
