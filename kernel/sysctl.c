@@ -319,6 +319,13 @@ static struct ctl_table kern_table[] = {
 		.proc_handler   = sched_acct_wait_time_update_handler,
 	},
 	{
+		.procname       = "sched_ravg_hist_size",
+		.data           = &sysctl_sched_ravg_hist_size,
+		.maxlen         = sizeof(unsigned int),
+		.mode           = 0644,
+		.proc_handler   = sched_ravg_hist_size_update_handler,
+	},
+	{
 		.procname       = "sched_window_stats_policy",
 		.data           = &sysctl_sched_window_stats_policy,
 		.maxlen         = sizeof(unsigned int),

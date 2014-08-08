@@ -287,7 +287,7 @@ TRACE_EVENT(sched_update_history,
 		__field(enum task_event,	evt		)
 		__field(unsigned int,	partial_demand		)
 		__field(unsigned int,	demand			)
-		__array(         u32,	hist,   RAVG_HIST_SIZE	)
+		__array(	 u32,	hist, RAVG_HIST_SIZE_MAX)
 		__field(unsigned int,	nr_big_tasks		)
 		__field(unsigned int,	nr_small_tasks		)
 		__field(	 int,	cpu			)
@@ -304,7 +304,7 @@ TRACE_EVENT(sched_update_history,
 		__entry->partial_demand = p->ravg.partial_demand;
 		__entry->demand         = p->ravg.demand;
 		memcpy(__entry->hist, p->ravg.sum_history,
-					RAVG_HIST_SIZE*sizeof(u32));
+					RAVG_HIST_SIZE_MAX * sizeof(u32));
 #ifdef CONFIG_SCHED_HMP
 		__entry->nr_big_tasks   = rq->nr_big_tasks;
 		__entry->nr_small_tasks = rq->nr_small_tasks;

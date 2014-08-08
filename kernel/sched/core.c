@@ -1103,6 +1103,17 @@ static inline void clear_hmp_request(int cpu) { }
 
 #if defined(CONFIG_SCHED_FREQ_INPUT) || defined(CONFIG_SCHED_HMP)
 
+__read_mostly unsigned int sysctl_sched_ravg_hist_size = 5;
+
+/*
+ * copy of sysctl_sched_ravg_hist_size. Required for atomically
+ * changing the ravg history size (see sched_ravg_hist_size_update_handler()
+ * for details).
+ *
+ * Initialize both to same value!!
+ */
+static __read_mostly unsigned int sched_ravg_hist_size = 5;
+
 /* Window size (in ns) */
 __read_mostly unsigned int sched_ravg_window = 10000000;
 
@@ -1225,7 +1236,7 @@ update_history(struct rq *rq, struct task_struct *p, u32 runtime, int samples,
 		return;
 
 	if (!new_window) {
-		for (ridx = 0; ridx < RAVG_HIST_SIZE - 1; ++ridx) {
+		for (ridx = 0; ridx < sched_ravg_hist_size - 1; ++ridx) {
 			sum += hist[ridx];
 			if (hist[ridx] > max)
 				max = hist[ridx];
@@ -1237,20 +1248,24 @@ update_history(struct rq *rq, struct task_struct *p, u32 runtime, int samples,
 	}
 
 	/* Push new 'runtime' value onto stack */
-	widx = RAVG_HIST_SIZE - 1;
+	widx = RAVG_HIST_SIZE_MAX - 1;
 	ridx = widx - samples;
 	for (; ridx >= 0; --widx, --ridx) {
 		hist[widx] = hist[ridx];
-		sum += hist[widx];
-		if (hist[widx] > max)
-			max = hist[widx];
+		if (widx < sched_ravg_hist_size) {
+			sum += hist[widx];
+			if (hist[widx] > max)
+				max = hist[widx];
+		}
 	}
 
-	for (widx = 0; widx < samples && widx < RAVG_HIST_SIZE; widx++) {
+	for (widx = 0; widx < samples && widx < RAVG_HIST_SIZE_MAX; widx++) {
 		hist[widx] = runtime;
-		sum += hist[widx];
-		if (hist[widx] > max)
-			max = hist[widx];
+		if (widx < sched_ravg_hist_size) {
+			sum += hist[widx];
+			if (hist[widx] > max)
+				max = hist[widx];
+		}
 	}
 
 	p->ravg.sum = 0;
@@ -1262,7 +1277,7 @@ update_history(struct rq *rq, struct task_struct *p, u32 runtime, int samples,
 	}
 
 compute_demand:
-	avg = div64_u64(sum, RAVG_HIST_SIZE);
+	avg = div64_u64(sum, sched_ravg_hist_size);
 
 	if (sched_window_stats_policy == WINDOW_STATS_USE_RECENT)
 		demand = runtime;
@@ -1630,7 +1645,8 @@ unsigned long sched_get_busy(int cpu)
 
 /* Called with IRQs disabled */
 void reset_all_window_stats(u64 window_start, unsigned int window_size,
-				 int policy, int acct_wait_time)
+				 int policy, int acct_wait_time,
+				 unsigned int ravg_hist_size)
 {
 	int cpu;
 	u64 wallclock;
@@ -1657,7 +1673,7 @@ void reset_all_window_stats(u64 window_start, unsigned int window_size,
 		p->ravg.partial_demand = 0;
 		p->ravg.prev_window = 0;
 		p->ravg.flags = 0;
-		for (i = 0; i < RAVG_HIST_SIZE; ++i)
+		for (i = 0; i < RAVG_HIST_SIZE_MAX; ++i)
 			p->ravg.sum_history[i] = 0;
 		p->ravg.mark_start = wallclock;
 	}  while_each_thread(g, p);
@@ -1678,6 +1694,9 @@ void reset_all_window_stats(u64 window_start, unsigned int window_size,
 
 	if (acct_wait_time >= 0)
 		sched_account_wait_time = acct_wait_time;
+
+	if (ravg_hist_size > 0)
+		sched_ravg_hist_size = ravg_hist_size;
 
 	for_each_online_cpu(cpu) {
 		struct rq *rq = cpu_rq(cpu);
@@ -1716,7 +1735,7 @@ int sched_set_window(u64 window_start, unsigned int window_size)
 
 	BUG_ON(sched_clock() < ws);
 
-	reset_all_window_stats(ws, window_size, -1, -1);
+	reset_all_window_stats(ws, window_size, -1, -1, 0);
 
 	local_irq_restore(flags);
 

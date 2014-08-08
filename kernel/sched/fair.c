@@ -1910,7 +1910,45 @@ int sched_acct_wait_time_update_handler(struct ctl_table *table, int write,
 
 	local_irq_save(flags);
 
-	reset_all_window_stats(0, 0, -1, sysctl_sched_account_wait_time);
+	reset_all_window_stats(0, 0, -1, sysctl_sched_account_wait_time, 0);
+
+	local_irq_restore(flags);
+
+done:
+	mutex_unlock(&policy_mutex);
+
+	return ret;
+}
+
+int sched_ravg_hist_size_update_handler(struct ctl_table *table, int write,
+		void __user *buffer, size_t *lenp,
+		loff_t *ppos)
+{
+	int ret;
+	unsigned int *data = (unsigned int *)table->data;
+	unsigned int old_val;
+	unsigned long flags;
+
+	if (!sched_enable_hmp)
+		return -EINVAL;
+
+	mutex_lock(&policy_mutex);
+
+	old_val = *data;
+
+	ret = proc_dointvec(table, write, buffer, lenp, ppos);
+	if (ret || !write || (write && (old_val == *data)))
+		goto done;
+
+	if (*data > RAVG_HIST_SIZE_MAX || *data < 1) {
+		*data = old_val;
+		ret = -EINVAL;
+		goto done;
+	}
+
+	local_irq_save(flags);
+
+	reset_all_window_stats(0, 0, -1, -1, sysctl_sched_ravg_hist_size);
 
 	local_irq_restore(flags);
 
@@ -1942,7 +1980,7 @@ int sched_window_stats_policy_update_handler(struct ctl_table *table, int write,
 
 	local_irq_save(flags);
 
-	reset_all_window_stats(0, 0, sysctl_sched_window_stats_policy, -1);
+	reset_all_window_stats(0, 0, sysctl_sched_window_stats_policy, -1, 0);
 
 	local_irq_restore(flags);
 
@@ -2240,7 +2278,7 @@ void init_new_task_load(struct task_struct *p)
 	p->ravg.sum		= 0;
 	p->ravg.flags = 0;
 
-	for (i = 0; i < RAVG_HIST_SIZE; ++i)
+	for (i = 0; i < RAVG_HIST_SIZE_MAX; ++i)
 		p->ravg.sum_history[i] = sched_init_task_load_windows;
 	p->se.avg.runnable_avg_period =
 		sysctl_sched_init_task_load_pct ? LOAD_AVG_MAX : 0;

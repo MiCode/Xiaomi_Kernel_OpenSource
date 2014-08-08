@@ -1045,7 +1045,7 @@ struct sched_statistics {
 };
 #endif
 
-#define RAVG_HIST_SIZE  5
+#define RAVG_HIST_SIZE_MAX  5
 
 /* ravg represents frequency scaled cpu-demand of tasks */
 struct ravg {
@@ -1061,8 +1061,9 @@ struct ravg {
 	 * RAVG_HIST_SIZE windows. Windows where task was entirely sleeping are
 	 * ignored.
 	 *
-	 * 'demand' represents maximum sum seen over previous RAVG_HIST_SIZE
-	 * windows. 'demand' could drive frequency demand for tasks.
+	 * 'demand' represents maximum sum seen over previous
+	 * sysctl_sched_ravg_hist_size windows. 'demand' could drive frequency
+	 * demand for tasks.
 	 *
 	 * 'prev_window' is the history in the most recent window. This value
 	 * may be zero if there was no task activity in that window - that is
@@ -1074,7 +1075,7 @@ struct ravg {
 	 */
 	u64 mark_start;
 	u32 sum, demand, prev_window, partial_demand, flags;
-	u32 sum_history[RAVG_HIST_SIZE];
+	u32 sum_history[RAVG_HIST_SIZE_MAX];
 };
 
 struct sched_entity {
