@@ -15,6 +15,11 @@
 
 #include <linux/msm_audio_calibration.h>
 
+/* Used by driver in buffer_number field to notify client
+ * To update all blocks, for example: freeing all memory */
+#define ALL_CAL_BLOCKS		-1
+
+
 struct audio_cal_callbacks {
 	int (*alloc) (int32_t cal_type, size_t data_size, void *data);
 	int (*dealloc) (int32_t cal_type, size_t data_size, void *data);
