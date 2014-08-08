@@ -39,6 +39,8 @@ struct hwmon_node {
 	unsigned int bw_step;
 	unsigned long prev_ab;
 	unsigned long *dev_ab;
+	unsigned long resume_freq;
+	unsigned long resume_ab;
 	ktime_t prev_ts;
 	bool mon_started;
 	struct list_head list;
@@ -209,10 +211,61 @@ int update_bw_hwmon(struct bw_hwmon *hwmon)
 	return 0;
 }
 
-static int start_monitoring(struct devfreq *df)
+static int start_monitor(struct devfreq *df, bool init)
+{
+	struct hwmon_node *node = df->data;
+	struct bw_hwmon *hw = node->hw;
+	struct device *dev = df->dev.parent;
+	unsigned long mbps;
+	int ret;
+
+	node->prev_ts = ktime_get();
+
+	if (init) {
+		node->prev_ab = 0;
+		node->resume_freq = 0;
+		node->resume_ab = 0;
+		mbps = (df->previous_freq * node->io_percent) / 100;
+		ret = hw->start_hwmon(hw, mbps);
+	} else {
+		ret = hw->resume_hwmon(hw);
+	}
+
+	if (ret) {
+		dev_err(dev, "Unable to start HW monitor! (%d)\n", ret);
+		return ret;
+	}
+
+	if (init)
+		devfreq_monitor_start(df);
+	else
+		devfreq_monitor_resume(df);
+
+	node->mon_started = true;
+
+	return 0;
+}
+
+static void stop_monitor(struct devfreq *df, bool init)
+{
+	struct hwmon_node *node = df->data;
+	struct bw_hwmon *hw = node->hw;
+
+	node->mon_started = false;
+
+	if (init) {
+		devfreq_monitor_stop(df);
+		hw->stop_hwmon(hw);
+	} else {
+		devfreq_monitor_suspend(df);
+		hw->suspend_hwmon(hw);
+	}
+
+}
+
+static int gov_start(struct devfreq *df)
 {
 	int ret = 0;
-	unsigned long mbps;
 	struct device *dev = df->dev.parent;
 	struct hwmon_node *node;
 	struct bw_hwmon *hw;
@@ -237,17 +290,8 @@ static int start_monitoring(struct devfreq *df)
 	node->orig_data = df->data;
 	df->data = node;
 
-	node->prev_ts = ktime_get();
-	node->prev_ab = 0;
-	mbps = (df->previous_freq * node->io_percent) / 100;
-	ret = hw->start_hwmon(hw, mbps);
-	if (ret) {
-		dev_err(dev, "Unable to start HW monitor!\n");
+	if (start_monitor(df, true))
 		goto err_start;
-	}
-
-	devfreq_monitor_start(df);
-	node->mon_started = true;
 
 	ret = sysfs_create_group(&df->dev.kobj, node->attr_grp);
 	if (ret)
@@ -256,9 +300,7 @@ static int start_monitoring(struct devfreq *df)
 	return 0;
 
 err_sysfs:
-	node->mon_started = false;
-	devfreq_monitor_stop(df);
-	hw->stop_hwmon(hw);
+	stop_monitor(df, true);
 err_start:
 	df->data = node->orig_data;
 	node->orig_data = NULL;
@@ -267,15 +309,13 @@ err_start:
 	return ret;
 }
 
-static void stop_monitoring(struct devfreq *df)
+static void gov_stop(struct devfreq *df)
 {
 	struct hwmon_node *node = df->data;
 	struct bw_hwmon *hw = node->hw;
 
 	sysfs_remove_group(&df->dev.kobj, node->attr_grp);
-	node->mon_started = false;
-	devfreq_monitor_stop(df);
-	hw->stop_hwmon(hw);
+	stop_monitor(df, true);
 	df->data = node->orig_data;
 	node->orig_data = NULL;
 	hw->df = NULL;
@@ -290,12 +330,67 @@ static void stop_monitoring(struct devfreq *df)
 	node->dev_ab = NULL;
 }
 
+static int gov_suspend(struct devfreq *df)
+{
+	struct hwmon_node *node = df->data;
+	unsigned long resume_freq = df->previous_freq;
+	unsigned long resume_ab = *node->dev_ab;
+
+	if (!node->hw->suspend_hwmon)
+		return -ENOSYS;
+
+	if (node->resume_freq) {
+		dev_warn(df->dev.parent, "Governor already suspended!\n");
+		return -EBUSY;
+	}
+
+	stop_monitor(df, false);
+
+	mutex_lock(&df->lock);
+	update_devfreq(df);
+	mutex_unlock(&df->lock);
+
+	node->resume_freq = resume_freq;
+	node->resume_ab = resume_ab;
+
+	return 0;
+}
+
+static int gov_resume(struct devfreq *df)
+{
+	struct hwmon_node *node = df->data;
+
+	if (!node->hw->resume_hwmon)
+		return -ENOSYS;
+
+	if (!node->resume_freq) {
+		dev_warn(df->dev.parent, "Governor already resumed!\n");
+		return -EBUSY;
+	}
+
+	mutex_lock(&df->lock);
+	update_devfreq(df);
+	mutex_unlock(&df->lock);
+
+	node->resume_freq = 0;
+	node->resume_ab = 0;
+
+	return start_monitor(df, false);
+}
+
 static int devfreq_bw_hwmon_get_freq(struct devfreq *df,
 					unsigned long *freq,
 					u32 *flag)
 {
 	unsigned long mbps;
 	struct hwmon_node *node = df->data;
+
+	/* Suspend/resume sequence */
+	if (!node->mon_started) {
+		*freq = node->resume_freq;
+		*node->dev_ab = node->resume_ab;
+		return 0;
+	}
 
 	mbps = measure_bw_and_set_irq(node);
 	compute_bw(node, mbps, freq, node->dev_ab);
@@ -336,7 +431,7 @@ static int devfreq_bw_hwmon_ev_handler(struct devfreq *df,
 		sample_ms = min(MAX_MS, sample_ms);
 		df->profile->polling_ms = sample_ms;
 
-		ret = start_monitoring(df);
+		ret = gov_start(df);
 		if (ret)
 			return ret;
 
@@ -345,7 +440,7 @@ static int devfreq_bw_hwmon_ev_handler(struct devfreq *df,
 		break;
 
 	case DEVFREQ_GOV_STOP:
-		stop_monitoring(df);
+		gov_stop(df);
 		dev_dbg(df->dev.parent,
 			"Disabled dev BW HW monitor governor\n");
 		break;
@@ -355,6 +450,30 @@ static int devfreq_bw_hwmon_ev_handler(struct devfreq *df,
 		sample_ms = max(MIN_MS, sample_ms);
 		sample_ms = min(MAX_MS, sample_ms);
 		devfreq_interval_update(df, &sample_ms);
+		break;
+
+	case DEVFREQ_GOV_SUSPEND:
+		ret = gov_suspend(df);
+		if (ret) {
+			dev_err(df->dev.parent,
+				"Unable to suspend BW HW mon governor (%d)\n",
+				ret);
+			return ret;
+		}
+
+		dev_dbg(df->dev.parent, "Suspended BW HW mon governor\n");
+		break;
+
+	case DEVFREQ_GOV_RESUME:
+		ret = gov_resume(df);
+		if (ret) {
+			dev_err(df->dev.parent,
+				"Unable to resume BW HW mon governor (%d)\n",
+				ret);
+			return ret;
+		}
+
+		dev_dbg(df->dev.parent, "Resumed BW HW mon governor\n");
 		break;
 	}
 
