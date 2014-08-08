@@ -15,8 +15,8 @@
 #include <linux/delay.h>
 #include <linux/err.h>
 #include <linux/io.h>
+#include <linux/clk/msm-clk.h>
 
-#include <mach/clk.h>
 #include <mach/msm_iomap.h>
 
 #include "mdss_dsi.h"
