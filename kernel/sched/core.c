@@ -1283,7 +1283,6 @@ update_history(struct rq *rq, struct task_struct *p, u32 runtime, int samples,
 
 	if (new_window) {
 		p->ravg.flags = 0;
-		p->ravg.prev_window = runtime;
 		if (runtime)
 			p->ravg.flags |= PREV_WINDOW_CONTRIB;
 	}
@@ -1639,7 +1638,6 @@ static inline void mark_task_starting(struct task_struct *p)
 	if (!rq->window_start) {
 		p->ravg.partial_demand = 0;
 		p->ravg.demand = 0;
-		p->ravg.prev_window = 0;
 		p->ravg.sum = 0;
 		return;
 	}
@@ -1648,7 +1646,6 @@ static inline void mark_task_starting(struct task_struct *p)
 	p->ravg.mark_start = wallclock;
 	rq->prev_runnable_sum += p->ravg.demand;
 	rq->curr_runnable_sum += p->ravg.partial_demand;
-	p->ravg.prev_window = p->ravg.demand;
 	p->ravg.flags |= CURR_WINDOW_CONTRIB;
 	p->ravg.flags |= PREV_WINDOW_CONTRIB;
 }
@@ -1733,7 +1730,6 @@ void reset_all_window_stats(u64 window_start, unsigned int window_size,
 		p->ravg.sum = 0;
 		p->ravg.demand = 0;
 		p->ravg.partial_demand = 0;
-		p->ravg.prev_window = 0;
 		p->ravg.flags = 0;
 		for (i = 0; i < RAVG_HIST_SIZE_MAX; ++i)
 			p->ravg.sum_history[i] = 0;
