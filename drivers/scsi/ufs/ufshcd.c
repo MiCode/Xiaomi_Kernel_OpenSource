@@ -745,10 +745,10 @@ static const char *ufschd_uic_link_state_to_string(
 			enum uic_link_state state)
 {
 	switch (state) {
-	case UIC_LINK_OFF_STATE:	return "UIC_LINK_OFF_STATE";
-	case UIC_LINK_ACTIVE_STATE:	return "UIC_LINK_ACTIVE_STATE";
-	case UIC_LINK_HIBERN8_STATE:	return "UIC_LINK_HIBERN8_STATE";
-	default:			return "UNKNOWN_STATE";
+	case UIC_LINK_OFF_STATE:	return "OFF";
+	case UIC_LINK_ACTIVE_STATE:	return "ACTIVE";
+	case UIC_LINK_HIBERN8_STATE:	return "HIBERN8";
+	default:			return "UNKNOWN";
 	}
 }
 
@@ -756,10 +756,10 @@ static const char *ufschd_ufs_dev_pwr_mode_to_string(
 			enum ufs_dev_pwr_mode state)
 {
 	switch (state) {
-	case UFS_ACTIVE_PWR_MODE:	return "UFS_ACTIVE_PWR_MODE";
-	case UFS_SLEEP_PWR_MODE:	return "UFS_SLEEP_PWR_MODE";
-	case UFS_POWERDOWN_PWR_MODE:	return "UFS_POWERDOWN_PWR_MODE";
-	default:			return "UNKNOWN_STATE";
+	case UFS_ACTIVE_PWR_MODE:	return "ACTIVE";
+	case UFS_SLEEP_PWR_MODE:	return "SLEEP";
+	case UFS_POWERDOWN_PWR_MODE:	return "POWERDOWN";
+	default:			return "UNKNOWN";
 	}
 }
 
@@ -4860,8 +4860,8 @@ out:
 
 	trace_ufshcd_init(dev_name(hba->dev), ret,
 		ktime_to_us(ktime_sub(ktime_get(), start)),
-		ufschd_uic_link_state_to_string(hba->uic_link_state),
-		ufschd_ufs_dev_pwr_mode_to_string(hba->curr_dev_pwr_mode));
+		ufschd_ufs_dev_pwr_mode_to_string(hba->curr_dev_pwr_mode),
+		ufschd_uic_link_state_to_string(hba->uic_link_state));
 	return ret;
 }
 
@@ -6007,8 +6007,8 @@ int ufshcd_system_suspend(struct ufs_hba *hba)
 out:
 	trace_ufshcd_system_suspend(dev_name(hba->dev), ret,
 		ktime_to_us(ktime_sub(ktime_get(), start)),
-		ufschd_uic_link_state_to_string(hba->uic_link_state),
-		ufschd_ufs_dev_pwr_mode_to_string(hba->curr_dev_pwr_mode));
+		ufschd_ufs_dev_pwr_mode_to_string(hba->curr_dev_pwr_mode),
+		ufschd_uic_link_state_to_string(hba->uic_link_state));
 	if (!ret)
 		hba->is_sys_suspended = true;
 	return ret;
@@ -6038,8 +6038,8 @@ int ufshcd_system_resume(struct ufs_hba *hba)
 out:
 	trace_ufshcd_system_resume(dev_name(hba->dev), ret,
 		ktime_to_us(ktime_sub(ktime_get(), start)),
-		ufschd_uic_link_state_to_string(hba->uic_link_state),
-		ufschd_ufs_dev_pwr_mode_to_string(hba->curr_dev_pwr_mode));
+		ufschd_ufs_dev_pwr_mode_to_string(hba->curr_dev_pwr_mode),
+		ufschd_uic_link_state_to_string(hba->uic_link_state));
 	return ret;
 }
 EXPORT_SYMBOL(ufshcd_system_resume);
@@ -6067,8 +6067,8 @@ int ufshcd_runtime_suspend(struct ufs_hba *hba)
 out:
 	trace_ufshcd_runtime_suspend(dev_name(hba->dev), ret,
 		ktime_to_us(ktime_sub(ktime_get(), start)),
-		ufschd_uic_link_state_to_string(hba->uic_link_state),
-		ufschd_ufs_dev_pwr_mode_to_string(hba->curr_dev_pwr_mode));
+		ufschd_ufs_dev_pwr_mode_to_string(hba->curr_dev_pwr_mode),
+		ufschd_uic_link_state_to_string(hba->uic_link_state));
 	return ret;
 }
 EXPORT_SYMBOL(ufshcd_runtime_suspend);
@@ -6109,8 +6109,8 @@ int ufshcd_runtime_resume(struct ufs_hba *hba)
 out:
 	trace_ufshcd_runtime_resume(dev_name(hba->dev), ret,
 		ktime_to_us(ktime_sub(ktime_get(), start)),
-		ufschd_uic_link_state_to_string(hba->uic_link_state),
-		ufschd_ufs_dev_pwr_mode_to_string(hba->curr_dev_pwr_mode));
+		ufschd_ufs_dev_pwr_mode_to_string(hba->curr_dev_pwr_mode),
+		ufschd_uic_link_state_to_string(hba->uic_link_state));
 	return ret;
 }
 EXPORT_SYMBOL(ufshcd_runtime_resume);
