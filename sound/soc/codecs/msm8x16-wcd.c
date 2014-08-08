@@ -1844,15 +1844,26 @@ static int msm8x16_wcd_enable_ext_mb_source(struct snd_soc_codec *codec,
 					    bool turn_on)
 {
 	int ret = 0;
+	static int count;
 
-	if (turn_on)
-		ret = snd_soc_dapm_force_enable_pin(&codec->dapm,
+	dev_dbg(codec->dev, "%s turn_on: %d count: %d\n", __func__, turn_on,
+			count);
+	if (turn_on) {
+		if (!count) {
+			ret = snd_soc_dapm_force_enable_pin(&codec->dapm,
 				"MICBIAS_REGULATOR");
-	else
-		ret = snd_soc_dapm_disable_pin(&codec->dapm,
+			snd_soc_dapm_sync(&codec->dapm);
+		}
+		count++;
+	} else {
+		if (count > 0)
+			count--;
+		if (!count) {
+			ret = snd_soc_dapm_disable_pin(&codec->dapm,
 				"MICBIAS_REGULATOR");
-
-	snd_soc_dapm_sync(&codec->dapm);
+			snd_soc_dapm_sync(&codec->dapm);
+		}
+	}
 
 	if (ret)
 		dev_err(codec->dev, "%s: Failed to %s external micbias source\n",

@@ -820,10 +820,6 @@ static void wcd_correct_swch_plug(struct work_struct *work)
 	mbhc = container_of(work, struct wcd_mbhc, correct_plug_swch);
 	codec = mbhc->codec;
 
-	/* Enable external voltage source to micbias if present */
-	if (mbhc->mbhc_cb && mbhc->mbhc_cb->enable_mb_source)
-		mbhc->mbhc_cb->enable_mb_source(codec, true);
-
 	 /* Enable micbias for detection in correct work*/
 	snd_soc_update_bits(codec,
 			MSM8X16_WCD_A_ANALOG_MICB_2_EN,
@@ -956,9 +952,6 @@ report:
 	wcd_mbhc_find_plug_and_report(mbhc, plug_type);
 	WCD_MBHC_RSC_UNLOCK(mbhc);
 exit:
-	/* Disable external voltage source to micbias if present */
-	if (mbhc->mbhc_cb && mbhc->mbhc_cb->enable_mb_source)
-		mbhc->mbhc_cb->enable_mb_source(codec, false);
 	wcd9xxx_spmi_unlock_sleep();
 	pr_debug("%s: leave\n", __func__);
 }
@@ -976,10 +969,6 @@ static void wcd_mbhc_detect_plug_type(struct wcd_mbhc *mbhc)
 
 	pr_debug("%s: enter\n", __func__);
 	WCD_MBHC_RSC_ASSERT_LOCKED(mbhc);
-
-	/* Enable external voltage source to micbias if present */
-	if (mbhc->mbhc_cb && mbhc->mbhc_cb->enable_mb_source)
-		mbhc->mbhc_cb->enable_mb_source(codec, true);
 
 	/* Enable micbias */
 	snd_soc_update_bits(codec,
@@ -1054,10 +1043,6 @@ static void wcd_mbhc_detect_plug_type(struct wcd_mbhc *mbhc)
 		}
 	}
 exit:
-	/* Disable external voltage source to micbias if present */
-	if (mbhc->mbhc_cb && mbhc->mbhc_cb->enable_mb_source)
-		mbhc->mbhc_cb->enable_mb_source(codec, false);
-
 	pr_debug("%s: Valid plug found, plug type is %d\n",
 			 __func__, plug_type);
 	if (plug_type != MBHC_PLUG_TYPE_HIGH_HPH &&
@@ -1098,6 +1083,9 @@ static void wcd_mbhc_swch_irq_handler(struct wcd_mbhc *mbhc)
 	/* Set the detection type appropriately */
 	snd_soc_update_bits(codec, MSM8X16_WCD_A_ANALOG_MBHC_DET_CTL_1,
 			0x20, (!detection_type << 5));
+
+	pr_debug("%s: mbhc->current_plug: %d detection_type: %d\n", __func__,
+			mbhc->current_plug, detection_type);
 	wcd_cancel_hs_detect_plug(mbhc, &mbhc->correct_plug_swch);
 
 	if ((mbhc->current_plug == MBHC_PLUG_TYPE_NONE) &&
@@ -1126,9 +1114,15 @@ static void wcd_mbhc_swch_irq_handler(struct wcd_mbhc *mbhc)
 		/* Apply trim if needed on the device */
 		if (mbhc->mbhc_cb && mbhc->mbhc_cb->trim_btn_reg)
 			mbhc->mbhc_cb->trim_btn_reg(codec);
+		/* Enable external voltage source to micbias if present */
+		if (mbhc->mbhc_cb && mbhc->mbhc_cb->enable_mb_source)
+			mbhc->mbhc_cb->enable_mb_source(codec, true);
 		wcd_mbhc_detect_plug_type(mbhc);
 	} else if ((mbhc->current_plug != MBHC_PLUG_TYPE_NONE)
 			&& !detection_type) {
+		/* Disable external voltage source to micbias if present */
+		if (mbhc->mbhc_cb && mbhc->mbhc_cb->enable_mb_source)
+			mbhc->mbhc_cb->enable_mb_source(codec, false);
 		/* Disable HW FSM */
 		snd_soc_update_bits(codec,
 				MSM8X16_WCD_A_ANALOG_MBHC_FSM_CTL,
@@ -1170,9 +1164,11 @@ static void wcd_mbhc_swch_irq_handler(struct wcd_mbhc *mbhc)
 				MSM8X16_WCD_A_ANALOG_MBHC_FSM_CTL,
 				0x30, 0x30);
 			wcd_mbhc_report_plug(mbhc, 0, SND_JACK_LINEOUT);
-
 		}
 	} else if (!detection_type) {
+		/* Disable external voltage source to micbias if present */
+		if (mbhc->mbhc_cb && mbhc->mbhc_cb->enable_mb_source)
+			mbhc->mbhc_cb->enable_mb_source(codec, false);
 		/* Disable HW FSM */
 		snd_soc_update_bits(codec,
 				MSM8X16_WCD_A_ANALOG_MBHC_FSM_CTL,
