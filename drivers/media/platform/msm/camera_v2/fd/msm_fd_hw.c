@@ -18,6 +18,7 @@
 #include <linux/regulator/consumer.h>
 #include <linux/msm_iommu_domains.h>
 #include <linux/spinlock.h>
+#include <linux/iommu.h>
 #include <linux/qcom_iommu.h>
 #include <linux/msm_ion.h>
 #include <linux/msm-bus.h>
@@ -815,6 +816,63 @@ void msm_fd_hw_put(struct msm_fd_device *fd)
 }
 
 /*
+ * msm_fd_hw_attach_iommu - Attach iommu to face detection engine.
+ * @fd: Pointer to fd device.
+ *
+ * Iommu attach have reference count protected by
+ * fd device mutex.
+ */
+static int msm_fd_hw_attach_iommu(struct msm_fd_device *fd)
+{
+	int ret;
+
+	mutex_lock(&fd->lock);
+
+	if (fd->iommu_attached_cnt == UINT_MAX) {
+		dev_err(fd->dev, "Max count reached! can not attach iommu\n");
+		goto error;
+	}
+
+	if (fd->iommu_attached_cnt == 0) {
+		ret = iommu_attach_device(fd->iommu_domain, fd->iommu_dev);
+		if (ret < 0) {
+			dev_err(fd->dev, "Can not attach iommu domain\n");
+			goto error;
+		}
+	}
+	fd->iommu_attached_cnt++;
+	mutex_unlock(&fd->lock);
+
+	return 0;
+
+error:
+	mutex_unlock(&fd->lock);
+	return ret;
+}
+
+/*
+ * msm_fd_hw_detach_iommu - Detach iommu from face detection engine.
+ * @fd: Pointer to fd device.
+ *
+ * Iommu detach have reference count protected by
+ * fd device mutex.
+ */
+static void msm_fd_hw_detach_iommu(struct msm_fd_device *fd)
+{
+	mutex_lock(&fd->lock);
+	if (fd->iommu_attached_cnt == 0) {
+		dev_err(fd->dev, "There is no attached device\n");
+		mutex_unlock(&fd->lock);
+		return;
+	}
+
+	if (--fd->iommu_attached_cnt == 0)
+		iommu_detach_device(fd->iommu_domain, fd->iommu_dev);
+
+	mutex_unlock(&fd->lock);
+}
+
+/*
  * msm_fd_hw_map_buffer - Map buffer to fd hw mmu.
  * @pool: Pointer to fd memory pool.
  * @fd: Ion fd.
@@ -830,12 +888,16 @@ int msm_fd_hw_map_buffer(struct msm_fd_mem_pool *pool, int fd,
 	if (!pool || fd < 0)
 		return -EINVAL;
 
+	ret = msm_fd_hw_attach_iommu(pool->fd_device);
+	if (ret < 0)
+		goto error;
+
 	buf->pool = pool;
 	buf->fd = fd;
 
 	buf->handle = ion_import_dma_buf(pool->client, buf->fd);
 	if (IS_ERR_OR_NULL(buf->handle))
-		goto error;
+		goto error_import_dma;
 
 	ret = ion_map_iommu(pool->client, buf->handle, pool->domain_num,
 		0, SZ_4K, 0, &buf->addr, &buf->size, 0, 0);
@@ -846,6 +908,8 @@ int msm_fd_hw_map_buffer(struct msm_fd_mem_pool *pool, int fd,
 
 error_map_iommu:
 	ion_free(pool->client, buf->handle);
+error_import_dma:
+	msm_fd_hw_detach_iommu(pool->fd_device);
 error:
 	return -ENOMEM;
 }
@@ -856,9 +920,11 @@ error:
  */
 void msm_fd_hw_unmap_buffer(struct msm_fd_buf_handle *buf)
 {
-	if (buf->size)
+	if (buf->size) {
 		ion_unmap_iommu(buf->pool->client, buf->handle,
 			buf->pool->domain_num, 0);
+		msm_fd_hw_detach_iommu(buf->pool->fd_device);
+	}
 
 	if (!IS_ERR_OR_NULL(buf->handle))
 		ion_free(buf->pool->client, buf->handle);
