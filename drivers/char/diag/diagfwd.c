@@ -2027,6 +2027,7 @@ int diagfwd_init(void)
 	driver->supports_apps_hdlc_encoding = 1;
 	mutex_init(&driver->diag_hdlc_mutex);
 	mutex_init(&driver->diag_cntl_mutex);
+	mutex_init(&driver->mode_lock);
 	driver->encoded_rsp_buf = kzalloc(HDLC_OUT_BUF_SIZE, GFP_KERNEL);
 	if (!driver->encoded_rsp_buf)
 		goto err;
@@ -2040,6 +2041,11 @@ int diagfwd_init(void)
 		driver->separate_cmdrsp[i] = 0;
 		driver->peripheral_supports_stm[i] = DISABLE_STM;
 		driver->rcvd_feature_mask[i] = 0;
+		driver->peripheral_buffering_support[i] = 0;
+		driver->buffering_mode[i].peripheral = i;
+		driver->buffering_mode[i].mode = DIAG_BUFFERING_MODE_STREAMING;
+		driver->buffering_mode[i].high_wm_val = DEFAULT_HIGH_WM_VAL;
+		driver->buffering_mode[i].low_wm_val = DEFAULT_LOW_WM_VAL;
 	}
 
 	for (i = 0; i < NUM_STM_PROCESSORS; i++) {

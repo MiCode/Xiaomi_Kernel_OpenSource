@@ -169,6 +169,14 @@ static ssize_t diag_dbgfs_read_status(struct file *file, char __user *ubuf,
 		"Mask Centralization Support on LPASS: %d\n"
 		"Mask Centralization Support on WCNSS: %d\n"
 		"Mask Centralization Support on SENSORS: %d\n"
+		"Buffering Mode Support on Modem: %d\n"
+		"Buffering Mode Support on LPASS: %d\n"
+		"Buffering Mode Support on WCNSS: %d\n"
+		"Buffering Mode Support on SENSORS: %d\n"
+		"Buffering Mode on Modem: %d\n"
+		"Buffering Mode on LPASS: %d\n"
+		"Buffering Mode on WCNSS: %d\n"
+		"Buffering Mode on SENSORS: %d\n"
 		"logging_mode: %d\n"
 		"rsp_in_busy: %d\n",
 		driver->smd_data[MODEM_DATA].ch,
@@ -293,6 +301,14 @@ static ssize_t diag_dbgfs_read_status(struct file *file, char __user *ubuf,
 		driver->mask_centralization[LPASS_DATA],
 		driver->mask_centralization[WCNSS_DATA],
 		driver->mask_centralization[SENSORS_DATA],
+		driver->peripheral_buffering_support[MODEM_DATA],
+		driver->peripheral_buffering_support[LPASS_DATA],
+		driver->peripheral_buffering_support[WCNSS_DATA],
+		driver->peripheral_buffering_support[SENSORS_DATA],
+		driver->buffering_mode[MODEM_DATA].mode,
+		driver->buffering_mode[LPASS_DATA].mode,
+		driver->buffering_mode[WCNSS_DATA].mode,
+		driver->buffering_mode[SENSORS_DATA].mode,
 		driver->logging_mode,
 		driver->rsp_buf_busy);
 

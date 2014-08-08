@@ -118,8 +118,19 @@
 #define DIAG_STATUS_OPEN (0x00010000)	/* DCI channel open status mask   */
 #define DIAG_STATUS_CLOSED (0x00020000)	/* DCI channel closed status mask */
 
-#define MODE_REALTIME 1
-#define MODE_NONREALTIME 0
+#define MODE_NONREALTIME	0
+#define MODE_REALTIME		1
+#define MODE_UNKNOWN		2
+
+#define DIAG_BUFFERING_MODE_STREAMING	0
+#define DIAG_BUFFERING_MODE_THRESHOLD	1
+#define DIAG_BUFFERING_MODE_CIRCULAR	2
+
+#define DIAG_MIN_WM_VAL		0
+#define DIAG_MAX_WM_VAL		100
+
+#define DEFAULT_LOW_WM_VAL	15
+#define DEFAULT_HIGH_WM_VAL	85
 
 #define NUM_SMD_DATA_CHANNELS 4
 #define NUM_SMD_CONTROL_CHANNELS NUM_SMD_DATA_CHANNELS
@@ -242,6 +253,13 @@ struct real_time_vote_t {
 struct real_time_query_t {
 	int real_time;
 	int proc;
+} __packed;
+
+struct diag_buffering_mode_t {
+	uint8_t peripheral;
+	uint8_t mode;
+	uint8_t high_wm_val;
+	uint8_t low_wm_val;
 } __packed;
 
 struct diag_ws_ref_t {
@@ -395,6 +413,9 @@ struct diagchar_dev {
 	int separate_cmdrsp[NUM_SMD_CONTROL_CHANNELS];
 	uint8_t peripheral_feature[NUM_SMD_CONTROL_CHANNELS][FEATURE_MASK_LEN];
 	uint8_t mask_centralization[NUM_SMD_CONTROL_CHANNELS];
+	uint8_t peripheral_buffering_support[NUM_SMD_CONTROL_CHANNELS];
+	struct diag_buffering_mode_t buffering_mode[NUM_SMD_CONTROL_CHANNELS];
+	struct mutex mode_lock;
 	unsigned char *apps_rsp_buf;
 	unsigned char *user_space_data_buf;
 	uint8_t user_space_data_busy;

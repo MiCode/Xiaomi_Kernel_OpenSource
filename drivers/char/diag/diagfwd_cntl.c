@@ -197,6 +197,7 @@ static void process_incoming_feature_mask(uint8_t *buf, uint32_t len,
 	int i;
 	int header_len = sizeof(struct diag_ctrl_feature_mask);
 	int read_len = 0;
+	int peripheral = 0;
 	struct diag_ctrl_feature_mask *header = NULL;
 	uint32_t feature_mask_len = 0;
 	uint32_t feature_mask = 0;
@@ -204,6 +205,13 @@ static void process_incoming_feature_mask(uint8_t *buf, uint32_t len,
 
 	if (!buf || !smd_info || len == 0)
 		return;
+
+	peripheral = smd_info->peripheral;
+	if (peripheral < MODEM_DATA || peripheral > LAST_PERIPHERAL) {
+		pr_err("diag: In %s, invalid peripheral %d\n", __func__,
+		       peripheral);
+		return;
+	}
 
 	header = (struct diag_ctrl_feature_mask *)ptr;
 	ptr += header_len;
@@ -220,25 +228,26 @@ static void process_incoming_feature_mask(uint8_t *buf, uint32_t len,
 		feature_mask_len = FEATURE_MASK_LEN;
 	}
 
-	driver->rcvd_feature_mask[smd_info->peripheral] = 1;
+	driver->rcvd_feature_mask[peripheral] = 1;
 
 	for (i = 0; i < feature_mask_len && read_len < len; i++) {
 		feature_mask = *(uint8_t *)ptr;
-		driver->peripheral_feature[smd_info->peripheral][i] =
-								feature_mask;
+		driver->peripheral_feature[peripheral][i] = feature_mask;
 		ptr += sizeof(uint8_t);
 		read_len += sizeof(uint8_t);
 
 		if (FEATURE_SUPPORTED(F_DIAG_LOG_ON_DEMAND_APPS))
 			driver->log_on_demand_support = 1;
 		if (FEATURE_SUPPORTED(F_DIAG_REQ_RSP_SUPPORT))
-			driver->separate_cmdrsp[smd_info->peripheral] = 1;
+			driver->separate_cmdrsp[peripheral] = 1;
 		if (FEATURE_SUPPORTED(F_DIAG_APPS_HDLC_ENCODE))
 			process_hdlc_encoding_feature(smd_info);
 		if (FEATURE_SUPPORTED(F_DIAG_STM))
 			enable_stm_feature(smd_info);
 		if (FEATURE_SUPPORTED(F_DIAG_MASK_CENTRALIZATION))
-			driver->mask_centralization[smd_info->peripheral] = 1;
+			driver->mask_centralization[peripheral] = 1;
+		if (FEATURE_SUPPORTED(F_DIAG_PERIPHERAL_BUFFERING))
+			driver->peripheral_buffering_support[peripheral] = 1;
 	}
 }
 
@@ -736,7 +745,25 @@ static inline void diag_send_diag_mode_update_remote(int token, int real_time)
 void diag_real_time_work_fn(struct work_struct *work)
 {
 	int temp_real_time = MODE_REALTIME, i, j;
+	uint8_t send_update = 1;
 
+	/*
+	 * If any peripheral in the local processor is in either threshold or
+	 * circular buffering mode, don't send the real time mode control
+	 * packet.
+	 */
+	for (i = 0; i < NUM_SMD_CONTROL_CHANNELS; i++) {
+		if (!driver->peripheral_buffering_support[i])
+			continue;
+		switch (driver->buffering_mode[i].mode) {
+		case DIAG_BUFFERING_MODE_THRESHOLD:
+		case DIAG_BUFFERING_MODE_CIRCULAR:
+			send_update = 0;
+			break;
+		}
+	}
+
+	mutex_lock(&driver->mode_lock);
 	for (i = 0; i < DIAG_NUM_PROC; i++) {
 		temp_real_time = diag_compute_real_time(i);
 		if (temp_real_time == driver->real_time_mode[i]) {
@@ -746,6 +773,11 @@ void diag_real_time_work_fn(struct work_struct *work)
 		}
 
 		if (i == DIAG_LOCAL_PROC) {
+			if (!send_update) {
+				pr_debug("diag: In %s, cannot send real time mode pkt since one of the periperhal is in buffering mode\n",
+					 __func__);
+				break;
+			}
 			for (j = 0; j < NUM_SMD_CONTROL_CHANNELS; j++)
 				diag_send_diag_mode_update_by_smd(
 					&driver->smd_cntl[j], temp_real_time);
@@ -754,6 +786,7 @@ void diag_real_time_work_fn(struct work_struct *work)
 							   temp_real_time);
 		}
 	}
+	mutex_unlock(&driver->mode_lock);
 
 	if (driver->real_time_update_busy > 0)
 		driver->real_time_update_busy--;
@@ -796,31 +829,25 @@ void diag_real_time_work_fn(struct work_struct *work)
 }
 #endif
 
-void diag_send_diag_mode_update_by_smd(struct diag_smd_info *smd_info,
+int diag_send_diag_mode_update_by_smd(struct diag_smd_info *smd_info,
 							int real_time)
 {
 	char buf[sizeof(struct diag_ctrl_msg_diagmode)];
 	int msg_size = sizeof(struct diag_ctrl_msg_diagmode);
-	struct diag_smd_info *data = NULL;
 	int err = 0;
 
 	if (!smd_info || smd_info->type != SMD_CNTL_TYPE) {
 		pr_err("diag: In %s, invalid channel info, smd_info: %p type: %d\n",
 					__func__, smd_info,
 					((smd_info) ? smd_info->type : -1));
-		return;
+		return -EIO;
 	}
 
-	if (smd_info->peripheral < MODEM_DATA ||
-					smd_info->peripheral > WCNSS_DATA) {
-		pr_err("diag: In %s, invalid peripheral %d\n", __func__,
-							smd_info->peripheral);
-		return;
+	if (real_time != MODE_NONREALTIME && real_time != MODE_REALTIME) {
+		pr_err("diag: In %s, invalid real time mode %d, peripheral: %d\n",
+		       __func__, real_time, smd_info->peripheral);
+		return -EINVAL;
 	}
-
-	data = &driver->smd_data[smd_info->peripheral];
-	if (!data)
-		return;
 
 	diag_create_diag_mode_ctrl_pkt(buf, real_time);
 
@@ -835,6 +862,89 @@ void diag_send_diag_mode_update_by_smd(struct diag_smd_info *smd_info,
 	}
 
 	mutex_unlock(&driver->diag_cntl_mutex);
+
+	return err;
+}
+
+int diag_send_peripheral_buffering_mode(struct diag_buffering_mode_t *params)
+{
+	int err = 0;
+	int mode = MODE_REALTIME;
+	uint8_t peripheral = 0;
+	struct diag_smd_info *smd_info = NULL;
+
+	if (!params)
+		return -EIO;
+
+	peripheral = params->peripheral;
+	if (peripheral > LAST_PERIPHERAL) {
+		pr_err("diag: In %s, invalid peripheral %d\n", __func__,
+		       peripheral);
+		return -EINVAL;
+	}
+
+	switch (params->mode) {
+	case DIAG_BUFFERING_MODE_STREAMING:
+		mode = MODE_REALTIME;
+		break;
+	case DIAG_BUFFERING_MODE_THRESHOLD:
+	case DIAG_BUFFERING_MODE_CIRCULAR:
+		mode = MODE_NONREALTIME;
+		break;
+	default:
+		pr_err("diag: In %s, invalid tx mode %d\n", __func__,
+		       params->mode);
+		return -EINVAL;
+	}
+
+	if (!driver->peripheral_buffering_support[peripheral]) {
+		pr_debug("diag: In %s, peripheral %d doesn't support buffering\n",
+			 __func__, peripheral);
+		return -EIO;
+	}
+
+	/*
+	 * Perform sanity on watermark values. These values must be
+	 * checked irrespective of the buffering mode.
+	 */
+	if (((params->high_wm_val > DIAG_MAX_WM_VAL) ||
+	     (params->low_wm_val > DIAG_MAX_WM_VAL)) ||
+	    (params->low_wm_val > params->high_wm_val) ||
+	    ((params->low_wm_val == params->high_wm_val) &&
+	     (params->low_wm_val != DIAG_MIN_WM_VAL))) {
+		pr_err("diag: In %s, invalid watermark values, high: %d, low: %d, peripheral: %d\n",
+		       __func__, params->high_wm_val, params->low_wm_val,
+		       peripheral);
+		return -EINVAL;
+	}
+
+	smd_info = &driver->smd_cntl[peripheral];
+	mutex_lock(&driver->mode_lock);
+	err = diag_send_buffering_tx_mode_pkt(smd_info, params);
+	if (err) {
+		pr_err("diag: In %s, unable to send buffering mode packet to peripheral %d, err: %d\n",
+		       __func__, peripheral, err);
+		goto fail;
+	}
+	err = diag_send_buffering_wm_values(smd_info, params);
+	if (err) {
+		pr_err("diag: In %s, unable to send buffering wm value packet to peripheral %d, err: %d\n",
+		       __func__, peripheral, err);
+		goto fail;
+	}
+	err = diag_send_diag_mode_update_by_smd(smd_info, mode);
+	if (err) {
+		pr_err("diag: In %s, unable to send mode update to peripheral %d, mode: %d, err: %d\n",
+		       __func__, peripheral, mode, err);
+		goto fail;
+	}
+	driver->buffering_mode[peripheral].peripheral = peripheral;
+	driver->buffering_mode[peripheral].mode = params->mode;
+	driver->buffering_mode[peripheral].low_wm_val = params->low_wm_val;
+	driver->buffering_mode[peripheral].high_wm_val = params->high_wm_val;
+fail:
+	mutex_unlock(&driver->mode_lock);
+	return err;
 }
 
 int diag_send_stm_state(struct diag_smd_info *smd_info,
@@ -869,6 +979,129 @@ int diag_send_stm_state(struct diag_smd_info *smd_info,
 				__func__, smd_info->peripheral);
 	}
 	return success;
+}
+
+int diag_send_peripheral_drain_immediate(struct diag_smd_info *smd_info)
+{
+	int err = 0;
+	struct diag_ctrl_drain_immediate ctrl_pkt;
+
+	if (!smd_info)
+		return -EIO;
+
+	if (!driver->peripheral_buffering_support[smd_info->peripheral]) {
+		pr_debug("diag: In %s, peripheral  %d doesn't support buffering\n",
+			 __func__, smd_info->peripheral);
+		return -EINVAL;
+	}
+
+	ctrl_pkt.pkt_id = DIAG_CTRL_MSG_PERIPHERAL_BUF_DRAIN_IMM;
+	/* The length of the ctrl pkt is size of version and stream id */
+	ctrl_pkt.len = sizeof(uint32_t) + sizeof(uint8_t);
+	ctrl_pkt.version = 1;
+	ctrl_pkt.stream_id = 1;
+
+	err = diag_smd_write(smd_info, &ctrl_pkt, sizeof(ctrl_pkt));
+	if (err) {
+		pr_err("diag: Unable to send drain immediate ctrl packet to peripheral %d, err: %d\n",
+		       smd_info->peripheral, err);
+	}
+
+	return err;
+}
+
+int diag_send_buffering_tx_mode_pkt(struct diag_smd_info *smd_info,
+				    struct diag_buffering_mode_t *params)
+{
+	int err = 0;
+	struct diag_ctrl_peripheral_tx_mode ctrl_pkt;
+
+	if (!smd_info || !params)
+		return -EIO;
+
+	if (!driver->peripheral_buffering_support[smd_info->peripheral]) {
+		pr_debug("diag: In %s, peripheral  %d doesn't support buffering\n",
+			 __func__, smd_info->peripheral);
+		return -EINVAL;
+	}
+
+	if (params->peripheral != smd_info->peripheral)
+		return -EINVAL;
+
+	switch (params->mode) {
+	case DIAG_BUFFERING_MODE_STREAMING:
+	case DIAG_BUFFERING_MODE_THRESHOLD:
+	case DIAG_BUFFERING_MODE_CIRCULAR:
+		break;
+	default:
+		pr_err("diag: In %s, invalid tx mode: %d\n", __func__,
+		       params->mode);
+		return -EINVAL;
+	}
+
+	ctrl_pkt.pkt_id = DIAG_CTRL_MSG_CONFIG_PERIPHERAL_TX_MODE;
+	/* Control packet length is size of version, stream_id and tx_mode */
+	ctrl_pkt.len = sizeof(uint32_t) +  (2 * sizeof(uint8_t));
+	ctrl_pkt.version = 1;
+	ctrl_pkt.stream_id = 1;
+	ctrl_pkt.tx_mode = params->mode;
+
+	err = diag_smd_write(smd_info, &ctrl_pkt, sizeof(ctrl_pkt));
+	if (err) {
+		pr_err("diag: Unable to send tx_mode ctrl packet to peripheral %d, err: %d\n",
+		       smd_info->peripheral, err);
+		goto fail;
+	}
+	driver->buffering_mode[smd_info->peripheral].mode = params->mode;
+
+fail:
+	return err;
+}
+
+int diag_send_buffering_wm_values(struct diag_smd_info *smd_info,
+				  struct diag_buffering_mode_t *params)
+{
+	int err = 0;
+	struct diag_ctrl_set_wq_val ctrl_pkt;
+
+	if (!smd_info || !params)
+		return -EIO;
+
+	if (!driver->peripheral_buffering_support[smd_info->peripheral]) {
+		pr_debug("diag: In %s, peripheral  %d doesn't support buffering\n",
+			 __func__, smd_info->peripheral);
+		return -EINVAL;
+	}
+
+	if (params->peripheral != smd_info->peripheral)
+		return -EINVAL;
+
+	switch (params->mode) {
+	case DIAG_BUFFERING_MODE_STREAMING:
+	case DIAG_BUFFERING_MODE_THRESHOLD:
+	case DIAG_BUFFERING_MODE_CIRCULAR:
+		break;
+	default:
+		pr_err("diag: In %s, invalid tx mode: %d\n", __func__,
+		       params->mode);
+		return -EINVAL;
+	}
+
+	ctrl_pkt.pkt_id = DIAG_CTRL_MSG_CONFIG_PERIPHERAL_WMQ_VAL;
+	/* Control packet length is size of version, stream_id and wmq values */
+	ctrl_pkt.len = sizeof(uint32_t) + (3 * sizeof(uint8_t));
+	ctrl_pkt.version = 1;
+	ctrl_pkt.stream_id = 1;
+	ctrl_pkt.high_wm_val = params->high_wm_val;
+	ctrl_pkt.low_wm_val = params->low_wm_val;
+
+	err = diag_smd_write(smd_info, &ctrl_pkt, sizeof(ctrl_pkt));
+	if (err) {
+		pr_err("diag: Unable to send watermark values to peripheral %d, err: %d\n",
+		       smd_info->peripheral, err);
+	}
+
+	return err;
 }
 
 static int diag_smd_cntl_probe(struct platform_device *pdev)
