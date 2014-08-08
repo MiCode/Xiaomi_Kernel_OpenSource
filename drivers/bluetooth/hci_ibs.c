@@ -5,7 +5,7 @@
  *  protocol extension to H4.
  *
  *  Copyright (C) 2007 Texas Instruments, Inc.
- *  Copyright (c) 2010, Code Aurora Forum. All rights reserved.
+ *  Copyright (c) 2010, 2012, 2014, The Linux Foundation. All rights reserved.
  *
  *  Acknowledgements:
  *  This file is based on hci_ll.c, which was...
@@ -50,7 +50,7 @@
 #include <linux/serial_core.h>
 
 #ifdef CONFIG_SERIAL_MSM_HS
-#include <mach/msm_serial_hs.h>
+#include <linux/platform_data/msm_serial_hs.h>
 #endif
 
 #include <net/bluetooth/bluetooth.h>
@@ -141,7 +141,7 @@ struct ibs_struct {
 static void __ibs_msm_serial_clock_on(struct tty_struct *tty)
 {
 	struct uart_state *state = tty->driver_data;
-	struct uart_port *port = state->port;
+	struct uart_port *port = state->uart_port;
 
 	msm_hs_request_clock_on(port);
 }
@@ -149,7 +149,7 @@ static void __ibs_msm_serial_clock_on(struct tty_struct *tty)
 static void __ibs_msm_serial_clock_request_off(struct tty_struct *tty)
 {
 	struct uart_state *state = tty->driver_data;
-	struct uart_port *port = state->port;
+	struct uart_port *port = state->uart_port;
 
 	msm_hs_request_clock_off(port);
 }
