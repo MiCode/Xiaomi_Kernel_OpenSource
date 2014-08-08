@@ -5768,9 +5768,10 @@ static int ufshcd_suspend(struct ufs_hba *hba, enum ufs_pm_op pm_op)
 		if (ufshcd_can_autobkops_during_suspend(hba)) {
 			/*
 			 * The device is idle with no requests in the queue,
-			 * allow background operations if needed.
+			 * allow background operations if bkops status shows
+			 * that performance might be impacted.
 			 */
-			ret = ufshcd_bkops_ctrl(hba, BKOPS_STATUS_NON_CRITICAL);
+			ret = ufshcd_urgent_bkops(hba);
 			if (ret)
 				goto enable_gating;
 		} else {
