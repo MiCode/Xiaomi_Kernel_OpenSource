@@ -100,7 +100,7 @@ struct mdss_prefill_data {
 
 enum mdss_hw_index {
 	MDSS_HW_MDP,
-	MDSS_HW_DSI0,
+	MDSS_HW_DSI0 = 1,
 	MDSS_HW_DSI1,
 	MDSS_HW_HDMI,
 	MDSS_HW_EDP,

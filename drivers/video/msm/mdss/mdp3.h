@@ -38,8 +38,7 @@ enum  {
 };
 
 enum {
-	MDP3_BUS_HANDLE_DMA,
-	MDP3_BUS_HANDLE_PPP,
+	MDP3_BUS_HANDLE,
 	MDP3_BUS_HANDLE_MAX,
 };
 
@@ -55,9 +54,13 @@ enum {
 	MDP3_IOMMU_CTX_MAX
 };
 
+/* Keep DSI entry in sync with mdss
+ which is being used by DSI 6G */
 enum {
 	MDP3_CLIENT_DMA_P,
+	MDP3_CLIENT_DSI = 1,
 	MDP3_CLIENT_PPP,
+	MDP3_CLIENT_MAX,
 };
 
 struct mdp3_bus_handle_map {
@@ -66,8 +69,10 @@ struct mdp3_bus_handle_map {
 	struct msm_bus_scale_pdata *scale_pdata;
 	int current_bus_idx;
 	int ref_cnt;
-	u64 restore_ab;
-	u64 restore_ib;
+	u64 restore_ab[MDP3_CLIENT_MAX];
+	u64 restore_ib[MDP3_CLIENT_MAX];
+	u64 ab[MDP3_CLIENT_MAX];
+	u64 ib[MDP3_CLIENT_MAX];
 	u32 handle;
 };
 
