@@ -59,6 +59,8 @@
 #define TOMTOM_CPE_MINOR_VER 0
 #define TOMTOM_CPE_CDC_ID 1
 #define RX8_PATH 8
+#define HPH_PA_ENABLE true
+#define HPH_PA_DISABLE false
 
 static int cpe_debug_mode;
 module_param(cpe_debug_mode, int,
@@ -1644,6 +1646,35 @@ static const struct snd_kcontrol_new impedance_detect_controls[] = {
 		       tomtom_hph_impedance_get, NULL),
 	SOC_SINGLE_EXT("HPHR Impedance", 0, 1, UINT_MAX, 0,
 		       tomtom_hph_impedance_get, NULL),
+};
+
+static int tomtom_get_hph_type(struct snd_kcontrol *kcontrol,
+				struct snd_ctl_elem_value *ucontrol)
+{
+	struct snd_soc_codec *codec = snd_kcontrol_chip(kcontrol);
+	struct tomtom_priv *priv = snd_soc_codec_get_drvdata(codec);
+	struct wcd9xxx_mbhc *mbhc;
+
+	if (!priv) {
+		pr_debug("%s: wcd9330 private data is NULL\n", __func__);
+		return 0;
+	}
+
+	mbhc = &priv->mbhc;
+	if (!mbhc) {
+		pr_debug("%s: mbhc not initialized\n", __func__);
+		return 0;
+	}
+
+	ucontrol->value.integer.value[0] = (u32) mbhc->hph_type;
+	pr_debug("%s: hph_type = %u\n", __func__, mbhc->hph_type);
+
+	return 0;
+}
+
+static const struct snd_kcontrol_new hph_type_detect_controls[] = {
+	SOC_SINGLE_EXT("HPH Type", 0, 0, UINT_MAX, 0,
+		       tomtom_get_hph_type, NULL),
 };
 
 static const char * const rx_mix1_text[] = {
@@ -7201,14 +7232,16 @@ static int wcd9xxx_prepare_static_pa(struct wcd9xxx_mbhc *mbhc,
 	return 0;
 }
 
-static int wcd9xxx_enable_static_pa(struct wcd9xxx_mbhc *mbhc, bool enable)
+static int wcd9xxx_enable_static_pa(struct wcd9xxx_mbhc *mbhc, bool enable,
+				    u8 hph_pa)
 {
 	struct snd_soc_codec *codec = mbhc->codec;
 	const int wg_time = snd_soc_read(codec, WCD9XXX_A_RX_HPH_CNP_WG_TIME) *
 			    TOMTOM_WG_TIME_FACTOR_US;
+	u8 mask = (hph_pa << 4);
+	u8 pa_en = enable ? mask : ~mask;
 
-	snd_soc_update_bits(codec, WCD9XXX_A_RX_HPH_CNP_EN, 0x30,
-			    enable ? 0x30 : 0x00);
+	snd_soc_update_bits(codec, WCD9XXX_A_RX_HPH_CNP_EN, mask, pa_en);
 	/* Wait for wave gen time to avoid pop noise */
 	usleep_range(wg_time, wg_time + WCD9XXX_USLEEP_RANGE_MARGIN_US);
 	pr_debug("%s: PAs are %s as static mode (wg_time %d)\n", __func__,
@@ -7240,7 +7273,7 @@ static int tomtom_setup_zdet(struct wcd9xxx_mbhc *mbhc,
 		/* Set HPH_MBHC for zdet */
 		__wr(WCD9XXX_A_MBHC_HPH, 0xff, 0xC4);
 		usleep_range(10, 10 + WCD9XXX_USLEEP_RANGE_MARGIN_US);
-		wcd9xxx_enable_static_pa(mbhc, true);
+		wcd9xxx_enable_static_pa(mbhc, HPH_PA_ENABLE, HPH_PA_L_R);
 
 		/* save old value of registers and write the new value */
 		__wr(WCD9XXX_A_RX_HPH_OCP_CTL, 0xff, 0x69);
@@ -7287,6 +7320,22 @@ static int tomtom_setup_zdet(struct wcd9xxx_mbhc *mbhc,
 		/*
 		 * Set the multiplication factor for zdet calculation
 		 * based on the Ramp voltage and Gain used
+		 */
+		tomtom->zdet_gain_mul_fact = TOMTOM_ZDET_MUL_FACTOR_1X;
+		break;
+	case MBHC_ZDET_GAIN_0:
+		/* Set Gain at 1x */
+		snd_soc_write(codec, TOMTOM_A_RX_HPH_L_ATEST, 0x00);
+		snd_soc_write(codec, TOMTOM_A_RX_HPH_R_ATEST, 0x00);
+		snd_soc_write(codec, TOMTOM_A_RX_HPH_L_PA_CTL, 0x42);
+		/* Allow 100us for gain registers to settle */
+		usleep_range(100,
+			     100 + WCD9XXX_USLEEP_RANGE_MARGIN_US);
+		break;
+	case MBHC_ZDET_GAIN_UPDATE_1X:
+		/*
+		 * Set the multiplication factor for zdet calculation
+		 * based on the Gain value used
 		 */
 		tomtom->zdet_gain_mul_fact = TOMTOM_ZDET_MUL_FACTOR_1X;
 		break;
@@ -7342,10 +7391,57 @@ static int tomtom_setup_zdet(struct wcd9xxx_mbhc *mbhc,
 			     TOMTOM_HPH_PA_RAMP_DELAY +
 			     WCD9XXX_USLEEP_RANGE_MARGIN_US);
 		break;
+	case MBHC_ZDET_HPHR_RAMP_DISABLE:
+		/* Ramp HPHR back to Zero */
+		snd_soc_write(codec, WCD9XXX_A_CDC_PA_RAMP_B2_CTL, 0x00);
+		snd_soc_write(codec, WCD9XXX_A_CDC_PA_RAMP_B4_CTL, 0x69);
+		snd_soc_write(codec, WCD9XXX_A_CDC_PA_RAMP_B3_CTL,
+			      0x1 << 4 | 0x6);
+		/* Reset the PA Ramp */
+		snd_soc_write(codec, WCD9XXX_A_CDC_PA_RAMP_B1_CTL, 0x17);
+		/*
+		 * Connect the PA Ramp to PA chain and release reset with
+		 * keep it connected.
+		 */
+		snd_soc_write(codec, WCD9XXX_A_CDC_PA_RAMP_B1_CTL, 0x03);
+		snd_soc_write(codec, WCD9XXX_A_CDC_PA_RAMP_B2_CTL, 0x08);
+		/* Ramp generator takes ~30ms to settle down */
+		usleep_range(TOMTOM_HPH_PA_RAMP_DELAY,
+			     TOMTOM_HPH_PA_RAMP_DELAY +
+			     WCD9XXX_USLEEP_RANGE_MARGIN_US);
+		break;
+	case MBHC_ZDET_HPHL_RAMP_DISABLE:
+		/* Ramp back to Zero */
+		snd_soc_write(codec, WCD9XXX_A_CDC_PA_RAMP_B2_CTL, 0x00);
+		snd_soc_write(codec, WCD9XXX_A_CDC_PA_RAMP_B4_CTL, 0x69);
+		snd_soc_write(codec, WCD9XXX_A_CDC_PA_RAMP_B3_CTL,
+			      0x1 << 4 | 0x6);
+		/* Reset the PA Ramp */
+		snd_soc_write(codec, WCD9XXX_A_CDC_PA_RAMP_B1_CTL, 0x17);
+		/*
+		 * Connect the PA Ramp to PA chain and release reset with
+		 * keep it connected.
+		 */
+		snd_soc_write(codec, WCD9XXX_A_CDC_PA_RAMP_B1_CTL, 0x03);
+		snd_soc_write(codec, WCD9XXX_A_CDC_PA_RAMP_B2_CTL, 0x02);
+		/* Ramp generator takes ~30ms to settle down */
+		usleep_range(TOMTOM_HPH_PA_RAMP_DELAY,
+			     TOMTOM_HPH_PA_RAMP_DELAY +
+			     WCD9XXX_USLEEP_RANGE_MARGIN_US);
+		break;
+	case MBHC_ZDET_HPHR_PA_DISABLE:
+		/* Disable PA */
+		wcd9xxx_enable_static_pa(mbhc, HPH_PA_DISABLE, HPH_PA_R);
+		break;
 	case MBHC_ZDET_PA_DISABLE:
 		/* Disable PA */
-		if (!mbhc->hph_pa_dac_state)
-			wcd9xxx_enable_static_pa(mbhc, false);
+		if (!mbhc->hph_pa_dac_state &&
+			(!(test_bit(MBHC_EVENT_PA_HPHL, &mbhc->event_state) ||
+			test_bit(MBHC_EVENT_PA_HPHR, &mbhc->event_state))))
+			wcd9xxx_enable_static_pa(mbhc, HPH_PA_DISABLE,
+						 HPH_PA_L_R);
+		else if (!(snd_soc_read(codec, WCD9XXX_A_RX_HPH_CNP_EN) & 0x10))
+			wcd9xxx_enable_static_pa(mbhc, HPH_PA_ENABLE, HPH_PA_R);
 
 		/* Turn off PA ramp generator */
 		snd_soc_write(codec, WCD9XXX_A_CDC_PA_RAMP_B1_CTL, 0x00);
@@ -7364,7 +7460,7 @@ static int tomtom_setup_zdet(struct wcd9xxx_mbhc *mbhc,
 
 /* Calculate final impedance values for HPH left and right based on formulae */
 static void tomtom_compute_impedance(struct wcd9xxx_mbhc *mbhc, s16 *l, s16 *r,
-					 uint32_t *zl, uint32_t *zr)
+				     uint32_t *zl, uint32_t *zr)
 {
 	s64 zln, zrn;
 	int zld, zrd;
@@ -7372,41 +7468,44 @@ static void tomtom_compute_impedance(struct wcd9xxx_mbhc *mbhc, s16 *l, s16 *r,
 	struct snd_soc_codec *codec;
 	struct tomtom_priv *tomtom;
 
-	if (!l || !r || !zl || !zr || !mbhc) {
-		pr_err("%s: Invalid parameters l = %p, r = %p zl = %p zr = %p, mbhc = %p\n",
-			__func__, l, r, zl, zr, mbhc);
+	if (!mbhc) {
+		pr_err("%s: Invalid parameters mbhc = %p\n",
+			__func__,  mbhc);
 		return;
 	}
 	codec = mbhc->codec;
 	tomtom = snd_soc_codec_get_drvdata(codec);
 
-	zln = (s64) (l[1] - l[0]) * tomtom->zdet_gain_mul_fact;
-	zld = (l[2] - l[0]);
-	if (zld)
-		rl = div_s64(zln, zld);
-	else
-		/* If L0 and L2 are same, Z has to be on Zone 3. Assign
-		 * a default value so that atleast the value is read again
-		 * with Ramp-up
-		 */
-		rl = TOMTOM_ZDET_ZONE_3_DEFAULT_VAL;
+	if (l && zl) {
+		zln = (s64) (l[1] - l[0]) * tomtom->zdet_gain_mul_fact;
+		zld = (l[2] - l[0]);
+		if (zld)
+			rl = div_s64(zln, zld);
+		else
+			/* If L0 and L2 are same, Z has to be on Zone 3.
+			 * Assign a default value so that atleast the value
+			 * is read again with Ramp-up
+			 */
+			rl = TOMTOM_ZDET_ZONE_3_DEFAULT_VAL;
 
-	zrn = (s64) (r[1] - r[0]) * tomtom->zdet_gain_mul_fact;
-	zrd = (r[2] - r[0]);
-	if (zrd)
-		rr = div_s64(zrn, zrd);
-	else
-		/* If R0 and R2 are same, Z has to be on Zone 3. Assign
-		 * a default value so that atleast the value is read again
-		 * with Ramp-up
-		 */
-		rr = TOMTOM_ZDET_ZONE_3_DEFAULT_VAL;
+		/* 32-bit LSBs are enough to hold Impedance values */
+		*zl = (u32) rl;
+	}
+	if (r && zr) {
+		zrn = (s64) (r[1] - r[0]) * tomtom->zdet_gain_mul_fact;
+		zrd = (r[2] - r[0]);
+		if (zrd)
+			rr = div_s64(zrn, zrd);
+		else
+			/* If R0 and R2 are same, Z has to be on Zone 3.
+			 * Assign a default value so that atleast the value
+			 * is read again with Ramp-up
+			 */
+			rr = TOMTOM_ZDET_ZONE_3_DEFAULT_VAL;
 
-	/* 32-bit LSBs are enough to hold Impedance values */
-	*zl = (u32) rl;
-	*zr = (u32) rr;
-
-	tomtom->zdet_gain_mul_fact = 0;
+		/* 32-bit LSBs are enough to hold Impedance values */
+		*zr = (u32) rr;
+	}
 }
 
 /*
@@ -7600,7 +7699,7 @@ static int tomtom_post_reset_cb(struct wcd9xxx *wcd9xxx)
 		ret = wcd9xxx_mbhc_init(&tomtom->mbhc, &tomtom->resmgr, codec,
 					tomtom_enable_mbhc_micbias,
 					&mbhc_cb, &cdc_intr_ids,
-					rco_clk_rate, false);
+					rco_clk_rate, TOMTOM_ZDET_SUPPORTED);
 		if (ret)
 			pr_err("%s: mbhc init failed %d\n", __func__, ret);
 		else
@@ -7850,7 +7949,7 @@ static int tomtom_codec_probe(struct snd_soc_codec *codec)
 	ret = wcd9xxx_mbhc_init(&tomtom->mbhc, &tomtom->resmgr, codec,
 				tomtom_enable_mbhc_micbias,
 				&mbhc_cb, &cdc_intr_ids,
-				rco_clk_rate, false);
+				rco_clk_rate, TOMTOM_ZDET_SUPPORTED);
 	if (ret) {
 		pr_err("%s: mbhc init failed %d\n", __func__, ret);
 		goto err_nomem_slimch;
@@ -7924,6 +8023,8 @@ static int tomtom_codec_probe(struct snd_soc_codec *codec)
 
 	snd_soc_add_codec_controls(codec, impedance_detect_controls,
 				   ARRAY_SIZE(impedance_detect_controls));
+	snd_soc_add_codec_controls(codec, hph_type_detect_controls,
+				   ARRAY_SIZE(hph_type_detect_controls));
 
 	control->num_rx_port = TOMTOM_RX_MAX;
 	control->rx_chs = ptr;

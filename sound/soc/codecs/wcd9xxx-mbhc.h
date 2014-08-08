@@ -45,10 +45,27 @@ enum mbhc_cal_type {
 enum mbhc_impedance_detect_stages {
 	MBHC_ZDET_PRE_MEASURE,
 	MBHC_ZDET_POST_MEASURE,
+	MBHC_ZDET_GAIN_0,
 	MBHC_ZDET_GAIN_1,
 	MBHC_ZDET_GAIN_2,
+	MBHC_ZDET_HPHR_RAMP_DISABLE,
+	MBHC_ZDET_HPHL_RAMP_DISABLE,
 	MBHC_ZDET_RAMP_DISABLE,
+	MBHC_ZDET_HPHR_PA_DISABLE,
 	MBHC_ZDET_PA_DISABLE,
+	MBHC_ZDET_GAIN_UPDATE_1X,
+};
+
+/* Zone assignments used in WCD9330 for Zdet */
+enum mbhc_zdet_zones {
+	ZL_ZONE1__ZR_ZONE1,
+	ZL_ZONE2__ZR_ZONE2,
+	ZL_ZONE3__ZR_ZONE3,
+	ZL_ZONE2__ZR_ZONE1,
+	ZL_ZONE3__ZR_ZONE1,
+	ZL_ZONE1__ZR_ZONE2,
+	ZL_ZONE1__ZR_ZONE3,
+	ZL_ZR_NOT_IN_ZONE1,
 };
 
 /* Data used by MBHC */
@@ -141,6 +158,12 @@ enum wcd9xxx_mbhc_event_state {
 	MBHC_EVENT_PA_HPHR,
 	MBHC_EVENT_PRE_TX_3_ON,
 	MBHC_EVENT_POST_TX_3_OFF,
+};
+
+enum mbhc_hph_type {
+	MBHC_HPH_NONE = 0,
+	MBHC_HPH_MONO,
+	MBHC_HPH_STEREO,
 };
 
 struct wcd9xxx_mbhc_general_cfg {
@@ -375,6 +398,9 @@ struct wcd9xxx_mbhc {
 
 	/* Indicates status of current source switch */
 	bool is_cs_enabled;
+
+	/* Holds type of Headset - Mono/Stereo */
+	enum mbhc_hph_type hph_type;
 
 #ifdef CONFIG_DEBUG_FS
 	struct dentry *debugfs_poke;
