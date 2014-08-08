@@ -57,7 +57,7 @@
  */
 #define MAX_ALIGN_SIZE  0x40
 
-#define QCRYPTO_HIGH_BANDWIDTH_TIMEOUT 1000
+#define QCRYPTO_HIGH_BANDWIDTH_TIMEOUT 200
 
 /* are FIPS self tests done ?? */
 static bool is_fips_qcrypto_tests_done;
@@ -4952,40 +4952,34 @@ static int  _qcrypto_resume(struct platform_device *pdev)
 	struct crypto_engine *pengine;
 	struct crypto_priv *cp;
 	unsigned long flags;
-	bool restart = false;
 
 	pengine = platform_get_drvdata(pdev);
 
 	if (!pengine)
 		return -EINVAL;
-
 	cp = pengine->pcp;
 	if (!cp->ce_support.clk_mgmt_sus_res)
 		return 0;
-
 	spin_lock_irqsave(&cp->lock, flags);
 	if (pengine->bw_state == BUS_SUSPENDED) {
-		pengine->bw_state = BUS_BANDWIDTH_ALLOCATING;
 		spin_unlock_irqrestore(&cp->lock, flags);
-
 		if (qce_pm_table.resume)
 			qce_pm_table.resume(pengine->qce);
 
 		qcrypto_bw_set_timeout(pengine);
 
-		qcrypto_ce_set_bus(pengine, true);
-
 		spin_lock_irqsave(&cp->lock, flags);
-		pengine->bw_state = BUS_HAS_BANDWIDTH;
-		pengine->high_bw_req = false;
-		restart = true;
+		pengine->bw_state = BUS_NO_BANDWIDTH;
 		pengine->active_seq++;
-		pengine->check_flag = true;
+		pengine->check_flag = false;
+		if (cp->req_queue.qlen || pengine->req_queue.qlen) {
+			if (pengine->high_bw_req == false) {
+				qcrypto_ce_bw_allocate_req(pengine);
+				pengine->high_bw_req = true;
+			}
+		}
 	}
 	spin_unlock_irqrestore(&cp->lock, flags);
-	if (restart)
-		_start_qcrypto_process(cp, pengine);
-
 	return 0;
 }
 
