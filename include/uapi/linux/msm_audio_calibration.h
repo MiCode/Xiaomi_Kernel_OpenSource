@@ -106,6 +106,7 @@ struct audio_cal_header {
 
 struct audio_cal_type_header {
 	int32_t		version;
+	int32_t		buffer_number;
 };
 
 struct audio_cal_data {

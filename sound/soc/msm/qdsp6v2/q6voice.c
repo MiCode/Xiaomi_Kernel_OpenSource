@@ -6654,55 +6654,55 @@ static int voice_init_cal_data(void)
 	struct cal_type_info cal_type_info[] = {
 		{{CVP_VOC_RX_TOPOLOGY_CAL_TYPE,
 		{NULL, NULL, NULL, voice_set_cal, NULL, NULL} },
-		{NULL, NULL, cal_utils_match_only_block} },
+		{NULL, NULL, cal_utils_match_buf_num} },
 
 		{{CVP_VOC_TX_TOPOLOGY_CAL_TYPE,
 		{NULL, NULL, NULL, voice_set_cal, NULL, NULL} },
-		{NULL, NULL, cal_utils_match_only_block} },
+		{NULL, NULL, cal_utils_match_buf_num} },
 
 		{{CVP_VOCPROC_CAL_TYPE,
 		{voice_alloc_cal, voice_dealloc_cal, NULL,
 		voice_set_cal, NULL, NULL} },
 		{NULL, voice_unmap_cal_memory,
-		cal_utils_match_ion_map} },
+		cal_utils_match_buf_num} },
 
 		{{CVP_VOCVOL_CAL_TYPE,
 		{voice_alloc_cal, voice_dealloc_cal, NULL,
 		voice_set_cal, NULL, NULL} },
 		{NULL, voice_unmap_cal_memory,
-		cal_utils_match_ion_map} },
+		cal_utils_match_buf_num} },
 
 		{{CVP_VOCDEV_CFG_CAL_TYPE,
 		{voice_alloc_cal, voice_dealloc_cal, NULL,
 		voice_set_cal, NULL, NULL} },
 		{NULL, voice_unmap_cal_memory,
-		cal_utils_match_ion_map} },
+		cal_utils_match_buf_num} },
 
 		{{CVP_VOCPROC_COL_CAL_TYPE,
 		{NULL, NULL, NULL, voice_set_cal, NULL, NULL} },
-		{NULL, NULL, cal_utils_match_only_block} },
+		{NULL, NULL, cal_utils_match_buf_num} },
 
 		{{CVP_VOCVOL_COL_CAL_TYPE,
 		{NULL, NULL, NULL, voice_set_cal, NULL, NULL} },
-		{NULL, NULL, cal_utils_match_only_block} },
+		{NULL, NULL, cal_utils_match_buf_num} },
 
 		{{CVS_VOCSTRM_CAL_TYPE,
 		{voice_alloc_cal, voice_dealloc_cal, NULL,
 		voice_set_cal, NULL, NULL} },
 		{NULL, voice_unmap_cal_memory,
-		cal_utils_match_ion_map} },
+		cal_utils_match_buf_num} },
 
 		{{CVS_VOCSTRM_COL_CAL_TYPE,
 		{NULL, NULL, NULL, voice_set_cal, NULL, NULL} },
-		{NULL, NULL, cal_utils_match_only_block} },
+		{NULL, NULL, cal_utils_match_buf_num} },
 
 		{{VOICE_RTAC_INFO_CAL_TYPE,
 		{NULL, NULL, NULL, NULL, NULL, NULL} },
-		{NULL, NULL, cal_utils_match_only_block} },
+		{NULL, NULL, cal_utils_match_buf_num} },
 
 		{{VOICE_RTAC_APR_CAL_TYPE,
 		{NULL, NULL, NULL, NULL, NULL, NULL} },
-		{NULL, NULL, cal_utils_match_only_block} },
+		{NULL, NULL, cal_utils_match_buf_num} },
 	};
 
 	ret = cal_utils_create_cal_types(MAX_VOICE_CAL_TYPES, common.cal_data,

@@ -1425,6 +1425,39 @@ static struct cal_block_data *adm_find_cal_by_path(int cal_index, int path)
 	return NULL;
 }
 
+static struct cal_block_data *adm_find_cal_by_app_type(int cal_index, int path,
+								int app_type)
+{
+	struct list_head		*ptr, *next;
+	struct cal_block_data		*cal_block = NULL;
+	struct audio_cal_info_audproc	*audproc_cal_info = NULL;
+	struct audio_cal_info_audvol	*audvol_cal_info = NULL;
+	pr_debug("%s\n", __func__);
+
+	list_for_each_safe(ptr, next,
+		&this_adm.cal_data[cal_index]->cal_blocks) {
+
+		cal_block = list_entry(ptr,
+			struct cal_block_data, list);
+
+		if (cal_index == ADM_AUDPROC_CAL) {
+			audproc_cal_info = cal_block->cal_info;
+			if ((audproc_cal_info->path == path) &&
+			    (audproc_cal_info->app_type == app_type))
+				return cal_block;
+		} else if (cal_index == ADM_AUDVOL_CAL) {
+			audvol_cal_info = cal_block->cal_info;
+			if ((audvol_cal_info->path == path) &&
+			    (audvol_cal_info->app_type == app_type))
+				return cal_block;
+		}
+	}
+	pr_debug("%s: Can't find topology for cal_index %d, path %d, app %d, defaulting to search by path\n",
+		__func__, cal_index, path, app_type);
+	return adm_find_cal_by_path(cal_index, path);
+}
+
+
 static struct cal_block_data *adm_find_cal(int cal_index, int path,
 					   int app_type, int acdb_id)
 {
@@ -1454,9 +1487,9 @@ static struct cal_block_data *adm_find_cal(int cal_index, int path,
 				return cal_block;
 		}
 	}
-	pr_debug("%s: Can't find topology for cal_index %d, path %d, app %d, acdb_id %d defaulting to search by path\n",
+	pr_debug("%s: Can't find topology for cal_index %d, path %d, app %d, acdb_id %d defaulting to search by app type\n",
 		__func__, cal_index, path, app_type, acdb_id);
-	return adm_find_cal_by_path(cal_index, path);
+	return adm_find_cal_by_app_type(cal_index, path, app_type);
 }
 
 static void send_adm_cal_type(int cal_index, int path, int port_id,
@@ -2254,31 +2287,31 @@ static int adm_init_cal_data(void)
 		{adm_alloc_cal, adm_dealloc_cal, NULL,
 		adm_set_cal, NULL, NULL} },
 		{adm_map_cal_data, adm_unmap_cal_data,
-		cal_utils_match_ion_map} },
+		cal_utils_match_buf_num} },
 
 		{{ADM_AUDPROC_CAL_TYPE,
 		{adm_alloc_cal, adm_dealloc_cal, NULL,
 		adm_set_cal, NULL, NULL} },
 		{adm_map_cal_data, adm_unmap_cal_data,
-		cal_utils_match_ion_map} },
+		cal_utils_match_buf_num} },
 
 		{{ADM_AUDVOL_CAL_TYPE,
 		{adm_alloc_cal, adm_dealloc_cal, NULL,
 		adm_set_cal, NULL, NULL} },
 		{adm_map_cal_data, adm_unmap_cal_data,
-		cal_utils_match_ion_map} },
+		cal_utils_match_buf_num} },
 
 		{{ADM_RTAC_INFO_CAL_TYPE,
 		{NULL, NULL, NULL, NULL, NULL, NULL} },
-		{NULL, NULL, cal_utils_match_only_block} },
+		{NULL, NULL, cal_utils_match_buf_num} },
 
 		{{ADM_RTAC_APR_CAL_TYPE,
 		{NULL, NULL, NULL, NULL, NULL, NULL} },
-		{NULL, NULL, cal_utils_match_only_block} },
+		{NULL, NULL, cal_utils_match_buf_num} },
 
 		{{DTS_EAGLE_CAL_TYPE,
 		{NULL, NULL, NULL, NULL, NULL, NULL} },
-		{NULL, NULL, cal_utils_match_only_block} }
+		{NULL, NULL, cal_utils_match_buf_num} }
 	};
 	pr_debug("%s:\n", __func__);
 
