@@ -27,5 +27,28 @@ static inline void msm_jtag_mm_save_state(void) {}
 static inline void msm_jtag_mm_restore_state(void){}
 static inline bool msm_jtag_fuse_apps_access_disabled(void) { return false; }
 #endif
+#ifdef CONFIG_MSM_JTAGV8
+extern int msm_jtag_save_register(struct notifier_block *nb);
+extern int msm_jtag_save_unregister(struct notifier_block *nb);
+extern int msm_jtag_restore_register(struct notifier_block *nb);
+extern int msm_jtag_restore_unregister(struct notifier_block *nb);
+#else
+static inline int msm_jtag_save_register(struct notifier_block *nb)
+{
+	return 0;
+}
+static inline int msm_jtag_save_unregister(struct notifier_block *nb)
+{
+	return 0;
+}
+static inline int msm_jtag_restore_register(struct notifier_block *nb)
+{
+	return 0;
+}
+static inline int msm_jtag_restore_unregister(struct notifier_block *nb)
+{
+	return 0;
+}
+#endif
 
 #endif
