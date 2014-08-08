@@ -116,7 +116,7 @@ static struct wcd9xxx_mbhc_config wcd9xxx_mbhc_cfg = {
 			    1 << MBHC_CS_ENABLE_INSERTION |
 			    1 << MBHC_CS_ENABLE_REMOVAL |
 			    1 << MBHC_CS_ENABLE_DET_ANC),
-	.do_recalibration = false,
+	.do_recalibration = true,
 	.use_vddio_meas = true,
 	.enable_anc_mic_detect = false,
 	.hw_jack_type = FOUR_POLE_JACK,
@@ -2052,28 +2052,16 @@ static bool msm8939_swap_gnd_mic(struct snd_soc_codec *codec)
 {
 	struct snd_soc_card *card = codec->card;
 	struct msm8939_asoc_mach_data *pdata = NULL;
-	int value = 0, ret = 0;
+	int value = 0;
 
 	pdata = snd_soc_card_get_drvdata(card);
 	if (!gpio_is_valid(pdata->us_euro_gpio)) {
 		pr_err("%s: Invalid gpio: %d", __func__, pdata->us_euro_gpio);
 		return false;
 	}
-	ret = pinctrl_select_state(pinctrl_info.pinctrl,
-				pinctrl_info.cross_conn_det_act);
-	if (ret < 0) {
-		pr_err("failed to configure the gpio\n");
-		return false;
-	}
 	value = gpio_get_value_cansleep(pdata->us_euro_gpio);
-	gpio_direction_output(pdata->us_euro_gpio, !value);
 	pr_debug("%s: swap select switch %d to %d\n", __func__, value, !value);
-	ret = pinctrl_select_state(pinctrl_info.pinctrl,
-				pinctrl_info.cross_conn_det_sus);
-	if (ret < 0) {
-		pr_err("failed to configure the gpio\n");
-		return false;
-	}
+	gpio_set_value_cansleep(pdata->us_euro_gpio, !value);
 	return true;
 }
 
@@ -2126,7 +2114,7 @@ static int cdc_slim_get_pinctrl(struct platform_device *pdev)
 	}
 	/* Reset the CDC PDM TLMM pins to a default state */
 	ret = pinctrl_select_state(pinctrl_info.pinctrl,
-					pinctrl_info.cross_conn_det_sus);
+					pinctrl_info.cross_conn_det_act);
 	if (ret != 0) {
 		pr_err("%s: Failed to disable the us_euro pins\n", __func__);
 		return -EIO;
