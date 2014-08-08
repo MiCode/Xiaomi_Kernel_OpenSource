@@ -169,6 +169,7 @@
 		coresight-outports = <0>;
 		coresight-child-list = <&funnel_a7ss>;
 		coresight-child-ports = <0>;
+		coresight-etm-cpu = <&CPU0>;
 
 		qcom,round-robin;
 	};
@@ -184,6 +185,7 @@
 		coresight-outports = <0>;
 		coresight-child-list = <&funnel_a7ss>;
 		coresight-child-ports = <1>;
+		coresight-etm-cpu = <&CPU1>;
 
 		qcom,round-robin;
 	};
@@ -199,6 +201,7 @@
 		coresight-outports = <0>;
 		coresight-child-list = <&funnel_a7ss>;
 		coresight-child-ports = <2>;
+		coresight-etm-cpu = <&CPU2>;
 
 		qcom,round-robin;
 	};
@@ -214,6 +217,7 @@
 		coresight-outports = <0>;
 		coresight-child-list = <&funnel_a7ss>;
 		coresight-child-ports = <3>;
+		coresight-etm-cpu = <&CPU3>;
 
 		qcom,round-robin;
 	};

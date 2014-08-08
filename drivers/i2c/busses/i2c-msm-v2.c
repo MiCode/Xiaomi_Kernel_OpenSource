@@ -1866,6 +1866,9 @@ static int i2c_msm_bam_xfer_rmv_inp_fifo_tag(struct i2c_msm_ctrl *ctrl, u32 len)
 	return ret;
 }
 
+static int i2c_msm_bam_pipe_connect(struct i2c_msm_ctrl *ctrl,
+		struct i2c_msm_bam_pipe  *pipe, struct sps_connect *config);
+
 /*
  * i2c_msm_bam_xfer_process: Queue transfers to BAM
  * @pre 1)QUP is in run state. 2) i2c_msm_bam_xfer_prepare() was called.
@@ -1887,6 +1890,17 @@ static int i2c_msm_bam_xfer_process(struct i2c_msm_ctrl *ctrl)
 
 	cons = &bam->pipe[I2C_MSM_BAM_CONS];
 	prod = &bam->pipe[I2C_MSM_BAM_PROD];
+	if (!cons->is_init) {
+		ret = i2c_msm_bam_pipe_connect(ctrl, cons, &cons->config);
+		if (ret)
+			return ret;
+	}
+	if (!prod->is_init) {
+		ret = i2c_msm_bam_pipe_connect(ctrl, prod, &prod->config);
+		if (ret)
+			return ret;
+	}
+
 	buf_itr = bam->buf_arr;
 
 	for (i = 0; i < bam->buf_arr_cnt ; ++i, ++buf_itr) {
@@ -1966,18 +1980,25 @@ bam_xfer_end:
 	return ret;
 }
 
-static int i2c_msm_bam_pipe_diconnect(struct i2c_msm_ctrl *ctrl,
+static int i2c_msm_bam_pipe_disconnect(struct i2c_msm_ctrl *ctrl,
 						struct i2c_msm_bam_pipe  *pipe)
 {
-	struct i2c_msm_xfer_mode_bam *bam = i2c_msm_bam_get_struct(ctrl);
-	int ret = sps_disconnect(pipe->handle);
+	struct sps_connect config = pipe->config;
+	int ret;
+
+	config.options |= SPS_O_POLL;
+	ret = sps_set_config(pipe->handle, &config);
+	if (ret) {
+		pr_err("sps_set_config() failed ret %d\n", ret);
+		return ret;
+	}
+	ret = sps_disconnect(pipe->handle);
 	if (ret) {
 		i2c_msm_prof_evnt_add(ctrl, MSM_ERR, i2c_msm_prof_dump_pip_dscn,
 						(ulong) pipe, (u32)ret, 0);
 		return ret;
 	}
 	pipe->is_init = false;
-	bam->is_init  = false;
 	return 0;
 }
 
@@ -2003,7 +2024,7 @@ static int i2c_msm_bam_pipe_connect(struct i2c_msm_ctrl *ctrl,
 		dev_err(ctrl->dev,
 			"error sps_register_event(hndl:0x%p %s):%d\n",
 			pipe->handle, pipe->name, ret);
-		i2c_msm_bam_pipe_diconnect(ctrl, pipe);
+		i2c_msm_bam_pipe_disconnect(ctrl, pipe);
 		return ret;
 	}
 
@@ -2020,15 +2041,15 @@ static void i2c_msm_bam_pipe_teardown(struct i2c_msm_ctrl *ctrl,
 	i2c_msm_dbg(ctrl, MSM_DBG, "tearing down the BAM %s pipe. is_init:%d",
 				i2c_msm_bam_pipe_name[pipe_dir], pipe->is_init);
 
-	if (!pipe->is_init)
-		return;
-
-	i2c_msm_bam_pipe_diconnect(ctrl, pipe);
-	dma_free_coherent(ctrl->dev,
+	if (pipe->is_init)
+		i2c_msm_bam_pipe_disconnect(ctrl, pipe);
+	if (pipe->config.desc.base)
+		dma_free_coherent(ctrl->dev,
 			  pipe->config.desc.size,
 			  pipe->config.desc.base,
 			  pipe->config.desc.phys_base);
-	sps_free_endpoint(pipe->handle);
+	if (pipe->handle)
+		sps_free_endpoint(pipe->handle);
 	pipe->handle  = 0;
 }
 
@@ -2037,7 +2058,6 @@ static int i2c_msm_bam_pipe_init(struct i2c_msm_ctrl *ctrl,
 				 enum i2c_msm_bam_pipe_dir pipe_dir)
 {
 	int ret = 0;
-	struct sps_pipe          *handle;
 	struct i2c_msm_bam_pipe  *pipe;
 	struct sps_connect       *config;
 	struct i2c_msm_xfer_mode_bam *bam = i2c_msm_bam_get_struct(ctrl);
@@ -2052,14 +2072,13 @@ static int i2c_msm_bam_pipe_init(struct i2c_msm_ctrl *ctrl,
 		return 0;
 
 	pipe->name = i2c_msm_bam_pipe_name[pipe_dir];
-	pipe->handle = 0;
-	handle = sps_alloc_endpoint();
-	if (!handle) {
+	pipe->handle = sps_alloc_endpoint();
+	if (!pipe->handle) {
 		dev_err(ctrl->dev, "error allocating BAM endpoint\n");
 		return -ENOMEM;
 	}
 
-	ret = sps_get_config(handle, config);
+	ret = sps_get_config(pipe->handle, config);
 	if (ret) {
 		dev_err(ctrl->dev, "error getting BAM pipe config\n");
 		goto config_err;
@@ -2097,49 +2116,21 @@ static int i2c_msm_bam_pipe_init(struct i2c_msm_ctrl *ctrl,
 	 */
 	memset(config->desc.base, 0, config->desc.size);
 
-	pipe->handle  = handle;
 	ret = i2c_msm_bam_pipe_connect(ctrl, pipe, config);
 	if (ret)
 		goto connect_err;
-
 	pipe->is_init = true;
 	return 0;
 
 connect_err:
-	dma_free_coherent(ctrl->dev, config->desc.size,
-		config->desc.base, config->desc.phys_base);
+		dma_free_coherent(ctrl->dev, config->desc.size,
+			config->desc.base, config->desc.phys_base);
+		config->desc.base = NULL;
 config_err:
-	sps_free_endpoint(handle);
+		sps_free_endpoint(pipe->handle);
+		pipe->handle = NULL;
 
 	return ret;
-}
-
-static void i2c_msm_bam_pipe_flush(struct i2c_msm_ctrl *ctrl,
-					enum i2c_msm_bam_pipe_dir pipe_dir)
-{
-	struct i2c_msm_xfer_mode_bam *bam    = i2c_msm_bam_get_struct(ctrl);
-	struct i2c_msm_bam_pipe      *pipe   = &bam->pipe[pipe_dir];
-	struct sps_connect           config  = pipe->config;
-	bool   prev_state = bam->is_init;
-	int    ret;
-
-	ret = i2c_msm_bam_pipe_diconnect(ctrl, pipe);
-	if (ret)
-		return;
-
-	ret = i2c_msm_bam_pipe_connect(ctrl, pipe, &config);
-	if (ret)
-		return;
-
-	bam->is_init  = prev_state;
-}
-
-static void i2c_msm_bam_flush(struct i2c_msm_ctrl *ctrl)
-{
-	i2c_msm_prof_evnt_add(ctrl, MSM_PROF, i2c_msm_prof_dump_bam_flsh,
-								0, 0, 0);
-	i2c_msm_bam_pipe_flush(ctrl, I2C_MSM_BAM_CONS);
-	i2c_msm_bam_pipe_flush(ctrl, I2C_MSM_BAM_PROD);
 }
 
 static void i2c_msm_bam_teardown(struct i2c_msm_ctrl *ctrl)
@@ -2928,11 +2919,6 @@ static int i2c_msm_qup_post_xfer(struct i2c_msm_ctrl *ctrl, int err)
 		need_reset = true;
 	}
 
-	if ((ctrl->xfer.err) && (ctrl->xfer.mode_id == I2C_MSM_XFER_MODE_BAM)) {
-		i2c_msm_bam_flush(ctrl);
-		need_reset = true;
-	}
-
 	if (need_reset)
 		i2c_msm_qup_init(ctrl);
 
@@ -3225,18 +3211,24 @@ static int i2c_msm_pm_xfer_start(struct i2c_msm_ctrl *ctrl)
 	/* Set xfer to active state (efectively enabling our ISR)*/
 	atomic_set(&ctrl->xfer.is_active, 1);
 
-	if (xfer->mode_id == I2C_MSM_XFER_MODE_BAM)
-		i2c_msm_bam_init(ctrl);
 	enable_irq(ctrl->rsrcs.irq);
 	return 0;
 }
 
 static void i2c_msm_pm_xfer_end(struct i2c_msm_ctrl *ctrl)
 {
+	struct i2c_msm_xfer_mode_bam *bam  = i2c_msm_bam_get_struct(ctrl);
+	struct i2c_msm_bam_pipe      *prod = &bam->pipe[I2C_MSM_BAM_PROD];
+	struct i2c_msm_bam_pipe      *cons = &bam->pipe[I2C_MSM_BAM_CONS];
+
 	/* efectively disabling our ISR */
 	atomic_set(&ctrl->xfer.is_active, 0);
-	if (ctrl->xfer.mode_id == I2C_MSM_XFER_MODE_BAM)
-		i2c_msm_bam_teardown(ctrl);
+
+	if (cons->is_init)
+		i2c_msm_bam_pipe_disconnect(ctrl, cons);
+	if (prod->is_init)
+		i2c_msm_bam_pipe_disconnect(ctrl, prod);
+
 	i2c_msm_pm_clk_disable_unprepare(ctrl);
 	if (pm_runtime_enabled(ctrl->dev)) {
 		pm_runtime_mark_last_busy(ctrl->dev);
@@ -3244,7 +3236,6 @@ static void i2c_msm_pm_xfer_end(struct i2c_msm_ctrl *ctrl)
 	} else {
 		i2c_msm_pm_suspend(ctrl->dev);
 	}
-
 	disable_irq(ctrl->rsrcs.irq);
 	mutex_unlock(&ctrl->xfer.mtx);
 }

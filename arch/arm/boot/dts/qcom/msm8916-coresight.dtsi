@@ -20,6 +20,7 @@
 		interrupt-names = "byte-cntr-irq";
 
 		qcom,memory-size = <0x100000>;
+		qcom,tmc-flush-powerdown;
 
 		coresight-id = <0>;
 		coresight-name = "coresight-tmc-etr";
@@ -92,6 +93,9 @@
 		coresight-child-ports = <0>;
 		coresight-default-sink;
 		coresight-ctis = <&cti0 &cti8>;
+
+		qcom,tmc-flush-powerdown;
+
 		clocks = <&clock_rpm clk_qdss_clk>,
 			 <&clock_rpm clk_qdss_a_clk>;
 		clock-names = "core_clk", "core_a_clk";
@@ -124,6 +128,9 @@
 		coresight-outports = <0>;
 		coresight-child-list = <&funnel_in0>;
 		coresight-child-ports = <4>;
+
+		qcom,funnel-save-restore;
+
 		clocks = <&clock_rpm clk_qdss_clk>,
 			 <&clock_rpm clk_qdss_a_clk>;
 		clock-names = "core_clk", "core_a_clk";
@@ -204,6 +211,7 @@
 		coresight-outports = <0>;
 		coresight-child-list = <&funnel_apss>;
 		coresight-child-ports = <0>;
+		coresight-etm-cpu = <&CPU0>;
 
 		qcom,round-robin;
 		clocks = <&clock_rpm clk_qdss_clk>,
@@ -222,12 +230,12 @@
 		coresight-outports = <0>;
 		coresight-child-list = <&funnel_apss>;
 		coresight-child-ports = <1>;
+		coresight-etm-cpu = <&CPU1>;
 
 		qcom,round-robin;
 		clocks = <&clock_rpm clk_qdss_clk>,
 			 <&clock_rpm clk_qdss_a_clk>;
 		clock-names = "core_clk", "core_a_clk";
-
 	};
 
 	etm2: etm@85e000 {
@@ -241,6 +249,7 @@
 		coresight-outports = <0>;
 		coresight-child-list = <&funnel_apss>;
 		coresight-child-ports = <2>;
+		coresight-etm-cpu = <&CPU2>;
 
 		qcom,round-robin;
 		clocks = <&clock_rpm clk_qdss_clk>,
@@ -259,6 +268,7 @@
 		coresight-outports = <0>;
 		coresight-child-list = <&funnel_apss>;
 		coresight-child-ports = <3>;
+		coresight-etm-cpu = <&CPU3>;
 
 		qcom,round-robin;
 		clocks = <&clock_rpm clk_qdss_clk>,

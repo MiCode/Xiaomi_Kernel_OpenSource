@@ -26,8 +26,14 @@
 #include <linux/io.h>
 #include <linux/platform_device.h>
 #include <linux/bitops.h>
+#include <linux/of.h>
+#include <linux/notifier.h>
+#include <linux/cpu.h>
+#include <linux/spinlock.h>
+#include <linux/mutex.h>
 #include <soc/qcom/scm.h>
 #include <soc/qcom/jtag.h>
+#include <asm/smp_plat.h>
 
 #define CORESIGHT_LAR		(0xFB0)
 
@@ -195,13 +201,6 @@ do {									\
 	mb();								\
 } while (0)
 
-/* memory mapped ETMv4 register access */
-struct etm_cpu_ctx {
-	void __iomem		*base;
-	struct device		*dev;
-	uint64_t		*state;
-};
-
 struct etm_ctx {
 	uint8_t			arch;
 	uint8_t			nr_pe;
@@ -218,34 +217,68 @@ struct etm_ctx {
 	uint8_t			nr_event;
 	uint8_t			nr_resource;
 	uint8_t			nr_ss_cmp;
-	struct etm_cpu_ctx	*cpu_ctx[NR_CPUS];
-	bool			save_restore_enabled[NR_CPUS];
+	bool			save_restore_enabled;
 	bool			os_lock_present;
+	bool			init;
+	bool			enable;
+	void __iomem		*base;
+	struct device		*dev;
+	uint64_t		*state;
+	spinlock_t		spinlock;
+	struct mutex		mutex;
 };
 
-static struct etm_ctx etm;
+static struct etm_ctx *etm[NR_CPUS];
+static int cnt;
 
 static struct clk *clock[NR_CPUS];
 
-static void etm_os_lock(struct etm_cpu_ctx *etmdata)
+ATOMIC_NOTIFIER_HEAD(etm_save_notifier_list);
+ATOMIC_NOTIFIER_HEAD(etm_restore_notifier_list);
+
+int msm_jtag_save_register(struct notifier_block *nb)
 {
-	if (etm.os_lock_present) {
+	return atomic_notifier_chain_register(&etm_save_notifier_list, nb);
+}
+EXPORT_SYMBOL(msm_jtag_save_register);
+
+int msm_jtag_save_unregister(struct notifier_block *nb)
+{
+	return atomic_notifier_chain_unregister(&etm_save_notifier_list, nb);
+}
+EXPORT_SYMBOL(msm_jtag_save_unregister);
+
+int msm_jtag_restore_register(struct notifier_block *nb)
+{
+	return atomic_notifier_chain_register(&etm_restore_notifier_list, nb);
+}
+EXPORT_SYMBOL(msm_jtag_restore_register);
+
+int msm_jtag_restore_unregister(struct notifier_block *nb)
+{
+	return atomic_notifier_chain_unregister(&etm_restore_notifier_list, nb);
+}
+EXPORT_SYMBOL(msm_jtag_restore_unregister);
+
+static void etm_os_lock(struct etm_ctx *etmdata)
+{
+	if (etmdata->os_lock_present) {
 		etm_writel(etmdata, 0x1, TRCOSLAR);
 		/* Ensure OS lock is set before proceeding */
 		mb();
 	}
 }
 
-static void etm_os_unlock(struct etm_cpu_ctx *etmdata)
+static void etm_os_unlock(struct etm_ctx *etmdata)
 {
-	if (etm.os_lock_present) {
+	if (etmdata->os_lock_present) {
 		/* Ensure all writes are complete before clearing OS lock */
 		mb();
 		etm_writel(etmdata, 0x0, TRCOSLAR);
 	}
 }
 
-static inline void etm_save_state(struct etm_cpu_ctx *etmdata)
+static inline void etm_save_state(struct etm_ctx *etmdata)
 {
 	int i, j, count;
 
@@ -254,7 +287,7 @@ static inline void etm_save_state(struct etm_cpu_ctx *etmdata)
 	isb();
 	ETM_UNLOCK(etmdata);
 
-	switch (etm.arch) {
+	switch (etmdata->arch) {
 	case ETM_ARCH_V4:
 		etm_os_lock(etmdata);
 
@@ -288,12 +321,12 @@ static inline void etm_save_state(struct etm_cpu_ctx *etmdata)
 		etmdata->state[i++] = etm_readl(etmdata, TRCVDSACCTLR);
 		etmdata->state[i++] = etm_readl(etmdata, TRCVDARCCTLR);
 		/* derived resource registers */
-		for (j = 0; j < etm.nr_seq_state-1; j++)
+		for (j = 0; j < etmdata->nr_seq_state-1; j++)
 			etmdata->state[i++] = etm_readl(etmdata, TRCSEQEVRn(j));
 		etmdata->state[i++] = etm_readl(etmdata, TRCSEQRSTEVR);
 		etmdata->state[i++] = etm_readl(etmdata, TRCSEQSTR);
 		etmdata->state[i++] = etm_readl(etmdata, TRCEXTINSELR);
-		for (j = 0; j < etm.nr_cntr; j++)  {
+		for (j = 0; j < etmdata->nr_cntr; j++)  {
 			etmdata->state[i++] = etm_readl(etmdata,
 						       TRCCNTRLDVRn(j));
 			etmdata->state[i++] = etm_readl(etmdata,
@@ -302,28 +335,28 @@ static inline void etm_save_state(struct etm_cpu_ctx *etmdata)
 						       TRCCNTVRn(j));
 		}
 		/* resource selection registers */
-		for (j = 0; j < etm.nr_resource; j++)
+		for (j = 0; j < etmdata->nr_resource; j++)
 			etmdata->state[i++] = etm_readl(etmdata, TRCRSCTLRn(j));
 		/* comparator registers */
-		for (j = 0; j < etm.nr_addr_cmp * 2; j++) {
+		for (j = 0; j < etmdata->nr_addr_cmp * 2; j++) {
 			etmdata->state[i++] = etm_readq(etmdata, TRCACVRn(j));
 			etmdata->state[i++] = etm_readq(etmdata, TRCACATRn(j));
 		}
-		for (j = 0; j < etm.nr_data_cmp; j++) {
+		for (j = 0; j < etmdata->nr_data_cmp; j++) {
 			etmdata->state[i++] = etm_readq(etmdata, TRCDVCVRn(j));
 			etmdata->state[i++] = etm_readq(etmdata, TRCDVCMRn(i));
 		}
-		for (j = 0; j < etm.nr_ctxid_cmp; j++)
+		for (j = 0; j < etmdata->nr_ctxid_cmp; j++)
 			etmdata->state[i++] = etm_readq(etmdata, TRCCIDCVRn(j));
 		etmdata->state[i++] = etm_readl(etmdata, TRCCIDCCTLR0);
 		etmdata->state[i++] = etm_readl(etmdata, TRCCIDCCTLR1);
-		for (j = 0; j < etm.nr_vmid_cmp; j++)
+		for (j = 0; j < etmdata->nr_vmid_cmp; j++)
 			etmdata->state[i++] = etm_readq(etmdata,
 							TRCVMIDCVRn(j));
 		etmdata->state[i++] = etm_readl(etmdata, TRCVMIDCCTLR0);
 		etmdata->state[i++] = etm_readl(etmdata, TRCVMIDCCTLR1);
 		/* single-shot comparator registers */
-		for (j = 0; j < etm.nr_ss_cmp; j++) {
+		for (j = 0; j < etmdata->nr_ss_cmp; j++) {
 			etmdata->state[i++] = etm_readl(etmdata, TRCSSCCRn(j));
 			etmdata->state[i++] = etm_readl(etmdata, TRCSSCSRn(j));
 			etmdata->state[i++] = etm_readl(etmdata,
@@ -340,24 +373,29 @@ static inline void etm_save_state(struct etm_cpu_ctx *etmdata)
 			udelay(1);
 		if (count == 0)
 			pr_err_ratelimited("timeout waiting for idle state\n");
+
+		atomic_notifier_call_chain(&etm_save_notifier_list, 0, NULL);
+
 		break;
 	default:
-		pr_err_ratelimited("unsupported etm arch %d in %s\n", etm.arch,
-								__func__);
+		pr_err_ratelimited("unsupported etm arch %d in %s\n",
+				   etmdata->arch, __func__);
 	}
 
 	ETM_LOCK(etmdata);
 }
 
-static inline void etm_restore_state(struct etm_cpu_ctx *etmdata)
+static inline void etm_restore_state(struct etm_ctx *etmdata)
 {
 	int i, j;
 
 	i = 0;
 	ETM_UNLOCK(etmdata);
 
-	switch (etm.arch) {
+	switch (etmdata->arch) {
 	case ETM_ARCH_V4:
+		atomic_notifier_call_chain(&etm_restore_notifier_list, 0, NULL);
+
 		/* check OS lock is locked */
 		if (BVAL(etm_readl(etmdata, TRCOSLSR), 1) != 1) {
 			pr_err_ratelimited("OS lock is unlocked\n");
@@ -386,12 +424,12 @@ static inline void etm_restore_state(struct etm_cpu_ctx *etmdata)
 		etm_writel(etmdata, etmdata->state[i++], TRCVDSACCTLR);
 		etm_writel(etmdata, etmdata->state[i++], TRCVDARCCTLR);
 		/* derived resources registers */
-		for (j = 0; j < etm.nr_seq_state-1; j++)
+		for (j = 0; j < etmdata->nr_seq_state-1; j++)
 			etm_writel(etmdata, etmdata->state[i++], TRCSEQEVRn(j));
 		etm_writel(etmdata, etmdata->state[i++], TRCSEQRSTEVR);
 		etm_writel(etmdata, etmdata->state[i++], TRCSEQSTR);
 		etm_writel(etmdata, etmdata->state[i++], TRCEXTINSELR);
-		for (j = 0; j < etm.nr_cntr; j++)  {
+		for (j = 0; j < etmdata->nr_cntr; j++)  {
 			etm_writel(etmdata, etmdata->state[i++],
 				  TRCCNTRLDVRn(j));
 			etm_writel(etmdata, etmdata->state[i++],
@@ -399,28 +437,28 @@ static inline void etm_restore_state(struct etm_cpu_ctx *etmdata)
 			etm_writel(etmdata, etmdata->state[i++], TRCCNTVRn(j));
 		}
 		/* resource selection registers */
-		for (j = 0; j < etm.nr_resource; j++)
+		for (j = 0; j < etmdata->nr_resource; j++)
 			etm_writel(etmdata, etmdata->state[i++], TRCRSCTLRn(j));
 		/* comparator registers */
-		for (j = 0; j < etm.nr_addr_cmp * 2; j++) {
+		for (j = 0; j < etmdata->nr_addr_cmp * 2; j++) {
 			etm_writeq(etmdata, etmdata->state[i++], TRCACVRn(j));
 			etm_writeq(etmdata, etmdata->state[i++], TRCACATRn(j));
 		}
-		for (j = 0; j < etm.nr_data_cmp; j++) {
+		for (j = 0; j < etmdata->nr_data_cmp; j++) {
 			etm_writeq(etmdata, etmdata->state[i++], TRCDVCVRn(j));
 			etm_writeq(etmdata, etmdata->state[i++], TRCDVCMRn(j));
 		}
-		for (j = 0; j < etm.nr_ctxid_cmp; j++)
+		for (j = 0; j < etmdata->nr_ctxid_cmp; j++)
 			etm_writeq(etmdata, etmdata->state[i++], TRCCIDCVRn(j));
 		etm_writel(etmdata, etmdata->state[i++], TRCCIDCCTLR0);
 		etm_writel(etmdata, etmdata->state[i++], TRCCIDCCTLR1);
-		for (j = 0; j < etm.nr_vmid_cmp; j++)
+		for (j = 0; j < etmdata->nr_vmid_cmp; j++)
 			etm_writeq(etmdata, etmdata->state[i++],
 				   TRCVMIDCVRn(j));
 		etm_writel(etmdata, etmdata->state[i++], TRCVMIDCCTLR0);
 		etm_writel(etmdata, etmdata->state[i++], TRCVMIDCCTLR1);
 		/* e-shot comparator registers */
-		for (j = 0; j < etm.nr_ss_cmp; j++) {
+		for (j = 0; j < etmdata->nr_ss_cmp; j++) {
 			etm_writel(etmdata, etmdata->state[i++], TRCSSCCRn(j));
 			etm_writel(etmdata, etmdata->state[i++], TRCSSCSRn(j));
 			etm_writel(etmdata, etmdata->state[i++],
@@ -434,8 +472,8 @@ static inline void etm_restore_state(struct etm_cpu_ctx *etmdata)
 		etm_os_unlock(etmdata);
 		break;
 	default:
-		pr_err_ratelimited("unsupported etm arch %d in %s\n", etm.arch,
-				   __func__);
+		pr_err_ratelimited("unsupported etm arch %d in %s\n",
+				   etmdata->arch,  __func__);
 	}
 
 	ETM_LOCK(etmdata);
@@ -447,8 +485,8 @@ void msm_jtag_mm_save_state(void)
 
 	cpu = raw_smp_processor_id();
 
-	if (etm.save_restore_enabled[cpu])
-		etm_save_state(etm.cpu_ctx[cpu]);
+	if (etm[cpu] && etm[cpu]->save_restore_enabled)
+		etm_save_state(etm[cpu]);
 }
 EXPORT_SYMBOL(msm_jtag_mm_save_state);
 
@@ -462,8 +500,8 @@ void msm_jtag_mm_restore_state(void)
 	 * Check to ensure we attempt to restore only when save
 	 * has been done is accomplished by callee function.
 	 */
-	if (etm.save_restore_enabled[cpu])
-		etm_restore_state(etm.cpu_ctx[cpu]);
+	if (etm[cpu] && etm[cpu]->save_restore_enabled)
+		etm_restore_state(etm[cpu]);
 }
 EXPORT_SYMBOL(msm_jtag_mm_restore_state);
 
@@ -478,57 +516,104 @@ static inline bool etm_arch_supported(uint8_t arch)
 	return true;
 }
 
-static void etm_os_lock_init(struct etm_cpu_ctx *etmdata)
+static void etm_os_lock_init(struct etm_ctx *etmdata)
 {
 	uint32_t etmoslsr;
 
 	etmoslsr = etm_readl(etmdata, TRCOSLSR);
 	if ((BVAL(etmoslsr, 0) == 0)  && BVAL(etmoslsr, 3))
-		etm.os_lock_present = true;
+		etmdata->os_lock_present = true;
 	else
-		etm.os_lock_present = false;
+		etmdata->os_lock_present = false;
 }
 
 static void etm_init_arch_data(void *info)
 {
 	uint32_t val;
-	struct etm_cpu_ctx  *etmdata = info;
+	struct etm_ctx  *etmdata = info;
 
 	ETM_UNLOCK(etmdata);
 
 	etm_os_lock_init(etmdata);
 
 	val = etm_readl(etmdata, TRCIDR1);
-	etm.arch = BMVAL(val, 4, 11);
+	etmdata->arch = BMVAL(val, 4, 11);
 
 	/* number of resources trace unit supports */
 	val = etm_readl(etmdata, TRCIDR4);
-	etm.nr_addr_cmp = BMVAL(val, 0, 3);
-	etm.nr_data_cmp = BMVAL(val, 4, 7);
-	etm.nr_resource = BMVAL(val, 16, 19);
-	etm.nr_ss_cmp = BMVAL(val, 20, 23);
-	etm.nr_ctxid_cmp = BMVAL(val, 24, 27);
-	etm.nr_vmid_cmp = BMVAL(val, 28, 31);
+	etmdata->nr_addr_cmp = BMVAL(val, 0, 3);
+	etmdata->nr_data_cmp = BMVAL(val, 4, 7);
+	etmdata->nr_resource = BMVAL(val, 16, 19);
+	etmdata->nr_ss_cmp = BMVAL(val, 20, 23);
+	etmdata->nr_ctxid_cmp = BMVAL(val, 24, 27);
+	etmdata->nr_vmid_cmp = BMVAL(val, 28, 31);
 
 	val = etm_readl(etmdata, TRCIDR5);
-	etm.nr_seq_state = BMVAL(val, 25, 27);
-	etm.nr_cntr = BMVAL(val, 28, 30);
+	etmdata->nr_seq_state = BMVAL(val, 25, 27);
+	etmdata->nr_cntr = BMVAL(val, 28, 30);
 
 	ETM_LOCK(etmdata);
 }
 
+static int jtag_mm_etm_callback(struct notifier_block *nfb,
+				unsigned long action,
+				void *hcpu)
+{
+	unsigned int cpu = (unsigned long)hcpu;
+
+	if (!etm[cpu])
+		goto out;
+
+	switch (action & (~CPU_TASKS_FROZEN)) {
+	case CPU_STARTING:
+		spin_lock(&etm[cpu]->spinlock);
+		if (!etm[cpu]->init) {
+			etm_init_arch_data(etm[cpu]);
+			etm[cpu]->init = true;
+		}
+		spin_unlock(&etm[cpu]->spinlock);
+		break;
+
+	case CPU_ONLINE:
+		mutex_lock(&etm[cpu]->mutex);
+		if (etm[cpu]->enable) {
+			mutex_unlock(&etm[cpu]->mutex);
+			goto out;
+		}
+		if (etm_arch_supported(etm[cpu]->arch)) {
+			if (scm_get_feat_version(TZ_DBG_ETM_FEAT_ID) <
+			    TZ_DBG_ETM_VER)
+				etm[cpu]->save_restore_enabled = true;
+			else
+				pr_info("etm save-restore supported by TZ\n");
+		} else
+			pr_info("etm arch %u not supported\n", etm[cpu]->arch);
+		etm[cpu]->enable = true;
+		mutex_unlock(&etm[cpu]->mutex);
+		break;
+	default:
+		break;
+	}
+out:
+	return NOTIFY_OK;
+}
+
+static struct notifier_block jtag_mm_etm_notifier = {
+	.notifier_call = jtag_mm_etm_callback,
+};
+
 static int jtag_mm_etm_probe(struct platform_device *pdev, uint32_t cpu)
 {
-	struct etm_cpu_ctx *etmdata;
+	struct etm_ctx *etmdata;
 	struct resource *res;
 	struct device *dev = &pdev->dev;
 
 	/* Allocate memory per cpu */
-	etmdata = devm_kzalloc(dev, sizeof(struct etm_cpu_ctx), GFP_KERNEL);
+	etmdata = devm_kzalloc(dev, sizeof(struct etm_ctx), GFP_KERNEL);
 	if (!etmdata)
 		return -ENOMEM;
 
-	etm.cpu_ctx[cpu] = etmdata;
+	etm[cpu] = etmdata;
 
 	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "etm-base");
 
@@ -543,33 +628,57 @@ static int jtag_mm_etm_probe(struct platform_device *pdev, uint32_t cpu)
 	if (!etmdata->state)
 		return -ENOMEM;
 
-	if (cpu == 0) {
-		if (smp_call_function_single(cpu, etm_init_arch_data, etmdata,
-					     1))
-			dev_err(dev, "Jtagmm: ETM arch init failed\n");
+	spin_lock_init(&etmdata->spinlock);
+	mutex_init(&etmdata->mutex);
+
+	if (cnt++ == 0)
+		register_hotcpu_notifier(&jtag_mm_etm_notifier);
+
+	if (!smp_call_function_single(cpu, etm_init_arch_data, etmdata,
+				      1))
+		etmdata->init = true;
+
+	if (etmdata->init) {
+		mutex_lock(&etmdata->mutex);
+		if (etm_arch_supported(etmdata->arch)) {
+			if (scm_get_feat_version(TZ_DBG_ETM_FEAT_ID) <
+			    TZ_DBG_ETM_VER)
+				etmdata->save_restore_enabled = true;
+			else
+				pr_info("etm save-restore supported by TZ\n");
+		} else
+			pr_info("etm arch %u not supported\n", etmdata->arch);
+		etmdata->enable = true;
+		mutex_unlock(&etmdata->mutex);
 	}
-	if (etm_arch_supported(etm.arch)) {
-		if (scm_get_feat_version(TZ_DBG_ETM_FEAT_ID) < TZ_DBG_ETM_VER)
-			etm.save_restore_enabled[cpu] = true;
-		else
-			pr_info("etm save-restore supported by TZ\n");
-	} else
-		pr_info("etm arch %u not supported\n", etm.arch);
 	return 0;
 }
 
 static int jtag_mm_probe(struct platform_device *pdev)
 {
-	int ret;
-	static uint32_t cpu;
-	static uint32_t count;
+	int ret, i, cpu = -1;
 	struct device *dev = &pdev->dev;
+	struct device_node *cpu_node;
 
 	if (msm_jtag_fuse_apps_access_disabled())
 		return -EPERM;
 
-	cpu = count;
-	count++;
+	cpu_node = of_parse_phandle(pdev->dev.of_node,
+				    "qcom,coresight-jtagmm-cpu", 0);
+	if (!cpu_node) {
+		dev_err(dev, "Jtag-mm cpu handle not specified\n");
+		return -ENODEV;
+	}
+	for_each_possible_cpu(i) {
+		if (cpu_node == of_get_cpu_node(i, NULL)) {
+			cpu = i;
+			break;
+		}
+	}
+	if (cpu == -1) {
+		dev_err(dev, "invalid Jtag-mm cpu handle\n");
+		return -EINVAL;
+	}
 
 	clock[cpu] = devm_clk_get(dev, "core_clk");
 	if (IS_ERR(clock[cpu])) {
@@ -590,14 +699,20 @@ static int jtag_mm_probe(struct platform_device *pdev)
 	ret  = jtag_mm_etm_probe(pdev, cpu);
 	if (ret)
 		clk_disable_unprepare(clock[cpu]);
-
 	return ret;
+}
+
+static void jtag_mm_etm_remove(void)
+{
+	unregister_hotcpu_notifier(&jtag_mm_etm_notifier);
 }
 
 static int jtag_mm_remove(struct platform_device *pdev)
 {
 	struct clk *clock = platform_get_drvdata(pdev);
 
+	if (--cnt == 0)
+		jtag_mm_etm_remove();
 	clk_disable_unprepare(clock);
 	return 0;
 }

@@ -103,6 +103,8 @@ Required properties:
 - coresight-id : unique integer identifier for the component
 - coresight-name : unique descriptive name of the component
 - coresight-nr-inports : number of input ports on the component
+- coresight-cti-cpu : cpu phandle for cpu cti, required when qcom,cti-save is true
+- coresight-etm-cpu : specifies phandle for the cpu associated with the ETM device
 
 coresight-outports, coresight-child-list and coresight-child-ports lists will
 be of the same length and will have a one to one correspondence among the
@@ -176,6 +178,12 @@ Optional properties:
 		    for tpiu component
 - nidnt-gpio : specifies gpio for NIDnT hardware detection
 - nidnt-gpio-polarity : specifies gpio polarity for NIDnT hardware detection
+-qcom,funnel-save-restore : boolean, indicating funnel port needs to be disabled
+			    for the ETM whose CPU is being powered down. The port
+			    state is restored when CPU is powered up. Used for
+			    funnel component.
+-qcom,tmc-flush-powerdown : boolean, indicating trace data needs to be flushed before
+			    powering down CPU. Used for TMC component.
 
 Examples:
 
@@ -271,6 +279,8 @@ Examples:
 		coresight-outports = <0>;
 		coresight-child-list = <&funnel_kpss>;
 		coresight-child-ports = <0>;
+		coresight-etm-cpu = <&CPU0>;
+
 		qcom,pc-save;
 		qcom,round-robin;
 	};
