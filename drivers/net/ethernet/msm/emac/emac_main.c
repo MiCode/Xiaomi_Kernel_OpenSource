@@ -1082,6 +1082,8 @@ static irqreturn_t emac_interrupt(int irq, void *data)
 			break;
 		}
 
+		if (status & PTP_INT)
+			emac_ptp_intr(hw);
 	} while (--max_ints > 0);
 
 	/* enable the interrupt */
@@ -2752,10 +2754,8 @@ static int emac_probe(struct platform_device *pdev)
 	adpt->tpdesc_size = EMAC_TPDESC_SIZE;
 	adpt->rfdesc_size = EMAC_RFDESC_SIZE;
 
-	if (adpt->tstamp_en) {
-		hw->rtc_ref_clkrate = DEFAULT_RTC_REF_CLKRATE;
+	if (adpt->tstamp_en)
 		SET_HW_FLAG(PTP_CAP);
-	}
 
 	/* init netdev */
 	netdev->netdev_ops = &emac_netdev_ops;

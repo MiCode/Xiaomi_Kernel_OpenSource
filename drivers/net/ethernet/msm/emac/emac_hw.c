@@ -887,6 +887,10 @@ void emac_hw_enable_intr(struct emac_hw *hw)
 		emac_reg_w32(hw, EMAC_SGMII_PHY, irq_info->mask_reg,
 			     irq_info->mask);
 	}
+
+	if (adpt->tstamp_en)
+		emac_reg_w32(hw, EMAC_1588, EMAC_P1588_PTP_EXPANDED_INT_MASK,
+			     hw->ptp_intr_mask);
 	wmb();
 }
 

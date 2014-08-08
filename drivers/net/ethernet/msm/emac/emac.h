@@ -223,10 +223,14 @@ struct emac_hw {
 
 	/* 1588 parameter */
 	enum emac_ptp_clk_mode  ptp_clk_mode;
-	u32                     rtc_ref_clkrate;
+	enum emac_ptp_mode      ptp_mode;
+	u32                     ptp_intr_mask;
 	spinlock_t              ptp_lock;
 	u32                     tstamp_rx_offset;
 	u32                     tstamp_tx_offset;
+	void                    *frac_ns_adj_tbl;
+	u32                     frac_ns_adj_tbl_sz;
+	s32                     frac_ns_adj;
 
 	u32                 irq_mod;
 	u32                 preamble;
