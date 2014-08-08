@@ -253,6 +253,12 @@
 			qcom,smdpkt-dev-name = "smd_cdm_logging_1";
 		};
 
+		qcom,smdpkt-infra_test_1 {
+			qcom,smdpkt-remote = "hex0";
+			qcom,smdpkt-port-name = "INFRA_TEST_1";
+			qcom,smdpkt-dev-name = "smd_infra_test_1";
+		};
+
 		qcom,smdpkt-logging_2 {
 			qcom,smdpkt-remote = "hex1";
 			qcom,smdpkt-port-name = "LOGGING_2";
@@ -277,6 +283,12 @@
 			qcom,smdpkt-dev-name = "smd_data_2";
 		};
 
+		qcom,smdpkt-infra_test_2 {
+			qcom,smdpkt-remote = "hex1";
+			qcom,smdpkt-port-name = "INFRA_TEST_2";
+			qcom,smdpkt-dev-name = "smd_infra_test_2";
+		};
+
 		qcom,smdpkt-logging_0 {
 			qcom,smdpkt-remote = "hex2";
 			qcom,smdpkt-port-name = "LOGGING";
@@ -293,6 +305,12 @@
 			qcom,smdpkt-remote = "hex2";
 			qcom,smdpkt-port-name = "TESTFRAMEWORK";
 			qcom,smdpkt-dev-name = "smd_tf_0";
+		};
+
+		qcom,smdpkt-infra_test_0 {
+			qcom,smdpkt-remote = "hex2";
+			qcom,smdpkt-port-name = "INFRA_TEST_0";
+			qcom,smdpkt-dev-name = "smd_infra_test_0";
 		};
 
 		qcom,smdpkt-logging_3 {
@@ -313,6 +331,12 @@
 			qcom,smdpkt-dev-name = "smd_tf_3";
 		};
 
+		qcom,smdpkt-infra_test_3 {
+			qcom,smdpkt-remote = "hex3";
+			qcom,smdpkt-port-name = "INFRA_TEST_3";
+			qcom,smdpkt-dev-name = "smd_infra_test_3";
+		};
+
 		qcom,smdpkt-logging_4 {
 			qcom,smdpkt-remote = "tenx";
 			qcom,smdpkt-port-name = "LOGGING_4";
@@ -325,6 +349,12 @@
 			qcom,smdpkt-dev-name = "smd_phy_trace";
 		};
 	};
+
+		qcom,smdpkt-infra_test_4 {
+			qcom,smdpkt-remote = "tenx";
+			qcom,smdpkt-port-name = "INFRA_TEST_4";
+			qcom,smdpkt-dev-name = "smd_infra_test_4";
+		};
 
 	qcom,ipc_router{
 		compatible = "qcom,ipc_router";
