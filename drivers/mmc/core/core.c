@@ -3612,8 +3612,11 @@ EXPORT_SYMBOL(mmc_flush_cache);
 int mmc_cache_ctrl(struct mmc_host *host, u8 enable)
 {
 	struct mmc_card *card = host->card;
-	unsigned int timeout = card->ext_csd.generic_cmd6_time;
+	unsigned int timeout;
 	int err = 0, rc;
+
+	BUG_ON(!card);
+	timeout = card->ext_csd.generic_cmd6_time;
 
 	if (!(host->caps2 & MMC_CAP2_CACHE_CTRL) ||
 			mmc_card_is_removable(host) ||
