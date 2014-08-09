@@ -399,6 +399,95 @@
 
 		status = "disabled";
 	};
+
+	qcom,venus@fdce0000 {
+		compatible = "qcom,pil-tz-generic";
+		reg = <0xfdce0000 0x4000>;
+
+		vdd-supply = <&gdsc_venus>;
+		qcom,proxy-reg-names = "vdd";
+		clock-names = "core_clk", "iface_clk",
+			      "bus_clk", "mem_clk";
+		qcom,proxy-clock-names = "core_clk", "iface_clk",
+				    "bus_clk", "mem_clk";
+
+		clocks = <&clock_mmss clk_venus0_vcodec0_clk>,
+			<&clock_mmss clk_venus0_ahb_clk>,
+			<&clock_mmss clk_venus0_axi_clk>,
+			<&clock_mmss clk_venus0_ocmemnoc_clk>;
+
+		qcom,msm-bus,name = "pil-venus";
+		qcom,msm-bus,num-cases = <2>;
+		qcom,msm-bus,num-paths = <1>;
+		qcom,msm-bus,vectors-KBps =
+				<63 512 0 0>,
+				<63 512 0 304000>;
+		qcom,pas-id = <9>;
+		qcom,proxy-timeout-ms = <5000>;
+		qcom,firmware-name = "venus";
+		linux,contiguous-region = <&peripheral_mem>;
+	};
+
+	qcom,mss@fc880000 {
+		compatible = "qcom,pil-q6v55-mss";
+		reg = <0xfc880000 0x100>,
+		      <0xfd485000 0x400>,
+		      <0xfc820000 0x020>,
+		      <0xfc401680 0x004>;
+		reg-names = "qdsp6_base", "halt_base", "rmb_base",
+			    "restart_reg";
+
+		clocks = <&clock_rpm clk_cxo_clk_src>,
+			 <&clock_gcc clk_gcc_mss_cfg_ahb_clk>,
+			 <&clock_gcc clk_gcc_mss_q6_bimc_axi_clk>,
+			 <&clock_gcc clk_gcc_boot_rom_ahb_clk>,
+			 <&clock_gcc clk_gpll0_out_msscc>;
+		clock-names = "xo", "iface_clk", "bus_clk", "mem_clk",
+			      "gpll0_mss_clk";
+		qcom,proxy-clock-names = "xo";
+		qcom,active-clock-names = "iface_clk", "bus_clk", "mem_clk",
+				     "gpll0_mss_clk";
+
+		interrupts = <0 24 1>;
+		vdd_mss-supply = <&pm8992_s7>;
+		vdd_cx-supply = <&pm8992_s1_corner>;
+		vdd_mx-supply = <&pm8992_s2_corner>;
+		vdd_mx-uV = <7>;
+		vdd_pll-supply = <&pm8992_l12>;
+		qcom,vdd_pll = <1800000>;
+		qcom,firmware-name = "modem";
+		qcom,pil-self-auth;
+		qcom,mba-image-is-not-elf;
+		qcom,sysmon-id = <0>;
+		qcom,ssctl-instance-id = <0x12>;
+		qcom,override-acc;
+
+		linux,contiguous-region = <&modem_mem>;
+	};
+
+	qcom,lpass@fe200000 {
+		compatible = "qcom,pil-tz-generic";
+		reg = <0xfe200000 0x00100>;
+		interrupts = <0 162 1>;
+
+		vdd_cx-supply = <&pm8992_s1_corner>;
+		qcom,proxy-reg-names = "vdd_cx";
+		qcom,vdd_cx-uV-uA = <7 100000>;
+
+		clocks = <&clock_gcc clk_gcc_lpass_q6_axi_clk>,
+			 <&clock_rpm clk_cxo_pil_lpass_clk>;
+		clock-names = "bus_clk", "xo";
+		qcom,active-clock-names = "bus_clk";
+		qcom,proxy-clock-names = "xo";
+
+		qcom,pas-id = <1>;
+		qcom,proxy-timeout-ms = <10000>;
+		qcom,smem-id = <423>;
+		qcom,sysmon-id = <1>;
+		qcom,firmware-name = "adsp";
+
+		linux,contiguous-region = <&peripheral_mem>;
+	};
 };
 
 &gdsc_usb30 {
