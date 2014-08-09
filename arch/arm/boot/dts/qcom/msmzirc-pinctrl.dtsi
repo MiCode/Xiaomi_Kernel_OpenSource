@@ -154,6 +154,40 @@
 			};
 		};
 
+		pcie0_clkreq {
+			qcom,pins = <&gp 64>;
+			qcom,num-grp-pins = <1>;
+			qcom,pin-func = <1>;
+			label = "pcie0-clkreq";
+			/* default state */
+			pcie0_clkreq_default: pcie0_clkreq_default {
+				drive-strength = <2>;
+				bias-pull-up;
+			};
+		};
+
+		pcie0_perst {
+			qcom,pins = <&gp 65>;
+			qcom,num-grp-pins = <1>;
+			label = "pcie0-perst";
+			/* default state */
+			pcie0_perst_default: pcie0_perst_default {
+				drive-strength = <2>;
+				bias-pull-down;
+			};
+		};
+
+		pcie0_wake {
+			qcom,pins = <&gp 61>;
+			qcom,num-grp-pins = <1>;
+			label = "pcie0-wake";
+			/* default state */
+			pcie0_wake_default: pcie0_wake_default {
+				drive-strength = <2>;
+				bias-pull-down;
+			};
+		};
+
 		/* CoreSight */
 		tpiu_seta_1 {
 			qcom,pins = <&gp 4>;
