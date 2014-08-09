@@ -576,11 +576,15 @@ static irqreturn_t msm_tlmm_gp_handle_irq(int irq, struct msm_tlmm_irq_chip *ic)
 {
 	unsigned long i;
 	unsigned int virq = 0;
+	struct irq_chip *chip;
 	struct irq_desc *desc = irq_to_desc(irq);
-	struct irq_chip *chip = irq_desc_get_chip(desc);
 	struct msm_pintype_info *pinfo = ic_to_pintype(ic);
 	struct gpio_chip *gc = pintype_get_gc(pinfo);
 
+	if (unlikely(!desc))
+		return IRQ_HANDLED;
+
+	chip = irq_desc_get_chip(desc);
 	chained_irq_enter(chip, desc);
 	for_each_set_bit(i, ic->enabled_irqs, ic->num_irqs)
 	 {
@@ -956,6 +960,8 @@ static int msm_tlmm_probe(struct platform_device *pdev)
 	match = of_match_node(msm_tlmm_dt_match, node);
 	if (IS_ERR(match))
 		return PTR_ERR(match);
+	else if (!match)
+		return -ENODEV;
 	tlmm_desc = devm_kzalloc(&pdev->dev, sizeof(*tlmm_desc), GFP_KERNEL);
 	if (!tlmm_desc) {
 		dev_err(&pdev->dev, "Alloction failed for tlmm desc\n");
