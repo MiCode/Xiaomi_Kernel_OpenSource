@@ -21,12 +21,14 @@
 #include <linux/interrupt.h>
 #include <linux/qpnp/pwm.h>
 #include <linux/err.h>
+#include <linux/delay.h>
 #include "../../staging/android/timed_output.h"
 
 #define QPNP_IRQ_FLAGS	(IRQF_TRIGGER_RISING | \
 			IRQF_TRIGGER_FALLING | \
 			IRQF_ONESHOT)
 
+#define QPNP_HAP_STATUS(b)		(b + 0x0A)
 #define QPNP_HAP_EN_CTL_REG(b)		(b + 0x46)
 #define QPNP_HAP_ACT_TYPE_REG(b)	(b + 0x4C)
 #define QPNP_HAP_WAV_SHAPE_REG(b)	(b + 0x4D)
@@ -46,6 +48,7 @@
 #define QPNP_HAP_WAV_S_REG_BASE(b)	(b + 0x60)
 #define QPNP_HAP_PLAY_REG(b)		(b + 0x70)
 
+#define QPNP_HAP_STATUS_BUSY		0x02
 #define QPNP_HAP_ACT_TYPE_MASK		0xFE
 #define QPNP_HAP_LRA			0x0
 #define QPNP_HAP_ERM			0x1
@@ -109,6 +112,7 @@
 
 #define QPNP_HAP_TIMEOUT_MS_MAX		15000
 #define QPNP_HAP_STR_SIZE		20
+#define QPNP_HAP_MAX_RETRIES		5
 
 /* haptic debug register set */
 static u8 qpnp_hap_dbg_regs[] = {
@@ -265,13 +269,32 @@ static int qpnp_hap_write_reg(struct qpnp_hap *hap, u8 *data, u16 addr)
 static int qpnp_hap_mod_enable(struct qpnp_hap *hap, int on)
 {
 	u8 val;
-	int rc;
+	int rc, i;
 
 	val = hap->reg_en_ctl;
-	if (on)
+	if (on) {
 		val |= QPNP_HAP_EN;
-	else
+	} else {
+		for (i = 0; i < QPNP_HAP_MAX_RETRIES; i++) {
+			rc = qpnp_hap_read_reg(hap, &val,
+				QPNP_HAP_STATUS(hap->base));
+
+			dev_dbg(&hap->spmi->dev, "HAP_STATUS=0x%x\n", val);
+
+			/* wait for 4 cycles of play rate */
+			if (val & QPNP_HAP_STATUS_BUSY)
+				usleep(4 * hap->wave_play_rate_us);
+			else
+				break;
+		}
+
+		if (i >= QPNP_HAP_MAX_RETRIES) {
+			dev_err(&hap->spmi->dev, "Haptics Busy\n");
+			return -EBUSY;
+		}
+
 		val &= ~QPNP_HAP_EN;
+	}
 
 	rc = qpnp_hap_write_reg(hap, &val,
 			QPNP_HAP_EN_CTL_REG(hap->base));
@@ -1039,13 +1062,18 @@ static int qpnp_hap_set(struct qpnp_hap *hap, int on)
 			pwm_disable(hap->pwm_info.pwm_dev);
 	} else if (hap->play_mode == QPNP_HAP_BUFFER ||
 			hap->play_mode == QPNP_HAP_DIRECT) {
-		/* enable/disable the haptics */
-		rc = qpnp_hap_mod_enable(hap, on);
-		if (rc < 0)
-			return rc;
+		if (on) {
+			rc = qpnp_hap_mod_enable(hap, on);
+			if (rc < 0)
+				return rc;
+			rc = qpnp_hap_play(hap, on);
+		} else {
+			rc = qpnp_hap_play(hap, on);
+			if (rc < 0)
+				return rc;
 
-		/* play/stop haptics */
-		rc = qpnp_hap_play(hap, on);
+			rc = qpnp_hap_mod_enable(hap, on);
+		}
 	}
 
 	return rc;
