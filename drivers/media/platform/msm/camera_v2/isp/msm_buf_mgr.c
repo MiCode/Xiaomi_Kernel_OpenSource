@@ -322,6 +322,48 @@ static int msm_isp_buf_unprepare(struct msm_isp_buf_mgr *buf_mgr,
 	return 0;
 }
 
+static int msm_isp_get_buf_by_index(struct msm_isp_buf_mgr *buf_mgr,
+	uint32_t bufq_handle, uint32_t buf_index,
+	struct msm_isp_buffer **buf_info)
+{
+	int rc = -EINVAL;
+	unsigned long flags;
+	struct msm_isp_bufq *bufq = NULL;
+	struct msm_isp_buffer *temp_buf_info;
+	uint32_t i = 0;
+
+	bufq = msm_isp_get_bufq(buf_mgr, bufq_handle);
+	if (!bufq) {
+		pr_err("%s: Invalid bufq\n", __func__);
+		return rc;
+	}
+
+	spin_lock_irqsave(&bufq->bufq_lock, flags);
+	if (buf_index >= bufq->num_bufs) {
+		pr_err("%s: Invalid buf index: %d max: %d\n", __func__,
+			buf_index, bufq->num_bufs);
+		spin_unlock_irqrestore(&bufq->bufq_lock, flags);
+		return rc;
+	}
+
+	*buf_info = NULL;
+	for (i = 0; bufq->num_bufs; i++) {
+		temp_buf_info = &bufq->bufs[i];
+		if (temp_buf_info && temp_buf_info->buf_idx == buf_index) {
+			*buf_info = temp_buf_info;
+			break;
+		}
+	}
+
+	if (*buf_info) {
+		pr_debug("Found buf in isp buf mgr");
+		rc = 0;
+	}
+	spin_unlock_irqrestore(&bufq->bufq_lock, flags);
+	return rc;
+}
+
+
 static int msm_isp_get_buf(struct msm_isp_buf_mgr *buf_mgr, uint32_t id,
 	uint32_t bufq_handle, struct msm_isp_buffer **buf_info)
 {
@@ -795,6 +837,8 @@ static int msm_isp_get_bufq_handle(struct msm_isp_buf_mgr *buf_mgr,
 			return buf_mgr->bufq[i].bufq_handle;
 		}
 	}
+	pr_err("%s: No match found 0x%x 0x%x\n", __func__,
+			session_id, stream_id);
 	return 0;
 }
 
@@ -1138,6 +1182,7 @@ static struct msm_isp_buf_ops isp_buf_ops = {
 	.get_bufq_handle = msm_isp_get_bufq_handle,
 	.get_buf_src = msm_isp_get_buf_src,
 	.get_buf = msm_isp_get_buf,
+	.get_buf_by_index = msm_isp_get_buf_by_index,
 	.put_buf = msm_isp_put_buf,
 	.flush_buf = msm_isp_flush_buf,
 	.buf_done = msm_isp_buf_done,

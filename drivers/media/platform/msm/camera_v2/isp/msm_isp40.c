@@ -884,6 +884,13 @@ static int32_t msm_vfe40_cfg_io_format(struct vfe_device *vfe_dev,
 	}
 
 	io_format_reg = msm_camera_io_r(vfe_dev->vfe_base + 0x54);
+	if ((stream_src < RDI_INTF_0) &&
+	    (vfe_dev->axi_data.src_info[VFE_PIX_0].input_mux ==
+	     EXTERNAL_READ)) {
+
+		io_format_reg &= 0xFFC8FFFF;
+		io_format_reg |= (bpp_reg << 20 | pack_fmt << 16);
+	}
 	switch (stream_src) {
 	case PIX_ENCODER:
 	case PIX_VIEWFINDER:
@@ -904,6 +911,19 @@ static int32_t msm_vfe40_cfg_io_format(struct vfe_device *vfe_dev,
 	}
 	msm_camera_io_w(io_format_reg, vfe_dev->vfe_base + 0x54);
 	return 0;
+}
+
+static int msm_vfe40_start_fetch_engine(struct vfe_device *vfe_dev,
+	void *arg)
+{
+	return 0;
+}
+
+static void msm_vfe40_cfg_fetch_engine(struct vfe_device *vfe_dev,
+	struct msm_vfe_pix_cfg *pix_cfg)
+{
+	pr_err("%s: Fetch engine not supported\n", __func__);
+	return;
 }
 
 static void msm_vfe40_cfg_camif(struct vfe_device *vfe_dev,
@@ -946,11 +966,29 @@ static void msm_vfe40_cfg_camif(struct vfe_device *vfe_dev,
 		msm_camera_io_w(val, vfe_dev->vfe_base + 0x93C);
 		break;
 	case EXTERNAL_READ:
+		break;
 	default:
 		pr_err("%s: not supported input_mux %d\n",
 			__func__, pix_cfg->input_mux);
 		break;
 	}
+}
+
+static void msm_vfe40_cfg_input_mux(struct vfe_device *vfe_dev,
+	struct msm_vfe_pix_cfg *pix_cfg)
+{
+	switch (pix_cfg->input_mux) {
+	case CAMIF:
+		msm_vfe40_cfg_camif(vfe_dev, pix_cfg);
+		break;
+	case EXTERNAL_READ:
+		msm_vfe40_cfg_fetch_engine(vfe_dev, pix_cfg);
+		break;
+	default:
+		pr_err("%s: Unsupported input mux %d\n",
+			__func__, pix_cfg->input_mux);
+	}
+	return;
 }
 
 static void msm_vfe40_update_camif_state(struct vfe_device *vfe_dev,
@@ -1713,8 +1751,9 @@ struct msm_vfe_hardware_info vfe40_hw_info = {
 		},
 		.core_ops = {
 			.reg_update = msm_vfe40_reg_update,
-			.cfg_camif = msm_vfe40_cfg_camif,
+			.cfg_input_mux = msm_vfe40_cfg_input_mux,
 			.update_camif_state = msm_vfe40_update_camif_state,
+			.start_fetch_eng = msm_vfe40_start_fetch_engine,
 			.cfg_rdi_reg = msm_vfe40_cfg_rdi_reg,
 			.reset_hw = msm_vfe40_reset_hardware,
 			.init_hw = msm_vfe40_init_hardware,

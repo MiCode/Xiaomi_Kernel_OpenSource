@@ -76,6 +76,34 @@ static struct msm_bus_scale_pdata msm_isp_bus_client_pdata = {
 	.name = "msm_camera_isp",
 };
 
+
+void msm_camera_io_dump_2(void __iomem *addr, int size)
+{
+	char line_str[128], *p_str;
+	int i;
+	u32 *p = (u32 *) addr;
+	u32 data;
+	pr_err("%s: %p %d\n", __func__, addr, size);
+	line_str[0] = '\0';
+	p_str = line_str;
+	for (i = 0; i < size/4; i++) {
+		if (i % 4 == 0) {
+			snprintf(p_str, 12, "%08lx: ", (unsigned long) p);
+			p_str += 10;
+		}
+		data = readl_relaxed(p++);
+		snprintf(p_str, 12, "%08x ", data);
+		p_str += 9;
+		if ((i + 1) % 4 == 0) {
+			pr_err("%s\n", line_str);
+			line_str[0] = '\0';
+			p_str = line_str;
+		}
+	}
+	if (line_str[0] != '\0')
+		pr_err("%s\n", line_str);
+}
+
 static void msm_isp_print_fourcc_error(const char *origin,
 	uint32_t fourcc_format)
 {
@@ -364,6 +392,25 @@ static int msm_isp_set_clk_rate(struct vfe_device *vfe_dev, long *rate)
 	return 0;
 }
 
+void msm_isp_fetch_engine_done_notify(struct vfe_device *vfe_dev,
+	struct msm_vfe_fetch_engine_info *fetch_engine_info)
+{
+	struct msm_isp_event_data fe_rd_done_event;
+	if (!fetch_engine_info->is_busy)
+		return;
+	memset(&fe_rd_done_event, 0, sizeof(struct msm_isp_event_data));
+	fe_rd_done_event.frame_id =
+		vfe_dev->axi_data.src_info[VFE_PIX_0].frame_id;
+	fe_rd_done_event.u.buf_done.session_id = fetch_engine_info->session_id;
+	fe_rd_done_event.u.buf_done.stream_id = fetch_engine_info->stream_id;
+	fe_rd_done_event.u.buf_done.handle = fetch_engine_info->bufq_handle;
+	fe_rd_done_event.u.buf_done.buf_idx = fetch_engine_info->buf_idx;
+	ISP_DBG("%s: ISP_EVENT_FE_READ_DONE buf_idx %d\n",
+		__func__, fetch_engine_info->buf_idx);
+	fetch_engine_info->is_busy = 0;
+	msm_isp_send_event(vfe_dev, ISP_EVENT_FE_READ_DONE, &fe_rd_done_event);
+}
+
 int msm_isp_cfg_pix(struct vfe_device *vfe_dev,
 	struct msm_vfe_input_cfg *input_cfg)
 {
@@ -377,8 +424,8 @@ int msm_isp_cfg_pix(struct vfe_device *vfe_dev,
 		input_cfg->input_pix_clk;
 	vfe_dev->axi_data.src_info[VFE_PIX_0].input_mux =
 		input_cfg->d.pix_cfg.input_mux;
-	vfe_dev->axi_data.src_info[VFE_PIX_0].width =
-		input_cfg->d.pix_cfg.camif_cfg.pixels_per_line;
+	vfe_dev->axi_data.src_info[VFE_PIX_0].input_format =
+		input_cfg->d.pix_cfg.input_format;
 
 	rc = msm_isp_set_clk_rate(vfe_dev,
 		&vfe_dev->axi_data.src_info[VFE_PIX_0].pixel_clock);
@@ -387,11 +434,19 @@ int msm_isp_cfg_pix(struct vfe_device *vfe_dev,
 		return rc;
 	}
 
-	vfe_dev->axi_data.src_info[VFE_PIX_0].input_format =
-		input_cfg->d.pix_cfg.input_format;
+	ISP_DBG("%s: input mux is %d CAMIF %d io_format 0x%x\n", __func__,
+		input_cfg->d.pix_cfg.input_mux, CAMIF,
+		input_cfg->d.pix_cfg.input_format);
 
-	vfe_dev->hw_info->vfe_ops.core_ops.cfg_camif(
-		vfe_dev, &input_cfg->d.pix_cfg);
+	if (input_cfg->d.pix_cfg.input_mux == CAMIF) {
+		vfe_dev->axi_data.src_info[VFE_PIX_0].width =
+			input_cfg->d.pix_cfg.camif_cfg.pixels_per_line;
+	} else if (input_cfg->d.pix_cfg.input_mux == EXTERNAL_READ) {
+		vfe_dev->axi_data.src_info[VFE_PIX_0].width =
+			input_cfg->d.pix_cfg.fetch_engine_cfg.buf_stride;
+	}
+	vfe_dev->hw_info->vfe_ops.core_ops.cfg_input_mux(
+			vfe_dev, &input_cfg->d.pix_cfg);
 	return rc;
 }
 
@@ -627,6 +682,12 @@ static long msm_isp_ioctl_unlocked(struct v4l2_subdev *sd,
 	case VIDIOC_MSM_ISP_INPUT_CFG:
 		mutex_lock(&vfe_dev->core_mutex);
 		rc = msm_isp_cfg_input(vfe_dev, arg);
+		mutex_unlock(&vfe_dev->core_mutex);
+		break;
+	case VIDIOC_MSM_ISP_FETCH_ENG_START:
+		mutex_lock(&vfe_dev->core_mutex);
+		rc = vfe_dev->hw_info->vfe_ops.core_ops.
+			start_fetch_eng(vfe_dev, arg);
 		mutex_unlock(&vfe_dev->core_mutex);
 		break;
 	case VIDIOC_MSM_ISP_SET_SRC_STATE:
@@ -1215,6 +1276,8 @@ int msm_isp_get_bit_per_pixel(uint32_t output_format)
 		/*TD: Add more image format*/
 	default:
 		msm_isp_print_fourcc_error(__func__, output_format);
+		pr_err("%s: Invalid output format %x\n",
+			__func__, output_format);
 		return -EINVAL;
 	}
 }
@@ -1537,6 +1600,9 @@ int msm_isp_open_node(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh)
 	memset(&vfe_dev->axi_data, 0, sizeof(struct msm_vfe_axi_shared_data));
 	memset(&vfe_dev->stats_data, 0,
 		sizeof(struct msm_vfe_stats_shared_data));
+	memset(&vfe_dev->error_info, 0, sizeof(vfe_dev->error_info));
+	memset(&vfe_dev->fetch_engine_info, 0,
+		sizeof(vfe_dev->fetch_engine_info));
 	vfe_dev->axi_data.hw_info = vfe_dev->hw_info->axi_hw_info;
 	vfe_dev->taskletq_idx = 0;
 	vfe_dev->vt_enable = 0;

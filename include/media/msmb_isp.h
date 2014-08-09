@@ -93,6 +93,17 @@ enum msm_vfe_camif_input {
 	CAMIF_MIPI_INPUT,
 };
 
+struct msm_vfe_fetch_engine_cfg {
+	uint32_t input_format;
+	uint32_t buf_width;
+	uint32_t buf_height;
+	uint32_t fetch_width;
+	uint32_t fetch_height;
+	uint32_t x_offset;
+	uint32_t y_offset;
+	uint32_t buf_stride;
+};
+
 struct msm_vfe_camif_cfg {
 	uint32_t lines_per_frame;
 	uint32_t pixels_per_line;
@@ -120,6 +131,7 @@ enum msm_vfe_stats_composite_group {
 
 struct msm_vfe_pix_cfg {
 	struct msm_vfe_camif_cfg camif_cfg;
+	struct msm_vfe_fetch_engine_cfg fetch_engine_cfg;
 	enum msm_vfe_inputmux input_mux;
 	enum ISP_START_PIXEL_PATTERN pixel_pattern;
 	uint32_t input_format;
@@ -139,6 +151,13 @@ struct msm_vfe_input_cfg {
 	uint32_t input_pix_clk;
 };
 
+struct msm_vfe_fetch_eng_start {
+	uint32_t session_id;
+	uint32_t stream_id;
+	uint32_t buf_idx;
+	uint32_t buf_addr;
+};
+
 struct msm_vfe_axi_plane_cfg {
 	uint32_t output_width; /*Include padding*/
 	uint32_t output_height;
@@ -148,6 +167,11 @@ struct msm_vfe_axi_plane_cfg {
 	uint32_t plane_addr_offset;
 	uint8_t csid_src; /*RDI 0-2*/
 	uint8_t rdi_cid;/*CID 1-16*/
+};
+
+enum msm_stream_memory_input_t {
+	MEMORY_INPUT_DISABLED,
+	MEMORY_INPUT_ENABLED
 };
 
 struct msm_vfe_axi_stream_request_cmd {
@@ -169,6 +193,8 @@ struct msm_vfe_axi_stream_request_cmd {
 	uint32_t axi_stream_handle;
 	uint32_t controllable_output;
 	uint32_t burst_len;
+	/* Flag indicating memory input stream */
+	enum msm_stream_memory_input_t memory_input;
 };
 
 struct msm_vfe_axi_stream_release_cmd {
@@ -380,7 +406,8 @@ enum msm_isp_event_idx {
 	ISP_STATS_OVERFLOW  = 5,
 	ISP_CAMIF_ERROR     = 6,
 	ISP_BUF_DONE        = 9,
-	ISP_EVENT_MAX       = 10
+	ISP_FE_RD_DONE      = 10,
+	ISP_EVENT_MAX       = 11
 };
 
 #define ISP_EVENT_OFFSET          8
@@ -402,6 +429,8 @@ enum msm_isp_event_idx {
 #define ISP_EVENT_BUF_DIVERT      (ISP_BUF_EVENT_BASE)
 #define ISP_EVENT_STATS_NOTIFY    (ISP_STATS_EVENT_BASE)
 #define ISP_EVENT_COMP_STATS_NOTIFY (ISP_EVENT_STATS_NOTIFY + MSM_ISP_STATS_MAX)
+#define ISP_EVENT_FE_READ_DONE    (ISP_EVENT_BASE + ISP_FE_RD_DONE)
+
 /* The msm_v4l2_event_data structure should match the
  * v4l2_event.u.data field.
  * should not exceed 64 bytes */
@@ -519,5 +548,8 @@ struct msm_isp_event_data {
 
 #define VIDIOC_MSM_ISP_AXI_RESTART \
 	_IOWR('V', BASE_VIDIOC_PRIVATE+19, struct msm_vfe_axi_restart_cmd)
+
+#define VIDIOC_MSM_ISP_FETCH_ENG_START \
+	_IOWR('V', BASE_VIDIOC_PRIVATE+20, struct msm_vfe_fetch_eng_start)
 
 #endif /* __MSMB_ISP__ */
