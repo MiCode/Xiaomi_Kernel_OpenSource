@@ -111,7 +111,9 @@ struct erp_drvdata {
 	struct edac_device_ctl_info *edev_ctl;
 	void __iomem *cci_base;
 	u32 mem_perf_counter;
-	struct notifier_block nb;
+	struct notifier_block nb_pm;
+	struct notifier_block nb_cpu;
+	struct work_struct work;
 };
 
 static struct erp_drvdata *abort_handler_drvdata;
@@ -754,7 +756,7 @@ static void check_sbe_event(struct erp_drvdata *drv)
 static int arm64_pmu_cpu_pm_notify(struct notifier_block *self,
 					   unsigned long action, void *v)
 {
-	struct erp_drvdata *drv = container_of(self, struct erp_drvdata, nb);
+	struct erp_drvdata *drv = container_of(self, struct erp_drvdata, nb_pm);
 
 	switch (action) {
 	case CPU_PM_EXIT:
@@ -762,6 +764,20 @@ static int arm64_pmu_cpu_pm_notify(struct notifier_block *self,
 		sbe_enable_event(drv);
 		break;
 	}
+
+	return NOTIFY_OK;
+}
+
+static int msm_cti_pmu_wa_cpu_notify(struct notifier_block *self,
+					unsigned long action, void *hcpu)
+{
+	struct erp_drvdata *drv = container_of(self, struct erp_drvdata,
+								nb_cpu);
+	switch (action) {
+	case CPU_ONLINE:
+		schedule_work_on((unsigned long)hcpu, &drv->work);
+		break;
+	};
 
 	return NOTIFY_OK;
 }
@@ -852,11 +868,14 @@ static int arm64_cpu_erp_probe(struct platform_device *pdev)
 		goto out_irq;
 	}
 
-	drv->nb.notifier_call = arm64_pmu_cpu_pm_notify;
+	drv->nb_pm.notifier_call = arm64_pmu_cpu_pm_notify;
 	drv->mem_perf_counter = arm64_pmu_get_last_counter();
-	cpu_pm_register_notifier(&(drv->nb));
+	cpu_pm_register_notifier(&(drv->nb_pm));
+	drv->nb_cpu.notifier_call = msm_cti_pmu_wa_cpu_notify;
+	register_cpu_notifier(&drv->nb_cpu);
 	arm64_pmu_irq_handled_externally();
 	schedule_on_each_cpu(msm_enable_cti_pmu_workaround);
+	INIT_WORK(&drv->work, msm_enable_cti_pmu_workaround);
 	on_each_cpu(sbe_enable_event, drv, 1);
 	on_each_cpu(arm64_enable_pmu_irq, &sbe_irq, 1);
 
