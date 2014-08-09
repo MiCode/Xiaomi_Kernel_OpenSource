@@ -91,6 +91,9 @@ qcom,mas-rpm-id:	For non-AP owned device this is the RPM id for devices that are
 			This is the id that is used when sending a message to RPM for this device.
 qcom,slv-rpm-id:	For non-AP owned device this is the RPM id for devices that are bus slaves.
 			This is the id that is used when sending a message to RPM for this device.
+qcom,blacklist:         An array of phandles that represent devices that this device
+			cannot connect to either directly or via any number of
+			intermediate nodes.
 
 
 The following properties are optional as collecting data via coresight might
