@@ -497,6 +497,17 @@
 				bias-disable;
 			};
 		};
+
+		cnss_pmux: cnss_pmux {
+			qcom,pins = <&gp 70>;
+			qcom,num-grp-pins = <1>;
+			qcom,pin-func = <0>;
+			label = "cnss_pins";
+			cnss_default: default {
+				drive-strength = <16>;
+				bias-pull-down;
+			};
+		};
 	};
 };
 
