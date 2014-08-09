@@ -282,6 +282,8 @@ void msm_pcie_cfg_recover(struct msm_pcie_dev_t *dev, bool rc)
 				i * 4, readl_relaxed(cfg + i * 4));
 		}
 	}
+
+	readl_relaxed(dev->elbi);
 }
 
 static void msm_pcie_write_mask(void __iomem *addr,
@@ -392,6 +394,7 @@ static inline int msm_pcie_oper_conf(struct pci_bus *bus, u32 devfn, int oper,
 				((*val << (8 * byte_offset)) & mask);
 		writel_relaxed(wr_val, config_base + word_offset);
 		wmb(); /* ensure config data is written to hardware register */
+		readl_relaxed(dev->elbi);
 
 		if (rd_val == PCIE_LINK_DOWN) {
 			PCIE_ERR(dev,
@@ -806,6 +809,7 @@ static void msm_pcie_config_controller(struct msm_pcie_dev_t *dev)
 		msm_pcie_write_mask(dev->dm_core + PCIE20_ACK_F_ASPM_CTRL_REG,
 					PCIE20_ACK_N_FTS,
 					dev->n_fts << 8);
+	readl_relaxed(dev->elbi);
 
 	if (dev->shadow_en) {
 		if (!dev->n_fts)
@@ -840,6 +844,7 @@ static void msm_pcie_config_l1ss(struct msm_pcie_dev_t *dev)
 					BIT(3)|BIT(2)|BIT(1)|BIT(0));
 	msm_pcie_write_mask(dev->dm_core + PCIE20_DEVICE_CONTROL2_STATUS2, 0,
 					BIT(10));
+	readl_relaxed(dev->elbi);
 	if (dev->shadow_en) {
 		msm_pcie_write_mask(dev->rc_shadow +
 			PCIE20_CAP_LINKCTRLSTATUS / 4, 0, BIT(1)|BIT(0));
@@ -863,6 +868,7 @@ static void msm_pcie_config_l1ss(struct msm_pcie_dev_t *dev)
 					BIT(3)|BIT(2)|BIT(1)|BIT(0));
 	msm_pcie_write_mask(dev->conf + PCIE20_DEVICE_CONTROL2_STATUS2, 0,
 					BIT(10));
+	readl_relaxed(dev->elbi);
 	if (dev->shadow_en) {
 		msm_pcie_write_mask(dev->ep_shadow +
 			PCIE20_CAP_LINKCTRLSTATUS / 4, 0, BIT(1)|BIT(0));
