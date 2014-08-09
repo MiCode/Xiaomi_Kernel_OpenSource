@@ -175,7 +175,6 @@ config ARCH_FSM9010
 	select ARCH_MSM_CORTEXMP
 	select CPU_V7
 	select MSM_SCM
-	select GPIO_MSM_V3
 	select HAVE_ARM_ARCH_TIMER
 	select MSM_NATIVE_RESTART
 	select MSM_CORTEX_A7
@@ -187,6 +186,11 @@ config ARCH_FSM9010
 	select MSM_NOPM
 	select MSM_JTAG_MM if CORESIGHT_ETM
 	select MSM_IRQ
+	select ARCH_SUPPORTS_MSI
+	select MIGHT_HAVE_PCI
+	select PINCTRL
+	select PINCTRL_MSM_TLMM
+	select USE_PINCTRL_IRQ
 
 config ARCH_MDM9630
 	bool "MDM9630"
