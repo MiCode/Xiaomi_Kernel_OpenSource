@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011, 2012 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2011,2012,2014 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -564,6 +564,35 @@ static struct platform_driver krait_l2_pmu_driver = {
 	.probe		= krait_l2_pmu_device_probe,
 };
 
+#ifdef CONFIG_PERF_EVENTS_RESET_PMU_DEBUGFS
+static void l2_reset_pmu(void)
+{
+	int i, irq;
+
+	get_reset_pmovsr();
+	/* Clear counter enables */
+	for (i = 0; i < total_l2_ctrs; i++) {
+		disable_counter(i);
+		disable_intenclr(i);
+	}
+	/* Reset all ctrs */
+	set_l2_indirect_reg(L2PMCR, L2PMCR_RESET_ALL);
+	/* Clear constraint bitmap */
+	l2_pmu_constraints.pmu_bitmap = 0;
+	/* clear used_mask */
+	for (i = 0; i < total_l2_ctrs; i++)
+		test_and_clear_bit(i, krait_l2_pmu_hw_events.used_mask);
+	/* Clear irq */
+	irq = platform_get_irq(krait_l2_pmu.plat_device, 0);
+	if (irq >= 0)
+		free_irq(irq, &krait_l2_pmu_addr);
+}
+#else
+static inline void l2_reset_pmu(void)
+{
+}
+#endif
+
 static int __init register_krait_l2_pmu_driver(void)
 {
 	int i;
@@ -594,6 +623,8 @@ static int __init register_krait_l2_pmu_driver(void)
 	for (i = 0; i < total_l2_ctrs; i++)
 		disable_counter(i);
 
+	msm_perf_register_l2_reset_callback(&l2_reset_pmu);
 	return platform_driver_register(&krait_l2_pmu_driver);
 }
+
 device_initcall(register_krait_l2_pmu_driver);
