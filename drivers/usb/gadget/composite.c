@@ -363,7 +363,8 @@ int usb_get_func_interface_id(struct usb_function *func)
 	return -ENODEV;
 }
 
-static int _usb_func_wakeup(struct usb_function *func, bool use_pending_flag)
+static int usb_func_wakeup_int(struct usb_function *func,
+					bool use_pending_flag)
 {
 	int ret;
 	int interface_id;
@@ -371,8 +372,8 @@ static int _usb_func_wakeup(struct usb_function *func, bool use_pending_flag)
 	struct usb_gadget *gadget;
 	struct usb_composite_dev *cdev;
 
-	pr_debug("%s function wakeup\n",
-		func->name ? func->name : "");
+	pr_debug("%s - %s function wakeup, use pending: %u\n",
+		__func__, func->name ? func->name : "", use_pending_flag);
 
 	if (!func || !func->config || !func->config->cdev ||
 		!func->config->cdev->gadget)
@@ -402,14 +403,20 @@ static int _usb_func_wakeup(struct usb_function *func, bool use_pending_flag)
 		ERROR(func->config->cdev,
 			"Function %s - Unknown interface id. Canceling USB request. ret=%d\n",
 			func->name ? func->name : "", ret);
+
+		spin_unlock_irqrestore(&cdev->lock, flags);
 		return ret;
 	}
 
 	interface_id = ret;
 	ret = usb_gadget_func_wakeup(gadget, interface_id);
 
-	if (use_pending_flag)
+	if (use_pending_flag) {
 		func->func_wakeup_pending = false;
+	} else {
+		if (ret == -EAGAIN)
+			func->func_wakeup_pending = true;
+	}
 
 	spin_unlock_irqrestore(&cdev->lock, flags);
 
@@ -423,12 +430,11 @@ int usb_func_wakeup(struct usb_function *func)
 	pr_debug("%s function wakeup\n",
 		func->name ? func->name : "");
 
-	ret = _usb_func_wakeup(func, false);
+	ret = usb_func_wakeup_int(func, false);
 	if (ret == -EAGAIN) {
 		DBG(func->config->cdev,
 			"Function wakeup for %s could not complete due to suspend state. Delayed until after bus resume.\n",
 			func->name ? func->name : "");
-		func->func_wakeup_pending = true;
 		ret = 0;
 	} else if (ret < 0) {
 		ERROR(func->config->cdev,
@@ -1908,7 +1914,7 @@ composite_resume(struct usb_gadget *gadget)
 
 	if (cdev->config) {
 		list_for_each_entry(f, &cdev->config->functions, list) {
-			ret = _usb_func_wakeup(f, true);
+			ret = usb_func_wakeup_int(f, true);
 			if (ret) {
 				if (ret == -EAGAIN) {
 					ERROR(f->config->cdev,
