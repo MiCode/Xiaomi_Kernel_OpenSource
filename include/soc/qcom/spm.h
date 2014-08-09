@@ -90,7 +90,7 @@ static inline int msm_spm_device_init(void)
 	return -ENOSYS;
 }
 
-static void msm_spm_dump_regs(unsigned int cpu)
+static inline void msm_spm_dump_regs(unsigned int cpu)
 {
 	return;
 }
