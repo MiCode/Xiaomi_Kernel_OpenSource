@@ -82,7 +82,7 @@ void mdp3_check_dsi_ctrl_status(struct work_struct *work,
 		pr_err("%s: wait_for_dma_done error\n", __func__);
 	mutex_unlock(&mdp3_session->lock);
 
-	if ((pdsi_status->mfd->panel_power_on)) {
+	if (pdsi_status->mfd->panel_power_state == MDSS_PANEL_POWER_ON) {
 		if (ret > 0) {
 			schedule_delayed_work(&pdsi_status->check_status,
 						msecs_to_jiffies(interval));
