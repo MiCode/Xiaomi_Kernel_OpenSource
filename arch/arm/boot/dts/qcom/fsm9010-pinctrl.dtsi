@@ -1,0 +1,103 @@
+/* Copyright (c) 2014, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+&soc {
+	tlmm_pinmux: pinctrl@fd510000 {
+		compatible = "qcom,msm-tlmm-9010", "qcom,msm-tlmm-8974";
+		reg = <0xfd510000 0x4000>;
+		interrupts = <0 208 0>;
+
+		/*General purpose pins*/
+		gp: gp {
+			qcom,num-pins = <91>;
+			#qcom,pin-cells = <1>;
+
+			msm_gpio: msm_gpio {
+				compatible = "qcom,msm-tlmm-gp";
+				gpio-controller;
+				#gpio-cells = <2>;
+				interrupt-controller;
+				#interrupt-cells = <2>;
+				qcom,direct-connect-irqs = <5>;
+				num_irqs = <91>;
+			};
+		};
+
+		pcie0_clkreq {
+			qcom,pins = <&gp 88>;
+			qcom,num-grp-pins = <1>;
+			qcom,pin-func = <5>;
+			label = "pcie0-clkreq";
+			/* default state */
+			pcie0_clkreq_default: pcie0_clkreq_default {
+				drive-strength = <8>; /* 8 MA */
+				bias-pull-up;
+			};
+		};
+
+		pcie0_perst {
+			qcom,pins = <&gp 44>;
+			qcom,num-grp-pins = <1>;
+			label = "pcie0-perst";
+			/* default state */
+			pcie0_perst_default: pcie0_perst_default {
+				drive-strength = <2>; /* 2 MA */
+				bias-disable; /* No PULL */
+			};
+		};
+
+		pcie0_wake {
+			qcom,pins = <&gp 46>;
+			qcom,num-grp-pins = <1>;
+			label = "pcie0-wake";
+			/* default state */
+			pcie0_wake_default: pcie0_wake_default {
+				drive-strength = <2>;
+				bias-pull-down;
+			};
+		};
+
+		pcie1_clkreq {
+			qcom,pins = <&gp 86>;
+			qcom,num-grp-pins = <1>;
+			qcom,pin-func = <5>;
+			label = "pcie1-clkreq";
+			/* default state */
+			pcie1_clkreq_default: pcie1_clkreq_default {
+				drive-strength = <8>; /* 8 MA */
+				bias-pull-up;
+			};
+		};
+
+		pcie1_perst {
+			qcom,pins = <&gp 72>;
+			qcom,num-grp-pins = <1>;
+			label = "pcie1-perst";
+			/* default state */
+			pcie1_perst_default: pcie1_perst_default {
+				drive-strength = <2>; /* 2 MA */
+				bias-disable; /* No PULL */
+			};
+		};
+
+		pcie1_wake {
+			qcom,pins = <&gp 82>;
+			qcom,num-grp-pins = <1>;
+			label = "pcie1-wake";
+			/* default state */
+			pcie1_wake_default: pcie1_wake_default {
+				drive-strength = <2>;
+				bias-pull-down;
+			};
+		};
+	};
+};

@@ -36,6 +36,26 @@
 		status = "ok";
 		vdd-blow-supply = <&dummy_vreg>;
 	};
+
+	pcie0: qcom,pcie@fc520000 {
+		status = "disabled";
+	};
+
+	pcie1: qcom,pcie@fc528000 {
+		status = "disabled";
+	};
+
+	gdsc_pcie_0:gdsc_pcie_0 {
+		compatible = "qcom,stub-regulator";
+		regulator-name = "gdsc_pcie_0";
+		status = "ok";
+	};
+
+	gdsc_pcie_1:gdsc_pcie_1 {
+		compatible = "qcom,stub-regulator";
+		regulator-name = "gdsc_pcie_1";
+		status = "ok";
+	};
 };
 
 &sdhc_1 {
@@ -53,4 +73,30 @@
 	qcom,nonremovable;
 
 	status = "ok";
+};
+
+/* Stub Regulator */
+/ {
+	/* PCIE1/2_0P9_VDDA; */
+	summit_l3: summit_l3 {
+		compatible = "qcom,stub-regulator";
+		regulator-name = "summit_l3";
+		regulator-min-microvolt = <950000>;
+		regulator-max-microvolt = <950000>;
+		qcom,enable-time = <200>;
+		qcom,pull-down-enable = <1>;
+		status = "okay";
+	};
+
+	/* pcie LDO12 */
+	summit_l12: summit_l12 {
+		compatible = "qcom,stub-regulator";
+		regulator-name = "summit_l12";
+		regulator-min-microvolt = <1800000>;
+		regulator-max-microvolt = <1800000>;
+		qcom,enable-time = <500>;
+		qcom,pull-down-enable = <1>;
+		regulator-always-on;
+		status = "okay";
+	};
 };
