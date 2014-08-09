@@ -1070,7 +1070,19 @@ void boost_kick(int cpu)
 /* Clear any HMP scheduler related requests pending from or on cpu */
 static inline void clear_hmp_request(int cpu)
 {
+	struct rq *rq = cpu_rq(cpu);
+	unsigned long flags;
+
 	clear_boost_kick(cpu);
+	if (rq->push_task) {
+		raw_spin_lock_irqsave(&rq->lock, flags);
+		if (rq->push_task) {
+			put_task_struct(rq->push_task);
+			rq->push_task = NULL;
+		}
+		rq->active_balance = 0;
+		raw_spin_unlock_irqrestore(&rq->lock, flags);
+	}
 }
 
 #else
