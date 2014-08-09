@@ -2294,6 +2294,7 @@ static struct branch_clk gcc_oxili_gmem_clk = {
 	},
 };
 
+static struct local_vote_clk gcc_apss_tcu_clk;
 static struct branch_clk gcc_bimc_gfx_clk = {
 	.cbcr_reg = BIMC_GFX_CBCR,
 	.has_sibling = 1,
@@ -2302,6 +2303,7 @@ static struct branch_clk gcc_bimc_gfx_clk = {
 		.dbg_name = "gcc_bimc_gfx_clk",
 		.ops = &clk_ops_branch,
 		CLK_INIT(gcc_bimc_gfx_clk.c),
+		.depends = &gcc_apss_tcu_clk.c,
 	},
 };
 
