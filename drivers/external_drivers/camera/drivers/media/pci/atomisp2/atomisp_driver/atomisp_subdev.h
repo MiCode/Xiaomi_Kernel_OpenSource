@@ -345,6 +345,10 @@ struct atomisp_sub_device {
 	int raw_buffer_locked_count;
 	spinlock_t raw_buffer_bitmap_lock;
 
+	struct timer_list wdt;
+	unsigned int wdt_duration;	/* in jiffies */
+	unsigned long wdt_expires;
+
 	bool high_speed_mode; /* Indicate whether now is a high speed mode */
 	int pending_capture_request; /* Indicates the number of pending capture requests. */
 };

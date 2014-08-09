@@ -1339,8 +1339,8 @@ done:
 		} else {
 			atomisp_qbuffers_to_css(asd);
 
-			if (!atomisp_is_wdt_running(isp) && atomisp_buffers_queued(asd))
-				atomisp_wdt_start(isp);
+			if (!atomisp_is_wdt_running(asd) && atomisp_buffers_queued(asd))
+				atomisp_wdt_start(asd);
 		}
 	}
 
@@ -1547,7 +1547,7 @@ static unsigned int atomisp_sensor_start_stream(struct atomisp_sub_device *asd)
 	else
 		return 1;
 }
-static int __stream_on_master_slave_sensor(struct atomisp_device *isp)
+int atomisp_stream_on_master_slave_sensor(struct atomisp_device *isp)
 {
 	unsigned int master = -1, slave = -1;
 	int i, ret;
@@ -1588,6 +1588,16 @@ static int __stream_on_master_slave_sensor(struct atomisp_device *isp)
 
 	return 0;
 }
+
+/* FIXME! */
+void __wdt_on_master_slave_sensor(struct atomisp_device *isp, unsigned int wdt_duration)
+{
+	if (atomisp_buffers_queued(&isp->asd[0]))
+		atomisp_wdt_refresh(&isp->asd[0], wdt_duration);
+	if (atomisp_buffers_queued(&isp->asd[1]))
+		atomisp_wdt_refresh(&isp->asd[1], wdt_duration);
+}
+
 /*
  * This ioctl start the capture during streaming I/O.
  */
@@ -1758,12 +1768,13 @@ start_sensor:
 
 	if (asd->depth_mode->val && atomisp_streaming_count(isp) ==
 			ATOMISP_DEPTH_SENSOR_STREAMON_COUNT) {
-		ret = __stream_on_master_slave_sensor(isp);
+		ret = atomisp_stream_on_master_slave_sensor(isp);
 		if (ret) {
 			dev_err(isp->dev, "master slave sensor stream on failed!\n");
 			goto out;
 		}
-		goto wdt_start;
+		__wdt_on_master_slave_sensor(isp, wdt_duration);
+		goto out;
 	} else if (asd->depth_mode->val && (atomisp_streaming_count(isp) <
 		   ATOMISP_DEPTH_SENSOR_STREAMON_COUNT)) {
 		goto out;
@@ -1785,7 +1796,7 @@ start_sensor:
 		ret = -EINVAL;
 		goto out;
 	}
-wdt_start:
+
 	if (asd->continuous_mode->val) {
 		struct v4l2_mbus_framefmt *sink;
 
@@ -1807,7 +1818,7 @@ wdt_start:
 	}
 
 	if (atomisp_buffers_queued(asd))
-		atomisp_wdt_refresh(isp, wdt_duration);
+		atomisp_wdt_refresh(asd, wdt_duration);
 out:
 	rt_mutex_unlock(&isp->mutex);
 	return ret;
@@ -1898,9 +1909,7 @@ int __atomisp_streamoff(struct file *file, void *fh, enum v4l2_buf_type type)
 	if (first_streamoff) {
 		/* if other streams are running, should not disable watch dog */
 		rt_mutex_unlock(&isp->mutex);
-		if (!atomisp_streaming_count(isp)) {
-			atomisp_wdt_stop(isp, true);
-		}
+		atomisp_wdt_stop(asd, true);
 
 		/*
 		 * must stop sending pixels into GP_FIFO before stop

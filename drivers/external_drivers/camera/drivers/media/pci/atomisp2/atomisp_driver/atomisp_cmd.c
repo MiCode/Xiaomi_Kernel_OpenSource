@@ -1232,6 +1232,7 @@ static void __atomisp_css_recover(struct atomisp_device *isp)
 {
 	enum atomisp_css_pipe_id css_pipe_id;
 	bool stream_restart[MAX_STREAM_NUM] = {0};
+	bool depth_mode = false;
 	int i, ret;
 
 	if (!isp->sw_contex.file_input)
@@ -1331,13 +1332,6 @@ static void __atomisp_css_recover(struct atomisp_device *isp)
 		if (!stream_restart[i])
 			continue;
 
-		ret = v4l2_subdev_call(
-				isp->inputs[asd->input_curr].camera, video,
-				s_stream, 1);
-		if (ret)
-			dev_warn(isp->dev,
-					"can't start streaming on sensor!\n");
-
 		if (asd->continuous_mode->val &&
 		    asd->delayed_init == ATOMISP_DELAYED_INIT_NOT_QUEUED) {
 #ifndef CONFIG_GMIN_INTEL_MID
@@ -1354,8 +1348,25 @@ static void __atomisp_css_recover(struct atomisp_device *isp)
 		 * buffers that it has.
 		 */
 		atomisp_flush_bufs_and_wakeup(asd);
+
+		if (asd->depth_mode->val) {
+			depth_mode = true;
+			continue;
+		}
+
+		ret = v4l2_subdev_call(
+				isp->inputs[asd->input_curr].camera, video,
+				s_stream, 1);
+		if (ret)
+			dev_warn(isp->dev,
+					"can't start streaming on sensor!\n");
+
 	}
 
+	if (depth_mode) {
+		if (atomisp_stream_on_master_slave_sensor(isp))
+			dev_warn(isp->dev, "master slave sensor stream on failed!\n");
+	}
 }
 
 void atomisp_wdt_work(struct work_struct *work)
@@ -1366,6 +1377,7 @@ void atomisp_wdt_work(struct work_struct *work)
 
 	rt_mutex_lock(&isp->mutex);
 	if (!atomisp_streaming_count(isp)) {
+		atomic_set(&isp->wdt_work_queued, 0);
 		rt_mutex_unlock(&isp->mutex);
 		return;
 	}
@@ -1469,6 +1481,7 @@ void atomisp_wdt_work(struct work_struct *work)
 
 		atomic_set(&isp->wdt_count, 0);
 		isp->isp_fatal_error = true;
+		atomic_set(&isp->wdt_work_queued, 0);
 
 		rt_mutex_unlock(&isp->mutex);
 		return;
@@ -1482,27 +1495,39 @@ void atomisp_wdt_work(struct work_struct *work)
 	__atomisp_css_recover(isp);
 	atomisp_set_stop_timeout(ATOMISP_CSS_STOP_TIMEOUT_US);
 	dev_err(isp->dev, "timeout recovery handling done\n");
+	atomic_set(&isp->wdt_work_queued, 0);
 
 	rt_mutex_unlock(&isp->mutex);
 }
 
 void atomisp_css_flush(struct atomisp_device *isp)
 {
+	int i;
+
 	if (!atomisp_streaming_count(isp))
 		return;
 
 	/* Disable wdt */
-	atomisp_wdt_stop(isp, true);
+	for (i = 0; i < isp->num_of_streams; i++) {
+		struct atomisp_sub_device *asd = &isp->asd[i];
+		atomisp_wdt_stop(asd, true);
+	}
 
 	/* Start recover */
 	__atomisp_css_recover(isp);
-
 	/* Restore wdt */
-	atomisp_wdt_refresh(isp,
-			    isp->sw_contex.file_input ?
-			    ATOMISP_ISP_FILE_TIMEOUT_DURATION :
-			    ATOMISP_ISP_TIMEOUT_DURATION);
+	for (i = 0; i < isp->num_of_streams; i++) {
+		struct atomisp_sub_device *asd = &isp->asd[i];
 
+		if (asd->streaming !=
+				ATOMISP_DEVICE_STREAMING_ENABLED)
+			continue;
+
+		atomisp_wdt_refresh(asd,
+				isp->sw_contex.file_input ?
+				ATOMISP_ISP_FILE_TIMEOUT_DURATION :
+				ATOMISP_ISP_TIMEOUT_DURATION);
+	}
 	dev_dbg(isp->dev, "atomisp css flush done\n");
 }
 
@@ -1510,49 +1535,54 @@ void atomisp_wdt(unsigned long isp_addr)
 {
 	struct atomisp_device *isp = (struct atomisp_device *)isp_addr;
 
+	if (atomic_read(&isp->wdt_work_queued)) {
+		dev_dbg(isp->dev, "ISP watchdog was put into workqueue\n");
+		return;
+	}
+	atomic_set(&isp->wdt_work_queued, 1);
 	queue_work(isp->wdt_work_queue, &isp->wdt_work);
 }
 
-void atomisp_wdt_refresh(struct atomisp_device *isp, unsigned int delay)
+void atomisp_wdt_refresh(struct atomisp_sub_device *asd, unsigned int delay)
 {
 	unsigned long next;
 
 	if (delay != ATOMISP_WDT_KEEP_CURRENT_DELAY)
-		isp->wdt_duration = delay;
+		asd->wdt_duration = delay;
 
-	next = jiffies + isp->wdt_duration;
+	next = jiffies + asd->wdt_duration;
 
 	/* Override next if it has been pushed beyon the "next" time */
-	if (atomisp_is_wdt_running(isp) && time_after(isp->wdt_expires, next))
-		next = isp->wdt_expires;
+	if (atomisp_is_wdt_running(asd) && time_after(asd->wdt_expires, next))
+		next = asd->wdt_expires;
 
-	isp->wdt_expires = next;
+	asd->wdt_expires = next;
 
-	if (atomisp_is_wdt_running(isp))
-		dev_dbg(isp->dev, "WDT will hit after %d ms\n",
+	if (atomisp_is_wdt_running(asd))
+		dev_dbg(asd->isp->dev, "WDT will hit after %d ms\n",
 			((int)(next - jiffies) * 1000 / HZ));
 	else
-		dev_dbg(isp->dev, "WDT starts with %d ms period\n",
+		dev_dbg(asd->isp->dev, "WDT starts with %d ms period\n",
 			((int)(next - jiffies) * 1000 / HZ));
 
-	mod_timer(&isp->wdt, next);
-	atomic_set(&isp->wdt_count, 0);
+	mod_timer(&asd->wdt, next);
+	atomic_set(&asd->isp->wdt_count, 0);
 }
 
-void atomisp_wdt_stop(struct atomisp_device *isp, bool sync)
+void atomisp_wdt_stop(struct atomisp_sub_device *asd, bool sync)
 {
-	dev_dbg(isp->dev, "WDT stop\n");
+	dev_dbg(asd->isp->dev, "WDT stop\n");
 	if (sync) {
-		del_timer_sync(&isp->wdt);
-		cancel_work_sync(&isp->wdt_work);
+		del_timer_sync(&asd->wdt);
+		cancel_work_sync(&asd->isp->wdt_work);
 	} else {
-		del_timer(&isp->wdt);
+		del_timer(&asd->wdt);
 	}
 }
 
-void atomisp_wdt_start(struct atomisp_device *isp)
+void atomisp_wdt_start(struct atomisp_sub_device *asd)
 {
-	atomisp_wdt_refresh(isp, ATOMISP_ISP_TIMEOUT_DURATION);
+	atomisp_wdt_refresh(asd, ATOMISP_ISP_TIMEOUT_DURATION);
 }
 
 void atomisp_setup_flash(struct atomisp_sub_device *asd)
@@ -1587,7 +1617,6 @@ irqreturn_t atomisp_isr_thread(int irq, void *isp_ptr)
 	unsigned long flags;
 	bool frame_done_found[MAX_STREAM_NUM] = {0};
 	bool css_pipe_done[MAX_STREAM_NUM] = {0};
-	bool reset_wdt_timer = false;
 	unsigned int i;
 	struct atomisp_sub_device *asd = &isp->asd[0];
 
@@ -1628,8 +1657,7 @@ irqreturn_t atomisp_isr_thread(int irq, void *isp_ptr)
 	 * time, instead, dequue one and process one, then another
 	 */
 	rt_mutex_lock(&isp->mutex);
-	if (atomisp_css_isr_thread(isp, frame_done_found, css_pipe_done,
-				   &reset_wdt_timer))
+	if (atomisp_css_isr_thread(isp, frame_done_found, css_pipe_done))
 		goto out;
 
 	for (i = 0; i < isp->num_of_streams; i++) {
@@ -1644,14 +1672,6 @@ irqreturn_t atomisp_isr_thread(int irq, void *isp_ptr)
 		}
 		atomisp_setup_flash(asd);
 
-		/* If there are no buffers queued then
-		 * delete wdt timer. */
-		if (!atomisp_buffers_queued(asd))
-			atomisp_wdt_stop(isp, false);
-		else if (reset_wdt_timer)
-			/* SOF irq should not reset wdt timer. */
-			atomisp_wdt_refresh(isp,
-					    ATOMISP_WDT_KEEP_CURRENT_DELAY);
 	}
 out:
 	rt_mutex_unlock(&isp->mutex);
@@ -3300,7 +3320,6 @@ void atomisp_free_css_parameters(struct atomisp_css_params *css_param) {
 void atomisp_handle_parameter_and_buffer(struct atomisp_video_pipe *pipe)
 {
 	struct atomisp_sub_device *asd = pipe->asd;
-	struct atomisp_device *isp = asd->isp;
 	struct videobuf_buffer *vb = NULL, *vb_tmp;
 	struct atomisp_css_params_with_list *param = NULL, *param_tmp;
 	struct videobuf_vmalloc_memory *vm_mem = NULL;
@@ -3365,8 +3384,8 @@ void atomisp_handle_parameter_and_buffer(struct atomisp_video_pipe *pipe)
 
 	if (need_to_enqueue_buffer) {
 		atomisp_qbuffers_to_css(asd);
-		if (!atomisp_is_wdt_running(isp) && atomisp_buffers_queued(asd))
-			atomisp_wdt_start(isp);
+		if (!atomisp_is_wdt_running(asd) && atomisp_buffers_queued(asd))
+			atomisp_wdt_start(asd);
 	}
 }
 

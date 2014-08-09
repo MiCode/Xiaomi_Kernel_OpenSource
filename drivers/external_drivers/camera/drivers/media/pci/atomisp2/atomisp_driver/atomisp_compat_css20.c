@@ -4548,19 +4548,21 @@ static struct atomisp_sub_device *__get_atomisp_subdev(
 
 int atomisp_css_isr_thread(struct atomisp_device *isp,
 			   bool *frame_done_found,
-			   bool *css_pipe_done,
-			   bool *reset_wdt_timer)
+			   bool *css_pipe_done)
 {
 	enum atomisp_input_stream_id stream_id = 0;
 	struct atomisp_css_event current_event;
 	struct atomisp_sub_device *asd = &isp->asd[0];
+	bool reset_wdt_timer = false;
+	int i;
 
 	while (!atomisp_css_dequeue_event(&current_event)) {
 		if (current_event.event.type == IA_CSS_EVENT_TYPE_FW_ERROR) {
 			/* Received FW error signal, trigger WDT to recover */
 			dev_err(isp->dev, "%s: ISP reports FW_ERROR event, error code %d!!!!",
 			        __func__, current_event.event.fw_error);
-			atomisp_wdt_stop(isp, 0);
+			for (i = 0; i < isp->num_of_streams; i++)
+				atomisp_wdt_stop(&isp->asd[i], 0);
 			atomisp_wdt((unsigned long)isp);
 			return -EINVAL;
 		} else if (current_event.event.type == IA_CSS_EVENT_TYPE_FW_WARNING) {
@@ -4584,13 +4586,13 @@ int atomisp_css_isr_thread(struct atomisp_device *isp,
 			frame_done_found[asd->index] = true;
 			atomisp_buf_done(asd, 0, CSS_BUFFER_TYPE_OUTPUT_FRAME,
 					 current_event.pipe, true, stream_id);
-			*reset_wdt_timer = true; /* ISP running */
+			reset_wdt_timer = true; /* ISP running */
 			break;
 		case CSS_EVENT_SEC_OUTPUT_FRAME_DONE:
 			frame_done_found[asd->index] = true;
 			atomisp_buf_done(asd, 0, CSS_BUFFER_TYPE_SEC_OUTPUT_FRAME,
 					 current_event.pipe, true, stream_id);
-			*reset_wdt_timer = true; /* ISP running */
+			reset_wdt_timer = true; /* ISP running */
 			break;
 		case CSS_EVENT_3A_STATISTICS_DONE:
 			atomisp_buf_done(asd, 0,
@@ -4608,13 +4610,13 @@ int atomisp_css_isr_thread(struct atomisp_device *isp,
 			atomisp_buf_done(asd, 0,
 					 CSS_BUFFER_TYPE_VF_OUTPUT_FRAME,
 					 current_event.pipe, true, stream_id);
-			*reset_wdt_timer = true; /* ISP running */
+			reset_wdt_timer = true; /* ISP running */
 			break;
 		case CSS_EVENT_SEC_VF_OUTPUT_FRAME_DONE:
 			atomisp_buf_done(asd, 0,
 					 CSS_BUFFER_TYPE_SEC_VF_OUTPUT_FRAME,
 					 current_event.pipe, true, stream_id);
-			*reset_wdt_timer = true; /* ISP running */
+			reset_wdt_timer = true; /* ISP running */
 			break;
 		case CSS_EVENT_DIS_STATISTICS_DONE:
 			atomisp_buf_done(asd, 0,
@@ -4634,6 +4636,15 @@ int atomisp_css_isr_thread(struct atomisp_device *isp,
 			break;
 		}
 	}
+	/* If there are no buffers queued then
+	 * delete wdt timer. */
+	if (!atomisp_buffers_queued(asd))
+		atomisp_wdt_stop(asd, false);
+	else if (reset_wdt_timer)
+		/* SOF irq should not reset wdt timer. */
+		atomisp_wdt_refresh(asd,
+				ATOMISP_WDT_KEEP_CURRENT_DELAY);
+
 	return 0;
 }
 

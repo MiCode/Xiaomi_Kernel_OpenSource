@@ -325,10 +325,8 @@ struct atomisp_device {
 	bool isp_fatal_error;
 	struct workqueue_struct *wdt_work_queue;
 	struct work_struct wdt_work;
-	struct timer_list wdt;
 	atomic_t wdt_count;
-	unsigned int wdt_duration;	/* in jiffies */
-	unsigned long wdt_expires;
+	atomic_t wdt_work_queued;
 
 	spinlock_t lock; /* Just for streaming below */
 
@@ -350,8 +348,8 @@ extern void *atomisp_kernel_malloc(size_t bytes);
 extern void atomisp_kernel_free(void *ptr);
 
 #define atomisp_is_wdt_running(a) timer_pending(&(a)->wdt)
-extern void atomisp_wdt_refresh(struct atomisp_device *isp, unsigned int delay);
-extern void atomisp_wdt_start(struct atomisp_device *isp);
-extern void atomisp_wdt_stop(struct atomisp_device *isp, bool sync);
+extern void atomisp_wdt_refresh(struct atomisp_sub_device *asd, unsigned int delay);
+extern void atomisp_wdt_start(struct atomisp_sub_device *asd);
+extern void atomisp_wdt_stop(struct atomisp_sub_device *asd, bool sync);
 
 #endif /* __ATOMISP_INTERNAL_H__ */

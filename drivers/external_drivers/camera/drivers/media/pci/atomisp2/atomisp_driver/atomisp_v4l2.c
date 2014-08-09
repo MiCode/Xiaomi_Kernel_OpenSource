@@ -1121,6 +1121,29 @@ static bool is_valid_device(struct pci_dev *dev,
 #endif /* ISP2400 */
 }
 
+static int init_atomisp_wdts(struct atomisp_device *isp)
+{
+	int i, err;
+
+	atomic_set(&isp->wdt_work_queued, 0);
+	isp->wdt_work_queue = alloc_workqueue(isp->v4l2_dev.name, 0, 1);
+	if (isp->wdt_work_queue == NULL) {
+		dev_err(isp->dev, "Failed to initialize wdt work queue\n");
+		err = -ENOMEM;
+		goto alloc_fail;
+	}
+	INIT_WORK(&isp->wdt_work, atomisp_wdt_work);
+
+	for (i = 0; i < isp->num_of_streams; i++) {
+		struct atomisp_sub_device *asd = &isp->asd[i];
+		asd = &isp->asd[i];
+		setup_timer(&asd->wdt, atomisp_wdt, (unsigned long)isp);
+	}
+	return 0;
+alloc_fail:
+	return err;
+}
+
 static struct pci_driver atomisp_pci_driver;
 
 #define ATOM_ISP_PCI_BAR	0
@@ -1302,14 +1325,6 @@ static int atomisp_pci_probe(struct pci_dev *dev,
 		}
 	}
 
-	isp->wdt_work_queue = alloc_workqueue(isp->v4l2_dev.name, 0, 1);
-	if (isp->wdt_work_queue == NULL) {
-		dev_err(&dev->dev, "Failed to initialize wdt work queue\n");
-		err = -ENOMEM;
-		goto wdt_work_queue_fail;
-	}
-	INIT_WORK(&isp->wdt_work, atomisp_wdt_work);
-
 	pci_set_master(dev);
 	pci_set_drvdata(dev, isp);
 
@@ -1318,8 +1333,6 @@ static int atomisp_pci_probe(struct pci_dev *dev,
 		dev_err(&dev->dev, "Failed to enable msi (%d)\n", err);
 		goto enable_msi_fail;
 	}
-
-	setup_timer(&isp->wdt, atomisp_wdt, (unsigned long)isp);
 
 	atomisp_msi_irq_init(isp, dev);
 
@@ -1375,6 +1388,10 @@ static int atomisp_pci_probe(struct pci_dev *dev,
 	}
 	atomisp_acc_init(isp);
 
+	/* init atomisp wdts */
+	if (init_atomisp_wdts(isp) != 0)
+		goto wdt_work_queue_fail;
+
 	/* save the iunit context only once after all the values are init'ed. */
 	atomisp_save_iunit_reg(isp);
 
@@ -1424,6 +1441,8 @@ request_irq_fail:
 	hrt_isp_css_mm_clear();
 	hmm_pool_unregister(HMM_POOL_TYPE_RESERVED);
 hmm_pool_fail:
+	destroy_workqueue(isp->wdt_work_queue);
+wdt_work_queue_fail:
 	atomisp_acc_cleanup(isp);
 	atomisp_unregister_entities(isp);
 register_entities_fail:
@@ -1432,8 +1451,6 @@ initialize_modules_fail:
 	pm_qos_remove_request(&isp->pm_qos);
 	atomisp_msi_irq_uninit(isp, dev);
 enable_msi_fail:
-	destroy_workqueue(isp->wdt_work_queue);
-wdt_work_queue_fail:
 fw_validation_fail:
 	release_firmware(isp->firmware);
 load_fw_fail:
