@@ -1458,19 +1458,20 @@ unsigned long sched_get_busy(int cpu)
 int sched_set_window(u64 window_start, unsigned int window_size)
 {
 	int cpu;
-	u64 ws;
-	u64 now = get_jiffies_64();
+	u64 wallclock, ws, now;
 	int delta;
 	unsigned long flags;
-	u64 wallclock;
 	struct task_struct *g, *p;
 
-	if (sched_use_pelt)
-		return -EINVAL;
+	if (sched_use_pelt ||
+		 (window_size * TICK_NSEC <  MIN_SCHED_RAVG_WINDOW))
+			return -EINVAL;
 
-	delta = window_start - now; /* how many jiffies ahead */
+	local_irq_save(flags);
 
-	if (delta > 0) {
+	now = get_jiffies_64();
+	if (time_after64(window_start, now)) {
+		delta = window_start - now; /* how many jiffies ahead */
 		delta /= window_size; /* # of windows to roll back */
 		delta += 1;
 		window_start -= (delta * window_size);
@@ -1481,8 +1482,6 @@ int sched_set_window(u64 window_start, unsigned int window_size)
 	ws += sched_clock_at_init_jiffy;
 
 	BUG_ON(sched_clock() < ws);
-
-	local_irq_save(flags);
 
 	for_each_online_cpu(cpu) {
 		struct rq *rq = cpu_rq(cpu);
