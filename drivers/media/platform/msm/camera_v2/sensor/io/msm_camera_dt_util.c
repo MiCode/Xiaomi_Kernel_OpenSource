@@ -457,6 +457,12 @@ int msm_camera_get_dt_power_setting_data(struct device_node *of_node,
 				ps[i].seq_val = SENSOR_GPIO_STANDBY;
 			else if (!strcmp(seq_name, "sensor_gpio_vdig"))
 				ps[i].seq_val = SENSOR_GPIO_VDIG;
+			else if (!strcmp(seq_name, "sensor_gpio_vana"))
+				ps[i].seq_val = SENSOR_GPIO_VANA;
+			else if (!strcmp(seq_name, "sensor_gpio_vaf"))
+				ps[i].seq_val = SENSOR_GPIO_VAF;
+			else if (!strcmp(seq_name, "sensor_gpio_vio"))
+				ps[i].seq_val = SENSOR_GPIO_VIO;
 			else
 				rc = -EILSEQ;
 			break;
@@ -754,7 +760,7 @@ int msm_camera_init_gpio_pin_tbl(struct device_node *of_node,
 				__func__, __LINE__, rc);
 			goto ERROR;
 		} else if (val >= gpio_array_size) {
-			pr_err("%s:%d qcom,gpio-vdig invalid %d\n",
+			pr_err("%s:%d qcom,gpio-vana invalid %d\n",
 				__func__, __LINE__, val);
 			rc = -EINVAL;
 			goto ERROR;
@@ -764,6 +770,47 @@ int msm_camera_init_gpio_pin_tbl(struct device_node *of_node,
 		gconf->gpio_num_info->valid[SENSOR_GPIO_VANA] = 1;
 		CDBG("%s qcom,gpio-vana %d\n", __func__,
 			gconf->gpio_num_info->gpio_num[SENSOR_GPIO_VANA]);
+	} else {
+		rc = 0;
+	}
+
+	rc = of_property_read_u32(of_node, "qcom,gpio-vio", &val);
+	if (rc != -EINVAL) {
+		if (rc < 0) {
+			pr_err("%s:%d read qcom,gpio-vio failed rc %d\n",
+				__func__, __LINE__, rc);
+			goto ERROR;
+		} else if (val >= gpio_array_size) {
+			pr_err("%s:%d qcom,gpio-vio invalid %d\n",
+				__func__, __LINE__, val);
+			goto ERROR;
+		}
+		gconf->gpio_num_info->gpio_num[SENSOR_GPIO_VIO] =
+			gpio_array[val];
+		gconf->gpio_num_info->valid[SENSOR_GPIO_VIO] = 1;
+		CDBG("%s qcom,gpio-vio %d\n", __func__,
+			gconf->gpio_num_info->gpio_num[SENSOR_GPIO_VIO]);
+	} else {
+		rc = 0;
+	}
+
+	rc = of_property_read_u32(of_node, "qcom,gpio-vaf", &val);
+	if (rc != -EINVAL) {
+		if (rc < 0) {
+			pr_err("%s:%d read qcom,gpio-vaf failed rc %d\n",
+				__func__, __LINE__, rc);
+			goto ERROR;
+		} else if (val >= gpio_array_size) {
+			pr_err("%s:%d qcom,gpio-vaf invalid %d\n",
+				__func__, __LINE__, val);
+			rc = -EINVAL;
+			goto ERROR;
+		}
+		gconf->gpio_num_info->gpio_num[SENSOR_GPIO_VAF] =
+			gpio_array[val];
+		gconf->gpio_num_info->valid[SENSOR_GPIO_VAF] = 1;
+		CDBG("%s qcom,gpio-vaf %d\n", __func__,
+			gconf->gpio_num_info->gpio_num[SENSOR_GPIO_VAF]);
 	} else {
 		rc = 0;
 	}
