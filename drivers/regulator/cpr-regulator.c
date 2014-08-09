@@ -1523,7 +1523,7 @@ static int cpr_apc_init(struct platform_device *pdev,
 	}
 
 	/* Check dependencies */
-	if (of_property_read_bool(of_node, "vdd-mx-supply")) {
+	if (of_find_property(of_node, "vdd-mx-supply", NULL)) {
 		cpr_vreg->vdd_mx = devm_regulator_get(&pdev->dev, "vdd-mx");
 		if (IS_ERR_OR_NULL(cpr_vreg->vdd_mx)) {
 			rc = PTR_RET(cpr_vreg->vdd_mx);
@@ -1981,7 +1981,7 @@ static int cpr_init_cpr_efuse(struct platform_device *pdev,
 		goto error;
 	}
 
-	if (of_property_read_bool(of_node, "qcom,cpr-fuse-target-quot-size")) {
+	if (of_find_property(of_node, "qcom,cpr-fuse-target-quot-size", NULL)) {
 		rc = of_property_read_u32_array(of_node,
 			"qcom,cpr-fuse-target-quot-size",
 			&target_quot_size[CPR_FUSE_CORNER_MIN],
@@ -2001,7 +2001,8 @@ static int cpr_init_cpr_efuse(struct platform_device *pdev,
 			target_quot_size[i] = CPR_FUSE_TARGET_QUOT_BITS;
 	}
 
-	if (of_property_read_bool(of_node, "qcom,cpr-fuse-target-quot-scale")) {
+	if (of_find_property(of_node, "qcom,cpr-fuse-target-quot-scale",
+				NULL)) {
 		for (i = 0; i < cpr_vreg->num_fuse_corners; i++) {
 			rc = of_property_read_u32_index(of_node,
 				"qcom,cpr-fuse-target-quot-scale", i * 2,
@@ -2046,8 +2047,8 @@ static int cpr_init_cpr_efuse(struct platform_device *pdev,
 	cpr_info(cpr_vreg, "[row:%d] = 0x%llx\n", cpr_fuse_row[0], fuse_bits);
 
 	if (redundant) {
-		if (of_property_read_bool(of_node,
-				"qcom,cpr-fuse-redun-bp-cpr-disable")) {
+		if (of_find_property(of_node,
+				"qcom,cpr-fuse-redun-bp-cpr-disable", NULL)) {
 			CPR_PROP_READ_U32(cpr_vreg, of_node,
 					  "cpr-fuse-redun-bp-cpr-disable",
 					  &bp_cpr_disable, rc);
@@ -2067,8 +2068,8 @@ static int cpr_init_cpr_efuse(struct platform_device *pdev,
 			u32 temp_row[2];
 
 			/* Use original fuse if no optional property */
-			if (of_property_read_bool(of_node,
-					"qcom,cpr-fuse-bp-cpr-disable")) {
+			if (of_find_property(of_node,
+					"qcom,cpr-fuse-bp-cpr-disable", NULL)) {
 				CPR_PROP_READ_U32(cpr_vreg, of_node,
 					"cpr-fuse-bp-cpr-disable",
 					&bp_cpr_disable, rc);
@@ -2094,8 +2095,8 @@ static int cpr_init_cpr_efuse(struct platform_device *pdev,
 				temp_row[0], fuse_bits_2);
 		}
 	} else {
-		if (of_property_read_bool(of_node,
-					"qcom,cpr-fuse-bp-cpr-disable")) {
+		if (of_find_property(of_node, "qcom,cpr-fuse-bp-cpr-disable",
+					NULL)) {
 			CPR_PROP_READ_U32(cpr_vreg, of_node,
 				"cpr-fuse-bp-cpr-disable", &bp_cpr_disable, rc);
 			disable_fuse_valid = true;
@@ -2572,7 +2573,7 @@ static int cpr_mem_acc_init(struct platform_device *pdev,
 {
 	int rc;
 
-	if (of_property_read_bool(pdev->dev.of_node, "mem-acc-supply")) {
+	if (of_find_property(pdev->dev.of_node, "mem-acc-supply", NULL)) {
 		cpr_vreg->mem_acc_vreg = devm_regulator_get(&pdev->dev,
 							"mem-acc");
 		if (IS_ERR_OR_NULL(cpr_vreg->mem_acc_vreg)) {
