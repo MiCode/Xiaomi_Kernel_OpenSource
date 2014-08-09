@@ -21,6 +21,7 @@
 #include <linux/pm.h>
 #include <linux/msm_ipc.h>
 #include <linux/device.h>
+#include <linux/kref.h>
 
 /* Maximum Wakeup Source Name Size */
 #define MAX_WS_NAME_SZ 32
@@ -77,14 +78,15 @@ struct comm_mode_info {
 /**
  * msm_ipc_port - Definition of IPC Router port
  * @list: List(local/control ports) in which this port is present.
+ * @ref: Reference count for this port.
  * @this_port: Contains port's node_id and port_id information.
  * @port_name: Contains service & instance info if the port hosts a service.
  * @type: Type of the port - Client, Service, Control or Security Config.
  * @flags: Flags to identify the port state.
- * @port_lock_lhb1: Lock to protect access to the port information.
+ * @port_lock_lhc3: Lock to protect access to the port information.
  * @mode_info: Communication mode of the port owner.
  * @port_rx_q: Receive queue where incoming messages are queued.
- * @port_rx_q_lock_lhb3: Lock to protect access to the port's rx_q.
+ * @port_rx_q_lock_lhc3: Lock to protect access to the port's rx_q.
  * @rx_ws_name: Name of the receive wakeup source.
  * @port_rx_ws: Wakeup source to prevent suspend until the rx_q is empty.
  * @port_rx_wait_q: Wait queue to wait for the incoming messages.
@@ -102,16 +104,17 @@ struct comm_mode_info {
  */
 struct msm_ipc_port {
 	struct list_head list;
+	struct kref ref;
 
 	struct msm_ipc_port_addr this_port;
 	struct msm_ipc_port_name port_name;
 	uint32_t type;
 	unsigned flags;
-	struct mutex port_lock_lhb1;
+	struct mutex port_lock_lhc3;
 	struct comm_mode_info mode_info;
 
 	struct list_head port_rx_q;
-	struct mutex port_rx_q_lock_lhb3;
+	struct mutex port_rx_q_lock_lhc3;
 	char rx_ws_name[MAX_WS_NAME_SZ];
 	struct wakeup_source port_rx_ws;
 	wait_queue_head_t port_rx_wait_q;

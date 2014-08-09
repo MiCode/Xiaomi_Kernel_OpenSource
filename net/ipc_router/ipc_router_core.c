@@ -32,6 +32,7 @@
 #include <linux/uaccess.h>
 #include <linux/ipc_router.h>
 #include <linux/ipc_router_xprt.h>
+#include <linux/kref.h>
 #include <soc/qcom/subsystem_notif.h>
 
 #include <asm/byteorder.h>
@@ -105,7 +106,7 @@ static DECLARE_RWSEM(control_ports_lock_lha5);
 
 #define LP_HASH_SIZE 32
 static struct list_head local_ports[LP_HASH_SIZE];
-static DECLARE_RWSEM(local_ports_lock_lha2);
+static DECLARE_RWSEM(local_ports_lock_lhc2);
 
 /* Server info is organized as a hash table. The server's service ID is
  * used to index into the hash table. The instance ID of most of the servers
@@ -195,7 +196,7 @@ static int msm_ipc_router_init(void);
 #define IPC_ROUTER_INIT_TIMEOUT (10 * HZ)
 
 static uint32_t next_port_id;
-static DEFINE_MUTEX(next_port_id_lock_lha1);
+static DEFINE_MUTEX(next_port_id_lock_lhc1);
 static struct workqueue_struct *msm_ipc_router_workqueue;
 
 enum {
@@ -899,12 +900,12 @@ static int post_pkt_to_port(struct msm_ipc_port *port_ptr,
 		}
 	}
 
-	mutex_lock(&port_ptr->port_rx_q_lock_lhb3);
+	mutex_lock(&port_ptr->port_rx_q_lock_lhc3);
 	__pm_stay_awake(&port_ptr->port_rx_ws);
 	list_add_tail(&temp_pkt->list, &port_ptr->port_rx_q);
 	wake_up(&port_ptr->port_rx_wait_q);
 	notify = port_ptr->notify;
-	mutex_unlock(&port_ptr->port_rx_q_lock_lhb3);
+	mutex_unlock(&port_ptr->port_rx_q_lock_lhc3);
 	if (notify)
 		notify(pkt->hdr.type, NULL, 0, port_ptr->priv);
 	return 0;
@@ -962,9 +963,9 @@ static uint32_t allocate_port_id(void)
 	uint32_t port_id = 0, prev_port_id, key;
 	struct msm_ipc_port *port_ptr;
 
-	mutex_lock(&next_port_id_lock_lha1);
+	mutex_lock(&next_port_id_lock_lhc1);
 	prev_port_id = next_port_id;
-	down_read(&local_ports_lock_lha2);
+	down_read(&local_ports_lock_lhc2);
 	do {
 		next_port_id++;
 		if ((next_port_id & IPC_ROUTER_ADDRESS) == IPC_ROUTER_ADDRESS)
@@ -987,8 +988,8 @@ static uint32_t allocate_port_id(void)
 		}
 		port_id = 0;
 	} while (next_port_id != prev_port_id);
-	up_read(&local_ports_lock_lha2);
-	mutex_unlock(&next_port_id_lock_lha1);
+	up_read(&local_ports_lock_lhc2);
+	mutex_unlock(&next_port_id_lock_lhc1);
 
 	return port_id;
 }
@@ -1001,9 +1002,9 @@ void msm_ipc_router_add_local_port(struct msm_ipc_port *port_ptr)
 		return;
 
 	key = (port_ptr->this_port.port_id & (LP_HASH_SIZE - 1));
-	down_write(&local_ports_lock_lha2);
+	down_write(&local_ports_lock_lhc2);
 	list_add_tail(&port_ptr->list, &local_ports[key]);
-	up_write(&local_ports_lock_lha2);
+	up_write(&local_ports_lock_lhc2);
 }
 
 /**
@@ -1040,15 +1041,16 @@ struct msm_ipc_port *msm_ipc_router_create_raw_port(void *endpoint,
 		return NULL;
 	}
 
-	mutex_init(&port_ptr->port_lock_lhb1);
+	mutex_init(&port_ptr->port_lock_lhc3);
 	INIT_LIST_HEAD(&port_ptr->port_rx_q);
-	mutex_init(&port_ptr->port_rx_q_lock_lhb3);
+	mutex_init(&port_ptr->port_rx_q_lock_lhc3);
 	init_waitqueue_head(&port_ptr->port_rx_wait_q);
 	snprintf(port_ptr->rx_ws_name, MAX_WS_NAME_SZ,
 		 "ipc%08x_%s",
 		 port_ptr->this_port.port_id,
 		 current->comm);
 	wakeup_source_init(&port_ptr->port_rx_ws, port_ptr->rx_ws_name);
+	kref_init(&port_ptr->ref);
 
 	port_ptr->endpoint = endpoint;
 	port_ptr->notify = notify;
@@ -1058,17 +1060,50 @@ struct msm_ipc_port *msm_ipc_router_create_raw_port(void *endpoint,
 	return port_ptr;
 }
 
-/* Must be called with local_ports_lock_lha2 locked. */
-static struct msm_ipc_port *msm_ipc_router_lookup_local_port(uint32_t port_id)
+/**
+ * ipc_router_get_port_ref() - Get a reference to the local port
+ * @port_id: Port ID of the local port for which reference is get.
+ *
+ * @return: If port is found, a reference to the port is returned.
+ *          Else NULL is returned.
+ */
+static struct msm_ipc_port *ipc_router_get_port_ref(uint32_t port_id)
 {
 	int key = (port_id & (LP_HASH_SIZE - 1));
 	struct msm_ipc_port *port_ptr;
 
+	down_read(&local_ports_lock_lhc2);
 	list_for_each_entry(port_ptr, &local_ports[key], list) {
-		if (port_ptr->this_port.port_id == port_id)
+		if (port_ptr->this_port.port_id == port_id) {
+			kref_get(&port_ptr->ref);
+			up_read(&local_ports_lock_lhc2);
 			return port_ptr;
+		}
 	}
+	up_read(&local_ports_lock_lhc2);
 	return NULL;
+}
+
+/**
+ * ipc_router_release_port() - Cleanup and release the port
+ * @ref: Reference to the port.
+ *
+ * This function is called when all references to the port are released.
+ */
+void ipc_router_release_port(struct kref *ref)
+{
+	struct rr_packet *pkt, *temp_pkt;
+	struct msm_ipc_port *port_ptr =
+		container_of(ref, struct msm_ipc_port, ref);
+
+	mutex_lock(&port_ptr->port_rx_q_lock_lhc3);
+	list_for_each_entry_safe(pkt, temp_pkt, &port_ptr->port_rx_q, list) {
+		list_del(&pkt->list);
+		release_pkt(pkt);
+	}
+	mutex_unlock(&port_ptr->port_rx_q_lock_lhc3);
+	wakeup_source_trash(&port_ptr->port_rx_ws);
+	kfree(port_ptr);
 }
 
 /**
@@ -1227,8 +1262,7 @@ static void post_resume_tx(struct msm_ipc_router_remote_port *rport_ptr,
 
 	list_for_each_entry_safe(rtx_port, tmp_rtx_port,
 				&rport_ptr->resume_tx_port_list, list) {
-		local_port =
-			msm_ipc_router_lookup_local_port(rtx_port->port_id);
+		local_port = ipc_router_get_port_ref(rtx_port->port_id);
 		if (local_port && local_port->notify)
 			local_port->notify(IPC_ROUTER_CTRL_CMD_RESUME_TX, msg,
 					   sizeof(*msg), local_port->priv);
@@ -1237,6 +1271,8 @@ static void post_resume_tx(struct msm_ipc_router_remote_port *rport_ptr,
 		else
 			IPC_RTR_ERR("%s: Local Port %d not Found",
 				__func__, rtx_port->port_id);
+		if (local_port)
+			kref_put(&local_port->ref, ipc_router_release_port);
 		list_del(&rtx_port->list);
 		kfree(rtx_port);
 	}
@@ -1976,11 +2012,9 @@ static int process_resume_tx_msg(union rr_control_msg *msg,
 
 	RR("o RESUME_TX id=%d:%08x\n", msg->cli.node_id, msg->cli.port_id);
 
-	down_read(&local_ports_lock_lha2);
 	rport_ptr = ipc_router_get_rport_ref(msg->cli.node_id,
 					     msg->cli.port_id);
 	if (!rport_ptr) {
-		up_read(&local_ports_lock_lha2);
 		IPC_RTR_ERR("%s: Unable to resume client\n", __func__);
 		return -ENODEV;
 	}
@@ -1989,7 +2023,6 @@ static int process_resume_tx_msg(union rr_control_msg *msg,
 	post_resume_tx(rport_ptr, pkt, msg);
 	mutex_unlock(&rport_ptr->rport_lock_lhb2);
 	kref_put(&rport_ptr->ref, ipc_router_release_rport);
-	up_read(&local_ports_lock_lha2);
 	return 0;
 }
 
@@ -2223,12 +2256,11 @@ static void do_read_data(struct work_struct *work)
 				(hdr->size & 0xffff));
 		}
 
-		down_read(&local_ports_lock_lha2);
-		port_ptr = msm_ipc_router_lookup_local_port(hdr->dst_port_id);
+		port_ptr = ipc_router_get_port_ref(hdr->dst_port_id);
 		if (!port_ptr) {
 			IPC_RTR_ERR("%s: No local port id %08x\n", __func__,
 				hdr->dst_port_id);
-			goto read_next_pkt2;
+			goto read_next_pkt1;
 		}
 
 		rport_ptr = ipc_router_get_rport_ref(hdr->src_node_id,
@@ -2245,10 +2277,10 @@ static void do_read_data(struct work_struct *work)
 		}
 		kref_put(&rport_ptr->ref, ipc_router_release_rport);
 		post_pkt_to_port(port_ptr, pkt, 0);
-		up_read(&local_ports_lock_lha2);
+		kref_put(&port_ptr->ref, ipc_router_release_port);
 		continue;
 read_next_pkt2:
-		up_read(&local_ports_lock_lha2);
+		kref_put(&port_ptr->ref, ipc_router_release_port);
 read_next_pkt1:
 		release_pkt(pkt);
 	}
@@ -2296,12 +2328,12 @@ int msm_ipc_router_register_server(struct msm_ipc_port *port_ptr,
 	ctl.srv.port_id = port_ptr->this_port.port_id;
 	up_write(&server_list_lock_lha2);
 	broadcast_ctl_msg(&ctl);
-	mutex_lock(&port_ptr->port_lock_lhb1);
+	mutex_lock(&port_ptr->port_lock_lhc3);
 	port_ptr->type = SERVER_PORT;
 	port_ptr->mode_info.mode = MULTI_LINK_MODE;
 	port_ptr->port_name.service = server->name.service;
 	port_ptr->port_name.instance = server->name.instance;
-	mutex_unlock(&port_ptr->port_lock_lhb1);
+	mutex_unlock(&port_ptr->port_lock_lhc3);
 	return 0;
 }
 
@@ -2347,9 +2379,9 @@ int msm_ipc_router_unregister_server(struct msm_ipc_port *port_ptr)
 				      port_ptr->this_port.port_id);
 	up_write(&server_list_lock_lha2);
 	broadcast_ctl_msg(&ctl);
-	mutex_lock(&port_ptr->port_lock_lhb1);
+	mutex_lock(&port_ptr->port_lock_lhc3);
 	port_ptr->type = CLIENT_PORT;
-	mutex_unlock(&port_ptr->port_lock_lhb1);
+	mutex_unlock(&port_ptr->port_lock_lhc3);
 	return 0;
 }
 
@@ -2389,12 +2421,10 @@ static int loopback_data(struct msm_ipc_port *src,
 	skb_put(temp_skb, align_size);
 	pkt->length += align_size;
 
-	down_read(&local_ports_lock_lha2);
-	port_ptr = msm_ipc_router_lookup_local_port(port_id);
+	port_ptr = ipc_router_get_port_ref(port_id);
 	if (!port_ptr) {
 		IPC_RTR_ERR("%s: Local port %d not present\n",
 						__func__, port_id);
-		up_read(&local_ports_lock_lha2);
 		pkt->pkt_fragment_q = NULL;
 		release_pkt(pkt);
 		return -ENODEV;
@@ -2403,7 +2433,7 @@ static int loopback_data(struct msm_ipc_port *src,
 	ret_len = hdr->size;
 	post_pkt_to_port(port_ptr, pkt, 0);
 	update_comm_mode_info(&src->mode_info, NULL);
-	up_read(&local_ports_lock_lha2);
+	kref_put(&port_ptr->ref, ipc_router_release_port);
 
 	return ret_len;
 }
@@ -2674,22 +2704,22 @@ int msm_ipc_router_read(struct msm_ipc_port *port_ptr,
 	if (!port_ptr || !read_pkt)
 		return -EINVAL;
 
-	mutex_lock(&port_ptr->port_rx_q_lock_lhb3);
+	mutex_lock(&port_ptr->port_rx_q_lock_lhc3);
 	if (list_empty(&port_ptr->port_rx_q)) {
-		mutex_unlock(&port_ptr->port_rx_q_lock_lhb3);
+		mutex_unlock(&port_ptr->port_rx_q_lock_lhc3);
 		return -EAGAIN;
 	}
 
 	pkt = list_first_entry(&port_ptr->port_rx_q, struct rr_packet, list);
 	if ((buf_len) && (pkt->hdr.size > buf_len)) {
-		mutex_unlock(&port_ptr->port_rx_q_lock_lhb3);
+		mutex_unlock(&port_ptr->port_rx_q_lock_lhc3);
 		return -ETOOSMALL;
 	}
 	list_del(&pkt->list);
 	if (list_empty(&port_ptr->port_rx_q))
 		__pm_relax(&port_ptr->port_rx_ws);
 	*read_pkt = pkt;
-	mutex_unlock(&port_ptr->port_rx_q_lock_lhb3);
+	mutex_unlock(&port_ptr->port_rx_q_lock_lhc3);
 	if (pkt->hdr.control_flag & CONTROL_FLAG_CONFIRM_RX)
 		msm_ipc_router_send_resume_tx(&pkt->hdr);
 
@@ -2712,9 +2742,9 @@ int msm_ipc_router_rx_data_wait(struct msm_ipc_port *port_ptr, long timeout)
 {
 	int ret = 0;
 
-	mutex_lock(&port_ptr->port_rx_q_lock_lhb3);
+	mutex_lock(&port_ptr->port_rx_q_lock_lhc3);
 	while (list_empty(&port_ptr->port_rx_q)) {
-		mutex_unlock(&port_ptr->port_rx_q_lock_lhb3);
+		mutex_unlock(&port_ptr->port_rx_q_lock_lhc3);
 		if (timeout < 0) {
 			ret = wait_event_interruptible(
 					port_ptr->port_rx_wait_q,
@@ -2731,9 +2761,9 @@ int msm_ipc_router_rx_data_wait(struct msm_ipc_port *port_ptr, long timeout)
 		}
 		if (timeout == 0)
 			return -ENOMSG;
-		mutex_lock(&port_ptr->port_rx_q_lock_lhb3);
+		mutex_lock(&port_ptr->port_rx_q_lock_lhc3);
 	}
-	mutex_unlock(&port_ptr->port_rx_q_lock_lhb3);
+	mutex_unlock(&port_ptr->port_rx_q_lock_lhc3);
 
 	return ret;
 }
@@ -2866,16 +2896,15 @@ struct msm_ipc_port *msm_ipc_router_create_port(
 int msm_ipc_router_close_port(struct msm_ipc_port *port_ptr)
 {
 	union rr_control_msg msg;
-	struct rr_packet *pkt, *temp_pkt;
 	struct msm_ipc_server *server;
 
 	if (!port_ptr)
 		return -EINVAL;
 
 	if (port_ptr->type == SERVER_PORT || port_ptr->type == CLIENT_PORT) {
-		down_write(&local_ports_lock_lha2);
+		down_write(&local_ports_lock_lhc2);
 		list_del(&port_ptr->list);
-		up_write(&local_ports_lock_lha2);
+		up_write(&local_ports_lock_lhc2);
 
 		if (port_ptr->type == SERVER_PORT) {
 			memset(&msg, 0, sizeof(msg));
@@ -2903,18 +2932,11 @@ int msm_ipc_router_close_port(struct msm_ipc_port *port_ptr)
 		list_del(&port_ptr->list);
 		up_write(&control_ports_lock_lha5);
 	} else if (port_ptr->type == IRSC_PORT) {
-		down_write(&local_ports_lock_lha2);
+		down_write(&local_ports_lock_lhc2);
 		list_del(&port_ptr->list);
-		up_write(&local_ports_lock_lha2);
+		up_write(&local_ports_lock_lhc2);
 		signal_irsc_completion();
 	}
-
-	mutex_lock(&port_ptr->port_rx_q_lock_lhb3);
-	list_for_each_entry_safe(pkt, temp_pkt, &port_ptr->port_rx_q, list) {
-		list_del(&pkt->list);
-		release_pkt(pkt);
-	}
-	mutex_unlock(&port_ptr->port_rx_q_lock_lhb3);
 
 	if (port_ptr->type == SERVER_PORT) {
 		down_write(&server_list_lock_lha2);
@@ -2930,8 +2952,7 @@ int msm_ipc_router_close_port(struct msm_ipc_port *port_ptr)
 		up_write(&server_list_lock_lha2);
 	}
 
-	wakeup_source_trash(&port_ptr->port_rx_ws);
-	kfree(port_ptr);
+	kref_put(&port_ptr->ref, ipc_router_release_port);
 	return 0;
 }
 
@@ -2943,13 +2964,13 @@ int msm_ipc_router_get_curr_pkt_size(struct msm_ipc_port *port_ptr)
 	if (!port_ptr)
 		return -EINVAL;
 
-	mutex_lock(&port_ptr->port_rx_q_lock_lhb3);
+	mutex_lock(&port_ptr->port_rx_q_lock_lhc3);
 	if (!list_empty(&port_ptr->port_rx_q)) {
 		pkt = list_first_entry(&port_ptr->port_rx_q,
 					struct rr_packet, list);
 		rc = pkt->length;
 	}
-	mutex_unlock(&port_ptr->port_rx_q_lock_lhb3);
+	mutex_unlock(&port_ptr->port_rx_q_lock_lhc3);
 
 	return rc;
 }
@@ -2959,9 +2980,9 @@ int msm_ipc_router_bind_control_port(struct msm_ipc_port *port_ptr)
 	if (!port_ptr)
 		return -EINVAL;
 
-	down_write(&local_ports_lock_lha2);
+	down_write(&local_ports_lock_lhc2);
 	list_del(&port_ptr->list);
-	up_write(&local_ports_lock_lha2);
+	up_write(&local_ports_lock_lhc2);
 	port_ptr->type = CONTROL_PORT;
 	down_write(&control_ports_lock_lha5);
 	list_add_tail(&port_ptr->list, &control_ports);
@@ -3178,10 +3199,10 @@ static int dump_local_ports(char *buf, int max)
 	int i = 0, j;
 	struct msm_ipc_port *port_ptr;
 
-	down_read(&local_ports_lock_lha2);
+	down_read(&local_ports_lock_lhc2);
 	for (j = 0; j < LP_HASH_SIZE; j++) {
 		list_for_each_entry(port_ptr, &local_ports[j], list) {
-			mutex_lock(&port_ptr->port_lock_lhb1);
+			mutex_lock(&port_ptr->port_lock_lhc3);
 			i += scnprintf(buf + i, max - i, "Node_id: 0x%08x\n",
 				       port_ptr->this_port.node_id);
 			i += scnprintf(buf + i, max - i, "Port_id: 0x%08x\n",
@@ -3194,11 +3215,11 @@ static int dump_local_ports(char *buf, int max)
 				       port_ptr->num_tx_bytes);
 			i += scnprintf(buf + i, max - i, "# bytes rx'd %ld\n",
 				       port_ptr->num_rx_bytes);
-			mutex_unlock(&port_ptr->port_lock_lhb1);
+			mutex_unlock(&port_ptr->port_lock_lhc3);
 			i += scnprintf(buf + i, max - i, "\n");
 		}
 	}
-	up_read(&local_ports_lock_lha2);
+	up_read(&local_ports_lock_lhc2);
 
 	return i;
 }
