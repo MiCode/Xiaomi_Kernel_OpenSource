@@ -1167,6 +1167,7 @@
 		qcom,notify-modem-status;
 		pinctrl-names = "default";
 		pinctrl-0 = <&cnss_default>;
+		qcom,wlan-rc-num = <0>;
 	};
 };
 
