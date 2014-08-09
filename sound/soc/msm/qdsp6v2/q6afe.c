@@ -96,6 +96,24 @@ void afe_set_aanc_info(struct aanc_data *q6_aanc_info)
 		this_afe.aanc_info.aanc_tx_port);
 }
 
+static void afe_callback_debug_print(struct apr_client_data *data)
+{
+	uint32_t *payload;
+	payload = data->payload;
+
+	if (data->payload_size >= 8)
+		pr_debug("%s: code = 0x%x PL#0[0x%x], PL#1[0x%x], size = %d\n",
+			__func__, data->opcode, payload[0], payload[1],
+			data->payload_size);
+	else if (data->payload_size >= 4)
+		pr_debug("%s: code = 0x%x PL#0[0x%x], size = %d\n",
+			__func__, data->opcode, payload[0],
+			data->payload_size);
+	else
+		pr_debug("%s: code = 0x%x, size = %d\n",
+			__func__, data->opcode, data->payload_size);
+}
+
 static int32_t afe_callback(struct apr_client_data *data, void *priv)
 {
 	if (!data) {
@@ -124,11 +142,7 @@ static int32_t afe_callback(struct apr_client_data *data, void *priv)
 			this_afe.task->comm, this_afe.task->pid);
 		return 0;
 	}
-	pr_debug("%s: opcode = 0x%x cmd = 0x%x status = 0x%x size = %d\n",
-			__func__, data->opcode,
-			((uint32_t *)(data->payload))[0],
-			((uint32_t *)(data->payload))[1],
-			 data->payload_size);
+	afe_callback_debug_print(data);
 	if (data->opcode == AFE_PORT_CMDRSP_GET_PARAM_V2) {
 		u8 *payload = data->payload;
 
@@ -156,10 +170,10 @@ static int32_t afe_callback(struct apr_client_data *data, void *priv)
 		uint32_t *payload;
 		uint16_t port_id = 0;
 		payload = data->payload;
-		pr_debug("%s:opcode = 0x%x cmd = 0x%x status = 0x%x token=%d\n",
-					__func__, data->opcode,
-					payload[0], payload[1], data->token);
 		if (data->opcode == APR_BASIC_RSP_RESULT) {
+			pr_debug("%s:opcode = 0x%x cmd = 0x%x status = 0x%x token=%d\n",
+				__func__, data->opcode,
+				payload[0], payload[1], data->token);
 			/* payload[1] contains the error status for response */
 			if (payload[1] != 0) {
 				atomic_set(&this_afe.status, -1);
