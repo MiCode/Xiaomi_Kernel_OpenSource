@@ -2260,6 +2260,10 @@
 		compatible = "qcom,msm-voice-svc";
 	};
 
+	qcom,msm-cpe-lsm {
+		compatible = "qcom,msm-cpe-lsm";
+	};
+
 	qcom,msm-dai-q6 {
 		compatible = "qcom,msm-dai-q6";
 		qcom,msm-dai-q6-sb-0-rx {
