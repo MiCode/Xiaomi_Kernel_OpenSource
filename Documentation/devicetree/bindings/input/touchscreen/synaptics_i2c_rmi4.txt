@@ -17,6 +17,8 @@ Required properties:
 			config defined in pin groups of interrupt and reset gpio.
 			"pmx_ts_suspend" : Disabled configuration of pins, this should specify sleep
 			config defined in pin groups of interrupt and reset gpio.
+			"pmx_ts_release" : Release configuration of pins, this should specify
+			release config defined in pin groups of interrupt and reset gpio.
 Optional property:
  - vdd-supply		: Analog power supply needed to power device
  - vcc_i2c-supply		: Power source required to pull up i2c bus
@@ -76,9 +78,10 @@ Example:
 			interrupts = <17 0x2>;
 			vdd-supply = <&pm8226_l19>;
 			vcc_i2c-supply = <&pm8226_lvs1>;
-			pinctrl-names = "pmx_ts_active","pmx_ts_suspend";
+			pinctrl-names = "pmx_ts_active","pmx_ts_suspend","pmx_ts_release";
 			pinctrl-0 = <&ts_int_active &ts_reset_active>;
 			pinctrl-1 = <&ts_int_suspend &ts_reset_suspend>;
+			pinctrl-1 = <&ts_release>;
 			synaptics,reset-gpio = <&msmgpio 16 0x00>;
 			synaptics,irq-gpio = <&msmgpio 17 0x00>;
 			synaptics,i2c-pull-up;
