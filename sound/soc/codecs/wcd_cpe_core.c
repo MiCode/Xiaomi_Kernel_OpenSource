@@ -98,6 +98,32 @@ static void wcd_cpe_svc_event_cb(const struct cpe_svc_notification *param);
 static int wcd_cpe_setup_irqs(struct wcd_cpe_core *core);
 static void wcd_cpe_cleanup_irqs(struct wcd_cpe_core *core);
 
+struct cpe_load_priv {
+	void *cdc_handle;
+	int cpe_load;
+	struct kobject *cpe_load_kobj;
+	struct attribute_group *attr_group;
+};
+
+static ssize_t wcd_cpe_load_store(struct kobject *kobj,
+	struct kobj_attribute *attr,
+	const char *buf,
+	size_t count);
+
+static struct kobj_attribute cpe_load_attr =
+	__ATTR(load, 0600, NULL, wcd_cpe_load_store);
+
+static struct attribute *attrs[] = {
+	&cpe_load_attr.attr,
+	NULL,
+};
+
+static struct attribute_group attr_grp = {
+	.attrs = attrs,
+};
+
+static struct cpe_load_priv cpe_priv;
+
 /* wcd_cpe_lsm_session_active: check if any session is active
  * return true if any session is active.
  */
@@ -245,21 +271,21 @@ static int wcd_cpe_enable_cpe_clks(struct wcd_cpe_core *core, bool enable)
 {
 	int ret = 0;
 
-	if (!core || !core->cpe_cdc_cb.cdc_clk_en ||
-	    !core->cpe_cdc_cb.cpe_clk_en) {
+	if (!core || !core->cpe_cdc_cb ||
+	    !core->cpe_cdc_cb->cpe_clk_en) {
 		pr_err("%s: invalid handle\n",
 			__func__);
 		return -EINVAL;
 	}
 
-	ret = core->cpe_cdc_cb.cdc_clk_en(core->codec, enable);
+	ret = core->cpe_cdc_cb->cdc_clk_en(core->codec, enable);
 	if (ret) {
 		dev_err(core->dev, "%s: Failed to enable RCO\n",
 			__func__);
 		return ret;
 	}
 
-	ret = core->cpe_cdc_cb.cpe_clk_en(core->codec, enable);
+	ret = core->cpe_cdc_cb->cpe_clk_en(core->codec, enable);
 	if (ret) {
 		dev_err(core->dev,
 			"%s: cpe_clk_en() failed, err = %d\n",
@@ -730,6 +756,17 @@ int wcd_cpe_ssr_event(void *core_handle,
 		return -EINVAL;
 	}
 
+	/*
+	 * If CPE is not even enabled, the SSR event for
+	 * CPE needs to be ignored
+	 */
+	if (core->ssr_type == WCD_CPE_INITIALIZED) {
+		dev_info(core->dev,
+			"%s: CPE initialized but not enabled, skip CPE ssr\n",
+			 __func__);
+		return 0;
+	}
+
 	dev_dbg(core->dev,
 		"%s: Schedule ssr work, event = %d\n",
 		__func__, core->ssr_type);
@@ -1052,16 +1089,99 @@ fail_engine_irq:
 }
 
 /*
- * wcd_cpe_init_and_boot: Initialize and bootup CPE hardware block
+ * wcd_cpe_enable: setup the cpe interrupts and schedule
+ *	the work to download image and bootup the CPE.
+ * core: handle to cpe core structure
+ */
+static int wcd_cpe_enable(struct wcd_cpe_core *core)
+{
+	int ret = 0;
+
+	if (!core) {
+		pr_err("%s: Invalid handle to core\n",
+			__func__);
+		ret = -EINVAL;
+		goto done;
+	}
+
+	if (core->ssr_type != WCD_CPE_INITIALIZED) {
+		dev_err(core->dev,
+			"%s: CPE not initialized, state = 0x%x\n",
+			__func__, core->ssr_type);
+		ret = -EINVAL;
+		goto done;
+	}
+
+	ret = wcd_cpe_setup_irqs(core);
+	if (ret) {
+		dev_err(core->dev,
+			"%s: CPE IRQs setup failed, error = %d\n",
+			__func__, ret);
+		goto done;
+	}
+
+	core->ssr_type = WCD_CPE_ENABLED;
+	schedule_work(&core->load_fw_work);
+
+done:
+	return ret;
+}
+
+/*
+ * wcd_cpe_load_store: Function invoked with sysfs property
+ *	is written to. Enable CPE if value of the cpe_load
+ *	property is non-zero.
+ * kobj: Kobject associated with the sysfs property
+ * attr: The attribute that is written to
+ * buf: holds the data that is written
+ * count: number of data bytes in the buffer
+ */
+static ssize_t wcd_cpe_load_store(struct kobject *kobj,
+	struct kobj_attribute *attr,
+	const char *buf,
+	size_t count)
+{
+	struct wcd_cpe_core *core;
+	int ret = 0;
+
+	if (cpe_priv.cpe_load) {
+		pr_err("%s: CPE already loaded\n",
+			__func__);
+		goto done;
+	}
+
+	core = wcd_cpe_get_core_handle(cpe_priv.cdc_handle);
+	if (!core) {
+		pr_err("%s: Invalid core handle\n",
+			__func__);
+		goto done;
+	}
+
+	sscanf(buf, "%du", &cpe_priv.cpe_load);
+
+	if (cpe_priv.cpe_load) {
+		ret = wcd_cpe_enable(core);
+		if (IS_ERR_VALUE(ret))
+			cpe_priv.cpe_load = 0;
+		else
+			pr_info("%s: CPE enabled for tomtom_codec\n",
+				__func__);
+	}
+
+done:
+	return count;
+}
+
+/*
+ * wcd_cpe_init: Initialize CPE related structures
  * @img_fname: filename for firmware image
  * @codec: handle to codec requesting for image download
  * @params: parameter structure passed from caller
  *
- * This API will initialize the cpe core and schedule work
- * to perform firmware image download to CPE and bootup
- * CPE. Will also request for CPE related interrupts.
+ * This API will initialize the cpe core but will not
+ * download the image or boot the cpe core.
  */
-struct wcd_cpe_core *wcd_cpe_init_and_boot(const char *img_fname,
+struct wcd_cpe_core *wcd_cpe_init(const char *img_fname,
 	struct snd_soc_codec *codec,
 	struct wcd_cpe_params *params)
 {
@@ -1114,10 +1234,7 @@ struct wcd_cpe_core *wcd_cpe_init_and_boot(const char *img_fname,
 	core->cdc_info.minor_version = params->cdc_minor_ver;
 	core->cdc_info.id = params->cdc_id;
 
-	core->cpe_cdc_cb.cdc_clk_en = params->cdc_cb->cdc_clk_en;
-	core->cpe_cdc_cb.cpe_clk_en = params->cdc_cb->cpe_clk_en;
-	core->cpe_cdc_cb.cdc_ext_clk   = params->cdc_cb->cdc_ext_clk;
-	core->cpe_cdc_cb.slimtx_lab_en = params->cdc_cb->slimtx_lab_en;
+	core->cpe_cdc_cb = params->cdc_cb;
 
 	INIT_WORK(&core->load_fw_work, wcd_cpe_load_fw_image);
 	INIT_WORK(&core->ssr_work, wcd_cpe_ssr_work);
@@ -1154,13 +1271,6 @@ struct wcd_cpe_core *wcd_cpe_init_and_boot(const char *img_fname,
 		goto fail_cpe_register;
 	}
 
-	ret = wcd_cpe_setup_irqs(core);
-	if (ret) {
-		dev_err(core->dev,
-			"%s: CPE IRQs setup failed, error = %d\n",
-			__func__, ret);
-		goto fail_setup_irq;
-	}
 
 	card = codec->card->snd_card;
 	snprintf(proc_name, (sizeof("cpe") + sizeof("_state") +
@@ -1192,11 +1302,24 @@ struct wcd_cpe_core *wcd_cpe_init_and_boot(const char *img_fname,
 		 */
 	}
 
-	schedule_work(&core->load_fw_work);
-	return core;
+	cpe_priv.cdc_handle = codec;
+	cpe_priv.attr_group = &attr_grp;
+	cpe_priv.cpe_load_kobj = kobject_create_and_add("wcd_cpe",
+					       kernel_kobj);
+	if (!cpe_priv.cpe_load_kobj) {
+		pr_err("%s: cpe_load: sysfs create_add failed\n",
+			__func__);
+		goto fail_cpe_register;
+	} else if (sysfs_create_group(cpe_priv.cpe_load_kobj,
+				      cpe_priv.attr_group)) {
+		pr_err("%s: sysfs_create_group failed\n", __func__);
+		kobject_del(cpe_priv.cpe_load_kobj);
+		goto fail_cpe_register;
+	}
 
-fail_setup_irq:
-	cpe_svc_deregister(core->cpe_handle, core->cpe_reg_handle);
+	core->ssr_type = WCD_CPE_INITIALIZED;
+
+	return core;
 
 fail_cpe_register:
 	cpe_svc_deinitialize(core->cpe_handle);
@@ -1205,7 +1328,7 @@ fail_cpe_initialize:
 	kfree(core);
 	return NULL;
 }
-EXPORT_SYMBOL(wcd_cpe_init_and_boot);
+EXPORT_SYMBOL(wcd_cpe_init);
 
 /*
  * wcd_cpe_cmi_lsm_callback: callback called from cpe services
@@ -2415,17 +2538,19 @@ static int slim_master_read_enable(void *core_handle,
 	lsm_params = &lab_s->hw_params;
 	/* The sequence should be maintained strictly */
 	WCD_CPE_GRAB_LOCK(&session->lsm_lock, "lsm");
-	if (core->cpe_cdc_cb.cdc_ext_clk)
-		core->cpe_cdc_cb.cdc_ext_clk(codec, true, false);
+	if (core->cpe_cdc_cb->cdc_ext_clk)
+		core->cpe_cdc_cb->cdc_ext_clk(codec, true, false);
 	else {
-		pr_err("%s: MCLK cannot be enabled NULL\n", __func__);
+		pr_err("%s: Invalid callback for codec ext clk\n",
+			__func__);
 		rc = -EINVAL;
 		goto exit;
 	}
-	if (core->cpe_cdc_cb.slimtx_lab_en)
-		core->cpe_cdc_cb.slimtx_lab_en(codec, 1);
+
+	if (core->cpe_cdc_cb->slimtx_lab_en)
+		core->cpe_cdc_cb->slimtx_lab_en(codec, 1);
 	else {
-		pr_err("%s: Err slim slave cannot be enabled\n",
+		pr_err("%s: Failed to enable codec slave port\n",
 			__func__);
 		rc = -EINVAL;
 		goto fail_mclk;
@@ -2459,9 +2584,9 @@ static int slim_master_read_enable(void *core_handle,
 	return 0;
 
 fail_slim_open:
-	core->cpe_cdc_cb.slimtx_lab_en(codec, 0);
+	core->cpe_cdc_cb->slimtx_lab_en(codec, 0);
 fail_mclk:
-	core->cpe_cdc_cb.cdc_ext_clk(codec, false, false);
+	core->cpe_cdc_cb->cdc_ext_clk(codec, false, false);
 exit:
 	WCD_CPE_REL_LOCK(&session->lsm_lock, "lsm");
 	return rc;
@@ -2514,10 +2639,10 @@ static int wcd_cpe_lsm_stop_lab(void *core_handle,
 	lab_s = &session->lab;
 	WCD_CPE_GRAB_LOCK(&session->lsm_lock, "lsm");
 	/* This seqeunce should be followed strictly for closing sequence */
-	if (core->cpe_cdc_cb.slimtx_lab_en)
-		core->cpe_cdc_cb.slimtx_lab_en(codec, 0);
+	if (core->cpe_cdc_cb->slimtx_lab_en)
+		core->cpe_cdc_cb->slimtx_lab_en(codec, 0);
 	else
-		pr_err("%s: Err slim slave cannot be enabled\n",
+		pr_err("%s: Failed to disable codec slave port\n",
 			__func__);
 
 	rc = wcd9xxx_slim_ch_master_close(wcd9xxx, &lab_s->slim_handle);
@@ -2541,10 +2666,10 @@ static int wcd_cpe_lsm_stop_lab(void *core_handle,
 	lab_s->thread_status = MSM_LSM_LAB_THREAD_STOP;
 	atomic_set(&lab_s->in_count, 0);
 	lab_s->dma_write = 0;
-	if (core->cpe_cdc_cb.cdc_ext_clk)
-		core->cpe_cdc_cb.cdc_ext_clk(codec, false, false);
+	if (core->cpe_cdc_cb->cdc_ext_clk)
+		core->cpe_cdc_cb->cdc_ext_clk(codec, false, false);
 	else
-		pr_err("%s: MCLK cannot be disable NULL\n",
+		pr_err("%s: Failed to disable cdc ext clk\n",
 			__func__);
 	WCD_CPE_REL_LOCK(&session->lsm_lock, "lsm");
 	return rc;

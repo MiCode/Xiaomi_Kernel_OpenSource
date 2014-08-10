@@ -2678,6 +2678,21 @@ static int tomtom_codec_enable_adc(struct snd_soc_dapm_widget *w,
 	return 0;
 }
 
+static int tomtom_codec_ext_clk_en(struct snd_soc_codec *codec,
+		int enable, bool dapm)
+{
+	struct tomtom_priv *tomtom = snd_soc_codec_get_drvdata(codec);
+
+	if (!tomtom->codec_ext_clk_en_cb) {
+		dev_err(codec->dev,
+			"%s: Invalid ext_clk_callback\n",
+			__func__);
+		return -EINVAL;
+	}
+
+	return tomtom->codec_ext_clk_en_cb(codec, enable, dapm);
+}
+
 /* tomtom_codec_internal_rco_ctrl( )
  * Make sure that BG_CLK_LOCK is not acquired. Exit if acquired to avoid
  * potential deadlock as ext_clk_en_cb() also tries to acquire the same
@@ -2687,11 +2702,21 @@ static int tomtom_codec_internal_rco_ctrl(struct snd_soc_codec *codec,
 					  bool enable)
 {
 	struct tomtom_priv *tomtom = snd_soc_codec_get_drvdata(codec);
+	int ret = 0;
 
 	if (mutex_is_locked(&tomtom->resmgr.codec_bg_clk_lock)) {
 		dev_err(codec->dev, "%s: BG_CLK already acquired\n",
 			__func__);
-		return -EINVAL;
+		ret = -EINVAL;
+		goto done;
+	}
+
+	if (!tomtom->codec_ext_clk_en_cb) {
+		dev_err(codec->dev,
+			"%s: Invalid ext_clk_callback\n",
+			__func__);
+		ret = -EINVAL;
+		goto done;
 	}
 
 	if (enable) {
@@ -2702,14 +2727,14 @@ static int tomtom_codec_internal_rco_ctrl(struct snd_soc_codec *codec,
 						     WCD9XXX_CLK_RCO);
 			WCD9XXX_BG_CLK_UNLOCK(&tomtom->resmgr);
 		} else {
-			tomtom->codec_ext_clk_en_cb(codec, true, false);
+			tomtom_codec_ext_clk_en(codec, true, false);
 			WCD9XXX_BG_CLK_LOCK(&tomtom->resmgr);
 			tomtom->resmgr.ext_clk_users =
 					tomtom->codec_get_ext_clk_cnt();
 			wcd9xxx_resmgr_get_clk_block(&tomtom->resmgr,
 						     WCD9XXX_CLK_RCO);
 			WCD9XXX_BG_CLK_UNLOCK(&tomtom->resmgr);
-			tomtom->codec_ext_clk_en_cb(codec, false, false);
+			tomtom_codec_ext_clk_en(codec, false, false);
 		}
 
 	} else {
@@ -2719,7 +2744,8 @@ static int tomtom_codec_internal_rco_ctrl(struct snd_soc_codec *codec,
 		WCD9XXX_BG_CLK_UNLOCK(&tomtom->resmgr);
 	}
 
-	return 0;
+done:
+	return ret;
 }
 
 static int tomtom_codec_enable_aux_pga(struct snd_soc_dapm_widget *w,
@@ -7832,38 +7858,29 @@ static int tomtom_codec_fll_enable(struct snd_soc_codec *codec,
 	return 0;
 }
 
-static void tomtom_codec_cpe_setup_callbacks(
-		struct wcd_cpe_cdc_cb *cpe_cb,
-		int (*cdc_ext_clk)(struct snd_soc_codec *codec,
-		int enable, bool dapm))
-{
-	cpe_cb->cdc_clk_en = tomtom_codec_internal_rco_ctrl;
-	cpe_cb->cpe_clk_en = tomtom_codec_fll_enable;
-	cpe_cb->slimtx_lab_en = tomtom_codec_enable_slimtx_mad;
-	if (cdc_ext_clk == NULL)
-		pr_err("%s: MCLK could not be set", __func__);
-	cpe_cb->cdc_ext_clk = cdc_ext_clk;
-}
+static const struct wcd_cpe_cdc_cb cpe_cb = {
+	.cdc_clk_en = tomtom_codec_internal_rco_ctrl,
+	.cpe_clk_en = tomtom_codec_fll_enable,
+	.slimtx_lab_en = tomtom_codec_enable_slimtx_mad,
+	.cdc_ext_clk = tomtom_codec_ext_clk_en,
+};
 
-int tomtom_enable_cpe(struct snd_soc_codec *codec)
+static int tomtom_cpe_initialize(struct snd_soc_codec *codec)
 {
 	struct tomtom_priv *tomtom = snd_soc_codec_get_drvdata(codec);
 	struct wcd_cpe_params cpe_params;
-	struct wcd_cpe_cdc_cb cpe_cdc_cb;
 
-	tomtom_codec_cpe_setup_callbacks(&cpe_cdc_cb,
-					 tomtom->codec_ext_clk_en_cb);
 	memset(&cpe_params, 0,
 	       sizeof(struct wcd_cpe_params));
 	cpe_params.codec = codec;
 	cpe_params.get_cpe_core = tomtom_codec_get_cpe_core;
-	cpe_params.cdc_cb = &cpe_cdc_cb;
+	cpe_params.cdc_cb = &cpe_cb;
 	cpe_params.dbg_mode = cpe_debug_mode;
 	cpe_params.cdc_major_ver = TOMTOM_CPE_MAJOR_VER;
 	cpe_params.cdc_minor_ver = TOMTOM_CPE_MINOR_VER;
 	cpe_params.cdc_id = TOMTOM_CPE_CDC_ID;
 
-	tomtom->cpe_core = wcd_cpe_init_and_boot("cpe", codec,
+	tomtom->cpe_core = wcd_cpe_init("cpe", codec,
 						 &cpe_params);
 	if (IS_ERR_OR_NULL(tomtom->cpe_core)) {
 		dev_err(codec->dev,
@@ -7874,7 +7891,6 @@ int tomtom_enable_cpe(struct snd_soc_codec *codec)
 
 	return 0;
 }
-EXPORT_SYMBOL(tomtom_enable_cpe);
 
 int tomtom_enable_qfuse_sensing(struct snd_soc_codec *codec)
 {
@@ -8052,6 +8068,14 @@ static int tomtom_codec_probe(struct snd_soc_codec *codec)
 	snd_soc_dapm_sync(dapm);
 
 	codec->ignore_pmdown_time = 1;
+	ret = tomtom_cpe_initialize(codec);
+	if (ret) {
+		dev_info(codec->dev,
+			"%s: cpe initialization failed, ret = %d\n",
+			__func__, ret);
+		/* Do not fail probe if CPE failed */
+		ret = 0;
+	}
 	return ret;
 
 err_pdata:

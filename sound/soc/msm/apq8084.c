@@ -88,33 +88,6 @@ static void *adsp_state_notifier;
 
 #define ADSP_STATE_READY_TIMEOUT_MS 3000
 
-struct cpe_load_priv {
-	void *cdc_handle;
-	struct kobject *cpe_load_kobj;
-	struct attribute_group *attr_group;
-};
-
-static int cpe_load;
-
-static ssize_t cpe_load_store(struct kobject *kobj,
-	struct kobj_attribute *attr,
-	const char *buf,
-	size_t count);
-
-static struct kobj_attribute cpe_load_attr =
-	__ATTR(cpe_load, 0600, NULL, cpe_load_store);
-
-static struct attribute *attrs[] = {
-	&cpe_load_attr.attr,
-	NULL,
-};
-
-static struct attribute_group attr_grp = {
-	.attrs = attrs,
-};
-
-static struct cpe_load_priv cpe_priv;
-
 static inline int param_is_mask(int p)
 {
 	return ((p >= SNDRV_PCM_HW_PARAM_FIRST_MASK) &&
@@ -2111,44 +2084,6 @@ static int msm_snd_get_ext_clk_cnt(void)
 	return clk_users;
 }
 
-static int apq8084_tomtom_cpe_enable(struct snd_soc_codec *codec)
-{
-	int ret = 0;
-
-	ret = tomtom_enable_cpe(codec);
-	if (IS_ERR_VALUE(ret))
-		pr_err("%s: CPE enable failed, err (0x%x)\n",
-			__func__, ret);
-	return ret;
-}
-
-static ssize_t cpe_load_store(struct kobject *kobj,
-	struct kobj_attribute *attr,
-	const char *buf,
-	size_t count)
-{
-	int ret = 0;
-
-	if (cpe_load) {
-		pr_err("%s: CPE already loaded\n",
-			__func__);
-		return count;
-	}
-
-	sscanf(buf, "%du", &cpe_load);
-
-	if (cpe_load) {
-		ret = apq8084_tomtom_cpe_enable(cpe_priv.cdc_handle);
-		if (IS_ERR_VALUE(ret))
-			cpe_load = 0;
-		else
-			pr_info("%s: CPE enabled for tomtom_codec\n",
-				__func__);
-	}
-
-	return count;
-}
-
 static int msm_audrx_init(struct snd_soc_pcm_runtime *rtd)
 {
 	int err;
@@ -2326,18 +2261,6 @@ static int msm_audrx_init(struct snd_soc_pcm_runtime *rtd)
 		tomtom_register_ext_clk_cb(msm_snd_enable_codec_ext_clk,
 					   msm_snd_get_ext_clk_cnt,
 					   rtd->codec);
-		cpe_priv.cdc_handle = codec;
-		cpe_priv.attr_group = &attr_grp;
-		cpe_priv.cpe_load_kobj = kobject_create_and_add("snd_apq8084",
-						       kernel_kobj);
-		if (!cpe_priv.cpe_load_kobj) {
-			pr_err("%s: cpe_load: sysfs create_add failed\n",
-				__func__);
-		} else if (sysfs_create_group(cpe_priv.cpe_load_kobj,
-					      cpe_priv.attr_group)) {
-			pr_err("%s: sysfs_create_group failed\n", __func__);
-			kobject_del(cpe_priv.cpe_load_kobj);
-		}
 
 		err = msm_snd_enable_codec_ext_clk(rtd->codec, 1, false);
 		if (IS_ERR_VALUE(err)) {
