@@ -75,6 +75,14 @@
 	status = "ok";
 };
 
+&ufsphy1 {
+	status = "ok";
+};
+
+&ufs1 {
+	status = "ok";
+};
+
 &pm8994_vadc {
 	chan@5 {
 		label = "vcoin";
