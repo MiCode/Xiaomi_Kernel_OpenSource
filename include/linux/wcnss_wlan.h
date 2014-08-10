@@ -67,6 +67,7 @@ enum {
 #define WLAN_RF_DATA2_SHIFT		2
 
 struct device *wcnss_wlan_get_device(void);
+void wcnss_get_monotonic_boottime(struct timespec *ts);
 struct resource *wcnss_wlan_get_memory_map(struct device *dev);
 int wcnss_wlan_get_dxe_tx_irq(struct device *dev);
 int wcnss_wlan_get_dxe_rx_irq(struct device *dev);
