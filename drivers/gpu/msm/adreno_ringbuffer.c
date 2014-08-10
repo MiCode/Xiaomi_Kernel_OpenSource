@@ -1285,8 +1285,10 @@ int adreno_ringbuffer_submitcmd(struct adreno_device *adreno_dev,
 	 * Worst case size:
 	 * 2 - start of IB identifier
 	 * 6 - secure IB start
+	 * 2 - cmdbatch profiling
 	 * 1 - skip preamble
 	 * 3 * numibs - 3 per IB
+	 * 2 - cmdbatch profiling
 	 * 6 - secure IB end
 	 * 2 - end of IB identifier
 	 */
@@ -1299,7 +1301,7 @@ int adreno_ringbuffer_submitcmd(struct adreno_device *adreno_dev,
 
 	cmds = link = kzalloc(sizeof(unsigned int) * (numibs * 3 + 5 +
 					(secured_ctxt ? 14 : 0) +
-					(cmdbatch_profiling ? 6 : 0)),
+					(cmdbatch_profiling ? 4 : 0)),
 				GFP_KERNEL);
 	if (!link) {
 		ret = -ENOMEM;
