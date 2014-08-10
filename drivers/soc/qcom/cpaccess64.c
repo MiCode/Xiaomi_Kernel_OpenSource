@@ -30,6 +30,7 @@
 #include <linux/types.h>
 #include <asm/cacheflush.h>
 #include <asm/smp_plat.h>
+#include <asm/mmu.h>
 
 #define TYPE_MAX_CHARACTERS 20
 
@@ -113,9 +114,7 @@ static u64 do_cpregister_rw(int write)
 	 * instruction, ensuring cache coherency.
 	 */
 	p_opcode = (u32 *)&cpaccess_dummy_inst;
-	*p_opcode = opcode;
-	flush_icache_range((unsigned long) p_opcode,
-		(unsigned long)(p_opcode+sizeof(unsigned long)));
+	mem_text_write_kernel_word(p_opcode, opcode);
 
 	/*
 	 * Use smp_call_function_single to do CPU core specific
