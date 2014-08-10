@@ -16,7 +16,7 @@
 #include <linux/miscdevice.h>
 #include <linux/uaccess.h>
 #include <linux/mutex.h>
-#include "audio_cal_utils.h"
+#include <sound/audio_cal_utils.h>
 
 
 size_t get_cal_info_size(int32_t cal_type)

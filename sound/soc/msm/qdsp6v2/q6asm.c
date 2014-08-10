@@ -38,7 +38,7 @@
 #include <sound/apr_audio-v2.h>
 #include <sound/q6asm-v2.h>
 #include <sound/q6audio-v2.h>
-#include "audio_cal_utils.h"
+#include <sound/audio_cal_utils.h>
 
 #define TRUE        0x01
 #define FALSE       0x00

@@ -39,7 +39,7 @@
 #include "msm-dolby-dap-config.h"
 #include "q6voice.h"
 #include "sound/q6lsm.h"
-#include "audio_cal_utils.h"
+#include <sound/audio_cal_utils.h>
 #include "msm-dts-eagle.h"
 
 static int get_cal_path(int path_type);

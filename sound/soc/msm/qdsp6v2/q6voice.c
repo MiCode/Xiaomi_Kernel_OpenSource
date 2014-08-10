@@ -24,7 +24,7 @@
 #include "sound/q6audio-v2.h"
 #include "sound/apr_audio-v2.h"
 #include "sound/q6afe-v2.h"
-#include "audio_cal_utils.h"
+#include <sound/audio_cal_utils.h>
 #include "q6voice.h"
 
 #define TIMEOUT_MS 300

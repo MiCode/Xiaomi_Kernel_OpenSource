@@ -31,7 +31,7 @@
 #include <linux/memory.h>
 #include <linux/msm_audio_ion.h>
 #include <sound/q6afe-v2.h>
-#include "audio_cal_utils.h"
+#include <sound/audio_cal_utils.h>
 
 #define APR_TIMEOUT	(5 * HZ)
 #define LSM_ALIGN_BOUNDARY 512
