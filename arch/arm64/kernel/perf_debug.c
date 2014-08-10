@@ -27,6 +27,7 @@ static char *descriptions =
 	" 2 Perf: arm64: add support for msm8994v1 irq\n"
 	" 3 Perf: arm64: enable cti workaround\n"
 	" 4 Perf: arm64: support hotplug and power collapse\n"
+	" 5 Perf: arm64: add perf user-mode permissions\n"
 ;
 
 static ssize_t desc_read(struct file *fp, char __user *buf,
