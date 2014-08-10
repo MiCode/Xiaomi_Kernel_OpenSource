@@ -213,7 +213,6 @@ static unsigned int freq_to_above_hispeed_delay(
 		;
 
 	ret = tunables->above_hispeed_delay[i];
-	ret = (ret > (1 * USEC_PER_MSEC)) ? (ret - (1 * USEC_PER_MSEC)) : ret;
 	spin_unlock_irqrestore(&tunables->above_hispeed_delay_lock, flags);
 	return ret;
 }
