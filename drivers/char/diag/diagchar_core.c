@@ -37,6 +37,8 @@
 #include "diag_masks.h"
 #include "diagfwd_bridge.h"
 #include "diag_usb.h"
+#include "diag_memorydevice.h"
+#include "diag_mux.h"
 
 #include <linux/coresight-stm.h>
 #include <linux/kernel.h>
@@ -204,8 +206,8 @@ void diag_drain_work_fn(struct work_struct *work)
 
 	mutex_lock(&driver->diagchar_mutex);
 	if (buf_hdlc) {
-		err = diag_device_write(buf_hdlc, driver->used, APPS_DATA,
-					buf_hdlc_ctxt);
+		err = diag_mux_write(DIAG_LOCAL_PROC, buf_hdlc, driver->used,
+				     buf_hdlc_ctxt);
 		if (err)
 			diagmem_free(driver, buf_hdlc, POOL_TYPE_HDLC);
 		buf_hdlc = NULL;
@@ -384,7 +386,6 @@ static int diagchar_close(struct inode *inode, struct file *file)
 		diag_update_proc_vote(DIAG_PROC_MEMORY_DEVICE, VOTE_DOWN,
 				      ALL_PROC);
 		diag_switch_logging(USB_MODE);
-		diag_ws_reset(DIAG_WS_MD);
 	}
 #endif /* DIAG over USB */
 	/* Delete the pkt response table entry for the exiting process */
@@ -866,6 +867,7 @@ static int diag_switch_logging(int requested_mode)
 {
 	int success = -EINVAL;
 	int temp = 0, status = 0;
+	int new_mode = DIAG_USB_MODE; /* set the mode from diag_mux.h */
 
 	switch (requested_mode) {
 	case USB_MODE:
@@ -907,6 +909,7 @@ static int diag_switch_logging(int requested_mode)
 
 	if (driver->logging_mode == MEMORY_DEVICE_MODE) {
 		driver->mask_check = 1;
+		new_mode = DIAG_MEMORY_DEVICE_MODE;
 		if (driver->socket_process) {
 			/*
 			 * Notify the socket logging process that we
@@ -932,32 +935,15 @@ static int diag_switch_logging(int requested_mode)
 				driver->logging_mode == CALLBACK_MODE) {
 		driver->mask_check = 0;
 		driver->logging_mode = MEMORY_DEVICE_MODE;
+		new_mode = DIAG_MEMORY_DEVICE_MODE;
+	} else if (driver->logging_mode == NO_LOGGING_MODE) {
+		new_mode = DIAG_NO_LOGGING_MODE;
 	}
 
 	driver->logging_process_id = current->tgid;
-
-	if (temp == MEMORY_DEVICE_MODE && driver->logging_mode
-						== NO_LOGGING_MODE) {
-		diag_reset_smd_data(RESET_AND_NO_QUEUE);
-	} else if (temp == NO_LOGGING_MODE && driver->logging_mode
-						== MEMORY_DEVICE_MODE) {
-		diag_reset_smd_data(RESET_AND_QUEUE);
-	} else if (temp == USB_MODE && driver->logging_mode
-						 == NO_LOGGING_MODE) {
-		diag_usb_disconnect_all();
-	} else if (temp == NO_LOGGING_MODE && driver->logging_mode
-							== USB_MODE) {
-		diag_usb_connect_all();
-	} else if (temp == USB_MODE && driver->logging_mode
-						== MEMORY_DEVICE_MODE) {
-		diag_usb_disconnect_all();
-		diag_reset_smd_data(RESET_AND_QUEUE);
-	} else if (temp == MEMORY_DEVICE_MODE &&
-			 driver->logging_mode == USB_MODE) {
-		diag_usb_connect_all();
-	}
 	mutex_unlock(&driver->diagchar_mutex);
-	success = 1;
+	status = diag_mux_switch_logging(new_mode);
+	success = status ? success : 1;
 	return success;
 }
 
@@ -1346,7 +1332,6 @@ static ssize_t diagchar_read(struct file *file, char __user *buf, size_t count,
 	int data_type;
 	int copy_dci_data = 0;
 	int exit_stat;
-	int copy_data = 0;
 	int write_len = 0;
 
 	for (i = 0; i < driver->num_clients; i++)
@@ -1374,6 +1359,7 @@ static ssize_t diagchar_read(struct file *file, char __user *buf, size_t count,
 		COPY_USER_SPACE_OR_EXIT(buf, data_type, sizeof(int));
 		/* place holder for number of data field */
 		ret += sizeof(int);
+		exit_stat = diag_md_copy_to_user(buf, &ret);
 		goto exit;
 	} else if (driver->data_ready[index] & USER_SPACE_DATA_TYPE) {
 		/* In case, the thread wakes up and the logging mode is
@@ -1506,16 +1492,6 @@ static ssize_t diagchar_read(struct file *file, char __user *buf, size_t count,
 	}
 exit:
 	mutex_unlock(&driver->diagchar_mutex);
-	if (copy_data) {
-		/*
-		 * Flush any work that is currently pending on the data
-		 * channels. This will ensure that the next read is not missed.
-		 */
-		for (i = 0; i < NUM_SMD_DATA_CHANNELS; i++)
-			flush_workqueue(driver->smd_data[i].wq);
-		wake_up(&driver->smd_wait_q);
-		diag_ws_on_copy_complete(DIAG_WS_MD);
-	}
 	/*
 	 * Flush any read that is currently pending on DCI data and
 	 * command channnels. This will ensure that the next read is not
@@ -1801,8 +1777,8 @@ static ssize_t diagchar_write(struct file *file, const char __user *buf,
 		goto fail_free_hdlc;
 	}
 	if (HDLC_OUT_BUF_SIZE - driver->used <= (2*payload_size) + 3) {
-		err = diag_device_write(buf_hdlc, driver->used, APPS_DATA,
-					buf_hdlc_ctxt);
+		err = diag_mux_write(DIAG_LOCAL_PROC, buf_hdlc, driver->used,
+				     buf_hdlc_ctxt);
 		if (err) {
 			ret = -EIO;
 			goto fail_free_hdlc;
@@ -1826,8 +1802,8 @@ static ssize_t diagchar_write(struct file *file, const char __user *buf,
 	and start aggregation in a newly allocated buffer */
 	if ((uintptr_t)enc.dest >=
 		 (uintptr_t)(buf_hdlc + HDLC_OUT_BUF_SIZE)) {
-		err = diag_device_write(buf_hdlc, driver->used, APPS_DATA,
-					buf_hdlc_ctxt);
+		err = diag_mux_write(DIAG_LOCAL_PROC, buf_hdlc, driver->used,
+				     buf_hdlc_ctxt);
 		if (err) {
 			ret = -EIO;
 			goto fail_free_hdlc;
@@ -1851,8 +1827,8 @@ static ssize_t diagchar_write(struct file *file, const char __user *buf,
 			((uintptr_t)enc.dest - (uintptr_t)buf_hdlc) :
 						HDLC_OUT_BUF_SIZE;
 	if (pkt_type == DATA_TYPE_RESPONSE) {
-		err = diag_device_write(buf_hdlc, driver->used, APPS_DATA,
-					buf_hdlc_ctxt);
+		err = diag_mux_write(DIAG_LOCAL_PROC, buf_hdlc, driver->used,
+				     buf_hdlc_ctxt);
 		if (err) {
 			ret = -EIO;
 			goto fail_free_hdlc;
@@ -2267,6 +2243,9 @@ static int __init diagchar_init(void)
 	ret = diag_masks_init();
 	if (ret)
 		goto fail;
+	ret = diag_mux_init();
+	if (ret)
+		goto fail;
 	ret = diagfwd_init();
 	if (ret)
 		goto fail;
@@ -2306,6 +2285,7 @@ fail:
 	pr_err("diagchar is not initialized, ret: %d\n", ret);
 	diag_debugfs_cleanup();
 	diagchar_cleanup();
+	diag_mux_exit();
 	diagfwd_bridge_exit();
 	diagfwd_exit();
 	diagfwd_cntl_exit();
@@ -2319,6 +2299,7 @@ static void diagchar_exit(void)
 {
 	printk(KERN_INFO "diagchar exiting ..\n");
 	diag_mempool_exit();
+	diag_mux_exit();
 	diagfwd_exit();
 	diagfwd_cntl_exit();
 	diag_dci_exit();

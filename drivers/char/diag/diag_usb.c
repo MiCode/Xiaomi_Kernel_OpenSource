@@ -25,6 +25,7 @@
 #include <linux/usb/usbdiag.h>
 #endif
 #include "diag_usb.h"
+#include "diag_mux.h"
 #include "diagmem.h"
 
 #define DIAG_USB_STRING_SZ	10

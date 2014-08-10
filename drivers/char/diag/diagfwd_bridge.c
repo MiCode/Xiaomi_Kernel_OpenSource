@@ -19,13 +19,13 @@
 #include <linux/ratelimit.h>
 #include <linux/platform_device.h>
 #include <linux/smux.h>
-#include "diag_usb.h"
+#include "diag_mux.h"
 #include "diagfwd_bridge.h"
 #include "diagfwd_hsic.h"
 #include "diagfwd_smux.h"
 #include "diag_dci.h"
 
-#define BRIDGE_TO_USB(x)	(x + DIAG_USB_BRIDGE_BASE)
+#define BRIDGE_TO_MUX(x)	(x + DIAG_MUX_BRIDGE_BASE)
 
 struct diagfwd_bridge_info bridge_info[NUM_REMOTE_DEV] = {
 	{
@@ -138,7 +138,7 @@ int diagfwd_bridge_register(int id, int ctxt, struct diag_remote_dev_ops *ops)
 	ch->dev_ops = ops;
 	switch (ch->type) {
 	case DIAG_DATA_TYPE:
-		err = diag_usb_register(BRIDGE_TO_USB(id), id,
+		err = diag_mux_register(BRIDGE_TO_MUX(id), id,
 					&diagfwd_bridge_mux_ops);
 		if (err)
 			return err;
@@ -171,7 +171,7 @@ int diag_remote_dev_open(int id)
 		return -EINVAL;
 	bridge_info[id].inited = 1;
 	if (bridge_info[id].type == DIAG_DATA_TYPE)
-		return diag_usb_queue_read(BRIDGE_TO_USB(id));
+		return diag_mux_queue_read(BRIDGE_TO_MUX(id));
 	return 0;
 }
 
@@ -189,7 +189,7 @@ int diag_remote_dev_read_done(int id, unsigned char *buf, int len)
 		return -EINVAL;
 	ch = &bridge_info[id];
 	if (ch->type == DIAG_DATA_TYPE) {
-		err = diag_usb_write(BRIDGE_TO_USB(id), buf, len, id);
+		err = diag_mux_write(BRIDGE_TO_MUX(id), buf, len, id);
 		ch->dev_ops->queue_read(ch->ctxt);
 		return err;
 	}
@@ -221,7 +221,7 @@ int diag_remote_dev_write_done(int id, unsigned char *buf, int len, int ctxt)
 			driver->cb_buf_len = 0;
 		if (buf == driver->user_space_data_buf)
 			driver->user_space_data_busy = 0;
-		err = diag_usb_queue_read(BRIDGE_TO_USB(id));
+		err = diag_mux_queue_read(BRIDGE_TO_MUX(id));
 	} else {
 		err = diag_dci_write_done_bridge(id, buf, len);
 	}
