@@ -25,7 +25,6 @@
 
 #include "diagchar.h"
 #include "diagmem.h"
-#include "diagfwd_bridge.h"
 
 struct diag_mempool_t diag_mempools[NUM_MEMORY_POOLS] = {
 	{

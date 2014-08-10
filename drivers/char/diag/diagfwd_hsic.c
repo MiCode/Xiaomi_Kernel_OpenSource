@@ -20,685 +20,288 @@
 #include <linux/workqueue.h>
 #include <linux/pm_runtime.h>
 #include <linux/platform_device.h>
-#include <linux/smux.h>
 #include <asm/current.h>
-#ifdef CONFIG_DIAG_OVER_USB
-#include <linux/usb/usbdiag.h>
-#endif
-#include "diagchar_hdlc.h"
 #include "diagmem.h"
-#include "diagchar.h"
-#include "diagfwd.h"
-#include "diagfwd_hsic.h"
-#include "diagfwd_smux.h"
 #include "diagfwd_bridge.h"
-#include "diag_dci.h"
-#include "diag_usb.h"
+#include "diagfwd_hsic.h"
 
-struct diag_hsic_dev *diag_hsic;
-struct diag_hsic_dci_dev *diag_hsic_dci;
+#define DIAG_HSIC_STRING_SZ	11
 
-static struct diag_hsic_bridge_map hsic_map[MAX_HSIC_CH] = {
-	{ 0, HSIC_DATA_TYPE, HSIC_DATA_CH, DIAG_DATA_BRIDGE_IDX },
-	{ 1, HSIC_DCI_TYPE, HSIC_DCI_CH, DIAG_DCI_BRIDGE_IDX },
-	{ 2, HSIC_DATA_TYPE, HSIC_DATA_CH_2, DIAG_DATA_BRIDGE_IDX_2 },
-	{ 3, HSIC_DCI_TYPE, HSIC_DCI_CH_2, DIAG_DCI_BRIDGE_IDX_2 }
+struct diag_hsic_info diag_hsic[NUM_HSIC_DEV] = {
+	{
+		.id = HSIC_1,
+		.dev_id = DIAGFWD_MDM,
+		.name = "MDM",
+		.mempool = POOL_TYPE_MDM,
+		.opened = 0,
+		.enabled = 0,
+		.suspended = 0,
+		.hsic_wq = NULL
+	},
+	{
+		.id = HSIC_2,
+		.dev_id = DIAGFWD_MDM_DCI,
+		.name = "MDM_DCI",
+		.mempool = POOL_TYPE_MDM_DCI,
+		.opened = 0,
+		.enabled = 0,
+		.suspended = 0,
+		.hsic_wq = NULL
+	}
 };
 
-/*
- * This array is the inverse of hsic_map indexed by the Bridge index
- * for HSIC data channels
- */
-int hsic_data_bridge_map[MAX_HSIC_DATA_CH] = {
-	DIAG_DATA_BRIDGE_IDX,
-	DIAG_DATA_BRIDGE_IDX_2
-};
-
-/*
- * This array is the inverse of hsic_map indexed by the Bridge index
- * for HSIC DCI channels
- */
-int hsic_dci_bridge_map[MAX_HSIC_DCI_CH] = {
-	DIAG_DCI_BRIDGE_IDX,
-	DIAG_DCI_BRIDGE_IDX_2
-};
-
-static void diag_read_hsic_work_fn(struct work_struct *work)
-{
-	unsigned char *buf_in_hsic = NULL;
-	int err = 0;
-	struct diag_hsic_dev *hsic_struct = container_of(work,
-				struct diag_hsic_dev, diag_read_hsic_work);
-	int index = hsic_struct->id;
-	static DEFINE_RATELIMIT_STATE(rl, 10*HZ, 1);
-
-	if (!diag_hsic[index].hsic_ch) {
-		pr_err("DIAG in %s: diag_hsic[index].hsic_ch == 0\n", __func__);
-		return;
-	}
-
-	/*
-	 * Queue up a read on the HSIC for all available buffers in the
-	 * pool, exhausting the pool.
-	 */
-	do {
-		/*
-		 * No sense queuing a read if the HSIC bridge was
-		 * closed in another thread
-		 */
-		if (!diag_hsic[index].hsic_ch)
-			break;
-
-		buf_in_hsic = diagmem_alloc(driver, DIAG_MDM_BUF_SIZE,
-							index+POOL_TYPE_MDM);
-		if (buf_in_hsic) {
-			/*
-			 * Initiate the read from the HSIC.  The HSIC read is
-			 * asynchronous.  Once the read is complete the read
-			 * callback function will be called.
-			 */
-			pr_debug("diag: read from HSIC\n");
-			err = diag_bridge_read(hsic_data_bridge_map[index],
-					       (char *)buf_in_hsic,
-					       DIAG_MDM_BUF_SIZE);
-			if (err) {
-				/* Return the buffer to the pool */
-				diagmem_free(driver, buf_in_hsic,
-						index+POOL_TYPE_MDM);
-
-				if (__ratelimit(&rl))
-					pr_err("diag: Error initiating HSIC read, err: %d\n",
-					err);
-				/*
-				 * An error occurred, discontinue queuing
-				 * reads
-				 */
-				break;
-			}
-		}
-	} while (buf_in_hsic);
-
-	/*
-	 * If no unrecoverable error occurred (-ENODEV is an
-	 * unrecoverable error), then set up the next read
-	 */
-	if ((err != -ENODEV) && (diag_hsic[index].hsic_ch != 0))
-		queue_work(diag_bridge[index].wq,
-				 &diag_hsic[index].diag_read_hsic_work);
-}
-
-static void diag_process_hsic_work_fn(struct work_struct *work)
-{
-	struct diag_hsic_dci_dev *hsic_struct = container_of(work,
-						struct diag_hsic_dci_dev,
-						diag_process_hsic_work);
-	int index = hsic_struct->id;
-
-	if (!diag_hsic_dci[index].data) {
-		diagmem_free(driver, diag_hsic_dci[index].data_buf,
-			     POOL_TYPE_MDM_DCI + index);
-		return;
-	}
-
-	if (diag_hsic_dci[index].data_len <= 0) {
-		diagmem_free(driver, diag_hsic_dci[index].data_buf,
-			     POOL_TYPE_MDM_DCI + index);
-		return;
-	}
-	diag_process_hsic_dci_read_data(index, diag_hsic_dci[index].data,
-					diag_hsic_dci[index].data_len);
-	diagmem_free(driver, diag_hsic_dci[index].data_buf,
-		     POOL_TYPE_MDM_DCI + index);
-	queue_work(diag_bridge_dci[index].wq,
-		   &diag_hsic_dci[index].diag_read_hsic_work);
-}
-
-static void diag_read_hsic_dci_work_fn(struct work_struct *work)
-{
-	unsigned char *buf_in_hsic = NULL;
-	int num_reads_submitted = 0;
-	int err = 0;
-	struct diag_hsic_dci_dev *hsic_struct = container_of(work,
-						struct diag_hsic_dci_dev,
-						diag_read_hsic_work);
-	int index = hsic_struct->id;
-
-	if (!diag_hsic_dci[index].hsic_ch) {
-		pr_err("diag: Invalid HSIC channel in %s\n", __func__);
-		return;
-	}
-
-	/*
-	 * Queue up a read on the HSIC for all available buffers in the
-	 * pool, exhausting the pool.
-	 */
-	do {
-		/*
-		 * No sense queuing a read if the HSIC bridge was
-		 * closed in another thread
-		 */
-		if (!diag_hsic_dci[index].hsic_ch)
-			break;
-
-		buf_in_hsic = diagmem_alloc(driver, DIAG_MDM_BUF_SIZE,
-					    POOL_TYPE_MDM_DCI + index);
-		if (buf_in_hsic) {
-			/*
-			 * Initiate the read from the HSIC.  The HSIC read is
-			 * asynchronous.  Once the read is complete the read
-			 * callback function will be called.
-			 */
-			num_reads_submitted++;
-			err = diag_bridge_read(hsic_dci_bridge_map[index],
-					       (char *)buf_in_hsic,
-					       DIAG_MDM_BUF_SIZE);
-			if (err) {
-				num_reads_submitted--;
-
-				/* Return the buffer to the pool */
-				diagmem_free(driver, buf_in_hsic,
-					     POOL_TYPE_MDM_DCI + index);
-
-				pr_err_ratelimited("diag: Error initiating HSIC read, err: %d\n",
-						   err);
-				/*
-				 * An error occurred, discontinue queuing
-				 * reads
-				 */
-				break;
-			}
-		}
-	} while (buf_in_hsic);
-
-	/*
-	 * If no unrecoverable error occurred (-ENODEV is an
-	 * unrecoverable error), then set up the next read
-	 */
-	if ((num_reads_submitted == 0) && (err != -ENODEV) &&
-		(diag_hsic_dci[index].hsic_ch != 0))
-		queue_work(diag_bridge_dci[index].wq,
-			   &diag_hsic_dci[index].diag_read_hsic_work);
-}
-
-static void diag_hsic_read_complete_callback(void *ctxt, char *buf,
-					int buf_size, int actual_size)
+static void diag_hsic_read_complete(void *ctxt, char *buf, int len,
+				    int actual_size)
 {
 	int err = 0;
-	int index = (int)ctxt;
-	static DEFINE_RATELIMIT_STATE(rl, 10*HZ, 1);
+	int index = (int)(uintptr_t)ctxt;
+	struct diag_hsic_info *ch = NULL;
 
-	if (!diag_hsic[index].hsic_ch) {
-		/*
-		 * The HSIC channel is closed. Return the buffer to
-		 * the pool.  Do not send it on.
-		 */
-		diagmem_free(driver, buf, index+POOL_TYPE_MDM);
-		pr_debug("diag: In %s: hsic_ch == 0, actual_size: %d\n",
-			__func__, actual_size);
+	if (index < 0 || index >= NUM_HSIC_DEV) {
+		pr_err_ratelimited("diag: In %s, invalid HSIC index %d\n",
+				   __func__, index);
 		return;
 	}
+	ch = &diag_hsic[index];
 
 	/*
-	 * Note that zero length is valid and still needs to be sent to
-	 * the USB only when we are logging data to the USB
+	 * Don't pass on the buffer if the channel is closed when a pending read
+	 * completes. Also, actual size can be negative error codes - do not
+	 * pass on the buffer.
 	 */
-	if ((actual_size > 0) ||
-		((actual_size == 0) && (driver->logging_mode == USB_MODE))) {
-		if (!buf) {
-			pr_err("diag: Out of diagmem for HSIC\n");
-		} else {
-			/*
-			 * Send data in buf to be written on the
-			 * appropriate device, e.g. USB MDM channel
-			 */
-			if (driver->logging_mode == MEMORY_DEVICE_MODE)
-				diag_ws_on_notify();
-			err = diag_device_write((void *)buf, actual_size,
-						index + HSIC_DATA, index);
-			/* If an error, return buffer to the pool */
-			if (err) {
-				if (driver->logging_mode == MEMORY_DEVICE_MODE)
-					diag_ws_release();
-				diagmem_free(driver, buf, index +
-							POOL_TYPE_MDM);
-				if (__ratelimit(&rl))
-					pr_err("diag: In %s, error calling diag_device_write, err: %d\n",
-					__func__, err);
-			}
-		}
-	} else {
-		/*
-		 * The buffer has an error status associated with it. Do not
-		 * pass it on. Note that -ENOENT is sent when the diag bridge
-		 * is closed.
-		 */
-		diagmem_free(driver, buf, index+POOL_TYPE_MDM);
-		pr_debug("diag: In %s: error status: %d\n", __func__,
-			actual_size);
-	}
+	if (!ch->opened || actual_size <= 0)
+		goto fail;
+	err = diag_remote_dev_read_done(ch->dev_id, buf, actual_size);
+	if (err)
+		goto fail;
+	return;
 
-	/*
-	 * Actual Size is a negative error value when read complete
-	 * fails. Don't queue a read in this case. Doing so will not let
-	 * HSIC to goto suspend.
-	 *
-	 * Queue another read only when the read completes successfully
-	 * and Diag is either in Memory device mode or USB is connected.
-	 */
-	if (actual_size >= 0 && (driver->logging_mode == MEMORY_DEVICE_MODE ||
-				 diag_bridge[index].usb_connected)) {
-		queue_work(diag_bridge[index].wq,
-				 &diag_hsic[index].diag_read_hsic_work);
-	}
+fail:
+	diagmem_free(driver, buf, ch->mempool);
+	queue_work(ch->hsic_wq, &ch->read_work);
+	return;
 }
 
-static void diag_hsic_dci_read_complete_callback(void *ctxt, char *buf,
-						 int buf_size, int actual_size)
+static void diag_hsic_write_complete(void *ctxt, char *buf, int len,
+				     int actual_size)
 {
-	int index = (int)ctxt;
+	int index = (int)(uintptr_t)ctxt;
+	struct diag_hsic_info *ch = NULL;
 
-	if (!diag_hsic_dci[index].hsic_ch) {
-		/*
-		 * The HSIC channel is closed. Return the buffer to
-		 * the pool.  Do not send it on.
-		 */
-		diagmem_free(driver, buf, POOL_TYPE_MDM_DCI + index);
-		pr_debug("diag: In %s: hsic_ch == 0, actual_size: %d\n",
-			__func__, actual_size);
+	if (index < 0 || index >= NUM_HSIC_DEV) {
+		pr_err_ratelimited("diag: In %s, invalid HSIC index %d\n",
+				   __func__, index);
 		return;
 	}
 
-	if (actual_size > 0 && actual_size <= DIAG_MDM_BUF_SIZE) {
-		if (!buf) {
-			pr_err("diag: Out of diagmem for HSIC\n");
-		} else {
-			diag_ws_on_notify();
-			diag_hsic_dci[index].data_len = actual_size;
-			diag_hsic_dci[index].data_buf = buf;
-			memcpy(diag_hsic_dci[index].data, buf, actual_size);
-			queue_work(diag_bridge_dci[index].wq,
-				  &diag_hsic_dci[index].diag_process_hsic_work);
-		}
-	} else {
-		/*
-		 * The buffer has an error status associated with it. Do not
-		 * pass it on. Note that -ENOENT is sent when the diag bridge
-		 * is closed.
-		 */
-		diagmem_free(driver, buf, POOL_TYPE_MDM_DCI + index);
-		pr_debug("diag: In %s: error status: %d\n", __func__,
-			actual_size);
-	}
-
-	/*
-	 * Actual Size can be negative error codes. In such cases, don't
-	 * queue another read. The HSIC channel can goto suspend.
-	 * Queuing a read will prevent HSIC from going to suspend.
-	 */
-	if (actual_size >= 0)
-		queue_work(diag_bridge_dci[index].wq,
-			   &diag_hsic_dci[index].diag_read_hsic_work);
-}
-
-static void diag_hsic_write_complete_callback(void *ctxt, char *buf,
-					int buf_size, int actual_size)
-{
-	int index = (int)ctxt;
-
-	/* The write of the data to the HSIC bridge is complete */
-	diag_hsic[index].in_busy_hsic_write = 0;
-	wake_up_interruptible(&driver->wait_q);
-
-	if (!diag_hsic[index].hsic_ch) {
-		pr_err("DIAG in %s: hsic_ch == 0, ch = %d\n", __func__, index);
-		return;
-	}
-
-	if (actual_size < 0)
-		pr_err("DIAG in %s: actual_size: %d\n", __func__, actual_size);
-}
-
-static void diag_hsic_dci_write_complete_callback(void *ctxt, char *buf,
-	int buf_size, int actual_size)
-{
-	int index = (int)ctxt;
-
-	/* The write of the data to the HSIC bridge is complete */
-	diag_hsic_dci[index].in_busy_hsic_write = 0;
-
-	if (!diag_hsic_dci[index].hsic_ch) {
-		pr_err("DIAG in %s: hsic_ch == 0, ch = %d\n", __func__, index);
-		return;
-	}
-
-	if (actual_size < 0)
-		pr_err("DIAG in %s: actual_size: %d\n", __func__, actual_size);
-
-	diagmem_free(driver, (unsigned char *)buf, POOL_TYPE_MDM_DCI_WRITE +
-									index);
-	queue_work(diag_bridge_dci[index].wq,
-		   &diag_hsic_dci[index].diag_read_hsic_work);
+	ch = &diag_hsic[index];
+	diag_remote_dev_write_done(ch->dev_id, buf, actual_size, ch->id);
+	return;
 }
 
 static int diag_hsic_suspend(void *ctxt)
 {
-	int index = (int)ctxt;
-	pr_debug("diag: hsic_suspend\n");
+	int index = (int)(uintptr_t)ctxt;
+	unsigned long flags;
+	struct diag_hsic_info *ch = NULL;
 
-	/* Don't allow suspend if a write in the HSIC is in progress */
-	if (diag_hsic[index].in_busy_hsic_write)
-		return -EBUSY;
+	if (index < 0 || index >= NUM_HSIC_DEV) {
+		pr_err_ratelimited("diag: In %s, invalid HSIC index %d\n",
+				   __func__, index);
+		return -EINVAL;
+	}
 
-	diag_hsic[index].hsic_suspend = 1;
-
-	return 0;
-}
-
-static int diag_hsic_dci_suspend(void *ctxt)
-{
-	int index = (int)ctxt;
-	pr_debug("diag: hsic_suspend\n");
-
-	/* Don't allow suspend if a write in the HSIC is in progress */
-	if (diag_hsic_dci[index].in_busy_hsic_write)
-		return -EBUSY;
-
-	diag_hsic_dci[index].hsic_suspend = 1;
+	ch = &diag_hsic[index];
+	spin_lock_irqsave(&ch->lock, flags);
+	ch->suspended = 1;
+	spin_unlock_irqrestore(&ch->lock, flags);
 	return 0;
 }
 
 static void diag_hsic_resume(void *ctxt)
 {
-	 int index = (int)ctxt;
+	int index = (int)(uintptr_t)ctxt;
+	unsigned long flags;
+	struct diag_hsic_info *ch = NULL;
 
-	pr_debug("diag: hsic_resume\n");
-	diag_hsic[index].hsic_suspend = 0;
-
-	if ((driver->logging_mode == MEMORY_DEVICE_MODE) ||
-				(diag_bridge[index].usb_connected))
-		queue_work(diag_bridge[index].wq,
-			 &diag_hsic[index].diag_read_hsic_work);
+	if (index < 0 || index >= NUM_HSIC_DEV) {
+		pr_err_ratelimited("diag: In %s, invalid HSIC index %d\n",
+				   __func__, index);
+		return;
+	}
+	ch = &diag_hsic[index];
+	spin_lock_irqsave(&ch->lock, flags);
+	ch->suspended = 0;
+	spin_unlock_irqrestore(&ch->lock, flags);
+	queue_work(ch->hsic_wq, &(ch->read_work));
 }
 
-static void diag_hsic_dci_resume(void *ctxt)
-{
-	int index = (int)ctxt;
-
-	pr_debug("diag: hsic_dci_resume\n");
-	diag_hsic_dci[index].hsic_suspend = 0;
-
-	queue_work(diag_bridge_dci[index].wq,
-		   &diag_hsic_dci[index].diag_read_hsic_work);
-}
-
-struct diag_bridge_ops hsic_diag_bridge_ops[MAX_HSIC_DATA_CH] = {
+static struct diag_bridge_ops diag_hsic_ops[NUM_HSIC_DEV] = {
 	{
-	.ctxt = NULL,
-	.read_complete_cb = diag_hsic_read_complete_callback,
-	.write_complete_cb = diag_hsic_write_complete_callback,
-	.suspend = diag_hsic_suspend,
-	.resume = diag_hsic_resume,
+		.ctxt = (void *)HSIC_1,
+		.read_complete_cb = diag_hsic_read_complete,
+		.write_complete_cb = diag_hsic_write_complete,
+		.suspend = diag_hsic_suspend,
+		.resume = diag_hsic_resume,
 	},
 	{
-	.ctxt = NULL,
-	.read_complete_cb = diag_hsic_read_complete_callback,
-	.write_complete_cb = diag_hsic_write_complete_callback,
-	.suspend = diag_hsic_suspend,
-	.resume = diag_hsic_resume,
+		.ctxt = (void *)HSIC_2,
+		.read_complete_cb = diag_hsic_read_complete,
+		.write_complete_cb = diag_hsic_write_complete,
+		.suspend = diag_hsic_suspend,
+		.resume = diag_hsic_resume,
 	}
 };
 
-struct diag_bridge_ops hsic_diag_dci_bridge_ops[MAX_HSIC_DCI_CH] = {
-	{
-		.ctxt = NULL,
-		.read_complete_cb = diag_hsic_dci_read_complete_callback,
-		.write_complete_cb = diag_hsic_dci_write_complete_callback,
-		.suspend = diag_hsic_dci_suspend,
-		.resume = diag_hsic_dci_resume,
-	},
-};
-
-void diag_hsic_close(int ch_id)
-{
-	if (diag_hsic[ch_id].hsic_device_enabled) {
-		diag_hsic[ch_id].hsic_ch = 0;
-		if (diag_hsic[ch_id].hsic_device_opened) {
-			diag_hsic[ch_id].hsic_device_opened = 0;
-			diag_bridge_close(hsic_data_bridge_map[ch_id]);
-			pr_debug("diag: %s: closed successfully ch %d\n",
-							__func__, ch_id);
-		} else {
-			pr_debug("diag: %s: already closed ch %d\n",
-							__func__, ch_id);
-		}
-	} else {
-		pr_debug("diag: %s: HSIC device already removed ch %d\n",
-							__func__, ch_id);
-	}
-}
-
-void diag_hsic_dci_close(int ch_id)
-{
-	if (diag_hsic_dci[ch_id].hsic_device_enabled) {
-		diag_hsic_dci[ch_id].hsic_ch = 0;
-		if (diag_hsic_dci[ch_id].hsic_device_opened) {
-			diag_hsic_dci[ch_id].hsic_device_opened = 0;
-			diag_bridge_close(hsic_dci_bridge_map[ch_id]);
-			dci_ops_tbl[DCI_MDM_PROC].peripheral_status = 0;
-			diag_dci_notify_client(DIAG_CON_APSS,
-					       DIAG_STATUS_CLOSED,
-					       DCI_MDM_PROC);
-			pr_debug("diag: %s: closed successfully ch %d\n",
-				__func__, ch_id);
-		} else {
-			pr_debug("diag: %s: already closed ch %d\n",
-							__func__, ch_id);
-		}
-	} else {
-		pr_debug("diag: %s: HSIC device already removed ch %d\n",
-							__func__, ch_id);
-	}
-}
-
-int diagfwd_reset_hsic()
-{
-	int i;
-	int err = 0;
-	int b_index = 0;
-
-	for (i = 0; i < MAX_HSIC_DATA_CH; i++) {
-		if (!diag_hsic[i].hsic_device_enabled)
-			continue;
-		b_index = hsic_data_bridge_map[i];
-		mutex_lock(&diag_bridge[b_index].bridge_mutex);
-		diag_hsic[i].hsic_ch = 0;
-		diag_hsic[i].hsic_device_opened = 0;
-		diag_hsic[i].hsic_data_requested = 0;
-		diag_bridge_close(hsic_data_bridge_map[i]);
-		err = diag_bridge_open(hsic_data_bridge_map[i],
-				       &hsic_diag_bridge_ops[i]);
-		if (err) {
-			pr_err("diag: HSIC %d channel open error: %d\n",
-			       i, err);
-		} else {
-			pr_debug("diag: opened HSIC channel: %d\n", i);
-			diag_hsic[i].hsic_device_opened = 1;
-			diag_hsic[i].hsic_ch = 1;
-			diag_hsic[i].hsic_data_requested = 1;
-		}
-		mutex_unlock(&diag_bridge[b_index].bridge_mutex);
-	}
-	return err;
-}
-
-static int diag_hsic_probe_data(int pdev_id)
+static int hsic_open(int id)
 {
 	int err = 0;
-	int index = hsic_map[pdev_id].struct_idx;
-	int b_index = hsic_map[pdev_id].bridge_idx;
+	unsigned long flags;
+	struct diag_hsic_info *ch = NULL;
 
-	mutex_lock(&diag_bridge[index].bridge_mutex);
-	if (!diag_hsic[index].hsic_inited) {
-		spin_lock_init(&diag_hsic[index].hsic_spinlock);
-		diag_hsic[index].num_hsic_buf_tbl_entries = 0;
-		if (diag_hsic[index].hsic_buf_tbl == NULL)
-			diag_hsic[index].hsic_buf_tbl =
-			kzalloc(NUM_HSIC_BUF_TBL_ENTRIES *
-			sizeof(struct diag_write_device), GFP_KERNEL);
-		if (diag_hsic[index].hsic_buf_tbl == NULL) {
-			mutex_unlock(&diag_bridge[index].bridge_mutex);
-			return -ENOMEM;
-		}
-		diag_hsic[index].id = index;
-		diag_hsic[index].poolsize_hsic_write = N_MDM_WRITE;
-		diagmem_init(driver, POOL_TYPE_MDM + index);
-		INIT_WORK(&(diag_hsic[index].diag_read_hsic_work),
-			diag_read_hsic_work_fn);
-		diag_hsic[index].hsic_data_requested =
-			(driver->logging_mode == MEMORY_DEVICE_MODE) ? 0 : 1;
-		diag_hsic[index].hsic_inited = 1;
+	if (id < 0 || id >= NUM_HSIC_DEV) {
+		pr_err("diag: Invalid index %d in %s\n", id, __func__);
+		return -EINVAL;
 	}
-	/*
-	 * The probe function was called after the usb was connected
-	 * on the legacy channel OR ODL is turned on and hsic data is
-	 * requested. Communication over usb mdm and HSIC needs to be
-	 * turned on.
-	 */
-	if ((driver->logging_mode != MEMORY_DEVICE_MODE) ||
-		((driver->logging_mode == MEMORY_DEVICE_MODE) &&
-		diag_hsic[index].hsic_data_requested)) {
-		if (diag_hsic[index].hsic_device_opened) {
-			/* should not happen. close it before re-opening */
-			pr_warn("diag: HSIC channel already opened in probe\n");
-			diag_bridge_close(hsic_data_bridge_map[index]);
-		}
-		hsic_diag_bridge_ops[index].ctxt = (void *)(index);
-		err = diag_bridge_open(b_index,
-			&hsic_diag_bridge_ops[index]);
-		if (err) {
-			pr_err("diag: could not open HSIC, err: %d\n", err);
-			diag_hsic[index].hsic_device_opened = 0;
-			mutex_unlock(&diag_bridge[index].bridge_mutex);
-			return err;
-		}
 
-		pr_info("diag: opened HSIC bridge, ch = %d\n", index);
-		diag_hsic[index].hsic_device_opened = 1;
-		diag_hsic[index].hsic_ch = 1;
-		diag_hsic[index].in_busy_hsic_read_on_device = 0;
-		diag_hsic[index].in_busy_hsic_write = 0;
-		diag_usb_queue_read(DIAG_USB_MDM + index);
-		/* Poll HSIC channel to check for data */
-		queue_work(diag_bridge[index].wq,
-			&diag_hsic[index].diag_read_hsic_work);
+	ch = &diag_hsic[id];
+	if (!ch->enabled)
+		return -ENODEV;
+
+	if (ch->opened) {
+		pr_debug("diag: HSIC channel %d is already opened\n", ch->id);
+		return -ENODEV;
 	}
-	/* The HSIC (diag_bridge) platform device driver is enabled */
-	diag_hsic[index].hsic_device_enabled = 1;
-	mutex_unlock(&diag_bridge[index].bridge_mutex);
-	return err;
+
+	err = diag_bridge_open(ch->id, &diag_hsic_ops[ch->id]);
+	if (err) {
+		pr_err("diag: Unable to open HSIC channel %d, err: %d",
+		       ch->id, err);
+		return err;
+	}
+	spin_lock_irqsave(&ch->lock, flags);
+	ch->opened = 1;
+	spin_unlock_irqrestore(&ch->lock, flags);
+	diagmem_init(driver, ch->mempool);
+	/* Notify the bridge that the channel is open */
+	diag_remote_dev_open(ch->dev_id);
+	queue_work(ch->hsic_wq, &(ch->read_work));
+	return 0;
 }
 
-static int diag_hsic_probe_dci(int pdev_id)
+static void hsic_open_work_fn(struct work_struct *work)
+{
+	struct diag_hsic_info *ch = container_of(work, struct diag_hsic_info,
+						 open_work);
+	if (ch)
+		hsic_open(ch->id);
+}
+
+static int hsic_close(int id)
+{
+	unsigned long flags;
+	struct diag_hsic_info *ch = NULL;
+
+	if (id < 0 || id >= NUM_HSIC_DEV) {
+		pr_err("diag: Invalid index %d in %s\n", id, __func__);
+		return -EINVAL;
+	}
+
+	ch = &diag_hsic[id];
+	if (!ch->enabled)
+		return -ENODEV;
+
+	if (!ch->opened) {
+		pr_debug("diag: HSIC channel %d is already closed\n", ch->id);
+		return -ENODEV;
+	}
+
+	spin_lock_irqsave(&ch->lock, flags);
+	ch->opened = 0;
+	spin_unlock_irqrestore(&ch->lock, flags);
+	diag_bridge_close(ch->id);
+	diagmem_exit(driver, ch->mempool);
+	diag_remote_dev_close(ch->dev_id);
+	return 0;
+}
+
+static void hsic_close_work_fn(struct work_struct *work)
+{
+	struct diag_hsic_info *ch = container_of(work, struct diag_hsic_info,
+						 close_work);
+	if (ch)
+		hsic_close(ch->id);
+}
+
+static void hsic_read_work_fn(struct work_struct *work)
 {
 	int err = 0;
-	int index = hsic_map[pdev_id].struct_idx;
-	int b_index = hsic_map[pdev_id].bridge_idx;
+	unsigned char *buf = NULL;
+	struct diag_hsic_info *ch = container_of(work, struct diag_hsic_info,
+						 read_work);
+	if (!ch || !ch->enabled || !ch->opened)
+		return;
 
-	if (!diag_bridge_dci || !diag_hsic_dci)
-		return -ENOMEM;
-
-	mutex_lock(&diag_bridge_dci[index].bridge_mutex);
-	if (!diag_hsic_dci[index].hsic_inited) {
-		diag_hsic_dci[index].data_buf = NULL;
-		if (diag_hsic_dci[index].data == NULL)
-			diag_hsic_dci[index].data =
-				kzalloc(DIAG_MDM_BUF_SIZE, GFP_KERNEL);
-		if (!diag_hsic_dci[index].data) {
-			mutex_unlock(&diag_bridge_dci[index].bridge_mutex);
-			return -ENOMEM;
+	do {
+		buf = diagmem_alloc(driver, DIAG_MDM_BUF_SIZE, ch->mempool);
+		if (!buf) {
+			err = -ENOMEM;
+			break;
 		}
-		diag_hsic_dci[index].id = index;
-		diagmem_init(driver, POOL_TYPE_MDM_DCI + index);
-		diagmem_init(driver, POOL_TYPE_MDM_DCI_WRITE + index);
-		INIT_WORK(&(diag_hsic_dci[index].diag_read_hsic_work),
-			  diag_read_hsic_dci_work_fn);
-		INIT_WORK(&(diag_hsic_dci[index].diag_process_hsic_work),
-			  diag_process_hsic_work_fn);
-		diag_hsic_dci[index].hsic_inited = 1;
-	}
-	if (!diag_hsic_dci[index].hsic_device_opened) {
-		hsic_diag_dci_bridge_ops[index].ctxt =
-			(void *)(int)(index);
-		err = diag_bridge_open(b_index,
-				       &hsic_diag_dci_bridge_ops[index]);
+
+		err = diag_bridge_read(ch->id, buf, DIAG_MDM_BUF_SIZE);
 		if (err) {
-			pr_err("diag: HSIC channel open error: %d\n", err);
-		} else {
-			pr_debug("diag: opened DCI HSIC channel at index %d\n",
-								index);
-			diag_hsic_dci[index].hsic_device_opened = 1;
-			diag_hsic_dci[index].hsic_ch = 1;
-			queue_work(diag_bridge_dci[index].wq,
-				   &diag_hsic_dci[index].diag_read_hsic_work);
-			diag_send_dci_log_mask_remote(index + 1);
-			diag_send_dci_event_mask_remote(index + 1);
+			diagmem_free(driver, buf, ch->mempool);
+			pr_err_ratelimited("diag: Unable to read from HSIC channel %d, err: %d\n",
+					   ch->id, err);
+			break;
 		}
-	} else {
-		pr_debug("diag: HSIC DCI channel already open\n");
-		queue_work(diag_bridge_dci[index].wq,
-			   &diag_hsic_dci[index].diag_read_hsic_work);
-		diag_send_dci_log_mask_remote(index + 1);
-		diag_send_dci_event_mask_remote(index + 1);
-	}
-	diag_hsic_dci[index].hsic_device_enabled = 1;
-	mutex_unlock(&diag_bridge_dci[index].bridge_mutex);
-	return err;
+	} while (buf);
+
+	/* Read from the HSIC channel continously if the channel is present */
+	if (!err)
+		queue_work(ch->hsic_wq, &ch->read_work);
 }
 
 static int diag_hsic_probe(struct platform_device *pdev)
 {
-	int err = 0;
+	unsigned long flags;
+	struct diag_hsic_info *ch = NULL;
 
-	/*
-	 * pdev->Id will indicate which HSIC is working. 0 stands for HSIC
-	 *  or CP1 1 indicates HS-USB or CP2
-	 */
-	pr_debug("diag: in %s, ch = %d\n", __func__, pdev->id);
-	if (pdev->id >= MAX_HSIC_CH) {
-		pr_alert("diag: No support for HSIC device, %d\n", pdev->id);
+	if (!pdev)
+		return -EIO;
+
+	pr_debug("diag: hsic probe pdev: %d\n", pdev->id);
+	if (pdev->id >= NUM_HSIC_DEV) {
+		pr_err("diag: No support for HSIC device %d\n", pdev->id);
 		return -EIO;
 	}
 
-	if (hsic_map[pdev->id].type == HSIC_DATA_TYPE)
-		err = diag_hsic_probe_data(pdev->id);
-	else
-		err = diag_hsic_probe_dci(pdev->id);
-
-	return err;
+	ch = &diag_hsic[pdev->id];
+	if (!ch->enabled) {
+		spin_lock_irqsave(&ch->lock, flags);
+		ch->enabled = 1;
+		spin_unlock_irqrestore(&ch->lock, flags);
+	}
+	queue_work(ch->hsic_wq, &(ch->open_work));
+	return 0;
 }
 
 static int diag_hsic_remove(struct platform_device *pdev)
 {
-	int index = hsic_map[pdev->id].struct_idx;
+	struct diag_hsic_info *ch = NULL;
 
-	pr_debug("diag: %s called, pdev_id %d\n", __func__, pdev->id);
+	if (!pdev)
+		return -EIO;
 
-	if (hsic_map[pdev->id].type == HSIC_DATA_TYPE) {
-		if (diag_hsic[index].hsic_device_enabled) {
-			mutex_lock(&diag_bridge[index].bridge_mutex);
-			diag_hsic_close(index);
-			diag_hsic[index].hsic_device_enabled = 0;
-			mutex_unlock(&diag_bridge[index].bridge_mutex);
-		}
-	} else {
-		if (diag_hsic_dci[index].hsic_device_enabled) {
-			mutex_lock(&diag_bridge_dci[index].bridge_mutex);
-			diag_hsic_dci_close(index);
-			diag_hsic_dci[index].hsic_device_enabled = 0;
-			mutex_unlock(&diag_bridge_dci[index].bridge_mutex);
-		}
+	pr_debug("diag: hsic close pdev: %d\n", pdev->id);
+	if (pdev->id >= NUM_HSIC_DEV) {
+		pr_err("diag: No support for HSIC device %d\n", pdev->id);
+		return -EIO;
 	}
 
+	ch = &diag_hsic[pdev->id];
+	queue_work(ch->hsic_wq, &(ch->close_work));
 	return 0;
 }
 
@@ -719,7 +322,7 @@ static const struct dev_pm_ops diagfwd_hsic_dev_pm_ops = {
 	.runtime_resume = diagfwd_hsic_runtime_resume,
 };
 
-struct platform_driver msm_hsic_ch_driver = {
+static struct platform_driver msm_hsic_ch_driver = {
 	.probe = diag_hsic_probe,
 	.remove = diag_hsic_remove,
 	.driver = {
@@ -728,3 +331,123 @@ struct platform_driver msm_hsic_ch_driver = {
 		   .pm   = &diagfwd_hsic_dev_pm_ops,
 		   },
 };
+
+static int hsic_queue_read(int id)
+{
+	if (id < 0 || id >= NUM_HSIC_DEV) {
+		pr_err_ratelimited("diag: In %s, invalid index %d\n",
+				   __func__, id);
+		return -EINVAL;
+	}
+	queue_work(diag_hsic[id].hsic_wq, &(diag_hsic[id].read_work));
+	return 0;
+}
+
+static int hsic_write(int id, unsigned char *buf, int len, int ctxt)
+{
+	int err = 0;
+	struct diag_hsic_info *ch = NULL;
+
+	if (id < 0 || id >= NUM_HSIC_DEV) {
+		pr_err_ratelimited("diag: In %s, invalid index %d\n",
+				   __func__, id);
+		return -EINVAL;
+	}
+	if (!buf || len <= 0) {
+		pr_err_ratelimited("diag: In %s, ch %d, invalid buf %p len %d\n",
+				   __func__, id, buf, len);
+		return -EINVAL;
+	}
+
+	ch = &diag_hsic[id];
+	if (!ch->opened || !ch->enabled) {
+		pr_debug_ratelimited("diag: In %s, ch %d is disabled. opened %d enabled: %d\n",
+				     __func__, id, ch->opened, ch->enabled);
+		return -EIO;
+	}
+
+	err = diag_bridge_write(ch->id, buf, len);
+	if (err) {
+		pr_err_ratelimited("diag: cannot write to HSIC ch %d, err: %d\n",
+				   ch->id, err);
+	}
+	return err;
+}
+
+static int hsic_fwd_complete(int id, unsigned char *buf, int len, int ctxt)
+{
+	if (id < 0 || id >= NUM_HSIC_DEV) {
+		pr_err_ratelimited("diag: In %s, invalid index %d\n",
+				   __func__, id);
+		return -EINVAL;
+	}
+	if (!buf)
+		return -EIO;
+	diagmem_free(driver, buf, diag_hsic[id].mempool);
+	queue_work(diag_hsic[id].hsic_wq, &(diag_hsic[id].read_work));
+	return 0;
+}
+
+static struct diag_remote_dev_ops diag_hsic_fwd_ops = {
+	.open = hsic_open,
+	.close = hsic_close,
+	.queue_read = hsic_queue_read,
+	.write = hsic_write,
+	.fwd_complete = hsic_fwd_complete,
+};
+
+int diag_hsic_init()
+{
+	int i;
+	int err = 0;
+	struct diag_hsic_info *ch = NULL;
+	char wq_name[DIAG_HSIC_NAME_SZ + DIAG_HSIC_STRING_SZ];
+
+	for (i = 0; i < NUM_HSIC_DEV; i++) {
+		ch = &diag_hsic[i];
+		spin_lock_init(&ch->lock);
+		INIT_WORK(&(ch->read_work), hsic_read_work_fn);
+		INIT_WORK(&(ch->open_work), hsic_open_work_fn);
+		INIT_WORK(&(ch->close_work), hsic_close_work_fn);
+		strlcpy(wq_name, "DIAG_HSIC_", DIAG_HSIC_STRING_SZ);
+		strlcat(wq_name, ch->name, sizeof(ch->name));
+		ch->hsic_wq = create_singlethread_workqueue(wq_name);
+		if (!ch->hsic_wq)
+			goto fail;
+		err = diagfwd_bridge_register(ch->dev_id, ch->id,
+					      &diag_hsic_fwd_ops);
+		if (err) {
+			pr_err("diag: Unable to register HSIC channel %d with bridge, err: %d\n",
+			       i, err);
+			goto fail;
+		}
+	}
+
+	err = platform_driver_register(&msm_hsic_ch_driver);
+	if (err) {
+		pr_err("diag: could not register HSIC device, err: %d\n", err);
+		goto fail;
+	}
+
+	return 0;
+fail:
+	diag_hsic_exit();
+	return -ENOMEM;
+}
+
+void diag_hsic_exit()
+{
+	int i;
+	struct diag_hsic_info *ch = NULL;
+
+	for (i = 0; i < NUM_HSIC_DEV; i++) {
+		ch = &diag_hsic[i];
+		ch->enabled = 0;
+		ch->opened = 0;
+		ch->suspended = 0;
+		if (ch->hsic_wq)
+			destroy_workqueue(ch->hsic_wq);
+	}
+	platform_driver_unregister(&msm_hsic_ch_driver);
+}
+

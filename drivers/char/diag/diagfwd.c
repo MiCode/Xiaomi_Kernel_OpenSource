@@ -34,11 +34,9 @@
 #include "diagchar.h"
 #include "diagfwd.h"
 #include "diagfwd_cntl.h"
-#include "diagfwd_hsic.h"
 #include "diagchar_hdlc.h"
 #include "diag_dci.h"
 #include "diag_masks.h"
-#include "diagfwd_bridge.h"
 #include "diag_usb.h"
 
 #define STM_CMD_VERSION_OFFSET	4
@@ -785,121 +783,10 @@ void encode_rsp_and_send(int buf_length)
 
 int diag_device_write(void *buf, int len, int data_type, int ctxt)
 {
-	int i, err = 0, index;
-	index = 0;
+	if ((data_type < MODEM_DATA) || (data_type > APPS_DATA))
+		return -EINVAL;
 
-	if (driver->logging_mode == MEMORY_DEVICE_MODE) {
-		if (data_type == APPS_DATA) {
-			for (i = 0; i < driver->buf_tbl_size; i++)
-				if (driver->buf_tbl[i].length == 0) {
-					driver->buf_tbl[i].buf = buf;
-					driver->buf_tbl[i].length = len;
-#ifdef DIAG_DEBUG
-					pr_debug("diag: ENQUEUE buf ptr and length is %p , %d\n",
-						 driver->buf_tbl[i].buf,
-						 driver->buf_tbl[i].length);
-#endif
-					break;
-				}
-		}
-
-#ifdef CONFIG_DIAGFWD_BRIDGE_CODE
-		else if (data_type == HSIC_DATA || data_type == HSIC_2_DATA) {
-			unsigned long flags;
-			int foundIndex = -1;
-			index = data_type - HSIC_DATA;
-			spin_lock_irqsave(&diag_hsic[index].hsic_spinlock,
-									flags);
-			for (i = 0; i < diag_hsic[index].poolsize_hsic_write;
-									i++) {
-				if (diag_hsic[index].hsic_buf_tbl[i].length
-									== 0) {
-					diag_hsic[index].hsic_buf_tbl[i].buf
-									= buf;
-					diag_hsic[index].hsic_buf_tbl[i].length
-									= len;
-					diag_hsic[index].
-						num_hsic_buf_tbl_entries++;
-					foundIndex = i;
-					break;
-				}
-			}
-			spin_unlock_irqrestore(&diag_hsic[index].hsic_spinlock,
-									flags);
-			if (foundIndex == -1)
-				err = -1;
-			else
-				pr_debug("diag: ENQUEUE HSIC buf ptr and length is %p , %d, ch %d\n",
-					 buf, len, index);
-		}
-#endif
-		for (i = 0; i < driver->num_clients; i++)
-			if (driver->client_map[i].pid ==
-						 driver->logging_process_id)
-				break;
-		if (i < driver->num_clients) {
-			pr_debug("diag: wake up logging process\n");
-			driver->data_ready[i] |= USER_SPACE_DATA_TYPE;
-			wake_up_interruptible(&driver->wait_q);
-		} else
-			return -EINVAL;
-	} else if (driver->logging_mode == NO_LOGGING_MODE) {
-		if ((data_type >= MODEM_DATA) && (data_type <= SENSORS_DATA)) {
-			driver->smd_data[data_type].in_busy_1 = 0;
-			driver->smd_data[data_type].in_busy_2 = 0;
-			queue_work(driver->smd_data[data_type].wq,
-				&(driver->smd_data[data_type].
-							diag_read_smd_work));
-			if (data_type == MODEM_DATA &&
-				driver->separate_cmdrsp[data_type]) {
-				driver->smd_cmd[data_type].in_busy_1 = 0;
-				driver->smd_cmd[data_type].in_busy_2 = 0;
-				queue_work(driver->diag_wq,
-					&(driver->smd_cmd[data_type].
-							diag_read_smd_work));
-			}
-		}
-
-#ifdef CONFIG_DIAGFWD_BRIDGE_CODE
-		else if (data_type == HSIC_DATA || data_type == HSIC_2_DATA) {
-			index = data_type - HSIC_DATA;
-			if (diag_hsic[index].hsic_ch)
-				queue_work(diag_bridge[index].wq,
-					   &(diag_hsic[index].
-					     diag_read_hsic_work));
-		}
-#endif
-		err = -1;
-	}
-#ifdef CONFIG_DIAG_OVER_USB
-	else if (driver->logging_mode == USB_MODE) {
-		if ((data_type >= MODEM_DATA) &&
-		    (data_type <= APPS_DATA)) {
-			err = diag_usb_write(DIAG_USB_LOCAL, buf, len, ctxt);
-		}
-#ifdef CONFIG_DIAGFWD_BRIDGE_CODE
-		else if (data_type == HSIC_DATA || data_type == HSIC_2_DATA) {
-			index = data_type - HSIC_DATA;
-			if (diag_hsic[index].hsic_device_enabled) {
-				err = diag_usb_write(DIAG_USB_MDM + index, buf,
-						     len, ctxt);
-			} else {
-				pr_err("diag: Incorrect HSIC data while USB write\n");
-				err = -1;
-			}
-		} else if (data_type == SMUX_DATA) {
-			pr_debug("diag: writing SMUX data\n");
-			err = diag_usb_write(DIAG_USB_QSC, buf, len, ctxt);
-		}
-#endif
-		if (err) {
-			pr_err_ratelimited("diag: failed to write data_type: %d to USB, err: %d\n",
-					   data_type, err);
-		}
-		APPEND_DEBUG('d');
-	}
-#endif /* DIAG OVER USB */
-    return err;
+	return diag_usb_write(DIAG_USB_LOCAL, buf, len, ctxt);
 }
 
 void diag_update_pkt_buffer(unsigned char *buf, int type)
@@ -2150,6 +2037,7 @@ int diagfwd_init(void)
 	driver->encoded_rsp_len = 0;
 	driver->rsp_buf_busy = 0;
 	spin_lock_init(&driver->rsp_buf_busy_lock);
+	driver->user_space_data_busy = 0;
 
 	for (i = 0; i < NUM_SMD_CONTROL_CHANNELS; i++) {
 		driver->separate_cmdrsp[i] = 0;

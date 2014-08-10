@@ -16,78 +16,32 @@
 #include <linux/usb/usbdiag.h>
 #endif
 #include <linux/usb/diag_bridge.h>
-#include "diagchar.h"
 
-#define N_MDM_WRITE	8
-#define N_MDM_READ	1
-#define NUM_HSIC_BUF_TBL_ENTRIES N_MDM_WRITE
-#define REOPEN_HSIC 1
-#define DONT_REOPEN_HSIC 0
-#define HSIC_DATA_TYPE		0
-#define HSIC_DCI_TYPE		1
+#define HSIC_1			0
+#define HSIC_2			1
+#define NUM_HSIC_DEV		2
 
-int diagfwd_reset_hsic(void);
-extern struct diag_bridge_ops hsic_diag_bridge_ops[MAX_HSIC_DATA_CH];
-extern struct diag_bridge_ops hsic_diag_dci_bridge_ops[MAX_HSIC_DCI_CH];
-extern struct platform_driver msm_hsic_ch_driver;
-void diag_hsic_close(int);
-void diag_hsic_dci_close(int);
+#define DIAG_HSIC_NAME_SZ	24
 
-/*
- * Structure to hold the HSIC channel mapping information.
- * @dev_id: platform device ID
- * @type: HSIC type - HSIC_DATA_TYPE or HSIC_DCI_TYPE
- * @struct_idx: Index to the corresponding HSIC structure
- * @bridge_idx: Index to the corresponding Bridge Entry
- */
-struct diag_hsic_bridge_map {
-	uint8_t dev_id;
-	uint8_t type;
-	uint8_t struct_idx;
-	uint8_t bridge_idx;
-};
-
-extern int hsic_data_bridge_map[MAX_HSIC_DATA_CH];
-extern int hsic_dci_bridge_map[MAX_HSIC_DCI_CH];
-
-/*
- * Diag-HSIC structure, n HSIC bridges can be used at same time
- * This structure is used for HSIC data channels.
- */
-struct diag_hsic_dev {
+struct diag_hsic_info {
 	int id;
-	int hsic_ch;
-	int hsic_inited;
-	int hsic_device_enabled;
-	int hsic_device_opened;
-	int hsic_suspend;
-	int hsic_data_requested;
-	int in_busy_hsic_read_on_device;
-	int in_busy_hsic_write;
-	struct work_struct diag_read_hsic_work;
-	unsigned int poolsize_hsic_write;
-	int num_hsic_buf_tbl_entries;
-	struct diag_write_device *hsic_buf_tbl;
-	spinlock_t hsic_spinlock;
+	int dev_id;
+	int mempool;
+	uint8_t opened;
+	uint8_t enabled;
+	uint8_t suspended;
+	char name[DIAG_HSIC_NAME_SZ];
+	struct work_struct read_work;
+	struct work_struct open_work;
+	struct work_struct close_work;
+	struct workqueue_struct *hsic_wq;
+	spinlock_t lock;
 };
 
-/*
- * Diag-HSIC DCI structure, n HSIC bridges can be used at same time
- * This structure is used for HSIC DCI channels.
- */
-struct diag_hsic_dci_dev {
-	int id;
-	int hsic_ch;
-	int hsic_inited;
-	int hsic_device_enabled;
-	int hsic_device_opened;
-	int hsic_suspend;
-	int in_busy_hsic_write;
-	struct work_struct diag_read_hsic_work;
-	unsigned char *data;
-	unsigned char *data_buf;
-	uint32_t data_len;
-	struct work_struct diag_process_hsic_work;
-};
+extern struct diag_hsic_info diag_hsic[NUM_HSIC_DEV];
+
+int diag_hsic_init(void);
+void diag_hsic_exit(void);
 
 #endif
+
