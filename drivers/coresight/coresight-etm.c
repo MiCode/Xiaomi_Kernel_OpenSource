@@ -151,8 +151,11 @@ do {									\
 #define ETMPDSR				(0x314)
 
 #define ETM_MAX_ADDR_CMP		(16)
+#define ETM_MAX_DATA_CMP		(8)
 #define ETM_MAX_CNTR			(4)
 #define ETM_MAX_CTXID_CMP		(3)
+#define ETM_MAX_EXT_INP			(4)
+#define ETM_MAX_EXT_OUTP		(4)
 
 #define ETM_MODE_EXCLUDE		BIT(0)
 #define ETM_MODE_CYCACC			BIT(1)
@@ -1978,11 +1981,42 @@ static void etm_init_arch_data(void *info)
 
 	etmccr = etm_readl(drvdata, ETMCCR);
 	drvdata->nr_addr_cmp = BMVAL(etmccr, 0, 3) * 2;
+	if (drvdata->nr_addr_cmp > ETM_MAX_ADDR_CMP) {
+		dev_err(drvdata->dev,
+			"nr_addr_cmp out of bounds %u\n", drvdata->nr_addr_cmp);
+		drvdata->nr_addr_cmp = ETM_MAX_ADDR_CMP;
+	}
 	drvdata->nr_cntr = BMVAL(etmccr, 13, 15);
+	if (drvdata->nr_cntr > ETM_MAX_CNTR) {
+		dev_err(drvdata->dev,
+			"nr_cntr out of bounds %u\n", drvdata->nr_cntr);
+		drvdata->nr_cntr = ETM_MAX_CNTR;
+	}
 	drvdata->nr_ext_inp = BMVAL(etmccr, 17, 19);
+	if (drvdata->nr_ext_inp > ETM_MAX_EXT_INP) {
+		dev_err(drvdata->dev,
+			"nr_ext_inp out of bounds %u\n", drvdata->nr_ext_inp);
+		drvdata->nr_ext_inp = ETM_MAX_EXT_INP;
+	}
 	drvdata->nr_ext_out = BMVAL(etmccr, 20, 22);
+	if (drvdata->nr_ext_out > ETM_MAX_EXT_OUTP) {
+		dev_err(drvdata->dev,
+			"nr_ext_out out of bounds %u\n", drvdata->nr_ext_out);
+		drvdata->nr_ext_out = ETM_MAX_EXT_OUTP;
+	}
 	drvdata->nr_ctxid_cmp = BMVAL(etmccr, 24, 25);
+	if (drvdata->nr_ctxid_cmp > ETM_MAX_CTXID_CMP) {
+		dev_err(drvdata->dev,
+			"nr_ctxid_cmp out of bounds %u\n",
+			drvdata->nr_ctxid_cmp);
+		drvdata->nr_ctxid_cmp = ETM_MAX_CTXID_CMP;
+	}
 	drvdata->nr_data_cmp = BMVAL(etmccr, 4, 7);
+	if (drvdata->nr_data_cmp > ETM_MAX_DATA_CMP) {
+		dev_err(drvdata->dev,
+			"nr_data_cmp out of bounds %u\n", drvdata->nr_data_cmp);
+		drvdata->nr_data_cmp = ETM_MAX_DATA_CMP;
+	}
 
 	if (etm_version_gte(drvdata->arch, ETM_ARCH_V1_0)) {
 		etmcr = etm_readl(drvdata, ETMCR);
