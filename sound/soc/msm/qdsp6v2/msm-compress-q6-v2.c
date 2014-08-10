@@ -40,10 +40,10 @@
 #include <sound/compress_params.h>
 #include <sound/compress_offload.h>
 #include <sound/compress_driver.h>
+#include <sound/msm-audio-effects-q6-v2.h>
 
 #include "msm-pcm-routing-v2.h"
 #include "audio_ocmem.h"
-#include "msm-audio-effects-q6-v2.h"
 #include "msm-dts-eagle.h"
 
 #define DSP_PP_BUFFERING_IN_MSEC	25

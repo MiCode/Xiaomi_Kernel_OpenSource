@@ -14,7 +14,7 @@
 #include <sound/apr_audio-v2.h>
 #include <sound/q6asm-v2.h>
 #include <sound/compress_params.h>
-#include "msm-audio-effects-q6-v2.h"
+#include <sound/msm-audio-effects-q6-v2.h>
 
 int msm_audio_effects_virtualizer_handler(struct audio_client *ac,
 				struct virtualizer_params *virtualizer,
@@ -744,4 +744,145 @@ int msm_audio_effects_popless_eq_handler(struct audio_client *ac,
 invalid_config:
 	kfree(params);
 	return rc;
+}
+
+static int __msm_audio_effects_volume_handler(struct audio_client *ac,
+					      struct soft_volume_params *vol,
+					      long *values,
+					      int instance)
+{
+	int devices;
+	int num_commands;
+	char *params;
+	int *updt_params, i;
+	uint32_t params_length = (MAX_INBAND_PARAM_SZ);
+	int rc = 0;
+
+	pr_debug("%s: instance: %d\n", __func__, instance);
+	if (!values) {
+		pr_err("%s: set audio effects failed, no valid data\n",
+			__func__);
+		return -EINVAL;
+	}
+	if (!ac) {
+		pr_err("%s: cannot set audio effects as audio client is NULL\n",
+			__func__);
+		return -EINVAL;
+	}
+	params = kzalloc(params_length, GFP_KERNEL);
+	if (!params) {
+		pr_err("%s, params memory alloc failed\n", __func__);
+		return -ENOMEM;
+	}
+	devices = *values++;
+	num_commands = *values++;
+	updt_params = (int *)params;
+	params_length = 0;
+	for (i = 0; i < num_commands; i++) {
+		uint32_t command_id = *values++;
+		uint32_t command_config_state = *values++;
+		uint32_t index_offset = *values++;
+		uint32_t length = *values++;
+		switch (command_id) {
+		case SOFT_VOLUME_GAIN_2CH:
+		case SOFT_VOLUME2_GAIN_2CH:
+			if (length != 2 || index_offset != 0) {
+				pr_err("VOLUME_GAIN_2CH/VOLUME2_GAIN_2CH:invalid params\n");
+				rc = -EINVAL;
+				goto invalid_config;
+			}
+			vol->left_gain = *values++;
+			vol->right_gain = *values++;
+			vol->master_gain = 0x2000;
+			if (command_config_state == CONFIG_SET) {
+				if (instance == SOFT_VOLUME_INSTANCE_2)
+					*updt_params++ =
+							ASM_MODULE_ID_VOL_CTRL2;
+				else
+					*updt_params++ = ASM_MODULE_ID_VOL_CTRL;
+				*updt_params++ =
+					ASM_PARAM_ID_VOL_CTRL_LR_CHANNEL_GAIN;
+				*updt_params++ = SOFT_VOLUME_GAIN_2CH_PARAM_SZ;
+				*updt_params++ = (vol->left_gain << 16) |
+						 vol->right_gain;
+				params_length += COMMAND_PAYLOAD_SZ +
+						SOFT_VOLUME_GAIN_2CH_PARAM_SZ;
+				if (instance == SOFT_VOLUME_INSTANCE_2)
+					*updt_params++ =
+							ASM_MODULE_ID_VOL_CTRL2;
+				else
+					*updt_params++ = ASM_MODULE_ID_VOL_CTRL;
+				*updt_params++ =
+					ASM_PARAM_ID_VOL_CTRL_MASTER_GAIN;
+				*updt_params++ =
+					SOFT_VOLUME_GAIN_MASTER_PARAM_SZ;
+				*updt_params++ = vol->master_gain;
+				params_length += COMMAND_PAYLOAD_SZ +
+					SOFT_VOLUME_GAIN_MASTER_PARAM_SZ;
+			}
+			break;
+		case SOFT_VOLUME_GAIN_MASTER:
+		case SOFT_VOLUME2_GAIN_MASTER:
+			if (length != 1 || index_offset != 0) {
+				pr_err("VOLUME_GAIN_MASTER/VOLUME2_GAIN_MASTER:invalid params\n");
+				rc = -EINVAL;
+				goto invalid_config;
+			}
+			vol->left_gain = 0x2000;
+			vol->right_gain = 0x2000;
+			vol->master_gain = *values++;
+			if (command_config_state == CONFIG_SET) {
+				if (instance == SOFT_VOLUME_INSTANCE_2)
+					*updt_params++ =
+							ASM_MODULE_ID_VOL_CTRL2;
+				else
+					*updt_params++ = ASM_MODULE_ID_VOL_CTRL;
+				*updt_params++ =
+					ASM_PARAM_ID_VOL_CTRL_LR_CHANNEL_GAIN;
+				*updt_params++ = SOFT_VOLUME_GAIN_2CH_PARAM_SZ;
+				*updt_params++ = (vol->left_gain << 16) |
+						 vol->right_gain;
+				params_length += COMMAND_PAYLOAD_SZ +
+						SOFT_VOLUME_GAIN_2CH_PARAM_SZ;
+				if (instance == SOFT_VOLUME_INSTANCE_2)
+					*updt_params++ =
+							ASM_MODULE_ID_VOL_CTRL2;
+				else
+					*updt_params++ = ASM_MODULE_ID_VOL_CTRL;
+				*updt_params++ =
+					ASM_PARAM_ID_VOL_CTRL_MASTER_GAIN;
+				*updt_params++ =
+					SOFT_VOLUME_GAIN_MASTER_PARAM_SZ;
+				*updt_params++ = vol->master_gain;
+				params_length += COMMAND_PAYLOAD_SZ +
+					SOFT_VOLUME_GAIN_MASTER_PARAM_SZ;
+			}
+			break;
+		default:
+			pr_err("%s: Invalid command id: %d to set config\n",
+				__func__, command_id);
+			break;
+		}
+	}
+	if (params_length)
+		q6asm_send_audio_effects_params(ac, params,
+						params_length);
+invalid_config:
+	kfree(params);
+	return rc;
+}
+
+int msm_audio_effects_volume_handler(struct audio_client *ac,
+				     struct soft_volume_params *vol,
+				     long *values)
+{
+	return __msm_audio_effects_volume_handler(ac, vol, values,
+						  SOFT_VOLUME_INSTANCE_1);
+}
+
+int msm_audio_effects_volume_handler_v2(struct audio_client *ac,
+					struct soft_volume_params *vol,
+					long *values, int instance)
+{
+	return __msm_audio_effects_volume_handler(ac, vol, values, instance);
 }

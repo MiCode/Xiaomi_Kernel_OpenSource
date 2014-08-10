@@ -118,6 +118,9 @@ enum {
 	SOFT_VOLUME_CURVE_LOG,
 };
 
+#define SOFT_VOLUME_INSTANCE_1	1
+#define SOFT_VOLUME_INSTANCE_2	2
+
 typedef void (*app_cb)(uint32_t opcode, uint32_t token,
 			uint32_t *payload, void *priv);
 
@@ -183,6 +186,7 @@ struct audio_client {
 	int                    perf_mode;
 	int					   stream_id;
 	struct device *dev;
+	int		       topology;
 	/* audio cache operations fptr*/
 	int (*fptr_cache_ops)(struct audio_buffer *abuff, int cache_op);
 	atomic_t               unmap_cb_success;
@@ -228,6 +232,11 @@ int q6asm_open_read_write(struct audio_client *ac,
 			uint32_t rd_format,
 			uint32_t wr_format);
 
+int q6asm_open_read_write_v2(struct audio_client *ac, uint32_t rd_format,
+			     uint32_t wr_format, bool is_meta_data_mode,
+			     uint32_t bits_per_sample, bool overwrite_topology,
+			     int topology);
+
 int q6asm_open_loopback_v2(struct audio_client *ac,
 			   uint16_t bits_per_sample);
 
@@ -243,6 +252,7 @@ int q6asm_async_read(struct audio_client *ac,
 					  struct audio_aio_read_param *param);
 
 int q6asm_read(struct audio_client *ac);
+int q6asm_read_v2(struct audio_client *ac, uint32_t len);
 int q6asm_read_nolock(struct audio_client *ac);
 
 int q6asm_memory_map(struct audio_client *ac, phys_addr_t buf_add,
@@ -379,11 +389,13 @@ int q6asm_equalizer(struct audio_client *ac, void *eq);
 /* Send Volume Command */
 int q6asm_set_volume(struct audio_client *ac, int volume);
 
+/* Send Volume Command */
+int q6asm_set_volume_v2(struct audio_client *ac, int volume, int instance);
+
 int q6asm_dts_eagle_set(struct audio_client *ac, int param_id, int size,
 			void *data);
 int q6asm_dts_eagle_get(struct audio_client *ac, int param_id,
 			int size, void *data);
-
 /* Set SoftPause Params */
 int q6asm_set_softpause(struct audio_client *ac,
 			struct asm_softpause_params *param);
@@ -391,6 +403,10 @@ int q6asm_set_softpause(struct audio_client *ac,
 /* Set Softvolume Params */
 int q6asm_set_softvolume(struct audio_client *ac,
 			struct asm_softvolume_params *param);
+
+/* Set Softvolume Params */
+int q6asm_set_softvolume_v2(struct audio_client *ac,
+			    struct asm_softvolume_params *param, int instance);
 
 /* Send left-right channel gain */
 int q6asm_set_lrgain(struct audio_client *ac, int left_gain, int right_gain);
