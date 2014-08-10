@@ -662,6 +662,7 @@
 
 /{
 	mtp_batterydata: qcom,battery-data {
+		qcom,batt-id-range-pct = <15>;
 		#include "batterydata-mtp-3020mah.dtsi"
 	};
 };
