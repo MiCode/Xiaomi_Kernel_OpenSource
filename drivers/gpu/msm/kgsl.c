@@ -2708,6 +2708,22 @@ static int match_file(const void *p, struct file *file, unsigned int fd)
 	return (p == file) ? (fd + 1) : 0;
 }
 
+static void _setup_cache_mode(struct kgsl_mem_entry *entry,
+		struct vm_area_struct *vma)
+{
+	unsigned int mode;
+	pgprot_t pgprot = vma->vm_page_prot;
+
+	if (pgprot == pgprot_noncached(pgprot))
+		mode = KGSL_CACHEMODE_UNCACHED;
+	else if (pgprot == pgprot_writecombine(pgprot))
+		mode = KGSL_CACHEMODE_WRITECOMBINE;
+	else
+		mode = KGSL_CACHEMODE_WRITEBACK;
+
+	entry->memdesc.flags |= (mode << KGSL_CACHEMODE_SHIFT);
+}
+
 static int kgsl_setup_useraddr(struct kgsl_mem_entry *entry,
 			      struct kgsl_pagetable *pagetable,
 			      void *data,
@@ -2753,6 +2769,13 @@ static int kgsl_setup_useraddr(struct kgsl_mem_entry *entry,
 		int ret = kgsl_setup_dma_buf(entry, pagetable, device, dmabuf);
 		if (ret)
 			dma_buf_put(dmabuf);
+		else {
+			/* Match the cache settings of the vma region */
+			_setup_cache_mode(entry, vma);
+			/* Set the useraddr to the incoming hostptr */
+			entry->memdesc.useraddr = param->hostptr;
+		}
+
 		return ret;
 	}
 
