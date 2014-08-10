@@ -1575,10 +1575,6 @@
 		};
 	};
 
-	qcom,bcl {
-		compatible = "qcom,bcl";
-	};
-
 	qcom,memshare {
 		compatible = "qcom,memshare";
 
