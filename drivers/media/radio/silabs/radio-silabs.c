@@ -1408,6 +1408,8 @@ static void silabs_af_tune(struct work_struct *work)
 	}
 
 err_tune_fail:
+	/* Unmute */
+	retval = set_hard_mute(radio, false);
 	/*
 	 * At this point, we are tuned to either original freq or AF with >=
 	 * AF rssi threshold
