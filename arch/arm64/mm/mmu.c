@@ -71,6 +71,99 @@ static struct cachepolicy cache_policies[] __initdata = {
 	}
 };
 
+#ifdef CONFIG_STRICT_MEMORY_RWX
+static struct {
+	pmd_t *pmd;
+	pmd_t saved_pmd;
+	bool made_writeable;
+} mem_unprotect;
+
+static DEFINE_SPINLOCK(mem_text_writeable_lock);
+
+void mem_text_writeable_spinlock(unsigned long *flags)
+{
+	spin_lock_irqsave(&mem_text_writeable_lock, *flags);
+}
+
+void mem_text_writeable_spinunlock(unsigned long *flags)
+{
+	spin_unlock_irqrestore(&mem_text_writeable_lock, *flags);
+}
+
+/*
+ * mem_text_address_writeable() and mem_text_address_restore()
+ * should be called as a pair. They are used to make the
+ * specified address in the kernel text section temporarily writeable
+ * when it has been marked read-only by STRICT_MEMORY_RWX.
+ * Used by kprobes and other debugging tools to set breakpoints etc.
+ * mem_text_address_writeable() is invoked before writing.
+ * After the write, mem_text_address_restore() must be called
+ * to restore the original state.
+ * This is only effective when used on the kernel text section
+ * marked as PMD_SECT_RDONLY by get_pmd_prot_sect_kernel()
+ *
+ * They must each be called with mem_text_writeable_lock locked
+ * by the caller, with no unlocking between the calls.
+ * The caller should release mem_text_writeable_lock immediately
+ * after the call to mem_text_address_restore().
+ * Only the write and associated cache operations should be performed
+ * between the calls.
+ */
+
+/* this function must be called with mem_text_writeable_lock held */
+void mem_text_address_writeable(u64 addr)
+{
+	pgd_t *pgd = pgd_offset_k(addr);
+	pud_t *pud = pud_offset(pgd, addr);
+	u64 addr_aligned;
+
+	mem_unprotect.made_writeable = 0;
+
+	if ((addr < (u64)_stext) || (addr >= (u64)__start_rodata))
+		return;
+
+	mem_unprotect.pmd = pmd_offset(pud, addr);
+	addr_aligned = addr & PAGE_MASK;
+	mem_unprotect.saved_pmd = *mem_unprotect.pmd;
+	if ((mem_unprotect.saved_pmd & PMD_TYPE_MASK) != PMD_TYPE_SECT)
+		return;
+
+	set_pmd(mem_unprotect.pmd,
+		__pmd(__pa(addr_aligned) | prot_sect_kernel));
+	flush_tlb_kernel_range(addr, addr + sizeof(u32));
+
+	mem_unprotect.made_writeable = 1;
+}
+
+/* this function must be called with mem_text_writeable_lock held */
+void mem_text_address_restore(u64 addr)
+{
+	if (mem_unprotect.made_writeable) {
+		*mem_unprotect.pmd = mem_unprotect.saved_pmd;
+		flush_tlb_kernel_range(addr, addr + sizeof(u32));
+	}
+}
+#else
+static inline void mem_text_writeable_spinlock(unsigned long *flags) {};
+static inline void mem_text_address_writeable(u64 addr) {};
+static inline void mem_text_address_restore(u64 addr) {};
+static inline void mem_text_writeable_spinunlock(unsigned long *flags) {};
+#endif
+
+void mem_text_write_kernel_word(u32 *addr, u32 word)
+{
+	unsigned long flags;
+
+	mem_text_writeable_spinlock(&flags);
+	mem_text_address_writeable((u64)addr);
+	*addr = word;
+	flush_icache_range((unsigned long)addr,
+			   ((unsigned long)addr + sizeof(long)));
+	mem_text_address_restore((u64)addr);
+	mem_text_writeable_spinunlock(&flags);
+}
+EXPORT_SYMBOL(mem_text_write_kernel_word);
+
 /*
  * These are useful for identifying cache coherency problems by allowing the
  * cache or the cache and writebuffer to be turned off. It changes the Normal
