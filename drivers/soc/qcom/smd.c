@@ -2121,7 +2121,8 @@ int smd_write_start(smd_channel_t *ch, int len)
 }
 EXPORT_SYMBOL(smd_write_start);
 
-int smd_write_segment(smd_channel_t *ch, void *data, int len, int user_buf)
+int smd_write_segment(smd_channel_t *ch, const void *data, int len,
+		      int user_buf)
 {
 	int bytes_written;
 
