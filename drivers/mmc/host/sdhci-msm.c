@@ -56,6 +56,8 @@ struct sdhci_msm_host {
 	struct clk *bus_clk;	/* SDHC bus voter clock */
 	struct mmc_host *mmc;
 	struct sdhci_pltfm_data sdhci_msm_pdata;
+	struct regulator *vdd;
+	struct regulator *vdd_io;
 };
 
 /* Platform specific tuning */
@@ -486,16 +488,66 @@ static int sdhci_msm_probe(struct platform_device *pdev)
 
 	sdhci_get_of_property(pdev);
 
+	msm_host->vdd = devm_regulator_get(&pdev->dev, "vdd");
+	if (IS_ERR(msm_host->vdd)) {
+		ret = PTR_ERR(msm_host->vdd);
+		dev_err(&pdev->dev, "VDD regulator setup failed (%d)\n", ret);
+		goto pltfm_free;
+	}
+
+	msm_host->vdd_io = devm_regulator_get(&pdev->dev, "vdd-io");
+	if (IS_ERR(msm_host->vdd_io)) {
+		ret = PTR_ERR(msm_host->vdd_io);
+		dev_err(&pdev->dev, "VDD-IO regulator setup failed (%d)\n", ret);
+		goto pltfm_free;
+	}
+
+	ret = regulator_set_optimum_mode(msm_host->vdd, 500000);
+	if (ret < 0) {
+		dev_err(&pdev->dev, "VDD setting current load failed (%d)\n", ret);
+		goto pltfm_free;
+	}
+
+	ret = regulator_set_optimum_mode(msm_host->vdd_io, 154000);
+	if (ret < 0) {
+		dev_err(&pdev->dev, "VDD-IO setting current load failed (%d)\n", ret);
+		goto pltfm_free;
+	}
+
+	ret = regulator_set_voltage(msm_host->vdd, 2950000, 2950000);
+	if (ret) {
+		dev_err(&pdev->dev, "VDD setting voltage failed (%d)\n", ret);
+		goto pltfm_free;
+	}
+
+	ret = regulator_set_voltage(msm_host->vdd_io, 1800000, 1800000);
+	if (ret) {
+		dev_err(&pdev->dev, "VDD-IO setting voltage failed (%d)\n", ret);
+		goto pltfm_free;
+	}
+
+	ret = regulator_enable(msm_host->vdd);
+	if (ret) {
+		dev_err(&pdev->dev, "VDD enabling regulator failed (%d)\n", ret);
+		goto pltfm_free;
+	}
+
+	ret = regulator_enable(msm_host->vdd_io);
+	if (ret) {
+		dev_err(&pdev->dev, "VDD-IO enabling regulator failed (%d)\n", ret);
+		goto reg_vdd_disable;
+	}
+
 	/* Setup SDCC bus voter clock. */
 	msm_host->bus_clk = devm_clk_get(&pdev->dev, "bus_clk");
 	if (!IS_ERR(msm_host->bus_clk)) {
 		/* Vote for max. clk rate for max. performance */
 		ret = clk_set_rate(msm_host->bus_clk, INT_MAX);
 		if (ret)
-			goto pltfm_free;
+			goto reg_vdd_io_disable;
 		ret = clk_prepare_enable(msm_host->bus_clk);
 		if (ret)
-			goto pltfm_free;
+			goto reg_vdd_io_disable;
 	}
 
 	/* Setup main peripheral bus clock */
@@ -573,6 +625,10 @@ pclk_disable:
 bus_clk_disable:
 	if (!IS_ERR(msm_host->bus_clk))
 		clk_disable_unprepare(msm_host->bus_clk);
+reg_vdd_io_disable:
+	regulator_disable(msm_host->vdd_io);
+reg_vdd_disable:
+	regulator_disable(msm_host->vdd);
 pltfm_free:
 	sdhci_pltfm_free(pdev);
 	return ret;
