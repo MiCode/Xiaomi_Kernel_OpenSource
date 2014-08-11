@@ -1180,10 +1180,6 @@ __read_mostly unsigned int sched_ravg_window = 10000000;
 /* Max window size (in ns) = 1s */
 #define MAX_SCHED_RAVG_WINDOW 1000000000
 
-#define WINDOW_STATS_USE_RECENT        0
-#define WINDOW_STATS_USE_MAX   1
-#define WINDOW_STATS_USE_AVG   2
-
 __read_mostly unsigned int sysctl_sched_window_stats_policy =
 	WINDOW_STATS_USE_AVG;
 
@@ -1688,9 +1684,7 @@ unsigned long sched_get_busy(int cpu)
 }
 
 /* Called with IRQs disabled */
-void reset_all_window_stats(u64 window_start, unsigned int window_size,
-				 int policy, int acct_wait_time,
-				 unsigned int ravg_hist_size)
+void reset_all_window_stats(u64 window_start, unsigned int window_size)
 {
 	int cpu;
 	u64 wallclock;
@@ -1732,14 +1726,9 @@ void reset_all_window_stats(u64 window_start, unsigned int window_size,
 		fixup_nr_big_small_task(cpu);
 	}
 
-	if (policy >= 0)
-		sched_window_stats_policy = policy;
-
-	if (acct_wait_time >= 0)
-		sched_account_wait_time = acct_wait_time;
-
-	if (ravg_hist_size > 0)
-		sched_ravg_hist_size = ravg_hist_size;
+	sched_window_stats_policy = sysctl_sched_window_stats_policy;
+	sched_account_wait_time = sysctl_sched_account_wait_time;
+	sched_ravg_hist_size = sysctl_sched_ravg_hist_size;
 
 	for_each_online_cpu(cpu) {
 		struct rq *rq = cpu_rq(cpu);
@@ -1780,7 +1769,7 @@ int sched_set_window(u64 window_start, unsigned int window_size)
 
 	BUG_ON(sched_clock() < ws);
 
-	reset_all_window_stats(ws, window_size, -1, -1, 0);
+	reset_all_window_stats(ws, window_size);
 
 	local_irq_restore(flags);
 
