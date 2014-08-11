@@ -161,6 +161,13 @@ struct msm_cpp_work_t {
 	struct cpp_device *cpp_dev;
 };
 
+struct msm_cpp_clock_settings_t {
+	long clock_rate;
+	uint64_t avg;
+	uint64_t inst;
+};
+
+
 struct cpp_device {
 	struct platform_device *pdev;
 	struct msm_sd_subdev msm_sd;
@@ -182,6 +189,9 @@ struct cpp_device {
 	char *fw_name_bin;
 	struct workqueue_struct *timer_wq;
 	struct msm_cpp_work_t *work;
+	uint32_t fw_version;
+	uint8_t stream_cnt;
+	uint8_t timeout_trial_cnt;
 
 	int domain_num;
 	struct iommu_domain *domain;

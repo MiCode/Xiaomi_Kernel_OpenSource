@@ -37,6 +37,7 @@
 #include <media/msmb_camera.h>
 #include <media/msmb_generic_buf_mgr.h>
 #include <media/msmb_pproc.h>
+#include <mach/clk-provider.h>
 #include "msm_cpp.h"
 #include "msm_isp_util.h"
 #include "msm_camera_io_util.h"
@@ -49,7 +50,21 @@
 #define CONFIG_MSM_CPP_DBG 0
 
 #define CPP_CMD_TIMEOUT_MS 300
+#define MSM_CPP_CORE_CLK_IDX 4
 #define MSM_MICRO_IFACE_CLK_IDX 7
+
+#define MSM_CPP_NOMINAL_CLOCK 266670000
+#define MSM_CPP_TURBO_CLOCK 320000000
+
+#define CPP_FW_VERSION_1_2_0	0x10020000
+#define CPP_FW_VERSION_1_4_0	0x10040000
+#define CPP_FW_VERSION_1_6_0	0x10060000
+#define CPP_FW_VERSION_1_8_0	0x10080000
+
+/* stripe information offsets in frame command */
+#define STRIPE_BASE_FW_1_2_0	130
+#define STRIPE_BASE_FW_1_4_0	140
+#define STRIPE_BASE_FW_1_6_0	464
 
 struct msm_cpp_timer_data_t {
 	struct cpp_device *cpp_dev;
@@ -619,6 +634,27 @@ void msm_cpp_do_tasklet(unsigned long data)
 	}
 }
 
+static void cpp_get_clk_freq_tbl(struct clk *clk, struct cpp_hw_info *hw_info)
+{
+	uint32_t count;
+	signed long freq_tbl_entry = 0;
+
+	if ((clk == NULL) || (hw_info == NULL) || (clk->ops == NULL) ||
+		(clk->ops->list_rate == NULL)) {
+		pr_err("Bad parameter\n");
+		return;
+	}
+
+	for (count = 0; count < MAX_FREQ_TBL; count++) {
+		freq_tbl_entry = clk->ops->list_rate(clk, count);
+		if (freq_tbl_entry >= 0)
+			hw_info->freq_tbl[count] = freq_tbl_entry;
+		else
+			break;
+	}
+
+	hw_info->freq_tbl_count = count;
+}
 static int cpp_init_hardware(struct cpp_device *cpp_dev)
 {
 	int rc = 0;
@@ -732,6 +768,8 @@ static int cpp_init_hardware(struct cpp_device *cpp_dev)
 	pr_debug("CPP HW Version: 0x%x\n", cpp_dev->hw_info.cpp_hw_version);
 	cpp_dev->hw_info.cpp_hw_caps =
 		msm_camera_io_r(cpp_dev->cpp_hw_base + 0x4);
+	cpp_get_clk_freq_tbl(cpp_dev->cpp_clk[MSM_CPP_CORE_CLK_IDX],
+		&cpp_dev->hw_info);
 	pr_debug("CPP HW Caps: 0x%x\n", cpp_dev->hw_info.cpp_hw_caps);
 	msm_camera_io_w(0x1, cpp_dev->vbif_base + 0x4);
 	cpp_dev->taskletq_idx = 0;
@@ -866,7 +904,8 @@ static void cpp_load_fw(struct cpp_device *cpp_dev, char *fw_name_bin)
 	msm_cpp_poll(cpp_dev->base, MSM_CPP_MSG_ID_CMD);
 	msm_cpp_poll(cpp_dev->base, 0x2);
 	msm_cpp_poll(cpp_dev->base, MSM_CPP_MSG_ID_FW_VER);
-	pr_info("CPP FW Version: 0x%x\n", msm_cpp_read(cpp_dev->base));
+	cpp_dev->fw_version = msm_cpp_read(cpp_dev->base);
+	pr_info("CPP FW Version: 0x%08x\n", cpp_dev->fw_version);
 	msm_cpp_poll(cpp_dev->base, MSM_CPP_MSG_ID_TRAILER);
 
 	/*Disable MC clock*/
@@ -1212,9 +1251,8 @@ static int msm_cpp_cfg(struct cpp_device *cpp_dev,
 	struct msm_cpp_frame_info_t *u_frame_info =
 		(struct msm_cpp_frame_info_t *)ioctl_ptr->ioctl_ptr;
 	int32_t status = 0;
-	uint8_t fw_version_1_2_x = 0;
 	int in_fd;
-
+	int32_t stripe_base = 0;
 	int i = 0;
 	if (!new_frame) {
 		pr_err("Insufficient memory. return\n");
@@ -1255,7 +1293,16 @@ static int msm_cpp_cfg(struct cpp_device *cpp_dev,
 	}
 
 	new_frame->cpp_cmd_msg = cpp_frame_msg;
-
+	if (cpp_frame_msg == NULL ||
+		(new_frame->msg_len < MSM_CPP_MIN_FRAME_LENGTH)) {
+		pr_err("%s %d Length is not correct or frame message is missing\n",
+			__func__, __LINE__);
+		return -EINVAL;
+	}
+	if (cpp_frame_msg[new_frame->msg_len - 1] != MSM_CPP_MSG_ID_TRAILER) {
+		pr_err("%s %d Invalid frame message\n", __func__, __LINE__);
+		return -EINVAL;
+	}
 	in_phyaddr = msm_cpp_fetch_buffer_info(cpp_dev,
 		&new_frame->input_buffer_info,
 		((new_frame->input_buffer_info.identity >> 16) & 0xFFFF),
@@ -1329,22 +1376,36 @@ static int msm_cpp_cfg(struct cpp_device *cpp_dev,
 		((cpp_frame_msg[12] >> 10) & 0x3FF) +
 		(cpp_frame_msg[12] & 0x3FF);
 
-	fw_version_1_2_x = 0;
-	if ((cpp_dev->hw_info.cpp_hw_version == CPP_HW_VERSION_1_1_0) ||
-		(cpp_dev->hw_info.cpp_hw_version == CPP_HW_VERSION_1_1_1) ||
-		(cpp_dev->hw_info.cpp_hw_version == CPP_HW_VERSION_2_0_0))
-		fw_version_1_2_x = 2;
+	if ((cpp_dev->fw_version & 0xffff0000) ==
+		CPP_FW_VERSION_1_2_0) {
+		stripe_base = STRIPE_BASE_FW_1_2_0;
+	} else if ((cpp_dev->fw_version & 0xffff0000) ==
+		CPP_FW_VERSION_1_4_0) {
+		stripe_base = STRIPE_BASE_FW_1_4_0;
+	} else if ((cpp_dev->fw_version & 0xffff0000) ==
+		CPP_FW_VERSION_1_6_0) {
+		stripe_base = STRIPE_BASE_FW_1_6_0;
+	} else {
+		pr_err("invalid fw version %08x", cpp_dev->fw_version);
+	}
+
+	if ((stripe_base + num_stripes*27 + 1) != new_frame->msg_len) {
+		pr_err("Invalid frame message\n");
+		rc = -EINVAL;
+		goto ERROR3;
+	}
+
 
 	for (i = 0; i < num_stripes; i++) {
-		cpp_frame_msg[(133 + fw_version_1_2_x) + i * 27] +=
+		cpp_frame_msg[stripe_base + 5 + i*27] +=
 			(uint32_t) in_phyaddr;
-		cpp_frame_msg[(139 + fw_version_1_2_x) + i * 27] +=
+		cpp_frame_msg[stripe_base + 11 + i * 27] +=
 			(uint32_t) out_phyaddr0;
-		cpp_frame_msg[(140 + fw_version_1_2_x) + i * 27] +=
+		cpp_frame_msg[stripe_base + 12 + i * 27] +=
 			(uint32_t) out_phyaddr1;
-		cpp_frame_msg[(141 + fw_version_1_2_x) + i * 27] +=
+		cpp_frame_msg[stripe_base + 13 + i * 27] +=
 			(uint32_t) out_phyaddr0;
-		cpp_frame_msg[(142 + fw_version_1_2_x) + i * 27] +=
+		cpp_frame_msg[stripe_base + 14 + i * 27] +=
 			(uint32_t) out_phyaddr1;
 	}
 
@@ -1603,6 +1664,57 @@ long msm_cpp_subdev_ioctl(struct v4l2_subdev *sd,
 		} else {
 			pr_err("Empty command list\n");
 			return -EFAULT;
+		}
+		break;
+	}
+	case VIDIOC_MSM_CPP_SET_CLOCK: {
+		struct msm_cpp_clock_settings_t clock_settings;
+		unsigned long clock_rate = 0;
+		CPP_DBG("VIDIOC_MSM_CPP_SET_CLOCK\n");
+		if (ioctl_ptr->len == 0) {
+			pr_err("ioctl_ptr->len is 0\n");
+			mutex_unlock(&cpp_dev->mutex);
+			return -EINVAL;
+		}
+
+		if (ioctl_ptr->ioctl_ptr == NULL) {
+			pr_err("ioctl_ptr->ioctl_ptr is NULL\n");
+			mutex_unlock(&cpp_dev->mutex);
+			return -EINVAL;
+		}
+
+		if (ioctl_ptr->len != sizeof(struct msm_cpp_clock_settings_t)) {
+			pr_err("Not valid ioctl_ptr->len\n");
+			mutex_unlock(&cpp_dev->mutex);
+			return -EINVAL;
+		}
+
+		rc = (copy_from_user(&clock_settings,
+			(void __user *)ioctl_ptr->ioctl_ptr,
+			ioctl_ptr->len) ? -EFAULT : 0);
+		if (rc) {
+			ERR_COPY_FROM_USER();
+			mutex_unlock(&cpp_dev->mutex);
+			return -EINVAL;
+		}
+
+		if (clock_settings.clock_rate > 0) {
+			rc = msm_isp_update_bandwidth(ISP_CPP,
+				clock_settings.avg,
+				clock_settings.inst);
+			if (rc < 0) {
+				pr_err("Bandwidth Set Failed!\n");
+				msm_isp_update_bandwidth(ISP_CPP, 0, 0);
+				mutex_unlock(&cpp_dev->mutex);
+				return -EINVAL;
+			}
+			clock_rate = clk_round_rate(
+				cpp_dev->cpp_clk[MSM_CPP_CORE_CLK_IDX],
+				clock_settings.clock_rate);
+			if (clock_rate != clock_settings.clock_rate)
+				pr_err("clock rate differ from settings\n");
+			clk_set_rate(cpp_dev->cpp_clk[MSM_CPP_CORE_CLK_IDX],
+				clock_rate);
 		}
 		break;
 	}
