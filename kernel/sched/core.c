@@ -1160,16 +1160,26 @@ static inline void clear_hmp_request(int cpu) { }
 
 #if defined(CONFIG_SCHED_FREQ_INPUT) || defined(CONFIG_SCHED_HMP)
 
+/*
+ * sched_window_stats_policy, sched_account_wait_time and sched_ravg_hist_size
+ * have a 'sysctl' copy associated with them. This is required for atomic update
+ * of those variables when being modifed via sysctl interface.
+ *
+ * IMPORTANT: Initialize both copies to same value!!
+ */
+
+static __read_mostly unsigned int sched_ravg_hist_size = 5;
 __read_mostly unsigned int sysctl_sched_ravg_hist_size = 5;
 
-/*
- * copy of sysctl_sched_ravg_hist_size. Required for atomically
- * changing the ravg history size (see sched_ravg_hist_size_update_handler()
- * for details).
- *
- * Initialize both to same value!!
- */
-static __read_mostly unsigned int sched_ravg_hist_size = 5;
+
+static __read_mostly unsigned int sched_window_stats_policy =
+	 WINDOW_STATS_USE_AVG;
+__read_mostly unsigned int sysctl_sched_window_stats_policy =
+	WINDOW_STATS_USE_AVG;
+
+static __read_mostly unsigned int sched_account_wait_time = 1;
+__read_mostly unsigned int sysctl_sched_account_wait_time = 1;
+
 
 /* Window size (in ns) */
 __read_mostly unsigned int sched_ravg_window = 10000000;
@@ -1180,18 +1190,6 @@ __read_mostly unsigned int sched_ravg_window = 10000000;
 /* Max window size (in ns) = 1s */
 #define MAX_SCHED_RAVG_WINDOW 1000000000
 
-__read_mostly unsigned int sysctl_sched_window_stats_policy =
-	WINDOW_STATS_USE_AVG;
-
-/*
- * copy of sysctl_sched_window_stats_policy. Required for atomically
- * changing policy (see sched_window_stats_policy_update_handler() for details).
- *
- * Initialize both to same value!!
- */
-static __read_mostly unsigned int sched_window_stats_policy =
-	 WINDOW_STATS_USE_AVG;
-
 /* 1 -> use PELT based load stats, 0 -> use window-based load stats */
 unsigned int __read_mostly sched_use_pelt;
 
@@ -1200,13 +1198,6 @@ unsigned int min_possible_efficiency = 1024;
 
 __read_mostly int sysctl_sched_freq_inc_notify_slack_pct = -INT_MAX;
 __read_mostly int sysctl_sched_freq_dec_notify_slack_pct = INT_MAX;
-
-static __read_mostly unsigned int sched_account_wait_time = 1;
-/*
- * Copy of sched_account_wait_time, used to change it atomically.
- * Initialize both variables to same value!!
- */
-__read_mostly unsigned int sysctl_sched_account_wait_time = 1;
 
 static __read_mostly unsigned int sched_io_is_busy;
 
