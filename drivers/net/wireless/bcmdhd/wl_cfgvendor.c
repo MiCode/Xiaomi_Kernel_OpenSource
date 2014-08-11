@@ -768,7 +768,7 @@ void wl_cfgvendor_rtt_evt(void *ctx, void *rtt_data)
 		rtt_report->tx_rate = rtt_result->tx_rate;
 		/* RTT */
 		rtt_report->rtt = rtt_result->meanrtt;
-		rtt_report->rtt_sd = rtt_result->sdrtt;
+		rtt_report->rtt_sd = rtt_result->sdrtt/10;
 		/* convert to centi meter */
 		if (rtt_result->distance != 0xffffffff)
 			rtt_report->distance = (rtt_result->distance >> 2) * 25;
@@ -791,7 +791,9 @@ static int wl_cfgvendor_rtt_set_config(struct wiphy *wiphy, struct wireless_dev 
 	const struct nlattr *iter, *iter1, *iter2;
 	int8 eabuf[ETHER_ADDR_STR_LEN];
 	int8 chanbuf[CHANSPEC_STR_LEN];
+	int32 feature_set = 0;
 	struct bcm_cfg80211 *cfg = wiphy_priv(wiphy);
+	feature_set = dhd_dev_get_feature_set(bcmcfg_to_prmry_ndev(cfg));
 
 	WL_DBG(("In\n"));
 	err = dhd_dev_rtt_register_noti_callback(wdev->netdev, wdev, wl_cfgvendor_rtt_evt);
@@ -809,6 +811,7 @@ static int wl_cfgvendor_rtt_set_config(struct wiphy *wiphy, struct wireless_dev 
 				WL_ERR(("exceed max target count : %d\n",
 					rtt_param.rtt_target_cnt));
 				err = BCME_RANGE;
+				goto exit;
 			}
 			break;
 		case RTT_ATTRIBUTE_TARGET_INFO:
@@ -818,13 +821,38 @@ static int wl_cfgvendor_rtt_set_config(struct wiphy *wiphy, struct wireless_dev 
 					type = nla_type(iter2);
 					switch (type) {
 					case RTT_ATTRIBUTE_TARGET_MAC:
-						memcpy(&rtt_target->addr, nla_data(iter2), ETHER_ADDR_LEN);
+						memcpy(&rtt_target->addr, nla_data(iter2),
+							ETHER_ADDR_LEN);
 						break;
 					case RTT_ATTRIBUTE_TARGET_TYPE:
 						rtt_target->type = nla_get_u8(iter2);
+						if (!(feature_set & WIFI_FEATURE_D2D_RTT)) {
+							if (rtt_target->type == RTT_TWO_WAY ||
+								rtt_target->type == RTT_INVALID) {
+								WL_ERR(("doesn't support RTT type : %d\n",
+									rtt_target->type));
+								err = -EINVAL;
+								goto exit;
+							} else if (rtt_target->type == RTT_AUTO) {
+								rtt_target->type = RTT_ONE_WAY;
+							}
+						} else {
+							if (rtt_target->type == RTT_INVALID) {
+								WL_ERR(("doesn't support RTT type : %d\n",
+									rtt_target->type));
+								err = -EINVAL;
+								goto exit;
+							}
+						}
 						break;
 					case RTT_ATTRIBUTE_TARGET_PEER:
 						rtt_target->peer= nla_get_u8(iter2);
+						if (rtt_target->peer != RTT_PEER_AP) {
+							WL_ERR(("doesn't support peer type : %d\n",
+								rtt_target->peer));
+							err = -EINVAL;
+							goto exit;
+						}
 						break;
 					case RTT_ATTRIBUTE_TARGET_CHAN:
 						memcpy(&rtt_target->channel, nla_data(iter2),

@@ -83,6 +83,10 @@ chanspec_t
 dhd_rtt_convert_to_chspec(wifi_channel_info_t channel)
 {
 	int bw;
+	/* set witdh to 20MHZ for 2.4G HZ */
+	if (channel.center_freq >= 2400 && channel.center_freq <= 2500) {
+		channel.width = WIFI_CHAN_WIDTH_20;
+	}
 	switch (channel.width) {
 	case WIFI_CHAN_WIDTH_20:
 		bw = WL_CHANSPEC_BW_20;
@@ -424,7 +428,8 @@ dhd_rtt_convert_to_host(rtt_result_t *rtt_results, const wl_proxd_event_data_t* 
 	else
 		DHD_RTT(("sigma:0\n"));
 
-	DHD_RTT(("rssi:%d validfrmcnt %d\n", rtt_results->avg_rssi, rtt_results->validfrmcnt));
+	DHD_RTT(("rssi:%d validfrmcnt %d, err_code : %d\n", rtt_results->avg_rssi,
+						rtt_results->validfrmcnt, evp->err_code));
 
 	switch (evp->err_code) {
 	case TOF_REASON_OK:
