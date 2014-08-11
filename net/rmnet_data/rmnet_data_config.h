@@ -20,7 +20,7 @@
 #ifndef _RMNET_DATA_CONFIG_H_
 #define _RMNET_DATA_CONFIG_H_
 
-#define	RMNET_DATA_MAX_LOGICAL_EP	32
+#define RMNET_DATA_MAX_LOGICAL_EP 256
 
 struct rmnet_logical_ep_conf_s {
 	uint8_t refcount;
