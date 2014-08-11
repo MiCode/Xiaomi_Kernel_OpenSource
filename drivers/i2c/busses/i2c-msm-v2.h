@@ -253,7 +253,7 @@ enum msm_spi_clk_path_vec_idx {
 	I2C_MSM_CLK_PATH_RESUME_VEC,
 };
 #define I2C_MSM_CLK_PATH_AVRG_BW(ctrl) (0)
-#define I2C_MSM_CLK_PATH_BRST_BW(ctrl) (ctrl->rsrcs.clk_freq_in * 8)
+#define I2C_MSM_CLK_PATH_BRST_BW(ctrl) (76800000)
 
 static char const * const i2c_msm_gpio_names[] = {"i2c_clk", "i2c_sda"};
 
