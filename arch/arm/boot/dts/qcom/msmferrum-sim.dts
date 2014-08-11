@@ -97,3 +97,7 @@
 &qcom_cedev {
 	status = "okay";
 };
+
+&qcom_seecom {
+	status = "okay";
+};
