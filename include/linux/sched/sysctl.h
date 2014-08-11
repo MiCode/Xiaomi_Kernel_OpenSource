@@ -104,13 +104,7 @@ extern int sched_hmp_proc_update_handler(struct ctl_table *table,
 extern int sched_boost_handler(struct ctl_table *table, int write,
 			void __user *buffer, size_t *lenp, loff_t *ppos);
 
-extern int sched_acct_wait_time_update_handler(struct ctl_table *table,
-		 int write, void __user *buffer, size_t *lenp, loff_t *ppos);
-
-extern int sched_window_stats_policy_update_handler(struct ctl_table *table,
-		 int write, void __user *buffer, size_t *lenp, loff_t *ppos);
-
-extern int sched_ravg_hist_size_update_handler(struct ctl_table *table,
+extern int sched_window_update_handler(struct ctl_table *table,
 		 int write, void __user *buffer, size_t *lenp, loff_t *ppos);
 
 #ifdef CONFIG_SCHED_DEBUG
