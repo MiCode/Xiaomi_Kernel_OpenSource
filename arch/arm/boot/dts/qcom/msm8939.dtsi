@@ -212,10 +212,11 @@
 
 	qcom,msm-cpufreq {
 		compatible = "qcom,msm-cpufreq";
-		clock-names = "cpu0_clk", "cpu1_clk", "cpu2_clk",
+		clock-names = "l2_clk", "cpu0_clk", "cpu1_clk", "cpu2_clk",
 				"cpu3_clk", "cpu4_clk", "cpu5_clk",
 				"cpu6_clk", "cpu7_clk";
-		clocks = <&clock_cpu clk_a53ssmux_bc>,
+		clocks = <&clock_cpu clk_a53ssmux_cci>,
+			 <&clock_cpu clk_a53ssmux_bc>,
 			 <&clock_cpu clk_a53ssmux_bc>,
 			 <&clock_cpu clk_a53ssmux_bc>,
 			 <&clock_cpu clk_a53ssmux_bc>,
