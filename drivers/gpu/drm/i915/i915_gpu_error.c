@@ -300,6 +300,11 @@ static void i915_ring_error_state(struct drm_i915_error_state_buf *m,
 	}
 	err_printf(m, "  seqno: 0x%08x\n", ring->seqno);
 	err_printf(m, "  waiting: %s\n", yesno(ring->waiting));
+
+	err_printf(m, "  ring->ctx: %p\n", ring->ring_context);
+	err_printf(m, "  ring->size: 0x%08x\n", (unsigned int) ring->size);
+	err_printf(m, "  ring->space: 0x%08x\n", (unsigned int) ring->space);
+	err_printf(m, "  ring->last_retired_head: 0x%08x\n", ring->last_retired_head);
 	err_printf(m, "  ring->head: 0x%08x\n", ring->cpu_ring_head);
 	err_printf(m, "  ring->tail: 0x%08x\n", ring->cpu_ring_tail);
 	err_printf(m, "  hangcheck: %s\n",
@@ -416,10 +421,12 @@ int i915_error_state_to_str(struct drm_i915_error_state_buf *m,
 				   dev_priv->ring[i].name,
 				   error->ring[i].num_requests);
 			for (j = 0; j < error->ring[i].num_requests; j++) {
-				err_printf(m, "  seqno 0x%08x, emitted %ld, tail 0x%08x\n",
+				err_printf(m, "  seqno 0x%08x, emitted %ld, tail 0x%08x [head 0x%x ctx %p]\n",
 					   error->ring[i].requests[j].seqno,
 					   error->ring[i].requests[j].jiffies,
-					   error->ring[i].requests[j].tail);
+					   error->ring[i].requests[j].tail,
+					   error->ring[i].requests[j].head,
+					   error->ring[i].requests[j].ctx);
 			}
 		}
 
@@ -977,6 +984,10 @@ static void i915_gem_record_rings(struct drm_device *dev,
 		} else
 			rbuf = ring->buffer;
 
+		error->ring[i].ring_context = rbuf->ctx;
+		error->ring[i].size = rbuf->size;
+		error->ring[i].space = rbuf->space;
+		error->ring[i].last_retired_head = rbuf->last_retired_head;
 		error->ring[i].cpu_ring_head = rbuf->head;
 		error->ring[i].cpu_ring_tail = rbuf->tail;
 
@@ -1006,9 +1017,11 @@ static void i915_gem_record_rings(struct drm_device *dev,
 			struct drm_i915_error_request *erq;
 
 			erq = &error->ring[i].requests[count++];
+			erq->ctx = request->ctx;
+			erq->head = request->head;
+			erq->tail = request->tail;
 			erq->seqno = request->seqno;
 			erq->jiffies = request->emitted_jiffies;
-			erq->tail = request->tail;
 		}
 	}
 }
