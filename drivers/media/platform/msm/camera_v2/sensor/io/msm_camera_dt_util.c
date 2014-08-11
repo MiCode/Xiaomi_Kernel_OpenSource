@@ -1284,6 +1284,7 @@ power_up_failed:
 		if (ret)
 			pr_err("%s:%d cannot set pin to suspend state\n",
 				__func__, __LINE__);
+		devm_pinctrl_put(ctrl->pinctrl_info.pinctrl);
 	}
 	ctrl->cam_pinctrl_status = 0;
 	msm_camera_request_gpio_table(
@@ -1410,6 +1411,7 @@ int msm_camera_power_down(struct msm_camera_power_ctrl_t *ctrl,
 		if (ret)
 			pr_err("%s:%d cannot set pin to suspend state",
 				__func__, __LINE__);
+		devm_pinctrl_put(ctrl->pinctrl_info.pinctrl);
 	}
 	ctrl->cam_pinctrl_status = 0;
 	msm_camera_request_gpio_table(
