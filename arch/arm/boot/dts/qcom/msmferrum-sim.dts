@@ -85,3 +85,7 @@
 &pmferrum_gpios {
 	status = "disabled";
 };
+
+&qcom_rng {
+	status = "okay";
+};

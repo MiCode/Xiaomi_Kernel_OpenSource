@@ -23,3 +23,7 @@
 	pinctrl-names = "default";
 	pinctrl-0 = <&uart_console_sleep>;
 };
+
+&qcom_rng {
+	status = "okay";
+};
