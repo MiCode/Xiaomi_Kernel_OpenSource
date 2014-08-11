@@ -178,8 +178,8 @@ enum msm_spi_clk_path_vec_idx {
 	MSM_SPI_CLK_PATH_SUSPEND_VEC = 0,
 	MSM_SPI_CLK_PATH_RESUME_VEC  = 1,
 };
-#define MSM_SPI_CLK_PATH_AVRG_BW(dd) (dd->pdata->max_clock_speed * 8)
-#define MSM_SPI_CLK_PATH_BRST_BW(dd) (dd->pdata->max_clock_speed * 8)
+#define MSM_SPI_CLK_PATH_AVRG_BW(dd) (76800000)
+#define MSM_SPI_CLK_PATH_BRST_BW(dd) (76800000)
 
 static char const * const spi_rsrcs[] = {
 	"spi_clk",
