@@ -99,7 +99,7 @@ struct apr_hdr {
 
 #define APR_NAME_MAX		0x40
 
-#define RESET_EVENTS		0xFFFFFFFF
+#define RESET_EVENTS		0x000130D7
 
 #define LPASS_RESTART_EVENT	0x1000
 #define LPASS_RESTART_READY	0x1001
