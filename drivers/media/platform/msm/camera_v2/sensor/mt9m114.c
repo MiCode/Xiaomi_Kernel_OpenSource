@@ -1384,8 +1384,206 @@ int32_t mt9m114_sensor_config(struct msm_sensor_ctrl_t *s_ctrl,
 	return rc;
 }
 
+#ifdef CONFIG_COMPAT
+int32_t mt9m114_sensor_config32(struct msm_sensor_ctrl_t *s_ctrl,
+	void __user *argp)
+{
+	struct sensorb_cfg_data32 *cdata = (struct sensorb_cfg_data32 *)argp;
+	int32_t rc = 0;
+	int32_t i = 0;
+	mutex_lock(s_ctrl->msm_sensor_mutex);
+	CDBG("%s:%d %s cfgtype = %d\n", __func__, __LINE__,
+		s_ctrl->sensordata->sensor_name, cdata->cfgtype);
+	switch (cdata->cfgtype) {
+	case CFG_GET_SENSOR_INFO:
+		memcpy(cdata->cfg.sensor_info.sensor_name,
+			s_ctrl->sensordata->sensor_name,
+			sizeof(cdata->cfg.sensor_info.sensor_name));
+		cdata->cfg.sensor_info.session_id =
+			s_ctrl->sensordata->sensor_info->session_id;
+		for (i = 0; i < SUB_MODULE_MAX; i++)
+			cdata->cfg.sensor_info.subdev_id[i] =
+				s_ctrl->sensordata->sensor_info->subdev_id[i];
+		cdata->cfg.sensor_info.is_mount_angle_valid =
+			s_ctrl->sensordata->sensor_info->is_mount_angle_valid;
+		cdata->cfg.sensor_info.sensor_mount_angle =
+			s_ctrl->sensordata->sensor_info->sensor_mount_angle;
+		CDBG("%s:%d sensor name %s\n", __func__, __LINE__,
+			cdata->cfg.sensor_info.sensor_name);
+		CDBG("%s:%d session id %d\n", __func__, __LINE__,
+			cdata->cfg.sensor_info.session_id);
+		for (i = 0; i < SUB_MODULE_MAX; i++)
+			CDBG("%s:%d subdev_id[%d] %d\n", __func__, __LINE__, i,
+				cdata->cfg.sensor_info.subdev_id[i]);
+		CDBG("%s:%d mount angle valid %d value %d\n", __func__,
+			__LINE__, cdata->cfg.sensor_info.is_mount_angle_valid,
+			cdata->cfg.sensor_info.sensor_mount_angle);
+
+		break;
+	case CFG_SET_INIT_SETTING:
+		/* 1. Write Recommend settings */
+		/* 2. Write change settings */
+		rc = s_ctrl->sensor_i2c_client->i2c_func_tbl->
+			i2c_write_conf_tbl(
+			s_ctrl->sensor_i2c_client, mt9m114_recommend_settings,
+			ARRAY_SIZE(mt9m114_recommend_settings),
+			MSM_CAMERA_I2C_WORD_DATA);
+		rc = s_ctrl->sensor_i2c_client->i2c_func_tbl->
+			i2c_write_conf_tbl(
+			s_ctrl->sensor_i2c_client,
+			mt9m114_config_change_settings,
+			ARRAY_SIZE(mt9m114_config_change_settings),
+			MSM_CAMERA_I2C_WORD_DATA);
+		break;
+	case CFG_SET_RESOLUTION:
+		rc = s_ctrl->sensor_i2c_client->i2c_func_tbl->
+			i2c_write_conf_tbl(
+			s_ctrl->sensor_i2c_client, mt9m114_720p_settings,
+			ARRAY_SIZE(mt9m114_720p_settings),
+			MSM_CAMERA_I2C_WORD_DATA);
+		break;
+	case CFG_SET_STOP_STREAM:
+		break;
+	case CFG_SET_START_STREAM:
+		rc = s_ctrl->sensor_i2c_client->i2c_func_tbl->
+			i2c_write_conf_tbl(
+			s_ctrl->sensor_i2c_client,
+			mt9m114_config_change_settings,
+			ARRAY_SIZE(mt9m114_config_change_settings),
+			MSM_CAMERA_I2C_WORD_DATA);
+		break;
+	case CFG_GET_SENSOR_INIT_PARAMS:
+		cdata->cfg.sensor_init_params.modes_supported =
+			s_ctrl->sensordata->sensor_info->modes_supported;
+		cdata->cfg.sensor_init_params.position =
+			s_ctrl->sensordata->sensor_info->position;
+		cdata->cfg.sensor_init_params.sensor_mount_angle =
+			s_ctrl->sensordata->sensor_info->sensor_mount_angle;
+		CDBG("%s:%d init params mode %d pos %d mount %d\n", __func__,
+			__LINE__,
+			cdata->cfg.sensor_init_params.modes_supported,
+			cdata->cfg.sensor_init_params.position,
+			cdata->cfg.sensor_init_params.sensor_mount_angle);
+		break;
+	case CFG_WRITE_I2C_ARRAY: {
+		struct msm_camera_i2c_reg_setting32 conf_array32;
+		struct msm_camera_i2c_reg_setting conf_array;
+		struct msm_camera_i2c_reg_array *reg_setting = NULL;
+
+		if (copy_from_user(&conf_array32,
+			(void *)compat_ptr(cdata->cfg.setting),
+			sizeof(struct msm_camera_i2c_reg_setting32))) {
+			pr_err("%s:%d failed\n", __func__, __LINE__);
+			rc = -EFAULT;
+			break;
+		}
+
+		conf_array.addr_type = conf_array32.addr_type;
+		conf_array.data_type = conf_array32.data_type;
+		conf_array.delay = conf_array32.delay;
+		conf_array.size = conf_array32.size;
+		conf_array.reg_setting = compat_ptr(conf_array32.reg_setting);
+
+		reg_setting = kzalloc(conf_array.size *
+			(sizeof(struct msm_camera_i2c_reg_array)), GFP_KERNEL);
+		if (!reg_setting) {
+			pr_err("%s:%d failed\n", __func__, __LINE__);
+			rc = -ENOMEM;
+			break;
+		}
+		if (copy_from_user(reg_setting, (void *)conf_array.reg_setting,
+			conf_array.size *
+			sizeof(struct msm_camera_i2c_reg_array))) {
+			pr_err("%s:%d failed\n", __func__, __LINE__);
+			kfree(reg_setting);
+			rc = -EFAULT;
+			break;
+		}
+
+		conf_array.reg_setting = reg_setting;
+		rc = s_ctrl->sensor_i2c_client->i2c_func_tbl->i2c_write_table(
+			s_ctrl->sensor_i2c_client, &conf_array);
+		kfree(reg_setting);
+		break;
+	}
+	case CFG_POWER_UP:
+		if (s_ctrl->func_tbl->sensor_power_up)
+			rc = s_ctrl->func_tbl->sensor_power_up(s_ctrl);
+		else
+			rc = -EFAULT;
+		break;
+
+	case CFG_POWER_DOWN:
+		if (s_ctrl->func_tbl->sensor_power_down)
+			rc = s_ctrl->func_tbl->sensor_power_down(s_ctrl);
+		else
+			rc = -EFAULT;
+		break;
+
+	case CFG_SET_SATURATION: {
+			int32_t sat_lev;
+			if (copy_from_user(&sat_lev,
+				(void *)compat_ptr(cdata->cfg.setting),
+				sizeof(int32_t))) {
+				pr_err("%s:%d failed\n", __func__, __LINE__);
+				rc = -EFAULT;
+				break;
+			}
+		pr_debug("%s: Saturation Value is %d", __func__, sat_lev);
+		break;
+		}
+	case CFG_SET_CONTRAST: {
+		int32_t con_lev;
+		if (copy_from_user(&con_lev,
+			(void *)compat_ptr(cdata->cfg.setting),
+			sizeof(int32_t))) {
+			pr_err("%s:%d failed\n", __func__, __LINE__);
+			rc = -EFAULT;
+			break;
+		}
+	pr_debug("%s: Contrast Value is %d", __func__, con_lev);
+	break;
+	}
+	case CFG_SET_SHARPNESS: {
+		int32_t shp_lev;
+		if (copy_from_user(&shp_lev,
+			(void *)compat_ptr(cdata->cfg.setting),
+			sizeof(int32_t))) {
+			pr_err("%s:%d failed\n", __func__, __LINE__);
+			rc = -EFAULT;
+			break;
+		}
+	pr_debug("%s: Sharpness Value is %d", __func__, shp_lev);
+	break;
+	}
+	case CFG_SET_AUTOFOCUS: {
+	/* TO-DO: set the Auto Focus */
+	pr_debug("%s: Setting Auto Focus", __func__);
+	break;
+	}
+	case CFG_CANCEL_AUTOFOCUS: {
+	/* TO-DO: Cancel the Auto Focus */
+	pr_debug("%s: Cancelling Auto Focus", __func__);
+	break;
+	}
+	default:
+	pr_err("Invalid cfgtype func %s line %d cfgtype = %d\n",
+		__func__, __LINE__, (int32_t)cdata->cfgtype);
+	rc = -EFAULT;
+	break;
+	}
+
+	mutex_unlock(s_ctrl->msm_sensor_mutex);
+
+	return rc;
+}
+#endif
+
 static struct msm_sensor_fn_t mt9m114_sensor_func_tbl = {
 	.sensor_config = mt9m114_sensor_config,
+#ifdef CONFIG_COMPAT
+	.sensor_config32 = mt9m114_sensor_config32,
+#endif
 	.sensor_power_up = msm_sensor_power_up,
 	.sensor_power_down = msm_sensor_power_down,
 	.sensor_match_id = msm_sensor_match_id,
