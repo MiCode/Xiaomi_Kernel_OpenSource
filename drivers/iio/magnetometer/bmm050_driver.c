@@ -1140,6 +1140,8 @@ static int bmm_restore_hw_cfg(struct i2c_client *client)
 		(struct bmm_client_data *)i2c_get_clientdata(client);
 	int op_mode;
 
+	return 0;
+
 	mutex_lock(&client_data->mutex_op_mode);
 	err = bmm_set_op_mode(client_data, BMM_VAL_NAME(SLEEP_MODE));
 
