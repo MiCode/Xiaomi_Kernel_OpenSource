@@ -11,3 +11,6 @@ obj-$(CONFIG_SND_SOC_INTEL_MRD7) += snd-byt-cr-dpcm-rt5640.o  byt_cr_board_confi
 snd-byt-cr-dpcm-rt5651-objs := byt_cr_dpcm_rt5651.o
 obj-$(CONFIG_SND_SOC_INTEL_ANCHOR8) += snd-byt-cr-dpcm-rt5651.o  byt_cr_board_configs.o
 
+# Cherrytrail board
+snd-cht-dpcm-rt5672-objs := cht_bl_dpcm_rt5672.o
+obj-$(CONFIG_SND_SOC_INTEL_CHT_T) += snd-cht-dpcm-rt5672.o

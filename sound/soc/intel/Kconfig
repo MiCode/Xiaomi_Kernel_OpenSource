@@ -30,6 +30,22 @@ config SND_SOC_INTEL_ANCHOR8
           Say Y if you have such a device
           If unsure select "N".
 
+config SND_SOC_INTEL_CHT_T
+	tristate "SOC Machine Audio driver for Intel(R) CHT-T device"
+	depends on X86
+	select SND_SOC_RT5672
+	select SND_SST_PLATFORM
+	select SND_SST_MACHINE
+	select SND_INTEL_SST
+	select SND_HWDEP
+	default n
+
+	help
+	  This adds support for ASoC machine driver for Intel(R) CHT-T device
+          based on the CHT-T platform and RT5672 codec.
+          Say Y if you have such a device
+          If unsure select "N".
+
 config SND_INTEL_SST
        tristate
 
