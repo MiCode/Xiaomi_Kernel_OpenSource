@@ -1161,9 +1161,10 @@ static inline void clear_hmp_request(int cpu) { }
 #if defined(CONFIG_SCHED_FREQ_INPUT) || defined(CONFIG_SCHED_HMP)
 
 /*
- * sched_window_stats_policy, sched_account_wait_time and sched_ravg_hist_size
- * have a 'sysctl' copy associated with them. This is required for atomic update
- * of those variables when being modifed via sysctl interface.
+ * sched_window_stats_policy, sched_account_wait_time, sched_ravg_hist_size
+ * and sched_freq_legacy_mode have a 'sysctl' copy associated with them. This
+ * is required for atomic update of those variables when being modifed via
+ * sysctl interface.
  *
  * IMPORTANT: Initialize both copies to same value!!
  */
@@ -1179,6 +1180,9 @@ __read_mostly unsigned int sysctl_sched_window_stats_policy =
 
 static __read_mostly unsigned int sched_account_wait_time = 1;
 __read_mostly unsigned int sysctl_sched_account_wait_time = 1;
+
+static __read_mostly unsigned int sched_freq_legacy_mode;
+__read_mostly unsigned int sysctl_sched_freq_legacy_mode;
 
 
 /* Window size (in ns) */
@@ -1332,14 +1336,15 @@ compute_demand:
 	if (new_window)
 		p->ravg.demand = demand;
 
-	if (update_sum && (p->ravg.flags & CURR_WINDOW_CONTRIB)) {
+	if (!sched_freq_legacy_mode && update_sum &&
+			 (p->ravg.flags & CURR_WINDOW_CONTRIB)) {
 		rq->curr_runnable_sum -= p->ravg.partial_demand;
 		BUG_ON((s64)rq->curr_runnable_sum < 0);
 	}
 
 	p->ravg.partial_demand = demand;
 
-	if (update_sum && !new_window) {
+	if (!sched_freq_legacy_mode && update_sum && !new_window) {
 		rq->curr_runnable_sum += p->ravg.partial_demand;
 		p->ravg.flags |= CURR_WINDOW_CONTRIB;
 	}
@@ -1489,6 +1494,9 @@ static void update_task_ravg(struct task_struct *p, struct rq *rq,
 			BUG_ON(delta < 0);
 
 			p->ravg.sum += delta;
+			if (sched_freq_legacy_mode && (event == PUT_PREV_TASK))
+				rq->curr_runnable_sum += delta;
+
 			if (unlikely(p->ravg.sum > window_size))
 				p->ravg.sum = window_size;
 		}
@@ -1509,6 +1517,18 @@ static void update_task_ravg(struct task_struct *p, struct rq *rq,
 
 		if (update_sum) {
 			if (event == PUT_PREV_TASK || event == TASK_UPDATE) {
+				if (sched_freq_legacy_mode) {
+					if (nr_full_windows) {
+						/* sum == scaled window_size */
+						rq->curr_runnable_sum = sum;
+					}
+					rq->prev_runnable_sum =
+						rq->curr_runnable_sum;
+					rq->curr_runnable_sum = 0;
+					mark_start = window_start;
+					continue;
+				}
+
 				if (!nr_full_windows) {
 					rq->curr_runnable_sum -= partial_demand;
 					rq->curr_runnable_sum += p->ravg.demand;
@@ -1519,7 +1539,7 @@ static void update_task_ravg(struct task_struct *p, struct rq *rq,
 				}
 				rq->curr_runnable_sum = p->ravg.partial_demand;
 				p->ravg.flags |= CURR_WINDOW_CONTRIB;
-			} else  {
+			} else if (!sched_freq_legacy_mode) {
 				if (!nr_full_windows) {
 					rq->prev_runnable_sum -= partial_demand;
 					BUG_ON((s64)rq->prev_runnable_sum < 0);
@@ -1543,12 +1563,12 @@ static void update_task_ravg(struct task_struct *p, struct rq *rq,
 	 * sched_account_wait_time == 0, ensure this dependency is met.
 	 */
 
-	if (!(p->ravg.flags & CURR_WINDOW_CONTRIB)) {
+	if (!sched_freq_legacy_mode && !(p->ravg.flags & CURR_WINDOW_CONTRIB)) {
 		rq->curr_runnable_sum += p->ravg.partial_demand;
 		p->ravg.flags |= CURR_WINDOW_CONTRIB;
 	}
 
-	if (!(p->ravg.flags & PREV_WINDOW_CONTRIB)) {
+	if (!sched_freq_legacy_mode && !(p->ravg.flags & PREV_WINDOW_CONTRIB)) {
 		rq->prev_runnable_sum += p->ravg.demand;
 		p->ravg.flags |= PREV_WINDOW_CONTRIB;
 	}
@@ -1720,6 +1740,7 @@ void reset_all_window_stats(u64 window_start, unsigned int window_size)
 	sched_window_stats_policy = sysctl_sched_window_stats_policy;
 	sched_account_wait_time = sysctl_sched_account_wait_time;
 	sched_ravg_hist_size = sysctl_sched_ravg_hist_size;
+	sched_freq_legacy_mode = sysctl_sched_freq_legacy_mode;
 
 	for_each_online_cpu(cpu) {
 		struct rq *rq = cpu_rq(cpu);
@@ -2106,7 +2127,8 @@ void set_task_cpu(struct task_struct *p, unsigned int new_cpu)
 		p->se.nr_migrations++;
 		perf_sw_event(PERF_COUNT_SW_CPU_MIGRATIONS, 1, NULL, 0);
 
-		if (sched_enable_hmp && (p->on_rq || p->state == TASK_WAKING))
+		if (sched_enable_hmp && (p->on_rq || p->state == TASK_WAKING)
+				&& !sched_freq_legacy_mode)
 			fixup_busy_time(p, new_cpu);
 	}
 

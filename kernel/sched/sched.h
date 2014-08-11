@@ -980,6 +980,7 @@ extern void boost_kick(int cpu);
 #else /* CONFIG_SCHED_HMP */
 
 #define sched_enable_hmp 0
+#define sched_freq_legacy_mode 1
 
 static inline void check_for_migration(struct rq *rq, struct task_struct *p) { }
 static inline void pre_big_small_task_count_change(void) { }
