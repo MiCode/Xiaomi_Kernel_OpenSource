@@ -16,7 +16,7 @@
 #include "msm8939-qrd-skuk.dtsi"
 
 / {
-	qcom,board-id = <0x1000b 5>;
+	qcom,board-id = <0x1000b 5>, <0x2000b 5>;
 };
 
 &i2c_4 {
