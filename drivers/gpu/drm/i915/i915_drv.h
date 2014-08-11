@@ -1234,6 +1234,8 @@ struct i915_gem_mm {
 	spinlock_t object_stat_lock;
 	size_t object_memory;
 	u32 object_count;
+
+	size_t phys_mem_total;
 };
 
 struct drm_i915_error_state_buf {
@@ -1945,6 +1947,7 @@ struct drm_i915_gem_object {
 	 * Is the object associated with user created FB
 	 */
 	unsigned int user_fb:1;
+	unsigned int has_backing_pages:1;
 
 	struct sg_table *pages;
 	int pages_pin_count;
@@ -1999,6 +2002,8 @@ struct drm_i915_gem_object {
 	* reaches 0, dev_priv->pending_flip_queue will be woken up.
 	*/
 	atomic_t pending_flip;
+
+	struct list_head pid_info;
 };
 
 #define to_intel_bo(x) container_of(x, struct drm_i915_gem_object, base)
@@ -2046,6 +2051,8 @@ struct drm_i915_gem_request {
 struct drm_i915_file_private {
 	struct drm_i915_private *dev_priv;
 	struct drm_file *file;
+	char *process_name;
+	struct pid *tgid;
 
 	struct {
 		spinlock_t lock;
@@ -2336,6 +2343,7 @@ struct i915_params {
 	bool disable_vtd_wa;
 	int drrs_interval;
 	int use_mmio_flip;
+	int memtrack_debug;
 };
 extern struct i915_params i915 __read_mostly;
 
@@ -2477,6 +2485,10 @@ void i915_init_vm(struct drm_i915_private *dev_priv,
 		  struct i915_address_space *vm);
 void i915_gem_free_object(struct drm_gem_object *obj);
 void i915_gem_vma_destroy(struct i915_vma *vma);
+int i915_gem_open_object(struct drm_gem_object *gem_obj,
+			struct drm_file *file_priv);
+void i915_gem_close_object(struct drm_gem_object *gem_obj,
+			struct drm_file *file_priv);
 
 #define PIN_MAPPABLE 0x1
 #define PIN_NONBLOCK 0x2
@@ -2793,6 +2805,17 @@ int i915_verify_lists(struct drm_device *dev);
 #else
 #define i915_verify_lists(dev) 0
 #endif
+int i915_get_pid_cmdline(struct task_struct *task, char *buffer);
+int i915_gem_obj_insert_pid(struct drm_i915_gem_object *obj);
+void i915_gem_obj_remove_pid(struct drm_i915_gem_object *obj);
+void i915_gem_obj_remove_all_pids(struct drm_i915_gem_object *obj);
+int i915_obj_insert_virt_addr(struct drm_i915_gem_object *obj,
+				unsigned long addr, bool is_map_gtt,
+				bool is_mutex_locked);
+int i915_get_drm_clients_info(struct drm_i915_error_state_buf *m,
+				struct drm_device *dev);
+int i915_gem_get_all_obj_info(struct drm_i915_error_state_buf *m,
+				struct drm_device *dev);
 
 /* i915_debugfs.c */
 int i915_debugfs_init(struct drm_minor *minor);
@@ -2806,6 +2829,8 @@ static inline void intel_display_crc_init(struct drm_device *dev) {}
 /* i915_gpu_error.c */
 __printf(2, 3)
 void i915_error_printf(struct drm_i915_error_state_buf *e, const char *f, ...);
+void i915_error_puts(struct drm_i915_error_state_buf *e,
+			    const char *str);
 int i915_error_state_to_str(struct drm_i915_error_state_buf *estr,
 			    const struct i915_error_state_file_priv *error);
 int i915_error_state_buf_init(struct drm_i915_error_state_buf *eb,

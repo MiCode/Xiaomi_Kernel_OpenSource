@@ -57,6 +57,7 @@ struct i915_params i915 __read_mostly = {
 	.ring_reset_min_alive_period = 0,
 	.gpu_reset_min_alive_period = 0,
 	.enable_watchdog = 1,
+	.memtrack_debug = 1,
 };
 module_param_named(limitbw, i915.limitbw, int, 0400);
 MODULE_PARM_DESC(limitbw,
@@ -240,3 +241,7 @@ MODULE_PARM_DESC(gpu_reset_min_alive_period,
 		"following the previous GPU reset then declare it wedged and "
 		"prevent further resets. "
 		"default=0 seconds (disabled)");
+
+module_param_named(memtrack_debug, i915.memtrack_debug, int, 0600);
+MODULE_PARM_DESC(memtrack_debug,
+		 "use Memtrack debug capability (0=never, 1=always)");

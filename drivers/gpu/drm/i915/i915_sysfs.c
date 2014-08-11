@@ -602,12 +602,84 @@ static ssize_t error_state_write(struct file *file, struct kobject *kobj,
 	return count;
 }
 
+static ssize_t i915_gem_clients_state_read(struct file *filp,
+				struct kobject *kobj,
+				struct bin_attribute *attr,
+				char *buf, loff_t off, size_t count)
+{
+	struct device *kdev = container_of(kobj, struct device, kobj);
+	struct drm_minor *minor = dev_to_drm_minor(kdev);
+	struct drm_device *dev = minor->dev;
+	struct drm_i915_error_state_buf error_str;
+	ssize_t ret_count = 0;
+	int ret;
+
+	ret = i915_error_state_buf_init(&error_str, count, off);
+	if (ret)
+		return ret;
+
+	ret = i915_get_drm_clients_info(&error_str, dev);
+	if (ret)
+		goto out;
+
+	ret_count = count < error_str.bytes ? count : error_str.bytes;
+
+	memcpy(buf, error_str.buf, ret_count);
+out:
+	i915_error_state_buf_release(&error_str);
+
+	return ret ?: ret_count;
+}
+
+static ssize_t i915_gem_objects_state_read(struct file *filp,
+				struct kobject *kobj,
+				struct bin_attribute *attr,
+				char *buf, loff_t off, size_t count)
+{
+	struct device *kdev = container_of(kobj, struct device, kobj);
+	struct drm_minor *minor = dev_to_drm_minor(kdev);
+	struct drm_device *dev = minor->dev;
+	struct drm_i915_error_state_buf error_str;
+	ssize_t ret_count = 0;
+	int ret;
+
+	ret = i915_error_state_buf_init(&error_str, count, off);
+	if (ret)
+		return ret;
+
+	ret = i915_gem_get_all_obj_info(&error_str, dev);
+	if (ret)
+		goto out;
+
+	ret_count = count < error_str.bytes ? count : error_str.bytes;
+
+	memcpy(buf, error_str.buf, ret_count);
+out:
+	i915_error_state_buf_release(&error_str);
+
+	return ret ?: ret_count;
+}
+
 static struct bin_attribute error_state_attr = {
 	.attr.name = "error",
 	.attr.mode = S_IRUSR | S_IWUSR,
 	.size = 0,
 	.read = error_state_read,
 	.write = error_state_write,
+};
+
+static struct bin_attribute i915_gem_client_state_attr = {
+	.attr.name = "i915_gem_meminfo",
+	.attr.mode = S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH,
+	.size = 0,
+	.read = i915_gem_clients_state_read,
+};
+
+static struct bin_attribute i915_gem_objects_state_attr = {
+	.attr.name = "i915_gem_objinfo",
+	.attr.mode = S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH,
+	.size = 0,
+	.read = i915_gem_objects_state_read,
 };
 
 void i915_setup_sysfs(struct drm_device *dev)
@@ -647,6 +719,22 @@ void i915_setup_sysfs(struct drm_device *dev)
 				    &error_state_attr);
 	if (ret)
 		DRM_ERROR("error_state sysfs setup failed\n");
+
+	if (i915.memtrack_debug) {
+		ret = sysfs_create_bin_file(&dev->primary->kdev->kobj,
+					    &i915_gem_client_state_attr);
+		if (ret)
+			DRM_ERROR(
+			"i915_gem_client_state sysfs setup failed\n"
+				);
+
+		ret = sysfs_create_bin_file(&dev->primary->kdev->kobj,
+					    &i915_gem_objects_state_attr);
+		if (ret)
+			DRM_ERROR(
+				"i915_gem_objects_state sysfs setup failed\n"
+				);
+	}
 }
 
 void i915_teardown_sysfs(struct drm_device *dev)

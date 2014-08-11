@@ -1530,6 +1530,7 @@ i915_gem_mmap_ioctl(struct drm_device *dev, void *data,
 	struct drm_i915_gem_mmap *args = data;
 	struct drm_gem_object *obj;
 	unsigned long addr;
+	int ret;
 
 	obj = drm_gem_object_lookup(dev, file, args->handle);
 	if (obj == NULL)
@@ -1549,6 +1550,10 @@ i915_gem_mmap_ioctl(struct drm_device *dev, void *data,
 	drm_gem_object_unreference_unlocked(obj);
 	if (IS_ERR((void *)addr))
 		return addr;
+
+	ret = i915_obj_insert_virt_addr(to_intel_bo(obj), addr, false, false);
+	if (ret)
+		return ret;
 
 	args->addr_ptr = (uint64_t) addr;
 
@@ -1636,10 +1641,11 @@ int i915_gem_fault(struct vm_area_struct *vma, struct vm_fault *vmf)
 				(unsigned long)vma->vm_start + i * PAGE_SIZE,
 				pfn + i);
 			if (ret)
-				break;
+				goto unpin;
 		}
-
 		obj->fault_mappable = true;
+		ret = i915_obj_insert_virt_addr(obj,
+				(unsigned long)vma->vm_start, true, true);
 	} else
 		ret = vm_insert_pfn(vma,
 			    (unsigned long)vmf->virtual_address,
@@ -1908,6 +1914,17 @@ i915_gem_object_truncate(struct drm_i915_gem_object *obj)
 	 */
 	shmem_truncate_range(file_inode(obj->base.filp), 0, (loff_t)-1);
 	obj->madv = __I915_MADV_PURGED;
+
+	/*
+	 * Mark the object as not having backing pages, as physical space
+	 * returned back to kernel
+	 */
+	if (obj->has_backing_pages == 1) {
+		struct drm_i915_private *dev_priv = obj->base.dev->dev_private;
+
+		dev_priv->mm.phys_mem_total -= obj->base.size;
+		obj->has_backing_pages = 0;
+	}
 }
 
 /* Try to discard unwanted pages */
@@ -2176,6 +2193,13 @@ i915_gem_object_get_pages_gtt(struct drm_i915_gem_object *obj)
 
 	if (i915_gem_object_needs_bit17_swizzle(obj))
 		i915_gem_object_do_bit_17_swizzle(obj);
+
+	if (obj->has_backing_pages == 0) {
+		struct drm_i915_private *dev_priv = obj->base.dev->dev_private;
+
+		dev_priv->mm.phys_mem_total += obj->base.size;
+		obj->has_backing_pages = 1;
+	}
 
 	return 0;
 
@@ -4476,6 +4500,13 @@ void i915_gem_object_init(struct drm_i915_gem_object *obj,
 	/* Avoid an unnecessary call to unbind on the first bind. */
 	obj->map_and_fenceable = true;
 
+	/*
+	 * Mark the object as not having backing pages, as no allocation
+	 * for it yet
+	 */
+	obj->has_backing_pages = 0;
+	INIT_LIST_HEAD(&obj->pid_info);
+
 	i915_gem_info_add_obj(obj->base.dev->dev_private, obj->base.size);
 }
 
@@ -4561,6 +4592,25 @@ static bool discard_backing_storage(struct drm_i915_gem_object *obj)
 	return atomic_long_read(&obj->base.filp->f_count) == 1;
 }
 
+int
+i915_gem_open_object(struct drm_gem_object *gem_obj,
+			struct drm_file *file_priv)
+{
+	struct drm_i915_gem_object *obj = to_intel_bo(gem_obj);
+
+	return i915_gem_obj_insert_pid(obj);
+}
+
+void
+i915_gem_close_object(struct drm_gem_object *gem_obj,
+			struct drm_file *file_priv)
+{
+	struct drm_i915_gem_object *obj = to_intel_bo(gem_obj);
+	int ret;
+
+	i915_gem_obj_remove_pid(obj);
+}
+
 void i915_gem_free_object(struct drm_gem_object *gem_obj)
 {
 	struct drm_i915_gem_object *obj = to_intel_bo(gem_obj);
@@ -4608,6 +4658,14 @@ void i915_gem_free_object(struct drm_gem_object *gem_obj)
 
 	if (obj->base.import_attach)
 		drm_prime_gem_destroy(&obj->base, NULL);
+
+	if (!obj->stolen && (obj->has_backing_pages == 1)) {
+		struct drm_i915_private *dev_priv = obj->base.dev->dev_private;
+
+		dev_priv->mm.phys_mem_total -= obj->base.size;
+		obj->has_backing_pages = 0;
+	}
+	i915_gem_obj_remove_all_pids(obj);
 
 	if (obj->ops->release)
 		obj->ops->release(obj);
@@ -5142,12 +5200,11 @@ i915_gem_file_idle_work_handler(struct work_struct *work)
 	atomic_set(&file_priv->rps_wait_boost, false);
 }
 
+
 int i915_gem_open(struct drm_device *dev, struct drm_file *file)
 {
 	struct drm_i915_file_private *file_priv;
 	int ret;
-
-	DRM_DEBUG_DRIVER("\n");
 
 	file_priv = kzalloc(sizeof(*file_priv), GFP_KERNEL);
 	if (!file_priv)
@@ -5156,6 +5213,16 @@ int i915_gem_open(struct drm_device *dev, struct drm_file *file)
 	file->driver_priv = file_priv;
 	file_priv->dev_priv = dev->dev_private;
 	file_priv->file = file;
+	file_priv->tgid = find_vpid(task_tgid_nr(current));
+	file_priv->process_name =  kzalloc(PAGE_SIZE, GFP_ATOMIC);
+	if (!file_priv->process_name) {
+		ret = -ENOMEM;
+		goto out_free_file;
+	}
+
+	ret = i915_get_pid_cmdline(current, file_priv->process_name);
+	if (ret)
+		goto out_free_name;
 
 	spin_lock_init(&file_priv->mm.lock);
 	INIT_LIST_HEAD(&file_priv->mm.request_list);
@@ -5164,7 +5231,14 @@ int i915_gem_open(struct drm_device *dev, struct drm_file *file)
 
 	ret = i915_gem_context_open(dev, file);
 	if (ret)
-		kfree(file_priv);
+		goto out_free_name;
+
+	return 0;
+
+out_free_name:
+	kfree(file_priv->process_name);
+out_free_file:
+	kfree(file_priv);
 
 	return ret;
 }
