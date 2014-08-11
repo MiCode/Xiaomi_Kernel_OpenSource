@@ -370,6 +370,85 @@
 		qcom,master-id = <86>;
         };
 
+	pcie0: qcom,pcie@80000 {
+		compatible = "qcom,pci-msm";
+		cell-index = <0>;
+
+		reg = <0x00080000 0x2000>,
+		      <0x00086000 0x1000>,
+		      <0x40000000 0xf1d>,
+		      <0x40000f20 0xa8>,
+		      <0x40100000 0x100000>,
+		      <0x40200000 0x100000>,
+		      <0x40300000 0xd00000>;
+
+		reg-names = "parf", "phy", "dm_core", "elbi",
+				"conf", "io", "bars";
+
+		#address-cells = <0>;
+		interrupt-parent = <&pcie0>;
+		interrupts = <0 1 2 3 4 5 6 7 8 9 10 11>;
+		#interrupt-cells = <1>;
+		interrupt-map-mask = <0xffffffff>;
+		interrupt-map = <0 &intc 0 49 0
+				1 &intc 0 50 0
+				2 &intc 0 91 0
+				3 &intc 0 52 0
+				4 &intc 0 53 0
+				5 &intc 0 54 0
+				6 &intc 0 55 0
+				7 &intc 0 56 0
+				8 &intc 0 57 0
+				9 &intc 0 58 0
+				10 &intc 0 59 0
+				11 &intc 0 60 0>;
+
+		interrupt-names = "int_msi", "int_a", "int_b", "int_c", "int_d",
+				"int_pls_pme", "int_pme_legacy", "int_pls_err",
+				"int_aer_legacy", "int_pls_link_up",
+				"int_pls_link_down", "int_bridge_flush_n";
+
+		pinctrl-names = "default";
+		pinctrl-0 = <&pcie0_clkreq_default &pcie0_perst_default &pcie0_wake_default>;
+
+		perst-gpio = <&msm_gpio 61 0>;
+		wake-gpio = <&msm_gpio 65 0>;
+
+		gdsc-vdd-supply = <&gdsc_pcie>;
+		vreg-1.8-supply = <&pmd9635_l8>;
+		vreg-0.9-supply = <&pmd9635_l4>;
+
+		qcom,l1-supported;
+		qcom,l1ss-supported;
+		qcom,aux-clk-sync;
+
+		qcom,ep-wakeirq;
+
+		qcom,ep-latency = <10>;
+
+		qcom,msm-bus,name = "pcie0";
+		qcom,msm-bus,num-cases = <2>;
+		qcom,msm-bus,num-paths = <1>;
+		qcom,msm-bus,vectors-KBps =
+				<45 512 0 0>,
+				<45 512 500 800>;
+
+		clocks = <&clock_gcc clk_gcc_pcie_pipe_clk>,
+			<&clock_rpm clk_ln_bb_clk>,
+			<&clock_gcc clk_gcc_pcie_sleep_clk>,
+			<&clock_gcc clk_gcc_pcie_cfg_ahb_clk>,
+			<&clock_gcc clk_gcc_pcie_axi_mstr_clk>,
+			<&clock_gcc clk_gcc_pcie_axi_clk>,
+			<&clock_gcc clk_pcie_gpio_ldo>,
+			<&clock_gcc clk_gcc_pcie_phy_reset>;
+
+		clock-names =  "pcie_0_pipe_clk", "pcie_0_ref_clk_src", "pcie_0_aux_clk",
+			"pcie_0_cfg_ahb_clk", "pcie_0_mstr_axi_clk",
+			"pcie_0_slv_axi_clk", "pcie_0_ldo", "pcie_0_phy_reset";
+
+		max-clock-frequency-hz = <125000000>, <0>, <1000000>, <0>, <0>, <0>, <0>, <0>, <0>;
+	};
+
 	i2c_3: i2c@78b7000 { /* BLSP1 QUP3 */
 		compatible = "qcom,i2c-msm-v2";
 		#address-cells = <1>;
