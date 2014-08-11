@@ -1145,8 +1145,8 @@ unsigned int __read_mostly sched_use_pelt;
 unsigned int max_possible_efficiency = 1024;
 unsigned int min_possible_efficiency = 1024;
 
-__read_mostly int sysctl_sched_freq_inc_notify_slack_pct;
-__read_mostly int sysctl_sched_freq_dec_notify_slack_pct = 25;
+__read_mostly int sysctl_sched_freq_inc_notify_slack_pct = -INT_MAX;
+__read_mostly int sysctl_sched_freq_dec_notify_slack_pct = INT_MAX;
 
 static __read_mostly unsigned int sched_account_wait_time = 1;
 /*
