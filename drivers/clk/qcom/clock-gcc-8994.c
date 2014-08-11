@@ -316,6 +316,7 @@ static struct rcg_clk ufs_axi_clk_src = {
 };
 
 static struct clk_freq_tbl ftbl_usb30_master_clk_src[] = {
+	F(  19200000,         gcc_xo,    1,    0,     0),
 	F( 125000000, gpll0_out_main,    1,    5,    24),
 	F_END
 };
