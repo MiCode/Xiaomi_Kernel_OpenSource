@@ -1086,8 +1086,15 @@ static int mdss_dsi_core_power_ctrl(struct mdss_dsi_ctrl_pdata *ctrl,
 		 */
 		if (pdata->panel_info.blank_state == MDSS_PANEL_BLANK_BLANK)
 			mdss_dsi_phy_sw_reset(ctrl->ctrl_base);
-		mdss_dsi_phy_init(ctrl);
-		mdss_dsi_ctrl_setup(ctrl);
+
+		/*
+		 * Phy and controller setup need not be done during bootup
+		 * when continuous splash screen is enabled.
+		 */
+		if (!pdata->panel_info.cont_splash_enabled) {
+			mdss_dsi_phy_init(ctrl);
+			mdss_dsi_ctrl_setup(ctrl);
+		}
 
 		if (ctrl->ulps) {
 			/*
