@@ -553,16 +553,12 @@ static int msm_core_dyn_pwr_init(struct platform_device *pdev,
 	int i;
 	struct platform_device *pdev_rail;
 
-	activity[cpu].sp = kzalloc(sizeof(*(activity[cpu].sp)), GFP_KERNEL);
-	if (!activity[cpu].sp)
-		return -ENOMEM;
-
 	pdev_rail = of_find_device_by_node(activity[cpu].apc_node);
-	ret = dev_pm_opp_init_cpufreq_table(&pdev_rail->dev,
-			&activity[cpu].sp->table);
-	if (ret) {
-		pr_err("Couldn't init freq table for cpu%d: %d\n", cpu, ret);
-		return ret;
+
+	/* OOPS, we shoud not be here. There is something wrong */
+	if (!activity[cpu].sp->table) {
+		pr_err("Frequency table for cpu%d not found\n", cpu);
+		return -EINVAL;
 	}
 
 	for (i = 0; activity[cpu].sp->table[i].frequency != CPUFREQ_TABLE_END;
@@ -661,6 +657,57 @@ static int msm_core_mpidr_init(struct device_node *node)
 	return mpidr;
 }
 
+static int msm_core_freq_init(void)
+{
+	struct cpufreq_policy *policy;
+	struct cpufreq_frequency_table *table;
+	int idx = 0;
+	int cpu, i;
+
+	for_each_possible_cpu(cpu) {
+		activity[cpu].sp = kzalloc(sizeof(*(activity[cpu].sp)),
+				GFP_KERNEL);
+		if (!activity[cpu].sp)
+			return -ENOMEM;
+	}
+
+	for_each_possible_cpu(cpu) {
+		if (activity[cpu].sp->table)
+			continue;
+
+		policy = cpufreq_cpu_get(cpu);
+		if (!policy)
+			continue;
+
+		table = cpufreq_frequency_get_table(policy->cpu);
+		if (!table) {
+			pr_err("Couldn't get freq table for cpu%d\n",
+					policy->cpu);
+			return -EINVAL;
+		}
+
+		/*
+		 * Synchronous cores within cluster have the same
+		 * policy. Since these cores do not have the cpufreq
+		 * table initialized for all of them, copy the same
+		 * table to all the related cpus.
+		 */
+		for_each_cpu(i, policy->related_cpus) {
+			activity[i].sp->table = table;
+			idx++;
+		}
+
+		cpufreq_cpu_put(policy);
+	}
+
+	/* Make sure we filled in the frequency table for all the cpus*/
+	if (idx != num_possible_cpus()) {
+		pr_err("Freq table for all cpus are not initialized\n");
+		return -EINVAL;
+	}
+	return 0;
+}
+
 static int msm_core_params_init(struct platform_device *pdev)
 {
 	int ret = 0;
@@ -734,8 +781,12 @@ static void free_dyn_memory(void)
 
 	for_each_possible_cpu(cpu) {
 		if (activity[cpu].sp) {
-			for (i = 0; i < TEMP_DATA_POINTS; i++)
+			for (i = 0; i < TEMP_DATA_POINTS; i++) {
+				if (!activity[cpu].sp->power)
+					break;
+
 				kfree(activity[cpu].sp->power[i]);
+			}
 		}
 		kfree(activity[cpu].sp);
 	}
@@ -769,6 +820,10 @@ static int msm_core_dev_probe(struct platform_device *pdev)
 	ret = of_property_read_u32(node, key, &poll_ms);
 	if (ret)
 		pr_info("msm-core initialized without polling period\n");
+
+	ret = msm_core_freq_init();
+	if (ret)
+		return ret;
 
 	ret = misc_register(&msm_core_device);
 	if (ret) {
