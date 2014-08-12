@@ -24,4 +24,28 @@
 	serial@f991f000 {
 		status = "ok";
 	};
+
+	dummy_vreg: dummy_vreg {
+		compatible = "regulator-fixed";
+		status = "ok";
+		regulator-name = "dummy_vreg";
+		regulator-always-on;
+	};
+};
+
+&sdhc_1 {
+	vdd-supply = <&dummy_vreg>;
+	qcom,vdd-voltage-level = <2950000 2950000>;
+	qcom,vdd-current-level = <200 500000>;
+
+	vdd-io-supply = <&dummy_vreg>;
+	qcom,vdd-io-always-on;
+	qcom,vdd-io-voltage-level = <1800000 1800000>;
+	qcom,vdd-io-current-level = <200 154000>;
+
+	qcom,clk-rates = <400000>;
+	qcom,bus-speed-mode = "";
+	qcom,nonremovable;
+
+	status = "ok";
 };
