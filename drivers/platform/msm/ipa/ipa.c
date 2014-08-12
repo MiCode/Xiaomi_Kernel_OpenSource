@@ -65,6 +65,8 @@
 #define IPA_Q6_CLEANUP_EXP_AGGR_MAX_CMDS \
 	(IPA_NUM_PIPES*2) \
 
+#define IPA_SPS_PROD_TIMEOUT_MSEC 1000
+
 #ifdef CONFIG_COMPAT
 #define IPA_IOC_ADD_HDR32 _IOWR(IPA_IOC_MAGIC, \
 					IPA_IOCTL_ADD_HDR, \
@@ -164,6 +166,13 @@ struct ipa_ioc_nat_alloc_mem32 {
 
 static void ipa_start_tag_process(struct work_struct *work);
 static DECLARE_WORK(ipa_tag_work, ipa_start_tag_process);
+
+static void ipa_sps_process_irq(struct work_struct *work);
+static DECLARE_WORK(ipa_sps_process_irq_work, ipa_sps_process_irq);
+
+static void ipa_dec_clients_delayed(struct work_struct *work);
+static DECLARE_DELAYED_WORK(ipa_dec_clients_delayed_work,
+	ipa_dec_clients_delayed);
 
 static struct ipa_plat_drv_res ipa_res = {0, };
 static struct of_device_id ipa_plat_drv_match[] = {
@@ -2429,6 +2438,37 @@ void ipa_suspend_handler(enum ipa_irq_type interrupt,
 	}
 }
 
+static void ipa_sps_process_irq_schedule_rel(void)
+{
+	ipa_ctx->sps_pm.res_rel_in_prog = true;
+	queue_delayed_work(ipa_ctx->power_mgmt_wq,
+			   &ipa_dec_clients_delayed_work,
+			   msecs_to_jiffies(IPA_SPS_PROD_TIMEOUT_MSEC));
+}
+
+static void ipa_sps_process_irq(struct work_struct *work)
+{
+	unsigned long flags;
+	int ret;
+
+	/* request IPA clocks */
+	ipa_inc_client_enable_clks();
+
+	/* mark SPS resource as granted */
+	spin_lock_irqsave(&ipa_ctx->sps_pm.lock, flags);
+	ipa_ctx->sps_pm.res_granted = true;
+	IPADBG("IPA is ON, calling sps driver\n");
+
+	/* process bam irq */
+	ret = sps_bam_process_irq(ipa_ctx->bam_handle);
+	if (ret)
+		IPAERR("sps_process_eot_event failed %d\n", ret);
+
+	/* release IPA clocks */
+	ipa_sps_process_irq_schedule_rel();
+	spin_unlock_irqrestore(&ipa_ctx->sps_pm.lock, flags);
+}
+
 static int apps_cons_release_resource(void)
 {
 	return 0;
@@ -2439,7 +2479,24 @@ static int apps_cons_request_resource(void)
 	return 0;
 }
 
-static int ipa_create_apps_resource(void)
+static void ipa_dec_clients_delayed(struct work_struct *work)
+{
+	unsigned long flags;
+	bool dec_clients = false;
+
+	spin_lock_irqsave(&ipa_ctx->sps_pm.lock, flags);
+	/* check whether still need to decrease client usage */
+	if (ipa_ctx->sps_pm.res_rel_in_prog) {
+		dec_clients = true;
+		ipa_ctx->sps_pm.res_rel_in_prog = false;
+		ipa_ctx->sps_pm.res_granted = false;
+	}
+	spin_unlock_irqrestore(&ipa_ctx->sps_pm.lock, flags);
+	if (dec_clients)
+		ipa_dec_client_disable_clks();
+}
+
+int ipa_create_apps_resource(void)
 {
 	struct ipa_rm_create_params apps_cons_create_params;
 	struct ipa_rm_perf_profile profile;
@@ -2460,6 +2517,63 @@ static int ipa_create_apps_resource(void)
 	ipa_rm_set_perf_profile(IPA_RM_RESOURCE_APPS_CONS, &profile);
 
 	return result;
+}
+
+/**
+ * sps_event_cb() - Handles SPS events
+ * @event: event to handle
+ * @param: event-specific paramer
+ *
+ * This callback support the following events:
+ *	- SPS_CALLBACK_BAM_RES_REQ: request resource
+ *		Try to increase IPA active client counter.
+ *		In case this can be done synchronously then
+ *		return in *param true. Otherwise return false in *param
+ *		and request IPA clocks. Later call to
+ *		sps_bam_process_irq to process the pending irq.
+ *	- SPS_CALLBACK_BAM_RES_REL: release resource
+ *		schedule a delayed work for decreasing IPA active client
+ *		counter. In case that during this time another request arrives,
+ *		this work will be canceled.
+ */
+static void sps_event_cb(enum sps_callback_case event, void *param)
+{
+	unsigned long flags;
+
+	spin_lock_irqsave(&ipa_ctx->sps_pm.lock, flags);
+
+	switch (event) {
+	case SPS_CALLBACK_BAM_RES_REQ:
+	{
+		bool *ready = (bool *)param;
+
+		/* make sure no release will happen */
+		cancel_delayed_work(&ipa_dec_clients_delayed_work);
+		ipa_ctx->sps_pm.res_rel_in_prog = false;
+
+		if (ipa_ctx->sps_pm.res_granted) {
+			*ready = true;
+		} else {
+			if (ipa_inc_client_enable_clks_no_block() == 0) {
+				ipa_ctx->sps_pm.res_granted = true;
+				*ready = true;
+			} else {
+				queue_work(ipa_ctx->power_mgmt_wq,
+					   &ipa_sps_process_irq_work);
+				*ready = false;
+			}
+		}
+		break;
+	}
+
+	case SPS_CALLBACK_BAM_RES_REL:
+		ipa_sps_process_irq_schedule_rel();
+		break;
+	default:
+		IPADBG("unsupported event %d\n", event);
+	}
+
+	spin_unlock_irqrestore(&ipa_ctx->sps_pm.lock, flags);
 }
 /**
 * ipa_init() - Initialize the IPA Driver
@@ -2602,6 +2716,23 @@ static int ipa_init(const struct ipa_plat_drv_res *resource_p,
 		goto fail_init_hw;
 	}
 
+	mutex_init(&ipa_ctx->ipa_active_clients.mutex);
+	spin_lock_init(&ipa_ctx->ipa_active_clients.spinlock);
+	ipa_ctx->ipa_active_clients.cnt = 1;
+
+	/* Create workqueue for power management */
+	ipa_ctx->power_mgmt_wq =
+		create_singlethread_workqueue("ipa_power_mgmt");
+	if (!ipa_ctx->power_mgmt_wq) {
+		IPAERR("failed to create wq\n");
+		result = -ENOMEM;
+		goto fail_init_hw;
+	}
+
+	spin_lock_init(&ipa_ctx->sps_pm.lock);
+	ipa_ctx->sps_pm.res_granted = false;
+	ipa_ctx->sps_pm.res_rel_in_prog = false;
+
 	/* register IPA with SPS driver */
 	bam_props.phys_addr = resource_p->bam_mem_base;
 	bam_props.virt_size = resource_p->bam_mem_size;
@@ -2611,13 +2742,15 @@ static int ipa_init(const struct ipa_plat_drv_res *resource_p,
 	bam_props.event_threshold = IPA_EVENT_THRESHOLD;
 	bam_props.options |= (SPS_BAM_NO_LOCAL_CLK_GATING |
 		SPS_BAM_OPT_IRQ_WAKEUP);
+	bam_props.options |= SPS_BAM_RES_CONFIRM;
 	bam_props.ee = resource_p->ee;
+	bam_props.callback = sps_event_cb;
 
 	result = sps_register_bam_device(&bam_props, &ipa_ctx->bam_handle);
 	if (result) {
 		IPAERR(":bam register err.\n");
 		result = -EPROBE_DEFER;
-		goto fail_init_hw;
+		goto fail_register_bam_device;
 	}
 	IPADBG("IPA BAM is registered\n");
 
@@ -2741,10 +2874,6 @@ static int ipa_init(const struct ipa_plat_drv_res *resource_p,
 	idr_init(&ipa_ctx->ipa_idr);
 	spin_lock_init(&ipa_ctx->idr_lock);
 
-	mutex_init(&ipa_ctx->ipa_active_clients.mutex);
-	spin_lock_init(&ipa_ctx->ipa_active_clients.spinlock);
-	ipa_ctx->ipa_active_clients.cnt = 1;
-
 	/* wlan related member */
 	memset(&ipa_ctx->wc_memb, 0, sizeof(ipa_ctx->wc_memb));
 	spin_lock_init(&ipa_ctx->wc_memb.wlan_spinlock);
@@ -2822,15 +2951,6 @@ static int ipa_init(const struct ipa_plat_drv_res *resource_p,
 			MAJOR(ipa_ctx->dev_num),
 			MINOR(ipa_ctx->dev_num));
 
-	/* Create workqueue for power management */
-	ipa_ctx->power_mgmt_wq =
-		create_singlethread_workqueue("ipa_power_mgmt");
-	if (!ipa_ctx->power_mgmt_wq) {
-		IPAERR("failed to create wq\n");
-		result = -ENOMEM;
-		goto fail_power_mgmt_wq;
-	}
-
 	/* Initialize IPA RM (resource manager) */
 	result = ipa_rm_initialize();
 	if (result) {
@@ -2896,8 +3016,6 @@ fail_ipa_interrupts_init:
 fail_create_apps_resource:
 	ipa_rm_exit();
 fail_ipa_rm_init:
-	destroy_workqueue(ipa_ctx->power_mgmt_wq);
-fail_power_mgmt_wq:
 	cdev_del(&ipa_ctx->cdev);
 fail_cdev_add:
 	device_destroy(ipa_ctx->class, ipa_ctx->dev_num);
@@ -2935,6 +3053,8 @@ fail_rt_rule_cache:
 	kmem_cache_destroy(ipa_ctx->flt_rule_cache);
 fail_flt_rule_cache:
 	sps_deregister_bam_device(ipa_ctx->bam_handle);
+fail_register_bam_device:
+	destroy_workqueue(ipa_ctx->power_mgmt_wq);
 fail_init_hw:
 	iounmap(ipa_ctx->mmio);
 fail_remap:

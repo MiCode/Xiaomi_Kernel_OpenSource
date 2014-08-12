@@ -652,6 +652,18 @@ struct ipa_wdi_ctx {
 };
 
 /**
+ * struct ipa_sps_pm - SPS power management related members
+ * @lock: lock for ensuring atomic operations
+ * @res_granted: true if SPS requested IPA resource and IPA granted it
+ * @res_rel_in_prog: true if releasing IPA resource is in progress
+ */
+struct ipa_sps_pm {
+	spinlock_t lock;
+	bool res_granted;
+	bool res_rel_in_prog;
+};
+
+/**
  * struct ipa_context - IPA context
  * @class: pointer to the struct class
  * @dev_num: device number
@@ -698,6 +710,7 @@ struct ipa_wdi_ctx {
  * @power_mgmt_wq: workqueue for power management
  * @tag_process_before_gating: indicates whether to start tag process before
  *  gating IPA clocks
+ * @sps_pm: sps power management related information
  * @pipe_mem_pool: pipe memory pool
  * @dma_pool: special purpose DMA pool
  * @ipa_active_clients: structure for reference counting connected IPA clients
@@ -759,6 +772,7 @@ struct ipa_context {
 	struct ipa_active_clients ipa_active_clients;
 	struct workqueue_struct *power_mgmt_wq;
 	bool tag_process_before_gating;
+	struct ipa_sps_pm sps_pm;
 	u32 clnt_hdl_cmd;
 	u32 clnt_hdl_data_in;
 	u32 clnt_hdl_data_out;
