@@ -1321,6 +1321,37 @@ static void __dwc3_gadget_start_isoc(struct dwc3 *dwc,
 		return;
 	}
 
+	/*
+	 * WORKAROUND: DWC3 Revisions <= 2.50a have an issue which can result
+	 * in dropping of ISOC packets.
+	 *
+	 * Due to this problem, we might experience a glitch in the associated
+	 * audio or video application. The workaround is to disable DCTL[10:9]
+	 * when an ISOC transfer is in progress.
+	 *
+	 * This is the first half of that workaround.
+	 *
+	 * Refers to:
+	 *
+	 * STAR#9000627217: For a Duration of 10ms, If All ITPs Are Received
+	 * With Delay Bit Set or No ITPs Are Received, Device Drops ISOC
+	 * Packets.
+	 */
+	if (dwc->revision <= DWC3_REVISION_250A) {
+		u32	u1;
+		u32	reg;
+
+		reg = dwc3_readl(dwc->regs, DWC3_DCTL);
+		u1 = reg & (DWC3_DCTL_INITU1ENA | DWC3_DCTL_ACCEPTU1ENA);
+
+		if (!dwc->u1)
+			dwc->u1 = u1;
+
+		reg &= ~u1;
+
+		dwc3_writel(dwc->regs, DWC3_DCTL, reg);
+	}
+
 	/* 4 micro frames in the future */
 	uf = cur_uf + dep->interval * 4;
 
@@ -2569,14 +2600,41 @@ static void dwc3_endpoint_transfer_complete(struct dwc3 *dwc,
 				continue;
 
 			if (!list_empty(&dep->req_queued))
+				goto isoc_workaround;
+		}
+
+		reg = dwc3_readl(dwc->regs, DWC3_DCTL);
+		reg |= (dwc->u1u2 & ~(dwc->u1));
+		dwc3_writel(dwc->regs, DWC3_DCTL, reg);
+
+		dwc->u1u2 = 0;
+	}
+
+isoc_workaround:
+	/*
+	 * WORKAROUND: This is the 2nd half ISOC packet drop workaround.
+	 * See __dwc3_gadget_start_isoc() for 1st half.
+	 */
+	if (dwc->revision <= DWC3_REVISION_250A) {
+		u32		reg;
+		int		i;
+
+		for (i = 0; i < DWC3_ENDPOINTS_NUM; i++) {
+			dep = dwc->eps[i];
+
+			if (!(dep->flags & DWC3_EP_ENABLED) ||
+				!usb_endpoint_xfer_isoc(dep->endpoint.desc))
+				continue;
+
+			if (!list_empty(&dep->req_queued))
 				return;
 		}
 
 		reg = dwc3_readl(dwc->regs, DWC3_DCTL);
-		reg |= dwc->u1u2;
+		reg |= dwc->u1;
 		dwc3_writel(dwc->regs, DWC3_DCTL, reg);
 
-		dwc->u1u2 = 0;
+		dwc->u1 = 0;
 	}
 }
 
@@ -3074,7 +3132,7 @@ static void dwc3_gadget_linksts_change_interrupt(struct dwc3 *dwc,
 	unsigned int		pwropt;
 
 	/*
-	 * WORKAROUND: DWC3 < 2.50a have an issue when configured without
+	 * WORKAROUND: DWC3 <= 2.50a have an issue when configured without
 	 * Hibernation mode enabled which would show up when device detects
 	 * host-initiated U3 exit.
 	 *
@@ -3091,7 +3149,7 @@ static void dwc3_gadget_linksts_change_interrupt(struct dwc3 *dwc,
 	 * operational mode
 	 */
 	pwropt = DWC3_GHWPARAMS1_EN_PWROPT(dwc->hwparams.hwparams1);
-	if ((dwc->revision < DWC3_REVISION_250A) &&
+	if ((dwc->revision <= DWC3_REVISION_250A) &&
 			(pwropt != DWC3_GHWPARAMS1_EN_PWROPT_HIB)) {
 		if ((dwc->link_state == DWC3_LINK_STATE_U3) &&
 				(next == DWC3_LINK_STATE_RESUME)) {
