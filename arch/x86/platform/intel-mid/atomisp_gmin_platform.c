@@ -50,12 +50,14 @@ EXPORT_SYMBOL(spid);
 
 /* TI SND9039 PMIC register hackery */
 #define LDO9_REG	0x49
-#define LDO9_2P8V_ON	0x2f
-#define LDO9_2P8V_OFF	0x2e
-
 #define LDO10_REG	0x4a
-#define LDO10_1P8V_ON	0x59
-#define LDO10_1P8V_OFF	0x58
+#define LDO11_REG	0x4b
+
+#define LDO_2P8V_ON	0x2f /* 0x2e selects 2.85V ...      */
+#define LDO_2P8V_OFF	0x2e /* ... bottom bit is "enabled" */
+
+#define LDO_1P8V_ON	0x59 /* 0x58 selects 1.80V ...      */
+#define LDO_1P8V_OFF	0x58 /* ... bottom bit is "enabled" */
 
 struct gmin_subdev {
 	struct v4l2_subdev *subdev;
@@ -434,10 +436,11 @@ int gmin_v1p8_ctrl(struct v4l2_subdev *subdev, int on)
 	}
 
 	if (pmic_id == PMIC_TI) {
-		if (on)
-			return intel_soc_pmic_writeb(LDO10_REG, LDO10_1P8V_ON);
-		else
-			return intel_soc_pmic_writeb(LDO10_REG, LDO10_1P8V_OFF);
+		int val = on ? LDO_1P8V_ON : LDO_1P8V_OFF;
+		int ret = intel_soc_pmic_writeb(LDO10_REG, val);
+		if (!ret)
+			ret = intel_soc_pmic_writeb(LDO11_REG, val);
+		return ret;
 	}
 
 	return -EINVAL;
@@ -487,9 +490,9 @@ int gmin_v2p8_ctrl(struct v4l2_subdev *subdev, int on)
 
 	if (pmic_id == PMIC_TI) {
 		if (on)
-			return intel_soc_pmic_writeb(LDO9_REG, LDO9_2P8V_OFF);
+			return intel_soc_pmic_writeb(LDO9_REG, LDO_2P8V_ON);
 		else
-			return intel_soc_pmic_writeb(LDO9_REG, LDO9_2P8V_OFF);
+			return intel_soc_pmic_writeb(LDO9_REG, LDO_2P8V_OFF);
 	}
 
 	return -EINVAL;
