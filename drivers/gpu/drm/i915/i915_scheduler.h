@@ -36,7 +36,7 @@ enum i915_scheduler_queue_status {
 	i915_sqs_flying,
 	/* Finished processing on the hardware: */
 	i915_sqs_complete,
-	/* Killed by catastrophic submission failure: */
+	/* Killed by watchdog or catastrophic submission failure: */
 	i915_sqs_dead,
 	/* Limit value for use with arrays/loops */
 	i915_sqs_MAX
@@ -46,6 +46,11 @@ enum i915_scheduler_queue_status {
 #define I915_SQS_IS_FLYING(node)	(((node)->status == i915_sqs_flying))
 #define I915_SQS_IS_COMPLETE(node)	(((node)->status == i915_sqs_complete) || \
 					 ((node)->status == i915_sqs_dead))
+
+#define I915_SQS_CASE_QUEUED		i915_sqs_queued
+#define I915_SQS_CASE_FLYING		i915_sqs_flying
+#define I915_SQS_CASE_COMPLETE		i915_sqs_complete:		\
+					case i915_sqs_dead
 
 struct i915_scheduler_obj_entry {
 	struct drm_i915_gem_object          *obj;
@@ -96,6 +101,7 @@ int         i915_scheduler_closefile(struct drm_device *dev,
 int         i915_scheduler_queue_execbuffer(struct i915_scheduler_queue_entry *qe);
 int         i915_scheduler_handle_irq(struct intel_engine_cs *ring);
 bool        i915_scheduler_is_ring_idle(struct intel_engine_cs *ring);
+void        i915_scheduler_kill_all(struct drm_device *dev);
 void        i915_gem_scheduler_work_handler(struct work_struct *work);
 int         i915_scheduler_flush(struct intel_engine_cs *ring, bool is_locked);
 int         i915_scheduler_flush_request(struct drm_i915_gem_request *req,

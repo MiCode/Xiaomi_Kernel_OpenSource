@@ -2838,6 +2838,8 @@ void i915_gem_reset(struct drm_device *dev)
 	struct intel_engine_cs *ring;
 	int i;
 
+	i915_scheduler_kill_all(dev);
+
 	/*
 	 * Before we free the objects from the requests, we need to inspect
 	 * them for finding the guilty party. As the requests only borrow

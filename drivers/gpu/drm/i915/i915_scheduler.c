@@ -337,6 +337,54 @@ static void i915_scheduler_node_kill(struct i915_scheduler_queue_entry *node)
 	node->status = i915_sqs_dead;
 }
 
+/* Abandon a queued node completely. For example because the driver is being
+ * reset and it is not valid to preserve absolutely any state at all across the
+ * reinitialisation sequence. */
+static void i915_scheduler_node_kill_queued(struct i915_scheduler_queue_entry *node)
+{
+	BUG_ON(!node);
+	BUG_ON(!I915_SQS_IS_QUEUED(node));
+
+	node->status = i915_sqs_dead;
+}
+
+/* The system is toast. Terminate all nodes with extreme prejudice. */
+void i915_scheduler_kill_all(struct drm_device *dev)
+{
+	struct i915_scheduler_queue_entry   *node;
+	struct drm_i915_private             *dev_priv = dev->dev_private;
+	struct i915_scheduler               *scheduler = dev_priv->scheduler;
+	unsigned long   flags;
+	int             r;
+
+	spin_lock_irqsave(&scheduler->lock, flags);
+
+	for (r = 0; r < I915_NUM_RINGS; r++) {
+		list_for_each_entry(node, &scheduler->node_queue[r], link) {
+			switch (node->status) {
+			case I915_SQS_CASE_COMPLETE:
+			break;
+
+			case I915_SQS_CASE_FLYING:
+				i915_scheduler_node_kill(node);
+			break;
+
+			case I915_SQS_CASE_QUEUED:
+				i915_scheduler_node_kill_queued(node);
+			break;
+
+			default:
+				/* Wot no state?! */
+				BUG();
+			}
+		}
+	}
+
+	spin_unlock_irqrestore(&scheduler->lock, flags);
+
+	queue_work(dev_priv->wq, &dev_priv->mm.scheduler_work);
+}
+
 /*
  * The batch tagged with the indicated seqence number has completed.
  * Search the queue for it, update its status and those of any batches
@@ -1014,7 +1062,7 @@ int i915_scheduler_submit(struct intel_engine_cs *ring, bool was_locked)
 		scheduler->flags[ring->id] &= ~i915_sf_submitting;
 
 		if (ret) {
-			bool requeue = true;
+			int requeue = 1;
 
 			/* Oh dear! Either the node is broken or the ring is
 			 * busy. So need to kill the node or requeue it and try
@@ -1024,7 +1072,7 @@ int i915_scheduler_submit(struct intel_engine_cs *ring, bool was_locked)
 			case ENODEV:
 			case ENOENT:
 				/* Fatal errors. Kill the node. */
-				requeue = false;
+				requeue = -1;
 			break;
 
 			case EAGAIN:
@@ -1043,13 +1091,18 @@ int i915_scheduler_submit(struct intel_engine_cs *ring, bool was_locked)
 			break;
 			}
 
-			if (requeue) {
+			/* Check that the watchdog/reset code has not nuked
+			 * the node while we weren't looking: */
+			if (node->status == i915_sqs_dead)
+				requeue = 0;
+
+			if (requeue == 1) {
 				i915_scheduler_node_requeue(node);
 				/* No point spinning if the ring is currently
 				 * unavailable so just give up and come back
 				 * later. */
 				break;
-			} else
+			} else if (requeue == -1)
 				i915_scheduler_node_kill(node);
 		}
 
