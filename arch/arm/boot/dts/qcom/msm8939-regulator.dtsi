@@ -89,7 +89,7 @@
 		qcom,cpr-irq-line = <0>;
 		qcom,cpr-step-quotient = <13>;
 		qcom,cpr-up-threshold = <0>;
-		qcom,cpr-down-threshold = <2>;
+		qcom,cpr-down-threshold = <3>;
 		qcom,cpr-idle-clocks = <15>;
 		qcom,cpr-gcnt-time = <1>;
 		qcom,vdd-apc-step-up-limit = <1>;
