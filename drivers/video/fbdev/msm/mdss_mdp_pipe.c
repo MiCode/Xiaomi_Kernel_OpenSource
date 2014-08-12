@@ -515,13 +515,7 @@ int mdss_mdp_smp_reserve(struct mdss_mdp_pipe *pipe)
 	if (rc)
 		return rc;
 
-	/*
-	 * Don't want to allow SMP changes for backend composition pipes
-	 * inorder to preserve SMPs as much as possible.
-	 * On the contrary for non backend composition pipes we should
-	 * allow SMP allocations to prevent composition failures.
-	 */
-	force_alloc = !(pipe->flags & MDP_BACKEND_COMPOSITION);
+	force_alloc = pipe->flags & MDP_SMP_FORCE_ALLOC;
 
 	mutex_lock(&mdss_mdp_smp_lock);
 	if (!is_unused_smp_allowed()) {
