@@ -45,9 +45,6 @@
 #define L2_SPM_STS		0xc
 #define L2_VREG_CTL		0x1c
 
-#define SCM_IO_READ		1
-#define SCM_IO_WRITE		2
-
 /*
  * struct msm_l2ccc_of_info: represents of data for l2 cache clock controller.
  * @compat: compat string for l2 cache clock controller
@@ -141,9 +138,9 @@ static int kick_l2spm_8994(struct device_node *l2ccc_node,
 	/* L2 is executing sleep state machine,
 	 * let's softly kick it awake
 	 */
-	val = scm_call_atomic1(SCM_SVC_IO, SCM_IO_READ, (u32)res.start);
+	val = scm_io_read((u32)res.start);
 	val |= BIT(0);
-	scm_call_atomic2(SCM_SVC_IO, SCM_IO_WRITE, (u32)res.start, val);
+	scm_io_write((u32)res.start, val);
 
 	/* Wait until the SPM status indicates that the PWR_CTL
 	 * bits are clear.
@@ -156,9 +153,9 @@ static int kick_l2spm_8994(struct device_node *l2ccc_node,
 		usleep(100);
 	}
 
-	val = scm_call_atomic1(SCM_SVC_IO, SCM_IO_READ, (u32)res.start);
+	val = scm_io_read((u32)res.start);
 	val &= ~BIT(0);
-	scm_call_atomic2(SCM_SVC_IO, SCM_IO_WRITE, (u32)res.start, val);
+	scm_io_write((u32)res.start, val);
 
 bail_l2_pwr_bit:
 	iounmap(l2spm_base);

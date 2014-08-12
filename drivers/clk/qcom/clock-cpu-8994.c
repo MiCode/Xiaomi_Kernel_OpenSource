@@ -298,16 +298,12 @@ static struct pll_clk a53_pll1 = {
 
 static DEFINE_SPINLOCK(mux_reg_lock);
 
-#define SCM_IO_READ	0x1
-#define SCM_IO_WRITE	0x2
-
 static int cpudiv_get_div(struct div_clk *divclk)
 {
 	u32 regval;
 
 	if (divclk->priv)
-		regval = scm_call_atomic1(SCM_SVC_IO, SCM_IO_READ,
-					 *(u32 *)divclk->priv + divclk->offset);
+		regval = scm_io_read(*(u32 *)divclk->priv + divclk->offset);
 	else
 		regval = readl_relaxed(*divclk->base + divclk->offset);
 
@@ -325,18 +321,15 @@ static void __cpudiv_set_div(struct div_clk *divclk, int div)
 	spin_lock_irqsave(&mux_reg_lock, flags);
 
 	if (divclk->priv)
-		regval = scm_call_atomic1(SCM_SVC_IO, SCM_IO_READ,
-					 *(u32 *)divclk->priv + divclk->offset);
+		regval = scm_io_read(*(u32 *)divclk->priv + divclk->offset);
 	else
 		regval = readl_relaxed(*divclk->base + divclk->offset);
-
 
 	regval &= ~(divclk->mask << divclk->shift);
 	regval |= ((div - 1) & divclk->mask) << divclk->shift;
 
 	if (divclk->priv)
-		scm_call_atomic2(SCM_SVC_IO, SCM_IO_WRITE,
-				 *(u32 *)divclk->priv + divclk->offset, regval);
+		scm_io_write(*(u32 *)divclk->priv + divclk->offset, regval);
 	else
 		writel_relaxed(regval, *divclk->base + divclk->offset);
 
@@ -431,18 +424,16 @@ static void __cpu_mux_set_sel(struct mux_clk *mux, int sel)
 	spin_lock_irqsave(&mux_reg_lock, flags);
 
 	if (mux->priv)
-		regval = scm_call_atomic1(SCM_SVC_IO, SCM_IO_READ,
-					  *(u32 *)mux->priv + mux->offset);
+		regval = scm_io_read(*(u32 *)mux->priv + mux->offset);
 	else
 		regval = readl_relaxed(*mux->base + mux->offset);
 
 	regval &= ~(mux->mask << mux->shift);
 	regval |= (sel & mux->mask) << mux->shift;
 
-	if (mux->priv) {
-		scm_call_atomic2(SCM_SVC_IO, SCM_IO_WRITE,
-				 *(u32 *)mux->priv + mux->offset, regval);
-	} else
+	if (mux->priv)
+		scm_io_write(*(u32 *)mux->priv + mux->offset, regval);
+	else
 		writel_relaxed(regval, *mux->base + mux->offset);
 
 	spin_unlock_irqrestore(&mux_reg_lock, flags);
@@ -479,8 +470,7 @@ static int cpu_mux_get_sel(struct mux_clk *mux)
 	u32 regval;
 
 	if (mux->priv)
-		regval = scm_call_atomic1(SCM_SVC_IO, SCM_IO_READ,
-					  *(u32 *)mux->priv + mux->offset);
+		regval = scm_io_read(*(u32 *)mux->priv + mux->offset);
 	else
 		regval = readl_relaxed(*mux->base + mux->offset);
 	return (regval >> mux->shift) & mux->mask;

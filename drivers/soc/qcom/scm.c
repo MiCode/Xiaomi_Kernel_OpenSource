@@ -939,6 +939,43 @@ u32 scm_get_version(void)
 }
 EXPORT_SYMBOL(scm_get_version);
 
+#define SCM_IO_READ	0x1
+#define SCM_IO_WRITE	0x2
+
+u32 scm_io_read(phys_addr_t address)
+{
+	if (!is_scm_armv8()) {
+		return scm_call_atomic1(SCM_SVC_IO, SCM_IO_READ, address);
+	} else {
+		struct scm_desc desc = {
+			.args[0] = address,
+			.arginfo = SCM_ARGS(1),
+		};
+		scm_call2_atomic(SCM_SIP_FNID(SCM_SVC_IO, SCM_IO_READ), &desc);
+		return desc.ret[0];
+	}
+}
+EXPORT_SYMBOL(scm_io_read);
+
+int scm_io_write(phys_addr_t address, u32 val)
+{
+	int ret;
+
+	if (!is_scm_armv8()) {
+		ret = scm_call_atomic2(SCM_SVC_IO, SCM_IO_WRITE, address, val);
+	} else {
+		struct scm_desc desc = {
+			.args[0] = address,
+			.args[1] = val,
+			.arginfo = SCM_ARGS(2),
+		};
+		ret = scm_call2_atomic(SCM_SIP_FNID(SCM_SVC_IO, SCM_IO_WRITE),
+				       &desc);
+	}
+	return ret;
+}
+EXPORT_SYMBOL(scm_io_write);
+
 int scm_is_call_available(u32 svc_id, u32 cmd_id)
 {
 	int ret;
