@@ -197,6 +197,11 @@ void wan_ioctl_stop_qmi_messages(void)
 	process_ioctl = 0;
 }
 
+void wan_ioctl_enable_qmi_messages(void)
+{
+	process_ioctl = 1;
+}
+
 void wan_ioctl_deinit(void)
 {
 	cdev_del(&wan_ioctl_cdev);
