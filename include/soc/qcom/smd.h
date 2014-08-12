@@ -180,7 +180,8 @@ int smd_write_start(smd_channel_t *ch, int len);
  *      -EINVAL - invalid length
  *      -ENOEXEC - transaction not started
  */
-int smd_write_segment(smd_channel_t *ch, void *data, int len, int user_buf);
+int smd_write_segment(smd_channel_t *ch, const void *data, int len,
+		      int user_buf);
 
 /* Completes a packet transaction.  Do not call from interrupt context.
  *
@@ -352,7 +353,7 @@ static inline int smd_write_start(smd_channel_t *ch, int len)
 }
 
 static inline int
-smd_write_segment(smd_channel_t *ch, void *data, int len, int user_buf)
+smd_write_segment(smd_channel_t *ch, const void *data, int len, int user_buf)
 {
 	return -ENODEV;
 }
