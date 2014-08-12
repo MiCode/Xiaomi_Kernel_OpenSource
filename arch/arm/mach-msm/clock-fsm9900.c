@@ -477,21 +477,6 @@ static struct pll_vote_clk gpll1_clk_src = {
 	},
 };
 
-static struct pll_vote_clk gpll4_clk_src = {
-	.en_reg = (void __iomem *)APCS_GPLL_ENA_VOTE,
-	.en_mask = BIT(4),
-	.status_reg = (void __iomem *)GPLL4_STATUS,
-	.status_mask = BIT(17),
-	.base = &virt_bases[GCC_BASE],
-	.c = {
-		.parent = &xo_clk_src.c,
-		.rate = 288000000,
-		.dbg_name = "gpll4_clk_src",
-		.ops = &clk_ops_pll_vote,
-		CLK_INIT(gpll4_clk_src.c),
-	},
-};
-
 static struct clk_freq_tbl ftbl_gcc_blsp1_2_qup1_6_i2c_apps_clk[] = {
 	F( 19200000,         xo,    1, 0, 0),
 	F( 50000000,      gpll0,   12, 0, 0),
@@ -2869,37 +2854,9 @@ static struct pll_config mmpll10_config = {
 	.main_output_mask = BIT(0),
 };
 
-static struct pll_config_regs gpll4_regs __initdata = {
-	.l_reg = (void __iomem *)GPLL4_L,
-	.m_reg = (void __iomem *)GPLL4_M,
-	.n_reg = (void __iomem *)GPLL4_N,
-	.config_reg = (void __iomem *)GPLL4_USER_CTL,
-	.mode_reg = (void __iomem *)GPLL4_MODE,
-	.base = &virt_bases[GCC_BASE],
-};
-
-/* PLL4 at 288 MHz, main output enabled. LJ mode. */
-static struct pll_config gpll4_config __initdata = {
-	.l = 0x1e,
-	.m = 0x0,
-	.n = 0x1,
-	.vco_val = 0,
-	.vco_mask = BM(21, 20),
-	.pre_div_val = 0x0,
-	.pre_div_mask = BM(14, 12),
-	.post_div_val = BIT(8),
-	.post_div_mask = BM(9, 8),
-	.mn_ena_val = BIT(24),
-	.mn_ena_mask = BIT(24),
-	.main_output_val = BIT(0),
-	.main_output_mask = BIT(0),
-};
-
 static void __init reg_init(void)
 {
 	u32 regval;
-
-	configure_sr_hpm_lp_pll(&gpll4_config, &gpll4_regs, 1);
 
 	/* Vote for GPLL0 to turn on. Needed by acpuclock. */
 	regval = readl_relaxed(GCC_REG_BASE(APCS_GPLL_ENA_VOTE));
