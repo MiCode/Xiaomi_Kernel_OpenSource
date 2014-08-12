@@ -7,7 +7,9 @@ Required properties:
 	- "venus"
 	- "q6"
 - qcom,max-hw-load: The maximum load the hardware can support expressed in units
-  of macroblocks per second.
+  of macroblocks per second. The load is a reflection of hardware capability
+  rather than a performance guarantee. Performance is guaranteed only up to
+  advertised capability of the chipset.
 
 Optional properties:
 - reg : offset and length of the register set for the device.
