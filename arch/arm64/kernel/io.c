@@ -19,6 +19,7 @@
 #include <linux/export.h>
 #include <linux/types.h>
 #include <linux/io.h>
+#include <linux/msm_rtb.h>
 
 /*
  * Copy data from IO memory space to "real" memory space.
