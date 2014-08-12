@@ -630,6 +630,7 @@ struct dwc3_scratchpad_array {
  * @regs_size: address space size
  * @nr_scratch: number of scratch buffers
  * @num_event_buffers: calculated number of event buffers
+ * @u1: used on revisions<=2.50a,save U1 state(initU1Ena|AcceptU1Ena).workaround
  * @u1u2: only used on revisions <1.83a for workaround
  * @maximum_speed: maximum speed requested (mainly for testing purposes)
  * @revision: revision register contents
@@ -712,6 +713,8 @@ struct dwc3 {
 
 	u32			nr_scratch;
 	u32			num_event_buffers;
+
+	u32			u1;
 	u32			u1u2;
 	u32			maximum_speed;
 	u32			revision;
