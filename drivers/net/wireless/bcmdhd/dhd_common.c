@@ -433,7 +433,7 @@ dhd_doiovar(dhd_pub_t *dhd_pub, const bcm_iovar_t *vi, uint32 actionid, const ch
 
 	case IOV_GVAL(IOV_MSGLEVEL):
 		int_val = (int32)dhd_msg_level;
-		bcopy(&int_val, arg, val_size);
+		bcopy(&int_val, arg, sizeof(int_val));
 		break;
 
 	case IOV_SVAL(IOV_MSGLEVEL):
@@ -454,12 +454,12 @@ dhd_doiovar(dhd_pub_t *dhd_pub, const bcm_iovar_t *vi, uint32 actionid, const ch
 
 	case IOV_GVAL(IOV_BCMERROR):
 		int_val = (int32)dhd_pub->bcmerror;
-		bcopy(&int_val, arg, val_size);
+		bcopy(&int_val, arg, sizeof(int_val));
 		break;
 
 	case IOV_GVAL(IOV_WDTICK):
 		int_val = (int32)dhd_watchdog_ms;
-		bcopy(&int_val, arg, val_size);
+		bcopy(&int_val, arg, sizeof(int_val));
 		break;
 
 	case IOV_SVAL(IOV_WDTICK):
@@ -477,7 +477,7 @@ dhd_doiovar(dhd_pub_t *dhd_pub, const bcm_iovar_t *vi, uint32 actionid, const ch
 #ifdef DHD_DEBUG
 	case IOV_GVAL(IOV_DCONSOLE_POLL):
 		int_val = (int32)dhd_console_ms;
-		bcopy(&int_val, arg, val_size);
+		bcopy(&int_val, arg, sizeof(int_val));
 		break;
 
 	case IOV_SVAL(IOV_DCONSOLE_POLL):
@@ -531,7 +531,7 @@ dhd_doiovar(dhd_pub_t *dhd_pub, const bcm_iovar_t *vi, uint32 actionid, const ch
 		if (bcmerror != BCME_OK)
 			goto exit;
 		int_val = wlfc_enab ? 1 : 0;
-		bcopy(&int_val, arg, val_size);
+		bcopy(&int_val, arg, sizeof(int_val));
 		break;
 	}
 	case IOV_SVAL(IOV_PROPTXSTATUS_ENABLE): {
@@ -555,7 +555,7 @@ dhd_doiovar(dhd_pub_t *dhd_pub, const bcm_iovar_t *vi, uint32 actionid, const ch
 		bcmerror = dhd_wlfc_get_mode(dhd_pub, &int_val);
 		if (bcmerror != BCME_OK)
 			goto exit;
-		bcopy(&int_val, arg, val_size);
+		bcopy(&int_val, arg, sizeof(int_val));
 		break;
 
 	case IOV_SVAL(IOV_PROPTXSTATUS_MODE):
@@ -566,7 +566,7 @@ dhd_doiovar(dhd_pub_t *dhd_pub, const bcm_iovar_t *vi, uint32 actionid, const ch
 		bcmerror = dhd_wlfc_get_module_ignore(dhd_pub, &int_val);
 		if (bcmerror != BCME_OK)
 			goto exit;
-		bcopy(&int_val, arg, val_size);
+		bcopy(&int_val, arg, sizeof(int_val));
 		break;
 
 	case IOV_SVAL(IOV_PROPTXSTATUS_MODULE_IGNORE):
@@ -577,7 +577,7 @@ dhd_doiovar(dhd_pub_t *dhd_pub, const bcm_iovar_t *vi, uint32 actionid, const ch
 		bcmerror = dhd_wlfc_get_credit_ignore(dhd_pub, &int_val);
 		if (bcmerror != BCME_OK)
 			goto exit;
-		bcopy(&int_val, arg, val_size);
+		bcopy(&int_val, arg, sizeof(int_val));
 		break;
 
 	case IOV_SVAL(IOV_PROPTXSTATUS_CREDIT_IGNORE):
@@ -588,7 +588,7 @@ dhd_doiovar(dhd_pub_t *dhd_pub, const bcm_iovar_t *vi, uint32 actionid, const ch
 		bcmerror = dhd_wlfc_get_txstatus_ignore(dhd_pub, &int_val);
 		if (bcmerror != BCME_OK)
 			goto exit;
-		bcopy(&int_val, arg, val_size);
+		bcopy(&int_val, arg, sizeof(int_val));
 		break;
 
 	case IOV_SVAL(IOV_PROPTXSTATUS_TXSTATUS_IGNORE):
@@ -599,7 +599,7 @@ dhd_doiovar(dhd_pub_t *dhd_pub, const bcm_iovar_t *vi, uint32 actionid, const ch
 		bcmerror = dhd_wlfc_get_rxpkt_chk(dhd_pub, &int_val);
 		if (bcmerror != BCME_OK)
 			goto exit;
-		bcopy(&int_val, arg, val_size);
+		bcopy(&int_val, arg, sizeof(int_val));
 		break;
 
 	case IOV_SVAL(IOV_PROPTXSTATUS_RXPKT_CHK):
@@ -619,14 +619,14 @@ dhd_doiovar(dhd_pub_t *dhd_pub, const bcm_iovar_t *vi, uint32 actionid, const ch
 #ifdef PCIE_FULL_DONGLE
 		int_val = BUS_TYPE_PCIE;
 #endif
-		bcopy(&int_val, arg, val_size);
+		bcopy(&int_val, arg, sizeof(int_val));
 		break;
 
 
 #ifdef WLMEDIA_HTSF
 	case IOV_GVAL(IOV_WLPKTDLYSTAT_SZ):
 		int_val = dhd_pub->htsfdlystat_sz;
-		bcopy(&int_val, arg, val_size);
+		bcopy(&int_val, arg, sizeof(int_val));
 		break;
 
 	case IOV_SVAL(IOV_WLPKTDLYSTAT_SZ):
@@ -660,7 +660,7 @@ dhd_doiovar(dhd_pub_t *dhd_pub, const bcm_iovar_t *vi, uint32 actionid, const ch
 #ifdef DHDTCPACK_SUPPRESS
 	case IOV_GVAL(IOV_TCPACK_SUPPRESS): {
 		int_val = (uint32)dhd_pub->tcpack_sup_mode;
-		bcopy(&int_val, arg, val_size);
+		bcopy(&int_val, arg, sizeof(int_val));
 		break;
 	}
 	case IOV_SVAL(IOV_TCPACK_SUPPRESS): {
@@ -682,7 +682,7 @@ dhd_doiovar(dhd_pub_t *dhd_pub, const bcm_iovar_t *vi, uint32 actionid, const ch
 
 		wmf = dhd_wmf_conf(dhd_pub, bssidx);
 		int_val = wmf->wmf_enable ? 1 :0;
-		bcopy(&int_val, arg, val_size);
+		bcopy(&int_val, arg, sizeof(int_val));
 		break;
 	}
 	case IOV_SVAL(IOV_WMF_BSS_ENAB): {
@@ -724,7 +724,7 @@ dhd_doiovar(dhd_pub_t *dhd_pub, const bcm_iovar_t *vi, uint32 actionid, const ch
 	}
 	case IOV_GVAL(IOV_WMF_UCAST_IGMP):
 		int_val = dhd_pub->wmf_ucast_igmp ? 1 : 0;
-		bcopy(&int_val, arg, val_size);
+		bcopy(&int_val, arg, sizeof(int_val));
 		break;
 	case IOV_SVAL(IOV_WMF_UCAST_IGMP):
 		if (dhd_pub->wmf_ucast_igmp == int_val)
@@ -737,7 +737,7 @@ dhd_doiovar(dhd_pub_t *dhd_pub, const bcm_iovar_t *vi, uint32 actionid, const ch
 		break;
 	case IOV_GVAL(IOV_WMF_MCAST_DATA_SENDUP):
 		int_val = dhd_wmf_mcast_data_sendup(dhd_pub, 0, FALSE, FALSE);
-		bcopy(&int_val, arg, val_size);
+		bcopy(&int_val, arg, sizeof(int_val));
 		break;
 	case IOV_SVAL(IOV_WMF_MCAST_DATA_SENDUP):
 		dhd_wmf_mcast_data_sendup(dhd_pub, 0, TRUE, int_val);
@@ -746,7 +746,7 @@ dhd_doiovar(dhd_pub_t *dhd_pub, const bcm_iovar_t *vi, uint32 actionid, const ch
 #ifdef WL_IGMP_UCQUERY
 	case IOV_GVAL(IOV_WMF_UCAST_IGMP_QUERY):
 		int_val = dhd_pub->wmf_ucast_igmp_query ? 1 : 0;
-		bcopy(&int_val, arg, val_size);
+		bcopy(&int_val, arg, sizeof(int_val));
 		break;
 	case IOV_SVAL(IOV_WMF_UCAST_IGMP_QUERY):
 		if (dhd_pub->wmf_ucast_igmp_query == int_val)
@@ -761,7 +761,7 @@ dhd_doiovar(dhd_pub_t *dhd_pub, const bcm_iovar_t *vi, uint32 actionid, const ch
 #ifdef DHD_UCAST_UPNP
 	case IOV_GVAL(IOV_WMF_UCAST_UPNP):
 		int_val = dhd_pub->wmf_ucast_upnp ? 1 : 0;
-		bcopy(&int_val, arg, val_size);
+		bcopy(&int_val, arg, sizeof(int_val));
 		break;
 	case IOV_SVAL(IOV_WMF_UCAST_UPNP):
 		if (dhd_pub->wmf_ucast_upnp == int_val)
@@ -779,7 +779,7 @@ dhd_doiovar(dhd_pub_t *dhd_pub, const bcm_iovar_t *vi, uint32 actionid, const ch
 #ifdef DHD_UNICAST_DHCP
 	case IOV_GVAL(IOV_DHCP_UNICAST):
 		int_val = dhd_pub->dhcp_unicast;
-		bcopy(&int_val, arg, val_size);
+		bcopy(&int_val, arg, sizeof(int_val));
 		break;
 	case IOV_SVAL(IOV_DHCP_UNICAST):
 		if (dhd_pub->dhcp_unicast == int_val)
@@ -795,7 +795,7 @@ dhd_doiovar(dhd_pub_t *dhd_pub, const bcm_iovar_t *vi, uint32 actionid, const ch
 #ifdef DHD_L2_FILTER
 	case IOV_GVAL(IOV_BLOCK_PING):
 		int_val = dhd_pub->block_ping;
-		bcopy(&int_val, arg, val_size);
+		bcopy(&int_val, arg, sizeof(int_val));
 		break;
 	case IOV_SVAL(IOV_BLOCK_PING):
 		if (dhd_pub->block_ping == int_val)
@@ -819,7 +819,7 @@ dhd_doiovar(dhd_pub_t *dhd_pub, const bcm_iovar_t *vi, uint32 actionid, const ch
 		}
 
 		int_val = dhd_get_ap_isolate(dhd_pub, bssidx);
-		bcopy(&int_val, arg, val_size);
+		bcopy(&int_val, arg, sizeof(int_val));
 		break;
 	}
 	case IOV_SVAL(IOV_AP_ISOLATE): {
