@@ -493,6 +493,7 @@ static int sst_platform_get_resources_edk(struct intel_sst_drv *ctx,
 		ctx->irq_num = platform_get_irq(pdev, 5);
 	} else
 		return -EINVAL;
+	pr_debug("sst irq_num = %d\n", ctx->irq_num);
 	return 0;
 }
 
@@ -593,7 +594,9 @@ int sst_acpi_probe(struct platform_device *pdev)
 	ctx->pdata = sst_get_acpi_driver_data(hid);
 	if (!ctx->pdata)
 		return -EINVAL;
-	ctx->pdata->bdata = &sst_byt_crv2_bdata;
+	/* bdata update; only for BYT-CR platform*/
+	if (ctx->pci_id == SST_BYT_PCI_ID)
+		ctx->pdata->bdata = &sst_byt_crv2_bdata;
 #if 0
 	if (INTEL_MID_BOARD(3, TABLET, BYT, BLK, PRO, CRV2)) {
 		/* BYT-CR V2 has only mono speaker, while

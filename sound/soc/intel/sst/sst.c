@@ -419,13 +419,6 @@ int sst_driver_ops(struct intel_sst_drv *sst)
 #if 0
 	case SST_MRFLD_PCI_ID:
 	case PCI_DEVICE_ID_INTEL_SST_MOOR:
-	case SST_CHT_PCI_ID:
-		sst->tstamp = SST_TIME_STAMP_MRFLD;
-		sst->ops = &mrfld_ops;
-
-		/* Override the recovery ops for CHT platforms */
-		if (sst->pci_id == SST_CHT_PCI_ID)
-			sst->ops->do_recovery = sst_do_recovery;
 		/* For MOFD platforms disable/enable recovery based on
 		 * platform data
 		 */
@@ -439,6 +432,12 @@ int sst_driver_ops(struct intel_sst_drv *sst)
 
 		return 0;
 #endif
+	case SST_CHT_PCI_ID:
+		sst->tstamp = SST_TIME_STAMP_MRFLD;
+		sst->ops = &mrfld_ops;
+		/* Override the recovery ops for CHT platforms */
+		sst->ops->do_recovery = sst_do_recovery;
+		return 0;
 	case SST_BYT_PCI_ID:
 		sst->tstamp = SST_TIME_STAMP_BYT;
 		sst->ops = &mrfld_32_ops;
@@ -609,22 +608,46 @@ static const struct dmi_system_id dmi_machine_table[] = {
 	{ }
 };
 
+static struct platform_device cht_t_mach_dev = {
+	.name           = "cht_rt5672",
+	.id             = -1,
+	.num_resources  = 0,
+};
+
 int sst_request_firmware_async(struct intel_sst_drv *ctx)
 {
 	int ret = 0;
 	struct mach_codec_link const *mc_link;
 	struct board_config const *conf;
 
-	mc_link = get_mc_link();
-	if (mc_link == NULL) {
-		pr_err("%s: Unsupported machine! Cannot load firmware!\n",
-			__func__);
-		return -ENOENT;
-	}
-	conf = get_board_config(mc_link);
+	if (ctx->pci_id == SST_BYT_PCI_ID) {
+		mc_link = get_mc_link();
+		if (mc_link == NULL) {
+			pr_err("%s: Unsupported machine! Cannot load firmware!\n",
+					__func__);
+			return -ENOENT;
+		}
+		conf = get_board_config(mc_link);
 
-	snprintf(ctx->firmware_name, sizeof(ctx->firmware_name),
-			"fw_sst_%04x_ssp%d.bin", ctx->pci_id, conf->i2s_port);
+		snprintf(ctx->firmware_name, sizeof(ctx->firmware_name),
+				"fw_sst_%04x_ssp%d.bin", ctx->pci_id,
+				conf->i2s_port);
+	} else if (ctx->pci_id == SST_CHT_PCI_ID) {
+		snprintf(ctx->firmware_name, sizeof(ctx->firmware_name),
+				"fw_sst_%04x.bin", ctx->pci_id);
+
+		pr_info("Registering machine device %s\n", cht_t_mach_dev.name);
+		ret = platform_device_register(&cht_t_mach_dev);
+		if (ret) {
+			pr_err("failed to register machine device %s\n",
+					cht_t_mach_dev.name);
+			return -ENOENT;
+		}
+
+	} else {
+		pr_err("invalid pci id %d in %s\n", ctx->pci_id, __func__);
+		return -EINVAL;
+	}
 	pr_err("Requesting FW %s now...\n", ctx->firmware_name);
 
 	trace_sst_fw_download("Request firmware async", ctx->sst_state);
