@@ -113,8 +113,8 @@ int msm_rng_direct_read(struct msm_rng_device *msm_rng_dev, void *data)
 	struct platform_device *pdev;
 	void __iomem *base;
 	size_t currsize = 0;
-	unsigned long val;
-	unsigned long *retdata = data;
+	u32 val;
+	u32 *retdata = data;
 	int ret;
 	int failed = 0;
 
@@ -182,8 +182,8 @@ static int msm_rng_drbg_read(struct hwrng *rng,
 	struct platform_device *pdev;
 	void __iomem *base;
 	size_t currsize = 0;
-	unsigned long val;
-	unsigned long *retdata = data;
+	u32 val;
+	u32 *retdata = data;
 	int ret, ret1;
 	int failed = 0;
 
