@@ -523,6 +523,8 @@ static int gport_rmnet_connect(struct f_rmnet *dev, unsigned intf)
 
 			return PTR_ERR(net);
 		}
+		gether_update_dl_max_pkts_per_xfer(&dev->gether_port, 10);
+		gether_update_dl_max_xfer_size(&dev->gether_port, 16384);
 		break;
 	case USB_GADGET_XPORT_NONE:
 		 break;
