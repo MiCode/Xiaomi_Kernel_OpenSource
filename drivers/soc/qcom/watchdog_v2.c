@@ -227,8 +227,16 @@ static ssize_t wdog_disable_set(struct device *dev,
 			return count;
 		}
 		disable = 1;
-		ret = scm_call(SCM_SVC_BOOT, SCM_SVC_SEC_WDOG_DIS, &disable,
-						sizeof(disable), NULL, 0);
+		if (!is_scm_armv8()) {
+			ret = scm_call(SCM_SVC_BOOT, SCM_SVC_SEC_WDOG_DIS,
+				       &disable, sizeof(disable), NULL, 0);
+		} else {
+			struct scm_desc desc = {0};
+			desc.args[0] = 1;
+			desc.arginfo = SCM_ARGS(1);
+			ret = scm_call2(SCM_SIP_FNID(SCM_SVC_BOOT,
+					SCM_SVC_SEC_WDOG_DIS), &desc);
+		}
 		if (ret) {
 			dev_err(wdog_dd->dev,
 					"Failed to deactivate secure wdog\n");
@@ -428,14 +436,23 @@ static void configure_bark_dump(struct msm_watchdog_data *wdog_dd)
 		unsigned addr;
 		int len;
 	} cmd_buf;
+	struct scm_desc desc = {0};
 
 	if (MSM_DUMP_MAJOR(msm_dump_table_version()) == 1) {
 		wdog_dd->scm_regsave = (void *)__get_free_page(GFP_KERNEL);
 		if (wdog_dd->scm_regsave) {
-			cmd_buf.addr = virt_to_phys(wdog_dd->scm_regsave);
-			cmd_buf.len  = PAGE_SIZE;
-			ret = scm_call(SCM_SVC_UTIL, SCM_SET_REGSAVE_CMD,
-					&cmd_buf, sizeof(cmd_buf), NULL, 0);
+			desc.args[0] = cmd_buf.addr =
+					virt_to_phys(wdog_dd->scm_regsave);
+			desc.args[1] = cmd_buf.len  = PAGE_SIZE;
+			desc.arginfo = SCM_ARGS(2, SCM_RW, SCM_VAL);
+
+			if (!is_scm_armv8())
+				ret = scm_call(SCM_SVC_UTIL,
+					       SCM_SET_REGSAVE_CMD, &cmd_buf,
+					       sizeof(cmd_buf), NULL, 0);
+			else
+				ret = scm_call2(SCM_SIP_FNID(SCM_SVC_UTIL,
+						SCM_SET_REGSAVE_CMD), &desc);
 			if (ret)
 				pr_err("Setting register save address failed.\n"
 				       "Registers won't be dumped on a dog "
