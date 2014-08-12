@@ -197,6 +197,34 @@
 		};
 	};
 
+	clock_rpm: qcom,rpmcc@1800000 {
+		compatible = "qcom,rpmcc-ferrum";
+		reg = <0x1800000 0x80000>;
+		reg-names = "cc_base";
+		#clock-cells = <1>;
+	};
+
+	clock_gcc: qcom,gcc@1800000 {
+		compatible = "qcom,gcc-ferrum";
+		reg = <0x1800000 0x80000>;
+		reg-names = "cc_base";
+		vdd_dig-supply = <&pmferrum_s1_corner>;
+		clocks = <&clock_rpm clk_xo_clk_src>,
+			<&clock_rpm clk_xo_a_clk_src>;
+		clock-names = "xo", "xo_a";
+		#clock-cells = <1>;
+	};
+
+	clock_debug: qcom,cc-debug@1874000 {
+		compatible = "qcom,cc-debug-ferrum";
+		reg = <0x1874000 0x4>,
+			<0xb01101c 0x8>;
+		reg-names = "cc_base", "meas";
+		clocks = <&clock_rpm clk_rpm_debug_mux>;
+		clock-names = "rpm_debug_mux";
+		#clock-cells = <1>;
+	};
+
 	blsp1_uart1: serial@78af000 {
 		compatible = "qcom,msm-lsuart-v14";
 		reg = <0x78af000 0x200>;
@@ -215,16 +243,6 @@
 		clocks = <&clock_gcc clk_gcc_blsp1_uart2_apps_clk>,
 			 <&clock_gcc clk_gcc_blsp1_ahb_clk>;
 		clock-names = "core_clk", "iface_clk";
-	};
-
-	clock_gcc: qcom,gcc@1800000 {
-		compatible = "qcom,dummycc";
-		#clock-cells = <1>;
-	};
-
-	clock_rpm: qcom,rpmcc@1800000 {
-		compatible = "qcom,dummycc";
-		#clock-cells = <1>;
 	};
 
 	qcom,sps {
