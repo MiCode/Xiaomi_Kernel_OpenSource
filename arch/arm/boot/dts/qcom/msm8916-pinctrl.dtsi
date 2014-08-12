@@ -1260,7 +1260,7 @@
 			qcom,pins = <&gp 28>, <&gp 33>;
 			qcom,num-grp-pins = <2>;
 			qcom,pin-func = <0>;
-			label = "cam_sensor_front";
+			label = "cam_sensor_front_sleep";
 			/*suspended state */
 			cam_sensor_front_sleep: sleep {
 				drive-strength = <2>; /* 2 MA */
