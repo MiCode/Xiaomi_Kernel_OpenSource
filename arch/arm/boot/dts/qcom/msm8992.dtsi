@@ -11,7 +11,7 @@
  */
 
 #include "skeleton64.dtsi"
-#include <dt-bindings/clock/msm-clocks-8994.h>
+#include <dt-bindings/clock/msm-clocks-8992.h>
 
 / {
 	model = "Qualcomm Technologies, Inc. MSM 8992";
