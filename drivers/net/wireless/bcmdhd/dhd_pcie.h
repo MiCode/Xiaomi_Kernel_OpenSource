@@ -152,11 +152,11 @@ typedef struct dhd_bus {
 
 	uint32 def_intmask;
 	bool	ltrsleep_on_unload;
-	bool	suspended;
 	uint	wait_for_d3_ack;
 	uint8	txmode_push;
 	uint32 max_sub_queues;
-
+	bool	db1_for_mb;
+	bool	suspended;
 } dhd_bus_t;
 
 /* function declarations */
