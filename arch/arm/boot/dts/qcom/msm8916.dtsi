@@ -1775,7 +1775,7 @@
 };
 
 &gdsc_oxili_gx {
-	clock-names = "core_clk";
+	clock-names = "core_root_clk";
 	clocks = <&clock_gcc clk_gfx3d_clk_src>;
 	qcom,enable-root-clk;
 	status = "okay";

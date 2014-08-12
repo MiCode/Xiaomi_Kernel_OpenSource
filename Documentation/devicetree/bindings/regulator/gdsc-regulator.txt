@@ -28,7 +28,8 @@ Optional properties:
 			turned on and disabled before turning off gdsc. This
 			will be used in susbsystems where reset is synchronous
 			and root clk is active without sw being aware of its
-			state.
+			state. The clock-name which denotes the root clock
+			should be named as "core_root_clk".
 
 Example:
 	gdsc_oxili_gx: qcom,gdsc@fd8c4024 {
