@@ -564,21 +564,6 @@
 			};
 		};
 
-		cdc-vdd-spkr {
-			qcom,pins = <&gp 121>;
-			qcom,num-grp-pins = <1>;
-			qcom,pin-func = <0>;
-			label = "cdc-vdd-spkr-gpio";
-			cdc_vdd_spkr_act: spk_lines_on {
-				drive-strength = <8>;
-				bias-pull-none;
-				output-low;
-			};
-			cdc_vdd_spkr_sus: spk_lines_off {
-				drive-strength = <2>;
-				bias-disable;
-			};
-		};
 		pmx_mdss: pmx_mdss {
 			label = "mdss-pins";
 			qcom,pin-func = <0>;

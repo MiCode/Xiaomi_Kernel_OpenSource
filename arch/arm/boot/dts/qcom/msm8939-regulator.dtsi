@@ -49,6 +49,14 @@
 /* Memory accelerator and CPR controlled regulators */
 
 &soc {
+	spk_vreg: regulator_spk {
+		compatible = "regulator-fixed";
+		regulator-name = "spk_vreg";
+		startup-delay-us = <0>;
+		enable-active-high;
+		gpio = <&msm_gpio 121 0>;
+	};
+
 	mem_acc_vreg_corner: regulator@1942130 {
 		compatible = "qcom,mem-acc-regulator";
 		reg = <0x1942130 0x4>, <0x58000 0x1000>;
