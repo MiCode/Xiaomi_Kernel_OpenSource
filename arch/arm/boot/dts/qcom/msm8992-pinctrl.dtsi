@@ -199,6 +199,23 @@
 			};
 		};
 
+		pmx_i2c_2 {
+			qcom,pins = <&gp 6>, <&gp 7>; /* SDA, SCL */
+			qcom,num-grp-pins = <2>;
+			qcom,pin-func = <3>;
+			label = "pmx_i2c_2";
+
+			i2c_2_active: i2c_2_active {
+				drive-strength = <2>;
+				bias-disable;
+			};
+
+			i2c_2_sleep: i2c_2_sleep {
+				drive-strength = <2>;
+				bias-disable;
+			};
+		};
+
 		eth-irq {
 			qcom,pins = <&gp 75>;
 			qcom,num-grp-pins = <1>;
