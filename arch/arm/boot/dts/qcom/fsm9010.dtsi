@@ -99,4 +99,12 @@
 		         <&clock_gcc clk_gcc_sdcc1_apps_clk>;
 		status = "disable";
 	};
+
+	qcom,msm-rng@f9bff000 {
+		compatible = "qcom,msm-rng";
+		reg = <0xf9bff000 0x140>;
+		qcom,msm-rng-iface-clk;
+		clocks = <&clock_gcc clk_gcc_prng_ahb_clk>;
+		clock-names = "iface_clk";
+	};
 };
