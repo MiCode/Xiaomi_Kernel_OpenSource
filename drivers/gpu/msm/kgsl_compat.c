@@ -399,6 +399,10 @@ int kgsl_cmdbatch_create_compat(struct kgsl_device *device, unsigned int flags,
 
 			uptr += sizeof(ibdesc32);
 		}
+
+		if (cmdbatch->profiling_buf_entry == NULL)
+			cmdbatch->flags &= ~KGSL_CMDBATCH_PROFILING;
+
 	}
 	if (synclist && numsyncs) {
 
