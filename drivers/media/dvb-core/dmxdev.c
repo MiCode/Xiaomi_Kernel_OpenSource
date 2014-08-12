@@ -36,6 +36,7 @@
 #include <linux/seq_file.h>
 #include <linux/timer.h>
 #include <linux/jiffies.h>
+#include <linux/compat.h>
 #include "dmxdev.h"
 
 static int overflow_auto_flush = 1;
@@ -795,8 +796,7 @@ static int dvr_input_thread_entry(void *arg)
 				feed_cmd.cmd.data_feed_count =
 					dvb_ringbuffer_avail(
 						&dmxdev->dvr_input_buffer);
-
-				dvb_dvr_feed_cmd(dmxdev, &dvr_cmd);
+				dvb_dvr_feed_cmd(dmxdev, &feed_cmd);
 			}
 
 			dvb_dvr_oob_cmd(dmxdev, &dvr_cmd.cmd.oobcmd);
@@ -2101,7 +2101,7 @@ static void dvb_dmxdev_queue_ts_insertion(
 		tsp_size = 192;
 
 	if (ts_buffer->size % tsp_size) {
-		pr_err("%s: Wrong buffer alignment, size=%d, tsp_size=%d\n",
+		pr_err("%s: Wrong buffer alignment, size=%zu, tsp_size=%zu\n",
 			__func__, ts_buffer->size, tsp_size);
 		return;
 	}
@@ -2833,7 +2833,7 @@ static int dvb_dmxdev_section_event_cb(struct dmx_section_filter *filter,
 
 	free = dvb_ringbuffer_free(&dmxdevfilter->buffer);
 	if (free < dmx_data_ready->data_length) {
-		pr_err("%s: invalid data length: data_length=%d > free=%d\n",
+		pr_err("%s: invalid data length: data_length=%d > free=%zd\n",
 			__func__, dmx_data_ready->data_length, free);
 	} else {
 		res = dvb_dmxdev_add_event(&dmxdevfilter->events, &event);
@@ -2993,7 +2993,7 @@ static int dvb_dmxdev_ts_event_cb(struct dmx_ts_feed *feed,
 
 	free = dvb_ringbuffer_free(buffer);
 	if (free < dmx_data_ready->data_length) {
-		pr_err("%s: invalid data length: data_length=%d > free=%d\n",
+		pr_err("%s: invalid data length: data_length=%d > free=%zd\n",
 			__func__, dmx_data_ready->data_length, free);
 
 		spin_unlock(&dmxdevfilter->dev->lock);
@@ -4394,7 +4394,9 @@ static int dvb_demux_do_ioctl(struct file *file,
 		break;
 
 	default:
-		ret = -EINVAL;
+		pr_err("%s: unknown ioctl code (0x%x)\n",
+			__func__, cmd);
+		ret = -ENOIOCTLCMD;
 		break;
 	}
 	mutex_unlock(&dmxdev->mutex);
@@ -4406,6 +4408,71 @@ static long dvb_demux_ioctl(struct file *file, unsigned int cmd,
 {
 	return dvb_usercopy(file, cmd, arg, dvb_demux_do_ioctl);
 }
+
+#ifdef CONFIG_COMPAT
+
+struct dmx_set_ts_insertion32 {
+	__u32 identifier;
+	__u32 repetition_time;
+	compat_uptr_t ts_packets;
+	compat_size_t size;
+};
+
+static long dmx_set_ts_insertion32_wrapper(struct file *file, unsigned int cmd,
+	    unsigned long arg)
+{
+	int ret;
+	struct dmx_set_ts_insertion32 dmx_ts_insert32;
+	struct dmx_set_ts_insertion dmx_ts_insert;
+
+	ret = copy_from_user(&dmx_ts_insert32, (void __user *)arg,
+		sizeof(dmx_ts_insert32));
+	if (ret) {
+		pr_err(
+			"%s: copy dmx_set_ts_insertion32 from user failed, ret=%d\n",
+			__func__, ret);
+		return -EFAULT;
+	}
+
+	memset(&dmx_ts_insert, 0, sizeof(dmx_ts_insert));
+	dmx_ts_insert.identifier = dmx_ts_insert32.identifier;
+	dmx_ts_insert.repetition_time = dmx_ts_insert32.repetition_time;
+	dmx_ts_insert.ts_packets = compat_ptr(dmx_ts_insert32.ts_packets);
+	dmx_ts_insert.size = dmx_ts_insert32.size;
+
+	ret = dvb_demux_do_ioctl(file, DMX_SET_TS_INSERTION, &dmx_ts_insert);
+
+	return ret;
+}
+
+#define DMX_SET_TS_INSERTION32 _IOW('o', 70, struct dmx_set_ts_insertion32)
+
+/*
+ * compat ioctl is called whenever compatability is required, i.e when a 32bit
+ * process calls an ioctl for a 64bit kernel.
+ */
+static long dvb_demux_compat_ioctl(struct file *file, unsigned int cmd,
+			    unsigned long arg)
+{
+	long ret = 0;
+
+	switch (cmd) {
+	case DMX_SET_TS_INSERTION32:
+		ret = dmx_set_ts_insertion32_wrapper(file, cmd, arg);
+		break;
+	case DMX_SET_TS_INSERTION:
+		pr_err("%s: 64bit ioctl code (0x%lx) used by 32bit userspace\n",
+			__func__, DMX_SET_TS_INSERTION);
+		ret = -ENOIOCTLCMD;
+		break;
+	default:
+		/* use regular ioctl */
+		ret = dvb_usercopy(file, cmd, arg, dvb_demux_do_ioctl);
+	}
+
+	return ret;
+}
+#endif
 
 static unsigned int dvb_demux_poll(struct file *file, poll_table *wait)
 {
@@ -4521,6 +4588,9 @@ static const struct file_operations dvb_demux_fops = {
 	.poll = dvb_demux_poll,
 	.llseek = default_llseek,
 	.mmap = dvb_demux_mmap,
+#ifdef CONFIG_COMPAT
+	.compat_ioctl = dvb_demux_compat_ioctl,
+#endif
 };
 
 static struct dvb_device dvbdev_demux = {
@@ -4580,7 +4650,7 @@ static int dvb_dvr_do_ioctl(struct file *file,
 		break;
 
 	default:
-		ret = -EINVAL;
+		ret = -ENOIOCTLCMD;
 		break;
 	}
 	mutex_unlock(&dmxdev->mutex);
@@ -4588,10 +4658,18 @@ static int dvb_dvr_do_ioctl(struct file *file,
 }
 
 static long dvb_dvr_ioctl(struct file *file,
-			 unsigned int cmd, unsigned long arg)
+			unsigned int cmd, unsigned long arg)
 {
 	return dvb_usercopy(file, cmd, arg, dvb_dvr_do_ioctl);
 }
+
+#ifdef CONFIG_COMPAT
+static long dvb_dvr_compat_ioctl(struct file *file, unsigned int cmd,
+			unsigned long arg)
+{
+	return dvb_usercopy(file, cmd, arg, dvb_dvr_do_ioctl);
+}
+#endif
 
 static unsigned int dvb_dvr_poll(struct file *file, poll_table *wait)
 {
@@ -4634,6 +4712,9 @@ static const struct file_operations dvb_dvr_fops = {
 	.write = dvb_dvr_write,
 	.mmap = dvb_dvr_mmap,
 	.unlocked_ioctl = dvb_dvr_ioctl,
+#ifdef CONFIG_COMPAT
+	.compat_ioctl = dvb_dvr_compat_ioctl,
+#endif
 	.open = dvb_dvr_open,
 	.release = dvb_dvr_release,
 	.poll = dvb_dvr_poll,

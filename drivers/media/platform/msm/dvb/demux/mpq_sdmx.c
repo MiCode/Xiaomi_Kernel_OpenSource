@@ -44,6 +44,8 @@ enum sdmx_cmd_id {
 	SDMX_SET_LOG_LEVEL_CMD
 };
 
+#pragma pack(push, sdmx, 1)
+
 struct sdmx_proc_req {
 	enum sdmx_cmd_id cmd_id;
 	u32 session_handle;
@@ -196,6 +198,9 @@ struct sdmx_set_log_level_req {
 struct sdmx_set_log_level_rsp {
 	enum sdmx_status ret;
 };
+
+#pragma pack(pop, sdmx)
+
 static int get_cmd_rsp_buffers(int handle_index,
 	void **cmd,
 	int *cmd_len,
