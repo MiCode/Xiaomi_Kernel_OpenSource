@@ -5326,8 +5326,7 @@ int wcd9xxx_mbhc_init(struct wcd9xxx_mbhc *mbhc, struct wcd9xxx_resmgr *resmgr,
 
 	/* Disable Impedance detection by default for certain codec types */
 	if (mbhc->mbhc_cb && mbhc->mbhc_cb->get_cdc_type &&
-	    ((mbhc->mbhc_cb->get_cdc_type() == WCD9XXX_CDC_TYPE_HELICON) ||
-	    (mbhc->mbhc_cb->get_cdc_type() == WCD9XXX_CDC_TYPE_TOMTOM)))
+	    (mbhc->mbhc_cb->get_cdc_type() == WCD9XXX_CDC_TYPE_HELICON))
 		impedance_detect_en = 0;
 	else
 		impedance_detect_en = impedance_det_en ? 1 : 0;
