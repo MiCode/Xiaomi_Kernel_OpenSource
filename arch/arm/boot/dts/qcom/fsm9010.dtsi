@@ -107,4 +107,11 @@
 		clocks = <&clock_gcc clk_gcc_prng_ahb_clk>;
 		clock-names = "iface_clk";
 	};
+
+	qcom,qfpfuse@fc4b8000 {
+		compatible = "qcom,qfp-fuse";
+		reg = <0xfc4b8000 0x7000>;
+		qcom,blow-status-offset = <0x2048>;
+		status = "disabled";
+	};
 };
