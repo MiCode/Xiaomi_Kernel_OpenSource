@@ -65,6 +65,13 @@
 		interrupts = <0 95 0>;
 	};
 
+	qcom,smem@fa00000 {
+		compatible = "qcom,smem";
+		reg = <0x0fa00000 0x200000>,
+			<0xf9011000 0x1000>;
+		reg-names = "smem", "irq-reg-base";
+	};
+
 	sdhc_1: sdhci@f9824900 {
 		qcom,bus-width = <8>;
 		compatible = "qcom,sdhci-msm";
