@@ -1038,25 +1038,13 @@ static void dwc3_prepare_trbs(struct dwc3_ep *dep, bool starting)
 	if (!trbs_left) {
 		if (!starting)
 			return;
-		trbs_left = DWC3_TRB_NUM;
-		/*
-		 * In case we start from scratch, we queue the ISOC requests
-		 * starting from slot 1. This is done because we use ring
-		 * buffer and have no LST bit to stop us. Instead, we place
-		 * IOC bit every TRB_NUM/4. We try to avoid having an interrupt
-		 * after the first request so we start at slot 1 and have
-		 * 7 requests proceed before we hit the first IOC.
-		 * Other transfer types don't use the ring buffer and are
-		 * processed from the first TRB until the last one. Since we
-		 * don't wrap around we have to start at the beginning.
-		 */
-		if (usb_endpoint_xfer_isoc(dep->endpoint.desc)) {
-			dep->busy_slot = 1;
-			dep->free_slot = 1;
-		} else {
-			dep->busy_slot = 0;
-			dep->free_slot = 0;
-		}
+		dep->busy_slot = 0;
+		dep->free_slot = 0;
+		/* For ISOC requests the last TRB is reserved for link TRB */
+		if (usb_endpoint_xfer_isoc(dep->endpoint.desc))
+			trbs_left = DWC3_TRB_NUM-1;
+		else
+			trbs_left = DWC3_TRB_NUM;
 	}
 
 	list_for_each_entry_safe(req, n, &dep->request_list, list) {
