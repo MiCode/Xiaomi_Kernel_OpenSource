@@ -399,6 +399,7 @@ static const struct nla_policy nl80211_policy[NL80211_ATTR_MAX+1] = {
 	[NL80211_ATTR_KEY_DERIVE_OFFLOAD_SUPPORT] = { .type = NLA_U32 },
 	[NL80211_ATTR_PMK] = { .type = NLA_BINARY,
 				   .len = NL80211_KEY_LEN_PMK },
+	[NL80211_ATTR_PMK_LEN] = { .type = NLA_U32 },
 };
 
 /* policy for the key attributes */
@@ -8702,16 +8703,21 @@ static int nl80211_key_mgmt_set_pmk(struct sk_buff *skb, struct genl_info *info)
 	struct cfg80211_registered_device *rdev = info->user_ptr[0];
 	struct net_device *dev = info->user_ptr[1];
 	u8 *pmk;
+	size_t pmk_len;
 
 	if (info->attrs[NL80211_ATTR_PMK])
 		pmk = nla_data(info->attrs[NL80211_ATTR_PMK]);
+	else
+		return -EINVAL;
+	if (info->attrs[NL80211_ATTR_PMK_LEN])
+		pmk_len = nla_get_u32(info->attrs[NL80211_ATTR_PMK_LEN]);
 	else
 		return -EINVAL;
 
 	if (!rdev->ops->key_mgmt_set_pmk)
 		return -EOPNOTSUPP;
 
-	return rdev_key_mgmt_set_pmk(rdev, dev, pmk);
+	return rdev_key_mgmt_set_pmk(rdev, dev, pmk, pmk_len);
 }
 
 #define NL80211_FLAG_NEED_WIPHY		0x01
