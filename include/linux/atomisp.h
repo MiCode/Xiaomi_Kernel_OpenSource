@@ -679,7 +679,7 @@ struct atomisp_sensor_mode_data {
 	unsigned int output_height;
 	uint8_t binning_factor_x; /* horizontal binning factor used */
 	uint8_t binning_factor_y; /* vertical binning factor used */
-	uint8_t reserved[2];
+	uint16_t hts;
 };
 
 struct atomisp_exposure {
