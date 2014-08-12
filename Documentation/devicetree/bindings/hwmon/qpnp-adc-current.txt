@@ -58,43 +58,6 @@ Required properties:
 		    1 : 1K
 		    2 : 2K
 		    3 : 4K
-- qcom,pre-div-channel-scaling : Pre-div used for the channel before the signal
-				 is being measured.
-- qcom,calibration-type : Calibration point values vary with temperature.
-			  For improved accuracy fresh gain and offset point values
-			  can be used for calibration. Reading fresh values for ever
-			  read affects the reading time. Application can use the historic
-			  values used from the trim register values.
-			  Select from the following strings.
-			  "absolute" : Uses TRIM gain and offset values for calibration.
-			  "ratiometric" : Calculate the gain and offset calibration value when an ADC
-			  	    request is issued.
-- qcom,scale-function : Scaling fuction used to convert raw ADC code to units specific to
-			a given channel.
-			Select from the following unsigned int.
-			0 : Default scaling to convert raw adc code to voltage.
-			1 : Conversion to temperature based on btm parameters.
-			2 : Returns result in milli degree's Centigrade.
-			3 : Returns current across 0.1 ohm resistor.
-			4 : Returns XO thermistor voltage in degree's Centigrade.
-- qcom,hw-settle-time : Settling period for the channel before ADC read.
-			Select from the following unsigned int.
-			0 : 0us
-			1 : 100us
-			2 : 200us
-			3 : 300us
-			4 : 400us
-			5 : 500us
-			6 : 600us
-			7 : 700us
-			8 : 800us
-			9 : 900us
-			0xa : 1ms
-			0xb : 2ms
-			0xc : 4ms
-			0xd : 6ms
-			0xe : 8ms
-			0xf : 10ms
 - qcom,fast-avg-setup : Average number of samples to be used for measurement. Fast averaging
 			provides the option to obtain a single measurement from the ADC that
 			is an average of multiple samples. The value selected is 2^(value)
@@ -130,10 +93,6 @@ Example:
                                 label = "rsense";
                                 reg = <0>;
                                 qcom,decimation = <0>;
-                                qcom,pre-div-channel-scaling = <20>;
-                                qcom,calibration-type = "fresh";
-                                qcom,scale-function = <0>;
-                                qcom,hw-settle-time = <0>;
                                 qcom,fast-avg-setup = <0>;
                         };
 	};
