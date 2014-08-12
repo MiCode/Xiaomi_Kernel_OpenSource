@@ -432,7 +432,7 @@
 			qcom,connections = <&slv_ebi_ch0>;
 			qcom,slv-rpm-id = <104>;
 			qcom,bus-dev = <&fab_bimc>;
-			qcom,buswidth = <8>;
+			qcom,buswidth = <16>;
 		};
 
 		snoc_bimc_2_slv: snoc_bimc_2_slv {
