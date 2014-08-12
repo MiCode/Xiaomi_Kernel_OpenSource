@@ -778,6 +778,10 @@ static int ft5x0x_ts_suspend(struct device *dev)
 
 	ret = ft5x0x_set_pmode(tsdata, PMODE_HIBERNATE);
 
+	/* (ret > 0) indicates number of messages sent.         */
+	/* Set ret to 0, so not to confuse device pm functions. */
+	if (ret > 0)
+		ret = 0;
 	if (ret < 0)
 		goto out;
 
@@ -807,6 +811,10 @@ static int ft5x0x_ts_resume(struct device *dev)
 
 	ret = ft5x0x_set_pmode(tsdata, PMODE_ACTIVE);
 
+	/* (ret > 0) indicates number of messages sent.         */
+	/* Set ret to 0, so not to confuse device pm functions. */
+	if (ret > 0)
+		ret = 0;
 	if (ret < 0)
 		goto out;
 
