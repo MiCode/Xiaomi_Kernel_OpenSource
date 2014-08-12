@@ -1032,7 +1032,7 @@
 		interrupt-names = "hc_irq", "pwr_irq";
 
 		qcom,bus-width = <4>;
-		qcom,cpu-dma-latency-us = <701>;
+		qcom,cpu-dma-latency-us = <401>;
 		qcom,msm-bus,name = "sdhc2";
 		qcom,msm-bus,num-cases = <8>;
 		qcom,msm-bus,num-paths = <1>;
