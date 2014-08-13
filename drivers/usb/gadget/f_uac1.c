@@ -1,7 +1,7 @@
 /*
  * f_audio.c -- USB Audio class function driver
  *
- * Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
  * Copyright (C) 2008 Bryan Wu <cooloney@kernel.org>
  * Copyright (C) 2008 Analog Devices, Inc
  *
@@ -252,6 +252,13 @@ static struct usb_endpoint_descriptor speaker_as_ep_out_desc = {
 	.bInterval		= 4,
 };
 
+static struct usb_ss_ep_comp_descriptor speaker_as_ep_out_comp_desc = {
+	 .bLength =		 sizeof(speaker_as_ep_out_comp_desc),
+	 .bDescriptorType =	 USB_DT_SS_ENDPOINT_COMP,
+
+	 .wBytesPerInterval =	cpu_to_le16(1024),
+};
+
 /* Class-specific AS ISO OUT Endpoint Descriptor */
 static struct uac_iso_endpoint_descriptor speaker_as_iso_out_desc  = {
 	.bLength		= UAC_ISO_ENDPOINT_DESC_SIZE,
@@ -332,6 +339,13 @@ static struct usb_endpoint_descriptor microphone_as_ep_in_desc = {
 	.bInterval		= 4,
 };
 
+static struct usb_ss_ep_comp_descriptor microphone_as_ep_in_comp_desc = {
+	 .bLength =		 sizeof(microphone_as_ep_in_comp_desc),
+	 .bDescriptorType =	 USB_DT_SS_ENDPOINT_COMP,
+
+	 .wBytesPerInterval =	cpu_to_le16(1024),
+};
+
  /* Class-specific AS ISO OUT Endpoint Descriptor */
 static struct uac_iso_endpoint_descriptor microphone_as_iso_in_desc  = {
 	.bLength		= UAC_ISO_ENDPOINT_DESC_SIZE,
@@ -381,6 +395,35 @@ static struct usb_descriptor_header *f_audio_desc[]  = {
 	(struct usb_descriptor_header *)&speaker_as_header_desc,
 	(struct usb_descriptor_header *)&speaker_as_type_i_desc,
 	(struct usb_descriptor_header *)&speaker_as_ep_out_desc,
+	(struct usb_descriptor_header *)&speaker_as_iso_out_desc,
+
+	NULL,
+};
+
+static struct usb_descriptor_header *f_audio_ss_desc[]  = {
+	(struct usb_descriptor_header *)&ac_interface_desc,
+	(struct usb_descriptor_header *)&ac_header_desc,
+
+	(struct usb_descriptor_header *)&microphone_input_terminal_desc,
+	(struct usb_descriptor_header *)&microphone_output_terminal_desc,
+
+	(struct usb_descriptor_header *)&speaker_input_terminal_desc,
+	(struct usb_descriptor_header *)&speaker_output_terminal_desc,
+
+	(struct usb_descriptor_header *)&microphone_as_interface_alt_0_desc,
+	(struct usb_descriptor_header *)&microphone_as_interface_alt_1_desc,
+	(struct usb_descriptor_header *)&microphone_as_header_desc,
+	(struct usb_descriptor_header *)&microphone_as_type_i_desc,
+	(struct usb_descriptor_header *)&microphone_as_ep_in_desc,
+	(struct usb_descriptor_header *)&microphone_as_ep_in_comp_desc,
+	(struct usb_descriptor_header *)&microphone_as_iso_in_desc,
+
+	(struct usb_descriptor_header *)&speaker_as_interface_alt_0_desc,
+	(struct usb_descriptor_header *)&speaker_as_interface_alt_1_desc,
+	(struct usb_descriptor_header *)&speaker_as_header_desc,
+	(struct usb_descriptor_header *)&speaker_as_type_i_desc,
+	(struct usb_descriptor_header *)&speaker_as_ep_out_desc,
+	(struct usb_descriptor_header *)&speaker_as_ep_out_comp_desc,
 	(struct usb_descriptor_header *)&speaker_as_iso_out_desc,
 
 	NULL,
@@ -1128,7 +1171,8 @@ f_audio_bind(struct usb_configuration *c, struct usb_function *f)
 	speaker_as_iso_out.id = epaddr;
 
 	/* copy descriptors, and track endpoint copies */
-	status = usb_assign_descriptors(f, f_audio_desc, f_audio_desc, NULL);
+	status = usb_assign_descriptors(f, f_audio_desc, f_audio_desc,
+					f_audio_ss_desc);
 	if (status)
 		goto fail;
 	return 0;
