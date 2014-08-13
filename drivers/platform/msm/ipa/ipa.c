@@ -2977,9 +2977,24 @@ static int ipa_init(const struct ipa_plat_drv_res *resource_p,
 		result = -ENODEV;
 		goto fail_cdev_add;
 	}
-	IPADBG("ipa cdev added successful. major:%d minor:%d",
+	IPADBG("ipa cdev added successful. major:%d minor:%d\n",
 			MAJOR(ipa_ctx->dev_num),
 			MINOR(ipa_ctx->dev_num));
+
+	if (create_nat_device()) {
+		IPAERR("unable to create nat device\n");
+		result = -ENODEV;
+		goto fail_nat_dev_add;
+	}
+
+	/* Create workqueue for power management */
+	ipa_ctx->power_mgmt_wq =
+		create_singlethread_workqueue("ipa_power_mgmt");
+	if (!ipa_ctx->power_mgmt_wq) {
+		IPAERR("failed to create wq\n");
+		result = -ENOMEM;
+		goto fail_init_hw;
+	}
 
 	/* Initialize IPA RM (resource manager) */
 	result = ipa_rm_initialize();
@@ -3055,6 +3070,7 @@ fail_ipa_interrupts_init:
 fail_create_apps_resource:
 	ipa_rm_exit();
 fail_ipa_rm_init:
+fail_nat_dev_add:
 	cdev_del(&ipa_ctx->cdev);
 fail_cdev_add:
 	device_destroy(ipa_ctx->class, ipa_ctx->dev_num);

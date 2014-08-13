@@ -114,6 +114,87 @@ static const struct file_operations ipa_nat_fops = {
 };
 
 /**
+ * create_nat_device() - Create the NAT device
+ *
+ * Called during ipa init to create nat device
+ *
+ * Returns:	0 on success, negative on failure
+ */
+int create_nat_device(void)
+{
+	struct ipa_nat_mem *nat_ctx = &(ipa_ctx->nat_mem);
+	int result;
+	IPADBG("\n");
+
+	mutex_lock(&nat_ctx->lock);
+	nat_ctx->class = class_create(THIS_MODULE, NAT_DEV_NAME);
+	if (IS_ERR(nat_ctx->class)) {
+		IPAERR("unable to create the class\n");
+		result = -ENODEV;
+		goto vaddr_alloc_fail;
+	}
+	result = alloc_chrdev_region(&nat_ctx->dev_num,
+					0,
+					1,
+					NAT_DEV_NAME);
+	if (result) {
+		IPAERR("alloc_chrdev_region err.\n");
+		result = -ENODEV;
+		goto alloc_chrdev_region_fail;
+	}
+
+	nat_ctx->dev =
+	   device_create(nat_ctx->class, NULL, nat_ctx->dev_num, nat_ctx,
+			"%s", NAT_DEV_NAME);
+
+	if (IS_ERR(nat_ctx->dev)) {
+		IPAERR("device_create err:%ld\n", PTR_ERR(nat_ctx->dev));
+		result = -ENODEV;
+		goto device_create_fail;
+	}
+
+	cdev_init(&nat_ctx->cdev, &ipa_nat_fops);
+	nat_ctx->cdev.owner = THIS_MODULE;
+	nat_ctx->cdev.ops = &ipa_nat_fops;
+
+	result = cdev_add(&nat_ctx->cdev, nat_ctx->dev_num, 1);
+	if (result) {
+		IPAERR("cdev_add err=%d\n", -result);
+		goto cdev_add_fail;
+	}
+	IPADBG("ipa nat dev added successful. major:%d minor:%d\n",
+			MAJOR(nat_ctx->dev_num),
+			MINOR(nat_ctx->dev_num));
+
+	nat_ctx->is_dev = true;
+	IPADBG("IPA NAT device created successfully\n");
+	result = 0;
+	goto bail;
+
+cdev_add_fail:
+	device_destroy(nat_ctx->class, nat_ctx->dev_num);
+device_create_fail:
+	unregister_chrdev_region(nat_ctx->dev_num, 1);
+alloc_chrdev_region_fail:
+	class_destroy(nat_ctx->class);
+vaddr_alloc_fail:
+	if (nat_ctx->vaddr) {
+		IPADBG("Releasing system memory\n");
+		dma_free_coherent(
+			 ipa_ctx->pdev, nat_ctx->size,
+			 nat_ctx->vaddr, nat_ctx->dma_handle);
+		nat_ctx->vaddr = NULL;
+		nat_ctx->dma_handle = 0;
+		nat_ctx->size = 0;
+	}
+
+bail:
+	mutex_unlock(&nat_ctx->lock);
+
+	return result;
+}
+
+/**
  * allocate_nat_device() - Allocates memory for the NAT device
  * @mem:	[in/out] memory parameters
  *
@@ -131,9 +212,22 @@ int allocate_nat_device(struct ipa_ioc_nat_alloc_mem *mem)
 	IPADBG("passed memory size %zu\n", mem->size);
 
 	mutex_lock(&nat_ctx->lock);
-	if (mem->size <= 0 || !strlen(mem->dev_name)
-			|| nat_ctx->is_dev_init == true) {
-		IPADBG("Invalid Parameters or device is already init\n");
+	if (strcmp(mem->dev_name, NAT_DEV_NAME)) {
+		IPAERR("Nat device name mismatch\n");
+		IPAERR("Expect: %s Recv: %s\n", NAT_DEV_NAME, mem->dev_name);
+		result = -EPERM;
+		goto bail;
+	}
+
+	if (nat_ctx->is_dev != true) {
+		IPAERR("Nat device not created successfully during boot up\n");
+		result = -EPERM;
+		goto bail;
+	}
+
+	if (mem->size <= 0 ||
+			nat_ctx->is_dev_init == true) {
+		IPAERR("Invalid Parameters or device is already init\n");
 		result = -EPERM;
 		goto bail;
 	}
@@ -155,62 +249,10 @@ int allocate_nat_device(struct ipa_ioc_nat_alloc_mem *mem)
 		nat_ctx->is_sys_mem = false;
 	}
 
-	nat_ctx->class = class_create(THIS_MODULE, mem->dev_name);
-	if (IS_ERR(nat_ctx->class)) {
-		IPAERR("unable to create the class\n");
-		result = -ENODEV;
-		goto vaddr_alloc_fail;
-	}
-	result = alloc_chrdev_region(&nat_ctx->dev_num,
-					0,
-					1,
-					mem->dev_name);
-	if (result) {
-		IPAERR("alloc_chrdev_region err.\n");
-		result = -ENODEV;
-		goto alloc_chrdev_region_fail;
-	}
-
-	nat_ctx->dev =
-	   device_create(nat_ctx->class, NULL, nat_ctx->dev_num, nat_ctx,
-			"%s", mem->dev_name);
-
-	if (IS_ERR(nat_ctx->dev)) {
-		IPAERR("device_create err:%ld\n", PTR_ERR(nat_ctx->dev));
-		result = -ENODEV;
-		goto device_create_fail;
-	}
-
-	cdev_init(&nat_ctx->cdev, &ipa_nat_fops);
-	nat_ctx->cdev.owner = THIS_MODULE;
-	nat_ctx->cdev.ops = &ipa_nat_fops;
-
-	result = cdev_add(&nat_ctx->cdev, nat_ctx->dev_num, 1);
-	if (result) {
-		IPAERR("cdev_add err=%d\n", -result);
-		goto cdev_add_fail;
-	}
 	nat_ctx->is_dev_init = true;
-	IPADBG("IPA NAT driver init successfully\n");
+	IPADBG("IPA NAT dev init successfully\n");
 	result = 0;
-	goto bail;
 
-cdev_add_fail:
-	device_destroy(nat_ctx->class, nat_ctx->dev_num);
-device_create_fail:
-	unregister_chrdev_region(nat_ctx->dev_num, 1);
-alloc_chrdev_region_fail:
-	class_destroy(nat_ctx->class);
-vaddr_alloc_fail:
-	if (nat_ctx->vaddr) {
-		IPADBG("Releasing system memory\n");
-		dma_free_coherent(
-			 ipa_ctx->pdev, nat_ctx->size,
-			 nat_ctx->vaddr, nat_ctx->dma_handle);
-		nat_ctx->vaddr = NULL;
-		nat_ctx->dma_handle = 0;
-		nat_ctx->size = 0;
-	}
 bail:
 	mutex_unlock(&nat_ctx->lock);
 
@@ -459,10 +501,6 @@ void ipa_nat_free_mem_and_device(struct ipa_nat_mem *nat_ctx)
 	}
 	nat_ctx->is_mapped = false;
 	nat_ctx->is_sys_mem = false;
-	cdev_del(&nat_ctx->cdev);
-	device_destroy(nat_ctx->class, nat_ctx->dev_num);
-	unregister_chrdev_region(nat_ctx->dev_num, 1);
-	class_destroy(nat_ctx->class);
 	nat_ctx->is_dev_init = false;
 
 	mutex_unlock(&nat_ctx->lock);
