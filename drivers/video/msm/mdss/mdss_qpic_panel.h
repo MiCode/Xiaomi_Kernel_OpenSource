@@ -67,43 +67,47 @@
 /**
  * LDCc MIPI Type B supported commands
  */
-enum {
-	OP_ENTER_IDLE_MODE        = OP_SIZE_PAIR(0x39, 0),
-	OP_ENTER_INVERT_MODE      = OP_SIZE_PAIR(0x21, 0),
-	OP_ENTER_NORMAL_MODE      = OP_SIZE_PAIR(0x13, 0),
-	OP_ENTER_PARTIAL_MODE     = OP_SIZE_PAIR(0x12, 0),
-	OP_ENTER_SLEEP_MODE       = OP_SIZE_PAIR(0x10, 0),
-	OP_EXIT_INVERT_MODE       = OP_SIZE_PAIR(0x20, 0),
-	OP_EXIT_SLEEP_MODE        = OP_SIZE_PAIR(0x11, 0),
-	OP_EXIT_IDLE_MODE         = OP_SIZE_PAIR(0x38, 0),
-	OP_GET_ADDRESS_MODE       = OP_SIZE_PAIR(0x0B, 1),
-	OP_GET_BLUE_CHANNEL       = OP_SIZE_PAIR(0x08, 1),
-	OP_GET_DIAGNOSTIC_RESULT  = OP_SIZE_PAIR(0x0F, 2),
-	OP_GET_DISPLAY_MODE       = OP_SIZE_PAIR(0x0D, 1),
-	OP_GET_GREEN_CHANNEL      = OP_SIZE_PAIR(0x07, 1),
-	OP_GET_PIXEL_FORMAT       = OP_SIZE_PAIR(0x0C, 1),
-	OP_GET_POWER_MODE         = OP_SIZE_PAIR(0x0A, 1),
-	OP_GET_RED_CHANNEL        = OP_SIZE_PAIR(0x06, 1),
-	OP_GET_SCANLINE           = OP_SIZE_PAIR(0x45, 2),
-	OP_GET_SIGNAL_MODE        = OP_SIZE_PAIR(0x0E, 1),
-	OP_NOP                    = OP_SIZE_PAIR(0x00, 0),
-	OP_READ_DDB_CONTINUE      = OP_SIZE_PAIR(0xA8, INV_SIZE),
-	OP_READ_DDB_START         = OP_SIZE_PAIR(0xA1, INV_SIZE),
-	OP_READ_MEMORY_CONTINUE   = OP_SIZE_PAIR(0x3E, INV_SIZE),
-	OP_READ_MEMORY_START      = OP_SIZE_PAIR(0x2E, INV_SIZE),
-	OP_SET_ADDRESS_MODE       = OP_SIZE_PAIR(0x36, 1),
-	OP_SET_COLUMN_ADDRESS     = OP_SIZE_PAIR(0x2A, 4),
-	OP_SET_DISPLAY_OFF        = OP_SIZE_PAIR(0x28, 0),
-	OP_SET_DISPLAY_ON         = OP_SIZE_PAIR(0x29, 0),
-	OP_SET_GAMMA_CURVE        = OP_SIZE_PAIR(0x26, 1),
-	OP_SET_PAGE_ADDRESS       = OP_SIZE_PAIR(0x2B, 4),
-	OP_SET_PARTIAL_COLUMNS    = OP_SIZE_PAIR(0x31, 4),
-	OP_SET_PARTIAL_ROWS       = OP_SIZE_PAIR(0x30, 4),
-	OP_SET_PIXEL_FORMAT       = OP_SIZE_PAIR(0x3A, 1),
-	OP_SOFT_RESET             = OP_SIZE_PAIR(0x01, 0),
-	OP_WRITE_MEMORY_CONTINUE  = OP_SIZE_PAIR(0x3C, INV_SIZE),
-	OP_WRITE_MEMORY_START     = OP_SIZE_PAIR(0x2C, INV_SIZE),
-};
+#define	OP_ENTER_IDLE_MODE      0x39
+#define	OP_ENTER_INVERT_MODE    0x21
+#define	OP_ENTER_NORMAL_MODE    0x13
+#define	OP_ENTER_PARTIAL_MODE   0x12
+#define	OP_ENTER_SLEEP_MODE     0x10
+#define	OP_EXIT_INVERT_MODE     0x20
+#define	OP_EXIT_SLEEP_MODE      0x11
+#define	OP_EXIT_IDLE_MODE       0x38
+#define	OP_GET_ADDRESS_MODE     0x0B /* size 1 */
+#define	OP_GET_BLUE_CHANNEL     0x08 /* size 1 */
+#define	OP_GET_DIAGNOSTIC       0x0F /* size 2 */
+#define	OP_GET_DISPLAY_MODE     0x0D /* size 1 */
+#define	OP_GET_GREEN_CHANNEL    0x07 /* size 1 */
+#define	OP_GET_PIXEL_FORMAT     0x0C /* size 1 */
+#define	OP_GET_POWER_MODE       0x0A /* size 1 */
+#define	OP_GET_RED_CHANNEL      0x06 /* size 1 */
+#define	OP_GET_SCANLINE         0x45 /* size 1 */
+#define	OP_GET_SIGNAL_MODE      0x0E /* size 1 */
+#define	OP_NOP                  0x00
+#define	OP_READ_DDB_CONTINUE    0xA8 /* size not fixed */
+#define	OP_READ_DDB_START       0xA1 /* size not fixed */
+#define	OP_READ_MEMORY_CONTINUE 0x3E /* size not fixed */
+#define	OP_READ_MEMORY_START    0x2E /* size not fixed */
+#define	OP_SET_ADDRESS_MODE     0x36 /* size 1 */
+#define	OP_SET_COLUMN_ADDRESS   0x2A /* size 4 */
+#define	OP_SET_DISPLAY_OFF      0x28
+#define	OP_SET_DISPLAY_ON       0x29
+#define	OP_SET_GAMMA_CURVE      0x26 /* size 1 */
+#define	OP_SET_PAGE_ADDRESS     0x2B /* size 4 */
+#define	OP_SET_PARTIAL_COLUMNS  0x31 /* size 4 */
+#define	OP_SET_PARTIAL_ROWS     0x30 /* size 4 */
+#define	OP_SET_PIXEL_FORMAT     0x3A /* size 1 */
+#define	OP_SOFT_RESET           0x01
+#define	OP_WRITE_MEMORY_CONTINUE  0x3C /* size not fixed */
+#define	OP_WRITE_MEMORY_START   0x2C /* size not fixed */
+
+/**
+ * ILI9341 commands
+ */
+#define OP_ILI9341_INTERFACE_CONTROL	0xf6
+#define OP_ILI9341_TEARING_EFFECT_LINE_ON	0x35
 
 struct qpic_panel_io_desc {
 	int rst_gpio;
@@ -118,8 +122,7 @@ struct qpic_panel_io_desc {
 
 int mdss_qpic_panel_io_init(struct platform_device *pdev,
 	struct qpic_panel_io_desc *qpic_panel_io);
-u32 qpic_panel_set_cmd_only(u32 command);
-u32 qpic_send_panel_cmd(u32 cmd, u32 *val, u32 length);
+u32 qpic_panel_get_cmd(u32 command, u32 size);
 int ili9341_on(struct qpic_panel_io_desc *qpic_panel_io);
 void ili9341_off(struct qpic_panel_io_desc *qpic_panel_io);
 
