@@ -242,6 +242,8 @@ static void __init request_standard_resources(void)
 
 u64 __cpu_logical_map[NR_CPUS] = { [0 ... NR_CPUS-1] = INVALID_HWID };
 
+void __init __weak init_random_pool(void) { }
+
 void __init setup_arch(char **cmdline_p)
 {
 	pr_info("Boot CPU: AArch64 Processor [%08x]\n", read_cpuid_id());
@@ -326,6 +328,8 @@ void __init setup_arch(char **cmdline_p)
 			"This indicates a broken bootloader or old kernel\n",
 			boot_args[1], boot_args[2], boot_args[3]);
 	}
+
+	init_random_pool();
 }
 
 static int __init topology_init(void)
