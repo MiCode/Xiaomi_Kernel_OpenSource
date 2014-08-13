@@ -124,9 +124,20 @@ enum tmc_etr_out_mode {
 	TMC_ETR_OUT_MODE_USB,
 };
 
+static const char * const str_tmc_etr_out_mode[] = {
+	[TMC_ETR_OUT_MODE_NONE]	= "none",
+	[TMC_ETR_OUT_MODE_MEM]		= "mem",
+	[TMC_ETR_OUT_MODE_USB]		= "usb",
+};
+
 enum tmc_etr_mem_type {
 	TMC_ETR_MEM_TYPE_CONTIG,
 	TMC_ETR_MEM_TYPE_SG,
+};
+
+static const char * const str_tmc_etr_mem_type[] = {
+	[TMC_ETR_MEM_TYPE_CONTIG]	= "contig",
+	[TMC_ETR_MEM_TYPE_SG]		= "sg",
 };
 
 enum tmc_mem_intf_width {
@@ -1863,8 +1874,7 @@ static ssize_t tmc_etr_show_out_mode(struct device *dev,
 	struct tmc_drvdata *drvdata = dev_get_drvdata(dev->parent);
 
 	return scnprintf(buf, PAGE_SIZE, "%s\n",
-			 drvdata->out_mode == TMC_ETR_OUT_MODE_MEM ?
-			 "mem" : "usb");
+			str_tmc_etr_out_mode[drvdata->out_mode]);
 }
 
 static ssize_t tmc_etr_store_out_mode(struct device *dev,
@@ -1882,7 +1892,7 @@ static ssize_t tmc_etr_store_out_mode(struct device *dev,
 		return -EINVAL;
 
 	mutex_lock(&drvdata->usb_lock);
-	if (!strcmp(str, "mem")) {
+	if (!strcmp(str, str_tmc_etr_out_mode[TMC_ETR_OUT_MODE_MEM])) {
 		if (drvdata->out_mode == TMC_ETR_OUT_MODE_MEM)
 			goto out;
 
@@ -1902,7 +1912,7 @@ static ssize_t tmc_etr_store_out_mode(struct device *dev,
 
 		tmc_etr_bam_disable(drvdata);
 		usb_qdss_close(drvdata->usbch);
-	} else if (!strcmp(str, "usb")) {
+	} else if (!strcmp(str, str_tmc_etr_out_mode[TMC_ETR_OUT_MODE_USB])) {
 		if (drvdata->out_mode == TMC_ETR_OUT_MODE_USB)
 			goto out;
 
@@ -1942,6 +1952,22 @@ err0:
 }
 static DEVICE_ATTR(out_mode, S_IRUGO | S_IWUSR, tmc_etr_show_out_mode,
 		   tmc_etr_store_out_mode);
+
+static ssize_t tmc_etr_show_available_out_modes(struct device *dev,
+				      struct device_attribute *attr, char *buf)
+{
+	ssize_t len = 0;
+	int i;
+
+	for (i = 0; i < ARRAY_SIZE(str_tmc_etr_out_mode); i++)
+		len += scnprintf(buf + len, PAGE_SIZE - len, "%s ",
+				str_tmc_etr_out_mode[i]);
+
+	len += scnprintf(buf + len, PAGE_SIZE - len, "\n");
+	return len;
+}
+static DEVICE_ATTR(available_out_modes, S_IRUGO,
+			tmc_etr_show_available_out_modes, NULL);
 
 static ssize_t tmc_etr_show_byte_cntr_value(struct device *dev,
 					struct device_attribute *attr,
@@ -2025,8 +2051,7 @@ static ssize_t tmc_etr_show_mem_type(struct device *dev,
 	struct tmc_drvdata *drvdata = dev_get_drvdata(dev->parent);
 
 	return scnprintf(buf, PAGE_SIZE, "%s\n",
-			 drvdata->mem_type == TMC_ETR_MEM_TYPE_CONTIG ?
-			 "contig" : "sg");
+			str_tmc_etr_mem_type[drvdata->mem_type]);
 }
 
 static ssize_t tmc_etr_store_mem_type(struct device *dev,
@@ -2043,9 +2068,10 @@ static ssize_t tmc_etr_store_mem_type(struct device *dev,
 		return -EINVAL;
 
 	mutex_lock(&drvdata->usb_lock);
-	if (!strcmp(str, "contig")) {
+	if (!strcmp(str, str_tmc_etr_mem_type[TMC_ETR_MEM_TYPE_CONTIG])) {
 		drvdata->mem_type = TMC_ETR_MEM_TYPE_CONTIG;
-	} else if (!strcmp(str, "sg") && drvdata->sg_enable) {
+	} else if (!strcmp(str, str_tmc_etr_mem_type[TMC_ETR_MEM_TYPE_SG])
+		&& drvdata->sg_enable) {
 		drvdata->mem_type = TMC_ETR_MEM_TYPE_SG;
 	} else {
 		mutex_unlock(&drvdata->usb_lock);
@@ -2058,6 +2084,28 @@ static ssize_t tmc_etr_store_mem_type(struct device *dev,
 static DEVICE_ATTR(mem_type, S_IRUGO | S_IWUSR,
 		   tmc_etr_show_mem_type, tmc_etr_store_mem_type);
 
+static ssize_t tmc_etr_show_available_mem_types(struct device *dev,
+				     struct device_attribute *attr,
+				     char *buf)
+{
+	struct tmc_drvdata *drvdata = dev_get_drvdata(dev->parent);
+	ssize_t len = 0;
+	int i;
+
+	for (i = 0; i < ARRAY_SIZE(str_tmc_etr_mem_type); i++) {
+		if (i == TMC_ETR_MEM_TYPE_SG && !drvdata->sg_enable)
+			continue;
+
+		len += scnprintf(buf + len, PAGE_SIZE - len, "%s ",
+			str_tmc_etr_mem_type[i]);
+	}
+
+	len += scnprintf(buf + len, PAGE_SIZE - len, "\n");
+	return len;
+}
+static DEVICE_ATTR(available_mem_types, S_IRUGO,
+		tmc_etr_show_available_mem_types, NULL);
+
 static struct attribute *tmc_attrs[] = {
 	&dev_attr_trigger_cntr.attr,
 	NULL,
@@ -2069,9 +2117,11 @@ static struct attribute_group tmc_attr_grp = {
 
 static struct attribute *tmc_etr_attrs[] = {
 	&dev_attr_out_mode.attr,
+	&dev_attr_available_out_modes.attr,
 	&dev_attr_byte_cntr_value.attr,
 	&dev_attr_mem_size.attr,
 	&dev_attr_mem_type.attr,
+	&dev_attr_available_mem_types.attr,
 	NULL,
 };
 
