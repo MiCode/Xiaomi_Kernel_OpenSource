@@ -47,4 +47,12 @@ config PINCTRL_MSM8X74
 	  This is the pinctrl, pinmux, pinconf and gpiolib driver for the
 	  Qualcomm TLMM block found in the Qualcomm 8974 platform.
 
+config PINCTRL_MSMTHULIUM
+	tristate "Qualcomm thulium pin controller driver"
+	depends on GPIOLIB && OF && (ARCH_MSMTHULIUM || COMPILE_TEST)
+	select PINCTRL_MSM
+	help
+	  This is the pinctrl, pinmux, pinconf and gpiolib driver for the
+	  Qualcomm TLMM block found in the Qualcomm thulium platform.
+
 endif
