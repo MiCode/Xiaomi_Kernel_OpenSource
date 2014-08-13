@@ -1094,12 +1094,12 @@ static ssize_t msm_pcie_cmd_debug(struct file *file,
 					PCIE20_CAP_LINKCTRLSTATUS,
 					BIT(0), 0);
 			if (dev->shadow_en) {
-				msm_pcie_write_mask(dev->rc_shadow +
-						PCIE20_CAP_LINKCTRLSTATUS / 4,
-						BIT(0), 0);
-				msm_pcie_write_mask(dev->ep_shadow[0] +
-						PCIE20_CAP_LINKCTRLSTATUS / 4,
-						BIT(0), 0);
+				dev->rc_shadow[PCIE20_CAP_LINKCTRLSTATUS / 4] =
+						readl_relaxed(dev->dm_core +
+						PCIE20_CAP_LINKCTRLSTATUS);
+				dev->ep_shadow[0][PCIE20_CAP_LINKCTRLSTATUS / 4]
+						= readl_relaxed(dev->conf +
+						PCIE20_CAP_LINKCTRLSTATUS);
 			}
 			pr_alert("PCIe: RC's CAP_LINKCTRLSTATUS:0x%x\n",
 				readl_relaxed(dev->dm_core +
@@ -1118,12 +1118,12 @@ static ssize_t msm_pcie_cmd_debug(struct file *file,
 					PCIE20_CAP_LINKCTRLSTATUS,
 					0, BIT(0));
 			if (dev->shadow_en) {
-				msm_pcie_write_mask(dev->rc_shadow +
-						PCIE20_CAP_LINKCTRLSTATUS / 4,
-						0, BIT(0));
-				msm_pcie_write_mask(dev->ep_shadow[0] +
-						PCIE20_CAP_LINKCTRLSTATUS / 4,
-						0, BIT(0));
+				dev->rc_shadow[PCIE20_CAP_LINKCTRLSTATUS / 4] =
+						readl_relaxed(dev->dm_core +
+						PCIE20_CAP_LINKCTRLSTATUS);
+				dev->ep_shadow[0][PCIE20_CAP_LINKCTRLSTATUS / 4]
+						= readl_relaxed(dev->conf +
+						PCIE20_CAP_LINKCTRLSTATUS);
 			}
 			pr_alert("PCIe: RC's CAP_LINKCTRLSTATUS:0x%x\n",
 				readl_relaxed(dev->dm_core +
@@ -1142,12 +1142,12 @@ static ssize_t msm_pcie_cmd_debug(struct file *file,
 					PCIE20_CAP_LINKCTRLSTATUS,
 					BIT(1), 0);
 			if (dev->shadow_en) {
-				msm_pcie_write_mask(dev->rc_shadow +
-						PCIE20_CAP_LINKCTRLSTATUS / 4,
-						BIT(1), 0);
-				msm_pcie_write_mask(dev->ep_shadow[0] +
-						PCIE20_CAP_LINKCTRLSTATUS / 4,
-						BIT(1), 0);
+				dev->rc_shadow[PCIE20_CAP_LINKCTRLSTATUS / 4] =
+						readl_relaxed(dev->dm_core +
+						PCIE20_CAP_LINKCTRLSTATUS);
+				dev->ep_shadow[0][PCIE20_CAP_LINKCTRLSTATUS / 4]
+						= readl_relaxed(dev->conf +
+						PCIE20_CAP_LINKCTRLSTATUS);
 			}
 			pr_alert("PCIe: RC's CAP_LINKCTRLSTATUS:0x%x\n",
 				readl_relaxed(dev->dm_core +
@@ -1166,12 +1166,12 @@ static ssize_t msm_pcie_cmd_debug(struct file *file,
 					PCIE20_CAP_LINKCTRLSTATUS,
 					0, BIT(1));
 			if (dev->shadow_en) {
-				msm_pcie_write_mask(dev->rc_shadow +
-						PCIE20_CAP_LINKCTRLSTATUS / 4,
-						0, BIT(1));
-				msm_pcie_write_mask(dev->ep_shadow[0] +
-						PCIE20_CAP_LINKCTRLSTATUS / 4,
-						0, BIT(1));
+				dev->rc_shadow[PCIE20_CAP_LINKCTRLSTATUS / 4] =
+						readl_relaxed(dev->dm_core +
+						PCIE20_CAP_LINKCTRLSTATUS);
+				dev->ep_shadow[0][PCIE20_CAP_LINKCTRLSTATUS / 4]
+						= readl_relaxed(dev->conf +
+						PCIE20_CAP_LINKCTRLSTATUS);
 			}
 			pr_alert("PCIe: RC's CAP_LINKCTRLSTATUS:0x%x\n",
 				readl_relaxed(dev->dm_core +
@@ -1215,18 +1215,18 @@ static ssize_t msm_pcie_cmd_debug(struct file *file,
 						PCIE20_DEVICE_CONTROL2_STATUS2,
 						BIT(10), 0);
 			if (dev->shadow_en) {
-				msm_pcie_write_reg_field(dev->rc_shadow,
-					PCIE20_L1SUB_CONTROL1 / 4, 0xf,
-					val);
-				msm_pcie_write_mask(dev->rc_shadow +
-					PCIE20_DEVICE_CONTROL2_STATUS2 / 4,
-					BIT(10), 0);
-				msm_pcie_write_reg_field(dev->ep_shadow[0],
-					ep_l1sub_ctrl1_offset / 4, 0xf,
-					val);
-				msm_pcie_write_mask(dev->ep_shadow[0] +
-					PCIE20_DEVICE_CONTROL2_STATUS2 / 4,
-					BIT(10), 0);
+				dev->rc_shadow[PCIE20_L1SUB_CONTROL1 / 4] =
+					readl_relaxed(dev->dm_core +
+						PCIE20_L1SUB_CONTROL1);
+				dev->rc_shadow[PCIE20_DEVICE_CONTROL2_STATUS2
+					/ 4] = readl_relaxed(dev->dm_core +
+					PCIE20_DEVICE_CONTROL2_STATUS2);
+				dev->ep_shadow[0][ep_l1sub_ctrl1_offset / 4] =
+					readl_relaxed(dev->conf +
+					ep_l1sub_ctrl1_offset);
+				dev->ep_shadow[0][PCIE20_DEVICE_CONTROL2_STATUS2
+					/ 4] = readl_relaxed(dev->conf +
+					PCIE20_DEVICE_CONTROL2_STATUS2);
 			}
 			pr_alert("PCIe: RC's L1SUB_CONTROL1:0x%x\n",
 				readl_relaxed(dev->dm_core +
@@ -1285,18 +1285,18 @@ static ssize_t msm_pcie_cmd_debug(struct file *file,
 						PCIE20_DEVICE_CONTROL2_STATUS2,
 						0, BIT(10));
 			if (dev->shadow_en) {
-				msm_pcie_write_reg_field(dev->rc_shadow,
-					PCIE20_L1SUB_CONTROL1 / 4, 0xf,
-					val);
-				msm_pcie_write_mask(dev->rc_shadow +
-					PCIE20_DEVICE_CONTROL2_STATUS2 / 4,
-					0, BIT(10));
-				msm_pcie_write_reg_field(dev->ep_shadow[0],
-					ep_l1sub_ctrl1_offset / 4, 0xf,
-					val);
-				msm_pcie_write_mask(dev->ep_shadow[0] +
-					PCIE20_DEVICE_CONTROL2_STATUS2 / 4,
-					0, BIT(10));
+				dev->rc_shadow[PCIE20_L1SUB_CONTROL1 / 4] =
+					readl_relaxed(dev->dm_core +
+						PCIE20_L1SUB_CONTROL1);
+				dev->rc_shadow[PCIE20_DEVICE_CONTROL2_STATUS2
+					/ 4] = readl_relaxed(dev->dm_core +
+					PCIE20_DEVICE_CONTROL2_STATUS2);
+				dev->ep_shadow[0][ep_l1sub_ctrl1_offset / 4] =
+					readl_relaxed(dev->conf +
+					ep_l1sub_ctrl1_offset);
+				dev->ep_shadow[0][PCIE20_DEVICE_CONTROL2_STATUS2
+					/ 4] = readl_relaxed(dev->conf +
+					PCIE20_DEVICE_CONTROL2_STATUS2);
 			}
 			pr_alert("PCIe: RC's L1SUB_CONTROL1:0x%x\n",
 				readl_relaxed(dev->dm_core +
@@ -1455,22 +1455,22 @@ static void msm_pcie_iatu_config(struct msm_pcie_dev_t *dev, int nr, u8 type,
 	void __iomem *pcie20 = dev->dm_core;
 
 	if (dev->shadow_en) {
-		writel_relaxed(nr, dev->rc_shadow +
-				PCIE20_PLR_IATU_VIEWPORT / 4);
-		writel_relaxed(type, dev->rc_shadow +
-				PCIE20_PLR_IATU_CTRL1 / 4);
-		writel_relaxed(lower_32_bits(host_addr), dev->rc_shadow +
-				PCIE20_PLR_IATU_LBAR / 4);
-		writel_relaxed(upper_32_bits(host_addr), dev->rc_shadow +
-				PCIE20_PLR_IATU_UBAR / 4);
-		writel_relaxed(host_end, dev->rc_shadow +
-				PCIE20_PLR_IATU_LAR / 4);
-		writel_relaxed(lower_32_bits(target_addr), dev->rc_shadow +
-				PCIE20_PLR_IATU_LTAR / 4);
-		writel_relaxed(upper_32_bits(target_addr), dev->rc_shadow +
-				PCIE20_PLR_IATU_UTAR / 4);
-		writel_relaxed(BIT(31), dev->rc_shadow +
-				PCIE20_PLR_IATU_CTRL2 / 4);
+		dev->rc_shadow[PCIE20_PLR_IATU_VIEWPORT / 4] =
+			nr;
+		dev->rc_shadow[PCIE20_PLR_IATU_CTRL1 / 4] =
+			type;
+		dev->rc_shadow[PCIE20_PLR_IATU_LBAR / 4] =
+			lower_32_bits(host_addr);
+		dev->rc_shadow[PCIE20_PLR_IATU_UBAR / 4] =
+			upper_32_bits(host_addr);
+		dev->rc_shadow[PCIE20_PLR_IATU_LAR / 4] =
+			host_end;
+		dev->rc_shadow[PCIE20_PLR_IATU_LTAR / 4] =
+			lower_32_bits(target_addr);
+		dev->rc_shadow[PCIE20_PLR_IATU_UTAR / 4] =
+			upper_32_bits(target_addr);
+		dev->rc_shadow[PCIE20_PLR_IATU_CTRL2 / 4] =
+			BIT(31);
 	}
 
 	/* select region */
@@ -2053,15 +2053,10 @@ static void msm_pcie_config_controller(struct msm_pcie_dev_t *dev)
 					PCIE20_ACK_N_FTS,
 					dev->n_fts << 8);
 
-	if (dev->shadow_en) {
-		if (!dev->n_fts)
-			msm_pcie_write_mask(dev->rc_shadow +
-				PCIE20_ACK_F_ASPM_CTRL_REG / 4, 0, BIT(15));
-		else
-			msm_pcie_write_mask(dev->rc_shadow +
-				PCIE20_ACK_F_ASPM_CTRL_REG / 4,
-				PCIE20_ACK_N_FTS, dev->n_fts << 8);
-	}
+	if (dev->shadow_en)
+		dev->rc_shadow[PCIE20_ACK_F_ASPM_CTRL_REG / 4] =
+			readl_relaxed(dev->dm_core +
+			PCIE20_ACK_F_ASPM_CTRL_REG);
 
 	PCIE_DBG2(dev, "Updated PCIE20_ACK_F_ASPM_CTRL_REG:0x%x\n",
 		readl_relaxed(dev->dm_core + PCIE20_ACK_F_ASPM_CTRL_REG));
@@ -2085,12 +2080,12 @@ static void msm_pcie_config_link_state(struct msm_pcie_dev_t *dev)
 		msm_pcie_write_mask(dev->conf + PCIE20_CAP_LINKCTRLSTATUS,
 					0, BIT(0));
 		if (dev->shadow_en) {
-			msm_pcie_write_mask(dev->rc_shadow +
-						PCIE20_CAP_LINKCTRLSTATUS / 4,
-						0, BIT(0));
-			msm_pcie_write_mask(dev->ep_shadow[0] +
-						PCIE20_CAP_LINKCTRLSTATUS / 4,
-						0, BIT(0));
+			dev->rc_shadow[PCIE20_CAP_LINKCTRLSTATUS / 4] =
+						readl_relaxed(dev->dm_core +
+						PCIE20_CAP_LINKCTRLSTATUS);
+			dev->ep_shadow[0][PCIE20_CAP_LINKCTRLSTATUS / 4] =
+						readl_relaxed(dev->conf +
+						PCIE20_CAP_LINKCTRLSTATUS);
 		}
 		PCIE_DBG2(dev, "RC's CAP_LINKCTRLSTATUS:0x%x\n",
 			readl_relaxed(dev->dm_core +
@@ -2105,12 +2100,12 @@ static void msm_pcie_config_link_state(struct msm_pcie_dev_t *dev)
 		msm_pcie_write_mask(dev->conf + PCIE20_CAP_LINKCTRLSTATUS,
 					0, BIT(1));
 		if (dev->shadow_en) {
-			msm_pcie_write_mask(dev->rc_shadow +
-						PCIE20_CAP_LINKCTRLSTATUS / 4,
-						0, BIT(1));
-			msm_pcie_write_mask(dev->ep_shadow[0] +
-						PCIE20_CAP_LINKCTRLSTATUS / 4,
-						0, BIT(1));
+			dev->rc_shadow[PCIE20_CAP_LINKCTRLSTATUS / 4] =
+						readl_relaxed(dev->conf +
+						PCIE20_CAP_LINKCTRLSTATUS);
+			dev->ep_shadow[0][PCIE20_CAP_LINKCTRLSTATUS / 4] =
+						readl_relaxed(dev->conf +
+						PCIE20_CAP_LINKCTRLSTATUS);
 		}
 		PCIE_DBG2(dev, "RC's CAP_LINKCTRLSTATUS:0x%x\n",
 			readl_relaxed(dev->dm_core +
@@ -2155,18 +2150,18 @@ static void msm_pcie_config_link_state(struct msm_pcie_dev_t *dev)
 		msm_pcie_write_mask(dev->conf + PCIE20_DEVICE_CONTROL2_STATUS2,
 					0, BIT(10));
 		if (dev->shadow_en) {
-			msm_pcie_write_reg_field(dev->rc_shadow,
-					PCIE20_L1SUB_CONTROL1 / 4, 0xf,
-					val);
-			msm_pcie_write_mask(dev->rc_shadow +
-					PCIE20_DEVICE_CONTROL2_STATUS2 / 4,
-					0, BIT(10));
-			msm_pcie_write_reg_field(dev->ep_shadow[0],
-					ep_l1sub_ctrl1_offset / 4, 0xf,
-					val);
-			msm_pcie_write_mask(dev->ep_shadow[0] +
-					PCIE20_DEVICE_CONTROL2_STATUS2 / 4,
-					0, BIT(10));
+			dev->rc_shadow[PCIE20_L1SUB_CONTROL1 / 4] =
+					readl_relaxed(dev->dm_core +
+					PCIE20_L1SUB_CONTROL1);
+			dev->rc_shadow[PCIE20_DEVICE_CONTROL2_STATUS2 / 4] =
+					readl_relaxed(dev->dm_core +
+					PCIE20_DEVICE_CONTROL2_STATUS2);
+			dev->ep_shadow[0][ep_l1sub_ctrl1_offset / 4] =
+					readl_relaxed(dev->conf +
+					ep_l1sub_ctrl1_offset);
+			dev->ep_shadow[0][PCIE20_DEVICE_CONTROL2_STATUS2 / 4] =
+					readl_relaxed(dev->conf +
+					PCIE20_DEVICE_CONTROL2_STATUS2);
 		}
 		PCIE_DBG2(dev, "RC's L1SUB_CONTROL1:0x%x\n",
 			readl_relaxed(dev->dm_core + PCIE20_L1SUB_CONTROL1));
@@ -2885,8 +2880,7 @@ int msm_pcie_enumerate(u32 rc_idx)
 						PCIE20_COMMAND_STATUS);
 				PCIE_DBG(dev, "PCIE20_COMMAND_STATUS:0x%x\n",
 					val);
-				writel_relaxed(val, dev->rc_shadow +
-					PCIE20_COMMAND_STATUS / 4);
+				dev->rc_shadow[PCIE20_COMMAND_STATUS / 4] = val;
 			}
 
 			do {
