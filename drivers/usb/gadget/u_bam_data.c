@@ -655,7 +655,6 @@ static void bam2bam_data_disconnect_work(struct work_struct *w)
 	struct bam_data_port *port =
 			container_of(w, struct bam_data_port, disconnect_w);
 	struct bam_data_ch_info *d;
-	void *priv;
 	unsigned long flags;
 	int ret;
 
@@ -685,25 +684,9 @@ static void bam2bam_data_disconnect_work(struct work_struct *w)
 
 	d = &port->data_ch;
 	if (d->trans == USB_GADGET_XPORT_BAM2BAM_IPA) {
-		if (d->src_pipe_type == USB_BAM_PIPE_BAM2BAM)
-			priv = d->ipa_params.priv;
-		else
-			priv = d->ul_params.teth_priv;
-
-		if (d->func_type == USB_FUNC_ECM) {
-			ecm_ipa_disconnect(priv);
-		} else if (d->func_type == USB_FUNC_RNDIS) {
-			rndis_ipa_pipe_disconnect_notify(priv);
-			is_ipa_rndis_net_on = false;
-		}
-
 		ret = usb_bam_disconnect_ipa(&d->ipa_params);
 		if (ret)
 			pr_err("usb_bam_disconnect_ipa failed: err:%d\n", ret);
-
-		if (d->func_type == USB_FUNC_MBIM)
-			teth_bridge_disconnect(d->ipa_params.src_client);
-
 	}
 
 	pr_debug("Disconnect workqueue done (port %p)\n", port);
@@ -1320,6 +1303,18 @@ void bam_data_disconnect(struct data_port *gr, u8 port_num)
 	}
 
 	if (d->trans == USB_GADGET_XPORT_BAM2BAM_IPA) {
+		void *priv;
+		if (d->func_type == USB_FUNC_ECM) {
+			priv = ecm_qc_get_ipa_priv();
+			ecm_ipa_disconnect(priv);
+		} else if (d->func_type == USB_FUNC_RNDIS) {
+			priv = rndis_qc_get_ipa_priv();
+			rndis_ipa_pipe_disconnect_notify(priv);
+			is_ipa_rndis_net_on = false;
+		} else if (d->func_type == USB_FUNC_MBIM) {
+			teth_bridge_disconnect(d->ipa_params.src_client);
+		}
+
 		port->last_event = U_BAM_DATA_DISCONNECT_E;
 		queue_work(bam_data_wq, &port->disconnect_w);
 	} else {
