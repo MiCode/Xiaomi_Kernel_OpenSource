@@ -1097,6 +1097,16 @@ static int smb1360_set_appropriate_usb_current(struct smb1360_chip *chip)
 		if (rc)
 			pr_err("Couldn't set fastchg mA rc=%d\n", rc);
 
+		/*
+		 * To move to a new (higher) input-current setting,
+		 * first set USB500 and then USBAC. This makes sure
+		 * that the new ICL setting takes affect.
+		 */
+		rc = smb1360_masked_write(chip, CMD_IL_REG,
+				USB_CTRL_MASK, USB_500_BIT);
+		if (rc)
+			pr_err("Couldn't configure for USB500 rc=%d\n", rc);
+
 		rc = smb1360_masked_write(chip, CMD_IL_REG,
 				USB_CTRL_MASK, USB_AC_BIT);
 		if (rc)
