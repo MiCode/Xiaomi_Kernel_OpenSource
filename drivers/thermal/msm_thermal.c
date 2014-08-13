@@ -1992,6 +1992,11 @@ static __ref int do_hotplug(void *data)
 {
 	return 0;
 }
+
+static int __ref update_offline_cores(int val)
+{
+	return 0;
+}
 #endif
 
 static int do_gfx_phase_cond(void)
@@ -3424,6 +3429,7 @@ static ssize_t __ref store_cc_enabled(struct kobject *kobj,
 {
 	int ret = 0;
 	int val = 0;
+	uint32_t cpu = 0;
 
 	ret = kstrtoint(buf, 10, &val);
 	if (ret) {
@@ -3438,10 +3444,23 @@ static ssize_t __ref store_cc_enabled(struct kobject *kobj,
 	if (core_control_enabled) {
 		pr_info("Core control enabled\n");
 		register_cpu_notifier(&msm_thermal_cpu_notifier);
-		if (hotplug_task)
-			complete(&hotplug_notify_complete);
-		else
-			pr_err("Hotplug task is not initialized\n");
+		/*
+		 * Re-evaluate thermal core condition, update current status
+		 * and set threshold for all cpus.
+		 */
+		hotplug_init_cpu_offlined();
+		mutex_lock(&core_control_mutex);
+		update_offline_cores(cpus_offlined);
+		if (hotplug_enabled) {
+			for_each_possible_cpu(cpu) {
+				if (!(msm_thermal_info.core_control_mask &
+					BIT(cpus[cpu].cpu)))
+					continue;
+				set_threshold(cpus[cpu].sensor_id,
+				&cpus[cpu].threshold[HOTPLUG_THRESHOLD_HIGH]);
+			}
+		}
+		mutex_unlock(&core_control_mutex);
 	} else {
 		pr_info("Core control disabled\n");
 		unregister_cpu_notifier(&msm_thermal_cpu_notifier);
