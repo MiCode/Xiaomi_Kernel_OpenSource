@@ -80,7 +80,6 @@ config ARCH_APQ8084
 config ARCH_MSMFERRUM
 	bool "MSMFERRUM"
 	select ARCH_MSM_CORTEXMP
-	select GPIO_MSM_V3
 	select ARM_GIC
 	select MULTI_IRQ_HANDLER
 	select CPU_V7
@@ -91,11 +90,10 @@ config ARCH_MSMFERRUM
 	select PINCTRL_MSM_TLMM
 	select MSM_NOPM
 	select CPU_FREQ
-	select MSM_QDSP6_APRV3
-	select MSM_QDSP6V2_CODECS
-	select MSM_AUDIO_QDSP6V2 if SND_SOC
 	select MSM_CORTEX_A7
 	select MSM_IRQ
+	select ARM_TICKET_LOCKS
+	select ARM_HAS_SG_CHAIN
 
 config ARCH_MSM8916
 	bool "MSM8916"
@@ -383,7 +381,6 @@ config PHYS_OFFSET
 	hex
 	default "0x00000000" if ARCH_MSM8974
 	default "0x00000000" if ARCH_APQ8084
-	default "0x80000000" if ARCH_MSMFERRUM
 	default "0x00000000" if ARCH_MSM8226
 	default "0x00000000" if ARCH_MSM8610
 	default "0x0b600000" if ARCH_FSM9900
