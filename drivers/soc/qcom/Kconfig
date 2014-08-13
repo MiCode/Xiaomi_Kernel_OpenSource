@@ -514,6 +514,14 @@ config MSM_SYSTEM_HEALTH_MONITOR
 	  health check. If any failures are detected during the health-check,
 	  then a subsystem restart will be triggered for the failed subsystem.
 
+config QCOM_EARLY_RANDOM
+	bool "Initialize random pool very early"
+	help
+	  The standard random pool may not initialize until late in the boot
+	  process which means that any calls to get random numbers before then
+	  may not be truly random. Select this option to make an early call
+	  to get some random data to put in the pool. If unsure, say N.
+
 source "drivers/soc/qcom/memshare/Kconfig"
 
 endif # ARCH_MSM
