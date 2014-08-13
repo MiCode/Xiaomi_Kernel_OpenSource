@@ -2609,7 +2609,8 @@ static int ipa_init(const struct ipa_plat_drv_res *resource_p,
 	bam_props.num_pipes = IPA_NUM_PIPES;
 	bam_props.summing_threshold = IPA_SUMMING_THRESHOLD;
 	bam_props.event_threshold = IPA_EVENT_THRESHOLD;
-	bam_props.options |= SPS_BAM_NO_LOCAL_CLK_GATING;
+	bam_props.options |= (SPS_BAM_NO_LOCAL_CLK_GATING |
+		SPS_BAM_OPT_IRQ_WAKEUP);
 	bam_props.ee = resource_p->ee;
 
 	result = sps_register_bam_device(&bam_props, &ipa_ctx->bam_handle);
