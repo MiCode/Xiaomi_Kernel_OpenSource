@@ -120,6 +120,7 @@
 #include "msmferrum-iommu.dtsi"
 #include "msmferrum-gpu.dtsi"
 #include "msmferrum-coresight.dtsi"
+#include "msmferrum-bus.dtsi"
 
 &soc {
 	#address-cells = <1>;
