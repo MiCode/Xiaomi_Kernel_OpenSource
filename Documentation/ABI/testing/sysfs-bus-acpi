@@ -56,3 +56,63 @@ Description:
 		Writing 1 to this attribute will trigger hot removal of
 		this device object.  This file exists for every device
 		object that has _EJ0 method.
+
+What:		/sys/bus/acpi/devices/.../pld
+Date:		August 2014
+Contact:	Faouaz Tenoutit <faouaz.tenoutit@intel.com>
+Description:
+		This optional directory provides description of the physical
+		location, orientation and position of external devices.
+		It is for example used to describe how camera sensors are
+		physically mounted and allows user space software to rotate
+		images accordingly.
+
+What:		/sys/bus/acpi/devices/.../pld/revision
+Date:		August 2014
+Contact:	Faouaz Tenoutit <faouaz.tenoutit@intel.com>
+Description:
+		The current Revision is 0x2
+
+What:		/sys/bus/acpi/devices/.../pld/panel
+Date:		August 2014
+Contact:	Faouaz Tenoutit <faouaz.tenoutit@intel.com>
+Description:
+		Describes which panel surface of the system's housing the device
+		connection point resides on:
+		0 Top
+		1 Bottom
+		2 Left
+		3 Right
+		4 Front
+		5 Back
+		6 Unknown
+
+What:		/sys/bus/acpi/devices/.../pld/shape
+Date:		August 2014
+Contact:	Faouaz Tenoutit <faouaz.tenoutit@intel.com>
+Description:
+		Describes the shape of the device connection point:
+		0 Round
+		1 Oval
+		2 Square
+		3 Vertical Rectangle
+		4 Horizontal Rectangle
+		5 Vertical Trapezoid
+		6 Horizontal Trapezoid
+		7 Unknown - Shape rendered as a Rectangle with dotted lines
+		8 Chamfered
+
+What:		/sys/bus/acpi/devices/.../pld/rotation
+Date:		August 2014
+Contact:	Faouaz Tenoutit <faouaz.tenoutit@intel.com>
+Description:
+		Rotates the Shape clockwise in 45 degree steps around its
+		origin where:
+		0 0°
+		1 45°
+		2 90°
+		3 135°
+		4 180°
+		5 225°
+		6 270°
+		7 315°

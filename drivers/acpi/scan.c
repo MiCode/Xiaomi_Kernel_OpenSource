@@ -693,6 +693,36 @@ static ssize_t status_show(struct device *dev, struct device_attribute *attr,
 }
 static DEVICE_ATTR_RO(status);
 
+#define ACPI_SYSFS_PLD_PROP(prop)				\
+	static ssize_t prop##_show(struct device *dev,		\
+			   struct device_attribute *attr,	\
+			   char *buf) {				\
+	struct acpi_device *acpi_dev = to_acpi_device(dev);     \
+	return sprintf(buf, "%d\n", acpi_dev->pld->prop);       \
+};							        \
+static DEVICE_ATTR_RO(prop)
+
+/*
+ * sysfs PLD parameters
+ */
+ACPI_SYSFS_PLD_PROP(revision);
+ACPI_SYSFS_PLD_PROP(panel);
+ACPI_SYSFS_PLD_PROP(shape);
+ACPI_SYSFS_PLD_PROP(rotation);
+
+static struct attribute *acpi_pld_attrs[] = {
+	&dev_attr_revision.attr,
+	&dev_attr_panel.attr,
+	&dev_attr_shape.attr,
+	&dev_attr_rotation.attr,
+	NULL,
+};
+
+static const struct attribute_group acpi_pld_attr_group = {
+	.name = "pld",
+	.attrs = acpi_pld_attrs,
+};
+
 static int acpi_device_setup_files(struct acpi_device *dev)
 {
 	struct acpi_buffer buffer = {ACPI_ALLOCATE_BUFFER, NULL};
@@ -769,6 +799,22 @@ static int acpi_device_setup_files(struct acpi_device *dev)
 						    &dev_attr_real_power_state);
 	}
 
+	/*
+	 * If device has _PLD, 'pld' directory is created
+	 */
+	if (acpi_has_method(dev->handle, "_PLD")) {
+		status = acpi_get_physical_device_location(dev->handle,
+							   &dev->pld);
+		if (ACPI_SUCCESS(status)) {
+			result = sysfs_create_group(&dev->dev.kobj,
+						    &acpi_pld_attr_group);
+			if (result) {
+				ACPI_FREE(dev->pld);
+				dev->pld = NULL;
+			}
+		}
+	}
+
 end:
 	return result;
 }
@@ -808,6 +854,14 @@ static void acpi_device_remove_files(struct acpi_device *dev)
 		device_remove_file(&dev->dev, &dev_attr_status);
 	if (dev->handle)
 		device_remove_file(&dev->dev, &dev_attr_path);
+
+	/*
+	 * If device has _PLD, remove 'pld' directory
+	 */
+	if (dev->pld) {
+		sysfs_remove_group(&dev->dev.kobj, &acpi_pld_attr_group);
+		ACPI_FREE(dev->pld);
+	}
 }
 /* --------------------------------------------------------------------------
 			ACPI Bus operations
