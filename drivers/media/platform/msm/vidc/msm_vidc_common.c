@@ -2398,8 +2398,10 @@ static void msm_vidc_print_running_insts(struct msm_vidc_core *core)
 
 			dprintk(VIDC_ERR, "%4d|%4d|%4d|%4d|%4s\n",
 					temp->session_type,
-					temp->prop.width[CAPTURE_PORT],
-					temp->prop.height[CAPTURE_PORT],
+					max(temp->prop.width[CAPTURE_PORT],
+						temp->prop.width[OUTPUT_PORT]),
+					max(temp->prop.height[CAPTURE_PORT],
+						temp->prop.height[OUTPUT_PORT]),
 					temp->prop.fps, properties);
 		}
 	}
