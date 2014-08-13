@@ -3857,8 +3857,10 @@ void intel_crtc_wait_for_pending_flips(struct drm_crtc *crtc)
 			intel_unpin_sprite_work_fn(
 				&intel_crtc->sprite_unpin_work->work);
 			obj = intel_crtc->sprite_unpin_work->old_fb_obj;
-			atomic_clear_mask(1 << intel_crtc->plane,
-				&obj->pending_flip.counter);
+
+			if (obj)
+				atomic_clear_mask(1 << intel_crtc->plane,
+					&obj->pending_flip.counter);
 
 			spin_lock_irqsave(&dev->event_lock, flags);
 			intel_crtc->sprite_unpin_work = NULL;
