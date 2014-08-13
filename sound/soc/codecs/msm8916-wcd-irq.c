@@ -31,8 +31,6 @@
 #define MAX_NUM_IRQS 14
 #define NUM_IRQ_REGS 2
 
-#define WCD9XXX_SYSTEM_RESUME_TIMEOUT_MS 300
-
 #define BYTE_BIT_MASK(nr) (1UL << ((nr) % BITS_PER_BYTE))
 #define BIT_BYTE(nr) ((nr) / BITS_PER_BYTE)
 
@@ -251,6 +249,7 @@ enum wcd9xxx_spmi_pm_state wcd9xxx_spmi_pm_cmpxchg(
 	old = map.pm_state;
 	if (old == o)
 		map.pm_state = n;
+	pr_debug("%s: map.pm_state = %d\n", __func__, map.pm_state);
 	mutex_unlock(&map.pm_lock);
 	return old;
 }
@@ -353,8 +352,9 @@ bool wcd9xxx_spmi_lock_sleep()
 	mutex_unlock(&map.pm_lock);
 	pr_debug("%s: wake lock counter %d\n", __func__,
 			map.wlock_holders);
+	pr_debug("%s: map.pm_state = %d\n", __func__, map.pm_state);
 
-	if (!wait_event_timeout(map.pm_wq,
+	wait_event(map.pm_wq,
 				((wcd9xxx_spmi_pm_cmpxchg(
 					WCD9XXX_PM_SLEEPABLE,
 					WCD9XXX_PM_AWAKE)) ==
@@ -362,17 +362,8 @@ bool wcd9xxx_spmi_lock_sleep()
 					(wcd9xxx_spmi_pm_cmpxchg(
 						 WCD9XXX_PM_SLEEPABLE,
 						 WCD9XXX_PM_AWAKE) ==
-						 WCD9XXX_PM_AWAKE)),
-					msecs_to_jiffies(
-					WCD9XXX_SYSTEM_RESUME_TIMEOUT_MS))) {
-		pr_warn("%s: system didn't resume within %dms, s %d, w %d\n",
-			__func__,
-			WCD9XXX_SYSTEM_RESUME_TIMEOUT_MS, map.pm_state,
-			map.wlock_holders);
-		wcd9xxx_spmi_unlock_sleep();
-		return false;
-	}
-	wake_up_all(&map.pm_wq);
+						 WCD9XXX_PM_AWAKE)));
+	pr_debug("%s: leaving pm_state = %d\n", __func__, map.pm_state);
 	return true;
 }
 EXPORT_SYMBOL(wcd9xxx_spmi_lock_sleep);
@@ -395,6 +386,7 @@ void wcd9xxx_spmi_unlock_sleep()
 	mutex_unlock(&map.pm_lock);
 	pr_debug("%s: wake lock counter %d\n", __func__,
 			map.wlock_holders);
+	pr_debug("%s: map.pm_state = %d\n", __func__, map.pm_state);
 	wake_up_all(&map.pm_wq);
 }
 EXPORT_SYMBOL(wcd9xxx_spmi_unlock_sleep);
