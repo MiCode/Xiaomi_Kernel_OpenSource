@@ -40,6 +40,39 @@
 		regulator-min-microvolt = <1>;
 		regulator-max-microvolt = <7>;
 	};
+	/* VDDPX_5 (UIM) */
+	pma8084_l9: regulator@4800 {
+		regulator-min-microvolt = <1800000>;
+		regulator-max-microvolt = <1800000>;
+		qcom,enable-time = <500>;
+		qcom,pull-down-enable = <1>;
+		regulator-always-on;
+		status = "okay";
+	};
+	/* eMMC LDO20 */
+	pma8084_l20: regulator@5300 {
+		regulator-min-microvolt = <2950000>;
+		regulator-max-microvolt = <2950000>;
+		qcom,enable-time = <200>;
+		qcom,pull-down-enable = <1>;
+		regulator-always-on;
+		status = "okay";
+	};
+	/* SDC2 VDD LDO21 */
+	pma8084_l21: regulator@5400 {
+		regulator-min-microvolt = <2950000>;
+		regulator-max-microvolt = <2950000>;
+		qcom,enable-time = <200>;
+		qcom,pull-down-enable = <1>;
+		regulator-always-on;
+		status = "okay";
+	};
+	/* QFPROM_BLOW_VDD */
+	pma8084_lvs1: regulator@8000 {
+		qcom,enable-time = <200>;
+		qcom,pull-down-enable = <1>;
+		status = "okay";
+	};
 };
 
 /* QPNP controlled regulators: */
@@ -117,16 +150,6 @@
 			status = "okay";
 		};
 
-		/* VDDPX_5 (UIM) */
-		pma8084_l9: regulator@4800 {
-			regulator-min-microvolt = <1800000>;
-			regulator-max-microvolt = <1800000>;
-			qcom,enable-time = <500>;
-			qcom,pull-down-enable = <1>;
-			regulator-always-on;
-			status = "okay";
-		};
-
 		/* VDDPX_6(GMAC) */
 		pma8084_l10: regulator@4900 {
 			regulator-min-microvolt = <2500000>;
@@ -184,26 +207,6 @@
 			status = "okay";
 		};
 
-		/* eMMC LDO20 */
-		pma8084_l20: regulator@5300 {
-			regulator-min-microvolt = <2950000>;
-			regulator-max-microvolt = <2950000>;
-			qcom,enable-time = <200>;
-			qcom,pull-down-enable = <1>;
-			regulator-always-on;
-			status = "okay";
-		};
-
-		/* SDC2 VDD LDO21 */
-		pma8084_l21: regulator@5400 {
-			regulator-min-microvolt = <2950000>;
-			regulator-max-microvolt = <2950000>;
-			qcom,enable-time = <200>;
-			qcom,pull-down-enable = <1>;
-			regulator-always-on;
-			status = "okay";
-		};
-
 		/* FTR1 LDO23*/
 		pma8084_l23: regulator@5600 {
 			regulator-min-microvolt = <2200000>;
@@ -240,14 +243,6 @@
 			qcom,pull-down-enable = <1>;
 			status = "okay";
 		};
-
-		/* QFPROM_BLOW_VDD */
-		pma8084_lvs1: regulator@8000 {
-			qcom,enable-time = <200>;
-			qcom,pull-down-enable = <1>;
-			status = "okay";
-		};
-
 	};
 };
 
