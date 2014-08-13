@@ -125,7 +125,6 @@ enum bus_index {
 enum clock_state {
 	DISABLED_UNPREPARED,
 	ENABLED_PREPARED,
-	DISABLED_PREPARED
 };
 
 struct vidc_mem_addr {
