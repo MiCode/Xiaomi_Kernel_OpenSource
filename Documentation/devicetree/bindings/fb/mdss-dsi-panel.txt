@@ -307,6 +307,8 @@ Optional properties:
 - qcom,partial-update-roi-merge:	Boolean indicates roi combination is need
 					and function has been provided for dcs
 					2A/2B command.
+- qcom,dcs-cmd-by-left:			Boolean to indicate that dcs command are sent
+					through the left DSI controller only in a dual-dsi configuration
 - qcom,mdss-dsi-lp11-init:		Boolean used to enable the DSI clocks and data lanes (low power 11)
 					before issuing hardware reset line.
 - qcom,mdss-dsi-init-delay-us:		Delay in microseconds(us) before performing any DSI activity in lp11
@@ -459,6 +461,7 @@ Example:
 		qcom,mdss-tear-check-frame-rate = <6000>;
 		qcom,mdss-dsi-reset-sequence = <1 2>, <0 10>, <1 10>;
 		qcom,partial-update-enabled;
+		qcom,dcs-cmd-by-left;
 		qcom,mdss-dsi-lp11-init;
 		qcom,mdss-dsi-init-delay-us = <100>;
 		mdss-dsi-rx-eot-ignore;
