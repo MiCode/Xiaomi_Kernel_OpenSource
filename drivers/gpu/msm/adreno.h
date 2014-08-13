@@ -289,6 +289,11 @@ struct adreno_device {
  * after power collapse
  * @ADRENO_DEVICE_CORESIGHT - Set if the coresight (trace bus) registers should
  * be restored after power collapse
+ * @ADRENO_DEVICE_HANG_INTR - Set if the hang interrupt should be enabled for
+ * this target
+ * @ADRENO_DEVICE_STARTED - Set if the device start sequence is in progress
+ * @ADRENO_DEVICE_FAULT - Set if the device is currently in fault (and shouldn't
+ * send any more commands to the ringbuffer)
  */
 enum adreno_device_flags {
 	ADRENO_DEVICE_PWRON = 0,
@@ -297,6 +302,7 @@ enum adreno_device_flags {
 	ADRENO_DEVICE_CORESIGHT = 3,
 	ADRENO_DEVICE_HANG_INTR = 4,
 	ADRENO_DEVICE_STARTED = 5,
+	ADRENO_DEVICE_FAULT = 6,
 };
 
 #define PERFCOUNTER_FLAG_NONE 0x0

@@ -678,6 +678,10 @@ static unsigned int adreno_iommu_set_pt_generate_cmds(
 	int num_iommu_units;
 	unsigned int *cmds_orig = cmds;
 
+	/* If we are in a fault the MMU will be reset soon */
+	if (test_bit(ADRENO_DEVICE_FAULT, &adreno_dev->priv))
+		return 0;
+
 	num_iommu_units = kgsl_mmu_get_num_iommu_units(&device->mmu);
 
 	pt_val = kgsl_mmu_get_pt_base_addr(&device->mmu, pt);

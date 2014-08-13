@@ -1199,6 +1199,13 @@ static int dispatcher_do_fault(struct kgsl_device *device)
 
 	mutex_lock(&device->mutex);
 
+	/*
+	 * Set the fault bit to make sure that no other threads try to use the
+	 * GPU until we are done here
+	 */
+
+	set_bit(ADRENO_DEVICE_FAULT, &adreno_dev->priv);
+
 	/* hang opcode */
 	kgsl_cffdump_hang(device);
 
@@ -1510,6 +1517,9 @@ replay:
 				count - i);
 		}
 	}
+
+	/* Clear the fault bit */
+	clear_bit(ADRENO_DEVICE_FAULT, &adreno_dev->priv);
 
 	kfree(replay);
 	/* restore halt indicator */
