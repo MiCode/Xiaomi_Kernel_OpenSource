@@ -7023,6 +7023,10 @@ static void chv_crtc_clock_get(struct intel_crtc *crtc,
 	u32 cmn_dw13, pll_dw0, pll_dw1, pll_dw2;
 	int refclk = 100000;
 
+	/* In case of MIPI DPLL will not even be used */
+	if (!(pipe_config->dpll_hw_state.dpll & DPLL_VCO_ENABLE))
+		return;
+
 	mutex_lock(&dev_priv->dpio_lock);
 	cmn_dw13 = vlv_dpio_read(dev_priv, pipe, CHV_CMN_DW13(port));
 	pll_dw0 = vlv_dpio_read(dev_priv, pipe, CHV_PLL_DW0(port));
