@@ -148,6 +148,8 @@ static void process_command_registration(uint8_t *buf, uint32_t len,
 
 	reg = (struct diag_ctrl_cmd_reg *)ptr;
 	ptr += header_len;
+	/* Don't account for pkt_id and length */
+	read_len += header_len - (2 * sizeof(uint32_t));
 
 	if (reg->count_entries == 0) {
 		pr_debug("diag: In %s, received reg tbl with no entries\n",
@@ -298,7 +300,8 @@ static void process_log_range_report(uint8_t *buf, uint32_t len,
 	peripheral = smd_info->peripheral;
 	header = (struct diag_ctrl_log_range_report *)ptr;
 	ptr += header_len;
-	read_len += header_len;
+	/* Don't account for pkt_id and length */
+	read_len += header_len - (2 * sizeof(uint32_t));
 
 	mutex_lock(&log_mask.lock);
 	driver->num_equip_id[peripheral] = header->num_ranges;
@@ -382,7 +385,8 @@ static void process_ssid_range_report(uint8_t *buf, uint32_t len,
 
 	header = (struct diag_ctrl_ssid_range_report *)ptr;
 	ptr += header_len;
-	read_len += header_len;
+	/* Don't account for pkt_id and length */
+	read_len += header_len - (2 * sizeof(uint32_t));
 
 	mutex_lock(&msg_mask.lock);
 	driver->max_ssid_count[smd_info->peripheral] = header->count;
@@ -509,7 +513,8 @@ static void process_build_mask_report(uint8_t *buf, uint32_t len,
 
 	header = (struct diag_ctrl_build_mask_report *)ptr;
 	ptr += header_len;
-	read_len += header_len;
+	/* Don't account for pkt_id and length */
+	read_len += header_len - (2 * sizeof(uint32_t));
 
 	for (i = 0; i < header->count && read_len < len; i++) {
 		range = (struct diag_ssid_range_t *)ptr;
