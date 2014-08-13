@@ -4644,7 +4644,7 @@ static void cherryview_init_gt_powersave(struct drm_device *dev)
 		dev_priv->rps.max_freq_softlimit = dev_priv->rps.max_freq;
 
 	if (dev_priv->rps.min_freq_softlimit == 0)
-		dev_priv->rps.min_freq_softlimit = dev_priv->rps.min_freq;
+		dev_priv->rps.min_freq_softlimit = dev_priv->rps.efficient_freq;
 
 	mutex_unlock(&dev_priv->rps.hw_lock);
 }
