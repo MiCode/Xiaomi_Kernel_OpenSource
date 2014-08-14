@@ -38,6 +38,12 @@
 #include "msm-pcm-q6-v2.h"
 #include "msm-pcm-routing-v2.h"
 
+enum stream_state {
+	IDLE = 0,
+	STOPPED,
+	RUNNING,
+};
+
 static struct audio_locks the_locks;
 
 #define PCM_MASTER_VOL_MAX_STEPS	0x2000
@@ -362,48 +368,55 @@ static int msm_pcm_capture_prepare(struct snd_pcm_substream *substream)
 	}
 
 	pr_debug("%s\n", __func__);
-	params = &soc_prtd->dpcm[substream->stream].hw_params;
-	if (params_format(params) == SNDRV_PCM_FORMAT_S24_LE)
-		bits_per_sample = 24;
+	if (prtd->enabled == IDLE) {
+		params = &soc_prtd->dpcm[substream->stream].hw_params;
+		if (params_format(params) == SNDRV_PCM_FORMAT_S24_LE)
+			bits_per_sample = 24;
 
-	prtd->audio_client->perf_mode = pdata->perf_mode;
-	pr_debug("%s: perf_mode: 0x%x\n", __func__, pdata->perf_mode);
+		prtd->audio_client->perf_mode = pdata->perf_mode;
+		pr_debug("%s: perf_mode: 0x%x\n", __func__, pdata->perf_mode);
 
-	pr_debug("%s Opening %d-ch PCM read stream\n",
-			__func__, params_channels(params));
-	ret = q6asm_open_read_v2(prtd->audio_client, FORMAT_LINEAR_PCM,
-			bits_per_sample);
-	if (ret < 0) {
-		pr_err("%s: q6asm_open_read failed\n", __func__);
-		q6asm_audio_client_free(prtd->audio_client);
-		prtd->audio_client = NULL;
-		return -ENOMEM;
-	}
+		pr_debug("%s Opening %d-ch PCM read stream\n",
+				__func__, params_channels(params));
+		ret = q6asm_open_read_v2(prtd->audio_client, FORMAT_LINEAR_PCM,
+				bits_per_sample);
+		if (ret < 0) {
+			pr_err("%s: q6asm_open_read failed\n", __func__);
+			q6asm_audio_client_free(prtd->audio_client);
+			prtd->audio_client = NULL;
+			return -ENOMEM;
+		}
 
-	pr_debug("%s: session ID %d\n",
-			__func__, prtd->audio_client->session);
-	prtd->session_id = prtd->audio_client->session;
-	event.event_func = msm_pcm_route_event_handler;
-	event.priv_data = (void *) prtd;
-	ret = msm_pcm_routing_reg_phy_stream_v2(
-			soc_prtd->dai_link->be_id,
-			prtd->audio_client->perf_mode,
-			prtd->session_id, substream->stream,
-			event);
-	if (ret) {
-		pr_err("%s: stream reg failed ret:%d\n", __func__, ret);
-		return ret;
+		pr_debug("%s: session ID %d\n",
+				__func__, prtd->audio_client->session);
+		prtd->session_id = prtd->audio_client->session;
+		event.event_func = msm_pcm_route_event_handler;
+		event.priv_data = (void *) prtd;
+		ret = msm_pcm_routing_reg_phy_stream_v2(
+				soc_prtd->dai_link->be_id,
+				prtd->audio_client->perf_mode,
+				prtd->session_id, substream->stream,
+				event);
+		if (ret) {
+			pr_err("%s: stream reg failed ret:%d\n", __func__, ret);
+			return ret;
+		}
 	}
 
 	prtd->pcm_size = snd_pcm_lib_buffer_bytes(substream);
 	prtd->pcm_count = snd_pcm_lib_period_bytes(substream);
 	prtd->pcm_irq_pos = 0;
-
 	/* rate and channels are sent to audio driver */
 	prtd->samp_rate = runtime->rate;
 	prtd->channel_mode = runtime->channels;
 
-	if (prtd->enabled)
+	if (prtd->enabled == IDLE || prtd->enabled == STOPPED) {
+		for (i = 0; i < runtime->periods; i++)
+			q6asm_read(prtd->audio_client);
+		prtd->periods = runtime->periods;
+	}
+
+	if (prtd->enabled != IDLE)
 		return 0;
 
 	switch (runtime->format) {
@@ -422,11 +435,7 @@ static int msm_pcm_capture_prepare(struct snd_pcm_substream *substream)
 	if (ret < 0)
 		pr_debug("%s: cmd cfg pcm was block failed", __func__);
 
-	for (i = 0; i < runtime->periods; i++)
-		q6asm_read(prtd->audio_client);
-	prtd->periods = runtime->periods;
-
-	prtd->enabled = 1;
+	prtd->enabled = RUNNING;
 
 	return ret;
 }
@@ -447,8 +456,11 @@ static int msm_pcm_trigger(struct snd_pcm_substream *substream, int cmd)
 	case SNDRV_PCM_TRIGGER_STOP:
 		pr_debug("SNDRV_PCM_TRIGGER_STOP\n");
 		atomic_set(&prtd->start, 0);
-		if (substream->stream != SNDRV_PCM_STREAM_PLAYBACK)
+		if (substream->stream != SNDRV_PCM_STREAM_PLAYBACK) {
+			prtd->enabled = STOPPED;
+			ret = q6asm_cmd_nowait(prtd->audio_client, CMD_PAUSE);
 			break;
+		}
 		/* pending CMD_EOS isn't expected */
 		WARN_ON_ONCE(test_bit(CMD_EOS, &prtd->cmd_pending));
 		set_bit(CMD_EOS, &prtd->cmd_pending);
@@ -549,6 +561,7 @@ static int msm_pcm_open(struct snd_pcm_substream *substream)
 								ret);
 	}
 
+	prtd->enabled = IDLE;
 	prtd->dsp_cnt = 0;
 	prtd->set_channel_map = false;
 	prtd->reset_event = false;
