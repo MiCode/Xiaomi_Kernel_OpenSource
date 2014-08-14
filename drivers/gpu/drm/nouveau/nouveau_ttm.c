@@ -76,6 +76,7 @@ static int
 nouveau_vram_manager_new(struct ttm_mem_type_manager *man,
 			 struct ttm_buffer_object *bo,
 			 struct ttm_placement *placement,
+			 uint32_t flags,
 			 struct ttm_mem_reg *mem)
 {
 	struct nouveau_drm *drm = nouveau_bdev(man->bdev);
@@ -162,6 +163,7 @@ static int
 nouveau_gart_manager_new(struct ttm_mem_type_manager *man,
 			 struct ttm_buffer_object *bo,
 			 struct ttm_placement *placement,
+			 uint32_t flags,
 			 struct ttm_mem_reg *mem)
 {
 	struct nouveau_drm *drm = nouveau_bdev(bo->bdev);
@@ -242,6 +244,7 @@ static int
 nv04_gart_manager_new(struct ttm_mem_type_manager *man,
 		      struct ttm_buffer_object *bo,
 		      struct ttm_placement *placement,
+		      uint32_t flags,
 		      struct ttm_mem_reg *mem)
 {
 	struct nouveau_mem *node;
@@ -354,21 +357,26 @@ int
 nouveau_ttm_init(struct nouveau_drm *drm)
 {
 	struct drm_device *dev = drm->dev;
+	struct nouveau_device *device = nv_device(drm->device);
 	u32 bits;
 	int ret;
 
 	bits = nouveau_vmmgr(drm->device)->dma_bits;
-	if ( drm->agp.stat == ENABLED ||
-	    !pci_dma_supported(dev->pdev, DMA_BIT_MASK(bits)))
-		bits = 32;
+	if (nv_device_is_pci(device)) {
+		if (drm->agp.stat == ENABLED ||
+		     !pci_dma_supported(dev->pdev, DMA_BIT_MASK(bits)))
+			bits = 32;
 
-	ret = pci_set_dma_mask(dev->pdev, DMA_BIT_MASK(bits));
-	if (ret)
-		return ret;
+		ret = pci_set_dma_mask(dev->pdev, DMA_BIT_MASK(bits));
+		if (ret)
+			return ret;
 
-	ret = pci_set_consistent_dma_mask(dev->pdev, DMA_BIT_MASK(bits));
-	if (ret)
-		pci_set_consistent_dma_mask(dev->pdev, DMA_BIT_MASK(32));
+		ret = pci_set_consistent_dma_mask(dev->pdev,
+						  DMA_BIT_MASK(bits));
+		if (ret)
+			pci_set_consistent_dma_mask(dev->pdev,
+						    DMA_BIT_MASK(32));
+	}
 
 	ret = nouveau_ttm_global_init(drm);
 	if (ret)
@@ -376,7 +384,9 @@ nouveau_ttm_init(struct nouveau_drm *drm)
 
 	ret = ttm_bo_device_init(&drm->ttm.bdev,
 				  drm->ttm.bo_global_ref.ref.object,
-				  &nouveau_bo_driver, DRM_FILE_PAGE_OFFSET,
+				  &nouveau_bo_driver,
+				  dev->anon_inode->i_mapping,
+				  DRM_FILE_PAGE_OFFSET,
 				  bits <= 32 ? true : false);
 	if (ret) {
 		NV_ERROR(drm, "error initialising bo driver, %d\n", ret);
@@ -394,8 +404,8 @@ nouveau_ttm_init(struct nouveau_drm *drm)
 		return ret;
 	}
 
-	drm->ttm.mtrr = arch_phys_wc_add(pci_resource_start(dev->pdev, 1),
-					 pci_resource_len(dev->pdev, 1));
+	drm->ttm.mtrr = arch_phys_wc_add(nv_device_resource_start(device, 1),
+					 nv_device_resource_len(device, 1));
 
 	/* GART init */
 	if (drm->agp.stat != ENABLED) {

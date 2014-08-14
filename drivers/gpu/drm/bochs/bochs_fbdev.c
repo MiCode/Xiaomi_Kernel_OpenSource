@@ -179,7 +179,7 @@ void bochs_fb_gamma_get(struct drm_crtc *crtc, u16 *red, u16 *green,
 	*blue  = regno;
 }
 
-static struct drm_fb_helper_funcs bochs_fb_helper_funcs = {
+static const struct drm_fb_helper_funcs bochs_fb_helper_funcs = {
 	.gamma_set = bochs_fb_gamma_set,
 	.gamma_get = bochs_fb_gamma_get,
 	.fb_probe = bochsfb_create,
@@ -189,8 +189,8 @@ int bochs_fbdev_init(struct bochs_device *bochs)
 {
 	int ret;
 
-	bochs->fb.helper.funcs = &bochs_fb_helper_funcs;
-	spin_lock_init(&bochs->fb.dirty_lock);
+	drm_fb_helper_prepare(bochs->dev, &bochs->fb.helper,
+			      &bochs_fb_helper_funcs);
 
 	ret = drm_fb_helper_init(bochs->dev, &bochs->fb.helper,
 				 1, 1);

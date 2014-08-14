@@ -344,8 +344,8 @@ struct omap_video_timings {
 	u16 x_res;
 	/* Unit: pixels */
 	u16 y_res;
-	/* Unit: KHz */
-	u32 pixel_clock;
+	/* Unit: Hz */
+	u32 pixelclock;
 	/* Unit: pixel clocks */
 	u16 hsw;	/* Horizontal synchronization pulse width */
 	/* Unit: pixel clocks */
@@ -389,8 +389,8 @@ struct omap_dss_cpr_coefs {
 };
 
 struct omap_overlay_info {
-	u32 paddr;
-	u32 p_uv_addr;  /* for NV12 format */
+	dma_addr_t paddr;
+	dma_addr_t p_uv_addr;  /* for NV12 format */
 	u16 screen_width;
 	u16 width;
 	u16 height;
@@ -965,9 +965,6 @@ int dispc_ovl_setup(enum omap_plane plane, const struct omap_overlay_info *oi,
 		bool replication, const struct omap_video_timings *mgr_timings,
 		bool mem_to_mem);
 
-#define to_dss_driver(x) container_of((x), struct omap_dss_driver, driver)
-#define to_dss_device(x) container_of((x), struct omap_dss_device, old_dev)
-
 int omapdss_compat_init(void);
 void omapdss_compat_uninit(void);
 
@@ -1018,5 +1015,19 @@ static inline bool omapdss_device_is_enabled(struct omap_dss_device *dssdev)
 {
 	return dssdev->state == OMAP_DSS_DISPLAY_ACTIVE;
 }
+
+struct device_node *
+omapdss_of_get_next_port(const struct device_node *parent,
+			 struct device_node *prev);
+
+struct device_node *
+omapdss_of_get_next_endpoint(const struct device_node *parent,
+			     struct device_node *prev);
+
+struct device_node *
+omapdss_of_get_first_endpoint(const struct device_node *parent);
+
+struct omap_dss_device *
+omapdss_of_find_source_for_first_ep(struct device_node *node);
 
 #endif
