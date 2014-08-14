@@ -28,6 +28,7 @@ DEFINE_MSM_MUTEX(msm_ois_mutex);
 
 #define MAX_POLL_COUNT 100
 
+static struct v4l2_file_operations msm_ois_v4l2_subdev_fops;
 static int32_t msm_ois_power_up(struct msm_ois_ctrl_t *o_ctrl);
 static int32_t msm_ois_power_down(struct msm_ois_ctrl_t *o_ctrl);
 
@@ -859,6 +860,156 @@ probe_failure:
 	return rc;
 }
 
+#ifdef CONFIG_COMPAT
+static long msm_ois_subdev_do_ioctl(
+	struct file *file, unsigned int cmd, void *arg)
+{
+	long rc = 0;
+	struct video_device *vdev = video_devdata(file);
+	struct v4l2_subdev *sd = vdev_to_v4l2_subdev(vdev);
+	struct msm_ois_cfg_data32 *u32 =
+		(struct msm_ois_cfg_data32 *)arg;
+	struct msm_ois_cfg_data ois_data;
+	void *parg = arg;
+
+	ois_data.cfgtype = u32->cfgtype;
+	ois_data.is_ois_supported = u32->is_ois_supported;
+	switch (cmd) {
+	case VIDIOC_MSM_OIS_CFG32:
+		cmd = VIDIOC_MSM_OIS_CFG;
+
+		switch (u32->cfgtype) {
+		case CFG_OIS_INI_SET:
+		case CFG_OIS_ENABLE:
+		case CFG_OIS_DISABLE:
+		case CFG_OIS_SET_MOVIE_MODE:
+		case CFG_OIS_SET_STILL_MODE:
+		case CFG_OIS_SET_CENTERING_ON:
+		case CFG_OIS_SET_PANTILT_ON:
+			ois_data.cfg.enable_centering_ois =
+				u32->cfg.enable_centering_ois;
+			ois_data.cfg.set_info.ois_params.data_size =
+				u32->cfg.set_info.ois_params.data_size;
+			ois_data.cfg.set_info.ois_params.init_setting_size =
+				u32->cfg.set_info.ois_params.init_setting_size;
+			ois_data.cfg.set_info.ois_params.
+				enable_ois_setting_size = u32->cfg.set_info.
+				ois_params.enable_ois_setting_size;
+			ois_data.cfg.set_info.ois_params.
+				disable_ois_setting_size =
+				u32->cfg.set_info.ois_params.
+				disable_ois_setting_size;
+			ois_data.cfg.set_info.ois_params.
+				movie_mode_ois_setting_size =
+				u32->cfg.set_info.ois_params.
+				movie_mode_ois_setting_size;
+			ois_data.cfg.set_info.ois_params.
+				still_mode_ois_setting_size =
+				u32->cfg.set_info.ois_params.
+				still_mode_ois_setting_size;
+			ois_data.cfg.set_info.ois_params.
+				centering_on_ois_setting_size =
+				u32->cfg.set_info.ois_params.
+				centering_on_ois_setting_size;
+			ois_data.cfg.set_info.ois_params.
+				centering_off_ois_setting_size =
+				u32->cfg.set_info.ois_params.
+				centering_off_ois_setting_size;
+			ois_data.cfg.set_info.ois_params.
+				pantilt_on_ois_setting_size =
+				u32->cfg.set_info.ois_params.
+				pantilt_on_ois_setting_size;
+			ois_data.cfg.set_info.ois_params.i2c_addr =
+				u32->cfg.set_info.ois_params.i2c_addr;
+			ois_data.cfg.set_info.ois_params.i2c_addr_type =
+				u32->cfg.set_info.ois_params.i2c_addr_type;
+			ois_data.cfg.set_info.ois_params.i2c_data_type =
+				u32->cfg.set_info.ois_params.i2c_data_type;
+			ois_data.cfg.set_info.ois_params.init_settings =
+				compat_ptr(u32->cfg.set_info.ois_params.
+				init_settings);
+			ois_data.cfg.set_info.ois_params.enable_ois_settings =
+				compat_ptr(u32->cfg.set_info.ois_params.
+				enable_ois_settings);
+			ois_data.cfg.set_info.ois_params.disable_ois_settings =
+				compat_ptr(u32->cfg.set_info.ois_params.
+				disable_ois_settings);
+			ois_data.cfg.set_info.ois_params.
+				movie_mode_ois_settings =
+				compat_ptr(u32->cfg.set_info.ois_params.
+				movie_mode_ois_settings);
+			ois_data.cfg.set_info.ois_params.
+				still_mode_ois_settings =
+				compat_ptr(u32->cfg.set_info.ois_params.
+				still_mode_ois_settings);
+			ois_data.cfg.set_info.ois_params.
+				centering_on_ois_settings =
+				compat_ptr(u32->cfg.set_info.ois_params.
+				centering_on_ois_settings);
+			ois_data.cfg.set_info.ois_params.
+				centering_off_ois_settings =
+				compat_ptr(u32->cfg.set_info.ois_params.
+				centering_off_ois_settings);
+			ois_data.cfg.set_info.ois_params.
+				pantilt_on_ois_settings =
+				compat_ptr(u32->cfg.set_info.ois_params.
+				pantilt_on_ois_settings);
+			parg = &ois_data;
+			break;
+		case CFG_OIS_I2C_WRITE_SEQ_TABLE: {
+			struct msm_camera_i2c_seq_reg_setting settings;
+			struct msm_camera_i2c_seq_reg_setting32 settings32;
+
+			if (copy_from_user(&settings32,
+				(void *)compat_ptr(u32->cfg.settings),
+				sizeof(
+				struct msm_camera_i2c_seq_reg_setting32))) {
+				pr_err("copy_from_user failed\n");
+				return -EFAULT;
+			}
+
+			settings.addr_type = settings32.addr_type;
+			settings.delay = settings32.delay;
+			settings.size = settings32.size;
+			settings.reg_setting =
+				compat_ptr(settings32.reg_setting);
+
+			ois_data.cfgtype = u32->cfgtype;
+			ois_data.cfg.settings = &settings;
+			parg = &ois_data;
+		}
+			break;
+		default:
+			parg = &ois_data;
+			break;
+		}
+	}
+	rc = msm_ois_subdev_ioctl(sd, cmd, parg);
+	if (!rc)
+		return rc;
+	switch (cmd) {
+	case VIDIOC_MSM_OIS_CFG:
+		switch (u32->cfgtype) {
+		case CFG_OIS_INI_SET:
+			u32->is_ois_supported =
+				ois_data.is_ois_supported;
+			break;
+		default:
+			break;
+		}
+	default:
+		break;
+	}
+	return rc;
+}
+
+static long msm_ois_subdev_fops_ioctl(struct file *file, unsigned int cmd,
+	unsigned long arg)
+{
+	return video_usercopy(file, cmd, arg, msm_ois_subdev_do_ioctl);
+}
+#endif
+
 static int32_t msm_ois_platform_probe(struct platform_device *pdev)
 {
 	int32_t rc = 0;
@@ -941,6 +1092,14 @@ static int32_t msm_ois_platform_probe(struct platform_device *pdev)
 	msm_ois_t->msm_sd.close_seq = MSM_SD_CLOSE_2ND_CATEGORY | 0x2;
 	msm_sd_register(&msm_ois_t->msm_sd);
 	msm_ois_t->ois_state = OIS_POWER_DOWN;
+	msm_ois_v4l2_subdev_fops = v4l2_subdev_fops;
+#ifdef CONFIG_COMPAT
+	msm_ois_v4l2_subdev_fops.compat_ioctl32 =
+		msm_ois_subdev_fops_ioctl;
+#endif
+	msm_ois_t->msm_sd.sd.devnode->fops =
+		&msm_ois_v4l2_subdev_fops;
+
 	CDBG("Exit\n");
 	return rc;
 }

@@ -568,6 +568,13 @@ struct msm_eeprom_cfg_data32 {
 		struct eeprom_write_t32 write_data;
 	} cfg;
 };
+
+struct msm_camera_i2c_seq_reg_setting32 {
+	compat_uptr_t reg_setting;
+	uint16_t size;
+	enum msm_camera_i2c_reg_addr_type addr_type;
+	uint16_t delay;
+};
 #endif
 
 enum msm_sensor_cfg_type_t {
@@ -864,11 +871,6 @@ struct sensor_init_cfg_data {
 #define VIDIOC_MSM_CSID_IO_CFG \
 	_IOWR('V', BASE_VIDIOC_PRIVATE + 5, struct csid_cfg_data)
 
-#ifdef CONFIG_COMPAT
-#define VIDIOC_MSM_CSID_IO_CFG32 \
-	_IOWR('V', BASE_VIDIOC_PRIVATE + 5, struct csid_cfg_data32)
-#endif
-
 #define VIDIOC_MSM_ACTUATOR_CFG \
 	_IOWR('V', BASE_VIDIOC_PRIVATE + 6, struct msm_actuator_cfg_data)
 
@@ -877,11 +879,6 @@ struct sensor_init_cfg_data {
 
 #define VIDIOC_MSM_EEPROM_CFG \
 	_IOWR('V', BASE_VIDIOC_PRIVATE + 8, struct msm_eeprom_cfg_data)
-
-#ifdef CONFIG_COMPAT
-#define VIDIOC_MSM_EEPROM_CFG32 \
-	_IOWR('V', BASE_VIDIOC_PRIVATE + 8, struct msm_eeprom_cfg_data32)
-#endif
 
 #define VIDIOC_MSM_SENSOR_GET_AF_STATUS \
 	_IOWR('V', BASE_VIDIOC_PRIVATE + 9, uint32_t)
@@ -974,6 +971,43 @@ struct sensorb_cfg_data32 {
 	} cfg;
 };
 
+struct msm_ois_params_t32 {
+	uint16_t data_size;
+	uint16_t init_setting_size;
+	uint16_t enable_ois_setting_size;
+	uint16_t disable_ois_setting_size;
+	uint16_t movie_mode_ois_setting_size;
+	uint16_t still_mode_ois_setting_size;
+	uint16_t centering_on_ois_setting_size;
+	uint16_t centering_off_ois_setting_size;
+	uint16_t pantilt_on_ois_setting_size;
+	uint32_t i2c_addr;
+	enum msm_camera_i2c_reg_addr_type i2c_addr_type;
+	enum msm_camera_i2c_data_type i2c_data_type;
+	compat_uptr_t init_settings;
+	compat_uptr_t enable_ois_settings;
+	compat_uptr_t disable_ois_settings;
+	compat_uptr_t movie_mode_ois_settings;
+	compat_uptr_t still_mode_ois_settings;
+	compat_uptr_t centering_on_ois_settings;
+	compat_uptr_t centering_off_ois_settings;
+	compat_uptr_t pantilt_on_ois_settings;
+};
+
+struct msm_ois_set_info_t32 {
+	struct msm_ois_params_t32 ois_params;
+};
+
+struct msm_ois_cfg_data32 {
+	int cfgtype;
+	uint8_t is_ois_supported;
+	union {
+		uint8_t enable_centering_ois;
+		struct msm_ois_set_info_t32 set_info;
+		compat_uptr_t settings;
+	} cfg;
+};
+
 #define VIDIOC_MSM_ACTUATOR_CFG32 \
 	_IOWR('V', BASE_VIDIOC_PRIVATE + 6, struct msm_actuator_cfg_data32)
 
@@ -985,6 +1019,16 @@ struct sensorb_cfg_data32 {
 
 #define VIDIOC_MSM_SENSOR_CFG32 \
 	_IOWR('V', BASE_VIDIOC_PRIVATE + 1, struct sensorb_cfg_data32)
+
+#define VIDIOC_MSM_EEPROM_CFG32 \
+	_IOWR('V', BASE_VIDIOC_PRIVATE + 8, struct msm_eeprom_cfg_data32)
+
+#define VIDIOC_MSM_OIS_CFG32 \
+	_IOWR('V', BASE_VIDIOC_PRIVATE + 11, struct msm_ois_cfg_data32)
+
+#define VIDIOC_MSM_CSID_IO_CFG32 \
+	_IOWR('V', BASE_VIDIOC_PRIVATE + 5, struct csid_cfg_data32)
+
 #endif
 
 #endif /* __LINUX_MSM_CAM_SENSOR_H */
