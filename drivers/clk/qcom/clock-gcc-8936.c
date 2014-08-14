@@ -1364,6 +1364,7 @@ static struct clk_freq_tbl ftbl_gcc_mdss_mdp_clk[] = {
 	F(  50000000,	   gpll0_out_aux,  16,	  0,	0),
 	F(  80000000,	   gpll0_out_aux,  10,	  0,	0),
 	F( 100000000,	   gpll0_out_aux,   8,	  0,	0),
+	F( 145500000,	   gpll0_out_aux,  5.5,   0,    0),
 	F( 153600000,	   gpll1_out_main,	4,	0,	0),
 	F( 160000000,	   gpll0_out_aux,   5,	  0,	0),
 	F( 177780000,	   gpll0_out_aux, 4.5,	  0,	0),
