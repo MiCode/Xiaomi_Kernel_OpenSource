@@ -58,6 +58,7 @@ extern u32 msm_fw_coverage;
 extern int msm_vidc_vpe_csc_601_to_709;
 extern int msm_vidc_dcvs_mode;
 extern int msm_vidc_sys_idle_indicator;
+extern u32 msm_vidc_firmware_unload_delay;
 
 #define VIDC_MSG_PRIO2STRING(__level) ({ \
 	char *__str; \
