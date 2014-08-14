@@ -798,7 +798,8 @@ extern void dec_nr_big_small_task(struct rq *rq, struct task_struct *p);
 extern void set_hmp_defaults(void);
 extern unsigned int power_cost_at_freq(int cpu, unsigned int freq);
 extern void reset_all_window_stats(u64 window_start, unsigned int window_size,
-				 int policy, int acct_wait_time);
+				 int policy, int acct_wait_time,
+				 unsigned int ravg_hist_size);
 extern void boost_kick(int cpu);
 
 #else /* CONFIG_SCHED_HMP */
