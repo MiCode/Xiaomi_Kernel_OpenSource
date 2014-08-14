@@ -8961,6 +8961,7 @@ wl_notify_gscan_event(struct bcm_cfg80211 *cfg, bcm_struct_cfgdev *cfgdev,
 	int batch_event_result_dummy = 0;
 	struct net_device *ndev = cfgdev_to_wlc_ndev(cfgdev, cfg);
 	struct wiphy *wiphy = bcmcfg_to_wiphy(cfg);
+	u32 len = ntoh32(e->datalen);
 
 	switch (event) {
 		case WLC_E_PFN_SWC:
@@ -8997,11 +8998,17 @@ wl_notify_gscan_event(struct bcm_cfg80211 *cfg, bcm_struct_cfgdev *cfgdev,
 			}
 			break;
 		case WLC_E_PFN_BSSID_NET_LOST:
-			ptr = dhd_dev_hotlist_scan_event(ndev, data, &send_evt_bytes, HOTLIST_LOST);
-			if (ptr) {
-				wl_cfgvendor_send_hotlist_event(wiphy, ndev,
-				 ptr, send_evt_bytes, GOOGLE_GSCAN_GEOFENCE_LOST_EVENT);
-				dhd_dev_gscan_hotlist_cache_cleanup(ndev, HOTLIST_LOST);
+			/* WLC_E_PFN_BSSID_NET_LOST is conflict shared with WLC_E_PFN_SCAN_ALLGONE
+			 * We currently do not use WLC_E_PFN_SCAN_ALLGONE, so if we get it, ignore
+			 */
+			if (len) {
+				ptr = dhd_dev_hotlist_scan_event(ndev, data, &send_evt_bytes,
+				            HOTLIST_LOST);
+				if (ptr) {
+					wl_cfgvendor_send_hotlist_event(wiphy, ndev,
+					 ptr, send_evt_bytes, GOOGLE_GSCAN_GEOFENCE_LOST_EVENT);
+					dhd_dev_gscan_hotlist_cache_cleanup(ndev, HOTLIST_LOST);
+				}
 			}
 			break;
 		case WLC_E_PFN_GSCAN_FULL_RESULT:
