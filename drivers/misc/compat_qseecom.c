@@ -219,9 +219,12 @@ static int compat_get_qseecom_wipe_key_req(
 {
 	int err;
 	compat_uint_t usage;
+	compat_int_t wipe_key_flag;
 
 	err = get_user(usage, &data32->usage);
 	err |= put_user(usage, &data->usage);
+	err |= get_user(wipe_key_flag, &data32->wipe_key_flag);
+	err |= put_user(wipe_key_flag, &data->wipe_key_flag);
 
 	return err;
 }

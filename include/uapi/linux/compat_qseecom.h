@@ -134,6 +134,7 @@ struct compat_qseecom_create_key_req {
 
 struct compat_qseecom_wipe_key_req {
 	enum qseecom_key_management_usage_type usage;
+	compat_int_t wipe_key_flag;
 };
 
 struct compat_qseecom_update_key_userinfo_req {
