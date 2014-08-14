@@ -407,6 +407,7 @@ static void sched_debug_header(struct seq_file *m)
 	P(min_capacity);
 	P(max_capacity);
 	P(sched_use_pelt);
+	P(sched_ravg_window);
 #endif
 #undef PN
 #undef P
