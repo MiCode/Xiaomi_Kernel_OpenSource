@@ -1074,9 +1074,11 @@ static inline void clear_hmp_request(int cpu)
 	unsigned long flags;
 
 	clear_boost_kick(cpu);
+	clear_reserved(cpu);
 	if (rq->push_task) {
 		raw_spin_lock_irqsave(&rq->lock, flags);
 		if (rq->push_task) {
+			clear_reserved(rq->push_cpu);
 			put_task_struct(rq->push_task);
 			rq->push_task = NULL;
 		}

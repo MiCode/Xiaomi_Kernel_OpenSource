@@ -1726,6 +1726,9 @@ static int skip_cpu(struct task_struct *p, int cpu, int reason)
 	if (!reason)
 		return 0;
 
+	if (is_reserved(cpu))
+		return 1;
+
 	switch (reason) {
 	case MOVE_TO_BIG_CPU:
 		skip = (rq->capacity <= task_rq->capacity);
@@ -2081,23 +2084,13 @@ static inline int migration_needed(struct rq *rq, struct task_struct *p)
 	return 0;
 }
 
-/*
- * Check if currently running task should be migrated to a better cpu.
- *
- * Todo: Effect this via changes to nohz_balancer_kick() and load balance?
- */
-void check_for_migration(struct rq *rq, struct task_struct *p)
+static DEFINE_RAW_SPINLOCK(migration_lock);
+
+static inline int
+kick_active_balance(struct rq *rq, struct task_struct *p, int new_cpu)
 {
-	int cpu = cpu_of(rq), new_cpu = cpu;
 	unsigned long flags;
-	int active_balance = 0, rc;
-
-	rc = migration_needed(rq, p);
-	if (rc)
-		new_cpu = select_best_cpu(p, cpu, rc);
-
-	if (new_cpu == cpu)
-		return;
+	int rc = 0;
 
 	/* Invoke active balance to force migrate currently running task */
 	raw_spin_lock_irqsave(&rq->lock, flags);
@@ -2106,9 +2099,37 @@ void check_for_migration(struct rq *rq, struct task_struct *p)
 		rq->push_cpu = new_cpu;
 		get_task_struct(p);
 		rq->push_task = p;
-		active_balance = 1;
+		rc = 1;
 	}
 	raw_spin_unlock_irqrestore(&rq->lock, flags);
+
+	return rc;
+}
+
+/*
+ * Check if currently running task should be migrated to a better cpu.
+ *
+ * Todo: Effect this via changes to nohz_balancer_kick() and load balance?
+ */
+void check_for_migration(struct rq *rq, struct task_struct *p)
+{
+	int cpu = cpu_of(rq), new_cpu;
+	int active_balance = 0, reason;
+
+	reason = migration_needed(rq, p);
+	if (!reason)
+		return;
+
+	raw_spin_lock(&migration_lock);
+	new_cpu = select_best_cpu(p, cpu, reason);
+
+	if (new_cpu != cpu) {
+		active_balance = kick_active_balance(rq, p, new_cpu);
+		if (active_balance)
+			mark_reserved(new_cpu);
+	}
+
+	raw_spin_unlock(&migration_lock);
 
 	if (active_balance)
 		stop_one_cpu_nowait(cpu, active_load_balance_cpu_stop, rq,
@@ -6673,6 +6694,7 @@ static int active_load_balance_cpu_stop(void *data)
 		    cpu_online(target_cpu))
 			move_task(push_task, &env);
 		put_task_struct(push_task);
+		clear_reserved(target_cpu);
 		busiest_rq->push_task = NULL;
 		goto out_unlock_balance;
 	}
