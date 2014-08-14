@@ -269,7 +269,7 @@ sst_ssp_configs_cht_cr[SST_NUM_SSPS][SST_MAX_SSP_MUX][SST_MAX_SSP_DOMAINS] = {
 				.fs_width = 1,
 				.fs_frequency = SSP_FS_8_KHZ,
 				.active_slot_map = 0x1,
-				.start_delay = 1,
+				.start_delay = 0,
 			},
 			[SST_SSP_BT_WB_DOMAIN] = {
 				.ssp_id = SSP_BT,
