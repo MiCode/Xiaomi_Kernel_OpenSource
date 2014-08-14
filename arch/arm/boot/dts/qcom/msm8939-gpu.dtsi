@@ -70,7 +70,7 @@
 		coresight-child-ports = <4>;
 
 		/* CPU latency parameter */
-		qcom,pm-qos-latency = <701>;
+		qcom,pm-qos-latency = <401>;
 
 		/* Power levels */
 		qcom,gpu-pwrlevels {
