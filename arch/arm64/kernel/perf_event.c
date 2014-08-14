@@ -1754,12 +1754,32 @@ unsigned long perf_misc_flags(struct pt_regs *regs)
 }
 
 #ifdef CONFIG_PERF_EVENTS_RESET_PMU_DEBUGFS
-static void reset_pmu_force(void)
+static __ref void reset_pmu_force(void)
 {
+	int cpu, ret;
+	u32 save_online_mask = 0;
+
+	for_each_possible_cpu(cpu) {
+		if (!cpu_online(cpu)) {
+			save_online_mask |= BIT(cpu);
+			ret = cpu_up(cpu);
+			if (ret)
+				pr_err("Failed to bring up CPU: %d, ret: %d\n",
+				       cpu, ret);
+		}
+	}
 	if (cpu_pmu && cpu_pmu->reset)
 		on_each_cpu(cpu_pmu->reset, NULL, 1);
 	if (cpu_pmu && cpu_pmu->plat_device)
 		armpmu_release_hardware(cpu_pmu);
+	for_each_possible_cpu(cpu) {
+		if ((save_online_mask & BIT(cpu)) && cpu_online(cpu)) {
+			ret = cpu_down(cpu);
+			if (ret)
+				pr_err("Failed to bring down CPU: %d, ret: %d\n",
+						cpu, ret);
+		}
+	}
 }
 
 static int write_enabled_perfpmu_action(void *data, u64 val)
