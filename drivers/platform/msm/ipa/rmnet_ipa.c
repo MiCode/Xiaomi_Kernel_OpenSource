@@ -1654,10 +1654,15 @@ static int ipa_wwan_probe(struct platform_device *pdev)
 	if (ret)
 		goto setup_dflt_wan_rt_tables_err;
 
-	/* start transport-driver fd ioctl for ipacm */
-	ret = wan_ioctl_init();
-	if (ret)
-		goto wan_ioctl_init_err;
+	if (!atomic_read(&is_ssr)) {
+		/* Start transport-driver fd ioctl for ipacm for first init */
+		ret = wan_ioctl_init();
+		if (ret)
+			goto wan_ioctl_init_err;
+	} else {
+		/* Enable sending QMI messages after SSR */
+		wan_ioctl_enable_qmi_messages();
+	}
 
 	/* initialize tx/rx enpoint setup */
 	memset(&apps_to_ipa_ep_cfg, 0, sizeof(struct ipa_sys_connect_params));
@@ -1815,7 +1820,9 @@ static int ipa_wwan_remove(struct platform_device *pdev)
 		IPA_RM_RESOURCE_WWAN_0_PROD, ret);
 	free_netdev(ipa_netdevs[0]);
 	ipa_netdevs[0] = NULL;
-	wan_ioctl_deinit();
+	/* No need to remove wwan_ioctl during SSR */
+	if (!atomic_read(&is_ssr))
+		wan_ioctl_deinit();
 	ipa_del_dflt_wan_rt_tables();
 	ipa_del_a7_qmap_hdr();
 	ipa_qmi_service_exit();
