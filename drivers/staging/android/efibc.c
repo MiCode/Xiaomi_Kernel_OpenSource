@@ -33,8 +33,13 @@
 
 #define REBOOT_REASON_CRASH	"kernel_panic"
 #define REBOOT_REASON_NORMAL	"reboot"
-#define REBOOT_REASON_SHUTDOWN	"shutdowm"
+#define REBOOT_REASON_SHUTDOWN	"shutdown"
 #define REBOOT_REASON_HALT	"halt"
+#define REBOOT_REASON_WATCHDOG	"watchdog"
+
+#define WATCHDOG_KERNEL_H	"Watchdog"
+#define WATCHDOG_KERNEL_S	"softlockup"
+#define WATCHDOG_KERNEL_D	"Software Watchdog"
 
 /*
  * Convert char string to efi_char16_t string. Null byte at end is always
@@ -198,8 +203,15 @@ static int efibc_panic_notifier_call(
 		unsigned long what, void *data)
 {
 	int ret;
+	char *str = data;
 
-	ret = efibc_reboot_reason(what, REBOOT_REASON_CRASH);
+	if (str &&
+	    (!strncmp(str, WATCHDOG_KERNEL_H, strlen(WATCHDOG_KERNEL_H)) ||
+	    !strncmp(str, WATCHDOG_KERNEL_S, strlen(WATCHDOG_KERNEL_S)) ||
+	    !strncmp(str, WATCHDOG_KERNEL_D, strlen(WATCHDOG_KERNEL_D))))
+		ret = efibc_reboot_reason(what, REBOOT_REASON_WATCHDOG);
+	else
+		ret = efibc_reboot_reason(what, REBOOT_REASON_CRASH);
 
 	return ret;
 }
