@@ -1793,8 +1793,13 @@ static int dwc_gadget_func_wakeup(struct usb_gadget *g, int interface_id)
 		return -EAGAIN;
 	}
 
-	ret = dwc3_send_gadget_generic_command(dwc,
-		DWC3_DGCMD_XMIT_FUNCTION, interface_id);
+	if (dwc->revision < DWC3_REVISION_220A) {
+		ret = dwc3_send_gadget_generic_command(dwc,
+			DWC3_DGCMD_XMIT_FUNCTION, interface_id);
+	} else {
+		ret = dwc3_send_gadget_generic_command(dwc,
+			DWC3_DGCMD_XMIT_DEV, 0x1 | (interface_id << 4));
+	}
 
 	if (ret)
 		pr_err("Function wakeup HW command failed.\n");

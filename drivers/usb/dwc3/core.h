@@ -335,6 +335,7 @@
 #define DWC3_DGCMD_SET_LMP		0x01
 #define DWC3_DGCMD_SET_PERIODIC_PAR	0x02
 #define DWC3_DGCMD_XMIT_FUNCTION	0x03
+#define DWC3_DGCMD_XMIT_DEV		0x07
 
 /* These apply for core versions 1.94a and later */
 #define DWC3_DGCMD_SET_SCRATCHPAD_ADDR_LO	0x04
