@@ -364,6 +364,9 @@ void mdss_dsi_host_init(struct mdss_panel_data *pdata)
 	dsi_ctrl |= BIT(0);	/* enable dsi */
 	MIPI_OUTP((ctrl_pdata->ctrl_base) + 0x0004, dsi_ctrl);
 
+	/* enable contention detection for receiving */
+	mdss_dsi_lp_cd_rx(ctrl_pdata);
+
 	wmb();
 }
 

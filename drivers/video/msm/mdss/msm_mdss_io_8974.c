@@ -81,6 +81,24 @@ void mdss_dsi_phy_disable(struct mdss_dsi_ctrl_pdata *ctrl)
 	wmb();
 }
 
+/**
+ * mdss_dsi_lp_cd_rx() -- enable LP and CD at receiving
+ * @ctrl: pointer to DSI controller structure
+ *
+ * LP: low power
+ * CD: contention detection
+ */
+void mdss_dsi_lp_cd_rx(struct mdss_dsi_ctrl_pdata *ctrl)
+{
+	struct mdss_dsi_phy_ctrl *pd;
+
+	pd = &(((ctrl->panel_data).panel_info.mipi).dsi_phy_db);
+
+	/* Strength ctrl 1, LP Rx + CD Rxcontention detection */
+	MIPI_OUTP((ctrl->phy_io.base) + 0x0188, pd->strength[1]);
+	wmb();
+}
+
 static void mdss_dsi_28nm_phy_init(struct mdss_dsi_ctrl_pdata *ctrl_pdata)
 {
 	struct mdss_dsi_phy_ctrl *pd;
@@ -148,10 +166,6 @@ static void mdss_dsi_28nm_phy_init(struct mdss_dsi_ctrl_pdata *ctrl_pdata)
 	MIPI_OUTP((ctrl_pdata->phy_io.base) + 0x0174, 0x00);
 	/* MMSS_DSI_0_PHY_DSIPHY_CTRL_0 */
 	MIPI_OUTP((ctrl_pdata->phy_io.base) + 0x0170, 0x5f);
-	wmb();
-
-	/* Strength ctrl 1 */
-	MIPI_OUTP((ctrl_pdata->phy_io.base) + 0x0188, pd->strength[1]);
 	wmb();
 
 	/* 4 lanes + clk lane configuration */
@@ -271,10 +285,6 @@ static void mdss_dsi_20nm_phy_init(struct mdss_dsi_ctrl_pdata *ctrl_pdata)
 		MIPI_OUTP((ctrl_pdata->phy_io.base) + 0x0174, 0x00);
 		/* MMSS_DSI_0_PHY_DSIPHY_CTRL_0 */
 		MIPI_OUTP((ctrl_pdata->phy_io.base) + 0x0170, 0x5f);
-		wmb();
-
-		/* Strength ctrl 1 */
-		MIPI_OUTP((ctrl_pdata->phy_io.base) + 0x0188, pd->strength[1]);
 		wmb();
 
 		/* MMSS_DSI_0_PHY_DSIPHY_CTRL_0 */
