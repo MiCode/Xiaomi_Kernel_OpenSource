@@ -26,6 +26,7 @@ static char *descriptions =
 	" 1 Perf: arm64: Add L1 counters to tracepoints\n"
 	" 5 Perf: arm64: add perf user-mode permissions\n"
 	" 6 Perf: arm64: Add debugfs node to clear PMU\n"
+	" 7 Perf: arm64: Update PMU force reset\n"
 ;
 
 static ssize_t desc_read(struct file *fp, char __user *buf,
