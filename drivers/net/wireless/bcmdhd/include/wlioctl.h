@@ -3010,7 +3010,6 @@ typedef struct wl_pkt_filter_pattern {
 		uint32	offset;		/* Offset within received packet to start pattern matching.
 				 * Offset '0' is the first byte of the ethernet header.
 				 */
-		wl_pkt_decrypter_t*	decrypt_ctx;	/* Decrypt context */
 	};
 	uint32	size_bytes;	/* Size of the pattern.  Bitmask must be the same size. */
 	uint8   mask_and_pattern[1]; /* Variable length mask and pattern data.  mask starts
