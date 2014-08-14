@@ -111,6 +111,8 @@ module_param_named(polling_interval, poll_ms, int,
 static int disabled;
 module_param_named(disabled, disabled, int,
 		S_IRUGO | S_IWUSR | S_IWGRP);
+
+static bool activate_power_table;
 /*
  * Cannot be called from an interrupt context
  */
@@ -206,7 +208,8 @@ void trigger_cpu_pwr_stats_calc(void)
 			sensor_get_temp(cpu_node->sensor_id, &cpu_node->temp);
 		prev_temp[cpu] = cpu_node->temp;
 
-		repopulate_stats(cpu);
+		if (activate_power_table)
+			repopulate_stats(cpu);
 	}
 	spin_unlock(&update_lock);
 }
@@ -335,11 +338,12 @@ static int update_userspace_power(struct sched_params __user *argp)
 				cpumask_clear_cpu(cpu, &clear_sp->mask);
 				clear_static_power(clear_sp);
 			}
+			cpu_stats[cpu].ptable = per_cpu(ptable, cpu);
+			repopulate_stats(cpu);
 		}
 	}
 
-	for_each_possible_cpu(cpu)
-		repopulate_stats(cpu);
+	activate_power_table = true;
 	return 0;
 
 failed:
@@ -456,8 +460,6 @@ static int msm_core_stats_init(struct device *dev)
 			pstate[i].freq = cpu_node->sp->table[i].frequency;
 
 		per_cpu(ptable, cpu) = pstate;
-		cpu_stats[cpu].ptable = per_cpu(ptable, cpu);
-		repopulate_stats(cpu);
 	}
 	return 0;
 }

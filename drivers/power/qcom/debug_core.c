@@ -196,10 +196,11 @@ static int msm_core_ptable_read(struct seq_file *m, void *data)
 			cpu, node->enabled == 1 ? "Enabled" : "Written");
 			print_table(m, node->head, node->len);
 		}
-		if (node->driver_data) {
+		if (msm_core_data[cpu].ptable) {
 			seq_printf(m, "--- CPU%d - Live numbers at %ldC---\n",
 			cpu, node->ptr->temp);
-			print_table(m, node->driver_data, node->driver_len);
+			print_table(m, msm_core_data[cpu].ptable,
+					msm_core_data[cpu].len);
 		}
 	}
 	return 0;
