@@ -67,6 +67,7 @@ struct eth_dev {
 	unsigned		qmult;
 
 	unsigned		header_len;
+	unsigned int		ul_max_pkts_per_xfer;
 	struct sk_buff		*(*wrap)(struct gether *, struct sk_buff *skb);
 	int			(*unwrap)(struct gether *,
 						struct sk_buff *skb,
@@ -212,9 +213,13 @@ rx_submit(struct eth_dev *dev, struct usb_request *req, gfp_t gfp_flags)
 		size -= size % out->maxpacket;
 	}
 
+	if (dev->ul_max_pkts_per_xfer)
+		size *= dev->ul_max_pkts_per_xfer;
+
 	if (dev->port_usb->is_fixed)
 		size = max_t(size_t, size, dev->port_usb->fixed_out_len);
 
+	DBG(dev, "%s: size: %d\n", __func__, size);
 	skb = __netdev_alloc_skb(dev->net, size + NET_IP_ALIGN, gfp_flags);
 	if (skb == NULL) {
 		DBG(dev, "no rx skb\n");
@@ -1010,6 +1015,26 @@ int gether_get_ifname(struct net_device *net, char *name, int len)
 }
 EXPORT_SYMBOL_GPL(gether_get_ifname);
 
+unsigned int gether_get_ul_max_pkts_per_xfer(struct net_device *net)
+{
+	struct eth_dev *dev;
+
+	dev = netdev_priv(net);
+	return dev->ul_max_pkts_per_xfer;
+}
+EXPORT_SYMBOL(gether_get_ul_max_pkts_per_xfer);
+
+int gether_set_ul_max_pkts_per_xfer(struct net_device *net, unsigned int max)
+{
+	struct eth_dev *dev;
+
+	dev = netdev_priv(net);
+	dev->ul_max_pkts_per_xfer = max;
+
+	return 0;
+}
+EXPORT_SYMBOL(gether_set_ul_max_pkts_per_xfer);
+
 /**
  * gether_cleanup - remove Ethernet-over-USB device
  * Context: may sleep
@@ -1079,6 +1104,8 @@ struct net_device *gether_connect(struct gether *link)
 		dev->header_len = link->header_len;
 		dev->unwrap = link->unwrap;
 		dev->wrap = link->wrap;
+		if (!dev->ul_max_pkts_per_xfer)
+			dev->ul_max_pkts_per_xfer = link->ul_max_pkts_per_xfer;
 
 		spin_lock(&dev->lock);
 		dev->port_usb = link;
