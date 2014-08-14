@@ -1244,8 +1244,8 @@ static void __atomisp_css_recover(struct atomisp_device *isp)
 	for (i = 0; i < isp->num_of_streams; i++) {
 		struct atomisp_sub_device *asd = &isp->asd[i];
 
-		if (asd->streaming !=
-				ATOMISP_DEVICE_STREAMING_ENABLED)
+		if (asd->streaming != ATOMISP_DEVICE_STREAMING_ENABLED &&
+		    !asd->stream_prepared)
 			continue;
 
 		depth_cnt++;
