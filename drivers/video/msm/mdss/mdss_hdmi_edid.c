@@ -374,6 +374,46 @@ static ssize_t hdmi_edid_sysfs_rda_modes(struct device *dev,
 } /* hdmi_edid_sysfs_rda_modes */
 static DEVICE_ATTR(edid_modes, S_IRUGO, hdmi_edid_sysfs_rda_modes, NULL);
 
+static ssize_t hdmi_edid_sysfs_rda_audio_latency(struct device *dev,
+	struct device_attribute *attr, char *buf)
+{
+	ssize_t ret;
+	struct hdmi_edid_ctrl *edid_ctrl =
+		hdmi_get_featuredata_from_sysfs_dev(dev, HDMI_TX_FEAT_EDID);
+
+	if (!edid_ctrl) {
+		DEV_ERR("%s: invalid input\n", __func__);
+		return -EINVAL;
+	}
+	ret = scnprintf(buf, PAGE_SIZE, "%d\n", edid_ctrl->audio_latency);
+
+	DEV_DBG("%s: '%s'\n", __func__, buf);
+
+	return ret;
+} /* hdmi_edid_sysfs_rda_audio_latency */
+static DEVICE_ATTR(edid_audio_latency, S_IRUGO,
+	hdmi_edid_sysfs_rda_audio_latency, NULL);
+
+static ssize_t hdmi_edid_sysfs_rda_video_latency(struct device *dev,
+	struct device_attribute *attr, char *buf)
+{
+	ssize_t ret;
+	struct hdmi_edid_ctrl *edid_ctrl =
+		hdmi_get_featuredata_from_sysfs_dev(dev, HDMI_TX_FEAT_EDID);
+
+	if (!edid_ctrl) {
+		DEV_ERR("%s: invalid input\n", __func__);
+		return -EINVAL;
+	}
+	ret = scnprintf(buf, PAGE_SIZE, "%d\n", edid_ctrl->video_latency);
+
+	DEV_DBG("%s: '%s'\n", __func__, buf);
+
+	return ret;
+} /* hdmi_edid_sysfs_rda_video_latency */
+static DEVICE_ATTR(edid_video_latency, S_IRUGO,
+	hdmi_edid_sysfs_rda_video_latency, NULL);
+
 static ssize_t hdmi_edid_sysfs_rda_physical_address(struct device *dev,
 	struct device_attribute *attr, char *buf)
 {
@@ -485,6 +525,8 @@ static struct attribute *hdmi_edid_fs_attrs[] = {
 	&dev_attr_edid_raw_data.attr,
 	&dev_attr_audio_data_block.attr,
 	&dev_attr_spkr_alloc_data_block.attr,
+	&dev_attr_edid_audio_latency.attr,
+	&dev_attr_edid_video_latency.attr,
 	NULL,
 };
 
