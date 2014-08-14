@@ -4605,7 +4605,7 @@ dhd_attach(osl_t *osh, struct dhd_bus *bus, uint bus_hdrlen)
 #endif
 #ifdef DHDTCPACK_SUPPRESS
 #ifdef BCMSDIO
-	dhd_tcpack_suppress_set(&dhd->pub, TCPACK_SUP_DELAYTX);
+	dhd_tcpack_suppress_set(&dhd->pub, TCPACK_SUP_REPLACE);
 #elif defined(BCMPCIE)
 	dhd_tcpack_suppress_set(&dhd->pub, TCPACK_SUP_REPLACE);
 #else
