@@ -704,6 +704,8 @@ extern void fixup_nr_big_small_task(int cpu);
 
 u64 scale_load_to_cpu(u64 load, int cpu);
 unsigned int max_task_load(void);
+extern void sched_account_irqtime(int cpu, struct task_struct *curr,
+				 u64 delta, u64 wallclock);
 
 static inline void
 inc_cumulative_runnable_avg(struct rq *rq, struct task_struct *p)
@@ -748,6 +750,11 @@ static inline unsigned long capacity_scale_cpu_efficiency(int cpu)
 static inline unsigned long capacity_scale_cpu_freq(int cpu)
 {
 	return SCHED_LOAD_SCALE;
+}
+
+static inline void sched_account_irqtime(int cpu, struct task_struct *curr,
+				 u64 delta, u64 wallclock)
+{
 }
 
 #endif	/* CONFIG_SCHED_FREQ_INPUT || CONFIG_SCHED_HMP */
