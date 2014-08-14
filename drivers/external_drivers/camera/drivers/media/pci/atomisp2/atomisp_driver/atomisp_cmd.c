@@ -1233,7 +1233,7 @@ static void __atomisp_css_recover(struct atomisp_device *isp)
 	enum atomisp_css_pipe_id css_pipe_id;
 	bool stream_restart[MAX_STREAM_NUM] = {0};
 	bool depth_mode = false;
-	int i, ret;
+	int i, ret, depth_cnt = 0;
 
 	if (!isp->sw_contex.file_input)
 		atomisp_css_irq_enable(isp,
@@ -1247,6 +1247,9 @@ static void __atomisp_css_recover(struct atomisp_device *isp)
 		if (asd->streaming !=
 				ATOMISP_DEVICE_STREAMING_ENABLED)
 			continue;
+
+		depth_cnt++;
+
 		if (asd->delayed_init == ATOMISP_DELAYED_INIT_QUEUED)
 			cancel_work_sync(&asd->delayed_init_work);
 
@@ -1349,7 +1352,8 @@ static void __atomisp_css_recover(struct atomisp_device *isp)
 		 */
 		atomisp_flush_bufs_and_wakeup(asd);
 
-		if (asd->depth_mode->val) {
+		if ((asd->depth_mode->val) &&
+			(depth_cnt == ATOMISP_DEPTH_SENSOR_STREAMON_COUNT)) {
 			depth_mode = true;
 			continue;
 		}
