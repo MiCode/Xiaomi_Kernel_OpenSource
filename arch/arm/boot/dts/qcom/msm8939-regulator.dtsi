@@ -114,7 +114,7 @@
 					<27 18 6 0>,
 					<27 0 6 0>;
 		qcom,cpr-init-voltage-step = <10000>;
-		qcom,cpr-corner-map = <1 1 1 2 2 2 2 2 2 3 3 3 3 3 3 3 3 3 3 3>;
+		qcom,cpr-corner-map = <1 1 1 2 2 2 2 2 2 2 2 2 3 3 3 3 3 3 3 3>;
 		qcom,cpr-corner-frequency-map =
 					<1 200000000>,
 					<2 345600000>,
@@ -138,8 +138,8 @@
 					<20 1536000000>;
 		qcom,speed-bin-fuse-sel = <1 34 3 0>;
 		qcom,cpr-speed-bin-max-corners =
-					<0 0 3 9 17>,
-					<2 0 3 9 20>;
+					<0 0 3 12 17>,
+					<2 0 3 12 20>;
 		qcom,cpr-quot-adjust-scaling-factor-max = <900>;
 		qcom,cpr-enable;
 	};
