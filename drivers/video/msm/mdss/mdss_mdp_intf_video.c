@@ -872,7 +872,7 @@ static bool mdss_mdp_fetch_programable(struct mdss_mdp_ctl *ctl)
 	if (mdata->mdp_rev >= MDSS_MDP_HW_REV_105) {
 		if ((pinfo->lcdc.v_back_porch + pinfo->lcdc.v_front_porch) <
 				MDP_MIN_FETCH) {
-			pr_warn("low vbp+vfp may lead to perf issues in some cases\n");
+			pr_warn_once("low vbp+vfp may lead to perf issues in some cases\n");
 		}
 		ret = true;
 
@@ -880,7 +880,7 @@ static bool mdss_mdp_fetch_programable(struct mdss_mdp_ctl *ctl)
 			ret = false;
 	} else {
 		if (pinfo->lcdc.v_back_porch < MDP_MIN_FETCH)
-			pr_warn("low vbp may lead to display performance issues");
+			pr_warn_once("low vbp may lead to display performance issues");
 		ret = false;
 	}
 
