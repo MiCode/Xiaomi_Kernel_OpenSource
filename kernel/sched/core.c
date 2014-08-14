@@ -1136,7 +1136,14 @@ unsigned int min_possible_efficiency = 1024;
 
 __read_mostly int sysctl_sched_freq_inc_notify_slack_pct;
 __read_mostly int sysctl_sched_freq_dec_notify_slack_pct = 25;
+
 static __read_mostly unsigned int sched_account_wait_time = 1;
+/*
+ * Copy of sched_account_wait_time, used to change it atomically.
+ * Initialize both variables to same value!!
+ */
+__read_mostly unsigned int sysctl_sched_account_wait_time = 1;
+
 static __read_mostly unsigned int sched_io_is_busy;
 
 /*
@@ -1623,7 +1630,7 @@ unsigned long sched_get_busy(int cpu)
 
 /* Called with IRQs disabled */
 void reset_all_window_stats(u64 window_start, unsigned int window_size,
-				 int policy)
+				 int policy, int acct_wait_time)
 {
 	int cpu;
 	u64 wallclock;
@@ -1669,6 +1676,9 @@ void reset_all_window_stats(u64 window_start, unsigned int window_size,
 	if (policy >= 0)
 		sched_window_stats_policy = policy;
 
+	if (acct_wait_time >= 0)
+		sched_account_wait_time = acct_wait_time;
+
 	for_each_online_cpu(cpu) {
 		struct rq *rq = cpu_rq(cpu);
 		raw_spin_unlock(&rq->lock);
@@ -1706,7 +1716,7 @@ int sched_set_window(u64 window_start, unsigned int window_size)
 
 	BUG_ON(sched_clock() < ws);
 
-	reset_all_window_stats(ws, window_size, -1);
+	reset_all_window_stats(ws, window_size, -1, -1);
 
 	local_irq_restore(flags);
 
