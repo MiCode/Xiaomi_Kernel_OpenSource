@@ -2274,7 +2274,7 @@ static int florida_probe(struct platform_device *pdev)
 
 		ret = wm_adsp2_init(&florida->core.adsp[i], &florida->fw_lock);
 		if (ret != 0)
-			return ret;
+			goto error;
 	}
 
 	for (i = 0; i < ARRAY_SIZE(florida->fll); i++)
@@ -2315,14 +2315,24 @@ static int florida_probe(struct platform_device *pdev)
 		snd_soc_unregister_platform(&pdev->dev);
 	}
 
+	return ret;
+
 error:
+	mutex_destroy(&florida->compr_info.lock);
+	mutex_destroy(&florida->fw_lock);
+
 	return ret;
 }
 
 static int florida_remove(struct platform_device *pdev)
 {
+	struct florida_priv *florida = platform_get_drvdata(pdev);
+
 	snd_soc_unregister_codec(&pdev->dev);
 	pm_runtime_disable(&pdev->dev);
+
+	mutex_destroy(&florida->compr_info.lock);
+	mutex_destroy(&florida->fw_lock);
 
 	return 0;
 }
