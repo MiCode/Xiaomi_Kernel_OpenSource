@@ -525,7 +525,7 @@ void mdss_dsi_op_mode_config(int mode,
 			DSI_INTR_CMD_MDP_DONE_MASK | DSI_INTR_BTA_DONE_MASK;
 	}
 
-	dma_ctrl = BIT(28);	/* embedded mode */
+	dma_ctrl = BIT(28) | BIT(26);	/* embedded mode & LP mode */
 	if (mdss_dsi_sync_wait_enable(ctrl_pdata))
 		dma_ctrl |= BIT(31);
 
