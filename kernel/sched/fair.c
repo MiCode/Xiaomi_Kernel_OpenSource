@@ -6553,6 +6553,12 @@ more_balance:
 			per_cpu(dbs_boost_load_moved, this_cpu) = 0;
 
 		}
+
+		/* Assumes one 'busiest' cpu that we pulled tasks from */
+		if (!same_freq_domain(this_cpu, cpu_of(busiest))) {
+			check_for_freq_change(this_rq);
+			check_for_freq_change(busiest);
+		}
 	}
 	if (likely(!active_balance)) {
 		/* We were unbalanced, so reset the balancing interval */
