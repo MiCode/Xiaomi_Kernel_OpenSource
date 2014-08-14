@@ -553,7 +553,7 @@ int gmin_get_config_var(struct device *dev, const char *var, char *out, size_t *
 {
 	struct device *adev;
 	char var8[CFG_VAR_NAME_MAX];
-	unsigned short var16[CFG_VAR_NAME_MAX];
+	efi_char16_t var16[CFG_VAR_NAME_MAX];
 	struct efivar_entry *ev;
 	u32 efiattr_dummy;
 	int i, j, ret;
@@ -600,7 +600,8 @@ int gmin_get_config_var(struct device *dev, const char *var, char *out, size_t *
 	for (i=0; var8[i] && i < sizeof(var8); i++)
 		var16[i] = var8[i];
 
-	if (!efi.get_variable)
+	/* To avoid owerflows when calling the efivar API */
+	if (*out_len > ULONG_MAX)
 		return -EINVAL;
 
 	/* Not sure this API usage is kosher; efivar_entry_get()'s
@@ -614,21 +615,16 @@ int gmin_get_config_var(struct device *dev, const char *var, char *out, size_t *
 	memcpy(&ev->var.VariableName, var16, sizeof(var16));
 	ev->var.VendorGuid = GMIN_CFG_VAR_EFI_GUID;
 
-	/* Frustratingly, existing hardware doesn't like seeing EFI
-	 * variable requests arrive in quick succession.  They will
-	 * fail spuriously (but more or less deterministically),
-	 * returning EFI_NOT_FOUND (which becomes -ENOENT as seen
-	 * here) unless we retry with delays. */
-	for (i=0; i<10; i++) {
-		ret = efivar_entry_get(ev, &efiattr_dummy, &efilen, out);
-		if (!ret)
-			break;
-		msleep(10);
-	}
+	efilen = *out_len;
+	ret = efivar_entry_get(ev, &efiattr_dummy, &efilen, out);
+
 	kfree(ev);
 	*out_len = efilen;
 
-	return ret == EFI_SUCCESS ? 0 : -EINVAL;
+	if (ret)
+ 		dev_warn(dev, "Failed to find gmin variable %s\n", var8);
+
+	return ret;
 }
 EXPORT_SYMBOL_GPL(gmin_get_config_var);
 
