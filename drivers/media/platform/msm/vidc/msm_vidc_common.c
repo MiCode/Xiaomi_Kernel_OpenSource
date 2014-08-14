@@ -2311,14 +2311,18 @@ static int msm_vidc_deinit_core(struct msm_vidc_inst *inst)
 		cancel_delayed_work(&core->fw_unload_work);
 
 		/*
-		* Delay unloading of firmware for 10 sec. This is useful
+		* Delay unloading of firmware. This is useful
 		* in avoiding firmware download delays in cases where we
 		* will have a burst of back to back video playback sessions
 		* e.g. thumbnail generation.
 		*/
 		schedule_delayed_work(&core->fw_unload_work,
 			msecs_to_jiffies(core->state == VIDC_CORE_INVALID ?
-					0 : 10000));
+					0 : msm_vidc_firmware_unload_delay));
+
+		dprintk(VIDC_DBG, "firmware unload delayed by %u ms\n",
+			core->state == VIDC_CORE_INVALID ?
+			0 : msm_vidc_firmware_unload_delay);
 	}
 
 core_already_uninited:
