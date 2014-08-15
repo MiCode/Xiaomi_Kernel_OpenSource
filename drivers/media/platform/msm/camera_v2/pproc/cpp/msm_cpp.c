@@ -2260,6 +2260,10 @@ static struct msm_cpp_frame_info_t *get_64bit_cpp_frame_from_compat(
 		new_frame32->output_buffer_info[0];
 	new_frame->output_buffer_info[1] =
 		new_frame32->output_buffer_info[1];
+	new_frame->tnr_scratch_buffer_info[0] =
+		new_frame32->tnr_scratch_buffer_info[0];
+	new_frame->tnr_scratch_buffer_info[1] =
+		new_frame32->tnr_scratch_buffer_info[1];
 	new_frame->duplicate_output = new_frame32->duplicate_output;
 	new_frame->duplicate_identity = new_frame32->duplicate_identity;
 
