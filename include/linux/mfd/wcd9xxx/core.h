@@ -214,7 +214,6 @@ struct wcd9xxx {
 	struct wcd9xxx_ch *rx_chs;
 	struct wcd9xxx_ch *tx_chs;
 	u32 mclk_rate;
-	u16 use_pinctrl;
 
 	const struct wcd9xxx_codec_type *codec_type;
 };
