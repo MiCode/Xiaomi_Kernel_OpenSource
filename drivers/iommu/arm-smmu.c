@@ -383,6 +383,11 @@ enum smmu_model_id {
 	SMMU_MODEL_QCOM_V2,
 };
 
+struct arm_smmu_impl_def_reg {
+	u32 offset;
+	u32 value;
+};
+
 struct arm_smmu_device {
 	struct device			*dev;
 
@@ -432,6 +437,9 @@ struct arm_smmu_device {
 
 	struct mutex			attach_lock;
 	unsigned int			attach_count;
+
+	struct arm_smmu_impl_def_reg	*impl_def_attach_registers;
+	unsigned int			num_impl_def_attach_registers;
 };
 
 struct arm_smmu_cfg {
@@ -1378,6 +1386,16 @@ static void arm_smmu_domain_remove_master(struct arm_smmu_domain *smmu_domain,
 	arm_smmu_disable_clocks(smmu);
 }
 
+static void arm_smmu_impl_def_programming(struct arm_smmu_device *smmu)
+{
+	int i;
+	struct arm_smmu_impl_def_reg *regs = smmu->impl_def_attach_registers;
+
+	for (i = 0; i < smmu->num_impl_def_attach_registers; ++i)
+		writel_relaxed(regs[i].value,
+			ARM_SMMU_GR0(smmu) + regs[i].offset);
+}
+
 static void arm_smmu_device_reset(struct arm_smmu_device *smmu);
 
 static int arm_smmu_attach_dev(struct iommu_domain *domain, struct device *dev)
@@ -1403,6 +1421,7 @@ static int arm_smmu_attach_dev(struct iommu_domain *domain, struct device *dev)
 		arm_smmu_enable_regulators(smmu);
 		arm_smmu_enable_clocks(smmu);
 		arm_smmu_device_reset(smmu);
+		arm_smmu_impl_def_programming(smmu);
 	} else {
 		arm_smmu_enable_clocks(smmu);
 	}
@@ -2109,6 +2128,52 @@ static int arm_smmu_init_clocks(struct arm_smmu_device *smmu)
 	return 0;
 }
 
+static int arm_smmu_parse_impl_def_registers(struct arm_smmu_device *smmu)
+{
+	struct device *dev = smmu->dev;
+	int i, ntuples, ret;
+	u32 *tuples;
+	struct arm_smmu_impl_def_reg *regs, *regit;
+
+	if (!of_find_property(dev->of_node, "attach-impl-defs", &ntuples))
+		return 0;
+
+	ntuples /= sizeof(u32);
+	if (ntuples % 2) {
+		dev_err(dev,
+			"Invalid number of attach-impl-defs registers: %d\n",
+			ntuples);
+		return -EINVAL;
+	}
+
+	regs = devm_kmalloc(
+		dev, sizeof(*smmu->impl_def_attach_registers) * ntuples,
+		GFP_KERNEL);
+	if (!regs)
+		return -ENOMEM;
+
+	tuples = devm_kmalloc(dev, sizeof(u32) * ntuples * 2, GFP_KERNEL);
+	if (!tuples)
+		return -ENOMEM;
+
+	ret = of_property_read_u32_array(dev->of_node, "attach-impl-defs",
+					tuples, ntuples);
+	if (ret)
+		return ret;
+
+	for (i = 0, regit = regs; i < ntuples; i += 2, ++regit) {
+		regit->offset = tuples[i];
+		regit->value = tuples[i + 1];
+	}
+
+	devm_kfree(dev, tuples);
+
+	smmu->impl_def_attach_registers = regs;
+	smmu->num_impl_def_attach_registers = ntuples / 2;
+
+	return 0;
+}
+
 static int arm_smmu_device_cfg_probe(struct arm_smmu_device *smmu)
 {
 	unsigned long size;
@@ -2348,6 +2413,10 @@ static int arm_smmu_device_dt_probe(struct platform_device *pdev)
 		goto out_put_masters;
 
 	dev_notice(dev, "registered %d master devices\n", num_masters);
+
+	err = arm_smmu_parse_impl_def_registers(smmu);
+	if (err)
+		goto out_put_masters;
 
 	err = arm_smmu_init_regulators(smmu);
 	if (err)
