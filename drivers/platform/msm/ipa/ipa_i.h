@@ -645,6 +645,10 @@ struct ipa_wdi_ctx {
 	u32 pending_cmd;
 	u32 last_resp;
 	struct dma_pool *dma_pool;
+	u32 uc_top_ofst;
+	struct IpaHwEventLogInfoData_t *uc_top_mmio;
+	u32 uc_wdi_stats_ofst;
+	struct IpaHwStatsWDIInfoData_t *uc_wdi_stats_mmio;
 };
 
 /**
