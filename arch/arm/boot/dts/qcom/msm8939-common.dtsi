@@ -1578,8 +1578,9 @@
 };
 
 &gdsc_oxili_gx {
-	clock-names = "core_clk", "gmem_clk";
+	clock-names = "core_root_clk", "core_clk", "gmem_clk";
 	clocks = <&clock_gcc clk_gfx3d_clk_src>,
+		 <&clock_gcc clk_gcc_oxili_gfx3d_clk>,
 		 <&clock_gcc clk_gcc_oxili_gmem_clk>;
 	qcom,enable-root-clk;
 	status = "okay";

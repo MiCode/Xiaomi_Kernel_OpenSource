@@ -52,6 +52,7 @@ struct gdsc {
 	bool			toggle_logic;
 	bool			resets_asserted;
 	bool			root_en;
+	int			root_clk_idx;
 };
 
 static int gdsc_is_enabled(struct regulator_dev *rdev)
@@ -70,10 +71,8 @@ static int gdsc_enable(struct regulator_dev *rdev)
 	uint32_t regval;
 	int i, ret;
 
-	if (sc->root_en) {
-		for (i = 0; i < sc->clock_count; i++)
-			clk_prepare_enable(sc->clocks[i]);
-	}
+	if (sc->root_en)
+		clk_prepare_enable(sc->clocks[sc->root_clk_idx]);
 
 	if (sc->toggle_logic) {
 		regval = readl_relaxed(sc->gdscr);
@@ -99,11 +98,14 @@ static int gdsc_enable(struct regulator_dev *rdev)
 		}
 	} else {
 		for (i = 0; i < sc->clock_count; i++)
-			clk_reset(sc->clocks[i], CLK_RESET_DEASSERT);
+			if (likely(i != sc->root_clk_idx))
+				clk_reset(sc->clocks[i], CLK_RESET_DEASSERT);
 		sc->resets_asserted = false;
 	}
 
 	for (i = 0; i < sc->clock_count; i++) {
+		if (unlikely(i == sc->root_clk_idx))
+			continue;
 		if (sc->toggle_mem)
 			clk_set_flags(sc->clocks[i], CLKFLAG_RETAIN_MEM);
 		if (sc->toggle_periph)
@@ -128,6 +130,8 @@ static int gdsc_disable(struct regulator_dev *rdev)
 	int i, ret = 0;
 
 	for (i = sc->clock_count-1; i >= 0; i--) {
+		if (unlikely(i == sc->root_clk_idx))
+			continue;
 		if (sc->toggle_mem)
 			clk_set_flags(sc->clocks[i], CLKFLAG_NORETAIN_MEM);
 		if (sc->toggle_periph)
@@ -153,14 +157,13 @@ static int gdsc_disable(struct regulator_dev *rdev)
 				sc->rdesc.name, regval);
 	} else {
 		for (i = sc->clock_count-1; i >= 0; i--)
-			clk_reset(sc->clocks[i], CLK_RESET_ASSERT);
+			if (likely(i != sc->root_clk_idx))
+				clk_reset(sc->clocks[i], CLK_RESET_ASSERT);
 		sc->resets_asserted = true;
 	}
 
-	if (sc->root_en) {
-		for (i = sc->clock_count-1; i >= 0; i--)
-			clk_disable_unprepare(sc->clocks[i]);
-	}
+	if (sc->root_en)
+		clk_disable_unprepare(sc->clocks[sc->root_clk_idx]);
 
 	return ret;
 }
@@ -295,6 +298,8 @@ static int gdsc_probe(struct platform_device *pdev)
 	if (!sc->clocks)
 		return -ENOMEM;
 
+	sc->root_clk_idx = -1;
+
 	sc->root_en = of_property_read_bool(pdev->dev.of_node,
 						"qcom,enable-root-clk");
 
@@ -310,6 +315,14 @@ static int gdsc_probe(struct platform_device *pdev)
 					clock_name);
 			return rc;
 		}
+
+		if (!strcmp(clock_name, "core_root_clk"))
+			sc->root_clk_idx = i;
+	}
+
+	if (sc->root_en && (sc->root_clk_idx == -1)) {
+		dev_err(&pdev->dev, "Failed to get root clock name\n");
+		return -EINVAL;
 	}
 
 	sc->rdesc.id = atomic_inc_return(&gdsc_count);
