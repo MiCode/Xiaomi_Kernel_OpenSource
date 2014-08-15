@@ -363,7 +363,7 @@ static int __init mdss_pll_driver_init(void)
 
 	return rc;
 }
-fs_initcall(mdss_pll_driver_init);
+subsys_initcall(mdss_pll_driver_init);
 
 static void __exit mdss_pll_driver_deinit(void)
 {
