@@ -307,6 +307,11 @@ enum arm_smmu_implementation {
 	QCOM_SMMUV2,
 };
 
+struct arm_smmu_impl_def_reg {
+	u32 offset;
+	u32 value;
+};
+
 struct arm_smmu_smr {
 	u8				idx;
 	u16				mask;
@@ -372,6 +377,9 @@ struct arm_smmu_device {
 	struct rb_root			masters;
 
 	u32				cavium_id_base; /* Specific to Cavium */
+	/* Specific to QCOM */
+	struct arm_smmu_impl_def_reg	*impl_def_attach_registers;
+	unsigned int			num_impl_def_attach_registers;
 };
 
 enum arm_smmu_context_fmt {
@@ -1538,6 +1546,16 @@ static struct iommu_ops arm_smmu_ops = {
 	.pgsize_bitmap		= -1UL, /* Restricted during device attach */
 };
 
+static void arm_smmu_impl_def_programming(struct arm_smmu_device *smmu)
+{
+	int i;
+	struct arm_smmu_impl_def_reg *regs = smmu->impl_def_attach_registers;
+
+	for (i = 0; i < smmu->num_impl_def_attach_registers; ++i)
+		writel_relaxed(regs[i].value,
+			ARM_SMMU_GR0(smmu) + regs[i].offset);
+}
+
 static void arm_smmu_device_reset(struct arm_smmu_device *smmu)
 {
 	void __iomem *gr0_base = ARM_SMMU_GR0(smmu);
@@ -1592,6 +1610,9 @@ static void arm_smmu_device_reset(struct arm_smmu_device *smmu)
 		}
 	}
 
+	/* Program implementation defined registers */
+	arm_smmu_impl_def_programming(smmu);
+
 	/* Invalidate the TLB, just in case */
 	writel_relaxed(0, gr0_base + ARM_SMMU_GR0_TLBIALLH);
 	writel_relaxed(0, gr0_base + ARM_SMMU_GR0_TLBIALLNSNH);
@@ -1642,6 +1663,52 @@ static int arm_smmu_id_size_to_bits(int size)
 	default:
 		return 48;
 	}
+}
+
+static int arm_smmu_parse_impl_def_registers(struct arm_smmu_device *smmu)
+{
+	struct device *dev = smmu->dev;
+	int i, ntuples, ret;
+	u32 *tuples;
+	struct arm_smmu_impl_def_reg *regs, *regit;
+
+	if (!of_find_property(dev->of_node, "attach-impl-defs", &ntuples))
+		return 0;
+
+	ntuples /= sizeof(u32);
+	if (ntuples % 2) {
+		dev_err(dev,
+			"Invalid number of attach-impl-defs registers: %d\n",
+			ntuples);
+		return -EINVAL;
+	}
+
+	regs = devm_kmalloc(
+		dev, sizeof(*smmu->impl_def_attach_registers) * ntuples,
+		GFP_KERNEL);
+	if (!regs)
+		return -ENOMEM;
+
+	tuples = devm_kmalloc(dev, sizeof(u32) * ntuples * 2, GFP_KERNEL);
+	if (!tuples)
+		return -ENOMEM;
+
+	ret = of_property_read_u32_array(dev->of_node, "attach-impl-defs",
+					tuples, ntuples);
+	if (ret)
+		return ret;
+
+	for (i = 0, regit = regs; i < ntuples; i += 2, ++regit) {
+		regit->offset = tuples[i];
+		regit->value = tuples[i + 1];
+	}
+
+	devm_kfree(dev, tuples);
+
+	smmu->impl_def_attach_registers = regs;
+	smmu->num_impl_def_attach_registers = ntuples / 2;
+
+	return 0;
 }
 
 static int arm_smmu_device_cfg_probe(struct arm_smmu_device *smmu)
@@ -1973,6 +2040,10 @@ static int arm_smmu_device_dt_probe(struct platform_device *pdev)
 	dev_notice(dev, "registered %d master devices\n", i);
 
 	kfree(masterspec);
+
+	err = arm_smmu_parse_impl_def_registers(smmu);
+	if (err)
+		goto out_put_masters;
 
 	parse_driver_options(smmu);
 
