@@ -2652,7 +2652,6 @@ static int ufshcd_uic_pwr_ctrl(struct ufs_hba *hba, struct uic_command *cmd)
 	bool uic_ready;
 	int retries = POWER_MODE_RETRIES;
 
-	ufshcd_hold(hba, false);
 	mutex_lock(&hba->uic_cmd_mutex);
 	init_completion(&uic_async_done);
 
@@ -2721,7 +2720,6 @@ out:
 	hba->uic_async_done = NULL;
 	spin_unlock_irqrestore(hba->host->host_lock, flags);
 	mutex_unlock(&hba->uic_cmd_mutex);
-	ufshcd_release(hba);
 	return ret;
 }
 
