@@ -68,6 +68,10 @@ conditions.
 - vdd-supply    : Phandle of the regulator that should be powered on during
                   SMMU register access.
 
+- attach-impl-defs : global registers to program at device attach
+                  time. This should be a list of 2-tuples of the format:
+                  <offset reg_value>.
+
 Example:
 
         smmu {
@@ -87,4 +91,8 @@ Example:
                  */
                 mmu-masters = <&dma0 0xd01d 0xd01e>,
                               <&dma1 0xd11c>;
+
+                attach-impl-defs = <0x124 0x3>,
+                    <0x128 0xa5>,
+                    <0x12c 0x1>;
         };
