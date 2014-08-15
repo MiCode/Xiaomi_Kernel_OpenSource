@@ -224,10 +224,14 @@ enum rmnet_netlink_message_types_e {
 };
 
 enum rmnet_config_endpoint_modes_e {
+	/* Pass the frame up the stack with no modifications to skb->dev      */
 	RMNET_EPMODE_NONE,
+	/* Replace skb->dev to a virtual rmnet device and pass up the stack   */
 	RMNET_EPMODE_VND,
+	/* Pass the frame directly to another device with dev_queue_xmit().   */
 	RMNET_EPMODE_BRIDGE,
-	RMNET_EPMODE_LENGTH /* Must be the last item in the list */
+	/* Must be the last item in the list                                  */
+	RMNET_EPMODE_LENGTH
 };
 
 enum rmnet_config_return_codes_e {
