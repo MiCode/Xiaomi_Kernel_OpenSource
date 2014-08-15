@@ -414,6 +414,7 @@ config USB_G_ANDROID
 	boolean "Android Composite Gadget"
 	select USB_F_ACM
 	select USB_LIBCOMPOSITE
+	select USB_F_FS
 	select USB_U_SERIAL
 	help
 	  The Android Composite Gadget supports multiple USB
