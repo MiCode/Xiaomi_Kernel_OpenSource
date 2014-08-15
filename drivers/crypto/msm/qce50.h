@@ -178,6 +178,7 @@ struct ce_sps_data {
 	struct scatterlist		*src;
 	struct scatterlist		*dst;
 	uint32_t			ce_device;
+	uint32_t			ce_hw_instance;
 	unsigned int			pipe_pair_index;
 	unsigned int			src_pipe_index;
 	unsigned int			dest_pipe_index;
