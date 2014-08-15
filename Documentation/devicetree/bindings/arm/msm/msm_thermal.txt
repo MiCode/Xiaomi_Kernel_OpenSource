@@ -154,35 +154,31 @@ Optional child nodes
 			temperature band to RPM, in degC. This will aid RPM in
 			deciding the number of phases required for GFX rail.
 			If this property exists, then the properties,
-			qcom,gfx-phase-hot-crit-temp-hyst, qcom,gfx-sensor-id,
-			qcom,gfx-phase-warm-temp and qcom,gfx-phase-warm-temp-hyst
+			qcom,gfx-phase-hot-crit-temp-hyst and qcom,gfx-sensor-id
 			should also be defined to enable this feature.
 - qcom,gfx-phase-hot-crit-temp-hyst: Degree below the threshold to clear the 'HOT_CRITICAL'
 			band and send the 'WARM' temperature band to RPM, in degC.
 			This will aid RPM in deciding the number of phases required
 			for GFX rail. If this property exists, then the properties,
-			qcom,gfx-phase-hot-crit-temp, qcom,gfx-sensor-id,
-			qcom,gfx-phase-warm-temp and qcom,gfx-phase-warm-temp-hyst
+			qcom,gfx-phase-hot-crit-temp and qcom,gfx-sensor-id
 			should also be defined to enable this feature.
 - qcom,gfx-phase-warm-temp: Threshold temperature for sending the 'WARM' temperature
 			band to RPM, in degC. This will aid RPM in deciding the
 			number of phases required for GFX rail. If this property
-			exists, then the properties, qcom,gfx-phase-hot-crit-temp,
-			qcom,gfx-phase-hot-crit-temp-hyst, qcom,gfx-sensor-id and
+			exists, then the properties, qcom,gfx-sensor-id and
 			qcom,gfx-phase-warm-temp-hyst should also be defined to
 			enable this feature.
 - qcom,gfx-phase-warm-temp-hyst: Degree below the threshold to clear the 'WARM'
 			band and send the 'NORMAL' temperature band to RPM, in degC.
 			This will aid RPM in deciding the number of phases required
 			for GFX rail. If this property exists, then the property,
-			qcom,gfx-phase-hot-crit-temp, qcom,gfx-phase-hot-temp-hyst,
 			qcom,gfx-sensor-id and qcom,gfx-phase-warm-temp should also
 			be defined to enable this feature.
 -qcom,gfx-sensor-id:     The ID of the TSENS sensor, which is closest to graphics
 			processor, monitoring the GPU temperature. If this property
-			exists, then the property, qcom,gfx-phase-hot-crit-temp,
-			qcom,gfx-phase-hot-crit-temp-hyst, qcom,gfx-phase-warm-temp and
-			qcom,gfx-phase-warm-temp-hyst should also be defined to
+			exists, then the property, qcom,gfx-phase-hot-crit-temp and
+			qcom,gfx-phase-hot-crit-temp-hyst or/and qcom,gfx-phase-warm-temp
+			and qcom,gfx-phase-warm-temp-hyst should also be defined to
 			enable this feature.
 - qcom,gfx-phase-resource-key: The key name to be used for sending the GFX temperature
 			band message to RPM. This property should be defined along
