@@ -592,6 +592,11 @@ static void msm_vfe40_process_error_status(struct vfe_device *vfe_dev)
 		pr_err_ratelimited("%s: status skin bhist bus overflow\n",
 			__func__);
 	}
+
+	/* Update ab/ib values for any overflow that may have occured*/
+	if ((error_status1 >> 9) & 0x7FFF) {
+		msm_isp_util_update_last_overflow_ab_ib(vfe_dev);
+	}
 }
 
 static void msm_vfe40_read_irq_status(struct vfe_device *vfe_dev,
@@ -1209,11 +1214,14 @@ static void msm_vfe40_cfg_axi_ub_equal_default(
 		}
 	}
 
-	if (vfe_dev->vfe_hw_version == VFE40_8916_VERSION)
+	if (vfe_dev->vfe_hw_version == VFE40_8916_VERSION) {
+		vfe_dev->ub_info->wm_ub = VFE40_TOTAL_WM_UB_8916;
 		total_wm_ub = VFE40_TOTAL_WM_UB_8916;
-	else
+	} else {
+		vfe_dev->ub_info->wm_ub = VFE40_TOTAL_WM_UB;
 		total_wm_ub = VFE40_TOTAL_WM_UB;
-
+	}
+	vfe_dev->ub_info->num_wm = axi_data->hw_info->num_wm;
 	prop_size = total_wm_ub -
 		axi_data->hw_info->min_wm_ub * num_used_wms;
 	for (i = 0; i < axi_data->hw_info->num_wm; i++) {
@@ -1226,10 +1234,17 @@ static void msm_vfe40_cfg_axi_ub_equal_default(
 			wm_ub_size = axi_data->hw_info->min_wm_ub + delta;
 			msm_camera_io_w(ub_offset << 16 | (wm_ub_size - 1),
 				vfe_dev->vfe_base + VFE40_WM_BASE(i) + 0x10);
+
+			vfe_dev->ub_info->data[i] =
+				ub_offset << 16 | (wm_ub_size - 1);
+			vfe_dev->ub_info->addr[i] =  VFE40_WM_BASE(i) + 0x10;
 			ub_offset += wm_ub_size;
-		} else
+		} else {
 			msm_camera_io_w(0,
 				vfe_dev->vfe_base + VFE40_WM_BASE(i) + 0x10);
+			vfe_dev->ub_info->data[i] = 0;
+			vfe_dev->ub_info->addr[i] = VFE40_WM_BASE(i) + 0x10;
+		}
 	}
 }
 
@@ -1241,14 +1256,21 @@ static void msm_vfe40_cfg_axi_ub_equal_slicing(
 	uint32_t equal_slice_ub;
 	struct msm_vfe_axi_shared_data *axi_data = &vfe_dev->axi_data;
 
-	if (vfe_dev->vfe_hw_version == VFE40_8916_VERSION)
+	if (vfe_dev->vfe_hw_version == VFE40_8916_VERSION) {
+		vfe_dev->ub_info->wm_ub = VFE40_EQUAL_SLICE_UB_8916;
 		equal_slice_ub = VFE40_EQUAL_SLICE_UB_8916;
-	else
+	} else {
+		vfe_dev->ub_info->wm_ub = VFE40_EQUAL_SLICE_UB;
 		equal_slice_ub = VFE40_EQUAL_SLICE_UB;
+	}
 
+	vfe_dev->ub_info->num_wm = axi_data->hw_info->num_wm;
 	for (i = 0; i < axi_data->hw_info->num_wm; i++) {
 		msm_camera_io_w(ub_offset << 16 | (equal_slice_ub - 1),
 			vfe_dev->vfe_base + VFE40_WM_BASE(i) + 0x10);
+		vfe_dev->ub_info->data[i] =
+			ub_offset << 16 | (equal_slice_ub - 1);
+		vfe_dev->ub_info->addr[i] = VFE40_WM_BASE(i) + 0x10;
 		ub_offset += equal_slice_ub;
 	}
 }
@@ -1257,10 +1279,13 @@ static void msm_vfe40_cfg_axi_ub(struct vfe_device *vfe_dev)
 {
 	struct msm_vfe_axi_shared_data *axi_data = &vfe_dev->axi_data;
 	axi_data->wm_ub_cfg_policy = MSM_WM_UB_CFG_DEFAULT;
-	if (axi_data->wm_ub_cfg_policy == MSM_WM_UB_EQUAL_SLICING)
+	if (axi_data->wm_ub_cfg_policy == MSM_WM_UB_EQUAL_SLICING) {
+		vfe_dev->ub_info->policy = MSM_WM_UB_EQUAL_SLICING;
 		msm_vfe40_cfg_axi_ub_equal_slicing(vfe_dev);
-	else
+	} else {
+		vfe_dev->ub_info->policy = MSM_WM_UB_CFG_DEFAULT;
 		msm_vfe40_cfg_axi_ub_equal_default(vfe_dev);
+	}
 }
 
 static void msm_vfe40_update_ping_pong_addr(

@@ -51,6 +51,9 @@
 #define VFE_CLK_INFO_MAX 16
 #define STATS_COMP_BIT_MASK 0xFF0000
 
+#define MSM_ISP_MIN_AB 450000000
+#define MSM_ISP_MIN_IB 900000000
+
 struct vfe_device;
 struct msm_vfe_axi_stream;
 struct msm_vfe_stats_stream;
@@ -264,7 +267,7 @@ enum msm_vfe_axi_cfg_update_state {
 	UPDATE_REQUESTED,
 };
 
-#define VFE_NO_DROP            0xFFFFFFFF
+#define VFE_NO_DROP	       0xFFFFFFFF
 #define VFE_DROP_EVERY_2FRAME  0x55555555
 #define VFE_DROP_EVERY_4FRAME  0x11111111
 #define VFE_DROP_EVERY_8FRAME  0x01010101
@@ -448,22 +451,70 @@ struct msm_vfe_error_info {
 };
 
 struct msm_isp_statistics {
-	int32_t imagemaster0_overflow;
-	int32_t imagemaster1_overflow;
-	int32_t imagemaster2_overflow;
-	int32_t imagemaster3_overflow;
-	int32_t imagemaster4_overflow;
-	int32_t imagemaster5_overflow;
-	int32_t imagemaster6_overflow;
-	int32_t be_overflow;
-	int32_t bg_overflow;
-	int32_t bf_overflow;
-	int32_t awb_overflow;
-	int32_t rs_overflow;
-	int32_t cs_overflow;
-	int32_t ihist_overflow;
-	int32_t skinbhist_overflow;
-	int32_t bfscale_overflow;
+	int64_t imagemaster0_overflow;
+	int64_t imagemaster1_overflow;
+	int64_t imagemaster2_overflow;
+	int64_t imagemaster3_overflow;
+	int64_t imagemaster4_overflow;
+	int64_t imagemaster5_overflow;
+	int64_t imagemaster6_overflow;
+	int64_t be_overflow;
+	int64_t bg_overflow;
+	int64_t bf_overflow;
+	int64_t awb_overflow;
+	int64_t rs_overflow;
+	int64_t cs_overflow;
+	int64_t ihist_overflow;
+	int64_t skinbhist_overflow;
+	int64_t bfscale_overflow;
+
+	int64_t isp_vfe0_active;
+	int64_t isp_vfe0_ab;
+	int64_t isp_vfe0_ib;
+
+	int64_t isp_vfe1_active;
+	int64_t isp_vfe1_ab;
+	int64_t isp_vfe1_ib;
+
+	int64_t isp_cpp_active;
+	int64_t isp_cpp_ab;
+	int64_t isp_cpp_ib;
+
+	int64_t last_overflow_ab;
+	int64_t last_overflow_ib;
+
+	int64_t vfe_clk_rate;
+	int64_t cpp_clk_rate;
+};
+
+enum msm_isp_hw_client {
+	ISP_VFE0,
+	ISP_VFE1,
+	ISP_CPP,
+	MAX_ISP_CLIENT,
+};
+
+struct msm_isp_bandwidth_info {
+	uint32_t active;
+	uint64_t ab;
+	uint64_t ib;
+};
+
+struct msm_isp_bw_req_info {
+	uint32_t client;
+	unsigned long long timestamp;
+	uint64_t total_ab;
+	uint64_t total_ib;
+	struct msm_isp_bandwidth_info client_info[MAX_ISP_CLIENT];
+};
+
+#define MSM_ISP_MAX_WM 7
+struct msm_isp_ub_info {
+	enum msm_wm_ub_cfg_type policy;
+	uint8_t num_wm;
+	uint32_t wm_ub;
+	uint32_t data[MSM_ISP_MAX_WM];
+	uint64_t addr[MSM_ISP_MAX_WM];
 };
 
 struct msm_vfe_hw_init_parms {
@@ -522,6 +573,10 @@ struct vfe_device {
 	uint8_t ignore_error;
 	struct msm_isp_statistics *stats;
 	struct msm_vfe_fetch_engine_info fetch_engine_info;
+	uint64_t msm_isp_last_overflow_ab;
+	uint64_t msm_isp_last_overflow_ib;
+	uint64_t msm_isp_vfe_clk_rate;
+	struct msm_isp_ub_info *ub_info;
 };
 
 #endif
