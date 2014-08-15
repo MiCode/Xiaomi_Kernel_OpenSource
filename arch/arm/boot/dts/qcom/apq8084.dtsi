@@ -4809,17 +4809,17 @@
 		qcom,ibat-vadc = <&pma8084_vadc>;
 		qcom,ibat-threshold-adc_tm = <&pma8084_adc_tm>;
 		qcom,ibat-monitor {
-			high-threshold-uamp = <3000000>;
-			low-threshold-uamp = <1000000>;
-			mitigation-freq-khz = <1958400>;
-			ibat-channel = <0x15>;
-			adc-interval-usec = <3900>;
-			uv-to-ua-numerator = <2>;
-			uv-to-ua-denominator = <1>;
-			vph-channel = <0x07>;
-			vph-high-threshold-uv = <3750000>;
-			vph-low-threshold-uv = <3500000>;
-			thermal-handle = <&msm_thermal_freq>;
+			qcom,high-threshold-uamp = <3000000>;
+			qcom,low-threshold-uamp = <1000000>;
+			qcom,mitigation-freq-khz = <1958400>;
+			qcom,ibat-channel = <0x15>;
+			qcom,adc-interval-usec = <3900>;
+			qcom,uv-to-ua-numerator = <2>;
+			qcom,uv-to-ua-denominator = <1>;
+			qcom,vph-channel = <0x07>;
+			qcom,vph-high-threshold-uv = <3750000>;
+			qcom,vph-low-threshold-uv = <3500000>;
+			qcom,thermal-handle = <&msm_thermal_freq>;
 		};
 	};
 
