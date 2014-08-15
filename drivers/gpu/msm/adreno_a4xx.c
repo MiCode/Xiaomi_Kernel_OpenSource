@@ -180,6 +180,8 @@ const struct adreno_vbif_snapshot_registers a4xx_vbif_snapshot_registers[] = {
 				ARRAY_SIZE(a4xx_vbif_ver_20020000_registers)/2},
 	{ 0x20050000, a4xx_vbif_ver_20050000_registers,
 				ARRAY_SIZE(a4xx_vbif_ver_20050000_registers)/2},
+	{ 0x20070000, a4xx_vbif_ver_20020000_registers,
+				ARRAY_SIZE(a4xx_vbif_ver_20020000_registers)/2},
 };
 
 const unsigned int a4xx_vbif_snapshot_reg_cnt =
@@ -333,6 +335,7 @@ static const struct adreno_vbif_platform a4xx_vbif_platforms[] = {
 	{ adreno_is_a405, a405_vbif },
 	{ adreno_is_a420, a420_vbif },
 	{ adreno_is_a430, a430_vbif },
+	{ adreno_is_a418, a430_vbif },
 };
 
 /*

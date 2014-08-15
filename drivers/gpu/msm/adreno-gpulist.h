@@ -206,4 +206,26 @@ static const struct adreno_gpu_core adreno_gpulist[] = {
 		.shader_offset = 0x20000,
 		.shader_size = 0x10000,
 	},
+	{
+		.gpurev = ADRENO_REV_A418,
+		.core = 4,
+		.major = 1,
+		.minor = 8,
+		.patchid = ANY_ID,
+		.features = ADRENO_USES_OCMEM  | ADRENO_WARM_START |
+			ADRENO_USE_BOOTSTRAP | ADRENO_SPTP_PC | ADRENO_PPD,
+		.pm4fw_name = "a420_pm4.fw",
+		.pfpfw_name = "a420_pfp.fw",
+		.gpudev = &adreno_a4xx_gpudev,
+		.gmem_size = (SZ_512K),
+		.pm4_jt_idx = 0x901,
+		.pm4_jt_addr = 0x300,
+		.pfp_jt_idx = 0x401,
+		.pfp_jt_addr = 0x400,
+		.pm4_bstrp_size = 0x06,
+		.pfp_bstrp_size = 0x28,
+		.pfp_bstrp_ver = 0x4ff083,
+		.shader_offset = 0x20000, /* SP and TP addresses */
+		.shader_size = 0x10000,
+	},
 };

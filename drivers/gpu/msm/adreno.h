@@ -139,6 +139,7 @@ enum adreno_gpurev {
 	ADRENO_REV_A330 = 330,
 	ADRENO_REV_A305B = 335,
 	ADRENO_REV_A405 = 405,
+	ADRENO_REV_A418 = 418,
 	ADRENO_REV_A420 = 420,
 	ADRENO_REV_A430 = 430,
 };
@@ -824,6 +825,11 @@ static inline int adreno_is_a420(struct adreno_device *adreno_dev)
 static inline int adreno_is_a430(struct adreno_device *adreno_dev)
 {
 	return (ADRENO_GPUREV(adreno_dev) == ADRENO_REV_A430);
+}
+
+static inline int adreno_is_a418(struct adreno_device *adreno_dev)
+{
+	return (ADRENO_GPUREV(adreno_dev) == ADRENO_REV_A418);
 }
 
 static inline int adreno_rb_ctxtswitch(unsigned int *cmd)
