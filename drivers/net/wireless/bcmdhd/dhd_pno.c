@@ -2726,7 +2726,7 @@ _dhd_pno_get_for_batch(dhd_pub_t *dhd, char *buf, int bufsize, int reason)
 	NULL_CHECK(dhd->pno_state, "pno_state is NULL", err);
 	if (!dhd_support_sta_mode(dhd)) {
 		err = BCME_BADOPTION;
-		goto exit;
+		goto exit_no_unlock;
 	}
 	DHD_PNO(("%s enter\n", __FUNCTION__));
 	_pno_state = PNO_GET_PNOSTATE(dhd);
@@ -2734,7 +2734,7 @@ _dhd_pno_get_for_batch(dhd_pub_t *dhd, char *buf, int bufsize, int reason)
 	if (!WLS_SUPPORTED(_pno_state)) {
 		DHD_ERROR(("%s : wifi location service is not supported\n", __FUNCTION__));
 		err = BCME_UNSUPPORTED;
-		goto exit;
+		goto exit_no_unlock;
 	}
 #ifdef GSCAN_SUPPORT
 	if (!(_pno_state->pno_mode & (DHD_PNO_BATCH_MODE | DHD_PNO_GSCAN_MODE))) {
@@ -2742,7 +2742,7 @@ _dhd_pno_get_for_batch(dhd_pub_t *dhd, char *buf, int bufsize, int reason)
 	if (!(_pno_state->pno_mode & DHD_PNO_BATCH_MODE)) {
 #endif /* GSCAN_SUPPORT */
 		DHD_ERROR(("%s: Batching SCAN mode is not enabled\n", __FUNCTION__));
-		goto exit;
+		goto exit_no_unlock;
 	}
 	mutex_lock(&_pno_state->pno_mutex);
 	_params = &_pno_state->pno_params_arr[INDEX_OF_BATCH_PARAMS];
@@ -2956,6 +2956,7 @@ exit:
 		_params->params_batch.get_batch.bytes_written = err;
 	}
 	mutex_unlock(&_pno_state->pno_mutex);
+exit_no_unlock:	
 	if (waitqueue_active(&_pno_state->get_batch_done.wait))
 		complete(&_pno_state->get_batch_done);
 	return err;
