@@ -273,6 +273,7 @@ struct mdp3_dma {
 	struct mdp3_dma_histogram_data histo_data;
 	unsigned int vsync_status;
 	bool update_src_cfg;
+	bool has_panic_ctrl;
 
 	int (*dma_config)(struct mdp3_dma *dma,
 			struct mdp3_dma_source *source_config,
