@@ -62,10 +62,12 @@ static inline uint32_t msm_dump_table_version(void)
 #define MSM_DUMP_MINOR(val)		(val & 0xFFFFF)
 
 
-#define MAX_NUM_ENTRIES		0x120
+#define MAX_NUM_ENTRIES		0x130
 
 enum msm_dump_data_ids {
 	MSM_DUMP_DATA_CPU_CTX = 0x00,
+	MSM_DUMP_DATA_L1_INST_TLB = 0x20,
+	MSM_DUMP_DATA_L1_DATA_TLB = 0x40,
 	MSM_DUMP_DATA_L1_INST_CACHE = 0x60,
 	MSM_DUMP_DATA_L1_DATA_CACHE = 0x80,
 	MSM_DUMP_DATA_ETM_REG = 0xA0,
@@ -80,6 +82,7 @@ enum msm_dump_data_ids {
 	MSM_DUMP_DATA_TMC_REG = 0x100,
 	MSM_DUMP_DATA_LOG_BUF = 0x110,
 	MSM_DUMP_DATA_LOG_BUF_FIRST_IDX = 0x111,
+	MSM_DUMP_DATA_L2_TLB = 0x120,
 	MSM_DUMP_DATA_MAX = MAX_NUM_ENTRIES,
 };
 
