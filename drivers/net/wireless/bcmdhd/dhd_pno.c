@@ -77,7 +77,6 @@
 #define CHANNEL_2G_MAX 14
 #define CHANNEL_5G_MAX 165
 #define MAX_NODE_CNT 5
-#define GET_BATCH_MAX_RETRIES  20
 #define WLS_SUPPORTED(pno_state) (pno_state->wls_supported == TRUE)
 #define TIME_DIFF(timestamp1, timestamp2) (abs((uint32)(timestamp1/1000)  \
 						- (uint32)(timestamp2/1000)))
@@ -2524,7 +2523,6 @@ static int _dhd_pno_get_gscan_batch_from_fw(dhd_pub_t *dhd)
 	uint8 *nAPs_per_scan = NULL;
 	uint8 num_scans_in_cur_iter;
 	uint16 count, scan_id = 0;
-	uint32 retry = 0;
 
 	NULL_CHECK(dhd, "dhd is NULL\n", err);
 	NULL_CHECK(dhd->pno_state, "pno_state is NULL", err);
@@ -2576,17 +2574,9 @@ static int _dhd_pno_get_gscan_batch_from_fw(dhd_pub_t *dhd)
 		memset(plbestnet, 0, PNO_BESTNET_LEN);
 		err = dhd_iovar(dhd, 0, "pfnlbest", (char *)plbestnet, PNO_BESTNET_LEN, 0);
 		if (err < 0) {
-			if (err == BCME_EPERM && retry < GET_BATCH_MAX_RETRIES) {
-				DHD_ERROR(("we cannot get the batching data "
-					"during scanning in firmware, try again\n,"));
-				retry++;
-				msleep(500);
-				continue;
-			} else {
-				DHD_ERROR(("%s : failed to execute pfnlbest (err :%d)\n",
-					__FUNCTION__, err));
-				goto exit_mutex_unlock;
-			}
+			DHD_ERROR(("%s : Cannot get all the batch results, err :%d\n",
+				__FUNCTION__, err));
+			goto exit_mutex_unlock;
 		}
 		DHD_PNO(("ver %d, status : %d, count %d\n", plbestnet->version,
 			plbestnet->status, plbestnet->count));
