@@ -896,7 +896,6 @@
 			/* MCLK0 */
 			qcom,pins = <&gp 13>;
 			qcom,num-grp-pins = <1>;
-			qcom,pin-func = <1>;
 			label = "cam_sensor_mclk0_suspend";
 			/*suspended state */
 			cam_sensor_mclk0_suspend: cam_sensor_mclk0_suspend {
@@ -946,7 +945,6 @@
 			/* MCLK2 */
 			qcom,pins = <&gp 14>;
 			qcom,num-grp-pins = <1>;
-			qcom,pin-func = <1>;
 			label = "cam_sensor_mclk1_suspend";
 			/* suspend state */
 			cam_sensor_mclk1_suspend: cam_sensor_mclk1_suspend {
@@ -996,7 +994,6 @@
 			/* MCLK2 */
 			qcom,pins = <&gp 15>;
 			qcom,num-grp-pins = <1>;
-			qcom,pin-func = <1>;
 			label = "cam_sensor_mclk2_suspend";
 			/* suspend state */
 			cam_sensor_mclk2_suspend: cam_sensor_mclk2_suspend {
