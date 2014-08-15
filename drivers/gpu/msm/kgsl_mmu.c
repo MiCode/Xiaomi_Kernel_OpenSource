@@ -491,8 +491,6 @@ int kgsl_mmu_init(struct kgsl_device *device)
 {
 	int status = 0;
 	struct kgsl_mmu *mmu = &device->mmu;
-	struct platform_device *pdev = device->pdev;
-
 	mmu->device = device;
 
 	/*
@@ -511,9 +509,6 @@ int kgsl_mmu_init(struct kgsl_device *device)
 
 	kgsl_sharedmem_set(device, &mmu->setstate_memory, 0, 0,
 				mmu->setstate_memory.size);
-
-	mmu->secured = of_property_read_bool(pdev->dev.of_node,
-				"qcom,secure-context");
 
 	if (KGSL_MMU_TYPE_IOMMU == kgsl_mmu_type) {
 		mmu->mmu_ops = &kgsl_iommu_ops;
@@ -602,12 +597,19 @@ kgsl_mmu_createpagetableobject(struct kgsl_mmu *mmu,
 	if (KGSL_MMU_TYPE_IOMMU == kgsl_mmu_type)
 		pagetable->pt_ops = &iommu_pt_ops;
 
-	pagetable->priv = pagetable->pt_ops->mmu_create_pagetable();
-	if (!pagetable->priv)
-		goto err;
+	if (mmu->secured && (KGSL_MMU_SECURE_PT == name))
+		pagetable->priv =
+			pagetable->pt_ops->mmu_create_secure_pagetable();
+	else {
+		pagetable->priv = pagetable->pt_ops->mmu_create_pagetable();
+		if (pagetable->priv) {
+			status = kgsl_map_global_pt_entries(pagetable);
+			if (status)
+				goto err;
+		}
+	}
 
-	status = kgsl_map_global_pt_entries(pagetable);
-	if (status)
+	if (!pagetable->priv)
 		goto err;
 
 	spin_lock_irqsave(&kgsl_driver.ptlock, flags);
@@ -721,7 +723,8 @@ kgsl_mmu_get_gpuaddr(struct kgsl_pagetable *pagetable,
 	 * back to user region if that fails.  All memory allocated by the user
 	 * goes into the user region first.
 	 */
-	if ((KGSL_MEMFLAGS_USERMEM_MASK & memdesc->flags) != 0) {
+	if (((KGSL_MEMFLAGS_USERMEM_MASK | KGSL_MEMFLAGS_SECURE)
+					& memdesc->flags) != 0) {
 		unsigned int page_align = ilog2(PAGE_SIZE);
 
 		if (kgsl_memdesc_get_align(memdesc) > 0)
@@ -735,6 +738,9 @@ kgsl_mmu_get_gpuaddr(struct kgsl_pagetable *pagetable,
 			return 0;
 		}
 	}
+
+	if (((KGSL_MEMFLAGS_SECURE) & memdesc->flags) && (!memdesc->gpuaddr))
+		return -ENOMEM;
 
 	bit = bitmap_find_next_zero_area(pagetable->mem_bitmap,
 		KGSL_SVM_UPPER_BOUND >> PAGE_SHIFT, 1,
@@ -939,13 +945,7 @@ int kgsl_mmu_gpuaddr_in_range(struct kgsl_pagetable *pt, unsigned int gpuaddr)
 	if (KGSL_MMU_TYPE_NONE == kgsl_mmu_type)
 		return (gpuaddr != 0);
 
-	if (kgsl_mmu_is_secured(pt->mmu)) {
-		if (gpuaddr >= KGSL_IOMMU_SECURE_MEM_BASE && gpuaddr <
-		(KGSL_IOMMU_SECURE_MEM_BASE + KGSL_IOMMU_SECURE_MEM_SIZE))
-			return 1;
-		else
-			return 0;
-	} else if (gpuaddr > 0 && gpuaddr < KGSL_MMU_GLOBAL_MEM_BASE)
+	if (gpuaddr > 0 && gpuaddr < KGSL_MMU_GLOBAL_MEM_BASE)
 		return 1;
 
 	return 0;
