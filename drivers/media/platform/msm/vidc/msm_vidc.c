@@ -462,7 +462,7 @@ static inline void save_v4l2_buffer(struct v4l2_buffer *b,
 int map_and_register_buf(struct msm_vidc_inst *inst, struct v4l2_buffer *b)
 {
 	struct buffer_info *binfo = NULL;
-	struct buffer_info *temp = NULL;
+	struct buffer_info *temp = NULL, *iterator = NULL;
 	int plane = 0;
 	int i = 0, rc = 0;
 	struct msm_smem *same_fd_handle = NULL;
@@ -513,11 +513,19 @@ int map_and_register_buf(struct msm_vidc_inst *inst, struct v4l2_buffer *b)
 			* we receive RELEASE_BUFFER_REFERENCE EVENT from f/w.
 			*/
 			dprintk(VIDC_DBG, "[MAP] Buffer already prepared\n");
-			rc = buf_ref_get(inst, temp);
-			if (rc > 0) {
-				save_v4l2_buffer(b, temp);
-				rc = -EEXIST;
+			mutex_lock(&inst->registeredbufs.lock);
+			list_for_each_entry(iterator,
+				&inst->registeredbufs.list, list) {
+				if (iterator == temp) {
+					rc = buf_ref_get(inst, temp);
+					if (rc > 0) {
+						save_v4l2_buffer(b, temp);
+						rc = -EEXIST;
+					}
+					break;
+				}
 			}
+			mutex_unlock(&inst->registeredbufs.lock);
 		}
 		mutex_unlock(&inst->sync_lock);
 		if (rc < 0)

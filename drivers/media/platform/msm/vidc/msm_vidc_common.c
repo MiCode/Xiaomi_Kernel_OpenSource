@@ -268,9 +268,8 @@ static int msm_comm_vote_bus(struct msm_vidc_core *core)
 	}
 
 	mutex_lock(&core->lock);
-	list_for_each_entry(inst, &core->instances, list) {
+	list_for_each_entry(inst, &core->instances, list)
 		++vote_data_count;
-	}
 
 	vote_data = kzalloc(sizeof(*vote_data) * vote_data_count,
 			GFP_TEMPORARY);
@@ -336,8 +335,6 @@ struct msm_vidc_core *get_vidc_core(int core_id)
 	}
 	mutex_lock(&vidc_driver->lock);
 	list_for_each_entry(core, &vidc_driver->cores, list) {
-		if (!core)
-			return NULL;
 		if (core->id == core_id) {
 			found = 1;
 			break;
@@ -689,68 +686,73 @@ static void handle_event_change(enum command_response cmd, void *data)
 			event = V4L2_EVENT_SEQ_CHANGED_INSUFFICIENT;
 			break;
 		case HAL_EVENT_RELEASE_BUFFER_REFERENCE:
-			{
-				struct v4l2_event buf_event = {0};
-				struct buffer_info *binfo = NULL;
-				u32 *ptr = NULL;
+		{
+			struct v4l2_event buf_event = {0};
+			struct buffer_info *binfo = NULL, *temp = NULL;
+			u32 *ptr = NULL;
 
+			dprintk(VIDC_DBG,
+				"%s - inst: %p buffer: 0x%pa extra: 0x%pa\n",
+				__func__, inst, &event_notify->packet_buffer,
+				&event_notify->extra_data_buffer);
+
+			if (inst->state == MSM_VIDC_CORE_INVALID ||
+				inst->core->state == VIDC_CORE_INVALID) {
 				dprintk(VIDC_DBG,
-					"%s - inst: %p buffer: 0x%pa extra: 0x%pa\n",
-					__func__, inst,
-					&event_notify->packet_buffer,
-					&event_notify->extra_data_buffer);
-
-				if (inst->state == MSM_VIDC_CORE_INVALID ||
-					inst->core->state ==
-						VIDC_CORE_INVALID) {
-					dprintk(VIDC_DBG,
-						"Event release buf ref received in invalid state - discard\n");
-					return;
-				}
-
-				/*
-				* Get the buffer_info entry for the
-				* device address.
-				*/
-				binfo = device_to_uvaddr(&inst->registeredbufs,
-					event_notify->packet_buffer);
-				if (!binfo) {
-					dprintk(VIDC_ERR,
-						"%s buffer not found in registered list\n",
-						__func__);
-					return;
-				}
-
-				/* Fill event data to be sent to client*/
-				buf_event.type =
-					V4L2_EVENT_RELEASE_BUFFER_REFERENCE;
-				ptr = (u32 *)buf_event.u.data;
-				ptr[0] = binfo->fd[0];
-				ptr[1] = binfo->buff_off[0];
-
-				dprintk(VIDC_DBG,
-					"RELEASE REFERENCE EVENT FROM F/W - fd = %d offset = %d\n",
-					ptr[0], ptr[1]);
-
-				mutex_lock(&inst->sync_lock);
-				/* Decrement buffer reference count*/
-				buf_ref_put(inst, binfo);
-
-				/*
-				* Release buffer and remove from list
-				* if reference goes to zero.
-				*/
-				if (unmap_and_deregister_buf(inst, binfo))
-					dprintk(VIDC_ERR,
-					"%s: buffer unmap failed\n", __func__);
-				mutex_unlock(&inst->sync_lock);
-
-				/*send event to client*/
-				v4l2_event_queue_fh(&inst->event_handler,
-					&buf_event);
-				wake_up(&inst->kernel_event_queue);
+					"Event release buf ref received in invalid state - discard\n");
 				return;
 			}
+
+			/*
+			* Get the buffer_info entry for the
+			* device address.
+			*/
+			binfo = device_to_uvaddr(&inst->registeredbufs,
+				event_notify->packet_buffer);
+			if (!binfo) {
+				dprintk(VIDC_ERR,
+					"%s buffer not found in registered list\n",
+					__func__);
+				return;
+			}
+
+			/* Fill event data to be sent to client*/
+			buf_event.type = V4L2_EVENT_RELEASE_BUFFER_REFERENCE;
+			ptr = (u32 *)buf_event.u.data;
+			ptr[0] = binfo->fd[0];
+			ptr[1] = binfo->buff_off[0];
+
+			dprintk(VIDC_DBG,
+				"RELEASE REFERENCE EVENT FROM F/W - fd = %d offset = %d\n",
+				ptr[0], ptr[1]);
+
+			mutex_lock(&inst->sync_lock);
+
+			/* Decrement buffer reference count*/
+			mutex_lock(&inst->registeredbufs.lock);
+			list_for_each_entry(temp, &inst->registeredbufs.list,
+					list) {
+				if (temp == binfo) {
+					buf_ref_put(inst, binfo);
+					break;
+				}
+			}
+			mutex_unlock(&inst->registeredbufs.lock);
+
+			/*
+			* Release buffer and remove from list
+			* if reference goes to zero.
+			*/
+			if (unmap_and_deregister_buf(inst, binfo))
+				dprintk(VIDC_ERR,
+				"%s: buffer unmap failed\n", __func__);
+			mutex_unlock(&inst->sync_lock);
+
+			/*send event to client*/
+			v4l2_event_queue_fh(&inst->event_handler, &buf_event);
+			wake_up(&inst->kernel_event_queue);
+			return;
+		}
 		default:
 			break;
 		}
@@ -1149,8 +1151,7 @@ static void handle_sys_error(enum command_response cmd, void *data)
 	* 1. Delete each instance session from hfi list
 	* 2. Notify all clients about hardware error.
 	*/
-	list_for_each_entry(inst, &core->instances,
-			list) {
+	list_for_each_entry(inst, &core->instances, list) {
 		mutex_lock(&inst->lock);
 		inst->state = MSM_VIDC_CORE_INVALID;
 		if (inst->core)
@@ -1388,7 +1389,7 @@ int buf_ref_put(struct msm_vidc_inst *inst, struct buffer_info *binfo)
 static void handle_dynamic_buffer(struct msm_vidc_inst *inst,
 		ion_phys_addr_t device_addr, u32 flags)
 {
-	struct buffer_info *binfo = NULL;
+	struct buffer_info *binfo = NULL, *temp = NULL;
 
 	/*
 	 * Update reference count and release OR queue back the buffer,
@@ -1410,7 +1411,16 @@ static void handle_dynamic_buffer(struct msm_vidc_inst *inst,
 			dprintk(VIDC_DBG,
 				"FBD fd[0] = %d -> FBD_ref_released, addr: 0x%pa\n",
 				binfo->fd[0], &device_addr);
-			buf_ref_put(inst, binfo);
+
+			mutex_lock(&inst->registeredbufs.lock);
+			list_for_each_entry(temp, &inst->registeredbufs.list,
+							list) {
+				if (temp == binfo) {
+					buf_ref_put(inst, binfo);
+					break;
+				}
+			}
+			mutex_unlock(&inst->registeredbufs.lock);
 		}
 	}
 }
@@ -3628,7 +3638,7 @@ int msm_comm_release_scratch_buffers(struct msm_vidc_inst *inst,
 
 	mutex_lock(&inst->internalbufs.lock);
 	list_for_each_entry_safe(buf, dummy, &inst->internalbufs.list, list) {
-		if (!buf || !buf->handle) {
+		if (!buf->handle) {
 			dprintk(VIDC_ERR, "%s - buf->handle NULL\n", __func__);
 			rc = -EINVAL;
 			goto exit;
@@ -3971,8 +3981,7 @@ void msm_comm_flush_pending_dynamic_buffers(struct msm_vidc_inst *inst)
 
 	mutex_lock(&inst->registeredbufs.lock);
 	list_for_each_entry(binfo, &inst->registeredbufs.list, list) {
-		if (binfo && binfo->type ==
-			V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE) {
+		if (binfo->type == V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE) {
 			dprintk(VIDC_DBG,
 				"%s: binfo = %p device_addr = 0x%pa\n",
 				__func__, binfo, &binfo->device_addr[0]);
