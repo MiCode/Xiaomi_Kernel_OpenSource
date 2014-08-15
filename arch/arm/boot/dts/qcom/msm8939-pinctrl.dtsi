@@ -556,7 +556,7 @@
 			cross_conn_det_act: lines_on {
 				drive-strength = <8>;
 				output-low;
-				bias-disable;
+				bias-pull-down;
 			};
 			cross_conn_det_sus: lines_off {
 				drive-strength = <2>;
