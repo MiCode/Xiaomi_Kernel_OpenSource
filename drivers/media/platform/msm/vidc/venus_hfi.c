@@ -80,7 +80,7 @@ static void venus_hfi_pm_hndlr(struct work_struct *work);
 static DECLARE_DELAYED_WORK(venus_hfi_pm_work, venus_hfi_pm_hndlr);
 static int venus_hfi_power_enable(void *dev);
 static inline int venus_hfi_power_on(
-	struct venus_hfi_device *device);
+	struct venus_hfi_device *device, bool realloc_ocmem);
 static int venus_hfi_disable_regulators(struct venus_hfi_device *device);
 static int venus_hfi_enable_regulators(struct venus_hfi_device *device);
 static inline int venus_hfi_prepare_enable_clks(
@@ -631,7 +631,7 @@ static void venus_hfi_free(struct venus_hfi_device *dev, struct msm_smem *mem)
 		return;
 	}
 
-	if (venus_hfi_power_on(dev))
+	if (venus_hfi_power_on(dev, false))
 		dprintk(VIDC_ERR, "%s: Power on failed\n", __func__);
 
 	msm_smem_free(dev->hal_client, mem);
@@ -1481,7 +1481,8 @@ err_tzbsp_suspend:
 	return rc;
 }
 
-static inline int venus_hfi_power_on(struct venus_hfi_device *device)
+static inline int venus_hfi_power_on(struct venus_hfi_device *device,
+		bool realloc_ocmem)
 {
 	int rc = 0;
 
@@ -1569,15 +1570,23 @@ static inline int venus_hfi_power_on(struct venus_hfi_device *device)
 	device->power_enabled = true;
 
 	/*
-	 * write_lock is already acquired at this point, so to avoid
-	 * recursive lock in cmdq_write function, call nolock version
-	 * of alloc_ocmem
+	 * We might not need ocmem each time we power_on.  In some cases we
+	 * power on only to fiddle with some registers.  In those cases re-
+	 * allocating ocmem is a waste.
 	 */
-	WARN_ON(!mutex_is_locked(&device->write_lock));
-	rc = __alloc_ocmem(device, device->res->ocmem_size, false);
-	if (rc) {
-		dprintk(VIDC_ERR, "Failed to allocate OCMEM");
-		goto err_alloc_ocmem;
+	if (realloc_ocmem) {
+		/*
+		 * write_lock is already acquired at this point, so to avoid
+		 * recursive lock in cmdq_write function, call nolock version
+		 * of alloc_ocmem
+		 */
+		WARN_ON(!mutex_is_locked(&device->write_lock));
+
+		rc = __alloc_ocmem(device, device->res->ocmem_size, false);
+		if (rc) {
+			dprintk(VIDC_ERR, "Failed to allocate OCMEM");
+			goto err_alloc_ocmem;
+		}
 	}
 
 	dprintk(VIDC_INFO, "Resumed from power collapse\n");
@@ -1608,7 +1617,7 @@ static int venus_hfi_power_enable(void *dev)
 		return -EINVAL;
 	}
 	mutex_lock(&device->write_lock);
-	rc = venus_hfi_power_on(device);
+	rc = venus_hfi_power_on(device, false);
 	if (rc)
 		dprintk(VIDC_ERR, "%s: Failed to enable power\n", __func__);
 	mutex_unlock(&device->write_lock);
@@ -1684,7 +1693,7 @@ static int venus_hfi_iface_cmdq_write_nolock(struct venus_hfi_device *device,
 	venus_hfi_sim_modify_cmd_packet((u8 *)pkt, device);
 	if (!venus_hfi_write_queue(q_info, (u8 *)pkt, &rx_req_is_set)) {
 
-		if (venus_hfi_power_on(device)) {
+		if (venus_hfi_power_on(device, true)) {
 			dprintk(VIDC_ERR, "%s: Power on failed\n", __func__);
 			goto err_q_write;
 		}
