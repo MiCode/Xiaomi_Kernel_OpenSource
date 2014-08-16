@@ -223,7 +223,7 @@ static long msm_bmgr_subdev_fops_compat_ioctl(struct file *file,
 		break;
 	default:
 		pr_debug("%s : unsupported compat type", __func__);
-		break;
+		return -ENOIOCTLCMD;
 	}
 
 	switch (cmd) {
@@ -231,9 +231,14 @@ static long msm_bmgr_subdev_fops_compat_ioctl(struct file *file,
 	case VIDIOC_MSM_BUF_MNGR_BUF_DONE:
 	case VIDIOC_MSM_BUF_MNGR_PUT_BUF:
 		rc = v4l2_subdev_call(sd, core, ioctl, cmd, &buf_info);
+		if (rc < 0) {
+			pr_debug("%s : Subdev cmd %d fail", __func__, cmd);
+			return rc;
+		}
 		break;
 	default:
 		pr_debug("%s : unsupported compat type", __func__);
+		return -ENOIOCTLCMD;
 		break;
 	}
 
