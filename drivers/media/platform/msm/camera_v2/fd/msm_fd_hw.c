@@ -375,8 +375,7 @@ void msm_fd_hw_get_result_angle_pose(struct msm_fd_device *fd, int idx,
 	u32 reg;
 
 	reg = msm_fd_hw_read_reg(fd, MSM_FD_IOMEM_CORE,
-		MSM_FD_RESULT_CONF_SIZE(idx));
-
+		MSM_FD_RESULT_ANGLE_POSE(idx));
 	*angle = (reg >> MSM_FD_RESULT_ANGLE_SHIFT) & MSM_FD_RESULT_ANGLE_MASK;
 	*pose = (reg >> MSM_FD_RESULT_POSE_SHIFT) & MSM_FD_RESULT_POSE_MASK;
 }
