@@ -90,6 +90,7 @@ extern pgprot_t pgprot_default;
 #define __PAGE_COPY_EXEC	__pgprot(_PAGE_DEFAULT | PTE_USER | PTE_NG | PTE_PXN)
 #define __PAGE_READONLY		__pgprot(_PAGE_DEFAULT | PTE_USER | PTE_NG | PTE_PXN | PTE_UXN)
 #define __PAGE_READONLY_EXEC	__pgprot(_PAGE_DEFAULT | PTE_USER | PTE_NG | PTE_PXN)
+#define __PAGE_EXECONLY		__pgprot(_PAGE_DEFAULT | PTE_NG | PTE_PXN)
 
 #endif /* __ASSEMBLY__ */
 
@@ -97,7 +98,7 @@ extern pgprot_t pgprot_default;
 #define __P001  __PAGE_READONLY
 #define __P010  __PAGE_COPY
 #define __P011  __PAGE_COPY
-#define __P100  __PAGE_READONLY_EXEC
+#define __P100  __PAGE_EXECONLY
 #define __P101  __PAGE_READONLY_EXEC
 #define __P110  __PAGE_COPY_EXEC
 #define __P111  __PAGE_COPY_EXEC
@@ -106,7 +107,7 @@ extern pgprot_t pgprot_default;
 #define __S001  __PAGE_READONLY
 #define __S010  __PAGE_SHARED
 #define __S011  __PAGE_SHARED
-#define __S100  __PAGE_READONLY_EXEC
+#define __S100  __PAGE_EXECONLY
 #define __S101  __PAGE_READONLY_EXEC
 #define __S110  __PAGE_SHARED_EXEC
 #define __S111  __PAGE_SHARED_EXEC
@@ -143,8 +144,8 @@ extern struct page *empty_zero_page;
 #define pte_write(pte)		(!!(pte_val(pte) & PTE_WRITE))
 #define pte_exec(pte)		(!(pte_val(pte) & PTE_UXN))
 
-#define pte_valid_user(pte) \
-	((pte_val(pte) & (PTE_VALID | PTE_USER)) == (PTE_VALID | PTE_USER))
+#define pte_valid_ng(pte) \
+	((pte_val(pte) & (PTE_VALID | PTE_NG)) == (PTE_VALID | PTE_NG))
 
 static inline pte_t pte_wrprotect(pte_t pte)
 {
@@ -210,7 +211,7 @@ extern void __sync_icache_dcache(pte_t pteval, unsigned long addr);
 static inline void set_pte_at(struct mm_struct *mm, unsigned long addr,
 			      pte_t *ptep, pte_t pte)
 {
-	if (pte_valid_user(pte)) {
+	if (pte_valid_ng(pte)) {
 		if (!pte_special(pte) && pte_exec(pte))
 			__sync_icache_dcache(pte, addr);
 		if (pte_dirty(pte) && pte_write(pte))
@@ -239,36 +240,36 @@ static inline void set_pte_at(struct mm_struct *mm, unsigned long addr,
 
 #define __HAVE_ARCH_PTE_SPECIAL
 
-/*
- * Software PMD bits for THP
- */
+static inline pte_t pmd_pte(pmd_t pmd)
+{
+	return __pte(pmd_val(pmd));
+}
 
-#define PMD_SECT_DIRTY		(_AT(pmdval_t, 1) << 55)
-#define PMD_SECT_SPLITTING	(_AT(pmdval_t, 1) << 57)
+static inline pmd_t pte_pmd(pte_t pte)
+{
+	return __pmd(pte_val(pte));
+}
 
 /*
  * THP definitions.
  */
-#define pmd_young(pmd)		(pmd_val(pmd) & PMD_SECT_AF)
-
-#define __HAVE_ARCH_PMD_WRITE
-#define pmd_write(pmd)		(!(pmd_val(pmd) & PMD_SECT_RDONLY))
 
 #ifdef CONFIG_TRANSPARENT_HUGEPAGE
 #define pmd_trans_huge(pmd)	(pmd_val(pmd) && !(pmd_val(pmd) & PMD_TABLE_BIT))
-#define pmd_trans_splitting(pmd) (pmd_val(pmd) & PMD_SECT_SPLITTING)
+#define pmd_trans_splitting(pmd)	pte_special(pmd_pte(pmd))
 #endif
 
-#define PMD_BIT_FUNC(fn,op) \
-static inline pmd_t pmd_##fn(pmd_t pmd) { pmd_val(pmd) op; return pmd; }
+#define pmd_young(pmd)		pte_young(pmd_pte(pmd))
+#define pmd_wrprotect(pmd)	pte_pmd(pte_wrprotect(pmd_pte(pmd)))
+#define pmd_mksplitting(pmd)	pte_pmd(pte_mkspecial(pmd_pte(pmd)))
+#define pmd_mkold(pmd)		pte_pmd(pte_mkold(pmd_pte(pmd)))
+#define pmd_mkwrite(pmd)	pte_pmd(pte_mkwrite(pmd_pte(pmd)))
+#define pmd_mkdirty(pmd)	pte_pmd(pte_mkdirty(pmd_pte(pmd)))
+#define pmd_mkyoung(pmd)	pte_pmd(pte_mkyoung(pmd_pte(pmd)))
+#define pmd_mknotpresent(pmd)	(__pmd(pmd_val(pmd) & ~PMD_TYPE_MASK))
 
-PMD_BIT_FUNC(wrprotect,	|= PMD_SECT_RDONLY);
-PMD_BIT_FUNC(mkold,	&= ~PMD_SECT_AF);
-PMD_BIT_FUNC(mksplitting, |= PMD_SECT_SPLITTING);
-PMD_BIT_FUNC(mkwrite,   &= ~PMD_SECT_RDONLY);
-PMD_BIT_FUNC(mkdirty,   |= PMD_SECT_DIRTY);
-PMD_BIT_FUNC(mkyoung,   |= PMD_SECT_AF);
-PMD_BIT_FUNC(mknotpresent, &= ~PMD_TYPE_MASK);
+#define __HAVE_ARCH_PMD_WRITE
+#define pmd_write(pmd)		pte_write(pmd_pte(pmd))
 
 #define pmd_mkhuge(pmd)		(__pmd(pmd_val(pmd) & ~PMD_TABLE_BIT))
 
@@ -278,16 +279,7 @@ PMD_BIT_FUNC(mknotpresent, &= ~PMD_TYPE_MASK);
 
 #define pmd_page(pmd)           pfn_to_page(__phys_to_pfn(pmd_val(pmd) & PHYS_MASK))
 
-static inline pmd_t pmd_modify(pmd_t pmd, pgprot_t newprot)
-{
-	const pmdval_t mask = PMD_SECT_USER | PMD_SECT_PXN | PMD_SECT_UXN |
-			      PMD_SECT_RDONLY | PMD_SECT_PROT_NONE |
-			      PMD_SECT_VALID;
-	pmd_val(pmd) = (pmd_val(pmd) & ~mask) | (pgprot_val(newprot) & mask);
-	return pmd;
-}
-
-#define set_pmd_at(mm, addr, pmdp, pmd)	set_pmd(pmdp, pmd)
+#define set_pmd_at(mm, addr, pmdp, pmd)	set_pte_at(mm, addr, (pte_t *)pmdp, pmd_pte(pmd))
 
 static inline int has_transparent_hugepage(void)
 {
@@ -322,7 +314,7 @@ extern pgprot_t phys_mem_access_prot(struct file *file, unsigned long pfn,
 static inline void set_pmd(pmd_t *pmdp, pmd_t pmd)
 {
 	*pmdp = pmd;
-	dsb();
+	dsb(ishst);
 }
 
 static inline void pmd_clear(pmd_t *pmdp)
@@ -352,7 +344,7 @@ static inline pte_t *pmd_page_vaddr(pmd_t pmd)
 static inline void set_pud(pud_t *pudp, pud_t pud)
 {
 	*pudp = pud;
-	dsb();
+	dsb(ishst);
 }
 
 static inline void pud_clear(pud_t *pudp)
@@ -395,6 +387,11 @@ static inline pte_t pte_modify(pte_t pte, pgprot_t newprot)
 	return pte;
 }
 
+static inline pmd_t pmd_modify(pmd_t pmd, pgprot_t newprot)
+{
+	return pte_pmd(pte_modify(pmd_pte(pmd), newprot));
+}
+
 extern pgd_t swapper_pg_dir[PTRS_PER_PGD];
 extern pgd_t idmap_pg_dir[PTRS_PER_PGD];
 
@@ -424,7 +421,7 @@ extern pgd_t idmap_pg_dir[PTRS_PER_PGD];
 
 /*
  * Ensure that there are not more swap files than can be encoded in the kernel
- * the PTEs.
+ * PTEs.
  */
 #define MAX_SWAPFILES_CHECK() BUILD_BUG_ON(MAX_SWAPFILES_SHIFT > __SWP_TYPE_BITS)
 

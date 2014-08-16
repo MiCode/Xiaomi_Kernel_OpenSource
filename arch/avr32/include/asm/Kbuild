@@ -1,5 +1,6 @@
 
-generic-y	+= clkdev.h
-generic-y	+= exec.h
-generic-y	+= trace_clock.h
-generic-y	+= param.h
+generic-y += clkdev.h
+generic-y += exec.h
+generic-y += mcs_spinlock.h
+generic-y += param.h
+generic-y += trace_clock.h

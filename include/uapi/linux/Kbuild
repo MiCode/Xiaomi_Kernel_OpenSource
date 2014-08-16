@@ -361,6 +361,7 @@ header-y += ppp-ioctl.h
 header-y += ppp_defs.h
 header-y += pps.h
 header-y += prctl.h
+header-y += psci.h
 header-y += ptp_clock.h
 header-y += ptrace.h
 header-y += qcedev.h

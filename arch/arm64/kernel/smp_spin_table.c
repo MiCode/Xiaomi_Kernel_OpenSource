@@ -27,7 +27,6 @@
 #include <asm/smp_plat.h>
 
 static phys_addr_t cpu_release_addr[NR_CPUS];
-static DEFINE_RAW_SPINLOCK(boot_lock);
 
 /*
  * Write secondary_holding_pen_release in a way that is guaranteed to be
@@ -91,14 +90,6 @@ static int smp_spin_table_cpu_prepare(unsigned int cpu)
 
 static int smp_spin_table_cpu_boot(unsigned int cpu)
 {
-	unsigned long timeout;
-
-	/*
-	 * Set synchronisation state between this boot processor
-	 * and the secondary one
-	 */
-	raw_spin_lock(&boot_lock);
-
 	/*
 	 * Update the pen release flag.
 	 */
@@ -109,34 +100,7 @@ static int smp_spin_table_cpu_boot(unsigned int cpu)
 	 */
 	sev();
 
-	timeout = jiffies + (1 * HZ);
-	while (time_before(jiffies, timeout)) {
-		if (secondary_holding_pen_release == INVALID_HWID)
-			break;
-		udelay(10);
-	}
-
-	/*
-	 * Now the secondary core is starting up let it run its
-	 * calibrations, then wait for it to finish
-	 */
-	raw_spin_unlock(&boot_lock);
-
-	return secondary_holding_pen_release != INVALID_HWID ? -ENOSYS : 0;
-}
-
-void smp_spin_table_cpu_postboot(void)
-{
-	/*
-	 * Let the primary processor know we're out of the pen.
-	 */
-	write_pen_release(INVALID_HWID);
-
-	/*
-	 * Synchronise with the boot thread.
-	 */
-	raw_spin_lock(&boot_lock);
-	raw_spin_unlock(&boot_lock);
+	return 0;
 }
 
 static const struct cpu_operations smp_spin_table_ops = {
@@ -144,6 +108,5 @@ static const struct cpu_operations smp_spin_table_ops = {
 	.cpu_init	= smp_spin_table_cpu_init,
 	.cpu_prepare	= smp_spin_table_cpu_prepare,
 	.cpu_boot	= smp_spin_table_cpu_boot,
-	.cpu_postboot	= smp_spin_table_cpu_postboot,
 };
 CPU_METHOD_OF_DECLARE(spin_table, &smp_spin_table_ops);

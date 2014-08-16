@@ -232,7 +232,7 @@ static void __init arm_adjust_dma_zone(unsigned long *size, unsigned long *hole,
 }
 #endif
 
-void __init setup_dma_zone(struct machine_desc *mdesc)
+void __init setup_dma_zone(const struct machine_desc *mdesc)
 {
 #ifdef CONFIG_ZONE_DMA
 	if (mdesc->dma_zone_size) {
@@ -361,7 +361,7 @@ phys_addr_t __init arm_memblock_steal(phys_addr_t size, phys_addr_t align)
 	return phys;
 }
 
-void __init arm_memblock_init(struct machine_desc *mdesc)
+void __init arm_memblock_init(const struct machine_desc *mdesc)
 {
 	/* Register the kernel text, kernel data and initrd with memblock. */
 #ifdef CONFIG_XIP_KERNEL
@@ -392,11 +392,12 @@ void __init arm_memblock_init(struct machine_desc *mdesc)
 #endif
 
 	arm_mm_memblock_reserve();
-	arm_dt_memblock_reserve();
 
 	/* reserve any platform specific memblock areas */
 	if (mdesc->reserve)
 		mdesc->reserve();
+
+	early_init_fdt_scan_reserved_mem();
 
 	/*
 	 * reserve memory for DMA contigouos allocations,

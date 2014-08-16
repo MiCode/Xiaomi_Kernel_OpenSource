@@ -222,15 +222,15 @@ int __init cma_fdt_scan(unsigned long node, const char *uname,
 				int depth, void *data)
 {
 	phys_addr_t base, size;
-	unsigned long len;
-	__be32 *prop;
-	char *name;
+	int len;
+	const __be32 *prop;
+	const char *name;
 	bool in_system;
 	bool remove;
 	unsigned long size_cells = dt_root_size_cells;
 	unsigned long addr_cells = dt_root_addr_cells;
 	phys_addr_t limit = MEMBLOCK_ALLOC_ANYWHERE;
-	char *status;
+	const char *status;
 
 	if (!of_get_flat_dt_prop(node, "linux,reserve-contiguous-region", NULL))
 		return 0;

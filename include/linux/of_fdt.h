@@ -62,15 +62,15 @@ struct boot_param_header {
 struct device_node;
 
 /* For scanning an arbitrary device-tree at any time */
-extern char *of_fdt_get_string(struct boot_param_header *blob, u32 offset);
-extern void *of_fdt_get_property(struct boot_param_header *blob,
+extern char *of_fdt_get_string(const void *blob, u32 offset);
+extern void *of_fdt_get_property(const void *blob,
 				 unsigned long node,
 				 const char *name,
-				 unsigned long *size);
-extern int of_fdt_is_compatible(struct boot_param_header *blob,
+				 int *size);
+extern int of_fdt_is_compatible(const void *blob,
 				unsigned long node,
 				const char *compat);
-extern int of_fdt_match(struct boot_param_header *blob, unsigned long node,
+extern int of_fdt_match(const void *blob, unsigned long node,
 			const char *const *compat);
 extern void of_fdt_unflatten_tree(unsigned long *blob,
 			       struct device_node **mynodes);
@@ -78,18 +78,18 @@ extern void of_fdt_unflatten_tree(unsigned long *blob,
 /* TBD: Temporary export of fdt globals - remove when code fully merged */
 extern int __initdata dt_root_addr_cells;
 extern int __initdata dt_root_size_cells;
-extern struct boot_param_header *initial_boot_params;
+extern void *initial_boot_params;
 
 /* For scanning the flat device-tree at boot time */
-extern char *find_flat_dt_string(u32 offset);
 extern int of_scan_flat_dt(int (*it)(unsigned long node, const char *uname,
 				     int depth, void *data),
 			   void *data);
-extern void *of_get_flat_dt_prop(unsigned long node, const char *name,
-				 unsigned long *size);
+extern const void *of_get_flat_dt_prop(unsigned long node, const char *name,
+				       int *size);
 extern int of_flat_dt_is_compatible(unsigned long node, const char *name);
 extern int of_flat_dt_match(unsigned long node, const char *const *matches);
 extern unsigned long of_get_flat_dt_root(void);
+extern int of_get_flat_dt_size(void);
 
 /*
  * early_init_dt_scan_chosen - scan the device tree for ramdisk and bootargs
@@ -117,9 +117,12 @@ extern int early_init_dt_scan_chosen(unsigned long node, const char *uname,
 extern void early_init_dt_check_for_initrd(unsigned long node);
 extern int early_init_dt_scan_memory(unsigned long node, const char *uname,
 				     int depth, void *data);
+extern void early_init_fdt_scan_reserved_mem(void);
 extern void early_init_dt_add_memory_arch(u64 base, u64 size);
+extern int early_init_dt_reserve_memory_arch(phys_addr_t base, phys_addr_t size,
+					     bool no_map);
 extern void * early_init_dt_alloc_memory_arch(u64 size, u64 align);
-extern u64 dt_mem_next_cell(int s, __be32 **cellp);
+extern u64 dt_mem_next_cell(int s, const __be32 **cellp);
 
 /*
  * If BLK_DEV_INITRD, the fdt early init code will call this function,
@@ -142,10 +145,13 @@ extern const void *of_flat_dt_match_machine(const void *default_match,
 
 /* Other Prototypes */
 extern void unflatten_device_tree(void);
+extern void unflatten_and_copy_device_tree(void);
 extern void early_init_devtree(void *);
 #else /* CONFIG_OF_FLATTREE */
+static inline void early_init_fdt_scan_reserved_mem(void) {}
 static inline const char *of_flat_dt_get_machine_name(void) { return NULL; }
 static inline void unflatten_device_tree(void) {}
+static inline void unflatten_and_copy_device_tree(void) {}
 static inline void *of_get_flat_dt_prop(unsigned long node, const char *name,
 				 unsigned long *size) { return NULL; }
 
