@@ -15,7 +15,6 @@
 #include <linux/module.h>
 #include <linux/platform_device.h>
 #include <linux/regulator/consumer.h>
-#include <linux/iommu.h>
 #include <linux/spinlock.h>
 #include <linux/interrupt.h>
 #include <linux/ion.h>
@@ -375,14 +374,8 @@ static int msm_fd_open(struct file *file)
 		dev_err(device->dev, "Error ion client create\n");
 		goto error_ion_client_create;
 	}
+	ctx->mem_pool.fd_device = ctx->fd_device;
 	ctx->mem_pool.domain_num = ctx->fd_device->iommu_domain_num;
-
-	ret = iommu_attach_device(ctx->fd_device->iommu_domain,
-		ctx->fd_device->iommu_dev);
-	if (ret) {
-		dev_err(device->dev, "Can not attach iommu domain\n");
-		goto error_iommu_attach;
-	}
 
 	ctx->stats = vmalloc(sizeof(*ctx->stats) * MSM_FD_MAX_RESULT_BUFS);
 	if (!ctx->stats) {
@@ -394,9 +387,6 @@ static int msm_fd_open(struct file *file)
 	return 0;
 
 error_stats_vmalloc:
-	iommu_detach_device(ctx->fd_device->iommu_domain,
-			ctx->fd_device->iommu_dev);
-error_iommu_attach:
 	ion_client_destroy(ctx->mem_pool.client);
 error_ion_client_create:
 	vb2_queue_release(&ctx->vb2_q);
@@ -422,8 +412,6 @@ static int msm_fd_release(struct file *file)
 	if (ctx->work_buf.handle)
 		msm_fd_hw_unmap_buffer(&ctx->work_buf);
 
-	iommu_detach_device(ctx->fd_device->iommu_domain,
-		ctx->fd_device->iommu_dev);
 	ion_client_destroy(ctx->mem_pool.client);
 
 	v4l2_fh_del(&ctx->fh);

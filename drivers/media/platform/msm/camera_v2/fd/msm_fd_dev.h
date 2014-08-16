@@ -75,10 +75,12 @@ struct msm_fd_format {
 
 /*
  * struct msm_fd_mem_pool - Structure contain FD memory pool information.
+ * @fd_device: Pointer to fd device.
  * @client: Pointer to ion client.
  * @domain_num: Domain number associated with FD hw.
  */
 struct msm_fd_mem_pool {
+	struct msm_fd_device *fd_device;
 	struct ion_client *client;
 	int domain_num;
 };
@@ -197,6 +199,7 @@ enum msm_fd_mem_resources {
  * @bus_client: Memory access bus client.
  * @iommu_domain: Pointer to FD device iommu domain handler.
  * @iommu_domain_num: FD device iommu domain number.
+ * @iommu_attached_cnt: Iommu attached devices reference count.
  * @iommu_dev: Pointer to Ion iommu device.
  * @dev: Pointer to device struct.
  * @v4l2_dev: V4l2 device.
@@ -226,6 +229,7 @@ struct msm_fd_device {
 
 	struct iommu_domain *iommu_domain;
 	int iommu_domain_num;
+	unsigned int iommu_attached_cnt;
 
 	struct device *iommu_dev;
 	struct device *dev;
