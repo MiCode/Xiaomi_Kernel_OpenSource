@@ -202,6 +202,7 @@ struct dwc3_msm {
 #define MDWC3_PHY_REF_AND_CORECLK_OFF	\
 			(MDWC3_PHY_REF_CLK_OFF | MDWC3_CORECLK_OFF)
 
+	u32 gctl_val;
 	u32 qscratch_ctl_val;
 	dev_t ext_chg_dev;
 	struct cdev ext_chg_cdev;
@@ -1144,6 +1145,13 @@ static void dwc3_msm_notify_event(struct dwc3 *dwc, unsigned event)
 		dwc->tx_fifo_size = mdwc->tx_fifo_size;
 		break;
 	case DWC3_CONTROLLER_POST_INITIALIZATION_EVENT:
+		/*
+		 * Workaround: Disable internal clock gating always, as there
+		 * is a known HW bug that causes the internal RAM clock to get
+		 * stuck when entering low power modes.
+		 */
+		dwc3_msm_write_reg_field(mdwc->base, DWC3_GCTL,
+					DWC3_GCTL_DSBLCLKGTNG, 1);
 		usb_phy_post_init(mdwc->ss_phy);
 		break;
 	case DWC3_CONTROLLER_CONNDONE_EVENT:
@@ -1702,6 +1710,9 @@ static int dwc3_msm_suspend(struct dwc3_msm *mdwc)
 	/* make sure above writes are completed before turning off clocks */
 	wmb();
 
+	/* Save value of GCTL to rewrite upon resume */
+	mdwc->gctl_val = dwc3_msm_read_reg(mdwc->base, DWC3_GCTL);
+
 	/* Perform controller power collapse */
 	if (!host_bus_suspend && mdwc->power_collapse && !cable_connected) {
 		mdwc->lpm_flags |= MDWC3_POWER_COLLAPSE;
@@ -1855,6 +1866,8 @@ static int dwc3_msm_resume(struct dwc3_msm *mdwc)
 			dwc3_msm_power_collapse_por(mdwc);
 		mdwc->lpm_flags &= ~MDWC3_POWER_COLLAPSE;
 	}
+
+	dwc3_msm_write_reg(mdwc->base, DWC3_GCTL, mdwc->gctl_val);
 
 	atomic_set(&dwc->in_lpm, 0);
 
