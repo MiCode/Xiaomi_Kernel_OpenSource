@@ -79,6 +79,7 @@ struct smbchg_chip {
 	bool				soft_vfloat_comp_disabled;
 	bool				chg_enabled;
 	bool				low_icl_wa_on;
+	bool				battery_unknown;
 	bool				charge_unknown_battery;
 	struct parallel_usb_cfg		parallel;
 
@@ -1300,16 +1301,43 @@ static int smbchg_dc_is_writeable(struct power_supply *psy,
 	return rc;
 }
 
+#define USBIN_SUSPEND_SRC_BIT		BIT(6)
+static void smbchg_unknown_battery_en(struct smbchg_chip *chip, bool en)
+{
+	int rc;
+
+	if (en == chip->battery_unknown || chip->charge_unknown_battery)
+		return;
+
+	chip->battery_unknown = en;
+	rc = smbchg_sec_masked_write(chip,
+		chip->usb_chgpth_base + CHGPTH_CFG,
+		USBIN_SUSPEND_SRC_BIT, en ? 0 : USBIN_SUSPEND_SRC_BIT);
+	if (rc < 0) {
+		dev_err(chip->dev, "Couldn't set usb_chgpth cfg rc=%d\n", rc);
+		return;
+	}
+}
+
+#define UNKNOWN_BATT_TYPE	"Unknown Battery"
 static void smbchg_external_power_changed(struct power_supply *psy)
 {
 	struct smbchg_chip *chip = container_of(psy,
 				struct smbchg_chip, batt_psy);
 	union power_supply_propval prop = {0,};
 	int rc, current_limit = 0;
+	bool en;
 
 	if (chip->bms_psy_name)
 		chip->bms_psy =
 			power_supply_get_by_name((char *)chip->bms_psy_name);
+
+	if (chip->bms_psy) {
+		chip->bms_psy->get_property(chip->bms_psy,
+				POWER_SUPPLY_PROP_BATTERY_TYPE, &prop);
+		en = strcmp(prop.strval, UNKNOWN_BATT_TYPE) != 0;
+		smbchg_unknown_battery_en(chip, en);
+	}
 
 	rc = chip->usb_psy->get_property(chip->usb_psy,
 				POWER_SUPPLY_PROP_CHARGING_ENABLED, &prop);
@@ -2018,7 +2046,6 @@ static inline int get_bpd(const char *name)
 #define CHG_ITERM_500MA			0x6
 #define CHG_ITERM_600MA			0x7
 #define CHG_ITERM_MASK			SMB_MASK(2, 0)
-#define USBIN_SUSPEND_SRC_BIT		BIT(6)
 #define USB51_COMMAND_POL		BIT(2)
 #define USB51AC_CTRL			BIT(1)
 #define SFT_CFG				0xFD
