@@ -44,7 +44,7 @@ static void msm_sensor_adjust_mclk(struct msm_camera_power_ctrl_t *ctrl)
 
 static int32_t msm_camera_get_power_settimgs_from_sensor_lib(
 	struct msm_camera_power_ctrl_t *power_info,
-	struct msm_sensor_power_setting_info *power_setting_array)
+	struct msm_sensor_power_setting_array *power_setting_array)
 {
 	int32_t rc = 0;
 	uint32_t size;
