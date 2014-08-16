@@ -395,6 +395,7 @@ struct msm_isp_qbuf_info {
 struct msm_vfe_axi_src_state {
 	enum msm_vfe_input_src input_src;
 	uint32_t src_active;
+	uint32_t src_frame_id;
 };
 
 enum msm_isp_event_idx {
