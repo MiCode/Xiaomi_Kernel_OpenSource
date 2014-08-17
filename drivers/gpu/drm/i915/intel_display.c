@@ -5485,14 +5485,18 @@ void intel_crtc_control(struct drm_crtc *crtc, bool enable)
 			dev_priv->display.crtc_enable(crtc);
 		}
 	} else {
-		if (intel_crtc->active) {
+		if (intel_crtc->active)
 			dev_priv->display.crtc_disable(crtc);
 
-			domains = intel_crtc->enabled_power_domains;
-			for_each_power_domain(domain, domains)
-				intel_display_power_put(dev_priv, domain);
-			intel_crtc->enabled_power_domains = 0;
-		}
+		/*
+		 * Disabling wells unconditionally independent of CRTC state.
+		 * In scenario where suspend happens without DPMS OFF call,
+		 * Power wells remain ON if CRTC is disabled.
+		 */
+		domains = intel_crtc->enabled_power_domains;
+		for_each_power_domain(domain, domains)
+			intel_display_power_put(dev_priv, domain);
+		intel_crtc->enabled_power_domains = 0;
 	}
 }
 
