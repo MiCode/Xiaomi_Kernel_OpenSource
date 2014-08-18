@@ -1713,6 +1713,7 @@ static int dwc3_msm_suspend(struct dwc3_msm *mdwc)
 	clk_disable_unprepare(mdwc->utmi_clk);
 
 	if (can_suspend_ssphy) {
+		clk_set_rate(mdwc->core_clk, 19200000);
 		clk_disable_unprepare(mdwc->core_clk);
 		mdwc->lpm_flags |= MDWC3_CORECLK_OFF;
 		/* USB PHY no more requires TCXO */
@@ -1829,6 +1830,7 @@ static int dwc3_msm_resume(struct dwc3_msm *mdwc)
 
 	clk_prepare_enable(mdwc->iface_clk);
 	if (mdwc->lpm_flags & MDWC3_CORECLK_OFF) {
+		clk_set_rate(mdwc->core_clk, 125000000);
 		clk_prepare_enable(mdwc->core_clk);
 		mdwc->lpm_flags &= ~MDWC3_CORECLK_OFF;
 	}
@@ -3258,6 +3260,7 @@ disable_sleep_clk:
 disable_iface_clk:
 	clk_disable_unprepare(mdwc->iface_clk);
 disable_core_clk:
+	clk_set_rate(mdwc->core_clk, 19200000);
 	clk_disable_unprepare(mdwc->core_clk);
 disable_xo:
 	clk_disable_unprepare(mdwc->xo_clk);
@@ -3337,6 +3340,7 @@ static int dwc3_msm_remove(struct platform_device *pdev)
 		disable_irq(mdwc->pwr_event_irq);
 
 	clk_disable_unprepare(mdwc->utmi_clk);
+	clk_set_rate(mdwc->core_clk, 19200000);
 	clk_disable_unprepare(mdwc->core_clk);
 	clk_disable_unprepare(mdwc->iface_clk);
 	clk_disable_unprepare(mdwc->sleep_clk);
