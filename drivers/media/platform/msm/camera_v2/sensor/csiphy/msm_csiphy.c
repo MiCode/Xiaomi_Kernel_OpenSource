@@ -81,7 +81,7 @@ static int msm_csiphy_lane_config(struct csiphy_device *csiphy_dev,
 	if (csiphy_dev->hw_version >= CSIPHY_VERSION_V30) {
 		val = msm_camera_io_r(csiphy_dev->clk_mux_base);
 		if (csiphy_params->combo_mode &&
-			(csiphy_params->lane_mask & 0x18)) {
+			(csiphy_params->lane_mask & 0x18) == 0x18) {
 			val &= ~0xf0;
 			val |= csiphy_params->csid_core << 4;
 		} else {
@@ -165,6 +165,18 @@ static int msm_csiphy_lane_config(struct csiphy_device *csiphy_dev,
 				lane_val = lane_right|num_lanes;
 			} else if (j == 1) {
 				lane_val = 0x4;
+			}
+			if (csiphy_params->combo_mode == 1) {
+				/*
+				* In the case of combo mode, the clock is always
+				* 4th lane for the second sensor.
+				* So check whether the sensor is of one lane
+				* sensor and curr_lane for 0.
+				*/
+				if (curr_lane == 0 &&
+					((csiphy_params->lane_mask &
+						0x18) == 0x18))
+					lane_val = 0x4;
 			}
 			msm_camera_io_w(lane_val, csiphybase +
 				csiphy_dev->ctrl_reg->csiphy_reg.
