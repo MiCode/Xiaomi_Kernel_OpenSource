@@ -1,0 +1,23 @@
+Qualcomm Technologies, Inc. G-link SMEM Native Transport
+
+Required properties:
+-compatible : should be "qcom,glink-smem-native-xprt"
+-reg : the location and size of shared memory
+	the irq register base address for triggering interrupts
+-reg-names : "smem" - string to identify the shared memory region
+		"irq-reg-base" - string to identify the irq register region
+-qcom,irq-mask : the bitmark to trigger an interrupt
+-interrupts : the receiving interrupt line
+-label : the name of the subsystem this link connects to
+
+Example:
+
+	qcom,glink-smem-native-xprt-modem@fa00000 {
+		compatible = "qcom,glink-smem-native-xprt";
+		reg = <0xfa00000 0x200000>,
+			<0xfa006008 0x4>;
+		reg-names = "smem", "irq-reg-base";
+		qcom,irq-mask = <0x1000>;
+		interrupts = <0 25 1>;
+		label = "mpss";
+	};

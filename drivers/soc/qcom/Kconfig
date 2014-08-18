@@ -30,6 +30,54 @@ config MSM_EVENT_TIMER
 	  events that require the core to be awake and ready to handle the
 	  event.
 
+config MSM_GLINK
+	bool "Generic Link (G-Link)"
+	help
+	  G-Link is a generic link transport that replaces SMD.  It is used
+	  within a System-on-Chip (SoC) for communication between both internal
+	  processors and external peripherals.  The actual physical transport
+	  is handled by transport plug-ins that can be individually enabled and
+	  configured separately.
+
+config MSM_GLINK_LOOPBACK_SERVER
+	bool "Generic Link (G-Link) Loopback Server"
+	help
+	  G-Link Loopback Server that enable loopback test framework to test
+	  and validate the G-Link protocol stack. It support both local and
+	  remote clients to configure the loopback server and echo back the
+	  data received from the clients.
+
+config MSM_GLINK_SMD_XPRT
+	depends on MSM_SMD
+	depends on MSM_GLINK
+	bool "Generic Link (G-Link) SMD Transport"
+	help
+	  G-Link SMD Transport is a G-Link Transport plug-in.  It allows G-Link
+	  communication to remote entities through a SMD physical transport
+	  channel.  The remote side is assumed to be pure SMD.  The nature of
+	  SMD limits this G-Link transport to only connecting with entities
+	  internal to the System-on-Chip.
+
+config MSM_GLINK_SMEM_NATIVE_XPRT
+	depends on MSM_SMEM
+	depends on MSM_GLINK
+	bool "Generic Link (G-Link) SMEM Native Transport"
+	help
+	  G-Link SMEM Native Transport is a G-Link Transport plug-in.  It allows
+	  G-Link communication to remote entities through a shared memory
+	  physical transport.  The nature of shared memory limits this G-Link
+	  transport to only connecting with entities internal to the
+	  System-on-Chip.
+
+config MSM_GLINK_PKT
+	bool "Enable device interface for GLINK packet channels"
+	depends on MSM_GLINK
+	help
+	  G-link packet driver provides the interface for the userspace
+	  clients to communicate over G-Link via deivce nodes.
+	  This enable the usersapce clients to read and write to
+	  some glink packets channel.
+
 config MSM_IPC_ROUTER_SMD_XPRT
 	depends on MSM_SMD
 	depends on IPC_ROUTER
