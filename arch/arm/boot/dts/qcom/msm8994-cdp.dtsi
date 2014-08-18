@@ -330,10 +330,14 @@
 	qcom,mdss-dsi-bl-min-level = <1>;
 	qcom,mdss-dsi-bl-max-level = <4095>;
 	qcom,cont-splash-enabled;
+	qcom,partial-update-enabled;
+	qcom,panel-roi-alignment = <4 4 2 2 20 20>;
 };
 
 &dsi_dual_jdi_cmd_1 {
 	qcom,cont-splash-enabled;
+	qcom,partial-update-enabled;
+	qcom,panel-roi-alignment = <4 4 2 2 20 20>;
 };
 
 &pmx_hdmi_cec {
