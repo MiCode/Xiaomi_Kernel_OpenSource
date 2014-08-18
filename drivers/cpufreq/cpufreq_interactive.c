@@ -54,6 +54,7 @@ struct cpufreq_interactive_cpuinfo {
 	u64 hispeed_validate_time;
 	struct rw_semaphore enable_sem;
 	int governor_enabled;
+	struct cpufreq_interactive_tunables *cached_tunables;
 };
 
 static DEFINE_PER_CPU(struct cpufreq_interactive_cpuinfo, cpuinfo);
@@ -118,7 +119,6 @@ struct cpufreq_interactive_tunables {
 
 /* For cases where we have single governor instance for system */
 static struct cpufreq_interactive_tunables *common_tunables;
-static DEFINE_PER_CPU(struct cpufreq_interactive_tunables *, cached_tunables);
 
 static struct attribute_group *get_sysfs_attr(void);
 
@@ -1153,15 +1153,16 @@ static void save_tunables(struct cpufreq_policy *policy,
 			  struct cpufreq_interactive_tunables *tunables)
 {
 	int cpu;
+	struct cpufreq_interactive_cpuinfo *pcpu;
 
 	if (have_governor_per_policy())
 		cpu = cpumask_first(policy->related_cpus);
 	else
 		cpu = 0;
 
-	WARN_ON(per_cpu(cached_tunables, cpu) &&
-		per_cpu(cached_tunables, cpu) != tunables);
-	per_cpu(cached_tunables, cpu) = tunables;
+	pcpu = &per_cpu(cpuinfo, cpu);
+	WARN_ON(pcpu->cached_tunables && pcpu->cached_tunables != tunables);
+	pcpu->cached_tunables = tunables;
 }
 
 static struct cpufreq_interactive_tunables *restore_tunables(
@@ -1174,7 +1175,7 @@ static struct cpufreq_interactive_tunables *restore_tunables(
 	else
 		cpu = 0;
 
-	return per_cpu(cached_tunables, cpu);
+	return per_cpu(cpuinfo, cpu).cached_tunables;
 }
 
 static int cpufreq_governor_interactive(struct cpufreq_policy *policy,
@@ -1407,14 +1408,16 @@ module_init(cpufreq_interactive_init);
 static void __exit cpufreq_interactive_exit(void)
 {
 	int cpu;
+	struct cpufreq_interactive_cpuinfo *pcpu;
 
 	cpufreq_unregister_governor(&cpufreq_gov_interactive);
 	kthread_stop(speedchange_task);
 	put_task_struct(speedchange_task);
 
 	for_each_possible_cpu(cpu) {
-		kfree(per_cpu(cached_tunables, cpu));
-		per_cpu(cached_tunables, cpu) = NULL;
+		pcpu = &per_cpu(cpuinfo, cpu);
+		kfree(pcpu->cached_tunables);
+		pcpu->cached_tunables = NULL;
 	}
 }
 
