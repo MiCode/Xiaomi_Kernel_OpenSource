@@ -19,6 +19,7 @@
 #include <linux/memblock.h>
 #include <linux/bootmem.h>
 #include <linux/iommu.h>
+#include <linux/of_address.h>
 #include <linux/fb.h>
 #include <linux/dma-buf.h>
 
@@ -591,25 +592,51 @@ static __ref int mdss_mdp_splash_parse_dt(struct msm_fb_data_type *mfd)
 	struct mdss_overlay_private *mdp5_mdata = mfd_to_mdp5_data(mfd);
 	int len = 0, rc = 0;
 	u32 offsets[2];
+	struct device_node *pnode, *child_node;
 
 	mfd->splash_info.splash_logo_enabled =
 				of_property_read_bool(pdev->dev.of_node,
 				"qcom,mdss-fb-splash-logo-enabled");
 
 	of_find_property(pdev->dev.of_node, "qcom,memblock-reserve", &len);
-	if (len < 1) {
-		pr_debug("mem reservation for splash screen fb not present\n");
-		rc = -EINVAL;
-		goto error;
-	}
+	if (len) {
+		len = len / sizeof(u32);
 
-	len = len / sizeof(u32);
-
-	rc = of_property_read_u32_array(pdev->dev.of_node,
+		rc = of_property_read_u32_array(pdev->dev.of_node,
 			"qcom,memblock-reserve", offsets, len);
-	if (rc) {
-		pr_debug("error reading mem reserve settings for fb\n");
-		goto error;
+		if (rc) {
+			pr_err("error reading mem reserve settings for fb\n");
+			goto error;
+		}
+	} else {
+		child_node = of_get_child_by_name(pdev->dev.of_node,
+					"qcom,cont-splash-memory");
+		if (!child_node) {
+			pr_err("splash mem child node is not present\n");
+			rc = -EINVAL;
+			goto error;
+		}
+
+		pnode = of_parse_phandle(child_node, "linux,contiguous-region",
+					0);
+		if (pnode != NULL) {
+			const u32 *addr;
+			u64 size;
+			addr = of_get_address(pnode, 0, &size, NULL);
+			if (!addr) {
+				pr_err("failed to parse the splash memory address\n");
+				of_node_put(pnode);
+				rc = -EINVAL;
+				goto error;
+			}
+			offsets[0] = (u32) of_read_ulong(addr, 2);
+			offsets[1] = (u32) size;
+			of_node_put(pnode);
+		} else {
+			pr_err("mem reservation for splash screen fb not present\n");
+			rc = -EINVAL;
+			goto error;
+		}
 	}
 
 	if (!memblock_is_reserved(offsets[0])) {

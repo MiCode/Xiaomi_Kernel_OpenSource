@@ -424,11 +424,18 @@ Subnode properties:
 			 for the framebuffer used to display the splash screen.
 			 This property is required whenever the continuous splash
 			 screen feature is enabled for the corresponding
-			 framebuffer device.
+			 framebuffer device. It should be used for only 32bit
+			 kernel.
+- qcom,cont-splash-memory: Specifies the memory block region reserved for
+			 continuous splash screen feature. This property should be
+			 defined for corresponding framebuffer device if
+			 "qcom,memblock-reserve" is not defined when continuous
+			 splash screen feature is enabled.
 - linux,contiguous-region: Phandle to the continuous memory region reserved for
-			 frame-buffer. Size of this region is dependent on the
-			 display panel resolution and buffering scheme.
-			 Currently driver uses double buffering.
+			 frame-buffer or continuous splash screen. Size of this
+			 region is dependent on the display panel resolution and
+			 buffering scheme for frame-buffer node. Currently driver
+			 uses double buffering.
 
 			 Example: Width = 1920, Height = 1080, BytesPerPixel = 4,
 			 Number of frame-buffers reserved = 2.
@@ -578,6 +585,9 @@ Example:
 			qcom,mdss-fb-split = <480 240>
 			linux,contiguous-region = <&fb_mem>;
 			qcom,mdss-fb-splash-logo-enabled:
+			qcom,cont-splash-memory {
+				linux,contiguous-region = <&cont_splash_mem>;
+			};
 		};
 	};
 
