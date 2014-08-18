@@ -125,6 +125,17 @@ static const struct adreno_gpu_core adreno_gpulist[] = {
 		.gmem_size = SZ_128K,
 	},
 	{
+		.gpurev = ADRENO_REV_A304,
+		.core = 3,
+		.major = 0,
+		.minor = 4,
+		.patchid = 0x00,
+		.pm4fw_name = "a300_pm4.fw",
+		.pfpfw_name = "a300_pfp.fw",
+		.gpudev = &adreno_a3xx_gpudev,
+		.gmem_size = (SZ_64K + SZ_32K),
+	},
+	{
 		.gpurev = ADRENO_REV_A310,
 		.core = 3,
 		.major = 1,
