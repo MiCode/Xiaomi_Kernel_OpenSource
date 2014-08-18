@@ -25,8 +25,6 @@
 #ifndef __DHD_RTT_H__
 #define __DHD_RTT_H__
 
-#include "dngl_stats.h"
-
 #define RTT_MAX_TARGET_CNT 10
 #define RTT_MAX_FRAME_CNT 25
 #define RTT_MAX_RETRY_CNT 10
@@ -89,6 +87,17 @@ typedef enum rtt_reason {
 	RTT_REASON_ABORT
 } rtt_reason_t;
 
+typedef enum wifi_channel_width {
+	WIFI_CHAN_WIDTH_20	  = 0,
+	WIFI_CHAN_WIDTH_40	  = 1,
+	WIFI_CHAN_WIDTH_80	  = 2,
+	WIFI_CHAN_WIDTH_160   = 3,
+	WIFI_CHAN_WIDTH_80P80 = 4,
+	WIFI_CHAN_WIDTH_5	  = 5,
+	WIFI_CHAN_WIDTH_10	  = 6,
+	WIFI_CHAN_WIDTH_INVALID = -1
+} wifi_channel_width_t;
+
 typedef enum rtt_capability {
 	RTT_CAP_NONE = 0,
 	RTT_CAP_ONE_WAY	 = (1 << (0)),
@@ -96,6 +105,8 @@ typedef enum rtt_capability {
 	RTT_CAP_11MC_WAY  = (1 << (2)), /* IEEE802.11mc */
 	RTT_CAP_VS_WAY = (1 << (3)) /* BRCM vendor specific */
 } rtt_capability_t ;
+
+typedef int wifi_channel;
 
 typedef struct wifi_channel_info {
 	wifi_channel_width_t width;
