@@ -1882,6 +1882,40 @@ static void ipa_uc_event_handler(enum ipa_irq_type interrupt,
 	ipa_dec_client_disable_clks();
 }
 
+static int ipa_uc_panic_notifier(struct notifier_block *this,
+		unsigned long event, void *ptr)
+{
+	int result = 0;
+
+	IPADBG("this=%p evt=%lu ptr=%p\n", this, event, ptr);
+
+	result = ipa_uc_state_check();
+	if (result)
+		goto fail;
+
+	if (ipa_inc_client_enable_clks_no_block())
+		goto fail;
+
+	ipa_ctx->uc_ctx.uc_sram_mmio->cmdOp =
+		IPA_CPU_2_HW_CMD_ERR_FATAL;
+	ipa_ctx->uc_ctx.pending_cmd = ipa_ctx->uc_ctx.uc_sram_mmio->cmdOp;
+	/* ensure write to shared memory is done before triggering uc */
+	wmb();
+	ipa_write_reg(ipa_ctx->mmio, IPA_IRQ_EE_UC_n_OFFS(0), 0x1);
+	/* give uc enough time to save state */
+	udelay(IPA_PKT_FLUSH_TO_US);
+
+	ipa_dec_client_disable_clks();
+	IPADBG("err_fatal issued\n");
+
+fail:
+	return NOTIFY_DONE;
+}
+
+static struct notifier_block ipa_uc_panic_blk = {
+	.notifier_call  = ipa_uc_panic_notifier,
+};
+
 static void ipa_uc_response_hdlr(enum ipa_irq_type interrupt,
 				void *private_data,
 				void *interrupt_data)
@@ -1896,6 +1930,8 @@ static void ipa_uc_response_hdlr(enum ipa_irq_type interrupt,
 	if (ipa_ctx->uc_ctx.uc_sram_mmio->responseOp ==
 			IPA_HW_2_CPU_RESPONSE_INIT_COMPLETED) {
 		ipa_ctx->uc_ctx.uc_loaded = true;
+		atomic_notifier_chain_register(&panic_notifier_list,
+			&ipa_uc_panic_blk);
 		IPADBG("IPA uC loaded\n");
 	} else if (ipa_ctx->uc_ctx.uc_sram_mmio->responseOp ==
 		   IPA_HW_2_CPU_RESPONSE_CMD_COMPLETED) {
