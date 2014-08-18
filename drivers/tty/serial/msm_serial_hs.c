@@ -180,6 +180,7 @@ struct msm_hs_tx {
 	dma_addr_t dma_base;
 	struct tasklet_struct tlet;
 	struct msm_hs_sps_ep_conn_data cons;
+	struct timer_list tx_timeout_timer;
 };
 
 struct msm_hs_rx {
@@ -1296,6 +1297,29 @@ static void msm_hs_stop_rx_locked(struct uart_port *uport)
 	}
 }
 
+/* Tx timeout callback function */
+void tx_timeout_handler(unsigned long arg)
+{
+	struct msm_hs_port *msm_uport = (struct msm_hs_port *) arg;
+	struct uart_port *uport = &msm_uport->uport;
+	int isr;
+
+	if (msm_uport->clk_state != MSM_HS_CLK_ON) {
+		MSM_HS_WARN("%s(): clocks are off", __func__);
+		return;
+	}
+
+	isr = msm_hs_read(uport, UART_DM_ISR);
+	if (UARTDM_ISR_CURRENT_CTS_BMSK & isr)
+		MSM_HS_WARN("%s(): CTS Disabled, ISR 0x%x", __func__, isr);
+	dump_uart_hs_registers(msm_uport);
+	/* Log BAM TX pipe debug information */
+	sps_get_bam_debug_info(msm_uport->bam_handle,
+			93,
+			SPS_BAM_PIPE(msm_uport->bam_tx_ep_pipe_index),
+			0, 2);
+}
+
 /*  Transmit the next chunk of data */
 static void msm_hs_submit_tx_locked(struct uart_port *uport)
 {
@@ -1353,6 +1377,10 @@ static void msm_hs_submit_tx_locked(struct uart_port *uport)
 	/* Queue transfer request to SPS */
 	ret = sps_transfer_one(sps_pipe_handle, src_addr, tx_count,
 				msm_uport, flags);
+
+	/* Set 1 second timeout */
+	mod_timer(&tx->tx_timeout_timer,
+		jiffies + msecs_to_jiffies(MSEC_PER_SEC));
 
 	MSM_HS_DBG("%s:Enqueue Tx Cmd, ret %d\n", __func__, ret);
 }
@@ -1764,6 +1792,7 @@ static void msm_hs_sps_tx_callback(struct sps_event_notify *notify)
 	notify->data.transfer.iovec.flags,
 	msm_uport->uport.line);
 
+	del_timer(&msm_uport->tx.tx_timeout_timer);
 	tasklet_schedule(&msm_uport->tx.tlet);
 }
 
@@ -2641,6 +2670,9 @@ static int msm_hs_startup(struct uart_port *uport)
 	tx->tx_ready_int_en = 0;
 	tx->dma_in_flight = 0;
 	MSM_HS_DBG("%s():desc usage flag 0x%lx", __func__, rx->queued_flag);
+	setup_timer(&(tx->tx_timeout_timer),
+			tx_timeout_handler,
+			(unsigned long) msm_uport);
 
 	/* Enable reading the current CTS, no harm even if CTS is ignored */
 	msm_uport->imr_reg |= UARTDM_ISR_CURRENT_CTS_BMSK;
