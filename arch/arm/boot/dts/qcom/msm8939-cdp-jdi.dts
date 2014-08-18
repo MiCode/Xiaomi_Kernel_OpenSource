@@ -16,35 +16,7 @@
 #include "msm8939-cdp.dtsi"
 
 / {
-	model = "Qualcomm Technologies, Inc. MSM 8939 SMB1360 CDP";
+	model = "Qualcomm Technologies, Inc. MSM 8939 CDP JDI";
 	compatible = "qcom,msm8939-cdp", "qcom,msm8939", "qcom,cdp";
 	qcom,board-id = <1 1>;
-};
-
-&i2c_4 {
-	smb1360_otg_supply: smb1360-chg-fg@14 {
-		compatible = "qcom,smb1360-chg-fg";
-		reg = <0x14>;
-		interrupt-parent = <&msm_gpio>;
-		interrupts = <62 8>;
-		pinctrl-names = "default";
-		pinctrl-0 = <&smb_int_default>;
-		qcom,charging-disabled;
-		qcom,chg-inhibit-disabled;
-		qcom,float-voltage-mv = <4200>;
-		qcom,iterm-ma = <100>;
-		qcom,recharge-thresh-mv = <100>;
-		qcom,thermal-mitigation = <1500 700 600 0>;
-		regulator-name = "smb1360_otg_vreg";
-	};
-};
-
-&pm8916_chg {
-	status = "ok";
-	qcom,use-external-charger;
-};
-
-&pm8916_bms {
-	status = "ok";
-	qcom,disable-bms;
 };
