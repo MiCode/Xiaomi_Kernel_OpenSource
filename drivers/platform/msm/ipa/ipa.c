@@ -1389,6 +1389,9 @@ static int ipa_q6_set_ex_path_dis_agg(void)
 */
 int ipa_q6_cleanup(void)
 {
+	int client_idx;
+	int res;
+
 	if (ipa_q6_pipe_delay()) {
 		IPAERR("Failed to delay Q6 pipes\n");
 		BUG();
@@ -1405,6 +1408,18 @@ int ipa_q6_cleanup(void)
 		IPAERR("Failed to disable aggregation on Q6 pipes\n");
 		BUG();
 	}
+
+	for (client_idx = 0; client_idx < IPA_CLIENT_MAX; client_idx++)
+		if (IPA_CLIENT_IS_Q6_CONS(client_idx) ||
+		    IPA_CLIENT_IS_Q6_PROD(client_idx)) {
+			res = ipa_uc_reset_pipe(client_idx);
+			/*
+			 * In case of a failure we have to assert, because
+			 * Q6 relies on the AP to reset all the pipes.
+			 */
+			if (res)
+				BUG();
+		}
 
 	return 0;
 }
@@ -2877,6 +2892,13 @@ static int ipa_init(const struct ipa_plat_drv_res *resource_p,
 	}
 
 	ipa_debugfs_init();
+
+	result = ipa_uc_interface_init();
+	if (result)
+		IPAERR(":ipa Uc interface init failed (%d)\n", -result);
+	else
+		IPADBG(":ipa Uc interface init ok\n");
+
 	result = ipa_wdi_init();
 	if (result)
 		IPAERR(":wdi init failed (%d)\n", -result);
