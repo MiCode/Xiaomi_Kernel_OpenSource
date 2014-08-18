@@ -2,7 +2,7 @@ config SUPERH
 	def_bool y
 	select EXPERT
 	select CLKDEV_LOOKUP
-	select HAVE_IDE if HAS_IOPORT
+	select HAVE_IDE if HAS_IOPORT_MAP
 	select HAVE_MEMBLOCK
 	select HAVE_MEMBLOCK_NODE_MAP
 	select ARCH_DISCARD_MEMBLOCK
@@ -146,7 +146,7 @@ config ARCH_HAS_ILOG2_U32
 config ARCH_HAS_ILOG2_U64
 	def_bool n
 
-config NO_IOPORT
+config NO_IOPORT_MAP
 	def_bool !PCI
 	depends on !SH_CAYMAN && !SH_SH4202_MICRODEV && !SH_SHMIN && \
 		   !SH_HP6XX && !SH_SOLUTION_ENGINE

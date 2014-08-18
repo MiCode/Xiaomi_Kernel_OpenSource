@@ -290,7 +290,7 @@ void dm_table_put(struct dm_table *t)
 	if (!t)
 		return;
 
-	smp_mb__before_atomic_dec();
+	smp_mb__before_atomic();
 	atomic_dec(&t->holders);
 }
 EXPORT_SYMBOL(dm_table_put);

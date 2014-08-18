@@ -960,10 +960,10 @@ op_err:
 op_done:
 	case BNX2X_VFOP_QSETUP_DONE:
 		vf->cfg_flags |= VF_CFG_VLAN;
-		smp_mb__before_clear_bit();
+		smp_mb__before_atomic();
 		set_bit(BNX2X_SP_RTNL_HYPERVISOR_VLAN,
 			&bp->sp_rtnl_state);
-		smp_mb__after_clear_bit();
+		smp_mb__after_atomic();
 		schedule_delayed_work(&bp->sp_rtnl_task, 0);
 		bnx2x_vfop_end(bp, vf, vfop);
 		return;
@@ -2348,9 +2348,9 @@ static
 void bnx2x_vf_handle_filters_eqe(struct bnx2x *bp,
 				 struct bnx2x_virtf *vf)
 {
-	smp_mb__before_clear_bit();
+	smp_mb__before_atomic();
 	clear_bit(BNX2X_FILTER_RX_MODE_PENDING, &vf->filter_state);
-	smp_mb__after_clear_bit();
+	smp_mb__after_atomic();
 }
 
 int bnx2x_iov_eq_sp_event(struct bnx2x *bp, union event_ring_elem *elem)
@@ -3459,9 +3459,9 @@ int bnx2x_open_epilog(struct bnx2x *bp)
 	 * was set before PF driver was loaded.
 	 */
 	if (IS_SRIOV(bp) && BNX2X_NR_VIRTFN(bp)) {
-		smp_mb__before_clear_bit();
+		smp_mb__before_atomic();
 		set_bit(BNX2X_SP_RTNL_ENABLE_SRIOV, &bp->sp_rtnl_state);
-		smp_mb__after_clear_bit();
+		smp_mb__after_atomic();
 		schedule_delayed_work(&bp->sp_rtnl_task, 0);
 	}
 
