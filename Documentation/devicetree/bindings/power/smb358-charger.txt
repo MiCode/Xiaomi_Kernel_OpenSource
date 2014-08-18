@@ -33,6 +33,11 @@ Optional Properties:
 - qcom,charger-disabled		This is a bool property which disables charging.
 - qcom,using-pmic-therm		This property indicates thermal pin connected to pmic or smb.
 - qcom,vcc-i2c-supply           Power source required to power up i2c bus.
+- qcom,bms-controlled-charging	This property indicates integrating with VMBMS, charger
+				driver and BMS communicates with each other via power_supply
+				framework. Property "qcom,iterm-disabled" also needs defined
+				if using this feature to make sure that the charger doesn't
+				terminate charging on its own.
 - qcom,iterm-ma			Specifies the termination current to indicate end-of-charge.
 				Possible values in mA - 30, 40, 60, 80, 100, 125, 150, 200.
 - qcom,iterm-disabled		Disables the termination current feature. This is a bool
@@ -64,6 +69,7 @@ Example:
 			qcom,float-voltage-mv = <4350>;
 			qcom,disable-apsd;
 			qcom,chg-inhibit-disabled;
+			qcom,bms-controlled-charging;
 			qcom,fastchg-current-max-ma = <1500>;
 			qcom,bms-psy-name = "bms";
 			qcom,chg-vadc = <&pm8226_vadc>;
