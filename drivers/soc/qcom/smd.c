@@ -2050,6 +2050,7 @@ EXPORT_SYMBOL(smd_named_open_on_edge);
 int smd_close(smd_channel_t *ch)
 {
 	unsigned long flags;
+	bool was_opened;
 
 	if (ch == 0)
 		return -EINVAL;
@@ -2059,9 +2060,10 @@ int smd_close(smd_channel_t *ch)
 	spin_lock_irqsave(&smd_lock, flags);
 	list_del(&ch->ch_list);
 
+	was_opened = ch->half_ch->get_state(ch->recv) == SMD_SS_OPENED;
 	ch_set_state(ch, SMD_SS_CLOSED);
 
-	if (ch->half_ch->get_state(ch->recv) == SMD_SS_OPENED) {
+	if (was_opened) {
 		list_add(&ch->ch_list, &smd_ch_closing_list);
 		spin_unlock_irqrestore(&smd_lock, flags);
 	} else {
