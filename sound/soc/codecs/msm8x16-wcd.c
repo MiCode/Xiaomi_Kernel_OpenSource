@@ -1485,9 +1485,15 @@ static const struct snd_kcontrol_new rdac2_mux =
 static const struct snd_kcontrol_new iir1_inp1_mux =
 	SOC_DAPM_ENUM("IIR1 INP1 Mux", iir1_inp1_mux_enum);
 
-static const struct snd_kcontrol_new ear_pa_switch[] = {
-	SOC_DAPM_SINGLE("Switch",
-		MSM8X16_WCD_A_ANALOG_RX_EAR_CTL, 5, 1, 0)
+static const char * const ear_text[] = {
+	"ZERO", "Switch",
+};
+
+static const struct soc_enum ear_enum =
+	SOC_ENUM_SINGLE(0, 0, ARRAY_SIZE(ear_text), ear_text);
+
+static const struct snd_kcontrol_new ear_pa_mux[] = {
+	SOC_DAPM_ENUM_VIRT("EAR_S", ear_enum)
 };
 
 static const char * const hph_text[] = {
@@ -2798,8 +2804,8 @@ static const struct snd_soc_dapm_widget msm8x16_wcd_dapm_widgets[] = {
 			0, 0, NULL, 0, msm8x16_wcd_codec_enable_ear_pa,
 			SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMU |
 			SND_SOC_DAPM_PRE_PMD | SND_SOC_DAPM_POST_PMD),
-	SND_SOC_DAPM_MIXER("EAR_S", SND_SOC_NOPM, 0, 0,
-		ear_pa_switch, ARRAY_SIZE(ear_pa_switch)),
+	SND_SOC_DAPM_VIRT_MUX("EAR_S", SND_SOC_NOPM, 0, 0,
+		ear_pa_mux),
 
 	SND_SOC_DAPM_AIF_IN("I2S RX1", "AIF1 Playback", 0, SND_SOC_NOPM, 0, 0),
 
