@@ -127,6 +127,12 @@ Optional Properties:
 				algorithm is disabled. If this node is present
 				SMB uses the THERM pin for battery missing
 				detection.
+- qcom,charge-unknown-battery	Boolean that indicates whether an unknown
+				battery without a matching profile will be
+				charged. If this is not set, if the fuel gauge
+				does not recognize the battery based on its
+				battery ID, the charger will not start
+				charging.
 - qcom,bmd-pin-src		A string that indicates the source pin for the
 				battery missind detection. This can be either:
 				- "bpd_none"

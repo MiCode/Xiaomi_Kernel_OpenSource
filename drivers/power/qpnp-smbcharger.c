@@ -79,6 +79,7 @@ struct smbchg_chip {
 	bool				soft_vfloat_comp_disabled;
 	bool				chg_enabled;
 	bool				low_icl_wa_on;
+	bool				charge_unknown_battery;
 	struct parallel_usb_cfg		parallel;
 
 	/* status variables */
@@ -2099,7 +2100,7 @@ static int smbchg_hw_init(struct smbchg_chip *chip)
 	 */
 	rc = smbchg_sec_masked_write(chip, chip->usb_chgpth_base + CHGPTH_CFG,
 		USBIN_SUSPEND_SRC_BIT | USB51_COMMAND_POL | USB51AC_CTRL,
-		USBIN_SUSPEND_SRC_BIT);
+		(chip->charge_unknown_battery ? 0 : USBIN_SUSPEND_SRC_BIT));
 	if (rc < 0) {
 		dev_err(chip->dev, "Couldn't set usb_chgpth cfg rc=%d\n", rc);
 		return rc;
@@ -2350,6 +2351,8 @@ static int smb_parse_dt(struct smbchg_chip *chip)
 					"qcom,soft-vfloat-comp-disabled");
 	chip->chg_enabled = !(of_property_read_bool(node,
 						"qcom,charging-disabled"));
+	chip->charge_unknown_battery = of_property_read_bool(node,
+						"qcom,charge-unknown-battery");
 
 	/* parse the battery missing detection pin source */
 	rc = of_property_read_string(chip->spmi->dev.of_node,
