@@ -2016,6 +2016,8 @@ static inline int get_bpd(const char *name)
 #define USB51_COMMAND_POL		BIT(2)
 #define USB51AC_CTRL			BIT(1)
 #define SFT_CFG				0xFD
+#define TR_8OR32B			0xFE
+#define BUCK_8_16_FREQ_BIT		BIT(0)
 #define SFT_EN_MASK			SMB_MASK(5, 4)
 #define SFT_TO_MASK			SMB_MASK(3, 2)
 #define PRECHG_SFT_TO_MASK		SMB_MASK(1, 0)
@@ -2183,6 +2185,15 @@ static int smbchg_hw_init(struct smbchg_chip *chip)
 				rc);
 			return rc;
 		}
+	}
+
+	/* make the buck switch faster to prevent some vbus oscillation */
+	rc = smbchg_sec_masked_write(chip,
+			chip->usb_chgpth_base + TR_8OR32B,
+			BUCK_8_16_FREQ_BIT, 0);
+	if (rc < 0) {
+		dev_err(chip->dev, "Couldn't set buck frequency rc = %d\n", rc);
+		return rc;
 	}
 
 	/* battery missing detection */
