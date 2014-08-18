@@ -1469,9 +1469,12 @@ void diag_mask_update_fn(struct work_struct *work)
 	diag_send_log_mask_update(smd_info, ALL_EQUIP_ID);
 	diag_send_event_mask_update(smd_info);
 
-	if (smd_info->notify_context == SMD_EVENT_OPEN)
+	if (smd_info->notify_context == SMD_EVENT_OPEN) {
 		diag_send_diag_mode_update_by_smd(smd_info,
 				driver->real_time_mode[DIAG_LOCAL_PROC]);
+		diag_send_peripheral_buffering_mode(
+				&driver->buffering_mode[smd_info->peripheral]);
+	}
 
 	smd_info->notify_context = 0;
 }

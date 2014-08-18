@@ -1071,7 +1071,7 @@ static int diag_ioctl_vote_real_time(unsigned long ioarg)
 
 static int diag_ioctl_get_real_time(unsigned long ioarg)
 {
-	int result = -EINVAL;
+	int i;
 	int retry_count = 0;
 	int timer = 0;
 	struct real_time_query_t rt_query;
@@ -1090,22 +1090,75 @@ static int diag_ioctl_get_real_time(unsigned long ioarg)
 			for (timer = 0; timer < 5; timer++)
 				usleep_range(10000, 10100);
 		} else {
-			if (rt_query.proc < 0 ||
-					rt_query.proc >= DIAG_NUM_PROC) {
-				pr_err("diag: Invalid proc %d in %s\n",
-				       rt_query.proc, __func__);
-				return -EINVAL;
-			}
-			rt_query.real_time =
-				driver->real_time_mode[rt_query.proc];
-			if (copy_to_user((void __user *)ioarg, &rt_query,
-				sizeof(struct real_time_query_t)))
-				return -EFAULT;
-			result = 0;
 			break;
 		}
 	}
-	return result;
+
+	if (driver->real_time_update_busy > 0)
+		return -EAGAIN;
+
+	if (rt_query.proc < 0 || rt_query.proc >= DIAG_NUM_PROC) {
+		pr_err("diag: Invalid proc %d in %s\n", rt_query.proc,
+		       __func__);
+		return -EINVAL;
+	}
+	rt_query.real_time = driver->real_time_mode[rt_query.proc];
+	/*
+	 * For the local processor, if any of the peripherals is in buffering
+	 * mode, overwrite the value of real time with UNKNOWN_MODE
+	 */
+	if (rt_query.proc == DIAG_LOCAL_PROC) {
+		for (i = 0; i < NUM_SMD_CONTROL_CHANNELS; i++) {
+			if (!driver->peripheral_buffering_support[i])
+				continue;
+			switch (driver->buffering_mode[i].mode) {
+			case DIAG_BUFFERING_MODE_CIRCULAR:
+			case DIAG_BUFFERING_MODE_THRESHOLD:
+				rt_query.real_time = MODE_UNKNOWN;
+				break;
+			}
+		}
+	}
+
+	if (copy_to_user((void __user *)ioarg, &rt_query,
+			 sizeof(struct real_time_query_t)))
+		return -EFAULT;
+
+	return 0;
+}
+
+static int diag_ioctl_set_buffering_mode(unsigned long ioarg)
+{
+	struct diag_buffering_mode_t params;
+
+	if (copy_from_user(&params, (void __user *)ioarg, sizeof(params)))
+		return -EFAULT;
+
+	return diag_send_peripheral_buffering_mode(&params);
+}
+
+static int diag_ioctl_peripheral_drain_immediate(unsigned long ioarg)
+{
+	uint8_t peripheral;
+	struct diag_smd_info *smd_info = NULL;
+
+	if (copy_from_user(&peripheral, (void __user *)ioarg, sizeof(uint8_t)))
+		return -EFAULT;
+
+	if (peripheral > LAST_PERIPHERAL) {
+		pr_err("diag: In %s, invalid peripheral %d\n", __func__,
+		       peripheral);
+		return -EINVAL;
+	}
+
+	if (!driver->peripheral_buffering_support[peripheral]) {
+		pr_err("diag: In %s, peripheral %d doesn't support buffering\n",
+		       __func__, peripheral);
+		return -EIO;
+	}
+
+	smd_info = &driver->smd_cntl[peripheral];
+	return diag_send_peripheral_drain_immediate(smd_info);
 }
 
 static int diag_ioctl_dci_support(unsigned long ioarg)
@@ -1228,6 +1281,12 @@ long diagchar_compat_ioctl(struct file *filp,
 	case DIAG_IOCTL_GET_REAL_TIME:
 		result = diag_ioctl_get_real_time(ioarg);
 		break;
+	case DIAG_IOCTL_PERIPHERAL_BUF_CONFIG:
+		result = diag_ioctl_set_buffering_mode(ioarg);
+		break;
+	case DIAG_IOCTL_PERIPHERAL_BUF_DRAIN:
+		result = diag_ioctl_peripheral_drain_immediate(ioarg);
+		break;
 	}
 	return result;
 }
@@ -1318,6 +1377,12 @@ long diagchar_ioctl(struct file *filp,
 		break;
 	case DIAG_IOCTL_GET_REAL_TIME:
 		result = diag_ioctl_get_real_time(ioarg);
+		break;
+	case DIAG_IOCTL_PERIPHERAL_BUF_CONFIG:
+		result = diag_ioctl_set_buffering_mode(ioarg);
+		break;
+	case DIAG_IOCTL_PERIPHERAL_BUF_DRAIN:
+		result = diag_ioctl_peripheral_drain_immediate(ioarg);
 		break;
 	}
 	return result;

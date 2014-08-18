@@ -34,6 +34,9 @@
 #define DIAG_CTRL_MSG_LOG_MASK_WITH_PRESET_ID	14
 #define DIAG_CTRL_MSG_EVENT_MASK_WITH_PRESET_ID	15
 #define DIAG_CTRL_MSG_F3_MASK_WITH_PRESET_ID	16
+#define DIAG_CTRL_MSG_CONFIG_PERIPHERAL_TX_MODE	17
+#define DIAG_CTRL_MSG_PERIPHERAL_BUF_DRAIN_IMM	18
+#define DIAG_CTRL_MSG_CONFIG_PERIPHERAL_WMQ_VAL	19
 #define DIAG_CTRL_MSG_DCI_CONNECTION_STATUS	20
 #define DIAG_CTRL_MSG_LAST_EVENT_REPORT		22
 #define DIAG_CTRL_MSG_LOG_RANGE_REPORT		23
@@ -56,6 +59,7 @@
 #define F_DIAG_REQ_RSP_SUPPORT			4
 #define F_DIAG_APPS_HDLC_ENCODE			6
 #define F_DIAG_STM				9
+#define F_DIAG_PERIPHERAL_BUFFERING		10
 #define F_DIAG_MASK_CENTRALIZATION		11
 
 #define ENABLE_SEPARATE_CMDRSP	1
@@ -196,6 +200,30 @@ struct diag_ctrl_build_mask_report {
 	uint32_t count;
 } __packed;
 
+struct diag_ctrl_peripheral_tx_mode {
+	uint32_t pkt_id;
+	uint32_t len;
+	uint32_t version;
+	uint8_t stream_id;
+	uint8_t tx_mode;
+} __packed;
+
+struct diag_ctrl_drain_immediate {
+	uint32_t pkt_id;
+	uint32_t len;
+	uint32_t version;
+	uint8_t stream_id;
+} __packed;
+
+struct diag_ctrl_set_wq_val {
+	uint32_t pkt_id;
+	uint32_t len;
+	uint32_t version;
+	uint8_t stream_id;
+	uint8_t high_wm_val;
+	uint8_t low_wm_val;
+} __packed;
+
 int diagfwd_cntl_init(void);
 void diagfwd_cntl_exit(void);
 void diag_read_smd_cntl_work_fn(struct work_struct *);
@@ -204,13 +232,19 @@ void diag_clean_reg_fn(struct work_struct *work);
 void diag_cntl_smd_work_fn(struct work_struct *work);
 int diag_process_smd_cntl_read_data(struct diag_smd_info *smd_info, void *buf,
 								int total_recd);
-void diag_send_diag_mode_update_by_smd(struct diag_smd_info *smd_info,
+int diag_send_diag_mode_update_by_smd(struct diag_smd_info *smd_info,
 							int real_time);
+int diag_send_peripheral_buffering_mode(struct diag_buffering_mode_t *params);
 void diag_update_proc_vote(uint16_t proc, uint8_t vote, int index);
 void diag_update_real_time_vote(uint16_t proc, uint8_t real_time, int index);
 void diag_real_time_work_fn(struct work_struct *work);
 int diag_send_stm_state(struct diag_smd_info *smd_info,
 				uint8_t stm_control_data);
+int diag_send_peripheral_drain_immediate(struct diag_smd_info *smd_info);
+int diag_send_buffering_tx_mode_pkt(struct diag_smd_info *smd_info,
+				    struct diag_buffering_mode_t *params);
+int diag_send_buffering_wm_values(struct diag_smd_info *smd_info,
+				  struct diag_buffering_mode_t *params);
 void diag_cntl_stm_notify(struct diag_smd_info *smd_info, int action);
 
 #endif
