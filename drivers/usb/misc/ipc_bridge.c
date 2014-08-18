@@ -228,7 +228,7 @@ static void ipc_bridge_int_cb(struct urb *urb)
 		}
 		dev->get_encap_resp++;
 		/* Tell runtime pm core that we are busy */
-		usb_autopm_get_interface_no_resume(dev->intf);
+		usb_autopm_get_interface_async(dev->intf);
 		return;
 	default:
 		dev_err(&dev->intf->dev, "unknown data on int ep\n");
