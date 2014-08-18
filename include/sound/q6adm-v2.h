@@ -20,6 +20,22 @@
 #include <sound/q6afe-v2.h>
 #include <sound/q6audio-v2.h>
 
+#define MAX_MODULES_IN_TOPO 16
+#define ADM_GET_TOPO_MODULE_LIST_LENGTH\
+		((MAX_MODULES_IN_TOPO + 1) * sizeof(uint32_t))
+#define AUD_PROC_BLOCK_SIZE	4096
+#define AUD_VOL_BLOCK_SIZE	4096
+#define AUDIO_RX_CALIBRATION_SIZE	(AUD_PROC_BLOCK_SIZE + \
+						AUD_VOL_BLOCK_SIZE)
+enum {
+	ADM_CUSTOM_TOP_CAL = 0,
+	ADM_AUDPROC_CAL,
+	ADM_AUDVOL_CAL,
+	ADM_RTAC_INFO_CAL,
+	ADM_RTAC_APR_CAL,
+	ADM_DTS_EAGLE,
+	ADM_MAX_CAL_TYPES
+};
 
 #define MAX_COPPS_PER_PORT 0x8
 /* multiple copp per stream. */
@@ -49,7 +65,7 @@ int adm_dolby_dap_send_params(int port_id, int copp_idx, char *params,
 
 int adm_open(int port, int path, int rate, int mode, int topology,
 			   int perf_mode, uint16_t bits_per_sample,
-			   int app_type);
+			   int app_type, int acdbdev_id);
 
 int adm_map_rtac_block(struct rtac_cal_block_data *cal_block);
 
@@ -83,5 +99,27 @@ int adm_get_indexes_from_copp_id(int copp_id, int *port_idx, int *copp_idx);
 int adm_set_stereo_to_custom_stereo(int port_id, int copp_idx,
 				    unsigned int session_id,
 				    char *params, uint32_t params_length);
+
+int adm_get_pp_topo_module_list(int port_id, int copp_idx, int32_t param_length,
+				char *params);
+
+int adm_set_volume(int port_id, int copp_idx, int volume);
+
+int adm_set_softvolume(int port_id, int copp_idx,
+		       struct audproc_softvolume_params *softvol_param);
+
+int adm_param_enable(int port_id, int copp_idx, int module_id,  int enable);
+
+int adm_send_calibration(int port_id, int copp_idx, int path, int perf_mode,
+			 int cal_type, char *params, int size);
+
+int adm_set_wait_parameters(int port_id, int copp_idx);
+
+int adm_reset_wait_parameters(int port_id, int copp_idx);
+
+int adm_wait_timeout(int port_id, int copp_idx, int wait_time);
+
+int adm_store_cal_data(int port_id, int copp_idx, int path, int perf_mode,
+		       int cal_type, char *params, int *size);
 
 #endif /* __Q6_ADM_V2_H__ */
