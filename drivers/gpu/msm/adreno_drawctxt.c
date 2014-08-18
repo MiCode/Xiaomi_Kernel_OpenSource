@@ -76,7 +76,7 @@ int adreno_drawctxt_wait(struct adreno_device *adreno_dev,
 	/* Needs to hold the device mutex */
 	BUG_ON(!mutex_is_locked(&device->mutex));
 
-	trace_adreno_drawctxt_wait_start(context->id, timestamp);
+	trace_adreno_drawctxt_wait_start(-1, context->id, timestamp);
 
 	ret = kgsl_add_event(device, &context->events, timestamp,
 		wait_callback, (void *) drawctxt);
@@ -114,95 +114,43 @@ int adreno_drawctxt_wait(struct adreno_device *adreno_dev,
 		ret = -EINVAL;
 
 done:
-	trace_adreno_drawctxt_wait_done(context->id, timestamp, ret);
+	trace_adreno_drawctxt_wait_done(-1, context->id, timestamp, ret);
 	return ret;
 }
-static void global_wait_callback(struct kgsl_device *device,
-		struct kgsl_context *context, void *priv, int result)
-{
-	struct adreno_context *drawctxt = priv;
 
-	wake_up_all(&drawctxt->waiting);
-	kgsl_context_put(&drawctxt->base);
-}
-
-static int _check_global_timestamp(struct kgsl_device *device,
-		struct kgsl_context *context, struct adreno_ringbuffer *rb,
-		unsigned int timestamp)
-{
-	unsigned int ts_processed;
-	/* Stop waiting if the context is invalidated */
-	if (kgsl_context_invalid(context))
-		return 1;
-
-	/* Failure to read return false */
-	if (adreno_rb_readtimestamp(device, rb, KGSL_TIMESTAMP_RETIRED,
-		&ts_processed))
-		return 0;
-
-	return (timestamp_cmp(ts_processed, timestamp) >= 0);
-}
-
-static int adreno_drawctxt_wait_global(struct adreno_device *adreno_dev,
+/**
+ * adreno_drawctxt_wait_rb() - Wait for the last RB timestamp at which this
+ * context submitted a command to the corresponding RB
+ * @adreno_dev: The device on which the timestamp is active
+ * @context: The context which subbmitted command to RB
+ * @timestamp: The RB timestamp of last command submitted to RB by context
+ * @timeout: Timeout value for the wait
+ */
+static int adreno_drawctxt_wait_rb(struct adreno_device *adreno_dev,
 		struct kgsl_context *context,
 		uint32_t timestamp, unsigned int timeout)
 {
 	struct kgsl_device *device = &adreno_dev->dev;
 	struct adreno_context *drawctxt = ADRENO_CONTEXT(context);
-	struct adreno_ringbuffer *rb = drawctxt->rb;
 	int ret = 0;
 
 	/* Needs to hold the device mutex */
 	BUG_ON(!mutex_is_locked(&device->mutex));
 
-	if (!_kgsl_context_get(context)) {
-		ret = -EINVAL;
-		goto done;
-	}
-
 	/*
 	 * If the context is invalid then return immediately - we may end up
 	 * waiting for a timestamp that will never come
 	 */
-	if (kgsl_context_invalid(context)) {
-		kgsl_context_put(context);
+	if (kgsl_context_invalid(context))
 		goto done;
-	}
 
-	trace_adreno_drawctxt_wait_start(KGSL_MEMSTORE_GLOBAL, timestamp);
+	trace_adreno_drawctxt_wait_start(drawctxt->rb->id, context->id,
+					timestamp);
 
-	ret = kgsl_add_event(device, &(rb->events), timestamp,
-		global_wait_callback, (void *) drawctxt);
-	if (ret) {
-		kgsl_context_put(context);
-		goto done;
-	}
-
-	mutex_unlock(&device->mutex);
-
-	if (timeout) {
-		ret = (int) wait_event_timeout(drawctxt->waiting,
-			_check_global_timestamp(device, context, rb, timestamp),
-			msecs_to_jiffies(timeout));
-
-		if (ret == 0)
-			ret = -ETIMEDOUT;
-		else if (ret > 0)
-			ret = 0;
-	} else {
-		wait_event(drawctxt->waiting,
-			_check_global_timestamp(device, context, rb,
-						timestamp));
-	}
-
-	mutex_lock(&device->mutex);
-
-	if (ret)
-		kgsl_cancel_events_timestamp(device,
-			&(rb->events), timestamp);
-
+	ret = adreno_ringbuffer_waittimestamp(drawctxt->rb, timestamp, timeout);
 done:
-	trace_adreno_drawctxt_wait_done(KGSL_MEMSTORE_GLOBAL, timestamp, ret);
+	trace_adreno_drawctxt_wait_done(drawctxt->rb->id, context->id,
+					timestamp, ret);
 	return ret;
 }
 
@@ -456,15 +404,19 @@ int adreno_drawctxt_detach(struct kgsl_context *context)
 	BUG_ON(!mutex_is_locked(&device->mutex));
 
 	/* Wait for the last global timestamp to pass before continuing */
-	ret = adreno_drawctxt_wait_global(adreno_dev, context,
+	ret = adreno_drawctxt_wait_rb(adreno_dev, context,
 		drawctxt->internal_timestamp, 10 * 1000);
 
 	/*
-	 * If the wait for global fails then nothing after this point is likely
-	 * to work very well - BUG_ON() so we can take advantage of the debug
-	 * tools to figure out what the h - e - double hockey sticks happened
+	 * If the wait for global fails due to timeout then nothing after this
+	 * point is likely to work very well - BUG_ON() so we can take advantage
+	 * of the debug tools to figure out what the h - e - double hockey
+	 * sticks happened. If EAGAIN error is returned then recovery will kick
+	 * in and there will be no more commands in the RB pipe from this
+	 * context which is waht we are waiting for, so ignore -EAGAIN error
 	 */
-
+	if (-EAGAIN == ret)
+		ret = 0;
 	BUG_ON(ret);
 
 	kgsl_sharedmem_writel(device, &device->memstore,

@@ -832,6 +832,7 @@ int _set_pagetable_gpu(struct adreno_ringbuffer *rb,
 		kgsl_mmu_disable_clk(&device->mmu, KGSL_IOMMU_MAX_UNITS);
 	else
 		adreno_ringbuffer_mmu_disable_clk_on_ts(device, rb,
+						rb->timestamp,
 						KGSL_IOMMU_MAX_UNITS);
 
 done:

@@ -988,7 +988,7 @@ int a3xx_perfcounter_enable(struct adreno_device *adreno_dev,
 	reg = &(counters->groups[group].regs[counter]);
 
 	if (test_bit(ADRENO_DEVICE_STARTED, &adreno_dev->priv)) {
-		struct kgsl_device *device = &adreno_dev->dev;
+		struct adreno_ringbuffer *rb = &adreno_dev->ringbuffers[0];
 		unsigned int cmds[4];
 		int ret;
 
@@ -997,26 +997,12 @@ int a3xx_perfcounter_enable(struct adreno_device *adreno_dev,
 		cmds[2] = cp_type0_packet(reg->select, 1);
 		cmds[3] = countable;
 		/* submit to highest priority RB always */
-		ret = adreno_ringbuffer_issuecmds(&adreno_dev->ringbuffers[0],
-				0, cmds, 4);
+		ret = adreno_ringbuffer_issuecmds(rb, 0, cmds, 4);
 		if (ret)
 			goto done;
 		/* wait for the above commands submitted to complete */
-		ret = adreno_spin_idle(device);
-		if (ret) {
-			/*
-			 * counter turn on failed and the commands probably
-			 * hung GPU, reset GPU after which counter should be
-			 * turned on already via the CPU path
-			 */
-			ret = adreno_reset(device);
-			BUG_ON(ret);
-		} else {
-			unsigned int ts_processed;
-			adreno_rb_readtimestamp(device, adreno_dev->cur_rb,
-				KGSL_TIMESTAMP_RETIRED, &ts_processed);
-			BUG_ON(ts_processed != adreno_dev->cur_rb->timestamp);
-		}
+		ret = adreno_ringbuffer_waittimestamp(rb, rb->timestamp,
+				ADRENO_IDLE_TIMEOUT);
 	} else {
 		/* Select the desired perfcounter */
 		kgsl_regwrite(&adreno_dev->dev, reg->select, countable);
