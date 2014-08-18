@@ -505,10 +505,10 @@ int ipa_reset_hdr(void)
 		}
 		list_del(&entry->link);
 		entry->cookie = 0;
-		kmem_cache_free(ipa_ctx->hdr_cache, entry);
 
 		/* remove the handle from the database */
 		ipa_id_remove(entry->id);
+		kmem_cache_free(ipa_ctx->hdr_cache, entry);
 
 	}
 	for (i = 0; i < IPA_HDR_BIN_MAX; i++) {
