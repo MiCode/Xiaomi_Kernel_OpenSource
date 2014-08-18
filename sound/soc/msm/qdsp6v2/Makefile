@@ -10,6 +10,7 @@ obj-$(CONFIG_SND_SOC_QDSP6V2) += snd-soc-qdsp6v2.o msm-pcm-dtmf-v2.o \
 obj-$(CONFIG_SND_HWDEP) += msm-pcm-routing-devdep.o
 obj-$(CONFIG_DTS_EAGLE) += msm-dts-eagle.o
 obj-$(CONFIG_DOLBY_DAP) += msm-dolby-dap-config.o
+obj-$(CONFIG_DOLBY_DS2) += msm-ds2-dap-config.o
 obj-$(CONFIG_DTS_SRS_TM) += msm-dts-srs-tm-config.o
 obj-$(CONFIG_QTI_PP) += msm-qti-pp-config.o
 obj-y += audio_calibration.o audio_cal_utils.o q6adm.o q6afe.o q6asm.o \

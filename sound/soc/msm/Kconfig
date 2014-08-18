@@ -102,6 +102,16 @@ config DTS_EAGLE
 	 package that includes HeadphoneX. The configuration
 	 includes sending tuning parameters of various modules.
 
+config DOLBY_DS2
+	bool "Enable Dolby DS2"
+	depends on SND_SOC_MSM_QDSP6V2_INTF
+	help
+	 To add support for dolby DAP post processing.
+	 This support is to configure the post processing parameters
+	 to DSP. The configuration includes sending the end point
+	 device, end point dependent post processing parameters and
+	 the various posrt processing parameters
+
 config DTS_SRS_TM
 	bool "Enable DTS SRS"
 	depends on SND_SOC_MSM_QDSP6V2_INTF
@@ -226,6 +236,7 @@ config SND_SOC_APQ8084
 	select DTS_SRS_TM
 	select QTI_PP
 	select SND_SOC_CPE
+	select DOLBY_DS2
 	help
 	 To add support for SoC audio on APQ8084.
 	 This will enable sound soc drivers which
@@ -281,6 +292,7 @@ config SND_SOC_MSM8994
 	select QTI_PP
 	select SND_SOC_CPE
 	select MSM_ULTRASOUND
+	select DOLBY_DS2
 	help
 	 To add support for SoC audio on MSM8994.
 	 This will enable sound soc drivers which
