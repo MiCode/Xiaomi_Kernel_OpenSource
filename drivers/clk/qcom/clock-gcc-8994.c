@@ -1998,17 +1998,6 @@ static struct branch_clk gcc_lpass_q6_axi_clk = {
 	},
 };
 
-static struct branch_clk gcc_mss_cfg_ahb_clk = {
-	.cbcr_reg = MSS_CFG_AHB_CBCR,
-	.has_sibling = 1,
-	.base = &virt_base,
-	.c = {
-		.dbg_name = "gcc_mss_cfg_ahb_clk",
-		.ops = &clk_ops_branch,
-		CLK_INIT(gcc_mss_cfg_ahb_clk.c),
-	},
-};
-
 static struct branch_clk gcc_mss_q6_bimc_axi_clk = {
 	.cbcr_reg = MSS_Q6_BIMC_AXI_CBCR,
 	.has_sibling = 0,
@@ -2569,7 +2558,6 @@ static struct mux_clk gcc_debug_mux = {
 		{ &debug_mmss_clk.c, 0x002b },
 		{ &debug_rpm_clk.c, 0xffff },
 		{ &gcc_sys_noc_usb3_axi_clk.c, 0x0006 },
-		{ &gcc_mss_cfg_ahb_clk.c, 0x0030 },
 		{ &gcc_mss_q6_bimc_axi_clk.c, 0x0031 },
 		{ &gcc_usb30_master_clk.c, 0x0050 },
 		{ &gcc_usb30_sleep_clk.c, 0x0051 },
@@ -2780,7 +2768,6 @@ static struct clk_lookup msm_clocks_gcc_8994[] = {
 	CLK_LIST(gcc_gp2_clk),
 	CLK_LIST(gcc_gp3_clk),
 	CLK_LIST(gcc_lpass_q6_axi_clk),
-	CLK_LIST(gcc_mss_cfg_ahb_clk),
 	CLK_LIST(gcc_mss_q6_bimc_axi_clk),
 	CLK_LIST(gcc_pcie_0_aux_clk),
 	CLK_LIST(gcc_pcie_0_cfg_ahb_clk),
