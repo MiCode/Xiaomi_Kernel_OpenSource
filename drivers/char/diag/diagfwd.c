@@ -323,6 +323,8 @@ static int check_bufsize_for_encoding(struct diag_smd_info *smd_info, void *buf,
 				if (temp_buf) {
 					smd_info->buf_in_1 = temp_buf;
 					smd_info->buf_in_1_size = max_size;
+				} else {
+					return -ENOMEM;
 				}
 			}
 			buf_size = smd_info->buf_in_1_size;
@@ -334,6 +336,8 @@ static int check_bufsize_for_encoding(struct diag_smd_info *smd_info, void *buf,
 				if (temp_buf) {
 					smd_info->buf_in_2 = temp_buf;
 					smd_info->buf_in_2_size = max_size;
+				} else {
+					return -ENOMEM;
 				}
 			}
 			buf_size = smd_info->buf_in_2_size;
@@ -384,6 +388,10 @@ int diag_process_smd_read_data(struct diag_smd_info *smd_info, void *buf,
 		success = 1;
 	} else {
 		/* The data is raw and needs to be hdlc encoded */
+		write_length = check_bufsize_for_encoding(smd_info, buf,
+							  total_recd);
+		if (write_length < 0)
+			return write_length;
 		if (smd_info->buf_in_1_raw == buf) {
 			write_buf = smd_info->buf_in_1;
 			in_busy_ptr = &smd_info->in_busy_1;
@@ -397,13 +405,9 @@ int diag_process_smd_read_data(struct diag_smd_info *smd_info, void *buf,
 				__func__, smd_info->peripheral);
 			return -EIO;
 		}
-		write_length = check_bufsize_for_encoding(smd_info, buf,
-							  total_recd);
-		if (write_length) {
-			success = diag_add_hdlc_encoding(smd_info, buf,
-							 total_recd, write_buf,
-							 &write_length);
-		}
+		success = diag_add_hdlc_encoding(smd_info, buf,
+						 total_recd, write_buf,
+						 &write_length);
 	}
 
 	if (!success) {
