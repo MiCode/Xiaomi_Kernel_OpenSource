@@ -157,12 +157,15 @@
 	qcom,mdss-dsi-bl-pmic-bank-select = <2>;
 	qcom,mdss-dsi-pwm-gpio = <&pma8084_gpios 7 0>;
 	qcom,cont-splash-enabled;
+	/delete-property/ qcom,cmd-sync-wait-broadcast;
 	qcom,partial-update-enabled;
 	qcom,panel-roi-alignment = <4 4 2 2 20 20>;
 };
 
 &dsi_dual_jdi_cmd_1 {
 	qcom,cont-splash-enabled;
+	/delete-property/ qcom,cmd-sync-wait-broadcast;
+	/delete-property/ qcom,cmd-sync-wait-trigger;
 	qcom,partial-update-enabled;
 	qcom,panel-roi-alignment = <4 4 2 2 20 20>;
 };
