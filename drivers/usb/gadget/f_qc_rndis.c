@@ -1240,25 +1240,25 @@ rndis_qc_bind_config_vendor(struct usb_configuration *c, u8 ethaddr[ETH_ALEN],
 
 	_rndis_qc = rndis;
 
+	if (rndis->xport == USB_GADGET_XPORT_BAM2BAM_IPA) {
+		status = rndis_ipa_init(&rndis_ipa_params);
+		if (status) {
+			pr_err("%s: failed to init rndis_ipa\n", __func__);
+			goto fail;
+		}
+	}
+
 	status = usb_add_function(c, &rndis->port.func);
 	if (status) {
-		kfree(rndis);
+		if (rndis->xport == USB_GADGET_XPORT_BAM2BAM_IPA)
+			rndis_ipa_cleanup(rndis_ipa_params.private);
 		goto fail;
 	}
 
-	if (rndis->xport != USB_GADGET_XPORT_BAM2BAM_IPA)
-		return status;
+	return 0;
 
-	status = rndis_ipa_init(&rndis_ipa_params);
-	if (status) {
-		pr_err("%s: failed to initialize rndis_ipa\n", __func__);
-		kfree(rndis);
-		goto fail;
-	} else {
-		pr_debug("%s: rndis_ipa successful created\n", __func__);
-		return status;
-	}
 fail:
+	kfree(rndis);
 	_rndis_qc = NULL;
 	rndis_exit();
 	return status;
