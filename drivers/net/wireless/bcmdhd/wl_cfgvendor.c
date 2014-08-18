@@ -1035,16 +1035,18 @@ static int wl_cfgvendor_lstats_get_info(struct wiphy *wiphy,
 	WL_INFORM(("%s: Enter \n", __func__));
 
 	bzero(cfg->ioctl_buf, WLC_IOCTL_MAXLEN);
+	bzero(iovar_buf, WLC_IOCTL_MAXLEN);
 
 	output = cfg->ioctl_buf;
 	radio = (wifi_radio_stat *)output;
 
 	err = wldev_iovar_getbuf(bcmcfg_to_prmry_ndev(cfg), "radiostat", NULL, 0,
-		output, WLC_IOCTL_MAXLEN, NULL);
+		iovar_buf, WLC_IOCTL_MAXLEN, NULL);
 	if (unlikely(err)) {
 		WL_ERR(("error (%d) - size = %zu\n", err, sizeof(wifi_radio_stat)));
 		return err;
 	}
+	memcpy(output, iovar_buf, sizeof(wifi_radio_stat));
 
 	radio->num_channels = NUM_CHAN;
 	output += sizeof(wifi_radio_stat);
@@ -1099,14 +1101,16 @@ static int wl_cfgvendor_lstats_get_info(struct wiphy *wiphy,
 	iface->num_peers = NUM_PEER;
 	iface->peer_info->num_rate = NUM_RATE;
 
+	bzero(iovar_buf, WLC_IOCTL_MAXLEN);
 	output = (char *)iface + sizeof(wifi_iface_stat) + NUM_PEER*sizeof(wifi_peer_info);
 
 	err = wldev_iovar_getbuf(bcmcfg_to_prmry_ndev(cfg), "ratestat", NULL, 0,
-		output, WLC_IOCTL_MAXLEN, NULL);
+		iovar_buf, WLC_IOCTL_MAXLEN, NULL);
 	if (unlikely(err)) {
 		WL_ERR(("error (%d) - size = %zu\n", err, NUM_RATE*sizeof(wifi_rate_stat)));
 		return err;
 	}
+	memcpy(output, iovar_buf, NUM_RATE*sizeof(wifi_rate_stat));
 
 	err =  wl_cfgvendor_send_cmd_reply(wiphy, bcmcfg_to_prmry_ndev(cfg),
 		cfg->ioctl_buf, sizeof(wifi_radio_stat)+NUM_CHAN*sizeof(wifi_channel_stat)+
