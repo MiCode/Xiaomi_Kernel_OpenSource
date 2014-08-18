@@ -1694,6 +1694,18 @@ unsigned long sched_get_busy(int cpu)
 			  NSEC_PER_USEC);
 }
 
+static void reset_task_stats(struct task_struct *p)
+{
+	int i;
+
+	p->ravg.sum = 0;
+	p->ravg.demand = 0;
+	p->ravg.partial_demand = 0;
+	p->ravg.flags = 0;
+	for (i = 0; i < RAVG_HIST_SIZE_MAX; ++i)
+		p->ravg.sum_history[i] = 0;
+}
+
 /* Called with IRQs disabled */
 void reset_all_window_stats(u64 window_start, unsigned int window_size)
 {
@@ -1715,14 +1727,7 @@ void reset_all_window_stats(u64 window_start, unsigned int window_size)
 
 	read_lock(&tasklist_lock);
 	do_each_thread(g, p) {
-		int i;
-
-		p->ravg.sum = 0;
-		p->ravg.demand = 0;
-		p->ravg.partial_demand = 0;
-		p->ravg.flags = 0;
-		for (i = 0; i < RAVG_HIST_SIZE_MAX; ++i)
-			p->ravg.sum_history[i] = 0;
+		reset_task_stats(p);
 		p->ravg.mark_start = wallclock;
 	}  while_each_thread(g, p);
 	read_unlock(&tasklist_lock);
