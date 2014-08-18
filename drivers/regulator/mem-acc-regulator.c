@@ -1,4 +1,4 @@
-/* Copyright (c) 2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -25,9 +25,9 @@
 #include <linux/regulator/of_regulator.h>
 #include <soc/qcom/scm.h>
 
-#define MEM_ACC_SEL_MASK	0x3
+#define MEM_ACC_DEFAULT_SEL_SIZE	2
 
-#define BYTES_PER_FUSE_ROW	8
+#define BYTES_PER_FUSE_ROW		8
 
 /* mem-acc config flags */
 #define MEM_ACC_SKIP_L1_CONFIG	BIT(0)
@@ -48,6 +48,7 @@ struct mem_acc_regulator {
 
 	u32			*acc_sel_mask[MEMORY_MAX];
 	u32			*acc_sel_bit_pos[MEMORY_MAX];
+	u32			acc_sel_bit_size[MEMORY_MAX];
 	u32			num_acc_sel[MEMORY_MAX];
 	u32			*acc_en_bit_pos;
 	u32			num_acc_en;
@@ -226,7 +227,7 @@ static int __mem_acc_sel_init(struct mem_acc_regulator *mem_acc_vreg,
 							int mem_type)
 {
 	int i;
-	u32 bit;
+	u32 bit, mask;
 
 	mem_acc_vreg->acc_sel_mask[mem_type] = devm_kzalloc(mem_acc_vreg->dev,
 		mem_acc_vreg->num_acc_sel[mem_type] * sizeof(u32), GFP_KERNEL);
@@ -237,8 +238,8 @@ static int __mem_acc_sel_init(struct mem_acc_regulator *mem_acc_vreg,
 
 	for (i = 0; i < mem_acc_vreg->num_acc_sel[mem_type]; i++) {
 		bit = mem_acc_vreg->acc_sel_bit_pos[mem_type][i];
-		mem_acc_vreg->acc_sel_mask[mem_type][i] =
-					MEM_ACC_SEL_MASK << bit;
+		mask = BIT(mem_acc_vreg->acc_sel_bit_size[mem_type]) - 1;
+		mem_acc_vreg->acc_sel_mask[mem_type][i] = mask << bit;
 	}
 
 	return 0;
@@ -316,6 +317,7 @@ static int mem_acc_sel_setup(struct mem_acc_regulator *mem_acc_vreg,
 {
 	int len, rc;
 	char *mem_select_str;
+	char *mem_select_size_str;
 
 	mem_acc_vreg->acc_sel_addr[mem_type] = res->start;
 	len = res->end - res->start + 1;
@@ -333,11 +335,17 @@ static int mem_acc_sel_setup(struct mem_acc_regulator *mem_acc_vreg,
 	switch (mem_type) {
 	case MEMORY_L1:
 		mem_select_str = "qcom,acc-sel-l1-bit-pos";
+		mem_select_size_str = "qcom,acc-sel-l1-bit-size";
 		break;
 	case MEMORY_L2:
 		mem_select_str = "qcom,acc-sel-l2-bit-pos";
+		mem_select_size_str = "qcom,acc-sel-l2-bit-size";
 		break;
 	}
+
+	mem_acc_vreg->acc_sel_bit_size[mem_type] = MEM_ACC_DEFAULT_SEL_SIZE;
+	of_property_read_u32(mem_acc_vreg->dev->of_node, mem_select_size_str,
+			&mem_acc_vreg->acc_sel_bit_size[mem_type]);
 
 	rc = populate_acc_data(mem_acc_vreg, mem_select_str,
 			&mem_acc_vreg->acc_sel_bit_pos[mem_type],
