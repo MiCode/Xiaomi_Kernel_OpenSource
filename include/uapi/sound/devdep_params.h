@@ -14,7 +14,6 @@
 #ifndef _DEV_DEP_H
 #define _DEV_DEP_H
 
-
 struct dolby_param_data {
 	int32_t version;
 	int32_t device_id;
@@ -34,5 +33,4 @@ struct dolby_param_data {
 		_IOWR('U', 0x14, void *)
 #define SNDRV_DEVDEP_DAP_IOCTL_GET_VISUALIZER\
 		_IOR('U', 0x15, struct dolby_param_data)
-
 #endif
