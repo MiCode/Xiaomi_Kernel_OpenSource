@@ -56,8 +56,9 @@ static inline void platform_do_lowpower(unsigned int cpu, int *spurious)
 		 * therefore cannot safely call printk() or anything else
 		 * Read the pending interrupts to understand why we woke up
 		 */
-		local_irq_disable();
+#ifdef CONFIG_MSM_PM
 		gic_show_pending_irq();
+#endif
 		(*spurious)++;
 	}
 }
