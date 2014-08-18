@@ -1368,6 +1368,8 @@ static int dwc3_gadget_wakeup(struct usb_gadget *g)
 	u8			link_state;
 	u8			speed;
 
+	pm_runtime_get_sync(dwc->dev);
+
 	spin_lock_irqsave(&dwc->lock, flags);
 
 	/*
@@ -1430,6 +1432,8 @@ static int dwc3_gadget_wakeup(struct usb_gadget *g)
 
 out:
 	spin_unlock_irqrestore(&dwc->lock, flags);
+
+	pm_runtime_put_autosuspend(dwc->dev);
 
 	return ret;
 }
@@ -1501,9 +1505,13 @@ static int dwc3_gadget_pullup(struct usb_gadget *g, int is_on)
 
 	is_on = !!is_on;
 
+	pm_runtime_get_sync(dwc->dev);
+
 	spin_lock_irqsave(&dwc->lock, flags);
 	ret = dwc3_gadget_run_stop(dwc, is_on);
 	spin_unlock_irqrestore(&dwc->lock, flags);
+
+	pm_runtime_put_autosuspend(dwc->dev);
 
 	return ret;
 }
@@ -1545,6 +1553,8 @@ static int dwc3_gadget_start(struct usb_gadget *g,
 	int			irq;
 	u32			reg;
 
+	pm_runtime_get_sync(dwc->dev);
+
 	irq = platform_get_irq(to_platform_device(dwc->dev), 0);
 	ret = request_threaded_irq(irq, dwc3_interrupt, dwc3_thread_interrupt,
 			IRQF_SHARED, "dwc3", dwc);
@@ -1553,6 +1563,7 @@ static int dwc3_gadget_start(struct usb_gadget *g,
 				irq, ret);
 		goto err0;
 	}
+
 
 	spin_lock_irqsave(&dwc->lock, flags);
 
@@ -1628,7 +1639,10 @@ static int dwc3_gadget_start(struct usb_gadget *g,
 
 	dwc3_gadget_enable_irq(dwc);
 
+
 	spin_unlock_irqrestore(&dwc->lock, flags);
+
+	pm_runtime_put_autosuspend(dwc->dev);
 
 	return 0;
 
@@ -1644,6 +1658,8 @@ err1:
 	free_irq(irq, dwc);
 
 err0:
+	pm_runtime_put_autosuspend(dwc->dev);
+
 	return ret;
 }
 
@@ -1654,6 +1670,8 @@ static int dwc3_gadget_stop(struct usb_gadget *g,
 	unsigned long		flags;
 	int			irq;
 
+	pm_runtime_get_sync(dwc->dev);
+
 	spin_lock_irqsave(&dwc->lock, flags);
 
 	dwc3_gadget_disable_irq(dwc);
@@ -1663,6 +1681,8 @@ static int dwc3_gadget_stop(struct usb_gadget *g,
 	dwc->gadget_driver	= NULL;
 
 	spin_unlock_irqrestore(&dwc->lock, flags);
+
+	pm_runtime_put_autosuspend(dwc->dev);
 
 	irq = platform_get_irq(to_platform_device(dwc->dev), 0);
 	free_irq(irq, dwc);
@@ -2161,6 +2181,11 @@ static void dwc3_gadget_disconnect_interrupt(struct dwc3 *dwc)
 
 	dwc->gadget.speed = USB_SPEED_UNKNOWN;
 	dwc->setup_packet_pending = false;
+
+	if (dwc->runtime_suspend) {
+		pm_runtime_mark_last_busy(dwc->dev);
+		pm_runtime_put_autosuspend(dwc->dev);
+	}
 }
 
 static void dwc3_gadget_reset_interrupt(struct dwc3 *dwc)

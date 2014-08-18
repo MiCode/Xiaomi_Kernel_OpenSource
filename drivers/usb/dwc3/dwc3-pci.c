@@ -25,6 +25,8 @@
 #include <linux/usb/otg.h>
 #include <linux/usb/usb_phy_gen_xceiv.h>
 
+#include "platform_data.h"
+
 /* FIXME define these in <linux/pci_ids.h> */
 #define PCI_VENDOR_ID_SYNOPSYS		0x16c3
 #define PCI_DEVICE_ID_SYNOPSYS_HAPSUSB3	0xabcd
@@ -36,6 +38,7 @@ struct dwc3_pci {
 	struct platform_device	*dwc3;
 	struct platform_device	*usb2_phy;
 	struct platform_device	*usb3_phy;
+	atomic_t		suspend_depth;
 };
 
 static int dwc3_pci_register_phys(struct dwc3_pci *glue)
@@ -132,6 +135,9 @@ static int dwc3_pci_probe(struct pci_dev *pci,
 	struct dwc3_pci		*glue;
 	int			ret = -ENOMEM;
 	struct device		*dev = &pci->dev;
+	struct dwc3_platform_data	pdata;
+
+	memset(&pdata, 0x00, sizeof(pdata));
 
 	glue = devm_kzalloc(dev, sizeof(*glue), GFP_KERNEL);
 	if (!glue) {
@@ -161,6 +167,11 @@ static int dwc3_pci_probe(struct pci_dev *pci,
 		ret = -ENOMEM;
 		goto err1;
 	}
+
+	pdata.runtime_suspend = true;
+	ret = platform_device_add_data(dwc3, &pdata, sizeof(pdata));
+	if (ret)
+		goto err1;
 
 	memset(res, 0x00, sizeof(struct resource) * ARRAY_SIZE(res));
 
@@ -201,6 +212,14 @@ static int dwc3_pci_probe(struct pci_dev *pci,
 		goto err3;
 	}
 
+	atomic_set(&glue->suspend_depth, 0);
+
+	pm_runtime_set_autosuspend_delay(dev, 100);
+	pm_runtime_use_autosuspend(dev);
+	pm_runtime_allow(dev);
+	pm_runtime_mark_last_busy(dev);
+	pm_runtime_put_autosuspend(dev);
+
 	return 0;
 
 err3:
@@ -214,6 +233,9 @@ err1:
 static void dwc3_pci_remove(struct pci_dev *pci)
 {
 	struct dwc3_pci	*glue = pci_get_drvdata(pci);
+
+	pm_runtime_forbid(glue->dev);
+	pm_runtime_set_suspended(glue->dev);
 
 	platform_device_unregister(glue->dwc3);
 	platform_device_unregister(glue->usb2_phy);
@@ -233,19 +255,27 @@ static const struct pci_device_id dwc3_pci_id_table[] = {
 MODULE_DEVICE_TABLE(pci, dwc3_pci_id_table);
 
 #ifdef CONFIG_PM_SLEEP
-static int dwc3_pci_suspend(struct device *dev)
+static int dwc3_pci_suspend_common(struct device *dev)
 {
 	struct pci_dev	*pci = to_pci_dev(dev);
+	struct dwc3_pci	*glue = pci_get_drvdata(pci);
+
+	if (atomic_inc_return(&glue->suspend_depth) > 1)
+		return 0;
 
 	pci_disable_device(pci);
 
 	return 0;
 }
 
-static int dwc3_pci_resume(struct device *dev)
+static int dwc3_pci_resume_common(struct device *dev)
 {
 	struct pci_dev	*pci = to_pci_dev(dev);
+	struct dwc3_pci	*glue = pci_get_drvdata(pci);
 	int		ret;
+
+	if (atomic_dec_return(&glue->suspend_depth) > 0)
+		return 0;
 
 	ret = pci_enable_device(pci);
 	if (ret) {
@@ -257,10 +287,41 @@ static int dwc3_pci_resume(struct device *dev)
 
 	return 0;
 }
+
+static int dwc3_pci_suspend(struct device *dev)
+{
+	return dwc3_pci_suspend_common(dev);
+}
+
+static int dwc3_pci_resume(struct device *dev)
+{
+	return dwc3_pci_resume_common(dev);
+}
+
+#ifdef CONFIG_PM_RUNTIME
+
+static int dwc3_pci_runtime_suspend(struct device *dev)
+{
+	return dwc3_pci_suspend_common(dev);
+}
+
+static int dwc3_pci_runtime_resume(struct device *dev)
+{
+	return dwc3_pci_resume_common(dev);
+}
+
+#else
+
+#define dwc3_pci_runtime_suspend NULL
+#define dwc3_pci_runtime_resume NULL
+
+#endif
+
 #endif /* CONFIG_PM_SLEEP */
 
 static const struct dev_pm_ops dwc3_pci_dev_pm_ops = {
 	SET_SYSTEM_SLEEP_PM_OPS(dwc3_pci_suspend, dwc3_pci_resume)
+	SET_RUNTIME_PM_OPS(dwc3_pci_runtime_suspend, dwc3_pci_runtime_resume, NULL)
 };
 
 static struct pci_driver dwc3_pci_driver = {
