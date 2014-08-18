@@ -402,6 +402,7 @@ enum adreno_regs {
 	ADRENO_REG_UCHE_INVALIDATE0,
 	ADRENO_REG_RBBM_PERFCTR_LOAD_VALUE_LO,
 	ADRENO_REG_RBBM_PERFCTR_LOAD_VALUE_HI,
+	ADRENO_REG_RBBM_SECVID_TRUST_CONTROL,
 	ADRENO_REG_REGISTER_MAX,
 };
 
@@ -576,6 +577,7 @@ struct adreno_gpudev {
 		unsigned int counter, unsigned int countable);
 	uint64_t (*perfcounter_read)(struct adreno_device *adreno_dev,
 		unsigned int group, unsigned int counter);
+	uint64_t (*alwayson_counter_read)(struct adreno_device *adreno_dev);
 	bool (*is_sptp_idle)(struct adreno_device *);
 	void (*enable_pc)(struct adreno_device *);
 	void (*enable_ppd)(struct adreno_device *);

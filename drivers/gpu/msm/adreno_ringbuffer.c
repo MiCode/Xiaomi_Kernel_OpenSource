@@ -28,7 +28,6 @@
 #include "adreno_ringbuffer.h"
 
 #include "a3xx_reg.h"
-#include "adreno_a4xx.h"
 
 #define GSL_RB_NOP_SIZEDWORDS				2
 
@@ -1252,6 +1251,7 @@ int adreno_ringbuffer_submitcmd(struct adreno_device *adreno_dev,
 		struct kgsl_cmdbatch *cmdbatch)
 {
 	struct kgsl_device *device = &adreno_dev->dev;
+	struct adreno_gpudev *gpudev = ADRENO_GPU_DEVICE(adreno_dev);
 	struct kgsl_memobj_node *ib;
 	unsigned int numibs = 0;
 	unsigned int *link;
@@ -1429,7 +1429,7 @@ int adreno_ringbuffer_submitcmd(struct adreno_device *adreno_dev,
 		profile_buffer->wall_clock_s = ts.tv_sec;
 		profile_buffer->wall_clock_ns = ts.tv_nsec;
 		profile_buffer->gpu_ticks_queued =
-			a4xx_alwayson_counter_read(adreno_dev);
+			gpudev->alwayson_counter_read(adreno_dev);
 	}
 
 	ret = adreno_ringbuffer_addcmds(rb, flags,
