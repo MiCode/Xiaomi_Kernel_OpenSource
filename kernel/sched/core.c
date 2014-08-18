@@ -1229,6 +1229,7 @@ static u64 sched_clock_at_init_jiffy;
 
 #define CURR_WINDOW_CONTRIB	1
 #define PREV_WINDOW_CONTRIB	2
+#define DONT_ACCOUNT		4
 
 /* Returns how undercommitted a CPU is given its current frequency and
  * task load (as measured in the previous window).  Returns this value
@@ -1273,7 +1274,7 @@ update_history(struct rq *rq, struct task_struct *p, u32 runtime, int samples,
 	u64 sum = 0;
 
 	if (new_window) {
-		p->ravg.flags = 0;
+		p->ravg.flags &= ~(CURR_WINDOW_CONTRIB | PREV_WINDOW_CONTRIB);
 		if (runtime)
 			p->ravg.flags |= PREV_WINDOW_CONTRIB;
 	}
@@ -1488,7 +1489,14 @@ static void update_task_ravg(struct task_struct *p, struct rq *rq,
 			new_window = 1;
 		}
 
-		if (update_sum) {
+		/*
+		 * Tasks marked as DONT_ACCOUNT will not be accounted in
+		 * rq->prev/curr_runnable_sum. We however want to perform
+		 * maintenance duties on other counters such as window_start
+		 * and roll over of curr_runnable_sum into prev_runnable_sum
+		 * when update_task_ravg() is called on such tasks.
+		 */
+		if (update_sum && !(p->ravg.flags & DONT_ACCOUNT)) {
 			delta = now - mark_start;
 			delta = scale_exec_time(delta, rq);
 			BUG_ON(delta < 0);
@@ -1508,7 +1516,7 @@ static void update_task_ravg(struct task_struct *p, struct rq *rq,
 
 		if (nr_full_windows) {
 			window_start += nr_full_windows * window_size;
-			if (update_sum)
+			if (update_sum && !(p->ravg.flags & DONT_ACCOUNT))
 				sum = window_size;
 			sum = scale_exec_time(sum, rq);
 			update_history(rq, p, sum, nr_full_windows,
@@ -1701,9 +1709,48 @@ static void reset_task_stats(struct task_struct *p)
 	p->ravg.sum = 0;
 	p->ravg.demand = 0;
 	p->ravg.partial_demand = 0;
-	p->ravg.flags = 0;
+	p->ravg.flags &= ~(CURR_WINDOW_CONTRIB | PREV_WINDOW_CONTRIB);
 	for (i = 0; i < RAVG_HIST_SIZE_MAX; ++i)
 		p->ravg.sum_history[i] = 0;
+}
+
+/*
+ * sched_exit() - Set DONT_ACCOUNT bit in task's ravg.flags
+ *
+ * This will remove an exiting task's stats from cpu busy counters
+ * (rq->curr/prev_runnable_sum) and also reset its stats. DONT_ACCOUNT bit is
+ * also set in exiting tasks ravg.flags so that its future usage of cpu is
+ * discounted from cpu busy time.
+ *
+ * We need this so that reset_all_windows_stats() can function correctly.
+ * reset_all_window_stats() depends on do_each_thread/for_each_thread task
+ * iterators to reset *all* task's statistics. Exiting tasks however become
+ * invisible to those iterators. sched_exit() is called on a exiting task prior
+ * to being removed from task_list, which will let reset_all_window_stats()
+ * function correctly.
+ */
+void sched_exit(struct task_struct *p)
+{
+	unsigned long flags;
+	int cpu = get_cpu();
+	struct rq *rq = cpu_rq(cpu);
+
+	raw_spin_lock_irqsave(&rq->lock, flags);
+	/* rq->curr == p */
+	update_task_ravg(rq->curr, rq, TASK_UPDATE, sched_clock(), 0);
+	dequeue_task(rq, p, 0);
+	if (p->ravg.flags & CURR_WINDOW_CONTRIB)
+		rq->curr_runnable_sum -= p->ravg.partial_demand;
+	if (p->ravg.flags & PREV_WINDOW_CONTRIB)
+		rq->prev_runnable_sum -= p->ravg.demand;
+	BUG_ON((s64)rq->curr_runnable_sum < 0);
+	BUG_ON((s64)rq->prev_runnable_sum < 0);
+	reset_task_stats(p);
+	p->ravg.flags |= DONT_ACCOUNT;
+	enqueue_task(rq, p, 0);
+	raw_spin_unlock_irqrestore(&rq->lock, flags);
+
+	put_cpu();
 }
 
 /* Called with IRQs disabled */
