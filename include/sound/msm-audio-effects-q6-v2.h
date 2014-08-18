@@ -16,6 +16,9 @@
 
 #include <sound/audio_effects.h>
 
+bool msm_audio_effects_is_effmodule_supp_in_top(int effect_module,
+						int topology);
+
 int msm_audio_effects_reverb_handler(struct audio_client *ac,
 				     struct reverb_params *reverb,
 				     long *values);
