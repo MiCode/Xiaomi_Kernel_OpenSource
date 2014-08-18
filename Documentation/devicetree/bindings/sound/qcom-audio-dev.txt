@@ -565,6 +565,10 @@ normally open.
 
 Optional Properties:
 - qcom,us-euro-gpios : GPIO on which gnd/mic swap signal is coming.
+- qcom,msm-micbias1-ext-cap : Boolean. Enable micbias1 external
+capacitor mode.
+- qcom,msm-micbias2-ext-cap : Boolean. Enable micbias2 external
+capacitor mode.
 
 Example:
 

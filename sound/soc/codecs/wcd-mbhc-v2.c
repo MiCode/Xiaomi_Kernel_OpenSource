@@ -79,6 +79,36 @@ enum wcd_mbhc_cs_mb_en_flag {
 	WCD_MBHC_EN_NONE,
 };
 
+static void wcd_configure_cap(struct wcd_mbhc *mbhc, bool micbias2)
+{
+	u16 micbias1;
+	struct snd_soc_codec *codec = mbhc->codec;
+
+	micbias1 = snd_soc_read(codec, MSM8X16_WCD_A_ANALOG_MICB_1_EN);
+	pr_debug("\n %s: micbias1 %x micbias2 = %d\n", __func__, micbias1,
+			micbias2);
+	if ((micbias1 & 0x80) && micbias2) {
+		if ((mbhc->micbias1_cap_mode == MICBIAS_EXT_BYP_CAP) ||
+			(mbhc->micbias2_cap_mode == MICBIAS_EXT_BYP_CAP))
+			snd_soc_update_bits(codec,
+				MSM8X16_WCD_A_ANALOG_MICB_1_EN,
+				0x40, (MICBIAS_EXT_BYP_CAP << 6));
+		else
+			snd_soc_update_bits(codec,
+				MSM8X16_WCD_A_ANALOG_MICB_1_EN,
+				0x40, (MICBIAS_NO_EXT_BYP_CAP << 6));
+	} else if (micbias2) {
+		snd_soc_update_bits(codec, MSM8X16_WCD_A_ANALOG_MICB_1_EN,
+				0x40, (mbhc->micbias2_cap_mode << 6));
+	} else if (micbias1 & 0x80) {
+		snd_soc_update_bits(codec, MSM8X16_WCD_A_ANALOG_MICB_1_EN,
+				0x40, (mbhc->micbias1_cap_mode << 6));
+	} else {
+		snd_soc_update_bits(codec, MSM8X16_WCD_A_ANALOG_MICB_1_EN,
+				0x40, 0x00);
+	}
+}
+
 static void wcd_mbhc_jack_report(struct wcd_mbhc *mbhc,
 				struct snd_soc_jack *jack, int status, int mask)
 {
@@ -851,6 +881,7 @@ static void wcd_correct_swch_plug(struct work_struct *work)
 	bool wrk_complete = false;
 	int pt_gnd_mic_swap_cnt = 0;
 	bool is_pa_on;
+	u16 micbias2;
 
 	pr_debug("%s: enter\n", __func__);
 
@@ -1009,6 +1040,8 @@ report:
 	wcd_mbhc_find_plug_and_report(mbhc, plug_type);
 	WCD_MBHC_RSC_UNLOCK(mbhc);
 exit:
+	micbias2 = snd_soc_read(codec, MSM8X16_WCD_A_ANALOG_MICB_2_EN);
+	wcd_configure_cap(mbhc, (micbias2 & 0x80));
 	wcd9xxx_spmi_unlock_sleep();
 	pr_debug("%s: leave\n", __func__);
 }
@@ -1028,6 +1061,7 @@ static void wcd_mbhc_detect_plug_type(struct wcd_mbhc *mbhc)
 	WCD_MBHC_RSC_ASSERT_LOCKED(mbhc);
 
 	wcd_enable_curr_micbias(mbhc, WCD_MBHC_EN_MB);
+	wcd_configure_cap(mbhc, true);
 	/*
 	 * Wait for 50msec for FSM to complete its task.
 	 * wakeup if btn pres intr occurs
@@ -1138,7 +1172,7 @@ static void wcd_mbhc_swch_irq_handler(struct wcd_mbhc *mbhc)
 				    0x30, 0x30);
 		snd_soc_update_bits(codec,
 				MSM8X16_WCD_A_ANALOG_MICB_1_EN,
-				0x44, 0x44);
+				0x04, 0x04);
 		if (!mbhc->mbhc_cfg->hs_ext_micbias)
 			/* Enable Tx2 RBias if the headset
 			 * is using internal micbias*/
@@ -1169,6 +1203,10 @@ static void wcd_mbhc_swch_irq_handler(struct wcd_mbhc *mbhc)
 		snd_soc_update_bits(codec,
 				MSM8X16_WCD_A_ANALOG_MBHC_FSM_CTL,
 				0xB0, 0x00);
+		snd_soc_update_bits(codec,
+				MSM8X16_WCD_A_ANALOG_MICB_1_EN,
+				0x04, 0x00);
+		wcd_configure_cap(mbhc, false);
 		mbhc->btn_press_intr = false;
 		if (mbhc->current_plug == MBHC_PLUG_TYPE_HEADPHONE) {
 			wcd_mbhc_report_plug(mbhc, 0, SND_JACK_HEADPHONE);
@@ -1720,6 +1758,8 @@ int wcd_mbhc_init(struct wcd_mbhc *mbhc, struct snd_soc_codec *codec,
 	struct snd_soc_card *card = codec->card;
 	const char *hph_switch = "qcom,msm-mbhc-hphl-swh";
 	const char *gnd_switch = "qcom,msm-mbhc-gnd-swh";
+	const char *ext1_cap = "qcom,msm-micbias1-ext-cap";
+	const char *ext2_cap = "qcom,msm-micbias2-ext-cap";
 
 	pr_debug("%s: enter\n", __func__);
 
@@ -1736,6 +1776,14 @@ int wcd_mbhc_init(struct wcd_mbhc *mbhc, struct snd_soc_codec *codec,
 			"%s: missing %s in dt node\n", __func__, gnd_switch);
 		goto err;
 	}
+	mbhc->micbias1_cap_mode =
+		(of_property_read_bool(card->dev->of_node, ext1_cap) ?
+		MICBIAS_EXT_BYP_CAP : MICBIAS_NO_EXT_BYP_CAP);
+
+	mbhc->micbias2_cap_mode =
+		(of_property_read_bool(card->dev->of_node, ext2_cap) ?
+		MICBIAS_EXT_BYP_CAP : MICBIAS_NO_EXT_BYP_CAP);
+
 	mbhc->in_swch_irq_handler = false;
 	mbhc->current_plug = MBHC_PLUG_TYPE_NONE;
 	mbhc->is_btn_press = false;
