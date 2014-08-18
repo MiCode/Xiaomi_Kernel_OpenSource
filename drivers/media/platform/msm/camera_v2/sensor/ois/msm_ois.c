@@ -615,6 +615,13 @@ static int32_t msm_ois_config(struct msm_ois_ctrl_t *o_ctrl,
 		struct msm_camera_i2c_seq_reg_setting conf_array;
 		struct msm_camera_i2c_seq_reg_array *reg_setting = NULL;
 
+#ifdef CONFIG_COMPAT
+		if (is_compat_task()) {
+			memcpy(&conf_array,
+				(void *)cdata->cfg.settings,
+				sizeof(struct msm_camera_i2c_seq_reg_setting));
+		} else
+#endif
 		if (copy_from_user(&conf_array,
 			(void *)cdata->cfg.settings,
 			sizeof(struct msm_camera_i2c_seq_reg_setting))) {
@@ -871,6 +878,8 @@ static long msm_ois_subdev_do_ioctl(
 		(struct msm_ois_cfg_data32 *)arg;
 	struct msm_ois_cfg_data ois_data;
 	void *parg = arg;
+	struct msm_camera_i2c_seq_reg_setting settings;
+	struct msm_camera_i2c_seq_reg_setting32 settings32;
 
 	ois_data.cfgtype = u32->cfgtype;
 	ois_data.is_ois_supported = u32->is_ois_supported;
@@ -956,10 +965,7 @@ static long msm_ois_subdev_do_ioctl(
 				pantilt_on_ois_settings);
 			parg = &ois_data;
 			break;
-		case CFG_OIS_I2C_WRITE_SEQ_TABLE: {
-			struct msm_camera_i2c_seq_reg_setting settings;
-			struct msm_camera_i2c_seq_reg_setting32 settings32;
-
+		case CFG_OIS_I2C_WRITE_SEQ_TABLE:
 			if (copy_from_user(&settings32,
 				(void *)compat_ptr(u32->cfg.settings),
 				sizeof(
@@ -977,7 +983,6 @@ static long msm_ois_subdev_do_ioctl(
 			ois_data.cfgtype = u32->cfgtype;
 			ois_data.cfg.settings = &settings;
 			parg = &ois_data;
-		}
 			break;
 		default:
 			parg = &ois_data;
@@ -985,7 +990,7 @@ static long msm_ois_subdev_do_ioctl(
 		}
 	}
 	rc = msm_ois_subdev_ioctl(sd, cmd, parg);
-	if (!rc)
+	if (rc < 0)
 		return rc;
 	switch (cmd) {
 	case VIDIOC_MSM_OIS_CFG:
