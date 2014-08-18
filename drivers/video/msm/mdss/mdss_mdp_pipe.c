@@ -462,9 +462,9 @@ static u32 mdss_mdp_calc_per_plane_num_blks(u32 ystride,
 			num_blks = mdata->smp_mb_per_pipe;
 	}
 
-	pr_debug("mtype:%d tile:%d bwc:%d ystride%d pipeblks:%d blks:%d\n",
-		pipe->mixer_left->type, pipe->src_fmt->tile, pipe->bwc_mode,
-		ystride, mdata->smp_mb_per_pipe, num_blks);
+	pr_debug("pipenum:%d tile:%d bwc:%d ystride%d pipeblks:%d blks:%d\n",
+		pipe->num, pipe->src_fmt->tile, pipe->bwc_mode, ystride,
+		mdata->smp_mb_per_pipe, num_blks);
 
 	return num_blks;
 }
