@@ -1519,14 +1519,17 @@ static void pp_dspp_opmode_config(struct mdss_mdp_ctl *ctl, u32 num,
 					u32 *opmode)
 {
 	int side;
+	bool pa_side_enabled = false;
 	side = pp_num_to_side(ctl, num);
 
 	if (side < 0)
 		return;
 
-	if (pp_sts_is_enabled(pp_sts->pa_sts, side))
+	if (pp_sts_is_enabled(pp_sts->pa_sts, side)) {
 		*opmode |= MDSS_MDP_DSPP_OP_PA_EN; /* PA_EN */
-	if (mdp_rev >= MDSS_MDP_HW_REV_103) {
+		pa_side_enabled = true;
+	}
+	if (mdp_rev >= MDSS_MDP_HW_REV_103 && pa_side_enabled) {
 		if (pp_sts->pa_sts & PP_STS_PA_HUE_MASK)
 			*opmode |= MDSS_MDP_DSPP_OP_PA_HUE_MASK;
 		if (pp_sts->pa_sts & PP_STS_PA_SAT_MASK)
