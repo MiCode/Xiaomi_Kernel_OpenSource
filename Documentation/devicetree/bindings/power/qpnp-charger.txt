@@ -208,6 +208,10 @@ Sub node optional properties:
 			qcom,batfet:
 			 - regulator-name:	A string used as a descriptive name
 						for the batfet regulator.
+
+			qcom,chgr:
+			 - regulator-name:	A string used as a descriptive name
+						for the flash workarounds regulator.
 Example:
 	pm8941-chg {
 		spmi-dev-container;
