@@ -2310,7 +2310,8 @@ static int msm_vidc_deinit_core(struct msm_vidc_inst *inst)
 		* e.g. thumbnail generation.
 		*/
 		schedule_delayed_work(&core->fw_unload_work,
-			msecs_to_jiffies(10000));
+			msecs_to_jiffies(core->state == VIDC_CORE_INVALID ?
+					0 : 10000));
 	}
 
 core_already_uninited:
