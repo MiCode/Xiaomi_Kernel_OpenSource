@@ -890,6 +890,13 @@ static int mxhci_hsic_suspend(struct mxhci_hsic_hcd *mxhci)
 	}
 
 	disable_irq(hcd->irq);
+	if (mxhci->bh.state) {
+		xhci_dbg_log_event(&dbg_hsic, NULL,
+			"skip SUSPEND tasklet state",
+			mxhci->bh.state);
+		enable_irq(hcd->irq);
+		return -EBUSY;
+	}
 	disable_irq(mxhci->pwr_event_irq);
 
 	/* make sure we don't race against a remote wakeup */
@@ -1241,18 +1248,28 @@ static void mxhci_irq_bh(unsigned long param)
 	struct xhci_hcd *xhci = mxhci->xhci;
 	u64 temp_64;
 	union xhci_trb *event_ring_deq;
+	struct xhci_ring *er;
 	dma_addr_t deq;
 	unsigned long flags;
 	unsigned event_cnt = 0;
-	int schedule_again = 0;
+	int schedule_again;
 
 	spin_lock_irqsave(&xhci->lock, flags);
 	event_ring_deq = xhci->event_ring->dequeue;
 
-	while (event_cnt < max_event_to_handle) {
+	do {
 		schedule_again = xhci_handle_event(xhci);
 		event_cnt++;
-	}
+	} while (schedule_again && (event_cnt < max_event_to_handle));
+
+	/* check if we have more events to process */
+	er = xhci->event_ring;
+	if (schedule_again && er && er->dequeue &&
+		((le32_to_cpu(er->dequeue->event_cmd.flags) & TRB_CYCLE)
+		== er->cycle_state))
+		schedule_again = 1;
+	else
+		schedule_again = 0;
 
 	temp_64 = xhci_read_64(xhci, &xhci->ir_set->erst_dequeue);
 	/* If necessary, update the HW's version of the event ring deq ptr. */
@@ -1275,7 +1292,7 @@ static void mxhci_irq_bh(unsigned long param)
 	mxhci->handled_event_cnt += event_cnt - 1;
 	mxhci->cpu_yield_cnt++;
 
-	if ((schedule_again > 0) && !mxhci->xhci_remove_flag)
+	if (schedule_again && !mxhci->xhci_remove_flag)
 		tasklet_schedule(&mxhci->bh);
 }
 
