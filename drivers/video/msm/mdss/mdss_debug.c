@@ -462,7 +462,7 @@ static int mdss_debug_set_panic_signal(struct mdss_mdp_pipe *pipe_pool,
 	for (i = 0; i < pool_size; i++) {
 		pipe = pipe_pool + i;
 		if (pipe && (atomic_read(&pipe->kref.refcount) != 0) &&
-			mdss_mdp_panic_signal_supported(mdata, pipe)) {
+			mdss_mdp_panic_signal_support_mode(mdata, pipe)) {
 			mdss_mdp_pipe_panic_signal_ctrl(pipe, enable);
 			pr_debug("pnum:%d count:%d img:%dx%d ",
 				pipe->num, pipe->play_cnt, pipe->img_width,
@@ -474,8 +474,8 @@ static int mdss_debug_set_panic_signal(struct mdss_mdp_pipe *pipe_pool,
 			cnt++;
 		} else if (pipe) {
 			pr_debug("Inactive pipe num:%d supported:%d\n",
-				atomic_read(&pipe->kref.refcount),
-				mdss_mdp_panic_signal_supported(mdata, pipe));
+			       atomic_read(&pipe->kref.refcount),
+			       mdss_mdp_panic_signal_support_mode(mdata, pipe));
 		}
 	}
 	return cnt;
