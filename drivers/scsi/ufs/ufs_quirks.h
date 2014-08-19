@@ -29,11 +29,11 @@
 
 /**
  * ufs_card_info - ufs device details
- * @vendor: card details
+ * @wmanufacturerid: card details
  * @model: card model
  */
 struct ufs_card_info {
-	unsigned int vendor;
+	u16 wmanufacturerid;
 	char *model;
 };
 
@@ -51,10 +51,10 @@ struct ufs_card_fix {
 
 /* add specific device quirk */
 #define UFS_FIX(_vendor, _model, _quirk) \
-		{					 \
-				.card.vendor = (_vendor),\
-				.card.model = (_model),	 \
-				.quirk = (_quirk),	 \
+		{						  \
+				.card.wmanufacturerid = (_vendor),\
+				.card.model = (_model),		  \
+				.quirk = (_quirk),		  \
 		}
 
 /*
