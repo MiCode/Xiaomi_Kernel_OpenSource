@@ -68,6 +68,8 @@ struct msm_rpm_stats_data_v2 {
 	u32 reserved[3];
 };
 
+static struct dentry *heap_dent;
+
 static inline u64 get_time_in_sec(u64 counter)
 {
 	do_div(counter, MSM_ARCH_TIMER_FREQ);
@@ -310,6 +312,44 @@ static const struct file_operations msm_rpmstats_fops = {
 	.llseek   = no_llseek,
 };
 
+static int msm_rpmheap_file_show(struct seq_file *m, void *v)
+{
+	struct msm_rpmstats_platform_data *pdata;
+	void __iomem *reg_base;
+	uint32_t rpmheap_free;
+
+	if (!m->private)
+		return -EINVAL;
+
+	pdata = m->private;
+
+	reg_base = ioremap_nocache(pdata->heap_phys_addrbase, SZ_4);
+	if (!reg_base) {
+		pr_err("%s: ERROR could not ioremap start=%p\n",
+			__func__, &pdata->heap_phys_addrbase);
+		return -EBUSY;
+	}
+
+	rpmheap_free = readl_relaxed(reg_base);
+	iounmap(reg_base);
+
+	seq_printf(m, "RPM FREE HEAP SPACE is 0x%x Bytes\n", rpmheap_free);
+	return 0;
+}
+
+static int msm_rpmheap_file_open(struct inode *inode, struct file *file)
+{
+	return single_open(file, msm_rpmheap_file_show, inode->i_private);
+}
+
+static const struct file_operations msm_rpmheap_fops = {
+	.owner	  = THIS_MODULE,
+	.open	  = msm_rpmheap_file_open,
+	.read	  = seq_read,
+	.release  = single_release,
+	.llseek   = no_llseek,
+};
+
 static int msm_rpmstats_probe(struct platform_device *pdev)
 {
 	struct dentry *dent = NULL;
@@ -325,15 +365,16 @@ static int msm_rpmstats_probe(struct platform_device *pdev)
 		return -EINVAL;
 
 	pdata = kzalloc(sizeof(struct msm_rpmstats_platform_data), GFP_KERNEL);
-
 	if (!pdata)
 		return -ENOMEM;
 
-	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
+	res = platform_get_resource_byname(pdev, IORESOURCE_MEM,
+							"phys_addr_base");
 	if (!res)
 		return -EINVAL;
 
-	offset = platform_get_resource(pdev, IORESOURCE_MEM, 1);
+	offset = platform_get_resource_byname(pdev, IORESOURCE_MEM,
+							"offset_addr");
 	if (offset) {
 		/* Remap the rpm-stats pointer */
 		phys_ptr = ioremap_nocache(offset->start, SZ_4);
@@ -364,7 +405,7 @@ static int msm_rpmstats_probe(struct platform_device *pdev)
 				pdata, &msm_rpmstats_fops);
 
 		if (!dent) {
-			pr_err("%s: ERROR debugfs_create_file failed\n",
+			pr_err("%s: ERROR rpm_stats debugfs_create_file	fail\n",
 					__func__);
 			kfree(pdata);
 			return -ENOMEM;
@@ -374,6 +415,22 @@ static int msm_rpmstats_probe(struct platform_device *pdev)
 		kfree(pdata);
 		return -EINVAL;
 	}
+
+	res = platform_get_resource_byname(pdev, IORESOURCE_MEM,
+						"heap_phys_addrbase");
+	if (res) {
+		heap_dent = debugfs_create_file("rpm_heap", S_IRUGO, NULL,
+				pdata, &msm_rpmheap_fops);
+
+		if (!heap_dent) {
+			pr_err("%s: ERROR rpm_heap debugfs_create_file fail\n",
+					__func__);
+			kfree(pdata);
+			return -ENOMEM;
+		}
+		pdata->heap_phys_addrbase = res->start;
+	}
+
 	platform_set_drvdata(pdev, dent);
 	return 0;
 }
@@ -384,6 +441,7 @@ static int msm_rpmstats_remove(struct platform_device *pdev)
 
 	dent = platform_get_drvdata(pdev);
 	debugfs_remove(dent);
+	debugfs_remove(heap_dent);
 	platform_set_drvdata(pdev, NULL);
 	return 0;
 }

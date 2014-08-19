@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -18,6 +18,7 @@
 
 struct msm_rpmstats_platform_data {
 	phys_addr_t phys_addr_base;
+	phys_addr_t heap_phys_addrbase;
 	u32 phys_size;
 	u32 version;
 };
