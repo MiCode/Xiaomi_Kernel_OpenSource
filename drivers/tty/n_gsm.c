@@ -3117,10 +3117,9 @@ static void gsmtty_detach_dlci(struct tty_struct *tty)
 	}
 	spin_lock(&dlci->gsmtty_lock);
 	has_open = --dlci->gsmtty_count;
-	if (!has_open) {
+	if (!has_open)
 		tty_port_tty_set(&dlci->port, NULL);
-		tty->driver_data = NULL;
-	}
+
 	spin_unlock(&dlci->gsmtty_lock);
 
 	gsm = dlci->gsm;
@@ -3471,6 +3470,7 @@ static void gsmtty_remove(struct tty_driver *driver, struct tty_struct *tty)
 	dlci_put(dlci);
 	dlci_put(gsm->dlci[0]);
 	mux_put(gsm);
+	tty->driver_data = NULL;
 	driver->ttys[tty->index] = NULL;
 }
 
