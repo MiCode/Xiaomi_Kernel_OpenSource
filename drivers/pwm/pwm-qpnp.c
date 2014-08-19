@@ -1910,7 +1910,7 @@ static int qpnp_pwm_probe(struct spmi_device *spmi)
 
 	pwm_chip->chip.dev = &spmi->dev;
 	pwm_chip->chip.ops = &qpnp_pwm_ops;
-	pwm_chip->chip.base = pwm_chip->channel_id;
+	pwm_chip->chip.base = -1;
 	pwm_chip->chip.npwm = 1;
 
 	rc = pwmchip_add(&pwm_chip->chip);
