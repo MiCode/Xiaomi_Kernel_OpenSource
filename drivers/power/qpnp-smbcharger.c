@@ -2241,9 +2241,15 @@ static int smbchg_hw_init(struct smbchg_chip *chip)
 	}
 
 	/* DC path current settings */
-	if (chip->dc_psy_type != -EINVAL)
-		return smbchg_set_thermal_limited_dc_current_max(chip,
+	if (chip->dc_psy_type != -EINVAL) {
+		rc = smbchg_set_thermal_limited_dc_current_max(chip,
 						chip->dc_target_current_ma);
+		if (rc < 0) {
+			dev_err(chip->dev, "can't set dc current: %d\n", rc);
+			return rc;
+		}
+	}
+
 
 	/*
 	 * on some devices the battery is powered via external sources which
@@ -2253,7 +2259,7 @@ static int smbchg_hw_init(struct smbchg_chip *chip)
 	 * hot/cold when powered via external source).
 	 */
 	if (chip->soft_vfloat_comp_disabled) {
-		rc |= smbchg_sec_masked_write(chip, chip->chgr_base + CFG_AFVC,
+		rc = smbchg_sec_masked_write(chip, chip->chgr_base + CFG_AFVC,
 				VFLOAT_COMP_ENABLE_MASK, 0);
 		if (rc < 0) {
 			dev_err(chip->dev, "Couldn't disable soft vfloat rc = %d\n",
