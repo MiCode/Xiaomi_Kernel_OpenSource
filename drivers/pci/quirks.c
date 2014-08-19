@@ -3573,3 +3573,11 @@ static void quirk_byt_ush_resume(struct pci_dev *dev)
 }
 DECLARE_PCI_FIXUP_RESUME(PCI_VENDOR_ID_INTEL, PCI_DEVICE_ID_INTEL_BYT_USH,
 			quirk_byt_ush_resume);
+
+static void quirk_byt_ush_run_wake(struct pci_dev *pci_dev)
+{
+	dev_dbg(&pci_dev->dev, "set run wake flag\n");
+	device_set_run_wake(&pci_dev->dev, true);
+}
+DECLARE_PCI_FIXUP_EARLY(PCI_VENDOR_ID_INTEL, PCI_DEVICE_ID_INTEL_BYT_USH,
+			quirk_byt_ush_run_wake);
