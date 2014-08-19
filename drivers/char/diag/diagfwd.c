@@ -875,7 +875,7 @@ int diag_send_data(struct diag_master_table entry, unsigned char *buf,
 						&driver->smd_data[index];
 				err = diag_smd_write(smd_info, buf, len);
 				if (err) {
-					pr_err("diag: In %s, unable to write to smd, peripheral: %d, type: %d, err: %d\n",
+					pr_err_ratelimited("diag: In %s, unable to write to smd, peripheral: %d, type: %d, err: %d\n",
 						__func__, smd_info->peripheral,
 						smd_info->type, err);
 				}
