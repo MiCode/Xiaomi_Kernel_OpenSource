@@ -379,31 +379,31 @@ int xhci_cancel_cmd(struct xhci_hcd *xhci, struct xhci_command *command,
 	if (xhci->xhc_state & XHCI_STATE_DYING) {
 		xhci_warn(xhci, "Abort the command ring,"
 				" but the xHCI is dead.\n");
-		retval = -ESHUTDOWN;
-		goto fail;
+		spin_unlock_irqrestore(&xhci->lock, flags);
+		return -ESHUTDOWN;
 	}
 
 	/* queue the cmd desriptor to cancel_cmd_list */
 	retval = xhci_queue_cd(xhci, command, cmd_trb);
 	if (retval) {
 		xhci_warn(xhci, "Queuing command descriptor failed.\n");
-		goto fail;
+		spin_unlock_irqrestore(&xhci->lock, flags);
+		return retval;
 	}
+
+	spin_unlock_irqrestore(&xhci->lock, flags);
 
 	/* abort command ring */
 	retval = xhci_abort_cmd_ring(xhci);
 	if (retval) {
 		xhci_err(xhci, "Abort command ring failed\n");
 		if (unlikely(retval == -ESHUTDOWN)) {
-			spin_unlock_irqrestore(&xhci->lock, flags);
 			usb_hc_died(xhci_to_hcd(xhci)->primary_hcd);
 			xhci_dbg(xhci, "xHCI host controller is dead.\n");
 			return retval;
 		}
 	}
 
-fail:
-	spin_unlock_irqrestore(&xhci->lock, flags);
 	return retval;
 }
 
