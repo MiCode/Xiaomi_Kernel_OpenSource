@@ -2125,9 +2125,11 @@ void gsm_cleanup_mux(struct gsm_mux *gsm)
 	if (!gsm->tty_dead)
 		gsm_closeall_dlci(gsm);
 
+	mutex_lock(&gsm->mutex);
 	for (i = NUM_DLCI-1; i >= 0; i--)
 		if (gsm->dlci[i])
 			gsm_dlci_release(gsm->dlci[i]);
+	mutex_unlock(&gsm->mutex);
 
 	spin_lock_irqsave(&gsm->tx_lock, flags);
 	/* Now wipe the queues */
@@ -3100,15 +3102,11 @@ static void gsmtty_attach_dlci(struct tty_struct *tty, struct gsm_dlci *dlci)
 	spin_lock(&dlci->gsmtty_lock);
 	dlci->gsmtty_count++;
 	spin_unlock(&dlci->gsmtty_lock);
-	dlci_get(dlci);
-	dlci_get(dlci->gsm->dlci[0]);
-	mux_get(dlci->gsm);
 }
 
 static void gsmtty_detach_dlci(struct tty_struct *tty)
 {
 	struct gsm_dlci *dlci = tty->driver_data;
-	struct gsm_mux *gsm;
 	int has_open;
 
 	if (!dlci) {
@@ -3119,13 +3117,7 @@ static void gsmtty_detach_dlci(struct tty_struct *tty)
 	has_open = --dlci->gsmtty_count;
 	if (!has_open)
 		tty_port_tty_set(&dlci->port, NULL);
-
 	spin_unlock(&dlci->gsmtty_lock);
-
-	gsm = dlci->gsm;
-	dlci_put(dlci);
-	dlci_put(gsm->dlci[0]);
-	mux_put(gsm);
 }
 
 static int gsmtty_install(struct tty_driver *driver, struct tty_struct *tty)
@@ -3471,6 +3463,7 @@ static void gsmtty_remove(struct tty_driver *driver, struct tty_struct *tty)
 	dlci_put(gsm->dlci[0]);
 	mux_put(gsm);
 	tty->driver_data = NULL;
+	tty->port = NULL;
 	driver->ttys[tty->index] = NULL;
 }
 
