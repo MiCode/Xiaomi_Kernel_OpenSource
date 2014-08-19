@@ -1052,38 +1052,6 @@ out:
 	return rc;
 }
 
-static int smbchg_low_icl_wa_check(struct smbchg_chip *chip)
-{
-	int rc = 0;
-	bool enable = (get_prop_batt_status(chip)
-		!= POWER_SUPPLY_STATUS_CHARGING);
-
-	mutex_lock(&chip->current_change_lock);
-	pr_smb(PR_STATUS, "low icl %s -> %s\n",
-			chip->low_icl_wa_on ? "on" : "off",
-			enable ? "on" : "off");
-	if (enable == chip->low_icl_wa_on)
-		goto out;
-
-	chip->low_icl_wa_on = enable;
-	if (enable) {
-		rc = smbchg_sec_masked_write(chip,
-					chip->usb_chgpth_base + CHGPTH_CFG,
-					CFG_USB_2_3_SEL_BIT, CFG_USB_2);
-		rc |= smbchg_masked_write(chip, chip->usb_chgpth_base + CMD_IL,
-					USBIN_MODE_CHG_BIT | USB51_MODE_BIT,
-					USBIN_LIMITED_MODE | USB51_100MA);
-		if (rc)
-			dev_err(chip->dev,
-				"could not set low current limit: %d\n", rc);
-	} else {
-		rc = smbchg_set_usb_current_max(chip, chip->usb_max_current_ma);
-	}
-out:
-	mutex_unlock(&chip->current_change_lock);
-	return rc;
-}
-
 /*
  * set the dc charge path's maximum allowed current draw
  * that may be limited by the system's thermal level
@@ -1512,6 +1480,42 @@ static void smbchg_regulator_deinit(struct smbchg_chip *chip)
 {
 	if (chip->otg_vreg.rdev)
 		regulator_unregister(chip->otg_vreg.rdev);
+}
+
+static int smbchg_low_icl_wa_check(struct smbchg_chip *chip)
+{
+	int rc = 0;
+	bool enable = (get_prop_batt_status(chip)
+		!= POWER_SUPPLY_STATUS_CHARGING);
+
+	mutex_lock(&chip->current_change_lock);
+	pr_smb(PR_STATUS, "low icl %s -> %s\n",
+			chip->low_icl_wa_on ? "on" : "off",
+			enable ? "on" : "off");
+	if (enable == chip->low_icl_wa_on)
+		goto out;
+
+	chip->low_icl_wa_on = enable;
+	if (enable) {
+		rc = smbchg_sec_masked_write(chip,
+					chip->usb_chgpth_base + CHGPTH_CFG,
+					CFG_USB_2_3_SEL_BIT, CFG_USB_2);
+		rc |= smbchg_masked_write(chip, chip->usb_chgpth_base + CMD_IL,
+					USBIN_MODE_CHG_BIT | USB51_MODE_BIT,
+					USBIN_LIMITED_MODE | USB51_100MA);
+		if (rc)
+			dev_err(chip->dev,
+				"could not set low current limit: %d\n", rc);
+	} else {
+		rc = smbchg_set_thermal_limited_usb_current_max(chip,
+						chip->usb_target_current_ma);
+		if (rc)
+			dev_err(chip->dev,
+				"could not set current limit: %d\n", rc);
+	}
+out:
+	mutex_unlock(&chip->current_change_lock);
+	return rc;
 }
 
 #define HOT_BAT_HARD_BIT	BIT(0)
