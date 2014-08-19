@@ -134,6 +134,7 @@ struct ufs_msm_host {
 	struct clk *rx_l1_sync_clk;
 	struct clk *tx_l1_sync_clk;
 	bool is_lane_clks_enabled;
+	bool sec_cfg_updated;
 };
 
 #define ufs_msm_is_link_off(hba) ufshcd_is_link_off(hba)
