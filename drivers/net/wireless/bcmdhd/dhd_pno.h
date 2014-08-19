@@ -76,11 +76,13 @@
 #define GSCAN_FLUSH_ALL_CFG     (GSCAN_FLUSH_SCAN_CFG | \
 								GSCAN_FLUSH_SIGNIFICANT_CFG | \
 								GSCAN_FLUSH_HOTLIST_CFG)
+/* Do not change GSCAN_BATCH_RETRIEVAL_COMPLETE */
 #define GSCAN_BATCH_RETRIEVAL_COMPLETE      0
 #define GSCAN_BATCH_RETRIEVAL_IN_PROGRESS   1
 #define GSCAN_BATCH_NO_THR_SET              101
 #define GSCAN_LOST_AP_WINDOW_DEFAULT        4
 #define GSCAN_MIN_BSSID_TIMEOUT             90
+#define GSCAN_BATCH_GET_MAX_WAIT            500
 
 #define CHANNEL_BUCKET_EMPTY_INDEX                      0xFFFF
 #endif /* GSCAN_SUPPORT */
@@ -388,6 +390,9 @@ typedef struct dhd_pno_status_info {
 	dhd_pub_t *dhd;
 	struct work_struct work;
 	struct mutex pno_mutex;
+#ifdef GSCAN_SUPPORT
+	wait_queue_head_t batch_get_wait;
+#endif /* GSCAN_SUPPORT */
 	struct completion get_batch_done;
 	bool wls_supported; /* wifi location service supported or not */
 	enum dhd_pno_status pno_status;
