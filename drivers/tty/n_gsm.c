@@ -245,6 +245,7 @@ struct gsm_mux {
 	unsigned int mtu;
 	int initiator;			/* Did we initiate connection */
 	int dead;			/* Has the mux been shut down */
+	int tty_dead;
 	struct gsm_dlci *dlci[NUM_DLCI];
 	int constipated;		/* Asked by remote to shut up */
 
@@ -2061,31 +2062,13 @@ static void gsm_error(struct gsm_mux *gsm,
 	gsm->io_error++;
 }
 
-/**
- *	gsm_cleanup_mux		-	generic GSM protocol cleanup
- *	@gsm: our mux
- *
- *	Clean up the bits of the mux which are the same for all framing
- *	protocols. Remove the mux from the mux table, stop all the timers
- *	and then shut down each device hanging up the channels as we go.
- */
 
-static void gsm_cleanup_mux(struct gsm_mux *gsm)
+void gsm_closeall_dlci(struct gsm_mux *gsm)
 {
 	int i;
 	int t;
 	struct gsm_dlci *dlci;
-	struct gsm_msg *txq, *ntxq;
-	unsigned long flags;
 
-	gsm->dead = 1;
-
-	spin_lock(&gsm_mux_lock);
-	gsm_mux[gsm->num] = NULL;
-	spin_unlock(&gsm_mux_lock);
-
-	del_timer_sync(&gsm->t2_timer);
-	/* Now we are sure T2 has stopped */
 	/* Free up any link layer users */
 	for (i = NUM_DLCI-1; i >= 0; i--) {
 		dlci = gsm->dlci[i];
@@ -2109,9 +2092,43 @@ close_this_dlci:
 			}
 		}
 	}
+}
+
+/**
+ *	gsm_cleanup_mux		-	generic GSM protocol cleanup
+ *	@gsm: our mux
+ *
+ *	Clean up the bits of the mux which are the same for all framing
+ *	protocols. Remove the mux from the mux table, stop all the timers
+ *	and then shut down each device hanging up the channels as we go.
+ *
+ *	RRG: FIXME: need to validate if starting close of other
+ *		dlci channels is really needed or can we revert to
+ *		upstream code. Need full testing cycle.
+ */
+
+void gsm_cleanup_mux(struct gsm_mux *gsm)
+{
+	int i;
+	struct gsm_msg *txq, *ntxq;
+	unsigned long flags;
+
+	gsm->dead = 1;
+
+	spin_lock(&gsm_mux_lock);
+	gsm_mux[gsm->num] = NULL;
+	spin_unlock(&gsm_mux_lock);
+
+	del_timer_sync(&gsm->t2_timer);
+	/* Now we are sure T2 has stopped */
+
+	if (!gsm->tty_dead)
+		gsm_closeall_dlci(gsm);
+
 	for (i = NUM_DLCI-1; i >= 0; i--)
 		if (gsm->dlci[i])
 			gsm_dlci_release(gsm->dlci[i]);
+
 	spin_lock_irqsave(&gsm->tx_lock, flags);
 	/* Now wipe the queues */
 	list_for_each_entry_safe(txq, ntxq, &gsm->tx_list, list)
@@ -2271,6 +2288,7 @@ static struct gsm_mux *gsm_alloc_mux(void)
 	gsm->clocal = 1; /* Ignore CD (DV flags in MSC)*/
 	gsm->burst = 1; /* Support burst mode by default */
 	gsm->dead = 1;	/* Avoid early tty opens */
+	gsm->tty_dead = 0;
 
 	return gsm;
 }
@@ -2457,9 +2475,27 @@ static void gsmld_close(struct tty_struct *tty)
 {
 	struct gsm_mux *gsm = tty->disc_data;
 
-	gsmld_detach_gsm(tty, gsm);
+	/* When this fct is called, tty can't be used.
+	 * Here is the 3 cases :
+	 *	- Close of the tty on which the mux is associated
+	 *	  tty->ops->close is called before tty_disc_release
+	 *	- Hangup of the tty on which the mux is assocated
+	 *	  A modem/link problem occurs and modem is not reachable
+	 *	- Replacing LD by another one
+	 *	  tty->receive_room is set to 0, no modem answer
+	 *
+	 * So, no need to send anything to modem, ether it will not
+	 * reach the modem, or the modem can't accept it. Last case,
+	 * we will not receive modem answer and we will timeout.
+	 * To close modem mux, please use ioctl GSMIOC_DEMUX first
+	 */
+	gsm->tty_dead = 1;
 
-	gsmld_flush_buffer(tty);
+	if (gsm->tty) {
+		gsmld_detach_gsm(tty, gsm);
+		gsmld_flush_buffer(tty);
+	}
+
 	/* Do other clean up here */
 	mux_put(gsm);
 }
@@ -2739,6 +2775,10 @@ static int gsmld_ioctl(struct tty_struct *tty, struct file *file,
 		if (copy_from_user(&c, (void *)arg, sizeof(c)))
 			return -EFAULT;
 		return gsmld_config(tty, gsm, &c);
+	case GSMIOC_DEMUX:
+		gsm->dead = 1;
+		gsm_closeall_dlci(gsm);
+		return 0;
 	default:
 		return n_tty_ioctl_helper(tty, file, cmd, arg);
 	}
@@ -3205,17 +3245,21 @@ static void gsmtty_close(struct tty_struct *tty, struct file *filp)
 		gsmtty_detach_dlci(tty);
 		return;
 	}
-	gsm_dlci_begin_close(dlci);
+
+	if (!gsm->tty_dead) {
+		gsm_dlci_begin_close(dlci);
+
+		/* Wait for UA */
+		if (!(filp->f_flags & O_NONBLOCK))
+			wait_event_timeout(gsm->event,
+						dlci->state == DLCI_CLOSED,
+						gsm->n2 * gsm->t1 * HZ / 100);
+	} else
+		gsm_dlci_close(dlci);
 	if (test_bit(ASYNCB_INITIALIZED, &dlci->port.flags)) {
 		if (C_HUPCL(tty))
 			tty_port_lower_dtr_rts(&dlci->port);
 	}
-
-	/* Wait for UA */
-	if (!(filp->f_flags & O_NONBLOCK))
-		wait_event_timeout(gsm->event,
-					dlci->state == DLCI_CLOSED,
-					gsm->n2 * gsm->t1 * HZ / 100);
 	tty_port_close_end(&dlci->port, tty);
 	gsmtty_detach_dlci(tty);
 }
@@ -3226,7 +3270,10 @@ static void gsmtty_hangup(struct tty_struct *tty)
 	if (!dlci)
 		return;
 	tty_port_hangup(&dlci->port);
-	gsm_dlci_begin_close(dlci);
+	if (!dlci->gsm->tty_dead)
+		gsm_dlci_begin_close(dlci);
+	else
+		gsm_dlci_close(dlci);
 }
 
 static int gsmtty_write(struct tty_struct *tty, const unsigned char *buf,
