@@ -25,8 +25,8 @@
 
 #define IPA_PKT_FLUSH_TO_US 100
 
-#define IPA_RAM_WDI_SMEM_SIZE 128
-#define IPA_HW_INTERFACE_VERSION 0x010E
+#define IPA_RAM_UC_SMEM_SIZE 128
+#define IPA_HW_INTERFACE_VERSION     0x0111
 #define IPA_HW_INTERFACE_WDI_VERSION 0x0001
 #define IPA_HW_WDI_RX_MBOX_START_INDEX 48
 #define IPA_HW_WDI_TX_MBOX_START_INDEX 50
@@ -87,7 +87,7 @@ enum ipa_hw_wdi_channel_states {
  * @IPA_CPU_2_HW_CMD_WDI_CH_RESUME : Command to resume a channel
  * @IPA_CPU_2_HW_CMD_WDI_TEAR_DOWN : Command to tear down WDI Tx/ Rx Path
  */
-enum ipa_cpu_2_hw_commands {
+enum ipa_cpu_2_hw_wdi_commands {
 	IPA_CPU_2_HW_CMD_WDI_TX_SET_UP  =
 		FEATURE_ENUM_VAL(IPA_HW_FEATURE_WDI, 0),
 	IPA_CPU_2_HW_CMD_WDI_RX_SET_UP  =
@@ -145,6 +145,41 @@ enum ipa_hw_2_cpu_cmd_resp_status {
 		FEATURE_ENUM_VAL(IPA_HW_FEATURE_WDI, 15),
 	IPA_HW_2_CPU_WDI_RX_FSM_TRANSITION_ERROR       =
 		FEATURE_ENUM_VAL(IPA_HW_FEATURE_WDI, 16),
+};
+
+/**
+ * enum ipa_cpu_2_hw_commands - Values that represent the commands from the CPU
+ * IPA_CPU_2_HW_CMD_NO_OP : No operation is required.
+ * IPA_CPU_2_HW_CMD_UPDATE_FLAGS : Update SW flags which defines the behavior
+ *                                 of HW.
+ * IPA_CPU_2_HW_CMD_DEBUG_RUN_TEST : Launch predefined test over HW.
+ * IPA_CPU_2_HW_CMD_DEBUG_GET_INFO : Read HW internal debug information.
+ * IPA_CPU_2_HW_CMD_ERR_FATAL : CPU instructs HW to perform error fatal
+ *                              handling.
+ * IPA_CPU_2_HW_CMD_CLK_GATE : CPU instructs HW to goto Clock Gated state.
+ * IPA_CPU_2_HW_CMD_CLK_UNGATE : CPU instructs HW to goto Clock Ungated state.
+ * IPA_CPU_2_HW_CMD_MEMCPY : CPU instructs HW to do memcopy using QMB.
+ * IPA_CPU_2_HW_CMD_RESET_PIPE : Command to reset a pipe - SW WA for a HW bug.
+ */
+enum ipa_cpu_2_hw_commands {
+	IPA_CPU_2_HW_CMD_NO_OP                     =
+		FEATURE_ENUM_VAL(IPA_HW_FEATURE_COMMON, 0),
+	IPA_CPU_2_HW_CMD_UPDATE_FLAGS              =
+		FEATURE_ENUM_VAL(IPA_HW_FEATURE_COMMON, 1),
+	IPA_CPU_2_HW_CMD_DEBUG_RUN_TEST            =
+		FEATURE_ENUM_VAL(IPA_HW_FEATURE_COMMON, 2),
+	IPA_CPU_2_HW_CMD_DEBUG_GET_INFO            =
+		FEATURE_ENUM_VAL(IPA_HW_FEATURE_COMMON, 3),
+	IPA_CPU_2_HW_CMD_ERR_FATAL                 =
+		FEATURE_ENUM_VAL(IPA_HW_FEATURE_COMMON, 4),
+	IPA_CPU_2_HW_CMD_CLK_GATE                  =
+		FEATURE_ENUM_VAL(IPA_HW_FEATURE_COMMON, 5),
+	IPA_CPU_2_HW_CMD_CLK_UNGATE                =
+		FEATURE_ENUM_VAL(IPA_HW_FEATURE_COMMON, 6),
+	IPA_CPU_2_HW_CMD_MEMCPY                    =
+		FEATURE_ENUM_VAL(IPA_HW_FEATURE_COMMON, 7),
+	IPA_CPU_2_HW_CMD_RESET_PIPE                =
+		FEATURE_ENUM_VAL(IPA_HW_FEATURE_COMMON, 8),
 };
 
 /**
@@ -389,6 +424,24 @@ union IpaHwWdiCommonChCmdData_t {
 } __packed;
 
 /**
+ * union IpaHwResetPipeCmdData_t - Structure holding the parameters
+ * for IPA_CPU_2_HW_CMD_RESET_PIPE command.
+ * @pipeNum : Pipe number to be reset
+ * @direction : 1 - IPA Producer, 0 - IPA Consumer
+ * @reserved_02_03 : Reserved
+ *
+ * The parameters are passed as immediate params in the shared memory
+ */
+union IpaHwResetPipeCmdData_t {
+	struct IpaHwResetPipeCmdParams_t {
+		u8     pipeNum;
+		u8     direction;
+		u32    reserved_02_03;
+	} __packed params;
+	u32 raw32b;
+} __packed;
+
+/**
  * union IpaHwCpuCmdCompletedResponseData_t - Structure holding the parameters
  * for IPA_HW_2_CPU_RESPONSE_CMD_COMPLETED response.
  * @originalCmdOp : The original command opcode
@@ -510,16 +563,16 @@ struct IpaHwEventLogInfoData_t {
 int ipa_get_wdi_stats(struct IpaHwStatsWDIInfoData_t *stats)
 {
 #define TX_STATS(y) stats->tx_ch_stats.y = \
-	ipa_ctx->wdi.uc_wdi_stats_mmio->tx_ch_stats.y
+	ipa_ctx->uc_ctx.wdi_uc_stats_mmio->tx_ch_stats.y
 #define RX_STATS(y) stats->rx_ch_stats.y = \
-	ipa_ctx->wdi.uc_wdi_stats_mmio->rx_ch_stats.y
+	ipa_ctx->uc_ctx.wdi_uc_stats_mmio->rx_ch_stats.y
 
-	if (!stats || !ipa_ctx->wdi.uc_top_mmio ||
-		!ipa_ctx->wdi.uc_wdi_stats_mmio) {
+	if (!stats || !ipa_ctx->uc_ctx.wdi_uc_top_mmio ||
+		!ipa_ctx->uc_ctx.wdi_uc_stats_mmio) {
 		IPAERR("bad parms stats=%p uc_top=%p wdi_stats=%p\n",
 			stats,
-			ipa_ctx->wdi.uc_top_mmio,
-			ipa_ctx->wdi.uc_wdi_stats_mmio);
+			ipa_ctx->uc_ctx.wdi_uc_top_mmio,
+			ipa_ctx->uc_ctx.wdi_uc_stats_mmio);
 		return -EINVAL;
 	}
 
@@ -568,230 +621,124 @@ EXPORT_SYMBOL(ipa_get_wdi_stats);
 /* TODO: add support for IPA_HW_v2_5 */
 static void ipa_log_evt_hdlr(void)
 {
-	if (!ipa_ctx->wdi.uc_top_ofst) {
-		ipa_ctx->wdi.uc_top_ofst =
-			ipa_ctx->wdi.ipa_sram_mmio->common.eventParams;
-		if (ipa_ctx->wdi.uc_top_ofst +
+	if (!ipa_ctx->uc_ctx.wdi_uc_top_ofst) {
+		ipa_ctx->uc_ctx.wdi_uc_top_ofst =
+			ipa_ctx->uc_ctx.uc_sram_mmio->eventParams;
+		if (ipa_ctx->uc_ctx.wdi_uc_top_ofst +
 				sizeof(struct IpaHwEventLogInfoData_t) >=
 				ipa_ctx->ctrl->ipa_reg_base_ofst +
 				IPA_SRAM_DIRECT_ACCESS_N_OFST_v2_0(0) +
 				ipa_ctx->smem_sz) {
 			IPAERR("uc_top 0x%x outside SRAM\n",
-					ipa_ctx->wdi.uc_top_ofst);
+					ipa_ctx->uc_ctx.wdi_uc_top_ofst);
 			goto bad_uc_top_ofst;
 		}
 
-		ipa_ctx->wdi.uc_top_mmio = ioremap(ipa_ctx->ipa_wrapper_base +
-				ipa_ctx->wdi.uc_top_ofst,
+		ipa_ctx->uc_ctx.wdi_uc_top_mmio = ioremap(
+				ipa_ctx->ipa_wrapper_base +
+				ipa_ctx->uc_ctx.wdi_uc_top_ofst,
 				sizeof(struct IpaHwEventLogInfoData_t));
-		if (!ipa_ctx->wdi.uc_top_mmio) {
+		if (!ipa_ctx->uc_ctx.wdi_uc_top_mmio) {
 			IPAERR("fail to ioremap uc top\n");
 			goto bad_uc_top_ofst;
 		}
 
-		if ((ipa_ctx->wdi.uc_top_mmio->featureMask &
+		if ((ipa_ctx->uc_ctx.wdi_uc_top_mmio->featureMask &
 					(1 << IPA_HW_FEATURE_WDI)) == 0) {
 			IPAERR("WDI feature missing 0x%x\n",
-					ipa_ctx->wdi.uc_top_mmio->featureMask);
+					ipa_ctx->uc_ctx.wdi_uc_top_mmio->
+					featureMask);
 			goto feat_miss;
 		}
 
-		if (ipa_ctx->wdi.uc_top_mmio->statsInfo.
+		if (ipa_ctx->uc_ctx.wdi_uc_top_mmio->statsInfo.
 			featureInfo[IPA_HW_FEATURE_WDI].params.size !=
 			sizeof(struct IpaHwStatsWDIInfoData_t)) {
 			IPAERR("wdi stats size invalid exp=%zu is=%u\n",
 				sizeof(struct IpaHwStatsWDIInfoData_t),
-				ipa_ctx->wdi.uc_top_mmio->statsInfo.
+				ipa_ctx->uc_ctx.wdi_uc_top_mmio->statsInfo.
 				featureInfo[IPA_HW_FEATURE_WDI].
 				params.size);
 			goto feat_miss;
 		}
 
-		ipa_ctx->wdi.uc_wdi_stats_ofst = ipa_ctx->wdi.
-			uc_top_mmio->statsInfo.baseAddrOffset +
-			ipa_ctx->wdi.uc_top_mmio->statsInfo.
+		ipa_ctx->uc_ctx.wdi_uc_stats_ofst = ipa_ctx->
+			uc_ctx.wdi_uc_top_mmio->statsInfo.baseAddrOffset +
+			ipa_ctx->uc_ctx.wdi_uc_top_mmio->statsInfo.
 			featureInfo[IPA_HW_FEATURE_WDI].params.offset;
 		IPAERR("WDI stats ofst=0x%x\n",
-				ipa_ctx->wdi.uc_wdi_stats_ofst);
-		if (ipa_ctx->wdi.uc_wdi_stats_ofst +
+				ipa_ctx->uc_ctx.wdi_uc_stats_ofst);
+		if (ipa_ctx->uc_ctx.wdi_uc_stats_ofst +
 				sizeof(struct IpaHwStatsWDIInfoData_t) >=
 				ipa_ctx->ctrl->ipa_reg_base_ofst +
 				IPA_SRAM_DIRECT_ACCESS_N_OFST_v2_0(0) +
 				ipa_ctx->smem_sz) {
 			IPAERR("uc_wdi_stats 0x%x outside SRAM\n",
-					ipa_ctx->wdi.uc_wdi_stats_ofst);
+					ipa_ctx->uc_ctx.wdi_uc_stats_ofst);
 			goto bad_stats_ofst;
 		}
 
-		ipa_ctx->wdi.uc_wdi_stats_mmio =
+		ipa_ctx->uc_ctx.wdi_uc_stats_mmio =
 			ioremap(ipa_ctx->ipa_wrapper_base +
-				ipa_ctx->wdi.uc_wdi_stats_ofst,
+				ipa_ctx->uc_ctx.wdi_uc_stats_ofst,
 				sizeof(struct IpaHwStatsWDIInfoData_t));
-		if (!ipa_ctx->wdi.uc_wdi_stats_mmio) {
+		if (!ipa_ctx->uc_ctx.wdi_uc_stats_mmio) {
 			IPAERR("fail to ioremap uc wdi stats\n");
 			goto bad_stats_ofst;
 		}
 	} else {
-		if (ipa_ctx->wdi.ipa_sram_mmio->common.eventParams !=
-				ipa_ctx->wdi.uc_top_ofst) {
+		if (ipa_ctx->uc_ctx.uc_sram_mmio->eventParams !=
+				ipa_ctx->uc_ctx.wdi_uc_top_ofst) {
 			IPAERR("uc top ofst changed new=%u cur=%u\n",
-				ipa_ctx->wdi.uc_top_mmio->statsInfo.
+				ipa_ctx->uc_ctx.wdi_uc_top_mmio->statsInfo.
 				featureInfo[IPA_HW_FEATURE_WDI].params.size,
-				ipa_ctx->wdi.uc_top_ofst);
+				ipa_ctx->uc_ctx.wdi_uc_top_ofst);
 		}
 	}
 
 	return;
 
 bad_stats_ofst:
-	ipa_ctx->wdi.uc_wdi_stats_ofst = 0;
+	ipa_ctx->uc_ctx.wdi_uc_stats_ofst = 0;
 feat_miss:
-	iounmap(ipa_ctx->wdi.uc_top_mmio);
+	iounmap(ipa_ctx->uc_ctx.wdi_uc_top_mmio);
 bad_uc_top_ofst:
-	ipa_ctx->wdi.uc_top_ofst = 0;
+	ipa_ctx->uc_ctx.wdi_uc_top_ofst = 0;
 	return;
-}
-
-static void ipa_wdi_evt_handler(enum ipa_irq_type interrupt,
-				void *private_data,
-				void *interrupt_data)
-{
-	union IpaHwErrorEventData_t evt;
-	union IpaHwWdiErrorEventData_t wdi_evt;
-
-	WARN_ON(private_data != ipa_ctx);
-
-	ipa_inc_client_enable_clks();
-	IPAERR("WDI evt opcode=%u\n",
-			ipa_ctx->wdi.ipa_sram_mmio->common.eventOp);
-
-	if (ipa_ctx->wdi.ipa_sram_mmio->common.eventOp ==
-			IPA_HW_2_CPU_EVENT_ERROR) {
-		evt.raw32b = ipa_ctx->wdi.ipa_sram_mmio->common.eventParams;
-		IPAERR("WDI evt errorType=%u\n", evt.params.errorType);
-	} else if (ipa_ctx->wdi.ipa_sram_mmio->common.eventOp ==
-			IPA_HW_2_CPU_EVENT_WDI_ERROR) {
-		wdi_evt.raw32b = ipa_ctx->wdi.ipa_sram_mmio->common.eventParams;
-		IPAERR("WDI evt errorType=%u pipe=%d cherrorType=%u\n",
-				wdi_evt.params.wdi_error_type,
-				wdi_evt.params.ipa_pipe_number,
-				wdi_evt.params.wdi_ch_err_type);
-		IPAERR("tx_ch_state=%u rx_ch_state=%u\n",
-				ipa_ctx->wdi.ipa_sram_mmio->wdi_tx_ch_0_state,
-				ipa_ctx->wdi.ipa_sram_mmio->wdi_rx_ch_0_state);
-
-	} else if (ipa_ctx->wdi.ipa_sram_mmio->common.eventOp ==
-			IPA_HW_2_CPU_EVENT_LOG_INFO) {
-		IPAERR("WDI evt log info ofst=0x%x\n",
-				ipa_ctx->wdi.ipa_sram_mmio->common.eventParams);
-		ipa_log_evt_hdlr();
-	} else {
-		IPAERR("unsupported WDI evt opcode=%u\n",
-				ipa_ctx->wdi.ipa_sram_mmio->common.eventOp);
-	}
-	ipa_dec_client_disable_clks();
-}
-
-static void ipa_wdi_rsp_handler(enum ipa_irq_type interrupt,
-				void *private_data,
-				void *interrupt_data)
-{
-	union IpaHwCpuCmdCompletedResponseData_t wdi_rsp;
-	WARN_ON(private_data != ipa_ctx);
-
-	ipa_inc_client_enable_clks();
-	IPADBG("WDI rsp opcode=%u\n",
-			ipa_ctx->wdi.ipa_sram_mmio->common.responseOp);
-
-	if (ipa_ctx->wdi.ipa_sram_mmio->common.responseOp ==
-			IPA_HW_2_CPU_RESPONSE_INIT_COMPLETED) {
-		ipa_ctx->wdi.uc_loaded = true;
-		IPADBG("IPA uc loaded\n");
-	} else if (ipa_ctx->wdi.ipa_sram_mmio->common.responseOp ==
-			IPA_HW_2_CPU_RESPONSE_CMD_COMPLETED) {
-		wdi_rsp.raw32b =
-			ipa_ctx->wdi.ipa_sram_mmio->common.responseParams;
-		IPADBG("WDI cmd opcode=%u status=%u\n",
-				wdi_rsp.params.originalCmdOp,
-				wdi_rsp.params.status);
-		if (wdi_rsp.params.originalCmdOp == ipa_ctx->wdi.pending_cmd) {
-			ipa_ctx->wdi.last_resp = wdi_rsp.params.status;
-			complete_all(&ipa_ctx->wdi.cmd_rsp);
-		} else {
-			IPAERR("expected cmd=%u rcvd cmd=%u\n",
-					ipa_ctx->wdi.pending_cmd,
-					wdi_rsp.params.originalCmdOp);
-		}
-	} else {
-		IPAERR("Unsupported WDI rsp opcode = %u\n",
-				ipa_ctx->wdi.ipa_sram_mmio->common.responseOp);
-	}
-	ipa_dec_client_disable_clks();
 }
 
 int ipa_wdi_init(void)
 {
-	int result;
-	unsigned long phys_addr;
-
-	ipa_ctx->wdi.dma_pool = dma_pool_create("ipa_wdi1k",
+	ipa_ctx->uc_ctx.wdi_dma_pool = dma_pool_create("ipa_wdi1k",
 			ipa_ctx->pdev,
 			IPA_WDI_DMA_POOL_SIZE, IPA_WDI_DMA_POOL_ALIGNMENT,
 			IPA_WDI_DMA_POOL_BOUNDARY);
-	if (!ipa_ctx->wdi.dma_pool) {
+	if (!ipa_ctx->uc_ctx.wdi_dma_pool) {
 		IPAERR("fail to setup DMA pool\n");
-		result = -ENOMEM;
-		goto pool_fail;
-	}
-
-	mutex_init(&ipa_ctx->wdi.lock);
-
-	if (ipa_ctx->ipa_hw_type == IPA_HW_v2_5) {
-		phys_addr = ipa_ctx->ipa_wrapper_base +
-			ipa_ctx->ctrl->ipa_reg_base_ofst +
-			IPA_SRAM_SW_FIRST_v2_5;
-	} else {
-		phys_addr = ipa_ctx->ipa_wrapper_base +
-			ipa_ctx->ctrl->ipa_reg_base_ofst +
-			IPA_SRAM_DIRECT_ACCESS_N_OFST_v2_0(
-			ipa_ctx->smem_restricted_bytes / 4);
-	}
-
-	ipa_ctx->wdi.ipa_sram_mmio = ioremap(phys_addr, IPA_RAM_WDI_SMEM_SIZE);
-	if (!ipa_ctx->wdi.ipa_sram_mmio) {
-		IPAERR("fail to ioremap IPA SRAM\n");
-		result = -ENOMEM;
-		goto remap_fail;
-	}
-
-	result = ipa_add_interrupt_handler(IPA_UC_IRQ_0,
-			ipa_wdi_evt_handler, true,
-			ipa_ctx);
-	if (result) {
-		IPAERR("fail to register for UC_IRQ0 evt interrupt\n");
-		result = -EFAULT;
-		goto irq0_fail;
-	}
-
-	result = ipa_add_interrupt_handler(IPA_UC_IRQ_1,
-			ipa_wdi_rsp_handler, true,
-			ipa_ctx);
-	if (result) {
-		IPAERR("fail to register for UC_IRQ1 rsp interrupt\n");
-		result = -EFAULT;
-		goto irq1_fail;
+		return -ENOMEM;
 	}
 
 	return 0;
+}
 
-irq1_fail:
-	ipa_remove_interrupt_handler(IPA_UC_IRQ_0);
-irq0_fail:
-	iounmap(ipa_ctx->wdi.ipa_sram_mmio);
-remap_fail:
-	dma_pool_destroy(ipa_ctx->wdi.dma_pool);
-pool_fail:
-	return result;
+int ipa_uc_state_check(void)
+{
+	if (!ipa_ctx->uc_ctx.uc_inited) {
+		IPAERR("uC interface not initialized\n");
+		return -EFAULT;
+	}
+
+	if (!ipa_ctx->uc_ctx.uc_loaded) {
+		IPAERR("uC is not loaded\n");
+		return -EFAULT;
+	}
+
+	if (ipa_ctx->uc_ctx.uc_failed) {
+		IPAERR("uC has failed its last command\n");
+		return -EFAULT;
+	}
+
+	return 0;
 }
 
 /**
@@ -834,15 +781,9 @@ int ipa_connect_wdi_pipe(struct ipa_wdi_in_params *in,
 		}
 	}
 
-	if (!ipa_ctx->wdi.uc_loaded) {
-		IPAERR("IPA uc not loaded\n");
-		return -EFAULT;
-	}
-
-	if (ipa_ctx->wdi.uc_failed) {
-		IPAERR("IPA uc in failed state\n");
-		return -EFAULT;
-	}
+	result = ipa_uc_state_check();
+	if (result)
+		return result;
 
 	ipa_ep_idx = ipa_get_ep_mapping(in->sys.client);
 	if (ipa_ep_idx == -1) {
@@ -878,7 +819,7 @@ int ipa_connect_wdi_pipe(struct ipa_wdi_in_params *in,
 		IPADBG("rx_ring_rp_pa=0x%pa\n", &in->u.ul.rdy_ring_rp_pa);
 	}
 
-	cmd.base = dma_pool_alloc(ipa_ctx->wdi.dma_pool, GFP_KERNEL,
+	cmd.base = dma_pool_alloc(ipa_ctx->uc_ctx.wdi_dma_pool, GFP_KERNEL,
 			&cmd.phys_base);
 	if (cmd.base == NULL) {
 		IPAERR("fail to get DMA memory.\n");
@@ -909,16 +850,16 @@ int ipa_connect_wdi_pipe(struct ipa_wdi_in_params *in,
 					IPA_HW_WDI_RX_MBOX_START_INDEX % 32);
 	}
 
-	mutex_lock(&ipa_ctx->wdi.lock);
-	ipa_ctx->wdi.ipa_sram_mmio->common.cmdParams = cmd.phys_base;
+	mutex_lock(&ipa_ctx->uc_ctx.uc_lock);
+	ipa_ctx->uc_ctx.uc_sram_mmio->cmdParams = cmd.phys_base;
 	if (IPA_CLIENT_IS_CONS(in->sys.client))
-		ipa_ctx->wdi.ipa_sram_mmio->common.cmdOp =
+		ipa_ctx->uc_ctx.uc_sram_mmio->cmdOp =
 			IPA_CPU_2_HW_CMD_WDI_TX_SET_UP;
 	else
-		ipa_ctx->wdi.ipa_sram_mmio->common.cmdOp =
+		ipa_ctx->uc_ctx.uc_sram_mmio->cmdOp =
 			IPA_CPU_2_HW_CMD_WDI_RX_SET_UP;
-	init_completion(&ipa_ctx->wdi.cmd_rsp);
-	ipa_ctx->wdi.pending_cmd = ipa_ctx->wdi.ipa_sram_mmio->common.cmdOp;
+	init_completion(&ipa_ctx->uc_ctx.uc_completion);
+	ipa_ctx->uc_ctx.pending_cmd = ipa_ctx->uc_ctx.uc_sram_mmio->cmdOp;
 	wmb();
 	ep->valid = 1;
 	ep->client = in->sys.client;
@@ -935,21 +876,22 @@ int ipa_connect_wdi_pipe(struct ipa_wdi_in_params *in,
 		ipa_cfg_ep_ctrl(ipa_ep_idx, &ep_cfg_ctrl);
 	}
 	ipa_write_reg(ipa_ctx->mmio, IPA_IRQ_EE_UC_n_OFFS(0), 0x1);
-	if (wait_for_completion_timeout(&ipa_ctx->wdi.cmd_rsp, 10*HZ) == 0) {
+	if (wait_for_completion_timeout
+		(&ipa_ctx->uc_ctx.uc_completion, 10*HZ) == 0) {
 		IPAERR("uc timed out on setup ep=%d.\n", ipa_ep_idx);
 		result = -EFAULT;
-		ipa_ctx->wdi.uc_failed = true;
-		mutex_unlock(&ipa_ctx->wdi.lock);
+		ipa_ctx->uc_ctx.uc_failed = true;
+		mutex_unlock(&ipa_ctx->uc_ctx.uc_lock);
 		goto uc_timeout;
 	}
-	if (ipa_ctx->wdi.last_resp != IPA_HW_2_CPU_WDI_CMD_STATUS_SUCCESS) {
+	if (ipa_ctx->uc_ctx.uc_status != IPA_HW_2_CPU_WDI_CMD_STATUS_SUCCESS) {
 		IPAERR("cmd failed on setup ep=%d status=%d.\n", ipa_ep_idx,
-				ipa_ctx->wdi.last_resp);
+				ipa_ctx->uc_ctx.uc_status);
 		result = -EFAULT;
-		mutex_unlock(&ipa_ctx->wdi.lock);
+		mutex_unlock(&ipa_ctx->uc_ctx.uc_lock);
 		goto uc_timeout;
 	}
-	mutex_unlock(&ipa_ctx->wdi.lock);
+	mutex_unlock(&ipa_ctx->uc_ctx.uc_lock);
 
 	ep->skip_ep_cfg = in->sys.skip_ep_cfg;
 	ep->client_notify = in->sys.notify;
@@ -973,7 +915,7 @@ int ipa_connect_wdi_pipe(struct ipa_wdi_in_params *in,
 	if (!ep->keep_ipa_awake)
 		ipa_dec_client_disable_clks();
 
-	dma_pool_free(ipa_ctx->wdi.dma_pool, cmd.base, cmd.phys_base);
+	dma_pool_free(ipa_ctx->uc_ctx.wdi_dma_pool, cmd.base, cmd.phys_base);
 	ep->wdi_state |= IPA_WDI_CONNECTED;
 	IPADBG("client %d (ep: %d) connected\n", in->sys.client, ipa_ep_idx);
 
@@ -982,7 +924,7 @@ int ipa_connect_wdi_pipe(struct ipa_wdi_in_params *in,
 ipa_cfg_ep_fail:
 	memset(&ipa_ctx->ep[ipa_ep_idx], 0, sizeof(struct ipa_ep_context));
 uc_timeout:
-	dma_pool_free(ipa_ctx->wdi.dma_pool, cmd.base, cmd.phys_base);
+	dma_pool_free(ipa_ctx->uc_ctx.wdi_dma_pool, cmd.base, cmd.phys_base);
 dma_alloc_fail:
 	ipa_dec_client_disable_clks();
 fail:
@@ -1009,15 +951,9 @@ int ipa_disconnect_wdi_pipe(u32 clnt_hdl)
 		return -EINVAL;
 	}
 
-	if (!ipa_ctx->wdi.uc_loaded) {
-		IPAERR("IPA uc not loaded\n");
-		return -EFAULT;
-	}
-
-	if (ipa_ctx->wdi.uc_failed) {
-		IPAERR("IPA uc in failed state\n");
-		return -EFAULT;
-	}
+	result = ipa_uc_state_check();
+	if (result)
+		return result;
 
 	IPADBG("ep=%d\n", clnt_hdl);
 
@@ -1032,29 +968,30 @@ int ipa_disconnect_wdi_pipe(u32 clnt_hdl)
 		ipa_inc_client_enable_clks();
 
 	tear.params.ipa_pipe_number = clnt_hdl;
-	mutex_lock(&ipa_ctx->wdi.lock);
-	ipa_ctx->wdi.ipa_sram_mmio->common.cmdParams = tear.raw32b;
-	ipa_ctx->wdi.ipa_sram_mmio->common.cmdOp =
+	mutex_lock(&ipa_ctx->uc_ctx.uc_lock);
+	ipa_ctx->uc_ctx.uc_sram_mmio->cmdParams = tear.raw32b;
+	ipa_ctx->uc_ctx.uc_sram_mmio->cmdOp =
 		IPA_CPU_2_HW_CMD_WDI_TEAR_DOWN;
-	init_completion(&ipa_ctx->wdi.cmd_rsp);
-	ipa_ctx->wdi.pending_cmd = ipa_ctx->wdi.ipa_sram_mmio->common.cmdOp;
+	init_completion(&ipa_ctx->uc_ctx.uc_completion);
+	ipa_ctx->uc_ctx.pending_cmd = ipa_ctx->uc_ctx.uc_sram_mmio->cmdOp;
 	wmb();
 	ipa_write_reg(ipa_ctx->mmio, IPA_IRQ_EE_UC_n_OFFS(0), 0x1);
-	if (wait_for_completion_timeout(&ipa_ctx->wdi.cmd_rsp, 10*HZ) == 0) {
+	if (wait_for_completion_timeout
+		(&ipa_ctx->uc_ctx.uc_completion, 10*HZ) == 0) {
 		IPAERR("uc timed out on tear down ep=%d.\n", clnt_hdl);
 		result = -EFAULT;
-		ipa_ctx->wdi.uc_failed = true;
-		mutex_unlock(&ipa_ctx->wdi.lock);
+		ipa_ctx->uc_ctx.uc_failed = true;
+		mutex_unlock(&ipa_ctx->uc_ctx.uc_lock);
 		goto uc_timeout;
 	}
-	if (ipa_ctx->wdi.last_resp != IPA_HW_2_CPU_WDI_CMD_STATUS_SUCCESS) {
+	if (ipa_ctx->uc_ctx.uc_status != IPA_HW_2_CPU_WDI_CMD_STATUS_SUCCESS) {
 		IPAERR("cmd failed on tear down ep=%d status=%d.\n", clnt_hdl,
-				ipa_ctx->wdi.last_resp);
+				ipa_ctx->uc_ctx.uc_status);
 		result = -EFAULT;
-		mutex_unlock(&ipa_ctx->wdi.lock);
+		mutex_unlock(&ipa_ctx->uc_ctx.uc_lock);
 		goto uc_timeout;
 	}
-	mutex_unlock(&ipa_ctx->wdi.lock);
+	mutex_unlock(&ipa_ctx->uc_ctx.uc_lock);
 
 	ipa_delete_dflt_flt_rules(clnt_hdl);
 	memset(&ipa_ctx->ep[clnt_hdl], 0, sizeof(struct ipa_ep_context));
@@ -1087,15 +1024,9 @@ int ipa_enable_wdi_pipe(u32 clnt_hdl)
 		return -EINVAL;
 	}
 
-	if (!ipa_ctx->wdi.uc_loaded) {
-		IPAERR("IPA uc not loaded\n");
-		return -EFAULT;
-	}
-
-	if (ipa_ctx->wdi.uc_failed) {
-		IPAERR("IPA uc in failed state\n");
-		return -EFAULT;
-	}
+	result = ipa_uc_state_check();
+	if (result)
+		return result;
 
 	IPADBG("ep=%d\n", clnt_hdl);
 
@@ -1108,29 +1039,30 @@ int ipa_enable_wdi_pipe(u32 clnt_hdl)
 
 	ipa_inc_client_enable_clks();
 	enable.params.ipa_pipe_number = clnt_hdl;
-	mutex_lock(&ipa_ctx->wdi.lock);
-	ipa_ctx->wdi.ipa_sram_mmio->common.cmdParams = enable.raw32b;
-	ipa_ctx->wdi.ipa_sram_mmio->common.cmdOp =
+	mutex_lock(&ipa_ctx->uc_ctx.uc_lock);
+	ipa_ctx->uc_ctx.uc_sram_mmio->cmdParams = enable.raw32b;
+	ipa_ctx->uc_ctx.uc_sram_mmio->cmdOp =
 		IPA_CPU_2_HW_CMD_WDI_CH_ENABLE;
-	init_completion(&ipa_ctx->wdi.cmd_rsp);
-	ipa_ctx->wdi.pending_cmd = ipa_ctx->wdi.ipa_sram_mmio->common.cmdOp;
+	init_completion(&ipa_ctx->uc_ctx.uc_completion);
+	ipa_ctx->uc_ctx.pending_cmd = ipa_ctx->uc_ctx.uc_sram_mmio->cmdOp;
 	wmb();
 	ipa_write_reg(ipa_ctx->mmio, IPA_IRQ_EE_UC_n_OFFS(0), 0x1);
-	if (wait_for_completion_timeout(&ipa_ctx->wdi.cmd_rsp, 10*HZ) == 0) {
+	if (wait_for_completion_timeout
+		(&ipa_ctx->uc_ctx.uc_completion, 10*HZ) == 0) {
 		IPAERR("uc timed out on enable ep=%d.\n", clnt_hdl);
 		result = -EFAULT;
-		ipa_ctx->wdi.uc_failed = true;
-		mutex_unlock(&ipa_ctx->wdi.lock);
+		ipa_ctx->uc_ctx.uc_failed = true;
+		mutex_unlock(&ipa_ctx->uc_ctx.uc_lock);
 		goto uc_timeout;
 	}
-	if (ipa_ctx->wdi.last_resp != IPA_HW_2_CPU_WDI_CMD_STATUS_SUCCESS) {
+	if (ipa_ctx->uc_ctx.uc_status != IPA_HW_2_CPU_WDI_CMD_STATUS_SUCCESS) {
 		IPAERR("cmd failed on enable ep=%d status=%d.\n", clnt_hdl,
-				ipa_ctx->wdi.last_resp);
+				ipa_ctx->uc_ctx.uc_status);
 		result = -EFAULT;
-		mutex_unlock(&ipa_ctx->wdi.lock);
+		mutex_unlock(&ipa_ctx->uc_ctx.uc_lock);
 		goto uc_timeout;
 	}
-	mutex_unlock(&ipa_ctx->wdi.lock);
+	mutex_unlock(&ipa_ctx->uc_ctx.uc_lock);
 
 	/* On IPA 2.0, disable HOLB */
 	if (ipa_ctx->ipa_hw_type == IPA_HW_v2_0 &&
@@ -1170,15 +1102,9 @@ int ipa_disable_wdi_pipe(u32 clnt_hdl)
 		return -EINVAL;
 	}
 
-	if (!ipa_ctx->wdi.uc_loaded) {
-		IPAERR("IPA uc not loaded\n");
-		return -EFAULT;
-	}
-
-	if (ipa_ctx->wdi.uc_failed) {
-		IPAERR("IPA uc in failed state\n");
-		return -EFAULT;
-	}
+	result = ipa_uc_state_check();
+	if (result)
+		return result;
 
 	IPADBG("ep=%d\n", clnt_hdl);
 
@@ -1191,12 +1117,12 @@ int ipa_disable_wdi_pipe(u32 clnt_hdl)
 
 	ipa_inc_client_enable_clks();
 	disable.params.ipa_pipe_number = clnt_hdl;
-	mutex_lock(&ipa_ctx->wdi.lock);
-	ipa_ctx->wdi.ipa_sram_mmio->common.cmdParams = disable.raw32b;
-	ipa_ctx->wdi.ipa_sram_mmio->common.cmdOp =
+	mutex_lock(&ipa_ctx->uc_ctx.uc_lock);
+	ipa_ctx->uc_ctx.uc_sram_mmio->cmdParams = disable.raw32b;
+	ipa_ctx->uc_ctx.uc_sram_mmio->cmdOp =
 		IPA_CPU_2_HW_CMD_WDI_CH_DISABLE;
-	init_completion(&ipa_ctx->wdi.cmd_rsp);
-	ipa_ctx->wdi.pending_cmd = ipa_ctx->wdi.ipa_sram_mmio->common.cmdOp;
+	init_completion(&ipa_ctx->uc_ctx.uc_completion);
+	ipa_ctx->uc_ctx.pending_cmd = ipa_ctx->uc_ctx.uc_sram_mmio->cmdOp;
 	wmb();
 	result = ipa_disable_data_path(clnt_hdl);
 	if (result) {
@@ -1211,21 +1137,22 @@ int ipa_disable_wdi_pipe(u32 clnt_hdl)
 		ipa_cfg_ep_ctrl(clnt_hdl, &ep_cfg_ctrl);
 	}
 	ipa_write_reg(ipa_ctx->mmio, IPA_IRQ_EE_UC_n_OFFS(0), 0x1);
-	if (wait_for_completion_timeout(&ipa_ctx->wdi.cmd_rsp, 10*HZ) == 0) {
+	if (wait_for_completion_timeout
+		(&ipa_ctx->uc_ctx.uc_completion, 10*HZ) == 0) {
 		IPAERR("uc timed out on disable ep=%d.\n", clnt_hdl);
 		result = -EFAULT;
-		ipa_ctx->wdi.uc_failed = true;
-		mutex_unlock(&ipa_ctx->wdi.lock);
+		ipa_ctx->uc_ctx.uc_failed = true;
+		mutex_unlock(&ipa_ctx->uc_ctx.uc_lock);
 		goto uc_timeout;
 	}
-	if (ipa_ctx->wdi.last_resp != IPA_HW_2_CPU_WDI_CMD_STATUS_SUCCESS) {
+	if (ipa_ctx->uc_ctx.uc_status != IPA_HW_2_CPU_WDI_CMD_STATUS_SUCCESS) {
 		IPAERR("cmd failed on disable ep=%d status=%d.\n", clnt_hdl,
-				ipa_ctx->wdi.last_resp);
+				ipa_ctx->uc_ctx.uc_status);
 		result = -EFAULT;
-		mutex_unlock(&ipa_ctx->wdi.lock);
+		mutex_unlock(&ipa_ctx->uc_ctx.uc_lock);
 		goto uc_timeout;
 	}
-	mutex_unlock(&ipa_ctx->wdi.lock);
+	mutex_unlock(&ipa_ctx->uc_ctx.uc_lock);
 
 	ipa_dec_client_disable_clks();
 	ep->wdi_state &= ~IPA_WDI_ENABLED;
@@ -1256,15 +1183,9 @@ int ipa_resume_wdi_pipe(u32 clnt_hdl)
 		return -EINVAL;
 	}
 
-	if (!ipa_ctx->wdi.uc_loaded) {
-		IPAERR("IPA uc not loaded\n");
-		return -EFAULT;
-	}
-
-	if (ipa_ctx->wdi.uc_failed) {
-		IPAERR("IPA uc in failed state\n");
-		return -EFAULT;
-	}
+	result = ipa_uc_state_check();
+	if (result)
+		return result;
 
 	IPADBG("ep=%d\n", clnt_hdl);
 
@@ -1277,29 +1198,30 @@ int ipa_resume_wdi_pipe(u32 clnt_hdl)
 
 	ipa_inc_client_enable_clks();
 	resume.params.ipa_pipe_number = clnt_hdl;
-	mutex_lock(&ipa_ctx->wdi.lock);
-	ipa_ctx->wdi.ipa_sram_mmio->common.cmdParams = resume.raw32b;
-	ipa_ctx->wdi.ipa_sram_mmio->common.cmdOp =
+	mutex_lock(&ipa_ctx->uc_ctx.uc_lock);
+	ipa_ctx->uc_ctx.uc_sram_mmio->cmdParams = resume.raw32b;
+	ipa_ctx->uc_ctx.uc_sram_mmio->cmdOp =
 		IPA_CPU_2_HW_CMD_WDI_CH_RESUME;
-	init_completion(&ipa_ctx->wdi.cmd_rsp);
-	ipa_ctx->wdi.pending_cmd = ipa_ctx->wdi.ipa_sram_mmio->common.cmdOp;
+	init_completion(&ipa_ctx->uc_ctx.uc_completion);
+	ipa_ctx->uc_ctx.pending_cmd = ipa_ctx->uc_ctx.uc_sram_mmio->cmdOp;
 	wmb();
 	ipa_write_reg(ipa_ctx->mmio, IPA_IRQ_EE_UC_n_OFFS(0), 0x1);
-	if (wait_for_completion_timeout(&ipa_ctx->wdi.cmd_rsp, 10*HZ) == 0) {
+	if (wait_for_completion_timeout
+		(&ipa_ctx->uc_ctx.uc_completion, 10*HZ) == 0) {
 		IPAERR("uc timed out on resume ep=%d.\n", clnt_hdl);
 		result = -EFAULT;
-		ipa_ctx->wdi.uc_failed = true;
-		mutex_unlock(&ipa_ctx->wdi.lock);
+		ipa_ctx->uc_ctx.uc_failed = true;
+		mutex_unlock(&ipa_ctx->uc_ctx.uc_lock);
 		goto uc_timeout;
 	}
-	if (ipa_ctx->wdi.last_resp != IPA_HW_2_CPU_WDI_CMD_STATUS_SUCCESS) {
+	if (ipa_ctx->uc_ctx.uc_status != IPA_HW_2_CPU_WDI_CMD_STATUS_SUCCESS) {
 		IPAERR("cmd failed on resume ep=%d status=%d.\n", clnt_hdl,
-				ipa_ctx->wdi.last_resp);
+				ipa_ctx->uc_ctx.uc_status);
 		result = -EFAULT;
-		mutex_unlock(&ipa_ctx->wdi.lock);
+		mutex_unlock(&ipa_ctx->uc_ctx.uc_lock);
 		goto uc_timeout;
 	}
-	mutex_unlock(&ipa_ctx->wdi.lock);
+	mutex_unlock(&ipa_ctx->uc_ctx.uc_lock);
 
 	memset(&ep_cfg_ctrl, 0 , sizeof(struct ipa_ep_cfg_ctrl));
 	result = ipa_cfg_ep_ctrl(clnt_hdl, &ep_cfg_ctrl);
@@ -1337,15 +1259,9 @@ int ipa_suspend_wdi_pipe(u32 clnt_hdl)
 		return -EINVAL;
 	}
 
-	if (!ipa_ctx->wdi.uc_loaded) {
-		IPAERR("IPA uc not loaded\n");
-		return -EFAULT;
-	}
-
-	if (ipa_ctx->wdi.uc_failed) {
-		IPAERR("IPA uc in failed state\n");
-		return -EFAULT;
-	}
+	result = ipa_uc_state_check();
+	if (result)
+		return result;
 
 	IPADBG("ep=%d\n", clnt_hdl);
 
@@ -1358,12 +1274,12 @@ int ipa_suspend_wdi_pipe(u32 clnt_hdl)
 	}
 
 	suspend.params.ipa_pipe_number = clnt_hdl;
-	mutex_lock(&ipa_ctx->wdi.lock);
-	ipa_ctx->wdi.ipa_sram_mmio->common.cmdParams = suspend.raw32b;
-	ipa_ctx->wdi.ipa_sram_mmio->common.cmdOp =
+	mutex_lock(&ipa_ctx->uc_ctx.uc_lock);
+	ipa_ctx->uc_ctx.uc_sram_mmio->cmdParams = suspend.raw32b;
+	ipa_ctx->uc_ctx.uc_sram_mmio->cmdOp =
 		IPA_CPU_2_HW_CMD_WDI_CH_SUSPEND;
-	init_completion(&ipa_ctx->wdi.cmd_rsp);
-	ipa_ctx->wdi.pending_cmd = ipa_ctx->wdi.ipa_sram_mmio->common.cmdOp;
+	init_completion(&ipa_ctx->uc_ctx.uc_completion);
+	ipa_ctx->uc_ctx.pending_cmd = ipa_ctx->uc_ctx.uc_sram_mmio->cmdOp;
 	wmb();
 	memset(&ep_cfg_ctrl, 0 , sizeof(struct ipa_ep_cfg_ctrl));
 	if (IPA_CLIENT_IS_CONS(ep->client)) {
@@ -1384,21 +1300,22 @@ int ipa_suspend_wdi_pipe(u32 clnt_hdl)
 			IPADBG("client (ep: %d) delayed\n", clnt_hdl);
 	}
 	ipa_write_reg(ipa_ctx->mmio, IPA_IRQ_EE_UC_n_OFFS(0), 0x1);
-	if (wait_for_completion_timeout(&ipa_ctx->wdi.cmd_rsp, 10*HZ) == 0) {
+	if (wait_for_completion_timeout
+		(&ipa_ctx->uc_ctx.uc_completion, 10*HZ) == 0) {
 		IPAERR("uc timed out on suspend ep=%d.\n", clnt_hdl);
 		result = -EFAULT;
-		ipa_ctx->wdi.uc_failed = true;
-		mutex_unlock(&ipa_ctx->wdi.lock);
+		ipa_ctx->uc_ctx.uc_failed = true;
+		mutex_unlock(&ipa_ctx->uc_ctx.uc_lock);
 		goto uc_timeout;
 	}
-	if (ipa_ctx->wdi.last_resp != IPA_HW_2_CPU_WDI_CMD_STATUS_SUCCESS) {
+	if (ipa_ctx->uc_ctx.uc_status != IPA_HW_2_CPU_WDI_CMD_STATUS_SUCCESS) {
 		IPAERR("cmd failed on suspend ep=%d status=%d.\n", clnt_hdl,
-				ipa_ctx->wdi.last_resp);
+				ipa_ctx->uc_ctx.uc_status);
 		result = -EFAULT;
-		mutex_unlock(&ipa_ctx->wdi.lock);
+		mutex_unlock(&ipa_ctx->uc_ctx.uc_lock);
 		goto uc_timeout;
 	}
-	mutex_unlock(&ipa_ctx->wdi.lock);
+	mutex_unlock(&ipa_ctx->uc_ctx.uc_lock);
 
 	ipa_ctx->tag_process_before_gating = true;
 	ipa_dec_client_disable_clks();
@@ -1421,15 +1338,9 @@ int ipa_write_qmapid_wdi_pipe(u32 clnt_hdl, u8 qmap_id)
 		return -EINVAL;
 	}
 
-	if (!ipa_ctx->wdi.uc_loaded) {
-		IPAERR("IPA uc not loaded\n");
-		return -EFAULT;
-	}
-
-	if (ipa_ctx->wdi.uc_failed) {
-		IPAERR("IPA uc in failed state\n");
-		return -EFAULT;
-	}
+	result = ipa_uc_state_check();
+	if (result)
+		return result;
 
 	IPADBG("ep=%d\n", clnt_hdl);
 
@@ -1443,29 +1354,30 @@ int ipa_write_qmapid_wdi_pipe(u32 clnt_hdl, u8 qmap_id)
 	ipa_inc_client_enable_clks();
 	qmap.params.ipa_pipe_number = clnt_hdl;
 	qmap.params.qmap_id = qmap_id;
-	mutex_lock(&ipa_ctx->wdi.lock);
-	ipa_ctx->wdi.ipa_sram_mmio->common.cmdParams = qmap.raw32b;
-	ipa_ctx->wdi.ipa_sram_mmio->common.cmdOp =
+	mutex_lock(&ipa_ctx->uc_ctx.uc_lock);
+	ipa_ctx->uc_ctx.uc_sram_mmio->cmdParams = qmap.raw32b;
+	ipa_ctx->uc_ctx.uc_sram_mmio->cmdOp =
 		IPA_CPU_2_HW_CMD_WDI_RX_EXT_CFG;
-	init_completion(&ipa_ctx->wdi.cmd_rsp);
-	ipa_ctx->wdi.pending_cmd = ipa_ctx->wdi.ipa_sram_mmio->common.cmdOp;
+	init_completion(&ipa_ctx->uc_ctx.uc_completion);
+	ipa_ctx->uc_ctx.pending_cmd = ipa_ctx->uc_ctx.uc_sram_mmio->cmdOp;
 	wmb();
 	ipa_write_reg(ipa_ctx->mmio, IPA_IRQ_EE_UC_n_OFFS(0), 0x1);
-	if (wait_for_completion_timeout(&ipa_ctx->wdi.cmd_rsp, 10*HZ) == 0) {
+	if (wait_for_completion_timeout
+		(&ipa_ctx->uc_ctx.uc_completion, 10*HZ) == 0) {
 		IPAERR("uc timed out on qmap ep=%d.\n", clnt_hdl);
 		result = -EFAULT;
-		ipa_ctx->wdi.uc_failed = true;
-		mutex_unlock(&ipa_ctx->wdi.lock);
+		ipa_ctx->uc_ctx.uc_failed = true;
+		mutex_unlock(&ipa_ctx->uc_ctx.uc_lock);
 		goto uc_timeout;
 	}
-	if (ipa_ctx->wdi.last_resp != IPA_HW_2_CPU_WDI_CMD_STATUS_SUCCESS) {
+	if (ipa_ctx->uc_ctx.uc_status != IPA_HW_2_CPU_WDI_CMD_STATUS_SUCCESS) {
 		IPAERR("cmd failed on qmap ep=%d status=%d.\n", clnt_hdl,
-				ipa_ctx->wdi.last_resp);
+				ipa_ctx->uc_ctx.uc_status);
 		result = -EFAULT;
-		mutex_unlock(&ipa_ctx->wdi.lock);
+		mutex_unlock(&ipa_ctx->uc_ctx.uc_lock);
 		goto uc_timeout;
 	}
-	mutex_unlock(&ipa_ctx->wdi.lock);
+	mutex_unlock(&ipa_ctx->uc_ctx.uc_lock);
 
 	ipa_dec_client_disable_clks();
 
@@ -1752,7 +1664,7 @@ int ipa_connect(const struct ipa_connect_params *in, struct ipa_sps_params *sps,
 		ep->connect.event_thresh = IPA_EVENT_THRESHOLD;
 	ep->connect.options = SPS_O_AUTO_ENABLE;    /* BAM-to-BAM */
 
-	result = sps_connect(ep->ep_hdl, &ep->connect);
+	result = ipa_sps_connect_safe(ep->ep_hdl, &ep->connect, in->client);
 	if (result) {
 		IPAERR("sps_connect fails.\n");
 		goto sps_connect_fail;
@@ -1912,7 +1824,8 @@ int ipa_reset_endpoint(u32 clnt_hdl)
 		IPAERR("sps_disconnect() failed, res=%d.\n", res);
 		goto bail;
 	} else {
-		res = sps_connect(ep->ep_hdl, &ep->connect);
+		res = ipa_sps_connect_safe(ep->ep_hdl, &ep->connect,
+			ep->client);
 		if (res) {
 			IPAERR("sps_connect() failed, res=%d.\n", res);
 			goto bail;
@@ -1925,3 +1838,262 @@ bail:
 	return res;
 }
 EXPORT_SYMBOL(ipa_reset_endpoint);
+
+static void ipa_uc_event_handler(enum ipa_irq_type interrupt,
+				 void *private_data,
+				 void *interrupt_data)
+{
+	union IpaHwErrorEventData_t evt;
+	union IpaHwWdiErrorEventData_t wdi_evt;
+	struct IpaHwSharedMemWdiMapping_t *wdi_sram_mmio_ext;
+
+	WARN_ON(private_data != ipa_ctx);
+
+	ipa_inc_client_enable_clks();
+	IPADBG("uC evt opcode=%u\n",
+		ipa_ctx->uc_ctx.uc_sram_mmio->eventOp);
+
+	if (ipa_ctx->uc_ctx.uc_sram_mmio->eventOp ==
+	    IPA_HW_2_CPU_EVENT_ERROR) {
+		evt.raw32b = ipa_ctx->uc_ctx.uc_sram_mmio->eventParams;
+		IPADBG("uC evt errorType=%u\n", evt.params.errorType);
+	} else if (ipa_ctx->uc_ctx.uc_sram_mmio->eventOp ==
+		   IPA_HW_2_CPU_EVENT_WDI_ERROR) {
+		wdi_evt.raw32b = ipa_ctx->uc_ctx.uc_sram_mmio->eventParams;
+		IPADBG("uC WDI evt errorType=%u pipe=%d cherrorType=%u\n",
+		       wdi_evt.params.wdi_error_type,
+		       wdi_evt.params.ipa_pipe_number,
+		       wdi_evt.params.wdi_ch_err_type);
+		wdi_sram_mmio_ext = (struct IpaHwSharedMemWdiMapping_t *)
+			ipa_ctx->uc_ctx.uc_sram_mmio;
+		IPADBG("tx_ch_state=%u rx_ch_state=%u\n",
+		       wdi_sram_mmio_ext->wdi_tx_ch_0_state,
+		       wdi_sram_mmio_ext->wdi_rx_ch_0_state);
+
+	} else if (ipa_ctx->uc_ctx.uc_sram_mmio->eventOp ==
+		IPA_HW_2_CPU_EVENT_LOG_INFO) {
+			IPAERR("WDI evt log info ofst=0x%x\n",
+				ipa_ctx->uc_ctx.uc_sram_mmio->eventParams);
+		ipa_log_evt_hdlr();
+	} else {
+		IPADBG("unsupported uC evt opcode=%u\n",
+				ipa_ctx->uc_ctx.uc_sram_mmio->eventOp);
+	}
+	ipa_dec_client_disable_clks();
+}
+
+static void ipa_uc_response_hdlr(enum ipa_irq_type interrupt,
+				void *private_data,
+				void *interrupt_data)
+{
+	union IpaHwCpuCmdCompletedResponseData_t uc_rsp;
+	WARN_ON(private_data != ipa_ctx);
+
+	ipa_inc_client_enable_clks();
+	IPADBG("uC rsp opcode=%u\n",
+			ipa_ctx->uc_ctx.uc_sram_mmio->responseOp);
+
+	if (ipa_ctx->uc_ctx.uc_sram_mmio->responseOp ==
+			IPA_HW_2_CPU_RESPONSE_INIT_COMPLETED) {
+		ipa_ctx->uc_ctx.uc_loaded = true;
+		IPADBG("IPA uC loaded\n");
+	} else if (ipa_ctx->uc_ctx.uc_sram_mmio->responseOp ==
+		   IPA_HW_2_CPU_RESPONSE_CMD_COMPLETED) {
+		uc_rsp.raw32b = ipa_ctx->uc_ctx.uc_sram_mmio->responseParams;
+		IPADBG("uC cmd response opcode=%u status=%u\n",
+		       uc_rsp.params.originalCmdOp,
+		       uc_rsp.params.status);
+		if (uc_rsp.params.originalCmdOp ==
+		    ipa_ctx->uc_ctx.pending_cmd) {
+			ipa_ctx->uc_ctx.uc_status = uc_rsp.params.status;
+			complete_all(&ipa_ctx->uc_ctx.uc_completion);
+		} else {
+			IPAERR("Expected cmd=%u rcvd cmd=%u\n",
+			       ipa_ctx->uc_ctx.pending_cmd,
+			       uc_rsp.params.originalCmdOp);
+		}
+	} else {
+		IPADBG("Unsupported uC rsp opcode = %u\n",
+		       ipa_ctx->uc_ctx.uc_sram_mmio->responseOp);
+	}
+	ipa_dec_client_disable_clks();
+}
+
+/**
+ * ipa_uc_interface_init() - Initialize the interface with the uC
+ *
+ * Return value: 0 on success, negative value otherwise
+ */
+int ipa_uc_interface_init(void)
+{
+	int result;
+	unsigned long phys_addr;
+
+	if (ipa_ctx->uc_ctx.uc_inited) {
+		IPADBG("uC interface already initialized\n");
+		return 0;
+	}
+
+	mutex_init(&ipa_ctx->uc_ctx.uc_lock);
+
+	if (ipa_ctx->ipa_hw_type == IPA_HW_v2_5) {
+		phys_addr = ipa_ctx->ipa_wrapper_base +
+			ipa_ctx->ctrl->ipa_reg_base_ofst +
+			IPA_SRAM_SW_FIRST_v2_5;
+	} else {
+		phys_addr = ipa_ctx->ipa_wrapper_base +
+			ipa_ctx->ctrl->ipa_reg_base_ofst +
+			IPA_SRAM_DIRECT_ACCESS_N_OFST_v2_0(
+			ipa_ctx->smem_restricted_bytes / 4);
+	}
+
+	ipa_ctx->uc_ctx.uc_sram_mmio = ioremap(phys_addr, IPA_RAM_UC_SMEM_SIZE);
+	if (!ipa_ctx->uc_ctx.uc_sram_mmio) {
+		IPAERR("Fail to ioremap IPA uC SRAM\n");
+		result = -ENOMEM;
+		goto remap_fail;
+	}
+
+	result = ipa_add_interrupt_handler(IPA_UC_IRQ_0,
+		ipa_uc_event_handler, true,
+		ipa_ctx);
+	if (result) {
+		IPAERR("Fail to register for UC_IRQ0 rsp interrupt\n");
+		result = -EFAULT;
+		goto irq_fail0;
+	}
+
+	result = ipa_add_interrupt_handler(IPA_UC_IRQ_1,
+		ipa_uc_response_hdlr, true,
+		ipa_ctx);
+	if (result) {
+		IPAERR("fail to register for UC_IRQ1 rsp interrupt\n");
+		result = -EFAULT;
+		goto irq_fail1;
+	}
+
+	ipa_ctx->uc_ctx.uc_inited = true;
+
+	return 0;
+
+irq_fail1:
+	ipa_remove_interrupt_handler(IPA_UC_IRQ_0);
+irq_fail0:
+	iounmap(ipa_ctx->uc_ctx.uc_sram_mmio);
+remap_fail:
+	return result;
+}
+EXPORT_SYMBOL(ipa_uc_interface_init);
+
+/**
+ * ipa_uc_reset_pipe() - reset a BAM pipe using the uC interface
+ * @ipa_client: [in] ipa client handle representing the pipe
+ *
+ * The function uses the uC interface in order to issue a BAM
+ * PIPE reset request. The uC makes sure there's no traffic in
+ * the TX command queue before issuing the reset.
+ *
+ * Returns:	0 on success, negative on failure
+ */
+int ipa_uc_reset_pipe(enum ipa_client_type ipa_client)
+{
+	union IpaHwResetPipeCmdData_t cmd;
+	int ep_idx;
+
+	ep_idx = ipa_get_ep_mapping(ipa_client);
+	if (ep_idx == -1) {
+		IPAERR("Invalid IPA client\n");
+		return 0;
+	}
+
+	/*
+	 * If the uC interface has not been initialized yet,
+	 * continue with the sequence without resetting the
+	 * pipe.
+	 */
+	if (!ipa_ctx->uc_ctx.uc_inited) {
+		IPADBG("uC interface not initialized\n");
+		return 0;
+	}
+
+	if (!ipa_ctx->uc_ctx.uc_loaded) {
+		IPADBG("uC is not loaded\n");
+		return 0;
+	}
+
+	mutex_lock(&ipa_ctx->uc_ctx.uc_lock);
+
+	init_completion(&ipa_ctx->uc_ctx.uc_completion);
+
+	/* Write to shared memory */
+
+	/*
+	 * IPA consumer = 0, IPA producer = 1.
+	 * IPA driver concept of PROD/CONS is the opposite of the
+	 * IPA HW concept. Therefore, IPA AP CLIENT PRODUCER = IPA CONSUMER,
+	 * and vice-versa.
+	 */
+	cmd.params.direction = (u8)(IPA_CLIENT_IS_PROD(ipa_client) ? 0 : 1);
+	cmd.params.pipeNum = (u8)ep_idx;
+	ipa_ctx->uc_ctx.uc_sram_mmio->cmdParams = cmd.raw32b;
+	ipa_ctx->uc_ctx.uc_sram_mmio->cmdOp = IPA_CPU_2_HW_CMD_RESET_PIPE;
+	ipa_ctx->uc_ctx.pending_cmd = IPA_CPU_2_HW_CMD_RESET_PIPE;
+
+	IPADBG("uC pipe reset on IPA %s pipe %d\n",
+	       IPA_CLIENT_IS_PROD(ipa_client) ? "CONS" : "PROD", ep_idx);
+
+	/* Indicate the uC on the written command */
+	ipa_write_reg(ipa_ctx->mmio, IPA_IRQ_EE_UC_n_OFFS(0), 0x1);
+
+	/* In case of a timeout, this indicates an issue in IPA HW */
+	if (wait_for_completion_timeout
+		(&ipa_ctx->uc_ctx.uc_completion, 10*HZ) == 0) {
+		IPAERR("uC timed out in pipe reset command on pipe %d\n",
+		       ep_idx);
+		mutex_unlock(&ipa_ctx->uc_ctx.uc_lock);
+		BUG();
+		return -EFAULT;
+	}
+
+	/*
+	 * In case of an unexpected response, the current operation
+	 * should fail, but we should allow the next reset requests
+	 * to be executed.
+	 */
+	if (ipa_ctx->uc_ctx.uc_status != 0) {
+		IPAERR("uC failed to reset ipe %d. Status %d\n",
+			   ep_idx, ipa_ctx->uc_ctx.uc_status);
+		mutex_unlock(&ipa_ctx->uc_ctx.uc_lock);
+		return -EFAULT;
+	}
+	mutex_unlock(&ipa_ctx->uc_ctx.uc_lock);
+
+	return 0;
+}
+EXPORT_SYMBOL(ipa_uc_reset_pipe);
+
+/**
+ * ipa_sps_connect_safe() - connect endpoint from BAM prespective
+ * @h: [in] sps pipe handle
+ * @connect: [in] sps connect parameters
+ * @ipa_client: [in] ipa client handle representing the pipe
+ *
+ * This function connects a BAM pipe using SPS driver sps_connect() API
+ * and by requesting uC interface to reset the pipe, avoids an IPA HW
+ * limitation that does not allow reseting a BAM pipe during traffic in
+ * IPA TX command queue.
+ *
+ * Returns:	0 on success, negative on failure
+ */
+int ipa_sps_connect_safe(struct sps_pipe *h, struct sps_connect *connect,
+			 enum ipa_client_type ipa_client)
+{
+	int res;
+
+	res = ipa_uc_reset_pipe(ipa_client);
+	if (res)
+		return res;
+
+	return sps_connect(h, connect);
+}
+EXPORT_SYMBOL(ipa_sps_connect_safe);

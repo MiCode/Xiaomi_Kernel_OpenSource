@@ -636,19 +636,32 @@ struct ipa_tag_completion {
 
 struct ipa_controller;
 
-struct ipa_wdi_ctx {
+/** struct ipa_uc_ctx - IPA uC context
+ * @uc_inited: Indicates if uC inteface has been initialized
+ * @uc_loaded: Indicates if uC has loaded
+ * @uc_failed: Indicates if uC has failed / returned an error
+ * @uc_lock: uC inteface lock to allow only one uC interaction at a time
+ * @uc_completation: Completion mechanism to wait for uC commands
+ * @uc_sram_mmio: Pointer to uC mapped memory
+ * @pending_cmd: The last command sent waiting to be ACKed
+ * @uc_status: The last status provided by the uC
+ * @wdi_dma_pool: DMA pool used for WDI operations
+ */
+struct ipa_uc_ctx {
+	bool uc_inited;
 	bool uc_loaded;
 	bool uc_failed;
-	struct IpaHwSharedMemWdiMapping_t *ipa_sram_mmio;
-	struct mutex lock;
-	struct completion cmd_rsp;
+	struct mutex uc_lock;
+	struct completion uc_completion;
+	struct IpaHwSharedMemCommonMapping_t *uc_sram_mmio;
 	u32 pending_cmd;
-	u32 last_resp;
-	struct dma_pool *dma_pool;
-	u32 uc_top_ofst;
-	struct IpaHwEventLogInfoData_t *uc_top_mmio;
-	u32 uc_wdi_stats_ofst;
-	struct IpaHwStatsWDIInfoData_t *uc_wdi_stats_mmio;
+	u32 uc_status;
+	/* WDI specific fields */
+	struct dma_pool *wdi_dma_pool;
+	u32 wdi_uc_top_ofst;
+	struct IpaHwEventLogInfoData_t *wdi_uc_top_mmio;
+	u32 wdi_uc_stats_ofst;
+	struct IpaHwStatsWDIInfoData_t *wdi_uc_stats_mmio;
 };
 
 /**
@@ -784,7 +797,8 @@ struct ipa_context {
 	bool q6_proxy_clk_vote_valid;
 
 	struct ipa_wlan_comm_memb wc_memb;
-	struct ipa_wdi_ctx wdi;
+
+	struct ipa_uc_ctx uc_ctx;
 };
 
 /**
@@ -1014,4 +1028,9 @@ int ipa_tag_process(struct ipa_desc *desc, int num_descs,
 
 int ipa_q6_cleanup(void);
 int ipa_init_q6_smem(void);
+
+int ipa_sps_connect_safe(struct sps_pipe *h, struct sps_connect *connect,
+			 enum ipa_client_type ipa_client);
+int ipa_uc_interface_init(void);
+int ipa_uc_reset_pipe(enum ipa_client_type ipa_client);
 #endif /* _IPA_I_H_ */
