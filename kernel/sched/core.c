@@ -1442,6 +1442,9 @@ static void update_task_ravg(struct task_struct *p, struct rq *rq,
 
 	lockdep_assert_held(&rq->lock);
 
+	if (!p->ravg.mark_start)
+		goto done;
+
 	update_sum = (event == PUT_PREV_TASK || event == TASK_UPDATE ||
 			(sched_account_wait_time &&
 			(event == PICK_NEXT_TASK || event == TASK_MIGRATE)));
@@ -1633,18 +1636,26 @@ static void init_cpu_efficiency(void)
 	min_possible_efficiency = min;
 }
 
+static void reset_task_stats(struct task_struct *p)
+{
+	int i;
+
+	p->ravg.sum = 0;
+	p->ravg.demand = 0;
+	p->ravg.partial_demand = 0;
+	p->ravg.flags &= ~(CURR_WINDOW_CONTRIB | PREV_WINDOW_CONTRIB);
+	for (i = 0; i < RAVG_HIST_SIZE_MAX; ++i)
+		p->ravg.sum_history[i] = 0;
+	p->ravg.mark_start = 0;
+}
+
 static inline void mark_task_starting(struct task_struct *p)
 {
 	struct rq *rq = task_rq(p);
 	u64 wallclock = sched_clock();
 
-	if (sched_disable_window_stats)
-		return;
-
-	if (!rq->window_start) {
-		p->ravg.partial_demand = 0;
-		p->ravg.demand = 0;
-		p->ravg.sum = 0;
+	if (!rq->window_start || sched_disable_window_stats) {
+		reset_task_stats(p);
 		return;
 	}
 
@@ -1708,16 +1719,15 @@ unsigned long sched_get_busy(int cpu)
 			  NSEC_PER_USEC);
 }
 
-static void reset_task_stats(struct task_struct *p)
+static void reset_all_task_stats(void)
 {
-	int i;
+	struct task_struct *g, *p;
 
-	p->ravg.sum = 0;
-	p->ravg.demand = 0;
-	p->ravg.partial_demand = 0;
-	p->ravg.flags &= ~(CURR_WINDOW_CONTRIB | PREV_WINDOW_CONTRIB);
-	for (i = 0; i < RAVG_HIST_SIZE_MAX; ++i)
-		p->ravg.sum_history[i] = 0;
+	read_lock(&tasklist_lock);
+	do_each_thread(g, p) {
+		reset_task_stats(p);
+	}  while_each_thread(g, p);
+	read_unlock(&tasklist_lock);
 }
 
 /*
@@ -1740,10 +1750,12 @@ void sched_exit(struct task_struct *p)
 	unsigned long flags;
 	int cpu = get_cpu();
 	struct rq *rq = cpu_rq(cpu);
+	u64 wallclock;
 
 	raw_spin_lock_irqsave(&rq->lock, flags);
 	/* rq->curr == p */
-	update_task_ravg(rq->curr, rq, TASK_UPDATE, sched_clock(), 0);
+	wallclock = sched_clock();
+	update_task_ravg(rq->curr, rq, TASK_UPDATE, wallclock, 0);
 	dequeue_task(rq, p, 0);
 	if (!sched_disable_window_stats &&
 			(p->ravg.flags & CURR_WINDOW_CONTRIB))
@@ -1754,6 +1766,7 @@ void sched_exit(struct task_struct *p)
 	BUG_ON((s64)rq->curr_runnable_sum < 0);
 	BUG_ON((s64)rq->prev_runnable_sum < 0);
 	reset_task_stats(p);
+	p->ravg.mark_start = wallclock;
 	p->ravg.flags |= DONT_ACCOUNT;
 	enqueue_task(rq, p, 0);
 	raw_spin_unlock_irqrestore(&rq->lock, flags);
@@ -1761,14 +1774,43 @@ void sched_exit(struct task_struct *p)
 	put_cpu();
 }
 
-/* Called with IRQs disabled */
+static void disable_window_stats(void)
+{
+	unsigned long flags;
+	int i;
+
+	local_irq_save(flags);
+	for_each_possible_cpu(i)
+		raw_spin_lock(&cpu_rq(i)->lock);
+
+	sched_disable_window_stats = 1;
+
+	for_each_possible_cpu(i)
+		raw_spin_unlock(&cpu_rq(i)->lock);
+
+	local_irq_restore(flags);
+}
+
+/* Called with all cpu's rq->lock held */
+static void enable_window_stats(void)
+{
+	sched_disable_window_stats = 0;
+
+}
+
+/* Called with IRQs enabled */
 void reset_all_window_stats(u64 window_start, unsigned int window_size)
 {
 	int cpu;
-	u64 wallclock;
-	struct task_struct *g, *p;
+	unsigned long flags;
 
-	for_each_online_cpu(cpu) {
+	disable_window_stats();
+
+	reset_all_task_stats();
+
+	local_irq_save(flags);
+
+	for_each_possible_cpu(cpu) {
 		struct rq *rq = cpu_rq(cpu);
 		raw_spin_lock(&rq->lock);
 	}
@@ -1778,16 +1820,9 @@ void reset_all_window_stats(u64 window_start, unsigned int window_size)
 		set_hmp_defaults();
 	}
 
-	wallclock = sched_clock();
+	enable_window_stats();
 
-	read_lock(&tasklist_lock);
-	do_each_thread(g, p) {
-		reset_task_stats(p);
-		p->ravg.mark_start = wallclock;
-	}  while_each_thread(g, p);
-	read_unlock(&tasklist_lock);
-
-	for_each_online_cpu(cpu) {
+	for_each_possible_cpu(cpu) {
 		struct rq *rq = cpu_rq(cpu);
 
 		if (window_start)
@@ -1802,10 +1837,12 @@ void reset_all_window_stats(u64 window_start, unsigned int window_size)
 	sched_ravg_hist_size = sysctl_sched_ravg_hist_size;
 	sched_freq_legacy_mode = sysctl_sched_freq_legacy_mode;
 
-	for_each_online_cpu(cpu) {
+	for_each_possible_cpu(cpu) {
 		struct rq *rq = cpu_rq(cpu);
 		raw_spin_unlock(&rq->lock);
 	}
+
+	local_irq_restore(flags);
 }
 
 void sched_set_io_is_busy(int val)
@@ -1817,15 +1854,12 @@ int sched_set_window(u64 window_start, unsigned int window_size)
 {
 	u64 ws, now;
 	int delta;
-	unsigned long flags;
 
 	if (sched_use_pelt ||
 		 (window_size * TICK_NSEC <  MIN_SCHED_RAVG_WINDOW))
 			return -EINVAL;
 
 	update_alignment = 1;
-
-	local_irq_save(flags);
 
 	now = get_jiffies_64();
 	if (time_after64(window_start, now)) {
@@ -1842,8 +1876,6 @@ int sched_set_window(u64 window_start, unsigned int window_size)
 	BUG_ON(sched_clock() < ws);
 
 	reset_all_window_stats(ws, window_size);
-
-	local_irq_restore(flags);
 
 	return 0;
 }
