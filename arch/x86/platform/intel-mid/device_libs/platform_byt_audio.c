@@ -21,7 +21,7 @@ static int __init byt_audio_platform_init(void)
 	struct platform_device *pdev;
 	int ret;
 
-	pr_err("in %s\n", __func__);
+	pr_debug("%s: Enter.\n", __func__);
 
 	ret = add_sst_platform_device();
 	if (ret < 0) {
