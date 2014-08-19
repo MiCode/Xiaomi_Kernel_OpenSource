@@ -3193,6 +3193,17 @@ static int gsmtty_open(struct tty_struct *tty, struct file *filp)
 	struct ktermios save;
 	int t;
 
+	if (dlci->state == DLCI_CLOSING) {
+		/* if we are in blocking mode, wait the end of the closing */
+		if (!(filp->f_flags & O_NONBLOCK)) {
+			t = wait_event_timeout(gsm->event,
+					dlci->state == DLCI_CLOSED,
+					gsm->n2 * gsm->t1 * HZ / 100);
+			if (!t)
+				return -ENXIO;
+		} else
+			return -EAGAIN;
+	}
 	port->count++;
 	tty_port_tty_set(port, tty);
 	gsmtty_attach_dlci(tty, dlci);
