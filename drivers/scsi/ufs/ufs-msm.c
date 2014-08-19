@@ -22,6 +22,7 @@
 #include <linux/platform_device.h>
 
 #include <linux/msm-bus.h>
+#include <soc/qcom/scm.h>
 
 #include "ufshcd.h"
 #include "unipro.h"
@@ -32,6 +33,7 @@ static int ufs_msm_get_speed_mode(struct ufs_pa_layer_attr *p, char *result);
 static int ufs_msm_get_bus_vote(struct ufs_msm_host *host,
 		const char *speed_mode);
 static int ufs_msm_set_bus_vote(struct ufs_msm_host *host, int vote);
+static int ufs_msm_update_sec_cfg(struct ufs_hba *hba, bool restore_sec_cfg);
 
 static int ufs_msm_get_connected_tx_lanes(struct ufs_hba *hba, u32 *tx_lanes)
 {
@@ -1060,6 +1062,9 @@ static int ufs_msm_init(struct ufs_hba *hba)
 
 	hba->priv = (void *)host;
 
+	/* restore the secure configuration */
+	ufs_msm_update_sec_cfg(hba, true);
+
 	err = ufs_msm_bus_register(host);
 	if (err)
 		goto out_host_free;
@@ -1116,6 +1121,73 @@ void ufs_msm_clk_scale_notify(struct ufs_hba *hba)
 				dev_req_params->hs_rate);
 	ufs_msm_update_bus_bw_vote(host);
 }
+
+/*
+ * This function should be called to restore the security configuration of UFS
+ * register space after coming out of UFS host core power collapse.
+ *
+ * @hba: host controller instance
+ * @restore_sec_cfg: Set "true" if secure configuration needs to be restored
+ * and set "false" when secure configuration is lost.
+ */
+static int ufs_msm_update_sec_cfg(struct ufs_hba *hba, bool restore_sec_cfg)
+{
+	int ret = 0, scm_ret = 0;
+	struct ufs_msm_host *host = hba->priv;
+
+	/* scm command buffer structrue */
+	struct msm_scm_cmd_buf {
+		unsigned int device_id;
+		unsigned int spare;
+	} cbuf;
+	#define RESTORE_SEC_CFG_CMD	0x2
+	#define UFS_TZ_DEV_ID		19
+
+	if (!host || !hba->vreg_info.vdd_hba ||
+	    !(host->sec_cfg_updated ^ restore_sec_cfg)) {
+		return 0;
+	} else if (!restore_sec_cfg) {
+		/*
+		 * Clear the flag so next time when this function is called
+		 * with restore_sec_cfg set to true, we can restore the secure
+		 * configuration.
+		 */
+		host->sec_cfg_updated = false;
+		goto out;
+	} else if (hba->clk_gating.state != CLKS_ON) {
+		/*
+		 * Clocks should be ON to restore the host controller secure
+		 * configuration.
+		 */
+		goto out;
+	}
+
+	/*
+	 * If we are here, Host controller clocks are running, Host controller
+	 * power collapse feature is supported and Host controller has just came
+	 * out of power collapse.
+	 */
+	cbuf.device_id = UFS_TZ_DEV_ID;
+	ret = scm_call(SCM_SVC_MP,
+		       RESTORE_SEC_CFG_CMD,
+		       &cbuf, sizeof(cbuf),
+		       &scm_ret, sizeof(scm_ret));
+
+	if (ret || scm_ret) {
+		dev_err(hba->dev, "%s: failed, ret %d scm_ret %d\n",
+			__func__, ret, scm_ret);
+		if (!ret)
+			ret = scm_ret;
+	} else {
+		host->sec_cfg_updated = true;
+	}
+
+out:
+	dev_dbg(hba->dev, "%s: ip: restore_sec_cfg %d, op: restore_sec_cfg %d, ret %d scm_ret %d\n",
+		__func__, restore_sec_cfg, host->sec_cfg_updated, ret, scm_ret);
+	return ret;
+}
+
 /**
  * struct ufs_hba_msm_vops - UFS MSM specific variant operations
  *
@@ -1133,5 +1205,6 @@ const struct ufs_hba_variant_ops ufs_hba_msm_vops = {
 	.pwr_change_notify	= ufs_msm_pwr_change_notify,
 	.suspend		= ufs_msm_suspend,
 	.resume			= ufs_msm_resume,
+	.update_sec_cfg		= ufs_msm_update_sec_cfg,
 };
 EXPORT_SYMBOL(ufs_hba_msm_vops);

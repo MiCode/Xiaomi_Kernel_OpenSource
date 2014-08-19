@@ -281,6 +281,7 @@ struct ufs_pwr_mode_info {
  *			to be set.
  * @suspend: called during host controller PM callback
  * @resume: called during host controller PM callback
+ * @update_sec_cfg: called to restore host controller secure configuration
  */
 struct ufs_hba_variant_ops {
 	const char *name;
@@ -296,6 +297,7 @@ struct ufs_hba_variant_ops {
 					struct ufs_pa_layer_attr *);
 	int     (*suspend)(struct ufs_hba *, enum ufs_pm_op);
 	int     (*resume)(struct ufs_hba *, enum ufs_pm_op);
+	int	(*update_sec_cfg)(struct ufs_hba *hba, bool restore_sec_cfg);
 };
 
 /* clock gating state  */
