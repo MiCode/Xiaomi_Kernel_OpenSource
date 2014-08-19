@@ -66,16 +66,32 @@ int mdss_mdp_pipe_panic_signal_ctrl(struct mdss_mdp_pipe *pipe, bool enable)
 	if (!mdata->has_panic_ctrl)
 		goto end;
 
-	mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_ON);
-	panic_robust_ctrl = readl_relaxed(mdata->mdp_base +
-			MMSS_MDP_PANIC_ROBUST_CTRL);
-	if (enable)
-		panic_robust_ctrl |= BIT(pipe->panic_ctrl_ndx);
-	else
-		panic_robust_ctrl &= ~BIT(pipe->panic_ctrl_ndx);
-	writel_relaxed(panic_robust_ctrl,
+	switch (mdss_mdp_panic_signal_support_mode(mdata, pipe)) {
+	case MDSS_MDP_PANIC_COMMON_REG_CFG:
+		mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_ON);
+		panic_robust_ctrl = readl_relaxed(mdata->mdp_base +
+				MMSS_MDP_PANIC_ROBUST_CTRL);
+		if (enable)
+			panic_robust_ctrl |= BIT(pipe->panic_ctrl_ndx);
+		else
+			panic_robust_ctrl &= ~BIT(pipe->panic_ctrl_ndx);
+		writel_relaxed(panic_robust_ctrl,
 				mdata->mdp_base + MMSS_MDP_PANIC_ROBUST_CTRL);
-	mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_OFF);
+		mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_OFF);
+		break;
+	case MDSS_MDP_PANIC_PER_PIPE_CFG:
+		mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_ON);
+		panic_robust_ctrl = mdss_mdp_pipe_read(pipe,
+				MDSS_MDP_REG_SSPP_QOS_CTRL);
+		if (enable)
+			panic_robust_ctrl |= BIT(0);
+		else
+			panic_robust_ctrl &= ~BIT(0);
+		mdss_mdp_pipe_write(pipe, MDSS_MDP_REG_SSPP_QOS_CTRL,
+					panic_robust_ctrl);
+		mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_OFF);
+		break;
+	}
 
 end:
 	return 0;
@@ -841,8 +857,7 @@ static struct mdss_mdp_pipe *mdss_mdp_pipe_init(struct mdss_mdp_mixer *mixer,
 		return NULL;
 	}
 
-	if (pipe && mdss_mdp_panic_signal_supported(mdata, pipe))
-		mdss_mdp_pipe_panic_signal_ctrl(pipe, false);
+	mdss_mdp_pipe_panic_signal_ctrl(pipe, false);
 
 	if (pipe && mdss_mdp_pipe_is_sw_reset_available(mdata)) {
 		force_off_mask =
@@ -994,15 +1009,13 @@ struct mdss_mdp_pipe *mdss_mdp_pipe_search(struct mdss_data_type *mdata,
 static void mdss_mdp_pipe_free(struct kref *kref)
 {
 	struct mdss_mdp_pipe *pipe;
-	struct mdss_data_type *mdata = mdss_mdp_get_mdata();
 
 	pipe = container_of(kref, struct mdss_mdp_pipe, kref);
 
 	pr_debug("ndx=%x pnum=%d\n", pipe->ndx, pipe->num);
 
 	mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_ON);
-	if (mdss_mdp_panic_signal_supported(mdata, pipe))
-		mdss_mdp_pipe_panic_signal_ctrl(pipe, false);
+	mdss_mdp_pipe_panic_signal_ctrl(pipe, false);
 
 	if (pipe->play_cnt) {
 		mdss_mdp_pipe_fetch_halt(pipe);
@@ -1660,8 +1673,7 @@ int mdss_mdp_pipe_queue_data(struct mdss_mdp_pipe *pipe,
 			mdss_mdp_pipe_write(pipe, MDSS_MDP_REG_VIG_OP_MODE,
 			opmode);
 
-		if (mdss_mdp_panic_signal_supported(mdata, pipe))
-			mdss_mdp_pipe_panic_signal_ctrl(pipe, true);
+		mdss_mdp_pipe_panic_signal_ctrl(pipe, true);
 	}
 
 	if (src_data == NULL) {

@@ -1734,12 +1734,10 @@ static int  mdss_mdp_parse_dt_pipe_clk_ctrl(struct platform_device *pdev,
 static void mdss_mdp_parse_dt_pipe_panic_ctrl(struct platform_device *pdev,
 	char *prop_name, struct mdss_mdp_pipe *pipe_list, u32 npipes)
 {
-	int rc = 0;
 	int i, j;
 	size_t len;
 	const u32 *arr;
 	struct mdss_mdp_pipe *pipe = NULL;
-	struct mdss_data_type *mdata = platform_get_drvdata(pdev);
 
 	arr = of_get_property(pdev->dev.of_node, prop_name, (int *) &len);
 	if (arr) {
@@ -1748,27 +1746,19 @@ static void mdss_mdp_parse_dt_pipe_panic_ctrl(struct platform_device *pdev,
 			if (j >= npipes) {
 				pr_err("invalid panic ctrl enries for prop: %s\n",
 					prop_name);
-				goto error;
+				return;
 			}
 
 			pipe = &pipe_list[j];
 			pipe->panic_ctrl_ndx = be32_to_cpu(arr[i++]);
 		}
-		if (j != npipes) {
+		if (j != npipes)
 			pr_err("%s: %d entries found. required %d\n",
 				prop_name, j, npipes);
-			rc = -EINVAL;
-			goto error;
-		}
 	} else {
 		pr_debug("panic ctrl enabled but property '%s' not found\n",
 								prop_name);
-		rc = -EINVAL;
 	}
-
-error:
-	if (rc)
-		mdata->has_panic_ctrl = false;
 }
 
 static int mdss_mdp_parse_dt_pipe(struct platform_device *pdev)
