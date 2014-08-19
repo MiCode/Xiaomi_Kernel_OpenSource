@@ -374,3 +374,7 @@
 		qcom,coresight-jtagmm-cpu = <&CPU7>;
 	};
 };
+
+&bam_dmux {
+	qcom,no-cpu-affinity;
+};
