@@ -636,33 +636,13 @@ static int mdss_mdp_video_config_fps(struct mdss_mdp_ctl *ctl,
 				pr_err("TG is OFF. DFPS mode invalid\n");
 				return -EINVAL;
 			}
-			ctl->force_screen_state = MDSS_SCREEN_FORCE_BLANK;
-			mdss_mdp_display_commit(ctl, NULL, NULL);
-			mdss_mdp_display_wait4comp(ctl);
-			mdp_video_write(ctx,
-					MDSS_MDP_REG_INTF_TIMING_ENGINE_EN, 0);
-			/*
-			 * Need to wait for atleast one vsync time for proper
-			 * TG OFF before doing changes on interfaces
-			 */
-			msleep(20);
 			rc = mdss_mdp_ctl_intf_event(ctl,
 					MDSS_EVENT_PANEL_UPDATE_FPS,
 					(void *) (unsigned long) new_fps);
 			WARN(rc, "intf %d panel fps update error (%d)\n",
 							ctl->intf_num, rc);
-			mdp_video_write(ctx,
-					MDSS_MDP_REG_INTF_TIMING_ENGINE_EN, 1);
-			/*
-			 * Add memory barrier to make sure the MDP Video
-			 * mode engine is enabled before next frame is sent
-			 */
-			mb();
-			ctl->force_screen_state = MDSS_SCREEN_DEFAULT;
-			mdss_mdp_display_commit(ctl, NULL, NULL);
-			mdss_mdp_display_wait4comp(ctl);
 		} else if (pdata->panel_info.dfps_update
-				== DFPS_IMMEDIATE_PORCH_UPDATE_MODE){
+				== DFPS_IMMEDIATE_PORCH_UPDATE_MODE) {
 			u32 line_cnt;
 			unsigned long flags;
 			if (!ctx->timegen_en) {

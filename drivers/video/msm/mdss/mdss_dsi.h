@@ -147,6 +147,8 @@ enum dsi_pm_type {
 #define DSI_CMD_DST_FORMAT_RGB666	7
 #define DSI_CMD_DST_FORMAT_RGB888	8
 
+#define DSI_INTR_DYNAMIC_REFRESH_MASK		BIT(29)
+#define DSI_INTR_DYNAMIC_REFRESH_DONE		BIT(28)
 #define DSI_INTR_ERROR_MASK		BIT(25)
 #define DSI_INTR_ERROR			BIT(24)
 #define DSI_INTR_BTA_DONE_MASK          BIT(21)
@@ -166,8 +168,15 @@ enum dsi_pm_type {
 
 #define DSI_VIDEO_TERM  BIT(16)
 #define DSI_MDP_TERM    BIT(8)
+#define DSI_DYNAMIC_TERM    BIT(4)
 #define DSI_BTA_TERM    BIT(1)
 #define DSI_CMD_TERM    BIT(0)
+
+/* offsets for dynamic refresh */
+#define DSI_DYNAMIC_REFRESH_CTRL		0x200
+#define DSI_DYNAMIC_REFRESH_PIPE_DELAY		0x204
+#define DSI_DYNAMIC_REFRESH_PIPE_DELAY2		0x208
+#define DSI_DYNAMIC_REFRESH_PLL_DELAY		0x20C
 
 extern struct device dsi_dev;
 extern u32 dsi_irq;
@@ -293,6 +302,12 @@ struct mdss_dsi_ctrl_pdata {
 	struct clk *byte_clk;
 	struct clk *esc_clk;
 	struct clk *pixel_clk;
+	struct clk *mux_byte_clk;
+	struct clk *mux_pixel_clk;
+	struct clk *pll_byte_clk;
+	struct clk *pll_pixel_clk;
+	struct clk *shadow_byte_clk;
+	struct clk *shadow_pixel_clk;
 	u8 ctrl_state;
 	int panel_mode;
 	int irq_cnt;
@@ -337,6 +352,7 @@ struct mdss_dsi_ctrl_pdata {
 	struct completion dma_comp;
 	struct completion mdp_comp;
 	struct completion video_comp;
+	struct completion dynamic_comp;
 	struct completion bta_comp;
 	spinlock_t irq_lock;
 	spinlock_t mdp_lock;
@@ -406,7 +422,10 @@ int mdss_dsi_clk_div_config(struct mdss_panel_info *panel_info,
 			    int frame_rate);
 int mdss_dsi_clk_init(struct platform_device *pdev,
 		      struct mdss_dsi_ctrl_pdata *ctrl_pdata);
+int mdss_dsi_shadow_clk_init(struct platform_device *pdev,
+		      struct mdss_dsi_ctrl_pdata *ctrl_pdata);
 void mdss_dsi_clk_deinit(struct mdss_dsi_ctrl_pdata *ctrl_pdata);
+void mdss_dsi_shadow_clk_deinit(struct mdss_dsi_ctrl_pdata *ctrl_pdata);
 int mdss_dsi_enable_bus_clocks(struct mdss_dsi_ctrl_pdata *ctrl_pdata);
 void mdss_dsi_disable_bus_clocks(struct mdss_dsi_ctrl_pdata *ctrl_pdata);
 int mdss_dsi_panel_reset(struct mdss_panel_data *pdata, int enable);
@@ -419,6 +438,7 @@ void mdss_dsi_ctrl_init(struct device *ctrl_dev,
 			struct mdss_dsi_ctrl_pdata *ctrl);
 void mdss_dsi_cmd_mdp_busy(struct mdss_dsi_ctrl_pdata *ctrl);
 void mdss_dsi_wait4video_done(struct mdss_dsi_ctrl_pdata *ctrl);
+void mdss_dsi_en_wait4dynamic_done(struct mdss_dsi_ctrl_pdata *ctrl);
 int mdss_dsi_cmdlist_commit(struct mdss_dsi_ctrl_pdata *ctrl, int from_mdp);
 void mdss_dsi_cmdlist_kickoff(int intf);
 int mdss_dsi_bta_status_check(struct mdss_dsi_ctrl_pdata *ctrl);
