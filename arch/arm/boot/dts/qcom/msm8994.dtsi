@@ -2174,7 +2174,7 @@
 		qcom,master-id = <86>;
 	};
 
-	i2c_5: i2c@f9967000 { /* BLSP2 QUP5 */
+	i2c_5: i2c_11: i2c@f9967000 { /* BLSP2 QUP5 */
 		compatible = "qcom,i2c-msm-v2";
 		#address-cells = <1>;
 		#size-cells = <0>;

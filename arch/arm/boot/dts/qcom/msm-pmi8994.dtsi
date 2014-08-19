@@ -169,6 +169,8 @@
 			qcom,resume-soc = <95>;
 			qcom,bms-psy-name = "bms";
 			qcom,thermal-mitigation = <1500 700 600 0>;
+			qcom,parallel-usb-min-current-ma = <1400>;
+			qcom,parallel-9v-usb-min-current-ma = <900>;
 			regulator-name = "pmi8994_otg_vreg";
 
 			qcom,chgr@1000 {
