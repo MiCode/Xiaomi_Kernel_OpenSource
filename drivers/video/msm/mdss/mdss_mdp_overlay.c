@@ -1269,7 +1269,8 @@ int mdss_mdp_overlay_start(struct msm_fb_data_type *mfd)
 	 * If idle pc feature is not enabled, then get a reference to the
 	 * runtime device which will be released when overlay is turned off
 	 */
-	if (!mdp5_data->mdata->idle_pc_enabled) {
+	if (!mdp5_data->mdata->idle_pc_enabled ||
+		(mfd->panel_info->type != MIPI_CMD_PANEL)) {
 		rc = pm_runtime_get_sync(&mfd->pdev->dev);
 		if (IS_ERR_VALUE(rc)) {
 			pr_err("unable to resume with pm_runtime_get_sync rc=%d\n",
@@ -3489,7 +3490,8 @@ ctl_stop:
 				&mdp5_data->mdata->active_intf_cnt) == 0)
 				mdss_mdp_rotator_release_all();
 
-			if (!mdp5_data->mdata->idle_pc_enabled) {
+			if (!mdp5_data->mdata->idle_pc_enabled ||
+				(mfd->panel_info->type != MIPI_CMD_PANEL)) {
 				rc = pm_runtime_put(&mfd->pdev->dev);
 				if (rc)
 					pr_err("unable to suspend w/pm_runtime_put (%d)\n",
