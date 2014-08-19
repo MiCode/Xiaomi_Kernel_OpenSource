@@ -202,6 +202,7 @@ static bool dynamic_mtu_enabled;
 static uint16_t ul_mtu = DEFAULT_BUFFER_SIZE;
 static uint16_t dl_mtu = DEFAULT_BUFFER_SIZE;
 static uint16_t buffer_size = DEFAULT_BUFFER_SIZE;
+static bool no_cpu_affinity;
 
 static struct bam_ch_info bam_ch[BAM_DMUX_NUM_CHANNELS];
 static int bam_mux_initialized;
@@ -1308,7 +1309,10 @@ static void rx_switch_to_interrupt_mode(void)
 
 fail:
 	pr_err("%s: reverting to polling\n", __func__);
-	queue_work_on(0, bam_mux_rx_workqueue, &rx_timer_work);
+	if (no_cpu_affinity)
+		queue_work(bam_mux_rx_workqueue, &rx_timer_work);
+	else
+		queue_work_on(0, bam_mux_rx_workqueue, &rx_timer_work);
 }
 
 /**
@@ -1504,9 +1508,14 @@ static void bam_mux_rx_notify(struct sps_event_notify *notify)
 			polling_mode = 1;
 			/*
 			 * run on core 0 so that netif_rx() in rmnet uses only
-			 * one queue
+			 * one queue if RPS enable use no_cpu_affinity
 			 */
-			queue_work_on(0, bam_mux_rx_workqueue, &rx_timer_work);
+			if (no_cpu_affinity)
+				queue_work(bam_mux_rx_workqueue,
+							&rx_timer_work);
+			else
+				queue_work_on(0, bam_mux_rx_workqueue,
+							&rx_timer_work);
 		}
 		break;
 	default:
@@ -2629,15 +2638,18 @@ static int bam_dmux_probe(struct platform_device *pdev)
 
 		set_dl_mtu(requested_dl_mtu);
 
+		no_cpu_affinity = of_property_read_bool(pdev->dev.of_node,
+						"qcom,no-cpu-affinity");
 		BAM_DMUX_LOG(
-			"%s: base:%p size:%x irq:%d satellite:%d num_buffs:%d dl_mtu:%x\n",
+			"%s: base:%p size:%x irq:%d satellite:%d num_buffs:%d dl_mtu:%x cpu-affinity:%d\n",
 						__func__,
 						(void *)(uintptr_t)a2_phys_base,
 						a2_phys_size,
 						a2_bam_irq,
 						satellite_mode,
 						num_buffers,
-						dl_mtu);
+						dl_mtu,
+						no_cpu_affinity);
 	} else { /* fallback to default init data */
 		a2_phys_base = A2_PHYS_BASE;
 		a2_phys_size = A2_PHYS_SIZE;

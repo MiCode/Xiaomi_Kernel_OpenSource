@@ -10,6 +10,8 @@ Optional properties:
 -qcom,rx-ring-size: the size of the receive ring buffer pool, default is 32
 -qcom,max-rx-mtu: the maximum receive MTU that can be negotiated, in bytes.
 	Default is 2048.  Other possible values are 4096, 8192, and 16384.
+-qcom,no-cpu-affinity: boolean value indicating that workqueue CPU affinity
+	is not required.
 
 Example:
 
@@ -20,4 +22,5 @@ Example:
 		qcom,satellite-mode;
 		qcom,rx-ring-size = <64>;
 		qcom,max-rx-mtu = <8192>;
+		qcom,no-cpu-affinity;
 	};
