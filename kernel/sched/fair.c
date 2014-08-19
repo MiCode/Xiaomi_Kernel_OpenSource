@@ -3227,7 +3227,6 @@ int sched_window_update_handler(struct ctl_table *table, int write,
 	int ret;
 	unsigned int *data = (unsigned int *)table->data;
 	unsigned int old_val;
-	unsigned long flags;
 
 	if (!sched_enable_hmp)
 		return -EINVAL;
@@ -3246,11 +3245,7 @@ int sched_window_update_handler(struct ctl_table *table, int write,
 		goto done;
 	}
 
-	local_irq_save(flags);
-
 	reset_all_window_stats(0, 0);
-
-	local_irq_restore(flags);
 
 done:
 	mutex_unlock(&policy_mutex);
