@@ -46,6 +46,7 @@ enum {
 static struct ufs_qcom_host *ufs_qcom_hosts[MAX_UFS_QCOM_HOSTS];
 
 static int ufs_qcom_set_bus_vote(struct ufs_qcom_host *host, int vote);
+static int ufs_qcom_update_sec_cfg(struct ufs_hba *hba, bool restore_sec_cfg);
 static void ufs_qcom_get_default_testbus_cfg(struct ufs_qcom_host *host);
 static int ufs_qcom_set_dme_vs_core_clk_ctrl_clear_div(struct ufs_hba *hba,
 						       u32 clk_cycles);
@@ -1238,6 +1239,9 @@ static int ufs_qcom_init(struct ufs_hba *hba)
 		goto out_variant_clear;
 	}
 
+	/* restore the secure configuration */
+	ufs_qcom_update_sec_cfg(hba, true);
+
 	err = ufs_qcom_bus_register(host);
 	if (err)
 		goto out_variant_clear;
@@ -1432,6 +1436,19 @@ static int ufs_qcom_clk_scale_notify(struct ufs_hba *hba,
 
 out:
 	return err;
+}
+
+/*
+ * This function should be called to restore the security configuration of UFS
+ * register space after coming out of UFS host core power collapse.
+ *
+ * @hba: host controller instance
+ * @restore_sec_cfg: Set "true" if secure configuration needs to be restored
+ * and set "false" when secure configuration is lost.
+ */
+static int ufs_qcom_update_sec_cfg(struct ufs_hba *hba, bool restore_sec_cfg)
+{
+	return 0;
 }
 
 static void ufs_qcom_print_hw_debug_reg_all(struct ufs_hba *hba,
@@ -1675,6 +1692,7 @@ static struct ufs_hba_variant_ops ufs_hba_qcom_vops = {
 	.apply_dev_quirks	= ufs_qcom_apply_dev_quirks,
 	.suspend		= ufs_qcom_suspend,
 	.resume			= ufs_qcom_resume,
+	.update_sec_cfg		= ufs_qcom_update_sec_cfg,
 	.dbg_register_dump	= ufs_qcom_dump_dbg_regs,
 };
 

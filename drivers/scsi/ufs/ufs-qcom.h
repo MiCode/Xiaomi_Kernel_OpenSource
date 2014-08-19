@@ -231,6 +231,7 @@ struct ufs_qcom_host {
 	struct clk *rx_l1_sync_clk;
 	struct clk *tx_l1_sync_clk;
 	bool is_lane_clks_enabled;
+	bool sec_cfg_updated;
 
 	void __iomem *dev_ref_clk_ctrl_mmio;
 	bool is_dev_ref_clk_enabled;

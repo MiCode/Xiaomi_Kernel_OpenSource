@@ -314,6 +314,7 @@ struct ufs_pwr_mode_info {
  * @apply_dev_quirks: called to apply device specific quirks
  * @suspend: called during host controller PM callback
  * @resume: called during host controller PM callback
+ * @update_sec_cfg: called to restore host controller secure configuration
  * @dbg_register_dump: used to dump controller debug information
  * @phy_initialization: used to initialize phys
  */
@@ -342,6 +343,7 @@ struct ufs_hba_variant_ops {
 	int	(*apply_dev_quirks)(struct ufs_hba *);
 	int     (*suspend)(struct ufs_hba *, enum ufs_pm_op);
 	int     (*resume)(struct ufs_hba *, enum ufs_pm_op);
+	int	(*update_sec_cfg)(struct ufs_hba *hba, bool restore_sec_cfg);
 	void	(*dbg_register_dump)(struct ufs_hba *hba);
 	int	(*phy_initialization)(struct ufs_hba *);
 };

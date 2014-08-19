@@ -7091,11 +7091,16 @@ out:
 static int ufshcd_setup_hba_vreg(struct ufs_hba *hba, bool on)
 {
 	struct ufs_vreg_info *info = &hba->vreg_info;
+	int ret = 0;
 
-	if (info)
-		return ufshcd_toggle_vreg(hba->dev, info->vdd_hba, on);
+	if (info->vdd_hba) {
+		ret = ufshcd_toggle_vreg(hba->dev, info->vdd_hba, on);
 
-	return 0;
+		if (!ret && hba->vops->update_sec_cfg)
+			hba->vops->update_sec_cfg(hba, on);
+	}
+
+	return ret;
 }
 
 static int ufshcd_get_vreg(struct device *dev, struct ufs_vreg *vreg)
@@ -7232,6 +7237,9 @@ out:
 		trace_ufshcd_clk_gating(dev_name(hba->dev),
 					hba->clk_gating.state);
 		spin_unlock_irqrestore(hba->host->host_lock, flags);
+		/* restore the secure configuration as clocks are enabled */
+		if (hba->vops->update_sec_cfg)
+			hba->vops->update_sec_cfg(hba, true);
 	}
 
 	if (clk_state_changed)
