@@ -348,48 +348,49 @@ static void pmic_arb_save_stat_before_txn(struct spmi_pmic_arb_dev *dev)
 			dev->ver->regs[PMIC_ARB_PROTOCOL_IRQ_STATUS]);
 }
 
-static int pmic_arb_diagnosis(struct spmi_pmic_arb_dev *dev, u32 status)
-{
-	if (status & PMIC_ARB_STATUS_DENIED) {
-		dev_err(dev->dev,
-		    "wait_for_done: transaction denied by SPMI master (0x%x)\n",
-		    status);
-		return -EPERM;
-	}
-
-	if (status & PMIC_ARB_STATUS_FAILURE) {
-		dev_err(dev->dev,
-		    "wait_for_done: transaction failed (0x%x)\n", status);
-		return -EIO;
-	}
-
-	if (status & PMIC_ARB_STATUS_DROPPED) {
-		dev_err(dev->dev,
-		    "wait_for_done: transaction dropped pmic-arb busy (0x%x)\n",
-		    status);
-		return -EAGAIN;
-	}
-
-	return 0;
-}
-
 static int pmic_arb_wait_for_done(struct spmi_pmic_arb_dev *dev,
 					void __iomem *base, u8 sid, u16 addr)
 {
 	u32 status = 0;
 	u32 timeout = PMIC_ARB_TIMEOUT_US;
 	u32 offset = dev->ver->chnl_ofst(dev, sid, addr) + PMIC_ARB_STATUS;
+	static const char * const diag_msg_fmt =
+			"wait_for_done: %s status:0x%x sid:%d addr:0x%x\n";
 
 	while (timeout--) {
 		status = readl_relaxed(base + offset);
 
-		if (status & PMIC_ARB_STATUS_DONE)
-			return pmic_arb_diagnosis(dev, status);
+		if (status & PMIC_ARB_STATUS_DONE) {
+			if (status & PMIC_ARB_STATUS_DENIED) {
+				dev_err(dev->dev, diag_msg_fmt,
+					"transaction denied by SPMI master "
+					"(peripheral not owned by apps)",
+					status, sid, addr);
+				return -EPERM;
+			}
+
+			if (status & PMIC_ARB_STATUS_FAILURE) {
+				dev_err(dev->dev, diag_msg_fmt,
+				   "failed (possible parity-error due to noisy"
+				   "bus or access to nonexistent peripheral)",
+				   status, sid, addr);
+				return -EIO;
+			}
+
+			if (status & PMIC_ARB_STATUS_DROPPED) {
+				dev_err(dev->dev, diag_msg_fmt,
+					"transaction dropped pmic-arb busy",
+					status, sid, addr);
+				return -EBUSY;
+			}
+
+			return 0;
+		};
 
 		udelay(1);
 	}
 
-	dev_err(dev->dev, "wait_for_done:: timeout, status 0x%x\n", status);
+	dev_err(dev->dev, diag_msg_fmt, "timeout", status, sid, addr);
 	return -ETIMEDOUT;
 }
 
