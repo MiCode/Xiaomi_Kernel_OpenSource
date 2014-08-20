@@ -11,4 +11,6 @@ obj-$(CONFIG_ADF_INTEL_FBDEV) += intel_adf_fbdev.o
 
 obj-$(CONFIG_ADF_MEMBLOCK) += intel_adf_mm.o
 
+obj-$(CONFIG_ADF_INTEL_FBDEV) += intel_adf_fbdev.o
+
 obj-$(CONFIG_ADF_INTEL) += core/
