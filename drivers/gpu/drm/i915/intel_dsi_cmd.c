@@ -130,7 +130,6 @@ static int dsi_vc_send_short(struct intel_dsi *intel_dsi, int channel,
 	struct drm_encoder *encoder = &intel_dsi->base.base;
 	struct drm_device *dev = encoder->dev;
 	struct drm_i915_private *dev_priv = dev->dev_private;
-	struct intel_crtc *intel_crtc = to_intel_crtc(encoder->crtc);
 	enum pipe pipe = intel_dsi->port;
 	u32 ctrl_reg;
 	u32 ctrl;
@@ -172,7 +171,6 @@ static int dsi_vc_send_long(struct intel_dsi *intel_dsi, int channel,
 	struct drm_encoder *encoder = &intel_dsi->base.base;
 	struct drm_device *dev = encoder->dev;
 	struct drm_i915_private *dev_priv = dev->dev_private;
-	struct intel_crtc *intel_crtc = to_intel_crtc(encoder->crtc);
 	enum pipe pipe = intel_dsi->port;
 	u32 data_reg;
 	int i, j, n;
@@ -291,7 +289,6 @@ static int dsi_read_data_return(struct intel_dsi *intel_dsi,
 	struct drm_encoder *encoder = &intel_dsi->base.base;
 	struct drm_device *dev = encoder->dev;
 	struct drm_i915_private *dev_priv = dev->dev_private;
-	struct intel_crtc *intel_crtc = to_intel_crtc(encoder->crtc);
 	enum pipe pipe = intel_dsi->port;
 	int i, len = 0;
 	u32 data_reg, val;
@@ -397,6 +394,7 @@ int dpi_send_cmd(struct intel_dsi *intel_dsi, u32 cmd, bool hs)
 	struct intel_crtc *intel_crtc = to_intel_crtc(encoder->crtc);
 	enum pipe pipe = intel_crtc->pipe;
 	u32 mask;
+	int count = 1;
 
 	/* XXX: pipe, hs */
 	if (hs)
@@ -407,21 +405,35 @@ int dpi_send_cmd(struct intel_dsi *intel_dsi, u32 cmd, bool hs)
 	/* DPI virtual channel?! */
 
 	mask = DPI_FIFO_EMPTY;
-	if (wait_for((I915_READ(MIPI_GEN_FIFO_STAT(pipe)) & mask) == mask, 50))
-		DRM_ERROR("Timeout waiting for DPI FIFO empty.\n");
 
-	/* clear bit */
-	I915_WRITE(MIPI_INTR_STAT(pipe), SPL_PKT_SENT_INTERRUPT);
+	if (intel_dsi->dual_link) {
+		count = 2;
+		pipe = PIPE_A;
+	}
 
-	/* XXX: old code skips write if control unchanged */
-	if (cmd == I915_READ(MIPI_DPI_CONTROL(pipe)))
-		DRM_ERROR("Same special packet %02x twice in a row.\n", cmd);
+	do {
+		if (wait_for((I915_READ(MIPI_GEN_FIFO_STAT(pipe)) & mask)
+								== mask, 50))
+			DRM_ERROR("Timeout waiting for DPI FIFO empty.\n");
 
-	I915_WRITE(MIPI_DPI_CONTROL(pipe), cmd);
+		/* clear bit */
+		I915_WRITE(MIPI_INTR_STAT(pipe), SPL_PKT_SENT_INTERRUPT);
 
-	mask = SPL_PKT_SENT_INTERRUPT;
-	if (wait_for((I915_READ(MIPI_INTR_STAT(pipe)) & mask) == mask, 100))
-		DRM_ERROR("Video mode command 0x%08x send failed.\n", cmd);
+		/* XXX: old code skips write if control unchanged */
+		if (cmd == I915_READ(MIPI_DPI_CONTROL(pipe)))
+			DRM_ERROR("Same special packet %02x twice in a row.\n",
+									cmd);
+		I915_WRITE(MIPI_DPI_CONTROL(pipe), cmd);
+
+		mask = SPL_PKT_SENT_INTERRUPT;
+		if (wait_for((I915_READ(MIPI_INTR_STAT(pipe)) & mask)
+								== mask, 100))
+			DRM_ERROR("Video mode command 0x%08x send failed.\n",
+									cmd);
+		/* For Port C for dual link */
+		if (intel_dsi->dual_link)
+			pipe = PIPE_B;
+	} while (--count > 0);
 
 	return 0;
 }
