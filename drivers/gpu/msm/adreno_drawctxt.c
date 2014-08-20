@@ -150,6 +150,7 @@ void adreno_drawctxt_invalidate(struct kgsl_device *device,
 			KGSL_MEMSTORE_OFFSET(context->id, eoptimestamp),
 			drawctxt->timestamp);
 
+	/* Get rid of commands still waiting in the queue */
 	while (drawctxt->cmdqueue_head != drawctxt->cmdqueue_tail) {
 		struct kgsl_cmdbatch *cmdbatch =
 			drawctxt->cmdqueue[drawctxt->cmdqueue_head];
@@ -169,6 +170,9 @@ void adreno_drawctxt_invalidate(struct kgsl_device *device,
 	}
 
 	mutex_unlock(&drawctxt->mutex);
+
+	/* Make sure all "retired" events are processed */
+	kgsl_process_event_group(device, &context->events);
 
 	/* Give the bad news to everybody waiting around */
 	wake_up_all(&drawctxt->waiting);
