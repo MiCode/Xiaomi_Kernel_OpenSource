@@ -250,16 +250,16 @@ int msm_audio_ion_mmap(struct audio_buffer *ab,
 		pr_debug("%s: page is NOT null\n", __func__);
 		for_each_sg(table->sgl, sg, table->nents, i) {
 			unsigned long remainder = vma->vm_end - addr;
-			unsigned long len = sg_dma_len(sg);
+			unsigned long len = sg->length;
 
 			page = sg_page(sg);
 
-			if (offset >= sg_dma_len(sg)) {
-				offset -= sg_dma_len(sg);
+			if (offset >= len) {
+				offset -= len;
 				continue;
 			} else if (offset) {
 				page += offset / PAGE_SIZE;
-				len = sg_dma_len(sg) - offset;
+				len -= offset;
 				offset = 0;
 			}
 			len = min(len, remainder);
