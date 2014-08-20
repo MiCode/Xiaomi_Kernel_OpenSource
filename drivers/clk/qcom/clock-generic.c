@@ -536,7 +536,7 @@ long parent_round_rate(struct clk *c, unsigned long rate)
 	return clk_round_rate(c->parent, rate);
 }
 
-static int ext_set_rate(struct clk *c, unsigned long rate)
+int parent_set_rate(struct clk *c, unsigned long rate)
 {
 	return clk_set_rate(c->parent, rate);
 }
@@ -570,7 +570,7 @@ static enum handoff ext_handoff(struct clk *c)
 struct clk_ops clk_ops_ext = {
 	.handoff = ext_handoff,
 	.round_rate = parent_round_rate,
-	.set_rate = ext_set_rate,
+	.set_rate = parent_set_rate,
 	.get_rate = parent_get_rate,
 	.set_parent = ext_set_parent,
 	.get_parent = ext_get_parent,
