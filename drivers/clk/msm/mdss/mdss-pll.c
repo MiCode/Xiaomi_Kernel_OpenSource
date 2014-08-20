@@ -203,6 +203,7 @@ static int mdss_pll_probe(struct platform_device *pdev)
 	const char *label;
 	struct resource *pll_base_reg;
 	struct resource *phy_base_reg;
+	struct resource *dynamic_pll_base_reg;
 	struct mdss_pll_resources *pll_res;
 
 	if (!pdev->dev.of_node) {
@@ -267,6 +268,18 @@ static int mdss_pll_probe(struct platform_device *pdev)
 		}
 	}
 
+	dynamic_pll_base_reg = platform_get_resource_byname(pdev,
+					IORESOURCE_MEM, "dynamic_pll_base");
+	if (dynamic_pll_base_reg) {
+		pll_res->dyn_pll_base = ioremap(dynamic_pll_base_reg->start,
+				resource_size(dynamic_pll_base_reg));
+		if (!pll_res->dyn_pll_base) {
+			pr_err("Unable to remap dynamic pll base resources\n");
+			rc = -ENOMEM;
+			goto dyn_pll_io_error;
+		}
+	}
+
 	rc = mdss_pll_resource_init(pdev, pll_res);
 	if (rc) {
 		pr_err("Pll resource init failed rc=%d\n", rc);
@@ -284,6 +297,9 @@ static int mdss_pll_probe(struct platform_device *pdev)
 clock_register_error:
 	mdss_pll_resource_deinit(pdev, pll_res);
 res_init_error:
+	if (pll_res->dyn_pll_base)
+		iounmap(pll_res->dyn_pll_base);
+dyn_pll_io_error:
 	if (pll_res->phy_base)
 		iounmap(pll_res->phy_base);
 phy_io_error:
