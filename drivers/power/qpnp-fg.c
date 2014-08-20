@@ -86,6 +86,7 @@ enum {
 	FG_MEM_DEBUG_WRITES		= BIT(3), /* Show SRAM writes */
 	FG_MEM_DEBUG_READS		= BIT(4), /* Show SRAM reads */
 	FG_POWER_SUPPLY			= BIT(5), /* Show POWER_SUPPLY */
+	FG_STATUS			= BIT(6), /* Show FG status changes */
 };
 
 struct fg_mem_setting {
@@ -160,6 +161,8 @@ static int fg_debug_mask;
 module_param_named(
 	debug_mask, fg_debug_mask, int, S_IRUSR | S_IWUSR
 );
+
+static int fg_sense_type = -EINVAL;
 
 static int fg_est_dump;
 module_param_named(
@@ -791,6 +794,25 @@ static int set_prop_jeita_temp(struct fg_chip *chip,
 	return rc;
 }
 
+#define EXTERNAL_SENSE_SELECT		0x4AC
+#define EXTERNAL_SENSE_OFFSET		0x2
+#define EXTERNAL_SENSE_BIT		BIT(2)
+static int set_prop_sense_type(struct fg_chip *chip, int ext_sense_type)
+{
+	int rc;
+
+	rc = fg_mem_masked_write(chip, EXTERNAL_SENSE_SELECT,
+			EXTERNAL_SENSE_BIT,
+			ext_sense_type ? EXTERNAL_SENSE_BIT : 0,
+			EXTERNAL_SENSE_OFFSET);
+	if (rc) {
+		pr_err("failed to write profile rc=%d\n", rc);
+		return rc;
+	}
+
+	return 0;
+}
+
 #define EXPONENT_MASK		0xF800
 #define MANTISSA_MASK		0x3FF
 #define SIGN			BIT(10)
@@ -1281,7 +1303,7 @@ static void batt_profile_init(struct work_struct *work)
 
 static int fg_of_init(struct fg_chip *chip)
 {
-	int rc = 0;
+	int rc = 0, sense_type;
 
 	OF_READ_SETTING(FG_MEM_SOFT_HOT, "warm-bat-decidegc", rc, 1);
 	OF_READ_SETTING(FG_MEM_SOFT_COLD, "cool-bat-decidegc", rc, 1);
@@ -1292,6 +1314,24 @@ static int fg_of_init(struct fg_chip *chip)
 	chip->use_otp_profile = of_property_read_bool(
 			chip->spmi->dev.of_node,
 			"qcom,use-otp-profile");
+
+	sense_type = of_property_read_bool(chip->spmi->dev.of_node,
+					"qcom,ext-sense-type");
+	if (rc == 0) {
+		if (fg_sense_type < 0)
+			fg_sense_type = sense_type;
+
+		if (fg_debug_mask & FG_STATUS) {
+			if (fg_sense_type == 0)
+				pr_info("Using internal sense\n");
+			else if (fg_sense_type == 1)
+				pr_info("Using external sense\n");
+			else
+				pr_info("Using default sense\n");
+		}
+	} else {
+		rc = 0;
+	}
 
 	return rc;
 }
@@ -1828,6 +1868,22 @@ err_remove_fs:
 	return -ENOMEM;
 }
 
+static int fg_hw_init(struct fg_chip *chip)
+{
+	int rc = 0;
+
+	if (fg_sense_type >= 0) {
+		rc = set_prop_sense_type(chip, fg_sense_type);
+		if (rc) {
+			pr_err("failed to config sense type %d rc=%d\n",
+					fg_sense_type, rc);
+			return rc;
+		}
+	}
+
+	return rc;
+}
+
 #define INIT_JEITA_DELAY_MS 1000
 static int fg_probe(struct spmi_device *spmi)
 {
@@ -1961,6 +2017,12 @@ static int fg_probe(struct spmi_device *spmi)
 
 	update_sram_data(&chip->update_sram_data.work);
 
+	rc = fg_hw_init(chip);
+	if (rc) {
+		pr_err("failed to hw init rc = %d\n", rc);
+		goto cancel_jeita_work;
+	}
+
 	if (!chip->use_otp_profile)
 		schedule_work(&chip->batt_profile_init);
 
@@ -1968,6 +2030,8 @@ static int fg_probe(struct spmi_device *spmi)
 
 	return rc;
 
+cancel_jeita_work:
+	cancel_delayed_work_sync(&chip->update_jeita_setting);
 power_supply_unregister:
 	power_supply_unregister(&chip->bms_psy);
 of_init_fail:
@@ -2008,6 +2072,46 @@ done:
 static const struct dev_pm_ops qpnp_fg_pm_ops = {
 	.suspend	= fg_suspend,
 };
+
+static int fg_sense_type_set(const char *val, const struct kernel_param *kp)
+{
+	int rc;
+	struct power_supply *bms_psy;
+	struct fg_chip *chip;
+	int old_fg_sense_type = fg_sense_type;
+
+	rc = param_set_int(val, kp);
+	if (rc) {
+		pr_err("Unable to set fg_sense_type: %d\n", rc);
+		return rc;
+	}
+
+	if (fg_sense_type != 0 && fg_sense_type != 1) {
+		pr_err("Bad value %d\n", fg_sense_type);
+		fg_sense_type = old_fg_sense_type;
+		return -EINVAL;
+	}
+
+	if (fg_debug_mask & FG_STATUS)
+		pr_info("fg_sense_type set to %d\n", fg_sense_type);
+
+	bms_psy = power_supply_get_by_name("bms");
+	if (!bms_psy) {
+		pr_err("bms psy not found\n");
+		return 0;
+	}
+
+	chip = container_of(bms_psy, struct fg_chip, bms_psy);
+	rc = set_prop_sense_type(chip, fg_sense_type);
+	return rc;
+}
+
+static struct kernel_param_ops fg_sense_type_ops = {
+	.set = fg_sense_type_set,
+	.get = param_get_int,
+};
+
+module_param_cb(sense_type, &fg_sense_type_ops, &fg_sense_type, 0644);
 
 static struct spmi_driver fg_driver = {
 	.driver		= {
