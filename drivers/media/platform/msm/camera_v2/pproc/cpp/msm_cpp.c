@@ -1520,7 +1520,7 @@ static int msm_cpp_cfg_frame(struct cpp_device *cpp_dev,
 			rc = -EAGAIN;
 			pr_debug("%s: error getting buffer rc:%d\n",
 				__func__, rc);
-			goto frame_msg_err;
+			goto phyaddr_err;
 		}
 		new_frame->output_buffer_info[1].index =
 			dup_buff_mgr_info.index;
