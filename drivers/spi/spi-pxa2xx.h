@@ -104,6 +104,7 @@ struct chip_data {
 	u8 enable_dma;
 	u8 bits_per_word;
 	u32 speed_hz;
+	u8 chip_select;
 	union {
 		int gpio_cs;
 		unsigned int frm;
@@ -112,6 +113,10 @@ struct chip_data {
 	int (*write)(struct driver_data *drv_data);
 	int (*read)(struct driver_data *drv_data);
 	void (*cs_control)(u32 command);
+};
+
+struct pxa2xx_spi_acpi_desc {
+	unsigned int cs_num;
 };
 
 #define DEFINE_SSP_REG(reg, off) \

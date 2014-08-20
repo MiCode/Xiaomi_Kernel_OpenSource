@@ -120,7 +120,7 @@ static struct lpss_device_desc byt_uart_dev_desc = {
 
 static struct lpss_shared_clock spi_clock = {
 	.name = "spi_clk",
-	.rate = 50000000,
+	.rate = 100000000,
 };
 
 static struct lpss_device_desc byt_spi_dev_desc = {

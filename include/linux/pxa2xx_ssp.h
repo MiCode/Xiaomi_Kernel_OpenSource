@@ -161,9 +161,11 @@
 #define SSITF			0x44		/* TX FIFO trigger level */
 #define SSITF_TxLoThresh(x)	(((x) - 1) << 8)
 #define SSITF_TxHiThresh(x)	((x) - 1)
+#define SSITF_TFL_MASK		(0xff << 16)	/* Transmit FIFO Level mask */
 
 #define SSIRF			0x48		/* RX FIFO trigger level */
 #define SSIRF_RxThresh(x)	((x) - 1)
+#define SSIRF_RFL_MASK		(0xff << 8)	/* Receive FIFO Level mask */
 
 enum pxa_ssp_type {
 	SSP_UNDEFINED = 0,
