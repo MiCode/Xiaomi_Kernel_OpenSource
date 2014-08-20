@@ -1233,6 +1233,77 @@ fail:
 	return -EINVAL;
 }
 
+static int voice_send_hd_cmd(struct voice_data *v, int enable)
+{
+	struct mvm_set_hd_enable_cmd mvm_set_hd_cmd;
+	int ret = 0;
+	void *apr_mvm;
+	u16 mvm_handle;
+
+	if (v == NULL) {
+		pr_err("%s: v is NULL\n", __func__);
+
+		ret = -EINVAL;
+		goto done;
+	}
+
+	apr_mvm = common.apr_q6_mvm;
+	if (!apr_mvm) {
+		pr_err("%s: apr_mvm is NULL.\n", __func__);
+
+		ret = -EINVAL;
+		goto done;
+	}
+
+	mvm_handle = voice_get_mvm_handle(v);
+	if (!mvm_handle) {
+		pr_err("%s: mvm_handle is NULL\n", __func__);
+
+		ret = -EINVAL;
+		goto done;
+	}
+
+	mvm_set_hd_cmd.hdr.hdr_field = APR_HDR_FIELD(APR_MSG_TYPE_SEQ_CMD,
+						     APR_HDR_LEN(APR_HDR_SIZE),
+						     APR_PKT_VER);
+	mvm_set_hd_cmd.hdr.pkt_size = APR_PKT_SIZE(APR_HDR_SIZE,
+						   sizeof(mvm_set_hd_cmd) -
+						   APR_HDR_SIZE);
+	mvm_set_hd_cmd.hdr.src_port = voice_get_idx_for_session(v->session_id);
+	mvm_set_hd_cmd.hdr.dest_port = mvm_handle;
+	mvm_set_hd_cmd.hdr.token = 0;
+
+	if (enable)
+		mvm_set_hd_cmd.hdr.opcode = VSS_IHDVOICE_CMD_ENABLE;
+	else
+		mvm_set_hd_cmd.hdr.opcode = VSS_IHDVOICE_CMD_DISABLE;
+
+	pr_debug("%s: enable=%d\n", __func__, enable);
+
+	v->mvm_state = CMD_STATUS_FAIL;
+	ret = apr_send_pkt(apr_mvm, (uint32_t *) &mvm_set_hd_cmd);
+	if (ret < 0) {
+		pr_err("%s: Failed to sending mvm set HD Voice enable %d\n",
+		       __func__, ret);
+
+		ret = -EINVAL;
+		goto done;
+	}
+
+	ret = wait_event_timeout(v->mvm_wait,
+				 (v->mvm_state == CMD_STATUS_SUCCESS),
+				 msecs_to_jiffies(TIMEOUT_MS));
+	if (!ret) {
+		pr_err("%s: wait_event timeout\n", __func__);
+
+		ret = -EINVAL;
+		goto done;
+	}
+
+done:
+	return ret;
+}
+
 static int voice_set_dtx(struct voice_data *v)
 {
 	int ret = 0;
@@ -3319,6 +3390,9 @@ static int voice_setup_vocproc(struct voice_data *v)
 	if (v->dtmf_rx_detect_en)
 		voice_send_dtmf_rx_detection_cmd(v, v->dtmf_rx_detect_en);
 
+	if (v->hd_enable)
+		voice_send_hd_cmd(v, v->hd_enable);
+
 	rtac_add_voice(voice_get_cvs_handle(v),
 		voice_get_cvp_handle(v),
 		v->dev_rx.port_id, v->dev_tx.port_id,
@@ -3622,6 +3696,10 @@ static int voice_destroy_vocproc(struct voice_data *v)
 	/* disable slowtalk if st_enable is set */
 	if (v->st_enable)
 		voice_send_set_pp_enable_cmd(v, MODULE_ID_VOICE_MODULE_ST, 0);
+
+	/* Disable HD Voice if hd_enable is set */
+	if (v->hd_enable)
+		voice_send_hd_cmd(v, 0);
 
 	/* stop playback or recording */
 	v->music_info.force = 1;
@@ -4704,6 +4782,10 @@ static int voc_enable_cvp(uint32_t session_id)
 			voice_send_set_pp_enable_cmd(v,
 					     MODULE_ID_VOICE_MODULE_ST,
 					     v->st_enable);
+
+		if (v->hd_enable)
+			voice_send_hd_cmd(v, v->hd_enable);
+
 		rtac_add_voice(voice_get_cvs_handle(v),
 			voice_get_cvp_handle(v),
 			v->dev_rx.port_id, v->dev_tx.port_id,
@@ -4931,6 +5013,33 @@ int voc_set_pp_enable(uint32_t session_id, uint32_t module_id, uint32_t enable)
 		} else {
 			pr_err("%s: invalid session_id 0x%x\n", __func__,
 								session_id);
+			ret =  -EINVAL;
+			break;
+		}
+	}
+
+	return ret;
+}
+
+int voc_set_hd_enable(uint32_t session_id, uint32_t enable)
+{
+	struct voice_data *v = NULL;
+	int ret = 0;
+	struct voice_session_itr itr;
+
+	voice_itr_init(&itr, session_id);
+	while (voice_itr_get_next_session(&itr, &v)) {
+		if (v != NULL) {
+			mutex_lock(&v->lock);
+			v->hd_enable = enable;
+
+			if (v->voc_state == VOC_RUN)
+				ret = voice_send_hd_cmd(v, enable);
+
+			mutex_unlock(&v->lock);
+		} else {
+			pr_err("%s: invalid session_id 0x%x\n", __func__,
+			       session_id);
 			ret =  -EINVAL;
 			break;
 		}
@@ -5580,6 +5689,8 @@ static int32_t qdsp_mvm_callback(struct apr_client_data *data, void *priv)
 			case VSS_IMEMORY_CMD_UNMAP:
 			case VSS_IMVM_CMD_PAUSE_VOICE:
 			case VSS_IMVM_CMD_STANDBY_VOICE:
+			case VSS_IHDVOICE_CMD_ENABLE:
+			case VSS_IHDVOICE_CMD_DISABLE:
 				pr_debug("%s: cmd = 0x%x\n", __func__, ptr[0]);
 				v->mvm_state = CMD_STATUS_SUCCESS;
 				wake_up(&v->mvm_wait);

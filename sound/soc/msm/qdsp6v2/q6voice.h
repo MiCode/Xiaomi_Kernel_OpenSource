@@ -242,6 +242,8 @@ struct vss_unmap_memory_cmd {
 #define VSS_IMEMORY_CMD_UNMAP				0x00011337
 #define VSS_IMVM_CMD_SET_CAL_NETWORK			0x0001137A
 #define VSS_IMVM_CMD_SET_CAL_MEDIA_TYPE		0x0001137B
+#define VSS_IHDVOICE_CMD_ENABLE				0x000130A2
+#define VSS_IHDVOICE_CMD_DISABLE			0x000130A3
 
 enum msm_audio_voc_rate {
 		VOC_0_RATE, /* Blank frame */
@@ -375,6 +377,10 @@ struct mvm_set_network_cmd {
 struct mvm_set_voice_timing_cmd {
 	struct apr_hdr hdr;
 	struct vss_icommon_cmd_set_voice_timing_t timing;
+} __packed;
+
+struct mvm_set_hd_enable_cmd {
+	struct apr_hdr hdr;
 } __packed;
 
 struct vss_imemory_table_descriptor_t {
@@ -1458,6 +1464,7 @@ struct voice_data {
 	uint8_t tty_mode;
 	/* slowtalk enable value */
 	uint32_t st_enable;
+	uint32_t hd_enable;
 	uint32_t dtmf_rx_detect_en;
 	/* Local Call Hold mode */
 	uint8_t lch_mode;
@@ -1603,6 +1610,7 @@ enum vsid_app_type {
 int voc_set_pp_enable(uint32_t session_id, uint32_t module_id,
 		      uint32_t enable);
 int voc_get_pp_enable(uint32_t session_id, uint32_t module_id);
+int voc_set_hd_enable(uint32_t session_id, uint32_t enable);
 uint8_t voc_get_tty_mode(uint32_t session_id);
 int voc_set_tty_mode(uint32_t session_id, uint8_t tty_mode);
 int voc_start_voice_call(uint32_t session_id);
