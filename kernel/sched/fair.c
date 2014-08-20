@@ -1886,7 +1886,7 @@ void post_big_small_task_count_change(void)
 	local_irq_enable();
 }
 
-static DEFINE_MUTEX(policy_mutex);
+DEFINE_MUTEX(policy_mutex);
 
 static inline int invalid_value(unsigned int *data)
 {
