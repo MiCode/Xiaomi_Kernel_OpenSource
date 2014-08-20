@@ -3543,7 +3543,8 @@ int sdhci_add_host(struct sdhci_host *host)
 	 */
 	if ((host->quirks & SDHCI_QUIRK_BROKEN_CARD_DETECTION) &&
 	    !(mmc->caps & MMC_CAP_NONREMOVABLE) &&
-	    (mmc_gpio_get_cd(host->mmc) < 0))
+	    (mmc_gpio_get_cd(host->mmc) < 0) &&
+	    !(mmc->caps2 & MMC_CAP2_NONHOTPLUG))
 		mmc->caps |= MMC_CAP_NEEDS_POLL;
 
 	/* If there are external regulators, get them */
