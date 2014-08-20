@@ -101,6 +101,10 @@ struct glink_transport_if {
 	int (*mask_rx_irq)(struct glink_transport_if *if_ptr, uint32_t lcid,
 			bool mask, void *pstruct);
 
+	/* channel migration */
+	void (*ch_migrating)(struct glink_transport_if *if_ptr, uint32_t lcid,
+			uint32_t rcid);
+
 	/*
 	 * Keep data pointers at the end of the structure after all function
 	 * pointer to allow for in-place initialization.
