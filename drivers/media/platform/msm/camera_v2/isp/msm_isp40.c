@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1710,14 +1710,21 @@ static int msm_vfe40_stats_check_streams(
 }
 
 static void msm_vfe40_stats_cfg_comp_mask(struct vfe_device *vfe_dev,
-	uint32_t stats_mask, uint8_t enable)
+	uint32_t stats_mask, uint8_t request_comp_index, uint8_t enable)
 {
-	uint32_t reg_mask, comp_stats_mask;
-	uint32_t i = 0;
-	atomic_t *stats_comp;
+	uint32_t comp_mask_reg;
+	atomic_t *stats_comp_mask;
 	struct msm_vfe_stats_shared_data *stats_data = &vfe_dev->stats_data;
 
-	stats_mask = stats_mask & 0xFF;
+	if (vfe_dev->hw_info->stats_hw_info->num_stats_comp_mask < 1)
+		return;
+
+	if (request_comp_index >= MAX_NUM_STATS_COMP_MASK) {
+		pr_err("%s: num of comp masks %d exceed max %d\n",
+			__func__, request_comp_index,
+			MAX_NUM_STATS_COMP_MASK);
+		return;
+	}
 
 	if (vfe_dev->hw_info->stats_hw_info->num_stats_comp_mask >
 			MAX_NUM_STATS_COMP_MASK) {
@@ -1728,39 +1735,31 @@ static void msm_vfe40_stats_cfg_comp_mask(struct vfe_device *vfe_dev,
 		return;
 	}
 
-	for (i = 0;
-		i < vfe_dev->hw_info->stats_hw_info->num_stats_comp_mask; i++) {
+	stats_mask = stats_mask & 0xFF;
 
-		reg_mask = msm_camera_io_r(vfe_dev->vfe_base + 0x44);
-		comp_stats_mask = reg_mask & (STATS_COMP_BIT_MASK << (i*8));
-		stats_comp = &stats_data->stats_comp_mask[i];
+	stats_comp_mask = &stats_data->stats_comp_mask[request_comp_index];
+	comp_mask_reg = msm_camera_io_r(vfe_dev->vfe_base + 0x44);
 
-		if (enable) {
-			if (comp_stats_mask)
-				continue;
-
-			reg_mask |= (stats_mask << (16 + i*8));
-			atomic_add(stats_mask, stats_comp);
-		} else {
-			/*
-			 * Check if comp mask in reg is valid
-			 * and contains this stat
-			 */
-			if (!comp_stats_mask ||
-				!((comp_stats_mask >> (16 + i*8)) &
-					stats_mask))
-				continue;
-
-			atomic_sub(stats_mask, stats_comp);
-			reg_mask &= ~(stats_mask << (16 + i*8));
-		}
-		ISP_DBG("%s: comp_mask: %x atomic stats[0]: %x %x\n",
-			__func__, reg_mask,
-			atomic_read(&stats_data->stats_comp_mask[0]),
-			atomic_read(&stats_data->stats_comp_mask[1]));
-		msm_camera_io_w(reg_mask, vfe_dev->vfe_base + 0x44);
-		return;
+	if (enable) {
+		comp_mask_reg |= stats_mask << (16 + request_comp_index * 8);
+		atomic_set(stats_comp_mask, stats_mask |
+				atomic_read(stats_comp_mask));
+	} else {
+		if (!(atomic_read(stats_comp_mask) & stats_mask))
+			return;
+		atomic_set(stats_comp_mask,
+				~stats_mask & atomic_read(stats_comp_mask));
+		comp_mask_reg &= ~(stats_mask <<
+			(16 + request_comp_index * 8));
 	}
+	msm_camera_io_w(comp_mask_reg, vfe_dev->vfe_base + 0x44);
+
+	ISP_DBG("%s: comp_mask_reg: %x comp mask0 %x mask1: %x\n",
+		__func__, comp_mask_reg,
+		atomic_read(&stats_data->stats_comp_mask[0]),
+		atomic_read(&stats_data->stats_comp_mask[1]));
+
+	return;
 }
 
 static void msm_vfe40_stats_cfg_wm_irq_mask(
