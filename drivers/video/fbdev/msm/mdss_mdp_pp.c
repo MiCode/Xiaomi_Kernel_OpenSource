@@ -1914,12 +1914,17 @@ int mdss_mdp_pp_resume(struct mdss_mdp_ctl *ctl, u32 dspp_num)
 	u32 flags = 0, disp_num, bl, ret = 0;
 	struct pp_sts_type pp_sts;
 	struct mdss_ad_info *ad;
-	struct mdss_data_type *mdata = ctl->mdata;
+	struct mdss_data_type *mdata;
 	struct msm_fb_data_type *bl_mfd;
 
-	if (!mdata)
+	if (!ctl || !ctl->mdata || !ctl->mfd) {
+		pr_err("invalid input: ctl = 0x%p, mdata = 0x%p, mfd = 0x%p\n",
+			ctl, (!ctl) ? NULL : ctl->mdata,
+			(!ctl) ? NULL : ctl->mfd);
 		return -EPERM;
+	}
 
+	mdata = ctl->mdata;
 	if (dspp_num >= mdata->ndspp) {
 		pr_err("invalid dspp_num %d\n", dspp_num);
 		return -EINVAL;
