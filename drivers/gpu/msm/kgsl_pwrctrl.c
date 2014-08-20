@@ -1701,7 +1701,7 @@ int kgsl_pwrctrl_change_state(struct kgsl_device *device, int state)
 	kgsl_pwrctrl_request_state(device, state);
 
 	/* Work through the legal state transitions */
-	switch (device->requested_state) {
+	switch (state) {
 	case KGSL_STATE_INIT:
 		status = _init(device);
 		break;
@@ -1721,8 +1721,7 @@ int kgsl_pwrctrl_change_state(struct kgsl_device *device, int state)
 		status = _suspend(device);
 		break;
 	default:
-		KGSL_PWR_INFO(device, "bad state request 0x%x\n",
-				device->requested_state);
+		KGSL_PWR_INFO(device, "bad state request 0x%x\n", state);
 		kgsl_pwrctrl_request_state(device, KGSL_STATE_NONE);
 		status = -EINVAL;
 		break;
