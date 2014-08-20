@@ -45,6 +45,9 @@ Optional Properties:
 			   1, 4 and 8.
 	- qcom,nonremovable - specifies whether the card in slot is
 			      hot pluggable or hard wired.
+	- qcom,nonhotplug - specifies the card in slot is not hot pluggable.
+			    if card lost or removed manually at runtime, don't retry
+			    to redetect it until next reboot probe.
 	- qcom,bus-speed-mode - specifies supported bus speed modes by host.
 				The supported bus speed modes are :
 				"HS400_1p8v" - indicates that host can support HS400 at 1.8v.
