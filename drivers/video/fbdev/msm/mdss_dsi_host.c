@@ -632,7 +632,7 @@ static void mdss_dsi_mode_setup(struct mdss_panel_data *pdata)
 	u32 hbp, hfp, vbp, vfp, hspw, vspw, width, height;
 	u32 ystride, bpp, data, dst_bpp;
 	u32 dummy_xres = 0, dummy_yres = 0;
-	u32 hsync_period, vsync_period;
+	u32 hsync_period, vsync_period, ctrl_rev;
 
 	ctrl_pdata = container_of(pdata, struct mdss_dsi_ctrl_pdata,
 				panel_data);
@@ -670,6 +670,10 @@ static void mdss_dsi_mode_setup(struct mdss_panel_data *pdata)
 
 	mipi = &pdata->panel_info.mipi;
 	if (pdata->panel_info.type == MIPI_VIDEO_PANEL) {
+		ctrl_rev = MIPI_INP(ctrl_pdata->ctrl_base);
+		/* Enable DSI TIMING register double buffering for 8916/8939 */
+		if (ctrl_rev == MDSS_DSI_HW_REV_103_1)
+			MIPI_OUTP((ctrl_pdata->ctrl_base) + 0x1e8, 0x1);
 		MIPI_OUTP((ctrl_pdata->ctrl_base) + 0x24,
 			((hspw + hbp + width + dummy_xres) << 16 |
 			(hspw + hbp)));
@@ -683,7 +687,9 @@ static void mdss_dsi_mode_setup(struct mdss_panel_data *pdata)
 		MIPI_OUTP((ctrl_pdata->ctrl_base) + 0x30, (hspw << 16));
 		MIPI_OUTP((ctrl_pdata->ctrl_base) + 0x34, 0);
 		MIPI_OUTP((ctrl_pdata->ctrl_base) + 0x38, (vspw << 16));
-
+		/* Flush DSI TIMING registers for 8916/8939 */
+		if (ctrl_rev == MDSS_DSI_HW_REV_103_1)
+			MIPI_OUTP((ctrl_pdata->ctrl_base) + 0x1e4, 0x1);
 	} else {		/* command mode */
 		if (mipi->dst_format == DSI_CMD_DST_FORMAT_RGB888)
 			bpp = 3;
