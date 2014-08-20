@@ -46,7 +46,8 @@ int pft_inode_mknod(struct inode *dir, struct dentry *dentry, umode_t mode,
 int pft_inode_rename(struct inode *inode, struct dentry *dentry,
 		     struct inode *new_inode, struct dentry *new_dentry);
 
-int pft_inode_set_xattr(struct dentry *dentry, const char *name);
+int pft_inode_set_xattr(struct dentry *dentry, const char *name,
+			const void *value, size_t size, int flags);
 
 
 #else
@@ -85,7 +86,9 @@ static inline int pft_inode_rename(struct inode *inode, struct dentry *dentry,
 		     struct inode *new_inode, struct dentry *new_dentry)
 { return 0; }
 
-static inline int pft_inode_set_xattr(struct dentry *dentry, const char *name)
+static inline int pft_inode_set_xattr(struct dentry *dentry, const char *name,
+				      const void *value, size_t size,
+				      int flags)
 { return 0; }
 
 #endif /* CONFIG_PFT */

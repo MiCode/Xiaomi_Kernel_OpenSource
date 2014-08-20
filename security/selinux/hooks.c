@@ -2866,7 +2866,7 @@ static int selinux_inode_setotherxattr(struct dentry *dentry, const char *name)
 {
 	const struct cred *cred = current_cred();
 
-	if (pft_inode_set_xattr(dentry, name) < 0)
+	if (pft_inode_set_xattr(dentry, name, NULL, 0, 0) < 0)
 		return -EACCES;
 
 	if (!strncmp(name, XATTR_SECURITY_PREFIX,
