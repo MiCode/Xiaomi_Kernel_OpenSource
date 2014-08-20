@@ -596,6 +596,14 @@
 		qcom,master-en = <1>;	/* ENABLE GPIO */
 	};
 
+	gpio@c500 { /* GPIO 6 SMB STAT */
+		qcom,mode = <0>;	/* DIGITAL IN */
+		qcom,pull = <5>;	/* NO PULL */
+		qcom,vin-sel = <0>;	/* VPH */
+		qcom,src-sel = <0>;	/* CONSTANT */
+		qcom,master-en = <1>;	/* ENABLE GPIO */
+	};
+
 	gpio@c600 { /* GPIO 7 - NFC_PWR_REQ */
 		qcom,mode = <0>;	/* DIGITAL IN */
 		qcom,pull = <5>;	/* No Pull */
@@ -604,7 +612,7 @@
 		qcom,master-en = <1>;	/* ENABLE GPIO */
 	};
 
-    gpio@c700 { /* GPIO 8 */
+	gpio@c700 { /* GPIO 8 */
 		qcom,mode = <0>;                /* Digital in */
 		qcom,pull = <5>;                /* No PULL */
 		qcom,output-type = <0>;         /* CMOS logic */
