@@ -45,7 +45,8 @@ struct cp2_lock_req {
 	u32 lock;
 } __attribute__ ((__packed__));
 
-#define MEM_PROTECT_LOCK_ID2     0x0A
+#define MEM_PROTECT_LOCK_ID2		0x0A
+#define MEM_PROTECT_LOCK_ID2_FLAT	0x11
 #define V2_CHUNK_SIZE		SZ_1M
 #define FEATURE_ID_CP 12
 
@@ -107,19 +108,31 @@ static int secure_buffer_change_chunk(u32 chunks,
 {
 	struct cp2_lock_req request;
 	u32 resp;
+	int ret;
+	struct scm_desc desc = {0};
 
-	request.mem_usage = usage;
-	request.lock = lock;
-
-	request.chunks.chunk_list = chunks;
-	request.chunks.chunk_list_size = nchunks;
-	request.chunks.chunk_size = chunk_size;
+	desc.args[0] = request.chunks.chunk_list = chunks;
+	desc.args[1] = request.chunks.chunk_list_size = nchunks;
+	desc.args[2] = request.chunks.chunk_size = chunk_size;
+	desc.args[3] = request.mem_usage = usage;
+	desc.args[4] = request.lock = lock;
+	desc.args[5] = 0;
+	desc.arginfo = SCM_ARGS(6, SCM_RW, SCM_VAL, SCM_VAL, SCM_VAL, SCM_VAL,
+				SCM_VAL);
 
 	kmap_flush_unused();
 	kmap_atomic_flush_unused();
-	return scm_call(SCM_SVC_MP, MEM_PROTECT_LOCK_ID2,
-			&request, sizeof(request), &resp, sizeof(resp));
 
+	if (!is_scm_armv8()) {
+		ret = scm_call(SCM_SVC_MP, MEM_PROTECT_LOCK_ID2,
+				&request, sizeof(request), &resp, sizeof(resp));
+	} else {
+		ret = scm_call2(SCM_SIP_FNID(SCM_SVC_MP,
+				MEM_PROTECT_LOCK_ID2_FLAT), &desc);
+		resp = desc.ret[0];
+	}
+
+	return ret;
 }
 
 
