@@ -39,7 +39,8 @@ struct cp2_lock_req {
 	unsigned int lock;
 } __attribute__ ((__packed__));
 
-#define MEM_PROTECT_LOCK_ID2     0x0A
+#define MEM_PROTECT_LOCK_ID2		0x0A
+#define MEM_PROTECT_LOCK_ID2_FLAT	0x11
 
 /* An attribute for showing per-process memory statistics */
 struct kgsl_mem_entry_attribute {
@@ -925,6 +926,7 @@ int kgsl_cma_alloc_secure(struct kgsl_device *device,
 	unsigned int resp;
 	unsigned int *chunk_list = NULL;
 	struct kgsl_pagetable *pagetable = device->mmu.securepagetable;
+	struct scm_desc desc = {0};
 
 	if (size == 0)
 		return -EINVAL;
@@ -967,22 +969,35 @@ int kgsl_cma_alloc_secure(struct kgsl_device *device,
 	chunk_list[0] = memdesc->physaddr;
 	dmac_flush_range((void *)chunk_list, (void *)chunk_list + 1);
 
-	request.chunks.chunk_list = virt_to_phys(chunk_list);
-	request.chunks.chunk_list_size = 1;
-	request.chunks.chunk_size = memdesc->size;
-	request.mem_usage = 0;
-	request.lock = 1;
-
+	desc.args[0] = request.chunks.chunk_list = virt_to_phys(chunk_list);
+	desc.args[1] = request.chunks.chunk_list_size = 1;
+	desc.args[2] = request.chunks.chunk_size = memdesc->size;
+	desc.args[3] = request.mem_usage = 0;
+	desc.args[4] = request.lock = 1;
+	desc.args[5] = 0;
+	desc.arginfo = SCM_ARGS(6, SCM_RW, SCM_VAL, SCM_VAL, SCM_VAL, SCM_VAL,
+				SCM_VAL);
 	kmap_flush_unused();
 	kmap_atomic_flush_unused();
-	result = scm_call(SCM_SVC_MP, MEM_PROTECT_LOCK_ID2,
-			&request, sizeof(request), &resp, sizeof(resp));
 
 	if (result == 0)
 		memdesc->priv |= KGSL_MEMDESC_TZ_LOCKED;
 	else {
 		KGSL_DRV_ERR(device, "Secure buffer size %zx failed pt %d\n",
 					 memdesc->size, pagetable->name);
+		goto err;
+	}
+
+	if (!is_scm_armv8()) {
+		result = scm_call(SCM_SVC_MP, MEM_PROTECT_LOCK_ID2,
+				&request, sizeof(request), &resp, sizeof(resp));
+	} else {
+		result = scm_call2(SCM_SIP_FNID(SCM_SVC_MP,
+				   MEM_PROTECT_LOCK_ID2_FLAT), &desc);
+		resp = desc.ret[0];
+	}
+	if (result) {
+		KGSL_DRV_ERR(device, "Secure buffer allocation failed\n");
 		goto err;
 	}
 
@@ -1013,6 +1028,7 @@ static int kgsl_cma_unlock_secure(struct kgsl_device *device,
 	unsigned int resp;
 	unsigned int *chunk_list;
 	struct kgsl_pagetable *pagetable = device->mmu.securepagetable;
+	struct scm_desc desc;
 
 	if (!memdesc->size) {
 		KGSL_DRV_ERR(device, "Secure buffer invalid size 0\n");
@@ -1037,17 +1053,25 @@ static int kgsl_cma_unlock_secure(struct kgsl_device *device,
 	chunk_list[0] = memdesc->physaddr;
 	dmac_flush_range((void *)chunk_list, (void *)chunk_list + 1);
 
-	request.chunks.chunk_list = virt_to_phys(chunk_list);
-	request.chunks.chunk_list_size = 1;
-	request.chunks.chunk_size = memdesc->size;
-	request.mem_usage = 0;
-	request.lock = 0;
-
+	desc.args[0] = request.chunks.chunk_list = virt_to_phys(chunk_list);
+	desc.args[1] = request.chunks.chunk_list_size = 1;
+	desc.args[2] = request.chunks.chunk_size = memdesc->size;
+	desc.args[3] = request.mem_usage = 0;
+	desc.args[4] = request.lock = 0;
+	desc.args[5] = 0;
+	desc.arginfo = SCM_ARGS(6, SCM_RW, SCM_VAL, SCM_VAL, SCM_VAL, SCM_VAL,
+				SCM_VAL);
 	kmap_flush_unused();
 	kmap_atomic_flush_unused();
-	result = scm_call(SCM_SVC_MP, MEM_PROTECT_LOCK_ID2,
-			&request, sizeof(request), &resp, sizeof(resp));
 
+	if (!is_scm_armv8()) {
+		result = scm_call(SCM_SVC_MP, MEM_PROTECT_LOCK_ID2,
+				&request, sizeof(request), &resp, sizeof(resp));
+	} else {
+		result = scm_call2(SCM_SIP_FNID(SCM_SVC_MP,
+				   MEM_PROTECT_LOCK_ID2_FLAT), &desc);
+		resp = desc.ret[0];
+	}
 	kfree(chunk_list);
 
 	if (result)
