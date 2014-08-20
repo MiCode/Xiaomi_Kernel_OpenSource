@@ -493,6 +493,7 @@ struct bmm_client_data {
 	struct bmm050 device;
 	struct i2c_client *client;
 	struct input_dev *input;
+	struct iio_dev *indio_dev;
 	struct iio_trigger	*trig;
 	struct delayed_work work;
 	unsigned char *buffer_data;

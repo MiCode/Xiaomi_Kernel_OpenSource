@@ -226,6 +226,7 @@ bst_axis_remap_tab_dft[MAX_AXIS_REMAP_TAB_SZ] = {
 	{  1,    0,    2,     1,      1,     -1 }, /* P7 */
 };
 
+#ifdef CONFIG_BMM_USE_PLATFORM_DATA
 static void bst_remap_sensor_data(struct bosch_sensor_data *data,
 		const struct bosch_sensor_axis_remap *remap)
 {
@@ -247,6 +248,7 @@ static void bst_remap_sensor_data_dft_tab(struct bosch_sensor_data *data,
 
 	bst_remap_sensor_data(data, &bst_axis_remap_tab_dft[place]);
 }
+#endif
 
 static void bmm_remap_sensor_data(struct bmm050_mdata_s32 *val,
 		struct bmm_client_data *client_data)
@@ -512,6 +514,7 @@ static inline int bmm_set_forced_mode(struct i2c_client *client)
 	return err;
 }
 
+#ifdef BMM055_USE_INPUT_DEVICE
 static void bmm_work_func(struct work_struct *work)
 {
 	struct bmm_client_data *client_data =
@@ -541,7 +544,7 @@ static void bmm_work_func(struct work_struct *work)
 
 	schedule_delayed_work(&client_data->work, delay);
 }
-
+#endif
 
 static int bmm_set_odr(u8 odr)
 {
@@ -1014,7 +1017,6 @@ static int bmm_read_raw(struct iio_dev *indio_dev,
 	int ret, result, err;
 	struct bmm050_iio_mdata_s32 raw_data = {0, 0};
 	struct  bmm_client_data *client_data = iio_priv(indio_dev);
-	struct  i2c_client *client = client_data->client;
 
 	switch (mask) {
 	case IIO_CHAN_INFO_RAW:
@@ -1096,6 +1098,7 @@ static const struct iio_info bmm_iio_info = {
 	.read_raw = &bmm_read_raw,
 };
 
+#ifdef BMM055_USE_INPUT_DEVICE
 static int bmm_input_init(struct bmm_client_data *client_data)
 {
 	struct input_dev *dev;
@@ -1131,6 +1134,7 @@ static void bmm_input_destroy(struct bmm_client_data *client_data)
 	input_unregister_device(dev);
 	input_free_device(dev);
 }
+#endif
 
 static int bmm_restore_hw_cfg(struct i2c_client *client)
 {
@@ -1140,21 +1144,11 @@ static int bmm_restore_hw_cfg(struct i2c_client *client)
 		(struct bmm_client_data *)i2c_get_clientdata(client);
 	int op_mode;
 
-	return 0;
-
 	mutex_lock(&client_data->mutex_op_mode);
 	err = bmm_set_op_mode(client_data, BMM_VAL_NAME(SLEEP_MODE));
 
-	if (bmm_get_op_mode_idx(client_data->op_mode) != -1)
-		err = bmm_set_op_mode(client_data, client_data->op_mode);
-
 	op_mode = client_data->op_mode;
 	mutex_unlock(&client_data->mutex_op_mode);
-
-	if (BMM_VAL_NAME(SUSPEND_MODE) == op_mode)
-		return err;
-
-	dev_info(&client->dev, "app did not close this sensor before suspend");
 
 	mutex_lock(&client_data->mutex_odr);
 	BMM_CALL_API(set_datarate)(client_data->odr);
@@ -1185,7 +1179,6 @@ static int bmm_restore_hw_cfg(struct i2c_client *client)
 					client_data->rept_z));
 	}
 	mutex_unlock(&client_data->mutex_op_mode);
-
 
 	dev_dbg(&client->dev, "register dump after init");
 	bmm_dump_reg(client);
@@ -1248,18 +1241,21 @@ static int bmm_probe(struct i2c_client *client, const struct i2c_device_id *id)
 	client_data = iio_priv(indio_dev);
 	client_data->client = client;
 	i2c_set_clientdata(client, client_data);
+	client_data->indio_dev = indio_dev;
 
 	mutex_init(&client_data->mutex_power_mode);
 	mutex_init(&client_data->mutex_op_mode);
 	mutex_init(&client_data->mutex_enable);
 	mutex_init(&client_data->mutex_odr);
 	mutex_init(&client_data->mutex_rept_xy);
+	mutex_init(&client_data->mutex_rept_z);
 	mutex_init(&client_data->mutex_value);
-
+#ifdef BMM055_USE_INPUT_DEVICE
 	/* input device init */
 	err = bmm_input_init(client_data);
 	if (err < 0)
 		goto exit_err_clean;
+#endif
 
 	indio_dev->dev.parent = &client->dev;
 	indio_dev->name = client->name;
@@ -1283,11 +1279,11 @@ static int bmm_probe(struct i2c_client *client, const struct i2c_device_id *id)
 				client_data->bst_pd->irq);
 	}
 #endif
-
+#ifdef BMM055_USE_INPUT_DEVICE
 	/* workqueue init */
 	INIT_DELAYED_WORK(&client_data->work, bmm_work_func);
 	atomic_set(&client_data->delay, BMM_DELAY_DEFAULT);
-
+#endif
 	/* h/w init */
 	client_data->device.bus_read = bmm_i2c_read_wrapper;
 	client_data->device.bus_write = bmm_i2c_write_wrapper;
@@ -1331,7 +1327,7 @@ static int bmm_probe(struct i2c_client *client, const struct i2c_device_id *id)
 	if (err) {
 		dev_err(indio_dev->dev.parent,
 				"bmm IIO device register failed %d\n", err);
-		return -EIO;
+		goto exit_err_sysfs;
 	}
 	dev_info(&client->dev, "sensor %s probed successfully", SENSOR_NAME);
 
@@ -1348,8 +1344,11 @@ static int bmm_probe(struct i2c_client *client, const struct i2c_device_id *id)
 
 
 exit_err_sysfs:
+#ifdef BMM055_USE_INPUT_DEVICE
 	if (err)
 		bmm_input_destroy(client_data);
+#endif
+
 #ifdef BMM050_TRIGGER_ENABLE
 err_unreg_ring:
 	bmm_deallocate_ring(indio_dev);
@@ -1370,7 +1369,9 @@ static int bmm_pre_suspend(struct i2c_client *client)
 
 	mutex_lock(&client_data->mutex_enable);
 	if (client_data->enable) {
+#ifdef BMM055_USE_INPUT_DEVICE
 		cancel_delayed_work_sync(&client_data->work);
+#endif
 		dev_dbg(&client->dev, "cancel work");
 	}
 	mutex_unlock(&client_data->mutex_enable);
@@ -1386,9 +1387,11 @@ static int bmm_post_resume(struct i2c_client *client)
 
 	mutex_lock(&client_data->mutex_enable);
 	if (client_data->enable) {
+#ifdef BMM055_USE_INPUT_DEVICE
 		schedule_delayed_work(&client_data->work,
 				msecs_to_jiffies(
 					atomic_read(&client_data->delay)));
+#endif
 	}
 	mutex_unlock(&client_data->mutex_enable);
 
@@ -1441,7 +1444,7 @@ static int bmm_suspend(struct device *dev)
 		(struct bmm_client_data *)i2c_get_clientdata(client);
 	u8 power_mode;
 
-	dev_dbg(&client->dev, "function entrance");
+	dev_dbg(&client->dev, "function entrance %s", __func__);
 
 	mutex_lock(&client_data->mutex_power_mode);
 	BMM_CALL_API(get_powermode)(&power_mode);
@@ -1461,7 +1464,7 @@ static int bmm_resume(struct device *dev)
 	struct bmm_client_data *client_data =
 		(struct bmm_client_data *)i2c_get_clientdata(client);
 
-	dev_dbg(&client->dev, "function entrance");
+	dev_dbg(&client->dev, "function entrance %s", __func__);
 
 	mutex_lock(&client_data->mutex_power_mode);
 	err = bmm_restore_hw_cfg(client);
@@ -1483,6 +1486,7 @@ static int bmm_runtime_suspend(struct device *dev)
 	struct bmm_client_data *client_data =
 		(struct bmm_client_data *)i2c_get_clientdata(client);
 
+	dev_dbg(&client->dev, "function entrance %s", __func__);
 	err = bmm_set_op_mode(client_data, BMM_VAL_NAME(SUSPEND_MODE));
 	if (err) {
 		dev_err(&client->dev, "fail to set opmode %d",
@@ -1501,6 +1505,14 @@ static int bmm_runtime_resume(struct device *dev)
 	struct bmm_client_data *client_data =
 		(struct bmm_client_data *)i2c_get_clientdata(client);
 
+	dev_dbg(&client->dev, "function entrance %s", __func__);
+	err = bmm_restore_hw_cfg(client);
+	if (err < 0) {
+		dev_err(&client->dev, "fail to restore hw config %d",
+					BMM_VAL_NAME(NORMAL_MODE));
+		return err;
+	}
+
 	err = bmm_set_op_mode(client_data, BMM_VAL_NAME(NORMAL_MODE));
 	if (err) {
 		dev_err(&client->dev, "fail to set opmode %d",
@@ -1509,6 +1521,8 @@ static int bmm_runtime_resume(struct device *dev)
 	} else
 		client_data->op_mode = BMM_VAL_NAME(NORMAL_MODE);
 
+	bmm_dump_reg(client);
+
 	return 0;
 }
 #endif
@@ -1516,8 +1530,10 @@ static int bmm_runtime_resume(struct device *dev)
 static int bmm_remove(struct i2c_client *client)
 {
 	int err = 0;
-	struct  iio_dev *indio_dev = i2c_get_clientdata(client);
-	struct bmm_client_data *client_data  = iio_priv(indio_dev);
+	struct bmm_client_data *client_data =
+		(struct bmm_client_data *)i2c_get_clientdata(client);
+
+	struct  iio_dev *indio_dev = client_data->indio_dev;
 
 	pm_runtime_disable(&client->dev);
 	pm_runtime_set_suspended(&client->dev);
@@ -1527,17 +1543,21 @@ static int bmm_remove(struct i2c_client *client)
 #ifdef CONFIG_HAS_EARLYSUSPEND
 		unregister_early_suspend(&client_data->early_suspend_handler);
 #endif
+#ifdef BMM055_USE_INPUT_DEVICE
 		mutex_lock(&client_data->mutex_op_mode);
 		if (BMM_VAL_NAME(NORMAL_MODE) == client_data->op_mode) {
 			cancel_delayed_work_sync(&client_data->work);
 			dev_dbg(&client->dev, "cancel work");
 		}
 		mutex_unlock(&client_data->mutex_op_mode);
+#endif
 
 		err = bmm_set_op_mode(client_data, BMM_VAL_NAME(SUSPEND_MODE));
 		mdelay(BMM_I2C_WRITE_DELAY_TIME);
 
+#ifdef BMM055_USE_INPUT_DEVICE
 		bmm_input_destroy(client_data);
+#endif
 #ifdef CONFIG_BMM_USE_PLATFORM_DATA
 			if (NULL != client_data->bst_pd) {
 				kfree(client_data->bst_pd);
@@ -1549,7 +1569,7 @@ static int bmm_remove(struct i2c_client *client)
 		bmm_client = NULL;
 	}
 
-	return err;
+	return 0;
 }
 
 static const struct dev_pm_ops bmm_pm_ops = {
