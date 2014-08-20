@@ -813,7 +813,7 @@ int mdss_dsi_cont_splash_on(struct mdss_panel_data *pdata)
 static void __mdss_dsi_update_video_mode_total(struct mdss_panel_data *pdata,
 		int new_fps)
 {
-	u32 hsync_period, vsync_period;
+	u32 hsync_period, vsync_period, ctrl_rev;
 	u32 new_dsi_v_total, current_dsi_v_total;
 	struct mdss_dsi_ctrl_pdata *ctrl_pdata = NULL;
 
@@ -849,6 +849,10 @@ static void __mdss_dsi_update_video_mode_total(struct mdss_panel_data *pdata,
 		MIPI_OUTP((ctrl_pdata->ctrl_base) + 0x2C,
 				(new_dsi_v_total & 0x7ffffff));
 	}
+	ctrl_rev = MIPI_INP(ctrl_pdata->ctrl_base);
+	/* Flush DSI TIMING registers for 8916/8939 */
+	if (ctrl_rev == MDSS_DSI_HW_REV_103_1)
+		MIPI_OUTP((ctrl_pdata->ctrl_base) + 0x1e4, 0x1);
 	ctrl_pdata->panel_data.panel_info.mipi.frame_rate = new_fps;
 
 }

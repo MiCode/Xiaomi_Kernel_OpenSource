@@ -600,6 +600,68 @@ static int mdss_mdp_video_vfp_fps_update(struct mdss_mdp_ctl *ctl, int new_fps)
 	return 0;
 }
 
+static int mdss_mdp_video_dfps_wait4vsync(struct mdss_mdp_ctl *ctl)
+{
+	int rc = 0;
+	struct mdss_mdp_video_ctx *ctx;
+
+	ctx = (struct mdss_mdp_video_ctx *) ctl->priv_data;
+	if (!ctx) {
+		pr_err("invalid ctx\n");
+		return -ENODEV;
+	}
+
+	video_vsync_irq_enable(ctl, true);
+	reinit_completion(&ctx->vsync_comp);
+	rc = wait_for_completion_timeout(&ctx->vsync_comp,
+		usecs_to_jiffies(VSYNC_TIMEOUT_US));
+	WARN(rc <= 0, "timeout (%d) vsync interrupt on ctl=%d\n",
+		rc, ctl->num);
+
+	video_vsync_irq_disable(ctl);
+	if (rc <= 0)
+		return -EPERM;
+
+	return 0;
+}
+
+static int mdss_mdp_video_dfps_check_line_cnt(struct mdss_mdp_ctl *ctl)
+{
+	struct mdss_panel_data *pdata;
+	u32 line_cnt;
+	pdata = ctl->panel_data;
+	if (pdata == NULL) {
+		pr_err("%s: Invalid panel data\n", __func__);
+		return -EINVAL;
+	}
+
+	line_cnt = mdss_mdp_video_line_count(ctl);
+	if (line_cnt >=	pdata->panel_info.yres/2) {
+		pr_err("Too few lines left line_cnt=%d yres/2=%d\n",
+			line_cnt,
+			pdata->panel_info.yres/2);
+		return -EPERM;
+	}
+	return 0;
+}
+
+static void mdss_mdp_video_timegen_flush(struct mdss_mdp_ctl *ctl,
+					struct mdss_mdp_ctl *sctl)
+{
+	u32 ctl_flush, sctl_flush = 0;
+	ctl_flush = (BIT(31) >> (ctl->intf_num - MDSS_MDP_INTF0));
+	if (sctl) {
+		sctl_flush = (BIT(31) >> (sctl->intf_num - MDSS_MDP_INTF0));
+		if (ctl->split_flush_en) {
+			ctl_flush |= sctl_flush;
+			sctl_flush = 0;
+		}
+	}
+	mdss_mdp_ctl_write(ctl, MDSS_MDP_REG_CTL_FLUSH, ctl_flush);
+	if (sctl_flush)
+		mdss_mdp_ctl_write(sctl, MDSS_MDP_REG_CTL_FLUSH, sctl_flush);
+}
+
 static int mdss_mdp_video_config_fps(struct mdss_mdp_ctl *ctl,
 					struct mdss_mdp_ctl *sctl, int new_fps)
 {
@@ -607,6 +669,7 @@ static int mdss_mdp_video_config_fps(struct mdss_mdp_ctl *ctl,
 	struct mdss_panel_data *pdata;
 	int rc = 0;
 	u32 hsync_period, vsync_period;
+	struct mdss_data_type *mdata;
 
 	pr_debug("Updating fps for ctl=%d\n", ctl->num);
 
@@ -622,6 +685,7 @@ static int mdss_mdp_video_config_fps(struct mdss_mdp_ctl *ctl,
 		return -EINVAL;
 	}
 
+	mdata = ctl->mdata;
 	if (!pdata->panel_info.dynamic_fps) {
 		pr_err("%s: Dynamic fps not enabled for this panel\n",
 						__func__);
@@ -646,36 +710,38 @@ static int mdss_mdp_video_config_fps(struct mdss_mdp_ctl *ctl,
 							ctl->intf_num, rc);
 		} else if (pdata->panel_info.dfps_update
 				== DFPS_IMMEDIATE_PORCH_UPDATE_MODE) {
-			u32 line_cnt;
+			bool wait4vsync;
 			unsigned long flags;
 			if (!ctx->timegen_en) {
 				pr_err("TG is OFF. DFPS mode invalid\n");
 				return -EINVAL;
 			}
 
-			video_vsync_irq_enable(ctl, true);
-			reinit_completion(&ctx->vsync_comp);
-			rc = wait_for_completion_timeout(&ctx->vsync_comp,
-				usecs_to_jiffies(VSYNC_TIMEOUT_US));
-			WARN(rc <= 0, "timeout (%d) vsync interrupt on ctl=%d\n",
-				rc, ctl->num);
+			/*
+			 * MDP INTF registers are double buffered on
+			 * 8916/8939. No need to wait for vsync for
+			 * these targets.
+			 */
+			wait4vsync = (mdata->mdp_rev != MDSS_MDP_HW_REV_106) &&
+				(mdata->mdp_rev != MDSS_MDP_HW_REV_108);
 
-			video_vsync_irq_disable(ctl);
-			/* Do not configure fps on vsync timeout */
-			if (rc <= 0)
-				return rc;
+			if (wait4vsync) {
+				rc = mdss_mdp_video_dfps_wait4vsync(ctl);
+				if (rc < 0) {
+					pr_err("Error during wait4vsync\n");
+					return rc;
+				}
+			}
 
 			mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_ON);
 			spin_lock_irqsave(&ctx->dfps_lock, flags);
 
-			line_cnt = mdss_mdp_video_line_count(ctl);
-			if (line_cnt >= pdata->panel_info.yres/2) {
-				pr_err("Too few lines left line_cnt=%d yres/2=%d",
-						line_cnt,
-						pdata->panel_info.yres/2);
-				rc = -EPERM;
-				goto exit_dfps;
+			if (wait4vsync) {
+				rc = mdss_mdp_video_dfps_check_line_cnt(ctl);
+				if (rc < 0)
+					goto exit_dfps;
 			}
+
 			rc = mdss_mdp_video_vfp_fps_update(ctl, new_fps);
 			if (rc < 0) {
 				pr_err("%s: Error during DFPS\n", __func__);
@@ -694,6 +760,11 @@ static int mdss_mdp_video_config_fps(struct mdss_mdp_ctl *ctl,
 					(void *) (unsigned long) new_fps);
 			WARN(rc, "intf %d panel fps update error (%d)\n",
 							ctl->intf_num, rc);
+
+			/* MDP INTF registers support DB on 8916/8939 */
+			if (!wait4vsync)
+				mdss_mdp_video_timegen_flush(ctl, sctl);
+
 exit_dfps:
 			spin_unlock_irqrestore(&ctx->dfps_lock, flags);
 			mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_OFF);
