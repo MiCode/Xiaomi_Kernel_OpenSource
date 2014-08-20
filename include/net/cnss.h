@@ -79,6 +79,7 @@ extern int cnss_get_wlan_unsafe_channel(u16 *unsafe_ch_list,
 		u16 *ch_count, u16 buf_len);
 extern int cnss_wlan_set_dfs_nol(void *info, u16 info_len);
 extern int cnss_wlan_get_dfs_nol(void *info, u16 info_len);
+extern void cnss_schedule_recovery_work(void);
 extern void cnss_wlan_pci_link_down(void);
 extern int cnss_pcie_shadow_control(struct pci_dev *dev, bool enable);
 extern int cnss_wlan_register_driver(struct cnss_wlan_driver *driver);
