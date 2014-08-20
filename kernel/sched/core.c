@@ -1853,29 +1853,27 @@ void sched_set_io_is_busy(int val)
 int sched_set_window(u64 window_start, unsigned int window_size)
 {
 	u64 ws, now;
-	int delta;
 
 	if (sched_use_pelt ||
 		 (window_size * TICK_NSEC <  MIN_SCHED_RAVG_WINDOW))
 			return -EINVAL;
 
+	mutex_lock(&policy_mutex);
 	update_alignment = 1;
-
-	now = get_jiffies_64();
-	if (time_after64(window_start, now)) {
-		delta = window_start - now; /* how many jiffies ahead */
-		delta /= window_size; /* # of windows to roll back */
-		delta += 1;
-		window_start -= (delta * window_size);
-	}
 
 	ws = (window_start - sched_init_jiffy); /* jiffy difference */
 	ws *= TICK_NSEC;
 	ws += sched_clock_at_init_jiffy;
 
+	now = sched_clock();
+	while (ws > now)
+		ws -= (window_size * TICK_NSEC);
+
 	BUG_ON(sched_clock() < ws);
 
 	reset_all_window_stats(ws, window_size);
+
+	mutex_unlock(&policy_mutex);
 
 	return 0;
 }

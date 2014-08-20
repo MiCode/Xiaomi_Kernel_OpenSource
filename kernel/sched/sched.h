@@ -851,6 +851,7 @@ extern void init_new_task_load(struct task_struct *p);
 #define WINDOW_STATS_USE_AVG		2
 #define WINDOW_STATS_INVALID_POLICY	3
 
+extern struct mutex policy_mutex;
 extern unsigned int sched_ravg_window;
 extern unsigned int sched_use_pelt;
 extern unsigned int sched_disable_window_stats;
