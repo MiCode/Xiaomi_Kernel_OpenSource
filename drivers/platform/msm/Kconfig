@@ -161,6 +161,7 @@ config QCA1530
 
 config PFT
 	bool "Per-File-Tagger driver"
+	depends on SECURITY
 	default n
 	help
 		This driver is used for tagging enterprise files.
