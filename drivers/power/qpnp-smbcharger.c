@@ -1890,12 +1890,14 @@ static irqreturn_t usbid_change_handler(int irq, void *_chip)
 	/*
 	 * After the falling edge of the usbid change interrupt occurs,
 	 * there may still be some time before the ADC conversion for USB RID
-	 * finishes in the fuel gauge.
+	 * finishes in the fuel gauge. In the worst case, this could be up to
+	 * 15 ms.
 	 *
-	 * Sleep for a bit to wait for the conversion to finish and the USB RID
-	 * status register to be updated before trying to detect OTG insertions.
+	 * Sleep for 20 ms (minimum msleep time) to wait for the conversion to
+	 * finish and the USB RID status register to be updated before trying
+	 * to detect OTG insertions.
 	 */
-	usleep_range(5000, 20000);
+	msleep(20);
 	otg_present = is_otg_present(chip);
 	if (chip->usb_psy)
 		power_supply_set_usb_otg(chip->usb_psy, otg_present ? 1 : 0);
