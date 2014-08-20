@@ -42,6 +42,7 @@
 #define SST_EXCE_DUMP_LEN	32
 #define SST_EXCE_DUMP_SIZE	((SST_EXCE_DUMP_LEN)*(SST_EXCE_DUMP_WORD))
 #define SST_EXCE_DUMP_OFFSET	0xA00
+
 /*
  * sst_wait_interruptible - wait on event
  *
@@ -302,14 +303,16 @@ static void dump_buffer_fromio(void __iomem *from,
 static void sst_stall_lpe_n_wait(struct intel_sst_drv *sst)
 {
 	union config_status_reg_mrfld csr;
+#if 0
 	void __iomem *dma_reg0 = sst->debugfs.dma_reg[0];
 	void __iomem *dma_reg1 = sst->debugfs.dma_reg[1];
 	int offset = 0x3A0; /* ChEnReg of DMA */
+#endif
 
 
-	pr_err("Before stall: DMA_0 Ch_EN %#llx DMA_1 Ch_EN %#llx\n",
+/*	pr_err("Before stall: DMA_0 Ch_EN %#llx DMA_1 Ch_EN %#llx\n",
 				sst_reg_read64(dma_reg0, offset),
-				sst_reg_read64(dma_reg1, offset));
+				sst_reg_read64(dma_reg1, offset)); */
 
 	/* Stall LPE */
 	csr.full = sst_shim_read64(sst->shim, SST_CSR);
@@ -319,9 +322,9 @@ static void sst_stall_lpe_n_wait(struct intel_sst_drv *sst)
 	/* A 5ms delay, before resetting the LPE */
 	usleep_range(5000, 5100);
 
-	pr_err("After stall: DMA_0 Ch_EN %#llx DMA_1 Ch_EN %#llx\n",
+/*	pr_err("After stall: DMA_0 Ch_EN %#llx DMA_1 Ch_EN %#llx\n",
 				sst_reg_read64(dma_reg0, offset),
-				sst_reg_read64(dma_reg1, offset));
+				sst_reg_read64(dma_reg1, offset)); */
 }
 
 #if IS_ENABLED(CONFIG_INTEL_SCU_IPC)
