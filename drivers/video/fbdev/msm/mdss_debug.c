@@ -764,9 +764,9 @@ static inline struct mdss_mdp_misr_map *mdss_misr_get_map(u32 block_id,
 			if (ctl) {
 				mixer = mdss_mdp_mixer_get(ctl,
 					MDSS_MDP_MIXER_MUX_DEFAULT);
-				ctrl_reg = mdata->mixer_wb[mixer->num].base +
+				ctrl_reg = mixer->base +
 					MDSS_MDP_LAYER_MIXER_MISR_CTRL;
-				value_reg = mdata->mixer_wb[mixer->num].base +
+				value_reg = mixer->base +
 					MDSS_MDP_LAYER_MIXER_MISR_SIGNATURE;
 			}
 		} else {
@@ -860,7 +860,7 @@ int mdss_misr_set(struct mdss_data_type *mdata,
 		}
 		mixer_num = mixer->num;
 		pr_debug("SET MDP MISR BLK to MDSS_MDP_LP_MISR_SEL_LMIX%d_GC\n",
-			req->block_id);
+			mixer_num);
 		switch (mixer_num) {
 		case MDSS_MDP_INTF_LAYERMIXER0:
 			pr_debug("Use Layer Mixer 0 for WB CRC\n");
@@ -921,6 +921,19 @@ int mdss_misr_set(struct mdss_data_type *mdata,
 	return 0;
 }
 
+char *get_misr_block_name(int misr_block_id)
+{
+	switch (misr_block_id) {
+	case DISPLAY_MISR_EDP: return "eDP";
+	case DISPLAY_MISR_DSI0: return "DSI_0";
+	case DISPLAY_MISR_DSI1: return "DSI_1";
+	case DISPLAY_MISR_HDMI: return "HDMI";
+	case DISPLAY_MISR_MDP: return "Writeback";
+	case DISPLAY_MISR_DSI_CMD: return "DSI_CMD";
+	default: return "???";
+	}
+}
+
 int mdss_misr_get(struct mdss_data_type *mdata,
 			struct mdp_misr *resp,
 			struct mdss_mdp_ctl *ctl)
@@ -950,11 +963,14 @@ int mdss_misr_get(struct mdss_data_type *mdata,
 		if (ret == 0) {
 			resp->crc_value[0] = readl_relaxed(mdata->mdp_base +
 				map->value_reg);
-			pr_debug("CRC %d=0x%x\n", resp->block_id,
+			pr_debug("CRC %s=0x%x\n",
+				get_misr_block_name(resp->block_id),
 				resp->crc_value[0]);
 			writel_relaxed(0, mdata->mdp_base + map->ctrl_reg);
 		} else {
-			mdss_mdp_ctl_write(ctl, MDSS_MDP_REG_CTL_START, 1);
+			pr_debug("Get MISR TimeOut %s\n",
+				get_misr_block_name(resp->block_id));
+
 			ret = readl_poll_timeout(mdata->mdp_base +
 					map->ctrl_reg, status,
 					status & MDSS_MDP_MISR_CTRL_STATUS,
@@ -963,6 +979,12 @@ int mdss_misr_get(struct mdss_data_type *mdata,
 				resp->crc_value[0] =
 					readl_relaxed(mdata->mdp_base +
 					map->value_reg);
+				pr_debug("Retry CRC %s=0x%x\n",
+					get_misr_block_name(resp->block_id),
+					resp->crc_value[0]);
+			} else {
+				pr_err("Get MISR TimeOut %s\n",
+					get_misr_block_name(resp->block_id));
 			}
 			writel_relaxed(0, mdata->mdp_base + map->ctrl_reg);
 		}
@@ -1051,13 +1073,20 @@ void mdss_misr_crc_collect(struct mdss_data_type *mdata, int block_id)
 			pr_err("CRC(%d) Not saved\n", crc);
 		}
 
-		writel_relaxed(MDSS_MDP_MISR_CTRL_STATUS_CLEAR,
+		if (mdata->mdp_rev < MDSS_MDP_HW_REV_106) {
+			writel_relaxed(MDSS_MDP_MISR_CTRL_STATUS_CLEAR,
+					mdata->mdp_base + map->ctrl_reg);
+			writel_relaxed(MISR_CRC_BATCH_CFG,
 				mdata->mdp_base + map->ctrl_reg);
-		writel_relaxed(MISR_CRC_BATCH_CFG,
-				mdata->mdp_base + map->ctrl_reg);
+		}
 	} else if (0 == status) {
-		writel_relaxed(MISR_CRC_BATCH_CFG,
-				mdata->mdp_base + map->ctrl_reg);
+		if (mdata->mdp_rev < MDSS_MDP_HW_REV_106)
+			writel_relaxed(MISR_CRC_BATCH_CFG,
+					mdata->mdp_base + map->ctrl_reg);
+		else
+			writel_relaxed(MISR_CRC_BATCH_CFG |
+					MDSS_MDP_LP_MISR_CTRL_FREE_RUN_MASK,
+					mdata->mdp_base + map->ctrl_reg);
 		pr_debug("$$ Batch CRC Start $$\n");
 	}
 	pr_debug("$$ Vsync Count = %d, CRC=0x%x Indx = %d$$\n",
