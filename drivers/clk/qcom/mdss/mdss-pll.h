@@ -42,9 +42,13 @@ struct mdss_pll_resources {
 	/* Pll specific resources like GPIO, power supply, clocks, etc*/
 	struct dss_module_power mp;
 
-	/* dsi/edp/hmdi plls' base register and phy register mapping */
+	/*
+	 * dsi/edp/hmdi plls' base register, phy and dynamic refresh
+	 * register mapping
+	 */
 	void __iomem	*pll_base;
 	void __iomem	*phy_base;
+	void __iomem	*dyn_pll_base;
 
 	/*
 	 * Certain pll's needs to update the same vco rate after resume in
