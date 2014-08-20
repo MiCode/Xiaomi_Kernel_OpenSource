@@ -29,6 +29,7 @@
 #include <asm/intel-mid.h>
 
 #include <media/v4l2-ioctl.h>
+#include <media/v4l2-event.h>
 #include <media/videobuf-vmalloc.h>
 
 #include "atomisp_acc.h"
@@ -1598,6 +1599,23 @@ void __wdt_on_master_slave_sensor(struct atomisp_device *isp, unsigned int wdt_d
 		atomisp_wdt_refresh(&isp->asd[1], wdt_duration);
 }
 
+static void atomisp_pause_buffer_event(struct atomisp_device *isp)
+{
+	struct v4l2_event event = {0};
+	int i;
+
+	event.type = V4L2_EVENT_ATOMISP_PAUSE_BUFFER;
+
+	for (i = 0; i < isp->num_of_streams; i++) {
+		int sensor_index = isp->asd[i].input_curr;
+		if (isp->inputs[sensor_index].camera_caps->
+				sensor[isp->asd[i].sensor_curr].is_slave) {
+			v4l2_event_queue(isp->asd[i].subdev.devnode, &event);
+			break;
+		}
+	}
+}
+
 /*
  * This ioctl start the capture during streaming I/O.
  */
@@ -1702,6 +1720,8 @@ static int atomisp_streamon(struct file *file, void *fh,
 					ret = -EINVAL;
 					goto out;
 				}
+				if (asd->depth_mode->val)
+					atomisp_pause_buffer_event(isp);
 			}
 		}
 		atomisp_qbuffers_to_css(asd);
