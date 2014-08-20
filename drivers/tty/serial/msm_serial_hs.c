@@ -3421,6 +3421,7 @@ static void msm_hs_shutdown(struct uart_port *uport)
 	msm_hs_resource_unvote(msm_uport);
 	rc = atomic_read(&msm_uport->clk_count);
 	if (rc) {
+		atomic_set(&msm_uport->clk_count, 1);
 		MSM_HS_WARN("%s(): removing extra vote\n", __func__);
 		msm_hs_resource_unvote(msm_uport);
 	}
