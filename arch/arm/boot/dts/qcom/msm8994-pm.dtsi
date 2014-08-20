@@ -576,8 +576,9 @@
 	qcom,rpm-stats@fc000000 {
 		compatible = "qcom,rpm-stats";
 		reg = <0xfc000000 0x1000>,
-			<0xfc190014 0x4>;
-		reg-names = "phys_addr_base", "offset";
+			<0xfc190014 0x4>,
+			<0xfc19001c 0x4>;
+		reg-names = "phys_addr_base", "offset_addr", "heap_phys_addrbase";
 		qcom,sleep-stats-version = <2>;
 	};
 
