@@ -1784,7 +1784,8 @@ static int dvb_dmxdev_reuse_decoder_buf(struct dmxdev_filter *dmxdevfilter,
 {
 	struct dmxdev_feed *feed;
 
-	if ((dmxdevfilter->type != DMXDEV_TYPE_PES) ||
+	if (dmxdevfilter->state != DMXDEV_STATE_GO ||
+		(dmxdevfilter->type != DMXDEV_TYPE_PES) ||
 		(dmxdevfilter->params.pes.output != DMX_OUT_DECODER) ||
 		(dmxdevfilter->events.event_mask.disable_mask &
 			DMX_EVENT_NEW_ES_DATA))
@@ -1793,8 +1794,7 @@ static int dvb_dmxdev_reuse_decoder_buf(struct dmxdev_filter *dmxdevfilter,
 	/* Only one feed should be in the list in case of decoder */
 	feed = list_first_entry(&dmxdevfilter->feed.ts,
 				struct dmxdev_feed, next);
-
-	if (feed->ts->reuse_decoder_buffer)
+	if (feed && feed->ts && feed->ts->reuse_decoder_buffer)
 		return feed->ts->reuse_decoder_buffer(feed->ts, cookie);
 
 	return -ENODEV;
