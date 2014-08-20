@@ -1016,7 +1016,10 @@ static int sst_set_generic_params(enum sst_controls cmd, void *arg)
 		break;
 		}
 	case SST_SET_ALGO_PARAMS: {
-		unsigned int device_input_mixer = *((unsigned int *)arg);
+		unsigned int device_input_mixer;
+		if (NULL == arg)
+			return -EINVAL;
+		device_input_mixer = *((unsigned int *)arg);
 		pr_debug("LPE mixer algo param set %x\n", device_input_mixer);
 		mutex_lock(&sst_drv_ctx->mixer_ctrl_lock);
 		sst_drv_ctx->device_input_mixer = device_input_mixer;
