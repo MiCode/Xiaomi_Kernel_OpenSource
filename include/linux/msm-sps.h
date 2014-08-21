@@ -109,7 +109,8 @@
 #define SPS_BAM_NO_LOCAL_CLK_GATING (1UL << 5)
 /* Don't enable writeback cancel*/
 #define SPS_BAM_CANCEL_WB           (1UL << 6)
-
+/* Confirm resource status before access BAM*/
+#define SPS_BAM_RES_CONFIRM         (1UL << 7)
 
 /* BAM device management flags */
 
@@ -296,6 +297,8 @@ enum sps_callback_case {
 	SPS_CALLBACK_BAM_ERROR_IRQ = 1,     /* BAM ERROR IRQ */
 	SPS_CALLBACK_BAM_HRESP_ERR_IRQ,	    /* Erroneous HResponse */
 	SPS_CALLBACK_BAM_TIMER_IRQ,	    /* Inactivity timer */
+	SPS_CALLBACK_BAM_RES_REQ,	    /* Request resource */
+	SPS_CALLBACK_BAM_RES_REL,	    /* Release resource */
 };
 
 /*
@@ -1358,6 +1361,16 @@ int sps_ctrl_bam_dma_clk(bool clk_on);
  * Return: 0 on success, negative value on error
  */
 int sps_pipe_reset(unsigned long dev, u32 pipe);
+
+/*
+ * sps_bam_process_irq - process IRQ of a BAM.
+ * @dev:	BAM device handle
+ *
+ * This function processes any pending IRQ of a BAM.
+ *
+ * Return: 0 on success, negative value on error
+ */
+int sps_bam_process_irq(unsigned long dev);
 #else
 static inline int sps_register_bam_device(const struct sps_bam_props
 			*bam_props, unsigned long *dev_handle)
@@ -1527,6 +1540,11 @@ static inline int sps_ctrl_bam_dma_clk(bool clk_on)
 }
 
 static inline int sps_pipe_reset(unsigned long dev, u32 pipe)
+{
+	return -EPERM;
+}
+
+static inline int sps_bam_process_irq(unsigned long dev)
 {
 	return -EPERM;
 }

@@ -118,22 +118,17 @@ int sps_bam_driver_init(u32 options)
 	return 0;
 }
 
-/**
- * BAM interrupt service routine
- *
- * This function is the BAM interrupt service routine.
- *
- * @ctxt - pointer to ISR's registered argument
- *
- * @return void
+/*
+ * Check BAM interrupt
  */
-static irqreturn_t bam_isr(int irq, void *ctxt)
+int sps_bam_check_irq(struct sps_bam *dev)
 {
-	struct sps_bam *dev = ctxt;
 	struct sps_pipe *pipe;
 	u32 source;
 	unsigned long flags = 0;
+	int ret = 0;
 
+	SPS_DBG1("sps:%s:bam=%pa.\n", __func__, BAM_ID(dev));
 
 	spin_lock_irqsave(&dev->isr_lock, flags);
 
@@ -144,11 +139,11 @@ static irqreturn_t bam_isr(int irq, void *ctxt)
 		source = bam_check_irq_source(dev->base, dev->props.ee,
 						mask, &cb_case);
 
-		SPS_DBG1("sps:bam_isr:bam=%pa;source=0x%x;mask=0x%x.\n",
+		SPS_DBG1("sps:bam=%pa;source=0x%x;mask=0x%x.\n",
 				BAM_ID(dev), source, mask);
 
 		if ((source & (1UL << 31)) && (dev->props.callback)) {
-			SPS_DBG1("sps:bam_isr:bam=%pa;callback for case %d.\n",
+			SPS_DBG1("sps:bam=%pa;callback for case %d.\n",
 				BAM_ID(dev), cb_case);
 			dev->props.callback(cb_case, dev->props.user);
 		}
@@ -159,7 +154,7 @@ static irqreturn_t bam_isr(int irq, void *ctxt)
 		/* If MTIs are used, must poll each active pipe */
 		source = dev->pipe_active_mask;
 
-		SPS_DBG1("sps:bam_isr for MTI:bam=%pa;source=0x%x.\n",
+		SPS_DBG1("sps:MTI:bam=%pa;source=0x%x.\n",
 				BAM_ID(dev), source);
 	}
 
@@ -187,6 +182,50 @@ static irqreturn_t bam_isr(int irq, void *ctxt)
 	}
 
 	spin_unlock_irqrestore(&dev->isr_lock, flags);
+
+	return ret;
+}
+
+/**
+ * BAM interrupt service routine
+ *
+ * This function is the BAM interrupt service routine.
+ *
+ * @ctxt - pointer to ISR's registered argument
+ *
+ * @return void
+ */
+static irqreturn_t bam_isr(int irq, void *ctxt)
+{
+	struct sps_bam *dev = ctxt;
+
+	SPS_DBG1("sps:bam_isr: bam:%pa; IRQ #:%d.\n",
+		BAM_ID(dev), irq);
+
+	if (dev->props.options & SPS_BAM_RES_CONFIRM) {
+		if (dev->props.callback) {
+			bool ready = false;
+			dev->props.callback(SPS_CALLBACK_BAM_RES_REQ, &ready);
+			if (ready) {
+				SPS_DBG1(
+					"sps:bam_isr: handle IRQ for bam:%pa IRQ #:%d.\n",
+					BAM_ID(dev), irq);
+				sps_bam_check_irq(dev);
+				dev->props.callback(SPS_CALLBACK_BAM_RES_REL,
+							&ready);
+			} else {
+				SPS_DBG1(
+					"sps:bam_isr: BAM is not ready and thus skip IRQ for bam:%pa IRQ #:%d.\n",
+					BAM_ID(dev), irq);
+			}
+		} else {
+			SPS_ERR(
+				"sps:Client of BAM %pa requires confirmation but does not register callback\n",
+				BAM_ID(dev));
+		}
+	} else {
+		sps_bam_check_irq(dev);
+	}
 
 	return IRQ_HANDLED;
 }
@@ -220,10 +259,26 @@ int sps_bam_enable(struct sps_bam *dev)
 		dev->state &= ~BAM_STATE_IRQ;
 	} else {
 		/* Register BAM ISR */
-		if (dev->props.irq > 0)
-			result = request_irq(dev->props.irq,
-				    (irq_handler_t) bam_isr,
-				    IRQF_TRIGGER_HIGH, "sps", dev);
+		if (dev->props.irq > 0) {
+			if (dev->props.options & SPS_BAM_RES_CONFIRM) {
+				result = request_irq(dev->props.irq,
+					(irq_handler_t) bam_isr,
+					IRQF_TRIGGER_RISING, "sps", dev);
+				SPS_DBG(
+					"sps:BAM %pa uses edge for IRQ# %d\n",
+					BAM_ID(dev), dev->props.irq);
+			} else {
+				result = request_irq(dev->props.irq,
+					(irq_handler_t) bam_isr,
+					IRQF_TRIGGER_HIGH, "sps", dev);
+				SPS_DBG(
+					"sps:BAM %pa uses level for IRQ# %d\n",
+					BAM_ID(dev), dev->props.irq);
+			}
+		} else {
+			SPS_DBG1("sps:BAM %pa does not have an vaild IRQ# %d\n",
+				BAM_ID(dev), dev->props.irq);
+		}
 
 		if (result) {
 			SPS_ERR("sps:Failed to enable BAM %pa IRQ %d\n",
