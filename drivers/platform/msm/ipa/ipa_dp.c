@@ -1807,6 +1807,13 @@ begin:
 			IPADBG("pad %d pkt_len %d len %d\n", pad_len_byte,
 					status->pkt_len, len);
 
+			if (status->exception ==
+					IPA_HW_PKT_STATUS_EXCEPTION_DEAGGR) {
+				IPADBG("Dropping packet on DeAggr Exception\n");
+				skb_pull(skb, len + IPA_PKT_STATUS_SIZE);
+				continue;
+			}
+
 			skb2 = skb_clone(skb, GFP_KERNEL);
 			if (likely(skb2)) {
 				if (skb->len < len + IPA_PKT_STATUS_SIZE) {
