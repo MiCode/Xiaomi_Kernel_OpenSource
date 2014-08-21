@@ -448,8 +448,33 @@ DEFINE_SIMPLE_ATTRIBUTE(debug_suspend_fops, synaptics_rmi4_debug_suspend_get,
 #if defined(CONFIG_SECURE_TOUCH)
 static void synaptics_secure_touch_init(struct synaptics_rmi4_data *data)
 {
+	int ret = 0;
+	data->st_initialized = 0;
 	init_completion(&data->st_powerdown);
 	init_completion(&data->st_irq_processed);
+	/* Get clocks */
+	data->core_clk = clk_get(data->pdev->dev.parent, "core_clk");
+	if (IS_ERR(data->core_clk)) {
+		ret = PTR_ERR(data->core_clk);
+		dev_err(data->pdev->dev.parent,
+			"%s: error on clk_get(core_clk):%d\n", __func__, ret);
+		return;
+	}
+
+	data->iface_clk = clk_get(data->pdev->dev.parent, "iface_clk");
+	if (IS_ERR(data->iface_clk)) {
+		ret = PTR_ERR(data->iface_clk);
+		dev_err(data->pdev->dev.parent,
+			"%s: error on clk_get(iface_clk):%d\n", __func__, ret);
+		goto err_iface_clk;
+	}
+
+	data->st_initialized = 1;
+	return;
+
+err_iface_clk:
+		clk_put(data->core_clk);
+		data->core_clk = NULL;
 }
 static void synaptics_secure_touch_notify(struct synaptics_rmi4_data *rmi4_data)
 {
@@ -533,6 +558,9 @@ static ssize_t synaptics_secure_touch_enable_store(struct device *dev,
 	err = kstrtoul(buf, 10, &value);
 	if (err != 0)
 		return err;
+
+	if (!rmi4_data->st_initialized)
+		return -EIO;
 
 	err = count;
 

@@ -37,6 +37,7 @@
 #if defined(CONFIG_SECURE_TOUCH)
 #include <linux/completion.h>
 #include <linux/atomic.h>
+#include <linux/clk.h>
 #endif
 
 #if (LINUX_VERSION_CODE > KERNEL_VERSION(2, 6, 38))
@@ -287,8 +288,11 @@ struct synaptics_rmi4_data {
 #if defined(CONFIG_SECURE_TOUCH)
 	atomic_t st_enabled;
 	atomic_t st_pending_irqs;
+	bool st_initialized;
 	struct completion st_powerdown;
 	struct completion st_irq_processed;
+	struct clk *core_clk;
+	struct clk *iface_clk;
 #endif
 };
 
