@@ -1024,6 +1024,10 @@ static int i915_getparam(struct drm_device *dev, void *data,
 	case I915_PARAM_CMD_PARSER_VERSION:
 		value = i915_cmd_parser_get_version();
 		break;
+	case I915_PARAM_EU_COUNT:
+		value = INTEL_INFO(dev)->eu_total;
+		if (!value)
+			return -ENODEV;
 	case I915_PARAM_HAS_DPST:
 		value = I915_HAS_DPST(dev);
 		break;
@@ -1555,6 +1559,17 @@ static void intel_device_info_runtime_init(struct drm_device *dev)
 			DRM_INFO("Display fused off, disabling\n");
 			info->num_pipes = 0;
 		}
+	}
+
+	if (IS_CHERRYVIEW(dev)) {
+		u32 fuse, mask_eu;
+
+		fuse = I915_READ(CHV_FUSE_GT);
+		mask_eu = fuse & (CHV_FGT_EU_DIS_SS0_R0_MASK |
+				  CHV_FGT_EU_DIS_SS0_R1_MASK |
+				  CHV_FGT_EU_DIS_SS1_R0_MASK |
+				  CHV_FGT_EU_DIS_SS1_R1_MASK);
+		info->eu_total = 16 - hweight32(mask_eu);
 	}
 }
 

@@ -422,6 +422,7 @@ typedef struct drm_i915_irq_wait {
 #define I915_PARAM_HAS_WT     	 	 27
 #define I915_PARAM_CMD_PARSER_VERSION	 28
 #define I915_PARAM_HAS_DPST		 29
+#define I915_PARAM_EU_COUNT		 30
 
 typedef struct drm_i915_getparam {
 	int param;
