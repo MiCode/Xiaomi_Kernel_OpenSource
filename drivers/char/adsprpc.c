@@ -108,11 +108,9 @@ static inline int buf_get_pages(void *addr, ssize_t sz, int nr_pages,
 	if (err)
 		goto bail;
 	n = 0;
-	VERIFY(err, 0 == follow_pfn(vma, start, &pfn));
-	if (err)
+	if (follow_pfn(vma, start, &pfn))
 		goto bail;
-	VERIFY(err, 0 == follow_pfn(vmaend, end, &pfnend));
-	if (err)
+	if (follow_pfn(vmaend, end, &pfnend))
 		goto bail;
 	VERIFY(err, (pfn + nr_pages - 1) == pfnend);
 	if (err)
@@ -359,7 +357,7 @@ static int alloc_mem(struct fastrpc_buf *buf, struct file_data *fdata)
 	buf->virt = 0;
 	buf->phys = 0;
 	heap = me->channel[cid].smmu.enabled ? ION_HEAP(ION_IOMMU_HEAP_ID) :
-		ION_HEAP(ION_ADSP_HEAP_ID) | ION_HEAP(ION_AUDIO_HEAP_ID);
+		ION_HEAP(ION_ADSP_HEAP_ID);
 	buf->handle = ion_alloc(clnt, buf->size, SZ_4K, heap, ION_FLAG_CACHED);
 	VERIFY(err, 0 == IS_ERR_OR_NULL(buf->handle));
 	if (err)
@@ -727,9 +725,6 @@ static int get_args(uint32_t kernel, struct smq_invoke_ctx *ctx,
 				goto bail;
 			VERIFY(err, 0 == map_iommu_mem(handles[i],
 						ctx->fdata, &iova, len));
-			if (err)
-				goto bail;
-			VERIFY(err, (num << PAGE_SHIFT) <= len);
 			if (err)
 				goto bail;
 			VERIFY(err, 0 != (vma = find_vma(current->mm, start)));
@@ -1163,23 +1158,87 @@ static int fastrpc_internal_invoke(struct fastrpc_apps *me, uint32_t mode,
 	return err;
 }
 
-static int fastrpc_create_current_dsp_process(struct file_data *fdata)
+static int map_buffer(struct fastrpc_apps *me, struct file_data *fdata,
+			int fd, char *buf, unsigned long len,
+			struct fastrpc_mmap **ppmap,
+			struct smq_phy_page **ppages, int *pnpages);
+
+static int fastrpc_init_process(struct file_data *fdata,
+				struct fastrpc_ioctl_init *init)
 {
 	int err = 0;
 	struct fastrpc_ioctl_invoke_fd ioctl;
+	struct smq_phy_page *pages = 0;
+	struct fastrpc_mmap *map = 0;
+	int npages = 0;
 	struct fastrpc_apps *me = &gfa;
-	remote_arg_t ra[1];
-	int tgid = 0;
+	if (init->flags == FASTRPC_INIT_ATTACH) {
+		remote_arg_t ra[1];
+		int tgid = current->tgid;
+		ra[0].buf.pv = &tgid;
+		ra[0].buf.len = sizeof(tgid);
+		ioctl.inv.handle = 1;
+		ioctl.inv.sc = REMOTE_SCALARS_MAKE(0, 1, 0);
+		ioctl.inv.pra = ra;
+		ioctl.fds = 0;
+		VERIFY(err, 0 == (err = fastrpc_internal_invoke(me,
+			FASTRPC_MODE_PARALLEL, 1, &ioctl, fdata)));
+		if (err)
+			goto bail;
+	} else if (init->flags == FASTRPC_INIT_CREATE) {
+		remote_arg_t ra[4];
+		int fds[4];
+		struct {
+			int pgid;
+			int namelen;
+			int filelen;
+			int pageslen;
+		} inbuf;
+		inbuf.pgid = current->tgid;
+		inbuf.namelen = strlen(current->comm);
+		inbuf.filelen = init->filelen;
+		VERIFY(err, 0 == map_buffer(me, fdata, init->memfd,
+					(char *)init->mem, init->memlen,
+					&map, &pages, &npages));
+		if (err)
+			goto bail;
+		inbuf.pageslen = npages;
+		ra[0].buf.pv = &inbuf;
+		ra[0].buf.len = sizeof(inbuf);
+		fds[0] = 0;
 
-	tgid = fdata->tgid;
-	ra[0].buf.pv = &tgid;
-	ra[0].buf.len = sizeof(tgid);
-	ioctl.inv.handle = 1;
-	ioctl.inv.sc = REMOTE_SCALARS_MAKE(0, 1, 0);
-	ioctl.inv.pra = ra;
-	ioctl.fds = 0;
-	VERIFY(err, 0 == (err = fastrpc_internal_invoke(me,
-		FASTRPC_MODE_PARALLEL, 1, &ioctl, fdata)));
+		ra[1].buf.pv = current->comm;
+		ra[1].buf.len = inbuf.namelen;
+		fds[1] = 0;
+
+		ra[2].buf.pv = (void *)init->file;
+		ra[2].buf.len = inbuf.filelen;
+		fds[2] = init->filefd;
+
+		ra[3].buf.pv = pages;
+		ra[3].buf.len = npages * sizeof(*pages);
+		fds[3] = 0;
+
+		ioctl.inv.handle = 1;
+		ioctl.inv.sc = REMOTE_SCALARS_MAKE(6, 4, 0);
+		ioctl.inv.pra = ra;
+		ioctl.fds = fds;
+		VERIFY(err, 0 == (err = fastrpc_internal_invoke(me,
+			FASTRPC_MODE_PARALLEL, 1, &ioctl, fdata)));
+		if (err)
+			goto bail;
+		spin_lock(&fdata->hlock);
+		map->vaddrout = 0;
+		hlist_add_head(&map->hn, &fdata->hlst);
+		spin_unlock(&fdata->hlock);
+	} else {
+		err = -ENOTTY;
+	}
+bail:
+	if (!IS_ERR_OR_NULL(pages))
+		kfree(pages);
+	if (err && map)
+		free_map(map, fdata);
 	return err;
 }
 
@@ -1308,22 +1367,21 @@ static int fastrpc_internal_munmap(struct fastrpc_apps *me,
 	return err;
 }
 
-
-static int fastrpc_internal_mmap(struct fastrpc_apps *me,
-				 struct file_data *fdata,
-				 struct fastrpc_ioctl_mmap *mmap)
+static int map_buffer(struct fastrpc_apps *me, struct file_data *fdata,
+			int fd, char *buf, unsigned long len,
+			struct fastrpc_mmap **ppmap,
+			struct smq_phy_page **ppages, int *pnpages)
 {
 	struct ion_client *clnt = gfa.iclient;
 	struct ion_handle *handle = 0;
 	struct fastrpc_mmap *map = 0, *mapmatch = 0;
 	struct smq_phy_page *pages = 0;
 	struct hlist_node *n;
-	void *buf;
-	unsigned long len;
+	uintptr_t vaddrout = 0;
 	int num;
 	int err = 0;
 
-	handle = ion_import_dma_buf(clnt, mmap->fd);
+	handle = ion_import_dma_buf(clnt, fd);
 	VERIFY(err, 0 == IS_ERR_OR_NULL(handle));
 	if (err)
 		goto bail;
@@ -1337,7 +1395,7 @@ static int fastrpc_internal_mmap(struct fastrpc_apps *me,
 	}
 	spin_unlock(&fdata->hlock);
 	if (mapmatch) {
-		mmap->vaddrout = mapmatch->vaddrout;
+		vaddrout = mapmatch->vaddrout;
 		return 0;
 	}
 	VERIFY(err, 0 != (map = kzalloc(sizeof(*map), GFP_KERNEL)));
@@ -1349,8 +1407,6 @@ static int fastrpc_internal_mmap(struct fastrpc_apps *me,
 	VERIFY(err, 0 == IS_ERR_OR_NULL(map->virt));
 	if (err)
 		goto bail;
-	buf = (void *)mmap->vaddrin;
-	len =  mmap->size;
 	num = buf_num_pages(buf, len);
 	VERIFY(err, 0 != (pages = kzalloc(num * sizeof(*pages), GFP_KERNEL)));
 	if (err)
@@ -1370,21 +1426,46 @@ static int fastrpc_internal_mmap(struct fastrpc_apps *me,
 		if (err)
 			goto bail;
 	}
+	map->refs = 1;
+	INIT_HLIST_NODE(&map->hn);
+	map->vaddrin = (uintptr_t *)buf;
+	map->vaddrout = vaddrout;
+	map->size = len;
+	if (ppages)
+		*ppages = pages;
+	pages = 0;
+	if (pnpages)
+		*pnpages = num;
+	if (ppmap)
+		*ppmap = map;
+	map = 0;
+ bail:
+	if (map)
+		free_map(map, fdata);
+	kfree(pages);
+	return err;
 
+}
+
+static int fastrpc_internal_mmap(struct fastrpc_apps *me,
+				 struct file_data *fdata,
+				 struct fastrpc_ioctl_mmap *mmap)
+{
+
+	struct fastrpc_mmap *map = 0;
+	struct smq_phy_page *pages = 0;
+	int num = 0;
+	int err = 0;
+	VERIFY(err, 0 == map_buffer(me, fdata, mmap->fd, (char *)mmap->vaddrin,
+					mmap->size, &map, &pages, &num));
 	VERIFY(err, 0 == fastrpc_mmap_on_dsp(me, mmap, pages, fdata, num));
 	if (err)
 		goto bail;
-	map->vaddrin = mmap->vaddrin;
 	map->vaddrout = mmap->vaddrout;
-	map->size = mmap->size;
-	map->refs = 1;
-	INIT_HLIST_NODE(&map->hn);
 	spin_lock(&fdata->hlock);
 	hlist_add_head(&map->hn, &fdata->hlst);
 	spin_unlock(&fdata->hlock);
  bail:
-	if (handle)
-		ion_free(clnt, handle);
 	if (err && map) {
 		free_map(map, fdata);
 		kfree(map);
@@ -1442,10 +1523,13 @@ static int fastrpc_device_release(struct inode *inode, struct file *file)
 	struct smq_context_list *clst = &me->clst;
 	struct smq_invoke_ctx *ictx = 0, *ctxfree;
 	struct hlist_node *n;
+	struct fastrpc_mmap *map = 0;
 	int cid = MINOR(inode->i_rdev);
 
+	if (!fdata)
+		return 0;
+
 	(void)fastrpc_release_current_dsp_process(fdata);
-	cleanup_current_dev(fdata);
 	do {
 		ctxfree = 0;
 		spin_lock(&clst->hlock);
@@ -1460,20 +1544,18 @@ static int fastrpc_device_release(struct inode *inode, struct file *file)
 		if (ctxfree)
 			context_free(ctxfree, 0);
 	} while (ctxfree);
-	if (fdata) {
-		struct fastrpc_mmap *map = 0;
-		struct hlist_node *n;
-		file->private_data = 0;
-		hlist_for_each_entry_safe(map, n, &fdata->hlst, hn) {
-			hlist_del(&map->hn);
-			free_map(map, fdata);
-			kfree(map);
-		}
-		if (fdata->ssrcount == me->channel[cid].ssrcount)
-			kref_put_mutex(&me->channel[cid].kref,
-					fastrpc_channel_close, &me->smd_mutex);
-		kfree(fdata);
+
+	cleanup_current_dev(fdata);
+	file->private_data = 0;
+	hlist_for_each_entry_safe(map, n, &fdata->hlst, hn) {
+		hlist_del(&map->hn);
+		free_map(map, fdata);
+		kfree(map);
 	}
+	if (fdata->ssrcount == me->channel[cid].ssrcount)
+		kref_put_mutex(&me->channel[cid].kref,
+				fastrpc_channel_close, &me->smd_mutex);
+	kfree(fdata);
 	return 0;
 }
 
@@ -1522,14 +1604,13 @@ static int fastrpc_device_open(struct inode *inode, struct file *filp)
 		fdata->tgid = current->tgid;
 		fdata->ssrcount = ssrcount;
 
-		VERIFY(err, 0 == fastrpc_create_current_dsp_process(fdata));
-		if (err)
-			goto bail;
 		filp->private_data = fdata;
 bail:
 		if (err) {
-			cleanup_current_dev(fdata);
-			kfree(fdata);
+			if (fdata) {
+				cleanup_current_dev(fdata);
+				kfree(fdata);
+			}
 			kref_put_mutex(&me->channel[cid].kref,
 					fastrpc_channel_close, &me->smd_mutex);
 		}
@@ -1553,6 +1634,7 @@ static long fastrpc_device_ioctl(struct file *file, unsigned int ioctl_num,
 	struct fastrpc_ioctl_invoke_fd invokefd;
 	struct fastrpc_ioctl_mmap mmap;
 	struct fastrpc_ioctl_munmap munmap;
+	struct fastrpc_ioctl_init init;
 	void *param = (char *)ioctl_param;
 	struct file_data *fdata = (struct file_data *)file->private_data;
 	int size = 0, err = 0;
@@ -1605,6 +1687,16 @@ static long fastrpc_device_ioctl(struct file *file, unsigned int ioctl_num,
 			break;
 		}
 		break;
+	case FASTRPC_IOCTL_INIT:
+		VERIFY(err, 0 == copy_from_user(&init, param,
+						sizeof(init)));
+		if (err)
+			goto bail;
+		VERIFY(err, 0 == fastrpc_init_process(fdata, &init));
+		if (err)
+			goto bail;
+		break;
+
 	default:
 		err = -ENOTTY;
 		break;
