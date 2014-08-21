@@ -24,7 +24,8 @@
 
 #ifdef CONFIG_ACPI
 static const struct acpi_device_id pwm_byt_acpi_ids[] = {
-	{ "80860F09", 0 },
+	{ "80860F09", PWM_BYT_CLK_KHZ },
+	{ "80862288", PWM_CHT_CLK_KHZ },
 	{ }
 };
 MODULE_DEVICE_TABLE(acpi, pwm_byt_acpi_ids);
@@ -36,6 +37,8 @@ static int pwm_byt_plat_probe(struct platform_device *pdev)
 	struct resource *mem, *ioarea;
 	void __iomem *base;
 	int r;
+	const struct acpi_device_id *id;
+	int clk = PWM_BYT_CLK_KHZ;
 
 	mem = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	if (!mem) {
@@ -54,7 +57,13 @@ static int pwm_byt_plat_probe(struct platform_device *pdev)
 		r = -ENOMEM;
 		goto err_release_region;
 	}
-	r = pwm_byt_init(&pdev->dev, base, pwm_num, PWM_BYT_CLK_KHZ);
+
+#ifdef CONFIG_ACPI
+	for (id = pwm_byt_acpi_ids; id->id[0]; id++)
+		if (!strncmp(id->id, dev_name(&pdev->dev), strlen(id->id)))
+			clk = id->driver_data;
+#endif
+	r = pwm_byt_init(&pdev->dev, base, pwm_num, clk);
 	if (r)
 		goto err_iounmap;
 

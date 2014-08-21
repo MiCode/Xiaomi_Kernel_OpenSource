@@ -11,6 +11,7 @@
  * (at your option) any later version.
  */
 #define PWM_BYT_CLK_KHZ	25000
+#define PWM_CHT_CLK_KHZ	19200
 int pwm_byt_init(struct device *pdev, void __iomem *base,
 		int pwm_num, unsigned int clk_khz);
 void pwm_byt_remove(struct device *dev);
