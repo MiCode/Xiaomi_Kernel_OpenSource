@@ -163,8 +163,11 @@ static unsigned long meas_bw_and_set_irq(struct bw_hwmon *hw,
 
 	mbps = mon_get_count(m);
 	mbps = bytes_to_mbps(mbps, us);
-	/* + 1024 is to workaround HW design issue. Needs further tuning. */
-	limit = mbps_to_bytes(mbps + 1024, sample_ms, tol);
+	/*
+	 * The fudging of mbps when calculating limit is to workaround a HW
+	 * design issue. Needs further tuning.
+	 */
+	limit = mbps_to_bytes(max(mbps, 400UL), sample_ms, tol);
 	mon_set_limit(m, limit);
 
 	mon_clear(m);
