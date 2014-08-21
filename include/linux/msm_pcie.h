@@ -138,4 +138,21 @@ int msm_pcie_recover_config(struct pci_dev *dev);
  * Return: 0 on success, negative value on error
  */
 int msm_pcie_shadow_control(struct pci_dev *dev, bool enable);
+
+/*
+ * msm_pcie_debug_info - run a PCIe specific debug testcase.
+ * @dev:	pci device structure
+ * @option:	specifies which PCIe debug testcase to execute
+ * @base:	PCIe specific range
+ * @offset:	offset of destination register
+ * @mask:	mask the bit(s) of destination register
+ * @value:	value to be written to destination register
+ *
+ * This function gives PCIe endpoint device drivers the control to
+ * run a debug testcase.
+ *
+ * Return: 0 on success, negative value on error
+ */
+int msm_pcie_debug_info(struct pci_dev *dev, u32 option, u32 base,
+			u32 offset, u32 mask, u32 value);
 #endif
