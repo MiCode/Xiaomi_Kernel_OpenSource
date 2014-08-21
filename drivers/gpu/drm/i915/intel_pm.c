@@ -5661,7 +5661,7 @@ void intel_enable_gt_powersave(struct drm_device *dev)
 		ironlake_enable_rc6(dev);
 		intel_init_emon(dev);
 		mutex_unlock(&dev->struct_mutex);
-	} else if (IS_GEN6(dev) || IS_GEN7(dev) || IS_BROADWELL(dev)) {
+	} else if (INTEL_INFO(dev)->gen >= 6) {
 		/* Do not enable turbo in BDW C (or older) steppings */
 		if (IS_BROADWELL(dev)) {
 			pci_read_config_dword(dev->pdev, GEN8_SRID_0_2_0_PCI, &val);
