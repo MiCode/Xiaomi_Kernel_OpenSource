@@ -38,4 +38,18 @@ int qcrypto_cipher_clear_flag(struct ablkcipher_request *req,
 int qcrypto_ahash_clear_flag(struct ahash_request *req, unsigned int flags);
 int qcrypto_aead_clear_flag(struct aead_request *req, unsigned int flags);
 
+struct crypto_engine_entry {
+	u32 hw_instance;
+	u32 ce_device;
+	int shared;
+};
+
+int qcrypto_get_num_engines(void);
+void qcrypto_get_engine_list(size_t num_engines,
+				struct crypto_engine_entry *arr);
+int qcrypto_cipher_set_device_hw(struct ablkcipher_request *req,
+				unsigned int fde_pfe,
+				unsigned int hw_inst);
+
+
 #endif /* _DRIVERS_CRYPTO_MSM_QCRYPTO_H */
