@@ -73,8 +73,6 @@ enum {
 	MASK_CLK_NS_REG                     = 0xFFFC00,
 };
 
-static LIST_HEAD(phy_list);
-
 enum ufs_msm_phy_init_type {
 	UFS_PHY_INIT_FULL,
 	UFS_PHY_INIT_CFG_RESTORE,
