@@ -104,6 +104,8 @@
 #define clk_ce3_clk 0xb7c009b6
 #define clk_gcc_ce3_ahb_m_clk 0x527880ff
 #define clk_gcc_ce3_axi_m_clk 0xc8e9a915
+#define clk_gcc_bimc_kpss_axi_m_clk 0x1e86d73e
+#define clk_gcc_mmss_bimc_gfx_m_clk 0xcf06f534
 #define clk_rpm_debug_mux 0x25cd1f3a
 
 /* clock_gcc controlled clocks */
