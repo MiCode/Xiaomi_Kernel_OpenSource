@@ -91,6 +91,7 @@ enum cnss_driver_status {
 	CNSS_LOAD_UNLOAD
 };
 
+extern int cnss_get_fw_image(dma_addr_t *fw_image, u32 *image_size);
 extern void cnss_device_crashed(void);
 extern void cnss_device_self_recovery(void);
 extern int cnss_get_ramdump_mem(unsigned long *address, unsigned long *size);

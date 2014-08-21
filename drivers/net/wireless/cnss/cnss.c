@@ -27,6 +27,8 @@
 #include <linux/pm_qos.h>
 #include <linux/esoc_client.h>
 #include <linux/pinctrl/consumer.h>
+#include <linux/firmware.h>
+#include <linux/dma-mapping.h>
 #include <linux/msm-bus.h>
 #include <linux/msm-bus-board.h>
 #include <linux/spinlock.h>
@@ -34,8 +36,6 @@
 #include <linux/rwsem.h>
 #include <linux/crypto.h>
 #include <linux/scatterlist.h>
-#include <linux/firmware.h>
-#include <linux/dma-mapping.h>
 #include <linux/log2.h>
 #ifdef CONFIG_PCI_MSM
 #include <linux/msm_pcie.h>
@@ -89,6 +89,10 @@ static struct cnss_fw_files FW_FILES_DEFAULT = {
 "qwlan.bin", "bdwlan.bin", "otp.bin", "utf.bin",
 "utfbd.bin", "epping.bin", "evicted.bin"};
 
+#define QCA6180_VENDOR_ID	(0x168C)
+#define QCA6180_DEVICE_ID      (0x0041)
+#define QCA6180_REV_ID_OFFSET	(0x08)
+
 #define WLAN_VREG_NAME		"vdd-wlan"
 #define WLAN_VREG_IO_NAME	"vdd-wlan-io"
 #define WLAN_VREG_XTAL_NAME	"vdd-wlan-xtal"
@@ -116,6 +120,23 @@ static struct cnss_fw_files FW_FILES_DEFAULT = {
 
 static DEFINE_SPINLOCK(pci_link_down_lock);
 
+#define FW_NAME_FIXED_LEN	(6)
+#define MAX_NUM_OF_SEGMENTS	(16)
+#define MAX_INDEX_FILE_SIZE	(512)
+#define FW_FILENAME_LENGTH	(13)
+#define TYPE_LENGTH		(4)
+#define PER_FILE_DATA		(21)
+#define MAX_IMAGE_SIZE		(2*1024*1024)
+#define FW_IMAGE_FTM		(0x01)
+#define FW_IMAGE_MISSION	(0x02)
+#define FW_IMAGE_PRINT		(0x03)
+
+#define SEG_METADATA		(0x01)
+#define SEG_NON_PAGED		(0x02)
+#define SEG_LOCKED_PAGE		(0x03)
+#define SEG_UNLOCKED_PAGE	(0x04)
+#define SEG_NON_SECURE_DATA	(0x05)
+
 struct cnss_wlan_gpio_info {
 	char *name;
 	u32 num;
@@ -132,6 +153,41 @@ struct cnss_wlan_vreg_info {
 	struct regulator *wlan_reg_io;
 	struct regulator *wlan_reg_xtal;
 	bool state;
+};
+
+struct segment_memory {
+	dma_addr_t dma_region;
+	void *cpu_region;
+	u32 size;
+};
+
+/* FW image descriptor lists */
+struct image_desc_hdr {
+	u8 image_id;
+	u8 reserved[3];
+	u32 segments_cnt;
+};
+
+struct segment_desc {
+	u8 segment_id;
+	u8 segment_idx;
+	u8 flags[2];
+	u32 addr_count;
+	u32 addr_low;
+	u32 addr_high;
+};
+
+struct region_desc {
+	u32 addr_low;
+	u32 addr_high;
+	u32 size;
+	u32 reserved;
+};
+
+struct index_file {
+	u32 type;
+	u32 segment_idx;
+	u8 file_name[13];
 };
 
 /* device_info is expected to be fully populated after cnss_config is invoked.
@@ -178,6 +234,13 @@ static struct cnss_data {
 #ifdef CONFIG_CNSS_SECURE_FW
 	void *fw_mem;
 #endif
+	u32 device_id;
+	void *fw_image_cpu;
+	int fw_image_setup;
+	dma_addr_t dma_fw_image;
+	u32 dma_fw_size;
+	u32 seg_count;
+	struct segment_memory seg_mem[MAX_NUM_OF_SEGMENTS];
 } *penv;
 
 static int cnss_wlan_vreg_on(struct cnss_wlan_vreg_info *vreg_info)
@@ -657,6 +720,230 @@ static void cnss_wlan_fw_mem_alloc(struct pci_dev *pdev)
 }
 #endif
 
+static int get_image_file(const u8 *index_info, u8 *file_name,
+	u32 *type, u32 *segment_idx)
+{
+
+	if (!file_name || !index_info || !type)
+		return -EINVAL;
+
+	memcpy(type, index_info, TYPE_LENGTH);
+	memcpy(segment_idx, index_info + TYPE_LENGTH, TYPE_LENGTH);
+	memcpy(file_name, index_info + TYPE_LENGTH + TYPE_LENGTH,
+		FW_FILENAME_LENGTH);
+
+	pr_debug("%u: %u: %s", *type, *segment_idx, file_name);
+
+	return PER_FILE_DATA;
+}
+
+static void print_allocated_image_table(void)
+{
+	u32 seg = 0, count = 0;
+	u8 *dump_addr;
+	struct segment_memory *pseg_mem = penv->seg_mem;
+
+	while (seg++ < penv->seg_count) {
+		dump_addr = (u8 *)pseg_mem->cpu_region +
+			sizeof(struct region_desc);
+		for (count = 0; count < pseg_mem->size -
+				sizeof(struct region_desc); count++)
+			pr_debug("%02x", dump_addr[count]);
+
+		pseg_mem++;
+	}
+}
+
+static void free_allocated_image_table(void)
+{
+	struct device *dev = &penv->pdev->dev;
+	struct segment_memory *pseg_mem = penv->seg_mem;
+	u32 seg = 0;
+
+	while (seg++ < penv->seg_count) {
+		dma_free_coherent(dev, pseg_mem->size,
+		  pseg_mem->cpu_region, pseg_mem->dma_region);
+		pseg_mem++;
+	}
+	dma_free_coherent(dev,
+		sizeof(struct segment_desc) * MAX_NUM_OF_SEGMENTS,
+		    penv->fw_image_cpu, penv->dma_fw_image);
+	penv->seg_count = 0;
+	penv->dma_fw_image = 0;
+	penv->dma_fw_size = 0;
+}
+
+static int cnss_setup_fw_image_table(int mode)
+{
+	struct image_desc_hdr *image_hdr;
+	struct segment_desc *pseg = NULL;
+	const struct firmware *fw_index, *fw_image;
+	struct device *dev = NULL;
+	char reserved[3] = "";
+	u8 image_file[FW_FILENAME_LENGTH] = "";
+	u8 index_file[FW_FILENAME_LENGTH] = "";
+	u8 index_info[MAX_INDEX_FILE_SIZE] = "";
+	size_t image_desc_size = 0, file_size = 0;
+	size_t index_pos = 0, image_pos = 0;
+	struct region_desc *reg_desc = NULL;
+	u32 type = 0;
+	u32 segment_idx = 0;
+	uintptr_t address;
+	int ret = 0;
+	dma_addr_t dma_addr;
+
+	if (!penv || !penv->pdev) {
+		pr_err("cnss: invalid penv or pdev or dev\n");
+		ret = -EINVAL;
+		goto err;
+	}
+	dev = &penv->pdev->dev;
+
+	image_desc_size = sizeof(struct image_desc_hdr) +
+		sizeof(struct segment_desc) * MAX_NUM_OF_SEGMENTS;
+
+	penv->fw_image_cpu = dma_alloc_coherent(dev, image_desc_size,
+			&penv->dma_fw_image, GFP_KERNEL);
+
+	if (!penv->fw_image_cpu) {
+		pr_err("cnss: image desc allocation failure\n");
+		ret = -ENOMEM;
+		goto err;
+	}
+
+	memset(penv->fw_image_cpu, 0, image_desc_size);
+
+	image_hdr = (struct image_desc_hdr *)penv->fw_image_cpu;
+	image_hdr->image_id = mode;
+	memcpy(image_hdr->reserved, reserved, 3);
+
+	/*  meta data file has image details */
+	ret = scnprintf(index_file, FW_FILENAME_LENGTH, "qwlan.bin");
+	if (ret < 0)
+		goto err_free;
+
+	pr_err("cnss: request meta data file %s\n", index_file);
+	ret = request_firmware(&fw_index, index_file, dev);
+	if (ret || !fw_index || !fw_index->data || !fw_index->size) {
+		pr_err("cnss: meta data file open failure %s\n", index_file);
+		goto err_free;
+	}
+
+	if (fw_index->size > MAX_INDEX_FILE_SIZE) {
+		pr_err("cnss: meta data file has invalid size %s: %zu\n",
+				index_file, fw_index->size);
+		release_firmware(fw_index);
+		goto err_free;
+	}
+
+	memcpy(index_info, fw_index->data, fw_index->size);
+	file_size = fw_index->size;
+	release_firmware(fw_index);
+
+	while (file_size >= PER_FILE_DATA  && image_pos < image_desc_size &&
+			image_hdr->segments_cnt < MAX_NUM_OF_SEGMENTS) {
+
+		ret = get_image_file(index_info + index_pos,
+			image_file, &type, &segment_idx);
+		if (ret == -EINVAL)
+			goto err_free;
+
+		file_size -= ret;
+		index_pos += ret;
+		pseg = penv->fw_image_cpu + image_pos +
+				sizeof(struct image_desc_hdr);
+
+		switch (type) {
+		case SEG_METADATA:
+		case SEG_NON_PAGED:
+		case SEG_LOCKED_PAGE:
+		case SEG_UNLOCKED_PAGE:
+		case SEG_NON_SECURE_DATA:
+
+			image_hdr->segments_cnt++;
+			pseg->segment_id = type;
+			pseg->segment_idx = (u8)(segment_idx & 0xff);
+			memcpy(pseg->flags, reserved, 2);
+
+			ret = request_firmware(&fw_image, image_file, dev);
+			if (ret || !fw_image || !fw_image->data ||
+				!fw_image->size) {
+				pr_err("cnss: image file read failed %s",
+						image_file);
+				goto err_free;
+			}
+			if (fw_image->size > MAX_IMAGE_SIZE) {
+				pr_err("cnss: %s: image file invalid size %zu\n",
+					image_file, fw_image->size);
+				release_firmware(fw_image);
+				ret = -EINVAL;
+				goto err_free;
+			}
+			reg_desc = dma_alloc_coherent(dev,
+				sizeof(struct region_desc) + fw_image->size,
+				    &dma_addr, GFP_KERNEL);
+			if (!reg_desc) {
+				pr_err("cnss: region allocation failure\n");
+				ret = -ENOMEM;
+				release_firmware(fw_image);
+				goto err_free;
+			}
+			address = (uintptr_t) dma_addr;
+			pseg->addr_low = address & 0xFFFFFFFF;
+			pseg->addr_high = 0x00;
+			/* one region for one image file */
+			pseg->addr_count = 1;
+			memcpy((u8 *)reg_desc + sizeof(struct region_desc),
+					fw_image->data, fw_image->size);
+			address += sizeof(struct region_desc);
+			reg_desc->addr_low = address & 0xFFFFFFFF;
+			reg_desc->addr_high = 0x00;
+			reg_desc->reserved = 0;
+			reg_desc->size = fw_image->size;
+
+			penv->seg_mem[penv->seg_count].dma_region = dma_addr;
+			penv->seg_mem[penv->seg_count].cpu_region = reg_desc;
+			penv->seg_mem[penv->seg_count].size =
+				sizeof(struct region_desc) + fw_image->size;
+
+			release_firmware(fw_image);
+			penv->seg_count++;
+			break;
+
+		default:
+			pr_err("cnss: Unknown segment %d", type);
+			ret = -EINVAL;
+			goto err_free;
+	    }
+	    image_pos += sizeof(struct segment_desc);
+	}
+	penv->dma_fw_size = sizeof(struct image_desc_hdr) +
+	  sizeof(struct segment_desc) * image_hdr->segments_cnt;
+
+	pr_info("Image setup table built on host");
+
+	return file_size;
+
+
+err_free:
+	free_allocated_image_table();
+err:
+	pr_err("cnss: image file setup failed %d\n", ret);
+	return ret;
+}
+
+int cnss_get_fw_image(dma_addr_t *fw_image, u32 *image_size)
+{
+	if (!fw_image || !penv || !penv->seg_count)
+		return -EINVAL;
+
+	*fw_image = penv->dma_fw_image;
+	*image_size = penv->dma_fw_size;
+
+	return 0;
+}
+EXPORT_SYMBOL(cnss_get_fw_image);
+
 static int cnss_wlan_pci_probe(struct pci_dev *pdev,
 			       const struct pci_device_id *id)
 {
@@ -671,6 +958,7 @@ static int cnss_wlan_pci_probe(struct pci_dev *pdev,
 	penv->pdev = pdev;
 	penv->id = id;
 	penv->fw_available = false;
+	penv->device_id = pdev->device;
 
 	if (penv->pci_register_again) {
 		pr_debug("%s: PCI re-registration complete\n", __func__);
@@ -678,8 +966,24 @@ static int cnss_wlan_pci_probe(struct pci_dev *pdev,
 		return 0;
 	}
 
-	pci_read_config_word(pdev, QCA6174_REV_ID_OFFSET, &penv->revision_id);
-	cnss_setup_fw_files(penv->revision_id);
+	switch (pdev->device) {
+	case QCA6180_DEVICE_ID:
+		pci_read_config_word(pdev, QCA6180_REV_ID_OFFSET,
+				&penv->revision_id);
+		break;
+
+	case QCA6174_DEVICE_ID:
+		pci_read_config_word(pdev, QCA6174_REV_ID_OFFSET,
+				&penv->revision_id);
+		cnss_setup_fw_files(penv->revision_id);
+		break;
+
+	default:
+		pr_err("cnss: unknown device found %d\n", pdev->device);
+		ret = -EPROBE_DEFER;
+		goto err_unknown;
+	}
+
 
 	if (penv->pcie_link_state) {
 		pci_save_state(pdev);
@@ -740,6 +1044,7 @@ static int cnss_wlan_pci_probe(struct pci_dev *pdev,
 
 end_dma_alloc:
 	dma_free_coherent(dev, EVICT_BIN_MAX_SIZE, cpu_addr, dma_handle);
+err_unknown:
 err_pcie_suspend:
 	return ret;
 }
@@ -824,6 +1129,7 @@ static struct notifier_block cnss_pm_notifier = {
 static DEFINE_PCI_DEVICE_TABLE(cnss_wlan_pci_id_table) = {
 	{ QCA6174_VENDOR_ID, QCA6174_DEVICE_ID, PCI_ANY_ID, PCI_ANY_ID },
 	{ QCA6174_VENDOR_ID, BEELINER_DEVICE_ID, PCI_ANY_ID, PCI_ANY_ID },
+	{ QCA6180_VENDOR_ID, QCA6180_DEVICE_ID, PCI_ANY_ID, PCI_ANY_ID },
 	{ 0 }
 };
 MODULE_DEVICE_TABLE(pci, cnss_wlan_pci_id_table);
@@ -836,6 +1142,44 @@ struct pci_driver cnss_wlan_pci_driver = {
 	.suspend  = cnss_wlan_pci_suspend,
 	.resume   = cnss_wlan_pci_resume,
 };
+
+static ssize_t fw_image_setup_show(struct device *dev,
+				struct device_attribute *attr, char *buf)
+{
+	if (!penv)
+		return -ENODEV;
+
+	return scnprintf(buf, PAGE_SIZE, "%u\n", penv->fw_image_setup);
+}
+
+static ssize_t fw_image_setup_store(struct device *dev,
+		struct device_attribute *attr, const char *buf, size_t count)
+{
+	int val;
+	int ret;
+
+	if (!penv)
+		return -ENODEV;
+
+	if (sscanf(buf, "%d", &val) != 1)
+		return -EINVAL;
+
+	if (val == FW_IMAGE_FTM || val == FW_IMAGE_MISSION) {
+		pr_err("fw image setup triggered %d\n", val);
+		ret = cnss_setup_fw_image_table(val);
+		if (ret != 0) {
+			pr_err("Invalid parsing of FW image files %d", ret);
+			return -EINVAL;
+		}
+		penv->fw_image_setup = val;
+	} else if (val == FW_IMAGE_PRINT)
+		print_allocated_image_table();
+
+	return count;
+}
+
+static DEVICE_ATTR(fw_image_setup, S_IRUSR | S_IWUSR,
+	fw_image_setup_show, fw_image_setup_store);
 
 void recovery_work_handler(struct work_struct *recovery)
 {
@@ -1810,6 +2154,8 @@ static int cnss_probe(struct platform_device *pdev)
 	memset(phys_to_virt(0), 0, SZ_4K);
 #endif
 
+	ret = device_create_file(dev, &dev_attr_fw_image_setup);
+
 	pr_info("cnss: Platform driver probed successfully.\n");
 	return ret;
 
@@ -1852,6 +2198,7 @@ static int cnss_remove(struct platform_device *pdev)
 	struct cnss_wlan_gpio_info *gpio_info = &penv->gpio_info;
 
 	unregister_pm_notifier(&cnss_pm_notifier);
+	device_remove_file(&pdev->dev, &dev_attr_fw_image_setup);
 
 	cnss_pm_wake_lock_destroy(&penv->ws);
 
