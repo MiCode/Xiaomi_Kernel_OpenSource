@@ -3174,17 +3174,11 @@ int mdss_mdp_display_commit(struct mdss_mdp_ctl *ctl, void *arg,
 
 		mdss_mdp_ctl_write(ctl, MDSS_MDP_REG_CTL_TOP, ctl->opmode);
 		ctl->flush_bits |= BIT(17);	/* CTL */
-		if (!ctl->play_cnt)
-			ctl->flush_bits |= BIT(31) >>
-				(ctl->intf_num - MDSS_MDP_INTF0);
 
 		if (sctl) {
 			mdss_mdp_ctl_write(sctl, MDSS_MDP_REG_CTL_TOP,
 					sctl->opmode);
 			sctl->flush_bits |= BIT(17);
-			if (!ctl->play_cnt)
-				sctl->flush_bits |= BIT(31) >>
-					(sctl->intf_num - MDSS_MDP_INTF0);
 		}
 		ATRACE_END("mixer_programming");
 	}
