@@ -619,15 +619,7 @@ enum msm_actuator_cfg_type_t {
 
 enum msm_ois_cfg_type_t {
 	CFG_OIS_INIT,
-	CFG_GET_OIS_INFO,
 	CFG_OIS_POWERDOWN,
-	CFG_OIS_INI_SET,
-	CFG_OIS_ENABLE,
-	CFG_OIS_DISABLE,
-	CFG_OIS_SET_MOVIE_MODE,
-	CFG_OIS_SET_STILL_MODE,
-	CFG_OIS_SET_CENTERING_ON,
-	CFG_OIS_SET_PANTILT_ON,
 	CFG_OIS_POWERUP,
 	CFG_OIS_CONTROL,
 	CFG_OIS_I2C_WRITE_SEQ_TABLE,
@@ -649,26 +641,10 @@ struct reg_settings_ois_t {
 
 struct msm_ois_params_t {
 	uint16_t data_size;
-	uint16_t init_setting_size;
-	uint16_t enable_ois_setting_size;
-	uint16_t disable_ois_setting_size;
-	uint16_t movie_mode_ois_setting_size;
-	uint16_t still_mode_ois_setting_size;
-	uint16_t centering_on_ois_setting_size;
-	uint16_t centering_off_ois_setting_size;
-	uint16_t pantilt_on_ois_setting_size;
 	uint16_t setting_size;
 	uint32_t i2c_addr;
 	enum msm_camera_i2c_reg_addr_type i2c_addr_type;
 	enum msm_camera_i2c_data_type i2c_data_type;
-	struct reg_settings_ois_t *init_settings;
-	struct reg_settings_ois_t *enable_ois_settings;
-	struct reg_settings_ois_t *disable_ois_settings;
-	struct reg_settings_ois_t *movie_mode_ois_settings;
-	struct reg_settings_ois_t *still_mode_ois_settings;
-	struct reg_settings_ois_t *centering_on_ois_settings;
-	struct reg_settings_ois_t *centering_off_ois_settings;
-	struct reg_settings_ois_t *pantilt_on_ois_settings;
 	struct reg_settings_ois_t *settings;
 };
 
@@ -791,9 +767,7 @@ enum af_camera_name {
 
 struct msm_ois_cfg_data {
 	int cfgtype;
-	uint8_t is_ois_supported;
 	union {
-		uint8_t enable_centering_ois;
 		struct msm_ois_set_info_t set_info;
 		struct msm_camera_i2c_seq_reg_setting *settings;
 	} cfg;
@@ -976,26 +950,10 @@ struct sensorb_cfg_data32 {
 
 struct msm_ois_params_t32 {
 	uint16_t data_size;
-	uint16_t init_setting_size;
-	uint16_t enable_ois_setting_size;
-	uint16_t disable_ois_setting_size;
-	uint16_t movie_mode_ois_setting_size;
-	uint16_t still_mode_ois_setting_size;
-	uint16_t centering_on_ois_setting_size;
-	uint16_t centering_off_ois_setting_size;
-	uint16_t pantilt_on_ois_setting_size;
 	uint16_t setting_size;
 	uint32_t i2c_addr;
 	enum msm_camera_i2c_reg_addr_type i2c_addr_type;
 	enum msm_camera_i2c_data_type i2c_data_type;
-	compat_uptr_t init_settings;
-	compat_uptr_t enable_ois_settings;
-	compat_uptr_t disable_ois_settings;
-	compat_uptr_t movie_mode_ois_settings;
-	compat_uptr_t still_mode_ois_settings;
-	compat_uptr_t centering_on_ois_settings;
-	compat_uptr_t centering_off_ois_settings;
-	compat_uptr_t pantilt_on_ois_settings;
 	compat_uptr_t settings;
 };
 
@@ -1005,9 +963,7 @@ struct msm_ois_set_info_t32 {
 
 struct msm_ois_cfg_data32 {
 	int cfgtype;
-	uint8_t is_ois_supported;
 	union {
-		uint8_t enable_centering_ois;
 		struct msm_ois_set_info_t32 set_info;
 		compat_uptr_t settings;
 	} cfg;

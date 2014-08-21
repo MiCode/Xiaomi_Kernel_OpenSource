@@ -33,19 +33,6 @@ enum msm_ois_state_t {
 	OIS_POWER_DOWN,
 };
 
-struct msm_ois_func_tbl {
-	int32_t (*ini_set_ois)(struct msm_ois_ctrl_t *,
-		struct msm_ois_set_info_t *);
-	int32_t (*enable_ois)(struct msm_ois_ctrl_t *,
-		struct msm_ois_set_info_t *);
-	int32_t (*disable_ois)(struct msm_ois_ctrl_t *,
-		struct msm_ois_set_info_t *);
-};
-
-struct msm_ois {
-	struct msm_ois_func_tbl func_tbl;
-};
-
 struct msm_ois_vreg {
 	struct camera_vreg_t *cam_vreg;
 	void *data[MSM_OIS_MAX_VREGS];
@@ -60,7 +47,6 @@ struct msm_ois_ctrl_t {
 	enum msm_camera_device_type_t ois_device_type;
 	struct msm_sd_subdev msm_sd;
 	struct mutex *ois_mutex;
-	struct msm_ois_func_tbl *func_tbl;
 	enum msm_camera_i2c_data_type i2c_data_type;
 	struct v4l2_subdev sdev;
 	struct v4l2_subdev_ops *ois_v4l2_subdev_ops;
