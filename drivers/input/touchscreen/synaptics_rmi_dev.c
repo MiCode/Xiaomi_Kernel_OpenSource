@@ -504,7 +504,7 @@ static int rmidev_init_device(struct synaptics_rmi4_data *rmi4_data)
 	}
 
 	rmidev->fn_ptr =  kzalloc(sizeof(*(rmidev->fn_ptr)), GFP_KERNEL);
-	if (!rmidev) {
+	if (!rmidev->fn_ptr) {
 		dev_err(&rmi4_data->i2c_client->dev,
 				"%s: Failed to alloc mem for fn_ptr\n",
 				__func__);
