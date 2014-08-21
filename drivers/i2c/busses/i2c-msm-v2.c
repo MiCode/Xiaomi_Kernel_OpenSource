@@ -830,8 +830,8 @@ static void i2c_msm_prof_evnt_dump(struct i2c_msm_ctrl *ctrl)
 }
 
 /*
- * tag_lookup_table[is_high_speed][is_new_addr][is_last][is_rx]
- * @is_new_addr Is start tag required? (which requires two more bytes.)
+ * tag_lookup_table[is_high_speed][start_req][is_last][is_rx]
+ * @start_req   start or repeated-start
  * @is_last     Use the XXXXX_N_STOP tag varient
  * @is_rx       READ/WRITE
  * is_high_speed Requires a post-fix of a start-tag and the reserved
@@ -870,16 +870,14 @@ static const struct i2c_msm_tag tag_lookup_table[2][2][2][2] = {
  * i2c_msm_tag_create: format a qup tag ver2
  */
 static struct i2c_msm_tag i2c_msm_tag_create(bool is_high_speed,
-	bool is_new_addr, bool is_last_buf, bool is_rx, u8 buf_len,
+	bool start_req, bool is_last_buf, bool is_rx, u8 buf_len,
 	u8 slave_addr)
 {
 	struct i2c_msm_tag tag;
-
-	is_new_addr = is_new_addr ? 1 : 0;
 	is_last_buf = is_last_buf ? 1 : 0;
-	is_rx    = is_rx    ? 1 : 0;
+	is_rx = is_rx ? 1 : 0;
 
-	tag = tag_lookup_table[is_high_speed][is_new_addr][is_last_buf][is_rx];
+	tag = tag_lookup_table[is_high_speed][start_req][is_last_buf][is_rx];
 	/* fill in the non-const value: the address and the length */
 	switch (tag.len) {
 	case 6:
@@ -3146,8 +3144,7 @@ static bool i2c_msm_xfer_buf_is_last(struct i2c_msm_ctrl *ctrl)
 	struct i2c_msm_xfer_buf *cur_buf = &ctrl->xfer.cur_buf;
 	struct i2c_msg *cur_msg = ctrl->xfer.msgs + cur_buf->msg_idx;
 
-	return i2c_msm_xfer_msg_is_last(ctrl) &&
-		((cur_buf->byte_idx + ctrl->ver.max_buf_size) >= cur_msg->len);
+	return (cur_buf->byte_idx + ctrl->ver.max_buf_size) >= cur_msg->len;
 }
 
 static void i2c_msm_xfer_create_cur_tag(struct i2c_msm_ctrl *ctrl,
@@ -3175,8 +3172,6 @@ static bool i2c_msm_xfer_next_buf(struct i2c_msm_ctrl *ctrl)
 	struct i2c_msg          *cur_msg = ctrl->xfer.msgs + cur_buf->msg_idx;
 	bool is_first_msg = !cur_buf->msg_idx;
 	size_t bc_rem     = cur_msg->len - cur_buf->prcsed_bc;
-	bool start_req;
-	struct i2c_msg *prv_msg;
 
 	if (cur_buf->is_init && cur_buf->prcsed_bc && bc_rem) {
 		/* not the first buffer in a message */
@@ -3189,7 +3184,8 @@ static bool i2c_msm_xfer_next_buf(struct i2c_msm_ctrl *ctrl)
 		 * workaround! due to HW issue, a stop is issued after every
 		 * read. Once we here we know that this is not the first
 		 * buffer of the current message. And if the current message
-		 * is Rx then the previous buffers was Rx as well.
+		 * is Rx then the previous buffers was Rx as well, we already
+		 * issued a stop, and we need to issue a start.
 		 */
 		i2c_msm_xfer_create_cur_tag(ctrl, cur_buf->is_rx);
 	} else {
@@ -3211,20 +3207,9 @@ static bool i2c_msm_xfer_next_buf(struct i2c_msm_ctrl *ctrl)
 							ctrl->ver.max_buf_size);
 		cur_buf->is_rx     = (cur_msg->flags & I2C_M_RD);
 		cur_buf->prcsed_bc = cur_buf->len;
-
-		/* prv_msg is only valid when !is_first_msg */
-		prv_msg = cur_msg - 1;
-		/*
-		 * workaround! due to HW issue, a stop is issued after every
-		 * read,after every read a start is required.
-		 */
-		start_req = (is_first_msg || (prv_msg->flags & I2C_M_RD) ||
-			    (cur_msg->addr != prv_msg->addr)             ||
-			    ((cur_msg->flags & I2C_M_RD) !=
-						(prv_msg->flags & I2C_M_RD)));
 		cur_buf->slv_addr = i2c_msm_slv_rd_wr_addr(cur_msg->addr,
 								cur_buf->is_rx);
-		i2c_msm_xfer_create_cur_tag(ctrl, start_req);
+		i2c_msm_xfer_create_cur_tag(ctrl, true);
 	}
 	i2c_msm_prof_evnt_add(ctrl, MSM_DBG, i2c_msm_prof_dump_next_buf,
 					cur_buf->msg_idx, cur_buf->byte_idx, 0);
