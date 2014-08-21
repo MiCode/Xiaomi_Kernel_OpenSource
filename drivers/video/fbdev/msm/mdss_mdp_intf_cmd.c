@@ -842,17 +842,22 @@ end:
 	return 0;
 }
 
-int mdss_mdp_cmd_stop(struct mdss_mdp_ctl *ctl, int panel_power_state)
+static int mdss_mdp_cmd_stop_sub(struct mdss_mdp_ctl *ctl,
+		int panel_power_state)
 {
 	struct mdss_mdp_cmd_ctx *ctx;
 	struct mdss_mdp_vsync_handler *tmp, *handle;
-	int ret, session = 0;
+	int session;
 
 	ctx = (struct mdss_mdp_cmd_ctx *) ctl->priv_data;
 	if (!ctx) {
 		pr_err("invalid ctx\n");
 		return -ENODEV;
 	}
+
+	/* if power state already updated, skip this */
+	if (ctx->panel_power_state == panel_power_state)
+		return 0;
 
 	list_for_each_entry_safe(handle, tmp, &ctx->vsync_handlers, list)
 		mdss_mdp_cmd_remove_vsync_handler(ctl, handle);
@@ -861,13 +866,37 @@ int mdss_mdp_cmd_stop(struct mdss_mdp_ctl *ctl, int panel_power_state)
 
 	/* Command mode is supported only starting at INTF1 */
 	session = ctl->intf_num - MDSS_MDP_INTF1;
-	ret = mdss_mdp_cmd_intfs_stop(ctl, session, panel_power_state);
-	if (IS_ERR_VALUE(ret)) {
-		pr_err("unable to stop cmd interface: %d\n", ret);
-		return ret;
+	return mdss_mdp_cmd_intfs_stop(ctl, session, panel_power_state);
+}
+
+int mdss_mdp_cmd_stop(struct mdss_mdp_ctl *ctl, int panel_power_state)
+{
+	struct mdss_mdp_cmd_ctx *ctx = ctl->priv_data;
+	struct mdss_mdp_ctl *sctl = mdss_mdp_get_split_ctl(ctl);
+	int ret;
+
+	if (!ctx) {
+		pr_err("invalid ctx\n");
+		return -ENODEV;
 	}
 
-	if (ctl->num == 0) {
+	if (ctx->panel_power_state != panel_power_state) {
+		ret = mdss_mdp_cmd_stop_sub(ctl, panel_power_state);
+		if (IS_ERR_VALUE(ret)) {
+			pr_err("%s: unable to stop interface: %d\n",
+					__func__, ret);
+			return ret;
+		}
+
+		if (sctl) {
+			mdss_mdp_cmd_stop_sub(sctl, panel_power_state);
+			if (IS_ERR_VALUE(ret)) {
+				pr_err("%s: unable to stop slave intf: %d\n",
+						__func__, ret);
+				return ret;
+			}
+		}
+
 		ret = mdss_mdp_ctl_intf_event(ctl, MDSS_EVENT_BLANK,
 				(void *) (long int) panel_power_state);
 		WARN(ret, "intf %d unblank error (%d)\n", ctl->intf_num, ret);
