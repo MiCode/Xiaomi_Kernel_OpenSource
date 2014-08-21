@@ -237,6 +237,7 @@ config SND_SOC_APQ8084
 	select QTI_PP
 	select SND_SOC_CPE
 	select DOLBY_DS2
+	select SND_HWDEP
 	help
 	 To add support for SoC audio on APQ8084.
 	 This will enable sound soc drivers which
@@ -293,6 +294,7 @@ config SND_SOC_MSM8994
 	select SND_SOC_CPE
 	select MSM_ULTRASOUND
 	select DOLBY_DS2
+	select SND_HWDEP
 	help
 	 To add support for SoC audio on MSM8994.
 	 This will enable sound soc drivers which
