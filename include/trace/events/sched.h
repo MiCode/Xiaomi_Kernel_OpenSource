@@ -221,9 +221,9 @@ TRACE_EVENT(sched_set_boost,
 TRACE_EVENT(sched_update_task_ravg,
 
 	TP_PROTO(struct task_struct *p, struct rq *rq, enum task_event evt,
-								u64 wallclock),
+						u64 wallclock, u64 irqtime),
 
-	TP_ARGS(p, rq, evt, wallclock),
+	TP_ARGS(p, rq, evt, wallclock, irqtime),
 
 	TP_STRUCT__entry(
 		__array(	char,	comm,   TASK_COMM_LEN	)
@@ -237,6 +237,7 @@ TRACE_EVENT(sched_update_task_ravg,
 		__field(	u64,	delta_m			)
 		__field(	u64,	win_start		)
 		__field(	u64,	delta			)
+		__field(	u64,	irqtime			)
 		__field(enum task_event,	evt		)
 		__field(unsigned int,	demand			)
 		__field(unsigned int,	partial_demand		)
@@ -261,15 +262,16 @@ TRACE_EVENT(sched_update_task_ravg,
 		__entry->demand         = p->ravg.demand;
 		__entry->partial_demand = p->ravg.partial_demand;
 		__entry->sum            = p->ravg.sum;
+		__entry->irqtime        = irqtime;
 	),
 
-	TP_printk("wc %llu ws %llu delta %llu event %s cpu %d cur_freq %u cs %u ps %u cur_pid %d task %d (%s) ms %llu delta %llu demand %u partial_demand %u sum %u",
+	TP_printk("wc %llu ws %llu delta %llu event %s cpu %d cur_freq %u cs %u ps %u cur_pid %d task %d (%s) ms %llu delta %llu demand %u partial_demand %u sum %u irqtime %llu",
 		__entry->wallclock, __entry->win_start, __entry->delta,
 		task_event_names[__entry->evt], __entry->cpu,
 		__entry->cur_freq, __entry->cs, __entry->ps, __entry->cur_pid,
 		__entry->pid, __entry->comm, __entry->mark_start,
 		__entry->delta_m, __entry->demand, __entry->partial_demand,
-		__entry->sum)
+		__entry->sum, __entry->irqtime)
 );
 
 TRACE_EVENT(sched_update_history,
@@ -326,25 +328,73 @@ TRACE_EVENT(sched_update_history,
 
 TRACE_EVENT(sched_migration_update_sum,
 
-	TP_PROTO(struct rq *rq),
+	TP_PROTO(struct rq *rq, struct task_struct *p),
 
-	TP_ARGS(rq),
+	TP_ARGS(rq, p),
 
 	TP_STRUCT__entry(
 		__field(int,		cpu			)
 		__field(int,		cs			)
 		__field(int,		ps			)
+		__field(int,		pid			)
 	),
 
 	TP_fast_assign(
 		__entry->cpu		= cpu_of(rq);
 		__entry->cs		= rq->curr_runnable_sum;
 		__entry->ps		= rq->prev_runnable_sum;
+		__entry->pid		= p->pid;
 	),
 
-	TP_printk("cpu %d: cs %u ps %u\n", __entry->cpu,
-		      __entry->cs, __entry->ps)
+	TP_printk("cpu %d: cs %u ps %u pid %d", __entry->cpu,
+		      __entry->cs, __entry->ps, __entry->pid)
 );
+
+#ifdef CONFIG_SCHED_FREQ_INPUT
+
+TRACE_EVENT(sched_get_busy,
+
+	TP_PROTO(int cpu, u64 load),
+
+	TP_ARGS(cpu, load),
+
+	TP_STRUCT__entry(
+		__field(	int,	cpu			)
+		__field(	u64,	load			)
+	),
+
+	TP_fast_assign(
+		__entry->cpu		= cpu;
+		__entry->load		= load;
+	),
+
+	TP_printk("cpu %d load %lld",
+		__entry->cpu, __entry->load)
+);
+
+TRACE_EVENT(sched_freq_alert,
+
+	TP_PROTO(int cpu, unsigned int cur_freq, unsigned int freq_required),
+
+	TP_ARGS(cpu, cur_freq, freq_required),
+
+	TP_STRUCT__entry(
+		__field(	int,	cpu			)
+		__field(unsigned int,	cur_freq		)
+		__field(unsigned int,	freq_required		)
+	),
+
+	TP_fast_assign(
+		__entry->cpu		= cpu;
+		__entry->cur_freq	= cur_freq;
+		__entry->freq_required	= freq_required;
+	),
+
+	TP_printk("cpu %d cur_freq=%u freq_required=%u",
+		__entry->cpu, __entry->cur_freq, __entry->freq_required)
+);
+
+#endif	/* CONFIG_SCHED_FREQ_INPUT */
 
 #endif /* CONFIG_SCHED_FREQ_INPUT || CONFIG_SCHED_HMP */
 

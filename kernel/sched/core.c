@@ -1305,6 +1305,8 @@ void check_for_freq_change(struct rq *rq)
 	if (!send_notification(rq, freq_required))
 		return;
 
+	trace_sched_freq_alert(max_demand_cpu, rq->cur_freq, freq_required);
+
 	atomic_notifier_call_chain(
 		&load_alert_notifier_head, 0,
 		(void *)(long)max_demand_cpu);
@@ -1642,7 +1644,7 @@ static void update_task_ravg(struct task_struct *p, struct rq *rq,
 	}
 
 done:
-	trace_sched_update_task_ravg(p, rq, event, wallclock);
+	trace_sched_update_task_ravg(p, rq, event, wallclock, irqtime);
 
 	p->ravg.mark_start = wallclock;
 }
@@ -1910,6 +1912,8 @@ unsigned long sched_get_busy(int cpu)
 	load = scale_load_to_cpu(rq->prev_runnable_sum, cpu);
 	load = div64_u64(load * (u64)rq->max_freq, (u64)rq->max_possible_freq);
 	load = div64_u64(load, NSEC_PER_USEC);
+
+	trace_sched_get_busy(cpu, load);
 
 	return load;
 }
@@ -2253,8 +2257,8 @@ static void fixup_busy_time(struct task_struct *p, int new_cpu)
 	BUG_ON((s64)src_rq->prev_runnable_sum < 0);
 	BUG_ON((s64)src_rq->curr_runnable_sum < 0);
 
-	trace_sched_migration_update_sum(src_rq);
-	trace_sched_migration_update_sum(dest_rq);
+	trace_sched_migration_update_sum(src_rq, p);
+	trace_sched_migration_update_sum(dest_rq, p);
 
 done:
 	if (p->state == TASK_WAKING)
