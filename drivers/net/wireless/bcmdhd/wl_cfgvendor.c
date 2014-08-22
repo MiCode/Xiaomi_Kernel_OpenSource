@@ -210,6 +210,24 @@ static int wl_cfgvendor_set_pno_mac_oui(struct wiphy *wiphy,
 	return err;
 }
 
+static int wl_cfgvendor_set_nodfs_flag(struct wiphy *wiphy,
+	struct wireless_dev *wdev, const void *data, int len)
+{
+	int err = 0;
+	struct bcm_cfg80211 *cfg = wiphy_priv(wiphy);
+	int type;
+	u32 nodfs;
+
+	type = nla_type(data);
+	if (type == ANDR_WIFI_ATTRIBUTE_NODFS_SET) {
+		nodfs = nla_get_u32(data);
+		err = dhd_dev_set_nodfs(bcmcfg_to_prmry_ndev(cfg), nodfs);
+	} else {
+		err = -1;
+	}
+	return err;
+}
+
 #ifdef GSCAN_SUPPORT
 int wl_cfgvendor_send_hotlist_event(struct wiphy *wiphy,
 	struct net_device *dev, void  *data, int len, wl_vendor_event_t event)
@@ -1255,6 +1273,15 @@ static const struct wiphy_vendor_command wl_vendor_cmds [] = {
 		},
 		.flags = WIPHY_VENDOR_CMD_NEED_WDEV | WIPHY_VENDOR_CMD_NEED_NETDEV,
 		.doit = wl_cfgvendor_set_pno_mac_oui
+	},
+	{
+		{
+			.vendor_id = OUI_GOOGLE,
+			.subcmd = ANDR_WIFI_NODFS_CHANNELS
+		},
+		.flags = WIPHY_VENDOR_CMD_NEED_WDEV | WIPHY_VENDOR_CMD_NEED_NETDEV,
+		.doit = wl_cfgvendor_set_nodfs_flag
+
 	},
 #ifdef LINKSTAT_SUPPORT
 	{
