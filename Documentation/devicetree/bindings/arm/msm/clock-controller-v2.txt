@@ -391,3 +391,59 @@ gpll0_ao: gpll0_ao {
 	qcom,parent = <&gcc_xo_ao>;
 	qcom,peer = <&gpll0>;
 };
+
+*****************************************************************************
+"qcom,rcg"
+
+Root Clock Generators act as both muxes and dividers. They support half-integer division,
+and may optionally support fractional (M/N) division as well.
+
+output rate = input_rate * (M/N) * (1 / divider)
+
+This particular software implementation uses a table of legal frequencies, rather
+than attempt to dynamically calculate the required register configuration.
+
+Required Properties:
+- compatible:		"qcom,rcg-mn", "qcom,rcg-hid".
+
+- qcom,base-offset:	Offset from the register region described in the parent
+			clock controller.
+- qcom,parents:		array of <mux_selection parent_phandle>.
+- qcom,freq-tbl:	Contains the possible configuration values.
+			Array of <freq, div_int, div_frac, m_val, n_val, parent_phandle>.
+			Since device tree does not support floating point, we separate
+			the fractional divider into two parts. div_int = 2 and div_frac = 50
+			means a divider of 2.5 (div_int + div_frac/100).
+
+Recommended Properties:
+- qcom,clk-fmax:	See "General Optional Properties"
+- qcom,supply-group:	See "General Optional Properties"
+
+axi_clk_src {
+	qcom,freq-tbl =
+		<  19200000    1    0    0     0 &mmss_xo>,
+		<  37500000   16    0    0     0 &mmss_gpll0>,
+		<  50000000   12    0    0     0 &mmss_gpll0>,
+		<  75000000    8    0    0     0 &mmss_gpll0>,
+		< 100000000    6    0    0     0 &mmss_gpll0>,
+		< 150000000    4    0    0     0 &mmss_gpll0>,
+		< 333430000    3   50    0     0 &mmpll1_pll>,
+		< 400000000    2    0    0     0 &mmpll0_pll>,
+		< 466800000    2   50    0     0 &mmpll1_pll>;
+};
+
+axi_clk_src: axi_clk_src {
+	compatible = "qcom,rcg-hid";
+	qcom,base-offset = <MMSS_AXI_CMD_RCGR>;
+	qcom,parents =
+		<    0 &mmss_xo>,
+		<    1 &mmpll0_pll>,
+		<    2 &mmpll1_pll>,
+		<    5 &mmss_gpll0>;
+
+	qcom,supply-group = <&MMSS_vdd_dig>;
+	qcom,clk-fmax =
+		<FMAX_LOW 150000000>,
+		<FMAX_NOM 333430000>,
+		<FMAX_TURBO 400000000>;
+};

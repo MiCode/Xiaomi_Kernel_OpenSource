@@ -57,7 +57,7 @@ struct clk_freq_tbl {
  * @base: pointer to base address of ioremapped registers.
  */
 struct rcg_clk {
-	const u32 cmd_rcgr_reg;
+	u32 cmd_rcgr_reg;
 
 	void   (*set_rate)(struct rcg_clk *, struct clk_freq_tbl *);
 
