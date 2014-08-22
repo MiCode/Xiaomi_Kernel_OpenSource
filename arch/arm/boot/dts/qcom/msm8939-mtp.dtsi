@@ -393,3 +393,8 @@
 	pinctrl-5 = <&qdsd_clk_spmi &qdsd_cmd_spmi
 		     &qdsd_data0_spmi &qdsd_data3_spmi>;
 };
+
+&apc_vreg_corner {
+		qcom,cpr-up-threshold = <0>;
+		qcom,cpr-down-threshold = <8>;
+};
