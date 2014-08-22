@@ -421,7 +421,7 @@ static int mdss_mdp_calc_stride(struct mdss_mdp_pipe *pipe,
 				break;
 			}
 		}
-		rc = mdss_mdp_get_plane_sizes(format, width, pipe->src.h,
+		rc = mdss_mdp_get_plane_sizes(pipe->src_fmt, width, pipe->src.h,
 			ps, 0, 0);
 		if (rc)
 			return rc;
@@ -1321,11 +1321,12 @@ static int mdss_mdp_image_setup(struct mdss_mdp_pipe *pipe,
 	if (pipe->flags & MDP_SOURCE_ROTATED_90)
 		rotation = true;
 
-	mdss_mdp_get_plane_sizes(pipe->src_fmt->format, width, height,
+	mdss_mdp_get_plane_sizes(pipe->src_fmt, width, height,
 			&pipe->src_planes, pipe->bwc_mode, rotation);
 
 	if (data != NULL) {
-		ret = mdss_mdp_data_check(data, &pipe->src_planes);
+		ret = mdss_mdp_data_check(data, &pipe->src_planes,
+			pipe->src_fmt);
 		if (ret)
 			return ret;
 	}
@@ -1491,6 +1492,11 @@ static int mdss_mdp_format_setup(struct mdss_mdp_pipe *pipe)
 			(fmt->unpack_align_msb << 18) |
 			((fmt->bpp - 1) << 9);
 
+	if (mdss_mdp_is_ubwc_format(fmt)) {
+		opmode |= BIT(0);
+		src_format |= BIT(31);
+	}
+
 	mdss_mdp_pipe_sspp_setup(pipe, &opmode);
 
 	if (mdss_mdp_is_tile_format(fmt) && mdata->highest_bank_bit) {
@@ -1546,7 +1552,7 @@ static int mdss_mdp_src_addr_setup(struct mdss_mdp_pipe *pipe,
 
 	data.bwc_enabled = pipe->bwc_mode;
 
-	ret = mdss_mdp_data_check(&data, &pipe->src_planes);
+	ret = mdss_mdp_data_check(&data, &pipe->src_planes, pipe->src_fmt);
 	if (ret)
 		return ret;
 

@@ -137,6 +137,7 @@ enum mdss_mdp_panic_signal_type {
 enum mdss_mdp_fetch_type {
 	MDSS_MDP_FETCH_LINEAR,
 	MDSS_MDP_FETCH_TILE,
+	MDSS_MDP_FETCH_UBWC,
 };
 
 /**
@@ -710,6 +711,16 @@ static inline bool mdss_mdp_is_tile_format(struct mdss_mdp_format_params *fmt)
 	return fmt && (fmt->fetch_mode == MDSS_MDP_FETCH_TILE);
 }
 
+static inline bool mdss_mdp_is_ubwc_format(struct mdss_mdp_format_params *fmt)
+{
+	return fmt && (fmt->fetch_mode == MDSS_MDP_FETCH_UBWC);
+}
+
+static inline int mdss_mdp_is_ubwc_supported(struct mdss_data_type *mdata)
+{
+	return IS_MDSS_MAJOR_MINOR_SAME(mdata->mdp_rev, MDSS_MDP_HW_REV_107);
+}
+
 irqreturn_t mdss_mdp_isr(int irq, void *ptr);
 int mdss_iommu_attach(struct mdss_data_type *mdata);
 int mdss_iommu_dettach(struct mdss_data_type *mdata);
@@ -899,8 +910,9 @@ int mdss_mdp_pipe_queue_data(struct mdss_mdp_pipe *pipe,
 int mdss_mdp_vbif_axi_halt(struct mdss_data_type *mdata);
 
 int mdss_mdp_data_check(struct mdss_mdp_data *data,
-			struct mdss_mdp_plane_sizes *ps);
-int mdss_mdp_get_plane_sizes(u32 format, u32 w, u32 h,
+			struct mdss_mdp_plane_sizes *ps,
+			struct mdss_mdp_format_params *fmt);
+int mdss_mdp_get_plane_sizes(struct mdss_mdp_format_params *fmt, u32 w, u32 h,
 	     struct mdss_mdp_plane_sizes *ps, u32 bwc_mode, bool rotation);
 int mdss_mdp_get_rau_strides(u32 w, u32 h, struct mdss_mdp_format_params *fmt,
 			       struct mdss_mdp_plane_sizes *ps);
