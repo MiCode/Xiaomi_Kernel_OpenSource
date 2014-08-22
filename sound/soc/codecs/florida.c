@@ -2313,6 +2313,7 @@ static int florida_probe(struct platform_device *pdev)
 			"Failed to register codec: %d\n",
 			ret);
 		snd_soc_unregister_platform(&pdev->dev);
+		goto error;
 	}
 
 	return ret;
