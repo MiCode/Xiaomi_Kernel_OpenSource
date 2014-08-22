@@ -142,6 +142,8 @@ struct bcl_context {
 	int bcl_vbat_min;
 	/* BCL period poll delay work structure  */
 	struct delayed_work bcl_iavail_work;
+	/* For non-bms target */
+	bool bcl_no_bms;
 	/* The max CPU frequency the BTM restricts during high load */
 	uint32_t btm_freq_max;
 	/* Indicates whether there is a high load */
@@ -337,9 +339,11 @@ static int bcl_get_resistance(int *rbatt_mohm)
 	union power_supply_propval ret = {0,};
 
 	if (psy == NULL) {
-		psy = power_supply_get_by_name("bms");
+		psy =
+		power_supply_get_by_name(gbcl->bcl_no_bms ? "battery" : "bms");
 		if (psy == NULL) {
-			pr_err("failed to get ps bms\n");
+			pr_err("failed to get ps %s\n",
+				gbcl->bcl_no_bms ? "battery" : "bms");
 			return -EINVAL;
 		}
 	}
@@ -1581,6 +1585,11 @@ static int bcl_probe(struct platform_device *pdev)
 	snprintf(bcl->bcl_type, BCL_NAME_LENGTH, "%s",
 			bcl_type[BCL_IAVAIL_MONITOR_TYPE]);
 	bcl->bcl_poll_interval_msec = BCL_POLL_INTERVAL;
+
+	if (of_property_read_bool(pdev->dev.of_node, "qcom,bcl-no-bms"))
+		bcl->bcl_no_bms = true;
+	else
+		bcl->bcl_no_bms = false;
 
 	core_phandle = of_parse_phandle(pdev->dev.of_node,
 			"qcom,bcl-hotplug-list", i++);
