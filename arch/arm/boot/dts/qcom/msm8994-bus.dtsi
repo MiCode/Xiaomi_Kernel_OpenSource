@@ -179,7 +179,7 @@
 			cell-id = <MSM_BUS_MNOC_BIMC_MAS>;
 			label = "mas-mnoc-bimc";
 			qcom,bus-dev = <&fab_bimc>;
-			qcom,buswidth = <8>;
+			qcom,buswidth = <16>;
 			qcom,qport = <3>;
 			qcom,qos-mode = "bypass";
 			qcom,connections = <&slv_ebi &slv_appss_l2 &slv_bimc_snoc>;
