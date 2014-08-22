@@ -4019,10 +4019,10 @@ static const struct snd_soc_dapm_route audio_map[] = {
 	{"VIONOFF", "Switch", "VIINPUT"},
 
 	/* MAD */
-	{"MADONOFF", "Switch", "MADINPUT"},
-	{"MAD_SEL MUX", "SPE", "MADONOFF"},
-	{"MAD_SEL MUX", "MSM", "MADONOFF"},
-	{"AIF4 MAD", NULL, "MAD_SEL MUX"},
+	{"MAD_SEL MUX", "SPE", "MAD_CPE_INPUT"},
+	{"MAD_SEL MUX", "MSM", "MADINPUT"},
+	{"MADONOFF", "Switch", "MAD_SEL MUX"},
+	{"AIF4 MAD", NULL, "MADONOFF"},
 
 	/* SLIM_MIXER("AIF1_CAP Mixer"),*/
 	{"AIF1_CAP Mixer", "SLIM TX1", "SLIM TX1 MUX"},
@@ -6437,6 +6437,7 @@ static const struct snd_soc_dapm_widget tomtom_dapm_widgets[] = {
 	SND_SOC_DAPM_SWITCH("MADONOFF", SND_SOC_NOPM, 0, 0,
 			    &aif4_mad_switch),
 	SND_SOC_DAPM_INPUT("MADINPUT"),
+	SND_SOC_DAPM_INPUT("MAD_CPE_INPUT"),
 
 	SND_SOC_DAPM_MIXER("AIF1_CAP Mixer", SND_SOC_NOPM, AIF1_CAP, 0,
 		aif1_cap_mixer, ARRAY_SIZE(aif1_cap_mixer)),
