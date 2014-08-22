@@ -103,6 +103,9 @@ Optional Properties:
 				from battery when device working at OTG mode.
 				The possible values are: 350, 550, 950, 1500mA.
 - qcom,fg-auto-recharge-soc	This property defines the auto recharging SOC threshold.
+- qcom,min-icl-100ma		A bool property to set the minimum ICL current
+				to 100mA. If this property is not set the minimum
+				ICL is set to 500mA in all the scenarios.
 
 Example:
 	i2c@f9967000 {

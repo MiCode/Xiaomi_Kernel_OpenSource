@@ -278,6 +278,7 @@ struct smb1360_chip {
 	unsigned int			therm_lvl_sel;
 	unsigned int			*thermal_mitigation;
 	int				otg_batt_curr_limit;
+	bool				min_icl_usb100;
 
 	/* configuration data - fg */
 	int				soc_max;
@@ -985,19 +986,28 @@ static int smb1360_set_minimum_usb_current(struct smb1360_chip *chip)
 {
 	int rc = 0;
 
-	pr_debug("set USB current to minimum\n");
-	/* set input current limit to minimum (300mA)*/
-	rc = smb1360_masked_write(chip, CFG_BATT_CHG_ICL_REG,
-					INPUT_CURR_LIM_MASK,
-					INPUT_CURR_LIM_300MA);
-	if (rc)
-		pr_err("Couldn't set ICL mA rc=%d\n", rc);
-
-	if (!(chip->workaround_flags & WRKRND_USB100_FAIL)) {
-		rc = smb1360_masked_write(chip, CMD_IL_REG,
-				USB_CTRL_MASK, USB_100_BIT);
+	if (chip->min_icl_usb100) {
+		pr_debug("USB min current set to 100mA\n");
+		/* set input current limit to minimum (300mA) */
+		rc = smb1360_masked_write(chip, CFG_BATT_CHG_ICL_REG,
+						INPUT_CURR_LIM_MASK,
+						INPUT_CURR_LIM_300MA);
 		if (rc)
-			pr_err("Couldn't configure for USB100 rc=%d\n", rc);
+			pr_err("Couldn't set ICL mA rc=%d\n", rc);
+
+		if (!(chip->workaround_flags & WRKRND_USB100_FAIL))
+			rc = smb1360_masked_write(chip, CMD_IL_REG,
+					USB_CTRL_MASK, USB_100_BIT);
+			if (rc)
+				pr_err("Couldn't configure for USB100 rc=%d\n",
+								rc);
+	} else {
+		pr_debug("USB min current set to 500mA\n");
+		rc = smb1360_masked_write(chip, CMD_IL_REG,
+				USB_CTRL_MASK, USB_500_BIT);
+		if (rc)
+			pr_err("Couldn't configure for USB100 rc=%d\n",
+							rc);
 	}
 
 	return rc;
@@ -1063,8 +1073,11 @@ static int smb1360_set_appropriate_usb_current(struct smb1360_chip *chip)
 	pr_debug("ICL set to = %d\n", input_current_limit[i]);
 
 	if ((current_ma <= CURRENT_100_MA) &&
-		(chip->workaround_flags & WRKRND_USB100_FAIL)) {
-		pr_debug("usb100 not supported\n");
+		((chip->workaround_flags & WRKRND_USB100_FAIL) ||
+				!chip->min_icl_usb100)) {
+		pr_debug("usb100 not supported: usb100_wrkrnd=%d min_icl_100=%d\n",
+			!!(chip->workaround_flags & WRKRND_USB100_FAIL),
+						chip->min_icl_usb100);
 		current_ma = CURRENT_500_MA;
 	}
 
@@ -3212,6 +3225,9 @@ static int smb_parse_dt(struct smb1360_chip *chip)
 
 	chip->shdn_after_pwroff = of_property_read_bool(node,
 						"qcom,shdn-after-pwroff");
+
+	chip->min_icl_usb100 = of_property_read_bool(node,
+						"qcom,min-icl-100ma");
 
 	if (of_find_property(node, "qcom,thermal-mitigation",
 					&chip->thermal_levels)) {
