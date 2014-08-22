@@ -452,7 +452,7 @@ static unsigned long edp_mainlink_get_rate(struct clk *c)
 
 	pclk = clk_get_parent(c);
 
-	if (pclk->ops->get_rate) {
+	if (pclk && pclk->ops->get_rate) {
 		rate = pclk->ops->get_rate(pclk);
 		rate /= mclk->data.div;
 	}
