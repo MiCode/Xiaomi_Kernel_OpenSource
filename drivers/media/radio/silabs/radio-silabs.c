@@ -128,6 +128,9 @@ struct silabs_fm_device {
 	bool is_af_jump_enabled;
 	bool is_af_tune_in_progress;
 	u8 af_rssi_th; /* allowed rssi is 0-127 */
+	u8 rssi_th; /* 0 - 127 */
+	u8 sinr_th; /* 0 - 127 */
+	u8 rds_fifo_cnt; /* 0 - 25 */
 	struct silabs_af_info af_info;
 };
 
@@ -138,6 +141,33 @@ static int cancel_seek(struct silabs_fm_device *radio);
 static int configure_interrupts(struct silabs_fm_device *radio, u8 val);
 static void silabs_fm_q_event(struct silabs_fm_device *radio,
 				enum silabs_evt_t event);
+
+static bool is_valid_rssi(int rssi)
+{
+	if ((rssi >= MIN_RSSI) &&
+		(rssi <= MAX_RSSI))
+		return true;
+	else
+		return false;
+}
+
+static bool is_valid_sinr(int sinr)
+{
+	if ((sinr >= MIN_SNR) &&
+		(sinr <= MAX_SNR))
+		return true;
+	else
+		return false;
+}
+
+static bool is_valid_rds_fifo_cnt(int cnt)
+{
+	if ((cnt >= MIN_RDS_FIFO_CNT) &&
+		(cnt <= MAX_RDS_FIFO_CNT))
+		return true;
+	else
+		return false;
+}
 
 static int silabs_fm_i2c_read(struct silabs_fm_device *radio, u8 len)
 {
@@ -1642,6 +1672,8 @@ static int initialize_recv(struct silabs_fm_device *radio)
 		goto set_prop_fail;
 	}
 
+	radio->sinr_th = DEFAULT_SNR_TH;
+
 	retval = set_property(radio,
 				FM_SEEK_TUNE_RSSI_THRESHOLD_PROP,
 				DEFAULT_RSSI_TH);
@@ -1650,6 +1682,8 @@ static int initialize_recv(struct silabs_fm_device *radio)
 				__func__, retval);
 		goto set_prop_fail;
 	}
+
+	radio->rssi_th = DEFAULT_RSSI_TH;
 
 	retval = set_property(radio,
 				FM_RSQ_RSSI_LO_THRESHOLD_PROP,
@@ -1670,6 +1704,17 @@ static int initialize_recv(struct silabs_fm_device *radio)
 				__func__, retval);
 		goto set_prop_fail;
 	}
+
+	retval = set_property(radio,
+				FM_RDS_INT_FIFO_COUNT_PROP,
+				FIFO_CNT_16);
+	if (retval < 0)	{
+		FMDERR("%s: FM_RDS_INT_FIFO_COUNT_PROP fail error %d\n",
+				__func__, retval);
+		goto set_prop_fail;
+	}
+
+	radio->rds_fifo_cnt = FIFO_CNT_16;
 
 set_prop_fail:
 	return retval;
@@ -2436,13 +2481,36 @@ static int silabs_fm_vidioc_g_ctrl(struct file *file, void *priv,
 		ctrl->value = 0;
 		retval = 0;
 		break;
+	case V4L2_CID_PRIVATE_SILABS_SINR_THRESHOLD:
+		FMDBG("%s: V4L2_CID_PRIVATE_SILABS_SINR_THRESHOLD, val %d\n",
+			__func__, radio->sinr_th);
+
+		ctrl->value = radio->sinr_th;
+		break;
+	case V4L2_CID_PRIVATE_SILABS_RSSI_TH:
+		FMDBG("%s: V4L2_CID_PRIVATE_SILABS_RSSI_TH, val %d\n",
+			__func__, radio->rssi_th);
+
+		ctrl->value = radio->rssi_th;
+		break;
+	case V4L2_CID_PRIVATE_SILABS_AF_JUMP_RSSI_TH:
+		FMDBG("%s: V4L2_CID_PRIVATE_SILABS_AF_JUMP_RSSI_TH, val %d\n",
+			__func__, radio->af_rssi_th);
+
+		ctrl->value = radio->af_rssi_th;
+		break;
+
+	case V4L2_CID_PRIVATE_SILABS_RDSD_BUF:
+		FMDBG("%s: V4L2_CID_PRIVATE_SILABS_RDSD_BUF, val %d\n",
+			__func__, radio->rds_fifo_cnt);
+
+		ctrl->value = radio->rds_fifo_cnt;
+		break;
 	default:
 		retval = -EINVAL;
 		break;
 	}
 
-	if (retval > 0)
-		retval = -EINVAL;
 	if (retval < 0)
 		FMDERR("get control failed with %d, id: %x\n",
 			retval, ctrl->id);
@@ -2588,9 +2656,20 @@ static int silabs_fm_vidioc_s_ctrl(struct file *file, void *priv,
 		}
 		break;
 	case V4L2_CID_PRIVATE_SILABS_RDSD_BUF:
-		retval = set_property(radio,
-				FM_RDS_INT_FIFO_COUNT_PROP,
-				FIFO_CNT_16);
+		if (is_valid_rds_fifo_cnt(ctrl->value)) {
+			retval = set_property(radio,
+					FM_RDS_INT_FIFO_COUNT_PROP,
+					ctrl->value);
+			if (retval < 0)	{
+				FMDERR("%s: setting rds fifo cnt failed %d\n",
+						__func__, retval);
+				goto end;
+			}
+
+			radio->rds_fifo_cnt = ctrl->value;
+		} else
+			retval = -EINVAL;
+
 		break;
 	case V4L2_CID_PRIVATE_SILABS_RDSGROUP_PROC:
 		/* Enabled all with uncorrectable */
@@ -2642,6 +2721,67 @@ static int silabs_fm_vidioc_s_ctrl(struct file *file, void *priv,
 		}
 		/* Save the AF jump state */
 		radio->is_af_jump_enabled = ctrl->value;
+		break;
+	case V4L2_CID_PRIVATE_SILABS_SINR_THRESHOLD:
+		FMDBG("%s: V4L2_CID_PRIVATE_SILABS_SINR_THRESHOLD, val is %d\n",
+			__func__, ctrl->value);
+		if (is_valid_sinr(ctrl->value)) {
+			retval = set_property(radio,
+						FM_SEEK_TUNE_SNR_THRESHOLD_PROP,
+						ctrl->value);
+			if (retval < 0)	{
+				FMDERR("%s: setting sinr th failed, error %d\n",
+						__func__, retval);
+				goto end;
+			}
+
+			radio->sinr_th = ctrl->value;
+
+		} else {
+			retval = -EINVAL;
+			FMDERR("%s: Invalid sinr\n", __func__);
+		}
+		break;
+	case V4L2_CID_PRIVATE_SILABS_RSSI_TH:
+		FMDBG("%s: V4L2_CID_PRIVATE_SILABS_RSSI_TH, val is %d\n",
+			__func__, ctrl->value);
+		if (is_valid_rssi(ctrl->value)) {
+			retval = set_property(radio,
+					FM_SEEK_TUNE_RSSI_THRESHOLD_PROP,
+					ctrl->value);
+			if (retval < 0)	{
+				FMDERR("%s: setting rssi th failed, error %d\n",
+						__func__, retval);
+				goto end;
+			}
+
+			radio->rssi_th = ctrl->value;
+
+		} else {
+			retval = -EINVAL;
+			FMDERR("%s: Invalid sinr\n", __func__);
+		}
+		break;
+	case V4L2_CID_PRIVATE_SILABS_AF_JUMP_RSSI_TH:
+		FMDBG("%s: V4L2_CID_PRIVATE_SILABS_AF_JUMP_RSSI_TH, val %d\n",
+			__func__, ctrl->value);
+		if (is_valid_rssi(ctrl->value)) {
+			retval = set_property(radio,
+						FM_RSQ_RSSI_LO_THRESHOLD_PROP,
+						ctrl->value);
+			if (retval < 0)	{
+				FMDERR("%s: setting af rssi th failed err %d\n",
+					__func__, retval);
+				goto end;
+			}
+
+			radio->af_rssi_th = ctrl->value;
+
+		} else {
+			retval = -EINVAL;
+			FMDERR("%s: Invalid sinr\n", __func__);
+		}
+
 		break;
 	default:
 		retval = -EINVAL;
