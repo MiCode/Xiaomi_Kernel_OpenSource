@@ -15,7 +15,6 @@
  * inside this file.
  */
 
-#include "msm8994.dtsi"
 #include "msm-pm8004.dtsi"
 
 / {

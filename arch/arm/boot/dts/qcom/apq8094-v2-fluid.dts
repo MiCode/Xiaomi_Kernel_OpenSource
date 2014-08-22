@@ -10,14 +10,14 @@
  * GNU General Public License for more details.
  */
 
+
 /dts-v1/;
 
-#include "msm8994-pm8994-pmi8994-pm8004.dtsi"
-#include "msm8994-pinctrl.dtsi"
-#include "msm8994-cdp.dtsi"
+#include "apq8094-v2.dtsi"
+#include "msm8994-fluid.dtsi"
 
 / {
-	model = "Qualcomm Technologies, Inc. MSM8994 + PMI8994 + PM8004 CDP ";
-	compatible = "qcom,msm8994-cdp", "qcom,msm8994", "qcom,cdp";
-	qcom,board-id = <1 0>;
+	model = "Qualcomm Technologies, Inc. APQ8094v2 FLUID";
+	compatible = "qcom,apq8094-fluid", "qcom,apq8094", "qcom,fluid";
+	qcom,board-id = <3 0>;
 };

@@ -13,13 +13,12 @@
 
 /dts-v1/;
 
-#include "msm8994.dtsi"
-#include "msm8994-pinctrl.dtsi"
+#include "apq8094-v2.dtsi"
 #include "msm8994-liquid.dtsi"
 #include "msm8994-camera-sensor-liquid.dtsi"
 
 / {
-	model = "Qualcomm Technologies, Inc. MSM8994 LiQUID";
-	compatible = "qcom,msm8994-liquid", "qcom,msm8994", "qcom,liquid";
+	model = "Qualcomm Technologies, Inc. APQ8094v2 LIQUID";
+	compatible = "qcom,apq8094-liquid", "qcom,apq8094", "qcom,liquid";
 	qcom,board-id = <9 0>;
 };
