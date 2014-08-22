@@ -188,7 +188,9 @@ static struct pcm_format_data pcm_formats[(INT)SNDRV_PCM_FORMAT_LAST+1] = {
 	},
 	/* FIXME: the following format is not defined properly yet */
 	[SNDRV_PCM_FORMAT_SPECIAL] = {
-		.le = -1, .signd = -1,
+		/* set the width and phys same as S16_LE */
+		.width = 16, .phys = 16, .le = -1, .signd = -1,
+		.silence = {},
 	},
 	[SNDRV_PCM_FORMAT_S24_3LE] = {
 		.width = 24, .phys = 24, .le = 1, .signd = 1,
