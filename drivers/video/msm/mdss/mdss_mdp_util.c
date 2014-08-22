@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -236,16 +236,21 @@ hist_isr_done:
 
 struct mdss_mdp_format_params *mdss_mdp_get_format_params(u32 format)
 {
-	if (format < MDP_IMGTYPE_LIMIT) {
-		struct mdss_mdp_format_params *fmt = NULL;
-		int i;
-		for (i = 0; i < ARRAY_SIZE(mdss_mdp_format_map); i++) {
-			fmt = &mdss_mdp_format_map[i];
-			if (format == fmt->format)
-				return fmt;
-		}
+	struct mdss_mdp_format_params *fmt = NULL;
+	struct mdss_data_type *mdata = mdss_mdp_get_mdata();
+	int i;
+
+	if (format > MDP_IMGTYPE_LIMIT)
+		goto end;
+
+	for (i = 0; i < ARRAY_SIZE(mdss_mdp_format_map); i++) {
+		fmt = &mdss_mdp_format_map[i];
+		if (format == fmt->format)
+			break;
 	}
-	return NULL;
+end:
+	return (mdss_mdp_is_ubwc_format(fmt) &&
+		!mdss_mdp_is_ubwc_supported(mdata)) ? NULL : fmt;
 }
 
 void mdss_mdp_intersect_rect(struct mdss_rect *res_rect,
@@ -324,11 +329,68 @@ int mdss_mdp_get_rau_strides(u32 w, u32 h,
 	return 0;
 }
 
-int mdss_mdp_get_plane_sizes(u32 format, u32 w, u32 h,
+static int mdss_mdp_get_ubwc_plane_size(struct mdss_mdp_format_params *fmt,
+	u32 width, u32 height, struct mdss_mdp_plane_sizes *ps)
+{
+	int rc = 0;
+	struct mdss_data_type *mdata = mdss_mdp_get_mdata();
+
+	if (!mdss_mdp_is_ubwc_supported(mdata)) {
+		pr_err("ubwc format is not supported for format: %d\n",
+			fmt->format);
+		return -EINVAL;
+	}
+
+	if (fmt->format == MDP_Y_CBCR_H2V2_UBWC) {
+		ps->num_planes = 4;
+		/* Y bitstream stride and plane size */
+		ps->ystride[0] = ALIGN(width, 128);
+		ps->plane_size[0] = ALIGN(ps->ystride[0] * ALIGN(height, 32),
+					4096);
+
+		/* CbCr bitstream stride and plane size */
+		ps->ystride[1] = ALIGN(width, 64);
+		ps->plane_size[1] = ALIGN(ps->ystride[1] * ALIGN(height, 32),
+					4096);
+
+		/* Y meta data stride and plane size */
+		ps->ystride[2] = ALIGN(DIV_ROUND_UP(width, 32), 64);
+		ps->plane_size[2] = ALIGN(ps->ystride[2] *
+			ALIGN(DIV_ROUND_UP(height, 8), 16), 4096);
+
+		/* CbCr meta data stride and plane size */
+		ps->ystride[3] = ALIGN(DIV_ROUND_UP(width, 16), 64);
+		ps->plane_size[3] = ALIGN(ps->ystride[3] *
+			ALIGN(DIV_ROUND_UP(height, 8), 16), 4096);
+
+	} else if (fmt->format == MDP_RGBA_8888_UBWC ||
+		fmt->format == MDP_RGB_565_UBWC) {
+		uint32_t stride_alignment = (fmt->format == MDP_RGBA_8888_UBWC)
+						? 64 : 128;
+		ps->num_planes = 2;
+
+		/* RGB bitstream stride and plane size */
+		ps->ystride[0] = ALIGN(width, stride_alignment);
+		ps->plane_size[0] = ALIGN(4 * ps->ystride[0] *
+			ALIGN(height, 16), 4096);
+
+		/* RGB meta data stride and plane size */
+		ps->ystride[2] = ALIGN(DIV_ROUND_UP(width, 16), 64);
+		ps->plane_size[2] = ALIGN(ps->ystride[2] *
+			ALIGN(DIV_ROUND_UP(height, 4), 16), 4096);
+	} else {
+		pr_err("%s: UBWC format not supported for fmt:%d\n",
+			__func__, fmt->format);
+		rc = -EINVAL;
+	}
+
+	return rc;
+}
+
+int mdss_mdp_get_plane_sizes(struct mdss_mdp_format_params *fmt, u32 w, u32 h,
 	struct mdss_mdp_plane_sizes *ps, u32 bwc_mode, bool rotation)
 {
-	struct mdss_mdp_format_params *fmt;
-	int i, rc;
+	int i, rc = 0;
 	u32 bpp;
 	if (ps == NULL)
 		return -EINVAL;
@@ -336,14 +398,12 @@ int mdss_mdp_get_plane_sizes(u32 format, u32 w, u32 h,
 	if ((w > MAX_IMG_WIDTH) || (h > MAX_IMG_HEIGHT))
 		return -ERANGE;
 
-	fmt = mdss_mdp_get_format_params(format);
-	if (!fmt)
-		return -EINVAL;
-
 	bpp = fmt->bpp;
 	memset(ps, 0, sizeof(struct mdss_mdp_plane_sizes));
 
-	if (bwc_mode) {
+	if (mdss_mdp_is_ubwc_format(fmt)) {
+		rc = mdss_mdp_get_ubwc_plane_size(fmt, w, h, ps);
+	} else if (bwc_mode) {
 		u32 height, meta_size;
 
 		rc = mdss_mdp_get_rau_strides(w, h, fmt, ps);
@@ -366,7 +426,7 @@ int mdss_mdp_get_plane_sizes(u32 format, u32 w, u32 h,
 			ps->num_planes = 1;
 			ps->plane_size[0] = w * h * bpp;
 			ps->ystride[0] = w * bpp;
-		} else if (format == MDP_Y_CBCR_H2V2_VENUS) {
+		} else if (fmt->format == MDP_Y_CBCR_H2V2_VENUS) {
 			int cf = COLOR_FMT_NV12;
 			ps->num_planes = 2;
 			ps->ystride[0] = VENUS_Y_STRIDE(cf, w);
@@ -398,7 +458,7 @@ int mdss_mdp_get_plane_sizes(u32 format, u32 w, u32 h,
 			horiz = hmap[chroma_samp];
 			vert = vmap[chroma_samp];
 
-			switch (format) {
+			switch (fmt->format) {
 			case MDP_Y_CR_CB_GH2V2:
 				stride_align = 16;
 				height_align = 1;
@@ -426,14 +486,115 @@ int mdss_mdp_get_plane_sizes(u32 format, u32 w, u32 h,
 			}
 		}
 	}
+
 	for (i = 0; i < ps->num_planes; i++)
 		ps->total_size += ps->plane_size[i];
 
-	return 0;
+	return rc;
+}
+
+static int mdss_mdp_ubwc_data_check(struct mdss_mdp_data *data,
+			struct mdss_mdp_plane_sizes *ps,
+			struct mdss_mdp_format_params *fmt)
+{
+	int i, rc = 0;
+	struct mdss_data_type *mdata = mdss_mdp_get_mdata();
+	unsigned long data_size = 0;
+	dma_addr_t base_addr;
+
+	if (!mdss_mdp_is_ubwc_supported(mdata)) {
+		pr_err("ubwc format is not supported for format: %d\n",
+			fmt->format);
+		goto end;
+	}
+
+	for (i = 0; i < MAX_PLANES; i++)
+		data_size += data->p[i].len;
+
+	if (data_size < ps->total_size) {
+		pr_err("insufficient current mem len=%lu required mem len=%u\n",
+		       data_size, ps->total_size);
+		rc = -ENOMEM;
+		goto end;
+	}
+
+	if (data->p[0].len == ps->plane_size[0])
+		goto end;
+
+	base_addr = data->p[0].addr;
+
+	if (fmt->format == MDP_Y_CBCR_H2V2_UBWC) {
+		/************************************************/
+		/*      UBWC            **                      */
+		/*      buffer          **      MDP PLANE       */
+		/*      format          **                      */
+		/************************************************/
+		/* -------------------  ** -------------------- */
+		/* |      Y meta     |  ** |    Y bitstream   | */
+		/* |       data      |  ** |       plane      | */
+		/* -------------------  ** -------------------- */
+		/* |    CbCr meta    |  ** |  CbCr bitstream  | */
+		/* |       data      |  ** |       plane      | */
+		/* -------------------  ** -------------------- */
+		/* |   Y bitstream   |  ** |       Y meta     | */
+		/* |       data      |  ** |       plane      | */
+		/* -------------------  ** -------------------- */
+		/* |  CbCr bitstream |  ** |     CbCr meta    | */
+		/* |       data      |  ** |       plane      | */
+		/* -------------------  ** -------------------- */
+		/************************************************/
+
+		/* configure Y bitstream plane */
+		data->p[0].addr = base_addr + ps->plane_size[2];
+		data->p[0].len = ps->plane_size[0];
+
+		/* configure CbCr bitstream plane */
+		data->p[1].addr = base_addr + ps->plane_size[0]
+			+ ps->plane_size[1] + ps->plane_size[2];
+		data->p[1].len = ps->plane_size[1];
+
+		/* configure Y metadata plane */
+		data->p[2].addr = base_addr;
+		data->p[2].len = ps->plane_size[2];
+
+		/* configure CbCr metadata plane */
+		data->p[3].addr = base_addr + ps->plane_size[0]
+			+ ps->plane_size[2];
+		data->p[3].len = ps->plane_size[3];
+	} else {
+		/************************************************/
+		/*      UBWC            **                      */
+		/*      buffer          **      MDP PLANE       */
+		/*      format          **                      */
+		/************************************************/
+		/* -------------------  ** -------------------- */
+		/* |      RGB meta   |  ** |   RGB bitstream  | */
+		/* |       data      |  ** |       plane      | */
+		/* -------------------  ** -------------------- */
+		/* |  RGB bitstream  |  ** |       NONE       | */
+		/* |       data      |  ** |                  | */
+		/* -------------------  ** -------------------- */
+		/*                      ** |     RGB meta     | */
+		/*                      ** |       plane      | */
+		/*                      ** -------------------- */
+		/************************************************/
+
+		/* configure RGB bitstream plane */
+		data->p[0].addr = base_addr + ps->plane_size[2];
+		data->p[0].len = ps->plane_size[0];
+
+		/* configure RGB metadata plane */
+		data->p[2].addr = base_addr;
+		data->p[2].len = ps->plane_size[2];
+	}
+	data->num_planes = ps->num_planes;
+end:
+	return rc;
 }
 
 int mdss_mdp_data_check(struct mdss_mdp_data *data,
-			struct mdss_mdp_plane_sizes *ps)
+			struct mdss_mdp_plane_sizes *ps,
+			struct mdss_mdp_format_params *fmt)
 {
 	struct mdss_mdp_img_data *prev, *curr;
 	int i;
@@ -443,6 +604,9 @@ int mdss_mdp_data_check(struct mdss_mdp_data *data,
 
 	if (!data || data->num_planes == 0)
 		return -ENOMEM;
+
+	if (mdss_mdp_is_ubwc_format(fmt))
+		return mdss_mdp_ubwc_data_check(data, ps, fmt);
 
 	pr_debug("srcp0=%pa len=%lu frame_size=%u\n", &data->p[0].addr,
 		data->p[0].len, ps->total_size);

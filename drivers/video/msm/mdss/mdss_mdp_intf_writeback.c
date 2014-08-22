@@ -123,7 +123,7 @@ static int mdss_mdp_writeback_addr_setup(struct mdss_mdp_writeback_ctx *ctx,
 	if (ctx->bwc_mode)
 		data.bwc_enabled = 1;
 
-	ret = mdss_mdp_data_check(&data, &ctx->dst_planes);
+	ret = mdss_mdp_data_check(&data, &ctx->dst_planes, ctx->dst_fmt);
 	if (ret)
 		return ret;
 
@@ -153,15 +153,16 @@ static int mdss_mdp_writeback_format_setup(struct mdss_mdp_writeback_ctx *ctx,
 	if (ctx->rot90)
 		rotation = true;
 
-	mdss_mdp_get_plane_sizes(format, ctx->width, ctx->height,
-				 &ctx->dst_planes,
-				 ctx->opmode & MDSS_MDP_OP_BWC_EN, rotation);
-
 	fmt = mdss_mdp_get_format_params(format);
 	if (!fmt) {
 		pr_err("wb format=%d not supported\n", format);
 		return -EINVAL;
 	}
+
+	mdss_mdp_get_plane_sizes(fmt, ctx->width, ctx->height,
+				 &ctx->dst_planes,
+				 ctx->opmode & MDSS_MDP_OP_BWC_EN, rotation);
+
 	ctx->dst_fmt = fmt;
 
 	chroma_samp = fmt->chroma_sample;
@@ -230,6 +231,11 @@ static int mdss_mdp_writeback_format_setup(struct mdss_mdp_writeback_ctx *ctx,
 	ystride1 = (ctx->dst_planes.ystride[2]) |
 		   (ctx->dst_planes.ystride[3] << 16);
 	outsize = (ctx->dst_rect.h << 16) | ctx->dst_rect.w;
+
+	if (mdss_mdp_is_ubwc_format(fmt)) {
+		opmode |= BIT(0);
+		dst_format |= BIT(31);
+	}
 
 	if (ctx->type == MDSS_MDP_WRITEBACK_TYPE_ROTATOR &&
 			mdata->has_rot_dwnscale) {
