@@ -765,4 +765,5 @@
 	status = "ok";
 };
 
+#include "msm-pmd9635-rpm-regulator.dtsi"
 #include "msmzirc-regulator.dtsi"
