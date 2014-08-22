@@ -1782,7 +1782,7 @@ static int hdmi_audio_probe(struct platform_device *devptr)
 	retval = snd_pcm_new(card, INTEL_HAD, PCM_INDEX, MAX_PB_STREAMS,
 						MAX_CAP_STREAMS, &pcm);
 	if (retval)
-		goto err;
+		goto free_card;
 
 	/* setup private data which can be retrieved when required */
 	pcm->private_data = intelhaddata;
@@ -1800,34 +1800,34 @@ static int hdmi_audio_probe(struct platform_device *devptr)
 			SNDRV_DMA_TYPE_DEV, card->dev,
 			HAD_MAX_BUFFER, HAD_MAX_BUFFER);
 	if (retval)
-		goto err;
+		goto free_card;
 
 	/* internal function call to register device with ALSA */
 	retval = snd_intelhad_create(intelhaddata, card);
 	if (retval)
-		goto err;
+		goto free_prealloc;
 
 	card->private_data = &intelhaddata;
 	retval = snd_card_register(card);
 	if (retval)
-		goto err;
+		goto free_prealloc;
 
 	/* IEC958 controls */
 	retval = snd_ctl_add(card, snd_ctl_new1(&had_control_iec958_mask,
 						intelhaddata));
 	if (retval < 0)
-		goto err;
+		goto free_prealloc;
 	retval = snd_ctl_add(card, snd_ctl_new1(&had_control_iec958,
 						intelhaddata));
 	if (retval < 0)
-		goto err;
+		goto free_prealloc;
 
 	init_channel_allocations();
 
 	/* Register channel map controls */
 	retval = had_register_chmap_ctls(intelhaddata, pcm);
 	if (retval < 0)
-		goto err;
+		goto free_prealloc;
 
 	intelhaddata->dev = &devptr->dev;
 	pm_runtime_set_active(intelhaddata->dev);
@@ -1837,22 +1837,26 @@ static int hdmi_audio_probe(struct platform_device *devptr)
 	retval = mid_hdmi_audio_register(&had_interface, intelhaddata);
 	if (retval) {
 		pr_err("registering with display driver failed %#x\n", retval);
-		snd_card_free(card);
-		goto free_hadstream;
+		goto err;
 	}
 	intelhaddata->hw_silence = 1;
 	/* PIPE B is used for HDMI*/
 	intelhaddata->audio_reg_base = 0x65800;
 	intelhaddata->ops = &had_ops_v2;
 	return retval;
+
 err:
-	snd_card_free(card);
-unlock_mutex:
-	mutex_unlock(&had_mutex);
-free_hadstream:
-	kfree(had_stream);
 	pm_runtime_disable(intelhaddata->dev);
 	intelhaddata->dev = NULL;
+free_prealloc:
+	snd_pcm_lib_preallocate_free_for_all(pcm);
+free_card:
+	snd_card_free(card);
+unlock_mutex:
+	if (mutex_is_locked(&had_mutex))
+		mutex_unlock(&had_mutex);
+free_hadstream:
+	kfree(had_stream);
 free_haddata:
 	kfree(intelhaddata);
 	intelhaddata = NULL;
