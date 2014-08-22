@@ -465,6 +465,9 @@ static struct msm_soc_info cpu_of_id[] = {
 
 	/* ferrum IDs */
 	[245] = {MSM_CPU_FERRUM, "MSMFERRUM"},
+	[260] = {MSM_CPU_FERRUM, "MDMFERRUM"},
+	[261] = {MSM_CPU_FERRUM, "MDMFERRUM"},
+	[262] = {MSM_CPU_FERRUM, "MDMFERRUM"},
 
 	/* ZIRC IDs */
 	[234] = {MSM_CPU_ZIRC, "MSMZIRC"},
