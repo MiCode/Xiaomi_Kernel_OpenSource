@@ -5252,12 +5252,17 @@ out:
 
 static int ufshcd_setup_hba_vreg(struct ufs_hba *hba, bool on)
 {
+	int ret = 0;
 	struct ufs_vreg_info *info = &hba->vreg_info;
 
-	if (info)
-		return ufshcd_toggle_vreg(hba->dev, info->vdd_hba, on);
-	else
-		return 0;
+	if (info->vdd_hba) {
+		ret = ufshcd_toggle_vreg(hba->dev, info->vdd_hba, on);
+
+		if (!ret && hba->vops->update_sec_cfg)
+			hba->vops->update_sec_cfg(hba, on);
+	}
+
+	return ret;
 }
 
 static int ufshcd_get_vreg(struct device *dev, struct ufs_vreg *vreg)
@@ -5356,6 +5361,9 @@ out:
 				ufschd_clk_gating_state_to_string(
 					hba->clk_gating.state));
 		spin_unlock_irqrestore(hba->host->host_lock, flags);
+		/* restore the secure configuration as clocks are enabled */
+		if (hba->vops->update_sec_cfg)
+			hba->vops->update_sec_cfg(hba, true);
 	}
 	return ret;
 }
