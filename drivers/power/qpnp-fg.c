@@ -481,7 +481,7 @@ static int fg_set_ram_addr(struct fg_chip *chip, u16 *address)
 static int fg_mem_read(struct fg_chip *chip, u8 *val, u16 address, int len,
 		int offset, bool keep_access)
 {
-	int rc = 0, user_cnt = 0, total_len = 0;
+	int rc = 0, user_cnt = 0, total_len = 0, orig_address = address;
 	u8 *rd_data = val;
 	bool otp;
 	char str[DEBUG_PRINT_BUFFER_SIZE];
@@ -493,6 +493,9 @@ static int fg_mem_read(struct fg_chip *chip, u8 *val, u16 address, int len,
 		pr_err("offset too large %d\n", offset);
 		return -EINVAL;
 	}
+
+	address = ((orig_address + offset) / 4) * 4;
+	offset = (orig_address + offset) % 4;
 
 	user_cnt = atomic_add_return(1, &chip->memif_user_cnt);
 	if (fg_debug_mask & FG_MEM_DEBUG_READS)
@@ -568,7 +571,7 @@ out:
 static int fg_mem_write(struct fg_chip *chip, u8 *val, u16 address,
 		unsigned int len, unsigned int offset, bool keep_access)
 {
-	int rc = 0, user_cnt = 0;
+	int rc = 0, user_cnt = 0, orig_address = address;
 	u8 *wr_data = val;
 
 	if (address < RAM_OFFSET)
@@ -576,6 +579,9 @@ static int fg_mem_write(struct fg_chip *chip, u8 *val, u16 address,
 
 	if (offset > 3)
 		return -EINVAL;
+
+	address = ((orig_address + offset) / 4) * 4;
+	offset = (orig_address + offset) % 4;
 
 	user_cnt = atomic_add_return(1, &chip->memif_user_cnt);
 	if (fg_debug_mask & FG_MEM_DEBUG_READS)
