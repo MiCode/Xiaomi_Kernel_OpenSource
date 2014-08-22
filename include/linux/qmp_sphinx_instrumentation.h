@@ -54,7 +54,6 @@ static inline void qmp_sphinx_logk_sendto(int fd, void __user *buff, size_t len,
 	snprintf(buf, MAX_BUF_SIZE, "-1|kernel|sendto|len=%u,fd=%d|--end",
 			(unsigned int)len, fd);
 
-end:
 	qmp_sphinx_logk_kernel_end(blck);
 }
 
@@ -79,7 +78,6 @@ static inline void qmp_sphinx_logk_recvfrom(int fd, void __user *ubuf,
 	snprintf(buf, MAX_BUF_SIZE, "-1|kernel|recvfrom|size=%u,fd=%d|--end",
 			(unsigned int)size, fd);
 
-end:
 	qmp_sphinx_logk_kernel_end(blck);
 }
 
@@ -99,7 +97,6 @@ static inline void qmp_sphinx_logk_oom_adjust_write(pid_t pid,
 			"-1|kernel|oom_adjust_write|app_uid=%d,app_pid=%d,oom_adj=%d|--end",
 			uid, pid, oom_adj);
 
-end:
 	qmp_sphinx_logk_kernel_end(blck);
 }
 
@@ -119,7 +116,6 @@ static inline void qmp_sphinx_logk_oom_score_adj_write(pid_t pid, uid_t uid,
 		"-1|kernel|oom_score_adj_write|app_uid=%d,app_pid=%d,oom_adj=%d|--end",
 		uid, pid, oom_adj_score);
 
-end:
 	qmp_sphinx_logk_kernel_end(blck);
 }
 
