@@ -120,6 +120,7 @@ static DECLARE_RWSEM(server_list_lock_lha2);
 
 struct msm_ipc_server {
 	struct list_head list;
+	struct kref ref;
 	struct msm_ipc_port_name name;
 	char pdev_name[32];
 	int next_pdev_id;
@@ -1362,6 +1363,42 @@ static struct msm_ipc_server *msm_ipc_router_lookup_server(
 	return NULL;
 }
 
+/**
+ * ipc_router_get_server_ref() - Get reference to the server
+ * @svc: Service ID for which the reference is required.
+ * @ins: Instance ID for which the reference is required.
+ * @node_id: Node/Processor ID in which the server is hosted.
+ * @port_id: Port ID within the node in which the server is hosted.
+ *
+ * @return: If found return reference to server, else NULL.
+ */
+static struct msm_ipc_server *ipc_router_get_server_ref(
+	uint32_t svc, uint32_t ins, uint32_t node_id, uint32_t port_id)
+{
+	struct msm_ipc_server *server;
+
+	down_read(&server_list_lock_lha2);
+	server = msm_ipc_router_lookup_server(svc, ins, node_id, port_id);
+	if (server)
+		kref_get(&server->ref);
+	up_read(&server_list_lock_lha2);
+	return server;
+}
+
+/**
+ * ipc_router_release_server() - Cleanup and release the server
+ * @ref: Reference to the server.
+ *
+ * This function is called when all references to the server are released.
+ */
+static void ipc_router_release_server(struct kref *ref)
+{
+	struct msm_ipc_server *server =
+		container_of(ref, struct msm_ipc_server, ref);
+
+	kfree(server);
+}
+
 static void dummy_release(struct device *dev)
 {
 }
@@ -1379,7 +1416,6 @@ static void dummy_release(struct device *dev)
  * This function adds the server info to the hash table. If the same
  * server(i.e. <service_id:instance_id>) is hosted in different nodes,
  * they are maintained as list of "server_port" under "server" structure.
- * Note: Lock the server_list_lock_lha2 before accessing this function.
  */
 static struct msm_ipc_server *msm_ipc_router_create_server(
 					uint32_t service,
@@ -1392,14 +1428,21 @@ static struct msm_ipc_server *msm_ipc_router_create_server(
 	struct msm_ipc_server_port *server_port;
 	int key = (service & (SRV_HASH_SIZE - 1));
 
-	list_for_each_entry(server, &server_list[key], list) {
-		if ((server->name.service == service) &&
-		    (server->name.instance == instance))
-			goto create_srv_port;
+	down_write(&server_list_lock_lha2);
+	server = msm_ipc_router_lookup_server(service, instance, 0, 0);
+	if (server) {
+		list_for_each_entry(server_port, &server->server_port_list,
+				    list) {
+			if ((server_port->server_addr.node_id == node_id) &&
+			    (server_port->server_addr.port_id == port_id))
+				goto return_server;
+		}
+		goto create_srv_port;
 	}
 
 	server = kzalloc(sizeof(struct msm_ipc_server), GFP_KERNEL);
 	if (!server) {
+		up_write(&server_list_lock_lha2);
 		IPC_RTR_ERR("%s: Server allocation failed\n", __func__);
 		return NULL;
 	}
@@ -1407,6 +1450,7 @@ static struct msm_ipc_server *msm_ipc_router_create_server(
 	server->name.instance = instance;
 	server->synced_sec_rule = 0;
 	INIT_LIST_HEAD(&server->server_port_list);
+	kref_init(&server->ref);
 	list_add_tail(&server->list, &server_list[key]);
 	scnprintf(server->pdev_name, sizeof(server->pdev_name),
 		  "SVC%08x:%08x", service, instance);
@@ -1419,6 +1463,7 @@ create_srv_port:
 			list_del(&server->list);
 			kfree(server);
 		}
+		up_write(&server_list_lock_lha2);
 		IPC_RTR_ERR("%s: Server Port allocation failed\n", __func__);
 		return NULL;
 	}
@@ -1432,11 +1477,54 @@ create_srv_port:
 	server_port->pdev.dev.release = dummy_release;
 	platform_device_register(&server_port->pdev);
 
+return_server:
+	/* Add a reference so that the caller can put it back */
+	kref_get(&server->ref);
+	up_write(&server_list_lock_lha2);
 	return server;
 }
 
 /**
- * msm_ipc_router_destroy_server() - Remove server info from hash table
+ * ipc_router_destroy_server_nolock() - Remove server info from hash table
+ * @server: Server info to be removed.
+ * @node_id: Node/Processor ID in which the server is hosted.
+ * @port_id: Port ID within the node in which the server is hosted.
+ *
+ * This function removes the server_port identified using <node_id:port_id>
+ * from the server structure. If the server_port list under server structure
+ * is empty after removal, then remove the server structure from the server
+ * hash table. This function must be called with server_list_lock_lha2 locked.
+ */
+static void ipc_router_destroy_server_nolock(struct msm_ipc_server *server,
+					  uint32_t node_id, uint32_t port_id)
+{
+	struct msm_ipc_server_port *server_port;
+	bool server_port_found = false;
+
+	if (!server)
+		return;
+
+	list_for_each_entry(server_port, &server->server_port_list, list) {
+		if ((server_port->server_addr.node_id == node_id) &&
+		    (server_port->server_addr.port_id == port_id)) {
+			server_port_found = true;
+			break;
+		}
+	}
+	if (server_port_found && server_port) {
+		platform_device_unregister(&server_port->pdev);
+		list_del(&server_port->list);
+		kfree(server_port);
+	}
+	if (list_empty(&server->server_port_list)) {
+		list_del(&server->list);
+		kref_put(&server->ref, ipc_router_release_server);
+	}
+	return;
+}
+
+/**
+ * ipc_router_destroy_server() - Remove server info from hash table
  * @server: Server info to be removed.
  * @node_id: Node/Processor ID in which the server is hosted.
  * @port_id: Port ID within the node in which the server is hosted.
@@ -1445,30 +1533,13 @@ create_srv_port:
  * from the server structure. If the server_port list under server structure
  * is empty after removal, then remove the server structure from the server
  * hash table.
- * Note: Lock the server_list_lock_lha2 before accessing this function.
  */
-static void msm_ipc_router_destroy_server(struct msm_ipc_server *server,
-					  uint32_t node_id, uint32_t port_id)
+static void ipc_router_destroy_server(struct msm_ipc_server *server,
+				      uint32_t node_id, uint32_t port_id)
 {
-	struct msm_ipc_server_port *server_port;
-
-	if (!server)
-		return;
-
-	list_for_each_entry(server_port, &server->server_port_list, list) {
-		if ((server_port->server_addr.node_id == node_id) &&
-		    (server_port->server_addr.port_id == port_id))
-			break;
-	}
-	if (server_port) {
-		platform_device_unregister(&server_port->pdev);
-		list_del(&server_port->list);
-		kfree(server_port);
-	}
-	if (list_empty(&server->server_port_list)) {
-		list_del(&server->list);
-		kfree(server);
-	}
+	down_write(&server_list_lock_lha2);
+	ipc_router_destroy_server_nolock(server, node_id, port_id);
+	up_write(&server_list_lock_lha2);
 	return;
 }
 
@@ -1787,7 +1858,7 @@ static void cleanup_rmt_server(struct msm_ipc_router_xprt_info *xprt_info,
 	if (xprt_info)
 		relay_ctl_msg(xprt_info, &ctl);
 	broadcast_ctl_msg_locally(&ctl);
-	msm_ipc_router_destroy_server(server,
+	ipc_router_destroy_server_nolock(server,
 			rport_ptr->node_id, rport_ptr->port_id);
 }
 
@@ -2053,38 +2124,31 @@ static int process_new_server_msg(struct msm_ipc_router_xprt_info *xprt_info,
 	}
 	kref_put(&rt_entry->ref, ipc_router_release_rtentry);
 
-	/* If the service does not exist already in the database, create and
-	 * store the service info. Create a remote port structure in which
-	 * the service is hosted and cache the security rule for the service
-	 * in that remote port structure.
+	/* If the service already exists in the table, create_server returns
+	 * a reference to it.
 	 */
-	down_write(&server_list_lock_lha2);
-	server = msm_ipc_router_lookup_server(msg->srv.service,
-			msg->srv.instance, msg->srv.node_id, msg->srv.port_id);
-	if (!server) {
-		server = msm_ipc_router_create_server(
-				msg->srv.service, msg->srv.instance,
-				msg->srv.node_id, msg->srv.port_id, xprt_info);
-		if (!server) {
-			up_write(&server_list_lock_lha2);
-			IPC_RTR_ERR("%s: Server Create failed\n", __func__);
-			return -ENOMEM;
-		}
-
-		rport_ptr = ipc_router_create_rport(msg->srv.node_id,
+	rport_ptr = ipc_router_create_rport(msg->srv.node_id,
 				msg->srv.port_id, xprt_info);
-		if (!rport_ptr) {
-			up_write(&server_list_lock_lha2);
-			return -ENOMEM;
-		}
-		mutex_lock(&rport_ptr->rport_lock_lhb2);
-		rport_ptr->server = server;
-		mutex_unlock(&rport_ptr->rport_lock_lhb2);
-		rport_ptr->sec_rule = msm_ipc_get_security_rule(
-					msg->srv.service, msg->srv.instance);
+	if (!rport_ptr)
+		return -ENOMEM;
+
+	server = msm_ipc_router_create_server(
+			msg->srv.service, msg->srv.instance,
+			msg->srv.node_id, msg->srv.port_id, xprt_info);
+	if (!server) {
+		IPC_RTR_ERR("%s: Server %08x:%08x Create failed\n",
+			    __func__, msg->srv.service, msg->srv.instance);
 		kref_put(&rport_ptr->ref, ipc_router_release_rport);
+		ipc_router_destroy_rport(rport_ptr);
+		return -ENOMEM;
 	}
-	up_write(&server_list_lock_lha2);
+	mutex_lock(&rport_ptr->rport_lock_lhb2);
+	rport_ptr->server = server;
+	mutex_unlock(&rport_ptr->rport_lock_lhb2);
+	rport_ptr->sec_rule = msm_ipc_get_security_rule(
+					msg->srv.service, msg->srv.instance);
+	kref_put(&rport_ptr->ref, ipc_router_release_rport);
+	kref_put(&server->ref, ipc_router_release_server);
 
 	/* Relay the new server message to other subsystems that do not belong
 	 * to the cluster from which this message is received. Notify the
@@ -2103,9 +2167,8 @@ static int process_rmv_server_msg(struct msm_ipc_router_xprt_info *xprt_info,
 
 	RR("o REMOVE_SERVER service=%08x:%d\n",
 	    msg->srv.service, msg->srv.instance);
-	down_write(&server_list_lock_lha2);
-	server = msm_ipc_router_lookup_server(msg->srv.service,
-			msg->srv.instance, msg->srv.node_id, msg->srv.port_id);
+	server = ipc_router_get_server_ref(msg->srv.service, msg->srv.instance,
+					   msg->srv.node_id, msg->srv.port_id);
 	rport_ptr = ipc_router_get_rport_ref(msg->srv.node_id,
 					     msg->srv.port_id);
 	if (rport_ptr) {
@@ -2117,8 +2180,9 @@ static int process_rmv_server_msg(struct msm_ipc_router_xprt_info *xprt_info,
 	}
 
 	if (server) {
-		msm_ipc_router_destroy_server(server, msg->srv.node_id,
-					      msg->srv.port_id);
+		kref_put(&server->ref, ipc_router_release_server);
+		ipc_router_destroy_server(server, msg->srv.node_id,
+					  msg->srv.port_id);
 		/*
 		 * Relay the new server message to other subsystems that do not
 		 * belong to the cluster from which this message is received.
@@ -2127,7 +2191,6 @@ static int process_rmv_server_msg(struct msm_ipc_router_xprt_info *xprt_info,
 		relay_ctl_msg(xprt_info, msg);
 		post_control_ports(pkt);
 	}
-	up_write(&server_list_lock_lha2);
 	return 0;
 }
 
@@ -2138,7 +2201,6 @@ static int process_rmv_client_msg(struct msm_ipc_router_xprt_info *xprt_info,
 	struct msm_ipc_server *server;
 
 	RR("o REMOVE_CLIENT id=%d:%08x\n", msg->cli.node_id, msg->cli.port_id);
-	down_write(&server_list_lock_lha2);
 	rport_ptr = ipc_router_get_rport_ref(msg->cli.node_id,
 					     msg->cli.port_id);
 	if (rport_ptr) {
@@ -2146,12 +2208,13 @@ static int process_rmv_client_msg(struct msm_ipc_router_xprt_info *xprt_info,
 		server = rport_ptr->server;
 		rport_ptr->server = NULL;
 		mutex_unlock(&rport_ptr->rport_lock_lhb2);
+		down_write(&server_list_lock_lha2);
 		if (server)
 			cleanup_rmt_server(NULL, rport_ptr, server);
+		up_write(&server_list_lock_lha2);
 		kref_put(&rport_ptr->ref, ipc_router_release_rport);
 		ipc_router_destroy_rport(rport_ptr);
 	}
-	up_write(&server_list_lock_lha2);
 
 	relay_ctl_msg(xprt_info, msg);
 	post_control_ports(pkt);
@@ -2298,26 +2361,14 @@ int msm_ipc_router_register_server(struct msm_ipc_port *port_ptr,
 	if (name->addrtype != MSM_IPC_ADDR_NAME)
 		return -EINVAL;
 
-	down_write(&server_list_lock_lha2);
-	server = msm_ipc_router_lookup_server(name->addr.port_name.service,
-					      name->addr.port_name.instance,
-					      IPC_ROUTER_NID_LOCAL,
-					      port_ptr->this_port.port_id);
-	if (server) {
-		up_write(&server_list_lock_lha2);
-		IPC_RTR_ERR("%s: Server already present\n", __func__);
-		return -EINVAL;
-	}
-
 	server = msm_ipc_router_create_server(name->addr.port_name.service,
 					      name->addr.port_name.instance,
 					      IPC_ROUTER_NID_LOCAL,
 					      port_ptr->this_port.port_id,
 					      NULL);
 	if (!server) {
-		up_write(&server_list_lock_lha2);
 		IPC_RTR_ERR("%s: Server Creation failed\n", __func__);
-		return -EINVAL;
+		return -ENOMEM;
 	}
 
 	memset(&ctl, 0, sizeof(ctl));
@@ -2326,7 +2377,6 @@ int msm_ipc_router_register_server(struct msm_ipc_port *port_ptr,
 	ctl.srv.instance = server->name.instance;
 	ctl.srv.node_id = IPC_ROUTER_NID_LOCAL;
 	ctl.srv.port_id = port_ptr->this_port.port_id;
-	up_write(&server_list_lock_lha2);
 	broadcast_ctl_msg(&ctl);
 	mutex_lock(&port_ptr->port_lock_lhc3);
 	port_ptr->type = SERVER_PORT;
@@ -2334,6 +2384,7 @@ int msm_ipc_router_register_server(struct msm_ipc_port *port_ptr,
 	port_ptr->port_name.service = server->name.service;
 	port_ptr->port_name.instance = server->name.instance;
 	mutex_unlock(&port_ptr->port_lock_lhc3);
+	kref_put(&server->ref, ipc_router_release_server);
 	return 0;
 }
 
@@ -2358,13 +2409,11 @@ int msm_ipc_router_unregister_server(struct msm_ipc_port *port_ptr)
 		return -EINVAL;
 	}
 
-	down_write(&server_list_lock_lha2);
-	server = msm_ipc_router_lookup_server(port_ptr->port_name.service,
-					      port_ptr->port_name.instance,
-					      port_ptr->this_port.node_id,
-					      port_ptr->this_port.port_id);
+	server = ipc_router_get_server_ref(port_ptr->port_name.service,
+					   port_ptr->port_name.instance,
+					   port_ptr->this_port.node_id,
+					   port_ptr->this_port.port_id);
 	if (!server) {
-		up_write(&server_list_lock_lha2);
 		IPC_RTR_ERR("%s: Server lookup failed\n", __func__);
 		return -ENODEV;
 	}
@@ -2375,9 +2424,9 @@ int msm_ipc_router_unregister_server(struct msm_ipc_port *port_ptr)
 	ctl.srv.instance = server->name.instance;
 	ctl.srv.node_id = IPC_ROUTER_NID_LOCAL;
 	ctl.srv.port_id = port_ptr->this_port.port_id;
-	msm_ipc_router_destroy_server(server, port_ptr->this_port.node_id,
-				      port_ptr->this_port.port_id);
-	up_write(&server_list_lock_lha2);
+	kref_put(&server->ref, ipc_router_release_server);
+	ipc_router_destroy_server(server, port_ptr->this_port.node_id,
+				  port_ptr->this_port.port_id);
 	broadcast_ctl_msg(&ctl);
 	mutex_lock(&port_ptr->port_lock_lhc3);
 	port_ptr->type = CLIENT_PORT;
@@ -2572,13 +2621,11 @@ int msm_ipc_router_send_to(struct msm_ipc_port *src,
 		dst_node_id = dest->addr.port_addr.node_id;
 		dst_port_id = dest->addr.port_addr.port_id;
 	} else if (dest->addrtype == MSM_IPC_ADDR_NAME) {
-		down_read(&server_list_lock_lha2);
-		server = msm_ipc_router_lookup_server(
+		server = ipc_router_get_server_ref(
 					dest->addr.port_name.service,
 					dest->addr.port_name.instance,
 					0, 0);
 		if (!server) {
-			up_read(&server_list_lock_lha2);
 			IPC_RTR_ERR("%s: Destination not reachable\n",
 								__func__);
 			return -ENODEV;
@@ -2588,7 +2635,7 @@ int msm_ipc_router_send_to(struct msm_ipc_port *src,
 					       list);
 		dst_node_id = server_port->server_addr.node_id;
 		dst_port_id = server_port->server_addr.port_id;
-		up_read(&server_list_lock_lha2);
+		kref_put(&server->ref, ipc_router_release_server);
 	}
 	if (dst_node_id == IPC_ROUTER_NID_LOCAL) {
 		ret = loopback_data(src, dst_port_id, data);
@@ -2939,17 +2986,17 @@ int msm_ipc_router_close_port(struct msm_ipc_port *port_ptr)
 	}
 
 	if (port_ptr->type == SERVER_PORT) {
-		down_write(&server_list_lock_lha2);
-		server = msm_ipc_router_lookup_server(
+		server = ipc_router_get_server_ref(
 				port_ptr->port_name.service,
 				port_ptr->port_name.instance,
 				port_ptr->this_port.node_id,
 				port_ptr->this_port.port_id);
-		if (server)
-			msm_ipc_router_destroy_server(server,
+		if (server) {
+			kref_put(&server->ref, ipc_router_release_server);
+			ipc_router_destroy_server(server,
 				port_ptr->this_port.node_id,
 				port_ptr->this_port.port_id);
-		up_write(&server_list_lock_lha2);
+		}
 	}
 
 	kref_put(&port_ptr->ref, ipc_router_release_port);
