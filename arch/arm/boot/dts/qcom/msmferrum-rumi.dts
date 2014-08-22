@@ -32,3 +32,11 @@
 	pinctrl-names = "default";
 	pinctrl-0 = <&uart_console_sleep>;
 };
+
+&pmferrum_mpps {
+	status = "disabled";
+};
+
+&pmferrum_gpios {
+	status = "disabled";
+};
