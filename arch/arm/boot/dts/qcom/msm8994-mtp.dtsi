@@ -433,7 +433,7 @@
 			"AIF4 VI", "MCLK",
 			"RX_BIAS", "MCLK",
 			"LDO_H", "MCLK",
-			"AIF4 MAD", "MCLK",
+			"MADINPUT", "MCLK",
 			"ultrasound amp", "LINEOUT1",
 			"ultrasound amp", "LINEOUT3",
 			"AMIC1", "MIC BIAS1 Internal1",
