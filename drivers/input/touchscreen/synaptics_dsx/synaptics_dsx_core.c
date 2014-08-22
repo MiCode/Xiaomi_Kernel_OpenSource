@@ -3916,7 +3916,6 @@ static int synaptics_rmi4_resume(struct device *dev)
 	}
 
 	synaptics_rmi4_sensor_wake(rmi4_data);
-	synaptics_rmi4_irq_enable(rmi4_data, true);
 	retval = synaptics_rmi4_reinit_device(rmi4_data);
 	if (retval < 0) {
 		dev_err(rmi4_data->pdev->dev.parent,
@@ -3935,6 +3934,8 @@ static int synaptics_rmi4_resume(struct device *dev)
 
 	rmi4_data->touch_stopped = false;
 	rmi4_data->suspended = false;
+
+	synaptics_rmi4_irq_enable(rmi4_data, true);
 
 	return 0;
 }
