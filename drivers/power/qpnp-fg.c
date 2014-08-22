@@ -226,6 +226,7 @@ struct fg_chip {
 	struct delayed_work	update_sram_data;
 	char			*batt_profile;
 	unsigned int		batt_profile_len;
+	const char		*batt_type;
 };
 
 /* FG_MEMIF DEBUGFS structures */
@@ -237,6 +238,7 @@ struct fg_chip {
 
 static const char *DFS_ROOT_NAME	= "fg_memif";
 static const mode_t DFS_MODE = S_IRUSR | S_IWUSR;
+static const char *default_batt_type	= "Unknown Battery";
 
 /* Log buffer */
 struct fg_log_buffer {
@@ -934,6 +936,7 @@ static enum power_supply_property fg_power_props[] = {
 	POWER_SUPPLY_PROP_WARM_TEMP,
 	POWER_SUPPLY_PROP_RESISTANCE,
 	POWER_SUPPLY_PROP_RESISTANCE_ID,
+	POWER_SUPPLY_PROP_BATTERY_TYPE,
 };
 
 static int fg_power_get_property(struct power_supply *psy,
@@ -943,6 +946,9 @@ static int fg_power_get_property(struct power_supply *psy,
 	struct fg_chip *chip = container_of(psy, struct fg_chip, bms_psy);
 
 	switch (psp) {
+	case POWER_SUPPLY_PROP_BATTERY_TYPE:
+		val->strval = chip->batt_type;
+		break;
 	case POWER_SUPPLY_PROP_CAPACITY:
 		val->intval = get_prop_capacity(chip);
 		break;
@@ -1180,6 +1186,16 @@ wait:
 	data = of_get_property(profile_node, "qcom,fg-profile-data", &len);
 	if (!data) {
 		pr_err("no battery profile loaded\n");
+		return 0;
+	}
+
+	chip->batt_profile = devm_kzalloc(chip->dev,
+			sizeof(char) * len, GFP_KERNEL);
+
+	rc = of_property_read_string(profile_node, "qcom,battery-type",
+					&chip->batt_type);
+	if (rc) {
+		pr_err("Could not find battery data type: %d\n", rc);
 		return 0;
 	}
 
@@ -1901,6 +1917,8 @@ static int fg_probe(struct spmi_device *spmi)
 		pr_err("failed to parse devicetree rc%d\n", rc);
 		goto of_init_fail;
 	}
+
+	chip->batt_type = default_batt_type;
 
 	chip->bms_psy.name = "bms";
 	chip->bms_psy.type = POWER_SUPPLY_TYPE_BMS;
