@@ -531,6 +531,37 @@ done:
 	return ret;
 }
 
+static int msm_voice_cvd_version_info(struct snd_kcontrol *kcontrol,
+				      struct snd_ctl_elem_info *uinfo)
+{
+	int ret = 0;
+
+	pr_debug("%s:\n", __func__);
+
+	uinfo->type = SNDRV_CTL_ELEM_TYPE_BYTES;
+	uinfo->count = CVD_VERSION_STRING_MAX_SIZE;
+
+	return ret;
+}
+
+static int msm_voice_cvd_version_get(struct snd_kcontrol *kcontrol,
+				     struct snd_ctl_elem_value *ucontrol)
+{
+	char cvd_version[CVD_VERSION_STRING_MAX_SIZE] = CVD_VERSION_DEFAULT;
+	int ret;
+
+	pr_debug("%s:\n", __func__);
+
+	ret = voc_get_cvd_version(cvd_version);
+
+	if (ret)
+		pr_err("%s: Error retrieving CVD version, error:%d\n",
+			__func__, ret);
+
+	memcpy(ucontrol->value.bytes.data, cvd_version, sizeof(cvd_version));
+
+	return 0;
+}
 static struct snd_kcontrol_new msm_voice_controls[] = {
 	SOC_SINGLE_MULTI_EXT("Voice Rx Device Mute", SND_SOC_NOPM, 0, VSID_MAX,
 				0, 3, NULL, msm_voice_rx_device_mute_put),
@@ -547,6 +578,13 @@ static struct snd_kcontrol_new msm_voice_controls[] = {
 	SOC_SINGLE_MULTI_EXT("Voice Topology Disable", SND_SOC_NOPM, 0,
 			     VSID_MAX, 0, 2, NULL,
 			     msm_voice_topology_disable_put),
+	{
+		.access = SNDRV_CTL_ELEM_ACCESS_READ,
+		.iface	= SNDRV_CTL_ELEM_IFACE_MIXER,
+		.name	= "CVD Version",
+		.info	= msm_voice_cvd_version_info,
+		.get	= msm_voice_cvd_version_get,
+	},
 };
 
 static struct snd_pcm_ops msm_pcm_ops = {

@@ -2186,8 +2186,12 @@ static int voice_send_cvs_register_cal_cmd(struct voice_data *v)
 				voice_get_idx_for_session(v->session_id);
 	cvs_reg_cal_cmd.hdr.dest_port = voice_get_cvs_handle(v);
 	cvs_reg_cal_cmd.hdr.token = 0;
-	cvs_reg_cal_cmd.hdr.opcode =
-				VSS_ISTREAM_CMD_REGISTER_CALIBRATION_DATA_V2;
+	if (common.is_per_vocoder_cal_enabled)
+		cvs_reg_cal_cmd.hdr.opcode =
+			VSS_ISTREAM_CMD_REGISTER_STATIC_CALIBRATION_DATA;
+	else
+		cvs_reg_cal_cmd.hdr.opcode =
+			VSS_ISTREAM_CMD_REGISTER_CALIBRATION_DATA_V2;
 
 	cvs_reg_cal_cmd.cvs_cal_data.cal_mem_handle =
 		cal_block->map_data.q6map_handle;
@@ -2248,8 +2252,12 @@ static int voice_send_cvs_deregister_cal_cmd(struct voice_data *v)
 				voice_get_idx_for_session(v->session_id);
 	cvs_dereg_cal_cmd.hdr.dest_port = voice_get_cvs_handle(v);
 	cvs_dereg_cal_cmd.hdr.token = 0;
-	cvs_dereg_cal_cmd.hdr.opcode =
-				VSS_ISTREAM_CMD_DEREGISTER_CALIBRATION_DATA;
+	if (common.is_per_vocoder_cal_enabled)
+		cvs_dereg_cal_cmd.hdr.opcode =
+			VSS_ISTREAM_CMD_DEREGISTER_STATIC_CALIBRATION_DATA;
+	else
+		cvs_dereg_cal_cmd.hdr.opcode =
+			VSS_ISTREAM_CMD_DEREGISTER_CALIBRATION_DATA;
 
 	v->cvs_state = CMD_STATUS_FAIL;
 	ret = apr_send_pkt(common.apr_q6_cvs, (uint32_t *) &cvs_dereg_cal_cmd);
@@ -2444,8 +2452,12 @@ static int voice_send_cvp_register_cal_cmd(struct voice_data *v)
 				voice_get_idx_for_session(v->session_id);
 	cvp_reg_cal_cmd.hdr.dest_port = voice_get_cvp_handle(v);
 	cvp_reg_cal_cmd.hdr.token = 0;
-	cvp_reg_cal_cmd.hdr.opcode =
-				VSS_IVOCPROC_CMD_REGISTER_CALIBRATION_DATA_V2;
+	if (common.is_per_vocoder_cal_enabled)
+		cvp_reg_cal_cmd.hdr.opcode =
+			VSS_IVOCPROC_CMD_REGISTER_STATIC_CALIBRATION_DATA;
+	else
+		cvp_reg_cal_cmd.hdr.opcode =
+			VSS_IVOCPROC_CMD_REGISTER_CALIBRATION_DATA_V2;
 
 	cvp_reg_cal_cmd.cvp_cal_data.cal_mem_handle =
 		cal_block->map_data.q6map_handle;
@@ -2506,8 +2518,12 @@ static int voice_send_cvp_deregister_cal_cmd(struct voice_data *v)
 				voice_get_idx_for_session(v->session_id);
 	cvp_dereg_cal_cmd.hdr.dest_port = voice_get_cvp_handle(v);
 	cvp_dereg_cal_cmd.hdr.token = 0;
-	cvp_dereg_cal_cmd.hdr.opcode =
-				VSS_IVOCPROC_CMD_DEREGISTER_CALIBRATION_DATA;
+	if (common.is_per_vocoder_cal_enabled)
+		cvp_dereg_cal_cmd.hdr.opcode =
+			VSS_IVOCPROC_CMD_DEREGISTER_STATIC_CALIBRATION_DATA;
+	else
+		cvp_dereg_cal_cmd.hdr.opcode =
+			VSS_IVOCPROC_CMD_DEREGISTER_CALIBRATION_DATA;
 
 	v->cvp_state = CMD_STATUS_FAIL;
 	ret = apr_send_pkt(common.apr_q6_cvp, (uint32_t *) &cvp_dereg_cal_cmd);
@@ -2574,7 +2590,11 @@ static int voice_send_cvp_register_vol_cal_cmd(struct voice_data *v)
 				voice_get_idx_for_session(v->session_id);
 	cvp_reg_vol_cal_cmd.hdr.dest_port = voice_get_cvp_handle(v);
 	cvp_reg_vol_cal_cmd.hdr.token = 0;
-	cvp_reg_vol_cal_cmd.hdr.opcode =
+	if (common.is_per_vocoder_cal_enabled)
+		cvp_reg_vol_cal_cmd.hdr.opcode =
+			VSS_IVOCPROC_CMD_REGISTER_DYNAMIC_CALIBRATION_DATA;
+	else
+		cvp_reg_vol_cal_cmd.hdr.opcode =
 			VSS_IVOCPROC_CMD_REGISTER_VOL_CALIBRATION_DATA;
 
 	cvp_reg_vol_cal_cmd.cvp_vol_cal_data.cal_mem_handle =
@@ -2638,7 +2658,11 @@ static int voice_send_cvp_deregister_vol_cal_cmd(struct voice_data *v)
 				voice_get_idx_for_session(v->session_id);
 	cvp_dereg_vol_cal_cmd.hdr.dest_port = voice_get_cvp_handle(v);
 	cvp_dereg_vol_cal_cmd.hdr.token = 0;
-	cvp_dereg_vol_cal_cmd.hdr.opcode =
+	if (common.is_per_vocoder_cal_enabled)
+		cvp_dereg_vol_cal_cmd.hdr.opcode =
+			VSS_IVOCPROC_CMD_DEREGISTER_DYNAMIC_CALIBRATION_DATA;
+	else
+		cvp_dereg_vol_cal_cmd.hdr.opcode =
 			VSS_IVOCPROC_CMD_DEREGISTER_VOL_CALIBRATION_DATA;
 
 	v->cvp_state = CMD_STATUS_FAIL;
@@ -5459,6 +5483,7 @@ static int32_t qdsp_mvm_callback(struct apr_client_data *data, void *priv)
 	struct common_data *c = NULL;
 	struct voice_data *v = NULL;
 	int i = 0;
+	struct vss_iversion_rsp_get_t *version_rsp = NULL;
 
 	if ((data == NULL) || (priv == NULL)) {
 		pr_err("%s: data or priv is NULL\n", __func__);
@@ -5559,6 +5584,18 @@ static int32_t qdsp_mvm_callback(struct apr_client_data *data, void *priv)
 				v->mvm_state = CMD_STATUS_SUCCESS;
 				wake_up(&v->mvm_wait);
 				break;
+			case VSS_IVERSION_CMD_GET:
+				pr_debug("%s: Error retrieving CVD Version, error:%d\n",
+					 __func__, ptr[1]);
+
+				strlcpy(common.cvd_version, CVD_VERSION_0_0,
+					sizeof(common.cvd_version));
+				pr_debug("%s: Fall back to default value, CVD Version = %s\n",
+					 __func__, common.cvd_version);
+
+				v->mvm_state = CMD_STATUS_SUCCESS;
+				wake_up(&v->mvm_wait);
+				break;
 			default:
 				pr_debug("%s: not match cmd = 0x%x\n",
 					__func__, ptr[0]);
@@ -5616,6 +5653,20 @@ static int32_t qdsp_mvm_callback(struct apr_client_data *data, void *priv)
 		} else {
 			pr_err("%s: Unknown mem map token %d\n",
 			       __func__, data->token);
+		}
+	} else if (data->opcode == VSS_IVERSION_RSP_GET) {
+		pr_debug("%s: Received VSS_IVERSION_RSP_GET\n", __func__);
+
+		if (data->payload_size) {
+			version_rsp =
+				(struct vss_iversion_rsp_get_t *)data->payload;
+			memcpy(common.cvd_version, version_rsp->version,
+			       CVD_VERSION_STRING_MAX_SIZE);
+			pr_debug("%s: CVD Version = %s\n",
+				 __func__, common.cvd_version);
+
+			v->mvm_state = CMD_STATUS_SUCCESS;
+			wake_up(&v->mvm_wait);
 		}
 	}
 	return 0;
@@ -5700,6 +5751,8 @@ static int32_t qdsp_cvs_callback(struct apr_client_data *data, void *priv)
 			case APRV2_IBASIC_CMD_DESTROY_SESSION:
 			case VSS_ISTREAM_CMD_REGISTER_CALIBRATION_DATA_V2:
 			case VSS_ISTREAM_CMD_DEREGISTER_CALIBRATION_DATA:
+			case VSS_ISTREAM_CMD_REGISTER_STATIC_CALIBRATION_DATA:
+			case VSS_ISTREAM_CMD_DEREGISTER_STATIC_CALIBRATION_DATA:
 			case VSS_ICOMMON_CMD_MAP_MEMORY:
 			case VSS_ICOMMON_CMD_UNMAP_MEMORY:
 			case VSS_ICOMMON_CMD_SET_UI_PROPERTY:
@@ -5963,6 +6016,10 @@ static int32_t qdsp_cvp_callback(struct apr_client_data *data, void *priv)
 			case VSS_IVOCPROC_CMD_DEREGISTER_VOL_CALIBRATION_DATA:
 			case VSS_IVOCPROC_CMD_REGISTER_CALIBRATION_DATA_V2:
 			case VSS_IVOCPROC_CMD_DEREGISTER_CALIBRATION_DATA:
+			case VSS_IVOCPROC_CMD_REGISTER_DYNAMIC_CALIBRATION_DATA:
+		    case VSS_IVOCPROC_CMD_DEREGISTER_DYNAMIC_CALIBRATION_DATA:
+			case VSS_IVOCPROC_CMD_REGISTER_STATIC_CALIBRATION_DATA:
+		    case VSS_IVOCPROC_CMD_DEREGISTER_STATIC_CALIBRATION_DATA:
 			case VSS_IVOCPROC_CMD_REGISTER_DEVICE_CONFIG:
 			case VSS_IVOCPROC_CMD_DEREGISTER_DEVICE_CONFIG:
 			case VSS_ICOMMON_CMD_MAP_MEMORY:
@@ -6380,6 +6437,108 @@ void voc_deregister_hpcm_evt_cb(void)
 	common.hostpcm_info.private_data = NULL;
 }
 
+int voc_get_cvd_version(char *cvd_version)
+{
+	int ret = 0;
+	struct apr_hdr cvd_version_get_cmd;
+	struct voice_data *v = voice_get_session(VOICE_SESSION_VSID);
+	void *apr_handle_mvm = NULL;
+
+	if (strcmp(common.cvd_version, CVD_VERSION_DEFAULT)) {
+		pr_debug("%s: Already attempted querying CVD version, return the cached value %s\n",
+			 __func__, common.cvd_version);
+
+		memcpy(cvd_version, common.cvd_version,
+			CVD_VERSION_STRING_MAX_SIZE);
+		goto done;
+	}
+
+	if (v == NULL) {
+		pr_err("%s: invalid session_id 0x%x\n",
+		       __func__, VOICE_SESSION_VSID);
+
+		ret = -EINVAL;
+		goto done;
+	}
+
+	mutex_lock(&common.common_lock);
+	mutex_lock(&v->lock);
+
+	/* Register callback to APR */
+	if (apr_handle_mvm == NULL) {
+		pr_debug("%s: Register MVM callback\n", __func__);
+
+		apr_handle_mvm = apr_register("ADSP", "MVM",
+					      qdsp_mvm_callback,
+					      0xFFFFFFFF, &common);
+
+		if (apr_handle_mvm == NULL) {
+			pr_err("%s: Unable to register MVM\n", __func__);
+
+			strlcpy(common.cvd_version, CVD_VERSION_0_0,
+				sizeof(common.cvd_version));
+			ret = -EINVAL;
+			goto unlock;
+		}
+	}
+
+	/* Send command to CVD to retrive Version */
+	cvd_version_get_cmd.hdr_field = APR_HDR_FIELD(
+				APR_MSG_TYPE_SEQ_CMD,
+				APR_HDR_LEN(APR_HDR_SIZE),
+				APR_PKT_VER);
+	cvd_version_get_cmd.pkt_size = APR_PKT_SIZE(
+				APR_HDR_SIZE,
+				sizeof(cvd_version_get_cmd) -
+				APR_HDR_SIZE);
+	cvd_version_get_cmd.src_port =
+		voice_get_idx_for_session(v->session_id);
+	cvd_version_get_cmd.dest_port = 0;
+	cvd_version_get_cmd.token = 0;
+	cvd_version_get_cmd.opcode = VSS_IVERSION_CMD_GET;
+	v->mvm_state = CMD_STATUS_FAIL;
+
+	pr_debug("%s: send CVD version get cmd, pkt size = %d\n",
+		 __func__, cvd_version_get_cmd.pkt_size);
+
+	ret = apr_send_pkt(apr_handle_mvm,
+			   (uint32_t *) &cvd_version_get_cmd);
+	if (ret < 0) {
+		pr_err("%s: Error sending command, fall back to default\n",
+			__func__);
+
+		strlcpy(common.cvd_version, CVD_VERSION_0_0,
+			sizeof(common.cvd_version));
+		goto unlock;
+	}
+	ret = wait_event_timeout(v->mvm_wait,
+			(v->mvm_state == CMD_STATUS_SUCCESS),
+			msecs_to_jiffies(TIMEOUT_MS));
+	if (!ret) {
+		pr_err("%s: wait_event timeout, fall back to default\n",
+			__func__);
+
+		strlcpy(common.cvd_version, CVD_VERSION_0_0,
+			sizeof(common.cvd_version));
+		ret = -EINVAL;
+		goto unlock;
+	}
+	pr_debug("%s: CVD Version retrieved=%s\n",
+		 __func__, common.cvd_version);
+
+	ret = 0;
+unlock:
+	if (apr_handle_mvm != NULL) {
+		apr_deregister(apr_handle_mvm);
+		apr_handle_mvm = NULL;
+	}
+	memcpy(cvd_version, common.cvd_version, CVD_VERSION_STRING_MAX_SIZE);
+	mutex_unlock(&v->lock);
+	mutex_unlock(&common.common_lock);
+done:
+	return ret;
+}
+
 static int voice_alloc_cal_mem_map_table(void)
 {
 	int ret = 0;
@@ -6575,7 +6734,13 @@ static int voice_alloc_cal(int32_t cal_type,
 {
 	int ret = 0;
 	int cal_index;
+	int cal_version;
+
 	pr_debug("%s\n", __func__);
+
+	cal_version = cal_utils_get_cal_type_version(data);
+	common.is_per_vocoder_cal_enabled =
+			!!(cal_version & PER_VOCODER_CAL_BIT_MASK);
 
 	cal_index = get_cal_type_index(cal_type);
 	if (cal_index < 0) {
@@ -6763,6 +6928,12 @@ static int __init voice_init(void)
 
 	/* Initialize is low memory flag */
 	common.is_destroy_cvd = false;
+
+	/* Initialize CVD version */
+	strlcpy(common.cvd_version, CVD_VERSION_DEFAULT,
+		sizeof(common.cvd_version));
+	/* Initialize Per-Vocoder Calibration flag */
+	common.is_per_vocoder_cal_enabled = false;
 
 	mutex_init(&common.common_lock);
 
