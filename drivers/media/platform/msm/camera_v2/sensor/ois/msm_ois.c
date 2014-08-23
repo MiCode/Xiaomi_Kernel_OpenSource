@@ -544,6 +544,64 @@ static int msm_ois_init(struct msm_ois_ctrl_t *o_ctrl)
 	return rc;
 }
 
+static int32_t msm_ois_control(struct msm_ois_ctrl_t *o_ctrl,
+	struct msm_ois_set_info_t *set_info)
+{
+	struct reg_settings_ois_t *settings = NULL;
+	int32_t rc = 0;
+	struct msm_camera_cci_client *cci_client = NULL;
+	CDBG("Enter\n");
+
+	if (o_ctrl->ois_device_type == MSM_CAMERA_PLATFORM_DEVICE) {
+		cci_client = o_ctrl->i2c_client.cci_client;
+		cci_client->sid =
+			set_info->ois_params.i2c_addr >> 1;
+		cci_client->retries = 3;
+		cci_client->id_map = 0;
+		cci_client->cci_i2c_master = o_ctrl->cci_master;
+	} else {
+		o_ctrl->i2c_client.client->addr =
+			set_info->ois_params.i2c_addr;
+	}
+	o_ctrl->i2c_client.addr_type = MSM_CAMERA_I2C_WORD_ADDR;
+
+
+	if (set_info->ois_params.setting_size > 0 &&
+		set_info->ois_params.setting_size
+		< MAX_OIS_REG_SETTINGS) {
+		settings = kmalloc(
+			sizeof(struct reg_settings_ois_t) *
+			(set_info->ois_params.setting_size),
+			GFP_KERNEL);
+		if (settings == NULL) {
+			pr_err("Error allocating memory\n");
+			return -EFAULT;
+		}
+		if (copy_from_user(settings,
+			(void *)set_info->ois_params.settings,
+			set_info->ois_params.setting_size *
+			sizeof(struct reg_settings_ois_t))) {
+			kfree(settings);
+			pr_err("Error copying\n");
+			return -EFAULT;
+		}
+
+		rc = msm_ois_write_settings(o_ctrl,
+			set_info->ois_params.setting_size,
+			settings);
+		kfree(settings);
+		if (rc < 0) {
+			pr_err("Error\n");
+			return -EFAULT;
+		}
+	}
+
+	CDBG("Exit\n");
+
+	return rc;
+}
+
+
 static int32_t msm_ois_config(struct msm_ois_ctrl_t *o_ctrl,
 	void __user *argp)
 {
@@ -610,6 +668,11 @@ static int32_t msm_ois_config(struct msm_ois_ctrl_t *o_ctrl,
 		rc = msm_ois_power_up(o_ctrl);
 		if (rc < 0)
 			pr_err("Failed ois power up%d\n", rc);
+		break;
+	case CFG_OIS_CONTROL:
+		rc = msm_ois_control(o_ctrl, &cdata->cfg.set_info);
+		if (rc < 0)
+			pr_err("Failed ois control%d\n", rc);
 		break;
 	case CFG_OIS_I2C_WRITE_SEQ_TABLE: {
 		struct msm_camera_i2c_seq_reg_setting conf_array;
@@ -895,6 +958,7 @@ static long msm_ois_subdev_do_ioctl(
 		case CFG_OIS_SET_STILL_MODE:
 		case CFG_OIS_SET_CENTERING_ON:
 		case CFG_OIS_SET_PANTILT_ON:
+		case CFG_OIS_CONTROL:
 			ois_data.cfg.enable_centering_ois =
 				u32->cfg.enable_centering_ois;
 			ois_data.cfg.set_info.ois_params.data_size =
@@ -928,6 +992,8 @@ static long msm_ois_subdev_do_ioctl(
 				pantilt_on_ois_setting_size =
 				u32->cfg.set_info.ois_params.
 				pantilt_on_ois_setting_size;
+			ois_data.cfg.set_info.ois_params.setting_size =
+				u32->cfg.set_info.ois_params.setting_size;
 			ois_data.cfg.set_info.ois_params.i2c_addr =
 				u32->cfg.set_info.ois_params.i2c_addr;
 			ois_data.cfg.set_info.ois_params.i2c_addr_type =
@@ -963,6 +1029,9 @@ static long msm_ois_subdev_do_ioctl(
 				pantilt_on_ois_settings =
 				compat_ptr(u32->cfg.set_info.ois_params.
 				pantilt_on_ois_settings);
+			ois_data.cfg.set_info.ois_params.settings =
+				compat_ptr(u32->cfg.set_info.ois_params.
+				settings);
 			parg = &ois_data;
 			break;
 		case CFG_OIS_I2C_WRITE_SEQ_TABLE:
