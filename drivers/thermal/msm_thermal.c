@@ -1779,9 +1779,18 @@ static void vdd_mx_notify(struct therm_threshold *trig_thresh)
 
 static void msm_thermal_bite(int tsens_id, long temp)
 {
+	struct scm_desc desc;
+
 	pr_err("TSENS:%d reached temperature:%ld. System reset\n",
 		tsens_id, temp);
-	scm_call_atomic1(SCM_SVC_BOOT, THERM_SECURE_BITE_CMD, 0);
+	if (!is_scm_armv8()) {
+		scm_call_atomic1(SCM_SVC_BOOT, THERM_SECURE_BITE_CMD, 0);
+	} else {
+		desc.args[0] = 0;
+		desc.arginfo = SCM_ARGS(1);
+		scm_call2_atomic(SCM_SIP_FNID(SCM_SVC_BOOT,
+				 THERM_SECURE_BITE_CMD), &desc);
+	}
 }
 
 static int do_therm_reset(void)
