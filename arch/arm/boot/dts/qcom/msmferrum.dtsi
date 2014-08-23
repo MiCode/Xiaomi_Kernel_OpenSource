@@ -648,6 +648,36 @@
 		qcom,master-id = <86>;
 	};
 
+	qcom,venus@1de0000 {
+		compatible = "qcom,pil-tz-generic";
+		reg = <0x1de0000 0x4000>;
+
+		vdd-supply = <&gdsc_venus>;
+		qcom,proxy-reg-names = "vdd";
+
+		clocks = <&clock_gcc clk_gcc_venus0_vcodec0_clk>,
+			 <&clock_gcc clk_gcc_venus0_ahb_clk>,
+			 <&clock_gcc clk_gcc_venus0_axi_clk>,
+			 <&clock_gcc clk_gcc_crypto_clk>,
+			 <&clock_gcc clk_gcc_crypto_ahb_clk>,
+			 <&clock_gcc clk_gcc_crypto_axi_clk>,
+			 <&clock_gcc clk_crypto_clk_src>;
+
+		clock-names = "core_clk", "iface_clk", "bus_clk",
+				"scm_core_clk", "scm_iface_clk",
+				"scm_bus_clk", "scm_core_clk_src";
+
+		qcom,proxy-clock-names = "core_clk", "iface_clk",
+					 "bus_clk", "scm_core_clk",
+					 "scm_iface_clk", "scm_bus_clk",
+					 "scm_core_clk_src";
+		qcom,scm_core_clk_src-freq = <80000000>;
+
+		qcom,pas-id = <9>;
+		qcom,proxy-timeout-ms = <5000>;
+		qcom,firmware-name = "venus";
+		linux,contiguous-region = <&venus_qseecom_mem>;
+	};
 
 
 };
