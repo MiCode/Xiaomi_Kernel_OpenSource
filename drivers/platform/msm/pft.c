@@ -62,6 +62,7 @@
 #include <linux/bitops.h>
 #include <linux/fdtable.h>
 #include <linux/selinux.h>
+#include <linux/security.h>
 
 #include <linux/pft.h>
 #include <uapi/linux/msm_pft.h>
@@ -163,6 +164,65 @@ struct pft_device {
 static struct pft_device *pft_dev;
 
 static struct inode *pft_bio_get_inode(struct bio *bio);
+
+static int pft_inode_alloc_security(struct inode *inode)
+{
+	struct inode_security_struct *i_sec = NULL;
+
+	i_sec = kzalloc(sizeof(*i_sec), GFP_KERNEL);
+
+	if (i_sec == NULL) {
+		pr_err("i_security malloc failure\n");
+		return -ENOMEM;
+	}
+	inode->i_security = i_sec;
+
+	return 0;
+}
+
+static void pft_inode_free_security(struct inode *inode)
+{
+	kzfree(inode->i_security);
+}
+
+static struct security_operations pft_security_ops = {
+	.name			= "pft",
+
+	.inode_create		= pft_inode_create,
+	.inode_post_create	= pft_inode_post_create,
+	.inode_unlink		= pft_inode_unlink,
+	.inode_mknod		= pft_inode_mknod,
+	.inode_rename		= pft_inode_rename,
+	.inode_setxattr		= pft_inode_set_xattr,
+	.inode_alloc_security	= pft_inode_alloc_security,
+	.inode_free_security	= pft_inode_free_security,
+
+	.file_open		= pft_file_open,
+	.file_permission	= pft_file_permission,
+	.file_close		= pft_file_close,
+};
+
+static int __init pft_lsm_init(void)
+{
+	int ret;
+
+	/* Check if PFT is the chosen lsm via security_module_enable() */
+	if (security_module_enable(&pft_security_ops)) {
+		/* replace null callbacks with empty callbacks */
+		security_fixup_ops(&pft_security_ops);
+
+		ret = register_security(&pft_security_ops);
+		if (ret) {
+			pr_err("pft lsm registeration failed, ret=%d.\n", ret);
+			return 0;
+		}
+		pr_debug("pft is the chosen lsm, registered sucessfully !\n");
+	} else {
+		pr_debug("pft is not the chosen lsm.\n");
+	}
+
+	return 0;
+}
 
 /**
  * pft_is_ready() - driver is initialized and ready.
@@ -1188,7 +1248,9 @@ EXPORT_SYMBOL(pft_inode_unlink);
  *
  * Return: 0 on successful operation, negative value otherwise.
  */
-int pft_inode_set_xattr(struct dentry *dentry, const char *name)
+
+int pft_inode_set_xattr(struct dentry *dentry, const char *name,
+			const void *value, size_t size, int flags)
 {
 	struct inode *inode = NULL;
 
@@ -1752,6 +1814,8 @@ static int __init pft_init(void)
 		pr_err("create character device failed.\n");
 		goto fail;
 	}
+
+	pft_lsm_init();
 
 	pr_info("Drivr initialized successfully %s %s.n", __DATE__, __TIME__);
 
