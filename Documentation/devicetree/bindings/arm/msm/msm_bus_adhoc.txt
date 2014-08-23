@@ -86,6 +86,8 @@ qcom,prio-wr:		Write priority for a BIMC bus master (Can be 0/1/2)
 qcom,prio0:		Priority low signal for a NoC bus master
 			(Can be 0/1/2).
 qcom,prio1:		Priority high signal for a NoC bus master
+qcom,bw_buffer:		Optional parameter in KBytes used to specify a buffer value that should be added to
+			the voted bandwidth value to figure out the limiting bandwidth for a master port.
 qcom,buswidth:		The buswidth at the device, default is 8 bytes.
 qcom,mas-rpm-id:	For non-AP owned device this is the RPM id for devices that are bus masters.
 			This is the id that is used when sending a message to RPM for this device.
