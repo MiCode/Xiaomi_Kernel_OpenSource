@@ -97,4 +97,6 @@ struct cal_block_data *cal_utils_get_only_cal_block(
 size_t get_cal_info_size(int32_t cal_type);
 size_t get_user_cal_type_size(int32_t cal_type);
 
+/* Version of the cal type*/
+int32_t cal_utils_get_cal_type_version(void *cal_type_data);
 #endif

@@ -30,25 +30,25 @@ size_t get_cal_info_size(int32_t cal_type)
 	case CVP_VOC_TX_TOPOLOGY_CAL_TYPE:
 		size = sizeof(struct audio_cal_info_voc_top);
 		break;
-	case CVP_VOCPROC_CAL_TYPE:
+	case CVP_VOCPROC_STATIC_CAL_TYPE:
 		size = sizeof(struct audio_cal_info_vocproc);
 		break;
-	case CVP_VOCVOL_CAL_TYPE:
+	case CVP_VOCPROC_DYNAMIC_CAL_TYPE:
 		size = sizeof(struct audio_cal_info_vocvol);
 		break;
-	case CVS_VOCSTRM_CAL_TYPE:
+	case CVS_VOCSTRM_STATIC_CAL_TYPE:
 		size = 0;
 		break;
 	case CVP_VOCDEV_CFG_CAL_TYPE:
 		size = sizeof(struct audio_cal_info_vocdev_cfg);
 		break;
-	case CVP_VOCPROC_COL_CAL_TYPE:
+	case CVP_VOCPROC_STATIC_COL_CAL_TYPE:
 		size = sizeof(struct audio_cal_info_voc_col);
 		break;
-	case CVP_VOCVOL_COL_CAL_TYPE:
+	case CVP_VOCPROC_DYNAMIC_COL_CAL_TYPE:
 		size = sizeof(struct audio_cal_info_voc_col);
 		break;
-	case CVS_VOCSTRM_COL_CAL_TYPE:
+	case CVS_VOCSTRM_STATIC_COL_CAL_TYPE:
 		size = sizeof(struct audio_cal_info_voc_col);
 		break;
 	case ADM_TOPOLOGY_CAL_TYPE:
@@ -141,25 +141,21 @@ size_t get_user_cal_type_size(int32_t cal_type)
 	case CVP_VOC_TX_TOPOLOGY_CAL_TYPE:
 		size = sizeof(struct audio_cal_type_voc_top);
 		break;
-	case CVP_VOCPROC_CAL_TYPE:
+	case CVP_VOCPROC_STATIC_CAL_TYPE:
 		size = sizeof(struct audio_cal_type_vocproc);
 		break;
-	case CVP_VOCVOL_CAL_TYPE:
+	case CVP_VOCPROC_DYNAMIC_CAL_TYPE:
 		size = sizeof(struct audio_cal_type_vocvol);
 		break;
-	case CVS_VOCSTRM_CAL_TYPE:
+	case CVS_VOCSTRM_STATIC_CAL_TYPE:
 		size = sizeof(struct audio_cal_type_basic);
 		break;
 	case CVP_VOCDEV_CFG_CAL_TYPE:
 		size = sizeof(struct audio_cal_type_vocdev_cfg);
 		break;
-	case CVP_VOCPROC_COL_CAL_TYPE:
-		size = sizeof(struct audio_cal_type_voc_col);
-		break;
-	case CVP_VOCVOL_COL_CAL_TYPE:
-		size = sizeof(struct audio_cal_type_voc_col);
-		break;
-	case CVS_VOCSTRM_COL_CAL_TYPE:
+	case CVP_VOCPROC_STATIC_COL_CAL_TYPE:
+	case CVP_VOCPROC_DYNAMIC_COL_CAL_TYPE:
+	case CVS_VOCSTRM_STATIC_COL_CAL_TYPE:
 		size = sizeof(struct audio_cal_type_voc_col);
 		break;
 	case ADM_TOPOLOGY_CAL_TYPE:
@@ -239,6 +235,15 @@ size_t get_user_cal_type_size(int32_t cal_type)
 			__func__, cal_type);
 	}
 	return size;
+}
+
+int32_t cal_utils_get_cal_type_version(void *cal_type_data)
+{
+	struct audio_cal_type_basic *data = NULL;
+
+	data = (struct audio_cal_type_basic *)cal_type_data;
+
+	return data->cal_hdr.version;
 }
 
 static struct cal_type_data *create_cal_type_data(
