@@ -418,6 +418,78 @@ mdss_dsi_clk_err:
 	return rc;
 }
 
+int mdss_dsi_shadow_clk_init(struct platform_device *pdev,
+		struct mdss_dsi_ctrl_pdata *ctrl)
+{
+	struct device *dev = NULL;
+	int rc = 0;
+
+	if (!pdev) {
+		pr_err("%s: Invalid pdev\n", __func__);
+		return -EINVAL;
+	}
+
+	dev = &pdev->dev;
+	ctrl->mux_byte_clk = clk_get(dev, "mdss_byte_clk_mux");
+	if (IS_ERR(ctrl->mux_byte_clk)) {
+		rc = PTR_ERR(ctrl->mux_byte_clk);
+		pr_err("%s: can't find mux_byte_clk. rc=%d\n",
+			__func__, rc);
+		ctrl->mux_byte_clk = NULL;
+		goto mdss_dsi_shadow_clk_err;
+	}
+
+	ctrl->mux_pixel_clk = clk_get(dev, "mdss_pixel_clk_mux");
+	if (IS_ERR(ctrl->mux_pixel_clk)) {
+		rc = PTR_ERR(ctrl->mux_pixel_clk);
+		pr_err("%s: can't find mdss_mux_pixel_clk. rc=%d\n",
+			__func__, rc);
+		ctrl->mux_pixel_clk = NULL;
+		goto mdss_dsi_shadow_clk_err;
+	}
+
+	ctrl->pll_byte_clk = clk_get(dev, "byte_clk_src");
+	if (IS_ERR(ctrl->pll_byte_clk)) {
+		rc = PTR_ERR(ctrl->pll_byte_clk);
+		pr_err("%s: can't find pll_byte_clk. rc=%d\n",
+			__func__, rc);
+		ctrl->pll_byte_clk = NULL;
+		goto mdss_dsi_shadow_clk_err;
+	}
+
+	ctrl->pll_pixel_clk = clk_get(dev, "pixel_clk_src");
+	if (IS_ERR(ctrl->pll_pixel_clk)) {
+		rc = PTR_ERR(ctrl->pll_pixel_clk);
+		pr_err("%s: can't find pll_pixel_clk. rc=%d\n",
+			__func__, rc);
+		ctrl->pll_pixel_clk = NULL;
+		goto mdss_dsi_shadow_clk_err;
+	}
+
+	ctrl->shadow_byte_clk = clk_get(dev, "shadow_byte_clk_src");
+	if (IS_ERR(ctrl->shadow_byte_clk)) {
+		rc = PTR_ERR(ctrl->shadow_byte_clk);
+		pr_err("%s: can't find shadow_byte_clk. rc=%d\n",
+			__func__, rc);
+		ctrl->shadow_byte_clk = NULL;
+		goto mdss_dsi_shadow_clk_err;
+	}
+
+	ctrl->shadow_pixel_clk = clk_get(dev, "shadow_pixel_clk_src");
+	if (IS_ERR(ctrl->shadow_pixel_clk)) {
+		rc = PTR_ERR(ctrl->shadow_pixel_clk);
+		pr_err("%s: can't find shadow_pixel_clk. rc=%d\n",
+			__func__, rc);
+		ctrl->shadow_pixel_clk = NULL;
+		goto mdss_dsi_shadow_clk_err;
+	}
+
+mdss_dsi_shadow_clk_err:
+	if (rc)
+		mdss_dsi_shadow_clk_deinit(ctrl);
+	return rc;
+}
+
 void mdss_dsi_clk_deinit(struct mdss_dsi_ctrl_pdata  *ctrl)
 {
 	if (ctrl->byte_clk)
@@ -434,6 +506,22 @@ void mdss_dsi_clk_deinit(struct mdss_dsi_ctrl_pdata  *ctrl)
 		clk_put(ctrl->ahb_clk);
 	if (ctrl->mdp_core_clk)
 		clk_put(ctrl->mdp_core_clk);
+}
+
+void mdss_dsi_shadow_clk_deinit(struct mdss_dsi_ctrl_pdata  *ctrl)
+{
+	if (ctrl->mux_byte_clk)
+		clk_put(ctrl->mux_byte_clk);
+	if (ctrl->mux_pixel_clk)
+		clk_put(ctrl->mux_pixel_clk);
+	if (ctrl->pll_byte_clk)
+		clk_put(ctrl->pll_byte_clk);
+	if (ctrl->pll_pixel_clk)
+		clk_put(ctrl->pll_pixel_clk);
+	if (ctrl->shadow_byte_clk)
+		clk_put(ctrl->shadow_byte_clk);
+	if (ctrl->shadow_pixel_clk)
+		clk_put(ctrl->shadow_pixel_clk);
 }
 
 #define PREF_DIV_RATIO 27
