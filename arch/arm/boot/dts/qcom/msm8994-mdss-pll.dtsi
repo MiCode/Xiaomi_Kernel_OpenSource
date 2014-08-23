@@ -17,8 +17,9 @@
 		cell-index = <0>;
 		#clock-cells = <1>;
 
-		reg = <0xfd998300 0x500>;
-		reg-names = "pll_base";
+		reg = <0xfd998300 0x500>,
+		      <0xfd998200 0x64>;
+		reg-names = "pll_base", "dynamic_pll_base";
 
 		gdsc-supply = <&gdsc_mdss>;
 		vddio-supply = <&pm8994_l12>;
