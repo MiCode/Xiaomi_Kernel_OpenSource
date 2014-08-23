@@ -1,4 +1,4 @@
-/* Copyright (c) 2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -64,7 +64,7 @@ __packed struct tzapp_mode_enc_rsp {
 	uint32_t tzapp_ssm_cmd;
 	uint8_t enc_mode_info[ENC_MODE_MAX_SIZE];
 	uint32_t enc_mode_len;
-	long status;
+	uint32_t status;
 };
 
 /* tzapp get mode request.*/
@@ -77,7 +77,7 @@ __packed struct tzapp_get_mode_info_rsp {
 	uint32_t tzapp_ssm_cmd;
 	uint8_t  enc_mode_info[ENC_MODE_MAX_SIZE];
 	uint32_t enc_mode_len;
-	long status;
+	uint32_t status;
 };
 
 /* Modem/SSM packet format.*/

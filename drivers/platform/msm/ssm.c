@@ -249,7 +249,6 @@ static int ssm_load_app(struct ssm_driver *ssm)
 static struct ssm_platform_data *populate_ssm_pdata(struct device *dev)
 {
 	struct ssm_platform_data *pdata;
-	int rc;
 
 	pdata = devm_kzalloc(dev, sizeof(struct ssm_platform_data),
 								GFP_KERNEL);
@@ -259,13 +258,7 @@ static struct ssm_platform_data *populate_ssm_pdata(struct device *dev)
 	pdata->need_key_exchg =
 		of_property_read_bool(dev->of_node, "qcom,need-keyexhg");
 
-	rc = of_property_read_string(dev->of_node, "qcom,channel-name",
-							&pdata->channel_name);
-	if (rc && rc != -EINVAL) {
-		dev_err(dev, "Error reading channel_name property %d\n", rc);
-		return NULL;
-	} else if (rc == -EINVAL)
-		pdata->channel_name = CHANNEL_NAME;
+	pdata->channel_name = CHANNEL_NAME;
 
 	return pdata;
 }
