@@ -97,29 +97,67 @@ int i915_perfmon_ioctl(struct drm_device *dev, void *data,
 	struct drm_file *file)
 {
 	struct drm_i915_perfmon *perfmon = data;
-	int retcode = 0;
+	int ret = 0;
 
 	switch (perfmon->op) {
 	case I915_PERFMON_SET_BUFFER_IRQS:
-		retcode = intel_enable_perfmon_interrupt(
+		ret = intel_enable_perfmon_interrupt(
 				dev,
 				perfmon->data.set_irqs.enable);
 		break;
 	case I915_PERFMON_WAIT_BUFFER_IRQS:
 		if (perfmon->data.wait_irqs.timeout >
 				I915_PERFMON_WAIT_IRQ_MAX_TIMEOUT_MS)
-			retcode =  -EINVAL;
+			ret =  -EINVAL;
 		else
 			perfmon->data.wait_irqs.ret_code =
 				intel_wait_perfmon_interrupt(
 					dev,
 					perfmon->data.wait_irqs.timeout);
 		break;
+
+	case I915_PERFMON_CANCEL_WAIT_BUFFER_IRQS:
+		ret = -ENODEV;
+		break;
+
+	case I915_PERFMON_OPEN:
+		ret = -ENODEV;
+		break;
+
+	case I915_PERFMON_CLOSE:
+		ret = -ENODEV;
+		break;
+
+	case I915_PERFMON_ENABLE_CONFIG:
+		ret = -ENODEV;
+		break;
+
+	case I915_PERFMON_DISABLE_CONFIG:
+		ret = -ENODEV;
+		break;
+
+	case I915_PERFMON_SET_CONFIG:
+		ret = -ENODEV;
+		break;
+
+	case I915_PERFMON_LOAD_CONFIG:
+		ret = -ENODEV;
+		break;
+
+	case I915_PERFMON_GET_HW_CTX_ID:
+		ret = -ENODEV;
+		break;
+
+	case I915_PERFMON_GET_HW_CTX_IDS:
+		ret = -ENODEV;
+		break;
+
 	default:
+		DRM_DEBUG("UNKNOWN OP\n");
 		/* unknown operation */
-		retcode = -EINVAL;
+		ret = -EINVAL;
 		break;
 	}
 
-	return retcode;
+	return ret;
 }
