@@ -13,7 +13,10 @@ Required properties:
 - address-cells : Must be one.
 - size-cells : Must be zero.
 - interrupts : The USR bank peripheral VADC interrupt.
-- interrupt-names : Should contain "eoc-int-en-set".
+- interrupt-names : Should contain "eoc-int-en-set" for EOC,
+		"high-thr-en-set" for high threshold interrupts and
+		"low-thr-en-set" for low threshold interrupts. High and low threshold
+		interrupts are to be enabled if VADC_USR needs to support recurring measurement.
 - qcom,adc-bit-resolution : Bit resolution of the ADC.
 - qcom,adc-vdd-reference : Voltage reference used by the ADC.
 
@@ -25,6 +28,9 @@ Optional properties:
 - qcom,pmic-revid : Phandle pointing to the revision peripheral node. Use it to query the
 		    PMIC type and revision for applying the appropriate temperature
 		    compensation parameters.
+-qcom,vadc-meas-int-mode : Enable VADC_USR to handle requests to perform recurring measurements
+			   for any one supported channel along with supporting single conversion
+			   requests.
 
 Client required property:
 - qcom,<consumer name>-vadc : The phandle to the corresponding vadc device.

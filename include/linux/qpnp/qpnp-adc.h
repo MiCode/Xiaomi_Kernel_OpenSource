@@ -251,7 +251,6 @@ enum qpnp_adc_scale_fn_type {
 	SCALE_NONE,
 };
 
-
 /**
  * enum qpnp_adc_tm_rscale_fn_type - Scaling function used to convert the
  *	channels input voltage/temperature to corresponding ADC code that is
@@ -272,6 +271,20 @@ enum qpnp_adc_tm_rscale_fn_type {
 	SCALE_R_ABSOLUTE,
 	SCALE_QRD_SKUH_RBATT_THERM,
 	SCALE_RSCALE_NONE,
+};
+
+/**
+ * enum qpnp_vadc_rscale_fn_type - Scaling function used to convert the
+ *	channels input voltage/temperature to corresponding ADC code that is
+ *	applied for thresholds. Check the corresponding channels scaling to
+ *	determine the appropriate temperature/voltage units that are passed
+ *	to the scaling function. The order below should match the one in the
+ *	driver for qpnp_adc_scale_fn[].
+ */
+enum qpnp_vadc_rscale_fn_type {
+	SCALE_RVADC_ABSOLUTE = 0,
+	SCALE_RVADC_PMIC_THERM = 3,
+	SCALE_RVADC_SCALE_NONE,
 };
 
 /**
@@ -1511,6 +1524,24 @@ int32_t qpnp_vbat_sns_comp_result(struct qpnp_vadc_chip *dev,
  * returns internal mapped PMIC number and revision id.
  */
 int qpnp_adc_get_revid_version(struct device *dev);
+/**
+ * qpnp_vadc_channel_monitor() - Configures kernel clients a channel to
+ *		monitor the corresponding ADC channel for threshold detection.
+ *		Driver passes the high/low voltage threshold along
+ *		with the notification callback once the set thresholds
+ *		are crossed.
+ * @param:	Structure pointer of qpnp_adc_tm_btm_param type.
+ *		Clients pass the low/high temperature along with the threshold
+ *		notification callback.
+ */
+int32_t qpnp_vadc_channel_monitor(struct qpnp_vadc_chip *chip,
+					struct qpnp_adc_tm_btm_param *param);
+/**
+ * qpnp_vadc_end_channel_monitor() - Disables recurring measurement mode for
+ *		VADC_USR and disables the bank.
+ * @param:	device instance for the VADC
+ */
+int32_t qpnp_vadc_end_channel_monitor(struct qpnp_vadc_chip *chip);
 #else
 static inline int32_t qpnp_vadc_read(struct qpnp_vadc_chip *dev,
 				uint32_t channel,
@@ -1655,6 +1686,11 @@ static inline int32_t qpnp_vbat_sns_comp_result(struct qpnp_vadc_chip *dev,
 						int64_t *result)
 { return -ENXIO; }
 static inline int qpnp_adc_get_revid_version(struct device *dev)
+{ return -ENXIO; }
+static inline int32_t qpnp_vadc_channel_monitor(struct qpnp_vadc_chip *chip,
+					struct qpnp_adc_tm_btm_param *param)
+{ return -ENXIO; }
+static inline int32_t qpnp_vadc_end_channel_monitor(struct qpnp_vadc_chip *chip)
 { return -ENXIO; }
 #endif
 
