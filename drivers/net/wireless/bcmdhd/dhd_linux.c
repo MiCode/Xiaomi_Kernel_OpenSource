@@ -4400,7 +4400,8 @@ dhd_attach(osl_t *osh, struct dhd_bus *bus, uint bus_hdrlen)
 	wifi_platform_get_mac_addr(dhd->adapter, dhd->pub.mac.octet);
 #endif /* GET_CUSTOM_MAC_ENABLE */
 #ifdef CUSTOM_COUNTRY_CODE
-    get_customized_country_code(dhd->adapter, dhd->pub.dhd_cspec.ccode, &dhd->pub.dhd_cspec);
+	get_customized_country_code(dhd->adapter,
+		dhd->pub.dhd_cspec.country_abbrev, &dhd->pub.dhd_cspec);
 #endif /* CUSTOM_COUNTRY_CODE */
 	dhd->thr_dpc_ctl.thr_pid = DHD_PID_KT_TL_INVALID;
 	dhd->thr_wdt_ctl.thr_pid = DHD_PID_KT_INVALID;
