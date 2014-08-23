@@ -18,7 +18,14 @@
 
 #define MDSS_PLL_REG_W(base, offset, data)	\
 				writel_relaxed((data), (base) + (offset))
-#define MDSS_PLL_REG_R(base, offset)		readl_relaxed((base) + (offset))
+#define MDSS_PLL_REG_R(base, offset)	readl_relaxed((base) + (offset))
+
+#define PLL_CALC_DATA(addr0, addr1, data0, data1)      \
+	(((data1) << 24) | (((addr1)/4) << 16) | ((data0) << 8) | ((addr0)/4))
+
+#define MDSS_DYN_PLL_REG_W(base, offset, addr0, addr1, data0, data1)   \
+		writel_relaxed(PLL_CALC_DATA(addr0, addr1, data0, data1), \
+			(base) + (offset))
 
 enum {
 	MDSS_DSI_PLL_LPM,
@@ -90,6 +97,27 @@ struct mdss_pll_resources {
 	 * feature is disabled.
 	 */
 	bool		handoff_resources;
+
+	/*
+	 * caching the pll trim codes in the case of dynamic refresh
+	 */
+	int		cache_pll_trim_codes[5];
+
+	/*
+	 * for maintaining the status of saving trim codes
+	 */
+	bool		reg_upd;
+};
+
+struct mdss_pll_vco_calc {
+	s32 div_frac_start1;
+	s32 div_frac_start2;
+	s32 div_frac_start3;
+	s64 dec_start1;
+	s64 dec_start2;
+	s64 pll_plllock_cmp1;
+	s64 pll_plllock_cmp2;
+	s64 pll_plllock_cmp3;
 };
 
 int mdss_pll_resource_enable(struct mdss_pll_resources *pll_res, bool enable);
