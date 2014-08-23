@@ -147,6 +147,7 @@ struct ext_clk {
 
 long parent_round_rate(struct clk *c, unsigned long rate);
 unsigned long parent_get_rate(struct clk *c);
+int parent_set_rate(struct clk *c, unsigned long rate);
 
 static inline struct ext_clk *to_ext_clk(struct clk *c)
 {
