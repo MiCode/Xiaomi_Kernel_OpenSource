@@ -115,6 +115,7 @@ int32_t msm_camera_cci_i2c_write(struct msm_camera_i2c_client *client,
 		__func__, __LINE__, addr, data_type);
 	reg_conf_tbl.reg_addr = addr;
 	reg_conf_tbl.reg_data = data;
+	reg_conf_tbl.delay = 0;
 	cci_ctrl.cmd = MSM_CCI_I2C_WRITE;
 	cci_ctrl.cci_info = client->cci_client;
 	cci_ctrl.cfg.cci_i2c_write_cfg.reg_setting = &reg_conf_tbl;
