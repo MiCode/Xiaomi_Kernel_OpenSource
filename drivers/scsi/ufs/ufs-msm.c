@@ -1138,7 +1138,7 @@ static int ufs_msm_update_sec_cfg(struct ufs_hba *hba, bool restore_sec_cfg)
 	struct msm_scm_cmd_buf {
 		unsigned int device_id;
 		unsigned int spare;
-	} cbuf;
+	} cbuf = {0};
 	#define RESTORE_SEC_CFG_CMD	0x2
 	#define UFS_TZ_DEV_ID		19
 
@@ -1167,11 +1167,7 @@ static int ufs_msm_update_sec_cfg(struct ufs_hba *hba, bool restore_sec_cfg)
 	 * out of power collapse.
 	 */
 	cbuf.device_id = UFS_TZ_DEV_ID;
-	ret = scm_call(SCM_SVC_MP,
-		       RESTORE_SEC_CFG_CMD,
-		       &cbuf, sizeof(cbuf),
-		       &scm_ret, sizeof(scm_ret));
-
+	ret = scm_restore_sec_cfg(cbuf.device_id, cbuf.spare, &scm_ret);
 	if (ret || scm_ret) {
 		dev_err(hba->dev, "%s: failed, ret %d scm_ret %d\n",
 			__func__, ret, scm_ret);
