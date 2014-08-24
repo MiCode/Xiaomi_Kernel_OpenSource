@@ -3433,12 +3433,16 @@ static int synaptics_rmi4_probe(struct i2c_client *client,
 
 	retval = synaptics_rmi4_pinctrl_init(rmi4_data);
 	if (!retval && rmi4_data->ts_pinctrl) {
-		retval = pinctrl_select_state(rmi4_data->ts_pinctrl,
-					rmi4_data->pinctrl_state_active);
-		if (retval < 0)
-			goto err_pinctrl_select;
-	} else {
-		goto err_pinctrl_init;
+		/*
+		* Pinctrl handle is optional. If pinctrl handle is found
+		* let pins to be configured in active state. If not found
+		* continue further without error
+		*/
+		if (pinctrl_select_state(rmi4_data->ts_pinctrl,
+					rmi4_data->pinctrl_state_active))
+			dev_err(&rmi4_data->i2c_client->dev,
+				"Can not select %s pinstate\n",
+				PINCTRL_STATE_ACTIVE);
 	}
 
 	retval = synaptics_rmi4_gpio_configure(rmi4_data, true);
@@ -3658,7 +3662,6 @@ err_free_gpios:
 	if (gpio_is_valid(rmi4_data->board->irq_gpio))
 		gpio_free(rmi4_data->board->irq_gpio);
 err_gpio_config:
-err_pinctrl_select:
 	if (rmi4_data->ts_pinctrl) {
 		if (IS_ERR_OR_NULL(rmi4_data->pinctrl_state_release)) {
 			devm_pinctrl_put(rmi4_data->ts_pinctrl);
@@ -3670,7 +3673,6 @@ err_pinctrl_select:
 				pr_err("failed to select release pinctrl state\n");
 		}
 	}
-err_pinctrl_init:
 	synaptics_rmi4_power_on(rmi4_data, false);
 err_power_device:
 	synaptics_rmi4_regulator_configure(rmi4_data, false);
