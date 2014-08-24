@@ -1968,6 +1968,9 @@ static struct clk_lookup msm_clocks_9630[] = {
 	CLK_LOOKUP("iface_clk", gcc_blsp1_ahb_clk.c, "f991f000.serial"),
 	CLK_LOOKUP("core_clk", gcc_blsp1_uart3_apps_clk.c, "f991f000.serial"),
 
+	CLK_LOOKUP("iface_clk", gcc_blsp1_ahb_clk.c, "f991e000.uart"),
+	CLK_LOOKUP("core_clk", gcc_blsp1_uart2_apps_clk.c, "f991e000.uart"),
+
 	CLK_LOOKUP("iface_clk", gcc_blsp1_ahb_clk.c, "f9928000.spi"),
 	CLK_LOOKUP("core_clk", gcc_blsp1_qup6_spi_apps_clk.c, "f9928000.spi"),
 
