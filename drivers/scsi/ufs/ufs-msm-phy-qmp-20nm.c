@@ -22,9 +22,6 @@
 #include <linux/platform_device.h>
 #include <linux/msm-bus.h>
 
-#include "ufshcd.h"
-#include "unipro.h"
-#include "ufs-msm.h"
 #include "ufs-msm-phy.h"
 #include "ufs-msm-phy-qmp-20nm.h"
 

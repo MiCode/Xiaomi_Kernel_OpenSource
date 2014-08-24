@@ -22,9 +22,6 @@
 #include <linux/platform_device.h>
 #include <linux/msm-bus.h>
 
-#include "ufshcd.h"
-#include "unipro.h"
-#include "ufs-msm.h"
 #include "ufs-msm-phy.h"
 
 int ufs_msm_phy_calibrate(struct ufs_msm_phy *ufs_msm_phy,

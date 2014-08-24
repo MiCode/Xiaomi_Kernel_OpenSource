@@ -23,9 +23,6 @@
 #include <linux/msm-bus.h>
 #include <linux/phy/phy.h>
 
-#include "ufshcd.h"
-#include "unipro.h"
-#include "ufs-msm.h"
 #include "ufs-msm-phy.h"
 #include "ufs-msm-phy-qmp-28nm.h"
 
