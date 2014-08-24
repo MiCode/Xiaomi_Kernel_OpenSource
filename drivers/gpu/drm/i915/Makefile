@@ -82,6 +82,8 @@ i915-y += dvo_ch7017.o \
 i915-y += i915_dma.o \
 	  i915_ums.o
 
+i915-$(CONFIG_ADF_INTEL) += i915_adf_wrapper.o
+
 obj-$(CONFIG_DRM_I915)  += i915.o
 
 obj-$(CONFIG_DRM_I915_SYNC)  += intel_sync.o

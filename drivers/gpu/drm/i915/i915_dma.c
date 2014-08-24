@@ -35,6 +35,7 @@
 #include <drm/i915_drm.h>
 #include "i915_drv.h"
 #include "i915_trace.h"
+#include "i915_adf_wrapper.h"
 #include <linux/pci.h>
 #include <linux/console.h>
 #include <linux/vt.h>
@@ -1910,6 +1911,10 @@ int i915_driver_load(struct drm_device *dev, unsigned long flags)
 
 	i915_perfmon_cleanup(dev_priv);
 
+#ifdef CONFIG_ADF_INTEL
+	i915_adf_wrapper_init(dev_priv);
+#endif
+
 	return 0;
 
 out_power_well:
@@ -1959,6 +1964,9 @@ int i915_driver_unload(struct drm_device *dev)
 
 	intel_gpu_ips_teardown();
 
+#ifdef CONFIG_ADF_INTEL
+	i915_adf_wrapper_teardown();
+#endif
 	/* The i915.ko module is still not prepared to be loaded when
 	 * the power well is not enabled, so just enable it in case
 	 * we're going to unload/reload. */
