@@ -3651,9 +3651,9 @@ int sdhci_add_host(struct sdhci_host *host)
 	 */
 	if ((host->quirks & SDHCI_QUIRK_BROKEN_CARD_DETECTION) &&
 	    !(host->mmc->caps & MMC_CAP_NONREMOVABLE) &&
-	    (mmc_gpio_get_cd(host->mmc) < 0))
+	    (mmc_gpio_get_cd(host->mmc) < 0) &&
+	    !(host->mmc->caps2 & MMC_CAP2_NONHOTPLUG))
 		mmc->caps |= MMC_CAP_NEEDS_POLL;
-
 	/* If vqmmc regulator and no 1.8V signalling, then there's no UHS */
 	host->vqmmc = regulator_get(mmc_dev(mmc), "vqmmc");
 	if (IS_ERR_OR_NULL(host->vqmmc)) {
