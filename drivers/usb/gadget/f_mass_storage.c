@@ -232,6 +232,7 @@ static const char fsg_string_interface[] = "Mass Storage";
 
 #ifdef CONFIG_USB_CSW_HACK
 static int write_error_after_csw_sent;
+static int must_report_residue;
 static int csw_hack_sent;
 #endif
 /*-------------------------------------------------------------------------*/
@@ -1009,6 +1010,16 @@ write_error:
 			if ((nwritten == amount) && !csw_hack_sent) {
 				if (write_error_after_csw_sent)
 					break;
+
+				/*
+				 * If residue still exists and nothing left to
+				 * write, device must send correct residue to
+				 * host in this case.
+				 */
+				if (!amount_left_to_write && common->residue) {
+					must_report_residue = 1;
+					break;
+				}
 				/*
 				 * Check if any of the buffer is in the
 				 * busy state, if any buffer is in busy state,
@@ -1766,8 +1777,9 @@ static int send_status(struct fsg_common *common)
 	 * writing on to storage media, need to set
 	 * residue to zero,assuming that write will succeed.
 	 */
-	if (write_error_after_csw_sent) {
+	if (write_error_after_csw_sent || must_report_residue) {
 		write_error_after_csw_sent = 0;
+		must_report_residue = 0;
 		csw->Residue = cpu_to_le32(common->residue);
 	} else
 		csw->Residue = 0;
