@@ -25,7 +25,6 @@
 #include <soc/qcom/scm.h>
 
 #include "ufshcd.h"
-#include "unipro.h"
 #include "ufs-msm.h"
 #include "ufs-msm-phy.h"
 
