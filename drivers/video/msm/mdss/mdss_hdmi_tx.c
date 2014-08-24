@@ -2914,7 +2914,7 @@ static void hdmi_tx_hpd_off(struct hdmi_tx_ctrl *hdmi_ctrl)
 	/* Turn off HPD interrupts */
 	DSS_REG_W(io, HDMI_HPD_INT_CTRL, 0);
 
-	mdss_disable_irq(&hdmi_tx_hw);
+	hdmi_ctrl->mdss_util->disable_irq(&hdmi_tx_hw);
 
 	hdmi_tx_set_mode(hdmi_ctrl, false);
 
@@ -2973,7 +2973,7 @@ static int hdmi_tx_hpd_on(struct hdmi_tx_ctrl *hdmi_ctrl)
 
 		DSS_REG_W(io, HDMI_USEC_REFTIMER, 0x0001001B);
 
-		mdss_enable_irq(&hdmi_tx_hw);
+		hdmi_ctrl->mdss_util->enable_irq(&hdmi_tx_hw);
 
 		hdmi_ctrl->hpd_initialized = true;
 
@@ -3416,7 +3416,7 @@ static int hdmi_tx_register_panel(struct hdmi_tx_ctrl *hdmi_ctrl)
 		return rc;
 	}
 
-	rc = mdss_register_irq(&hdmi_tx_hw);
+	rc = hdmi_ctrl->mdss_util->register_irq(&hdmi_tx_hw);
 	if (rc)
 		DEV_ERR("%s: mdss_register_irq failed.\n", __func__);
 
@@ -4010,6 +4010,13 @@ static int hdmi_tx_probe(struct platform_device *pdev)
 	} else if (pan_cfg) {
 		DEV_DBG("%s: HDMI is primary\n", __func__);
 		hdmi_ctrl->pdata.primary = true;
+	}
+
+	hdmi_ctrl->mdss_util = mdss_get_util_intf();
+	if (hdmi_ctrl->mdss_util == NULL) {
+		pr_err("Failed to get mdss utility functions\n");
+		rc = -ENODEV;
+		goto failed_res_init;
 	}
 
 	rc = hdmi_tx_init_resource(hdmi_ctrl);
