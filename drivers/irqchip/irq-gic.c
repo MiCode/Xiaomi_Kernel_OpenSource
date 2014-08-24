@@ -794,11 +794,6 @@ static void gic_cpu_restore(unsigned int gic_nr)
 	if (!dist_base || !cpu_base)
 		return;
 
-	ptr = __this_cpu_ptr(gic_data[gic_nr].saved_ppi_enable);
-	for (i = 0; i < DIV_ROUND_UP(32, 32); i++)
-		writel_relaxed_no_log(ptr[i], dist_base +
-			GIC_DIST_ENABLE_SET + i * 4);
-
 	ptr = __this_cpu_ptr(gic_data[gic_nr].saved_ppi_conf);
 	for (i = 0; i < DIV_ROUND_UP(32, 16); i++)
 		writel_relaxed_no_log(ptr[i], dist_base +
@@ -807,6 +802,11 @@ static void gic_cpu_restore(unsigned int gic_nr)
 	for (i = 0; i < DIV_ROUND_UP(32, 4); i++)
 		writel_relaxed_no_log(gic_data[gic_nr].saved_dist_pri[i],
 			dist_base + GIC_DIST_PRI + i * 4);
+
+	ptr = __this_cpu_ptr(gic_data[gic_nr].saved_ppi_enable);
+	for (i = 0; i < DIV_ROUND_UP(32, 32); i++)
+		writel_relaxed_no_log(ptr[i], dist_base +
+			GIC_DIST_ENABLE_SET + i * 4);
 
 	writel_relaxed_no_log(0xf0, cpu_base + GIC_CPU_PRIMASK);
 	writel_relaxed_no_log(saved_cpu_ctrl, cpu_base + GIC_CPU_CTRL);
