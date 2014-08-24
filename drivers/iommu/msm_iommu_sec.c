@@ -707,11 +707,12 @@ static void msm_iommu_detach_dev(struct iommu_domain *domain,
 	struct msm_iommu_drvdata *iommu_drvdata;
 	struct msm_iommu_ctx_drvdata *ctx_drvdata;
 
+	if (!dev)
+		return;
+
 	msm_iommu_detached(dev->parent);
 
 	iommu_access_ops->iommu_lock_acquire(0);
-	if (!dev)
-		goto fail;
 
 	iommu_drvdata = dev_get_drvdata(dev->parent);
 	ctx_drvdata = dev_get_drvdata(dev);
