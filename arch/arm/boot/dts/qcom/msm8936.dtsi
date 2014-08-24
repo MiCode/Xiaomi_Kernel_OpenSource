@@ -212,4 +212,9 @@
 		qcom,irq-is-percpu;
 		interrupts = <1 7 0xf000>;
 	};
+
+	qcom,msm-thermal {
+		qcom,synchronous-cluster-id = <0>;
+		qcom,synchronous-cluster-map = <0 0x0F>;
+	};
 };
