@@ -140,16 +140,22 @@ static int sharedmem_qmi_get_buffer(void *conn_h, void *req_handle, void *req)
 	struct rfsa_get_buff_addr_req_msg_v01 *get_buffer_req;
 	struct rfsa_get_buff_addr_resp_msg_v01 get_buffer_resp;
 	int result;
-	u64 address;
+	u64 address = 0;
 
 	get_buffer_req = (struct rfsa_get_buff_addr_req_msg_v01 *)req;
-	pr_debug("req->client_id = %d and req->size = %d\n",
+	pr_debug("req->client_id = 0x%X and req->size = %d\n",
 		get_buffer_req->client_id, get_buffer_req->size);
 
 	result = get_buffer_for_client(get_buffer_req->client_id,
 					get_buffer_req->size, &address);
 	if (result != 0)
 		return result;
+
+	if (address == 0) {
+		pr_err("Entry found for client id = 0x%X but address is zero",
+			get_buffer_req->client_id);
+		return -ENOMEM;
+	}
 
 	memset(&get_buffer_resp, 0, sizeof(get_buffer_resp));
 	get_buffer_resp.address_valid = 1;
