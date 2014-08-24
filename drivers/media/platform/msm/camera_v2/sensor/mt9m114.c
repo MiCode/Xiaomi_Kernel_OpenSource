@@ -1374,6 +1374,18 @@ int32_t mt9m114_sensor_config(struct msm_sensor_ctrl_t *s_ctrl,
 		pr_debug("%s: Cancelling Auto Focus", __func__);
 		break;
 		}
+		case CFG_SET_WHITE_BALANCE:
+			break;
+		case CFG_SET_EXPOSURE_COMPENSATION:
+			break;
+		case CFG_SET_EFFECT:
+			break;
+		case CFG_SET_ANTIBANDING:
+			break;
+		case CFG_SET_BESTSHOT_MODE:
+			break;
+		case CFG_SET_ISO:
+			break;
 		default:
 		rc = -EFAULT;
 		break;
@@ -1566,6 +1578,18 @@ int32_t mt9m114_sensor_config32(struct msm_sensor_ctrl_t *s_ctrl,
 	pr_debug("%s: Cancelling Auto Focus", __func__);
 	break;
 	}
+	case CFG_SET_WHITE_BALANCE:
+		break;
+	case CFG_SET_EXPOSURE_COMPENSATION:
+		break;
+	case CFG_SET_EFFECT:
+		break;
+	case CFG_SET_ANTIBANDING:
+		break;
+	case CFG_SET_BESTSHOT_MODE:
+		break;
+	case CFG_SET_ISO:
+		break;
 	default:
 	pr_err("Invalid cfgtype func %s line %d cfgtype = %d\n",
 		__func__, __LINE__, (int32_t)cdata->cfgtype);
