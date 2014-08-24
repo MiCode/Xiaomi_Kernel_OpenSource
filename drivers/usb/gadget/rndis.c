@@ -866,11 +866,17 @@ int rndis_msg_parser(u8 configNr, u8 *buf)
 	case RNDIS_MSG_HALT:
 		pr_debug("%s: RNDIS_MSG_HALT\n",
 			__func__);
-		params->state = RNDIS_UNINITIALIZED;
-		if (params->dev) {
-			netif_carrier_off(params->dev);
-			netif_stop_queue(params->dev);
+
+		if (!is_rndis_ipa_supported()) {
+			if (params->dev) {
+				netif_carrier_off(params->dev);
+				netif_stop_queue(params->dev);
+			}
+		} else {
+			if (params->state == RNDIS_DATA_INITIALIZED)
+				u_bam_data_stop_rndis_ipa();
 		}
+		params->state = RNDIS_UNINITIALIZED;
 		return 0;
 
 	case RNDIS_MSG_QUERY:
