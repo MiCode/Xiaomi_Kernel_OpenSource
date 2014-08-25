@@ -1185,15 +1185,16 @@ static irqreturn_t msg21xx_ts_interrupt(int irq, void *dev_id)
 					ABS_MT_POSITION_Y,
 					info.point[i].y);
 			}
-			last_count = info.count;
-		} else if (last_count > 0) { /*point touch released*/
-			for (i = 0; i < last_count; i++) {
+		}
+
+		if (last_count > info.count) {
+			for (i = info.count; i < MAX_TOUCH_NUM; i++) {
 				input_mt_slot(input_dev, i);
 				input_mt_report_slot_state(input_dev,
 					MT_TOOL_FINGER, 0);
 			}
-			last_count = 0;
 		}
+		last_count = info.count;
 
 		input_report_key(input_dev, BTN_TOUCH, info.count > 0);
 		input_report_key(input_dev, BTN_TOOL_FINGER, info.count > 0);
