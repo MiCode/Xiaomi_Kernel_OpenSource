@@ -28,7 +28,7 @@ static int cpuss_dump_probe(struct platform_device *pdev)
 	static void *dump_vaddr;
 	struct msm_dump_data *dump_data;
 	struct msm_dump_entry dump_entry;
-	int ret = 0;
+	int ret;
 	u32 size, id;
 
 	for_each_available_child_of_node(node, child_node) {
@@ -87,7 +87,7 @@ static int cpuss_dump_probe(struct platform_device *pdev)
 		}
 
 	}
-	return ret;
+	return 0;
 }
 
 static int cpuss_dump_remove(struct platform_device *pdev)
