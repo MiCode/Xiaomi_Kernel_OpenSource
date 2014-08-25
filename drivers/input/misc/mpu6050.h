@@ -63,6 +63,7 @@
 #define BIT_SLEEP		0x40
 #define BIT_CYCLE		0x20
 #define BIT_CLK_MASK		0x7
+#define BIT_RESET_ALL		0xCF
 
 #define REG_PWR_MGMT_2		0x6C
 #define BIT_PWR_ACCEL_STBY_MASK	0x38
@@ -78,15 +79,19 @@
 
 /* device bootup time in millisecond */
 #define POWER_UP_TIME_MS	100
-/* delay to wait gyro engine stable in millisecond*/
+/* delay to wait gyro engine stable in millisecond */
 #define SENSOR_UP_TIME_MS	30
 /* delay between power operation in millisecond */
 #define POWER_EN_DELAY_US	10
 
 #define MPU6050_LPA_5HZ		0x40
 
-/* initial configure*/
+/* initial configure */
 #define INIT_FIFO_RATE		50
+
+/* chip reset wait */
+#define MPU6050_RESET_RETRY_CNT	10
+#define MPU6050_RESET_WAIT_MS	20
 
 enum mpu_device_id {
 	MPU6050_ID = 0x68,
