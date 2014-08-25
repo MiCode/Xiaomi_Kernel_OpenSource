@@ -54,6 +54,26 @@ enum intel_plane_compression {
 	INTEL_PLANE_DECOMPRESSION_16X4,
 };
 
+enum intel_plane_tiling_mode {
+	INTEL_PLANE_TILE_NONE,
+	INTEL_PLANE_TILE_X,
+	INTEL_PLANE_TILE_Y,
+};
+
+enum intel_plane_reserved_bit {
+	INTEL_PLANE_RESERVED_BIT_ZERO,
+	INTEL_PLANE_RESERVED_BIT_SET,
+};
+
+enum intel_plane_zorder {
+	INTEL_PLANE_P1S1S2C1,
+	INTEL_PLANE_P1S2S1C1,
+	INTEL_PLANE_S2P1S1C1,
+	INTEL_PLANE_S2S1P1C1,
+	INTEL_PLANE_S1P1S2C1,
+	INTEL_PLANE_S1S2P1C1,
+};
+
 struct intel_plane_capabilities {
 	const u32 *supported_formats;
 	const size_t n_supported_formats;
@@ -69,6 +89,15 @@ struct intel_plane_capabilities {
 
 	const u32 *supported_decompressions;
 	const size_t n_supported_decompressions;
+
+	const u32 *supported_tiling;
+	const size_t n_supported_tiling;
+
+	const u32 *supported_zorder;
+	const size_t n_supported_zorder;
+
+	const u32 *supported_reservedbit;
+	const size_t n_supported_reservedbit;
 };
 
 struct intel_buffer {
