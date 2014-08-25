@@ -42,12 +42,27 @@ static void *msm_cache_dump_vaddr;
 static struct l1_cache_dump *l1_dump;
 static struct l2_cache_dump *l2_dump;
 
+static void scm_request_cache_dump(int cache_id)
+{
+	struct scm_desc desc = {
+		.args[0] = cache_id,
+		.arginfo = SCM_ARGS(1),
+	};
+
+	if (!is_scm_armv8())
+		scm_call_atomic1(L1C_SERVICE_ID, CACHE_BUFFER_DUMP_COMMAND_ID,
+				 cache_id);
+
+	scm_call2_atomic(SCM_SIP_FNID(L1C_SERVICE_ID,
+			 CACHE_BUFFER_DUMP_COMMAND_ID), &desc);
+}
+
 static int msm_cache_dump_panic(struct notifier_block *this,
 				unsigned long event, void *ptr)
 {
 #ifdef CONFIG_MSM_CACHE_DUMP_ON_PANIC
-	scm_call_atomic1(L1C_SERVICE_ID, CACHE_BUFFER_DUMP_COMMAND_ID, 2);
-	scm_call_atomic1(L1C_SERVICE_ID, CACHE_BUFFER_DUMP_COMMAND_ID, 1);
+	scm_request_cache_dump(0x2);
+	scm_request_cache_dump(0x1);
 #endif
 	return 0;
 }
@@ -72,6 +87,7 @@ static int msm_cache_dump_probe(struct platform_device *pdev)
 		unsigned long buf;
 		unsigned long size;
 	} l1_cache_data;
+	struct scm_desc desc;
 	u32 l1_size, l2_size;
 	unsigned long total_size;
 	u32 l1_inst_size, l1_data_size;
@@ -108,11 +124,16 @@ static int msm_cache_dump_probe(struct platform_device *pdev)
 	dmac_clean_range(msm_cache_dump_vaddr,
 				msm_cache_dump_vaddr + total_size);
 
-	l1_cache_data.buf = msm_cache_dump_addr;
-	l1_cache_data.size = l1_size;
+	desc.args[0] = l1_cache_data.buf = msm_cache_dump_addr;
+	desc.args[1] = l1_cache_data.size = l1_size;
+	desc.arginfo = SCM_ARGS(2, SCM_RW, SCM_VAL);
 
-	ret = scm_call(L1C_SERVICE_ID, L1C_BUFFER_SET_COMMAND_ID,
+	if (!is_scm_armv8())
+		ret = scm_call(L1C_SERVICE_ID, L1C_BUFFER_SET_COMMAND_ID,
 			&l1_cache_data, sizeof(l1_cache_data), NULL, 0);
+	else
+		ret = scm_call2(SCM_SIP_FNID(L1C_SERVICE_ID,
+				L1C_BUFFER_SET_COMMAND_ID), &desc);
 
 	if (ret)
 		pr_err("%s: could not register L1 buffer ret = %d.\n",
@@ -123,11 +144,17 @@ static int msm_cache_dump_probe(struct platform_device *pdev)
 								+ l1_size);
 
 #if defined(CONFIG_MSM_CACHE_DUMP_ON_PANIC)
-	l1_cache_data.buf = msm_cache_dump_addr + l1_size;
-	l1_cache_data.size = l2_size;
+	desc.args[0] = l1_cache_data.buf = msm_cache_dump_addr + l1_size;
+	desc.args[1] = l1_cache_data.size = l2_size;
+	desc.arginfo = SCM_ARGS(2, SCM_RW, SCM_VAL);
 
-	ret = scm_call(L1C_SERVICE_ID, L2C_BUFFER_SET_COMMAND_ID,
-			&l1_cache_data, sizeof(l1_cache_data), NULL, 0);
+	if (!is_scm_armv8()) {
+		ret = scm_call(L1C_SERVICE_ID, L2C_BUFFER_SET_COMMAND_ID,
+				&l1_cache_data, sizeof(l1_cache_data), NULL, 0);
+	} else {
+		ret = scm_call2(SCM_SIP_FNID(L1C_SERVICE_ID,
+				L2C_BUFFER_SET_COMMAND_ID), &desc);
+	}
 
 	if (ret)
 		pr_err("%s: could not register L2 buffer ret = %d.\n",
