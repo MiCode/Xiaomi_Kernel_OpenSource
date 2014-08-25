@@ -73,6 +73,10 @@ static struct mutex drv_ctx_lock;
 #else
 #define intel_sst_ioctl_compat NULL
 #endif
+#define DEFAULT_FW_MONITOR_INTERVAL 9000 /*timer callback interval in ms to check lpe state*/
+#define MIN_FW_MONITOR_INTERVAL     500
+#define MAX_FW_MONITOR_INTERVAL     20000
+
 
 static const struct file_operations intel_sst_fops_cntrl = {
 	.owner = THIS_MODULE,
@@ -505,6 +509,67 @@ static ssize_t sst_sysfs_set_recovery(struct device *dev,
 static DEVICE_ATTR(audio_recovery, S_IRUGO | S_IWUSR,
 			sst_sysfs_get_recovery, sst_sysfs_set_recovery);
 
+static ssize_t sst_sysfs_get_recovery_interval(struct device *dev,
+	struct device_attribute *attr, char *buf)
+{
+	struct intel_sst_drv *ctx = dev_get_drvdata(dev);
+
+	return sprintf(buf, "%d\n", ctx->monitor_lpe.interval);
+}
+
+
+static ssize_t sst_sysfs_set_recovery_interval(struct device *dev,
+	 struct device_attribute *attr, const char *buf, size_t len)
+{
+	long val;
+	struct intel_sst_drv *ctx = dev_get_drvdata(dev);
+
+	if (kstrtol(buf, 0, &val)) {
+		pr_err("%s: not abe to set audio_recovery...\n", __func__);
+		return -EINVAL;
+	}
+
+	/*limiting the recovery interval between minimum and maximum value */
+	val = max(val, (long)MIN_FW_MONITOR_INTERVAL);
+	ctx->monitor_lpe.interval = min(val, (long)MAX_FW_MONITOR_INTERVAL);
+
+	pr_info("%s: setting recovery interval to %d\n", __func__,
+							 ctx->monitor_lpe.interval);
+
+	return len;
+}
+
+static DEVICE_ATTR(audio_recovery_interval, S_IRUGO | S_IWUSR,
+			sst_sysfs_get_recovery_interval, sst_sysfs_set_recovery_interval);
+
+int sst_recovery_init(struct intel_sst_drv *sst_drv_ctx)
+{
+	int ret_val = device_create_file(sst_drv_ctx->dev,
+						&dev_attr_audio_recovery_interval);
+	if (!ret_val) {
+		INIT_WORK(&sst_drv_ctx->monitor_lpe.mwork, sst_trigger_recovery);
+		sst_drv_ctx->recovery_wq =
+				create_singlethread_workqueue("sst_recovery_wq");
+		if (!sst_drv_ctx->recovery_wq) {
+			device_remove_file(sst_drv_ctx->dev,
+					&dev_attr_audio_recovery_interval);
+			ret_val = -ENOMEM;
+			goto free_wq;
+		}
+		sst_drv_ctx->monitor_lpe.interval = DEFAULT_FW_MONITOR_INTERVAL;
+		setup_timer(&sst_drv_ctx->monitor_lpe.sst_timer,
+					sst_timer_cb, (unsigned long)sst_drv_ctx);
+	}
+
+	return ret_val;
+free_wq:
+	if (sst_drv_ctx->recovery_wq)
+		destroy_workqueue(sst_drv_ctx->recovery_wq);
+	device_remove_file(sst_drv_ctx->dev, &dev_attr_audio_recovery_interval);
+	return ret_val;
+}
+
+
 static const struct dmi_system_id dmi_machine_table[] = {
 	{
 		/*  INTEL MRD7 */
@@ -900,6 +965,12 @@ static int intel_sst_probe(struct pci_dev *pci,
 		goto do_free_qos;
 	}
 
+	ret = sst_recovery_init(sst_drv_ctx);
+	if (ret) {
+		pr_err("%s:sst recovery intialization failed", __func__);
+		goto do_free_misc;
+	}
+
 	pr_info("%s successfully done!\n", __func__);
 	return ret;
 
@@ -981,12 +1052,14 @@ static void intel_sst_remove(struct pci_dev *pci)
 	if (sst_drv_ctx->pci_id == SST_CLV_PCI_ID)
 		kfree(sst_drv_ctx->probe_bytes);
 
+	device_remove_file(sst_drv_ctx->dev, &dev_attr_audio_recovery_interval);
 	device_remove_file(sst_drv_ctx->dev, &dev_attr_audio_recovery);
 	kfree(sst_drv_ctx->fw_cntx);
 	kfree(sst_drv_ctx->runtime_param.param.addr);
 	flush_scheduled_work();
 	destroy_workqueue(sst_drv_ctx->post_msg_wq);
 	destroy_workqueue(sst_drv_ctx->mad_wq);
+	destroy_workqueue(sst_drv_ctx->recovery_wq);
 	pm_qos_remove_request(sst_drv_ctx->qos);
 	kfree(sst_drv_ctx->qos);
 	kfree(sst_drv_ctx->fw_sg_list.src);
@@ -1171,6 +1244,8 @@ static void sst_do_shutdown(struct intel_sst_drv *ctx)
 	sst_add_to_dispatch_list_and_post(ctx, msg);
 	sst_wait_timeout(ctx, block);
 	sst_free_block(ctx, block);
+	if (&sst_drv_ctx->monitor_lpe.sst_timer)
+		del_timer(&sst_drv_ctx->monitor_lpe.sst_timer);
 }
 
 

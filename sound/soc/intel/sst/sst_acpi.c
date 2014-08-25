@@ -279,6 +279,8 @@ int sst_destroy_workqueue(struct intel_sst_drv *ctx)
 		destroy_workqueue(ctx->mad_wq);
 	if (ctx->post_msg_wq)
 		destroy_workqueue(ctx->post_msg_wq);
+	if (ctx->recovery_wq)
+		destroy_workqueue(ctx->recovery_wq);
 	return 0;
 }
 
@@ -655,6 +657,11 @@ int sst_acpi_probe(struct platform_device *pdev)
 	pm_runtime_enable(dev);
 	register_sst(dev);
 	sst_debugfs_init(ctx);
+	ret = sst_recovery_init(ctx);
+	if (ret) {
+		pr_err("%s:sst recovery intialization failed", __func__);
+		goto do_free_misc;
+	}
 	sst_set_fw_state_locked(ctx, SST_RESET);
 	sst_save_shim64(ctx, ctx->shim, ctx->shim_regs64);
 	pr_info("%s successfully done!\n", __func__);

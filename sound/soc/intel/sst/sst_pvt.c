@@ -145,6 +145,7 @@ void dump_sst_shim(struct intel_sst_drv *sst)
 		read_shim_data(sst, SST_IPCLPESC),
 		read_shim_data(sst, SST_CLKCTL),
 		read_shim_data(sst, SST_CSR2));
+		read_shim_data(sst, SST_TMRCTL);
 	spin_unlock_irqrestore(&sst->ipc_spin_lock, irq_flags);
 }
 
@@ -570,3 +571,64 @@ void sst_clean_stream(struct stream_info *stream)
 	mutex_unlock(&stream->lock);
 }
 
+void sst_update_timer(struct intel_sst_drv *sst_drv_ctx)
+{
+	struct intel_sst_drv *sst = sst_drv_ctx;
+	if (&sst->monitor_lpe.sst_timer != NULL) {
+		mod_timer(&sst->monitor_lpe.sst_timer, jiffies +
+				msecs_to_jiffies(sst->monitor_lpe.interval));
+		sst->monitor_lpe.prev_match_val = read_shim_data(sst, SST_TMRCTL);
+	}
+}
+
+void sst_trigger_recovery(struct work_struct *work)
+{
+	struct sst_monitor_lpe *monitor_lpe = container_of(work,
+							struct sst_monitor_lpe, mwork);
+	struct intel_sst_drv *sst  = container_of(monitor_lpe,
+						struct intel_sst_drv, monitor_lpe);
+	if (sst->ops->do_recovery)
+		sst->ops->do_recovery(sst);
+	return;
+}
+
+void sst_timer_cb(unsigned long data)
+{
+	struct intel_sst_drv *sst = (struct intel_sst_drv *)data;
+	u64 curr_match_val = read_shim_data(sst, SST_TMRCTL);
+
+	if (curr_match_val != sst->monitor_lpe.prev_match_val) {
+
+		mod_timer(&sst->monitor_lpe.sst_timer, jiffies +
+					msecs_to_jiffies(sst->monitor_lpe.interval));
+		sst->monitor_lpe.prev_match_val = curr_match_val;
+
+	} else {
+		pr_err(" triggering recovery !!!\n");
+		queue_work(sst->recovery_wq, &sst->monitor_lpe.mwork);
+		del_timer(&sst->monitor_lpe.sst_timer);
+	}
+
+	return;
+
+}
+
+int sst_set_timer(struct sst_monitor_lpe *monitor_lpe, bool enable)
+{
+	int ret = 0;
+	if (enable) {
+		ret = mod_timer(&monitor_lpe->sst_timer, jiffies +
+					msecs_to_jiffies(monitor_lpe->interval));
+		pr_debug("sst: recovery timer started, timer interval=%d sec\n",
+								monitor_lpe->interval/1000);
+	} else  {
+
+		if (&monitor_lpe->sst_timer != NULL)
+			ret = del_timer_sync(&monitor_lpe->sst_timer);
+		monitor_lpe->prev_match_val = 0;
+		pr_debug("sst: recovery timer stopped\n");
+
+	}
+
+	return ret;
+}

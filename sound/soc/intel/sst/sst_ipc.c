@@ -607,6 +607,8 @@ static void process_fw_async_msg(struct ipc_post *msg)
 				stream->period_elapsed(stream->pcm_substream);
 			if (stream->compr_cb)
 				stream->compr_cb(stream->compr_cb_param);
+			sst_update_timer(sst_drv_ctx);
+
 		}
 		break;
 

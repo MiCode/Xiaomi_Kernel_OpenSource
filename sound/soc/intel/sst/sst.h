@@ -88,10 +88,12 @@ enum sst_algo_ops {
 #define SST_IPCLPESC		0x70
 #define SST_CLKCTL		0x78
 #define SST_CSR2		0x80
+#define SST_TMRCTL              0xC0
+#define SST_TMRSTAT             0xC8
 
 #define SST_SHIM_BEGIN		SST_CSR
-#define SST_SHIM_END		SST_CSR2
-#define SST_SHIM_SIZE		0x88
+#define SST_SHIM_END		SST_TMRSTAT
+#define SST_SHIM_SIZE		0xD0
 
 #define FW_SIGNATURE_SIZE	4
 
@@ -420,6 +422,7 @@ struct sst_shim_regs64 {
 	u64 ipclpesc;
 	u64 clkctl;
 	u64 csr2;
+	u64 tmrctl;
 };
 
 struct sst_vtsv_cache {
@@ -427,6 +430,13 @@ struct sst_vtsv_cache {
 	u32 size1;
 	void *file2_in_mem;
 	u32 size2;
+};
+
+struct sst_monitor_lpe {
+	u64 prev_match_val;
+	struct work_struct mwork;
+	struct timer_list sst_timer;
+	u32 interval;
 };
 
 /***
@@ -500,6 +510,7 @@ struct intel_sst_drv {
 	struct work_struct      ipc_post_msg_wq;
 	wait_queue_head_t	wait_queue;
 	struct workqueue_struct *mad_wq;
+	struct workqueue_struct *recovery_wq; /*to queue work once recovery is triggered*/
 	struct workqueue_struct *post_msg_wq;
 	unsigned int		tstamp;
 	struct stream_info	streams[MAX_NUM_STREAMS+1]; /*str_id 0 is not used*/
@@ -548,6 +559,8 @@ struct intel_sst_drv {
 	struct sst_mem_mgr      lib_mem_mgr;
 	/* Contains the cached vtsv files*/
 	struct sst_vtsv_cache	vcache;
+	/* To store external lpe timer info and recovery timer info*/
+	struct sst_monitor_lpe monitor_lpe;
 	/* Pointer to device ID, now for same PCI_ID, HID will be
 	 * will be different for FDK and EDK2. This will be used
 	 * for devices where PCI or ACPI id is same but HID is
@@ -685,9 +698,15 @@ int sst_send_vtsv_data_to_fw(struct intel_sst_drv *ctx);
 
 void sst_do_recovery_mrfld(struct intel_sst_drv *sst);
 void sst_do_recovery(struct intel_sst_drv *sst);
+void sst_trigger_recovery(struct work_struct *work);
+void sst_update_timer(struct intel_sst_drv *sst_drv_ctx);
+void sst_do_recovery(struct intel_sst_drv *sst);
 long intel_sst_ioctl_dsp(unsigned int cmd,
 		struct snd_ppp_params *algo_params, unsigned long arg);
 
+int sst_recovery_init(struct intel_sst_drv *sst_drv_ctx);
+int sst_set_timer(struct sst_monitor_lpe *monitor_lpe, bool enable);
+void sst_timer_cb(unsigned long data);
 void sst_dump_to_buffer(const void *from, size_t from_len, char *buf);
 
 extern int intel_scu_ipc_simple_command(int, int);
