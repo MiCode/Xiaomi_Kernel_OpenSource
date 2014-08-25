@@ -2266,6 +2266,11 @@ static int dvb_dmxdev_ts_fullness_callback(struct dmx_ts_feed *filter,
 	struct dmxdev_events_queue *events;
 	int ret;
 
+	if (!dmxdevfilter) {
+		pr_err("%s: NULL demux filter object!\n", __func__);
+		return -ENODEV;
+	}
+
 	if (dmxdevfilter->params.pes.output != DMX_OUT_TS_TAP) {
 		src = &dmxdevfilter->buffer;
 		events = &dmxdevfilter->events;
@@ -2322,9 +2327,17 @@ static int dvb_dmxdev_sec_fullness_callback(
 				int required_space, int wait)
 {
 	struct dmxdev_filter *dmxdevfilter = filter->priv;
-	struct dvb_ringbuffer *src = &dmxdevfilter->buffer;
-	struct dmxdev_events_queue *events = &dmxdevfilter->events;
+	struct dvb_ringbuffer *src;
+	struct dmxdev_events_queue *events;
 	int ret;
+
+	if (!dmxdevfilter) {
+		pr_err("%s: NULL demux filter object!\n", __func__);
+		return -ENODEV;
+	}
+
+	src = &dmxdevfilter->buffer;
+	events = &dmxdevfilter->events;
 
 	do {
 		ret = 0;
