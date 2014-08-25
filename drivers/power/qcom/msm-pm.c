@@ -184,6 +184,7 @@ static bool msm_pm_pc_hotplug(void)
 {
 	uint32_t cpu = smp_processor_id();
 	enum msm_pm_l2_scm_flag flag;
+	struct scm_desc desc;
 
 	flag = lpm_cpu_pre_pc_cb(cpu);
 
@@ -194,8 +195,16 @@ static bool msm_pm_pc_hotplug(void)
 
 	msm_pc_inc_debug_count(cpu, MSM_PC_ENTRY_COUNTER);
 
-	scm_call_atomic1(SCM_SVC_BOOT, SCM_CMD_TERMINATE_PC,
+	if (is_scm_armv8()) {
+		desc.args[0] = SCM_CMD_CORE_HOTPLUGGED |
+			       (flag & SCM_FLUSH_FLAG_MASK);
+		desc.arginfo = SCM_ARGS(1);
+		scm_call2_atomic(SCM_SIP_FNID(SCM_SVC_BOOT,
+				 SCM_CMD_TERMINATE_PC), &desc);
+	} else {
+		scm_call_atomic1(SCM_SVC_BOOT, SCM_CMD_TERMINATE_PC,
 		SCM_CMD_CORE_HOTPLUGGED | (flag & SCM_FLUSH_FLAG_MASK));
+	}
 
 	/* Should not return here */
 	msm_pc_inc_debug_count(cpu, MSM_PC_FALLTHRU_COUNTER);
@@ -206,6 +215,7 @@ int msm_pm_collapse(unsigned long unused)
 {
 	uint32_t cpu = smp_processor_id();
 	enum msm_pm_l2_scm_flag flag;
+	struct scm_desc desc;
 
 	flag = lpm_cpu_pre_pc_cb(cpu);
 
@@ -216,7 +226,14 @@ int msm_pm_collapse(unsigned long unused)
 
 	msm_pc_inc_debug_count(cpu, MSM_PC_ENTRY_COUNTER);
 
-	scm_call_atomic1(SCM_SVC_BOOT, SCM_CMD_TERMINATE_PC, flag);
+	if (is_scm_armv8()) {
+		desc.args[0] = flag;
+		desc.arginfo = SCM_ARGS(1);
+		scm_call2_atomic(SCM_SIP_FNID(SCM_SVC_BOOT,
+				 SCM_CMD_TERMINATE_PC), &desc);
+	} else {
+		scm_call_atomic1(SCM_SVC_BOOT, SCM_CMD_TERMINATE_PC, flag);
+	}
 
 	msm_pc_inc_debug_count(cpu, MSM_PC_FALLTHRU_COUNTER);
 
