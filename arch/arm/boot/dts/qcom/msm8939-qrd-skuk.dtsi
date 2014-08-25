@@ -231,6 +231,7 @@
 };
 
 &sdhc_2 {
+	qcom,nonhotplug;
 	interrupts = <0 1>;
 	interrupt-map = <0 &intc 0 125 0
 		1 &intc 0 221 0>;
