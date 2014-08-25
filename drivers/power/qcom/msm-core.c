@@ -94,11 +94,13 @@ struct cpu_static_info {
 	uint32_t num_of_freqs;
 };
 
+static DEFINE_MUTEX(policy_update_mutex);
 static struct delayed_work sampling_work;
 static struct completion sampling_completion;
 static struct task_struct *sampling_task;
 static int low_hyst_temp;
 static int high_hyst_temp;
+static struct platform_device *msm_core_pdev;
 static struct cpu_activity_info activity[NR_CPUS];
 DEFINE_PER_CPU(struct cpu_pstate_pwr *, ptable);
 static struct cpu_pwr_stats cpu_stats[NR_CPUS];
@@ -208,12 +210,40 @@ void trigger_cpu_pwr_stats_calc(void)
 			sensor_get_temp(cpu_node->sensor_id, &cpu_node->temp);
 		prev_temp[cpu] = cpu_node->temp;
 
-		if (activate_power_table)
+		if (activate_power_table && cpu_node->sp->table)
 			repopulate_stats(cpu);
 	}
 	spin_unlock(&update_lock);
 }
 EXPORT_SYMBOL(trigger_cpu_pwr_stats_calc);
+
+static void update_related_freq_table(struct cpufreq_policy *policy)
+{
+	int cpu, num_of_freqs;
+	struct cpufreq_frequency_table *table;
+
+	table = cpufreq_frequency_get_table(policy->cpu);
+	if (!table) {
+		pr_err("Couldn't get freq table for cpu%d\n",
+				policy->cpu);
+		return;
+	}
+
+	for (num_of_freqs = 0; table[num_of_freqs].frequency !=
+			CPUFREQ_TABLE_END;)
+		num_of_freqs++;
+
+	/*
+	 * Synchronous cores within cluster have the same
+	 * policy. Since these cores do not have the cpufreq
+	 * table initialized for all of them, copy the same
+	 * table to all the related cpus.
+	 */
+	for_each_cpu(cpu, policy->related_cpus) {
+		activity[cpu].sp->table = table;
+		activity[cpu].sp->num_of_freqs = num_of_freqs;
+	}
+}
 
 static __ref int do_sampling(void *data)
 {
@@ -387,7 +417,13 @@ static long msm_core_ioctl(struct file *file, unsigned int cmd,
 		}
 		if (cpu >= num_possible_cpus())
 			break;
+
+		mutex_lock(&policy_update_mutex);
 		node = &activity[cpu];
+		if (!node->sp->table) {
+			ret = -EINVAL;
+			goto unlock;
+		}
 		ret = copy_to_user((void __user *)&argp->voltage[0],
 				node->sp->voltage,
 				sizeof(uint32_t) * node->sp->num_of_freqs);
@@ -400,7 +436,8 @@ static long msm_core_ioctl(struct file *file, unsigned int cmd,
 			if (ret)
 				break;
 		}
-
+unlock:
+		mutex_unlock(&policy_update_mutex);
 		break;
 	default:
 		break;
@@ -438,29 +475,27 @@ static inline void init_sens_threshold(struct sensor_threshold *threshold,
 	threshold->notify = (void *)core_temp_notify;
 }
 
-static int msm_core_stats_init(struct device *dev)
+static int msm_core_stats_init(struct device *dev, int cpu)
 {
-	int cpu;
 	int i;
 	struct cpu_activity_info *cpu_node;
 	struct cpu_pstate_pwr *pstate = NULL;
 
-	for_each_possible_cpu(cpu) {
-		cpu_node = &activity[cpu];
-		cpu_stats[cpu].cpu = cpu;
-		cpu_stats[cpu].temp = cpu_node->temp;
-		cpu_stats[cpu].len = cpu_node->sp->num_of_freqs;
-		pstate = devm_kzalloc(dev,
-			sizeof(*pstate) * cpu_node->sp->num_of_freqs,
-			GFP_KERNEL);
-		if (!pstate)
-			return -ENOMEM;
+	cpu_node = &activity[cpu];
+	cpu_stats[cpu].cpu = cpu;
+	cpu_stats[cpu].temp = cpu_node->temp;
 
-		for (i = 0; i < cpu_node->sp->num_of_freqs; i++)
-			pstate[i].freq = cpu_node->sp->table[i].frequency;
+	cpu_stats[cpu].len = cpu_node->sp->num_of_freqs;
+	pstate = devm_kzalloc(dev,
+		sizeof(*pstate) * cpu_node->sp->num_of_freqs,
+		GFP_KERNEL);
+	if (!pstate)
+		return -ENOMEM;
 
-		per_cpu(ptable, cpu) = pstate;
-	}
+	for (i = 0; i < cpu_node->sp->num_of_freqs; i++)
+		pstate[i].freq = cpu_node->sp->table[i].frequency;
+
+	per_cpu(ptable, cpu) = pstate;
 	return 0;
 }
 
@@ -548,34 +583,20 @@ static int msm_get_voltage_levels(struct device *dev, int cpu,
 }
 
 static int msm_core_dyn_pwr_init(struct platform_device *pdev,
-				struct device_node *node,
 				int cpu)
 {
 	int ret = 0;
-	int i;
-	struct platform_device *pdev_rail;
 
-	pdev_rail = of_find_device_by_node(activity[cpu].apc_node);
-
-	/* OOPS, we shoud not be here. There is something wrong */
-	if (!activity[cpu].sp->table) {
-		pr_err("Frequency table for cpu%d not found\n", cpu);
-		return -EINVAL;
-	}
-
-	for (i = 0; activity[cpu].sp->table[i].frequency != CPUFREQ_TABLE_END;
-			i++)
-		activity[cpu].sp->num_of_freqs++;
+	if (!activity[cpu].sp->table)
+		return 0;
 
 	ret = msm_get_voltage_levels(&pdev->dev, cpu, activity[cpu].sp);
 	if (ret)
 		return ret;
 
 	ret = msm_get_power_values(cpu, activity[cpu].sp);
-	if (ret)
-		return ret;
 
-	return 0;
+	return ret;
 }
 
 static int msm_core_tsens_init(struct device_node *node, int cpu)
@@ -659,12 +680,47 @@ static int msm_core_mpidr_init(struct device_node *node)
 	return mpidr;
 }
 
+static int msm_core_cpu_policy_handler(struct notifier_block *nb,
+		unsigned long val, void *data)
+{
+	struct cpufreq_policy *policy = data;
+	struct cpu_activity_info *cpu_info = &activity[policy->cpu];
+	int cpu;
+	int ret;
+
+	if (cpu_info->sp->table)
+		return NOTIFY_OK;
+
+	switch (val) {
+	case CPUFREQ_CREATE_POLICY:
+		mutex_lock(&policy_update_mutex);
+		update_related_freq_table(policy);
+
+		for_each_cpu(cpu, policy->related_cpus) {
+			ret = msm_core_dyn_pwr_init(msm_core_pdev, cpu);
+			if (ret)
+				pr_debug("voltage-pwr table update failed\n");
+
+			ret = msm_core_stats_init(&msm_core_pdev->dev, cpu);
+			if (ret)
+				pr_debug("Stats table update failed\n");
+		}
+		mutex_unlock(&policy_update_mutex);
+		break;
+	default:
+		break;
+	}
+	return NOTIFY_OK;
+}
+
+struct notifier_block cpu_policy = {
+	.notifier_call = msm_core_cpu_policy_handler
+};
+
 static int msm_core_freq_init(void)
 {
+	int cpu;
 	struct cpufreq_policy *policy;
-	struct cpufreq_frequency_table *table;
-	int idx = 0;
-	int cpu, i;
 
 	for_each_possible_cpu(cpu) {
 		activity[cpu].sp = kzalloc(sizeof(*(activity[cpu].sp)),
@@ -673,7 +729,7 @@ static int msm_core_freq_init(void)
 			return -ENOMEM;
 	}
 
-	for_each_possible_cpu(cpu) {
+	for_each_online_cpu(cpu) {
 		if (activity[cpu].sp->table)
 			continue;
 
@@ -681,32 +737,10 @@ static int msm_core_freq_init(void)
 		if (!policy)
 			continue;
 
-		table = cpufreq_frequency_get_table(policy->cpu);
-		if (!table) {
-			pr_err("Couldn't get freq table for cpu%d\n",
-					policy->cpu);
-			return -EINVAL;
-		}
-
-		/*
-		 * Synchronous cores within cluster have the same
-		 * policy. Since these cores do not have the cpufreq
-		 * table initialized for all of them, copy the same
-		 * table to all the related cpus.
-		 */
-		for_each_cpu(i, policy->related_cpus) {
-			activity[i].sp->table = table;
-			idx++;
-		}
-
+		update_related_freq_table(policy);
 		cpufreq_cpu_put(policy);
 	}
 
-	/* Make sure we filled in the frequency table for all the cpus*/
-	if (idx != num_possible_cpus()) {
-		pr_err("Freq table for all cpus are not initialized\n");
-		return -EINVAL;
-	}
 	return 0;
 }
 
@@ -753,11 +787,18 @@ static int msm_core_params_init(struct platform_device *pdev)
 		if (ret)
 			return ret;
 
-		ret = msm_core_dyn_pwr_init(pdev, child_node, cpu);
-		if (ret)
-			return ret;
+		if (!activity[cpu].sp->table)
+			continue;
 
+		ret = msm_core_dyn_pwr_init(msm_core_pdev, cpu);
+		if (ret)
+			pr_debug("voltage-pwr table update failed\n");
+
+		ret = msm_core_stats_init(&msm_core_pdev->dev, cpu);
+		if (ret)
+			pr_debug("Stats table update failed\n");
 	}
+
 	return 0;
 }
 
@@ -804,6 +845,7 @@ static int msm_core_dev_probe(struct platform_device *pdev)
 	if (!pdev)
 		return -ENODEV;
 
+	msm_core_pdev = pdev;
 	node = pdev->dev.of_node;
 	if (!node)
 		return -ENODEV;
@@ -837,10 +879,6 @@ static int msm_core_dev_probe(struct platform_device *pdev)
 	if (ret)
 		goto failed;
 
-	ret = msm_core_stats_init(&pdev->dev);
-	if (ret)
-		goto failed;
-
 	ret = msm_core_task_init(&pdev->dev);
 	if (ret)
 		goto failed;
@@ -850,6 +888,7 @@ static int msm_core_dev_probe(struct platform_device *pdev)
 
 	INIT_DEFERRABLE_WORK(&sampling_work, samplequeue_handle);
 	schedule_delayed_work(&sampling_work, msecs_to_jiffies(0));
+	cpufreq_register_notifier(&cpu_policy, CPUFREQ_POLICY_NOTIFIER);
 	return 0;
 failed:
 	free_dyn_memory();
