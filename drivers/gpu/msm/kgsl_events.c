@@ -73,7 +73,8 @@ void kgsl_process_event_group(struct kgsl_device *device,
 
 	context = group->context;
 
-	_kgsl_context_get(context);
+	if (context && !_kgsl_context_get(context))
+		return;
 
 	spin_lock(&group->lock);
 
@@ -204,7 +205,8 @@ int kgsl_add_event(struct kgsl_device *device, struct kgsl_event_group *group,
 		return -ENOMEM;
 
 	/* Get a reference to the context while the event is active */
-	_kgsl_context_get(context);
+	if (context && !_kgsl_context_get(context))
+		return -EINVAL;
 
 	event->device = device;
 	event->context = context;
