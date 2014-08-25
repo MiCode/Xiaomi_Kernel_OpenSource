@@ -73,7 +73,14 @@ static struct mutex drv_ctx_lock;
 #else
 #define intel_sst_ioctl_compat NULL
 #endif
-#define DEFAULT_FW_MONITOR_INTERVAL 9000 /*timer callback interval in ms to check lpe state*/
+/* set the default timer to 4.5s, As it will work for
+ * PCM/Compress/Hostless case, until the minimal logic
+ * for timer is implemented. The number 4.5 is because
+ * Any timer greater than 5s will casuse issues with
+ * PCM playback as HAL reacts before triggering the recovery
+ * Any number below 4s is not ideal for compress usecase
+ */
+#define DEFAULT_FW_MONITOR_INTERVAL 4500 /*timer callback interval in ms to check lpe state*/
 #define MIN_FW_MONITOR_INTERVAL     500
 #define MAX_FW_MONITOR_INTERVAL     20000
 
