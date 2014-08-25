@@ -217,6 +217,7 @@
 
 #define IRQ_C_REG			0x52
 #define IRQ_C_TERM_BIT			BIT(0)
+#define IRQ_C_FASTCHG_BIT		BIT(6)
 
 #define IRQ_D_REG			0x53
 #define IRQ_D_TIMEOUT_BIT		BIT(2)
@@ -279,6 +280,7 @@ enum {
 	USER = BIT(0),
 	THERMAL = BIT(1),
 	CURRENT = BIT(2),
+	SOC = BIT(3),
 };
 
 enum path_type {
@@ -291,6 +293,10 @@ static int chg_time[] = {
 	384,
 	768,
 	1536,
+};
+
+static char *pm_batt_supplied_to[] = {
+	"bms",
 };
 
 struct smb135x_regulator {
@@ -332,6 +338,7 @@ struct smb135x_chg {
 
 	bool				parallel_charger;
 	bool				parallel_charger_present;
+	bool				bms_controlled_charging;
 
 	/* psy */
 	struct power_supply		*usb_psy;
@@ -696,6 +703,8 @@ static int smb135x_get_prop_charge_type(struct smb135x_chg *chip)
 		return POWER_SUPPLY_CHARGE_TYPE_FAST;
 	else if (chg_type == BATT_PRE_CHG_VAL)
 		return POWER_SUPPLY_CHARGE_TYPE_TRICKLE;
+	else if (chg_type == BATT_TAPER_CHG_VAL)
+		return POWER_SUPPLY_CHARGE_TYPE_TAPER;
 
 	return POWER_SUPPLY_CHARGE_TYPE_NONE;
 }
@@ -1306,25 +1315,68 @@ static int smb135x_battery_set_property(struct power_supply *psy,
 				       enum power_supply_property prop,
 				       const union power_supply_propval *val)
 {
+	int rc = 0, update_psy = 0;
 	struct smb135x_chg *chip = container_of(psy,
 				struct smb135x_chg, batt_psy);
 
 	switch (prop) {
+	case POWER_SUPPLY_PROP_STATUS:
+		if (!chip->bms_controlled_charging) {
+			rc = -EINVAL;
+			break;
+		}
+		switch (val->intval) {
+		case POWER_SUPPLY_STATUS_FULL:
+			rc = smb135x_path_suspend(chip, USB, SOC, true);
+			if (rc < 0) {
+				dev_err(chip->dev, "Couldn't set usb suspend rc = %d\n",
+						rc);
+			} else {
+				chip->chg_done_batt_full = true;
+				update_psy = 1;
+				dev_dbg(chip->dev, "status = FULL chg_done_batt_full = %d",
+						chip->chg_done_batt_full);
+			}
+			break;
+		case POWER_SUPPLY_STATUS_DISCHARGING:
+			chip->chg_done_batt_full = false;
+			update_psy = 1;
+			dev_dbg(chip->dev, "status = DISCHARGING chg_done_batt_full = %d",
+					chip->chg_done_batt_full);
+			break;
+		case POWER_SUPPLY_STATUS_CHARGING:
+			rc = smb135x_path_suspend(chip, USB, SOC, false);
+			if (rc < 0) {
+				dev_err(chip->dev, "Couldn't disable usb suspend rc = %d\n",
+						rc);
+			} else {
+				chip->chg_done_batt_full = false;
+				dev_dbg(chip->dev, "status = CHARGING chg_done_batt_full = %d",
+						chip->chg_done_batt_full);
+			}
+			break;
+		default:
+			update_psy = 0;
+			rc = -EINVAL;
+		}
+		break;
 	case POWER_SUPPLY_PROP_CHARGING_ENABLED:
 		smb135x_charging(chip, val->intval);
 		break;
 	case POWER_SUPPLY_PROP_CAPACITY:
 		chip->fake_battery_soc = val->intval;
-		power_supply_changed(&chip->batt_psy);
+		update_psy = 1;
 		break;
 	case POWER_SUPPLY_PROP_SYSTEM_TEMP_LEVEL:
 		smb135x_system_temp_level_set(chip, val->intval);
 		break;
 	default:
-		return -EINVAL;
+		rc = -EINVAL;
 	}
 
-	return 0;
+	if (!rc && update_psy)
+		power_supply_changed(&chip->batt_psy);
+	return rc;
 }
 
 static int smb135x_battery_is_writeable(struct power_supply *psy,
@@ -2091,7 +2143,14 @@ static int chg_hot_handler(struct smb135x_chg *chip, u8 rt_stat)
 static int chg_term_handler(struct smb135x_chg *chip, u8 rt_stat)
 {
 	pr_debug("rt_stat = 0x%02x\n", rt_stat);
-	chip->chg_done_batt_full = !!rt_stat;
+
+	/*
+	 * This handler gets called even when the charger based termination
+	 * is disabled (due to change in RT status). However, in a bms
+	 * controlled design the battery status should not be updated.
+	 */
+	if (!chip->iterm_disabled)
+		chip->chg_done_batt_full = !!rt_stat;
 	return 0;
 }
 
@@ -2104,13 +2163,26 @@ static int taper_handler(struct smb135x_chg *chip, u8 rt_stat)
 static int fast_chg_handler(struct smb135x_chg *chip, u8 rt_stat)
 {
 	pr_debug("rt_stat = 0x%02x\n", rt_stat);
-	power_supply_changed(&chip->batt_psy);
+
+	if (rt_stat & IRQ_C_FASTCHG_BIT)
+		chip->chg_done_batt_full = false;
+
 	return 0;
 }
 
 static int recharge_handler(struct smb135x_chg *chip, u8 rt_stat)
 {
+	int rc;
+
 	pr_debug("rt_stat = 0x%02x\n", rt_stat);
+
+	if (chip->bms_controlled_charging) {
+		rc = smb135x_path_suspend(chip, USB, SOC, false);
+		if (rc < 0)
+			dev_err(chip->dev, "Couldn't disable usb suspend rc = %d\n",
+					rc);
+	}
+
 	return 0;
 }
 
@@ -2290,6 +2362,16 @@ static int handle_usb_insertion(struct smb135x_chg *chip)
 	pr_debug("inserted %s, usb psy type = %d stat_5 = 0x%02x\n",
 			usb_type_name, usb_supply_type, reg);
 	if (chip->usb_psy) {
+		if (chip->bms_controlled_charging) {
+			/*
+			 * Disable SOC based USB suspend to enable charging on
+			 * USB insertion.
+			 */
+			rc = smb135x_path_suspend(chip, USB, SOC, false);
+			if (rc < 0)
+				dev_err(chip->dev, "Couldn't disable usb suspend rc = %d\n",
+						rc);
+		}
 		pr_debug("setting usb psy type = %d\n", usb_supply_type);
 		power_supply_set_supply_type(chip->usb_psy, usb_supply_type);
 		pr_debug("setting usb psy present = %d\n", chip->usb_present);
@@ -2377,7 +2459,9 @@ static int chg_inhibit_handler(struct smb135x_chg *chip, u8 rt_stat)
 	 * battery full
 	 */
 	pr_debug("rt_stat = 0x%02x\n", rt_stat);
-	chip->chg_done_batt_full = !!rt_stat;
+
+	if (!chip->inhibit_disabled)
+		chip->chg_done_batt_full = !!rt_stat;
 	return 0;
 }
 
@@ -3336,6 +3420,9 @@ static int smb_parse_dt(struct smb135x_chg *chip)
 	chip->inhibit_disabled  = of_property_read_bool(node,
 						"qcom,inhibit-disabled");
 
+	chip->bms_controlled_charging  = of_property_read_bool(node,
+					"qcom,bms-controlled-charging");
+
 	rc = of_property_read_string(node, "qcom,bms-psy-name",
 						&chip->bms_psy_name);
 	if (rc)
@@ -3570,6 +3657,12 @@ static int smb135x_main_charger_probe(struct i2c_client *client,
 	chip->batt_psy.num_properties  = ARRAY_SIZE(smb135x_battery_properties);
 	chip->batt_psy.external_power_changed = smb135x_external_power_changed;
 	chip->batt_psy.property_is_writeable = smb135x_battery_is_writeable;
+
+	if (chip->bms_controlled_charging) {
+		chip->batt_psy.supplied_to	= pm_batt_supplied_to;
+		chip->batt_psy.num_supplicants	=
+					ARRAY_SIZE(pm_batt_supplied_to);
+	}
 
 	rc = power_supply_register(chip->dev, &chip->batt_psy);
 	if (rc < 0) {
