@@ -18,6 +18,7 @@
 #include <linux/delay.h>
 #include <linux/clk/msm-clk-provider.h>
 #include <linux/clk/msm-clk.h>
+#include <linux/workqueue.h>
 #include <linux/clk/msm-clock-generic.h>
 #include <dt-bindings/clock/msm-clocks-8994.h>
 
@@ -47,6 +48,8 @@ static int vco_set_rate_20nm(struct clk *c, unsigned long rate)
 		return rc;
 	}
 
+	pr_debug("Cancel pending pll off work\n");
+	cancel_work_sync(&dsi_pll_res->pll_off);
 	rc = pll_20nm_vco_set_rate(vco, rate);
 
 	mdss_pll_resource_enable(dsi_pll_res, false);
@@ -453,10 +456,58 @@ static struct clk_lookup mdss_dsi_pllcc_8994[] = {
 	CLK_LIST(shadow_dsi_vco_clk_8994),
 };
 
+static void dsi_pll_off_work(struct work_struct *work)
+{
+	struct mdss_pll_resources *pll_res;
+
+	if (!work) {
+		pr_err("pll_resource is invalid\n");
+		return;
+	}
+
+	pr_debug("Starting PLL off Worker%s\n", __func__);
+
+	pll_res = container_of(work, struct
+			mdss_pll_resources, pll_off);
+
+	mdss_pll_resource_enable(pll_res, true);
+	__dsi_pll_disable(pll_res->pll_base);
+	if (pll_res->pll_1_base)
+		__dsi_pll_disable(pll_res->pll_1_base);
+	mdss_pll_resource_enable(pll_res, false);
+}
+
+static int dsi_pll_regulator_notifier_call(struct notifier_block *self,
+		unsigned long event, void *data)
+{
+
+	struct mdss_pll_resources *pll_res;
+
+	if (!self) {
+		pr_err("pll_resource is invalid\n");
+		goto error;
+	}
+
+	pll_res = container_of(self, struct
+			mdss_pll_resources, gdsc_cb);
+
+	if (event & REGULATOR_EVENT_ENABLE) {
+		pr_debug("Regulator ON event. Scheduling pll off worker\n");
+		schedule_work(&pll_res->pll_off);
+	}
+
+	if (event & REGULATOR_EVENT_DISABLE)
+		pr_debug("Regulator OFF event.\n");
+
+error:
+	return NOTIFY_OK;
+}
+
 int dsi_pll_clock_register_20nm(struct platform_device *pdev,
 				struct mdss_pll_resources *pll_res)
 {
 	int rc;
+	struct dss_vreg *pll_reg;
 
 	if (!pdev || !pdev->dev.of_node) {
 		pr_err("Invalid input parameters\n");
@@ -513,11 +564,22 @@ int dsi_pll_clock_register_20nm(struct platform_device *pdev,
 	shadow_byte_clk_src_ops.prepare = dsi_pll_div_prepare;
 
 	if (pll_res->target_id == MDSS_PLL_TARGET_8994) {
+		pll_res->gdsc_cb.notifier_call =
+			dsi_pll_regulator_notifier_call;
+		INIT_WORK(&pll_res->pll_off, dsi_pll_off_work);
+
 		rc = of_msm_clock_register(pdev->dev.of_node,
 			mdss_dsi_pllcc_8994, ARRAY_SIZE(mdss_dsi_pllcc_8994));
 		if (rc) {
 			pr_err("Clock register failed\n");
 			rc = -EPROBE_DEFER;
+		}
+		pll_reg = mdss_pll_get_mp_by_reg_name(pll_res, "gdsc");
+		if (pll_reg) {
+			pr_debug("Registering for gdsc regulator events\n");
+			if (regulator_register_notifier(pll_reg->vreg,
+						&(pll_res->gdsc_cb)))
+				pr_err("Regulator notification registration failed!\n");
 		}
 	} else {
 		pr_err("Invalid target ID\n");

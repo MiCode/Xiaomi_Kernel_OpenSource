@@ -249,6 +249,25 @@ static int mdss_pll_probe(struct platform_device *pdev)
 		goto res_parse_error;
 	}
 
+	/*
+	 * DSI PLL 1 is leaking current whenever MDSS GDSC is toggled. Need to
+	 * map PLL1 registers along with the PLl0 so that we can manually turn
+	 * off PLL1.
+	 */
+	if (pll_res->pll_interface_type == MDSS_DSI_PLL_20NM) {
+		struct resource *pll_1_base_reg;
+		pll_1_base_reg = platform_get_resource_byname(pdev,
+				IORESOURCE_MEM, "pll_1_base");
+		if (pll_1_base_reg) {
+			pll_res->pll_1_base = ioremap(pll_1_base_reg->start,
+					resource_size(pll_1_base_reg));
+			if (!pll_res->pll_1_base)
+				pr_err("Unable to remap pll 1 base resources\n");
+		} else {
+			pr_err("Unable to get the pll 1 base resource\n");
+		}
+	}
+
 	phy_base_reg = platform_get_resource_byname(pdev,
 						IORESOURCE_MEM, "phy_base");
 	if (!phy_base_reg) {
@@ -303,6 +322,8 @@ dyn_pll_io_error:
 	if (pll_res->phy_base)
 		iounmap(pll_res->phy_base);
 phy_io_error:
+	if (pll_res->pll_1_base)
+		iounmap(pll_res->pll_1_base);
 	mdss_pll_resource_release(pdev, pll_res);
 res_parse_error:
 	iounmap(pll_res->pll_base);
