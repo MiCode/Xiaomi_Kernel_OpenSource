@@ -18,7 +18,9 @@
 #include <linux/slab.h>
 #include <linux/io.h>
 #include <linux/ftrace.h>
+#include <linux/mm.h>
 #include <linux/msm_adreno_devfreq.h>
+#include <asm/cacheflush.h>
 #include <soc/qcom/scm.h>
 #include "governor.h"
 
@@ -48,6 +50,9 @@ static DEFINE_SPINLOCK(tz_lock);
 #define TZ_UPDATE_ID_64         0x8
 #define TZ_INIT_ID_64           0x9
 
+#define TZ_V2_UPDATE_ID_64         0xA
+#define TZ_V2_INIT_ID_64           0xB
+
 #define TAG "msm_adreno_tz: "
 
 struct msm_adreno_extended_profile *partner_gpu_profile;
@@ -63,14 +68,22 @@ static int __secure_tz_reset_entry2(unsigned int *scm_data, u32 size_scm_data,
 	int ret;
 	/* sync memory before sending the commands to tz*/
 	__iowmb();
+
 	if (!is_64) {
 		spin_lock(&tz_lock);
 		ret = scm_call_atomic2(SCM_SVC_IO, TZ_RESET_ID, scm_data[0],
 					scm_data[1]);
 		spin_unlock(&tz_lock);
 	} else {
-		ret = scm_call(SCM_SVC_DCVS, TZ_RESET_ID_64, scm_data,
+		if (is_scm_armv8()) {
+			struct scm_desc desc = {0};
+			desc.arginfo = 0;
+			ret = scm_call2(SCM_SIP_FNID(SCM_SVC_DCVS,
+					 TZ_RESET_ID_64), &desc);
+		} else {
+			ret = scm_call(SCM_SVC_DCVS, TZ_RESET_ID_64, scm_data,
 				size_scm_data, NULL, 0);
+		}
 	}
 	return ret;
 }
@@ -81,6 +94,7 @@ static int __secure_tz_update_entry3(unsigned int *scm_data, u32 size_scm_data,
 	int ret;
 	/* sync memory before sending the commands to tz*/
 	__iowmb();
+
 	if (!is_64) {
 		spin_lock(&tz_lock);
 		ret = scm_call_atomic3(SCM_SVC_IO, TZ_UPDATE_ID,
@@ -88,8 +102,19 @@ static int __secure_tz_update_entry3(unsigned int *scm_data, u32 size_scm_data,
 		spin_unlock(&tz_lock);
 		*val = ret;
 	} else {
-		ret = scm_call(SCM_SVC_DCVS, TZ_UPDATE_ID_64, scm_data,
+		if (is_scm_armv8()) {
+			struct scm_desc desc = {0};
+			desc.args[0] = scm_data[0];
+			desc.args[1] = scm_data[1];
+			desc.args[2] = scm_data[2];
+			desc.arginfo = SCM_ARGS(3);
+			ret = scm_call2(SCM_SIP_FNID(SCM_SVC_DCVS,
+					TZ_V2_UPDATE_ID_64), &desc);
+			*val = desc.ret[0];
+		} else {
+			ret = scm_call(SCM_SVC_DCVS, TZ_UPDATE_ID_64, scm_data,
 				size_scm_data, val, size_val);
+		}
 	}
 	return ret;
 }
@@ -108,11 +133,34 @@ static int tz_init(struct devfreq_msm_adreno_tz_data *priv,
 	} else if (scm_is_call_available(SCM_SVC_DCVS, TZ_INIT_ID_64) &&
 			scm_is_call_available(SCM_SVC_DCVS, TZ_UPDATE_ID_64) &&
 			scm_is_call_available(SCM_SVC_DCVS, TZ_RESET_ID_64)) {
+		struct scm_desc desc = {0};
+		unsigned int *tz_buf;
 
-		ret = scm_call(SCM_SVC_DCVS, TZ_INIT_ID_64, tz_pwrlevels,
-			size_pwrlevels, version, size_version);
-		if (!ret)
-			priv->is_64 = true;
+		if (!is_scm_armv8()) {
+			ret = scm_call(SCM_SVC_DCVS, TZ_INIT_ID_64,
+				       tz_pwrlevels, size_pwrlevels,
+				       version, size_version);
+			if (!ret)
+				priv->is_64 = true;
+			return ret;
+		}
+
+		tz_buf = kzalloc(PAGE_ALIGN(size_pwrlevels), GFP_KERNEL);
+		if (!tz_buf)
+			return -ENOMEM;
+		memcpy(tz_buf, tz_pwrlevels, size_pwrlevels);
+		/* Ensure memcpy completes execution */
+		mb();
+		dmac_flush_range(tz_buf, tz_buf + PAGE_ALIGN(size_pwrlevels));
+
+		desc.args[0] = virt_to_phys(tz_buf);
+		desc.args[1] = size_pwrlevels;
+		desc.arginfo = SCM_ARGS(2, SCM_RW, SCM_VAL);
+
+		ret = scm_call2(SCM_SIP_FNID(SCM_SVC_DCVS, TZ_V2_INIT_ID_64),
+				&desc);
+		*version = desc.ret[0];
+		kzfree(tz_buf);
 	} else
 		ret = -EINVAL;
 
