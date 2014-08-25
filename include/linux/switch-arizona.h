@@ -53,6 +53,9 @@ struct arizona_jd_state {
 int arizona_jds_set_state(struct arizona_extcon_info *info,
 			  const struct arizona_jd_state *new_state);
 
+extern void arizona_set_headphone_imp(struct arizona_extcon_info *info,
+				      int imp);
+
 extern const struct arizona_jd_state arizona_hpdet_left;
 extern const struct arizona_jd_state arizona_hpdet_right;
 extern const struct arizona_jd_state arizona_micd_button;

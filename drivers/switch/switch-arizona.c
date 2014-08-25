@@ -787,6 +787,28 @@ int arizona_wm1814_tune_headphone(struct arizona_extcon_info *info,
 	return 0;
 }
 
+void arizona_set_headphone_imp(struct arizona_extcon_info *info, int imp)
+{
+	struct arizona *arizona = info->arizona;
+
+	arizona->hp_impedance = imp;
+
+	if (arizona->pdata.hpdet_cb)
+		arizona->pdata.hpdet_cb(arizona->hp_impedance);
+
+	switch (arizona->type) {
+	case WM5110:
+		arizona_wm5110_tune_headphone(info, arizona->hp_impedance);
+		break;
+	case WM1814:
+		arizona_wm1814_tune_headphone(info, arizona->hp_impedance);
+		break;
+	default:
+		break;
+	}
+}
+EXPORT_SYMBOL_GPL(arizona_set_headphone_imp);
+
 int arizona_hpdet_start(struct arizona_extcon_info *info)
 {
 	struct arizona *arizona = info->arizona;
@@ -798,21 +820,7 @@ int arizona_hpdet_start(struct arizona_extcon_info *info)
 	if (info->arizona->pdata.fixed_hpdet_imp) {
 		int imp = info->arizona->pdata.fixed_hpdet_imp;
 
-		if (arizona->pdata.hpdet_cb)
-			arizona->pdata.hpdet_cb(imp);
-
-		switch (arizona->type) {
-		case WM5110:
-			arizona_wm5110_tune_headphone(info, imp);
-			info->arizona->hp_impedance = imp;
-			break;
-		case WM1814:
-			arizona_wm1814_tune_headphone(info, imp);
-			info->arizona->hp_impedance = imp;
-			break;
-		default:
-			break;
-		}
+		arizona_set_headphone_imp(info, imp);
 
 		ret = -EEXIST;
 		goto skip;
@@ -927,21 +935,7 @@ int arizona_hpdet_reading(struct arizona_extcon_info *info, int val)
 	if (val < 0)
 		return val;
 
-	arizona->hp_impedance = val;
-
-	if (arizona->pdata.hpdet_cb)
-		arizona->pdata.hpdet_cb(arizona->hp_impedance);
-
-	switch (arizona->type) {
-	case WM5110:
-		arizona_wm5110_tune_headphone(info, arizona->hp_impedance);
-		break;
-	case WM1814:
-		arizona_wm1814_tune_headphone(info, arizona->hp_impedance);
-		break;
-	default:
-		break;
-	}
+	arizona_set_headphone_imp(info, val);
 
 	if (info->mic) {
 		arizona_extcon_report(info, BIT_HEADSET);
