@@ -130,8 +130,15 @@
 #define IRQ2_VBAT_LOW_BIT		BIT(0)
 
 #define IRQ3_CFG_REG			0x09
+#define IRQ3_RID_DETECT_BIT		BIT(4)
 #define IRQ3_SRC_DETECT_BIT		BIT(2)
 #define IRQ3_DCIN_UV_BIT		BIT(0)
+
+#define USBIN_OTG_REG			0x0F
+#define OTG_CNFG_MASK			SMB135X_MASK(3,	2)
+#define OTG_CNFG_PIN_CTRL		0x04
+#define OTG_CNFG_COMMAND_CTRL		0x08
+#define OTG_CNFG_AUTO_CTRL		0x0C
 
 /* Command Registers */
 #define CMD_I2C_REG			0x40
@@ -176,6 +183,12 @@
 #define ACA_B_BIT			BIT(2)
 #define ACA_C_BIT			BIT(1)
 #define ACA_DOCK_BIT			BIT(0)
+
+#define STATUS_6_REG			0x4C
+#define RID_FLOAT_BIT			BIT(3)
+#define RID_A_BIT			BIT(2)
+#define RID_B_BIT			BIT(1)
+#define RID_C_BIT			BIT(0)
 
 #define STATUS_8_REG			0x4E
 #define USBIN_9V			BIT(5)
@@ -289,6 +302,7 @@ struct smb135x_chg {
 
 	bool				usb_present;
 	bool				dc_present;
+	bool				usb_slave_present;
 	bool				dc_ov;
 
 	bool				bmd_algo_disabled;
@@ -505,6 +519,27 @@ static bool is_usb100_broken(struct smb135x_chg *chip)
 		return rc;
 	}
 	return !!(reg & CHECK_USB100_GOOD_BIT);
+}
+
+static bool is_usb_slave_present(struct smb135x_chg *chip)
+{
+	bool usb_slave_present;
+	u8 reg;
+	int rc;
+
+	rc = smb135x_read(chip, STATUS_6_REG, &reg);
+	if (rc < 0) {
+		pr_err("Couldn't read stat 6 rc = %d\n", rc);
+		return false;
+	}
+
+	if ((reg & (RID_FLOAT_BIT | RID_A_BIT | RID_B_BIT | RID_C_BIT)) == 0)
+		usb_slave_present = 1;
+	else
+		usb_slave_present = 0;
+
+	pr_debug("stat6= 0x%02x slave_present = %d\n", reg, usb_slave_present);
+	return usb_slave_present;
 }
 
 static char *usb_type_str[] = {
@@ -1826,6 +1861,24 @@ static int power_ok_handler(struct smb135x_chg *chip, u8 rt_stat)
 	return 0;
 }
 
+static int rid_handler(struct smb135x_chg *chip, u8 rt_stat)
+{
+	bool usb_slave_present;
+
+	usb_slave_present = is_usb_slave_present(chip);
+
+	if (chip->usb_slave_present ^ usb_slave_present) {
+		chip->usb_slave_present = usb_slave_present;
+		if (chip->usb_psy) {
+			pr_debug("setting usb psy usb_otg = %d\n",
+					chip->usb_slave_present);
+			power_supply_set_usb_otg(chip->usb_psy,
+				chip->usb_slave_present);
+		}
+	}
+	return 0;
+}
+
 static int handle_dc_removal(struct smb135x_chg *chip)
 {
 	if (chip->dc_psy_type == POWER_SUPPLY_TYPE_WIRELESS) {
@@ -2158,7 +2211,8 @@ static struct irq_handler_info handlers[] = {
 				.smb_irq	= power_ok_handler,
 			},
 			{
-				.name		= "unused",
+				.name		= "rid",
+				.smb_irq	= rid_handler,
 			},
 			{
 				.name		= "otg_fail",
@@ -2614,6 +2668,14 @@ static int determine_initial_status(struct smb135x_chg *chip)
 				smb135x_path_suspend(chip, DC, CURRENT, true);
 		}
 	}
+
+	chip->usb_slave_present = is_usb_slave_present(chip);
+	if (chip->usb_psy) {
+		pr_debug("setting usb psy usb_otg = %d\n",
+				chip->usb_slave_present);
+		power_supply_set_usb_otg(chip->usb_psy,
+			chip->usb_slave_present);
+	}
 	return 0;
 }
 
@@ -2815,7 +2877,7 @@ static int smb135x_hw_init(struct smb135x_chg *chip)
 			| IRQ2_VBAT_LOW_BIT);
 
 		rc |= smb135x_write(chip, IRQ3_CFG_REG, IRQ3_SRC_DETECT_BIT
-				| IRQ3_DCIN_UV_BIT);
+				| IRQ3_DCIN_UV_BIT | IRQ3_RID_DETECT_BIT);
 		if (rc < 0) {
 			dev_err(chip->dev, "Couldn't set irq enable rc = %d\n",
 					rc);
@@ -2883,6 +2945,18 @@ static int smb135x_hw_init(struct smb135x_chg *chip)
 					rc);
 			return rc;
 		}
+	}
+
+	/*
+	 * Command mode for OTG control. This gives us RID interrupts but keeps
+	 * enabling the 5V OTG via i2c register control
+	 */
+	rc = smb135x_masked_write(chip, USBIN_OTG_REG, OTG_CNFG_MASK,
+			OTG_CNFG_COMMAND_CTRL);
+	if (rc < 0) {
+		dev_err(chip->dev, "Couldn't write to otg cfg reg rc = %d\n",
+				rc);
+		return rc;
 	}
 
 	return rc;
@@ -3312,7 +3386,7 @@ static int smb135x_suspend(struct device *dev)
 		dev_err(chip->dev, "Couldn't set irq2_cfg rc = %d\n", rc);
 
 	rc = smb135x_write(chip, IRQ3_CFG_REG, IRQ3_SRC_DETECT_BIT
-			| IRQ3_DCIN_UV_BIT);
+			| IRQ3_DCIN_UV_BIT | IRQ3_RID_DETECT_BIT);
 	if (rc < 0)
 		dev_err(chip->dev, "Couldn't set irq3_cfg rc = %d\n", rc);
 
