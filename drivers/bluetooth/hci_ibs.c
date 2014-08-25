@@ -63,6 +63,9 @@
 #define HCI_IBS_WAKE_IND	0xFD
 #define HCI_IBS_WAKE_ACK	0xFC
 
+/* TX idle time out value */
+#define TX_IDLE_TO		1000
+
 /* HCI_IBS receiver States */
 #define HCI_IBS_W4_PACKET_TYPE	0
 #define HCI_IBS_W4_EVENT_HDR	1
@@ -270,7 +273,7 @@ static void ibs_wq_awake_device(struct work_struct *work)
 	ibs->ibs_sent_wakes++; /* debug */
 
 	/* start retransmit timer */
-	mod_timer(&ibs->wake_retrans_timer, jiffies + wake_retrans);
+	mod_timer(&ibs->wake_retrans_timer, jiffies + msecs_to_jiffies(10));
 
 	spin_unlock_irqrestore(&ibs->hci_ibs_lock, flags);
 
@@ -656,7 +659,8 @@ static void ibs_device_woke_up(struct hci_uart *hu)
 			skb_queue_tail(&ibs->txq, skb);
 		/* switch timers and change state to HCI_IBS_TX_AWAKE */
 		del_timer(&ibs->wake_retrans_timer);
-		mod_timer(&ibs->tx_idle_timer, jiffies + tx_idle_delay);
+		mod_timer(&ibs->tx_idle_timer, jiffies +
+			msecs_to_jiffies(TX_IDLE_TO));
 		ibs->tx_ibs_state = HCI_IBS_TX_AWAKE;
 	}
 
@@ -686,7 +690,8 @@ static int ibs_enqueue(struct hci_uart *hu, struct sk_buff *skb)
 	case HCI_IBS_TX_AWAKE:
 		BT_DBG("device awake, sending normally");
 		skb_queue_tail(&ibs->txq, skb);
-		mod_timer(&ibs->tx_idle_timer, jiffies + tx_idle_delay);
+		mod_timer(&ibs->tx_idle_timer, jiffies +
+			msecs_to_jiffies(TX_IDLE_TO));
 		break;
 
 	case HCI_IBS_TX_ASLEEP:
