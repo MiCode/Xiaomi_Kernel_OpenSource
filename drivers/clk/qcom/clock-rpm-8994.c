@@ -152,6 +152,8 @@ static DEFINE_CLK_VOTER(qseecom_ce3_clk, &ce3_clk.c, 85710000);
 static DEFINE_CLK_VOTER(scm_ce3_clk, &ce3_clk.c, 85710000);
 static DEFINE_CLK_VOTER(qcedev_ce3_clk, &ce3_clk.c, 85710000);
 static DEFINE_CLK_VOTER(qcrypto_ce3_clk, &ce3_clk.c, 85710000);
+DEFINE_CLK_DUMMY(gcc_bimc_kpss_axi_m_clk, 0);
+DEFINE_CLK_DUMMY(gcc_mmss_bimc_gfx_m_clk, 0);
 
 static struct mux_clk rpm_debug_mux = {
 	.ops = &mux_reg_ops,
@@ -163,12 +165,14 @@ static struct mux_clk rpm_debug_mux = {
 		{ &pnoc_clk.c, 0x0010 },
 		{ &snoc_clk.c, 0x0000 },
 		{ &bimc_clk.c, 0x015c },
+		{ &gcc_mmss_bimc_gfx_m_clk.c, 0x002c },
 		{ &ce1_clk.c, 0x0138 },
 		{ &gcc_ce1_axi_m_clk.c, 0x0139 },
 		{ &gcc_ce1_ahb_m_clk.c, 0x013a },
 		{ &ce2_clk.c, 0x0140 },
 		{ &gcc_ce2_axi_m_clk.c, 0x0141 },
 		{ &gcc_ce2_ahb_m_clk.c, 0x0142 },
+		{ &gcc_bimc_kpss_axi_m_clk.c, 0x0155 },
 		{ &ce3_clk.c, 0x0228 },
 		{ &gcc_ce3_axi_m_clk.c, 0x0229 },
 		{ &gcc_ce3_ahb_m_clk.c, 0x022a },
@@ -272,6 +276,8 @@ static struct clk_lookup msm_clocks_rpm_8994[] = {
 	CLK_LIST(ce3_clk),
 	CLK_LIST(gcc_ce3_ahb_m_clk),
 	CLK_LIST(gcc_ce3_axi_m_clk),
+	CLK_LIST(gcc_bimc_kpss_axi_m_clk),
+	CLK_LIST(gcc_mmss_bimc_gfx_m_clk),
 	CLK_LIST(rpm_debug_mux),
 };
 
