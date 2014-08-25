@@ -31,11 +31,20 @@
 #define SCM_ERROR		-1
 #define SCM_INTERRUPTED		1
 #define SCM_EBUSY		-55
+#define SCM_V2_EBUSY		-12
 
 static DEFINE_MUTEX(scm_lock);
 
 #define SCM_EBUSY_WAIT_MS 30
 #define SCM_EBUSY_MAX_RETRY 20
+
+#define N_EXT_SCM_ARGS 7
+#define FIRST_EXT_ARG_IDX 3
+#define SMC_ATOMIC_SYSCALL 31
+#define N_REGISTER_ARGS (MAX_SCM_ARGS - N_EXT_SCM_ARGS + 1)
+#define SMC64_MASK 0x40000000
+#define SMC_ATOMIC_MASK 0x80000000
+#define IS_CALL_AVAIL_CMD 1
 
 #define SCM_BUF_LEN(__cmd_size, __resp_size)	\
 	(sizeof(struct scm_command) + sizeof(struct scm_response) + \
@@ -91,6 +100,7 @@ struct scm_response {
 #define R2_STR "x2"
 #define R3_STR "x3"
 #define R4_STR "x4"
+#define R5_STR "x5"
 
 /* Outer caches unsupported on ARM64 platforms */
 #define outer_inv_range(x, y)
@@ -105,6 +115,7 @@ struct scm_response {
 #define R2_STR "r2"
 #define R3_STR "r3"
 #define R4_STR "r4"
+#define R5_STR "r5"
 
 #endif
 
@@ -144,8 +155,6 @@ static inline void *scm_get_response_buffer(const struct scm_response *rsp)
 
 static int scm_remap_error(int err)
 {
-	if (err != SCM_EBUSY)
-		pr_err("scm_call failed with error code %d\n", err);
 	switch (err) {
 	case SCM_ERROR:
 		return -EIO;
@@ -158,6 +167,8 @@ static int scm_remap_error(int err)
 		return -ENOMEM;
 	case SCM_EBUSY:
 		return SCM_EBUSY;
+	case SCM_V2_EBUSY:
+		return SCM_V2_EBUSY;
 	}
 	return -EINVAL;
 }
@@ -199,9 +210,11 @@ static int __scm_call(const struct scm_command *cmd)
 	outer_flush_range(cmd_addr, cmd_addr + cmd->len);
 
 	ret = smc(cmd_addr);
-	if (ret < 0)
+	if (ret < 0) {
+		if (ret != SCM_EBUSY)
+			pr_err("scm_call failed with error code %d\n", ret);
 		ret = scm_remap_error(ret);
-
+	}
 	return ret;
 }
 
@@ -343,6 +356,328 @@ int scm_call_noalloc(u32 svc_id, u32 cmd_id, const void *cmd_buf,
 				resp_len, scm_buf, len);
 	return ret;
 
+}
+
+#ifdef CONFIG_ARM64
+
+static int __scm_call_armv8_64(u64 x0, u64 x1, u64 x2, u64 x3, u64 x4, u64 x5,
+				u64 *ret1, u64 *ret2, u64 *ret3)
+{
+	register u64 r0 asm("r0") = x0;
+	register u64 r1 asm("r1") = x1;
+	register u64 r2 asm("r2") = x2;
+	register u64 r3 asm("r3") = x3;
+	register u64 r4 asm("r4") = x4;
+	register u64 r5 asm("r5") = x5;
+
+	do {
+		asm volatile(
+			__asmeq("%0", R0_STR)
+			__asmeq("%1", R1_STR)
+			__asmeq("%2", R2_STR)
+			__asmeq("%3", R3_STR)
+			__asmeq("%4", R0_STR)
+			__asmeq("%5", R1_STR)
+			__asmeq("%6", R2_STR)
+			__asmeq("%7", R3_STR)
+			__asmeq("%8", R4_STR)
+			__asmeq("%9", R5_STR)
+#ifdef REQUIRES_SEC
+			".arch_extension sec\n"
+#endif
+			"smc	#0\n"
+			: "=r" (r0), "=r" (r1), "=r" (r2), "=r" (r3)
+			: "r" (r0), "r" (r1), "r" (r2), "r" (r3), "r" (r4),
+			  "r" (r5)
+			: "x6", "x7", "x8", "x9", "x10", "x11", "x12", "x13",
+			  "x14", "x15", "x16", "x17");
+	} while (r0 == SCM_INTERRUPTED);
+
+	if (ret1)
+		*ret1 = r1;
+	if (ret2)
+		*ret2 = r2;
+	if (ret3)
+		*ret3 = r3;
+
+	return r0;
+}
+
+static int __scm_call_armv8_32(u32 w0, u32 w1, u32 w2, u32 w3, u32 w4, u32 w5,
+				u64 *ret1, u64 *ret2, u64 *ret3)
+{
+	register u32 r0 asm("r0") = w0;
+	register u32 r1 asm("r1") = w1;
+	register u32 r2 asm("r2") = w2;
+	register u32 r3 asm("r3") = w3;
+	register u32 r4 asm("r4") = w4;
+	register u32 r5 asm("r5") = w5;
+
+	do {
+		asm volatile(
+			__asmeq("%0", R0_STR)
+			__asmeq("%1", R1_STR)
+			__asmeq("%2", R2_STR)
+			__asmeq("%3", R3_STR)
+			__asmeq("%4", R0_STR)
+			__asmeq("%5", R1_STR)
+			__asmeq("%6", R2_STR)
+			__asmeq("%7", R3_STR)
+			__asmeq("%8", R4_STR)
+			__asmeq("%9", R5_STR)
+#ifdef REQUIRES_SEC
+			".arch_extension sec\n"
+#endif
+			"smc	#0\n"
+			: "=r" (r0), "=r" (r1), "=r" (r2), "=r" (r3)
+			: "r" (r0), "r" (r1), "r" (r2), "r" (r3), "r" (r4),
+			  "r" (r5)
+			: "x6", "x7", "x8", "x9", "x10", "x11", "x12", "x13",
+			  "x14", "x15", "x16", "x17");
+	} while (r0 == SCM_INTERRUPTED);
+
+	if (ret1)
+		*ret1 = r1;
+	if (ret2)
+		*ret2 = r2;
+	if (ret3)
+		*ret3 = r3;
+
+	return r0;
+}
+
+#else
+
+static int __scm_call_armv8_64(u64 x0, u64 x1, u64 x2, u64 x3, u64 x4, u64 x5,
+				u64 *ret1, u64 *ret2, u64 *ret3)
+{
+	return 0;
+}
+static int __scm_call_armv8_32(u32 w0, u32 w1, u32 w2, u32 w3, u32 w4, u32 w5,
+				u64 *ret1, u64 *ret2, u64 *ret3)
+{
+	return 0;
+}
+
+#endif
+
+struct scm_extra_arg {
+	union {
+		u32 args32[N_EXT_SCM_ARGS];
+		u64 args64[N_EXT_SCM_ARGS];
+	};
+};
+
+static enum scm_interface_version {
+	SCM_UNKNOWN,
+	SCM_LEGACY,
+	SCM_ARMV8_32,
+	SCM_ARMV8_64,
+} scm_version = SCM_UNKNOWN;
+
+/* This will be set to specify SMC32 or SMC64 */
+static bool scm_version_mask;
+
+bool is_scm_armv8(void)
+{
+	int ret;
+	u64 ret1, x0;
+
+	if (likely(scm_version != SCM_UNKNOWN))
+		return (scm_version == SCM_ARMV8_32) ||
+			(scm_version == SCM_ARMV8_64);
+	/*
+	 * This is a one time check that runs on the first ever
+	 * invocation of is_scm_armv8. We might be called in atomic
+	 * context so no mutexes etc. Also, we can't use the scm_call2
+	 * or scm_call2_APIs directly since they depend on this init.
+	 */
+
+	/* First try a SMC64 call */
+	scm_version = SCM_ARMV8_64;
+	ret1 = 0;
+	x0 = SCM_SIP_FNID(SCM_SVC_INFO, IS_CALL_AVAIL_CMD) | SMC_ATOMIC_MASK;
+	ret = __scm_call_armv8_64(x0 | SMC64_MASK, SCM_ARGS(1), x0, 0, 0, 0,
+				  &ret1, NULL, NULL);
+	if (ret || !ret1) {
+		/* Try SMC32 call */
+		ret1 = 0;
+		ret = __scm_call_armv8_32(x0, SCM_ARGS(1), x0, 0, 0, 0,
+					  &ret1, NULL, NULL);
+		if (ret || !ret1)
+			scm_version = SCM_LEGACY;
+		else
+			scm_version = SCM_ARMV8_32;
+	} else
+		scm_version_mask = SMC64_MASK;
+
+	pr_debug("scm_call: scm version is %x\n", scm_version);
+
+	return (scm_version == SCM_ARMV8_32) ||
+			(scm_version == SCM_ARMV8_64);
+}
+EXPORT_SYMBOL(is_scm_armv8);
+
+/*
+ * If there are more than N_REGISTER_ARGS, allocate a buffer and place
+ * the additional arguments in it. The extra argument buffer will be
+ * pointed to by X5.
+ */
+static int allocate_extra_arg_buffer(struct scm_desc *desc, gfp_t flags)
+{
+	int i, j;
+	struct scm_extra_arg *argbuf;
+	int arglen = desc->arginfo & 0xf;
+	size_t argbuflen = PAGE_ALIGN(sizeof(struct scm_extra_arg));
+
+	desc->x5 = desc->args[FIRST_EXT_ARG_IDX];
+
+	if (likely(arglen <= N_REGISTER_ARGS)) {
+		desc->extra_arg_buf = NULL;
+		return 0;
+	}
+
+	argbuf = kzalloc(argbuflen, flags);
+	if (!argbuf) {
+		pr_err("scm_call: failed to alloc mem for extended argument buffer\n");
+		return -ENOMEM;
+	}
+
+	desc->extra_arg_buf = argbuf;
+
+	j = FIRST_EXT_ARG_IDX;
+	if (scm_version == SCM_ARMV8_64)
+		for (i = 0; i < N_EXT_SCM_ARGS; i++)
+			argbuf->args64[i] = desc->args[j++];
+	else
+		for (i = 0; i < N_EXT_SCM_ARGS; i++)
+			argbuf->args32[i] = desc->args[j++];
+	desc->x5 = virt_to_phys(argbuf);
+	__cpuc_flush_dcache_area(argbuf, argbuflen);
+	outer_flush_range(virt_to_phys(argbuf),
+			  virt_to_phys(argbuf) + argbuflen);
+
+	return 0;
+}
+
+/**
+ * scm_call2() - Invoke a syscall in the secure world
+ * @fn_id: The function ID for this syscall
+ * @desc: Descriptor structure containing arguments and return values
+ *
+ * Sends a command to the SCM and waits for the command to finish processing.
+ * This should *only* be called in pre-emptible context.
+ *
+ * A note on cache maintenance:
+ * Note that any buffers that are expected to be accessed by the secure world
+ * must be flushed before invoking scm_call and invalidated in the cache
+ * immediately after scm_call returns. An important point that must be noted
+ * is that on ARMV8 architectures, invalidation actually also causes a dirty
+ * cache line to be cleaned (flushed + unset-dirty-bit). Therefore it is of
+ * paramount importance that the buffer be flushed before invoking scm_call2,
+ * even if you don't care about the contents of that buffer.
+ *
+ * Note that cache maintenance on the argument buffer (desc->args) is taken care
+ * of by scm_call2; however, callers are responsible for any other cached
+ * buffers passed over to the secure world.
+*/
+int scm_call2(u32 fn_id, struct scm_desc *desc)
+{
+	int arglen = desc->arginfo & 0xf;
+	int ret, retry_count = 0;
+	u64 x0;
+
+	ret = allocate_extra_arg_buffer(desc, GFP_KERNEL);
+	if (ret)
+		return ret;
+
+	x0 = fn_id | scm_version_mask;
+
+	do {
+		mutex_lock(&scm_lock);
+
+		desc->ret[0] = desc->ret[1] = desc->ret[2] = 0;
+
+		pr_debug("scm_call: func id %#llx, args: %#x, %#llx, %#llx, %#llx, %#llx\n",
+			x0, desc->arginfo, desc->args[0], desc->args[1],
+			desc->args[2], desc->x5);
+
+		if (scm_version == SCM_ARMV8_64)
+			ret = __scm_call_armv8_64(x0, desc->arginfo,
+						  desc->args[0], desc->args[1],
+						  desc->args[2], desc->x5,
+						  &desc->ret[0], &desc->ret[1],
+						  &desc->ret[2]);
+		else
+			ret = __scm_call_armv8_32(x0, desc->arginfo,
+						  desc->args[0], desc->args[1],
+						  desc->args[2], desc->x5,
+						  &desc->ret[0], &desc->ret[1],
+						  &desc->ret[2]);
+		mutex_unlock(&scm_lock);
+
+		if (ret == SCM_V2_EBUSY)
+			msleep(SCM_EBUSY_WAIT_MS);
+	}  while (ret == SCM_V2_EBUSY && (retry_count++ < SCM_EBUSY_MAX_RETRY));
+
+	if (ret < 0)
+		pr_err("scm_call failed: func id %#llx, arginfo: %#x, args: %#llx, %#llx, %#llx, %#llx, ret: %d, syscall returns: %#llx, %#llx, %#llx\n",
+			x0, desc->arginfo, desc->args[0], desc->args[1],
+			desc->args[2], desc->x5, ret, desc->ret[0],
+			desc->ret[1], desc->ret[2]);
+
+	if (arglen > N_REGISTER_ARGS)
+		kfree(desc->extra_arg_buf);
+	if (ret < 0)
+		return scm_remap_error(ret);
+	return 0;
+}
+
+/**
+ * scm_call2_atomic() - Invoke a syscall in the secure world
+ *
+ * Similar to scm_call2 except that this can be invoked in atomic context.
+ * There is also no retry mechanism implemented. Please ensure that the
+ * secure world syscall can be executed in such a context and can complete
+ * in a timely manner.
+ */
+int scm_call2_atomic(u32 fn_id, struct scm_desc *desc)
+{
+	int arglen = desc->arginfo & 0xf;
+	int ret;
+	u64 x0;
+
+	ret = allocate_extra_arg_buffer(desc, GFP_ATOMIC);
+	if (ret)
+		return ret;
+
+	x0 = fn_id | BIT(SMC_ATOMIC_SYSCALL) | scm_version_mask;
+
+	pr_debug("scm_call: func id %#llx, args: %#x, %#llx, %#llx, %#llx, %#llx\n",
+		x0, desc->arginfo, desc->args[0], desc->args[1],
+		desc->args[2], desc->x5);
+
+	if (scm_version == SCM_ARMV8_64)
+		ret = __scm_call_armv8_64(x0, desc->arginfo, desc->args[0],
+					  desc->args[1], desc->args[2],
+					  desc->x5, &desc->ret[0],
+					  &desc->ret[1], &desc->ret[2]);
+	else
+		ret = __scm_call_armv8_32(x0, desc->arginfo, desc->args[0],
+					  desc->args[1], desc->args[2],
+					  desc->x5, &desc->ret[0],
+					  &desc->ret[1], &desc->ret[2]);
+	if (ret < 0)
+		pr_err("scm_call failed: func id %#llx, arginfo: %#x, args: %#llx, %#llx, %#llx, %#llx, ret: %d, syscall returns: %#llx, %#llx, %#llx\n",
+			x0, desc->arginfo, desc->args[0], desc->args[1],
+			desc->args[2], desc->x5, ret, desc->ret[0],
+			desc->ret[1], desc->ret[2]);
+
+	if (arglen > N_REGISTER_ARGS)
+		kfree(desc->extra_arg_buf);
+	if (ret < 0)
+		return scm_remap_error(ret);
+	return ret;
 }
 
 /**
@@ -604,32 +939,59 @@ u32 scm_get_version(void)
 }
 EXPORT_SYMBOL(scm_get_version);
 
-#define IS_CALL_AVAIL_CMD	1
 int scm_is_call_available(u32 svc_id, u32 cmd_id)
 {
 	int ret;
-	u32 svc_cmd = (svc_id << 10) | cmd_id;
-	u32 ret_val = 0;
+	struct scm_desc desc = {0};
 
-	ret = scm_call(SCM_SVC_INFO, IS_CALL_AVAIL_CMD, &svc_cmd,
+	if (!is_scm_armv8()) {
+		u32 ret_val = 0;
+		u32 svc_cmd = (svc_id << 10) | cmd_id;
+
+		ret = scm_call(SCM_SVC_INFO, IS_CALL_AVAIL_CMD, &svc_cmd,
 			sizeof(svc_cmd), &ret_val, sizeof(ret_val));
+		if (ret)
+			return ret;
+
+		return ret_val;
+	}
+	desc.arginfo = SCM_ARGS(1);
+	desc.args[0] = SCM_SIP_FNID(svc_id, cmd_id);
+	ret = scm_call2(SCM_SIP_FNID(SCM_SVC_INFO, IS_CALL_AVAIL_CMD), &desc);
 	if (ret)
 		return ret;
 
-	return ret_val;
+	return desc.ret[0];
 }
 EXPORT_SYMBOL(scm_is_call_available);
 
 #define GET_FEAT_VERSION_CMD	3
 int scm_get_feat_version(u32 feat)
 {
-	if (scm_is_call_available(SCM_SVC_INFO, GET_FEAT_VERSION_CMD)) {
-		u32 version;
-		if (!scm_call(SCM_SVC_INFO, GET_FEAT_VERSION_CMD, &feat,
-				sizeof(feat), &version, sizeof(version)))
-			return version;
+	struct scm_desc desc = {0};
+	int ret;
+
+	if (!is_scm_armv8()) {
+		if (scm_is_call_available(SCM_SVC_INFO, GET_FEAT_VERSION_CMD)) {
+			u32 version;
+			if (!scm_call(SCM_SVC_INFO, GET_FEAT_VERSION_CMD, &feat,
+				      sizeof(feat), &version, sizeof(version)))
+				return version;
+		}
+		return 0;
 	}
+
+	ret = scm_is_call_available(SCM_SVC_INFO, GET_FEAT_VERSION_CMD);
+	if (ret <= 0)
+		return 0;
+
+	desc.args[0] = feat;
+	desc.arginfo = SCM_ARGS(1);
+	ret = scm_call2(SCM_SIP_FNID(SCM_SVC_INFO, GET_FEAT_VERSION_CMD),
+			&desc);
+	if (!ret)
+		return desc.ret[0];
+
 	return 0;
 }
 EXPORT_SYMBOL(scm_get_feat_version);
-
