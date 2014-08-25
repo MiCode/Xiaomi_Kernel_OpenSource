@@ -516,6 +516,21 @@
 			};
 		};
 
+		ext-cdc-tlmm-lines {
+			qcom,pins = <&gp 116>, <&gp 112>, <&gp 117>,
+					<&gp 118>, <&gp 119>;
+			qcom,num-grp-pins = <5>;
+			qcom,pin-func = <1>;
+			label = "ext-cdc-tlmm-lines";
+			ext_cdc_tlmm_lines_act: tlmm_lines_on {
+				drive-strength = <8>;
+			};
+			ext_cdc_tlmm_lines_sus: tlmm_lines_off {
+				drive-strength = <2>;
+				bias-disable;
+			};
+		};
+
 		cdc_slim_lines {
 			qcom,pins = <&gp 63>;
 			qcom,num-grp-pins = <1>;
