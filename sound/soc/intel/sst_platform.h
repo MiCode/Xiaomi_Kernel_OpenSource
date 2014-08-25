@@ -27,6 +27,16 @@
 
 #define SST_MAX_BIN_BYTES 1024
 
+/* VTSV Result */
+#define VTSV_MAX_NUM_RESULTS 6
+#define VTSV_SIZE_PER_RESULT 7 /* 7 16 bit words */
+/* Max 6 results each of size 7 words * 2 byte per result */
+#define VTSV_MAX_TOTAL_RESULT_SIZE \
+	(VTSV_MAX_NUM_RESULTS*VTSV_SIZE_PER_RESULT * 2)
+
+/* Adding two bytes to specify the valid data length in the VTSV Result array */
+#define VTSV_MAX_TOTAL_RESULT_ARRAY_SIZE (VTSV_MAX_TOTAL_RESULT_SIZE + 2)
+
 struct sst_data;
 
 enum sst_audio_device_type {
@@ -139,12 +149,25 @@ struct sst_runtime_stream {
 	spinlock_t	status_lock;
 };
 
+#define SST_PLATFORM_VTSV_READ_EVENT	0x1
+struct sst_platform_cb_params {
+	/* Async event from firmware like VTSV*/
+	unsigned int event;
+	/* Params related to event */
+	void *params;
+};
+
+struct sst_platform_cb_ops {
+	int (*async_cb) (struct sst_platform_cb_params *params);
+};
+
 struct sst_device {
 	char *name;
 	struct device *dev;
 	struct sst_ops *ops;
 	struct platform_device *pdev;
 	struct compress_sst_ops *compr_ops;
+	struct sst_platform_cb_ops *cb_ops;
 };
 
 int sst_register_dsp(struct sst_device *sst);

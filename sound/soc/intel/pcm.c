@@ -1013,6 +1013,46 @@ static struct snd_soc_platform_driver sst_soc_platform_drv  = {
 	.write		= sst_soc_write,
 };
 
+static int sst_platform_async_cb(struct sst_platform_cb_params *params)
+{
+	int retval = 0;
+	struct snd_soc_platform *soc_platform;
+	struct snd_soc_card *card;
+	struct snd_kcontrol *kcontrol;
+	struct sst_data *sst;
+
+	switch (params->event) {
+	case SST_PLATFORM_VTSV_READ_EVENT: {
+		u8 *vtsv_result = params->params;
+		soc_platform = snd_soc_lookup_platform(sst_pdev);
+		if (!soc_platform) {
+			pr_err("Platform not found\n");
+			return -EINVAL;
+		}
+		sst = snd_soc_platform_get_drvdata(soc_platform);
+		card = soc_platform->card;
+		kcontrol = snd_soc_card_get_kcontrol(card, "vtsv event");
+		if (!kcontrol) {
+			pr_err("SST VTSV POLL control not found\n");
+			return -EINVAL;
+		}
+		/* 0th index of array contains size of array */
+		memcpy(sst->vtsv_result.data, vtsv_result, vtsv_result[0]);
+		snd_ctl_notify(card->snd_card, SNDRV_CTL_EVENT_MASK_VALUE,
+					&kcontrol->id);
+		break;
+	}
+	default:
+		pr_info("No event handler for event Id %d\n", params->event);
+	}
+
+	return retval;
+}
+
+static struct sst_platform_cb_ops cb_ops = {
+	.async_cb = sst_platform_async_cb,
+};
+
 int sst_register_dsp(struct sst_device *sst_dev)
 {
 	if (!sst_dev)
@@ -1024,7 +1064,7 @@ int sst_register_dsp(struct sst_device *sst_dev)
 		return -EEXIST;
 	}
 	pr_debug("registering device %s\n", sst_dev->name);
-
+	sst_dev->cb_ops = &cb_ops;
 	sst_dsp = sst_dev;
 	mutex_unlock(&sst_dsp_lock);
 	return 0;

@@ -1098,7 +1098,18 @@ static struct sst_device sst_dsp_device = {
 	.dev = NULL,
 	.ops = &pcm_ops,
 	.compr_ops = &compr_ops,
+	.cb_ops	   = NULL,
 };
+
+int sst_platform_cb(struct sst_platform_cb_params *cb_params)
+{
+	if (sst_dsp_device.cb_ops && sst_dsp_device.cb_ops->async_cb) {
+		return sst_dsp_device.cb_ops->async_cb(cb_params);
+	} else {
+		pr_info("Async ops not defined\n");
+		return 0;
+	}
+}
 
 /*
  * register_sst - function to register DSP

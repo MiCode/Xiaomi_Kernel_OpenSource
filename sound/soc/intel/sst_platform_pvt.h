@@ -125,6 +125,10 @@ struct sst_pcm_format {
 };
 
 
+struct sst_vtsv_result {
+	u8 data[VTSV_MAX_TOTAL_RESULT_ARRAY_SIZE];
+};
+
 struct sst_data {
 	struct platform_device *pdev;
 	struct sst_platform_data *pdata;
@@ -137,5 +141,6 @@ struct sst_data {
 	u8 pipe_id;
 	bool vtsv_enroll;
 	struct sst_lowlatency_deepbuff ll_db;
+	struct sst_vtsv_result vtsv_result;
 };
 #endif

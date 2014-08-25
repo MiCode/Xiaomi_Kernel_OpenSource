@@ -912,7 +912,7 @@ static inline int get_stream_id_mrfld(u32 pipe_id)
 
 int register_sst(struct device *);
 int unregister_sst(struct device *);
-
+int sst_platform_cb(struct sst_platform_cb_params *cb_params);
 #ifdef CONFIG_DEBUG_FS
 void sst_debugfs_init(struct intel_sst_drv *sst);
 void sst_debugfs_exit(struct intel_sst_drv *sst);

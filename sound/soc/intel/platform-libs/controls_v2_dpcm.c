@@ -267,6 +267,18 @@ static inline bool get_mux_state(struct sst_data *sst, unsigned int reg, unsigne
 	return sst_reg_read(sst, reg, shift, 1) == 1;
 }
 
+int sst_vtsv_event_get(struct snd_kcontrol *kcontrol,
+			 struct snd_ctl_elem_value *ucontrol)
+{
+	struct snd_soc_platform *platform = snd_kcontrol_chip(kcontrol);
+	struct sst_data *sst = snd_soc_platform_get_drvdata(platform);
+
+	pr_debug("in %s\n", __func__);
+	/* First element contains size */
+	memcpy(ucontrol->value.bytes.data, sst->vtsv_result.data, sst->vtsv_result.data[0]);
+	return 0;
+}
+
 static int sst_mux_get(struct snd_kcontrol *kcontrol,
 		       struct snd_ctl_elem_value *ucontrol)
 {
@@ -1245,7 +1257,11 @@ static const struct snd_kcontrol_new sst_vad_enroll[] = {
 static const struct snd_kcontrol_new sst_mix_sw_tone_gen =
 	SOC_SINGLE_EXT("switch", SST_MIX_SWITCH, 1, 1, 0,
 		sst_mix_get, sst_mix_put);
+static const struct snd_kcontrol_new sst_vtsv_read[] = {
+	SND_SOC_BYTES_EXT("vtsv event", VTSV_MAX_TOTAL_RESULT_ARRAY_SIZE,
+		 sst_vtsv_event_get, NULL),
 
+};
 static const char * const sst_bt_fm_texts[] = {
 	"fm", "bt",
 };
@@ -1974,6 +1990,8 @@ int sst_dsp_init_v2_dpcm(struct snd_soc_platform *platform)
 			ARRAY_SIZE(sst_debug_controls));
 	snd_soc_add_platform_controls(platform, sst_vad_enroll,
 			ARRAY_SIZE(sst_vad_enroll));
+	snd_soc_add_platform_controls(platform, sst_vtsv_read,
+			ARRAY_SIZE(sst_vtsv_read));
 
 	/* initialize the names of the probe points */
 	for (i = 0; i < ARRAY_SIZE(sst_probes); i++)
