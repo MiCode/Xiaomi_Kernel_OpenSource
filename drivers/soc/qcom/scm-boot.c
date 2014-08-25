@@ -53,16 +53,33 @@ int scm_set_boot_addr_mc(phys_addr_t addr, u32 aff0,
 		u32 reserved;
 		u32 flags;
 	} cmd;
+	struct scm_desc desc = {0};
 
-	cmd.addr = addr;
-	cmd.aff0 = aff0;
-	cmd.aff1 = aff1;
-	cmd.aff2 = aff2;
-	/* Reserved for future chips with affinity level 3 effectively 1 << 0 */
-	cmd.reserved = ~0U;
-	cmd.flags = flags | SCM_FLAG_HLOS;
-	return scm_call(SCM_SVC_BOOT, SCM_BOOT_ADDR_MC,
-			&cmd, sizeof(cmd), NULL, 0);
+	if (!is_scm_armv8()) {
+		cmd.addr = addr;
+		cmd.aff0 = aff0;
+		cmd.aff1 = aff1;
+		cmd.aff2 = aff2;
+		/*
+		 * Reserved for future chips with affinity level 3 effectively
+		 * 1 << 0
+		 */
+		cmd.reserved = ~0U;
+		cmd.flags = flags | SCM_FLAG_HLOS;
+		return scm_call(SCM_SVC_BOOT, SCM_BOOT_ADDR_MC,
+				&cmd, sizeof(cmd), NULL, 0);
+	}
+
+	flags = flags | SCM_FLAG_HLOS;
+	desc.args[0] = addr;
+	desc.args[1] = aff0;
+	desc.args[2] = aff1;
+	desc.args[3] = aff2;
+	desc.args[4] = ~0ULL;
+	desc.args[5] = flags;
+	desc.arginfo = SCM_ARGS(6);
+
+	return scm_call2(SCM_SIP_FNID(SCM_SVC_BOOT, SCM_BOOT_ADDR_MC), &desc);
 }
 EXPORT_SYMBOL(scm_set_boot_addr_mc);
 
