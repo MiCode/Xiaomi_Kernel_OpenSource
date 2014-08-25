@@ -44,7 +44,12 @@ static const struct snd_pcm_hardware no_host_hardware = {
 	.period_bytes_max	= PAGE_SIZE >> 1,
 	.periods_min		= 2,
 	.periods_max		= 4,
-	.buffer_bytes_max	= PAGE_SIZE,
+	/*
+	 * Increase the max buffer bytes as PAGE_SIZE bytes is
+	 * not enough to encompass all the scenarios sent by
+	 * userspapce.
+	 */
+	.buffer_bytes_max	= PAGE_SIZE * 4,
 };
 
 /* DPCM stream event, send event to FE and all active BEs. */
