@@ -383,6 +383,13 @@ int intel_sst_check_device(void)
 
 	mutex_lock(&sst_drv_ctx->sst_lock);
 
+	if (sst_drv_ctx->sst_state == SST_RECOVERY) {
+		pr_debug("LPE is in recovery state\n");
+		mutex_unlock(&sst_drv_ctx->sst_lock);
+		sst_pm_runtime_put(sst_drv_ctx);
+		return -EAGAIN;
+	}
+
 	if (sst_drv_ctx->sst_state == SST_RESET) {
 
 		/* FW is not downloaded */

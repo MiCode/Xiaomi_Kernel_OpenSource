@@ -61,6 +61,7 @@ enum sst_states {
 	SST_FW_RUNNING,
 	SST_RESET,
 	SST_SHUTDOWN,
+	SST_RECOVERY,
 };
 
 enum sst_algo_ops {
