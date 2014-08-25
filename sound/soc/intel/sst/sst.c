@@ -965,10 +965,13 @@ static int intel_sst_probe(struct pci_dev *pci,
 		goto do_free_qos;
 	}
 
-	ret = sst_recovery_init(sst_drv_ctx);
-	if (ret) {
-		pr_err("%s:sst recovery intialization failed", __func__);
-		goto do_free_misc;
+	if (sst_drv_ctx->pdata->start_recovery_timer) {
+		ret = sst_recovery_init(sst_drv_ctx);
+		if (ret) {
+			pr_err("%s:sst recovery intialization failed", __func__);
+			goto do_free_misc;
+		}
+
 	}
 
 	pr_info("%s successfully done!\n", __func__);
@@ -1052,14 +1055,19 @@ static void intel_sst_remove(struct pci_dev *pci)
 	if (sst_drv_ctx->pci_id == SST_CLV_PCI_ID)
 		kfree(sst_drv_ctx->probe_bytes);
 
-	device_remove_file(sst_drv_ctx->dev, &dev_attr_audio_recovery_interval);
+	if (sst_drv_ctx->pdata->start_recovery_timer) {
+		device_remove_file(sst_drv_ctx->dev,
+			 &dev_attr_audio_recovery_interval);
+		destroy_workqueue(sst_drv_ctx->recovery_wq);
+	}
+
+
 	device_remove_file(sst_drv_ctx->dev, &dev_attr_audio_recovery);
 	kfree(sst_drv_ctx->fw_cntx);
 	kfree(sst_drv_ctx->runtime_param.param.addr);
 	flush_scheduled_work();
 	destroy_workqueue(sst_drv_ctx->post_msg_wq);
 	destroy_workqueue(sst_drv_ctx->mad_wq);
-	destroy_workqueue(sst_drv_ctx->recovery_wq);
 	pm_qos_remove_request(sst_drv_ctx->qos);
 	kfree(sst_drv_ctx->qos);
 	kfree(sst_drv_ctx->fw_sg_list.src);

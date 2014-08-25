@@ -216,6 +216,7 @@ struct sst_platform_info cht_platform_data = {
 	.pdata = NULL,
 	.ipc_info = &cht_ipc_info,
 	.lib_info = NULL,
+	.start_recovery_timer = false,
 };
 
 struct sst_platform_info byt_rvp_platform_data = {
@@ -225,6 +226,7 @@ struct sst_platform_info byt_rvp_platform_data = {
 	.pdata = &sst_byt_pdata,
 	.ipc_info = &byt_ipc_info,
 	.lib_info = &byt_lib_dnld_info,
+	.start_recovery_timer = false,
 };
 
 struct sst_platform_info byt_ffrd8_platform_data = {
@@ -234,6 +236,7 @@ struct sst_platform_info byt_ffrd8_platform_data = {
 	.pdata = &sst_byt_pdata,
 	.ipc_info = &byt_ipc_info,
 	.lib_info = &byt_lib_dnld_info,
+	.start_recovery_timer = false,
 };
 
 int sst_workqueue_init(struct intel_sst_drv *ctx)
@@ -657,11 +660,15 @@ int sst_acpi_probe(struct platform_device *pdev)
 	pm_runtime_enable(dev);
 	register_sst(dev);
 	sst_debugfs_init(ctx);
-	ret = sst_recovery_init(ctx);
-	if (ret) {
-		pr_err("%s:sst recovery intialization failed", __func__);
-		goto do_free_misc;
+
+	if (ctx->pdata->start_recovery_timer) {
+		ret = sst_recovery_init(ctx);
+		if (ret) {
+			pr_err("%s:sst recovery intialization failed", __func__);
+			goto do_free_misc;
+		}
 	}
+
 	sst_set_fw_state_locked(ctx, SST_RESET);
 	sst_save_shim64(ctx, ctx->shim, ctx->shim_regs64);
 	pr_info("%s successfully done!\n", __func__);
@@ -691,6 +698,10 @@ int sst_acpi_remove(struct platform_device *pdev)
 	struct intel_sst_drv *ctx;
 
 	ctx = platform_get_drvdata(pdev);
+	if (sst_drv_ctx->pdata->start_recovery_timer) {
+		device_remove_file(sst_drv_ctx->dev,
+			&dev_attr_audio_recovery_interval);
+	}
 	sst_debugfs_exit(ctx);
 	pm_runtime_get_noresume(ctx->dev);
 	pm_runtime_disable(ctx->dev);

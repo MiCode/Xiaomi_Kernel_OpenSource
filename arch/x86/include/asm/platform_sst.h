@@ -128,6 +128,7 @@ struct sst_platform_info {
 	const struct sst_platform_debugfs_data *debugfs_data;
 	const struct sst_lib_dnld_info *lib_info;
 	bool enable_recovery;
+	bool start_recovery_timer;
 };
 
 #endif

@@ -574,10 +574,13 @@ void sst_clean_stream(struct stream_info *stream)
 void sst_update_timer(struct intel_sst_drv *sst_drv_ctx)
 {
 	struct intel_sst_drv *sst = sst_drv_ctx;
-	if (&sst->monitor_lpe.sst_timer != NULL) {
-		mod_timer(&sst->monitor_lpe.sst_timer, jiffies +
+
+	if (sst_drv_ctx->pdata->start_recovery_timer) {
+		if (&sst->monitor_lpe.sst_timer != NULL) {
+			mod_timer(&sst->monitor_lpe.sst_timer, jiffies +
 				msecs_to_jiffies(sst->monitor_lpe.interval));
-		sst->monitor_lpe.prev_match_val = read_shim_data(sst, SST_TMRCTL);
+			sst->monitor_lpe.prev_match_val = read_shim_data(sst, SST_TMRCTL);
+		}
 	}
 }
 

@@ -1062,7 +1062,8 @@ static int sst_set_generic_params(enum sst_controls cmd, void *arg)
 		break;
 	}
 	case SST_SET_MONITOR_LPE: {
-		ret_val = sst_set_timer(&sst_drv_ctx->monitor_lpe, *(bool *)arg);
+		if (sst_drv_ctx->pdata->start_recovery_timer)
+			ret_val = sst_set_timer(&sst_drv_ctx->monitor_lpe, *(bool *)arg);
 		break;
 	}
 	default:
