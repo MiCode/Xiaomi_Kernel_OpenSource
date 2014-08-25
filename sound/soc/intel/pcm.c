@@ -1021,14 +1021,16 @@ static int sst_platform_async_cb(struct sst_platform_cb_params *params)
 	struct snd_kcontrol *kcontrol;
 	struct sst_data *sst;
 
+	soc_platform = snd_soc_lookup_platform(sst_pdev);
+	if (!soc_platform) {
+		pr_err("Platform not found\n");
+		return -EINVAL;
+	}
+
 	switch (params->event) {
 	case SST_PLATFORM_VTSV_READ_EVENT: {
 		u8 *vtsv_result = params->params;
-		soc_platform = snd_soc_lookup_platform(sst_pdev);
-		if (!soc_platform) {
-			pr_err("Platform not found\n");
-			return -EINVAL;
-		}
+
 		sst = snd_soc_platform_get_drvdata(soc_platform);
 		card = soc_platform->card;
 		kcontrol = snd_soc_card_get_kcontrol(card, "vtsv event");
@@ -1042,6 +1044,15 @@ static int sst_platform_async_cb(struct sst_platform_cb_params *params)
 					&kcontrol->id);
 		break;
 	}
+
+	case SST_PLATFORM_TRIGGER_RECOVERY: {
+		bool *dapm_param = params->params;
+
+		card = soc_platform->card;
+		snd_soc_dapm_state_set(card, *dapm_param);
+		break;
+	}
+
 	default:
 		pr_info("No event handler for event Id %d\n", params->event);
 	}
