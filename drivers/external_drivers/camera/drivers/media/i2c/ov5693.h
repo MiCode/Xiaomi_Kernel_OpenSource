@@ -422,7 +422,7 @@ static struct ov5693_reg const ov5693_global_setting[] = {
 	{OV5693_8BIT, 0x4101, 0xb2},
 	{OV5693_8BIT, 0x4303, 0x00},
 	{OV5693_8BIT, 0x4304, 0x08},
-	{OV5693_8BIT, 0x4307, 0x30},
+	{OV5693_8BIT, 0x4307, 0x31},
 	{OV5693_8BIT, 0x4311, 0x04},
 	{OV5693_8BIT, 0x4315, 0x01},
 	{OV5693_8BIT, 0x4511, 0x05},
