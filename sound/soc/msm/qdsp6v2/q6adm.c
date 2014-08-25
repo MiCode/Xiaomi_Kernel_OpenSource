@@ -1321,14 +1321,13 @@ done:
 
 static int send_adm_cal_block(int port_id, int copp_idx,
 			      struct cal_block_data *cal_block, int perf_mode,
-			      int app_type, int acdb_id, int sample_rate)
+			      int app_type, int acdb_id)
 {
 	s32				result = 0;
 	struct adm_cmd_set_pp_params_v5	adm_params;
 	int port_idx;
 
-	pr_debug("%s: Port id 0x%x sample_rate %d ,\n", __func__,
-			port_id, sample_rate);
+	pr_debug("%s: Port id 0x%x,\n", __func__, port_id);
 	port_id = afe_convert_virtual_to_portid(port_id);
 	port_idx = adm_validate_and_get_port_index(port_id);
 	if (port_idx < 0) {
@@ -1460,8 +1459,7 @@ static struct cal_block_data *adm_find_cal_by_app_type(int cal_index, int path,
 
 
 static struct cal_block_data *adm_find_cal(int cal_index, int path,
-					   int app_type, int acdb_id,
-					   int sample_rate)
+					   int app_type, int acdb_id)
 {
 	struct list_head		*ptr, *next;
 	struct cal_block_data		*cal_block = NULL;
@@ -1479,8 +1477,7 @@ static struct cal_block_data *adm_find_cal(int cal_index, int path,
 			audproc_cal_info = cal_block->cal_info;
 			if ((audproc_cal_info->path == path) &&
 			    (audproc_cal_info->app_type == app_type) &&
-			    (audproc_cal_info->acdb_id == acdb_id) &&
-			    (audproc_cal_info->sample_rate == sample_rate))
+			    (audproc_cal_info->acdb_id == acdb_id))
 				return cal_block;
 		} else if (cal_index == ADM_AUDVOL_CAL) {
 			audvol_cal_info = cal_block->cal_info;
@@ -1490,14 +1487,14 @@ static struct cal_block_data *adm_find_cal(int cal_index, int path,
 				return cal_block;
 		}
 	}
-	pr_debug("%s: Can't find topology for cal_index %d, path %d, app %d, acdb_id %d sample_rate %d defaulting to search by app type\n",
-		__func__, cal_index, path, app_type, acdb_id, sample_rate);
+	pr_debug("%s: Can't find topology for cal_index %d, path %d, app %d, acdb_id %d defaulting to search by app type\n",
+		__func__, cal_index, path, app_type, acdb_id);
 	return adm_find_cal_by_app_type(cal_index, path, app_type);
 }
 
 static void send_adm_cal_type(int cal_index, int path, int port_id,
 			      int copp_idx, int perf_mode, int app_type,
-			      int acdb_id, int sample_rate)
+			      int acdb_id)
 {
 	struct cal_block_data		*cal_block = NULL;
 	int ret;
@@ -1511,18 +1508,17 @@ static void send_adm_cal_type(int cal_index, int path, int port_id,
 	}
 
 	mutex_lock(&this_adm.cal_data[cal_index]->lock);
-	cal_block = adm_find_cal(cal_index, path, app_type, acdb_id,
-				sample_rate);
+	cal_block = adm_find_cal(cal_index, path, app_type, acdb_id);
 	if (cal_block == NULL)
 		goto unlock;
 
 	pr_debug("%s: Sending cal_index cal %d\n", __func__, cal_index);
 	remap_cal_data(cal_block, cal_index);
 	ret = send_adm_cal_block(port_id, copp_idx, cal_block, perf_mode,
-				app_type, acdb_id, sample_rate);
+				app_type, acdb_id);
 	if (ret < 0)
-		pr_debug("%s: No cal sent for cal_index %d, port_id = 0x%x! ret %d sample_rate %d\n",
-			__func__, cal_index, port_id, ret, sample_rate);
+		pr_debug("%s: No cal sent for cal_index %d, port_id = 0x%x! ret %d\n",
+			__func__, cal_index, port_id, ret);
 unlock:
 	mutex_unlock(&this_adm.cal_data[cal_index]->lock);
 done:
@@ -1538,14 +1534,14 @@ static int get_cal_path(int path)
 }
 
 static void send_adm_cal(int port_id, int copp_idx, int path, int perf_mode,
-			 int app_type, int acdb_id, int sample_rate)
+			 int app_type, int acdb_id)
 {
 	pr_debug("%s:\n", __func__);
 
 	send_adm_cal_type(ADM_AUDPROC_CAL, path, port_id, copp_idx, perf_mode,
-			  app_type, acdb_id, sample_rate);
+			  app_type, acdb_id);
 	send_adm_cal_type(ADM_AUDVOL_CAL, path, port_id, copp_idx, perf_mode,
-			  app_type, acdb_id, sample_rate);
+			  app_type, acdb_id);
 	return;
 }
 
@@ -1912,8 +1908,7 @@ int adm_matrix_map(int path, struct route_payload payload_map, int perf_mode)
 			send_adm_cal(payload_map.port_id[i], copp_idx,
 				     get_cal_path(path), perf_mode,
 				     payload_map.app_type,
-				     payload_map.acdb_dev_id,
-				     payload_map.sample_rate);
+				     payload_map.acdb_dev_id);
 			pr_debug("%s: copp_id: %d\n", __func__,
 				 atomic_read(&this_adm.copp.id[port_idx]
 							      [copp_idx]));
@@ -1990,7 +1985,6 @@ int adm_close(int port_id, int perf_mode, int copp_idx)
 		atomic_set(&this_adm.copp.topology[port_idx][copp_idx], 0);
 		atomic_set(&this_adm.copp.mode[port_idx][copp_idx], 0);
 		atomic_set(&this_adm.copp.stat[port_idx][copp_idx], 0);
-		atomic_set(&this_adm.copp.rate[port_idx][copp_idx], 0);
 		atomic_set(&this_adm.copp.bit_width[port_idx][copp_idx], 0);
 		atomic_set(&this_adm.copp.app_type[port_idx][copp_idx], 0);
 

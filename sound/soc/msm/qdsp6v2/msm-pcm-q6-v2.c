@@ -1101,7 +1101,6 @@ static int msm_pcm_app_type_cfg_ctl_put(struct snd_kcontrol *kcontrol,
 	u64 fe_id = kcontrol->private_value;
 	int app_type;
 	int acdb_dev_id;
-	int sample_rate;
 
 	pr_debug("%s: fe_id- %llu\n", __func__, fe_id);
 	if (fe_id >= MSM_FRONTEND_DAI_MAX) {
@@ -1112,12 +1111,9 @@ static int msm_pcm_app_type_cfg_ctl_put(struct snd_kcontrol *kcontrol,
 
 	app_type = ucontrol->value.integer.value[0];
 	acdb_dev_id = ucontrol->value.integer.value[1];
-	sample_rate = ucontrol->value.integer.value[2];
 	pr_debug("%s: app_type- %d\n", __func__, app_type);
 	pr_debug("%s: acdb_dev_id- %d\n", __func__, acdb_dev_id);
-	pr_debug("%s: sample_rate- %d\n", __func__, sample_rate);
-	msm_pcm_routing_reg_stream_app_type_cfg(fe_id, app_type,
-						acdb_dev_id, sample_rate);
+	msm_pcm_routing_reg_stream_app_type_cfg(fe_id, app_type, acdb_dev_id);
 
 	return 0;
 }
