@@ -54,6 +54,7 @@ struct mdss_pll_resources {
 	 * register mapping
 	 */
 	void __iomem	*pll_base;
+	void __iomem	*pll_1_base;
 	void __iomem	*phy_base;
 	void __iomem	*dyn_pll_base;
 
@@ -107,6 +108,17 @@ struct mdss_pll_resources {
 	 * for maintaining the status of saving trim codes
 	 */
 	bool		reg_upd;
+
+	/*
+	 * Notifier callback for MDSS gdsc regulator events
+	 */
+	struct notifier_block gdsc_cb;
+
+	/*
+	 * Worker function to call PLL off event
+	 */
+	struct work_struct pll_off;
+
 };
 
 struct mdss_pll_vco_calc {
@@ -131,4 +143,6 @@ int mdss_pll_util_resource_enable(struct mdss_pll_resources *pll_res,
 								bool enable);
 int mdss_pll_util_resource_parse(struct platform_device *pdev,
 				struct mdss_pll_resources *pll_res);
+struct dss_vreg *mdss_pll_get_mp_by_reg_name(struct mdss_pll_resources *pll_res
+		, char *name);
 #endif

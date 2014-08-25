@@ -481,6 +481,19 @@ int dsi_20nm_pll_lock_status(struct mdss_pll_resources *dsi_pll_res)
 	return pll_locked;
 }
 
+void __dsi_pll_disable(void __iomem *pll_base)
+{
+	if (!pll_base) {
+		pr_err("Invalid pll base.\n");
+		return;
+	}
+	pr_debug("Disabling PHY PLL for PLL_BASE=%p\n", pll_base);
+
+	MDSS_PLL_REG_W(pll_base, MMSS_DSI_PHY_PLL_PLL_VCOTAIL_EN, 0x042);
+	MDSS_PLL_REG_W(pll_base, MMSS_DSI_PHY_PLL_BIAS_EN_CLKBUFLR_EN, 0x02);
+	MDSS_PLL_REG_W(pll_base, MMSS_DSI_PHY_PLL_RESETSM_CNTRL3, 0x02);
+}
+
 static int dsi_pll_enable(struct clk *c)
 {
 	int i, rc;
@@ -501,6 +514,9 @@ static int dsi_pll_enable(struct clk *c)
 		if (!rc)
 			break;
 	}
+	/* Disable PLL1 to avoid current leakage while toggling MDSS GDSC */
+	if (dsi_pll_res->pll_1_base)
+		__dsi_pll_disable(dsi_pll_res->pll_1_base);
 
 	if (rc) {
 		mdss_pll_resource_enable(dsi_pll_res, false);
@@ -524,8 +540,11 @@ static void dsi_pll_disable(struct clk *c)
 
 	dsi_pll_res->handoff_resources = false;
 
-	MDSS_PLL_REG_W(dsi_pll_res->pll_base,
-				MMSS_DSI_PHY_PLL_PLL_VCOTAIL_EN, 0x02);
+	__dsi_pll_disable(dsi_pll_res->pll_base);
+
+	/* Disable PLL1 to avoid current leakage while toggling MDSS GDSC */
+	if (dsi_pll_res->pll_1_base)
+		__dsi_pll_disable(dsi_pll_res->pll_1_base);
 
 	mdss_pll_resource_enable(dsi_pll_res, false);
 	dsi_pll_res->pll_on = false;
@@ -778,6 +797,8 @@ int pll_20nm_vco_set_rate(struct dsi_pll_vco_clk *vco, unsigned long rate)
 	 */
 	udelay(1000);
 	wmb();
+	if (dsi_pll_res->pll_1_base)
+		__dsi_pll_disable(dsi_pll_res->pll_1_base);
 	return 0;
 }
 
