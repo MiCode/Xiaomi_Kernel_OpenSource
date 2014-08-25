@@ -376,6 +376,31 @@ static void dapm_reset(struct snd_soc_card *card)
 	}
 }
 
+int snd_soc_dapm_state_set(struct snd_soc_card *snd_card, bool reset_state)
+{
+
+	struct snd_soc_card *card = snd_card;
+	memset(&card->dapm_stats, 0, sizeof(card->dapm_stats));
+
+	dev_dbg(card->dev, "card %s  dapm reset_state %d\n", card->name, reset_state);
+
+	if (reset_state) {
+		snd_power_change_state(card->snd_card, SNDRV_CTL_POWER_D3);
+	} else	{
+		/* Bring us up into D2 so that DAPM starts enabling things */
+		snd_power_change_state(card->snd_card, SNDRV_CTL_POWER_D2);
+
+		/* userspace can access us now we are back as we were before */
+		snd_power_change_state(card->snd_card, SNDRV_CTL_POWER_D0);
+	}
+
+	/* Recheck all analogue paths */
+	dapm_mark_io_dirty(&card->dapm);
+	snd_soc_dapm_sync(&card->dapm);
+	return 0;
+}
+EXPORT_SYMBOL_GPL(snd_soc_dapm_state_set);
+
 static int soc_widget_read(struct snd_soc_dapm_widget *w, int reg,
 	unsigned int *value)
 {

@@ -226,7 +226,7 @@ struct sst_platform_info byt_rvp_platform_data = {
 	.pdata = &sst_byt_pdata,
 	.ipc_info = &byt_ipc_info,
 	.lib_info = &byt_lib_dnld_info,
-	.start_recovery_timer = false,
+	.start_recovery_timer = true,
 };
 
 struct sst_platform_info byt_ffrd8_platform_data = {
@@ -698,10 +698,7 @@ int sst_acpi_remove(struct platform_device *pdev)
 	struct intel_sst_drv *ctx;
 
 	ctx = platform_get_drvdata(pdev);
-	if (sst_drv_ctx->pdata->start_recovery_timer) {
-		device_remove_file(sst_drv_ctx->dev,
-			&dev_attr_audio_recovery_interval);
-	}
+	sst_recovery_free(ctx);
 	sst_debugfs_exit(ctx);
 	pm_runtime_get_noresume(ctx->dev);
 	pm_runtime_disable(ctx->dev);

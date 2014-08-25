@@ -705,6 +705,7 @@ long intel_sst_ioctl_dsp(unsigned int cmd,
 		struct snd_ppp_params *algo_params, unsigned long arg);
 
 int sst_recovery_init(struct intel_sst_drv *sst_drv_ctx);
+void sst_recovery_free(struct intel_sst_drv *sst_drv_ctx);
 int sst_set_timer(struct sst_monitor_lpe *monitor_lpe, bool enable);
 void sst_timer_cb(unsigned long data);
 void sst_dump_to_buffer(const void *from, size_t from_len, char *buf);

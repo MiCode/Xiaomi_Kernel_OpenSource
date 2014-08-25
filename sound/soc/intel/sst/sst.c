@@ -569,6 +569,14 @@ free_wq:
 	return ret_val;
 }
 
+void sst_recovery_free(struct intel_sst_drv *ctx)
+{
+	if (ctx->pdata->start_recovery_timer) {
+		if (ctx->recovery_wq)
+			destroy_workqueue(ctx->recovery_wq);
+		device_remove_file(ctx->dev, &dev_attr_audio_recovery_interval);
+	}
+}
 
 static const struct dmi_system_id dmi_machine_table[] = {
 	{
