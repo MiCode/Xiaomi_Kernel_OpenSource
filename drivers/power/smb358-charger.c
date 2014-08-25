@@ -39,6 +39,7 @@
 #define CHG_PIN_EN_CTRL_REG		0x6
 #define THERM_A_CTRL_REG		0x7
 #define SYSOK_AND_USB3_REG		0x8
+#define OTHER_CTRL_REG			0x9
 #define FAULT_INT_REG			0xC
 #define STATUS_INT_REG			0xD
 
@@ -87,6 +88,8 @@
 #define CHG_PIN_CTRL_CHG_EN_LOW_REG_BIT		0x0
 #define CHG_PIN_CTRL_CHG_EN_MASK		(BIT(5) | BIT(6))
 
+#define CHG_LOW_BATT_THRESHOLD \
+				(BIT(3) | BIT(2) | BIT(1) | BIT(0))
 #define CHG_PIN_CTRL_USBCS_REG_MASK		BIT(4)
 #define CHG_PIN_CTRL_APSD_IRQ_BIT		BIT(1)
 #define CHG_PIN_CTRL_APSD_IRQ_MASK		BIT(1)
@@ -164,6 +167,7 @@
 #define SMB358_FAST_CHG_SHIFT		5
 #define SMB_FAST_CHG_CURRENT_MASK	0xE0
 #define SMB358_DEFAULT_BATT_CAPACITY	50
+#define SMB358_BATT_GOOD_THRE_2P5	0x1
 
 enum {
 	USER	= BIT(0),
@@ -768,6 +772,20 @@ static int smb358_hw_init(struct smb358_charger *chip)
 	if (rc)
 		dev_err(chip->dev, "Couldn't '%s' charging rc = %d\n",
 			chip->charging_disabled ? "disable" : "enable", rc);
+
+	/*
+	* Workaround for recharge frequent issue: When battery is
+	* greater than 4.2v, and charging is disabled, charger
+	* stops switching. In such a case, system load is provided
+	* by battery rather than input, even though input is still
+	* there. Make reg09[0:3] to be a non-zero value which can
+	* keep the switcher active
+	*/
+	rc = smb358_masked_write(chip, OTHER_CTRL_REG, CHG_LOW_BATT_THRESHOLD,
+						SMB358_BATT_GOOD_THRE_2P5);
+	if (rc)
+		dev_err(chip->dev, "Couldn't write OTHER_CTRL_REG, rc = %d\n",
+								rc);
 
 	return rc;
 }
