@@ -105,6 +105,8 @@ Parent node Optional properties
 - qcom,low-soc-fifo-length : The fifo length (of S2 STATE) to be used at lower
 			SOCs. If this value is not specified the system uses
 			default lenght.
+- qcom,resume-soc:	Capacity in percent at which charging should resume
+			when a fully charged battery drops below this level.
 
 qcom,batt-pres-status node required properties:
 - reg : offset and length of the PMIC LBC battery interface BATT_PRES_STATUS
