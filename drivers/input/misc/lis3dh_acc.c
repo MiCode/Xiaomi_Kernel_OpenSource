@@ -1637,7 +1637,7 @@ static int lis3dh_acc_poll_delay_set(struct sensors_classdev *sensors_cdev,
 	 */
 	if (atomic_read(&acc->enabled)) {
 		err = lis3dh_acc_update_odr(acc, delay_msec);
-		if (!err) {
+		if (err < 0) {
 			dev_err(&acc->client->dev, "Cannot update ODR\n");
 			err = -EBUSY;
 			goto exit;
