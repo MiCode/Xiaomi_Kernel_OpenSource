@@ -435,6 +435,10 @@ void sst_do_recovery_mrfld(struct intel_sst_drv *sst)
 	sst_stream_recovery(sst);
 	mutex_unlock(&sst->sst_lock);
 
+	/* Delay is to ensure that the stream is closed before
+	 * powering on DAPM widget
+	 */
+	usleep_range(10000, 12000);
 	reset_dapm = false;
 	sst_platform_cb(&cb_params);
 }
