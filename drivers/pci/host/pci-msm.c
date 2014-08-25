@@ -229,7 +229,6 @@
 #define MAX_BUS_NUM 3
 #define MAX_PROP_SIZE 32
 #define MAX_RC_NAME_LEN 15
-#define PCIE_MSM_RESTORE_SCM_CFG_CMD 0x2
 #define MSM_PCIE_MAX_VREG 3
 #define MSM_PCIE_MAX_CLK 7
 #define MSM_PCIE_MAX_PIPE_CLK 1
@@ -807,24 +806,14 @@ static bool pcie_phy_is_ready(struct msm_pcie_dev_t *dev)
 
 static int msm_pcie_restore_sec_config(struct msm_pcie_dev_t *dev)
 {
-	/* scm command buffer structrue */
-	struct msm_pcie_scm_cmd_buf {
-		unsigned int device_id;
-		unsigned int spare;
-	} cbuf;
-
-	int ret, scm_ret = 0;
+	int ret, scm_ret;
 
 	if (!dev) {
 		pr_err("PCIe: the input pcie dev is NULL.\n");
 		return -ENODEV;
 	}
 
-	cbuf.device_id = dev->scm_dev_id;
-
-	ret = scm_call(SCM_SVC_MP, PCIE_MSM_RESTORE_SCM_CFG_CMD, &cbuf,
-			sizeof(cbuf), &scm_ret, sizeof(scm_ret));
-
+	ret = scm_restore_sec_cfg(dev->scm_dev_id, 0, &scm_ret);
 	if (ret || scm_ret) {
 		PCIE_ERR(dev,
 			"PCIe: RC%d failed(%d) to restore sec config, scm_ret=%d\n",
