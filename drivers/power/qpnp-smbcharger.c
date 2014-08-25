@@ -29,6 +29,7 @@
 #include <linux/regulator/machine.h>
 #include <linux/spmi.h>
 #include <linux/printk.h>
+#include <linux/ratelimit.h>
 
 /* Mask/Bit helpers */
 #define _SMB_MASK(BITS, POS) \
@@ -174,6 +175,14 @@ module_param_named(
 			pr_info(fmt, ##__VA_ARGS__);		\
 		else						\
 			pr_debug(fmt, ##__VA_ARGS__);		\
+	} while (0)
+
+#define pr_smb_rt(reason, fmt, ...)					\
+	do {								\
+		if (smbchg_debug_mask & (reason))			\
+			pr_info_ratelimited(fmt, ##__VA_ARGS__);	\
+		else							\
+			pr_debug_ratelimited(fmt, ##__VA_ARGS__);	\
 	} while (0)
 
 static int smbchg_read(struct smbchg_chip *chip, u8 *val,
@@ -481,7 +490,7 @@ static int get_prop_batt_status(struct smbchg_chip *chip)
 	else
 		status = POWER_SUPPLY_STATUS_CHARGING;
 out:
-	pr_smb(PR_STATUS, "CHGR_STS = 0x%02x\n", reg);
+	pr_smb_rt(PR_STATUS, "CHGR_STS = 0x%02x\n", reg);
 	return status;
 }
 
