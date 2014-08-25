@@ -47,6 +47,40 @@ vreg_err:
 	return rc;
 }
 
+/**
+ * mdss_pll_get_mp_by_reg_name() -- Find power module by regulator name
+ *@pll_res: Pointer to the PLL resource
+ *@name: Regulator name as specified in the pll dtsi
+ *
+ * This is a helper function to retrieve the regulator information
+ * for each pll resource.
+ */
+struct dss_vreg *mdss_pll_get_mp_by_reg_name(struct mdss_pll_resources *pll_res
+		, char *name)
+{
+
+	struct dss_vreg *regulator = NULL;
+	int i;
+
+	if ((pll_res == NULL) || (pll_res->mp.vreg_config == NULL)) {
+		pr_err("%s Invalid PLL resource\n", __func__);
+		goto error;
+	}
+
+	regulator = pll_res->mp.vreg_config;
+
+	for (i = 0; i < pll_res->mp.num_vreg; i++) {
+		if (!strcmp(name, regulator->vreg_name)) {
+			pr_debug("Found regulator match for %s\n", name);
+			break;
+		}
+		regulator++;
+	}
+
+error:
+	return regulator;
+}
+
 void mdss_pll_util_resource_deinit(struct platform_device *pdev,
 					 struct mdss_pll_resources *pll_res)
 {
