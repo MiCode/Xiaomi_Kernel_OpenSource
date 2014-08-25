@@ -114,6 +114,40 @@ static int intel_cancel_wait_perfmon_interrupt(struct drm_device *dev)
 }
 
 /**
+ * i915_perfmon_open
+ *
+ * open perfmon for current file
+ */
+static int i915_perfmon_open(
+	struct drm_file *file)
+{
+	struct drm_i915_file_private *file_priv = file->driver_priv;
+	int ret = 0;
+
+	if (!capable(CAP_SYS_ADMIN))
+		ret = -EACCES;
+	else
+		file_priv->perfmon.opened = true;
+
+	return ret;
+}
+
+/**
+ * i915_perfmon_close
+ *
+ * close perfmon for current file
+ */
+static int i915_perfmon_close(
+	struct drm_file *file)
+{
+	struct drm_i915_file_private *file_priv = file->driver_priv;
+
+	file_priv->perfmon.opened = false;
+
+	return 0;
+}
+
+/**
  * i915_perfmon_ioctl - performance monitoring support
  *
  * Main entry point to performance monitoring support
@@ -148,11 +182,11 @@ int i915_perfmon_ioctl(struct drm_device *dev, void *data,
 		break;
 
 	case I915_PERFMON_OPEN:
-		ret = -ENODEV;
+		ret = i915_perfmon_open(file);
 		break;
 
 	case I915_PERFMON_CLOSE:
-		ret = -ENODEV;
+		ret = i915_perfmon_close(file);
 		break;
 
 	case I915_PERFMON_ENABLE_CONFIG:

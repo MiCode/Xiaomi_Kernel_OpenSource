@@ -30,4 +30,8 @@ struct drm_i915_perfmon_device {
 	atomic_t		buffer_interrupts;
 };
 
+struct drm_i915_perfmon_file {
+	bool opened;
+};
+
 #endif	/* _I915_PERFMON_DEFS_H_ */

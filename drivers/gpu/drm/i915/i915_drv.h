@@ -2096,6 +2096,8 @@ struct drm_i915_file_private {
 	atomic_t rps_wait_boost;
 	struct  intel_engine_cs *bsd_ring;
 	struct bin_attribute *obj_attr;
+
+	struct drm_i915_perfmon_file perfmon;
 };
 
 /*
