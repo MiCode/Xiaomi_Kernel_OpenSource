@@ -433,6 +433,7 @@ int sst_driver_ops(struct intel_sst_drv *sst)
 		sst->tstamp = SST_TIME_STAMP_MRFLD;
 		sst->ops = &mrfld_ops;
 		sst->ops->do_recovery = sst_do_recovery;
+		sst->ops->post_download = sst_post_download_byt;
 #endif
 
 		return 0;

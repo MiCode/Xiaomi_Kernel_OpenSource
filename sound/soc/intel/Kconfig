@@ -54,3 +54,13 @@ config SST_DPCM
 config SND_SST_MACHINE
 	tristate
 
+config SND_SST_SW_CODECS
+	depends on SND_INTEL_SST
+	bool "Disable HW codecs"
+	default n
+
+	help
+		This disables HW codecs support and falls back on
+		SW decoding. This is useful when HW codec firmwares
+		are still at alpha quality.
+
