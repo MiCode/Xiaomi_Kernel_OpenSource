@@ -42,7 +42,7 @@ enum msm_buspm_ioc_cmds {
 	_IOW(MSM_BUSPM_IOC_MAGIC, 0, void *)
 
 #define MSM_BUSPM_IOC_ALLOC	\
-	_IOW(MSM_BUSPM_IOC_MAGIC, 1, size_t)
+	_IOW(MSM_BUSPM_IOC_MAGIC, 1, uint32_t)
 
 #define MSM_BUSPM_IOC_RDBUF	\
 	_IOW(MSM_BUSPM_IOC_MAGIC, 2, struct buspm_xfer_req)
