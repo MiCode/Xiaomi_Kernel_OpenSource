@@ -35,6 +35,7 @@ struct cell_dev_pdata {
 	const char		*name;
 	void			*data;
 	int			len;
+	int			id;
 };
 static LIST_HEAD(pdata_list);
 
@@ -145,7 +146,7 @@ err:
 }
 EXPORT_SYMBOL(intel_soc_pmic_update);
 
-int intel_soc_pmic_set_pdata(const char *name, void *data, int len)
+int intel_soc_pmic_set_pdata(const char *name, void *data, int len, int id)
 {
 	struct cell_dev_pdata *pdata;
 
@@ -158,7 +159,7 @@ int intel_soc_pmic_set_pdata(const char *name, void *data, int len)
 	pdata->name = name;
 	pdata->data = data;
 	pdata->len = len;
-
+	pdata->id = id;
 	list_add_tail(&pdata->list, &pdata_list);
 
 	return 0;
@@ -467,7 +468,8 @@ int intel_pmic_add(struct intel_soc_pmic *chip)
 
 	for (i = 0; pmic->cell_dev[i].name != NULL; i++) {
 		list_for_each_entry(pdata, &pdata_list, list) {
-			if (!strcmp(pdata->name, pmic->cell_dev[i].name)) {
+			if (!strcmp(pdata->name, pmic->cell_dev[i].name) &&
+					(pdata->id == pmic->cell_dev[i].id)) {
 				pmic->cell_dev[i].platform_data = pdata->data;
 				pmic->cell_dev[i].pdata_size = pdata->len;
 			}

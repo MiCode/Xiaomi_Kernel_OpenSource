@@ -60,7 +60,7 @@ int intel_soc_pmic_writeb(int reg, u8 val);
 int intel_soc_pmic_setb(int reg, u8 mask);
 int intel_soc_pmic_clearb(int reg, u8 mask);
 int intel_soc_pmic_update(int reg, u8 val, u8 mask);
-int intel_soc_pmic_set_pdata(const char *name, void *data, int len);
+int intel_soc_pmic_set_pdata(const char *name, void *data, int len, int id);
 struct device *intel_soc_pmic_dev(void);
 
 #endif	/* __INTEL_SOC_PMIC_H__ */

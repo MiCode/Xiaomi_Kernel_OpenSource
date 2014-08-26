@@ -403,7 +403,7 @@ static void dc_xpwr_chrg_pdata(void)
 	platform_init_chrg_params(&pdata);
 
 	intel_soc_pmic_set_pdata("dollar_cove_charger",
-				(void *)&pdata, sizeof(pdata));
+				(void *)&pdata, sizeof(pdata), 0);
 }
 
 static int fg_bat_curve[] = {
@@ -452,7 +452,7 @@ static void dc_xpwr_fg_pdata(void)
 		pdata.bat_curve[i] = fg_bat_curve[i];
 
 	intel_soc_pmic_set_pdata("dollar_cove_battery",
-				(void *)&pdata, sizeof(pdata));
+				(void *)&pdata, sizeof(pdata), 0);
 }
 
 static void dc_xpwr_pwrsrc_pdata(void)
@@ -467,7 +467,7 @@ static void dc_xpwr_pwrsrc_pdata(void)
 	pdata.en_chrg_det = true;
 
 	intel_soc_pmic_set_pdata("dollar_cove_pwrsrc",
-				 (void *)&pdata, sizeof(pdata));
+				 (void *)&pdata, sizeof(pdata), 0);
 }
 
 static int dollar_cove_init(void)
