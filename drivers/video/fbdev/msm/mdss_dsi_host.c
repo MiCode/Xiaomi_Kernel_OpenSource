@@ -618,7 +618,12 @@ int mdss_dsi_reg_status_check(struct mdss_dsi_ctrl_pdata *ctrl_pdata)
 	if (ctrl_pdata->status_cmds.link_state == DSI_HS_MODE)
 		mdss_dsi_set_tx_power_mode(1, &ctrl_pdata->panel_data);
 
-	if (ret == 0) {
+	/*
+	 * mdss_dsi_read_status returns the number of bytes returned
+	 * by the panel. Success value is greater than zero and failure
+	 * case returns zero.
+	 */
+	if (ret > 0) {
 		ret = ctrl_pdata->check_read_status(ctrl_pdata);
 	} else {
 		pr_err("%s: Read status register returned error\n", __func__);
@@ -836,7 +841,7 @@ static int mdss_dsi_cmds2buf_tx(struct mdss_dsi_ctrl_pdata *ctrl,
 		if (!len) {
 			pr_err("%s: failed to add cmd = 0x%x\n",
 				__func__,  cm->payload[0]);
-			return -EINVAL;
+			return 0;
 		}
 		tot += len;
 		if (dchdr->last) {
@@ -850,7 +855,7 @@ static int mdss_dsi_cmds2buf_tx(struct mdss_dsi_ctrl_pdata *ctrl,
 				mdss_dsi_disable_irq(ctrl, DSI_CMD_TERM);
 				pr_err("%s: failed to call cmd_dma_tx for cmd = 0x%x\n",
 					__func__,  cmds->payload[0]);
-				return -EINVAL;
+				return 0;
 			}
 
 			if (!wait || dchdr->wait > VSYNC_PERIOD)
@@ -905,7 +910,7 @@ static inline bool __mdss_dsi_cmd_mode_config(
 int mdss_dsi_cmds_tx(struct mdss_dsi_ctrl_pdata *ctrl,
 		struct dsi_cmd_desc *cmds, int cnt)
 {
-	int ret = 0;
+	int len = 0;
 	struct mdss_dsi_ctrl_pdata *mctrl = NULL;
 
 	/*
@@ -938,11 +943,9 @@ int mdss_dsi_cmds_tx(struct mdss_dsi_ctrl_pdata *ctrl,
 do_send:
 	ctrl->cmd_cfg_restore = __mdss_dsi_cmd_mode_config(ctrl, 1);
 
-	ret = mdss_dsi_cmds2buf_tx(ctrl, cmds, cnt);
-	if (IS_ERR_VALUE(ret)) {
+	len = mdss_dsi_cmds2buf_tx(ctrl, cmds, cnt);
+	if (!len)
 		pr_err("%s: failed to call\n", __func__);
-		cnt = -EINVAL;
-	}
 
 	if (!ctrl->do_unicast) {
 		if (mctrl && mctrl->cmd_cfg_restore) {
@@ -956,7 +959,7 @@ do_send:
 		}
 	}
 
-	return cnt;
+	return len;
 }
 
 /* MIPI_DSI_MRPS, Maximum Return Packet Size */
@@ -1481,8 +1484,7 @@ void mdss_dsi_cmd_mdp_busy(struct mdss_dsi_ctrl_pdata *ctrl)
 int mdss_dsi_cmdlist_tx(struct mdss_dsi_ctrl_pdata *ctrl,
 				struct dcs_cmd_req *req)
 {
-	int ret, ret_val = -EINVAL;
-
+	int len;
 
 	if (mdss_dsi_sync_wait_enable(ctrl)) {
 		ctrl->do_unicast = false;
@@ -1491,22 +1493,19 @@ int mdss_dsi_cmdlist_tx(struct mdss_dsi_ctrl_pdata *ctrl,
 			ctrl->do_unicast = true;
 	}
 
-	ret = mdss_dsi_cmds_tx(ctrl, req->cmds, req->cmds_cnt);
-
-	if (!IS_ERR_VALUE(ret))
-		ret_val = 0;
+	len = mdss_dsi_cmds_tx(ctrl, req->cmds, req->cmds_cnt);
 
 	if (req->cb)
-		req->cb(ret);
+		req->cb(len);
 
-	return ret_val;
+	return len;
 }
 
 int mdss_dsi_cmdlist_rx(struct mdss_dsi_ctrl_pdata *ctrl,
 				struct dcs_cmd_req *req)
 {
 	struct dsi_buf *rp;
-	int len = 0, ret = 0;
+	int len = 0;
 
 	if (req->rbuf) {
 		rp = &ctrl->rx_buf;
@@ -1519,7 +1518,7 @@ int mdss_dsi_cmdlist_rx(struct mdss_dsi_ctrl_pdata *ctrl,
 	if (req->cb)
 		req->cb(len);
 
-	return ret;
+	return len;
 }
 
 int mdss_dsi_cmdlist_commit(struct mdss_dsi_ctrl_pdata *ctrl, int from_mdp)
