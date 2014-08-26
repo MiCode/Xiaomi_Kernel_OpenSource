@@ -1,0 +1,31 @@
+* PMIC-ID
+
+The qcom,pmic-id entry specifies the PMIC chips used on a given MSM platform.
+
+It is expected that the bootloader will use this information at boot-up to
+decide which device tree to use when given multiple device trees, some of which
+may not be compatible with the actual hardware. It is the bootloader's
+responsibility to pass the correct device tree to the kernel.
+
+The cell layout of the qcom,pmic-id property is as follows:
+
+    qcom,pmic-id = <pmic1 pmic2 pmic3 pmic4> [, <pmic1 pmic2 pmic3 pmic4> ...];
+
+where a given "pmic#" cell is a 32-bit integer which is defined as follows:
+    bits 31-24 = unused
+    bits 23-16 = PMIC major version
+    bits 15-8  = PMIC minor version
+    bits 7-0   = PMIC model number
+
+The PMIC values in each tuple must be listed in ascending order of their global
+SPMI slave id for a given board. Note that any missing entries need to be
+denoted by 0x0 to complete a given tuple. The ordering of tuples within the
+property is arbitrary.
+
+Examples:
+    qcom,pmic-id = <0x10009 0x1000A 0x1000C 0x0>;
+
+    qcom,pmic-id = <0x10009 0x1000C 0x0 0x0>;
+
+    qcom,pmic-id = <0x10009 0x1000A 0x0 0x0>,
+                   <0x20109 0x1000A 0x0 0x0>;
