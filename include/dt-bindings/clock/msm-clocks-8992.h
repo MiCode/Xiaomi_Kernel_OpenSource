@@ -219,7 +219,6 @@
 #define clk_gcc_gp1_clk 0x057f7b69
 #define clk_gcc_gp2_clk 0x9bf83ffd
 #define clk_gcc_gp3_clk 0xec6539ee
-#define clk_gcc_lpass_q6_axi_clk 0xa9612654
 #define clk_gcc_mss_cfg_ahb_clk 0x111cde81
 #define clk_gcc_mss_q6_bimc_axi_clk 0x67544d62
 #define clk_gcc_pcie_0_aux_clk 0x3d2e3ece
@@ -412,6 +411,9 @@
 #define clk_a53_div_clk 0x6006022b
 
 /* clock_debug controlled clocks */
+#define clk_debug_mmss_clk 0x977c99b6
+#define clk_debug_rpm_clk 0x8e2b07ca
+#define clk_debug_cpu_clk 0x0e696b2b
 #define clk_gcc_debug_mux 0x8121ac15
 
 #endif
