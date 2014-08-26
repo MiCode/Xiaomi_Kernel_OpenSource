@@ -755,8 +755,8 @@ static void receive_file_work(struct work_struct *data)
 	struct usb_request *read_req = NULL, *write_req = NULL;
 	struct file *filp;
 	loff_t offset;
-	int64_t count;
-	int ret, len, cur_buf = 0;
+	int64_t count, len;
+	int ret, cur_buf = 0;
 	int r = 0;
 
 	/* read our parameters */
