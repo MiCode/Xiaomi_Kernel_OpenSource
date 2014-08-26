@@ -3789,6 +3789,12 @@ static irqreturn_t udc_irq(void)
 
 	spin_lock(udc->lock);
 
+	if ((udc->udc_driver->flags & CI13XXX_PULLUP_ON_VBUS) &&
+				!udc->vbus_active) {
+		spin_unlock(udc->lock);
+		return IRQ_NONE;
+	}
+
 	if (udc->udc_driver->flags & CI13XXX_REGS_SHARED) {
 		if (hw_cread(CAP_USBMODE, USBMODE_CM) !=
 				USBMODE_CM_DEVICE) {
