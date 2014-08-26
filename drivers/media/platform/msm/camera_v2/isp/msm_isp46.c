@@ -38,6 +38,7 @@
 #define VFE46_8994V1_VERSION   0x60000000
 
 #define VFE46_BURST_LEN 3
+#define VFE46_FETCH_BURST_LEN 3
 #define VFE46_STATS_BURST_LEN 3
 #define VFE46_UB_SIZE_VFE0 2048
 #define VFE46_UB_SIZE_VFE1 1536
@@ -312,12 +313,18 @@ static void msm_vfe46_process_halt_irq(struct vfe_device *vfe_dev,
 	}
 }
 
-static void msm_vfe46_process_camif_irq(struct vfe_device *vfe_dev,
+static void msm_vfe46_process_input_irq(struct vfe_device *vfe_dev,
 	uint32_t irq_status0, uint32_t irq_status1,
 	struct msm_isp_timestamp *ts)
 {
-	if (!(irq_status0 & 0xF))
+	if (!(irq_status0 & 0x100000F))
 		return;
+
+	if (irq_status0 & (1 << 24)) {
+		ISP_DBG("%s: Fetch Engine Read IRQ\n", __func__);
+		msm_isp_fetch_engine_done_notify(vfe_dev,
+			&vfe_dev->fetch_engine_info);
+	}
 
 	if (irq_status0 & (1 << 0)) {
 		ISP_DBG("%s: SOF IRQ\n", __func__);
@@ -671,6 +678,17 @@ static int32_t msm_vfe46_cfg_io_format(struct vfe_device *vfe_dev,
 		return -EINVAL;
 	}
 
+	io_format_reg = msm_camera_io_r(vfe_dev->vfe_base + 0x88);
+	if ((stream_src < RDI_INTF_0) &&
+		(vfe_dev->axi_data.src_info[VFE_PIX_0].input_mux ==
+		EXTERNAL_READ)) {
+		pack_reg = 0x1;
+		io_format_reg &= 0xFFC8FFFF;
+		io_format_reg |= (bpp_reg << 20 | pack_reg << 16);
+		pr_debug("%s: EXTERNAL READ io_fmt_reg 0x%x\n",
+			__func__, io_format_reg);
+	}
+
 	if (stream_src == IDEAL_RAW) {
 		/* use io_format(v4l2_pix_fmt) to get pack format */
 		pack_fmt = msm_isp_get_pack_format(io_format);
@@ -699,7 +717,6 @@ static int32_t msm_vfe46_cfg_io_format(struct vfe_device *vfe_dev,
 		}
 	}
 
-	io_format_reg = msm_camera_io_r(vfe_dev->vfe_base + 0x88);
 	switch (stream_src) {
 	case PIX_VIDEO:
 	case PIX_ENCODER:
@@ -726,14 +743,92 @@ static int32_t msm_vfe46_cfg_io_format(struct vfe_device *vfe_dev,
 static int msm_vfe46_start_fetch_engine(struct vfe_device *vfe_dev,
 	void *arg)
 {
+	int rc = 0;
+	uint32_t bufq_handle;
+	struct msm_isp_buffer *buf = NULL;
+	struct msm_vfe_fetch_eng_start *fe_cfg = arg;
+
+	if (vfe_dev->fetch_engine_info.is_busy == 1) {
+		pr_err("%s: fetch engine busy\n", __func__);
+		return -EINVAL;
+	}
+
+	/* There is other option of passing buffer address from user,
+		in such case, driver needs to map the buffer and use it*/
+	bufq_handle = vfe_dev->buf_mgr->ops->get_bufq_handle(
+		vfe_dev->buf_mgr, fe_cfg->session_id, fe_cfg->stream_id);
+	vfe_dev->fetch_engine_info.bufq_handle = bufq_handle;
+	vfe_dev->fetch_engine_info.session_id = fe_cfg->session_id;
+	vfe_dev->fetch_engine_info.stream_id = fe_cfg->stream_id;
+
+	rc = vfe_dev->buf_mgr->ops->get_buf_by_index(
+		vfe_dev->buf_mgr, bufq_handle, fe_cfg->buf_idx, &buf);
+	if (rc < 0) {
+		pr_err("%s: No fetch buffer\n", __func__);
+		return -EINVAL;
+	}
+	vfe_dev->fetch_engine_info.buf_idx = fe_cfg->buf_idx;
+	vfe_dev->fetch_engine_info.is_busy = 1;
+
+	msm_camera_io_w(buf->mapped_info[0].paddr, vfe_dev->vfe_base + 0x268);
+
+	msm_camera_io_w_mb(0x100000, vfe_dev->vfe_base + 0x80);
+	msm_camera_io_w_mb(0x200000, vfe_dev->vfe_base + 0x80);
+
+	ISP_DBG("%s: Fetch Engine ready\n", __func__);
+	buf->state = MSM_ISP_BUFFER_STATE_DIVERTED;
+
 	return 0;
 }
 
 static void msm_vfe46_cfg_fetch_engine(struct vfe_device *vfe_dev,
 	struct msm_vfe_pix_cfg *pix_cfg)
 {
-	pr_err("%s: Fetch engine not supported\n", __func__);
-	return;
+	uint32_t temp;
+	struct msm_vfe_fetch_engine_cfg *fe_cfg = NULL;
+
+	if (pix_cfg->input_mux == EXTERNAL_READ) {
+		fe_cfg = &pix_cfg->fetch_engine_cfg;
+		pr_debug("%s: fetch_dbg wd x ht buf = %d x %d, fe = %d x %d\n",
+			__func__, fe_cfg->buf_width, fe_cfg->buf_height,
+			fe_cfg->fetch_width, fe_cfg->fetch_height);
+
+		temp = msm_camera_io_r(vfe_dev->vfe_base + 0x84);
+		temp &= 0xFFFFFFFD;
+		temp |= (1 << 1);
+		msm_camera_io_w(temp, vfe_dev->vfe_base + 0x84);
+
+		temp = msm_camera_io_r(vfe_dev->vfe_base + 0x5C);
+		temp &= 0xFEFFFFFF;
+		temp |= (1 << 24);
+		msm_camera_io_w(temp, vfe_dev->vfe_base + 0x5C);
+
+		temp = fe_cfg->fetch_height - 1;
+		msm_camera_io_w(temp & 0x3FFF, vfe_dev->vfe_base + 0x278);
+
+		/* need to update to use formulae to calculate X_SIZE_WORD*/
+		temp = ((fe_cfg->fetch_width * 5 + 31) / 32);
+		msm_camera_io_w((temp - 1) << 16, vfe_dev->vfe_base + 0x27C);
+
+		temp = temp << 16 |
+			(fe_cfg->buf_height-1) << 2 |
+			VFE46_FETCH_BURST_LEN;
+		msm_camera_io_w(temp, vfe_dev->vfe_base + 0x280);
+
+		temp = ((fe_cfg->buf_width - 1) & 0x3FFF) << 16 |
+			((fe_cfg->buf_height - 1) & 0x3FFF);
+		msm_camera_io_w(temp, vfe_dev->vfe_base + 0x284);
+
+		/* need to use formulae to calculate MAIN_UNPACK_PATTERN*/
+		msm_camera_io_w(0xF6543210, vfe_dev->vfe_base + 0x288);
+		msm_camera_io_w(0xF, vfe_dev->vfe_base + 0x2A4);
+
+		msm_camera_io_w_mb(0x40, vfe_dev->vfe_base + 0x50);
+		vfe_dev->hw_info->vfe_ops.core_ops.reg_update(vfe_dev);
+	} else {
+		pr_err("%s: Invalid mux configuration - mux: %d", __func__,
+			pix_cfg->input_mux);
+	}
 }
 
 static void msm_vfe46_cfg_camif(struct vfe_device *vfe_dev,
@@ -1600,7 +1695,7 @@ struct msm_vfe_hardware_info vfe46_hw_info = {
 	.vfe_ops = {
 		.irq_ops = {
 			.read_irq_status = msm_vfe46_read_irq_status,
-			.process_camif_irq = msm_vfe46_process_camif_irq,
+			.process_camif_irq = msm_vfe46_process_input_irq,
 			.process_reset_irq = msm_vfe46_process_reset_irq,
 			.process_halt_irq = msm_vfe46_process_halt_irq,
 			.process_reset_irq = msm_vfe46_process_reset_irq,
