@@ -344,7 +344,13 @@
 	};
 
 	clock_gcc: qcom,gcc@fc400000 {
-		compatible = "qcom,dummycc";
+		compatible = "qcom,gcc-8992";
+		reg = <0xfc400000 0x2000>;
+		reg-names = "cc_base";
+		vdd_dig-supply = <&pm8994_s1_corner>;
+		clock-names = "xo", "xo_a_clk";
+		clocks = <&clock_rpm clk_cxo_clk_src>,
+		         <&clock_rpm clk_cxo_clk_src_ao>;
 		#clock-cells = <1>;
 	};
 
