@@ -20,8 +20,11 @@
 #include <linux/export.h>
 #include <linux/skbuff.h>
 #include <linux/spinlock.h>
+#include <linux/netdevice.h>
 #include "rmnet_data_private.h"
 #include "rmnet_data_stats.h"
+#include "rmnet_data_config.h"
+#include "rmnet_map.h"
 
 enum rmnet_deagg_e {
 	RMNET_STATS_AGG_BUFF,
@@ -37,17 +40,22 @@ MODULE_PARM_DESC(skb_free, "SKBs dropped or freed");
 static DEFINE_SPINLOCK(rmnet_queue_xmit_lock);
 unsigned long int queue_xmit[RMNET_STATS_QUEUE_XMIT_MAX*2];
 module_param_array(queue_xmit, ulong, 0, S_IRUGO);
-MODULE_PARM_DESC(queue_xmit, "SKBs queued");
+MODULE_PARM_DESC(queue_xmit, "SKBs queued for transmit");
 
 static DEFINE_SPINLOCK(rmnet_deagg_count);
 unsigned long int deagg_count[RMNET_STATS_AGG_MAX];
 module_param_array(deagg_count, ulong, 0, S_IRUGO);
-MODULE_PARM_DESC(deagg_count, "SKBs queued");
+MODULE_PARM_DESC(deagg_count, "SKBs De-aggregated");
 
 static DEFINE_SPINLOCK(rmnet_agg_count);
 unsigned long int agg_count[RMNET_STATS_AGG_MAX];
 module_param_array(agg_count, ulong, 0, S_IRUGO);
-MODULE_PARM_DESC(agg_count, "SKBs queued");
+MODULE_PARM_DESC(agg_count, "SKBs Aggregated");
+
+static DEFINE_SPINLOCK(rmnet_checksum_dl_stats);
+unsigned long int checksum_dl_stats[RMNET_MAP_CHECKSUM_ENUM_LENGTH];
+module_param_array(checksum_dl_stats, ulong, 0, S_IRUGO);
+MODULE_PARM_DESC(checksum_dl_stats, "Downlink Checksum Statistics");
 
 void rmnet_kfree_skb(struct sk_buff *skb, unsigned int reason)
 {
@@ -98,3 +106,14 @@ void rmnet_stats_deagg_pkts(int aggcount)
 	spin_unlock_irqrestore(&rmnet_deagg_count, flags);
 }
 
+void rmnet_stats_dl_checksum(unsigned int rc)
+{
+	unsigned long flags;
+
+	if (rc >= RMNET_MAP_CHECKSUM_ENUM_LENGTH)
+		rc = RMNET_MAP_CHECKSUM_ERR_UNKOWN;
+
+	spin_lock_irqsave(&rmnet_checksum_dl_stats, flags);
+	checksum_dl_stats[rc]++;
+	spin_unlock_irqrestore(&rmnet_checksum_dl_stats, flags);
+}
