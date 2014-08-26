@@ -1649,9 +1649,6 @@ static inline int mdss_mdp_set_split_ctl(struct mdss_mdp_ctl *ctl,
 	 * original ctl can work the same way as dual pipe solution */
 	ctl->mixer_right = split_ctl->mixer_left;
 
-	if ((mdata->mdp_rev >= MDSS_MDP_HW_REV_103) && ctl->is_video_mode)
-		ctl->split_flush_en = true;
-
 	return 0;
 }
 
@@ -2059,10 +2056,13 @@ static void mdss_mdp_ctl_split_display_enable(int enable,
 	writel_relaxed(enable, main_ctl->mdata->mdp_base +
 		MDSS_MDP_REG_SPLIT_DISPLAY_EN);
 
-	if (main_ctl->split_flush_en)
+	if ((main_ctl->mdata->mdp_rev >= MDSS_MDP_HW_REV_103)
+		&& main_ctl->is_video_mode) {
+		main_ctl->split_flush_en = true;
 		writel_relaxed(enable ? 0x1 : 0x0,
 			main_ctl->mdata->mdp_base +
 			MMSS_MDP_MDP_SSPP_SPARE_0);
+	}
 }
 
 static void mdss_mdp_ctl_dst_split_display_enable(int enable,
