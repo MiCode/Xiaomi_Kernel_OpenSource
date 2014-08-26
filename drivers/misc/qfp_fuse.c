@@ -46,15 +46,12 @@
 #define QFP_FUSE_BUF_SIZE           64
 #define UINT32_MAX                  (0xFFFFFFFFU)
 
-static const char *blow_supply = "vdd-blow";
-
 struct qfp_priv_t {
 	void __iomem *base;
 	uint32_t size;
 	uint32_t blow_status_offset;
 	uint32_t blow_timer;
 	struct mutex lock;
-	struct regulator *fuse_vdd;
 	u8 state;
 };
 
@@ -63,7 +60,6 @@ struct qfp_resource {
 	resource_size_t	size;
 	uint32_t	blow_status_offset;
 	uint32_t	blow_timer;
-	const char	*regulator_name;
 };
 
 /* We need only one instance of this for the driver */
@@ -101,106 +97,6 @@ static int qfp_fuse_release(struct inode *inode, struct file *filp)
 {
 
 	filp->private_data = NULL;
-
-	return 0;
-}
-
-static inline int qfp_fuse_wait_for_fuse_blow(u32 *status)
-{
-	u32 timeout = QFPROM_BLOW_TIMEOUT_US;
-	/* wait for 400us before checking for the first time */
-	udelay(400);
-	do {
-		*status = readl_relaxed(
-			qfp_priv->base + qfp_priv->blow_status_offset);
-
-		if (!(*status & QFPROM_BLOW_STATUS_BUSY))
-			return 0;
-
-		timeout--;
-		udelay(1);
-	} while (timeout);
-	pr_err("Timeout waiting for FUSE blow, status = %x\n", *status);
-	return -ETIMEDOUT;
-}
-
-static inline int qfp_fuse_enable_regulator(void)
-{
-	int err;
-	err = regulator_enable(qfp_priv->fuse_vdd);
-	if (err != 0)
-		pr_err("Error (%d) enabling regulator\n", err);
-	return err;
-}
-
-static inline int qfp_fuse_disable_regulator(void)
-{
-	int err;
-	err = regulator_disable(qfp_priv->fuse_vdd);
-	if (err != 0)
-		pr_err("Error (%d) disabling regulator\n", err);
-	return err;
-}
-
-static int qfp_fuse_write_word(u32 *addr, u32 data)
-{
-	u32 blow_status = 0;
-	u32 read_data;
-	int err;
-
-	/* Set QFPROM  blow timer register */
-	writel_relaxed(qfp_priv->blow_timer,
-			qfp_priv->base + QFPROM_BLOW_TIMER_OFFSET);
-	mb();
-
-	/* Enable LVS0 regulator */
-	err = qfp_fuse_enable_regulator();
-	if (err != 0)
-		return err;
-
-	/*
-	 * Wait for about 1ms. However msleep(1) can sleep for
-	 * up to 20ms as per Documentation/timers/timers-howto.txt.
-	 * Time is not a constraint here.
-	 */
-
-	msleep(20);
-
-	/* Write data */
-	__raw_writel(data, addr);
-	mb();
-
-	/* blow_status = QFPROM_BLOW_STATUS_BUSY; */
-	err = qfp_fuse_wait_for_fuse_blow(&blow_status);
-	if (err) {
-		qfp_fuse_disable_regulator();
-		return err;
-	}
-
-	/* Check error status */
-	if (blow_status & QFPROM_BLOW_STATUS_ERROR) {
-		pr_err("Fuse blow status error: %d\n", blow_status);
-		qfp_fuse_disable_regulator();
-		return -EFAULT;
-	}
-
-	/* Disable regulator */
-	qfp_fuse_disable_regulator();
-	/*
-	 * Wait for about 1ms. However msleep(1) can sleep for
-	 * up to 20ms as per Documentation/timers/timers-howto.txt.
-	 * Time is not a constraint here.
-	 */
-	msleep(20);
-
-	/* Verify written data */
-	read_data = readl_relaxed(addr);
-	if (read_data != data) {
-		pr_err("Error: read/write data mismatch\n");
-		pr_err("Address = %p written data = %x read data = %x\n",
-			addr, data, read_data);
-		return -EFAULT;
-	}
 
 	return 0;
 }
@@ -270,56 +166,8 @@ qfp_fuse_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 		break;
 
 	case QFP_FUSE_IOC_WRITE:
-		if (arg == 0) {
-			pr_err("user space arg not supplied\n");
-			err = -EFAULT;
-			break;
-		}
-
-		if (copy_from_user(&req, (void __user *)arg, sizeof(req))) {
-			pr_err("Error copying req from user space\n");
-			err = -EFAULT;
-			break;
-		}
-
-		/* Check for limits */
-		if (is_usr_req_valid(&req) == false) {
-			pr_err("Invalid request\n");
-			err = -EINVAL;
-			break;
-		}
-
-		if (req.size > QFP_FUSE_BUF_SIZE) {
-			/* Allocate memory for buffer */
-			ptr = kzalloc(req.size * 4, GFP_KERNEL);
-			if (ptr == NULL) {
-				pr_alert("No memory for data\n");
-				err = -ENOMEM;
-				break;
-			}
-			buf = ptr;
-		}
-
-		/* Copy user data to local buffer */
-		if (copy_from_user(buf, (void __user *)req.data,
-				4 * (req.size))) {
-			pr_err("Error copying data from user space\n");
-			err = -EFAULT;
-			break;
-		}
-
-		if (mutex_lock_interruptible(&qfp_priv->lock)) {
-			err = -ERESTARTSYS;
-			break;
-		}
-
-		/* Write data word at a time */
-		for (i = 0; i < req.size && !err; i++) {
-			err = qfp_fuse_write_word(((u32 *) (
-				qfp_priv->base + req.offset) + i), buf[i]);
-		}
-
-		mutex_unlock(&qfp_priv->lock);
+		pr_err("Fuse-write is no longer supported.\n");
+		return -EPERM;
 		break;
 	default:
 		pr_err("Invalid ioctl command.\n");
@@ -348,7 +196,6 @@ static int qfp_get_resource(struct platform_device *pdev,
 			    struct qfp_resource *qfp_res)
 {
 	struct resource *res;
-	const char *regulator_name = NULL;
 	uint32_t blow_status_offset = QFPROM_BLOW_STATUS_OFFSET;
 	uint32_t blow_timer = QFPROM_BLOW_TIMER_VALUE;
 
@@ -367,29 +214,14 @@ static int qfp_get_resource(struct platform_device *pdev,
 			}
 		}
 
-		if (of_property_read_bool(np, "vdd-blow-supply")) {
-			/* For backward compatibility, use the name
-			 * from blow_supply */
-			regulator_name = blow_supply;
-		} else {
-			pr_err("Failed to find regulator-name property\n");
-			return -EINVAL;
-		}
-
 		of_property_read_u32(np, "qcom,blow-timer", &blow_timer);
 
-	} else {
-		regulator_name = pdev->dev.platform_data;
 	}
-
-	if (!regulator_name)
-		return -EINVAL;
 
 	qfp_res->start = res->start;
 	qfp_res->size = resource_size(res);
 	qfp_res->blow_status_offset = blow_status_offset;
 	qfp_res->blow_timer = blow_timer;
-	qfp_res->regulator_name = regulator_name;
 
 	return 0;
 }
@@ -420,29 +252,22 @@ static int qfp_fuse_probe(struct platform_device *pdev)
 	qfp_priv->blow_status_offset = res.blow_status_offset;
 	qfp_priv->blow_timer = res.blow_timer;
 
-	/* Get regulator for QFPROM writes */
-	qfp_priv->fuse_vdd = regulator_get(&pdev->dev, res.regulator_name);
-	if (IS_ERR(qfp_priv->fuse_vdd)) {
-		ret = PTR_ERR(qfp_priv->fuse_vdd);
-		pr_err("Err (%d) getting %s\n", ret, res.regulator_name);
-		qfp_priv->fuse_vdd = NULL;
-		goto err;
-	}
-
 	mutex_init(&qfp_priv->lock);
 
 	ret = misc_register(&qfp_fuse_dev);
 	if (ret < 0)
 		goto err;
 
+	/* Set QFPROM  blow timer register */
+	writel_relaxed(qfp_priv->blow_timer,
+			qfp_priv->base + QFPROM_BLOW_TIMER_OFFSET);
+	mb();
+
 	pr_info("Fuse driver base:%p end:%p\n", qfp_priv->base,
 			qfp_priv->base + qfp_priv->size);
 	return 0;
 
 err:
-	if (qfp_priv->fuse_vdd)
-		regulator_put(qfp_priv->fuse_vdd);
-
 	kfree(qfp_priv);
 	qfp_priv = NULL;
 
@@ -452,9 +277,6 @@ err:
 
 static int qfp_fuse_remove(struct platform_device *plat)
 {
-	if (qfp_priv && qfp_priv->fuse_vdd)
-		regulator_put(qfp_priv->fuse_vdd);
-
 	iounmap((void __iomem *)qfp_priv->base);
 	kfree(qfp_priv);
 	qfp_priv = NULL;

@@ -8,8 +8,6 @@ only.
 Required Properties:
 compatible: component name used for driver matching, should be "qcom,qfp-fuse"
 reg: physical base address and length of the register set
-vdd-blow-supply: regulator used to blow fuses. For backward compatibility, the
-regulator name must contain the string vdd-blow.
 
 Optional Properties:
 - qcom,blow-status-offset: offset of the blow status registers.
@@ -30,5 +28,4 @@ Example:
 		compatible = "qcom,qfp-fuse";
 		reg = <0xfc4b8000 0x7000>;
 		qcom,blow-status-offset = 0x204c;
-		vdd-blow-supply: <&vdd_blow>;
 	};
