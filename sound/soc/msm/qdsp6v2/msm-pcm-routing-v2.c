@@ -307,10 +307,10 @@ static int msm_pcm_routing_get_app_type_idx(int app_type)
 }
 
 void msm_pcm_routing_reg_stream_app_type_cfg(int fedai_id, int app_type,
-	int acdb_dev_id, int sample_rate)
+	int acdb_dev_id)
 {
-	pr_debug("%s: fedai_id %d, app_type %d, sample_rate %d\n",
-		__func__, fedai_id, app_type, sample_rate);
+	pr_debug("%s: fedai_id- %d, app_type: %d\n", __func__, fedai_id,
+		 app_type);
 	if (fedai_id > MSM_FRONTEND_DAI_MM_MAX_ID) {
 		/* bad ID assigned in machine driver */
 		pr_err("%s: bad MM ID %d\n", __func__, fedai_id);
@@ -318,7 +318,6 @@ void msm_pcm_routing_reg_stream_app_type_cfg(int fedai_id, int app_type,
 	}
 	fe_dai_app_type_cfg[fedai_id].app_type = app_type;
 	fe_dai_app_type_cfg[fedai_id].acdb_dev_id = acdb_dev_id;
-	fe_dai_app_type_cfg[fedai_id].sample_rate = sample_rate;
 }
 
 
@@ -345,8 +344,7 @@ static struct cal_block_data *msm_routing_find_topology_by_path(int path)
 
 static struct cal_block_data *msm_routing_find_topology(int path,
 							int app_type,
-							int acdb_id,
-							int sample_rate)
+							int acdb_id)
 {
 	struct list_head		*ptr, *next;
 	struct cal_block_data		*cal_block = NULL;
@@ -363,13 +361,12 @@ static struct cal_block_data *msm_routing_find_topology(int path,
 			cal_block->cal_info;
 		if ((cal_info->path == path)  &&
 			(cal_info->app_type == app_type) &&
-			(cal_info->acdb_id == acdb_id) &&
-			(cal_info->sample_rate == sample_rate)) {
+			(cal_info->acdb_id == acdb_id)) {
 			return cal_block;
 		}
 	}
-	pr_debug("%s: Can't find topology for path %d, app %d, acdb_id %d sample_rate %d defaulting to search by path\n",
-		__func__, path, app_type, acdb_id, sample_rate);
+	pr_debug("%s: Can't find topology for path %d, app %d, acdb_id %d defaulting to search by path\n",
+		__func__, path, app_type, acdb_id);
 	return msm_routing_find_topology_by_path(path);
 }
 
@@ -377,7 +374,7 @@ static int msm_routing_get_adm_topology(int path, int fedai_id)
 {
 	int				topology = NULL_COPP_TOPOLOGY;
 	struct cal_block_data		*cal_block = NULL;
-	int app_type = 0, acdb_dev_id = 0, sample_rate = 0;
+	int app_type = 0, acdb_dev_id = 0;
 	pr_debug("%s\n", __func__);
 
 	path = get_cal_path(path);
@@ -389,10 +386,8 @@ static int msm_routing_get_adm_topology(int path, int fedai_id)
 	if (path == RX_DEVICE) {
 		app_type = fe_dai_app_type_cfg[fedai_id].app_type;
 		acdb_dev_id = fe_dai_app_type_cfg[fedai_id].acdb_dev_id;
-		sample_rate = fe_dai_app_type_cfg[fedai_id].sample_rate;
 	}
-	cal_block = msm_routing_find_topology(path, app_type,
-					      acdb_dev_id, sample_rate);
+	cal_block = msm_routing_find_topology(path, app_type, acdb_dev_id);
 	if (cal_block == NULL)
 		goto unlock;
 
@@ -446,7 +441,6 @@ static void msm_pcm_routing_build_matrix(int fedai_id, int sess_type,
 		payload.session_id = fe_dai_map[fedai_id][sess_type].strm_id;
 		payload.app_type = fe_dai_app_type_cfg[fedai_id].app_type;
 		payload.acdb_dev_id = fe_dai_app_type_cfg[fedai_id].acdb_dev_id;
-		payload.sample_rate = fe_dai_app_type_cfg[fedai_id].sample_rate;
 		adm_matrix_map(path_type, payload, perf_mode);
 		msm_pcm_routng_cfg_matrix_map_pp(payload, path_type, perf_mode);
 	}
@@ -543,7 +537,7 @@ int msm_pcm_routing_reg_phy_stream(int fedai_id, int perf_mode,
 				app_type_idx =
 				msm_pcm_routing_get_app_type_idx(app_type);
 				sample_rate =
-				fe_dai_app_type_cfg[fedai_id].sample_rate;
+					app_type_cfg[app_type_idx].sample_rate;
 				bits_per_sample =
 					app_type_cfg[app_type_idx].bit_width;
 			} else
@@ -590,7 +584,6 @@ int msm_pcm_routing_reg_phy_stream(int fedai_id, int perf_mode,
 		payload.session_id = fe_dai_map[fedai_id][session_type].strm_id;
 		payload.app_type = fe_dai_app_type_cfg[fedai_id].app_type;
 		payload.acdb_dev_id = fe_dai_app_type_cfg[fedai_id].acdb_dev_id;
-		payload.sample_rate = fe_dai_app_type_cfg[fedai_id].sample_rate;
 		adm_matrix_map(path_type, payload, perf_mode);
 		msm_pcm_routng_cfg_matrix_map_pp(payload, path_type, perf_mode);
 	}
@@ -749,7 +742,7 @@ static void msm_pcm_routing_process_audio(u16 reg, u16 val, int set)
 				app_type_idx =
 				msm_pcm_routing_get_app_type_idx(app_type);
 				sample_rate =
-					fe_dai_app_type_cfg[val].sample_rate;
+					app_type_cfg[app_type_idx].sample_rate;
 				bits_per_sample =
 					app_type_cfg[app_type_idx].bit_width;
 			} else
@@ -5109,7 +5102,7 @@ static int msm_pcm_routing_prepare(struct snd_pcm_substream *substream)
 				app_type_idx =
 				msm_pcm_routing_get_app_type_idx(app_type);
 				sample_rate =
-					fe_dai_app_type_cfg[i].sample_rate;
+					app_type_cfg[app_type_idx].sample_rate;
 				bits_per_sample =
 					app_type_cfg[app_type_idx].bit_width;
 			} else
