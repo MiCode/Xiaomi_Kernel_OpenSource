@@ -34,7 +34,6 @@
 
 	qcom,qfpfuse@fc4b8000 {
 		status = "ok";
-		vdd-blow-supply = <&pma8084_lvs1>;
 	};
 
 	emac0:qcom,emac@feb20000 {
