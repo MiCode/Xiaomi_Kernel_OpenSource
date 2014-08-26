@@ -47,6 +47,7 @@
 /* QDSP6SS_GFMUX_CTL */
 #define Q6SS_CLK_ENA			BIT(1)
 #define Q6SS_CLK_SRC_SEL_C		BIT(3)
+#define Q6SS_CLK_SRC_SEL_FIELD		0xC
 #define Q6SS_CLK_SRC_SWITCH_CLK_OVR	BIT(8)
 
 /* QDSP6SS_PWR_CTL */
@@ -257,8 +258,10 @@ static int __pil_q6v5_reset(struct pil_desc *pil)
 	val |= Q6SS_CLK_ENA;
 
 	/* Need a different clock source for v5.2.0 */
-	if (drv->qdsp6v5_2_0)
+	if (drv->qdsp6v5_2_0) {
+		val &= ~Q6SS_CLK_SRC_SEL_FIELD;
 		val |= Q6SS_CLK_SRC_SEL_C;
+	}
 
 	/* force clock on during source switch */
 	if (drv->qdsp6v56)
