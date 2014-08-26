@@ -6890,13 +6890,10 @@ bail_inter_cluster_balance(struct lb_env *env, struct sd_lb_stats *sds)
 {
 	int nr_cpus;
 
-	if (sds->local_stat.group_capacity <=
-			sds->busiest_stat.group_capacity)
+	if (group_rq_capacity(sds->local) <= group_rq_capacity(sds->busiest))
 		return 0;
 
-	if (sds->busiest_stat.sum_nr_big_tasks &&
-		 sds->local_stat.group_capacity >
-			 sds->busiest_stat.group_capacity)
+	if (sds->busiest_stat.sum_nr_big_tasks)
 		return 0;
 
 	nr_cpus = cpumask_weight(sched_group_cpus(sds->busiest));
