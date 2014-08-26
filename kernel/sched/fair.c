@@ -8600,10 +8600,7 @@ static int idle_balance(struct rq *this_rq)
 			t0 = sched_clock_cpu(balance_cpu);
 
 			pulled_task = load_balance(balance_cpu, balance_rq,
-						   sd,
-						   (this_cpu == balance_cpu ?
-						    CPU_NEWLY_IDLE :
-						    CPU_IDLE),
+						   sd, CPU_NEWLY_IDLE,
 						   &continue_balancing);
 
 			domain_cost = sched_clock_cpu(balance_cpu) - t0;
