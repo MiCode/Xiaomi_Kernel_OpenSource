@@ -33,13 +33,31 @@
 static struct i2c_client *pmic_i2c_client;
 static struct intel_soc_pmic *pmic_i2c;
 
+#define I2C_ADDR_MASK		0xFF00
+#define I2C_ADDR_SHIFT		8
+#define I2C_REG_MASK		0xFF
+
 static int pmic_i2c_readb(int reg)
 {
+	if (reg & I2C_ADDR_MASK)
+		pmic_i2c_client->addr = (reg & I2C_ADDR_MASK)
+						>> I2C_ADDR_SHIFT;
+	else
+		pmic_i2c_client->addr = pmic_i2c->default_client;
+
+	reg &= I2C_REG_MASK;
 	return i2c_smbus_read_byte_data(pmic_i2c_client, reg);
 }
 
 static int pmic_i2c_writeb(int reg, u8 val)
 {
+	if (reg & I2C_ADDR_MASK)
+		pmic_i2c_client->addr = (reg & I2C_ADDR_MASK)
+						>> I2C_ADDR_SHIFT;
+	else
+		pmic_i2c_client->addr = pmic_i2c->default_client;
+
+	reg &= I2C_REG_MASK;
 	return i2c_smbus_write_byte_data(pmic_i2c_client, reg, val);
 }
 
@@ -87,10 +105,14 @@ static int pmic_i2c_probe(struct i2c_client *i2c,
 	if (pmic_i2c_client != NULL || pmic_i2c != NULL)
 		return -EBUSY;
 
+	if (!id)
+		return -ENODEV;
+
 	pmic_i2c	= (struct intel_soc_pmic *)id->driver_data;
 	pmic_i2c_client	= i2c;
 	pmic_i2c->dev	= &i2c->dev;
 	pmic_i2c->irq	= i2c->irq;
+	pmic_i2c->default_client = i2c->addr;
 	pmic_i2c->pmic_int_gpio = pmic_i2c_lookup_gpio(pmic_i2c->dev, 0);
 	pmic_i2c->readb	= pmic_i2c_readb;
 	pmic_i2c->writeb = pmic_i2c_writeb;
@@ -117,12 +139,17 @@ static const struct i2c_device_id pmic_i2c_id[] = {
 	{ "INT33F5:00", (kernel_ulong_t)&dollar_cove_ti_pmic},
 	{ "INT33FD", (kernel_ulong_t)&crystal_cove_pmic},
 	{ "INT33FD:00", (kernel_ulong_t)&crystal_cove_pmic},
+	{ "whiskey_cove", (kernel_ulong_t)&whiskey_cove_pmic},
+	{ "INT33FE", (kernel_ulong_t)&whiskey_cove_pmic},
+	{ "INT33FE:00", (kernel_ulong_t)&whiskey_cove_pmic},
+	{ "INT33FE:00:6e", (kernel_ulong_t)&whiskey_cove_pmic},
 	{ }
 };
 MODULE_DEVICE_TABLE(i2c, pmic_i2c_id);
 
 static struct acpi_device_id pmic_acpi_match[] = {
 	{ "INT33FD", (kernel_ulong_t)&crystal_cove_pmic},
+	{ "INT33FE", (kernel_ulong_t)&whiskey_cove_pmic},
 	{ },
 };
 MODULE_DEVICE_TABLE(acpi, pmic_acpi_match);

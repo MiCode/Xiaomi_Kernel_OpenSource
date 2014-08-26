@@ -175,4 +175,5 @@ obj-$(CONFIG_MFD_STW481X)	+= stw481x.o
 
 intel-soc-pmic-objs		:= intel_soc_pmic_core.o intel_soc_pmic_i2c.o intel_soc_pmic_opregion.o
 intel-soc-pmic-objs 		+= intel_soc_pmic_crc.o intel_soc_pmic_dc.o intel_soc_pmic_dc_ti.o
+intel-soc-pmic-objs 		+= intel_soc_pmic_wc.o
 obj-$(CONFIG_INTEL_SOC_PMIC)	+= intel-soc-pmic.o

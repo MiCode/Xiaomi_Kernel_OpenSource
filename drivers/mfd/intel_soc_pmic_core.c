@@ -306,12 +306,20 @@ static void pmic_irq_disable(struct irq_data *data)
 
 static void pmic_irq_sync_unlock(struct irq_data *data)
 {
-	int val, irq_offset;
+	struct intel_pmic_regmap *map;
+
+	dev_dbg(pmic->dev, "[%s]: irq_mask = %x", __func__,
+			pmic->irq_mask[(data->irq - pmic->irq_base)/32]);
+
 	if (pmic->irq_need_update) {
-		irq_offset = data->irq - pmic->irq_base;
-		val = !!test_bit(irq_offset % 32,
-				 &(pmic->irq_mask[irq_offset / 32]));
-		pmic_regmap_write(&pmic->irq_regmap[irq_offset].mask, val);
+		map = &pmic->irq_regmap[(data->irq - pmic->irq_base)].mask;
+
+		if (test_bit((data->irq - pmic->irq_base) % 32,
+			&(pmic->irq_mask[(data->irq - pmic->irq_base) / 32])))
+			pmic_regmap_write(map, map->mask);
+		else
+			pmic_regmap_write(map, 0);
+
 		pmic->irq_need_update = 0;
 		pmic_regmap_flush();
 	}
@@ -339,7 +347,8 @@ static irqreturn_t pmic_irq_thread(int irq, void *data)
 			continue;
 
 		if (pmic_regmap_read(&pmic->irq_regmap[i].status)) {
-			pmic_regmap_write(&pmic->irq_regmap[i].ack, 1);
+			pmic_regmap_write(&pmic->irq_regmap[i].ack,
+				pmic->irq_regmap[i].ack.mask);
 			handle_nested_irq(pmic->irq_base + i);
 		}
 	}
@@ -364,17 +373,22 @@ static int pmic_irq_init(void)
 	int cur_irq;
 	int ret;
 	int i;
+	struct intel_pmic_regmap *map;
 
 	/* Mostly, it can help to increase cache hit if merge same register
 	   access in one loop */
 	for (i = 0; i < pmic->irq_num; i++) {
-		pmic_regmap_write(&pmic->irq_regmap[i].mask, 1);
-		set_bit(i % 32, &(pmic->irq_mask[i / 32]));
+		map = &pmic->irq_regmap[i].mask;
+		if (IS_PMIC_REG_VALID(map)) {
+			pmic_regmap_write(map, map->mask);
+			set_bit(i % 32, &(pmic->irq_mask[i / 32]));
+		}
 	}
-
-	for (i = 0; i < pmic->irq_num; i++)
-		pmic_regmap_write(&pmic->irq_regmap[i].ack, 1);
-
+	for (i = 0; i < pmic->irq_num; i++) {
+		map = &pmic->irq_regmap[i].ack;
+		if (IS_PMIC_REG_VALID(map))
+			pmic_regmap_write(map, map->mask);
+	}
 	pmic_regmap_flush();
 
 	pmic->irq_base = irq_alloc_descs(-1, INTEL_PMIC_IRQBASE,

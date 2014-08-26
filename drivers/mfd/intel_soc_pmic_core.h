@@ -73,6 +73,7 @@ struct intel_soc_pmic {
 	int				irq_base;
 	unsigned long			irq_mask[INTEL_PMIC_IRQ_MAX/32];
 	int				pmic_int_gpio;
+	int				default_client;
 	int				(*init)(void);
 	int				(*readb)(int);
 	int				(*writeb)(int, u8);
@@ -88,5 +89,6 @@ void intel_pmic_install_handlers(struct intel_soc_pmic *);
 extern struct intel_soc_pmic crystal_cove_pmic;
 extern struct intel_soc_pmic dollar_cove_pmic;
 extern struct intel_soc_pmic dollar_cove_ti_pmic;
+extern struct intel_soc_pmic whiskey_cove_pmic;
 
 #endif	/* __INTEL_SOC_PMIC_CORE_H__ */
