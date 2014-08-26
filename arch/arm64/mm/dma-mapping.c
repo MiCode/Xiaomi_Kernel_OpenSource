@@ -254,7 +254,7 @@ static void arm64_swiotlb_free_coherent(struct device *dev, size_t size,
 	}
 }
 
-static pgprot_t __get_dma_pgprot(pgprot_t prot, struct dma_attrs *attrs)
+static pgprot_t __get_dma_pgprot(struct dma_attrs *attrs, pgprot_t prot)
 {
 	if (dma_get_attr(DMA_ATTR_WRITE_COMBINE, attrs))
 		prot = pgprot_writecombine(prot);
@@ -274,7 +274,7 @@ static void *arm64_swiotlb_alloc_noncoherent(struct device *dev, size_t size,
 	struct page *page, **map;
 	void *ptr, *coherent_ptr;
 	int order, i;
-	pgprot_t prot = __get_dma_pgprot(pgprot_default, attrs);
+	pgprot_t prot = __get_dma_pgprot(attrs, pgprot_default);
 
 	size = PAGE_ALIGN(size);
 	order = get_order(size);
@@ -441,7 +441,7 @@ int arm64_swiotlb_mmap(struct device *dev, struct vm_area_struct *vma,
 	unsigned long pfn = dma_to_phys(dev, dma_addr) >> PAGE_SHIFT;
 	unsigned long off = vma->vm_pgoff;
 
-	vma->vm_page_prot = __get_dma_pgprot(vma->vm_page_prot, attrs);
+	vma->vm_page_prot = __get_dma_pgprot(attrs, vma->vm_page_prot);
 
 	if (dma_mmap_from_coherent(dev, vma, cpu_addr, size, &ret))
 		return ret;
@@ -461,7 +461,7 @@ static void *arm64_dma_remap(struct device *dev, void *cpu_addr,
 			struct dma_attrs *attrs)
 {
 	struct page *page = phys_to_page(dma_to_phys(dev, handle));
-	pgprot_t prot = __get_dma_pgprot(PAGE_KERNEL, attrs);
+	pgprot_t prot = __get_dma_pgprot(attrs, PAGE_KERNEL);
 	unsigned long offset = handle & ~PAGE_MASK;
 	struct vm_struct *area;
 	unsigned long addr;
