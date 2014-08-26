@@ -132,6 +132,7 @@ enum ipa_client_type {
 	IPA_CLIENT_A2_TETHERED_PROD,
 	IPA_CLIENT_APPS_LAN_WAN_PROD,
 	IPA_CLIENT_APPS_CMD_PROD,
+	IPA_CLIENT_ODU_PROD,
 	IPA_CLIENT_Q6_LAN_PROD,
 	IPA_CLIENT_Q6_CMD_PROD,
 	/* Below PROD client type is only for test purpose */
@@ -160,6 +161,8 @@ enum ipa_client_type {
 	IPA_CLIENT_A5_LAN_WAN_CONS,
 	IPA_CLIENT_APPS_LAN_CONS,
 	IPA_CLIENT_APPS_WAN_CONS,
+	IPA_CLIENT_ODU_EMB_CONS,
+	IPA_CLIENT_ODU_TETH_CONS,
 	IPA_CLIENT_Q6_LAN_CONS,
 	IPA_CLIENT_Q6_WAN_CONS,
 	IPA_CLIENT_Q6_DUN_CONS,
@@ -185,6 +188,10 @@ enum ipa_client_type {
 	(client) == IPA_CLIENT_WLAN3_CONS || \
 	(client) == IPA_CLIENT_WLAN4_CONS)
 
+#define IPA_CLIENT_IS_ODU_CONS(client) \
+	((client) == IPA_CLIENT_ODU_EMB_CONS || \
+	(client) == IPA_CLIENT_ODU_TETH_CONS)
+
 #define IPA_CLIENT_IS_Q6_CONS(client) \
 	((client) == IPA_CLIENT_Q6_LAN_CONS || \
 	(client) == IPA_CLIENT_Q6_WAN_CONS || \
@@ -193,6 +200,8 @@ enum ipa_client_type {
 #define IPA_CLIENT_IS_Q6_PROD(client) \
 	((client) == IPA_CLIENT_Q6_LAN_PROD || \
 	(client) == IPA_CLIENT_Q6_CMD_PROD)
+
+
 
 /**
  * enum ipa_ip_type - Address family: IPv4 or IPv6
@@ -282,9 +291,8 @@ enum ipa_rm_resource_name {
 	IPA_RM_RESOURCE_STD_ECM_PROD,
 	IPA_RM_RESOURCE_RNDIS_PROD,
 	IPA_RM_RESOURCE_WWAN_0_PROD,
-	IPA_RM_RESOURCE_ODU_PROD,
-	IPA_RM_RESOURCE_ODU_BRIDGE_PROD,
 	IPA_RM_RESOURCE_WLAN_PROD,
+	IPA_RM_RESOURCE_ODU_ADAPT_PROD,
 	IPA_RM_RESOURCE_PROD_MAX,
 
 	IPA_RM_RESOURCE_Q6_CONS = IPA_RM_RESOURCE_PROD_MAX,
@@ -292,6 +300,7 @@ enum ipa_rm_resource_name {
 	IPA_RM_RESOURCE_HSIC_CONS,
 	IPA_RM_RESOURCE_WLAN_CONS,
 	IPA_RM_RESOURCE_APPS_CONS,
+	IPA_RM_RESOURCE_ODU_ADAPT_CONS,
 	IPA_RM_RESOURCE_MAX
 };
 
@@ -1344,5 +1353,35 @@ struct teth_ioc_aggr_params {
 #define TETH_BRIDGE_IOC_GET_AGGR_CAPABILITIES _IOWR(TETH_BRIDGE_IOC_MAGIC, \
 				TETH_BRIDGE_IOCTL_GET_AGGR_CAPABILITIES, \
 				struct teth_aggr_capabilities *)
+
+/*
+ * unique magic number of the ODU bridge ioctls
+ */
+#define ODU_BRIDGE_IOC_MAGIC 0xCD
+
+/*
+ * Ioctls supported by ODU bridge driver
+ */
+#define ODU_BRIDGE_IOCTL_SET_MODE	0
+#define ODU_BRIDGE_IOCTL_SET_LLV6_ADDR	1
+#define ODU_BRIDGE_IOCTL_MAX		2
+
+/**
+ * enum odu_bridge_mode - bridge mode
+ *			(ROUTER MODE / BRIDGE MODE)
+ */
+enum odu_bridge_mode {
+	ODU_BRIDGE_MODE_ROUTER,
+	ODU_BRIDGE_MODE_BRIDGE,
+	ODU_BRIDGE_MODE_MAX,
+};
+
+#define ODU_BRIDGE_IOC_SET_MODE _IOW(ODU_BRIDGE_IOC_MAGIC, \
+				ODU_BRIDGE_IOCTL_SET_MODE, \
+				enum odu_bridge_mode)
+
+#define ODU_BRIDGE_IOC_SET_LLV6_ADDR _IOW(ODU_BRIDGE_IOC_MAGIC, \
+				ODU_BRIDGE_IOCTL_SET_LLV6_ADDR, \
+				struct in6_addr *)
 
 #endif /* _UAPI_MSM_IPA_H_ */

@@ -24,14 +24,14 @@ static const char *resource_name_to_str[IPA_RM_RESOURCE_MAX] = {
 	__stringify(IPA_RM_RESOURCE_STD_ECM_PROD),
 	__stringify(IPA_RM_RESOURCE_RNDIS_PROD),
 	__stringify(IPA_RM_RESOURCE_WWAN_0_PROD),
-	__stringify(IPA_RM_RESOURCE_ODU_PROD),
-	__stringify(IPA_RM_RESOURCE_ODU_BRIDGE_PROD),
 	__stringify(IPA_RM_RESOURCE_WLAN_PROD),
+	__stringify(IPA_RM_RESOURCE_ODU_ADAPT_PROD),
 	__stringify(IPA_RM_RESOURCE_Q6_CONS),
 	__stringify(IPA_RM_RESOURCE_USB_CONS),
 	__stringify(IPA_RM_RESOURCE_HSIC_CONS),
 	__stringify(IPA_RM_RESOURCE_WLAN_CONS),
 	__stringify(IPA_RM_RESOURCE_APPS_CONS),
+	__stringify(IPA_RM_RESOURCE_ODU_ADAPT_CONS),
 };
 
 struct ipa_rm_profile_vote_type {

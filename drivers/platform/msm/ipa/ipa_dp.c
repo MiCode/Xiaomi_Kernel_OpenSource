@@ -40,6 +40,9 @@
 #define IPA_WLAN_COMM_RX_POOL_LOW 100
 #define IPA_WLAN_COMM_RX_POOL_HIGH 900
 
+#define IPA_ODU_RX_BUFF_SZ 2048
+#define IPA_ODU_RX_POOL_SZ 32
+
 static struct sk_buff *ipa_get_skb_ipa_rx(unsigned int len, gfp_t flags);
 static void ipa_replenish_wlan_rx_cache(struct ipa_sys_context *sys);
 static void ipa_replenish_rx_cache(struct ipa_sys_context *sys);
@@ -2247,6 +2250,20 @@ void ipa_sps_irq_rx_no_aggr_notify(struct sps_event_notify *notify)
 	}
 }
 
+static int ipa_odu_rx_pyld_hdlr(struct sk_buff *rx_skb,
+	struct ipa_sys_context *sys)
+{
+	if (sys->ep->client_notify) {
+		sys->ep->client_notify(sys->ep->priv, IPA_RECEIVE,
+			(unsigned long)(rx_skb));
+	} else {
+		dev_kfree_skb_any(rx_skb);
+		WARN_ON(1);
+	}
+
+	return 0;
+}
+
 static int ipa_assign_policy(struct ipa_sys_connect_params *in,
 		struct ipa_sys_context *sys)
 {
@@ -2364,6 +2381,26 @@ static int ipa_assign_policy(struct ipa_sys_connect_params *in,
 				sys->get_skb = ipa_get_skb_ipa_rx;
 				sys->free_skb = ipa_free_skb_rx;
 				in->ipa_ep_cfg.aggr.aggr_en = IPA_BYPASS_AGGR;
+			} else if (IPA_CLIENT_IS_ODU_CONS(in->client)) {
+				IPADBG("assigning policy to client:%d",
+					in->client);
+
+				sys->ep->status.status_en = false;
+				sys->policy = IPA_POLICY_INTR_POLL_MODE;
+				sys->sps_option = (SPS_O_AUTO_ENABLE | SPS_O_EOT
+					| SPS_O_ACK_TRANSFERS);
+				sys->sps_callback = ipa_sps_irq_rx_notify;
+				INIT_WORK(&sys->work, ipa_wq_handle_rx);
+				INIT_DELAYED_WORK(&sys->switch_to_intr_work,
+					switch_to_intr_rx_work_func);
+				INIT_DELAYED_WORK(&sys->replenish_rx_work,
+					replenish_rx_work_func);
+				atomic_set(&sys->curr_polling_state, 0);
+				sys->rx_buff_sz = IPA_ODU_RX_BUFF_SZ;
+				sys->rx_pool_sz = IPA_ODU_RX_POOL_SZ;
+				sys->pyld_hdlr = ipa_odu_rx_pyld_hdlr;
+				sys->get_skb = ipa_get_skb_ipa_rx;
+				sys->free_skb = ipa_free_skb_rx;
 			} else {
 				IPAERR("Need to install a RX pipe hdlr\n");
 				WARN_ON(1);
