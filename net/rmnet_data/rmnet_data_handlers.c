@@ -285,6 +285,7 @@ static rx_handler_result_t _rmnet_map_ingress_handler(struct sk_buff *skb,
 	if (config->ingress_data_format & RMNET_INGRESS_FORMAT_MAP_CKSUMV3) {
 		ckresult = rmnet_map_checksum_downlink_packet(skb);
 		trace_rmnet_map_checksum_downlink_packet(skb, ckresult);
+		rmnet_stats_dl_checksum(ckresult);
 		if (likely(ckresult == RMNET_MAP_CHECKSUM_OK))
 			skb->ip_summed |= CHECKSUM_UNNECESSARY;
 		else if (ckresult != RMNET_MAP_CHECKSUM_ERR_UNKNOWN_IP_VERSION
