@@ -174,6 +174,7 @@ enum {
 	USER	= BIT(0),
 	THERMAL = BIT(1),
 	CURRENT = BIT(2),
+	SOC	= BIT(3),
 };
 
 struct smb358_regulator {
@@ -202,6 +203,7 @@ struct smb358_charger {
 	const char		*bms_psy_name;
 	bool			resume_completed;
 	bool			irq_waiting;
+	bool			bms_controlled_charging;
 	struct mutex		read_write_lock;
 	struct mutex		path_suspend_lock;
 	struct mutex		irq_complete;
@@ -1094,10 +1096,49 @@ static int smb358_battery_set_property(struct power_supply *psy,
 					enum power_supply_property prop,
 					const union power_supply_propval *val)
 {
+	int rc;
 	struct smb358_charger *chip = container_of(psy,
 				struct smb358_charger, batt_psy);
 
 	switch (prop) {
+	case POWER_SUPPLY_PROP_STATUS:
+		if (!chip->bms_controlled_charging)
+			return -EINVAL;
+		switch (val->intval) {
+		case POWER_SUPPLY_STATUS_FULL:
+			rc = smb358_charging_disable(chip, SOC, true);
+			if (rc < 0) {
+				dev_err(chip->dev,
+					"Couldn't set charging disable rc = %d\n",
+					rc);
+			} else {
+				chip->batt_full = true;
+				dev_dbg(chip->dev, "status = FULL, batt_full = %d\n",
+							chip->batt_full);
+			}
+			break;
+		case POWER_SUPPLY_STATUS_DISCHARGING:
+			chip->batt_full = false;
+			power_supply_changed(&chip->batt_psy);
+			dev_dbg(chip->dev, "status = DISCHARGING, batt_full = %d\n",
+							chip->batt_full);
+			break;
+		case POWER_SUPPLY_STATUS_CHARGING:
+			rc = smb358_charging_disable(chip, SOC, false);
+			if (rc < 0) {
+				dev_err(chip->dev,
+				"Couldn't set charging disable rc = %d\n",
+								rc);
+			} else {
+				chip->batt_full = false;
+				dev_dbg(chip->dev, "status = CHARGING, batt_full = %d\n",
+							chip->batt_full);
+			}
+			break;
+		default:
+			return -EINVAL;
+		}
+		break;
 	case POWER_SUPPLY_PROP_CHARGING_ENABLED:
 		smb358_charging_disable(chip, USER, !val->intval);
 		smb358_path_suspend(chip, USER, !val->intval);
@@ -1224,6 +1265,7 @@ static int apsd_complete(struct smb358_charger *chip, u8 status)
 
 static int chg_uv(struct smb358_charger *chip, u8 status)
 {
+	int rc;
 	/* use this to detect USB insertion only if !apsd */
 	if (chip->disable_apsd && status == 0) {
 		chip->chg_present = true;
@@ -1232,6 +1274,17 @@ static int chg_uv(struct smb358_charger *chip, u8 status)
 		power_supply_set_supply_type(chip->usb_psy,
 						POWER_SUPPLY_TYPE_USB);
 		power_supply_set_present(chip->usb_psy, chip->chg_present);
+
+		if (chip->bms_controlled_charging)
+			/*
+			* Disable SOC based USB suspend to enable charging on
+			* USB insertion.
+			*/
+			rc = smb358_charging_disable(chip, SOC, false);
+			if (rc < 0)
+				dev_err(chip->dev,
+					"Couldn't disable usb suspend rc = %d\n",
+									rc);
 	}
 
 	if (status != 0) {
@@ -1263,9 +1316,13 @@ static int chg_ov(struct smb358_charger *chip, u8 status)
 	return 0;
 }
 
+#define STATUS_FAST_CHARGING BIT(6)
 static int fast_chg(struct smb358_charger *chip, u8 status)
 {
 	dev_dbg(chip->dev, "%s\n", __func__);
+
+	if (status & STATUS_FAST_CHARGING)
+		chip->batt_full = false;
 	return 0;
 }
 
@@ -1927,6 +1984,8 @@ static int smb_parse_dt(struct smb358_charger *chip)
 
 	chip->using_pmic_therm = of_property_read_bool(node,
 						"qcom,using-pmic-therm");
+	chip->bms_controlled_charging = of_property_read_bool(node,
+						"qcom,bms-controlled-charging");
 
 	rc = of_property_read_string(node, "qcom,bms-psy-name",
 						&chip->bms_psy_name);
