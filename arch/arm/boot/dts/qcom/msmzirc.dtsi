@@ -1320,6 +1320,17 @@
 
 		linux,contiguous-region = <&peripheral1_mem>;
 	};
+
+	qcom,cnss {
+		compatible = "qcom,cnss";
+		wlan-en-gpio = <&msm_gpio 95 0>;
+		vdd-wlan-supply = <&wlan_vreg>;
+		qcom,notify-modem-status;
+		pinctrl-names = "default";
+		pinctrl-0 = <&cnss_default>;
+		qcom,wlan-rc-num = <0>;
+	};
+
 };
 
 &gdsc_usb30 {
