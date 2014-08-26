@@ -662,7 +662,19 @@
 	status = "ok";
 };
 
-&qcom_crypto {
+&qcom_crypto1fde {
+	status = "okay";
+};
+
+&qcom_crypto2fde {
+	status = "okay";
+};
+
+&qcom_crypto1pfe {
+	status = "okay";
+};
+
+&qcom_crypto2pfe {
 	status = "okay";
 };
 
