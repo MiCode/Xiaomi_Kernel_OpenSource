@@ -39,6 +39,7 @@ static const char *const pmic_names[] = {
 	"PM8994",
 	"PMI8994",
 	"PM8916",
+	"PM8004",
 };
 
 struct revid_chip {
