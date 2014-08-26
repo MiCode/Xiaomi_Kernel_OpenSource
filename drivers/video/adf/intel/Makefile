@@ -1,5 +1,5 @@
 # Makefile for Intel display driver based on ADF framework
-ccflags-y := -Idrivers/staging/ -Iinclude/adf -Iinclude/uapi/adf -Idrivers/video/adf/intel/include
+ccflags-y := -Idrivers/staging/ -Iinclude/adf -Iinclude/uapi/adf -Idrivers/video/adf/intel/include -Werror
 
 obj-$(CONFIG_ADF_INTEL) += intel_adf.o \
 	intel_adf_device.o \

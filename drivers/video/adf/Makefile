@@ -1,4 +1,4 @@
-ccflags-y := -Idrivers/staging/
+ccflags-y := -Idrivers/staging/ -Werror
 
 CFLAGS_adf.o := -I$(src)
 
