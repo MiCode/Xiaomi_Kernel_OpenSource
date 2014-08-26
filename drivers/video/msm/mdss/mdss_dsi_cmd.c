@@ -660,7 +660,7 @@ int mdss_dsi_cmdlist_put(struct mdss_dsi_ctrl_pdata *ctrl,
 {
 	struct dcs_cmd_req *req;
 	struct dcs_cmd_list *clist;
-	int ret = -EINVAL;
+	int ret = 0;
 
 	mutex_lock(&ctrl->cmd_mutex);
 	clist = &ctrl->cmdlist;
