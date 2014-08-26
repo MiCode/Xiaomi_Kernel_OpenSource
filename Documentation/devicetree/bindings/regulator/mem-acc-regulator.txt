@@ -17,10 +17,11 @@ Required properties:
 				[2] maps APC TURBO corner (3) to accelerator TURBO corner
 
 Optional properties:
-- reg:				Register addresses for acc-en and acc-sel-l1
-				acc-sel-l2 control and MEM ACC eFuse address.
+- reg:				Register addresses for acc-sel-l1, acc-sel-l2 control, acc-en,
+				MEM ACC eFuse address, acc-l1-custom and acc-l2-custom.
 - reg-names:			Register names. Must be "acc-sel-l1",
-				"acc-sel-l2", "acc-en", "efuse_addr".
+				"acc-sel-l2", "acc-en", "efuse_addr",
+				"acc-l1-custom", "acc-l2-custom".
 				A given mem-acc-regulator driver must have "acc-sel-l1" or
 				"acc-sel-l2" reg-names property and related register address
 				property.
@@ -63,11 +64,28 @@ Optional properties:
 				configuration logic is skipped. Otherwise, the original configuration sent
 				from corner map should be applied. If the 5th element is 0, read the fuse row
 				from register directly. Otherwise, read it through SCM.
+- qcom,skip-l2-custom-on-l1:	A boolean property which specifies the dependency of L2 ACC custom data
+				configuration on L1 MEM ACC configuration. This property is applicable
+				where both L1 and L2 share the same ACC_SEL configuration. If the property
+				is specified in the device node, skip L2 ACC custom data configuration
+				whenever the L1 MEM ACC configuration is skipped.
+- qcom,l1-acc-custom-data:	Array which maps APC corner values to L1 ACC custom data values.
+				The corresponding custom data is written into the custom register
+				while switching between APC corners. The custom register address
+				is specified by "acc-11-custom" reg-property. The length of the array
+				should be equal to number of APC corners.
+- qcom,l2-acc-custom-data:	Array which maps APC corner values to L2 ACC custom data values.
+				The corresponding custom data is written into the custom register
+				while switching between APC corners. The custom register address
+				is specified by "acc-l2-custom" reg-property. The length of the array
+				should be equal to number of APC corners.
 
 mem_acc_vreg_corner: regulator@fd4aa044 {
 	compatible = "qcom,mem-acc-regulator";
-	reg = <0xfd4aa048 0x1>, <0xfd4aa044 0x1>, <0xfd4af000 0x1>, <0x58000 0x1000>;
-	reg-names = "acc-en", "acc-sel-l1" , "acc-sel-l2", "efuse_addr";
+	reg = <0xfd4aa048 0x1>, <0xfd4aa044 0x1>, <0xfd4af000 0x1>,
+		<0x58000 0x1000>, <0x01942124 0x4>;
+	reg-names = "acc-en", "acc-sel-l1" , "acc-sel-l2",
+		"efuse_addr", "acc-l2-custom";
 	regulator-name = "mem_acc_corner";
 	regulator-min-microvolt = <1>;
 	regulator-max-microvolt = <3>;
@@ -79,4 +97,6 @@ mem_acc_vreg_corner: regulator@fd4aa044 {
 	qcom,acc-sel-l2-bit-size = <2>;
 	qcom,corner-acc-map = <0 1 3>;
 	qcom,l1-config-skip-fuse-sel = <0 52 1 1 0>;
+	qcom,skip-l2-custom-on-l1;
+	qcom,l2-acc-custom-data = <0x0 0x3000 0x3000>;
 };
