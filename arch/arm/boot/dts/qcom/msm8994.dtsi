@@ -19,6 +19,7 @@
 	model = "Qualcomm Technologies, Inc. MSM 8994";
 	compatible = "qcom,msm8994";
 	qcom,msm-id = <207 0x0>;
+	qcom,pmic-id = <0x10009 0x1000A 0x0 0x0>;
 	interrupt-parent = <&intc>;
 
 	aliases {
