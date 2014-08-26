@@ -1745,14 +1745,14 @@ int uvc_video_resume(struct uvc_streaming *stream, int reset)
 
 	uvc_video_clock_reset(stream);
 
+	if (!uvc_queue_streaming(&stream->queue))
+		return 0;
+
 	ret = uvc_commit_video(stream, &stream->ctrl);
 	if (ret < 0) {
 		uvc_queue_enable(&stream->queue, 0);
 		return ret;
 	}
-
-	if (!uvc_queue_streaming(&stream->queue))
-		return 0;
 
 	ret = uvc_init_video(stream, GFP_NOIO);
 	if (ret < 0)
