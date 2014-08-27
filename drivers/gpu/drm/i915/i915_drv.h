@@ -653,6 +653,7 @@ struct i915_ctx_hang_stats {
 struct intel_context {
 	struct kref ref;
 	int user_handle;
+	struct pid *pid;
 	uint8_t remap_slice;
 	struct drm_i915_file_private *file_priv;
 	struct i915_ctx_hang_stats hang_stats;

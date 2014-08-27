@@ -144,6 +144,9 @@ void i915_gem_context_free(struct kref *ctx_ref)
 
 	if (ctx->legacy_hw_ctx.rcs_state)
 		drm_gem_object_unreference(&ctx->legacy_hw_ctx.rcs_state->base);
+
+	put_pid(ctx->pid);
+
 	list_del(&ctx->link);
 	kfree(ctx);
 }
@@ -273,6 +276,8 @@ i915_gem_create_context(struct drm_device *dev,
 
 		ctx->ppgtt = ppgtt;
 	}
+
+	ctx->pid = get_pid(task_tgid(current));
 
 	return ctx;
 
