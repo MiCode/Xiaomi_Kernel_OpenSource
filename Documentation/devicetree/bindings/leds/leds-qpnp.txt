@@ -62,11 +62,11 @@ Required properties for RGB led:
 - qcom,mode: mode the led should operate in, options "pwm" and "lpg". "manual" mode is not supported for RGB led.
 
 Required properties for PWM mode only:
-- qcom,pwm-channel: pwm channel the led will operate on
+- pwms: Use the phandle of pwm device
 - qcom,pwm-us: time the pwm device will modulate at (us)
 
 Required properties for LPG mode only:
-- qcom,pwm-channel: pwm channel the led will operate on
+- pwms: Use the phandle of pwm device
 - qcom,pwm-us: time the pwm device will modulate at (us)
 - qcom,duty-pcts: array of values for duty cycle to go through
 - qcom,start-idx: starting point duty-pcts array
@@ -100,11 +100,11 @@ Optional properties for MPP LED:
 - qcom,mpp-power-min-voltage - minimum voltage for MPP LED regulator. This should not be specified when no regulator is in use.
 
 Required properties for PWM mode only:
-- qcom,pwm-channel: pwm channel the led will operate on
+- pwms: Use the phandle of pwm device
 - qcom,pwm-us: time the pwm device will modulate at (us)
 
 Required properties for LPG mode only:
-- qcom,pwm-channel: pwm channel the led will operate on
+- pwms: Use the phandle of pwm device
 - qcom,pwm-us: time the pwm device will modulate at (us)
 - qcom,duty-pcts: array of values for duty cycle to go through
 - qcom,start-idx: starting point duty-pcts array
@@ -129,11 +129,11 @@ Optional properties for keypad backlight:
 - qcom,always-on: specify if the module has to be always on
 
 Required properties for PWM mode only:
-- qcom,pwm-channel: pwm channel the led will operate on
+- pwms: Use the phandle of pwm device
 - qcom,pwm-us: time the pwm device will modulate at (us)
 
 Required properties for LPG mode only:
-- qcom,pwm-channel: pwm channel the led will operate on
+- pwms: Use the phandle of pwm device
 - qcom,pwm-us: time the pwm device will modulate at (us)
 - qcom,duty-pcts: array of values for duty cycle to go through
 - qcom,start-idx: starting point duty-pcts array
@@ -201,7 +201,7 @@ Example:
 			qcom,mode = "pwm";
 			qcom,source-sel = <8>;
 			qcom,mode-ctrl = <0x60>;
-			qcom,pwm-channel = <0>;
+			pwms = <&pm8941_pwm_1 0 0>;
 			qcom,pwm-us = <1000>;
 		};
 	};
@@ -213,7 +213,7 @@ Example:
 			linux,name = "led:rgb_red";
 			qcom,mode = "pwm";
 			qcom,pwm-us = <1000>;
-			qcom,pwm-channel = <6>;
+			pwms = <&pm8941_pwm_7 0 0>;
 			qcom,max-current = <12>;
 			qcom,default-state = "off";
 			qcom,id = <3>;
@@ -224,7 +224,7 @@ Example:
 			label = "rgb";
 			linux,name = "led:rgb_green";
 			qcom,mode = "lpg";
-			qcom,pwm-channel = <5>;
+			pwms = <&pm8941_pwm_6 0 0>;
 			qcom,pwm-us = <1000>;
 			qcom,duty-ms = <20>;
 			qcom,start-idx = <1>;
@@ -242,7 +242,7 @@ Example:
 			label = "rgb";
 			linux,name = "led:rgb_blue";
 			qcom,mode = "pwm";
-			qcom,pwm-channel = <4>;
+			pwms = <&pm8941_pwm_5 0 0>;
 			qcom,start-idx = <1>;
 			qcom,idx-len = <10>;
 			qcom,duty-pcts = [00 19 32 4B 64
@@ -312,7 +312,7 @@ Example:
 			label = "kpdbl";
 			linux,name = "kpdbl-pwm-1";
 			qcom,mode = <0>;
-			qcom,pwm-channel = <8>;
+			pwms = <&pm8941_pwm_9 0 0>;
 			qcom,pwm-us = <1000>;
 			qcom,id = <7>;
 			qcom,max-current = <20>;
@@ -325,7 +325,7 @@ Example:
 			label = "kpdbl";
 			linux,name = "kpdbl-lut-2";
 			qcom,mode = <1>;
-			qcom,pwm-channel = <9>;
+			pwms = <&pm8941_pwm_10 0 0>;
 			qcom,pwm-us = <1000>;
 			qcom,start-idx = <1>;
 			qcom,duty-pcts = [00 00 00 00 64

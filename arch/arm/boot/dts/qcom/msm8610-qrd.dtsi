@@ -237,7 +237,7 @@
 				qcom,id = <6>;
 				qcom,source-sel = <8>;
 				qcom,mode-ctrl = <0x10>;
-				qcom,pwm-channel = <0>;
+				pwms = <&pm8110_pwm_1 0 0>;
 				qcom,pwm-us = <27>;
 				qcom,vin-ctrl = <0x03>;
 				qcom,mode = "pwm";

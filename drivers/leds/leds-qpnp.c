@@ -344,7 +344,6 @@ static u8 gpio_debug_regs[] = {
  *  pwm_config_data - pwm configuration data
  *  @lut_params - lut parameters to be used by pwm driver
  *  @pwm_device - pwm device
- *  @pwm_channel - pwm channel to be configured for led
  *  @pwm_period_us - period for pwm, in us
  *  @mode - mode the led operates in
  *  @old_duty_pcts - storage for duty pcts that may need to be reused
@@ -355,7 +354,6 @@ static u8 gpio_debug_regs[] = {
 struct pwm_config_data {
 	struct lut_params	lut_params;
 	struct pwm_device	*pwm_dev;
-	int			pwm_channel;
 	u32			pwm_period_us;
 	struct pwm_duty_cycles	*duty_cycles;
 	int	*old_duty_pcts;
@@ -2074,20 +2072,7 @@ static int qpnp_pwm_init(struct pwm_config_data *pwm_cfg,
 {
 	int rc, start_idx, idx_len;
 
-	if (pwm_cfg->pwm_channel != -1) {
-		pwm_cfg->pwm_dev =
-			pwm_request(pwm_cfg->pwm_channel, name);
-
-		if (IS_ERR_OR_NULL(pwm_cfg->pwm_dev)) {
-			dev_err(&spmi_dev->dev,
-				"could not acquire PWM Channel %d, " \
-				"error %ld\n",
-				pwm_cfg->pwm_channel,
-				PTR_ERR(pwm_cfg->pwm_dev));
-			pwm_cfg->pwm_dev = NULL;
-			return -ENODEV;
-		}
-
+	if (pwm_cfg->pwm_dev) {
 		if (pwm_cfg->mode == LPG_MODE) {
 			start_idx =
 			pwm_cfg->duty_cycles->start_idx;
@@ -2118,7 +2103,7 @@ static int qpnp_pwm_init(struct pwm_config_data *pwm_cfg,
 		}
 	} else {
 		dev_err(&spmi_dev->dev,
-			"Invalid PWM channel\n");
+			"Invalid PWM device\n");
 		return -EINVAL;
 	}
 
@@ -3307,11 +3292,14 @@ static int qpnp_get_config_pwm(struct pwm_config_data *pwm_cfg,
 	u32 val;
 	u8 *temp_cfg;
 
-	rc = of_property_read_u32(node, "qcom,pwm-channel", &val);
-	if (!rc)
-		pwm_cfg->pwm_channel = val;
-	else
+	pwm_cfg->pwm_dev = of_pwm_get(node, NULL);
+
+	if (IS_ERR(pwm_cfg->pwm_dev)) {
+		rc = PTR_ERR(pwm_cfg->pwm_dev);
+		dev_err(&spmi_dev->dev, "Cannot get PWM device rc:(%d)\n", rc);
+		pwm_cfg->pwm_dev = NULL;
 		return rc;
+	}
 
 	if (pwm_cfg->mode != MANUAL_MODE) {
 		rc = of_property_read_u32(node, "qcom,pwm-us", &val);

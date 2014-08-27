@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -18,7 +18,7 @@
 			label = "rgb";
 			linux,name = "led:rgb_red";
 			qcom,mode = "pwm";
-			qcom,pwm-channel = <6>;
+			pwms = <&pm8941_pwm_7 0 0>;
 			qcom,pwm-us = <1000>;
 			qcom,max-current = <12>;
 			qcom,default-state = "off";
@@ -31,7 +31,7 @@
 			label = "rgb";
 			linux,name = "led:rgb_green";
 			qcom,mode = "pwm";
-			qcom,pwm-channel = <5>;
+			pwms = <&pm8941_pwm_6 0 0>;
 			qcom,pwm-us = <1000>;
 			qcom,max-current = <12>;
 			qcom,default-state = "off";
@@ -43,7 +43,7 @@
 			label = "rgb";
 			linux,name = "led:rgb_blue";
 			qcom,mode = "pwm";
-			qcom,pwm-channel = <4>;
+			pwms = <&pm8941_pwm_5 0 0>;
 			qcom,pwm-us = <1000>;
 			qcom,max-current = <12>;
 			qcom,id = <5>;
@@ -132,7 +132,7 @@
 			label = "kpdbl";
 			linux,name = "kpdbl-pwm-1";
 			qcom,mode = "pwm";
-			qcom,pwm-channel = <8>;
+			pwms = <&pm8941_pwm_9 0 0>;
 			qcom,pwm-us = <1000>;
 			qcom,id = <7>;
 			qcom,max-current = <20>;
@@ -145,7 +145,7 @@
 			label = "kpdbl";
 			linux,name = "kpdbl-lut-2";
 			qcom,mode = "lpg";
-			qcom,pwm-channel = <9>;
+			pwms = <&pm8941_pwm_10 0 0>;
 			qcom,pwm-us = <1000>;
 			qcom,start-idx = <1>;
 			qcom,duty-pcts = [00 00 00 00 64
@@ -160,7 +160,7 @@
 			label = "kpdbl";
 			linux,name = "kpdbl-pwm-3";
 			qcom,mode = "pwm";
-			qcom,pwm-channel = <10>;
+			pwms = <&pm8941_pwm_11 0 0>;
 			qcom,pwm-us = <1000>;
 			qcom,id = <7>;
 			qcom,max-current = <20>;
@@ -172,7 +172,7 @@
 			label = "kpdbl";
 			linux,name = "kpdbl-pwm-4";
 			qcom,mode = "pwm";
-			qcom,pwm-channel = <11>;
+			pwms = <&pm8941_pwm_12 0 0>;
 			qcom,pwm-us = <1000>;
 			qcom,id = <7>;
 			qcom,max-current = <20>;

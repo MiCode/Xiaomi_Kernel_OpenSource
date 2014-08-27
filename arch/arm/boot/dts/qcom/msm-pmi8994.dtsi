@@ -340,7 +340,7 @@
 		#address-cells = <1>;
 		#size-cells = <1>;
 
-		pwm@b100 {
+		pmi8994_pwm_1: pwm@b100 {
 			compatible = "qcom,qpnp-pwm";
 			reg = <0xb100 0x100>,
 			      <0xb042 0x7e>;
@@ -351,7 +351,7 @@
 			#pwm-cells = <2>;
 		};
 
-		pwm@b200 {
+		pmi8994_pwm_2: pwm@b200 {
 			compatible = "qcom,qpnp-pwm";
 			reg = <0xb200 0x100>,
 			      <0xb042 0x7e>;
@@ -362,7 +362,7 @@
 			#pwm-cells = <2>;
 		};
 
-		pwm@b300 {
+		pmi8994_pwm_3: pwm@b300 {
 			compatible = "qcom,qpnp-pwm";
 			reg = <0xb300 0x100>,
 			      <0xb042 0x7e>;
@@ -447,7 +447,7 @@
 				label = "rgb";
 				qcom,id = <3>;
 				qcom,mode = "pwm";
-				qcom,pwm-channel = <2>;
+				pwms = <&pmi8994_pwm_3 0 0>;
 				qcom,pwm-us = <1000>;
 				qcom,max-current = <12>;
 				qcom,default-state = "off";
@@ -460,7 +460,7 @@
 				label = "rgb";
 				qcom,id = <4>;
 				qcom,mode = "pwm";
-				qcom,pwm-channel = <1>;
+				pwms = <&pmi8994_pwm_2 0 0>;
 				qcom,pwm-us = <1000>;
 				qcom,max-current = <12>;
 				qcom,default-state = "off";
@@ -472,7 +472,7 @@
 				label = "rgb";
 				qcom,id = <5>;
 				qcom,mode = "pwm";
-				qcom,pwm-channel = <0>;
+				pwms = <&pmi8994_pwm_1 0 0>;
 				qcom,pwm-us = <1000>;
 				qcom,max-current = <12>;
 				qcom,default-state = "off";

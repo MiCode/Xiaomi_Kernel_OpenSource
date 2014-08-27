@@ -223,7 +223,7 @@
 				qcom,pwm-us = <1000>;
 				qcom,source-sel = <8>;
 				qcom,mode-ctrl = <0x60>;
-				qcom,pwm-channel = <0>;
+				pwms = <&pm8226_pwm_1 0 0>;
 				qcom,start-idx = <1>;
 				qcom,ramp-step-ms = <120>;
 				qcom,duty-pcts = [00 00 00 00 00
@@ -250,7 +250,7 @@
 				qcom,pwm-us = <1000>;
 				qcom,mode-ctrl = <0x60>;
 				qcom,source-sel = <10>;
-				qcom,pwm-channel = <5>;
+				pwms = <&pm8226_pwm_6 0 0>;
 				qcom,start-idx = <1>;
 				qcom,ramp-step-ms = <120>;
 				qcom,duty-pcts = [00 00 00 00 00
