@@ -1,3 +1,5 @@
+CFLAGS_devfreq_trace.o		:= -I$(src)
+
 obj-$(CONFIG_PM_DEVFREQ)	+= devfreq.o
 obj-$(CONFIG_PM_DEVFREQ)	+= devfreq_trace.o
 obj-$(CONFIG_DEVFREQ_GOV_SIMPLE_ONDEMAND)	+= governor_simpleondemand.o
