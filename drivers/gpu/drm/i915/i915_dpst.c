@@ -293,7 +293,12 @@ i915_dpst_get_bin_data(struct drm_device *dev,
 {
 	struct drm_i915_private *dev_priv = dev->dev_private;
 	u32 blm_hist_ctl, blm_hist_bin;
+	u32 ioctl_type = ioctl_data->dpst_ioctl_type;
 	int index;
+	struct dpst_histogram_status *hist_stat =
+		&(ioctl_data->hist_status);
+	struct dpst_histogram_status_legacy *hist_stat_legacy =
+		&(ioctl_data->hist_status_legacy);
 
 	/* We may be disabled by request from kernel or user. Kernel mode
 	 * disablement is without user mode knowledge. Kernel mode disablement
@@ -302,6 +307,13 @@ i915_dpst_get_bin_data(struct drm_device *dev,
 	 * disablement makes this an invalid call, so return error. */
 	if (!dev_priv->dpst.enabled && !dev_priv->dpst.user_enable)
 		return -EINVAL;
+	else if (!dev_priv->dpst.enabled &&
+			ioctl_type == DPST_GET_BIN_DATA) {
+		/* Convey to user that dpst has been disabled
+		 * from kernel. */
+		ioctl_data->hist_status.dpst_disable = 1;
+		return 0;
+	}
 
 	/* Setup register to access bin data from index 0 */
 	blm_hist_ctl = I915_READ(dev_priv->dpst.reg.blm_hist_ctl);
@@ -314,9 +326,14 @@ i915_dpst_get_bin_data(struct drm_device *dev,
 		blm_hist_bin = I915_READ(dev_priv->dpst.reg.blm_hist_bin);
 
 		if (!(blm_hist_bin & BUSY_BIT)) {
-			ioctl_data->hist_status.histogram_bins.status[index]
-				= blm_hist_bin
-					& dev_priv->dpst.reg.blm_hist_bin_count_mask;
+			if (ioctl_type == DPST_GET_BIN_DATA)
+				hist_stat->histogram_bins.status[index]
+				   = blm_hist_bin &
+				    dev_priv->dpst.reg.blm_hist_bin_count_mask;
+			else
+				hist_stat_legacy->histogram_bins.status[index]
+				   = blm_hist_bin &
+				    dev_priv->dpst.reg.blm_hist_bin_count_mask;
 		} else {
 			/* Engine is busy. Reset index to 0 to grab
 			 * fresh histogram data */
@@ -438,6 +455,11 @@ i915_dpst_display_off(struct drm_device *dev)
 		i915_dpst_disable_hist_interrupt(dev);
 		mutex_unlock(&dev_priv->dpst.ioctl_lock);
 	}
+
+	/* Send a fake signal to user, so that the user can be notified
+	 * to reset the dpst context, to avoid any mismatch of blc_adjusment
+	 * between user and kernel on resume. */
+	i915_dpst_irq_handler(dev, dev_priv->dpst.pipe);
 }
 
 void
@@ -564,16 +586,19 @@ i915_dpst_context(struct drm_device *dev, void *data,
 	/* Can be called from multiple usermode, prevent race condition */
 	mutex_lock(&dev_priv->dpst.ioctl_lock);
 
+	ioctl_data = (struct dpst_initialize_context *) data;
+
 	/* If Display is currently off (could be power gated also),
-	 * don't service the ioctls
+	 * don't service the ioctls other than GET_BIN_DATA
 	 */
-	if (dev_priv->dpst.display_off) {
+	if (dev_priv->dpst.display_off &&
+		(ioctl_data->dpst_ioctl_type != DPST_GET_BIN_DATA_LEGACY &&
+			ioctl_data->dpst_ioctl_type != DPST_GET_BIN_DATA)) {
 		DRM_DEBUG_KMS("Display is off\n");
 		mutex_unlock(&dev_priv->dpst.ioctl_lock);
 		return -EINVAL;
 	}
 
-	ioctl_data = (struct dpst_initialize_context *) data;
 	switch (ioctl_data->dpst_ioctl_type) {
 	case DPST_ENABLE:
 		ret = i915_dpst_set_user_enable(dev, true);
@@ -587,6 +612,7 @@ i915_dpst_context(struct drm_device *dev, void *data,
 		ret = i915_dpst_init(dev, ioctl_data);
 	break;
 
+	case DPST_GET_BIN_DATA_LEGACY:
 	case DPST_GET_BIN_DATA:
 		ret = i915_dpst_get_bin_data(dev, ioctl_data);
 	break;

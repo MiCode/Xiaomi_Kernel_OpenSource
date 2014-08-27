@@ -1239,9 +1239,15 @@ struct dpst_histogram {
 	} hist_mode;
 };
 
+struct dpst_histogram_status_legacy {
+	__u32	pipe_n;
+	struct	dpst_histogram histogram_bins;
+};
+
 struct dpst_histogram_status {
 	__u32	pipe_n;
-	struct dpst_histogram histogram_bins;
+	__u32	dpst_disable;
+	struct	dpst_histogram histogram_bins;
 };
 
 struct dpst_initialize_context {
@@ -1249,14 +1255,16 @@ struct dpst_initialize_context {
 		DPST_ENABLE = 1,
 		DPST_DISABLE,
 		DPST_INIT_DATA,
-		DPST_GET_BIN_DATA,
+		DPST_GET_BIN_DATA_LEGACY,
 		DPST_APPLY_LUMA,
-		DPST_RESET_HISTOGRAM_STATUS
+		DPST_RESET_HISTOGRAM_STATUS,
+		DPST_GET_BIN_DATA
 	} dpst_ioctl_type;
 	union {
-		struct dpst_initialize_data	init_data;
-		struct dpst_ie_container	ie_container;
-		struct dpst_histogram_status	hist_status;
+		struct dpst_initialize_data		init_data;
+		struct dpst_ie_container		ie_container;
+		struct dpst_histogram_status		hist_status;
+		struct dpst_histogram_status_legacy	hist_status_legacy;
 	};
 };
 #endif /* _UAPI_I915_DRM_H_ */
