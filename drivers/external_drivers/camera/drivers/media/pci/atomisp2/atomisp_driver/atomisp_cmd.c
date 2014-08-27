@@ -1228,7 +1228,7 @@ void atomisp_delayed_init_work(struct work_struct *work)
 	complete(&asd->init_done);
 }
 
-static void __atomisp_css_recover(struct atomisp_device *isp)
+static void __atomisp_css_recover(struct atomisp_device *isp, bool isp_timeout)
 {
 	enum atomisp_css_pipe_id css_pipe_id;
 	bool stream_restart[MAX_STREAM_NUM] = {0};
@@ -1294,6 +1294,14 @@ static void __atomisp_css_recover(struct atomisp_device *isp)
 	 * may be corrupted, so mark it so. */
 	isp->sw_contex.invalid_frame = 1;
 	isp->sw_contex.invalid_vf_frame = 1;
+
+	if (!isp_timeout) {
+		for (i = 0; i < isp->num_of_streams; i++) {
+			if (isp->asd[i].depth_mode->val)
+				return;
+		}
+	}
+
 	for (i = 0; i < isp->num_of_streams; i++) {
 		struct atomisp_sub_device *asd = &isp->asd[i];
 
@@ -1496,7 +1504,8 @@ void atomisp_wdt_work(struct work_struct *work)
 	if (dbg_level > 5)
 		kct_log(CT_EV_CRASH, "ATOMISP2", "TIMEOUT", 0, "", "", "", "", "", "", "/logs/aplog");
 #endif
-	__atomisp_css_recover(isp);
+
+	__atomisp_css_recover(isp, true);
 	atomisp_set_stop_timeout(ATOMISP_CSS_STOP_TIMEOUT_US);
 	dev_err(isp->dev, "timeout recovery handling done\n");
 	atomic_set(&isp->wdt_work_queued, 0);
@@ -1518,7 +1527,7 @@ void atomisp_css_flush(struct atomisp_device *isp)
 	}
 
 	/* Start recover */
-	__atomisp_css_recover(isp);
+	__atomisp_css_recover(isp, false);
 	/* Restore wdt */
 	for (i = 0; i < isp->num_of_streams; i++) {
 		struct atomisp_sub_device *asd = &isp->asd[i];
