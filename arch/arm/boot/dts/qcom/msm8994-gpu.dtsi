@@ -71,6 +71,7 @@
 		clock-names = "core_clk", "iface_clk", "rbbmtimer_clk";
 
 		/* Bus Scale Settings */
+		qcom,gpubw-dev = <&gpubw>;
 		qcom,bus-control;
 		/*
 		 * qcom,msm-bus structures below define
