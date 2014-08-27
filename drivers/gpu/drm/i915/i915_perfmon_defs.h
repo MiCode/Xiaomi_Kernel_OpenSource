@@ -24,10 +24,35 @@
 #ifndef _I915_PERFMON_DEFS_H_
 #define _I915_PERFMON_DEFS_H_
 
+struct drm_i915_perfmon_config {
+	struct drm_i915_perfmon_config_entry *entries;
+	__u32 size;
+	__u32  id;
+};
+
+struct drm_i915_perfmon_context {
+	struct {
+		struct {
+			struct drm_i915_perfmon_config pending;
+			__u32 submitted_id;
+		} oa, gp;
+	} config;
+};
+
 struct drm_i915_perfmon_device {
 	/* perfmon interrupt support */
 	wait_queue_head_t	buffer_queue;
 	atomic_t		buffer_interrupts;
+
+	/* perfmon counters configuration */
+	struct {
+		struct drm_i915_perfmon_config oa;
+		struct drm_i915_perfmon_config gp;
+		enum DRM_I915_PERFMON_CONFIG_TARGET target;
+		pid_t pid;
+		atomic_t enable;
+		struct mutex lock;
+	} config;
 };
 
 struct drm_i915_perfmon_file {

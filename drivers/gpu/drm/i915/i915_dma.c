@@ -1678,6 +1678,7 @@ int i915_driver_load(struct drm_device *dev, unsigned long flags)
 	mutex_init(&dev_priv->new_dpio_lock);
 	mutex_init(&dev_priv->modeset_restore_lock);
 	mutex_init(&dev_priv->dpst.ioctl_lock);
+	mutex_init(&dev_priv->perfmon.config.lock);
 
 	intel_pm_setup(dev);
 

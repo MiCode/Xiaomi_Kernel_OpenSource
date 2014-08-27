@@ -290,6 +290,313 @@ exit:
 }
 
 /**
+ * copy_entries
+ *
+ * Helper function to copy OA configuration entries to new destination.
+ *
+ * Source configuration is first validated. In case of success pointer to newly
+ * allocated memory containing copy of source configuration is returned in *out.
+ *
+ */
+static int copy_entries(
+	struct drm_i915_perfmon_config *source,
+	bool user,
+	void **out)
+{
+	size_t size = 0;
+
+	*out = NULL;
+
+	/* basic validation of input */
+	if (source->id == 0 || source->size == 0 || source->entries == NULL)
+		return 0;
+
+	if (source->size > I915_PERFMON_CONFIG_SIZE)
+		return -EINVAL;
+
+	size = source->size  * sizeof(struct drm_i915_perfmon_config_entry);
+
+	*out = kzalloc(
+		   size,
+		   GFP_KERNEL);
+	if (*out == NULL) {
+		DRM_ERROR("failed to allocate configuration buffer\n");
+		return -ENOMEM;
+	}
+
+	if (user) {
+		int ret = copy_from_user(*out, source->entries, size);
+		if (ret) {
+			DRM_ERROR("failed to copy user provided config: %x\n",
+					ret);
+			kfree(*out);
+			*out = NULL;
+			return -EFAULT;
+		}
+	} else
+		memcpy(*out, source->entries, size);
+
+	return 0;
+}
+
+/**
+ * i915_perfmon_copy_config
+ *
+ * Utility function to copy OA and GP configuration to its destination.
+ *
+ * This is first used when global configuration is set by the user by calling
+ * I915_PERFMON_SET_CONFIG and then for the second time (optionally) when user
+ * calls I915_PERFMON_LOAD_CONFIG to copy the configuration from global storage
+ * to his context.
+ *
+ * 'user' boolean value indicates whether pointer to source config is provided
+ * by usermode (I915_PERFMON_SET_CONFIG case).
+ *
+ * If both OA and GP config are provided (!= NULL) then either both are copied
+ * to their respective locations or none of them (which is indicated by return
+ * value != 0).
+ *
+ * target_oa and target_gp are assumed to be non-NULL.
+ *
+ */
+static int i915_perfmon_copy_config(
+	struct drm_i915_private *dev_priv,
+	struct drm_i915_perfmon_config *target_oa,
+	struct drm_i915_perfmon_config *target_gp,
+	struct drm_i915_perfmon_config source_oa,
+	struct drm_i915_perfmon_config source_gp,
+	bool user)
+{
+	void *temp_oa = NULL;
+	void *temp_gp = NULL;
+	int ret = 0;
+
+	BUG_ON(!mutex_is_locked(&dev_priv->perfmon.config.lock));
+
+	/* copy configurations to temporary storage */
+	ret = copy_entries(&source_oa, user, &temp_oa);
+	if (ret)
+		return ret;
+	ret = copy_entries(&source_gp, user, &temp_gp);
+	if (ret) {
+		kfree(temp_oa);
+		return ret;
+	}
+
+	/*
+	 * Allocation and copy successful, free old config memory and swap
+	 * pointers
+	 */
+	if (temp_oa) {
+		kfree(target_oa->entries);
+		target_oa->entries = temp_oa;
+		target_oa->id = source_oa.id;
+		target_oa->size = source_oa.size;
+	}
+	if (temp_gp) {
+		kfree(target_gp->entries);
+		target_gp->entries = temp_gp;
+		target_gp->id = source_gp.id;
+		target_gp->size = source_gp.size;
+	}
+
+	return 0;
+}
+
+/**
+ * i915_perfmon_set_config
+ *
+ * Store OA/GP configuration for later use.
+ *
+ * Configuration content is not validated since it is provided by user who had
+ * previously called Perfmon Open with sysadmin privilege level.
+ *
+ */
+static int i915_perfmon_set_config(
+	struct drm_device *dev,
+	struct drm_i915_perfmon_set_config *args)
+{
+	struct drm_i915_private *dev_priv =
+		(struct drm_i915_private *) dev->dev_private;
+	int ret = 0;
+	struct drm_i915_perfmon_config user_config_oa;
+	struct drm_i915_perfmon_config user_config_gp;
+
+	if (!(IS_GEN8(dev)))
+		return -EINVAL;
+
+	/* validate target */
+	switch (args->target) {
+	case I915_PERFMON_CONFIG_TARGET_CTX:
+	case I915_PERFMON_CONFIG_TARGET_PID:
+	case I915_PERFMON_CONFIG_TARGET_ALL:
+		/* OK */
+		break;
+	default:
+		DRM_DEBUG("invalid target\n");
+		return -EINVAL;
+	}
+
+	/* setup input for i915_perfmon_copy_config */
+	user_config_oa.id = args->oa.id;
+	user_config_oa.size = args->oa.size;
+	user_config_oa.entries =
+		(struct drm_i915_perfmon_config_entry __user *)
+			(uintptr_t)args->oa.entries;
+
+	user_config_gp.id = args->gp.id;
+	user_config_gp.size = args->gp.size;
+	user_config_gp.entries =
+		(struct drm_i915_perfmon_config_entry __user *)
+			(uintptr_t)args->gp.entries;
+
+	ret = mutex_lock_interruptible(&dev_priv->perfmon.config.lock);
+	if (ret)
+		return ret;
+
+	if (!atomic_read(&dev_priv->perfmon.config.enable)) {
+		ret = -EINVAL;
+		goto unlock_perfmon;
+	}
+
+	ret = i915_perfmon_copy_config(dev_priv,
+			&dev_priv->perfmon.config.oa,
+			&dev_priv->perfmon.config.gp,
+			user_config_oa, user_config_gp,
+			true);
+
+	if (ret)
+		goto unlock_perfmon;
+
+	dev_priv->perfmon.config.target = args->target;
+	dev_priv->perfmon.config.pid = args->pid;
+
+unlock_perfmon:
+	mutex_unlock(&dev_priv->perfmon.config.lock);
+	return ret;
+}
+
+/**
+ * i915_perfmon_load_config
+ *
+ * Copy configuration from global storage to current context.
+ *
+ */
+static int i915_perfmon_load_config(
+	struct drm_device *dev,
+	struct drm_file *file,
+	struct drm_i915_perfmon_load_config *args)
+{
+	struct drm_i915_private *dev_priv =
+		(struct drm_i915_private *) dev->dev_private;
+	struct drm_i915_file_private *file_priv = file->driver_priv;
+	struct intel_context *ctx;
+	struct drm_i915_perfmon_config user_config_oa;
+	struct drm_i915_perfmon_config user_config_gp;
+	int ret;
+
+	if (!(IS_GEN8(dev)))
+		return -EINVAL;
+
+	ret = i915_mutex_lock_interruptible(dev);
+	if (ret)
+		return ret;
+
+	if (!atomic_read(&dev_priv->perfmon.config.enable)) {
+		ret = -EINVAL;
+		goto unlock_dev;
+	}
+
+	ctx = i915_gem_context_get(
+				file_priv,
+				args->ctx_id);
+
+	if (IS_ERR_OR_NULL(ctx) || IS_ERR_OR_NULL(ctx->engine[RCS].state)) {
+		DRM_DEBUG("invalid context\n");
+		ret = -EINVAL;
+		goto unlock_dev;
+	}
+
+	ret = mutex_lock_interruptible(&dev_priv->perfmon.config.lock);
+	if (ret)
+		goto unlock_dev;
+
+	user_config_oa = dev_priv->perfmon.config.oa;
+	user_config_gp = dev_priv->perfmon.config.gp;
+
+	/*
+	 * copy configuration to the context only if requested config ID matches
+	 * device configuration ID
+	 */
+	if (!(args->oa_id != 0 &&
+	      args->oa_id == dev_priv->perfmon.config.oa.id))
+		user_config_oa.entries = NULL;
+	if (!(args->gp_id != 0 &&
+	     args->gp_id == dev_priv->perfmon.config.gp.id))
+		user_config_gp.entries = NULL;
+
+	ret = i915_perfmon_copy_config(dev_priv,
+			&ctx->perfmon.config.oa.pending,
+			&ctx->perfmon.config.gp.pending,
+			dev_priv->perfmon.config.oa,
+			dev_priv->perfmon.config.gp,
+			false);
+
+	if (ret)
+		goto unlock_perfmon;
+
+	/*
+	 * return info about what is actualy set for submission in
+	 * target context
+	 */
+	args->gp_id = ctx->perfmon.config.gp.pending.id;
+	args->oa_id = ctx->perfmon.config.oa.pending.id;
+
+unlock_perfmon:
+	mutex_unlock(&dev_priv->perfmon.config.lock);
+unlock_dev:
+	mutex_unlock(&dev->struct_mutex);
+
+	return ret;
+}
+
+/**
+* i915_perfmon_config_enable_disable
+*
+* Enable/disable OA/GP configuration transport.
+*/
+static int i915_perfmon_config_enable_disable(
+	struct drm_device *dev,
+	int enable)
+{
+	int ret;
+	struct drm_i915_private *dev_priv =
+		(struct drm_i915_private *) dev->dev_private;
+
+	if (!(IS_GEN8(dev)))
+		return -EINVAL;
+
+	ret = mutex_lock_interruptible(&dev_priv->perfmon.config.lock);
+	if (ret)
+		return ret;
+
+	if (enable) {
+		if (atomic_inc_return(&dev_priv->perfmon.config.enable) == 1) {
+			dev_priv->perfmon.config.target =
+				I915_PERFMON_CONFIG_TARGET_ALL;
+			dev_priv->perfmon.config.oa.id = 0;
+			dev_priv->perfmon.config.gp.id = 0;
+		}
+	} else if (atomic_read(&dev_priv->perfmon.config.enable))
+		atomic_dec(&dev_priv->perfmon.config.enable);
+
+	mutex_unlock(&dev_priv->perfmon.config.lock);
+
+	return 0;
+}
+
+
+/**
  * i915_perfmon_open
  *
  * open perfmon for current file
@@ -367,19 +674,28 @@ int i915_perfmon_ioctl(struct drm_device *dev, void *data,
 		break;
 
 	case I915_PERFMON_ENABLE_CONFIG:
-		ret = -ENODEV;
+		ret = i915_perfmon_config_enable_disable(dev, 1);
 		break;
 
 	case I915_PERFMON_DISABLE_CONFIG:
-		ret = -ENODEV;
+		ret = i915_perfmon_config_enable_disable(dev, 0);
 		break;
 
 	case I915_PERFMON_SET_CONFIG:
-		ret = -ENODEV;
+		if (!file_priv->perfmon.opened) {
+			ret = -EACCES;
+			break;
+		}
+		ret = i915_perfmon_set_config(
+			dev,
+			&perfmon->data.set_config);
 		break;
 
 	case I915_PERFMON_LOAD_CONFIG:
-		ret = -ENODEV;
+		ret = i915_perfmon_load_config(
+			dev,
+			file,
+			&perfmon->data.load_config);
 		break;
 
 	case I915_PERFMON_GET_HW_CTX_ID:
@@ -413,9 +729,25 @@ void i915_perfmon_setup(struct drm_i915_private *dev_priv)
 {
 	atomic_set(&dev_priv->perfmon.buffer_interrupts, 0);
 	init_waitqueue_head(&dev_priv->perfmon.buffer_queue);
+	atomic_set(&dev_priv->perfmon.config.enable, 0);
+	dev_priv->perfmon.config.oa.entries = NULL;
+	dev_priv->perfmon.config.gp.entries = NULL;
 }
 
 void i915_perfmon_cleanup(struct drm_i915_private *dev_priv)
 {
+	kfree(dev_priv->perfmon.config.oa.entries);
+	kfree(dev_priv->perfmon.config.gp.entries);
 }
 
+void i915_perfmon_ctx_setup(struct intel_context *ctx)
+{
+	ctx->perfmon.config.oa.pending.entries = NULL;
+	ctx->perfmon.config.gp.pending.entries = NULL;
+}
+
+void i915_perfmon_ctx_cleanup(struct intel_context *ctx)
+{
+	kfree(ctx->perfmon.config.oa.pending.entries);
+	kfree(ctx->perfmon.config.gp.pending.entries);
+}

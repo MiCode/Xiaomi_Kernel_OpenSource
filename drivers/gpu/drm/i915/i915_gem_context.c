@@ -146,6 +146,7 @@ void i915_gem_context_free(struct kref *ctx_ref)
 		drm_gem_object_unreference(&ctx->legacy_hw_ctx.rcs_state->base);
 
 	put_pid(ctx->pid);
+	i915_perfmon_ctx_cleanup(ctx);
 
 	list_del(&ctx->link);
 	kfree(ctx);
@@ -278,6 +279,7 @@ i915_gem_create_context(struct drm_device *dev,
 	}
 
 	ctx->pid = get_pid(task_tgid(current));
+	i915_perfmon_ctx_setup(ctx);
 
 	return ctx;
 

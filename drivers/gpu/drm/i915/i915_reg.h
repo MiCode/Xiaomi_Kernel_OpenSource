@@ -6780,4 +6780,6 @@ enum punit_power_well {
 #define _PALETTE_A (dev_priv->info.display_mmio_offset + 0xa000)
 #define _PALETTE_B (dev_priv->info.display_mmio_offset + 0xa800)
 
+#define GEN8_OA_CTX_CONTROL 0x2360
+
 #endif /* _I915_REG_H_ */

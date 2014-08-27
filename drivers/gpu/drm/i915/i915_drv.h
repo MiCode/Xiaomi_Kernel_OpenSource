@@ -673,6 +673,9 @@ struct intel_context {
 	} engine[I915_NUM_RINGS];
 
 	struct list_head link;
+
+	/* perfmon configuration */
+	struct drm_i915_perfmon_context perfmon;
 };
 
 struct i915_fbc {
@@ -3025,6 +3028,8 @@ int i915_perfmon_ioctl(struct drm_device *dev, void *data,
 	struct drm_file *file);
 void i915_perfmon_setup(struct drm_i915_private *dev_priv);
 void i915_perfmon_cleanup(struct drm_i915_private *dev_priv);
+void i915_perfmon_ctx_setup(struct intel_context *ctx);
+void i915_perfmon_ctx_cleanup(struct intel_context *ctx);
 
 extern void i915_write_bits32(struct drm_i915_private *dev_priv,
 	u32 reg, u32 val, u32 mask, bool trace);

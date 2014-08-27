@@ -341,6 +341,158 @@ static void execlists_elsp_write(struct intel_engine_cs *ring,
 	spin_unlock_irqrestore(&dev_priv->uncore.lock, flags);
 }
 
+static void perfmon_send_config(
+	struct intel_ringbuffer *ringbuf,
+	struct drm_i915_perfmon_config *config)
+{
+	int i;
+
+	for (i = 0; i < config->size; i++) {
+		DRM_DEBUG("perfmon config %x reg:%05x val:%08x\n",
+			config->id,
+			config->entries[i].offset,
+			config->entries[i].value);
+
+		intel_logical_ring_emit(ringbuf, MI_NOOP);
+		intel_logical_ring_emit(ringbuf, MI_LOAD_REGISTER_IMM(1));
+		intel_logical_ring_emit(ringbuf, config->entries[i].offset);
+		intel_logical_ring_emit(ringbuf, config->entries[i].value);
+	}
+}
+
+static inline struct drm_i915_perfmon_config *get_perfmon_config(
+	struct drm_i915_private *dev_priv,
+	struct intel_context *ctx,
+	struct drm_i915_perfmon_config *config_global,
+	struct drm_i915_perfmon_config *config_context,
+	__u32 ctx_submitted_config_id)
+
+{
+	struct drm_i915_perfmon_config *config  = NULL;
+	enum DRM_I915_PERFMON_CONFIG_TARGET target;
+
+	BUG_ON(!mutex_is_locked(&dev_priv->perfmon.config.lock));
+
+	target = dev_priv->perfmon.config.target;
+	switch (target) {
+	case I915_PERFMON_CONFIG_TARGET_CTX:
+		config = config_context;
+		break;
+	case I915_PERFMON_CONFIG_TARGET_PID:
+		if (pid_vnr(ctx->pid) == dev_priv->perfmon.config.pid)
+			config = config_global;
+		break;
+	case I915_PERFMON_CONFIG_TARGET_ALL:
+		config = config_global;
+		break;
+	default:
+		BUG_ON(1);
+		break;
+	}
+
+	if (config != NULL) {
+		if (config->size == 0 || config->id == 0) {
+			/* configuration is empty or targets other context */
+			DRM_DEBUG("perfmon configuration empty\n");
+			config = NULL;
+		} else if (config->id == ctx_submitted_config_id) {
+			/* configuration is already submitted in this context*/
+			DRM_DEBUG("perfmon configuration %x is submitted\n",
+					config->id);
+			config = NULL;
+		}
+	}
+
+	if (config != NULL)
+		DRM_DEBUG("perfmon configuration TARGET:%u SIZE:%x ID:%x",
+			target,
+			config->size,
+			config->id);
+
+	return config;
+}
+
+static inline int
+i915_program_perfmon(struct drm_device *dev,
+			struct intel_ringbuffer *ringbuf,
+			struct intel_context *ctx)
+{
+	struct drm_i915_private *dev_priv = dev->dev_private;
+	struct drm_i915_perfmon_config *config_oa, *config_gp;
+	size_t size;
+	int ret = 0;
+
+	if (!atomic_read(&dev_priv->perfmon.config.enable) &&
+	    ctx->perfmon.config.oa.submitted_id == 0)
+		return 0;
+
+	ret = mutex_lock_interruptible(&dev_priv->perfmon.config.lock);
+	if (ret)
+		return ret;
+
+	if (!atomic_read(&dev_priv->perfmon.config.enable)) {
+		if (ctx->perfmon.config.oa.submitted_id != 0) {
+			/* write 0 to OA_CTX_CONTROL to stop counters */
+			ret = intel_logical_ring_begin(ringbuf, 4);
+			if (!ret) {
+				intel_logical_ring_emit(ringbuf, MI_NOOP);
+				intel_logical_ring_emit(ringbuf,
+					MI_LOAD_REGISTER_IMM(1));
+				intel_logical_ring_emit(ringbuf,
+					GEN8_OA_CTX_CONTROL);
+				intel_logical_ring_emit(ringbuf, 0);
+				intel_logical_ring_advance(ringbuf);
+			}
+			ctx->perfmon.config.oa.submitted_id = 0;
+		}
+		goto unlock;
+	}
+
+	/* check for pending OA config */
+	config_oa = get_perfmon_config(dev_priv, ctx,
+					&dev_priv->perfmon.config.oa,
+					&ctx->perfmon.config.oa.pending,
+					ctx->perfmon.config.oa.submitted_id);
+
+	/* check for pending PERFMON config */
+	config_gp = get_perfmon_config(dev_priv, ctx,
+					&dev_priv->perfmon.config.gp,
+					&ctx->perfmon.config.gp.pending,
+					ctx->perfmon.config.gp.submitted_id);
+
+	size = (config_oa ? config_oa->size : 0) +
+	       (config_gp ? config_gp->size : 0);
+
+	if (size == 0)
+		goto unlock;
+
+	ret = intel_logical_ring_begin(ringbuf, 4 * size);
+	if (ret)
+		goto unlock;
+
+	/* submit pending OA config */
+	if (config_oa) {
+		perfmon_send_config(
+			ringbuf,
+			config_oa);
+		ctx->perfmon.config.oa.submitted_id = config_oa->id;
+	}
+
+
+	/* submit pending general purpose perfmon counters config */
+	if (config_gp) {
+		perfmon_send_config(
+			ringbuf,
+			config_gp);
+		ctx->perfmon.config.gp.submitted_id = config_gp->id;
+	}
+
+	intel_logical_ring_advance(ringbuf);
+
+unlock:
+	mutex_unlock(&dev_priv->perfmon.config.lock);
+	return ret;
+}
 static int execlists_ctx_write_tail(struct drm_i915_gem_object *ctx_obj, u32 tail)
 {
 	struct page *page;
@@ -925,6 +1077,9 @@ int intel_execlists_submission(struct drm_device *dev, struct drm_file *file,
 
 		dev_priv->relative_constants_mode = instp_mode;
 	}
+
+	if (IS_GEN8(dev) && ring == &dev_priv->ring[RCS])
+		i915_program_perfmon(dev, ringbuf, ctx);
 
 	/* Flag this seqno as being active on the ring so the watchdog
 	 * code knows where to look if things go wrong. */
