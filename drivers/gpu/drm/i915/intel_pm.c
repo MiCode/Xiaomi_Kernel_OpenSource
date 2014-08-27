@@ -7460,12 +7460,14 @@ static struct i915_power_well chv_power_wells[] = {
 		.data = PUNIT_POWER_WELL_DISP2D,
 		.ops = &vlv_display_power_well_ops,
 	},
+#endif
 	{
 		.name = "pipe-a",
-		.domains = CHV_PIPE_A_POWER_DOMAINS,
+		.domains = VLV_DISPLAY_POWER_DOMAINS,
 		.data = PIPE_A,
 		.ops = &chv_pipe_power_well_ops,
 	},
+#if 0
 	{
 		.name = "pipe-b",
 		.domains = CHV_PIPE_B_POWER_DOMAINS,
