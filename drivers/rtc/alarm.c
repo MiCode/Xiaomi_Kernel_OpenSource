@@ -523,6 +523,7 @@ static int alarm_resume(struct platform_device *pdev)
 									false);
 	spin_unlock_irqrestore(&alarm_slock, flags);
 
+	set_alarm_time_to_rtc(power_on_alarm);
 	return 0;
 }
 
