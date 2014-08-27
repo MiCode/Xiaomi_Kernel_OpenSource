@@ -74,7 +74,7 @@
 #define CHG_STAT_DISABLE_BIT		BIT(0)
 
 #define CFG_SFY_TIMER_CTRL_REG		0x0A
-#define SAFETY_TIME_EN_BIT		BIT(4)
+#define SAFETY_TIME_DISABLE_BIT		BIT(5)
 #define SAFETY_TIME_MINUTES_SHIFT	2
 #define SAFETY_TIME_MINUTES_MASK	SMB1360_MASK(3, 2)
 
@@ -2883,7 +2883,7 @@ static int smb1360_hw_init(struct smb1360_chip *chip)
 		if (chip->safety_time == 0) {
 			/* safety timer disabled */
 			rc = smb1360_masked_write(chip, CFG_SFY_TIMER_CTRL_REG,
-						SAFETY_TIME_EN_BIT, 0);
+			SAFETY_TIME_DISABLE_BIT, SAFETY_TIME_DISABLE_BIT);
 			if (rc < 0) {
 				dev_err(chip->dev,
 				"Couldn't disable safety timer rc = %d\n",
@@ -2898,8 +2898,8 @@ static int smb1360_hw_init(struct smb1360_chip *chip)
 				}
 			}
 			rc = smb1360_masked_write(chip, CFG_SFY_TIMER_CTRL_REG,
-				SAFETY_TIME_EN_BIT | SAFETY_TIME_MINUTES_MASK,
-				SAFETY_TIME_EN_BIT | reg);
+			SAFETY_TIME_DISABLE_BIT | SAFETY_TIME_MINUTES_MASK,
+								reg);
 			if (rc < 0) {
 				dev_err(chip->dev,
 					"Couldn't set safety timer rc = %d\n",
