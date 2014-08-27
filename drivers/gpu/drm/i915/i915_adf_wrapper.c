@@ -26,7 +26,7 @@
  */
 
 #include "intel_drv.h"
-#include <drm/i915_drm.h>
+#include <drm/i915_adf.h>
 #include "i915_drv.h"
 #include "i915_trace.h"
 #include "i915_adf_wrapper.h"
@@ -35,6 +35,16 @@
 #include <linux/pm_runtime.h>
 
 #ifdef CONFIG_ADF_INTEL
+
+/* Standard MMIO read, non-posted */
+#define SB_MRD_NP	0x00
+/* Standard MMIO write, non-posted */
+#define SB_MWR_NP	0x01
+/* Private register read, double-word addressing, non-posted */
+#define SB_CRRDDA_NP	0x06
+/* Private register write, double-word addressing, non-posted */
+#define SB_CRWRDA_NP	0x07
+
 
 /* Global for adf driver to get at the current i915 device. */
 static struct drm_i915_private *i915_adf_dev;
@@ -48,5 +58,49 @@ void i915_adf_wrapper_teardown(void)
 {
 	i915_adf_dev = NULL;
 }
+
+/**
+ * intel_adf_pci_sideband_rw - Interface to allow ADF driver read/write to intel sideband.
+ */
+void intel_adf_pci_sideband_rw(u32 operation, u32 port, u32 reg, u32 *val)
+{
+	struct drm_i915_private *dev_priv;
+	u32 opcode;
+
+	if (!i915_adf_dev)
+		return;
+
+	dev_priv = i915_adf_dev;
+
+	opcode = (operation == INTEL_SIDEBAND_REG_READ) ?
+				SB_CRRDDA_NP : SB_CRWRDA_NP;
+
+	mutex_lock(&dev_priv->dpio_lock);
+	vlv_adf_sideband_rw(dev_priv, PCI_DEVFN(2, 0), port, opcode, reg, val);
+	mutex_unlock(&dev_priv->dpio_lock);
+}
+EXPORT_SYMBOL(intel_adf_pci_sideband_rw);
+
+/**
+ * intel_adf_dpio_sideband_rw - Interface to allow ADF driver read/write to intel sideband.
+ */
+void intel_adf_dpio_sideband_rw(u32 operation, u32 port, u32 reg, u32 *val)
+{
+	struct drm_i915_private *dev_priv;
+	u32 opcode;
+
+	if (!i915_adf_dev)
+		return;
+
+	dev_priv = i915_adf_dev;
+
+	opcode = (operation == INTEL_SIDEBAND_REG_READ) ?
+				SB_CRRDDA_NP : SB_CRWRDA_NP;
+
+	mutex_lock(&dev_priv->dpio_lock);
+	vlv_adf_sideband_rw(dev_priv, DPIO_DEVFN, port, opcode, reg, val);
+	mutex_unlock(&dev_priv->dpio_lock);
+}
+EXPORT_SYMBOL(intel_adf_dpio_sideband_rw);
 
 #endif

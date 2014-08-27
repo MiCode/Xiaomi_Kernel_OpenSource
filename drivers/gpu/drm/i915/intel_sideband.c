@@ -286,3 +286,11 @@ void vlv_flisdsi_write(struct drm_i915_private *dev_priv, u32 reg, u32 val)
 	vlv_sideband_rw(dev_priv, DPIO_DEVFN, IOSF_PORT_FLISDSI, SB_CRWRDA_NP,
 			reg, &val);
 }
+
+#ifdef CONFIG_ADF_INTEL
+void vlv_adf_sideband_rw(struct drm_i915_private *dev_priv, u32 devfn,
+			u32 port, u32 opcode, u32 reg, u32 *val)
+{
+	vlv_sideband_rw(dev_priv, devfn, port, opcode, reg, val);
+}
+#endif
