@@ -21,6 +21,10 @@
 #include "core/intel_dc_config.h"
 #include "core/common/dsi/dsi_config.h"
 #include "core/common/dsi/dsi_panel.h"
+#ifndef CONFIG_ADF_INTEL_VLV
+#include "pwr_mgmt.h"
+#include "core/common/dsi/dsi_pkg_sender.h"
+#endif
 #ifdef CONFIG_BACKLIGHT_CLASS_DEVICE
 #include "core/common/backlight_dev.h"
 #endif
@@ -42,6 +46,7 @@ struct dsi_pipe;
  */
 struct dsi_pipe_ops {
 	int (*power_on)(struct dsi_pipe *pipe);
+	void (*pre_power_off)(struct dsi_pipe *pipe);
 	int (*power_off)(struct dsi_pipe *pipe);
 	int (*mode_set)(struct dsi_pipe *pipe,
 		struct drm_mode_modeinfo *mode);
@@ -56,6 +61,9 @@ struct dsi_pipe {
 	struct intel_pipe base;
 	struct dsi_pipe_ops ops;
 	struct dsi_config config;
+#ifndef CONFIG_ADF_INTEL_VLV
+	struct dsi_pkg_sender sender;
+#endif
 	struct dsi_panel *panel;
 };
 

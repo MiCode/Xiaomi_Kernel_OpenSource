@@ -47,4 +47,8 @@ enum vlv_disp_plane {
 
 bool vlv_intf_screen_connected(struct intel_pipe *pipe);
 u32 vlv_intf_vsync_counter(struct intel_pipe *pipe, u32 interval);
+extern int pipe_mode_set(struct intel_pipe *pipe,
+			 struct drm_mode_modeinfo *mode);
+extern int vlv_display_on(struct intel_pipe *pipe);
+extern int vlv_display_off(struct intel_pipe *pipe);
 #endif

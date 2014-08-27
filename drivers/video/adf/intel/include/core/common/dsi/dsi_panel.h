@@ -20,6 +20,9 @@
 #include <linux/kernel.h>
 #include <linux/module.h>
 #include <drm/drm_mode.h>
+#ifndef CONFIG_ADF_INTEL_VLV
+#include <linux/panel_psb_drv.h>
+#endif
 
 struct dsi_pipe;
 
