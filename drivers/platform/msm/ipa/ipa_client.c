@@ -1395,10 +1395,6 @@ int ipa_enable_data_path(u32 clnt_hdl)
 	int res = 0;
 
 	IPADBG("Enabling data path\n");
-	/* IPA_HW_MODE_VIRTUAL lacks support for TAG IC & EP suspend */
-	if (ipa_ctx->ipa_hw_mode == IPA_HW_MODE_VIRTUAL)
-		return 0;
-
 	/* From IPA 2.0, disable HOLB */
 	if ((ipa_ctx->ipa_hw_type == IPA_HW_v2_0 ||
 		ipa_ctx->ipa_hw_type == IPA_HW_v2_5) &&
@@ -1432,10 +1428,6 @@ int ipa_disable_data_path(u32 clnt_hdl)
 	int res = 0;
 
 	IPADBG("Disabling data path\n");
-	/* IPA_HW_MODE_VIRTUAL lacks support for TAG IC & EP suspend */
-	if (ipa_ctx->ipa_hw_mode == IPA_HW_MODE_VIRTUAL)
-		return 0;
-
 	/* On IPA 2.0, enable HOLB in order to prevent IPA from stalling */
 	if ((ipa_ctx->ipa_hw_type == IPA_HW_v2_0 ||
 		ipa_ctx->ipa_hw_type == IPA_HW_v2_5) &&
