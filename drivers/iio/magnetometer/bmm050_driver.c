@@ -159,8 +159,9 @@ static const long op_mode_maps[] = {
 	{ \
 		.type = device_type, \
 		.modified = 1, \
-		.info_mask_separate = BIT(IIO_CHAN_INFO_RAW) | \
-				BIT(IIO_CHAN_INFO_SCALE), \
+		.info_mask_separate = BIT(IIO_CHAN_INFO_RAW), \
+		.info_mask_shared_by_type = BIT(IIO_CHAN_INFO_SCALE) | \
+						BIT(IIO_CHAN_INFO_SAMP_FREQ), \
 		.scan_index = si, \
 		.channel2 = mod, \
 		.address = addr, \
@@ -710,6 +711,55 @@ static ssize_t bmm_show_odr(struct device *dev,
 	return err;
 }
 
+static int bmm_get_odr_raw(struct iio_dev *indio_dev, int *val)
+{
+	unsigned char data = 0;
+	int err;
+	u8 power_mode;
+	struct bmm_client_data *client_data = iio_priv(indio_dev);
+
+	mutex_lock(&client_data->mutex_power_mode);
+	BMM_CALL_API(get_powermode)(&power_mode);
+	if (power_mode) {
+		mutex_lock(&indio_dev->mlock);
+		err = bmm_get_odr(&data);
+		mutex_unlock(&indio_dev->mlock);
+	} else
+		err = -EIO;
+	mutex_unlock(&client_data->mutex_power_mode);
+	printk(KERN_ERR "ODR %x\n", data);
+	if (!err) {
+		if (data < ARRAY_SIZE(odr_map)) {
+			*val = odr_map[data];
+			return IIO_VAL_INT;
+		} else
+			return -EINVAL;
+	}
+
+	return err;
+}
+
+static int bmm_set_odr_raw(struct iio_dev *indio_dev, int val)
+{
+	int err = 0;
+	struct bmm_client_data *client_data = iio_priv(indio_dev);
+	int i;
+
+	for (i = 0; i < ARRAY_SIZE(odr_map); i++) {
+		if (odr_map[i] == val)
+			break;
+	}
+	if (i < ARRAY_SIZE(odr_map)) {
+		mutex_lock(&indio_dev->mlock);
+		err = bmm_set_odr(i);
+		if (!err)
+			client_data->odr = i;
+		mutex_unlock(&indio_dev->mlock);
+	}
+
+	return err;
+}
+
 static ssize_t bmm_store_odr(struct device *dev,
 		struct device_attribute *attr,
 		const char *buf, size_t count)
@@ -1049,11 +1099,32 @@ static int bmm_read_raw(struct iio_dev *indio_dev,
 		*val = 0;
 		*val2 = 3000;
 		return IIO_VAL_INT_PLUS_MICRO;
+	case IIO_CHAN_INFO_SAMP_FREQ:
+		return bmm_get_odr_raw(indio_dev, val);
 	default:
 		return -EINVAL;
 	}
 
 }
+
+static int bmm_write_raw(struct iio_dev *indio_dev,
+			 struct iio_chan_spec const *chan,
+			 int val, int val2, long mask)
+{
+	int ret;
+
+	switch (mask) {
+	case IIO_CHAN_INFO_SAMP_FREQ:
+		return bmm_set_odr_raw(indio_dev, val);
+	default:
+		ret = -EINVAL;
+	}
+
+	return ret;
+}
+
+static IIO_CONST_ATTR_SAMP_FREQ_AVAIL(
+		"10 2 6 8 15 20 25 30");
 
 static IIO_DEVICE_ATTR(chip_id, S_IRUGO,
 		bmm_show_chip_id, NULL, 0);
@@ -1084,6 +1155,7 @@ static struct attribute *bmm_attributes[] = {
 	&iio_dev_attr_delay.dev_attr.attr,
 	&iio_dev_attr_test.dev_attr.attr,
 	&iio_dev_attr_place.dev_attr.attr,
+	&iio_const_attr_sampling_frequency_available.dev_attr.attr,
 	NULL,
 };
 
@@ -1096,6 +1168,7 @@ static const struct iio_info bmm_iio_info = {
 	.driver_module = THIS_MODULE,
 	.attrs = &bmm_attribute_group,
 	.read_raw = &bmm_read_raw,
+	.write_raw = &bmm_write_raw,
 };
 
 #ifdef BMM055_USE_INPUT_DEVICE
