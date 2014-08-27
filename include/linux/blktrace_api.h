@@ -84,6 +84,22 @@ static inline int blk_trace_init_sysfs(struct device *dev)
 
 #endif /* CONFIG_BLK_DEV_IO_TRACE */
 
+#ifdef CONFIG_MOST
+
+#define MOST_TABLE_SIZE 500
+
+struct blk_req_table {
+	pid_t pid;
+	sector_t sector;
+	int count;
+	int temp_file;
+	unsigned char d_iname[40];      /* small names */
+};
+
+extern struct blk_req_table gblk_req_table[MOST_TABLE_SIZE];
+extern int gblk_current;
+
+#endif /* CONFIG_MOST */
 #ifdef CONFIG_COMPAT
 
 struct compat_blk_user_trace_setup {

@@ -198,6 +198,12 @@ static void __blk_add_trace(struct blk_trace *bt, sector_t sector, int bytes,
 	pid_t pid;
 	int cpu, pc = 0;
 	bool blk_tracer = blk_tracer_enabled;
+#ifdef CONFIG_MOST
+	int gblk_index, loop_count;
+	sector_t sector_trans;
+	struct task_struct *tsk_orig = NULL;
+	int temp_file;
+#endif
 
 	if (unlikely(bt->trace_state != Blktrace_running && !blk_tracer))
 		return;
@@ -214,6 +220,36 @@ static void __blk_add_trace(struct blk_trace *bt, sector_t sector, int bytes,
 	if (act_log_check(bt, what, sector, pid))
 		return;
 	cpu = raw_smp_processor_id();
+#ifdef CONFIG_MOST
+	loop_count = MOST_TABLE_SIZE-1;
+
+	if (gblk_current == 0)
+		gblk_index = MOST_TABLE_SIZE-1;
+	else
+		gblk_index = gblk_current-1;
+
+	if (sector >= bt->start_lba)
+		sector_trans = sector - bt->start_lba;
+	else
+		sector_trans = 0;
+
+	temp_file = 0;
+	do {
+		if (sector_trans == gblk_req_table[gblk_index].sector) {
+			pid = gblk_req_table[gblk_index].pid;
+			temp_file = gblk_req_table[gblk_index].temp_file;
+			tsk_orig = find_task_by_vpid(pid);
+			pid = pid + temp_file;
+			printk(KERN_INFO "__blk_add_trace (%s)\n",
+				gblk_req_table[gblk_index].d_iname);
+			break;
+		}
+		if (gblk_index == 0)
+			gblk_index = MOST_TABLE_SIZE-1;
+		else
+			gblk_index--;
+	} while (loop_count--);
+#endif
 
 	if (blk_tracer) {
 		tracing_record_cmdline(current);
@@ -236,8 +272,21 @@ static void __blk_add_trace(struct blk_trace *bt, sector_t sector, int bytes,
 	 */
 	local_irq_save(flags);
 
+#ifdef CONFIG_MOST
+	{
+		if (tsk_orig != NULL) {
+			tsk_orig->btrace_seq = blktrace_seq;
+			trace_note(bt, pid , BLK_TN_PROCESS,
+				tsk_orig->comm, sizeof(tsk_orig->comm));
+		} else
+			trace_note_tsk(bt, tsk);
+	}
+#else
+	{
 	if (unlikely(tsk->btrace_seq != blktrace_seq))
 		trace_note_tsk(bt, tsk);
+	}
+#endif
 
 	t = relay_reserve(bt->rchan, sizeof(*t) + pdu_len);
 	if (t) {
