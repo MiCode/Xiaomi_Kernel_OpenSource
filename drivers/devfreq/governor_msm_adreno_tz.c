@@ -160,6 +160,8 @@ static int tz_init(struct devfreq_msm_adreno_tz_data *priv,
 		ret = scm_call2(SCM_SIP_FNID(SCM_SVC_DCVS, TZ_V2_INIT_ID_64),
 				&desc);
 		*version = desc.ret[0];
+		if (!ret)
+			priv->is_64 = true;
 		kzfree(tz_buf);
 	} else
 		ret = -EINVAL;
