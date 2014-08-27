@@ -796,21 +796,40 @@ dhd_dev_priv_save(struct net_device * dev, dhd_info_t * dhd, dhd_if_t * ifp,
 	dev_priv->ifidx = ifidx;
 }
 #ifdef SAR_SUPPORT
-static int dhd_sar_callback(struct notifier_block *nfb, unsigned long action, void *ignored)
+static int dhd_sar_callback(struct notifier_block *nfb, unsigned long action, void *data)
 {
 	dhd_info_t *dhd = (dhd_info_t*)container_of(nfb, struct dhd_info, sar_notifier);
 	char iovbuf[32];
 	s32 sar_enable;
-	int ret = 0;
+	s32 txpower;
+	int ret;
 
-	/* '0' means activate sarlimit and '-1' means back to normal state (deactivate
-	 * sarlimit)
-	 */
-	sar_enable = action ? 0 : -1;
+	if (data) {
+		/* if data != NULL then we expect that the notifier passed
+		 * the exact value of max tx power in quarters of dB.
+		 * qtxpower variable allows us to overwrite TX power.
+		 */
+		txpower = *(s32*)data;
+		if (txpower == -1 || txpower > 127)
+			txpower = 127; /* Max val of 127 qdbm */
 
-	bcm_mkiovar("sar_enable", (char *)&sar_enable, 4, iovbuf, sizeof(iovbuf));
-	if ((ret = dhd_wl_ioctl_cmd(&dhd->pub, WLC_SET_VAR, iovbuf, sizeof(iovbuf), TRUE, 0)) < 0)
-		DHD_ERROR(("%s wl sar_enable %d failed %d\n", __FUNCTION__, sar_enable, ret));
+		txpower |= WL_TXPWR_OVERRIDE;
+		txpower = htod32(txpower);
+
+		bcm_mkiovar("qtxpower", (char *)&txpower, 4, iovbuf, sizeof(iovbuf));
+		if ((ret = dhd_wl_ioctl_cmd(&dhd->pub, WLC_SET_VAR,
+				iovbuf, sizeof(iovbuf), TRUE, 0)) < 0)
+			DHD_ERROR(("%s wl qtxpower failed %d\n", __FUNCTION__, ret));
+	} else {
+		/* '0' means activate sarlimit and '-1' means back to normal state (deactivate
+		 * sarlimit)
+		 */
+		sar_enable = action ? 0 : -1;
+
+		bcm_mkiovar("sar_enable", (char *)&sar_enable, 4, iovbuf, sizeof(iovbuf));
+		if ((ret = dhd_wl_ioctl_cmd(&dhd->pub, WLC_SET_VAR, iovbuf, sizeof(iovbuf), TRUE, 0)) < 0)
+			DHD_ERROR(("%s wl sar_enable %d failed %d\n", __FUNCTION__, sar_enable, ret));
+	}
 
 	return NOTIFY_DONE;
 }

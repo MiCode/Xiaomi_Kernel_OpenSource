@@ -152,6 +152,8 @@ ifneq ($(CONFIG_BCMDHD_PCIE),)
   DHDCFLAGS += -DCUSTOM_AMPDU_RELEASE=16
 # Disable watchdog thread
   DHDCFLAGS += -DCUSTOM_DHD_WATCHDOG_MS=0
+
+  DHDCFLAGS += -DSAR_SUPPORT
 endif
 endif
 
