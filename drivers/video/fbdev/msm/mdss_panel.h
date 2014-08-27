@@ -527,7 +527,7 @@ static inline int mdss_mdp_max_fetch_lines(struct mdss_panel_info *pinfo)
 
 	v_total = mdss_panel_get_vtotal(pinfo);
 	vfp_start = (pinfo->lcdc.v_back_porch + pinfo->lcdc.v_pulse_width +
-			pinfo->yres + 1);
+			pinfo->yres);
 
 	fetch_lines = v_total - vfp_start;
 

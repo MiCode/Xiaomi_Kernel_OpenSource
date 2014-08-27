@@ -908,7 +908,7 @@ static void mdss_mdp_fetch_start_config(struct mdss_mdp_video_ctx *ctx,
 	 */
 	v_total = mdss_panel_get_vtotal(pinfo);
 	h_total = mdss_panel_get_htotal(pinfo, true);
-	fetch_start = (v_total - mdss_mdp_max_fetch_lines(pinfo)) * h_total;
+	fetch_start = (v_total - mdss_mdp_max_fetch_lines(pinfo)) * h_total + 1;
 	fetch_enable = BIT(31);
 	ctl->prg_fet = true;
 
