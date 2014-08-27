@@ -2040,16 +2040,22 @@ static void mdss_mdp_ctl_split_display_enable(int enable,
 
 	if (enable) {
 		if (main_ctl->opmode & MDSS_MDP_CTL_OP_CMD_MODE) {
-			upper |= BIT(1);
+			/* interface controlling sw trigger (cmd mode) */
 			lower |= BIT(1);
-		}
-		/* interface controlling sw trigger (cmd & video mode)*/
-		if (main_ctl->intf_num == MDSS_MDP_INTF2) {
-			lower |= BIT(4);
-			upper |= BIT(4);
+			if (main_ctl->intf_num == MDSS_MDP_INTF2)
+				lower |= BIT(4);
+			else
+				lower |= BIT(8);
+			upper = lower;
 		} else {
-			lower |= BIT(8);
-			upper |= BIT(8);
+			/* interface controlling sw trigger (video mode) */
+			if (main_ctl->intf_num == MDSS_MDP_INTF2) {
+				lower |= BIT(4);
+				upper |= BIT(8);
+			} else {
+				lower |= BIT(8);
+				upper |= BIT(4);
+			}
 		}
 	}
 	writel_relaxed(upper, main_ctl->mdata->mdp_base +
