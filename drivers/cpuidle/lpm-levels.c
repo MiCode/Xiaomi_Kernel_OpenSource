@@ -992,9 +992,14 @@ enum msm_pm_l2_scm_flag lpm_cpu_pre_pc_cb(unsigned int cpu)
 
 	/*
 	 * No need to acquire the lock if probe isn't completed yet
+	 * In the event of the hotplug happening before lpm probe, we want to
+	 * flush the cache to make sure that L2 is flushed. In particular, this
+	 * could cause incoherencies for a cluster architecture. This wouldn't
+	 * affect the idle case as the idle driver wouldn't be registered
+	 * before the probe function
 	 */
 	if (!cluster)
-		return retflag;
+		return MSM_SCM_L2_OFF;
 
 	/*
 	 * Assumes L2 only. What/How parameters gets passed into TZ will
