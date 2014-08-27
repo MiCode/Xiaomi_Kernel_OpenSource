@@ -586,6 +586,7 @@ static void usb_qdss_connect_work(struct work_struct *work)
 	if (qdss->usb_connected == 0) {
 		pr_debug("%s: discard connect_work\n", __func__);
 		cancel_work_sync(&qdss->disconnect_w);
+		msm_bam_set_qdss_usb_active(false);
 		return;
 	}
 
@@ -595,7 +596,7 @@ static void usb_qdss_connect_work(struct work_struct *work)
 		status = init_data(qdss->port.data);
 		if (status) {
 			pr_err("init_data error");
-			return;
+			break;
 		}
 		status = set_qdss_data_connection(
 				qdss->cdev->gadget,
@@ -604,7 +605,7 @@ static void usb_qdss_connect_work(struct work_struct *work)
 				1);
 		if (status) {
 			pr_err("set_qdss_data_connection error");
-			return;
+			break;
 		}
 		if (qdss->ch.notify)
 			qdss->ch.notify(qdss->ch.priv,
@@ -614,7 +615,7 @@ static void usb_qdss_connect_work(struct work_struct *work)
 		status = send_sps_req(qdss->port.data);
 		if (status) {
 			pr_err("send_sps_req error\n");
-			return;
+			break;
 		}
 		break;
 	case USB_GADGET_XPORT_HSIC:
@@ -633,7 +634,7 @@ static void usb_qdss_connect_work(struct work_struct *work)
 				xport_to_str(dxport));
 	}
 
-
+	msm_bam_set_qdss_usb_active(false);
 
 }
 
@@ -711,6 +712,7 @@ static int qdss_set_alt(struct usb_function *f, unsigned intf, unsigned alt)
 	if (qdss->usb_connected && (ch->app_conn ||
 		(dxport == USB_GADGET_XPORT_HSIC)))
 		queue_work(qdss->wq, &qdss->connect_w);
+	msm_bam_set_qdss_usb_active(true);
 	return 0;
 fail:
 	pr_err("qdss_set_alt failed\n");
