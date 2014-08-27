@@ -52,8 +52,8 @@ struct diag_mempool_t diag_mempools[NUM_MEMORY_POOLS] = {
 		.count = 0
 	},
 	{
-		.id = POOL_TYPE_USB_APPS,
-		.name = "POOL_USB_APPS",
+		.id = POOL_TYPE_MUX_APPS,
+		.name = "POOL_MUX_APPS",
 		.pool = NULL,
 		.itemsize = 0,
 		.poolsize = 0,
@@ -101,16 +101,16 @@ struct diag_mempool_t diag_mempools[NUM_MEMORY_POOLS] = {
 		.count = 0
 	},
 	{
-		.id = POOL_TYPE_MDM_USB,
-		.name = "POOL_MDM_USB",
+		.id = POOL_TYPE_MDM_MUX,
+		.name = "POOL_MDM_MUX",
 		.pool = NULL,
 		.itemsize = 0,
 		.poolsize = 0,
 		.count = 0
 	},
 	{
-		.id = POOL_TYPE_MDM2_USB,
-		.name = "POOL_MDM2_USB",
+		.id = POOL_TYPE_MDM2_MUX,
+		.name = "POOL_MDM2_MUX",
 		.pool = NULL,
 		.itemsize = 0,
 		.poolsize = 0,
@@ -133,8 +133,8 @@ struct diag_mempool_t diag_mempools[NUM_MEMORY_POOLS] = {
 		.count = 0
 	},
 	{
-		.id = POOL_TYPE_QSC_USB,
-		.name = "POOL_QSC_USB",
+		.id = POOL_TYPE_QSC_MUX,
+		.name = "POOL_QSC_MUX",
 		.pool = NULL,
 		.itemsize = 0,
 		.poolsize = 0,
