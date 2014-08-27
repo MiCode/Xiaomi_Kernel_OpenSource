@@ -63,6 +63,22 @@
 /* 0 = 25MHz from crystal, 1 = 19.2MHz from PLL */
 #define PLAT_CLK_FREQ_XTAL	0
 
+enum {
+	RT5651_GPIO_JD_INT,
+	RT5651_GPIO_JD_INT2,
+	RT5651_GPIO_JACK_SWITCH,
+	RT5651_GPIO_ALC105_RESET,
+};
+
+#define RT5651_GPIO_NA		-1
+
+struct rt5651_gpios {
+	int jd_int_gpio;
+	int jd_int2_gpio;
+	int debug_mux_gpio;
+	int alc105_reset_gpio;
+};
+
 struct byt_mc_private {
 	struct snd_soc_jack jack;
 	struct delayed_work hs_insert_work;
@@ -81,6 +97,7 @@ struct byt_mc_private {
 	int hs_det_poll_intrvl;
 	int hs_det_retry;
 	bool process_button_events;
+	struct rt5651_gpios gpios;
 };
 
 static int byt_jack_soc_gpio_intr(void *data);
@@ -119,11 +136,20 @@ static inline void byt_set_mic_bias_ldo(struct snd_soc_codec *codec,
 }
 
 /*if Soc Jack det is enabled, use it, otherwise use JD via codec */
-static inline int byt_check_jd_status(struct byt_mc_private *ctx)
+static inline bool byt_hs_inserted(struct byt_mc_private *ctx)
 {
-	struct snd_soc_jack_gpio *gpio = &hs_gpio[0];
+	bool val;
+	int pin;
+	const struct gpio_desc *desc;
 
-	return !(gpio_get_value(gpio->gpio));
+	pin = ctx->gpios.jd_int2_gpio;
+	desc = gpio_to_desc(pin);
+	val = (bool)gpiod_get_value(desc);
+
+	pr_info("%s: val = %d (pin = %d, active_low = %d)\n", __func__, pin,
+		val, gpiod_is_active_low(desc));
+
+	return val;
 }
 
 /* Identify the jack type as Headset/Headphone/None */
@@ -136,9 +162,8 @@ static int byt_check_jack_type(void)
 	struct byt_mc_private *ctx = container_of(jack, struct byt_mc_private,
 						jack);
 
-	status = byt_check_jd_status(ctx);
-	/* jd status low indicates some accessory has been connected */
-	if (!status) {
+	/* Accessory has been connected */
+	if (byt_hs_inserted(ctx)) {
 		pr_debug("Jack insert intr");
 		/* Do not process button events until accessory is detected
 		   as headset*/
@@ -233,8 +258,7 @@ static void byt_check_hs_remove_status(struct work_struct *work)
 	jack_type = jack->status;
 
 	if (jack->status) { /* Jack in conn. state. Look for removal event */
-		status = byt_check_jd_status(ctx);
-		if (status) { /* JD status high => Accessory disconnected */
+		if (!byt_hs_inserted(ctx)) { /* Accessory disconnected */
 			pr_debug("Jack remove event");
 			ctx->process_button_events = false;
 			cancel_delayed_work_sync(&ctx->hs_button_en_work);
@@ -278,8 +302,7 @@ static void byt_check_hs_button_status(struct work_struct *work)
 	if (((jack->status & SND_JACK_HEADSET) == SND_JACK_HEADSET)
 			&& ctx->process_button_events) {
 
-		status = byt_check_jd_status(ctx);
-		if (!status) { /* confirm jack is connected */
+		if (byt_hs_inserted(ctx)) { /* confirm jack is connected */
 			status = gpio_get_value(gpio->gpio);
 			if (jack->status & SND_JACK_BTN_0) {
 				if (!status) {
@@ -317,7 +340,6 @@ static int byt_jack_soc_gpio_intr(void *data)
 	struct byt_mc_private *ctx = container_of(jack, struct byt_mc_private,
 						jack);
 	int ret;
-	int status;
 
 	mutex_lock(&ctx->jack_mlock);
 
@@ -334,10 +356,10 @@ static int byt_jack_soc_gpio_intr(void *data)
 					__func__, ctx->hs_insert_det_delay);
 
 	} else {
-		status = byt_check_jd_status(ctx);
-		/* jd status high indicates accessory has been disconnected.
+
+		/* Accessory has been disconnected.
 		   However, confirm the removal in the delayed work */
-		if (status) {
+		if (!byt_hs_inserted(ctx)) {
 			/* Do not process button events while we make sure
 			   accessory is disconnected */
 			ctx->process_button_events = false;
@@ -559,11 +581,11 @@ static int byt_set_bias_level(struct snd_soc_card *card,
 
 static int byt_init(struct snd_soc_pcm_runtime *runtime)
 {
-	int ret;
+	int ret, dir, pol, val;
 	struct snd_soc_codec *codec;
 	struct snd_soc_card *card = runtime->card;
 	struct byt_mc_private *ctx = snd_soc_card_get_drvdata(runtime->card);
-	int codec_gpio, jd_gpio;
+	struct gpio_desc *desc;
 
 	pr_debug("%s: Enter.\n", __func__);
 
@@ -573,24 +595,92 @@ static int byt_init(struct snd_soc_pcm_runtime *runtime)
 		return -EIO;
 	}
 
-	/* Get the codec GPIO */
-	codec_gpio = rt5651_get_jack_gpio(codec, 0);
-	pr_info("%s: Codec GPIO = %d", __func__, codec_gpio);
-	hs_gpio[0].gpio = codec_gpio;
-
-	/* Get the JD GPIO */
-	jd_gpio = rt5651_get_jack_gpio(codec, 1);
-	pr_info("%s: JD GPIO = %d", __func__, jd_gpio);
-	hs_gpio[0].gpio = jd_gpio;
-
 	card->dapm.idle_bias_off = true;
-	/* Set overcurrent detection threshold base and scale factor
-	   for jack type identification and button events. */
 
-	snd_soc_update_bits(codec, RT5651_IRQ_CTRL1,
-			RT5651_IRQ_JD_MASK, RT5651_IRQ_JD_BP);
-	snd_soc_update_bits(codec, RT5651_JD_CTRL1,
-			RT5651_JD_MASK, RT5651_JD_DIS);
+	/* GPIOs */
+
+	desc = devm_gpiod_get_index(codec->dev, NULL, RT5651_GPIO_JD_INT);
+	if (!IS_ERR(desc)) {
+		ctx->gpios.jd_int_gpio = desc_to_gpio(desc);
+		devm_gpiod_put(codec->dev, desc);
+
+		ret = gpiod_export(desc, true);
+		if (ret)
+			pr_debug("%s: Unable to export GPIO%d (JD)! Returned %d.\n",
+				__func__, ctx->gpios.jd_int_gpio, ret);
+		pol = gpiod_is_active_low(desc);
+		val = gpiod_get_value(desc);
+		pr_info("%s: GPIOs - JD-int: %d (pol = %d, val = %d)\n",
+			__func__, ctx->gpios.jd_int_gpio, pol, val);
+
+	} else {
+		ctx->gpios.jd_int_gpio = RT5651_GPIO_NA;
+		pr_err("%s: GPIOs - JD-int: Not present!\n", __func__);
+	}
+
+	desc = devm_gpiod_get_index(codec->dev, NULL, RT5651_GPIO_JD_INT2);
+	if (!IS_ERR(desc)) {
+		ctx->gpios.jd_int2_gpio = desc_to_gpio(desc);
+		devm_gpiod_put(codec->dev, desc);
+
+		ret = gpiod_export(desc, true);
+		if (ret)
+			pr_debug("%s: Unable to export GPIO%d (JD2)! Returned %d.\n",
+				__func__, ctx->gpios.jd_int2_gpio, ret);
+		pol = gpiod_is_active_low(desc);
+		val = gpiod_get_value(desc);
+		pr_info("%s: GPIOs - JD-int 2: %d (pol = %d, val = %d)\n",
+			__func__, ctx->gpios.jd_int2_gpio, pol, val);
+
+	} else {
+		ctx->gpios.jd_int2_gpio = RT5651_GPIO_NA;
+		pr_warn("%s: GPIOs - JD-int2: Not present!\n", __func__);
+	}
+
+	desc = devm_gpiod_get_index(codec->dev, NULL, RT5651_GPIO_JACK_SWITCH);
+	if (!IS_ERR(desc)) {
+		ctx->gpios.debug_mux_gpio = desc_to_gpio(desc);
+		devm_gpiod_put(codec->dev, desc);
+		pr_debug("%s: GPIOs - Debug-mux: %d\n", __func__,
+			ctx->gpios.debug_mux_gpio);
+
+		ret = gpiod_export(desc, true);
+		if (ret)
+			pr_debug("%s: Unable to export GPIO%d (debug-mux)! Returned %d.\n",
+				__func__, ctx->gpios.debug_mux_gpio, ret);
+		dir = gpiod_get_direction(desc);
+		if (dir < 0)
+			pr_debug("%s: Unable to get direction for GPIO%d from GPIO-driver (err = %d)!\n",
+				__func__, ctx->gpios.debug_mux_gpio, dir);
+		else if (dir == GPIOF_DIR_IN)
+			pr_warn("%s: Direction for GPIO%d is set to input (dir = %d)! Headset-path will have no audio!\n",
+				__func__, ctx->gpios.debug_mux_gpio, dir);
+		else
+			pr_debug("%s: Direction for GPIO%d is set to output (dir = %d)!\n",
+				__func__, ctx->gpios.debug_mux_gpio, dir);
+
+		val = gpiod_get_value(desc);
+		pr_info("%s: GPIOs - Debug-mux: %d (dir = %d, val = %d)\n",
+			__func__, ctx->gpios.debug_mux_gpio, dir, val);
+	} else {
+		ctx->gpios.debug_mux_gpio = RT5651_GPIO_NA;
+		pr_warn("%s: GPIOs - Debug-mux: Not present!\n", __func__);
+	}
+
+	desc = devm_gpiod_get_index(codec->dev, NULL, RT5651_GPIO_ALC105_RESET);
+	if (!IS_ERR(desc)) {
+		ret = gpiod_export(desc, true);
+		if (ret)
+			pr_warn("%s: Unable to export GPIO%d (ALC105 reset)! Returned %d.\n",
+				__func__, ctx->gpios.alc105_reset_gpio, ret);
+		pr_info("%s: GPIOs - ALC105 reset: %d (active_low = %d)\n",
+			__func__, ctx->gpios.alc105_reset_gpio, 0);
+	} else {
+		ctx->gpios.jd_int2_gpio = RT5651_GPIO_NA;
+		pr_warn("%s: GPIOs - ALC105 reset: Not present!\n", __func__);
+	}
+
+	/* BYT-CR Audio Jack */
 
 	ret = snd_soc_jack_new(codec, "BYT-CR Audio Jack",
 			SND_JACK_HEADSET | SND_JACK_HEADPHONE |
@@ -600,11 +690,19 @@ static int byt_init(struct snd_soc_pcm_runtime *runtime)
 		return ret;
 	}
 
+	hs_gpio[0].gpio = ctx->gpios.jd_int2_gpio;
 	ret = snd_soc_jack_add_gpios(&ctx->jack, 1, hs_gpio);
 	if (ret) {
 		pr_err("snd_soc_jack_add_gpios failed!\n");
 		return ret;
 	}
+
+	/* Set overcurrent detection threshold base and scale factor
+	   for jack type identification and button events. */
+	snd_soc_update_bits(codec, RT5651_IRQ_CTRL1,
+			RT5651_IRQ_JD_MASK, RT5651_IRQ_JD_BP);
+	snd_soc_update_bits(codec, RT5651_JD_CTRL1,
+			RT5651_JD_MASK, RT5651_JD_DIS);
 
 	ret = snd_soc_add_card_controls(card, byt_mc_controls,
 					ARRAY_SIZE(byt_mc_controls));

@@ -2161,7 +2161,7 @@ struct rt5640_priv {
 	bool dsp_rec_pass;
 
 	int jack_type;
-	int codec_gpio;
+
 	unsigned int ovcd_th_base; /* OVCD threshold base value*/
 	unsigned int ovcd_th_sf; /* OVCD threshold scale factor */
 
@@ -2170,7 +2170,6 @@ struct rt5640_priv {
 int rt5640_detect_hs_type(struct snd_soc_codec *codec, int jack_insert);
 int rt5640_check_jd_status(struct snd_soc_codec *codec);
 int rt5640_check_bp_status(struct snd_soc_codec *codec);
-int rt5640_get_jack_gpio(struct snd_soc_codec *codec);
 void rt5640_enable_ovcd_interrupt(struct snd_soc_codec *codec, bool enable);
 void rt5640_config_ovcd_thld(struct snd_soc_codec *codec,
 						int base, int scale_factor);

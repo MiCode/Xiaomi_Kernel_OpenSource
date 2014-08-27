@@ -2137,7 +2137,7 @@ struct rt5651_priv {
 	bool dsp_play_pass;
 	bool dsp_rec_pass;
 	int jack_type;
-	int codec_gpio[2];
+
 	unsigned int ovcd_th_base; /* OVCD threshold base value*/
 	unsigned int ovcd_th_sf; /* OVCD threshold scale factor */
 };
@@ -2148,7 +2148,6 @@ int rt5651_conn_mux_path(struct snd_soc_codec *codec,
 int rt5651_detect_hs_type(struct snd_soc_codec *codec, int jack_insert);
 int rt5651_check_jd_status(struct snd_soc_codec *codec);
 int rt5651_check_bp_status(struct snd_soc_codec *codec);
-int rt5651_get_jack_gpio(struct snd_soc_codec *codec, int idx);
 void rt5651_enable_ovcd_interrupt(struct snd_soc_codec *codec, bool enable);
 void rt5651_config_ovcd_thld(struct snd_soc_codec *codec,
 						int base, int scale_factor);

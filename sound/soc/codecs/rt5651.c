@@ -512,13 +512,6 @@ int rt5651_check_bp_status(struct snd_soc_codec *codec)
 }
 EXPORT_SYMBOL(rt5651_check_bp_status);
 
-int rt5651_get_jack_gpio(struct snd_soc_codec *codec, int idx)
-{
-	struct rt5651_priv *rt5651 = snd_soc_codec_get_drvdata(codec);
-	return rt5651->codec_gpio[idx];
-}
-EXPORT_SYMBOL(rt5651_get_jack_gpio);
-
 /* Function to enable/disable overcurrent detection(OVCD) and button
    press interrupts (based on OVCD) in the codec*/
 void rt5651_enable_ovcd_interrupt(struct snd_soc_codec *codec,
@@ -2452,7 +2445,6 @@ static int rt5651_i2c_probe(struct i2c_client *i2c,
 {
 	struct rt5651_priv *rt5651;
 	int ret;
-	struct gpio_desc *gpiod;
 
 	/* Set I2C platform data */
 	pr_debug("%s: i2c->addr before: %x\n", __func__, i2c->addr);
@@ -2471,16 +2463,6 @@ static int rt5651_i2c_probe(struct i2c_client *i2c,
 		pr_debug("%s: snd_soc_register_codec failed %s\n", __func__);
 		kfree(rt5651);
 	}
-
-	gpiod = devm_gpiod_get_index(&i2c->dev, NULL, 0);
-	rt5651->codec_gpio[0] = desc_to_gpio(gpiod);
-	devm_gpiod_put(&i2c->dev, gpiod);
-	gpiod = devm_gpiod_get_index(&i2c->dev, NULL, 1);
-	rt5651->codec_gpio[1] = desc_to_gpio(gpiod);
-	devm_gpiod_put(&i2c->dev, gpiod);
-
-	pr_debug("%s: Codec GPIOs: %d, %d\n", __func__, rt5651->codec_gpio[0],
-		rt5651->codec_gpio[1]);
 
 	return ret;
 }
