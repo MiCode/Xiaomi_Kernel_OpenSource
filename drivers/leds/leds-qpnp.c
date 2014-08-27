@@ -1050,6 +1050,27 @@ static int qpnp_flash_set(struct qpnp_led_data *led)
 				goto error_flash_set;
 			}
 
+			/* Disable safety timer when current is below a threshold*/
+			if (val < 200) {
+				rc = qpnp_led_masked_write(led,
+						FLASH_LED_UNLOCK_SECURE(led->base),
+						FLASH_SECURE_MASK, FLASH_UNLOCK_SECURE);
+				if (rc) {
+						dev_err(&led->spmi_dev->dev,
+								"Secure reg write failed(%d)\n", rc);
+						goto error_reg_write;
+				}
+
+				rc = qpnp_led_masked_write(led,
+						FLASH_LED_TORCH(led->base),
+						FLASH_TORCH_MASK, FLASH_LED_TORCH_ENABLE);
+				if (rc) {
+						dev_err(&led->spmi_dev->dev,
+								"Torch reg write failed(%d)\n", rc);
+						goto error_reg_write;
+				}
+			}
+
 			/* Set max current */
 			rc = qpnp_led_masked_write(led,
 				FLASH_MAX_CURR(led->base), FLASH_CURRENT_MASK,
