@@ -114,6 +114,182 @@ static int intel_cancel_wait_perfmon_interrupt(struct drm_device *dev)
 }
 
 /**
+ * i915_get_render_hw_ctx_id
+ *
+ * Get render engine HW context ID for given context. This is the
+ * representation of context in the HW. This is *not* context ID as referenced
+ * by usermode. For legacy submission path this is logical ring context address.
+ * For execlist this is the kernel managed context ID written to execlist
+ * descriptor.
+ */
+static int  i915_get_render_hw_ctx_id(
+	struct drm_i915_private *dev_priv,
+	struct intel_context *ctx,
+	__u32 *id)
+{
+	struct drm_i915_gem_object *ctx_obj =
+		ctx->engine[RCS].state;
+
+	if (!ctx_obj)
+		return -ENOENT;
+
+	*id = i915.enable_execlists ?
+			intel_execlists_ctx_id(ctx_obj) :
+			i915_gem_obj_ggtt_offset(ctx_obj) >> 12;
+
+	return 0;
+}
+
+/**
+ * i915_perfmon_get_hw_ctx_id
+ *
+ * Get HW context ID for given context ID and DRM file.
+ */
+static int i915_perfmon_get_hw_ctx_id(
+	struct drm_device *dev,
+	struct drm_file *file,
+	struct drm_i915_perfmon_get_hw_ctx_id *ioctl_data)
+{
+	struct drm_i915_private *dev_priv =
+		(struct drm_i915_private *) dev->dev_private;
+	struct intel_context *ctx;
+	struct drm_i915_file_private *file_priv = file->driver_priv;
+	int ret;
+
+	if (!HAS_HW_CONTEXTS(dev))
+		return -ENODEV;
+
+	ret = i915_mutex_lock_interruptible(dev);
+	if (ret)
+		return ret;
+
+	ctx = i915_gem_context_get(file_priv, ioctl_data->ctx_id);
+	if (IS_ERR_OR_NULL(ctx))
+		ret = -ENOENT;
+	else
+		ret = i915_get_render_hw_ctx_id(dev_priv, ctx,
+			&ioctl_data->hw_ctx_id);
+
+	mutex_unlock(&dev->struct_mutex);
+	return ret;
+}
+
+struct i915_perfmon_hw_ctx_list {
+	__u32 *ids;
+	__u32 capacity;
+	__u32 size;
+	__u32 iterations_left;
+};
+
+/**
+ * process_context
+ *
+ * Check if context referenced by 'ptr' belongs to application with
+ * provided process ID. If so, increment total number of contexts
+ * found (list->size) and add context id to the list if
+ * its capacity is not reached.
+ */
+static int process_context(struct drm_i915_private *dev_priv,
+	struct intel_context *ctx,
+	__u32 pid,
+	struct i915_perfmon_hw_ctx_list *list)
+{
+	bool ctx_match;
+	bool has_render_ring;
+	__u32 id;
+
+	if (list->iterations_left == 0)
+		return 0;
+	--list->iterations_left;
+
+	ctx_match = (pid == pid_vnr(ctx->pid) ||
+			 pid == 0 ||
+			 ctx == dev_priv->ring[RCS].default_context);
+
+	if (ctx_match) {
+		has_render_ring =
+			(0 == i915_get_render_hw_ctx_id(
+				dev_priv, ctx, &id));
+	}
+
+	if (ctx_match && has_render_ring) {
+		if (list->size < list->capacity)
+			list->ids[list->size] = id;
+		list->size++;
+	}
+
+	return 0;
+}
+
+/**
+ * i915_perfmon_get_hw_ctx_ids
+ *
+ * Lookup the list of all contexts and return HW context IDs of those
+ * belonging to provided process id.
+ *
+ * User specifies maximum number of IDs to be written to provided block of
+ * memory: ioctl_data->count. Returned is the list of not more than
+ * ioctl_data->count HW context IDs together with total number of matching
+ * contexts found - potentially more than ioctl_data->count.
+ *
+ */
+static int i915_perfmon_get_hw_ctx_ids(
+	struct drm_device *dev,
+	struct drm_i915_perfmon_get_hw_ctx_ids *ioctl_data)
+{
+	struct drm_i915_private *dev_priv =
+		(struct drm_i915_private *) dev->dev_private;
+	struct i915_perfmon_hw_ctx_list list;
+	struct intel_context *ctx;
+	unsigned int ids_to_copy;
+	int ret;
+
+	if (!HAS_HW_CONTEXTS(dev))
+		return -ENODEV;
+
+	if (ioctl_data->count > I915_PERFMON_MAX_HW_CTX_IDS)
+		return -EINVAL;
+
+	list.ids = kzalloc(
+		ioctl_data->count * sizeof(__u32), GFP_KERNEL);
+	if (!list.ids)
+		return -ENOMEM;
+	list.capacity = ioctl_data->count;
+	list.size = 0;
+	list.iterations_left = I915_PERFMON_MAX_HW_CTX_IDS;
+
+	ret = i915_mutex_lock_interruptible(dev);
+	if (ret)
+		goto exit;
+
+	list_for_each_entry(ctx, &dev_priv->context_list, link) {
+		process_context(dev_priv, ctx, ioctl_data->pid, &list);
+	}
+
+	mutex_unlock(&dev->struct_mutex);
+
+	/*
+	 * After we searched all the contexts list.size is the total number
+	 * of contexts matching the query. This is potentially more than
+	 * the capacity of user buffer (list.capacity).
+	 */
+	ids_to_copy = min(list.size, list.capacity);
+	if (copy_to_user(
+		(__u32 __user *)(uintptr_t)ioctl_data->ids,
+		list.ids,
+		ids_to_copy * sizeof(__u32))) {
+		ret = -EFAULT;
+		goto exit;
+	}
+
+	/* Return total number of matching ids to the user. */
+	ioctl_data->count = list.size;
+exit:
+	kfree(list.ids);
+	return ret;
+}
+
+/**
  * i915_perfmon_open
  *
  * open perfmon for current file
@@ -157,6 +333,7 @@ int i915_perfmon_ioctl(struct drm_device *dev, void *data,
 	struct drm_file *file)
 {
 	struct drm_i915_perfmon *perfmon = data;
+	struct drm_i915_file_private *file_priv = file->driver_priv;
 	int ret = 0;
 
 	switch (perfmon->op) {
@@ -206,11 +383,20 @@ int i915_perfmon_ioctl(struct drm_device *dev, void *data,
 		break;
 
 	case I915_PERFMON_GET_HW_CTX_ID:
-		ret = -ENODEV;
+		ret = i915_perfmon_get_hw_ctx_id(
+			dev,
+			file,
+			&perfmon->data.get_hw_ctx_id);
 		break;
 
 	case I915_PERFMON_GET_HW_CTX_IDS:
-		ret = -ENODEV;
+		if (!file_priv->perfmon.opened) {
+			ret = -EACCES;
+			break;
+		}
+		ret = i915_perfmon_get_hw_ctx_ids(
+			dev,
+			&perfmon->data.get_hw_ctx_ids);
 		break;
 
 	default:
