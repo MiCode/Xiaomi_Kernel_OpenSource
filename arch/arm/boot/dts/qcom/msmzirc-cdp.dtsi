@@ -50,3 +50,48 @@
 		qcom,charging-disabled;
 	};
 };
+
+&pmd9635_gpios {
+	gpio@c000 { /* GPIO 1 */
+	};
+
+	gpio@c100 { /* GPIO 2 */
+	};
+
+	gpio@c200 { /* GPIO 3 */
+	};
+
+	gpio@c300 { /* GPIO 4 */
+		status = "ok";
+		qcom,mode = <0>;	/* Digital input */
+		qcom,pull = <1>;	/* Pull up 1.5 uA */
+		qcom,vin-sel = <2>;	/* PMD9635 LDO 6 = 1.8 V */
+		qcom,master-en = <1>;	/* Enable GPIO */
+	};
+
+	gpio@c400 { /* GPIO 5 */
+	};
+
+	gpio@c500 { /* GPIO 6 */
+	};
+};
+
+&pmd9635_mpps {
+	mpp@a000 { /* MPP 1 */
+	};
+
+	mpp@a100 { /* MPP 2 */
+	};
+
+	mpp@a200 { /* MPP 3 */
+	};
+
+	mpp@a300 { /* MPP 4 */
+	};
+
+	mpp@a400 { /* MPP 5 */
+	};
+
+	mpp@a500 { /* MPP 6 */
+	};
+};
