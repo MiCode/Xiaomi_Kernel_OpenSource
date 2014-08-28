@@ -524,6 +524,15 @@ config VLV2_PLAT_CLK
         ---help---
          Driver to enable the platform clock control for valleyview2
 
+config MONZA_X
+        tristate "Impinj Monza-x-2K RFID Chip"
+        depends on I2C
+        help
+          This driver provides support for the Impinj Monza-x-2K RFID Chip,
+          Monza x-Dura is UHF Gen2 RFID IC product with 2176bits user NVM,
+          it can be accessed by i2c interface and UHF Gen2 RFID protocol,
+          this driver provide access interface via sysfs for userland.
+
 source "drivers/misc/pwm/Kconfig"
 source "drivers/misc/c2port/Kconfig"
 source "drivers/misc/eeprom/Kconfig"
