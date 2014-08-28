@@ -2224,12 +2224,8 @@ static int dwc3_msm_power_set_property_usb(struct power_supply *psy,
 	case POWER_SUPPLY_PROP_USB_OTG:
 		/* Let OTG know about ID detection */
 		mdwc->id_state = val->intval ? DWC3_ID_GROUND : DWC3_ID_FLOAT;
-		if (mdwc->otg_xceiv && !mdwc->ext_inuse &&
-		    (mdwc->ext_xceiv.otg_capability)) {
-			mdwc->ext_xceiv.id = mdwc->id_state;
-			queue_delayed_work(system_nrt_wq,
-							&mdwc->resume_work, 12);
-		}
+		if (mdwc->otg_xceiv && mdwc->ext_xceiv.otg_capability)
+			queue_work(system_nrt_wq, &mdwc->id_work);
 
 		break;
 	case POWER_SUPPLY_PROP_SCOPE:
