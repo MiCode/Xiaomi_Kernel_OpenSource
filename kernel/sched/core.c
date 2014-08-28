@@ -1620,8 +1620,11 @@ static inline void mark_task_starting(struct task_struct *p)
 		return;
 	}
 
-	update_task_ravg(rq->curr, rq, TASK_UPDATE, wallclock, 0);
 	p->ravg.mark_start = wallclock;
+	if (sched_freq_legacy_mode)
+		return;
+
+	update_task_ravg(rq->curr, rq, TASK_UPDATE, wallclock, 0);
 	rq->prev_runnable_sum += p->ravg.demand;
 	rq->curr_runnable_sum += p->ravg.partial_demand;
 	p->ravg.flags |= CURR_WINDOW_CONTRIB;
@@ -1700,10 +1703,10 @@ void sched_exit(struct task_struct *p)
 	wallclock = sched_clock();
 	update_task_ravg(rq->curr, rq, TASK_UPDATE, wallclock, 0);
 	dequeue_task(rq, p, 0);
-	if (!sched_disable_window_stats &&
+	if (!sched_disable_window_stats && !sched_freq_legacy_mode &&
 			(p->ravg.flags & CURR_WINDOW_CONTRIB))
 		rq->curr_runnable_sum -= p->ravg.partial_demand;
-	if (!sched_disable_window_stats &&
+	if (!sched_disable_window_stats && !sched_freq_legacy_mode &&
 			(p->ravg.flags & PREV_WINDOW_CONTRIB))
 		rq->prev_runnable_sum -= p->ravg.demand;
 	BUG_ON((s64)rq->curr_runnable_sum < 0);
