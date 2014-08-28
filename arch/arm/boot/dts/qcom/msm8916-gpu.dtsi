@@ -50,9 +50,9 @@
 		qcom,msm-bus,num-paths = <1>;
 		qcom,msm-bus,vectors-KBps =
 			<26 512 0 0>,
-			<26 512 0 1600000>,
-			<26 512 0 3200000>,
-			<26 512 0 4264000>;
+			<26 512 160000 1600000>,
+			<26 512 800000 3200000>,
+			<26 512 1066000 4264000>;
 
 		/* GDSC oxili regulators */
 		vdd-supply = <&gdsc_oxili_gx>;
