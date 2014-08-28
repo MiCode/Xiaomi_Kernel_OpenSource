@@ -2752,6 +2752,7 @@ static void dwc3_gadget_reset_interrupt(struct dwc3 *dwc)
 	reg = dwc3_readl(dwc->regs, DWC3_DCFG);
 	reg &= ~(DWC3_DCFG_DEVADDR_MASK);
 	dwc3_writel(dwc->regs, DWC3_DCFG, reg);
+	dwc->gadget.speed = USB_SPEED_UNKNOWN;
 	dwc->link_state = DWC3_LINK_STATE_U0;
 	wake_up_interruptible(&dwc->wait_linkstate);
 }
@@ -3163,7 +3164,14 @@ static void dwc3_gadget_interrupt(struct dwc3 *dwc,
 			dbg_event(0xFF, "GAD SUS", 0);
 			dwc->dbg_gadget_events.suspend++;
 
-			dwc3_gadget_suspend_interrupt(dwc, event->event_info);
+			/*
+			 * Ignore suspend event if usb cable is not connected
+			 * and speed is not being detected.
+			 */
+			if (dwc->gadget.speed != USB_SPEED_UNKNOWN &&
+				dwc->vbus_active)
+					dwc3_gadget_suspend_interrupt(dwc,
+							event->event_info);
 		}
 		break;
 	case DWC3_DEVICE_EVENT_SOF:
