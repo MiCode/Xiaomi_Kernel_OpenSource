@@ -141,7 +141,7 @@ static ssize_t sst_debug_shim_write(struct file *file,
 		pr_err("kstrtoul failed, ret_val = %d\n", ret_val);
 		goto put_pm_runtime;
 	}
-	if (!(SST_SHIM_BEGIN < reg_addr && reg_addr < SST_SHIM_END)) {
+	if (!(SST_SHIM_BEGIN <= reg_addr && reg_addr < SST_SHIM_END)) {
 		pr_err("invalid shim address: 0x%lx\n", reg_addr);
 		ret_val = -EINVAL;
 		goto put_pm_runtime;
