@@ -110,6 +110,7 @@
 			cell-index = <0>;
 			compatible = "qcom,mdss-fb";
 			qcom,memblock-reserve = <0x83200000 0xfa0000>;
+			qcom,mdss-fb-splash-logo-enabled;
 		};
 
 		mdss_fb1: qcom,mdss_fb_wfd {
