@@ -891,6 +891,44 @@ exit:
 	return ret;
 }
 
+/**
+ * mpu6050_reset_chip - reset chip to default state
+ */
+static void mpu6050_reset_chip(struct mpu6050_sensor *sensor)
+{
+	struct i2c_client *client;
+	int ret, i;
+
+	client = sensor->client;
+
+	ret = i2c_smbus_write_byte_data(client, sensor->reg.pwr_mgmt_1,
+			BIT_RESET_ALL);
+	if (ret < 0) {
+		dev_err(&client->dev, "Reset chip fail!\n");
+		goto exit;
+	}
+	for (i = 0; i < MPU6050_RESET_RETRY_CNT; i++) {
+		ret = i2c_smbus_read_byte_data(sensor->client,
+					sensor->reg.pwr_mgmt_1);
+		if (ret < 0) {
+			dev_err(&sensor->client->dev,
+				"Fail to get reset state ret=%d\n", ret);
+			goto exit;
+		}
+
+		if ((ret & BIT_H_RESET) == 0) {
+			dev_dbg(&sensor->client->dev,
+				"Chip reset success! i=%d\n", i);
+			break;
+		}
+
+		msleep(MPU6050_RESET_WAIT_MS);
+	}
+
+exit:
+	return;
+}
+
 static int mpu6050_gyro_set_enable(struct mpu6050_sensor *sensor, bool enable)
 {
 	int ret = 0;
@@ -938,14 +976,6 @@ static int mpu6050_gyro_set_enable(struct mpu6050_sensor *sensor, bool enable)
 		else
 			disable_irq(sensor->client->irq);
 
-		if (!sensor->cfg.enable) {
-			ret = mpu6050_power_ctl(sensor, false);
-			if (ret < 0) {
-				dev_err(&sensor->client->dev,
-					"Failed to set power off mpu6050");
-				goto exit;
-			}
-		}
 	}
 
 exit:
@@ -1194,14 +1224,6 @@ static int mpu6050_accel_set_enable(struct mpu6050_sensor *sensor, bool enable)
 			goto exit;
 		}
 
-		if (!sensor->cfg.enable) {
-			ret = mpu6050_power_ctl(sensor, false);
-			if (ret < 0) {
-				dev_err(&sensor->client->dev,
-					"Failed to set power off mpu6050");
-				goto exit;
-			}
-		}
 	}
 
 exit:
@@ -1983,14 +2005,11 @@ static int mpu6050_suspend(struct device *dev)
 			cancel_delayed_work_sync(&sensor->accel_poll_work);
 	}
 
-
-	if (sensor->cfg.enable) {
-		mpu6050_set_power_mode(sensor, false);
-		ret = mpu6050_power_ctl(sensor, false);
-		if (ret < 0) {
-			dev_err(&client->dev, "Power off mpu6050 failed\n");
-			goto exit;
-		}
+	mpu6050_set_power_mode(sensor, false);
+	ret = mpu6050_power_ctl(sensor, false);
+	if (ret < 0) {
+		dev_err(&client->dev, "Power off mpu6050 failed\n");
+		goto exit;
 	}
 
 	dev_dbg(&client->dev, "suspended\n");
@@ -2013,20 +2032,24 @@ static int mpu6050_resume(struct device *dev)
 	struct mpu6050_sensor *sensor = i2c_get_clientdata(client);
 	int ret = 0;
 
-	if (sensor->cfg.enable) {
-		ret = mpu6050_power_ctl(sensor, true);
-		if (ret < 0) {
-			dev_err(&client->dev, "Power off mpu6050 failed\n");
-			goto exit;
-		}
+	/* Keep sensor power on to prevent  */
+	ret = mpu6050_power_ctl(sensor, true);
+	if (ret < 0) {
+		dev_err(&client->dev, "Power on mpu6050 failed\n");
+		goto exit;
+	}
+	/* Reset sensor to recovery from unexpect state */
+	mpu6050_reset_chip(sensor);
 
+	if (sensor->cfg.enable) {
 		ret = mpu6050_restore_context(sensor);
 		if (ret < 0) {
 			dev_err(&client->dev, "Failed to restore context\n");
 			goto exit;
 		}
-
 		mpu6050_set_power_mode(sensor, true);
+	} else {
+		mpu6050_set_power_mode(sensor, false);
 	}
 
 	if (sensor->cfg.gyro_enable) {
