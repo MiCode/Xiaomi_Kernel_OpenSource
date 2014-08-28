@@ -161,8 +161,8 @@ static ssize_t sst_debug_shim_write(struct file *file,
 
 	if (drv->pci_id == SST_CLV_PCI_ID)
 		sst_shim_write(drv->shim, reg_addr, (u32) value);
-	else if (drv->pci_id == SST_MRFLD_PCI_ID) /*||
-			(drv->pci_id == PCI_DEVICE_ID_INTEL_SST_MOOR)) */
+	else if ((drv->pci_id == SST_MRFLD_PCI_ID) ||
+			(drv->pci_id == SST_BYT_PCI_ID))
 		sst_shim_write64(drv->shim, reg_addr, (u64) value);
 
 	/* Userspace has been fiddling around behind the kernel's back */
