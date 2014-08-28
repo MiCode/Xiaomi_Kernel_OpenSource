@@ -94,6 +94,7 @@ config ARCH_MSMFERRUM
 	select MSM_IRQ
 	select ARM_TICKET_LOCKS
 	select ARM_HAS_SG_CHAIN
+	select ARCH_WANT_KMAP_ATOMIC_FLUSH
 
 config ARCH_MSM8916
 	bool "MSM8916"
