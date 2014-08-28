@@ -45,13 +45,17 @@ static unsigned int _context_cmdbatch_burst = 5;
 static unsigned int _fault_throttle_time = 3000;
 static unsigned int _fault_throttle_burst = 3;
 
-#define ADRENO_DISPATCH_MAX_QUEUED_CMDS	15
+/*
+ * Maximum ringbuffer inflight for the single submitting context case - this
+ * should be sufficiently high to keep the GPU loaded
+ */
+static unsigned int _dispatcher_q_inflight_hi = 15;
 
-/* Number of command batches inflight in all ringbuffers at any time */
-static unsigned int _dispatcher_inflight = ADRENO_DISPATCH_MAX_QUEUED_CMDS;
-
-/* Number of command batches inflight in a ringbuffer at any time */
-static unsigned int _dispatch_q_inflight = ADRENO_DISPATCH_MAX_QUEUED_CMDS;
+/*
+ * Minimum inflight for the multiple context case - this should sufficiently low
+ * to allow for lower latency context switching
+ */
+static unsigned int _dispatcher_q_inflight_lo = 4;
 
 /* Command batch timeout (in milliseconds) */
 static unsigned int _cmdbatch_timeout = 2000;
@@ -62,6 +66,75 @@ static unsigned int _fault_timer_interval = 200;
 static int adreno_dispatch_process_cmdqueue(struct adreno_device *adreno_dev,
 				struct adreno_dispatcher_cmdqueue *dispatch_q,
 				int long_ib_detect);
+
+/**
+ * _track_context - Add a context ID to the list of recently seen contexts
+ * for the command queue
+ * @cmdqueue: cmdqueue to add the context to
+ * @id: ID of the context to add
+ *
+ * This function is called when a new item is added to a context - this tracks
+ * the number of active contexts seen in the last 500ms for the command queue
+ */
+static void _track_context(struct adreno_dispatcher_cmdqueue *cmdqueue,
+		unsigned int id)
+{
+	struct adreno_context_list *list = cmdqueue->active_contexts;
+	int oldest = -1, empty = -1;
+	unsigned long age = 0;
+	int i, count = 0;
+	bool updated = false;
+
+	for (i = 0; i < ACTIVE_CONTEXT_LIST_MAX; i++) {
+
+		/* If the new ID matches the slot update the expire time */
+		if (list[i].id == id) {
+			list[i].jiffies = jiffies + msecs_to_jiffies(500);
+			updated = true;
+			count++;
+			continue;
+		}
+
+		/* Remember and skip empty slots */
+		if ((list[i].id == 0) ||
+			time_after(jiffies, list[i].jiffies)) {
+			empty = i;
+			continue;
+		}
+
+		count++;
+
+		/* Remember the oldest active entry */
+		if (oldest == -1 || time_before(list[i].jiffies, age)) {
+			age = list[i].jiffies;
+			oldest = i;
+		}
+	}
+
+	if (updated == false) {
+		int pos = (empty != -1) ? empty : oldest;
+
+		list[pos].jiffies = jiffies + msecs_to_jiffies(500);
+		list[pos].id = id;
+		count++;
+	}
+
+	cmdqueue->active_context_count = count;
+}
+
+/*
+ *  If only one context has queued in the last 500 millseconds increase
+ *  inflight to a high number to load up the GPU. If multiple contexts
+ *  have queued drop the inflight for better context switch latency.
+ *  If no contexts have queued what are you even doing here?
+ */
+
+static inline int
+_cmdqueue_inflight(struct adreno_dispatcher_cmdqueue *cmdqueue)
+{
+	return (cmdqueue->active_context_count > 1)
+		? _dispatcher_q_inflight_lo : _dispatcher_q_inflight_hi;
+}
 
 /**
  * fault_detect_read() - Read the set of fault detect registers
@@ -504,15 +577,16 @@ static int dispatcher_context_sendcmds(struct adreno_device *adreno_dev,
 					&(drawctxt->rb->dispatch_q);
 	int count = 0;
 	int ret = 0;
+	int inflight = _cmdqueue_inflight(dispatch_q);
 
-	if (dispatch_q->inflight >= _dispatch_q_inflight)
+	if (dispatch_q->inflight >= inflight)
 		return -EBUSY;
 
 	/*
 	 * Each context can send a specific number of command batches per cycle
 	 */
 	while ((count < _context_cmdbatch_burst) &&
-		(dispatch_q->inflight < _dispatch_q_inflight)) {
+		(dispatch_q->inflight < inflight)) {
 		struct kgsl_cmdbatch *cmdbatch;
 
 		if (adreno_gpu_fault(adreno_dev) != 0)
@@ -941,6 +1015,7 @@ int adreno_dispatcher_queue_cmd(struct adreno_device *adreno_dev,
 	drawctxt->queued++;
 	trace_adreno_cmdbatch_queued(cmdbatch, drawctxt->queued);
 
+	_track_context(dispatch_q, drawctxt->base.id);
 
 	mutex_unlock(&drawctxt->mutex);
 
@@ -1806,9 +1881,8 @@ static void adreno_dispatcher_work(struct work_struct *work)
 	if (dispatcher->inflight == 0 && count)
 		queue_work(device->work_queue, &device->event_work);
 
-	/* Dispatch new commands if we have the room */
-	if (dispatcher->inflight < _dispatcher_inflight)
-		_adreno_dispatcher_issuecmds(adreno_dev);
+	/* Try to dispatch new commands */
+	_adreno_dispatcher_issuecmds(adreno_dev);
 
 done:
 	/* Either update the timer for the next command batch or disable it */
@@ -2046,7 +2120,10 @@ static ssize_t _show_uint(struct adreno_dispatcher *dispatcher,
 }
 
 static DISPATCHER_UINT_ATTR(inflight, 0644, ADRENO_DISPATCH_CMDQUEUE_SIZE,
-	_dispatcher_inflight);
+	_dispatcher_q_inflight_hi);
+
+static DISPATCHER_UINT_ATTR(inflight_low_latency, 0644,
+	ADRENO_DISPATCH_CMDQUEUE_SIZE, _dispatcher_q_inflight_lo);
 /*
  * Our code that "puts back" a command from the context is much cleaner
  * if we are sure that there will always be enough room in the
@@ -2068,6 +2145,7 @@ static DISPATCHER_UINT_ATTR(fault_throttle_burst, 0644, 0,
 
 static struct attribute *dispatcher_attrs[] = {
 	&dispatcher_attr_inflight.attr,
+	&dispatcher_attr_inflight_low_latency.attr,
 	&dispatcher_attr_context_cmdqueue_size.attr,
 	&dispatcher_attr_context_burst_count.attr,
 	&dispatcher_attr_cmdbatch_timeout.attr,
@@ -2149,9 +2227,6 @@ int adreno_dispatcher_init(struct adreno_device *adreno_dev)
 
 	plist_head_init(&dispatcher->pending);
 	spin_lock_init(&dispatcher->plist_lock);
-
-	_dispatcher_inflight = adreno_dev->num_ringbuffers *
-			ADRENO_DISPATCH_MAX_QUEUED_CMDS;
 
 	ret = kobject_init_and_add(&dispatcher->kobj, &ktype_dispatcher,
 		&device->dev->kobj, "dispatch");
