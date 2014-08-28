@@ -907,6 +907,9 @@ static int adreno_remove(struct platform_device *pdev)
 
 	device = &adreno_dev->dev;
 
+	if (test_bit(ADRENO_DEVICE_CMDBATCH_PROFILE, &adreno_dev->priv))
+		kgsl_free_global(&adreno_dev->cmdbatch_profile_buffer);
+
 #ifdef CONFIG_INPUT
 	input_unregister_handler(&adreno_input_handler);
 #endif
@@ -1033,6 +1036,23 @@ static int adreno_init(struct kgsl_device *device)
 		gpudev->snapshot_data->sect_sizes->cp_merciu =
 					A320_SNAPSHOT_CP_MERCIU_SECTION_SIZE;
 	}
+
+	/*
+	 * Allocate a small chunk of memory for precise cmdbatch profiling for
+	 * those targets that have the always on timer
+	 */
+
+	if (gpudev->alwayson_counter_read) {
+		int r = kgsl_allocate_global(&adreno_dev->dev,
+			&adreno_dev->cmdbatch_profile_buffer, PAGE_SIZE, 0, 0);
+
+		adreno_dev->cmdbatch_profile_index = 0;
+
+		if (r == 0)
+			set_bit(ADRENO_DEVICE_CMDBATCH_PROFILE,
+				&adreno_dev->priv);
+	}
+
 done:
 	return ret;
 }

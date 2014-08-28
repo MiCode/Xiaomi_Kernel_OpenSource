@@ -40,6 +40,17 @@ union adreno_ttbr0 {
 };
 
 /**
+ * struct adreno_submit_time - utility structure to store the wall clock / GPU
+ * ticks at command submit time
+ * @ticks: GPU ticks at submit time (from the 19.2Mhz timer)
+ * @clock: local clock time (in nanoseconds)
+ */
+struct adreno_submit_time {
+	uint64_t ticks;
+	u64 clock;
+};
+
+/**
  * struct adreno_ringbuffer_pagetable_info - Contains fields used during a
  * pagetable switch.
  * @current_global_ptname: The current pagetable id being used by the GPU.
@@ -152,7 +163,8 @@ int adreno_ringbuffer_issueibcmds(struct kgsl_device_private *dev_priv,
 				uint32_t *timestamp);
 
 int adreno_ringbuffer_submitcmd(struct adreno_device *adreno_dev,
-		struct kgsl_cmdbatch *cmdbatch);
+		struct kgsl_cmdbatch *cmdbatch,
+		struct adreno_submit_time *time);
 
 int adreno_ringbuffer_init(struct kgsl_device *device);
 
@@ -169,7 +181,8 @@ int adreno_ringbuffer_issuecmds(struct adreno_ringbuffer *rb,
 					unsigned int *cmdaddr,
 					int sizedwords);
 
-void adreno_ringbuffer_submit(struct adreno_ringbuffer *rb);
+void adreno_ringbuffer_submit(struct adreno_ringbuffer *rb,
+		struct adreno_submit_time *time);
 
 void kgsl_cp_intrcallback(struct kgsl_device *device);
 

@@ -236,7 +236,8 @@ struct kgsl_memobj_node {
  * @profiling_buf_entry: Mem entry containing the profiling buffer
  * @profiling_buffer_gpuaddr: GPU virt address of the profile buffer added here
  * for easy access
- *
+ * @profile_index: Index to store the start/stop ticks in the kernel profiling
+ * buffer
  * This structure defines an atomic batch of command buffers issued from
  * userspace.
  */
@@ -258,6 +259,7 @@ struct kgsl_cmdbatch {
 	unsigned int marker_timestamp;
 	struct kgsl_mem_entry *profiling_buf_entry;
 	unsigned long profiling_buffer_gpuaddr;
+	unsigned int profile_index;
 };
 
 /**
@@ -287,12 +289,15 @@ struct kgsl_cmdbatch_sync_event {
  * @CMDBATCH_FLAG_SKIP - skip the entire command batch
  * @CMDBATCH_FLAG_FORCE_PREAMBLE - Force the preamble on for the cmdbatch
  * @CMDBATCH_FLAG_WFI - Force wait-for-idle for the submission
+ * @CMDBATCH_FLAG_PROFILE - store the start / retire ticks for the command batch
+ * in the profiling buffer
  */
 
 enum kgsl_cmdbatch_priv {
 	CMDBATCH_FLAG_SKIP = 0,
 	CMDBATCH_FLAG_FORCE_PREAMBLE,
 	CMDBATCH_FLAG_WFI,
+	CMDBATCH_FLAG_PROFILE,
 };
 
 struct kgsl_device {

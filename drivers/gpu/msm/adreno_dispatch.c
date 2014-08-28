@@ -194,7 +194,7 @@ static void _retire_marker(struct kgsl_cmdbatch *cmdbatch)
 	/* Retire pending GPU events for the object */
 	kgsl_process_event_group(device, &context->events);
 
-	trace_adreno_cmdbatch_retired(cmdbatch, -1);
+	trace_adreno_cmdbatch_retired(cmdbatch, -1, 0, 0);
 	kgsl_cmdbatch_destroy(cmdbatch);
 }
 
@@ -385,6 +385,9 @@ static int sendcmd(struct adreno_device *adreno_dev,
 	struct adreno_dispatcher *dispatcher = &adreno_dev->dispatcher;
 	struct adreno_dispatcher_cmdqueue *dispatch_q =
 				ADRENO_CMDBATCH_DISPATCH_CMDQUEUE(cmdbatch);
+	struct adreno_submit_time time;
+	uint64_t secs = 0;
+	unsigned long nsecs = 0;
 	int ret;
 
 	mutex_lock(&device->mutex);
@@ -409,7 +412,15 @@ static int sendcmd(struct adreno_device *adreno_dev,
 		set_bit(ADRENO_DISPATCHER_POWER, &dispatcher->priv);
 	}
 
-	ret = adreno_ringbuffer_submitcmd(adreno_dev, cmdbatch);
+	if (test_bit(ADRENO_DEVICE_CMDBATCH_PROFILE, &adreno_dev->priv)) {
+		set_bit(CMDBATCH_FLAG_PROFILE, &cmdbatch->priv);
+		cmdbatch->profile_index = adreno_dev->cmdbatch_profile_index;
+		adreno_dev->cmdbatch_profile_index =
+			(adreno_dev->cmdbatch_profile_index + 1) %
+			ADRENO_CMDBATCH_PROFILE_COUNT;
+	}
+
+	ret = adreno_ringbuffer_submitcmd(adreno_dev, cmdbatch, &time);
 
 	/*
 	 * On the first command, if the submission was successful, then read the
@@ -439,7 +450,11 @@ static int sendcmd(struct adreno_device *adreno_dev,
 		return ret;
 	}
 
-	trace_adreno_cmdbatch_submitted(cmdbatch, (int) dispatcher->inflight);
+	secs = time.clock;
+	nsecs = do_div(secs, 1000000000);
+
+	trace_adreno_cmdbatch_submitted(cmdbatch, (int) dispatcher->inflight,
+		time.ticks, (unsigned long) secs, nsecs / 1000);
 
 	dispatch_q->cmd_q[dispatch_q->tail] = cmdbatch;
 	dispatch_q->tail = (dispatch_q->tail + 1) %
@@ -1625,12 +1640,27 @@ static void _print_recovery(struct kgsl_device *device,
 		cmdbatch->fault_recovery);
 }
 
+static void cmdbatch_profile_ticks(struct adreno_device *adreno_dev,
+	struct kgsl_cmdbatch *cmdbatch, uint64_t *start, uint64_t *retire)
+{
+	void *ptr = adreno_dev->cmdbatch_profile_buffer.hostptr;
+	struct adreno_cmdbatch_profile_entry *entry;
+
+	entry = (struct adreno_cmdbatch_profile_entry *)
+		(ptr + (cmdbatch->profile_index * sizeof(*entry)));
+
+	rmb();
+	*start = entry->started;
+	*retire = entry->retired;
+}
+
 static int adreno_dispatch_process_cmdqueue(struct adreno_device *adreno_dev,
 				struct adreno_dispatcher_cmdqueue *dispatch_q,
 				int long_ib_detect)
 {
 	struct kgsl_device *device = &(adreno_dev->dev);
 	struct adreno_dispatcher *dispatcher = &(adreno_dev->dispatcher);
+	uint64_t start_ticks = 0, retire_ticks = 0;
 
 	struct adreno_dispatcher_cmdqueue *active_q =
 			&(adreno_dev->cur_rb->dispatch_q);
@@ -1668,12 +1698,22 @@ static int adreno_dispatch_process_cmdqueue(struct adreno_device *adreno_dev,
 				_print_recovery(device, cmdbatch);
 			}
 
-			trace_adreno_cmdbatch_retired(cmdbatch,
-				(int) (dispatcher->inflight - 1));
-
 			/* Reduce the number of inflight command batches */
 			dispatcher->inflight--;
 			dispatch_q->inflight--;
+
+			/*
+			 * If kernel profiling is enabled get the submit and
+			 * retired ticks from the buffer
+			 */
+
+			if (test_bit(CMDBATCH_FLAG_PROFILE, &cmdbatch->priv))
+				cmdbatch_profile_ticks(adreno_dev, cmdbatch,
+					&start_ticks, &retire_ticks);
+
+			trace_adreno_cmdbatch_retired(cmdbatch,
+				(int) dispatcher->inflight, start_ticks,
+				retire_ticks);
 
 			/* Zero the old entry*/
 			dispatch_q->cmd_q[dispatch_q->head] = NULL;

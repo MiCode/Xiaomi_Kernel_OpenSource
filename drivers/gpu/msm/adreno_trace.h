@@ -46,44 +46,51 @@ TRACE_EVENT(adreno_cmdbatch_queued,
 	)
 );
 
-DECLARE_EVENT_CLASS(adreno_cmdbatch_template,
-	TP_PROTO(struct kgsl_cmdbatch *cmdbatch, int inflight),
-	TP_ARGS(cmdbatch, inflight),
+TRACE_EVENT(adreno_cmdbatch_submitted,
+	TP_PROTO(struct kgsl_cmdbatch *cmdbatch, int inflight, uint64_t ticks,
+		unsigned long secs, unsigned long usecs),
+	TP_ARGS(cmdbatch, inflight, ticks, secs, usecs),
 	TP_STRUCT__entry(
 		__field(unsigned int, id)
 		__field(unsigned int, timestamp)
 		__field(int, inflight)
 		__field(unsigned int, flags)
+		__field(uint64_t, ticks)
+		__field(unsigned long, secs)
+		__field(unsigned long, usecs)
+
 	),
 	TP_fast_assign(
 		__entry->id = cmdbatch->context->id;
 		__entry->timestamp = cmdbatch->timestamp;
 		__entry->inflight = inflight;
 		__entry->flags = cmdbatch->flags;
+		__entry->ticks = ticks;
+		__entry->secs = secs;
+		__entry->usecs = usecs;
 	),
 	TP_printk(
-		"ctx=%u ts=%u inflight=%d flags=%s",
+		"ctx=%u ts=%u inflight=%d flags=%s ticks=%lld time=%lu.%0lu",
 			__entry->id, __entry->timestamp,
 			__entry->inflight,
 			__entry->flags ? __print_flags(__entry->flags, "|",
-				KGSL_CMDBATCH_FLAGS) : "none"
+				KGSL_CMDBATCH_FLAGS) : "none",
+			__entry->ticks, __entry->secs, __entry->usecs
 	)
 );
 
-DEFINE_EVENT(adreno_cmdbatch_template, adreno_cmdbatch_submitted,
-	TP_PROTO(struct kgsl_cmdbatch *cmdbatch, int inflight),
-	TP_ARGS(cmdbatch, inflight)
-);
-
 TRACE_EVENT(adreno_cmdbatch_retired,
-	TP_PROTO(struct kgsl_cmdbatch *cmdbatch, int inflight),
-	TP_ARGS(cmdbatch, inflight),
+	TP_PROTO(struct kgsl_cmdbatch *cmdbatch, int inflight,
+		uint64_t start, uint64_t retire),
+	TP_ARGS(cmdbatch, inflight, start, retire),
 	TP_STRUCT__entry(
 		__field(unsigned int, id)
 		__field(unsigned int, timestamp)
 		__field(int, inflight)
 		__field(unsigned int, recovery)
 		__field(unsigned int, flags)
+		__field(uint64_t, start)
+		__field(uint64_t, retire)
 	),
 	TP_fast_assign(
 		__entry->id = cmdbatch->context->id;
@@ -91,16 +98,20 @@ TRACE_EVENT(adreno_cmdbatch_retired,
 		__entry->inflight = inflight;
 		__entry->recovery = cmdbatch->fault_recovery;
 		__entry->flags = cmdbatch->flags;
+		__entry->start = start;
+		__entry->retire = retire;
 	),
 	TP_printk(
-		"ctx=%u ts=%u inflight=%d recovery=%s flags=%s",
+		"ctx=%u ts=%u inflight=%d recovery=%s flags=%s start=%lld retire=%lld",
 			__entry->id, __entry->timestamp,
 			__entry->inflight,
 			__entry->recovery ?
 				__print_flags(__entry->recovery, "|",
 				ADRENO_FT_TYPES) : "none",
 			__entry->flags ? __print_flags(__entry->flags, "|",
-				KGSL_CMDBATCH_FLAGS) : "none"
+				KGSL_CMDBATCH_FLAGS) : "none",
+			__entry->start,
+			__entry->retire
 	)
 );
 
