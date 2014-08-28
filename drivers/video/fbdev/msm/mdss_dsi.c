@@ -948,6 +948,11 @@ static int __mdss_dsi_dfps_update_clks(struct mdss_panel_data *pdata,
 	if (pdata->panel_info.dfps_update
 			== DFPS_IMMEDIATE_CLK_UPDATE_MODE) {
 
+		if (mdss_dsi_is_ctrl_clk_slave(ctrl_pdata)) {
+			pr_debug("%s DFPS already updated.\n", __func__);
+			return rc;
+		}
+
 		__mdss_dsi_dyn_refresh_config(ctrl_pdata);
 		__mdss_dsi_calc_dfps_delay(pdata);
 		ctrl_pdata->pclk_rate =
