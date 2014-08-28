@@ -616,7 +616,7 @@ int mdss_edp_on(struct mdss_panel_data *pdata)
 		if (gpio_is_valid(edp_drv->gpio_lvl_en))
 			gpio_set_value(edp_drv->gpio_lvl_en, 1);
 
-		INIT_COMPLETION(edp_drv->idle_comp);
+		reinit_completion(&edp_drv->idle_comp);
 		mdss_edp_mainlink_ctrl(edp_drv, 1);
 	} else {
 		mdss_edp_aux_ctrl(edp_drv, 1);
@@ -653,7 +653,7 @@ int mdss_edp_off(struct mdss_panel_data *pdata)
 	/* wait until link training is completed */
 	mutex_lock(&edp_drv->train_mutex);
 
-	INIT_COMPLETION(edp_drv->idle_comp);
+	reinit_completion(&edp_drv->idle_comp);
 	mdss_edp_state_ctrl(edp_drv, ST_PUSH_IDLE);
 
 	ret = wait_for_completion_timeout(&edp_drv->idle_comp,

@@ -160,7 +160,7 @@ static int mdss_fb_notify_update(struct msm_fb_data_type *mfd,
 		mfd->update.is_suspend = 0;
 		ret = 1;
 	} else if (notify == NOTIFY_UPDATE_START) {
-		INIT_COMPLETION(mfd->update.comp);
+		reinit_completion(&mfd->update.comp);
 		mutex_lock(&mfd->update.lock);
 		mfd->update.ref_count++;
 		mutex_unlock(&mfd->update.lock);
@@ -175,7 +175,7 @@ static int mdss_fb_notify_update(struct msm_fb_data_type *mfd,
 			ret = 1;
 		}
 	} else if (notify == NOTIFY_UPDATE_STOP) {
-		INIT_COMPLETION(mfd->no_update.comp);
+		reinit_completion(&mfd->no_update.comp);
 		mutex_lock(&mfd->no_update.lock);
 		mfd->no_update.ref_count++;
 		mutex_unlock(&mfd->no_update.lock);
@@ -187,7 +187,7 @@ static int mdss_fb_notify_update(struct msm_fb_data_type *mfd,
 		to_user = (unsigned int)mfd->no_update.value;
 	} else {
 		if (mdss_fb_is_power_on(mfd)) {
-			INIT_COMPLETION(mfd->power_off_comp);
+			reinit_completion(&mfd->power_off_comp);
 			ret = wait_for_completion_interruptible_timeout(
 						&mfd->power_off_comp, 1 * HZ);
 		}
@@ -891,7 +891,7 @@ static int mdss_fb_resume_sub(struct msm_fb_data_type *mfd)
 	if ((!mfd) || (mfd->key != MFD_KEY))
 		return 0;
 
-	INIT_COMPLETION(mfd->power_set_comp);
+	reinit_completion(&mfd->power_set_comp);
 	mfd->is_power_setting = true;
 	pr_debug("mdss_fb resume index=%d\n", mfd->index);
 

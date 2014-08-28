@@ -326,7 +326,7 @@ static int hdmi_cec_msg_send(struct hdmi_cec_ctrl *cec_ctrl,
 
 	io = cec_ctrl->init_data.io;
 
-	INIT_COMPLETION(cec_ctrl->cec_msg_wr_done);
+	reinit_completion(&cec_ctrl->cec_msg_wr_done);
 	cec_ctrl->cec_msg_wr_status = 0;
 	frame_type = (msg->recvr_id == 15 ? BIT(0) : 0);
 	if (msg->retransmit > 0 && msg->retransmit < RETRANSMIT_MAX_NUM)

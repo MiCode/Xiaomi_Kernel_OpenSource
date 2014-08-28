@@ -749,7 +749,7 @@ int mdss_dsi_bta_status_check(struct mdss_dsi_ctrl_pdata *ctrl_pdata)
 
 	mdss_dsi_clk_ctrl(ctrl_pdata, DSI_ALL_CLKS, 1);
 	spin_lock_irqsave(&ctrl_pdata->mdp_lock, flag);
-	INIT_COMPLETION(ctrl_pdata->bta_comp);
+	reinit_completion(&ctrl_pdata->bta_comp);
 	mdss_dsi_enable_irq(ctrl_pdata, DSI_BTA_TERM);
 	spin_unlock_irqrestore(&ctrl_pdata->mdp_lock, flag);
 	MIPI_OUTP(ctrl_pdata->ctrl_base + 0x098, 0x01); /* trigger  */
@@ -1171,7 +1171,7 @@ static int mdss_dsi_cmd_dma_tx(struct mdss_dsi_ctrl_pdata *ctrl,
 		ctrl->dma_addr = tp->dmap;
 	}
 
-	INIT_COMPLETION(ctrl->dma_comp);
+	reinit_completion(&ctrl->dma_comp);
 
 	if (mdss_dsi_sync_wait_trigger(ctrl)) {
 		/* broadcast same cmd to other panel */
@@ -1268,7 +1268,7 @@ void mdss_dsi_wait4video_done(struct mdss_dsi_ctrl_pdata *ctrl)
 	MIPI_OUTP((ctrl->ctrl_base) + 0x0110, data);
 
 	spin_lock_irqsave(&ctrl->mdp_lock, flag);
-	INIT_COMPLETION(ctrl->video_comp);
+	reinit_completion(&ctrl->video_comp);
 	mdss_dsi_enable_irq(ctrl, DSI_VIDEO_TERM);
 	spin_unlock_irqrestore(&ctrl->mdp_lock, flag);
 
@@ -1304,7 +1304,7 @@ void mdss_dsi_cmd_mdp_start(struct mdss_dsi_ctrl_pdata *ctrl)
 	spin_lock_irqsave(&ctrl->mdp_lock, flag);
 	mdss_dsi_enable_irq(ctrl, DSI_MDP_TERM);
 	ctrl->mdp_busy = true;
-	INIT_COMPLETION(ctrl->mdp_comp);
+	reinit_completion(&ctrl->mdp_comp);
 	MDSS_XLOG(ctrl->ndx, ctrl->mdp_busy, current->pid);
 	spin_unlock_irqrestore(&ctrl->mdp_lock, flag);
 }

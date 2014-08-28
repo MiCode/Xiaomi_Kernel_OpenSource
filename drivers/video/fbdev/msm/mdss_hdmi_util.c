@@ -309,7 +309,7 @@ again:
 	 *    SEND_RESET = Set to 1 to send reset sequence
 	 *    GO = 0x1 (kicks off hardware)
 	 */
-	INIT_COMPLETION(ddc_ctrl->ddc_sw_done);
+	reinit_completion(&ddc_ctrl->ddc_sw_done);
 	DSS_REG_W_ND(ddc_ctrl->io, HDMI_DDC_CTRL, BIT(0) | BIT(20));
 
 	time_out_count = wait_for_completion_timeout(
@@ -560,7 +560,7 @@ again:
 	 *    transaction1)
 	 *    GO = 0x1 (kicks off hardware)
 	 */
-	INIT_COMPLETION(ddc_ctrl->ddc_sw_done);
+	reinit_completion(&ddc_ctrl->ddc_sw_done);
 	DSS_REG_W_ND(ddc_ctrl->io, HDMI_DDC_CTRL, BIT(0) | BIT(21));
 
 	time_out_count = wait_for_completion_timeout(
@@ -734,7 +734,7 @@ again:
 	 *    transaction1)
 	 *    GO = 0x1 (kicks off hardware)
 	 */
-	INIT_COMPLETION(ddc_ctrl->ddc_sw_done);
+	reinit_completion(&ddc_ctrl->ddc_sw_done);
 	DSS_REG_W_ND(ddc_ctrl->io, HDMI_DDC_CTRL, BIT(0) | BIT(20));
 
 	time_out_count = wait_for_completion_timeout(

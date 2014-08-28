@@ -213,7 +213,7 @@ static int edp_aux_write_cmds(struct mdss_edp_drv_pdata *ep,
 	else
 		ep->aux_cmd_i2c = 0;
 
-	INIT_COMPLETION(ep->aux_comp);
+	reinit_completion(&ep->aux_comp);
 
 	len = edp_cmd_fifo_tx(&ep->txp, ep->base);
 
@@ -265,7 +265,7 @@ static int edp_aux_read_cmds(struct mdss_edp_drv_pdata *ep,
 	else
 		ep->aux_cmd_i2c = 0;
 
-	INIT_COMPLETION(ep->aux_comp);
+	reinit_completion(&ep->aux_comp);
 
 	edp_cmd_fifo_tx(tp, ep->base);
 
