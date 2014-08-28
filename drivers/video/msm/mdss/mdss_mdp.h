@@ -296,8 +296,10 @@ struct mdss_mdp_plane_sizes {
 struct mdss_mdp_img_data {
 	dma_addr_t addr;
 	unsigned long len;
+	u32 offset;
 	u32 flags;
 	int p_need;
+	bool mapped;
 	struct file *srcp_file;
 	struct ion_handle *srcp_ihdl;
 };
@@ -720,11 +722,6 @@ int mdss_mdp_overlay_req_check(struct msm_fb_data_type *mfd,
 			       struct mdp_overlay *req,
 			       struct mdss_mdp_format_params *fmt);
 int mdss_mdp_overlay_vsync_ctrl(struct msm_fb_data_type *mfd, int en);
-int mdss_mdp_overlay_get_buf(struct msm_fb_data_type *mfd,
-			     struct mdss_mdp_data *data,
-			     struct msmfb_data *planes,
-			     int num_planes,
-			     u32 flags);
 int mdss_mdp_overlay_pipe_setup(struct msm_fb_data_type *mfd,
 	struct mdp_overlay *req, struct mdss_mdp_pipe **ppipe,
 	struct mdss_mdp_pipe *left_blend_pipe, bool is_single_layer);
@@ -886,9 +883,11 @@ int mdss_mdp_get_rau_strides(u32 w, u32 h, struct mdss_mdp_format_params *fmt,
 void mdss_mdp_data_calc_offset(struct mdss_mdp_data *data, u16 x, u16 y,
 	struct mdss_mdp_plane_sizes *ps, struct mdss_mdp_format_params *fmt);
 struct mdss_mdp_format_params *mdss_mdp_get_format_params(u32 format);
-int mdss_mdp_put_img(struct mdss_mdp_img_data *data);
-int mdss_mdp_get_img(struct msmfb_data *img, struct mdss_mdp_img_data *data);
-int mdss_mdp_overlay_free_buf(struct mdss_mdp_data *data);
+int mdss_mdp_data_get(struct mdss_mdp_data *data, struct msmfb_data *planes,
+		int num_planes, u32 flags);
+int mdss_mdp_data_map(struct mdss_mdp_data *data);
+void mdss_mdp_data_free(struct mdss_mdp_data *data);
+
 u32 mdss_get_panel_framerate(struct msm_fb_data_type *mfd);
 int mdss_mdp_calc_phase_step(u32 src, u32 dst, u32 *out_phase);
 void mdss_mdp_intersect_rect(struct mdss_rect *res_rect,
