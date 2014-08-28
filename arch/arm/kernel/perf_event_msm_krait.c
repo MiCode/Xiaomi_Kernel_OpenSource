@@ -510,7 +510,7 @@ static void krait_pmu_reset(void *info)
 	u32 idx, nb_cnt = cpu_pmu->num_events;
 
 	/* Stop all counters and their interrupts */
-	for (idx = 1; idx < nb_cnt; ++idx) {
+	for (idx = ARMV7_IDX_CYCLE_COUNTER; idx < nb_cnt; ++idx) {
 		armv7_pmnc_disable_counter(idx);
 		armv7_pmnc_disable_intens(idx);
 	}
