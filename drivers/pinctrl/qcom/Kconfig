@@ -1,4 +1,4 @@
-if (ARCH_QCOM || COMPILE_TEST)
+if (ARCH_MSM || COMPILE_TEST)
 
 config PINCTRL_MSM
 	bool
