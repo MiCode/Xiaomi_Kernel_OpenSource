@@ -1469,7 +1469,8 @@ static void update_task_ravg(struct task_struct *p, struct rq *rq,
 			BUG_ON(delta < 0);
 
 			p->ravg.sum += delta;
-			if (sched_freq_legacy_mode && (event == PUT_PREV_TASK))
+			if (sched_freq_legacy_mode && (event == PUT_PREV_TASK ||
+							 event == TASK_UPDATE))
 				rq->curr_runnable_sum += delta;
 
 			if (unlikely(p->ravg.sum > window_size))
