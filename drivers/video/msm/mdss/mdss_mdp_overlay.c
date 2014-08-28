@@ -29,7 +29,7 @@
 
 #include <linux/msm_iommu_domains.h>
 #include <soc/qcom/event_timer.h>
-#include <linux/msm_bus.h>
+#include <linux/msm-bus.h>
 #include "mdss.h"
 #include "mdss_debug.h"
 #include "mdss_fb.h"
