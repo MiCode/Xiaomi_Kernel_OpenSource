@@ -64,6 +64,14 @@ This document provides the device tree bindings for ARM architected caches.
 			    bindings of power controller specified by the
 			    phandle [5].
 
+	- qcom,dump-size
+		Usage: Optional
+		Value type: <integer>
+		Definition: The memory size needed to contain a copy of the
+			    cache data and associated tag ram.
+			    size = nways * nsets * (bytes per cache line +
+			                            bytes tag ram per line)
+
 Example(dual-cluster big.LITTLE system 32-bit)
 
 	cpus {
