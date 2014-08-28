@@ -27,6 +27,7 @@
 #define MAX_ACT_MOD_NAME_SIZE     32
 #define MAX_ACT_NAME_SIZE         32
 #define MAX_ACTUATOR_INIT_SET     12
+#define MAX_I2C_REG_SET           12
 
 enum msm_sensor_camera_id_t {
 	CAMERA_0,
@@ -271,4 +272,11 @@ struct reg_settings_t {
 	uint32_t delay;
 };
 
+struct msm_camera_i2c_reg_setting_array {
+	struct msm_camera_i2c_reg_array reg_setting_a[MAX_I2C_REG_SET];
+	uint16_t size;
+	enum msm_camera_i2c_reg_addr_type addr_type;
+	enum msm_camera_i2c_data_type data_type;
+	uint16_t delay;
+};
 #endif /* __LINUX_MSM_CAM_SENSOR_H */
