@@ -236,7 +236,8 @@ struct sst_platform_info byt_ffrd8_platform_data = {
 	.pdata = &sst_byt_pdata,
 	.ipc_info = &byt_ipc_info,
 	.lib_info = &byt_lib_dnld_info,
-	.start_recovery_timer = false,
+	.enable_recovery = true,
+	.start_recovery_timer = true,
 };
 
 int sst_workqueue_init(struct intel_sst_drv *ctx)
