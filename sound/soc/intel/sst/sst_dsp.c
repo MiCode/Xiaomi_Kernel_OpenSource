@@ -1260,11 +1260,9 @@ static int sst_request_fw(struct intel_sst_drv *sst)
 	char name[20];
 	const struct firmware *fw;
 
-	snprintf(name, sizeof(name), "%s%04x%s", "fw_sst_",
-				sst->pci_id, ".bin");
 	pr_debug("Requesting FW %s now...\n", name);
 
-	retval = request_firmware(&fw, name, sst->dev);
+	retval = request_firmware(&fw, sst->firmware_name, sst->dev);
 	if (fw == NULL) {
 		pr_err("fw is returning as null\n");
 		return -EINVAL;
