@@ -20,8 +20,8 @@
 #include <linux/uaccess.h>
 #include <linux/spinlock.h>
 #include <linux/delay.h>
-#include <linux/msm_bus.h>
-#include <linux/msm_bus_board.h>
+#include <linux/msm-bus.h>
+#include <linux/msm-bus-board.h>
 
 struct mdp_csc_cfg mdp_csc_convert[MDSS_MDP_MAX_CSC] = {
 	[MDSS_MDP_CSC_RGB2RGB] = {
