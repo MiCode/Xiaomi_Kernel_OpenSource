@@ -656,6 +656,82 @@
 #include "msm-pmferrum.dtsi"
 #include "msmferrum-regulator.dtsi"
 
+&i2c_1 { /* BLSP1 QUP1 */
+	mpu6050@68 { /* Gyroscope and accelerometer sensor combo */
+		compatible = "invn,mpu6050";
+		reg = <0x68>;
+		pinctrl-names = "mpu_default","mpu_sleep";
+		pinctrl-0 = <&mpu6050_default>;
+		pinctrl-1 = <&mpu6050_sleep>;
+		interrupt-parent = <&msm_gpio>;
+		interrupts = <115 0x2>;
+		vdd-supply = <&pmferrum_l17>;
+		vlogic-supply = <&pmferrum_l6>;
+		vi2c-supply = <&pmferrum_l6>;
+		invn,gpio-int = <&msm_gpio 115 0x2>;
+		invn,place = "Portrait Down Back Side";
+	};
+
+	avago@39 { /* Ambient light and proximity sensor */
+		compatible = "avago,apds9900";
+		reg = <0x39>;
+		pinctrl-names = "default","sleep";
+		pinctrl-0 = <&apds99xx_default>;
+		pinctrl-1 = <&apds99xx_sleep>;
+		interrupt-parent = <&msm_gpio>;
+		interrupts = <113 0x2002>;
+		vdd-supply = <&pmferrum_l17>;
+		vio-supply = <&pmferrum_l6>;
+		avago,irq-gpio = <&msm_gpio 113 0x2002>;
+		avago,ps-threshold = <600>;
+		avago,ps-hysteresis-threshold = <500>;
+		avago,ps-pulse = <8>;
+		avago,ps-pgain = <0>;
+		avago,als-B = <186>;
+		avago,als-C = <75>;
+		avago,als-D = <129>;
+		avago,ga-value = <256>;
+	};
+
+	memsic@30 { /* Magnetic field sensor */
+		compatible = "memsic,mmc3416x";
+		reg = <0x30>;
+		vdd-supply = <&pmferrum_l17>;
+		vio-supply = <&pmferrum_l6>;
+		memsic,dir = "obverse-x-axis-forward";
+		memsic,auto-report;
+	};
+
+	akm@c { /* Magnetic field sensor */
+		compatible = "ak,ak8963";
+		reg = <0x0c>;
+		pinctrl-names = "ak8963_default", "ak8963_sleep";
+		pinctrl-0 = <&ak8963_default>;
+		pinctrl-1 = <&ak8963_sleep>;
+		interrupt-parent = <&msm_gpio>;
+		interrupts = <69 0x2>;
+		vdd-supply = <&pmferrum_l17>;
+		vio-supply = <&pmferrum_l6>;
+		ak,layout = <0x6>;
+		ak,auto-report;
+	};
+
+	bosch@18 { /* Accelerometer sensor */
+		compatible = "bosch,bma2x2";
+		reg = <0x18>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&bma2x2_int1_default &bma2x2_int2_default>;
+		interrupt-parent = <&msm_gpio>;
+		interrupts = <112 0x2002>;
+		vdd-supply = <&pmferrum_l17>;
+		vio-supply = <&pmferrum_l6>;
+		bosch,init-interval = <200>;
+		bosch,place = <2>;
+		bosch,gpio-int1 = <&msm_gpio 112 0x2002>;
+		bosch,gpio-int2 = <&msm_gpio 114 0x2002>;
+	};
+};
+
 &gdsc_venus {
 	status = "okay";
 };
