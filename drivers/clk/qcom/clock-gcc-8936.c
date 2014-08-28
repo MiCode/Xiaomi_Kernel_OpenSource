@@ -2874,6 +2874,8 @@ static struct pll_config gpll3_config = {
 	.mn_ena_mask = BIT(24),
 	.main_output_val = BIT(0),
 	.main_output_mask = BIT(0),
+	.aux_output_val = BIT(1),
+	.aux_output_mask = BIT(1),
 };
 
 static struct pll_config_regs gpll3_regs = {
