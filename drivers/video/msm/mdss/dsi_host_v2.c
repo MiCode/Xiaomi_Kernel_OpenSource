@@ -724,7 +724,7 @@ static int msm_dsi_cmds_tx(struct mdss_dsi_ctrl_pdata *ctrl,
 			}
 
 			if (dchdr->wait)
-				usleep(dchdr->wait * 1000);
+				usleep_range(dchdr->wait * 1000, dchdr->wait * 1000);
 
 			mdss_dsi_buf_init(tp);
 			len = 0;

@@ -4864,7 +4864,7 @@ static void pp_ad_calc_worker(struct work_struct *work)
 			calc_done = readl_relaxed(base +
 				MDSS_MDP_REG_AD_CALC_DONE);
 			if (!calc_done)
-				usleep(MDSS_PP_AD_SLEEP);
+				usleep_range(MDSS_PP_AD_SLEEP, MDSS_PP_AD_SLEEP);
 		} while (!calc_done && (ad->state & PP_AD_STATE_RUN));
 		if (calc_done) {
 			ad->last_str = 0xFF & readl_relaxed(base +

@@ -293,7 +293,7 @@ int mdss_edp_mainlink_ready(struct mdss_edp_drv_pdata *ep, u32 which)
 			pr_debug("%s: which=%x ready\n", __func__, which);
 			return 1;
 		}
-		usleep(1000);
+		usleep_range(1000, 1000);
 	}
 	pr_err("%s: which=%x NOT ready\n", __func__, which);
 
@@ -303,7 +303,7 @@ int mdss_edp_mainlink_ready(struct mdss_edp_drv_pdata *ep, u32 which)
 void mdss_edp_mainlink_reset(struct mdss_edp_drv_pdata *ep)
 {
 	edp_write(ep->base + 0x04, 0x02); /* EDP_MAINLINK_CTRL */
-	usleep(1000);
+	usleep_range(1000, 1000);
 	edp_write(ep->base + 0x04, 0); /* EDP_MAINLINK_CTRL */
 }
 
@@ -329,7 +329,7 @@ void mdss_edp_aux_reset(struct mdss_edp_drv_pdata *ep)
 {
 	/* reset AUX */
 	edp_write(ep->base + 0x300, BIT(1)); /* EDP_AUX_CTRL */
-	usleep(1000);
+	usleep_range(1000, 1000);
 	edp_write(ep->base + 0x300, 0); /* EDP_AUX_CTRL */
 }
 
@@ -349,7 +349,7 @@ void mdss_edp_phy_pll_reset(struct mdss_edp_drv_pdata *ep)
 {
 	/* EDP_PHY_CTRL */
 	edp_write(ep->base + 0x74, 0x005); /* bit 0, 2 */
-	usleep(1000);
+	usleep_range(1000, 1000);
 	edp_write(ep->base + 0x74, 0x000); /* EDP_PHY_CTRL */
 }
 
@@ -363,7 +363,7 @@ int mdss_edp_phy_pll_ready(struct mdss_edp_drv_pdata *ep)
 		status = edp_read(ep->base + 0x6c0);
 		if (status & 0x01)
 			break;
-		usleep(100);
+		usleep_range(100, 100);
 	}
 
 	pr_debug("%s: PLL cnt=%d status=%x\n", __func__, cnt, (int)status);
