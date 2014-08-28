@@ -207,8 +207,9 @@
 		label = "MDSS DSI CTRL->1";
 		cell-index = <1>;
 		reg = <0x1aa0000 0x25c>,
-		      <0x1aa0500 0x2b0>;
-		reg-names = "dsi_ctrl", "dsi_phy";
+		      <0x1aa0500 0x2b0>,
+		      <0x193e000 0x30>;
+		reg-names = "dsi_ctrl", "dsi_phy", "mmss_misc_phys";
 		qcom,mdss-fb-map = <&mdss_fb0>;
 		qcom,mdss-mdp = <&mdss_mdp>;
 		gdsc-supply = <&gdsc_mdss>;
