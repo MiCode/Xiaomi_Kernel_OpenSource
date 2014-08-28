@@ -87,6 +87,8 @@ static inline int venus_hfi_prepare_enable_clks(
 	struct venus_hfi_device *device);
 static inline void venus_hfi_disable_unprepare_clks(
 	struct venus_hfi_device *device);
+static void venus_hfi_flush_debug_queue(
+	struct venus_hfi_device *device, u8 *packet);
 
 static inline void venus_hfi_set_state(struct venus_hfi_device *device,
 		enum venus_hfi_state state)
@@ -2612,6 +2614,8 @@ static int venus_hfi_session_end(void *session)
 
 static int venus_hfi_session_abort(void *session)
 {
+	venus_hfi_flush_debug_queue(
+		((struct hal_session *)session)->device, NULL);
 	return venus_hfi_send_session_cmd(session,
 		HFI_CMD_SYS_SESSION_ABORT);
 }
@@ -2624,6 +2628,7 @@ static int venus_hfi_session_clean(void *session)
 		return -EINVAL;
 	}
 	sess_close = session;
+	venus_hfi_flush_debug_queue(sess_close->device, NULL);
 	dprintk(VIDC_DBG, "deleted the session: 0x%p\n",
 			sess_close);
 	mutex_lock(&((struct venus_hfi_device *)
@@ -3005,6 +3010,7 @@ static int venus_hfi_prepare_pc(struct venus_hfi_device *device)
 		dprintk(VIDC_ERR,
 				"Wait interrupted or timeout for PC_PREP_DONE: %d\n",
 				rc);
+		venus_hfi_flush_debug_queue(device, NULL);
 		rc = -EIO;
 		goto err_pc_prep;
 	}
@@ -3149,12 +3155,54 @@ static void venus_hfi_process_msg_event_notify(
 		}
 	}
 }
+
+static void venus_hfi_flush_debug_queue(
+	struct venus_hfi_device *device, u8 *packet)
+{
+	bool local_packet = false;
+
+	if (!device) {
+		dprintk(VIDC_ERR, "%s: Invalid params\n", __func__);
+		return;
+	}
+	if (!packet) {
+		packet = kzalloc(VIDC_IFACEQ_VAR_HUGE_PKT_SIZE, GFP_TEMPORARY);
+		if (!packet) {
+			dprintk(VIDC_ERR, "In %s() Fail to allocate mem\n",
+				__func__);
+			return;
+		}
+		local_packet = true;
+	}
+
+	while (!venus_hfi_iface_dbgq_read(device, packet)) {
+		struct hfi_msg_sys_coverage_packet *pkt =
+			(struct hfi_msg_sys_coverage_packet *) packet;
+		if (pkt->packet_type == HFI_MSG_SYS_COV) {
+			int stm_size = 0;
+			dprintk(VIDC_DBG,
+				"DbgQ pkt size:%d\n", pkt->msg_size);
+			stm_size = stm_log_inv_ts(0, 0,
+				pkt->rg_msg_data, pkt->msg_size);
+			if (stm_size == 0)
+				dprintk(VIDC_ERR,
+					"In %s, stm_log returned size of 0\n",
+					__func__);
+		} else {
+			struct hfi_msg_sys_debug_packet *pkt =
+				(struct hfi_msg_sys_debug_packet *) packet;
+			dprintk(VIDC_FW, "%s", pkt->rg_msg_data);
+		}
+	}
+	if (local_packet)
+		kfree(packet);
+}
+
 static void venus_hfi_response_handler(struct venus_hfi_device *device)
 {
 	u8 *packet = NULL;
 	u32 rc = 0;
 	struct hfi_sfr_struct *vsfr = NULL;
-	int stm_size = 0;
 
 	packet = kzalloc(VIDC_IFACEQ_VAR_HUGE_PKT_SIZE, GFP_TEMPORARY);
 	if (!packet) {
@@ -3198,25 +3246,7 @@ static void venus_hfi_response_handler(struct venus_hfi_device *device)
 						"Failed to allocate OCMEM. Performance will be impacted\n");
 			}
 		}
-		while (!venus_hfi_iface_dbgq_read(device, packet)) {
-			struct hfi_msg_sys_coverage_packet *pkt =
-				(struct hfi_msg_sys_coverage_packet *) packet;
-			if (pkt->packet_type == HFI_MSG_SYS_COV) {
-				dprintk(VIDC_DBG,
-					"DbgQ pkt size:%d\n", pkt->msg_size);
-				stm_size = stm_log_inv_ts(0, 0,
-					pkt->rg_msg_data, pkt->msg_size);
-				if (stm_size == 0)
-					dprintk(VIDC_ERR,
-						"In %s, stm_log returned size of 0\n",
-						__func__);
-			} else {
-				struct hfi_msg_sys_debug_packet *pkt =
-					(struct hfi_msg_sys_debug_packet *)
-					packet;
-				dprintk(VIDC_FW, "%s", pkt->rg_msg_data);
-			}
-		}
+		venus_hfi_flush_debug_queue(device, packet);
 		switch (rc) {
 		case HFI_MSG_SYS_PC_PREP_DONE:
 			dprintk(VIDC_DBG,
