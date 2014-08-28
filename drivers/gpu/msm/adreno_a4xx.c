@@ -540,7 +540,7 @@ static void a4xx_enable_hwcg(struct kgsl_device *device)
 	kgsl_regwrite(device, A4XX_RBBM_CLOCK_DELAY_TSE_RAS_RBBM, 0x00000222);
 	kgsl_regwrite(device, A4XX_RBBM_CLOCK_CTL_HLSQ , 0x00000000);
 	kgsl_regwrite(device, A4XX_RBBM_CLOCK_HYST_HLSQ, 0x00000000);
-	kgsl_regwrite(device, A4XX_RBBM_CLOCK_DELAY_HLSQ, 0x00020000);
+	kgsl_regwrite(device, A4XX_RBBM_CLOCK_DELAY_HLSQ, 0x00220000);
 	kgsl_regwrite(device, A4XX_RBBM_CLOCK_CTL, 0xAAAAAAAA);
 	kgsl_regwrite(device, A4XX_RBBM_CLOCK_CTL2, 0);
 }
