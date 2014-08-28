@@ -3251,7 +3251,7 @@ static int hdmi_tx_panel_event_handler(struct mdss_panel_data *panel_data,
 		}
 
 		if (hdmi_ctrl->pdata.primary) {
-			INIT_COMPLETION(hdmi_ctrl->hpd_done);
+			reinit_completion(&hdmi_ctrl->hpd_done);
 			rc = hdmi_tx_sysfs_enable_hpd(hdmi_ctrl, true);
 			if (rc) {
 				DEV_ERR("%s: hpd_enable failed. rc=%d\n",
@@ -3290,7 +3290,7 @@ static int hdmi_tx_panel_event_handler(struct mdss_panel_data *panel_data,
 			flush_work(&hdmi_ctrl->power_off_work);
 
 		if (hdmi_ctrl->hpd_feature_on) {
-			INIT_COMPLETION(hdmi_ctrl->hpd_done);
+			reinit_completion(&hdmi_ctrl->hpd_done);
 
 			rc = hdmi_tx_hpd_on(hdmi_ctrl);
 			if (rc)

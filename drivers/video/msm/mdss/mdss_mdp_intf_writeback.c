@@ -644,7 +644,7 @@ static int mdss_mdp_writeback_display(struct mdss_mdp_ctl *ctl, void *arg)
 	mdp_wb_write(ctx, MDSS_MDP_REG_WB_DST_ADDR_SW_STATUS, ctl->is_secure);
 	mdss_mdp_ctl_write(ctl, MDSS_MDP_REG_CTL_FLUSH, flush_bits);
 
-	INIT_COMPLETION(ctx->wb_comp);
+	reinit_completion(&ctx->wb_comp);
 	mdss_mdp_irq_enable(ctx->intr_type, ctx->intf_num);
 
 	ret = mdss_iommu_ctrl(1);

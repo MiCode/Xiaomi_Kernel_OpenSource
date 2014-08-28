@@ -671,7 +671,7 @@ static int mdss_mdp_video_config_fps(struct mdss_mdp_ctl *ctl,
 			}
 
 			video_vsync_irq_enable(ctl, true);
-			INIT_COMPLETION(ctx->vsync_comp);
+			reinit_completion(&ctx->vsync_comp);
 			rc = wait_for_completion_timeout(&ctx->vsync_comp,
 				usecs_to_jiffies(VSYNC_TIMEOUT_US));
 			WARN(rc <= 0, "timeout (%d) vsync interrupt on ctl=%d\n",
@@ -748,7 +748,7 @@ static int mdss_mdp_video_display(struct mdss_mdp_ctl *ctl, void *arg)
 	if (!ctx->wait_pending) {
 		ctx->wait_pending++;
 		video_vsync_irq_enable(ctl, true);
-		INIT_COMPLETION(ctx->vsync_comp);
+		reinit_completion(&ctx->vsync_comp);
 	} else {
 		WARN(1, "commit without wait! ctl=%d", ctl->num);
 	}

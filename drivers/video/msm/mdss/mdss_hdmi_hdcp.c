@@ -576,7 +576,7 @@ static int hdmi_hdcp_authentication_part1(struct hdmi_hdcp_ctrl *hdcp_ctrl)
 		buf[1], buf[0]);
 
 	/* Write R0' to HDCP registers and check to see if it is a match */
-	INIT_COMPLETION(hdcp_ctrl->r0_checked);
+	reinit_completion(&hdcp_ctrl->r0_checked);
 	DSS_REG_W(io, HDMI_HDCP_RCVPORT_DATA2_0, (((u32)buf[1]) << 8) | buf[0]);
 	timeout_count = wait_for_completion_timeout(
 		&hdcp_ctrl->r0_checked, HZ*2);

@@ -289,7 +289,7 @@ static int msm_dsi_wait4mdp_done(struct mdss_dsi_ctrl_pdata *ctrl)
 	unsigned long flag;
 
 	spin_lock_irqsave(&ctrl->mdp_lock, flag);
-	INIT_COMPLETION(ctrl->mdp_comp);
+	reinit_completion(&ctrl->mdp_comp);
 	msm_dsi_set_irq(ctrl, DSI_INTR_CMD_MDP_DONE_MASK);
 	spin_unlock_irqrestore(&ctrl->mdp_lock, flag);
 
@@ -332,7 +332,7 @@ static int msm_dsi_wait4video_done(struct mdss_dsi_ctrl_pdata *ctrl)
 	unsigned long flag;
 
 	spin_lock_irqsave(&ctrl->mdp_lock, flag);
-	INIT_COMPLETION(ctrl->video_comp);
+	reinit_completion(&ctrl->video_comp);
 	msm_dsi_set_irq(ctrl, DSI_INTR_VIDEO_DONE_MASK);
 	spin_unlock_irqrestore(&ctrl->mdp_lock, flag);
 
@@ -621,7 +621,7 @@ int msm_dsi_cmd_dma_tx(struct mdss_dsi_ctrl_pdata *ctrl,
 	msm_dsi_get_cmd_engine(ctrl);
 
 	spin_lock_irqsave(&ctrl->mdp_lock, flag);
-	INIT_COMPLETION(ctrl->dma_comp);
+	reinit_completion(&ctrl->dma_comp);
 	msm_dsi_set_irq(ctrl, DSI_INTR_CMD_DMA_DONE_MASK);
 	spin_unlock_irqrestore(&ctrl->mdp_lock, flag);
 
@@ -1377,7 +1377,7 @@ static int msm_dsi_bta_status_check(struct mdss_dsi_ctrl_pdata *ctrl_pdata)
 	msm_dsi_clk_ctrl(&ctrl_pdata->panel_data, 1);
 	msm_dsi_cmd_mdp_busy(ctrl_pdata);
 	msm_dsi_set_irq(ctrl_pdata, DSI_INTR_BTA_DONE_MASK);
-	INIT_COMPLETION(ctrl_pdata->bta_comp);
+	reinit_completion(&ctrl_pdata->bta_comp);
 
 	/* BTA trigger */
 	MIPI_OUTP(dsi_host_private->dsi_base + DSI_CMD_MODE_BTA_SW_TRIGGER,

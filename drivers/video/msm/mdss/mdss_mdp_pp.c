@@ -3202,8 +3202,8 @@ static int pp_hist_enable(struct pp_hist_col_info *hist_info,
 	hist_info->col_en = true;
 	spin_unlock_irqrestore(&hist_info->hist_lock, flag);
 	hist_info->frame_cnt = req->frame_cnt;
-	INIT_COMPLETION(hist_info->comp);
-	INIT_COMPLETION(hist_info->first_kick);
+	reinit_completion(&hist_info->comp);
+	reinit_completion(&hist_info->first_kick);
 	hist_info->hist_cnt_read = 0;
 	hist_info->hist_cnt_sent = 0;
 	hist_info->hist_cnt_time = 0;
@@ -3749,7 +3749,7 @@ int mdss_mdp_hist_collect(struct mdp_histogram_data *hist)
 			/* reset read requests and re-intialize completions */
 			spin_lock_irqsave(&hists[i]->hist_lock, flag);
 			hists[i]->read_request = 0;
-			INIT_COMPLETION(hists[i]->comp);
+			reinit_completion(&hists[i]->comp);
 			spin_unlock_irqrestore(&hists[i]->hist_lock, flag);
 		}
 		if (ret || temp_ret) {
@@ -3869,7 +3869,7 @@ int mdss_mdp_hist_collect(struct mdp_histogram_data *hist)
 			hist_info = &pipe->pp_res.hist;
 			spin_lock_irqsave(&hist_info->hist_lock, flag);
 			hist_info->read_request = 0;
-			INIT_COMPLETION(hist_info->comp);
+			reinit_completion(&hist_info->comp);
 			spin_unlock_irqrestore(&hist_info->hist_lock, flag);
 			mdss_mdp_pipe_unmap(pipe);
 		}
@@ -4404,7 +4404,7 @@ error:
 	if (!ret) {
 		if (wait) {
 			mutex_lock(&ad->lock);
-			INIT_COMPLETION(ad->comp);
+			reinit_completion(&ad->comp);
 			mutex_unlock(&ad->lock);
 		}
 		if (wait) {

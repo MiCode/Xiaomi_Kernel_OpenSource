@@ -710,10 +710,10 @@ int mdss_mdp_cmd_kickoff(struct mdss_mdp_ctl *ctl, void *arg)
 
 	spin_lock_irqsave(&ctx->koff_lock, flags);
 	atomic_inc(&ctx->koff_cnt);
-	INIT_COMPLETION(ctx->pp_comp);
+	reinit_completion(&ctx->pp_comp);
 	if (sctx) {
 		atomic_inc(&sctx->koff_cnt);
-		INIT_COMPLETION(sctx->pp_comp);
+		reinit_completion(&sctx->pp_comp);
 	}
 	spin_unlock_irqrestore(&ctx->koff_lock, flags);
 
@@ -791,7 +791,7 @@ int mdss_mdp_cmd_intfs_stop(struct mdss_mdp_ctl *ctl, int session,
 
 	spin_lock_irqsave(&ctx->clk_lock, flags);
 	if (ctx->rdptr_enabled) {
-		INIT_COMPLETION(ctx->stop_comp);
+		reinit_completion(&ctx->stop_comp);
 		need_wait = 1;
 	}
 	spin_unlock_irqrestore(&ctx->clk_lock, flags);
