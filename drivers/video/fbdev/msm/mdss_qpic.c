@@ -327,7 +327,7 @@ void mdss_qpic_reset(void)
 
 	QPIC_OUTP(QPIC_REG_QPIC_LCDC_RESET, 1 << 0);
 	/* wait 100 us after reset as suggested by hw */
-	usleep(100);
+	usleep_range(100, 100);
 	time_end = (u32)ktime_to_ms(ktime_get()) + QPIC_MAX_VSYNC_WAIT_TIME;
 	while (((QPIC_INP(QPIC_REG_QPIC_LCDC_STTS) & (1 << 8)) == 0)) {
 		if ((u32)ktime_to_ms(ktime_get()) > time_end) {
@@ -335,7 +335,7 @@ void mdss_qpic_reset(void)
 			break;
 		}
 		/* yield 100 us for next polling by experiment*/
-		usleep(100);
+		usleep_range(100, 100);
 	}
 }
 
@@ -439,7 +439,7 @@ int qpic_flush_buffer_sw(u32 cmd, u32 len, u32 *param, u32 is_cmd)
 			if (data == 0)
 				break;
 			/* yield 10 us for next polling by experiment*/
-			usleep(10);
+			usleep_range(10, 10);
 			if (ktime_to_ms(ktime_get()) > time_end) {
 				pr_err("%s time out", __func__);
 				ret = -EBUSY;
@@ -472,7 +472,7 @@ int qpic_flush_buffer_sw(u32 cmd, u32 len, u32 *param, u32 is_cmd)
 		if (data & (1 << 2))
 			break;
 		/* yield 10 us for next polling by experiment*/
-		usleep(10);
+		usleep_range(10, 10);
 		if (ktime_to_ms(ktime_get()) > time_end) {
 			pr_err("%s wait for eof time out", __func__);
 			ret = -EBUSY;

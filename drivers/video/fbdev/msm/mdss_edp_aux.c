@@ -1063,6 +1063,7 @@ static int edp_start_link_train_1(struct mdss_edp_drv_pdata *ep)
 {
 	int tries, old_v_level;
 	int ret = 0;
+	int usleep_time;
 
 	pr_debug("%s:", __func__);
 
@@ -1073,7 +1074,8 @@ static int edp_start_link_train_1(struct mdss_edp_drv_pdata *ep)
 	tries = 0;
 	old_v_level = ep->v_level;
 	while (1) {
-		usleep(ep->dpcd.training_read_interval);
+		usleep_time = ep->dpcd.training_read_interval;
+		usleep_range(usleep_time, usleep_time);
 
 		edp_link_status_read(ep, 6);
 		if (edp_sink_clock_recovery_done(ep)) {
@@ -1108,6 +1110,7 @@ static int edp_start_link_train_2(struct mdss_edp_drv_pdata *ep)
 {
 	int tries;
 	int ret = 0;
+	int usleep_time;
 	char pattern;
 
 	pr_debug("%s:", __func__);
@@ -1123,7 +1126,8 @@ static int edp_start_link_train_2(struct mdss_edp_drv_pdata *ep)
 
 	tries = 0;
 	while (1) {
-		usleep(ep->dpcd.training_read_interval);
+		usleep_time = ep->dpcd.training_read_interval;
+		usleep_range(usleep_time, usleep_time);
 
 		edp_link_status_read(ep, 6);
 
@@ -1192,14 +1196,17 @@ static int edp_link_rate_down_shift(struct mdss_edp_drv_pdata *ep)
 
 static void edp_clear_training_pattern(struct mdss_edp_drv_pdata *ep)
 {
+	int usleep_time;
 	pr_debug("%s:\n", __func__);
 	edp_train_pattern_set_write(ep, 0);
-	usleep(ep->dpcd.training_read_interval);
+	usleep_time = ep->dpcd.training_read_interval;
+	usleep_range(usleep_time, usleep_time);
 }
 
 static int edp_aux_link_train(struct mdss_edp_drv_pdata *ep)
 {
 	int ret = 0;
+	int usleep_time;
 
 	ret = edp_aux_chan_ready(ep);
 	if (ret == 0) {
@@ -1221,7 +1228,8 @@ train_start:
 
 	mdss_edp_state_ctrl(ep, 0);
 	edp_clear_training_pattern(ep);
-	usleep(ep->dpcd.training_read_interval);
+	usleep_time = ep->dpcd.training_read_interval;
+	usleep_range(usleep_time, usleep_time);
 
 	ret = edp_start_link_train_1(ep);
 	if (ret < 0) {

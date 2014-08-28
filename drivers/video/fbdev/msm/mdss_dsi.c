@@ -588,7 +588,7 @@ int mdss_dsi_on(struct mdss_panel_data *pdata)
 	}
 
 	if (mipi->init_delay)
-		usleep(mipi->init_delay);
+		usleep_range(mipi->init_delay, mipi->init_delay);
 
 	if (mipi->force_clk_lane_hs) {
 		u32 tmp;

@@ -862,7 +862,7 @@ static int mdss_dsi_ulps_config(struct mdss_dsi_ctrl_pdata *ctrl,
 		 * enter ULP state.
 		 */
 		MIPI_OUTP(ctrl->ctrl_base + 0x0AC, active_lanes);
-		usleep(100);
+		usleep_range(100, 100);
 
 		/* Check to make sure that all active data lanes are in ULPS */
 		lane_status = MIPI_INP(ctrl->ctrl_base + 0xA8);
@@ -887,7 +887,7 @@ static int mdss_dsi_ulps_config(struct mdss_dsi_ctrl_pdata *ctrl,
 		 * Hardware requirement is to wait for at least 1ms
 		 */
 		MIPI_OUTP(ctrl->ctrl_base + 0x0AC, active_lanes << 8);
-		usleep(1000);
+		usleep_range(1000, 1000);
 
 		/*
 		 * Sometimes when exiting ULPS, it is possible that some DSI
@@ -903,7 +903,7 @@ static int mdss_dsi_ulps_config(struct mdss_dsi_ctrl_pdata *ctrl,
 		 * Wait for a short duration before enabling
 		 * data transmission
 		 */
-		usleep(100);
+		usleep_range(100, 100);
 
 		lane_status = MIPI_INP(ctrl->ctrl_base + 0xA8);
 		ctrl->ulps = false;
