@@ -1123,7 +1123,7 @@ static void dwc3_msm_notify_event(struct dwc3 *dwc, unsigned event)
 	case DWC3_CONTROLLER_ERROR_EVENT:
 		dev_info(mdwc->dev, "DWC3_CONTROLLER_ERROR_EVENT received\n");
 		dwc3_msm_dump_phy_info(mdwc);
-		dwc3_msm_write_reg(mdwc->base, DWC3_DEVTEN, 0);
+		dwc3_gadget_disable_irq(dwc);
 		/*
 		 * schedule work for doing block reset for recovery from erratic
 		 * error event.
@@ -1211,30 +1211,16 @@ static void dwc3_block_reset_usb_work(struct work_struct *w)
 {
 	struct dwc3_msm *mdwc = container_of(w, struct dwc3_msm,
 						usb_block_reset_work);
-	u32 reg;
+	struct dwc3 *dwc = platform_get_drvdata(mdwc->dwc3);
+	unsigned long flags;
 
 	dev_dbg(mdwc->dev, "%s\n", __func__);
 
 	dwc3_msm_block_reset(&mdwc->ext_xceiv, true);
-
-	reg = (DWC3_DEVTEN_EVNTOVERFLOWEN |
-			DWC3_DEVTEN_CMDCMPLTEN |
-			DWC3_DEVTEN_ERRTICERREN |
-			DWC3_DEVTEN_WKUPEVTEN |
-			DWC3_DEVTEN_CONNECTDONEEN |
-			DWC3_DEVTEN_USBRSTEN |
-			DWC3_DEVTEN_DISCONNEVTEN);
-	/*
-	 * Enable SUSPENDEVENT(BIT:6) for version 230A and above
-	 * else enable USB Link change event (BIT:3) for older version
-	 */
-	if (dwc3_msm_read_reg(mdwc->base, DWC3_GSNPSID) < DWC3_REVISION_230A)
-		reg |= DWC3_DEVTEN_ULSTCNGEN;
-	else
-		reg |= DWC3_DEVTEN_SUSPEND;
-
-	dwc3_msm_write_reg(mdwc->base, DWC3_DEVTEN, reg);
-
+	dwc3_gadget_enable_irq(dwc);
+	spin_lock_irqsave(&dwc->lock, flags);
+	dwc->err_evt_seen = 0;
+	spin_unlock_irqrestore(&dwc->lock, flags);
 }
 
 static void dwc3_chg_enable_secondary_det(struct dwc3_msm *mdwc)
