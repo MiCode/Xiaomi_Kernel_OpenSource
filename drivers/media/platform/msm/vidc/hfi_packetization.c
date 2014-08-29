@@ -1800,6 +1800,17 @@ int create_pkt_cmd_session_set_property(
 		pkt->size += sizeof(u32) + sizeof(struct hfi_enable);
 		break;
 	}
+	case HAL_PARAM_VENC_H264_NAL_SVC_EXT:
+	{
+		struct hfi_enable *hfi;
+		struct hal_enable *svc_nal = pdata;
+		pkt->rg_property_data[0] =
+			HFI_PROPERTY_PARAM_VENC_H264_NAL_SVC_EXT;
+		hfi = (struct hfi_enable *)&pkt->rg_property_data[1];
+		hfi->enable = svc_nal->enable;
+		pkt->size += sizeof(u32) + sizeof(struct hfi_enable);
+		break;
+	}
 	/* FOLLOWING PROPERTIES ARE NOT IMPLEMENTED IN CORE YET */
 	case HAL_CONFIG_BUFFER_REQUIREMENTS:
 	case HAL_CONFIG_PRIORITY:

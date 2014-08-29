@@ -1024,6 +1024,15 @@ static struct msm_vidc_ctrl msm_venc_ctrls[] = {
 		.menu_skip_mask = 0,
 		.qmenu = NULL,
 	},
+	{
+		.id = V4L2_CID_MPEG_VIDC_VIDEO_H264_NAL_SVC,
+		.name = "Enable H264 SVC NAL",
+		.type = V4L2_CTRL_TYPE_BOOLEAN,
+		.minimum = V4L2_CID_MPEG_VIDC_VIDEO_H264_NAL_SVC_DISABLED,
+		.maximum = V4L2_CID_MPEG_VIDC_VIDEO_H264_NAL_SVC_ENABLED,
+		.default_value = V4L2_CID_MPEG_VIDC_VIDEO_H264_NAL_SVC_DISABLED,
+		.step = 1,
+	},
 };
 
 #define NUM_CTRLS ARRAY_SIZE(msm_venc_ctrls)
@@ -1256,7 +1265,7 @@ static int msm_venc_queue_setup(struct vb2_queue *q,
 	return rc;
 }
 
-static int msm_venc_toggle_hier_p(struct msm_vidc_inst *inst, bool enable)
+static int msm_venc_toggle_hier_p(struct msm_vidc_inst *inst, int layers)
 {
 	int num_enh_layers = 0;
 	u32 property_id = 0;
@@ -1268,23 +1277,58 @@ static int msm_venc_toggle_hier_p(struct msm_vidc_inst *inst, bool enable)
 		return -EINVAL;
 	}
 
-	if (inst->fmts[CAPTURE_PORT]->fourcc != V4L2_PIX_FMT_VP8)
+	if ((inst->fmts[CAPTURE_PORT]->fourcc != V4L2_PIX_FMT_VP8) &&
+		(inst->fmts[CAPTURE_PORT]->fourcc != V4L2_PIX_FMT_H264))
 		return 0;
 
-	num_enh_layers = enable ? inst->capability.hier_p.max - 1 : 0;
-
+	num_enh_layers = layers ? : 0;
 	dprintk(VIDC_DBG, "%s Hier-P in firmware\n",
 			num_enh_layers ? "Enable" : "Disable");
 
 	hdev = inst->core->device;
 	property_id = HAL_PARAM_VENC_HIER_P_MAX_ENH_LAYERS;
-
 	rc = call_hfi_op(hdev, session_set_property,
 			(void *)inst->session, property_id,
 			(void *)&num_enh_layers);
 	if (rc) {
 		dprintk(VIDC_ERR,
 			"%s: failed with error = %d\n", __func__, rc);
+	}
+	return rc;
+}
+
+static int set_bitrate_for_each_layer(struct msm_vidc_inst *inst,
+				u32 num_enh_layers, u32 total_bitrate)
+{
+	u32 property_id = 0;
+	int i = 0;
+	struct hfi_device *hdev = NULL;
+	struct hal_bitrate bitrate;
+	int rc = 0;
+	int bitrate_table[3][4] = {
+		{50, 50, 0, 0},
+		{34, 33, 33, 0},
+		{25, 25, 25, 25} };
+
+	if (!inst || !inst->core || !inst->core->device) {
+		dprintk(VIDC_ERR, "%s - invalid input\n", __func__);
+		return -EINVAL;
+	}
+
+	if (!num_enh_layers || num_enh_layers > ARRAY_SIZE(bitrate_table)) {
+		dprintk(VIDC_ERR, "%s - invalid number of enh layers: %d\n",
+				__func__, num_enh_layers);
+		return -EINVAL;
+	}
+	hdev = inst->core->device;
+
+	for (i = 0; !rc && (i <= num_enh_layers); i++) {
+		property_id = HAL_CONFIG_VENC_TARGET_BITRATE;
+		bitrate.bit_rate = (u32)((total_bitrate *
+			bitrate_table[num_enh_layers - 1][i]) / 100);
+		bitrate.layer_id = i;
+		rc = call_hfi_op(hdev, session_set_property,
+				(void *)inst->session, property_id, &bitrate);
 	}
 	return rc;
 }
@@ -1873,12 +1917,29 @@ static int try_set_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 		break;
 	}
 	case V4L2_CID_MPEG_VIDEO_BITRATE:
-		property_id =
-			HAL_CONFIG_VENC_TARGET_BITRATE;
-		bitrate.bit_rate = ctrl->val;
+	{
+		struct v4l2_ctrl *hier_p = TRY_GET_CTRL(
+		   V4L2_CID_MPEG_VIDC_VIDEO_HIER_P_NUM_LAYERS);
+
 		bitrate.layer_id = 0;
-		pdata = &bitrate;
+		if (hier_p->val &&
+			inst->fmts[CAPTURE_PORT]->fourcc ==
+			V4L2_PIX_FMT_H264) {
+			rc = set_bitrate_for_each_layer(inst,
+						hier_p->val, ctrl->val);
+			if (rc) {
+				dprintk(VIDC_ERR,
+					"failed to set bitrate for multiple layers\n");
+				rc = -EINVAL;
+			}
+		} else {
+			property_id = HAL_CONFIG_VENC_TARGET_BITRATE;
+			bitrate.bit_rate = ctrl->val;
+			bitrate.layer_id = 0;
+			pdata = &bitrate;
+		}
 		break;
+	}
 	case V4L2_CID_MPEG_VIDEO_BITRATE_PEAK:
 	{
 		struct v4l2_ctrl *avg_bitrate = TRY_GET_CTRL(
@@ -2528,14 +2589,14 @@ static int try_set_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 	case V4L2_CID_MPEG_VIDC_VIDEO_HIER_P_NUM_LAYERS:
 		property_id = HAL_CONFIG_VENC_HIER_P_NUM_FRAMES;
 		hier_p_layers = ctrl->val;
-		rc = msm_venc_toggle_hier_p(inst, hier_p_layers ? true : false);
+		rc = msm_venc_toggle_hier_p(inst, ctrl->val);
 		if (rc)
 			break;
-		if (hier_p_layers > (inst->capability.hier_p.max - 1)) {
+		if (hier_p_layers > inst->capability.hier_p.max) {
 			dprintk(VIDC_ERR,
 				"Error setting hier p num layers = %d max supported by f/w = %d\n",
 				hier_p_layers,
-				inst->capability.hier_p.max - 1);
+				inst->capability.hier_p.max);
 			rc = -ENOTSUPP;
 			break;
 		}
@@ -2549,6 +2610,11 @@ static int try_set_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 		break;
 	case V4L2_CID_MPEG_VIDC_VIDEO_VPX_ERROR_RESILIENCE:
 		property_id = HAL_PARAM_VENC_VPX_ERROR_RESILIENCE_MODE;
+		enable.enable = ctrl->val;
+		pdata = &enable;
+		break;
+	case V4L2_CID_MPEG_VIDC_VIDEO_H264_NAL_SVC:
+		property_id = HAL_PARAM_VENC_H264_NAL_SVC_EXT;
 		enable.enable = ctrl->val;
 		pdata = &enable;
 		break;
