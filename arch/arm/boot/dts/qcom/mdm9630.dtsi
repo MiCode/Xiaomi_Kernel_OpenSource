@@ -1225,6 +1225,13 @@
 				<86 512 0 0>,
 				<86 512 500 800>;
 	};
+
+	bt_qca6174 {
+		compatible = "qca,qca6174";
+		qca,bt-reset-gpio = <&pmd9635_gpios 6 0>; /* BT_EN */
+		qca,bt-vdd-pa-supply = <&wlan_vreg>;
+	};
+
 };
 
 &gdsc_pcie_0 {
