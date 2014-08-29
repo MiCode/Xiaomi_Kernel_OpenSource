@@ -62,6 +62,9 @@ config DEBUG_ALIGN_RODATA
 
 	  If in doubt, say N.
 
+config ARM64_STRICT_BREAK_BEFORE_MAKE
+	bool "Enforce strict break-before-make on page table updates "
+
 source "drivers/hwtracing/coresight/Kconfig"
 
 endmenu
