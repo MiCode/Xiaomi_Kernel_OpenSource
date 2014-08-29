@@ -35,6 +35,7 @@ static char *descriptions =
 	"10 Perf: arm64: tracectr: initialize counts after hotplug\n"
 	"11 Perf: arm64: Refine disable/enable in tracecounters\n"
 	"12 Perf: arm64: fix disable of pmu irq during hotplug\n"
+	"13 Perf: arm64: restore registers after reset\n"
 ;
 
 static ssize_t desc_read(struct file *fp, char __user *buf,
