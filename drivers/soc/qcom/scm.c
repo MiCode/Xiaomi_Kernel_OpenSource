@@ -476,7 +476,7 @@ static enum scm_interface_version {
 } scm_version = SCM_UNKNOWN;
 
 /* This will be set to specify SMC32 or SMC64 */
-static bool scm_version_mask;
+static u32 scm_version_mask;
 
 bool is_scm_armv8(void)
 {
@@ -511,7 +511,8 @@ bool is_scm_armv8(void)
 	} else
 		scm_version_mask = SMC64_MASK;
 
-	pr_debug("scm_call: scm version is %x\n", scm_version);
+	pr_debug("scm_call: scm version is %x, mask is %x\n", scm_version,
+		  scm_version_mask);
 
 	return (scm_version == SCM_ARMV8_32) ||
 			(scm_version == SCM_ARMV8_64);
