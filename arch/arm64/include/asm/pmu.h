@@ -21,6 +21,12 @@
 
 #ifdef CONFIG_HW_PERF_EVENTS
 
+enum arm_pmu_state {
+	ARM_PMU_STATE_OFF       = 0,
+	ARM_PMU_STATE_GOING_DOWN,
+	ARM_PMU_STATE_RUNNING,
+};
+
 /* The events for a given PMU register set. */
 struct pmu_hw_events {
 	/*
@@ -64,6 +70,7 @@ struct arm_pmu {
 	void			(*free_irq)(struct arm_pmu *);
 	int			(*map_event)(struct perf_event *event);
 	int			num_events;
+	int			pmu_state;
 	int			percpu_irq;
 	atomic_t		active_events;
 	struct mutex		reserve_mutex;
