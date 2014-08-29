@@ -1916,6 +1916,12 @@ static struct notifier_block ipa_uc_panic_blk = {
 	.notifier_call  = ipa_uc_panic_notifier,
 };
 
+void ipa_register_panic_hdlr(void)
+{
+	atomic_notifier_chain_register(&panic_notifier_list,
+			&ipa_uc_panic_blk);
+}
+
 static void ipa_uc_response_hdlr(enum ipa_irq_type interrupt,
 				void *private_data,
 				void *interrupt_data)
@@ -1930,8 +1936,6 @@ static void ipa_uc_response_hdlr(enum ipa_irq_type interrupt,
 	if (ipa_ctx->uc_ctx.uc_sram_mmio->responseOp ==
 			IPA_HW_2_CPU_RESPONSE_INIT_COMPLETED) {
 		ipa_ctx->uc_ctx.uc_loaded = true;
-		atomic_notifier_chain_register(&panic_notifier_list,
-			&ipa_uc_panic_blk);
 		IPADBG("IPA uC loaded\n");
 	} else if (ipa_ctx->uc_ctx.uc_sram_mmio->responseOp ==
 		   IPA_HW_2_CPU_RESPONSE_CMD_COMPLETED) {

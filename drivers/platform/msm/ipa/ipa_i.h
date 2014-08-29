@@ -1047,4 +1047,5 @@ int ipa_sps_connect_safe(struct sps_pipe *h, struct sps_connect *connect,
 			 enum ipa_client_type ipa_client);
 int ipa_uc_interface_init(void);
 int ipa_uc_reset_pipe(enum ipa_client_type ipa_client);
+void ipa_register_panic_hdlr(void);
 #endif /* _IPA_I_H_ */
