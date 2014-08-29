@@ -19,39 +19,23 @@
  */
 
 #include <linux/module.h>
-#include <linux/moduleparam.h>
 #include <linux/kernel.h>
 #include <linux/input.h>
 #include <linux/input/mt.h>
 #include <linux/interrupt.h>
 #include <linux/i2c.h>
-#include <linux/timer.h>
 #include <linux/gpio.h>
 #include <linux/of_gpio.h>
-
 #include <linux/sysfs.h>
 #include <linux/init.h>
 #include <linux/mutex.h>
-#include <mach/gpio.h>
-#include <linux/spinlock.h>
 #include <linux/delay.h>
 #include <linux/slab.h>
-
-#include <linux/syscalls.h>
-#include <linux/file.h>
-#include <linux/fs.h>
-#include <linux/fcntl.h>
+#include <linux/firmware.h>
 #include <linux/string.h>
-#include <asm/unistd.h>
-#include <linux/cdev.h>
-#include <linux/uaccess.h>
 #include <linux/kthread.h>
 #include <linux/regulator/consumer.h>
 
-#if defined(CONFIG_HAS_EARLYSUSPEND)
-#include <linux/earlysuspend.h>
-#endif
-#include <linux/input.h>
 #if defined(CONFIG_FB)
 #include <linux/notifier.h>
 #include <linux/fb.h>
@@ -71,21 +55,18 @@
 
 /* Constant Value & Variable Definition*/
 
-static struct regulator *vdd;
-static struct regulator *vcc_i2c;
-
 #define MSTAR_VTG_MIN_UV	2800000
 #define MSTAR_VTG_MAX_UV	3300000
 #define MSTAR_I2C_VTG_MIN_UV	1800000
 #define MSTAR_I2C_VTG_MAX_UV	1800000
 
-
-#define TOUCH_SCREEN_X_MIN   (0)
-#define TOUCH_SCREEN_Y_MIN   (0)
-
 #define MAX_BUTTONS		4
 #define FT_COORDS_ARR_SIZE	4
+#define MSTAR_FW_NAME_MAX_LEN	50
 
+#define MSTAR_CHIPTOP_REGISTER_BANK	0x1E
+#define MSTAR_CHIPTOP_REGISTER_ICTYPE 0xCC
+#define MSTAR_INIT_SW_ID 0x7FF
 
 /*
  * Note.
@@ -93,20 +74,6 @@ static struct regulator *vcc_i2c;
  */
 #define TPD_WIDTH   (2048)
 #define TPD_HEIGHT  (2048)
-
-/*#define FIRMWARE_AUTOUPDATE*/
-#ifdef FIRMWARE_AUTOUPDATE
-enum {
-	SWID_START = 1,
-	SWID_TRULY = SWID_START,
-	SWID_NULL,
-};
-
-static unsigned char MSG_FIRMWARE[1][33*1024] = { {
-		#include "msg21xx_truly_update_bin.h"
-	}
-};
-#endif
 
 #define CONFIG_TP_HAVE_KEY
 
@@ -125,10 +92,7 @@ static int tp_print_proc_read(void);
 static void tp_print_create_entry(void);
 #endif
 
-static char *fw_version; /* customer firmware version*/
-static unsigned short fw_version_major;
-static unsigned short fw_version_minor;
-static unsigned char temp[94][1024];
+static unsigned char fw_bin_data[94][1024];
 static unsigned int crc32_table[256];
 static int FwDataCnt;
 static unsigned char bFwUpdating;
@@ -138,12 +102,19 @@ static struct device *firmware_cmd_dev;
 static struct i2c_client *i2c_client;
 
 static u32 button_map[MAX_BUTTONS];
-
 static u32 num_buttons;
+
+static unsigned short update_bin_major, update_bin_minor;
+static unsigned short main_sw_id = MSTAR_INIT_SW_ID;
+static unsigned short info_sw_id = MSTAR_INIT_SW_ID;
+static unsigned int bin_conf_crc32;
 
 struct msg21xx_ts_platform_data {
 	const char *name;
-	const char *fw_name;
+	char fw_name[MSTAR_FW_NAME_MAX_LEN];
+	char *fw_version;
+	unsigned short fw_version_major;
+	unsigned short fw_version_minor;
 	u32 irqflags;
 	u32 irq_gpio;
 	u32 irq_gpio_flags;
@@ -158,14 +129,9 @@ struct msg21xx_ts_platform_data {
 	u32 panel_miny;
 	u32 panel_maxx;
 	u32 panel_maxy;
-	u32 group_id;
-	u32 hard_rst_dly;
-	u32 soft_rst_dly;
 	u32 num_max_touches;
-	bool fw_vkey_support;
 	bool no_force_update;
 	bool i2c_pull_up;
-	bool ignore_id_check;
 	int (*power_init) (bool);
 	int (*power_on) (bool);
 };
@@ -190,8 +156,6 @@ struct msg21xx_ts_data {
 	u8 fw_vendor_id;
 #if defined(CONFIG_FB)
 	struct notifier_block fb_notif;
-#elif defined(CONFIG_HAS_EARLYSUSPEND)
-	struct early_suspend early_suspend;
 #endif
 	struct pinctrl *ts_pinctrl;
 	struct pinctrl_state *pinctrl_state_active;
@@ -205,8 +169,6 @@ static struct msg21xx_ts_data *ts_data;
 #if defined(CONFIG_FB)
 static int fb_notifier_callback(struct notifier_block *self,
 			unsigned long event, void *data);
-#elif defined(CONFIG_HAS_EARLYSUSPEND)
-static struct early_suspend mstar_ts_early_suspend;
 #endif
 
 #ifdef CONFIG_TOUCHSCREEN_PROXIMITY_SENSOR
@@ -231,11 +193,6 @@ struct touchInfo_t {
 	unsigned char keycode;
 };
 
-enum i2c_speed {
-	I2C_SLOW = 0,
-	I2C_NORMAL = 1, /* Enable erasing/writing for 10 msec. */
-	I2C_FAST = 2,   /* Disable EWENB before 10 msec timeout. */
-};
 
 enum EMEM_TYPE_t {
 	EMEM_ALL = 0,
@@ -421,6 +378,8 @@ static void dbbusDWIICIICReshape(void)
 static unsigned char get_ic_type(void)
 {
 	unsigned char ic_type = 0;
+	unsigned char bank;
+	unsigned char addr;
 
 	reset_hw();
 	dbbusDWIICEnterSerialDebugMode();
@@ -434,7 +393,9 @@ static unsigned char get_ic_type(void)
 	/* disable watch dog*/
 	write_reg(0x3C, 0x60, 0xAA55);
 	/* get ic type*/
-	ic_type = (0xff)&(read_reg(0x1E, 0xCC));
+	bank = MSTAR_CHIPTOP_REGISTER_BANK;
+	addr = MSTAR_CHIPTOP_REGISTER_ICTYPE;
+	ic_type = (0xff)&(read_reg(bank, addr));
 
 	if (ic_type != 1		/*msg2133*/
 		&& ic_type != 2	 /*msg21xxA*/
@@ -447,13 +408,11 @@ static unsigned char get_ic_type(void)
 	return ic_type;
 }
 
-static int get_customer_firmware_version(void)
+static int msg21xx_read_firmware_id(void)
 {
 	unsigned char dbbus_tx_data[3] = {0};
 	unsigned char dbbus_rx_data[4] = {0};
 	int ret = 0;
-
-	DBG("get_customer_firmware_version()\n");
 
 	dbbus_tx_data[0] = 0x53;
 	dbbus_tx_data[1] = 0x00;
@@ -462,18 +421,18 @@ static int get_customer_firmware_version(void)
 	write_i2c_seq(ts_data->client->addr, &dbbus_tx_data[0], 3);
 	read_i2c_seq(ts_data->client->addr, &dbbus_rx_data[0], 4);
 	mutex_unlock(&msg21xx_mutex);
-	fw_version_major = (dbbus_rx_data[1]<<8) + dbbus_rx_data[0];
-	fw_version_minor = (dbbus_rx_data[3]<<8) + dbbus_rx_data[2];
+	pdata->fw_version_major = (dbbus_rx_data[1]<<8) + dbbus_rx_data[0];
+	pdata->fw_version_minor = (dbbus_rx_data[3]<<8) + dbbus_rx_data[2];
 
-	DBG("*** major = %d ***\n", fw_version_major);
-	DBG("*** minor = %d ***\n", fw_version_minor);
+	dev_dbg(&i2c_client->dev, "major num = %d, minor num = %d\n",
+			pdata->fw_version_major, pdata->fw_version_minor);
 
-	if (fw_version == NULL)
-		fw_version = kzalloc(sizeof(char), GFP_KERNEL);
+	if (pdata->fw_version == NULL)
+		pdata->fw_version = kzalloc(sizeof(char), GFP_KERNEL);
 
-	snprintf(fw_version, sizeof(char) - 1, "%03d%03d",
-				fw_version_major, fw_version_minor);
-
+	snprintf(pdata->fw_version, sizeof(char) * 7, "%03d%03d",
+				pdata->fw_version_major,
+				pdata->fw_version_minor);
 
 	return ret;
 }
@@ -511,10 +470,32 @@ static int firmware_erase_c33(enum EMEM_TYPE_t emem_type)
 	return 1;
 }
 
+static void _ReadBinConfig(void);
+static unsigned int _CalMainCRC32(void);
+
+static int check_fw_update(void)
+{
+	int ret = 0;
+	msg21xx_read_firmware_id();
+	_ReadBinConfig();
+	if (main_sw_id == info_sw_id) {
+		if (_CalMainCRC32() == bin_conf_crc32) {
+			/*check upgrading*/
+			if ((update_bin_major == pdata->fw_version_major) &&
+				(update_bin_minor > pdata->fw_version_minor)) {
+				ret = 1;
+			}
+		}
+	}
+	return ret;
+
+}
+
 static ssize_t firmware_update_c33(struct device *dev,
 						struct device_attribute *attr,
 						const char *buf, size_t size,
-						enum EMEM_TYPE_t emem_type) {
+						enum EMEM_TYPE_t emem_type,
+						bool isForce) {
 	unsigned int i, j;
 	unsigned int crc_main, crc_main_tp;
 	unsigned int crc_info, crc_info_tp;
@@ -525,6 +506,16 @@ static ssize_t firmware_update_c33(struct device *dev,
 	crc_info = 0xffffffff;
 
 	reset_hw();
+
+	if (!check_fw_update() && !isForce) {
+		DBG("****no need to update\n");
+		reset_hw();
+		FwDataCnt = 0;
+		return size;
+	}
+	reset_hw();
+	msleep(300);
+
 	dbbusDWIICEnterSerialDebugMode();
 	dbbusDWIICStopMCU();
 	dbbusDWIICIICUseBus();
@@ -568,8 +559,8 @@ static ssize_t firmware_update_c33(struct device *dev,
 		write_reg_8bit(0x3C, 0xE4, 0xC5);
 		write_reg_8bit(0x3C, 0xE5, 0x78);
 
-		write_reg_8bit(0x1E, 0x04, 0x9F);
-		write_reg_8bit(0x1E, 0x05, 0x82);
+		write_reg_8bit(MSTAR_CHIPTOP_REGISTER_BANK, 0x04, 0x9F);
+		write_reg_8bit(MSTAR_CHIPTOP_REGISTER_BANK, 0x05, 0x82);
 
 		write_reg_8bit(0x0F, 0xE6, 0x00);
 		msleep(100);
@@ -587,19 +578,21 @@ static ssize_t firmware_update_c33(struct device *dev,
 	/* total  32 KB : 2 byte per R/W */
 	for (i = 0; i < 32; i++) {
 		if (i == 31) {
-			temp[i][1014] = 0x5A;
-			temp[i][1015] = 0xA5;
+			fw_bin_data[i][1014] = 0x5A;
+			fw_bin_data[i][1015] = 0xA5;
 
 			for (j = 0; j < 1016; j++)
-				crc_main = _CRC_getValue(temp[i][j], crc_main);
+				crc_main = _CRC_getValue(fw_bin_data[i][j],
+							crc_main);
 		} else {
 			for (j = 0; j < 1024; j++)
-				crc_main = _CRC_getValue(temp[i][j], crc_main);
+				crc_main = _CRC_getValue(fw_bin_data[i][j],
+							crc_main);
 		}
 
 		for (j = 0; j < 8; j++)
 			write_i2c_seq(ts_data->client->addr,
-						&temp[i][j*128], 128);
+						&fw_bin_data[i][j * 128], 128);
 		msleep(100);
 
 		/* polling 0x3CE4 is 0xD0BC*/
@@ -654,9 +647,6 @@ static ssize_t firmware_update_c33(struct device *dev,
 	FwDataCnt = 0;
 	return size;
 }
-#ifdef FIRMWARE_AUTOUPDATE
-static unsigned short main_sw_id = 0x7FF, info_sw_id = 0x7FF;
-static unsigned int bin_conf_crc32;
 
 static unsigned int _CalMainCRC32(void)
 {
@@ -680,9 +670,9 @@ static unsigned int _CalMainCRC32(void)
 
 	/*cmd*/
 	write_reg(0x3C, 0xE4, 0xDF4C);
-	write_reg(0x1E, 0x04, 0x7d60);
+	write_reg(MSTAR_CHIPTOP_REGISTER_BANK, 0x04, 0x7d60);
 	/* TP SW reset*/
-	write_reg(0x1E, 0x04, 0x829F);
+	write_reg(MSTAR_CHIPTOP_REGISTER_BANK, 0x04, 0x829F);
 
 	/*MCU run*/
 	write_reg(0x0F, 0xE6, 0x0000);
@@ -723,10 +713,10 @@ static void _ReadBinConfig(void)
 
 	/*cmd*/
 	write_reg(0x3C, 0xE4, 0xA4AB);
-	write_reg(0x1E, 0x04, 0x7d60);
+	write_reg(MSTAR_CHIPTOP_REGISTER_BANK, 0x04, 0x7d60);
 
 	/* TP SW reset*/
-	write_reg(0x1E, 0x04, 0x829F);
+	write_reg(MSTAR_CHIPTOP_REGISTER_BANK, 0x04, 0x829F);
 
 	/*MCU run*/
 	write_reg(0x0F, 0xE6, 0x0000);
@@ -782,33 +772,14 @@ static void _ReadBinConfig(void)
 			main_sw_id, info_sw_id, bin_conf_crc32);
 }
 
-static int fwAutoUpdate(void *unused)
-{
-	int time = 0;
-	ssize_t ret = 0;
-
-	for (time = 0; time < 5; time++) {
-		DBG("fwAutoUpdate time = %d\n", time);
-		ret = firmware_update_c33(NULL, NULL, NULL, 1, EMEM_MAIN);
-		if (ret == 1) {
-			DBG("AUTO_UPDATE OK!!!");
-			break;
-		}
-	}
-	if (time == 5)
-		DBG("AUTO_UPDATE failed!!!");
-	enable_irq(ts_data->client->irq);
-	return 0;
-}
-#endif
-
 static ssize_t firmware_update_show(struct device *dev,
 						struct device_attribute *attr,
 						char *buf)
 {
-	DBG("*** firmware_update_show() fw_version = %s ***\n", fw_version);
+	DBG("*** firmware_update_show() pdata->fw_version = %s ***\n",
+		pdata->fw_version);
 
-	return snprintf(buf, sizeof(char) - 1, "%s\n", fw_version);
+	return snprintf(buf, sizeof(char) - 1, "%s\n", pdata->fw_version);
 }
 
 static ssize_t firmware_update_store(struct device *dev,
@@ -820,7 +791,7 @@ static ssize_t firmware_update_store(struct device *dev,
 	disable_irq(ts_data->client->irq);
 
 	DBG("*** update fw size = %d ***\n", FwDataCnt);
-	size = firmware_update_c33(dev, attr, buf, size, EMEM_MAIN);
+	size = firmware_update_c33(dev, attr, buf, size, EMEM_MAIN, false);
 
 	enable_irq(ts_data->client->irq);
 	bFwUpdating = 0;
@@ -832,13 +803,103 @@ static DEVICE_ATTR(update, (S_IRUGO | S_IWUSR),
 					firmware_update_show,
 					firmware_update_store);
 
+static int prepare_fw_data(struct device *dev)
+{
+	int count;
+	int i;
+	int ret;
+	const struct firmware *fw = NULL;
+
+	ret = request_firmware(&fw, pdata->fw_name, dev);
+	if (ret < 0) {
+		dev_err(dev, "Request firmware failed - %s (%d)\n",
+						pdata->fw_name, ret);
+		return ret;
+	}
+	DBG("*** prepare_fw_data() ret = %d, size = %d***\n", ret, fw->size);
+
+	count = fw->size / 1024;
+
+	for (i = 0; i < count; i++) {
+		memcpy(fw_bin_data[FwDataCnt], fw->data + (i * 1024), 1024);
+		FwDataCnt++;
+	}
+	update_bin_major = (fw->data[0x7f4f] << 8) + fw->data[0x7f4e];
+	update_bin_minor = (fw->data[0x7f51] << 8) + fw->data[0x7f50];
+	DBG("*** prepare_fw_data bin major = %d ***\n", update_bin_major);
+	DBG("*** prepare_fw_data bin minor = %d ***\n", update_bin_minor);
+
+	DBG("***FwDataCnt = %d ***\n", FwDataCnt);
+
+	return fw->size;
+}
+
+static ssize_t firmware_update_smart_store(struct device *dev,
+						struct device_attribute *attr,
+						const char *buf,
+						size_t size)
+{
+	int ret;
+
+	ret = prepare_fw_data(dev);
+	if (ret < 0) {
+		dev_err(dev, "Request firmware failed -(%d)\n", ret);
+		return ret;
+	}
+	bFwUpdating = 1;
+	disable_irq(ts_data->client->irq);
+
+	DBG("*** update fw size = %d ***\n", FwDataCnt);
+	ret = firmware_update_c33(dev, attr, buf, size, EMEM_MAIN, false);
+	if (ret == 0)
+		DBG("*** firmware_update_c33 ret = %d ***\n", ret);
+
+	enable_irq(ts_data->client->irq);
+	bFwUpdating = 0;
+
+	return ret;
+}
+
+static ssize_t firmware_force_update_smart_store(struct device *dev,
+						struct device_attribute *attr,
+						const char *buf,
+						size_t size)
+{
+	int ret;
+
+	ret = prepare_fw_data(dev);
+	if (ret < 0) {
+		dev_err(dev, "Request firmware failed -(%d)\n", ret);
+		return ret;
+	}
+	bFwUpdating = 1;
+	disable_irq(ts_data->client->irq);
+
+	DBG("*** update fw size = %d ***\n", FwDataCnt);
+	ret = firmware_update_c33(dev, attr, buf, size, EMEM_MAIN, true);
+	if (ret == 0)
+		DBG("*** firmware_update_c33 et = %d ***\n", ret);
+
+	enable_irq(ts_data->client->irq);
+	bFwUpdating = 0;
+
+	return ret;
+}
+
+static DEVICE_ATTR(update_fw, (S_IRUGO | S_IWUSR),
+					firmware_update_show,
+					firmware_update_smart_store);
+
+static DEVICE_ATTR(force_update_fw, (S_IRUGO | S_IWUSR),
+					firmware_update_show,
+					firmware_force_update_smart_store);
+
 static ssize_t firmware_version_show(struct device *dev,
 					struct device_attribute *attr,
 					char *buf)
 {
-	DBG("*** firmware_version_show() fw_version = %s ***\n", fw_version);
-
-	return snprintf(buf, sizeof(char) - 1, "%s\n", fw_version);
+	msg21xx_read_firmware_id();
+	return snprintf(buf, 8, "%s\n", pdata->fw_version);
 }
 
 static ssize_t firmware_version_store(struct device *dev,
@@ -846,9 +907,9 @@ static ssize_t firmware_version_store(struct device *dev,
 					const char *buf,
 					size_t size)
 {
-	get_customer_firmware_version();
-
-	DBG("*** firmware_version_store() fw_version = %s ***\n", fw_version);
+	msg21xx_read_firmware_id();
+	DBG("*** firmware_version_store() pdata->fw_version = %s ***\n",
+		pdata->fw_version);
 
 	return size;
 }
@@ -856,6 +917,31 @@ static ssize_t firmware_version_store(struct device *dev,
 static DEVICE_ATTR(version, (S_IRUGO | S_IWUSR),
 					firmware_version_show,
 					firmware_version_store);
+
+
+static ssize_t msg21xx_fw_name_show(struct device *dev,
+				struct device_attribute *attr, char *buf)
+{
+	return snprintf(buf, MSTAR_FW_NAME_MAX_LEN - 1, "%s\n", pdata->fw_name);
+}
+
+static ssize_t msg21xx_fw_name_store(struct device *dev,
+				struct device_attribute *attr,
+				const char *buf, size_t size)
+{
+
+	if (size > MSTAR_FW_NAME_MAX_LEN - 1)
+		return -EINVAL;
+
+	strlcpy(pdata->fw_name, buf, size);
+	if (pdata->fw_name[size - 1] == '\n')
+		pdata->fw_name[size - 1] = 0;
+
+	return size;
+}
+
+static DEVICE_ATTR(fw_name, (S_IRUGO | S_IWUSR),
+			msg21xx_fw_name_show, msg21xx_fw_name_store);
 
 static ssize_t firmware_data_show(struct device *dev,
 					  struct device_attribute *attr,
@@ -875,7 +961,7 @@ static ssize_t firmware_data_store(struct device *dev,
 	int i;
 
 	for (i = 0; i < count; i++) {
-		memcpy(temp[FwDataCnt], buf + (i * 1024), 1024);
+		memcpy(fw_bin_data[FwDataCnt], buf + (i * 1024), 1024);
 
 		FwDataCnt++;
 	}
@@ -916,7 +1002,7 @@ static DEVICE_ATTR(tpp, (S_IRUGO | S_IWUSR),
 #endif
 
 #ifdef CONFIG_TOUCHSCREEN_PROXIMITY_SENSOR
-static void _msg_enable_proximity(void
+static void _msg_enable_proximity(void)
 {
 	unsigned char tx_data[4] = {0};
 
@@ -1016,12 +1102,12 @@ err_pinctrl_get:
 
 static unsigned char calculate_checksum(unsigned char *msg, int length)
 {
-	int Checksum = 0, i;
+	int checksum = 0, i;
 
 	for (i = 0; i < length; i++)
-		Checksum += msg[i];
+		checksum += msg[i];
 
-	return (unsigned char)((-Checksum) & 0xFF);
+	return (unsigned char)((-checksum) & 0xFF);
 }
 
 static int parse_info(struct touchInfo_t *info)
@@ -1210,16 +1296,16 @@ static int msg21xx_ts_power_init(void)
 {
 	int rc;
 
-	vdd = regulator_get(&i2c_client->dev, "vdd");
-	if (IS_ERR(vdd)) {
-		rc = PTR_ERR(vdd);
+	ts_data->vdd = regulator_get(&i2c_client->dev, "vdd");
+	if (IS_ERR(ts_data->vdd)) {
+		rc = PTR_ERR(ts_data->vdd);
 		dev_err(&i2c_client->dev,
 			"Regulator get failed vdd rc=%d\n", rc);
 		return rc;
 	}
 
-	if (regulator_count_voltages(vdd) > 0) {
-		rc = regulator_set_voltage(vdd, MSTAR_VTG_MIN_UV,
+	if (regulator_count_voltages(ts_data->vdd) > 0) {
+		rc = regulator_set_voltage(ts_data->vdd, MSTAR_VTG_MIN_UV,
 					   MSTAR_VTG_MAX_UV);
 		if (rc) {
 			dev_err(&i2c_client->dev,
@@ -1228,17 +1314,18 @@ static int msg21xx_ts_power_init(void)
 		}
 	}
 
-	vcc_i2c = regulator_get(&i2c_client->dev, "vcc_i2c");
-	if (IS_ERR(vcc_i2c)) {
-		rc = PTR_ERR(vcc_i2c);
+	ts_data->vcc_i2c = regulator_get(&i2c_client->dev, "vcc_i2c");
+	if (IS_ERR(ts_data->vcc_i2c)) {
+		rc = PTR_ERR(ts_data->vcc_i2c);
 		dev_err(&i2c_client->dev,
 			"Regulator get failed vcc_i2c rc=%d\n", rc);
 		goto reg_vdd_set_vtg;
 	}
 
-	if (regulator_count_voltages(vcc_i2c) > 0) {
-		rc = regulator_set_voltage(vcc_i2c, MSTAR_I2C_VTG_MIN_UV,
-					   MSTAR_I2C_VTG_MAX_UV);
+	if (regulator_count_voltages(ts_data->vcc_i2c) > 0) {
+		rc = regulator_set_voltage(ts_data->vcc_i2c,
+					MSTAR_I2C_VTG_MIN_UV,
+					MSTAR_I2C_VTG_MAX_UV);
 		if (rc) {
 			dev_err(&i2c_client->dev,
 			"Regulator set_vtg failed vcc_i2c rc=%d\n", rc);
@@ -1249,27 +1336,28 @@ static int msg21xx_ts_power_init(void)
 	return 0;
 
 reg_vcc_i2c_put:
-	regulator_put(vcc_i2c);
+	regulator_put(ts_data->vcc_i2c);
 reg_vdd_set_vtg:
-	if (regulator_count_voltages(vdd) > 0)
-		regulator_set_voltage(vdd, 0, MSTAR_VTG_MAX_UV);
+	if (regulator_count_voltages(ts_data->vdd) > 0)
+		regulator_set_voltage(ts_data->vdd, 0, MSTAR_VTG_MAX_UV);
 reg_vdd_put:
-	regulator_put(vdd);
+	regulator_put(ts_data->vdd);
 	return rc;
 }
 
 
 static int msg21xx_ts_power_deinit(void)
 {
-	if (regulator_count_voltages(vdd) > 0)
-		regulator_set_voltage(vdd, 0, MSTAR_VTG_MAX_UV);
+	if (regulator_count_voltages(ts_data->vdd) > 0)
+		regulator_set_voltage(ts_data->vdd, 0, MSTAR_VTG_MAX_UV);
 
-	regulator_put(vdd);
+	regulator_put(ts_data->vdd);
 
-	if (regulator_count_voltages(vcc_i2c) > 0)
-		regulator_set_voltage(vcc_i2c, 0, MSTAR_I2C_VTG_MAX_UV);
+	if (regulator_count_voltages(ts_data->vcc_i2c) > 0)
+		regulator_set_voltage(ts_data->vcc_i2c, 0,
+					MSTAR_I2C_VTG_MAX_UV);
 
-	regulator_put(vcc_i2c);
+	regulator_put(ts_data->vcc_i2c);
 	return 0;
 }
 
@@ -1277,19 +1365,18 @@ static int msg21xx_ts_power_on(void)
 {
 	int rc;
 
-	DBG("*** %s ***\n", __func__);
-	rc = regulator_enable(vdd);
+	rc = regulator_enable(ts_data->vdd);
 	if (rc) {
 		dev_err(&i2c_client->dev,
 			"Regulator vdd enable failed rc=%d\n", rc);
 		return rc;
 	}
 
-	rc = regulator_enable(vcc_i2c);
+	rc = regulator_enable(ts_data->vcc_i2c);
 	if (rc) {
 		dev_err(&i2c_client->dev,
 			"Regulator vcc_i2c enable failed rc=%d\n", rc);
-		regulator_disable(vdd);
+		regulator_disable(ts_data->vdd);
 	}
 
 	return rc;
@@ -1298,19 +1385,19 @@ static int msg21xx_ts_power_on(void)
 static int msg21xx_ts_power_off(void)
 {
 	int rc;
-	DBG("*** %s ***\n", __func__);
-	rc = regulator_disable(vdd);
+
+	rc = regulator_disable(ts_data->vdd);
 	if (rc) {
 		dev_err(&i2c_client->dev,
 			"Regulator vdd disable failed rc=%d\n", rc);
 		return rc;
 	}
 
-	rc = regulator_disable(vcc_i2c);
+	rc = regulator_disable(ts_data->vcc_i2c);
 	if (rc) {
 		dev_err(&i2c_client->dev,
 			"Regulator vcc_i2c disable failed rc=%d\n", rc);
-		rc = regulator_enable(vdd);
+		rc = regulator_enable(ts_data->vdd);
 	}
 
 	return rc;
@@ -1526,58 +1613,6 @@ static int fb_notifier_callback(struct notifier_block *self,
 }
 #endif
 
-#ifdef CONFIG_HAS_EARLYSUSPEND
-static void touch_driver_early_suspend(struct early_suspend *p)
-{
-	DBG("touch_driver_early_suspend()\n");
-
-	if (bFwUpdating) {
-		DBG("suspend bFwUpdating=%d\n", bFwUpdating);
-		return;
-	}
-
-#ifdef CONFIG_TOUCHSCREEN_PROXIMITY_SENSOR
-	if (bEnableTpProximity) {
-		DBG("suspend bEnableTpProximity=%d\n", bEnableTpProximity);
-		return;
-	}
-#endif
-
-	if (bTpInSuspend == 0) {
-		disable_irq(ts_data->client->irq);
-		gpio_set_value_cansleep(pdata->reset_gpio, 0);
-	}
-
-
-	if (msg21xx_ts_power_off())
-		return;
-	bTpInSuspend = 1;
-}
-
-static void touch_driver_early_resume(struct early_suspend *p)
-{
-	DBG("touch_driver_early_resume() bTpInSuspend=%d\n", bTpInSuspend);
-
-	if (bTpInSuspend) {
-		gpio_direction_output(pdata->reset_gpio, 1);
-		msleep(20);
-		gpio_set_value_cansleep(pdata->reset_gpio, 0);
-		msleep(20);
-		gpio_set_value_cansleep(pdata->reset_gpio, 1);
-		msleep(200);
-
-		touch_driver_touch_released();
-		input_sync(input_dev);
-
-		enable_irq(ts_data->client->irq);
-
-		if (msg21xx_ts_power_on())
-			return;
-	}
-	bTpInSuspend = 0;
-}
-#endif
-
 static int msg21xx_get_dt_coords(struct device *dev, char *name,
 				struct msg21xx_ts_platform_data *pdata)
 {
@@ -1671,10 +1706,7 @@ static int msg21xx_parse_dt(struct device *dev,
 /* probe function is used for matching and initializing input device */
 static int msg21xx_ts_probe(struct i2c_client *client,
 		const struct i2c_device_id *id) {
-#ifdef FIRMWARE_AUTOUPDATE
-	unsigned short update_bin_major = 0, update_bin_minor = 0;
-	int i, update_flag = 0;
-#endif
+
 	int ret = 0;
 
 	if (input_dev != NULL) {
@@ -1783,10 +1815,14 @@ static int msg21xx_ts_probe(struct i2c_client *client,
 	input_set_abs_params(input_dev, ABS_MT_TOUCH_MAJOR,
 				0, 2, 0, 0);
 	input_set_abs_params(input_dev, ABS_MT_POSITION_X,
-			TOUCH_SCREEN_X_MIN, pdata->x_max, 0, 0);
+			0, pdata->x_max, 0, 0);
 	input_set_abs_params(input_dev, ABS_MT_POSITION_Y,
-			TOUCH_SCREEN_Y_MIN, pdata->y_max, 0, 0);
-	input_mt_init_slots(input_dev, MAX_TOUCH_NUM, 0);
+			0, pdata->y_max, 0, 0);
+	ret = input_mt_init_slots(input_dev, MAX_TOUCH_NUM, 0);
+	if (ret) {
+		pr_err("Error %d initialising slots\n", ret);
+		goto err_free_mem;
+	}
 
 	/* register the input device to input sub-system */
 	ret = input_register_device(input_dev);
@@ -1796,7 +1832,7 @@ static int msg21xx_ts_probe(struct i2c_client *client,
 	}
 
 	/* set sysfs for firmware */
-	firmware_class = class_create(THIS_MODULE, "ms-touchscreen-msg20xx");
+	firmware_class = class_create(THIS_MODULE, "ms-touchscreen-msg21xx");
 	if (IS_ERR(firmware_class))
 		pr_err("Failed to create class(firmware)!\n");
 
@@ -1817,6 +1853,18 @@ static int msg21xx_ts_probe(struct i2c_client *client,
 	if (device_create_file(firmware_cmd_dev, &dev_attr_data) < 0)
 		pr_err("Failed to create device file(%s)!\n",
 				dev_attr_data.attr.name);
+	/* fw name*/
+	if (device_create_file(firmware_cmd_dev, &dev_attr_fw_name) < 0)
+		pr_err("Failed to create device file(%s)!\n",
+				dev_attr_fw_name.attr.name);
+	/* smart fw update*/
+	if (device_create_file(firmware_cmd_dev, &dev_attr_update_fw) < 0)
+		pr_err("Failed to create device file(%s)!\n",
+				dev_attr_update_fw.attr.name);
+	/* smart fw force update*/
+	if (device_create_file(firmware_cmd_dev, &dev_attr_force_update_fw) < 0)
+		pr_err("Failed to create device file(%s)!\n",
+				dev_attr_force_update_fw.attr.name);
 
 #ifdef TP_PRINT
 	tp_print_create_entry();
@@ -1836,11 +1884,6 @@ static int msg21xx_ts_probe(struct i2c_client *client,
 #if defined(CONFIG_FB)
 	ts_data->fb_notif.notifier_call = fb_notifier_callback;
 	ret = fb_register_client(&ts_data->fb_notif);
-#elif defined(CONFIG_HAS_EARLYSUSPEND)
-	mstar_ts_early_suspend.level = EARLY_SUSPEND_LEVEL_BLANK_SCREEN;
-	mstar_ts_early_suspend.suspend = touch_driver_early_suspend;
-	mstar_ts_early_suspend.resume = touch_driver_early_resume;
-	register_early_suspend(&mstar_ts_early_suspend);
 #endif
 
 #ifdef CONFIG_TOUCHSCREEN_PROXIMITY_SENSOR
@@ -1848,78 +1891,12 @@ static int msg21xx_ts_probe(struct i2c_client *client,
 				&tsps_msg21xx_data);
 #endif
 
-#ifdef FIRMWARE_AUTOUPDATE
-	get_customer_firmware_version();
-	_ReadBinConfig();
-
-	if (main_sw_id == info_sw_id) {
-		if (_CalMainCRC32() == bin_conf_crc32) {
-			if ((main_sw_id >= SWID_START) &&
-						(main_sw_id < SWID_NULL)) {
-				update_bin_major = (MSG_FIRMWARE
-				[main_sw_id - SWID_START][0x7f4f] << 8)
-				+ MSG_FIRMWARE[main_sw_id - SWID_START][0x7f4e];
-				update_bin_minor = (MSG_FIRMWARE
-				[main_sw_id - SWID_START][0x7f51] << 8)
-				+ MSG_FIRMWARE[main_sw_id - SWID_START][0x7f50];
-
-				/*check upgrading*/
-				if ((update_bin_major == fw_version_major) &&
-					(update_bin_minor > fw_version_minor)) {
-					update_flag = 1;
-				}
-			}
-		} else {
-			if ((info_sw_id >= SWID_START) &&
-				(info_sw_id < SWID_NULL)) {
-				update_bin_major = (MSG_FIRMWARE
-					[info_sw_id - SWID_START][0x7f4f] << 8)
-					+ MSG_FIRMWARE
-					[info_sw_id - SWID_START][0x7f4e];
-				update_bin_minor = (MSG_FIRMWARE
-					[info_sw_id - SWID_START][0x7f51] << 8)
-					+ MSG_FIRMWARE
-					[info_sw_id - SWID_START][0x7f50];
-				update_flag = 1;
-			}
-		}
-	} else {
-		if ((info_sw_id >= SWID_START) && (info_sw_id < SWID_NULL)) {
-			update_bin_major = (MSG_FIRMWARE
-					[info_sw_id - SWID_START][0x7f4f] << 8)
-					+ MSG_FIRMWARE
-					[info_sw_id - SWID_START][0x7f4e];
-			update_bin_minor = (MSG_FIRMWARE
-					[info_sw_id - SWID_START][0x7f51] << 8)
-					+ MSG_FIRMWARE
-					[info_sw_id - SWID_START][0x7f50];
-			update_flag = 1;
-		}
-	}
-
-	if (update_flag == 1) {
-		DBG("MSG21XX_fw_auto_update begin....\n");
-		/*transfer data*/
-		for (i = 0; i < 33; i++) {
-			firmware_data_store(NULL, NULL,
-			&(MSG_FIRMWARE[info_sw_id - SWID_START][i * 1024]),
-			1024);
-		}
-
-		kthread_run(fwAutoUpdate, 0, "MSG21XX_fw_auto_update");
-		DBG("*** mstar touch screen registered ***\n");
-		return 0;
-	}
-
-	reset_hw();
-#endif
-
 	DBG("*** mstar touch screen registered ***\n");
 	enable_irq(ts_data->client->irq);
 	return 0;
 
 err_req_irq:
-	free_irq(ts_data->client->irq, input_dev);
+	free_irq(ts_data->client->irq, ts_data);
 
 err_input_reg_dev:
 err_input_allocate_dev:
@@ -1948,6 +1925,8 @@ exit_pinctrl_init:
 	msg21xx_ts_power_off();
 exit_deinit_power:
 	msg21xx_ts_power_deinit();
+err_free_mem:
+	input_free_device(input_dev);
 
 	return ret;
 }
@@ -1960,7 +1939,7 @@ static int touch_driver_remove(struct i2c_client *client)
 
 	DBG("touch_driver_remove()\n");
 
-	free_irq(ts_data->client->irq, input_dev);
+	free_irq(ts_data->client->irq, ts_data);
 	gpio_free(pdata->irq_gpio);
 	gpio_free(pdata->reset_gpio);
 
@@ -2008,27 +1987,7 @@ static struct i2c_driver touch_device_driver = {
 	.id_table = touch_device_id,
 };
 
-static int __init touch_driver_init(void)
-{
-	int ret;
-
-	/* register driver */
-	ret = i2c_add_driver(&touch_device_driver);
-	if (ret < 0) {
-		DBG("add touch_device_driver i2c driver failed.\n");
-		return -ENODEV;
-	}
-	DBG("add touch_device_driver i2c driver.\n");
-
-	return ret;
-}
-
-static void __exit touch_driver_exit(void)
-{
-	DBG("remove touch_device_driver i2c driver.\n");
-
-	i2c_del_driver(&touch_device_driver);
-}
+module_i2c_driver(touch_device_driver);
 
 #ifdef TP_PRINT
 #include <linux/proc_fs.h>
@@ -2143,8 +2102,5 @@ static void tp_print_create_entry(void)
 }
 #endif
 
-
-module_init(touch_driver_init);
-module_exit(touch_driver_exit);
 MODULE_AUTHOR("MStar Semiconductor, Inc.");
 MODULE_LICENSE("GPL v2");
