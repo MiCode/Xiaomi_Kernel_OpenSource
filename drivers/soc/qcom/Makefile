@@ -63,6 +63,11 @@ obj-$(CONFIG_MSM_CPU_PWR_CTL) += cpu_pwr_ctl.o
 obj-$(CONFIG_MSM8994_V1_PMUIRQ_WA) += cti-pmu-irq.o
 obj-$(CONFIG_MSM_XPU_ERR_FATAL) += scm-xpu.o
 
+ifdef CONFIG_MSM_RTB
+	obj-y += msm_rtb-hotplug.o
+endif
+
 obj-$(CONFIG_MSM_SHARED_HEAP_ACCESS) += shared_memory.o
 obj-$(CONFIG_MSM_SYSTEM_HEALTH_MONITOR) += system_health_monitor_v01.o
 obj-$(CONFIG_MSM_SYSTEM_HEALTH_MONITOR) += system_health_monitor.o
+obj-$(CONFIG_MSM_RTB) += msm_rtb-hotplug.o
