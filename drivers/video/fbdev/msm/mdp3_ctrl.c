@@ -1940,7 +1940,7 @@ int mdp3_ctrl_init(struct msm_fb_data_type *mfd)
 		goto init_done;
 	}
 
-	mdp3_session->vsync_event_sd = sysfs_get_dirent(dev->kobj.sd, NULL,
+	mdp3_session->vsync_event_sd = sysfs_get_dirent(dev->kobj.sd,
 							"vsync_event");
 	if (!mdp3_session->vsync_event_sd) {
 		pr_err("vsync_event sysfs lookup failed\n");
