@@ -319,6 +319,7 @@ struct perf_event {
 	struct pmu			*pmu;
 
 	enum perf_event_active_state	state;
+	enum perf_event_active_state	hotplug_save_state;
 	unsigned int			attach_state;
 	local64_t			count;
 	atomic64_t			child_count;
