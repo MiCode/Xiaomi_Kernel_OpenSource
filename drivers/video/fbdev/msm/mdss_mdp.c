@@ -352,6 +352,9 @@ int mdss_mdp_bus_scale_set_quota(u64 ab_quota_rt, u64 ab_quota_nrt,
 		new_uc_idx = (mdss_res->curr_bw_uc_idx %
 			(bw_table->num_usecases - 1)) + 1;
 
+		if (mdss_res->bus_channels > 0)
+			ib_quota = div_u64(ib_quota, mdss_res->bus_channels);
+
 		for (i = 0; i < mdss_res->axi_port_cnt; i++) {
 			vect = &bw_table->usecase[mdss_res->curr_bw_uc_idx].
 				vectors[i];
@@ -367,8 +370,9 @@ int mdss_mdp_bus_scale_set_quota(u64 ab_quota_rt, u64 ab_quota_nrt,
 			vect->ab = ab_quota[i];
 			vect->ib = ib_quota;
 
-			pr_debug("uc_idx=%d path_idx=%d ab=%llu ib=%llu\n",
-				new_uc_idx, i, vect->ab, vect->ib);
+			pr_debug("uc_idx=%d path_idx=%d ab=%llu ib=%llu ch=%d\n",
+				new_uc_idx, i, vect->ab, vect->ib,
+				mdss_res->bus_channels);
 		}
 	}
 	mdss_res->curr_bw_uc_idx = new_uc_idx;
@@ -2620,6 +2624,12 @@ static int mdss_mdp_parse_dt_misc(struct platform_device *pdev)
 		 "qcom,mdss-traffic-shaper-enabled");
 	mdata->has_rot_dwnscale = of_property_read_bool(pdev->dev.of_node,
 		"qcom,mdss-has-rotator-downscale");
+
+	rc = of_property_read_u32(pdev->dev.of_node,
+		"qcom,mdss-dram-channels", &mdata->bus_channels);
+	if (rc)
+		pr_debug("number of channels property not specified\n");
+
 	return 0;
 }
 
