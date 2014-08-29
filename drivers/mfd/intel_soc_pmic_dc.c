@@ -357,12 +357,13 @@ static void platform_set_battery_data(struct dollarcove_fg_pdata *pdata,
 	 * sometimes incorrectly set them to 0.
 	 */
 	if (chg_prof->chrg_prof_type == PSE_MOD_CHRG_PROF) {
-		pdata->design_cap = prof->capacity ? prof->capacity : 4980;
-		pdata->design_max_volt = prof->voltage_max ? prof->voltage_max
-			: 4350;
+		pdata->design_cap = prof->capacity ? prof->capacity : 4045;
+		pdata->design_max_volt = prof->voltage_max ? prof->voltage_max : 4350;
+		pdata->design_min_volt = prof->low_batt_mV ? prof->low_batt_mV : 3400;
 	} else {
 		pdata->design_cap = 4045;
 		pdata->design_max_volt = 4350;
+		pdata->design_min_volt = 3400;
 	}
 }
 
@@ -377,6 +378,7 @@ static void platform_set_battery_data(struct dollarcove_fg_pdata *pdata,
 {
 	pdata->design_cap = 4045;
 	pdata->design_max_volt = 4350;
+	pdata->design_min_volt = 3400;
 }
 
 #endif
@@ -384,7 +386,6 @@ static void platform_set_battery_data(struct dollarcove_fg_pdata *pdata,
 static void dc_xpwr_chrg_pdata(void)
 {
 	static struct dollarcove_chrg_pdata pdata;
-	int ret;
 
 	pdata.max_cc = 2000;
 	pdata.max_cv = 4350;
@@ -415,14 +416,29 @@ static void dc_xpwr_fg_pdata(void)
 {
 	static struct dollarcove_fg_pdata pdata;
 	int i;
+	int scaled_capacity;
 
 	memcpy(pdata.battid, "INTN0001", strlen("INTN0001"));
 	platform_set_battery_data(&pdata, &ps_batt_chrg_prof);
-	pdata.design_min_volt = 3400;
 	pdata.max_temp = 55;
 	pdata.min_temp = 0;
-	pdata.cap1 = 0x8D;
-	pdata.cap0 = 0xA3;
+
+	/*
+	 * Calculate cap1 and cap0.  The value of a LSB is 1.456mAh.
+	 * Using 1.5 as math friendly and close enough.
+	 */
+
+	scaled_capacity = (pdata.design_cap >> 1) +
+				(pdata.design_cap >> 3) +
+				(pdata.design_cap >> 4);
+
+	/*
+	 * bit 7 of cap1 register is set to indicate battery maximum
+	 * capacity is valid
+	 */
+	pdata.cap0 = scaled_capacity & 0xFF;
+	pdata.cap1 = (scaled_capacity >> 8) | 0x80;
+
 	pdata.rdc1 = 0xc0;
 	pdata.rdc0 = 0x97;
 	/* copy curve data */
