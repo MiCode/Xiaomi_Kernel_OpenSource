@@ -812,3 +812,4 @@
 #include "msm8992-ion.dtsi"
 #include "msm8992-regulator.dtsi"
 #include "msm8992-iommu.dtsi"
+#include "msm8992-iommu-domains.dtsi"
