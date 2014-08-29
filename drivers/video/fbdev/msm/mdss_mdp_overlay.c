@@ -2334,27 +2334,135 @@ static struct attribute_group mdp_overlay_sysfs_group = {
 	.attrs = mdp_overlay_sysfs_attrs,
 };
 
+static void mdss_mdp_hw_cursor_setpos(struct mdss_mdp_mixer *mixer,
+		struct mdss_rect *roi, u32 start_x, u32 start_y)
+{
+	int roi_xy = (roi->y << 16) | roi->x;
+	int start_xy = (start_y << 16) | start_x;
+	int roi_size = (roi->h << 16) | roi->w;
+
+	if (!mixer) {
+		pr_err("mixer not available\n");
+		return;
+	}
+	mdp_mixer_write(mixer, MDSS_MDP_REG_LM_CURSOR_XY, roi_xy);
+	mdp_mixer_write(mixer, MDSS_MDP_REG_LM_CURSOR_START_XY, start_xy);
+	mdp_mixer_write(mixer, MDSS_MDP_REG_LM_CURSOR_SIZE, roi_size);
+}
+
+static void mdss_mdp_hw_cursor_setimage(struct mdss_mdp_mixer *mixer,
+	struct fb_cursor *cursor, u32 cursor_addr, struct mdss_rect *roi)
+{
+	int calpha_en, transp_en, alpha, size;
+	struct fb_image *img = &cursor->image;
+	u32 blendcfg;
+	int roi_size = 0;
+
+	if (!mixer) {
+		pr_err("mixer not available\n");
+		return;
+	}
+
+	if (img->bg_color == 0xffffffff)
+		transp_en = 0;
+	else
+		transp_en = 1;
+
+	alpha = (img->fg_color & 0xff000000) >> 24;
+
+	if (alpha)
+		calpha_en = 0x0; /* xrgb */
+	else
+		calpha_en = 0x2; /* argb */
+
+	roi_size = (roi->h << 16) | roi->w;
+	size = (img->height << 16) | img->width;
+	mdp_mixer_write(mixer, MDSS_MDP_REG_LM_CURSOR_IMG_SIZE, size);
+	mdp_mixer_write(mixer, MDSS_MDP_REG_LM_CURSOR_SIZE, roi_size);
+	mdp_mixer_write(mixer, MDSS_MDP_REG_LM_CURSOR_STRIDE,
+				img->width * 4);
+	mdp_mixer_write(mixer, MDSS_MDP_REG_LM_CURSOR_BASE_ADDR,
+				cursor_addr);
+	blendcfg = mdp_mixer_read(mixer, MDSS_MDP_REG_LM_CURSOR_BLEND_CONFIG);
+	blendcfg &= ~0x1;
+	blendcfg |= (transp_en << 3) | (calpha_en << 1);
+	mdp_mixer_write(mixer, MDSS_MDP_REG_LM_CURSOR_BLEND_CONFIG,
+				blendcfg);
+	if (calpha_en)
+		mdp_mixer_write(mixer, MDSS_MDP_REG_LM_CURSOR_BLEND_PARAM,
+				alpha);
+
+	if (transp_en) {
+		mdp_mixer_write(mixer,
+				MDSS_MDP_REG_LM_CURSOR_BLEND_TRANSP_LOW0,
+				((img->bg_color & 0xff00) << 8) |
+				(img->bg_color & 0xff));
+		mdp_mixer_write(mixer,
+				MDSS_MDP_REG_LM_CURSOR_BLEND_TRANSP_LOW1,
+				((img->bg_color & 0xff0000) >> 16));
+		mdp_mixer_write(mixer,
+				MDSS_MDP_REG_LM_CURSOR_BLEND_TRANSP_HIGH0,
+				((img->bg_color & 0xff00) << 8) |
+				(img->bg_color & 0xff));
+		mdp_mixer_write(mixer,
+				MDSS_MDP_REG_LM_CURSOR_BLEND_TRANSP_HIGH1,
+				((img->bg_color & 0xff0000) >> 16));
+	}
+}
+
+static void mdss_mdp_hw_cursor_blend_config(struct mdss_mdp_mixer *mixer,
+		struct fb_cursor *cursor)
+{
+	u32 blendcfg;
+	if (!mixer) {
+		pr_err("mixer not availbale\n");
+		return;
+	}
+
+	blendcfg = mdp_mixer_read(mixer, MDSS_MDP_REG_LM_CURSOR_BLEND_CONFIG);
+	if (!cursor->enable != !(blendcfg & 0x1)) {
+		if (cursor->enable) {
+			pr_debug("enable hw cursor on mixer=%d\n", mixer->num);
+			blendcfg |= 0x1;
+		} else {
+			pr_debug("disable hw cursor on mixer=%d\n", mixer->num);
+			blendcfg &= ~0x1;
+		}
+
+		mdp_mixer_write(mixer, MDSS_MDP_REG_LM_CURSOR_BLEND_CONFIG,
+				   blendcfg);
+		mixer->cursor_enabled = cursor->enable;
+		mixer->params_changed++;
+	}
+
+}
+
 static int mdss_mdp_hw_cursor_update(struct msm_fb_data_type *mfd,
 				     struct fb_cursor *cursor)
 {
 	struct mdss_overlay_private *mdp5_data = mfd_to_mdp5_data(mfd);
-	struct mdss_mdp_mixer *mixer;
+	struct mdss_mdp_mixer *mixer_left = NULL;
+	struct mdss_mdp_mixer *mixer_right = NULL;
 	struct fb_image *img = &cursor->image;
-	u32 blendcfg;
+	struct fbcurpos cursor_hot;
+	struct mdss_rect roi;
 	int ret = 0;
 	u32 xres = mfd->fbi->var.xres;
 	u32 yres = mfd->fbi->var.yres;
 	u32 start_x = img->dx;
 	u32 start_y = img->dy;
-	u32 roi_x = 0;
-	u32 roi_y = 0;
-	int roi_w = 0;
-	int roi_h = 0;
-	int roi_size = 0;
+	u32 left_lm_w = left_lm_w_from_mfd(mfd);
 
-	mixer = mdss_mdp_mixer_get(mdp5_data->ctl, MDSS_MDP_MIXER_MUX_DEFAULT);
-	if (!mixer)
+	mixer_left = mdss_mdp_mixer_get(mdp5_data->ctl,
+			MDSS_MDP_MIXER_MUX_DEFAULT);
+	if (!mixer_left)
 		return -ENODEV;
+	if (is_split_lm(mfd)) {
+		mixer_right = mdss_mdp_mixer_get(mdp5_data->ctl,
+				MDSS_MDP_MIXER_MUX_RIGHT);
+		if (!mixer_right)
+			return -ENODEV;
+	}
 
 	if (!mfd->cursor_buf && (cursor->set & FB_CUR_SETIMAGE)) {
 		mfd->cursor_buf = dma_alloc_coherent(NULL, MDSS_MDP_CURSOR_SIZE,
@@ -2377,9 +2485,6 @@ static int mdss_mdp_hw_cursor_update(struct msm_fb_data_type *mfd,
 			       ret);
 			return ret;
 		}
-
-		mixer->cursor_hotx = 0;
-		mixer->cursor_hoty = 0;
 	}
 
 	if ((img->width > MDSS_MDP_CURSOR_WIDTH) ||
@@ -2387,17 +2492,15 @@ static int mdss_mdp_hw_cursor_update(struct msm_fb_data_type *mfd,
 		(img->depth != 32) || (start_x >= xres) || (start_y >= yres))
 		return -EINVAL;
 
-	pr_debug("mixer=%d enable=%x set=%x\n", mixer->num, cursor->enable,
-			cursor->set);
+	pr_debug("enable=%x set=%x\n", cursor->enable, cursor->set);
 
-	mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_ON);
-	blendcfg = mdp_mixer_read(mixer, MDSS_MDP_REG_LM_CURSOR_BLEND_CONFIG);
-
+	memset(&cursor_hot, 0, sizeof(struct fbcurpos));
+	memset(&roi, 0, sizeof(struct mdss_rect));
 	if (cursor->set & FB_CUR_SETHOT) {
 		if ((cursor->hot.x < img->width) &&
 			(cursor->hot.y < img->height)) {
-			mixer->cursor_hotx = cursor->hot.x;
-			mixer->cursor_hoty = cursor->hot.y;
+			cursor_hot.x = cursor->hot.x;
+			cursor_hot.y = cursor->hot.y;
 			 /* Update cursor position */
 			cursor->set |= FB_CUR_SETPOS;
 		} else {
@@ -2406,33 +2509,25 @@ static int mdss_mdp_hw_cursor_update(struct msm_fb_data_type *mfd,
 		}
 	}
 
-	if (start_x > mixer->cursor_hotx) {
-		start_x -= mixer->cursor_hotx;
+	if (start_x > cursor_hot.x) {
+		start_x -= cursor_hot.x;
 	} else {
-		roi_x = mixer->cursor_hotx - start_x;
+		roi.x = cursor_hot.x - start_x;
 		start_x = 0;
 	}
-	if (start_y > mixer->cursor_hoty) {
-		start_y -= mixer->cursor_hoty;
+	if (start_y > cursor_hot.y) {
+		start_y -= cursor_hot.y;
 	} else {
-		roi_y = mixer->cursor_hoty - start_y;
+		roi.y = cursor_hot.y - start_y;
 		start_y = 0;
 	}
 
-	roi_w = min(xres - start_x, img->width - roi_x);
-	roi_h = min(yres - start_y, img->height - roi_y);
-	roi_size = (roi_h << 16) | roi_w;
+	roi.w = min(xres - start_x, img->width - roi.x);
+	roi.h = min(yres - start_y, img->height - roi.y);
 
-	if (cursor->set & FB_CUR_SETPOS) {
-		mdp_mixer_write(mixer, MDSS_MDP_REG_LM_CURSOR_XY,
-				(roi_y << 16) | roi_x);
-		mdp_mixer_write(mixer, MDSS_MDP_REG_LM_CURSOR_START_XY,
-				(start_y << 16) | start_x);
-		mdp_mixer_write(mixer, MDSS_MDP_REG_LM_CURSOR_SIZE, roi_size);
-	}
+	mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_ON);
 
 	if (cursor->set & FB_CUR_SETIMAGE) {
-		int calpha_en, transp_en, alpha, size;
 		u32 cursor_addr;
 		ret = copy_from_user(mfd->cursor_buf, img->data,
 				     img->width * img->height * 4);
@@ -2452,78 +2547,49 @@ static int mdss_mdp_hw_cursor_update(struct msm_fb_data_type *mfd,
 			}
 			cursor_addr = mfd->cursor_buf_phys;
 		}
-
-		if (img->bg_color == 0xffffffff)
-			transp_en = 0;
-		else
-			transp_en = 1;
-
-		alpha = (img->fg_color & 0xff000000) >> 24;
-
-		if (alpha)
-			calpha_en = 0x0; /* xrgb */
-		else
-			calpha_en = 0x2; /* argb */
-
-		size = (img->height << 16) | img->width;
-		mdp_mixer_write(mixer, MDSS_MDP_REG_LM_CURSOR_IMG_SIZE, size);
-		mdp_mixer_write(mixer, MDSS_MDP_REG_LM_CURSOR_SIZE, roi_size);
-		mdp_mixer_write(mixer, MDSS_MDP_REG_LM_CURSOR_STRIDE,
-				   img->width * 4);
-		mdp_mixer_write(mixer, MDSS_MDP_REG_LM_CURSOR_BASE_ADDR,
-				   cursor_addr);
-
-		wmb();
-
-		blendcfg &= ~0x1;
-		blendcfg |= (transp_en << 3) | (calpha_en << 1);
-		mdp_mixer_write(mixer, MDSS_MDP_REG_LM_CURSOR_BLEND_CONFIG,
-				   blendcfg);
-		if (calpha_en)
-			mdp_mixer_write(mixer,
-					   MDSS_MDP_REG_LM_CURSOR_BLEND_PARAM,
-					   alpha);
-
-		if (transp_en) {
-			mdp_mixer_write(mixer,
-				   MDSS_MDP_REG_LM_CURSOR_BLEND_TRANSP_LOW0,
-				   ((img->bg_color & 0xff00) << 8) |
-				   (img->bg_color & 0xff));
-			mdp_mixer_write(mixer,
-				   MDSS_MDP_REG_LM_CURSOR_BLEND_TRANSP_LOW1,
-				   ((img->bg_color & 0xff0000) >> 16));
-			mdp_mixer_write(mixer,
-				   MDSS_MDP_REG_LM_CURSOR_BLEND_TRANSP_HIGH0,
-				   ((img->bg_color & 0xff00) << 8) |
-				   (img->bg_color & 0xff));
-			mdp_mixer_write(mixer,
-				   MDSS_MDP_REG_LM_CURSOR_BLEND_TRANSP_HIGH1,
-				   ((img->bg_color & 0xff0000) >> 16));
-		}
-
-		mixer->cursor_hotx = 0;
-		mixer->cursor_hoty = 0;
+		mdss_mdp_hw_cursor_setimage(mixer_left, cursor, cursor_addr,
+				&roi);
+		if (is_split_lm(mfd))
+			mdss_mdp_hw_cursor_setimage(mixer_right, cursor,
+					cursor_addr, &roi);
 	}
 
-	if (!cursor->enable != !(blendcfg & 0x1)) {
-		if (cursor->enable) {
-			pr_debug("enable hw cursor on mixer=%d\n", mixer->num);
-			blendcfg |= 0x1;
-		} else {
-			pr_debug("disable hw cursor on mixer=%d\n", mixer->num);
-			blendcfg &= ~0x1;
-		}
+	if ((start_x + roi.w) <= left_lm_w) {
+		if (cursor->set & FB_CUR_SETPOS)
+			mdss_mdp_hw_cursor_setpos(mixer_left, &roi, start_x,
+					start_y);
+		mdss_mdp_hw_cursor_blend_config(mixer_left, cursor);
+		cursor->enable = false;
+		mdss_mdp_hw_cursor_blend_config(mixer_right, cursor);
+	} else if (start_x >= left_lm_w) {
+		start_x -= left_lm_w;
+		if (cursor->set & FB_CUR_SETPOS)
+			mdss_mdp_hw_cursor_setpos(mixer_right, &roi, start_x,
+					start_y);
+		mdss_mdp_hw_cursor_blend_config(mixer_right, cursor);
+		cursor->enable = false;
+		mdss_mdp_hw_cursor_blend_config(mixer_left, cursor);
+	} else {
+		struct mdss_rect roi_right = roi;
+		roi.w = left_lm_w - start_x;
+		if (cursor->set & FB_CUR_SETPOS)
+			mdss_mdp_hw_cursor_setpos(mixer_left, &roi, start_x,
+					start_y);
+		mdss_mdp_hw_cursor_blend_config(mixer_left, cursor);
 
-		mdp_mixer_write(mixer, MDSS_MDP_REG_LM_CURSOR_BLEND_CONFIG,
-				   blendcfg);
-
-		mixer->cursor_enabled = cursor->enable;
-		mixer->params_changed++;
+		roi_right.x = 0;
+		roi_right.w = (start_x + roi_right.w) - left_lm_w;
+		start_x = 0;
+		if (cursor->set & FB_CUR_SETPOS)
+			mdss_mdp_hw_cursor_setpos(mixer_right, &roi_right,
+					start_x, start_y);
+		mdss_mdp_hw_cursor_blend_config(mixer_right, cursor);
 	}
 
-	mixer->ctl->flush_bits |= BIT(6) << mixer->num;
+	mixer_left->ctl->flush_bits |= BIT(6) << mixer_left->num;
+	if (is_split_lm(mfd))
+		mixer_right->ctl->flush_bits |= BIT(6) << mixer_right->num;
 	mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_OFF);
-
 	return 0;
 }
 
