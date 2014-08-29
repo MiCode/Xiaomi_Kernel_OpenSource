@@ -315,7 +315,7 @@ static void __init alloc_init_pmd(pud_t *pud, unsigned long addr,
 		prot_pte = __pgprot(PROT_DEVICE_nGnRE);
 	} else {
 		prot_sect = prot_sect_kernel;
-		prot_pte = PAGE_KERNEL_EXEC;
+		prot_pte = PAGE_KERNEL;
 	}
 
 	/*
