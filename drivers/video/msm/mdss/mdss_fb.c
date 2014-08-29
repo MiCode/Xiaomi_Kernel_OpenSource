@@ -106,6 +106,8 @@ static int mdss_fb_pan_idle(struct msm_fb_data_type *mfd);
 static int mdss_fb_send_panel_event(struct msm_fb_data_type *mfd,
 					int event, void *arg);
 static void mdss_fb_set_mdp_sync_pt_threshold(struct msm_fb_data_type *mfd);
+static void mdss_panelinfo_to_fb_var(struct mdss_panel_info *pinfo,
+					struct fb_var_screeninfo *var);
 void mdss_fb_no_update_notify_timer_cb(unsigned long data)
 {
 	struct msm_fb_data_type *mfd = (struct msm_fb_data_type *)data;
@@ -1185,6 +1187,34 @@ static void mdss_fb_stop_disp_thread(struct msm_fb_data_type *mfd)
 	mfd->disp_thread = NULL;
 }
 
+static void mdss_panel_validate_debugfs_info(struct msm_fb_data_type *mfd)
+{
+	struct mdss_panel_info *panel_info = mfd->panel_info;
+	struct fb_info *fbi = mfd->fbi;
+	struct fb_var_screeninfo *var = &fbi->var;
+	struct mdss_panel_data *pdata = container_of(panel_info,
+				struct mdss_panel_data, panel_info);
+
+	if (panel_info->debugfs_info->override_flag) {
+		if (mfd->mdp.off_fnc) {
+			mfd->panel_reconfig = true;
+			mfd->mdp.off_fnc(mfd);
+			mfd->panel_reconfig = false;
+		}
+
+		pr_debug("Overriding panel_info with debugfs_info\n");
+		panel_info->debugfs_info->override_flag = 0;
+		mdss_panel_debugfsinfo_to_panelinfo(panel_info);
+		if (is_panel_split(mfd) && pdata->next)
+			mdss_fb_validate_split(pdata->panel_info.xres,
+					pdata->next->panel_info.xres, mfd);
+		mdss_panelinfo_to_fb_var(panel_info, var);
+		if (mdss_fb_send_panel_event(mfd, MDSS_EVENT_CHECK_PARAMS,
+							panel_info))
+			pr_err("Failed to send panel event CHECK_PARAMS\n");
+	}
+}
+
 static int mdss_fb_unblank_sub(struct msm_fb_data_type *mfd)
 {
 	int ret = 0;
@@ -1192,6 +1222,9 @@ static int mdss_fb_unblank_sub(struct msm_fb_data_type *mfd)
 
 	if (!mfd)
 		return -EINVAL;
+
+	if (mfd->panel_info->debugfs_info)
+		mdss_panel_validate_debugfs_info(mfd);
 
 	/* Start Display thread */
 	if (mfd->disp_thread == NULL) {
@@ -1995,6 +2028,7 @@ static int mdss_fb_register(struct msm_fb_data_type *mfd)
 		return -EPERM;
 	}
 
+	mdss_panel_debugfs_init(panel_info);
 	pr_info("FrameBuffer[%d] %dx%d registered successfully!\n", mfd->index,
 					fbi->var.xres, fbi->var.yres);
 
@@ -2623,6 +2657,23 @@ static void mdss_fb_var_to_panelinfo(struct fb_var_screeninfo *var,
 	pinfo->lcdc.h_back_porch = var->left_margin;
 	pinfo->lcdc.h_pulse_width = var->hsync_len;
 	pinfo->clk_rate = var->pixclock;
+}
+
+static void mdss_panelinfo_to_fb_var(struct mdss_panel_info *pinfo,
+						struct fb_var_screeninfo *var)
+{
+	struct mdss_panel_data *pdata = container_of(pinfo,
+				struct mdss_panel_data, panel_info);
+
+	var->xres = mdss_fb_get_panel_xres(&pdata->panel_info);
+	var->yres = pinfo->yres;
+	var->lower_margin = pinfo->lcdc.v_front_porch;
+	var->upper_margin = pinfo->lcdc.v_back_porch;
+	var->vsync_len = pinfo->lcdc.v_pulse_width;
+	var->right_margin = pinfo->lcdc.h_front_porch;
+	var->left_margin = pinfo->lcdc.h_back_porch;
+	var->hsync_len = pinfo->lcdc.h_pulse_width;
+	var->pixclock = pinfo->clk_rate;
 }
 
 /**
