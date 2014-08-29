@@ -1119,6 +1119,9 @@ static inline void dwc3_ulpi_exit(struct dwc3 *dwc)
 int dwc3_core_init(struct dwc3 *dwc);
 int dwc3_event_buffers_setup(struct dwc3 *dwc);
 
+void dwc3_gadget_enable_irq(struct dwc3 *dwc);
+void dwc3_gadget_disable_irq(struct dwc3 *dwc);
+
 extern void dwc3_set_notifier(
 		void (*notify) (struct dwc3 *dwc3, unsigned event));
 extern int dwc3_notify_event(struct dwc3 *dwc3, unsigned event);
