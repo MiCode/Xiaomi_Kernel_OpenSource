@@ -39,6 +39,7 @@ struct cnss_fw_files {
 	char utf_file[CNSS_MAX_FILE_NAME];
 	char utf_board_data[CNSS_MAX_FILE_NAME];
 	char epping_file[CNSS_MAX_FILE_NAME];
+	char evicted_data[CNSS_MAX_FILE_NAME];
 };
 
 struct cnss_wlan_driver {
@@ -52,6 +53,23 @@ struct cnss_wlan_driver {
 	int  (*resume)(struct pci_dev *pdev);
 	void (*modem_status)(struct pci_dev *, int state);
 	const struct pci_device_id *id_table;
+};
+
+/*
+ * codeseg_total_bytes: Total bytes across all the codesegment blocks
+ * num_codesegs: No of Pages used
+ * codeseg_size: Size of each segment. Should be power of 2 and multiple of 4K
+ * codeseg_size_log2: log2(codeseg_size)
+ * codeseg_busaddr: Physical address of the DMAble memory;4K aligned
+ */
+
+#define CODESWAP_MAX_CODESEGS 16
+struct codeswap_codeseg_info {
+	u32   codeseg_total_bytes;
+	u32   num_codesegs;
+	u32   codeseg_size;
+	u32   codeseg_size_log2;
+	void *codeseg_busaddr[CODESWAP_MAX_CODESEGS];
 };
 
 /* platform capabilities */
@@ -96,6 +114,7 @@ extern void cnss_init_delayed_work(struct delayed_work *work, work_func_t func);
 extern int cnss_request_bus_bandwidth(int bandwidth);
 extern int cnss_get_sha_hash(const u8 *data, u32 data_len,
 					u8 *hash_idx, u8 *out);
+extern int cnss_get_codeswap_struct(struct codeswap_codeseg_info *swap_seg);
 
 extern void cnss_pm_wake_lock_init(struct wakeup_source *ws, const char *name);
 extern void cnss_pm_wake_lock(struct wakeup_source *ws);

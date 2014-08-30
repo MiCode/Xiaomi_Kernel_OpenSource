@@ -27,22 +27,25 @@
 #include <linux/pm_qos.h>
 #include <linux/esoc_client.h>
 #include <linux/pinctrl/consumer.h>
-#include <soc/qcom/subsystem_restart.h>
-#include <soc/qcom/subsystem_notif.h>
-#include <soc/qcom/ramdump.h>
 #include <linux/msm-bus.h>
 #include <linux/msm-bus-board.h>
 #include <linux/spinlock.h>
 #include <linux/suspend.h>
 #include <linux/rwsem.h>
+#include <linux/crypto.h>
+#include <linux/scatterlist.h>
+#include <linux/firmware.h>
+#include <linux/dma-mapping.h>
+#include <linux/log2.h>
 #ifdef CONFIG_PCI_MSM
 #include <linux/msm_pcie.h>
 #else
 #include <mach/msm_pcie.h>
 #endif
+#include <soc/qcom/subsystem_restart.h>
+#include <soc/qcom/subsystem_notif.h>
+#include <soc/qcom/ramdump.h>
 #include <net/cnss.h>
-#include <linux/crypto.h>
-#include <linux/scatterlist.h>
 
 #define subsys_to_drv(d) container_of(d, struct cnss_data, subsys_desc)
 
@@ -71,20 +74,19 @@
 
 static struct cnss_fw_files FW_FILES_QCA6174_FW_1_1 = {
 "qwlan11.bin", "bdwlan11.bin", "otp11.bin", "utf11.bin",
-"utfbd11.bin", "epping11.bin"};
+"utfbd11.bin", "epping11.bin", "evicted11.bin"};
 static struct cnss_fw_files FW_FILES_QCA6174_FW_2_0 = {
 "qwlan20.bin", "bdwlan20.bin", "otp20.bin", "utf20.bin",
-"utfbd20.bin", "epping20.bin"};
+"utfbd20.bin", "epping20.bin", "evicted20.bin"};
 static struct cnss_fw_files FW_FILES_QCA6174_FW_1_3 = {
 "qwlan13.bin", "bdwlan13.bin", "otp13.bin", "utf13.bin",
-"utfbd13.bin", "epping13.bin"};
+"utfbd13.bin", "epping13.bin", "evicted13.bin"};
 static struct cnss_fw_files FW_FILES_QCA6174_FW_3_0 = {
 "qwlan30.bin", "bdwlan30.bin", "otp30.bin", "utf30.bin",
-"utfbd30.bin", "epping30.bin"};
+"utfbd30.bin", "epping30.bin", "evicted30.bin"};
 static struct cnss_fw_files FW_FILES_DEFAULT = {
 "qwlan.bin", "bdwlan.bin", "otp.bin", "utf.bin",
-"utfbd.bin", "epping.bin"};
-
+"utfbd.bin", "epping.bin", "evicted.bin"};
 
 #define WLAN_VREG_NAME		"vdd-wlan"
 #define WLAN_VREG_IO_NAME	"vdd-wlan-io"
@@ -108,7 +110,7 @@ static struct cnss_fw_files FW_FILES_DEFAULT = {
 #define WLAN_ENABLE_DELAY	10000
 #define WLAN_RECOVERY_DELAY	1000
 #define PCIE_ENABLE_DELAY	100000
-
+#define EVICT_BIN_MAX_SIZE      (512*1024)
 #define CNSS_PINCTRL_STATE_ACTIVE "default"
 
 static DEFINE_SPINLOCK(pci_link_down_lock);
@@ -148,26 +150,30 @@ static struct cnss_data {
 	struct cnss_wlan_gpio_info gpio_info;
 	bool pcie_link_state;
 	bool pcie_link_down_ind;
+	bool pci_register_again;
+	bool notify_modem_status;
 	struct pci_saved_state *saved_state;
 	u16 revision_id;
+	u16 dfs_nol_info_len;
+	bool recovery_in_progress;
+	bool fw_available;
+	struct codeswap_codeseg_info *cnss_seg_info;
+	/* Virtual Address of the DMA page */
+	void *codeseg_cpuaddr[CODESWAP_MAX_CODESEGS];
 	struct cnss_fw_files fw_files;
 	struct pm_qos_request qos_request;
 	void *modem_notify_handler;
-	bool pci_register_again;
 	int modem_current_status;
 	struct msm_bus_scale_pdata *bus_scale_table;
 	uint32_t bus_client;
 	void *subsys_handle;
 	struct esoc_desc *esoc_desc;
-	bool notify_modem_status;
 	struct cnss_platform_cap cap;
 	struct msm_pcie_register_event event_reg;
-	bool recovery_in_progress;
 	struct wakeup_source ws;
 	uint32_t recovery_count;
 	enum cnss_driver_status driver_status;
 	void *dfs_nol_info;
-	u16 dfs_nol_info_len;
 } *penv;
 
 
@@ -639,9 +645,14 @@ static int cnss_wlan_pci_probe(struct pci_dev *pdev,
 	int ret = 0;
 	struct cnss_wlan_vreg_info *vreg_info = &penv->vreg_info;
 	struct cnss_wlan_gpio_info *gpio_info = &penv->gpio_info;
+	void *cpu_addr;
+	dma_addr_t dma_handle;
+	struct codeswap_codeseg_info *cnss_seg_info = NULL;
+	struct device *dev = &pdev->dev;
 
 	penv->pdev = pdev;
 	penv->id = id;
+	penv->fw_available = false;
 
 	if (penv->pci_register_again) {
 		pr_debug("%s: PCI re-registration complete\n", __func__);
@@ -669,11 +680,46 @@ static int cnss_wlan_pci_probe(struct pci_dev *pdev,
 	cnss_wlan_gpio_set(gpio_info, WLAN_EN_LOW);
 	ret = cnss_wlan_vreg_set(vreg_info, VREG_OFF);
 
-	if (ret)
+	if (ret) {
 		pr_err("can't turn off wlan vreg\n");
+		goto err_pcie_suspend;
+	}
 
+	if (penv->revision_id != QCA6174_FW_3_0) {
+		pr_debug("Supported Target Revision:%d\n", penv->revision_id);
+		goto err_pcie_suspend;
+	}
+
+	cpu_addr = dma_alloc_coherent(dev, EVICT_BIN_MAX_SIZE,
+					&dma_handle, GFP_KERNEL);
+	if (!cpu_addr || !dma_handle) {
+		pr_err("cnss: Memory Alloc failed for codeswap feature\n");
+		goto err_pcie_suspend;
+	}
+
+	cnss_seg_info = devm_kzalloc(dev, sizeof(*cnss_seg_info),
+							GFP_KERNEL);
+	if (!cnss_seg_info) {
+		pr_err("Fail to allocate memory for cnss_seg_info\n");
+		goto end_dma_alloc;
+	}
+
+	memset(cnss_seg_info, 0, sizeof(*cnss_seg_info));
+	cnss_seg_info->codeseg_busaddr[0]   = (void *)dma_handle;
+	penv->codeseg_cpuaddr[0]            = cpu_addr;
+	cnss_seg_info->codeseg_size         = EVICT_BIN_MAX_SIZE;
+	cnss_seg_info->codeseg_total_bytes  = EVICT_BIN_MAX_SIZE;
+	cnss_seg_info->num_codesegs         = 1;
+	cnss_seg_info->codeseg_size_log2    = ilog2(EVICT_BIN_MAX_SIZE);
+
+	penv->cnss_seg_info = cnss_seg_info;
+	pr_debug("%s: Successfully allocated memory for CODESWAP\n", __func__);
+
+	return ret;
+
+end_dma_alloc:
+	dma_free_coherent(dev, EVICT_BIN_MAX_SIZE, cpu_addr, dma_handle);
 err_pcie_suspend:
-
 	return ret;
 }
 
@@ -824,6 +870,101 @@ int cnss_pcie_shadow_control(struct pci_dev *dev, bool enable)
 }
 EXPORT_SYMBOL(cnss_pcie_shadow_control);
 
+int cnss_get_codeswap_struct(struct codeswap_codeseg_info *swap_seg)
+{
+	struct codeswap_codeseg_info *cnss_seg_info = penv->cnss_seg_info;
+
+	if (!cnss_seg_info) {
+		swap_seg = NULL;
+		return -ENOENT;
+	}
+	if (!penv->fw_available) {
+		pr_err("%s: fw is not availabe\n", __func__);
+		return -ENOENT;
+	}
+
+	*swap_seg = *cnss_seg_info;
+
+	return 0;
+}
+EXPORT_SYMBOL(cnss_get_codeswap_struct);
+
+static void cnss_wlan_memory_expansion(void)
+{
+	struct device *dev;
+	const struct firmware *fw_entry;
+	const char *filename = FW_FILES_QCA6174_FW_3_0.evicted_data;
+	u_int32_t fw_entry_size, size_left, dma_size_left, length;
+	char *fw_temp;
+	char *fw_data;
+	char *dma_virt_addr;
+	struct codeswap_codeseg_info *cnss_seg_info;
+	u_int32_t total_length = 0;
+	struct pci_dev *pdev;
+
+	pdev = penv->pdev;
+	dev = &pdev->dev;
+	cnss_seg_info = penv->cnss_seg_info;
+
+	if (!cnss_seg_info) {
+		pr_err("cnss: cnss_seg_info is NULL\n");
+		goto end;
+	}
+
+	if (penv->fw_available) {
+		pr_debug("cnss: fw code already copied to host memory\n");
+		goto end;
+	}
+
+	if (request_firmware(&fw_entry, filename, dev) != 0) {
+		pr_err("cnss:failed to get fw: %s\n", filename);
+		goto end;
+	}
+
+	if (!fw_entry || !fw_entry->data) {
+		pr_err("%s: INVALID FW entries\n", __func__);
+		goto release_fw;
+	}
+
+	dma_virt_addr = (char *)penv->codeseg_cpuaddr[0];
+	fw_data = (u8 *) fw_entry->data;
+	fw_temp = fw_data;
+	fw_entry_size = fw_entry->size;
+	if (fw_entry_size > EVICT_BIN_MAX_SIZE)
+		fw_entry_size = EVICT_BIN_MAX_SIZE;
+	size_left = fw_entry_size;
+	dma_size_left = EVICT_BIN_MAX_SIZE;
+	while ((size_left && fw_temp) && (dma_size_left > 0)) {
+		fw_temp = fw_temp + 4;
+		size_left = size_left - 4;
+		length = *(int *)fw_temp;
+		if ((length > size_left || length <= 0) ||
+			(dma_size_left <= 0 || length > dma_size_left)) {
+			pr_err("cnss: wrong length read:%d\n",
+							length);
+			break;
+		}
+		fw_temp = fw_temp + 4;
+		size_left = size_left - 4;
+		memcpy(dma_virt_addr, fw_temp, length);
+		dma_size_left = dma_size_left - length;
+		size_left = size_left - length;
+		fw_temp = fw_temp + length;
+		dma_virt_addr = dma_virt_addr + length;
+		total_length += length;
+		pr_debug("cnss: bytes_left to copy: fw:%d; dma_page:%d\n",
+						size_left, dma_size_left);
+	}
+	pr_debug("cnss: total_bytes copied: %d\n", total_length);
+	cnss_seg_info->codeseg_total_bytes = total_length;
+	penv->fw_available = 1;
+
+release_fw:
+	release_firmware(fw_entry);
+end:
+	return;
+}
+
 int cnss_wlan_register_driver(struct cnss_wlan_driver *driver)
 {
 	int ret = 0;
@@ -902,6 +1043,9 @@ again:
 		penv->pcie_link_down_ind = false;
 	}
 	penv->pcie_link_state = PCIE_LINK_UP;
+
+	if (penv->revision_id == QCA6174_FW_3_0)
+		cnss_wlan_memory_expansion();
 
 	if (wdrv->probe) {
 		if (penv->saved_state)
