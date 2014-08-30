@@ -3080,7 +3080,7 @@ static int i915_runtime_pm_info(struct seq_file *m, void *unused)
 	return 0;
 }
 
-static int intel_wa_registers(struct seq_file *m, void *unused)
+static int i915_wa_registers(struct seq_file *m, void *unused)
 {
 	int i;
 	int ret;
@@ -4987,7 +4987,7 @@ static const struct drm_info_list i915_debugfs_list[] = {
 	{"i915_power_domain_info", i915_power_domain_info, 0},
 	{"i915_runtime_pm_info", i915_runtime_pm_info, 0},
 	{"i915_display_info", i915_display_info, 0},
-	{"intel_wa_registers", intel_wa_registers, 0},
+	{"i915_wa_registers", i915_wa_registers, 0},
 };
 #define I915_DEBUGFS_ENTRIES ARRAY_SIZE(i915_debugfs_list)
 
