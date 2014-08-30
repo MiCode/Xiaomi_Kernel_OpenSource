@@ -28,21 +28,21 @@
 void __memcpy_fromio(void *to, const volatile void __iomem *from, size_t count)
 {
 	while (count && (!IO_CHECK_ALIGN(from, 8) || !IO_CHECK_ALIGN(to, 8))) {
-		*(u8 *)to = readb_relaxed(from);
+		*(u8 *)to = readb_relaxed_no_log(from);
 		from++;
 		to++;
 		count--;
 	}
 
 	while (count >= 8) {
-		*(u64 *)to = readq_relaxed(from);
+		*(u64 *)to = readq_relaxed_no_log(from);
 		from += 8;
 		to += 8;
 		count -= 8;
 	}
 
 	while (count) {
-		*(u8 *)to = readb_relaxed(from);
+		*(u8 *)to = readb_relaxed_no_log(from);
 		from++;
 		to++;
 		count--;
@@ -60,21 +60,21 @@ void __memcpy_toio(volatile void __iomem *to, const void *from, size_t count)
 
 	__iowmb();
 	while (count && (!IO_CHECK_ALIGN(p, 8) || !IO_CHECK_ALIGN(from, 8))) {
-		writeb_relaxed(*(volatile u8 *)from, p);
+		writeb_relaxed_no_log(*(volatile u8 *)from, p);
 		from++;
 		p++;
 		count--;
 	}
 
 	while (count >= 8) {
-		writeq_relaxed(*(volatile u64 *)from, p);
+		writeq_relaxed_no_log(*(volatile u64 *)from, p);
 		from += 8;
 		p += 8;
 		count -= 8;
 	}
 
 	while (count) {
-		writeb_relaxed(*(volatile u8 *)from, p);
+		writeb_relaxed_no_log(*(volatile u8 *)from, p);
 		from++;
 		p++;
 		count--;
@@ -96,19 +96,19 @@ void __memset_io(volatile void __iomem *dst, int c, size_t count)
 
 	__iowmb();
 	while (count && !IO_CHECK_ALIGN(p, 8)) {
-		writeb_relaxed(c, p);
+		writeb_relaxed_no_log(c, p);
 		p++;
 		count--;
 	}
 
 	while (count >= 8) {
-		writeq_relaxed(c, p);
+		writeq_relaxed_no_log(c, p);
 		p += 8;
 		count -= 8;
 	}
 
 	while (count) {
-		writeb_relaxed(c, p);
+		writeb_relaxed_no_log(c, p);
 		p++;
 		count--;
 	}
