@@ -35,6 +35,7 @@
 #include <drm/i915_drm.h>
 #include "i915_drv.h"
 #include "i915_trace.h"
+#include <drm/i915_adf.h>
 #include "intel_sync.h"
 #include "intel_drv.h"
 #include "intel_lrc_tdr.h"
@@ -2267,12 +2268,31 @@ static irqreturn_t valleyview_irq_handler(int irq, void *arg)
 
 		snb_gt_irq_handler(dev, dev_priv, gt_iir);
 
-		valleyview_pipestat_irq_handler(dev, iir);
+		if (i915.enable_intel_adf) {
+			if (g_adf_ready && i915.disable_display && iir) {
+				unsigned long irqflags;
+				spin_lock_irqsave(&dev_priv->irq_lock,
+						  irqflags);
+				intel_adf_context_on_event();
+				spin_unlock_irqrestore(&dev_priv->irq_lock,
+						       irqflags);
+			} else {
+				/*
+				 * Clear Pipestat register before clearing iir
+				 * As of now only DSI pipe is enabled.
+				 * Loop later when we enable HDMI pipe to done
+				 * same for both PIPESTAT.
+				 */
 
-		/* Consume port.  Then clear IIR or we'll miss events */
-		if (iir & I915_DISPLAY_PORT_INTERRUPT)
-			i9xx_hpd_irq_handler(dev);
-
+				I915_WRITE(PIPESTAT(0), I915_READ(PIPESTAT(0)) |
+					   I915_DISPLAY_PIPE_A_EVENT_INTERRUPT);
+			}
+		} else {
+			valleyview_pipestat_irq_handler(dev, iir);
+			/* Consume port.  Then clear IIR or we'll miss events */
+			if (iir & I915_DISPLAY_PORT_INTERRUPT)
+				i9xx_hpd_irq_handler(dev);
+		}
 		if (pm_iir & (GEN6_PM_RPS_EVENTS | GEN6_PM_RP_UP_EI_EXPIRED))
 			gen6_rps_irq_handler(dev_priv, pm_iir);
 

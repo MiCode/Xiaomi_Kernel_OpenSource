@@ -38,6 +38,8 @@
 
 #ifndef CONFIG_ADF_INTEL
 volatile bool g_adf_ready = false;
+
+static int intel_adf_context_on_event(void) { return 0; }
 #endif
 
 extern void intel_adf_dpio_sideband_rw(u32 operation, u32 port,
@@ -49,6 +51,7 @@ extern void intel_adf_get_dsi_vbt_data(void **vbt_data,
 				   struct drm_display_mode **mode);
 extern void set_adf_ready(void);
 extern volatile bool g_adf_ready;
+extern int intel_adf_context_on_event(void);
 #endif
 
 
