@@ -777,6 +777,12 @@ void recovery_work_handler(struct work_struct *recovery)
 
 DECLARE_WORK(recovery_work, recovery_work_handler);
 
+void cnss_schedule_recovery_work(void)
+{
+	schedule_work(&recovery_work);
+}
+EXPORT_SYMBOL(cnss_schedule_recovery_work);
+
 void cnss_pci_link_down_cb(struct msm_pcie_notify *notify)
 {
 	unsigned long flags;
