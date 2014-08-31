@@ -608,11 +608,11 @@
 
 &slim_msm {
 	tomtom_codec {
-		cdc-vdd-spkdrv-supply = <&pmi8994_boost>;
+		cdc-vdd-spkdrv-supply = <&pmi8994_boost_pin_ctrl>;
 		qcom,cdc-vdd-spkdrv-voltage = <5000000 5000000>;
 		qcom,cdc-vdd-spkdrv-current = <600000>;
 
-		cdc-vdd-spkdrv-2-supply = <&pmi8994_boost>;
+		cdc-vdd-spkdrv-2-supply = <&pmi8994_boost_pin_ctrl>;
 		qcom,cdc-vdd-spkdrv-2-voltage = <5000000 5000000>;
 		qcom,cdc-vdd-spkdrv-2-current = <600000>;
 

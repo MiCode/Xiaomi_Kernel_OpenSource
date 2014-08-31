@@ -473,8 +473,27 @@
 
 	rpm-regulator-bstb {
 		status = "okay";
-		pmi8994_boost: regulator-bst {
+		pmi8994_boost_5v: regulator-bst {
+			/*
+			 * When enabled, the PMI8994 Boost regulator always
+			 * outputs 5V.  This takes precedence over the pin
+			 * control boost regulator request.
+			 */
+			regulator-name = "pmi8994_boost_5v";
 			status = "okay";
+		};
+		pmi8994_boost_pin_ctrl: regulator-bst-pin-ctrl {
+			/*
+			 * When enabled, the output voltage of the PMI8994
+			 * boost regulator is determined by the state of the
+			 * REQ_5V_BST pin.  If the pin signal is high, then the
+			 * regulator outputs 5V.  If the pin signal is low, then
+			 * the regulator outputs VPH_PWR voltage.
+			 */
+			compatible = "qcom,rpm-smd-regulator";
+			regulator-name = "pmi8994_boost_pin_ctrl";
+			qcom,set = <3>;
+			qcom,enable-with-pin-ctrl = <0 1>;
 		};
 	};
 
