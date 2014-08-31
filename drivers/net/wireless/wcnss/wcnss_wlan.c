@@ -2807,7 +2807,7 @@ wcnss_trigger_config(struct platform_device *pdev)
 		}
 	} while (pil_retry++ < WCNSS_MAX_PIL_RETRY && IS_ERR(penv->pil));
 
-	if (pil_retry >= WCNSS_MAX_PIL_RETRY) {
+	if (IS_ERR(penv->pil)) {
 		wcnss_reset_intr();
 		if (penv->wcnss_notif_hdle)
 			subsys_notif_unregister_notifier(penv->wcnss_notif_hdle,
