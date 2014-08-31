@@ -2232,6 +2232,7 @@ static int msm_comm_init_core(struct msm_vidc_inst *inst)
 		rc = call_hfi_op(hdev, load_fw, hdev->hfi_device_data);
 		if (rc) {
 			dprintk(VIDC_ERR, "Failed to load video firmware\n");
+			mutex_unlock(&core->lock);
 			goto fail_load_fw;
 		}
 		core->state = VIDC_CORE_LOADED;
@@ -2253,6 +2254,7 @@ static int msm_comm_init_core(struct msm_vidc_inst *inst)
 		if (rc) {
 			dprintk(VIDC_ERR, "Failed to init core, id = %d\n",
 				core->id);
+			mutex_unlock(&core->lock);
 			goto fail_core_init;
 		}
 		core->state = VIDC_CORE_INIT;
@@ -2262,12 +2264,15 @@ core_already_inited:
 	change_inst_state(inst, MSM_VIDC_CORE_INIT);
 	mutex_unlock(&core->lock);
 	return rc;
+
 fail_core_init:
+	mutex_lock(&core->lock);
 	call_hfi_op(hdev, unload_fw, hdev->hfi_device_data);
+	core->state = VIDC_CORE_UNINIT;
+	mutex_unlock(&core->lock);
 fail_load_fw:
 	msm_comm_unvote_buses(core);
 fail_vote_bus:
-	mutex_unlock(&core->lock);
 	return rc;
 }
 
