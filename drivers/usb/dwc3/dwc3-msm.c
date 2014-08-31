@@ -3179,6 +3179,8 @@ static int dwc3_msm_probe(struct platform_device *pdev)
 	}
 
 	dwc = platform_get_drvdata(mdwc->dwc3);
+	dwc->vbus_active = of_property_read_bool(node, "qcom,vbus-present");
+
 	if (dwc && dwc->dotg)
 		mdwc->otg_xceiv = dwc->dotg->otg.phy;
 	/* Register with OTG if present */

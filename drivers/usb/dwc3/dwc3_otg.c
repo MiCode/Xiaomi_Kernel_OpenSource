@@ -696,6 +696,7 @@ void dwc3_otg_init_sm(struct dwc3_otg *dotg)
 	u32 osts = dwc3_readl(dotg->regs, DWC3_OSTS);
 	struct usb_phy *phy = dotg->otg.phy;
 	struct dwc3_ext_xceiv *ext_xceiv;
+	struct dwc3 *dwc = dotg->dwc;
 	int ret;
 
 	dev_dbg(phy->dev, "Initialize OTG inputs, osts: 0x%x\n", osts);
@@ -713,6 +714,15 @@ void dwc3_otg_init_sm(struct dwc3_otg *dotg)
 
 	ext_xceiv = dotg->ext_xceiv;
 	dwc3_otg_reset(dotg);
+
+	/*
+	 * If vbus-present property was set then set BSV to 1.
+	 * This is needed for emulation platforms as PMIC ID
+	 * interrupt is not available.
+	 */
+	if (dwc->vbus_active)
+		set_bit(B_SESS_VLD, &dotg->inputs);
+
 	if (ext_xceiv && !ext_xceiv->otg_capability) {
 		if (osts & DWC3_OTG_OSTS_CONIDSTS)
 			set_bit(ID, &dotg->inputs);
