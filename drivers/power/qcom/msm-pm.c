@@ -88,12 +88,6 @@ static long *msm_pc_debug_counters;
 static cpumask_t retention_cpus;
 static DEFINE_SPINLOCK(retention_lock);
 
-static inline void msm_arch_idle(void)
-{
-	mb();
-	wfi();
-}
-
 static bool msm_pm_is_L1_writeback(void)
 {
 	u32 cache_id = 0;
