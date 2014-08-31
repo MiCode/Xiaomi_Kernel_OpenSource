@@ -2223,7 +2223,7 @@ static int msm_comm_init_core(struct msm_vidc_inst *inst)
 
 	rc = msm_comm_vote_bus(core);
 	if (rc) {
-		dprintk(VIDC_ERR, "Failed to scale bus: %d\n", rc);
+		dprintk(VIDC_ERR, "Failed to scale DDR bus: %d\n", rc);
 		goto fail_vote_bus;
 	}
 
@@ -2258,18 +2258,6 @@ static int msm_comm_init_core(struct msm_vidc_inst *inst)
 		core->state = VIDC_CORE_INIT;
 	}
 
-	if (core->resources.ocmem_size) {
-		rc = call_hfi_op(hdev, alloc_ocmem,
-				hdev->hfi_device_data,
-				core->resources.ocmem_size);
-		if (rc) {
-			dprintk(VIDC_WARN,
-					"Failed to allocate OCMEM. Performance will be impacted\n");
-		}
-
-		/* Not a fatal error */
-		rc = 0;
-	}
 core_already_inited:
 	change_inst_state(inst, MSM_VIDC_CORE_INIT);
 	mutex_unlock(&core->lock);
@@ -2457,7 +2445,23 @@ static int msm_vidc_load_resources(int flipped_state,
 						inst, inst->state);
 		goto exit;
 	}
-
+	if (core->resources.ocmem_size) {
+		rc = msm_comm_vote_bus(core);
+		if (!rc) {
+			mutex_lock(&core->lock);
+			rc = call_hfi_op(hdev, alloc_ocmem,
+					hdev->hfi_device_data,
+					core->resources.ocmem_size);
+			mutex_unlock(&core->lock);
+			if (rc) {
+				dprintk(VIDC_WARN,
+				"Failed to allocate OCMEM. Performance will be impacted\n");
+			}
+		} else {
+			dprintk(VIDC_WARN,
+			"Failed to vote for OCMEM BW. Performance will be impacted\n");
+		}
+	}
 	rc = call_hfi_op(hdev, session_load_res, (void *) inst->session);
 	if (rc) {
 		dprintk(VIDC_ERR,
