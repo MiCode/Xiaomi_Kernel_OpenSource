@@ -900,6 +900,10 @@ static int adreno_remove(struct platform_device *pdev)
 	adreno_perfcounter_close(adreno_dev);
 	kgsl_device_platform_remove(device);
 
+	if (test_bit(ADRENO_DEVICE_PWRON_FIXUP, &adreno_dev->priv)) {
+		kgsl_free_global(&adreno_dev->pwron_fixup);
+		clear_bit(ADRENO_DEVICE_PWRON_FIXUP, &adreno_dev->priv);
+	}
 	clear_bit(ADRENO_DEVICE_INITIALIZED, &adreno_dev->priv);
 
 	return 0;
@@ -970,9 +974,14 @@ static int adreno_init(struct kgsl_device *device)
 	if (ret)
 		goto done;
 
-	/* Enable the power on shader corruption fix for all A3XX targets */
+	/*
+	 * Enable the power on shader corruption fix
+	 * This is only applicable for 28nm targets
+	 */
 	if (adreno_is_a3xx(adreno_dev))
 		adreno_a3xx_pwron_fixup_init(adreno_dev);
+	else if ((adreno_is_a405(adreno_dev)) || (adreno_is_a420(adreno_dev)))
+		adreno_a4xx_pwron_fixup_init(adreno_dev);
 
 	set_bit(ADRENO_DEVICE_INITIALIZED, &adreno_dev->priv);
 

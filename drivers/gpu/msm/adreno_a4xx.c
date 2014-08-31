@@ -16,6 +16,7 @@
 #include <linux/msm_kgsl.h>
 
 #include "adreno.h"
+#include "kgsl_sharedmem.h"
 #include "a4xx_reg.h"
 #include "adreno_a3xx.h"
 #include "adreno_a4xx.h"
@@ -1377,6 +1378,188 @@ static int a4xx_perfcounter_init(struct adreno_device *adreno_dev)
 
 		gpudev->invalid_countables = a420_perfctr_invalid_countables;
 	}
+	return 0;
+}
+
+
+static const unsigned int _a4xx_pwron_fixup_fs_instructions[] = {
+	0x00000000, 0x304CC300, 0x00000000, 0x304CC304,
+	0x00000000, 0x304CC308, 0x00000000, 0x304CC30C,
+	0x00000000, 0x304CC310, 0x00000000, 0x304CC314,
+	0x00000000, 0x304CC318, 0x00000000, 0x304CC31C,
+	0x00000000, 0x304CC320, 0x00000000, 0x304CC324,
+	0x00000000, 0x304CC328, 0x00000000, 0x304CC32C,
+	0x00000000, 0x304CC330, 0x00000000, 0x304CC334,
+	0x00000000, 0x304CC338, 0x00000000, 0x304CC33C,
+	0x00000000, 0x00000400, 0x00020000, 0x63808003,
+	0x00060004, 0x63828007, 0x000A0008, 0x6384800B,
+	0x000E000C, 0x6386800F, 0x00120010, 0x63888013,
+	0x00160014, 0x638A8017, 0x001A0018, 0x638C801B,
+	0x001E001C, 0x638E801F, 0x00220020, 0x63908023,
+	0x00260024, 0x63928027, 0x002A0028, 0x6394802B,
+	0x002E002C, 0x6396802F, 0x00320030, 0x63988033,
+	0x00360034, 0x639A8037, 0x003A0038, 0x639C803B,
+	0x003E003C, 0x639E803F, 0x00000000, 0x00000400,
+	0x00000003, 0x80D00003, 0x00000007, 0x80D00007,
+	0x0000000B, 0x80D0000B, 0x0000000F, 0x80D0000F,
+	0x00000013, 0x80D00013, 0x00000017, 0x80D00017,
+	0x0000001B, 0x80D0001B, 0x0000001F, 0x80D0001F,
+	0x00000023, 0x80D00023, 0x00000027, 0x80D00027,
+	0x0000002B, 0x80D0002B, 0x0000002F, 0x80D0002F,
+	0x00000033, 0x80D00033, 0x00000037, 0x80D00037,
+	0x0000003B, 0x80D0003B, 0x0000003F, 0x80D0003F,
+	0x00000000, 0x00000400, 0xFFFFFFFF, 0x304CC300,
+	0xFFFFFFFF, 0x304CC304, 0xFFFFFFFF, 0x304CC308,
+	0xFFFFFFFF, 0x304CC30C, 0xFFFFFFFF, 0x304CC310,
+	0xFFFFFFFF, 0x304CC314, 0xFFFFFFFF, 0x304CC318,
+	0xFFFFFFFF, 0x304CC31C, 0xFFFFFFFF, 0x304CC320,
+	0xFFFFFFFF, 0x304CC324, 0xFFFFFFFF, 0x304CC328,
+	0xFFFFFFFF, 0x304CC32C, 0xFFFFFFFF, 0x304CC330,
+	0xFFFFFFFF, 0x304CC334, 0xFFFFFFFF, 0x304CC338,
+	0xFFFFFFFF, 0x304CC33C, 0x00000000, 0x00000400,
+	0x00020000, 0x63808003, 0x00060004, 0x63828007,
+	0x000A0008, 0x6384800B, 0x000E000C, 0x6386800F,
+	0x00120010, 0x63888013, 0x00160014, 0x638A8017,
+	0x001A0018, 0x638C801B, 0x001E001C, 0x638E801F,
+	0x00220020, 0x63908023, 0x00260024, 0x63928027,
+	0x002A0028, 0x6394802B, 0x002E002C, 0x6396802F,
+	0x00320030, 0x63988033, 0x00360034, 0x639A8037,
+	0x003A0038, 0x639C803B, 0x003E003C, 0x639E803F,
+	0x00000000, 0x00000400, 0x00000003, 0x80D00003,
+	0x00000007, 0x80D00007, 0x0000000B, 0x80D0000B,
+	0x0000000F, 0x80D0000F, 0x00000013, 0x80D00013,
+	0x00000017, 0x80D00017, 0x0000001B, 0x80D0001B,
+	0x0000001F, 0x80D0001F, 0x00000023, 0x80D00023,
+	0x00000027, 0x80D00027, 0x0000002B, 0x80D0002B,
+	0x0000002F, 0x80D0002F, 0x00000033, 0x80D00033,
+	0x00000037, 0x80D00037, 0x0000003B, 0x80D0003B,
+	0x0000003F, 0x80D0003F, 0x00000000, 0x03000000,
+	0x00000000, 0x00000000, 0x00000000, 0x00000000,
+	0x00000000, 0x00000000, 0x00000000, 0x00000000,
+	0x00000000, 0x00000000, 0x00000000, 0x00000000,
+	0x00000000, 0x00000000, 0x00000000, 0x00000000,
+	0x00000000, 0x00000000, 0x00000000, 0x00000000,
+};
+
+/**
+ * adreno_a4xx_pwron_fixup_init() - Initalize a special command buffer to run a
+ * post-power collapse shader workaround
+ * @adreno_dev: Pointer to a adreno_device struct
+ *
+ * Some targets require a special workaround shader to be executed after
+ * power-collapse.  Construct the IB once at init time and keep it
+ * handy
+ *
+ * Returns: 0 on success or negative on error
+ */
+int adreno_a4xx_pwron_fixup_init(struct adreno_device *adreno_dev)
+{
+	unsigned int *cmds;
+	unsigned int count = ARRAY_SIZE(_a4xx_pwron_fixup_fs_instructions);
+	unsigned int num_units = count >> 5;
+	int ret;
+
+	/* Return if the fixup is already in place */
+	if (test_bit(ADRENO_DEVICE_PWRON_FIXUP, &adreno_dev->priv))
+			return 0;
+
+	ret = kgsl_allocate_global(&adreno_dev->dev,
+		&adreno_dev->pwron_fixup, PAGE_SIZE,
+		KGSL_MEMFLAGS_GPUREADONLY, 0);
+
+	if (ret)
+		return ret;
+
+	cmds = adreno_dev->pwron_fixup.hostptr;
+
+	*cmds++ = cp_type3_packet(CP_WAIT_FOR_IDLE, 1);
+	*cmds++ = 0x00000000;
+	*cmds++ = cp_type0_packet(A4XX_SP_MODE_CONTROL, 1);
+	*cmds++ = 0x00000018;
+	*cmds++ = cp_type0_packet(A4XX_TPL1_TP_MODE_CONTROL, 1);
+	*cmds++ = 0x00000002;
+	*cmds++ = cp_type3_packet(CP_WAIT_FOR_IDLE, 1);
+	*cmds++ = 0x00000000;
+	*cmds++ = cp_type0_packet(A4xx_HLSQ_CONTROL_0, 5);
+	*cmds++ = 0x800001a0;
+	*cmds++ = 0xfcfc0000;
+	*cmds++ = 0xcff3f3f0;
+	*cmds++ = 0xfcfcfcfc;
+	*cmds++ = 0xccfcfcfc;
+	*cmds++ = cp_type0_packet(A4XX_SP_FS_CTRL_1, 1);
+	*cmds++ = 0x80000000;
+	*cmds++ = cp_type0_packet(A4XX_HLSQ_UPDATE_CONTROL, 1);
+	*cmds++ = 0x00000038;
+	*cmds++ = cp_type0_packet(A4XX_HLSQ_MODE_CONTROL, 1);
+	*cmds++ = 0x00000003;
+	*cmds++ = cp_type0_packet(A4XX_HLSQ_UPDATE_CONTROL, 1);
+	*cmds++ = 0x00000000;
+	*cmds++ = cp_type0_packet(A4XX_TPL1_TP_TEX_TSIZE_1, 1);
+	*cmds++ = 0x00008000;
+	*cmds++ = cp_type0_packet(A4xx_HLSQ_CONTROL_0, 2);
+	*cmds++ = 0x800001a0;
+	*cmds++ = 0xfcfc0000;
+	*cmds++ = cp_type0_packet(A4XX_HLSQ_CS_CONTROL, 1);
+	*cmds++ = 0x00018030 | (num_units << 24);
+	*cmds++ = cp_type0_packet(A4XX_HLSQ_CL_NDRANGE_0, 7);
+	*cmds++ = 0x000000fd;
+	*cmds++ = 0x00000040;
+	*cmds++ = 0x00000000;
+	*cmds++ = 0x00000001;
+	*cmds++ = 0x00000000;
+	*cmds++ = 0x00000001;
+	*cmds++ = 0x00000000;
+	*cmds++ = cp_type0_packet(A4XX_HLSQ_CL_CONTROL_0, 2);
+	*cmds++ = 0x0001201f;
+	*cmds++ = 0x0000f003;
+	*cmds++ = cp_type0_packet(A4XX_HLSQ_CL_KERNEL_CONST, 1);
+	*cmds++ = 0x0001800b;
+	*cmds++ = cp_type0_packet(A4XX_HLSQ_CL_KERNEL_GROUP_X, 3);
+	*cmds++ = 0x00000001;
+	*cmds++ = 0x00000001;
+	*cmds++ = 0x00000001;
+	*cmds++ = cp_type0_packet(A4XX_HLSQ_CL_WG_OFFSET, 1);
+	*cmds++ = 0x00000022;
+	*cmds++ = cp_type0_packet(A4XX_UCHE_INVALIDATE0, 2);
+	*cmds++ = 0x00000000;
+	*cmds++ = 0x00000012;
+	*cmds++ = cp_type0_packet(A4XX_HLSQ_MODE_CONTROL, 1);
+	*cmds++ = 0x00000003;
+	*cmds++ = cp_type0_packet(A4XX_SP_SP_CTRL, 1);
+	*cmds++ = 0x00920000;
+	*cmds++ = cp_type0_packet(A4XX_SP_INSTR_CACHE_CTRL, 1);
+	*cmds++ = 0x00000260;
+	*cmds++ = cp_type0_packet(A4XX_SP_CS_CTRL_0, 1);
+	*cmds++ = 0x00200400;
+	*cmds++ = cp_type0_packet(A4XX_SP_CS_OBJ_OFFSET, 1);
+	*cmds++ = 0x00000000;
+	*cmds++ = cp_type0_packet(A4XX_SP_CS_OBJ_START, 1);
+	*cmds++ = 0x00000000;
+	*cmds++ = cp_type0_packet(A4XX_SP_CS_LENGTH, 1);
+	*cmds++ =  num_units;
+	*cmds++ = cp_type0_packet(A4XX_SP_MODE_CONTROL, 1);
+	*cmds++ = 0x00000018;
+	*cmds++ = cp_type3_packet(CP_LOAD_STATE, 2 + count);
+	*cmds++ = 0x00340000 | (num_units << CP_LOADSTATE_NUMOFUNITS_SHIFT);
+	*cmds++ = 0x00000000;
+
+	memcpy(cmds, _a4xx_pwron_fixup_fs_instructions, count << 2);
+	cmds += count;
+
+	*cmds++ = cp_type3_packet(CP_EXEC_CL, 1);
+	*cmds++ = 0x00000000;
+	*cmds++ = cp_type3_packet(CP_WAIT_FOR_IDLE, 1);
+	*cmds++ = 0x00000000;
+
+	/*
+	 * Remember the number of dwords in the command buffer for when we
+	 * program the indirect buffer call in the ringbuffer
+	 */
+	adreno_dev->pwron_fixup_dwords =
+		(cmds - (unsigned int *) adreno_dev->pwron_fixup.hostptr);
+
+	/* Mark the flag in ->priv to show that we have the fix */
+	set_bit(ADRENO_DEVICE_PWRON_FIXUP, &adreno_dev->priv);
 	return 0;
 }
 

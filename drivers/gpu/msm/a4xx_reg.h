@@ -520,10 +520,21 @@ enum a4xx_rb_perfctr_rb_sel {
 #define A4XX_CP_SCRATCH_REG7		0x57f
 
 /* SP registers */
+#define A4XX_SP_SP_CTRL			0x22C0
+#define A4XX_SP_INSTR_CACHE_CTRL	0x22c1
 #define A4XX_SP_VS_OBJ_START		0x22e1
 #define A4XX_SP_VS_PVT_MEM_ADDR		0x22e3
+#define A4XX_SP_FS_CTRL_1		0x22e9
 #define A4XX_SP_FS_OBJ_START		0x22eb
 #define A4XX_SP_FS_PVT_MEM_ADDR		0x22ed
+#define A4XX_SP_CS_CTRL_0		0x2300
+#define A4XX_SP_CS_OBJ_OFFSET		0x2301
+#define A4XX_SP_CS_OBJ_START		0x2302
+#define A4XX_SP_CS_PVT_MEM_PARAM	0x2303
+#define A4XX_SP_CS_PVT_MEM_ADDR		0x2304
+#define A4XX_SP_CS_PVT_MEM_SIZE		0x2305
+#define A4XX_SP_CS_LENGTH		0x2306
+#define A4XX_SP_MODE_CONTROL		0xec3
 #define A4XX_SP_PERFCTR_SP_SEL_0	0xec4
 #define A4XX_SP_PERFCTR_SP_SEL_1	0xec5
 #define A4XX_SP_PERFCTR_SP_SEL_2	0xec6
@@ -536,6 +547,10 @@ enum a4xx_rb_perfctr_rb_sel {
 #define A4XX_SP_PERFCTR_SP_SEL_9	0xecd
 #define A4XX_SP_PERFCTR_SP_SEL_10	0xece
 #define A4XX_SP_PERFCTR_SP_SEL_11	0xecf
+#define A4XX_SP_VS_PVT_MEM_ADDR		0x22e3
+#define A4XX_SP_FS_PVT_MEM_ADDR		0x22ed
+#define A4XX_SP_VS_OBJ_START		0x22e1
+#define A4XX_SP_FS_OBJ_START		0x22eb
 
 enum a4xx_sp_perfctr_sp_sel {
 	SP_FS_STAGE_BARY_INSTRUCTIONS = 0x10,
@@ -747,6 +762,7 @@ enum a4xx_pc_perfctr_pc_sel {
 /* HLSQ registers */
 #define A4XX_HLSQ_TIMEOUT_THRESHOLD     0xe00
 #define A4XX_HLSQ_STATE_RESTORE_TRIGGER	0xe01
+#define A4XX_HLSQ_MODE_CONTROL		0xe05
 #define A4XX_HLSQ_PERFCTR_HLSQ_SEL_0	0xe06
 #define A4XX_HLSQ_PERFCTR_HLSQ_SEL_1	0xe07
 #define A4XX_HLSQ_PERFCTR_HLSQ_SEL_2	0xe08
@@ -756,6 +772,27 @@ enum a4xx_pc_perfctr_pc_sel {
 #define A4XX_HLSQ_PERFCTR_HLSQ_SEL_6	0xe0c
 #define A4XX_HLSQ_PERFCTR_HLSQ_SEL_7	0xe0d
 #define A4XX_HLSQ_SPTP_RDSEL		0xe30
+#define A4xx_HLSQ_CONTROL_0		0x23c0
+#define A4xx_HLSQ_CONTROL_1		0x23c1
+#define A4xx_HLSQ_CONTROL_2		0x23c2
+#define A4xx_HLSQ_CONTROL_3		0x23c3
+#define A4xx_HLSQ_CONTROL_4		0x23c4
+#define A4XX_HLSQ_CS_CONTROL		0x23ca
+#define A4XX_HLSQ_CL_NDRANGE_0		0x23cd
+#define A4XX_HLSQ_CL_NDRANGE_1		0x23ce
+#define A4XX_HLSQ_CL_NDRANGE_2		0x23cf
+#define A4XX_HLSQ_CL_NDRANGE_3		0x23d0
+#define A4XX_HLSQ_CL_NDRANGE_4		0x23d1
+#define A4XX_HLSQ_CL_NDRANGE_5		0x23d2
+#define A4XX_HLSQ_CL_NDRANGE_6		0x23d3
+#define A4XX_HLSQ_CL_CONTROL_0		0x23d4
+#define A4XX_HLSQ_CL_CONTROL_1		0x23d5
+#define A4XX_HLSQ_CL_KERNEL_CONST	0x23d6
+#define A4XX_HLSQ_CL_KERNEL_GROUP_X	0x23d7
+#define A4XX_HLSQ_CL_KERNEL_GROUP_Y	0x23d8
+#define A4XX_HLSQ_CL_KERNEL_GROUP_Z	0x23d9
+#define A4XX_HLSQ_CL_WG_OFFSET		0x23da
+#define A4XX_HLSQ_UPDATE_CONTROL	0x23db
 
 enum a4xx_hlsq_perfctr_hlsq_sel {
 	HLSQ_SP_VS_STAGE_CONSTANT = 0x0,
@@ -805,6 +842,7 @@ enum a4xx_uche_perfctr_uche_sel {
 };
 
 /* TPL1 registers */
+#define A4XX_TPL1_TP_MODE_CONTROL	0xf03
 #define A4XX_TPL1_PERFCTR_TP_SEL_0	0xf04
 #define A4XX_TPL1_PERFCTR_TP_SEL_1	0xf05
 #define A4XX_TPL1_PERFCTR_TP_SEL_2	0xf06
@@ -813,6 +851,10 @@ enum a4xx_uche_perfctr_uche_sel {
 #define A4XX_TPL1_PERFCTR_TP_SEL_5	0xf09
 #define A4XX_TPL1_PERFCTR_TP_SEL_6	0xf0a
 #define A4XX_TPL1_PERFCTR_TP_SEL_7	0xf0b
+#define A4XX_TPL1_TP_TEX_TSIZE_1	0x23a0
+#define A4XX_TPL1_TP_CS_BORDER_COLOR_BASE_ADDR	0x23A4
+#define A4XX_TPL1_TP_CS_SAMPLER_BASE_ADDR	0x23A5
+#define A4XX_TPL1_TP_CS_TEXMEMOBJ_BASE_ADDR	0x23A6
 
 enum a4xx_tpl1_perfctr_tp_sel {
 	TP_OUTPUT_TEXELS_POINT = 0x2,

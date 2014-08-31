@@ -725,6 +725,7 @@ int adreno_perfcounter_put(struct adreno_device *adreno_dev,
 	unsigned int groupid, unsigned int countable, unsigned int flags);
 
 int adreno_a3xx_pwron_fixup_init(struct adreno_device *adreno_dev);
+int adreno_a4xx_pwron_fixup_init(struct adreno_device *adreno_dev);
 
 int adreno_coresight_init(struct adreno_device *adreno_dev);
 
