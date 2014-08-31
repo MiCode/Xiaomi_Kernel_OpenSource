@@ -548,6 +548,12 @@
 
 	qcom,memshare {
 		compatible = "qcom,memshare";
+
+		qcom,client_1 {
+			compatible = "memshare,peripheral";
+			qcom,peripheral-size = <2097152>;
+			label = "modem";
+		};
 	};
 
 	slim_msm: slim@77c0000 {
