@@ -40,19 +40,42 @@
 #define PCIE_LOG_PAGES (50)
 
 #define PCIE_DBG(dev, fmt, arg...) do {			 \
+	if ((dev) && (dev)->ipc_log_long)   \
+		ipc_log_string((dev)->ipc_log_long, \
+			"DBG1:%s: " fmt, __func__, arg); \
 	if ((dev) && (dev)->ipc_log)   \
 		ipc_log_string((dev)->ipc_log, "%s: " fmt, __func__, arg); \
 	if (msm_pcie_get_debug_mask())   \
 		pr_alert("%s: " fmt, __func__, arg);              \
 	} while (0)
 
+#define PCIE_DBG2(dev, fmt, arg...) do {			 \
+	if ((dev) && (dev)->ipc_log)   \
+		ipc_log_string((dev)->ipc_log, "DBG2:%s: " fmt, __func__, arg);\
+	if (msm_pcie_get_debug_mask())   \
+		pr_alert("%s: " fmt, __func__, arg);              \
+	} while (0)
+
+#define PCIE_DBG3(dev, fmt, arg...) do {			 \
+	if ((dev) && (dev)->ipc_log)   \
+		ipc_log_string((dev)->ipc_log, "DBG3:%s: " fmt, __func__, arg);\
+	if (msm_pcie_get_debug_mask())   \
+		pr_alert("%s: " fmt, __func__, arg);              \
+	} while (0)
+
 #define PCIE_INFO(dev, fmt, arg...) do {			 \
+	if ((dev) && (dev)->ipc_log_long)   \
+		ipc_log_string((dev)->ipc_log_long, \
+			"INFO:%s: " fmt, __func__, arg); \
 	if ((dev) && (dev)->ipc_log)   \
 		ipc_log_string((dev)->ipc_log, "%s: " fmt, __func__, arg); \
 	pr_info("%s: " fmt, __func__, arg);  \
 	} while (0)
 
 #define PCIE_ERR(dev, fmt, arg...) do {			 \
+	if ((dev) && (dev)->ipc_log_long)   \
+		ipc_log_string((dev)->ipc_log_long, \
+			"ERR:%s: " fmt, __func__, arg); \
 	if ((dev) && (dev)->ipc_log)   \
 		ipc_log_string((dev)->ipc_log, "%s: " fmt, __func__, arg); \
 	pr_err("%s: " fmt, __func__, arg);  \
@@ -227,6 +250,7 @@ struct msm_pcie_dev_t {
 	struct msm_pcie_register_event *event_reg;
 	bool                         power_on;
 	void                         *ipc_log;
+	void                         *ipc_log_long;
 };
 
 extern int msm_pcie_enumerate(u32 rc_idx);
