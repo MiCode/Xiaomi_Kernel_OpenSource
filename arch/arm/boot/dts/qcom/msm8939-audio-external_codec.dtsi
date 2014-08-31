@@ -25,12 +25,16 @@
 		compatible = "qcom,msm8939-audio-codec";
 		qcom,model = "msm8939-tapan-snd-card";
 		qcom,tapan-mclk-clk-freq = <9600000>;
-		pinctrl-names = "cdc_slim_lines_act", "cdc_slim_lines_sus",
-				"cross_conn_det_act","cross_conn_det_sus";
-		pinctrl-0 = <&cdc_slim_lines_act>;
-		pinctrl-1 = <&cdc_slim_lines_sus>;
-		pinctrl-2 = <&cross_conn_det_act>;
-		pinctrl-3 = <&cross_conn_det_sus>;
+		pinctrl-names = "cdc_slim_lines_act",
+				"cdc_slim_lines_sus",
+				"cdc_lines_quat_ext_act",
+				"cdc_lines_quat_ext_sus";
+		pinctrl-0 = <&cdc_slim_lines_act &cross_conn_det_act>;
+		pinctrl-1 = <&cdc_slim_lines_sus &cross_conn_det_sus>;
+		pinctrl-2 = <&cdc_slim_lines_act &cross_conn_det_act
+				&ext_cdc_tlmm_lines_act>;
+		pinctrl-3 = <&cdc_slim_lines_sus &cross_conn_det_sus
+				&ext_cdc_tlmm_lines_sus>;
 		qcom,cdc-us-euro-gpios = <&msm_gpio 120 0>;
 		qcom,headset-jack-type-NC;
 		qcom,audio-routing =
