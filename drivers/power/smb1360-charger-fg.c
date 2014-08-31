@@ -293,6 +293,7 @@ struct smb1360_chip {
 	int				fg_thermistor_c1_coeff;
 	int				fg_cc_to_cv_mv;
 	int				fg_auto_recharge_soc;
+	bool				empty_soc_disabled;
 
 	/* status tracking */
 	bool				usb_present;
@@ -1406,13 +1407,17 @@ static int min_soc_handler(struct smb1360_chip *chip, u8 rt_stat)
 
 static int empty_soc_handler(struct smb1360_chip *chip, u8 rt_stat)
 {
-	if (rt_stat) {
-		pr_warn_ratelimited("SOC is 0\n");
-		chip->empty_soc = true;
-		pm_stay_awake(chip->dev);
-	} else {
-		chip->empty_soc = false;
-		pm_relax(chip->dev);
+	pr_debug("SOC empty! rt_stat = 0x%02x\n", rt_stat);
+
+	if (!chip->empty_soc_disabled) {
+		if (rt_stat) {
+			chip->empty_soc = true;
+			pm_stay_awake(chip->dev);
+			pr_warn_ratelimited("SOC is 0\n");
+		} else {
+			chip->empty_soc = false;
+			pm_relax(chip->dev);
+		}
 	}
 
 	return 0;
@@ -3222,6 +3227,9 @@ static int smb_parse_dt(struct smb1360_chip *chip)
 	}
 
 	/* fg params */
+	chip->empty_soc_disabled = of_property_read_bool(node,
+						"qcom,empty-soc-disabled");
+
 	rc = of_property_read_u32(node, "qcom,fg-delta-soc", &chip->delta_soc);
 	if (rc < 0)
 		chip->delta_soc = -EINVAL;
