@@ -315,6 +315,23 @@
 		regulator-always-on;
 	};
 
+	spmi_bus: qcom,spmi@fc4c0000 {
+		compatible = "qcom,spmi-pmic-arb";
+		reg-names = "core", "intr", "cnfg";
+		reg = <0xfc4cf000 0x1000>,
+		      <0xfc4cb000 0x1000>,
+		      <0xfc4ca000 0x1000>;
+		interrupts = <0 190 0>; /* ee0_krait_hlos_spmi_periph_irq */
+		qcom,pmic-arb-channel = <0>;
+		qcom,pmic-arb-ee = <0>;
+		#interrupt-cells = <3>;
+		interrupt-controller;
+		#address-cells = <1>;
+		#size-cells = <0>;
+		cell-index = <0>;
+		qcom,not-wakeup; /* Required until RPM is fully configured. */
+	};
+
 	spi_0: spi@f9923000 {
 		compatible = "qcom,spi-qup-v2";
 		#address-cells = <1>;
