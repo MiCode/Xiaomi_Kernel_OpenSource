@@ -197,8 +197,12 @@ int configure_nr_buffers(struct vpu_dev_session *session,
 
 	if (nr->enable) {
 		/* Get NR buffer size. NR buffers are YUV422 10bit format */
-		vpu_format = query_supported_formats(PIXEL_FORMAT_YUYV10_LOOSE);
 		in_fmt = &session->port_info[INPUT_PORT].format;
+		vpu_format = query_supported_formats(PIXEL_FORMAT_YUYV10_LOOSE);
+		if (!vpu_format) {
+			pr_err("Unsupported NR buffer format\n");
+			return -EINVAL;
+		}
 
 		if (!in_fmt->width || !in_fmt->height)
 			return 0; /* input resolution not configured yet */
@@ -1274,6 +1278,11 @@ static int __configure_input_port(struct vpu_dev_session *session)
 	int ret = 0;
 
 	nr = get_control(session->controller, VPU_CTRL_NOISE_REDUCTION);
+	if (!nr) {
+		pr_err("Missing NR control struct\n");
+		return -EINVAL;
+	}
+
 	ret = configure_nr_buffers(session, nr);
 	if (ret) {
 		pr_err("Failed to configure nr\n");
