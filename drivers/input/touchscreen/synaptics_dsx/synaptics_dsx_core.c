@@ -3595,96 +3595,6 @@ static int synaptics_rmi4_remove(struct platform_device *pdev)
 	return 0;
 }
 
-#ifdef CONFIG_PM
- /**
- * synaptics_rmi4_sensor_sleep()
- *
- * Called by synaptics_rmi4_early_suspend() and synaptics_rmi4_suspend().
- *
- * This function stops finger data acquisition and puts the sensor to sleep.
- */
-static void synaptics_rmi4_sensor_sleep(struct synaptics_rmi4_data *rmi4_data)
-{
-	int retval;
-	unsigned char device_ctrl;
-
-	retval = synaptics_rmi4_reg_read(rmi4_data,
-			rmi4_data->f01_ctrl_base_addr,
-			&device_ctrl,
-			sizeof(device_ctrl));
-	if (retval < 0) {
-		dev_err(rmi4_data->pdev->dev.parent,
-				"%s: Failed to enter sleep mode\n",
-				__func__);
-		rmi4_data->sensor_sleep = false;
-		return;
-	}
-
-	device_ctrl = (device_ctrl & ~MASK_3BIT);
-	device_ctrl = (device_ctrl | NO_SLEEP_OFF | SENSOR_SLEEP);
-
-	retval = synaptics_rmi4_reg_write(rmi4_data,
-			rmi4_data->f01_ctrl_base_addr,
-			&device_ctrl,
-			sizeof(device_ctrl));
-	if (retval < 0) {
-		dev_err(rmi4_data->pdev->dev.parent,
-				"%s: Failed to enter sleep mode\n",
-				__func__);
-		rmi4_data->sensor_sleep = false;
-		return;
-	} else {
-		rmi4_data->sensor_sleep = true;
-	}
-
-	return;
-}
-
- /**
- * synaptics_rmi4_sensor_wake()
- *
- * Called by synaptics_rmi4_resume() and synaptics_rmi4_late_resume().
- *
- * This function wakes the sensor from sleep.
- */
-static void synaptics_rmi4_sensor_wake(struct synaptics_rmi4_data *rmi4_data)
-{
-	int retval;
-	unsigned char device_ctrl;
-	unsigned char no_sleep_setting = rmi4_data->no_sleep_setting;
-
-	retval = synaptics_rmi4_reg_read(rmi4_data,
-			rmi4_data->f01_ctrl_base_addr,
-			&device_ctrl,
-			sizeof(device_ctrl));
-	if (retval < 0) {
-		dev_err(rmi4_data->pdev->dev.parent,
-				"%s: Failed to wake from sleep mode\n",
-				__func__);
-		rmi4_data->sensor_sleep = true;
-		return;
-	}
-
-	device_ctrl = (device_ctrl & ~MASK_3BIT);
-	device_ctrl = (device_ctrl | no_sleep_setting | NORMAL_OPERATION);
-
-	retval = synaptics_rmi4_reg_write(rmi4_data,
-			rmi4_data->f01_ctrl_base_addr,
-			&device_ctrl,
-			sizeof(device_ctrl));
-	if (retval < 0) {
-		dev_err(rmi4_data->pdev->dev.parent,
-				"%s: Failed to wake from sleep mode\n",
-				__func__);
-		rmi4_data->sensor_sleep = true;
-		return;
-	} else {
-		rmi4_data->sensor_sleep = false;
-	}
-
-	return;
-}
-
 #if defined(CONFIG_FB)
 static int fb_notifier_callback(struct notifier_block *self,
 				unsigned long event, void *data)
@@ -3804,6 +3714,96 @@ static void synaptics_rmi4_late_resume(struct early_suspend *h)
 	return;
 }
 #endif
+
+#ifdef CONFIG_PM
+ /**
+ * synaptics_rmi4_sensor_sleep()
+ *
+ * Called by synaptics_rmi4_early_suspend() and synaptics_rmi4_suspend().
+ *
+ * This function stops finger data acquisition and puts the sensor to sleep.
+ */
+static void synaptics_rmi4_sensor_sleep(struct synaptics_rmi4_data *rmi4_data)
+{
+	int retval;
+	unsigned char device_ctrl;
+
+	retval = synaptics_rmi4_reg_read(rmi4_data,
+			rmi4_data->f01_ctrl_base_addr,
+			&device_ctrl,
+			sizeof(device_ctrl));
+	if (retval < 0) {
+		dev_err(rmi4_data->pdev->dev.parent,
+				"%s: Failed to enter sleep mode\n",
+				__func__);
+		rmi4_data->sensor_sleep = false;
+		return;
+	}
+
+	device_ctrl = (device_ctrl & ~MASK_3BIT);
+	device_ctrl = (device_ctrl | NO_SLEEP_OFF | SENSOR_SLEEP);
+
+	retval = synaptics_rmi4_reg_write(rmi4_data,
+			rmi4_data->f01_ctrl_base_addr,
+			&device_ctrl,
+			sizeof(device_ctrl));
+	if (retval < 0) {
+		dev_err(rmi4_data->pdev->dev.parent,
+				"%s: Failed to enter sleep mode\n",
+				__func__);
+		rmi4_data->sensor_sleep = false;
+		return;
+	} else {
+		rmi4_data->sensor_sleep = true;
+	}
+
+	return;
+}
+
+ /**
+ * synaptics_rmi4_sensor_wake()
+ *
+ * Called by synaptics_rmi4_resume() and synaptics_rmi4_late_resume().
+ *
+ * This function wakes the sensor from sleep.
+ */
+static void synaptics_rmi4_sensor_wake(struct synaptics_rmi4_data *rmi4_data)
+{
+	int retval;
+	unsigned char device_ctrl;
+	unsigned char no_sleep_setting = rmi4_data->no_sleep_setting;
+
+	retval = synaptics_rmi4_reg_read(rmi4_data,
+			rmi4_data->f01_ctrl_base_addr,
+			&device_ctrl,
+			sizeof(device_ctrl));
+	if (retval < 0) {
+		dev_err(rmi4_data->pdev->dev.parent,
+				"%s: Failed to wake from sleep mode\n",
+				__func__);
+		rmi4_data->sensor_sleep = true;
+		return;
+	}
+
+	device_ctrl = (device_ctrl & ~MASK_3BIT);
+	device_ctrl = (device_ctrl | no_sleep_setting | NORMAL_OPERATION);
+
+	retval = synaptics_rmi4_reg_write(rmi4_data,
+			rmi4_data->f01_ctrl_base_addr,
+			&device_ctrl,
+			sizeof(device_ctrl));
+	if (retval < 0) {
+		dev_err(rmi4_data->pdev->dev.parent,
+				"%s: Failed to wake from sleep mode\n",
+				__func__);
+		rmi4_data->sensor_sleep = true;
+		return;
+	} else {
+		rmi4_data->sensor_sleep = false;
+	}
+
+	return;
+}
 
  /**
  * synaptics_rmi4_suspend()
