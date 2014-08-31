@@ -83,6 +83,10 @@ struct smbchg_chip {
 	bool				charge_unknown_battery;
 	struct parallel_usb_cfg		parallel;
 
+	/* flash current prediction */
+	int				rpara_uohm;
+	int				rslow_uohm;
+
 	/* status variables */
 	int				usb_suspended;
 	int				dc_suspended;
@@ -426,6 +430,7 @@ static enum power_supply_property smbchg_battery_properties[] = {
 	POWER_SUPPLY_PROP_HEALTH,
 	POWER_SUPPLY_PROP_TECHNOLOGY,
 	POWER_SUPPLY_PROP_SYSTEM_TEMP_LEVEL,
+	POWER_SUPPLY_PROP_FLASH_CURRENT_MAX,
 };
 
 #define CHGR_STS			0x0E
@@ -1152,6 +1157,61 @@ out:
 	return rc;
 }
 
+#define UCONV			1000000LL
+#define VIN_FLASH_UV		5500000LL
+#define FLASH_V_THRESHOLD	3000000LL
+#define BUCK_EFFICIENCY		800LL
+static int smbchg_calc_max_flash_current(struct smbchg_chip *chip)
+{
+	union power_supply_propval ret = {0, };
+	int ocv_uv, ibat_ua, esr_uohm, rbatt_uohm, rc;
+	int64_t ibat_flash_ua, total_flash_ua, total_flash_power_fw;
+
+	if (!chip->bms_psy && chip->bms_psy_name)
+		chip->bms_psy =
+			power_supply_get_by_name((char *)chip->bms_psy_name);
+	/* if bms psy is not found, return 0 uA (no flash available) */
+	if (!chip->bms_psy) {
+		pr_smb(PR_STATUS, "no bms psy found\n");
+		return 0;
+	}
+
+	rc = chip->bms_psy->get_property(chip->bms_psy,
+			POWER_SUPPLY_PROP_VOLTAGE_OCV, &ret);
+	if (rc) {
+		pr_smb(PR_STATUS, "bms psy does not support OCV\n");
+		return 0;
+	}
+	ocv_uv = ret.intval;
+
+	rc = chip->bms_psy->get_property(chip->bms_psy,
+			POWER_SUPPLY_PROP_CURRENT_NOW, &ret);
+	if (rc) {
+		pr_smb(PR_STATUS, "bms psy does not support current_now\n");
+		return 0;
+	}
+	ibat_ua = ret.intval;
+
+	rc = chip->bms_psy->get_property(chip->bms_psy,
+			POWER_SUPPLY_PROP_RESISTANCE, &ret);
+	if (rc) {
+		pr_smb(PR_STATUS, "bms psy does not support resistance\n");
+		return 0;
+	}
+	esr_uohm = ret.intval;
+
+	rbatt_uohm = esr_uohm + chip->rpara_uohm + chip->rslow_uohm;
+	ibat_flash_ua = (div_s64((ocv_uv - FLASH_V_THRESHOLD) * UCONV,
+			rbatt_uohm)) - ibat_ua;
+	total_flash_power_fw = FLASH_V_THRESHOLD * ibat_flash_ua
+			* BUCK_EFFICIENCY;
+	total_flash_ua = div64_s64(total_flash_power_fw, VIN_FLASH_UV * 1000LL);
+	pr_smb(PR_STATUS,
+		"ibat_flash=%lld\n, ocv=%d, ibat=%d, rbatt=%d t_flash=%lld\n",
+		ibat_flash_ua, ocv_uv, ibat_ua, rbatt_uohm, total_flash_ua);
+	return (int)total_flash_ua;
+}
+
 static int smbchg_battery_set_property(struct power_supply *psy,
 				       enum power_supply_property prop,
 				       const union power_supply_propval *val)
@@ -1226,6 +1286,9 @@ static int smbchg_battery_get_property(struct power_supply *psy,
 		break;
 	case POWER_SUPPLY_PROP_TECHNOLOGY:
 		val->intval = POWER_SUPPLY_TECHNOLOGY_LION;
+		break;
+	case POWER_SUPPLY_PROP_FLASH_CURRENT_MAX:
+		val->intval = smbchg_calc_max_flash_current(chip);
 		break;
 	case POWER_SUPPLY_PROP_SYSTEM_TEMP_LEVEL:
 		val->intval = chip->therm_lvl_sel;
@@ -2371,6 +2434,7 @@ static int smb_parse_dt(struct smbchg_chip *chip)
 	OF_PROP_READ(chip, chip->iterm_ma, "iterm-ma", rc, 1);
 	OF_PROP_READ(chip, chip->vfloat_mv, "float-voltage-mv", rc, 1);
 	OF_PROP_READ(chip, chip->safety_time, "charging-timeout-mins", rc, 1);
+	OF_PROP_READ(chip, chip->rpara_uohm, "rparasitic-uohm", rc, 1);
 	OF_PROP_READ(chip, chip->prechg_safety_time, "precharging-timeout-mins",
 			rc, 1);
 	if (chip->safety_time != -EINVAL &&
