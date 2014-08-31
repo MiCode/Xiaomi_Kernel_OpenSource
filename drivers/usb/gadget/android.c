@@ -1210,8 +1210,10 @@ static void ecm_qc_function_unbind_config(struct android_usb_function *f,
 {
 	char *trans = strim(ecm_transports);
 
-	if (strcmp("BAM2BAM_IPA", trans))
+	if (strcmp("BAM2BAM_IPA", trans)) {
+		bam_data_flush_workqueue();
 		gether_qc_cleanup_name("ecm0");
+	}
 }
 
 static ssize_t ecm_ethaddr_show(struct device *dev,
@@ -1300,6 +1302,15 @@ static int mbim_function_bind_config(struct android_usb_function *f,
 	return mbim_bind_config(c, 0, trans);
 }
 
+static void mbim_function_unbind_config(struct android_usb_function *f,
+						struct usb_configuration *c)
+{
+	char *trans = strim(mbim_transports);
+
+	if (strcmp("BAM2BAM_IPA", trans))
+		bam_data_flush_workqueue();
+}
+
 static int mbim_function_ctrlrequest(struct android_usb_function *f,
 					struct usb_composite_dev *cdev,
 					const struct usb_ctrlrequest *c)
@@ -1357,6 +1368,7 @@ static struct android_usb_function mbim_function = {
 	.name		= "usb_mbim",
 	.cleanup	= mbim_function_cleanup,
 	.bind_config	= mbim_function_bind_config,
+	.unbind_config	= mbim_function_unbind_config,
 	.init		= mbim_function_init,
 	.ctrlrequest	= mbim_function_ctrlrequest,
 	.attributes		= mbim_function_attributes,
@@ -2074,8 +2086,10 @@ static void rndis_qc_function_unbind_config(struct android_usb_function *f,
 {
 	char *trans = strim(rndis_transports);
 
-	if (strcmp("BAM2BAM_IPA", trans))
+	if (strcmp("BAM2BAM_IPA", trans)) {
+		bam_data_flush_workqueue();
 		gether_qc_cleanup_name("rndis0");
+	}
 }
 
 static ssize_t rndis_manufacturer_show(struct device *dev,
