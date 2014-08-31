@@ -88,6 +88,12 @@ Optional properties:
 				current updates are only sent if the given
 				regulator has also been enabled by a Linux
 				consumer.
+- qcom,send-defaults:          Boolean flag which indicates that the initial
+				parameter values should be sent to the RPM
+				before consumers make their own requests.  If
+				this flag is not specified, then initial
+				parameters values will only be sent after some
+				consumer makes a request.
 
 The following properties specify initial values for parameters to be sent to the
 RPM in regulator requests.
