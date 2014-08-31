@@ -159,15 +159,6 @@ static inline struct f_mbim *func_to_mbim(struct usb_function *f)
 	return container_of(f, struct f_mbim, function);
 }
 
-/* peak (theoretical) bulk transfer rate in bits-per-second */
-static inline unsigned mbim_bitrate(struct usb_gadget *g)
-{
-	if (gadget_is_dualspeed(g) && g->speed == USB_SPEED_HIGH)
-		return 13 * 512 * 8 * 1000 * 8;
-	else
-		return 19 *  64 * 1 * 1000 * 8;
-}
-
 /*-------------------------------------------------------------------------*/
 
 #define MBIM_NTB_DEFAULT_IN_SIZE	(0x4000)
