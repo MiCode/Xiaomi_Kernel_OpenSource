@@ -1263,19 +1263,6 @@ static inline int venus_hfi_reset_core(struct venus_hfi_device *device)
 	return rc;
 }
 
-static struct clock_info *venus_hfi_get_clock(struct venus_hfi_device *device,
-		char *name)
-{
-	struct clock_info *vc;
-
-	venus_hfi_for_each_clock(device, vc) {
-		if (!strcmp(vc->name, name))
-			return vc;
-	}
-
-	return NULL;
-}
-
 static unsigned long venus_hfi_get_clock_rate(struct clock_info *clock,
 	int num_mbs_per_sec, int codecs_enabled)
 {
@@ -1318,89 +1305,6 @@ static int venus_hfi_suspend(void *dev)
 	return 0;
 }
 
-static inline int venus_hfi_clk_enable(struct venus_hfi_device *device)
-{
-	int rc = 0;
-	int i = 0;
-	struct clock_info *cl;
-
-	if (!device) {
-		dprintk(VIDC_ERR, "Invalid params: %p\n", device);
-		return -EINVAL;
-	}
-	if (device->clk_state == ENABLED_PREPARED) {
-		dprintk(VIDC_DBG, "Clocks already enabled\n");
-		return 0;
-	}
-
-	venus_hfi_for_each_clock(device, cl) {
-		if (cl->has_gating) {
-			rc = clk_enable(cl->clk);
-			if (rc) {
-				dprintk(VIDC_ERR, "Failed to enable clocks\n");
-				goto fail_clk_enable;
-			} else {
-				dprintk(VIDC_DBG, "Clock: %s enabled\n",
-					cl->name);
-			}
-		}
-
-		++i;
-	}
-	device->clk_state = ENABLED_PREPARED;
-	return 0;
-fail_clk_enable:
-	venus_hfi_for_each_clock(device, cl) {
-		if (i < 0)
-			break;
-
-		if (cl->has_gating) {
-			usleep(100);
-			clk_disable(cl->clk);
-		}
-
-		--i;
-	}
-	device->clk_state = DISABLED_PREPARED;
-	return rc;
-}
-
-static inline void venus_hfi_clk_disable(struct venus_hfi_device *device)
-{
-	struct clock_info *cl;
-
-	if (!device) {
-		dprintk(VIDC_ERR, "Invalid params: %p\n", device);
-		return;
-	}
-	if (device->clk_state != ENABLED_PREPARED) {
-		dprintk(VIDC_DBG, "Clocks already disabled\n");
-		return;
-	}
-
-	/* We get better power savings if we lower the venus core clock to the
-	 * lowest level before disabling it. */
-	cl = venus_hfi_get_clock(device, "core_clk");
-	if (cl && cl->has_gating) {
-		int rc = clk_set_rate(cl->clk,
-				venus_hfi_get_clock_rate(cl, 0, 0));
-		if (rc) {
-			dprintk(VIDC_WARN,
-					"Failed to lower core_clk before disabling: %d\n",
-					rc);
-		}
-	}
-
-	venus_hfi_for_each_clock(device, cl) {
-		if (cl->has_gating) {
-			usleep(100);
-			clk_disable(cl->clk);
-			dprintk(VIDC_DBG, "Clock: %s disabled\n", cl->name);
-		}
-	}
-
-	device->clk_state = DISABLED_PREPARED;
-}
 
 static DECLARE_COMPLETION(pc_prep_done);
 static DECLARE_COMPLETION(release_resources_done);
@@ -3393,23 +3297,24 @@ static inline void venus_hfi_disable_unprepare_clks(
 	struct venus_hfi_device *device)
 {
 	struct clock_info *cl;
+
 	if (!device) {
 		dprintk(VIDC_ERR, "Invalid params: %p\n", device);
 		return;
 	}
-	venus_hfi_for_each_clock(device, cl) {
-		if (device->clk_state == DISABLED_PREPARED) {
-			dprintk(VIDC_DBG,
-				"Omitting clk_disable of %s in %s as it's already disabled\n",
-				cl->name, __func__);
-			clk_unprepare(cl->clk);
-		} else {
-			usleep(100);
-			dprintk(VIDC_DBG, "Clock: %s disable and unprepare\n",
-				cl->name);
-			clk_disable_unprepare(cl->clk);
-		}
+
+	if (device->clk_state == DISABLED_UNPREPARED) {
+		dprintk(VIDC_DBG, "Clocks already unprepared and disabled\n");
+		return;
 	}
+
+	venus_hfi_for_each_clock(device, cl) {
+		usleep(100);
+		dprintk(VIDC_DBG, "Clock: %s disable and unprepare\n",
+				cl->name);
+		clk_disable_unprepare(cl->clk);
+	}
+
 	device->clk_state = DISABLED_UNPREPARED;
 }
 
@@ -3426,6 +3331,7 @@ static inline int venus_hfi_prepare_enable_clks(struct venus_hfi_device *device)
 		dprintk(VIDC_DBG, "Clocks already prepared and enabled\n");
 		return 0;
 	}
+
 	venus_hfi_for_each_clock(device, cl) {
 		rc = clk_prepare_enable(cl->clk);
 		if (rc) {
