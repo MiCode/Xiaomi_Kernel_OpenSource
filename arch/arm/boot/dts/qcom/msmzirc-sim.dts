@@ -26,3 +26,7 @@
 	pinctrl-names = "default";
 	pinctrl-0 = <&uart2_console_active>;
 };
+
+&ipa_hw {
+		qcom,ipa-hw-mode = <1>; /* IPA hw type = Virtual */
+	};
