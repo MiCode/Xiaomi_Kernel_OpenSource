@@ -1051,6 +1051,15 @@ static void dwc3_prepare_trbs(struct dwc3_ep *dep, bool starting)
 			trbs_left = DWC3_TRB_NUM;
 	}
 
+	/*
+	 * If free_slot = DWC3_TRB_MASK-1 and trbs_left > 0 then we have a
+	 * wraparound in the TRB buffer. Hence, trbs_left includes the link TRB
+	 * and must be reduced by 1.
+	 */
+	if (usb_endpoint_xfer_isoc(dep->endpoint.desc) &&
+		(dep->free_slot & DWC3_TRB_MASK) == DWC3_TRB_MASK-1)
+			trbs_left--;
+
 	list_for_each_entry_safe(req, n, &dep->request_list, list) {
 		unsigned	length;
 		dma_addr_t	dma;
