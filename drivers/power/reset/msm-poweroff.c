@@ -30,6 +30,7 @@
 
 #include <soc/qcom/scm.h>
 #include <soc/qcom/restart.h>
+#include <soc/qcom/watchdog.h>
 
 #define EMERGENCY_DLOAD_MAGIC1    0x322A4F99
 #define EMERGENCY_DLOAD_MAGIC2    0xC67E4350
@@ -265,6 +266,14 @@ static void do_msm_restart(enum reboot_mode reboot_mode, const char *cmd)
 	pr_notice("Going down for restart now\n");
 
 	msm_restart_prepare(cmd);
+
+	/*
+	 * Trigger a watchdog bite here and if this fails,
+	 * device will take the usual restart path.
+	 */
+
+	if (WDOG_BITE_ON_PANIC && in_panic)
+		msm_trigger_wdog_bite();
 
 	/* Needed to bypass debug image on some chips */
 	if (!is_scm_armv8())
