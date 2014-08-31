@@ -5,14 +5,21 @@ that will hold the address of the RPM RAM from where sleep stats are read.
 Additionally a version number is added to distinguish the type of data
 structure being read from the RAM.
 
+RPM maintains free heap space availability in the RPM RAM. RPM free heap space
+value is required for debugging purpose.
+
 The required properties for rpm-stats are:
 
 - compatible: "qcom,rpm-stats"
 - reg: The address on the RPM RAM from where stats are read.
+
 	Second register(optional) specifies the offset of the rpm
 	stats start address pointer. If the second register is
 	available, the offset value read is added to the first
 	register address to read the stats.
+
+	Third register(optional) specifies the offset of the rpm
+	free heap space value.
 - reg-names: Name given the register holding address.
 - qcom,sleep-stats-version: Version number.
 
