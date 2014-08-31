@@ -187,11 +187,6 @@
 				qcom,pin-num = <20>;
 			};
 
-			gpio@d400 {
-				reg = <0xd400 0x100>;
-				qcom,pin-num = <21>;
-			};
-
 			gpio@d500 {
 				reg = <0xd500 0x100>;
 				qcom,pin-num = <22>;

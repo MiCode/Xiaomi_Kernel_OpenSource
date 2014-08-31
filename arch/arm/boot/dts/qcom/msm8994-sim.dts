@@ -153,9 +153,6 @@
 	gpio@d300 { /* GPIO 20 */
 	};
 
-	gpio@d400 { /* GPIO 21 */
-	};
-
 	gpio@d500 { /* GPIO 22 */
 	};
 };
