@@ -732,7 +732,6 @@ int wcd9xxx_slim_ch_master_close(struct wcd9xxx *wcd9xxx, void **handle)
 fail:
 	mutex_unlock(&tx_master->lock);
 	kfree(tx_master->slim_cfg);
-	pr_err("%s: rc = %x", __func__, rc);
 	return rc;
 }
 EXPORT_SYMBOL(wcd9xxx_slim_ch_master_close);
