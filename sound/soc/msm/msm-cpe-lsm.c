@@ -540,11 +540,13 @@ static int msm_cpe_lsm_ioctl_shared(struct snd_pcm_substream *substream,
 	lsm_ops = &cpe->lsm_ops;
 	lab_sess = &session->lab;
 
-	dev_dbg(rtd->dev, "%s: cmd = %u\n",
-		__func__, cmd);
-
 	switch (cmd) {
 	case SNDRV_LSM_STOP_LAB:
+		dev_dbg(rtd->dev,
+			"%s: %s, lab_enable = %d, lab_thread_ststus = %d\n",
+			__func__, "SNDRV_LSM_STOP_LAB",
+			lab_sess->lab_enable,
+			lab_sess->thread_status);
 		if (lab_sess->lab_enable &&
 			lab_sess->thread_status != MSM_LSM_LAB_THREAD_STOP) {
 			rc = 1;
@@ -563,6 +565,19 @@ static int msm_cpe_lsm_ioctl_shared(struct snd_pcm_substream *substream,
 		return rc;
 	break;
 	case SNDRV_LSM_LAB_CONTROL:
+		if (copy_from_user(&lab_sess->lab_enable, (void *)arg,
+				   sizeof(u32))) {
+			dev_err(rtd->dev,
+				"%s: copy_from_user failed, size %zd\n",
+				__func__, sizeof(u32));
+			return -EFAULT;
+		}
+
+		dev_dbg(rtd->dev,
+			"%s: %s, lab_enable = %d\n",
+			__func__, "SNDRV_LSM_LAB_CONTROL",
+			lab_sess->lab_enable);
+
 		if (lab_sess->lab_enable) {
 			rc = lsm_ops->lsm_lab_control(cpe->core_handle,
 					session,
@@ -600,6 +615,9 @@ static int msm_cpe_lsm_ioctl_shared(struct snd_pcm_substream *substream,
 		}
 	break;
 	case SNDRV_LSM_REG_SND_MODEL_V2:
+		dev_dbg(rtd->dev,
+			"%s: %s\n",
+			__func__, "SNDRV_LSM_REG_SND_MODEL_V2");
 		if (!arg) {
 			dev_err(rtd->dev,
 				"%s: Invalid argument to ioctl %s\n",
@@ -686,6 +704,9 @@ static int msm_cpe_lsm_ioctl_shared(struct snd_pcm_substream *substream,
 		break;
 
 	case SNDRV_LSM_DEREG_SND_MODEL:
+		dev_dbg(rtd->dev,
+			"%s: %s\n",
+			__func__, "SNDRV_LSM_DEREG_SND_MODEL");
 		if (lab_sess->lab_enable) {
 			rc = lsm_ops->lsm_lab_control(cpe->core_handle,
 					session, lab_sess->hw_params.buf_sz,
@@ -719,6 +740,9 @@ static int msm_cpe_lsm_ioctl_shared(struct snd_pcm_substream *substream,
 		break;
 
 	case SNDRV_LSM_EVENT_STATUS:
+		dev_dbg(rtd->dev,
+			"%s: %s\n",
+			__func__, "SNDRV_LSM_EVENT_STATUS");
 		if (!arg) {
 			dev_err(rtd->dev,
 				"%s: Invalid argument to ioctl %s\n",
@@ -764,11 +788,17 @@ static int msm_cpe_lsm_ioctl_shared(struct snd_pcm_substream *substream,
 		break;
 
 	case SNDRV_LSM_ABORT_EVENT:
+		dev_dbg(rtd->dev,
+			"%s: %s\n",
+			__func__, "SNDRV_LSM_ABORT_EVENT");
 		atomic_set(&lsm_d->event_stop, 1);
 		wake_up(&lsm_d->event_wait);
 		break;
 
 	case SNDRV_LSM_START:
+		dev_dbg(rtd->dev,
+			"%s: %s\n",
+			__func__, "SNDRV_LSM_START");
 		rc = lsm_ops->lsm_start(cpe->core_handle, session);
 		if (rc != 0) {
 			dev_err(rtd->dev,
@@ -779,6 +809,11 @@ static int msm_cpe_lsm_ioctl_shared(struct snd_pcm_substream *substream,
 		break;
 
 	case SNDRV_LSM_STOP:
+		dev_dbg(rtd->dev,
+			"%s: %s, lab_enable = %d, lab_thread_status = %d\n",
+			__func__, "SNDRV_LSM_STOP",
+			lab_sess->lab_enable,
+			lab_sess->thread_status);
 		if ((lab_sess->lab_enable &&
 		     lab_sess->thread_status ==
 		     MSM_LSM_LAB_THREAD_RUNNING)) {
@@ -901,16 +936,6 @@ static int msm_cpe_lsm_ioctl(struct snd_pcm_substream *substream,
 	lab_sess = &session->lab;
 
 	switch (cmd) {
-	case SNDRV_LSM_LAB_CONTROL:
-		if (copy_from_user(&lab_sess->lab_enable, (void *)arg,
-				   sizeof(u32))) {
-			dev_err(rtd->dev,
-				"%s: copy_from_user failed, size %zd\n",
-				__func__, sizeof(bool));
-			return -EFAULT;
-		}
-		err = msm_cpe_lsm_ioctl_shared(substream, cmd, arg);
-		break;
 	case SNDRV_LSM_REG_SND_MODEL_V2: {
 		struct snd_lsm_sound_model_v2 snd_model;
 		if (copy_from_user(&snd_model, (void *)arg,
@@ -996,8 +1021,6 @@ enum {
 		_IOW('U', 0x02, struct snd_lsm_event_status32),
 	SNDRV_LSM_REG_SND_MODEL_V2_32 =
 		_IOW('U', 0x07, struct snd_lsm_sound_model_v2_32),
-	SNDRV_LSM_LAB_CONTROL32 =
-		_IOW('U', 0x08, bool)
 };
 
 static int msm_cpe_lsm_ioctl_compat(struct snd_pcm_substream *substream,
@@ -1040,26 +1063,6 @@ static int msm_cpe_lsm_ioctl_compat(struct snd_pcm_substream *substream,
 	lab_sess = &session->lab;
 
 	switch (cmd) {
-	case SNDRV_LSM_LAB_CONTROL32:
-		dev_dbg(rtd->dev,
-			"%s: ioctl %s\n", __func__,
-			"SNDRV_LSM_LAB_CONTROL32");
-
-		if (copy_from_user(&lab_sess->lab_enable, (void *)arg,
-				   sizeof(u32))) {
-			dev_err(rtd->dev,
-				"%s: copy_from_user failed, size %zd\n",
-				__func__, sizeof(bool));
-			return -EFAULT;
-		}
-		cmd = SNDRV_LSM_LAB_CONTROL;
-		err = msm_cpe_lsm_ioctl_shared(substream, cmd, arg);
-		if (err)
-			dev_err(rtd->dev,
-				"%s: %s failed, error = %d\n",
-				__func__, "SNDRV_LSM_LAB_CONTROL32",
-				err);
-		break;
 	case SNDRV_LSM_REG_SND_MODEL_V2_32: {
 		struct snd_lsm_sound_model_v2 snd_model;
 		struct snd_lsm_sound_model_v2_32 snd_model32;
