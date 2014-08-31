@@ -150,7 +150,7 @@ static int swp_handler(struct pt_regs *regs, unsigned int instr)
 	}
 
 	if (current->pid != previous_pid) {
-		pr_warn("\"%s\" (%ld) uses obsolete SWP{B} instruction\n",
+		pr_warn_ratelimited("\"%s\" (%ld) uses obsolete SWP{B} instruction\n",
 			 current->comm, (unsigned long)current->pid);
 		previous_pid = current->pid;
 	}
