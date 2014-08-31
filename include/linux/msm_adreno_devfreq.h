@@ -63,4 +63,9 @@ struct msm_busmon_extended_profile {
 	struct devfreq_dev_profile profile;
 };
 
+#ifdef CONFIG_DEVFREQ_GOV_MSM_GPUBW_MON
+int devfreq_vbif_update_bw(void);
+int devfreq_vbif_register_callback(void *);
+#endif
+
 #endif
