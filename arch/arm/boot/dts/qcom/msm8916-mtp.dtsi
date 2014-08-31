@@ -40,6 +40,10 @@
 			synaptics,i2c-pull-up;
 			synaptics,power-down;
 			synaptics,disable-gpios;
+			/* Underlying clocks used by secure touch */
+			clocks = <&clock_gcc clk_gcc_blsp1_ahb_clk>,
+			 <&clock_gcc clk_gcc_blsp1_qup5_i2c_apps_clk>;
+			clock-names = "iface_clk", "core_clk";
 		};
 	};
 
