@@ -17,6 +17,7 @@
 #define MAX_PLANES_PER_STREAM 3
 #define MAX_NUM_STREAM 7
 
+#define ISP_VERSION_47        47
 #define ISP_VERSION_46        46
 #define ISP_VERSION_44        44
 #define ISP_VERSION_40        40
