@@ -1497,6 +1497,7 @@
 		compatible = "qcom,qusb2phy";
 		status = "disabled";
 		reg = <0xf9b39000 0x17f>;
+		reg-names = "qusb_phy_base";
 		vdd-supply = <&pm8994_s2_corner>;
 		vdda18-supply = <&pm8994_l6>;
 		vdda33-supply = <&pm8994_l24>;

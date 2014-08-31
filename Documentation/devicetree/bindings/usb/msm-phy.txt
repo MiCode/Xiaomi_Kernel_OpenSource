@@ -124,7 +124,8 @@ QUSB2 High-Speed PHY
 
 Required properties:
  - compatible: Should be "qcom,qusb2phy"
- - reg: Address and length of the register set for the device
+ - reg: Address and length of the QUSB2 PHY register set
+ - reg-names: Should be "qusb_phy_base".
  - <supply-name>-supply: phandle to the regulator device tree node
    Required supplies are:
 	"vdd" : vdd supply for digital circuit operation
@@ -139,12 +140,21 @@ Required properties:
    property. Required clocks are "ref_clk", "cfg_ahb_clk" and "phy_reset".
 
 Optional properties:
+ - reg: Address and length register set to control QUSB2 PHY
+   via the QSCRATCH interface.
+ - reg-names: Should be "qscratch_base". The qscratch register bank
+   allows us to manipulate QUSB PHY bits eg. to enable D+ pull-up using s/w
+   control in device mode. The reg-names property is required if the
+   reg property is specified.
  - qcom,emulation: Indicates that we are running on emulation platform.
 
 Example:
 	qusb_phy: qusb@f9b39000 {
 		compatible = "qcom,qusb2phy";
-		reg = <0xf9b39000 0x17f>;
+		reg = <0x00079000 0x7000>,
+			<0x08af8800 0x400>;
+		reg-names = "qusb_phy_base",
+			    "qscratch_base";
 		vdd-supply = <&pm8994_s2_corner>;
 		vdda18-supply = <&pm8994_l6>;
 		vdda33-supply = <&pm8994_l24>;

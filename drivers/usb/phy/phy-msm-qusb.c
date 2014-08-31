@@ -30,6 +30,9 @@
 #define POWER_DOWN			BIT(0)
 #define QUSB2PHY_PORT_UTMI_CTRL2	0xC4
 
+#define UTMI_OTG_VBUS_VALID             BIT(20)
+#define SW_SESSVLD_SEL                  BIT(28)
+
 #define QRBTC_USB2_PLL		0x404
 #define QRBTC_USB2_PLLCTRL2	0x414
 #define QRBTC_USB2_PLLCTRL1	0x410
@@ -39,9 +42,13 @@
 #define RUMI_RESET_VALUE_1	0x80000000
 #define RUMI_RESET_VALUE_2	0x000201e0
 
+#define PORT_OFFSET(i) ((i == 0) ? 0x0 : ((i == 1) ? 0x6c : 0x88))
+#define HS_PHY_CTRL_REG(i)              (0x10 + PORT_OFFSET(i))
+
 struct qusb_phy {
 	struct usb_phy		phy;
 	void __iomem		*base;
+	void __iomem		*qscratch_base;
 
 	struct clk		*ref_clk;
 	struct clk		*cfg_ahb_clk;
@@ -54,6 +61,7 @@ struct qusb_phy {
 
 	bool			power_enabled;
 	bool			clocks_enabled;
+	bool			cable_connected;
 	bool			suspended;
 	bool			emulation;
 };
@@ -197,6 +205,67 @@ static void qusb_phy_shutdown(struct usb_phy *phy)
 	qphy->clocks_enabled = false;
 }
 
+static void qusb_write_readback(void *base, u32 offset,
+					const u32 mask, u32 val)
+{
+	u32 write_val, tmp = readl_relaxed(base + offset);
+	tmp &= ~mask; /* retain other bits */
+	write_val = tmp | val;
+
+	writel_relaxed(write_val, base + offset);
+
+	/* Read back to see if val was written */
+	tmp = readl_relaxed(base + offset);
+	tmp &= mask; /* clear other bits */
+
+	if (tmp != val)
+		pr_err("%s: write: %x to QSCRATCH: %x FAILED\n",
+			__func__, val, offset);
+}
+
+static int qusb_phy_notify_connect(struct usb_phy *phy,
+					enum usb_device_speed speed)
+{
+	struct qusb_phy *qphy = container_of(phy, struct qusb_phy, phy);
+
+	qphy->cable_connected = true;
+
+	dev_dbg(phy->dev, " cable_connected=%d\n", qphy->cable_connected);
+
+	/* Set OTG VBUS Valid from HSPHY to controller */
+	qusb_write_readback(qphy->qscratch_base, HS_PHY_CTRL_REG(0),
+				UTMI_OTG_VBUS_VALID,
+				UTMI_OTG_VBUS_VALID);
+
+	/* Indicate value is driven by UTMI_OTG_VBUS_VALID bit */
+	qusb_write_readback(qphy->qscratch_base, HS_PHY_CTRL_REG(0),
+				SW_SESSVLD_SEL, SW_SESSVLD_SEL);
+
+	dev_dbg(phy->dev, "QUSB2 phy connect notification\n");
+	return 0;
+}
+
+static int qusb_phy_notify_disconnect(struct usb_phy *phy,
+					enum usb_device_speed speed)
+{
+	struct qusb_phy *qphy = container_of(phy, struct qusb_phy, phy);
+
+	qphy->cable_connected = false;
+
+	dev_dbg(phy->dev, " cable_connected=%d\n", qphy->cable_connected);
+
+	/* Set OTG VBUS Valid from HSPHY to controller */
+	qusb_write_readback(qphy->qscratch_base, HS_PHY_CTRL_REG(0),
+				UTMI_OTG_VBUS_VALID, 0);
+
+	/* Indicate value is driven by UTMI_OTG_VBUS_VALID bit */
+	qusb_write_readback(qphy->qscratch_base, HS_PHY_CTRL_REG(0),
+				SW_SESSVLD_SEL, 0);
+
+	dev_dbg(phy->dev, "QUSB2 phy disconnect notification\n");
+	return 0;
+}
+
 static int qusb_phy_probe(struct platform_device *pdev)
 {
 	struct qusb_phy *qphy;
@@ -210,10 +279,17 @@ static int qusb_phy_probe(struct platform_device *pdev)
 
 	qphy->phy.dev = dev;
 
-	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
+	res = platform_get_resource_byname(pdev, IORESOURCE_MEM,
+							"qusb_phy_base");
 	qphy->base = devm_ioremap_resource(dev, res);
 	if (IS_ERR(qphy->base))
 		return PTR_ERR(qphy->base);
+
+	res = platform_get_resource_byname(pdev, IORESOURCE_MEM,
+							"qscratch_base");
+	qphy->qscratch_base = devm_ioremap_resource(dev, res);
+	if (IS_ERR(qphy->qscratch_base))
+		qphy->qscratch_base = NULL;
 
 	qphy->ref_clk = devm_clk_get(dev, "ref_clk");
 	if (IS_ERR(qphy->ref_clk))
@@ -272,6 +348,11 @@ static int qusb_phy_probe(struct platform_device *pdev)
 	qphy->phy.shutdown		= qusb_phy_shutdown;
 	qphy->phy.reset			= qusb_phy_reset;
 	qphy->phy.type			= USB_PHY_TYPE_USB2;
+
+	if (qphy->qscratch_base) {
+		qphy->phy.notify_connect        = qusb_phy_notify_connect;
+		qphy->phy.notify_disconnect     = qusb_phy_notify_disconnect;
+	}
 
 	qusb_phy_reset(&qphy->phy);
 	ret = usb_add_phy_dev(&qphy->phy);
