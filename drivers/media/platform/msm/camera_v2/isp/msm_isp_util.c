@@ -88,8 +88,13 @@ void msm_camera_io_dump_2(void __iomem *addr, int size)
 	p_str = line_str;
 	for (i = 0; i < size/4; i++) {
 		if (i % 4 == 0) {
+#ifdef CONFIG_COMPAT
+			snprintf(p_str, 20, "%016lx: ", (unsigned long) p);
+			p_str += 18;
+#else
 			snprintf(p_str, 12, "%08lx: ", (unsigned long) p);
 			p_str += 10;
+#endif
 		}
 		data = readl_relaxed(p++);
 		snprintf(p_str, 12, "%08x ", data);
@@ -405,8 +410,8 @@ void msm_isp_fetch_engine_done_notify(struct vfe_device *vfe_dev,
 	fe_rd_done_event.u.buf_done.stream_id = fetch_engine_info->stream_id;
 	fe_rd_done_event.u.buf_done.handle = fetch_engine_info->bufq_handle;
 	fe_rd_done_event.u.buf_done.buf_idx = fetch_engine_info->buf_idx;
-	ISP_DBG("%s: ISP_EVENT_FE_READ_DONE buf_idx %d\n",
-		__func__, fetch_engine_info->buf_idx);
+	ISP_DBG("%s:VFE%d ISP_EVENT_FE_READ_DONE buf_idx %d\n",
+		__func__, vfe_dev->pdev->id, fetch_engine_info->buf_idx);
 	fetch_engine_info->is_busy = 0;
 	msm_isp_send_event(vfe_dev, ISP_EVENT_FE_READ_DONE, &fe_rd_done_event);
 }
@@ -1425,8 +1430,8 @@ irqreturn_t msm_isp_process_irq(int irq_num, void *data)
 		read_irq_status(vfe_dev, &irq_status0, &irq_status1);
 
 	if ((irq_status0 == 0) && (irq_status1 == 0)) {
-		pr_err_ratelimited("%s: irq_status0 & 1 are both 0\n",
-			__func__);
+		pr_err_ratelimited("%s:VFE%d irq_status0 & 1 are both 0\n",
+			__func__, vfe_dev->pdev->id);
 		return IRQ_HANDLED;
 	}
 

@@ -608,75 +608,103 @@ static void msm_vfe46_clear_framedrop(struct vfe_device *vfe_dev,
 			VFE46_WM_BASE(stream_info->wm[i]) + 0x1C);
 }
 
-static int32_t msm_vfe46_cfg_io_format(struct vfe_device *vfe_dev,
-	enum msm_vfe_axi_stream_src stream_src, uint32_t io_format)
+static int32_t msm_vfe46_convert_bpp_to_reg(int32_t bpp, uint32_t *bpp_reg)
 {
-	int bpp, bpp_reg = 0, pack_reg = 0;
-	enum msm_isp_pack_fmt pack_fmt = 0;
-	uint32_t io_format_reg; /* io format register bit */
-
-	bpp = msm_isp_get_bit_per_pixel(io_format);
-	if (bpp < 0) {
-		pr_err("%s:%d invalid io_format %d bpp %d", __func__, __LINE__,
-			io_format, bpp);
-		return -EINVAL;
-	}
-
+	int rc = 0;
 	switch (bpp) {
 	case 8:
-		bpp_reg = 0;
+		*bpp_reg = 0;
 		break;
 	case 10:
-		bpp_reg = 1 << 0;
+		*bpp_reg = 1 << 0;
 		break;
 	case 12:
-		bpp_reg = 1 << 1;
-		break;
-	case 14:
-		bpp_reg = 3;
+		*bpp_reg = 1 << 1;
 		break;
 	default:
 		pr_err("%s:%d invalid bpp %d", __func__, __LINE__, bpp);
 		return -EINVAL;
 	}
 
+	return rc;
+}
+
+static int32_t msm_vfe46_convert_io_fmt_to_reg(
+	enum msm_isp_pack_fmt pack_format, uint32_t *pack_reg)
+{
+	int rc = 0;
+
+	switch (pack_format) {
+	case QCOM:
+		*pack_reg = 0x0;
+		break;
+	case MIPI:
+		*pack_reg = 0x1;
+		break;
+	case DPCM6:
+		*pack_reg = 0x2;
+		break;
+	case DPCM8:
+		*pack_reg = 0x3;
+		break;
+	case PLAIN8:
+		*pack_reg = 0x4;
+		break;
+	case PLAIN16:
+		*pack_reg = 0x5;
+		break;
+	default:
+		pr_err("%s: invalid pack fmt %d!\n", __func__, pack_format);
+		return -EINVAL;
+	}
+
+	return rc;
+}
+static int32_t msm_vfe46_cfg_io_format(struct vfe_device *vfe_dev,
+	enum msm_vfe_axi_stream_src stream_src, uint32_t io_format)
+{
+	int rc = 0;
+	int bpp = 0, read_bpp = 0;
+	enum msm_isp_pack_fmt pack_fmt = 0, read_pack_fmt = 0;
+	uint32_t bpp_reg = 0, pack_reg = 0;
+	uint32_t read_bpp_reg = 0, read_pack_reg = 0;
+	uint32_t io_format_reg = 0; /*io format register bit*/
+
 	io_format_reg = msm_camera_io_r(vfe_dev->vfe_base + 0x88);
+
+	/*input config*/
 	if ((stream_src < RDI_INTF_0) &&
 		(vfe_dev->axi_data.src_info[VFE_PIX_0].input_mux ==
 		EXTERNAL_READ)) {
-		pack_reg = 0x1;
-		io_format_reg &= 0xFFC8FFFF;
-		io_format_reg |= (bpp_reg << 20 | pack_reg << 16);
-		pr_debug("%s: EXTERNAL READ io_fmt_reg 0x%x\n",
-			__func__, io_format_reg);
+		read_bpp = msm_isp_get_bit_per_pixel(
+			vfe_dev->axi_data.src_info[VFE_PIX_0].input_format);
+		rc = msm_vfe46_convert_bpp_to_reg(read_bpp, &read_bpp_reg);
+		if (rc < 0) {
+			pr_err("%s: convert_bpp_to_reg err! in_bpp %d rc %d\n",
+				__func__, read_bpp, rc);
+			return rc;
 	}
 
-	if (stream_src == IDEAL_RAW) {
-		/* use io_format(v4l2_pix_fmt) to get pack format */
-		pack_fmt = msm_isp_get_pack_format(io_format);
-		switch (pack_fmt) {
-		case QCOM:
-			pack_reg = 0x0;
-			break;
-		case MIPI:
-			pack_reg = 0x1;
-			break;
-		case DPCM6:
-			pack_reg = 0x2;
-			break;
-		case DPCM8:
-			pack_reg = 0x3;
-			break;
-		case PLAIN8:
-			pack_reg = 0x4;
-			break;
-		case PLAIN16:
-			pack_reg = 0x5;
-			break;
-		default:
-			pr_err("%s: invalid pack fmt!\n", __func__);
-			return -EINVAL;
+		read_pack_fmt = msm_isp_get_pack_format(
+			vfe_dev->axi_data.src_info[VFE_PIX_0].input_format);
+		rc = msm_vfe46_convert_io_fmt_to_reg(
+			read_pack_fmt, &read_pack_reg);
+		if (rc < 0) {
+			pr_err("%s: convert_io_fmt_to_reg err! rc = %d\n",
+				__func__, rc);
+			return rc;
 		}
+		/*use input format(v4l2_pix_fmt) to get pack format*/
+		io_format_reg &= 0xFFC8FFFF;
+		io_format_reg |= (read_bpp_reg << 20 | read_pack_reg << 16);
+	}
+
+	bpp = msm_isp_get_bit_per_pixel(io_format);
+	rc = msm_vfe46_convert_bpp_to_reg(bpp, &bpp_reg);
+	if (rc < 0) {
+		pr_err("%s: convert_bpp_to_reg err! bpp %d rc = %d\n",
+			__func__, bpp, rc);
+		return rc;
 	}
 
 	switch (stream_src) {
@@ -688,6 +716,14 @@ static int32_t msm_vfe46_cfg_io_format(struct vfe_device *vfe_dev,
 		io_format_reg |= bpp_reg << 12;
 		break;
 	case IDEAL_RAW:
+		/*use output format(v4l2_pix_fmt) to get pack format*/
+		pack_fmt = msm_isp_get_pack_format(io_format);
+		rc = msm_vfe46_convert_io_fmt_to_reg(pack_fmt, &pack_reg);
+		if (rc < 0) {
+			pr_err("%s: convert_io_fmt_to_reg err! rc = %d\n",
+				__func__, rc);
+			return rc;
+		}
 		io_format_reg &= 0xFFFFFFC8;
 		io_format_reg |= bpp_reg << 4 | pack_reg;
 		break;
@@ -737,8 +773,8 @@ static int msm_vfe46_start_fetch_engine(struct vfe_device *vfe_dev,
 	msm_camera_io_w_mb(0x100000, vfe_dev->vfe_base + 0x80);
 	msm_camera_io_w_mb(0x200000, vfe_dev->vfe_base + 0x80);
 
-	ISP_DBG("%s: Fetch Engine ready\n", __func__);
-	buf->state = MSM_ISP_BUFFER_STATE_DIVERTED;
+	ISP_DBG("%s:VFE%d Fetch Engine ready\n", __func__, vfe_dev->pdev->id);
+	buf->state = MSM_ISP_BUFFER_STATE_DISPATCHED;
 
 	return 0;
 }
@@ -746,13 +782,14 @@ static int msm_vfe46_start_fetch_engine(struct vfe_device *vfe_dev,
 static void msm_vfe46_cfg_fetch_engine(struct vfe_device *vfe_dev,
 	struct msm_vfe_pix_cfg *pix_cfg)
 {
-	uint32_t temp;
+	uint32_t x_size_word, temp;
 	struct msm_vfe_fetch_engine_cfg *fe_cfg = NULL;
 
 	if (pix_cfg->input_mux == EXTERNAL_READ) {
 		fe_cfg = &pix_cfg->fetch_engine_cfg;
-		pr_debug("%s: fetch_dbg wd x ht buf = %d x %d, fe = %d x %d\n",
-			__func__, fe_cfg->buf_width, fe_cfg->buf_height,
+		pr_debug("%s:VFE%d wd x ht buf = %d x %d, fe = %d x %d\n",
+			__func__, vfe_dev->pdev->id, fe_cfg->buf_width,
+			fe_cfg->buf_height,
 			fe_cfg->fetch_width, fe_cfg->fetch_height);
 
 		temp = msm_camera_io_r(vfe_dev->vfe_base + 0x84);
@@ -768,14 +805,15 @@ static void msm_vfe46_cfg_fetch_engine(struct vfe_device *vfe_dev,
 		temp = fe_cfg->fetch_height - 1;
 		msm_camera_io_w(temp & 0x3FFF, vfe_dev->vfe_base + 0x278);
 
-		/* need to update to use formulae to calculate X_SIZE_WORD*/
-		temp = ((fe_cfg->fetch_width * 5 + 31) / 32);
-		msm_camera_io_w((temp - 1) << 16, vfe_dev->vfe_base + 0x27C);
+		x_size_word = msm_isp_cal_word_per_line(
+			vfe_dev->axi_data.src_info[VFE_PIX_0].input_format,
+			fe_cfg->fetch_width);
+		msm_camera_io_w((x_size_word - 1) << 16,
+			vfe_dev->vfe_base + 0x27C);
 
-		temp = temp << 16 |
-			(fe_cfg->buf_height-1) << 2 |
-			VFE46_FETCH_BURST_LEN;
-		msm_camera_io_w(temp, vfe_dev->vfe_base + 0x280);
+		msm_camera_io_w(x_size_word << 16 |
+			(temp & 0x3FFF) << 2 | VFE46_FETCH_BURST_LEN,
+			vfe_dev->vfe_base + 0x280);
 
 		temp = ((fe_cfg->buf_width - 1) & 0x3FFF) << 16 |
 			((fe_cfg->buf_height - 1) & 0x3FFF);
@@ -785,7 +823,12 @@ static void msm_vfe46_cfg_fetch_engine(struct vfe_device *vfe_dev,
 		msm_camera_io_w(0xF6543210, vfe_dev->vfe_base + 0x288);
 		msm_camera_io_w(0xF, vfe_dev->vfe_base + 0x2A4);
 
-		msm_camera_io_w_mb(0x40, vfe_dev->vfe_base + 0x50);
+		temp = msm_camera_io_r(vfe_dev->vfe_base + 0x50);
+		temp |= 2 << 5;
+		temp |= 128 << 8;
+		temp |= pix_cfg->pixel_pattern;
+		msm_camera_io_w(temp, vfe_dev->vfe_base + 0x50);
+
 		vfe_dev->hw_info->vfe_ops.core_ops.reg_update(vfe_dev);
 	} else {
 		pr_err("%s: Invalid mux configuration - mux: %d", __func__,
@@ -800,13 +843,31 @@ static void msm_vfe46_cfg_camif(struct vfe_device *vfe_dev,
 	struct msm_vfe_camif_cfg *camif_cfg = &pix_cfg->camif_cfg;
 	uint32_t val;
 
+	msm_camera_io_w(pix_cfg->input_mux << 5 | pix_cfg->pixel_pattern,
+		vfe_dev->vfe_base + 0x50);
+
+
+	switch (pix_cfg->input_mux) {
+	case CAMIF:
+		val = 0x01;
+		msm_camera_io_w(val, vfe_dev->vfe_base + 0x3A8);
+		break;
+	case TESTGEN:
+		val = 0x01;
+		msm_camera_io_w(val, vfe_dev->vfe_base + 0xAF4);
+		break;
+	case EXTERNAL_READ:
+		return;
+	default:
+		pr_err("%s: not supported input_mux %d\n",
+			__func__, pix_cfg->input_mux);
+		break;
+	}
+
 	first_pixel = camif_cfg->first_pixel;
 	last_pixel = camif_cfg->last_pixel;
 	first_line = camif_cfg->first_line;
 	last_line = camif_cfg->last_line;
-
-	msm_camera_io_w(pix_cfg->input_mux << 5 | pix_cfg->pixel_pattern,
-		vfe_dev->vfe_base + 0x50);
 
 	msm_camera_io_w(camif_cfg->lines_per_frame << 16 |
 		camif_cfg->pixels_per_line, vfe_dev->vfe_base + 0x3B4);
@@ -822,22 +883,6 @@ static void msm_vfe46_cfg_camif(struct vfe_device *vfe_dev,
 	val = msm_camera_io_r(vfe_dev->vfe_base + 0x39C);
 	val |= camif_cfg->camif_input;
 	msm_camera_io_w(val, vfe_dev->vfe_base + 0x39C);
-
-	switch (pix_cfg->input_mux) {
-	case CAMIF:
-		val = 0x01;
-		msm_camera_io_w(val, vfe_dev->vfe_base + 0x3A8);
-		break;
-	case TESTGEN:
-		val = 0x01;
-		msm_camera_io_w(val, vfe_dev->vfe_base + 0xAF4);
-		break;
-	case EXTERNAL_READ:
-	default:
-		pr_err("%s: not supported input_mux %d\n",
-			__func__, pix_cfg->input_mux);
-		break;
-	}
 }
 
 static void msm_vfe46_cfg_input_mux(struct vfe_device *vfe_dev,
