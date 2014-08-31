@@ -1001,6 +1001,14 @@ static int msm_hsic_resume(struct msm_hsic_hcd *mehci)
 
 skip_phy_resume:
 
+	/* Check HSIC host pipe state before resume.  Pipe should be empty. */
+	if (pdata->consider_ipa_handshake) {
+		if (!msm_bam_hsic_host_pipe_empty()) {
+			dev_err(mehci->dev, "Data pending without resumed.\n");
+			BUG_ON(1);
+		}
+	}
+
 	usb_hcd_resume_root_hub(hcd);
 
 	atomic_set(&mehci->in_lpm, 0);

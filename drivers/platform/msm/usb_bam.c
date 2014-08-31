@@ -2028,7 +2028,7 @@ void _msm_bam_host_notify_on_resume(enum usb_ctrl bam_type)
 
 bool msm_bam_host_lpm_ok(enum usb_ctrl bam_type)
 {
-	int i;
+	int i, ret;
 	struct usb_bam_pipe_connect *pipe_iter;
 
 	pr_debug("%s: enter bam=%s\n", __func__, bam_enable_strings[bam_type]);
@@ -2052,6 +2052,16 @@ bool msm_bam_host_lpm_ok(enum usb_ctrl bam_type)
 		    info[bam_type].cur_prod_state ==
 			IPA_RM_RESOURCE_RELEASED &&
 		    ctx.is_bam_inactivity[bam_type] && info[bam_type].in_lpm) {
+
+			pr_debug("%s(): checking HSIC Host pipe state\n",
+								__func__);
+			ret = msm_bam_hsic_host_pipe_empty();
+			if (!ret) {
+				pr_err("%s(): HSIC HOST Pipe is not empty.\n",
+								__func__);
+				spin_unlock(&usb_bam_lock);
+				return false;
+			}
 
 			/* HSIC host will go now to lpm */
 			pr_debug("%s: vote for suspend hsic %p\n",
@@ -3538,6 +3548,63 @@ bool msm_bam_usb_lpm_ok(enum usb_ctrl bam)
 	}
 }
 EXPORT_SYMBOL(msm_bam_usb_lpm_ok);
+
+/**
+ * msm_bam_hsic_host_pipe_empty - Check all HSIC host BAM pipe state
+ *
+ * return true if all BAM pipe used for HSIC Host mode is empty.
+ */
+bool msm_bam_hsic_host_pipe_empty(void)
+{
+	struct usb_bam_pipe_connect *pipe_connect;
+	struct sps_pipe *pipe = NULL;
+	enum usb_ctrl bam = HSIC_CTRL;
+	int i, ret;
+	u32 status;
+
+	pr_debug("%s: enter\n", __func__);
+
+	for (i = 0; i < ctx.max_connections; i++) {
+		pipe_connect = &usb_bam_connections[i];
+		if (pipe_connect->bam_type == bam &&
+				pipe_connect->enabled) {
+
+			pipe = ctx.usb_bam_sps.sps_pipes[i];
+			ret = sps_is_pipe_empty(pipe, &status);
+			if (ret) {
+				pr_err("%s(): sps_is_pipe_empty() failed\n",
+								__func__);
+				pr_err("%s(): SRC index(%d), DEST index(%d):\n",
+						__func__,
+						pipe_connect->src_pipe_index,
+						pipe_connect->dst_pipe_index);
+				WARN_ON(1);
+			}
+
+			if (!status) {
+				pr_err("%s(): pipe is not empty.\n", __func__);
+				pr_err("%s(): SRC index(%d), DEST index(%d):\n",
+						__func__,
+						pipe_connect->src_pipe_index,
+						pipe_connect->dst_pipe_index);
+				return false;
+			} else {
+				pr_debug("%s(): SRC index(%d), DEST index(%d):\n",
+						__func__,
+						pipe_connect->src_pipe_index,
+						pipe_connect->dst_pipe_index);
+			}
+		}
+
+	}
+
+	if (!pipe)
+		pr_err("%s: Bam %s has no connected pipes\n", __func__,
+						bam_enable_strings[bam]);
+
+	return true;
+}
+EXPORT_SYMBOL(msm_bam_hsic_host_pipe_empty);
 
 bool msm_bam_hsic_lpm_ok(void)
 {
