@@ -671,6 +671,12 @@ static int voice_svc_probe(struct platform_device *pdev)
 	}
 
 	voice_svc_dev->cdev = cdev_alloc();
+	if (!voice_svc_dev->cdev) {
+		pr_err("%s: Failed to alloc cdev\n", __func__);
+		ret = -ENOMEM;
+		goto cdev_alloc_err;
+	}
+
 	cdev_init(voice_svc_dev->cdev, &voice_svc_fops);
 	ret = cdev_add(voice_svc_dev->cdev, device_num, MINOR_NUMBER);
 	if (ret) {
@@ -683,6 +689,7 @@ static int voice_svc_probe(struct platform_device *pdev)
 
 add_err:
 	cdev_del(voice_svc_dev->cdev);
+cdev_alloc_err:
 	device_destroy(voice_svc_class, device_num);
 dev_err:
 	class_destroy(voice_svc_class);
