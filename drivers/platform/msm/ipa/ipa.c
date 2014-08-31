@@ -1064,11 +1064,14 @@ int ipa_init_q6_smem(void)
 {
 	int rc;
 
+	ipa_inc_client_enable_clks();
+
 	rc = ipa_init_smem_region(IPA_v2_RAM_MODEM_SIZE,
 				  IPA_v2_RAM_MODEM_OFST);
 
 	if (rc) {
 		IPAERR("failed to initialize Modem RAM memory\n");
+		ipa_dec_client_disable_clks();
 		return rc;
 	}
 
@@ -1077,8 +1080,11 @@ int ipa_init_q6_smem(void)
 
 	if (rc) {
 		IPAERR("failed to initialize Modem HDRs RAM memory\n");
+		ipa_dec_client_disable_clks();
 		return rc;
 	}
+
+	ipa_dec_client_disable_clks();
 
 	return rc;
 }
@@ -1409,6 +1415,8 @@ int ipa_q6_cleanup(void)
 	int client_idx;
 	int res;
 
+	ipa_inc_client_enable_clks();
+
 	if (ipa_q6_pipe_delay()) {
 		IPAERR("Failed to delay Q6 pipes\n");
 		BUG();
@@ -1438,6 +1446,7 @@ int ipa_q6_cleanup(void)
 				BUG();
 		}
 
+	ipa_dec_client_disable_clks();
 	return 0;
 }
 
