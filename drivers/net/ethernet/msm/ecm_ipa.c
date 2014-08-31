@@ -24,7 +24,6 @@
 #define DRIVER_NAME "ecm_ipa"
 #define ECM_IPA_IPV4_HDR_NAME "ecm_eth_ipv4"
 #define ECM_IPA_IPV6_HDR_NAME "ecm_eth_ipv6"
-#define IPA_TO_USB_CLIENT	IPA_CLIENT_USB_CONS
 #define INACTIVITY_MSEC_DELAY 100
 #define DEFAULT_OUTSTANDING_HIGH 64
 #define DEFAULT_OUTSTANDING_LOW 32
@@ -123,6 +122,10 @@ enum ecm_ipa_operation {
  * @device_ready_notify: callback supplied by USB core driver
  * This callback shall be called by the Netdev once the Netdev internal
  * state is changed to RNDIS_IPA_CONNECTED_AND_UP
+ * @ipa_to_usb_client: consumer client
+ * @usb_to_ipa_client: producer client
+ * @ipa_rm_resource_name_prod: IPA resource manager producer resource
+ * @ipa_rm_resource_name_cons: IPA resource manager consumer resource
  */
 struct ecm_ipa_dev {
 	struct net_device *net;
@@ -140,6 +143,10 @@ struct ecm_ipa_dev {
 	u8 outstanding_low;
 	enum ecm_ipa_state state;
 	void (*device_ready_notify)(void);
+	enum ipa_client_type ipa_to_usb_client;
+	enum ipa_client_type usb_to_ipa_client;
+	enum ipa_rm_resource_name ipa_rm_resource_name_prod;
+	enum ipa_rm_resource_name ipa_rm_resource_name_cons;
 };
 
 static int ecm_ipa_open(struct net_device *net);
@@ -153,7 +160,7 @@ static void ecm_ipa_enable_data_path(struct ecm_ipa_dev *ecm_ipa_ctx);
 static int ecm_ipa_rules_cfg(struct ecm_ipa_dev *ecm_ipa_ctx,
 		const void *dst_mac, const void *src_mac);
 static void ecm_ipa_rules_destroy(struct ecm_ipa_dev *ecm_ipa_ctx);
-static int ecm_ipa_register_properties(void);
+static int ecm_ipa_register_properties(struct ecm_ipa_dev *ecm_ipa_ctx);
 static void ecm_ipa_deregister_properties(void);
 static void ecm_ipa_rm_notify(void *user_data, enum ipa_rm_event event,
 		unsigned long data);
@@ -184,7 +191,8 @@ static ssize_t ecm_ipa_debugfs_atomic_read(struct file *file,
 static int ecm_ipa_debugfs_init(struct ecm_ipa_dev *ecm_ipa_ctx);
 static void ecm_ipa_debugfs_destroy(struct ecm_ipa_dev *ecm_ipa_ctx);
 static int ecm_ipa_ep_registers_cfg(u32 usb_to_ipa_hdl, u32 ipa_to_usb_hdl);
-static int ecm_ipa_ep_registers_dma_cfg(u32 usb_to_ipa_hdl);
+static int ecm_ipa_ep_registers_dma_cfg(u32 usb_to_ipa_hdl,
+					enum ipa_client_type prod_client);
 static int ecm_ipa_set_device_ethernet_addr(u8 *dev_ethaddr,
 		u8 device_ethaddr[]);
 static enum ecm_ipa_state ecm_ipa_next_state(enum ecm_ipa_state current_state,
@@ -298,13 +306,6 @@ int ecm_ipa_init(struct ecm_ipa_params *params)
 		goto fail_debugfs;
 	ECM_IPA_DEBUG("debugfs entries were created\n");
 
-	result = ecm_ipa_create_rm_resource(ecm_ipa_ctx);
-	if (result) {
-		ECM_IPA_ERROR("fail on RM create\n");
-		goto fail_create_rm;
-	}
-	ECM_IPA_DEBUG("RM resource was created\n");
-
 	result = ecm_ipa_set_device_ethernet_addr(net->dev_addr,
 			params->device_ethaddr);
 	if (result) {
@@ -320,13 +321,6 @@ int ecm_ipa_init(struct ecm_ipa_params *params)
 		goto fail_rules_cfg;
 	}
 	ECM_IPA_DEBUG("Ethernet header insertion set\n");
-
-	result = ecm_ipa_register_properties();
-	if (result) {
-		ECM_IPA_ERROR("fail on properties set\n");
-		goto fail_register_tx;
-	}
-	ECM_IPA_DEBUG("ecm_ipa 2 Tx and 2 Rx properties were registered\n");
 
 	netif_carrier_off(net);
 	ECM_IPA_DEBUG("netif_carrier_off() was called\n");
@@ -355,13 +349,9 @@ int ecm_ipa_init(struct ecm_ipa_params *params)
 	return 0;
 
 fail_register_netdev:
-	ecm_ipa_deregister_properties();
-fail_register_tx:
 	ecm_ipa_rules_destroy(ecm_ipa_ctx);
 fail_set_device_ethernet:
 fail_rules_cfg:
-	ecm_ipa_destory_rm_resource(ecm_ipa_ctx);
-fail_create_rm:
 	ecm_ipa_debugfs_destroy(ecm_ipa_ctx);
 fail_debugfs:
 fail_netdev_priv:
@@ -390,8 +380,7 @@ EXPORT_SYMBOL(ecm_ipa_init);
  *  This API is expected to be called after ecm_ipa_init() or
  *  after a call to ecm_ipa_disconnect.
  */
-int ecm_ipa_connect(u32 usb_to_ipa_hdl, u32 ipa_to_usb_hdl,
-		void *priv)
+int ecm_ipa_connect(u32 usb_to_ipa_hdl, u32 ipa_to_usb_hdl, void *priv)
 {
 	struct ecm_ipa_dev *ecm_ipa_ctx = priv;
 	int next_state;
@@ -402,7 +391,7 @@ int ecm_ipa_connect(u32 usb_to_ipa_hdl, u32 ipa_to_usb_hdl,
 	ECM_IPA_LOG_ENTRY();
 	NULL_CHECK(priv);
 	ECM_IPA_DEBUG("usb_to_ipa_hdl = %d, ipa_to_usb_hdl = %d, priv=0x%p\n",
-					usb_to_ipa_hdl, ipa_to_usb_hdl, priv);
+		      usb_to_ipa_hdl, ipa_to_usb_hdl, priv);
 
 	next_state = ecm_ipa_next_state(ecm_ipa_ctx->state, ECM_IPA_CONNECT);
 	if (next_state == ECM_IPA_INVALID) {
@@ -412,12 +401,12 @@ int ecm_ipa_connect(u32 usb_to_ipa_hdl, u32 ipa_to_usb_hdl,
 	ecm_ipa_ctx->state = next_state;
 	ECM_IPA_STATE_DEBUG(ecm_ipa_ctx);
 
-	if (!usb_to_ipa_hdl || usb_to_ipa_hdl >= IPA_CLIENT_MAX) {
+	if (!ipa_is_client_handle_valid(usb_to_ipa_hdl)) {
 		ECM_IPA_ERROR("usb_to_ipa_hdl(%d) is not a valid ipa handle\n",
 				usb_to_ipa_hdl);
 		return -EINVAL;
 	}
-	if (!ipa_to_usb_hdl || ipa_to_usb_hdl >= IPA_CLIENT_MAX) {
+	if (!ipa_is_client_handle_valid(ipa_to_usb_hdl)) {
 		ECM_IPA_ERROR("ipa_to_usb_hdl(%d) is not a valid ipa handle\n",
 				ipa_to_usb_hdl);
 		return -EINVAL;
@@ -425,10 +414,65 @@ int ecm_ipa_connect(u32 usb_to_ipa_hdl, u32 ipa_to_usb_hdl,
 
 	ecm_ipa_ctx->ipa_to_usb_hdl = ipa_to_usb_hdl;
 	ecm_ipa_ctx->usb_to_ipa_hdl = usb_to_ipa_hdl;
+
+	ecm_ipa_ctx->ipa_to_usb_client = ipa_get_client_mapping(ipa_to_usb_hdl);
+	if (ecm_ipa_ctx->ipa_to_usb_client < 0) {
+		ECM_IPA_ERROR(
+			"Error getting IPA->USB client from handle %d\n",
+			ecm_ipa_ctx->ipa_to_usb_client);
+		return -EINVAL;
+	}
+	ECM_IPA_DEBUG("ipa_to_usb_client = %d\n",
+		      ecm_ipa_ctx->ipa_to_usb_client);
+
+	ecm_ipa_ctx->usb_to_ipa_client = ipa_get_client_mapping(usb_to_ipa_hdl);
+	if (ecm_ipa_ctx->usb_to_ipa_client < 0) {
+		ECM_IPA_ERROR(
+			"Error getting USB->IPA client from handle %d\n",
+			ecm_ipa_ctx->usb_to_ipa_client);
+		return -EINVAL;
+	}
+	ECM_IPA_DEBUG("usb_to_ipa_client = %d\n",
+		      ecm_ipa_ctx->usb_to_ipa_client);
+
+	ecm_ipa_ctx->ipa_rm_resource_name_cons =
+		ipa_get_rm_resource_from_ep(ipa_to_usb_hdl);
+	if (ecm_ipa_ctx->ipa_rm_resource_name_cons < 0) {
+		ECM_IPA_ERROR("Error getting CONS RM resource from handle %d\n",
+			      ecm_ipa_ctx->ipa_rm_resource_name_cons);
+		return -EINVAL;
+	}
+	ECM_IPA_DEBUG("ipa_rm_resource_name_cons = %d\n",
+		      ecm_ipa_ctx->ipa_rm_resource_name_cons);
+
+	ecm_ipa_ctx->ipa_rm_resource_name_prod =
+		ipa_get_rm_resource_from_ep(usb_to_ipa_hdl);
+	if (ecm_ipa_ctx->ipa_rm_resource_name_prod < 0) {
+		ECM_IPA_ERROR("Error getting PROD RM resource from handle %d\n",
+			      ecm_ipa_ctx->ipa_rm_resource_name_prod);
+		return -EINVAL;
+	}
+	ECM_IPA_DEBUG("ipa_rm_resource_name_prod = %d\n",
+		      ecm_ipa_ctx->ipa_rm_resource_name_prod);
+
+	retval = ecm_ipa_create_rm_resource(ecm_ipa_ctx);
+	if (retval) {
+		ECM_IPA_ERROR("fail on RM create\n");
+		goto fail_create_rm;
+	}
+	ECM_IPA_DEBUG("RM resource was created\n");
+
+	retval = ecm_ipa_register_properties(ecm_ipa_ctx);
+	if (retval) {
+		ECM_IPA_ERROR("fail on properties set\n");
+		goto fail_create_rm;
+	}
+	ECM_IPA_DEBUG("ecm_ipa 2 Tx and 2 Rx properties were registered\n");
+
 	retval = ecm_ipa_ep_registers_cfg(usb_to_ipa_hdl, ipa_to_usb_hdl);
 	if (retval) {
 		ECM_IPA_ERROR("fail on ep cfg\n");
-		return retval;
+		goto fail;
 	}
 	ECM_IPA_DEBUG("end-point configured\n");
 
@@ -437,7 +481,8 @@ int ecm_ipa_connect(u32 usb_to_ipa_hdl, u32 ipa_to_usb_hdl,
 	ecm_msg = kzalloc(sizeof(struct ipa_ecm_msg), GFP_KERNEL);
 	if (!ecm_msg) {
 		ECM_IPA_ERROR("can't alloc msg mem\n");
-		return -ENOMEM;
+		retval = -ENOMEM;
+		goto fail;
 	}
 
 	memset(&msg_meta, 0, sizeof(struct ipa_msg_meta));
@@ -451,12 +496,13 @@ int ecm_ipa_connect(u32 usb_to_ipa_hdl, u32 ipa_to_usb_hdl,
 	if (retval) {
 		ECM_IPA_ERROR("fail to send ECM_CONNECT message\n");
 		kfree(ecm_msg);
-		return retval;
+		goto fail;
 	}
 
 	if (!netif_carrier_ok(ecm_ipa_ctx->net)) {
 		ECM_IPA_ERROR("netif_carrier_ok error\n");
-		return -EBUSY;
+		retval = -EBUSY;
+		goto fail;
 	}
 	ECM_IPA_DEBUG("carrier_on notified\n");
 
@@ -470,6 +516,12 @@ int ecm_ipa_connect(u32 usb_to_ipa_hdl, u32 ipa_to_usb_hdl,
 	ECM_IPA_LOG_EXIT();
 
 	return 0;
+
+fail:
+	ecm_ipa_deregister_properties();
+fail_create_rm:
+	ecm_ipa_destory_rm_resource(ecm_ipa_ctx);
+	return retval;
 }
 EXPORT_SYMBOL(ecm_ipa_connect);
 
@@ -574,7 +626,7 @@ static netdev_tx_t ecm_ipa_start_xmit(struct sk_buff *skb,
 		goto out;
 	}
 
-	ret = ipa_tx_dp(IPA_TO_USB_CLIENT, skb, NULL);
+	ret = ipa_tx_dp(ecm_ipa_ctx->ipa_to_usb_client, skb, NULL);
 	if (ret) {
 		ECM_IPA_ERROR("ipa transmit failed (%d)\n", ret);
 		goto fail_tx_packet;
@@ -731,6 +783,8 @@ int ecm_ipa_disconnect(void *priv)
 
 	netif_stop_queue(ecm_ipa_ctx->net);
 	ECM_IPA_DEBUG("queue stopped\n");
+
+	ecm_ipa_destory_rm_resource(ecm_ipa_ctx);
 
 	outstanding_dropped_pkts =
 		atomic_read(&ecm_ipa_ctx->outstanding_pkts);
@@ -924,7 +978,7 @@ static void ecm_ipa_rules_destroy(struct ecm_ipa_dev *ecm_ipa_ctx)
  * simple rule which always "hit".
  *
  */
-static int ecm_ipa_register_properties(void)
+static int ecm_ipa_register_properties(struct ecm_ipa_dev *ecm_ipa_ctx)
 {
 	struct ipa_tx_intf tx_properties = {0};
 	struct ipa_ioc_tx_intf_prop properties[2] = { {0}, {0} };
@@ -941,12 +995,12 @@ static int ecm_ipa_register_properties(void)
 	tx_properties.prop = properties;
 	ipv4_property = &tx_properties.prop[0];
 	ipv4_property->ip = IPA_IP_v4;
-	ipv4_property->dst_pipe = IPA_TO_USB_CLIENT;
+	ipv4_property->dst_pipe = ecm_ipa_ctx->ipa_to_usb_client;
 	strlcpy(ipv4_property->hdr_name, ECM_IPA_IPV4_HDR_NAME,
 			IPA_RESOURCE_NAME_MAX);
 	ipv6_property = &tx_properties.prop[1];
 	ipv6_property->ip = IPA_IP_v6;
-	ipv6_property->dst_pipe = IPA_TO_USB_CLIENT;
+	ipv6_property->dst_pipe = ecm_ipa_ctx->ipa_to_usb_client;
 	strlcpy(ipv6_property->hdr_name, ECM_IPA_IPV6_HDR_NAME,
 			IPA_RESOURCE_NAME_MAX);
 	tx_properties.num_props = 2;
@@ -955,11 +1009,11 @@ static int ecm_ipa_register_properties(void)
 	rx_ipv4_property = &rx_properties.prop[0];
 	rx_ipv4_property->ip = IPA_IP_v4;
 	rx_ipv4_property->attrib.attrib_mask = 0;
-	rx_ipv4_property->src_pipe = IPA_CLIENT_USB_PROD;
+	rx_ipv4_property->src_pipe = ecm_ipa_ctx->usb_to_ipa_client;
 	rx_ipv6_property = &rx_properties.prop[1];
 	rx_ipv6_property->ip = IPA_IP_v6;
 	rx_ipv6_property->attrib.attrib_mask = 0;
-	rx_ipv6_property->src_pipe = IPA_CLIENT_USB_PROD;
+	rx_ipv6_property->src_pipe = ecm_ipa_ctx->usb_to_ipa_client;
 	rx_properties.num_props = 2;
 
 	result = ipa_register_intf("ecm0", &tx_properties, &rx_properties);
@@ -1049,13 +1103,13 @@ static int ecm_ipa_create_rm_resource(struct ecm_ipa_dev *ecm_ipa_ctx)
 	ECM_IPA_DEBUG("rm_it client was created");
 
 	result = ipa_rm_add_dependency(IPA_RM_RESOURCE_STD_ECM_PROD,
-				IPA_RM_RESOURCE_USB_CONS);
+				       ecm_ipa_ctx->ipa_rm_resource_name_cons);
 	if (result)
 		ECM_IPA_ERROR("unable to add ECM/USB dependency (%d)\n",
 				result);
 
-	result = ipa_rm_add_dependency(IPA_RM_RESOURCE_USB_PROD,
-					IPA_RM_RESOURCE_APPS_CONS);
+	result = ipa_rm_add_dependency(ecm_ipa_ctx->ipa_rm_resource_name_prod,
+				       IPA_RM_RESOURCE_APPS_CONS);
 	if (result)
 		ECM_IPA_ERROR("unable to add USB/APPS dependency (%d)\n",
 				result);
@@ -1077,9 +1131,9 @@ static void ecm_ipa_destory_rm_resource(struct ecm_ipa_dev *ecm_ipa_ctx)
 	ECM_IPA_LOG_ENTRY();
 
 	ipa_rm_delete_dependency(IPA_RM_RESOURCE_STD_ECM_PROD,
-			IPA_RM_RESOURCE_USB_CONS);
-	ipa_rm_delete_dependency(IPA_RM_RESOURCE_USB_PROD,
-				IPA_RM_RESOURCE_APPS_CONS);
+				 ecm_ipa_ctx->ipa_rm_resource_name_cons);
+	ipa_rm_delete_dependency(ecm_ipa_ctx->ipa_rm_resource_name_prod,
+				 IPA_RM_RESOURCE_APPS_CONS);
 	ipa_rm_inactivity_timer_destroy(IPA_RM_RESOURCE_STD_ECM_PROD);
 	result = ipa_rm_delete_resource(IPA_RM_RESOURCE_STD_ECM_PROD);
 	if (result)
@@ -1251,7 +1305,8 @@ static ssize_t ecm_ipa_debugfs_enable_write_dma(struct file *file,
 	file->private_data = &ecm_ipa_ctx->dma_enable;
 	result = ecm_ipa_debugfs_enable_write(file, buf, count, ppos);
 	if (ecm_ipa_ctx->dma_enable)
-		ecm_ipa_ep_registers_dma_cfg(ecm_ipa_ctx->usb_to_ipa_hdl);
+		ecm_ipa_ep_registers_dma_cfg(ecm_ipa_ctx->usb_to_ipa_hdl,
+					     ecm_ipa_ctx->ipa_to_usb_client);
 	else
 		ecm_ipa_ep_registers_cfg(ecm_ipa_ctx->usb_to_ipa_hdl,
 				ecm_ipa_ctx->usb_to_ipa_hdl);
@@ -1466,7 +1521,8 @@ out:
  * which is needed for cores that does not support blocks logic
  * Note that client handles are the actual pipe index
  */
-static int ecm_ipa_ep_registers_dma_cfg(u32 usb_to_ipa_hdl)
+static int ecm_ipa_ep_registers_dma_cfg(u32 usb_to_ipa_hdl,
+					enum ipa_client_type prod_client)
 {
 	int result = 0;
 	struct ipa_ep_cfg_mode cfg_mode;
@@ -1476,7 +1532,7 @@ static int ecm_ipa_ep_registers_dma_cfg(u32 usb_to_ipa_hdl)
 
 	memset(&cfg_mode, 0 , sizeof(cfg_mode));
 	cfg_mode.mode = IPA_DMA;
-	cfg_mode.dst = IPA_CLIENT_USB_CONS;
+	cfg_mode.dst = prod_client;
 	result = ipa_cfg_ep_mode(apps_to_ipa_hdl, &cfg_mode);
 	if (result) {
 		ECM_IPA_ERROR("failed to configure Apps to IPA\n");

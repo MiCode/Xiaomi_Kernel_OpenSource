@@ -317,6 +317,12 @@ int ipa_get_clients_from_rm_resource(
 		clients->names[i++] = IPA_CLIENT_WLAN3_CONS;
 		clients->names[i++] = IPA_CLIENT_WLAN4_CONS;
 		break;
+	case IPA_RM_RESOURCE_USB_PROD:
+		clients->names[i++] = IPA_CLIENT_USB_PROD;
+		break;
+	case IPA_RM_RESOURCE_HSIC_PROD:
+		clients->names[i++] = IPA_CLIENT_HSIC1_PROD;
+		break;
 	default:
 		break;
 	}
@@ -3889,6 +3895,19 @@ bool ipa_is_ready(void)
 	return (ipa_ctx != NULL) ? true : false;
 }
 EXPORT_SYMBOL(ipa_is_ready);
+
+/**
+ * ipa_is_client_handle_valid() - check if IPA client handle is valid handle
+ *
+ * Return value: true for yes; false for no
+ */
+bool ipa_is_client_handle_valid(u32 clnt_hdl)
+{
+	if (clnt_hdl >= 0 && clnt_hdl < IPA_NUM_PIPES)
+		return true;
+	return false;
+}
+EXPORT_SYMBOL(ipa_is_client_handle_valid);
 
 /**
  * ipa_q6_init_done() - called when q6 ipa initialization is done

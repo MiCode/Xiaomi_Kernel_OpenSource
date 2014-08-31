@@ -911,8 +911,6 @@ int ipa_send_one(struct ipa_sys_context *sys, struct ipa_desc *desc,
 int ipa_send(struct ipa_sys_context *sys, u32 num_desc, struct ipa_desc *desc,
 		bool in_atomic);
 int ipa_get_ep_mapping(enum ipa_client_type client);
-enum ipa_client_type ipa_get_client_mapping(int pipe_idx);
-enum ipa_rm_resource_name ipa_get_rm_resource_from_ep(int pipe_idx);
 
 int ipa_generate_hw_rule(enum ipa_ip_type ip,
 			 const struct ipa_rule_attrib *attrib,
