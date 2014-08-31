@@ -99,6 +99,7 @@
 #define CHGR_MISC_BOOT_DONE			0x42
 #define CHGR_BUCK_PSTG_CTRL			0x73
 #define CHGR_BUCK_COMPARATOR_OVRIDE_1		0xEB
+#define CHGR_BUCK_COMPARATOR_OVRIDE_2		0xEC
 #define CHGR_BUCK_COMPARATOR_OVRIDE_3		0xED
 #define CHG_OVR0				0xED
 #define CHG_TRICKLE_CLAMP			0xE3
@@ -1786,6 +1787,47 @@ qpnp_chg_usb_usbin_valid_irq_handler(int irq, void *_chip)
 	return IRQ_HANDLED;
 }
 
+#define BUCK_VIN_LOOP_CMP_OVRD_MASK	0x30
+static int
+qpnp_chg_bypass_vchg_loop_debouncer(struct qpnp_chg_chip *chip, bool bypass)
+{
+	int rc;
+	u8 value = bypass ? 0x10 : 0;
+
+	pr_debug("bypass vchg_loop debouncer: %d\n", bypass);
+
+	rc = qpnp_chg_masked_write(chip, chip->buck_base + SEC_ACCESS,
+					0xFF, 0xA5, 1);
+	if (rc) {
+		pr_err("failed to write SEC_ACCESS register, rc = %d\n", rc);
+		return rc;
+	}
+
+	rc = qpnp_chg_masked_write(chip,
+			chip->buck_base + CHGR_BUCK_COMPARATOR_OVRIDE_2,
+			BUCK_VIN_LOOP_CMP_OVRD_MASK, value, 1);
+	if (rc)
+		pr_err("failed to write BUCK_COMP_OVRIDE_2, rc = %d\n", rc);
+
+	return rc;
+}
+
+static int
+qpnp_chg_vchg_loop_debouncer_setting_get(struct qpnp_chg_chip *chip)
+{
+	int rc;
+	u8 value;
+
+	rc = qpnp_chg_read(chip, &value,
+			chip->buck_base + CHGR_BUCK_COMPARATOR_OVRIDE_2, 1);
+	if (rc) {
+		pr_err("failed to read BUCK_CMP_OVERIDE_2, rc = %d\n", rc);
+		return 0;
+	}
+
+	return value & BUCK_VIN_LOOP_CMP_OVRD_MASK;
+}
+
 #define BAT_TOO_HOT_BYPASS	0x04
 static int
 bypass_btc_hot_comparator(struct qpnp_chg_chip *chip, bool bypass)
@@ -2154,6 +2196,7 @@ qpnp_batt_property_is_writeable(struct power_supply *psy,
 	case POWER_SUPPLY_PROP_INPUT_CURRENT_MAX:
 	case POWER_SUPPLY_PROP_INPUT_CURRENT_TRIM:
 	case POWER_SUPPLY_PROP_INPUT_CURRENT_SETTLED:
+	case POWER_SUPPLY_PROP_VCHG_LOOP_DBC_BYPASS:
 	case POWER_SUPPLY_PROP_VOLTAGE_MIN:
 	case POWER_SUPPLY_PROP_COOL_TEMP:
 	case POWER_SUPPLY_PROP_WARM_TEMP:
@@ -2319,6 +2362,7 @@ static enum power_supply_property msm_batt_power_props[] = {
 	POWER_SUPPLY_PROP_INPUT_CURRENT_MAX,
 	POWER_SUPPLY_PROP_INPUT_CURRENT_TRIM,
 	POWER_SUPPLY_PROP_INPUT_CURRENT_SETTLED,
+	POWER_SUPPLY_PROP_VCHG_LOOP_DBC_BYPASS,
 	POWER_SUPPLY_PROP_VOLTAGE_MIN,
 	POWER_SUPPLY_PROP_INPUT_VOLTAGE_REGULATION,
 	POWER_SUPPLY_PROP_CHARGE_FULL_DESIGN,
@@ -2846,6 +2890,10 @@ qpnp_batt_power_get_property(struct power_supply *psy,
 	case POWER_SUPPLY_PROP_ONLINE:
 		val->intval = get_prop_online(chip);
 		break;
+	case POWER_SUPPLY_PROP_VCHG_LOOP_DBC_BYPASS:
+		val->intval = qpnp_chg_vchg_loop_debouncer_setting_get(chip);
+		break;
+
 	default:
 		return -EINVAL;
 	}
@@ -4382,6 +4430,9 @@ qpnp_batt_power_set_property(struct power_supply *psy,
 		break;
 	case POWER_SUPPLY_PROP_VOLTAGE_MIN:
 		qpnp_chg_vinmin_set(chip, val->intval / 1000);
+		break;
+	case POWER_SUPPLY_PROP_VCHG_LOOP_DBC_BYPASS:
+		rc = qpnp_chg_bypass_vchg_loop_debouncer(chip, !!val->intval);
 		break;
 	default:
 		return -EINVAL;
