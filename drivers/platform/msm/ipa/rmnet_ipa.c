@@ -992,7 +992,7 @@ static void apps_ipa_packet_receive_notify(void *priv,
 	}
 
 	skb->dev = ipa_netdevs[0];
-	skb->protocol = 0xda1a;
+	skb->protocol = htons(ETH_P_MAP);
 
 	result = netif_rx(skb);
 	if (result)	{
