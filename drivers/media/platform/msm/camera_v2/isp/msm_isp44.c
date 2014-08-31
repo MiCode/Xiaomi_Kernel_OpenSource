@@ -652,71 +652,104 @@ static void msm_vfe44_clear_framedrop(struct vfe_device *vfe_dev,
 			VFE44_WM_BASE(stream_info->wm[i]) + 0x1C);
 }
 
-static int32_t msm_vfe44_cfg_io_format(struct vfe_device *vfe_dev,
-	enum msm_vfe_axi_stream_src stream_src, uint32_t io_format)
+static int32_t msm_vfe44_convert_bpp_to_reg(int32_t bpp, uint32_t *bpp_reg)
 {
-	int bpp, bpp_reg = 0, pack_reg = 0;
-	enum msm_isp_pack_fmt pack_fmt = 0;
-	uint32_t io_format_reg; /*io format register bit*/
-	bpp = msm_isp_get_bit_per_pixel(io_format);
-	if (bpp < 0) {
-		pr_err("%s:%d invalid io_format %d bpp %d", __func__, __LINE__,
-			io_format, bpp);
-		return -EINVAL;
-	}
-
+	int rc = 0;
 	switch (bpp) {
 	case 8:
-		bpp_reg = 0;
+		*bpp_reg = 0;
 		break;
 	case 10:
-		bpp_reg = 1 << 0;
+		*bpp_reg = 1 << 0;
 		break;
 	case 12:
-		bpp_reg = 1 << 1;
+		*bpp_reg = 1 << 1;
 		break;
 	default:
 		pr_err("%s:%d invalid bpp %d", __func__, __LINE__, bpp);
 		return -EINVAL;
 	}
 
+	return rc;
+}
+
+static int32_t msm_vfe44_convert_io_fmt_to_reg(
+	enum msm_isp_pack_fmt pack_format, uint32_t *pack_reg)
+{
+	int rc = 0;
+
+	switch (pack_format) {
+	case QCOM:
+		*pack_reg = 0x0;
+		break;
+	case MIPI:
+		*pack_reg = 0x1;
+		break;
+	case DPCM6:
+		*pack_reg = 0x2;
+		break;
+	case DPCM8:
+		*pack_reg = 0x3;
+		break;
+	case PLAIN8:
+		*pack_reg = 0x4;
+		break;
+	case PLAIN16:
+		*pack_reg = 0x5;
+		break;
+	default:
+		pr_err("%s: invalid pack fmt %d!\n", __func__, pack_format);
+		return -EINVAL;
+	}
+
+	return rc;
+}
+
+static int32_t msm_vfe44_cfg_io_format(struct vfe_device *vfe_dev,
+	enum msm_vfe_axi_stream_src stream_src, uint32_t io_format)
+{
+	int rc = 0;
+	int bpp = 0, read_bpp = 0;
+	enum msm_isp_pack_fmt pack_fmt = 0, read_pack_fmt = 0;
+	uint32_t bpp_reg = 0, pack_reg = 0;
+	uint32_t read_bpp_reg = 0, read_pack_reg = 0;
+	uint32_t io_format_reg = 0; /*io format register bit*/
+
 	io_format_reg = msm_camera_io_r(vfe_dev->vfe_base + 0x54);
+
+	/*input config*/
 	if ((stream_src < RDI_INTF_0) &&
 		(vfe_dev->axi_data.src_info[VFE_PIX_0].input_mux ==
 		EXTERNAL_READ)) {
-		pack_reg = 0x1;
+		read_bpp = msm_isp_get_bit_per_pixel(
+			vfe_dev->axi_data.src_info[VFE_PIX_0].input_format);
+		rc = msm_vfe44_convert_bpp_to_reg(read_bpp, &read_bpp_reg);
+		if (rc < 0) {
+			pr_err("%s: convert_bpp_to_reg err! in_bpp %d rc %d\n",
+				__func__, read_bpp, rc);
+			return rc;
+		}
+
+		read_pack_fmt = msm_isp_get_pack_format(
+			vfe_dev->axi_data.src_info[VFE_PIX_0].input_format);
+		rc = msm_vfe44_convert_io_fmt_to_reg(
+			read_pack_fmt, &read_pack_reg);
+		if (rc < 0) {
+			pr_err("%s: convert_io_fmt_to_reg err! rc = %d\n",
+				__func__, rc);
+			return rc;
+		}
+		/*use input format(v4l2_pix_fmt) to get pack format*/
 		io_format_reg &= 0xFFC8FFFF;
-		io_format_reg |= (bpp_reg << 20 | pack_reg << 16);
-		pr_debug("%s: EXTERNAL READ io_fmt_reg 0x%x\n",
-			__func__, io_format_reg);
+		io_format_reg |= (read_bpp_reg << 20 | read_pack_reg << 16);
 	}
 
-	if (stream_src == IDEAL_RAW) {
-		/*use io_format(v4l2_pix_fmt) to get pack format*/
-		pack_fmt = msm_isp_get_pack_format(io_format);
-		switch (pack_fmt) {
-		case QCOM:
-			pack_reg = 0x0;
-			break;
-		case MIPI:
-			pack_reg = 0x1;
-			break;
-		case DPCM6:
-			pack_reg = 0x2;
-			break;
-		case DPCM8:
-			pack_reg = 0x3;
-			break;
-		case PLAIN8:
-			pack_reg = 0x4;
-			break;
-		case PLAIN16:
-			pack_reg = 0x5;
-			break;
-		default:
-			pr_err("%s: invalid pack fmt!\n", __func__);
-			return -EINVAL;
-		}
+	bpp = msm_isp_get_bit_per_pixel(io_format);
+	rc = msm_vfe44_convert_bpp_to_reg(bpp, &bpp_reg);
+	if (rc < 0) {
+		pr_err("%s: convert_bpp_to_reg err! bpp %d rc = %d\n",
+			__func__, bpp, rc);
+		return rc;
 	}
 
 	switch (stream_src) {
@@ -727,6 +760,14 @@ static int32_t msm_vfe44_cfg_io_format(struct vfe_device *vfe_dev,
 		io_format_reg |= bpp_reg << 12;
 		break;
 	case IDEAL_RAW:
+		/*use output format(v4l2_pix_fmt) to get pack format*/
+		pack_fmt = msm_isp_get_pack_format(io_format);
+		rc = msm_vfe44_convert_io_fmt_to_reg(pack_fmt, &pack_reg);
+		if (rc < 0) {
+			pr_err("%s: convert_io_fmt_to_reg err! rc = %d\n",
+				__func__, rc);
+			return rc;
+		}
 		io_format_reg &= 0xFFFFFFC8;
 		io_format_reg |= bpp_reg << 4 | pack_reg;
 		break;
@@ -737,6 +778,7 @@ static int32_t msm_vfe44_cfg_io_format(struct vfe_device *vfe_dev,
 		pr_err("%s: Invalid stream source\n", __func__);
 		return -EINVAL;
 	}
+
 	msm_camera_io_w(io_format_reg, vfe_dev->vfe_base + 0x54);
 	return 0;
 }
@@ -785,8 +827,9 @@ static int msm_vfe44_fetch_engine_start(struct vfe_device *vfe_dev,
 static void msm_vfe44_cfg_fetch_engine(struct vfe_device *vfe_dev,
 	struct msm_vfe_pix_cfg *pix_cfg)
 {
-	uint32_t temp;
+	uint32_t x_size_word;
 	struct msm_vfe_fetch_engine_cfg *fe_cfg = NULL;
+	uint32_t temp = 0;
 
 	if (pix_cfg->input_mux == EXTERNAL_READ) {
 		fe_cfg = &pix_cfg->fetch_engine_cfg;
@@ -803,31 +846,29 @@ static void msm_vfe44_cfg_fetch_engine(struct vfe_device *vfe_dev,
 		temp &= 0xFEFFFFFF;
 		temp |= (1 << 24);
 		msm_camera_io_w(temp, vfe_dev->vfe_base + 0x28);
+		msm_camera_io_w((fe_cfg->fetch_height - 1) & 0xFFF,
+			vfe_dev->vfe_base + 0x238);
 
-		temp = fe_cfg->fetch_height - 1;
-		msm_camera_io_w(temp & 0xFFF, vfe_dev->vfe_base + 0x238);
+		x_size_word = msm_isp_cal_word_per_line(
+			vfe_dev->axi_data.src_info[VFE_PIX_0].input_format,
+			fe_cfg->fetch_width);
+		msm_camera_io_w((x_size_word - 1) << 16,
+			vfe_dev->vfe_base + 0x23C);
 
-		/* need to update to use formulae to calculate X_SIZE_WORD*/
-		temp = ((fe_cfg->fetch_width * 5 + 31) / 32);
-		msm_camera_io_w((temp - 1) << 16, vfe_dev->vfe_base + 0x23C);
+		msm_camera_io_w(x_size_word << 16 |
+			(fe_cfg->buf_height - 1) << 4 | VFE44_FETCH_BURST_LEN,
+			vfe_dev->vfe_base + 0x240);
 
-		/*TODO: Max height support to be increased from 4096 to 16386*/
-		temp = temp << 16 |
-			(fe_cfg->buf_height-1) << 4 |
-			VFE44_FETCH_BURST_LEN;
-		msm_camera_io_w(temp, vfe_dev->vfe_base + 0x240);
-
-		temp = 0 << 28 | 2 << 25 |
-			((fe_cfg->buf_width - 1) & 0x1FFF) << 12 |
-			((fe_cfg->buf_height - 1) & 0xFFF);
-		msm_camera_io_w(temp, vfe_dev->vfe_base + 0x244);
+		msm_camera_io_w(0 << 28 | 2 << 25 |
+		((fe_cfg->buf_width - 1) & 0x1FFF) << 12 |
+		((fe_cfg->buf_height - 1) & 0xFFF), vfe_dev->vfe_base + 0x244);
 
 		/* need to use formulae to calculate MAIN_UNPACK_PATTERN*/
 		msm_camera_io_w(0xF6543210, vfe_dev->vfe_base + 0x248);
 		msm_camera_io_w(0xF, vfe_dev->vfe_base + 0x264);
 
 		temp = msm_camera_io_r(vfe_dev->vfe_base + 0x1C);
-		temp |= 2 << 16;
+		temp |= 2 << 16 | pix_cfg->pixel_pattern;
 		msm_camera_io_w(temp, vfe_dev->vfe_base + 0x1C);
 
 		vfe_dev->hw_info->vfe_ops.core_ops.reg_update(vfe_dev);
