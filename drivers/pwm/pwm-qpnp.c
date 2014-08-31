@@ -164,6 +164,11 @@ do { \
 /* LPG Control for LO_INDEX */
 #define QPNP_LO_INDEX_MASK			0x3F
 
+/* LPG DTEST */
+#define QPNP_LPG_DTEST_LINE_MAX		4
+#define QPNP_LPG_DTEST_OUTPUT_MAX		5
+#define QPNP_DTEST_OUTPUT_MASK			0x07
+
 #define NUM_CLOCKS				3
 #define QPNP_PWM_M_MAX				7
 #define NSEC_1024HZ	(NSEC_PER_SEC / 1024)
@@ -239,6 +244,8 @@ enum qpnp_lpg_registers_list {
 	QPNP_PAUSE_LO_MULTIPLIER_MSB,
 	QPNP_HI_INDEX,
 	QPNP_LO_INDEX,
+	QPNP_LPG_SEC_ACCESS = QPNP_LO_INDEX + 121,
+	QPNP_LPG_DTEST = QPNP_LO_INDEX + 139,
 	QPNP_TOTAL_LPG_SPMI_REGISTERS
 };
 
@@ -317,6 +324,9 @@ struct qpnp_pwm_chip {
 	u8	qpnp_lpg_registers[QPNP_TOTAL_LPG_SPMI_REGISTERS];
 	int			channel_id;
 	const char		*channel_owner;
+	u32			dtest_line;
+	u32			dtest_output;
+	bool			in_test_mode;
 };
 
 /* Internal functions */
@@ -971,6 +981,55 @@ static int qpnp_lpg_change_lut(struct qpnp_pwm_chip *chip)
 	return rc;
 }
 
+static int qpnp_dtest_config(struct qpnp_pwm_chip *chip, bool enable)
+{
+	struct qpnp_lpg_config	*lpg_config = &chip->lpg_config;
+	u8			value;
+	u16			addr;
+	int			rc = 0;
+
+	if (!chip->dtest_output) {
+		pr_err("DTEST output not configured for channel %d\n",
+			chip->channel_id);
+		return -EPERM;
+	}
+
+	if (chip->dtest_line > QPNP_LPG_DTEST_LINE_MAX ||
+		chip->dtest_output > QPNP_LPG_DTEST_OUTPUT_MAX) {
+		pr_err("DTEST line/output values are improper for channel %d\n",
+			chip->channel_id);
+		return -EINVAL;
+	}
+
+	value = 0xA5;
+
+	addr = SPMI_LPG_REG_ADDR(lpg_config->base_addr, QPNP_LPG_SEC_ACCESS);
+
+	rc = spmi_ext_register_writel(chip->spmi_dev->ctrl,
+		chip->spmi_dev->sid, addr, &value, 1);
+
+	if (rc) {
+		pr_err("Couldn't set the access for test mode\n");
+		return rc;
+	}
+
+	addr = SPMI_LPG_REG_ADDR(lpg_config->base_addr,
+			QPNP_LPG_DTEST + chip->dtest_line - 1);
+
+	if (enable)
+		value = chip->dtest_output & QPNP_DTEST_OUTPUT_MASK;
+	else
+		value = 0;
+
+	pr_debug("Setting TEST mode for channel %d addr:%x value: %x\n",
+		chip->channel_id, addr, value);
+
+	rc = spmi_ext_register_writel(chip->spmi_dev->ctrl,
+		chip->spmi_dev->sid, addr, &value, 1);
+
+	return rc;
+}
+
 static int qpnp_lpg_configure_lut_state(struct qpnp_pwm_chip *chip,
 				enum qpnp_lut_state state)
 {
@@ -979,6 +1038,7 @@ static int qpnp_lpg_configure_lut_state(struct qpnp_pwm_chip *chip,
 	u8			*reg1, *reg2;
 	u16			addr, addr1;
 	int			rc;
+	bool			test_enable;
 
 	value1 = chip->qpnp_lpg_registers[QPNP_RAMP_CONTROL];
 	reg1 = &chip->qpnp_lpg_registers[QPNP_RAMP_CONTROL];
@@ -1020,6 +1080,13 @@ static int qpnp_lpg_configure_lut_state(struct qpnp_pwm_chip *chip,
 	addr = SPMI_LPG_REG_ADDR(lpg_config->base_addr,
 				QPNP_ENABLE_CONTROL);
 
+	if (chip->in_test_mode) {
+		test_enable = (state == QPNP_LUT_ENABLE) ? 1 : 0;
+		rc = qpnp_dtest_config(chip, test_enable);
+		if (rc)
+			pr_err("Failed to configure TEST mode\n");
+	}
+
 	rc = qpnp_lpg_save_and_write(value2, mask2, reg2,
 					addr, 1, chip);
 	if (rc)
@@ -1044,6 +1111,7 @@ static int qpnp_lpg_configure_pwm_state(struct qpnp_pwm_chip *chip,
 	struct qpnp_lpg_config	*lpg_config = &chip->lpg_config;
 	u8			value, mask;
 	int			rc;
+	bool			test_enable;
 
 	if (chip->sub_type == QPNP_PWM_MODE_ONLY_SUB_TYPE) {
 		if (state == QPNP_PWM_ENABLE)
@@ -1063,6 +1131,12 @@ static int qpnp_lpg_configure_pwm_state(struct qpnp_pwm_chip *chip,
 				QPNP_PWM_EN_RAMP_GEN_MASK;
 	}
 
+	if (chip->in_test_mode) {
+		test_enable = (state == QPNP_PWM_ENABLE) ? 1 : 0;
+		rc = qpnp_dtest_config(chip, test_enable);
+		if (rc)
+			pr_err("Failed to configure TEST mode\n");
+	}
 
 	rc = qpnp_lpg_save_and_write(value, mask,
 		&chip->qpnp_lpg_registers[QPNP_ENABLE_CONTROL],
@@ -1844,6 +1918,20 @@ static int qpnp_parse_dt_config(struct spmi_device *spmi,
 		dev_err(&spmi->dev, "%s: Invalid mode select\n", __func__);
 		rc = -EINVAL;
 		goto out;
+	}
+
+	rc = of_property_read_u32(of_node, "qcom,lpg-dtest-line",
+		&chip->dtest_line);
+	if (rc) {
+		chip->in_test_mode = 0;
+	} else {
+		chip->in_test_mode = 1;
+		rc = of_property_read_u32(of_node, "qcom,dtest-output",
+			&chip->dtest_output);
+		if (rc) {
+			pr_err("Missing DTEST output configuration\n");
+			chip->dtest_output = 0;
+		}
 	}
 
 	_pwm_change_mode(chip, enable);
