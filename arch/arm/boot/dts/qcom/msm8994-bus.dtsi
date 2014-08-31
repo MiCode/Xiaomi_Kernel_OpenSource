@@ -159,6 +159,7 @@
 			label = "bimc-int-apps-snoc";
 			qcom,bus-dev = <&fab_bimc>;
 			qcom,buswidth = <8>;
+			qcom,ap-owned;
 			qcom,connections = <&slv_bimc_snoc>;
 			qcom,mas-rpm-id = <ICBID_MASTER_MSS_PROC>;
 		};
@@ -1492,6 +1493,7 @@
 			label = "slv-ufs-cfg";
 			qcom,bus-dev = <&fab_cnoc>;
 			qcom,buswidth = <8>;
+			qcom,ap-owned;
 			qcom,slv-rpm-id = <ICBID_SLAVE_UFS_CFG>;
 		};
 
