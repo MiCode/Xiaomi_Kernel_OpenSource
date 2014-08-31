@@ -1025,6 +1025,8 @@ int ipa_set_required_perf_profile(enum ipa_voltage_level floor_voltage,
 				  u32 bandwidth_mbps);
 
 int ipa_cfg_ep_status(u32 clnt_hdl, const struct ipa_ep_cfg_status *ipa_ep_cfg);
+int ipa_cfg_aggr_cntr_granularity(u8 aggr_granularity);
+int ipa_cfg_eot_coal_cntr_granularity(u8 eot_coal_granularity);
 
 int ipa_suspend_resource_no_block(enum ipa_rm_resource_name name);
 int ipa_suspend_resource_sync(enum ipa_rm_resource_name name);

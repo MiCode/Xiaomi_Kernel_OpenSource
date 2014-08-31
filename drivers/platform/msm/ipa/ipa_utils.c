@@ -35,6 +35,10 @@
 #define IPA_TAG_SLEEP_MAX_USEC (2000)
 #define IPA_FORCE_CLOSE_TAG_PROCESS_TIMEOUT (10 * HZ)
 #define IPA_BCR_REG_VAL (0xFFFFFFFF)
+#define IPA_AGGR_GRAN_MIN (1)
+#define IPA_AGGR_GRAN_MAX (32)
+#define IPA_EOT_COAL_GRAN_MIN (1)
+#define IPA_EOT_COAL_GRAN_MAX (16)
 
 static const int ipa_ofst_meq32[] = { IPA_OFFSET_MEQ32_0,
 					IPA_OFFSET_MEQ32_1, -1 };
@@ -2368,6 +2372,75 @@ int ipa_cfg_ep_ctrl(u32 clnt_hdl, const struct ipa_ep_cfg_ctrl *ep_ctrl)
 
 }
 EXPORT_SYMBOL(ipa_cfg_ep_ctrl);
+
+/**
+ * ipa_cfg_aggr_cntr_granularity() - granularity of the AGGR timer configuration
+ * @aggr_granularity:     [in] defines the granularity of AGGR timers
+ *			  number of units of 1/32msec
+ *
+ * Returns:	0 on success, negative on failure
+ */
+int ipa_cfg_aggr_cntr_granularity(u8 aggr_granularity)
+{
+	u32 reg_val = 0;
+
+	if (aggr_granularity <= IPA_AGGR_GRAN_MIN ||
+			aggr_granularity > IPA_AGGR_GRAN_MAX) {
+		IPAERR("bad param, aggr_granularity = %d\n",
+				aggr_granularity);
+		return -EINVAL;
+	}
+	IPADBG("aggr_granularity=%d\n", aggr_granularity);
+
+	reg_val = ipa_read_reg(ipa_ctx->mmio, IPA_COUNTER_CFG_OFST);
+	reg_val = (reg_val & ~IPA_COUNTER_CFG_AGGR_GRAN_BMSK);
+
+	IPA_SETFIELD_IN_REG(reg_val, aggr_granularity - 1,
+			IPA_COUNTER_CFG_AGGR_GRAN_SHFT,
+			IPA_COUNTER_CFG_AGGR_GRAN_BMSK);
+
+	ipa_write_reg(ipa_ctx->mmio,
+			IPA_COUNTER_CFG_OFST, reg_val);
+
+	return 0;
+
+}
+EXPORT_SYMBOL(ipa_cfg_aggr_cntr_granularity);
+
+/**
+ * ipa_cfg_eot_coal_cntr_granularity() - granularity of EOT_COAL timer
+ *					 configuration
+ * @eot_coal_granularity: defines the granularity of EOT_COAL timers
+ *			  number of units of 1/32msec
+ *
+ * Returns:	0 on success, negative on failure
+ */
+int ipa_cfg_eot_coal_cntr_granularity(u8 eot_coal_granularity)
+{
+	u32 reg_val = 0;
+
+	if (eot_coal_granularity <= IPA_EOT_COAL_GRAN_MIN ||
+			eot_coal_granularity > IPA_EOT_COAL_GRAN_MAX) {
+		IPAERR("bad parm, eot_coal_granularity = %d\n",
+				eot_coal_granularity);
+		return -EINVAL;
+	}
+	IPADBG("eot_coal_granularity=%d\n", eot_coal_granularity);
+
+	reg_val = ipa_read_reg(ipa_ctx->mmio, IPA_COUNTER_CFG_OFST);
+	reg_val = (reg_val & ~IPA_COUNTER_CFG_EOT_COAL_GRAN_BMSK);
+
+	IPA_SETFIELD_IN_REG(reg_val, eot_coal_granularity - 1,
+			IPA_COUNTER_CFG_EOT_COAL_GRAN_SHFT,
+			IPA_COUNTER_CFG_EOT_COAL_GRAN_BMSK);
+
+	ipa_write_reg(ipa_ctx->mmio,
+			IPA_COUNTER_CFG_OFST, reg_val);
+
+	return 0;
+
+}
+EXPORT_SYMBOL(ipa_cfg_eot_coal_cntr_granularity);
 
 const char *ipa_get_mode_type_str(enum ipa_mode_type mode)
 {
