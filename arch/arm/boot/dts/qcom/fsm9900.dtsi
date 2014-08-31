@@ -692,14 +692,15 @@
 		qcom,core-limit-temp = <110>;
 		qcom,core-temp-hysteresis = <10>;
 		qcom,core-control-mask = <0xe>;
-		qcom,hotplug-temp = <120>;
-		qcom,hotplug-temp-hysteresis = <20>;
+		qcom,hotplug-temp = <110>;
+		qcom,hotplug-temp-hysteresis = <10>;
 		qcom,freq-mitigation-temp = <110>;
 		qcom,freq-mitigation-temp-hysteresis = <20>;
 		qcom,freq-mitigation-value = <883200>;
 		qcom,freq-mitigation-control-mask = <0x01>;
 		qcom,cpu-sensors = "tsens_tz_sensor3", "tsens_tz_sensor4",
 				"tsens_tz_sensor5", "tsens_tz_sensor6";
+		qcom,online-hotplug-core;
 	};
 
 	cache: qcom,cache {
