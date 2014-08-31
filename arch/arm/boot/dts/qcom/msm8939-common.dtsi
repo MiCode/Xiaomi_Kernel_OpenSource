@@ -1124,6 +1124,7 @@
 		pinctrl-names = "default", "sleep";
 		pinctrl-0 = <&hsuart_active>;
 		pinctrl-1 = <&hsuart_sleep>;
+		status = "disabled";
 	};
 
 	qcom,venus@1de0000 {
