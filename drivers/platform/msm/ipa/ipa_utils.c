@@ -66,6 +66,7 @@ static const int ep_mapping[2][IPA_CLIENT_MAX] = {
 	[IPA_1_1][IPA_CLIENT_A2_TETHERED_PROD]   =  6,
 	[IPA_1_1][IPA_CLIENT_APPS_LAN_WAN_PROD]  =  2,
 	[IPA_1_1][IPA_CLIENT_APPS_CMD_PROD]      =  1,
+	[IPA_1_1][IPA_CLIENT_ODU_PROD]           = -1,
 	[IPA_1_1][IPA_CLIENT_Q6_LAN_PROD]        =  5,
 	[IPA_1_1][IPA_CLIENT_Q6_CMD_PROD]        = -1,
 
@@ -87,6 +88,8 @@ static const int ep_mapping[2][IPA_CLIENT_MAX] = {
 	[IPA_1_1][IPA_CLIENT_A5_LAN_WAN_CONS]    =  3,
 	[IPA_1_1][IPA_CLIENT_APPS_LAN_CONS]      = -1,
 	[IPA_1_1][IPA_CLIENT_APPS_WAN_CONS]      = -1,
+	[IPA_1_1][IPA_CLIENT_ODU_EMB_CONS]       = -1,
+	[IPA_1_1][IPA_CLIENT_ODU_TETH_CONS]      = -1,
 	[IPA_1_1][IPA_CLIENT_Q6_LAN_CONS]        =  4,
 	[IPA_1_1][IPA_CLIENT_Q6_WAN_CONS]        = -1,
 
@@ -106,6 +109,7 @@ static const int ep_mapping[2][IPA_CLIENT_MAX] = {
 	[IPA_2_0][IPA_CLIENT_A2_TETHERED_PROD]   = -1,
 	[IPA_2_0][IPA_CLIENT_APPS_LAN_WAN_PROD]  =  4,
 	[IPA_2_0][IPA_CLIENT_APPS_CMD_PROD]      =  3,
+	[IPA_2_0][IPA_CLIENT_ODU_PROD]           = 12,
 	[IPA_2_0][IPA_CLIENT_Q6_LAN_PROD]        =  6,
 	[IPA_2_0][IPA_CLIENT_Q6_CMD_PROD]        =  7,
 	/* Only for test purpose */
@@ -133,6 +137,8 @@ static const int ep_mapping[2][IPA_CLIENT_MAX] = {
 	[IPA_2_0][IPA_CLIENT_A5_LAN_WAN_CONS]    = -1,
 	[IPA_2_0][IPA_CLIENT_APPS_LAN_CONS]      =  2,
 	[IPA_2_0][IPA_CLIENT_APPS_WAN_CONS]      =  5,
+	[IPA_2_0][IPA_CLIENT_ODU_EMB_CONS]       = 13,
+	[IPA_2_0][IPA_CLIENT_ODU_TETH_CONS]      =  1,
 	[IPA_2_0][IPA_CLIENT_Q6_LAN_CONS]        =  8,
 	[IPA_2_0][IPA_CLIENT_Q6_WAN_CONS]        =  9,
 	[IPA_2_0][IPA_CLIENT_Q6_DUN_CONS]        = 10,
@@ -3094,7 +3100,8 @@ int ipa_write_qmap_id(struct ipa_ioc_write_qmapid *param_in)
 
 	meta.qmap_id = param_in->qmap_id;
 	if (param_in->client == IPA_CLIENT_USB_PROD ||
-	    param_in->client == IPA_CLIENT_HSIC1_PROD) {
+	    param_in->client == IPA_CLIENT_HSIC1_PROD ||
+	    param_in->client == IPA_CLIENT_ODU_PROD) {
 		result = ipa_cfg_ep_metadata(ipa_ep_idx, &meta);
 	} else if (param_in->client == IPA_CLIENT_WLAN1_PROD) {
 		ipa_ctx->ep[ipa_ep_idx].cfg.meta = meta;
