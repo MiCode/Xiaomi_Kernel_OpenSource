@@ -468,10 +468,62 @@ static struct mutex exp_fn_list_mutex;
 static struct list_head exp_fn_list;
 
 #if defined(CONFIG_SECURE_TOUCH)
+static int synaptics_secure_touch_clk_prepare_enable(
+		struct synaptics_rmi4_data *rmi4_data)
+{
+	int ret;
+	ret = clk_prepare_enable(rmi4_data->iface_clk);
+	if (ret) {
+		dev_err(&rmi4_data->i2c_client->dev,
+			"error on clk_prepare_enable(iface_clk):%d\n", ret);
+		return ret;
+	}
+
+	ret = clk_prepare_enable(rmi4_data->core_clk);
+	if (ret) {
+		clk_disable_unprepare(rmi4_data->iface_clk);
+		dev_err(&rmi4_data->i2c_client->dev,
+			"error clk_prepare_enable(core_clk):%d\n", ret);
+	}
+	return ret;
+}
+
+static void synaptics_secure_touch_clk_disable_unprepare(
+		struct synaptics_rmi4_data *rmi4_data)
+{
+	clk_disable_unprepare(rmi4_data->core_clk);
+	clk_disable_unprepare(rmi4_data->iface_clk);
+}
+
 static void synaptics_secure_touch_init(struct synaptics_rmi4_data *data)
 {
+	int ret = 0;
+	data->st_initialized = 0;
 	init_completion(&data->st_powerdown);
 	init_completion(&data->st_irq_processed);
+	/* Get clocks */
+	data->core_clk = clk_get(&data->i2c_client->dev, "core_clk");
+	if (IS_ERR(data->core_clk)) {
+		ret = PTR_ERR(data->core_clk);
+		dev_err(&data->i2c_client->dev,
+			"%s: error on clk_get(core_clk):%d\n", __func__, ret);
+		return;
+	}
+
+	data->iface_clk = clk_get(&data->i2c_client->dev, "iface_clk");
+	if (IS_ERR(data->iface_clk)) {
+		ret = PTR_ERR(data->iface_clk);
+		dev_err(&data->i2c_client->dev,
+			"%s: error on clk_get(iface_clk)\n", __func__);
+		goto err_iface_clk;
+	}
+
+	data->st_initialized = 1;
+	return;
+
+err_iface_clk:
+		clk_put(data->core_clk);
+		data->core_clk = NULL;
 }
 static void synaptics_secure_touch_notify(struct synaptics_rmi4_data *data)
 {
@@ -539,6 +591,7 @@ static ssize_t synaptics_secure_touch_enable_store(struct device *dev,
 				    const char *buf, size_t count)
 {
 	struct synaptics_rmi4_data *data = dev_get_drvdata(dev);
+	struct device *adapter = data->i2c_client->adapter->dev.parent;
 	unsigned long value;
 	int err = 0;
 
@@ -549,6 +602,9 @@ static ssize_t synaptics_secure_touch_enable_store(struct device *dev,
 	if (err != 0)
 		return err;
 
+	if (!data->st_initialized)
+		return -EIO;
+
 	err = count;
 
 	switch (value) {
@@ -556,7 +612,8 @@ static ssize_t synaptics_secure_touch_enable_store(struct device *dev,
 		if (atomic_read(&data->st_enabled) == 0)
 			break;
 
-		pm_runtime_put_sync(data->i2c_client->adapter->dev.parent);
+		synaptics_secure_touch_clk_disable_unprepare(data);
+		pm_runtime_put_sync(adapter);
 		atomic_set(&data->st_enabled, 0);
 		synaptics_secure_touch_notify(data);
 		complete(&data->st_irq_processed);
@@ -571,11 +628,14 @@ static ssize_t synaptics_secure_touch_enable_store(struct device *dev,
 		}
 
 		synchronize_irq(data->irq);
+		if (pm_runtime_get_sync(adapter) < 0) {
+			dev_err(&data->i2c_client->dev, "pm_runtime_get_sync failed\n");
+			err = -EIO;
+			break;
+		}
 
-		if (pm_runtime_get_sync(
-			data->i2c_client->adapter->dev.parent) < 0) {
-			dev_err(&data->i2c_client->dev,
-				"pm_runtime_get failed\n");
+		if (synaptics_secure_touch_clk_prepare_enable(data) < 0) {
+			pm_runtime_put_sync(adapter);
 			err = -EIO;
 			break;
 		}
