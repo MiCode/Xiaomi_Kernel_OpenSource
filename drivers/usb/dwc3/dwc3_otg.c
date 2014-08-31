@@ -1051,11 +1051,10 @@ int dwc3_otg_init(struct dwc3 *dwc)
 	if (!(reg & DWC3_GHWPARAMS6_SRP_SUPPORT)) {
 		/*
 		 * No OTG support in the HW core.
-		 * We return 0 to indicate no error, since this is acceptable
-		 * situation, just continue probe the dwc3 driver without otg.
+		 * Continue otg_init as currently we don't have Device only mode
+		 * support.
 		 */
 		dev_dbg(dwc->dev, "dwc3_otg address space is not supported\n");
-		return 0;
 	}
 
 
