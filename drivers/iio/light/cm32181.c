@@ -213,8 +213,6 @@ static int cm32181_get_lux(struct cm32181_chip *cm32181)
 	if (ret < 0)
 		return ret;
 
-	printk(KERN_ERR "ARJAN: cm32181_get_lux returns %i  / %x \n", ret,ret);
-
 	lux *= ret;
 	lux *= cm32181->calibscale;
 	lux /= CM32181_CALIBSCALE_RESOLUTION;
