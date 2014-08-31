@@ -562,6 +562,30 @@
 
 /* CPR controlled regulators */
 &soc {
+	mem_acc0_vreg_corner: mem-acc0-regulator {
+		compatible = "qcom,mem-acc-regulator";
+		reg = <0xf9112144 0x4>;
+		reg-names = "acc-sel-l1";
+		regulator-name = "mem_acc0_corner";
+		regulator-min-microvolt = <1>;
+		regulator-max-microvolt = <3>;
+		qcom,corner-acc-map = <1 0 0>;
+		qcom,acc-sel-l1-bit-pos = <0>;
+		qcom,acc-sel-l1-bit-size = <1>;
+	};
+
+	mem_acc1_vreg_corner: mem-acc1-regulator {
+		compatible = "qcom,mem-acc-regulator";
+		reg = <0xf9112144 0x4>;
+		reg-names = "acc-sel-l1";
+		regulator-name = "mem_acc1_corner";
+		regulator-min-microvolt = <1>;
+		regulator-max-microvolt = <3>;
+		qcom,corner-acc-map = <1 0 0>;
+		qcom,acc-sel-l1-bit-pos = <1>;
+		qcom,acc-sel-l1-bit-size = <1>;
+	};
+
 	apc0_vreg_corner: regulator@f9019000 {
 		compatible = "qcom,cpr-regulator";
 		reg = <0xf9019000 0x1000>, <0xf900d064 4>, <0xfc4bc000 0x1000>;
@@ -580,6 +604,8 @@
 		qcom,vdd-mx-vmax = <7>;
 		qcom,vdd-mx-vmin-method = <4>;
 		vdd-mx-supply = <&pm8994_s2_corner_ao>;
+
+		mem-acc-supply = <&mem_acc0_vreg_corner>;
 
 		qcom,cpr-ref-clk = <19200>;
 		qcom,cpr-timer-delay = <5000>;
@@ -645,6 +671,8 @@
 		qcom,vdd-mx-vmax = <7>;
 		qcom,vdd-mx-vmin-method = <4>;
 		vdd-mx-supply = <&pm8994_s2_corner_ao>;
+
+		mem-acc-supply = <&mem_acc1_vreg_corner>;
 
 		qcom,cpr-ref-clk = <19200>;
 		qcom,cpr-timer-delay = <5000>;
