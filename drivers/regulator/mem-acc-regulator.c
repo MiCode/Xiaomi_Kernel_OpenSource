@@ -12,6 +12,7 @@
 #define pr_fmt(fmt)	"ACC: %s: " fmt, __func__
 
 #include <linux/module.h>
+#include <linux/mutex.h>
 #include <linux/types.h>
 #include <linux/init.h>
 #include <linux/slab.h>
@@ -65,6 +66,8 @@ struct mem_acc_regulator {
 	phys_addr_t		efuse_addr;
 	void __iomem		*efuse_base;
 };
+
+static DEFINE_MUTEX(mem_acc_memory_mutex);
 
 static u64 mem_acc_read_efuse_row(struct mem_acc_regulator *mem_acc_vreg,
 					u32 row_num, bool use_tz_api)
@@ -202,6 +205,7 @@ static int mem_acc_regulator_set_voltage(struct regulator_dev *rdev,
 		return 0;
 
 	/* go up or down one level at a time */
+	mutex_lock(&mem_acc_memory_mutex);
 	if (corner > mem_acc_vreg->corner) {
 		for (i = mem_acc_vreg->corner + 1; i <= corner; i++) {
 			pr_debug("UP: to corner %d\n", i);
@@ -213,6 +217,7 @@ static int mem_acc_regulator_set_voltage(struct regulator_dev *rdev,
 			update_acc_sel(mem_acc_vreg, i);
 		}
 	}
+	mutex_unlock(&mem_acc_memory_mutex);
 
 	pr_debug("new voltage corner set %d\n", corner);
 
