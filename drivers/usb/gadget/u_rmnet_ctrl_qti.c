@@ -17,6 +17,7 @@
 
 
 #include "u_rmnet.h"
+#include "usb_gadget_xport.h"
 
 #define RMNET_CTRL_QTI_NAME "rmnet_ctrl"
 
@@ -30,6 +31,7 @@ struct rmnet_ctrl_qti_port {
 	unsigned	intf;
 	int		ipa_prod_idx;
 	int		ipa_cons_idx;
+	enum peripheral_ep_type	ep_type;
 
 	atomic_t	connected;
 	atomic_t	line_state;
@@ -160,7 +162,9 @@ gqti_ctrl_notify_modem(void *gptr, u8 portno, int val)
 	rmnet_ctrl_queue_notify(port);
 }
 
-int gqti_ctrl_connect(struct grmnet *gr, u8 port_num, unsigned intf)
+#define BAM_DMUX_CHANNEL_ID 8
+int gqti_ctrl_connect(struct grmnet *gr, u8 port_num, unsigned intf,
+			enum transport_type dxport)
 {
 	struct rmnet_ctrl_qti_port	*port;
 	unsigned long		flags;
@@ -179,7 +183,28 @@ int gqti_ctrl_connect(struct grmnet *gr, u8 port_num, unsigned intf)
 
 	spin_lock_irqsave(&port->lock, flags);
 	port->port_usb = gr;
-	port->intf = intf;
+	if (dxport == USB_GADGET_XPORT_BAM) {
+		/*
+		 * BAM-DMUX data transport is used for RMNET
+		 * on some targets where IPA is not available.
+		 * Set endpoint type as BAM-DMUX and interface
+		 * id as channel number. This information is
+		 * sent to user space via EP_LOOKUP ioctl.
+		 *
+		 * The BAM data transport driver supports only
+		 * 1 BAM channel and the number is fixed so far
+		 * on all targets. This number needs to be same
+		 * as the bam_ch_ids defined in u_bam.c.
+		 *
+		 */
+		port->ep_type = DATA_EP_TYPE_BAM_DMUX;
+		port->intf = BAM_DMUX_CHANNEL_ID;
+		port->ipa_prod_idx = 0;
+		port->ipa_cons_idx = 0;
+	} else {
+		port->ep_type = DATA_EP_TYPE_HSUSB;
+		port->intf = intf;
+	}
 	gr->send_encap_cmd = grmnet_ctrl_qti_send_cpkt_tomodem;
 	gr->notify_modem = gqti_ctrl_notify_modem;
 	spin_unlock_irqrestore(&port->lock, flags);
@@ -499,7 +524,7 @@ static long rmnet_ctrl_ioctl(struct file *fp, unsigned cmd, unsigned long arg)
 
 		}
 
-		info.ph_ep_info.ep_type = DATA_EP_TYPE_HSUSB;
+		info.ph_ep_info.ep_type = port->ep_type;
 		info.ph_ep_info.peripheral_iface_id = port->intf;
 		info.ipa_ep_pair.cons_pipe_num = port->ipa_cons_idx;
 		info.ipa_ep_pair.prod_pipe_num = port->ipa_prod_idx;
