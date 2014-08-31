@@ -949,11 +949,10 @@ static int msm_isp_send_hw_cmd(struct vfe_device *vfe_dev,
 			vfe_dev->axi_data.src_info[VFE_PIX_0].last_updt_frm_id;
 		if (vfe_dev->axi_data.src_info[VFE_PIX_0].frame_id != *cfg_data
 			|| update_id == *cfg_data) {
-			pr_err("hw update lock failed,acquire id %u\n",
-				*cfg_data);
-			pr_err("hw update lock failed,current id %u\n",
-				vfe_dev->axi_data.src_info[VFE_PIX_0].frame_id);
-			pr_err("hw update lock failed,last id %u\n",
+			pr_err("%s hw update lock failed acq %d, cur id %u, last id %u\n",
+				__func__,
+				*cfg_data,
+				vfe_dev->axi_data.src_info[VFE_PIX_0].frame_id,
 				update_id);
 			return -EINVAL;
 		}
@@ -962,9 +961,8 @@ static int msm_isp_send_hw_cmd(struct vfe_device *vfe_dev,
 	case VFE_HW_UPDATE_UNLOCK: {
 		if (vfe_dev->axi_data.src_info[VFE_PIX_0].frame_id
 			!= *cfg_data) {
-			pr_err("hw update across frame boundary,begin id %u\n",
-				*cfg_data);
-			pr_err("hw update across frame boundary,end id %u\n",
+			pr_err("hw update across frame boundary,begin id %u, end id %d\n",
+				*cfg_data,
 				vfe_dev->axi_data.src_info[VFE_PIX_0].frame_id);
 		}
 		vfe_dev->axi_data.src_info[VFE_PIX_0].last_updt_frm_id =
