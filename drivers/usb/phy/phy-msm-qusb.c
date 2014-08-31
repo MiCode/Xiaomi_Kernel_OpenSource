@@ -30,6 +30,15 @@
 #define POWER_DOWN			BIT(0)
 #define QUSB2PHY_PORT_UTMI_CTRL2	0xC4
 
+#define QRBTC_USB2_PLL		0x404
+#define QRBTC_USB2_PLLCTRL2	0x414
+#define QRBTC_USB2_PLLCTRL1	0x410
+#define QRBTC_USB2_PLLCTRL3	0x418
+#define QRBTC_USB2_PLLTEST1	0x408
+#define RUMI_RESET_ADDRESS	0x6500
+#define RUMI_RESET_VALUE_1	0x80000000
+#define RUMI_RESET_VALUE_2	0x000201e0
+
 struct qusb_phy {
 	struct usb_phy		phy;
 	void __iomem		*base;
@@ -46,6 +55,7 @@ struct qusb_phy {
 	bool			power_enabled;
 	bool			clocks_enabled;
 	bool			suspended;
+	bool			emulation;
 };
 
 static int qusb_phy_reset(struct usb_phy *phy)
@@ -119,19 +129,47 @@ static int qusb_phy_init(struct usb_phy *phy)
 		qphy->clocks_enabled = true;
 	}
 
-	/* Disable the PHY */
-	writel_relaxed(CLAMP_N_EN | FREEZIO_N | POWER_DOWN,
-			qphy->base + QUSB2PHY_PORT_POWERDOWN);
+	if (qphy->emulation) {
+		/* Configure QUSB2 PLLs for RUMI */
+		writel_relaxed(0x19, qphy->base + QRBTC_USB2_PLL);
+		writel_relaxed(0x20, qphy->base + QRBTC_USB2_PLLCTRL2);
+		writel_relaxed(0x79, qphy->base + QRBTC_USB2_PLLCTRL1);
+		writel_relaxed(0x00, qphy->base + QRBTC_USB2_PLLCTRL3);
+		writel_relaxed(0x99, qphy->base + QRBTC_USB2_PLL);
+		writel_relaxed(0x04, qphy->base + QRBTC_USB2_PLLTEST1);
+		writel_relaxed(0xD9, qphy->base + QRBTC_USB2_PLL);
 
-	/* configure for ULPI mode */
-	writel_relaxed(0x0, qphy->base + QUSB2PHY_PORT_UTMI_CTRL2);
+		/* Wait for 5ms as per QUSB2 RUMI sequence from VI */
+		usleep(5000);
 
-	/* ensure above writes are completed before re-enabling PHY */
-	wmb();
+		/* Perform the RUMI PLL Reset */
+		writel_relaxed((int)RUMI_RESET_VALUE_1,
+					qphy->base + RUMI_RESET_ADDRESS);
+		/* Wait for 10ms as per QUSB2 RUMI sequence from VI */
+		usleep(10000);
+		writel_relaxed(0x0, qphy->base + RUMI_RESET_ADDRESS);
+		/* Wait for 10ms as per QUSB2 RUMI sequence from VI */
+		usleep(10000);
+		writel_relaxed((int)RUMI_RESET_VALUE_2,
+					qphy->base + RUMI_RESET_ADDRESS);
+		/* Wait for 10ms as per QUSB2 RUMI sequence from VI */
+		usleep(10000);
+		writel_relaxed(0x0, qphy->base + RUMI_RESET_ADDRESS);
+	} else {
+		/* Disable the PHY */
+		writel_relaxed(CLAMP_N_EN | FREEZIO_N | POWER_DOWN,
+				qphy->base + QUSB2PHY_PORT_POWERDOWN);
 
-	/* Enable the PHY */
-	writel_relaxed(CLAMP_N_EN | FREEZIO_N,
-			qphy->base + QUSB2PHY_PORT_POWERDOWN);
+		/* configure for ULPI mode */
+		writel_relaxed(0x0, qphy->base + QUSB2PHY_PORT_UTMI_CTRL2);
+
+		/* ensure above writes are completed before re-enabling PHY */
+		wmb();
+
+		/* Enable the PHY */
+		writel_relaxed(CLAMP_N_EN | FREEZIO_N,
+				qphy->base + QUSB2PHY_PORT_POWERDOWN);
+	}
 
 	return 0;
 }
@@ -189,6 +227,9 @@ static int qusb_phy_probe(struct platform_device *pdev)
 	qphy->phy_reset = devm_clk_get(dev, "phy_reset");
 	if (IS_ERR(qphy->phy_reset))
 		return PTR_ERR(qphy->phy_reset);
+
+	qphy->emulation = of_property_read_bool(dev->of_node,
+						"qcom,emulation");
 
 	ret = of_property_read_u32_array(dev->of_node, "qcom,vdd-voltage-level",
 					 (u32 *) qphy->vdd_levels,

@@ -36,7 +36,6 @@ Optional properties:
    If omitted, defaults to 1
  - qcom,sleep-clk-reset: If present, the HSUSB PHY sleep clock supports the clk_reset
    operation, and should be called during initialization.
-
 Example:
 	hsphy@f9200000 {
 		compatible = "qcom,usb-hsphy";
@@ -104,8 +103,9 @@ Optional properties:
 - qcom,vbus-valid-override: If present, indicates VBUS pin is not connected to
    the USB PHY and the controller must rely on external VBUS notification in
    order to manually relay the notification to the SSPHY.
- - qcom,no-pipe-clk-switch: If present, indicates that the pipe_clk does not need
+- qcom,no-pipe-clk-switch: If present, indicates that the pipe_clk does not need
    to switch sources between the XO and the PHY PIPE clock output.
+- qcom,emulation: Indicates that we are running on emulation platform.
 
 Example:
 	ssphy0: ssphy@f9b38000 {
@@ -137,6 +137,9 @@ Required properties:
    Documentation/devicetree/bindings/clock/clock-bindings.txt
  - clock-names: Names of the clocks in 1-1 correspondence with the "clocks"
    property. Required clocks are "ref_clk", "cfg_ahb_clk" and "phy_reset".
+
+Optional properties:
+ - qcom,emulation: Indicates that we are running on emulation platform.
 
 Example:
 	qusb_phy: qusb@f9b39000 {
