@@ -561,6 +561,8 @@ enum msm_sensor_init_cfg_type_t {
 
 struct sensor_init_cfg_data {
 	enum msm_sensor_init_cfg_type_t cfgtype;
+	struct msm_sensor_info_t        probed_info;
+	char                            entity_name[MAX_SENSOR_NAME];
 	union {
 		void *setting;
 	} cfg;
@@ -636,6 +638,8 @@ struct msm_actuator_set_info_t32 {
 
 struct sensor_init_cfg_data32 {
 	enum msm_sensor_init_cfg_type_t cfgtype;
+	struct msm_sensor_info_t        probed_info;
+	char                            entity_name[MAX_SENSOR_NAME];
 	union {
 		compat_uptr_t setting;
 	} cfg;
