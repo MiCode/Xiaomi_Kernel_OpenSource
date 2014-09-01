@@ -527,8 +527,10 @@ static void bam_mux_process_data(struct sk_buff *rx_skb)
 	unsigned long flags;
 	struct bam_mux_hdr *rx_hdr;
 	unsigned long event_data;
+	uint8_t ch_id;
 
 	rx_hdr = (struct bam_mux_hdr *)rx_skb->data;
+	ch_id = rx_hdr->ch_id;
 
 	process_dynamic_mtu(rx_hdr->signal & DYNAMIC_MTU_MASK);
 
@@ -539,14 +541,14 @@ static void bam_mux_process_data(struct sk_buff *rx_skb)
 
 	event_data = (unsigned long)(rx_skb);
 
-	spin_lock_irqsave(&bam_ch[rx_hdr->ch_id].lock, flags);
-	if (bam_ch[rx_hdr->ch_id].notify)
-		bam_ch[rx_hdr->ch_id].notify(
-			bam_ch[rx_hdr->ch_id].priv, BAM_DMUX_RECEIVE,
+	spin_lock_irqsave(&bam_ch[ch_id].lock, flags);
+	if (bam_ch[ch_id].notify)
+		bam_ch[ch_id].notify(
+			bam_ch[ch_id].priv, BAM_DMUX_RECEIVE,
 							event_data);
 	else
 		dev_kfree_skb_any(rx_skb);
-	spin_unlock_irqrestore(&bam_ch[rx_hdr->ch_id].lock, flags);
+	spin_unlock_irqrestore(&bam_ch[ch_id].lock, flags);
 
 	queue_rx();
 }
