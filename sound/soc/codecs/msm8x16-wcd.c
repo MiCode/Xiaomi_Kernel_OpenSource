@@ -1617,6 +1617,12 @@ static int msm8x16_wcd_codec_enable_adc(struct snd_soc_dapm_widget *w,
 		if (w->reg == MSM8X16_WCD_A_ANALOG_TX_2_EN)
 			snd_soc_update_bits(codec,
 			MSM8X16_WCD_A_ANALOG_MICB_1_CTL, 0x02, 0x02);
+		/*
+		 * Add delay of 10 ms to give sufficient time for the voltage
+		 * to shoot up and settle so that the txfe init does not
+		 * happen when the input voltage is changing too much.
+		 */
+		usleep_range(10000, 10010);
 		snd_soc_update_bits(codec, adc_reg, 1 << init_bit_shift,
 				1 << init_bit_shift);
 		if (w->reg == MSM8X16_WCD_A_ANALOG_TX_1_EN)
@@ -1631,6 +1637,11 @@ static int msm8x16_wcd_codec_enable_adc(struct snd_soc_dapm_widget *w,
 		usleep_range(CODEC_DELAY_1_MS, CODEC_DELAY_1_1_MS);
 		break;
 	case SND_SOC_DAPM_POST_PMU:
+		/*
+		 * Add delay of 12 ms before deasserting the init
+		 * to reduce the tx pop
+		 */
+	usleep_range(12000, 12010);
 		snd_soc_update_bits(codec, adc_reg, 1 << init_bit_shift, 0x00);
 		usleep_range(CODEC_DELAY_1_MS, CODEC_DELAY_1_1_MS);
 		break;
@@ -1961,6 +1972,8 @@ static void tx_hpf_corner_freq_callback(struct work_struct *work)
 
 	dev_dbg(codec->dev, "%s(): decimator %u hpf_cut_of_freq 0x%x\n",
 		 __func__, hpf_work->decimator, (unsigned int)hpf_cut_of_freq);
+	snd_soc_update_bits(codec,
+			MSM8X16_WCD_A_ANALOG_TX_1_2_TXFE_CLKDIV, 0x51, 0x51);
 
 	snd_soc_update_bits(codec, tx_mux_ctl_reg, 0x30, hpf_cut_of_freq << 4);
 }
@@ -2051,6 +2064,9 @@ static int msm8x16_wcd_codec_enable_dec(struct snd_soc_dapm_widget *w,
 			snd_soc_update_bits(codec, tx_mux_ctl_reg, 0x30,
 					    CF_MIN_3DB_150HZ << 4);
 		}
+		snd_soc_update_bits(codec,
+				MSM8X16_WCD_A_ANALOG_TX_1_2_TXFE_CLKDIV,
+				0x51, 0x40);
 
 		break;
 	case SND_SOC_DAPM_POST_PMU:
@@ -2697,13 +2713,13 @@ int msm8x16_wcd_digital_mute(struct snd_soc_dai *dai, int mute)
 	}
 
 	mute = (mute) ? 1 : 0;
-	if (!mute && msm8x16_wcd->mbhc.current_plug == MBHC_PLUG_TYPE_HEADSET) {
+	if (!mute) {
 		/*
-		 * 23 ms is an emperical value for the mute time
+		 * 15 ms is an emperical value for the mute time
 		 * that was arrived by checking the pop level
 		 * to be inaudible
 		 */
-		msleep(23);
+		usleep_range(15000, 15010);
 	}
 
 	for (i = 0; i < NUM_DECIMATORS; i++) {
