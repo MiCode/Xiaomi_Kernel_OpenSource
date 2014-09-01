@@ -97,6 +97,14 @@ config MSM_DDR_HEALTH
 	  size and sends it's locatoin to RPM sub system. RPM subsystem can
 	  make use of this buffer to monitor DDR health.
 
+config MSM_HYP_DEBUG
+	bool "MSM Hypervisor Debug Driver"
+	help
+	  This enables the Hypervisor Debug driver. It allows the mapping and
+	  and unmapping of user defined memory range from stage 2. It also
+	  supports mapping and unmapping PIL image load memory range from
+	  stage 2 depending upon the PIL image state.
+
 config MSM_WATCHDOG_V2
 	bool "MSM Watchdog Support"
 	help
