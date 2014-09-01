@@ -22,7 +22,7 @@ config CPU_FREQ_GOV_COMMON
 
 config SCHED_FREQ_INPUT
 	bool "Scheduler inputs to cpufreq governor"
-	depends on SMP && FAIR_GROUP_SCHED
+	depends on SCHED_HMP
 	help
 	  This option enables support for scheduler based CPU utilization
 	  calculations which may then be used by any cpufreq governor. The

@@ -1222,7 +1222,7 @@ static u32 __compute_runnable_contrib(u64 n)
 static void add_to_scaled_stat(int cpu, struct sched_avg *sa, u64 delta);
 static inline void decay_scaled_stat(struct sched_avg *sa, u64 periods);
 
-#if defined(CONFIG_SCHED_FREQ_INPUT) || defined(CONFIG_SCHED_HMP)
+#ifdef CONFIG_SCHED_HMP
 
 /* Initial task load. Newly created tasks are assigned this load. */
 unsigned int __read_mostly sched_init_task_load_pelt;
@@ -1244,10 +1244,6 @@ unsigned int max_task_load(void)
 
 	return sched_ravg_window;
 }
-
-#endif /* CONFIG_SCHED_FREQ_INPUT || CONFIG_SCHED_HMP */
-
-#ifdef CONFIG_SCHED_HMP
 
 /* Use this knob to turn on or off HMP-aware task placement logic */
 unsigned int __read_mostly sched_enable_hmp = 0;
@@ -1307,6 +1303,18 @@ unsigned int __read_mostly sched_small_task;
 unsigned int __read_mostly sysctl_sched_small_task_pct = 10;
 
 /*
+ * Tasks with demand >= sched_heavy_task will have their
+ * window-based demand added to the previous window's CPU
+ * time when they wake up, if they have slept for at least
+ * one full window. This feature is disabled when the tunable
+ * is set to 0 (the default).
+ */
+#ifdef CONFIG_SCHED_FREQ_INPUT
+unsigned int __read_mostly sysctl_sched_heavy_task_pct;
+unsigned int __read_mostly sched_heavy_task;
+#endif
+
+/*
  * Tasks whose bandwidth consumption on a cpu is more than
  * sched_upmigrate are considered "big" tasks. Big tasks will be
  * considered for "up" migration, i.e migrating to a cpu with better
@@ -1363,6 +1371,11 @@ void set_hmp_defaults(void)
 
 	sched_downmigrate =
 		pct_to_real(sysctl_sched_downmigrate_pct);
+
+#ifdef CONFIG_SCHED_FREQ_INPUT
+	sched_heavy_task =
+		pct_to_real(sysctl_sched_heavy_task_pct);
+#endif
 
 	sched_init_task_load_pelt =
 		div64_u64((u64)sysctl_sched_init_task_load_pct *
@@ -2230,15 +2243,14 @@ static inline int capacity(struct rq *rq)
 
 #endif	/* CONFIG_SCHED_HMP */
 
-#if defined(CONFIG_SCHED_FREQ_INPUT) || defined(CONFIG_SCHED_HMP)
+#ifdef CONFIG_SCHED_HMP
 
 void init_new_task_load(struct task_struct *p)
 {
 	int i;
 
+	memset(&p->ravg, 0, sizeof(struct ravg));
 	p->se.avg.decay_count	= 0;
-	p->ravg.sum		= 0;
-	p->ravg.flags = 0;
 
 	for (i = 0; i < RAVG_HIST_SIZE_MAX; ++i)
 		p->ravg.sum_history[i] = sched_init_task_load_windows;
@@ -2247,10 +2259,9 @@ void init_new_task_load(struct task_struct *p)
 	p->se.avg.runnable_avg_sum = sched_init_task_load_pelt;
 	p->se.avg.runnable_avg_sum_scaled = sched_init_task_load_pelt;
 	p->ravg.demand = sched_init_task_load_windows;
-	p->ravg.partial_demand = sched_init_task_load_windows;
 }
 
-#else /* CONFIG_SCHED_FREQ_INPUT || CONFIG_SCHED_HMP */
+#else /* CONFIG_SCHED_HMP */
 
 #if defined(CONFIG_SMP) && defined(CONFIG_FAIR_GROUP_SCHED)
 
@@ -2269,7 +2280,7 @@ void init_new_task_load(struct task_struct *p)
 
 #endif	/* CONFIG_SMP && CONFIG_FAIR_GROUP_SCHED */
 
-#endif /* CONFIG_SCHED_FREQ_INPUT || CONFIG_SCHED_HMP */
+#endif /* CONFIG_SCHED_HMP */
 
 /*
  * We can represent the historical contribution to runnable average as the
@@ -2690,7 +2701,7 @@ static inline void update_cfs_rq_blocked_load(struct cfs_rq *cfs_rq,
 					      int force_update) {}
 #endif
 
-#if defined(CONFIG_SCHED_FREQ_INPUT) || defined(CONFIG_SCHED_HMP)
+#ifdef CONFIG_SCHED_HMP
 
 /* Return task demand in percentage scale */
 unsigned int pct_task_load(struct task_struct *p)
@@ -2740,7 +2751,7 @@ static inline void decay_scaled_stat(struct sched_avg *sa, u64 periods)
 			   periods);
 }
 
-#else  /* CONFIG_SCHED_FREQ_INPUT || CONFIG_SCHED_HMP */
+#else  /* CONFIG_SCHED_HMP */
 
 static inline void
 add_to_scaled_stat(int cpu, struct sched_avg *sa, u64 delta)
@@ -2751,7 +2762,7 @@ static inline void decay_scaled_stat(struct sched_avg *sa, u64 periods)
 {
 }
 
-#endif /* CONFIG_SCHED_FREQ_INPUT || CONFIG_SCHED_HMP */
+#endif /* CONFIG_SCHED_HMP */
 
 static void enqueue_sleeper(struct cfs_rq *cfs_rq, struct sched_entity *se)
 {

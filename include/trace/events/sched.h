@@ -72,7 +72,7 @@ TRACE_EVENT(sched_enq_deq_task,
 		__field(unsigned long,	cpu_load		)
 		__field(unsigned int,	rt_nr_running		)
 		__field(unsigned int,	cpus_allowed		)
-#ifdef CONFIG_SCHED_FREQ_INPUT
+#ifdef CONFIG_SCHED_HMP
 		__field(unsigned int,	sum_scaled		)
 		__field(unsigned int,	period			)
 		__field(unsigned int,	demand			)
@@ -89,7 +89,7 @@ TRACE_EVENT(sched_enq_deq_task,
 		__entry->cpu_load	= task_rq(p)->cpu_load[0];
 		__entry->rt_nr_running	= task_rq(p)->rt.rt_nr_running;
 		__entry->cpus_allowed	= cpus_allowed;
-#ifdef CONFIG_SCHED_FREQ_INPUT
+#ifdef CONFIG_SCHED_HMP
 		__entry->sum_scaled	= p->se.avg.runnable_avg_sum_scaled;
 		__entry->period		= p->se.avg.runnable_avg_period;
 		__entry->demand		= p->ravg.demand;
@@ -97,7 +97,7 @@ TRACE_EVENT(sched_enq_deq_task,
 	),
 
 	TP_printk("cpu=%d %s comm=%s pid=%d prio=%d nr_running=%u cpu_load=%lu rt_nr_running=%u affine=%x"
-#ifdef CONFIG_SCHED_FREQ_INPUT
+#ifdef CONFIG_SCHED_HMP
 		 " sum_scaled=%u period=%u demand=%u"
 #endif
 			, __entry->cpu,
@@ -106,7 +106,7 @@ TRACE_EVENT(sched_enq_deq_task,
 			__entry->prio, __entry->nr_running,
 			__entry->cpu_load, __entry->rt_nr_running,
 			__entry->cpus_allowed
-#ifdef CONFIG_SCHED_FREQ_INPUT
+#ifdef CONFIG_SCHED_HMP
 			, __entry->sum_scaled, __entry->period, __entry->demand
 #endif
 			)
@@ -214,10 +214,6 @@ TRACE_EVENT(sched_set_boost,
 	TP_printk("ref_count=%d", __entry->ref_count)
 );
 
-#endif	/* CONFIG_SCHED_HMP */
-
-#if defined(CONFIG_SCHED_FREQ_INPUT) || defined(CONFIG_SCHED_HMP)
-
 TRACE_EVENT(sched_update_task_ravg,
 
 	TP_PROTO(struct task_struct *p, struct rq *rq, enum task_event evt,
@@ -230,8 +226,6 @@ TRACE_EVENT(sched_update_task_ravg,
 		__field(	pid_t,	pid			)
 		__field(	pid_t,	cur_pid			)
 		__field(unsigned int,	cur_freq		)
-		__field(unsigned int,	cs			)
-		__field(unsigned int,	ps			)
 		__field(	u64,	wallclock		)
 		__field(	u64,	mark_start		)
 		__field(	u64,	delta_m			)
@@ -240,9 +234,14 @@ TRACE_EVENT(sched_update_task_ravg,
 		__field(	u64,	irqtime			)
 		__field(enum task_event,	evt		)
 		__field(unsigned int,	demand			)
-		__field(unsigned int,	partial_demand		)
 		__field(unsigned int,	sum			)
 		__field(	 int,	cpu			)
+#ifdef CONFIG_SCHED_FREQ_INPUT
+		__field(	u64,	cs			)
+		__field(	u64,	ps			)
+		__field(	u32,	curr_window		)
+		__field(	u32,	prev_window		)
+#endif
 	),
 
 	TP_fast_assign(
@@ -253,43 +252,51 @@ TRACE_EVENT(sched_update_task_ravg,
 		__entry->cpu            = rq->cpu;
 		__entry->cur_pid        = rq->curr->pid;
 		__entry->cur_freq       = rq->cur_freq;
-		__entry->cs             = rq->curr_runnable_sum;
-		__entry->ps             = rq->prev_runnable_sum;
 		memcpy(__entry->comm, p->comm, TASK_COMM_LEN);
 		__entry->pid            = p->pid;
 		__entry->mark_start     = p->ravg.mark_start;
 		__entry->delta_m        = (wallclock - p->ravg.mark_start);
 		__entry->demand         = p->ravg.demand;
-		__entry->partial_demand = p->ravg.partial_demand;
 		__entry->sum            = p->ravg.sum;
 		__entry->irqtime        = irqtime;
+#ifdef CONFIG_SCHED_FREQ_INPUT
+		__entry->cs             = rq->curr_runnable_sum;
+		__entry->ps             = rq->prev_runnable_sum;
+		__entry->curr_window	= p->ravg.curr_window;
+		__entry->prev_window	= p->ravg.prev_window;
+#endif
 	),
 
-	TP_printk("wc %llu ws %llu delta %llu event %s cpu %d cur_freq %u cs %u ps %u cur_pid %d task %d (%s) ms %llu delta %llu demand %u partial_demand %u sum %u irqtime %llu",
-		__entry->wallclock, __entry->win_start, __entry->delta,
+	TP_printk("wc %llu ws %llu delta %llu event %s cpu %d cur_freq %u cur_pid %d task %d (%s) ms %llu delta %llu demand %u sum %u irqtime %llu"
+#ifdef CONFIG_SCHED_FREQ_INPUT
+		" cs %llu ps %llu cur_window %u prev_window %u"
+#endif
+		, __entry->wallclock, __entry->win_start, __entry->delta,
 		task_event_names[__entry->evt], __entry->cpu,
-		__entry->cur_freq, __entry->cs, __entry->ps, __entry->cur_pid,
+		__entry->cur_freq, __entry->cur_pid,
 		__entry->pid, __entry->comm, __entry->mark_start,
-		__entry->delta_m, __entry->demand, __entry->partial_demand,
-		__entry->sum, __entry->irqtime)
+		__entry->delta_m, __entry->demand,
+		__entry->sum, __entry->irqtime
+#ifdef CONFIG_SCHED_FREQ_INPUT
+		, __entry->cs, __entry->ps, __entry->curr_window,
+		  __entry->prev_window
+#endif
+		)
 );
 
 TRACE_EVENT(sched_update_history,
 
 	TP_PROTO(struct rq *rq, struct task_struct *p, u32 runtime, int samples,
-			int update_sum, int new_window, enum task_event evt),
+			enum task_event evt),
 
-	TP_ARGS(rq, p, runtime, samples, update_sum, new_window, evt),
+	TP_ARGS(rq, p, runtime, samples, evt),
 
 	TP_STRUCT__entry(
 		__array(	char,	comm,   TASK_COMM_LEN	)
 		__field(	pid_t,	pid			)
 		__field(unsigned int,	runtime			)
 		__field(	 int,	samples			)
-		__field(	 int,	update_sum		)
-		__field(	 int,	new_window		)
 		__field(enum task_event,	evt		)
-		__field(unsigned int,	partial_demand		)
 		__field(unsigned int,	demand			)
 		__array(	 u32,	hist, RAVG_HIST_SIZE_MAX)
 		__field(unsigned int,	nr_big_tasks		)
@@ -302,29 +309,59 @@ TRACE_EVENT(sched_update_history,
 		__entry->pid            = p->pid;
 		__entry->runtime        = runtime;
 		__entry->samples        = samples;
-		__entry->update_sum     = update_sum;
-		__entry->new_window     = new_window;
 		__entry->evt            = evt;
-		__entry->partial_demand = p->ravg.partial_demand;
 		__entry->demand         = p->ravg.demand;
 		memcpy(__entry->hist, p->ravg.sum_history,
 					RAVG_HIST_SIZE_MAX * sizeof(u32));
-#ifdef CONFIG_SCHED_HMP
 		__entry->nr_big_tasks   = rq->nr_big_tasks;
 		__entry->nr_small_tasks = rq->nr_small_tasks;
-#endif
 		__entry->cpu            = rq->cpu;
 	),
 
-	TP_printk("%d (%s): runtime %u samples %d us %d nw %d event %s partial_demand %u demand %u (hist: %u %u %u %u %u) cpu %d nr_big %u nr_small %u",
+	TP_printk("%d (%s): runtime %u samples %d event %s demand %u (hist: %u %u %u %u %u) cpu %d nr_big %u nr_small %u",
 		__entry->pid, __entry->comm,
-		__entry->runtime, __entry->samples, __entry->update_sum,
-		__entry->new_window, task_event_names[__entry->evt],
-		__entry->partial_demand, __entry->demand, __entry->hist[0],
+		__entry->runtime, __entry->samples,
+		task_event_names[__entry->evt],
+		__entry->demand, __entry->hist[0],
 		__entry->hist[1], __entry->hist[2], __entry->hist[3],
 		__entry->hist[4], __entry->cpu, __entry->nr_big_tasks,
 		__entry->nr_small_tasks)
 );
+
+TRACE_EVENT(sched_reset_all_window_stats,
+
+	TP_PROTO(u64 window_start, u64 window_size, u64 time_taken,
+		int reason, unsigned int old_val, unsigned int new_val),
+
+	TP_ARGS(window_start, window_size, time_taken,
+		reason, old_val, new_val),
+
+	TP_STRUCT__entry(
+		__field(	u64,	window_start		)
+		__field(	u64,	window_size		)
+		__field(	u64,	time_taken		)
+		__field(	int,	reason			)
+		__field(unsigned int,	old_val			)
+		__field(unsigned int,	new_val			)
+	),
+
+	TP_fast_assign(
+		__entry->window_start = window_start;
+		__entry->window_size = window_size;
+		__entry->time_taken = time_taken;
+		__entry->reason	= reason;
+		__entry->old_val = old_val;
+		__entry->new_val = new_val;
+	),
+
+	TP_printk("time_taken %llu window_start %llu window_size %llu reason %s old_val %u new_val %u",
+		  __entry->time_taken, __entry->window_start,
+		  __entry->window_size,
+		  sched_window_reset_reasons[__entry->reason],
+		  __entry->old_val, __entry->new_val)
+);
+
+#ifdef CONFIG_SCHED_FREQ_INPUT
 
 TRACE_EVENT(sched_migration_update_sum,
 
@@ -334,9 +371,9 @@ TRACE_EVENT(sched_migration_update_sum,
 
 	TP_STRUCT__entry(
 		__field(int,		cpu			)
-		__field(int,		cs			)
-		__field(int,		ps			)
 		__field(int,		pid			)
+		__field(	u64,	cs			)
+		__field(	u64,	ps			)
 	),
 
 	TP_fast_assign(
@@ -346,11 +383,9 @@ TRACE_EVENT(sched_migration_update_sum,
 		__entry->pid		= p->pid;
 	),
 
-	TP_printk("cpu %d: cs %u ps %u pid %d", __entry->cpu,
+	TP_printk("cpu %d: cs %llu ps %llu pid %d", __entry->cpu,
 		      __entry->cs, __entry->ps, __entry->pid)
 );
-
-#ifdef CONFIG_SCHED_FREQ_INPUT
 
 TRACE_EVENT(sched_get_busy,
 
@@ -396,7 +431,7 @@ TRACE_EVENT(sched_freq_alert,
 
 #endif	/* CONFIG_SCHED_FREQ_INPUT */
 
-#endif /* CONFIG_SCHED_FREQ_INPUT || CONFIG_SCHED_HMP */
+#endif	/* CONFIG_SCHED_HMP */
 
 /*
  * Tracepoint for waking up a task:
