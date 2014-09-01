@@ -11,8 +11,8 @@
  *
  */
 
-#ifndef UFS_MSM_H_
-#define UFS_MSM_H_
+#ifndef UFS_QCOM_H_
+#define UFS_QCOM_H_
 
 #include <linux/phy/phy.h>
 
@@ -34,20 +34,20 @@
 #define SLOW 1
 #define FAST 2
 
-#define UFS_MSM_LIMIT_NUM_LANES_RX	2
-#define UFS_MSM_LIMIT_NUM_LANES_TX	2
-#define UFS_MSM_LIMIT_HSGEAR_RX	UFS_HS_G2
-#define UFS_MSM_LIMIT_HSGEAR_TX	UFS_HS_G2
-#define UFS_MSM_LIMIT_PWMGEAR_RX	UFS_PWM_G4
-#define UFS_MSM_LIMIT_PWMGEAR_TX	UFS_PWM_G4
-#define UFS_MSM_LIMIT_RX_PWR_PWM	SLOW_MODE
-#define UFS_MSM_LIMIT_TX_PWR_PWM	SLOW_MODE
-#define UFS_MSM_LIMIT_RX_PWR_HS	FAST_MODE
-#define UFS_MSM_LIMIT_TX_PWR_HS	FAST_MODE
-#define UFS_MSM_LIMIT_HS_RATE		PA_HS_MODE_A
-#define UFS_MSM_LIMIT_DESIRED_MODE	FAST
+#define UFS_QCOM_LIMIT_NUM_LANES_RX	2
+#define UFS_QCOM_LIMIT_NUM_LANES_TX	2
+#define UFS_QCOM_LIMIT_HSGEAR_RX	UFS_HS_G2
+#define UFS_QCOM_LIMIT_HSGEAR_TX	UFS_HS_G2
+#define UFS_QCOM_LIMIT_PWMGEAR_RX	UFS_PWM_G4
+#define UFS_QCOM_LIMIT_PWMGEAR_TX	UFS_PWM_G4
+#define UFS_QCOM_LIMIT_RX_PWR_PWM	SLOW_MODE
+#define UFS_QCOM_LIMIT_TX_PWR_PWM	SLOW_MODE
+#define UFS_QCOM_LIMIT_RX_PWR_HS	FAST_MODE
+#define UFS_QCOM_LIMIT_TX_PWR_HS	FAST_MODE
+#define UFS_QCOM_LIMIT_HS_RATE		PA_HS_MODE_A
+#define UFS_QCOM_LIMIT_DESIRED_MODE	FAST
 
-/* MSM UFS host controller vendor specific registers */
+/* QCOM UFS host controller vendor specific registers */
 enum {
 	REG_UFS_SYS1CLK_1US                 = 0xC0,
 	REG_UFS_TX_SYMBOL_CLK_NS_US         = 0xC4,
@@ -73,12 +73,12 @@ enum {
 	MASK_CLK_NS_REG                     = 0xFFFC00,
 };
 
-enum ufs_msm_phy_init_type {
+enum ufs_qcom_phy_init_type {
 	UFS_PHY_INIT_FULL,
 	UFS_PHY_INIT_CFG_RESTORE,
 };
 
-struct ufs_msm_phy_vreg {
+struct ufs_qcom_phy_vreg {
 	const char *name;
 	struct regulator *reg;
 	int max_uA;
@@ -88,7 +88,7 @@ struct ufs_msm_phy_vreg {
 };
 
 static inline void
-ufs_msm_get_controller_revision(struct ufs_hba *hba,
+ufs_qcom_get_controller_revision(struct ufs_hba *hba,
 				 u8 *major, u16 *minor, u16 *step)
 {
 	u32 ver = ufshcd_readl(hba, REG_UFS_HW_VERSION);
@@ -98,21 +98,21 @@ ufs_msm_get_controller_revision(struct ufs_hba *hba,
 	*step = (ver & UFS_HW_VER_STEP_MASK) >> UFS_HW_VER_STEP_SHFT;
 };
 
-static inline void ufs_msm_assert_reset(struct ufs_hba *hba)
+static inline void ufs_qcom_assert_reset(struct ufs_hba *hba)
 {
 	ufshcd_rmwl(hba, MASK_UFS_PHY_SOFT_RESET,
 			1 << OFFSET_UFS_PHY_SOFT_RESET, REG_UFS_CFG1);
 	mb();
 }
 
-static inline void ufs_msm_deassert_reset(struct ufs_hba *hba)
+static inline void ufs_qcom_deassert_reset(struct ufs_hba *hba)
 {
 	ufshcd_rmwl(hba, MASK_UFS_PHY_SOFT_RESET,
 			0 << OFFSET_UFS_PHY_SOFT_RESET, REG_UFS_CFG1);
 	mb();
 }
 
-struct ufs_msm_bus_vote {
+struct ufs_qcom_bus_vote {
 	uint32_t client_handle;
 	uint32_t curr_vote;
 	int min_bw_vote;
@@ -122,10 +122,10 @@ struct ufs_msm_bus_vote {
 	struct device_attribute max_bus_bw;
 };
 
-struct ufs_msm_host {
+struct ufs_qcom_host {
 	struct phy *generic_phy;
 	struct ufs_hba *hba;
-	struct ufs_msm_bus_vote bus_vote;
+	struct ufs_qcom_bus_vote bus_vote;
 	struct ufs_pa_layer_attr dev_req_params;
 	struct clk *rx_l0_sync_clk;
 	struct clk *tx_l0_sync_clk;
@@ -135,9 +135,9 @@ struct ufs_msm_host {
 	bool sec_cfg_updated;
 };
 
-#define ufs_msm_is_link_off(hba) ufshcd_is_link_off(hba)
-#define ufs_msm_is_link_active(hba) ufshcd_is_link_active(hba)
-#define ufs_msm_is_link_hibern8(hba) ufshcd_is_link_hibern8(hba)
+#define ufs_qcom_is_link_off(hba) ufshcd_is_link_off(hba)
+#define ufs_qcom_is_link_active(hba) ufshcd_is_link_active(hba)
+#define ufs_qcom_is_link_hibern8(hba) ufshcd_is_link_hibern8(hba)
 
 enum {
 	MASK_SERDES_START       = 0x1,
@@ -154,4 +154,4 @@ enum {
 #define VDDA_PLL_MIN_UV            1800000
 #define VDDA_PLL_MAX_UV            1800000
 
-#endif /* UFS_MSM_H_ */
+#endif /* UFS_QCOM_H_ */
