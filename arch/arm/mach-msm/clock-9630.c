@@ -2034,6 +2034,14 @@ static struct clk_lookup msm_clocks_9630[] = {
 	CLK_LOOKUP("inactivity_clk", gcc_usb_hsic_io_cal_sleep_clk.c,
 							"f9a15000.hsic"),
 
+	CLK_LOOKUP("iface_clk", gcc_usb_hsic_ahb_clk.c,	  "f9a15000.hsic"),
+	CLK_LOOKUP("phy_clk", gcc_usb_hsic_clk.c,	  "f9a15000.hsic"),
+	CLK_LOOKUP("cal_clk", gcc_usb_hsic_io_cal_clk.c,  "f9a15000.hsic"),
+	CLK_LOOKUP("core_clk", gcc_usb_hsic_system_clk.c, "f9a15000.hsic"),
+	CLK_LOOKUP("alt_core_clk", gcc_usb_hsic_xcvr_fs_clk.c, "f9a15000.hsic"),
+	CLK_LOOKUP("inactivity_clk", gcc_usb_hsic_io_cal_sleep_clk.c,
+		"f9a15000.hsic"),
+
 	CLK_LOOKUP("core_clk", gcc_ce1_clk.c, "fd400000.qcom,qcedev"),
 	CLK_LOOKUP("iface_clk", gcc_ce1_ahb_clk.c, "fd400000.qcom,qcedev"),
 	CLK_LOOKUP("bus_clk", gcc_ce1_axi_clk.c, "fd400000.qcom,qcedev"),
