@@ -405,6 +405,80 @@ static irqreturn_t ft5x06_ts_interrupt(int irq, void *dev_id)
 	return IRQ_HANDLED;
 }
 
+static int ft5x06_gpio_configure(struct ft5x06_ts_data *data, bool on)
+{
+	int err = 0;
+
+	if (on) {
+		if (gpio_is_valid(data->pdata->irq_gpio)) {
+			err = gpio_request(data->pdata->irq_gpio,
+						"ft5x06_irq_gpio");
+			if (err) {
+				dev_err(&data->client->dev,
+					"irq gpio request failed");
+				goto err_irq_gpio_req;
+			}
+
+			err = gpio_direction_input(data->pdata->irq_gpio);
+			if (err) {
+				dev_err(&data->client->dev,
+					"set_direction for irq gpio failed\n");
+				goto err_irq_gpio_dir;
+			}
+		}
+
+		if (gpio_is_valid(data->pdata->reset_gpio)) {
+			err = gpio_request(data->pdata->reset_gpio,
+						"ft5x06_reset_gpio");
+			if (err) {
+				dev_err(&data->client->dev,
+					"reset gpio request failed");
+				goto err_irq_gpio_dir;
+			}
+
+			err = gpio_direction_output(data->pdata->reset_gpio, 0);
+			if (err) {
+				dev_err(&data->client->dev,
+				"set_direction for reset gpio failed\n");
+				goto err_reset_gpio_dir;
+			}
+			msleep(data->pdata->hard_rst_dly);
+			gpio_set_value_cansleep(data->pdata->reset_gpio, 1);
+		}
+
+		return 0;
+	} else {
+		if (gpio_is_valid(data->pdata->irq_gpio))
+			gpio_free(data->pdata->irq_gpio);
+		if (gpio_is_valid(data->pdata->reset_gpio)) {
+			/*
+			 * This is intended to save leakage current
+			 * only. Even if the call(gpio_direction_input)
+			 * fails, only leakage current will be more but
+			 * functionality will not be affected.
+			 */
+			err = gpio_direction_input(data->pdata->reset_gpio);
+			if (err) {
+				dev_err(&data->client->dev,
+					"unable to set direction for gpio "
+					"[%d]\n", data->pdata->irq_gpio);
+			}
+			gpio_free(data->pdata->reset_gpio);
+		}
+
+		return 0;
+	}
+
+err_reset_gpio_dir:
+	if (gpio_is_valid(data->pdata->reset_gpio))
+		gpio_free(data->pdata->reset_gpio);
+err_irq_gpio_dir:
+	if (gpio_is_valid(data->pdata->irq_gpio))
+		gpio_free(data->pdata->irq_gpio);
+err_irq_gpio_req:
+	return err;
+}
+
 static int ft5x06_power_on(struct ft5x06_ts_data *data, bool on)
 {
 	int rc;
@@ -618,10 +692,40 @@ static int ft5x06_ts_suspend(struct device *dev)
 		}
 	}
 
+	if (data->ts_pinctrl) {
+		err = pinctrl_select_state(data->ts_pinctrl,
+					data->pinctrl_state_suspend);
+		if (err < 0)
+			dev_err(dev, "Cannot get suspend pinctrl state\n");
+	}
+
+	err = ft5x06_gpio_configure(data, false);
+	if (err < 0) {
+		dev_err(&data->client->dev,
+			"failed to put gpios in suspend state\n");
+		goto gpio_configure_fail;
+	}
+
 	data->suspended = true;
 
 	return 0;
 
+gpio_configure_fail:
+	if (data->ts_pinctrl) {
+		err = pinctrl_select_state(data->ts_pinctrl,
+					data->pinctrl_state_active);
+		if (err < 0)
+			dev_err(dev, "Cannot get active pinctrl state\n");
+	}
+	if (data->pdata->power_on) {
+		err = data->pdata->power_on(true);
+		if (err)
+			dev_err(dev, "power on failed");
+	} else {
+		err = ft5x06_power_on(data, true);
+		if (err)
+			dev_err(dev, "power on failed");
+	}
 pwr_off_fail:
 	if (gpio_is_valid(data->pdata->reset_gpio)) {
 		gpio_set_value_cansleep(data->pdata->reset_gpio, 0);
@@ -656,6 +760,20 @@ static int ft5x06_ts_resume(struct device *dev)
 		}
 	}
 
+	if (data->ts_pinctrl) {
+		err = pinctrl_select_state(data->ts_pinctrl,
+				data->pinctrl_state_active);
+		if (err < 0)
+			dev_err(dev, "Cannot get active pinctrl state\n");
+	}
+
+	err = ft5x06_gpio_configure(data, true);
+	if (err < 0) {
+		dev_err(&data->client->dev,
+			"failed to put gpios in resue state\n");
+		goto err_gpio_configuration;
+	}
+
 	if (gpio_is_valid(data->pdata->reset_gpio)) {
 		gpio_set_value_cansleep(data->pdata->reset_gpio, 0);
 		msleep(data->pdata->hard_rst_dly);
@@ -669,6 +787,24 @@ static int ft5x06_ts_resume(struct device *dev)
 	data->suspended = false;
 
 	return 0;
+
+err_gpio_configuration:
+	if (data->ts_pinctrl) {
+		err = pinctrl_select_state(data->ts_pinctrl,
+					data->pinctrl_state_suspend);
+		if (err < 0)
+			dev_err(dev, "Cannot get suspend pinctrl state\n");
+	}
+	if (data->pdata->power_on) {
+		err = data->pdata->power_on(false);
+		if (err)
+			dev_err(dev, "power off failed");
+	} else {
+		err = ft5x06_power_on(data, false);
+		if (err)
+			dev_err(dev, "power off failed");
+	}
+	return err;
 }
 
 static const struct dev_pm_ops ft5x06_ts_pm_ops = {
@@ -1607,46 +1743,24 @@ static int ft5x06_ts_probe(struct i2c_client *client,
 
 	err = ft5x06_ts_pinctrl_init(data);
 	if (!err && data->ts_pinctrl) {
+		/*
+		 * Pinctrl handle is optional. If pinctrl handle is found
+		 * let pins to be configured in active state. If not
+		 * found continue further without error.
+		 */
 		err = pinctrl_select_state(data->ts_pinctrl,
 					data->pinctrl_state_active);
 		if (err < 0) {
 			dev_err(&client->dev,
 				"failed to select pin to active state");
-			goto pinctrl_deinit;
-		}
-	} else {
-		goto pwr_off;
-	}
-
-	if (gpio_is_valid(pdata->irq_gpio)) {
-		err = gpio_request(pdata->irq_gpio, "ft5x06_irq_gpio");
-		if (err) {
-			dev_err(&client->dev, "irq gpio request failed");
-			goto err_gpio_req;
-		}
-		err = gpio_direction_input(pdata->irq_gpio);
-		if (err) {
-			dev_err(&client->dev,
-				"set_direction for irq gpio failed\n");
-			goto free_irq_gpio;
 		}
 	}
 
-	if (gpio_is_valid(pdata->reset_gpio)) {
-		err = gpio_request(pdata->reset_gpio, "ft5x06_reset_gpio");
-		if (err) {
-			dev_err(&client->dev, "reset gpio request failed");
-			goto free_irq_gpio;
-		}
-
-		err = gpio_direction_output(pdata->reset_gpio, 0);
-		if (err) {
-			dev_err(&client->dev,
-				"set_direction for reset gpio failed\n");
-			goto free_reset_gpio;
-		}
-		msleep(data->pdata->hard_rst_dly);
-		gpio_set_value_cansleep(data->pdata->reset_gpio, 1);
+	err = ft5x06_gpio_configure(data, true);
+	if (err < 0) {
+		dev_err(&client->dev,
+			"Failed to configure the gpios\n");
+		goto err_gpio_req;
 	}
 
 	/* make sure CTP already finish startup process */
@@ -1657,14 +1771,14 @@ static int ft5x06_ts_probe(struct i2c_client *client,
 	err = ft5x06_i2c_read(client, &reg_addr, 1, &reg_value, 1);
 	if (err < 0) {
 		dev_err(&client->dev, "version read failed");
-		goto free_reset_gpio;
+		goto free_gpio;
 	}
 
 	dev_info(&client->dev, "Device ID = 0x%x\n", reg_value);
 
 	if ((pdata->family_id != reg_value) && (!pdata->ignore_id_check)) {
 		dev_err(&client->dev, "%s:Unsupported controller\n", __func__);
-		goto free_reset_gpio;
+		goto free_gpio;
 	}
 
 	data->family_id = pdata->family_id;
@@ -1675,7 +1789,7 @@ static int ft5x06_ts_probe(struct i2c_client *client,
 				client->dev.driver->name, data);
 	if (err) {
 		dev_err(&client->dev, "request irq failed\n");
-		goto free_reset_gpio;
+		goto free_gpio;
 	}
 
 	err = device_create_file(&client->dev, &dev_attr_fw_name);
@@ -1794,14 +1908,12 @@ free_fw_name_sys:
 	device_remove_file(&client->dev, &dev_attr_fw_name);
 irq_free:
 	free_irq(client->irq, data);
-free_reset_gpio:
+free_gpio:
 	if (gpio_is_valid(pdata->reset_gpio))
 		gpio_free(pdata->reset_gpio);
-free_irq_gpio:
 	if (gpio_is_valid(pdata->irq_gpio))
 		gpio_free(pdata->irq_gpio);
 err_gpio_req:
-pinctrl_deinit:
 	if (data->ts_pinctrl) {
 		if (IS_ERR_OR_NULL(data->pinctrl_state_release)) {
 			devm_pinctrl_put(data->ts_pinctrl);
@@ -1813,7 +1925,6 @@ pinctrl_deinit:
 				pr_err("failed to select relase pinctrl state\n");
 		}
 	}
-pwr_off:
 	if (pdata->power_on)
 		pdata->power_on(false);
 	else
