@@ -32,7 +32,10 @@ dtb-$(CONFIG_ARCH_MSMFERRUM) += msmferrum-sim.dtb \
 	msmferrum-rumi.dtb \
 	msmferrum-qrd-skua.dtb \
 	msmferrum-cdp.dtb \
-	msmferrum-mtp.dtb
+	msmferrum-mtp.dtb \
+	msmferrum-1gb-qrd-skua.dtb \
+	msmferrum-1gb-cdp.dtb \
+	msmferrum-1gb-mtp.dtb
 dtb-$(CONFIG_ARCH_MSM8916) += msm8916-sim.dtb \
 	msm8916-rumi.dtb \
 	msm8916-cdp.dtb \
