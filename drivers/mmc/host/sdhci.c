@@ -1127,6 +1127,9 @@ static u16 sdhci_get_preset_value(struct sdhci_host *host)
 	case SDHCI_CTRL_UHS_DDR50:
 		preset = sdhci_readw(host, SDHCI_PRESET_FOR_DDR50);
 		break;
+	case SDHCI_CTRL_MMC_HS400:
+		preset = sdhci_readw(host, SDHCI_PRESET_FOR_HS400);
+		break;
 	default:
 		pr_warn("%s: Invalid UHS-I mode selected\n",
 			mmc_hostname(host->mmc));
@@ -1537,7 +1540,8 @@ static void sdhci_do_set_ios(struct sdhci_host *host, struct mmc_ios *ios)
 		u16 clk, ctrl_2;
 
 		/* In case of UHS-I modes, set High Speed Enable */
-		if ((ios->timing == MMC_TIMING_MMC_HS200) ||
+		if ((ios->timing == MMC_TIMING_MMC_HS400) ||
+		    (ios->timing == MMC_TIMING_MMC_HS200) ||
 		    (ios->timing == MMC_TIMING_MMC_DDR52) ||
 		    (ios->timing == MMC_TIMING_UHS_SDR50) ||
 		    (ios->timing == MMC_TIMING_UHS_SDR104) ||
@@ -1590,7 +1594,9 @@ static void sdhci_do_set_ios(struct sdhci_host *host, struct mmc_ios *ios)
 			ctrl_2 = sdhci_readw(host, SDHCI_HOST_CONTROL2);
 			/* Select Bus Speed Mode for host */
 			ctrl_2 &= ~SDHCI_CTRL_UHS_MASK;
-			if ((ios->timing == MMC_TIMING_MMC_HS200) ||
+			if (ios->timing == MMC_TIMING_MMC_HS400)
+				ctrl_2 |= SDHCI_CTRL_MMC_HS400;
+			else if ((ios->timing == MMC_TIMING_MMC_HS200) ||
 			    (ios->timing == MMC_TIMING_UHS_SDR104))
 				ctrl_2 |= SDHCI_CTRL_UHS_SDR104;
 			else if (ios->timing == MMC_TIMING_UHS_SDR12)
@@ -1911,7 +1917,8 @@ static int sdhci_execute_tuning(struct mmc_host *mmc, u32 opcode)
 	    (host->flags & SDHCI_SDR50_NEEDS_TUNING) &&
 	    (mmc->ios.timing == MMC_TIMING_UHS_SDR50)) ||
 	     ((host->flags & SDHCI_SDR104_NEEDS_TUNING) &&
-	      mmc->ios.timing == MMC_TIMING_MMC_HS200) ||
+	      ((mmc->ios.timing == MMC_TIMING_MMC_HS200) ||
+	      (mmc->ios.timing == MMC_TIMING_MMC_HS400))) ||
 	       mmc->ios.timing == MMC_TIMING_UHS_SDR104)
 		requires_tuning_nonuhs = true;
 
@@ -3077,7 +3084,7 @@ int sdhci_add_host(struct sdhci_host *host)
 		host->flags |= SDHCI_SDR50_NEEDS_TUNING;
 
 	/* Does the host need tuning for SDR104 / HS200? */
-	if (mmc->caps2 & MMC_CAP2_HS200)
+	if (mmc->caps2 & (MMC_CAP2_HS200 | MMC_CAP2_HS400))
 		host->flags |= SDHCI_SDR104_NEEDS_TUNING;
 
 	/* Driver Type(s) (A, C, D) supported by the host */
