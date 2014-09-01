@@ -372,8 +372,6 @@ void sst_do_recovery_mrfld(struct intel_sst_drv *sst)
 	sst->sst_state = SST_RECOVERY;
 	mutex_unlock(&sst->sst_lock);
 
-	dump_stack();
-	dump_sst_shim(sst);
 	cb_params.params = &reset_dapm;
 	cb_params.event = SST_PLATFORM_TRIGGER_RECOVERY;
 	reset_dapm = true;
