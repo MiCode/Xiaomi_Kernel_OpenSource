@@ -56,6 +56,13 @@ Bus Scaling Data:
 					ab: Represents aggregated bandwidth. This value is 0 for Graphics.
 					ib: Represents instantaneous bandwidth. This value has a range <0 8000 MB/s>
 
+- qcom,ocmem-bus-client: Container for another set of bus scaling properties
+						qcom,msm-bus,name
+						qcom,msm-bus,num-cases
+						qcom,msm-bus,num-paths
+						qcom,msm-bus,vectors-KBps
+			to be used by ocmem msm bus scaling client.
+
 GDSC Oxili Regulators:
 - vddcx-supply:			Phandle for vddcx regulator device node.
 - vdd-supply:			Phandle for vdd regulator device node.
