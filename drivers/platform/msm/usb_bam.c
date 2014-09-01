@@ -57,7 +57,6 @@ struct usb_bam_peer_handshake_info {
 };
 
 struct usb_bam_sps_type {
-	struct sps_bam_props usb_props;
 	struct sps_pipe **sps_pipes;
 	struct sps_connect *sps_connections;
 };
@@ -3108,7 +3107,9 @@ static int usb_bam_init(int bam_type)
 	struct msm_usb_bam_platform_data *pdata =
 		ctx.usb_bam_pdev->dev.platform_data;
 	struct resource *res, *ram_resource;
-	struct sps_bam_props *props = &ctx.usb_bam_sps.usb_props;
+	struct sps_bam_props props;
+
+	memset(&props, 0, sizeof(props));
 
 	pr_debug("%s: usb_bam_init - %s\n", __func__,
 		bam_enable_strings[bam_type]);
@@ -3156,27 +3157,27 @@ static int usb_bam_init(int bam_type)
 		}
 	}
 
-	props->phys_addr = res->start;
-	props->virt_addr = usb_virt_addr;
-	props->virt_size = resource_size(res);
-	props->irq = irq;
-	props->summing_threshold = pdata->override_threshold;
-	props->event_threshold = pdata->override_threshold;
-	props->num_pipes = pdata->usb_bam_num_pipes;
-	props->callback = usb_bam_sps_events;
-	props->user = bam_enable_strings[bam_type];
+	props.phys_addr = res->start;
+	props.virt_addr = usb_virt_addr;
+	props.virt_size = resource_size(res);
+	props.irq = irq;
+	props.summing_threshold = pdata->override_threshold;
+	props.event_threshold = pdata->override_threshold;
+	props.num_pipes = pdata->usb_bam_num_pipes;
+	props.callback = usb_bam_sps_events;
+	props.user = bam_enable_strings[bam_type];
 
 	/*
 	* HSUSB and HSIC Cores don't support RESET ACK signal to BAMs
 	* Hence, let BAM to ignore acknowledge from USB while resetting PIPE
 	*/
 	if (pdata->ignore_core_reset_ack && bam_type != DWC3_CTRL)
-		props->options = SPS_BAM_NO_EXT_P_RST;
+		props.options = SPS_BAM_NO_EXT_P_RST;
 
 	if (pdata->disable_clk_gating)
-		props->options |= SPS_BAM_NO_LOCAL_CLK_GATING;
+		props.options |= SPS_BAM_NO_LOCAL_CLK_GATING;
 
-	ret = sps_register_bam_device(props, &(ctx.h_bam[bam_type]));
+	ret = sps_register_bam_device(&props, &(ctx.h_bam[bam_type]));
 	if (ret < 0) {
 		pr_err("%s: register bam error %d\n", __func__, ret);
 		ret = -EFAULT;
