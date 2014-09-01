@@ -414,6 +414,15 @@ int usb_bam_get_connection_idx(const char *name, enum peer_bam client,
 	enum usb_bam_pipe_dir dir, enum usb_bam_mode bam_mode, u32 num);
 
 /**
+* return the usb controller bam type used for the supplied connection index
+*
+* @connection_idx - Connection index
+*
+* @return usb control bam type
+*/
+int usb_bam_get_bam_type(int connection_idx);
+
+/**
 * Indicates the type of connection the USB side of the connection is.
 *
 * @idx - Pipe number.
@@ -523,6 +532,11 @@ static inline void usb_bam_set_qdss_core(const char *qdss_core)
 static inline int usb_bam_get_connection_idx(const char *name,
 		enum peer_bam client, enum usb_bam_pipe_dir dir,
 		enum usb_bam_mode bam_mode, u32 num)
+{
+	return -ENODEV;
+}
+
+static inline int usb_bam_get_bam_type(int connection_idx)
 {
 	return -ENODEV;
 }

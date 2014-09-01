@@ -3613,8 +3613,8 @@ static int android_create_device(struct android_dev *dev, u8 usb_core_id)
 	snprintf(device_node_name, ANDROID_DEVICE_NODE_NAME_LENGTH,
 		 "android%d", usb_core_id);
 	pr_debug("%s(): creating android%d device\n", __func__, usb_core_id);
-	dev->dev = device_create(android_class, NULL,
-					MKDEV(0, 0), NULL, device_node_name);
+	dev->dev = device_create(android_class, NULL, MKDEV(0, usb_core_id),
+		NULL, device_node_name);
 	if (IS_ERR(dev->dev))
 		return PTR_ERR(dev->dev);
 

@@ -910,22 +910,20 @@ static void bam2bam_data_connect_work(struct work_struct *w)
 
 		d_port->ipa_consumer_ep = d->ipa_params.ipa_cons_ep_idx;
 
-		if (gadget_is_dwc3(gadget)) {
-			d->src_bam_idx = usb_bam_get_connection_idx(
-					gadget->name,
-					IPA_P_BAM, USB_TO_PEER_PERIPHERAL,
-					USB_BAM_DEVICE, 0);
-			if (d->src_bam_idx < 0) {
-				pr_err("%s: get_connection_idx failed\n",
-					__func__);
-				return;
-			}
+		d->src_bam_idx = usb_bam_get_connection_idx(
+				gadget->name,
+				IPA_P_BAM, USB_TO_PEER_PERIPHERAL,
+				USB_BAM_DEVICE, 0);
+		if (d->src_bam_idx < 0) {
+			pr_err("%s: get_connection_idx failed\n",
+				__func__);
+			return;
+		}
 
+		if (gadget_is_dwc3(gadget))
 			configure_usb_data_fifo(d->src_bam_idx,
 					port->port_usb->out,
 					d->src_pipe_type);
-		}
-
 
 		/* Remove support for UL using system-to-IPA towards DL */
 		if (d->src_pipe_type == USB_BAM_PIPE_SYS2BAM) {
@@ -966,21 +964,20 @@ static void bam2bam_data_connect_work(struct work_struct *w)
 				__func__, d_port->ipa_producer_ep,
 				d_port->ipa_consumer_ep);
 
-		if (gadget_is_dwc3(gadget)) {
-			d->dst_bam_idx = usb_bam_get_connection_idx(
-					gadget->name,
-					IPA_P_BAM, PEER_PERIPHERAL_TO_USB,
-					USB_BAM_DEVICE, 0);
-			if (d->dst_bam_idx < 0) {
-				pr_err("%s: get_connection_idx failed\n",
-					__func__);
-				return;
-			}
+		d->dst_bam_idx = usb_bam_get_connection_idx(
+				gadget->name,
+				IPA_P_BAM, PEER_PERIPHERAL_TO_USB,
+				USB_BAM_DEVICE, 0);
+		if (d->dst_bam_idx < 0) {
+			pr_err("%s: get_connection_idx failed\n",
+				__func__);
+			return;
+		}
 
+		if (gadget_is_dwc3(gadget))
 			configure_usb_data_fifo(d->dst_bam_idx,
 					port->port_usb->in,
 					d->dst_pipe_type);
-		}
 
 		/* Upadate BAM specific attributes in usb_request */
 		if (gadget_is_dwc3(gadget)) {
@@ -1210,8 +1207,6 @@ int bam2bam_data_port_select(int portno)
 	d = &port->data_ch;
 	d->port = port;
 	bam2bam_data_ports[portno] = port;
-	d->ipa_params.src_client = IPA_CLIENT_USB_PROD;
-	d->ipa_params.dst_client = IPA_CLIENT_USB_CONS;
 
 	/* UL workaround requirements */
 	skb_queue_head_init(&d->rx_skb_q);
@@ -1364,6 +1359,18 @@ int bam_data_connect(struct data_port *gr, u8 port_num,
 	d->func_type = func;
 	d->rx_buffer_size = (gr->rx_buffer_size ? gr->rx_buffer_size :
 					bam_mux_rx_req_size);
+
+	/*
+	 * Both source (consumer) and destination (producer) use the same
+	 * controller, so checking just one of them should suffice.
+	 */
+	if (usb_bam_get_bam_type(src_connection_idx) == HSIC_CTRL) {
+		d->ipa_params.src_client = IPA_CLIENT_HSIC1_PROD;
+		d->ipa_params.dst_client = IPA_CLIENT_HSIC1_CONS;
+	} else {
+		d->ipa_params.src_client = IPA_CLIENT_USB_PROD;
+		d->ipa_params.dst_client = IPA_CLIENT_USB_CONS;
+	}
 
 	pr_debug("%s(): rx_buffer_size:%d\n", __func__, d->rx_buffer_size);
 	if (trans == USB_GADGET_XPORT_BAM2BAM_IPA) {
