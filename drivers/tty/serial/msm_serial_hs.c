@@ -247,6 +247,8 @@ struct msm_hs_port {
 	bool flow_control;
 	enum msm_hs_pm_state pm_state;
 	atomic_t ioctl_count;
+	bool obs; /* out of band sleep flag */
+	atomic_t client_req_state;
 };
 
 static struct of_device_id msm_hs_match_table[] = {
@@ -2201,7 +2203,8 @@ void msm_hs_resource_off(struct msm_hs_port *msm_uport)
 		msm_hs_write(uport, UART_DM_DMEN, data);
 		sps_tx_disconnect(msm_uport);
 	}
-	msm_hs_enable_flow_control(uport);
+	if (!atomic_read(&msm_uport->client_req_state))
+		msm_hs_enable_flow_control(uport);
 }
 
 void msm_hs_resource_on(struct msm_hs_port *msm_uport)
@@ -2231,13 +2234,21 @@ void msm_hs_resource_on(struct msm_hs_port *msm_uport)
 void msm_hs_request_clock_off(struct uart_port *uport)
 {
 	struct msm_hs_port *msm_uport = UARTDM_TO_MSM(uport);
+	/* Set the flag to disable flow control and wakeup irq */
+	if (msm_uport->obs)
+		atomic_set(&msm_uport->client_req_state, 1);
 	msm_hs_resource_unvote(msm_uport);
 }
 EXPORT_SYMBOL(msm_hs_request_clock_off);
 
 void msm_hs_request_clock_on(struct uart_port *uport)
 {
+	struct msm_hs_port *msm_uport = UARTDM_TO_MSM(uport);
 	msm_hs_resource_vote(UARTDM_TO_MSM(uport));
+
+	/* Clear the flag */
+	if (msm_uport->obs)
+		atomic_set(&msm_uport->client_req_state, 0);
 }
 EXPORT_SYMBOL(msm_hs_request_clock_on);
 
@@ -2569,6 +2580,7 @@ static int msm_hs_startup(struct uart_port *uport)
 
 	spin_lock_irqsave(&uport->lock, flags);
 	atomic_set(&msm_uport->ioctl_count, 0);
+	atomic_set(&msm_uport->client_req_state, 0);
 	msm_hs_start_rx_locked(uport);
 
 	spin_unlock_irqrestore(&uport->lock, flags);
@@ -2671,6 +2683,11 @@ struct msm_serial_hs_platform_data
 
 	pdata->no_suspend_delay = of_property_read_bool(node,
 				"qcom,no-suspend-delay");
+
+	pdata->obs = of_property_read_bool(node,
+				"qcom,msm-obs");
+	if (pdata->obs)
+		MSM_HS_DBG("%s:Out of Band sleep flag is set\n", __func__);
 
 	pdata->inject_rx_on_wakeup = of_property_read_bool(node,
 				"qcom,inject-rx-on-wakeup");
@@ -2962,7 +2979,8 @@ static void msm_hs_pm_suspend(struct device *dev)
 	msm_hs_resource_off(msm_uport);
 	msm_hs_clk_bus_unvote(msm_uport);
 	msm_uport->pm_state = MSM_HS_PM_SUSPENDED;
-	toggle_wakeup_interrupt(msm_uport);
+	if (!atomic_read(&msm_uport->client_req_state))
+		toggle_wakeup_interrupt(msm_uport);
 	MSM_HS_DBG("%s(): return suspend\n", __func__);
 	return;
 err_suspend:
@@ -2977,7 +2995,8 @@ static int msm_hs_pm_resume(struct device *dev)
 
 	if (!msm_uport)
 		goto err_resume;
-	toggle_wakeup_interrupt(msm_uport);
+	if (!atomic_read(&msm_uport->client_req_state))
+		toggle_wakeup_interrupt(msm_uport);
 	msm_hs_clk_bus_vote(msm_uport);
 	msm_uport->pm_state = MSM_HS_PM_ACTIVE;
 	msm_hs_resource_on(msm_uport);
@@ -3195,6 +3214,7 @@ static int msm_hs_probe(struct platform_device *pdev)
 	msm_uport->wakeup.ignore = 1;
 	msm_uport->wakeup.inject_rx = pdata->inject_rx_on_wakeup;
 	msm_uport->wakeup.rx_to_inject = pdata->rx_to_inject;
+	msm_uport->obs = pdata->obs;
 
 	msm_uport->bam_tx_ep_pipe_index =
 			pdata->bam_tx_ep_pipe_index;
@@ -3423,6 +3443,10 @@ static void msm_hs_shutdown(struct uart_port *uport)
 	if (rc) {
 		MSM_HS_WARN("%s(): removing extra vote\n", __func__);
 		msm_hs_resource_unvote(msm_uport);
+	}
+	if (atomic_read(&msm_uport->client_req_state)) {
+		MSM_HS_WARN("%s: Client clock vote imbalance\n", __func__);
+		atomic_set(&msm_uport->client_req_state, 0);
 	}
 	/* Free the interrupt */
 	free_irq(uport->irq, msm_uport);

@@ -49,6 +49,8 @@ Example:
 				1 &intc 0 239 0>
 		qcom,bam-tx-ep-pipe-index = <0>;
 		qcom,bam-rx-ep-pipe-index = <1>;
+		/* enable out of band sleep support */
+		qcom,msm-obs;
 	};
 
 Optional properties:
@@ -66,6 +68,7 @@ HSUART driver injects provided character with property rx_to_inject.
 - qcom, rx-char-to-inject : The character to be inserted on wakeup.
 - qcom, no-suspend-delay : This decides system to go to suspend immediately
 or not
+- qcom,msm-obs : This flag is used to support out of band sleep mechanism.
 
 - Refer to "Documentation/devicetree/bindings/arm/msm/msm_bus.txt" for
 below optional properties:
