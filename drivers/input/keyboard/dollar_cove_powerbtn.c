@@ -25,6 +25,7 @@
 #include <linux/platform_device.h>
 #include <linux/input.h>
 #include <linux/io.h>
+#include <linux/pm_runtime.h>
 
 #define DRIVER_NAME "dollar_cove_power_button"
 
@@ -33,10 +34,15 @@ static int irq_press, irq_release;
 
 static irqreturn_t pb_isr(int irq, void *dev_id)
 {
+	struct platform_device *pdev = dev_id;
+
 	input_event(pb_input, EV_KEY, KEY_POWER, irq == irq_press);
 	input_sync(pb_input);
 	pr_info("[%s] power button %s\n", pb_input->name,
 			irq == irq_press ? "pressed" : "released");
+
+	pm_wakeup_event(&pdev->dev, 0);
+
 	return IRQ_HANDLED;
 }
 
@@ -87,6 +93,11 @@ static int pb_probe(struct platform_device *pdev)
 		input_unregister_device(pb_input);
 		return ret;
 	}
+
+	ret = device_init_wakeup(&pdev->dev, 1);
+	if (ret)
+		dev_warn(&pdev->dev,
+			"cannot make this a wakeup device: %d\n", ret);
 
 	return 0;
 }
