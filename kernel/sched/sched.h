@@ -605,15 +605,13 @@ struct rq {
 	u64 max_idle_balance_cost;
 #endif
 
-#if defined(CONFIG_SCHED_FREQ_INPUT) || defined(CONFIG_SCHED_HMP)
+#ifdef CONFIG_SCHED_HMP
 	/*
 	 * max_freq = user or thermal defined maximum
 	 * max_possible_freq = maximum supported by hardware
 	 */
 	unsigned int cur_freq, max_freq, min_freq, max_possible_freq;
 	struct cpumask freq_domain_cpumask;
-	unsigned int freq_requested;
-	u64 freq_requested_ts;
 
 	u64 cumulative_runnable_avg;
 	int efficiency; /* Differentiate cpus with different IPC capability */
@@ -622,6 +620,13 @@ struct rq {
 	int max_possible_capacity;
 	u64 window_start;
 
+#ifdef CONFIG_SCHED_FREQ_INPUT
+	unsigned int freq_requested;
+	u64 freq_requested_ts;
+#endif
+#endif
+
+#ifdef CONFIG_SCHED_FREQ_INPUT
 	u64 curr_runnable_sum;
 	u64 prev_runnable_sum;
 #endif
@@ -852,7 +857,7 @@ static inline void sched_ttwu_pending(void) { }
 
 extern void init_new_task_load(struct task_struct *p);
 
-#if defined(CONFIG_SCHED_FREQ_INPUT) || defined(CONFIG_SCHED_HMP)
+#ifdef CONFIG_SCHED_HMP
 
 #define WINDOW_STATS_RECENT		0
 #define WINDOW_STATS_MAX		1
@@ -891,6 +896,8 @@ static inline u64 scale_load_to_cpu(u64 load, int cpu)
 	return load;
 }
 #endif
+extern unsigned int sched_heavy_task;
+extern void fixup_nr_big_small_task(int cpu);
 unsigned int max_task_load(void);
 extern void sched_account_irqtime(int cpu, struct task_struct *curr,
 				 u64 delta, u64 wallclock);
@@ -916,7 +923,7 @@ dec_cumulative_runnable_avg(struct rq *rq, struct task_struct *p)
 	BUG_ON((s64)rq->cumulative_runnable_avg < 0);
 }
 
-#else	/* CONFIG_SCHED_FREQ_INPUT || CONFIG_SCHED_HMP */
+#else	/* CONFIG_SCHED_HMP */
 
 static inline int pct_task_load(struct task_struct *p) { return 0; }
 
@@ -945,7 +952,7 @@ static inline void sched_account_irqtime(int cpu, struct task_struct *curr,
 {
 }
 
-#endif	/* CONFIG_SCHED_FREQ_INPUT || CONFIG_SCHED_HMP */
+#endif	/* CONFIG_SCHED_HMP */
 
 #ifdef CONFIG_SCHED_FREQ_INPUT
 extern void check_for_freq_change(struct rq *rq);
@@ -961,15 +968,9 @@ static inline int same_freq_domain(int src_cpu, int dst_cpu)
 	return cpumask_test_cpu(dst_cpu, &rq->freq_domain_cpumask);
 }
 
-#ifdef CONFIG_SCHED_HMP
-#define init_task_load	sysctl_sched_init_task_load_pct
-#else
-#define init_task_load	0
-#endif
-
 #else	/* CONFIG_SCHED_FREQ_INPUT */
 
-#define init_task_load	0
+#define sched_migration_fixup	0
 
 static inline void check_for_freq_change(struct rq *rq) { }
 
