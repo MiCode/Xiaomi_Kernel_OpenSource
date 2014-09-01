@@ -103,8 +103,15 @@ static void wcd9xxx_irq_enable(struct irq_data *data)
 	struct wcd9xxx_core_resource *wcd9xxx_res =
 			irq_data_get_irq_chip_data(data);
 	int wcd9xxx_irq = virq_to_phyirq(wcd9xxx_res, data->irq);
-	wcd9xxx_res->irq_masks_cur[BIT_BYTE(wcd9xxx_irq)] &=
-		~(BYTE_BIT_MASK(wcd9xxx_irq));
+	int byte = BIT_BYTE(wcd9xxx_irq);
+	int size = ARRAY_SIZE(wcd9xxx_res->irq_masks_cur);
+	if ((byte < size) && (byte >= 0)) {
+		wcd9xxx_res->irq_masks_cur[byte] &=
+			~(BYTE_BIT_MASK(wcd9xxx_irq));
+	} else {
+		pr_err("%s: Array size is %d but index is %d: Out of range\n",
+			__func__, size, byte);
+	}
 }
 
 static void wcd9xxx_irq_disable(struct irq_data *data)
@@ -112,8 +119,15 @@ static void wcd9xxx_irq_disable(struct irq_data *data)
 	struct wcd9xxx_core_resource *wcd9xxx_res =
 			irq_data_get_irq_chip_data(data);
 	int wcd9xxx_irq = virq_to_phyirq(wcd9xxx_res, data->irq);
-	wcd9xxx_res->irq_masks_cur[BIT_BYTE(wcd9xxx_irq)]
-		|= BYTE_BIT_MASK(wcd9xxx_irq);
+	int byte = BIT_BYTE(wcd9xxx_irq);
+	int size = ARRAY_SIZE(wcd9xxx_res->irq_masks_cur);
+	if ((byte < size) && (byte >= 0)) {
+		wcd9xxx_res->irq_masks_cur[byte]
+			|= BYTE_BIT_MASK(wcd9xxx_irq);
+	} else {
+		pr_err("%s: Array size is %d but index is %d: Out of range\n",
+			__func__, size, byte);
+	}
 }
 
 static void wcd9xxx_irq_mask(struct irq_data *d)
