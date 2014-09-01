@@ -1399,21 +1399,19 @@ static void msm_isp_process_overflow_irq(
 void msm_isp_reset_burst_count_and_frame_drop(
 	struct vfe_device *vfe_dev, struct msm_vfe_axi_stream *stream_info)
 {
-	struct msm_vfe_axi_stream_request_cmd stream_cfg_cmd;
+	uint32_t framedrop_period = 0;
 	if (stream_info->state != ACTIVE ||
 		stream_info->stream_type != BURST_STREAM) {
 		return;
 	}
 	if (stream_info->stream_type == BURST_STREAM &&
 		stream_info->num_burst_capture != 0) {
-		stream_cfg_cmd.burst_count =
-			stream_info->num_burst_capture;
-		stream_cfg_cmd.frame_skip_pattern =
-			stream_info->frame_skip_pattern;
-		stream_cfg_cmd.init_frame_drop =
-			stream_info->init_frame_drop;
-		msm_isp_calculate_framedrop(&vfe_dev->axi_data,
-			&stream_cfg_cmd);
+		framedrop_period = msm_isp_get_framedrop_period(
+		   stream_info->frame_skip_pattern);
+		stream_info->burst_frame_count =
+			stream_info->init_frame_drop +
+			(stream_info->num_burst_capture - 1) *
+			framedrop_period + 1;
 		msm_isp_reset_framedrop(vfe_dev, stream_info);
 	}
 }
