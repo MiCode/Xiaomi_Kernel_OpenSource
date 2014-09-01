@@ -47,6 +47,7 @@ static char *descriptions =
 	"22 Perf: add perf user-mode permissions\n"
 	"23 Perf: Add event type check in hrtimer hotplug fix\n"
 	"24 Perf: Add debugfs node to clear PMU\n"
+	"25 msm: perf: reset perf cycle counter on krait\n"
 ;
 
 static ssize_t desc_read(struct file *fp, char __user *buf,
