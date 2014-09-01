@@ -179,6 +179,15 @@ config QCOM_SMEM
 	  The driver provides an interface to items in a heap shared among all
 	  processors in a Qualcomm platform.
 
+config MSM_HVC
+	bool "MSM Hypervisor Call Support"
+	help
+	  This enables the Hypervisor Call module. It provides apis to call
+	  into the hypervisor thereby allowing access to services exposed by
+	  the hypervisor. It is primarily intended to be used for Silicon
+	  Partner/Manufacturer function identifier subrange but supports other
+	  service call subranges as well.
+
 config MSM_IPC_ROUTER_SMD_XPRT
 	depends on MSM_SMD
 	depends on IPC_ROUTER
