@@ -139,6 +139,8 @@
 		qcom,cdc-vdd-cx-current = <10000>;
 
 		cdc-vdd-spkdrv-supply = <&spk_vreg>;
+		qcom,cdc-vdd-spkdrv-voltage = <5000000 5000000>;
+		qcom,cdc-vdd-spkdrv-current = <20000>;
 
 		qcom,cdc-static-supplies = "cdc-vdd-tx-h",
 					   "cdc-vdd-rx-h",
@@ -202,6 +204,8 @@
 		qcom,cdc-vddcx-2-current = <20000>;
 
 		cdc-vdd-spkdrv-supply = <&spk_vreg>;
+		qcom,cdc-vdd-spkdrv-voltage = <5000000 5000000>;
+		qcom,cdc-vdd-spkdrv-current = <20000>;
 
 		qcom,cdc-static-supplies = "cdc-vdd-tx-h",
 			"cdc-vdd-rx-h",
