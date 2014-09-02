@@ -233,7 +233,7 @@ static int ufs_qcom_phy_qmp_20nm_remove(struct platform_device *pdev)
 }
 
 static const struct of_device_id ufs_qcom_phy_qmp_20nm_of_match[] = {
-	{.compatible = "qcom,ufs-msm-phy-qmp-20nm"},
+	{.compatible = "qcom,ufs-phy-qmp-20nm"},
 	{},
 };
 MODULE_DEVICE_TABLE(of, ufs_qcom_phy_qmp_20nm_of_match);
