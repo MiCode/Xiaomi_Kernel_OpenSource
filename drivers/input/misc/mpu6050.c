@@ -65,6 +65,9 @@
 #define MPU6050_DEV_NAME_ACCEL	"accelerometer"
 #define MPU6050_DEV_NAME_GYRO	"gyroscope"
 
+#define MPU6050_PINCTRL_DEFAULT	"mpu_default"
+#define MPU6050_PINCTRL_SUSPEND	"mpu_sleep"
+
 enum mpu6050_place {
 	MPU6050_PLACE_PU = 0,
 	MPU6050_PLACE_PR = 1,
@@ -125,17 +128,24 @@ struct mpu6050_sensor {
 	enum inv_devices chip_type;
 	struct delayed_work accel_poll_work;
 	struct delayed_work gyro_poll_work;
-	struct regulator *vlogic;
-	struct regulator *vdd;
-	struct regulator *vi2c;
 	struct mpu_reg_map reg;
 	struct mpu_chip_config cfg;
 	struct axis_data axis;
 	u32 gyro_poll_ms;
 	u32 accel_poll_ms;
-	int enable_gpio;
 	bool use_poll;
+
+	/* power control */
+	struct regulator *vlogic;
+	struct regulator *vdd;
+	struct regulator *vi2c;
+	int enable_gpio;
 	bool power_enabled;
+
+	/* pinctrl */
+	struct pinctrl *pinctrl;
+	struct pinctrl_state *pin_default;
+	struct pinctrl_state *pin_sleep;
 };
 
 /* Accelerometer information read by HAL */
@@ -233,6 +243,10 @@ mpu6050_place_name2num[MPU6050_AXIS_REMAP_TAB_SZ] = {
 	{"Landscape Left Back Side", MPU6050_PLACE_LL_BACK},
 };
 
+/* Function declarations */
+static void mpu6050_pinctrl_state(struct mpu6050_sensor *sensor,
+			bool active);
+
 static int mpu6050_power_ctl(struct mpu6050_sensor *sensor, bool on)
 {
 	int rc = 0;
@@ -267,8 +281,13 @@ static int mpu6050_power_ctl(struct mpu6050_sensor *sensor, bool on)
 			gpio_set_value(sensor->enable_gpio, 1);
 		}
 		msleep(POWER_UP_TIME_MS);
+
+		mpu6050_pinctrl_state(sensor, true);
+
 		sensor->power_enabled = true;
 	} else if (!on && (sensor->power_enabled)) {
+		mpu6050_pinctrl_state(sensor, false);
+
 		if (gpio_is_valid(sensor->enable_gpio)) {
 			udelay(POWER_EN_DELAY_US);
 			gpio_set_value(sensor->enable_gpio, 0);
@@ -1604,6 +1623,59 @@ static int mpu6050_init_config(struct mpu6050_sensor *sensor)
 	return 0;
 }
 
+static int mpu6050_pinctrl_init(struct mpu6050_sensor *sensor)
+{
+	struct i2c_client *client = sensor->client;
+
+	sensor->pinctrl = devm_pinctrl_get(&client->dev);
+	if (IS_ERR_OR_NULL(sensor->pinctrl)) {
+		dev_err(&client->dev, "Failed to get pinctrl\n");
+		return PTR_ERR(sensor->pinctrl);
+	}
+
+	sensor->pin_default =
+		pinctrl_lookup_state(sensor->pinctrl, MPU6050_PINCTRL_DEFAULT);
+	if (IS_ERR_OR_NULL(sensor->pin_default))
+		dev_err(&client->dev, "Failed to look up default state\n");
+
+	sensor->pin_sleep =
+		pinctrl_lookup_state(sensor->pinctrl, MPU6050_PINCTRL_SUSPEND);
+	if (IS_ERR_OR_NULL(sensor->pin_sleep))
+		dev_err(&client->dev, "Failed to look up sleep state\n");
+
+	return 0;
+}
+
+static void mpu6050_pinctrl_state(struct mpu6050_sensor *sensor,
+			bool active)
+{
+	struct i2c_client *client = sensor->client;
+	int ret;
+
+	dev_dbg(&client->dev, "mpu6050_pinctrl_state en=%d\n", active);
+
+	if (active) {
+		if (!IS_ERR_OR_NULL(sensor->pin_default)) {
+			ret = pinctrl_select_state(sensor->pinctrl,
+				sensor->pin_default);
+			if (ret)
+				dev_err(&client->dev,
+					"Error pinctrl_select_state(%s) err:%d\n",
+					MPU6050_PINCTRL_DEFAULT, ret);
+		}
+	} else {
+		if (!IS_ERR_OR_NULL(sensor->pin_sleep)) {
+			ret = pinctrl_select_state(sensor->pinctrl,
+				sensor->pin_sleep);
+			if (ret)
+				dev_err(&client->dev,
+					"Error pinctrl_select_state(%s) err:%d\n",
+					MPU6050_PINCTRL_SUSPEND, ret);
+		}
+	}
+	return;
+}
+
 #ifdef CONFIG_OF
 static int mpu6050_dt_get_place(struct device *dev,
 			struct mpu6050_platform_data *pdata)
@@ -1725,6 +1797,13 @@ static int mpu6050_probe(struct i2c_client *client,
 	mutex_init(&sensor->op_lock);
 	sensor->pdata = pdata;
 	sensor->enable_gpio = sensor->pdata->gpio_en;
+
+	ret = mpu6050_pinctrl_init(sensor);
+	if (ret) {
+		dev_err(&client->dev, "Can't initialize pinctrl\n");
+		goto err_free_devmem;
+	}
+
 	if (gpio_is_valid(sensor->enable_gpio)) {
 		ret = gpio_request(sensor->enable_gpio, "MPU_EN_PM");
 		gpio_direction_output(sensor->enable_gpio, 0);
@@ -2032,7 +2111,7 @@ static int mpu6050_resume(struct device *dev)
 	struct mpu6050_sensor *sensor = i2c_get_clientdata(client);
 	int ret = 0;
 
-	/* Keep sensor power on to prevent  */
+	/* Keep sensor power on to prevent bad power state */
 	ret = mpu6050_power_ctl(sensor, true);
 	if (ret < 0) {
 		dev_err(&client->dev, "Power on mpu6050 failed\n");

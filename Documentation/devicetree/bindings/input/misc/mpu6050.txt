@@ -4,6 +4,9 @@ Required properties:
 
  - compatible		: Should be "invn,mpu6050".
  - reg				: i2c slave address of the device.
+ - pinctrl-names	: The pinctrl configration names of this sensor driver. Should be "mpu_default","mpu_sleep".
+ - pinctrl-0		: The pinctrl node corresponding to "mpu_default", should be <&mpu6050_default>.
+ - pinctrl-1		: The pinctrl node corresponding to "mpu_sleep", should be <&mpu6050_sleep>.
  - interrupt-parent	: Parent of interrupt.
  - interrupts		: Gyrometer sample interrupt to indicate new data ready.
  - vdd-supply		: Analog power supply needed to power device.
@@ -30,8 +33,11 @@ Optional properties:
 Example:
 	i2c@f9925000 {
 		mpu6050@68 {
-			reg = <0x68>;
 			compatible = "invn,mpu6050";
+			reg = <0x68>;
+			pinctrl-names = "mpu_default","mpu_sleep";
+			pinctrl-0 = <&mpu6050_default>;
+			pinctrl-1 = <&mpu6050_sleep>;
 			interrupt-parent = <&msm_gpio>;
 			interrupts = <84 0x2>;
 			vlogic-supply = <&pm8916_l17>;
