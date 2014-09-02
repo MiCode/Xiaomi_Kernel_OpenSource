@@ -716,10 +716,10 @@ int ufshcd_read_string_desc(struct ufs_hba *hba, int desc_index, u8 *buf,
 				u32 size, bool ascii);
 /* variant specific ops structures */
 #ifdef CONFIG_SCSI_UFS_MSM
-extern const struct ufs_hba_variant_ops ufs_hba_msm_vops;
+extern const struct ufs_hba_variant_ops ufs_hba_qcom_vops;
 #else
-static const struct ufs_hba_variant_ops ufs_hba_msm_vops = {
-	.name = "msm",
+static const struct ufs_hba_variant_ops ufs_hba_qcom_vops = {
+	.name = "qcom",
 };
 #endif
 
