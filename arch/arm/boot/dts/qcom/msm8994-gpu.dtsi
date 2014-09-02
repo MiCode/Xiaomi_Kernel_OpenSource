@@ -72,26 +72,32 @@
 
 		/* Bus Scale Settings */
 		qcom,bus-control;
+		/*
+		 * qcom,msm-bus structures below define
+		 * GPU msm client and its vote data for
+		 * each of available power levels
+		 * (gpu-bus frequency combination)
+		 */
 		qcom,msm-bus,name = "grp3d";
 		qcom,msm-bus,num-cases = <12>;
-		qcom,msm-bus,num-paths = <2>;
+		qcom,msm-bus,num-paths = <1>;
 		qcom,msm-bus,vectors-KBps =
-				<26 512 0 0>, <89 662 0 0>,
+				<26 512 0 0>,
 
-				<26 512 0 1200000>,  <89 662 0 2880000>,     // gpu=180 bus=150
-				<26 512 0 2400000>,  <89 662 0 2880000>,     // gpu=180 bus=300
-				<26 512 0 3200000>,  <89 662 0 2880000>,     // gpu=180 bus=400
+				<26 512 0 1200000>,  /* gpu=180 bus=150 */
+				<26 512 0 2400000>,  /* gpu=180 bus=300 */
+				<26 512 0 3200000>,  /* gpu=180 bus=400 */
 
-				<26 512 0 2400000>,  <89 662 0 4800000>,     // gpu=300 bus=300
-				<26 512 0 4224000>,  <89 662 0 4800000>,     // gpu=300 bus=528
-				<26 512 0 5376000>,  <89 662 0 4800000>,     // gpu=300 bus=672
+				<26 512 0 2400000>,  /* gpu=300 bus=300 */
+				<26 512 0 4224000>,  /* gpu=300 bus=528 */
+				<26 512 0 5376000>,  /* gpu=300 bus=672 */
 
-				<26 512 0 5376000>,  <89 662 0 7200000>,     // gpu=450 bus=672
-				<26 512 0 6681600>,  <89 662 0 7200000>,     // gpu=450 bus=835.2
-				<26 512 0 8448000>,  <89 662 0 7200000>,     // gpu=450 bus=1056
+				<26 512 0 5376000>,  /* gpu=450 bus=672 */
+				<26 512 0 6681600>,  /* gpu=450 bus=835.2  */
+				<26 512 0 8448000>,  /* gpu=450 bus=1056   */
 
-				<26 512 0 8448000>,  <89 662 0 9200000>,     // gpu=575 bus=1056
-				<26 512 0 12748800>, <89 662 0 9200000>;     // gpu=575 bus=1593.6
+				<26 512 0 8448000>,  /* gpu=575 bus=1056   */
+				<26 512 0 12748800>; /* gpu=575 bus=1593.6 */
 
 		/* GDSC oxili regulators */
 		vddcx-supply = <&gdsc_oxili_cx>;
@@ -145,5 +151,34 @@
 				qcom,bus-freq = <0>;
 			};
 		};
+
+		/*
+		 * qcom,ocmem-bus-client defines
+		 * ocmem msm client and its vote data for
+		 * each of available power levels -
+		 * the same levels that grp3d above uses
+		 */
+		qcom,ocmem-bus-client {
+                        qcom,msm-bus,name = "gpu-ocmem";
+                        qcom,msm-bus,num-cases = <12>;
+                        qcom,msm-bus,num-paths = <1>;
+                        qcom,msm-bus,vectors-KBps =
+                                <89 662 0 0>,
+
+                                <89 662 0 2880000>,     /* gpu=180 */
+                                <89 662 0 2880000>,     /* gpu=180 */
+                                <89 662 0 2880000>,     /* gpu=180 */
+
+                                <89 662 0 4800000>,     /* gpu=300 */
+                                <89 662 0 4800000>,     /* gpu=300 */
+                                <89 662 0 4800000>,     /* gpu=300 */
+
+                                <89 662 0 7200000>,     /* gpu=450 */
+                                <89 662 0 7200000>,     /* gpu=450 */
+                                <89 662 0 7200000>,     /* gpu=450 */
+
+                                <89 662 0 9200000>,     /* gpu=575 */
+                                <89 662 0 9200000>;     /* gpu=575 */
+                };
 	};
 };
