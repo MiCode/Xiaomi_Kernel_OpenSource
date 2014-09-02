@@ -1051,7 +1051,7 @@ static int ufs_qcom_init(struct ufs_hba *hba)
 	}
 
 	host->hba = hba;
-	host->generic_phy = devm_phy_get(dev, "ufs_msm_phy");
+	host->generic_phy = devm_phy_get(dev, "ufsphy");
 
 	if (IS_ERR(host->generic_phy)) {
 		err = PTR_ERR(host->generic_phy);
