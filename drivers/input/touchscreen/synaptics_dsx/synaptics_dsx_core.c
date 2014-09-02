@@ -1612,16 +1612,23 @@ static int synaptics_rmi4_f12_init(struct synaptics_rmi4_data *rmi4_data,
 
 	fhandler->fn_number = fd->fn_number;
 	fhandler->num_of_data_sources = fd->intr_src_count;
-	fhandler->extra = kmalloc(sizeof(*extra_data), GFP_KERNEL);
-	extra_data = (struct synaptics_rmi4_f12_extra_data *)fhandler->extra;
 	size_of_2d_data = sizeof(struct synaptics_rmi4_f12_finger_data);
+
+	fhandler->extra = kmalloc(sizeof(*extra_data), GFP_KERNEL);
+	if (!fhandler->extra) {
+		dev_err(rmi4_data->pdev->dev.parent,
+			"%s: Failed to alloc mem for function handler\n",
+			__func__);
+		return -ENOMEM;
+	}
+	extra_data = (struct synaptics_rmi4_f12_extra_data *)fhandler->extra;
 
 	retval = synaptics_rmi4_reg_read(rmi4_data,
 			fhandler->full_addr.query_base + 5,
 			query_5.data,
 			sizeof(query_5.data));
 	if (retval < 0)
-		return retval;
+		goto free_function_handler_mem;
 
 	ctrl_8_offset = query_5.ctrl0_is_present +
 			query_5.ctrl1_is_present +
@@ -1661,7 +1668,7 @@ static int synaptics_rmi4_f12_init(struct synaptics_rmi4_data *rmi4_data,
 			ctrl_23.data,
 			sizeof(ctrl_23.data));
 	if (retval < 0)
-		return retval;
+		goto free_function_handler_mem;
 
 	/* Maximum number of fingers supported */
 	fhandler->num_of_data_points = min(ctrl_23.max_reported_objects,
@@ -1675,14 +1682,14 @@ static int synaptics_rmi4_f12_init(struct synaptics_rmi4_data *rmi4_data,
 			&size_of_query8,
 			sizeof(size_of_query8));
 	if (retval < 0)
-		return retval;
+		goto free_function_handler_mem;
 
 	retval = synaptics_rmi4_reg_read(rmi4_data,
 			fhandler->full_addr.query_base + 8,
 			query_8.data,
 			size_of_query8);
 	if (retval < 0)
-		return retval;
+		goto free_function_handler_mem;
 
 	/* Determine the presence of the Data0 register */
 	extra_data->data1_offset = query_8.data0_is_present;
@@ -1719,14 +1726,14 @@ static int synaptics_rmi4_f12_init(struct synaptics_rmi4_data *rmi4_data,
 	retval = synaptics_rmi4_f12_set_enables(rmi4_data,
 			fhandler->full_addr.ctrl_base + ctrl_28_offset);
 	if (retval < 0)
-		return retval;
+		goto free_function_handler_mem;
 
 	retval = synaptics_rmi4_reg_read(rmi4_data,
 			fhandler->full_addr.ctrl_base + ctrl_8_offset,
 			ctrl_8.data,
 			sizeof(ctrl_8.data));
 	if (retval < 0)
-		return retval;
+		goto free_function_handler_mem;
 
 	/* Maximum x and y */
 	rmi4_data->sensor_max_x =
@@ -1743,7 +1750,8 @@ static int synaptics_rmi4_f12_init(struct synaptics_rmi4_data *rmi4_data,
 				bdata->panel_maxy > SYNA_F12_MAX) {
 			dev_err(rmi4_data->pdev->dev.parent,
 				"%s: Invalid panel resolution\n", __func__);
-			return -EINVAL;
+			retval = -EINVAL;
+			goto free_function_handler_mem;
 		}
 
 		rmi4_data->sensor_max_x = bdata->panel_maxx;
@@ -1760,7 +1768,7 @@ static int synaptics_rmi4_f12_init(struct synaptics_rmi4_data *rmi4_data,
 				ctrl_8.data,
 				sizeof(ctrl_8.data));
 		if (retval < 0)
-			return retval;
+			goto free_function_handler_mem;
 	}
 
 	dev_dbg(rmi4_data->pdev->dev.parent,
@@ -1779,7 +1787,18 @@ static int synaptics_rmi4_f12_init(struct synaptics_rmi4_data *rmi4_data,
 	/* Allocate memory for finger data storage space */
 	fhandler->data_size = num_of_fingers * size_of_2d_data;
 	fhandler->data = kmalloc(fhandler->data_size, GFP_KERNEL);
+	if (!fhandler->data) {
+		dev_err(rmi4_data->pdev->dev.parent,
+			"%s: Failed to alloc mem for function handler data\n",
+			__func__);
+		retval = -ENOMEM;
+		goto free_function_handler_mem;
+	}
 
+	return retval;
+
+free_function_handler_mem:
+	kfree(fhandler->extra);
 	return retval;
 }
 
