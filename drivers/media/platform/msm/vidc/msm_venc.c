@@ -1043,6 +1043,16 @@ static struct msm_vidc_ctrl msm_venc_ctrls[] = {
 		.step = 1,
 		.qmenu = NULL,
 	},
+	{
+		.id = V4L2_CID_MPEG_VIDC_VIDEO_HIER_B_NUM_LAYERS,
+		.name = "Set Hier B num layers",
+		.type = V4L2_CTRL_TYPE_INTEGER,
+		.minimum = 0,
+		.maximum = 3,
+		.default_value = 0,
+		.step = 1,
+		.qmenu = NULL,
+	},
 };
 
 #define NUM_CTRLS ARRAY_SIZE(msm_venc_ctrls)
@@ -1793,7 +1803,7 @@ static int try_set_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 	struct hal_mpeg4_time_resolution time_res;
 	struct hal_ltr_use use_ltr;
 	struct hal_ltr_mark mark_ltr;
-	u32 hier_p_layers;
+	u32 hier_p_layers = 0, hier_b_layers = 0;
 	struct hal_venc_perf_mode venc_mode;
 
 	if (!inst || !inst->core || !inst->core->device) {
@@ -2634,6 +2644,17 @@ static int try_set_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 		venc_mode.mode = ctrl->val;
 		pdata = &venc_mode;
 		break;
+	case V4L2_CID_MPEG_VIDC_VIDEO_HIER_B_NUM_LAYERS:
+		if (inst->fmts[CAPTURE_PORT]->fourcc != V4L2_PIX_FMT_HEVC) {
+			dprintk(VIDC_ERR, "Hier B supported for HEVC only\n");
+			rc = -ENOTSUPP;
+			break;
+		}
+		property_id = HAL_PARAM_VENC_HIER_B_MAX_ENH_LAYERS;
+		hier_b_layers = ctrl->val;
+		pdata = &hier_b_layers;
+		break;
+
 	default:
 		dprintk(VIDC_ERR, "Unsupported index: %x\n", ctrl->id);
 		rc = -ENOTSUPP;
