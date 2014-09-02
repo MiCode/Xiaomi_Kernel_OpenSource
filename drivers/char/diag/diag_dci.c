@@ -610,9 +610,13 @@ void extract_dci_pkt_rsp(unsigned char *buf, int len, int data_source,
 	curr_client_pid = req_entry->pid;
 
 	/* Remove the headers and send only the response to this function */
+	mutex_lock(&driver->dci_mutex);
 	delete_flag = diag_dci_remove_req_entry(temp, rsp_len, req_entry);
-	if (delete_flag < 0)
+	if (delete_flag < 0) {
+		mutex_unlock(&driver->dci_mutex);
 		return;
+	}
+	mutex_unlock(&driver->dci_mutex);
 
 	entry = __diag_dci_get_client_entry(curr_client_pid);
 	if (!entry) {
