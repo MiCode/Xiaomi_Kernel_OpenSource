@@ -121,6 +121,10 @@ static inline bool aca_enabled(void)
 }
 
 static int vdd_val[VDD_VAL_MAX];
+static u32 bus_freqs[USB_NUM_BUS_CLOCKS];	/* bimc, snoc, pcnoc clk */;
+static char bus_clkname[USB_NUM_BUS_CLOCKS][20] = {"bimc_clk", "snoc_clk",
+						"pcnoc_clk"};
+static bool bus_clk_rate_set;
 
 static int msm_hsusb_ldo_init(struct msm_otg *motg, int init)
 {
@@ -857,6 +861,78 @@ static int msm_otg_set_suspend(struct usb_phy *phy, int suspend)
 	return 0;
 }
 
+static int msm_otg_bus_freq_get(struct device *dev, struct msm_otg *motg)
+{
+	struct device_node *np = dev->of_node;
+	int len = 0;
+	int i;
+	int ret;
+
+	if (!np)
+		return -EINVAL;
+
+	of_find_property(np, "qcom,bus-clk-rate", &len);
+	if (!len || (len / sizeof(u32) != USB_NUM_BUS_CLOCKS)) {
+		pr_err("Invalid bus clock rate parameters\n");
+		return -EINVAL;
+	}
+	of_property_read_u32_array(np, "qcom,bus-clk-rate", bus_freqs,
+		USB_NUM_BUS_CLOCKS);
+	for (i = 0; i < USB_NUM_BUS_CLOCKS; i++) {
+		motg->bus_clks[i] = devm_clk_get(motg->phy.dev,
+				bus_clkname[i]);
+		if (IS_ERR(motg->bus_clks[i])) {
+			pr_err("%s get failed\n", bus_clkname[i]);
+			return PTR_ERR(motg->bus_clks[i]);
+		}
+		ret = clk_set_rate(motg->bus_clks[i], bus_freqs[i]);
+		if (ret) {
+			pr_err("%s set rate failed: %d\n", bus_clkname[i],
+				ret);
+			return ret;
+		}
+		pr_debug("%s set at %lu Hz\n", bus_clkname[i],
+			clk_get_rate(motg->bus_clks[i]));
+	}
+	bus_clk_rate_set = true;
+	return 0;
+}
+
+static void msm_otg_bus_clks_enable(struct msm_otg *motg)
+{
+	int i;
+	int ret;
+
+	if (!bus_clk_rate_set || motg->bus_clks_enabled)
+		return;
+
+	for (i = 0; i < USB_NUM_BUS_CLOCKS; i++) {
+		ret = clk_prepare_enable(motg->bus_clks[i]);
+		if (ret) {
+			pr_err("%s enable rate failed: %d\n", bus_clkname[i],
+				ret);
+			goto err_clk_en;
+		}
+	}
+	motg->bus_clks_enabled = true;
+	return;
+err_clk_en:
+	for (--i; i >= 0; --i)
+		clk_disable_unprepare(motg->bus_clks[i]);
+}
+
+static void msm_otg_bus_clks_disable(struct msm_otg *motg)
+{
+	int i;
+
+	if (!bus_clk_rate_set || !motg->bus_clks_enabled)
+		return;
+
+	for (i = 0; i < USB_NUM_BUS_CLOCKS; i++)
+		clk_disable_unprepare(motg->bus_clks[i]);
+	motg->bus_clks_enabled = false;
+}
+
 static void msm_otg_bus_vote(struct msm_otg *motg, enum usb_bus_vote vote)
 {
 	int ret;
@@ -873,6 +949,10 @@ static void msm_otg_bus_vote(struct msm_otg *motg, enum usb_bus_vote vote)
 		if (ret)
 			dev_err(motg->phy.dev, "%s: Failed to vote (%d)\n"
 				   "for bus bw %d\n", __func__, vote, ret);
+		if (vote == USB_MAX_PERF_VOTE)
+			msm_otg_bus_clks_enable(motg);
+		else
+			msm_otg_bus_clks_disable(motg);
 	}
 }
 
@@ -4611,6 +4691,10 @@ static int msm_otg_probe(struct platform_device *pdev)
 			msm_otg_bus_vote(motg, USB_MIN_PERF_VOTE);
 		}
 	}
+
+	ret = msm_otg_bus_freq_get(motg->phy.dev, motg);
+	if (ret)
+		pr_err("failed to vote for explicit noc rates: %d\n", ret);
 
 	/*
 	 * ACA ID_GND threshold range is overlapped with OTG ID_FLOAT.  Hence
