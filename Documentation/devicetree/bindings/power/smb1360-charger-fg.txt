@@ -106,6 +106,27 @@ Optional Properties:
 - qcom,min-icl-100ma		A bool property to set the minimum ICL current
 				to 100mA. If this property is not set the minimum
 				ICL is set to 500mA in all the scenarios.
+- qcom,config-hard-thresholds	This property indicates if cold and hot thresholds need be modified.
+				If it's not defined, default temp thresholds will be used. If this
+				defined, it's required to specify the "qcom,hot-bat-decidegc" and
+				"qcom,cold-bat-decidegc" values.
+- qcom,hot-bat-decidegc		Hot battery temperature in decidegC. This property must be
+				out of range [0, 55].
+- qcom,cold-bat-decidegc	Cold battery temperature in decidegC. This property must be
+				out of range [0, 55].
+- qcom,soft-jeita-supported	This property indicates whether soft jeita supported.
+- qcom,warm-bat-decidegc	Warm battery temperature in decidegC. After hitting this threshold,
+				"qcom,warm-bat-ma" defines maximum charging current and
+				"qcom,warm-bat-mv" defines maximum target voltage.
+				This property must be in range [0, 55] if needed.
+- qcom,cool-bat-decidegc	Cool battery temperature in decidegC. After hitting this threshold,
+				"qcom,cool-bat-ma" defines maximum charging current and
+				"qcom,cool-bat-mv" defines maximum target voltage.
+				This property must be in range [0, 55] if needed.
+- qcom,warm-bat-mv		Maximum warm battery target voltage in milli-volts.
+- qcom,cool-bat-mv		Maximum cool battery target voltage in milli-volts.
+- qcom,warm-bat-ma		Maximum warm battery charge current in milli-amps.
+- qcom,cool-bat-ma		Maximum cool battery charge current in milli-amps.
 
 Example:
 	i2c@f9967000 {
@@ -143,6 +164,16 @@ Example:
 			qcom,fg-soc-min = <15>;
 			qcom,fg-auto-recharge-soc = <99>;
 			qcom,thermal-mitigation = <1500 700 300 0>;
+			qcom,config-hard-thresholds;
+			qcom,hot-bat-decidegc = <650>;
+			qcom,cold-bat-decidegc = <(-100)>;
+			qcom,soft-jeita-supported;
+			qcom,warm-bat-decidegc = <450>;
+			qcom,cool-bat-decidegc = <100>;
+			qcom,warm-bat-mv = <4100>;
+			qcom,cool-bat-mv = <4100>;
+			qcom,warm-bat-ma = <750>;
+			qcom,cool-bat-ma = <750>;
 
 			qcom,otg-batt-curr-limit = <950>;
 		};
