@@ -1421,7 +1421,6 @@ static inline void mwait_play_dead(void)
 	 * content is immaterial as it is not actually modified in any way.
 	 */
 	mwait_ptr = &current_thread_info()->flags;
-	pr_info("cpu[%d] mwait hint: 0x%x\n", smp_processor_id(), eax);
 	wbinvd();
 
 	while (1) {
