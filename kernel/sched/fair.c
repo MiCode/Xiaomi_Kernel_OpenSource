@@ -2195,6 +2195,11 @@ static inline int mostly_idle_cpu(int cpu)
 	return 0;
 }
 
+static inline int sched_boost(void)
+{
+	return 0;
+}
+
 static inline int is_small_task(struct task_struct *p)
 {
 	return 0;
@@ -4991,6 +4996,7 @@ static unsigned long __read_mostly max_load_balance_interval = HZ/10;
 #define LBF_SOME_PINNED 0x04
 #define LBF_IGNORE_SMALL_TASKS 0x08
 #define LBF_PWR_ACTIVE_BALANCE 0x10
+#define LBF_SCHED_BOOST 0x20
 
 struct lb_env {
 	struct sched_domain	*sd;
@@ -5795,6 +5801,13 @@ static bool update_sd_pick_busiest(struct lb_env *env,
 				   struct sched_group *sg,
 				   struct sg_lb_stats *sgs)
 {
+	if (sched_boost() && !sds->busiest && sgs->sum_nr_running &&
+		(env->idle != CPU_NOT_IDLE) && (capacity(env->dst_rq) >
+		group_rq_capacity(sg))) {
+		env->flags |= LBF_SCHED_BOOST;
+		return true;
+	}
+
 	if (sgs->avg_load <= sds->max_load)
 		return false;
 
@@ -6138,6 +6151,10 @@ find_busiest_group(struct lb_env *env, int *balance)
 	if (!sds.busiest || sds.busiest_nr_running == 0)
 		goto out_balanced;
 
+	if (sched_boost() && (capacity(env->dst_rq) >
+				group_rq_capacity(sds.busiest)))
+		goto force_balance;
+
 	if (bail_inter_cluster_balance(env, &sds))
 		goto out_balanced;
 
@@ -6295,7 +6312,7 @@ static int need_active_balance(struct lb_env *env)
 {
 	struct sched_domain *sd = env->sd;
 
-	if (env->flags & LBF_PWR_ACTIVE_BALANCE)
+	if (env->flags & (LBF_PWR_ACTIVE_BALANCE | LBF_SCHED_BOOST))
 		return 1;
 
 	if (env->idle == CPU_NEWLY_IDLE) {
@@ -6459,7 +6476,7 @@ more_balance:
 	}
 
 	if (!ld_moved) {
-		if (!(env.flags & LBF_PWR_ACTIVE_BALANCE))
+		if (!(env.flags & (LBF_PWR_ACTIVE_BALANCE | LBF_SCHED_BOOST)))
 			schedstat_inc(sd, lb_failed[idle]);
 
 		/*
@@ -6469,7 +6486,7 @@ more_balance:
 		 * excessive cache_hot migrations and active balances.
 		 */
 		if (idle != CPU_NEWLY_IDLE &&
-		    !(env.flags & LBF_PWR_ACTIVE_BALANCE))
+		    !(env.flags & (LBF_PWR_ACTIVE_BALANCE | LBF_SCHED_BOOST)))
 			sd->nr_balance_failed++;
 
 		if (need_active_balance(&env)) {
