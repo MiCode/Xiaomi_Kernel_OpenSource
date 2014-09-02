@@ -1358,6 +1358,13 @@ static int chg_term_handler(struct smb1360_chip *chip, u8 rt_stat)
 	return 0;
 }
 
+static int chg_fastchg_handler(struct smb1360_chip *chip, u8 rt_stat)
+{
+	pr_debug("rt_stat = 0x%02x\n", rt_stat);
+
+	return 0;
+}
+
 static int usbin_uv_handler(struct smb1360_chip *chip, u8 rt_stat)
 {
 	bool usb_present = !rt_stat;
@@ -1516,6 +1523,7 @@ static struct irq_handler_info handlers[] = {
 			},
 			{
 				.name		= "fast_chg",
+				.smb_irq	= chg_fastchg_handler,
 			},
 		},
 	},
