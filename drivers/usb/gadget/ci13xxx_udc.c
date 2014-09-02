@@ -404,9 +404,6 @@ static int hw_device_state(u32 dma)
 		}
 		hw_cwrite(CAP_ENDPTLISTADDR, ~0, dma);
 
-		if (udc->udc_driver->notify_event)
-			udc->udc_driver->notify_event(udc,
-				CI13XXX_CONTROLLER_CONNECT_EVENT);
 
 		/* Set BIT(31) to enable AHB2AHB Bypass functionality */
 		if (udc->udc_driver->flags & CI13XXX_ENABLE_AHB2AHB_BYPASS) {
@@ -3556,6 +3553,9 @@ static int ci13xxx_vbus_session(struct usb_gadget *_gadget, int is_active)
 		if (is_active) {
 			pm_runtime_get_sync(&_gadget->dev);
 			hw_device_reset(udc);
+			if (udc->udc_driver->notify_event)
+				udc->udc_driver->notify_event(udc,
+					CI13XXX_CONTROLLER_CONNECT_EVENT);
 			if (udc->softconnect)
 				hw_device_state(udc->ep0out.qh.dma);
 		} else {
@@ -3603,10 +3603,14 @@ static int ci13xxx_pullup(struct usb_gadget *_gadget, int is_active)
 		return ret;
 	}
 
-	if (is_active)
+	if (is_active) {
+		if (udc->udc_driver->notify_event)
+			udc->udc_driver->notify_event(udc,
+				CI13XXX_CONTROLLER_CONNECT_EVENT);
 		hw_device_state(udc->ep0out.qh.dma);
-	else
+	} else {
 		hw_device_state(0);
+	}
 
 	return 0;
 }
