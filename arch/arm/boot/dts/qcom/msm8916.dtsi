@@ -473,14 +473,19 @@
 		qcom,msm-bus,num-paths = <1>;
 		qcom,msm-bus,vectors-KBps =
 				<87 512 0 0>,
-				<87 512 60000 960000>,
+				<87 512 80000 0>,
 				<87 512 6000  6000>;
 		clocks = <&clock_gcc clk_gcc_usb_hs_ahb_clk>,
 			 <&clock_gcc clk_gcc_usb_hs_system_clk>,
 			 <&clock_gcc clk_gcc_usb2a_phy_sleep_clk>,
+			 <&clock_rpm clk_bimc_usb_a_clk>,
+			 <&clock_rpm clk_snoc_usb_a_clk>,
+			 <&clock_rpm clk_pcnoc_usb_a_clk>,
 			 <&clock_rpm clk_xo_otg_clk>;
 		clock-names = "iface_clk", "core_clk", "sleep_clk",
+				"bimc_clk", "snoc_clk", "pcnoc_clk",
 				"xo";
+		qcom,bus-clk-rate = <400000000 200000000 100000000>;
 	};
 
 	android_usb: android_usb@086000c8 {
