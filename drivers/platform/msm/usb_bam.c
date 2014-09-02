@@ -261,7 +261,8 @@ static int get_bam_type_from_core_name(const char *name)
 		strnstr(name, "dwc3", USB_BAM_MAX_STR_LEN))
 		return DWC3_CTRL;
 	else if (strnstr(name, bam_enable_strings[HSIC_CTRL],
-			USB_BAM_MAX_STR_LEN))
+			USB_BAM_MAX_STR_LEN) ||
+		strnstr(name, "ci13xxx_msm_hsic", USB_BAM_MAX_STR_LEN))
 		return HSIC_CTRL;
 	else if (strnstr(name, bam_enable_strings[CI_CTRL],
 			USB_BAM_MAX_STR_LEN) ||
@@ -3490,6 +3491,12 @@ int usb_bam_get_connection_idx(const char *core_name, enum peer_bam client,
 	return -ENODEV;
 }
 EXPORT_SYMBOL(usb_bam_get_connection_idx);
+
+int usb_bam_get_bam_type(int connection_idx)
+{
+	return usb_bam_connections[connection_idx].bam_type;
+}
+EXPORT_SYMBOL(usb_bam_get_bam_type);
 
 bool msm_bam_device_lpm_ok(enum usb_ctrl bam_type)
 {
