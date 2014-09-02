@@ -534,6 +534,7 @@ static const struct acpi_device_id dw8250_acpi_match[] = {
 	{ "INT3434", 0 },
 	{ "INT3435", 0 },
 	{ "80860F0A", (kernel_ulong_t)&byt_8250_desc},
+	{ "8086228A", (kernel_ulong_t)&byt_8250_desc},
 	{ },
 };
 MODULE_DEVICE_TABLE(acpi, dw8250_acpi_match);
