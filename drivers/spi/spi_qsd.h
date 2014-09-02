@@ -383,6 +383,7 @@ struct msm_spi {
 	struct pinctrl		*pinctrl;
 	struct pinctrl_state	*pins_active;
 	struct pinctrl_state	*pins_sleep;
+	bool			is_init_complete;
 };
 
 /* Forward declaration */
