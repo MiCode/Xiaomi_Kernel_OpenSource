@@ -460,6 +460,10 @@
 	vreg-3.3-supply = <&bt_vreg>;
 };
 
+&pmi8994_fg {
+	qcom,use-otp-profile;
+};
+
 &pmi8994_charger {
 	qcom,charging-disabled;
 };
