@@ -538,6 +538,19 @@
 		qcom,rtb-size = <0x100000>; /* 1M EBI1 buffer */
 	};
 
+	qcom,msm-imem@8600000 {
+		compatible = "qcom,msm-imem";
+		reg = <0x08600000 0x1000>; /* Address and size of IMEM */
+		ranges = <0x0 0x08600000 0x1000>;
+		#address-cells = <1>;
+		#size-cells = <1>;
+
+		mem_dump_table@10 {
+			compatible = "qcom,msm-imem-mem_dump_table";
+			reg = <0x10 8>;
+		};
+	};
+
 	spi_0: spi@78ba000 { /* BLSP1 QUP6 */
                 compatible = "qcom,spi-qup-v2";
                 #address-cells = <1>;
