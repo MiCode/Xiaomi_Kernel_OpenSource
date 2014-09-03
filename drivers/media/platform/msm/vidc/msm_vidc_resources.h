@@ -74,7 +74,7 @@ struct msm_vidc_platform_resources {
 	struct msm_bus_scale_pdata *bus_pdata;
 	struct iommu_set iommu_group_set;
 	struct buffer_usage_set buffer_usage_set;
-	bool has_ocmem;
+	uint32_t ocmem_size;
 	uint32_t max_load;
 	struct platform_device *pdev;
 };

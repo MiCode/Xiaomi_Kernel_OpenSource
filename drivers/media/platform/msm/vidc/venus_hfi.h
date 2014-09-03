@@ -196,7 +196,6 @@ struct venus_hfi_device {
 	u32 device_id;
 	u32 clk_load;
 	u32 bus_load[MSM_VIDC_MAX_DEVICES];
-	unsigned long ocmem_size;
 	enum clock_state clk_state;
 	bool power_enabled;
 	enum vidc_clocks clk_gating_level;
