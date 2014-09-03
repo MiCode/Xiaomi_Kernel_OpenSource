@@ -65,10 +65,7 @@
 #include <scsi/scsi_eh.h>
 
 #include <linux/fault-inject.h>
-
 #include "ufs.h"
-#include "ufshci.h"
-#include "ufs_quirks.h"
 
 #define UFSHCD "ufshcd"
 #define UFSHCD_DRIVER_VERSION "0.2"
@@ -598,9 +595,9 @@ static inline bool ufshcd_can_autobkops_during_suspend(struct ufs_hba *hba)
 }
 
 #define ufshcd_writel(hba, val, reg)	\
-	writel((val), (hba)->mmio_base + (reg))
+	writel_relaxed((val), (hba)->mmio_base + (reg))
 #define ufshcd_readl(hba, reg)	\
-	readl((hba)->mmio_base + (reg))
+	readl_relaxed((hba)->mmio_base + (reg))
 
 /**
  * ufshcd_rmwl - read modify write into a register
@@ -626,28 +623,6 @@ void ufshcd_remove(struct ufs_hba *);
 int ufshcd_wait_for_register(struct ufs_hba *hba, u32 reg, u32 mask,
 				u32 val, unsigned long interval_us,
 				unsigned long timeout_ms, bool can_sleep);
-/**
- * ufshcd_hba_stop - Send controller to reset state
- * @hba: per adapter instance
- * @can_sleep: perform sleep or just spin
- */
-static inline void ufshcd_hba_stop(struct ufs_hba *hba, bool can_sleep)
-{
-	int err;
-
-	ufshcd_writel(hba, CONTROLLER_DISABLE,  REG_CONTROLLER_ENABLE);
-	err = ufshcd_wait_for_register(hba, REG_CONTROLLER_ENABLE,
-					CONTROLLER_ENABLE, CONTROLLER_DISABLE,
-					10, 1, can_sleep);
-	if (err)
-		dev_err(hba->dev, "%s: Controller disable failed\n", __func__);
-}
-
-static inline void check_upiu_size(void)
-{
-	BUILD_BUG_ON(ALIGNED_UPIU_SIZE <
-		GENERAL_UPIU_REQUEST_SIZE + QUERY_DESC_MAX_SIZE);
-}
 
 extern int ufshcd_runtime_suspend(struct ufs_hba *hba);
 extern int ufshcd_runtime_resume(struct ufs_hba *hba);

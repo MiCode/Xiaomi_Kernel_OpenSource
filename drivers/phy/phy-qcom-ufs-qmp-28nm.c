@@ -23,8 +23,8 @@
 #include <linux/msm-bus.h>
 #include <linux/phy/phy.h>
 
-#include "ufs-msm-phy.h"
-#include "ufs-msm-phy-qmp-28nm.h"
+#include <linux/phy/phy-qcom-ufs.h>
+#include "phy-qcom-ufs-qmp-28nm.h"
 
 #define UFS_PHY_NAME "ufs_qcom_phy_qmp_28nm"
 

@@ -24,9 +24,10 @@
 #include <linux/msm-bus.h>
 #include <soc/qcom/scm.h>
 
-#include "ufshcd.h"
-#include "ufs-msm.h"
-#include "ufs-msm-phy.h"
+#include <linux/scsi/ufs/ufshcd.h>
+#include <linux/scsi/ufs/ufs-qcom.h>
+#include <linux/phy/phy-qcom-ufs.h>
+#include "ufshci.h"
 
 static int ufs_qcom_get_speed_mode(struct ufs_pa_layer_attr *p, char *result);
 static int ufs_qcom_get_bus_vote(struct ufs_qcom_host *host,

@@ -42,8 +42,10 @@
 #include <linux/devfreq.h>
 #include <linux/nls.h>
 
-#include "ufshcd.h"
-#include "unipro.h"
+#include <linux/scsi/ufs/ufshcd.h>
+#include <linux/scsi/ufs/unipro.h>
+#include "ufshci.h"
+#include "ufs_quirks.h"
 #include "debugfs.h"
 
 #define CREATE_TRACE_POINTS
@@ -3061,6 +3063,23 @@ static int ufshcd_make_hba_operational(struct ufs_hba *hba)
 
 out:
 	return err;
+}
+
+/**
+ * ufshcd_hba_stop - Send controller to reset state
+ * @hba: per adapter instance
+ * @can_sleep: perform sleep or just spin
+ */
+static inline void ufshcd_hba_stop(struct ufs_hba *hba, bool can_sleep)
+{
+	int err;
+
+	ufshcd_writel(hba, CONTROLLER_DISABLE,  REG_CONTROLLER_ENABLE);
+	err = ufshcd_wait_for_register(hba, REG_CONTROLLER_ENABLE,
+					CONTROLLER_ENABLE, CONTROLLER_DISABLE,
+					10, 1, can_sleep);
+	if (err)
+		dev_err(hba->dev, "%s: Controller disable failed\n", __func__);
 }
 
 /**

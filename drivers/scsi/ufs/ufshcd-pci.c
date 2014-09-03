@@ -33,7 +33,7 @@
  * this program.
  */
 
-#include "ufshcd.h"
+#include <linux/scsi/ufs/ufshcd.h>
 #include <linux/pci.h>
 #include <linux/pm_runtime.h>
 

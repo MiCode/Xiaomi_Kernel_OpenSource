@@ -1,6 +1,4 @@
 /*
- * drivers/scsi/ufs/unipro.h
- *
  * Copyright (C) 2013 Samsung Electronics Co., Ltd.
  *
  * This program is free software; you can redistribute it and/or modify
