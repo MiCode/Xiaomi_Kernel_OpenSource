@@ -51,6 +51,17 @@ Optional Properties:
 - therm-bias-supply			The supply that provides bias voltage to the battery
 					thermistor. This is useful in designs that do not use the SYSON
 					pin to bias the thermistor.
+- qcom,parallel-charger:		A flag to indicate if the charger merely assists for USB
+					charging. In this case the input current from USB is split
+					between a main charger and smb135x for reducing thermal impact
+					of high current charging from USB path.
+- qcom,inhibit-disabled:	Disables the charger-inhibit function.
+- qcom,bms-controlled-charging: This property enables BMS to control EOC and
+				recharge. BMS and charger communicates with each
+				other via power_supply framework. This
+				property should be used with 'qcom,iterm-disabled'
+				to ensure EOC detection in charger is
+				disabled.
 
 Example:
 	i2c@f9967000 {
