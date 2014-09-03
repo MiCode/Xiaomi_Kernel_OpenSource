@@ -119,6 +119,7 @@
 #include "msm-gdsc-8916.dtsi"
 #include "msmferrum-iommu.dtsi"
 #include "msmferrum-gpu.dtsi"
+#include "msmferrum-coresight.dtsi"
 
 &soc {
 	#address-cells = <1>;
