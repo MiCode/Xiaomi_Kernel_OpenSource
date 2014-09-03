@@ -249,6 +249,7 @@ __packed struct qseecom_client_send_fsm_key_req {
 #define TZ_SVC_EXTERNAL                  3     /* External image loading */
 #define TZ_SVC_RPMB                      4     /* RPMB */
 #define TZ_SVC_KEYSTORE                  5     /* Keystore management */
+#define TZ_SVC_ES                        16    /* Enterprise Security */
 
 /*----------------------------------------------------------------------------
  * Owning Entity IDs (defined by ARM SMC doc)
@@ -504,5 +505,13 @@ __packed struct qseecom_client_send_fsm_key_req {
 #define TZ_OS_KS_UPDATE_KEY_ID_PARAM_ID \
 	TZ_SYSCALL_CREATE_PARAM_ID_2( \
 	TZ_SYSCALL_PARAM_TYPE_BUF_RW, TZ_SYSCALL_PARAM_TYPE_VAL)
+
+#define TZ_ES_SAVE_PARTITION_HASH_ID \
+	TZ_SYSCALL_CREATE_SMC_ID(TZ_OWNER_SIP, TZ_SVC_ES, 0x01)
+
+#define TZ_ES_SAVE_PARTITION_HASH_ID_PARAM_ID \
+	TZ_SYSCALL_CREATE_PARAM_ID_3( \
+	TZ_SYSCALL_PARAM_TYPE_VAL, TZ_SYSCALL_PARAM_TYPE_BUF_RW, \
+	TZ_SYSCALL_PARAM_TYPE_VAL)
 
 #endif /* __QSEECOMI_H_ */
