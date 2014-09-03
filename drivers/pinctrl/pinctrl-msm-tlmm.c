@@ -190,6 +190,28 @@ static const struct msm_sdc_regs sdc_regs[MSM_PINTYPE_SDC_REGS_MAX] = {
 		.drv_mask = TLMM_SDC2_DATA_DRV_MASK,
 		.drv_shft = TLMM_SDC2_DATA_DRV_SHFT,
 	},
+	/* SDC3 CLK */
+	{
+		.pull_mask = TLMMV3_SDC3_CLK_PULL_MASK,
+		.pull_shft = TLMMV3_SDC3_CLK_PULL_SHFT,
+		.drv_mask = TLMMV3_SDC3_CLK_DRV_MASK,
+		.drv_shft = TLMMV3_SDC3_CLK_DRV_SHFT,
+	},
+	/* SDC3 CMD */
+	{
+		.pull_mask = TLMMV3_SDC3_CMD_PULL_MASK,
+		.pull_shft = TLMMV3_SDC3_CMD_PULL_SHFT,
+		.drv_mask = TLMMV3_SDC3_CMD_DRV_MASK,
+		.drv_shft = TLMMV3_SDC3_CMD_DRV_SHFT,
+	},
+	/* SDC3 DATA */
+	{
+		.pull_mask = TLMMV3_SDC3_DATA_PULL_MASK,
+		.pull_shft = TLMMV3_SDC3_DATA_PULL_SHFT,
+		.drv_mask = TLMMV3_SDC3_DATA_DRV_MASK,
+		.drv_shft = TLMMV3_SDC3_DATA_DRV_SHFT,
+	},
+
 };
 
 static int msm_tlmm_sdc_cfg(uint pin_no, unsigned long *config,
@@ -926,6 +948,8 @@ DECLARE_PINTYPE_DATA_GP(gp_data_8974, 0x1000, 0x10);
 DECLARE_PINTYPE_DATA_GP(gp_data_8916, 0x0, 0x1000);
 DECLARE_PINTYPE_DATA_SDC(sdc_data_8974, 0x2044,
 			 ARG_PROTECT({0, 0, 0, 0, 0x4, 0x4, 0x4}));
+DECLARE_PINTYPE_DATA_SDC(sdc_data_8994, 0x2044,
+		ARG_PROTECT({0, 0, 0, 0, 0x4, 0x4, 0x4, 0x28, 0x28, 0x28}));
 DECLARE_PINTYPE_DATA_SDC(sdc_data_8916, 0x109000,
 			 ARG_PROTECT({0x1000, 0x1000, 0x1000, 0x1000, 0, 0, 0})
 			);
@@ -940,7 +964,12 @@ static const struct msm_pintype_data *pintype_data_8916[MSM_PINTYPE_MAX] = {
 	&gp_data_8916, &sdc_data_8916, &qdsd_data,
 };
 
+static const struct msm_pintype_data *pintype_data_8994[MSM_PINTYPE_MAX] = {
+	&gp_data_8974, &sdc_data_8994, &qdsd_data,
+};
+
 static const struct of_device_id msm_tlmm_dt_match[] = {
+	{ .compatible = "qcom,msm-tlmm-8994", .data = &pintype_data_8994, },
 	{ .compatible = "qcom,msm-tlmm-8974", .data = &pintype_data_8974, },
 	{ .compatible = "qcom,msm-tlmm-8916", .data = &pintype_data_8916, },
 	{ },
