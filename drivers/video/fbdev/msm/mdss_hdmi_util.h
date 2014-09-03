@@ -229,6 +229,9 @@
 #define FRAME_PACKING		0x20
 #define SIDE_BY_SIDE_HALF	0x40
 
+#define LPASS_LPAIF_RDDMA_CTL0           (0xFE152000)
+#define LPASS_LPAIF_RDDMA_PER_CNT0       (0x00000014)
+
 enum hdmi_tx_feature_type {
 	HDMI_TX_FEAT_EDID,
 	HDMI_TX_FEAT_HDCP,
