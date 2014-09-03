@@ -469,6 +469,19 @@ static u32 mdss_mdp_calc_per_plane_num_blks(u32 ystride,
 	return num_blks;
 }
 
+static inline bool is_unused_smp_allowed(void)
+{
+	struct mdss_data_type *mdata = mdss_mdp_get_mdata();
+
+	switch (MDSS_GET_MAJOR_MINOR(mdata->mdp_rev)) {
+	case MDSS_GET_MAJOR_MINOR(MDSS_MDP_HW_REV_103):
+	case MDSS_GET_MAJOR_MINOR(MDSS_MDP_HW_REV_105):
+		return true;
+	default:
+		return false;
+	}
+}
+
 int mdss_mdp_smp_reserve(struct mdss_mdp_pipe *pipe)
 {
 	u32 num_blks = 0, reserved = 0;
@@ -487,13 +500,17 @@ int mdss_mdp_smp_reserve(struct mdss_mdp_pipe *pipe)
 	 * allow SMP allocations to prevent composition failures.
 	 */
 	force_alloc = !(pipe->flags & MDP_BACKEND_COMPOSITION);
+
 	mutex_lock(&mdss_mdp_smp_lock);
-	for (i = (MAX_PLANES - 1); i >= ps.num_planes; i--) {
-		if (bitmap_weight(pipe->smp_map[i].allocated, SMP_MB_CNT)) {
-			pr_debug("Extra mmb identified for pnum=%d plane=%d\n",
-				pipe->num, i);
-			mutex_unlock(&mdss_mdp_smp_lock);
-			return -EAGAIN;
+	if (!is_unused_smp_allowed()) {
+		for (i = (MAX_PLANES - 1); i >= ps.num_planes; i--) {
+			if (bitmap_weight(pipe->smp_map[i].allocated,
+					  SMP_MB_CNT)) {
+				pr_debug("unsed mmb for pipe%d plane%d not allowed\n",
+					pipe->num, i);
+				mutex_unlock(&mdss_mdp_smp_lock);
+				return -EAGAIN;
+			}
 		}
 	}
 
