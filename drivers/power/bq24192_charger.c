@@ -1893,8 +1893,12 @@ static int otg_handle_notification(struct notifier_block *nb,
 
 	dev_info(&chip->client->dev, "OTG notification: %lu\n", event);
 
-	if (!param || ((event != USB_EVENT_DRIVE_VBUS) &&
-		       (event != USB_EVENT_ID)))
+	if ((event != USB_EVENT_DRIVE_VBUS) &&
+		(event != USB_EVENT_ID) &&
+		(event != USB_EVENT_NONE))
+		return NOTIFY_DONE;
+
+	if ((event == USB_EVENT_DRIVE_VBUS) && (!param))
 		return NOTIFY_DONE;
 
 	evt = kzalloc(sizeof(*evt), GFP_ATOMIC);
@@ -1906,8 +1910,10 @@ static int otg_handle_notification(struct notifier_block *nb,
 
 	if (event == USB_EVENT_DRIVE_VBUS)
 		evt->is_enable = *(bool *)param;
-	else	/* treat id short as drive vbus evt */
-		evt->is_enable = !(*(bool *)param);
+	else if (event == USB_EVENT_ID) /* treat id short as drive vbus evt */
+		evt->is_enable = true;
+	else	/* treat cable disconnect event as stop vbus evt */
+		evt->is_enable = false;
 
 	dev_info(&chip->client->dev, "evt->is_enable is %d\n", evt->is_enable);
 	INIT_LIST_HEAD(&evt->node);
