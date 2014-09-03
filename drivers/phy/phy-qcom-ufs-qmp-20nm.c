@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013-2015, Linux Foundation. All rights reserved.
+ * Copyright (c) 2013-2014, Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -17,40 +17,26 @@
 #define UFS_PHY_NAME "ufs_phy_qmp_20nm"
 
 static
-int ufs_qcom_phy_qmp_20nm_phy_calibrate(struct ufs_qcom_phy *ufs_qcom_phy,
-					bool is_rate_B)
+int ufs_qcom_phy_qmp_20nm_phy_calibrate(struct ufs_qcom_phy *ufs_qcom_phy)
 {
 	struct ufs_qcom_phy_calibration *tbl_A, *tbl_B;
 	int tbl_size_A, tbl_size_B;
-	u8 major = ufs_qcom_phy->host_ctrl_rev_major;
-	u16 minor = ufs_qcom_phy->host_ctrl_rev_minor;
-	u16 step = ufs_qcom_phy->host_ctrl_rev_step;
+	int rate = UFS_QCOM_LIMIT_HS_RATE;
 	int err;
 
-	if ((major == 0x1) && (minor == 0x002) && (step == 0x0000)) {
-		tbl_size_A = ARRAY_SIZE(phy_cal_table_rate_A_1_2_0);
-		tbl_A = phy_cal_table_rate_A_1_2_0;
-	} else if ((major == 0x1) && (minor == 0x003) && (step == 0x0000)) {
-		tbl_size_A = ARRAY_SIZE(phy_cal_table_rate_A_1_3_0);
-		tbl_A = phy_cal_table_rate_A_1_3_0;
-	} else {
-		dev_err(ufs_qcom_phy->dev, "%s: Unknown UFS-PHY version, no calibration values\n",
-			__func__);
-		err = -ENODEV;
-		goto out;
-	}
+	tbl_size_A = ARRAY_SIZE(phy_cal_table_rate_A);
+	tbl_A = phy_cal_table_rate_A;
 
 	tbl_size_B = ARRAY_SIZE(phy_cal_table_rate_B);
 	tbl_B = phy_cal_table_rate_B;
 
 	err = ufs_qcom_phy_calibrate(ufs_qcom_phy, tbl_A, tbl_size_A,
-						tbl_B, tbl_size_B, is_rate_B);
+						tbl_B, tbl_size_B, rate);
 
 	if (err)
 		dev_err(ufs_qcom_phy->dev, "%s: ufs_qcom_phy_calibrate() failed %d\n",
 			__func__, err);
 
-out:
 	return err;
 }
 
@@ -171,7 +157,7 @@ static int ufs_qcom_phy_qmp_20nm_is_pcs_ready(struct ufs_qcom_phy *phy_common)
 	return err;
 }
 
-static const struct phy_ops ufs_qcom_phy_qmp_20nm_phy_ops = {
+struct phy_ops ufs_qcom_phy_qmp_20nm_phy_ops = {
 	.init		= ufs_qcom_phy_qmp_20nm_init,
 	.exit		= ufs_qcom_phy_exit,
 	.power_on	= ufs_qcom_phy_power_on,
@@ -179,7 +165,7 @@ static const struct phy_ops ufs_qcom_phy_qmp_20nm_phy_ops = {
 	.owner		= THIS_MODULE,
 };
 
-static struct ufs_qcom_phy_specific_ops phy_20nm_ops = {
+struct ufs_qcom_phy_specific_ops phy_20nm_ops = {
 	.calibrate_phy		= ufs_qcom_phy_qmp_20nm_phy_calibrate,
 	.start_serdes		= ufs_qcom_phy_qmp_20nm_start_serdes,
 	.is_physical_coding_sublayer_ready = ufs_qcom_phy_qmp_20nm_is_pcs_ready,

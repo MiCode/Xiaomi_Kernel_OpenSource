@@ -19,7 +19,8 @@
 
 #include <linux/random.h>
 #include "debugfs.h"
-#include "unipro.h"
+#include <linux/scsi/ufs/unipro.h>
+#include "ufshci.h"
 
 enum field_width {
 	BYTE	= 1,

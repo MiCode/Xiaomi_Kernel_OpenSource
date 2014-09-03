@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013-2015, Linux Foundation. All rights reserved.
+ * Copyright (c) 2013-2014, Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -15,7 +15,9 @@
 #ifndef PHY_QCOM_UFS_H_
 #define PHY_QCOM_UFS_H_
 
-#include "phy.h"
+#include <linux/scsi/ufs/ufshcd.h>
+#include <linux/scsi/ufs/unipro.h>
+#include <linux/scsi/ufs/ufs-qcom.h>
 
 /**
  * ufs_qcom_phy_enable_ref_clk() - Enable the phy
