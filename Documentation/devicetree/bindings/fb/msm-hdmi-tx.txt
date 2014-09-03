@@ -6,20 +6,46 @@ Required properties:
 - reg: offset and length of the register regions(s) for the device.
 - reg-names: a list of strings that map in order to the list of regs.
 
-- <supply-name>-supply: phandle to the regulator device tree node.
-- <compatible-name>-supply-names: a list of strings that map in order
+- hpd-gdsc-supply: phandle to the mdss gdsc regulator device tree node.
+- hpd-5v-supply: phandle to the 5V regulator device tree node.
+- core-vdda-supply: phandle to the HDMI vdda regulator device tree node.
+- core-vcc-supply: phandle to the HDMI vcc regulator device tree node.
+- qcom,supply-names: a list of strings that map in order
   to the list of supplies.
-- <compatible-name>-supply-type: a type of supply(ies) mentioned above.
-    0 = supply with controlled output
-    1 = supply without controlled output. i.e. voltage switch
-- <compatible-name>-min-voltage-level: specifies minimum voltage level
+- qcom,min-voltage-level: specifies minimum voltage (uV) level
   of supply(ies) mentioned above.
-- <compatible-name>-max-voltage-level: specifies maximum voltage level
+- qcom,max-voltage-level: specifies maximum voltage (uV) level
   of supply(ies) mentioned above.
-- <compatible-name>-op-mode: specifies optimum operating mode of
-  supply(ies) mentioned above.
+- qcom,enable-load: specifies the current (uA) that will be
+  drawn from the enabled supply(ies) mentioned above.
+- qcom,disable-load: specifies the current (uA) that will be
+  drawn from the disabled supply(ies) mentioned above.
 
-- <compatible-name>-<gpio-name>: specifies gpios assigned for the device.
+- qcom,hdmi-tx-cec: gpio for Consumer Electronics Control (cec) line.
+- qcom,hdmi-tx-ddc-clk: gpio for Display Data Channel (ddc) clock line.
+- qcom,hdmi-tx-ddc-data: gpio for ddc data line.
+
+Optional properties:
+- hpd-5v-en-supply: phandle to the 5V boost enable regulator device tree node.
+- qcom,hdmi-tx-mux-sel: gpio required to toggle HDMI output between
+  docking station, type A, and liquid device, type D, ports. Required
+  property for liquid devices.
+- qcom,hdmi-tx-ddc-mux-sel: gpio for ddc mux select.
+- qcom,hdmi-tx-mux-en: gpio required to enable mux for HDMI output
+  on liquid devices. Required property for liquid devices.
+- qcom,hdmi-tx-mux-lpm: gpio required for hdmi mux configuration
+  selection on liquid devices. Required property for liquid devices.
+- qcom,conditional-power-on: Enables HPD conditionally on MTP targets.
+  Required property for MTP devices which are reworked to expose HDMI port.
+- qcom,hdmi-tx-hpd: gpio required for HDMI hot-plug detect. Required on
+  platforms where companion chip is not used.
+- pinctrl-names: a list of strings that map to the pinctrl states.
+- pinctrl-0: list of phandles, each pointing at a pin configuration node.
+...
+- pinctrl-n: list of phandles, each pointing at a pin configuration node.
+- qcom,conti-splash-enabled: Enables the hdmi continuous splash screen feature.
+  HDMI interface will remain powered on from LK to kernel with continuous
+  display of bootup logo.
 
 [Optional child nodes]: These nodes are for devices which are
 dependent on HDMI Tx controller. If HDMI Tx controller is disabled then
@@ -38,21 +64,44 @@ Example:
 			<0xfc4b8000 0x60F0>;
 		reg-names = "core_physical", "phy_physical", "qfprom_physical";
 
+		hpd-gdsc-supply = <&gdsc_mdss>;
 		hpd-5v-supply = <&pm8941_mvs2>;
+		hpd-5v-en-supply = <&hdmi_vreg>;
 		core-vdda-supply = <&pm8941_l12>;
 		core-vcc-supply = <&pm8941_s3>;
-		qcom,hdmi-tx-supply-names = "hpd-5v", "core-vdda", "core-vcc";
-		qcom,hdmi-tx-supply-type = <0 1 1>;
-		qcom,hdmi-tx-min-voltage-level = <0 1800000 1800000>;
-		qcom,hdmi-tx-max-voltage-level = <0 1800000 1800000>;
-		qcom,hdmi-tx-op-mode = <0 1800000 0>;
+		qcom,supply-names = "hpd-gdsc", "hpd-5v", "hpd-5v-en", "core-vdda", "core-vcc";
+		qcom,min-voltage-level = <0 0 0 1800000 1800000>;
+		qcom,max-voltage-level = <0 0 0 1800000 1800000>;
+		qcom,enable-load = <0 0 0 1800000 0>;
+		qcom,disable-load = <0 0 0 0 0>;
 
+		qcom,hdmi-tx-ddc-mux-sel = <&pma8084_gpios 6 0>;
 		qcom,hdmi-tx-cec = <&msmgpio 31 0>;
 		qcom,hdmi-tx-ddc-clk = <&msmgpio 32 0>;
 		qcom,hdmi-tx-ddc-data = <&msmgpio 33 0>;
 		qcom,hdmi-tx-hpd = <&msmgpio 34 0>;
+		qcom,cont-splash-enabled;
+
+		qcom,hdmi-tx-mux-lpm = <&msmgpio 27 0>;
+		qcom,hdmi-tx-mux-en = <&msmgpio 83 0>;
+		qcom,hdmi-tx-mux-sel = <&msmgpio 85 0>;
+
+		qcom,conditional-power-on;
 
 		qcom,msm-hdmi-audio-rx {
 			compatible = "qcom,msm-hdmi-audio-codec-rx";
 		};
+		pinctrl-names = "hdmi_hpd_active", "hdmi_ddc_active",
+					"hdmi_cec_active", "hdmi_active",
+					"hdmi_sleep";
+		pinctrl-0 = <&mdss_hdmi_hpd_active &mdss_hdmi_ddc_suspend
+							&mdss_hdmi_cec_suspend>;
+		pinctrl-1 = <&mdss_hdmi_hpd_active &mdss_hdmi_ddc_active
+							&mdss_hdmi_cec_suspend>;
+		pinctrl-2 = <&mdss_hdmi_hpd_active &mdss_hdmi_cec_active
+							&mdss_hdmi_ddc_suspend>;
+		pinctrl-3 = <&mdss_hdmi_hpd_active &mdss_hdmi_ddc_active
+							&mdss_hdmi_cec_active>;
+		pinctrl-4 = <&mdss_hdmi_hpd_suspend &mdss_hdmi_ddc_suspend
+							&mdss_hdmi_cec_suspend>;
 	};
