@@ -531,10 +531,13 @@ static void cluster_prepare(struct lpm_cluster *cluster,
 	 * it need not wait for another to finish its cluster selection and
 	 * configuration process
 	 */
-	spin_unlock(&cluster->sync_lock);
 
-	if (!cpumask_equal(&cluster->num_childs_in_sync, &cluster->child_cpus))
+	if (!cpumask_equal(&cluster->num_childs_in_sync,
+				&cluster->child_cpus)) {
+		spin_unlock(&cluster->sync_lock);
 		return;
+	}
+	spin_unlock(&cluster->sync_lock);
 
 	i = cluster_select(cluster, from_idle);
 
@@ -544,7 +547,8 @@ static void cluster_prepare(struct lpm_cluster *cluster,
 	if (cluster_configure(cluster, i, from_idle))
 		return;
 
-	cluster_prepare(cluster->parent, &cluster->child_cpus, i, from_idle);
+	cluster_prepare(cluster->parent, &cluster->num_childs_in_sync, i,
+			from_idle);
 }
 
 static void cluster_unprepare(struct lpm_cluster *cluster,
