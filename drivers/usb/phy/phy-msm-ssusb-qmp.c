@@ -113,6 +113,7 @@ static const struct qmp_reg_val qmp_settings_rev0[] = {
 	{0x6A0, 0x13}, /* PCIE_USB3_PHY_RXEQTRAINING_RUN_TIME */
 	{0x66C, 0xFF}, /* PCIE_USB3_PHY_LOCK_DETECT_CONFIG1 */
 	{0x674, 0x17}, /* PCIE_USB3_PHY_LOCK_DETECT_CONFIG3 */
+	{0x6AC, 0x05}, /* PCIE_USB3_PHY_FLL_CNTRL2 */
 
 	{-1, -1} /* terminating entry */
 };
@@ -173,6 +174,7 @@ static const struct qmp_reg_val qmp_settings_rev1[] = {
 	{0x6A0, 0x13}, /* PCIE_USB3_PHY_RXEQTRAINING_RUN_TIME */
 	{0x66C, 0xFF}, /* PCIE_USB3_PHY_LOCK_DETECT_CONFIG1 */
 	{0x674, 0x17}, /* PCIE_USB3_PHY_LOCK_DETECT_CONFIG3 */
+	{0x6AC, 0x05}, /* PCIE_USB3_PHY_FLL_CNTRL2 */
 
 	{-1, -1} /* terminating entry */
 };
