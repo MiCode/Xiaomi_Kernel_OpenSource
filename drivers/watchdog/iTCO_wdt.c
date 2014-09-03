@@ -65,6 +65,7 @@
 #include <linux/spinlock.h>		/* For spin_lock/spin_unlock/... */
 #include <linux/uaccess.h>		/* For copy_to_user/put_user/... */
 #include <linux/io.h>			/* For inb/outb/... */
+#include <linux/pm.h>			/* For suspend/resume */
 #include <linux/mfd/core.h>
 #include <linux/mfd/lpc_ich.h>
 
@@ -103,6 +104,7 @@ static struct {		/* this is private data for the iTCO_wdt device */
 	struct platform_device *dev;
 	/* the PCI-device */
 	struct pci_dev *pdev;
+	bool started;
 } iTCO_wdt_private;
 
 /* module parameters */
@@ -229,6 +231,9 @@ static int iTCO_wdt_start(struct watchdog_device *wd_dev)
 
 	if (val & 0x0800)
 		return -1;
+
+	iTCO_wdt_private.started = true;
+
 	return 0;
 }
 
@@ -253,6 +258,9 @@ static int iTCO_wdt_stop(struct watchdog_device *wd_dev)
 
 	if ((val & 0x0800) == 0)
 		return -1;
+
+	iTCO_wdt_private.started = false;
+
 	return 0;
 }
 
@@ -571,6 +579,44 @@ static void iTCO_wdt_shutdown(struct platform_device *dev)
 	iTCO_wdt_stop(NULL);
 }
 
+#ifdef CONFIG_PM_SLEEP
+static int iTCO_wdt_suspend(struct device *dev)
+{
+	if (!iTCO_wdt_private.started)
+		return 0;
+
+	/* Reload the watchdog first, as advised from the AN */
+	iTCO_wdt_ping(&iTCO_wdt_watchdog_dev);
+
+	/* Halt the watchdog */
+	iTCO_wdt_stop(&iTCO_wdt_watchdog_dev);
+
+	/* Overwrite the started flag for resuming */
+	iTCO_wdt_private.started = true;
+
+	return 0;
+}
+
+static int iTCO_wdt_resume(struct device *dev)
+{
+	int ret;
+
+	if (!iTCO_wdt_private.started)
+		return 0;
+
+	ret = iTCO_wdt_start(&iTCO_wdt_watchdog_dev);
+	if (ret != 0) {
+		pr_err("Cannot resume watchdog %d\n", ret);
+		return ret;
+	}
+
+	return iTCO_wdt_set_timeout(&iTCO_wdt_watchdog_dev,
+				    iTCO_wdt_watchdog_dev.timeout);
+}
+#endif /* CONFIG_PM_SLEEP */
+
+static SIMPLE_DEV_PM_OPS(iTCO_wdt_pm_ops, iTCO_wdt_suspend, iTCO_wdt_resume);
+
 static struct platform_driver iTCO_wdt_driver = {
 	.probe          = iTCO_wdt_probe,
 	.remove         = iTCO_wdt_remove,
@@ -578,6 +624,7 @@ static struct platform_driver iTCO_wdt_driver = {
 	.driver         = {
 		.owner  = THIS_MODULE,
 		.name   = DRV_NAME,
+		.pm	= &iTCO_wdt_pm_ops,
 	},
 };
 
