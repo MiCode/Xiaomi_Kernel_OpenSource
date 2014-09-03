@@ -689,6 +689,8 @@
 		reg = <0x11>;
 		vdd-supply = <&pm8994_s4>;
 		silabs,vdd-supply-voltage = <1800000 1800000>;
+		va-supply = <&bt_vreg>;
+		silabs,va-supply-voltage = <3300000 3300000>;
 		pinctrl-names = "pmx_fm_active","pmx_fm_suspend";
 		pinctrl-0 = <&fm_int_active &fm_rst_active>;
 		pinctrl-1 = <&fm_int_suspend &fm_rst_suspend>;
