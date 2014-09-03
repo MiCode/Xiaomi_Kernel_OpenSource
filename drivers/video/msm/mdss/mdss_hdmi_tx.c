@@ -4055,7 +4055,7 @@ static int hdmi_tx_get_dt_data(struct platform_device *pdev,
 		"qcom,conditional-power-on");
 
 	 splash_en = of_property_read_bool(pdev->dev.of_node,
-			"qcom,cont_splash_enabled");
+			"qcom,cont-splash-enabled");
 
 	/* cont splash screen is supported only for hdmi primary */
 	pdata->cont_splash_enabled =
