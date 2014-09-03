@@ -75,6 +75,24 @@
 	status = "ok";
 };
 
+&sdhc_3 {
+	vdd-supply = <&pm8994_l21>;
+	qcom,vdd-voltage-level = <2950000 2950000>;
+	qcom,vdd-current-level = <200 800000>;
+
+	vdd-io-supply = <&pm8994_s4>;
+	qcom,vdd-io-always-on;
+	qcom,vdd-io-voltage-level = <1800000 1800000>;
+	qcom,vdd-io-current-level = <200 325000>;
+
+	pinctrl-names = "active", "sleep";
+	pinctrl-0 = <&sdc3_clk_on &sdc3_cmd_on &sdc3_data_on>;
+	pinctrl-1 = <&sdc3_clk_off &sdc3_cmd_off &sdc3_data_off>;
+
+	qcom,clk-rates = <400000 20000000 25000000 50000000 100000000 200000000>;
+	qcom,bus-speed-mode = "SDR12", "SDR25", "SDR50", "DDR50", "SDR104";
+};
+
 &pm8994_vadc {
 	chan@5 {
 		label = "vcoin";
