@@ -129,6 +129,10 @@ Optional properties:
 					"dfps_immediate_porch_mode" = FPS change request is
 						implemented immediately by changing panel porch
 						values.
+- qcom,min-refresh-rate:		Minimum refresh rate supported by the panel.
+- qcom,max-refresh-rate:		Maximum refresh rate supported by the panel. If max refresh
+					rate is not specified, then the frame rate of the panel in
+					qcom,mdss-dsi-panel-framerate is used.
 - qcom,mdss-dsi-bl-pmic-control-type:	A string that specifies the implementation of backlight
 					control for this panel.
 					"bl_ctrl_pwm" = Backlight controlled by PWM gpio.
@@ -409,6 +413,8 @@ Example:
 		qcom,mdss-dsi-bl-pmic-control-type = "bl_ctrl_wled";
 		qcom,mdss-dsi-pan-enable-dynamic-fps;
 		qcom,mdss-dsi-pan-fps-update = "dfps_suspend_resume_mode";
+		qcom,min-refresh-rate = <30>;
+		qcom,max-refresh-rate = <60>;
 		qcom,mdss-dsi-bl-pmic-bank-select = <0>;
 		qcom,mdss-dsi-bl-pmic-pwm-frequency = <0>;
 		qcom,mdss-dsi-pwm-gpio = <&pm8941_mpps 5 0>;
