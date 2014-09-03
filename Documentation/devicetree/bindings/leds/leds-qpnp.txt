@@ -52,13 +52,15 @@ Optional properties for flash:
 RGB Led is a tri-colored led, Red, Blue & Green.
 
 Required properties for RGB led:
-- qcom,mode: mode the led should operate in, options "pwm" and "lpg"
-- qcom,pwm-channel: pwm channel the led will operate on
+- qcom,mode: mode the led should operate in, options "pwm" and "lpg". "manual" mode is not supported for RGB led.
 
 Required properties for PWM mode only:
+- qcom,pwm-channel: pwm channel the led will operate on
 - qcom,pwm-us: time the pwm device will modulate at (us)
 
 Required properties for LPG mode only:
+- qcom,pwm-channel: pwm channel the led will operate on
+- qcom,pwm-us: time the pwm device will modulate at (us)
 - qcom,duty-pcts: array of values for duty cycle to go through
 - qcom,start-idx: starting point duty-pcts array
 
@@ -93,6 +95,7 @@ Required properties for PWM mode only:
 
 Required properties for LPG mode only:
 - qcom,pwm-channel: pwm channel the led will operate on
+- qcom,pwm-us: time the pwm device will modulate at (us)
 - qcom,duty-pcts: array of values for duty cycle to go through
 - qcom,start-idx: starting point duty-pcts array
 
@@ -106,9 +109,7 @@ Keypad backlight is a backlight source for buttons. It supports four rows
 and the required rows are enabled by specifying values in the properties.
 
 Required properties for keypad backlight:
-- qcom,mode: mode the led should operate in, options "pwm" and "lpg"
-- qcom,pwm-channel: pwm channel the led will operate on
-- qcom,pwm-us: time the pwm device will modulate at (us)
+- qcom,mode: mode the led should operate in, options "pwm" and "lpg". "manual" mode is not supported for keypad backlight.
 - qcom,row-id: specify the id of the row. Supported values are 0 to 3.
 
 Optional properties for keypad backlight:
@@ -118,9 +119,12 @@ Optional properties for keypad backlight:
 - qcom,always-on: specify if the module has to be always on
 
 Required properties for PWM mode only:
+- qcom,pwm-channel: pwm channel the led will operate on
 - qcom,pwm-us: time the pwm device will modulate at (us)
 
 Required properties for LPG mode only:
+- qcom,pwm-channel: pwm channel the led will operate on
+- qcom,pwm-us: time the pwm device will modulate at (us)
 - qcom,duty-pcts: array of values for duty cycle to go through
 - qcom,start-idx: starting point duty-pcts array
 
@@ -201,6 +205,7 @@ Example:
 			linux,name = "led:rgb_green";
 			qcom,mode = "lpg";
 			qcom,pwm-channel = <5>;
+			qcom,pwm-us = <1000>;
 			qcom,duty-ms = <20>;
 			qcom,start-idx = <1>;
 			qcom,idx-len = <10>;
