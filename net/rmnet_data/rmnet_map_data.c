@@ -571,3 +571,100 @@ int rmnet_map_checksum_downlink_packet(struct sk_buff *skb)
 
 	return RMNET_MAP_CHECKSUM_ERR_UNKNOWN_IP_VERSION;
 }
+
+static void rmnet_map_fill_ipv4_packet_ul_checksum_header(void *iphdr,
+	struct rmnet_map_ul_checksum_header_s *ul_header, struct sk_buff *skb)
+{
+	struct iphdr *ip4h = (struct iphdr *)iphdr;
+	unsigned short *hdr = (unsigned short *)ul_header;
+
+	ul_header->checksum_start_offset = htons((unsigned short)
+		(skb_transport_header(skb) - (unsigned char *)iphdr));
+	ul_header->checksum_insert_offset = skb->csum_offset + (unsigned short)
+		(skb_transport_header(skb) - (unsigned char *)iphdr);
+	ul_header->cks_en = 1;
+	if (ip4h->protocol == IPPROTO_UDP)
+		ul_header->udp_ip4_ind = 1;
+	else
+		ul_header->udp_ip4_ind = 0;
+	/* Changing checksum_insert_offset to network order */
+	hdr++;
+	*hdr = htons(*hdr);
+	skb->ip_summed = CHECKSUM_NONE;
+}
+
+static void rmnet_map_fill_ipv6_packet_ul_checksum_header(void *iphdr,
+	struct rmnet_map_ul_checksum_header_s *ul_header, struct sk_buff *skb)
+{
+	unsigned short *hdr = (unsigned short *)ul_header;
+
+	ul_header->checksum_start_offset = htons((unsigned short)
+		(skb_transport_header(skb) - (unsigned char *)iphdr));
+	ul_header->checksum_insert_offset = skb->csum_offset + (unsigned short)
+		(skb_transport_header(skb) - (unsigned char *)iphdr);
+	ul_header->cks_en = 1;
+	ul_header->udp_ip4_ind = 0;
+	/* Changing checksum_insert_offset to network order */
+	hdr++;
+	*hdr = htons(*hdr);
+	skb->ip_summed = CHECKSUM_NONE;
+}
+
+/**
+ * rmnet_map_checksum_uplink_packet() - Generates UL checksum
+ * meta info header
+ * @skb:	Pointer to the packet's skb.
+ *
+ * Generates UL checksum meta info header for IPv4 and IPv6  over TCP and UDP
+ * packets that are supported for UL checksum offload.
+ *
+ * Return:
+ *   - RMNET_MAP_CHECKSUM_OK: Validation of checksum succeeded.
+ *   - RMNET_MAP_CHECKSUM_ERR_UNKNOWN_IP_VERSION: Unrecognized IP header.
+ *   - RMNET_MAP_CHECKSUM_SW: Unsupported packet for UL checksum offload.
+ */
+int rmnet_map_checksum_uplink_packet(struct sk_buff *skb,
+	struct net_device *orig_dev)
+{
+	unsigned char ip_version;
+	struct rmnet_map_ul_checksum_header_s *ul_header;
+	void *iphdr;
+	int ret;
+
+	ul_header = (struct rmnet_map_ul_checksum_header_s *)
+		skb_push(skb, sizeof(struct rmnet_map_ul_checksum_header_s));
+
+	if (unlikely(!(orig_dev->features &
+		(NETIF_F_V4_CSUM | NETIF_F_V6_CSUM)))) {
+		ret = RMNET_MAP_CHECKSUM_SW;
+		goto sw_checksum;
+	}
+
+	if (skb->ip_summed == CHECKSUM_PARTIAL) {
+		iphdr = (char *)ul_header +
+			sizeof(struct rmnet_map_ul_checksum_header_s);
+		ip_version = (*(char *)iphdr & 0xF0) >> 4;
+		if (ip_version == 0x04) {
+			rmnet_map_fill_ipv4_packet_ul_checksum_header(iphdr,
+				ul_header, skb);
+			return RMNET_MAP_CHECKSUM_OK;
+		} else if (ip_version == 0x06) {
+			rmnet_map_fill_ipv6_packet_ul_checksum_header(iphdr,
+				ul_header, skb);
+			return RMNET_MAP_CHECKSUM_OK;
+		} else {
+			ret = RMNET_MAP_CHECKSUM_ERR_UNKNOWN_IP_VERSION;
+			goto sw_checksum;
+		}
+	} else {
+		ret = RMNET_MAP_CHECKSUM_SW;
+		goto sw_checksum;
+	}
+
+sw_checksum:
+	ul_header->checksum_start_offset = 0;
+	ul_header->checksum_insert_offset = 0;
+	ul_header->cks_en = 0;
+	ul_header->udp_ip4_ind = 0;
+	return ret;
+}
