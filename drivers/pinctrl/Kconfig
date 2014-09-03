@@ -99,6 +99,18 @@ config PINCTRL_BAYTRAIL
 
 	  Requires ACPI device enumeration code to set up a platform device.
 
+config PINCTRL_CHERRYVIEW
+        bool "Intel CherryView GPIO pin control"
+        depends on GPIOLIB && ACPI && X86
+        select IRQ_DOMAIN
+        help
+          This driver is for Intel CherryView.
+          Cherryview GPIO controllers provide electrical control and
+          functional muxing between all units and the GPIOs/CFIOs in
+          CHV SoC.
+
+          Say Y here to support Intel CherryView GPIO.
+
 config PINCTRL_BCM2835
 	bool
 	select PINMUX
