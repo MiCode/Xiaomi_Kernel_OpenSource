@@ -670,9 +670,11 @@ static int sdhci_adma_table_pre(struct sdhci_host *host,
 
 		BUG_ON(len > 65536);
 
-		/* tran, valid */
-		sdhci_set_adma_desc(host, desc, addr, len, 0x21);
-		desc += host->adma_desc_line_sz;
+		if (len) {
+			/* tran, valid */
+			sdhci_set_adma_desc(host, desc, addr, len, 0x21);
+			desc += host->adma_desc_line_sz;
+		}
 
 		/*
 		 * If this triggers then we have a calculation bug
