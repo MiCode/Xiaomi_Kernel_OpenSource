@@ -15,6 +15,6 @@
 #include "msmferrum-qrd-skua.dtsi"
 
 / {
-	qcom,board-id= <0x1000b 0>;
+	qcom,board-id= <0x1000b 0x100>;
 };
 
