@@ -2945,7 +2945,8 @@ static int i2c_msm_qup_post_xfer(struct i2c_msm_ctrl *ctrl, int err)
 	/* poll until bus is released */
 	if (i2c_msm_qup_poll_bus_active_unset(ctrl)) {
 		if ((ctrl->xfer.err & I2C_MSM_ERR_ARB_LOST) ||
-		    (ctrl->xfer.err & I2C_MSM_ERR_BUS_ERR)) {
+		    (ctrl->xfer.err & I2C_MSM_ERR_BUS_ERR) ||
+		    (ctrl->xfer.err & I2C_MSM_ERR_TIMEOUT)) {
 			if (i2c_msm_qup_slv_holds_bus(ctrl))
 				qup_i2c_recover_bus_busy(ctrl);
 
