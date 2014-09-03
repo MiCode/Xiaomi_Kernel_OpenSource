@@ -307,7 +307,9 @@
 	};
 
 	clock_rpm: qcom,rpmcc@fc401880 {
-		compatible = "qcom,dummycc";
+		compatible = "qcom,rpmcc-8992";
+		reg = <0xfc401880 0x4>;
+		reg-names = "cc_base";
 		#clock-cells = <1>;
 	};
 
