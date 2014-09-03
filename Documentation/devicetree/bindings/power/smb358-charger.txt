@@ -16,7 +16,6 @@ Required Properties:
 				power supply name.
 - qcom,float-voltage-mv		Float Voltage in mV - the maximum voltage up to which
 				the battery is charged. Supported range 3500mV to 4500mV
-- qcom,vcc-i2c-supply		Power source required to power up i2c bus.
 - qcom,chg-vadc			Corresponding VADC device's phandle.
 
 Optional Properties:
@@ -33,6 +32,12 @@ Optional Properties:
 				charger detection is done by DCIN UV irq.
 - qcom,charger-disabled		This is a bool property which disables charging.
 - qcom,using-pmic-therm		This property indicates thermal pin connected to pmic or smb.
+- qcom,vcc-i2c-supply           Power source required to power up i2c bus.
+- qcom,bms-controlled-charging	This property indicates integrating with VMBMS, charger
+				driver and BMS communicates with each other via power_supply
+				framework. Property "qcom,iterm-disabled" also needs defined
+				if using this feature to make sure that the charger doesn't
+				terminate charging on its own.
 - qcom,iterm-ma			Specifies the termination current to indicate end-of-charge.
 				Possible values in mA - 30, 40, 60, 80, 100, 125, 150, 200.
 - qcom,iterm-disabled		Disables the termination current feature. This is a bool
@@ -41,12 +46,26 @@ Optional Properties:
 				as which the charger restarts charging. Possible
 				values are 50mV to 300mV.
 - qcom,recharge-disabled	Boolean value which disables the auto-recharge.
+- qcom,chg-inhibit-disabled	This is a bool property which disables charger inhibit.
+				Charger inhibit option prevents battery charging upon insertion
+				of the charger when battery voltage is above the programmed inhibit
+				threshold.
 - qcom,chg-adc_tm		phandle to the corresponding VADC device to read the ADC channels.
 - qcom,cold-bat-decidegc	Cold battery temperature in decidegC.
 - qcom,hot-bat-decidegc		Hot battery temperature in decidegC.
 - qcom,bat-present-decidegc	This is a property indicating battery present temperature, if
 				higher than it, battery should exist. Default value is negative,
 				if this property is 200, it stands for -200 decidegC.
+- qcom,warm-bat-decidegc:	Warm battery temperature in decidegC. After hitting this threshold,
+				"qcom,warm-bat-ma" defines maximum charging current and
+				"qcom,warm-bat-mv" defines maximum target voltage.
+- qcom,cool-bat-decidegc:       Cool battery temperature in decidegC. After hitting this threshold,
+				"qcom,cool-bat-ma" defines maximum charging current and
+				"qcom,cool-bat-mv" defines maximum target voltage.
+- qcom,warm-bat-ma:		Maximum warm battery charge current in milli-amps.
+- qcom,cool-bat-ma:		Maximum cool battery charge current in milli-amps.
+- qcom,warm-bat-mv:		Maximum warm battery target voltage in milli-volts.
+- qcom,cool-bat-mv:		Maximum cool battery target voltage in milli-volts.
 
 Example:
 	i2c@f9967000 {
@@ -59,6 +78,8 @@ Example:
 			qcom,vcc-i2c-supply = <&pm8226_lvs1>;
 			qcom,float-voltage-mv = <4350>;
 			qcom,disable-apsd;
+			qcom,chg-inhibit-disabled;
+			qcom,bms-controlled-charging;
 			qcom,fastchg-current-max-ma = <1500>;
 			qcom,bms-psy-name = "bms";
 			qcom,chg-vadc = <&pm8226_vadc>;
@@ -66,6 +87,12 @@ Example:
 			qcom,hot-bat-decidegc = <500>;
 			qcom,cold-bat-decidegc = <0>;
 			qcom,bat-present-decidegc = <200>;
+			qcom,warm-bat-decidegc = <450>;
+			qcom,cool-bat-decidegc = <100>;
+			qcom,warm-bat-ma = <350>;
+			qcom,cool-bat-ma = <350>;
+			qcom,warm-bat-mv = <4200>;
+			qcom,cool-bat-mv = <4200>;
 		};
 	};
 
