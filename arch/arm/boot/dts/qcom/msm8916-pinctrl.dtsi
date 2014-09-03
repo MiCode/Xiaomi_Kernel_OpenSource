@@ -109,6 +109,20 @@
 			};
 		};
 
+		cdc-dmic-lines {
+			qcom,pins = <&gp 0>, <&gp 1>;
+			qcom,num-grp-pins = <2>;
+			qcom,pin-func = <4>;
+			label = "cdc-dmic-lines";
+			cdc_dmic_lines_act: dmic_lines_on {
+				drive-strength = <8>;
+			};
+			cdc_dmic_lines_sus: dmic_lines_off {
+				drive-strength = <2>;
+				bias-disable;
+			};
+		};
+
 		cross-conn-det {
 			qcom,pins = <&gp 120>;
 			qcom,num-grp-pins = <1>;
