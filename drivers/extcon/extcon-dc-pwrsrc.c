@@ -273,7 +273,8 @@ notify_otg_em:
 	if (!vbus_attach) {	/* disconnevt event */
 		if (notify_otg) {
 			atomic_notifier_call_chain(&info->otg->notifier,
-						USB_EVENT_VBUS, &vbus_mask);
+				vbus_mask ? USB_EVENT_VBUS : USB_EVENT_NONE,
+				NULL);
 			notify_otg = false;
 		}
 		if (notify_charger) {
@@ -292,7 +293,8 @@ notify_otg_em:
 			 * b/w device mode and host mode.
 			 */
 			atomic_notifier_call_chain(&info->otg->notifier,
-						USB_EVENT_VBUS, &vbus_mask);
+				vbus_mask ? USB_EVENT_VBUS : USB_EVENT_NONE,
+				NULL);
 		}
 
 		if (notify_charger)
@@ -341,12 +343,17 @@ static int dc_pwrsrc_handle_otg_notification(struct notifier_block *nb,
 	struct power_supply_cable_props cable_props;
 	int *val = (int *)param;
 
-	if (!val || ((event != USB_EVENT_ID) &&
-			(event != USB_EVENT_ENUMERATED)))
+	if ((event != USB_EVENT_ID) &&
+		(event != USB_EVENT_NONE) &&
+		(event != USB_EVENT_ENUMERATED))
+		return NOTIFY_DONE;
+
+	if ((event == USB_EVENT_ENUMERATED) && !param)
 		return NOTIFY_DONE;
 
 	dev_info(&info->pdev->dev,
-		"[OTG notification]evt:%lu val:%d\n", event, *val);
+		"[OTG notification]evt:%lu val:%d\n", event,
+				val ? *val : -1);
 
 	switch (event) {
 	case USB_EVENT_ID:
@@ -354,10 +361,10 @@ static int dc_pwrsrc_handle_otg_notification(struct notifier_block *nb,
 		 * in case of ID short(*id = 0)
 		 * enable vbus else disable vbus.
 		 */
-		if (*val)
-			info->id_short = false;
-		else
-			info->id_short = true;
+		info->id_short = true;
+		break;
+	case USB_EVENT_NONE:
+		info->id_short = false;
 		break;
 	case USB_EVENT_ENUMERATED:
 		/*
