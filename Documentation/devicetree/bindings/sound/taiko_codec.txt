@@ -382,6 +382,7 @@ Optional properties:
  - qcom,cdc-on-demand-supplies: List of supplies which can be enabled
 				dynamically.
 				Supplies in this list are off by default.
+ - qcom,cdc-micbias-cfilt-mv : MICBIAS voltage value
 
 Example:
 msm8x16_wcd_codec@f000{
