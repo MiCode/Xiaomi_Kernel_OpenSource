@@ -157,10 +157,12 @@ static inline void show_stats(struct msm_vidc_inst *i)
 	for (x = 0; x < MAX_PROFILING_POINTS; x++) {
 		if ((i->debug.pdata[x].name[0])  &&
 			(msm_vidc_debug & VIDC_PROF)) {
-			dprintk(VIDC_PROF, "%s averaged %d ms/sample\n",
-				i->debug.pdata[x].name,
-				i->debug.pdata[x].cumulative /
+			if (i->debug.samples) {
+				dprintk(VIDC_PROF, "%s averaged %d ms/sample\n",
+					i->debug.pdata[x].name,
+					i->debug.pdata[x].cumulative /
 					i->debug.samples);
+			}
 			dprintk(VIDC_PROF, "%s Samples: %d\n",
 					i->debug.pdata[x].name,
 					i->debug.samples);
