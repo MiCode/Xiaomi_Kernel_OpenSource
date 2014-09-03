@@ -432,6 +432,12 @@
 #define SRC_COPY_BLT  ((0x2<<29)|(0x43<<22))
 
 #define GCI_CONTROL	(dev_priv->info.display_mmio_offset + 0x650C)
+#define VGA_FAST_MODE_DISABLE	(1<<14)
+#define PFI_CREDITS_15		(7<<28)
+#define PFI_CREDITS_31		(8<<28)
+#define PFI_CREDITS_63		(9<<28)
+#define FORCE_CREDIT_RESEND	(1<<27)
+
 /*
  * Registers used only by the command parser
  */
