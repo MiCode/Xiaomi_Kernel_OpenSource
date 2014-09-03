@@ -34,6 +34,7 @@
 #include <linux/extcon/extcon-tsu6111.h>
 
 #define TSU_REG_CONTROL			0x02
+#define TSU_REG_ADC			0x07
 #define TSU_REG_DEVICETYPE1		0x0A
 #define TSU_REG_MANUALSW1		0x13
 
@@ -67,19 +68,19 @@ struct tsu6111_chip {
 	struct tsu6111_pdata	*pdata;
 	struct usb_phy		*otg;
 	struct work_struct	otg_work;
-	struct notifier_block	id_nb;
-	bool			id_short;
-	struct extcon_specific_cable_nb cable_obj;
-	struct notifier_block	vbus_nb;
 	struct work_struct	vbus_work;
+	struct notifier_block	host_nb;
+	struct notifier_block	id_nb;
+	struct notifier_block	vbus_nb;
+	bool			id_short;
+	bool			is_sdp;
+	bool			det_started;
+	spinlock_t		tsu_lock;
 	struct extcon_dev	*edev;
 	struct wake_lock	wakelock;
-	bool			is_sdp;
-	bool			a_bus_drop;
-	bool			vbus_drive;
+	struct extcon_specific_cable_nb cable_obj;
+	struct extcon_specific_cable_nb host_cable_obj;
 };
-
-static struct tsu6111_chip *chip_ptr;
 
 static int tsu6111_write_reg(struct i2c_client *client,
 		int reg, int value)
@@ -147,6 +148,7 @@ static int tsu6111_detect_dev(struct tsu6111_chip *chip)
 		 * MUX path is being closed. And by default
 		 * MUX is to connected Host mode path.
 		 */
+		dev_info(&chip->client->dev, "id shorted!!\n");
 		return ret;
 	}
 
@@ -197,12 +199,9 @@ static int tsu6111_detect_dev(struct tsu6111_chip *chip)
 		cable_props.ma = TSU_CHARGE_CUR_DCP;
 		if (!wake_lock_active(&chip->wakelock))
 			wake_lock(&chip->wakelock);
-	} else if (chrg_type == 0x80) {
-		dev_info(&chip->client->dev,
-                                "Enter USB host mode\n");
 	} else {
 		dev_warn(&chip->client->dev,
-			"disconnect or unknown or ID event\n");
+			"unknown type: %x\n", chrg_type);
 		cable_props.ma = 0;
 		cable_props.chrg_evt = POWER_SUPPLY_CHARGER_EVENT_DISCONNECT;
 	}
@@ -226,14 +225,6 @@ notify_otg_em:
 		}
 		if (wake_lock_active(&chip->wakelock))
 			wake_unlock(&chip->wakelock);
-		/* Let's see if what really needed is host mode */
-		ret = tsu6111_read_reg(client, TSU_REG_DEVICETYPE1);
-		if (ret < 0)
-			goto dev_det_i2c_failed;
-		if (ret == TSU6111_DET_OTG) { /* Enter host mode */
-			atomic_notifier_call_chain(&chip->otg->notifier,
-				USB_EVENT_ID, &vbus_mask);
-		}
 	} else {
 		if (notify_otg) {
 			/* close mux path to enable device mode */
@@ -265,13 +256,21 @@ dev_det_i2c_failed:
 
 static irqreturn_t tsu6111_irq_handler(int irq, void *data)
 {
+	unsigned long flags;
 	struct tsu6111_chip *chip = data;
 
 	pm_runtime_get_sync(&chip->client->dev);
 
 	dev_info(&chip->client->dev, "TSU USB INT!\n");
 
-	tsu6111_detect_dev(chip);
+	spin_lock_irqsave(&chip->tsu_lock, flags);
+	if (!chip->det_started) {
+		chip->det_started = 1;
+		spin_unlock_irqrestore(&chip->tsu_lock, flags);
+		tsu6111_detect_dev(chip);
+		chip->det_started = 0;
+	} else
+		spin_unlock_irqrestore(&chip->tsu_lock, flags);
 
 	pm_runtime_put_sync(&chip->client->dev);
 	return IRQ_HANDLED;
@@ -280,7 +279,7 @@ static irqreturn_t tsu6111_irq_handler(int irq, void *data)
 static void tsu6111_otg_event_worker(struct work_struct *work)
 {
 	struct tsu6111_chip *chip =
-	    container_of(work, struct tsu6111_chip, otg_work);
+		container_of(work, struct tsu6111_chip, otg_work);
 	int ret;
 
 	pm_runtime_get_sync(&chip->client->dev);
@@ -290,39 +289,57 @@ static void tsu6111_otg_event_worker(struct work_struct *work)
 		msleep(50);
 		/* enable mux2 path for host */
 		tsu6111_write_reg(chip->client, TSU_REG_MANUALSW1, 0x24);
-	} else
+	} else {
 		ret = chip->pdata->disable_vbus();
+		tsu6111_write_reg(chip->client, TSU_REG_MANUALSW1, 0x0);
+	}
+
 	if (ret < 0)
 		dev_warn(&chip->client->dev, "id vbus control failed\n");
 
 	pm_runtime_put_sync(&chip->client->dev);
 }
 
-static int tsu6111_handle_otg_notification(struct notifier_block *nb,
-				   unsigned long event, void *param)
+static int tsu6111_handle_host_notification(struct notifier_block *nb,
+					    unsigned long event, void *param)
 {
 	struct tsu6111_chip *chip =
-	    container_of(nb, struct tsu6111_chip, id_nb);
+			container_of(nb, struct tsu6111_chip, host_nb);
+	struct extcon_dev *edev = param;
+	int usb_host = !!edev->state;
+
+	if (usb_host) {
+		dev_info(&chip->client->dev,
+			 "USB-Host notification: host\n");
+		chip->id_short = true;
+	} else {
+		dev_info(&chip->client->dev,
+			 "USB-Host notification: peripheral\n");
+		chip->id_short = false;
+	}
+	schedule_work(&chip->otg_work);
+
+	return NOTIFY_OK;
+}
+
+static int tsu6111_handle_otg_notification(struct notifier_block *nb,
+					   unsigned long event, void *param)
+{
+	struct tsu6111_chip *chip =
+			container_of(nb, struct tsu6111_chip, id_nb);
 	struct power_supply_cable_props cable_props;
 	int *val = (int *)param;
 
 	if (!val || ((event != USB_EVENT_ID) &&
-			(event != USB_EVENT_ENUMERATED)))
+		     (event != USB_EVENT_ENUMERATED)))
+
 		return NOTIFY_DONE;
 
 	dev_info(&chip->client->dev,
-		"[OTG notification]evt:%lu val:%d\n", event, *val);
+		 "[OTG notification]evt:%lu val:%d\n", event, *val);
 
 	switch (event) {
 	case USB_EVENT_ID:
-		/*
-		 * in case of ID short(*id = 0)
-		 * enable vbus else disable vbus.
-		 */
-		if (*val)
-			chip->id_short = false;
-		else
-			chip->id_short = true;
 		schedule_work(&chip->otg_work);
 		break;
 	case USB_EVENT_ENUMERATED:
@@ -335,8 +352,8 @@ static int tsu6111_handle_otg_notification(struct notifier_block *nb,
 		 * if platform can voilate charging_compliance.
 		 */
 		if (chip->pdata->charging_compliance_override ||
-			 !chip->is_sdp ||
-			(*val == TSU_CHARGE_CUR_SDP_100))
+		    !chip->is_sdp ||
+		    (*val == TSU_CHARGE_CUR_SDP_100))
 			break;
 		/*
 		 * if current limit is < 100mA
@@ -344,14 +361,14 @@ static int tsu6111_handle_otg_notification(struct notifier_block *nb,
 		 */
 		if (*val < TSU_CHARGE_CUR_SDP_100)
 			cable_props.chrg_evt =
-					POWER_SUPPLY_CHARGER_EVENT_SUSPEND;
+				POWER_SUPPLY_CHARGER_EVENT_SUSPEND;
 		else
 			cable_props.chrg_evt =
-					POWER_SUPPLY_CHARGER_EVENT_CONNECT;
+				POWER_SUPPLY_CHARGER_EVENT_CONNECT;
 		cable_props.chrg_type = POWER_SUPPLY_CHARGER_TYPE_USB_SDP;
 		cable_props.ma = *val;
 		atomic_notifier_call_chain(&power_supply_notifier,
-					PSY_CABLE_EVENT, &cable_props);
+			PSY_CABLE_EVENT, &cable_props);
 		break;
 	default:
 		dev_warn(&chip->client->dev, "invalid OTG event\n");
@@ -362,13 +379,21 @@ static int tsu6111_handle_otg_notification(struct notifier_block *nb,
 
 static void tsu6111_pwrsrc_event_worker(struct work_struct *work)
 {
+	unsigned long flags;
+	int ret;
 	struct tsu6111_chip *chip =
 	    container_of(work, struct tsu6111_chip, vbus_work);
-	int ret;
 
 	pm_runtime_get_sync(&chip->client->dev);
 
-	ret = tsu6111_detect_dev(chip);
+	spin_lock_irqsave(&chip->tsu_lock, flags);
+	if (!chip->det_started) {
+		chip->det_started = 1;
+		spin_unlock_irqrestore(&chip->tsu_lock, flags);
+		ret = tsu6111_detect_dev(chip);
+		chip->det_started = 0;
+	} else
+		spin_unlock_irqrestore(&chip->tsu_lock, flags);
 
 	pm_runtime_put_sync(&chip->client->dev);
 }
@@ -415,7 +440,7 @@ static int tsu6111_irq_init(struct tsu6111_chip *chip)
 		dev_err(dev, "%s: invalid irq for the gpio\n", __func__);
 		return ret;
 	} else
-		dev_err(dev, "%s: irq = %d\n", __func__, ret);
+		dev_info(dev, "%s: irq = %d\n", __func__, ret);
 
 	/* get irq number */
 	chip->client->irq = ret;
@@ -443,8 +468,7 @@ static int tsu6111_probe(struct i2c_client *client,
 	const struct acpi_device_id *acpi_id;
 	struct tsu6111_chip *chip;
 	struct device *dev;
-	int ret = 0, id_val = -1;
-	int val = 0;
+	int ret, val;
 
 	chip = kzalloc(sizeof(struct tsu6111_chip), GFP_KERNEL);
 	if (!chip) {
@@ -469,6 +493,7 @@ static int tsu6111_probe(struct i2c_client *client,
 	chip->pdata = (struct tsu6111_pdata *)acpi_id->driver_data;
 
 	i2c_set_clientdata(client, chip);
+	spin_lock_init(&chip->tsu_lock);
 	wake_lock_init(&chip->wakelock, WAKE_LOCK_SUSPEND,
 						"tsu6111_wakelock");
 
@@ -492,6 +517,8 @@ static int tsu6111_probe(struct i2c_client *client,
 	chip->vbus_nb.notifier_call = tsu6111_handle_pwrsrc_notification;
 	ret = extcon_register_interest(&chip->cable_obj, NULL,
 			TSU6111_EXTCON_USB, &chip->vbus_nb);
+	if (ret < 0)
+		dev_err(&client->dev, "register pwrsrc notification failed!\n");
 
 	/* OTG notification */
 	chip->otg = usb_get_phy(USB_PHY_TYPE_USB2);
@@ -509,41 +536,32 @@ static int tsu6111_probe(struct i2c_client *client,
 		goto id_reg_failed;
 	}
 
-	/* unmask interrupt */
-	val = tsu6111_read_reg(chip->client, TSU_REG_CONTROL);
-	val = val & 0xfe;
-	tsu6111_write_reg(chip->client, TSU_REG_CONTROL, val);
+	chip->host_nb.notifier_call = tsu6111_handle_host_notification;
+	ret = extcon_register_interest(&chip->host_cable_obj, NULL, "USB-Host",
+					&chip->host_nb);
+	if (ret)
+		dev_err(&client->dev, "register host notification failed!\n");
 
 	ret = tsu6111_irq_init(chip);
 	if (ret) {
-		/* In case of failure hardcode to USB device mode */
-		val = tsu6111_read_reg(chip->client, TSU_REG_CONTROL);
-		val = val & 0xFB;
-		tsu6111_write_reg(chip->client, TSU_REG_CONTROL, val);
-		tsu6111_write_reg(chip->client, TSU_REG_MANUALSW1, 0x6c);
+		dev_err(&client->dev, "tsu6111_irq_init failed %d\n", ret);
 		goto intr_reg_failed;
 	}
-	chip_ptr = chip;
 
-	if (chip->otg->get_id_status) {
-		ret = chip->otg->get_id_status(chip->otg, &id_val);
-		if (ret < 0) {
-			dev_warn(&client->dev,
-				"otg get ID status failed:%d\n", ret);
-			ret = 0;
-		}
-	}
-
-	/* Set manual switching */
+	/* Set manual switching, and unmask interrupt */
 	val = tsu6111_read_reg(chip->client, TSU_REG_CONTROL);
-	val = val & 0xFB;
+	val = val & 0xfa;
 	tsu6111_write_reg(chip->client, TSU_REG_CONTROL, val);
 	/* open all switches, set correct status later by tsu6111_detect_dev */
 	tsu6111_write_reg(chip->client, TSU_REG_MANUALSW1, 0x00);
 
-	if (!id_val && !chip->id_short)
+	if (0 == tsu6111_read_reg(chip->client, TSU_REG_ADC)) {
+		dev_info(&client->dev, "probe: id shorted!!\n");
+		chip->id_short = true;
+	}
+	if (chip->id_short)
 		atomic_notifier_call_chain(&chip->otg->notifier,
-						USB_EVENT_ID, &id_val);
+						USB_EVENT_ID, &chip->id_short);
 	else
 		tsu6111_detect_dev(chip);
 
