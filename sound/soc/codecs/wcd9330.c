@@ -3103,9 +3103,53 @@ static int tomtom_codec_enable_mad(struct snd_soc_dapm_widget *w,
 				  struct snd_kcontrol *kcontrol, int event)
 {
 	struct snd_soc_codec *codec = w->codec;
+	struct tomtom_priv *tomtom = snd_soc_codec_get_drvdata(codec);
 	int ret = 0;
+	u8 mad_micb, mad_cfilt;
+	u16 mad_cfilt_reg;
 
-	pr_debug("%s %d\n", __func__, event);
+	mad_micb = snd_soc_read(codec, TOMTOM_A_MAD_ANA_CTRL) & 0x07;
+	switch (mad_micb) {
+	case 1:
+		mad_cfilt = tomtom->resmgr.pdata->micbias.bias1_cfilt_sel;
+		break;
+	case 2:
+		mad_cfilt = tomtom->resmgr.pdata->micbias.bias2_cfilt_sel;
+		break;
+	case 3:
+		mad_cfilt = tomtom->resmgr.pdata->micbias.bias3_cfilt_sel;
+		break;
+	case 4:
+		mad_cfilt = tomtom->resmgr.pdata->micbias.bias4_cfilt_sel;
+		break;
+	default:
+		dev_err(codec->dev,
+			"%s: Invalid micbias selection 0x%x\n",
+			__func__, mad_micb);
+		return -EINVAL;
+	}
+
+	switch (mad_cfilt) {
+	case WCD9XXX_CFILT1_SEL:
+		mad_cfilt_reg = TOMTOM_A_MICB_CFILT_1_VAL;
+		break;
+	case WCD9XXX_CFILT2_SEL:
+		mad_cfilt_reg = TOMTOM_A_MICB_CFILT_2_VAL;
+		break;
+	case WCD9XXX_CFILT3_SEL:
+		mad_cfilt_reg = TOMTOM_A_MICB_CFILT_3_VAL;
+		break;
+	default:
+		dev_err(codec->dev,
+			"%s: invalid cfilt 0x%x for micb 0x%x\n",
+			__func__, mad_cfilt, mad_micb);
+		return -EINVAL;
+	}
+
+	dev_dbg(codec->dev,
+		"%s event = %d, mad_cfilt_reg = 0x%x\n",
+		__func__, event, mad_cfilt_reg);
+
 	switch (event) {
 	case SND_SOC_DAPM_PRE_PMU:
 		ret = tomtom_codec_config_mad(codec);
@@ -3113,7 +3157,15 @@ static int tomtom_codec_enable_mad(struct snd_soc_dapm_widget *w,
 			pr_err("%s: Failed to config MAD\n", __func__);
 			break;
 		}
+
+		/* setup MAD micbias to VDDIO */
+		snd_soc_update_bits(codec, mad_cfilt_reg,
+				    0x02, 0x02);
 		break;
+	case SND_SOC_DAPM_POST_PMD:
+		/* Undo setup of MAD micbias to VDDIO */
+		snd_soc_update_bits(codec, mad_cfilt_reg,
+				    0x02, 0x00);
 	}
 	return ret;
 }
@@ -6433,7 +6485,8 @@ static const struct snd_soc_dapm_widget tomtom_dapm_widgets[] = {
 		SND_SOC_DAPM_POST_PMU | SND_SOC_DAPM_POST_PMD),
 	SND_SOC_DAPM_AIF_OUT_E("AIF4 MAD", "AIF4 MAD TX", 0,
 			       SND_SOC_NOPM, 0, 0,
-			       tomtom_codec_enable_mad, SND_SOC_DAPM_PRE_PMU),
+			       tomtom_codec_enable_mad,
+			       SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMD),
 	SND_SOC_DAPM_SWITCH("MADONOFF", SND_SOC_NOPM, 0, 0,
 			    &aif4_mad_switch),
 	SND_SOC_DAPM_INPUT("MADINPUT"),
