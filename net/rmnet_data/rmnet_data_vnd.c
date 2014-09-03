@@ -591,6 +591,11 @@ int rmnet_vnd_create_dev(int id, struct net_device **new_device,
 		return RMNET_CONFIG_NOMEM;
 	}
 
+	if (!prefix) {
+		/* Configuring UL checksum offload on rmnet_data interfaces */
+		dev->hw_features = NETIF_F_IP_CSUM | NETIF_F_IPV6_CSUM;
+	}
+
 	rc = register_netdevice(dev);
 	if (rc != 0) {
 		LOGE("Failed to to register netdev [%s]", dev->name);

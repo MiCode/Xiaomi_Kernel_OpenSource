@@ -220,6 +220,26 @@ TRACE_EVENT(rmnet_map_checksum_downlink_packet,
 		__get_str(name), __entry->res)
 )
 
+TRACE_EVENT(rmnet_map_checksum_uplink_packet,
+
+	TP_PROTO(struct net_device *dev, int ckresult),
+
+	TP_ARGS(dev, ckresult),
+
+	TP_STRUCT__entry(
+		__string(name, dev->name)
+		__field(int, res)
+	),
+
+	TP_fast_assign(
+		__assign_str(name, dev->name);
+		__entry->res = ckresult;
+	),
+
+	TP_printk("UL checksum on dev=%s, res: %d",
+		__get_str(name), __entry->res)
+)
+
 #endif /* _RMNET_DATA_TRACE_H_ */
 
 /* This part must be outside protection */
