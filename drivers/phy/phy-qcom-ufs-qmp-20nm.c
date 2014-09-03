@@ -22,8 +22,8 @@
 #include <linux/platform_device.h>
 #include <linux/msm-bus.h>
 
-#include "ufs-msm-phy.h"
-#include "ufs-msm-phy-qmp-20nm.h"
+#include <linux/phy/phy-qcom-ufs.h>
+#include "phy-qcom-ufs-qmp-20nm.h"
 
 #define UFS_PHY_NAME "ufs_phy_qmp_20nm"
 

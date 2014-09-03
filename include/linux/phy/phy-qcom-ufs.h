@@ -26,9 +26,9 @@
 #include <linux/phy/phy.h>
 #include <linux/msm-bus.h>
 
-#include "ufshcd.h"
-#include "unipro.h"
-#include "ufs-msm.h"
+#include <linux/scsi/ufs/ufshcd.h>
+#include <linux/scsi/ufs/unipro.h>
+#include <linux/scsi/ufs/ufs-qcom.h>
 
 #define UFS_QCOM_PHY_CAL_ENTRY(reg, val)	\
 	{				\
@@ -37,6 +37,15 @@
 	}
 
 #define UFS_QCOM_PHY_NAME_LEN	30
+
+enum {
+	MASK_SERDES_START       = 0x1,
+	MASK_PCS_READY          = 0x1,
+};
+
+enum {
+	OFFSET_SERDES_START     = 0x0,
+};
 
 struct ufs_qcom_phy_stored_attributes {
 	u32 att;

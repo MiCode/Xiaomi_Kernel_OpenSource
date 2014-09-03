@@ -22,7 +22,7 @@
 #include <linux/platform_device.h>
 #include <linux/msm-bus.h>
 
-#include "ufs-msm-phy.h"
+#include <linux/phy/phy-qcom-ufs.h>
 
 int ufs_qcom_phy_calibrate(struct ufs_qcom_phy *ufs_qcom_phy,
 			   struct ufs_qcom_phy_calibration *tbl_A,
