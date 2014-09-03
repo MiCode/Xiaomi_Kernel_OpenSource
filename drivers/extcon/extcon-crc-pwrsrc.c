@@ -185,7 +185,7 @@ static void handle_pwrsrc_event(struct pwrsrc_info *info, int pwrsrcirq)
 		/* notify OTG driver */
 		if (info->otg)
 			atomic_notifier_call_chain(&info->otg->notifier,
-				USB_EVENT_VBUS, &mask);
+				mask ? USB_EVENT_VBUS : USB_EVENT_NONE, NULL);
 	} else if (pwrsrcirq & PWRSRC_DCIN_DET) {
 		if (spwrsrc & PWRSRC_DCIN_DET) {
 			dev_dbg(&info->pdev->dev, "ADP attach event\n");
@@ -237,7 +237,6 @@ static int pwrsrc_extcon_dev_reg_callback(struct notifier_block *nb,
 					unsigned long event, void *data)
 {
 	struct pwrsrc_info *info = container_of(nb, struct pwrsrc_info, nb);
-	int mask = 0;
 
 	/* check if there is other extcon cables */
 	if (extcon_num_of_cable_devs(EXTCON_CABLE_SDP)) {
@@ -247,7 +246,7 @@ static int pwrsrc_extcon_dev_reg_callback(struct notifier_block *nb,
 		 * OTG on cable connect */
 		if (info->otg)
 			atomic_notifier_call_chain(&info->otg->notifier,
-				USB_EVENT_VBUS, &mask);
+					USB_EVENT_NONE, NULL);
 		/* Set VBUS supply mode to SW control mode */
 		intel_soc_pmic_writeb(CRYSTALCOVE_VBUSCNTL_REG, 0x02);
 		if (info->nb.notifier_call) {
