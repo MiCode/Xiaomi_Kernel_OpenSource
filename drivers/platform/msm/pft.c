@@ -158,6 +158,7 @@ struct pft_device {
 	u32 uid_count;
 	struct list_head open_file_list;
 	struct mutex lock;
+	bool is_chosen_lsm;
 };
 
 /* Device Driver State */
@@ -202,7 +203,7 @@ static struct security_operations pft_security_ops = {
 	.file_close		= pft_file_close,
 };
 
-static int __init pft_lsm_init(void)
+static int __init pft_lsm_init(struct pft_device *dev)
 {
 	int ret;
 
@@ -216,6 +217,7 @@ static int __init pft_lsm_init(void)
 			pr_err("pft lsm registeration failed, ret=%d.\n", ret);
 			return 0;
 		}
+		dev->is_chosen_lsm = true;
 		pr_debug("pft is the chosen lsm, registered sucessfully !\n");
 	} else {
 		pr_debug("pft is not the chosen lsm.\n");
@@ -694,7 +696,7 @@ int pft_get_key_index(struct bio *bio, u32 *key_index,
 	if (!pft_is_ready())
 		return -ENODEV;
 
-	if (!selinux_is_enabled())
+	if (!selinux_is_enabled() && !pft_dev->is_chosen_lsm)
 		return -ENODEV;
 
 	if (!bio)
@@ -1815,7 +1817,7 @@ static int __init pft_init(void)
 		goto fail;
 	}
 
-	pft_lsm_init();
+	pft_lsm_init(dev);
 
 	pr_info("Drivr initialized successfully %s %s.n", __DATE__, __TIME__);
 
