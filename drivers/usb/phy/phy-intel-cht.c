@@ -206,24 +206,16 @@ static void cht_otg_stop(struct platform_device *pdev)
 static int cht_otg_handle_notification(struct notifier_block *nb,
 				unsigned long event, void *data)
 {
-	int state, val;
+	int state;
 
 	if (!cht_otg_dev)
 		return NOTIFY_BAD;
-
-	if (data != NULL)
-		val = *(int *)data;
-	else
-		val = 1;
 
 	switch (event) {
 	/* USB_EVENT_VBUS: vbus valid event */
 	case USB_EVENT_VBUS:
 		dev_info(cht_otg_dev->phy.dev, "USB_EVENT_VBUS vbus valid\n");
-		if (val)
-			cht_otg_dev->fsm.b_sess_vld = 1;
-		else
-			cht_otg_dev->fsm.b_sess_vld = 0;
+		cht_otg_dev->fsm.b_sess_vld = 1;
 		schedule_work(&cht_otg_dev->fsm_work);
 		state = NOTIFY_OK;
 		break;
@@ -240,6 +232,8 @@ static int cht_otg_handle_notification(struct notifier_block *nb,
 					"USB_EVENT_NONE cable disconnected\n");
 		if (cht_otg_dev->fsm.id == 0)
 			cht_otg_dev->fsm.id = 1;
+		else if (cht_otg_dev->fsm.b_sess_vld)
+			cht_otg_dev->fsm.b_sess_vld = 0;
 		else
 			dev_err(cht_otg_dev->phy.dev, "why USB_EVENT_NONE?\n");
 		schedule_work(&cht_otg_dev->fsm_work);
@@ -326,7 +320,6 @@ static ssize_t store_vbus_evt(struct device *_dev,
 		struct device_attribute *attr, const char *buf, size_t count)
 {
 	struct otg_fsm *fsm;
-	int val;
 
 	if (!cht_otg_dev)
 		return -EINVAL;
@@ -339,15 +332,13 @@ static ssize_t store_vbus_evt(struct device *_dev,
 	switch (buf[0]) {
 	case '1':
 		dev_info(cht_otg_dev->phy.dev, "VBUS = 1\n");
-		val = 1;
 		atomic_notifier_call_chain(&cht_otg_dev->phy.notifier,
-			USB_EVENT_VBUS, &val);
+			USB_EVENT_VBUS, NULL);
 		return count;
 	case '0':
 		dev_info(cht_otg_dev->phy.dev, "VBUS = 0\n");
-		val = 0;
 		atomic_notifier_call_chain(&cht_otg_dev->phy.notifier,
-			USB_EVENT_VBUS, &val);
+			USB_EVENT_NONE, NULL);
 		return count;
 	default:
 		return -EINVAL;
