@@ -250,7 +250,8 @@ notify_otg_em:
 	if (!vbus_attach) {	/* disconnevt event */
 		if (notify_otg) {
 			atomic_notifier_call_chain(&chip->otg->notifier,
-						USB_EVENT_VBUS, &vbus_mask);
+				vbus_mask ? USB_EVENT_VBUS : USB_EVENT_NONE,
+				NULL);
 			notify_otg = false;
 		}
 		if (notify_charger) {
@@ -273,7 +274,8 @@ notify_otg_em:
 			if (ret < 0)
 				goto dev_det_i2c_failed;
 			atomic_notifier_call_chain(&chip->otg->notifier,
-						USB_EVENT_VBUS, &vbus_mask);
+				vbus_mask ? USB_EVENT_VBUS : USB_EVENT_NONE,
+				NULL);
 		}
 
 		if (notify_charger) {
@@ -347,12 +349,17 @@ static int smsc375x_handle_otg_notification(struct notifier_block *nb,
 	struct power_supply_cable_props cable_props;
 	int *val = (int *)param;
 
-	if (!val || ((event != USB_EVENT_ID) &&
-			(event != USB_EVENT_ENUMERATED)))
+	if ((event != USB_EVENT_ID) &&
+		(event != USB_EVENT_NONE) &&
+		(event != USB_EVENT_ENUMERATED))
+		return NOTIFY_DONE;
+
+	if ((event == USB_EVENT_ENUMERATED) && !param)
 		return NOTIFY_DONE;
 
 	dev_info(&chip->client->dev,
-		"[OTG notification]evt:%lu val:%d\n", event, *val);
+		"[OTG notification]evt:%lu val:%d\n", event,
+				val ? *val : -1);
 
 	switch (event) {
 	case USB_EVENT_ID:
@@ -360,10 +367,11 @@ static int smsc375x_handle_otg_notification(struct notifier_block *nb,
 		 * in case of ID short(*id = 0)
 		 * enable vbus else disable vbus.
 		 */
-		if (*val)
-			chip->id_short = false;
-		else
-			chip->id_short = true;
+		chip->id_short = true;
+		schedule_work(&chip->otg_work);
+		break;
+	case USB_EVENT_NONE:
+		chip->id_short = false;
 		schedule_work(&chip->otg_work);
 		break;
 	case USB_EVENT_ENUMERATED:
@@ -566,7 +574,7 @@ static int smsc375x_probe(struct i2c_client *client,
 
 	if (!id_val && !chip->id_short)
 		atomic_notifier_call_chain(&chip->otg->notifier,
-						USB_EVENT_ID, &id_val);
+				USB_EVENT_ID, NULL);
 	else
 		smsc375x_detect_dev(chip);
 
