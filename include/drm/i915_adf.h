@@ -41,6 +41,8 @@ extern void intel_adf_dpio_sideband_rw(u32 operation, u32 port,
 extern void intel_adf_pci_sideband_rw(u32 operation, u32 port,
 				      u32 reg, u32 *val);
 extern struct pci_dev *i915_adf_get_pci_dev(void);
+extern void intel_adf_get_dsi_vbt_data(void **vbt_data,
+				   struct drm_display_mode **mode);
 
 #endif
 

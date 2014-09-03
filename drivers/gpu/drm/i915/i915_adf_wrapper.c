@@ -112,4 +112,15 @@ void intel_adf_dpio_sideband_rw(u32 operation, u32 port, u32 reg, u32 *val)
 }
 EXPORT_SYMBOL(intel_adf_dpio_sideband_rw);
 
+void intel_adf_get_dsi_vbt_data(void **vbt_data, struct drm_display_mode **mode)
+{
+	if (!i915_adf_dev)
+		return;
+
+	*vbt_data = (void *) &i915_adf_dev->vbt.dsi;
+	*mode = i915_adf_dev->vbt.lfp_lvds_vbt_mode;
+}
+EXPORT_SYMBOL(intel_adf_get_dsi_vbt_data);
+
+
 #endif
