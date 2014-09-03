@@ -41,9 +41,7 @@
 #include <wlfc_proto.h>
 #include <dhd_wlfc.h>
 #endif
-#ifdef DHDTCPACK_SUPPRESS
 #include <dhd_ip.h>
-#endif /* DHDTCPACK_SUPPRESS */
 
 
 /*
@@ -995,7 +993,7 @@ _dhd_wlfc_pretx_pktprocess(athost_wl_status_info_t* ctx,
 	bool send_tim_update = FALSE;
 	uint32 htod = 0;
 	uint16 htodseq = 0;
-	uint8 free_ctr;
+	uint8 free_ctr, flags = 0;
 	int gen = 0xff;
 	dhd_pub_t *dhdp = (dhd_pub_t *)ctx->dhdp;
 
@@ -1049,22 +1047,25 @@ _dhd_wlfc_pretx_pktprocess(athost_wl_status_info_t* ctx,
 		return BCME_ERROR;
 	}
 
-	WL_TXSTATUS_SET_FREERUNCTR(htod, free_ctr);
-	WL_TXSTATUS_SET_HSLOT(htod, hslot);
-	WL_TXSTATUS_SET_FIFO(htod, DHD_PKTTAG_FIFO(PKTTAG(p)));
-	WL_TXSTATUS_SET_FLAGS(htod, WLFC_PKTFLAG_PKTFROMHOST);
-	WL_TXSTATUS_SET_GENERATION(htod, gen);
-	DHD_PKTTAG_SETPKTDIR(PKTTAG(p), 1);
-
+	flags = WLFC_PKTFLAG_PKTFROMHOST;
 	if (!DHD_PKTTAG_CREDITCHECK(PKTTAG(p))) {
 		/*
 		Indicate that this packet is being sent in response to an
 		explicit request from the firmware side.
 		*/
-		WLFC_PKTFLAG_SET_PKTREQUESTED(htod);
-	} else {
-		WLFC_PKTFLAG_CLR_PKTREQUESTED(htod);
+		flags |= WLFC_PKTFLAG_PKT_REQUESTED;
 	}
+	if (pkt_is_dhcp(ctx->osh, p)) {
+		flags |= WLFC_PKTFLAG_PKT_FORCELOWRATE;
+	}
+
+	WL_TXSTATUS_SET_FREERUNCTR(htod, free_ctr);
+	WL_TXSTATUS_SET_HSLOT(htod, hslot);
+	WL_TXSTATUS_SET_FIFO(htod, DHD_PKTTAG_FIFO(PKTTAG(p)));
+	WL_TXSTATUS_SET_FLAGS(htod, flags);
+	WL_TXSTATUS_SET_GENERATION(htod, gen);
+	DHD_PKTTAG_SETPKTDIR(PKTTAG(p), 1);
+
 
 	rc = _dhd_wlfc_pushheader(ctx, p, send_tim_update,
 		entry->traffic_lastreported_bmp, entry->mac_handle, htod, htodseq, FALSE);

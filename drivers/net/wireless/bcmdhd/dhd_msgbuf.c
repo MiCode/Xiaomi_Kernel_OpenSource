@@ -51,7 +51,8 @@
 
 #include <pcie_core.h>
 #include <bcmpcie.h>
-
+#include <dhd_pcie.h>
+#include <dhd_ip.h>
 #define RETRIES 2		/* # of retries to retrieve matching ioctl response */
 #define IOCTL_HDR_LEN	12
 
@@ -1896,6 +1897,7 @@ dhd_prot_txdata(dhd_pub_t *dhd, void *PKTBUF, uint8 ifidx)
 	uint16	headroom;
 
 	msgbuf_ring_t *msg_ring;
+	uint8 dhcp_pkt;
 
 	if (!dhd_bus_is_txmode_push(dhd->bus)) {
 		flow_ring_table_t *flow_ring_table;
@@ -1939,7 +1941,11 @@ dhd_prot_txdata(dhd_pub_t *dhd, void *PKTBUF, uint8 ifidx)
 			pktlen);
 		goto err_no_res_pktfree;
 	}
-
+	/* test if dhcp pkt */
+	dhcp_pkt = pkt_is_dhcp(dhd->osh, PKTBUF);
+	txdesc->flag2 = (txdesc->flag2 & ~(BCMPCIE_PKT_FLAGS2_FORCELOWRATE_MASK <<
+		BCMPCIE_PKT_FLAGS2_FORCELOWRATE_SHIFT)) | ((dhcp_pkt &
+		BCMPCIE_PKT_FLAGS2_FORCELOWRATE_MASK) << BCMPCIE_PKT_FLAGS2_FORCELOWRATE_SHIFT);
 	/* Extract the data pointer and length information */
 	pktdata = PKTDATA(dhd->osh, PKTBUF);
 	pktlen  = (uint16)PKTLEN(dhd->osh, PKTBUF);
