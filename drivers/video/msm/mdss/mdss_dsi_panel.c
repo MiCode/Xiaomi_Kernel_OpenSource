@@ -38,6 +38,9 @@ DEFINE_LED_TRIGGER(bl_led_trigger);
 
 void mdss_dsi_panel_pwm_cfg(struct mdss_dsi_ctrl_pdata *ctrl)
 {
+	if (ctrl->pwm_pmi)
+		return;
+
 	ctrl->pwm_bl = pwm_request(ctrl->pwm_lpg_chan, "lcd-bklt");
 	if (ctrl->pwm_bl == NULL || IS_ERR(ctrl->pwm_bl)) {
 		pr_err("%s: Error: lpg_chan=%d pwm request failed",
@@ -1362,6 +1365,8 @@ static int mdss_panel_parse_dt(struct device_node *np,
 			ctrl_pdata->bklt_ctrl = BL_WLED;
 		} else if (!strncmp(data, "bl_ctrl_pwm", 11)) {
 			ctrl_pdata->bklt_ctrl = BL_PWM;
+			ctrl_pdata->pwm_pmi = of_property_read_bool(np,
+					"qcom,mdss-dsi-bl-pwm-pmi");
 			rc = of_property_read_u32(np,
 				"qcom,mdss-dsi-bl-pmic-pwm-frequency", &tmp);
 			if (rc) {
@@ -1370,18 +1375,30 @@ static int mdss_panel_parse_dt(struct device_node *np,
 				return -EINVAL;
 			}
 			ctrl_pdata->pwm_period = tmp;
-			rc = of_property_read_u32(np,
-				"qcom,mdss-dsi-bl-pmic-bank-select", &tmp);
-			if (rc) {
-				pr_err("%s:%d, Error, dsi lpg channel\n",
-						__func__, __LINE__);
-				return -EINVAL;
+			if (ctrl_pdata->pwm_pmi) {
+				ctrl_pdata->pwm_bl = of_pwm_get(np, NULL);
+				if (IS_ERR(ctrl_pdata->pwm_bl)) {
+					pr_err("%s: Error, pwm device\n",
+								__func__);
+					ctrl_pdata->pwm_bl = NULL;
+					return -EINVAL;
+				}
+			} else {
+				rc = of_property_read_u32(np,
+					"qcom,mdss-dsi-bl-pmic-bank-select",
+								 &tmp);
+				if (rc) {
+					pr_err("%s:%d, Error, lpg channel\n",
+							__func__, __LINE__);
+					return -EINVAL;
+				}
+				ctrl_pdata->pwm_lpg_chan = tmp;
+				tmp = of_get_named_gpio(np,
+					"qcom,mdss-dsi-pwm-gpio", 0);
+				ctrl_pdata->pwm_pmic_gpio = tmp;
+				pr_debug("%s: Configured PWM bklt ctrl\n",
+								 __func__);
 			}
-			ctrl_pdata->pwm_lpg_chan = tmp;
-			tmp = of_get_named_gpio(np,
-				"qcom,mdss-dsi-pwm-gpio", 0);
-			ctrl_pdata->pwm_pmic_gpio = tmp;
-			pr_debug("%s: Configured PWM bklt ctrl\n", __func__);
 		} else if (!strncmp(data, "bl_ctrl_dcs", 11)) {
 			ctrl_pdata->bklt_ctrl = BL_DCS_CMD;
 			pr_debug("%s: Configured DCS_CMD bklt ctrl\n",
