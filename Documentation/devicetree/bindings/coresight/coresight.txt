@@ -16,6 +16,8 @@ Required properties:
 	"arm,coresight-tpiu" for coresight tpiu device,
 	"qcom,coresight-replicator" for coresight replicator device,
 	"arm,coresight-funnel" for coresight funnel devices,
+	"qcom,coresight-tpda" for coresight tpda device,
+	"qcom,coresight-tpdm" for coresight tpdm device,
 	"arm,coresight-stm" for coresight stm trace device,
 	"arm,coresight-etm" for coresight etm trace devices,
 	"arm,coresight-etmv4" for coresight etmv4 trace devices,
@@ -62,6 +64,14 @@ Required properties:
 		compatible : should be "arm,coresight-funnel"
 		reg-names  : should be:
 			"funnel-base" - physical base address of funnel registers
+	- for coresight tpda trace device
+		compatible : should be "qcom,coresight-tpda"
+		reg-names  : should be:
+			"tpda-base" - physical base address of tpda registers
+	- for coresight tpdm trace device
+		compatible : should be "qcom,coresight-tpdm"
+		reg-names  : should be:
+			"tpdm-base" - physical base address of tpdm registers
 	- for coresight stm trace device
 		compatible : should be "arm,coresight-stm"
 		reg-names  : should be:
@@ -184,7 +194,9 @@ Optional properties:
 			    funnel component.
 -qcom,tmc-flush-powerdown : boolean, indicating trace data needs to be flushed before
 			    powering down CPU. Used for TMC component.
-
+-qcom,cmb-elem-size: specifies the CMB element size supported by each monitor
+		     connected to the aggregator on each port. Should be specified
+		     in pairs (port, cmb element size).
 Examples:
 
 1. Sinks
@@ -253,7 +265,42 @@ Examples:
 		coresight-child-ports = <0>;
 	};
 
+	tpda_lmh: tpda@fbb91000 {
+		compatible = "qcom,coresight-tpda";
+		reg = <0xfbb91000x1000>;
+		reg-names = "tpda-base";
+
+		coresight-id = <7>;
+		coresight-name = "coresight-tpda-lmh";
+		coresight-nr-inports = <32>;
+		coresight-outports = <0>;
+		coresight-child-list = <&funnel_in0>;
+		coresight-child-ports = <4>;
+		qcom,cmb-elem-size = <0 64>;
+
+		clocks = <&clock_rpm clk_qdss_clk>,
+			 <&clock_rpm clk_qdss_a_clk>;
+		clock-names = "core_clk", "core_a_clk";
+	};
+
 3. Sources
+	tpdm_lmh: tpdm@fbb90000 {
+		compatible = "qcom,coresight-tpdm";
+		reg = <0xfbb90000x1000>;
+		reg-names = "tpdm-base";
+
+		coresight-id = <8>;
+		coresight-name = "coresight-tpdm-lmh";
+		coresight-nr-inports = <0>;
+		coresight-outports = <0>;
+		coresight-child-list = <&tpda_lmh>;
+		coresight-child-ports = <0>;
+
+		clocks = <&clock_rpm clk_qdss_clk>,
+			 <&clock_rpm clk_qdss_a_clk>;
+		clock-names = "core_clk", "core_a_clk";
+	};
+
 	stm: stm@fc321000 {
 		compatible = "arm,coresight-stm";
 		reg = <0xfc321000 0x1000>,
