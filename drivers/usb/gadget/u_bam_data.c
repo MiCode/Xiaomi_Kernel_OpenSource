@@ -1269,6 +1269,8 @@ void u_bam_data_start_rndis_ipa(void)
 
 	if (!is_ipa_rndis_net_on)
 		queue_work(bam_data_wq, rndis_conn_w);
+	else
+		pr_debug("%s: Transfers already started?\n", __func__);
 }
 
 void u_bam_data_stop_rndis_ipa(void)
