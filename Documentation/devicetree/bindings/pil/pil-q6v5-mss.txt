@@ -59,6 +59,7 @@ Optional properties:
 - qcom,override-acc: Boolean- Present if we need to override the default ACC settings
 - qcom,ahb-clk-vote: Boolean- Present if we need to remove the vote for the mss_cfg_ahb
 		     clock after the modem boots up
+- qcom,qdsp6v56-1-3: Boolean- Present if the qdsp version is v56 1.3
 
 Example:
 	qcom,mss@fc880000 {

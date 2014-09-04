@@ -50,6 +50,7 @@ struct q6v5_data {
 	bool qdsp6v55;
 	bool qdsp6v5_2_0;
 	bool qdsp6v56;
+	bool qdsp6v56_1_3;
 	bool non_elf_image;
 	bool restart_reg_sec;
 	bool override_acc;
