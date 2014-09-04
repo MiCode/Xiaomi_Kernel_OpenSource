@@ -148,8 +148,8 @@ enum adreno_gpurev {
 #define ADRENO_TIMEOUT_FAULT BIT(2)
 #define ADRENO_IOMMU_PAGE_FAULT BIT(3)
 
-#define ADRENO_SPTP_PC_CTRL BIT(0)
-#define ADRENO_PPD_CTRL BIT(1)
+#define ADRENO_SPTP_PC_CTRL 0
+#define ADRENO_PPD_CTRL     1
 
 struct adreno_gpudev;
 
