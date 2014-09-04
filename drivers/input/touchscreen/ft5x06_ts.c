@@ -711,17 +711,19 @@ static int ft5x0x_ts_probe(struct i2c_client *client,
 		goto err_sysfs_create;
 	}
 #endif
-	err = ft5x0x_reg_init(ts_data);
-
-	if (err) {
-		dev_err(&client->dev, "reg init failed\n");
-		goto err_sysfs_create;
-	}
-
 	err = ft5x0x_wake_device(ts_data);
 
 	if (err) {
 		dev_err(&client->dev, "enable device failed\n");
+		goto err_sysfs_create;
+	}
+
+	dev_err(&client->dev, "Doing reg init now\n");
+
+	err = ft5x0x_reg_init(ts_data);
+
+	if (err) {
+		dev_err(&client->dev, "reg init failed\n");
 		goto err_sysfs_create;
 	}
 
