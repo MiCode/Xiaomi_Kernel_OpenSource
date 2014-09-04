@@ -8135,6 +8135,7 @@ more_balance:
 				stop_one_cpu_nowait(cpu_of(busiest),
 					active_load_balance_cpu_stop, busiest,
 					&busiest->active_balance_work);
+				ld_moved++;
 			}
 
 			/*
