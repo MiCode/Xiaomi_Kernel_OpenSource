@@ -400,6 +400,7 @@ static const struct nla_policy nl80211_policy[NL80211_ATTR_MAX+1] = {
 	[NL80211_ATTR_PMK] = { .type = NLA_BINARY,
 				   .len = NL80211_KEY_LEN_PMK },
 	[NL80211_ATTR_PMK_LEN] = { .type = NLA_U32 },
+	[NL80211_ATTR_ACS_OFFLOAD] = { .type = NLA_U8 },
 };
 
 /* policy for the key attributes */
@@ -1887,7 +1888,8 @@ static int __nl80211_set_channel(struct cfg80211_registered_device *rdev,
 			}
 
 			/* Only allow dynamic channel width changes */
-			if (chandef.chan != wdev->preset_chandef.chan) {
+			if ((wdev->preset_chandef.chan != NULL) &&
+				(chandef.chan != wdev->preset_chandef.chan)) {
 				result = -EBUSY;
 				break;
 			}
@@ -3242,35 +3244,39 @@ static int nl80211_start_ap(struct sk_buff *skb, struct genl_info *info)
 			return -EINVAL;
 	}
 
-	if (info->attrs[NL80211_ATTR_WIPHY_FREQ]) {
-		err = nl80211_parse_chandef(rdev, info, &params.chandef);
+	if (!info->attrs[NL80211_ATTR_ACS_OFFLOAD]) {
+		if (info->attrs[NL80211_ATTR_WIPHY_FREQ]) {
+			err = nl80211_parse_chandef(rdev,
+						info, &params.chandef);
+			if (err)
+				return err;
+		} else if (wdev->preset_chandef.chan) {
+			params.chandef = wdev->preset_chandef;
+		} else if (!nl80211_get_ap_channel(rdev, &params))
+			return -EINVAL;
+
+		if (!cfg80211_reg_can_beacon(&rdev->wiphy, &params.chandef))
+			return -EINVAL;
+
+		err = cfg80211_chandef_dfs_required(wdev->wiphy,
+						&params.chandef);
+		if (err < 0)
+			return err;
+		if (err) {
+			radar_detect_width = BIT(params.chandef.width);
+			params.radar_required = true;
+		}
+
+		mutex_lock(&rdev->devlist_mtx);
+		err = cfg80211_can_use_iftype_chan(rdev, wdev, wdev->iftype,
+						   params.chandef.chan,
+						   CHAN_MODE_SHARED,
+						   radar_detect_width);
+		mutex_unlock(&rdev->devlist_mtx);
+
 		if (err)
 			return err;
-	} else if (wdev->preset_chandef.chan) {
-		params.chandef = wdev->preset_chandef;
-	} else if (!nl80211_get_ap_channel(rdev, &params))
-		return -EINVAL;
-
-	if (!cfg80211_reg_can_beacon(&rdev->wiphy, &params.chandef))
-		return -EINVAL;
-
-	err = cfg80211_chandef_dfs_required(wdev->wiphy, &params.chandef);
-	if (err < 0)
-		return err;
-	if (err) {
-		radar_detect_width = BIT(params.chandef.width);
-		params.radar_required = true;
 	}
-
-	mutex_lock(&rdev->devlist_mtx);
-	err = cfg80211_can_use_iftype_chan(rdev, wdev, wdev->iftype,
-					   params.chandef.chan,
-					   CHAN_MODE_SHARED,
-					   radar_detect_width);
-	mutex_unlock(&rdev->devlist_mtx);
-
-	if (err)
-		return err;
 
 	if (info->attrs[NL80211_ATTR_ACL_POLICY]) {
 		params.acl = parse_acl_data(&rdev->wiphy, info);
@@ -10718,6 +10724,7 @@ void cfg80211_ch_switch_notify(struct net_device *dev,
 		goto out;
 
 	wdev->channel = chandef->chan;
+	wdev->preset_chandef.chan = chandef->chan;
 	nl80211_ch_switch_notify(rdev, dev, chandef, GFP_KERNEL);
 out:
 	wdev_unlock(wdev);
