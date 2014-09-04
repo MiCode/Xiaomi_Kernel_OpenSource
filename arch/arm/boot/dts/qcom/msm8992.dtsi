@@ -873,3 +873,4 @@
 #include "msm8992-regulator.dtsi"
 #include "msm8992-iommu.dtsi"
 #include "msm8992-iommu-domains.dtsi"
+#include "msm8992-smp2p.dtsi"
