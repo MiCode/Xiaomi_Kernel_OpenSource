@@ -1706,6 +1706,39 @@ void msm_cpp_clean_queue(struct cpp_device *cpp_dev)
 	}
 }
 
+#ifdef CONFIG_COMPAT
+static int msm_cpp_copy_from_ioctl_ptr(void *dst_ptr,
+	struct msm_camera_v4l2_ioctl_t *ioctl_ptr)
+{
+	int ret;
+
+	/* For compat task, source ptr is in kernel space */
+	if (is_compat_task()) {
+		memcpy(dst_ptr, ioctl_ptr->ioctl_ptr, ioctl_ptr->len);
+		ret = 0;
+	} else {
+		ret = copy_from_user(dst_ptr,
+			(void __user *)ioctl_ptr->ioctl_ptr, ioctl_ptr->len);
+		if (ret)
+			pr_err("Copy from user fail %d\n", ret);
+	}
+	return ret ? -EFAULT : 0;
+}
+#else
+static int msm_cpp_copy_from_ioctl_ptr(void *dst_ptr,
+	struct msm_camera_v4l2_ioctl_t *ioctl_ptr)
+{
+	int ret;
+
+	ret = copy_from_user(dst_ptr,
+		(void __user *)ioctl_ptr->ioctl_ptr, ioctl_ptr->len);
+	if (ret)
+		pr_err("Copy from user fail %d\n", ret);
+
+	return ret ? -EFAULT : 0;
+}
+#endif
+
 long msm_cpp_subdev_ioctl(struct v4l2_subdev *sd,
 			unsigned int cmd, void *arg)
 {
@@ -1807,24 +1840,14 @@ long msm_cpp_subdev_ioctl(struct v4l2_subdev *sd,
 			mutex_unlock(&cpp_dev->mutex);
 			return -EINVAL;
 		}
-#ifdef CONFIG_COMPAT
-		/* For compat task, source ptr is in kernel space
-		 * otherwise it is in user space*/
-		if (is_compat_task()) {
-			memcpy(u_stream_buff_info, ioctl_ptr->ioctl_ptr,
-					ioctl_ptr->len);
-		} else
-#endif
-		{
-			rc = (copy_from_user(u_stream_buff_info,
-					(void __user *)ioctl_ptr->ioctl_ptr,
-					ioctl_ptr->len) ? -EFAULT : 0);
-			if (rc) {
-				ERR_COPY_FROM_USER();
-				kfree(u_stream_buff_info);
-				mutex_unlock(&cpp_dev->mutex);
-				return -EINVAL;
-			}
+
+		rc = msm_cpp_copy_from_ioctl_ptr(u_stream_buff_info,
+			ioctl_ptr);
+		if (rc) {
+			ERR_COPY_FROM_USER();
+			kfree(u_stream_buff_info);
+			mutex_unlock(&cpp_dev->mutex);
+			return -EINVAL;
 		}
 		if (u_stream_buff_info->num_buffs == 0) {
 			pr_err("%s:%d: Invalid number of buffers\n", __func__,
@@ -1905,9 +1928,7 @@ long msm_cpp_subdev_ioctl(struct v4l2_subdev *sd,
 			return -EINVAL;
 		}
 
-		rc = (copy_from_user(&identity,
-				(void __user *)ioctl_ptr->ioctl_ptr,
-				ioctl_ptr->len) ? -EFAULT : 0);
+		rc = msm_cpp_copy_from_ioctl_ptr(&identity, ioctl_ptr);
 		if (rc) {
 			ERR_COPY_FROM_USER();
 			mutex_unlock(&cpp_dev->mutex);
@@ -1991,23 +2012,12 @@ long msm_cpp_subdev_ioctl(struct v4l2_subdev *sd,
 			mutex_unlock(&cpp_dev->mutex);
 			return -EINVAL;
 		}
-#ifdef CONFIG_COMPAT
-		/* For compat task, source ptr is in kernel space
-		 * otherwise it is in user space*/
-		if (is_compat_task()) {
-			memcpy(&clock_settings, ioctl_ptr->ioctl_ptr,
-					ioctl_ptr->len);
-		} else
-#endif
-		{
-			rc = (copy_from_user(&clock_settings,
-				(void __user *)ioctl_ptr->ioctl_ptr,
-				ioctl_ptr->len) ? -EFAULT : 0);
-			if (rc) {
-				ERR_COPY_FROM_USER();
-				mutex_unlock(&cpp_dev->mutex);
-				return -EINVAL;
-			}
+
+		rc = msm_cpp_copy_from_ioctl_ptr(&clock_settings, ioctl_ptr);
+		if (rc) {
+			ERR_COPY_FROM_USER();
+			mutex_unlock(&cpp_dev->mutex);
+			return -EINVAL;
 		}
 
 		if (clock_settings.clock_rate > 0) {
@@ -2054,10 +2064,8 @@ long msm_cpp_subdev_ioctl(struct v4l2_subdev *sd,
 	case VIDIOC_MSM_CPP_QUEUE_BUF: {
 		struct msm_pproc_queue_buf_info queue_buf_info;
 		CPP_DBG("VIDIOC_MSM_CPP_QUEUE_BUF\n");
-		rc = (copy_from_user(&queue_buf_info,
-				(void __user *)ioctl_ptr->ioctl_ptr,
-				sizeof(struct msm_pproc_queue_buf_info)) ?
-				-EFAULT : 0);
+
+		rc = msm_cpp_copy_from_ioctl_ptr(&queue_buf_info, ioctl_ptr);
 		if (rc) {
 			ERR_COPY_FROM_USER();
 			break;
@@ -2381,6 +2389,8 @@ static long msm_cpp_subdev_fops_compat_ioctl(struct file *file,
 	struct msm_camera_v4l2_ioctl_t kp_ioctl;
 	struct msm_camera_v4l2_ioctl32_t up32_ioctl;
 	struct msm_cpp_clock_settings_t clock_settings;
+	struct msm_pproc_queue_buf_info k_queue_buf;
+	struct msm_cpp_stream_buff_info_t k_cpp_buff_info;
 	void __user *up = (void __user *)arg;
 
 	if (sd == NULL) {
@@ -2480,7 +2490,6 @@ static long msm_cpp_subdev_fops_compat_ioctl(struct file *file,
 	{
 		struct msm_cpp_stream_buff_info32_t *u32_cpp_buff_info =
 		  (struct msm_cpp_stream_buff_info32_t *)kp_ioctl.ioctl_ptr;
-		struct msm_cpp_stream_buff_info_t k_cpp_buff_info;
 
 		k_cpp_buff_info.identity = u32_cpp_buff_info->identity;
 		k_cpp_buff_info.num_buffs = u32_cpp_buff_info->num_buffs;
@@ -2559,14 +2568,23 @@ static long msm_cpp_subdev_fops_compat_ioctl(struct file *file,
 	{
 		struct msm_pproc_queue_buf_info32_t *u32_queue_buf =
 		  (struct msm_pproc_queue_buf_info32_t *)kp_ioctl.ioctl_ptr;
-		struct msm_pproc_queue_buf_info k_queue_buf;
 
 		k_queue_buf.is_buf_dirty = u32_queue_buf->is_buf_dirty;
+		k_queue_buf.buff_mgr_info.session_id =
+			u32_queue_buf->buff_mgr_info.session_id;
+		k_queue_buf.buff_mgr_info.stream_id =
+			u32_queue_buf->buff_mgr_info.stream_id;
+		k_queue_buf.buff_mgr_info.frame_id =
+			u32_queue_buf->buff_mgr_info.frame_id;
+		k_queue_buf.buff_mgr_info.index =
+			u32_queue_buf->buff_mgr_info.index;
 		k_queue_buf.buff_mgr_info.timestamp.tv_sec =
 			u32_queue_buf->buff_mgr_info.timestamp.tv_sec;
 		k_queue_buf.buff_mgr_info.timestamp.tv_usec =
 			u32_queue_buf->buff_mgr_info.timestamp.tv_usec;
+
 		kp_ioctl.ioctl_ptr = (void *)&k_queue_buf;
+		kp_ioctl.len = sizeof(struct msm_pproc_queue_buf_info);
 		cmd = VIDIOC_MSM_CPP_QUEUE_BUF;
 		break;
 	}
