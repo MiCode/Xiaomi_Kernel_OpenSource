@@ -41,6 +41,37 @@
 			};
 		};
 
+		cdc-pdm-lines {
+			qcom,pins = <&gp 59>, <&gp 60>, <&gp 61>,
+					<&gp 62>, <&gp 63>, <&gp 64>;
+			qcom,num-grp-pins = <6>;
+			qcom,pin-func = <1>;
+			label = "cdc-pdm-lines";
+			cdc_pdm_lines_act: pdm_lines_on {
+				drive-strength = <8>;
+			};
+			cdc_pdm_lines_sus: pdm_lines_off {
+				drive-strength = <2>;
+				bias-disable;
+			};
+		};
+
+		cross-conn-det {
+			qcom,pins = <&gp 97>;
+			qcom,num-grp-pins = <1>;
+			qcom,pin-func = <0>;
+			label = "cross-conn-det-sw";
+			cross_conn_det_act: lines_on {
+				drive-strength = <8>;
+				output-low;
+				bias-pull-down;
+			};
+			cross_conn_det_sus: lines_off {
+				drive-strength = <2>;
+				bias-disable;
+			};
+		};
+
 		sdhc2_cd_pin {
 			qcom,pins = <&gp 38>;
 			qcom,num-grp-pins = <1>;
