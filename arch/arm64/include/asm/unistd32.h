@@ -785,3 +785,7 @@ __SYSCALL(__NR_finit_module, sys_finit_module)
 __SYSCALL(__NR_sys_sched_setattr, sys_sched_setattr)
 #define __NR_sys_sched_getattr 381
 __SYSCALL(__NR_sys_sched_getattr, sys_sched_getattr)
+/* #define __NR_renameat2 382 */
+__SYSCALL(382, sys_ni_syscall)
+#define __NR_seccomp 383
+__SYSCALL(__NR_seccomp, sys_ni_syscall)
