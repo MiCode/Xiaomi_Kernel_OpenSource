@@ -91,7 +91,7 @@ struct kgsl_fence_event_priv {
  */
 
 static void kgsl_fence_event_cb(struct kgsl_device *device,
-		struct kgsl_context *context, void *priv, int result)
+		struct kgsl_event_group *group, void *priv, int result)
 {
 	struct kgsl_fence_event_priv *ev = priv;
 	kgsl_sync_timeline_signal(ev->context->timeline, ev->timestamp);
