@@ -288,10 +288,9 @@ static int qpnp_hap_mod_enable(struct qpnp_hap *hap, int on)
 				break;
 		}
 
-		if (i >= QPNP_HAP_MAX_RETRIES) {
-			dev_err(&hap->spmi->dev, "Haptics Busy\n");
-			return -EBUSY;
-		}
+		if (i >= QPNP_HAP_MAX_RETRIES)
+			dev_dbg(&hap->spmi->dev,
+				"Haptics Busy. Force disable\n");
 
 		val &= ~QPNP_HAP_EN;
 	}
