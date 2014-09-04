@@ -944,7 +944,8 @@ static int venus_hfi_vote_buses(void *dev, struct vidc_bus_vote_data *data,
 		 * just lower our ocmem vote to the lowest level.
 		*/
 		if (strnstr(bus->pdata->name, "ocmem",
-					strlen(bus->pdata->name)))
+					strlen(bus->pdata->name)) ||
+					device->res->minimum_vote)
 			bus_vector = bus_vector ?: 1;
 
 		rc = msm_bus_scale_client_update_request(bus->priv, bus_vector);
