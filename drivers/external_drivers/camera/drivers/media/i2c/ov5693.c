@@ -630,7 +630,7 @@ static int ov5693_t_focus_abs(struct v4l2_subdev *sd, s32 value)
 	struct i2c_client *client = v4l2_get_subdevdata(sd);
 	int ret;
 
-	pr_info("%s: FOCUS_POS: %x\n", __func__, value);
+	dev_dbg(&client->dev, "%s: FOCUS_POS: %x\n", __func__, value);
 	value = clamp(value, 0, OV5693_VCM_MAX_FOCUS_POS);
 	ret = vcm_i2c_wr16(client, VCM_CODE_MSB, value);
 	if (ret == 0) {
