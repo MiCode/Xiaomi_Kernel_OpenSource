@@ -446,6 +446,7 @@ typedef struct dhd_info {
 	struct notifier_block pm_notifier;
 #ifdef SAR_SUPPORT
 	struct notifier_block sar_notifier;
+	s32 sar_enable;
 #endif
 } dhd_info_t;
 
@@ -804,6 +805,9 @@ static int dhd_sar_callback(struct notifier_block *nfb, unsigned long action, vo
 	s32 txpower;
 	int ret;
 
+	if (dhd->pub.busstate == DHD_BUS_DOWN)
+		return NOTIFY_DONE;
+
 	if (data) {
 		/* if data != NULL then we expect that the notifier passed
 		 * the exact value of max tx power in quarters of dB.
@@ -821,14 +825,17 @@ static int dhd_sar_callback(struct notifier_block *nfb, unsigned long action, vo
 				iovbuf, sizeof(iovbuf), TRUE, 0)) < 0)
 			DHD_ERROR(("%s wl qtxpower failed %d\n", __FUNCTION__, ret));
 	} else {
-		/* '0' means activate sarlimit and '-1' means back to normal state (deactivate
-		 * sarlimit)
+		/* '0' means activate sarlimit and '-1' means back to normal
+		 *  state (deactivate sarlimit)
 		 */
 		sar_enable = action ? 0 : -1;
-
+		if (dhd->sar_enable == sar_enable)
+			return NOTIFY_DONE;
 		bcm_mkiovar("sar_enable", (char *)&sar_enable, 4, iovbuf, sizeof(iovbuf));
 		if ((ret = dhd_wl_ioctl_cmd(&dhd->pub, WLC_SET_VAR, iovbuf, sizeof(iovbuf), TRUE, 0)) < 0)
 			DHD_ERROR(("%s wl sar_enable %d failed %d\n", __FUNCTION__, sar_enable, ret));
+		else
+			dhd->sar_enable = sar_enable;
 	}
 
 	return NOTIFY_DONE;
@@ -4594,6 +4601,7 @@ dhd_attach(osl_t *osh, struct dhd_bus *bus, uint bus_hdrlen)
 	dhd->sar_notifier.notifier_call = dhd_sar_callback;
 	if (!dhd_sar_notifier_registered) {
 		dhd_sar_notifier_registered = TRUE;
+		dhd->sar_enable = 1;		/* unknown state value */
 		register_notifier_by_sar(&dhd->sar_notifier);
 	}
 #endif /* SAR_SUPPORT */
