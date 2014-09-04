@@ -669,6 +669,37 @@ static struct ov5693_reg const ov5693_1940x1096[] = {
 	{OV5693_TOK_TERM, 0, 0}
 };
 
+static struct ov5693_reg const ov5693_2592x1456_30fps[] = {
+	{OV5693_8BIT, 0x3501, 0x7b},
+	{OV5693_8BIT, 0x3502, 0x00},
+	{OV5693_8BIT, 0x3708, 0xe2},
+	{OV5693_8BIT, 0x3709, 0xc3},
+	{OV5693_8BIT, 0x3800, 0x00},
+	{OV5693_8BIT, 0x3801, 0x00},
+	{OV5693_8BIT, 0x3802, 0x00},
+	{OV5693_8BIT, 0x3803, 0xf0},
+	{OV5693_8BIT, 0x3804, 0x0a},
+	{OV5693_8BIT, 0x3805, 0x3f},
+	{OV5693_8BIT, 0x3806, 0x06},
+	{OV5693_8BIT, 0x3807, 0xa4},
+	{OV5693_8BIT, 0x3808, 0x0a},
+	{OV5693_8BIT, 0x3809, 0x20},
+	{OV5693_8BIT, 0x380a, 0x05},
+	{OV5693_8BIT, 0x380b, 0xb0},
+	{OV5693_8BIT, 0x380c, 0x0a},
+	{OV5693_8BIT, 0x380d, 0x80},
+	{OV5693_8BIT, 0x380e, 0x07},
+	{OV5693_8BIT, 0x380f, 0xc0},
+	{OV5693_8BIT, 0x3811, 0x10},
+	{OV5693_8BIT, 0x3813, 0x00},
+	{OV5693_8BIT, 0x3814, 0x11},
+	{OV5693_8BIT, 0x3815, 0x11},
+	{OV5693_8BIT, 0x3820, 0x00},
+	{OV5693_8BIT, 0x3821, 0x1e},
+	{OV5693_8BIT, 0x5002, 0x00},
+	{OV5693_TOK_TERM, 0, 0}
+};
+
 /*
  * 2592x1944 30fps 0.6ms VBlanking 2lane 10Bit
  */
@@ -703,6 +734,20 @@ struct ov5693_resolution ov5693_res_preview[] = {
 	{
 		.desc = "ov5693_5M_30fps",
 		.width = 2592,
+		.height = 1456,
+		.pix_clk_freq = 160,
+		.fps = 30,
+		.used = 0,
+		.pixels_per_line = 2688,
+		.lines_per_frame = 1984,
+		.bin_factor_x = 1,
+		.bin_factor_y = 1,
+		.bin_mode = 0,
+		.regs = ov5693_2592x1456_30fps,
+	},
+	{
+		.desc = "ov5693_5M_30fps",
+		.width = 2592,
 		.height = 1944,
 		.pix_clk_freq = 81,
 		.fps = 30,
@@ -718,6 +763,20 @@ struct ov5693_resolution ov5693_res_preview[] = {
 #define N_RES_PREVIEW (ARRAY_SIZE(ov5693_res_preview))
 
 struct ov5693_resolution ov5693_res_still[] = {
+	{
+		.desc = "ov5693_5M_30fps",
+		.width = 2592,
+		.height = 1456,
+		.pix_clk_freq = 160,
+		.fps = 30,
+		.used = 0,
+		.pixels_per_line = 2688,
+		.lines_per_frame = 1984,
+		.bin_factor_x = 1,
+		.bin_factor_y = 1,
+		.bin_mode = 0,
+		.regs = ov5693_2592x1456_30fps,
+	},
 	{
 		.desc = "ov5693_5M_30fps",
 		.width = 2592,
@@ -791,6 +850,20 @@ struct ov5693_resolution ov5693_res_video[] = {
 		.bin_factor_y = 1,
 		.bin_mode = 0,
 		.regs = ov5693_1940x1096,
+	},
+	{
+		.desc = "ov5693_5M_30fps",
+		.width = 2592,
+		.height = 1456,
+		.pix_clk_freq = 160,
+		.fps = 30,
+		.used = 0,
+		.pixels_per_line = 2688,
+		.lines_per_frame = 1984,
+		.bin_factor_x = 1,
+		.bin_factor_y = 1,
+		.bin_mode = 0,
+		.regs = ov5693_2592x1456_30fps,
 	},
 };
 #define N_RES_VIDEO (ARRAY_SIZE(ov5693_res_video))
