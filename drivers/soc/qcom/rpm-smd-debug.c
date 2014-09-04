@@ -104,8 +104,6 @@ static ssize_t rsc_ops_write(struct file *fp, const char __user *user_buffer,
 
 	if (msm_rpm_wait_for_ack(msm_rpm_send_request(req)))
 		pr_err("Sending the RPM message failed\n");
-	else
-		pr_info("RPM message sent succesfully\n");
 
 err_request:
 	msm_rpm_free_request(req);
