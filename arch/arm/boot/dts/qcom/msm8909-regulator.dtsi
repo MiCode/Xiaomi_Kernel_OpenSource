@@ -10,195 +10,253 @@
  * GNU General Public License for more details.
  */
 
-/* Stub regulators */
-
-/ {
-	pm8909_s1: regulator-s1 {
-		compatible = "qcom,stub-regulator";
-		regulator-name = "pm8909_s1";
-		qcom,hpm-min-load = <100000>;
-		regulator-always-on;
-		regulator-min-microvolt = <500000>;
-		regulator-max-microvolt = <1350000>;
+/* RPM controlled regulators */
+&rpm_bus {
+	rpm-regulator-smpa1 {
+		status = "okay";
+		pm8909_s1_corner: regulator-s1-corner {
+			compatible = "qcom,rpm-smd-regulator";
+			regulator-name = "pm8909_s1_corner";
+			qcom,set = <3>;
+			regulator-min-microvolt = <1>;
+			regulator-max-microvolt = <7>;
+			qcom,use-voltage-corner;
+		};
+		pm8909_s1_corner_ao: regulator-s1-corner-ao {
+			compatible = "qcom,rpm-smd-regulator";
+			regulator-name = "pm8909_s1_corner_ao";
+			qcom,set = <1>;
+			regulator-min-microvolt = <1>;
+			regulator-max-microvolt = <7>;
+			qcom,use-voltage-corner;
+		};
+		pm8909_s1_floor_corner: regulator-s1-floor-corner {
+			compatible = "qcom,rpm-smd-regulator";
+			regulator-name = "pm8909_s1_floor_corner";
+			qcom,set = <3>;
+			regulator-min-microvolt = <1>;
+			regulator-max-microvolt = <7>;
+			qcom,use-voltage-floor-corner;
+			qcom,always-send-voltage;
+		};
 	};
 
-	pm8909_s1_corner: regulator-s1-corner {
-		compatible = "qcom,stub-regulator";
-		regulator-name = "pm8909_s1_corner";
-		regulator-min-microvolt = <1>;
-		regulator-max-microvolt = <7>;
+	rpm-regulator-smpa2 {
+		status = "okay";
+		pm8909_s2: regulator-s2 {
+			status = "okay";
+			regulator-min-microvolt = <1850000>;
+			regulator-max-microvolt = <1850000>;
+			qcom,init-voltage = <1850000>;
+		};
 	};
 
-	pm8909_s1_corner_ao: regulator-s1-corner-ao {
-		compatible = "qcom,stub-regulator";
-		regulator-name = "pm8909_s1_corner_ao";
-		regulator-min-microvolt = <1>;
-		regulator-max-microvolt = <7>;
+	rpm-regulator-ldoa1 {
+			status = "okay";
+		pm8909_l1: regulator-l1 {
+			status = "okay";
+			regulator-min-microvolt = <1000000>;
+			regulator-max-microvolt = <1000000>;
+			qcom,init-voltage = <1000000>;
+		};
 	};
 
-
-	pm8909_s2: regulator-s2 {
-		compatible = "qcom,stub-regulator";
-		regulator-name = "pm8909_s2";
-		qcom,hpm-min-load = <100000>;
-		regulator-min-microvolt = <1950000>;
-		regulator-max-microvolt = <1950000>;
+	rpm-regulator-ldoa2 {
+			status = "okay";
+		pm8909_l2: regulator-l2 {
+			status = "okay";
+			regulator-min-microvolt = <1200000>;
+			regulator-max-microvolt = <1200000>;
+			qcom,init-voltage = <12000000>;
+		};
 	};
 
-	pm8909_l1: regulator-l1 {
-		compatible = "qcom,stub-regulator";
-		regulator-name = "pm8909_l1";
-		parent-supply = <&pm8909_s2>;
-		qcom,hpm-min-load = <10000>;
-		regulator-min-microvolt = <1000000>;
-		regulator-max-microvolt = <1000000>;
+	/* PM8909 L3 VDD_MX supply */
+	rpm-regulator-ldoa3 {
+			status = "okay";
+		pm8909_l3: regulator-l3 {
+			status = "okay";
+			regulator-min-microvolt = <500000>;
+			regulator-max-microvolt = <1350000>;
+		};
+
+		pm8909_l3_corner_ao: regulator-l3-corner-ao {
+			compatible = "qcom,rpm-smd-regulator";
+			regulator-name = "pm8909_l3_corner_ao";
+			qcom,set = <1>;
+			regulator-min-microvolt = <1>;
+			regulator-max-microvolt = <7>;
+			qcom,use-voltage-corner;
+		};
+
+		pm8909_l3_corner_so: regulator-l3-corner-so {
+			compatible = "qcom,rpm-smd-regulator";
+			regulator-name = "pm8909_l3_corner_so";
+			qcom,set = <2>;
+			regulator-min-microvolt = <1>;
+			regulator-max-microvolt = <7>;
+			qcom,init-voltage = <1>;
+			qcom,use-voltage-corner;
+		};
 	};
 
-	pm8909_l2: regulator-l2 {
-		compatible = "qcom,stub-regulator";
-		regulator-name = "pm8909_l2";
-		parent-supply = <&pm8909_s2>;
-		regulator-always-on;
-		qcom,hpm-min-load = <10000>;
-		regulator-min-microvolt = <1200000>;
-		regulator-max-microvolt = <1200000>;
+	rpm-regulator-ldoa4 {
+			status = "okay";
+		pm8909_l4: regulator-l4 {
+			status = "okay";
+			regulator-min-microvolt = <1800000>;
+			regulator-max-microvolt = <1800000>;
+			qcom,init-voltage = <1800000>;
+		};
 	};
 
-	pm8909_l3: regulator-l3 {
-		compatible = "qcom,stub-regulator";
-		regulator-name = "pm8909_l3";
-		parent-supply = <&pm8909_s2>;
-		regulator-always-on;
-		qcom,hpm-min-load = <10000>;
-		regulator-min-microvolt = <1350000>;
-		regulator-max-microvolt = <1350000>;
+	rpm-regulator-ldoa5 {
+			status = "okay";
+		pm8909_l5: regulator-l5 {
+			status = "okay";
+			regulator-min-microvolt = <1800000>;
+			regulator-max-microvolt = <1800000>;
+			qcom,init-voltage = <1800000>;
+		};
 	};
 
-	pm8909_l4: regulator-l4 {
-		compatible = "qcom,stub-regulator";
-		regulator-name = "pm8909_l4";
-		parent-supply = <&pm8909_s2>;
-		qcom,hpm-min-load = <10000>;
-		regulator-min-microvolt = <1800000>;
-		regulator-max-microvolt = <1800000>;
+	rpm-regulator-ldoa6 {
+			status = "okay";
+		pm8909_l6: regulator-l6 {
+			status = "okay";
+			regulator-min-microvolt = <1800000>;
+			regulator-max-microvolt = <1800000>;
+			qcom,init-voltage = <1800000>;
+		};
 	};
 
-	pm8909_l5: regulator-l5 {
-		compatible = "qcom,stub-regulator";
-		regulator-name = "pm8909_l5";
-		parent-supply = <&pm8909_s2>;
-		qcom,hpm-min-load = <10000>;
-		regulator-always-on;
-		regulator-min-microvolt = <1800000>;
-		regulator-max-microvolt = <1800000>;
+	rpm-regulator-ldoa7 {
+			status = "okay";
+		pm8909_l7: regulator-l7 {
+			status = "okay";
+			regulator-min-microvolt = <1800000>;
+			regulator-max-microvolt = <1800000>;
+			qcom,init-voltage = <1800000>;
+		};
+
+		pm8909_l7_ao: regulator-l7-ao {
+			compatible = "qcom,rpm-smd-regulator";
+			regulator-name = "pm8909_l7_ao";
+			qcom,set = <1>;
+			regulator-min-microvolt = <1800000>;
+			regulator-max-microvolt = <1800000>;
+			qcom,init-voltage = <1800000>;
+		};
+
+		pm8909_l7_so: regulator-l7-so {
+			compatible = "qcom,rpm-smd-regulator";
+			regulator-name = "pm8909_l7_so";
+			qcom,set = <2>;
+			regulator-min-microvolt = <1800000>;
+			regulator-max-microvolt = <1800000>;
+			qcom,init-enable = <0>;
+		};
 	};
 
-	pm8909_l6: regulator-l6 {
-		compatible = "qcom,stub-regulator";
-		regulator-name = "pm8909_l6";
-		parent-supply = <&pm8909_s2>;
-		qcom,hpm-min-load = <10000>;
-		regulator-min-microvolt = <1800000>;
-		regulator-max-microvolt = <1800000>;
+	rpm-regulator-ldoa8 {
+			status = "okay";
+		pm8909_l8: regulator-l8 {
+			status = "okay";
+			regulator-min-microvolt = <2850000>;
+			regulator-max-microvolt = <2900000>;
+			qcom,init-voltage = <2850000>;
+		};
 	};
 
-	pm8909_l7: regulator-l7 {
-		compatible = "qcom,stub-regulator";
-		regulator-name = "pm8909_l7";
-		parent-supply = <&pm8909_s2>;
-		qcom,hpm-min-load = <10000>;
-		regulator-min-microvolt = <1800000>;
-		regulator-max-microvolt = <1800000>;
+	rpm-regulator-ldoa9 {
+			status = "okay";
+		pm8909_l9: regulator-l9 {
+			status = "okay";
+			regulator-min-microvolt = <3300000>;
+			regulator-max-microvolt = <3300000>;
+			qcom,init-voltage = <3300000>;
+		};
 	};
 
-	pm8909_l7_ao: regulator-l7-ao {
-		compatible = "qcom,stub-regulator";
-		regulator-name = "pm8909_l7_ao";
-		regulator-min-microvolt = <1800000>;
-		regulator-max-microvolt = <1800000>;
+	rpm-regulator-ldoa10 {
+			status = "okay";
+		pm8909_l10: regulator-l10 {
+			status = "okay";
+			regulator-min-microvolt = <1225000>;
+			regulator-max-microvolt = <1300000>;
+			qcom,init-voltage = <1225000>;
+		};
 	};
 
-	pm8909_l8: regulator-l8 {
-		compatible = "qcom,stub-regulator";
-		regulator-name = "pm8909_l8";
-		qcom,hpm-min-load = <10000>;
-		regulator-min-microvolt = <2850000>;
-		regulator-max-microvolt = <2900000>;
+	rpm-regulator-ldoa11 {
+			status = "okay";
+		pm8909_l11: regulator-l11 {
+			status = "okay";
+			regulator-min-microvolt = <1800000>;
+			regulator-max-microvolt = <2950000>;
+			qcom,init-voltage = <1800000>;
+		};
 	};
 
-	pm8909_l9: regulator-l9 {
-		compatible = "qcom,stub-regulator";
-		regulator-name = "pm8909_l9";
-		qcom,hpm-min-load = <10000>;
-		regulator-min-microvolt = <3300000>;
-		regulator-max-microvolt = <3300000>;
+	rpm-regulator-ldoa12 {
+			status = "okay";
+		pm8909_l12: regulator-l12 {
+			status = "okay";
+			regulator-min-microvolt = <1800000>;
+			regulator-max-microvolt = <2950000>;
+			qcom,init-voltage = <1800000>;
+		};
 	};
 
-	pm8909_l10: regulator-l10 {
-		compatible = "qcom,stub-regulator";
-		regulator-name = "pm8909_l10";
-		parent-supply = <&pm8909_s2>;
-		qcom,hpm-min-load = <10000>;
-		regulator-min-microvolt = <1225000>;
-		regulator-max-microvolt = <1300000>;
+	rpm-regulator-ldoa13 {
+			status = "okay";
+		pm8909_l13: regulator-l13 {
+			status = "okay";
+			regulator-min-microvolt = <3075000>;
+			regulator-max-microvolt = <3075000>;
+			qcom,init-voltage = <3075000>;
+		};
 	};
 
-	pm8909_l11: regulator-l11 {
-		compatible = "qcom,stub-regulator";
-		regulator-name = "pm8909_l11";
-		qcom,hpm-min-load = <10000>;
-		regulator-min-microvolt = <1800000>;
-		regulator-max-microvolt = <2950000>;
+	rpm-regulator-ldoa14 {
+			status = "okay";
+		pm8909_l14: regulator-l14 {
+			status = "okay";
+			regulator-min-microvolt = <1800000>;
+			regulator-max-microvolt = <3000000>;
+			qcom,init-voltage = <1800000>;
+		};
 	};
 
-	pm8909_l12: regulator-l12 {
-		compatible = "qcom,stub-regulator";
-		regulator-name = "pm8909_l12";
-		qcom,hpm-min-load = <10000>;
-		regulator-min-microvolt = <1800000>;
-		regulator-max-microvolt = <2950000>;
+	rpm-regulator-ldoa15 {
+			status = "okay";
+		pm8909_l15: regulator-l15 {
+			status = "okay";
+			regulator-min-microvolt = <1800000>;
+			regulator-max-microvolt = <3000000>;
+			qcom,init-voltage = <1800000>;
+		};
 	};
 
-	pm8909_l13: regulator-l13 {
-		compatible = "qcom,stub-regulator";
-		regulator-name = "pm8909_l13";
-		qcom,hpm-min-load = <5000>;
-		regulator-min-microvolt = <3075000>;
-		regulator-max-microvolt = <3075000>;
+	rpm-regulator-ldoa17 {
+			status = "okay";
+		pm8909_l17: regulator-l17 {
+			status = "okay";
+			regulator-min-microvolt = <2800000>;
+			regulator-max-microvolt = <2850000>;
+			qcom,init-voltage = <2800000>;
+		};
 	};
 
-	pm8909_l14: regulator-l14 {
-		compatible = "qcom,stub-regulator";
-		regulator-name = "pm8909_l14";
-		qcom,hpm-min-load = <5000>;
-		regulator-min-microvolt = <1800000>;
-		regulator-max-microvolt = <2850000>;
+	rpm-regulator-ldoa18 {
+			status = "okay";
+		pm8909_l18: regulator-l18 {
+			status = "okay";
+			regulator-min-microvolt = <2700000>;
+			regulator-max-microvolt = <2700000>;
+			qcom,init-voltage = <2700000>;
+		};
 	};
-
-	pm8909_l15: regulator-l15 {
-		compatible = "qcom,stub-regulator";
-		regulator-name = "pm8909_l15";
-		qcom,hpm-min-load = <5000>;
-		regulator-min-microvolt = <1800000>;
-		regulator-max-microvolt = <2850000>;
-	};
-
-	pm8909_l17: regulator-l17 {
-		compatible = "qcom,stub-regulator";
-		regulator-name = "pm8909_l17";
-		qcom,hpm-min-load = <10000>;
-		regulator-min-microvolt = <2800000>;
-		regulator-max-microvolt = <2850000>;
-	};
-
-	pm8909_l18: regulator-l18 {
-		compatible = "qcom,stub-regulator";
-		regulator-name = "pm8909_l18";
-		qcom,hpm-min-load = <10000>;
-		regulator-min-microvolt = <2700000>;
-		regulator-max-microvolt = <2850000>;
-	};
-
 };
 
 &soc {
