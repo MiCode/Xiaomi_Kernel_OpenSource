@@ -582,6 +582,13 @@ static void usb_qdss_connect_work(struct work_struct *work)
 				nr_qdss_ports, qdss->port_num);
 		return;
 	}
+	/* If cable is already removed, discard connect_work */
+	if (qdss->usb_connected == 0) {
+		pr_debug("%s: discard connect_work\n", __func__);
+		cancel_work_sync(&qdss->disconnect_w);
+		return;
+	}
+
 	pr_debug("usb_qdss_connect_work\n");
 	switch (dxport) {
 	case USB_GADGET_XPORT_BAM:
