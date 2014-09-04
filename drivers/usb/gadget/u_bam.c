@@ -65,12 +65,17 @@ static const enum ipa_client_type usb_cons[BAM2BAM_N_PORTS] = {
 
 #define DL_INTR_THRESHOLD			20
 #define BAM_PENDING_BYTES_LIMIT			(50 * BAM_MUX_RX_REQ_SIZE)
+#define BAM_PENDING_BYTES_FCTRL_EN_TSHOLD	(BAM_PENDING_BYTES_LIMIT / 3)
 
 static unsigned int bam_pending_pkts_limit = BAM_PENDING_PKTS_LIMIT;
 module_param(bam_pending_pkts_limit, uint, S_IRUGO | S_IWUSR);
 
 static unsigned int bam_pending_bytes_limit = BAM_PENDING_BYTES_LIMIT;
 module_param(bam_pending_bytes_limit, uint, S_IRUGO | S_IWUSR);
+
+static unsigned int bam_pending_bytes_fctrl_en_thold =
+					BAM_PENDING_BYTES_FCTRL_EN_TSHOLD;
+module_param(bam_pending_bytes_fctrl_en_thold, uint, S_IRUGO | S_IWUSR);
 
 static unsigned int bam_mux_tx_pkt_drop_thld = BAM_MUX_TX_PKT_DROP_THRESHOLD;
 module_param(bam_mux_tx_pkt_drop_thld, uint, S_IRUGO | S_IWUSR);
@@ -158,6 +163,7 @@ struct bam_ch_info {
 	unsigned int		rx_flow_control_triggered;
 	unsigned int		max_num_pkts_pending_with_bam;
 	unsigned int		max_bytes_pending_with_bam;
+	unsigned int		delayed_bam_mux_write_done;
 };
 
 struct gbam_port {
@@ -195,6 +201,7 @@ static void gbam_start_endless_rx(struct gbam_port *port);
 static void gbam_start_endless_tx(struct gbam_port *port);
 static int gbam_peer_reset_cb(void *param);
 static void gbam_notify(void *p, int event, unsigned long data);
+static void gbam_data_write_tobam(struct work_struct *w);
 
 /*---------------misc functions---------------- */
 static void gbam_free_requests(struct usb_ep *ep, struct list_head *head)
@@ -499,7 +506,16 @@ void gbam_data_write_done(void *p, struct sk_buff *skb)
 
 	spin_unlock_irqrestore(&port->port_lock_ul, flags);
 
-	queue_work(gbam_wq, &d->write_tobam_w);
+	/*
+	 * If BAM doesn't have much pending data then push new data from here:
+	 * write_complete notify only to avoid any underruns due to wq latency
+	 */
+	if (d->pending_bytes_with_bam <= bam_pending_bytes_fctrl_en_thold) {
+		gbam_data_write_tobam(&d->write_tobam_w);
+	} else {
+		d->delayed_bam_mux_write_done++;
+		queue_work(gbam_wq, &d->write_tobam_w);
+	}
 }
 
 /* This function should be called with port_lock_ul spinlock acquired */
@@ -1875,6 +1891,7 @@ static ssize_t gbam_read_stats(struct file *file, char __user *ubuf,
 				"rx_flow_control_triggered: %u\n"
 				"max_num_pkts_pending_with_bam: %u\n"
 				"max_bytes_pending_with_bam: %u\n"
+				"delayed_bam_mux_write_done: %u\n"
 				"tx_buf_len:	 %u\n"
 				"rx_buf_len:	 %u\n"
 				"data_ch_open:   %d\n"
@@ -1889,6 +1906,7 @@ static ssize_t gbam_read_stats(struct file *file, char __user *ubuf,
 				d->rx_flow_control_triggered,
 				d->max_num_pkts_pending_with_bam,
 				d->max_bytes_pending_with_bam,
+				d->delayed_bam_mux_write_done,
 				d->tx_skb_q.qlen, d->rx_skb_q.qlen,
 				test_bit(BAM_CH_OPENED, &d->flags),
 				test_bit(BAM_CH_READY, &d->flags));
@@ -1933,6 +1951,7 @@ static ssize_t gbam_reset_stats(struct file *file, const char __user *buf,
 		d->rx_flow_control_triggered = 0;
 		d->max_num_pkts_pending_with_bam = 0;
 		d->max_bytes_pending_with_bam = 0;
+		d->delayed_bam_mux_write_done = 0;
 
 		spin_unlock(&port->port_lock_dl);
 		spin_unlock_irqrestore(&port->port_lock_ul, flags);
@@ -2127,6 +2146,7 @@ int gbam_connect(struct grmnet *gr, u8 port_num,
 		d->rx_flow_control_triggered = 0;
 		d->max_num_pkts_pending_with_bam = 0;
 		d->max_bytes_pending_with_bam = 0;
+		d->delayed_bam_mux_write_done = 0;
 	}
 
 	spin_unlock(&port->port_lock_dl);
