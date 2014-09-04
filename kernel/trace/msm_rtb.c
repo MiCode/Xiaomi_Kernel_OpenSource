@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -35,20 +35,22 @@
 #define RTB_COMPAT_STR	"qcom,msm-rtb"
 
 /* Write
- * 1) 11 bytes sentinel
+ * 1) 3 bytes sentinel
  * 2) 1 bytes of log type
  * 3) 8 bytes of where the caller came from
  * 4) 4 bytes index
  * 4) 8 bytes extra data from the caller
+ * 5) 8 bytes of timestamp
  *
  * Total = 32 bytes.
  */
 struct msm_rtb_layout {
-	unsigned char sentinel[11];
+	unsigned char sentinel[3];
 	unsigned char log_type;
 	uint32_t idx;
 	uint64_t caller;
 	uint64_t data;
+	uint64_t timestamp;
 } __attribute__ ((__packed__));
 
 
@@ -124,6 +126,11 @@ static void msm_rtb_write_data(uint64_t data, struct msm_rtb_layout *start)
 	start->data = data;
 }
 
+static void msm_rtb_write_timestamp(struct msm_rtb_layout *start)
+{
+	start->timestamp = sched_clock();
+}
+
 static void uncached_logk_pc_idx(enum logk_event_type log_type, uint64_t caller,
 				 uint64_t data, int idx)
 {
@@ -136,6 +143,7 @@ static void uncached_logk_pc_idx(enum logk_event_type log_type, uint64_t caller,
 	msm_rtb_write_caller(caller, start);
 	msm_rtb_write_idx(idx, start);
 	msm_rtb_write_data(data, start);
+	msm_rtb_write_timestamp(start);
 	mb();
 
 	return;
