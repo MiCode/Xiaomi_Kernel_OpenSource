@@ -3404,10 +3404,7 @@ static int hdmi_tx_register_panel(struct hdmi_tx_ctrl *hdmi_ctrl)
 
 	hdmi_ctrl->panel_data.event_handler = hdmi_tx_panel_event_handler;
 
-	/* Default 1080p resolution for hdmi primary display */
-	if (hdmi_ctrl->pdata.primary)
-		hdmi_ctrl->video_resolution = DEFAULT_HDMI_PRIMARY_RESOLUTION;
-	else
+	if (!hdmi_ctrl->pdata.primary)
 		hdmi_ctrl->video_resolution = DEFAULT_VIDEO_RESOLUTION;
 
 	rc = hdmi_tx_init_panel_info(hdmi_ctrl->video_resolution,
@@ -4015,8 +4012,13 @@ static int hdmi_tx_probe(struct platform_device *pdev)
 	if (IS_ERR(pan_cfg)) {
 		return PTR_ERR(pan_cfg);
 	} else if (pan_cfg) {
-		DEV_DBG("%s: HDMI is primary\n", __func__);
+		int vic;
+
+		if (kstrtoint(pan_cfg->arg_cfg, 10, &vic))
+			vic = DEFAULT_HDMI_PRIMARY_RESOLUTION;
+
 		hdmi_ctrl->pdata.primary = true;
+		hdmi_ctrl->video_resolution = vic;
 	}
 
 	rc = hdmi_tx_init_resource(hdmi_ctrl);
