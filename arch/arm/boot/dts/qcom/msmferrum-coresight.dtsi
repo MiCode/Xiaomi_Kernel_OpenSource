@@ -230,5 +230,94 @@
 			 <&clock_rpm clk_qdss_a_clk>;
 		clock-names = "core_clk", "core_a_clk";
 	};
+
+	funnel_apss: funnel@855000 {
+		compatible = "arm,coresight-funnel";
+		reg = <0x855000 0x1000>;
+		reg-names = "funnel-base";
+
+		coresight-id = <15>;
+		coresight-name = "coresight-funnel-apss";
+		coresight-nr-inports = <4>;
+		coresight-outports = <0>;
+		coresight-child-list = <&funnel_in0>;
+		coresight-child-ports = <4>;
+
+		clocks = <&clock_rpm clk_qdss_clk>,
+			<&clock_rpm clk_qdss_a_clk>;
+		clock-names = "core_clk", "core_a_clk";
+	};
+
+	etm0: etm@84c000 {
+		compatible = "arm,coresight-etm";
+		reg = <0x84c000 0x1000>;
+		reg-names = "etm-base";
+
+		coresight-id = <16>;
+		coresight-name = "coresight-etm0";
+		coresight-nr-inports = <0>;
+		coresight-outports = <0>;
+		coresight-child-list = <&funnel_apss>;
+		coresight-child-ports = <0>;
+		coresight-etm-cpu = <&CPU0>;
+
+		clocks = <&clock_rpm clk_qdss_clk>,
+			 <&clock_rpm clk_qdss_a_clk>;
+		clock-names = "core_clk", "core_a_clk";
+	};
+
+	etm1: etm@84d000 {
+		compatible = "arm,coresight-etm";
+		reg = <0x84d000 0x1000>;
+		reg-names = "etm-base";
+
+		coresight-id = <17>;
+		coresight-name = "coresight-etm1";
+		coresight-nr-inports = <0>;
+		coresight-outports = <0>;
+		coresight-child-list = <&funnel_apss>;
+		coresight-child-ports = <1>;
+		coresight-etm-cpu = <&CPU1>;
+
+		clocks = <&clock_rpm clk_qdss_clk>,
+			 <&clock_rpm clk_qdss_a_clk>;
+		clock-names = "core_clk", "core_a_clk";
+	};
+
+	etm2: etm@84e000 {
+		compatible = "arm,coresight-etm";
+		reg = <0x84e000 0x1000>;
+		reg-names = "etm-base";
+
+		coresight-id = <18>;
+		coresight-name = "coresight-etm2";
+		coresight-nr-inports = <0>;
+		coresight-outports = <0>;
+		coresight-child-list = <&funnel_apss>;
+		coresight-child-ports = <2>;
+		coresight-etm-cpu = <&CPU2>;
+
+		clocks = <&clock_rpm clk_qdss_clk>,
+			 <&clock_rpm clk_qdss_a_clk>;
+		clock-names = "core_clk", "core_a_clk";
+	};
+
+	etm3: etm@84f000 {
+		compatible = "arm,coresight-etm";
+		reg = <0x84f000 0x1000>;
+		reg-names = "etm-base";
+
+		coresight-id = <19>;
+		coresight-name = "coresight-etm3";
+		coresight-nr-inports = <0>;
+		coresight-outports = <0>;
+		coresight-child-list = <&funnel_apss>;
+		coresight-child-ports = <3>;
+		coresight-etm-cpu = <&CPU3>;
+
+		clocks = <&clock_rpm clk_qdss_clk>,
+			 <&clock_rpm clk_qdss_a_clk>;
+		clock-names = "core_clk", "core_a_clk";
+	};
 };
 
