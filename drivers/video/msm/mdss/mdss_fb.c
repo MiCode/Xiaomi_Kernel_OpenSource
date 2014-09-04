@@ -1840,10 +1840,10 @@ static int mdss_fb_register(struct msm_fb_data_type *mfd)
 
 	/*
 	 * Populate smem length here for uspace to get the
-	 * Franebuffer size when FBIO_FSCREENINFO ioctl is
+	 * Framebuffer size when FBIO_FSCREENINFO ioctl is
 	 * called.
 	 */
-	fix->smem_len = fix->line_length * var->yres_virtual;
+	fix->smem_len = PAGE_ALIGN(fix->line_length * var->yres) * mfd->fb_page;
 
 	/* id field for fb app  */
 	id = (int *)&mfd->panel;
