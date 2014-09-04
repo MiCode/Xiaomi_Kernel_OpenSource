@@ -258,11 +258,6 @@ static int qfp_fuse_probe(struct platform_device *pdev)
 	if (ret < 0)
 		goto err;
 
-	/* Set QFPROM  blow timer register */
-	writel_relaxed(qfp_priv->blow_timer,
-			qfp_priv->base + QFPROM_BLOW_TIMER_OFFSET);
-	mb();
-
 	pr_info("Fuse driver base:%p end:%p\n", qfp_priv->base,
 			qfp_priv->base + qfp_priv->size);
 	return 0;
