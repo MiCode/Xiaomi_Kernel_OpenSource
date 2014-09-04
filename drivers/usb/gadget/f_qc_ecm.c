@@ -80,6 +80,7 @@ struct f_ecm_qc {
 
 	const struct usb_endpoint_descriptor *in_ep_desc_backup;
 	const struct usb_endpoint_descriptor *out_ep_desc_backup;
+	bool				data_interface_up;
 };
 
 static struct f_ecm_qc *__ecm;
@@ -498,9 +499,6 @@ static int ecm_qc_bam_disconnect(struct f_ecm_qc *dev)
 
 	bam_data_disconnect(&dev->bam_port, 0);
 
-	dev->bam_port.cdev = NULL;
-	dev->bam_port.func = NULL;
-
 	return 0;
 }
 
@@ -704,6 +702,8 @@ static int ecm_qc_set_alt(struct usb_function *f, unsigned intf, unsigned alt)
 
 			if (ecm_qc_bam_connect(ecm))
 				goto fail;
+
+			ecm->data_interface_up = true;
 		}
 
 		/* NOTE this can be a minor disagreement with the ECM spec,
@@ -757,22 +757,29 @@ static void ecm_qc_disable(struct usb_function *f)
 		ecm->notify->driver_data = NULL;
 		ecm->notify->desc = NULL;
 	}
+
+	ecm->data_interface_up = false;
 }
 
 static void ecm_qc_suspend(struct usb_function *f)
 {
 	struct f_ecm_qc	*ecm = func_to_ecm_qc(f);
+	bool remote_wakeup_allowed;
 
 	/* Is DATA interface initialized? */
-	if (!ecm->bam_port.cdev) {
-		pr_debug("data interface not up\n");
+	if (!ecm->data_interface_up) {
+		pr_err("%s(): data interface not up\n", __func__);
 		return;
 	}
 
-	pr_debug("%s(): remote_wakeup:%d\n:", __func__,
-			f->config->cdev->gadget->remote_wakeup);
-	if (f->config->cdev->gadget->remote_wakeup ||
-			(f->config->cdev->gadget->speed == USB_SPEED_SUPER)) {
+	if (f->config->cdev->gadget->speed == USB_SPEED_SUPER)
+		remote_wakeup_allowed = f->func_wakeup_allowed;
+	else
+		remote_wakeup_allowed =
+			f->config->cdev->gadget->remote_wakeup;
+
+	pr_debug("%s(): remote_wakeup:%d\n:", __func__, remote_wakeup_allowed);
+	if (remote_wakeup_allowed) {
 		bam_data_suspend(ECM_QC_ACTIVE_PORT);
 	} else {
 		/*
@@ -793,15 +800,20 @@ static void ecm_qc_suspend(struct usb_function *f)
 static void ecm_qc_resume(struct usb_function *f)
 {
 	struct f_ecm_qc	*ecm = func_to_ecm_qc(f);
+	bool remote_wakeup_allowed;
 
-	/* Nothing to do if DATA interface wasn't initialized */
-	if (!ecm->bam_port.cdev) {
-		pr_debug("data interface was not up\n");
+	if (!ecm->data_interface_up) {
+		pr_err("%s(): data interface was not up\n", __func__);
 		return;
 	}
 
-	if (f->config->cdev->gadget->remote_wakeup ||
-			(f->config->cdev->gadget->speed == USB_SPEED_SUPER)) {
+	if (f->config->cdev->gadget->speed == USB_SPEED_SUPER)
+		remote_wakeup_allowed = f->func_wakeup_allowed;
+	else
+		remote_wakeup_allowed =
+			f->config->cdev->gadget->remote_wakeup;
+
+	if (remote_wakeup_allowed) {
 		bam_data_resume(ECM_QC_ACTIVE_PORT);
 	} else {
 		/* Restore endpoint descriptors info. */
