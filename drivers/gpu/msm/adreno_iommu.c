@@ -64,7 +64,7 @@ static unsigned int _adreno_mmu_set_pt_update_condition(
 		 * that current_global_ptname(SCRATCH_REG7) ==
 		 * incoming_ptid(SCRATCH_REG6)
 		 */
-		*cmds++ = cp_type3_packet(CP_COND_REG_EXEC, 10);
+		*cmds++ = cp_type3_packet(CP_COND_REG_EXEC, 3);
 		*cmds++ = (2 << 28) | adreno_getreg(adreno_dev,
 					ADRENO_REG_CP_SCRATCH_REG6);
 		*cmds++ = adreno_getreg(adreno_dev,
@@ -280,8 +280,7 @@ static unsigned int _adreno_iommu_set_pt_v1(struct adreno_ringbuffer *rb,
 
 	/* set flag that indicates whether pt switch is required*/
 	cmds += _adreno_mmu_set_pt_update_condition(rb, cmds, ptname);
-	cond_exec_ptr = cmds;
-	cmds++;
+	*cmds++ = cp_type3_packet(CP_COND_EXEC, 4);
 	*cmds++ = rb->pagetable_desc.gpuaddr +
 		offsetof(struct adreno_ringbuffer_pagetable_info,
 			switch_pt_enable);
@@ -290,6 +289,7 @@ static unsigned int _adreno_iommu_set_pt_v1(struct adreno_ringbuffer *rb,
 			switch_pt_enable);
 	*cmds++ = 1;
 	/* Exec count to be filled later */
+	cond_exec_ptr = cmds;
 	cmds++;
 	for (i = 0; i < num_iommu_units; i++) {
 		if (ADRENO_FEATURE(adreno_dev, ADRENO_HAS_REG_TO_REG_CMDS)) {
@@ -435,9 +435,6 @@ static unsigned int _adreno_iommu_set_pt_v1(struct adreno_ringbuffer *rb,
 		*cmds++ = cp_type3_packet(CP_WAIT_FOR_ME, 1);
 		*cmds++ = 0;
 	}
-	*cond_exec_ptr = cp_type3_packet(CP_COND_EXEC,
-					(cmds - cond_exec_ptr - 1));
-	cond_exec_ptr += 4;
 	/* Exec count ordinal of CP_COND_EXEC packet */
 	*cond_exec_ptr = (cmds - cond_exec_ptr - 1);
 	cmds += adreno_add_idle_cmds(adreno_dev, cmds);
