@@ -868,7 +868,7 @@ static void msm_pcie_cfg_recover(struct msm_pcie_dev_t *dev, bool rc)
 				dev->pcidev_table[i].bdf >> 16 & 0x07);
 		}
 		for (j = PCIE_CONF_SPACE_DW - 1; j >= 0; j--) {
-			val = readl_relaxed(shadow + j);
+			val = shadow[j];
 			if (val != PCIE_CLEAR) {
 				PCIE_DBG3(dev,
 					"PCIe: before recovery:cfg 0x%x:0x%x\n",
@@ -977,7 +977,7 @@ static void msm_pcie_shadow_dump(struct msm_pcie_dev_t *dev, bool rc)
 				dev->pcidev_table[i].bdf >> 16 & 0x07);
 		}
 		for (j = 0; j < PCIE_CONF_SPACE_DW; j++) {
-			val = readl_relaxed(shadow + j);
+			val = shadow[j];
 			if (val != PCIE_CLEAR) {
 				pr_alert("PCIe: shadow_dw[%d]:cfg 0x%x:0x%x\n",
 					j, j * 4, val);
