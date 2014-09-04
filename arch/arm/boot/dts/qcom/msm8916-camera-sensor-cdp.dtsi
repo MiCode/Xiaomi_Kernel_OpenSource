@@ -12,12 +12,6 @@
  */
 
 &soc {
-
-	led_flash0: qcom,camera-led-flash {
-		cell-index = <0>;
-		compatible = "qcom,camera-led-flash";
-		qcom,flash-type = <1>;
-	};
 };
 
 &cci {
@@ -87,7 +81,6 @@
 		qcom,csid-sd-index = <0>;
 		qcom,mount-angle = <90>;
 		qcom,actuator-src = <&actuator0>;
-		qcom,led-flash-src = <&led_flash0>;
 		cam_vdig-supply = <&pm8916_s4>;
 		cam_vana-supply = <&pm8916_l17>;
 		cam_vio-supply = <&pm8916_l6>;
