@@ -102,7 +102,13 @@ static int fb_event_callback(struct notifier_block *self,
 				msecs_to_jiffies(interval));
 			break;
 		case FB_BLANK_POWERDOWN:
+		case FB_BLANK_HSYNC_SUSPEND:
+		case FB_BLANK_VSYNC_SUSPEND:
+		case FB_BLANK_NORMAL:
 			cancel_delayed_work(&pdata->check_status);
+			break;
+		default:
+			pr_err("Unknown case in FB_EVENT_BLANK event\n");
 			break;
 		}
 	}
