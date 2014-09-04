@@ -577,6 +577,7 @@ struct vfe_device {
 	uint64_t msm_isp_last_overflow_ib;
 	uint64_t msm_isp_vfe_clk_rate;
 	struct msm_isp_ub_info *ub_info;
+	uint32_t vfe_ub_policy;
 };
 
 #endif
