@@ -4916,6 +4916,67 @@ int valleyview_get_vco(struct drm_i915_private *dev_priv)
 	return vco_freq[hpll_freq];
 }
 
+static void cherryview_set_cdclk(struct drm_device *dev, int new_cdclk)
+{
+	struct drm_i915_private *dev_priv = dev->dev_private;
+	u32 cmd, val, vco;
+	int cur_cdclk, czclk;
+
+	/*
+	 * The existing CHT systems can work only when
+	 * CDclk freq is equal to OR higher than CZclk.
+	 * freq. So, cap the CDclk freq, if required.
+	 */
+	intel_get_cd_cz_clk(dev_priv, &cur_cdclk, &czclk);
+	if (new_cdclk < czclk) {
+		new_cdclk = czclk;
+		DRM_DEBUG_KMS("Corrected CDclk freq: %d\n", new_cdclk);
+	}
+
+	WARN_ON(valleyview_cur_cdclk(dev_priv) != dev_priv->vlv_cdclk_freq);
+	dev_priv->vlv_cdclk_freq = new_cdclk;
+
+	/*
+	 * Obtain the ratio for CDclk corresponding to a particular
+	 * SKU. Here, the vco value helps us in determining the SKU.
+	 */
+	vco = valleyview_get_vco(dev_priv);
+	cmd = DIV_ROUND_CLOSEST((vco << 1), new_cdclk) - 1;
+
+	DRM_DEBUG_KMS("Obtained cmd %d for cdclk %d\n", cmd, new_cdclk);
+
+	mutex_lock(&dev_priv->rps.hw_lock);
+	val = vlv_punit_read(dev_priv, PUNIT_REG_DSPFREQ);
+	val &= ~DSPFREQGUAR_MASK(dev);
+	val |= (cmd << DSPFREQGUAR_SHIFT(dev));
+	vlv_punit_write(dev_priv, PUNIT_REG_DSPFREQ, val);
+	if (wait_for((vlv_punit_read(dev_priv, PUNIT_REG_DSPFREQ) &
+		      DSPFREQSTAT_MASK(dev)) == (cmd << DSPFREQSTAT_SHIFT(dev)),
+		     50)) {
+		DRM_ERROR("timed out waiting for CDclk change\n");
+	}
+	mutex_unlock(&dev_priv->rps.hw_lock);
+
+	mutex_lock(&dev_priv->dpio_lock);
+	/* adjust self-refresh exit latency value */
+	val = vlv_bunit_read(dev_priv, BUNIT_REG_BISOC);
+	val &= ~0x7f;
+
+	/*
+	 * For high bandwidth configs, we set a higher latency in the bunit
+	 * so that the core display fetch happens in time to avoid underruns.
+	 */
+	if (new_cdclk == 400)
+		val |= 4500 / 250; /* 4.5 usec */
+	else
+		val |= 3000 / 250; /* 3.0 usec */
+	vlv_bunit_write(dev_priv, BUNIT_REG_BISOC, val);
+	mutex_unlock(&dev_priv->dpio_lock);
+
+	/* Since we changed the CDclk, we need to update the GMBUSFREQ too */
+	intel_i2c_reset(dev);
+}
+
 /* Adjust CDclk dividers to allow high res or save power if possible */
 static void valleyview_set_cdclk(struct drm_device *dev, int cdclk)
 {
@@ -4934,11 +4995,11 @@ static void valleyview_set_cdclk(struct drm_device *dev, int cdclk)
 
 	mutex_lock(&dev_priv->rps.hw_lock);
 	val = vlv_punit_read(dev_priv, PUNIT_REG_DSPFREQ);
-	val &= ~DSPFREQGUAR_MASK;
-	val |= (cmd << DSPFREQGUAR_SHIFT);
+	val &= ~DSPFREQGUAR_MASK(dev);
+	val |= (cmd << DSPFREQGUAR_SHIFT(dev));
 	vlv_punit_write(dev_priv, PUNIT_REG_DSPFREQ, val);
 	if (wait_for((vlv_punit_read(dev_priv, PUNIT_REG_DSPFREQ) &
-		      DSPFREQSTAT_MASK) == (cmd << DSPFREQSTAT_SHIFT),
+		      DSPFREQSTAT_MASK(dev)) == (cmd << DSPFREQSTAT_SHIFT(dev)),
 		     50)) {
 		DRM_ERROR("timed out waiting for CDclk change\n");
 	}
@@ -5000,11 +5061,6 @@ int valleyview_cur_cdclk(struct drm_i915_private *dev_priv)
 static int valleyview_calc_cdclk(struct drm_i915_private *dev_priv,
 				 int max_pixclk)
 {
-
-	/* FIXME: Punit isn't quite ready yet */
-	if (IS_CHERRYVIEW(dev_priv->dev))
-		return 400000;
-
 	/*
 	 * Really only a few cases to deal with, as only 4 CDclks are supported:
 	 *   200MHz
@@ -5062,8 +5118,12 @@ static void valleyview_modeset_global_resources(struct drm_device *dev)
 	int max_pixclk = intel_mode_max_pixclk(dev_priv);
 	int req_cdclk = valleyview_calc_cdclk(dev_priv, max_pixclk);
 
-	if (req_cdclk != dev_priv->vlv_cdclk_freq)
-		valleyview_set_cdclk(dev, req_cdclk);
+	if (req_cdclk != dev_priv->vlv_cdclk_freq) {
+		if (IS_CHERRYVIEW(dev))
+			cherryview_set_cdclk(dev, req_cdclk);
+		else
+			valleyview_set_cdclk(dev, req_cdclk);
+	}
 	modeset_update_crtc_power_domains(dev);
 }
 
