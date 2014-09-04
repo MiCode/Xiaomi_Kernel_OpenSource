@@ -552,6 +552,18 @@
 			 <&clock_cpu clk_a57_clk>,
 			 <&clock_cpu clk_a57_clk>,
 			 <&clock_cpu clk_cci_clk>;
+
+		qcom,pm-snoc-client {
+			compatible = "qcom,pm-snoc-client";
+			qcom,msm-bus,name = "ocimem_snoc";
+			qcom,msm-bus,num-cases = <2>;
+			qcom,msm-bus,num-paths = <1>;
+			qcom,msm-bus,active-only;
+			qcom,msm-bus,vectors-KBps =
+				<MSM_BUS_MASTER_AMPSS_M0 MSM_BUS_SLAVE_OCIMEM 0 0>,
+				<MSM_BUS_MASTER_AMPSS_M0 MSM_BUS_SLAVE_OCIMEM 0 800000>;
+		};
+
 	};
 
 	qcom,cpu-sleep-status@f908b008{
