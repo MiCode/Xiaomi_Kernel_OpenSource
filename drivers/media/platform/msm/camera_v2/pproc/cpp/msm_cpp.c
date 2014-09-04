@@ -724,9 +724,13 @@ static int cpp_init_hardware(struct cpp_device *cpp_dev)
 		if (IS_ERR(cpp_dev->fs_cpp)) {
 			pr_err("Regulator cpp vdd get failed %ld\n",
 				PTR_ERR(cpp_dev->fs_cpp));
+			rc = -EINVAL;
 			cpp_dev->fs_cpp = NULL;
 			goto fs_failed;
-		} else if (regulator_enable(cpp_dev->fs_cpp)) {
+		}
+
+		rc = regulator_enable(cpp_dev->fs_cpp);
+		if (rc != 0) {
 			pr_err("Regulator cpp vdd enable failed\n");
 			regulator_put(cpp_dev->fs_cpp);
 			cpp_dev->fs_cpp = NULL;
@@ -736,6 +740,7 @@ static int cpp_init_hardware(struct cpp_device *cpp_dev)
 	msm_micro_iface_idx = get_clock_index("micro_iface_clk");
 	if (msm_micro_iface_idx < 0)  {
 		pr_err("Fail to get clock index\n");
+		rc = msm_micro_iface_idx;
 		goto fs_failed;
 	}
 
@@ -745,8 +750,7 @@ static int cpp_init_hardware(struct cpp_device *cpp_dev)
 	if (IS_ERR(cpp_dev->cpp_clk[msm_micro_iface_idx])) {
 		pr_err("%s get failed\n",
 		cpp_clk_info[msm_micro_iface_idx].clk_name);
-		rc =
-		PTR_ERR(cpp_dev->cpp_clk[msm_micro_iface_idx]);
+		rc = PTR_ERR(cpp_dev->cpp_clk[msm_micro_iface_idx]);
 		goto remap_failed;
 	}
 
@@ -839,13 +843,23 @@ static int cpp_init_hardware(struct cpp_device *cpp_dev)
 	cpp_dev->hw_info.cpp_hw_caps =
 		msm_camera_io_r(cpp_dev->cpp_hw_base + 0x4);
 	msm_cpp_core_clk_idx = get_clock_index("cpp_core_clk");
+	if (msm_cpp_core_clk_idx < 0)  {
+		pr_err("cpp_core_clk: fail to get clock index\n");
+		rc = msm_cpp_core_clk_idx;
+		goto req_irq_fail;
+	}
 	cpp_get_clk_freq_tbl(cpp_dev->cpp_clk[msm_cpp_core_clk_idx],
 		&cpp_dev->hw_info);
 	pr_debug("CPP HW Caps: 0x%x\n", cpp_dev->hw_info.cpp_hw_caps);
 	msm_camera_io_w(0x1, cpp_dev->vbif_base + 0x4);
 	cpp_dev->taskletq_idx = 0;
 	atomic_set(&cpp_dev->irq_cnt, 0);
-	msm_cpp_create_buff_queue(cpp_dev, MSM_CPP_MAX_BUFF_QUEUE);
+	rc = msm_cpp_create_buff_queue(cpp_dev, MSM_CPP_MAX_BUFF_QUEUE);
+	if (rc < 0) {
+		pr_err("%s: create buff queue failed with err %d\n",
+			__func__, rc);
+		goto req_irq_fail;
+	}
 	pr_err("stream_cnt:%d\n", cpp_dev->stream_cnt);
 	cpp_dev->stream_cnt = 0;
 	if (cpp_dev->is_firmware_loaded == 1) {
