@@ -148,32 +148,30 @@ long msm_jpeg_hw_encode_output_size(void *base)
 	return encode_output_size;
 }
 
-struct msm_jpeg_hw_cmd hw_cmd_irq_clear[] = {
-	/* type, repeat n times, offset, mask, data or pdata */
-	{MSM_JPEG_HW_CMD_TYPE_WRITE, 1, JPEG_IRQ_CLEAR_ADDR,
-		JPEG_IRQ_CLEAR_BMSK, {JPEG_IRQ_CLEAR_ALL} },
-};
-
 void msm_jpeg_hw_irq_clear(uint32_t mask, uint32_t data, void *base)
 {
-	JPEG_DBG("%s:%d] mask %0x data %0x", __func__, __LINE__, mask, data);
-	hw_cmd_irq_clear[0].mask = mask;
-	hw_cmd_irq_clear[0].data = data;
-	msm_jpeg_hw_write(&hw_cmd_irq_clear[0], base);
-}
+	struct msm_jpeg_hw_cmd cmd_irq_clear;
 
-struct msm_jpeg_hw_cmd hw_cmd_irq_dmaclear[] = {
-	/* type, repeat n times, offset, mask, data or pdata */
-	{MSM_JPEG_HW_CMD_TYPE_WRITE, 1, JPEGDMA_IRQ_CLEAR_ADDR,
-		JPEGDMA_IRQ_CLEAR_BMSK, {JPEGDMA_IRQ_CLEAR_ALL} },
-};
+	cmd_irq_clear.type = MSM_JPEG_HW_CMD_TYPE_WRITE;
+	cmd_irq_clear.n = 1;
+	cmd_irq_clear.offset = JPEG_IRQ_CLEAR_ADDR;
+	cmd_irq_clear.mask = mask;
+	cmd_irq_clear.data = data;
+	JPEG_DBG("%s:%d] mask %0x data %0x", __func__, __LINE__, mask, data);
+	msm_jpeg_hw_write(&cmd_irq_clear, base);
+}
 
 void msm_jpegdma_hw_irq_clear(uint32_t mask, uint32_t data, void *base)
 {
+	struct msm_jpeg_hw_cmd cmd_irq_clear;
+
+	cmd_irq_clear.type = MSM_JPEG_HW_CMD_TYPE_WRITE;
+	cmd_irq_clear.n = 1;
+	cmd_irq_clear.offset = JPEGDMA_IRQ_CLEAR_ADDR;
+	cmd_irq_clear.mask = mask;
+	cmd_irq_clear.data = data;
 	JPEG_DBG("%s:%d] mask %0x data %0x", __func__, __LINE__, mask, data);
-	hw_cmd_irq_dmaclear[0].mask = mask;
-	hw_cmd_irq_dmaclear[0].data = data;
-	msm_jpeg_hw_write(&hw_cmd_irq_dmaclear[0], base);
+	msm_jpeg_hw_write(&cmd_irq_clear, base);
 }
 
 struct msm_jpeg_hw_cmd hw_cmd_fe_ping_update[] = {
@@ -200,6 +198,7 @@ void msm_jpeg_hw_fe_buffer_update(struct msm_jpeg_hw_buf *p_input,
 	uint8_t pingpong_index, void *base)
 {
 	struct msm_jpeg_hw_cmd *hw_cmd_p;
+	struct msm_jpeg_hw_cmd tmp_hw_cmd;
 
 	if (pingpong_index == 0) {
 		hw_cmd_p = &hw_cmd_fe_ping_update[0];
@@ -210,18 +209,21 @@ void msm_jpeg_hw_fe_buffer_update(struct msm_jpeg_hw_buf *p_input,
 		wmb();
 		msm_jpeg_hw_write(hw_cmd_p++, base);
 		wmb();
-		hw_cmd_p->data = p_input->y_buffer_addr;
-		msm_jpeg_hw_write(hw_cmd_p++, base);
+		tmp_hw_cmd = *hw_cmd_p++;
+		tmp_hw_cmd.data = p_input->y_buffer_addr;
+		msm_jpeg_hw_write(&tmp_hw_cmd, base);
 		wmb();
 		msm_jpeg_hw_write(hw_cmd_p++, base);
 		wmb();
-		hw_cmd_p->data = p_input->cbcr_buffer_addr;
-		msm_jpeg_hw_write(hw_cmd_p++, base);
+		tmp_hw_cmd = *hw_cmd_p++;
+		tmp_hw_cmd.data = p_input->cbcr_buffer_addr;
+		msm_jpeg_hw_write(&tmp_hw_cmd, base);
 		wmb();
 		msm_jpeg_hw_write(hw_cmd_p++, base);
 		wmb();
-		hw_cmd_p->data = p_input->pln2_addr;
-		msm_jpeg_hw_write(hw_cmd_p++, base);
+		tmp_hw_cmd = *hw_cmd_p++;
+		tmp_hw_cmd.data = p_input->pln2_addr;
+		msm_jpeg_hw_write(&tmp_hw_cmd, base);
 		wmb();
 	}
 	return;
@@ -243,6 +245,7 @@ void msm_jpegdma_hw_fe_buffer_update(struct msm_jpeg_hw_buf *p_input,
 	uint8_t pingpong_index, void *base)
 {
 	struct msm_jpeg_hw_cmd *hw_cmd_p;
+	struct msm_jpeg_hw_cmd tmp_hw_cmd;
 
 	if (pingpong_index != 0)
 		return;
@@ -253,11 +256,13 @@ void msm_jpegdma_hw_fe_buffer_update(struct msm_jpeg_hw_buf *p_input,
 	wmb();
 	msm_jpeg_hw_write(hw_cmd_p++, base);
 	wmb();
-	hw_cmd_p->data = p_input->y_buffer_addr;
-	msm_jpeg_hw_write(hw_cmd_p++, base);
+	tmp_hw_cmd = *hw_cmd_p++;
+	tmp_hw_cmd.data = p_input->y_buffer_addr;
+	msm_jpeg_hw_write(&tmp_hw_cmd, base);
 	wmb();
-	hw_cmd_p->data = p_input->cbcr_buffer_addr;
-	msm_jpeg_hw_write(hw_cmd_p++, base);
+	tmp_hw_cmd = *hw_cmd_p++;
+	tmp_hw_cmd.data = p_input->cbcr_buffer_addr;
+	msm_jpeg_hw_write(&tmp_hw_cmd, base);
 	wmb();
 }
 
@@ -304,21 +309,27 @@ void msm_jpeg_hw_we_buffer_update(struct msm_jpeg_hw_buf *p_input,
 	uint8_t pingpong_index, void *base)
 {
 	struct msm_jpeg_hw_cmd *hw_cmd_p;
+	struct msm_jpeg_hw_cmd tmp_hw_cmd;
 
 	if (pingpong_index == 0) {
 		hw_cmd_p = &hw_cmd_we_ping_update[0];
-		hw_cmd_p->data = p_input->y_buffer_addr;
+		tmp_hw_cmd = *hw_cmd_p++;
+		tmp_hw_cmd.data = p_input->y_buffer_addr;
 		JPEG_DBG_HIGH("%s Output pln0 buffer address is %x\n", __func__,
 			p_input->y_buffer_addr);
-		msm_jpeg_hw_write(hw_cmd_p++, base);
-		hw_cmd_p->data = p_input->cbcr_buffer_addr;
+		msm_jpeg_hw_write(&tmp_hw_cmd, base);
+
+		tmp_hw_cmd = *hw_cmd_p++;
+		tmp_hw_cmd.data = p_input->cbcr_buffer_addr;
 		JPEG_DBG_HIGH("%s Output pln1 buffer address is %x\n", __func__,
 			p_input->cbcr_buffer_addr);
-		msm_jpeg_hw_write(hw_cmd_p++, base);
-		hw_cmd_p->data = p_input->pln2_addr;
+		msm_jpeg_hw_write(&tmp_hw_cmd, base);
+
+		tmp_hw_cmd = *hw_cmd_p++;
+		tmp_hw_cmd.data = p_input->pln2_addr;
 		JPEG_DBG_HIGH("%s Output pln2 buffer address is %x\n", __func__,
 			p_input->pln2_addr);
-		msm_jpeg_hw_write(hw_cmd_p++, base);
+		msm_jpeg_hw_write(&tmp_hw_cmd, base);
 	}
 	return;
 }
@@ -336,22 +347,27 @@ void msm_jpegdma_hw_we_buffer_update(struct msm_jpeg_hw_buf *p_input,
 	uint8_t pingpong_index, void *base)
 {
 	struct msm_jpeg_hw_cmd *hw_cmd_p;
+	struct msm_jpeg_hw_cmd tmp_hw_cmd;
 
 	if (pingpong_index != 0)
 		return;
 
 	hw_cmd_p = &hw_dma_cmd_we_ping_update[0];
 	msm_jpeg_hw_write(hw_cmd_p++, base);
+
 	wmb();
-	hw_cmd_p->data = p_input->y_buffer_addr;
+	tmp_hw_cmd = *hw_cmd_p++;
+	tmp_hw_cmd.data = p_input->y_buffer_addr;
 	JPEG_DBG_HIGH("%s Output we 0 buffer address is %x\n", __func__,
 			p_input->y_buffer_addr);
-	msm_jpeg_hw_write(hw_cmd_p++, base);
+	msm_jpeg_hw_write(&tmp_hw_cmd, base);
 	wmb();
-	hw_cmd_p->data = p_input->cbcr_buffer_addr;
+
+	tmp_hw_cmd = *hw_cmd_p++;
+	tmp_hw_cmd.data = p_input->cbcr_buffer_addr;
 	JPEG_DBG_HIGH("%s Output we 1 buffer address is %x\n", __func__,
 			p_input->cbcr_buffer_addr);
-	msm_jpeg_hw_write(hw_cmd_p++, base);
+	msm_jpeg_hw_write(&tmp_hw_cmd, base);
 	wmb();
 }
 

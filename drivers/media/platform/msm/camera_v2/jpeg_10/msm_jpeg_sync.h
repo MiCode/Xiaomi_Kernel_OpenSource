@@ -21,10 +21,12 @@
 #include <linux/platform_device.h>
 #include <media/v4l2-device.h>
 #include <media/v4l2-subdev.h>
+#include "msm_camera_io_util.h"
 #include "msm_jpeg_hw.h"
 
 #define JPEG_8974_V1 0x10000000
 #define JPEG_8974_V2 0x10010000
+#define JPEG_CLK_MAX 16
 
 enum msm_jpeg_state {
 	MSM_JPEG_INIT,
@@ -57,7 +59,9 @@ struct msm_jpeg_device {
 	struct resource        *mem;
 	int                     irq;
 	void                   *base;
-	struct clk *jpeg_clk[5];
+	struct clk *jpeg_clk[JPEG_CLK_MAX];
+	struct msm_cam_clk_info jpeg_clk_info[JPEG_CLK_MAX];
+
 	struct regulator *jpeg_fs;
 	uint32_t hw_version;
 
