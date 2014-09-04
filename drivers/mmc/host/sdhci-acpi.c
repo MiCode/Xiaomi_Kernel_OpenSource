@@ -36,6 +36,7 @@
 #include <linux/acpi.h>
 #include <linux/pm.h>
 #include <linux/pm_runtime.h>
+#include <linux/pm_qos.h>
 #include <linux/delay.h>
 
 #include <linux/mmc/host.h>
@@ -115,12 +116,37 @@ static const struct sdhci_acpi_chip sdhci_acpi_chip_int = {
 	.ops = &sdhci_acpi_ops_int,
 };
 
+/*
+ * This probe slot routine is being added to address an issue on the host
+ * controller's IP where hangs will occur of the platform enters a C state
+ * below C2 while there is an outstanding write transaction. This is observed
+ * on Baytrail based platforms, and should only be enabled on platforms with
+ * host controller IP blocks that exhibit this.  We're calling based on the
+ * ACPI-ID of the IP block.
+ */
+static int sdhci_acpi_probe_slot(struct platform_device *pdev)
+{
+	struct sdhci_acpi_host *c = platform_get_drvdata(pdev);
+	struct sdhci_host *host;
+
+	if (!c || !c->host)
+		return 0;
+
+	host = c->host;
+	host->mmc->qos = kzalloc(sizeof(struct pm_qos_request), GFP_KERNEL);
+	pm_qos_add_request(host->mmc->qos, PM_QOS_CPU_DMA_LATENCY,
+					PM_QOS_DEFAULT_VALUE);
+
+	return 0;
+}
+
 static const struct sdhci_acpi_slot sdhci_acpi_slot_int_emmc = {
 	.chip    = &sdhci_acpi_chip_int,
 	.caps    = MMC_CAP_8_BIT_DATA | MMC_CAP_NONREMOVABLE | MMC_CAP_HW_RESET,
 	.caps2   = MMC_CAP2_HC_ERASE_SZ | MMC_CAP2_POLL_R1B_BUSY,
 	.flags   = SDHCI_ACPI_RUNTIME_PM,
 	.quirks2 = SDHCI_QUIRK2_TUNING_POLL | SDHCI_QUIRK2_BROKEN_HS200,
+	.probe_slot = sdhci_acpi_probe_slot,
 };
 
 static const struct sdhci_acpi_slot sdhci_acpi_slot_int_sdio = {
@@ -129,12 +155,14 @@ static const struct sdhci_acpi_slot sdhci_acpi_slot_int_sdio = {
 	.caps    = MMC_CAP_NONREMOVABLE | MMC_CAP_POWER_OFF_CARD,
 	.flags   = SDHCI_ACPI_RUNTIME_PM,
 	.pm_caps = MMC_PM_KEEP_POWER,
+	.probe_slot = sdhci_acpi_probe_slot,
 };
 
 static const struct sdhci_acpi_slot sdhci_acpi_slot_int_sd = {
 	.flags   = SDHCI_ACPI_SD_CD | SDHCI_ACPI_RUNTIME_PM,
 	.quirks2 = SDHCI_QUIRK2_CARD_ON_NEEDS_BUS_ON |
 		   SDHCI_QUIRK2_TUNING_POLL,
+	.probe_slot = sdhci_acpi_probe_slot,
 };
 
 struct sdhci_acpi_uid_slot {
