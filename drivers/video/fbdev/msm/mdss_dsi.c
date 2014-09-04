@@ -1005,6 +1005,7 @@ static int __mdss_dsi_dfps_update_clks(struct mdss_panel_data *pdata,
 				ctrl_pdata->pll_pixel_clk);
 		clk_disable_unprepare(ctrl_pdata->pll_byte_clk);
 		clk_disable_unprepare(ctrl_pdata->pll_pixel_clk);
+		ctrl_pdata->panel_data.panel_info.mipi.frame_rate = new_fps;
 	} else {
 		ctrl_pdata->pclk_rate =
 			pdata->panel_info.mipi.dsi_pclk_rate;
