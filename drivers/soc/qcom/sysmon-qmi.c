@@ -48,7 +48,8 @@
 
 #define SSCTL_SERVICE_ID			0x2B
 #define SSCTL_VER_2				2
-#define SERVER_TIMEOUT				5000
+#define SERVER_TIMEOUT				500
+#define SHUTDOWN_TIMEOUT			5000
 
 #define QMI_EOTI_DATA_TYPE	\
 {				\
@@ -463,7 +464,7 @@ int sysmon_send_shutdown(struct subsys_desc *dest_desc)
 	}
 
 	if (!wait_for_completion_timeout(&data->ind_recv,
-					msecs_to_jiffies(SERVER_TIMEOUT))) {
+					msecs_to_jiffies(SHUTDOWN_TIMEOUT))) {
 		pr_err("Timed out waiting for shutdown indication from %s\n",
 							data->name);
 		ret = -ETIMEDOUT;
