@@ -688,10 +688,11 @@ extern void init_new_task_load(struct task_struct *p);
 
 #if defined(CONFIG_SCHED_FREQ_INPUT) || defined(CONFIG_SCHED_HMP)
 
-#define WINDOW_STATS_USE_RECENT		0
-#define WINDOW_STATS_USE_MAX		1
-#define WINDOW_STATS_USE_AVG		2
-#define WINDOW_STATS_INVALID_POLICY	3
+#define WINDOW_STATS_RECENT		0
+#define WINDOW_STATS_MAX		1
+#define WINDOW_STATS_MAX_RECENT_AVG	2
+#define WINDOW_STATS_AVG		3
+#define WINDOW_STATS_INVALID_POLICY	4
 
 extern struct mutex policy_mutex;
 extern unsigned int sched_ravg_window;
