@@ -41,6 +41,8 @@
 #define	FLASH_THERMAL_DRATE(base)				(base + 0x52)
 #define	FLASH_CURRENT_RAMP(base)				(base + 0x54)
 #define	FLASH_VPH_PWR_DROOP(base)				(base + 0x5A)
+#define	FLASH_HDRM_SNS_ENABLE_CTRL0(base)			(base + 0x5C)
+#define	FLASH_HDRM_SNS_ENABLE_CTRL1(base)			(base + 0x5D)
 #define	FLASH_LED_UNLOCK_SECURE(base)				(base + 0xD0)
 #define	FLASH_TORCH(base)					(base + 0xE4)
 
@@ -59,6 +61,7 @@
 #define FLASH_STROBE_MASK					0xC0
 #define FLASH_CURRENT_RAMP_MASK					0xBF
 #define FLASH_VPH_PWR_DROOP_MASK				0xF3
+#define FLASH_LED_HDRM_SNS_ENABLE_MASK				0x81
 
 #define FLASH_LED_TRIGGER_DEFAULT				"none"
 #define FLASH_LED_HEADROOM_DEFAULT_MV				500
@@ -86,6 +89,7 @@
 #define	FLASH_LED_THERMAL_DEVIDER				10
 #define	FLASH_LED_VPH_DROOP_THRESHOLD_MIN_MV			2500
 #define	FLASH_LED_VPH_DROOP_THRESHOLD_DIVIDER			100
+#define FLASH_LED_HDRM_SNS_ENABLE				0x81
 
 #define FLASH_UNLOCK_SECURE					0xA5
 #define FLASH_LED_TORCH_ENABLE					0x00
@@ -114,9 +118,10 @@ enum flash_led_type {
 };
 
 enum thermal_derate_rate {
-	RATE_2_PERCENT = 0,
+	RATE_1_PERCENT = 0,
+	RATE_1P25_PERCENT,
+	RATE_2_PERCENT,
 	RATE_2P5_PERCENT,
-	RATE_4_PERCENT,
 	RATE_5_PERCENT,
 };
 
@@ -170,6 +175,8 @@ struct flash_led_platform_data {
 	bool				thermal_derate_en;
 	bool				current_ramp_en;
 	bool				vph_pwr_droop_en;
+	bool				hdrm_sns_ch0_en;
+	bool				hdrm_sns_ch1_en;
 };
 
 /*
@@ -285,17 +292,21 @@ qpnp_led_masked_write(struct spmi_device *spmi_dev, u16 addr, u8 mask, u8 val)
 static int qpnp_flash_led_get_thermal_derate_rate(const char *rate)
 {
 	/*
-	 * return 4% derate as default value if user specifies
+	 * return 5% derate as default value if user specifies
 	 * a value un-supported
 	 */
-	if (strcmp(rate, "2_PERCENT") == 0)
+	if (strcmp(rate, "1_PERCENT") == 0)
+		return RATE_1_PERCENT;
+	else if (strcmp(rate, "1P25_PERCENT") == 0)
+		return RATE_1P25_PERCENT;
+	else if (strcmp(rate, "2_PERCENT") == 0)
 		return RATE_2_PERCENT;
 	else if (strcmp(rate, "2P5_PERCENT") == 0)
 		return RATE_2P5_PERCENT;
 	else if (strcmp(rate, "5_PERCENT") == 0)
 		return RATE_5_PERCENT;
 	else
-		return RATE_4_PERCENT;
+		return RATE_5_PERCENT;
 }
 
 static int qpnp_flash_led_get_ramp_step(const char *step)
@@ -803,6 +814,31 @@ static int qpnp_flash_led_init_settings(struct qpnp_flash_led *led)
 		dev_err(&led->spmi_dev->dev, "VPH PWR droop reg write failed\n");
 		return rc;
 	}
+
+	if (led->pdata->hdrm_sns_ch0_en) {
+		rc = qpnp_led_masked_write(led->spmi_dev,
+				FLASH_HDRM_SNS_ENABLE_CTRL0(led->base),
+				FLASH_LED_HDRM_SNS_ENABLE_MASK,
+				FLASH_LED_HDRM_SNS_ENABLE);
+		if (rc) {
+			dev_err(&led->spmi_dev->dev,
+					"Headroom sense enable failed\n");
+			return rc;
+		}
+	}
+
+	if (led->pdata->hdrm_sns_ch1_en) {
+		rc = qpnp_led_masked_write(led->spmi_dev,
+				FLASH_HDRM_SNS_ENABLE_CTRL1(led->base),
+				FLASH_LED_HDRM_SNS_ENABLE_MASK,
+				FLASH_LED_HDRM_SNS_ENABLE);
+		if (rc) {
+			dev_err(&led->spmi_dev->dev,
+					"Headroom sense enable failed\n");
+			return rc;
+		}
+	}
+
 	return 0;
 }
 
@@ -1023,7 +1059,7 @@ static int qpnp_flash_led_parse_common_dt(
 			of_property_read_bool(node,
 						"qcom,current-ramp-enabled");
 	if (led->pdata->current_ramp_en) {
-		led->pdata->ramp_up_step = FLASH_LED_RAMP_DN_STEP_DEFAULT_US;
+		led->pdata->ramp_up_step = FLASH_LED_RAMP_UP_STEP_DEFAULT_US;
 		rc = of_property_read_string(node, "qcom,ramp_up_step", &temp);
 		if (!rc) {
 			temp_val = qpnp_flash_led_get_ramp_step(temp);
@@ -1063,9 +1099,9 @@ static int qpnp_flash_led_parse_common_dt(
 				FLASH_LED_VPH_PWR_DROOP_THRESHOLD_DEFAULT_MV;
 		rc = of_property_read_u32(node,
 					"qcom,vph-pwr-droop-threshold", &val);
-		if (!rc)
+		if (!rc) {
 			led->pdata->vph_pwr_droop_threshold = (u16)val;
-		else if (rc != -EINVAL) {
+		} else if (rc != -EINVAL) {
 			dev_err(&led->spmi_dev->dev,
 				"Unable to read VPH PWR droop threshold\n");
 			return rc;
@@ -1083,6 +1119,12 @@ static int qpnp_flash_led_parse_common_dt(
 			return rc;
 		}
 	}
+
+	led->pdata->hdrm_sns_ch0_en = of_property_read_bool(node,
+						"qcom,headroom-sense-ch0-enabled");
+
+	led->pdata->hdrm_sns_ch1_en = of_property_read_bool(node,
+						"qcom,headroom-sense-ch1-enabled");
 
 	return 0;
 }
