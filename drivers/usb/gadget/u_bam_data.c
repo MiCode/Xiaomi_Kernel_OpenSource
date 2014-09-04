@@ -507,7 +507,7 @@ static void bam_data_write_toipa(struct work_struct *w)
 		return;
 	}
 
-	while (d->pending_with_bam < BAM_PENDING_LIMIT &&
+	while (d->pending_with_bam < BAM_PENDING_PKTS_LIMIT &&
 	       usb_bam_get_prod_granted(d->dst_connection_idx)) {
 		skb =  __skb_dequeue(&d->rx_skb_q);
 		if (!skb)

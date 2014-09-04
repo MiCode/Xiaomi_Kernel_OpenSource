@@ -51,7 +51,7 @@ static const enum ipa_client_type usb_cons[BAM2BAM_N_PORTS] = {
 	IPA_CLIENT_USB3_CONS, IPA_CLIENT_USB4_CONS
 };
 
-#define BAM_PENDING_LIMIT			220
+#define BAM_PENDING_PKTS_LIMIT			220
 #define BAM_MUX_TX_PKT_DROP_THRESHOLD		1000
 #define BAM_MUX_RX_PKT_FCTRL_EN_TSHOLD		500
 #define BAM_MUX_RX_PKT_FCTRL_DIS_TSHOLD		300
@@ -64,9 +64,13 @@ static const enum ipa_client_type usb_cons[BAM2BAM_N_PORTS] = {
 #define BAM_MUX_RX_REQ_SIZE			2048   /* Must be 1KB aligned */
 
 #define DL_INTR_THRESHOLD			20
+#define BAM_PENDING_BYTES_LIMIT			(50 * BAM_MUX_RX_REQ_SIZE)
 
-static unsigned int bam_pending_limit = BAM_PENDING_LIMIT;
-module_param(bam_pending_limit, uint, S_IRUGO | S_IWUSR);
+static unsigned int bam_pending_pkts_limit = BAM_PENDING_PKTS_LIMIT;
+module_param(bam_pending_pkts_limit, uint, S_IRUGO | S_IWUSR);
+
+static unsigned int bam_pending_bytes_limit = BAM_PENDING_BYTES_LIMIT;
+module_param(bam_pending_bytes_limit, uint, S_IRUGO | S_IWUSR);
 
 static unsigned int bam_mux_tx_pkt_drop_thld = BAM_MUX_TX_PKT_DROP_THRESHOLD;
 module_param(bam_mux_tx_pkt_drop_thld, uint, S_IRUGO | S_IWUSR);
@@ -141,7 +145,8 @@ struct bam_ch_info {
 	enum usb_bam_pipe_type	dst_pipe_type;
 
 	/* stats */
-	unsigned int		pending_with_bam;
+	unsigned int		pending_pkts_with_bam;
+	unsigned int		pending_bytes_with_bam;
 	unsigned int		tohost_drp_cnt;
 	unsigned int		tomodem_drp_cnt;
 	unsigned int		tx_len;
@@ -152,6 +157,7 @@ struct bam_ch_info {
 	unsigned int		rx_flow_control_enable;
 	unsigned int		rx_flow_control_triggered;
 	unsigned int		max_num_pkts_pending_with_bam;
+	unsigned int		max_bytes_pending_with_bam;
 };
 
 struct gbam_port {
@@ -483,17 +489,38 @@ void gbam_data_write_done(void *p, struct sk_buff *skb)
 
 	spin_lock_irqsave(&port->port_lock_ul, flags);
 
+	d->pending_pkts_with_bam--;
+	d->pending_bytes_with_bam -= skb->len;
 	gbam_free_skb_to_pool(port, skb);
 
-	d->pending_with_bam--;
-
-	pr_debug("%s: port:%p d:%p tom:%lu pbam:%u, pno:%d\n", __func__,
-			port, d, d->to_modem,
-			d->pending_with_bam, port->port_num);
+	pr_debug("%s:port:%p d:%p tom:%lu ppkt:%u pbytes:%u pno:%d\n", __func__,
+			port, d, d->to_modem, d->pending_pkts_with_bam,
+			d->pending_bytes_with_bam, port->port_num);
 
 	spin_unlock_irqrestore(&port->port_lock_ul, flags);
 
 	queue_work(gbam_wq, &d->write_tobam_w);
+}
+
+/* This function should be called with port_lock_ul spinlock acquired */
+static bool gbam_ul_bam_limit_reached(struct bam_ch_info *data_ch)
+{
+	unsigned int	curr_pending_pkts = data_ch->pending_pkts_with_bam;
+	unsigned int	curr_pending_bytes = data_ch->pending_bytes_with_bam;
+	struct sk_buff	*skb;
+
+	if (curr_pending_pkts >= bam_pending_pkts_limit)
+		return true;
+
+	/* check if next skb length doesn't exceed pending_bytes_limit */
+	skb = skb_peek(&data_ch->rx_skb_q);
+	if (!skb)
+		return false;
+
+	if ((curr_pending_bytes + skb->len) > bam_pending_bytes_limit)
+		return true;
+	else
+		return false;
 }
 
 static void gbam_data_write_tobam(struct work_struct *w)
@@ -514,19 +541,21 @@ static void gbam_data_write_tobam(struct work_struct *w)
 		return;
 	}
 
-	while (d->pending_with_bam < bam_pending_limit &&
+	while (!gbam_ul_bam_limit_reached(d) &&
 			(d->trans != USB_GADGET_XPORT_BAM2BAM_IPA ||
 			usb_bam_get_prod_granted(d->dst_connection_idx))) {
 		skb =  __skb_dequeue(&d->rx_skb_q);
 		if (!skb)
 			break;
 
-		d->pending_with_bam++;
+		d->pending_pkts_with_bam++;
+		d->pending_bytes_with_bam += skb->len;
 		d->to_modem++;
 
-		pr_debug("%s: port:%p d:%p tom:%lu pbam:%u pno:%d\n", __func__,
-				port, d, d->to_modem, d->pending_with_bam,
-				port->port_num);
+		pr_debug("%s: port:%p d:%p tom:%lu ppkts:%u pbytes:%u pno:%d\n",
+				__func__, port, d,
+				d->to_modem, d->pending_pkts_with_bam,
+				d->pending_bytes_with_bam, port->port_num);
 
 		spin_unlock_irqrestore(&port->port_lock_ul, flags);
 		if (d->src_pipe_type == USB_BAM_PIPE_SYS2BAM) {
@@ -549,14 +578,19 @@ static void gbam_data_write_tobam(struct work_struct *w)
 		spin_lock_irqsave(&port->port_lock_ul, flags);
 		if (ret) {
 			pr_debug("%s: write error:%d\n", __func__, ret);
-			d->pending_with_bam--;
+			d->pending_pkts_with_bam--;
+			d->pending_bytes_with_bam -= skb->len;
 			d->to_modem--;
 			d->tomodem_drp_cnt++;
 			gbam_free_skb_to_pool(port, skb);
 			break;
 		}
-		if (d->pending_with_bam > d->max_num_pkts_pending_with_bam)
-			d->max_num_pkts_pending_with_bam = d->pending_with_bam;
+		if (d->pending_pkts_with_bam > d->max_num_pkts_pending_with_bam)
+			d->max_num_pkts_pending_with_bam =
+					d->pending_pkts_with_bam;
+		if (d->pending_bytes_with_bam > d->max_bytes_pending_with_bam)
+			d->max_bytes_pending_with_bam =
+					d->pending_bytes_with_bam;
 	}
 
 	qlen = d->rx_skb_q.qlen;
@@ -1687,7 +1721,8 @@ static int gbam_data_ch_remove(struct platform_device *pdev)
 			msm_bam_dmux_close(d->id);
 
 			/* bam dmux will free all pending skbs */
-			d->pending_with_bam = 0;
+			d->pending_pkts_with_bam = 0;
+			d->pending_bytes_with_bam = 0;
 
 			clear_bit(BAM_CH_READY, &d->flags);
 			clear_bit(BAM_CH_OPENED, &d->flags);
@@ -1832,24 +1867,28 @@ static ssize_t gbam_read_stats(struct file *file, char __user *ubuf,
 				"dpkts_to_usbhost: %lu\n"
 				"dpkts_to_modem:  %lu\n"
 				"dpkts_pwith_bam: %u\n"
+				"dbytes_pwith_bam: %u\n"
 				"to_usbhost_dcnt:  %u\n"
 				"tomodem__dcnt:  %u\n"
 				"rx_flow_control_disable_count: %u\n"
 				"rx_flow_control_enable_count: %u\n"
 				"rx_flow_control_triggered: %u\n"
 				"max_num_pkts_pending_with_bam: %u\n"
+				"max_bytes_pending_with_bam: %u\n"
 				"tx_buf_len:	 %u\n"
 				"rx_buf_len:	 %u\n"
 				"data_ch_open:   %d\n"
 				"data_ch_ready:  %d\n",
 				i, port, &port->data_ch,
 				d->to_host, d->to_modem,
-				d->pending_with_bam,
+				d->pending_pkts_with_bam,
+				d->pending_bytes_with_bam,
 				d->tohost_drp_cnt, d->tomodem_drp_cnt,
 				d->rx_flow_control_disable,
 				d->rx_flow_control_enable,
 				d->rx_flow_control_triggered,
 				d->max_num_pkts_pending_with_bam,
+				d->max_bytes_pending_with_bam,
 				d->tx_skb_q.qlen, d->rx_skb_q.qlen,
 				test_bit(BAM_CH_OPENED, &d->flags),
 				test_bit(BAM_CH_READY, &d->flags));
@@ -1885,13 +1924,15 @@ static ssize_t gbam_reset_stats(struct file *file, const char __user *buf,
 
 		d->to_host = 0;
 		d->to_modem = 0;
-		d->pending_with_bam = 0;
+		d->pending_pkts_with_bam = 0;
+		d->pending_bytes_with_bam = 0;
 		d->tohost_drp_cnt = 0;
 		d->tomodem_drp_cnt = 0;
 		d->rx_flow_control_disable = 0;
 		d->rx_flow_control_enable = 0;
 		d->rx_flow_control_triggered = 0;
 		d->max_num_pkts_pending_with_bam = 0;
+		d->max_bytes_pending_with_bam = 0;
 
 		spin_unlock(&port->port_lock_dl);
 		spin_unlock_irqrestore(&port->port_lock_ul, flags);
@@ -2077,13 +2118,15 @@ int gbam_connect(struct grmnet *gr, u8 port_num,
 	if (d->trans == USB_GADGET_XPORT_BAM) {
 		d->to_host = 0;
 		d->to_modem = 0;
-		d->pending_with_bam = 0;
+		d->pending_pkts_with_bam = 0;
+		d->pending_bytes_with_bam = 0;
 		d->tohost_drp_cnt = 0;
 		d->tomodem_drp_cnt = 0;
 		d->rx_flow_control_disable = 0;
 		d->rx_flow_control_enable = 0;
 		d->rx_flow_control_triggered = 0;
 		d->max_num_pkts_pending_with_bam = 0;
+		d->max_bytes_pending_with_bam = 0;
 	}
 
 	spin_unlock(&port->port_lock_dl);
