@@ -10,6 +10,7 @@
 #include "core/common/dsi/dsi_pipe.h"
 #include "core/common/dsi/dsi_dbi.h"
 #include "core/common/dsi/dsi_dpi.h"
+#include "core/common/intel_dc_regs.h"
 
 #define KSEL_CRYSTAL_19 1
 #define KSEL_BYPASS_19 5
@@ -738,7 +739,7 @@ int dsi_pipe_init(struct dsi_pipe *pipe, struct device *dev,
 	memset(pipe, 0, sizeof(struct dsi_pipe));
 
 	/*get panel*/
-	panel = get_dsi_panel();
+	panel = get_dsi_panel_by_id(INTEL_GENERIC);
 	if (!panel)
 		return -ENODEV;
 

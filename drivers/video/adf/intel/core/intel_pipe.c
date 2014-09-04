@@ -19,6 +19,8 @@ int intel_pipe_init(struct intel_pipe *pipe, struct device *dev,
 	const struct intel_plane *primary_plane,
 	const struct intel_pipe_ops *ops, const char *name)
 {
+	pr_debug("ADF: %s\n", __func__);
+
 	if (!pipe || !primary_plane || !ops)
 		return -EINVAL;
 

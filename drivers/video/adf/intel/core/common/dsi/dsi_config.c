@@ -18,6 +18,7 @@
 #include "core/common/dsi/dsi_config.h"
 #include "core/common/dsi/dsi_panel.h"
 
+#ifndef CONFIG_ADF_INTEL_VLV
 static void dsi_regs_init(struct dsi_config *config, int idx)
 {
 	struct dsi_registers *regs;
@@ -174,12 +175,16 @@ static void dsi_regs_init(struct dsi_config *config, int idx)
 	}
 }
 
+#endif
+
 int dsi_config_init(struct dsi_config *config,
 			struct dsi_panel *panel, u8 idx)
 {
 	int err = 0;
 	struct panel_info pi;
 	struct drm_mode_modeinfo mode;
+
+	pr_err("ADF: %s\n", __func__);
 
 	if (!config || !panel) {
 		pr_err("%s: invalid parameter\n", __func__);
@@ -205,29 +210,31 @@ int dsi_config_init(struct dsi_config *config,
 		goto out_err0;
 	}
 
-	err = panel->ops->get_config_mode(&mode);
+	err = panel->ops->get_config_mode(config, &mode);
 	if (err) {
 		pr_err("%s: failed to get configured mode\n", __func__);
 		goto out_err0;
 	}
 
-	panel->ops->get_panel_info(&pi);
-
-	config->changed = 0;
-	config->channel_num = 0;
-	config->drv_ic_inited = 0;
-	config->enable_gamma_csc = 0;
-	config->video_mode = DSI_VIDEO_BURST_MODE;
-	config->bpp = pi.bpp;
-	config->lane_count = pi.lane_num;
-	config->type = pi.dsi_type;
-	config->dual_link = pi.dual_link;
+	panel->ops->get_panel_info(config, &pi);
 
 	memcpy(&config->perferred_mode, &mode, sizeof(mode));
 
+	config->changed = 0;
+	config->drv_ic_inited = 0;
+	config->bpp = pi.bpp;
+	config->dual_link = pi.dual_link;
+
+#ifdef CONFIG_INTEL_ADF_VLV
+	config->channel_num = 0;
+	config->enable_gamma_csc = 0;
+	config->video_mode = DSI_VIDEO_BURST_MODE;
+	config->lane_count = pi.lane_num;
+	config->type = pi.dsi_type;
+
 	/*init regs*/
 	dsi_regs_init(config, idx);
-
+#endif
 	/*init context lock*/
 	mutex_init(&config->ctx_lock);
 

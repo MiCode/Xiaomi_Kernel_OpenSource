@@ -262,7 +262,7 @@ struct intel_dc_config *intel_adf_get_dc_config(struct pci_dev *pdev, u32 id)
 		}
 	}
 
-	if (!config) {
+	if (IS_ERR(config)) {
 		dev_err(&pdev->dev, "%s: failed to get dc config\n", __func__);
 		return ERR_PTR(-EINVAL);
 	}

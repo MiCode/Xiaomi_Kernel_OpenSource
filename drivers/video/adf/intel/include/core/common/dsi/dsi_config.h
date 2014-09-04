@@ -22,6 +22,7 @@
 #include <linux/mutex.h>
 
 #include <video/adf.h>
+#include <drm/drm_crtc.h>
 #include "core/common/intel_dc_regs.h"
 
 /*DSI data lane configuration*/
@@ -43,8 +44,8 @@ enum {
 };
 
 typedef enum {
-	DSI_DBI = 0,
-	DSI_DPI,
+	DSI_DPI = 0,
+	DSI_DBI,
 } dsi_type_t;
 
 
@@ -154,7 +155,86 @@ struct dsi_registers {
 	u32 lvds_port_ctrl_reg;
 };
 
+#ifdef CONFIG_ADF_INTEL_VLV
+struct dsi_context {
+	/* if true, use HS mode, otherwise LP */
+	bool hs;
 
+	/* virtual channel */
+	int channel;
+
+	/* Video mode or command mode */
+	u16 operation_mode;
+
+	/* dual link support */
+	u8 dual_link;
+
+	/* number of DSI lanes */
+	unsigned int lane_count;
+
+	/* video mode pixel format for MIPI_DSI_FUNC_PRG register */
+	u32 pixel_format;
+
+	/* video mode format for MIPI_VIDEO_MODE_FORMAT register */
+	u32 video_mode_format;
+
+	/* eot for MIPI_EOT_DISABLE register */
+	u8 eotp_pkt;
+	u8 clock_stop;
+
+	u8 escape_clk_div;
+	u32 port_bits;
+	u32 bw_timer;
+	u32 dphy_reg;
+	u32 video_frmt_cfg_bits;
+	u16 lp_byte_clk;
+
+	/* timeouts in byte clocks */
+	u16 lp_rx_timeout;
+	u16 turn_arnd_val;
+	u16 rst_timer_val;
+	u16 hs_to_lp_count;
+	u16 clk_lp_to_hs_count;
+	u16 clk_hs_to_lp_count;
+
+	u16 init_count;
+	u32 pclk;
+	u16 burst_mode_ratio;
+
+	int backlight_level;
+
+	/* all delays in ms */
+	u16 backlight_off_delay;
+	u16 backlight_on_delay;
+	u16 panel_on_delay;
+	u16 panel_off_delay;
+	u16 panel_pwr_cycle_delay;
+};
+
+struct dsi_config {
+	struct dsi_context ctx;
+	struct mutex ctx_lock;
+	struct drm_mode_modeinfo perferred_mode;
+	struct drm_display_mode vbt_mode;
+
+	int pipe;
+	int changed;
+
+	int drv_ic_inited;
+
+	int bpp;
+
+	u8 dual_link;
+
+	/*mipi data lane config*/
+	int lane_config;
+
+	struct dsi_vbt *dsi;
+
+	u32 pixel_multiplier;
+	u8 lut_r[256], lut_g[256], lut_b[256];
+};
+#else
 struct dsi_context {
 	u32 vgacntr;
 
@@ -299,6 +379,7 @@ struct dsi_config {
 	/* SDO */
 	void *sdo;
 };
+#endif
 
 static inline int is_dual_link(struct dsi_config *config)
 {

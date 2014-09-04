@@ -24,6 +24,8 @@
 #include <linux/panel_psb_drv.h>
 #endif
 
+#include "core/common/dsi/dsi_config.h"
+
 struct dsi_pipe;
 
 /*DSI panel connection status*/
@@ -64,9 +66,9 @@ struct panel_info {
  *call these callbacks to take the specific actions for the new panel.
  */
 struct panel_ops {
-	int (*get_config_mode)(struct drm_mode_modeinfo *);
-	void (*dsi_controller_init)(struct dsi_pipe *intf);
-	void (*get_panel_info)(struct panel_info *);
+	int (*get_config_mode)(struct dsi_config *, struct drm_mode_modeinfo *);
+	int (*dsi_controller_init)(struct dsi_pipe *intf);
+	int (*get_panel_info)(struct dsi_config *, struct panel_info *);
 	int (*reset)(struct dsi_pipe *intf);
 	int (*exit_deep_standby)(struct dsi_pipe *intf);
 	int (*detect)(struct dsi_pipe *intf);
@@ -75,6 +77,7 @@ struct panel_ops {
 	int (*set_brightness)(struct dsi_pipe *intf, int level);
 	int (*drv_ic_init)(struct dsi_pipe *intf);
 	int (*drv_set_panel_mode)(struct dsi_pipe *intf);
+	int (*disable_panel_power)(struct dsi_pipe *intf);
 };
 
 struct dsi_panel {
@@ -83,7 +86,17 @@ struct dsi_panel {
 	struct panel_ops *ops;
 };
 
-extern const struct dsi_panel *get_dsi_panel_by_id(u8 id);
+extern struct dsi_panel *get_dsi_panel_by_id(u8 id);
 extern const struct dsi_panel *get_dsi_panel(void);
+
+/* declare get panel callbacks */
+extern const struct dsi_panel *get_generic_panel(void);
+extern const struct dsi_panel *cmi_get_panel(void);
+extern struct dsi_panel *jdi_cmd_get_panel(void);
+extern struct dsi_panel *jdi_vid_get_panel(void);
+extern struct dsi_panel *sharp_10x19_cmd_get_panel(void);
+extern struct dsi_panel *sharp_10x19_dual_cmd_get_panel(void);
+extern struct dsi_panel *sharp_25x16_vid_get_panel(void);
+extern struct dsi_panel *sharp_25x16_cmd_get_panel(void);
 
 #endif /* DSI_PANEL_H_ */

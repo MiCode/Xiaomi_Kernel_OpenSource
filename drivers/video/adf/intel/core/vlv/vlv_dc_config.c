@@ -13,10 +13,11 @@
  */
 
 #include <linux/pci.h>
-#include "core/intel_dc_config.h"
-#include "core/vlv/vlv_dc_config.h"
-#include "core/vlv/vlv_pri_plane.h"
-#include "core/vlv/vlv_sp_plane.h"
+#include <core/intel_dc_config.h>
+#include <core/common/dsi/dsi_pipe.h>
+#include <core/vlv/vlv_dc_config.h>
+#include <core/vlv/vlv_pri_plane.h>
+#include <core/vlv/vlv_sp_plane.h>
 
 #define VLV_ID(pipe, plane) ((pipe * VLV_MAX_PLANES) + plane)
 
@@ -25,11 +26,12 @@ struct vlv_dc_config {
 	struct vlv_disp {
 		struct vlv_pri_plane pplane;
 		struct vlv_sp_plane splane[2];
+		enum intel_pipe_type type;
+		union {
+			struct dsi_pipe dsi;
 
-		/*
-		 * TBD:
-		 * Add pipe datastructure
-		 */
+			/* later we will have hdmi pipe */
+		} pipe;
 	} vdisp[2];
 };
 
@@ -65,8 +67,7 @@ void vlv_dc_config_destroy(struct intel_dc_config *config)
 		return;
 
 	for (pipe = 0; pipe < MAX_PIPES; pipe++) {
-		/* Do pipe deinit here one pipe init code is there from DSI */
-
+		/* Do pipe deinit here one pipe init code is ready for DSI */
 		pplane = &vlv_config->vdisp[pipe].pplane;
 		vlv_pri_plane_destroy(pplane);
 		splane = &vlv_config->vdisp[pipe].splane[0];
@@ -102,10 +103,11 @@ static int vlv_initialize_disp(struct vlv_dc_config *vlv_config, int pipe,
 	}
 	intel_dc_config_add_plane(&vlv_config->base, &pplane->base,
 				  VLV_ID(pipe, VLV_PLANE));
+
 	/* Initialize first sprite */
 	splane = &vlv_config->vdisp[pipe].splane[0];
-	err = vlv_sp_plane_init(splane, vlv_config->base.dev, pipe ?
-				SPRITE_C : SPRITE_A);
+	err = vlv_sp_plane_init(splane, vlv_config->base.dev,
+				pipe ? SPRITE_C : SPRITE_A);
 	if (err) {
 		dev_err(vlv_config->base.dev,
 			"%s: failed to init sprite plane, %d\n", __func__, err);
@@ -113,10 +115,11 @@ static int vlv_initialize_disp(struct vlv_dc_config *vlv_config, int pipe,
 	}
 	intel_dc_config_add_plane(&vlv_config->base, &splane->base,
 				  VLV_ID(pipe, VLV_SPRITE1));
+
 	/* Initialize second sprite */
 	splane = &vlv_config->vdisp[pipe].splane[1];
-	err = vlv_sp_plane_init(splane, vlv_config->base.dev, pipe ?
-				SPRITE_D : SPRITE_B);
+	err = vlv_sp_plane_init(splane, vlv_config->base.dev,
+				pipe ? SPRITE_D : SPRITE_B);
 	if (err) {
 		dev_err(vlv_config->base.dev,
 				"%s: failed to init sprite plane, %d\n",
@@ -127,6 +130,7 @@ static int vlv_initialize_disp(struct vlv_dc_config *vlv_config, int pipe,
 				  VLV_ID(pipe, VLV_SPRITE2));
 
 	/* TBD: Initialize interface PIPE */
+
 	return err;
 }
 

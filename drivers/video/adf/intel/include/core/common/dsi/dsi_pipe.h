@@ -72,8 +72,13 @@ static inline struct dsi_pipe *to_dsi_pipe(struct intel_pipe *pipe)
 	return container_of(pipe, struct dsi_pipe, base);
 }
 
+#ifdef CONFIG_ADF_INTEL_VLV
+extern int dsi_pipe_init(struct dsi_pipe *pipe, struct device *dev,
+	struct intel_plane *primary_plane, u8 idx);
+#else
 extern int dsi_pipe_init(struct dsi_pipe *pipe, struct device *dev,
 	struct intel_plane *primary_plane, u8 idx, u32 gtt_phy_addr);
+#endif
 extern void dsi_pipe_destroy(struct dsi_pipe *pipe);
 
 extern bool dsi_pipe_enable_clocking(struct dsi_pipe *pipe);

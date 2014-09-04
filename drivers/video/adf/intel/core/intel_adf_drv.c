@@ -30,6 +30,7 @@ struct intel_adf_context *adf_ctx;
 static int intel_adf_init(void)
 {
 	struct pci_dev *i915_pci_dev;
+	pr_err("ADF: %s\n", __func__);
 
 	i915_pci_dev = i915_adf_get_pci_dev();
 	adf_ctx = intel_adf_context_create(i915_pci_dev);
@@ -37,6 +38,8 @@ static int intel_adf_init(void)
 		pr_err("%s:failed to create ADF context\n", __func__);
 		return -EINVAL;
 	}
+
+	pr_err("ADF: %s\n", __func__);
 	return 0;
 }
 
