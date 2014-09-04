@@ -1402,7 +1402,13 @@ static int fwu_do_read_config(void)
 
 	kfree(fwu->read_config_buf);
 	fwu->read_config_buf = kzalloc(fwu->config_size, GFP_KERNEL);
-
+	if (!fwu->read_config_buf) {
+		dev_err(&fwu->rmi4_data->i2c_client->dev,
+			"%s: Failed to alloc memory for config buffer\n",
+			__func__);
+		retval = -ENOMEM;
+		goto exit;
+	}
 	block_offset[1] |= (fwu->config_area << 5);
 
 	retval = fwu->fn_ptr->write(fwu->rmi4_data,
