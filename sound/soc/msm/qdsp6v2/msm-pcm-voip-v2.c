@@ -744,13 +744,6 @@ static int msm_pcm_open(struct snd_pcm_substream *substream)
 	pr_debug("%s, VoIP\n", __func__);
 	mutex_lock(&prtd->lock);
 
-	if (prtd->state == VOIP_STARTED) {
-		ret = -EBUSY;
-		pr_err("%s, In run state, no more instances allowed :%d\n",
-			__func__, ret);
-		goto err;
-	}
-
 	runtime->hw = msm_pcm_hardware;
 
 	ret = snd_pcm_hw_constraint_list(runtime, 0,
@@ -925,14 +918,6 @@ static int msm_pcm_copy(struct snd_pcm_substream *substream, int a,
 	 snd_pcm_uframes_t hwoff, void __user *buf, snd_pcm_uframes_t frames)
 {
 	int ret = 0;
-	struct snd_pcm_runtime *runtime = substream->runtime;
-	struct voip_drv_info *prtd = runtime->private_data;
-
-	if (prtd->state != VOIP_STARTED) {
-		ret = -EINVAL;
-		pr_err("%s: Invalid copy on VoIP driver %d\n", __func__, ret);
-		return ret;
-	}
 
 	if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK)
 		ret = msm_pcm_playback_copy(substream, a, hwoff, buf, frames);
@@ -1251,15 +1236,6 @@ msm_pcm_capture_pointer(struct snd_pcm_substream *substream)
 static snd_pcm_uframes_t msm_pcm_pointer(struct snd_pcm_substream *substream)
 {
 	snd_pcm_uframes_t ret = 0;
-	struct snd_pcm_runtime *runtime = substream->runtime;
-	struct voip_drv_info *prtd = runtime->private_data;
-
-	if (prtd->state != VOIP_STARTED) {
-		ret = -EINVAL;
-		pr_err("%s: Invalid OP on VoIP driver %lu\n", __func__, ret);
-		return ret;
-	}
-
 	pr_debug("%s\n", __func__);
 	if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK)
 		ret = msm_pcm_playback_pointer(substream);
@@ -1271,22 +1247,14 @@ static snd_pcm_uframes_t msm_pcm_pointer(struct snd_pcm_substream *substream)
 static int msm_pcm_mmap(struct snd_pcm_substream *substream,
 			struct vm_area_struct *vma)
 {
-	int ret = 0;
 	struct snd_pcm_runtime *runtime = substream->runtime;
-	struct voip_drv_info *prtd = runtime->private_data;
-
-	if (prtd->state != VOIP_STARTED) {
-		ret = -EINVAL;
-		pr_err("%s: Invalid OP on VoIP driver %d\n", __func__, ret);
-		return ret;
-	}
 
 	pr_debug("%s\n", __func__);
 	dma_mmap_coherent(substream->pcm->card->dev, vma,
 				     runtime->dma_area,
 				     runtime->dma_addr,
 				     runtime->dma_bytes);
-	return ret;
+	return 0;
 }
 
 static int msm_pcm_hw_params(struct snd_pcm_substream *substream,
@@ -1294,21 +1262,12 @@ static int msm_pcm_hw_params(struct snd_pcm_substream *substream,
 {
 	struct snd_pcm_runtime *runtime = substream->runtime;
 	struct snd_dma_buffer *dma_buf = &substream->dma_buffer;
-	struct voip_drv_info *prtd = runtime->private_data;
 	struct voip_buf_node *buf_node = NULL;
-	int i = 0, offset = 0, ret = 0;
+	int i = 0, offset = 0;
 
-	pr_debug("%s: voip, stream: %d\n", __func__, substream->stream);
+	pr_debug("%s: voip\n", __func__);
 
 	mutex_lock(&voip_info.lock);
-
-	if (prtd->state == VOIP_STARTED) {
-		ret = -EINVAL;
-		pr_err("%s: failed as other instance is already running : %d\n",
-			__func__, ret);
-		mutex_unlock(&voip_info.lock);
-		return ret;
-	}
 
 	dma_buf->dev.type = SNDRV_DMA_TYPE_DEV;
 	dma_buf->dev.dev = substream->pcm->card->dev;
@@ -1347,7 +1306,7 @@ static int msm_pcm_hw_params(struct snd_pcm_substream *substream,
 
 	snd_pcm_set_runtime_buffer(substream, &substream->dma_buffer);
 
-	return ret;
+	return 0;
 }
 
 static int msm_voip_mode_config_get(struct snd_kcontrol *kcontrol,
