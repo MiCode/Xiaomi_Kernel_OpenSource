@@ -353,6 +353,7 @@ i915_dpst_get_resolution(struct drm_device *dev)
 	struct drm_i915_private *dev_priv = dev->dev_private;
 	struct drm_crtc *crtc;
 	struct drm_display_mode *mode;
+	u32 resolution = 0;
 
 	/* Get information about current display mode */
 	crtc = intel_get_crtc_for_pipe(dev, dev_priv->dpst.pipe);
@@ -361,9 +362,10 @@ i915_dpst_get_resolution(struct drm_device *dev)
 
 	mode = intel_crtc_mode_get(dev, crtc);
 	if (mode)
-		return  mode->hdisplay * mode->vdisplay;
+		resolution = mode->hdisplay * mode->vdisplay;
 
-	return 0;
+	kfree(mode);
+	return resolution;
 }
 
 static int
