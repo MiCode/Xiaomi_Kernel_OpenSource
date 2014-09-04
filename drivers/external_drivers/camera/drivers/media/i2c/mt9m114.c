@@ -1099,7 +1099,9 @@ static long mt9m114_s_exposure(struct v4l2_subdev *sd,
     u16 exposure_local[3];
     u32 RegSwResetData = 0;
 
-    dev_err(&client->dev, "%s(0x%X 0x%X 0x%X)\n", __func__, exposure->integration_time[0], exposure->gain[0], exposure->gain[1]);
+    dev_dbg(&client->dev, "%s(0x%X 0x%X 0x%X)\n", __func__,
+		    exposure->integration_time[0], exposure->gain[0],
+		    exposure->gain[1]);
 
     coarse_integration = exposure->integration_time[0];
 //    fine_integration = ExposureTime.FineIntegrationTime;
