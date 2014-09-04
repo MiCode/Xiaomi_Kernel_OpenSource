@@ -67,6 +67,7 @@ struct sdhci_acpi_slot {
 	unsigned int	caps2;
 	mmc_pm_flag_t	pm_caps;
 	unsigned int	flags;
+	int (*probe_slot) (struct platform_device *);
 };
 
 struct sdhci_acpi_host {
@@ -309,6 +310,11 @@ static int sdhci_acpi_probe(struct platform_device *pdev)
 	}
 
 	if (c->slot) {
+		if (c->slot->probe_slot) {
+			err = c->slot->probe_slot(pdev);
+			if (err)
+				goto err_free;
+		}
 		if (c->slot->chip) {
 			host->ops            = c->slot->chip->ops;
 			host->quirks        |= c->slot->chip->quirks;
