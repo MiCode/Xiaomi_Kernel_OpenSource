@@ -24,18 +24,6 @@
 #endif
 
 #define ALT_VECTOR_IDX(x) {x = 3 - x; }
-struct msm_isp_bandwidth_info {
-	uint32_t active;
-	uint64_t ab;
-	uint64_t ib;
-};
-
-enum msm_isp_hw_client {
-	ISP_VFE0,
-	ISP_VFE1,
-	ISP_CPP,
-	MAX_ISP_CLIENT,
-};
 
 struct msm_isp_bandwidth_mgr {
 	uint32_t bus_client;
@@ -52,6 +40,14 @@ void msm_isp_reset_burst_count_and_frame_drop(
 int msm_isp_init_bandwidth_mgr(enum msm_isp_hw_client client);
 int msm_isp_update_bandwidth(enum msm_isp_hw_client client,
 	uint64_t ab, uint64_t ib);
+void msm_isp_util_get_bandwidth_stats(struct vfe_device *vfe_dev,
+				      struct msm_isp_statistics *stats);
+void msm_isp_util_update_last_overflow_ab_ib(struct vfe_device *vfe_dev);
+void msm_isp_util_update_clk_rate(long clock_rate);
+void msm_isp_update_req_history(uint32_t client, uint64_t ab,
+				uint64_t ib,
+				struct msm_isp_bandwidth_info *client_info,
+				unsigned long long ts);
 void msm_isp_deinit_bandwidth_mgr(enum msm_isp_hw_client client);
 
 int msm_isp_subscribe_event(struct v4l2_subdev *sd, struct v4l2_fh *fh,

@@ -2033,6 +2033,7 @@ long msm_cpp_subdev_ioctl(struct v4l2_subdev *sd,
 				pr_err("clock rate differ from settings\n");
 			clk_set_rate(cpp_dev->cpp_clk[msm_cpp_core_clk_idx],
 				clock_rate);
+			msm_isp_util_update_clk_rate(clock_rate);
 		}
 		break;
 	}

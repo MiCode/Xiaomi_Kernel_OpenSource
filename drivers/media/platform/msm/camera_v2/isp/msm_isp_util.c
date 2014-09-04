@@ -24,8 +24,7 @@
 static DEFINE_MUTEX(bandwidth_mgr_mutex);
 static struct msm_isp_bandwidth_mgr isp_bandwidth_mgr;
 
-#define MSM_ISP_MIN_AB 450000000
-#define MSM_ISP_MIN_IB 900000000
+static uint64_t msm_isp_cpp_clk_rate;
 
 #define VFE40_8974V2_VERSION 0x1001001A
 static struct msm_bus_vectors msm_isp_init_vectors[] = {
@@ -186,6 +185,12 @@ int msm_isp_update_bandwidth(enum msm_isp_hw_client client,
 	}
 	msm_bus_scale_client_update_request(isp_bandwidth_mgr.bus_client,
 		isp_bandwidth_mgr.bus_vector_active_idx);
+	/* Insert into circular buffer */
+	msm_isp_update_req_history(isp_bandwidth_mgr.bus_client,
+		path->vectors[0].ab,
+		path->vectors[0].ib,
+		isp_bandwidth_mgr.client_info,
+		sched_clock());
 	mutex_unlock(&bandwidth_mgr_mutex);
 	return 0;
 }
@@ -215,6 +220,40 @@ void msm_isp_deinit_bandwidth_mgr(enum msm_isp_hw_client client)
 	msm_bus_scale_unregister_client(isp_bandwidth_mgr.bus_client);
 	isp_bandwidth_mgr.bus_client = 0;
 	mutex_unlock(&bandwidth_mgr_mutex);
+}
+
+void msm_isp_util_get_bandwidth_stats(struct vfe_device *vfe_dev,
+				      struct msm_isp_statistics *stats)
+{
+	stats->isp_vfe0_active = isp_bandwidth_mgr.client_info[ISP_VFE0].active;
+	stats->isp_vfe0_ab = isp_bandwidth_mgr.client_info[ISP_VFE0].ab;
+	stats->isp_vfe0_ib = isp_bandwidth_mgr.client_info[ISP_VFE0].ib;
+
+	stats->isp_vfe1_active = isp_bandwidth_mgr.client_info[ISP_VFE1].active;
+	stats->isp_vfe1_ab = isp_bandwidth_mgr.client_info[ISP_VFE1].ab;
+	stats->isp_vfe1_ib = isp_bandwidth_mgr.client_info[ISP_VFE1].ib;
+
+	stats->isp_cpp_active = isp_bandwidth_mgr.client_info[ISP_CPP].active;
+	stats->isp_cpp_ab = isp_bandwidth_mgr.client_info[ISP_CPP].ab;
+	stats->isp_cpp_ib = isp_bandwidth_mgr.client_info[ISP_CPP].ib;
+	stats->last_overflow_ab = vfe_dev->msm_isp_last_overflow_ab;
+	stats->last_overflow_ib = vfe_dev->msm_isp_last_overflow_ib;
+	stats->vfe_clk_rate = vfe_dev->msm_isp_vfe_clk_rate;
+	stats->cpp_clk_rate = msm_isp_cpp_clk_rate;
+}
+
+void msm_isp_util_update_last_overflow_ab_ib(struct vfe_device *vfe_dev)
+{
+	struct msm_bus_paths *path;
+	 path = &(msm_isp_bus_client_pdata.usecase[
+		  isp_bandwidth_mgr.bus_vector_active_idx]);
+	vfe_dev->msm_isp_last_overflow_ab = path->vectors[0].ab;
+	vfe_dev->msm_isp_last_overflow_ib = path->vectors[0].ib;
+}
+
+void msm_isp_util_update_clk_rate(long clock_rate)
+{
+	msm_isp_cpp_clk_rate = clock_rate;
 }
 
 uint32_t msm_isp_get_framedrop_period(
@@ -394,6 +433,7 @@ static int msm_isp_set_clk_rate(struct vfe_device *vfe_dev, long *rate)
 		return rc;
 	}
 	*rate = round_rate;
+	vfe_dev->msm_isp_vfe_clk_rate = round_rate;
 	return 0;
 }
 
