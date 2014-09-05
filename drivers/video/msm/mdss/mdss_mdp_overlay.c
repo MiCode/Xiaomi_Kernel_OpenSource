@@ -4113,6 +4113,7 @@ int mdss_mdp_overlay_init(struct msm_fb_data_type *mfd)
 	struct device *dev = mfd->fbi->dev;
 	struct msm_mdp_interface *mdp5_interface = &mfd->mdp;
 	struct mdss_overlay_private *mdp5_data = NULL;
+	struct irq_info *mdss_irq;
 	int rc;
 
 	mdp5_data = kzalloc(sizeof(struct mdss_overlay_private), GFP_KERNEL);
@@ -4227,7 +4228,10 @@ int mdss_mdp_overlay_init(struct msm_fb_data_type *mfd)
 	kobject_uevent(&dev->kobj, KOBJ_ADD);
 	pr_debug("vsync kobject_uevent(KOBJ_ADD)\n");
 
-	mdp5_data->cpu_pm_hdl = add_event_timer(NULL, (void *)mdp5_data);
+	mdss_irq = mdss_intr_line();
+
+	mdp5_data->cpu_pm_hdl = add_event_timer(mdss_irq->irq, NULL,
+							(void *)mdp5_data);
 	if (!mdp5_data->cpu_pm_hdl)
 		pr_warn("%s: unable to add event timer\n", __func__);
 
