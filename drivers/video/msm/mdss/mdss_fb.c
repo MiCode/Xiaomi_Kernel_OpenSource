@@ -2169,6 +2169,10 @@ static int mdss_fb_release_all(struct fb_info *info, bool release_all)
 			pm_runtime_put(info->dev);
 		} while (release_all && pinfo->ref_cnt);
 
+		/* we need to stop display thread before release */
+		if (release_all && mfd->disp_thread)
+			mdss_fb_stop_disp_thread(mfd);
+
 		if (pinfo->ref_cnt == 0) {
 			list_del(&pinfo->list);
 			kfree(pinfo);
