@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -244,7 +244,7 @@ int mdss_mdp_overlay_req_check(struct msm_fb_data_type *mfd,
 	 * with dedicated cursors within VP
 	 */
 	if ((req->pipe_type == MDSS_MDP_PIPE_TYPE_CURSOR) &&
-		((req->z_order != mdata->max_target_zorder) ||
+		((req->z_order != mdata->max_target_zorder - 1) ||
 		 !mdata->ncursor_pipes ||
 		 (req->src_rect.w > mdata->max_cursor_size))) {
 		pr_err("Inccorect cursor overlay cursor_pipes=%d zorder=%d\n",
@@ -2608,6 +2608,223 @@ static void mdss_mdp_hw_cursor_blend_config(struct mdss_mdp_mixer *mixer,
 
 }
 
+static void mdss_mdp_set_rect(struct mdp_rect *rect, u16 x, u16 y, u16 w,
+		u16 h)
+{
+	rect->x = x;
+	rect->y = y;
+	rect->w = w;
+	rect->h = h;
+}
+
+static void mdss_mdp_curor_pipe_cleanup(struct msm_fb_data_type *mfd,
+		int cursor_pipe)
+{
+	struct mdss_overlay_private *mdp5_data = mfd_to_mdp5_data(mfd);
+
+	if (mdp5_data->cursor_ndx[cursor_pipe] != MSMFB_NEW_REQUEST) {
+		mdss_mdp_overlay_release(mfd,
+				mdp5_data->cursor_ndx[cursor_pipe]);
+		mdp5_data->cursor_ndx[cursor_pipe] = MSMFB_NEW_REQUEST;
+	}
+}
+
+static int mdss_mdp_cursor_pipe_setup(struct msm_fb_data_type *mfd,
+		struct mdp_overlay *req, int cursor_pipe) {
+	struct mdss_mdp_pipe *pipe;
+	struct mdss_overlay_private *mdp5_data = mfd_to_mdp5_data(mfd);
+	int ret = 0;
+
+	req->id = mdp5_data->cursor_ndx[cursor_pipe];
+	ret = mdss_mdp_overlay_pipe_setup(mfd, req, &pipe, NULL, false);
+	if (ret) {
+		pr_err("cursor pipe setup failed, cursor_pipe:%d, ret:%d",
+				cursor_pipe, ret);
+		mdp5_data->cursor_ndx[cursor_pipe] = MSMFB_NEW_REQUEST;
+		return ret;
+	}
+	mdp5_data->cursor_ndx[cursor_pipe] = req->id;
+	return ret;
+}
+
+static int mdss_mdp_hw_cursor_pipe_update(struct msm_fb_data_type *mfd,
+				     struct fb_cursor *cursor)
+{
+	struct mdss_overlay_private *mdp5_data = mfd_to_mdp5_data(mfd);
+	struct mdss_mdp_mixer *mixer;
+	struct fb_image *img = &cursor->image;
+	struct mdss_data_type *mdata = mdss_mdp_get_mdata();
+	struct mdp_overlay req;
+	struct mdss_rect roi;
+	int ret = 0;
+	u32 xres = mfd->fbi->var.xres;
+	u32 yres = mfd->fbi->var.yres;
+	u32 start_x = img->dx;
+	u32 start_y = img->dy;
+	u32 left_lm_w = left_lm_w_from_mfd(mfd);
+
+	ret = mutex_lock_interruptible(&mdp5_data->ov_lock);
+	if (ret)
+		return ret;
+
+	if (mdss_fb_is_power_off(mfd)) {
+		ret = -EPERM;
+		goto done;
+	}
+
+	if (!cursor->enable) {
+		mdss_mdp_curor_pipe_cleanup(mfd, CURSOR_PIPE_LEFT);
+		mdss_mdp_curor_pipe_cleanup(mfd, CURSOR_PIPE_RIGHT);
+		goto done;
+	}
+
+	mixer = mdss_mdp_mixer_get(mdp5_data->ctl, MDSS_MDP_MIXER_MUX_DEFAULT);
+	if (!mixer) {
+		ret = -ENODEV;
+		goto done;
+	}
+
+	if (!mfd->cursor_buf && (cursor->set & FB_CUR_SETIMAGE)) {
+		mfd->cursor_buf = dma_alloc_coherent(&mfd->pdev->dev,
+			MDSS_MDP_CURSOR_SIZE, (dma_addr_t *)
+			&mfd->cursor_buf_phys, GFP_KERNEL);
+		if (!mfd->cursor_buf) {
+			pr_err("can't allocate cursor buffer\n");
+			ret = -ENOMEM;
+			goto done;
+		}
+
+		ret = msm_iommu_map_contig_buffer(mfd->cursor_buf_phys,
+			mdss_get_iommu_domain(MDSS_IOMMU_DOMAIN_UNSECURE),
+			0, MDSS_MDP_CURSOR_SIZE, SZ_4K, 0,
+			&(mfd->cursor_buf_iova));
+		if (IS_ERR_VALUE(ret)) {
+			dma_free_coherent(&mfd->pdev->dev, MDSS_MDP_CURSOR_SIZE,
+					  mfd->cursor_buf,
+					  (dma_addr_t) mfd->cursor_buf_phys);
+			pr_err("unable to map cursor buffer to iommu(%d)\n",
+			       ret);
+			goto done;
+		}
+
+		mixer->cursor_hotx = 0;
+		mixer->cursor_hoty = 0;
+	}
+
+	if ((img->width > MDSS_MDP_CURSOR_WIDTH) ||
+		(img->height > MDSS_MDP_CURSOR_HEIGHT) ||
+		(img->depth != 32) || (start_x >= xres) || (start_y >= yres)) {
+		ret = -EINVAL;
+		goto done;
+	}
+
+	pr_debug("mixer=%d enable=%x set=%x\n", mixer->num, cursor->enable,
+			cursor->set);
+
+	if (cursor->set & FB_CUR_SETHOT) {
+		if ((cursor->hot.x < img->width) &&
+			(cursor->hot.y < img->height)) {
+			mixer->cursor_hotx = cursor->hot.x;
+			mixer->cursor_hoty = cursor->hot.y;
+			 /* Update cursor position */
+			cursor->set |= FB_CUR_SETPOS;
+		} else {
+			pr_err("Invalid cursor hotspot coordinates\n");
+			ret = -EINVAL;
+			goto done;
+		}
+	}
+
+	memset(&roi, 0, sizeof(struct mdss_rect));
+	if (start_x > mixer->cursor_hotx) {
+		start_x -= mixer->cursor_hotx;
+	} else {
+		roi.x = mixer->cursor_hotx - start_x;
+		start_x = 0;
+	}
+	if (start_y > mixer->cursor_hoty) {
+		start_y -= mixer->cursor_hoty;
+	} else {
+		roi.y = mixer->cursor_hoty - start_y;
+		start_y = 0;
+	}
+
+	roi.w = min(xres - start_x, img->width - roi.x);
+	roi.h = min(yres - start_y, img->height - roi.y);
+
+	memset(&req, 0, sizeof(struct mdp_overlay));
+	req.pipe_type = PIPE_TYPE_CURSOR;
+	req.z_order = MDSS_MDP_STAGE_6;
+
+	req.src.width = img->width;
+	req.src.height = img->height;
+	req.src.format = MDP_ARGB_8888;
+
+	mdss_mdp_set_rect(&req.src_rect, roi.x, roi.y, img->width, img->height);
+	mdss_mdp_set_rect(&req.dst_rect, start_x, start_y, roi.w, roi.h);
+
+	req.bg_color = img->bg_color;
+	req.alpha = (img->fg_color & 0xff000000) >> 24;
+	if (req.alpha == 0xff)
+		req.blend_op = BLEND_OP_OPAQUE;
+	else
+		req.blend_op = BLEND_OP_COVERAGE;
+	req.transp_mask = (img->bg_color & 0xffffff);
+
+	if (mfd->cursor_buf && (cursor->set & FB_CUR_SETIMAGE)) {
+		u32 cursor_addr;
+		ret = copy_from_user(mfd->cursor_buf, img->data,
+				     img->width * img->height * 4);
+		if (ret) {
+			pr_err("copy_from_user error. rc=%d\n", ret);
+			goto done;
+		}
+
+		if (mdata->mdss_util->iommu_attached()) {
+			cursor_addr = mfd->cursor_buf_iova;
+		} else {
+			if (MDSS_LPAE_CHECK(mfd->cursor_buf_phys)) {
+				pr_err("can't access phy mem >4GB w/o iommu\n");
+				ret = -ERANGE;
+				goto done;
+			}
+			cursor_addr = mfd->cursor_buf_phys;
+		}
+
+		mixer->cursor_hotx = 0;
+		mixer->cursor_hoty = 0;
+		mdp5_data->cursor_ndx[CURSOR_PIPE_LEFT] = MSMFB_NEW_REQUEST;
+		mdp5_data->cursor_ndx[CURSOR_PIPE_RIGHT] = MSMFB_NEW_REQUEST;
+	}
+
+	if (start_x + roi.w <= left_lm_w) {
+		ret = mdss_mdp_cursor_pipe_setup(mfd, &req, CURSOR_PIPE_LEFT);
+		mdss_mdp_curor_pipe_cleanup(mfd, CURSOR_PIPE_RIGHT);
+	} else if (start_x >= left_lm_w) {
+		ret = mdss_mdp_cursor_pipe_setup(mfd, &req, CURSOR_PIPE_RIGHT);
+		mdss_mdp_curor_pipe_cleanup(mfd, CURSOR_PIPE_LEFT);
+	} else {
+		mdss_mdp_set_rect(&req.dst_rect, start_x, start_y,
+				(left_lm_w - start_x), roi.h);
+		mdss_mdp_set_rect(&req.src_rect, 0, 0, (left_lm_w -
+				start_x), img->height);
+		ret = mdss_mdp_cursor_pipe_setup(mfd, &req, CURSOR_PIPE_LEFT);
+		if (ret)
+			goto done;
+
+		mdss_mdp_set_rect(&req.dst_rect, left_lm_w, start_y, ((start_x +
+				roi.w) - left_lm_w), roi.h);
+		mdss_mdp_set_rect(&req.src_rect, (left_lm_w - start_x), 0,
+				(img->width - (left_lm_w - start_x)),
+				img->height);
+		ret = mdss_mdp_cursor_pipe_setup(mfd, &req, CURSOR_PIPE_RIGHT);
+	}
+
+done:
+	mutex_unlock(&mdp5_data->ov_lock);
+	return ret;
+}
+
 static int mdss_mdp_hw_cursor_update(struct msm_fb_data_type *mfd,
 				     struct fb_cursor *cursor)
 {
@@ -4104,23 +4321,33 @@ int mdss_mdp_overlay_init(struct msm_fb_data_type *mfd)
 	struct mdss_overlay_private *mdp5_data = NULL;
 	int rc;
 
+	mdp5_data = kzalloc(sizeof(struct mdss_overlay_private), GFP_KERNEL);
+	if (!mdp5_data) {
+		pr_err("fail to allocate mdp5 private data structure");
+		return -ENOMEM;
+	}
+
+	mdp5_data->mdata = dev_get_drvdata(mfd->pdev->dev.parent);
+	if (!mdp5_data->mdata) {
+		pr_err("unable to initialize overlay for fb%d\n", mfd->index);
+		rc = -ENODEV;
+		goto init_fail;
+	}
+
 	mdp5_interface->on_fnc = mdss_mdp_overlay_on;
 	mdp5_interface->off_fnc = mdss_mdp_overlay_off;
 	mdp5_interface->release_fnc = __mdss_mdp_overlay_release_all;
 	mdp5_interface->do_histogram = NULL;
-	mdp5_interface->cursor_update = mdss_mdp_hw_cursor_update;
+	if (mdp5_data->mdata->ncursor_pipes)
+		mdp5_interface->cursor_update = mdss_mdp_hw_cursor_pipe_update;
+	else
+		mdp5_interface->cursor_update = mdss_mdp_hw_cursor_update;
 	mdp5_interface->dma_fnc = mdss_mdp_overlay_pan_display;
 	mdp5_interface->ioctl_handler = mdss_mdp_overlay_ioctl_handler;
 	mdp5_interface->kickoff_fnc = mdss_mdp_overlay_kickoff;
 	mdp5_interface->get_sync_fnc = mdss_mdp_rotator_sync_pt_get;
 	mdp5_interface->splash_init_fnc = mdss_mdp_splash_init;
 	mdp5_interface->configure_panel = mdss_mdp_update_panel_info;
-
-	mdp5_data = kzalloc(sizeof(struct mdss_overlay_private), GFP_KERNEL);
-	if (!mdp5_data) {
-		pr_err("fail to allocate mdp5 private data structure");
-		return -ENOMEM;
-	}
 
 	INIT_LIST_HEAD(&mdp5_data->pipes_used);
 	INIT_LIST_HEAD(&mdp5_data->pipes_cleanup);
@@ -4130,13 +4357,9 @@ int mdss_mdp_overlay_init(struct msm_fb_data_type *mfd)
 	mutex_init(&mdp5_data->dfps_lock);
 	mdp5_data->hw_refresh = true;
 	mdp5_data->overlay_play_enable = true;
+	mdp5_data->cursor_ndx[CURSOR_PIPE_LEFT] = MSMFB_NEW_REQUEST;
+	mdp5_data->cursor_ndx[CURSOR_PIPE_RIGHT] = MSMFB_NEW_REQUEST;
 
-	mdp5_data->mdata = dev_get_drvdata(mfd->pdev->dev.parent);
-	if (!mdp5_data->mdata) {
-		pr_err("unable to initialize overlay for fb%d\n", mfd->index);
-		rc = -ENODEV;
-		goto init_fail;
-	}
 	mfd->mdp.private1 = mdp5_data;
 	mfd->wait_for_kickoff = true;
 	if (is_panel_split(mfd) && mdp5_data->mdata->has_pingpong_split)
