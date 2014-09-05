@@ -433,12 +433,26 @@ void msm_isp_update_framedrop_reg(struct vfe_device *vfe_dev)
 			}
 		}
 		if (stream_info->stream_type == BURST_STREAM) {
-			stream_info->runtime_burst_frame_count--;
-			if (stream_info->runtime_burst_frame_count == 0) {
+			if (stream_info->runtime_framedrop_update_burst) {
+				stream_info->runtime_framedrop_update_burst = 0;
+				stream_info->runtime_burst_frame_count =
+				    stream_info->runtime_init_frame_drop +
+				    (stream_info->runtime_num_burst_capture -
+					1) *
+				    (stream_info->framedrop_period + 1) + 1;
 				vfe_dev->hw_info->vfe_ops.axi_ops.
-				cfg_framedrop(vfe_dev, stream_info);
+					cfg_framedrop(vfe_dev, stream_info);
 				vfe_dev->hw_info->vfe_ops.core_ops.
-				 reg_update(vfe_dev);
+					reg_update(vfe_dev);
+			} else {
+				stream_info->runtime_burst_frame_count--;
+				if (stream_info->
+				    runtime_burst_frame_count == 0) {
+					vfe_dev->hw_info->vfe_ops.axi_ops.
+					cfg_framedrop(vfe_dev, stream_info);
+					vfe_dev->hw_info->vfe_ops.core_ops.
+					 reg_update(vfe_dev);
+				}
 			}
 		}
 	}
@@ -1699,14 +1713,18 @@ int msm_isp_update_axi_stream(struct vfe_device *vfe_dev, void *arg)
 			uint32_t framedrop_period =
 				msm_isp_get_framedrop_period(
 				   update_info->skip_pattern);
-			stream_info->runtime_init_frame_drop = 0;
 			if (update_info->skip_pattern == SKIP_ALL)
 				stream_info->framedrop_pattern = 0x0;
 			else
 				stream_info->framedrop_pattern = 0x1;
 			stream_info->framedrop_period = framedrop_period - 1;
-			vfe_dev->hw_info->vfe_ops.axi_ops.
-				cfg_framedrop(vfe_dev, stream_info);
+			if (stream_info->stream_type == BURST_STREAM) {
+				stream_info->runtime_framedrop_update_burst = 1;
+			} else {
+				stream_info->runtime_init_frame_drop = 0;
+				vfe_dev->hw_info->vfe_ops.axi_ops.
+					cfg_framedrop(vfe_dev, stream_info);
+			}
 			break;
 		}
 		case UPDATE_STREAM_AXI_CONFIG: {
