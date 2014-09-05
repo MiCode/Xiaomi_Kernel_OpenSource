@@ -204,27 +204,23 @@ TRACE_EVENT(mdp_video_underrun_done,
 );
 
 TRACE_EVENT(mdp_perf_update_bus,
-	TP_PROTO(unsigned long long ab_quota_rt,
-		unsigned long long ab_quota_nrt, unsigned long long ib_quota,
-		unsigned long bw_vote_mode),
-	TP_ARGS(ab_quota_rt, ab_quota_nrt, ib_quota, bw_vote_mode),
+	TP_PROTO(int client, unsigned long long ab_quota,
+	unsigned long long ib_quota),
+	TP_ARGS(client, ab_quota, ib_quota),
 	TP_STRUCT__entry(
-			__field(u64, ab_quota_rt)
-			__field(u64, ab_quota_nrt)
+			__field(int, client)
+			__field(u64, ab_quota)
 			__field(u64, ib_quota)
-			__field(u32, bw_vote_mode)
 	),
 	TP_fast_assign(
-			__entry->ab_quota_rt = ab_quota_rt;
-			__entry->ab_quota_nrt = ab_quota_nrt;
+			__entry->client = client;
+			__entry->ab_quota = ab_quota;
 			__entry->ib_quota = ib_quota;
-			__entry->bw_vote_mode = bw_vote_mode;
 	),
-	TP_printk("ab_rt=%llu ab_nrt=%llu ib=%llu mode=%d",
-			__entry->ab_quota_rt,
-			__entry->ab_quota_nrt,
-			__entry->ib_quota,
-			__entry->bw_vote_mode)
+	TP_printk("Request client:%d ab=%llu ib=%llu",
+			__entry->client,
+			__entry->ab_quota,
+			__entry->ib_quota)
 );
 
 TRACE_EVENT(mdp_cmd_pingpong_done,

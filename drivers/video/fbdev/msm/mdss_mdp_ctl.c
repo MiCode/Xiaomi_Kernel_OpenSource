@@ -1167,20 +1167,24 @@ static void mdss_mdp_ctl_perf_update_traffic_shaper_bw(struct mdss_mdp_ctl *ctl,
 }
 
 static inline void mdss_mdp_ctl_perf_update_bus(struct mdss_data_type *mdata,
-		u32 mdp_clk)
+	bool nrt_client, u32 mdp_clk)
 {
-	u64 bw_sum_of_intfs_rt = 0, bw_sum_of_intfs_nrt = 0;
-	u64 bus_ab_quota_rt, bus_ab_quota_nrt, bus_ib_quota;
+	u64 bw_sum_of_intfs = 0, bus_ab_quota, bus_ib_quota;
+	struct mdss_mdp_ctl *ctl;
+	struct mdss_mdp_mixer *mixer;
 	int i;
 	struct mdss_mdp_perf_params perf_temp;
 	bitmap_zero(perf_temp.bw_vote_mode, MDSS_MDP_BW_MODE_MAX);
 
 	ATRACE_BEGIN(__func__);
 	for (i = 0; i < mdata->nctl; i++) {
-		struct mdss_mdp_ctl *ctl;
-		struct mdss_mdp_mixer *mixer;
 		ctl = mdata->ctl_off + i;
-		if (mdss_mdp_ctl_is_power_on(ctl)) {
+		mixer = ctl->mixer_left;
+		if (mdss_mdp_ctl_is_power_on(ctl) &&
+		    /* RealTime clients */
+		    ((!nrt_client && !mdss_mdp_is_nrt_ctl_path(ctl)) ||
+		    /* Non-RealTime clients */
+		    (nrt_client && mdss_mdp_is_nrt_ctl_path(ctl)))) {
 			/*
 			 * If traffic shaper is enabled we must check
 			 * if additional bandwidth is required.
@@ -1195,22 +1199,17 @@ static inline void mdss_mdp_ctl_perf_update_bus(struct mdss_data_type *mdata,
 					ctl->cur_perf.bw_vote_mode,
 					MDSS_MDP_BW_MODE_MAX);
 
-			mixer = ctl->mixer_left;
-			if (ctl->intf_num ==  MDSS_MDP_NO_INTF ||
-					mixer->rotator_mode)
-				bw_sum_of_intfs_nrt += ctl->cur_perf.bw_ctl;
-			else
-				bw_sum_of_intfs_rt += ctl->cur_perf.bw_ctl;
+			bw_sum_of_intfs += ctl->cur_perf.bw_ctl;
 
 			pr_debug("ctl_num=%d bw=%llu mode=0x%lx\n", ctl->num,
 				ctl->cur_perf.bw_ctl,
 				*(ctl->cur_perf.bw_vote_mode));
 		}
 	}
-	bw_sum_of_intfs_rt = max(bw_sum_of_intfs_rt,
-			mdata->perf_tune.min_bus_vote);
 
-	bus_ib_quota = bw_sum_of_intfs_rt + bw_sum_of_intfs_nrt;
+	bw_sum_of_intfs = max(bw_sum_of_intfs, mdata->perf_tune.min_bus_vote);
+	bus_ib_quota = bw_sum_of_intfs;
+
 	if (test_bit(MDSS_MDP_BW_MODE_SINGLE_LAYER,
 		perf_temp.bw_vote_mode) &&
 		(bus_ib_quota >= PERF_SINGLE_PIPE_BW_FLOOR)) {
@@ -1221,17 +1220,15 @@ static inline void mdss_mdp_ctl_perf_update_bus(struct mdss_data_type *mdata,
 			&ib_factor_vscaling);
 	}
 
-	bus_ab_quota_rt = apply_fudge_factor(bw_sum_of_intfs_rt,
+	bus_ab_quota = apply_fudge_factor(bw_sum_of_intfs,
 		&mdss_res->ab_factor);
-	bus_ab_quota_nrt = apply_fudge_factor(bw_sum_of_intfs_nrt,
-		&mdss_res->ab_factor);
-	trace_mdp_perf_update_bus(bus_ab_quota_rt, bus_ab_quota_nrt,
-			bus_ib_quota, *(perf_temp.bw_vote_mode));
 	ATRACE_INT("bus_quota", bus_ib_quota);
-	mdss_bus_scale_set_quota(MDSS_HW_MDP, bus_ab_quota_rt, bus_ab_quota_nrt
-			, bus_ib_quota);
-	pr_debug("ab_rt=%llu ab_nrt=%llu ib=%llu\n",
-			bus_ab_quota_rt, bus_ab_quota_nrt, bus_ib_quota);
+
+	mdss_bus_scale_set_quota(nrt_client ? MDSS_MDP_NRT : MDSS_MDP_RT,
+		bus_ab_quota, bus_ib_quota);
+	pr_debug("client:%s ab=%llu ib=%llu\n", nrt_client ? "nrt" : "rt",
+		bus_ab_quota, bus_ib_quota);
+
 	ATRACE_END(__func__);
 }
 
@@ -1285,7 +1282,8 @@ void mdss_mdp_ctl_perf_release_bw(struct mdss_mdp_ctl *ctl)
 		ctl_local->cur_perf.bw_ctl = 0;
 		ctl_local->new_perf.bw_ctl = 0;
 		pr_debug("Release BW ctl=%d\n", ctl_local->num);
-		mdss_mdp_ctl_perf_update_bus(mdata, 0);
+		mdss_mdp_ctl_perf_update_bus(mdata,
+			mdss_mdp_is_nrt_ctl_path(ctl), 0);
 	}
 exit:
 	mutex_unlock(&mdss_mdp_ctl_lock);
@@ -1423,7 +1421,8 @@ static void mdss_mdp_ctl_perf_update(struct mdss_mdp_ctl *ctl,
 		clk_rate = mdss_mdp_get_mdp_clk_rate(mdata);
 
 	if (update_bus)
-		mdss_mdp_ctl_perf_update_bus(mdata, clk_rate);
+		mdss_mdp_ctl_perf_update_bus(mdata,
+			mdss_mdp_is_nrt_ctl_path(ctl), clk_rate);
 
 	/*
 	 * Update the clock after bandwidth vote to ensure

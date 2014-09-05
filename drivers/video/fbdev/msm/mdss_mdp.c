@@ -82,6 +82,8 @@ struct msm_mdp_interface mdp5 = {
 #define IB_QUOTA 2000000000
 #define AB_QUOTA 2000000000
 
+#define MAX_AXI_PORT_COUNT 3
+
 #define MEM_PROTECT_SD_CTRL 0xF
 #define MEM_PROTECT_SD_CTRL_FLAT 0x14
 
@@ -295,7 +297,7 @@ static int mdss_mdp_bus_scale_register(struct mdss_data_type *mdata)
 					mdata->reg_bus_hdl);
 	}
 
-	return mdss_bus_scale_set_quota(MDSS_HW_MDP, AB_QUOTA, 0, IB_QUOTA);
+	return mdss_bus_scale_set_quota(MDSS_MDP_RT, AB_QUOTA, IB_QUOTA);
 }
 
 static void mdss_mdp_bus_scale_unregister(struct mdss_data_type *mdata)
@@ -313,66 +315,78 @@ static void mdss_mdp_bus_scale_unregister(struct mdss_data_type *mdata)
 	}
 }
 
-int mdss_mdp_bus_scale_set_quota(u64 ab_quota_rt, u64 ab_quota_nrt,
-		u64 ib_quota)
+static int mdss_mdp_bus_scale_set_quota(u64 ab_quota_rt, u64 ab_quota_nrt,
+		u64 ib_quota_rt, u64 ib_quota_nrt)
 {
 	int new_uc_idx;
-	u64 ab_quota[2];
+	u64 ab_quota[MAX_AXI_PORT_COUNT] = {0, 0};
+	u64 ib_quota[MAX_AXI_PORT_COUNT] = {0, 0};
 
 	if (mdss_res->bus_hdl < 1) {
 		pr_err("invalid bus handle %d\n", mdss_res->bus_hdl);
 		return -EINVAL;
 	}
 
-	if (((ab_quota_rt + ab_quota_nrt) || ib_quota) == 0) {
+	if (!ab_quota_rt && !ab_quota_nrt && !ib_quota_rt && !ib_quota_nrt)  {
 		new_uc_idx = 0;
 	} else {
 		int i;
 		struct msm_bus_vectors *vect = NULL;
 		struct msm_bus_scale_pdata *bw_table =
 			mdss_res->bus_scale_table;
-		unsigned long size;
+		u32 nrt_axi_port_cnt = mdss_res->nrt_axi_port_cnt;
+		u32 total_axi_port_cnt = mdss_res->axi_port_cnt;
+		u32 rt_axi_port_cnt = total_axi_port_cnt - nrt_axi_port_cnt;
 
-		if (!bw_table || !mdss_res->axi_port_cnt) {
+		if (!bw_table || !total_axi_port_cnt ||
+		    total_axi_port_cnt > MAX_AXI_PORT_COUNT) {
 			pr_err("invalid input\n");
 			return -EINVAL;
 		}
 
-		size = SZ_64M / mdss_res->axi_port_cnt;
+		if (mdss_res->bus_channels) {
+			ib_quota_rt = div_u64(ib_quota_rt,
+						mdss_res->bus_channels);
+			ib_quota_nrt = div_u64(ib_quota_nrt,
+						mdss_res->bus_channels);
+		}
+
 		if (mdss_res->has_fixed_qos_arbiter_enabled &&
-				mdss_res->axi_port_cnt > 1) {
-			ab_quota[0] = ab_quota_rt;
-			ab_quota[1] = ab_quota_nrt;
+		    rt_axi_port_cnt && nrt_axi_port_cnt) {
+			ab_quota_rt = div_u64(ab_quota_rt, rt_axi_port_cnt);
+			ab_quota_nrt = div_u64(ab_quota_nrt, nrt_axi_port_cnt);
+
+			for (i = 0; i < total_axi_port_cnt; i++) {
+				if (i < rt_axi_port_cnt) {
+					ab_quota[i] = ab_quota_rt;
+					ib_quota[i] = ib_quota_rt;
+				} else {
+					ab_quota[i] = ab_quota_nrt;
+					ib_quota[i] = ib_quota_nrt;
+				}
+			}
 		} else {
 			ab_quota[0] = div_u64(ab_quota_rt + ab_quota_nrt,
-					mdss_res->axi_port_cnt);
-			ab_quota[1] = ab_quota[0];
+					total_axi_port_cnt);
+			ib_quota[0] = ib_quota_rt + ib_quota_nrt;
+
+			for (i = 1; i < total_axi_port_cnt; i++) {
+				ab_quota[i] = ab_quota[0];
+				ib_quota[i] = ib_quota[0];
+			}
 		}
 
 		new_uc_idx = (mdss_res->curr_bw_uc_idx %
 			(bw_table->num_usecases - 1)) + 1;
 
-		if (mdss_res->bus_channels > 0)
-			ib_quota = div_u64(ib_quota, mdss_res->bus_channels);
-
-		for (i = 0; i < mdss_res->axi_port_cnt; i++) {
-			vect = &bw_table->usecase[mdss_res->curr_bw_uc_idx].
-				vectors[i];
-
-			/* avoid performing updates for small changes */
-			if ((ALIGN(ab_quota[i], size) == ALIGN(vect->ab, size))
-			&& (ALIGN(ib_quota, size) == ALIGN(vect->ib, size))) {
-				pr_debug("skip bus scaling, no changes\n");
-				return 0;
-			}
-
+		for (i = 0; i < total_axi_port_cnt; i++) {
 			vect = &bw_table->usecase[new_uc_idx].vectors[i];
 			vect->ab = ab_quota[i];
-			vect->ib = ib_quota;
+			vect->ib = ib_quota[i];
 
-			pr_debug("uc_idx=%d path_idx=%d ab=%llu ib=%llu ch=%d\n",
-				new_uc_idx, i, vect->ab, vect->ib,
-				mdss_res->bus_channels);
+			pr_debug("uc_idx=%d %s path idx=%d ab=%llu ib=%llu\n",
+				new_uc_idx, (i < rt_axi_port_cnt) ? "rt" : "nrt"
+				, i, vect->ab, vect->ib);
 		}
 	}
 	mdss_res->curr_bw_uc_idx = new_uc_idx;
@@ -381,26 +395,31 @@ int mdss_mdp_bus_scale_set_quota(u64 ab_quota_rt, u64 ab_quota_nrt,
 		new_uc_idx);
 }
 
-int mdss_bus_scale_set_quota(int client, u64 ab_quota_rt, u64 ab_quota_nrt,
-		u64 ib_quota)
+int mdss_bus_scale_set_quota(int client, u64 ab_quota, u64 ib_quota)
 {
 	int rc = 0;
 	int i;
-	u64 total_ab_rt = 0, total_ab_nrt = 0;
-	u64 total_ib = 0;
+	u64 total_ab_rt = 0, total_ib_rt = 0;
+	u64 total_ab_nrt = 0, total_ib_nrt = 0;
 
 	mutex_lock(&bus_bw_lock);
 
-	mdss_res->ab_rt[client] = ab_quota_rt;
-	mdss_res->ab_nrt[client] = ab_quota_nrt;
+	mdss_res->ab[client] = ab_quota;
 	mdss_res->ib[client] = ib_quota;
-	for (i = 0; i < MDSS_MAX_HW_BLK; i++) {
-		total_ab_rt += mdss_res->ab_rt[i];
-		total_ab_nrt += mdss_res->ab_nrt[i];
-		total_ib = max(total_ib, mdss_res->ib[i]);
+	trace_mdp_perf_update_bus(client, ab_quota, ib_quota);
+
+	for (i = 0; i < MDSS_MAX_BUS_CLIENTS; i++) {
+		if (i == MDSS_MDP_NRT) {
+			total_ab_nrt = mdss_res->ab[i];
+			total_ib_nrt = mdss_res->ib[i];
+		} else {
+			total_ab_rt += mdss_res->ab[i];
+			total_ib_rt = max(total_ib_rt, mdss_res->ib[i]);
+		}
 	}
 
-	rc = mdss_mdp_bus_scale_set_quota(total_ab_rt, total_ab_nrt, total_ib);
+	rc = mdss_mdp_bus_scale_set_quota(total_ab_rt, total_ab_nrt,
+			total_ib_rt, total_ib_nrt);
 
 	mutex_unlock(&bus_bw_lock);
 
@@ -2736,6 +2755,16 @@ static int mdss_mdp_parse_dt_bus_scale(struct platform_device *pdev)
 		pr_err("Error. qcom,msm-bus,num-paths prop not found.rc=%d\n",
 			rc);
 		return rc;
+	}
+
+	rc = of_property_read_u32(pdev->dev.of_node,
+			"qcom,mdss-num-nrt-paths", &mdata->nrt_axi_port_cnt);
+	if (rc && mdata->has_fixed_qos_arbiter_enabled) {
+		pr_err("Error. qcom,mdss-num-nrt-paths prop not found.rc=%d\n",
+			rc);
+		return rc;
+	} else {
+		rc = 0;
 	}
 
 	mdata->bus_scale_table = msm_bus_cl_get_pdata(pdev);
