@@ -1548,7 +1548,7 @@ static int mdss_panel_parse_dt(struct device_node *np,
 			ctrl_pdata->status_mode = ESD_BTA;
 		} else if (!strcmp(data, "reg_read")) {
 			ctrl_pdata->status_mode = ESD_REG;
-			ctrl_pdata->status_cmds_rlen = 0;
+			ctrl_pdata->status_cmds_rlen = 1;
 			ctrl_pdata->check_read_status =
 						mdss_dsi_gen_read_status;
 		} else if (!strcmp(data, "reg_read_nt35596")) {
