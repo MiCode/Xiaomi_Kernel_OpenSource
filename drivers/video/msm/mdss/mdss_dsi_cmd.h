@@ -39,6 +39,7 @@ struct dsi_buf {
 	int size;	/* size of buffer */
 	char *data;	/* buffer */
 	int len;	/* data length */
+	int read_cnt;	/* DSI read count */
 	dma_addr_t dmap; /* mapped dma addr */
 };
 

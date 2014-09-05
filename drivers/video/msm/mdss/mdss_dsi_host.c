@@ -1060,6 +1060,7 @@ do_send:
 			pr_err("%s: failed to add max_pkt_size\n",
 				__func__);
 			rp->len = 0;
+			rp->read_cnt = 0;
 			goto end;
 		}
 
@@ -1072,6 +1073,7 @@ do_send:
 			pr_err("%s: failed to tx max_pkt_size\n",
 				__func__);
 			rp->len = 0;
+			rp->read_cnt = 0;
 			goto end;
 		}
 		pr_debug("%s: max_pkt_size=%d sent\n",
@@ -1083,6 +1085,7 @@ do_send:
 			pr_err("%s: failed to add cmd = 0x%x\n",
 				__func__,  cmds->payload[0]);
 			rp->len = 0;
+			rp->read_cnt = 0;
 			goto end;
 		}
 
@@ -1095,8 +1098,10 @@ do_send:
 			pr_err("%s: failed to tx cmd = 0x%x\n",
 				__func__,  cmds->payload[0]);
 			rp->len = 0;
+			rp->read_cnt = 0;
 			goto end;
 		}
+
 		/*
 		 * once cmd_dma_done interrupt received,
 		 * return data from client is ready and stored
@@ -1105,6 +1110,9 @@ do_send:
 		 * after that dcs header lost during shift into registers
 		 */
 		dlen = mdss_dsi_cmd_dma_rx(ctrl, rp, rx_byte);
+
+		if (!dlen)
+			goto end;
 
 		if (short_response)
 			break;
@@ -1122,19 +1130,31 @@ do_send:
 		dlen -= diff;
 		rp->data += dlen;	/* next start position */
 		rp->len += dlen;
-		data_byte = 12;	/* NOT first read */
-		pkt_size += data_byte;
+		if (!end) {
+			data_byte = 12; /* NOT first read */
+			pkt_size += data_byte;
+		}
 		pr_debug("%s: rp data=%x len=%d dlen=%d diff=%d\n",
 			 __func__, (int) (unsigned long) rp->data,
 			 rp->len, dlen, diff);
 	}
 
-	rp->data = rp->start;	/* move back to start position */
+	/*
+	 * For single Long read, if the requested rlen < 10,
+	 * we need to shift the start position of rx
+	 * data buffer to skip the bytes which are not
+	 * updated.
+	 */
+	if (rp->read_cnt < 16 && !short_response)
+		rp->data = rp->start + (16 - rp->read_cnt);
+	else
+		rp->data = rp->start;
 	cmd = rp->data[0];
 	switch (cmd) {
 	case DTYPE_ACK_ERR_RESP:
 		pr_debug("%s: rx ACK_ERR_PACLAGE\n", __func__);
 		rp->len = 0;
+		rp->read_cnt = 0;
 	case DTYPE_GEN_READ1_RESP:
 	case DTYPE_DCS_READ1_RESP:
 		mdss_dsi_short_read1_resp(rp);
@@ -1150,6 +1170,7 @@ do_send:
 	default:
 		pr_warning("%s:Invalid response cmd\n", __func__);
 		rp->len = 0;
+		rp->read_cnt = 0;
 	}
 end:
 
@@ -1163,7 +1184,11 @@ end:
 		ctrl->cmd_cfg_restore = false;
 	}
 
-	return rp->len;
+	if (rp->len && (rp->len != rp->read_cnt))
+		pr_err("Bytes read: %d requested:%d mismatch\n",
+					rp->read_cnt, rp->len);
+
+	return rp->read_cnt;
 }
 
 #define DMA_TX_TIMEOUT 200
@@ -1253,16 +1278,39 @@ static int mdss_dsi_cmd_dma_rx(struct mdss_dsi_ctrl_pdata *ctrl,
 			struct dsi_buf *rp, int rx_byte)
 
 {
-	u32 *lp, data;
-	int i, off, cnt;
+	u32 *lp, data, ctrl_rev;
+	int i, off, cnt, ret = rx_byte;
+	bool ack_error = false;
 
 	lp = (u32 *)rp->data;
 	cnt = rx_byte;
 	cnt += 3;
 	cnt >>= 2;
 
+	ctrl_rev = MIPI_INP(ctrl->ctrl_base);
+
 	if (cnt > 4)
 		cnt = 4; /* 4 x 32 bits registers only */
+
+	if (ctrl_rev >= MDSS_DSI_HW_REV_101) {
+		rp->read_cnt = (MIPI_INP((ctrl->ctrl_base) + 0x01d4) >> 16);
+		pr_debug("%s: bytes read:%d\n", __func__, rp->read_cnt);
+
+		ack_error = (rx_byte == 4) ? (rp->read_cnt == 8) :
+				((rp->read_cnt - 4) == (max_pktsize[0] + 6));
+
+		if (ack_error)
+			rp->read_cnt -= 4; /* 4 byte read err report */
+		if (!rp->read_cnt) {
+			pr_err("%s: Errors detected, no data rxed\n", __func__);
+			ret = 0;
+			goto exit;
+		}
+	} else if (rx_byte == 4) {
+		rp->read_cnt = 4;
+	} else {
+		rp->read_cnt = (max_pktsize[0] + 6);
+	}
 
 	off = 0x06c;	/* DSI_RDBK_DATA0 */
 	off += ((cnt - 1) * 4);
@@ -1275,7 +1323,14 @@ static int mdss_dsi_cmd_dma_rx(struct mdss_dsi_ctrl_pdata *ctrl,
 		off -= 4;
 	}
 
-	return rx_byte;
+exit:
+	if (ctrl_rev >= MDSS_DSI_HW_REV_101) {
+		/* clear the RDBK_DATA registers */
+		MIPI_OUTP(ctrl->ctrl_base + 0x01d4, 0x1);
+		MIPI_OUTP(ctrl->ctrl_base + 0x01d4, 0x0);
+	}
+
+	return ret;
 }
 
 void mdss_dsi_en_wait4dynamic_done(struct mdss_dsi_ctrl_pdata *ctrl)

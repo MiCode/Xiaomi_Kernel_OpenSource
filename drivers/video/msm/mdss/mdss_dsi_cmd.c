@@ -66,6 +66,7 @@ char *mdss_dsi_buf_init(struct dsi_buf *dp)
 		off = 8 - off;
 	dp->data += off;
 	dp->len = 0;
+	dp->read_cnt = 0;
 	return dp->data;
 }
 
@@ -85,6 +86,7 @@ int mdss_dsi_buf_alloc(struct device *ctrl_dev, struct dsi_buf *dp, int size)
 
 	dp->data = dp->start;
 	dp->len = 0;
+	dp->read_cnt = 0;
 	return size;
 }
 
@@ -573,6 +575,8 @@ int mdss_dsi_short_read1_resp(struct dsi_buf *rp)
 	/* strip out dcs type */
 	rp->data++;
 	rp->len = 1;
+	/* 1 byte for dcs type + 1 byte for ECC + 1 byte for 2nd data byte */
+	rp->read_cnt -= 3;
 	return rp->len;
 }
 
@@ -584,6 +588,7 @@ int mdss_dsi_short_read2_resp(struct dsi_buf *rp)
 	/* strip out dcs type */
 	rp->data++;
 	rp->len = 2;
+	rp->read_cnt -= 2; /* 1 byte for dcs type + 1 byte for ECC */
 	return rp->len;
 }
 
@@ -592,6 +597,7 @@ int mdss_dsi_long_read_resp(struct dsi_buf *rp)
 	/* strip out dcs header */
 	rp->data += 4;
 	rp->len -= 4;
+	rp->read_cnt -= 6; /* 4 bytes for dcs header + 2 bytes for CRC */
 	return rp->len;
 }
 
