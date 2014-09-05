@@ -996,6 +996,11 @@ int mdss_dsi_cmds_rx(struct mdss_dsi_ctrl_pdata *ctrl,
 		return rlen;
 	}
 
+	if (rlen == 0) {
+		pr_debug("%s: Minimum MRPS value should be 1\n", __func__);
+		return 0;
+	}
+
 	/*
 	 * Turn on cmd mode in order to transmit the commands.
 	 * For video mode, do not send cmds more than one pixel line,
