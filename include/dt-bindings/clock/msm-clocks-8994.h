@@ -424,6 +424,7 @@
 #define clk_shadow_indirect_path_div2_clk_8994 0x5d6b34c8
 #define clk_shadow_ndiv_clk_8994 0x488de275
 #define clk_shadow_dsi_vco_clk_8994 0x7995eebd
+#define clk_mdss_dsi1_vco_clk_src 0xfcd15658
 
 /* clock_cpu controlled clocks */
 #define clk_a57_pll0 0xd01177bc
