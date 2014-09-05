@@ -2019,6 +2019,21 @@ void mdss_mdp_pp_term(struct device *dev)
 		mutex_unlock(&mdss_pp_mutex);
 	}
 }
+
+int mdss_mdp_pp_override_pu(int enable)
+{
+	struct mdss_data_type *mdata = mdss_mdp_get_mdata();
+
+	if (!mdata)
+		return -EPERM;
+
+	if ((enable != MDP_PP_ENABLE) && (enable != MDP_PP_DISABLE))
+		return -EINVAL;
+
+	mdata->pp_enable = enable;
+	return 0;
+}
+
 static int pp_get_dspp_num(u32 disp_num, u32 *dspp_num)
 {
 	int i;
