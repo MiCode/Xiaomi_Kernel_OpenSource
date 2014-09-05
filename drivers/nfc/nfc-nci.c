@@ -917,6 +917,7 @@ static long nfc_compat_ioctl(struct file *pfile, unsigned int cmd,
 				unsigned long arg)
 {
 	long r = 0;
+	struct qca199x_dev *qca199x_dev = pfile->private_data;
 	arg = (compat_u64)arg;
 	switch (cmd) {
 	case NFC_SET_PWR:
@@ -934,6 +935,14 @@ static long nfc_compat_ioctl(struct file *pfile, unsigned int cmd,
 	case SET_RX_BLOCK:
 		break;
 	case SET_EMULATOR_TEST_POINT:
+		break;
+	case NFC_GET_EFUSE:
+		r = nfc_ioctl_nfcc_efuse(pfile, cmd, arg);
+		if (r < 0) {
+			r = 0xFF;
+			dev_err(&qca199x_dev->client->dev,
+			"nfc_ioctl : FAILED TO READ EFUSE TYPE\n");
+		}
 		break;
 	default:
 		r = -ENOTTY;
