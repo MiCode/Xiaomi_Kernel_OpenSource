@@ -1601,16 +1601,17 @@ static int mdss_dsi_irq_init(struct device *dev, int irq_no,
 				0x0, "DSI", ctrl);
 	if (ret) {
 		pr_err("msm_dsi_irq_init request_irq() failed!\n");
-	} else {
-		ctrl->dsi_hw->irq_info =
-			kzalloc(sizeof(struct irq_info), GFP_KERNEL);
-		if (!ctrl->dsi_hw->irq_info) {
-			pr_err("no mem to save irq info: kzalloc fail\n");
-			return -ENOMEM;
-		}
-		ctrl->dsi_hw->irq_info->irq = irq_no;
-		ctrl->dsi_hw->irq_info->irq_ena = false;
+		return ret;
 	}
+
+	disable_irq(irq_no);
+	ctrl->dsi_hw->irq_info = kzalloc(sizeof(struct irq_info), GFP_KERNEL);
+	if (!ctrl->dsi_hw->irq_info) {
+		pr_err("no mem to save irq info: kzalloc fail\n");
+		return -ENOMEM;
+	}
+	ctrl->dsi_hw->irq_info->irq = irq_no;
+	ctrl->dsi_hw->irq_info->irq_ena = false;
 
 	return ret;
 }
@@ -1779,26 +1780,6 @@ int dsi_panel_device_register(struct device_node *pan_node,
 		return -EPERM;
 	}
 
-	ctrl_pdata->dsi_irq_line = of_property_read_bool(
-				ctrl_pdev->dev.of_node, "qcom,dsi-irq-line");
-
-	if (ctrl_pdata->dsi_irq_line) {
-		/* DSI has it's own irq line */
-		res = platform_get_resource(ctrl_pdev, IORESOURCE_IRQ, 0);
-		if (!res || res->start == 0) {
-			pr_err("%s:%d unable to get the MDSS irq resources\n",
-							__func__, __LINE__);
-			rc = -ENODEV;
-		}
-		rc = mdss_dsi_irq_init(&ctrl_pdev->dev, res->start,
-						   ctrl_pdata);
-		if (rc) {
-			dev_err(&ctrl_pdev->dev, "%s: failed to init irq\n",
-							__func__);
-			return rc;
-		}
-	}
-
 	ctrl_pdata->panel_data.event_handler = mdss_dsi_event_handler;
 
 	if (ctrl_pdata->status_mode == ESD_REG ||
@@ -1815,9 +1796,25 @@ int dsi_panel_device_register(struct device_node *pan_node,
 		mdss_dsi_panel_pwm_cfg(ctrl_pdata);
 
 	mdss_dsi_ctrl_init(&ctrl_pdev->dev, ctrl_pdata);
-	/*
-	 * register in mdp driver
-	 */
+
+	ctrl_pdata->dsi_irq_line = of_property_read_bool(
+				ctrl_pdev->dev.of_node, "qcom,dsi-irq-line");
+
+	if (ctrl_pdata->dsi_irq_line) {
+		/* DSI has it's own irq line */
+		res = platform_get_resource(ctrl_pdev, IORESOURCE_IRQ, 0);
+		if (!res || res->start == 0) {
+			pr_err("%s:%d unable to get the MDSS irq resources\n",
+							__func__, __LINE__);
+			rc = -ENODEV;
+		}
+		rc = mdss_dsi_irq_init(&ctrl_pdev->dev, res->start, ctrl_pdata);
+		if (rc) {
+			dev_err(&ctrl_pdev->dev, "%s: failed to init irq\n",
+							__func__);
+			return rc;
+		}
+	}
 
 	ctrl_pdata->pclk_rate = mipi->dsi_pclk_rate;
 	ctrl_pdata->byte_clk_rate = pinfo->clk_rate / 8;
