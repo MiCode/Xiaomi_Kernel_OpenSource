@@ -107,6 +107,13 @@ enum mdss_hw_index {
 	MDSS_MAX_HW_BLK
 };
 
+enum mdss_bus_clients {
+	MDSS_MDP_RT,
+	MDSS_DSI_RT,
+	MDSS_MDP_NRT,
+	MDSS_MAX_BUS_CLIENTS
+};
+
 struct mdss_pp_block_off {
 	u32 sspp_igc_lut_off;
 	u32 vig_pcc_off;
@@ -172,6 +179,7 @@ struct mdss_data_type {
 	u32 rot_block_size;
 
 	u32 axi_port_cnt;
+	u32 nrt_axi_port_cnt;
 	u32 bus_channels;
 	u32 curr_bw_uc_idx;
 	u32 bus_hdl;
@@ -256,9 +264,8 @@ struct mdss_data_type {
 	atomic_t active_intf_cnt;
 	bool has_rot_dwnscale;
 
-	u64 ab_rt[MDSS_MAX_HW_BLK];
-	u64 ab_nrt[MDSS_MAX_HW_BLK];
-	u64 ib[MDSS_MAX_HW_BLK];
+	u64 ab[MDSS_MAX_BUS_CLIENTS];
+	u64 ib[MDSS_MAX_BUS_CLIENTS];
 	struct mdss_pp_block_off pp_block_off;
 };
 extern struct mdss_data_type *mdss_res;
@@ -280,8 +287,7 @@ struct mdss_hw {
 struct irq_info *mdss_intr_line(void);
 void mdss_bus_bandwidth_ctrl(int enable);
 int mdss_iommu_ctrl(int enable);
-int mdss_bus_scale_set_quota(int client, u64 ab_quota_rt, u64 ab_quota_nrt,
-		u64 ib_quota);
+int mdss_bus_scale_set_quota(int client, u64 ab_quota, u64 ib_quota);
 
 struct mdss_util_intf {
 	bool mdp_probe_done;
@@ -293,8 +299,7 @@ struct mdss_util_intf {
 	int (*iommu_attached)(void);
 	int (*iommu_ctrl)(int enable);
 	void (*bus_bandwidth_ctrl)(int enable);
-	int (*bus_scale_set_quota)(int client, u64 ab_quota,
-					u64 ab_quote_nrt, u64 ib_quota);
+	int (*bus_scale_set_quota)(int client, u64 ab_quota, u64 ib_quota);
 };
 
 struct mdss_util_intf *mdss_get_util_intf(void);

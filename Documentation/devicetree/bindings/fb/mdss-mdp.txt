@@ -169,6 +169,7 @@ Bus Scaling Data:
 				src values allowed for MDSS are:
 					22 = MSM_BUS_MASTER_MDP_PORT0
 					23 = MSM_BUS_MASTER_MDP_PORT1
+					25 = MSM_BUS_MASTER_ROTATOR
 				dst values allowed for MDSS are:
 					512 = MSM_BUS_SLAVE_EBI_CH0
 				ab: Represents aggregated bandwidth.
@@ -180,6 +181,8 @@ Bus Scaling Data:
 				ab and ib values defined here are random and
 				bare no logic except for the use-case 0 where ab
 				and ib values needs to be 0.
+				* Define realtime vector properties followed by
+				non-realtime vector properties.
 
 - qcom,mdss-prefill-outstanding-buffer-bytes: The size of mdp outstanding buffer
 				in bytes. The buffer is filled during prefill
@@ -259,6 +262,13 @@ Optional properties:
 			    increased performance by prioritizing the real time
 			    (rt) traffic over non real time (nrt) traffic to
 			    access the memory.
+- qcom,mdss-num-nrt-paths: Integer property represents the number of non-realtime
+			    paths in each Bus Scaling Usecase. This value depends on
+			    number of AXI ports are dedicated to non-realtime VBIF for
+			    particular chipset. This property is mandatory when
+			    "qcom,mdss-has-fixed-qos-arbiter-enabled" is enabled.
+			    These paths must be defined after rt-paths in
+			    "qcom,msm-bus,vectors-KBps" vector request.
 - qcom,mdss-has-source-split: Boolean property to indicate if source split
 			      feature is available or not.
 - qcom,mdss-has-rotator-downscale: Boolean property to indicate if rotator
@@ -487,6 +497,7 @@ Example:
 		qcom,msm-bus,num-cases = <3>;
 		qcom,msm-bus,num-paths = <2>;
 		qcom,mdss-dram-channels = <2>;
+		qcom,mdss-num-nrt-paths = <1>;
 		qcom,msm-bus,vectors-KBps =
 			<22 512 0 0>, <23 512 0 0>,
 			<22 512 0 6400000>, <23 512 0 6400000>,
