@@ -7413,6 +7413,7 @@ dhd_dev_set_nodfs(struct net_device *dev, u32 nodfs)
 		dhd->pub.dhd_cflags |= WLAN_PLAT_NODFS_FLAG;
 	else
 		dhd->pub.dhd_cflags &= ~WLAN_PLAT_NODFS_FLAG;
+	dhd->pub.force_country_change = TRUE;
 	return 0;
 }
 
@@ -7702,6 +7703,15 @@ int dhd_net_wifi_platform_set_power(struct net_device *dev, bool on, unsigned lo
 	return wifi_platform_set_power(dhd->adapter, on, delay_msec);
 }
 
+bool dhd_force_country_change(struct net_device *dev)
+{
+	dhd_info_t *dhd = DHD_DEV_INFO(dev);
+
+	if (dhd && dhd->pub.up)
+		return dhd->pub.force_country_change;
+	return FALSE;
+}
+
 void dhd_get_customized_country_code(struct net_device *dev, char *country_iso_code,
 	wl_country_t *cspec)
 {
@@ -7715,6 +7725,7 @@ void dhd_bus_country_set(struct net_device *dev, wl_country_t *cspec, bool notif
 	dhd_info_t *dhd = DHD_DEV_INFO(dev);
 	if (dhd && dhd->pub.up) {
 		memcpy(&dhd->pub.dhd_cspec, cspec, sizeof(wl_country_t));
+		dhd->pub.force_country_change = FALSE;
 #ifdef WL_CFG80211
 		wl_update_wiphybands(NULL, notify);
 #endif

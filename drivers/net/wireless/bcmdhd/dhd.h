@@ -293,6 +293,7 @@ typedef struct dhd_pub {
 
 	wl_country_t dhd_cspec;		/* Current Locale info */
 	u32 dhd_cflags;
+	bool force_country_change;
 	char eventmask[WL_EVENTING_MASK_LEN];
 	int	op_mode;				/* STA, HostAPD, WFD, SoftAP */
 

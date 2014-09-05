@@ -353,7 +353,7 @@ int wldev_set_country(
 		return error;
 	}
 
-	if ((error < 0) ||
+	if ((error < 0) || dhd_force_country_change(dev) ||
 	    (strncmp(country_code, cspec.country_abbrev, WLC_CNTRY_BUF_SZ) != 0)) {
 
 		if (user_enforced) {
