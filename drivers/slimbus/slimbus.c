@@ -523,6 +523,10 @@ out_list:
 /* slim_remove_device: Remove the effect of slim_add_device() */
 void slim_remove_device(struct slim_device *sbdev)
 {
+	struct slim_controller *ctrl = sbdev->ctrl;
+	mutex_lock(&ctrl->m_ctrl);
+	list_del_init(&sbdev->dev_list);
+	mutex_unlock(&ctrl->m_ctrl);
 	device_unregister(&sbdev->dev);
 }
 EXPORT_SYMBOL_GPL(slim_remove_device);
