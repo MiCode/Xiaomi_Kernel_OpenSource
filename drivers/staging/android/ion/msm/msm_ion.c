@@ -804,7 +804,7 @@ long msm_ion_custom_ioctl(struct ion_client *client,
  * and thus caller is responsible for handling any cache maintenance
  * operations needed.
  */
-int msm_ion_heap_pages_zero(struct page **pages, int num_pages)
+int msm_ion_heap_pages_zero(struct page **pages, int num_pages, pgprot_t pgprot)
 {
 	int i, j, npages_to_vmap;
 	void *ptr = NULL;
@@ -823,7 +823,7 @@ int msm_ion_heap_pages_zero(struct page **pages, int num_pages)
 		for (j = 0; j < MAX_VMAP_RETRIES && npages_to_vmap;
 			++j) {
 			ptr = vmap(&pages[i], npages_to_vmap,
-					VM_IOREMAP, PAGE_KERNEL);
+					VM_IOREMAP, pgprot);
 			if (ptr)
 				break;
 			else
@@ -874,12 +874,19 @@ void msm_ion_heap_free_pages_mem(struct pages_mem *pages_mem)
 	pages_mem->free_fn(pages_mem->pages);
 }
 
-int msm_ion_heap_high_order_page_zero(struct page *page, int order)
+int msm_ion_heap_high_order_page_zero(struct page *page, int order, bool cached)
 {
 	int i, ret;
 	struct pages_mem pages_mem;
 	int npages = 1 << order;
+	pgprot_t pgprot;
+
 	pages_mem.size = npages * PAGE_SIZE;
+
+	if (cached)
+		pgprot = PAGE_KERNEL;
+	else
+		pgprot = pgprot_writecombine(PAGE_KERNEL);
 
 	if (msm_ion_heap_alloc_pages_mem(&pages_mem))
 		return -ENOMEM;
@@ -887,9 +894,7 @@ int msm_ion_heap_high_order_page_zero(struct page *page, int order)
 	for (i = 0; i < (1 << order); ++i)
 		pages_mem.pages[i] = page + i;
 
-	ret = msm_ion_heap_pages_zero(pages_mem.pages, npages);
-	dma_sync_single_for_device(NULL, page_to_phys(page), pages_mem.size,
-				   DMA_BIDIRECTIONAL);
+	ret = msm_ion_heap_pages_zero(pages_mem.pages, npages, pgprot);
 	msm_ion_heap_free_pages_mem(&pages_mem);
 	return ret;
 }
@@ -900,6 +905,12 @@ int msm_ion_heap_buffer_zero(struct ion_buffer *buffer)
 	struct scatterlist *sg;
 	int i, j, ret = 0, npages = 0;
 	struct pages_mem pages_mem;
+	pgprot_t pgprot;
+
+	if (buffer->flags & ION_FLAG_CACHED)
+		pgprot = PAGE_KERNEL;
+	else
+		pgprot = pgprot_writecombine(PAGE_KERNEL);
 
 	pages_mem.size = PAGE_ALIGN(buffer->size);
 
@@ -914,9 +925,7 @@ int msm_ion_heap_buffer_zero(struct ion_buffer *buffer)
 			pages_mem.pages[npages++] = page + j;
 	}
 
-	ret = msm_ion_heap_pages_zero(pages_mem.pages, npages);
-	dma_sync_sg_for_device(NULL, table->sgl, table->nents,
-			       DMA_BIDIRECTIONAL);
+	ret = msm_ion_heap_pages_zero(pages_mem.pages, npages, pgprot);
 	msm_ion_heap_free_pages_mem(&pages_mem);
 	return ret;
 }

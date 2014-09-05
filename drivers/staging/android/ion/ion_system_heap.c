@@ -192,6 +192,8 @@ static int ion_system_heap_allocate(struct ion_heap *heap,
 	unsigned int max_order = orders[0];
 	struct pages_mem data;
 	unsigned int sz;
+	pgprot_t pgprot = buffer->flags & ION_FLAG_CACHED ? PAGE_KERNEL :
+					pgprot_writecombine(PAGE_KERNEL);
 
 	if (align > PAGE_SIZE)
 		return -EINVAL;
@@ -274,7 +276,8 @@ static int ion_system_heap_allocate(struct ion_heap *heap,
 
 	} while (sg);
 
-	ret = msm_ion_heap_pages_zero(data.pages, data.size >> PAGE_SHIFT);
+	ret = msm_ion_heap_pages_zero(data.pages, data.size >> PAGE_SHIFT,
+					pgprot);
 	if (ret) {
 		pr_err("Unable to zero pages\n");
 		goto err_free_sg2;
@@ -431,7 +434,8 @@ static void ion_system_heap_destroy_pools(struct ion_page_pool **pools)
  * nothing. If it succeeds you'll eventually need to use
  * ion_system_heap_destroy_pools to destroy the pools.
  */
-static int ion_system_heap_create_pools(struct ion_page_pool **pools)
+static int ion_system_heap_create_pools(struct ion_page_pool **pools,
+						bool cached)
 {
 	int i;
 	for (i = 0; i < num_orders; i++) {
@@ -443,6 +447,7 @@ static int ion_system_heap_create_pools(struct ion_page_pool **pools)
 		pool = ion_page_pool_create(gfp_flags, orders[i]);
 		if (!pool)
 			goto err_create_pool;
+		pool->cached = cached;
 		pools[i] = pool;
 	}
 	return 0;
@@ -471,10 +476,10 @@ struct ion_heap *ion_system_heap_create(struct ion_platform_heap *unused)
 	if (!heap->cached_pools)
 		goto err_alloc_cached_pools;
 
-	if (ion_system_heap_create_pools(heap->uncached_pools))
+	if (ion_system_heap_create_pools(heap->uncached_pools, false))
 		goto err_create_uncached_pools;
 
-	if (ion_system_heap_create_pools(heap->cached_pools))
+	if (ion_system_heap_create_pools(heap->cached_pools, true))
 		goto err_create_cached_pools;
 
 	heap->heap.debug_show = ion_system_heap_debug_show;
