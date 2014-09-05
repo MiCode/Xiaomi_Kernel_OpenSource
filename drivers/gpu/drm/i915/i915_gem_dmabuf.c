@@ -24,13 +24,66 @@
  *	Dave Airlie <airlied@redhat.com>
  */
 #include <drm/drmP.h>
+#include <drm/i915_dmabuf.h>
 #include "i915_drv.h"
+#include "intel_drv.h"
 #include <linux/dma-buf.h>
 
 static struct drm_i915_gem_object *dma_buf_to_obj(struct dma_buf *buf)
 {
 	return to_intel_bo(buf->priv);
 }
+
+static int i915_gem_attach_dma_buf(struct dma_buf *dmabuf,
+				   struct device *dev,
+				   struct dma_buf_attachment *attach)
+{
+	struct i915_drm_dmabuf_attachment *i915_attach;
+	struct drm_gem_object *gem_obj = dmabuf->priv;
+	struct drm_i915_gem_object *obj = to_intel_bo(gem_obj);
+	struct drm_device *drm_dev = gem_obj->dev;
+	u32 ret;
+
+	i915_attach = kzalloc(sizeof(*i915_attach), GFP_KERNEL);
+	if (!i915_attach)
+		return -ENOMEM;
+
+	mutex_lock(&drm_dev->struct_mutex);
+	ret = intel_pin_and_fence_fb_obj(drm_dev, obj, obj->ring);
+	if (ret) {
+		drm_gem_object_unreference(&obj->base);
+		mutex_unlock(&drm_dev->struct_mutex);
+		return ret;
+	}
+
+	i915_attach->gtt_offset = i915_gem_obj_ggtt_offset(obj);
+	i915_attach->tiling_mode = obj->tiling_mode;
+	attach->priv = i915_attach;
+	mutex_unlock(&drm_dev->struct_mutex);
+	return 0;
+}
+
+static void i915_gem_detach_dma_buf(struct dma_buf *dmabuf,
+				    struct dma_buf_attachment *attach)
+{
+	struct i915_drm_dmabuf_attachment *i915_attach = attach->priv;
+	struct drm_gem_object *gem_obj = dmabuf->priv;
+	struct drm_i915_gem_object *obj = to_intel_bo(gem_obj);
+	struct drm_device *dev = gem_obj->dev;
+
+	if (!i915_attach)
+		return;
+
+	mutex_lock(&dev->struct_mutex);
+	i915_gem_object_unpin_fence(obj);
+	i915_gem_object_unpin_from_display_plane(obj);
+	drm_gem_object_unreference(&obj->base);
+	mutex_unlock(&dev->struct_mutex);
+
+	kfree(i915_attach);
+	attach->priv = NULL;
+}
+
 
 static struct sg_table *i915_gem_map_dma_buf(struct dma_buf_attachment *attachment,
 					     enum dma_data_direction dir)
@@ -213,6 +266,8 @@ static int i915_gem_begin_cpu_access(struct dma_buf *dma_buf, size_t start, size
 }
 
 static const struct dma_buf_ops i915_dmabuf_ops =  {
+	.attach = i915_gem_attach_dma_buf,
+	.detach = i915_gem_detach_dma_buf,
 	.map_dma_buf = i915_gem_map_dma_buf,
 	.unmap_dma_buf = i915_gem_unmap_dma_buf,
 	.release = drm_gem_dmabuf_release,
