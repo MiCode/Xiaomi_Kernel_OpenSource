@@ -80,5 +80,6 @@ int msm_isp_get_clk_info(struct vfe_device *vfe_dev,
 void msm_isp_fetch_engine_done_notify(struct vfe_device *vfe_dev,
 	struct msm_vfe_fetch_engine_info *fetch_engine_info);
 void msm_camera_io_dump_2(void __iomem *addr, int size);
+void msm_isp_print_fourcc_error(const char *origin, uint32_t fourcc_format);
 
 #endif /* __MSM_ISP_UTIL_H__ */

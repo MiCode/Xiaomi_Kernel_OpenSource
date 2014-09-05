@@ -132,7 +132,8 @@ int msm_isp_validate_axi_request(struct msm_vfe_axi_shared_data *axi_data,
 		break;
 	/*TD: Add more image format*/
 	default:
-		pr_err("%s: Invalid output format\n", __func__);
+		msm_isp_print_fourcc_error(__func__,
+				stream_cfg_cmd->output_format);
 		return rc;
 	}
 
@@ -244,7 +245,8 @@ static uint32_t msm_isp_axi_get_plane_size(
 		break;
 	/*TD: Add more image format*/
 	default:
-		pr_err("%s: Invalid output format\n", __func__);
+		msm_isp_print_fourcc_error(__func__,
+				stream_info->output_format);
 		break;
 	}
 	return size;
