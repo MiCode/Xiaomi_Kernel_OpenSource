@@ -119,6 +119,12 @@ struct mdss_pll_resources {
 	 */
 	struct work_struct pll_off;
 
+	/*
+	 * PLL index if multiple index are available. Eg. in case of
+	 * DSI we have 2 plls.
+	 */
+	uint32_t index;
+
 };
 
 struct mdss_pll_vco_calc {

@@ -56,6 +56,20 @@ static int vco_set_rate_20nm(struct clk *c, unsigned long rate)
 	return rc;
 }
 
+static int pll1_vco_set_rate_20nm(struct clk *c, unsigned long rate)
+{
+	struct dsi_pll_vco_clk *vco = to_vco_clk(c);
+	struct mdss_pll_resources *pll_res = vco->priv;
+
+	mdss_pll_resource_enable(pll_res, true);
+	__dsi_pll_disable(pll_res->pll_base);
+	mdss_pll_resource_enable(pll_res, false);
+
+	pr_debug("Configuring PLL1 registers.\n");
+
+	return 0;
+}
+
 static int shadow_vco_set_rate_20nm(struct clk *c, unsigned long rate)
 {
 	int rc;
@@ -111,6 +125,11 @@ static int dsi_pll_enable_seq_8994(struct mdss_pll_resources *dsi_pll_res)
 }
 
 /* Op structures */
+
+static struct clk_ops pll1_clk_ops_dsi_vco = {
+	.set_rate = pll1_vco_set_rate_20nm,
+};
+
 static struct clk_ops clk_ops_dsi_vco = {
 	.set_rate = vco_set_rate_20nm,
 	.round_rate = pll_20nm_vco_round_rate,
@@ -173,6 +192,15 @@ static struct clk_mux_ops mdss_byte_mux_ops = {
 static struct clk_mux_ops mdss_pixel_mux_ops = {
 	.set_mux_sel = set_mdss_pixel_mux_sel,
 	.get_mux_sel = get_mdss_pixel_mux_sel,
+};
+
+static struct dsi_pll_vco_clk mdss_dsi1_vco_clk_src = {
+	.c = {
+		.dbg_name = "mdss_dsi1_vco_clk_src",
+		.ops = &pll1_clk_ops_dsi_vco,
+		.flags = CLKFLAG_NO_RATE_CACHE,
+		CLK_INIT(mdss_dsi1_vco_clk_src.c),
+	},
 };
 
 static struct dsi_pll_vco_clk dsi_vco_clk_8994 = {
@@ -435,6 +463,10 @@ static struct mux_clk mdss_byte_clk_mux = {
 	}
 };
 
+static struct clk_lookup mdss_dsi_pll_1_cc_8994[] = {
+	CLK_LIST(mdss_dsi1_vco_clk_src),
+};
+
 static struct clk_lookup mdss_dsi_pllcc_8994[] = {
 	CLK_LIST(mdss_pixel_clk_mux),
 	CLK_LIST(mdss_byte_clk_mux),
@@ -519,68 +551,88 @@ int dsi_pll_clock_register_20nm(struct platform_device *pdev,
 		return -EPROBE_DEFER;
 	}
 
-	/* Set client data to mux, div and vco clocks */
-	byte_clk_src.priv = pll_res;
-	pixel_clk_src.priv = pll_res;
-	bypass_lp_div_mux_8994.priv = pll_res;
-	indirect_path_div2_clk_8994.priv = pll_res;
-	ndiv_clk_8994.priv = pll_res;
-	fixed_hr_oclk2_div_clk_8994.priv = pll_res;
-	hr_oclk3_div_clk_8994.priv = pll_res;
-	dsi_vco_clk_8994.priv = pll_res;
+	/*
+	 * Set client data to mux, div and vco clocks.
+	 * This needs to be done only for PLL0 since, that is the one in
+	 * use.
+	 **/
+	if (!pll_res->index) {
+		byte_clk_src.priv = pll_res;
+		pixel_clk_src.priv = pll_res;
+		bypass_lp_div_mux_8994.priv = pll_res;
+		indirect_path_div2_clk_8994.priv = pll_res;
+		ndiv_clk_8994.priv = pll_res;
+		fixed_hr_oclk2_div_clk_8994.priv = pll_res;
+		hr_oclk3_div_clk_8994.priv = pll_res;
+		dsi_vco_clk_8994.priv = pll_res;
 
-	shadow_byte_clk_src.priv = pll_res;
-	shadow_pixel_clk_src.priv = pll_res;
-	shadow_bypass_lp_div_mux_8994.priv = pll_res;
-	shadow_indirect_path_div2_clk_8994.priv = pll_res;
-	shadow_ndiv_clk_8994.priv = pll_res;
-	shadow_fixed_hr_oclk2_div_clk_8994.priv = pll_res;
-	shadow_hr_oclk3_div_clk_8994.priv = pll_res;
-	shadow_dsi_vco_clk_8994.priv = pll_res;
+		shadow_byte_clk_src.priv = pll_res;
+		shadow_pixel_clk_src.priv = pll_res;
+		shadow_bypass_lp_div_mux_8994.priv = pll_res;
+		shadow_indirect_path_div2_clk_8994.priv = pll_res;
+		shadow_ndiv_clk_8994.priv = pll_res;
+		shadow_fixed_hr_oclk2_div_clk_8994.priv = pll_res;
+		shadow_hr_oclk3_div_clk_8994.priv = pll_res;
+		shadow_dsi_vco_clk_8994.priv = pll_res;
 
-	pll_res->vco_delay = VCO_DELAY_USEC;
+		pll_res->vco_delay = VCO_DELAY_USEC;
 
-	/* Set clock source operations */
-	pixel_clk_src_ops = clk_ops_slave_div;
-	pixel_clk_src_ops.prepare = dsi_pll_div_prepare;
+		/* Set clock source operations */
+		pixel_clk_src_ops = clk_ops_slave_div;
+		pixel_clk_src_ops.prepare = dsi_pll_div_prepare;
 
-	ndiv_clk_ops = clk_ops_div;
-	ndiv_clk_ops.prepare = dsi_pll_div_prepare;
+		ndiv_clk_ops = clk_ops_div;
+		ndiv_clk_ops.prepare = dsi_pll_div_prepare;
 
-	byte_clk_src_ops = clk_ops_div;
-	byte_clk_src_ops.prepare = dsi_pll_div_prepare;
+		byte_clk_src_ops = clk_ops_div;
+		byte_clk_src_ops.prepare = dsi_pll_div_prepare;
 
-	bypass_lp_div_mux_clk_ops = clk_ops_gen_mux;
-	bypass_lp_div_mux_clk_ops.prepare = dsi_pll_mux_prepare;
+		bypass_lp_div_mux_clk_ops = clk_ops_gen_mux;
+		bypass_lp_div_mux_clk_ops.prepare = dsi_pll_mux_prepare;
 
-	clk_ops_gen_mux_dsi = clk_ops_gen_mux;
-	clk_ops_gen_mux_dsi.round_rate = parent_round_rate;
-	clk_ops_gen_mux_dsi.set_rate = parent_set_rate;
+		clk_ops_gen_mux_dsi = clk_ops_gen_mux;
+		clk_ops_gen_mux_dsi.round_rate = parent_round_rate;
+		clk_ops_gen_mux_dsi.set_rate = parent_set_rate;
 
-	shadow_pixel_clk_src_ops = clk_ops_slave_div;
-	shadow_pixel_clk_src_ops.prepare = dsi_pll_div_prepare;
+		shadow_pixel_clk_src_ops = clk_ops_slave_div;
+		shadow_pixel_clk_src_ops.prepare = dsi_pll_div_prepare;
 
-	shadow_byte_clk_src_ops = clk_ops_div;
-	shadow_byte_clk_src_ops.prepare = dsi_pll_div_prepare;
+		shadow_byte_clk_src_ops = clk_ops_div;
+		shadow_byte_clk_src_ops.prepare = dsi_pll_div_prepare;
+	} else {
+		mdss_dsi1_vco_clk_src.priv = pll_res;
+	}
 
 	if (pll_res->target_id == MDSS_PLL_TARGET_8994) {
-		pll_res->gdsc_cb.notifier_call =
-			dsi_pll_regulator_notifier_call;
-		INIT_WORK(&pll_res->pll_off, dsi_pll_off_work);
+		if (pll_res->index) {
+			rc = of_msm_clock_register(pdev->dev.of_node,
+					mdss_dsi_pll_1_cc_8994,
+					ARRAY_SIZE(mdss_dsi_pll_1_cc_8994));
+			if (rc) {
+				pr_err("Clock register failed\n");
+				rc = -EPROBE_DEFER;
+			}
+		} else {
+			rc = of_msm_clock_register(pdev->dev.of_node,
+				mdss_dsi_pllcc_8994,
+				ARRAY_SIZE(mdss_dsi_pllcc_8994));
+			if (rc) {
+				pr_err("Clock register failed\n");
+				rc = -EPROBE_DEFER;
+			}
+			pll_res->gdsc_cb.notifier_call =
+				dsi_pll_regulator_notifier_call;
+			INIT_WORK(&pll_res->pll_off, dsi_pll_off_work);
 
-		rc = of_msm_clock_register(pdev->dev.of_node,
-			mdss_dsi_pllcc_8994, ARRAY_SIZE(mdss_dsi_pllcc_8994));
-		if (rc) {
-			pr_err("Clock register failed\n");
-			rc = -EPROBE_DEFER;
+			pll_reg = mdss_pll_get_mp_by_reg_name(pll_res, "gdsc");
+			if (pll_reg) {
+				pr_debug("Registering for gdsc regulator events\n");
+				if (regulator_register_notifier(pll_reg->vreg,
+							&(pll_res->gdsc_cb)))
+					pr_err("Regulator notification registration failed!\n");
+			}
 		}
-		pll_reg = mdss_pll_get_mp_by_reg_name(pll_res, "gdsc");
-		if (pll_reg) {
-			pr_debug("Registering for gdsc regulator events\n");
-			if (regulator_register_notifier(pll_reg->vreg,
-						&(pll_res->gdsc_cb)))
-				pr_err("Regulator notification registration failed!\n");
-		}
+
 	} else {
 		pr_err("Invalid target ID\n");
 		rc = -EINVAL;
