@@ -482,6 +482,20 @@
 		qcom,client-id = <0x00000001>;
 	};
 
+	qcom,umtsdfw_sharedmem@25200000 {
+		compatible = "qcom,sharedmem-uio";
+		reg = <0x25200000 0x00080000>;
+		reg-names = "umtsdfw";
+		qcom,client-id = <0x00000001>;
+	};
+
+	qcom,umtsdhost_sharedmem@25280000 {
+		compatible = "qcom,sharedmem-uio";
+		reg = <0x25280000 0x00080000>;
+		reg-names = "umtsdhost";
+		qcom,client-id = <0x00000001>;
+	};
+
 	qcom,ion {
 		compatible = "qcom,msm-ion";
 		#address-cells = <1>;
