@@ -1765,6 +1765,10 @@ int dsi_panel_device_register(struct device_node *pan_node,
 		return -EPERM;
 	}
 
+	rc = mdss_dsi_pll_1_clk_init(ctrl_pdev, ctrl_pdata);
+	if (rc)
+		pr_err("PLL 1 Clock's did not register\n");
+
 	if (pinfo->dynamic_fps &&
 			pinfo->dfps_update == DFPS_IMMEDIATE_CLK_UPDATE_MODE) {
 		if (mdss_dsi_shadow_clk_init(ctrl_pdev, ctrl_pdata)) {

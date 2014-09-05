@@ -26,16 +26,34 @@
 
 static struct dsi_clk_desc dsi_pclk;
 
-static void mdss_dsi_phy_sw_reset(unsigned char *ctrl_base)
+static void mdss_dsi_phy_sw_reset(struct mdss_dsi_ctrl_pdata *ctrl)
 {
+	u32 ctrl_rev;
+	if (ctrl == NULL) {
+		pr_err("%s: Invalid input data\n", __func__);
+		return;
+	}
+
 	/* start phy sw reset */
-	MIPI_OUTP(ctrl_base + 0x12c, 0x0001);
+	MIPI_OUTP(ctrl->ctrl_base + 0x12c, 0x0001);
 	udelay(1000);
 	wmb();
 	/* end phy sw reset */
-	MIPI_OUTP(ctrl_base + 0x12c, 0x0000);
+	MIPI_OUTP(ctrl->ctrl_base + 0x12c, 0x0000);
 	udelay(100);
 	wmb();
+
+	/*
+	 * phy sw reset will wipe out the pll settings for PLL.
+	 * Need to turn off the PLL1 to avoid current leakage issues
+	 */
+	if (ctrl->ndx == DSI_CTRL_1) {
+		ctrl_rev = MIPI_INP(ctrl->ctrl_base);
+		if (ctrl_rev == MDSS_DSI_HW_REV_103) {
+			pr_err("Turn off PLL 1 registers\n");
+			clk_set_rate(ctrl->vco_clk, 1);
+		}
+	}
 }
 
 void mdss_dsi_phy_disable(struct mdss_dsi_ctrl_pdata *ctrl)
@@ -415,6 +433,29 @@ int mdss_dsi_clk_init(struct platform_device *pdev,
 mdss_dsi_clk_err:
 	if (rc)
 		mdss_dsi_clk_deinit(ctrl);
+	return rc;
+}
+
+int mdss_dsi_pll_1_clk_init(struct platform_device *pdev,
+		struct mdss_dsi_ctrl_pdata *ctrl)
+{
+	struct device *dev = NULL;
+	int rc = 0;
+
+	if (!pdev) {
+		pr_err("%s: Invalid pdev\n", __func__);
+		return -EINVAL;
+	}
+
+	dev = &pdev->dev;
+	ctrl->vco_clk = clk_get(dev, "clk_mdss_dsi1_vco_clk_src");
+	if (IS_ERR(ctrl->vco_clk)) {
+		rc = PTR_ERR(ctrl->vco_clk);
+		pr_err("%s: can't find vco_clk. rc=%d\n",
+			__func__, rc);
+		ctrl->vco_clk = NULL;
+	}
+
 	return rc;
 }
 
@@ -1183,7 +1224,7 @@ static int mdss_dsi_core_power_ctrl(struct mdss_dsi_ctrl_pdata *ctrl,
 		 * unblanking the panel.
 		 */
 		if (pdata->panel_info.blank_state == MDSS_PANEL_BLANK_BLANK)
-			mdss_dsi_phy_sw_reset(ctrl->ctrl_base);
+			mdss_dsi_phy_sw_reset(ctrl);
 
 		/*
 		 * Phy and controller setup need not be done during bootup
