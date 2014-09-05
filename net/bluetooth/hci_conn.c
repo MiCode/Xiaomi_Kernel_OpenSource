@@ -96,6 +96,8 @@ static void hci_acl_create_connection(struct hci_conn *conn)
 	}
 
 	cp.pkt_type = cpu_to_le16(conn->pkt_type);
+	/* Allow DUT to be MASTER for allow outgoing connection requests */
+	hdev->link_mode |= HCI_LM_MASTER;
 	if (lmp_rswitch_capable(hdev) && !(hdev->link_mode & HCI_LM_MASTER))
 		cp.role_switch = 0x01;
 	else
@@ -811,6 +813,24 @@ int hci_conn_switch_role(struct hci_conn *conn, __u8 role)
 	return 0;
 }
 EXPORT_SYMBOL(hci_conn_switch_role);
+
+/* Change ACL link policy */
+int hci_cfg_link_policy(struct hci_conn *conn)
+{
+	struct hci_cp_write_link_policy lp;
+
+	if (conn == NULL) {
+		BT_ERR("%s: NO HCI Connection handle available!", __func__);
+		return -ENODEV;
+	}
+	BT_INFO("%s: Disabling role switch on the ACL handle %d",
+		__func__, conn->handle);
+	lp.handle = conn->handle;
+	lp.policy = HCI_LP_HOLD|HCI_LP_SNIFF|HCI_LP_PARK;
+	hci_send_cmd(conn->hdev, HCI_OP_WRITE_LINK_POLICY, sizeof(lp), &lp);
+	return 0;
+}
+EXPORT_SYMBOL(hci_cfg_link_policy);
 
 /* Enter active mode */
 void hci_conn_enter_active_mode(struct hci_conn *conn, __u8 force_active)

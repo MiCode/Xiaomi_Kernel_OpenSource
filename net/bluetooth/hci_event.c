@@ -1726,6 +1726,9 @@ static void hci_conn_complete_evt(struct hci_dev *hdev, struct sk_buff *skb)
 			hci_send_cmd(hdev, HCI_OP_CHANGE_CONN_PTYPE, sizeof(cp),
 				     &cp);
 		}
+
+		/* Change the ACL LINK POLICY to disable role switch */
+		hci_cfg_link_policy(conn);
 	} else {
 		conn->state = BT_CLOSED;
 		if (conn->type == ACL_LINK)
