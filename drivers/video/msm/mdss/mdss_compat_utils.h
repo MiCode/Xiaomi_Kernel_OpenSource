@@ -33,6 +33,27 @@ struct fb_cmap32 {
 	compat_caddr_t	transp;
 };
 
+struct fb_image32 {
+	u32 dx;
+	u32 dy;
+	u32 width;
+	u32 height;
+	u32 fg_color;
+	u32 bg_color;
+	u8 depth;
+	compat_caddr_t data;
+	struct fb_cmap32 cmap;
+};
+
+struct fb_cursor32 {
+	u16 set;
+	u16 enable;
+	u16 rop;
+	compat_caddr_t mask;
+	struct fbcurpos	hot;
+	struct fb_image32 image;
+};
+
 struct mdp_ccs32 {
 };
 
