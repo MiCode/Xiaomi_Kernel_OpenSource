@@ -1657,6 +1657,10 @@ static int best_small_task_cpu(struct task_struct *p)
 	/* Take a first pass to find the lowest power cost CPU. This
 	   will avoid a potential O(n^2) search */
 	for_each_cpu(i, &search_cpus) {
+
+		trace_sched_cpu_load(cpu_rq(i), idle_cpu(i),
+				     mostly_idle_cpu(i), power_cost(p, i));
+
 		cpu_cost = power_cost(p, i);
 		if (cpu_cost < min_cost) {
 			min_cost = cpu_cost;
