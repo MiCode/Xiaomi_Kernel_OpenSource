@@ -2780,16 +2780,17 @@ static int __devinit qpnp_get_config_flash(struct qpnp_led_data *led,
 	if (of_find_property(of_get_parent(node), "flash-wa-supply",
 					NULL) && (!*reg_set)) {
 		led->flash_cfg->flash_wa_reg =
-			devm_regulator_get(&led->spmi_dev->dev,	"flash-wa");
+			devm_regulator_get(&led->spmi_dev->dev, "flash-wa");
 		if (IS_ERR_OR_NULL(led->flash_cfg->flash_wa_reg)) {
 			rc = PTR_ERR(led->flash_cfg->flash_wa_reg);
 			if (rc != EPROBE_DEFER) {
 				dev_err(&led->spmi_dev->dev,
-						"Flash wa regulator get failed(%d)\n",
-						rc);
+					"Flash wa regulator get failed(%d)\n",
+					rc);
 			}
+		} else {
+			led->flash_cfg->flash_wa_reg_get = true;
 		}
-		led->flash_cfg->flash_wa_reg_get = true;
 	}
 
 	if (led->id == QPNP_ID_FLASH1_LED0) {
