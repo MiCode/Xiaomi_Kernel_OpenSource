@@ -2409,7 +2409,7 @@ int q6afe_audio_client_buf_alloc_contiguous(unsigned int dir,
 
 	ac->port[dir].buf = buf;
 
-	rc = msm_audio_ion_alloc("audio_client", &buf[0].client,
+	rc = msm_audio_ion_alloc("afe_client", &buf[0].client,
 				&buf[0].handle, bufsz*bufcnt,
 				&buf[0].phys, &len,
 				&buf[0].data);
