@@ -298,6 +298,42 @@ Optional properties:
 				[1]: => LSB bit position of the bits;
 				[2]: => the number of bits;
 				[3]: => fuse reading method, 0 for direct reading or 1 for SCM reading.
+- qcom,cpr-voltage-ceiling-override: Array of (N+2)-tuples in which each tuple maps a CPU speed bin and PVS version
+				to the ceiling voltage to apply for each virtual voltage corner.  The value N
+				corresponds to the number of virtual corners as specified by the number of elements
+				in the qcom,cpr-corner-map property.
+				The elements in one tuple are:
+				[0]: =>		the speed bin of the CPU. If the device doesn't have a speed bin
+						fuse, then set the value to 0xFFFFFFFF.
+				[1]: =>		the PVS version of the CPU. If the device doesn't have a PVS version
+						fuse, then set the value to 0.
+				[2 - N+1]: =>	the ceiling voltage value in microvolts corresponding to each virtual
+						corner for this speed bin, ordered from lowest voltage corner to
+						highest voltage corner.
+				No ceiling override is applied on chips which have a speed bin + PVS version
+				pair that does not appear in one of the tuples in this property.  If the property is
+				specified and the speed bin + PVS version matches, then the per-virtual-corner ceiling
+				voltages will be used in place of the per-fuse-corner ceiling voltages defined in the
+				qcom,cpr-voltage-ceiling property.  If this property is not specified, then the
+				per-fuse-corner ceiling voltages will always be used.
+- qcom,cpr-voltage-floor-override: Array of (N+2)-tuples in which each tuple maps a CPU speed bin and PVS version
+				to the floor voltage to apply for each virtual voltage corner.  The value N
+				corresponds to the number of virtual corners as specified by the number of elements
+				in the qcom,cpr-corner-map property.
+				The elements in one tuple are:
+				[0]: =>		the speed bin of the CPU. If the device doesn't have a speed bin
+						fuse, then set the value to 0xFFFFFFFF.
+				[1]: =>		the PVS version of the CPU. If the device doesn't have a PVS version
+						fuse, then set the value to 0.
+				[2 - N+1]: =>	the floor voltage value in microvolts corresponding to each virtual
+						corner for this speed bin, ordered from lowest voltage corner to
+						highest voltage corner.
+				No floor override is applied on chips which have a speed bin + PVS version
+				pair that does not appear in one of the tuples in this property.  If the property is
+				specified and the speed bin + PVS version matches, then the per-virtual-corner floor
+				voltages will be used in place of the per-fuse-corner floor voltages defined in the
+				qcom,cpr-voltage-floor property.  If this property is not specified, then the
+				per-fuse-corner floor voltages will always be used.
 - qcom,cpr-quot-adjust-scaling-factor-max: The maximum allowed CPR target quotient scaling factor to use when
 				calculating the quotient adjustment for a given virtual voltage corner. It
 				corresponds to 'scaling' in this equation:
@@ -449,5 +485,12 @@ Example:
 				<27 0 6 0>;
 		qcom,cpr-init-voltage-ref = <1050000 1150000 1280000>;
 		qcom,cpr-init-voltage-step = <10000>;
+		qcom,cpr-voltage-ceiling-override =
+				<1 1 1050000 1050000 1150000 1150000 1280000
+				     1280000 1280000 1280000 1280000 1280000
+				     1280000 1280000>;
+		qcom,cpr-voltage-floor-override =
+				<1 1 1050000 1050000 1050000 1050000 1060000
+				     1070000 1080000 1090000 1100000 1100000
+				     1100000 1100000>;
 	};
-
