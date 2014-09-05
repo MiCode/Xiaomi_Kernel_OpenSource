@@ -217,6 +217,8 @@ struct mdss_data_type {
 	void *video_intf;
 	u32 nintf;
 
+	int pp_enable;
+
 	struct mdss_mdp_ad *ad_off;
 	struct mdss_ad_info *ad_cfgs;
 	u32 nad_cfgs;

@@ -1716,6 +1716,17 @@ static int __from_user_calib_dcm_state(
 	return 0;
 }
 
+static int __from_user_pp_init_data(
+			struct mdp_pp_init_data32 __user *init_data32,
+			struct mdp_pp_init_data __user *init_data)
+{
+	if (copy_in_user(&init_data->init_request, &init_data32->init_request,
+			sizeof(uint32_t)))
+		return -EFAULT;
+
+	return 0;
+}
+
 static int __pp_compat_alloc(struct msmfb_mdp_pp32 __user *pp32,
 					struct msmfb_mdp_pp __user **pp,
 					uint32_t op)
@@ -1988,6 +1999,14 @@ static int mdss_compat_pp_ioctl(struct fb_info *info, unsigned int cmd,
 		ret = __from_user_calib_dcm_state(
 			compat_ptr((uintptr_t)&pp32->data.calib_dcm),
 			&pp->data.calib_dcm);
+		if (ret)
+			goto pp_compat_exit;
+		ret = mdss_fb_do_ioctl(info, cmd, (unsigned long) pp);
+		break;
+	case mdp_op_pp_init_cfg:
+		ret = __from_user_pp_init_data(
+			compat_ptr((uintptr_t)&pp32->data.init_data),
+			&pp->data.init_data);
 		if (ret)
 			goto pp_compat_exit;
 		ret = mdss_fb_do_ioctl(info, cmd, (unsigned long) pp);
