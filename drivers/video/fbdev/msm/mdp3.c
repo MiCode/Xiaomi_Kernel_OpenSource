@@ -1560,8 +1560,8 @@ int mdp3_put_img(struct mdp3_img_data *data, int client)
 
 	 if (data->flags & MDP_MEMORY_ID_TYPE_FB) {
 		pr_info("mdp3_put_img fb mem buf=0x%pa\n", &data->addr);
-		fput_light(data->srcp_file, data->p_need);
-		data->srcp_file = NULL;
+		fdput(data->srcp_f);
+		memset(&data->srcp_f, 0, sizeof(struct fd));
 	} else if (!IS_ERR_OR_NULL(data->srcp_ihdl)) {
 		if (client == MDP3_CLIENT_DMA_P) {
 			dom = (mdp3_res->domains +
@@ -1581,7 +1581,7 @@ int mdp3_put_img(struct mdp3_img_data *data, int client)
 int mdp3_get_img(struct msmfb_data *img, struct mdp3_img_data *data,
 		int client)
 {
-	struct file *file;
+	struct fd f;
 	int ret = -EINVAL;
 	int fb_num;
 	unsigned long *len;
@@ -1595,27 +1595,26 @@ int mdp3_get_img(struct msmfb_data *img, struct mdp3_img_data *data,
 	data->p_need = 0;
 
 	if (img->flags & MDP_MEMORY_ID_TYPE_FB) {
-		file = fget_light(img->memory_id, &data->p_need);
-		if (file == NULL) {
+		f = fdget(img->memory_id);
+		if (f.file == NULL) {
 			pr_err("invalid framebuffer file (%d)\n",
 					img->memory_id);
 			return -EINVAL;
 		}
-		if (MAJOR(file->f_dentry->d_inode->i_rdev) == FB_MAJOR) {
-			fb_num = MINOR(file->f_dentry->d_inode->i_rdev);
+		if (MAJOR(f.file->f_dentry->d_inode->i_rdev) == FB_MAJOR) {
+			fb_num = MINOR(f.file->f_dentry->d_inode->i_rdev);
 			ret = mdss_fb_get_phys_info(start, len, fb_num);
 			if (ret) {
 				pr_err("mdss_fb_get_phys_info() failed\n");
-				fput_light(file, data->p_need);
-				file = NULL;
+				fdput(f);
+				memset(&f, 0, sizeof(struct fd));
 			}
 		} else {
 			pr_err("invalid FB_MAJOR\n");
-			fput_light(file, data->p_need);
-			file = NULL;
+			fdput(f);
 			ret = -EINVAL;
 		}
-		data->srcp_file = file;
+		data->srcp_f = f;
 		if (!ret)
 			goto done;
 	} else if (iclient) {

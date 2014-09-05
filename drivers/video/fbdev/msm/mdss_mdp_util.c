@@ -501,11 +501,11 @@ int mdss_mdp_put_img(struct mdss_mdp_img_data *data)
 	struct ion_client *iclient = mdss_get_ionclient();
 	if (data->flags & MDP_MEMORY_ID_TYPE_FB) {
 		pr_debug("fb mem buf=0x%pa\n", &data->addr);
-		fput_light(data->srcp_file, data->p_need);
-		data->srcp_file = NULL;
-	} else if (data->srcp_file) {
+		fdput(data->srcp_f);
+		memset(&data->srcp_f, 0, sizeof(struct fd));
+	} else if (data->srcp_f.file) {
 		pr_debug("pmem buf=0x%pa\n", &data->addr);
-		data->srcp_file = NULL;
+		memset(&data->srcp_f, 0, sizeof(struct fd));
 	} else if (!IS_ERR_OR_NULL(data->srcp_dma_buf)) {
 		pr_debug("ion hdl=%p buf=0x%pa\n", data->srcp_dma_buf,
 							&data->addr);
@@ -549,7 +549,7 @@ int mdss_mdp_put_img(struct mdss_mdp_img_data *data)
 int mdss_mdp_get_img(struct msmfb_data *img, struct mdss_mdp_img_data *data,
 			struct device *dev)
 {
-	struct file *file;
+	struct fd f;
 	int ret = -EINVAL;
 	int fb_num;
 	unsigned long *len;
@@ -559,19 +559,18 @@ int mdss_mdp_get_img(struct msmfb_data *img, struct mdss_mdp_img_data *data,
 	start = &data->addr;
 	len = &data->len;
 	data->flags |= img->flags;
-	data->p_need = 0;
 
 	if (img->flags & MDP_MEMORY_ID_TYPE_FB) {
-		file = fget_light(img->memory_id, &data->p_need);
-		if (file == NULL) {
+		f = fdget(img->memory_id);
+		if (f.file == NULL) {
 			pr_err("invalid framebuffer file (%d)\n",
 					img->memory_id);
 			return -EINVAL;
 		}
-		data->srcp_file = file;
+		data->srcp_f = f;
 
-		if (MAJOR(file->f_dentry->d_inode->i_rdev) == FB_MAJOR) {
-			fb_num = MINOR(file->f_dentry->d_inode->i_rdev);
+		if (MAJOR(f.file->f_path.dentry->d_inode->i_rdev) == FB_MAJOR) {
+			fb_num = MINOR(f.file->f_path.dentry->d_inode->i_rdev);
 			ret = mdss_fb_get_phys_info(start, len, fb_num);
 			if (ret)
 				pr_err("mdss_fb_get_phys_info() failed\n");
