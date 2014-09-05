@@ -992,7 +992,7 @@ int mdss_mdp_overlay_get_buf(struct msm_fb_data_type *mfd,
 	memset(data, 0, sizeof(*data));
 	for (i = 0; i < num_planes; i++) {
 		data->p[i].flags = flags;
-		rc = mdss_mdp_get_img(&planes[i], &data->p[i]);
+		rc = mdss_mdp_get_img(&planes[i], &data->p[i], &mfd->pdev->dev);
 		if (rc) {
 			pr_err("failed to map buf p=%d flags=%x\n", i, flags);
 			while (i > 0) {
