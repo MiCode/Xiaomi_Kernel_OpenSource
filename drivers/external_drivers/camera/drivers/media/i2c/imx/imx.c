@@ -560,8 +560,9 @@ static int power_ctrl(struct v4l2_subdev *sd, int flag)
 	if (dev->platform_data->power_ctrl)
 		return dev->platform_data->power_ctrl(sd, flag);
 
-	/* G-Min only supports imx134 */
-	if (dev->sensor_id && dev->sensor_id != IMX134_ID)
+	/* G-Min only supports imx134/imx175 */
+	if (dev->sensor_id && dev->sensor_id != IMX134_ID
+		&& dev->sensor_id != IMX175_ID)
 		return -EINVAL;
 
 	if (flag) {
@@ -591,15 +592,16 @@ static int gpio_ctrl(struct v4l2_subdev *sd, int flag)
 	if (dev->platform_data->gpio_ctrl)
 		return dev->platform_data->gpio_ctrl(sd, flag);
 
-	/* G-Min only supports imx134 */
-	if (dev->sensor_id && dev->sensor_id != IMX134_ID)
+	/* G-Min only supports imx134/imx175 */
+	if (dev->sensor_id && dev->sensor_id != IMX134_ID
+		&& dev->sensor_id != IMX175_ID)
 		return -EINVAL;
 
 	ret = dev->platform_data->gpio0_ctrl(sd, flag);
 
-	/* From original platform_imx134.c:
+	/* From original platform_imx134/175.c:
 	 *
-	 * imx134 core silicon initializing time - t1+t2+t3
+	 * imx134/175 core silicon initializing time - t1+t2+t3
 	 * 400us(t1) - Time to VDDL is supplied after REGEN high
 	 * 600us(t2) - imx134 core Waking up time
 	 * 459us(t3, 8825clocks) -Initializing time of silicon */
@@ -2274,6 +2276,15 @@ static int __imx_init_ctrl_handler(struct imx_device *dev)
 	return 0;
 }
 
+static const struct i2c_device_id imx_ids[] = {
+	{IMX_NAME_175, IMX175_ID},
+	{IMX_NAME_135, IMX135_ID},
+	{IMX_NAME_135_FUJI, IMX135_FUJI_ID},
+	{IMX_NAME_134, IMX134_ID},
+	{IMX_NAME_132, IMX132_ID},
+	{}
+};
+
 static int imx_probe(struct i2c_client *client,
 			 const struct i2c_device_id *id)
 {
@@ -2282,8 +2293,6 @@ static int imx_probe(struct i2c_client *client,
 	int ret;
 	char *msr_file_name = NULL;
 	struct camera_sensor_platform_data *pdata = NULL;
-
-
 
 	/* allocate sensor device & init sub device */
 	dev = kzalloc(sizeof(*dev), GFP_KERNEL);
@@ -2385,18 +2394,10 @@ out_free:
 	return ret;
 }
 
-static const struct i2c_device_id imx_ids[] = {
-	{IMX_NAME_175, IMX175_ID},
-	{IMX_NAME_135, IMX135_ID},
-	{IMX_NAME_135_FUJI, IMX135_FUJI_ID},
-	{IMX_NAME_134, IMX134_ID},
-	{IMX_NAME_132, IMX132_ID},
-	{}
-};
-
 MODULE_DEVICE_TABLE(i2c, imx_ids);
 
 static struct acpi_device_id imx_acpi_match[] = {
+	{ "INTCF1A" },
 	{ "INTCF1B" },
 	{},
 };

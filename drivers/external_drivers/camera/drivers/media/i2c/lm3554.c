@@ -28,6 +28,9 @@
 #include <media/lm3554.h>
 #include <media/v4l2-ctrls.h>
 #include <media/v4l2-device.h>
+#include <linux/acpi.h>
+#include <linux/gpio/consumer.h>
+#include <linux/atomisp_gmin_platform.h>
 
 #include <linux/atomisp.h>
 
@@ -799,6 +802,36 @@ static int lm3554_gpio_uninit(struct i2c_client *client)
 	return 0;
 }
 
+void *lm3554_platform_data_func(struct i2c_client *client)
+{
+	static struct lm3554_platform_data platform_data;
+
+	if (ACPI_COMPANION(&client->dev)) {
+		platform_data.gpio_reset  =
+			desc_to_gpio(gpiod_get_index(&(client->dev), "lm3554_gpio2", 2));
+		platform_data.gpio_strobe =
+			desc_to_gpio(gpiod_get_index(&(client->dev), "lm3554_gpio0", 0));
+		platform_data.gpio_torch  =
+			desc_to_gpio(gpiod_get_index(&(client->dev), "lm3554_gpio1", 1));
+	}
+
+	dev_info(&client->dev, "camera pdata: lm3554: reset: %d strobe %d torch %d\n",
+		platform_data.gpio_reset, platform_data.gpio_strobe,
+		platform_data.gpio_torch);
+
+	/* Set to TX2 mode, then ENVM/TX2 pin is a power amplifier sync input:
+	 * ENVM/TX pin asserted, flash forced into torch;
+	 * ENVM/TX pin desserted, flash set back;
+	 */
+	platform_data.envm_tx2 = 1;
+	platform_data.tx2_polarity = 0;
+
+	/* set peak current limit to be 1000mA */
+	platform_data.current_limit = 0;
+
+	return &platform_data;
+}
+
 static int lm3554_probe(struct i2c_client *client,
 				  const struct i2c_device_id *id)
 {
@@ -817,6 +850,9 @@ static int lm3554_probe(struct i2c_client *client,
 	}
 
 	flash->pdata = client->dev.platform_data;
+
+	if (!flash->pdata || ACPI_COMPANION(&client->dev))
+		flash->pdata = lm3554_platform_data_func(client);
 
 	v4l2_i2c_subdev_init(&flash->sd, client, &lm3554_ops);
 	flash->sd.internal_ops = &lm3554_internal_ops;
@@ -842,6 +878,9 @@ static int lm3554_probe(struct i2c_client *client,
 		dev_err(&client->dev, "gpio request/direction_output fail");
 		goto fail2;
 	}
+
+	if (ACPI_HANDLE(&client->dev))
+		err = atomisp_register_i2c_module(&flash->sd, NULL, LED_FLASH);
 
 	return 0;
 fail2:
@@ -888,11 +927,17 @@ static const struct dev_pm_ops lm3554_pm_ops = {
 	.resume = lm3554_resume,
 };
 
+static struct acpi_device_id lm3554_acpi_match[] = {
+	{ "INTCF1C" },
+	{},
+};
+
 static struct i2c_driver lm3554_driver = {
 	.driver = {
 		.owner = THIS_MODULE,
 		.name = LM3554_NAME,
 		.pm   = &lm3554_pm_ops,
+		.acpi_match_table = ACPI_PTR(lm3554_acpi_match),
 	},
 	.probe = lm3554_probe,
 	.remove = lm3554_remove,

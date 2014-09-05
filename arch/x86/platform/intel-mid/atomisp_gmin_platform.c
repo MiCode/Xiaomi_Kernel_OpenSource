@@ -27,6 +27,7 @@ EXPORT_SYMBOL(spid);
 
 #define DEVNAME_PMIC_AXP "INT33F4:00"
 #define DEVNAME_PMIC_TI  "INT33F5:00"
+#define DEVNAME_PMIC_CRYSTALCOVE "INT33FD:00"
 
 /* Should be defined in vlv2_plat_clock API, isn't: */
 #define VLV2_CLK_19P2MHZ 1
@@ -60,6 +61,12 @@ EXPORT_SYMBOL(spid);
 #define LDO_1P8V_ON	0x59 /* 0x58 selects 1.80V ...      */
 #define LDO_1P8V_OFF	0x58 /* ... bottom bit is "enabled" */
 
+/* CRYSTAL COVE PMIC register hackery */
+#define CRYSTAL_1P8V_REG        0x5d
+#define CRYSTAL_2P8V_REG        0x66
+#define CRYSTAL_ON      0x63
+#define CRYSTAL_OFF     0x62
+
 struct gmin_subdev {
 	struct v4l2_subdev *subdev;
 	int clock_num;
@@ -77,7 +84,8 @@ struct gmin_subdev {
 
 static struct gmin_subdev gmin_subdevs[MAX_SUBDEVS];
 
-static enum { PMIC_UNSET=0, PMIC_REGULATOR, PMIC_AXP, PMIC_TI } pmic_id;
+static enum { PMIC_UNSET = 0, PMIC_REGULATOR, PMIC_AXP, PMIC_TI ,
+	PMIC_CRYSTALCOVE} pmic_id;
 
 /* The atomisp uses type==0 for the end-of-list marker, so leave space. */
 static struct intel_v4l2_subdev_table pdata_subdevs[MAX_SUBDEVS+1];
@@ -95,6 +103,15 @@ static const struct atomisp_platform_data pdata = {
  */
 enum { V2P8_GPIO_UNSET = -2, V2P8_GPIO_NONE = -1 };
 static int v2p8_gpio = V2P8_GPIO_UNSET;
+
+/*
+ * Something of a hack. The CHT RVP board drives camera 1.8v from an
+ * external regulator instead of the PMIC just like ECS E7 board, see the
+ * comments above.
+ */
+enum { V1P8_GPIO_UNSET = -2, V1P8_GPIO_NONE = -1 };
+static int v1p8_gpio = V1P8_GPIO_UNSET;
+
 
 static struct gmin_subdev *find_gmin_subdev(struct v4l2_subdev *subdev);
 
@@ -276,6 +293,8 @@ static struct gmin_subdev *gmin_subdev_add(struct v4l2_subdev *subdev)
 			pmic_id = PMIC_AXP;
 		else if (i2c_dev_exists(DEVNAME_PMIC_TI))
 			pmic_id = PMIC_TI;
+		else if (i2c_dev_exists(DEVNAME_PMIC_CRYSTALCOVE))
+			pmic_id = PMIC_CRYSTALCOVE;
 		else
 			pmic_id = PMIC_REGULATOR;
 	}
@@ -294,10 +313,10 @@ static struct gmin_subdev *gmin_subdev_add(struct v4l2_subdev *subdev)
 
 	gmin_subdevs[i].subdev = subdev;
 	gmin_subdevs[i].clock_num = gmin_get_var_int(dev, "CamClk", 0);
-	gmin_subdevs[i].gpio0 = gpiod_get_index(dev, "cam_gpio0", 0);
-	gmin_subdevs[i].gpio1 = gpiod_get_index(dev, "cam_gpio1", 1);
 	gmin_subdevs[i].csi_port = gmin_get_var_int(dev, "CsiPort", 0);
 	gmin_subdevs[i].csi_lanes = gmin_get_var_int(dev, "CsiLanes", 1);
+	gmin_subdevs[i].gpio0 = gpiod_get_index(dev, "cam_gpio0", 0);
+	gmin_subdevs[i].gpio1 = gpiod_get_index(dev, "cam_gpio1", 1);
 
 	if (!IS_ERR(gmin_subdevs[i].gpio0)) {
 		ret = gpiod_direction_output(gmin_subdevs[i].gpio0, 0);
@@ -342,7 +361,6 @@ static struct gmin_subdev *find_gmin_subdev(struct v4l2_subdev *subdev)
 static int gmin_gpio0_ctrl(struct v4l2_subdev *subdev, int on)
 {
 	struct gmin_subdev *gs = find_gmin_subdev(subdev);
-
 	if (gs && gs->gpio0) {
 		gpiod_set_value(gs->gpio0, on);
 		return 0;
@@ -432,12 +450,31 @@ static int axp_v2p8_off(void)
 int gmin_v1p8_ctrl(struct v4l2_subdev *subdev, int on)
 {
 	struct gmin_subdev *gs = find_gmin_subdev(subdev);
+	int ret;
+
+	if (v1p8_gpio == V1P8_GPIO_UNSET) {
+		v1p8_gpio = gmin_get_var_int(NULL, "V1P8GPIO", V1P8_GPIO_NONE);
+		if (v1p8_gpio != V1P8_GPIO_NONE) {
+			pr_info("atomisp_gmin_platform: 1.8v power on GPIO %d\n",
+				v1p8_gpio);
+			ret = gpio_request(v1p8_gpio, "camera_v1p8_en");
+			if (!ret)
+				ret = gpio_direction_output(v1p8_gpio, 0);
+			if (ret)
+				pr_err("V1P8 GPIO initialization failed\n");
+		}
+	}
 
 	if (gs && gs->v1p8_on == on)
 		return 0;
 	gs->v1p8_on = on;
 
-	if (gs && gs->v1p8_reg) {
+	if (v1p8_gpio >= 0) {
+		gpio_set_value(v1p8_gpio, on);
+		return 0;
+	}
+
+	if (gs->v1p8_reg) {
 		if (on)
 			return regulator_enable(gs->v1p8_reg);
 		else
@@ -480,17 +517,16 @@ int gmin_v2p8_ctrl(struct v4l2_subdev *subdev, int on)
 		}
 	}
 
-
 	if (gs && gs->v2p8_on == on)
 		return 0;
 	gs->v2p8_on = on;
 
-	if (gs && v2p8_gpio >= 0) {
+	if (v2p8_gpio >= 0) {
 		gpio_set_value(v2p8_gpio, on);
 		return 0;
 	}
 
-	if (gs && gs->v2p8_reg) {
+	if (gs->v2p8_reg) {
 		if (on)
 			return regulator_enable(gs->v2p8_reg);
 		else
@@ -509,6 +545,13 @@ int gmin_v2p8_ctrl(struct v4l2_subdev *subdev, int on)
 			return intel_soc_pmic_writeb(LDO9_REG, LDO_2P8V_ON);
 		else
 			return intel_soc_pmic_writeb(LDO9_REG, LDO_2P8V_OFF);
+	}
+
+	if (pmic_id == PMIC_CRYSTALCOVE) {
+		if (on)
+			return intel_soc_pmic_writeb(CRYSTAL_2P8V_REG, CRYSTAL_ON);
+		else
+			return intel_soc_pmic_writeb(CRYSTAL_2P8V_REG, CRYSTAL_OFF);
 	}
 
 	return -EINVAL;
@@ -647,7 +690,7 @@ EXPORT_SYMBOL_GPL(gmin_get_config_var);
 
 int gmin_get_var_int(struct device *dev, const char *var, int def)
 {
-	char val[16];
+	char val[CFG_VAR_NAME_MAX];
 	size_t len = sizeof(val);
 	long result;
 	int ret;
