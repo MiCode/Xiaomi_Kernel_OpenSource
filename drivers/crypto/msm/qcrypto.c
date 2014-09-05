@@ -57,7 +57,7 @@
  */
 #define MAX_ALIGN_SIZE  0x40
 
-#define QCRYPTO_HIGH_BANDWIDTH_TIMEOUT 200
+#define QCRYPTO_HIGH_BANDWIDTH_TIMEOUT 1000
 
 /* are FIPS self tests done ?? */
 static bool is_fips_qcrypto_tests_done;
@@ -538,7 +538,7 @@ static void qcrypto_bw_allocate_work(struct work_struct *work)
 	spin_unlock_irqrestore(&cp->lock, flags);
 
 	qcrypto_ce_set_bus(pengine, true);
-
+	qcrypto_bw_set_timeout(pengine);
 	spin_lock_irqsave(&cp->lock, flags);
 	pengine->bw_state = BUS_HAS_BANDWIDTH;
 	pengine->high_bw_req = false;
@@ -599,7 +599,8 @@ ret:
 	spin_unlock_irqrestore(&cp->lock, flags);
 	if (restart)
 		_start_qcrypto_process(cp, pengine);
-	qcrypto_bw_set_timeout(pengine);
+	if (pengine->bw_state != BUS_NO_BANDWIDTH)
+		qcrypto_bw_set_timeout(pengine);
 }
 
 static int qcrypto_count_sg(struct scatterlist *sg, int nbytes)
@@ -4304,7 +4305,6 @@ static int  _qcrypto_probe(struct platform_device *pdev)
 	pengine->active_seq = 0;
 	pengine->last_active_seq = 0;
 	pengine->check_flag = false;
-	qcrypto_bw_set_timeout(pengine);
 
 	tasklet_init(&pengine->done_tasklet, req_done, (unsigned long)pengine);
 	crypto_init_queue(&pengine->req_queue, MSM_QCRYPTO_REQ_QUEUE_LENGTH);
@@ -4696,8 +4696,6 @@ static int  _qcrypto_suspend(struct platform_device *pdev, pm_message_t state)
 	if (ret)
 		return ret;
 	else {
-		cancel_work_sync(&pengine->bw_allocate_ws);
-		del_timer_sync(&pengine->bw_reaper_timer);
 		if (qce_pm_table.suspend)
 			qce_pm_table.suspend(pengine->qce);
 		return 0;
@@ -4722,8 +4720,6 @@ static int  _qcrypto_resume(struct platform_device *pdev)
 		spin_unlock_irqrestore(&cp->lock, flags);
 		if (qce_pm_table.resume)
 			qce_pm_table.resume(pengine->qce);
-
-		qcrypto_bw_set_timeout(pengine);
 
 		spin_lock_irqsave(&cp->lock, flags);
 		pengine->bw_state = BUS_NO_BANDWIDTH;
