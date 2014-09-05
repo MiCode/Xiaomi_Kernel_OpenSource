@@ -32,6 +32,7 @@
 			pinctrl-0 = <&smb_int_default>;
 			regulator-name = "smb1360_otg_vreg";
 
+			qcom,empty-soc-disabled;
 			qcom,chg-inhibit-disabled;
 			qcom,float-voltage-mv = <4200>;
 			qcom,iterm-ma = <100>;
