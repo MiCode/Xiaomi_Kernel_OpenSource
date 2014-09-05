@@ -6396,7 +6396,7 @@ static void cherryview_init_clock_gating(struct drm_device *dev)
 	u32 val;
 
 	mutex_lock(&dev_priv->rps.hw_lock);
-	val = vlv_punit_read(dev_priv, CCK_FUSE_REG);
+	val = vlv_cck_read(dev_priv, CCK_FUSE_REG);
 	mutex_unlock(&dev_priv->rps.hw_lock);
 	switch ((val >> 2) & 0x7) {
 	case 0:
