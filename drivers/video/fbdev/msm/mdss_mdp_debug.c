@@ -58,13 +58,13 @@ static void __dump_pipe(struct seq_file *s, struct mdss_mdp_pipe *pipe)
 	if (pipe->front_buf.num_planes) {
 		buf = pipe->front_buf.p;
 		seq_printf(s, "\tfront_buf ihdl=0x%p addr=%pa size=%lu\n",
-				buf->srcp_ihdl, &buf->addr, buf->len);
+				buf->srcp_dma_buf, &buf->addr, buf->len);
 	}
 
 	if (pipe->back_buf.num_planes) {
 		buf = pipe->back_buf.p;
 		seq_printf(s, "\tback_buf ihdl=0x%p addr=%pa size=%lu\n",
-				buf->srcp_ihdl, &buf->addr, buf->len);
+				buf->srcp_dma_buf, &buf->addr, buf->len);
 	}
 }
 

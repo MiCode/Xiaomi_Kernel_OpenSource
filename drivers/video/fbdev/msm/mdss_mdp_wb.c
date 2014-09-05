@@ -443,7 +443,7 @@ static struct mdss_mdp_wb_data *get_user_node(struct msm_fb_data_type *mfd,
 		pr_err("IOMMU attach failed\n");
 		goto register_fail;
 	}
-	ret = mdss_mdp_get_img(data, buf);
+	ret = mdss_mdp_get_img(data, buf, &mfd->pdev->dev);
 	if (IS_ERR_VALUE(ret)) {
 		pr_err("error getting buffer info\n");
 		mdss_iommu_ctrl(0);

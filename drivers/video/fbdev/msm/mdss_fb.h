@@ -210,7 +210,9 @@ struct msm_fb_data_type {
 	int panel_power_state;
 	struct disp_info_type_suspend suspend;
 
-	struct ion_handle *ihdl;
+	struct dma_buf *dbuf;
+	struct dma_buf_attachment *attachment;
+	struct sg_table *table;
 	dma_addr_t iova;
 	void *cursor_buf;
 	phys_addr_t cursor_buf_phys;
@@ -262,6 +264,8 @@ struct msm_fb_data_type {
 	struct ion_client *fb_ion_client;
 	struct ion_handle *fb_ion_handle;
 	struct dma_buf *fbmem_buf;
+	struct dma_buf_attachment *fb_attachment;
+	struct sg_table *fb_table;
 
 	bool mdss_fb_split_stored;
 

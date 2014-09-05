@@ -20,6 +20,7 @@
 #include <linux/bootmem.h>
 #include <linux/iommu.h>
 #include <linux/fb.h>
+#include <linux/dma-buf.h>
 
 #include "mdss_fb.h"
 #include "mdss_mdp.h"
@@ -36,6 +37,7 @@ static int mdss_mdp_splash_alloc_memory(struct msm_fb_data_type *mfd,
 	struct msm_fb_splash_info *sinfo;
 	unsigned long buf_size = size;
 	struct mdss_data_type *mdata;
+	struct ion_handle *handle;
 
 	if (!mfd || !size)
 		return -EINVAL;
@@ -46,37 +48,70 @@ static int mdss_mdp_splash_alloc_memory(struct msm_fb_data_type *mfd,
 	if (!mdata || !mdata->iclient || sinfo->splash_buffer)
 		return -EINVAL;
 
-	sinfo->ion_handle = ion_alloc(mdata->iclient, size, SZ_4K,
+	handle = ion_alloc(mdata->iclient, size, SZ_4K,
 				ION_HEAP(ION_SYSTEM_HEAP_ID), 0);
-	if (IS_ERR_OR_NULL(sinfo->ion_handle)) {
+	if (IS_ERR(handle)) {
 		pr_err("ion memory allocation failed\n");
-		rc = PTR_RET(sinfo->ion_handle);
+		rc = PTR_RET(handle);
 		goto end;
 	}
 
-	rc = ion_map_iommu(mdata->iclient, sinfo->ion_handle,
+	sinfo->size = size;
+	sinfo->dma_buf = ion_share_dma_buf(mdata->iclient, handle);
+	if (IS_ERR(sinfo->dma_buf)) {
+		rc = PTR_ERR(sinfo->dma_buf);
+		goto imap_err;
+	}
+
+	sinfo->attachment = dma_buf_attach(sinfo->dma_buf,
+					&mfd->pdev->dev);
+	if (IS_ERR(sinfo->attachment)) {
+		rc = PTR_ERR(sinfo->attachment);
+		goto err_put;
+	}
+
+	sinfo->table = dma_buf_map_attachment(sinfo->attachment,
+					DMA_BIDIRECTIONAL);
+	if (IS_ERR(sinfo->table)) {
+		rc = PTR_ERR(sinfo->table);
+		goto err_detach;
+	}
+
+	rc = msm_map_dma_buf(sinfo->dma_buf, sinfo->table,
 			mdss_get_iommu_domain(MDSS_IOMMU_DOMAIN_UNSECURE),
 			0, SZ_4K, 0, &sinfo->iova, &buf_size, 0, 0);
 	if (rc) {
 		pr_err("ion memory map failed\n");
-		goto imap_err;
+		goto err_unmap;
 	}
 
-	sinfo->splash_buffer = ion_map_kernel(mdata->iclient,
-						sinfo->ion_handle);
-	if (IS_ERR_OR_NULL(sinfo->splash_buffer)) {
+	dma_buf_begin_cpu_access(sinfo->dma_buf, 0, size, DMA_FROM_DEVICE);
+	sinfo->splash_buffer = dma_buf_kmap(sinfo->dma_buf, 0);
+	if (IS_ERR(sinfo->splash_buffer)) {
 		pr_err("ion kernel memory mapping failed\n");
 		rc = IS_ERR(sinfo->splash_buffer);
 		goto kmap_err;
 	}
 
+	/*
+	 * dma_buf has the reference
+	 */
+	ion_free(mdata->iclient, handle);
+
 	return rc;
 
 kmap_err:
-	ion_unmap_iommu(mdata->iclient, sinfo->ion_handle,
-			mdss_get_iommu_domain(MDSS_IOMMU_DOMAIN_UNSECURE), 0);
+	msm_unmap_dma_buf(sinfo->table,
+		mdss_get_iommu_domain(MDSS_IOMMU_DOMAIN_UNSECURE), 0);
+err_unmap:
+	dma_buf_unmap_attachment(sinfo->attachment, sinfo->table,
+					DMA_BIDIRECTIONAL);
+err_detach:
+	dma_buf_detach(sinfo->dma_buf, sinfo->attachment);
+err_put:
+	dma_buf_put(sinfo->dma_buf);
 imap_err:
-	ion_free(mdata->iclient, sinfo->ion_handle);
+	ion_free(mdata->iclient, handle);
 end:
 	return rc;
 }
@@ -92,15 +127,19 @@ static void mdss_mdp_splash_free_memory(struct msm_fb_data_type *mfd)
 	sinfo = &mfd->splash_info;
 	mdata = mfd_to_mdata(mfd);
 
-	if (!mdata || !mdata->iclient || !sinfo->ion_handle)
+	if (!mdata || !mdata->iclient || !sinfo->dma_buf)
 		return;
 
-	ion_unmap_kernel(mdata->iclient, sinfo->ion_handle);
+	dma_buf_end_cpu_access(sinfo->dma_buf, 0, sinfo->size, DMA_FROM_DEVICE);
+	dma_buf_kunmap(sinfo->dma_buf, 0, sinfo->splash_buffer);
 
-	ion_unmap_iommu(mdata->iclient, sinfo->ion_handle,
-			mdss_get_iommu_domain(MDSS_IOMMU_DOMAIN_UNSECURE), 0);
+	msm_unmap_dma_buf(sinfo->table,
+		mdss_get_iommu_domain(MDSS_IOMMU_DOMAIN_UNSECURE), 0);
+	dma_buf_unmap_attachment(sinfo->attachment, sinfo->table,
+					DMA_BIDIRECTIONAL);
+	dma_buf_detach(sinfo->dma_buf, sinfo->attachment);
+	dma_buf_put(sinfo->dma_buf);
 
-	ion_free(mdata->iclient, sinfo->ion_handle);
 	sinfo->splash_buffer = NULL;
 }
 

@@ -45,6 +45,8 @@
 #include <linux/vmalloc.h>
 #include <linux/file.h>
 #include <linux/kthread.h>
+#include <linux/dma-buf.h>
+#include <linux/msm_iommu_domains.h>
 
 #include <sync.h>
 #include <sw_sync.h>
@@ -1281,8 +1283,13 @@ void mdss_fb_free_fb_ion_memory(struct msm_fb_data_type *mfd)
 	ion_unmap_kernel(mfd->fb_ion_client, mfd->fb_ion_handle);
 
 	if (mfd->mdp.fb_mem_get_iommu_domain) {
-		ion_unmap_iommu(mfd->fb_ion_client, mfd->fb_ion_handle,
+		msm_unmap_dma_buf(mfd->fb_table,
 				mfd->mdp.fb_mem_get_iommu_domain(), 0);
+		dma_buf_unmap_attachment(mfd->fb_attachment, mfd->fb_table,
+					DMA_BIDIRECTIONAL);
+		dma_buf_detach(mfd->fbmem_buf, mfd->fb_attachment);
+		dma_buf_put(mfd->fbmem_buf);
+
 	}
 
 	dma_buf_put(mfd->fbmem_buf);
@@ -1319,12 +1326,33 @@ int mdss_fb_alloc_fb_ion_memory(struct msm_fb_data_type *mfd, size_t fb_size)
 	}
 
 	if (mfd->mdp.fb_mem_get_iommu_domain) {
-		rc = ion_map_iommu(mfd->fb_ion_client, mfd->fb_ion_handle,
+		mfd->fbmem_buf = ion_share_dma_buf(mfd->fb_ion_client,
+							mfd->fb_ion_handle);
+		if (IS_ERR(mfd->fbmem_buf)) {
+			rc = PTR_ERR(mfd->fbmem_buf);
+			goto fb_mmap_failed;
+		}
+
+		mfd->fb_attachment = dma_buf_attach(mfd->fbmem_buf,
+							&mfd->pdev->dev);
+		if (IS_ERR(mfd->fb_attachment)) {
+			rc = PTR_ERR(mfd->fb_attachment);
+			goto err_put;
+		}
+
+		mfd->fb_table = dma_buf_map_attachment(mfd->fb_attachment,
+							DMA_BIDIRECTIONAL);
+		if (IS_ERR(mfd->fb_table)) {
+			rc = PTR_ERR(mfd->fb_table);
+			goto err_detach;
+		}
+
+		rc = msm_map_dma_buf(mfd->fbmem_buf, mfd->fb_table,
 				mfd->mdp.fb_mem_get_iommu_domain(), 0, SZ_4K, 0,
 				&mfd->iova, &buf_size, 0, 0);
 		if (rc) {
 			pr_err("Cannot map fb_mem to IOMMU. rc=%d\n", rc);
-			goto fb_mmap_failed;
+			goto err_unmap;
 		}
 	} else {
 		pr_err("No IOMMU Domain\n");
@@ -1339,8 +1367,7 @@ int mdss_fb_alloc_fb_ion_memory(struct msm_fb_data_type *mfd, size_t fb_size)
 		pr_err("ION memory mapping failed - %ld\n", PTR_ERR(vaddr));
 		rc = PTR_ERR(vaddr);
 		if (mfd->mdp.fb_mem_get_iommu_domain) {
-			ion_unmap_iommu(mfd->fb_ion_client, mfd->fb_ion_handle,
-					mfd->mdp.fb_mem_get_iommu_domain(), 0);
+			goto err_unmap;
 		}
 		goto fb_mmap_failed;
 	}
@@ -1354,6 +1381,13 @@ int mdss_fb_alloc_fb_ion_memory(struct msm_fb_data_type *mfd, size_t fb_size)
 
 	return rc;
 
+err_unmap:
+	dma_buf_unmap_attachment(mfd->fb_attachment, mfd->fb_table,
+					DMA_BIDIRECTIONAL);
+err_detach:
+	dma_buf_detach(mfd->fbmem_buf, mfd->fb_attachment);
+err_put:
+	dma_buf_put(mfd->fbmem_buf);
 fb_mmap_failed:
 	ion_free(mfd->fb_ion_client, mfd->fb_ion_handle);
 	return rc;
@@ -1404,7 +1438,7 @@ static int mdss_fb_fbmem_ion_mmap(struct fb_info *info,
 		}
 	}
 
-	table = ion_sg_table(mfd->fb_ion_client, mfd->fb_ion_handle);
+	table = mfd->fb_table;
 	if (IS_ERR(table)) {
 		pr_err("Unable to get sg_table from ion:%ld\n", PTR_ERR(table));
 		mfd->fbi->screen_base = NULL;
