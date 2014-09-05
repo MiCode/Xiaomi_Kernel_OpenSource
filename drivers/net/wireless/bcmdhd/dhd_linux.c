@@ -372,6 +372,8 @@ typedef struct dhd_info {
 	htsf_t  htsf;
 #endif
 	wait_queue_head_t ioctl_resp_wait;
+	wait_queue_head_t d3ack_wait;
+
 	uint32	default_wd_interval;
 
 	struct timer_list timer;
@@ -4495,6 +4497,7 @@ dhd_attach(osl_t *osh, struct dhd_bus *bus, uint bus_hdrlen)
 
 	/* Initialize other structure content */
 	init_waitqueue_head(&dhd->ioctl_resp_wait);
+	init_waitqueue_head(&dhd->d3ack_wait);
 	init_waitqueue_head(&dhd->ctrl_wait);
 
 	/* Initialize the spinlocks */
@@ -6665,6 +6668,36 @@ dhd_os_ioctl_resp_wake(dhd_pub_t *pub)
 	wake_up(&dhd->ioctl_resp_wait);
 	return 0;
 }
+
+int
+dhd_os_d3ack_wait(dhd_pub_t *pub, uint *condition, bool *pending)
+{
+	dhd_info_t * dhd = (dhd_info_t *)(pub->info);
+	int timeout;
+
+	/* Convert timeout in millsecond to jiffies */
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 27))
+	timeout = msecs_to_jiffies(dhd_ioctl_timeout_msec);
+#else
+	timeout = dhd_ioctl_timeout_msec * HZ / 1000;
+#endif
+
+	DHD_PERIM_UNLOCK(pub);
+	timeout = wait_event_timeout(dhd->d3ack_wait, (*condition), timeout);
+	DHD_PERIM_LOCK(pub);
+
+	return timeout;
+}
+
+int
+dhd_os_d3ack_wake(dhd_pub_t *pub)
+{
+	dhd_info_t *dhd = (dhd_info_t *)(pub->info);
+
+	wake_up(&dhd->d3ack_wait);
+	return 0;
+}
+
 
 void
 dhd_os_wd_timer_extend(void *bus, bool extend)

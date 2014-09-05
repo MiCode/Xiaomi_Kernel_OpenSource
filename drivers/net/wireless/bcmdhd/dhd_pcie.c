@@ -2720,7 +2720,7 @@ dhdpcie_bus_suspend(struct  dhd_bus *bus, bool state)
 		DHD_OS_WAKE_LOCK_WAIVE(bus->dhd);
 		dhd_os_set_ioctl_resp_timeout(DEFAULT_IOCTL_RESP_TIMEOUT);
 		dhdpcie_send_mb_data(bus, H2D_HOST_D3_INFORM);
-		timeleft = dhd_os_ioctl_resp_wait(bus->dhd, &bus->wait_for_d3_ack, &pending);
+		timeleft = dhd_os_d3ack_wait(bus->dhd, &bus->wait_for_d3_ack, &pending);
 		dhd_os_set_ioctl_resp_timeout(IOCTL_RESP_TIMEOUT);
 		DHD_OS_WAKE_LOCK_RESTORE(bus->dhd);
 		if (bus->wait_for_d3_ack) {
@@ -3262,7 +3262,7 @@ dhdpcie_handle_mb_data(dhd_bus_t *bus)
 		DHD_ERROR(("D2H_MB_DATA: D3 ACK\n"));
 		if (!bus->wait_for_d3_ack) {
 			bus->wait_for_d3_ack = 1;
-			dhd_os_ioctl_resp_wake(bus->dhd);
+			dhd_os_d3ack_wake(bus->dhd);
 		}
 	}
 	if (d2h_mb_data & D2H_DEV_FWHALT)  {
