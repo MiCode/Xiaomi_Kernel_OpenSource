@@ -693,6 +693,7 @@ static void ffs_epfile_async_io_complete(struct usb_ep *_ep,
 	schedule_work(&io_data->work);
 }
 
+#define MAX_BUF_LEN	4096
 static ssize_t ffs_epfile_io(struct file *file, struct ffs_io_data *io_data)
 {
 	struct ffs_epfile *epfile = file->private_data;
@@ -868,11 +869,22 @@ static ssize_t ffs_epfile_io(struct file *file, struct ffs_io_data *io_data)
 				 */
 				ret = ep->status;
 				if (io_data->read && ret > 0) {
+					if (io_data->len != MAX_BUF_LEN &&
+							ret < io_data->len)
+						pr_err("less data(%zd) recieved than intended length(%zu)\n",
+							ret, io_data->len);
+					else if (ret > io_data->len)
+						pr_err("More data(%zd) recieved than intended length(%zu)\n",
+							ret, io_data->len);
+
 					ret = min_t(size_t, ret, io_data->len);
 
 					if (unlikely(copy_to_user(io_data->buf,
-						data, ret)))
+						data, ret))) {
+						pr_err("Fail to copy to user len:%zd\n",
+								ret);
 						ret = -EFAULT;
+					}
 				}
 			}
 			kfree(data);
@@ -887,6 +899,8 @@ error_lock:
 	mutex_unlock(&epfile->mutex);
 error:
 	kfree(data);
+	if (ret < 0)
+		pr_err_ratelimited("Error: returning %zd value\n", ret);
 	return ret;
 }
 
