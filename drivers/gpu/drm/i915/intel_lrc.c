@@ -1173,6 +1173,62 @@ int intel_logical_ring_begin(struct intel_ringbuffer *ringbuf, int num_dwords)
 	return 0;
 }
 
+static inline void intel_logical_ring_emit_wa(struct intel_ringbuffer *ringbuf,
+				       u32 addr, u32 value)
+{
+	struct intel_engine_cs *ring = ringbuf->ring;
+	struct drm_device *dev = ring->dev;
+	struct drm_i915_private *dev_priv = dev->dev_private;
+
+	if (WARN_ON(dev_priv->num_wa_regs >= I915_MAX_WA_REGS))
+		return;
+
+	intel_logical_ring_emit(ringbuf, MI_LOAD_REGISTER_IMM(1));
+	intel_logical_ring_emit(ringbuf, addr);
+	intel_logical_ring_emit(ringbuf, value);
+
+	dev_priv->intel_wa_regs[dev_priv->num_wa_regs].addr = addr;
+	dev_priv->intel_wa_regs[dev_priv->num_wa_regs].mask = value & 0xFFFF;
+	/* value is updated with the status of remaining bits of this
+	 * register when it is read from debugfs file
+	 */
+	dev_priv->intel_wa_regs[dev_priv->num_wa_regs].value = value;
+	dev_priv->num_wa_regs++;
+}
+
+static int bdw_init_logical_workarounds(struct intel_ringbuffer *ringbuf)
+{
+	int ret;
+	struct intel_engine_cs *ring = ringbuf->ring;
+	struct drm_device *dev = ring->dev;
+	struct drm_i915_private *dev_priv = dev->dev_private;
+
+	/*
+	 * workarounds applied in this fn are part of register state context,
+	 * they need to be re-initialized followed by gpu reset, suspend/resume,
+	 * module reload.
+	 */
+	dev_priv->num_wa_regs = 0;
+	memset(dev_priv->intel_wa_regs, 0, sizeof(dev_priv->intel_wa_regs));
+
+	/*
+	 * update the number of dwords required based on the
+	 * actual number of workarounds applied
+	 */
+	ret = intel_logical_ring_begin(ringbuf, 24);
+	if (ret)
+		return ret;
+
+	bdw_emit_workarounds(ringbuf);
+
+	intel_logical_ring_advance(ringbuf);
+
+	DRM_DEBUG_DRIVER("Number of Workarounds applied: %d\n",
+			 dev_priv->num_wa_regs);
+
+	return 0;
+}
+
 static int gen8_init_common_ring(struct intel_engine_cs *ring)
 {
 	struct drm_device *dev = ring->dev;
@@ -1472,6 +1528,10 @@ static int logical_render_ring_init(struct drm_device *dev)
 		GT_CONTEXT_SWITCH_INTERRUPT << GEN8_RCS_IRQ_SHIFT;
 	if (HAS_L3_DPF(dev))
 		ring->irq_keep_mask |= GT_RENDER_L3_PARITY_ERROR_INTERRUPT;
+
+	if (IS_BROADWELL(dev))
+		ring->init_context = bdw_init_logical_workarounds;
+	ring->emit_wa = intel_logical_ring_emit_wa;
 
 	ring->init = gen8_init_render_ring;
 	ring->cleanup = intel_fini_pipe_control;
@@ -1932,6 +1992,12 @@ int intel_lr_context_deferred_create(struct intel_context *ctx,
 	}
 
 	if (ring->id == RCS && !ctx->rcs_initialized) {
+		if (ring->init_context) {
+			ret = ring->init_context(ringbuf);
+			if (ret)
+				DRM_ERROR("ring init context: %d\n", ret);
+		}
+
 		ret = intel_lr_context_render_state_init(ring, ctx);
 		if (ret) {
 			DRM_ERROR("Init render state failed: %d\n", ret);

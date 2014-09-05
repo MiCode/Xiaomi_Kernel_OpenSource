@@ -799,7 +799,7 @@ done:
 
 	if (uninitialized) {
 		if (ring->init_context) {
-			ret = ring->init_context(ring);
+			ret = ring->init_context(ring->buffer);
 			if (ret)
 				DRM_ERROR("ring init context: %d\n", ret);
 		}
