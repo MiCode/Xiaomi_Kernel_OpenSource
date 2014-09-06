@@ -725,6 +725,44 @@ static const struct file_operations ufsdbg_power_mode_desc = {
 	.write		= ufsdbg_power_mode_write,
 };
 
+static int ufsdbg_dme_local_read(void *data, u64 *attr_val)
+{
+	int ret;
+	struct ufs_hba *hba = data;
+	u32 read_val = 0;
+
+	if (!hba)
+		return -EINVAL;
+
+	pm_runtime_get_sync(hba->dev);
+	ret = ufshcd_dme_get(hba,
+			UIC_ARG_MIB(hba->debugfs_files.dme_local_attr_id),
+			&read_val);
+	pm_runtime_put_sync(hba->dev);
+
+	if (!ret)
+		*attr_val = (u64)read_val;
+
+	return ret;
+}
+
+static int ufsdbg_dme_local_set_attr_id(void *data, u64 attr_id)
+{
+	struct ufs_hba *hba = data;
+
+	if (!hba)
+		return -EINVAL;
+
+	hba->debugfs_files.dme_local_attr_id = (u32)attr_id;
+
+	return 0;
+}
+
+DEFINE_SIMPLE_ATTRIBUTE(ufsdbg_dme_local_read_ops,
+			ufsdbg_dme_local_read,
+			ufsdbg_dme_local_set_attr_id,
+			"%llu\n");
+
 void ufsdbg_add_debugfs(struct ufs_hba *hba)
 {
 	if (!hba) {
@@ -805,6 +843,17 @@ void ufsdbg_add_debugfs(struct ufs_hba *hba)
 	if (!hba->debugfs_files.power_mode) {
 		dev_err(hba->dev,
 			"%s:  NULL power_mode_desc file, exiting", __func__);
+		goto err;
+	}
+
+	hba->debugfs_files.dme_local_read =
+		debugfs_create_file("dme_local_read", S_IRUSR | S_IWUSR,
+				    hba->debugfs_files.debugfs_root, hba,
+				    &ufsdbg_dme_local_read_ops);
+	if (!hba->debugfs_files.dme_local_read) {
+		dev_err(hba->dev,
+			"%s:  failed create dme_local_read debugfs entry\n",
+			__func__);
 		goto err;
 	}
 
