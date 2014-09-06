@@ -2226,7 +2226,7 @@
 			"AIF4 VI", "MCLK",
 			"RX_BIAS", "MCLK",
 			"LDO_H", "MCLK",
-			"AIF4 MAD", "MCLK",
+			"MADINPUT", "MCLK",
 			"AMIC1", "MIC BIAS1 Internal1",
 			"MIC BIAS1 Internal1", "Handset Mic",
 			"AMIC2", "MIC BIAS2 External",
