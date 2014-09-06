@@ -163,6 +163,11 @@ struct wcd_cpe_lsm_ops {
 				struct cpe_lsm_session *session,
 				phys_addr_t phys, u8 *mem,
 				u32 read_len);
+
+	int (*lsm_set_data) (void *core_handle,
+			struct cpe_lsm_session *session,
+			enum lsm_detection_mode detect_mode,
+			bool detect_failure);
 };
 
 int wcd_cpe_get_lsm_ops(struct wcd_cpe_lsm_ops *);
