@@ -708,4 +708,5 @@ int ufshcd_query_descriptor(struct ufs_hba *hba, enum query_opcode opcode,
 
 int ufshcd_hold(struct ufs_hba *hba, bool async);
 void ufshcd_release(struct ufs_hba *hba);
+int ufshcd_wait_for_doorbell_clr(struct ufs_hba *hba, u64 wait_timeout_us);
 #endif /* End of Header */
