@@ -1266,6 +1266,7 @@
 			qcom,cdc-slim-ifd = "tomtom-slim-ifd";
 			qcom,cdc-slim-ifd-elemental-addr = [00 00 30 01 17 02];
 			qcom,cdc-dmic-sample-rate = <4800000>;
+			qcom,cdc-mad-dmic-rate = <600000>;
 			qcom,cdc-variant = "WCD9330";
 		};
 	};
