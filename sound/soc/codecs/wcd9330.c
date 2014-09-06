@@ -2862,14 +2862,67 @@ static int tomtom_codec_enable_spk_pa(struct snd_soc_dapm_widget *w,
 	return 0;
 }
 
+static u8 tomtom_get_dmic_clk_val(struct snd_soc_codec *codec,
+	u32 mclk_rate, u32 dmic_clk_rate)
+{
+	u32 div_factor;
+	u8 dmic_ctl_val;
+
+	dev_dbg(codec->dev,
+		"%s: mclk_rate = %d, dmic_sample_rate = %d\n",
+		__func__, mclk_rate, dmic_clk_rate);
+
+	/* Default value to return in case of error */
+	if (mclk_rate == TOMTOM_MCLK_CLK_9P6MHZ)
+		dmic_ctl_val = WCD9330_DMIC_CLK_DIV_2;
+	else
+		dmic_ctl_val = WCD9330_DMIC_CLK_DIV_3;
+
+	if (dmic_clk_rate == 0) {
+		dev_err(codec->dev,
+			"%s: dmic_sample_rate cannot be 0\n",
+			__func__);
+		goto done;
+	}
+
+	div_factor = mclk_rate / dmic_clk_rate;
+	switch (div_factor) {
+	case 2:
+		dmic_ctl_val = WCD9330_DMIC_CLK_DIV_2;
+		break;
+	case 3:
+		dmic_ctl_val = WCD9330_DMIC_CLK_DIV_3;
+		break;
+	case 4:
+		dmic_ctl_val = WCD9330_DMIC_CLK_DIV_4;
+		break;
+	case 6:
+		dmic_ctl_val = WCD9330_DMIC_CLK_DIV_6;
+		break;
+	case 16:
+		dmic_ctl_val = WCD9330_DMIC_CLK_DIV_16;
+		break;
+	default:
+		dev_err(codec->dev,
+			"%s: Invalid div_factor %u, clk_rate(%u), dmic_rate(%u)\n",
+			__func__, div_factor, mclk_rate, dmic_clk_rate);
+		break;
+	}
+
+done:
+	return dmic_ctl_val;
+}
+
 static int tomtom_codec_enable_dmic(struct snd_soc_dapm_widget *w,
 	struct snd_kcontrol *kcontrol, int event)
 {
 	struct snd_soc_codec *codec = w->codec;
 	struct tomtom_priv *tomtom = snd_soc_codec_get_drvdata(codec);
+	struct wcd9xxx_pdata *pdata = tomtom->resmgr.pdata;
 	u8  dmic_clk_en;
 	u16 dmic_clk_reg;
 	s32 *dmic_clk_cnt;
+	u8 dmic_rate_val, dmic_rate_shift;
 	unsigned int dmic;
 	int ret;
 	char *wname;
@@ -2892,6 +2945,7 @@ static int tomtom_codec_enable_dmic(struct snd_soc_dapm_widget *w,
 		dmic_clk_en = 0x01;
 		dmic_clk_cnt = &(tomtom->dmic_1_2_clk_cnt);
 		dmic_clk_reg = TOMTOM_A_DMIC_B1_CTL;
+		dmic_rate_shift = 5;
 		pr_debug("%s() event %d DMIC%d dmic_1_2_clk_cnt %d\n",
 			__func__, event,  dmic, *dmic_clk_cnt);
 
@@ -2902,7 +2956,7 @@ static int tomtom_codec_enable_dmic(struct snd_soc_dapm_widget *w,
 		dmic_clk_en = 0x02;
 		dmic_clk_cnt = &(tomtom->dmic_3_4_clk_cnt);
 		dmic_clk_reg = TOMTOM_A_DMIC_B1_CTL;
-
+		dmic_rate_shift = 1;
 		pr_debug("%s() event %d DMIC%d dmic_3_4_clk_cnt %d\n",
 			__func__, event,  dmic, *dmic_clk_cnt);
 		break;
@@ -2912,7 +2966,7 @@ static int tomtom_codec_enable_dmic(struct snd_soc_dapm_widget *w,
 		dmic_clk_en = 0x04;
 		dmic_clk_cnt = &(tomtom->dmic_5_6_clk_cnt);
 		dmic_clk_reg = TOMTOM_A_DMIC_B1_CTL;
-
+		dmic_rate_shift = 4;
 		pr_debug("%s() event %d DMIC%d dmic_5_6_clk_cnt %d\n",
 			__func__, event,  dmic, *dmic_clk_cnt);
 
@@ -2926,18 +2980,35 @@ static int tomtom_codec_enable_dmic(struct snd_soc_dapm_widget *w,
 	switch (event) {
 	case SND_SOC_DAPM_PRE_PMU:
 
+		dmic_rate_val =
+			tomtom_get_dmic_clk_val(codec,
+					pdata->mclk_rate,
+					pdata->dmic_sample_rate);
+
 		(*dmic_clk_cnt)++;
-		if (*dmic_clk_cnt == 1)
+		if (*dmic_clk_cnt == 1) {
+			snd_soc_update_bits(codec, dmic_clk_reg,
+				0x07 << dmic_rate_shift,
+				dmic_rate_val << dmic_rate_shift);
 			snd_soc_update_bits(codec, dmic_clk_reg,
 					dmic_clk_en, dmic_clk_en);
+		}
 
 		break;
 	case SND_SOC_DAPM_POST_PMD:
 
+		dmic_rate_val =
+			tomtom_get_dmic_clk_val(codec,
+					pdata->mclk_rate,
+					pdata->mad_dmic_sample_rate);
 		(*dmic_clk_cnt)--;
-		if (*dmic_clk_cnt  == 0)
+		if (*dmic_clk_cnt  == 0) {
 			snd_soc_update_bits(codec, dmic_clk_reg,
 					dmic_clk_en, 0);
+			snd_soc_update_bits(codec, dmic_clk_reg,
+				0x07 << dmic_rate_shift,
+				dmic_rate_val << dmic_rate_shift);
+		}
 		break;
 	}
 	return 0;
@@ -6599,13 +6670,14 @@ static int tomtom_handle_pdata(struct tomtom_priv *tomtom)
 {
 	struct snd_soc_codec *codec = tomtom->codec;
 	struct wcd9xxx_pdata *pdata = tomtom->resmgr.pdata;
-	int k1, k2, k3, rc = 0;
+	int k1, k2, k3, dec, rc = 0;
 	u8 leg_mode, txfe_bypass, txfe_buff, flag;
 	u8 i = 0, j = 0;
 	u8 val_txfe = 0, value = 0;
-	u8 dmic_sample_rate_value = 0;
-	u8 dmic_b1_ctl_value = 0, dmic_b2_ctl_value = 0;
+	u8 dmic_ctl_val, mad_dmic_ctl_val;
 	u8 anc_ctl_value = 0;
+	u32 def_dmic_rate;
+	u16 tx_dmic_ctl_reg;
 
 	if (!pdata) {
 		pr_err("%s: NULL pdata\n", __func__);
@@ -6735,92 +6807,71 @@ static int tomtom_handle_pdata(struct tomtom_priv *tomtom)
 	snd_soc_update_bits(codec, TOMTOM_A_MICB_4_CTL, 0x1E, value);
 
 	/* Set the DMIC sample rate */
-	if (pdata->mclk_rate == TOMTOM_MCLK_CLK_9P6MHZ) {
-		switch (pdata->dmic_sample_rate) {
-		case WCD9XXX_DMIC_SAMPLE_RATE_2P4MHZ:
-			dmic_sample_rate_value = WCD9XXX_DMIC_SAMPLE_RATE_DIV_4;
-			dmic_b1_ctl_value = WCD9330_DMIC_B1_CTL_DIV_4;
-			dmic_b2_ctl_value = WCD9330_DMIC_B2_CTL_DIV_4;
-			anc_ctl_value = WCD9XXX_ANC_DMIC_X2_OFF;
-			break;
-		case WCD9XXX_DMIC_SAMPLE_RATE_4P8MHZ:
-			dmic_sample_rate_value = WCD9XXX_DMIC_SAMPLE_RATE_DIV_2;
-			dmic_b1_ctl_value = WCD9330_DMIC_B1_CTL_DIV_2;
-			dmic_b2_ctl_value = WCD9330_DMIC_B2_CTL_DIV_2;
-			anc_ctl_value = WCD9XXX_ANC_DMIC_X2_ON;
-			break;
-		case WCD9XXX_DMIC_SAMPLE_RATE_3P2MHZ:
-		case WCD9XXX_DMIC_SAMPLE_RATE_UNDEFINED:
-			dmic_sample_rate_value = WCD9XXX_DMIC_SAMPLE_RATE_DIV_3;
-			dmic_b1_ctl_value = WCD9330_DMIC_B1_CTL_DIV_3;
-			dmic_b2_ctl_value = WCD9330_DMIC_B2_CTL_DIV_3;
-			anc_ctl_value = WCD9XXX_ANC_DMIC_X2_OFF;
-			break;
-		default:
-			pr_err("%s Invalid sample rate %d for mclk %d\n",
-			__func__, pdata->dmic_sample_rate, pdata->mclk_rate);
-			rc = -EINVAL;
-			goto done;
-			break;
-		}
-	} else if (pdata->mclk_rate == TOMTOM_MCLK_CLK_12P288MHZ) {
-		switch (pdata->dmic_sample_rate) {
-		case WCD9XXX_DMIC_SAMPLE_RATE_3P072MHZ:
-			dmic_sample_rate_value = WCD9XXX_DMIC_SAMPLE_RATE_DIV_4;
-			dmic_b1_ctl_value = WCD9330_DMIC_B1_CTL_DIV_4;
-			dmic_b2_ctl_value = WCD9330_DMIC_B2_CTL_DIV_4;
-			anc_ctl_value = WCD9XXX_ANC_DMIC_X2_OFF;
-			break;
-		case WCD9XXX_DMIC_SAMPLE_RATE_6P144MHZ:
-			dmic_sample_rate_value = WCD9XXX_DMIC_SAMPLE_RATE_DIV_2;
-			dmic_b1_ctl_value = WCD9330_DMIC_B1_CTL_DIV_2;
-			dmic_b2_ctl_value = WCD9330_DMIC_B2_CTL_DIV_2;
-			anc_ctl_value = WCD9XXX_ANC_DMIC_X2_ON;
-			break;
-		case WCD9XXX_DMIC_SAMPLE_RATE_4P096MHZ:
-		case WCD9XXX_DMIC_SAMPLE_RATE_UNDEFINED:
-			dmic_sample_rate_value = WCD9XXX_DMIC_SAMPLE_RATE_DIV_3;
-			dmic_b1_ctl_value = WCD9330_DMIC_B1_CTL_DIV_3;
-			dmic_b2_ctl_value = WCD9330_DMIC_B2_CTL_DIV_3;
-			anc_ctl_value = WCD9XXX_ANC_DMIC_X2_OFF;
-			break;
-		default:
-			pr_err("%s Invalid sample rate %d for mclk %d\n",
-			__func__, pdata->dmic_sample_rate, pdata->mclk_rate);
-			rc = -EINVAL;
-			goto done;
-			break;
-		}
-	} else {
-		pr_err("%s MCLK is not set!\n", __func__);
+	switch (pdata->mclk_rate) {
+	case TOMTOM_MCLK_CLK_9P6MHZ:
+		def_dmic_rate =
+			WCD9XXX_DMIC_SAMPLE_RATE_4P8MHZ;
+		break;
+	case TOMTOM_MCLK_CLK_12P288MHZ:
+		def_dmic_rate =
+			WCD9XXX_DMIC_SAMPLE_RATE_4P096MHZ;
+		break;
+	default:
+		/* should never happen */
+		pr_err("%s: Invalid mclk_rate %d\n",
+			__func__, pdata->mclk_rate);
 		rc = -EINVAL;
 		goto done;
 	}
 
-	snd_soc_update_bits(codec, TOMTOM_A_CDC_TX1_DMIC_CTL,
-		0x7, dmic_sample_rate_value);
-	snd_soc_update_bits(codec, TOMTOM_A_CDC_TX2_DMIC_CTL,
-		0x7, dmic_sample_rate_value);
-	snd_soc_update_bits(codec, TOMTOM_A_CDC_TX3_DMIC_CTL,
-		0x7, dmic_sample_rate_value);
-	snd_soc_update_bits(codec, TOMTOM_A_CDC_TX4_DMIC_CTL,
-		0x7, dmic_sample_rate_value);
-	snd_soc_update_bits(codec, TOMTOM_A_CDC_TX5_DMIC_CTL,
-		0x7, dmic_sample_rate_value);
-	snd_soc_update_bits(codec, TOMTOM_A_CDC_TX6_DMIC_CTL,
-		0x7, dmic_sample_rate_value);
-	snd_soc_update_bits(codec, TOMTOM_A_CDC_TX7_DMIC_CTL,
-		0x7, dmic_sample_rate_value);
-	snd_soc_update_bits(codec, TOMTOM_A_CDC_TX8_DMIC_CTL,
-		0x7, dmic_sample_rate_value);
-	snd_soc_update_bits(codec, TOMTOM_A_CDC_TX9_DMIC_CTL,
-		0x7, dmic_sample_rate_value);
-	snd_soc_update_bits(codec, TOMTOM_A_CDC_TX10_DMIC_CTL,
-		0x7, dmic_sample_rate_value);
+	if (pdata->dmic_sample_rate ==
+	    WCD9XXX_DMIC_SAMPLE_RATE_UNDEFINED) {
+		pr_info("%s: dmic_rate invalid default = %d\n",
+			__func__, def_dmic_rate);
+		pdata->dmic_sample_rate = def_dmic_rate;
+	}
+
+	if (pdata->mad_dmic_sample_rate ==
+	    WCD9XXX_DMIC_SAMPLE_RATE_UNDEFINED) {
+		pr_info("%s: mad_dmic_rate invalid default = %d\n",
+			__func__, def_dmic_rate);
+		/*
+		 * use dmic_sample_rate as the default for MAD
+		 * if mad dmic sample rate is undefined
+		 */
+		pdata->mad_dmic_sample_rate = pdata->dmic_sample_rate;
+	}
+
+	/*
+	 * Default the DMIC clk rates to mad_dmic_sample_rate,
+	 * whereas, the anc/txfe dmic rates to dmic_sample_rate
+	 * since the anc/txfe are independent of mad block.
+	 */
+	mad_dmic_ctl_val = tomtom_get_dmic_clk_val(tomtom->codec,
+				pdata->mclk_rate,
+				pdata->mad_dmic_sample_rate);
 	snd_soc_update_bits(codec, TOMTOM_A_DMIC_B1_CTL,
-		0xE0, dmic_b1_ctl_value);
+		0xE0, mad_dmic_ctl_val << 5);
 	snd_soc_update_bits(codec, TOMTOM_A_DMIC_B2_CTL,
-		0x7E, dmic_b2_ctl_value);
+		0x70, mad_dmic_ctl_val << 4);
+	snd_soc_update_bits(codec, TOMTOM_A_DMIC_B2_CTL,
+		0x0E, mad_dmic_ctl_val << 1);
+
+	dmic_ctl_val = tomtom_get_dmic_clk_val(tomtom->codec,
+				pdata->mclk_rate,
+				pdata->dmic_sample_rate);
+
+	if (dmic_ctl_val == WCD9330_DMIC_CLK_DIV_2)
+		anc_ctl_value = WCD9XXX_ANC_DMIC_X2_ON;
+	else
+		anc_ctl_value = WCD9XXX_ANC_DMIC_X2_OFF;
+
+	for (dec = 0; dec < NUM_DECIMATORS; dec++) {
+		tx_dmic_ctl_reg =
+			TOMTOM_A_CDC_TX1_DMIC_CTL + (8 * dec);
+		snd_soc_update_bits(codec, tx_dmic_ctl_reg,
+				    0x07, dmic_ctl_val);
+	}
 	snd_soc_update_bits(codec, TOMTOM_A_CDC_ANC1_B2_CTL,
 		0x1, anc_ctl_value);
 	snd_soc_update_bits(codec, TOMTOM_A_CDC_ANC2_B2_CTL,
