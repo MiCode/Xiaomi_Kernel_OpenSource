@@ -1385,9 +1385,12 @@ static int ipa_q6_set_ex_path_dis_agg(void)
 				 msecs_to_jiffies(CLEANUP_TAG_PROCESS_TIMEOUT));
 	if (retval) {
 		IPAERR("TAG process failed! (error %d)\n", retval);
-		for (index = 0; index < num_descs; index++)
-			kfree(desc[index].user1);
-		retval = -EINVAL;
+		/* For timeout error ipa_free_buffer cb will free user1 */
+		if (retval != -ETIME) {
+			for (index = 0; index < num_descs; index++)
+				kfree(desc[index].user1);
+			retval = -EINVAL;
+		}
 	}
 
 	kfree(desc);
