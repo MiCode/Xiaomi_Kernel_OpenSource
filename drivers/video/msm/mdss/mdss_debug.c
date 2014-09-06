@@ -1073,14 +1073,14 @@ void mdss_misr_crc_collect(struct mdss_data_type *mdata, int block_id)
 			pr_err("CRC(%d) Not saved\n", crc);
 		}
 
-		if (mdata->mdp_rev < MDSS_MDP_HW_REV_106) {
+		if (mdata->mdp_rev < MDSS_MDP_HW_REV_105) {
 			writel_relaxed(MDSS_MDP_MISR_CTRL_STATUS_CLEAR,
 					mdata->mdp_base + map->ctrl_reg);
 			writel_relaxed(MISR_CRC_BATCH_CFG,
 				mdata->mdp_base + map->ctrl_reg);
 		}
 	} else if (0 == status) {
-		if (mdata->mdp_rev < MDSS_MDP_HW_REV_106)
+		if (mdata->mdp_rev < MDSS_MDP_HW_REV_105)
 			writel_relaxed(MISR_CRC_BATCH_CFG,
 					mdata->mdp_base + map->ctrl_reg);
 		else
