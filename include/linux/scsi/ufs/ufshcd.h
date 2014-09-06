@@ -771,6 +771,7 @@ int ufshcd_query_descriptor(struct ufs_hba *hba, enum query_opcode opcode,
 
 int ufshcd_hold(struct ufs_hba *hba, bool async);
 void ufshcd_release(struct ufs_hba *hba);
+int ufshcd_wait_for_doorbell_clr(struct ufs_hba *hba, u64 wait_timeout_us);
 
 /* Wrapper functions for safely calling variant operations */
 static inline const char *ufshcd_get_var_name(struct ufs_hba *hba)
@@ -875,5 +876,4 @@ static inline void ufshcd_vops_dbg_register_dump(struct ufs_hba *hba)
 	if (hba->vops && hba->vops->dbg_register_dump)
 		hba->vops->dbg_register_dump(hba);
 }
-
 #endif /* End of Header */

@@ -668,6 +668,7 @@ static ssize_t ufsdbg_power_mode_write(struct file *file,
 	loff_t buff_pos = 0;
 	int ret;
 	int idx = 0;
+	#define DOORBELL_CLR_TOUT_US	(1000 * 1000) /* 1 sec */
 
 	ret = simple_write_to_buffer(pwr_mode_str, BUFF_LINE_CAPACITY,
 		&buff_pos, ubuf, cnt);
@@ -695,7 +696,11 @@ static ssize_t ufsdbg_power_mode_write(struct file *file,
 		pwr_mode.lane_tx, pwr_mode.pwr_rx, pwr_mode.pwr_tx);
 
 	pm_runtime_get_sync(hba->dev);
-	ret = ufshcd_config_pwr_mode(hba, &pwr_mode);
+	scsi_block_requests(hba->host);
+	ret = ufshcd_wait_for_doorbell_clr(hba, DOORBELL_CLR_TOUT_US);
+	if (!ret)
+		ret = ufshcd_config_pwr_mode(hba, &pwr_mode);
+	scsi_unblock_requests(hba->host);
 	pm_runtime_put_sync(hba->dev);
 	if (ret == -EBUSY)
 		dev_err(hba->dev,
