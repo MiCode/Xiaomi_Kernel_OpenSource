@@ -28,6 +28,10 @@
 	status = "ok";
 };
 
+&blsp2_uart2 {
+	status = "ok";
+};
+
 &sdhc_1 {
 	vdd-supply = <&pm8992_l20>;
 	qcom,vdd-voltage-level = <2950000 2950000>;
