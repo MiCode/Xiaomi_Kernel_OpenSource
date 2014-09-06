@@ -51,6 +51,13 @@ struct snd_lsm_event_status {
 	__u8 payload[0];
 };
 
+struct snd_lsm_detection_params {
+	__u8 *conf_level;
+	enum lsm_detection_mode detect_mode;
+	__u8 num_confidence_levels;
+	bool detect_failure;
+};
+
 #define SNDRV_LSM_REG_SND_MODEL	 _IOW('U', 0x00, struct snd_lsm_sound_model)
 #define SNDRV_LSM_DEREG_SND_MODEL _IOW('U', 0x01, int)
 #define SNDRV_LSM_EVENT_STATUS	_IOW('U', 0x02, struct snd_lsm_event_status)
@@ -62,5 +69,7 @@ struct snd_lsm_event_status {
 					struct snd_lsm_sound_model_v2)
 #define SNDRV_LSM_LAB_CONTROL	_IOW('U', 0x08, uint32_t)
 #define SNDRV_LSM_STOP_LAB	_IO('U', 0x09)
+#define SNDRV_LSM_SET_PARAMS	_IOW('U', 0x0A, \
+					struct snd_lsm_detection_params)
 
 #endif
