@@ -486,7 +486,8 @@ enum vdec_interlaced_format {
 
 enum vdec_output_fromat {
 	VDEC_YUV_FORMAT_NV12 = 0x1,
-	VDEC_YUV_FORMAT_TILE_4x2 = 0x2
+	VDEC_YUV_FORMAT_TILE_4x2 = 0x2,
+	VDEC_YUV_FORMAT_NV12_UBWC = 0x3
 };
 
 enum vdec_output_order {

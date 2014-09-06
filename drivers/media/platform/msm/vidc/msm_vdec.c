@@ -532,6 +532,11 @@ static u32 get_frame_size_nv12(int plane,
 	return VENUS_BUFFER_SIZE(COLOR_FMT_NV12, width, height);
 }
 
+static u32 get_frame_size_nv12_ubwc(int plane, u32 height, u32 width)
+{
+	return VENUS_BUFFER_SIZE(COLOR_FMT_NV12_UBWC, width, height);
+}
+
 static u32 get_frame_size_compressed(int plane,
 					u32 max_mbs_per_frame, u32 size_per_mb)
 {
@@ -613,6 +618,14 @@ struct msm_vidc_format vdec_formats[] = {
 		.fourcc = V4L2_PIX_FMT_NV12,
 		.num_planes = 2,
 		.get_frame_size = get_frame_size_nv12,
+		.type = CAPTURE_PORT,
+	},
+	{
+		.name = "UBWC YCbCr Semiplanar 4:2:0",
+		.description = "UBWC Y/CbCr 4:2:0",
+		.fourcc = V4L2_PIX_FMT_NV12_UBWC,
+		.num_planes = 2,
+		.get_frame_size = get_frame_size_nv12_ubwc,
 		.type = CAPTURE_PORT,
 	},
 	{
@@ -1039,17 +1052,17 @@ int msm_vdec_g_fmt(struct msm_vidc_inst *inst, struct v4l2_format *f)
 		}
 	} else {
 		switch (fmt->fourcc) {
-			case V4L2_PIX_FMT_NV12:
-				call_hfi_op(hdev, get_stride_scanline,
-						COLOR_FMT_NV12,
-						inst->prop.width[CAPTURE_PORT],
-						inst->prop.height[CAPTURE_PORT],
-						&stride, &scanlines);
-				break;
-			default:
-				dprintk(VIDC_WARN,
-						"Color format not recognized\n");
-				break;
+		case V4L2_PIX_FMT_NV12:
+		case V4L2_PIX_FMT_NV12_UBWC:
+			call_hfi_op(hdev, get_stride_scanline,
+				COLOR_FMT_NV12,
+				inst->prop.width[CAPTURE_PORT],
+				inst->prop.height[CAPTURE_PORT],
+				&stride, &scanlines);
+			break;
+		default:
+			dprintk(VIDC_WARN, "Color format not recognized\n");
+			break;
 		}
 
 		bufreq = get_buff_req_buffer(inst,
@@ -1306,6 +1319,8 @@ int msm_vdec_s_fmt(struct msm_vidc_inst *inst, struct v4l2_format *f)
 			HAL_VIDEO_DECODER_PRIMARY) {
 			inst->prop.width[OUTPUT_PORT] = f->fmt.pix_mp.width;
 			inst->prop.height[OUTPUT_PORT] = f->fmt.pix_mp.height;
+			msm_comm_set_color_format(inst, HAL_BUFFER_OUTPUT,
+				f->fmt.pix_mp.pixelformat);
 		}
 
 		inst->fmts[fmt->type] = fmt;
@@ -1314,6 +1329,10 @@ int msm_vdec_s_fmt(struct msm_vidc_inst *inst, struct v4l2_format *f)
 			frame_sz.buffer_type = HAL_BUFFER_OUTPUT2;
 			frame_sz.width = inst->prop.width[CAPTURE_PORT];
 			frame_sz.height = inst->prop.height[CAPTURE_PORT];
+			msm_comm_set_color_format(inst, HAL_BUFFER_OUTPUT,
+				f->fmt.pix_mp.pixelformat);
+			msm_comm_set_color_format(inst, HAL_BUFFER_OUTPUT2,
+				f->fmt.pix_mp.pixelformat);
 			dprintk(VIDC_DBG,
 				"buffer type = %d width = %d, height = %d\n",
 				frame_sz.buffer_type, frame_sz.width,
@@ -1864,7 +1883,7 @@ int msm_vdec_inst_init(struct msm_vidc_inst *inst)
 		dprintk(VIDC_ERR, "Invalid input = %p\n", inst);
 		return -EINVAL;
 	}
-	inst->fmts[OUTPUT_PORT] = &vdec_formats[1];
+	inst->fmts[OUTPUT_PORT] = &vdec_formats[2];
 	inst->fmts[CAPTURE_PORT] = &vdec_formats[0];
 	inst->prop.height[CAPTURE_PORT] = DEFAULT_HEIGHT;
 	inst->prop.width[CAPTURE_PORT] = DEFAULT_WIDTH;

@@ -59,7 +59,7 @@
 
 #define MAX_NAME_LENGTH 64
 
-#define EXTRADATA_IDX(__num_planes) (__num_planes - 1)
+#define EXTRADATA_IDX(__num_planes) ((__num_planes) ? (__num_planes) - 1 : 0)
 
 #define NUM_MBS_PER_SEC(__height, __width, __fps) \
 	(NUM_MBS_PER_FRAME(__height, __width) * __fps)

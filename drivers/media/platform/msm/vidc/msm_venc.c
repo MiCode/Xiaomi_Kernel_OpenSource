@@ -1073,6 +1073,11 @@ static u32 get_frame_size_nv12(int plane, u32 height, u32 width)
 	return VENUS_BUFFER_SIZE(COLOR_FMT_NV12, width, height);
 }
 
+static u32 get_frame_size_nv12_ubwc(int plane, u32 height, u32 width)
+{
+	return VENUS_BUFFER_SIZE(COLOR_FMT_NV12_UBWC, width, height);
+}
+
 static u32 get_frame_size_nv21(int plane, u32 height, u32 width)
 {
 	return VENUS_BUFFER_SIZE(COLOR_FMT_NV21, width, height);
@@ -1092,6 +1097,14 @@ static struct msm_vidc_format venc_formats[] = {
 		.fourcc = V4L2_PIX_FMT_NV12,
 		.num_planes = 1,
 		.get_frame_size = get_frame_size_nv12,
+		.type = OUTPUT_PORT,
+	},
+	{
+		.name = "UBWC YCbCr Semiplanar 4:2:0",
+		.description = "UBWC Y/CbCr 4:2:0",
+		.fourcc = V4L2_PIX_FMT_NV12_UBWC,
+		.num_planes = 1,
+		.get_frame_size = get_frame_size_nv12_ubwc,
 		.type = OUTPUT_PORT,
 	},
 	{
@@ -2888,7 +2901,7 @@ int msm_venc_inst_init(struct msm_vidc_inst *inst)
 		dprintk(VIDC_ERR, "Invalid input = %p\n", inst);
 		return -EINVAL;
 	}
-	inst->fmts[CAPTURE_PORT] = &venc_formats[1];
+	inst->fmts[CAPTURE_PORT] = &venc_formats[2];
 	inst->fmts[OUTPUT_PORT] = &venc_formats[0];
 	inst->prop.height[CAPTURE_PORT] = DEFAULT_HEIGHT;
 	inst->prop.width[CAPTURE_PORT] = DEFAULT_WIDTH;
@@ -3131,7 +3144,7 @@ int msm_venc_s_fmt(struct msm_vidc_inst *inst, struct v4l2_format *f)
 		fmt = msm_comm_get_pixel_fmt_fourcc(venc_formats,
 			ARRAY_SIZE(venc_formats), f->fmt.pix_mp.pixelformat,
 			CAPTURE_PORT);
-		if (fmt && fmt->type != CAPTURE_PORT) {
+		if (!fmt || fmt->type != CAPTURE_PORT) {
 			dprintk(VIDC_ERR,
 				"Format: %d not supported on CAPTURE port\n",
 				f->fmt.pix_mp.pixelformat);
@@ -3148,7 +3161,6 @@ int msm_venc_s_fmt(struct msm_vidc_inst *inst, struct v4l2_format *f)
 			goto exit;
 		}
 	} else if (f->type == V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE) {
-		struct hal_uncompressed_format_select hal_fmt = {0};
 		struct hal_frame_size frame_sz;
 
 		inst->prop.width[OUTPUT_PORT] = f->fmt.pix_mp.width;
@@ -3194,34 +3206,11 @@ int msm_venc_s_fmt(struct msm_vidc_inst *inst, struct v4l2_format *f)
 			goto exit;
 		}
 
-		switch (fmt->fourcc) {
-		case V4L2_PIX_FMT_NV12:
-			hal_fmt.format = HAL_COLOR_FORMAT_NV12;
-			break;
-		case V4L2_PIX_FMT_NV21:
-			hal_fmt.format = HAL_COLOR_FORMAT_NV21;
-			break;
-		default:
-			/* we really shouldn't be here */
-			rc = -ENOTSUPP;
-			goto exit;
-		}
-
-		hal_fmt.buffer_type = HAL_BUFFER_INPUT;
-		rc = call_hfi_op(hdev, session_set_property, (void *)
-			inst->session, HAL_PARAM_UNCOMPRESSED_FORMAT_SELECT,
-			&hal_fmt);
-		if (rc) {
-			dprintk(VIDC_ERR,
-				"Failed to set input color format\n");
-			goto exit;
-		}
-	}
-
-	if (!fmt) {
-		dprintk(VIDC_ERR, "Buf type not recognized, type = %d\n",
-					f->type);
-		rc = -ENOTSUPP;
+		msm_comm_set_color_format(inst, HAL_BUFFER_INPUT, fmt->fourcc);
+	} else {
+		dprintk(VIDC_ERR, "%s - Unsupported buf type: %d\n",
+			__func__, f->type);
+		rc = -EINVAL;
 		goto exit;
 	}
 
