@@ -1600,12 +1600,69 @@ err:
 
 }
 
+/*
+ * wcd9xxx_validate_dmic_sample_rate:
+ *	Given the dmic_sample_rate and mclk rate, validate the
+ *	dmic_sample_rate. If dmic rate is found to be invalid,
+ *	assign the dmic rate as undefined, so individual codec
+ *	drivers can use thier own defaults
+ * @dev: the device for which the dmic is to be configured
+ * @dmic_sample_rate: The input dmic_sample_rate
+ * @mclk_rate: The input codec mclk rate
+ * @dmic_rate_type: String to indicate the type of dmic sample
+ *		    rate, used for debug/error logging.
+ */
+static u32 wcd9xxx_validate_dmic_sample_rate(struct device *dev,
+		u32 dmic_sample_rate, u32 mclk_rate,
+		const char *dmic_rate_type)
+{
+	u32 div_factor;
+
+	if (dmic_sample_rate == WCD9XXX_DMIC_SAMPLE_RATE_UNDEFINED ||
+	    mclk_rate % dmic_sample_rate != 0)
+		goto undefined_rate;
+
+	div_factor = mclk_rate / dmic_sample_rate;
+
+	switch (div_factor) {
+	case 2:
+	case 3:
+	case 4:
+	case 16:
+		/* Valid dmic DIV factors */
+		dev_dbg(dev,
+			"%s: DMIC_DIV = %u, mclk_rate = %u\n",
+			__func__, div_factor, mclk_rate);
+		break;
+	case 6:
+		/* DIV 6 is valid only for 12.288 MCLK */
+		if (mclk_rate != WCD9XXX_MCLK_CLK_12P288MHZ)
+			goto undefined_rate;
+		break;
+	default:
+		/* Any other DIV factor is invalid */
+		goto undefined_rate;
+	}
+
+	return dmic_sample_rate;
+
+undefined_rate:
+	dev_info(dev,
+		 "%s: Invalid %s = %d, for mclk %d\n",
+		 __func__,
+		 dmic_rate_type,
+		 dmic_sample_rate, mclk_rate);
+	dmic_sample_rate = WCD9XXX_DMIC_SAMPLE_RATE_UNDEFINED;
+	return dmic_sample_rate;
+}
+
 static struct wcd9xxx_pdata *wcd9xxx_populate_dt_pdata(struct device *dev)
 {
 	struct wcd9xxx_pdata *pdata;
 	int ret, static_cnt, ond_cnt, cp_supplies_cnt;
 	u32 mclk_rate = 0;
 	u32 dmic_sample_rate = 0;
+	u32 mad_dmic_sample_rate = 0;
 	const char *static_prop_name = "qcom,cdc-static-supplies";
 	const char *ond_prop_name = "qcom,cdc-on-demand-supplies";
 	const char *cp_supplies_name = "qcom,cdc-cp-supplies";
@@ -1686,6 +1743,15 @@ static struct wcd9xxx_pdata *wcd9xxx_populate_dt_pdata(struct device *dev)
 	}
 	pdata->mclk_rate = mclk_rate;
 
+	if (pdata->mclk_rate != WCD9XXX_MCLK_CLK_9P6HZ &&
+	    pdata->mclk_rate != WCD9XXX_MCLK_CLK_12P288MHZ) {
+		dev_err(dev,
+			"%s: Invalid mclk_rate = %u\n",
+			__func__, pdata->mclk_rate);
+		ret = -EINVAL;
+		goto err;
+	}
+
 	ret = of_property_read_u32(dev->of_node,
 				"qcom,cdc-dmic-sample-rate",
 				&dmic_sample_rate);
@@ -1695,28 +1761,26 @@ static struct wcd9xxx_pdata *wcd9xxx_populate_dt_pdata(struct device *dev)
 			dev->of_node->full_name);
 		dmic_sample_rate = WCD9XXX_DMIC_SAMPLE_RATE_UNDEFINED;
 	}
-	if (pdata->mclk_rate == WCD9XXX_MCLK_CLK_9P6HZ) {
-		if ((dmic_sample_rate != WCD9XXX_DMIC_SAMPLE_RATE_2P4MHZ) &&
-		    (dmic_sample_rate != WCD9XXX_DMIC_SAMPLE_RATE_3P2MHZ) &&
-		    (dmic_sample_rate != WCD9XXX_DMIC_SAMPLE_RATE_4P8MHZ) &&
-		    (dmic_sample_rate != WCD9XXX_DMIC_SAMPLE_RATE_UNDEFINED)) {
-			dev_err(dev, "Invalid dmic rate %d for mclk %d\n",
-				dmic_sample_rate, pdata->mclk_rate);
-			ret = -EINVAL;
-			goto err;
-		}
-	} else if (pdata->mclk_rate == WCD9XXX_MCLK_CLK_12P288MHZ) {
-		if ((dmic_sample_rate != WCD9XXX_DMIC_SAMPLE_RATE_3P072MHZ) &&
-		    (dmic_sample_rate != WCD9XXX_DMIC_SAMPLE_RATE_4P096MHZ) &&
-		    (dmic_sample_rate != WCD9XXX_DMIC_SAMPLE_RATE_6P144MHZ) &&
-		    (dmic_sample_rate != WCD9XXX_DMIC_SAMPLE_RATE_UNDEFINED)) {
-			dev_err(dev, "Invalid dmic rate %d for mclk %d\n",
-				dmic_sample_rate, pdata->mclk_rate);
-			ret = -EINVAL;
-			goto err;
-		}
+	pdata->dmic_sample_rate =
+		wcd9xxx_validate_dmic_sample_rate(dev,
+						  dmic_sample_rate,
+						  pdata->mclk_rate,
+						  "audio_dmic_rate");
+
+	ret = of_property_read_u32(dev->of_node,
+				"qcom,cdc-mad-dmic-rate",
+				&mad_dmic_sample_rate);
+	if (ret) {
+		dev_err(dev, "Looking up %s property in node %s failed, err = %d",
+			"qcom,cdc-mad-dmic-rate",
+			dev->of_node->full_name, ret);
+		mad_dmic_sample_rate = WCD9XXX_DMIC_SAMPLE_RATE_UNDEFINED;
 	}
-	pdata->dmic_sample_rate = dmic_sample_rate;
+	pdata->mad_dmic_sample_rate =
+		wcd9xxx_validate_dmic_sample_rate(dev,
+						  mad_dmic_sample_rate,
+						  pdata->mclk_rate,
+						  "mad_dmic_rate");
 
 	ret = of_property_read_string(dev->of_node,
 				"qcom,cdc-variant",
