@@ -1027,7 +1027,7 @@ static bool ufshcd_is_devfreq_scaling_required(struct ufs_hba *hba,
 	return false;
 }
 
-static int ufshcd_wait_for_doorbell_clr(struct ufs_hba *hba,
+int ufshcd_wait_for_doorbell_clr(struct ufs_hba *hba,
 					u64 wait_timeout_us)
 {
 	unsigned long flags;
@@ -3643,41 +3643,12 @@ static int ufshcd_uic_pwr_ctrl(struct ufs_hba *hba, struct uic_command *cmd)
 	u8 status;
 	int ret;
 	bool reenable_intr = false;
-	u32 tm_doorbell;
-	u32 tr_doorbell;
-	bool uic_ready;
-	int retries = POWER_MODE_RETRIES;
 
 	mutex_lock(&hba->uic_cmd_mutex);
 	init_completion(&uic_async_done);
 	ufshcd_add_delay_before_dme_cmd(hba);
 
-	/*
-	 * Before changing the power mode there should be no outstanding
-	 * tasks/transfer requests. Verify by checking the doorbell registers
-	 * are clear.
-	 */
-	do {
-		spin_lock_irqsave(hba->host->host_lock, flags);
-		uic_ready = ufshcd_ready_for_uic_cmd(hba);
-		tm_doorbell = ufshcd_readl(hba, REG_UTP_TASK_REQ_DOOR_BELL);
-		tr_doorbell = ufshcd_readl(hba, REG_UTP_TRANSFER_REQ_DOOR_BELL);
-		if (!tm_doorbell && !tr_doorbell && uic_ready)
-			break;
-
-		spin_unlock_irqrestore(hba->host->host_lock, flags);
-		schedule();
-		retries--;
-	} while (retries && (tm_doorbell || tr_doorbell || !uic_ready));
-
-	if (!retries) {
-		dev_err(hba->dev,
-			"%s: too many retries waiting for doorbell to clear (tm=0x%x, tr=0x%x, uicrdy=%d)\n",
-			__func__, tm_doorbell, tr_doorbell, uic_ready);
-		ret = -EBUSY;
-		goto out;
-	}
-
+	spin_lock_irqsave(hba->host->host_lock, flags);
 	hba->uic_async_done = &uic_async_done;
 
 	if (ufshcd_readl(hba, REG_INTERRUPT_ENABLE) & UIC_COMMAND_COMPL) {
