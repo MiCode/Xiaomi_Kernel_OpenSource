@@ -635,21 +635,31 @@ int get_lsm_port()
 	return lsm_afe_port;
 }
 
-int q6lsm_register_sound_model(struct lsm_client *client,
-			       enum lsm_detection_mode mode,
-			       bool detectfailure)
+int q6lsm_set_data(struct lsm_client *client,
+			   enum lsm_detection_mode mode,
+			   bool detectfailure)
 {
-	int rc;
-	struct lsm_cmd_reg_snd_model cmd;
+	int rc = 0;
 
-	memset(&cmd, 0, sizeof(cmd));
+	if (!client->confidence_levels) {
+		/*
+		 * It is possible that confidence levels are
+		 * not provided. This is not a error condition.
+		 * Return gracefully without any error
+		 */
+		pr_debug("%s: no conf levels to set\n",
+			__func__);
+		return rc;
+	}
+
 	if (mode == LSM_MODE_KEYWORD_ONLY_DETECTION) {
 		client->mode = 0x01;
 	} else if (mode == LSM_MODE_USER_KEYWORD_DETECTION) {
 		client->mode = 0x03;
 	} else {
 		pr_err("%s: Incorrect detection mode %d\n", __func__, mode);
-		return -EINVAL;
+		rc = -EINVAL;
+		goto err_ret;
 	}
 	client->mode |= detectfailure << 2;
 	client->connect_to_port = get_lsm_port();
@@ -658,11 +668,30 @@ int q6lsm_register_sound_model(struct lsm_client *client,
 	if (rc < 0) {
 		pr_err("%s: Failed to set lsm config params %d\n",
 			__func__, rc);
-		return rc;
+		goto err_ret;
 	}
 	rc = q6lsm_send_cal(client);
 	if (rc < 0) {
 		pr_err("%s: Failed to send calibration data %d\n",
+			__func__, rc);
+		goto err_ret;
+	}
+
+err_ret:
+	return rc;
+}
+
+int q6lsm_register_sound_model(struct lsm_client *client,
+			       enum lsm_detection_mode mode,
+			       bool detectfailure)
+{
+	int rc;
+	struct lsm_cmd_reg_snd_model cmd;
+
+	memset(&cmd, 0, sizeof(cmd));
+	rc = q6lsm_set_data(client, mode, detectfailure);
+	if (rc) {
+		pr_err("%s: Failed to set lsm data, err = %d\n",
 			__func__, rc);
 		return rc;
 	}
@@ -1051,8 +1080,8 @@ int q6lsm_snd_model_buf_alloc(struct lsm_client *client, size_t len)
 	memcpy((client->sound_model.data + pad_zero +
 		client->sound_model.size),
 	       (uint32_t *)cal_block->cal_data.kvaddr, client->lsm_cal_size);
-	pr_debug("%s: Copy cal start virt_addr %pa phy_addr %pa\n"
-			 "Offset cal virtual Addr %pa\n", __func__,
+	pr_debug("%s: Copy cal start virt_addr %p phy_addr %pa\n"
+			 "Offset cal virtual Addr %p\n", __func__,
 			 client->sound_model.data, &client->sound_model.phys,
 			 (pad_zero + client->sound_model.data +
 			 client->sound_model.size));

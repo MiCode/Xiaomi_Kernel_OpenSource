@@ -251,6 +251,9 @@ int q6lsm_close(struct lsm_client *client);
 int q6lsm_register_sound_model(struct lsm_client *client,
 			       enum lsm_detection_mode mode,
 			       bool detectfailure);
+int q6lsm_set_data(struct lsm_client *client,
+		   enum lsm_detection_mode mode,
+		   bool detectfailure);
 int q6lsm_deregister_sound_model(struct lsm_client *client);
 int q6lsm_set_kw_sensitivity_level(struct lsm_client *client,
 				u16 minkeyword, u16 minuser);
