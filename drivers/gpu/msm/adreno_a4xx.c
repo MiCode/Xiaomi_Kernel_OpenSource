@@ -595,6 +595,16 @@ static void a4xx_protect_init(struct adreno_device *adreno_dev)
 				iommu_regs->base, iommu_regs->range);
 }
 
+static struct adreno_snapshot_sizes a4xx_snap_sizes = {
+	.cp_state_deb = 0x14,
+	.vpc_mem = 2048,
+	.cp_meq = 64,
+	.shader_mem = 0x4000,
+	.cp_merciu = 64,
+	.roq = 512,
+};
+
+
 static void a4xx_start(struct adreno_device *adreno_dev)
 {
 	struct kgsl_device *device = &adreno_dev->dev;
@@ -673,6 +683,10 @@ static void a4xx_start(struct adreno_device *adreno_dev)
 		val |= 2 << A4XX_CGC_HLSQ_TP_EARLY_CYC_SHIFT;
 		kgsl_regwrite(device, A4XX_RBBM_CLOCK_DELAY_HLSQ, val);
 	}
+
+	/* A430 offers a bigger chunk of CP_STATE_DEBUG registers */
+	if (adreno_is_a430(adreno_dev))
+		a4xx_snap_sizes.cp_state_deb = 0x34;
 
 	a4xx_protect_init(adreno_dev);
 }
@@ -1719,15 +1733,6 @@ static struct adreno_irq a4xx_irq = {
 	.funcs = a4xx_irq_funcs,
 	.funcs_count = ARRAY_SIZE(a4xx_irq_funcs),
 	.mask = A4XX_INT_MASK,
-};
-
-static struct adreno_snapshot_sizes a4xx_snap_sizes = {
-	.cp_state_deb = 0x14,
-	.vpc_mem = 2048,
-	.cp_meq = 64,
-	.shader_mem = 0x4000,
-	.cp_merciu = 64,
-	.roq = 512,
 };
 
 static struct adreno_snapshot_data a4xx_snapshot_data = {
