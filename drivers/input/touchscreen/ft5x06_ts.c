@@ -1674,7 +1674,7 @@ static int ft5x06_ts_probe(struct i2c_client *client,
 	data->tch_data_len = FT_TCH_LEN(pdata->num_max_touches);
 	data->tch_data = devm_kzalloc(&client->dev,
 				data->tch_data_len, GFP_KERNEL);
-	if (!data) {
+	if (!data->tch_data) {
 		dev_err(&client->dev, "Not enough memory\n");
 		return -ENOMEM;
 	}
