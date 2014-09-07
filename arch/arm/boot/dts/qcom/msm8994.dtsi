@@ -25,6 +25,7 @@
 	aliases {
 		sdhc1 = &sdhc_1; /* SDC1 eMMC slot */
 		sdhc2 = &sdhc_2; /* SDC2 SD card slot */
+		sdhc3 = &sdhc_3;
 		i2c6 = &i2c_6; /* I2C6 NFC qup6 device */
 		i2c2 = &i2c_2;
 		i2c5 = &i2c_5;
@@ -1014,6 +1015,38 @@
 		qcom,bus-bw-vectors-bps = <0 400000 20000000 25000000 50000000
 						100000000 200000000 4294967295>;
 
+		status = "disabled";
+	};
+
+	sdhc_3: sdhci@f9864900 {
+		compatible = "qcom,sdhci-msm";
+		reg = <0xf9864900 0x11c>, <0xf9864000 0x800>;
+		reg-names = "hc_mem", "core_mem";
+
+		interrupts = <0 127 0>, <0 224 0>;
+		interrupt-names = "hc_irq", "pwr_irq";
+
+		clock-names = "iface_clk", "core_clk";
+		clocks = <&clock_gcc clk_gcc_sdcc3_ahb_clk>,
+			 <&clock_gcc clk_gcc_sdcc3_apps_clk>;
+
+		qcom,bus-width = <4>;
+		qcom,cpu-dma-latency-us = <701>;
+
+		qcom,msm-bus,name = "sdhc3";
+		qcom,msm-bus,num-cases = <8>;
+		qcom,msm-bus,num-paths = <1>;
+		qcom,msm-bus,vectors-KBps = <79 512 0 0>, /* No vote */
+				<79 512 1600 3200>,    /* 400 KB/s*/
+				<79 512 80000 160000>, /* 20 MB/s */
+				<79 512 100000 200000>, /* 25 MB/s */
+				<79 512 200000 400000>, /* 50 MB/s */
+				<79 512 400000 800000>, /* 100 MB/s */
+				<79 512 800000 800000>, /* 200 MB/s */
+				<79 512 2048000 4096000>; /* Max. bandwidth */
+		qcom,bus-bw-vectors-bps = <0 400000 20000000 25000000 50000000
+						100000000 200000000 4294967295>;
+		qcom,dat1-mpm-int = <47>;
 		status = "disabled";
 	};
 
