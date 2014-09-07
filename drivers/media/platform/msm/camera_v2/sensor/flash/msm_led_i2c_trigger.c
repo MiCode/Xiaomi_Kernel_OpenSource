@@ -64,6 +64,8 @@ int32_t msm_led_i2c_trigger_config(struct msm_led_flash_ctrl_t *fctrl,
 				fctrl->flash_max_current[i];
 			cfg->flash_duration[i] =
 				fctrl->flash_max_duration[i];
+			cfg->torch_current[i] =
+				fctrl->torch_max_current[i];
 		}
 		break;
 

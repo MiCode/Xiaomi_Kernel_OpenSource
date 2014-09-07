@@ -38,22 +38,27 @@ static struct led_classdev msm_torch_led = {
 int32_t msm_led_torch_create_classdev(struct platform_device *pdev,
 				void *data)
 {
-	int32_t rc = 0;
+	int32_t i, rc = 0;
 	struct msm_led_flash_ctrl_t *fctrl =
 		(struct msm_led_flash_ctrl_t *)data;
 
-	if (!fctrl || !fctrl->torch_trigger) {
-		pr_err("Invalid fctrl or torch trigger\n");
+	if (!fctrl) {
+		pr_err("Invalid fctrl\n");
 		return -EINVAL;
 	}
 
-	torch_trigger = fctrl->torch_trigger;
-	msm_led_torch_brightness_set(&msm_torch_led, LED_OFF);
+	for (i = 0; i < fctrl->torch_num_sources; i++) {
+		if (fctrl->torch_trigger[i]) {
+			torch_trigger = fctrl->torch_trigger[i];
+			msm_led_torch_brightness_set(&msm_torch_led, LED_OFF);
 
-	rc = led_classdev_register(&pdev->dev, &msm_torch_led);
-	if (rc) {
-		pr_err("Failed to register led dev. rc = %d\n", rc);
-		return rc;
+			rc = led_classdev_register(&pdev->dev, &msm_torch_led);
+			if (rc) {
+				pr_err("Failed to register %d led dev. rc = %d\n",
+						i, rc);
+				return rc;
+			}
+		}
 	}
 
 	return 0;
