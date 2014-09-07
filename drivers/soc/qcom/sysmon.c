@@ -28,7 +28,7 @@
 
 #define TX_BUF_SIZE	50
 #define RX_BUF_SIZE	500
-#define TIMEOUT_MS	5000
+#define TIMEOUT_MS	500
 
 enum transports {
 	TRANSPORT_SMD,
