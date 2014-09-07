@@ -27,8 +27,10 @@ struct audio_cal_client_info {
 };
 
 struct audio_cal_info {
+	struct mutex			common_lock;
 	struct mutex			cal_mutex[MAX_CAL_TYPES];
 	struct list_head		client_info[MAX_CAL_TYPES];
+	int				ref_count;
 };
 
 static struct audio_cal_info	audio_cal;
@@ -347,6 +349,10 @@ static int audio_cal_open(struct inode *inode, struct file *f)
 	int ret = 0;
 	pr_debug("%s\n", __func__);
 
+	mutex_lock(&audio_cal.common_lock);
+	audio_cal.ref_count++;
+	mutex_unlock(&audio_cal.common_lock);
+
 	return ret;
 }
 
@@ -368,7 +374,15 @@ static int audio_cal_release(struct inode *inode, struct file *f)
 {
 	int ret = 0;
 	pr_debug("%s\n", __func__);
-	dealloc_all_clients();
+
+	mutex_lock(&audio_cal.common_lock);
+	audio_cal.ref_count--;
+	if (audio_cal.ref_count <= 0) {
+		audio_cal.ref_count = 0;
+		dealloc_all_clients();
+	}
+	mutex_unlock(&audio_cal.common_lock);
+
 	return ret;
 }
 
@@ -572,6 +586,7 @@ static int __init audio_cal_init(void)
 	pr_debug("%s\n", __func__);
 
 	memset(&audio_cal, 0, sizeof(audio_cal));
+	mutex_init(&audio_cal.common_lock);
 	for (; i < MAX_CAL_TYPES; i++) {
 		INIT_LIST_HEAD(&audio_cal.client_info[i]);
 		mutex_init(&audio_cal.cal_mutex[i]);
