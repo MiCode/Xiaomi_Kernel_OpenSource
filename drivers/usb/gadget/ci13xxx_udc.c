@@ -994,6 +994,20 @@ static int allow_dbg_print(u8 addr)
 	return 0;
 }
 
+#define TIME_BUF_LEN  20
+/*get_timestamp - returns time of day in us */
+static char *get_timestamp(char *tbuf)
+{
+	unsigned long long t;
+	unsigned long nanosec_rem;
+
+	t = cpu_clock(smp_processor_id());
+	nanosec_rem = do_div(t, 1000000000)/1000;
+	scnprintf(tbuf, TIME_BUF_LEN, "[%5lu.%06lu] ", (unsigned long)t,
+		nanosec_rem);
+	return tbuf;
+}
+
 /**
  * dbg_print:  prints the common part of the event
  * @addr:   endpoint address
@@ -1003,30 +1017,25 @@ static int allow_dbg_print(u8 addr)
  */
 static void dbg_print(u8 addr, const char *name, int status, const char *extra)
 {
-	struct timeval tval;
-	unsigned int stamp;
 	unsigned long flags;
+	char tbuf[TIME_BUF_LEN];
 
 	if (!allow_dbg_print(addr))
 		return;
 
 	write_lock_irqsave(&dbg_data.lck, flags);
 
-	do_gettimeofday(&tval);
-	stamp = tval.tv_sec & 0xFFFF;	/* 2^32 = 4294967296. Limit to 4096s */
-	stamp = stamp * 1000000 + tval.tv_usec;
-
 	scnprintf(dbg_data.buf[dbg_data.idx], DBG_DATA_MSG,
-		  "%04X\t? %02X %-7.7s %4i ?\t%s\n",
-		  stamp, addr, name, status, extra);
+		  "%s\t? %02X %-7.7s %4i ?\t%s\n",
+		  get_timestamp(tbuf), addr, name, status, extra);
 
 	dbg_inc(&dbg_data.idx);
 
 	write_unlock_irqrestore(&dbg_data.lck, flags);
 
 	if (dbg_data.tty != 0)
-		pr_notice("%04X\t? %02X %-7.7s %4i ?\t%s\n",
-			  stamp, addr, name, status, extra);
+		pr_notice("%s\t? %02X %-7.7s %4i ?\t%s\n",
+			  get_timestamp(tbuf), addr, name, status, extra);
 }
 
 /**
