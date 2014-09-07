@@ -2921,11 +2921,20 @@ static void sdhci_set_default_hw_caps(struct sdhci_msm_host *msm_host,
 
 	/*
 	 * Starting with SDCC 5 controller (core major version = 1)
-	 * controller won't advertise 3.0v and 8-bit features except for
-	 * some targets.
+	 * controller won't advertise 3.0v, 1.8v and 8-bit features
+	 * except for some targets.
 	 */
 	if (major >= 1 && minor != 0x11 && minor != 0x12) {
+		struct sdhci_msm_reg_data *vdd_io_reg;
 		caps = CORE_3_0V_SUPPORT;
+		/*
+		 * Enable 1.8V support capability on controllers that
+		 * support dual voltage
+		 */
+		vdd_io_reg = msm_host->pdata->vreg_data->vdd_io_data;
+		if (vdd_io_reg &&
+		   (vdd_io_reg->low_vol_level != vdd_io_reg->high_vol_level))
+			caps |= CORE_1_8V_SUPPORT;
 		if (msm_host->pdata->mmc_bus_width == MMC_CAP_8_BIT_DATA)
 			caps |= CORE_8_BIT_SUPPORT;
 		writel_relaxed(
