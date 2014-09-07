@@ -1636,6 +1636,20 @@ static int ipa_wwan_probe(struct platform_device *pdev)
 		}
 	}
 
+	/* initialize tx/rx enpoint setup */
+	memset(&apps_to_ipa_ep_cfg, 0, sizeof(struct ipa_sys_connect_params));
+	memset(&ipa_to_apps_ep_cfg, 0, sizeof(struct ipa_sys_connect_params));
+
+	/* initialize ex property setup */
+	memset(q6_ul_filter_rule, 0, sizeof(q6_ul_filter_rule));
+	num_q6_rule = 0;
+	old_num_q6_rule = 0;
+	rmnet_index = 0;
+	egress_set = false;
+	a7_ul_flt_set = false;
+	for (i = 0; i < MAX_NUM_OF_MUX_CHANNEL; i++)
+		memset(&mux_channel[i], 0, sizeof(struct rmnet_mux_val));
+
 	/* start A7 QMI service/client */
 	if (ipa_rmnet_res.ipa_loaduC) {
 		/* Android platform loads uC */
@@ -1664,20 +1678,7 @@ static int ipa_wwan_probe(struct platform_device *pdev)
 		wan_ioctl_enable_qmi_messages();
 	}
 
-	/* initialize tx/rx enpoint setup */
-	memset(&apps_to_ipa_ep_cfg, 0, sizeof(struct ipa_sys_connect_params));
-	memset(&ipa_to_apps_ep_cfg, 0, sizeof(struct ipa_sys_connect_params));
-
-	/* initialize ex property setup */
-	memset(q6_ul_filter_rule, 0, sizeof(q6_ul_filter_rule));
-	num_q6_rule = 0;
-	old_num_q6_rule = 0;
-	rmnet_index = 0;
-	egress_set = false;
-	a7_ul_flt_set = false;
-	for (i = 0; i < MAX_NUM_OF_MUX_CHANNEL; i++)
-		memset(&mux_channel[i], 0, sizeof(struct rmnet_mux_val));
-
+	/* initialize wan-driver netdev */
 	dev = alloc_netdev(sizeof(struct wwan_private),
 			   IPA_WWAN_DEV_NAME, ipa_wwan_setup);
 	if (!dev) {
