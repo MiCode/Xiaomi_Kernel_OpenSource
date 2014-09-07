@@ -2295,14 +2295,6 @@ static int mxt_gpio_enable(struct mxt_data *data, bool enable)
 					pdata->gpio_reset, error);
 				goto err_free_reset;
 			}
-			msleep(MXT_REGULATOR_DELAY);
-			error = gpio_direction_output(pdata->gpio_reset, 1);
-			if (error) {
-				dev_err(&data->client->dev,
-					"unable to set dir for %d gpio(%d)\n",
-					pdata->gpio_reset, error);
-				goto err_free_reset;
-			}
 		} else {
 			dev_err(&data->client->dev,
 				"reset gpio not provided\n");
@@ -2334,7 +2326,6 @@ static int mxt_gpio_enable(struct mxt_data *data, bool enable)
 			gpio_free(pdata->gpio_irq);
 
 		if (gpio_is_valid(pdata->gpio_reset)) {
-			gpio_set_value(pdata->gpio_reset, 1);
 			gpio_free(pdata->gpio_reset);
 		}
 
@@ -2353,7 +2344,6 @@ err_free_i2cmode:
 	}
 err_free_reset:
 	if (gpio_is_valid(pdata->gpio_reset)) {
-		gpio_set_value(pdata->gpio_reset, 1);
 		gpio_free(pdata->gpio_reset);
 	}
 err_free_irq:
