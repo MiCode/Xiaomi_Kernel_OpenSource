@@ -308,6 +308,7 @@ struct mdss_dsi_ctrl_pdata {
 	struct clk *pll_pixel_clk;
 	struct clk *shadow_byte_clk;
 	struct clk *shadow_pixel_clk;
+	struct clk *vco_clk;
 	u8 ctrl_state;
 	int panel_mode;
 	int irq_cnt;
@@ -423,6 +424,8 @@ int mdss_dsi_clk_div_config(struct mdss_panel_info *panel_info,
 int mdss_dsi_clk_init(struct platform_device *pdev,
 		      struct mdss_dsi_ctrl_pdata *ctrl_pdata);
 int mdss_dsi_shadow_clk_init(struct platform_device *pdev,
+		      struct mdss_dsi_ctrl_pdata *ctrl_pdata);
+int mdss_dsi_pll_1_clk_init(struct platform_device *pdev,
 		      struct mdss_dsi_ctrl_pdata *ctrl_pdata);
 void mdss_dsi_clk_deinit(struct mdss_dsi_ctrl_pdata *ctrl_pdata);
 void mdss_dsi_shadow_clk_deinit(struct mdss_dsi_ctrl_pdata *ctrl_pdata);
