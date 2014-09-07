@@ -5189,7 +5189,7 @@ static const unsigned int sched_nr_migrate_break = 32;
 /*
  * move_tasks tries to move up to imbalance weighted load from busiest to
  * this_rq, as part of a balancing operation within domain "sd".
- * Returns 1 if successful and 0 otherwise.
+ * Returns the number of pulled tasks if successful and 0 otherwise.
  *
  * Called with both runqueues locked.
  */
@@ -6520,6 +6520,7 @@ more_balance:
 				stop_one_cpu_nowait(cpu_of(busiest),
 					active_load_balance_cpu_stop, busiest,
 					&busiest->active_balance_work);
+				ld_moved++;
 			}
 
 			/*
