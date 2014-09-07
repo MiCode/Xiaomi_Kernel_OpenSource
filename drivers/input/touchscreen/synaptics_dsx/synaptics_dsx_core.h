@@ -96,6 +96,10 @@
 #define MASK_2BIT 0x03
 #define MASK_1BIT 0x01
 
+#define PINCTRL_STATE_ACTIVE    "pmx_ts_active"
+#define PINCTRL_STATE_SUSPEND   "pmx_ts_suspend"
+#define PINCTRL_STATE_RELEASE   "pmx_ts_release"
+
 #define SYNA_FW_NAME_MAX_LEN	50
 
 enum exp_fn {
@@ -281,8 +285,9 @@ struct synaptics_rmi4_data {
 	int (*reset_device)(struct synaptics_rmi4_data *rmi4_data);
 
 	struct pinctrl *ts_pinctrl;
-	struct pinctrl_state *gpio_state_active;
-	struct pinctrl_state *gpio_state_suspend;
+	struct pinctrl_state *pinctrl_state_active;
+	struct pinctrl_state *pinctrl_state_suspend;
+	struct pinctrl_state *pinctrl_state_release;
 	char fw_name[SYNA_FW_NAME_MAX_LEN];
 	bool suspended;
 #if defined(CONFIG_SECURE_TOUCH)
