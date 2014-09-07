@@ -1236,6 +1236,9 @@ static const struct snd_kcontrol_new msm8x16_wcd_snd_controls[] = {
 	SOC_SINGLE_SX_TLV("IIR1 INP4 Volume",
 			  MSM8X16_WCD_A_CDC_IIR1_GAIN_B4_CTL,
 			0,  -84,	40, digital_gain),
+	SOC_SINGLE_SX_TLV("IIR2 INP1 Volume",
+			  MSM8X16_WCD_A_CDC_IIR2_GAIN_B1_CTL,
+			0,  -84, 40, digital_gain),
 
 	SOC_SINGLE("MICBIAS CAPLESS Switch",
 		   MSM8X16_WCD_A_ANALOG_MICB_1_EN, 6, 1, 0),
@@ -1343,7 +1346,7 @@ static const char * const rdac2_mux_text[] = {
 	"ZERO", "RX2", "RX1"
 };
 
-static const char * const iir1_inp1_text[] = {
+static const char * const iir_inp1_text[] = {
 	"ZERO", "DEC1", "DEC2", "RX1", "RX2", "RX3"
 };
 
@@ -1414,7 +1417,11 @@ static const struct soc_enum rdac2_mux_enum =
 
 static const struct soc_enum iir1_inp1_mux_enum =
 	SOC_ENUM_SINGLE(MSM8X16_WCD_A_CDC_CONN_EQ1_B1_CTL,
-		0, 6, iir1_inp1_text);
+		0, 6, iir_inp1_text);
+
+static const struct soc_enum iir2_inp1_mux_enum =
+	SOC_ENUM_SINGLE(MSM8X16_WCD_A_CDC_CONN_EQ2_B1_CTL,
+		0, 6, iir_inp1_text);
 
 static const struct snd_kcontrol_new rx_mix1_inp1_mux =
 	SOC_DAPM_ENUM("RX1 MIX1 INP1 Mux", rx_mix1_inp1_chain_enum);
@@ -1558,6 +1565,9 @@ static const struct soc_enum ear_enum =
 static const struct snd_kcontrol_new ear_pa_mux[] = {
 	SOC_DAPM_ENUM_VIRT("EAR_S", ear_enum)
 };
+
+static const struct snd_kcontrol_new iir2_inp1_mux =
+	SOC_DAPM_ENUM("IIR2 INP1 Mux", iir2_inp1_mux_enum);
 
 static const char * const hph_text[] = {
 	"ZERO", "Switch",
@@ -2501,10 +2511,12 @@ static const struct snd_soc_dapm_route audio_map[] = {
 	{"RX1 MIX1 INP1", "RX2", "I2S RX2"},
 	{"RX1 MIX1 INP1", "RX3", "I2S RX3"},
 	{"RX1 MIX1 INP1", "IIR1", "IIR1"},
+	{"RX1 MIX1 INP1", "IIR2", "IIR2"},
 	{"RX1 MIX1 INP2", "RX1", "I2S RX1"},
 	{"RX1 MIX1 INP2", "RX2", "I2S RX2"},
 	{"RX1 MIX1 INP2", "RX3", "I2S RX3"},
 	{"RX1 MIX1 INP2", "IIR1", "IIR1"},
+	{"RX1 MIX1 INP2", "IIR2", "IIR2"},
 	{"RX1 MIX1 INP3", "RX1", "I2S RX1"},
 	{"RX1 MIX1 INP3", "RX2", "I2S RX2"},
 	{"RX1 MIX1 INP3", "RX3", "I2S RX3"},
@@ -2513,22 +2525,28 @@ static const struct snd_soc_dapm_route audio_map[] = {
 	{"RX2 MIX1 INP1", "RX2", "I2S RX2"},
 	{"RX2 MIX1 INP1", "RX3", "I2S RX3"},
 	{"RX2 MIX1 INP1", "IIR1", "IIR1"},
+	{"RX2 MIX1 INP1", "IIR2", "IIR2"},
 	{"RX2 MIX1 INP2", "RX1", "I2S RX1"},
 	{"RX2 MIX1 INP2", "RX2", "I2S RX2"},
 	{"RX2 MIX1 INP2", "RX3", "I2S RX3"},
 	{"RX2 MIX1 INP2", "IIR1", "IIR1"},
+	{"RX2 MIX1 INP2", "IIR2", "IIR2"},
 
 	{"RX3 MIX1 INP1", "RX1", "I2S RX1"},
 	{"RX3 MIX1 INP1", "RX2", "I2S RX2"},
 	{"RX3 MIX1 INP1", "RX3", "I2S RX3"},
 	{"RX3 MIX1 INP1", "IIR1", "IIR1"},
+	{"RX3 MIX1 INP1", "IIR2", "IIR2"},
 	{"RX3 MIX1 INP2", "RX1", "I2S RX1"},
 	{"RX3 MIX1 INP2", "RX2", "I2S RX2"},
 	{"RX3 MIX1 INP2", "RX3", "I2S RX3"},
 	{"RX3 MIX1 INP2", "IIR1", "IIR1"},
+	{"RX3 MIX1 INP2", "IIR2", "IIR2"},
 
 	{"RX1 MIX2 INP1", "IIR1", "IIR1"},
 	{"RX2 MIX2 INP1", "IIR1", "IIR1"},
+	{"RX1 MIX2 INP1", "IIR2", "IIR2"},
+	{"RX2 MIX2 INP1", "IIR2", "IIR2"},
 
 	/* Decimator Inputs */
 	{"DEC1 MUX", "DMIC1", "DMIC1"},
@@ -2559,6 +2577,9 @@ static const struct snd_soc_dapm_route audio_map[] = {
 	{"IIR1", NULL, "IIR1 INP1 MUX"},
 	{"IIR1 INP1 MUX", "DEC1", "DEC1 MUX"},
 	{"IIR1 INP1 MUX", "DEC2", "DEC2 MUX"},
+	{"IIR2", NULL, "IIR2 INP1 MUX"},
+	{"IIR2 INP1 MUX", "DEC1", "DEC1 MUX"},
+	{"IIR2 INP1 MUX", "DEC2", "DEC2 MUX"},
 	{"MIC BIAS Internal1", NULL, "INT_LDO_H"},
 	{"MIC BIAS Internal2", NULL, "INT_LDO_H"},
 	{"MIC BIAS External", NULL, "INT_LDO_H"},
@@ -3167,6 +3188,10 @@ static const struct snd_soc_dapm_widget msm8x16_wcd_dapm_widgets[] = {
 	SND_SOC_DAPM_MUX("IIR1 INP1 MUX", SND_SOC_NOPM, 0, 0, &iir1_inp1_mux),
 	SND_SOC_DAPM_PGA("IIR1",
 		MSM8X16_WCD_A_CDC_CLK_SD_CTL, 0, 0, NULL, 0),
+
+	SND_SOC_DAPM_MUX("IIR2 INP1 MUX", SND_SOC_NOPM, 0, 0, &iir2_inp1_mux),
+	SND_SOC_DAPM_PGA("IIR2",
+		MSM8X16_WCD_A_CDC_CLK_SD_CTL, 1, 0, NULL, 0),
 
 	SND_SOC_DAPM_SUPPLY("RX_I2S_CLK",
 		MSM8X16_WCD_A_CDC_CLK_RX_I2S_CTL,	4, 0, NULL, 0),
