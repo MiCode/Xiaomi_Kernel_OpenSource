@@ -241,6 +241,9 @@ struct adreno_device {
 	atomic_t halt;
 	struct dentry *ctx_d_debugfs;
 	unsigned long pwrctrl_flag;
+
+	struct kgsl_memdesc cmdbatch_profile_buffer;
+	unsigned int cmdbatch_profile_index;
 };
 
 /**
@@ -255,6 +258,8 @@ struct adreno_device {
  * @ADRENO_DEVICE_STARTED - Set if the device start sequence is in progress
  * @ADRENO_DEVICE_FAULT - Set if the device is currently in fault (and shouldn't
  * send any more commands to the ringbuffer)
+ * @ADRENO_DEVICE_CMDBATCH_PROFILE - Set if the device supports command batch
+ * profiling via the ALWAYSON counter
  */
 enum adreno_device_flags {
 	ADRENO_DEVICE_PWRON = 0,
@@ -264,6 +269,7 @@ enum adreno_device_flags {
 	ADRENO_DEVICE_HANG_INTR = 4,
 	ADRENO_DEVICE_STARTED = 5,
 	ADRENO_DEVICE_FAULT = 6,
+	ADRENO_DEVICE_CMDBATCH_PROFILE = 7,
 };
 
 #define PERFCOUNTER_FLAG_NONE 0x0
@@ -345,6 +351,25 @@ struct adreno_invalid_countables {
 #define ADRENO_PERFCOUNTER_INVALID_COUNTABLE(name, off) \
 	[KGSL_PERFCOUNTER_GROUP_##off] = { name##_invalid_countables, \
 				ARRAY_SIZE(name##_invalid_countables) }
+
+/**
+ * struct adreno_cmdbatch_profile_entry - a single command batch entry in the
+ * kernel profiling buffer
+ * @started: Number of GPU ticks at start of the command batch
+ * @retired: Number of GPU ticks at the end of the command batch
+ */
+struct adreno_cmdbatch_profile_entry {
+	uint64_t started;
+	uint64_t retired;
+};
+
+#define ADRENO_CMDBATCH_PROFILE_COUNT \
+	(PAGE_SIZE / sizeof(struct adreno_cmdbatch_profile_entry))
+
+#define ADRENO_CMDBATCH_PROFILE_OFFSET(_index, _member) \
+	 ((_index) * sizeof(struct adreno_cmdbatch_profile_entry) \
+	  + offsetof(struct adreno_cmdbatch_profile_entry, _member))
+
 
 /**
  * adreno_regs: List of registers that are used in kgsl driver for all

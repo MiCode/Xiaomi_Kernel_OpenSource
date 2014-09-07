@@ -712,7 +712,7 @@ int a3xx_rb_init(struct adreno_device *adreno_dev,
 	*cmds++ = 0x00000000;
 	*cmds++ = 0x00000000;
 
-	adreno_ringbuffer_submit(rb);
+	adreno_ringbuffer_submit(rb, NULL);
 
 	return 0;
 }

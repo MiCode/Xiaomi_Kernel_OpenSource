@@ -63,9 +63,11 @@ static void _cff_write_ringbuffer(struct adreno_ringbuffer *rb)
 	kgsl_cffdump_memcpy(device, gpuaddr, hostptr, size);
 }
 
-void adreno_ringbuffer_submit(struct adreno_ringbuffer *rb)
+void adreno_ringbuffer_submit(struct adreno_ringbuffer *rb,
+		struct adreno_submit_time *time)
 {
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(rb->device);
+	struct adreno_gpudev *gpudev = ADRENO_GPU_DEVICE(adreno_dev);
 	BUG_ON(rb->wptr == 0);
 
 	/* Let the pwrscale policy know that new commands have
@@ -74,6 +76,20 @@ void adreno_ringbuffer_submit(struct adreno_ringbuffer *rb)
 
 	/* Write the changes to CFF if so enabled */
 	_cff_write_ringbuffer(rb);
+
+	/*
+	 * Read the current GPU ticks and wallclock for most accurate
+	 * profiling
+	 */
+
+	if (time != NULL) {
+		if (gpudev->alwayson_counter_read != NULL)
+			time->ticks = gpudev->alwayson_counter_read(adreno_dev);
+		else
+			time->ticks = 0;
+
+		time->clock = local_clock();
+	}
 
 	/* Memory barrier before informing the hardware of new commands */
 	mb();
@@ -420,14 +436,14 @@ static int _ringbuffer_bootstrap_ucode(struct adreno_ringbuffer *rb,
 		*cmds++ = 0;
 
 		rb->wptr = rb->wptr - 2;
-		adreno_ringbuffer_submit(rb);
+		adreno_ringbuffer_submit(rb, NULL);
 		rb->wptr = rb->wptr + 2;
 	} else {
 		for (i = pfp_idx; i < adreno_dev->pfp_fw_size; i++)
 			*cmds++ = adreno_dev->pfp_fw[i];
 		for (i = pm4_idx; i < adreno_dev->pm4_fw_size; i++)
 			*cmds++ = adreno_dev->pm4_fw[i];
-		adreno_ringbuffer_submit(rb);
+		adreno_ringbuffer_submit(rb, NULL);
 	}
 
 	/* idle device to validate bootstrap */
@@ -703,7 +719,8 @@ void adreno_ringbuffer_close(struct adreno_device *adreno_dev)
 static int
 adreno_ringbuffer_addcmds(struct adreno_ringbuffer *rb,
 				unsigned int flags, unsigned int *cmds,
-				int sizedwords, uint32_t timestamp)
+				int sizedwords, uint32_t timestamp,
+				struct adreno_submit_time *time)
 {
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(rb->device);
 	unsigned int *ringcmds;
@@ -950,7 +967,7 @@ adreno_ringbuffer_addcmds(struct adreno_ringbuffer *rb,
 		*ringcmds++ = 0x00000000;
 	}
 
-	adreno_ringbuffer_submit(rb);
+	adreno_ringbuffer_submit(rb, time);
 
 	return 0;
 }
@@ -964,7 +981,7 @@ adreno_ringbuffer_issuecmds(struct adreno_ringbuffer *rb,
 	flags |= KGSL_CMD_FLAGS_INTERNAL_ISSUE;
 
 	return adreno_ringbuffer_addcmds(rb, flags, cmds,
-		sizedwords, 0);
+		sizedwords, 0, NULL);
 }
 
 static bool _parse_ibs(struct kgsl_device_private *dev_priv, uint gpuaddr,
@@ -1249,10 +1266,9 @@ void adreno_ringbuffer_set_constraint(struct kgsl_device *device,
 
 /* adreno_rindbuffer_submitcmd - submit userspace IBs to the GPU */
 int adreno_ringbuffer_submitcmd(struct adreno_device *adreno_dev,
-		struct kgsl_cmdbatch *cmdbatch)
+		struct kgsl_cmdbatch *cmdbatch, struct adreno_submit_time *time)
 {
 	struct kgsl_device *device = &adreno_dev->dev;
-	struct adreno_gpudev *gpudev = ADRENO_GPU_DEVICE(adreno_dev);
 	struct kgsl_memobj_node *ib;
 	unsigned int numibs = 0;
 	unsigned int *link;
@@ -1260,11 +1276,14 @@ int adreno_ringbuffer_submitcmd(struct adreno_device *adreno_dev,
 	struct kgsl_context *context;
 	struct adreno_context *drawctxt;
 	bool use_preamble = true;
-	bool cmdbatch_profiling = false;
+	bool cmdbatch_user_profiling = false;
+	bool cmdbatch_kernel_profiling = false;
 	int flags = KGSL_CMD_FLAGS_NONE;
 	int ret;
 	struct adreno_ringbuffer *rb;
 	struct kgsl_cmdbatch_profiling_buffer *profile_buffer = NULL;
+	unsigned int dwords = 0;
+	struct adreno_submit_time local;
 
 	struct kgsl_mem_entry *entry = cmdbatch->profiling_buf_entry;
 	if (entry)
@@ -1326,35 +1345,56 @@ int adreno_ringbuffer_submitcmd(struct adreno_device *adreno_dev,
 		numibs = 0;
 	}
 
-	/*
-	 * Worst case size:
-	 * 2 - start of IB identifier
-	 * 2 - cmdbatch profiling
-	 * 1 - skip preamble
-	 * 3 * numibs - 3 per IB
-	 * 2 - cmdbatch profiling
-	 * 2 - end of IB identifier
-	 */
-	if (cmdbatch->flags & KGSL_CMDBATCH_PROFILING &&
-		adreno_is_a4xx(adreno_dev) && profile_buffer)
-		cmdbatch_profiling = true;
+	/* Each command needs 5 dwords for the wrappers and other red tape */
+	dwords = 5;
 
-	cmds = link = kzalloc(sizeof(unsigned int) * (numibs * 3 + 5 +
-					(cmdbatch_profiling ? 4 : 0)),
-				GFP_KERNEL);
+	/* Each IB takes up 3 dwords */
+	dwords += (numibs * 3);
+
+	if (cmdbatch->flags & KGSL_CMDBATCH_PROFILING &&
+		adreno_is_a4xx(adreno_dev) && profile_buffer) {
+		cmdbatch_user_profiling = true;
+		dwords += 4;
+
+		/*
+		 * we want to use an adreno_submit_time struct to get the
+		 * precise moment when the command is submitted to the
+		 * ringbuffer.  If an upstream caller already passed down a
+		 * pointer piggyback on that otherwise use a local struct
+		 */
+
+		if (time == NULL)
+			time = &local;
+	}
+
+	if (test_bit(CMDBATCH_FLAG_PROFILE, &cmdbatch->priv)) {
+		cmdbatch_kernel_profiling = true;
+		dwords += 4;
+	}
+
+	link = kzalloc(sizeof(unsigned int) *  dwords, GFP_KERNEL);
 	if (!link) {
 		ret = -ENOMEM;
 		goto done;
 	}
 
+	cmds = link;
+
 	*cmds++ = cp_nop_packet(1);
 	*cmds++ = KGSL_START_OF_IB_IDENTIFIER;
+
+	if (cmdbatch_kernel_profiling) {
+		*cmds++ = cp_type3_packet(CP_RECORD_PFP_TIMESTAMP, 1);
+		*cmds++ = adreno_dev->cmdbatch_profile_buffer.gpuaddr +
+			ADRENO_CMDBATCH_PROFILE_OFFSET(cmdbatch->profile_index,
+				started);
+	}
 
 	/*
 	 * Add cmds to read the GPU ticks at the start of the cmdbatch and
 	 * write it into the appropriate cmdbatch profiling buffer offset
 	 */
-	if (cmdbatch_profiling) {
+	if (cmdbatch_user_profiling) {
 		*cmds++ = cp_type3_packet(CP_RECORD_PFP_TIMESTAMP, 1);
 		*cmds++ = cmdbatch->profiling_buffer_gpuaddr +
 				offsetof(struct kgsl_cmdbatch_profiling_buffer,
@@ -1382,11 +1422,18 @@ int adreno_ringbuffer_submitcmd(struct adreno_device *adreno_dev,
 		}
 	}
 
+	if (cmdbatch_kernel_profiling) {
+		*cmds++ = cp_type3_packet(CP_RECORD_PFP_TIMESTAMP, 1);
+		*cmds++ = adreno_dev->cmdbatch_profile_buffer.gpuaddr +
+			ADRENO_CMDBATCH_PROFILE_OFFSET(cmdbatch->profile_index,
+				retired);
+	}
+
 	/*
 	 * Add cmds to read the GPU ticks at the end of the cmdbatch and
 	 * write it into the appropriate cmdbatch profiling buffer offset
 	 */
-	if (cmdbatch_profiling) {
+	if (cmdbatch_user_profiling) {
 		*cmds++ = cp_type3_packet(CP_RECORD_PFP_TIMESTAMP, 1);
 		*cmds++ = cmdbatch->profiling_buffer_gpuaddr +
 				offsetof(struct kgsl_cmdbatch_profiling_buffer,
@@ -1423,19 +1470,21 @@ int adreno_ringbuffer_submitcmd(struct adreno_device *adreno_dev,
 	/* CFF stuff executed only if CFF is enabled */
 	kgsl_cffdump_capture_ib_desc(device, context, cmdbatch);
 
-	/* Put the wall clock and gpu timer values in the profiling buffer */
-	if (cmdbatch_profiling) {
-		struct timespec ts;
-		do_posix_clock_monotonic_gettime(&ts);
-		profile_buffer->wall_clock_s = ts.tv_sec;
-		profile_buffer->wall_clock_ns = ts.tv_nsec;
-		profile_buffer->gpu_ticks_queued =
-			gpudev->alwayson_counter_read(adreno_dev);
-	}
 
 	ret = adreno_ringbuffer_addcmds(rb, flags,
 					&link[0], (cmds - link),
-					cmdbatch->timestamp);
+					cmdbatch->timestamp, time);
+
+	/* Put the timevalues in the profiling buffer */
+	if (cmdbatch_user_profiling) {
+		uint64_t secs;
+		unsigned long nsecs;
+		secs = time->clock;
+		nsecs = do_div(secs, 1000000000);
+		profile_buffer->wall_clock_s = secs;
+		profile_buffer->wall_clock_ns = nsecs;
+		profile_buffer->gpu_ticks_queued = time->ticks;
+	}
 
 	/* Corresponding unmap to the memdesc map of profile_buffer */
 	if (entry)
