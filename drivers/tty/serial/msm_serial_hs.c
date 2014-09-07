@@ -3281,7 +3281,7 @@ static int msm_hs_probe(struct platform_device *pdev)
 	msm_serial_debugfs_init(msm_uport, pdev->id);
 
 	uport->line = pdev->id;
-	if (pdata != NULL && pdata->userid && pdata->userid <= UARTDM_NR)
+	if (pdata->userid && pdata->userid <= UARTDM_NR)
 		uport->line = pdata->userid;
 	ret = uart_add_one_port(&msm_hs_driver, uport);
 	if (!ret) {
