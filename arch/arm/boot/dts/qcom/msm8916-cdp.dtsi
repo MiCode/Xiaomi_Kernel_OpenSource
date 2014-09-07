@@ -214,7 +214,11 @@
 			"MIC BIAS Internal3", "Secondary Mic",
 			"AMIC1", "MIC BIAS Internal1",
 			"AMIC2", "MIC BIAS Internal2",
-			"AMIC3", "MIC BIAS Internal3";
+			"AMIC3", "MIC BIAS Internal3",
+			"DMIC1", "MIC BIAS Internal1",
+			"MIC BIAS Internal1", "Digital Mic1",
+			"DMIC2", "MIC BIAS Internal1",
+			"MIC BIAS Internal1", "Digital Mic2";
 		pinctrl-names = "cdc_lines_act",
 				"cdc_lines_sus",
 				"cdc_lines_sec_ext_act",
