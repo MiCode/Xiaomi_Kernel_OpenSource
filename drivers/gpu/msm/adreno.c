@@ -243,15 +243,37 @@ static void adreno_input_event(struct input_handle *handle, unsigned int type,
 	struct kgsl_device *device = handle->handler->private;
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
 
+	/* Only consider EV_ABS (touch) events */
+	if (type != EV_ABS)
+		return;
+
 	/*
-	 * Only queue the work under certain circumstances: we have to be in
-	 * slumber, the event has to be EV_EBS and we had to have processed an
-	 * IB since the last time we called wake on touch.
+	 * Don't do anything if anything hasn't been rendered since we've been
+	 * here before
 	 */
-	if ((type == EV_ABS) &&
-		!(device->flags & KGSL_FLAG_WAKE_ON_TOUCH) &&
-		(device->state == KGSL_STATE_SLUMBER))
+
+	if (device->flags & KGSL_FLAG_WAKE_ON_TOUCH)
+		return;
+
+	/*
+	 * If the device is in nap, kick the idle timer to make sure that we
+	 * don't go into slumber before the first render. If the device is
+	 * already in slumber schedule the wake.
+	 */
+
+	if (device->state == KGSL_STATE_NAP) {
+		/*
+		 * Set the wake on touch bit to keep from coming back here and
+		 * keeping the device in nap without rendering
+		 */
+
+		device->flags |= KGSL_FLAG_WAKE_ON_TOUCH;
+
+		mod_timer(&device->idle_timer,
+			jiffies + device->pwrctrl.interval_timeout);
+	} else if (device->state == KGSL_STATE_SLUMBER) {
 		schedule_work(&adreno_dev->input_work);
+	}
 }
 
 #ifdef CONFIG_INPUT
