@@ -2026,7 +2026,7 @@ static int msm8x16_wcd_codec_enable_micbias(struct snd_soc_dapm_widget *w,
 			snd_soc_update_bits(codec, micb_int_reg, 0x2, 0x0);
 		}
 		snd_soc_update_bits(codec, MSM8X16_WCD_A_ANALOG_MICB_1_EN,
-				0x45, 0x01);
+				0x44, 0x00);
 		msm8x16_notifier_call(codec, WCD_EVENT_PRE_MICBIAS_2_OFF);
 		break;
 	}
