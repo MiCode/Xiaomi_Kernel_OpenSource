@@ -216,7 +216,7 @@ config MSM_SMP2P_TEST
 	  are used to verify the local and remote
 	  implementations.
 
-config MSM_SPM_V2
+config MSM_SPM
 	bool "Driver support for SPM Version 2"
 	help
 	  Enables the support for Version 2 of the SPM driver. SPM hardware is
@@ -226,7 +226,7 @@ config MSM_SPM_V2
 
 config MSM_L2_SPM
 	bool "SPM support for L2 cache"
-	depends on MSM_SPM_V2
+	depends on MSM_SPM
 	help
 	  Enable SPM driver support for L2 cache. Some MSM chipsets allow
 	  control of L2 cache low power mode with a Subsystem Power manager.

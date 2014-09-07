@@ -14,7 +14,7 @@ config ARCH_MSM8974
 	select MSM_DEVFREQ_DEVBW
 	select DEVFREQ_SIMPLE_DEV
 	select MSM_PIL
-	select MSM_SPM_V2
+	select MSM_SPM
 	select MSM_L2_SPM
 	select MSM_PM if PM
 	select MSM_RPM_SMD
@@ -59,7 +59,7 @@ config ARCH_APQ8084
 	select ARCH_WANT_KMAP_ATOMIC_FLUSH
 	select MEMORY_HOLE_CARVEOUT
 	select QMI_ENCDEC
-	select MSM_SPM_V2
+	select MSM_SPM
 	select MSM_L2_SPM
 	select MSM_RPM_SMD
 	select MSM_RPM_STATS_LOG
@@ -185,7 +185,7 @@ config ARCH_MDM9630
 	select REGULATOR
 	select REGULATOR_RPM_SMD
 	select HAVE_ARM_ARCH_TIMER
-	select MSM_SPM_V2
+	select MSM_SPM
 	select MSM_PM if PM
 	select GPIO_MSM_V3
 	select MIGHT_HAVE_PCI
@@ -211,7 +211,7 @@ config ARCH_MSMZIRC
 	select REGULATOR_RPM_SMD
 	select HAVE_ARM_ARCH_TIMER
 	select MSM_RPM_SMD
-	select MSM_SPM_V2
+	select MSM_SPM
 	select MSM_PM if PM
 	select MEMORY_HOLE_CARVEOUT
 	select QMI_ENCDEC
@@ -253,7 +253,7 @@ config ARCH_MSM8610
 	select MSM_QDSP6V2_CODECS
 	select QMI_ENCDEC
 	select MSM_RPM_SMD
-	select MSM_SPM_V2
+	select MSM_SPM
 	select MSM_L2_SPM
 	select MSM_PM if PM
 	select MEMORY_HOLE_CARVEOUT
@@ -294,7 +294,7 @@ config ARCH_MSM8226
 	select MSM_QDSP6V2_CODECS
 	select QMI_ENCDEC
 	select MSM_RPM_SMD
-	select MSM_SPM_V2
+	select MSM_SPM
 	select MSM_L2_SPM
 	select MSM_PM if PM
 	select MEMORY_HOLE_CARVEOUT

@@ -25,7 +25,7 @@ enum {
 struct msm_spm_device;
 struct device_node;
 
-#if defined(CONFIG_MSM_SPM_V2)
+#if defined(CONFIG_MSM_SPM)
 
 int msm_spm_set_low_power_mode(unsigned int mode, bool notify_rpm);
 int msm_spm_probe_done(void);
@@ -58,7 +58,7 @@ static inline int msm_spm_enable_fts_lpm(int cpu, uint32_t mode)
 	return -ENOSYS;
 }
 #endif /* defined(CONFIG_MSM_L2_SPM) */
-#else /* defined(CONFIG_MSM_SPM_V2) */
+#else /* defined(CONFIG_MSM_SPM) */
 static inline int msm_spm_set_low_power_mode(unsigned int mode, bool notify_rpm)
 {
 	return -ENOSYS;
@@ -110,5 +110,5 @@ bool msm_spm_is_mode_avail(unsigned int mode)
 	return false;
 }
 
-#endif  /* defined (CONFIG_MSM_SPM_V2) */
+#endif  /* defined (CONFIG_MSM_SPM) */
 #endif  /* __ARCH_ARM_MACH_MSM_SPM_H */

@@ -41,7 +41,7 @@ obj-$(CONFIG_MSM_SMP2P) += smp2p.o smp2p_debug.o
 obj-$(CONFIG_MSM_SMP2P_TEST) += smp2p_loopback.o smp2p_test.o smp2p_spinlock_test.o
 obj-$(CONFIG_MSM_WATCHDOG_V2) += watchdog_v2.o
 obj-$(CONFIG_MEM_SHARE_QMI_SERVICE)		+= memshare/
-obj-$(CONFIG_MSM_SPM_V2) += spm-v2.o spm_devices.o
+obj-$(CONFIG_MSM_SPM) += spm.o spm_devices.o
 obj-y		+= socinfo.o
 
 obj-$(CONFIG_MSM_PIL) += peripheral-loader.o
