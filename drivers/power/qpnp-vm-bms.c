@@ -2502,7 +2502,7 @@ static void adjust_pon_ocv(struct qpnp_bms_chip *chip, int batt_temp)
 
 static int calculate_initial_soc(struct qpnp_bms_chip *chip)
 {
-	int rc, batt_temp = 0, est_ocv = 0, shutdown_soc = 0;
+	int rc, batt_temp = 0, est_ocv = 0;
 	int shutdown_soc_invalid = 0;
 
 	rc = get_batt_therm(chip, &batt_temp);
@@ -2559,7 +2559,7 @@ static int calculate_initial_soc(struct qpnp_bms_chip *chip)
 		chip->calculated_soc = lookup_soc_ocv(chip,
 					chip->last_ocv_uv, batt_temp);
 		if (!shutdown_soc_invalid &&
-			(abs(shutdown_soc - chip->calculated_soc) <
+			(abs(chip->shutdown_soc - chip->calculated_soc) <
 				chip->dt.cfg_shutdown_soc_valid_limit)) {
 			chip->last_ocv_uv = chip->shutdown_ocv;
 			chip->last_soc = chip->shutdown_soc;
