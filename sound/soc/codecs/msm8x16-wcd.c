@@ -3743,6 +3743,7 @@ static int msm8x16_wcd_spmi_probe(struct spmi_device *spmi)
 		msm8x16_wcd_modules[0].base = (spmi->sid << 16) +
 						wcd_resource->start;
 		wcd9xxx_spmi_set_dev(msm8x16_wcd_modules[0].spmi, 0);
+		device_init_wakeup(&spmi->dev, true);
 		break;
 	case TOMBAK_CORE_1_SPMI_ADDR:
 		msm8x16_wcd_modules[1].spmi = spmi;
