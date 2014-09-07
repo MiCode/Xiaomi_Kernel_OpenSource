@@ -10,8 +10,8 @@ Required properties:
 
 Optional properties:
 - phys                  : phandle to UFS PHY node
-- phy-names		: the string "ufs_msm_phy" when is found in a node, along
-			  with "phys" attribute, provides phandle to UFS PHY node
+- phy-names             : the string "ufsphy" when is found in a node, along
+                          with "phys" attribute, provides phandle to UFS PHY node
 - vdd-hba-supply        : phandle to UFS host controller supply regulator node
 - vcc-supply            : phandle to VCC supply regulator node
 - vccq-supply           : phandle to VCCQ supply regulator node
