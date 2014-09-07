@@ -193,12 +193,15 @@
                          <&mdss_dsi0_pll clk_byte_clk_src>,
                          <&mdss_dsi0_pll clk_pixel_clk_src>,
                          <&mdss_dsi0_pll clk_shadow_byte_clk_src>,
-                         <&mdss_dsi0_pll clk_shadow_pixel_clk_src>;
+                         <&mdss_dsi0_pll clk_shadow_pixel_clk_src>,
+                         <&mdss_dsi1_pll clk_mdss_dsi1_vco_clk_src>;
 			clock-names = "mdp_core_clk", "iface_clk",
 				"core_mmss_clk", "bus_clk",
 				"byte_clk", "pixel_clk", "core_clk",
 				"mdss_byte_clk_mux", "mdss_pixel_clk_mux", "byte_clk_src",
-				"pixel_clk_src", "shadow_byte_clk_src", "shadow_pixel_clk_src";
+				"pixel_clk_src", "shadow_byte_clk_src",
+				"shadow_pixel_clk_src",
+				"clk_mdss_dsi1_vco_clk_src";
 
 		qcom,platform-strength-ctrl = [77 06];
 		qcom,platform-bist-ctrl = [00 00 b1 ff 00 00];
@@ -302,14 +305,16 @@
                          <&mdss_dsi0_pll clk_byte_clk_src>,
                          <&mdss_dsi0_pll clk_pixel_clk_src>,
                          <&mdss_dsi0_pll clk_shadow_byte_clk_src>,
-                         <&mdss_dsi0_pll clk_shadow_pixel_clk_src>;
+                         <&mdss_dsi0_pll clk_shadow_pixel_clk_src>,
+                         <&mdss_dsi1_pll clk_mdss_dsi1_vco_clk_src>;
 
 		clock-names = "mdp_core_clk", "iface_clk",
 				"core_mmss_clk", "bus_clk",
 				"byte_clk", "pixel_clk", "core_clk",
 				"mdss_byte_clk_mux", "mdss_pixel_clk_mux",
 				"byte_clk_src", "pixel_clk_src",
-				"shadow_byte_clk_src", "shadow_pixel_clk_src";
+				"shadow_byte_clk_src", "shadow_pixel_clk_src",
+				"clk_mdss_dsi1_vco_clk_src";
 
 		qcom,platform-strength-ctrl = [77 06];
 		qcom,platform-bist-ctrl = [00 00 b1 ff 00 00];
