@@ -1,4 +1,4 @@
-/* Copyright (c) 2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -21,7 +21,7 @@
 #define _UFS_DEBUGFS_H
 
 #include <linux/debugfs.h>
-#include "ufshcd.h"
+#include <linux/scsi/ufs/ufshcd.h>
 
 #ifdef CONFIG_DEBUG_FS
 void ufsdbg_add_debugfs(struct ufs_hba *hba);

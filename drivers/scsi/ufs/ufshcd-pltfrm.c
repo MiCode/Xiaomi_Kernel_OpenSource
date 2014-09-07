@@ -37,7 +37,7 @@
 #include <linux/pm_runtime.h>
 #include <linux/of.h>
 
-#include "ufshcd.h"
+#include <linux/scsi/ufs/ufshcd.h>
 
 static const struct of_device_id ufs_of_match[];
 static struct ufs_hba_variant_ops *get_variant_ops(struct device *dev)

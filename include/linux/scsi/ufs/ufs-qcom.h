@@ -139,15 +139,6 @@ struct ufs_qcom_host {
 #define ufs_qcom_is_link_active(hba) ufshcd_is_link_active(hba)
 #define ufs_qcom_is_link_hibern8(hba) ufshcd_is_link_hibern8(hba)
 
-enum {
-	MASK_SERDES_START       = 0x1,
-	MASK_PCS_READY          = 0x1,
-};
-
-enum {
-	OFFSET_SERDES_START     = 0x0,
-};
-
 #define MAX_PROP_NAME              32
 #define VDDA_PHY_MIN_UV            1000000
 #define VDDA_PHY_MAX_UV            1000000
