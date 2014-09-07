@@ -130,7 +130,7 @@ void mem_text_address_writeable(u64 addr)
 
 	set_pmd(mem_unprotect.pmd,
 		__pmd(__pa(addr_aligned) | prot_sect_kernel));
-	flush_tlb_kernel_range(addr, addr + sizeof(u32));
+	flush_tlb_kernel_range(addr, addr + PAGE_SIZE);
 
 	mem_unprotect.made_writeable = 1;
 }
@@ -140,7 +140,7 @@ void mem_text_address_restore(u64 addr)
 {
 	if (mem_unprotect.made_writeable) {
 		*mem_unprotect.pmd = mem_unprotect.saved_pmd;
-		flush_tlb_kernel_range(addr, addr + sizeof(u32));
+		flush_tlb_kernel_range(addr, addr + PAGE_SIZE);
 	}
 }
 #else
