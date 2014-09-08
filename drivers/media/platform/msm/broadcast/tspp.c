@@ -1105,7 +1105,7 @@ static int tspp_global_reset(struct tspp_device *pdev)
 
 	/* TSPP tables */
 	for (i = 0; i < TSPP_FILTER_TABLES; i++)
-		memset(pdev->filters[i],
+		memset_io(pdev->filters[i],
 			0, sizeof(struct tspp_pid_filter_table));
 
 	/* disable all filters */
@@ -1117,11 +1117,11 @@ static int tspp_global_reset(struct tspp_device *pdev)
 	writel_relaxed(val | TSPP_CLK_CONTROL_FORCE_PERF_CNT,
 		pdev->base + TSPP_CONTROL);
 	wmb();
-	memset(pdev->tspp_global_performance, 0,
+	memset_io(pdev->tspp_global_performance, 0,
 		sizeof(struct tspp_global_performance_regs));
-	memset(pdev->tspp_pipe_context, 0,
+	memset_io(pdev->tspp_pipe_context, 0,
 		sizeof(struct tspp_pipe_context_regs));
-	memset(pdev->tspp_pipe_performance, 0,
+	memset_io(pdev->tspp_pipe_performance, 0,
 		sizeof(struct tspp_pipe_performance_regs));
 	wmb();
 	writel_relaxed(val & ~TSPP_CLK_CONTROL_FORCE_PERF_CNT,
@@ -3028,7 +3028,7 @@ static struct of_device_id msm_match_table[] = {
 
 static struct platform_driver msm_tspp_driver = {
 	.probe          = msm_tspp_probe,
-	.remove         = __exit_p(msm_tspp_remove),
+	.remove         = msm_tspp_remove,
 	.driver         = {
 		.name   = "msm_tspp",
 		.pm     = &tspp_dev_pm_ops,
