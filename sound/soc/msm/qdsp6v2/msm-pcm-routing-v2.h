@@ -188,6 +188,7 @@ struct msm_pcm_routing_bdai_data {
 	unsigned int  sample_rate;
 	unsigned int  channel;
 	unsigned int  format;
+	u32 compr_passthr_mode;
 	char *name;
 };
 
@@ -219,6 +220,9 @@ int msm_pcm_routing_reg_phy_stream(int fedai_id, int perf_mode, int dspst_id,
 				   int stream_type);
 void msm_pcm_routing_reg_psthr_stream(int fedai_id, int dspst_id,
 		int stream_type);
+int msm_pcm_routing_reg_phy_compr_stream(int fedai_id, bool perf_mode,
+					  int dspst_id, int stream_type,
+					  uint32_t compr_passthr);
 
 int msm_pcm_routing_reg_phy_stream_v2(int fedai_id, bool perf_mode,
 				      int dspst_id, int stream_type,

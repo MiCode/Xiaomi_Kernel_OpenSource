@@ -1374,9 +1374,13 @@ static int msm_ds2_dap_handle_commands(u32 cmd, void *arg)
 	break;
 
 	case DAP_CMD_SET_BYPASS:
-		pr_debug("%s: bypass %d bypass type %d", __func__,
+		pr_debug("%s: bypass %d bypass type %d, data %d\n", __func__,
 			 ds2_dap_params_states.dap_bypass,
-			 ds2_dap_params_states.dap_bypass_type);
+			 ds2_dap_params_states.dap_bypass_type,
+			 dolby_data->data[0]);
+		/* Do not perform bypass operation if bypass state is same*/
+		if (ds2_dap_params_states.dap_bypass == dolby_data->data[0])
+			break;
 		ds2_dap_params_states.dap_bypass = dolby_data->data[0];
 		/* hard bypass */
 		if (ds2_dap_params_states.dap_bypass_type == DAP_HARD_BYPASS)
