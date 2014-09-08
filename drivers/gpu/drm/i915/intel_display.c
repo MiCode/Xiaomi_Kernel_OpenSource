@@ -42,6 +42,7 @@
 #include <linux/dma_remapping.h>
 #include "intel_clrmgr.h"
 #include "intel_dsi.h"
+#include "i915_scheduler.h"
 
 #define DIV_ROUND_CLOSEST_ULL(ll, d)	\
 	({ unsigned long long _tmp = (ll)+(d)/2; do_div(_tmp, d); _tmp; })
@@ -10364,6 +10365,8 @@ static bool use_mmio_flip(struct intel_engine_cs *ring,
 	else if (i915.use_mmio_flip > 0)
 		return true;
 	else if (i915.enable_execlists)
+		return true;
+	else if (i915_scheduler_is_enabled(ring->dev))
 		return true;
 	else
 		return ring != i915_gem_request_get_ring(obj->last_read_req);
