@@ -984,21 +984,21 @@ static int bmm_read_axis_data(struct iio_dev *indio_dev,
 	case BMM_SCAN_MAG_X:
 		/* x aixs data */
 		if (!client_data->iio_mdata.value_x_valid)
-			dev_err(&client->dev, "x data not updata!\n");
+			dev_dbg(&client->dev, "x data not updata!\n");
 		raw_data->data = client_data->value.datax;
 		client_data->iio_mdata.value_x_valid = VALUE_INVALID;
 		break;
 	case BMM_SCAN_MAG_Y:
 		/* y aixs data */
 		if (!client_data->iio_mdata.value_y_valid)
-			dev_err(&client->dev, "y data not updata!\n");
+			dev_dbg(&client->dev, "y data not updata!\n");
 		raw_data->data = client_data->value.datay;
 		client_data->iio_mdata.value_y_valid = VALUE_INVALID;
 		break;
 	case BMM_SCAN_MAG_Z:
 		/* z aixs data */
 		if (!client_data->iio_mdata.value_z_valid)
-			dev_err(&client->dev, "z data not updata!\n");
+			dev_dbg(&client->dev, "z data not updata!\n");
 		raw_data->data = client_data->value.dataz;
 		client_data->iio_mdata.value_z_valid = VALUE_INVALID;
 		break;
@@ -1168,7 +1168,7 @@ static int bmm_restore_hw_cfg(struct i2c_client *client)
 			&client_data->rept_z, 1);
 	mdelay(BMM_I2C_WRITE_DELAY_TIME);
 	err = bmm_i2c_read(client, BMM_REG_NAME(NO_REPETITIONS_Z), &value, 1);
-	dev_info(&client->dev, "BMM_NO_REPETITIONS_Z: %02x", value);
+	dev_dbg(&client->dev, "BMM_NO_REPETITIONS_Z: %02x", value);
 	mutex_unlock(&client_data->mutex_rept_z);
 
 	mutex_lock(&client_data->mutex_op_mode);
