@@ -510,6 +510,19 @@ static unsigned int msm8x16_wcd_read(struct snd_soc_codec *codec,
 	return val;
 }
 
+static int get_codec_version(struct msm8x16_wcd_priv *msm8x16_wcd)
+{
+	if (msm8x16_wcd->codec_version == CONGA) {
+		return CONGA;
+	} else if (msm8x16_wcd->pmic_rev == TOMBAK_2_0) {
+		return TOMBAK_2_0;
+	} else if (msm8x16_wcd->pmic_rev == TOMBAK_1_0) {
+		return TOMBAK_1_0;
+	} else {
+		pr_err("%s: unsupported codec version\n", __func__);
+		return UNSUPPORTED;
+	}
+}
 
 static int msm8x16_wcd_dt_parse_vreg_info(struct device *dev,
 	struct msm8x16_wcd_regulator *vreg, const char *vreg_name,
@@ -1642,7 +1655,7 @@ static int msm8x16_wcd_codec_enable_adc(struct snd_soc_dapm_widget *w,
 
 	switch (event) {
 	case SND_SOC_DAPM_PRE_PMU:
-		if (!TOMBAK_IS_1_0(msm8x16_wcd->pmic_rev))
+		if (get_codec_version(msm8x16_wcd) != TOMBAK_1_0)
 			snd_soc_update_bits(codec,
 			MSM8X16_WCD_A_ANALOG_TX_1_2_OPAMP_BIAS, 0x07, 0x04);
 		msm8x16_wcd_codec_enable_adc_block(codec, 1);
@@ -1705,7 +1718,7 @@ static int msm8x16_wcd_codec_enable_spk_pa(struct snd_soc_dapm_widget *w,
 		usleep_range(CODEC_DELAY_1_MS, CODEC_DELAY_1_1_MS);
 		snd_soc_update_bits(codec,
 			MSM8X16_WCD_A_ANALOG_SPKR_PWRSTG_CTL, 0xE0, 0xE0);
-		if (!TOMBAK_IS_1_0(msm8x16_wcd->pmic_rev))
+		if (get_codec_version(msm8x16_wcd) != TOMBAK_1_0)
 			snd_soc_update_bits(codec,
 				MSM8X16_WCD_A_ANALOG_RX_EAR_CTL, 0x01, 0x01);
 		break;
@@ -1737,7 +1750,7 @@ static int msm8x16_wcd_codec_enable_spk_pa(struct snd_soc_dapm_widget *w,
 	case SND_SOC_DAPM_POST_PMD:
 		snd_soc_update_bits(codec,
 			MSM8X16_WCD_A_ANALOG_SPKR_PWRSTG_CTL, 0xE0, 0x00);
-		if (!TOMBAK_IS_1_0(msm8x16_wcd->pmic_rev))
+		if (get_codec_version(msm8x16_wcd) != TOMBAK_1_0)
 			snd_soc_update_bits(codec,
 				MSM8X16_WCD_A_ANALOG_RX_EAR_CTL, 0x01, 0x00);
 		usleep_range(CODEC_DELAY_1_MS, CODEC_DELAY_1_1_MS);
@@ -1930,7 +1943,7 @@ static void msm8x16_trim_btn_reg(struct snd_soc_codec *codec)
 {
 	struct msm8x16_wcd_priv *msm8x16_wcd = snd_soc_codec_get_drvdata(codec);
 
-	if (TOMBAK_IS_1_0(msm8x16_wcd->pmic_rev)) {
+	if (get_codec_version(msm8x16_wcd) == TOMBAK_1_0) {
 		pr_debug("%s: This device needs to be trimmed\n", __func__);
 		/*
 		 * Calculate the trim value for each device used
@@ -3199,6 +3212,7 @@ static const struct msm8x16_wcd_reg_mask_val msm8x16_wcd_reg_defaults[] = {
 };
 
 static const struct msm8x16_wcd_reg_mask_val msm8x16_wcd_reg_defaults_2_0[] = {
+	MSM8X16_WCD_REG_VAL(MSM8X16_WCD_A_DIGITAL_SEC_ACCESS, 0xA5),
 	MSM8X16_WCD_REG_VAL(MSM8X16_WCD_A_DIGITAL_PERPH_RESET_CTL3, 0x0F),
 	MSM8X16_WCD_REG_VAL(MSM8X16_WCD_A_ANALOG_TX_1_2_OPAMP_BIAS, 0x4B),
 	MSM8X16_WCD_REG_VAL(MSM8X16_WCD_A_ANALOG_NCP_FBCTRL, 0x28),
@@ -3213,20 +3227,41 @@ static const struct msm8x16_wcd_reg_mask_val msm8x16_wcd_reg_defaults_2_0[] = {
 	MSM8X16_WCD_REG_VAL(MSM8X16_WCD_A_ANALOG_SPKR_OCP_CTL, 0xE1),
 };
 
+static const struct msm8x16_wcd_reg_mask_val msm8909_wcd_reg_defaults[] = {
+	MSM8X16_WCD_REG_VAL(MSM8X16_WCD_A_DIGITAL_PERPH_SUBTYPE, 0x02),
+	MSM8X16_WCD_REG_VAL(MSM8X16_WCD_A_DIGITAL_SEC_ACCESS, 0xA5),
+	MSM8X16_WCD_REG_VAL(MSM8X16_WCD_A_DIGITAL_PERPH_RESET_CTL3, 0x0F),
+	MSM8X16_WCD_REG_VAL(MSM8X16_WCD_A_ANALOG_SEC_ACCESS, 0xA5),
+	MSM8X16_WCD_REG_VAL(MSM8X16_WCD_A_ANALOG_PERPH_RESET_CTL3, 0x0F),
+	MSM8X16_WCD_REG_VAL(MSM8X16_WCD_A_ANALOG_TX_1_2_OPAMP_BIAS, 0x4B),
+	MSM8X16_WCD_REG_VAL(MSM8X16_WCD_A_ANALOG_NCP_FBCTRL, 0x28),
+	MSM8X16_WCD_REG_VAL(MSM8X16_WCD_A_ANALOG_SPKR_DRV_CTL, 0x69),
+	MSM8X16_WCD_REG_VAL(MSM8X16_WCD_A_ANALOG_SPKR_DRV_DBG, 0x01),
+	MSM8X16_WCD_REG_VAL(MSM8X16_WCD_A_ANALOG_PERPH_SUBTYPE, 0x0A),
+	MSM8X16_WCD_REG_VAL(MSM8X16_WCD_A_ANALOG_SPKR_DAC_CTL, 0x03),
+	MSM8X16_WCD_REG_VAL(MSM8X16_WCD_A_ANALOG_SPKR_OCP_CTL, 0xE1),
+};
+
 static void msm8x16_wcd_update_reg_defaults(struct snd_soc_codec *codec)
 {
-	u32 i;
+	u32 i, version;
 	struct msm8x16_wcd_priv *msm8x16_wcd = snd_soc_codec_get_drvdata(codec);
 
-	if (TOMBAK_IS_1_0(msm8x16_wcd->pmic_rev)) {
+	version = get_codec_version(msm8x16_wcd);
+	if (version == TOMBAK_1_0) {
 		for (i = 0; i < ARRAY_SIZE(msm8x16_wcd_reg_defaults); i++)
 			snd_soc_write(codec, msm8x16_wcd_reg_defaults[i].reg,
 					msm8x16_wcd_reg_defaults[i].val);
-	} else {
+	} else if (version == TOMBAK_2_0) {
 		for (i = 0; i < ARRAY_SIZE(msm8x16_wcd_reg_defaults_2_0); i++)
 			snd_soc_write(codec,
 				msm8x16_wcd_reg_defaults_2_0[i].reg,
 				msm8x16_wcd_reg_defaults_2_0[i].val);
+	} else if (version == CONGA) {
+		for (i = 0; i < ARRAY_SIZE(msm8909_wcd_reg_defaults); i++)
+			snd_soc_write(codec,
+				msm8909_wcd_reg_defaults[i].reg,
+				msm8909_wcd_reg_defaults[i].val);
 	}
 }
 
@@ -3437,7 +3472,13 @@ static int msm8x16_wcd_codec_probe(struct snd_soc_codec *codec)
 	}
 	msm8x16_wcd_priv->pmic_rev = snd_soc_read(codec,
 					MSM8X16_WCD_A_DIGITAL_REVISION1);
-	dev_dbg(codec->dev, "%s :PMIC REV: %d", __func__,
+	msm8x16_wcd_priv->codec_version = snd_soc_read(codec,
+					MSM8X16_WCD_A_DIGITAL_PERPH_SUBTYPE);
+	if (msm8x16_wcd_priv->codec_version == 0x2)
+		dev_dbg(codec->dev, "%s :Conga REV: %d", __func__,
+					msm8x16_wcd_priv->codec_version);
+	else
+		dev_dbg(codec->dev, "%s :PMIC REV: %d", __func__,
 					msm8x16_wcd_priv->pmic_rev);
 	msm8x16_wcd_bringup(codec);
 	msm8x16_wcd_codec_init_reg(codec);

@@ -52,6 +52,13 @@ extern const u8 msm8x16_wcd_reg_readable[MSM8X16_WCD_CACHE_SIZE];
 extern const u8 msm8x16_wcd_reg_readonly[MSM8X16_WCD_CACHE_SIZE];
 extern const u8 msm8x16_wcd_reset_reg_defaults[MSM8X16_WCD_CACHE_SIZE];
 
+enum codec_versions {
+	TOMBAK_1_0,
+	TOMBAK_2_0,
+	CONGA,
+	UNSUPPORTED,
+};
+
 enum msm8x16_wcd_pid_current {
 	MSM8X16_WCD_PID_MIC_2P5_UA,
 	MSM8X16_WCD_PID_MIC_5_UA,
@@ -205,6 +212,7 @@ struct on_demand_supply {
 struct msm8x16_wcd_priv {
 	struct snd_soc_codec *codec;
 	u16 pmic_rev;
+	u16 codec_version;
 	u32 adc_count;
 	u32 rx_bias_count;
 	s32 dmic_1_2_clk_cnt;
