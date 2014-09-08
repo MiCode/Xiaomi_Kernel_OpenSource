@@ -42,6 +42,7 @@
 #include <linux/completion.h>
 #include <linux/clk/msm-clk.h>
 #include <linux/msm-bus.h>
+#include <linux/irq.h>
 #include <soc/qcom/scm.h>
 
 #include "dwc3_otg.h"
@@ -2715,6 +2716,7 @@ static int dwc3_msm_probe(struct platform_device *pdev)
 		dev_dbg(&pdev->dev, "pget_irq for hs_phy_irq failed\n");
 		mdwc->hs_phy_irq = 0;
 	} else {
+		irq_set_status_flags(mdwc->hs_phy_irq, IRQ_NOAUTOEN);
 		ret = devm_request_irq(&pdev->dev, mdwc->hs_phy_irq,
 				msm_dwc3_irq, IRQF_TRIGGER_RISING,
 			       "msm_dwc3", mdwc);
