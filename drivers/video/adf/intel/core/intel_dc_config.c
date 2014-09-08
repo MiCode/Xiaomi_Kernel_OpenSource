@@ -15,14 +15,12 @@
 
 #include "core/intel_dc_config.h"
 
-struct intel_dc_config_entry {
-	const u32 id;
-	struct intel_dc_config * (*get_dc_config)(const struct pci_dev *pdev,
-		u32 id);
-	void (*destroy_dc_config)(struct intel_dc_config *config);
-};
-
 static const struct intel_dc_config_entry g_dc_configs[] = {
+	{
+		.id = 0,
+		.get_dc_config = vlv_get_dc_config,
+		.destroy_dc_config = vlv_dc_config_destroy,
+	},
 };
 
 int intel_dc_component_init(struct intel_dc_component *component,
@@ -176,11 +174,15 @@ void intel_dc_config_add_plane(struct intel_dc_config *config,
 void intel_dc_config_add_pipe(struct intel_dc_config *config,
 	struct intel_pipe *pipe, u8 idx)
 {
-	if (!config || !pipe)
+	if (!config || !pipe) {
+		dev_err(config->dev, "%s: config or pipe is NULL\n", __func__);
 		return;
+	}
 
-	if (config->pipes[idx])
+	if (config->pipes[idx]) {
+		dev_err(config->dev, "%s: pipe already added\n", __func__);
 		return;
+	}
 
 	config->pipes[idx] = pipe;
 	config->n_pipes++;
@@ -256,8 +258,10 @@ struct intel_dc_config *intel_adf_get_dc_config(struct pci_dev *pdev, u32 id)
 		}
 	}
 
-	if (!config)
+	if (!config) {
+		dev_err(&pdev->dev, "%s: failed to get dc config\n", __func__);
 		return ERR_PTR(-EINVAL);
+	}
 
 	/*validate this config*/
 	err = intel_dc_config_validate(config);

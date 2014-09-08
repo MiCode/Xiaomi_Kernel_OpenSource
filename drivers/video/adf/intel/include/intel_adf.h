@@ -43,8 +43,7 @@ struct intel_adf_context {
 #endif
 };
 
-extern struct intel_adf_context *intel_adf_context_create(
-	struct pci_dev *pdev, void *pg);
+extern struct intel_adf_context *intel_adf_context_create(struct pci_dev *pdev);
 extern void intel_adf_context_destroy(struct intel_adf_context *ctx);
 extern int intel_adf_context_on_event(void);
 

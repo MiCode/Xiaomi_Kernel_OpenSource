@@ -29,6 +29,7 @@ struct intel_dc_component;
 struct intel_plane;
 struct intel_pipe;
 struct intel_dc_memory;
+struct intel_dc_power_ops;
 
 enum intel_plane_blending {
 	INTEL_PLANE_BLENDING_NONE,
@@ -105,6 +106,7 @@ struct intel_buffer {
 	u32 h;
 	u32 format;
 	u32 gtt_offset_in_pages;
+	u32 stride;
 };
 
 struct intel_dc_buffer {
@@ -298,6 +300,13 @@ struct intel_dc_config {
 	struct intel_dc_power *power;
 };
 
+struct intel_dc_config_entry {
+	const u32 id;
+	struct intel_dc_config * (*get_dc_config)(struct pci_dev *pdev,
+		u32 id);
+	void (*destroy_dc_config)(struct intel_dc_config *config);
+};
+
 static inline struct intel_plane *to_intel_plane(
 	struct intel_dc_component *component)
 {
@@ -310,7 +319,7 @@ static inline struct intel_pipe *to_intel_pipe(
 	return container_of(component, struct intel_pipe, base);
 }
 
-extern int intel_plane_init(struct intel_plane *plane, struct device *dev,
+extern int intel_adf_plane_init(struct intel_plane *plane, struct device *dev,
 	u8 idx, const struct intel_plane_capabilities *caps,
 	const struct intel_plane_ops *ops, const char *name);
 extern void intel_plane_destroy(struct intel_plane *plane);
@@ -370,5 +379,9 @@ extern void intel_dc_config_destroy(struct intel_dc_config *config);
 extern struct intel_dc_config *intel_adf_get_dc_config(
 	struct pci_dev *pdev, const u32 id);
 extern void intel_adf_destroy_config(struct intel_dc_config *config);
+
+/* Supported configs */
+extern struct intel_dc_config *vlv_get_dc_config(struct pci_dev *pdev, u32 id);
+extern void vlv_dc_config_destroy(struct intel_dc_config *config);
 
 #endif /* INTEL_DC_CONFIG_H_ */

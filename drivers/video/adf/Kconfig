@@ -25,6 +25,19 @@ config ADF_INTEL
 	help
 	  Enable ADF compatible Intel display driver.
 
+choice
+	prompt "Intel Gen Platform"
+	depends on ADF_INTEL
+	default ADF_INTEL_VLV
+	help
+	  The ADF driver supports multiple Intel GEN platforms. Select the targeted one.
+
+	config ADF_INTEL_VLV
+		bool "Valleyview"
+		help
+		  Intel VLV SoC Platform.
+endchoice
+
 config ADF_INTEL_FBDEV
 	depends on ADF_INTEL && ADF_FBDEV
 	tristate "Intel FBDEV Driver "

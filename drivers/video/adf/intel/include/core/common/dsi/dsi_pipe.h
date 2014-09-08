@@ -20,9 +20,7 @@
 
 #include "core/intel_dc_config.h"
 #include "core/common/dsi/dsi_config.h"
-#include "core/common/dsi/dsi_pkg_sender.h"
 #include "core/common/dsi/dsi_panel.h"
-#include "pwr_mgmt.h"
 #ifdef CONFIG_BACKLIGHT_CLASS_DEVICE
 #include "core/common/backlight_dev.h"
 #endif
@@ -58,7 +56,6 @@ struct dsi_pipe {
 	struct intel_pipe base;
 	struct dsi_pipe_ops ops;
 	struct dsi_config config;
-	struct dsi_pkg_sender sender;
 	struct dsi_panel *panel;
 };
 

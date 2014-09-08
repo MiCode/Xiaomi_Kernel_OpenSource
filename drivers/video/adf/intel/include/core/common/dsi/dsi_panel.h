@@ -20,7 +20,6 @@
 #include <linux/kernel.h>
 #include <linux/module.h>
 #include <drm/drm_mode.h>
-#include <linux/panel_psb_drv.h>
 
 struct dsi_pipe;
 

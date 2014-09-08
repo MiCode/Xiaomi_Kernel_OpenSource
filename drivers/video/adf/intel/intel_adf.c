@@ -204,8 +204,7 @@ void intel_adf_context_destroy(struct intel_adf_context *ctx)
 	g_adf_context = NULL;
 }
 
-struct intel_adf_context *intel_adf_context_create(struct pci_dev *pdev,
-	void *pg)
+struct intel_adf_context *intel_adf_context_create(struct pci_dev *pdev)
 {
 	struct intel_adf_context *ctx;
 	struct intel_adf_device *dev;
@@ -220,7 +219,7 @@ struct intel_adf_context *intel_adf_context_create(struct pci_dev *pdev,
 	u32 platform_id = 0;
 	int err;
 
-	if (!pdev || !pg)
+	if (!pdev)
 		return ERR_PTR(-EINVAL);
 
 	/*create ADF context*/
