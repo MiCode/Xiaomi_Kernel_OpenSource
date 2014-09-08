@@ -1871,6 +1871,8 @@ int i915_driver_load(struct drm_device *dev, unsigned long flags)
 
 	i915_perfmon_setup(dev_priv);
 
+	i915_perfmon_cleanup(dev_priv);
+
 	return 0;
 
 out_power_well:

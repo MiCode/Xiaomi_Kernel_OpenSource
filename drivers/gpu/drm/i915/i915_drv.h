@@ -2353,6 +2353,11 @@ extern void intel_uncore_check_errors(struct drm_device *dev);
 extern void intel_uncore_fini(struct drm_device *dev);
 extern void intel_uncore_forcewake_reset(struct drm_device *dev, bool restore);
 
+extern void gen8_enable_oa_interrupt(struct drm_i915_private *dev_priv,
+				     uint32_t mask);
+extern void gen8_disable_oa_interrupt(struct drm_i915_private *dev_priv,
+				     uint32_t mask);
+
 void
 i915_enable_pipestat(struct drm_i915_private *dev_priv, enum pipe pipe,
 		     u32 status_mask);

@@ -1702,7 +1702,7 @@ static irqreturn_t gen8_gt_irq_handler(struct drm_device *dev,
 				       u32 master_ctl)
 {
 	struct intel_engine_cs *ring;
-	u32 rcs, bcs, vcs;
+	u32 rcs, bcs, vcs, oacs;
 	uint32_t tmp = 0;
 	irqreturn_t ret = IRQ_NONE;
 
@@ -1775,6 +1775,22 @@ static irqreturn_t gen8_gt_irq_handler(struct drm_device *dev,
 				notify_ring(dev, ring);
 			if (vcs & GT_CONTEXT_SWITCH_INTERRUPT)
 				intel_execlists_handle_ctx_events(ring);
+		} else
+			DRM_ERROR("The master control interrupt lied (GT3)!\n");
+	}
+
+	if (master_ctl &  GEN8_GT_OACS_IRQ) {
+		tmp = I915_READ(GEN8_GT_IIR(3));
+		if (tmp) {
+			I915_WRITE(GEN8_GT_IIR(3), tmp);
+			ret = IRQ_HANDLED;
+
+			oacs = tmp >> GEN8_OACS_IRQ_SHIFT;
+			if (oacs & GT_RENDER_PERFMON_BUFFER_INTERRUPT) {
+				atomic_inc(
+					&dev_priv->perfmon.buffer_interrupts);
+				wake_up_all(&dev_priv->perfmon.buffer_queue);
+			}
 		} else
 			DRM_ERROR("The master control interrupt lied (GT3)!\n");
 	}
@@ -3204,6 +3220,24 @@ int i915_disable_hdmi_audio_int(struct drm_device *dev)
 }
 #endif
 
+void gen8_enable_oa_interrupt(struct drm_i915_private *dev_priv, uint32_t mask)
+{
+	u32 imr;
+	assert_spin_locked(&dev_priv->irq_lock);
+	imr = I915_READ(GEN8_OA_IMR);
+	imr &= ~(mask << GEN8_OACS_IRQ_SHIFT);
+	I915_WRITE(GEN8_OA_IMR, imr);
+}
+
+void gen8_disable_oa_interrupt(struct drm_i915_private *dev_priv, uint32_t mask)
+{
+	u32 imr;
+	assert_spin_locked(&dev_priv->irq_lock);
+	imr = I915_READ(GEN8_OA_IMR);
+	imr |= (mask << GEN8_OACS_IRQ_SHIFT);
+	I915_WRITE(GEN8_OA_IMR, imr);
+}
+
 static void ironlake_disable_vblank(struct drm_device *dev, int pipe)
 {
 	struct drm_i915_private *dev_priv = dev->dev_private;
@@ -3930,7 +3964,9 @@ static void gen8_gt_irq_postinstall(struct drm_i915_private *dev_priv)
 			GT_CONTEXT_SWITCH_INTERRUPT << GEN8_VCS2_IRQ_SHIFT,
 		0,
 		GT_RENDER_USER_INTERRUPT << GEN8_VECS_IRQ_SHIFT |
-			GT_CONTEXT_SWITCH_INTERRUPT << GEN8_VECS_IRQ_SHIFT
+			GT_CONTEXT_SWITCH_INTERRUPT << GEN8_VECS_IRQ_SHIFT |
+			GT_RENDER_PERFMON_BUFFER_INTERRUPT <<
+				GEN8_OACS_IRQ_SHIFT
 		};
 
 	dev_priv->pm_irq_mask = 0xffffffff;

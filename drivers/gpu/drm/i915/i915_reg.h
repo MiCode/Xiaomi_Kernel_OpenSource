@@ -4784,6 +4784,7 @@ enum punit_power_well {
 #define  GEN8_DE_PIPE_B_IRQ		(1<<17)
 #define  GEN8_DE_PIPE_A_IRQ		(1<<16)
 #define  GEN8_DE_PIPE_IRQ(pipe)		(1<<(16+pipe))
+#define  GEN8_GT_OACS_IRQ		(1<<7)
 #define  GEN8_GT_VECS_IRQ		(1<<6)
 #define  GEN8_GT_PM_IRQ			(1<<4)
 #define  GEN8_GT_VCS2_IRQ		(1<<3)
@@ -4801,6 +4802,7 @@ enum punit_power_well {
 #define GEN8_VCS2_IRQ_SHIFT 16
 #define GEN8_VCS1_IRQ_SHIFT 0
 #define GEN8_VECS_IRQ_SHIFT 0
+#define GEN8_OACS_IRQ_SHIFT 19
 
 #define GEN8_DE_PIPE_ISR(pipe) (0x44400 + (0x10 * (pipe)))
 #define GEN8_DE_PIPE_IMR(pipe) (0x44404 + (0x10 * (pipe)))
@@ -4840,6 +4842,8 @@ enum punit_power_well {
 #define GEN8_PCU_IMR 0x444e4
 #define GEN8_PCU_IIR 0x444e8
 #define GEN8_PCU_IER 0x444ec
+
+#define GEN8_OA_IMR  0x2b20
 
 #define ILK_DISPLAY_CHICKEN2	0x42004
 /* Required on all Ironlake and Sandybridge according to the B-Spec. */
