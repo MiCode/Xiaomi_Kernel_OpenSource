@@ -1760,7 +1760,7 @@ static int select_best_cpu(struct task_struct *p, int target, int reason)
 	int small_task = is_small_task(p);
 	int boost = sched_boost();
 
-	trace_sched_task_load(p, boost, reason);
+	trace_sched_task_load(p, small_task, boost, reason);
 
 	if (small_task && !boost) {
 		best_cpu = best_small_task_cpu(p);
