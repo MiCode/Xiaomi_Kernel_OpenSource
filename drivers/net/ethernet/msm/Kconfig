@@ -2,6 +2,12 @@
 # msm network device configuration
 #
 
+config ECM_IPA
+	tristate "STD ECM LAN Driver support"
+	depends on IPA
+	help
+	  Allows LAN between Apps and tethered HOST on STD ECM
+
 config RNDIS_IPA
 	tristate "RNDIS_IPA Network Interface Driver support"
 	depends on IPA
