@@ -614,6 +614,32 @@ static int arizona_runtime_resume(struct device *dev)
 		goto err;
 	}
 
+	switch(arizona->type) {
+	case WM5102:
+	case WM8997:
+	case WM8998:
+	case WM1814:
+		/* Restore DVFS setting */
+		ret = 0;
+		mutex_lock(&arizona->subsys_max_lock);
+		if (arizona->subsys_max_rq != 0) {
+			ret = regmap_update_bits(arizona->regmap,
+				ARIZONA_DYNAMIC_FREQUENCY_SCALING_1,
+				ARIZONA_SUBSYS_MAX_FREQ, 1);
+		}
+		mutex_unlock(&arizona->subsys_max_lock);
+
+		if (ret != 0) {
+			dev_err(arizona->dev,
+				"Failed to enable subsys max: %d\n",
+				ret);
+			goto err;
+		}
+		break;
+	default:
+		break;
+	}
+
 	return 0;
 
 err:
@@ -628,6 +654,20 @@ static int arizona_runtime_suspend(struct device *dev)
 	int ret;
 
 	dev_dbg(arizona->dev, "Entering AoD mode\n");
+
+	switch(arizona->type) {
+	case WM5102:
+	case WM8997:
+	case WM8998:
+	case WM1814:
+		/* Must disable DVFS boost before powering down DCVDD */
+		regmap_update_bits(arizona->regmap,
+			ARIZONA_DYNAMIC_FREQUENCY_SCALING_1,
+			ARIZONA_SUBSYS_MAX_FREQ, 0);
+		break;
+	default:
+		break;
+	}
 
 	if (arizona->external_dcvdd) {
 		ret = regmap_update_bits(arizona->regmap,
