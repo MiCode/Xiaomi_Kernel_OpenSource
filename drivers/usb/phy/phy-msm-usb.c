@@ -3783,6 +3783,18 @@ out:
 		return;
 	}
 
+	if (motg->is_ext_chg_dcp) {
+		if (test_bit(B_SESS_VLD, &motg->inputs)) {
+			msm_otg_notify_charger(motg, IDEV_CHG_MAX);
+		} else {
+			motg->is_ext_chg_dcp = false;
+			motg->chg_state = USB_CHG_STATE_UNDEFINED;
+			motg->chg_type = USB_INVALID_CHARGER;
+			msm_otg_notify_charger(motg, 0);
+		}
+		return;
+	}
+
 	if (atomic_read(&motg->pm_suspended)) {
 		motg->sm_work_pending = true;
 	} else if (!motg->sm_work_pending) {
@@ -4216,8 +4228,11 @@ static int otg_power_set_property_usb(struct power_supply *psy,
 			break;
 		}
 
-		if (motg->chg_type != USB_INVALID_CHARGER)
+		if (motg->chg_type != USB_INVALID_CHARGER) {
+			if (motg->chg_type == USB_DCP_CHARGER)
+				motg->is_ext_chg_dcp = true;
 			motg->chg_state = USB_CHG_STATE_DETECTED;
+		}
 
 		dev_dbg(motg->phy.dev, "%s: charger type = %s\n", __func__,
 			chg_to_string(motg->chg_type));
