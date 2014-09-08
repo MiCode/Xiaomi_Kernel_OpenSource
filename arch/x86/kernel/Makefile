@@ -106,6 +106,7 @@ obj-$(CONFIG_PERF_EVENTS)		+= perf_regs.o
 obj-$(CONFIG_TRACING)			+= tracepoint.o
 obj-$(CONFIG_IOSF_MBI)			+= iosf_mbi.o
 obj-$(CONFIG_PMC_ATOM)          += pmc_atom.o
+obj-$(CONFIG_INTEL_SOC_NC_STATE)	+= intel_nc_dev_state.o
 
 
 ###

@@ -2456,6 +2456,13 @@ config PMC_ATOM
 	def_bool y
         depends on PCI
 
+config INTEL_SOC_NC_STATE
+	bool "North Complex devices power state driver"
+	def_bool y
+	---help---
+		This is a debug driver which gets the power states
+		of all North Complex devices
+
 source "net/Kconfig"
 
 source "drivers/Kconfig"
