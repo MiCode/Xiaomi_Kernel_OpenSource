@@ -408,10 +408,18 @@ static int dw_i2c_suspend(struct device *dev)
 	struct platform_device *pdev = to_platform_device(dev);
 	struct dw_i2c_dev *i_dev = platform_get_drvdata(pdev);
 
-	if (!i_dev->shared_host) {
-		i2c_dw_disable(i_dev);
-		clk_disable_unprepare(i_dev->clk);
+	if (i_dev->shared_host && i_dev->acquire_ownership) {
+		if (i_dev->acquire_ownership() < 0) {
+			dev_WARN(i_dev->dev, "Couldn't acquire ownership\n");
+			return 0;
+		}
 	}
+
+	i2c_dw_disable(i_dev);
+	clk_disable_unprepare(i_dev->clk);
+
+	if (i_dev->shared_host && i_dev->release_ownership)
+		i_dev->release_ownership();
 
 	return 0;
 }
@@ -421,11 +429,19 @@ static int dw_i2c_resume(struct device *dev)
 	struct platform_device *pdev = to_platform_device(dev);
 	struct dw_i2c_dev *i_dev = platform_get_drvdata(pdev);
 
-
-	if (!i_dev->shared_host) {
-		clk_prepare_enable(i_dev->clk);
-		i2c_dw_init(i_dev);
+	if (i_dev->shared_host && i_dev->acquire_ownership) {
+		if (i_dev->acquire_ownership() < 0) {
+			dev_WARN(i_dev->dev, "Couldn't acquire ownership\n");
+			return 0;
+		}
 	}
+
+	clk_prepare_enable(i_dev->clk);
+	i2c_dw_init(i_dev);
+
+	if (i_dev->shared_host && i_dev->release_ownership)
+		i_dev->release_ownership();
+
 	return 0;
 }
 #endif
