@@ -1869,6 +1869,8 @@ int i915_driver_load(struct drm_device *dev, unsigned long flags)
 
 	intel_init_runtime_pm(dev_priv);
 
+	i915_perfmon_setup(dev_priv);
+
 	return 0;
 
 out_power_well:
@@ -2002,6 +2004,8 @@ int i915_driver_unload(struct drm_device *dev)
 
 	pci_dev_put(dev_priv->bridge_dev);
 	kfree(dev_priv);
+
+	i915_perfmon_cleanup(dev_priv);
 
 	return 0;
 }

@@ -1679,8 +1679,8 @@ static void snb_gt_irq_handler(struct drm_device *dev,
 	}
 
 	if (gt_iir & GT_RENDER_PERFMON_BUFFER_INTERRUPT) {
-		atomic_inc(&dev_priv->perfmon_buffer_interrupts);
-		wake_up_all(&dev_priv->perfmon_buffer_queue);
+		atomic_inc(&dev_priv->perfmon.buffer_interrupts);
+		wake_up_all(&dev_priv->perfmon.buffer_queue);
 	}
 }
 

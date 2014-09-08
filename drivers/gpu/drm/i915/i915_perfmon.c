@@ -65,26 +65,26 @@ static int intel_wait_perfmon_interrupt(struct drm_device *dev,
 						int timeout_ms)
 {
 	struct drm_i915_private *dev_priv = dev->dev_private;
-	int counter = atomic_read(&dev_priv->perfmon_buffer_interrupts);
-	int retcode = I915_PERFMON_IRQ_WAIT_OK;
+	int counter = atomic_read(&dev_priv->perfmon.buffer_interrupts);
+	int ret = I915_PERFMON_IRQ_WAIT_OK;
 	int time_left = 0;
 
 	if (!(IS_GEN7(dev)))
 		return -EINVAL;
 
 	time_left = wait_event_interruptible_timeout(
-		dev_priv->perfmon_buffer_queue,
-		atomic_read(&dev_priv->perfmon_buffer_interrupts) != counter,
+		dev_priv->perfmon.buffer_queue,
+		atomic_read(&dev_priv->perfmon.buffer_interrupts) != counter,
 		timeout_ms * HZ / 1000);
 
 	if (time_left == 0)
-		retcode = I915_PERFMON_IRQ_WAIT_TIMEOUT;
+		ret = I915_PERFMON_IRQ_WAIT_TIMEOUT;
 	else if (time_left == -ERESTARTSYS)
-		retcode = I915_PERFMON_IRQ_WAIT_INTERRUPTED;
+		ret = I915_PERFMON_IRQ_WAIT_INTERRUPTED;
 	else if (time_left < 0)
-		retcode = I915_PERFMON_IRQ_WAIT_FAILED;
+		ret = I915_PERFMON_IRQ_WAIT_FAILED;
 
-	return retcode;
+	return ret;
 }
 
 /**
@@ -161,3 +161,14 @@ int i915_perfmon_ioctl(struct drm_device *dev, void *data,
 
 	return ret;
 }
+
+void i915_perfmon_setup(struct drm_i915_private *dev_priv)
+{
+	atomic_set(&dev_priv->perfmon.buffer_interrupts, 0);
+	init_waitqueue_head(&dev_priv->perfmon.buffer_queue);
+}
+
+void i915_perfmon_cleanup(struct drm_i915_private *dev_priv)
+{
+}
+

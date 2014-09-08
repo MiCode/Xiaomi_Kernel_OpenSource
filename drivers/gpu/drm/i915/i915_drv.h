@@ -50,6 +50,7 @@
 #ifdef CONFIG_SUPPORT_LPDMA_HDMI_AUDIO
 	#include "hdmi_audio_if.h"
 #endif
+#include "i915_perfmon_defs.h"
 
 
 /* General customization:
@@ -1717,10 +1718,20 @@ struct drm_i915_private {
 
 	struct i915_workarounds workarounds;
 
-	/* perfmon interrupt support */
-	wait_queue_head_t perfmon_buffer_queue;
-	atomic_t perfmon_buffer_interrupts;
+	struct drm_i915_perfmon_device perfmon;
 
+	/*
+	 * workarounds are currently applied at different places and
+	 * changes are being done to consolidate them so exact count is
+	 * not clear at this point, use a max value for now.
+	 */
+#define I915_MAX_WA_REGS  16
+	struct {
+		u32 addr;
+		u32 value;
+		/* bitmask representing WA bits */
+		u32 mask;
+	} intel_wa_regs[I915_MAX_WA_REGS];
 	u32 num_wa_regs;
 
 	/* Reclocking support */
@@ -3004,6 +3015,8 @@ int vlv_freq_opcode(struct drm_i915_private *dev_priv, int val);
 /* i195_perfmon.c */
 int i915_perfmon_ioctl(struct drm_device *dev, void *data,
 	struct drm_file *file);
+void i915_perfmon_setup(struct drm_i915_private *dev_priv);
+void i915_perfmon_cleanup(struct drm_i915_private *dev_priv);
 
 extern void i915_write_bits32(struct drm_i915_private *dev_priv,
 	u32 reg, u32 val, u32 mask, bool trace);

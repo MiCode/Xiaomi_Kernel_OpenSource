@@ -5189,9 +5189,6 @@ i915_gem_load(struct drm_device *dev)
 	i915_gem_detect_bit_6_swizzle(dev);
 	init_waitqueue_head(&dev_priv->pending_flip_queue);
 
-	atomic_set(&dev_priv->perfmon_buffer_interrupts, 0);
-	init_waitqueue_head(&dev_priv->perfmon_buffer_queue);
-
 	dev_priv->mm.interruptible = true;
 
 	dev_priv->mm.shrinker.scan_objects = i915_gem_shrinker_scan;
