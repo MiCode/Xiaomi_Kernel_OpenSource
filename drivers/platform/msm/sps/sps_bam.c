@@ -132,6 +132,7 @@ int sps_bam_check_irq(struct sps_bam *dev)
 
 	spin_lock_irqsave(&dev->isr_lock, flags);
 
+polling:
 	/* Get BAM interrupt source(s) */
 	if ((dev->state & BAM_STATE_MTI) == 0) {
 		u32 mask = dev->pipe_active_mask;
@@ -179,6 +180,26 @@ int sps_bam_check_irq(struct sps_bam *dev)
 		SPS_ERR("sps:IRQ from BAM %pa inactive pipe(s) 0x%x\n",
 			BAM_ID(dev), source);
 		dev->irq_from_disabled_pipe++;
+	}
+
+	if (dev->props.options & SPS_BAM_RES_CONFIRM) {
+		u32 mask = dev->pipe_active_mask;
+		enum sps_callback_case cb_case;
+		source = bam_check_irq_source(dev->base, dev->props.ee,
+						mask, &cb_case);
+
+		SPS_DBG1(
+			"sps:check if there is any new IRQ coming:bam=%pa;source=0x%x;mask=0x%x.\n",
+				BAM_ID(dev), source, mask);
+
+		if ((source & (1UL << 31)) && (dev->props.callback)) {
+			SPS_DBG1("sps:bam=%pa;callback for case %d.\n",
+				BAM_ID(dev), cb_case);
+			dev->props.callback(cb_case, dev->props.user);
+		}
+
+		if (source)
+			goto polling;
 	}
 
 	spin_unlock_irqrestore(&dev->isr_lock, flags);
