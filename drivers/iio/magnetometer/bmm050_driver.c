@@ -1466,6 +1466,14 @@ static int bmm_resume(struct device *dev)
 
 	dev_dbg(&client->dev, "function entrance %s", __func__);
 
+	/* Soft reset the chipset */
+	BMM_CALL_API(soft_reset)();
+	mdelay(BMM_I2C_WRITE_DELAY_TIME);
+
+	/* Wake it up */
+	bmm_wakeup(client);
+
+	/* And then restore the HW configuration */
 	mutex_lock(&client_data->mutex_power_mode);
 	err = bmm_restore_hw_cfg(client);
 	/* post resume operation */
