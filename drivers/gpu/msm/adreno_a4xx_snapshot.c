@@ -402,7 +402,7 @@ void a4xx_snapshot(struct adreno_device *adreno_dev,
 	_snapshot_a3xx_regs(regs, &list, a4xx_sp_tp_registers,
 			a4xx_sp_tp_registers_count, 0);
 
-	if (!adreno_is_a405(adreno_dev) && !adreno_is_a430(adreno_dev)) {
+	if (adreno_is_a420(adreno_dev)) {
 		_snapshot_a3xx_regs(regs, &list, a4xx_xpu_registers,
 				a4xx_xpu_reg_cnt, 1);
 	}
