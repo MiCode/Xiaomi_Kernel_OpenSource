@@ -1277,6 +1277,13 @@ static int wcd9xxx_i2c_probe(struct i2c_client *client,
 			dev_dbg(&client->dev, "%s:Platform data\n"
 				"from device tree\n", __func__);
 			pdata = wcd9xxx_populate_dt_pdata(&client->dev);
+			if (!pdata) {
+				dev_err(&client->dev,
+					"%s: Fail to obtain pdata from device tree\n",
+					 __func__);
+				ret = -EINVAL;
+				goto fail;
+			}
 			client->dev.platform_data = pdata;
 		} else {
 			dev_dbg(&client->dev, "%s:Platform data from\n"
@@ -1840,6 +1847,14 @@ static int wcd9xxx_slim_probe(struct slim_device *slim)
 	if (slim->dev.of_node) {
 		dev_info(&slim->dev, "Platform data from device tree\n");
 		pdata = wcd9xxx_populate_dt_pdata(&slim->dev);
+		if (!pdata) {
+			dev_err(&slim->dev,
+				"%s: Fail to obtain pdata from device tree\n",
+				__func__);
+			ret = -EINVAL;
+			goto err;
+		}
+
 		ret = wcd9xxx_dt_parse_slim_interface_dev_info(&slim->dev,
 				&pdata->slimbus_slave_device);
 		if (ret) {
