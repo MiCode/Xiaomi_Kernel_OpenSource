@@ -389,6 +389,7 @@ typedef struct dhd_pub {
 	char enable_log[MAX_EVENT];
 	bool dma_d2h_ring_upd_support;
 	bool dma_h2d_ring_upd_support;
+	int  short_dwell_time;
 #ifdef DHD_WMF
 	bool wmf_ucast_igmp;
 #ifdef DHD_IGMP_UCQUERY
@@ -661,6 +662,10 @@ extern void dhd_os_sdunlock_eventq(dhd_pub_t * pub);
 extern bool dhd_os_check_hang(dhd_pub_t *dhdp, int ifidx, int ret);
 extern int dhd_os_send_hang_message(dhd_pub_t *dhdp);
 extern void dhd_set_version_info(dhd_pub_t *pub, char *fw);
+extern void dhd_set_short_dwell_time(dhd_pub_t *dhd, int set);
+#ifdef CUSTOM_SET_SHORT_DWELL_TIME
+extern void net_set_short_dwell_time(struct net_device *dev, int set);
+#endif
 extern bool dhd_os_check_if_up(dhd_pub_t *pub);
 extern int dhd_os_check_wakelock(dhd_pub_t *pub);
 extern int dhd_os_check_wakelock_all(dhd_pub_t *pub);

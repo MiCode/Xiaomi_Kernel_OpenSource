@@ -9489,6 +9489,9 @@ wl_notify_sched_scan_results(struct bcm_cfg80211 *cfg, struct net_device *ndev,
 		}
 
 		wl_set_drv_status(cfg, SCANNING, ndev);
+#ifdef CUSTOM_SET_SHORT_DWELL_TIME
+		net_set_short_dwell_time(ndev, FALSE);
+#endif
 #if FULL_ESCAN_ON_PFN_NET_FOUND
 		WL_PNO((">>> Doing Full ESCAN on PNO event\n"));
 		err = wl_do_escan(cfg, wiphy, ndev, NULL);

@@ -1406,7 +1406,9 @@ static int dhd_set_suspend(int value, dhd_pub_t *dhd)
 #endif
 				/* Kernel suspended */
 				DHD_ERROR(("%s: force extra Suspend setting \n", __FUNCTION__));
-
+#ifdef CUSTOM_SET_SHORT_DWELL_TIME
+				dhd_set_short_dwell_time(dhd, TRUE);
+#endif
 #ifndef SUPPORT_PM2_ONLY
 				dhd_wl_ioctl_cmd(dhd, WLC_SET_PM, (char *)&power_mode,
 				                 sizeof(power_mode), TRUE, 0);
@@ -1449,7 +1451,9 @@ static int dhd_set_suspend(int value, dhd_pub_t *dhd)
 #endif
 				/* Kernel resumed  */
 				DHD_ERROR(("%s: Remove extra suspend setting \n", __FUNCTION__));
-
+#ifdef CUSTOM_SET_SHORT_DWELL_TIME
+				dhd_set_short_dwell_time(dhd, FALSE);
+#endif
 #ifndef SUPPORT_PM2_ONLY
 				power_mode = PM_FAST;
 				dhd_wl_ioctl_cmd(dhd, WLC_SET_PM, (char *)&power_mode,
@@ -4434,6 +4438,9 @@ dhd_attach(osl_t *osh, struct dhd_bus *bus, uint bus_hdrlen)
 		dhd->pub.dhd_cspec.country_abbrev, &dhd->pub.dhd_cspec,
 		dhd->pub.dhd_cflags);
 #endif /* CUSTOM_COUNTRY_CODE */
+
+	dhd->pub.short_dwell_time = -1;
+
 	dhd->thr_dpc_ctl.thr_pid = DHD_PID_KT_TL_INVALID;
 	dhd->thr_wdt_ctl.thr_pid = DHD_PID_KT_INVALID;
 
@@ -5125,9 +5132,6 @@ dhd_preinit_ioctls(dhd_pub_t *dhd)
 #if defined(ARP_OFFLOAD_SUPPORT)
 	int arpoe = 1;
 #endif
-	int scan_assoc_time = DHD_SCAN_ASSOC_ACTIVE_TIME;
-	int scan_unassoc_time = DHD_SCAN_UNASSOC_ACTIVE_TIME;
-	int scan_passive_time = DHD_SCAN_PASSIVE_TIME;
 	char buf[WLC_IOCTL_SMLEN];
 	char *ptr;
 	uint32 listen_interval = CUSTOM_LISTEN_INTERVAL; /* Default Listen Interval in Beacons */
@@ -5666,12 +5670,7 @@ dhd_preinit_ioctls(dhd_pub_t *dhd)
 	} /* unsupported is ok */
 	kfree(eventmask_msg);
 
-	dhd_wl_ioctl_cmd(dhd, WLC_SET_SCAN_CHANNEL_TIME, (char *)&scan_assoc_time,
-		sizeof(scan_assoc_time), TRUE, 0);
-	dhd_wl_ioctl_cmd(dhd, WLC_SET_SCAN_UNASSOC_TIME, (char *)&scan_unassoc_time,
-		sizeof(scan_unassoc_time), TRUE, 0);
-	dhd_wl_ioctl_cmd(dhd, WLC_SET_SCAN_PASSIVE_TIME, (char *)&scan_passive_time,
-		sizeof(scan_passive_time), TRUE, 0);
+	dhd_set_short_dwell_time(dhd, FALSE);
 
 #ifdef ARP_OFFLOAD_SUPPORT
 	/* Set and enable ARP offload feature for STA only  */
@@ -8331,6 +8330,39 @@ int dhd_get_instance(dhd_pub_t *dhdp)
 	return dhdp->info->unit;
 }
 
+void dhd_set_short_dwell_time(dhd_pub_t *dhd, int set)
+{
+	int scan_assoc_time = DHD_SCAN_ASSOC_ACTIVE_TIME;
+	int scan_unassoc_time = DHD_SCAN_UNASSOC_ACTIVE_TIME;
+	int scan_passive_time = DHD_SCAN_PASSIVE_TIME;
+
+	DHD_TRACE(("%s: Enter: %d\n", __FUNCTION__, set));
+	if (dhd->short_dwell_time != set) {
+		dhd->short_dwell_time = set;
+		if (set) {
+			scan_assoc_time = DHD_SCAN_ASSOC_ACTIVE_TIME >> 1;
+			scan_unassoc_time = DHD_SCAN_UNASSOC_ACTIVE_TIME >> 1;
+		}
+		dhd_wl_ioctl_cmd(dhd, WLC_SET_SCAN_CHANNEL_TIME,
+				(char *)&scan_assoc_time,
+				sizeof(scan_assoc_time), TRUE, 0);
+		dhd_wl_ioctl_cmd(dhd, WLC_SET_SCAN_UNASSOC_TIME,
+				(char *)&scan_unassoc_time,
+				sizeof(scan_unassoc_time), TRUE, 0);
+		dhd_wl_ioctl_cmd(dhd, WLC_SET_SCAN_PASSIVE_TIME,
+				(char *)&scan_passive_time,
+				sizeof(scan_passive_time), TRUE, 0);
+	}
+}
+
+#ifdef CUSTOM_SET_SHORT_DWELL_TIME
+void net_set_short_dwell_time(struct net_device *dev, int set)
+{
+	dhd_info_t *dhd = DHD_DEV_INFO(dev);
+
+	dhd_set_short_dwell_time(&dhd->pub, set);
+}
+#endif
 
 #ifdef PROP_TXSTATUS
 
