@@ -2648,11 +2648,14 @@ static void i9xx_update_primary_plane(struct drm_crtc *crtc,
 	dspcntr = I915_READ(reg);
 	/* Mask out pixel format bits in case we change it */
 	dspcntr &= ~DISPPLANE_PIXFORMAT_MASK;
+
 	switch (fb->pixel_format) {
 	case DRM_FORMAT_C8:
 		dspcntr |= DISPPLANE_8BPP;
 		break;
 	case DRM_FORMAT_XRGB1555:
+		dspcntr |= DISPPLANE_BGRX555;
+		break;
 	case DRM_FORMAT_ARGB1555:
 		if (intel_crtc->primary_alpha)
 			dspcntr |= DISPPLANE_BGRA555;
@@ -2663,6 +2666,8 @@ static void i9xx_update_primary_plane(struct drm_crtc *crtc,
 		dspcntr |= DISPPLANE_BGRX565;
 		break;
 	case DRM_FORMAT_XRGB8888:
+		dspcntr |= DISPPLANE_BGRX888;
+		break;
 	case DRM_FORMAT_ARGB8888:
 		if (intel_crtc->primary_alpha)
 			dspcntr |= DISPPLANE_BGRA888;
@@ -2670,6 +2675,8 @@ static void i9xx_update_primary_plane(struct drm_crtc *crtc,
 			dspcntr |= DISPPLANE_BGRX888;
 		break;
 	case DRM_FORMAT_XBGR8888:
+		dspcntr |= DISPPLANE_RGBX888;
+		break;
 	case DRM_FORMAT_ABGR8888:
 		if (intel_crtc->primary_alpha)
 			dspcntr |= DISPPLANE_RGBA888;
@@ -2681,6 +2688,8 @@ static void i9xx_update_primary_plane(struct drm_crtc *crtc,
 		dspcntr |= DISPPLANE_BGRX101010;
 		break;
 	case DRM_FORMAT_XBGR2101010:
+		dspcntr |= DISPPLANE_RGBX101010;
+		break;
 	case DRM_FORMAT_ABGR2101010:
 		if (intel_crtc->primary_alpha)
 			dspcntr |= DISPPLANE_RGBA101010;
@@ -2852,6 +2861,8 @@ static int hsw_set_pixelformat(struct drm_crtc *crtc, u32 pixel_format)
 		dspcntr |= DISPPLANE_8BPP;
 		break;
 	case DRM_FORMAT_XRGB1555:
+		dspcntr |= DISPPLANE_BGRX555;
+		break;
 	case DRM_FORMAT_ARGB1555:
 		if (intel_crtc->primary_alpha)
 			dspcntr |= DISPPLANE_BGRA555;
@@ -2862,6 +2873,8 @@ static int hsw_set_pixelformat(struct drm_crtc *crtc, u32 pixel_format)
 		dspcntr |= DISPPLANE_BGRX565;
 		break;
 	case DRM_FORMAT_XRGB8888:
+		dspcntr |= DISPPLANE_BGRX888;
+		break;
 	case DRM_FORMAT_ARGB8888:
 		if (intel_crtc->primary_alpha)
 			dspcntr |= DISPPLANE_BGRA888;
@@ -2869,6 +2882,8 @@ static int hsw_set_pixelformat(struct drm_crtc *crtc, u32 pixel_format)
 			dspcntr |= DISPPLANE_BGRX888;
 		break;
 	case DRM_FORMAT_XBGR8888:
+		dspcntr |= DISPPLANE_RGBX888;
+		break;
 	case DRM_FORMAT_ABGR8888:
 		if (intel_crtc->primary_alpha)
 			dspcntr |= DISPPLANE_RGBA888;
@@ -2880,6 +2895,8 @@ static int hsw_set_pixelformat(struct drm_crtc *crtc, u32 pixel_format)
 		dspcntr |= DISPPLANE_BGRX101010;
 		break;
 	case DRM_FORMAT_XBGR2101010:
+		dspcntr |= DISPPLANE_RGBX101010;
+		break;
 	case DRM_FORMAT_ABGR2101010:
 		if (intel_crtc->primary_alpha)
 			dspcntr |= DISPPLANE_RGBA101010;
@@ -12168,7 +12185,12 @@ static void intel_crtc_init(struct drm_device *dev, int pipe)
 	drm_crtc_helper_add(&intel_crtc->base, &intel_helper_funcs);
 	intel_crtc->sprite_unpin_work = NULL;
 
-	intel_crtc->primary_alpha = false;
+	/*
+	 * The alpha flags are used to force alpha off when a plane is at the
+	 * bottom of the stack. The default is true, to ensure that formats
+	 * with Alpha use alpha, unless overridden by setting z-order
+	 */
+	intel_crtc->primary_alpha = true;
 	intel_crtc->sprite0_alpha = true;
 	intel_crtc->sprite1_alpha = true;
 	intel_crtc->rotate180 = false;
