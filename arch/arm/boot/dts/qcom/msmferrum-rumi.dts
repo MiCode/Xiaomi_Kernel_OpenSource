@@ -25,6 +25,16 @@
 	timer {
 		clock-frequency = <5000000>;
 	};
+
+	clock_gcc: qcom,gcc@1800000 {
+		compatible = "qcom,dummycc";
+		#clock-cells = <1>;
+	};
+
+	clock_rpm: qcom,rpmcc@1800000 {
+		compatible = "qcom,dummycc";
+		#clock-cells = <1>;
+	};
 };
 
 &blsp1_uart2 {
