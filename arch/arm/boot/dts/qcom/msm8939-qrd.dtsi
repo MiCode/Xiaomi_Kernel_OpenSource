@@ -190,4 +190,5 @@
 	vdd-apc-supply = <&fan53555>;
 	qcom,cpr-step-quotient = <26>;
 	qcom,cpr-apc-volt-step = <12500>;
+	qcom,cpr-up-threshold = <2>;
 };
