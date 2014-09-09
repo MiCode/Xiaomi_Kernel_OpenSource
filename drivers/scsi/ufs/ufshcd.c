@@ -2642,42 +2642,12 @@ int ufshcd_uic_pwr_ctrl(struct ufs_hba *hba, struct uic_command *cmd)
 	unsigned long flags;
 	u8 status;
 	int ret;
-	u32 tm_doorbell;
-	u32 tr_doorbell;
-	bool uic_ready;
-	int retries = POWER_MODE_RETRIES;
 
 	mutex_lock(&hba->uic_cmd_mutex);
 	init_completion(&uic_async_done);
 
-	/*
-	 * Before changing the power mode there should be no outstanding
-	 * tasks/transfer requests. Verify by checking the doorbell registers
-	 * are clear.
-	 */
-	do {
-		spin_lock_irqsave(hba->host->host_lock, flags);
-		uic_ready = ufshcd_ready_for_uic_cmd(hba);
-		tm_doorbell = ufshcd_readl(hba, REG_UTP_TASK_REQ_DOOR_BELL);
-		tr_doorbell = ufshcd_readl(hba, REG_UTP_TRANSFER_REQ_DOOR_BELL);
-		if (!tm_doorbell && !tr_doorbell && uic_ready)
-			break;
-
-		spin_unlock_irqrestore(hba->host->host_lock, flags);
-		schedule();
-		retries--;
-	} while (retries && (tm_doorbell || tr_doorbell || !uic_ready));
-
-	if (!retries) {
-		dev_err(hba->dev,
-			"%s: too many retries waiting for doorbell to clear (tm=0x%x, tr=0x%x, uicrdy=%d)\n",
-			__func__, tm_doorbell, tr_doorbell, uic_ready);
-		ret = -EBUSY;
-		goto out;
-	}
-
+	spin_lock_irqsave(hba->host->host_lock, flags);
 	hba->uic_async_done = &uic_async_done;
-
 	ret = __ufshcd_send_uic_cmd(hba, cmd);
 	spin_unlock_irqrestore(hba->host->host_lock, flags);
 	if (ret) {
@@ -2715,6 +2685,52 @@ out:
 	hba->uic_async_done = NULL;
 	spin_unlock_irqrestore(hba->host->host_lock, flags);
 	mutex_unlock(&hba->uic_cmd_mutex);
+	return ret;
+}
+
+int ufshcd_wait_for_doorbell_clr(struct ufs_hba *hba, u64 wait_timeout_us)
+{
+	unsigned long flags;
+	int ret = 0;
+	u32 tm_doorbell;
+	u32 tr_doorbell;
+	bool timeout = false;
+	ktime_t start = ktime_get();
+
+	spin_lock_irqsave(hba->host->host_lock, flags);
+	if (hba->ufshcd_state != UFSHCD_STATE_OPERATIONAL) {
+		ret = -EBUSY;
+		goto out;
+	}
+
+	/*
+	 * Wait for all the outstanding tasks/transfer requests.
+	 * Verify by checking the doorbell registers are clear.
+	 */
+	do {
+		tm_doorbell = ufshcd_readl(hba, REG_UTP_TASK_REQ_DOOR_BELL);
+		tr_doorbell = ufshcd_readl(hba, REG_UTP_TRANSFER_REQ_DOOR_BELL);
+		if (!tm_doorbell && !tr_doorbell) {
+			timeout = false;
+			break;
+		}
+
+		spin_unlock_irqrestore(hba->host->host_lock, flags);
+		schedule();
+		if (ktime_to_us(ktime_sub(ktime_get(), start)) >
+		    wait_timeout_us)
+			timeout = true;
+		spin_lock_irqsave(hba->host->host_lock, flags);
+	} while (tm_doorbell || tr_doorbell);
+
+	if (timeout) {
+		dev_err(hba->dev,
+			"%s: timedout waiting for doorbell to clear (tm=0x%x, tr=0x%x)\n",
+			__func__, tm_doorbell, tr_doorbell);
+		ret = -EBUSY;
+	}
+out:
+	spin_unlock_irqrestore(hba->host->host_lock, flags);
 	return ret;
 }
 
