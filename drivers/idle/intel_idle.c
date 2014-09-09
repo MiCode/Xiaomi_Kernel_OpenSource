@@ -242,13 +242,6 @@ static struct cpuidle_state byt_cstates[] = {
 		.target_residency = 1,
 		.enter = &intel_idle },
 	{
-		.name = "C1E-BYT",
-		.desc = "MWAIT 0x01",
-		.flags = MWAIT2flg(0x01) | CPUIDLE_FLAG_TIME_VALID,
-		.exit_latency = 15,
-		.target_residency = 30,
-		.enter = &intel_idle },
-	{
 		.name = "C6N-BYT",
 		.desc = "MWAIT 0x58",
 		.flags = MWAIT2flg(0x58) | CPUIDLE_FLAG_TIME_VALID | CPUIDLE_FLAG_TLB_FLUSHED,
