@@ -35,7 +35,7 @@
 
 #include "mm.h"
 
-struct dma_map_ops *dma_ops;
+const struct dma_map_ops *dma_ops;
 EXPORT_SYMBOL(dma_ops);
 
 #define DEFAULT_DMA_COHERENT_POOL_SIZE  SZ_256K
@@ -502,7 +502,7 @@ static void arm64_dma_unremap(struct device *dev, void *remapped_addr,
 	vunmap(remapped_addr);
 }
 
-struct dma_map_ops noncoherent_swiotlb_dma_ops = {
+const struct dma_map_ops noncoherent_swiotlb_dma_ops = {
 	.alloc = arm64_swiotlb_alloc_noncoherent,
 	.free = arm64_swiotlb_free_noncoherent,
 	.mmap = arm64_swiotlb_mmap,
@@ -521,7 +521,7 @@ struct dma_map_ops noncoherent_swiotlb_dma_ops = {
 };
 EXPORT_SYMBOL(noncoherent_swiotlb_dma_ops);
 
-struct dma_map_ops coherent_swiotlb_dma_ops = {
+const struct dma_map_ops coherent_swiotlb_dma_ops = {
 	.alloc = arm64_swiotlb_alloc_coherent,
 	.free = arm64_swiotlb_free_coherent,
 	.map_page = swiotlb_map_page,
