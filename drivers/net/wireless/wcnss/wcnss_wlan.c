@@ -767,6 +767,8 @@ void wcnss_pronto_log_debug_regs(void)
 	reg3 = readl_relaxed(reg_addr);
 	pr_err("PMU_WLAN_AHB_CBCR %08x\n", reg3);
 
+	msleep(50);
+
 	if ((reg & PRONTO_PMU_WLAN_BCR_BLK_ARES) ||
 		(reg2 & PRONTO_PMU_WLAN_GDSCR_SW_COLLAPSE) ||
 		(!(reg4 & PRONTO_PMU_CPU_AHB_CMD_RCGR_ROOT_EN)) ||
@@ -775,8 +777,6 @@ void wcnss_pronto_log_debug_regs(void)
 		pr_err("Cannot log, wlan domain is power collapsed\n");
 		return;
 	}
-
-	msleep(50);
 
 	reg = readl_relaxed(penv->wlan_tx_phy_aborts);
 	pr_err("WLAN_TX_PHY_ABORTS %08x\n", reg);
