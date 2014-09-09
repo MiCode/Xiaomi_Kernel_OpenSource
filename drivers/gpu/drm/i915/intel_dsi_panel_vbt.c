@@ -571,7 +571,7 @@ static bool generic_init(struct intel_dsi_device *dsi)
 	u32 ui_num, ui_den;
 	u32 prepare_cnt, exit_zero_cnt, clk_zero_cnt, trail_cnt;
 	u32 ths_prepare_ns, tclk_trail_ns;
-	u32 tclk_prepare_clkzero, ths_prepare_hszero;
+	u32 tclk_prepare_clkzero, ths_prepare_hszero, pclk;
 	u32 lp_to_hs_switch, hs_to_lp_switch;
 
 	DRM_DEBUG_KMS("\n");
@@ -589,7 +589,17 @@ static bool generic_init(struct intel_dsi_device *dsi)
 	else if (intel_dsi->pixel_format == VID_MODE_FORMAT_RGB565)
 		bits_per_pixel = 16;
 
-	bitrate = (mode->clock * bits_per_pixel) / intel_dsi->lane_count;
+	pclk = mode->clock;
+
+	/* In dual link mode each port needs half of pixel clock */
+	if (intel_dsi->dual_link) {
+		pclk = pclk / 2;
+
+		if (intel_dsi->dual_link & MIPI_DUAL_LINK_FRONT_BACK) {
+			pclk += DIV_ROUND_UP(mode->vtotal *
+					intel_dsi->pixel_overlap * 60, 1000);
+		}
+	}
 
 	intel_dsi->operation_mode = mipi_config->is_cmd_mode;
 	intel_dsi->video_mode_format = mipi_config->video_transfer_mode;
@@ -600,6 +610,10 @@ static bool generic_init(struct intel_dsi_device *dsi)
 	intel_dsi->init_count = mipi_config->master_init_timer;
 	intel_dsi->bw_timer = mipi_config->dbi_bw_timer;
 	intel_dsi->video_frmt_cfg_bits = mipi_config->bta_enabled ? DISABLE_VIDEO_BTA : 0;
+
+	intel_dsi->pclk = pclk;
+
+	bitrate = (pclk * bits_per_pixel) / intel_dsi->lane_count;
 
 	switch (intel_dsi->escape_clk_div) {
 	case 0:
@@ -762,6 +776,14 @@ static bool generic_init(struct intel_dsi_device *dsi)
 	DRM_DEBUG_KMS("Clockstop %s\n", intel_dsi->clock_stop ?
 						"disabled" : "enabled");
 	DRM_DEBUG_KMS("Mode %s\n", intel_dsi->operation_mode ? "command" : "video");
+
+	if (intel_dsi->dual_link == MIPI_DUAL_LINK_FRONT_BACK)
+		DRM_DEBUG_KMS("Dual link: MIPI_DUAL_LINK_FRONT_BACK\n");
+	else if (intel_dsi->dual_link == MIPI_DUAL_LINK_PIXEL_ALT)
+		DRM_DEBUG_KMS("Dual link: MIPI_DUAL_LINK_PIXEL_ALT\n");
+	else
+		DRM_DEBUG_KMS("Dual link: NONE\n");
+
 	DRM_DEBUG_KMS("Pixel Format %d\n", intel_dsi->pixel_format);
 	DRM_DEBUG_KMS("TLPX %d\n", intel_dsi->escape_clk_div);
 	DRM_DEBUG_KMS("LP RX Timeout 0x%x\n", intel_dsi->lp_rx_timeout);

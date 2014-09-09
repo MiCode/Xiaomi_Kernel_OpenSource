@@ -475,6 +475,7 @@ struct intel_dsi {
 	u32 bw_timer;
 	u32 dphy_reg;
 	u32 video_frmt_cfg_bits;
+	u32 pclk;
 	u16 lp_byte_clk;
 
 	/* timeouts in byte clocks */
