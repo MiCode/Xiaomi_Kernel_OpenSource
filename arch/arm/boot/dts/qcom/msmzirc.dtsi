@@ -69,6 +69,7 @@
 
 #include "msmzirc-coresight.dtsi"
 #include "msm-gdsc.dtsi"
+#include "msmzirc-bus.dtsi"
 
 &soc {
 	#address-cells = <1>;
