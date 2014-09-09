@@ -259,8 +259,9 @@ int pil_mss_deinit_image(struct pil_desc *pil)
 	/* In case of any failure where reclaim MBA memory
 	 * could not happen, free the memory here */
 	if (drv->q6->mba_virt)
-		dma_free_coherent(&drv->mba_mem_dev, drv->q6->mba_size,
-				drv->q6->mba_virt, drv->q6->mba_phys);
+		dma_free_attrs(&drv->mba_mem_dev, drv->q6->mba_size,
+				drv->q6->mba_virt, drv->q6->mba_phys,
+				&drv->attrs_dma);
 	return ret;
 }
 
@@ -397,8 +398,10 @@ int pil_mss_reset_load_mba(struct pil_desc *pil)
 	drv->mba_size = SZ_1M;
 	md->mba_mem_dev.coherent_dma_mask =
 		DMA_BIT_MASK(sizeof(dma_addr_t) * 8);
-	mba_virt = dma_alloc_coherent(&md->mba_mem_dev, drv->mba_size,
-					&mba_phys, GFP_KERNEL);
+	init_dma_attrs(&md->attrs_dma);
+	dma_set_attr(DMA_ATTR_STRONGLY_ORDERED, &md->attrs_dma);
+	mba_virt = dma_alloc_attrs(&md->mba_mem_dev, drv->mba_size,
+			&mba_phys, GFP_KERNEL, &md->attrs_dma);
 	if (!mba_virt) {
 		dev_err(pil->dev, "MBA metadata buffer allocation failed\n");
 		ret = -ENOMEM;
@@ -428,8 +431,8 @@ int pil_mss_reset_load_mba(struct pil_desc *pil)
 	return 0;
 
 err_mss_reset:
-	dma_free_coherent(&md->mba_mem_dev, drv->mba_size, drv->mba_virt,
-				drv->mba_phys);
+	dma_free_attrs(&md->mba_mem_dev, drv->mba_size, drv->mba_virt,
+				drv->mba_phys, &md->attrs_dma);
 err_dma_alloc:
 	release_firmware(fw);
 	return ret;
@@ -443,12 +446,14 @@ static int pil_msa_auth_modem_mdt(struct pil_desc *pil, const u8 *metadata,
 	dma_addr_t mdata_phys;
 	s32 status;
 	int ret;
+	DEFINE_DMA_ATTRS(attrs);
 
 	drv->mba_mem_dev.coherent_dma_mask =
 		DMA_BIT_MASK(sizeof(dma_addr_t) * 8);
+	dma_set_attr(DMA_ATTR_STRONGLY_ORDERED, &attrs);
 	/* Make metadata physically contiguous and 4K aligned. */
-	mdata_virt = dma_alloc_coherent(&drv->mba_mem_dev, size, &mdata_phys,
-					GFP_KERNEL);
+	mdata_virt = dma_alloc_attrs(&drv->mba_mem_dev, size, &mdata_phys,
+					GFP_KERNEL, &attrs);
 	if (!mdata_virt) {
 		dev_err(pil->dev, "MBA metadata buffer allocation failed\n");
 		return -ENOMEM;
@@ -474,7 +479,7 @@ static int pil_msa_auth_modem_mdt(struct pil_desc *pil, const u8 *metadata,
 		ret = -EINVAL;
 	}
 
-	dma_free_coherent(&drv->mba_mem_dev, size, mdata_virt, mdata_phys);
+	dma_free_attrs(&drv->mba_mem_dev, size, mdata_virt, mdata_phys, &attrs);
 
 	if (ret) {
 		modem_log_rmb_regs(drv->rmb_base);
@@ -541,8 +546,9 @@ static int pil_msa_mba_auth(struct pil_desc *pil)
 
 	if (drv->q6 && drv->q6->mba_virt) {
 		/* Reclaim MBA memory. */
-		dma_free_coherent(&drv->mba_mem_dev, drv->q6->mba_size,
-					drv->q6->mba_virt, drv->q6->mba_phys);
+		dma_free_attrs(&drv->mba_mem_dev, drv->q6->mba_size,
+					drv->q6->mba_virt, drv->q6->mba_phys,
+					&drv->attrs_dma);
 		drv->q6->mba_virt = NULL;
 	}
 
