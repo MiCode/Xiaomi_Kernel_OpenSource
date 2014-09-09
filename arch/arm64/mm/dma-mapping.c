@@ -33,7 +33,7 @@
 
 #include "mm.h"
 
-struct dma_map_ops *dma_ops;
+const struct dma_map_ops *dma_ops;
 EXPORT_SYMBOL(dma_ops);
 
 static pgprot_t __get_dma_pgprot(struct dma_attrs *attrs, pgprot_t prot,
@@ -331,7 +331,7 @@ static int __swiotlb_mmap_coherent(struct device *dev,
 	return __dma_common_mmap(dev, vma, cpu_addr, dma_addr, size);
 }
 
-struct dma_map_ops noncoherent_swiotlb_dma_ops = {
+const struct dma_map_ops noncoherent_swiotlb_dma_ops = {
 	.alloc = __dma_alloc_noncoherent,
 	.free = __dma_free_noncoherent,
 	.mmap = __swiotlb_mmap_noncoherent,
@@ -348,7 +348,7 @@ struct dma_map_ops noncoherent_swiotlb_dma_ops = {
 };
 EXPORT_SYMBOL(noncoherent_swiotlb_dma_ops);
 
-struct dma_map_ops coherent_swiotlb_dma_ops = {
+const struct dma_map_ops coherent_swiotlb_dma_ops = {
 	.alloc = __dma_alloc_coherent,
 	.free = __dma_free_coherent,
 	.mmap = __swiotlb_mmap_coherent,
