@@ -17,6 +17,7 @@
 
 #include "msm8994.dtsi"
 #include "msm8994-pinctrl.dtsi"
+#include "msm8994-coresight-v2.dtsi"
 / {
 	model = "Qualcomm Technologies, Inc. Technologies, Inc. MSM 8994 RUMI";
 	compatible = "qcom,msm8994-rumi", "qcom,msm8994", "qcom,rumi";
