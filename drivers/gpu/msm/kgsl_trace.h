@@ -935,6 +935,62 @@ TRACE_EVENT(kgsl_pagetable_destroy,
 	TP_printk("ptbase=%pa name=%u", &__entry->ptbase, __entry->name)
 );
 
+DECLARE_EVENT_CLASS(syncpoint_timestamp_template,
+	TP_PROTO(struct kgsl_cmdbatch *cmdbatch, struct kgsl_context *context,
+		unsigned int timestamp),
+	TP_ARGS(cmdbatch, context, timestamp),
+	TP_STRUCT__entry(
+		__field(unsigned int, cmdbatch_context_id)
+		__field(unsigned int, context_id)
+		__field(unsigned int, timestamp)
+	),
+	TP_fast_assign(
+		__entry->cmdbatch_context_id = cmdbatch->context->id;
+		__entry->context_id = context->id;
+		__entry->timestamp = timestamp;
+	),
+	TP_printk("ctx=%d sync ctx=%d ts=%d",
+		__entry->cmdbatch_context_id, __entry->context_id,
+		__entry->timestamp)
+);
+
+DEFINE_EVENT(syncpoint_timestamp_template, syncpoint_timestamp,
+	TP_PROTO(struct kgsl_cmdbatch *cmdbatch, struct kgsl_context *context,
+		unsigned int timestamp),
+	TP_ARGS(cmdbatch, context, timestamp)
+);
+
+DEFINE_EVENT(syncpoint_timestamp_template, syncpoint_timestamp_expire,
+	TP_PROTO(struct kgsl_cmdbatch *cmdbatch, struct kgsl_context *context,
+		unsigned int timestamp),
+	TP_ARGS(cmdbatch, context, timestamp)
+);
+
+DECLARE_EVENT_CLASS(syncpoint_fence_template,
+	TP_PROTO(struct kgsl_cmdbatch *cmdbatch, char *name),
+	TP_ARGS(cmdbatch, name),
+	TP_STRUCT__entry(
+		__string(fence_name, name)
+		__field(unsigned int, cmdbatch_context_id)
+	),
+	TP_fast_assign(
+		__entry->cmdbatch_context_id = cmdbatch->context->id;
+		__assign_str(fence_name, name);
+	),
+	TP_printk("ctx=%d fence=%s",
+		__entry->cmdbatch_context_id, __get_str(fence_name))
+);
+
+DEFINE_EVENT(syncpoint_fence_template, syncpoint_fence,
+	TP_PROTO(struct kgsl_cmdbatch *cmdbatch, char *name),
+	TP_ARGS(cmdbatch, name)
+);
+
+DEFINE_EVENT(syncpoint_fence_template, syncpoint_fence_expire,
+	TP_PROTO(struct kgsl_cmdbatch *cmdbatch, char *name),
+	TP_ARGS(cmdbatch, name)
+);
+
 TRACE_EVENT(kgsl_msg,
 	TP_PROTO(const char *msg),
 	TP_ARGS(msg),
