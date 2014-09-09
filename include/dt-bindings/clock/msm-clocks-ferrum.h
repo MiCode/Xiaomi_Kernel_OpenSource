@@ -150,6 +150,7 @@
 #define clk_gcc_sdcc2_ahb_clk			0x23d5727f
 #define clk_gcc_sdcc2_apps_clk			0x861b20ac
 #define clk_gcc_usb2a_phy_sleep_clk		0x6caa736f
+#define clk_gcc_usb_hs_phy_cfg_ahb_clk		0xe13808fd
 #define clk_gcc_usb_hs_ahb_clk			0x72ce8032
 #define clk_gcc_usb_hs_system_clk		0xa11972e5
 #define clk_gcc_venus0_ahb_clk			0x08d778c6
@@ -191,6 +192,8 @@
 #define clk_xo_pil_pronto_clk			0x89dae6d0
 #define clk_xo_wlan_clk				0x0116b76f
 
+#define clk_qpic_clk				0x3ce6f7bb
+#define clk_qpic_a_clk				0xd70ccb7c
 #define clk_bb_clk1				0xf5304268
 #define clk_bb_clk1_pin				0x6dd0a779
 #define clk_bb_clk2				0xfe15cb87
