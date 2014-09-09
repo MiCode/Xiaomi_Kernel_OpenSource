@@ -288,7 +288,7 @@ void __show_regs(struct pt_regs *regs)
 	}
 	/* Dump only kernel mode */
 	if (get_fs() == get_ds())
-		show_extra_register_data(regs, 128);
+		show_extra_register_data(regs, 64);
 	printk("\n");
 }
 
