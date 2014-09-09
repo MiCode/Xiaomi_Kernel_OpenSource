@@ -252,7 +252,10 @@ enum bimc_m_bke_grant_period {
 	M_BKE_GP_GP_SHFT	= 0x0,
 };
 
-/* Grant count registers */
+/* Grant count register.
+ * The Grant count register represents a signed 16 bit
+ * value, range 0-0x7fff
+ */
 #define M_BKE_GC_ADDR(b, n) \
 	(M_REG_BASE(b) + (0x4000 * (n)) + 0x00000308)
 enum bimc_m_bke_grant_count {
@@ -1036,14 +1039,16 @@ enum bimc_s_arb_mode {
 
 #define MAX_GC \
 	(M_BKE_GC_GC_BMSK >> \
-	M_BKE_GC_GC_SHFT)
+	(M_BKE_GC_GC_SHFT + 1))
 
 static int bimc_div(int64_t *a, uint32_t b)
 {
-	if ((*a > 0) && (*a < b))
+	if ((*a > 0) && (*a < b)) {
+		*a = 0;
 		return 1;
-	else
+	} else {
 		return do_div(*a, b);
+	}
 }
 
 #define ENABLE(val) ((val) == 1 ? 1 : 0)
@@ -1522,6 +1527,7 @@ static void bimc_set_static_qos_bw(void __iomem *base, unsigned int qos_freq,
 	 * in micro seconds
 	 */
 	gc = bw_mbps * (qbw->gp / NSEC_PER_USEC);
+	gc = min(gc, MAX_GC);
 
 	/* Medium threshold = -((Medium Threshold percentage *
 	 * Grant count) / 100)
