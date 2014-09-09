@@ -378,23 +378,20 @@ static int msm_hsphy_set_suspend(struct usb_phy *uphy, int suspend)
 			writel_relaxed(ALT_INTERRUPT_MASK,
 				phy->base + HS_PHY_IRQ_STAT_REG(i));
 
-			if (host) {
-				/* Enable DP and DM HV interrupts */
-				if (phy->core_ver >= MSM_CORE_VER_120)
-					msm_usb_write_readback(phy->base,
-							ALT_INTERRUPT_EN_REG(i),
-							(LINESTATE_INTEN |
-							DPINTEN | DMINTEN),
-							(LINESTATE_INTEN |
-							DPINTEN | DMINTEN));
-				else
-					msm_usb_write_readback(phy->base,
-							ALT_INTERRUPT_EN_REG(i),
-							DPDMHV_INT_MASK,
-							DPDMHV_INT_MASK);
-
-				udelay(5);
-			} else {
+			/* Enable DP and DM HV interrupts */
+			if (phy->core_ver >= MSM_CORE_VER_120)
+				msm_usb_write_readback(phy->base,
+						ALT_INTERRUPT_EN_REG(i),
+						(LINESTATE_INTEN |
+						DPINTEN | DMINTEN),
+						(LINESTATE_INTEN |
+						DPINTEN | DMINTEN));
+			else
+				msm_usb_write_readback(phy->base,
+						ALT_INTERRUPT_EN_REG(i),
+						DPDMHV_INT_MASK,
+						DPDMHV_INT_MASK);
+			if (!host) {
 				/* set the following:
 				 * OTGDISABLE0=1
 				 * USB2_SUSPEND_N_SEL=1, USB2_SUSPEND_N=0
@@ -484,20 +481,20 @@ static int msm_hsphy_set_suspend(struct usb_phy *uphy, int suspend)
 					HS_PHY_CTRL_REG(i),
 					(OTGSESSVLDHV_INTEN | IDHV_INTEN),
 					0);
-			if (host) {
-				/* Clear interrupt latch register */
-				writel_relaxed(ALT_INTERRUPT_MASK,
-					phy->base + HS_PHY_IRQ_STAT_REG(i));
-				/* Disable DP and DM HV interrupt */
-				if (phy->core_ver >= MSM_CORE_VER_120)
-					msm_usb_write_readback(phy->base,
-							ALT_INTERRUPT_EN_REG(i),
-							LINESTATE_INTEN, 0);
-				else
-					msm_usb_write_readback(phy->base,
-							ALT_INTERRUPT_EN_REG(i),
-							DPDMHV_INT_MASK, 0);
-			} else {
+
+			/* Clear interrupt latch register */
+			writel_relaxed(ALT_INTERRUPT_MASK,
+				phy->base + HS_PHY_IRQ_STAT_REG(i));
+			/* Disable DP and DM HV interrupt */
+			if (phy->core_ver >= MSM_CORE_VER_120)
+				msm_usb_write_readback(phy->base,
+						ALT_INTERRUPT_EN_REG(i),
+						LINESTATE_INTEN, 0);
+			else
+				msm_usb_write_readback(phy->base,
+						ALT_INTERRUPT_EN_REG(i),
+						DPDMHV_INT_MASK, 0);
+			if (!host) {
 				/* Disable PHY retention */
 				if (phy->set_pllbtune)
 					msm_usb_write_readback(phy->base,
