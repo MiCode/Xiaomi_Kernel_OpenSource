@@ -1858,13 +1858,13 @@ void fixup_nr_big_small_task(int cpu)
 }
 
 /* Disable interrupts and grab runqueue lock of all cpus listed in @cpus */
-void pre_big_small_task_count_change(void)
+void pre_big_small_task_count_change(const struct cpumask *cpus)
 {
 	int i;
 
 	local_irq_disable();
 
-	for_each_online_cpu(i)
+	for_each_cpu(i, cpus)
 		raw_spin_lock(&cpu_rq(i)->lock);
 }
 
@@ -1872,15 +1872,15 @@ void pre_big_small_task_count_change(void)
  * Reinitialize 'nr_big_tasks' and 'nr_small_tasks' counters on all affected
  * cpus
  */
-void post_big_small_task_count_change(void)
+void post_big_small_task_count_change(const struct cpumask *cpus)
 {
 	int i;
 
 	/* Assumes local_irq_disable() keeps online cpumap stable */
-	for_each_online_cpu(i)
+	for_each_cpu(i, cpus)
 		fixup_nr_big_small_task(i);
 
-	for_each_online_cpu(i)
+	for_each_cpu(i, cpus)
 		raw_spin_unlock(&cpu_rq(i)->lock);
 
 	local_irq_enable();
@@ -1972,15 +1972,19 @@ int sched_hmp_proc_update_handler(struct ctl_table *table, int write,
 	 */
 	if ((*data != old_val) &&
 		(data == &sysctl_sched_upmigrate_pct ||
-		data == &sysctl_sched_small_task_pct))
-			pre_big_small_task_count_change();
+		data == &sysctl_sched_small_task_pct)) {
+			get_online_cpus();
+			pre_big_small_task_count_change(cpu_online_mask);
+	}
 
 	set_hmp_defaults();
 
 	if ((*data != old_val) &&
 		(data == &sysctl_sched_upmigrate_pct ||
-		data == &sysctl_sched_small_task_pct))
-			post_big_small_task_count_change();
+		data == &sysctl_sched_small_task_pct)) {
+			post_big_small_task_count_change(cpu_online_mask);
+			put_online_cpus();
+	}
 
 	return 0;
 }

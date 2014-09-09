@@ -1936,9 +1936,11 @@ static int cpufreq_notifier_policy(struct notifier_block *nb,
 {
 	struct cpufreq_policy *policy = (struct cpufreq_policy *)data;
 	int i;
-	unsigned int min_max = min_max_freq;
 	const struct cpumask *cpus = policy->related_cpus;
-	int orig_min_max_freq = min_max_freq;
+	unsigned int orig_min_max_freq = min_max_freq;
+	unsigned int orig_max_possible_freq = max_possible_freq;
+	/* Initialized to policy->max in case policy->related_cpus is empty! */
+	unsigned int orig_max_freq = policy->max;
 
 	if (val != CPUFREQ_NOTIFY)
 		return 0;
@@ -1946,6 +1948,7 @@ static int cpufreq_notifier_policy(struct notifier_block *nb,
 	for_each_cpu(i, policy->related_cpus) {
 		cpumask_copy(&cpu_rq(i)->freq_domain_cpumask,
 			     policy->related_cpus);
+		orig_max_freq = cpu_rq(i)->max_freq;
 		cpu_rq(i)->min_freq = policy->min;
 		cpu_rq(i)->max_freq = policy->max;
 		cpu_rq(i)->max_possible_freq = policy->cpuinfo.max_freq;
@@ -1953,20 +1956,49 @@ static int cpufreq_notifier_policy(struct notifier_block *nb,
 
 	max_possible_freq = max(max_possible_freq, policy->cpuinfo.max_freq);
 	if (min_max_freq == 1)
-		min_max = UINT_MAX;
-	min_max_freq = min(min_max, policy->cpuinfo.max_freq);
+		min_max_freq = UINT_MAX;
+	min_max_freq = min(min_max_freq, policy->cpuinfo.max_freq);
 	BUG_ON(!min_max_freq);
 	BUG_ON(!policy->max);
 
-	if (min_max_freq != orig_min_max_freq)
-		cpus = cpu_online_mask;
+	if (orig_max_possible_freq == max_possible_freq &&
+		orig_min_max_freq == min_max_freq &&
+		orig_max_freq == policy->max)
+			return 0;
+
+	/*
+	 * A changed min_max_freq or max_possible_freq (possible during bootup)
+	 * needs to trigger re-computation of load_scale_factor and capacity for
+	 * all possible cpus (even those offline). It also needs to trigger
+	 * re-computation of nr_big/small_task count on all online cpus.
+	 *
+	 * A changed rq->max_freq otoh needs to trigger re-computation of
+	 * load_scale_factor and capacity for just the cluster of cpus involved.
+	 * Since small task definition depends on max_load_scale_factor, a
+	 * changed load_scale_factor of one cluster could influence small_task
+	 * classification of tasks in another cluster. Hence a changed
+	 * rq->max_freq will need to trigger re-computation of nr_big/small_task
+	 * count on all online cpus.
+	 *
+	 * While it should be sufficient for nr_big/small_tasks to be
+	 * re-computed for only online cpus, we have inadequate context
+	 * information here (in policy notifier) with regard to hotplug-safety
+	 * context in which notification is issued. As a result, we can't use
+	 * get_online_cpus() here, as it can lead to deadlock. Until cpufreq is
+	 * fixed up to issue notification always in hotplug-safe context,
+	 * re-compute nr_big/small_task for all possible cpus.
+	 */
+
+	if (orig_min_max_freq != min_max_freq ||
+		orig_max_possible_freq != max_possible_freq)
+			cpus = cpu_possible_mask;
 
 	/*
 	 * Changed load_scale_factor can trigger reclassification of tasks as
 	 * big or small. Make this change "atomic" so that tasks are accounted
 	 * properly due to changed load_scale_factor
 	 */
-	pre_big_small_task_count_change();
+	pre_big_small_task_count_change(cpu_possible_mask);
 	for_each_cpu(i, cpus) {
 		struct rq *rq = cpu_rq(i);
 
@@ -1977,7 +2009,7 @@ static int cpufreq_notifier_policy(struct notifier_block *nb,
 	}
 
 	update_min_max_capacity();
-	post_big_small_task_count_change();
+	post_big_small_task_count_change(cpu_possible_mask);
 
 	return 0;
 }
