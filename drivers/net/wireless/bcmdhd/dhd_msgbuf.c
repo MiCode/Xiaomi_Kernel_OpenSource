@@ -2165,7 +2165,9 @@ int dhd_prot_ioctl(dhd_pub_t *dhd, int ifidx, wl_ioctl_t * ioc, void * buf, int 
 	if (ret >= 0)
 		ret = 0;
 	else {
-		DHD_ERROR(("%s: status ret value is %d \n", __FUNCTION__, ret));
+		if (ret != BCME_NOTASSOCIATED) {
+			DHD_ERROR(("%s: status ret value is %d \n", __FUNCTION__, ret));
+		}
 		dhd->dongle_error = ret;
 	}
 

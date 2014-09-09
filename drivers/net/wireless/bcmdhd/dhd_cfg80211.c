@@ -53,6 +53,9 @@ static int dhd_dongle_up = FALSE;
 #include <wlioctl.h>
 #include <brcm_nl80211.h>
 #include <dhd_cfg80211.h>
+#ifdef PCIE_FULL_DONGLE
+#include <dhd_flowring.h>
+#endif
 
 static s32 wl_dongle_up(struct net_device *ndev);
 static s32 wl_dongle_down(struct net_device *ndev);
@@ -217,6 +220,16 @@ default_conf_out:
 	return err;
 
 }
+
+#ifdef PCIE_FULL_DONGLE
+void wl_roam_flowring_cleanup(struct bcm_cfg80211 *cfg)
+{
+	int hostidx = 0;
+	dhd_pub_t *dhd_pub =  (dhd_pub_t *)(cfg->pub);
+	hostidx = dhd_ifidx2hostidx(dhd_pub->info, hostidx);
+	dhd_flow_rings_delete(dhd_pub, hostidx);
+}
+#endif
 
 #ifdef CONFIG_NL80211_TESTMODE
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION(3, 11, 0))
