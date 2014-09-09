@@ -631,6 +631,7 @@ static void diag_remote_exit(void)
 static int diag_cb_send_data_remote(int proc, void *buf, int len)
 {
 	int err = 0;
+	int max_len = 0;
 	uint8_t retry_count = 0;
 	uint8_t max_retries = 3;
 	struct diag_send_desc_type send = { NULL, NULL, DIAG_STATE_START, 0 };
@@ -639,15 +640,19 @@ static int diag_cb_send_data_remote(int proc, void *buf, int len)
 	if (!buf)
 		return -EINVAL;
 
-	if (HDLC_OUT_BUF_SIZE < (2 * len) + 3) {
-		pr_err("diag: Dropping packet, HDLC encoded packet payload size crosses buffer limit. Current payload size %d\n",
-			((2 * len) + 3));
+	if (len <= 0) {
+		pr_err("diag: In %s, invalid len: %d", __func__, len);
 		return -EBADMSG;
 	}
 
-	if (len <= MIN_SIZ_ALLOW) {
-		pr_err("diag: Integer underflow in %s, payload size: %d",
-			__func__, len);
+	/*
+	 * The worst case length will be twice as the incoming packet length.
+	 * Add 3 bytes for CRC bytes (2 bytes) and delimiter (1 byte)
+	 */
+	max_len = (2 * len) + 3;
+	if (HDLC_OUT_BUF_SIZE < max_len) {
+		pr_err("diag: Dropping packet, HDLC encoded packet payload size crosses buffer limit. Current payload size %d\n",
+			max_len);
 		return -EBADMSG;
 	}
 
@@ -664,11 +669,11 @@ static int diag_cb_send_data_remote(int proc, void *buf, int len)
 	/* Perform HDLC encoding on incoming data */
 	send.state = DIAG_STATE_START;
 	send.pkt = (void *)(buf);
-	send.last = (void *)(buf + len + 1);
+	send.last = (void *)(buf + len - 1);
 	send.terminate = 1;
 
 	enc.dest = driver->cb_buf;
-	enc.dest_last = (void *)(driver->cb_buf + (2 * len) - 1);
+	enc.dest_last = (void *)(driver->cb_buf + max_len - 1);
 	diag_hdlc_encode(&send, &enc);
 	driver->cb_buf_len = (int)(enc.dest - (void *)driver->cb_buf);
 	err = diagfwd_bridge_write(proc, driver->cb_buf,
@@ -1669,6 +1674,11 @@ static ssize_t diagchar_write(struct file *file, const char __user *buf,
 		}
 
 		token_offset = sizeof(int);
+		if (payload_size <= MIN_SIZ_ALLOW) {
+			pr_err("diag: In %s, possible integer underflow, payload size: %d\n",
+			       __func__, payload_size);
+			return -EBADMSG;
+		}
 		payload_size -= sizeof(int);
 		ret = diag_cb_send_data_remote(remote_proc - 1,
 				(void *)(buf_copy + token_offset),
