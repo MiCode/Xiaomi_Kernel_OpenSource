@@ -118,4 +118,16 @@ int msm_pcie_recover_config(struct pci_dev *dev);
  * Return: 0 on success, negative value on error
  */
 int msm_pcie_shadow_control(struct pci_dev *dev, bool enable);
+
+/*
+ * msm_pcie_access_control - access control to PCIe address range.
+ * @dev:	pci device structure
+ * @enable:	enable or disable the access
+ *
+ * This function gives PCIe endpoint device drivers the control to enable
+ * or disable the access to PCIe address range.
+ *
+ * Return: 0 on success, negative value on error
+ */
+int msm_pcie_access_control(struct pci_dev *dev, bool enable);
 #endif

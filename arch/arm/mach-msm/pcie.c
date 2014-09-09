@@ -2247,3 +2247,36 @@ int msm_pcie_shadow_control(struct pci_dev *dev, bool enable)
 	return ret;
 }
 EXPORT_SYMBOL(msm_pcie_shadow_control);
+
+int msm_pcie_access_control(struct pci_dev *dev, bool allow_access)
+{
+	int ret = 0;
+	struct msm_pcie_dev_t *pcie_dev;
+
+	if (dev) {
+		pcie_dev = PCIE_BUS_PRIV_DATA(dev);
+		PCIE_DBG(pcie_dev,
+			"access control for the link of RC%d\n",
+			pcie_dev->rc_idx);
+	} else {
+		pr_err("PCIe: the input pci dev is NULL.\n");
+		return -ENODEV;
+	}
+
+	mutex_lock(&pcie_dev->recovery_lock);
+
+	PCIE_DBG(pcie_dev,
+		"The config space of RC%d is %savailable currently.\n",
+		pcie_dev->rc_idx, pcie_dev->cfg_access ? "" : "un");
+
+	pcie_dev->cfg_access = allow_access;
+
+	PCIE_DBG(pcie_dev,
+		"The config space of RC%d becomes %savailable upon user's request.\n",
+		pcie_dev->rc_idx, pcie_dev->cfg_access ? "" : "un");
+
+	mutex_unlock(&pcie_dev->recovery_lock);
+
+	return ret;
+}
+EXPORT_SYMBOL(msm_pcie_access_control);
