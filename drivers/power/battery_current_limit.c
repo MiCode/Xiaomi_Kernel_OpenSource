@@ -351,7 +351,7 @@ static int bcl_get_resistance(int *rbatt_mohm)
 	if (psy->get_property(psy, POWER_SUPPLY_PROP_RESISTANCE, &ret))
 		return -EINVAL;
 
-	if (ret.intval <= 0)
+	if (ret.intval < 1000)
 		return -EINVAL;
 
 	*rbatt_mohm = ret.intval / 1000;
