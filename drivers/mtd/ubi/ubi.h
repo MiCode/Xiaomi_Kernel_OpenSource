@@ -493,6 +493,7 @@ struct ubi_debug_info {
  *				for more info
  * @dt_threshold: data retention threshold. See UBI_DT_THRESHOLD
  *				for more info
+ * @scan_in_progress: true if scanning of device PEBs is in progress
  *
  * @flash_size: underlying MTD device size (in bytes)
  * @peb_count: count of physical eraseblocks on the MTD device
@@ -597,6 +598,7 @@ struct ubi_device {
 	char bgt_name[sizeof(UBI_BGT_NAME_PATTERN)+2];
 	int rd_threshold;
 	int dt_threshold;
+	bool scan_in_progress;
 
 
 	/* I/O sub-system's stuff */
@@ -877,6 +879,7 @@ int ubi_is_erase_work(struct ubi_work *wrk);
 void ubi_refill_pools(struct ubi_device *ubi);
 int ubi_ensure_anchor_pebs(struct ubi_device *ubi);
 int ubi_in_wl_tree(struct ubi_wl_entry *e, struct rb_root *root);
+int ubi_wl_scan_all(struct ubi_device *ubi);
 
 /* io.c */
 int ubi_io_read(const struct ubi_device *ubi, void *buf, int pnum, int offset,
