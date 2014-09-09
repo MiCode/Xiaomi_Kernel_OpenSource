@@ -324,6 +324,11 @@ void __init mem_init(void)
 	}
 }
 
+static inline void poison_init_mem(void *s, size_t count)
+{
+	memset(s, 0, count);
+}
+
 void free_initmem(void)
 {
 	free_initmem_default(0);
