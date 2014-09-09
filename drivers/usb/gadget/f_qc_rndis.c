@@ -99,6 +99,8 @@ struct f_rndis_qc {
 	struct data_port		bam_port;
 	enum transport_type		xport;
 	bool				net_ready_trigger;
+	const struct usb_endpoint_descriptor *in_ep_desc_backup;
+	const struct usb_endpoint_descriptor *out_ep_desc_backup;
 };
 
 static struct ipa_usb_init_params rndis_ipa_params;
@@ -811,16 +813,70 @@ static void rndis_qc_disable(struct usb_function *f)
 
 static void rndis_qc_suspend(struct usb_function *f)
 {
-	pr_debug("%s: rndis suspended\n", __func__);
+	struct f_rndis_qc	*rndis = func_to_rndis_qc(f);
+	bool remote_wakeup_allowed;
 
-	bam_data_suspend(RNDIS_QC_ACTIVE_PORT);
+	if (f->config->cdev->gadget->speed == USB_SPEED_SUPER)
+		remote_wakeup_allowed = f->func_wakeup_allowed;
+	else
+		remote_wakeup_allowed = f->config->cdev->gadget->remote_wakeup;
+
+	pr_info("%s(): start rndis suspend: remote_wakeup_allowed:%d\n:",
+					__func__, remote_wakeup_allowed);
+
+	if (remote_wakeup_allowed) {
+		bam_data_suspend(RNDIS_QC_ACTIVE_PORT);
+	} else {
+		/*
+		 * When remote wakeup is disabled, IPA BAM is disconnected
+		 * because it cannot send new data until the USB bus is resumed.
+		 * Endpoint descriptors info is saved before it gets reset by
+		 * the BAM disconnect API. This lets us restore this info when
+		 * the USB bus is resumed.
+		 */
+		if (rndis->bam_port.in->desc)
+			rndis->in_ep_desc_backup  = rndis->bam_port.in->desc;
+
+		if (rndis->bam_port.out->desc)
+			rndis->out_ep_desc_backup = rndis->bam_port.out->desc;
+
+		pr_debug("in_ep_desc_backup = %p, out_ep_desc_backup = %p",
+			rndis->in_ep_desc_backup, rndis->out_ep_desc_backup);
+		pr_debug("%s(): Disconnecting\n", __func__);
+		rndis_qc_bam_disconnect(rndis);
+	}
+
+	pr_debug("rndis suspended\n");
 }
 
 static void rndis_qc_resume(struct usb_function *f)
 {
+	struct f_rndis_qc	*rndis = func_to_rndis_qc(f);
+	bool remote_wakeup_allowed;
+
 	pr_debug("%s: rndis resumed\n", __func__);
 
-	bam_data_resume(RNDIS_QC_ACTIVE_PORT);
+	/* Nothing to do if DATA interface wasn't initialized */
+	if (!rndis->bam_port.cdev) {
+		pr_debug("data interface was not up\n");
+		return;
+	}
+
+	if (f->config->cdev->gadget->speed == USB_SPEED_SUPER)
+		remote_wakeup_allowed = f->func_wakeup_allowed;
+	else
+		remote_wakeup_allowed = f->config->cdev->gadget->remote_wakeup;
+
+	if (remote_wakeup_allowed) {
+		bam_data_resume(RNDIS_QC_ACTIVE_PORT);
+	} else {
+		/* Restore endpoint descriptors info. */
+		rndis->bam_port.in->desc  = rndis->in_ep_desc_backup;
+		rndis->bam_port.out->desc = rndis->out_ep_desc_backup;
+		rndis_qc_bam_connect(rndis);
+	}
+
+	pr_debug("%s: RNDIS resume completed\n", __func__);
 }
 
 /*-------------------------------------------------------------------------*/
