@@ -386,6 +386,7 @@ static const unsigned int sdc1_data_pins[] = { 152 };
 static const unsigned int sdc2_clk_pins[] = { 153 };
 static const unsigned int sdc2_cmd_pins[] = { 154 };
 static const unsigned int sdc2_data_pins[] = { 155 };
+static const unsigned int sdc1_rclk_pins[] = { 156 };
 
 enum msmthulium_functions {
 	msm_mux_blsp_uart1,
@@ -1708,6 +1709,7 @@ static const struct msm_pingroup msmthulium_groups[] = {
 	SDC_QDSD_PINGROUP(sdc2_clk, 0x21d000, 14, 6),
 	SDC_QDSD_PINGROUP(sdc2_cmd, 0x21d000, 11, 3),
 	SDC_QDSD_PINGROUP(sdc2_data, 0x21d000, 9, 0),
+	SDC_QDSD_PINGROUP(sdc1_rclk, 0x21c000, 15, 0),
 };
 
 static const struct msm_pinctrl_soc_data msmthulium_pinctrl = {
