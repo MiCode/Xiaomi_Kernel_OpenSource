@@ -126,6 +126,7 @@ struct rmnet_mhi_private {
 	u32			      mhi_enabled;
 	struct net_device	      *dev;
 	int32_t                       irq_masked_cntr;
+	rwlock_t		      out_chan_full_lock;
 };
 
 struct tx_buffer_priv {
@@ -426,6 +427,7 @@ static void rmnet_mhi_tx_cb(struct mhi_result *result)
 	struct net_device *dev;
 	struct rmnet_mhi_private *rmnet_mhi_ptr;
 	unsigned long burst_counter = 0;
+	unsigned long flags;
 
 	rmnet_mhi_ptr = result->user_data;
 	dev = rmnet_mhi_ptr->dev;
@@ -477,7 +479,9 @@ static void rmnet_mhi_tx_cb(struct mhi_result *result)
 		    tx_cb_skb_free_burst_max[rmnet_mhi_ptr->dev_index]);
 
 	/* In case we couldn't write again, now we can! */
+	read_lock_irqsave(&rmnet_mhi_ptr->out_chan_full_lock, flags);
 	netif_wake_queue(dev);
+	read_unlock_irqrestore(&rmnet_mhi_ptr->out_chan_full_lock, flags);
 	rmnet_log(MSG_VERBOSE, "Exited\n");
 }
 
@@ -491,13 +495,13 @@ static void rmnet_mhi_rx_cb(struct mhi_result *result)
 	rmnet_log(MSG_VERBOSE, "Entered\n");
 	rx_interrupts_count[rmnet_mhi_ptr->dev_index]++;
 
-	mhi_mask_irq(rmnet_mhi_ptr->rx_client_handle);
-	rmnet_mhi_ptr->irq_masked_cntr++;
-
-	if (napi_schedule_prep(&(rmnet_mhi_ptr->napi)))
+	if (napi_schedule_prep(&(rmnet_mhi_ptr->napi))) {
+		mhi_mask_irq(rmnet_mhi_ptr->rx_client_handle);
+		rmnet_mhi_ptr->irq_masked_cntr++;
 		__napi_schedule(&(rmnet_mhi_ptr->napi));
-	else
+	} else {
 		rx_interrupts_in_masked_irq[rmnet_mhi_ptr->dev_index]++;
+	}
 	rmnet_log(MSG_VERBOSE, "Exited\n");
 }
 
@@ -563,6 +567,8 @@ static int rmnet_mhi_xmit(struct sk_buff *skb, struct net_device *dev)
 	struct rmnet_mhi_private *rmnet_mhi_ptr =
 			*(struct rmnet_mhi_private **)netdev_priv(dev);
 	enum MHI_STATUS res = MHI_STATUS_reserved;
+	unsigned long flags;
+	int retry = 0;
 	struct tx_buffer_priv *tx_priv;
 	dma_addr_t dma_addr;
 
@@ -578,16 +584,28 @@ static int rmnet_mhi_xmit(struct sk_buff *skb, struct net_device *dev)
 	/* DMA mapping is OK, need to update the cb field properly */
 	tx_priv = (struct tx_buffer_priv *)(skb->cb);
 	tx_priv->dma_addr = dma_addr;
+	do {
+		retry = 0;
+		res = mhi_queue_xfer(rmnet_mhi_ptr->tx_client_handle,
+				     dma_addr, skb->len, MHI_EOT);
 
-	res = mhi_queue_xfer(rmnet_mhi_ptr->tx_client_handle,
-				     (uintptr_t)(dma_addr), skb->len, MHI_EOT);
-
-	if (res == MHI_STATUS_RING_FULL) {
-		/* Need to stop writing until we can write again */
-		tx_ring_full_count[rmnet_mhi_ptr->dev_index]++;
-		netif_stop_queue(dev);
-			goto rmnet_mhi_xmit_error_cleanup;
-	}
+		if (MHI_STATUS_RING_FULL == res) {
+			write_lock_irqsave(&rmnet_mhi_ptr->out_chan_full_lock,
+									flags);
+			if (!mhi_get_free_desc(
+					    rmnet_mhi_ptr->tx_client_handle)) {
+				/* Stop writing until we can write again */
+				tx_ring_full_count[rmnet_mhi_ptr->dev_index]++;
+				netif_stop_queue(dev);
+				goto rmnet_mhi_xmit_error_cleanup;
+			} else {
+				retry = 1;
+			}
+			write_unlock_irqrestore(
+					&rmnet_mhi_ptr->out_chan_full_lock,
+					flags);
+		}
+	} while (retry);
 
 	if (MHI_STATUS_SUCCESS != res) {
 		netif_stop_queue(dev);
@@ -608,6 +626,7 @@ rmnet_mhi_xmit_error_cleanup:
 	dma_unmap_single(&(dev->dev), dma_addr, skb->len,
 			 DMA_TO_DEVICE);
 	rmnet_log(MSG_VERBOSE, "Ring full\n");
+	write_unlock_irqrestore(&rmnet_mhi_ptr->out_chan_full_lock, flags);
 	return NETDEV_TX_BUSY;
 }
 
@@ -915,6 +934,7 @@ static int __init rmnet_mhi_init(void)
 
 		rmnet_mhi_ptr->tx_client_handle = 0;
 		rmnet_mhi_ptr->rx_client_handle = 0;
+		rwlock_init(&rmnet_mhi_ptr->out_chan_full_lock);
 
 		rmnet_mhi_ptr->mru = MHI_DEFAULT_MRU;
 		rmnet_mhi_ptr->dev_index = i;
