@@ -1205,7 +1205,7 @@
 		interrupt-map-mask = <0xffffffff>;
 		interrupt-map = <0 &intc 0 108 0
 				1 &intc 0 238 0
-				2 &msm_gpio 5 0>;
+				2 &msmgpio 5 0>;
 		qcom,tx-gpio = <&msmgpio 4 0>;
 		qcom,rx-gpio = <&msmgpio 5 0>;
 		qcom,cts-gpio = <&msmgpio 6 0>;
