@@ -1,7 +1,7 @@
 #EXTRA CFLAGS
 ccflags-y += -Werror
 
-EXTRA_CFLAGS += -DDEBUG
+#EXTRA_CFLAGS += -DDEBUG
 
 # Baytrail board
 
