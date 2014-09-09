@@ -68,7 +68,6 @@
 
 	vddio-supply = <&pm8994_s4>;
 
-	qcom,platform-enable-gpio = <&pm8994_gpios 14 0>;
 	qcom,platform-reset-gpio = <&msm_gpio 78 0>;
 	qcom,platform-bklight-en-gpio = <&pmi8994_gpios 2 0>;
 
@@ -654,14 +653,6 @@
 		qcom,vin-sel = <2>;	/* 1.8 */
 		qcom,src-sel = <0>;	/* CONSTANT */
 		qcom,master-en = <1>;	/* ENABLE GPIO */
-	};
-
-	gpio@cd00 { /* GPIO 14 */
-		qcom,mode = <1>;
-		qcom,pull = <4>;
-		qcom,vin-sel = <2>;
-		qcom,src-sel = <0>;
-		qcom,master-en = <1>;
 	};
 
 	gpio@ce00 { /* GPIO 15 */
