@@ -30,3 +30,26 @@
 &ipa_hw {
 		qcom,ipa-hw-mode = <1>; /* IPA hw type = Virtual */
 	};
+
+&usb3 {
+	status = "ok";
+	qcom,skip-charger-detection;
+	qcom,vbus-present;
+	dwc3@8a00000 {
+		maximum-speed = "high-speed";
+	};
+};
+
+&qusb_phy {
+	status = "ok";
+};
+
+&ssphy {
+	status = "ok";
+};
+
+&soc {
+	android_usb {
+		status = "ok";
+	};
+};
