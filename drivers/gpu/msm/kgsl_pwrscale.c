@@ -459,6 +459,10 @@ int kgsl_busmon_target(struct device *dev, unsigned long *freq, u32 flags)
 		return 0;
 
 	pwr = &device->pwrctrl;
+
+	if (!pwr->bus_control)
+		return 0;
+
 	mutex_lock(&device->mutex);
 	level = pwr->active_pwrlevel;
 	pwr_level = &pwr->pwrlevels[level];
