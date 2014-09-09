@@ -657,7 +657,7 @@ static int lpm_cpuidle_enter(struct cpuidle_device *dev,
 	}
 
 	pwr_params = &cluster->cpu->levels[idx].pwr;
-	sched_set_cpu_cstate(smp_processor_id(), idx,
+	sched_set_cpu_cstate(smp_processor_id(), idx + 1,
 		pwr_params->energy_overhead, pwr_params->latency_us);
 
 	cpu_prepare(cluster, idx, true);
