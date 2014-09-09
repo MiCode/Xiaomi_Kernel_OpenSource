@@ -128,6 +128,7 @@
 		/* These Offsets are relative to "mdp_phys" address */
 		qcom,mdp-settings = <0x0117c 0x00005555>,
 				    <0x01184 0xC000ff00>,
+				    <0x011e0 0x000000a4>,
 				    <0x011e4 0x00000000>,
 				    <0x012ac 0xc0000ccc>,
 				    <0x012b4 0xc0000ccc>,
