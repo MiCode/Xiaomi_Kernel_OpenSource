@@ -975,10 +975,9 @@ static struct dsi_cmd_desc pkt_size_cmd = {
  *
  * controller have 4 registers can hold 16 bytes of rxed data
  * dcs packet: 4 bytes header + payload + 2 bytes crc
- * 2 padding bytes add to payload to have payload length is mutipled by 4
- * 1st read: 4 bytes header + 8 bytes payload + 2 padding + 2 crc
- * 2nd read: 12 bytes payload + 2 padding + 2 crc
- * 3rd read: 12 bytes payload + 2 padding + 2 crc
+ * 1st read: 4 bytes header + 10 bytes payload + 2 crc
+ * 2nd read: 14 bytes payload + 2 crc
+ * 3rd read: 14 bytes payload + 2 crc
  *
  */
 int mdss_dsi_cmds_rx(struct mdss_dsi_ctrl_pdata *ctrl,
@@ -1033,15 +1032,12 @@ do_send:
 		rx_byte = 4;
 	} else {
 		short_response = 0;
-		data_byte = 8;	/* first read */
-		/*
-		 * add extra 2 padding bytes to have overall
-		 * packet size is multipe by 4. This also make
-		 * sure 4 bytes dcs headerlocates within a
-		 * 32 bits register after shift in.
-		 */
-		pkt_size = data_byte + 2;
-		rx_byte = data_byte + 8; /* 4 header + 2 crc  + 2 padding*/
+		data_byte = 10;	/* first read */
+		if (rlen < data_byte)
+			pkt_size = rlen;
+		else
+			pkt_size = data_byte;
+		rx_byte = data_byte + 6; /* 4 header + 2 crc */
 	}
 
 
@@ -1125,14 +1121,16 @@ do_send:
 			rlen -= data_byte;
 		}
 
-		dlen -= 2; /* 2 padding bytes */
 		dlen -= 2; /* 2 crc */
 		dlen -= diff;
 		rp->data += dlen;	/* next start position */
 		rp->len += dlen;
 		if (!end) {
-			data_byte = 12; /* NOT first read */
-			pkt_size += data_byte;
+			data_byte = 14; /* NOT first read */
+			if (rlen < data_byte)
+				pkt_size += rlen;
+			else
+				pkt_size += data_byte;
 		}
 		pr_debug("%s: rp data=%x len=%d dlen=%d diff=%d\n",
 			 __func__, (int) (unsigned long) rp->data,
@@ -1278,11 +1276,14 @@ static int mdss_dsi_cmd_dma_rx(struct mdss_dsi_ctrl_pdata *ctrl,
 			struct dsi_buf *rp, int rx_byte)
 
 {
-	u32 *lp, data, ctrl_rev;
-	int i, off, cnt, ret = rx_byte;
+	u32 *lp, *temp, data, ctrl_rev;
+	int i, j = 0, off, cnt, ret = rx_byte;
 	bool ack_error = false;
+	char reg[16];
+	int repeated_bytes = 0;
 
 	lp = (u32 *)rp->data;
+	temp = (u32 *)reg;
 	cnt = rx_byte;
 	cnt += 3;
 	cnt >>= 2;
@@ -1312,15 +1313,52 @@ static int mdss_dsi_cmd_dma_rx(struct mdss_dsi_ctrl_pdata *ctrl,
 		rp->read_cnt = (max_pktsize[0] + 6);
 	}
 
+	/*
+	 * In case of multiple reads from the panel, after the first read, there
+	 * is possibility that there are some bytes in the payload repeating in
+	 * the RDBK_DATA registers. Since we read all the parameters from the
+	 * panel right from the first byte for every pass. We need to skip the
+	 * repeating bytes and then append the new parameters to the rx buffer.
+	 */
+	if (rp->read_cnt > 16) {
+		int bytes_shifted, data_lost = 0, rem_header_bytes = 0;
+		/* Any data more than 16 bytes will be shifted out */
+		bytes_shifted = rp->read_cnt - rx_byte;
+		if (bytes_shifted >= 4)
+			data_lost = bytes_shifted - 4; /* remove dcs header */
+		else
+			rem_header_bytes = 4 - bytes_shifted; /* rem header */
+		/*
+		 * (rp->len - 4) -> current rx buffer data length.
+		 * If data_lost > 0, then ((rp->len - 4) - data_lost) will be
+		 * the number of repeating bytes.
+		 * If data_lost == 0, then ((rp->len - 4) + rem_header_bytes)
+		 * will be the number of bytes repeating in between rx buffer
+		 * and the current RDBK_DATA registers. We need to skip the
+		 * repeating bytes.
+		 */
+		repeated_bytes = (rp->len - 4) - data_lost + rem_header_bytes;
+	}
+
 	off = 0x06c;	/* DSI_RDBK_DATA0 */
 	off += ((cnt - 1) * 4);
 
 	for (i = 0; i < cnt; i++) {
 		data = (u32)MIPI_INP((ctrl->ctrl_base) + off);
-		*lp++ = ntohl(data);	/* to network byte order */
+		/* to network byte order */
+		if (!repeated_bytes)
+			*lp++ = ntohl(data);
+		else
+			*temp++ = ntohl(data);
 		pr_debug("%s: data = 0x%x and ntohl(data) = 0x%x\n",
 					 __func__, data, ntohl(data));
 		off -= 4;
+	}
+
+	/* Skip duplicates and append other data to the rx buffer */
+	if (repeated_bytes) {
+		for (i = repeated_bytes; i < 16; i++)
+			rp->data[j++] = reg[i];
 	}
 
 exit:
