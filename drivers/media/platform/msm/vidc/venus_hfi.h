@@ -202,6 +202,7 @@ struct venus_hfi_device {
 	struct venus_resources resources;
 	struct msm_vidc_platform_resources *res;
 	enum venus_hfi_state state;
+	struct hfi_packetization_ops *pkt_ops;
 };
 
 void venus_hfi_delete_device(void *device);
