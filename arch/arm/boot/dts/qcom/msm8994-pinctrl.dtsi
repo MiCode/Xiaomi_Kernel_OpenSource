@@ -175,7 +175,7 @@
 			label = "sdc1-clk";
 			sdc1_clk_on: clk_on {
 				bias-disable; /* NO pull */
-				drive-strength = <6>; /* 6 MA */
+				drive-strength = <16>; /* 16 MA */
 			};
 			sdc1_clk_off: clk_off {
 				bias-disable; /* NO pull */
@@ -189,7 +189,7 @@
 			label = "sdc1-cmd";
 			sdc1_cmd_on: cmd_on {
 				bias-pull-up; /* pull up */
-				drive-strength = <6>; /* 6 MA */
+				drive-strength = <8>; /* 8 MA */
 			};
 			sdc1_cmd_off: cmd_off {
 				bias-pull-up = <0x3>; /* pull up */
@@ -203,7 +203,7 @@
 			label = "sdc1-data";
 			sdc1_data_on: data_on {
 				bias-pull-up; /* pull up */
-				drive-strength = <6>; /* 6 MA */
+				drive-strength = <8>; /* 8 MA */
 			};
 			sdc1_data_off: data_off {
 				bias-pull-up; /* pull up */
