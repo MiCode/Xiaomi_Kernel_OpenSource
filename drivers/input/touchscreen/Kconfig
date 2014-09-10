@@ -1022,4 +1022,26 @@ config TOUCHSCREEN_GT9XX
 
 source "drivers/input/touchscreen/gt9xx/Kconfig"
 
+config TOUCHSCREEN_BU21150
+	tristate "JDI AFE BU21150"
+	depends on SPI_MASTER
+	help
+	  This enables support for character device channel for
+	  Rohm BU21150 Touch AFE.
+
+	  Say Y here if you have a Rohm bu21150 AFE connected to
+	  your system.
+
+	  If unsure, say N.
+
+config INPUT_MT_WRAPPER
+	tristate "Input Multitouch Wrapper"
+	help
+	  This enables support for character device channel for
+	  passing to the input system a multi-touch coordinates.
+
+	  Say Y here if you want to enable the driver.
+
+	  If unsure, say N.
+
 endif
