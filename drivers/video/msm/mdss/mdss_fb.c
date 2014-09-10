@@ -484,14 +484,17 @@ static ssize_t mdss_fb_get_panel_info(struct device *dev,
 
 	ret = scnprintf(buf, PAGE_SIZE,
 			"pu_en=%d\nxstart=%d\nwalign=%d\nystart=%d\nhalign=%d\n"
-			"min_w=%d\nmin_h=%d\nroi_merge=%d",
+			"min_w=%d\nmin_h=%d\nroi_merge=%d\ndyn_fps_en=%d\n"
+			"min_fps=%d\nmax_fps=%d\n",
 			pinfo->partial_update_enabled, pinfo->xstart_pix_align,
 			pinfo->width_pix_align, pinfo->ystart_pix_align,
 			pinfo->height_pix_align, pinfo->min_width,
-			pinfo->min_height, pinfo->partial_update_roi_merge);
+			pinfo->min_height, pinfo->partial_update_roi_merge,
+			pinfo->dynamic_fps, pinfo->min_fps, pinfo->max_fps);
 
 	return ret;
 }
+
 /*
  * mdss_fb_lpm_enable() - Function to Control LowPowerMode
  * @mfd:	Framebuffer data structure for display
