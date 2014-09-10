@@ -493,7 +493,7 @@ struct hci_ev_tune_status {
 	__u8    sub_event;
 	__le32  station_freq;
 	__u8    serv_avble;
-	__u8    rssi;
+	char    rssi;
 	__u8    stereo_prg;
 	__u8    rds_sync_status;
 	__u8    mute_mode;
