@@ -67,6 +67,7 @@ struct rndis_data_ch_info {
 	u32 prod_clnt_hdl;
 	u32 cons_clnt_hdl;
 	void *priv;
+	bool adaptor_disable;
 };
 
 struct sys2ipa_sw_data {
@@ -126,6 +127,16 @@ enum u_bam_data_event_type {
 	U_BAM_DATA_RESUME_E
 };
 
+/*
+ * Used exclusively for RNDIS adpator enable/disable
+ * operation performed on host machine.
+ */
+enum u_bam_rndis_state {
+	RNDIS_DISCONNECT = 0,
+	RNDIS_SOFT_DISABLE,
+	RNDIS_SOFT_ENABLE
+};
+
 struct bam_data_port {
 	bool                            is_connected;
 	enum u_bam_data_event_type	last_event;
@@ -139,6 +150,7 @@ struct bam_data_port {
 	struct work_struct		disconnect_w;
 	struct work_struct		suspend_w;
 	struct work_struct		resume_w;
+	enum u_bam_rndis_state		rndis_s;
 };
 struct  usb_bam_data_connect_info {
 	u32 usb_bam_pipe_idx;
@@ -807,6 +819,7 @@ static void bam2bam_data_connect_work(struct work_struct *w)
 	u32			sps_params;
 	int			ret;
 	unsigned long		flags;
+	bool			enable_eps = true;
 
 	pr_debug("%s: Connect workqueue started", __func__);
 
@@ -815,7 +828,8 @@ static void bam2bam_data_connect_work(struct work_struct *w)
 	d = &port->data_ch;
 	d_port = port->port_usb;
 
-	if (port->last_event == U_BAM_DATA_DISCONNECT_E) {
+	if (port->rndis_s == RNDIS_DISCONNECT &&
+		port->last_event == U_BAM_DATA_DISCONNECT_E) {
 		pr_debug("%s: Port is about to disconnect. Bail out.\n",
 			__func__);
 		spin_unlock_irqrestore(&port->port_lock, flags);
@@ -843,49 +857,64 @@ static void bam2bam_data_connect_work(struct work_struct *w)
 		return;
 	}
 
-	/* UL workaround requirements */
-	skb_queue_head_init(&d->rx_skb_q);
-	skb_queue_head_init(&d->rx_skb_idle);
-	INIT_LIST_HEAD(&d->rx_idle);
-
+	/*
+	 * Disabling RNDIS network adaptor disable/enable performs
+	 * USB IPA disconect and connect respectively. This particular
+	 * check makes sure that when we re-enable USB eps are not
+	 * re-renabled.
+	*/
 	if (d->trans == USB_GADGET_XPORT_BAM2BAM_IPA &&
-		d->src_pipe_type == USB_BAM_PIPE_SYS2BAM) {
-		ret = bam_data_sys2bam_alloc_req(port, false);
-		if (ret) {
+		d->func_type == USB_FUNC_RNDIS &&
+		port->rndis_s == RNDIS_SOFT_ENABLE)
+			enable_eps = false;
+
+	if (enable_eps) {
+
+		if (d->trans == USB_GADGET_XPORT_BAM2BAM_IPA &&
+			d->src_pipe_type == USB_BAM_PIPE_SYS2BAM) {
+
+			/* UL workaround requirements */
+			skb_queue_head_init(&d->rx_skb_q);
+			skb_queue_head_init(&d->rx_skb_idle);
+			INIT_LIST_HEAD(&d->rx_idle);
+
+			ret = bam_data_sys2bam_alloc_req(port, false);
+			if (ret) {
+				spin_unlock_irqrestore(&port->port_lock, flags);
+				pr_err("%s: sys2bam_alloc_req failed(%d)",
+								__func__, ret);
+				return;
+			}
+		}
+
+		d->rx_req = usb_ep_alloc_request(port->port_usb->out,
+								GFP_ATOMIC);
+		if (!d->rx_req) {
+			bam_data_free_reqs(port);
 			spin_unlock_irqrestore(&port->port_lock, flags);
-			pr_err("%s: bam_data_sys2bam_alloc_req failed(%d)",
-							__func__, ret);
+			pr_err("%s: failed to allocate rx_req\n", __func__);
 			return;
 		}
+		d->rx_req->context = port;
+		d->rx_req->complete = bam_data_endless_rx_complete;
+		d->rx_req->length = 0;
+		d->rx_req->no_interrupt = 1;
+
+		d->tx_req = usb_ep_alloc_request(port->port_usb->in,
+								GFP_ATOMIC);
+		if (!d->tx_req) {
+			usb_ep_free_request(port->port_usb->out, d->rx_req);
+			bam_data_free_reqs(port);
+			spin_unlock_irqrestore(&port->port_lock, flags);
+			pr_err("%s: failed to allocate tx_req\n", __func__);
+			return;
+		}
+
+		d->tx_req->context = port;
+		d->tx_req->complete = bam_data_endless_tx_complete;
+		d->tx_req->length = 0;
+		d->tx_req->no_interrupt = 1;
 	}
-
-	d->rx_req = usb_ep_alloc_request(port->port_usb->out, GFP_ATOMIC);
-	if (!d->rx_req) {
-		bam_data_free_reqs(port);
-		spin_unlock_irqrestore(&port->port_lock, flags);
-		pr_err("%s: failed to allocate rx_req\n", __func__);
-		return;
-	}
-
-	d->rx_req->context = port;
-	d->rx_req->complete = bam_data_endless_rx_complete;
-	d->rx_req->length = 0;
-	d->rx_req->no_interrupt = 1;
-
-	d->tx_req = usb_ep_alloc_request(port->port_usb->in, GFP_ATOMIC);
-	if (!d->tx_req) {
-		usb_ep_free_request(port->port_usb->out, d->rx_req);
-		bam_data_free_reqs(port);
-		spin_unlock_irqrestore(&port->port_lock, flags);
-		pr_err("%s: failed to allocate tx_req\n", __func__);
-		return;
-	}
-
-	d->tx_req->context = port;
-	d->tx_req->complete = bam_data_endless_tx_complete;
-	d->tx_req->length = 0;
-	d->tx_req->no_interrupt = 1;
-
 	/*
 	 * Mark port as connected, to maintaine this driver state,
 	 * even if there gonna be errors down in this function.
@@ -957,7 +986,8 @@ static void bam2bam_data_connect_work(struct work_struct *w)
 		}
 
 		spin_lock_irqsave(&port->port_lock, flags);
-		if (port->last_event ==  U_BAM_DATA_DISCONNECT_E) {
+		if (port->rndis_s == RNDIS_DISCONNECT &&
+			port->last_event ==  U_BAM_DATA_DISCONNECT_E) {
 			spin_unlock_irqrestore(&port->port_lock, flags);
 			pr_err("%s:%d: Port is being disconnected.\n",
 						__func__, __LINE__);
@@ -1020,7 +1050,8 @@ static void bam2bam_data_connect_work(struct work_struct *w)
 		 * spinlock and re-enabling IRQs. Hence check again.
 		 */
 		spin_lock_irqsave(&port->port_lock, flags);
-		if (port->last_event ==  U_BAM_DATA_DISCONNECT_E) {
+		if (port->rndis_s == RNDIS_DISCONNECT &&
+			port->last_event ==  U_BAM_DATA_DISCONNECT_E) {
 			spin_unlock_irqrestore(&port->port_lock, flags);
 			pr_err("%s:%d: port is beind disconnected.\n",
 						__func__, __LINE__);
@@ -1259,6 +1290,7 @@ int bam2bam_data_port_select(int portno)
 	port = bam2bam_data_ports[portno];
 	port->port_num  = portno;
 	port->is_connected = false;
+	port->rndis_s = RNDIS_DISCONNECT;
 
 	spin_lock_init(&port->port_lock);
 
@@ -1293,10 +1325,16 @@ void u_bam_data_start_rndis_ipa(void)
 {
 	pr_debug("%s\n", __func__);
 
-	if (!is_ipa_rndis_net_on)
+	if (!is_ipa_rndis_net_on) {
+		struct bam_data_port *port =
+			bam2bam_data_ports[RNDIS_QC_ACTIVE_PORT];
+
+		if (port->rndis_s == RNDIS_SOFT_DISABLE)
+			port->rndis_s = RNDIS_SOFT_ENABLE;
 		queue_work(bam_data_wq, rndis_conn_w);
-	else
+	} else {
 		pr_debug("%s: Transfers already started?\n", __func__);
+	}
 }
 
 void u_bam_data_stop_rndis_ipa(void)
@@ -1309,7 +1347,10 @@ void u_bam_data_stop_rndis_ipa(void)
 
 		rndis_ipa_reset_trigger();
 		bam_data_stop_endless_tx(port);
-		queue_work(bam_data_wq, rndis_disconn_w);
+		port->rndis_s = RNDIS_SOFT_DISABLE;
+		rndis_data.adaptor_disable = true;
+		bam_data_disconnect(port->port_usb,
+					RNDIS_QC_ACTIVE_PORT);
 	}
 }
 
@@ -1338,6 +1379,7 @@ void bam_data_disconnect(struct data_port *gr, u8 port_num)
 	struct bam_data_ch_info	*d;
 	struct sk_buff *skb = NULL;
 	unsigned long flags;
+	bool disable_eps = true;
 
 	pr_debug("dev:%p port number:%d\n", gr, port_num);
 
@@ -1361,7 +1403,26 @@ void bam_data_disconnect(struct data_port *gr, u8 port_num)
 	spin_lock_irqsave(&port->port_lock, flags);
 
 	d = &port->data_ch;
-	if (port->port_usb) {
+
+	/*
+	 * Flag disable_eps and rndis_s state as RNDIS_SOFT_DISABLE are
+	 * being used to detect that this API is being called due to
+	 * performing RNDIS adaptor disable on host. In normal case,
+	 * disable_eps would be always false, which would make sure to
+	 * perform disconnect sequeunce.
+	 */
+	if (d->trans == USB_GADGET_XPORT_BAM2BAM_IPA &&
+		d->func_type == USB_FUNC_RNDIS) {
+		if (rndis_data.adaptor_disable &&
+			port->rndis_s == RNDIS_SOFT_DISABLE) {
+			disable_eps = false;
+			rndis_data.adaptor_disable = false;
+		} else {
+			port->rndis_s = RNDIS_DISCONNECT;
+		}
+	}
+
+	if (port->port_usb && disable_eps) {
 		if (d->trans == USB_GADGET_XPORT_BAM2BAM_IPA) {
 			port->port_usb->ipa_consumer_ep = -1;
 			port->port_usb->ipa_producer_ep = -1;
