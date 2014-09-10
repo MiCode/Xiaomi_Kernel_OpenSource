@@ -539,8 +539,8 @@ int wmi_disconnect_sta(struct wil6210_priv *wil, const u8 *mac, u16 reason);
 void wil6210_clear_irq(struct wil6210_priv *wil);
 int wil6210_init_irq(struct wil6210_priv *wil, int irq);
 void wil6210_fini_irq(struct wil6210_priv *wil, int irq);
-void wil6210_disable_irq(struct wil6210_priv *wil);
-void wil6210_enable_irq(struct wil6210_priv *wil);
+void wil_mask_irq(struct wil6210_priv *wil);
+void wil_unmask_irq(struct wil6210_priv *wil);
 int wil_cfg80211_mgmt_tx(struct wiphy *wiphy, struct wireless_dev *wdev,
 			 struct ieee80211_channel *chan, bool offchan,
 			 unsigned int wait, const u8 *buf, size_t len,
