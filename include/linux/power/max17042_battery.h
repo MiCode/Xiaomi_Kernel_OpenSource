@@ -29,6 +29,10 @@
 
 #define MAX17042_CHARACTERIZATION_DATA_SIZE 48
 
+#define BATTID_LEN	8
+#define MODEL_NAME_LEN	2
+#define SERIAL_NUM_LEN	6
+
 enum max17042_register {
 	MAX17042_STATUS		= 0x00,
 	MAX17042_VALRT_Th	= 0x01,
@@ -75,7 +79,7 @@ enum max17042_register {
 	MAX17042_RelaxCFG	= 0x2A,
 	MAX17042_MiscCFG	= 0x2B,
 	MAX17042_TGAIN		= 0x2C,
-	MAx17042_TOFF		= 0x2D,
+	MAX17042_TOFF		= 0x2D,
 	MAX17042_CGAIN		= 0x2E,
 	MAX17042_COFF		= 0x2F,
 
@@ -208,6 +212,15 @@ struct max17042_platform_data {
 	 * the datasheet although it can be changed by board designers.
 	 */
 	unsigned int r_sns;
+
+	int         technology;
+	char        battid[BATTID_LEN + 1];
+	char        model_name[MODEL_NAME_LEN + 1];
+	char        serial_num[SERIAL_NUM_LEN + 1];
+	int         vmin;
+	int         vmax;
+	int         temp_min;
+	int         temp_max;
 };
 
 #endif /* __MAX17042_BATTERY_H_ */
