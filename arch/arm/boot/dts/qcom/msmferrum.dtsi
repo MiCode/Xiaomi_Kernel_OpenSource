@@ -229,6 +229,63 @@
 		#clock-cells = <1>;
 	};
 
+	qcom,clock-a7@0b011050 {
+		compatible = "qcom,clock-a53-8916";
+		reg = <0x0b011050 0x8>;
+		reg-names = "rcg-base";
+		qcom,safe-freq = < 400000000 >;
+		cpu-vdd-supply = <&pmferrum_s1_corner>;
+		clocks = <&clock_gcc clk_gpll0_ao_clk_src>,
+			 <&clock_gcc clk_a7sspll>;
+		clock-names = "clk-4", "clk-5";
+		qcom,speed0-bin-v0 =
+			<          0 0>,
+			<  400000000 4>,
+			<  800000000 5>,
+			< 1248000000 7>;
+
+	};
+
+	cpubw: qcom,cpubw {
+		compatible = "qcom,devbw";
+		governor = "cpufreq";
+		qcom,src-dst-ports = <1 512>;
+		qcom,active-only;
+		qcom,bw-tbl =
+			/*  73 9.60 MHz */
+			/* 381  50MHz */
+			<  762 /* 100 MHz */>,
+			< 1525 /* 200 MHz */>,
+			< 3051 /* 400 MHz */>,
+			< 4066 /* 533 MHz */>;
+	};
+
+	devfreq-cpufreq {
+		cpubw-cpufreq {
+			target-dev = <&cpubw>;
+			cpu-to-dev-map =
+				 <  400000  762>,
+				 <  998400  1525>,
+				 < 1094400  3051>,
+				 < 1190400  4066>;
+		};
+	};
+
+	qcom,msm-cpufreq@0 {
+		reg = <0 4>;
+		compatible = "qcom,msm-cpufreq";
+		qcom,cpufreq-table =
+			 <  200000 >,
+			 <  400000 >,
+			 <  533330 >,
+			 <  800000 >,
+			 <  998400 >,
+			 < 1094400 >,
+			 < 1190400 >,
+			 < 1248000 >;
+	};
+
+
 	blsp1_uart1: serial@78af000 {
 		compatible = "qcom,msm-lsuart-v14";
 		reg = <0x78af000 0x200>;
