@@ -235,25 +235,6 @@ out:
 
 }
 
-int msm_ion_secure_buffer(struct ion_client *client, struct ion_handle *handle,
-			enum cp_mem_usage usage, int flags)
-{
-	struct sg_table *table;
-	int ret;
-
-	table = ion_sg_table(client, handle);
-
-	if (IS_ERR_OR_NULL(table)) {
-		ret = -EINVAL;
-		goto out;
-	}
-
-	ret = msm_ion_secure_table(table, usage, flags);
-out:
-	return ret;
-}
-EXPORT_SYMBOL(msm_ion_secure_buffer);
-
 static void msm_secure_buffer_release(struct kref *kref)
 {
 	struct secure_meta *meta = container_of(kref, struct secure_meta,
@@ -284,28 +265,6 @@ out:
 	return ret;
 
 }
-
-int msm_ion_unsecure_buffer(struct ion_client *client,
-			    struct ion_handle *handle)
-{
-	struct sg_table *table;
-	int ret = 0;
-
-	table = ion_sg_table(client, handle);
-
-	if (IS_ERR_OR_NULL(table)) {
-		WARN(1, "Could not get table for handle %p to unsecure\n",
-			handle);
-		ret = -EINVAL;
-		goto out;
-	}
-
-	msm_ion_unsecure_table(table);
-
-out:
-	return ret;
-}
-EXPORT_SYMBOL(msm_ion_unsecure_buffer);
 
 #define MAKE_CP_VERSION(major, minor, patch) \
 	(((major & 0x3FF) << 22) | ((minor & 0x3FF) << 12) | (patch & 0xFFF))
