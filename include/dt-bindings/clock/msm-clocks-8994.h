@@ -453,6 +453,17 @@
 #define clk_cpu_debug_mux 0x3ae8bcb2
 #define clk_a57_div_clk 0x4fdce8aa
 #define clk_a53_div_clk 0x6006022b
+/* V2 specific */
+#define clk_a57_pll0_main 0xe2f766a8
+#define clk_a57_pll1_main 0xe231d575
+#define clk_a53_hf_mux_v2 0xae5899af
+#define clk_a57_hf_mux_v2 0xf03c6e30
+#define clk_a53_lf_mux_v2 0x073a2e36
+#define clk_a53_hf_mux_v2 0xae5899af
+#define clk_a57_lf_mux_v2 0xcc0c0f08
+#define clk_a57_lf_mux_div 0xac0c1150
+#define clk_a53_lf_mux_div 0x6ae626e5
+
 
 /* clock_debug controlled clocks */
 #define clk_gcc_debug_mux 0x8121ac15

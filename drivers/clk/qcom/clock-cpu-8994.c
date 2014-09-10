@@ -44,6 +44,7 @@ enum {
 	ALIAS0_GLB_BASE,
 	ALIAS1_GLB_BASE,
 	CCI_BASE,
+	EFUSE_BASE,
 	NUM_BASES
 };
 
@@ -54,6 +55,7 @@ static char *base_names[] = {
 	"c0_mux",
 	"c1_mux",
 	"cci_mux",
+	"efuse",
 };
 
 static void *vbases[NUM_BASES];
@@ -151,6 +153,8 @@ DEFINE_FIXED_SLAVE_DIV_CLK(a57_safe_clk, 1, &a57_safe_parent.c);
 
 DEFINE_EXT_CLK(xo_ao, NULL);
 DEFINE_EXT_CLK(sys_apcsaux_clk, NULL);
+
+static bool msm8994_v2;
 
 static struct pll_clk a57_pll0 = {
 	.mode_reg = (void __iomem *)C1_PLL_MODE,
@@ -385,6 +389,8 @@ static struct clk_div_ops cpu_div_ops = {
 
 DEFINE_FIXED_DIV_CLK(a53_pll0_main, 2, &a53_pll0.c);
 DEFINE_FIXED_DIV_CLK(a57_pll0_main, 2, &a57_pll0.c);
+DEFINE_FIXED_DIV_CLK(a53_pll1_main, 2, &a53_pll1.c);
+DEFINE_FIXED_DIV_CLK(a57_pll1_main, 2, &a57_pll1.c);
 
 #define DEFINE_LF_MUX_DIV(name, _base, _parent)	\
 	static struct div_clk name = {		\
@@ -574,6 +580,131 @@ static struct mux_clk a57_hf_mux = {
 	},
 };
 
+/* === 8994 V2 clock tree begins here === */
+
+static struct mux_clk a53_lf_mux_v2 = {
+	.offset = MUX_OFFSET,
+	MUX_SRC_LIST(
+		{ &xo_ao.c,           0 },
+		{ &a53_pll1_main.c,   1 },
+		{ &a53_pll0_main.c,   2 },
+		{ &sys_apcsaux_clk.c, 3 },
+	),
+	.en_mask = 3,
+	.safe_parent = &sys_apcsaux_clk.c,
+	.ops = &cpu_mux_ops,
+	.mask = 0x3,
+	.shift = 1,
+	.base = &vbases[ALIAS0_GLB_BASE],
+	.c = {
+		.dbg_name = "a53_lf_mux_v2",
+		.flags = CLKFLAG_NO_RATE_CACHE,
+		.ops = &clk_ops_gen_mux,
+		CLK_INIT(a53_lf_mux_v2.c),
+	},
+};
+
+static struct div_clk a53_lf_mux_div = {
+	.data = {
+		.min_div = 1,
+		.max_div = 2,
+	},
+	.ops = &cpu_div_ops,
+	.base = &vbases[ALIAS0_GLB_BASE],
+	.offset = MUX_OFFSET,
+	.mask = 0x1,
+	.shift = 5,
+	.c = {
+		.parent = &a53_lf_mux_v2.c,
+		.dbg_name = "a53_lf_mux_div",
+		.flags = CLKFLAG_NO_RATE_CACHE,
+		.ops = &clk_ops_div,
+		CLK_INIT(a53_lf_mux_div.c),
+	},
+};
+
+static struct mux_clk a53_hf_mux_v2 = {
+	.offset = MUX_OFFSET,
+	MUX_SRC_LIST(
+		{ &a53_lf_mux_div.c, 0 },
+		{ &a53_pll1.c,       1 },
+		{ &a53_pll0.c,       3 },
+	),
+	.en_mask = 0,
+	.safe_parent = &a53_lf_mux_div.c,
+	.safe_freq = 300000000,
+	.ops = &cpu_mux_ops,
+	.mask = 0x3,
+	.shift = 3,
+	.base = &vbases[ALIAS0_GLB_BASE],
+	.c = {
+		.dbg_name = "a53_hf_mux_v2",
+		.flags = CLKFLAG_NO_RATE_CACHE,
+		.ops = &clk_ops_gen_mux,
+		CLK_INIT(a53_hf_mux_v2.c),
+	},
+};
+
+static struct mux_clk a57_lf_mux_v2 = {
+	.offset = MUX_OFFSET,
+	MUX_SRC_LIST(
+		{ &xo_ao.c,           0 },
+		{ &a57_pll1_main.c,   1 },
+		{ &a57_pll0_main.c,   2 },
+		{ &sys_apcsaux_clk.c, 3 },
+	),
+	.safe_parent = &sys_apcsaux_clk.c,
+	.ops = &cpu_mux_ops,
+	.mask = 0x3,
+	.shift = 1,
+	.base = &vbases[ALIAS1_GLB_BASE],
+	.c = {
+		.dbg_name = "a57_lf_mux_v2",
+		.flags = CLKFLAG_NO_RATE_CACHE,
+		.ops = &clk_ops_gen_mux,
+		CLK_INIT(a57_lf_mux_v2.c),
+	},
+};
+
+static struct div_clk a57_lf_mux_div = {
+	.data = {
+		.min_div = 1,
+		.max_div = 2,
+	},
+	.ops = &cpu_div_ops,
+	.base = &vbases[ALIAS1_GLB_BASE],
+	.offset = MUX_OFFSET,
+	.mask = 0x1,
+	.shift = 5,
+	.c = {
+		.parent = &a57_lf_mux_v2.c,
+		.dbg_name = "a57_lf_mux_div",
+		.flags = CLKFLAG_NO_RATE_CACHE,
+		.ops = &clk_ops_div,
+		CLK_INIT(a57_lf_mux_div.c),
+	},
+};
+
+static struct mux_clk a57_hf_mux_v2 = {
+	.offset = MUX_OFFSET,
+	MUX_SRC_LIST(
+		{ &a57_lf_mux_div.c, 0 },
+		{ &a57_pll1.c,       1 },
+		{ &a57_pll0.c,       3 },
+	),
+	.safe_parent = &a57_lf_mux_div.c,
+	.safe_freq = 300000000,
+	.ops = &cpu_mux_ops,
+	.mask = 0x3,
+	.shift = 3,
+	.base = &vbases[ALIAS1_GLB_BASE],
+	.c = {
+		.dbg_name = "a57_hf_mux_v2",
+		.ops = &clk_ops_gen_mux,
+		CLK_INIT(a57_hf_mux_v2.c),
+	},
+};
+
 struct cpu_clk_8994 {
 	u32 cpu_reg_mask;
 	struct clk c;
@@ -636,8 +767,14 @@ static struct cpu_clk_8994 a57_clk = {
 DEFINE_FIXED_SLAVE_DIV_CLK(a53_div_clk, 1, &a53_clk.c);
 DEFINE_FIXED_SLAVE_DIV_CLK(a57_div_clk, 1, &a57_clk.c);
 
+static struct div_clk cci_clk;
+
+#define APCS_ALIAS1_CORE_CBCR 0x58
+
 static struct mux_clk a53_debug_mux = {
 	.offset = GLB_CLK_DIAG,
+	.en_offset = APCS_ALIAS1_CORE_CBCR,
+	.en_mask = 0x1,
 	.ops = &mux_reg_ops,
 	.mask = 0x3F,
 	.shift = 12,
@@ -646,6 +783,7 @@ static struct mux_clk a53_debug_mux = {
 	),
 	MUX_SRC_LIST(
 		{&a53_div_clk.c, 0},
+		{&cci_clk.c,     1},
 	),
 	.base = &vbases[ALIAS0_GLB_BASE],
 	.c = {
@@ -655,8 +793,12 @@ static struct mux_clk a53_debug_mux = {
 	},
 };
 
+#define APCS_ALIAS0_CORE_CBCR 0x58
+
 static struct mux_clk a57_debug_mux = {
 	.offset = GLB_CLK_DIAG,
+	.en_offset = APCS_ALIAS0_CORE_CBCR,
+	.en_mask = 0x1,
 	.ops = &mux_reg_ops,
 	.mask = 0x3F,
 	.shift = 12,
@@ -751,6 +893,7 @@ static struct mux_clk cci_lf_mux = {
 		{ &sys_apcsaux_clk.c, 1 },
 		{ &xo_ao.c, 0 },
 	),
+	.en_mask = 1,
 	.safe_parent = &sys_apcsaux_clk.c,
 	.ops = &cpu_mux_ops,
 	.mask = 0x3,
@@ -772,6 +915,7 @@ static struct mux_clk cci_hf_mux = {
 		{ &cci_pll.c,      3 },
 		{ &cci_pll_main.c, 2 },
 	),
+	.en_mask = 1,
 	.safe_parent = &cci_lf_mux.c,
 	.safe_freq = 600000000,
 	.ops = &cpu_mux_ops,
@@ -833,6 +977,39 @@ static struct clk_lookup cpu_clocks_8994[] = {
 	CLK_LIST(cci_pll),
 	CLK_LIST(cci_hf_mux),
 	CLK_LIST(cci_lf_mux),
+	CLK_LIST(xo_ao),
+	CLK_LIST(sys_apcsaux_clk),
+
+	CLK_LIST(a53_debug_mux),
+	CLK_LIST(a57_debug_mux),
+	CLK_LIST(cpu_debug_mux),
+};
+
+
+static struct clk_lookup cpu_clocks_8994_v2[] = {
+	CLK_LIST(a53_clk),
+	CLK_LIST(a53_pll0),
+	CLK_LIST(a53_pll1),
+	CLK_LIST(a53_pll0_main),
+	CLK_LIST(a53_pll1_main),
+	CLK_LIST(a53_hf_mux_v2),
+	CLK_LIST(a53_lf_mux_div),
+	CLK_LIST(a53_lf_mux_v2),
+
+	CLK_LIST(a57_clk),
+	CLK_LIST(a57_pll0),
+	CLK_LIST(a57_pll1),
+	CLK_LIST(a57_pll0_main),
+	CLK_LIST(a57_pll1_main),
+	CLK_LIST(a57_hf_mux_v2),
+	CLK_LIST(a57_lf_mux_div),
+	CLK_LIST(a57_lf_mux_v2),
+
+	CLK_LIST(cci_clk),
+	CLK_LIST(cci_pll),
+	CLK_LIST(cci_hf_mux),
+	CLK_LIST(cci_lf_mux),
+
 	CLK_LIST(xo_ao),
 	CLK_LIST(sys_apcsaux_clk),
 
@@ -1075,19 +1252,43 @@ static void populate_opp_table(struct platform_device *pdev)
 	pr_info("clock-cpu-8994: OPP tables populated.\n");
 }
 
+static int a57speedbin;
+
 static int cpu_clock_8994_driver_probe(struct platform_device *pdev)
 {
 	int ret, cpu;
 	unsigned long a53rate, a57rate, ccirate;
+	bool v2;
+	int pvs_ver = 0;
+	u32 pte_efuse;
+	char a57speedbinstr[] = "qcom,a57-speedbinXX-vXX";
+
+	v2 = msm8994_v2;
 
 	a53_pll0_main.c.flags = CLKFLAG_NO_RATE_CACHE;
 	a57_pll0_main.c.flags = CLKFLAG_NO_RATE_CACHE;
+	a53_pll1_main.c.flags = CLKFLAG_NO_RATE_CACHE;
+	a57_pll1_main.c.flags = CLKFLAG_NO_RATE_CACHE;
+
+	if (v2) {
+		a53_pll1.vals.post_div_masked = 0x100;
+		a57_pll1.vals.post_div_masked = 0x100;
+		a57_clk.c.parent = &a57_hf_mux_v2.c;
+		a53_clk.c.parent = &a53_hf_mux_v2.c;
+		a53_div_clk.data.min_div = 8;
+		a53_div_clk.data.max_div = 8;
+		a53_div_clk.data.div = 8;
+		a57_div_clk.data.min_div = 8;
+		a57_div_clk.data.max_div = 8;
+		a57_div_clk.data.div = 8;
+	}
 
 	ret = cpu_clock_8994_resources_init(pdev);
 	if (ret)
 		return ret;
 
-	perform_v1_fixup();
+	if (!v2)
+		perform_v1_fixup();
 
 	ret = of_get_fmax_vdd_class(pdev, &a53_clk.c, "qcom,a53-speedbin0-v0");
 	if (ret) {
@@ -1095,10 +1296,25 @@ static int cpu_clock_8994_driver_probe(struct platform_device *pdev)
 		return ret;
 	}
 
-	ret = of_get_fmax_vdd_class(pdev, &a57_clk.c, "qcom,a57-speedbin0-v0");
+	if (v2) {
+		pte_efuse = readl_relaxed(vbases[EFUSE_BASE]);
+		a57speedbin = pte_efuse & 0x7;
+		dev_info(&pdev->dev, "using A57 speed bin %u and pvs_ver %d\n",
+			 a57speedbin, pvs_ver);
+	}
+
+	snprintf(a57speedbinstr, ARRAY_SIZE(a57speedbinstr),
+			"qcom,a57-speedbin%d-v%d", a57speedbin, pvs_ver);
+
+	ret = of_get_fmax_vdd_class(pdev, &a57_clk.c, a57speedbinstr);
 	if (ret) {
-		dev_err(&pdev->dev, "Can't get speed bin for a57\n");
-		return ret;
+		dev_err(&pdev->dev, "Can't get speed bin for a57. Falling back to zero.\n");
+		ret = of_get_fmax_vdd_class(pdev, &a57_clk.c,
+					    "qcom,a57-speedbin0-v0");
+		if (ret) {
+			dev_err(&pdev->dev, "Unable to retrieve plan for A57. Bailing...\n");
+			return ret;
+		}
 	}
 
 	ret = of_get_fmax_vdd_class(pdev, &cci_clk.c, "qcom,cci-speedbin0-v0");
@@ -1109,20 +1325,29 @@ static int cpu_clock_8994_driver_probe(struct platform_device *pdev)
 
 	get_online_cpus();
 
-	ret = of_msm_clock_register(pdev->dev.of_node, cpu_clocks_8994,
+	if (!v2)
+		ret = of_msm_clock_register(pdev->dev.of_node, cpu_clocks_8994,
 				 ARRAY_SIZE(cpu_clocks_8994));
+	else
+		ret = of_msm_clock_register(pdev->dev.of_node,
+					    cpu_clocks_8994_v2,
+					    ARRAY_SIZE(cpu_clocks_8994_v2));
 	if (ret) {
 		dev_err(&pdev->dev, "Unable to register CPU clocks.\n");
 		return ret;
 	}
 
-	/* Keep the secondary PLLs enabled forever */
-	clk_prepare_enable(&a53_pll1.c);
-	clk_prepare_enable(&a57_pll1.c);
+	/* Keep the secondary PLLs enabled forever on V1 */
+	if (!v2) {
+		clk_prepare_enable(&a53_pll1.c);
+		clk_prepare_enable(&a57_pll1.c);
+	}
 
 	for_each_online_cpu(cpu) {
-		clk_prepare_enable(&cci_clk.c);
-		clk_prepare_enable(logical_cpu_to_clk(cpu));
+		WARN(clk_prepare_enable(&cci_clk.c),
+			"Failed to enable cci clock.\n");
+		WARN(clk_prepare_enable(logical_cpu_to_clk(cpu)),
+			"Failed to enabled clock for cpu %d\n", cpu);
 	}
 
 	a53rate = clk_get_rate(&a53_clk.c);
@@ -1159,13 +1384,16 @@ static int cpu_clock_8994_driver_probe(struct platform_device *pdev)
 		}
 	}
 
-	/*
-	 * Hardcoded until real silicon. Set low frequencies until
-	 * characterization OKs higher frequencies.
-	 */
-	clk_set_rate(&a53_clk.c, 384000000);
-	clk_set_rate(&a57_clk.c, 199200000);
-	clk_set_rate(&cci_clk.c, 150000000);
+	/* Set low frequencies until thermal/cpufreq probe. */
+	if (!v2) {
+		clk_set_rate(&a53_clk.c, 384000000);
+		clk_set_rate(&a57_clk.c, 199200000);
+		clk_set_rate(&cci_clk.c, 150000000);
+	} else {
+		clk_set_rate(&a53_clk.c, 600000000);
+		clk_set_rate(&a57_clk.c, 384000000);
+		clk_set_rate(&cci_clk.c, 300000000);
+	}
 
 	populate_opp_table(pdev);
 
@@ -1201,29 +1429,48 @@ static void __exit cpu_clock_8994_exit(void)
 }
 module_exit(cpu_clock_8994_exit);
 
+#define ALIAS0_GLB_BASE_PHY 0xF900D000
 #define ALIAS1_GLB_BASE_PHY 0xF900F000
 #define C1_PLL_BASE_PHY 0xF9016000
 
 int __init cpu_clock_8994_init_a57_v2(void)
 {
+	int ret = 0;
+
 	pr_info("clock-cpu-8994-v2: configuring clocks for the A57 cluster\n");
+
+	msm8994_v2 = true;
+
+	vbases[ALIAS0_GLB_BASE] = ioremap(ALIAS0_GLB_BASE_PHY, SZ_4K);
+	if (!vbases[ALIAS0_GLB_BASE]) {
+		WARN(1, "Unable to ioremap A57 mux base. Can't configure A57 clocks.\n");
+		ret = -ENOMEM;
+		goto fail;
+	}
 
 	vbases[ALIAS1_GLB_BASE] = ioremap(ALIAS1_GLB_BASE_PHY, SZ_4K);
 	if (!vbases[ALIAS1_GLB_BASE]) {
 		WARN(1, "Unable to ioremap A57 mux base. Can't configure A57 clocks.\n");
-		return -ENOMEM;
+		ret = -ENOMEM;
+		goto iomap_fail;
 	}
 
 	/* Select GPLL0 and use the div-2 divider for 300MHz */
 	writel_relaxed(0x26, vbases[ALIAS1_GLB_BASE] + MUX_OFFSET);
-	/* Ensure write goes through before A57s are brought up. */
+	/* Select GPLL0 for 600MHz on the A53s */
+	writel_relaxed(0x6, vbases[ALIAS0_GLB_BASE] + MUX_OFFSET);
+
+	/* Ensure write goes through before A53s are brought up. */
 	mb();
 	udelay(5);
 
 	pr_cont("clock-cpu-8994-v2: finished configuring A57 cluster clocks.\n");
-	iounmap(vbases[ALIAS1_GLB_BASE]);
 
-	return 0;
+	iounmap(vbases[ALIAS1_GLB_BASE]);
+iomap_fail:
+	iounmap(vbases[ALIAS0_GLB_BASE]);
+fail:
+	return ret;
 }
 
 /* Setup the A57 clocks before _this_ driver probes, before smp_init */
