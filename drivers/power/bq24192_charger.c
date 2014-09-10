@@ -309,7 +309,6 @@ static enum power_supply_property bq24192_usb_props[] = {
 #define BYTCR_CHRG_CUR_LOW      1000
 
 static struct ps_batt_chg_prof byt_ps_batt_chrg_prof;
-static struct ps_pse_mod_prof byt_batt_chg_profile;
 static struct power_supply_throttle byt_throttle_states[] = {
 	{
 		.throttle_action = PSY_THROTTLE_CC_LIMIT,
@@ -330,14 +329,8 @@ static struct power_supply_throttle byt_throttle_states[] = {
 
 static void *platform_byt_get_batt_charge_profile(void)
 {
-	if (!em_config_get_charge_profile(&byt_batt_chg_profile))
-		byt_ps_batt_chrg_prof.chrg_prof_type = CHRG_PROF_NONE;
-	else
-		byt_ps_batt_chrg_prof.chrg_prof_type = PSE_MOD_CHRG_PROF;
+	get_batt_prop(&byt_ps_batt_chrg_prof);
 
-	byt_ps_batt_chrg_prof.batt_prof = &byt_batt_chg_profile;
-	battery_prop_changed(POWER_SUPPLY_BATTERY_INSERTED,
-				&byt_ps_batt_chrg_prof);
 	return &byt_ps_batt_chrg_prof;
 }
 

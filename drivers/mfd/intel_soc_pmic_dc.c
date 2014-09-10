@@ -299,7 +299,7 @@ struct intel_pmic_irqregmap dollar_cove_irqregmap[] = {
 #define DC_CHRG_CHRG_CUR_LOW		1000
 
 static struct ps_batt_chg_prof ps_batt_chrg_prof;
-static struct ps_pse_mod_prof batt_chg_profile;
+static struct ps_pse_mod_prof *pse_mod_prof;
 static struct power_supply_throttle dc_chrg_throttle_states[] = {
 	{
 		.throttle_action = PSY_THROTTLE_CC_LIMIT,
@@ -324,13 +324,14 @@ static char *dc_chrg_supplied_to[] = {
 
 static void *platform_get_batt_charge_profile(void)
 {
-	if (!em_config_get_charge_profile(&batt_chg_profile))
-		ps_batt_chrg_prof.chrg_prof_type = CHRG_PROF_NONE;
-	else
-		ps_batt_chrg_prof.chrg_prof_type = PSE_MOD_CHRG_PROF;
+	int ret;
 
-	ps_batt_chrg_prof.batt_prof = &batt_chg_profile;
-	battery_prop_changed(POWER_SUPPLY_BATTERY_INSERTED, &ps_batt_chrg_prof);
+	ret = get_batt_prop(&ps_batt_chrg_prof);
+	pse_mod_prof = (struct ps_pse_mod_prof *)
+					ps_batt_chrg_prof.batt_prof;
+	if (ret < 0 && pse_mod_prof)
+		strcpy(pse_mod_prof->batt_id, "UNKNOWNB");
+
 	return &ps_batt_chrg_prof;
 }
 
@@ -418,7 +419,12 @@ static void dc_xpwr_fg_pdata(void)
 	int i;
 	int scaled_capacity;
 
-	memcpy(pdata.battid, "INTN0001", strlen("INTN0001"));
+	if (pse_mod_prof)
+		memcpy(pdata.battid, pse_mod_prof->batt_id,
+				strlen(pse_mod_prof->batt_id));
+	else
+		memcpy(pdata.battid, "INTN0001", strlen("INTN0001"));
+
 	platform_set_battery_data(&pdata, &ps_batt_chrg_prof);
 	pdata.max_temp = 55;
 	pdata.min_temp = 0;

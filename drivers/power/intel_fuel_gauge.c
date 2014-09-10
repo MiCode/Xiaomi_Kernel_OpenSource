@@ -43,7 +43,7 @@
 #include <linux/reboot.h>
 #include <linux/notifier.h>
 #include <linux/power/intel_fuel_gauge.h>
-#include <asm/intel_em_config.h>
+#include <linux/power/battery_id.h>
 
 #define DRIVER_NAME	"intel_fuel_gauge"
 
@@ -595,7 +595,7 @@ EXPORT_SYMBOL(intel_fg_unregister_algo);
 static int intel_fuel_gauge_probe(struct platform_device *pdev)
 {
 	struct intel_fg_info *fg_info;
-	struct em_config_oem0_data oem0_data;
+	struct ps_batt_chg_prof bat_prof;
 
 	fg_info = devm_kzalloc(&pdev->dev, sizeof(*fg_info), GFP_KERNEL);
 	if (!fg_info) {
@@ -611,10 +611,10 @@ static int intel_fuel_gauge_probe(struct platform_device *pdev)
 	INIT_DELAYED_WORK(&fg_info->fg_worker, &intel_fg_worker);
 	fg_info->batt_params.status = POWER_SUPPLY_STATUS_DISCHARGING;
 
-	if (em_config_get_oem0_data(&oem0_data))
-		fg_info->batt_params.is_valid_battery = true;
-	else
+	if (get_batt_prop(&bat_prof) < 0)
 		fg_info->batt_params.is_valid_battery = false;
+	else
+		fg_info->batt_params.is_valid_battery = true;
 
 	wake_lock_init(&fg_info->wake_ui.wakelock, WAKE_LOCK_SUSPEND,
 				"intel_fg_wakelock");

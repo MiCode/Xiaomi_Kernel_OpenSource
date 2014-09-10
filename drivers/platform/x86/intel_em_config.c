@@ -17,6 +17,10 @@
 
 static void dump_chrg_profile(const struct ps_pse_mod_prof *chrg_prof);
 
+
+static struct ps_pse_mod_prof chrg_prof;
+static struct ps_batt_chg_prof batt_chrg_prof;
+
 static int em_config_get_acpi_table(char *name, void *data, int data_size)
 {
 	struct acpi_table_header *acpi_tbl = NULL;
@@ -42,12 +46,11 @@ static int em_config_get_acpi_table(char *name, void *data, int data_size)
 	return ret;
 }
 
-int em_config_get_oem0_data(struct em_config_oem0_data *data)
+static int em_config_get_oem0_data(struct em_config_oem0_data *data)
 {
 	return em_config_get_acpi_table(EM_CONFIG_OEM0_NAME,
 				data, sizeof(struct em_config_oem0_data));
 }
-EXPORT_SYMBOL(em_config_get_oem0_data);
 
 int em_config_get_oem1_data(struct em_config_oem1_data *data)
 {
@@ -56,18 +59,19 @@ int em_config_get_oem1_data(struct em_config_oem1_data *data)
 }
 EXPORT_SYMBOL(em_config_get_oem1_data);
 
-int em_config_get_charge_profile(struct ps_pse_mod_prof *chrg_prof)
+static int em_config_get_charge_profile(struct ps_pse_mod_prof *chrg_prof)
 {
-	struct em_config_oem0_data oem0_data;
 	int ret = 0;
 
 	if (chrg_prof == NULL)
 		return 0;
 	ret = em_config_get_oem0_data((struct em_config_oem0_data *)chrg_prof);
 	if (ret > 0) {
-		/* battery_type field contains 2 bytes, and upper byte
-		 * contains battery_type & lower byte used for turbo,
-		 * which is discarded */
+		/*
+		 * battery_type field contains 2 bytes, and upper byte
+		 * contains * battery_type & lower byte used for turbo,
+		 * which is discarded
+		 */
 		chrg_prof->battery_type = chrg_prof->battery_type >> 8;
 #ifdef DEBUG
 		dump_chrg_profile(chrg_prof);
@@ -75,10 +79,8 @@ int em_config_get_charge_profile(struct ps_pse_mod_prof *chrg_prof)
 	}
 	return ret;
 }
-EXPORT_SYMBOL(em_config_get_charge_profile);
 
-
-
+#ifdef DEBUG
 static void dump_chrg_profile(const struct ps_pse_mod_prof *chrg_prof)
 {
 	u16 i = 0;
@@ -94,17 +96,43 @@ static void dump_chrg_profile(const struct ps_pse_mod_prof *chrg_prof)
 	pr_info("OEM0:temp_mon_ranges = %d\n", chrg_prof->temp_mon_ranges);
 	for (i = 0; i < chrg_prof->temp_mon_ranges; i++) {
 		pr_info("OEM0:temp_mon_range[%d].up_lim = %d\n",
-			i, chrg_prof->temp_mon_range[i].temp_up_lim);
+				i, chrg_prof->temp_mon_range[i].temp_up_lim);
 		pr_info("OEM0:temp_mon_range[%d].full_chrg_vol = %d\n",
-			i, chrg_prof->temp_mon_range[i].full_chrg_vol);
+				i, chrg_prof->temp_mon_range[i].full_chrg_vol);
 		pr_info("OEM0:temp_mon_range[%d].full_chrg_cur = %d\n",
-			i, chrg_prof->temp_mon_range[i].full_chrg_cur);
-		pr_info("OEM0:temp_mon_range[%d].maint_chrg_vol_ll = %d\n",
-			i, chrg_prof->temp_mon_range[i].maint_chrg_vol_ll);
-		pr_info("OEM0:temp_mon_range[%d].main_chrg_vol_ul = %d\n",
-			i, chrg_prof->temp_mon_range[i].maint_chrg_vol_ul);
+				i, chrg_prof->temp_mon_range[i].full_chrg_cur);
+		pr_info("OEM0:temp_mon_range[%d].maint_chrg_vol_ll = %d\n", i,
+				chrg_prof->temp_mon_range[i].maint_chrg_vol_ll);
+		pr_info("OEM0:temp_mon_range[%d].main_chrg_vol_ul = %d\n", i,
+				chrg_prof->temp_mon_range[i].maint_chrg_vol_ul);
 		pr_info("OEM0:temp_mon_range[%d].main_chrg_cur = %d\n",
-			i, chrg_prof->temp_mon_range[i].maint_chrg_cur);
+				i, chrg_prof->temp_mon_range[i].maint_chrg_cur);
 	}
 	pr_info("OEM0:temp_low_lim = %d\n", chrg_prof->temp_low_lim);
 }
+#endif
+
+static int __init em_config_init(void)
+{
+	int ret;
+
+	ret = em_config_get_charge_profile(&chrg_prof);
+
+	if (ret)
+		batt_chrg_prof.chrg_prof_type = PSE_MOD_CHRG_PROF;
+	else
+		batt_chrg_prof.chrg_prof_type = CHRG_PROF_NONE;
+
+	batt_chrg_prof.batt_prof = &chrg_prof;
+
+	battery_prop_changed(POWER_SUPPLY_BATTERY_INSERTED, &batt_chrg_prof);
+	return 0;
+}
+early_initcall(em_config_init);
+
+static void __exit em_config_exit(void)
+{
+	batt_chrg_prof.chrg_prof_type = CHRG_PROF_NONE;
+	battery_prop_changed(POWER_SUPPLY_BATTERY_INSERTED, &batt_chrg_prof);
+}
+module_exit(em_config_exit);
