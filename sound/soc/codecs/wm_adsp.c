@@ -198,8 +198,6 @@ static void wm_adsp_buf_free(struct list_head *list)
 /* Must remain a power of two */
 #define WM_ADSP_CAPTURE_BUFFER_SIZE      1048576
 
-#define WM_ADSP_NUM_FW 19
-
 #define WM_ADSP_FW_MBC_VSS        0
 #define WM_ADSP_FW_TX             1
 #define WM_ADSP_FW_TX_SPK         2
@@ -219,6 +217,9 @@ static void wm_adsp_buf_free(struct list_head *list)
 #define WM_ADSP_FW_EZ2RECORD       16
 #define WM_ADSP_FW_ASR_ASSIST     17
 #define WM_ADSP_FW_MASTERHIFI     18
+#define WM_ADSP_FW_SPEAKERPROTECT 19
+
+#define WM_ADSP_NUM_FW            20
 
 static const char *wm_adsp_fw_text[WM_ADSP_NUM_FW] = {
 	[WM_ADSP_FW_MBC_VSS] =    "MBC/VSS",
@@ -240,6 +241,7 @@ static const char *wm_adsp_fw_text[WM_ADSP_NUM_FW] = {
 	[WM_ADSP_FW_EZ2RECORD] = "Ez2Record",
 	[WM_ADSP_FW_ASR_ASSIST] = "ASR Assist",
 	[WM_ADSP_FW_MASTERHIFI] = "MasterHiFi",
+	[WM_ADSP_FW_SPEAKERPROTECT] = "Speaker Protect",
 };
 
 struct wm_adsp_system_config_xm_hdr {
@@ -403,6 +405,7 @@ static struct wm_adsp_fw_defs wm_adsp_fw[WM_ADSP_NUM_FW] = {
 	[WM_ADSP_FW_EZ2RECORD] = { .file = "ez2record" },
 	[WM_ADSP_FW_ASR_ASSIST] =     { .file = "asr-assist" },
 	[WM_ADSP_FW_MASTERHIFI] =     { .file = "masterhifi" },
+	[WM_ADSP_FW_SPEAKERPROTECT] = { .file = "speaker-protect" },
 };
 
 struct wm_coeff_ctl_ops {
