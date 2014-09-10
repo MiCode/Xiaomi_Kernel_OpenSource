@@ -143,7 +143,8 @@ static int sdhci_acpi_probe_slot(struct platform_device *pdev)
 static const struct sdhci_acpi_slot sdhci_acpi_slot_int_emmc = {
 	.chip    = &sdhci_acpi_chip_int,
 	.caps    = MMC_CAP_8_BIT_DATA | MMC_CAP_NONREMOVABLE | MMC_CAP_HW_RESET,
-	.caps2   = MMC_CAP2_HC_ERASE_SZ | MMC_CAP2_POLL_R1B_BUSY,
+	.caps2   = MMC_CAP2_HC_ERASE_SZ | MMC_CAP2_POLL_R1B_BUSY |
+		MMC_CAP2_CACHE_CTRL,
 	.flags   = SDHCI_ACPI_RUNTIME_PM,
 	.quirks2 = SDHCI_QUIRK2_TUNING_POLL | SDHCI_QUIRK2_BROKEN_HS200,
 	.probe_slot = sdhci_acpi_probe_slot,
