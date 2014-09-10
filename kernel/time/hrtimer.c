@@ -1452,8 +1452,8 @@ bool hrtimer_active(const struct hrtimer *timer)
 		base = READ_ONCE(timer->base);
 		seq = raw_read_seqcount_begin(&base->seq);
 
-		if (timer->state != HRTIMER_STATE_INACTIVE ||
-		    base->running == timer)
+		if (((timer->state & ~HRTIMER_STATE_PINNED) !=
+		      HRTIMER_STATE_INACTIVE) || base->running == timer)
 			return true;
 
 	} while (read_seqcount_retry(&base->seq, seq) ||
