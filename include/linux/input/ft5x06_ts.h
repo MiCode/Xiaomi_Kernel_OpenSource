@@ -5,8 +5,8 @@
 #define SCREEN_MAX_Y		1280
 #define PRESS_MAX		255
 
-#define FT5X0X_RST_MS		500
-#define FT5X0X_DEVMODE_MS	500
+#define FT5X0X_RST_MS		5
+#define FT5X0X_DEVMODE_MS	5
 
 #define CFG_MAX_TOUCH_POINTS	10
 #define FT_PRESS		8

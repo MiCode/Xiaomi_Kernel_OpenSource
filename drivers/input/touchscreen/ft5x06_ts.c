@@ -234,7 +234,7 @@ static int ft5x0x_wake_device(struct ft5x0x_ts_data *ts_data)
 {
 	/* wake the device by wake line*/
 	gpiod_set_value(ts_data->gpio_reset, 0);
-	usleep_range(6000, 7000);
+	usleep_range(1000, 1500);
 	gpiod_set_value(ts_data->gpio_reset, 1);
 	msleep(FT5X0X_RST_MS);
 
