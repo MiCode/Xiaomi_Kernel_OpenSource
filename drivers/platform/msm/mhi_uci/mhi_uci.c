@@ -98,6 +98,8 @@ struct uci_client {
 	u32 client_index;
 	u32 out_chan;
 	u32 in_chan;
+	u32 out_chan_state;
+	u32 in_chan_state;
 	struct mhi_client_handle *out_handle;
 	struct mhi_client_handle *in_handle;
 	size_t pending_data;
@@ -105,7 +107,6 @@ struct uci_client {
 	wait_queue_head_t write_wq;
 	atomic_t avail_pkts;
 	struct device *dev;
-	u32 dev_node_enabled;
 	u8 local_tiocm;
 	atomic_t ref_count;
 	int mhi_status;
@@ -113,7 +114,7 @@ struct uci_client {
 	size_t pkt_size;
 	dma_addr_t *in_buf_list;
 	atomic_t out_pkt_pend_ack;
-	atomic_t mhi_chans_open;
+	atomic_t mhi_disabled;
 	struct mhi_uci_ctxt_t *uci_ctxt;
 	struct mutex in_chan_lock;
 	struct mutex out_chan_lock;
@@ -131,7 +132,6 @@ struct mhi_uci_ctxt_t {
 	u32 ctrl_chan_id;
 	atomic_t mhi_disabled;
 	atomic_t mhi_enable_notif_wq_active;
-	struct work_struct mhi_enabled_work;
 };
 
 #define CHAN_TO_CLIENT(_CHAN_NR) (_CHAN_NR / 2)
@@ -375,15 +375,37 @@ error_memcpy:
 static int mhi_uci_send_status_cmd(struct uci_client *client)
 {
 	struct rs232_ctrl_msg *rs232_pkt = NULL;
-	struct uci_client *uci_handle;
+	struct uci_client *uci_ctrl_handle;
 	u32 ctrl_chan_id = uci_ctxt.ctrl_chan_id;
 
 	int ret_val = 0;
 	size_t pkt_size = sizeof(struct rs232_ctrl_msg);
 	u32 amount_sent;
+
+	uci_ctrl_handle = &uci_ctxt.client_handles[ctrl_chan_id/2];
+	mutex_lock(&uci_ctrl_handle->out_chan_lock);
+
+	if (!atomic_read(&uci_ctrl_handle->mhi_disabled) &&
+			 !uci_ctrl_handle->out_chan_state) {
+		uci_log(UCI_DBG_INFO,
+			"Opening outbound control channel %d\n",
+			uci_ctrl_handle->out_chan);
+		ret_val = mhi_open_channel(uci_ctrl_handle->out_handle);
+		if (MHI_STATUS_SUCCESS != ret_val) {
+			uci_log(UCI_DBG_CRITICAL,
+				"Could not open chan %d, for sideband ctrl\n",
+				client->out_chan);
+			ret_val = -EIO;
+			goto error_open;
+		}
+		uci_ctrl_handle->out_chan_state = 1;
+	}
+
 	rs232_pkt = kzalloc(sizeof(struct rs232_ctrl_msg), GFP_KERNEL);
-	if (rs232_pkt == NULL)
-		return -ENOMEM;
+	if (rs232_pkt == NULL) {
+		ret_val = -ENOMEM;
+		goto error_open;
+	}
 	uci_log(UCI_DBG_VERBOSE,
 		"Received request to send msg for chan %d\n",
 		client->out_chan);
@@ -397,27 +419,22 @@ static int mhi_uci_send_status_cmd(struct uci_client *client)
 	MHI_SET_CTRL_MSG_SIZE(CTRL_MSG_SIZE, rs232_pkt, sizeof(u32));
 	MHI_SET_CTRL_DEST_ID(CTRL_DEST_ID, rs232_pkt, client->out_chan);
 
-	if (MHI_STATUS_SUCCESS != ret_val) {
-		uci_log(UCI_DBG_CRITICAL,
-			"Could not open chan %d, for sideband ctrl\n",
-			client->out_chan);
-		goto error;
-	}
-
-	uci_handle = &uci_ctxt.client_handles[ctrl_chan_id/2];
-
-	amount_sent = mhi_uci_send_packet(&uci_handle->out_handle,
+	amount_sent = mhi_uci_send_packet(&uci_ctrl_handle->out_handle,
 						rs232_pkt,
 						pkt_size, 0);
+
 	if (pkt_size != amount_sent) {
 		uci_log(UCI_DBG_INFO,
-			"Failed to send signal on chan %d, ret : %d n",
+			"Failed to send signal on chan %d, ret : %d\n",
 			client->out_chan, ret_val);
 		goto error;
 	}
+error_open:
+	mutex_unlock(&uci_ctrl_handle->out_chan_lock);
 	return ret_val;
 error:
 	kfree(rs232_pkt);
+	mutex_unlock(&uci_ctrl_handle->out_chan_lock);
 	return ret_val;
 }
 
@@ -525,8 +542,6 @@ static int open_client_mhi_channels(struct uci_client *uci_client)
 			uci_client->in_chan);
 	mutex_lock(&uci_client->out_chan_lock);
 	mutex_lock(&uci_client->in_chan_lock);
-	if (atomic_read(&uci_client->mhi_chans_open))
-		goto handle_not_rdy_err;
 	ret_val = mhi_open_channel(uci_client->out_handle);
 	if (ret_val != MHI_STATUS_SUCCESS) {
 		if (ret_val == MHI_STATUS_DEVICE_NOT_READY)
@@ -535,6 +550,7 @@ static int open_client_mhi_channels(struct uci_client *uci_client)
 			r = -EIO;
 		goto handle_not_rdy_err;
 	}
+	uci_client->out_chan_state = 1;
 
 	ret_val = mhi_open_channel(uci_client->in_handle);
 	if (ret_val != MHI_STATUS_SUCCESS) {
@@ -546,6 +562,7 @@ static int open_client_mhi_channels(struct uci_client *uci_client)
 	uci_log(UCI_DBG_INFO,
 			"Initializing inbound chan %d.\n",
 			uci_client->in_chan);
+	uci_client->in_chan_state = 1;
 
 	ret_val = mhi_init_inbound(uci_client, uci_client->in_chan);
 	if (MHI_STATUS_SUCCESS != ret_val) {
@@ -554,13 +571,13 @@ static int open_client_mhi_channels(struct uci_client *uci_client)
 			   uci_client->in_chan, ret_val);
 	}
 
-	atomic_set(&uci_client->mhi_chans_open, 1);
 	mutex_unlock(&uci_client->in_chan_lock);
 	mutex_unlock(&uci_client->out_chan_lock);
 	return 0;
 
 handle_in_err:
 	mhi_close_channel(uci_client->out_handle);
+	uci_client->out_chan_state = 0;
 handle_not_rdy_err:
 	mutex_unlock(&uci_client->in_chan_lock);
 	mutex_unlock(&uci_client->out_chan_lock);
@@ -572,45 +589,34 @@ static int mhi_uci_client_open(struct inode *mhi_inode,
 {
 	struct uci_client *uci_handle = NULL;
 	int r = 0;
-	uci_handle =
-		&uci_ctxt.client_handles[iminor(mhi_inode)];
+	int client_id = iminor(mhi_inode);
+	uci_handle = &uci_ctxt.client_handles[client_id];
+
+	if (NULL == uci_handle)
+		return -EINVAL;
+
+	if (atomic_read(&uci_handle->mhi_disabled)) {
+		uci_log(UCI_DBG_INFO,
+			"MHI is still recovering from SSR, client %d\n",
+			client_id);
+		msleep(500);
+		return -EAGAIN;
+	}
 
 	uci_log(UCI_DBG_INFO,
-		"Client opened struct device node 0x%x, ref count 0x%x\n",
+		"Client opened device node 0x%x, ref count 0x%x\n",
 		iminor(mhi_inode), atomic_read(&uci_handle->ref_count));
-	if (atomic_add_return(1, &uci_handle->ref_count) == 1) {
-		if (!uci_handle->dev_node_enabled) {
-			r = -EPERM;
-			goto handle_alloc_err;
-		}
-		if (uci_handle == NULL) {
-			r = -ENOMEM;
-			goto handle_alloc_err;
-		}
+
+	if (1 == atomic_add_return(1, &uci_handle->ref_count)) {
 		uci_handle->uci_ctxt = &uci_ctxt;
-		if (!atomic_read(&uci_handle->mhi_chans_open)) {
+		uci_log(UCI_DBG_INFO,
+			"Opening channels client %d\n", client_id);
+		r = open_client_mhi_channels(uci_handle);
+		if (r)
 			uci_log(UCI_DBG_INFO,
-				"Opening channels client %d\n",
-				iminor(mhi_inode));
-			r = open_client_mhi_channels(uci_handle);
-			if (r) {
-				uci_log(UCI_DBG_INFO,
-					"Failed to open channels ret %d\n", r);
-			}
-			while (!atomic_read(&uci_handle->mhi_chans_open)) {
-				msleep(50);
-				uci_log(UCI_DBG_INFO,
-				"Waiting for channels to open client %d\n",
-				iminor(mhi_inode));
-			}
-		}
+				"Failed to open channels ret %d\n", r);
 	}
 	file_handle->private_data = uci_handle;
-	return r;
-
-handle_alloc_err:
-	msleep(50);
-	atomic_dec(&uci_handle->ref_count);
 	return r;
 }
 
@@ -619,7 +625,6 @@ static int mhi_uci_client_release(struct inode *mhi_inode,
 {
 	struct uci_client *uci_handle = file_handle->private_data;
 	struct mhi_uci_ctxt_t *uci_ctxt = uci_handle->uci_ctxt;
-	u32 retry_cnt = 100;
 	u32 nr_in_bufs = 0;
 	int in_chan = 0;
 	int i = 0;
@@ -634,26 +639,25 @@ static int mhi_uci_client_release(struct inode *mhi_inode,
 		uci_log(UCI_DBG_ERROR,
 				"Last client left, closing channel 0x%x\n",
 				iminor(mhi_inode));
-		while ((--retry_cnt > 0) &&
-			(0 != atomic_read(&uci_handle->out_pkt_pend_ack))) {
+
+		if (atomic_read(&uci_handle->out_pkt_pend_ack))
 			uci_log(UCI_DBG_CRITICAL,
 				"Still waiting on %d acks!, chan %d\n",
 				atomic_read(&uci_handle->out_pkt_pend_ack),
 				iminor(mhi_inode));
-			usleep_range(10000, 15000);
-		}
-		if (atomic_read(&uci_handle->mhi_chans_open)) {
-			atomic_set(&uci_handle->mhi_chans_open, 0);
-			mhi_close_channel(uci_handle->out_handle);
-			mhi_close_channel(uci_handle->in_handle);
-			for (i = 0; i < nr_in_bufs; ++i) {
-				dma_unmap_single(NULL,
-						uci_handle->in_buf_list[i],
-						buf_size,
-						DMA_BIDIRECTIONAL);
-				kfree(dma_to_virt(NULL,
-						uci_handle->in_buf_list[i]));
-			}
+
+		mhi_close_channel(uci_handle->out_handle);
+		mhi_close_channel(uci_handle->in_handle);
+		uci_handle->out_chan_state = 0;
+		uci_handle->in_chan_state = 0;
+		atomic_set(&uci_handle->out_pkt_pend_ack, 0);
+		for (i = 0; i < nr_in_bufs; ++i) {
+			dma_unmap_single(NULL,
+					uci_handle->in_buf_list[i],
+					buf_size,
+					DMA_BIDIRECTIONAL);
+			kfree(dma_to_virt(NULL,
+					uci_handle->in_buf_list[i]));
 		}
 		atomic_set(&uci_handle->avail_pkts, 0);
 	} else {
@@ -690,8 +694,7 @@ static ssize_t mhi_uci_client_read(struct file *file, char __user *buf,
 	mutex_lock(mutex);
 	buf_size = uci_ctxt.chan_attrib[chan].max_packet_size;
 
-	uci_log(UCI_DBG_VERBOSE,
-		"Client attempted read on chan %d\n", chan);
+	uci_log(UCI_DBG_VERBOSE, "Client attempted read on chan %d\n", chan);
 	do {
 		if (!uci_handle->pkt_loc &&
 				!atomic_read(&uci_ctxt.mhi_disabled)) {
@@ -846,15 +849,10 @@ static ssize_t mhi_uci_client_write(struct file *file,
 		return -EINVAL;
 	else
 		uci_handle = file->private_data;
-	if (atomic_read(&uci_ctxt.mhi_disabled) &&
-		uci_handle->out_chan != 10 && uci_handle->out_chan != 2) {
-		uci_log(UCI_DBG_ERROR,
-			"Client %d attempted to write while MHI is disabled\n",
-			uci_handle->out_chan);
-		return -EIO;
-	}
+
 	chan = uci_handle->out_chan;
 	mutex_lock(&uci_handle->out_chan_lock);
+
 	while (ret_val == 0) {
 		ret_val = mhi_uci_send_packet(&uci_handle->out_handle,
 				(void *)buf, count, 1);
@@ -932,33 +930,6 @@ static enum MHI_STATUS uci_init_client_attributes(struct mhi_uci_ctxt_t
 	return MHI_STATUS_SUCCESS;
 }
 
-static void process_mhi_enabled_notif(struct work_struct *work)
-{
-	int i = 0;
-	int r = 0;
-	struct uci_client *uci_handle = NULL;
-
-	uci_log(UCI_DBG_VERBOSE, "Entered.\n");
-	for (i = 0; i < MHI_MAX_NR_OF_CLIENTS; ++i) {
-		if (uci_ctxt.chan_attrib[i*2].uci_ownership) {
-			uci_handle =
-				&uci_ctxt.client_handles[i];
-			if (!atomic_read(&uci_handle->mhi_chans_open) &&
-			     atomic_read(&uci_handle->ref_count)) {
-				r = open_client_mhi_channels(uci_handle);
-				if (r) {
-					uci_log(UCI_DBG_INFO,
-					"Error: open chans client %d ret %d.\n",
-					i, r);
-				}
-			}
-		}
-	}
-	atomic_set(&uci_ctxt.mhi_disabled, 0);
-	uci_log(UCI_DBG_VERBOSE, "Exited.\n");
-	atomic_set(&uci_ctxt.mhi_enable_notif_wq_active, 0);
-}
-
 static int process_mhi_disabled_notif_sync(struct uci_client *uci_handle)
 {
 	int i = 0;
@@ -972,9 +943,10 @@ static int process_mhi_disabled_notif_sync(struct uci_client *uci_handle)
 		uci_handle->pkt_loc = NULL;
 		uci_handle->mhi_status = -ENETRESET;
 		atomic_set(&uci_handle->avail_pkts, 1);
-		atomic_set(&uci_handle->mhi_chans_open, 0);
 		mhi_close_channel(uci_handle->out_handle);
 		mhi_close_channel(uci_handle->in_handle);
+		uci_handle->out_chan_state = 0;
+		uci_handle->in_chan_state = 0;
 		wake_up(&uci_handle->read_wq);
 	} else {
 		uci_log(UCI_DBG_CRITICAL,
@@ -1080,10 +1052,10 @@ static void uci_xfer_cb(struct mhi_cb_info *cb_info)
 	struct uci_client *uci_handle = NULL;
 	u32 client_index;
 	struct mhi_result *result;
-	int r = 0;
-	if (NULL == cb_info)
+
+	if (!cb_info)
 		uci_log(UCI_DBG_CRITICAL, "Bad CB info from MHI.\n");
-	if (NULL != cb_info->result) {
+	if (cb_info->result) {
 		chan_nr = (u32)cb_info->result->user_data;
 		client_index = CHAN_TO_CLIENT(chan_nr);
 		uci_handle =
@@ -1091,28 +1063,15 @@ static void uci_xfer_cb(struct mhi_cb_info *cb_info)
 	}
 	switch (cb_info->cb_reason) {
 	case MHI_CB_MHI_ENABLED:
-		if (atomic_read(&uci_ctxt.mhi_enable_notif_wq_active)) {
-			return;
-		} else {
-			uci_log(UCI_DBG_INFO,
-				"MHI enabled CB received spawning wq.\n");
-		}
-		r = schedule_work(&uci_ctxt.mhi_enabled_work);
-		if (r) {
-			uci_log(UCI_DBG_INFO,
-				"Failed to spawn wq chan %d, ret %d.\n",
-				chan_nr, r);
-		} else {
-			atomic_set(&uci_ctxt.mhi_enable_notif_wq_active, 1);
-		}
+		atomic_set(&uci_handle->mhi_disabled, 0);
 		break;
 	case MHI_CB_MHI_DISABLED:
-		atomic_set(&uci_ctxt.mhi_disabled, 1);
+		atomic_set(&uci_handle->mhi_disabled, 1);
 		uci_log(UCI_DBG_INFO, "MHI disabled CB received.\n");
 		process_mhi_disabled_notif_sync(uci_handle);
 		break;
 	case MHI_CB_XFER:
-		if (cb_info->result == NULL) {
+		if (!cb_info->result) {
 			uci_log(UCI_DBG_CRITICAL,
 				"Failed to obtain mhi result from CB.\n");
 				return;
@@ -1137,7 +1096,6 @@ static void uci_xfer_cb(struct mhi_cb_info *cb_info)
 static int mhi_register_client(struct uci_client *mhi_client, int index)
 {
 	enum MHI_STATUS ret_val = MHI_STATUS_SUCCESS;
-	int i = 0;
 
 	uci_log(UCI_DBG_INFO, "Setting up workqueues.\n");
 	init_waitqueue_head(&mhi_client->read_wq);
@@ -1148,6 +1106,7 @@ static int mhi_register_client(struct uci_client *mhi_client, int index)
 
 	mutex_init(&mhi_client->in_chan_lock);
 	mutex_init(&mhi_client->out_chan_lock);
+	atomic_set(&mhi_client->mhi_disabled, 1);
 
 	uci_log(UCI_DBG_INFO, "Registering chan %d.\n", mhi_client->out_chan);
 	ret_val = mhi_register_channel(&mhi_client->out_handle,
@@ -1170,8 +1129,6 @@ static int mhi_register_client(struct uci_client *mhi_client, int index)
 		uci_log(UCI_DBG_ERROR,
 			"Failed to init inbound chan 0x%x, ret 0x%x\n",
 			mhi_client->in_chan, ret_val);
-	if (i != (uci_ctxt.ctrl_chan_id / 2))
-		mhi_client->dev_node_enabled = 1;
 	return 0;
 }
 
@@ -1197,7 +1154,6 @@ static int mhi_uci_init(void)
 				"Failed to create IPC logging context\n");
 	}
 	uci_log(UCI_DBG_INFO, "Setting up work queues.\n");
-	INIT_WORK(&uci_ctxt.mhi_enabled_work, process_mhi_enabled_notif);
 	uci_ctxt.client_info.mhi_client_cb = uci_xfer_cb;
 
 	mutex_init(&uci_ctxt.ctrl_mutex);
@@ -1210,7 +1166,6 @@ static int mhi_uci_init(void)
 		return -EIO;
 	}
 	uci_ctxt.ctrl_chan_id = MHI_CLIENT_IP_CTRL_1_OUT;
-	uci_log(UCI_DBG_VERBOSE, "Initializing clients\n");
 
 	uci_log(UCI_DBG_INFO, "Registering for MHI events.\n");
 	for (i = 0; i < MHI_SOFTWARE_CLIENT_LIMIT; ++i) {
