@@ -211,14 +211,6 @@ static int mdp_mmap(struct v4l2_subdev *sd, void *arg)
 	}
 
 	msm_fb_writeback_iommu_ref(inst->mdp, true);
-	if (inst->secure) {
-		rc = msm_ion_secure_buffer(mmap->ion_client,
-			mregion->ion_handle, VIDEO_PIXEL, 0);
-		if (rc) {
-			WFD_MSG_ERR("Failed to secure input buffer\n");
-			goto secure_fail;
-		}
-	}
 
 	domain = msm_fb_get_iommu_domain(inst->mdp,
 			inst->secure ? MDP_IOMMU_DOMAIN_CP :
@@ -238,9 +230,6 @@ static int mdp_mmap(struct v4l2_subdev *sd, void *arg)
 
 	return 0;
 iommu_fail:
-	if (inst->secure)
-		msm_ion_unsecure_buffer(mmap->ion_client, mregion->ion_handle);
-secure_fail:
 	msm_fb_writeback_iommu_ref(inst->mdp, false);
 
 	return rc;
@@ -268,8 +257,6 @@ static int mdp_munmap(struct v4l2_subdev *sd, void *arg)
 			mregion->ion_handle,
 			domain, 0);
 
-	if (inst->secure)
-		msm_ion_unsecure_buffer(mmap->ion_client, mregion->ion_handle);
 	msm_fb_writeback_iommu_ref(inst->mdp, false);
 
 	return 0;

@@ -24,28 +24,6 @@ struct smem_client {
 	struct msm_vidc_platform_resources *res;
 };
 
-static u32 get_tz_usage(struct smem_client *client, enum hal_buffer buffer_type)
-{
-	int i;
-	struct buffer_usage_set *buffer_usage_set;
-	struct buffer_usage_table *buffer_usage_tbl;
-
-	buffer_usage_set = &client->res->buffer_usage_set;
-	if (!buffer_usage_set) {
-		dprintk(VIDC_DBG, "no buffer usage set present!\n");
-		return 0;
-	}
-
-	for (i = 0; i < buffer_usage_set->count; i++) {
-		buffer_usage_tbl = &buffer_usage_set->buffer_usage_tbl[i];
-		if (buffer_usage_tbl->buffer_type & buffer_type)
-			return buffer_usage_tbl->tz_usage;
-	}
-	dprintk(VIDC_DBG, "No tz usage found for buffer type: %x\n",
-			buffer_type);
-	return 0;
-}
-
 static int get_device_address(struct smem_client *smem_client,
 		struct ion_handle *hndl, unsigned long align,
 		ion_phys_addr_t *iova, unsigned long *buffer_size,
@@ -78,14 +56,6 @@ static int get_device_address(struct smem_client *smem_client,
 		}
 	}
 
-	if (flags & SMEM_SECURE) {
-		rc = msm_ion_secure_buffer(clnt, hndl,
-			get_tz_usage(smem_client, buffer_type), 0);
-		if (rc) {
-			dprintk(VIDC_ERR, "Failed to secure memory\n");
-			goto mem_domain_get_failed;
-		}
-	}
 	if (is_iommu_present(smem_client->res)) {
 		dprintk(VIDC_DBG,
 				"Calling ion_map_iommu - domain: %d, partition: %d\n",
@@ -102,13 +72,10 @@ static int get_device_address(struct smem_client *smem_client,
 	}
 	if (rc) {
 		dprintk(VIDC_ERR, "ion memory map failed - %d\n", rc);
-		goto mem_map_failed;
+		goto mem_domain_get_failed;
 	}
 
 	return 0;
-mem_map_failed:
-	if (flags & SMEM_SECURE)
-		msm_ion_unsecure_buffer(clnt, hndl);
 mem_domain_get_failed:
 	return rc;
 }
@@ -139,10 +106,6 @@ static void put_device_address(struct smem_client *smem_client,
 		ion_unmap_iommu(clnt, hndl, domain_num, partition_num);
 		trace_msm_smem_buffer_iommu_op_end("UNMAP", domain_num,
 				partition_num, 0, 0, 0);
-	}
-	if (flags & SMEM_SECURE) {
-		if (msm_ion_unsecure_buffer(clnt, hndl))
-			dprintk(VIDC_ERR, "Failed to unsecure memory\n");
 	}
 }
 
