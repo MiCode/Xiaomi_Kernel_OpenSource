@@ -236,6 +236,7 @@ static const struct pinctrl_pin_desc msmthulium_pins[] = {
 	PINCTRL_PIN(153, "SDC2_CLK"),
 	PINCTRL_PIN(154, "SDC2_CMD"),
 	PINCTRL_PIN(155, "SDC2_DATA"),
+	PINCTRL_PIN(156, "SDC1_RCLK"),
 };
 
 #define DECLARE_MSM_GPIO_PINS(pin) \
