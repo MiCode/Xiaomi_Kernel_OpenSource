@@ -874,7 +874,7 @@ static int msm_iommu_unmap_range(struct iommu_domain *domain, unsigned int va,
 {
 	struct msm_iommu_drvdata *iommu_drvdata;
 	struct msm_iommu_ctx_drvdata *ctx_drvdata;
-	int ret;
+	int ret = -EINVAL;
 
 	iommu_access_ops->iommu_lock_acquire(0);
 
@@ -888,7 +888,7 @@ static int msm_iommu_unmap_range(struct iommu_domain *domain, unsigned int va,
 
 fail:
 	iommu_access_ops->iommu_lock_release(0);
-	return 0;
+	return ret ? ret : 0;
 }
 
 static phys_addr_t msm_iommu_iova_to_phys(struct iommu_domain *domain,
