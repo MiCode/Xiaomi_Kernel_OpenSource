@@ -24,6 +24,10 @@
 	model = "Qualcomm Technologies, Inc. MSM8936";
 	compatible = "qcom,msm8936";
 	qcom,msm-id = <233 0>, <240 0>, <242 0>;
+
+	chosen {
+		bootargs = "sched_enable_hmp=1";
+	};
 };
 
 &soc {

@@ -22,6 +22,11 @@
 			<250 0>;
 
 	interrupt-parent = <&intc>;
+
+	chosen {
+		bootargs = "sched_enable_hmp=1";
+	};
+
 	aliases {
 		sdhc1 = &sdhc_1; /* SDC1 eMMC slot */
 		sdhc2 = &sdhc_2; /* SDC2 SD card slot */
