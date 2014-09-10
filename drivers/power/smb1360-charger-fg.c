@@ -307,6 +307,7 @@ struct smb1360_chip {
 	bool				resume_completed;
 	bool				irq_waiting;
 	bool				empty_soc;
+	bool				awake_min_soc;
 	int				workaround_flags;
 	u8				irq_cfg_mask[3];
 	int				usb_psy_ma;
@@ -1420,7 +1421,10 @@ static int delta_soc_handler(struct smb1360_chip *chip, u8 rt_stat)
 
 static int min_soc_handler(struct smb1360_chip *chip, u8 rt_stat)
 {
-	pr_debug("SOC dropped below min SOC\n");
+	pr_debug("SOC dropped below min SOC, rt_stat = 0x%02x\n", rt_stat);
+
+	if (chip->awake_min_soc)
+		rt_stat ? pm_stay_awake(chip->dev) : pm_relax(chip->dev);
 
 	return 0;
 }
@@ -3265,6 +3269,9 @@ static int smb_parse_dt(struct smb1360_chip *chip)
 	rc = of_property_read_u32(node, "qcom,fg-soc-min", &chip->soc_min);
 	if (rc < 0)
 		chip->soc_min = -EINVAL;
+
+	chip->awake_min_soc = of_property_read_bool(node,
+					"qcom,awake-min-soc");
 
 	rc = of_property_read_u32(node, "qcom,fg-voltage-min-mv",
 					&chip->voltage_min_mv);
