@@ -1049,16 +1049,11 @@ static int mdss_mdp_video_intfs_setup(struct mdss_mdp_ctl *ctl,
 
 	itp.xres = mult_frac(pinfo->xres, dst_bpp, pinfo->bpp);
 	itp.yres = pinfo->yres;
-	itp.h_back_porch = mult_frac(pinfo->lcdc.h_back_porch, dst_bpp,
-			pinfo->bpp);
-	itp.h_front_porch = mult_frac(pinfo->lcdc.h_front_porch, dst_bpp,
-			pinfo->bpp);
-	itp.v_back_porch = mult_frac(pinfo->lcdc.v_back_porch, dst_bpp,
-			pinfo->bpp);
-	itp.v_front_porch = mult_frac(pinfo->lcdc.v_front_porch, dst_bpp,
-			pinfo->bpp);
-	itp.hsync_pulse_width = mult_frac(pinfo->lcdc.h_pulse_width, dst_bpp,
-			pinfo->bpp);
+	itp.h_back_porch = pinfo->lcdc.h_back_porch;
+	itp.h_front_porch = pinfo->lcdc.h_front_porch;
+	itp.v_back_porch = pinfo->lcdc.v_back_porch;
+	itp.v_front_porch = pinfo->lcdc.v_front_porch;
+	itp.hsync_pulse_width = pinfo->lcdc.h_pulse_width;
 	itp.vsync_pulse_width = pinfo->lcdc.v_pulse_width;
 
 	if (!ctl->panel_data->panel_info.cont_splash_enabled) {
