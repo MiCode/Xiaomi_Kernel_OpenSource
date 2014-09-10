@@ -530,11 +530,6 @@ int mdss_mdp_put_img(struct mdss_mdp_img_data *data)
 				dma_buf_detach(data->srcp_dma_buf,
 					data->srcp_attachment);
 				dma_buf_put(data->srcp_dma_buf);
-
-				if (domain == MDSS_IOMMU_DOMAIN_SECURE) {
-					msm_ion_unsecure_table(
-						data->srcp_table);
-				}
 			}
 			data->srcp_dma_buf = NULL;
 		}
@@ -603,24 +598,15 @@ int mdss_mdp_get_img(struct msmfb_data *img, struct mdss_mdp_img_data *data,
 
 		if (is_mdss_iommu_attached()) {
 			int domain;
-			if (data->flags & MDP_SECURE_OVERLAY_SESSION) {
+			if (data->flags & MDP_SECURE_OVERLAY_SESSION)
 				domain = MDSS_IOMMU_DOMAIN_SECURE;
-				ret = msm_ion_secure_table(data->srcp_table, 0x2, 0);
-				if (IS_ERR_VALUE(ret)) {
-					pr_err("failed to secure handle (%d)\n",
-						ret);
-					goto err_unmap;
-				}
-			} else {
+			else
 				domain = MDSS_IOMMU_DOMAIN_UNSECURE;
-			}
 
 			ret = msm_map_dma_buf(data->srcp_dma_buf,
 					    data->srcp_table,
 					    mdss_get_iommu_domain(domain),
 					    0, SZ_4K, 0, start, len, 0, 0);
-			if (ret && (domain == MDSS_IOMMU_DOMAIN_SECURE))
-				msm_ion_unsecure_table(data->srcp_table);
 		} else {
 			*start = sg_phys(data->srcp_table->sgl);
 			*len = data->srcp_table->sgl->length;
