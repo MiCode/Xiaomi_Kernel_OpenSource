@@ -1372,10 +1372,8 @@ void mdss_fb_free_fb_ion_memory(struct msm_fb_data_type *mfd)
 					DMA_BIDIRECTIONAL);
 		dma_buf_detach(mfd->fbmem_buf, mfd->fb_attachment);
 		dma_buf_put(mfd->fbmem_buf);
-
 	}
 
-	dma_buf_put(mfd->fbmem_buf);
 	ion_free(mfd->fb_ion_client, mfd->fb_ion_handle);
 	mfd->fb_ion_handle = NULL;
 }
@@ -1441,9 +1439,6 @@ int mdss_fb_alloc_fb_ion_memory(struct msm_fb_data_type *mfd, size_t fb_size)
 		pr_err("No IOMMU Domain\n");
 		goto fb_mmap_failed;
 	}
-
-	mfd->fbmem_buf = ion_share_dma_buf(mfd->fb_ion_client,
-			mfd->fb_ion_handle);
 
 	vaddr  = ion_map_kernel(mfd->fb_ion_client, mfd->fb_ion_handle);
 	if (IS_ERR_OR_NULL(vaddr)) {
