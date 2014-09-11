@@ -657,16 +657,11 @@ static void mdss_dsi_mode_setup(struct mdss_panel_data *pdata)
 	dst_bpp = pdata->panel_info.fbc.enabled ?
 		(pdata->panel_info.fbc.target_bpp) : (pinfo->bpp);
 
-	hbp = mult_frac(pdata->panel_info.lcdc.h_back_porch, dst_bpp,
-			pdata->panel_info.bpp);
-	hfp = mult_frac(pdata->panel_info.lcdc.h_front_porch, dst_bpp,
-			pdata->panel_info.bpp);
-	vbp = mult_frac(pdata->panel_info.lcdc.v_back_porch, dst_bpp,
-			pdata->panel_info.bpp);
-	vfp = mult_frac(pdata->panel_info.lcdc.v_front_porch, dst_bpp,
-			pdata->panel_info.bpp);
-	hspw = mult_frac(pdata->panel_info.lcdc.h_pulse_width, dst_bpp,
-			pdata->panel_info.bpp);
+	hbp = pdata->panel_info.lcdc.h_back_porch;
+	hfp = pdata->panel_info.lcdc.h_front_porch;
+	vbp = pdata->panel_info.lcdc.v_back_porch;
+	vfp = pdata->panel_info.lcdc.v_front_porch;
+	hspw = pdata->panel_info.lcdc.h_pulse_width;
 	vspw = pdata->panel_info.lcdc.v_pulse_width;
 	width = mult_frac(pdata->panel_info.xres, dst_bpp,
 			pdata->panel_info.bpp);
