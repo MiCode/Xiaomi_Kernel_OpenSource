@@ -1101,7 +1101,7 @@ int q6asm_audio_client_buf_alloc(unsigned int dir,
 		while (cnt < bufcnt) {
 			if (bufsz > 0) {
 				if (!buf[cnt].data) {
-					msm_audio_ion_alloc("audio_client",
+					msm_audio_ion_alloc("asm_client",
 					&buf[cnt].client, &buf[cnt].handle,
 					      bufsz,
 					      (ion_phys_addr_t *)&buf[cnt].phys,
@@ -1189,7 +1189,7 @@ int q6asm_audio_client_buf_alloc_contiguous(unsigned int dir,
 	/* The size to allocate should be multiple of 4K bytes */
 	bytes_to_alloc = PAGE_ALIGN(bytes_to_alloc);
 
-	rc = msm_audio_ion_alloc("audio_client", &buf[0].client, &buf[0].handle,
+	rc = msm_audio_ion_alloc("asm_client", &buf[0].client, &buf[0].handle,
 		bytes_to_alloc,
 		(ion_phys_addr_t *)&buf[0].phys, (size_t *)&len,
 		&buf[0].data);
