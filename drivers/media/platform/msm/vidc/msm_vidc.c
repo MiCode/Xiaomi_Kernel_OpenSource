@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -716,11 +716,8 @@ int msm_vidc_prepare_buf(void *instance, struct v4l2_buffer *b)
 		return -EINVAL;
 	}
 
-	if (is_dynamic_output_buffer_mode(b, inst)) {
-		dprintk(VIDC_ERR, "%s: not supported in dynamic buffer mode\n",
-				__func__);
-		return -EINVAL;
-	}
+	if (is_dynamic_output_buffer_mode(b, inst))
+		return 0;
 
 	/* Map the buffer only for non-kernel clients */
 	/*
