@@ -130,7 +130,7 @@ struct msm_ipc_server {
 
 struct msm_ipc_server_port {
 	struct list_head list;
-	struct platform_device pdev;
+	struct platform_device *pdev;
 	struct msm_ipc_port_addr server_addr;
 	struct msm_ipc_router_xprt_info *xprt_info;
 };
@@ -1399,10 +1399,6 @@ static void ipc_router_release_server(struct kref *ref)
 	kfree(server);
 }
 
-static void dummy_release(struct device *dev)
-{
-}
-
 /**
  * msm_ipc_router_create_server() - Add server info to hash table
  * @service: Service ID of the server info to be created.
@@ -1426,6 +1422,7 @@ static struct msm_ipc_server *msm_ipc_router_create_server(
 {
 	struct msm_ipc_server *server = NULL;
 	struct msm_ipc_server_port *server_port;
+	struct platform_device *pdev;
 	int key = (service & (SRV_HASH_SIZE - 1));
 
 	down_write(&server_list_lock_lha2);
@@ -1458,7 +1455,11 @@ static struct msm_ipc_server *msm_ipc_router_create_server(
 
 create_srv_port:
 	server_port = kzalloc(sizeof(struct msm_ipc_server_port), GFP_KERNEL);
-	if (!server_port) {
+	pdev = platform_device_alloc(server->pdev_name, server->next_pdev_id);
+	if (!server_port || !pdev) {
+		kfree(server_port);
+		if (pdev)
+			platform_device_put(pdev);
 		if (list_empty(&server->server_port_list)) {
 			list_del(&server->list);
 			kfree(server);
@@ -1467,15 +1468,13 @@ create_srv_port:
 		IPC_RTR_ERR("%s: Server Port allocation failed\n", __func__);
 		return NULL;
 	}
+	server_port->pdev = pdev;
 	server_port->server_addr.node_id = node_id;
 	server_port->server_addr.port_id = port_id;
 	server_port->xprt_info = xprt_info;
 	list_add_tail(&server_port->list, &server->server_port_list);
-
-	server_port->pdev.name = server->pdev_name;
-	server_port->pdev.id = server->next_pdev_id++;
-	server_port->pdev.dev.release = dummy_release;
-	platform_device_register(&server_port->pdev);
+	server->next_pdev_id++;
+	platform_device_add(server_port->pdev);
 
 return_server:
 	/* Add a reference so that the caller can put it back */
@@ -1512,7 +1511,7 @@ static void ipc_router_destroy_server_nolock(struct msm_ipc_server *server,
 		}
 	}
 	if (server_port_found && server_port) {
-		platform_device_unregister(&server_port->pdev);
+		platform_device_unregister(server_port->pdev);
 		list_del(&server_port->list);
 		kfree(server_port);
 	}
