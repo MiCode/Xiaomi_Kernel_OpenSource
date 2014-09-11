@@ -398,7 +398,9 @@ static void grmnet_ctrl_smd_connect_w(struct work_struct *w)
 	if (!test_bit(CH_READY, &c->flags)) {
 		if (!test_bit(CH_PREPARE_READY, &c->flags)) {
 			set_bit(CH_PREPARE_READY, &c->flags);
-			platform_driver_register(&(port_entry->pdrv));
+			ret = platform_driver_register(&(port_entry->pdrv));
+			if (ret)
+				clear_bit(CH_PREPARE_READY, &c->flags);
 		}
 		return;
 	}
