@@ -30,6 +30,8 @@ Optional properties:
 - <supply-name>-supply: handle to the regulator device tree node
   Optional "supply-name" is "gpio" used to power up the gpio bank
   used by this device
+- qcom,pm-qos-latency : value in microseconds to be used by device to vote for
+  DMA latency when UICC transfers are in progress.
 
 	spi@f9923000 {
 		lattice,spi-usb@3 {
@@ -42,6 +44,7 @@ Optional properties:
 			interrupts = <121 0x8>;
 			core-vcc-supply = <&pm8226_l2>;
 			spi-vcc-supply = <&pm8226_l5>;
+			qcom,pm-qos-latency = <2>;
 			lattice,reset-gpio = <&msmgpio 114 0>;
 			lattice,config-done-gpio = <&msmgpio 115 0>;
 			lattice,vcc-en-gpio = <&msmgpio 117 0>;
