@@ -1161,7 +1161,7 @@ static int mdss_dsi_set_stream_size(struct mdss_panel_data *pdata)
 }
 
 int mdss_dsi_register_recovery_handler(struct mdss_dsi_ctrl_pdata *ctrl,
-	struct mdss_panel_recovery *recovery)
+	struct mdss_intf_recovery *recovery)
 {
 	mutex_lock(&ctrl->mutex);
 	ctrl->recovery = recovery;
@@ -1249,7 +1249,7 @@ static int mdss_dsi_event_handler(struct mdss_panel_data *pdata,
 		break;
 	case MDSS_EVENT_REGISTER_RECOVERY_HANDLER:
 		rc = mdss_dsi_register_recovery_handler(ctrl_pdata,
-			(struct mdss_panel_recovery *)arg);
+			(struct mdss_intf_recovery *)arg);
 		break;
 	default:
 		pr_debug("%s: unhandled event=%d\n", __func__, event);
