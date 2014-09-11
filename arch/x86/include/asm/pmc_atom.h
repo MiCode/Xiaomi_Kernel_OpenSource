@@ -17,7 +17,10 @@
 #define PMC_ATOM_H
 
 /* ValleyView Power Control Unit PCI Device ID */
-#define	PCI_DEVICE_ID_VLV_PMC	0x0F1C
+#define	PCI_DEVICE_ID_BYT_PMC	0x0F1C
+/* CherryTrail Power Control Unit PCI Device ID */
+#define	PCI_DEVICE_ID_CHT_PMC	0x229C
+
 
 /* PMC Memory mapped IO registers */
 #define	PMC_BASE_ADDR_OFFSET	0x44
@@ -25,9 +28,6 @@
 #define	PMC_MMIO_REG_LEN	0x100
 #define	PMC_REG_BIT_WIDTH	32
 
-/* BIOS uses FUNC_DIS to disable specific function */
-#define	PMC_FUNC_DIS		0x34
-#define	PMC_FUNC_DIS_2		0x38
 
 /* S0ix wake event control */
 #define	PMC_S0IX_WAKE_EN	0x3C
@@ -56,6 +56,7 @@
 /* These registers reflect D3 status of functions */
 #define	PMC_D3_STS_0		0xA0
 
+/* common bit definition */
 #define	BIT_LPSS1_F0_DMA	BIT(0)
 #define	BIT_LPSS1_F1_PWM1	BIT(1)
 #define	BIT_LPSS1_F2_PWM2	BIT(2)
@@ -91,9 +92,24 @@
 
 #define	PMC_D3_STS_1		0xA4
 #define	BIT_SMB			BIT(0)
-#define	BIT_OTG_SS_PHY		BIT(1)
-#define	BIT_USH_SS_PHY		BIT(2)
-#define	BIT_DFX			BIT(3)
+
+/*BYT specific bits in PMC_D3_STS_1 register*/
+#define	BIT_OTG_SS_PHY_BYT		BIT(1)
+#define	BIT_USH_SS_PHY_BYT		BIT(2)
+#define	BIT_DFX_BYT			BIT(3)
+
+/*CHT specific bits in PMC_D3_STS_1 register*/
+#define	BIT_GMM_CHT			BIT(1)
+#define	BIT_ISH_CHT			BIT(2)
+
+/* BIOS uses FUNC_DIS to disable specific function */
+#define	PMC_FUNC_DIS		0x34
+#define	PMC_FUNC_DIS_2		0x38
+
+/*CHT specific bits in FUNC_DIS2 register*/
+#define	BIT_GMM_FD_CHT		BIT(3)
+#define	BIT_ISH_FD_CHT		BIT(4)
+
 
 /* PMC I/O Registers */
 #define	ACPI_BASE_ADDR_OFFSET	0x40
