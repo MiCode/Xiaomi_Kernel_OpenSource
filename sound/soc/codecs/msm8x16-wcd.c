@@ -4234,7 +4234,6 @@ static int msm8x16_wcd_spmi_probe(struct spmi_device *spmi)
 	if (wcd_resource->start != TOMBAK_CORE_0_SPMI_ADDR)
 		goto rtn;
 
-	dev_set_name(&spmi->dev, "%s", MSM8X16_CODEC_NAME);
 	if (spmi->dev.of_node) {
 		dev_dbg(&spmi->dev, "%s:Platform data from device tree\n",
 			__func__);

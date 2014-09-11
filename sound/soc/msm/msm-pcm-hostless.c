@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -39,8 +39,6 @@ static struct snd_soc_platform_driver msm_soc_hostless_platform = {
 
 static int msm_pcm_hostless_probe(struct platform_device *pdev)
 {
-	if (pdev->dev.of_node)
-		dev_set_name(&pdev->dev, "%s", "msm-pcm-hostless");
 
 	pr_debug("%s: dev name %s\n", __func__, dev_name(&pdev->dev));
 	return snd_soc_register_platform(&pdev->dev,

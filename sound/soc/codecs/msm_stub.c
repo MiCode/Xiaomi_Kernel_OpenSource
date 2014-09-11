@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -46,9 +46,6 @@ static struct snd_soc_codec_driver soc_msm_stub = {};
 
 static int msm_stub_dev_probe(struct platform_device *pdev)
 {
-	if (pdev->dev.of_node)
-		dev_set_name(&pdev->dev, "%s.%d", "msm-stub-codec", 1);
-
 	dev_dbg(&pdev->dev, "dev name %s\n", dev_name(&pdev->dev));
 
 	return snd_soc_register_codec(&pdev->dev,

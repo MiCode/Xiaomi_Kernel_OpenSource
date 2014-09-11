@@ -574,6 +574,23 @@ normally open.
 - qcom,prim-auxpcm-gpio-set : set of GPIO lines used for Primary AUXPCM port
 - qcom,tapan-codec-9302: Indicates that this device node is for WCD9302 audio
 			    codec.
+- asoc-platform: This is phandle list containing the references to platform device
+		 nodes that are used as part of the sound card dai-links.
+- asoc-platform-names: This property contains list of platform names. The order of
+		       the platform names should match to that of the phandle order
+		       given in "asoc-platform".
+- asoc-cpu: This is phandle list containing the references to cpu dai device nodes
+	    that are used as part of the sound card dai-links.
+- asoc-cpu-names: This property contains list of cpu dai names. The order of the
+		  cpu dai names should match to that of the phandle order given
+		  in "asoc-cpu". The cpu names are in the form of "%s.%d" form,
+		  where the id (%d) field represents the back-end AFE port id that
+		  this CPU dai is associated with.
+- asoc-codec: This is phandle list containing the references to codec dai device
+	      nodes that are used as part of the sound card dai-links.
+- asoc-codec-names: This property contains list of codec dai names. The order of the
+		    codec dai names should match to that of the phandle order given
+		    in "asoc-codec".
 
 Optional Properties:
 - qcom,us-euro-gpios : GPIO on which gnd/mic swap signal is coming.
@@ -619,6 +636,36 @@ Example:
 		qcom,prim-auxpcm-gpio-dout = <&msm_gpio 66 0>;
 		qcom,prim-auxpcm-gpio-set = "prim-gpio-prim";
 		qcom,tapan-codec-9302;
+		asoc-platform = <&pcm0>, <&pcm1>, <&voip>, <&voice>,
+				<&loopback>, <&compress>, <&hostless>,
+				<&afe>, <&lsm>, <&routing>, <&lpa>;
+		asoc-platform-names = "msm-pcm-dsp.0", "msm-pcm-dsp.1",
+				"msm-voip-dsp", "msm-pcm-voice", "msm-pcm-loopback",
+				"msm-compress-dsp", "msm-pcm-hostless", "msm-pcm-afe",
+				"msm-lsm-client", "msm-pcm-routing", "msm-pcm-lpa";
+		asoc-cpu = <&dai_pri_auxpcm>, <&dai_hdmi>,
+				<&dai_mi2s0>, <&dai_mi2s1>, <&dai_mi2s2>, <&dai_mi2s3>,
+				<&sb_0_rx>, <&sb_0_tx>, <&sb_1_rx>, <&sb_1_tx>,
+				<&sb_3_rx>, <&sb_3_tx>, <&sb_4_rx>, <&sb_4_tx>,
+				<&bt_sco_rx>, <&bt_sco_tx>, <&int_fm_rx>, <&int_fm_tx>,
+				<&afe_pcm_rx>, <&afe_pcm_tx>, <&afe_proxy_rx>, <&afe_proxy_tx>,
+				<&incall_record_rx>, <&incall_record_tx>, <&incall_music_rx>,
+				<&incall_music_2_rx>;
+		asoc-cpu-names = "msm-dai-q6-auxpcm.1", "msm-dai-q6-hdmi.8",
+				"msm-dai-q6-mi2s.0", "msm-dai-q6-mi2s.1",
+				"msm-dai-q6-mi2s.2", "msm-dai-q6-mi2s.3",
+				"msm-dai-q6-dev.16384", "msm-dai-q6-dev.16385",
+				"msm-dai-q6-dev.16386", "msm-dai-q6-dev.16387",
+				"msm-dai-q6-dev.16390", "msm-dai-q6-dev.16391",
+				"msm-dai-q6-dev.16392", "msm-dai-q6-dev.16393",
+				"msm-dai-q6-dev.12288", "msm-dai-q6-dev.12289",
+				"msm-dai-q6-dev.12292", "msm-dai-q6-dev.12293",
+				"msm-dai-q6-dev.224", "msm-dai-q6-dev.225",
+				"msm-dai-q6-dev.241", "msm-dai-q6-dev.240",
+				"msm-dai-q6-dev.32771", "msm-dai-q6-dev.32772",
+				"msm-dai-q6-dev.32773", "msm-dai-q6-dev.32770";
+		asoc-codec = <&stub>, <&pm8916_tombak_dig>;
+		asoc-codec-names = "msm-stub-codec.1", "tombak_codec";
 	};
 
 * MSM8974 ASoC Machine driver
@@ -656,6 +703,23 @@ Required properties:
 - qcom,sec-auxpcm-gpio-din  : GPIO on which Secondary AUXPCM DIN signal is coming.
 - qcom,sec-auxpcm-gpio-dout : GPIO on which Secondary AUXPCM DOUT signal is coming.
 - qcom,us-euro-gpios : GPIO on which gnd/mic swap signal is coming.
+- asoc-platform: This is phandle list containing the references to platform device
+		 nodes that are used as part of the sound card dai-links.
+- asoc-platform-names: This property contains list of platform names. The order of
+		       the platform names should match to that of the phandle order
+		       given in "asoc-platform".
+- asoc-cpu: This is phandle list containing the references to cpu dai device nodes
+	    that are used as part of the sound card dai-links.
+- asoc-cpu-names: This property contains list of cpu dai names. The order of the
+		  cpu dai names should match to that of the phandle order given
+		  in "asoc-cpu". The cpu names are in the form of "%s.%d" form,
+		  where the id (%d) field represents the back-end AFE port id that
+		  this CPU dai is associated with.
+- asoc-codec: This is phandle list containing the references to codec dai device
+	      nodes that are used as part of the sound card dai-links.
+- asoc-codec-names: This property contains list of codec dai names. The order of the
+		    codec dai names should match to that of the phandle order given
+		    in "asoc-codec".
 Optional properties:
 - qcom,hdmi-audio-rx: specifies if HDMI audio support is enabled or not.
 - qcom,ext-ult-spk-amp-gpio : GPIO for enabling of speaker path amplifier.
@@ -952,6 +1016,23 @@ Required properties:
 	to "Documentation/devicetree/bindings/pinctrl/pinctrl-bindings.txt" for the
 	pinctrl handles definitions. Each pinctrl-# corresponds to the respective
 	state name that appears under pinctrl-state list.
+- asoc-platform: This is phandle list containing the references to platform device
+		 nodes that are used as part of the sound card dai-links.
+- asoc-platform-names: This property contains list of platform names. The order of
+		       the platform names should match to that of the phandle order
+		       given in "asoc-platform".
+- asoc-cpu: This is phandle list containing the references to cpu dai device nodes
+	    that are used as part of the sound card dai-links.
+- asoc-cpu-names: This property contains list of cpu dai names. The order of the
+		  cpu dai names should match to that of the phandle order given
+		  in "asoc-cpu". The cpu names are in the form of "%s.%d" form,
+		  where the id (%d) field represents the back-end AFE port id that
+		  this CPU dai is associated with.
+- asoc-codec: This is phandle list containing the references to codec dai device
+	      nodes that are used as part of the sound card dai-links.
+- asoc-codec-names: This property contains list of codec dai names. The order of the
+		    codec dai names should match to that of the phandle order given
+		    in "asoc-codec".
 
 
 Optional Properties:
@@ -995,6 +1076,23 @@ Required properties:
 - qcom,prim-i2s-gpio-dout : Specifies gpio assigned for primary DOUT I2S pin.
 - qcom,prim-i2s-gpio-sclk : Specifies gpio assigned for primary SCLK I2S pin.
 - qcom,prim-i2s-gpio-mclk : Specifies gpio assigned for MCLK I2S pin.
+- asoc-platform: This is phandle list containing the references to platform device
+		 nodes that are used as part of the sound card dai-links.
+- asoc-platform-names: This property contains list of platform names. The order of
+		       the platform names should match to that of the phandle order
+		       given in "asoc-platform".
+- asoc-cpu: This is phandle list containing the references to cpu dai device nodes
+	    that are used as part of the sound card dai-links.
+- asoc-cpu-names: This property contains list of cpu dai names. The order of the
+		  cpu dai names should match to that of the phandle order given
+		  in "asoc-cpu". The cpu names are in the form of "%s.%d" form,
+		  where the id (%d) field represents the back-end AFE port id that
+		  this CPU dai is associated with.
+- asoc-codec: This is phandle list containing the references to codec dai device
+	      nodes that are used as part of the sound card dai-links.
+- asoc-codec-names: This property contains list of codec dai names. The order of the
+		    codec dai names should match to that of the phandle order given
+		    in "asoc-codec".
 
 Example:
 
@@ -1064,6 +1162,23 @@ Required properties:
 - qcom,sec-auxpcm-gpio-din  : GPIO on which Secondary AUXPCM DIN signal is coming.
 - qcom,sec-auxpcm-gpio-dout : GPIO on which Secondary AUXPCM DOUT signal is coming.
 - qcom,ext-mclk-gpio  : audio uses this GPIO to request mclk in MTP and CDP
+- asoc-platform: This is phandle list containing the references to platform device
+		 nodes that are used as part of the sound card dai-links.
+- asoc-platform-names: This property contains list of platform names. The order of
+		       the platform names should match to that of the phandle order
+		       given in "asoc-platform".
+- asoc-cpu: This is phandle list containing the references to cpu dai device nodes
+	    that are used as part of the sound card dai-links.
+- asoc-cpu-names: This property contains list of cpu dai names. The order of the
+		  cpu dai names should match to that of the phandle order given
+		  in "asoc-cpu". The cpu names are in the form of "%s.%d" form,
+		  where the id (%d) field represents the back-end AFE port id that
+		  this CPU dai is associated with.
+- asoc-codec: This is phandle list containing the references to codec dai device
+	      nodes that are used as part of the sound card dai-links.
+- asoc-codec-names: This property contains list of codec dai names. The order of the
+		    codec dai names should match to that of the phandle order given
+		    in "asoc-codec".
 Optional properties:
 - qcom,us-euro-gpios : GPIO on which gnd/mic swap signal is coming.
 - qcom,hdmi-audio-rx: specifies if HDMI audio support is enabled or not.
@@ -1160,6 +1275,23 @@ Required properties:
 - pinctrl-x : defines pinctrl state for each pin group
 - qcom,ext-ult-spk-amp-gpio : GPIO to enable ultrasound emitter amp.
 - qcom,mbhc-audio-jack-type : Indicates headset jack type.
+- asoc-platform: This is phandle list containing the references to platform device
+		 nodes that are used as part of the sound card dai-links.
+- asoc-platform-names: This property contains list of platform names. The order of
+		       the platform names should match to that of the phandle order
+		       given in "asoc-platform".
+- asoc-cpu: This is phandle list containing the references to cpu dai device nodes
+	    that are used as part of the sound card dai-links.
+- asoc-cpu-names: This property contains list of cpu dai names. The order of the
+		  cpu dai names should match to that of the phandle order given
+		  in "asoc-cpu". The cpu names are in the form of "%s.%d" form,
+		  where the id (%d) field represents the back-end AFE port id that
+		  this CPU dai is associated with.
+- asoc-codec: This is phandle list containing the references to codec dai device
+	      nodes that are used as part of the sound card dai-links.
+- asoc-codec-names: This property contains list of codec dai names. The order of the
+		    codec dai names should match to that of the phandle order given
+		    in "asoc-codec".
 
 Example:
 
@@ -1206,6 +1338,38 @@ Example:
 		pinctrl-3 = <&sec_aux_pcm_active>;
 		qcom,ext-ult-spk-amp-gpio = <&pmi8994_gpios 1 0>;
 		qcom,mbhc-audio-jack-type = "6-pole-jack";
+		asoc-platform = <&pcm0>,<&pcm1>,<&pcm2>,<&voip>,<&voice>,
+				<&loopback>,<&compress>,<&hostless>,
+				<&afe>,<&lsm>,<&routing>,<&cpe>,<&compr>;
+		asoc-platform-names = "msm-pcm-dsp.0","msm-pcm-dsp.1","msm-pcm-dsp.2",
+				"msm-voip-dsp","msm-pcm-voice","msm-pcm-loopback",
+				"msm-compress-dsp","msm-pcm-hostless","msm-pcm-afe",
+				"msm-lsm-client","msm-pcm-routing", "msm-cpe-lsm",
+				"msm-compr-dsp";
+		asoc-cpu = <&dai_pri_auxpcm>,<&dai_sec_auxpcm>,<&dai_hdmi>,<&dai_mi2s>,
+				<&sb_0_rx>,<&sb_0_tx>,<&sb_1_rx>,<&sb_1_tx>,
+				<&sb_2_rx>,<&sb_2_tx>,<&sb_3_rx>,<&sb_3_tx>,
+				<&sb_4_rx>,<&sb_4_tx>,<&sb_5_tx>,<&bt_sco_rx>,
+				<&bt_sco_tx>,<&int_fm_rx>,<&int_fm_tx>,<&afe_pcm_rx>,
+				<&afe_pcm_tx>,<&afe_proxy_rx>,<&afe_proxy_tx>,
+				<&incall_record_rx>,<&incall_record_tx>,<&incall_music_rx>,
+				<&incall_music2_rx>;
+		asoc-cpu-names = "msm-dai-q6-auxpcm.1","msm-dai-q6-auxpcm.2",
+				"msm-dai-q6-hdmi.8","msm-dai-q6-mi2s.0",
+				"msm-dai-q6-dev.16384","msm-dai-q6-dev.16385",
+				"msm-dai-q6-dev.16386","msm-dai-q6-dev.16387",
+				"msm-dai-q6-dev.16388","msm-dai-q6-dev.16389",
+				"msm-dai-q6-dev.16390","msm-dai-q6-dev.16391",
+				"msm-dai-q6-dev.16392","msm-dai-q6-dev.16393",
+				"msm-dai-q6-dev.16395","msm-dai-q6-dev.12288",
+				"msm-dai-q6-dev.12289","msm-dai-q6-dev.12292",
+				"msm-dai-q6-dev.12293","msm-dai-q6-dev.224",
+				"msm-dai-q6-dev.225","msm-dai-q6-dev.241",
+				"msm-dai-q6-dev.240","msm-dai-q6-dev.32771",
+				"msm-dai-q6-dev.32772","msm-dai-q6-dev.32773",
+				"msm-dai-q6-dev.32770";
+		asoc-codec = <&stub>;
+		asoc-codec-names = "msm-stub-codec.1";
 	};
 
 * MSMZIRC ASoC Machine driver
@@ -1220,6 +1384,23 @@ the second being the connection's source.
 codec can run at different mclk values. Mclk value can be 9.6MHz or 12.288MHz.
 - pinctrl-names : pinctrl state names for each pin group configuration.
 - pinctrl-x : defines pinctrl state for each pin group
+- asoc-platform: This is phandle list containing the references to platform device
+		 nodes that are used as part of the sound card dai-links.
+- asoc-platform-names: This property contains list of platform names. The order of
+		       the platform names should match to that of the phandle order
+		       given in "asoc-platform".
+- asoc-cpu: This is phandle list containing the references to cpu dai device nodes
+	    that are used as part of the sound card dai-links.
+- asoc-cpu-names: This property contains list of cpu dai names. The order of the
+		  cpu dai names should match to that of the phandle order given
+		  in "asoc-cpu". The cpu names are in the form of "%s.%d" form,
+		  where the id (%d) field represents the back-end AFE port id that
+		  this CPU dai is associated with.
+- asoc-codec: This is phandle list containing the references to codec dai device
+	      nodes that are used as part of the sound card dai-links.
+- asoc-codec-names: This property contains list of codec dai names. The order of the
+		    codec dai names should match to that of the phandle order given
+		    in "asoc-codec".
 
 Example:
 

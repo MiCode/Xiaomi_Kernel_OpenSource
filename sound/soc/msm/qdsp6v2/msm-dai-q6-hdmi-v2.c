@@ -218,6 +218,16 @@ static int msm_dai_q6_hdmi_prepare(struct snd_pcm_substream *substream,
 	return rc;
 }
 
+static inline void msm_dai_q6_hdmi_set_dai_id(struct snd_soc_dai *dai)
+{
+	if (!dai->driver->id) {
+		dev_warn(dai->dev, "DAI driver id is not set\n");
+		return;
+	}
+	dai->id = dai->driver->id;
+	return;
+}
+
 static int msm_dai_q6_hdmi_dai_probe(struct snd_soc_dai *dai)
 {
 	struct msm_dai_q6_hdmi_dai_data *dai_data;
@@ -238,6 +248,8 @@ static int msm_dai_q6_hdmi_dai_probe(struct snd_soc_dai *dai)
 		rc = -ENOMEM;
 	} else
 		dev_set_drvdata(dai->dev, dai_data);
+
+	msm_dai_q6_hdmi_set_dai_id(dai);
 
 	kcontrol = &hdmi_config_controls[0];
 
@@ -316,6 +328,7 @@ static struct snd_soc_dai_driver msm_dai_q6_hdmi_hdmi_rx_dai = {
 		.rate_min =	48000,
 	},
 	.ops = &msm_dai_q6_hdmi_ops,
+	.id = HDMI_RX,
 	.probe = msm_dai_q6_hdmi_dai_probe,
 	.remove = msm_dai_q6_hdmi_dai_remove,
 };
@@ -338,7 +351,6 @@ static int msm_dai_q6_hdmi_dev_probe(struct platform_device *pdev)
 	}
 
 	pdev->id = id;
-	dev_set_name(&pdev->dev, "%s.%d", "msm-dai-q6-hdmi", id);
 
 	pr_debug("%s: dev name %s, id:%d\n", __func__,
 			dev_name(&pdev->dev), pdev->id);

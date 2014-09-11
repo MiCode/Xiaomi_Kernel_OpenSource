@@ -2390,6 +2390,38 @@
 		pinctrl-1 = <&pri_mi2s_active>, <&pri_mi2s_sd0_active>;
 		pinctrl-2 = <&sec_aux_pcm_sleep>, <&sec_aux_pcm_din_sleep>;
 		pinctrl-3 = <&sec_aux_pcm_active>, <&sec_aux_pcm_din_active>;
+		asoc-platform = <&pcm0>, <&pcm1>, <&pcm2>, <&voip>, <&voice>,
+				<&loopback>, <&compress>, <&hostless>,
+				<&afe>, <&lsm>, <&routing>, <&cpe>, <&compr>;
+		asoc-platform-names = "msm-pcm-dsp.0", "msm-pcm-dsp.1", "msm-pcm-dsp.2",
+				"msm-voip-dsp", "msm-pcm-voice", "msm-pcm-loopback",
+				"msm-compress-dsp", "msm-pcm-hostless", "msm-pcm-afe",
+				"msm-lsm-client", "msm-pcm-routing", "msm-cpe-lsm",
+				"msm-compr-dsp";
+		asoc-cpu = <&dai_pri_auxpcm>, <&dai_sec_auxpcm>, <&dai_hdmi>, <&dai_mi2s>,
+				<&sb_0_rx>, <&sb_0_tx>, <&sb_1_rx>, <&sb_1_tx>,
+				<&sb_2_rx>, <&sb_2_tx>, <&sb_3_rx>, <&sb_3_tx>,
+				<&sb_4_rx>, <&sb_4_tx>, <&sb_5_tx>, <&bt_sco_rx>,
+				<&bt_sco_tx>, <&int_fm_rx>, <&int_fm_tx>, <&afe_pcm_rx>,
+				<&afe_pcm_tx>, <&afe_proxy_rx>, <&afe_proxy_tx>,
+				<&incall_record_rx>, <&incall_record_tx>, <&incall_music_rx>,
+				<&incall_music2_rx>;
+		asoc-cpu-names = "msm-dai-q6-auxpcm.1", "msm-dai-q6-auxpcm.2",
+				"msm-dai-q6-hdmi.8", "msm-dai-q6-mi2s.0",
+				"msm-dai-q6-dev.16384", "msm-dai-q6-dev.16385",
+				"msm-dai-q6-dev.16386", "msm-dai-q6-dev.16387",
+				"msm-dai-q6-dev.16388", "msm-dai-q6-dev.16389",
+				"msm-dai-q6-dev.16390", "msm-dai-q6-dev.16391",
+				"msm-dai-q6-dev.16392", "msm-dai-q6-dev.16393",
+				"msm-dai-q6-dev.16395", "msm-dai-q6-dev.12288",
+				"msm-dai-q6-dev.12289", "msm-dai-q6-dev.12292",
+				"msm-dai-q6-dev.12293", "msm-dai-q6-dev.224",
+				"msm-dai-q6-dev.225", "msm-dai-q6-dev.241",
+				"msm-dai-q6-dev.240", "msm-dai-q6-dev.32771",
+				"msm-dai-q6-dev.32772", "msm-dai-q6-dev.32773",
+				"msm-dai-q6-dev.32770";
+		asoc-codec = <&stub_codec>;
+		asoc-codec-names = "msm-stub-codec.1";
 	};
 
 	qcom,msm-adsp-loader {
@@ -2401,7 +2433,7 @@
 		compatible = "qcom,msm-audio-ion";
 	};
 
-	qcom,msm-pcm {
+	pcm0: qcom,msm-pcm {
 		compatible = "qcom,msm-pcm-dsp";
 		qcom,msm-pcm-dsp-id = <0>;
 	};
@@ -2410,41 +2442,41 @@
 		compatible = "qcom,msm-pcm-lpa";
 	};
 
-	qcom,msm-ultra-low-latency {
+	pcm2: qcom,msm-ultra-low-latency {
 		compatible = "qcom,msm-pcm-dsp";
 		qcom,msm-pcm-dsp-id = <2>;
 		qcom,msm-pcm-low-latency;
 		qcom,latency-level = "ultra";
 	};
 
-	qcom,msm-pcm-low-latency {
+	pcm1: qcom,msm-pcm-low-latency {
 		compatible = "qcom,msm-pcm-dsp";
 		qcom,msm-pcm-dsp-id = <1>;
 		qcom,msm-pcm-low-latency;
 		qcom,latency-level = "regular";
 	};
 
-	qcom,msm-pcm-routing {
+	routing: qcom,msm-pcm-routing {
 		compatible = "qcom,msm-pcm-routing";
 	};
 
-	qcom,msm-compr-dsp {
+	compr: qcom,msm-compr-dsp {
 		compatible = "qcom,msm-compr-dsp";
 	};
 
-	qcom,msm-compress-dsp {
+	compress: qcom,msm-compress-dsp {
 		compatible = "qcom,msm-compress-dsp";
 	};
 
-	qcom,msm-voip-dsp {
+	voip: qcom,msm-voip-dsp {
 		compatible = "qcom,msm-voip-dsp";
 	};
 
-	qcom,msm-pcm-voice {
+	voice: qcom,msm-pcm-voice {
 		compatible = "qcom,msm-pcm-voice";
 	};
 
-	qcom,msm-stub-codec {
+	stub_codec: qcom,msm-stub-codec {
 		compatible = "qcom,msm-stub-codec";
 	};
 
@@ -2452,20 +2484,20 @@
 		compatible = "qcom,msm-dai-fe";
 	};
 
-	qcom,msm-pcm-afe {
+	afe: qcom,msm-pcm-afe {
 		compatible = "qcom,msm-pcm-afe";
 	};
 
-	qcom,msm-dai-q6-hdmi {
+	dai_hdmi: qcom,msm-dai-q6-hdmi {
 		compatible = "qcom,msm-dai-q6-hdmi";
 		qcom,msm-dai-q6-dev-id = <8>;
 	};
 
-	qcom,msm-lsm-client {
+	lsm: qcom,msm-lsm-client {
 		compatible = "qcom,msm-lsm-client";
 	};
 
-	qcom,msm-pcm-loopback {
+	loopback: qcom,msm-pcm-loopback {
 		compatible = "qcom,msm-pcm-loopback";
 	};
 
@@ -2473,129 +2505,129 @@
 		compatible = "qcom,msm-voice-svc";
 	};
 
-	qcom,msm-cpe-lsm {
+	cpe: qcom,msm-cpe-lsm {
 		compatible = "qcom,msm-cpe-lsm";
 	};
 
 	qcom,msm-dai-q6 {
 		compatible = "qcom,msm-dai-q6";
-		qcom,msm-dai-q6-sb-0-rx {
+		sb_0_rx: qcom,msm-dai-q6-sb-0-rx {
 			compatible = "qcom,msm-dai-q6-dev";
 			qcom,msm-dai-q6-dev-id = <16384>;
 		};
 
-		qcom,msm-dai-q6-sb-0-tx {
+		sb_0_tx: qcom,msm-dai-q6-sb-0-tx {
 			compatible = "qcom,msm-dai-q6-dev";
 			qcom,msm-dai-q6-dev-id = <16385>;
 		};
 
-		qcom,msm-dai-q6-sb-1-rx {
+		sb_1_rx: qcom,msm-dai-q6-sb-1-rx {
 			compatible = "qcom,msm-dai-q6-dev";
 			qcom,msm-dai-q6-dev-id = <16386>;
 		};
 
-		qcom,msm-dai-q6-sb-1-tx {
+		sb_1_tx: qcom,msm-dai-q6-sb-1-tx {
 			compatible = "qcom,msm-dai-q6-dev";
 			qcom,msm-dai-q6-dev-id = <16387>;
 		};
 
-		qcom,msm-dai-q6-sb-2-rx {
+		sb_2_rx: qcom,msm-dai-q6-sb-2-rx {
 			compatible = "qcom,msm-dai-q6-dev";
 			qcom,msm-dai-q6-dev-id = <16388>;
 		};
 
-		qcom,msm-dai-q6-sb-2-tx {
+		sb_2_tx: qcom,msm-dai-q6-sb-2-tx {
 			compatible = "qcom,msm-dai-q6-dev";
 			qcom,msm-dai-q6-dev-id = <16389>;
 		};
 
-		qcom,msm-dai-q6-sb-3-rx {
+		sb_3_rx: qcom,msm-dai-q6-sb-3-rx {
 			compatible = "qcom,msm-dai-q6-dev";
 			qcom,msm-dai-q6-dev-id = <16390>;
 		};
 
-		qcom,msm-dai-q6-sb-3-tx {
+		sb_3_tx: qcom,msm-dai-q6-sb-3-tx {
 			compatible = "qcom,msm-dai-q6-dev";
 			qcom,msm-dai-q6-dev-id = <16391>;
 		};
 
-		qcom,msm-dai-q6-sb-4-rx {
+		sb_4_rx: qcom,msm-dai-q6-sb-4-rx {
 			compatible = "qcom,msm-dai-q6-dev";
 			qcom,msm-dai-q6-dev-id = <16392>;
 		};
 
-		qcom,msm-dai-q6-sb-4-tx {
+		sb_4_tx: qcom,msm-dai-q6-sb-4-tx {
 			compatible = "qcom,msm-dai-q6-dev";
 			qcom,msm-dai-q6-dev-id = <16393>;
 		};
 
-		qcom,msm-dai-q6-sb-5-tx {
+		sb_5_tx: qcom,msm-dai-q6-sb-5-tx {
 			compatible = "qcom,msm-dai-q6-dev";
 			qcom,msm-dai-q6-dev-id = <16395>;
 		};
 
-		qcom,msm-dai-q6-bt-sco-rx {
+		bt_sco_rx: qcom,msm-dai-q6-bt-sco-rx {
 			compatible = "qcom,msm-dai-q6-dev";
 			qcom,msm-dai-q6-dev-id = <12288>;
 		};
 
-		qcom,msm-dai-q6-bt-sco-tx {
+		bt_sco_tx: qcom,msm-dai-q6-bt-sco-tx {
 			compatible = "qcom,msm-dai-q6-dev";
 			qcom,msm-dai-q6-dev-id = <12289>;
 		};
 
-		qcom,msm-dai-q6-int-fm-rx {
+		int_fm_rx: qcom,msm-dai-q6-int-fm-rx {
 			compatible = "qcom,msm-dai-q6-dev";
 			qcom,msm-dai-q6-dev-id = <12292>;
 		};
 
-		qcom,msm-dai-q6-int-fm-tx {
+		int_fm_tx: qcom,msm-dai-q6-int-fm-tx {
 			compatible = "qcom,msm-dai-q6-dev";
 			qcom,msm-dai-q6-dev-id = <12293>;
 		};
 
-		qcom,msm-dai-q6-be-afe-pcm-rx {
+		afe_pcm_rx: qcom,msm-dai-q6-be-afe-pcm-rx {
 			compatible = "qcom,msm-dai-q6-dev";
 			qcom,msm-dai-q6-dev-id = <224>;
 		};
 
-		qcom,msm-dai-q6-be-afe-pcm-tx {
+		afe_pcm_tx: qcom,msm-dai-q6-be-afe-pcm-tx {
 			compatible = "qcom,msm-dai-q6-dev";
 			qcom,msm-dai-q6-dev-id = <225>;
 		};
 
-		qcom,msm-dai-q6-afe-proxy-rx {
+		afe_proxy_rx: com,msm-dai-q6-afe-proxy-rx {
 			compatible = "qcom,msm-dai-q6-dev";
 			qcom,msm-dai-q6-dev-id = <241>;
 		};
 
-		qcom,msm-dai-q6-afe-proxy-tx {
+		afe_proxy_tx: qcom,msm-dai-q6-afe-proxy-tx {
 			compatible = "qcom,msm-dai-q6-dev";
 			qcom,msm-dai-q6-dev-id = <240>;
 		};
 
-		qcom,msm-dai-q6-incall-record-rx {
+		incall_record_rx: qcom,msm-dai-q6-incall-record-rx {
 			compatible = "qcom,msm-dai-q6-dev";
 			qcom,msm-dai-q6-dev-id = <32771>;
 		};
 
-		qcom,msm-dai-q6-incall-record-tx {
+		incall_record_tx: qcom,msm-dai-q6-incall-record-tx {
 			compatible = "qcom,msm-dai-q6-dev";
 			qcom,msm-dai-q6-dev-id = <32772>;
 		};
 
-		qcom,msm-dai-q6-incall-music-rx {
+		incall_music_rx: qcom,msm-dai-q6-incall-music-rx {
 			compatible = "qcom,msm-dai-q6-dev";
 			qcom,msm-dai-q6-dev-id = <32773>;
 		};
 
-		qcom,msm-dai-q6-incall-music-2-rx {
+		incall_music2_rx: qcom,msm-dai-q6-incall-music-2-rx {
 			compatible = "qcom,msm-dai-q6-dev";
 			qcom,msm-dai-q6-dev-id = <32770>;
 		};
 	};
 
-	qcom,msm-pri-auxpcm {
+	dai_pri_auxpcm: qcom,msm-pri-auxpcm {
 		compatible = "qcom,msm-auxpcm-dev";
 		qcom,msm-cpudai-auxpcm-mode = <0>, <0>;
 		qcom,msm-cpudai-auxpcm-sync = <1>, <1>;
@@ -2608,7 +2640,7 @@
 		qcom,msm-auxpcm-interface = "primary";
 	};
 
-	qcom,msm-sec-auxpcm {
+	dai_sec_auxpcm: qcom,msm-sec-auxpcm {
 		compatible = "qcom,msm-auxpcm-dev";
 		qcom,msm-cpudai-auxpcm-mode = <0>, <0>;
 		qcom,msm-cpudai-auxpcm-sync = <1>, <1>;
@@ -2623,7 +2655,7 @@
 
 	qcom,msm-dai-mi2s {
 		compatible = "qcom,msm-dai-mi2s";
-		qcom,msm-dai-q6-mi2s-prim {
+		dai_mi2s: qcom,msm-dai-q6-mi2s-prim {
 			compatible = "qcom,msm-dai-q6-mi2s";
 			qcom,msm-dai-q6-mi2s-dev-id = <0>;
 			qcom,msm-mi2s-rx-lines = <2>;
@@ -2631,7 +2663,7 @@
 		};
 	};
 
-	qcom,msm-pcm-hostless {
+	hostless: qcom,msm-pcm-hostless {
 		compatible = "qcom,msm-pcm-hostless";
 	};
 

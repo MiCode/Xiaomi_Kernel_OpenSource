@@ -30,6 +30,8 @@
 	sound {
 		qcom,model = "apq8084-taiko-cdp-snd-card";
 		qcom,hdmi-audio-rx;
+		asoc-codec = <&stub_codec>, <&hdmi_audio>;
+		asoc-codec-names = "msm-stub-codec.1", "msm-hdmi-audio-codec-rx";
 		qcom,cdc-micbias2-headset-only;
 		qcom,ext-mclk-gpio  = <&msmgpio 47 0>;
 	};
@@ -37,6 +39,8 @@
 	sound-9330 {
 		qcom,model = "apq8084-tomtom-cdp-snd-card";
 		qcom,hdmi-audio-rx;
+		asoc-codec = <&stub_codec>, <&hdmi_audio>;
+		asoc-codec-names = "msm-stub-codec.1", "msm-hdmi-audio-codec-rx";
 		qcom,cdc-micbias2-headset-only;
 		qcom,ext-mclk-gpio  = <&msmgpio 47 0>;
 	};

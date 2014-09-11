@@ -360,7 +360,7 @@
 		qcom,hdmi-tx-hpd = <&msmgpio 34 0>;
 		qcom,mdss-fb-map = <&mdss_fb1>;
 		qcom,cont-splash-enabled;
-		qcom,msm-hdmi-audio-rx {
+		hdmi_audio: qcom,msm-hdmi-audio-rx {
 			compatible = "qcom,msm-hdmi-audio-codec-rx";
 		};
 	};
