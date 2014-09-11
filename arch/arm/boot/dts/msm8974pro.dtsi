@@ -1669,6 +1669,7 @@
 	qcom,mdss-has-bwc;
 	qcom,mdss-has-decimation;
 	qcom,mdss-ad-off = <0x0013100 0x00013300>;
+	vdd-cx-supply = <&pm8841_s2_corner>;
 };
 
 &mdss_hdmi_tx {
