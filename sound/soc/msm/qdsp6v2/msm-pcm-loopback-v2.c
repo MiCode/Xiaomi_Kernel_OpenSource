@@ -404,7 +404,6 @@ static int msm_pcm_probe(struct platform_device *pdev)
 {
 	struct msm_pcm_loopback *pcm;
 
-	dev_set_name(&pdev->dev, "%s", "msm-pcm-loopback");
 
 	dev_dbg(&pdev->dev, "%s: dev name %s\n",
 		__func__, dev_name(&pdev->dev));

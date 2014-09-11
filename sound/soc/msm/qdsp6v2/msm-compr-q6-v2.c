@@ -583,8 +583,8 @@ static int msm_compr_capture_prepare(struct snd_pcm_substream *substream)
 			/* dtx mode - disable */
 			AMR_WB_DTX_MODE);
 		if (ret < 0)
-			pr_err("%s: CMD Format block" \
-				"failed: %d\n", __func__, ret);
+			pr_err("%s: CMD Format block failed: %d\n",
+				__func__, ret);
 		break;
 	default:
 		pr_debug("No config for codec %d\n", codec->id);
@@ -602,8 +602,7 @@ static int msm_compr_capture_prepare(struct snd_pcm_substream *substream)
 					- COMPRE_CAPTURE_HEADER_SIZE;
 			read_param.paddr = buf[i].phys
 					+ COMPRE_CAPTURE_HEADER_SIZE;
-			pr_debug("Push buffer [%d] to DSP, "\
-					"paddr: %pa, vaddr: %p\n",
+			pr_debug("Push buffer [%d] to DSP, paddr: %pa, vaddr: %p\n",
 					i, &read_param.paddr,
 					buf[i].data);
 			q6asm_async_read(prtd->audio_client, &read_param);
@@ -1652,8 +1651,6 @@ static struct snd_soc_platform_driver msm_soc_platform = {
 
 static int msm_compr_probe(struct platform_device *pdev)
 {
-	if (pdev->dev.of_node)
-		dev_set_name(&pdev->dev, "%s", "msm-compr-dsp");
 
 	dev_info(&pdev->dev, "%s: dev name %s\n",
 			 __func__, dev_name(&pdev->dev));
