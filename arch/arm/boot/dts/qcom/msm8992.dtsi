@@ -340,6 +340,77 @@
 		qcom,not-wakeup; /* Required until RPM is fully configured. */
 	};
 
+	pcie0: qcom,pcie@fc520000 {
+		compatible = "qcom,pci-msm";
+		cell-index = <0>;
+
+		reg = <0xfc520000 0x2000>,
+		      <0xfc526000 0x1000>,
+		      <0xff000000 0xf1d>,
+		      <0xff000f20 0xa8>,
+		      <0xff100000 0x100000>,
+		      <0xff200000 0x100000>,
+		      <0xff300000 0xd00000>;
+
+		reg-names = "parf", "phy", "dm_core", "elbi",
+				"conf", "io", "bars";
+
+		#address-cells = <0>;
+		interrupt-parent = <&pcie0>;
+		interrupts = <0 1 2 3 4 5 6 7 8 9 10 11>;
+		#interrupt-cells = <1>;
+		interrupt-map-mask = <0xffffffff>;
+		interrupt-map = <0 &intc 0 243 0
+				1 &intc 0 244 0
+				2 &intc 0 245 0
+				3 &intc 0 247 0
+				4 &intc 0 248 0
+				5 &intc 0 249 0
+				6 &intc 0 250 0
+				7 &intc 0 251 0
+				8 &intc 0 252 0
+				9 &intc 0 253 0
+				10 &intc 0 254 0
+				11 &intc 0 255 0>;
+
+		interrupt-names = "int_msi", "int_a", "int_b", "int_c", "int_d",
+				"int_pls_pme", "int_pme_legacy", "int_pls_err",
+				"int_aer_legacy", "int_pls_link_up",
+				"int_pls_link_down", "int_bridge_flush_n";
+
+		pinctrl-names = "default";
+		pinctrl-0 = <&pcie0_clkreq_default &pcie0_perst_default &pcie0_wake_default>;
+
+		perst-gpio = <&msm_gpio 35 0>;
+		wake-gpio = <&msm_gpio 37 0>;
+
+		gdsc-vdd-supply = <&gdsc_pcie_0>;
+		vreg-1.8-supply = <&pm8994_l12>;
+		vreg-0.9-supply = <&pm8994_l28>;
+
+		qcom,ep-latency = <10>;
+
+		qcom,msi-gicm-addr = <0xf9006040>;
+		qcom,msi-gicm-base = <0x180>;
+
+		qcom,scm-dev-id = <11>;
+
+		clocks = <&clock_gcc clk_gcc_pcie_0_pipe_clk>,
+			<&clock_rpm clk_ln_bb_clk>,
+			<&clock_gcc clk_gcc_pcie_0_aux_clk>,
+			<&clock_gcc clk_gcc_pcie_0_cfg_ahb_clk>,
+			<&clock_gcc clk_gcc_pcie_0_mstr_axi_clk>,
+			<&clock_gcc clk_gcc_pcie_0_slv_axi_clk>,
+			<&clock_gcc clk_pcie_0_phy_ldo>,
+			<&clock_gcc clk_gcc_pcie_phy_0_reset>;
+
+		clock-names =  "pcie_0_pipe_clk", "pcie_0_ref_clk_src", "pcie_0_aux_clk",
+			"pcie_0_cfg_ahb_clk", "pcie_0_mstr_axi_clk",
+			"pcie_0_slv_axi_clk", "pcie_0_ldo", "pcie_0_phy_reset";
+
+		max-clock-frequency-hz = <125000000>, <0>, <1011000>, <0>, <0>, <0>, <0>, <0>;
+	};
+
 	spi_0: spi@f9923000 {
 		compatible = "qcom,spi-qup-v2";
 		#address-cells = <1>;
