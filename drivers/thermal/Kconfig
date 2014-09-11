@@ -100,6 +100,15 @@ config THERMAL_TSENS8974
 	  thermal userspace client when a threshold is reached. Warm/Cool
 	  temperature thresholds can be set independently for each sensor.
 
+config LIMITS_MONITOR
+	bool "LMH monitor driver"
+	depends on THERMAL
+	help
+	  Enable this to manage the limits hardware for interrupts, throttling
+	  intensities, and LMH device profiles. This driver also registers the
+	  Limits hardware's monitoring entities as sensors with the thermal
+	  framework.
+
 config THERMAL_MONITOR
 	bool "Monitor thermal state and limit CPU Frequency"
 	depends on THERMAL_TSENS8960 || THERMAL_TSENS8974
