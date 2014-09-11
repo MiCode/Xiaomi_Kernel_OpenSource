@@ -134,6 +134,17 @@ config THERMAL_TSENS8974
 	  thermal userspace client when a threshold is reached. Warm/Cool
 	  temperature thresholds can be set independently for each sensor.
 
+config THERMAL_MONITOR
+	bool "Monitor thermal state and limit CPU Frequency"
+	depends on THERMAL_TSENS8974
+	depends on CPU_FREQ || CPU_FREQ_MSM
+	default n
+	help
+	  This enables thermal monitoring capability in the kernel in the
+	  absence of a system wide thermal monitoring entity or until such an
+	  entity starts running in the userspace. Monitors TSENS temperature
+	  and limits the max frequency of the cores.
+
 config IMX_THERMAL
 	tristate "Temperature sensor driver for Freescale i.MX SoCs"
 	depends on CPU_THERMAL
