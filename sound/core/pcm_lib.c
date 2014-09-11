@@ -2675,10 +2675,10 @@ int snd_pcm_add_volume_ctls(struct snd_pcm *pcm, int stream,
 		return -ENOMEM;
 	}
 	if (stream == SNDRV_PCM_STREAM_PLAYBACK)
-		snprintf(knew.name, size, "%s %d %s",
+		snprintf((char *)knew.name, size, "%s %d %s",
 			"Playback", pcm->device, "Volume");
 	else
-		snprintf(knew.name, size, "%s %d %s",
+		snprintf((char *)knew.name, size, "%s %d %s",
 			"Capture", pcm->device, "Volume");
 	knew.device = pcm->device;
 	knew.count = pcm->streams[stream].substream_count;
