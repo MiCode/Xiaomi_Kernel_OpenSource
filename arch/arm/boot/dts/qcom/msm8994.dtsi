@@ -1195,6 +1195,8 @@
 			"HS_RB_G1_L1", "HS_RB_G2_L1", "HS_RB_G3_L1",
 			"HS_RB_G1_L2", "HS_RB_G2_L2", "HS_RB_G3_L2",
 			"MAX";
+
+			spm-level = <5>;
 			status = "disabled";
 		};
 
