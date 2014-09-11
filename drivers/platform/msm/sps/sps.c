@@ -2544,7 +2544,7 @@ static int get_device_tree_data(struct platform_device *pdev)
 	if (of_property_read_u32((&pdev->dev)->of_node,
 				"qcom,device-type",
 				&d_type)) {
-		d_type = 1;
+		d_type = 3;
 		SPS_DBG("sps:default device type.\n");
 	} else
 		SPS_DBG("sps:device type is %d.", d_type);
