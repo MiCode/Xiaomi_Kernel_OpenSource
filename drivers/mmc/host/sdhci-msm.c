@@ -43,6 +43,10 @@
 #define CORE_VENDOR_SPEC	0x10c
 #define CORE_CLK_PWRSAVE	BIT(1)
 
+#define CORE_VENDOR_SPEC_CAPABILITIES0	0x11c
+#define CORE_8_BIT_SUPPORT   		(1 << 18)
+#define CORE_3_0V_SUPPORT		(1 << 25)
+
 #define CDR_SELEXT_SHIFT	20
 #define CDR_SELEXT_MASK		(0xf << CDR_SELEXT_SHIFT)
 #define CMUX_SHIFT_PHASE_SHIFT	24
@@ -603,6 +607,10 @@ static int sdhci_msm_probe(struct platform_device *pdev)
 
 	/* Set HC_MODE_EN bit in HC_MODE register */
 	writel_relaxed(HC_MODE_EN, (msm_host->core_mem + CORE_HC_MODE));
+
+	writel_relaxed((readl_relaxed(host->ioaddr + SDHCI_CAPABILITIES) |
+				CORE_3_0V_SUPPORT | CORE_8_BIT_SUPPORT),
+				host->ioaddr + CORE_VENDOR_SPEC_CAPABILITIES0);
 
 	host->quirks |= SDHCI_QUIRK_BROKEN_CARD_DETECTION;
 	host->quirks |= SDHCI_QUIRK_SINGLE_POWER_WRITE;
