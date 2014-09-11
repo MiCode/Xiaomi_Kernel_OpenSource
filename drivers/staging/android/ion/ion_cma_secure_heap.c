@@ -532,7 +532,7 @@ static int ion_secure_cma_allocate(struct ion_heap *heap,
 		} else {
 			trace_ion_cp_secure_buffer_start(heap->name, len, align,
 									flags);
-			ret = msm_ion_secure_table(buf->table, 0, 0);
+			ret = msm_ion_secure_table(buf->table);
 			trace_ion_cp_secure_buffer_end(heap->name, len, align,
 									flags);
 		}
