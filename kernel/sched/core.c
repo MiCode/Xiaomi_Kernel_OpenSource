@@ -2877,6 +2877,8 @@ try_to_wake_up(struct task_struct *p, unsigned int state, int wake_flags)
 {
 	unsigned long flags;
 	int cpu, src_cpu, success = 0;
+	int notify = 0;
+	struct migration_notify_data mnd;
 #ifdef CONFIG_SMP
 	struct rq *rq;
 	u64 wallclock;
@@ -2947,12 +2949,8 @@ try_to_wake_up(struct task_struct *p, unsigned int state, int wake_flags)
 	ttwu_queue(p, cpu);
 stat:
 	ttwu_stat(p, cpu, wake_flags);
-out:
-	raw_spin_unlock_irqrestore(&p->pi_lock, flags);
 
 	if (task_notify_on_migrate(p)) {
-		struct migration_notify_data mnd;
-
 		mnd.src_cpu = src_cpu;
 		mnd.dest_cpu = cpu;
 		mnd.load = pct_task_load(p);
@@ -2966,9 +2964,15 @@ out:
 		 */
 		if ((src_cpu != cpu) || (mnd.load >
 					sysctl_sched_wakeup_load_threshold))
-			atomic_notifier_call_chain(&migration_notifier_head,
-					   0, (void *)&mnd);
+			notify = 1;
 	}
+
+out:
+	raw_spin_unlock_irqrestore(&p->pi_lock, flags);
+
+	if (notify)
+		atomic_notifier_call_chain(&migration_notifier_head,
+					   0, (void *)&mnd);
 
 	return success;
 }
