@@ -230,13 +230,15 @@ int mdp3_set_intr_callback(u32 type, struct mdp3_intr_cb *cb)
 void mdp3_irq_register(void)
 {
 	unsigned long flag;
+	struct mdss_hw *mdp3_hw;
 
 	pr_debug("mdp3_irq_register\n");
+	mdp3_hw = &mdp3_res->mdp3_hw;
 	spin_lock_irqsave(&mdp3_res->irq_lock, flag);
 	mdp3_res->irq_ref_cnt++;
 	if (mdp3_res->irq_ref_cnt == 1) {
 		MDP3_REG_WRITE(MDP3_REG_INTR_ENABLE, mdp3_res->irq_mask);
-		enable_irq(mdp3_res->irq);
+		mdp3_res->mdss_util->enable_irq(&mdp3_res->mdp3_hw);
 	}
 	spin_unlock_irqrestore(&mdp3_res->irq_lock, flag);
 }
@@ -245,8 +247,10 @@ void mdp3_irq_deregister(void)
 {
 	unsigned long flag;
 	bool irq_enabled = true;
+	struct mdss_hw *mdp3_hw;
 
 	pr_debug("mdp3_irq_deregister\n");
+	mdp3_hw = &mdp3_res->mdp3_hw;
 	spin_lock_irqsave(&mdp3_res->irq_lock, flag);
 	memset(mdp3_res->irq_ref_count, 0, sizeof(u32) * MDP3_MAX_INTR);
 	mdp3_res->irq_mask = 0;
@@ -258,7 +262,7 @@ void mdp3_irq_deregister(void)
 		mdp3_res->irq_ref_cnt = 0;
 	}
 	if (mdp3_res->irq_ref_cnt == 0 && irq_enabled)
-		disable_irq_nosync(mdp3_res->irq);
+		mdp3_res->mdss_util->disable_irq_nosync(&mdp3_res->mdp3_hw);
 	spin_unlock_irqrestore(&mdp3_res->irq_lock, flag);
 }
 
@@ -266,8 +270,10 @@ void mdp3_irq_suspend(void)
 {
 	unsigned long flag;
 	bool irq_enabled = true;
+	struct mdss_hw *mdp3_hw;
 
 	pr_debug("%s\n", __func__);
+	mdp3_hw = &mdp3_res->mdp3_hw;
 	spin_lock_irqsave(&mdp3_res->irq_lock, flag);
 	mdp3_res->irq_ref_cnt--;
 	if (mdp3_res->irq_ref_cnt < 0) {
@@ -276,7 +282,7 @@ void mdp3_irq_suspend(void)
 	}
 	if (mdp3_res->irq_ref_cnt == 0 && irq_enabled) {
 		MDP3_REG_WRITE(MDP3_REG_INTR_ENABLE, 0);
-		disable_irq_nosync(mdp3_res->irq);
+		mdp3_res->mdss_util->disable_irq_nosync(&mdp3_res->mdp3_hw);
 	}
 	spin_unlock_irqrestore(&mdp3_res->irq_lock, flag);
 }
@@ -674,16 +680,18 @@ int mdp3_put_mdp_dsi_clk(void)
 static int mdp3_irq_setup(void)
 {
 	int ret;
+	struct mdss_hw *mdp3_hw;
 
+	mdp3_hw = &mdp3_res->mdp3_hw;
 	ret = devm_request_irq(&mdp3_res->pdev->dev,
-				mdp3_res->irq,
+				mdp3_hw->irq_info->irq,
 				mdp3_irq_handler,
 				0x0, "MDP", mdp3_res);
 	if (ret) {
 		pr_err("mdp request_irq() failed!\n");
 		return ret;
 	}
-	disable_irq(mdp3_res->irq);
+	mdp3_res->mdss_util->disable_irq_nosync(&mdp3_res->mdp3_hw);
 	mdp3_res->irq_registered = true;
 	return 0;
 }
@@ -923,6 +931,9 @@ static int mdp3_res_init(void)
 
 static void mdp3_res_deinit(void)
 {
+	struct mdss_hw *mdp3_hw;
+
+	mdp3_hw = &mdp3_res->mdp3_hw;
 	mdp3_bus_scale_unregister();
 	mdp3_iommu_dettach(MDP3_IOMMU_CTX_MDP_0);
 	mdp3_iommu_deinit();
@@ -933,7 +944,8 @@ static void mdp3_res_deinit(void)
 	mdp3_clk_remove();
 
 	if (mdp3_res->irq_registered)
-		devm_free_irq(&mdp3_res->pdev->dev, mdp3_res->irq, mdp3_res);
+		devm_free_irq(&mdp3_res->pdev->dev,
+				mdp3_hw->irq_info->irq, mdp3_res);
 }
 
 static int mdp3_get_pan_intf(const char *pan_intf)
@@ -1065,6 +1077,28 @@ static int mdp3_get_cmdline_config(struct platform_device *pdev)
 	return rc;
 }
 
+
+int mdp3_irq_init(u32 irq_start)
+{
+	struct mdss_hw *mdp3_hw;
+	mdp3_hw = &mdp3_res->mdp3_hw;
+
+	mdp3_hw->irq_info = kzalloc(sizeof(struct irq_info), GFP_KERNEL);
+	if (!mdp3_hw->irq_info) {
+		pr_err("no mem to save irq info: kzalloc fail\n");
+		return -ENOMEM;
+	}
+
+	mdp3_hw->hw_ndx = MDSS_HW_MDP;
+	mdp3_hw->irq_info->irq = irq_start;
+	mdp3_hw->irq_info->irq_mask = 0;
+	mdp3_hw->irq_info->irq_ena = false;
+	mdp3_hw->irq_info->irq_buzy = false;
+
+	mdp3_res->mdss_util->register_irq(&mdp3_res->mdp3_hw);
+	return 0;
+}
+
 static int mdp3_parse_dt(struct platform_device *pdev)
 {
 	struct resource *res;
@@ -1095,12 +1129,18 @@ static int mdp3_parse_dt(struct platform_device *pdev)
 		pr_err("unable to get MDSS irq\n");
 		return -EINVAL;
 	}
-	mdp3_res->irq = res->start;
+	rc = mdp3_irq_init(res->start);
+	if (rc) {
+		pr_err("%s: Error in irq initialization:rc=[%d]\n",
+		       __func__, rc);
+		return rc;
+	}
 
 	rc = mdp3_get_cmdline_config(pdev);
 	if (rc) {
 		pr_err("%s: Error in panel override:rc=[%d]\n",
 		       __func__, rc);
+		kfree(mdp3_res->mdp3_hw.irq_info);
 		return rc;
 	}
 
@@ -1891,6 +1931,13 @@ static int mdp3_probe(struct platform_device *pdev)
 	spin_lock_init(&mdp3_res->irq_lock);
 	platform_set_drvdata(pdev, mdp3_res);
 
+	mdp3_res->mdss_util = mdss_get_util_intf();
+	if (mdp3_res->mdss_util == NULL) {
+		pr_err("Failed to get mdss utility functions\n");
+		rc =  -ENODEV;
+		goto get_util_fail;
+	}
+
 	rc = mdp3_parse_dt(pdev);
 	if (rc)
 		goto probe_done;
@@ -1927,6 +1974,9 @@ static int mdp3_probe(struct platform_device *pdev)
 		pr_err("unable to configure interrupt callback\n");
 
 probe_done:
+	if (IS_ERR_VALUE(rc))
+		kfree(mdp3_res->mdp3_hw.irq_info);
+get_util_fail:
 	if (IS_ERR_VALUE(rc)) {
 		mdp3_res_deinit();
 
