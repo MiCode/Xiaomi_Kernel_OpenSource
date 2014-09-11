@@ -452,6 +452,7 @@
 		vdd_mx-uV = <7>;
 		vdd_pll-supply = <&pmd9635_l7>;
 		qcom,vdd_pll = <1800000>;
+		qcom,override-acc;
 
 		qcom,firmware-name = "modem";
 		qcom,pil-self-auth;
