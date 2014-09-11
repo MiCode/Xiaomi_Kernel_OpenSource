@@ -399,6 +399,7 @@ struct mpp_config_data {
  *  @torch_on - torch status, on or off
  *  @flash_boost_reg - boost regulator for flash
  *  @torch_boost_reg - boost regulator for torch
+ *  @flash_wa_reg - flash regulator for wa
  */
 struct flash_config_data {
 	u8	current_prgm;
@@ -419,6 +420,7 @@ struct flash_config_data {
 	bool	torch_on;
 	struct regulator *flash_boost_reg;
 	struct regulator *torch_boost_reg;
+	struct regulator *flash_wa_reg;
 };
 
 /**
@@ -836,6 +838,15 @@ static int qpnp_flash_regulator_operate(struct qpnp_led_data *led, bool on)
 		for (i = 0; i < led->num_leds; i++) {
 			if (led_array[i].flash_cfg->flash_reg_get) {
 				rc = regulator_enable(
+					led_array[i].flash_cfg->flash_wa_reg);
+				if (rc) {
+					dev_err(&led->spmi_dev->dev,
+						"Flash_wa regulator enable failed(%d)\n",
+								rc);
+					return rc;
+				}
+
+				rc = regulator_enable(
 					led_array[i].flash_cfg->\
 					flash_boost_reg);
 				if (rc) {
@@ -872,6 +883,14 @@ regulator_turn_off:
 					dev_err(&led->spmi_dev->dev,
 						"Regulator disable failed(%d)\n",
 									rc);
+					return rc;
+				}
+				rc = regulator_disable(
+					led_array[i].flash_cfg->flash_wa_reg);
+				if (rc) {
+					dev_err(&led->spmi_dev->dev,
+						"Flash_wa regulator disable failed(%d)\n",
+								rc);
 					return rc;
 				}
 				led->flash_cfg->flash_on = false;
@@ -2738,6 +2757,21 @@ static int __devinit qpnp_get_config_flash(struct qpnp_led_data *led,
 
 	led->flash_cfg->torch_enable =
 		of_property_read_bool(node, "qcom,torch-enable");
+
+	if (of_find_property(of_get_parent(node), "flash-wa-supply",
+					NULL) && (!*reg_set)) {
+		led->flash_cfg->flash_wa_reg =
+			devm_regulator_get(&led->spmi_dev->dev,
+					"flash-wa");
+		if (IS_ERR_OR_NULL(led->flash_cfg->flash_wa_reg)) {
+			rc = PTR_ERR(led->flash_cfg->flash_wa_reg);
+			if (rc != EPROBE_DEFER) {
+				dev_err(&led->spmi_dev->dev,
+						"Falsh wa regulator get failed(%d)\n",
+						rc);
+			}
+		}
+	}
 
 	if (led->id == QPNP_ID_FLASH1_LED0) {
 		led->flash_cfg->enable_module = FLASH_ENABLE_LED_0;

@@ -48,6 +48,7 @@ Optional properties for flash:
 - qcom,torch-enable: set flash led to torch mode functionality and triggers software workaround for torch if hardware does not support
 - flash-boost-supply: SMBB regulator for LED flash mode
 - torch-boost-supply: SMBB regulator for LED torch mode
+- flash-wa-supply: SMBB regulator for flash workarounds.
 
 RGB Led is a tri-colored led, Red, Blue & Green.
 
