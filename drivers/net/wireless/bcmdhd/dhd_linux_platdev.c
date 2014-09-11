@@ -99,10 +99,12 @@ void* wifi_platform_prealloc(wifi_adapter_info_t *adapter, int section, unsigned
 			if (size != 0L)
 				bzero(alloc_ptr, size);
 			return alloc_ptr;
+		} else {
+			DHD_ERROR(("%s: failed to alloc static mem section %d\n",
+				__FUNCTION__, section));
 		}
 	}
 
-	DHD_ERROR(("%s: failed to alloc static mem section %d\n", __FUNCTION__, section));
 	return NULL;
 }
 
