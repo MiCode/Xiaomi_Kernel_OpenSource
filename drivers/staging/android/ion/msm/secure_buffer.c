@@ -103,7 +103,6 @@ static struct secure_meta *secure_meta_lookup(struct sg_table *table)
 static int secure_buffer_change_chunk(u32 chunks,
 				u32 nchunks,
 				u32 chunk_size,
-				enum cp_mem_usage usage,
 				int lock)
 {
 	struct cp2_lock_req request;
@@ -114,7 +113,8 @@ static int secure_buffer_change_chunk(u32 chunks,
 	desc.args[0] = request.chunks.chunk_list = chunks;
 	desc.args[1] = request.chunks.chunk_list_size = nchunks;
 	desc.args[2] = request.chunks.chunk_size = chunk_size;
-	desc.args[3] = request.mem_usage = usage;
+	/* Usage is now always 0 */
+	desc.args[3] = request.mem_usage = 0;
 	desc.args[4] = request.lock = lock;
 	desc.args[5] = 0;
 	desc.arginfo = SCM_ARGS(6, SCM_RW, SCM_VAL, SCM_VAL, SCM_VAL, SCM_VAL,
@@ -137,9 +137,7 @@ static int secure_buffer_change_chunk(u32 chunks,
 
 
 
-static int secure_buffer_change_table(struct sg_table *table,
-				enum cp_mem_usage usage,
-				int lock)
+static int secure_buffer_change_table(struct sg_table *table, int lock)
 {
 	int i, j;
 	int ret = -EINVAL;
@@ -190,7 +188,7 @@ static int secure_buffer_change_table(struct sg_table *table,
 		dmac_flush_range(chunk_list, chunk_list + chunk_list_len);
 
 		ret = secure_buffer_change_chunk(virt_to_phys(chunk_list),
-				nchunks, V2_CHUNK_SIZE, usage, lock);
+				nchunks, V2_CHUNK_SIZE, lock);
 
 		kfree(chunk_list);
 	}
@@ -198,8 +196,7 @@ static int secure_buffer_change_table(struct sg_table *table,
 	return ret;
 }
 
-int msm_ion_secure_table(struct sg_table *table, enum cp_mem_usage usage,
-			int flags)
+int msm_ion_secure_table(struct sg_table *table)
 {
 	struct secure_meta *meta;
 	int ret;
@@ -219,10 +216,9 @@ int msm_ion_secure_table(struct sg_table *table, enum cp_mem_usage usage,
 		}
 
 		meta->table = table;
-		meta->usage = usage;
 		kref_init(&meta->ref);
 
-		ret = secure_buffer_change_table(table, usage, 1);
+		ret = secure_buffer_change_table(table, 1);
 		if (!ret)
 			secure_meta_add(meta);
 		else
@@ -241,7 +237,7 @@ static void msm_secure_buffer_release(struct kref *kref)
 						ref);
 
 	rb_erase(&meta->node, &secure_root);
-	secure_buffer_change_table(meta->table, meta->usage, 0);
+	secure_buffer_change_table(meta->table, 0);
 	kfree(meta);
 }
 

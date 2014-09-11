@@ -150,8 +150,7 @@ int ion_handle_get_size(struct ion_client *client, struct ion_handle *handle,
 int msm_ion_do_cache_op(struct ion_client *client, struct ion_handle *handle,
 			void *vaddr, unsigned long len, unsigned int cmd);
 
-int msm_ion_secure_table(struct sg_table *table, enum cp_mem_usage usage,
-				int flags);
+int msm_ion_secure_table(struct sg_table *table);
 
 int msm_ion_unsecure_table(struct sg_table *table);
 #else
@@ -173,9 +172,7 @@ static inline int msm_ion_do_cache_op(struct ion_client *client,
 	return -ENODEV;
 }
 
-static inline int msm_ion_secure_table(struct sg_table *table,
-				enum cp_mem_usage usage,
-				int flags)
+static inline int msm_ion_secure_table(struct sg_table *table)
 {
 	return -ENODEV;
 }
