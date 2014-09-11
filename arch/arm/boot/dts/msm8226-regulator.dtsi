@@ -528,3 +528,7 @@
 &pm8226_chg_otg {
 	regulator-name = "8226_smbbp_otg";
 };
+
+&pm8226_chg_chgr {
+	regulator-name = "flash_wa";
+};
