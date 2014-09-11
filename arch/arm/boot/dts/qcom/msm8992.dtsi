@@ -291,6 +291,11 @@
 		};
 	};
 
+	qcom,sps {
+		compatible = "qcom,msm_sps";
+		qcom,pipe-attr-ee;
+	};
+
 	blsp1_uart5: serial@f9922000 {
 		compatible = "qcom,msm-lsuart-v14";
 		reg = <0xf9922000 0x1000>;
