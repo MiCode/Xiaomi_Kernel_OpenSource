@@ -1405,16 +1405,29 @@ static int rmnet_ioctl_extended(struct net_device *dev, struct ifreq *ifr)
 		if ((size_t)ext_cmd.u.data > 0x4000)
 			return -EINVAL;
 
-		eth_dev->port_usb->is_fixed = true;
-		eth_dev->port_usb->fixed_out_len = (size_t) ext_cmd.u.data;
-		DBG("[%s] rmnet_ioctl(): SET MRU to %u\n", dev->name,
+		if (eth_dev->port_usb) {
+			eth_dev->port_usb->is_fixed = true;
+			eth_dev->port_usb->fixed_out_len =
+				(size_t) ext_cmd.u.data;
+			DBG("[%s] rmnet_ioctl(): SET MRU to %u\n", dev->name,
 				eth_dev->mru);
+		} else {
+			pr_err("[%s]: %s: SET MRU failed. Cable disconnected\n",
+				dev->name, __func__);
+			return -ENODEV;
+		}
 		break;
 
 	case RMNET_IOCTL_GET_MRU:
-		ext_cmd.u.data = eth_dev->port_usb->is_fixed ?
+		if (eth_dev->port_usb) {
+			ext_cmd.u.data = eth_dev->port_usb->is_fixed ?
 					eth_dev->port_usb->fixed_out_len :
 					dev->mtu;
+		} else {
+			pr_err("[%s]: %s: GET MRU failed. Cable disconnected\n",
+				dev->name, __func__);
+			return -ENODEV;
+		}
 		break;
 
 	case RMNET_IOCTL_GET_DRIVER_NAME:
