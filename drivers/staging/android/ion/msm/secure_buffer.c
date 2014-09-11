@@ -23,15 +23,7 @@
 #include <soc/qcom/scm.h>
 
 
-static struct rb_root secure_root;
 DEFINE_MUTEX(secure_buffer_mutex);
-
-struct secure_meta {
-	struct rb_node node;
-	struct sg_table *table;
-	struct kref ref;
-	enum cp_mem_usage usage;
-};
 
 struct cp2_mem_chunks {
 	u32 chunk_list;
@@ -49,56 +41,6 @@ struct cp2_lock_req {
 #define MEM_PROTECT_LOCK_ID2_FLAT	0x11
 #define V2_CHUNK_SIZE		SZ_1M
 #define FEATURE_ID_CP 12
-
-static void secure_meta_add(struct secure_meta *meta)
-{
-	struct rb_root *root = &secure_root;
-	struct rb_node **p = &root->rb_node;
-	struct rb_node *parent = NULL;
-	struct secure_meta *entry;
-
-	while (*p) {
-		parent = *p;
-		entry = rb_entry(parent, struct secure_meta, node);
-
-		if (meta->table < entry->table) {
-			p = &(*p)->rb_left;
-		} else if (meta->table > entry->table) {
-			p = &(*p)->rb_right;
-		} else {
-			pr_err("%s: table %p already exists\n", __func__,
-				entry->table);
-			BUG();
-		}
-	}
-
-	rb_link_node(&meta->node, parent, p);
-	rb_insert_color(&meta->node, root);
-}
-
-
-static struct secure_meta *secure_meta_lookup(struct sg_table *table)
-{
-	struct rb_root *root = &secure_root;
-	struct rb_node **p = &root->rb_node;
-	struct rb_node *parent = NULL;
-	struct secure_meta *entry = NULL;
-
-	while (*p) {
-		parent = *p;
-		entry = rb_entry(parent, struct secure_meta, node);
-
-		if (table < entry->table)
-			p = &(*p)->rb_left;
-		else if (table > entry->table)
-			p = &(*p)->rb_right;
-		else
-			return entry;
-	}
-
-	return NULL;
-}
-
 
 static int secure_buffer_change_chunk(u32 chunks,
 				u32 nchunks,
@@ -198,65 +140,22 @@ static int secure_buffer_change_table(struct sg_table *table, int lock)
 
 int msm_ion_secure_table(struct sg_table *table)
 {
-	struct secure_meta *meta;
 	int ret;
 
 	mutex_lock(&secure_buffer_mutex);
-	meta = secure_meta_lookup(table);
-
-	if (meta) {
-		kref_get(&meta->ref);
-		ret = 0;
-	} else {
-		meta = kzalloc(sizeof(*meta), GFP_KERNEL);
-
-		if (!meta) {
-			ret = -ENOMEM;
-			goto out;
-		}
-
-		meta->table = table;
-		kref_init(&meta->ref);
-
-		ret = secure_buffer_change_table(table, 1);
-		if (!ret)
-			secure_meta_add(meta);
-		else
-			kfree(meta);
-	}
-out:
+	ret = secure_buffer_change_table(table, 1);
 	mutex_unlock(&secure_buffer_mutex);
 
 	return ret;
 
 }
 
-static void msm_secure_buffer_release(struct kref *kref)
-{
-	struct secure_meta *meta = container_of(kref, struct secure_meta,
-						ref);
-
-	rb_erase(&meta->node, &secure_root);
-	secure_buffer_change_table(meta->table, 0);
-	kfree(meta);
-}
-
 int msm_ion_unsecure_table(struct sg_table *table)
 {
-	struct secure_meta *meta;
-	int ret = 0;
+	int ret;
 
 	mutex_lock(&secure_buffer_mutex);
-	meta = secure_meta_lookup(table);
-
-	if (!meta) {
-		ret = -EINVAL;
-		goto out;
-	}
-
-	kref_put(&meta->ref, msm_secure_buffer_release);
-
-out:
+	ret = secure_buffer_change_table(table, 0);
 	mutex_unlock(&secure_buffer_mutex);
 	return ret;
 
