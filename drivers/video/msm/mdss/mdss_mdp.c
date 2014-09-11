@@ -83,6 +83,7 @@ struct msm_mdp_interface mdp5 = {
 #define AB_QUOTA 800000000
 
 #define MEM_PROTECT_SD_CTRL 0xF
+#define MEM_PROTECT_SD_CTRL_FLAT 0x14
 
 static DEFINE_SPINLOCK(mdp_lock);
 static DEFINE_MUTEX(mdp_clk_lock);
@@ -2914,11 +2915,20 @@ int mdss_mdp_secure_display_ctrl(unsigned int enable)
 	} __attribute__ ((__packed__)) request;
 	unsigned int resp = -1;
 	int ret = 0;
+	struct scm_desc desc;
 
-	request.enable = enable;
+	desc.args[0] = request.enable = enable;
+	desc.arginfo = SCM_ARGS(1);
 
-	ret = scm_call(SCM_SVC_MP, MEM_PROTECT_SD_CTRL,
-		&request, sizeof(request), &resp, sizeof(resp));
+	if (!is_scm_armv8()) {
+		ret = scm_call(SCM_SVC_MP, MEM_PROTECT_SD_CTRL,
+			&request, sizeof(request), &resp, sizeof(resp));
+	} else {
+		ret = scm_call2(SCM_SIP_FNID(SCM_SVC_MP,
+				MEM_PROTECT_SD_CTRL_FLAT), &desc);
+		resp = desc.ret[0];
+	}
+
 	pr_debug("scm_call MEM_PROTECT_SD_CTRL(%u): ret=%d, resp=%x",
 				enable, ret, resp);
 	if (ret)
