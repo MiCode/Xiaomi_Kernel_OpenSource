@@ -801,13 +801,16 @@ int _set_pagetable_gpu(struct adreno_ringbuffer *rb,
 	kgsl_mmu_enable_clk(&device->mmu, KGSL_IOMMU_MAX_UNITS);
 
 	/* pt switch may use privileged memory */
-	cmds += adreno_set_apriv(adreno_dev, cmds, 1);
+	if (adreno_is_a4xx(adreno_dev))
+		cmds += adreno_set_apriv(adreno_dev, cmds, 1);
 
 	if (ADRENO_FEATURE(adreno_dev, ADRENO_HAS_REG_TO_REG_CMDS))
 		cmds += adreno_iommu_set_pt_ib(rb, cmds, new_pt);
 	else
 		cmds += adreno_iommu_set_pt_generate_cmds(rb, cmds, new_pt);
-	cmds += adreno_set_apriv(adreno_dev, cmds, 0);
+
+	if (adreno_is_a4xx(adreno_dev))
+		cmds += adreno_set_apriv(adreno_dev, cmds, 0);
 
 	if ((unsigned int) (cmds - link) > (PAGE_SIZE / sizeof(unsigned int))) {
 		KGSL_DRV_ERR(device, "Temp command buffer overflow\n");
