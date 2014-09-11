@@ -12,10 +12,6 @@
  */
 
 #define pr_fmt(fmt) "msmclock: %s: " fmt, __func__
-#define dt_err(np, fmt, ...) \
-	pr_err("%s: " fmt, np->name, ##__VA_ARGS__)
-#define dt_prop_err(np, str, fmt, ...) \
-	dt_err(np, "%s: " fmt, str, ##__VA_ARGS__)
 
 #include <linux/kernel.h>
 #include <linux/module.h>
