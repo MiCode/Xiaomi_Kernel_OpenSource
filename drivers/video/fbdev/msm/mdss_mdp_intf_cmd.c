@@ -48,7 +48,7 @@ struct mdss_mdp_cmd_ctx {
 	struct work_struct clk_work;
 	struct work_struct pp_done_work;
 	atomic_t pp_done_cnt;
-	struct mdss_panel_recovery recovery;
+	struct mdss_intf_recovery intf_recovery;
 	struct mdss_mdp_cmd_ctx *sync_ctx; /* for partial update */
 	u32 pp_timeout_report_cnt;
 };
@@ -312,7 +312,7 @@ static void mdss_mdp_cmd_readptr_done(void *arg)
 	spin_unlock(&ctx->clk_lock);
 }
 
-static void mdss_mdp_cmd_underflow_recovery(void *data)
+static void mdss_mdp_cmd_intf_recovery(void *data, int event)
 {
 	struct mdss_mdp_cmd_ctx *ctx = data;
 	unsigned long flags;
@@ -324,6 +324,18 @@ static void mdss_mdp_cmd_underflow_recovery(void *data)
 
 	if (!ctx->ctl)
 		return;
+
+	/*
+	 * Currently, only intf_fifo_underflow is
+	 * supported for recovery sequence for command
+	 * mode DSI interface
+	 */
+	if (event != MDP_INTF_DSI_CMD_FIFO_UNDERFLOW) {
+		pr_warn("%s: unsupported recovery event:%d\n",
+					__func__, event);
+		return;
+	}
+
 	spin_lock_irqsave(&ctx->koff_lock, flags);
 	if (atomic_read(&ctx->koff_cnt)) {
 		mdss_mdp_ctl_reset(ctx->ctl);
@@ -707,7 +719,7 @@ int mdss_mdp_cmd_kickoff(struct mdss_mdp_ctl *ctl, void *arg)
 
 		mdss_mdp_ctl_intf_event(ctl,
 				MDSS_EVENT_REGISTER_RECOVERY_HANDLER,
-				(void *)&ctx->recovery);
+				(void *)&ctx->intf_recovery);
 	}
 
 	MDSS_XLOG(ctl->num, ctl->roi.x, ctl->roi.y, ctl->roi.w,
@@ -991,8 +1003,8 @@ static int mdss_mdp_cmd_intfs_setup(struct mdss_mdp_ctl *ctl,
 	atomic_set(&ctx->pp_done_cnt, 0);
 	INIT_LIST_HEAD(&ctx->vsync_handlers);
 
-	ctx->recovery.fxn = mdss_mdp_cmd_underflow_recovery;
-	ctx->recovery.data = ctx;
+	ctx->intf_recovery.fxn = mdss_mdp_cmd_intf_recovery;
+	ctx->intf_recovery.data = ctx;
 
 	pr_debug("%s: ctx=%p num=%d mixer=%d\n", __func__,
 				ctx, ctx->pp_num, mixer->num);

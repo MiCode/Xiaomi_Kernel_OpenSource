@@ -27,6 +27,9 @@
 /* wait for at least 2 vsyncs for lowest refresh rate (24hz) */
 #define VSYNC_TIMEOUT_US 100000
 
+/* Poll time to do recovery during active region */
+#define POLL_TIME_USEC_FOR_LN_CNT 500
+
 #define MDP_INTR_MASK_INTF_VSYNC(intf_num) \
 	(1 << (2 * (intf_num - MDSS_MDP_INTF0) + MDSS_MDP_IRQ_INTF_VSYNC))
 
@@ -66,6 +69,7 @@ struct mdss_mdp_video_ctx {
 	spinlock_t dfps_lock;
 	struct mutex vsync_mtx;
 	struct list_head vsync_handlers;
+	struct mdss_intf_recovery intf_recovery;
 };
 
 static void mdss_mdp_fetch_start_config(struct mdss_mdp_video_ctx *ctx,
@@ -118,6 +122,89 @@ int mdss_mdp_video_addr_setup(struct mdss_data_type *mdata,
 	mdata->video_intf = head;
 	mdata->nintf = count;
 	return 0;
+}
+
+static void mdss_mdp_video_intf_recovery(void *data, int event)
+{
+	struct mdss_mdp_video_ctx *ctx;
+	struct mdss_mdp_ctl *ctl = data;
+	struct mdss_panel_info *pinfo;
+	u32 line_cnt, min_ln_cnt, active_lns_cnt;
+	u32 clk_rate, clk_period, time_of_line;
+	u32 delay;
+
+	if (!data) {
+		pr_err("%s: invalid ctl\n", __func__);
+		return;
+	}
+
+	/*
+	 * Currently, only intf_fifo_overflow is
+	 * supported for recovery sequence for video
+	 * mode DSI interface
+	 */
+	if (event != MDP_INTF_DSI_VIDEO_FIFO_OVERFLOW) {
+		pr_warn("%s: unsupported recovery event:%d\n",
+					__func__, event);
+		return;
+	}
+
+	ctx = ctl->priv_data;
+	pr_debug("%s: ctl num = %d, event = %d\n",
+				__func__, ctl->num, event);
+
+	pinfo = &ctl->panel_data->panel_info;
+	clk_rate = ((ctl->intf_type == MDSS_INTF_DSI) ?
+			pinfo->mipi.dsi_pclk_rate :
+			pinfo->clk_rate);
+
+	clk_rate /= 1000;	/* in kHz */
+	if (!clk_rate) {
+		pr_err("Unable to get proper clk_rate\n");
+		return;
+	}
+	/*
+	 * calculate clk_period as pico second to maintain good
+	 * accuracy with high pclk rate and this number is in 17 bit
+	 * range.
+	 */
+	clk_period = 1000000000 / clk_rate;
+	if (!clk_period) {
+		pr_err("Unable to calculate clock period\n");
+		return;
+	}
+	min_ln_cnt = pinfo->lcdc.v_back_porch + pinfo->lcdc.v_front_porch
+						  + pinfo->lcdc.v_pulse_width;
+	active_lns_cnt = pinfo->yres;
+	time_of_line = (pinfo->lcdc.h_back_porch +
+		 pinfo->lcdc.h_front_porch +
+		 pinfo->lcdc.h_pulse_width +
+		 pinfo->xres) * clk_period;
+
+	/* delay in micro seconds */
+	delay = (time_of_line * min_ln_cnt) / 1000000;
+
+	/*
+	 * Wait for max delay before
+	 * polling to check active region
+	 */
+	if (delay > POLL_TIME_USEC_FOR_LN_CNT)
+		delay = POLL_TIME_USEC_FOR_LN_CNT;
+
+	while (1) {
+		line_cnt = mdss_mdp_video_line_count(ctl);
+
+		if ((line_cnt >= min_ln_cnt) && (line_cnt < active_lns_cnt)) {
+			pr_debug("%s, Needed lines left line_cnt=%d\n",
+						__func__, line_cnt);
+			return;
+		} else {
+			pr_warn("line count is less. line_cnt = %d\n",
+								line_cnt);
+			/* Add delay so that line count is in active region */
+			udelay(delay);
+		}
+	}
 }
 
 static int mdss_mdp_video_timegen_setup(struct mdss_mdp_ctl *ctl,
@@ -1046,6 +1133,20 @@ static int mdss_mdp_video_intfs_setup(struct mdss_mdp_ctl *ctl,
 	mutex_init(&ctx->vsync_mtx);
 	atomic_set(&ctx->vsync_ref, 0);
 	INIT_WORK(&ctl->recover_work, recover_underrun_work);
+
+	if (ctl->intf_type == MDSS_INTF_DSI) {
+		ctx->intf_recovery.fxn = mdss_mdp_video_intf_recovery;
+		ctx->intf_recovery.data = ctl;
+		if (mdss_mdp_ctl_intf_event(ctl,
+					MDSS_EVENT_REGISTER_RECOVERY_HANDLER,
+					(void *)&ctx->intf_recovery)) {
+			pr_err("Failed to register intf recovery handler\n");
+			return -EINVAL;
+		}
+	} else {
+		ctx->intf_recovery.fxn = NULL;
+		ctx->intf_recovery.data = NULL;
+	}
 
 	mdss_mdp_set_intr_callback(MDSS_MDP_IRQ_INTF_VSYNC,
 				(inum + MDSS_MDP_INTF0),
