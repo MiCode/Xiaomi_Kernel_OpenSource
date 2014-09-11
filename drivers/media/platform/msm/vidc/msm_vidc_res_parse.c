@@ -100,12 +100,6 @@ static inline void msm_vidc_free_iommu_groups(
 	res->iommu_group_set.iommu_maps = NULL;
 }
 
-static inline void msm_vidc_free_buffer_usage_table(
-			struct msm_vidc_platform_resources *res)
-{
-	res->buffer_usage_set.buffer_usage_tbl = NULL;
-}
-
 static inline void msm_vidc_free_regulator_table(
 			struct msm_vidc_platform_resources *res)
 {
@@ -141,7 +135,6 @@ void msm_vidc_free_platform_resources(
 	msm_vidc_free_reg_table(res);
 	msm_vidc_free_bus_vectors(res);
 	msm_vidc_free_iommu_groups(res);
-	msm_vidc_free_buffer_usage_table(res);
 }
 
 static int msm_vidc_load_reg_table(struct msm_vidc_platform_resources *res)
@@ -430,58 +423,6 @@ err_no_of_node:
 	return rc;
 }
 
-static int msm_vidc_load_buffer_usage_table(
-		struct msm_vidc_platform_resources *res)
-{
-	int rc = 0;
-	struct platform_device *pdev = res->pdev;
-	struct buffer_usage_set *buffer_usage_set = &res->buffer_usage_set;
-
-	if (!of_find_property(pdev->dev.of_node,
-				"qcom,buffer-type-tz-usage-table", NULL)) {
-		/* qcom,buffer-type-tz-usage-table is an optional property.  It
-		 * likely won't be present if the core doesn't support content
-		 * protection */
-		dprintk(VIDC_DBG, "buffer-type-tz-usage-table not found\n");
-		return 0;
-	}
-
-	buffer_usage_set->count = get_u32_array_num_elements(
-				    pdev, "qcom,buffer-type-tz-usage-table");
-	buffer_usage_set->count /=
-		sizeof(*buffer_usage_set->buffer_usage_tbl) / sizeof(u32);
-	if (buffer_usage_set->count == 0) {
-		dprintk(VIDC_DBG, "no elements in buffer usage set\n");
-		return 0;
-	}
-
-	buffer_usage_set->buffer_usage_tbl = devm_kzalloc(&pdev->dev,
-			buffer_usage_set->count *
-			sizeof(*buffer_usage_set->buffer_usage_tbl),
-			GFP_KERNEL);
-	if (!buffer_usage_set->buffer_usage_tbl) {
-		dprintk(VIDC_ERR, "%s Failed to alloc buffer usage table\n",
-			__func__);
-		rc = -ENOMEM;
-		goto err_load_buf_usage;
-	}
-
-	rc = of_property_read_u32_array(pdev->dev.of_node,
-		    "qcom,buffer-type-tz-usage-table",
-		(u32 *)buffer_usage_set->buffer_usage_tbl,
-		buffer_usage_set->count *
-		(sizeof(*buffer_usage_set->buffer_usage_tbl) / sizeof(u32)));
-	if (rc) {
-		dprintk(VIDC_ERR, "Failed to read buffer usage table\n");
-		goto err_load_buf_usage;
-	}
-
-	return 0;
-err_load_buf_usage:
-	msm_vidc_free_buffer_usage_table(res);
-	return rc;
-}
-
 static int msm_vidc_load_regulator_table(
 		struct msm_vidc_platform_resources *res)
 {
@@ -696,12 +637,6 @@ int read_platform_resources_from_dt(
 		dprintk(VIDC_ERR, "Failed to load iommu groups: %d\n", rc);
 		goto err_load_iommu_groups;
 	}
-	rc = msm_vidc_load_buffer_usage_table(res);
-	if (rc) {
-		dprintk(VIDC_ERR,
-			"Failed to load buffer usage table: %d\n", rc);
-		goto err_load_buffer_usage_table;
-	}
 
 	rc = msm_vidc_load_regulator_table(res);
 	if (rc) {
@@ -740,8 +675,6 @@ err_load_max_hw_load:
 err_load_clock_table:
 	msm_vidc_free_regulator_table(res);
 err_load_regulator_table:
-	msm_vidc_free_buffer_usage_table(res);
-err_load_buffer_usage_table:
 	msm_vidc_free_iommu_groups(res);
 err_load_iommu_groups:
 	msm_vidc_free_bus_vectors(res);
