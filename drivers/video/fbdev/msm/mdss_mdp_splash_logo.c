@@ -53,7 +53,7 @@ static int mdss_mdp_splash_alloc_memory(struct msm_fb_data_type *mfd,
 
 	handle = ion_alloc(mdata->iclient, size, SZ_4K,
 				ION_HEAP(ION_SYSTEM_HEAP_ID), 0);
-	if (IS_ERR(handle)) {
+	if (IS_ERR_OR_NULL(handle)) {
 		pr_err("ion memory allocation failed\n");
 		rc = PTR_RET(handle);
 		goto end;
@@ -102,7 +102,6 @@ static int mdss_mdp_splash_alloc_memory(struct msm_fb_data_type *mfd,
 	ion_free(mdata->iclient, handle);
 
 	return rc;
-
 kmap_err:
 	msm_unmap_dma_buf(sinfo->table,
 		mdss_get_iommu_domain(MDSS_IOMMU_DOMAIN_UNSECURE), 0);

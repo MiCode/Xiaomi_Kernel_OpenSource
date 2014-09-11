@@ -413,6 +413,7 @@ static struct mdss_mdp_wb_data *get_user_node(struct msm_fb_data_type *mfd,
 	struct mdss_mdp_wb *wb = mfd_to_wb(mfd);
 	struct mdss_mdp_wb_data *node;
 	struct mdss_mdp_img_data *buf;
+	u32 flags = 0;
 	int ret;
 
 	if (!list_empty(&wb->register_queue)) {
@@ -433,22 +434,29 @@ static struct mdss_mdp_wb_data *get_user_node(struct msm_fb_data_type *mfd,
 	}
 
 	node->user_alloc = true;
-	node->buf_data.num_planes = 1;
-	buf = &node->buf_data.p[0];
 	if (wb->is_secure)
-		buf->flags |= MDP_SECURE_OVERLAY_SESSION;
+		flags |= MDP_SECURE_OVERLAY_SESSION;
+
+	ret = mdss_mdp_data_get(&node->buf_data, data, 1, flags,
+		&mfd->pdev->dev);
+	if (IS_ERR_VALUE(ret)) {
+		pr_err("error getting buffer info\n");
+		goto register_fail;
+	}
 
 	ret = mdss_iommu_ctrl(1);
 	if (IS_ERR_VALUE(ret)) {
 		pr_err("IOMMU attach failed\n");
-		goto register_fail;
+		goto fail_freebuf;
 	}
-	ret = mdss_mdp_get_img(data, buf, &mfd->pdev->dev);
+
+	ret = mdss_mdp_data_map(&node->buf_data);
 	if (IS_ERR_VALUE(ret)) {
-		pr_err("error getting buffer info\n");
+		pr_err("error mapping buffer\n");
 		mdss_iommu_ctrl(0);
-		goto register_fail;
+		goto fail_freebuf;
 	}
+
 	mdss_iommu_ctrl(0);
 
 	memcpy(&node->buf_info, data, sizeof(*data));
@@ -456,14 +464,16 @@ static struct mdss_mdp_wb_data *get_user_node(struct msm_fb_data_type *mfd,
 	ret = mdss_mdp_wb_register_node(wb, node);
 	if (IS_ERR_VALUE(ret)) {
 		pr_err("error registering wb node\n");
-		goto register_fail;
+		goto fail_freebuf;
 	}
 
+	buf = &node->buf_data.p[0];
 	pr_debug("register node mem_id=%d offset=%u addr=0x%pa len=%lu\n",
 		 data->memory_id, data->offset, &buf->addr, buf->len);
 
 	return node;
-
+fail_freebuf:
+	mdss_mdp_data_free(&node->buf_data);
 register_fail:
 	kfree(node);
 	return NULL;
@@ -480,7 +490,7 @@ static void mdss_mdp_wb_free_node(struct mdss_mdp_wb_data *node)
 				node->buf_info.offset,
 				&buf->addr);
 
-		mdss_mdp_put_img(&node->buf_data.p[0]);
+		mdss_mdp_data_free(&node->buf_data);
 		node->user_alloc = false;
 	}
 }
@@ -765,7 +775,6 @@ int mdss_mdp_wb_ioctl_handler(struct msm_fb_data_type *mfd, u32 cmd,
 		break;
 	case MSMFB_WRITEBACK_TERMINATE:
 		ret = mdss_mdp_wb_terminate(mfd);
-		mdss_iommu_ctrl(0);
 		break;
 	case MSMFB_WRITEBACK_SET_MIRRORING_HINT:
 		if (!copy_from_user(&hint, arg, sizeof(hint))) {

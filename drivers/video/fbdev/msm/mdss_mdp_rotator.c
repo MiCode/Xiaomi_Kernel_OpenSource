@@ -731,33 +731,50 @@ int mdss_mdp_rotator_play(struct msm_fb_data_type *mfd,
 	if (!rot) {
 		pr_err("invalid session id=%x\n", req->id);
 		ret = -ENOENT;
-		goto dst_buf_fail;
+		goto session_fail;
 	}
 
 	memset(&src_buf, 0, sizeof(struct mdss_mdp_data));
 
 	flgs = rot->flags & MDP_SECURE_OVERLAY_SESSION;
 
+	mdss_iommu_ctrl(1);
 	ret = mdss_mdp_rotator_busy_wait_ex(rot);
 	if (ret) {
 		pr_err("rotator busy wait error\n");
 		goto dst_buf_fail;
 	}
 
-	ret = mdss_mdp_overlay_get_buf(mfd, &src_buf, &req->data, 1, flgs);
+	ret = mdss_mdp_data_get(&src_buf, &req->data, 1, flgs,
+		&mfd->pdev->dev);
 	if (ret) {
 		pr_err("src_data pmem error\n");
-		mdss_mdp_overlay_free_buf(&rot->src_buf);
 		goto dst_buf_fail;
 	}
-	mdss_mdp_overlay_free_buf(&rot->src_buf);
+
+	ret = mdss_mdp_data_map(&src_buf);
+	if (ret) {
+		pr_err("unable to map source buffer\n");
+		mdss_mdp_data_free(&src_buf);
+		goto dst_buf_fail;
+	}
+	mdss_mdp_data_free(&rot->src_buf);
 	memcpy(&rot->src_buf, &src_buf, sizeof(struct mdss_mdp_data));
 
-	mdss_mdp_overlay_free_buf(&rot->dst_buf);
-	ret = mdss_mdp_overlay_get_buf(mfd, &rot->dst_buf,
-			&req->dst_data, 1, flgs);
+	mdss_mdp_data_free(&rot->dst_buf);
+	ret = mdss_mdp_data_get(&rot->dst_buf, &req->dst_data, 1, flgs,
+		&mfd->pdev->dev);
 	if (ret) {
 		pr_err("dst_data pmem error\n");
+		mdss_mdp_data_free(&rot->src_buf);
+		goto dst_buf_fail;
+	}
+
+	ret = mdss_mdp_data_map(&rot->dst_buf);
+	if (ret) {
+		pr_err("unable to map destination buffer\n");
+		mdss_mdp_data_free(&rot->dst_buf);
+		mdss_mdp_data_free(&rot->src_buf);
 		goto dst_buf_fail;
 	}
 
@@ -767,6 +784,8 @@ int mdss_mdp_rotator_play(struct msm_fb_data_type *mfd,
 		pr_err("rotator queue error session id=%x\n", req->id);
 
 dst_buf_fail:
+	mdss_iommu_ctrl(0);
+session_fail:
 	mutex_unlock(&rotator_lock);
 	return ret;
 }
@@ -778,8 +797,8 @@ int mdss_mdp_rotator_unset(int ndx)
 	mutex_lock(&rotator_lock);
 	rot = mdss_mdp_rotator_session_get(ndx);
 	if (rot) {
-		mdss_mdp_overlay_free_buf(&rot->src_buf);
-		mdss_mdp_overlay_free_buf(&rot->dst_buf);
+		mdss_mdp_data_free(&rot->src_buf);
+		mdss_mdp_data_free(&rot->dst_buf);
 
 		rot->pid = 0;
 		ret = mdss_mdp_rotator_finish(rot);
