@@ -78,7 +78,7 @@
 #define FG_MEMIF		0xC
 
 #define QPNP_FG_DEV_NAME "qcom,qpnp-fg"
-#define MEM_IF_TIMEOUT_MS	2200
+#define MEM_IF_TIMEOUT_MS	5000
 
 /* Debug Flag Definitions */
 enum {
@@ -395,6 +395,7 @@ static int fg_masked_write(struct fg_chip *chip, u16 addr,
 	return rc;
 }
 
+#define RIF_MEM_ACCESS_REQ	BIT(7)
 static inline bool fg_check_sram_access(struct fg_chip *chip)
 {
 	int rc;
@@ -406,10 +407,52 @@ static inline bool fg_check_sram_access(struct fg_chip *chip)
 		return 0;
 	}
 
-	return !!(mem_if_sts & BIT(FG_MEM_AVAIL));
+	if ((mem_if_sts & BIT(FG_MEM_AVAIL)) == 0)
+		return false;
+
+	rc = fg_read(chip, &mem_if_sts, chip->mem_base + MEM_INTF_CFG, 1);
+	if (rc) {
+		pr_err("failed to read mem status rc=%d\n", rc);
+		return 0;
+	}
+
+	if ((mem_if_sts & RIF_MEM_ACCESS_REQ) == 0)
+		return false;
+
+	return true;
 }
 
 #define RIF_MEM_ACCESS_REQ	BIT(7)
+static inline int fg_assert_sram_access(struct fg_chip *chip)
+{
+	int rc;
+	u8 mem_if_sts;
+
+	rc = fg_read(chip, &mem_if_sts, INT_RT_STS(chip->mem_base), 1);
+	if (rc) {
+		pr_err("failed to read mem status rc=%d\n", rc);
+		return rc;
+	}
+
+	if ((mem_if_sts & BIT(FG_MEM_AVAIL)) == 0) {
+		pr_err("mem_avail not high: %02x\n", mem_if_sts);
+		return -EINVAL;
+	}
+
+	rc = fg_read(chip, &mem_if_sts, chip->mem_base + MEM_INTF_CFG, 1);
+	if (rc) {
+		pr_err("failed to read mem status rc=%d\n", rc);
+		return rc;
+	}
+
+	if ((mem_if_sts & RIF_MEM_ACCESS_REQ) == 0) {
+		pr_err("mem_avail not high: %02x\n", mem_if_sts);
+		return -EINVAL;
+	}
+
+	return 0;
+}
+
 #define INTF_CTL_BURST		BIT(7)
 #define INTF_CTL_WR_EN		BIT(6)
 static int fg_config_access(struct fg_chip *chip, bool write,
@@ -565,11 +608,14 @@ out:
 	if (fg_debug_mask & FG_MEM_DEBUG_READS)
 		pr_info("user_cnt %d\n", user_cnt);
 
+	fg_assert_sram_access(chip);
+
 	if (!keep_access && (user_cnt == 0) && !rc) {
 		rc = fg_masked_write(chip, chip->mem_base + MEM_INTF_CFG,
 				RIF_MEM_ACCESS_REQ, 0, 1);
 		if (rc)
 			pr_err("failed to set mem access bit\n");
+		INIT_COMPLETION(chip->sram_access);
 	}
 
 	mutex_unlock(&chip->rw_lock);
@@ -645,6 +691,9 @@ out:
 	user_cnt = atomic_sub_return(1, &chip->memif_user_cnt);
 	if (fg_debug_mask & FG_MEM_DEBUG_READS)
 		pr_info("user_cnt %d\n", user_cnt);
+
+	fg_assert_sram_access(chip);
+
 	if (!keep_access && (user_cnt == 0) && !rc) {
 		rc = fg_masked_write(chip, chip->mem_base + MEM_INTF_CFG,
 				RIF_MEM_ACCESS_REQ, 0, 1);
@@ -652,6 +701,7 @@ out:
 			pr_err("failed to set mem access bit\n");
 			rc = -EIO;
 		}
+		INIT_COMPLETION(chip->sram_access);
 	}
 
 	mutex_unlock(&chip->rw_lock);
@@ -1097,7 +1147,7 @@ static irqreturn_t fg_mem_avail_irq_handler(int irq, void *_chip)
 	rc = fg_read(chip, &mem_if_sts, INT_RT_STS(chip->mem_base), 1);
 	if (rc) {
 		pr_err("failed to read mem status rc=%d\n", rc);
-		return 0;
+		return IRQ_HANDLED;
 	}
 
 	if (fg_check_sram_access(chip)) {
@@ -1114,7 +1164,6 @@ static irqreturn_t fg_mem_avail_irq_handler(int irq, void *_chip)
 	} else {
 		if (fg_debug_mask & FG_IRQS)
 			pr_info("sram access revoked\n");
-		INIT_COMPLETION(chip->sram_access);
 	}
 
 	if (!rc && (fg_debug_mask & FG_IRQS))
