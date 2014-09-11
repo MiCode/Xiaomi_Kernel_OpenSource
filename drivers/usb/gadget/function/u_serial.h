@@ -50,6 +50,10 @@ struct gserial {
 	void (*connect)(struct gserial *p);
 	void (*disconnect)(struct gserial *p);
 	int (*send_break)(struct gserial *p, int duration);
+	int (*send_modem_ctrl_bits)(struct gserial *p, int ctrl_bits);
+
+	/* notification changes to modem */
+	void (*notify_modem)(void *gser, u8 portno, int ctrl_bits);
 };
 
 /* utilities to allocate/free request and buffer */
@@ -63,6 +67,10 @@ void gserial_free_line(unsigned char port_line);
 /* connect/disconnect is handled by individual functions */
 int gserial_connect(struct gserial *, u8 port_num);
 void gserial_disconnect(struct gserial *);
+
+int gsmd_setup(struct usb_gadget *g, unsigned n_ports);
+int gsmd_connect(struct gserial *, u8 port_num);
+void gsmd_disconnect(struct gserial *, u8 portno);
 
 /* functions are bound to configurations by a config or gadget driver */
 int gser_bind_config(struct usb_configuration *c, u8 port_num);

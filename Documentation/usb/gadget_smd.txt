@@ -1,0 +1,27 @@
+Introduction
+============
+
+Gadget serial driver is divided into two parts.
+1. f_serial.c : Interacts with USB Gadget Layer
+2. u_serial.c : Interacts with TTY Layer
+
+Gadget smd driver adds capability to interact with smd layer in
+case modem device is inter-connected with smd interface.
+
+S/W Description
+===============
+Gadget smd driver is a simple bridge driver between usb serial
+gadget and smd abstraction layer. It registers with smd
+abstraction layer with  notification call back and provides
+USB connect/disconnect call backs usb gadget serial driver.
+
+
+S/W Control Flow:
+=================
+USB SMD driver registers w/ SMD driver and provides notification
+call back. SMD Driver calls this call back whenever DATA is available
+to read, buffer is available to write or modem control signals changed.
+Upon receiving notification from SMD driver, USB driver appropriately
+schedules read/write works. In case of control singals, USB driver
+notifies gadget component with changed control information.
+

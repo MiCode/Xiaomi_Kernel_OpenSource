@@ -38,6 +38,15 @@
 
 #include "u_fs.h"
 #include "f_diag.c"
+#include "f_qdss.c"
+#include "f_rmnet.c"
+#include "u_smd.c"
+#include "u_bam.c"
+#include "u_rmnet_ctrl_smd.c"
+#include "u_rmnet_ctrl_qti.c"
+#include "u_ctrl_hsic.c"
+#include "u_data_hsic.c"
+#include "u_data_ipa.c"
 #include "f_mtp.c"
 #include "f_accessory.c"
 #define USB_ETH_RNDIS y
@@ -773,6 +782,143 @@ static struct android_usb_function acm_function = {
 	.attributes	= acm_function_attributes,
 };
 
+/*rmnet transport string format(per port):"ctrl0,data0,ctrl1,data1..." */
+#define MAX_XPORT_STR_LEN 50
+static char rmnet_transports[MAX_XPORT_STR_LEN];
+
+/*rmnet transport name string - "rmnet_hsic[,rmnet_hsusb]" */
+static char rmnet_xport_names[MAX_XPORT_STR_LEN];
+
+/*qdss transport string format(per port):"bam [, hsic]" */
+static char qdss_transports[MAX_XPORT_STR_LEN];
+
+/*qdss transport name string - "qdss_bam [, qdss_hsic]" */
+static char qdss_xport_names[MAX_XPORT_STR_LEN];
+
+/*qdss debug interface setting 0: disable   1:enable */
+static bool qdss_debug_intf;
+
+static void rmnet_function_cleanup(struct android_usb_function *f)
+{
+	frmnet_cleanup();
+}
+
+static int rmnet_function_bind_config(struct android_usb_function *f,
+					 struct usb_configuration *c)
+{
+	int i;
+	int err = 0;
+	char *ctrl_name;
+	char *data_name;
+	char *tname = NULL;
+	char buf[MAX_XPORT_STR_LEN], *b;
+	char xport_name_buf[MAX_XPORT_STR_LEN], *tb;
+	static int rmnet_initialized, ports;
+
+	if (!rmnet_initialized) {
+		rmnet_initialized = 1;
+		strlcpy(buf, rmnet_transports, sizeof(buf));
+		b = strim(buf);
+
+		strlcpy(xport_name_buf, rmnet_xport_names,
+				sizeof(xport_name_buf));
+		tb = strim(xport_name_buf);
+
+		while (b) {
+			ctrl_name = strsep(&b, ",");
+			data_name = strsep(&b, ",");
+			if (ctrl_name && data_name) {
+				if (tb)
+					tname = strsep(&tb, ",");
+				err = frmnet_init_port(ctrl_name, data_name,
+						tname);
+				if (err) {
+					pr_err("rmnet: Cannot open ctrl port:"
+						"'%s' data port:'%s'\n",
+						ctrl_name, data_name);
+					goto out;
+				}
+				ports++;
+			}
+		}
+
+		err = rmnet_gport_setup();
+		if (err) {
+			pr_err("rmnet: Cannot setup transports");
+			goto out;
+		}
+	}
+
+	for (i = 0; i < ports; i++) {
+		err = frmnet_bind_config(c, i);
+		if (err) {
+			pr_err("Could not bind rmnet%u config\n", i);
+			break;
+		}
+	}
+out:
+	return err;
+}
+
+static void rmnet_function_unbind_config(struct android_usb_function *f,
+						struct usb_configuration *c)
+{
+	frmnet_unbind_config();
+}
+
+static ssize_t rmnet_transports_show(struct device *dev,
+		struct device_attribute *attr, char *buf)
+{
+	return snprintf(buf, PAGE_SIZE, "%s\n", rmnet_transports);
+}
+
+static ssize_t rmnet_transports_store(
+		struct device *device, struct device_attribute *attr,
+		const char *buff, size_t size)
+{
+	strlcpy(rmnet_transports, buff, sizeof(rmnet_transports));
+
+	return size;
+}
+
+static ssize_t rmnet_xport_names_show(struct device *dev,
+		struct device_attribute *attr, char *buf)
+{
+	return snprintf(buf, PAGE_SIZE, "%s\n", rmnet_xport_names);
+}
+
+static ssize_t rmnet_xport_names_store(
+		struct device *device, struct device_attribute *attr,
+		const char *buff, size_t size)
+{
+	strlcpy(rmnet_xport_names, buff, sizeof(rmnet_xport_names));
+
+	return size;
+}
+
+static struct device_attribute dev_attr_rmnet_transports =
+					__ATTR(transports, S_IRUGO | S_IWUSR,
+						rmnet_transports_show,
+						rmnet_transports_store);
+
+static struct device_attribute dev_attr_rmnet_xport_names =
+				__ATTR(transport_names, S_IRUGO | S_IWUSR,
+				rmnet_xport_names_show,
+				rmnet_xport_names_store);
+
+static struct device_attribute *rmnet_function_attributes[] = {
+					&dev_attr_rmnet_transports,
+					&dev_attr_rmnet_xport_names,
+					NULL };
+
+static struct android_usb_function rmnet_function = {
+	.name		= "rmnet",
+	.cleanup	= rmnet_function_cleanup,
+	.bind_config	= rmnet_function_bind_config,
+	.unbind_config	= rmnet_function_unbind_config,
+	.attributes	= rmnet_function_attributes,
+};
+
 /* DIAG */
 static char diag_clients[32];	    /*enabled DIAG clients- "diag[,diag_mdm]" */
 static ssize_t clients_store(
@@ -833,6 +979,167 @@ static struct android_usb_function diag_function = {
 	.cleanup	= diag_function_cleanup,
 	.bind_config	= diag_function_bind_config,
 	.attributes	= diag_function_attributes,
+};
+
+/* DEBUG */
+static int qdss_function_init(struct android_usb_function *f,
+	struct usb_composite_dev *cdev)
+{
+	return qdss_setup();
+}
+
+static void qdss_function_cleanup(struct android_usb_function *f)
+{
+	qdss_cleanup();
+}
+
+static int qdss_init_transports(int *portnum)
+{
+	char *ts_port;
+	char *tname = NULL;
+	char buf[MAX_XPORT_STR_LEN], *type;
+	char xport_name_buf[MAX_XPORT_STR_LEN], *tn;
+	int err = 0;
+
+	strlcpy(buf, qdss_transports, sizeof(buf));
+	type = strim(buf);
+
+	strlcpy(xport_name_buf, qdss_xport_names,
+			sizeof(xport_name_buf));
+	tn = strim(xport_name_buf);
+
+	pr_debug("%s: qdss_debug_intf = %d\n",
+		__func__, qdss_debug_intf);
+
+	while (type) {
+		ts_port = strsep(&type, ",");
+		if (ts_port) {
+			if (tn)
+				tname = strsep(&tn, ",");
+
+			err = qdss_init_port(
+				ts_port,
+				tname,
+				qdss_debug_intf);
+
+			if (err) {
+				pr_err("%s: Cannot open transport port:'%s'\n",
+					__func__, ts_port);
+				return err;
+			}
+			(*portnum)++;
+		}
+	}
+	return err;
+}
+
+static int qdss_function_bind_config(struct android_usb_function *f,
+					struct usb_configuration *c)
+{
+	int i;
+	int err = 0;
+	static int qdss_initialized = 0, portsnum;
+
+	if (!qdss_initialized) {
+		qdss_initialized = 1;
+
+		err = qdss_init_transports(&portsnum);
+		if (err) {
+			pr_err("qdss: Cannot init transports");
+			goto out;
+		}
+
+		err = qdss_gport_setup();
+		if (err) {
+			pr_err("qdss: Cannot setup transports");
+			goto out;
+		}
+	}
+
+	pr_debug("%s: port number is %d\n", __func__, portsnum);
+
+	for (i = 0; i < portsnum; i++) {
+		err = qdss_bind_config(c, i);
+		if (err) {
+			pr_err("Could not bind qdss%u config\n", i);
+			break;
+		}
+	}
+out:
+	return err;
+}
+
+static ssize_t qdss_transports_show(struct device *dev,
+		struct device_attribute *attr, char *buf)
+{
+	return snprintf(buf, PAGE_SIZE, "%s\n", qdss_transports);
+}
+
+static ssize_t qdss_transports_store(
+		struct device *device, struct device_attribute *attr,
+		const char *buff, size_t size)
+{
+	strlcpy(qdss_transports, buff, sizeof(qdss_transports));
+
+	return size;
+}
+
+static ssize_t qdss_xport_names_show(struct device *dev,
+		struct device_attribute *attr, char *buf)
+{
+	return snprintf(buf, PAGE_SIZE, "%s\n", qdss_xport_names);
+}
+
+static ssize_t qdss_xport_names_store(
+		struct device *device, struct device_attribute *attr,
+		const char *buff, size_t size)
+{
+	strlcpy(qdss_xport_names, buff, sizeof(qdss_xport_names));
+	return size;
+}
+
+static ssize_t qdss_debug_intf_store(
+		struct device *device, struct device_attribute *attr,
+		const char *buff, size_t size)
+{
+	strtobool(buff, &qdss_debug_intf);
+	return size;
+}
+
+static ssize_t qdss_debug_intf_show(struct device *dev,
+		struct device_attribute *attr, char *buf)
+{
+	return snprintf(buf, PAGE_SIZE, "%d\n", qdss_debug_intf);
+}
+
+static struct device_attribute dev_attr_qdss_transports =
+					__ATTR(transports, S_IRUGO | S_IWUSR,
+						qdss_transports_show,
+						qdss_transports_store);
+
+static struct device_attribute dev_attr_qdss_xport_names =
+				__ATTR(transport_names, S_IRUGO | S_IWUSR,
+				qdss_xport_names_show,
+				qdss_xport_names_store);
+
+/* 1(enable)/0(disable) the qdss debug interface */
+static struct device_attribute dev_attr_qdss_debug_intf =
+				__ATTR(debug_intf, S_IRUGO | S_IWUSR,
+				qdss_debug_intf_show,
+				qdss_debug_intf_store);
+
+static struct device_attribute *qdss_function_attributes[] = {
+					&dev_attr_qdss_transports,
+					&dev_attr_qdss_xport_names,
+					&dev_attr_qdss_debug_intf,
+					NULL };
+
+static struct android_usb_function qdss_function = {
+	.name		= "qdss",
+	.init		= qdss_function_init,
+	.cleanup	= qdss_function_cleanup,
+	.bind_config	= qdss_function_bind_config,
+	.attributes	= qdss_function_attributes,
 };
 
 static int
@@ -1380,7 +1687,9 @@ static struct android_usb_function audio_source_function = {
 
 static struct android_usb_function *supported_functions[] = {
 	&ffs_function,
+	&rmnet_function,
 	&diag_function,
+	&qdss_function,
 	&acm_function,
 	&mtp_function,
 	&ptp_function,
