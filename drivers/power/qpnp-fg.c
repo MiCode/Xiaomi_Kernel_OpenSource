@@ -230,6 +230,7 @@ struct fg_chip {
 	spinlock_t		sec_access_lock;
 	bool			profile_loaded;
 	bool			use_otp_profile;
+	bool			battery_missing;
 	bool			power_supply_registered;
 	struct delayed_work	update_jeita_setting;
 	struct delayed_work	update_sram_data;
@@ -250,6 +251,7 @@ static const char *DFS_ROOT_NAME	= "fg_memif";
 static const mode_t DFS_MODE = S_IRUSR | S_IWUSR;
 static const char *default_batt_type	= "Unknown Battery";
 static const char *loading_batt_type	= "Loading Battery Data";
+static const char *missing_batt_type	= "Disconnected Battery";
 
 /* Log buffer */
 struct fg_log_buffer {
@@ -842,11 +844,14 @@ close_time:
 }
 
 #define DEFAULT_CAPACITY 50
+#define MISSING_CAPACITY 100
 static int get_prop_capacity(struct fg_chip *chip)
 {
 	u8 cap[2];
 	int rc, capacity = 0, tries = 0;
 
+	if (chip->battery_missing)
+		return MISSING_CAPACITY;
 	if (!chip->profile_loaded && !chip->use_otp_profile)
 		return DEFAULT_CAPACITY;
 
@@ -1030,13 +1035,14 @@ static int fg_is_batt_id_valid(struct fg_chip *chip)
 #define LSB_8B		9800
 #define TEMP_LSB_16B	625
 #define DECIKELVIN	2730
-#define SRAM_PERIOD_UPDATE_MS	30000
+#define SRAM_PERIOD_UPDATE_MS		30000
+#define SRAM_PERIOD_NO_ID_UPDATE_MS	100
 static void update_sram_data(struct work_struct *work)
 {
 	struct fg_chip *chip = container_of(work,
 				struct fg_chip,
 				update_sram_data.work);
-	int i, rc = 0;
+	int i, resched_ms, rc = 0;
 	u8 reg[2];
 	s16 temp;
 	int battid_valid = fg_is_batt_id_valid(chip);
@@ -1082,12 +1088,16 @@ static void update_sram_data(struct work_struct *work)
 			pr_info("%d %d %d\n", i, temp, fg_data[i].value);
 	}
 
-	if (battid_valid)
+	if (battid_valid) {
 		complete_all(&chip->batt_id_avail);
+		resched_ms = SRAM_PERIOD_UPDATE_MS;
+	} else {
+		resched_ms = SRAM_PERIOD_NO_ID_UPDATE_MS;
+	}
 	get_current_time(&chip->last_sram_update_time);
 	schedule_delayed_work(
 		&chip->update_sram_data,
-		msecs_to_jiffies(SRAM_PERIOD_UPDATE_MS));
+		msecs_to_jiffies(resched_ms));
 }
 
 static void update_jeita_setting(struct work_struct *work)
@@ -1230,6 +1240,53 @@ static void dump_sram(struct work_struct *work)
 		pr_info("%03X %s\n", SRAM_DUMP_START + i, str);
 	}
 	devm_kfree(chip->dev, buffer);
+}
+
+#define BATT_MISSING_STS BIT(6)
+static bool is_battery_missing(struct fg_chip *chip)
+{
+	int rc;
+	u8 fg_batt_sts;
+
+	rc = fg_read(chip, &fg_batt_sts,
+				 INT_RT_STS(chip->batt_base), 1);
+	if (rc) {
+		pr_err("spmi read failed: addr=%03X, rc=%d\n",
+				INT_RT_STS(chip->batt_base), rc);
+		return false;
+	}
+
+	return (fg_batt_sts & BATT_MISSING_STS) ? true : false;
+}
+
+static irqreturn_t fg_batt_missing_irq_handler(int irq, void *_chip)
+{
+	struct fg_chip *chip = _chip;
+	bool batt_missing = is_battery_missing(chip);
+
+	if (batt_missing) {
+		chip->battery_missing = true;
+		chip->batt_type = missing_batt_type;
+	} else {
+		if (!chip->use_otp_profile) {
+			INIT_COMPLETION(chip->batt_id_avail);
+			schedule_work(&chip->batt_profile_init);
+			cancel_delayed_work(&chip->update_sram_data);
+			schedule_delayed_work(
+				&chip->update_sram_data,
+				msecs_to_jiffies(0));
+		} else {
+			chip->battery_missing = false;
+		}
+	}
+
+	if (fg_debug_mask & FG_IRQS)
+		pr_info("batt-missing triggered: %s\n",
+				batt_missing ? "missing" : "present");
+
+	if (chip->power_supply_registered)
+		power_supply_changed(&chip->bms_psy);
+	return IRQ_HANDLED;
 }
 
 static irqreturn_t fg_mem_avail_irq_handler(int irq, void *_chip)
@@ -1452,11 +1509,18 @@ wait:
 	mutex_unlock(&chip->rw_lock);
 
 	/* read once to get a fg cycle in */
-	rc = fg_mem_read(chip, &reg, PROFILE_INTEGRITY_REG, 1, 0, 1);
+	rc = fg_mem_read(chip, &reg, PROFILE_INTEGRITY_REG, 1, 0, 0);
 	if (rc) {
 		pr_err("failed to read profile integrity rc=%d\n", rc);
 		goto fail;
 	}
+
+	/*
+	 * If this is not the first time a profile has been loaded, sleep for
+	 * 3 seconds to make sure the NO_OTP_RELOAD is cleared in memory
+	 */
+	if (chip->profile_loaded)
+		msleep(3000);
 
 	mutex_lock(&chip->rw_lock);
 	fg_masked_write(chip, chip->mem_base + MEM_INTF_CFG,
@@ -1544,6 +1608,7 @@ wait:
 done:
 	chip->batt_type = batt_type_str;
 	chip->profile_loaded = true;
+	chip->battery_missing = is_battery_missing(chip);
 	if (chip->power_supply_registered)
 		power_supply_changed(&chip->bms_psy);
 	return rc;
@@ -1726,6 +1791,25 @@ static int fg_init_irqs(struct fg_chip *chip)
 			}
 			break;
 		case FG_BATT:
+			chip->batt_irq[BATT_MISSING].irq = spmi_get_irq_byname(
+					chip->spmi, spmi_resource,
+					"batt-missing");
+			if (chip->batt_irq[BATT_MISSING].irq < 0) {
+				pr_err("Unable to get batt-missing irq\n");
+				rc = -EINVAL;
+				return rc;
+			}
+			rc |= devm_request_irq(chip->dev,
+					chip->batt_irq[BATT_MISSING].irq,
+					fg_batt_missing_irq_handler,
+					IRQF_TRIGGER_RISING |
+					IRQF_TRIGGER_FALLING,
+					"batt-missing", chip);
+			if (rc < 0) {
+				pr_err("Can't request %d batt-missing: %d\n",
+					chip->batt_irq[BATT_MISSING].irq, rc);
+				return rc;
+			}
 		case FG_ADC:
 			break;
 		default:
