@@ -30,11 +30,7 @@ enum {
 
 enum {
 	MERR_DPCM_AUDIO = 0,
-	MERR_DPCM_DB,
-	MERR_DPCM_LL,
-	MERR_DPCM_COMPR,
 	MERR_DPCM_VOIP,
-	MERR_DPCM_PROBE,
 };
 
 #endif

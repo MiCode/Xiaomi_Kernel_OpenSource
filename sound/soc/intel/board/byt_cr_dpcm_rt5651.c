@@ -772,13 +772,8 @@ static struct snd_soc_ops byt_8k_16k_ops = {
 	.hw_params = byt_aif1_hw_params,
 };
 
-static struct snd_soc_compr_ops byt_compr_ops = {
-/*	.set_params = byt_compr_set_params, */
-};
-
-
 static struct snd_soc_dai_link byt_dailink[] = {
-	[BYT_DPCM_AUD_AIF1] = {
+	{
 		.name = "Baytrail Audio Port",
 		.stream_name = "Baytrail Audio",
 		.cpu_dai_name = "Headset-cpu-dai",
@@ -790,38 +785,7 @@ static struct snd_soc_dai_link byt_dailink[] = {
 		.dynamic = 1,
 		.ops = &byt_aif1_ops,
 	},
-	[BYT_DPCM_DB] = {
-		.name = "Baytrail DB Audio Port",
-		.stream_name = "Deep Buffer Audio",
-		.cpu_dai_name = "Deepbuffer-cpu-dai",
-		.codec_dai_name = "snd-soc-dummy-dai",
-		.codec_name = "snd-soc-dummy",
-		.platform_name = "sst-platform",
-		.ignore_suspend = 1,
-		.dynamic = 1,
-		.ops = &byt_aif1_ops,
-	},
-	[BYT_DPCM_LL] = {
-		.name = "Baytrail LL Audio Port",
-		.stream_name = "Low Latency Audio",
-		.cpu_dai_name = "Lowlatency-cpu-dai",
-		.codec_dai_name = "snd-soc-dummy-dai",
-		.codec_name = "snd-soc-dummy",
-		.platform_name = "sst-platform",
-		.ignore_suspend = 1,
-		.dynamic = 1,
-		.ops = &byt_aif1_ops,
-	},
-	[BYT_DPCM_COMPR] = {
-		.name = "Baytrail Compressed Port",
-		.stream_name = "Baytrail Compress",
-		.cpu_dai_name = "Compress-cpu-dai",
-		.codec_dai_name = "snd-soc-dummy-dai",
-		.codec_name = "snd-soc-dummy",
-		.platform_name = "sst-platform",
-		.compr_ops = &byt_compr_ops,
-	},
-	[BYT_DPCM_VOIP] = {
+	{
 		.name = "Baytrail VOIP Port",
 		.stream_name = "Baytrail Voip",
 		.cpu_dai_name = "Voip-cpu-dai",
@@ -833,40 +797,8 @@ static struct snd_soc_dai_link byt_dailink[] = {
 		.ops = &byt_8k_16k_ops,
 		.dynamic = 1,
 	},
-	[BYT_DPCM_PROBE] = {
-		.name = "Baytrail Probe Port",
-		.stream_name = "Baytrail Probe",
-		.cpu_dai_name = "Probe-cpu-dai",
-		.codec_dai_name = "snd-soc-dummy-dai",
-		.codec_name = "snd-soc-dummy",
-		.platform_name = "sst-platform",
-		.playback_count = 8,
-		.capture_count = 8,
-	},
 
 	/* CODEC<->CODEC link */
-	{
-		.name = "Baytrail Codec-Loop Port",
-		.stream_name = "Baytrail Codec-Loop",
-		.cpu_dai_name = "ssp2-port",
-		.platform_name = "sst-platform",
-		.codec_dai_name = "rt5651-aif1",
-		.codec_name = "i2c-10EC5651:00",
-		.dai_fmt = SND_SOC_DAIFMT_DSP_B | SND_SOC_DAIFMT_IB_NF
-						| SND_SOC_DAIFMT_CBS_CFS,
-		.params = &byt_dai_params,
-		.dsp_loopback = true,
-	},
-	{
-		.name = "Baytrail Modem-Loop Port",
-		.stream_name = "Baytrail Modem-Loop",
-		.cpu_dai_name = "ssp0-port",
-		.platform_name = "sst-platform",
-		.codec_dai_name = "snd-soc-dummy-dai",
-		.codec_name = "snd-soc-dummy",
-		.params = &byt_dai_params,
-		.dsp_loopback = true,
-	},
 	{
 		.name = "Baytrail BTFM-Loop Port",
 		.stream_name = "Baytrail BTFM-Loop",
@@ -877,7 +809,8 @@ static struct snd_soc_dai_link byt_dailink[] = {
 		.params = &byt_dai_params,
 		.dsp_loopback = true,
 	},
-	/* back ends */
+
+	/* Backends */
 	{
 		.name = "SSP0-Codec",
 		.be_id = 1,
@@ -892,16 +825,6 @@ static struct snd_soc_dai_link byt_dailink[] = {
 	{
 		.name = "SSP1-BTFM",
 		.be_id = 2,
-		.cpu_dai_name = "snd-soc-dummy-dai",
-		.platform_name = "snd-soc-dummy",
-		.no_pcm = 1,
-		.codec_name = "snd-soc-dummy",
-		.codec_dai_name = "snd-soc-dummy-dai",
-		.ignore_suspend = 1,
-	},
-	{
-		.name = "SSP0-Modem",
-		.be_id = 3,
 		.cpu_dai_name = "snd-soc-dummy-dai",
 		.platform_name = "snd-soc-dummy",
 		.no_pcm = 1,

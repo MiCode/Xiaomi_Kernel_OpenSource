@@ -1401,19 +1401,13 @@ static const struct snd_soc_dapm_widget sst_dapm_widgets[] = {
 };
 
 static const struct snd_soc_dapm_route intercon[] = {
-	{"media0_in", NULL, "Compress Playback"},
 	{"media1_in", NULL, "Headset Playback"},
 	{"media2_in", NULL, "pcm0_out"},
-	{"media3_in", NULL, "Deepbuffer Playback"},
 
-	{"media0_out mix 0", "media0_in", "media0_in"},
 	{"media0_out mix 0", "media1_in", "media1_in"},
 	{"media0_out mix 0", "media2_in", "media2_in"},
-	{"media0_out mix 0", "media3_in", "media3_in"},
-	{"media1_out mix 0", "media0_in", "media0_in"},
 	{"media1_out mix 0", "media1_in", "media1_in"},
 	{"media1_out mix 0", "media2_in", "media2_in"},
-	{"media1_out mix 0", "media3_in", "media3_in"},
 
 	{"media0_out", NULL, "media0_out mix 0"},
 	{"media1_out", NULL, "media1_out mix 0"},

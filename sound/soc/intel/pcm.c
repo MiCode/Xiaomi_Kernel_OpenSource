@@ -84,28 +84,9 @@ static struct snd_pcm_hardware sst_platform_pcm_hw = {
 static struct sst_dev_stream_map dpcm_strm_map[] = {
 	{0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF}, /* Reserved, not in use */
 	{MERR_DPCM_AUDIO, 0, SNDRV_PCM_STREAM_PLAYBACK, PIPE_MEDIA1_IN, SST_TASK_ID_MEDIA, SST_DEV_MAP_IN_USE},
-	{MERR_DPCM_DB,    0, SNDRV_PCM_STREAM_PLAYBACK, PIPE_MEDIA3_IN, SST_TASK_ID_MEDIA, SST_DEV_MAP_IN_USE},
-	{MERR_DPCM_LL,    0, SNDRV_PCM_STREAM_PLAYBACK, PIPE_LOW_PCM0_IN, SST_TASK_ID_SBA, SST_DEV_MAP_IN_USE},
-	{MERR_DPCM_COMPR, 0, SNDRV_PCM_STREAM_PLAYBACK, PIPE_MEDIA0_IN, SST_TASK_ID_MEDIA, SST_DEV_MAP_IN_USE},
 	{MERR_DPCM_VOIP,  0, SNDRV_PCM_STREAM_PLAYBACK, PIPE_VOIP_IN, SST_TASK_ID_MEDIA, SST_DEV_MAP_IN_USE},
-	{MERR_DPCM_PROBE, 0, SNDRV_PCM_STREAM_PLAYBACK, PIPE_PROBE1_IN, SST_TASK_ID_MEDIA, SST_DEV_MAP_IN_USE},
-	{MERR_DPCM_PROBE, 1, SNDRV_PCM_STREAM_PLAYBACK, PIPE_PROBE2_IN, SST_TASK_ID_MEDIA, SST_DEV_MAP_IN_USE},
-	{MERR_DPCM_PROBE, 2, SNDRV_PCM_STREAM_PLAYBACK, PIPE_PROBE3_IN, SST_TASK_ID_MEDIA, SST_DEV_MAP_IN_USE},
-	{MERR_DPCM_PROBE, 3, SNDRV_PCM_STREAM_PLAYBACK, PIPE_PROBE4_IN, SST_TASK_ID_MEDIA, SST_DEV_MAP_IN_USE},
-	{MERR_DPCM_PROBE, 4, SNDRV_PCM_STREAM_PLAYBACK, PIPE_PROBE5_IN, SST_TASK_ID_MEDIA, SST_DEV_MAP_IN_USE},
-	{MERR_DPCM_PROBE, 5, SNDRV_PCM_STREAM_PLAYBACK, PIPE_PROBE6_IN, SST_TASK_ID_MEDIA, SST_DEV_MAP_IN_USE},
-	{MERR_DPCM_PROBE, 6, SNDRV_PCM_STREAM_PLAYBACK, PIPE_PROBE7_IN, SST_TASK_ID_MEDIA, SST_DEV_MAP_IN_USE},
-	{MERR_DPCM_PROBE, 7, SNDRV_PCM_STREAM_PLAYBACK, PIPE_PROBE8_IN, SST_TASK_ID_MEDIA, SST_DEV_MAP_IN_USE},
 	{MERR_DPCM_AUDIO, 0, SNDRV_PCM_STREAM_CAPTURE, PIPE_PCM1_OUT, SST_TASK_ID_MEDIA, SST_DEV_MAP_IN_USE},
 	{MERR_DPCM_VOIP,  0, SNDRV_PCM_STREAM_CAPTURE, PIPE_VOIP_OUT, SST_TASK_ID_MEDIA, SST_DEV_MAP_IN_USE},
-	{MERR_DPCM_PROBE, 0, SNDRV_PCM_STREAM_CAPTURE, PIPE_PROBE1_OUT, SST_TASK_ID_MEDIA, SST_DEV_MAP_IN_USE},
-	{MERR_DPCM_PROBE, 1, SNDRV_PCM_STREAM_CAPTURE, PIPE_PROBE2_OUT, SST_TASK_ID_MEDIA, SST_DEV_MAP_IN_USE},
-	{MERR_DPCM_PROBE, 2, SNDRV_PCM_STREAM_CAPTURE, PIPE_PROBE3_OUT, SST_TASK_ID_MEDIA, SST_DEV_MAP_IN_USE},
-	{MERR_DPCM_PROBE, 3, SNDRV_PCM_STREAM_CAPTURE, PIPE_PROBE4_OUT, SST_TASK_ID_MEDIA, SST_DEV_MAP_IN_USE},
-	{MERR_DPCM_PROBE, 4, SNDRV_PCM_STREAM_CAPTURE, PIPE_PROBE5_OUT, SST_TASK_ID_MEDIA, SST_DEV_MAP_IN_USE},
-	{MERR_DPCM_PROBE, 5, SNDRV_PCM_STREAM_CAPTURE, PIPE_PROBE6_OUT, SST_TASK_ID_MEDIA, SST_DEV_MAP_IN_USE},
-	{MERR_DPCM_PROBE, 6, SNDRV_PCM_STREAM_CAPTURE, PIPE_PROBE7_OUT, SST_TASK_ID_MEDIA, SST_DEV_MAP_IN_USE},
-	{MERR_DPCM_PROBE, 7, SNDRV_PCM_STREAM_CAPTURE, PIPE_PROBE8_OUT, SST_TASK_ID_MEDIA, SST_DEV_MAP_IN_USE},
 	/* stream ID 25 used by Aware, but no device exposed to userspace */
 };
 
@@ -499,16 +480,6 @@ static void sst_media_close(struct snd_pcm_substream *substream,
 	pr_debug("%s: %d\n", __func__, ret_val);
 }
 
-static int sst_dpcm_probe_cmd(struct snd_soc_platform *platform,
-		struct snd_pcm_substream *substream, u16 pipe_id, bool on)
-{
-	int ret = 0;
-	if ((dpcm_enable == 1) && (substream->pcm->device == MERR_DPCM_PROBE))
-			ret = sst_dpcm_probe_send(platform, pipe_id, substream->number,
-					substream->stream, on);
-	return ret;
-}
-
 static inline unsigned int get_current_pipe_id(struct snd_soc_platform *platform,
 					       struct snd_pcm_substream *substream)
 {
@@ -523,15 +494,6 @@ static inline unsigned int get_current_pipe_id(struct snd_soc_platform *platform
 	pr_debug("%s: got pipe_id = %#x for str_id = %d\n",
 		 __func__, pipe_id, str_id);
 	return pipe_id;
-}
-
-static void sst_probe_close(struct snd_pcm_substream *substream,
-		struct snd_soc_dai *dai)
-{
-	u16 probe_pipe_id = get_current_pipe_id(dai->platform, substream);
-
-	sst_dpcm_probe_cmd(dai->platform, substream, probe_pipe_id, false);
-	sst_media_close(substream, dai);
 }
 
 static int sst_media_prepare(struct snd_pcm_substream *substream,
@@ -559,17 +521,6 @@ static int sst_media_prepare(struct snd_pcm_substream *substream,
 	substream->runtime->hw.info = SNDRV_PCM_INFO_BLOCK_TRANSFER;
 
 	return ret_val;
-}
-
-static int sst_probe_prepare(struct snd_pcm_substream *substream,
-		struct snd_soc_dai *dai)
-{
-	u16 probe_pipe_id;
-
-	sst_media_prepare(substream, dai);
-	probe_pipe_id = get_current_pipe_id(dai->platform, substream);
-
-	return sst_dpcm_probe_cmd(dai->platform, substream, probe_pipe_id, true);
 }
 
 static int sst_media_hw_params(struct snd_pcm_substream *substream,
@@ -622,24 +573,6 @@ static struct snd_soc_dai_ops sst_media_dai_ops = {
 	.mute_stream = sst_media_digital_mute,
 };
 
-static struct snd_soc_dai_ops sst_probe_dai_ops = {
-	.startup = sst_media_open,
-	.hw_params = sst_media_hw_params,
-	.hw_free = sst_media_hw_free,
-	.shutdown = sst_probe_close,
-	.prepare = sst_probe_prepare,
-};
-
-static struct snd_soc_dai_ops sst_loopback_dai_ops = {
-	.startup = sst_media_open,
-	.shutdown = sst_media_close,
-	.prepare = sst_media_prepare,
-};
-
-static struct snd_soc_dai_ops sst_compr_dai_ops = {
-	.mute_stream = sst_media_digital_mute,
-};
-
 static struct snd_soc_dai_ops sst_be_dai_ops = {
 	.startup = sst_enable_ssp,
 	.shutdown = sst_disable_ssp,
@@ -665,28 +598,6 @@ static struct snd_soc_dai_driver sst_platform_dai[] = {
 	},
 },
 {
-	.name = SST_DEEPBUFFER_DAI,
-	.ops = &sst_media_dai_ops,
-	.playback = {
-		.stream_name = "Deepbuffer Playback",
-		.channels_min = SST_STEREO,
-		.channels_max = SST_STEREO,
-		.rates = SNDRV_PCM_RATE_48000,
-		.formats = SNDRV_PCM_FMTBIT_S16_LE,
-	},
-},
-{
-	.name = SST_LOWLATENCY_DAI,
-	.ops = &sst_media_dai_ops,
-	.playback = {
-		.stream_name = "Low Latency Playback",
-		.channels_min = SST_STEREO,
-		.channels_max = SST_STEREO,
-		.rates = SNDRV_PCM_RATE_48000,
-		.formats = SNDRV_PCM_FMTBIT_S16_LE,
-	},
-},
-{
 	.name = SST_SPEAKER_DAI,
 	.ops = &sst_media_dai_ops,
 	.playback = {
@@ -695,78 +606,6 @@ static struct snd_soc_dai_driver sst_platform_dai[] = {
 		.channels_max = SST_STEREO,
 		.rates = SNDRV_PCM_RATE_44100|SNDRV_PCM_RATE_48000,
 		.formats = SNDRV_PCM_FMTBIT_S16_LE,
-	},
-},
-{
-	.name = SST_VOICE_DAI,
-	.playback = {
-		.stream_name = "Voice Downlink",
-		.channels_min = SST_MONO,
-		.channels_max = SST_STEREO,
-		.rates = SNDRV_PCM_RATE_8000|SNDRV_PCM_RATE_16000|SNDRV_PCM_RATE_44100|SNDRV_PCM_RATE_48000,
-		.formats = SNDRV_PCM_FMTBIT_S16_LE,
-	},
-	.capture = {
-		.stream_name = "Voice Uplink",
-		.channels_min = SST_MONO,
-		.channels_max = SST_STEREO,
-		.rates = SNDRV_PCM_RATE_8000|SNDRV_PCM_RATE_16000|SNDRV_PCM_RATE_44100|SNDRV_PCM_RATE_48000,
-		.formats = SNDRV_PCM_FMTBIT_S16_LE,
-	},
-},
-{
-	.name = SST_COMPRESS_DAI,
-	.compress_dai = 1,
-	.ops = &sst_compr_dai_ops,
-	.playback = {
-		.stream_name = "Compress Playback",
-		.channels_min = SST_STEREO,
-		.channels_max = SST_STEREO,
-		.rates = SNDRV_PCM_RATE_48000,
-		.formats = SNDRV_PCM_FMTBIT_S16_LE,
-	},
-},
-{
-	.name = SST_VIRTUAL_DAI,
-	.playback = {
-		.stream_name = "Virtual Playback",
-		.channels_min = SST_STEREO,
-		.channels_max = SST_STEREO,
-		.rates = SNDRV_PCM_RATE_48000,
-		.formats = SNDRV_PCM_FMTBIT_S16_LE,
-	},
-},
-{
-	.name = SST_POWER_DAI,
-	.ops = &sst_media_dai_ops,
-	.playback = {
-		.stream_name = "Dummy Power Stream",
-		.channels_min = SST_MONO,
-		.channels_max = SST_STEREO,
-		.rates = SNDRV_PCM_RATE_8000_48000,
-		.formats = SNDRV_PCM_FMTBIT_S16_LE | SNDRV_PCM_FMTBIT_S24_LE,
-	},
-},
-{
-	.name = SST_PROBE_DAI,
-	.ops = &sst_probe_dai_ops,
-	.playback = {
-		.stream_name = "Probe Playback",
-		.channels_min = SST_MONO,
-		.channels_max = SST_STEREO,
-		.rates = SNDRV_PCM_RATE_8000 |
-				SNDRV_PCM_RATE_16000 | SNDRV_PCM_RATE_48000,
-		.formats = SNDRV_PCM_FMTBIT_S16_LE | SNDRV_PCM_FMTBIT_S24_LE |
-			   SNDRV_PCM_FMTBIT_S32_LE,
-	},
-	.capture = {
-		.stream_name = "Probe Capture",
-		.channels_min = SST_MONO,
-		.channels_max = SST_STEREO,
-		.rates = SNDRV_PCM_RATE_8000 |
-				SNDRV_PCM_RATE_16000 | SNDRV_PCM_RATE_48000,
-		.formats = SNDRV_PCM_FMTBIT_S16_LE | SNDRV_PCM_FMTBIT_S24_LE |
-			   SNDRV_PCM_FMTBIT_S32_LE,
 	},
 },
 {
@@ -783,17 +622,6 @@ static struct snd_soc_dai_driver sst_platform_dai[] = {
 		.stream_name = "VOIP Capture",
 		.channels_min = SST_MONO,
 		.channels_max = SST_STEREO,
-		.rates = SNDRV_PCM_RATE_8000 | SNDRV_PCM_RATE_16000,
-		.formats = SNDRV_PCM_FMTBIT_S16_LE,
-	},
-},
-{
-	.name = SST_LOOPBACK_DAI,
-	.ops = &sst_loopback_dai_ops,
-	.capture = {
-		.stream_name = "Loopback Capture",
-		.channels_min = SST_MONO,
-		.channels_max = SST_MONO,
 		.rates = SNDRV_PCM_RATE_8000 | SNDRV_PCM_RATE_16000,
 		.formats = SNDRV_PCM_FMTBIT_S16_LE,
 	},
