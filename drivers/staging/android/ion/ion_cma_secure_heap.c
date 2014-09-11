@@ -87,6 +87,7 @@ struct ion_cma_secure_heap {
 	struct shrinker shrinker;
 	atomic_t total_allocated;
 	atomic_t total_pool_size;
+	atomic_t total_leaked;
 	unsigned long heap_size;
 	unsigned long default_prefetch_size;
 };
@@ -557,14 +558,20 @@ static void ion_secure_cma_free(struct ion_buffer *buffer)
 	struct ion_cma_secure_heap *sheap =
 		container_of(buffer->heap, struct ion_cma_secure_heap, heap);
 	struct ion_secure_cma_buffer_info *info = buffer->priv_virt;
+	int ret = 0;
 
 	dev_dbg(sheap->dev, "Release buffer %p\n", buffer);
 	if (msm_secure_v2_is_supported())
-		msm_ion_unsecure_table(info->table);
+		ret = msm_ion_unsecure_table(info->table);
 	atomic_sub(buffer->size, &sheap->total_allocated);
 	BUG_ON(atomic_read(&sheap->total_allocated) < 0);
 	/* release memory */
-	ion_secure_cma_free_from_pool(sheap, info->phys, buffer->size);
+	if (!ret) {
+		ion_secure_cma_free_from_pool(sheap, info->phys, buffer->size);
+	} else {
+		WARN(1, "Unsecure failed, can't free the memory. Leaking it!");
+		atomic_add(buffer->size, &sheap->total_leaked);
+	}
 	/* release sg table */
 	sg_free_table(info->table);
 	kfree(info->table);
@@ -655,6 +662,9 @@ static int ion_secure_cma_print_debug(struct ion_heap *heap, struct seq_file *s,
 				atomic_read(&sheap->total_allocated));
 	seq_printf(s, "Total pool size: 0x%x\n",
 				atomic_read(&sheap->total_pool_size));
+	seq_printf(s, "Total memory leaked due to unlock failures: 0x%x\n",
+				atomic_read(&sheap->total_leaked));
+
 	return 0;
 }
 
