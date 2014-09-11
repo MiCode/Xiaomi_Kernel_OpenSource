@@ -675,6 +675,21 @@ config SWP_EMULATE
 
 	  If unsure, say Y.
 
+config FORCE_INSTRUCTION_ALIGNMENT
+	bool "Force instructions address alignment"
+	depends on CPU_V7 && ALIGNMENT_TRAP
+	help
+	  Branching to an address in ARM state which is not word aligned,
+	  where this is defined to be UNPREDICTABLE, can cause one of the
+	  following two behaviours: 1. The unaligned location is forced to
+	  be aligned. 2. Using the unaligned address generates a Prefetch
+	  Abort on the first instruction using the unaligned PC value.
+
+	  To be consistant for the user space binaries, the unaligned location
+	  is forced aligned with this config.
+
+	  If unsure, say Y.
+
 config CPU_BIG_ENDIAN
 	bool "Build big-endian kernel"
 	depends on ARCH_SUPPORTS_BIG_ENDIAN
