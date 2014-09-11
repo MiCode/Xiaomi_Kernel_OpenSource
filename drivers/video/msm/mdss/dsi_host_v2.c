@@ -38,7 +38,6 @@
 #define DSI_MAX_BYTES_TO_READ 16
 
 struct dsi_host_v2_private {
-	int irq_no;
 	unsigned char *dsi_base;
 	size_t dsi_reg_size;
 	struct device dis_dev;
@@ -168,7 +167,7 @@ static void msm_dsi_set_irq(struct mdss_dsi_ctrl_pdata *ctrl, u32 mask)
 		return;
 	}
 	if (ctrl->dsi_irq_mask == 0) {
-		enable_irq(dsi_host_private->irq_no);
+		ctrl->mdss_util->enable_irq(ctrl->dsi_hw);
 		pr_debug("%s: IRQ Enable, mask=%x term=%x\n", __func__,
 			(int)ctrl->dsi_irq_mask, (int)mask);
 	}
@@ -189,7 +188,7 @@ static void msm_dsi_clear_irq(struct mdss_dsi_ctrl_pdata *ctrl, u32 mask)
 	}
 	ctrl->dsi_irq_mask &= ~mask;
 	if (ctrl->dsi_irq_mask == 0) {
-		disable_irq(dsi_host_private->irq_no);
+		ctrl->mdss_util->disable_irq(ctrl->dsi_hw);
 		pr_debug("%s: IRQ Disable, mask=%x term=%x\n", __func__,
 			(int)ctrl->dsi_irq_mask, (int)mask);
 	}
@@ -243,6 +242,7 @@ int msm_dsi_irq_init(struct device *dev, int irq_no,
 {
 	int ret;
 	u32 isr;
+	struct mdss_hw *dsi_hw;
 
 	msm_dsi_ahb_ctrl(1);
 	isr = MIPI_INP(dsi_host_private->dsi_base + DSI_INT_CTRL);
@@ -256,8 +256,30 @@ int msm_dsi_irq_init(struct device *dev, int irq_no,
 		pr_err("msm_dsi_irq_init request_irq() failed!\n");
 		return ret;
 	}
-	dsi_host_private->irq_no = irq_no;
-	disable_irq(irq_no);
+
+	dsi_hw = kzalloc(sizeof(struct mdss_hw), GFP_KERNEL);
+	if (!dsi_hw) {
+		pr_err("no mem to save hw info: kzalloc fail\n");
+		return -ENOMEM;
+	}
+	ctrl->dsi_hw = dsi_hw;
+
+	dsi_hw->irq_info = kzalloc(sizeof(struct irq_info), GFP_KERNEL);
+	if (!dsi_hw->irq_info) {
+		kfree(dsi_hw);
+		pr_err("no mem to save irq info: kzalloc fail\n");
+		return -ENOMEM;
+	}
+
+	dsi_hw->hw_ndx = MDSS_HW_DSI0;
+	dsi_hw->irq_info->irq = irq_no;
+	dsi_hw->irq_info->irq_mask = 0;
+	dsi_hw->irq_info->irq_ena = false;
+	dsi_hw->irq_info->irq_buzy = false;
+
+	ctrl->mdss_util->register_irq(ctrl->dsi_hw);
+	ctrl->mdss_util->disable_irq(ctrl->dsi_hw);
+
 	return 0;
 }
 
@@ -1630,6 +1652,12 @@ static int msm_dsi_probe(struct platform_device *pdev)
 		platform_set_drvdata(pdev, ctrl_pdata);
 	}
 
+	ctrl_pdata->mdss_util = mdss_get_util_intf();
+	if (mdp3_res->mdss_util == NULL) {
+		pr_err("Failed to get mdss utility functions\n");
+		return -ENODEV;
+	}
+
 	mdss_dsi_mres = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	if (!mdss_dsi_mres) {
 		pr_err("%s:%d unable to get the MDSS reg resources",
@@ -1723,7 +1751,7 @@ static int msm_dsi_probe(struct platform_device *pdev)
 	if (rc) {
 		dev_err(&pdev->dev, "%s: failed to init irq, rc=%d\n",
 			__func__, rc);
-		goto error_device_register;
+		goto error_irq_init;
 	}
 
 	rc = dsi_panel_device_register_v2(pdev, ctrl_pdata);
@@ -1734,6 +1762,9 @@ static int msm_dsi_probe(struct platform_device *pdev)
 	pr_debug("%s success\n", __func__);
 	return 0;
 error_device_register:
+	kfree(ctrl_pdata->dsi_hw->irq_info);
+	kfree(ctrl_pdata->dsi_hw);
+error_irq_init:
 	for (i = DSI_MAX_PM - 1; i >= 0; i--)
 		msm_dsi_io_deinit(pdev, &(ctrl_pdata->power_data[i]));
 error_io_init:
