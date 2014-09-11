@@ -126,6 +126,8 @@ enum hal_property {
 	HAL_PARAM_FRAME_SIZE,
 	HAL_CONFIG_REALTIME,
 	HAL_PARAM_BUFFER_COUNT_ACTUAL,
+	HAL_PARAM_BUFFER_SIZE_ACTUAL,
+	HAL_PARAM_BUFFER_DISPLAY_HOLD_COUNT_ACTUAL,
 	HAL_PARAM_NAL_STREAM_FORMAT_SELECT,
 	HAL_PARAM_VDEC_OUTPUT_ORDER,
 	HAL_PARAM_VDEC_PICTURE_TYPE_DECODE,
@@ -237,6 +239,11 @@ enum hal_core_capabilities {
 	HAL_VIDEO_ENCODER_DEINTERLACE_CAPABILITY = 0x00000004,
 	HAL_VIDEO_DECODER_MULTI_STREAM_CAPABILITY = 0x00000008,
 	HAL_VIDEO_UNUSED_CAPABILITY      = 0x10000000,
+};
+
+enum hal_default_properties {
+	HAL_VIDEO_DYNAMIC_BUF_MODE = 0x00000001,
+	HAL_VIDEO_CONTINUE_DATA_TRANSFER = 0x00000002,
 };
 
 enum hal_video_codec {
@@ -565,6 +572,16 @@ struct hal_enable {
 struct hal_buffer_count_actual {
 	enum hal_buffer buffer_type;
 	u32 buffer_count_actual;
+};
+
+struct hal_buffer_size_actual {
+	enum hal_buffer buffer_type;
+	u32 buffer_size;
+};
+
+struct hal_buffer_display_hold_count_actual {
+	enum hal_buffer buffer_type;
+	u32 hold_count;
 };
 
 enum hal_nal_stream_format {
@@ -1356,6 +1373,7 @@ struct hfi_device {
 	int (*power_enable)(void *dev);
 	int (*suspend)(void *dev);
 	unsigned long (*get_core_clock_rate)(void *dev);
+	enum hal_default_properties (*get_default_properties)(void *dev);
 };
 
 typedef void (*hfi_cmd_response_callback) (enum command_response cmd,
