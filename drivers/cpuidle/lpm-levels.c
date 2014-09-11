@@ -42,7 +42,7 @@
 #include <asm/arch_timer.h>
 #include <asm/cacheflush.h>
 #include "lpm-levels.h"
-
+#include <trace/events/power.h>
 #define CREATE_TRACE_POINTS
 #include <trace/events/trace_msm_low_power.h>
 
@@ -656,6 +656,13 @@ static int lpm_cpuidle_enter(struct cpuidle_device *dev,
 		return -EPERM;
 	}
 
+	trace_cpu_idle_rcuidle(idx, dev->cpu);
+
+	if (need_resched()) {
+		dev->last_residency = 0;
+		goto exit;
+	}
+
 	pwr_params = &cluster->cpu->levels[idx].pwr;
 	sched_set_cpu_cstate(smp_processor_id(), idx,
 		pwr_params->energy_overhead, pwr_params->latency_us);
@@ -677,7 +684,9 @@ static int lpm_cpuidle_enter(struct cpuidle_device *dev,
 	do_div(time, 1000);
 	dev->last_residency = (int)time;
 
+exit:
 	local_irq_enable();
+	trace_cpu_idle_rcuidle(PWR_EVENT_EXIT, dev->cpu);
 	return idx;
 }
 
