@@ -213,6 +213,7 @@ struct msm8x16_wcd_priv {
 	struct snd_soc_codec *codec;
 	u16 pmic_rev;
 	u16 codec_version;
+	u32 boost_voltage;
 	u32 adc_count;
 	u32 rx_bias_count;
 	s32 dmic_1_2_clk_cnt;
