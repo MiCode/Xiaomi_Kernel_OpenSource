@@ -37,6 +37,11 @@ enum wcd_mbhc_btn_det_mem {
 	WCD_MBHC_BTN_DET_V_BTN_HIGH
 };
 
+enum wcd_mbhc_event_state {
+	WCD_MBHC_EVENT_PA_HPHL,
+	WCD_MBHC_EVENT_PA_HPHR,
+};
+
 struct wcd_mbhc_btn_detect_cfg {
 	u8 num_btn;
 	s16 _v_btn_low[WCD_MBHC_DEF_BUTTONS];
@@ -82,7 +87,6 @@ struct wcd_mbhc {
 
 	wait_queue_head_t wait_btn_press;
 	bool is_btn_press;
-	bool is_hs_inserted;
 	u8 current_plug;
 	bool in_swch_irq_handler;
 	bool hphl_swh; /*track HPHL switch NC / NO */
@@ -98,6 +102,7 @@ struct wcd_mbhc {
 
 	/* track PA/DAC state to sync with userspace */
 	unsigned long hph_pa_dac_state;
+	unsigned long event_state;
 	unsigned long jiffies_atreport;
 
 	/* impedance of hphl and hphr */
