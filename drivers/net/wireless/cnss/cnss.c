@@ -45,6 +45,7 @@
 #include <soc/qcom/subsystem_restart.h>
 #include <soc/qcom/subsystem_notif.h>
 #include <soc/qcom/ramdump.h>
+#include <soc/qcom/memory_dump.h>
 #include <net/cnss.h>
 
 #define subsys_to_drv(d) container_of(d, struct cnss_data, subsys_desc)
@@ -55,6 +56,10 @@
 #define WLAN_EN_LOW		0
 #define PCIE_LINK_UP		1
 #define PCIE_LINK_DOWN		0
+#define CNSS_DUMP_FORMAT_VER	0x11
+#define CNSS_DUMP_MAGIC_VER_V2	0x42445953
+#define CNSS_DUMP_NAME		"CNSS_WLAN"
+
 
 #define QCA6174_VENDOR_ID	(0x168C)
 #define QCA6174_DEVICE_ID	(0x003E)
@@ -200,7 +205,12 @@ static struct cnss_data {
 	struct platform_device *pldev;
 	struct subsys_device *subsys;
 	struct subsys_desc    subsysdesc;
+	bool ramdump_dynamic;
 	struct ramdump_device *ramdump_dev;
+	unsigned long ramdump_size;
+	void *ramdump_addr;
+	phys_addr_t ramdump_phys;
+	struct msm_dump_data dump_data;
 	u16 unsafe_ch_count;
 	u16 unsafe_ch_list[CNSS_MAX_CH_NUM];
 	struct cnss_wlan_driver *driver;
@@ -1762,22 +1772,26 @@ EXPORT_SYMBOL(cnss_init_delayed_work);
 
 int cnss_get_ramdump_mem(unsigned long *address, unsigned long *size)
 {
-	struct resource *res;
-
 	if (!penv || !penv->pldev)
 		return -ENODEV;
 
-	res = platform_get_resource_byname(penv->pldev,
-			IORESOURCE_MEM, "ramdump");
-	if (!res)
-		return -EINVAL;
-
-	*address = res->start;
-	*size = resource_size(res);
+	*address = penv->ramdump_phys;
+	*size = penv->ramdump_size;
 
 	return 0;
 }
 EXPORT_SYMBOL(cnss_get_ramdump_mem);
+
+void *cnss_get_virt_ramdump_mem(unsigned long *size)
+{
+	if (!penv || !penv->pldev)
+		return NULL;
+
+	*size = penv->ramdump_size;
+
+	return penv->ramdump_addr;
+}
+EXPORT_SYMBOL(cnss_get_virt_ramdump_mem);
 
 void cnss_device_crashed(void)
 {
@@ -1961,24 +1975,21 @@ err_wlan_vreg_on:
 static int cnss_ramdump(int enable, const struct subsys_desc *subsys)
 {
 	struct ramdump_segment segment;
-	unsigned long address = 0;
-	unsigned long size = 0;
-	int ret = 0;
 
 	if (!penv)
 		return -ENODEV;
 
+	if (!penv->ramdump_size)
+		return -ENOENT;
+
 	if (!enable)
-		return ret;
+		return 0;
 
-	if (cnss_get_ramdump_mem(&address, &size))
-		return -EINVAL;
+	memset(&segment, 0, sizeof(segment));
+	segment.v_address = penv->ramdump_addr;
+	segment.size = penv->ramdump_size;
 
-	segment.address = address;
-	segment.size = size;
-	ret = do_ramdump(penv->ramdump_dev, &segment, 1);
-
-	return ret;
+	return do_ramdump(penv->ramdump_dev, &segment, 1);
 }
 
 static void cnss_crash_shutdown(const struct subsys_desc *subsys)
@@ -1991,8 +2002,15 @@ static void cnss_crash_shutdown(const struct subsys_desc *subsys)
 
 	wdrv = penv->driver;
 	pdev = penv->pdev;
+
+	penv->dump_data.version = CNSS_DUMP_FORMAT_VER;
+	strlcpy(penv->dump_data.name, CNSS_DUMP_NAME,
+			sizeof(penv->dump_data.name));
+
 	if (pdev && wdrv && wdrv->crash_shutdown)
 		wdrv->crash_shutdown(pdev);
+
+	penv->dump_data.magic = CNSS_DUMP_MAGIC_VER_V2;
 }
 
 void cnss_device_self_recovery(void)
@@ -2060,6 +2078,9 @@ static int cnss_probe(struct platform_device *pdev)
 	const char *client_desc;
 	struct device *dev = &pdev->dev;
 	u32 rc_num;
+	struct msm_dump_entry dump_entry;
+	struct resource *res;
+	u32 ramdump_size = 0;
 
 	if (penv)
 		return -ENODEV;
@@ -2135,6 +2156,59 @@ static int cnss_probe(struct platform_device *pdev)
 		goto err_subsys_reg;
 	}
 
+	if (of_property_read_u32(dev->of_node, "qcom,wlan-ramdump-dynamic",
+				&ramdump_size) == 0) {
+		penv->ramdump_addr = dma_alloc_coherent(&pdev->dev,
+				ramdump_size, &penv->ramdump_phys, GFP_KERNEL);
+
+		if (penv->ramdump_addr)
+			penv->ramdump_size = ramdump_size;
+		penv->ramdump_dynamic = true;
+	} else {
+		res = platform_get_resource_byname(penv->pldev,
+				IORESOURCE_MEM, "ramdump");
+		if (res) {
+			penv->ramdump_phys = res->start;
+			ramdump_size = resource_size(res);
+			penv->ramdump_addr = ioremap(penv->ramdump_phys,
+					ramdump_size);
+
+			if (penv->ramdump_addr)
+				penv->ramdump_size = ramdump_size;
+
+			penv->ramdump_dynamic = false;
+		}
+	}
+
+	pr_debug("%s: ramdump addr: %p, phys: %pa\n", __func__,
+			penv->ramdump_addr, &penv->ramdump_phys);
+
+	if (penv->ramdump_size == 0) {
+		pr_info("%s: CNSS ramdump will not be collected", __func__);
+		goto skip_ramdump;
+	}
+
+	penv->dump_data.addr = penv->ramdump_phys;
+	penv->dump_data.len = penv->ramdump_size;
+	dump_entry.id = MSM_DUMP_DATA_CNSS_WLAN;
+	dump_entry.addr = virt_to_phys(&penv->dump_data);
+
+	ret = msm_dump_data_register(MSM_DUMP_TABLE_APPS, &dump_entry);
+	if (ret) {
+		pr_err("%s: Dump table setup failed: %d\n", __func__, ret);
+		goto err_ramdump_create;
+	}
+
+	penv->subsys_handle = subsystem_get(penv->subsysdesc.name);
+
+	penv->ramdump_dev = create_ramdump_device(penv->subsysdesc.name,
+				penv->subsysdesc.dev);
+	if (!penv->ramdump_dev) {
+		ret = -ENOMEM;
+		goto err_ramdump_create;
+	}
+
+skip_ramdump:
 	penv->modem_current_status = 0;
 
 	if (penv->notify_modem_status) {
@@ -2147,15 +2221,6 @@ static int cnss_probe(struct platform_device *pdev)
 			pr_err("%s: Register notifier Failed\n", __func__);
 			goto err_notif_modem;
 		}
-	}
-
-	penv->subsys_handle = subsystem_get(penv->subsysdesc.name);
-
-	penv->ramdump_dev = create_ramdump_device(penv->subsysdesc.name,
-				penv->subsysdesc.dev);
-	if (!penv->ramdump_dev) {
-		ret = -ENOMEM;
-		goto err_ramdump_create;
 	}
 
 	ret = pci_register_driver(&cnss_wlan_pci_driver);
@@ -2204,12 +2269,22 @@ err_pci_reg:
 	destroy_ramdump_device(penv->ramdump_dev);
 
 err_ramdump_create:
-	subsystem_put(penv->subsys_handle);
+	if (penv->subsys_handle)
+		subsystem_put(penv->subsys_handle);
 	if (penv->notify_modem_status)
 		subsys_notif_unregister_notifier
 			(penv->modem_notify_handler, &mnb);
 
 err_notif_modem:
+	if (penv->ramdump_addr) {
+		if (penv->ramdump_dynamic) {
+			dma_free_coherent(&pdev->dev, penv->ramdump_size,
+					penv->ramdump_addr, penv->ramdump_phys);
+		} else {
+			iounmap(penv->ramdump_addr);
+		}
+	}
+
 	subsys_unregister(penv->subsys);
 
 err_subsys_reg:
@@ -2245,6 +2320,15 @@ static int cnss_remove(struct platform_device *pdev)
 
 	if (penv->bus_scale_table)
 		msm_bus_cl_clear_pdata(penv->bus_scale_table);
+
+	if (penv->ramdump_addr) {
+		if (penv->ramdump_dynamic) {
+			dma_free_coherent(&pdev->dev, penv->ramdump_size,
+					penv->ramdump_addr, penv->ramdump_phys);
+		} else {
+			iounmap(penv->ramdump_addr);
+		}
+	}
 
 	cnss_wlan_gpio_set(gpio_info, WLAN_EN_LOW);
 	if (cnss_wlan_vreg_set(vreg_info, VREG_OFF))
