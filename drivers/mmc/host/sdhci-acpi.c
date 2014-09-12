@@ -69,6 +69,7 @@ struct sdhci_acpi_slot {
 	mmc_pm_flag_t	pm_caps;
 	unsigned int	flags;
 	int (*probe_slot) (struct platform_device *);
+	int (*remove_slot)(struct platform_device *);
 };
 
 struct sdhci_acpi_host {
@@ -139,31 +140,50 @@ static int sdhci_acpi_probe_slot(struct platform_device *pdev)
 
 	return 0;
 }
+static int sdhci_acpi_remove_slot(struct platform_device *pdev)
+{
+	struct sdhci_acpi_host *c = platform_get_drvdata(pdev);
+	struct sdhci_host *host;
+
+	if (!c || !c->host)
+		return 0;
+
+	host = c->host;
+
+	if (host->mmc && host->mmc->qos)
+		kfree(host->mmc->qos);
+
+	return 0;
+}
 
 static const struct sdhci_acpi_slot sdhci_acpi_slot_int_emmc = {
 	.chip    = &sdhci_acpi_chip_int,
-	.caps    = MMC_CAP_8_BIT_DATA | MMC_CAP_NONREMOVABLE | MMC_CAP_HW_RESET,
+	.caps    = MMC_CAP_8_BIT_DATA | MMC_CAP_NONREMOVABLE | MMC_CAP_HW_RESET
+		| MMC_CAP_1_8V_DDR,
 	.caps2   = MMC_CAP2_HC_ERASE_SZ | MMC_CAP2_POLL_R1B_BUSY |
-		MMC_CAP2_CACHE_CTRL,
+		MMC_CAP2_CACHE_CTRL | MMC_CAP2_HS200_1_8V_SDR,
 	.flags   = SDHCI_ACPI_RUNTIME_PM,
-	.quirks2 = SDHCI_QUIRK2_TUNING_POLL | SDHCI_QUIRK2_BROKEN_HS200,
+	.quirks2 = SDHCI_QUIRK2_TUNING_POLL | SDHCI_QUIRK2_PRESET_VALUE_BROKEN,
 	.probe_slot = sdhci_acpi_probe_slot,
+	.remove_slot = sdhci_acpi_remove_slot,
 };
 
 static const struct sdhci_acpi_slot sdhci_acpi_slot_int_sdio = {
 	.quirks2 = SDHCI_QUIRK2_HOST_OFF_CARD_ON |
-		   SDHCI_QUIRK2_TUNING_POLL,
+		   SDHCI_QUIRK2_PRESET_VALUE_BROKEN |
+		   SDHCI_QUIRK2_FAKE_VDD,
 	.caps    = MMC_CAP_NONREMOVABLE | MMC_CAP_POWER_OFF_CARD,
 	.flags   = SDHCI_ACPI_RUNTIME_PM,
 	.pm_caps = MMC_PM_KEEP_POWER,
 	.probe_slot = sdhci_acpi_probe_slot,
+	.remove_slot = sdhci_acpi_remove_slot,
 };
 
 static const struct sdhci_acpi_slot sdhci_acpi_slot_int_sd = {
 	.flags   = SDHCI_ACPI_SD_CD | SDHCI_ACPI_RUNTIME_PM,
-	.quirks2 = SDHCI_QUIRK2_CARD_ON_NEEDS_BUS_ON |
-		   SDHCI_QUIRK2_TUNING_POLL,
+	.quirks2 = SDHCI_QUIRK2_PRESET_VALUE_BROKEN,
 	.probe_slot = sdhci_acpi_probe_slot,
+	.remove_slot = sdhci_acpi_remove_slot,
 };
 
 struct sdhci_acpi_uid_slot {
@@ -364,7 +384,7 @@ static int sdhci_acpi_probe(struct platform_device *pdev)
 
 	err = sdhci_add_host(host);
 	if (err)
-		goto err_free;
+		goto remove_slot;
 
 	if (sdhci_acpi_flag(c, SDHCI_ACPI_SD_CD)) {
 		if (sdhci_acpi_add_own_cd(dev, host->mmc))
@@ -381,6 +401,9 @@ static int sdhci_acpi_probe(struct platform_device *pdev)
 
 	return 0;
 
+remove_slot:
+	if (c->slot && c->slot->remove_slot)
+		c->slot->remove_slot(pdev);
 err_free:
 	sdhci_free_host(c->host);
 	return err;
@@ -397,6 +420,9 @@ static int sdhci_acpi_remove(struct platform_device *pdev)
 		pm_runtime_disable(dev);
 		pm_runtime_put_noidle(dev);
 	}
+
+	if (c->slot && c->slot->remove_slot)
+		c->slot->remove_slot(pdev);
 
 	dead = (sdhci_readl(c->host, SDHCI_INT_STATUS) == ~0);
 	sdhci_remove_host(c->host, dead);

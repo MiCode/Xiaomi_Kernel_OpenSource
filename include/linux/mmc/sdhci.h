@@ -101,6 +101,7 @@ struct sdhci_host {
 /* Controller does not support HS200 */
 #define SDHCI_QUIRK2_BROKEN_HS200			(1<<6)
 #define SDHCI_QUIRK2_TUNING_POLL			(1<<7)
+#define SDHCI_QUIRK2_FAKE_VDD				(1<<8)
 
 	int irq;		/* Device IRQ */
 	void __iomem *ioaddr;	/* Mapped address */

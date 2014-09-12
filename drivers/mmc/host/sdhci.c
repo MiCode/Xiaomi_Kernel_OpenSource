@@ -3158,6 +3158,10 @@ int sdhci_add_host(struct sdhci_host *host)
 		}
 	}
 
+	if (host->quirks2 & SDHCI_QUIRK2_FAKE_VDD)
+		caps[0] |= SDHCI_CAN_VDD_330 | SDHCI_CAN_VDD_300 |
+			SDHCI_CAN_VDD_180;
+
 	if (caps[0] & SDHCI_CAN_VDD_330) {
 		ocr_avail |= MMC_VDD_32_33 | MMC_VDD_33_34;
 
