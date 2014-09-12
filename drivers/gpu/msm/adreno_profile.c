@@ -318,21 +318,6 @@ static bool _add_to_assignments_list(struct adreno_profile *profile,
 	return true;
 }
 
-static void check_close_profile(struct adreno_profile *profile)
-{
-	if (profile->log_buffer == NULL)
-		return;
-
-	if (!adreno_profile_enabled(profile) && shared_buf_empty(profile)) {
-		if (profile->log_head == profile->log_tail) {
-			vfree(profile->log_buffer);
-			profile->log_buffer = NULL;
-			profile->log_head = NULL;
-			profile->log_tail = NULL;
-		}
-	}
-}
-
 static bool results_available(struct adreno_device *adreno_dev,
 		struct adreno_profile *profile, unsigned int *shared_buf_tail)
 {
@@ -507,9 +492,16 @@ static int profile_enable_set(void *data, u64 val)
 
 	mutex_lock(&device->mutex);
 
-	profile->enabled = val;
+	if (val && profile->log_buffer == NULL) {
+		/* allocate profile_log_buffer the first time enabled */
+		profile->log_buffer = vmalloc(ADRENO_PROFILE_LOG_BUF_SIZE);
+		if (profile->log_buffer == NULL)
+			return -ENOMEM;
+		profile->log_tail = profile->log_buffer;
+		profile->log_head = profile->log_buffer;
+	}
 
-	check_close_profile(profile);
+	profile->enabled = val;
 
 	mutex_unlock(&device->mutex);
 
@@ -951,7 +943,6 @@ static ssize_t profile_pipe_print(struct file *filep, char __user *ubuf,
 		}
 	}
 
-	check_close_profile(profile);
 	mutex_unlock(&device->mutex);
 
 	return status;
@@ -1083,19 +1074,8 @@ int adreno_profile_process_results(struct adreno_device *adreno_dev)
 	struct adreno_profile *profile = &adreno_dev->profile;
 	unsigned int shared_buf_tail = profile->shared_tail;
 
-	if (!results_available(adreno_dev, profile, &shared_buf_tail)) {
-		check_close_profile(profile);
+	if (!results_available(adreno_dev, profile, &shared_buf_tail))
 		return 0;
-	}
-
-	/* allocate profile_log_buffer if needed */
-	if (profile->log_buffer == NULL) {
-		profile->log_buffer = vmalloc(ADRENO_PROFILE_LOG_BUF_SIZE);
-		if (profile->log_buffer == NULL)
-			return -ENOMEM;
-		profile->log_tail = profile->log_buffer;
-		profile->log_head = profile->log_buffer;
-	}
 
 	/*
 	 * transfer retired results to log_buffer
