@@ -6238,6 +6238,11 @@ enum punit_power_well {
 #define  WM_DBG_DISALLOW_MAXFIFO	(1<<1)
 #define  WM_DBG_DISALLOW_SPRITE		(1<<2)
 
+#define CHV_DPASSC		0x36
+
+/* Bit 6 of DPASSC indicates maxfifo enabling bit */
+#define CHV_PW_MAXFIFO_MASK		0x40
+
 /* pipe CSC */
 #define _PIPE_A_CSC_COEFF_RY_GY	0x49010
 #define _PIPE_A_CSC_COEFF_BY	0x49014

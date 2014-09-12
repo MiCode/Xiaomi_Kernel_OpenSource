@@ -131,20 +131,21 @@ static void intel_update_primary_plane(struct intel_crtc *crtc)
 	struct drm_i915_private *dev_priv = crtc->base.dev->dev_private;
 	int reg = DSPCNTR(crtc->plane);
 	int plane = crtc->plane;
-	bool flagret = true;
 	int pipe = crtc->pipe;
 
 	if (crtc->primary_enabled) {
+		dev_priv->plane_stat |=
+				VLV_UPDATEPLANE_STAT_PRIM_PER_PIPE(pipe);
+		intel_update_maxfifo(dev_priv);
 		I915_WRITE(reg, I915_READ(reg) | DISPLAY_PLANE_ENABLE);
-			flagret = true;
 	}
 	else {
 		I915_WRITE(reg, I915_READ(reg) & ~DISPLAY_PLANE_ENABLE);
 		I915_WRITE(DSPSURF(plane), I915_READ(DSPSURF(plane)));
-		flagret = false;
+		dev_priv->plane_stat &=
+				~VLV_UPDATEPLANE_STAT_PRIM_PER_PIPE(pipe);
+		intel_update_maxfifo(dev_priv);
 	}
-	i915_update_plane_stat(dev_priv, pipe,
-		plane, flagret, DISPLAY_PLANE);
 }
 
 void
@@ -552,8 +553,16 @@ vlv_update_plane(struct drm_plane *dplane, struct drm_crtc *crtc,
 	else
 		sprctl &= ~DISPPLANE_180_ROTATION_ENABLE;
 
+	dev_priv->plane_stat |= VLV_UPDATEPLANE_STAT_SP_PER_PIPE(pipe, plane);
+
+	/*
+	 * since there is a possibility of having multiple
+	 * planes enabled, update the maxfifo
+	 */
+	intel_update_maxfifo(dev_priv);
+
 	I915_WRITE(SPCNTR(pipe, plane), sprctl);
-	i915_update_plane_stat(dev_priv, pipe, plane, true, SPRITE_PLANE);
+
 	I915_MODIFY_DISPBASE(SPSURF(pipe, plane),
 		i915_gem_obj_ggtt_offset(obj) + sprsurf_offset);
 
@@ -594,9 +603,12 @@ vlv_disable_plane(struct drm_plane *dplane, struct drm_crtc *crtc)
 	atomic_update = intel_pipe_update_start(intel_crtc, &start_vbl_count);
 	intel_update_primary_plane(intel_crtc);
 
+	dev_priv->plane_stat &=
+			~VLV_UPDATEPLANE_STAT_SP_PER_PIPE(pipe, plane);
+
 	I915_WRITE(SPCNTR(pipe, plane), I915_READ(SPCNTR(pipe, plane)) &
 		   ~SP_ENABLE);
-	i915_update_plane_stat(dev_priv, pipe, plane, false, SPRITE_PLANE);
+
 	/* Activate double buffered register update */
 	I915_MODIFY_DISPBASE(SPSURF(pipe, plane), 0);
 
@@ -608,6 +620,8 @@ vlv_disable_plane(struct drm_plane *dplane, struct drm_crtc *crtc)
 	intel_update_sprite_watermarks(dplane, crtc, 0, 0, false, false);
 	intel_plane->last_plane_state = INTEL_PLANE_STATE_DISABLED;
 	intel_plane->last_pixel_size = 0;
+
+	intel_update_maxfifo(dev_priv);
 }
 
 void intel_prepare_sprite_page_flip(struct drm_device *dev, int plane)

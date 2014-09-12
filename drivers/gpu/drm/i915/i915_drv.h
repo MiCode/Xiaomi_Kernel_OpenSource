@@ -1426,20 +1426,21 @@ struct i915_dpst_registers {
 	uint32_t blm_hist_bin_count_mask;
 };
 
-struct i915_plane_stat {
-	bool primary;
-	bool secondary;
-	bool sprite_a;
-	bool sprite_b;
-	bool sprite_c;
-	bool sprite_d;
-};
 #define DL_PRIMARY_MASK 0x000000ff
 #define DL_SPRITEA_MASK 0x0000ff00
 #define DL_SPRITEB_MASK 0x00ff0000
 #define BPP_CHANGED_PRIMARY (1 << 24)
 #define BPP_CHANGED_SPRITEA (1 << 25)
 #define BPP_CHANGED_SPRITEB (1 << 26)
+#define VLV_PLANES_PER_PIPE 4
+#define VLV_UPDATEPLANE_STAT_PRIM_PER_PIPE(pipe) \
+	(1 << (VLV_PLANES_PER_PIPE * (pipe)))
+#define VLV_UPDATEPLANE_STAT_SP_PER_PIPE(pipe, plane) \
+	(1 << ((1 + plane) + (VLV_PLANES_PER_PIPE * (pipe))))
+#define PIPE_C_MASK \
+		(VLV_UPDATEPLANE_STAT_PRIM_PER_PIPE(2) \
+		| VLV_UPDATEPLANE_STAT_SP_PER_PIPE(2, 0) \
+		| VLV_UPDATEPLANE_STAT_SP_PER_PIPE(2, 1))
 
 struct drm_i915_private {
 	struct drm_device *dev;
@@ -1593,8 +1594,10 @@ struct drm_i915_private {
 	bool csc_enabled;
 	bool gamma_enabled;
 	bool is_resuming;
-	struct i915_plane_stat plane_stat;
 	uint32_t pf_change_status[I915_MAX_PIPES];
+
+	/* Indicates currently enabled planes */
+	unsigned int plane_stat;
 
 	/* PCH chipset type */
 	enum intel_pch pch_type;

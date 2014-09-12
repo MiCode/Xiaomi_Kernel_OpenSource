@@ -402,59 +402,6 @@ bool intel_pipe_has_type(struct drm_crtc *crtc, int type)
 	return false;
 }
 
-void i915_update_plane_stat(struct drm_i915_private *dev_priv, int pipe,
-		int plane, bool enable, int planes)
-{
-	switch (pipe) {
-	case 0:
-		if (planes == DISPLAY_PLANE) {
-			if (enable)
-				dev_priv->plane_stat.primary = true;
-			else
-				dev_priv->plane_stat.primary = false;
-		} else {
-			switch (plane) {
-			case 0:
-				if (enable)
-					dev_priv->plane_stat.sprite_a = true;
-				else
-					dev_priv->plane_stat.sprite_a = false;
-				break;
-			case 1:
-				if (enable)
-					dev_priv->plane_stat.sprite_b = true;
-				else
-					dev_priv->plane_stat.sprite_b = false;
-				break;
-			}
-		}
-		break;
-	case 1:
-		if (planes == DISPLAY_PLANE) {
-			if (enable)
-				dev_priv->plane_stat.secondary = true;
-			else
-				dev_priv->plane_stat.secondary = false;
-		} else {
-			switch (plane) {
-			case 0:
-				if (enable)
-					dev_priv->plane_stat.sprite_c = true;
-				else
-					dev_priv->plane_stat.sprite_c = false;
-				break;
-			case 1:
-				if (enable)
-					dev_priv->plane_stat.sprite_d = true;
-				else
-					dev_priv->plane_stat.sprite_d = false;
-				break;
-			}
-		}
-		break;
-	}
-}
-
 static const intel_limit_t *intel_ironlake_limit(struct drm_crtc *crtc,
 						int refclk)
 {
@@ -1426,29 +1373,6 @@ static void assert_plane(struct drm_i915_private *dev_priv,
 	     plane_name(plane), state_string(state), state_string(cur_state));
 }
 
-bool is_maxfifo_needed(struct drm_i915_private *dev_priv)
-{
-	int cnt = 0;
-
-	if (dev_priv->plane_stat.primary)
-		cnt++;
-	if (dev_priv->plane_stat.secondary)
-		cnt++;
-	if (dev_priv->plane_stat.sprite_a)
-		cnt++;
-	if (dev_priv->plane_stat.sprite_b)
-		cnt++;
-	if (dev_priv->plane_stat.sprite_c)
-		cnt++;
-	if (dev_priv->plane_stat.sprite_d)
-		cnt++;
-
-	if (cnt == 1)
-		return true;
-	else
-		return false;
-}
-
 #define assert_plane_enabled(d, p) assert_plane(d, p, true)
 #define assert_plane_disabled(d, p) assert_plane(d, p, false)
 
@@ -2199,12 +2123,16 @@ static void intel_enable_pipe(struct intel_crtc *crtc)
 	/* disable the sprite planes */
 	if (IS_VALLEYVIEW(dev_priv->dev)) {
 		int i;
+		dev_priv->plane_stat &=
+				~(VLV_UPDATEPLANE_STAT_SP_PER_PIPE(pipe, 0)
+				|VLV_UPDATEPLANE_STAT_SP_PER_PIPE(pipe, 1));
 		for (i = 0; i < VLV_NUM_SPRITES; i++) {
 			val = I915_READ(SPCNTR(pipe, i));
 			if ((val & SP_ENABLE) == 0)
 				break;
 
 			I915_WRITE(SPCNTR(pipe, i), (val & ~SP_ENABLE));
+			intel_update_maxfifo(dev_priv);
 			/* Activate double buffered register update */
 			I915_MODIFY_DISPBASE(SPSURF(pipe, i), 0);
 			POSTING_READ(SPSURF(pipe, i));
@@ -2292,12 +2220,21 @@ static void intel_enable_primary_hw_plane(struct drm_i915_private *dev_priv,
 
 	intel_crtc->primary_enabled = true;
 
+	dev_priv->plane_stat |= VLV_UPDATEPLANE_STAT_PRIM_PER_PIPE(pipe);
+
+	/*
+	 * Since we are enabling a plane, we
+	 * need to make sure that we do not keep the
+	 * maxfifo enabled, if we already have one plane
+	 * enabled
+	 */
+	intel_update_maxfifo(dev_priv);
+
 	reg = DSPCNTR(plane);
 	val = I915_READ(reg);
 	WARN_ON(val & DISPLAY_PLANE_ENABLE);
 
 	I915_WRITE(reg, val | DISPLAY_PLANE_ENABLE);
-	i915_update_plane_stat(dev_priv, pipe, plane, true, DISPLAY_PLANE);
 	intel_flush_primary_plane(dev_priv, plane);
 
 	/*
@@ -2330,12 +2267,22 @@ static void intel_disable_primary_hw_plane(struct drm_i915_private *dev_priv,
 
 	intel_crtc->primary_enabled = false;
 
+	/* update the flags for the planes enabled/disabled */
+	dev_priv->plane_stat &=
+			~VLV_UPDATEPLANE_STAT_PRIM_PER_PIPE(pipe);
+
 	reg = DSPCNTR(plane);
 	val = I915_READ(reg);
 	WARN_ON((val & DISPLAY_PLANE_ENABLE) == 0);
 
 	I915_WRITE(reg, val & ~DISPLAY_PLANE_ENABLE);
-	i915_update_plane_stat(dev_priv, pipe, plane, false, DISPLAY_PLANE);
+
+	/*
+	 * After disabling the plane, enbale maxfifo
+	 * if the number of planes enabled is only one
+	 */
+	intel_update_maxfifo(dev_priv);
+
 	intel_flush_primary_plane(dev_priv, plane);
 }
 
@@ -4295,9 +4242,11 @@ static void ironlake_pfit_enable(struct intel_crtc *crtc)
 static void intel_enable_planes(struct drm_crtc *crtc)
 {
 	struct drm_device *dev = crtc->dev;
+	struct drm_i915_private *dev_priv = dev->dev_private;
 	enum pipe pipe = to_intel_crtc(crtc)->pipe;
 	struct drm_plane *plane;
 	struct intel_plane *intel_plane;
+	unsigned val = 0;
 
 	drm_for_each_legacy_plane(plane, &dev->mode_config.plane_list) {
 		intel_plane = to_intel_plane(plane);

@@ -1624,6 +1624,38 @@ static void vlv_update_drain_latency(struct drm_device *dev)
 
 #define single_plane_enabled(mask) is_power_of_2(mask)
 
+void intel_update_maxfifo(struct drm_i915_private *dev_priv)
+{
+	unsigned int val = 0;
+	/*
+	 * Maxfifo is not supported for PIPEC single plane
+	 * Hence having a check while enabling maxfifo
+	 * No need of a check on pipec in disable path
+	 * as it is doens't get enabled
+	 */
+	if (IS_VALLEYVIEW(dev_priv->dev))
+		if (single_plane_enabled(dev_priv->plane_stat)
+			&& !(dev_priv->plane_stat & PIPE_C_MASK)
+			&& !dev_priv->maxfifo_enabled) {
+			I915_WRITE(FW_BLC_SELF_VLV, FW_CSPWRDWNEN);
+			if (IS_CHERRYVIEW(dev_priv->dev)) {
+				val = vlv_punit_read(dev_priv, CHV_DPASSC);
+				vlv_punit_write(dev_priv, CHV_DPASSC,
+						(val | CHV_PW_MAXFIFO_MASK));
+			}
+			dev_priv->maxfifo_enabled = true;
+		} else if (dev_priv->maxfifo_enabled &&
+				!single_plane_enabled(dev_priv->plane_stat)) {
+			I915_WRITE(FW_BLC_SELF_VLV, ~FW_CSPWRDWNEN);
+			if (IS_CHERRYVIEW(dev_priv->dev)) {
+				val = vlv_punit_read(dev_priv, CHV_DPASSC);
+				vlv_punit_write(dev_priv, CHV_DPASSC,
+					(val & ~(CHV_PW_MAXFIFO_MASK)));
+			}
+			dev_priv->maxfifo_enabled = false;
+		}
+}
+
 static void valleyview_update_wm(struct drm_crtc *crtc)
 {
 	struct drm_device *dev = crtc->dev;
@@ -1631,6 +1663,7 @@ static void valleyview_update_wm(struct drm_crtc *crtc)
 	int planea_wm, planeb_wm, cursora_wm, cursorb_wm;
 	unsigned int enabled = 0;
 	vlv_update_drain_latency(dev);
+	unsigned int val = 0;
 
 	if (g4x_compute_wm0(dev, PIPE_A,
 			    &valleyview_wm_info, latency_ns,
@@ -1643,19 +1676,6 @@ static void valleyview_update_wm(struct drm_crtc *crtc)
 			    &valleyview_cursor_wm_info, latency_ns,
 			    &planeb_wm, &cursorb_wm))
 		enabled |= 1 << PIPE_B;
-
-	/*
-	 * TODO: when in linear memory dont enable maxfifo. Need to check with
-	 * the hardware team on this. This solves the FADiag app flicker
-	 */
-	if (is_maxfifo_needed(dev_priv) & !dev_priv->maxfifo_enabled &
-				dev_priv->is_tiled) {
-		I915_WRITE(FW_BLC_SELF_VLV, FW_CSPWRDWNEN);
-		dev_priv->maxfifo_enabled = true;
-	} else if (dev_priv->maxfifo_enabled && !is_maxfifo_needed(dev_priv)) {
-		I915_WRITE(FW_BLC_SELF_VLV, ~FW_CSPWRDWNEN);
-		dev_priv->maxfifo_enabled = false;
-	}
 
 	I915_WRITE(DSPFW1,
 		   (DSPFW_SR_VAL << DSPFW_SR_SHIFT) |
@@ -3158,24 +3178,12 @@ static void valleyview_update_sprite_wm(struct drm_plane *plane,
 	int sprite_prec = 0, sprite_dl = 0;
 	int sprite_prec_mult = 0;
 	u32 mask, shift;
+	u32 val = 0;
 	struct vlv_MA_component_enabled enable;
 
 	enable.plane_enabled = false;
 	enable.cursor_enabled = false;
 	enable.sprite_enabled = enabled;
-
-	/*
-	 * TODO: when in linear memory dont enable maxfifo. Need to check with
-	 * the hardware team on this. This solves the FADiag app flicker
-	 */
-	if (is_maxfifo_needed(dev_priv) & !dev_priv->maxfifo_enabled &
-			dev_priv->is_tiled) {
-		I915_WRITE(FW_BLC_SELF_VLV, FW_CSPWRDWNEN);
-		dev_priv->maxfifo_enabled = true;
-	} else if (dev_priv->maxfifo_enabled && !is_maxfifo_needed(dev_priv)) {
-		I915_WRITE(FW_BLC_SELF_VLV, ~FW_CSPWRDWNEN);
-		dev_priv->maxfifo_enabled = false;
-	}
 
 	if (intel_plane->plane == 0) {
 		mask = 0x0000ff00;
