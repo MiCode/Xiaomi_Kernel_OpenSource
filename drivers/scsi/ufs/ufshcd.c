@@ -2856,8 +2856,8 @@ static int ufshcd_get_max_pwr_mode(struct ufs_hba *hba)
 	if (hba->max_pwr_info.is_valid)
 		return 0;
 
-	pwr_info->pwr_tx = FASTAUTO_MODE;
-	pwr_info->pwr_rx = FASTAUTO_MODE;
+	pwr_info->pwr_tx = FAST_MODE;
+	pwr_info->pwr_rx = FAST_MODE;
 	pwr_info->hs_rate = PA_HS_MODE_B;
 
 	/* Get the connected lane count */
@@ -2888,7 +2888,7 @@ static int ufshcd_get_max_pwr_mode(struct ufs_hba *hba)
 				__func__, pwr_info->gear_rx);
 			return -EINVAL;
 		}
-		pwr_info->pwr_rx = SLOWAUTO_MODE;
+		pwr_info->pwr_rx = SLOW_MODE;
 	}
 
 	ufshcd_dme_peer_get(hba, UIC_ARG_MIB(PA_MAXRXHSGEAR),
@@ -2901,11 +2901,79 @@ static int ufshcd_get_max_pwr_mode(struct ufs_hba *hba)
 				__func__, pwr_info->gear_tx);
 			return -EINVAL;
 		}
-		pwr_info->pwr_tx = SLOWAUTO_MODE;
+		pwr_info->pwr_tx = SLOW_MODE;
 	}
 
 	hba->max_pwr_info.is_valid = true;
 	return 0;
+}
+
+int ufshcd_change_power_mode(struct ufs_hba *hba,
+			     struct ufs_pa_layer_attr *pwr_mode)
+{
+	int ret;
+
+	/* if already configured to the requested pwr_mode */
+	if (pwr_mode->gear_rx == hba->pwr_info.gear_rx &&
+	    pwr_mode->gear_tx == hba->pwr_info.gear_tx &&
+	    pwr_mode->lane_rx == hba->pwr_info.lane_rx &&
+	    pwr_mode->lane_tx == hba->pwr_info.lane_tx &&
+	    pwr_mode->pwr_rx == hba->pwr_info.pwr_rx &&
+	    pwr_mode->pwr_tx == hba->pwr_info.pwr_tx &&
+	    pwr_mode->hs_rate == hba->pwr_info.hs_rate) {
+		dev_dbg(hba->dev, "%s: power already configured\n", __func__);
+		return 0;
+	}
+
+	/*
+	 * Configure attributes for power mode change with below.
+	 * - PA_RXGEAR, PA_ACTIVERXDATALANES, PA_RXTERMINATION,
+	 * - PA_TXGEAR, PA_ACTIVETXDATALANES, PA_TXTERMINATION,
+	 * - PA_HSSERIES
+	 */
+	ufshcd_dme_set(hba, UIC_ARG_MIB(PA_RXGEAR), pwr_mode->gear_rx);
+	ufshcd_dme_set(hba, UIC_ARG_MIB(PA_ACTIVERXDATALANES),
+			pwr_mode->lane_rx);
+	if (pwr_mode->pwr_rx == FASTAUTO_MODE ||
+			pwr_mode->pwr_rx == FAST_MODE)
+		ufshcd_dme_set(hba, UIC_ARG_MIB(PA_RXTERMINATION), TRUE);
+	else
+		ufshcd_dme_set(hba, UIC_ARG_MIB(PA_RXTERMINATION), FALSE);
+
+	ufshcd_dme_set(hba, UIC_ARG_MIB(PA_TXGEAR), pwr_mode->gear_tx);
+	ufshcd_dme_set(hba, UIC_ARG_MIB(PA_ACTIVETXDATALANES),
+			pwr_mode->lane_tx);
+	if (pwr_mode->pwr_tx == FASTAUTO_MODE ||
+			pwr_mode->pwr_tx == FAST_MODE)
+		ufshcd_dme_set(hba, UIC_ARG_MIB(PA_TXTERMINATION), TRUE);
+	else
+		ufshcd_dme_set(hba, UIC_ARG_MIB(PA_TXTERMINATION), FALSE);
+
+	if (pwr_mode->pwr_rx == FASTAUTO_MODE ||
+	    pwr_mode->pwr_tx == FASTAUTO_MODE ||
+	    pwr_mode->pwr_rx == FAST_MODE ||
+	    pwr_mode->pwr_tx == FAST_MODE)
+		ufshcd_dme_set(hba, UIC_ARG_MIB(PA_HSSERIES),
+						pwr_mode->hs_rate);
+
+	ret = ufshcd_uic_change_pwr_mode(hba, pwr_mode->pwr_rx << 4
+			| pwr_mode->pwr_tx);
+
+	if (ret) {
+		UFSHCD_UPDATE_ERROR_STATS(hba, UFS_ERR_POWER_MODE_CHANGE);
+		dev_err(hba->dev,
+			"%s: power mode change failed %d\n", __func__, ret);
+	} else {
+		if (hba->vops->pwr_change_notify)
+			hba->vops->pwr_change_notify(hba,
+				POST_CHANGE, NULL, pwr_mode);
+
+		memcpy(&hba->pwr_info, pwr_mode,
+			sizeof(struct ufs_pa_layer_attr));
+	}
+
+	ufshcd_print_pwr_info(hba);
+	return ret;
 }
 
 /**
@@ -2913,7 +2981,7 @@ static int ufshcd_get_max_pwr_mode(struct ufs_hba *hba)
  * @hba: per-adapter instance
  * @desired_pwr_mode: desired power configuration
  */
-int ufshcd_config_pwr_mode(struct ufs_hba *hba,
+static int ufshcd_config_pwr_mode(struct ufs_hba *hba,
 		struct ufs_pa_layer_attr *desired_pwr_mode)
 {
 	struct ufs_pa_layer_attr final_params = { 0 };
@@ -2925,53 +2993,7 @@ int ufshcd_config_pwr_mode(struct ufs_hba *hba,
 	else
 		memcpy(&final_params, desired_pwr_mode, sizeof(final_params));
 
-	/*
-	 * Configure attributes for power mode change with below.
-	 * - PA_RXGEAR, PA_ACTIVERXDATALANES, PA_RXTERMINATION,
-	 * - PA_TXGEAR, PA_ACTIVETXDATALANES, PA_TXTERMINATION,
-	 * - PA_HSSERIES
-	 */
-	ufshcd_dme_set(hba, UIC_ARG_MIB(PA_RXGEAR), final_params.gear_rx);
-	ufshcd_dme_set(hba, UIC_ARG_MIB(PA_ACTIVERXDATALANES),
-			final_params.lane_rx);
-	if (final_params.pwr_rx == FASTAUTO_MODE ||
-			final_params.pwr_rx == FAST_MODE)
-		ufshcd_dme_set(hba, UIC_ARG_MIB(PA_RXTERMINATION), TRUE);
-	else
-		ufshcd_dme_set(hba, UIC_ARG_MIB(PA_RXTERMINATION), FALSE);
-
-	ufshcd_dme_set(hba, UIC_ARG_MIB(PA_TXGEAR), final_params.gear_tx);
-	ufshcd_dme_set(hba, UIC_ARG_MIB(PA_ACTIVETXDATALANES),
-			final_params.lane_tx);
-	if (final_params.pwr_tx == FASTAUTO_MODE ||
-			final_params.pwr_tx == FAST_MODE)
-		ufshcd_dme_set(hba, UIC_ARG_MIB(PA_TXTERMINATION), TRUE);
-	else
-		ufshcd_dme_set(hba, UIC_ARG_MIB(PA_TXTERMINATION), FALSE);
-
-	if ((final_params.pwr_rx == FASTAUTO_MODE ||
-			final_params.pwr_tx == FASTAUTO_MODE ||
-			final_params.pwr_rx == FAST_MODE ||
-			final_params.pwr_tx == FAST_MODE) &&
-			final_params.hs_rate == PA_HS_MODE_B)
-		ufshcd_dme_set(hba, UIC_ARG_MIB(PA_HSSERIES),
-				final_params.hs_rate);
-
-	ret = ufshcd_uic_change_pwr_mode(hba, final_params.pwr_rx << 4
-			| final_params.pwr_tx);
-	if (ret) {
-		UFSHCD_UPDATE_ERROR_STATS(hba, UFS_ERR_POWER_MODE_CHANGE);
-		dev_err(hba->dev,
-			"pwr_mode: power mode change failed %d\n", ret);
-	} else {
-		if (hba->vops->pwr_change_notify)
-			hba->vops->pwr_change_notify(hba,
-				POST_CHANGE, NULL, &final_params);
-
-		memcpy(&hba->pwr_info, &final_params, sizeof(final_params));
-	}
-
-	ufshcd_print_pwr_info(hba);
+	ret = ufshcd_change_power_mode(hba, &final_params);
 
 	return ret;
 }
