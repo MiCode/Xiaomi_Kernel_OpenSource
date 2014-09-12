@@ -813,10 +813,10 @@ static void pmic_fg_init_config_regs(struct pmic_fg_info *info)
 	 * check if the config data is already
 	 * programmed and if so just return.
 	 */
-	ret = pmic_fg_reg_readb(info, DC_FG_DES_CAP1_REG);
+	ret = pmic_fg_reg_readb(info, DC_FG_CNTL_REG);
 	if (ret < 0) {
-		dev_warn(&info->pdev->dev, "CAP1 reg read err!!\n");
-	} else if (ret & DC_FG_DES_CAP1_VALID) {
+		dev_warn(&info->pdev->dev, "FG CNTL reg read err!!\n");
+	} else if ((ret & FG_CNTL_OCV_ADJ_EN) && (ret & FG_CNTL_CAP_ADJ_EN)) {
 		dev_info(&info->pdev->dev, "FG data is already initialized\n");
 		pmic_fg_dump_init_regs(info);
 		return;
