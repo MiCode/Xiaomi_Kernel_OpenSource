@@ -8371,20 +8371,21 @@ void dhd_set_short_dwell_time(dhd_pub_t *dhd, int set)
 
 	DHD_TRACE(("%s: Enter: %d\n", __FUNCTION__, set));
 	if (dhd->short_dwell_time != set) {
-		dhd->short_dwell_time = set;
 		if (set) {
-			scan_assoc_time = DHD_SCAN_ASSOC_ACTIVE_TIME >> 1;
-			scan_unassoc_time = DHD_SCAN_UNASSOC_ACTIVE_TIME >> 1;
+			scan_unassoc_time = DHD_SCAN_UNASSOC_ACTIVE_TIME_PS;
 		}
-		dhd_wl_ioctl_cmd(dhd, WLC_SET_SCAN_CHANNEL_TIME,
-				(char *)&scan_assoc_time,
-				sizeof(scan_assoc_time), TRUE, 0);
 		dhd_wl_ioctl_cmd(dhd, WLC_SET_SCAN_UNASSOC_TIME,
 				(char *)&scan_unassoc_time,
 				sizeof(scan_unassoc_time), TRUE, 0);
-		dhd_wl_ioctl_cmd(dhd, WLC_SET_SCAN_PASSIVE_TIME,
-				(char *)&scan_passive_time,
-				sizeof(scan_passive_time), TRUE, 0);
+		if (dhd->short_dwell_time == -1) {
+			dhd_wl_ioctl_cmd(dhd, WLC_SET_SCAN_CHANNEL_TIME,
+					(char *)&scan_assoc_time,
+					sizeof(scan_assoc_time), TRUE, 0);
+			dhd_wl_ioctl_cmd(dhd, WLC_SET_SCAN_PASSIVE_TIME,
+					(char *)&scan_passive_time,
+					sizeof(scan_passive_time), TRUE, 0);
+		}
+		dhd->short_dwell_time = set;
 	}
 }
 
