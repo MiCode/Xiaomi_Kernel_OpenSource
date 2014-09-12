@@ -23,6 +23,7 @@
 #include <linux/of.h>
 #include <linux/regulator/consumer.h>
 #include <linux/workqueue.h>
+#include <linux/power_supply.h>
 #include "leds.h"
 
 #define FLASH_LED_PERIPHERAL_SUBTYPE(base)			(base + 0x05)
@@ -90,6 +91,7 @@
 #define	FLASH_LED_VPH_DROOP_THRESHOLD_MIN_MV			2500
 #define	FLASH_LED_VPH_DROOP_THRESHOLD_DIVIDER			100
 #define FLASH_LED_HDRM_SNS_ENABLE				0x81
+#define	FLASH_LED_UA_PER_MA					1000
 
 #define FLASH_UNLOCK_SECURE					0xA5
 #define FLASH_LED_TORCH_ENABLE					0x00
@@ -177,6 +179,7 @@ struct flash_led_platform_data {
 	bool				vph_pwr_droop_en;
 	bool				hdrm_sns_ch0_en;
 	bool				hdrm_sns_ch1_en;
+	bool				power_detect_en;
 };
 
 /*
@@ -186,6 +189,7 @@ struct qpnp_flash_led {
 	struct spmi_device		*spmi_dev;
 	struct flash_led_platform_data	*pdata;
 	struct flash_node_data		*flash_node;
+	struct power_supply		*battery_psy;
 	struct mutex			flash_led_lock;
 	int				num_leds;
 	u16				base;
@@ -442,7 +446,9 @@ static void qpnp_flash_led_work(struct work_struct *work)
 				struct flash_node_data, work);
 	struct qpnp_flash_led *led =
 			dev_get_drvdata(&flash_node->spmi_dev->dev);
+	union power_supply_propval prop;
 	int rc, brightness = flash_node->cdev.brightness;
+	u16 max_curr_avail_ma;
 	u8 val;
 
 	mutex_lock(&led->flash_led_lock);
@@ -536,6 +542,38 @@ static void qpnp_flash_led_work(struct work_struct *work)
 			goto exit_flash_led_work;
 		}
 	} else if (flash_node->type == FLASH) {
+		if (led->pdata->power_detect_en) {
+			if (!led->battery_psy)
+				led->battery_psy =
+					power_supply_get_by_name("battery");
+
+			if (led->battery_psy) {
+				led->battery_psy->get_property(led->battery_psy,
+					POWER_SUPPLY_PROP_FLASH_CURRENT_MAX,
+					&prop);
+				if (!prop.intval) {
+					dev_err(&led->spmi_dev->dev,
+						"battery too low for flash\n");
+					goto exit_flash_led_work;
+				}
+			} else {
+				dev_err(&led->spmi_dev->dev,
+					"failed to query battery level\n");
+				goto exit_flash_led_work;
+			}
+
+			max_curr_avail_ma = (u16)(prop.intval /
+							FLASH_LED_UA_PER_MA);
+			max_curr_avail_ma = max_curr_avail_ma / 2;
+
+			if (max_curr_avail_ma < flash_node->prgm_current) {
+				dev_err(&led->spmi_dev->dev,
+					"battery only supports %d mA.\n",
+					max_curr_avail_ma);
+				flash_node->prgm_current = max_curr_avail_ma;
+			}
+		}
+
 		val = (u8)((flash_node->duration - FLASH_DURATION_DIVIDER)
 						/ FLASH_DURATION_DIVIDER);
 		rc = qpnp_led_masked_write(led->spmi_dev,
@@ -1125,6 +1163,9 @@ static int qpnp_flash_led_parse_common_dt(
 
 	led->pdata->hdrm_sns_ch1_en = of_property_read_bool(node,
 						"qcom,headroom-sense-ch1-enabled");
+
+	led->pdata->power_detect_en = of_property_read_bool(node,
+						"qcom,power-detect-enabled");
 
 	return 0;
 }

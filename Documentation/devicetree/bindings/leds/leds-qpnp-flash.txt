@@ -49,6 +49,9 @@ Optional properties:
 				   for LED channel 0
 - qcom,headroom-sense-ch1-enabled: Boolean type. This configures headroom sensing enablement
 				   for LED channel 1
+- qcom,power-detect-enabled	: Boolean type. This enables driver to get maximum flash LED
+				  current at current battery level to avoid intensity clamp
+				  when battery voltage is low
 
 Required properties inside child node. Chile node contains settings for each individual LED:
 - label			: type of led that will be used, either "flash" or "torch".
