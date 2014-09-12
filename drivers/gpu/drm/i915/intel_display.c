@@ -3145,6 +3145,15 @@ intel_pipe_set_base(struct drm_crtc *crtc, int x, int y,
 		const struct drm_display_mode *adjusted_mode =
 			&intel_crtc->config.adjusted_mode;
 
+		if (IS_CHERRYVIEW(dev) && STEP_FROM(STEP_B0) &&
+						intel_crtc->pipe == PIPE_B) {
+			I915_WRITE(CHV_PRIMPOS_B, 0);
+
+			I915_WRITE(CHV_PRIMSIZE_B,
+				((adjusted_mode->crtc_vdisplay - 1) << 16) |
+				(adjusted_mode->crtc_hdisplay - 1));
+		}
+
 		I915_WRITE(PIPESRC(intel_crtc->pipe),
 			   ((adjusted_mode->crtc_hdisplay - 1) << 16) |
 			   (adjusted_mode->crtc_vdisplay - 1));
@@ -6459,6 +6468,15 @@ static void intel_set_pipe_timings(struct intel_crtc *intel_crtc)
 	I915_WRITE(PIPESRC(pipe),
 		   ((intel_crtc->config.pipe_src_w - 1) << 16) |
 		   (intel_crtc->config.pipe_src_h - 1));
+
+	if (IS_CHERRYVIEW(dev) && STEP_FROM(STEP_B0) &&
+					intel_crtc->pipe == PIPE_B) {
+		I915_WRITE(CHV_PRIMPOS_B, 0);
+
+		I915_WRITE(CHV_PRIMSIZE_B,
+				((intel_crtc->config.pipe_src_h - 1) << 16) |
+				(intel_crtc->config.pipe_src_w - 1));
+	}
 }
 
 static void intel_get_pipe_timings(struct intel_crtc *crtc,

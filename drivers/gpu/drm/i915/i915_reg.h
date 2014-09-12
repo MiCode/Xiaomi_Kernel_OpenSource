@@ -4485,6 +4485,9 @@ enum punit_power_well {
 #define _SPRB_SCALE		0x71304
 #define _SPRB_GAMC		0x71400
 
+#define CHV_PRIMPOS_B (dev_priv->info.display_mmio_offset + 0x61A08)
+#define CHV_PRIMSIZE_B (dev_priv->info.display_mmio_offset + 0x61A0C)
+
 #define SPRCTL(pipe) _PIPE(pipe, _SPRA_CTL, _SPRB_CTL)
 #define SPRLINOFF(pipe) _PIPE(pipe, _SPRA_LINOFF, _SPRB_LINOFF)
 #define SPRSTRIDE(pipe) _PIPE(pipe, _SPRA_STRIDE, _SPRB_STRIDE)
