@@ -914,7 +914,7 @@ static int diag_cmd_set_log_mask(unsigned char *src_buf, int src_len,
 	for (i = 0; i < MAX_EQUIP_ID && !status; i++, mask++) {
 		if (mask->equip_id != req->equip_id)
 			continue;
-		if (mask->num_items < req->num_items)
+		if (req->num_items < mask->num_items)
 			mask->num_items = req->num_items;
 		mask_size = LOG_ITEMS_TO_SIZE(req->num_items);
 		if (mask_size > mask->range) {
