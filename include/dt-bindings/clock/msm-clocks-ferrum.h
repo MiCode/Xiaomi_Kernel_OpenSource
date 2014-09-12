@@ -219,5 +219,6 @@
 #define clk_apc1_m_clk				0x990fbaf7
 #define clk_apc2_m_clk				0x252cd4ae
 #define clk_apc3_m_clk				0x78c64486
+#define clk_l2_m_clk                            0x4bedf4d0
 
 #endif

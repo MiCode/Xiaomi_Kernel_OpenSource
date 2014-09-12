@@ -207,9 +207,12 @@
 
 	clock_gcc: qcom,gcc@1800000 {
 		compatible = "qcom,gcc-ferrum";
-		reg = <0x1800000 0x80000>;
-		reg-names = "cc_base";
+		reg = <0x1800000 0x80000>,
+		      <0xb016000 0x00040>;
+		reg-names = "cc_base", "apcs_base";
 		vdd_dig-supply = <&pmferrum_s1_corner>;
+		vdd_sr2_dig-supply = <&pmferrum_s1_corner_ao>;
+		vdd_sr2_pll-supply = <&pmferrum_l7_ao>;
 		clocks = <&clock_rpm clk_xo_clk_src>,
 			<&clock_rpm clk_xo_a_clk_src>;
 		clock-names = "xo", "xo_a";
