@@ -13,6 +13,7 @@ Required properties:
   - qcom,msm_bus,num_paths: The paths for source and destination ports
   - qcom,msm_bus,vectors: Vectors for bus topology.
   - qcom,ce-device: Device number.
+  - qcom,ce-opp-freq: indicates the CE operating frequency in Hz, changes from target to target.
 
 Optional properties:
   - qcom,ce-hw-shared : optional, indicates if the hardware is shared between EE.
@@ -37,4 +38,5 @@ Example:
 		qcom,msm-bus,vectors-KBps =
 				<56 512 0 0>,
 				<56 512 3936000 393600>,
+		qcom,ce-opp-freq = <100000000>;
 	};

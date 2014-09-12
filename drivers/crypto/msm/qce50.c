@@ -41,6 +41,8 @@
 #define CRYPTO_CONFIG_RESET 0xE001F
 #define QCE_MAX_NUM_DSCR    0x500
 #define QCE_SECTOR_SIZE	    0x200
+#define CE_CLK_100MHZ	100000000
+#define CE_CLK_DIV	1000000
 
 static DEFINE_MUTEX(bam_register_lock);
 struct bam_registration_info {
@@ -101,6 +103,7 @@ struct qce_device {
 	dma_addr_t phy_ota_src;
 	dma_addr_t phy_ota_dst;
 	unsigned int ota_size;
+	unsigned int ce_opp_freq_hz;
 
 	bool use_sw_aes_cbc_ecb_ctr_algo;
 	bool use_sw_aead_algo;
@@ -5187,6 +5190,12 @@ static int __qce_get_device_tree_data(struct platform_device *pdev,
 		pr_err("Fail to get CE hw instance information.\n");
 		return -EINVAL;
 	}
+	if (of_property_read_u32((&pdev->dev)->of_node,
+				"qcom,ce-opp-freq",
+				&pce_dev->ce_opp_freq_hz)) {
+		pr_info("CE operating frequency is not defined, setting to default 100MHZ\n");
+		pce_dev->ce_opp_freq_hz = CE_CLK_100MHZ;
+	}
 	pce_dev->ce_sps.dest_pipe_index	= 2 * pce_dev->ce_sps.pipe_pair_index;
 	pce_dev->ce_sps.src_pipe_index	= pce_dev->ce_sps.dest_pipe_index + 1;
 
@@ -5241,9 +5250,11 @@ static int __qce_init_clk(struct qce_device *pce_dev)
 
 	pce_dev->ce_core_src_clk = clk_get(pce_dev->pdev, "core_clk_src");
 	if (!IS_ERR(pce_dev->ce_core_src_clk)) {
-		rc = clk_set_rate(pce_dev->ce_core_src_clk, 171430000);
+		rc = clk_set_rate(pce_dev->ce_core_src_clk,
+						pce_dev->ce_opp_freq_hz);
 		if (rc) {
-			pr_err("Unable to set the core src clk @100Mhz.\n");
+			pr_err("Unable to set the core src clk @%uMhz.\n",
+					pce_dev->ce_opp_freq_hz/CE_CLK_DIV);
 			goto exit_put_core_src_clk;
 		}
 	} else {
