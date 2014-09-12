@@ -13,6 +13,7 @@ Required properties:
 - qcom, msm_bus,num_cases: Depends on the use cases for bus scaling
 - qcom, msm_bus,num_paths: The paths for source and destination ports
 - qcom, msm_bus,vectors: Vectors for bus topology.
+- qcom,ce-opp-freq: indicates the CE operating frequency in Hz, changes from target to target.
 
 Optional properties:
   - qcom,support-bus-scaling : indicates if driver support scaling the bus for crypto operation.
@@ -43,4 +44,5 @@ Example:
 			<55 512 3936000000 393600000>,
 			<55 512 3936000000 393600000>,
 			<55 512 3936000000 393600000>;
+		qcom,ce-opp-freq = <100000000>;
 	};

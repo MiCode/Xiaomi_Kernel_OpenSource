@@ -1433,6 +1433,7 @@
 		clock-names = "core_clk_src", "core_clk",
 				"iface_clk", "bus_clk";
 		status = "disabled";
+		qcom,ce-opp-freq = <100000000>;
 	};
 
 	qcom,pronto@a21b000 {

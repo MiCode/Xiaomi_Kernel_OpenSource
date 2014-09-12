@@ -2721,6 +2721,7 @@
 				<55 512 393600 3936000>;
 		clock-names = "core_clk";
 		clocks = <&clock_rpm clk_qseecom_ce1_clk>;
+		qcom,ce-opp-freq = <171430000>;
 	};
 
 	qcom,sensor-information {
