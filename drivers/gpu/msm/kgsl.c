@@ -2073,6 +2073,7 @@ static struct kgsl_cmdbatch *kgsl_cmdbatch_create(struct kgsl_device *device,
 	cmdbatch->context = context;
 	/* sanitize our flags for cmdbatches */
 	cmdbatch->flags = flags & (KGSL_CMDBATCH_CTX_SWITCH
+				| KGSL_CMDBATCH_MARKER
 				| KGSL_CMDBATCH_END_OF_FRAME
 				| KGSL_CMDBATCH_SYNC
 				| KGSL_CMDBATCH_PWR_CONSTRAINT
