@@ -2995,6 +2995,21 @@ DECLARE_PCI_FIXUP_FINAL(PCI_VENDOR_ID_INTEL, 0x8c26, quirk_remove_d3_delay);
 DECLARE_PCI_FIXUP_FINAL(PCI_VENDOR_ID_INTEL, 0x8c4e, quirk_remove_d3_delay);
 DECLARE_PCI_FIXUP_FINAL(PCI_VENDOR_ID_INTEL, 0x8c02, quirk_remove_d3_delay);
 DECLARE_PCI_FIXUP_FINAL(PCI_VENDOR_ID_INTEL, 0x8c22, quirk_remove_d3_delay);
+/*
+ * PCI devices which are on Intel BYT-T systems can skip the 10ms delay before
+ * entering D3 mode, but do require a delay. In this case, 3ms is enough time
+ * properly move the devices around
+*/
+static void quirk_remove_byt_d3_delay(struct pci_dev *dev)
+{
+	dev->d3_delay = 3;
+	dev->d3cold_delay = 3;
+}
+DECLARE_PCI_FIXUP_FINAL(PCI_VENDOR_ID_INTEL, 0x0f00, quirk_remove_byt_d3_delay);
+DECLARE_PCI_FIXUP_FINAL(PCI_VENDOR_ID_INTEL, 0x0f35, quirk_remove_byt_d3_delay);
+DECLARE_PCI_FIXUP_FINAL(PCI_VENDOR_ID_INTEL, 0x0f37, quirk_remove_byt_d3_delay);
+DECLARE_PCI_FIXUP_FINAL(PCI_VENDOR_ID_INTEL, 0x0f18, quirk_remove_byt_d3_delay);
+DECLARE_PCI_FIXUP_FINAL(PCI_VENDOR_ID_INTEL, 0x0f1c, quirk_remove_byt_d3_delay);
 
 /*
  * Some devices may pass our check in pci_intx_mask_supported if
