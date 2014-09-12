@@ -1840,8 +1840,10 @@ static int msm_spi_transfer_one_message(struct spi_master *master,
 	 * get local resources for each transfer to ensure we're in a good
 	 * state and not interfering with other EE's using this device
 	 */
-	if (get_local_resources(dd))
+	if (get_local_resources(dd)) {
+		mutex_unlock(&dd->core_lock);
 		return -EINVAL;
+	}
 
 	reset_core(dd);
 	if (dd->use_dma) {
@@ -1867,14 +1869,7 @@ static int msm_spi_transfer_one_message(struct spi_master *master,
 	dd->transfer_pending = 0;
 	spin_unlock_irqrestore(&dd->queue_lock, flags);
 
-	mutex_unlock(&dd->core_lock);
 
-	/*
-	 * If needed, this can be done after the current message is complete,
-	 * and work can be continued upon resume. No motivation for now.
-	 */
-	if (dd->suspended)
-		wake_up_interruptible(&dd->continue_suspend);
 
 	/*
 	 * Put local resources prior to calling finalize to ensure the hw
@@ -1882,11 +1877,14 @@ static int msm_spi_transfer_one_message(struct spi_master *master,
 	 * different context since we're running in the spi kthread here) to
 	 * prevent race conditions between us and any other EE's using this hw.
 	 */
-	put_local_resources(dd);
 	if (dd->use_dma) {
 		msm_spi_bam_pipe_disconnect(dd, &dd->bam.prod);
 		msm_spi_bam_pipe_disconnect(dd, &dd->bam.cons);
 	}
+	put_local_resources(dd);
+	mutex_unlock(&dd->core_lock);
+	if (dd->suspended)
+		wake_up_interruptible(&dd->continue_suspend);
 	status_error = dd->cur_msg->status;
 	spi_finalize_current_message(master);
 	return status_error;
