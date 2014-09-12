@@ -1091,11 +1091,9 @@ static int mmc_init_card(struct mmc_host *host, u32 ocr,
 		} else {
 			if (card->ext_csd.hs_max_dtr > 52000000 &&
 			    host->caps2 & MMC_CAP2_HS200) {
-				mmc_card_set_hs200(card);
 				mmc_set_timing(card->host,
 					       MMC_TIMING_MMC_HS200);
 			} else if (host->caps & MMC_CAP_MMC_HIGHSPEED) {
-				mmc_card_set_highspeed(card);
 				mmc_set_timing(card->host, MMC_TIMING_MMC_HS);
 			}
 		}
@@ -1106,10 +1104,10 @@ static int mmc_init_card(struct mmc_host *host, u32 ocr,
 	 */
 	max_dtr = (unsigned int)-1;
 
-	if (mmc_card_highspeed(card) || mmc_card_hs200(card)) {
+	if (mmc_card_hs(card) || mmc_card_hs200(card)) {
 		if (max_dtr > card->ext_csd.hs_max_dtr)
 			max_dtr = card->ext_csd.hs_max_dtr;
-		if (mmc_card_highspeed(card) && (max_dtr > 52000000))
+		if (mmc_card_hs(card) && (max_dtr > 52000000))
 			max_dtr = 52000000;
 	} else if (max_dtr > card->csd.max_dtr) {
 		max_dtr = card->csd.max_dtr;
@@ -1120,7 +1118,7 @@ static int mmc_init_card(struct mmc_host *host, u32 ocr,
 	/*
 	 * Indicate DDR mode (if supported).
 	 */
-	if (mmc_card_highspeed(card)) {
+	if (mmc_card_hs(card)) {
 		if ((card->ext_csd.card_type & EXT_CSD_CARD_TYPE_DDR_1_8V)
 			&& (host->caps & MMC_CAP_1_8V_DDR))
 				ddr = MMC_1_8V_DDR_MODE;
@@ -1263,7 +1261,6 @@ static int mmc_init_card(struct mmc_host *host, u32 ocr,
 				if (err)
 					goto err;
 			}
-			mmc_card_set_ddr_mode(card);
 			mmc_set_timing(card->host, MMC_TIMING_MMC_DDR52);
 			mmc_set_bus_width(card->host, bus_width);
 		}
@@ -1498,7 +1495,6 @@ static int _mmc_suspend(struct mmc_host *host, bool is_suspend)
 		err = mmc_sleep(host);
 	else if (!mmc_host_is_spi(host))
 		err = mmc_deselect_cards(host);
-	host->card->state &= ~(MMC_STATE_HIGHSPEED | MMC_STATE_HIGHSPEED_200);
 
 	if (!err) {
 		mmc_power_off(host);
@@ -1628,7 +1624,6 @@ static int mmc_power_restore(struct mmc_host *host)
 {
 	int ret;
 
-	host->card->state &= ~(MMC_STATE_HIGHSPEED | MMC_STATE_HIGHSPEED_200);
 	mmc_claim_host(host);
 	ret = mmc_init_card(host, host->card->ocr, host->card);
 	mmc_release_host(host);
