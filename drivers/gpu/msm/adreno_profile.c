@@ -386,7 +386,7 @@ static void transfer_results(struct adreno_profile *profile,
 	unsigned int *ptr = (unsigned int *) profile->shared_buffer.hostptr;
 	unsigned int *log_ptr, *log_base;
 	struct adreno_profile_assigns_list *assigns_list;
-	int i;
+	int i, tmp_tail;
 
 	log_ptr = profile->log_head;
 	log_base = profile->log_buffer;
@@ -450,7 +450,6 @@ static void transfer_results(struct adreno_profile *profile,
 				shared_buf_inc(profile->shared_size,
 					&profile->shared_tail,
 					SIZE_SHARED_ENTRY(cnt));
-
 				goto err;
 			} else {
 				*log_ptr = assigns_list->groupid << 16 |
@@ -467,9 +466,18 @@ static void transfer_results(struct adreno_profile *profile,
 			log_buf_wrapinc(log_base, &log_ptr);
 
 		}
+
+		tmp_tail = profile->shared_tail;
 		shared_buf_inc(profile->shared_size,
 				&profile->shared_tail,
 				SIZE_SHARED_ENTRY(cnt));
+		/*
+		 * Possibly lost some room as we cycled around, so it's safe to
+		 * reset the max size
+		 */
+		if (profile->shared_tail < tmp_tail)
+			profile->shared_size =
+				ADRENO_PROFILE_SHARED_BUF_SIZE_DWORDS;
 
 	}
 	profile->log_head = log_ptr;
@@ -1129,8 +1137,6 @@ void adreno_profile_preib_processing(struct adreno_device *adreno_dev,
 		entry_head = 0;
 		profile->shared_size = profile->shared_head;
 		profile->shared_head = 0;
-		if (profile->shared_tail == profile->shared_size)
-			profile->shared_tail = 0;
 
 		/* recheck space available */
 		if (SIZE_SHARED_ENTRY(count) >= shared_buf_available(profile))
