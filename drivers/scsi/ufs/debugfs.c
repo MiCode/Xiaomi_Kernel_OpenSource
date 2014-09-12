@@ -642,20 +642,115 @@ static int ufsdbg_power_mode_show(struct seq_file *file, void *data)
 static bool ufsdbg_power_mode_validate(struct ufs_pa_layer_attr *pwr_mode)
 {
 	if (pwr_mode->gear_rx < UFS_PWM_G1 || pwr_mode->gear_rx > UFS_PWM_G7 ||
-		pwr_mode->gear_tx < UFS_PWM_G1 || pwr_mode->gear_tx > UFS_PWM_G7
-		|| pwr_mode->lane_rx < 1 || pwr_mode->lane_rx > 2 ||
-		pwr_mode->lane_tx < 1 || pwr_mode->lane_tx > 2 ||
-		(pwr_mode->pwr_rx != FAST_MODE &&
-		pwr_mode->pwr_rx != SLOW_MODE &&
-		pwr_mode->pwr_rx != FASTAUTO_MODE &&
-		pwr_mode->pwr_rx != SLOWAUTO_MODE) ||
-		(pwr_mode->pwr_tx != FAST_MODE &&
-		pwr_mode->pwr_tx != SLOW_MODE &&
-		pwr_mode->pwr_tx != FASTAUTO_MODE &&
-		pwr_mode->pwr_tx != SLOWAUTO_MODE))
+	    pwr_mode->gear_tx < UFS_PWM_G1 || pwr_mode->gear_tx > UFS_PWM_G7 ||
+	    pwr_mode->lane_rx < 1 || pwr_mode->lane_rx > 2 ||
+	    pwr_mode->lane_tx < 1 || pwr_mode->lane_tx > 2 ||
+	    (pwr_mode->pwr_rx != FAST_MODE && pwr_mode->pwr_rx != SLOW_MODE &&
+	     pwr_mode->pwr_rx != FASTAUTO_MODE &&
+	     pwr_mode->pwr_rx != SLOWAUTO_MODE) ||
+	    (pwr_mode->pwr_tx != FAST_MODE && pwr_mode->pwr_tx != SLOW_MODE &&
+	     pwr_mode->pwr_tx != FASTAUTO_MODE &&
+	     pwr_mode->pwr_tx != SLOWAUTO_MODE)) {
+		pr_err("%s: power parameters are not valid\n", __func__);
 		return false;
+	}
 
 	return true;
+}
+
+static int ufsdbg_cfg_pwr_param(struct ufs_hba *hba,
+				struct ufs_pa_layer_attr *new_pwr,
+				struct ufs_pa_layer_attr *final_pwr)
+{
+	int ret = 0;
+	bool is_dev_sup_hs = false;
+	bool is_new_pwr_hs = false;
+	int dev_pwm_max_rx_gear;
+	int dev_pwm_max_tx_gear;
+
+	if (!hba->max_pwr_info.is_valid) {
+		dev_err(hba->dev, "%s: device max power is not valid. can't configure power\n",
+			__func__);
+		return -EINVAL;
+	}
+
+	if (hba->max_pwr_info.info.pwr_rx == FAST_MODE)
+		is_dev_sup_hs = true;
+
+	if (new_pwr->pwr_rx == FAST_MODE || new_pwr->pwr_rx == FASTAUTO_MODE)
+		is_new_pwr_hs = true;
+
+	final_pwr->lane_rx = hba->max_pwr_info.info.lane_rx;
+	final_pwr->lane_tx = hba->max_pwr_info.info.lane_tx;
+
+	/* device doesn't support HS but requested power is HS */
+	if (!is_dev_sup_hs && is_new_pwr_hs) {
+		pr_err("%s: device doesn't support HS. requested power is HS\n",
+			__func__);
+		return -ENOTSUPP;
+	} else if ((is_dev_sup_hs && is_new_pwr_hs) ||
+		   (!is_dev_sup_hs && !is_new_pwr_hs)) {
+		/*
+		 * If device and requested power mode are both HS or both PWM
+		 * then dev_max->gear_xx are the gears to be assign to
+		 * final_pwr->gear_xx
+		 */
+		final_pwr->gear_rx = hba->max_pwr_info.info.gear_rx;
+		final_pwr->gear_tx = hba->max_pwr_info.info.gear_tx;
+	} else if (is_dev_sup_hs && !is_new_pwr_hs) {
+		/*
+		 * If device supports HS but requested power is PWM, then we
+		 * need to find out what is the max gear in PWM the device
+		 * supports
+		 */
+
+		ufshcd_dme_get(hba, UIC_ARG_MIB(PA_MAXRXPWMGEAR),
+			       &dev_pwm_max_rx_gear);
+
+		if (!dev_pwm_max_rx_gear) {
+			pr_err("%s: couldn't get device max pwm rx gear\n",
+				__func__);
+			ret = -EINVAL;
+			goto out;
+		}
+
+		ufshcd_dme_peer_get(hba, UIC_ARG_MIB(PA_MAXRXPWMGEAR),
+				    &dev_pwm_max_tx_gear);
+
+		if (!dev_pwm_max_tx_gear) {
+			pr_err("%s: couldn't get device max pwm tx gear\n",
+				__func__);
+			ret = -EINVAL;
+			goto out;
+		}
+
+		final_pwr->gear_rx = dev_pwm_max_rx_gear;
+		final_pwr->gear_tx = dev_pwm_max_tx_gear;
+	}
+
+	if ((new_pwr->gear_rx > final_pwr->gear_rx) ||
+	    (new_pwr->gear_tx > final_pwr->gear_tx) ||
+	    (new_pwr->lane_rx > final_pwr->lane_rx) ||
+	    (new_pwr->lane_tx > final_pwr->lane_tx)) {
+		pr_err("%s: (RX,TX) GG,LL: in PWM/HS new pwr [%d%d,%d%d] exceeds device limitation [%d%d,%d%d]\n",
+			__func__,
+			new_pwr->gear_rx, new_pwr->gear_tx,
+			new_pwr->lane_rx, new_pwr->lane_tx,
+			final_pwr->gear_rx, final_pwr->gear_tx,
+			final_pwr->lane_rx, final_pwr->lane_tx);
+		return -ENOTSUPP;
+	}
+
+	final_pwr->gear_rx = new_pwr->gear_rx;
+	final_pwr->gear_tx = new_pwr->gear_tx;
+	final_pwr->lane_rx = new_pwr->lane_rx;
+	final_pwr->lane_tx = new_pwr->lane_tx;
+	final_pwr->pwr_rx = new_pwr->pwr_rx;
+	final_pwr->pwr_tx = new_pwr->pwr_tx;
+	final_pwr->hs_rate = new_pwr->hs_rate;
+
+out:
+	return ret;
 }
 
 static ssize_t ufsdbg_power_mode_write(struct file *file,
@@ -664,6 +759,7 @@ static ssize_t ufsdbg_power_mode_write(struct file *file,
 {
 	struct ufs_hba *hba = file->f_mapping->host->i_private;
 	struct ufs_pa_layer_attr pwr_mode;
+	struct ufs_pa_layer_attr final_pwr_mode;
 	char pwr_mode_str[BUFF_LINE_CAPACITY] = {0};
 	loff_t buff_pos = 0;
 	int ret;
@@ -679,6 +775,7 @@ static ssize_t ufsdbg_power_mode_write(struct file *file,
 	pwr_mode.lane_tx = pwr_mode_str[idx++] - '0';
 	pwr_mode.pwr_rx = pwr_mode_str[idx++] - '0';
 	pwr_mode.pwr_tx = pwr_mode_str[idx++] - '0';
+
 	/*
 	 * Switching between rates is not currently supported so use the
 	 * current rate.
@@ -690,16 +787,24 @@ static ssize_t ufsdbg_power_mode_write(struct file *file,
 	if (!ufsdbg_power_mode_validate(&pwr_mode))
 		return -EINVAL;
 
-	pr_debug(
-		"%s: new power mode requested [RX,TX]: Gear=[%d,%d] Lanes=[%d,%d], Mode=[%d,%d]\n",
-		__func__, pwr_mode.gear_rx, pwr_mode.gear_tx, pwr_mode.lane_rx,
+	pr_debug("%s: new power mode requested [RX,TX]: Gear=[%d,%d], Lane=[%d,%d], Mode=[%d,%d]\n",
+		__func__,
+		pwr_mode.gear_rx, pwr_mode.gear_tx, pwr_mode.lane_rx,
 		pwr_mode.lane_tx, pwr_mode.pwr_rx, pwr_mode.pwr_tx);
+
+	ret = ufsdbg_cfg_pwr_param(hba, &pwr_mode, &final_pwr_mode);
+	if (ret) {
+		dev_err(hba->dev,
+			"%s: failed to configure new power parameters, ret = %d\n",
+			__func__, ret);
+		return cnt;
+	}
 
 	pm_runtime_get_sync(hba->dev);
 	scsi_block_requests(hba->host);
 	ret = ufshcd_wait_for_doorbell_clr(hba, DOORBELL_CLR_TOUT_US);
 	if (!ret)
-		ret = ufshcd_config_pwr_mode(hba, &pwr_mode);
+		ret = ufshcd_change_power_mode(hba, &final_pwr_mode);
 	scsi_unblock_requests(hba->host);
 	pm_runtime_put_sync(hba->dev);
 	if (ret == -EBUSY)
