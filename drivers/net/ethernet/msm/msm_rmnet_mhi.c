@@ -125,7 +125,7 @@ struct rmnet_mhi_private {
 	u32			      rx_enabled;
 	u32			      mhi_enabled;
 	struct net_device	      *dev;
-	int32_t                       irq_masked_cntr;
+	atomic_t		      irq_masked_cntr;
 	rwlock_t		      out_chan_full_lock;
 };
 
@@ -310,9 +310,9 @@ static int rmnet_mhi_poll(struct napi_struct *napi, int budget)
 
 	/* We got a NULL descriptor back */
 	if (should_reschedule == false) {
-		if (rmnet_mhi_ptr->irq_masked_cntr) {
+		if (atomic_read(&rmnet_mhi_ptr->irq_masked_cntr)) {
+			atomic_dec(&rmnet_mhi_ptr->irq_masked_cntr);
 			mhi_unmask_irq(rmnet_mhi_ptr->rx_client_handle);
-			--rmnet_mhi_ptr->irq_masked_cntr;
 		}
 	} else {
 		if (received_packets == budget)
@@ -497,7 +497,7 @@ static void rmnet_mhi_rx_cb(struct mhi_result *result)
 
 	if (napi_schedule_prep(&(rmnet_mhi_ptr->napi))) {
 		mhi_mask_irq(rmnet_mhi_ptr->rx_client_handle);
-		rmnet_mhi_ptr->irq_masked_cntr++;
+		atomic_inc(&rmnet_mhi_ptr->irq_masked_cntr);
 		__napi_schedule(&(rmnet_mhi_ptr->napi));
 	} else {
 		rx_interrupts_in_masked_irq[rmnet_mhi_ptr->dev_index]++;
@@ -539,9 +539,9 @@ static int rmnet_mhi_close(struct net_device *dev)
 	rmnet_mhi_ptr->mhi_enabled = 0;
 	rmnet_mhi_disable_iface(rmnet_mhi_ptr);
 	napi_disable(&(rmnet_mhi_ptr->napi));
-	if (rmnet_mhi_ptr->irq_masked_cntr) {
+	if (atomic_read(&rmnet_mhi_ptr->irq_masked_cntr)) {
+		atomic_dec(&rmnet_mhi_ptr->irq_masked_cntr);
 		mhi_unmask_irq(rmnet_mhi_ptr->rx_client_handle);
-		--rmnet_mhi_ptr->irq_masked_cntr;
 	}
 	return 0;
 }
