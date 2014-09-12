@@ -1124,7 +1124,7 @@
 			status = "disabled";
 		};
 
-	spi_0: spi@f9923000 { /* BLSP1 QUP1 */
+	spi_0: spi_epm: spi@f9923000 { /* BLSP1 QUP1 */
 		compatible = "qcom,spi-qup-v2";
 		#address-cells = <1>;
 		#size-cells = <0>;
@@ -1143,8 +1143,8 @@
 		qcom,master-id = <86>;
 		qcom,use-pinctrl;
 		pinctrl-names = "default", "sleep";
-		pinctrl-0 = <&spi_0_active>;
-		pinctrl-1 = <&spi_0_sleep>;
+		pinctrl-0 = <&spi_0_active &spi_0_cs1_active>;
+		pinctrl-1 = <&spi_0_sleep &spi_0_cs1_sleep>;
 
 		clock-names = "iface_clk", "core_clk";
 
