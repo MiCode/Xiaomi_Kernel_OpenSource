@@ -909,6 +909,8 @@ int mdss_mdp_video_reconfigure_splash_done(struct mdss_mdp_ctl *ctl,
 	pdata->panel_info.cont_splash_enabled = 0;
 	if (sctl)
 		sctl->panel_data->panel_info.cont_splash_enabled = 0;
+	else if (ctl->panel_data->next && is_split_dst(ctl->mfd))
+		ctl->panel_data->next->panel_info.cont_splash_enabled = 0;
 
 	if (!handoff) {
 		ret = mdss_mdp_ctl_intf_event(ctl, MDSS_EVENT_CONT_SPLASH_BEGIN,
