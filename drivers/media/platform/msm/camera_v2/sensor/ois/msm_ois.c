@@ -398,9 +398,7 @@ static int msm_ois_close(struct v4l2_subdev *sd,
 	return rc;
 }
 
-static const struct v4l2_subdev_internal_ops msm_ois_internal_ops = {
-	.close = msm_ois_close,
-};
+static const struct v4l2_subdev_internal_ops msm_ois_internal_ops;
 
 static long msm_ois_subdev_ioctl(struct v4l2_subdev *sd,
 			unsigned int cmd, void *arg)
