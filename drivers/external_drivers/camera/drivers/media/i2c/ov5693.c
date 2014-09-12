@@ -979,15 +979,15 @@ static int gpio_ctrl(struct v4l2_subdev *sd, bool flag)
 	if (dev->platform_data->gpio_ctrl)
 		return dev->platform_data->gpio_ctrl(sd, flag);
 
-	/* Note 1: CTS driver would, on flag==1 pulse reset low for
-	 * 60ms first before setting it high if CONFIG_BOARD_CTP is
-	 * set.  On which hardware is that needed? */
-
-	/* Note 2: the GPIO order is asymmetric: always RESET#
-	 * before PWDN# when turning it on or off. */
-
 	ret = dev->platform_data->gpio0_ctrl(sd, flag);
-	ret |= dev->platform_data->gpio1_ctrl(sd, flag);
+
+	/* The OV5693 has two enable inputs: XSHUTDN and RESETB, both
+	 * are active low, both must be high to enable the device.
+	 * And they can be enabled in either order.  The datasheet
+	 * even suggests that one be tied high, and some modules do
+	 * that.  Basically: allow the second GPIO to be missing in
+	 * the DSDT and ignore an error here. */
+	dev->platform_data->gpio1_ctrl(sd, flag);
 
 	return ret;
 }
