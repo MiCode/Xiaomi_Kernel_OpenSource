@@ -766,10 +766,6 @@ int mdss_mdp_wb_ioctl_handler(struct msm_fb_data_type *mfd, u32 cmd,
 		}
 		break;
 	case MSMFB_WRITEBACK_TERMINATE:
-		if (IS_ERR_VALUE(ret)) {
-			pr_err("IOMMU attach failed\n");
-			return ret;
-		}
 		ret = mdss_mdp_wb_terminate(mfd);
 		break;
 	case MSMFB_WRITEBACK_SET_MIRRORING_HINT:
