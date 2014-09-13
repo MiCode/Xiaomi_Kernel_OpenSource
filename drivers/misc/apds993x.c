@@ -176,7 +176,7 @@
 #define APDS993X_PDRVIE_12_5MA	0xC0  /* PS 12.5mA LED drive */
 
 /*calibration*/
-#define DEFAULT_CROSS_TALK	400
+#define DEFAULT_CROSS_TALK	100
 #define ADD_TO_CROSS_TALK	300
 #define SUB_FROM_PS_THRESHOLD	100
 
@@ -651,17 +651,10 @@ static void apds993x_set_ps_threshold_adding_cross_talk(
 	if (cal_data < 0)
 		cal_data = 0;
 
-	if (cal_data == 0) {
-		data->ps_threshold = apds993x_ps_detection_threshold;
-		data->ps_hysteresis_threshold =
-			data->ps_threshold - SUB_FROM_PS_THRESHOLD;
-	} else {
-		data->cross_talk = cal_data;
-		data->ps_threshold = ADD_TO_CROSS_TALK + data->cross_talk;
-		data->ps_hysteresis_threshold =
-			data->ps_threshold - SUB_FROM_PS_THRESHOLD;
-	}
-	pr_info("%s: configurations are set\n", __func__);
+	data->ps_threshold = apds993x_ps_detection_threshold + cal_data;
+	data->ps_hysteresis_threshold = apds993x_ps_hsyteresis_threshold
+				+ cal_data;
+	dev_dbg(&client->dev, "%s: configurations are set\n", __func__);
 }
 
 static int LuxCalculation(struct i2c_client *client, int ch0data, int ch1data)
@@ -2335,6 +2328,14 @@ static int sensor_parse_dt(struct device *dev,
 	}
 	pdata->prox_hsyteresis_threshold = tmp;
 
+	rc = of_property_read_u32(np, "avago,cross-talk", &tmp);
+	if (rc) {
+		dev_info(dev, "Unable to read cross_talk use default 100\n");
+		pdata->cross_talk = DEFAULT_CROSS_TALK;
+	} else {
+		pdata->cross_talk = tmp;
+	}
+
 	rc = of_property_read_u32(np, "avago,ps-pulse", &tmp);
 	if (rc) {
 		dev_err(dev, "Unable to read ps pulse\n");
@@ -2485,10 +2486,10 @@ static int apds993x_probe(struct i2c_client *client,
 		data->cross_talk = apds993x_cross_talk_val;
 	} else {
 		/*
-		 * default value: Get the cross-talk value from the memory.
+		 * default value: Get the cross-talk value from the devicetree.
 		 * This value is saved during the cross-talk calibration
 		 */
-		data->cross_talk = DEFAULT_CROSS_TALK;
+		data->cross_talk = pdata->cross_talk;
 	}
 
 	mutex_init(&data->update_lock);
