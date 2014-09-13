@@ -130,10 +130,10 @@
 			avago,ps-hysteresis-threshold = <500>;
 			avago,ps-pulse = <8>;
 			avago,ps-pgain = <0>;
-			avago,als-B = <223>;
-			avago,als-C = <70>;
-			avago,als-D = <142>;
-			avago,ga-value = <48>;
+			avago,als-B = <186>;
+			avago,als-C = <75>;
+			avago,als-D = <129>;
+			avago,ga-value = <560>;
 		};
 
 		akm@c {
