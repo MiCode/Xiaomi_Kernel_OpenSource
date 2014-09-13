@@ -108,8 +108,7 @@ void msm_camera_io_dump_2(void __iomem *addr, int size)
 		pr_err("%s\n", line_str);
 }
 
-static void msm_isp_print_fourcc_error(const char *origin,
-	uint32_t fourcc_format)
+void msm_isp_print_fourcc_error(const char *origin, uint32_t fourcc_format)
 {
 	int i;
 	char text[5];
