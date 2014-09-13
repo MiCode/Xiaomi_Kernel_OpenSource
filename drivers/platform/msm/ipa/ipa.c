@@ -1169,8 +1169,7 @@ static int ipa_q6_clean_q6_tables(void)
 {
 	struct ipa_desc *desc;
 	struct ipa_hw_imm_cmd_dma_shared_mem *cmd = NULL;
-	int client_idx;
-	int ep_idx;
+	int pipe_idx;
 	int num_cmds = 0;
 	int index;
 	int retval;
@@ -1208,13 +1207,9 @@ static int ipa_q6_clean_q6_tables(void)
 	 * Iterating over all the pipes which are either invalid but connected
 	 * or connected but not configured by AP.
 	 */
-	for (client_idx = 0; client_idx < IPA_CLIENT_MAX; client_idx++) {
-		ep_idx = ipa_get_ep_mapping(client_idx);
-		if (ep_idx == -1)
-			continue;
-
-		if (!ipa_ctx->ep[ep_idx].valid ||
-		    ipa_ctx->ep[ep_idx].skip_ep_cfg) {
+	for (pipe_idx = 0; pipe_idx < IPA_NUM_PIPES; pipe_idx++) {
+		if (!ipa_ctx->ep[pipe_idx].valid ||
+		    ipa_ctx->ep[pipe_idx].skip_ep_cfg) {
 			/*
 			 * Need to point v4 and v6 fltr tables to an empty
 			 * table
@@ -1223,7 +1218,7 @@ static int ipa_q6_clean_q6_tables(void)
 			cmd[num_cmds].system_addr = mem.phys_base;
 			cmd[num_cmds].local_addr =
 				ipa_ctx->smem_restricted_bytes +
-				IPA_v2_RAM_V4_FLT_OFST + 8 + ep_idx*4;
+				IPA_v2_RAM_V4_FLT_OFST + 8 + pipe_idx*4;
 
 			desc[num_cmds].opcode = IPA_DMA_SHARED_MEM;
 			desc[num_cmds].pyld = &cmd[num_cmds];
@@ -1235,7 +1230,7 @@ static int ipa_q6_clean_q6_tables(void)
 			cmd[num_cmds].system_addr =  mem.phys_base;
 			cmd[num_cmds].local_addr =
 				ipa_ctx->smem_restricted_bytes +
-				IPA_v2_RAM_V6_FLT_OFST + 8 + ep_idx*4;
+				IPA_v2_RAM_V6_FLT_OFST + 8 + pipe_idx*4;
 
 			desc[num_cmds].opcode = IPA_DMA_SHARED_MEM;
 			desc[num_cmds].pyld = &cmd[num_cmds];
