@@ -674,13 +674,7 @@
 		qcom,master-en = <1>;    /* Enable GPIO */
 	};
 
-	gpio@d300 { /* GPIO 20 - PMI_SPON */
-		qcom,mode = <1>;         /* Digital output */
-		qcom,pull = <4>;         /* Pulldown 10uA */
-		qcom,vin-sel = <2>;      /* VIN2 */
-		qcom,src-sel = <0>;      /* GPIO */
-		qcom,invert = <0>;       /* Invert */
-		qcom,master-en = <1>;    /* Enable GPIO */
+	gpio@d300 { /* GPIO 20 */
 	};
 };
 
@@ -746,12 +740,6 @@
 	};
 
 	mpp@a200 { /* MPP 3 */
-		/* PMI_SPON */
-		qcom,mode = <0>;	/* DIGITAL IN */
-		qcom,pull = <5>;	/* No Pull */
-		qcom,vin-sel = <2>;	/* 1.8 */
-		qcom,src-sel = <0>;	/* CONSTANT */
-		qcom,master-en = <1>;	/* ENABLE MPP */
 	};
 
 	mpp@a300 { /* MPP 4 */
