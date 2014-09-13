@@ -1132,15 +1132,6 @@ static int msm_isp_update_stream_bandwidth(struct vfe_device *vfe_dev)
 			}
 		}
 	}
-	if (num_pix_streams > 0)
-		do_div(total_pix_bandwidth, num_pix_streams);
-
-	total_pix_bandwidth = total_pix_bandwidth *
-		(uint64_t)(num_pix_streams - 1);
-	total_pix_bandwidth +=
-		((uint64_t)axi_data->src_info[VFE_PIX_0].pixel_clock *
-		(uint64_t)(ISP_DEFAULT_FORMAT_FACTOR)) / (uint64_t)ISP_Q2;
-
 	total_bandwidth = total_pix_bandwidth + total_rdi_bandwidth;
 	rc = msm_isp_update_bandwidth(ISP_VFE0 + vfe_dev->pdev->id,
 		total_bandwidth,  total_bandwidth *
