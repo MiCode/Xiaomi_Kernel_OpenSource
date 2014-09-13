@@ -453,7 +453,9 @@ struct debugfs_files {
 	struct dentry *host_regs;
 	struct dentry *power_mode;
 	struct dentry *dme_local_read;
+	struct dentry *dme_peer_read;
 	u32 dme_local_attr_id;
+	u32 dme_peer_attr_id;
 #ifdef CONFIG_UFS_FAULT_INJECTION
 	struct fault_attr fail_attr;
 #endif
@@ -677,6 +679,8 @@ struct ufs_hba {
 	#define UFSHCD_BROKEN_LCC_PROCESSING_ON_DEVICE		UFS_BIT(12)
 
 	#define UFSHCD_BROKEN_LCC_PROCESSING_ON_HOST		UFS_BIT(13)
+
+	#define UFSHCD_QUIRK_DME_PEER_GET_FAST_MODE		UFS_BIT(8)
 
 	unsigned int quirks;	/* Deviations from standard UFSHCI spec. */
 

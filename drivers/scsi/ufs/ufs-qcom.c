@@ -1104,6 +1104,8 @@ static void ufs_qcom_advertise_quirks(struct ufs_hba *hba)
 				| UFSHCD_QUIRK_DME_PEER_ACCESS_AUTO_MODE
 				| UFSHCD_QUIRK_BROKEN_PA_RXHSUNTERMCAP);
 	}
+
+	hba->quirks |= UFSHCD_QUIRK_DME_PEER_GET_FAST_MODE;
 }
 
 static void ufs_qcom_set_caps(struct ufs_hba *hba)
