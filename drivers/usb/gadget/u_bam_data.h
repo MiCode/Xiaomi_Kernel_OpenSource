@@ -41,7 +41,7 @@ int bam_data_connect(struct data_port *gr, u8 port_num,
 
 int bam_data_setup(unsigned int no_bam2bam_port);
 
-void bam_work_destroy(void);
+void bam_data_flush_workqueue(void);
 
 void bam_data_suspend(u8 port_num);
 
