@@ -162,6 +162,7 @@ config ARCH_FSM9010
 	select GIC_SECURE
 	select ARCH_MSM_CORTEXMP
 	select CPU_V7
+	select MSM_SCM
 	select GPIO_MSM_V3
 	select HAVE_ARM_ARCH_TIMER
 	select MSM_NATIVE_RESTART
