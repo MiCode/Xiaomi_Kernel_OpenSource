@@ -1114,15 +1114,6 @@ void diag_update_sleeping_process(int process_id, int data_type)
 	mutex_unlock(&driver->diagchar_mutex);
 }
 
-static int diag_check_mode_reset(unsigned char *buf)
-{
-	int is_mode_reset = 0;
-	if (chk_apps_master() && (int)(*(char *)buf) == MODE_CMD)
-		if ((int)(*(char *)(buf+1)) == RESET_ID)
-			is_mode_reset = 1;
-	return is_mode_reset;
-}
-
 int diag_send_data(struct diag_master_table entry, unsigned char *buf,
 					 int len, int type)
 {
@@ -1148,14 +1139,7 @@ int diag_send_data(struct diag_master_table entry, unsigned char *buf,
 						__func__, entry.client_id);
 					return 0;
 				}
-				/*
-				 * Mode reset should work even if
-				 * modem is down
-				 */
-				if ((index == MODEM_DATA) &&
-					diag_check_mode_reset(buf)) {
-					return 1;
-				}
+
 				smd_info = (driver->separate_cmdrsp[index] &&
 						index < NUM_SMD_CMD_CHANNELS) ?
 						&driver->smd_cmd[index] :
@@ -1350,6 +1334,11 @@ int diag_process_apps_pkt(unsigned char *buf, int len)
 						 cmd_code &&
 						 entry.
 						cmd_code_hi >= cmd_code) {
+					if (cmd_code == MODE_CMD &&
+							subsys_id == RESET_ID &&
+							entry.process_id ==
+							NON_APPS_PROC)
+						continue;
 					status = diag_send_data(entry, buf, len,
 								 data_type);
 					if (status)
