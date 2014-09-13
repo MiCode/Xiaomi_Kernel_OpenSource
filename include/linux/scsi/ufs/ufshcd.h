@@ -378,7 +378,9 @@ struct debugfs_files {
 	struct dentry *dump_dev_desc;
 	struct dentry *power_mode;
 	struct dentry *dme_local_read;
+	struct dentry *dme_peer_read;
 	u32 dme_local_attr_id;
+	u32 dme_peer_attr_id;
 #ifdef CONFIG_UFS_FAULT_INJECTION
 	struct fault_attr fail_attr;
 #endif
