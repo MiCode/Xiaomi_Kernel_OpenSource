@@ -13,12 +13,11 @@
 
 /dts-v1/;
 
-#include "msm8994.dtsi"
-#include "msm8994-pinctrl.dtsi"
+#include "apq8094-v2.dtsi"
 #include "msm8994-cdp.dtsi"
 
 / {
-	model = "Qualcomm Technologies, Inc. MSM8994 CDP";
-	compatible = "qcom,msm8994-cdp", "qcom,msm8994", "qcom,cdp";
+	model = "Qualcomm Technologies, Inc. APQ8094v2 CDP";
+	compatible = "qcom,apq8094-cdp", "qcom,apq8094", "qcom,cdp";
 	qcom,board-id = <1 0>;
 };
