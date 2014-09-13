@@ -160,6 +160,7 @@
 			#size-cells = <1>;
 
 			qcom,iterm-ma = <100>;
+			qcom,fastchg-current-ma = <2000>;
 			qcom,float-voltage-mv = <4350>;
 			qcom,resume-delta-mv = <200>;
 			qcom,dc-psy-type = "Mains";
