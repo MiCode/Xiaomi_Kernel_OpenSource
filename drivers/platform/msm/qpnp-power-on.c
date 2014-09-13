@@ -150,6 +150,8 @@ struct qpnp_pon {
 	int pon_power_off_reason;
 	u32 uvlo;
 	struct dentry *debugfs;
+	u8 warm_reset_reason1;
+	u8 warm_reset_reason2;
 };
 
 static struct qpnp_pon *sys_reset_dev;
@@ -362,36 +364,12 @@ EXPORT_SYMBOL(qpnp_pon_system_pwr_off);
 int qpnp_pon_is_warm_reset(void)
 {
 	struct qpnp_pon *pon = sys_reset_dev;
-	int rc;
-	u8 reg;
 
 	if (!pon)
 		return -EPROBE_DEFER;
 
-	rc = spmi_ext_register_readl(pon->spmi->ctrl, pon->spmi->sid,
-			QPNP_PON_WARM_RESET_REASON1(pon->base), &reg, 1);
-	if (rc) {
-		dev_err(&pon->spmi->dev,
-			"Unable to read addr=%x, rc(%d)\n",
-			QPNP_PON_WARM_RESET_REASON1(pon->base), rc);
-		return rc;
-	}
-
-	if (reg)
-		return 1;
-
-	rc = spmi_ext_register_readl(pon->spmi->ctrl, pon->spmi->sid,
-			QPNP_PON_WARM_RESET_REASON2(pon->base), &reg, 1);
-	if (rc) {
-		dev_err(&pon->spmi->dev,
-			"Unable to read addr=%x, rc(%d)\n",
-			QPNP_PON_WARM_RESET_REASON2(pon->base), rc);
-		return rc;
-	}
-	if (reg & QPNP_PON_WARM_RESET_TFT)
-		return 1;
-
-	return 0;
+	return pon->warm_reset_reason1
+		|| (pon->warm_reset_reason2 & QPNP_PON_WARM_RESET_TFT);
 }
 EXPORT_SYMBOL(qpnp_pon_is_warm_reset);
 
@@ -453,6 +431,49 @@ int qpnp_pon_trigger_config(enum pon_trigger_source pon_src, bool enable)
 	return rc;
 }
 EXPORT_SYMBOL(qpnp_pon_trigger_config);
+
+/*
+ * This function stores the PMIC warm reset reason register values. It also
+ * clears these registers if the qcom,clear-warm-reset device tree property
+ * is specified.
+ */
+static int qpnp_pon_store_and_clear_warm_reset(struct qpnp_pon *pon)
+{
+	int rc;
+	u8 reg = 0;
+
+	rc = spmi_ext_register_readl(pon->spmi->ctrl, pon->spmi->sid,
+			QPNP_PON_WARM_RESET_REASON1(pon->base),
+			&pon->warm_reset_reason1, 1);
+	if (rc) {
+		dev_err(&pon->spmi->dev,
+			"Unable to read addr=%x, rc(%d)\n",
+			QPNP_PON_WARM_RESET_REASON1(pon->base), rc);
+		return rc;
+	}
+
+	rc = spmi_ext_register_readl(pon->spmi->ctrl, pon->spmi->sid,
+			QPNP_PON_WARM_RESET_REASON2(pon->base),
+			&pon->warm_reset_reason2, 1);
+	if (rc) {
+		dev_err(&pon->spmi->dev,
+			"Unable to read addr=%x, rc(%d)\n",
+			QPNP_PON_WARM_RESET_REASON2(pon->base), rc);
+		return rc;
+	}
+
+	if (of_property_read_bool(pon->spmi->dev.of_node,
+					"qcom,clear-warm-reset")) {
+		rc = spmi_ext_register_writel(pon->spmi->ctrl, pon->spmi->sid,
+			QPNP_PON_WARM_RESET_REASON1(pon->base), &reg, 1);
+		if (rc)
+			dev_err(&pon->spmi->dev,
+				"Unable to write to addr=%hx, rc(%d)\n",
+				QPNP_PON_WARM_RESET_REASON1(pon->base), rc);
+	}
+
+	return 0;
+}
 
 static struct qpnp_pon_config *
 qpnp_get_cfg(struct qpnp_pon *pon, u32 pon_type)
@@ -1441,6 +1462,13 @@ static int qpnp_pon_probe(struct spmi_device *spmi)
 		return -ENXIO;
 	}
 	pon->base = pon_resource->start;
+
+	rc = qpnp_pon_store_and_clear_warm_reset(pon);
+	if (rc) {
+		dev_err(&pon->spmi->dev,
+			"Unable to store/clear WARM_RESET_REASONx registers\n");
+		return rc;
+	}
 
 	/* PON reason */
 	rc = spmi_ext_register_readl(pon->spmi->ctrl, pon->spmi->sid,

@@ -43,6 +43,12 @@ Optional properties:
 				"kpdpwr-and-resin". The default value is
 				"kpdpwr-and-resin".
 - qcom,uvlo-panic		If this property is present, the device will set to panic during reboot if this reboot is due to under voltage lock out
+- qcom,clear-warm-reset		Specifies that the WARM_RESET reason registers
+				need to be cleared for this target. The property
+				is used for the targets which have a hardware feature
+				to catch resets which aren't triggered by the MSM.
+				In such cases clearing WARM_REASON registers across
+				MSM resets keeps the registers in good state.
 
 All the below properties are in the sub-node section (properties of the child
 node).
@@ -100,6 +106,7 @@ Example:
 		qcom,system-reset;
 		qcom,s3-debounce = <32>;
 		qcom,s3-src = "resin";
+		qcom,clear-warm-reset;
 
 		qcom,pon_1 {
 			qcom,pon-type = <0>;
