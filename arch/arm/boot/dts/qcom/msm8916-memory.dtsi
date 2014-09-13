@@ -29,7 +29,7 @@
 			linux,reserve-contiguous-region;
 			linux,reserve-region;
 			linux,remove-completely;
-			reg = <0x0 0x86800000 0x0 0x04e00000>;
+			reg = <0x0 0x86800000 0x0 0x05500000>;
 			label = "modem_adsp_mem";
 		};
 
@@ -37,7 +37,7 @@
 			linux,reserve-contiguous-region;
 			linux,reserve-region;
 			linux,remove-completely;
-			reg = <0x0 0x8b600000 0x0 0x0600000>;
+			reg = <0x0 0x8bd00000 0x0 0x0600000>;
 			label = "peripheral_mem";
 		};
 
