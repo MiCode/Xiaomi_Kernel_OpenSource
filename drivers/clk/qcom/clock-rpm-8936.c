@@ -89,6 +89,10 @@ static DEFINE_CLK_VOTER(sysmmnoc_msmbus_a_clk,  &sysmmnoc_a_clk.c,  LONG_MAX);
 static DEFINE_CLK_VOTER(bimc_msmbus_a_clk,  &bimc_a_clk.c,  LONG_MAX);
 static DEFINE_CLK_VOTER(pcnoc_keepalive_a_clk, &pcnoc_a_clk.c, LONG_MAX);
 
+static DEFINE_CLK_VOTER(pcnoc_usb_a_clk, &pcnoc_a_clk.c,  LONG_MAX);
+static DEFINE_CLK_VOTER(snoc_usb_a_clk,  &snoc_a_clk.c,  LONG_MAX);
+static DEFINE_CLK_VOTER(bimc_usb_a_clk,  &bimc_a_clk.c,  LONG_MAX);
+
 /* Branch Voter clocks */
 static DEFINE_CLK_BRANCH_VOTER(xo_gcc, &xo_clk_src.c);
 static DEFINE_CLK_BRANCH_VOTER(xo_otg_clk, &xo_clk_src.c);
@@ -140,6 +144,10 @@ static struct clk_lookup msm_clocks_rpm[] = {
 	CLK_LIST(bimc_msmbus_clk),
 	CLK_LIST(bimc_msmbus_a_clk),
 	CLK_LIST(pcnoc_keepalive_a_clk),
+
+	CLK_LIST(pcnoc_usb_a_clk),
+	CLK_LIST(snoc_usb_a_clk),
+	CLK_LIST(bimc_usb_a_clk),
 
 	/* CoreSight clocks */
 	CLK_LIST(qdss_clk),
