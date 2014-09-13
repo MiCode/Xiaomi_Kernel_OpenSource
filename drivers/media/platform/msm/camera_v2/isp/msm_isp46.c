@@ -1655,7 +1655,7 @@ static void msm_vfe46_get_halt_restart_mask(uint32_t *irq0_mask,
 	*irq1_mask = BIT(8);
 }
 static struct msm_vfe_axi_hardware_info msm_vfe46_axi_hw_info = {
-	.num_wm = 6,
+	.num_wm = 7,
 	.num_comp_mask = 3,
 	.num_rdi = 3,
 	.num_rdi_master = 3,
