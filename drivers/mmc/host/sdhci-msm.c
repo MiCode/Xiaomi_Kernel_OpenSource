@@ -635,6 +635,8 @@ static int sdhci_msm_probe(struct platform_device *pdev)
 				CORE_3_0V_SUPPORT | CORE_8_BIT_SUPPORT),
 				host->ioaddr + CORE_VENDOR_SPEC_CAPABILITIES0);
 
+	host->quirks2 |= SDHCI_QUIRK2_BROKEN_HS200;
+
 	host_version = readw_relaxed((host->ioaddr + SDHCI_HOST_VERSION));
 	dev_dbg(&pdev->dev, "Host Version: 0x%x Vendor Version 0x%x\n",
 		host_version, ((host_version & SDHCI_VENDOR_VER_MASK) >>
