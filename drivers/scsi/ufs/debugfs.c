@@ -753,6 +753,23 @@ out:
 	return ret;
 }
 
+static int ufsdbg_config_pwr_mode(struct ufs_hba *hba,
+		struct ufs_pa_layer_attr *desired_pwr_mode)
+{
+	#define DOORBELL_CLR_TOUT_US	(1000 * 1000) /* 1 sec */
+	int ret;
+
+	pm_runtime_get_sync(hba->dev);
+	scsi_block_requests(hba->host);
+	ret = ufshcd_wait_for_doorbell_clr(hba, DOORBELL_CLR_TOUT_US);
+	if (!ret)
+		ret = ufshcd_change_power_mode(hba, desired_pwr_mode);
+	scsi_unblock_requests(hba->host);
+	pm_runtime_put_sync(hba->dev);
+
+	return ret;
+}
+
 static ssize_t ufsdbg_power_mode_write(struct file *file,
 				const char __user *ubuf, size_t cnt,
 				loff_t *ppos)
@@ -764,7 +781,6 @@ static ssize_t ufsdbg_power_mode_write(struct file *file,
 	loff_t buff_pos = 0;
 	int ret;
 	int idx = 0;
-	#define DOORBELL_CLR_TOUT_US	(1000 * 1000) /* 1 sec */
 
 	ret = simple_write_to_buffer(pwr_mode_str, BUFF_LINE_CAPACITY,
 		&buff_pos, ubuf, cnt);
@@ -800,13 +816,7 @@ static ssize_t ufsdbg_power_mode_write(struct file *file,
 		return cnt;
 	}
 
-	pm_runtime_get_sync(hba->dev);
-	scsi_block_requests(hba->host);
-	ret = ufshcd_wait_for_doorbell_clr(hba, DOORBELL_CLR_TOUT_US);
-	if (!ret)
-		ret = ufshcd_change_power_mode(hba, &final_pwr_mode);
-	scsi_unblock_requests(hba->host);
-	pm_runtime_put_sync(hba->dev);
+	ret = ufsdbg_config_pwr_mode(hba, &final_pwr_mode);
 	if (ret == -EBUSY)
 		dev_err(hba->dev,
 			"%s: ufshcd_config_pwr_mode failed: system is busy, try again\n",
@@ -830,19 +840,21 @@ static const struct file_operations ufsdbg_power_mode_desc = {
 	.write		= ufsdbg_power_mode_write,
 };
 
-static int ufsdbg_dme_local_read(void *data, u64 *attr_val)
+static int ufsdbg_dme_read(void *data, u64 *attr_val, bool peer)
 {
 	int ret;
 	struct ufs_hba *hba = data;
-	u32 read_val = 0;
+	u32 attr_id, read_val = 0;
+	int (*read_func) (struct ufs_hba *, u32, u32 *);
 
 	if (!hba)
 		return -EINVAL;
 
+	read_func = peer ? ufshcd_dme_peer_get : ufshcd_dme_get;
+	attr_id = peer ? hba->debugfs_files.dme_peer_attr_id :
+			 hba->debugfs_files.dme_local_attr_id;
 	pm_runtime_get_sync(hba->dev);
-	ret = ufshcd_dme_get(hba,
-			UIC_ARG_MIB(hba->debugfs_files.dme_local_attr_id),
-			&read_val);
+	ret = ufshcd_dme_get(hba, UIC_ARG_MIB(attr_id), &read_val);
 	pm_runtime_put_sync(hba->dev);
 
 	if (!ret)
@@ -863,9 +875,68 @@ static int ufsdbg_dme_local_set_attr_id(void *data, u64 attr_id)
 	return 0;
 }
 
+static int ufsdbg_dme_local_read(void *data, u64 *attr_val)
+{
+	return ufsdbg_dme_read(data, attr_val, false);
+}
+
 DEFINE_SIMPLE_ATTRIBUTE(ufsdbg_dme_local_read_ops,
 			ufsdbg_dme_local_read,
 			ufsdbg_dme_local_set_attr_id,
+			"%llu\n");
+
+static int ufsdbg_dme_peer_read(void *data, u64 *attr_val)
+{
+	int ret;
+	struct ufs_hba *hba = data;
+	struct ufs_pa_layer_attr orig_pwr_info;
+	struct ufs_pa_layer_attr temp_pwr_info;
+	bool restore_pwr_mode = false;
+
+	if (!hba)
+		return -EINVAL;
+
+	if (hba->quirks & UFSHCD_QUIRK_DME_PEER_GET_FAST_MODE) {
+		orig_pwr_info = hba->pwr_info;
+		temp_pwr_info = orig_pwr_info;
+		if (orig_pwr_info.pwr_tx == FAST_MODE ||
+		    orig_pwr_info.pwr_rx == FAST_MODE) {
+			temp_pwr_info.pwr_tx = FASTAUTO_MODE;
+			temp_pwr_info.pwr_rx = FASTAUTO_MODE;
+			ret = ufsdbg_config_pwr_mode(hba, &temp_pwr_info);
+			if (ret)
+				goto out;
+			else
+				restore_pwr_mode = true;
+		}
+	}
+
+	ret = ufsdbg_dme_read(data, attr_val, true);
+
+	if (hba->quirks & UFSHCD_QUIRK_DME_PEER_GET_FAST_MODE) {
+		if (restore_pwr_mode)
+			ufsdbg_config_pwr_mode(hba, &orig_pwr_info);
+	}
+
+out:
+	return ret;
+}
+
+static int ufsdbg_dme_peer_set_attr_id(void *data, u64 attr_id)
+{
+	struct ufs_hba *hba = data;
+
+	if (!hba)
+		return -EINVAL;
+
+	hba->debugfs_files.dme_peer_attr_id = (u32)attr_id;
+
+	return 0;
+}
+
+DEFINE_SIMPLE_ATTRIBUTE(ufsdbg_dme_peer_read_ops,
+			ufsdbg_dme_peer_read,
+			ufsdbg_dme_peer_set_attr_id,
 			"%llu\n");
 
 void ufsdbg_add_debugfs(struct ufs_hba *hba)
@@ -958,6 +1029,17 @@ void ufsdbg_add_debugfs(struct ufs_hba *hba)
 	if (!hba->debugfs_files.dme_local_read) {
 		dev_err(hba->dev,
 			"%s:  failed create dme_local_read debugfs entry\n",
+			__func__);
+		goto err;
+	}
+
+	hba->debugfs_files.dme_peer_read =
+		debugfs_create_file("dme_peer_read", S_IRUSR | S_IWUSR,
+				    hba->debugfs_files.debugfs_root, hba,
+				    &ufsdbg_dme_peer_read_ops);
+	if (!hba->debugfs_files.dme_peer_read) {
+		dev_err(hba->dev,
+			"%s:  failed create dme_peer_read debugfs entry\n",
 			__func__);
 		goto err;
 	}

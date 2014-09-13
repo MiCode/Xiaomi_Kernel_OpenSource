@@ -750,6 +750,8 @@ static void ufs_qcom_advertise_quirks(struct ufs_hba *hba)
 		hba->quirks |= (UFSHCD_QUIRK_DELAY_BEFORE_DME_CMDS
 			      | UFSHCD_QUIRK_BROKEN_PA_RXHSUNTERMCAP
 			      | UFSHCD_QUIRK_BROKEN_LCC);
+
+	hba->quirks |= UFSHCD_QUIRK_DME_PEER_GET_FAST_MODE;
 }
 
 static int ufs_qcom_get_bus_vote(struct ufs_qcom_host *host,

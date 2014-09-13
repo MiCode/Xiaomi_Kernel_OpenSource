@@ -2705,6 +2705,7 @@ int ufshcd_wait_for_doorbell_clr(struct ufs_hba *hba, u64 wait_timeout_us)
 	bool timeout = false;
 	ktime_t start = ktime_get();
 
+	ufshcd_hold(hba, false);
 	spin_lock_irqsave(hba->host->host_lock, flags);
 	if (hba->ufshcd_state != UFSHCD_STATE_OPERATIONAL) {
 		ret = -EBUSY;
@@ -2739,6 +2740,7 @@ int ufshcd_wait_for_doorbell_clr(struct ufs_hba *hba, u64 wait_timeout_us)
 	}
 out:
 	spin_unlock_irqrestore(hba->host->host_lock, flags);
+	ufshcd_release(hba);
 	return ret;
 }
 
