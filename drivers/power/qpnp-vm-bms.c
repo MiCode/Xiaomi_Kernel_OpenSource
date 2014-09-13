@@ -174,6 +174,8 @@ struct bms_dt_cfg {
 	int				cfg_disable_bms;
 	int				cfg_s3_ocv_tol_uv;
 	int				cfg_soc_resume_limit;
+	int				cfg_low_temp_threshold;
+	int				cfg_ibat_avg_samples;
 };
 
 struct qpnp_bms_chip {
@@ -788,10 +790,11 @@ static int calculate_uuc_iavg(struct qpnp_bms_chip *chip)
 		chip->prev_current_now = chip->current_now;
 
 	chip->iavg_samples_ma[chip->iavg_index] = iavg_ma;
-	chip->iavg_index = (chip->iavg_index + 1) % IAVG_SAMPLES;
+	chip->iavg_index = (chip->iavg_index + 1) %
+				chip->dt.cfg_ibat_avg_samples;
 	chip->iavg_num_samples++;
-	if (chip->iavg_num_samples >= IAVG_SAMPLES)
-		chip->iavg_num_samples = IAVG_SAMPLES;
+	if (chip->iavg_num_samples >= chip->dt.cfg_ibat_avg_samples)
+		chip->iavg_num_samples = chip->dt.cfg_ibat_avg_samples;
 
 	if (chip->iavg_num_samples) {
 		iavg_ma = 0;
@@ -860,7 +863,14 @@ static int lookup_soc_ocv(struct qpnp_bms_chip *chip, int ocv_uv, int batt_temp)
 		/* Apply  ACC logic only if we discharging */
 		if (!is_battery_charging(chip) && chip->current_now > 0) {
 
-			iavg_ma = calculate_uuc_iavg(chip);
+			/*
+			 * IBAT averaging is disabled at low temp.
+			 * allowing the SOC to catcup quickly.
+			 */
+			if (batt_temp > chip->dt.cfg_low_temp_threshold)
+				iavg_ma = calculate_uuc_iavg(chip);
+			else
+				iavg_ma = chip->current_now / 1000;
 
 			fcc = interpolate_fcc(chip->batt_data->fcc_temp_lut,
 								batt_temp);
@@ -874,7 +884,8 @@ static int lookup_soc_ocv(struct qpnp_bms_chip *chip, int ocv_uv, int batt_temp)
 			}
 			soc_uuc = ((fcc - acc) * 100) / fcc;
 
-			soc_uuc = adjust_uuc(chip, soc_uuc);
+			if (batt_temp > chip->dt.cfg_low_temp_threshold)
+				soc_uuc = adjust_uuc(chip, soc_uuc);
 
 			soc_acc = DIV_ROUND_CLOSEST(100 * (soc_ocv - soc_uuc),
 							(100 - soc_uuc));
@@ -1414,7 +1425,7 @@ static int report_voltage_based_soc(struct qpnp_bms_chip *chip)
 #define SOC_CHANGE_PER_SEC		5
 static int report_vm_bms_soc(struct qpnp_bms_chip *chip)
 {
-	int soc, soc_change;
+	int soc, soc_change, batt_temp, rc;
 	int time_since_last_change_sec = 0, charge_time_sec = 0;
 	unsigned long last_change_sec;
 	bool charging;
@@ -1464,6 +1475,10 @@ static int report_vm_bms_soc(struct qpnp_bms_chip *chip)
 		 * since the last time this was called, report previous SoC.
 		 * Otherwise, scale and catch up.
 		 */
+		rc = get_batt_therm(chip, &batt_temp);
+		if (rc)
+			batt_temp = BMS_DEFAULT_TEMP;
+
 		if (chip->last_soc < soc && !charging)
 			soc = chip->last_soc;
 		else if (chip->last_soc < soc && soc != 100)
@@ -1471,8 +1486,12 @@ static int report_vm_bms_soc(struct qpnp_bms_chip *chip)
 					chip->catch_up_time_sec,
 					soc, chip->last_soc);
 
-		/* if the battery is close to cutoff allow more change */
-		if (bms_wake_active(&chip->vbms_lv_wake_source))
+		/*
+		 * if the battery is close to cutoff or if the batt_temp
+		 * is under the low-temp threshold allow bigger change
+		 */
+		if (bms_wake_active(&chip->vbms_lv_wake_source) ||
+			(batt_temp <= chip->dt.cfg_low_temp_threshold))
 			soc_change = min((int)abs(chip->last_soc - soc),
 				time_since_last_change_sec);
 		else
@@ -3252,6 +3271,16 @@ static int parse_bms_dt_properties(struct qpnp_bms_chip *chip)
 	SPMI_PROP_READ_OPTIONAL(cfg_low_soc_fifo_length,
 						"low-soc-fifo-length", rc);
 	SPMI_PROP_READ_OPTIONAL(cfg_soc_resume_limit, "resume-soc", rc);
+	SPMI_PROP_READ_OPTIONAL(cfg_low_temp_threshold,
+					"low-temp-threshold", rc);
+	if (rc)
+		chip->dt.cfg_low_temp_threshold = 0;
+
+	SPMI_PROP_READ_OPTIONAL(cfg_ibat_avg_samples,
+					"ibat-avg-samples", rc);
+	if (rc || (chip->dt.cfg_ibat_avg_samples <= 0) ||
+			(chip->dt.cfg_ibat_avg_samples > IAVG_SAMPLES))
+		chip->dt.cfg_ibat_avg_samples = IAVG_SAMPLES;
 
 	chip->dt.cfg_ignore_shutdown_soc = of_property_read_bool(
 			chip->spmi->dev.of_node, "qcom,ignore-shutdown-soc");
@@ -3268,9 +3297,11 @@ static int parse_bms_dt_properties(struct qpnp_bms_chip *chip)
 			"qcom,force-bms-active-on-charger");
 	pr_debug("v_cutoff_uv=%d, max_v=%d\n", chip->dt.cfg_v_cutoff_uv,
 					chip->dt.cfg_max_voltage_uv);
-	pr_debug("r_conn=%d shutdown_soc_valid_limit=%d\n",
+	pr_debug("r_conn=%d shutdown_soc_valid_limit=%d low_temp_threshold=%d ibat_avg_samples=%d\n",
 					chip->dt.cfg_r_conn_mohm,
-			chip->dt.cfg_shutdown_soc_valid_limit);
+			chip->dt.cfg_shutdown_soc_valid_limit,
+			chip->dt.cfg_low_temp_threshold,
+			chip->dt.cfg_ibat_avg_samples);
 	pr_debug("ignore_shutdown_soc=%d, use_voltage_soc=%d low_soc_fifo_length=%d\n",
 				chip->dt.cfg_ignore_shutdown_soc,
 				chip->dt.cfg_use_voltage_soc,
