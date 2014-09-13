@@ -68,6 +68,9 @@ struct mdss_mdp_video_ctx {
 	struct list_head vsync_handlers;
 };
 
+static void mdss_mdp_fetch_start_config(struct mdss_mdp_video_ctx *ctx,
+		struct mdss_mdp_ctl *ctl);
+
 static inline void mdp_video_write(struct mdss_mdp_video_ctx *ctx,
 				   u32 reg, u32 val)
 {
@@ -665,7 +668,7 @@ static void mdss_mdp_video_timegen_flush(struct mdss_mdp_ctl *ctl,
 static int mdss_mdp_video_config_fps(struct mdss_mdp_ctl *ctl,
 					struct mdss_mdp_ctl *sctl, int new_fps)
 {
-	struct mdss_mdp_video_ctx *ctx;
+	struct mdss_mdp_video_ctx *ctx, *sctx = NULL;
 	struct mdss_panel_data *pdata;
 	int rc = 0;
 	u32 hsync_period, vsync_period;
@@ -677,6 +680,14 @@ static int mdss_mdp_video_config_fps(struct mdss_mdp_ctl *ctl,
 	if (!ctx) {
 		pr_err("invalid ctx\n");
 		return -ENODEV;
+	}
+
+	if (sctl) {
+		sctx = (struct mdss_mdp_video_ctx *) sctl->priv_data;
+		if (!sctx) {
+			pr_err("invalid ctx\n");
+			return -ENODEV;
+		}
 	}
 
 	pdata = ctl->panel_data;
@@ -760,6 +771,10 @@ static int mdss_mdp_video_config_fps(struct mdss_mdp_ctl *ctl,
 					(void *) (unsigned long) new_fps);
 			WARN(rc, "intf %d panel fps update error (%d)\n",
 							ctl->intf_num, rc);
+
+			mdss_mdp_fetch_start_config(ctx, ctl);
+			if (sctl)
+				mdss_mdp_fetch_start_config(sctx, sctl);
 
 			/* MDP INTF registers support DB on 8916/8939 */
 			if (!wait4vsync)
@@ -1046,14 +1061,15 @@ static int mdss_mdp_video_intfs_setup(struct mdss_mdp_ctl *ctl,
 			pinfo->bpp);
 	itp.vsync_pulse_width = pinfo->lcdc.v_pulse_width;
 
-	if (!ctl->panel_data->panel_info.cont_splash_enabled)
+	if (!ctl->panel_data->panel_info.cont_splash_enabled) {
 		if (mdss_mdp_video_timegen_setup(ctl, &itp)) {
 			pr_err("unable to set timing parameters intfs: %d\n",
 				(inum + MDSS_MDP_INTF0));
 			return -EINVAL;
 		}
+		mdss_mdp_fetch_start_config(ctx, ctl);
+	}
 
-	mdss_mdp_fetch_start_config(ctx, ctl);
 	mdp_video_write(ctx, MDSS_MDP_REG_INTF_PANEL_FORMAT, ctl->dst_format);
 
 	return 0;
