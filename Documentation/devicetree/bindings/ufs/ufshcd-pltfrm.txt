@@ -34,6 +34,14 @@ Optional properties:
 			  defined or a value in the array is "0" then it is assumed
 			  that the frequency is set by the parent clock or a
 			  fixed rate clock source.
+- rpm-level		: UFS Runtime power management level. Following PM levels are suppported:
+			  0 - Both UFS device and Link in active state (Highest power consumption)
+			  1 - UFS device in active state but Link in Hibern8 state
+			  2 - UFS device in Sleep state but Link in active state
+			  3 - UFS device in Sleep state and Link in hibern8 state (default PM level)
+			  4 - UFS device in Power-down state and Link in Hibern8 state
+			  5 - UFS device in Power-down state and Link in OFF state (Lowest power consumption)
+- spm-level		: UFS System power management level. Allowed PM levels are same as rpm-level.
 
 Note: If above properties are not defined it can be assumed that the supply
 regulators or clocks are always on.
@@ -58,6 +66,8 @@ Example:
 		clocks = <&core 0>, <&ref 0>, <&iface 0>;
 		clock-names = "core_clk", "ref_clk", "iface_clk";
 		freq-table-hz = <100000000 200000000>, <0 0>, <0 0>;
+		rpm-level = <3>;
+		spm-level = <5>;
 	};
 
 ==== MSM UFS platform driver properties =====
