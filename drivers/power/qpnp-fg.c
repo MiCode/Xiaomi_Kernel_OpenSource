@@ -714,7 +714,8 @@ static int get_prop_capacity(struct fg_chip *chip)
 		capacity = (cap[0] * 100 / FULL_PERCENT);
 
 	if (fg_debug_mask & FG_POWER_SUPPLY)
-		pr_info("capacity: %d, raw: 0x%02x\n", capacity, cap[0]);
+		pr_info_ratelimited("capacity: %d, raw: 0x%02x\n",
+				capacity, cap[0]);
 	return capacity;
 }
 
