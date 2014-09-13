@@ -1227,17 +1227,21 @@ static int tomtom_mad_input_put(struct snd_kcontrol *kcontrol,
 	struct snd_ctl_elem_value *ucontrol)
 {
 	u8 tomtom_mad_input;
+	u16 micb_int_reg, micb_4_int_reg;
 	struct snd_soc_codec *codec = snd_kcontrol_chip(kcontrol);
 	struct snd_soc_card *card = codec->card;
 	char mad_amic_input_widget[6];
 	u32 adc;
 	const char *mad_input_widget;
+	const char *source_widget = NULL;
 	u32  mic_bias_found = 0;
 	u32 i;
+	struct tomtom_priv *tomtom = snd_soc_codec_get_drvdata(codec);
 	int ret = 0;
 	char *mad_input;
 
 	tomtom_mad_input = ucontrol->value.integer.value[0];
+	micb_4_int_reg = tomtom->resmgr.reg_addr->micb_4_int_rbias;
 
 	pr_debug("%s: tomtom_mad_input = %s\n", __func__,
 			tomtom_conn_mad_text[tomtom_mad_input]);
@@ -1283,21 +1287,33 @@ static int tomtom_mad_input_put(struct snd_kcontrol *kcontrol,
 
 		if (!strcmp(card->dapm_routes[i].sink, mad_input_widget)) {
 
-			if (strnstr(card->dapm_routes[i].source,
+			source_widget = card->dapm_routes[i].source;
+			if (!source_widget) {
+				dev_err(codec->dev,
+					"%s: invalid source widget\n",
+					__func__);
+				return -EINVAL;
+			}
+
+			if (strnstr(source_widget,
 				"MIC BIAS1", sizeof("MIC BIAS1"))) {
 				mic_bias_found = 1;
+				micb_int_reg = TOMTOM_A_MICB_1_INT_RBIAS;
 				break;
-			} else if (strnstr(card->dapm_routes[i].source,
+			} else if (strnstr(source_widget,
 				"MIC BIAS2", sizeof("MIC BIAS2"))) {
 				mic_bias_found = 2;
+				micb_int_reg = TOMTOM_A_MICB_2_INT_RBIAS;
 				break;
-			} else if (strnstr(card->dapm_routes[i].source,
+			} else if (strnstr(source_widget,
 				"MIC BIAS3", sizeof("MIC BIAS3"))) {
 				mic_bias_found = 3;
+				micb_int_reg = TOMTOM_A_MICB_3_INT_RBIAS;
 				break;
-			} else if (strnstr(card->dapm_routes[i].source,
+			} else if (strnstr(source_widget,
 				"MIC BIAS4", sizeof("MIC BIAS4"))) {
 				mic_bias_found = 4;
+				micb_int_reg = micb_4_int_reg;
 				break;
 			}
 		}
@@ -1312,6 +1328,29 @@ static int tomtom_mad_input_put(struct snd_kcontrol *kcontrol,
 					0x0F, tomtom_mad_input);
 		snd_soc_update_bits(codec, TOMTOM_A_MAD_ANA_CTRL,
 					0x07, mic_bias_found);
+
+		/* Setup internal micbias */
+
+		if (strnstr(source_widget, "Internal1", strlen(source_widget)))
+			snd_soc_update_bits(codec,
+					micb_int_reg,
+					0xE0, 0xE0);
+		else if (strnstr(source_widget, "Internal2",
+				strlen(source_widget)))
+			snd_soc_update_bits(codec,
+					micb_int_reg,
+					0x1C, 0x1C);
+		else if (strnstr(source_widget, "Internal3",
+				strlen(source_widget)))
+			snd_soc_update_bits(codec,
+					micb_int_reg,
+					0x3, 0x3);
+		else
+			/*
+			 *  If not internal, make sure to write the
+			 *  register to default value
+			 */
+			snd_soc_write(codec, micb_int_reg, 0x24);
 		return 0;
 	} else {
 		pr_err("%s: mic bias source not found for input = %s\n",
@@ -3230,7 +3269,12 @@ static int tomtom_codec_enable_micbias(struct snd_soc_dapm_widget *w,
 			snd_soc_update_bits(codec, micb_int_reg, 0x1C, 0x1C);
 		else if (strnstr(w->name, internal3_text, 30))
 			snd_soc_update_bits(codec, micb_int_reg, 0x3, 0x3);
-
+		else
+			/*
+			 *  If not internal, make sure to write the
+			 *  register to default value
+			 */
+			snd_soc_write(codec, micb_int_reg, 0x24);
 		if (tomtom->mbhc_started && micb_ctl_reg ==
 		    TOMTOM_A_MICB_2_CTL) {
 			if (++tomtom->micb_2_users == 1) {
