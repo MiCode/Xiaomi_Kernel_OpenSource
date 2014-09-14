@@ -29,11 +29,11 @@
 };
 
 &sdhc_1 {
-	vdd-supply = <&pm8992_l20>;
+	vdd-supply = <&pm8994_l20>;
 	qcom,vdd-voltage-level = <2950000 2950000>;
 	qcom,vdd-current-level = <200 570000>;
 
-	vdd-io-supply = <&pm8992_s4>;
+	vdd-io-supply = <&pm8994_s4>;
 	qcom,vdd-io-always-on;
 	qcom,vdd-io-voltage-level = <1800000 1800000>;
 	qcom,vdd-io-current-level = <200 325000>;
@@ -49,11 +49,11 @@
 };
 
 &sdhc_2 {
-	vdd-supply = <&pm8992_l21>;
+	vdd-supply = <&pm8994_l21>;
 	qcom,vdd-voltage-level = <2950000 2950000>;
 	qcom,vdd-current-level = <200 800000>;
 
-	vdd-io-supply = <&pm8992_l13>;
+	vdd-io-supply = <&pm8994_l13>;
 	qcom,vdd-io-voltage-level = <1800000 2950000>;
 	qcom,vdd-io-current-level = <200 22000>;
 

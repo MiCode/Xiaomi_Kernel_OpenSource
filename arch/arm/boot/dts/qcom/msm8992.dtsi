@@ -500,11 +500,11 @@
 				     "gpll0_mss_clk";
 
 		interrupts = <0 24 1>;
-		vdd_mss-supply = <&pm8992_s7>;
-		vdd_cx-supply = <&pm8992_s1_corner>;
-		vdd_mx-supply = <&pm8992_s2_corner>;
+		vdd_mss-supply = <&pm8994_s7>;
+		vdd_cx-supply = <&pm8994_s1_corner>;
+		vdd_mx-supply = <&pm8994_s2_corner>;
 		vdd_mx-uV = <7>;
-		vdd_pll-supply = <&pm8992_l12>;
+		vdd_pll-supply = <&pm8994_l12>;
 		qcom,vdd_pll = <1800000>;
 		qcom,firmware-name = "modem";
 		qcom,pil-self-auth;
@@ -521,7 +521,7 @@
 		reg = <0xfe200000 0x00100>;
 		interrupts = <0 162 1>;
 
-		vdd_cx-supply = <&pm8992_s1_corner>;
+		vdd_cx-supply = <&pm8994_s1_corner>;
 		qcom,proxy-reg-names = "vdd_cx";
 		qcom,vdd_cx-uV-uA = <7 100000>;
 
@@ -902,7 +902,7 @@
 	clock-names = "core_clk";
 	clocks = <&clock_mmss clk_oxili_gfx3d_clk>;
 	status = "ok";
-	parent-supply = <&pmi8992_s2_corner>;
+	parent-supply = <&pmi8994_s2_corner>;
 };
 
 #include "msm8992-ion.dtsi"
