@@ -481,13 +481,13 @@
 			"AMIC2", "MIC BIAS2 External",
 			"MIC BIAS2 External", "Headset Mic",
 			"AMIC3", "MIC BIAS3 External",
-			"MIC BIAS2 External", "Analog Mic7",
+			"MIC BIAS3 External", "Analog Mic6",
 			"AMIC4", "MIC BIAS2 External",
 			"MIC BIAS2 External", "ANCRight Headset Mic",
 			"AMIC5", "MIC BIAS2 External",
 			"MIC BIAS3 External", "ANCLeft Headset Mic",
 			"AMIC6", "MIC BIAS3 External",
-			"MIC BIAS3 External", "Analog Mic8",
+			"MIC BIAS3 External", "Analog Mic7",
 			"DMIC1", "MIC BIAS1 External",
 			"MIC BIAS1 External", "Digital Mic1",
 			"DMIC2", "MIC BIAS1 External",
@@ -534,6 +534,9 @@
 
 &slim_msm {
 	tomtom_codec {
+		qcom,cdc-micbias1-ext-cap;
+		qcom,cdc-micbias3-ext-cap;
+		qcom,cdc-micbias4-ext-cap;
 		cdc-vdd-spkdrv-supply = <&pmi8994_boost_pin_ctrl>;
 		qcom,cdc-vdd-spkdrv-voltage = <5000000 5000000>;
 		qcom,cdc-vdd-spkdrv-current = <1300000>;
