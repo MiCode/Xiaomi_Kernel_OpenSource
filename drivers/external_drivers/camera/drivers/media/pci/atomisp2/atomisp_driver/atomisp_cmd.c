@@ -2509,6 +2509,8 @@ int atomisp_3a_stat(struct atomisp_sub_device *asd, int flag,
 			s3a_buf->s3a_data);
 
 	config->exp_id = s3a_buf->s3a_data->exp_id;
+	config->isp_config_id = s3a_buf->s3a_data->isp_config_id;
+
 	ret = copy_to_user(config->data, asd->params.s3a_user_stat->data,
 			   asd->params.s3a_output_bytes);
 	if (ret) {
@@ -2520,8 +2522,8 @@ int atomisp_3a_stat(struct atomisp_sub_device *asd, int flag,
 	/* Move to free buffer list */
 	list_del_init(&s3a_buf->list);
 	list_add_tail(&s3a_buf->list, &asd->s3a_stats);
-	dev_dbg(isp->dev, "%s: finish getting exp_id %d 3a stat\n", __func__,
-		config->exp_id);
+	dev_dbg(isp->dev, "%s: finish getting exp_id %d 3a stat, isp_config_id %d\n", __func__,
+		config->exp_id, config->isp_config_id);
 	return 0;
 }
 

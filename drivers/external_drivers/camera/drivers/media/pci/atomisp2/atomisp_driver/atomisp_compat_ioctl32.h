@@ -67,6 +67,7 @@ struct atomisp_3a_statistics32 {
 	compat_uptr_t data;
 	compat_uptr_t rgby_data;
 	uint32_t exp_id;
+	uint32_t isp_config_id;
 };
 
 struct atomisp_metadata_with_type32 {

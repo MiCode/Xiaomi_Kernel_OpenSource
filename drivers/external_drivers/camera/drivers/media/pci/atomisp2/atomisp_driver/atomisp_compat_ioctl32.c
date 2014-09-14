@@ -250,7 +250,8 @@ static int get_atomisp_3a_statistics32(struct atomisp_3a_statistics *kp,
 		copy_from_user(kp, up, sizeof(struct atomisp_grid_info)) ||
 		get_user(rgby_data, &up->rgby_data) ||
 		get_user(data, &up->data) ||
-		get_user(kp->exp_id, &up->exp_id))
+		get_user(kp->exp_id, &up->exp_id) ||
+		get_user(kp->isp_config_id, &up->isp_config_id))
 			return -EFAULT;
 
 	kp->data = compat_ptr(data);
@@ -270,7 +271,8 @@ static int put_atomisp_3a_statistics32(struct atomisp_3a_statistics *kp,
 		copy_to_user(up, kp, sizeof(struct atomisp_grid_info)) ||
 		put_user(rgby_data, &up->rgby_data) ||
 		put_user(data, &up->data) ||
-		put_user(kp->exp_id, &up->exp_id))
+		put_user(kp->exp_id, &up->exp_id) ||
+		put_user(kp->isp_config_id, &up->isp_config_id))
 			return -EFAULT;
 
 	return 0;

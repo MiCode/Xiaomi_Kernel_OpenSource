@@ -1465,8 +1465,9 @@ static int atomisp_dqbuf(struct file *file, void *fh, struct v4l2_buffer *buf)
 	buf->reserved2 = pipe->frame_config_id[buf->index];
 	rt_mutex_unlock(&isp->mutex);
 
-	dev_dbg(isp->dev, "dqbuf buffer %d (%s) with exp_id %d\n",
-		buf->index, vdev->name, __get_frame_exp_id(pipe, buf));
+	dev_dbg(isp->dev, "dqbuf buffer %d (%s) with exp_id %d, isp_config_id %d\n",
+		buf->index, vdev->name, __get_frame_exp_id(pipe, buf),
+		buf->reserved2);
 	return 0;
 }
 
