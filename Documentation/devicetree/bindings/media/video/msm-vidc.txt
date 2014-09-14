@@ -107,6 +107,8 @@ Optional properties:
 - qcom,fw-bias = The address at which venus fw is loaded (manually).
 - qcom,enable-idle-indicator = A bool to enable video hardware to generate
   idle message when it is in idle state.
+- qcom,enable-minimum-voting = A bool to limit the bandwidth vote to the
+  lowest vector over an active session.
 
 Example:
 
