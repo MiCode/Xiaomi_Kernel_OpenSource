@@ -307,6 +307,7 @@ struct atomisp_3a_statistics {
 	struct atomisp_3a_output __user *data;
 	struct atomisp_3a_rgby_output __user *rgby_data;
 	uint32_t exp_id; /* exposure ID */
+	uint32_t isp_config_id; /* isp config ID */
 };
 
 /**
