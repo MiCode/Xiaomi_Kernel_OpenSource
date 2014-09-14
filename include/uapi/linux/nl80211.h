@@ -1572,16 +1572,6 @@ enum nl80211_commands {
  *	connection.
  * @NL80211_ATTR_PMK_LEN: The length of the PMK.
  *
- * @NL80211_ATTR_IFACE_SOCKET_OWNER: flag attribute, if set during interface
- *	creation then the new interface will be owned by the netlink socket
- *	that created it and will be destroyed when the socket is closed
- *
- * @NL80211_ATTR_ACS_OFFLOAD: A flag indicating that driver will perform
- *	automatic channel selection when an AP is started. If the flag is set,
- *      kernel skips channel validation at AP starting time, after driver
- *	selects a channel, a channel change event is sent to kernel and
- *	hostapd so that they could update the channel information.
- *
  * @NL80211_ATTR_MAX: highest attribute number currently defined
  * @__NL80211_ATTR_AFTER_LAST: internal use
  */
@@ -1926,10 +1916,6 @@ enum nl80211_attrs {
 	NL80211_ATTR_KEY_DERIVE_OFFLOAD_SUPPORT,
 	NL80211_ATTR_PMK,
 	NL80211_ATTR_PMK_LEN,
-
-	NL80211_ATTR_IFACE_SOCKET_OWNER,
-
-	NL80211_ATTR_ACS_OFFLOAD,
 
 	/* add attributes here, update the policy in nl80211.c */
 
@@ -3812,8 +3798,6 @@ enum nl80211_ap_sme_features {
  * @NL80211_FEATURE_AP_MODE_CHAN_WIDTH_CHANGE: This driver supports dynamic
  *	channel bandwidth change (e.g., HT 20 <-> 40 MHz channel) during the
  *	lifetime of a BSS.
- * @NL80211_FEATURE_AP_ACS_OFFLOAD: This driver supports ACS (Automatic Channel
- *	Selection) during AP starting time.
  */
 enum nl80211_feature_flags {
 	NL80211_FEATURE_SK_TX_STATUS			= 1 << 0,
@@ -3834,7 +3818,6 @@ enum nl80211_feature_flags {
 	NL80211_FEATURE_FULL_AP_CLIENT_STATE		= 1 << 15,
 	NL80211_FEATURE_USERSPACE_MPM			= 1 << 16,
 	NL80211_FEATURE_AP_MODE_CHAN_WIDTH_CHANGE	= 1 << 18,
-	NL80211_FEATURE_AP_ACS_OFFLOAD			= 1 << 19,
 };
 
 /**
