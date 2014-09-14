@@ -138,6 +138,7 @@ static long msm_sensor_init_subdev_do_ioctl(
 
 	switch (cmd) {
 	case VIDIOC_MSM_SENSOR_INIT_CFG32:
+		memset(&sensor_init_data, 0, sizeof(sensor_init_data));
 		sensor_init_data.cfgtype = u32->cfgtype;
 		sensor_init_data.cfg.setting = compat_ptr(u32->cfg.setting);
 		cmd = VIDIOC_MSM_SENSOR_INIT_CFG;
