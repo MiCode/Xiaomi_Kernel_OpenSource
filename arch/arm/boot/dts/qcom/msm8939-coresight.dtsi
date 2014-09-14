@@ -60,8 +60,12 @@
 		coresight-name = "coresight-tpiu";
 		coresight-nr-inports = <1>;
 
-		qcom,nidnt;
 		qcom,nidnthw;
+		qcom,nidnt-swduart;
+		qcom,nidnt-swdtrc;
+		qcom,nidnt-jtag;
+		qcom,nidnt-spmi;
+
 		nidnt-gpio = <38>;
 		nidnt-gpio-polarity = <1>;
 
