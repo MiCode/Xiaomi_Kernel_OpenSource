@@ -329,12 +329,23 @@
 			qcom,ap-owned;
 		};
 
+		mas_cpp: mas-cpp {
+			cell-id = <MSM_BUS_MASTER_CPP>;
+			label = "mas-cpp";
+			qcom,bus-dev = <&fab_mnoc>;
+			qcom,buswidth = <16>;
+			qcom,qport = <5>;
+			qcom,qos-mode = "bypass";
+			qcom,connections = <&slv_mnoc_bimc>;
+			qcom,ap-owned;
+		};
+
 		mas_vpu: mas-vpu {
 			cell-id = <MSM_BUS_MASTER_VPU>;
 			label = "mas-vpu";
 			qcom,bus-dev = <&fab_mnoc>;
 			qcom,buswidth = <16>;
-			qcom,qos-mode = "fixed";
+			qcom,qos-mode = "bypass";
 			qcom,qport = <8>;
 			qcom,connections = <&slv_mnoc_bimc>;
 			qcom,ap-owned;
