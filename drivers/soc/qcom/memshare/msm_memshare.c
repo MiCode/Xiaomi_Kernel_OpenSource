@@ -256,7 +256,7 @@ static int handle_alloc_req(void *req_h, void *req)
 	} else {
 		alloc_resp.resp = QMI_RESULT_SUCCESS_V01;
 	}
-	alloc_resp.resp = QMI_RESULT_SUCCESS_V01;
+
 	mutex_unlock(&memsh_drv->mem_share);
 
 	pr_debug("alloc_resp.num_bytes :%d, alloc_resp.handle :%lx, alloc_resp.mem_req_result :%lx\n",
@@ -289,6 +289,7 @@ static int handle_alloc_generic_req(void *req_h, void *req)
 	if (!alloc_resp) {
 		pr_err("In %s, error allocating memory to response structure\n",
 						__func__);
+		mutex_unlock(&memsh_drv->mem_share);
 		return -ENOMEM;
 	}
 	alloc_resp->resp.result = QMI_RESULT_FAILURE_V01;
