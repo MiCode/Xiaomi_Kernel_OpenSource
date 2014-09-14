@@ -1066,6 +1066,10 @@ static int msm_isp_send_hw_cmd(struct vfe_device *vfe_dev,
 	}
 	case SET_WM_UB_SIZE:
 		break;
+	case SET_UB_POLICY: {
+		vfe_dev->vfe_ub_policy = *cfg_data;
+		break;
+	}
 	}
 	return 0;
 }
