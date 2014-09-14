@@ -452,10 +452,30 @@
 			<0xff 75>,  /* smmu_bus_intr[3] */
 			<0xff 78>,  /* smmu_bus_intr[5] */
 			<0xff 79>,  /* smmu_bus_intr[6] */
+			<0xff 85>,  /* smmu_bus_intr[31] */
+			<0xff 86>,  /* smmu_bus_intr[32] */
+			<0xff 90>,  /* smmu_bus_intr[33] */
+			<0xff 92>,  /* smmu_bus_intr[34] */
+			<0xff 93>,  /* smmu_bus_intr[35] */
 			<0xff 97>,  /* smmu_bus_intr[10] */
 			<0xff 102>, /* smmu_bus_intr[14] */
+			<0xff 108>, /* smmu_bus_intr[36] */
+			<0xff 109>, /* smmu_bus_intr[37] */
+			<0xff 112>, /* smmu_bus_intr[38] */
 			<0xff 131>, /* qup_irq */
 			<0xff 140>, /* uart_dm_intr */
+			<0xff 142>, /* smmu_bus_intr[47] */
+			<0xff 143>, /* smmu_bus_intr[48] */
+			<0xff 144>, /* smmu_bus_intr[49] */
+			<0xff 145>, /* smmu_bus_intr[50] */
+			<0xff 146>, /* smmu_bus_intr[51] */
+			<0xff 147>, /* smmu_bus_intr[52] */
+			<0xff 148>, /* smmu_bus_intr[53] */
+			<0xff 149>, /* smmu_bus_intr[54] */
+			<0xff 150>, /* smmu_bus_intr[55] */
+			<0xff 151>, /* smmu_bus_intr[56] */
+			<0xff 152>, /* smmu_bus_intr[57] */
+			<0xff 153>, /* smmu_bus_intr[58] */
 			<0xff 155>, /* sdc1_irq(0) */
 			<0xff 157>, /* sdc2_irq(0) */
 			<0xff 166>, /* usb_hs_irq */
@@ -493,6 +513,8 @@
 			<0xff 253>, /* sdc2_pwr_cmd_irq */
 			<0xff 269>, /* rpm_wdog_expired_irq */
 			<0xff 270>, /* blsp1_bam_irq[0] */
+			<0xff 273>, /* smmu_bus_intr[18] */
+			<0xff 274>, /* smmu_bus_intr[19] */
 			<0xff 275>, /* rpm_ipc(30) */
 			<0xff 276>; /* rpm_ipc(31) */
 
