@@ -1731,11 +1731,14 @@ static int rndis_ipa_destory_rm_resource(struct rndis_ipa_dev *rndis_ipa_ctx)
 
 	result = ipa_rm_delete_dependency(IPA_RM_RESOURCE_USB_PROD,
 					IPA_RM_RESOURCE_APPS_CONS);
-	if (result) {
+	if (result == -EINPROGRESS) {
+		RNDIS_IPA_DEBUG("RM dependency deletion is in progress");
+	} else if (result) {
 		RNDIS_IPA_ERROR("Fail to delete USB/APPS dependency\n");
 		goto bail;
+	} else {
+		RNDIS_IPA_DEBUG("USB/APPS dependency was deleted\n");
 	}
-	RNDIS_IPA_DEBUG("USB/APPS dependency was successfully deleted\n");
 
 	result = ipa_rm_inactivity_timer_destroy(DRV_RESOURCE_ID);
 	if (result) {
