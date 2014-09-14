@@ -23,3 +23,136 @@
 	compatible = "qcom,msm8994";
 	qcom,msm-id = <207 0x20000>;
 };
+
+/* GPU overrides */
+&msm_gpu {
+	/* Updated chip ID */
+	qcom,chipid = <0x04030001>;
+
+	qcom,initial-pwrlevel = <4>;
+	qcom,msm-bus,num-cases = <19>;
+	qcom,msm-bus,vectors-KBps =
+			<26 512 0 0>,
+
+			/* gpu = 190 */
+			<26 512 0 2400000>,  /* bus=300  */
+			<26 512 0 3680000>,  /* bus=460  */
+			<26 512 0 4376000>,  /* bus=547  */
+
+			/* gpu = 305 */
+			<26 512 0 3680000>,  /* bus=460  */
+			<26 512 0 4376000>,  /* bus=547  */
+			<26 512 0 5528000>,  /* bus=691  */
+
+			/* gpu = 390 */
+			<26 512 0 4376000>,  /* bus=547  */
+			<26 512 0 5528000>,  /* bus=691  */
+			<26 512 0 6216000>,  /* bus=777  */
+
+			/* gpu = 450 */
+			<26 512 0 5528000>,  /* bus=691  */
+			<26 512 0 6216000>,  /* bus=777  */
+			<26 512 0 8288000>,  /* bus=1036 */
+
+			/* gpu = 510 */
+			<26 512 0 6216000>,  /* bus=777  */
+			<26 512 0 8288000>,  /* bus=1036 */
+			<26 512 0 10368000>, /* bus=1296 */
+
+			/* gpu = 600 */
+			<26 512 0 8288000>,  /* bus=1036 */
+			<26 512 0 10368000>, /* bus=1296 */
+			<26 512 0 12440000>; /* bus=1555 */
+
+	/* Power levels */
+	qcom,gpu-pwrlevels {
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		compatible = "qcom,gpu-pwrlevels";
+
+		qcom,gpu-pwrlevel@0 {
+			reg = <0>;
+			qcom,gpu-freq = <600000000>;
+			qcom,bus-freq = <17>;
+		};
+
+		qcom,gpu-pwrlevel@1 {
+			reg = <1>;
+			qcom,gpu-freq = <510000000>;
+			qcom,bus-freq = <14>;
+		};
+
+		qcom,gpu-pwrlevel@2 {
+			reg = <2>;
+			qcom,gpu-freq = <450000000>;
+			qcom,bus-freq = <11>;
+		};
+
+		qcom,gpu-pwrlevel@3 {
+			reg = <3>;
+			qcom,gpu-freq = <390000000>;
+			qcom,bus-freq = <8>;
+		};
+
+		qcom,gpu-pwrlevel@4 {
+			reg = <4>;
+			qcom,gpu-freq = <305000000>;
+			qcom,bus-freq = <5>;
+		};
+		qcom,gpu-pwrlevel@5 {
+			reg = <5>;
+			qcom,gpu-freq = <190000000>;
+			qcom,bus-freq = <2>;
+		};
+		qcom,gpu-pwrlevel@6 {
+			reg = <6>;
+			qcom,gpu-freq = <27000000>;
+			qcom,bus-freq = <0>;
+		};
+	};
+
+	/*
+	 * qcom,ocmem-bus-client defines
+	 * ocmem msm client and its vote data for
+	 * each of available power levels -
+	 * the same levels that grp3d above uses
+	 */
+	qcom,ocmem-bus-client {
+                qcom,msm-bus,name = "gpu-ocmem";
+                qcom,msm-bus,num-cases = <19>;
+                qcom,msm-bus,num-paths = <1>;
+                qcom,msm-bus,vectors-KBps =
+			<89 662 0 0>,
+
+			/* gpu = 190 */
+			<89 662 0 3040000>,
+			<89 662 0 3040000>,
+			<89 662 0 3040000>,
+
+			/* gpu = 305 */
+			<89 662 0 4880000>,
+			<89 662 0 4880000>,
+			<89 662 0 4880000>,
+
+			/* gpu = 390 */
+			<89 662 0 6240000>,
+			<89 662 0 6240000>,
+			<89 662 0 6240000>,
+
+			/* gpu = 450 */
+			<89 662 0 7200000>,
+			<89 662 0 7200000>,
+			<89 662 0 7200000>,
+
+			/* gpu = 510 */
+			<89 662 0 8160000>,
+			<89 662 0 8160000>,
+			<89 662 0 8160000>,
+
+			/* gpu = 600 */
+			<89 662 0 9600000>,
+			<89 662 0 9600000>,
+			<89 662 0 9600000>;
+	};
+};
