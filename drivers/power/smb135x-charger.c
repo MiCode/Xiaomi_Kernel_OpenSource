@@ -60,6 +60,9 @@
 #define RECHARGE_200MV_BIT		BIT(2)
 #define USB_2_3_BIT			BIT(5)
 
+#define CFG_A_REG			0x0A
+#define DCIN_INPUT_MASK			SMB135X_MASK(4, 0)
+
 #define CFG_C_REG			0x0C
 #define USBIN_INPUT_MASK		SMB135X_MASK(4, 0)
 
@@ -68,9 +71,6 @@
 #define CFG_E_REG			0x0E
 #define POLARITY_100_500_BIT		BIT(2)
 #define USB_CTRL_BY_PIN_BIT		BIT(1)
-
-#define CFG_10_REG			0x11
-#define DCIN_INPUT_MASK			SMB135X_MASK(4, 0)
 
 #define CFG_11_REG			0x11
 #define PRIORITY_BIT			BIT(7)
@@ -1225,7 +1225,7 @@ static int smb135x_set_dc_chg_current(struct smb135x_chg *chip,
 			break;
 	}
 	dc_cur_val = i & DCIN_INPUT_MASK;
-	rc = smb135x_masked_write(chip, CFG_10_REG,
+	rc = smb135x_masked_write(chip, CFG_A_REG,
 				DCIN_INPUT_MASK, dc_cur_val);
 	if (rc < 0) {
 		dev_err(chip->dev, "Couldn't set dc charge current rc = %d\n",
