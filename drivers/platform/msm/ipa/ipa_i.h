@@ -28,6 +28,7 @@
 #include "ipa_reg.h"
 
 #define DRV_NAME "ipa"
+#define NAT_DEV_NAME "ipaNatTable"
 #define IPA_COOKIE 0x57831603
 #define MTU_BYTE 1500
 
@@ -579,6 +580,7 @@ struct ipa_nat_mem {
 	bool is_mapped;
 	bool is_sys_mem;
 	bool is_dev_init;
+	bool is_dev;
 	struct mutex lock;
 	void *nat_base_address;
 	char *ipv4_rules_addr;
@@ -1048,4 +1050,5 @@ int ipa_sps_connect_safe(struct sps_pipe *h, struct sps_connect *connect,
 int ipa_uc_interface_init(void);
 int ipa_uc_reset_pipe(enum ipa_client_type ipa_client);
 void ipa_register_panic_hdlr(void);
+int create_nat_device(void);
 #endif /* _IPA_I_H_ */
