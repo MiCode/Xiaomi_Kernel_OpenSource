@@ -268,6 +268,26 @@ config SND_SOC_MSM8X16
 	 the machine drivers and the corresponding
 	 DAI-links.
 
+config SND_SOC_MSMFERRUM
+	tristate "SoC Machine driver for MSMFERRUM boards"
+	depends on ARCH_MSMFERRUM
+	select SND_SOC_QDSP6V2
+	select SND_SOC_MSM_STUB
+	select SND_SOC_MSM_HOSTLESS_PCM
+	select SND_SOC_MSMFERRUM_WCD
+	select SND_DYNAMIC_MINORS
+	select QTI_PP
+	select DTS_SRS_TM
+	select DOLBY_DAP
+	select MSM_QDSP6_APRV3
+	select MSM_QDSP6V2_CODECS
+	help
+	 To add support for SoC audio on MSMFERRUM.
+	 This will enable sound soc drivers which
+	 interfaces with DSP, also it will enable
+	 the machine drivers and the corresponding
+	 DAI-links.
+
 config SND_SOC_MDM9630
 	tristate "SoC Machine driver for MDM9630 boards"
 	depends on ARCH_MDM9630
