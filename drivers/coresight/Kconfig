@@ -57,7 +57,6 @@ config CORESIGHT_CSR
 
 config CORESIGHT_TMC
 	bool "CoreSight Trace Memory Controller driver"
-	select CORESIGHT_CTI
 	select CORESIGHT_CSR
 	select HAVE_CORESIGHT_SINK
 	help
