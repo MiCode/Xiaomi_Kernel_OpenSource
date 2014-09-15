@@ -179,6 +179,7 @@ struct msm_camera_i2c_read_config {
 struct msm_camera_csi2_params {
 	struct msm_camera_csid_params csid_params;
 	struct msm_camera_csiphy_params csiphy_params;
+	uint8_t csi_clk_scale_enable;
 };
 
 struct msm_camera_csi_lane_params {
@@ -322,12 +323,14 @@ struct msm_camera_csid_params32 {
 	uint8_t lane_cnt;
 	uint16_t lane_assign;
 	uint8_t phy_sel;
+	uint32_t csi_clk;
 	struct msm_camera_csid_lut_params32 lut_params;
 };
 
 struct msm_camera_csi2_params32 {
 	struct msm_camera_csid_params32 csid_params;
 	struct msm_camera_csiphy_params csiphy_params;
+	uint8_t csi_clk_scale_enable;
 };
 
 struct csid_cfg_data32 {

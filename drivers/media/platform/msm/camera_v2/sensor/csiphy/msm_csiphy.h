@@ -82,6 +82,8 @@ struct csiphy_device {
 	int32_t ref_count;
 	uint16_t lane_mask[MAX_CSIPHY];
 	uint32_t is_3_1_20nm_hw;
+	uint32_t csiphy_clk_index;
+	uint32_t csiphy_max_clk;
 };
 
 #define VIDIOC_MSM_CSIPHY_RELEASE \
