@@ -23,6 +23,8 @@ struct mxt_platform_data {
 	int t15_num_keys;
 	const unsigned int *t15_keymap;
 	unsigned long gpio_reset;
+	unsigned long gpio_int;
+	unsigned long gpio_switch;
 	const char *cfg_name;
 	const char *input_name;
 };

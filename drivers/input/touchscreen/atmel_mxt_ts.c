@@ -337,6 +337,7 @@ static bool mxt_object_readable(unsigned int type)
 	case MXT_SPT_USERDATA_T38:
 	case MXT_SPT_DIGITIZER_T43:
 	case MXT_SPT_CTECONFIG_T46:
+	case MXT_TOUCH_MULTITOUCHSCREEN_T100:
 		return true;
 	default:
 		return false;
@@ -576,6 +577,9 @@ static int mxt_lookup_bootloader_address(struct mxt_data *data, bool retry)
 		return -EINVAL;
 	}
 
+	dev_dbg(&data->client->dev,
+		"family_id: 0x%02x, i2c addr: 0x%02x 0x%02x\n",
+		family_id, appmode, bootloader);
 	data->bootloader_addr = bootloader;
 	return 0;
 }
@@ -808,6 +812,9 @@ mxt_get_object(struct mxt_data *data, u8 type)
 	return NULL;
 }
 
+static void mxt_reset_slots(struct mxt_data *data);
+static int mxt_t6_command(struct mxt_data *data, u16 cmd_offset,
+			  u8 value, bool wait);
 static void mxt_proc_t6_messages(struct mxt_data *data, u8 *msg)
 {
 	struct device *dev = &data->client->dev;
@@ -839,6 +846,14 @@ static void mxt_proc_t6_messages(struct mxt_data *data, u8 *msg)
 
 	/* Save current status */
 	data->t6_status = status;
+
+	/* Recalibrate if the acquisistion and processing cycle length
+	   has overflowed the desired power mode interval */
+	if ((status & MXT_T6_STATUS_OFL) && !(status & MXT_T6_STATUS_CAL)) {
+		dev_info(dev, "%s: OFL, recalibrate chip\n", __func__);
+		mxt_reset_slots(data);
+		mxt_t6_command(data, MXT_COMMAND_CALIBRATE, 1, true);
+	}
 }
 
 static void mxt_input_button(struct mxt_data *data, u8 *message)
@@ -876,6 +891,12 @@ static void mxt_proc_t9_message(struct mxt_data *data, u8 *message)
 	int amplitude;
 	u8 vector;
 	int tool;
+
+	/* Do not report events if touch chip is during calibration or
+	   the acquisition and processing cycle length is overflowed the
+	   desired power mode interval */
+	if (data->t6_status & (MXT_T6_STATUS_CAL | MXT_T6_STATUS_OFL))
+		return;
 
 	id = message[0] - data->T9_reportid_min;
 	status = message[1];
@@ -1996,6 +2017,8 @@ static int mxt_read_info_block(struct mxt_data *data)
 
 	error = __mxt_read_reg(client, 0, size, id_buf);
 	if (error) {
+		dev_err(&client->dev, "%s: Failed to read info block (%d)\n",
+				__func__, error);
 		kfree(id_buf);
 		return error;
 	}
@@ -2016,8 +2039,11 @@ static int mxt_read_info_block(struct mxt_data *data)
 	error = __mxt_read_reg(client, MXT_OBJECT_START,
 			       size - MXT_OBJECT_START,
 			       buf + MXT_OBJECT_START);
-	if (error)
+	if (error) {
+		dev_err(&client->dev, "%s: Failed to read rest of info block (%d)\n",
+				__func__, error);
 		goto err_free_mem;
+	}
 
 	/* Extract & calculate checksum */
 	crc_ptr = buf + size - MXT_INFO_CHECKSUM_SIZE;
@@ -2325,16 +2351,22 @@ static int mxt_read_t100_config(struct mxt_data *data)
 	error = __mxt_read_reg(client,
 			       object->start_address + MXT_T100_XRANGE,
 			       sizeof(range_x), &range_x);
-	if (error)
+	if (error) {
+		dev_err(&client->dev, "%s: Failed to read T100 XRANGE (%d)\n",
+				__func__, error);
 		return error;
+	}
 
 	le16_to_cpus(&range_x);
 
 	error = __mxt_read_reg(client,
 			       object->start_address + MXT_T100_YRANGE,
 			       sizeof(range_y), &range_y);
-	if (error)
+	if (error) {
+		dev_err(&client->dev, "%s: Failed to read T100 YRANGE (%d)\n",
+				__func__, error);
 		return error;
+	}
 
 	le16_to_cpus(&range_y);
 
@@ -2478,6 +2510,41 @@ static void mxt_config_cb(const struct firmware *cfg, void *ctx)
 	mxt_configure_objects(ctx, cfg);
 }
 
+static int mxt_load_fw(struct device *dev);
+static int mxt_check_firmware(struct mxt_data *data)
+{
+	int error = 0;
+	bool retry = false;
+	struct i2c_client *client = data->client;
+	struct mxt_info info = { 0 };
+
+read_info:
+	error = __mxt_read_reg(client, 0, sizeof(struct mxt_info), &info);
+	if (error) {
+		if (retry) {
+			dev_err(&client->dev, "Check firmware err %d\n", error);
+			return error;
+		}
+
+		error = mxt_lookup_bootloader_address(data, 0);
+		if (error)
+			return error;
+		data->in_bootloader = true;
+		error = mxt_load_fw(&client->dev);
+		if (!error) {
+			dev_info(&client->dev, "Firmware update succeeded\n");
+			msleep(MXT_FW_RESET_TIME);
+		} else
+			dev_err(&client->dev, "Firmware update failed\n");
+
+		retry = true;
+		goto read_info;
+	}
+
+	/*No firmware version control for further firmware update*/
+	return 0;
+}
+
 static int mxt_initialize(struct mxt_data *data)
 {
 	struct i2c_client *client = data->client;
@@ -2485,6 +2552,8 @@ static int mxt_initialize(struct mxt_data *data)
 	bool alt_bootloader_addr = false;
 	bool retry = false;
 
+	/*flash firmware if corrupt*/
+	mxt_check_firmware(data);
 retry_info:
 	error = mxt_read_info_block(data);
 	if (error) {
@@ -2531,9 +2600,12 @@ retry_bootloader:
 		goto err_free_object_table;
 
 	if (data->cfg_name) {
-		request_firmware_nowait(THIS_MODULE, true, data->cfg_name,
+		error = request_firmware_nowait(THIS_MODULE, true,
+					data->cfg_name,
 					&data->client->dev, GFP_KERNEL, data,
 					mxt_config_cb);
+		if (error)
+			dev_err(&client->dev, "Fail to request cfg firmware\n");
 	} else {
 		error = mxt_configure_objects(data, NULL);
 		if (error)
@@ -2871,6 +2943,9 @@ static ssize_t mxt_update_fw_store(struct device *dev,
 
 		data->suspended = false;
 
+		/* wait it gets out of reset */
+		msleep(MXT_RESET_TIME);
+		mxt_free_object_table(data);
 		error = mxt_initialize(data);
 		if (error)
 			return error;
@@ -2982,6 +3057,16 @@ static ssize_t mxt_debug_enable_store(struct device *dev,
 	}
 }
 
+static ssize_t mxt_soft_reset_store(struct device *dev,
+	struct device_attribute *attr, const char *buf, size_t count)
+{
+	struct mxt_data *data = dev_get_drvdata(dev);
+
+	mxt_soft_reset(data);
+
+	return count;
+}
+
 static int mxt_check_mem_access_params(struct mxt_data *data, loff_t off,
 				       size_t *count)
 {
@@ -3043,6 +3128,7 @@ static DEVICE_ATTR(debug_notify, S_IRUGO, mxt_debug_notify_show, NULL);
 static DEVICE_ATTR(debug_enable, S_IWUSR | S_IRUSR, mxt_debug_enable_show,
 		   mxt_debug_enable_store);
 static DEVICE_ATTR(config_csum, S_IRUGO, mxt_config_csum_show, NULL);
+static DEVICE_ATTR(soft_reset, S_IWUSR, NULL, mxt_soft_reset_store);
 
 static struct attribute *mxt_attrs[] = {
 	&dev_attr_fw_version.attr,
@@ -3054,6 +3140,7 @@ static struct attribute *mxt_attrs[] = {
 	&dev_attr_debug_v2_enable.attr,
 	&dev_attr_debug_notify.attr,
 	&dev_attr_config_csum.attr,
+	&dev_attr_soft_reset.attr,
 	NULL
 };
 
@@ -3203,7 +3290,6 @@ static int mxt_probe(struct i2c_client *client,
 		 client->adapter->nr, client->addr);
 
 	data->client = client;
-	data->irq = client->irq;
 	data->pdata = dev_get_platdata(&client->dev);
 	i2c_set_clientdata(client, data);
 
@@ -3213,18 +3299,60 @@ static int mxt_probe(struct i2c_client *client,
 #endif
 
 	if (!data->pdata) {
-		data->pdata = devm_kzalloc(&client->dev, sizeof(*data->pdata),
-					   GFP_KERNEL);
-		if (!data->pdata) {
+		struct gpio_desc *gpio;
+		struct mxt_platform_data *pdata;
+
+		pdata = devm_kzalloc(&client->dev,
+					sizeof(struct mxt_platform_data),
+					GFP_KERNEL);
+		if (!pdata) {
 			dev_err(&client->dev, "Failed to allocate pdata\n");
 			error = -ENOMEM;
 			goto err_free_mem;
 		}
+		data->pdata = pdata;
 
 		/* Set default parameters */
-		data->pdata->irqflags = IRQF_TRIGGER_FALLING;
+		pdata->irqflags = IRQF_TRIGGER_LOW | IRQF_TRIGGER_FALLING;
+
+		gpio = devm_gpiod_get_index(&client->dev, "atml_gpio_rst", 0);
+		if (!IS_ERR(gpio)) {
+			pdata->gpio_reset = desc_to_gpio(gpio);
+			gpiod_direction_output(gpio_to_desc(pdata->gpio_reset),
+						1);
+
+			/* wait it gets out of reset */
+			msleep(MXT_RESET_TIME);
+		} else
+			dev_err(&client->dev, "Failed to get gpio reset\n");
+
+		gpio = devm_gpiod_get_index(&client->dev,
+						"atml_gpio_switch", 1);
+		if (!IS_ERR(gpio)) {
+			pdata->gpio_switch = desc_to_gpio(gpio);
+			gpio_export(pdata->gpio_switch, 0);
+			gpio_direction_output(pdata->gpio_switch, 1);
+		} else
+			dev_err(&client->dev, "Failed to get gpio switch\n");
+
+		gpio = devm_gpiod_get_index(&client->dev, "atml_gpio_int", 2);
+		if (!IS_ERR(gpio)) {
+			pdata->gpio_int = desc_to_gpio(gpio);
+			client->irq =
+				gpiod_to_irq(gpio_to_desc(pdata->gpio_int));
+		} else
+			dev_err(&client->dev, "Failed to get gpio interrupt\n");
+
+		pdata->input_name = "atmel_mxt_ts";
+		data->fw_name = "maxtouch.fw";
+		data->cfg_name = "maxtouch.cfg";
+
+		dev_info(&client->dev,
+			"gpio_reset=%lu, gpio_switch=%lu, gpio_int=%lu\n",
+			pdata->gpio_reset, pdata->gpio_switch, pdata->gpio_int);
 	}
 
+	data->irq = client->irq;
 	if (data->pdata->cfg_name)
 		mxt_update_file_name(&data->client->dev,
 				     &data->cfg_name,
@@ -3296,6 +3424,12 @@ static int mxt_remove(struct i2c_client *client)
 
 	sysfs_remove_group(&client->dev.kobj, &mxt_attr_group);
 	free_irq(data->irq, data);
+	if (gpio_is_valid(data->pdata->gpio_reset))
+		gpio_free(data->pdata->gpio_reset);
+	if (gpio_is_valid(data->pdata->gpio_switch))
+		gpio_free(data->pdata->gpio_switch);
+	if (gpio_is_valid(data->pdata->gpio_int))
+		gpio_free(data->pdata->gpio_int);
 	regulator_put(data->reg_avdd);
 	regulator_put(data->reg_vdd);
 	mxt_free_object_table(data);
@@ -3351,6 +3485,9 @@ static const struct i2c_device_id mxt_id[] = {
 	{ "atmel_mxt_ts", 0 },
 	{ "atmel_mxt_tp", 0 },
 	{ "mXT224", 0 },
+	{ "ATML1000", 0 },
+	{ "ATML1000:00", 0 },
+	{ "i2c-ATML1000", 0 },
 	{ }
 };
 MODULE_DEVICE_TABLE(i2c, mxt_id);
