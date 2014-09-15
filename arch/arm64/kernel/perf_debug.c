@@ -30,6 +30,7 @@ static char *descriptions =
 	" 5 Perf: arm64: add perf user-mode permissions\n"
 	" 6 Perf: arm64: Add debugfs node to clear PMU\n"
 	" 7 Perf: arm64: Update PMU force reset\n"
+	" 8 Perf: arm64: Use device tree property for CTI PMU workaround\n"
 ;
 
 static ssize_t desc_read(struct file *fp, char __user *buf,

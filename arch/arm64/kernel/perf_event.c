@@ -31,6 +31,7 @@
 #include <linux/uaccess.h>
 #include <linux/cpu_pm.h>
 #include <linux/debugfs.h>
+#include <linux/of.h>
 
 #include <asm/cputype.h>
 #include <asm/irq.h>
@@ -59,6 +60,7 @@ static atomic_t cti_irq_workaround;
 /* Set at runtime when we know what CPU type we are. */
 static struct arm_pmu *cpu_pmu;
 static int msm_pmu_use_irq = 1;
+static int apply_cti_pmu_wa;
 
 void arm64_pmu_irq_handled_externally(void)
 {
@@ -474,7 +476,8 @@ armpmu_reserve_hardware(struct arm_pmu *armpmu)
 		pr_info("EDAC driver requests for the PMU interrupt\n");
 		goto out;
 	} else {
-		if (atomic_add_return(1, &cti_irq_workaround) == 1)
+		if ((atomic_add_return(1, &cti_irq_workaround) == 1) &&
+		    apply_cti_pmu_wa)
 			schedule_on_each_cpu(msm_enable_cti_pmu_workaround);
 	}
 
@@ -1151,7 +1154,7 @@ irqreturn_t armv8pmu_handle_irq(int irq_num, void *dev)
 	int idx;
 	int cpu = raw_smp_processor_id();
 
-	if (msm_pmu_use_irq)
+	if (msm_pmu_use_irq && apply_cti_pmu_wa)
 		msm_cti_pmu_irq_ack(cpu);
 
 	/*
@@ -1561,6 +1564,8 @@ static int armpmu_device_probe(struct platform_device *pdev)
 		return -ENODEV;
 
 	cpu_pmu->plat_device = pdev;
+	apply_cti_pmu_wa = of_property_read_bool(pdev->dev.of_node,
+						 "qcom,apply-cti-pmu-wa");
 	return 0;
 }
 

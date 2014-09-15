@@ -45,4 +45,11 @@
 				  "sbe-irq";
 		qcom,apply-cti-pmu-wa;
 	};
+
+	cpu-pmu {
+		compatible = "arm,armv8-pmuv3";
+		qcom,irq-is-percpu;
+		interrupts = <1 14 0xff00>;
+		qcom,apply-cti-pmu-wa;
+	};
 };
