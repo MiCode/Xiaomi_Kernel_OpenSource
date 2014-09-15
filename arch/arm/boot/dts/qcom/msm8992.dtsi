@@ -821,6 +821,38 @@
 		qcom,slope = <2901 2846 3200 3200 3200 3200 3200 3200 3200 3200 3200 3200 3200>;
 		qcom,sensor-id = <0 1 2 3 5 6 7 8 9 10 11 12 13>;
 	};
+
+	ocmem: qcom,ocmem@fdd00000 {
+		compatible = "qcom,msm-ocmem";
+		reg = <0xfdd00000 0x2000>,
+			<0xfdd02000 0x2000>,
+			<0xfe070000 0x400>,
+			<0xfec00000 0x100000>;
+		reg-names = "ocmem_ctrl_physical", "dm_ctrl_physical", "br_ctrl_physical", "ocmem_physical";
+		interrupts = <0 76 0 0 77 0>;
+		interrupt-names = "ocmem_irq", "dm_irq";
+		qcom,ocmem-num-regions = <0x4>;
+		qcom,ocmem-num-macros = <0x10>;
+		qcom,resource-type = <0x706d636f>;
+		#address-cells = <1>;
+		#size-cells = <1>;
+		ranges = <0x0 0xfec00000 0x100000>;
+		clocks = <&clock_rpm clk_ocmemgx_core_clk>,
+			<&clock_mmss clk_ocmemcx_ocmemnoc_clk>;
+		clock-names = "core_clk", "iface_clk";
+
+		partition@0 {
+			reg = <0x0 0x80000>;
+			qcom,ocmem-part-name = "graphics";
+			qcom,ocmem-part-min = <0x80000>;
+		};
+
+		partition@100000 {
+			reg = <0x80000 0x80000>;
+			qcom,ocmem-part-name = "video";
+			qcom,ocmem-part-min = <0x55000>;
+		};
+	};
 };
 
 &gdsc_usb30 {
