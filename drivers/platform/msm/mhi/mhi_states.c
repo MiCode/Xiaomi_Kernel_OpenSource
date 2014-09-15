@@ -970,7 +970,6 @@ int mhi_initiate_m3(struct mhi_device_ctxt *mhi_dev_ctxt)
 		mhi_log(MHI_MSG_INFO,
 			"Triggering wake out of M2\n");
 		write_lock_irqsave(&mhi_dev_ctxt->xfer_lock, flags);
-		mhi_dev_ctxt->flags.pending_M3 = 1;
 		mhi_assert_device_wake(mhi_dev_ctxt);
 		write_unlock_irqrestore(&mhi_dev_ctxt->xfer_lock, flags);
 		r = wait_event_interruptible_timeout(*mhi_dev_ctxt->M0_event,
