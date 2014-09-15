@@ -1181,6 +1181,27 @@ static int bdw_init_workarounds(struct intel_ringbuffer *ringbuf)
 	return 0;
 }
 
+void chv_emit_workarounds(struct intel_ringbuffer *ringbuf)
+{
+	struct intel_engine_cs *ring = ringbuf->ring;
+
+	/* WaDisablePartialInstShootdown:chv */
+	ring->emit_wa(ringbuf, GEN8_ROW_CHICKEN,
+			   _MASKED_BIT_ENABLE(PARTIAL_INSTRUCTION_SHOOTDOWN_DISABLE));
+
+	/* WaDisableThreadStallDopClockGating:chv */
+	ring->emit_wa(ringbuf, GEN8_ROW_CHICKEN,
+			   _MASKED_BIT_ENABLE(STALL_DOP_GATING_DISABLE));
+
+	/* WaDisableDopClockGating:chv (pre-production hw) */
+	ring->emit_wa(ringbuf, GEN7_ROW_CHICKEN2,
+			   _MASKED_BIT_ENABLE(DOP_CLOCK_GATING_DISABLE));
+
+	/* WaDisableSamplerPowerBypass:chv (pre-production hw) */
+	ring->emit_wa(ringbuf, HALF_SLICE_CHICKEN3,
+			   _MASKED_BIT_ENABLE(GEN8_SAMPLER_POWER_BYPASS_DIS));
+}
+
 static int chv_init_workarounds(struct intel_ringbuffer *ringbuf)
 {
 	int ret;
@@ -1200,21 +1221,7 @@ static int chv_init_workarounds(struct intel_ringbuffer *ringbuf)
 	if (ret)
 		return ret;
 
-	/* WaDisablePartialInstShootdown:chv */
-	intel_ring_emit_wa(ringbuf, GEN8_ROW_CHICKEN,
-			   _MASKED_BIT_ENABLE(PARTIAL_INSTRUCTION_SHOOTDOWN_DISABLE));
-
-	/* WaDisableThreadStallDopClockGating:chv */
-	intel_ring_emit_wa(ringbuf, GEN8_ROW_CHICKEN,
-			   _MASKED_BIT_ENABLE(STALL_DOP_GATING_DISABLE));
-
-	/* WaDisableDopClockGating:chv (pre-production hw) */
-	intel_ring_emit_wa(ringbuf, GEN7_ROW_CHICKEN2,
-			   _MASKED_BIT_ENABLE(DOP_CLOCK_GATING_DISABLE));
-
-	/* WaDisableSamplerPowerBypass:chv (pre-production hw) */
-	intel_ring_emit_wa(ringbuf, HALF_SLICE_CHICKEN3,
-			   _MASKED_BIT_ENABLE(GEN8_SAMPLER_POWER_BYPASS_DIS));
+	chv_emit_workarounds(ringbuf);
 
 	intel_ring_advance(ring);
 

@@ -1229,6 +1229,39 @@ static int bdw_init_logical_workarounds(struct intel_ringbuffer *ringbuf)
 	return 0;
 }
 
+static int chv_init_logical_workarounds(struct intel_ringbuffer *ringbuf)
+{
+	int ret;
+	struct intel_engine_cs *ring = ringbuf->ring;
+	struct drm_device *dev = ring->dev;
+	struct drm_i915_private *dev_priv = dev->dev_private;
+
+	/*
+	 * workarounds applied in this fn are part of register state context,
+	 * they need to be re-initialized followed by gpu reset, suspend/resume,
+	 * module reload.
+	 */
+	dev_priv->num_wa_regs = 0;
+	memset(dev_priv->intel_wa_regs, 0, sizeof(dev_priv->intel_wa_regs));
+
+	/*
+	 * update the number of dwords required based on the
+	 * actual number of workarounds applied
+	 */
+	ret = intel_logical_ring_begin(ringbuf, 12);
+	if (ret)
+		return ret;
+
+	chv_emit_workarounds(ringbuf);
+
+	intel_logical_ring_advance(ringbuf);
+
+	DRM_DEBUG_DRIVER("Number of Workarounds applied: %d\n",
+			 dev_priv->num_wa_regs);
+
+	return 0;
+}
+
 static int gen8_init_common_ring(struct intel_engine_cs *ring)
 {
 	struct drm_device *dev = ring->dev;
@@ -1529,7 +1562,9 @@ static int logical_render_ring_init(struct drm_device *dev)
 	if (HAS_L3_DPF(dev))
 		ring->irq_keep_mask |= GT_RENDER_L3_PARITY_ERROR_INTERRUPT;
 
-	if (IS_BROADWELL(dev))
+	if (IS_CHERRYVIEW(dev))
+		ring->init_context = chv_init_logical_workarounds;
+	else
 		ring->init_context = bdw_init_logical_workarounds;
 	ring->emit_wa = intel_logical_ring_emit_wa;
 
