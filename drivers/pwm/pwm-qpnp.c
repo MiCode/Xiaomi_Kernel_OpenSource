@@ -1885,6 +1885,20 @@ static int qpnp_parse_dt_config(struct spmi_device *spmi,
 		}
 	}
 
+	rc = of_property_read_u32(of_node, "qcom,lpg-dtest-line",
+		&chip->dtest_line);
+	if (rc) {
+		chip->in_test_mode = 0;
+	} else {
+		chip->in_test_mode = 1;
+		rc = of_property_read_u32(of_node, "qcom,dtest-output",
+			&chip->dtest_output);
+		if (rc) {
+			pr_err("Missing DTEST output configuration\n");
+			chip->dtest_output = 0;
+		}
+	}
+
 	for_each_child_of_node(of_node, node) {
 		rc = of_property_read_string(node, "label", &lable);
 		if (rc) {
@@ -1918,20 +1932,6 @@ static int qpnp_parse_dt_config(struct spmi_device *spmi,
 		dev_err(&spmi->dev, "%s: Invalid mode select\n", __func__);
 		rc = -EINVAL;
 		goto out;
-	}
-
-	rc = of_property_read_u32(of_node, "qcom,lpg-dtest-line",
-		&chip->dtest_line);
-	if (rc) {
-		chip->in_test_mode = 0;
-	} else {
-		chip->in_test_mode = 1;
-		rc = of_property_read_u32(of_node, "qcom,dtest-output",
-			&chip->dtest_output);
-		if (rc) {
-			pr_err("Missing DTEST output configuration\n");
-			chip->dtest_output = 0;
-		}
 	}
 
 	_pwm_change_mode(chip, enable);
