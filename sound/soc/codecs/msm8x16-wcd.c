@@ -76,6 +76,13 @@
 #define EAR_PA_DISABLE (0x01 << 3)
 #define SPKR_PA_DISABLE (0x01 << 4)
 
+#define MICBIAS_DEFAULT_VAL 1800000
+#define MICBIAS_MIN_VAL 1600000
+#define MICBIAS_STEP_SIZE 50000
+
+#define VOLTAGE_CONVERTER(value, min_value, step_size)\
+	((value - min_value)/step_size);
+
 enum {
 	AIF1_PB = 0,
 	AIF1_CAP,
@@ -171,6 +178,7 @@ static struct msm8x16_wcd_pdata *msm8x16_wcd_populate_dt_pdata(
 static int msm8x16_wcd_enable_ext_mb_source(struct snd_soc_codec *codec,
 					    bool turn_on);
 static void msm8x16_trim_btn_reg(struct snd_soc_codec *codec);
+static void msm8x16_wcd_set_micb_v(struct snd_soc_codec *codec);
 
 struct msm8x16_wcd_spmi msm8x16_wcd_modules[MAX_MSM8X16_WCD_DEVICE];
 
@@ -203,6 +211,7 @@ static const struct wcd_mbhc_cb mbhc_cb = {
 	.enable_mb_source = msm8x16_wcd_enable_ext_mb_source,
 	.trim_btn_reg = msm8x16_trim_btn_reg,
 	.compute_impedance = msm8x16_wcd_compute_impedance,
+	.set_micbias_value = msm8x16_wcd_set_micb_v,
 };
 
 int msm8x16_unregister_notifier(struct snd_soc_codec *codec,
@@ -579,6 +588,23 @@ static int msm8x16_wcd_dt_parse_vreg_info(struct device *dev,
 	return 0;
 }
 
+static void msm8x16_wcd_dt_parse_micbias_info(struct device *dev,
+			struct wcd9xxx_micbias_setting *micbias)
+{
+	const char *prop_name = "qcom,cdc-micbias-cfilt-mv";
+	int ret;
+
+	ret = of_property_read_u32(dev->of_node, prop_name,
+			&micbias->cfilt1_mv);
+	if (ret) {
+		dev_dbg(dev, "Looking up %s property in node %s failed",
+			prop_name, dev->of_node->full_name);
+		micbias->cfilt1_mv = MICBIAS_DEFAULT_VAL;
+		return;
+	}
+	return;
+}
+
 static struct msm8x16_wcd_pdata *msm8x16_wcd_populate_dt_pdata(
 						struct device *dev)
 {
@@ -657,6 +683,7 @@ static struct msm8x16_wcd_pdata *msm8x16_wcd_populate_dt_pdata(
 			goto err;
 		}
 	}
+	msm8x16_wcd_dt_parse_micbias_info(dev, &pdata->micbias);
 
 	return pdata;
 err:
@@ -3381,6 +3408,7 @@ static int msm8x16_wcd_device_up(struct snd_soc_codec *codec)
 	msm8x16_wcd_codec_init_reg(codec);
 	msm8x16_wcd_update_reg_defaults(codec);
 
+	msm8x16_wcd_set_micb_v(codec);
 	wcd_mbhc_stop(&msm8x16_wcd_priv->mbhc);
 	wcd_mbhc_start(&msm8x16_wcd_priv->mbhc,
 			msm8x16_wcd_priv->mbhc.mbhc_cfg);
@@ -3452,6 +3480,21 @@ void msm8x16_wcd_hs_detect_exit(struct snd_soc_codec *codec)
 }
 EXPORT_SYMBOL(msm8x16_wcd_hs_detect_exit);
 
+static void msm8x16_wcd_set_micb_v(struct snd_soc_codec *codec)
+{
+
+	struct msm8x16_wcd *msm8x16 = codec->control_data;
+	struct msm8x16_wcd_pdata *pdata = msm8x16->dev->platform_data;
+	u8 reg_val;
+
+	reg_val = VOLTAGE_CONVERTER(pdata->micbias.cfilt1_mv, MICBIAS_MIN_VAL,
+			MICBIAS_STEP_SIZE);
+	dev_dbg(codec->dev, "cfilt1_mv %d reg_val %x\n",
+			(u32)pdata->micbias.cfilt1_mv, reg_val);
+	snd_soc_update_bits(codec, MSM8X16_WCD_A_ANALOG_MICB_1_VAL,
+			0xF8, (reg_val << 3));
+}
+
 static int msm8x16_wcd_codec_probe(struct snd_soc_codec *codec)
 {
 	struct msm8x16_wcd_priv *msm8x16_wcd_priv;
@@ -3516,6 +3559,9 @@ static int msm8x16_wcd_codec_probe(struct snd_soc_codec *codec)
 	msm8x16_wcd_priv->mclk_enabled = false;
 	msm8x16_wcd_priv->clock_active = false;
 	msm8x16_wcd_priv->config_mode_active = false;
+
+	/* Set initial MICBIAS voltage level */
+	msm8x16_wcd_set_micb_v(codec);
 
 	registered_codec = codec;
 	modem_state_notifier =

@@ -66,6 +66,7 @@ struct wcd_mbhc_cb {
 	int (*enable_mb_source) (struct snd_soc_codec *, bool);
 	void (*trim_btn_reg) (struct snd_soc_codec *);
 	void (*compute_impedance) (s16 , s16 , uint32_t *, uint32_t *, bool);
+	void (*set_micbias_value) (struct snd_soc_codec *);
 };
 
 struct wcd_mbhc {
