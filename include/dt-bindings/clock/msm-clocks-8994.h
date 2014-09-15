@@ -62,6 +62,8 @@
 #define clk_mcd_ce3_clk 0x607c2bd3
 #define clk_mmssnoc_ahb_clk 0xccd4bd4c
 #define clk_mmssnoc_ahb_a_clk 0x3f1a62ce
+#define clk_mss_cfg_ahb_clk 0x4a6d85ae
+#define clk_mss_cfg_ahb_a_clk 0x2a1502ca
 #define clk_ocmemgx_core_clk 0xaad7dbe5
 #define clk_ocmemgx_msmbus_clk 0x3968c738
 #define clk_ocmemgx_msmbus_a_clk 0x66dd774f
@@ -226,7 +228,6 @@
 #define clk_gcc_gp2_clk 0x9bf83ffd
 #define clk_gcc_gp3_clk 0xec6539ee
 #define clk_gcc_lpass_q6_axi_clk 0xa9612654
-#define clk_gcc_mss_cfg_ahb_clk 0x111cde81
 #define clk_gcc_mss_q6_bimc_axi_clk 0x67544d62
 #define clk_gcc_pcie_0_aux_clk 0x3d2e3ece
 #define clk_gcc_pcie_0_cfg_ahb_clk 0x4dd325c3
