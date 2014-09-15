@@ -89,7 +89,12 @@ masquerade_tg(struct sk_buff *skb, const struct xt_action_param *par)
 	newrange.max_proto   = mr->range[0].max;
 
 	/* Hand modified range to generic setup. */
+#if defined(CONFIG_IP_NF_TARGET_NATTYPE_MODULE)
+	nf_nat_setup_info(ct, &newrange, NF_NAT_MANIP_SRC);
+	return XT_CONTINUE;
+#else
 	return nf_nat_setup_info(ct, &newrange, NF_NAT_MANIP_SRC);
+#endif
 }
 
 static int
