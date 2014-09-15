@@ -1942,10 +1942,15 @@ static int dwc3_gadget_pullup(struct usb_gadget *g, int is_on)
 	struct dwc3_usb_gadget *dwc3_gadget = g->private;
 	unsigned long		flags;
 	int			ret;
+	unsigned long		timeout;
 
 	is_on = !!is_on;
 
 	spin_lock_irqsave(&dwc->lock, flags);
+
+	/* If pending suspend, abort this suspend. */
+	if (dwc->enable_bus_suspend)
+		usb_phy_set_suspend(dwc->dotg->otg.phy, 0);
 
 	dwc->softconnect = is_on;
 
@@ -1970,13 +1975,32 @@ static int dwc3_gadget_pullup(struct usb_gadget *g, int is_on)
 		pm_runtime_get_sync(dwc->dev);
 		if (dwc3_gadget)
 			dwc3_gadget->disable_during_lpm = true;
+		goto set_run_stop;
 	}
 
 	if (is_on && dwc3_gadget && dwc3_gadget->disable_during_lpm) {
 		pm_runtime_put_sync(dwc->dev);
 		if (dwc3_gadget)
 			dwc3_gadget->disable_during_lpm = false;
+		goto set_run_stop;
 	}
+
+	if (atomic_read(&dwc->in_lpm)) {
+		pm_runtime_resume(dwc->dev);
+		timeout = jiffies + msecs_to_jiffies(20);
+		do {
+			if (!atomic_read(&dwc->in_lpm))
+				break;
+
+			if (time_after(jiffies, timeout)) {
+				pr_err("%s(): Err getting pullup\n", __func__);
+				return -ETIMEDOUT;
+			}
+			usleep_range(2, 5);
+		} while (true);
+	}
+
+set_run_stop:
 	spin_lock_irqsave(&dwc->lock, flags);
 
 	ret = dwc3_gadget_run_stop(dwc, is_on);
