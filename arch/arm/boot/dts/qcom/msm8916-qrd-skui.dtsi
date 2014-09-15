@@ -12,6 +12,7 @@
 
 #include "msm8916-qrd.dtsi"
 #include "dsi-panel-otm8019a-fwvga-video.dtsi"
+#include "msm8916-camera-sensor-qrd-skui.dtsi"
 
 &soc {
 	gpio-leds {
