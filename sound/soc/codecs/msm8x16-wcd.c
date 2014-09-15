@@ -1019,6 +1019,45 @@ static int msm8x16_wcd_spk_boost_set(struct snd_kcontrol *kcontrol,
 	return 0;
 }
 
+static int msm8x16_wcd_ext_spk_boost_get(struct snd_kcontrol *kcontrol,
+				struct snd_ctl_elem_value *ucontrol)
+{
+	struct snd_soc_codec *codec = snd_kcontrol_chip(kcontrol);
+	struct msm8x16_wcd_priv *msm8x16_wcd = snd_soc_codec_get_drvdata(codec);
+
+	if (msm8x16_wcd->ext_spk_boost_set == false)
+		ucontrol->value.integer.value[0] = 0;
+	else
+		ucontrol->value.integer.value[0] = 1;
+
+	dev_dbg(codec->dev, "%s: msm8x16_wcd->ext_spk_boost_set = %d\n",
+				__func__, msm8x16_wcd->ext_spk_boost_set);
+	return 0;
+}
+
+static int msm8x16_wcd_ext_spk_boost_set(struct snd_kcontrol *kcontrol,
+				struct snd_ctl_elem_value *ucontrol)
+{
+	struct snd_soc_codec *codec = snd_kcontrol_chip(kcontrol);
+	struct msm8x16_wcd_priv *msm8x16_wcd = snd_soc_codec_get_drvdata(codec);
+
+	dev_dbg(codec->dev, "%s: ucontrol->value.integer.value[0] = %ld\n",
+		__func__, ucontrol->value.integer.value[0]);
+
+	switch (ucontrol->value.integer.value[0]) {
+	case 0:
+		msm8x16_wcd->ext_spk_boost_set = false;
+		break;
+	case 1:
+		msm8x16_wcd->ext_spk_boost_set = true;
+		break;
+	default:
+		return -EINVAL;
+	}
+	dev_dbg(codec->dev, "%s: msm8x16_wcd->spk_boost_set = %d\n",
+		__func__, msm8x16_wcd->spk_boost_set);
+	return 0;
+}
 static int msm8x16_wcd_get_iir_enable_audio_mixer(
 					struct snd_kcontrol *kcontrol,
 					struct snd_ctl_elem_value *ucontrol)
@@ -1240,6 +1279,12 @@ static const struct soc_enum msm8x16_wcd_spk_boost_ctl_enum[] = {
 		SOC_ENUM_SINGLE_EXT(2, msm8x16_wcd_spk_boost_ctrl_text),
 };
 
+static const char * const msm8x16_wcd_ext_spk_boost_ctrl_text[] = {
+		"DISABLE", "ENABLE"};
+static const struct soc_enum msm8x16_wcd_ext_spk_boost_ctl_enum[] = {
+		SOC_ENUM_SINGLE_EXT(2, msm8x16_wcd_ext_spk_boost_ctrl_text),
+};
+
 /*cut of frequency for high pass filter*/
 static const char * const cf_text[] = {
 	"MIN_3DB_4Hz", "MIN_3DB_75Hz", "MIN_3DB_150Hz"
@@ -1270,6 +1315,9 @@ static const struct snd_kcontrol_new msm8x16_wcd_snd_controls[] = {
 
 	SOC_ENUM_EXT("Speaker Boost", msm8x16_wcd_spk_boost_ctl_enum[0],
 		msm8x16_wcd_spk_boost_get, msm8x16_wcd_spk_boost_set),
+
+	SOC_ENUM_EXT("Ext Spk Boost", msm8x16_wcd_ext_spk_boost_ctl_enum[0],
+		msm8x16_wcd_ext_spk_boost_get, msm8x16_wcd_ext_spk_boost_set),
 
 	SOC_ENUM_EXT("LOOPBACK Mode", msm8x16_wcd_loopback_mode_ctl_enum[0],
 		msm8x16_wcd_loopback_mode_get, msm8x16_wcd_loopback_mode_put),
@@ -2307,6 +2355,42 @@ out:
 	return ret;
 }
 
+static int msm89xx_wcd_codec_enable_vdd_spkr(struct snd_soc_dapm_widget *w,
+				       struct snd_kcontrol *kcontrol, int event)
+{
+	struct snd_soc_codec *codec = w->codec;
+	struct msm8x16_wcd_priv *msm8x16_wcd = snd_soc_codec_get_drvdata(codec);
+	int ret = 0;
+
+	if (!msm8x16_wcd->ext_spk_boost_set) {
+		dev_dbg(codec->dev, "%s: ext_boost not supported/disabled\n",
+								__func__);
+		return 0;
+	}
+	dev_dbg(codec->dev, "%s: %s %d\n", __func__, w->name, event);
+	switch (event) {
+	case SND_SOC_DAPM_PRE_PMU:
+		if (msm8x16_wcd->spkdrv_reg) {
+			ret = regulator_enable(msm8x16_wcd->spkdrv_reg);
+			if (ret)
+				dev_err(codec->dev,
+					"%s Failed to enable spkdrv reg %s\n",
+					__func__, MSM89XX_VDD_SPKDRV_NAME);
+		}
+		break;
+	case SND_SOC_DAPM_POST_PMD:
+		if (msm8x16_wcd->spkdrv_reg) {
+			ret = regulator_disable(msm8x16_wcd->spkdrv_reg);
+			if (ret)
+				dev_err(codec->dev,
+					"%s: Failed to disable spkdrv_reg %s\n",
+					__func__, MSM89XX_VDD_SPKDRV_NAME);
+		}
+		break;
+	}
+	return 0;
+}
+
 static int msm8x16_wcd_codec_enable_interpolator(struct snd_soc_dapm_widget *w,
 						 struct snd_kcontrol *kcontrol,
 						 int event)
@@ -2587,6 +2671,7 @@ static const struct snd_soc_dapm_route audio_map[] = {
 	{"SPK PA", NULL, "SPK_RX_BIAS"},
 	{"SPK PA", NULL, "SPK DAC"},
 	{"SPK DAC", "Switch", "RX3 CHAIN"},
+	{"SPK DAC", NULL, "VDD_SPKDRV"},
 
 	{"RX1 CHAIN", NULL, "RX1 CLK"},
 	{"RX2 CHAIN", NULL, "RX2 CLK"},
@@ -3112,6 +3197,10 @@ static const struct snd_soc_dapm_widget msm8x16_wcd_dapm_widgets[] = {
 			SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMU |
 			SND_SOC_DAPM_PRE_PMD | SND_SOC_DAPM_POST_PMD),
 
+	SND_SOC_DAPM_SUPPLY("VDD_SPKDRV", SND_SOC_NOPM, 0, 0,
+			    msm89xx_wcd_codec_enable_vdd_spkr,
+			    SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMD),
+
 	SND_SOC_DAPM_MIXER("RX1 MIX1", SND_SOC_NOPM, 0, 0, NULL, 0),
 	SND_SOC_DAPM_MIXER("RX2 MIX1", SND_SOC_NOPM, 0, 0, NULL, 0),
 
@@ -3583,20 +3672,25 @@ static int msm8x16_wcd_codec_probe(struct snd_soc_codec *codec)
 	msm8x16_wcd->dig_base = ioremap(MSM8X16_DIGITAL_CODEC_BASE_ADDR,
 				  MSM8X16_DIGITAL_CODEC_REG_SIZE);
 	if (msm8x16_wcd->dig_base == NULL) {
-		dev_err(codec->dev, "%s ioremap failed", __func__);
+		dev_err(codec->dev, "%s ioremap failed\n", __func__);
 		kfree(msm8x16_wcd_priv);
 		return -ENOMEM;
 	}
+	msm8x16_wcd_priv->spkdrv_reg =
+		wcd8x16_wcd_codec_find_regulator(codec->control_data,
+						MSM89XX_VDD_SPKDRV_NAME);
 	msm8x16_wcd_priv->pmic_rev = snd_soc_read(codec,
 					MSM8X16_WCD_A_DIGITAL_REVISION1);
 	msm8x16_wcd_priv->codec_version = snd_soc_read(codec,
 					MSM8X16_WCD_A_DIGITAL_PERPH_SUBTYPE);
-	if (msm8x16_wcd_priv->codec_version == 0x2)
-		dev_dbg(codec->dev, "%s :Conga REV: %d", __func__,
+	if (msm8x16_wcd_priv->codec_version == CONGA) {
+		dev_dbg(codec->dev, "%s :Conga REV: %d\n", __func__,
 					msm8x16_wcd_priv->codec_version);
-	else
-		dev_dbg(codec->dev, "%s :PMIC REV: %d", __func__,
+		msm8x16_wcd_priv->ext_spk_boost_set = true;
+	} else {
+		dev_dbg(codec->dev, "%s :PMIC REV: %d\n", __func__,
 					msm8x16_wcd_priv->pmic_rev);
+	}
 	msm8x16_wcd_dt_parse_boost_info(codec);
 	msm8x16_wcd_set_boost_v(codec);
 
@@ -3646,6 +3740,7 @@ static int msm8x16_wcd_codec_remove(struct snd_soc_codec *codec)
 	struct msm8x16_wcd *msm8x16_wcd;
 
 	msm8x16_wcd = codec->control_data;
+	msm8x16_wcd_priv->spkdrv_reg = NULL;
 	msm8x16_wcd_priv->on_demand_list[ON_DEMAND_MICBIAS].supply = NULL;
 	atomic_set(&msm8x16_wcd_priv->on_demand_list[ON_DEMAND_MICBIAS].ref, 0);
 	iounmap(msm8x16_wcd->dig_base);
