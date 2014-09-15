@@ -369,7 +369,7 @@
 			qcom,ramp-index = <2>;
 		};
 
-		pwm@b400 {
+		pmi8994_pwm_4: pwm@b400 {
 			compatible = "qcom,qpnp-pwm";
 			reg = <0xb400 0x100>,
 			      <0xb042 0x7e>;
@@ -377,6 +377,7 @@
 			qcom,channel-id = <3>;
 			qcom,supported-sizes = <6>, <7>, <9>;
 			qcom,ramp-index = <3>;
+			#pwm-cells = <2>;
 		};
 
 		qcom,leds@d800 {
