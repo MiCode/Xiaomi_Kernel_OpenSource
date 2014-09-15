@@ -525,10 +525,8 @@
 		qcom,proxy-reg-names = "vdd_cx";
 		qcom,vdd_cx-uV-uA = <7 100000>;
 
-		clocks = <&clock_gcc clk_gcc_lpass_q6_axi_clk>,
-			 <&clock_rpm clk_cxo_pil_lpass_clk>;
-		clock-names = "bus_clk", "xo";
-		qcom,active-clock-names = "bus_clk";
+		clocks = <&clock_rpm clk_cxo_pil_lpass_clk>;
+		clock-names = "xo";
 		qcom,proxy-clock-names = "xo";
 
 		qcom,pas-id = <1>;
