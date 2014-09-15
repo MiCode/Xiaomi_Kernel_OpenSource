@@ -29,7 +29,7 @@
 #include <linux/phy/phy-qcom-ufs.h>
 #include "ufshci.h"
 
-static int ufs_qcom_get_speed_mode(struct ufs_pa_layer_attr *p, char *result);
+static void ufs_qcom_get_speed_mode(struct ufs_pa_layer_attr *p, char *result);
 static int ufs_qcom_get_bus_vote(struct ufs_qcom_host *host,
 		const char *speed_mode);
 static int ufs_qcom_set_bus_vote(struct ufs_qcom_host *host, int vote);
@@ -542,157 +542,86 @@ struct ufs_qcom_dev_params {
 	u32 desired_working_mode;
 };
 
-/**
- * as every power mode, according to the UFS spec, have a defined
- * number that are not corresponed to their order or power
- * consumption (i.e 5, 2, 4, 1 respectively from low to high),
- * we need to map them into array, so we can scan it easily
- * in order to find the minimum required power mode.
- * also, we can use this routine to go the other way around,
- * and from array index, the fetch the correspond power mode.
- */
-static int map_unmap_pwr_mode(u32 mode, bool is_pwr_to_arr)
+static int ufs_qcom_get_pwr_dev_param(struct ufs_qcom_dev_params *qcom_param,
+				      struct ufs_pa_layer_attr *dev_max,
+				      struct ufs_pa_layer_attr *agreed_pwr)
 {
-	enum {SL_MD = 0, SLA_MD = 1, FS_MD = 2, FSA_MD = 3, UNDEF = 4};
-	int ret = -EINVAL;
-
-	if (is_pwr_to_arr) {
-		switch (mode) {
-		case SLOW_MODE:
-			ret = SL_MD;
-			break;
-		case SLOWAUTO_MODE:
-			ret = SLA_MD;
-			break;
-		case FAST_MODE:
-			ret = FS_MD;
-			break;
-		case FASTAUTO_MODE:
-			ret = FSA_MD;
-			break;
-		default:
-			ret = UNDEF;
-			break;
-		}
-	} else {
-		switch (mode) {
-		case SL_MD:
-			ret = SLOW_MODE;
-			break;
-		case SLA_MD:
-			ret = SLOWAUTO_MODE;
-			break;
-		case FS_MD:
-			ret = FAST_MODE;
-			break;
-		case FSA_MD:
-			ret = FASTAUTO_MODE;
-			break;
-		default:
-			ret = -EINVAL;
-			break;
-		}
-	}
-
-	return ret;
-}
-
-#define NUM_OF_SUPPORTED_MODES	5
-static int get_pwr_dev_param(struct ufs_qcom_dev_params *qcom_param,
-			     struct ufs_pa_layer_attr *dev_max,
-			     struct ufs_pa_layer_attr *dev_req)
-{
-	int arr[NUM_OF_SUPPORTED_MODES] = {0};
-	int i;
-	int min_power;
 	int min_qcom_gear;
 	int min_dev_gear;
-	bool is_max_dev_hs;
-	bool is_max_qcom_hs;
+	bool is_dev_sup_hs = false;
+	bool is_qcom_max_hs = false;
 
-	/**
-	 * mapping the max. supported power mode of the device
-	 * and the max. pre-defined support power mode of the vendor
-	 * in order to scan them easily
+	if (dev_max->pwr_rx == FAST_MODE)
+		is_dev_sup_hs = true;
+
+	if (qcom_param->desired_working_mode == FAST) {
+		is_qcom_max_hs = true;
+		min_qcom_gear = min_t(u32, qcom_param->hs_rx_gear,
+				      qcom_param->hs_tx_gear);
+	} else {
+		min_qcom_gear = min_t(u32, qcom_param->pwm_rx_gear,
+				      qcom_param->pwm_tx_gear);
+	}
+
+	/*
+	 * device doesn't support HS but qcom_param->desired_working_mode is
+	 * HS, thus device and qcom_param don't agree
 	 */
-	arr[map_unmap_pwr_mode(dev_max->pwr_rx, true)]++;
-	arr[map_unmap_pwr_mode(dev_max->pwr_tx, true)]++;
-
-	if (qcom_param->desired_working_mode == SLOW) {
-		arr[map_unmap_pwr_mode(qcom_param->rx_pwr_pwm, true)]++;
-		arr[map_unmap_pwr_mode(qcom_param->tx_pwr_pwm, true)]++;
+	if (!is_dev_sup_hs && is_qcom_max_hs) {
+		pr_err("%s: failed to agree on power mode (device doesn't support HS but requested power is HS)\n",
+			__func__);
+		return -ENOTSUPP;
+	} else if (is_dev_sup_hs && is_qcom_max_hs) {
+		/*
+		 * since device supports HS, it supports FAST_MODE.
+		 * since qcom_param->desired_working_mode is also HS
+		 * then final decision (FAST/FASTAUTO) is done according
+		 * to qcom_params as it is the restricting factor
+		 */
+		agreed_pwr->pwr_rx = agreed_pwr->pwr_tx =
+						qcom_param->rx_pwr_hs;
 	} else {
-		arr[map_unmap_pwr_mode(qcom_param->rx_pwr_hs, true)]++;
-		arr[map_unmap_pwr_mode(qcom_param->tx_pwr_hs, true)]++;
+		/*
+		 * here qcom_param->desired_working_mode is PWM.
+		 * it doesn't matter whether device supports HS or PWM,
+		 * in both cases qcom_param->desired_working_mode will
+		 * determine the mode
+		 */
+		 agreed_pwr->pwr_rx = agreed_pwr->pwr_tx =
+						qcom_param->rx_pwr_pwm;
 	}
 
-	for (i = 0; i < NUM_OF_SUPPORTED_MODES; ++i) {
-		if (arr[i] != 0)
-			break;
-	}
-
-	/* no supported power mode found */
-	if (i == NUM_OF_SUPPORTED_MODES) {
-		return -EINVAL;
-	} else {
-		min_power = map_unmap_pwr_mode(i, false);
-		if (min_power >= 0)
-			dev_req->pwr_rx = dev_req->pwr_tx = min_power;
-		else
-			return -EINVAL;
-	}
-
-	/**
+	/*
 	 * we would like tx to work in the minimum number of lanes
 	 * between device capability and vendor preferences.
-	 * the same decision will be made for rx.
+	 * the same decision will be made for rx
 	 */
-	dev_req->lane_tx = min_t(u32, dev_max->lane_tx, qcom_param->tx_lanes);
-	dev_req->lane_rx = min_t(u32, dev_max->lane_rx, qcom_param->rx_lanes);
+	agreed_pwr->lane_tx = min_t(u32, dev_max->lane_tx,
+						qcom_param->tx_lanes);
+	agreed_pwr->lane_rx = min_t(u32, dev_max->lane_rx,
+						qcom_param->rx_lanes);
 
-	if (dev_max->pwr_rx == SLOW_MODE ||
-	    dev_max->pwr_rx == SLOWAUTO_MODE)
-		is_max_dev_hs = false;
-	else
-		is_max_dev_hs = true;
-
-	/* setting the device maximum gear */
+	/* device maximum gear is the minimum between device rx and tx gears */
 	min_dev_gear = min_t(u32, dev_max->gear_rx, dev_max->gear_tx);
 
-	/**
-	 * setting the desired gear to be the minimum according to the desired
-	 * power mode
-	 */
-	if (qcom_param->desired_working_mode == SLOW) {
-		is_max_qcom_hs = false;
-		min_qcom_gear = min_t(u32, qcom_param->pwm_rx_gear,
-						qcom_param->pwm_tx_gear);
-	} else {
-		is_max_qcom_hs = true;
-		min_qcom_gear = min_t(u32, qcom_param->hs_rx_gear,
-						qcom_param->hs_tx_gear);
-	}
-
-	/**
+	/*
 	 * if both device capabilities and vendor pre-defined preferences are
-	 * both HS or both PWM then set the minimum gear to be the
-	 * chosen working gear.
+	 * both HS or both PWM then set the minimum gear to be the chosen
+	 * working gear.
 	 * if one is PWM and one is HS then the one that is PWM get to decide
-	 * what the gear, as he is the one that also decided previously what
+	 * what is the gear, as it is the one that also decided previously what
 	 * pwr the device will be configured to.
 	 */
-	if ((is_max_dev_hs && is_max_qcom_hs) ||
-	    (!is_max_dev_hs && !is_max_qcom_hs)) {
-		dev_req->gear_rx = dev_req->gear_tx =
+	if ((is_dev_sup_hs && is_qcom_max_hs) ||
+	    (!is_dev_sup_hs && !is_qcom_max_hs))
+		agreed_pwr->gear_rx = agreed_pwr->gear_tx =
 			min_t(u32, min_dev_gear, min_qcom_gear);
-	} else if (!is_max_dev_hs) {
-		dev_req->gear_rx = dev_req->gear_tx = min_dev_gear;
-	} else {
-		dev_req->gear_rx = dev_req->gear_tx = min_qcom_gear;
-	}
+	else if (!is_dev_sup_hs)
+		agreed_pwr->gear_rx = agreed_pwr->gear_tx = min_dev_gear;
+	else
+		agreed_pwr->gear_rx = agreed_pwr->gear_tx = min_qcom_gear;
 
-	dev_req->hs_rate = qcom_param->hs_rate;
-
+	agreed_pwr->hs_rate = qcom_param->hs_rate;
 	return 0;
 }
 
@@ -702,9 +631,7 @@ static int ufs_qcom_update_bus_bw_vote(struct ufs_qcom_host *host)
 	int err = 0;
 	char mode[BUS_VECTOR_NAME_LEN];
 
-	err = ufs_qcom_get_speed_mode(&host->dev_req_params, mode);
-	if (err)
-		goto out;
+	ufs_qcom_get_speed_mode(&host->dev_req_params, mode);
 
 	vote = ufs_qcom_get_bus_vote(host, mode);
 	if (vote >= 0)
@@ -712,7 +639,6 @@ static int ufs_qcom_update_bus_bw_vote(struct ufs_qcom_host *host)
 	else
 		err = vote;
 
-out:
 	if (err)
 		dev_err(host->hba->dev, "%s: failed %d\n", __func__, err);
 	else
@@ -721,9 +647,9 @@ out:
 }
 
 static int ufs_qcom_pwr_change_notify(struct ufs_hba *hba,
-				      bool status,
-				      struct ufs_pa_layer_attr *dev_max_params,
-				      struct ufs_pa_layer_attr *dev_req_params)
+				bool status,
+				struct ufs_pa_layer_attr *dev_max_params,
+				struct ufs_pa_layer_attr *dev_req_params)
 {
 	u32 val;
 	struct ufs_qcom_host *host = hba->priv;
@@ -754,8 +680,9 @@ static int ufs_qcom_pwr_change_notify(struct ufs_hba *hba,
 		ufs_qcom_cap.desired_working_mode =
 					UFS_QCOM_LIMIT_DESIRED_MODE;
 
-		ret = get_pwr_dev_param(&ufs_qcom_cap, dev_max_params,
-							dev_req_params);
+		ret = ufs_qcom_get_pwr_dev_param(&ufs_qcom_cap,
+						 dev_max_params,
+						 dev_req_params);
 		if (ret) {
 			pr_err("%s: failed to determine capabilities\n",
 					__func__);
@@ -871,13 +798,11 @@ out:
 	return err;
 }
 
-static int ufs_qcom_get_speed_mode(struct ufs_pa_layer_attr *p, char *result)
+static void ufs_qcom_get_speed_mode(struct ufs_pa_layer_attr *p, char *result)
 {
-	int err = 0;
 	int gear = max_t(u32, p->gear_rx, p->gear_tx);
 	int lanes = max_t(u32, p->lane_rx, p->lane_tx);
-	int pwr = max_t(u32, map_unmap_pwr_mode(p->pwr_rx, true),
-			map_unmap_pwr_mode(p->pwr_tx, true));
+	int pwr;
 
 	/* default to PWM Gear 1, Lane 1 if power mode is not initialized */
 	if (!gear)
@@ -887,26 +812,18 @@ static int ufs_qcom_get_speed_mode(struct ufs_pa_layer_attr *p, char *result)
 		lanes = 1;
 
 	if (!p->pwr_rx && !p->pwr_tx)
-		pwr = 0;
-
-	pwr = map_unmap_pwr_mode(pwr, false);
-	if (pwr < 0) {
-		err = pwr;
-		goto out;
-	}
-
-	if (pwr == FAST_MODE || pwr == FASTAUTO_MODE)
+		pwr = SLOWAUTO_MODE;
+	else if (p->pwr_rx == FAST_MODE || p->pwr_rx == FASTAUTO_MODE ||
+		 p->pwr_tx == FAST_MODE || p->pwr_tx == FASTAUTO_MODE) {
+		pwr = FAST_MODE;
 		snprintf(result, BUS_VECTOR_NAME_LEN, "%s_R%s_G%d_L%d", "HS",
-				p->hs_rate == PA_HS_MODE_B ? "B" : "A",
-				gear, lanes);
-	else
+			 p->hs_rate == PA_HS_MODE_B ? "B" : "A", gear, lanes);
+	} else {
+		pwr = SLOW_MODE;
 		snprintf(result, BUS_VECTOR_NAME_LEN, "%s_G%d_L%d",
-				"PWM", gear, lanes);
-out:
-	return err;
+			 "PWM", gear, lanes);
+	}
 }
-
-
 
 static int ufs_qcom_setup_clocks(struct ufs_hba *hba, bool on)
 {
