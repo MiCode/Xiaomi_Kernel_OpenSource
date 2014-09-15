@@ -92,6 +92,9 @@ config TOUCHSCREEN_ATMEL_MXT
 	help
 	  Say Y here if you have Atmel mXT series I2C touchscreen,
 	  such as AT42QT602240/ATMXT224, connected to your system.
+          update driver to https://github.com/atmel-maxtouch/linux/
+          tree/maxtouch-v3.14, which support 4th generation touch
+          chip, such as mxt1664T.
 
 	  If unsure, say N.
 
