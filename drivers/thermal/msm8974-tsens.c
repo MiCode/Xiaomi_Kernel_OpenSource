@@ -2971,9 +2971,10 @@ static int get_device_tree_data(struct platform_device *pdev)
 	else
 		tmdev->tsens_valid_status_check = false;
 
-	tmdev->tsens_irq = platform_get_irq(pdev, 0);
+	tmdev->tsens_irq = platform_get_irq_byname(pdev,
+					"tsens-upper-lower");
 	if (tmdev->tsens_irq < 0) {
-		pr_err("Invalid get irq\n");
+		pr_err("Invalid Upper/Lower irq\n");
 		rc = tmdev->tsens_irq;
 		goto fail_tmdev;
 	}

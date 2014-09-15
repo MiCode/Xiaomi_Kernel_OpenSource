@@ -30,7 +30,8 @@ Required properties:
 	      calibration data is stored. This includes the backup
 	      calibration address region if TSENS calibration data is stored
 	      in the region.
-- interrupts : TSENS interrupt for cool/warm temperature threshold.
+- interrupts : TSENS interrupt to notify Upper/Lower temperature threshold.
+- interrupt-names: Should be "tsens-upper-lower" for temperature threshold.
 - qcom,sensors : Total number of available Temperature sensors for TSENS.
 - qcom,slope : One point calibration characterized slope data for each
 	       sensor used to compute the offset. Slope is represented
@@ -57,6 +58,7 @@ tsens@fc4a8000 {
 	reg-names = "tsens_physical",
 		    "tsens_eeprom_physical";
 	interrupts = <0 184 0>;
+	interrupt-names = "tsens-upper-lower";
 	qcom,calibration-less-mode;
 	qcom,sensors = <11>;
 	qcom,slope = <3200 3200 3200 3200 3200 3200 3200 3200 3200

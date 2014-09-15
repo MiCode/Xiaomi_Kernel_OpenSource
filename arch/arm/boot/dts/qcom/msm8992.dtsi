@@ -817,6 +817,7 @@
 		      <0xfc4bc000 0x1000>;
 		reg-names = "tsens_physical", "tsens_eeprom_physical";
 		interrupts = <0 184 0>;
+		interrupt-names = "tsens-upper-lower";
 		qcom,sensors = <13>;
 		qcom,slope = <2901 2846 3200 3200 3200 3200 3200 3200 3200 3200 3200 3200 3200>;
 		qcom,sensor-id = <0 1 2 3 5 6 7 8 9 10 11 12 13>;
