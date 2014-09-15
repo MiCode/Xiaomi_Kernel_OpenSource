@@ -624,7 +624,6 @@ static void emac_handle_rx(struct emac_adapter *adpt,
 
 		if (srrd.genr.res || srrd.genr.lene) {
 			dev_kfree_skb(rfbuf->skb);
-			emac_warn(adpt, rx_err, "received packet has errors\n");
 			continue;
 		}
 
@@ -686,6 +685,7 @@ static void emac_handle_tx(struct emac_adapter *adpt,
 	struct emac_hw *hw = &adpt->hw;
 	struct emac_buffer *tpbuf;
 	u32 hw_consume_idx;
+	u32 pkts_compl = 0, bytes_compl = 0;
 
 	hw_consume_idx = emac_reg_field_r32(hw, EMAC, txque->consume_reg,
 					    txque->consume_mask,
@@ -702,6 +702,8 @@ static void emac_handle_tx(struct emac_adapter *adpt,
 		}
 
 		if (tpbuf->skb) {
+			pkts_compl++;
+			bytes_compl += tpbuf->skb->len;
 			dev_kfree_skb_irq(tpbuf->skb);
 			tpbuf->skb = NULL;
 		}
@@ -710,10 +712,8 @@ static void emac_handle_tx(struct emac_adapter *adpt,
 			txque->tpd.consume_idx = 0;
 	}
 
-	if (netif_queue_stopped(adpt->netdev) &&
-	    netif_carrier_ok(adpt->netdev) &&
-	    (emac_get_num_free_tpdescs(txque) >= (txque->tpd.count / 8)))
-		netif_wake_queue(adpt->netdev);
+	if (pkts_compl || bytes_compl)
+		netdev_completed_queue(adpt->netdev, pkts_compl, bytes_compl);
 }
 
 /* NAPI */
@@ -986,6 +986,8 @@ static int emac_start_xmit_frame(struct emac_adapter *adpt,
 
 	emac_tx_map(adpt, txque, skb, &stpd);
 
+	netdev_sent_queue(adpt->netdev, skb->len);
+
 	/* update produce idx */
 	prod_idx = (txque->tpd.produce_idx << txque->produce_shft) &
 			txque->produce_mask;
@@ -1025,7 +1027,7 @@ static irqreturn_t emac_interrupt(int irq, void *data)
 	struct emac_irq_info *irq_info = data;
 	struct emac_adapter *adpt = irq_info->adpt;
 	struct emac_hw *hw = &adpt->hw;
-	int max_ints = EMAC_MAX_HANDLED_INTRS;
+	int max_ints = 1;
 	u32 isr, status;
 
 	/* disable the interrupt */
@@ -1233,6 +1235,7 @@ static void emac_clean_all_tx_queues(struct emac_adapter *adpt)
 
 	for (i = 0; i < adpt->num_txques; i++)
 		emac_clean_tx_queue(&adpt->tx_queue[i]);
+	netdev_reset_queue(adpt->netdev);
 }
 
 /* Free all descriptors of given receive queue */

@@ -284,8 +284,6 @@ struct emac_hw {
 		_vlan = ((((_tag) >> 8) & 0xFF) | (((_tag) & 0xFF) << 8));
 
 
-#define EMAC_MAX_HANDLED_INTRS          5
-
 #define EMAC_DEF_RX_BUF_SIZE            1536
 #define EMAC_MAX_JUMBO_PKT_SIZE         (9*1024)
 #define EMAC_MAX_TX_OFFLOAD_THRESH      (9*1024)
