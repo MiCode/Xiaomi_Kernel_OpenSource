@@ -9,7 +9,9 @@ obj-$(CONFIG_ADF_INTEL) += intel_adf.o \
 
 obj-$(CONFIG_ADF_INTEL_FBDEV) += intel_adf_fbdev.o
 
+ifndef CONFIG_ADF_INTEL_VLV
 obj-$(CONFIG_ADF_MEMBLOCK) += intel_adf_mm.o
+endif
 
 obj-$(CONFIG_ADF_INTEL_FBDEV) += intel_adf_fbdev.o
 

@@ -14,6 +14,10 @@
 
 #include <linux/kernel.h>
 #include <linux/module.h>
+#include <linux/mod_devicetable.h>
+#include <drm/i915_drm.h>
+#include <drm/i915_dmabuf.h>
+
 #include "intel_adf.h"
 
 #define INTEL_ADF_DEVICE_NAME		"intel-adf-dev"
@@ -167,20 +171,28 @@ static int intel_adf_device_validate_custom_format(struct adf_device *dev,
 }
 
 static int adf_buffer_to_intel_buffer(struct adf_buffer *adf_buf,
-	struct intel_buffer *intel_buf)
+	struct adf_buffer_mapping *mapping, struct intel_buffer *intel_buf)
 {
-	struct dma_buf *dma_buf = adf_buf->dma_bufs[0];
 	u32 gtt_in_pages = 0;
-	int err;
+#ifdef CONFIG_ADF_INTEL_VLV
+	struct dma_buf_attachment *buf_attach = mapping->attachments[0];
+	struct i915_drm_dmabuf_attachment *i915_buf_attach =
+		(struct i915_drm_dmabuf_attachment *)buf_attach->priv;
 
+	gtt_in_pages = i915_buf_attach->gtt_offset;
+#else
+	struct dma_buf *dma_buf = adf_buf->dma_bufs[0];
+	int err;
 	err = intel_adf_mm_gtt(dma_buf, &gtt_in_pages);
 	if (err)
 		return err;
+#endif
 
 	intel_buf->format = adf_buf->format;
 	intel_buf->w = adf_buf->w;
 	intel_buf->h = adf_buf->h;
 	intel_buf->gtt_offset_in_pages = gtt_in_pages;
+	intel_buf->stride = adf_buf->pitch[0];
 
 	return 0;
 }
@@ -251,7 +263,7 @@ static void driver_state_add_overlay_engine(struct driver_state *state,
 static struct flip *driver_state_create_add_flip(
 	struct driver_state *state, struct intel_adf_overlay_engine *eng,
 	struct intel_adf_interface *intf, struct adf_buffer *buf,
-	struct intel_adf_plane *plane)
+	struct adf_buffer_mapping *mapping, struct intel_adf_plane *plane)
 {
 	struct flip *f = NULL;
 	int err;
@@ -259,7 +271,7 @@ static struct flip *driver_state_create_add_flip(
 	f = kzalloc(sizeof(*f), GFP_KERNEL);
 	if (f) {
 		f->eng = eng;
-		adf_buffer_to_intel_buffer(buf, &f->buf);
+		adf_buffer_to_intel_buffer(buf, mapping, &f->buf);
 		adf_plane_to_intel_plane_config(plane, intf, &f->config);
 
 		/*validate the buffer and config before adding it*/
@@ -290,6 +302,7 @@ static int intel_adf_device_validate(struct adf_device *dev,
 	struct driver_state *state;
 	struct adf_interface *intf;
 	struct adf_buffer *buf;
+	struct adf_buffer_mapping *mapping;
 	struct flip *f;
 
 	size_t n_bufs = cfg->n_bufs;
@@ -350,12 +363,14 @@ static int intel_adf_device_validate(struct adf_device *dev,
 
 		/*get adf_buffer for this overlay*/
 		buf = &cfg->bufs[custom_overlay->plane.buffer_id];
+		mapping = &cfg->mappings[custom_overlay->plane.buffer_id];
 		eng = to_intel_eng(buf->overlay_engine);
 		driver_state_add_overlay_engine(state, eng);
 
 		/*create and queue a flip for this overlay*/
 		f = driver_state_create_add_flip(state, eng,
-			to_intel_intf(intf), buf, &custom_overlay->plane);
+			to_intel_intf(intf), buf, mapping,
+				&custom_overlay->plane);
 		if (!f) {
 			dev_err(dev->dev, "%s: failed to create flip\n",
 				__func__);
@@ -535,6 +550,7 @@ static void intel_adf_device_advance_timeline(struct adf_device *dev,
 		dev_err(dev->dev, "%s: vsync fence wait err\n", __func__);
 		goto out_err0;
 	}
+
 out_err0:
 	sync_fence_put(vsync_fence);
 	return;
@@ -622,6 +638,7 @@ struct intel_adf_device *intel_adf_device_create(struct pci_dev *pdev,
 		goto err_out3;
 	}
 
+#ifndef CONFIG_ADF_INTEL_VLV
 	/*init mm*/
 	err = intel_adf_mm_init(&dev->mm, &dev->base.base.dev, mem);
 	if (err) {
@@ -629,13 +646,16 @@ struct intel_adf_device *intel_adf_device_create(struct pci_dev *pdev,
 			__func__);
 		goto err_out4;
 	}
+#endif
 
 	g_intel_adf_dev = dev;
 
 	dev_info(&pdev->dev, "%s: success\n", __func__);
 
 	return dev;
+#ifndef CONFIG_ADF_INTEL_VLV
 err_out4:
+#endif
 	adf_device_destroy(&dev->base);
 err_out3:
 	intel_adf_sync_timeline_destroy(dev->post_timeline);
@@ -650,7 +670,9 @@ err_out0:
 void intel_adf_device_destroy(struct intel_adf_device *dev)
 {
 	if (dev) {
+#ifndef CONFIG_ADF_INTEL_VLV
 		intel_adf_mm_destroy(&dev->mm);
+#endif
 		adf_device_destroy(&dev->base);
 		intel_adf_sync_timeline_destroy(dev->post_timeline);
 		iounmap(dev->mmio);

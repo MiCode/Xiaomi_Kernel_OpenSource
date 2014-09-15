@@ -87,6 +87,7 @@ static int intel_pipe_validate(const struct intel_pipe *pipe)
 	return 0;
 }
 
+#ifndef CONFIG_ADF_INTEL_VLV
 static int intel_dc_memory_validate(const struct intel_dc_memory *memory)
 {
 	if (!memory->total_pages) {
@@ -105,6 +106,7 @@ static int intel_dc_memory_validate(const struct intel_dc_memory *memory)
 
 	return 0;
 }
+#endif
 
 static int intel_dc_config_validate(const struct intel_dc_config *config)
 {
@@ -147,6 +149,7 @@ static int intel_dc_config_validate(const struct intel_dc_config *config)
 		}
 	}
 
+#ifndef CONFIG_ADF_INTEL_VLV
 	/*check memory*/
 	INTEL_DC_CHECK(config->dev, config->memory);
 	err = intel_dc_memory_validate(config->memory);
@@ -154,6 +157,7 @@ static int intel_dc_config_validate(const struct intel_dc_config *config)
 		dev_err(config->dev, "%s: invalid DC memory", __func__);
 		return -EINVAL;
 	}
+#endif
 
 	return 0;
 }

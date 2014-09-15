@@ -105,7 +105,7 @@ struct intel_buffer {
 	u32 w;
 	u32 h;
 	u32 format;
-	u32 gtt_offset_in_pages;
+	unsigned long gtt_offset_in_pages;
 	u32 stride;
 };
 

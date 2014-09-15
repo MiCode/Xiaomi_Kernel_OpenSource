@@ -102,7 +102,9 @@ static int intel_interface_alloc_simple_buffer(struct adf_interface *intf,
 	u32 *pitch)
 {
 	struct intel_adf_device *dev = intf_to_dev(intf);
+#ifndef CONFIG_ADF_INTEL_VLV
 	struct intel_adf_mm *mm = &dev->mm;
+#endif
 	u8 bpp = adf_format_bpp(format);
 	u32 stride = ((w * bpp / 8) + 63) & ~63;
 	u32 size = stride * h;
@@ -112,8 +114,18 @@ static int intel_interface_alloc_simple_buffer(struct adf_interface *intf,
 
 	dev_info(dev->base.dev, "%s: size %d\n", __func__, size);
 
+#ifdef CONFIG_ADF_INTEL_VLV
+	/*
+	 * For VLV we use GEM memory manager. Will be enabled when
+	 * we fix the FB driver. As of now memory is preallocate in
+	 * user space via DRM PRIME interface which gives DMA Buf
+	 * handles over GEM
+	 */
+	return -EOPNOTSUPP;
+#else
 	/*allocate buffer*/
 	return intel_adf_mm_alloc_buf(mm, size, dma_buf);
+#endif
 }
 
 static int intel_interface_describe_simple_post(
