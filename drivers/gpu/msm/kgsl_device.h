@@ -695,6 +695,9 @@ void kgsl_cancel_events(struct kgsl_device *device,
 void kgsl_cancel_event(struct kgsl_device *device,
 		struct kgsl_event_group *group, unsigned int timestamp,
 		kgsl_event_func func, void *priv);
+bool kgsl_event_pending(struct kgsl_device *device,
+		struct kgsl_event_group *group, unsigned int timestamp,
+		kgsl_event_func func, void *priv);
 int kgsl_add_event(struct kgsl_device *device, struct kgsl_event_group *group,
 		unsigned int timestamp, kgsl_event_func func, void *priv);
 void kgsl_process_event_group(struct kgsl_device *device,

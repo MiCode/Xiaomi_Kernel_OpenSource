@@ -129,18 +129,6 @@ struct adreno_ringbuffer_mmu_disable_clk_param {
 	unsigned int ts;
 };
 
-/**
- * struct adreno_ringbuffer_rb_wait_params - Structure containing parameters
- * to handle the condition for a thread to wake up when it's corresponding event
- * fires.
- * @rb: The pointer to the ringbuffer on whose timestamp the thread is waiting
- * @result: The event firing result
- */
-struct adreno_ringbuffer_wait_params {
-	struct adreno_ringbuffer *rb;
-	int result;
-};
-
 /* enable timestamp (...scratch0) memory shadowing */
 #define GSL_RB_MEMPTRS_SCRATCH_MASK 0x1
 
@@ -225,16 +213,6 @@ static inline unsigned int adreno_ringbuffer_dec_wrapped(unsigned int val,
 							unsigned int size)
 {
 	return (val + size - sizeof(unsigned int)) % size;
-}
-
-/* Return true if the rb wait event has signaled */
-static inline int adreno_ringbuffer_check_wait(
-			struct adreno_ringbuffer_wait_params *rb_wait_params)
-{
-	if (KGSL_EVENT_CANCELLED == rb_wait_params->result ||
-		KGSL_EVENT_RETIRED == rb_wait_params->result)
-		return 1;
-	return 0;
 }
 
 /* check if timestamp is greater than the current rb timestamp */

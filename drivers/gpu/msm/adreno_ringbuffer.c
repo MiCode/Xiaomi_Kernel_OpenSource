@@ -1511,7 +1511,7 @@ done:
  * @type: The event call type (RETIRED or CANCELLED)
  */
 static void adreno_ringbuffer_mmu_clk_disable_event(struct kgsl_device *device,
-			struct kgsl_context *context, void *data, int type)
+			struct kgsl_event_group *group, void *data, int type)
 {
 	struct adreno_ringbuffer_mmu_disable_clk_param *param = data;
 	kgsl_mmu_disable_clk(&device->mmu, param->unit);
@@ -1565,12 +1565,11 @@ adreno_ringbuffer_mmu_disable_clk_on_ts(struct kgsl_device *device,
  * @result: Result of the event trigger
  */
 static void adreno_ringbuffer_wait_callback(struct kgsl_device *device,
-		struct kgsl_context *context,
+		struct kgsl_event_group *group,
 		void *priv, int result)
 {
-	struct adreno_ringbuffer_wait_params *rb_wait_params = priv;
-	rb_wait_params->result = result;
-	wake_up_all(&(rb_wait_params->rb->ts_expire_waitq));
+	struct adreno_ringbuffer *rb = group->priv;
+	wake_up_all(&rb->ts_expire_waitq);
 }
 
 /**
@@ -1586,15 +1585,12 @@ int adreno_ringbuffer_waittimestamp(struct adreno_ringbuffer *rb,
 	struct kgsl_device *device = rb->device;
 	int ret;
 	unsigned long wait_time;
-	struct adreno_ringbuffer_wait_params rb_wait_params;
 
 	/* force a timeout from caller for the wait */
 	BUG_ON(0 == msecs);
 
-	rb_wait_params.rb = rb;
-	rb_wait_params.result = 0;
 	ret = kgsl_add_event(device, &rb->events, timestamp,
-		adreno_ringbuffer_wait_callback, (void *)&rb_wait_params);
+		adreno_ringbuffer_wait_callback, NULL);
 	if (ret)
 		return ret;
 
@@ -1602,12 +1598,13 @@ int adreno_ringbuffer_waittimestamp(struct adreno_ringbuffer *rb,
 
 	wait_time = msecs_to_jiffies(msecs);
 	ret = wait_event_interruptible_timeout(rb->ts_expire_waitq,
-		adreno_ringbuffer_check_wait(&rb_wait_params),
+		!kgsl_event_pending(device, &rb->events, timestamp,
+				adreno_ringbuffer_wait_callback, NULL),
 		wait_time);
-	if (0 == ret)
-		ret  = -ETIMEDOUT;
 	if (ret > 0)
 		ret = 0;
+	else if (0 == ret)
+		ret  = -ETIMEDOUT;
 
 	mutex_lock(&device->mutex);
 	/*

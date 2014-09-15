@@ -24,7 +24,7 @@
 #define KGSL_INIT_REFTIMESTAMP		0x7FFFFFFF
 
 static void wait_callback(struct kgsl_device *device,
-		struct kgsl_context *context, void *priv, int result)
+		struct kgsl_event_group *group, void *priv, int result)
 {
 	struct adreno_context *drawctxt = priv;
 	wake_up_all(&drawctxt->waiting);
@@ -322,7 +322,7 @@ void adreno_drawctxt_sched(struct kgsl_device *device,
  * Signal waiters that were waiting on the last command of this context
  */
 static void adreno_drawctxt_detach_callback(struct kgsl_device *device,
-			struct kgsl_context *ctx,
+			struct kgsl_event_group *group,
 			void *priv, int result)
 {
 	struct adreno_context *drawctxt = priv;

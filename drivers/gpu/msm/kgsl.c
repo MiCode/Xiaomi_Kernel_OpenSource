@@ -1642,7 +1642,7 @@ static void kgsl_cmdbatch_sync_expire(struct kgsl_device *device,
  * expires
  */
 static void kgsl_cmdbatch_sync_func(struct kgsl_device *device,
-		struct kgsl_context *context, void *priv, int result)
+		struct kgsl_event_group *group, void *priv, int result)
 {
 	struct kgsl_cmdbatch_sync_event *event = priv;
 
@@ -2387,8 +2387,9 @@ long kgsl_ioctl_cmdstream_readtimestamp_ctxtid(struct kgsl_device_private
 }
 
 static void kgsl_freemem_event_cb(struct kgsl_device *device,
-		struct kgsl_context *context, void *priv, int result)
+		struct kgsl_event_group *group, void *priv, int result)
 {
+	struct kgsl_context *context = group->context;
 	struct kgsl_mem_entry *entry = priv;
 	unsigned int timestamp;
 

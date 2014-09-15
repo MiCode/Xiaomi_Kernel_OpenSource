@@ -50,7 +50,7 @@ static void _kgsl_event_worker(struct work_struct *work)
 	trace_kgsl_fire_event(id, event->timestamp, event->result,
 		jiffies - event->created, event->func);
 
-	event->func(event->device, event->context, event->priv, event->result);
+	event->func(event->device, event->group, event->priv, event->result);
 
 	kgsl_context_put(event->context);
 	kmem_cache_free(events_cache, event);
@@ -167,7 +167,31 @@ void kgsl_cancel_event(struct kgsl_device *device,
 }
 EXPORT_SYMBOL(kgsl_cancel_event);
 
-
+/**
+ * kgsl_event_pending() - Searches for an event in an event group
+ * @device: Pointer to a KGSL device
+ * @group: Pointer to the group that contains the events
+ * @timestamp: Registered expiry timestamp for the event
+ * @func: Registered callback for the function
+ * @priv: Registered priv data for the function
+ */
+bool kgsl_event_pending(struct kgsl_device *device,
+		struct kgsl_event_group *group,
+		unsigned int timestamp, kgsl_event_func func, void *priv)
+{
+	struct kgsl_event *event;
+	bool result = false;
+	spin_lock(&group->lock);
+	list_for_each_entry(event, &group->events, node) {
+		if (timestamp == event->timestamp && func == event->func &&
+			event->priv == priv) {
+			result = true;
+			break;
+		}
+	}
+	spin_unlock(&group->lock);
+	return result;
+}
 /**
  * kgsl_add_event() - Add a new GPU event to a group
  * @device: Pointer to a KGSL device
@@ -214,6 +238,7 @@ int kgsl_add_event(struct kgsl_device *device, struct kgsl_event_group *group,
 	event->priv = priv;
 	event->func = func;
 	event->created = jiffies;
+	event->group = group;
 
 	INIT_WORK(&event->work, _kgsl_event_worker);
 

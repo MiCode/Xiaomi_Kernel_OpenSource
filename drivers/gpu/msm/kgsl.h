@@ -194,7 +194,9 @@ struct kgsl_mem_entry {
 	struct kgsl_device_private *dev_priv;
 };
 
-typedef void (*kgsl_event_func)(struct kgsl_device *, struct kgsl_context *,
+struct kgsl_event_group;
+
+typedef void (*kgsl_event_func)(struct kgsl_device *, struct kgsl_event_group *,
 		void *, int);
 
 /**
@@ -208,6 +210,7 @@ typedef void (*kgsl_event_func)(struct kgsl_device *, struct kgsl_context *,
  * @created: Jiffies when the event was created
  * @work: Work struct for dispatching the callback
  * @result: KGSL event result type to pass to the callback
+ * group: The event group this event belongs to
  */
 struct kgsl_event {
 	struct kgsl_device *device;
@@ -219,6 +222,7 @@ struct kgsl_event {
 	unsigned int created;
 	struct work_struct work;
 	int result;
+	struct kgsl_event_group *group;
 };
 
 typedef int (*readtimestamp_func)(struct kgsl_device *, void *,
