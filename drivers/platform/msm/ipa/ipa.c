@@ -1809,6 +1809,7 @@ static int ipa_setup_apps_pipes(void)
 		sys_in.ipa_ep_cfg.hdr_ext.hdr_payload_len_inc_padding = false;
 		sys_in.ipa_ep_cfg.hdr_ext.hdr_total_len_or_pad_offset = 0;
 		sys_in.ipa_ep_cfg.hdr_ext.hdr_pad_to_alignment = 2;
+		sys_in.ipa_ep_cfg.cfg.cs_offload_en = IPA_ENABLE_CS_OFFLOAD_DL;
 	} else {
 		WARN_ON(1);
 	}
