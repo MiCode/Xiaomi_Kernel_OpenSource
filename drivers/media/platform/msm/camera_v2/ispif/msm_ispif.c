@@ -838,7 +838,7 @@ static int msm_ispif_restart_frame_boundary(struct ispif_device *ispif,
 	}
 
 	if (vfe_mask & (1 << VFE0)) {
-		timeout = wait_for_completion_interruptible_timeout(
+		timeout = wait_for_completion_timeout(
 			&ispif->reset_complete[VFE0], msecs_to_jiffies(500));
 		if (timeout <= 0) {
 			pr_err("%s: VFE0 reset wait timeout\n", __func__);
@@ -848,7 +848,7 @@ static int msm_ispif_restart_frame_boundary(struct ispif_device *ispif,
 	}
 
 	if (ispif->hw_num_isps > 1  && (vfe_mask & (1 << VFE1))) {
-		timeout = wait_for_completion_interruptible_timeout(
+		timeout = wait_for_completion_timeout(
 				&ispif->reset_complete[VFE1],
 				msecs_to_jiffies(500));
 		if (timeout <= 0) {

@@ -552,7 +552,7 @@ static long msm_vfe44_reset_hardware(struct vfe_device *vfe_dev,
 	}
 
 	if (blocking_call) {
-		rc = wait_for_completion_interruptible_timeout(
+		rc = wait_for_completion_timeout(
 			&vfe_dev->reset_complete, msecs_to_jiffies(50));
 		if (rc <= 0) {
 			pr_err("%s:%d failed: reset timeout\n", __func__,
@@ -1272,7 +1272,7 @@ static int msm_vfe44_axi_halt(struct vfe_device *vfe_dev,
 		init_completion(&vfe_dev->halt_complete);
 		/* Halt AXI Bus Bridge */
 		msm_camera_io_w_mb(0x1, vfe_dev->vfe_base + 0x2C0);
-		rc = wait_for_completion_interruptible_timeout(
+		rc = wait_for_completion_timeout(
 			&vfe_dev->halt_complete, msecs_to_jiffies(500));
 	} else {
 		/* Halt AXI Bus Bridge */
