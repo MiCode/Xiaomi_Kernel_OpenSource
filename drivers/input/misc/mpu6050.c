@@ -62,7 +62,7 @@
 #define MPU6050_ACCEL_SCALE_SHIFT_2G	4
 #define MPU6050_GYRO_SCALE_SHIFT_FS0	3
 
-#define MPU6050_DEV_NAME_ACCEL	"accelerometer"
+#define MPU6050_DEV_NAME_ACCEL	"MPU6050-accel"
 #define MPU6050_DEV_NAME_GYRO	"gyroscope"
 
 enum mpu6050_place {
