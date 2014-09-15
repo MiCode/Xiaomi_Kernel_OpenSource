@@ -59,6 +59,15 @@ void i915_adf_wrapper_teardown(void)
 	i915_adf_dev = NULL;
 }
 
+struct pci_dev *i915_adf_get_pci_dev(void)
+{
+	if (!i915_adf_dev)
+		return NULL;
+
+	return i915_adf_dev->dev->pdev;
+}
+EXPORT_SYMBOL(i915_adf_get_pci_dev);
+
 /**
  * intel_adf_pci_sideband_rw - Interface to allow ADF driver read/write to intel sideband.
  */
