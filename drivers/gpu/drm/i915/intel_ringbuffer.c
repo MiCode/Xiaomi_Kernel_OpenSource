@@ -1089,10 +1089,12 @@ void bdw_emit_workarounds(struct intel_ringbuffer *ringbuf)
 	struct intel_engine_cs *ring = ringbuf->ring;
 
 	/* WaDisablePartialInstShootdown:bdw */
+	/* WaDisableInstructionShootdown:bdw */
 	/* WaDisableThreadStallDopClockGating:bdw */
 	/* FIXME: Unclear whether we really need this on production bdw. */
 	ring->emit_wa(ringbuf, GEN8_ROW_CHICKEN,
 			   _MASKED_BIT_ENABLE(PARTIAL_INSTRUCTION_SHOOTDOWN_DISABLE
+					     | INSTRUCTION_SHOOTDOWN_DISABLE
 					     | STALL_DOP_GATING_DISABLE));
 
 	/* WaDisableDopClockGating:bdw May not be needed for production */
@@ -1116,9 +1118,13 @@ void bdw_emit_workarounds(struct intel_ringbuffer *ringbuf)
 	/* Use Force Non-Coherent whenever executing a 3D context. This is a
 	 * workaround for for a possible hang in the unlikely event a TLB
 	 * invalidation occurs during a PSD flush.
+	 * WaDisableFenceDestinationToSLM:bdw
+	 * WaHdcDisableFetchWhenMasked:bdw
 	 */
 	ring->emit_wa(ringbuf, HDC_CHICKEN0,
-			   _MASKED_BIT_ENABLE(HDC_FORCE_NON_COHERENT));
+		   _MASKED_BIT_ENABLE(HDC_FENCE_DESTINATION_TO_SLM_DISABLE
+				   | HDC_DONOT_FETCH_MEM_WHEN_MASKED
+				   | HDC_FORCE_NON_COHERENT));
 
 	/* Wa4x4STCOptimizationDisable:bdw */
 	ring->emit_wa(ringbuf, CACHE_MODE_1,
@@ -1134,6 +1140,12 @@ void bdw_emit_workarounds(struct intel_ringbuffer *ringbuf)
 	 */
 	ring->emit_wa(ringbuf, GEN7_GT_MODE,
 			   GEN6_WIZ_HASHING_MASK | GEN6_WIZ_HASHING_16x4);
+
+	/* WaAllocateSLML3CacheCtrlOverride:bdw */
+	ring->emit_wa(ringbuf, GEN8_L3CNTLREG,
+			GEN8_L3CNTLREG_ALL_L3_CLIENT_POOL |
+			GEN8_L3CNTLREG_URB_ALLOCATION |
+			GEN8_L3CNTLREG_SLM_MODE_ENABLE);
 }
 
 static int bdw_init_workarounds(struct intel_ringbuffer *ringbuf)
@@ -1155,7 +1167,7 @@ static int bdw_init_workarounds(struct intel_ringbuffer *ringbuf)
 	 * update the number of dwords required based on the
 	 * actual number of workarounds applied
 	 */
-	ret = intel_ring_begin(ring, 24);
+	ret = intel_ring_begin(ring, 27);
 	if (ret)
 		return ret;
 
