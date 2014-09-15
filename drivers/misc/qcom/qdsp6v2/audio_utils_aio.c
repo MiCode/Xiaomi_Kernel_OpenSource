@@ -1491,6 +1491,7 @@ static long audio_aio_ioctl(struct file *file, unsigned int cmd,
 	case AUDIO_STOP:
 	case AUDIO_PAUSE:
 	case AUDIO_FLUSH:
+	case AUDIO_GET_SESSION_ID:
 		rc = audio_aio_shared_ioctl(file, cmd, arg);
 		break;
 	case AUDIO_GET_STATS: {
@@ -1778,6 +1779,7 @@ static long audio_aio_compat_ioctl(struct file *file, unsigned int cmd,
 	case AUDIO_STOP:
 	case AUDIO_PAUSE:
 	case AUDIO_FLUSH:
+	case AUDIO_GET_SESSION_ID:
 		rc = audio_aio_shared_ioctl(file, cmd, arg);
 		break;
 	case AUDIO_GET_STATS_32: {

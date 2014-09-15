@@ -81,6 +81,7 @@ static long audio_ioctl_shared(struct file *file, unsigned int cmd,
 		break;
 	}
 	default:
+		pr_err("%s: Unknown ioctl cmd = %d", __func__, cmd);
 		break;
 	}
 	return rc;

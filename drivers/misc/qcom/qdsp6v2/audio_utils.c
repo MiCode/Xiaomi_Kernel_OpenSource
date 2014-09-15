@@ -620,6 +620,7 @@ long audio_in_compat_ioctl(struct file *file,
 		cfg.meta_field = cfg_32.meta_field;
 		cfg.bits = cfg_32.bits;
 		rc = audio_in_set_config(file, &cfg);
+		break;
 	}
 	default:
 		  /* call codec specific ioctl */
