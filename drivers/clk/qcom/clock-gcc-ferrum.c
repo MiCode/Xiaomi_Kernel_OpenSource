@@ -70,6 +70,8 @@ static void __iomem *virt_bases[N_BASES];
 #define USB_HS_SYSTEM_CMD_RCGR				0x41010
 #define USB2A_PHY_SLEEP_CBCR				0x4102C
 #define USB_HS_PHY_CFG_AHB_CBCR				0x41030
+#define USB2_HS_PHY_ONLY_BCR				0x41034
+#define QUSB2_PHY_BCR					0x4103C
 #define SDCC1_APPS_CMD_RCGR				0x42004
 #define SDCC1_APPS_CBCR					0x42018
 #define SDCC1_AHB_CBCR					0x4201C
@@ -1921,6 +1923,26 @@ static struct branch_clk gcc_usb_hs_system_clk = {
 	},
 };
 
+static struct reset_clk gcc_usb2_hs_phy_only_clk = {
+	.reset_reg = USB2_HS_PHY_ONLY_BCR,
+	.base = &virt_bases[GCC_BASE],
+	.c = {
+		.dbg_name = "gcc_usb2_hs_phy_only_clk",
+		.ops = &clk_ops_rst,
+		CLK_INIT(gcc_usb2_hs_phy_only_clk.c),
+	},
+};
+
+static struct reset_clk gcc_qusb2_phy_clk = {
+	.reset_reg = QUSB2_PHY_BCR,
+	.base = &virt_bases[GCC_BASE],
+	.c = {
+		.dbg_name = "gcc_qusb2_phy_clk",
+		.ops = &clk_ops_rst,
+		CLK_INIT(gcc_qusb2_phy_clk.c),
+	},
+};
+
 static struct branch_clk gcc_venus0_ahb_clk = {
 	.cbcr_reg = VENUS0_AHB_CBCR,
 	.has_sibling = 1,
@@ -2225,6 +2247,10 @@ static struct clk_lookup msm_clocks_lookup[] = {
 	CLK_LIST(gcc_crypto_ahb_clk),
 	CLK_LIST(gcc_crypto_axi_clk),
 	CLK_LIST(crypto_clk_src),
+
+	/* Reset clocks */
+	CLK_LIST(gcc_usb2_hs_phy_only_clk),
+	CLK_LIST(gcc_qusb2_phy_clk),
 };
 
 static int msm_gcc_probe(struct platform_device *pdev)
