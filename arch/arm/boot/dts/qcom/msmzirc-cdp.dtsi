@@ -14,6 +14,12 @@
 #include "msmzirc-pinctrl.dtsi"
 
 &soc {
+	usb_detect {
+		compatible = "qcom,qpnp-usbdetect";
+		interrupt-parent = <&spmi_bus>;
+		interrupts = <0x0 0xa0 0x0>;  /* PMD9635 MPP 1 */
+		interrupt-names = "vbus_det_irq";
+	};
 };
 
 &blsp1_uart3 {
@@ -78,6 +84,10 @@
 
 &pmd9635_mpps {
 	mpp@a000 { /* MPP 1 */
+		status = "ok";
+		qcom,mode = <0>;	/* Digital input */
+		qcom,vin-sel = <2>;	/* PMD9635 LDO 6 = 1.8 V */
+		qcom,master-en = <1>;	/* Enable MPP */
 	};
 
 	mpp@a100 { /* MPP 2 */
