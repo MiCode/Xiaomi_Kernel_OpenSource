@@ -830,69 +830,47 @@ static void i2c_msm_prof_evnt_dump(struct i2c_msm_ctrl *ctrl)
 }
 
 /*
- * tag_lookup_table[is_high_speed][start_req][is_last][is_rx]
- * @start_req   start or repeated-start
+ * tag_lookup_table[is_new_addr][is_last][is_rx]
+ * @is_new_addr Is start tag required? (which requires two more bytes.)
  * @is_last     Use the XXXXX_N_STOP tag varient
  * @is_rx       READ/WRITE
- * is_high_speed Requires a post-fix of a start-tag and the reserved
- *               high-speed address.
- *
  * workaround! Due to an HW issues, a stop is issued after every read.
  *    QUP_TAG2_DATA_READ is replaced by QUP_TAG2_DATA_READ_N_STOP.
  */
-static const struct i2c_msm_tag tag_lookup_table[2][2][2][2] = {
-	{{{{QUP_TAG2_DATA_WRITE                                   , 2},
+static const struct i2c_msm_tag tag_lookup_table[2][2][2] = {
+	{{{QUP_TAG2_DATA_WRITE                                   , 2},
 	   {QUP_TAG2_DATA_READ_N_STOP                             , 2} },
 	/* last buffer */
 	  {{QUP_TAG2_DATA_WRITE_N_STOP                            , 2},
-	   {QUP_TAG2_DATA_READ_N_STOP                             , 2} } },
+	   {QUP_TAG2_DATA_READ_N_STOP                             , 2} } } ,
 	/* new addr */
 	 {{{QUP_TAG2_START | (QUP_TAG2_DATA_WRITE           << 16), 4},
 	   {QUP_TAG2_START | (QUP_TAG2_DATA_READ_N_STOP     << 16), 4} },
 	/* last buffer + new addr */
 	  {{QUP_TAG2_START | (QUP_TAG2_DATA_WRITE_N_STOP    << 16), 4},
-	   {QUP_TAG2_START | (QUP_TAG2_DATA_READ_N_STOP     << 16), 4} } } },
-	/* high speed */
-	{{{{QUP_TAG2_DATA_WRITE                                   , 2},
-	   {QUP_TAG2_DATA_READ_N_STOP                             , 2} },
-	/* high speed + last buffer */
-	  {{QUP_TAG2_DATA_WRITE_N_STOP                            , 2},
-	   {QUP_TAG2_DATA_READ_N_STOP                             , 2} } },
-	/* high speed + new addr */
-	 {{{QUP_TAG2_START_HS | (QUP_TAG2_DATA_WRITE        << 32), 6},
-	   {QUP_TAG2_START_HS | (QUP_TAG2_DATA_READ_N_STOP  << 32), 6} },
-	/* high speed + last buffer + new addr */
-	  {{QUP_TAG2_START_HS | (QUP_TAG2_DATA_WRITE_N_STOP << 32), 6},
-	   {QUP_TAG2_START_HS | (QUP_TAG2_DATA_READ_N_STOP  << 32), 6} } } },
+	   {QUP_TAG2_START | (QUP_TAG2_DATA_READ_N_STOP     << 16), 4} } },
 };
 
 /*
  * i2c_msm_tag_create: format a qup tag ver2
  */
-static struct i2c_msm_tag i2c_msm_tag_create(bool is_high_speed,
-	bool start_req, bool is_last_buf, bool is_rx, u8 buf_len,
-	u8 slave_addr)
+static struct i2c_msm_tag i2c_msm_tag_create(bool is_new_addr, bool is_last_buf,
+					bool is_rx, u8 buf_len, u8 slave_addr)
 {
 	struct i2c_msm_tag tag;
 	/* Normalize booleans to 1 or 0 */
-	start_req = start_req ? 1 : 0;
+	is_new_addr = is_new_addr ? 1 : 0;
 	is_last_buf = is_last_buf ? 1 : 0;
 	is_rx = is_rx ? 1 : 0;
 
-	tag = tag_lookup_table[is_high_speed][start_req][is_last_buf][is_rx];
+	tag = tag_lookup_table[is_new_addr][is_last_buf][is_rx];
 	/* fill in the non-const value: the address and the length */
-	switch (tag.len) {
-	case 6:
-		*i2c_msm_tag_byte(&tag, 3) = slave_addr;
-		*i2c_msm_tag_byte(&tag, 5) = buf_len;
-		break;
-	case 4:
+	if (tag.len == I2C_MSM_TAG2_MAX_LEN) {
 		*i2c_msm_tag_byte(&tag, 1) = slave_addr;
 		*i2c_msm_tag_byte(&tag, 3) = buf_len;
-		break;
-	default:
+	} else {
 		*i2c_msm_tag_byte(&tag, 1) = buf_len;
-	};
+	}
 
 	return tag;
 }
@@ -1069,11 +1047,6 @@ i2c_msm_qup_xfer_init_reset_state(struct i2c_msm_ctrl *ctrl)
 	writel_relaxed(op_mask, base + QUP_OPERATIONAL_MASK);
 	/* Ensure that QUP configuration is written before leaving this func */
 	wmb();
-}
-
-bool i2c_msm_xfer_is_high_speed(struct i2c_msm_ctrl *ctrl)
-{
-	return ctrl->rsrcs.clk_freq_out > I2C_MSM_CLK_FAST_MAX_FREQ;
 }
 
 /*
@@ -3163,9 +3136,7 @@ static void i2c_msm_xfer_create_cur_tag(struct i2c_msm_ctrl *ctrl,
 {
 	struct i2c_msm_xfer_buf *cur_buf = &ctrl->xfer.cur_buf;
 
-	cur_buf->out_tag = i2c_msm_tag_create(
-					i2c_msm_xfer_is_high_speed(ctrl),
-					start_req, cur_buf->is_last,
+	cur_buf->out_tag = i2c_msm_tag_create(start_req, cur_buf->is_last,
 					cur_buf->is_rx, cur_buf->len,
 					cur_buf->slv_addr);
 
@@ -3656,7 +3627,7 @@ static int i2c_msm_rsrcs_clk_init(struct i2c_msm_ctrl *ctrl)
 	int ret = 0;
 
 	if ((ctrl->rsrcs.clk_freq_out <= 0) ||
-	    (ctrl->rsrcs.clk_freq_out > I2C_MSM_CLK_HIGH_MAX_FREQ)) {
+	    (ctrl->rsrcs.clk_freq_out > I2C_MSM_CLK_FAST_PLUS_FREQ)) {
 		dev_err(ctrl->dev,
 			"error clock frequency %dKHZ is not supported\n",
 			(ctrl->rsrcs.clk_freq_out / 1000));
