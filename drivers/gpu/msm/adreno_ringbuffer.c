@@ -1243,11 +1243,13 @@ adreno_ringbuffer_issueibcmds(struct kgsl_device_private *dev_priv,
 	wait_for_completion(&device->cmdbatch_gate);
 
 	/*
-	 * Clear the wake on touch bit to indicate an IB has been submitted
-	 * since the last time we set it
+	 * Clear the wake on touch bit to indicate an IB has been
+	 * submitted since the last time we set it. But only clear
+	 * it when we have rendering commands.
 	 */
-
-	device->flags &= ~KGSL_FLAG_WAKE_ON_TOUCH;
+	if (!(cmdbatch->flags & KGSL_CMDBATCH_MARKER)
+		&& !(cmdbatch->flags & KGSL_CMDBATCH_SYNC))
+		device->flags &= ~KGSL_FLAG_WAKE_ON_TOUCH;
 
 	/* Queue the command in the ringbuffer */
 	ret = adreno_dispatcher_queue_cmd(adreno_dev, drawctxt, cmdbatch,
