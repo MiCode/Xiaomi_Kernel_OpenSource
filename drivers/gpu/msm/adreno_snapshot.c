@@ -409,6 +409,10 @@ static size_t snapshot_capture_mem_list(struct kgsl_device *device,
 struct snapshot_ib_meta {
 	struct kgsl_snapshot *snapshot;
 	struct kgsl_snapshot_object *obj;
+	unsigned int ib1base;
+	unsigned int ib1size;
+	unsigned int ib2base;
+	unsigned int ib2size;
 };
 
 /* Snapshot the memory for an indirect buffer */
@@ -417,11 +421,9 @@ static size_t snapshot_ib(struct kgsl_device *device, u8 *buf,
 {
 	struct kgsl_snapshot_ib *header = (struct kgsl_snapshot_ib *)buf;
 	struct snapshot_ib_meta *meta = priv;
-	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
 	unsigned int *src;
 	unsigned int *dst = (unsigned int *)(buf + sizeof(*header));
 	struct adreno_ib_object_list *ib_obj_list;
-	unsigned int ib1base, ib2base;
 	struct kgsl_snapshot *snapshot;
 	struct kgsl_snapshot_object *obj;
 
@@ -440,23 +442,20 @@ static size_t snapshot_ib(struct kgsl_device *device, u8 *buf,
 		return 0;
 	}
 
-	adreno_readreg(adreno_dev, ADRENO_REG_CP_IB1_BASE, &ib1base);
-	adreno_readreg(adreno_dev, ADRENO_REG_CP_IB2_BASE, &ib2base);
-
 	if (remain < (obj->size + sizeof(*header))) {
 		KGSL_CORE_ERR("snapshot: Not enough memory for the ib\n");
 		return 0;
 	}
 
 	/* only do this for IB1 because the IB2's are part of IB1 objects */
-	if (ib1base == obj->gpuaddr) {
+	if (meta->ib1base == obj->gpuaddr) {
 		if (!adreno_ib_create_object_list(device, obj->entry->priv,
 					obj->gpuaddr, obj->size >> 2,
 					&ib_obj_list)) {
 			/* freeze the IB objects in the IB */
 			snapshot_freeze_obj_list(snapshot,
 						obj->entry->priv,
-						ib_obj_list, ib2base);
+						ib_obj_list, meta->ib2base);
 			adreno_ib_destroy_obj_list(ib_obj_list);
 		}
 	}
@@ -480,7 +479,9 @@ static size_t snapshot_ib(struct kgsl_device *device, u8 *buf,
 
 /* Dump another item on the current pending list */
 static void dump_object(struct kgsl_device *device, int obj,
-		struct kgsl_snapshot *snapshot)
+		struct kgsl_snapshot *snapshot,
+		unsigned int ib1base, unsigned int ib1size,
+		unsigned int ib2base, unsigned int ib2size)
 {
 	struct snapshot_ib_meta meta;
 
@@ -488,6 +489,10 @@ static void dump_object(struct kgsl_device *device, int obj,
 	case SNAPSHOT_OBJ_TYPE_IB:
 		meta.snapshot = snapshot;
 		meta.obj = &objbuf[obj];
+		meta.ib1base = ib1base;
+		meta.ib1size = ib1size;
+		meta.ib2base = ib2base;
+		meta.ib2size = ib2size;
 
 		kgsl_snapshot_add_section(device, KGSL_SNAPSHOT_SECTION_IB,
 			snapshot, snapshot_ib, &meta);
@@ -604,7 +609,8 @@ void adreno_snapshot(struct kgsl_device *device, struct kgsl_snapshot *snapshot,
 			struct kgsl_context *context)
 {
 	unsigned int i;
-	uint32_t ibbase, ibsize;
+	uint32_t ib1base, ib1size;
+	uint32_t ib2base, ib2size;
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
 	struct adreno_gpudev *gpudev = ADRENO_GPU_DEVICE(adreno_dev);
 
@@ -620,6 +626,10 @@ void adreno_snapshot(struct kgsl_device *device, struct kgsl_snapshot *snapshot,
 	kgsl_snapshot_add_section(device, KGSL_SNAPSHOT_SECTION_RB, snapshot,
 			snapshot_rb, snapshot);
 
+	adreno_readreg(adreno_dev, ADRENO_REG_CP_IB1_BASE, &ib1base);
+	adreno_readreg(adreno_dev, ADRENO_REG_CP_IB1_BUFSZ, &ib1size);
+	adreno_readreg(adreno_dev, ADRENO_REG_CP_IB2_BASE, &ib2base);
+	adreno_readreg(adreno_dev, ADRENO_REG_CP_IB2_BUFSZ, &ib2size);
 	/* Add GPU specific sections - registers mainly, but other stuff too */
 	if (gpudev->snapshot)
 		gpudev->snapshot(adreno_dev, snapshot);
@@ -647,29 +657,21 @@ void adreno_snapshot(struct kgsl_device *device, struct kgsl_snapshot *snapshot,
 	 * Since this was the last IB1 that was processed, we should have
 	 * already added it to the list during the ringbuffer parse but we
 	 * want to be double plus sure.
-	 */
-
-	adreno_readreg(adreno_dev, ADRENO_REG_CP_IB1_BASE, &ibbase);
-	adreno_readreg(adreno_dev, ADRENO_REG_CP_IB1_BUFSZ, &ibsize);
-
-	/*
 	 * The problem is that IB size from the register is the unprocessed size
 	 * of the buffer not the original size, so if we didn't catch this
 	 * buffer being directly used in the RB, then we might not be able to
-	 * dump the whle thing. Print a warning message so we can try to
+	 * dump the whole thing. Print a warning message so we can try to
 	 * figure how often this really happens.
 	 */
 
-	if (!find_object(SNAPSHOT_OBJ_TYPE_IB, ibbase, snapshot->process)
-			&& ibsize) {
+	if (!find_object(SNAPSHOT_OBJ_TYPE_IB, ib1base, snapshot->process)
+			&& ib1size) {
 		push_object(SNAPSHOT_OBJ_TYPE_IB, snapshot->process,
-			ibbase, ibsize);
-		KGSL_CORE_ERR("CP_IB1_BASE not found in the ringbuffer. "
-			"Dumping %x dwords of the buffer.\n", ibsize);
+			ib1base, ib1size);
+		KGSL_CORE_ERR(
+			"CP_IB1_BASE not found. Dumping %x dwords of the buffer.\n",
+			ib1size);
 	}
-
-	adreno_readreg(adreno_dev, ADRENO_REG_CP_IB2_BASE, &ibbase);
-	adreno_readreg(adreno_dev, ADRENO_REG_CP_IB2_BUFSZ, &ibsize);
 
 	/*
 	 * Add the last parsed IB2 to the list. The IB2 should be found as we
@@ -679,10 +681,10 @@ void adreno_snapshot(struct kgsl_device *device, struct kgsl_snapshot *snapshot,
 	 * correct size.
 	 */
 
-	if (!find_object(SNAPSHOT_OBJ_TYPE_IB, ibbase, snapshot->process)
-			&& ibsize) {
+	if (!find_object(SNAPSHOT_OBJ_TYPE_IB, ib2base, snapshot->process)
+			&& ib2size) {
 		push_object(SNAPSHOT_OBJ_TYPE_IB, snapshot->process,
-			ibbase, ibsize);
+			ib2base, ib2size);
 	}
 
 	/*
@@ -690,7 +692,8 @@ void adreno_snapshot(struct kgsl_device *device, struct kgsl_snapshot *snapshot,
 	 * are parsed, more objects might be found, and objbufptr will increase
 	 */
 	for (i = 0; i < objbufptr; i++)
-		dump_object(device, i, snapshot);
+		dump_object(device, i, snapshot, ib1base, ib1size,
+			ib2base, ib2size);
 
 	if (snapshot_frozen_objsize)
 		KGSL_CORE_ERR("GPU snapshot froze %zdKb of GPU buffers\n",
