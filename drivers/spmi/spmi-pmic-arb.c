@@ -190,6 +190,10 @@ struct spmi_pmic_arb_ver {
  * @fmt_cmd formats a command to be set into PMIC_ARBq_CHNLn_CMD
  * @chnl_ofst calculates offset of the base of a channel reg space
  * @ee execution environment id
+ * @irq_acc0_init_val initial value of the interrupt accumulator at probe time.
+ *      Use for an HW workaround. On handling interrupts, the first accumulator
+ *      register will be compared against this value, and bits which are set at
+ *      boot will be ignored.
  */
 struct spmi_pmic_arb_dev {
 	struct spmi_controller	controller;
@@ -213,6 +217,7 @@ struct spmi_pmic_arb_dev {
 	const struct spmi_pmic_arb_ver *ver;
 	u8			*ppid_2_chnl_tbl;
 	u32			prev_prtcl_irq_stat;
+	u32			irq_acc0_init_val;
 };
 
 static struct spmi_pmic_arb_dev *the_pmic_arb;
@@ -886,6 +891,12 @@ __pmic_arb_periph_irq(int irq, void *dev_id, bool show)
 		status = readl_relaxed(pmic_arb->intr +
 					pmic_arb->ver->owner_acc_status(ee, i));
 
+		if ((i == 0) && (status & pmic_arb->irq_acc0_init_val)) {
+			dev_dbg(pmic_arb->dev, "Ignoring IRQ acc[0] mask:0x%x\n",
+					status & pmic_arb->irq_acc0_init_val);
+			status &= ~pmic_arb->irq_acc0_init_val;
+		}
+
 		for (j = 0; status && j < 32; ++j, status >>= 1) {
 			if (status & 0x1) {
 				u8 id = (i * 32) + j;
@@ -1131,13 +1142,6 @@ static int spmi_pmic_arb_probe(struct platform_device *pdev)
 		return -ENODEV;
 	}
 
-	ret = devm_request_irq(&pdev->dev, pmic_arb->pic_irq,
-		pmic_arb_periph_irq, IRQF_TRIGGER_HIGH, pdev->name, pmic_arb);
-	if (ret) {
-		dev_err(&pdev->dev, "request IRQ failed\n");
-		return ret;
-	}
-
 	/* Get properties from the device tree */
 	ret = spmi_pmic_arb_get_property(pdev, "cell-index", &cell_index);
 	if (ret)
@@ -1175,10 +1179,23 @@ static int spmi_pmic_arb_probe(struct platform_device *pdev)
 	pmic_arb->controller.dev.parent = pdev->dev.parent;
 	pmic_arb->controller.dev.of_node = of_node_get(pdev->dev.of_node);
 
+	pmic_arb->irq_acc0_init_val = readl_relaxed(pmic_arb->intr +
+			pmic_arb->ver->owner_acc_status(pmic_arb->ee, 0));
+	if (pmic_arb->irq_acc0_init_val)
+		dev_err(&pdev->dev, "non-zero irq-accumulator[0]:0x%x\n",
+						pmic_arb->irq_acc0_init_val);
+
 	/* Callbacks */
 	pmic_arb->controller.cmd = pmic_arb_cmd;
 	pmic_arb->controller.read_cmd = pmic_arb_read_cmd;
 	pmic_arb->controller.write_cmd =  pmic_arb_write_cmd;
+
+	ret = devm_request_irq(&pdev->dev, pmic_arb->pic_irq,
+		pmic_arb_periph_irq, IRQF_TRIGGER_HIGH, pdev->name, pmic_arb);
+	if (ret) {
+		dev_err(&pdev->dev, "request IRQ failed\n");
+		return ret;
+	}
 
 	ret = spmi_add_controller(&pmic_arb->controller);
 	if (ret)
