@@ -141,6 +141,11 @@ struct msm_ipc_resume_tx_port {
 	uint32_t node_id;
 };
 
+struct ipc_router_conn_info {
+	struct list_head list;
+	uint32_t port_id;
+};
+
 #define RP_HASH_SIZE 32
 struct msm_ipc_router_remote_port {
 	struct list_head list;
@@ -150,6 +155,7 @@ struct msm_ipc_router_remote_port {
 	uint32_t port_id;
 	uint32_t tx_quota_cnt;
 	struct list_head resume_tx_port_list;
+	struct list_head conn_info_list;
 	void *sec_rule;
 	struct msm_ipc_server *server;
 };
@@ -202,6 +208,7 @@ static struct workqueue_struct *msm_ipc_router_workqueue;
 
 static int process_resume_tx_msg(union rr_control_msg *msg,
 				 struct rr_packet *pkt);
+static void ipc_router_reset_conn(struct msm_ipc_router_remote_port *rport_ptr);
 
 enum {
 	DOWN,
@@ -1188,6 +1195,7 @@ static struct msm_ipc_router_remote_port *ipc_router_create_rport(
 	kref_init(&rport_ptr->ref);
 	mutex_init(&rport_ptr->rport_lock_lhb2);
 	INIT_LIST_HEAD(&rport_ptr->resume_tx_port_list);
+	INIT_LIST_HEAD(&rport_ptr->conn_info_list);
 	list_add_tail(&rport_ptr->list,
 		      &rt_entry->remote_port_list[key]);
 out_create_rmt_port1:
@@ -1854,6 +1862,7 @@ static void cleanup_rmt_server(struct msm_ipc_router_xprt_info *xprt_info,
 	D("Remove server %08x:%08x - %08x:%08x",
 	   server->name.service, server->name.instance,
 	   rport_ptr->node_id, rport_ptr->port_id);
+	ipc_router_reset_conn(rport_ptr);
 	memset(&ctl, 0, sizeof(ctl));
 	ctl.cmd = IPC_ROUTER_CTRL_CMD_REMOVE_SERVER;
 	ctl.srv.service = server->name.service;
@@ -2020,6 +2029,97 @@ void msm_ipc_sync_default_sec_rule(void *rule)
 		}
 	}
 	up_write(&server_list_lock_lha2);
+}
+
+/**
+ * ipc_router_reset_conn() - Reset the connection to remote port
+ * @rport_ptr: Pointer to the remote port to be disconnected.
+ *
+ * This function is used to reset all the local ports that are connected to
+ * the remote port being passed.
+ */
+static void ipc_router_reset_conn(struct msm_ipc_router_remote_port *rport_ptr)
+{
+	struct msm_ipc_port *port_ptr;
+	struct ipc_router_conn_info *conn_info, *tmp_conn_info;
+
+	mutex_lock(&rport_ptr->rport_lock_lhb2);
+	list_for_each_entry_safe(conn_info, tmp_conn_info,
+				&rport_ptr->conn_info_list, list) {
+		port_ptr = ipc_router_get_port_ref(conn_info->port_id);
+		if (!port_ptr)
+			continue;
+		mutex_lock(&port_ptr->port_lock_lhc3);
+		port_ptr->conn_status = CONNECTION_RESET;
+		mutex_unlock(&port_ptr->port_lock_lhc3);
+		wake_up(&port_ptr->port_rx_wait_q);
+		kref_put(&port_ptr->ref, ipc_router_release_port);
+
+		list_del(&conn_info->list);
+		kfree(conn_info);
+	}
+	mutex_unlock(&rport_ptr->rport_lock_lhb2);
+}
+
+/**
+ * ipc_router_set_conn() - Set the connection by initializing dest address
+ * @port_ptr: Local port in which the connection has to be set.
+ * @addr: Destination address of the connection.
+ *
+ * @return: 0 on success, standard Linux error codes on failure.
+ */
+int ipc_router_set_conn(struct msm_ipc_port *port_ptr,
+			struct msm_ipc_addr *addr)
+{
+	struct msm_ipc_router_remote_port *rport_ptr;
+	struct ipc_router_conn_info *conn_info;
+
+	if (unlikely(!port_ptr || !addr))
+		return -EINVAL;
+
+	if (addr->addrtype != MSM_IPC_ADDR_ID) {
+		IPC_RTR_ERR("%s: Invalid Address type\n", __func__);
+		return -EINVAL;
+	}
+
+	if (port_ptr->type == SERVER_PORT) {
+		IPC_RTR_ERR("%s: Connection refused on a server port\n",
+			    __func__);
+		return -ECONNREFUSED;
+	}
+
+	if (port_ptr->conn_status == CONNECTED) {
+		IPC_RTR_ERR("%s: Port %08x already connected\n",
+			    __func__, port_ptr->this_port.port_id);
+		return -EISCONN;
+	}
+
+	conn_info = kzalloc(sizeof(struct ipc_router_conn_info), GFP_KERNEL);
+	if (!conn_info) {
+		IPC_RTR_ERR("%s: Error allocating conn_info\n", __func__);
+		return -ENOMEM;
+	}
+	INIT_LIST_HEAD(&conn_info->list);
+	conn_info->port_id = port_ptr->this_port.port_id;
+
+	rport_ptr = ipc_router_get_rport_ref(addr->addr.port_addr.node_id,
+					     addr->addr.port_addr.port_id);
+	if (!rport_ptr) {
+		IPC_RTR_ERR("%s: Invalid remote endpoint\n", __func__);
+		kfree(conn_info);
+		return -ENODEV;
+	}
+	mutex_lock(&rport_ptr->rport_lock_lhb2);
+	list_add_tail(&conn_info->list, &rport_ptr->conn_info_list);
+	mutex_unlock(&rport_ptr->rport_lock_lhb2);
+
+	mutex_lock(&port_ptr->port_lock_lhc3);
+	memcpy(&port_ptr->dest_addr, &addr->addr.port_addr,
+	       sizeof(struct msm_ipc_port_addr));
+	port_ptr->conn_status = CONNECTED;
+	mutex_unlock(&port_ptr->port_lock_lhc3);
+	kref_put(&rport_ptr->ref, ipc_router_release_rport);
+	return 0;
 }
 
 static int process_hello_msg(struct msm_ipc_router_xprt_info *xprt_info,
@@ -2411,6 +2511,7 @@ int msm_ipc_router_unregister_server(struct msm_ipc_port *port_ptr)
 {
 	struct msm_ipc_server *server;
 	union rr_control_msg ctl;
+	struct msm_ipc_router_remote_port *rport_ptr;
 
 	if (!port_ptr)
 		return -EINVAL;
@@ -2437,6 +2538,12 @@ int msm_ipc_router_unregister_server(struct msm_ipc_port *port_ptr)
 		return -ENODEV;
 	}
 
+	mutex_lock(&port_ptr->port_lock_lhc3);
+	port_ptr->type = CLIENT_PORT;
+	rport_ptr = (struct msm_ipc_router_remote_port *)port_ptr->rport_info;
+	mutex_unlock(&port_ptr->port_lock_lhc3);
+	if (rport_ptr)
+		ipc_router_reset_conn(rport_ptr);
 	memset(&ctl, 0, sizeof(ctl));
 	ctl.cmd = IPC_ROUTER_CTRL_CMD_REMOVE_SERVER;
 	ctl.srv.service = server->name.service;
@@ -2967,6 +3074,16 @@ int msm_ipc_router_close_port(struct msm_ipc_port *port_ptr)
 		down_write(&local_ports_lock_lhc2);
 		list_del(&port_ptr->list);
 		up_write(&local_ports_lock_lhc2);
+
+		mutex_lock(&port_ptr->port_lock_lhc3);
+		rport_ptr = (struct msm_ipc_router_remote_port *)
+						port_ptr->rport_info;
+		port_ptr->rport_info = NULL;
+		mutex_unlock(&port_ptr->port_lock_lhc3);
+		if (rport_ptr) {
+			ipc_router_reset_conn(rport_ptr);
+			ipc_router_destroy_rport(rport_ptr);
+		}
 
 		if (port_ptr->type == SERVER_PORT) {
 			memset(&msg, 0, sizeof(msg));

@@ -345,6 +345,42 @@ int msm_ipc_router_bind(struct socket *sock, struct sockaddr *uaddr,
 	return ret;
 }
 
+static int ipc_router_connect(struct socket *sock, struct sockaddr *uaddr,
+			      int uaddr_len, int flags)
+{
+	struct sockaddr_msm_ipc *addr = (struct sockaddr_msm_ipc *)uaddr;
+	struct sock *sk = sock->sk;
+	struct msm_ipc_port *port_ptr;
+	int ret;
+
+	if (!sk)
+		return -EINVAL;
+
+	if (uaddr_len <= 0) {
+		IPC_RTR_ERR("%s: Invalid address length\n", __func__);
+		return -EINVAL;
+	}
+
+	if (!addr) {
+		IPC_RTR_ERR("%s: Invalid address\n", __func__);
+		return -EINVAL;
+	}
+
+	if (addr->family != AF_MSM_IPC) {
+		IPC_RTR_ERR("%s: Address family is incorrect\n", __func__);
+		return -EAFNOSUPPORT;
+	}
+
+	port_ptr = msm_ipc_sk_port(sk);
+	if (!port_ptr)
+		return -ENODEV;
+
+	lock_sock(sk);
+	ret = ipc_router_set_conn(port_ptr, &addr->address);
+	release_sock(sk);
+	return ret;
+}
+
 static int msm_ipc_router_sendmsg(struct kiocb *iocb, struct socket *sock,
 				  struct msghdr *m, size_t total_len)
 {
@@ -354,12 +390,24 @@ static int msm_ipc_router_sendmsg(struct kiocb *iocb, struct socket *sock,
 	struct sk_buff_head *msg;
 	struct sk_buff *ipc_buf;
 	int ret;
+	struct msm_ipc_addr dest_addr = {0};
 
-	if (!dest)
-		return -EDESTADDRREQ;
-
-	if (m->msg_namelen < sizeof(*dest) || dest->family != AF_MSM_IPC)
-		return -EINVAL;
+	if (dest) {
+		if (m->msg_namelen < sizeof(*dest) ||
+		    dest->family != AF_MSM_IPC)
+			return -EINVAL;
+		memcpy(&dest_addr, &dest->address, sizeof(dest_addr));
+	} else {
+		if (port_ptr->conn_status == NOT_CONNECTED) {
+			return -EDESTADDRREQ;
+		} else if (port_ptr->conn_status < CONNECTION_RESET) {
+			return -ENETRESET;
+		} else {
+			memcpy(&dest_addr.addr.port_addr, &port_ptr->dest_addr,
+				sizeof(struct msm_ipc_port_addr));
+			dest_addr.addrtype = MSM_IPC_ADDR_ID;
+		}
+	}
 
 	if (total_len > MAX_IPC_PKT_SIZE)
 		return -EINVAL;
@@ -378,7 +426,7 @@ static int msm_ipc_router_sendmsg(struct kiocb *iocb, struct socket *sock,
 	ipc_buf = skb_peek(msg);
 	if (ipc_buf)
 		msm_ipc_router_ipc_log(IPC_SEND, ipc_buf, port_ptr);
-	ret = msm_ipc_router_send_to(port_ptr, msg, &dest->address);
+	ret = msm_ipc_router_send_to(port_ptr, msg, &dest_addr);
 	if (ret != total_len) {
 		if (ret < 0) {
 			if (ret != -EAGAIN)
@@ -564,6 +612,9 @@ static unsigned int msm_ipc_router_poll(struct file *file,
 	if (!list_empty(&port_ptr->port_rx_q))
 		mask |= (POLLRDNORM | POLLIN);
 
+	if (port_ptr->conn_status == CONNECTION_RESET)
+		mask |= (POLLHUP | POLLERR);
+
 	return mask;
 }
 
@@ -594,7 +645,7 @@ static const struct proto_ops msm_ipc_proto_ops = {
 	.owner			= THIS_MODULE,
 	.release		= msm_ipc_router_close,
 	.bind			= msm_ipc_router_bind,
-	.connect		= sock_no_connect,
+	.connect		= ipc_router_connect,
 	.socketpair		= sock_no_socketpair,
 	.accept			= sock_no_accept,
 	.getname		= sock_no_getname,

@@ -113,6 +113,9 @@ struct msm_ipc_port {
 	struct mutex port_lock_lhc3;
 	struct comm_mode_info mode_info;
 
+	struct msm_ipc_port_addr dest_addr;
+	int conn_status;
+
 	struct list_head port_rx_q;
 	struct mutex port_rx_q_lock_lhc3;
 	char rx_ws_name[MAX_WS_NAME_SZ];

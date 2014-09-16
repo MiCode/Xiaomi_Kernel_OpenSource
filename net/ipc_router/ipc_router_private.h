@@ -64,6 +64,12 @@ enum {
 	MULTI_LINK_MODE,
 };
 
+enum {
+	CONNECTION_RESET = -1,
+	NOT_CONNECTED,
+	CONNECTED,
+};
+
 struct msm_ipc_sock {
 	struct sock sk;
 	struct msm_ipc_port *port;
@@ -114,4 +120,14 @@ void msm_ipc_sync_default_sec_rule(void *rule);
 int msm_ipc_router_rx_data_wait(struct msm_ipc_port *port_ptr, long timeout);
 
 void msm_ipc_router_free_skb(struct sk_buff_head *skb_head);
+
+/**
+ * ipc_router_set_conn() - Set the connection by initializing dest address
+ * @port_ptr: Local port in which the connection has to be set.
+ * @addr: Destination address of the connection.
+ *
+ * @return: 0 on success, standard Linux error codes on failure.
+ */
+int ipc_router_set_conn(struct msm_ipc_port *port_ptr,
+			struct msm_ipc_addr *addr);
 #endif
