@@ -253,6 +253,40 @@
 			};
 		};
 
+		wcnss_pmux_5wire: wcnss_pmux_5wire {
+			/* Uses general purpose pins */
+			qcom,pins = <&gp 40>, <&gp 41>,
+				    <&gp 42>, <&gp 43>,
+				    <&gp 44>;
+			qcom,num-grp-pins = <5>;
+			qcom,pin-func = <1>;
+			label = "wcnss_5wire_pins";
+			/* Active configuration of bus pins */
+			wcnss_default: wcnss_default {
+			        drive-strength = <6>; /* 6 MA */
+			        bias-pull-up; /* PULL UP */
+			};
+			wcnss_sleep: wcnss_sleep {
+			        drive-strength = <2>; /* 2 MA */
+			        bias-pull-down; /* PULL Down */
+			};
+		};
+
+		wcnss_pmux_gpio: wcnss_pmux_gpio {
+			/* Uses general purpose pins */
+			qcom,pins = <&gp 40>, <&gp 41>,
+				    <&gp 42>, <&gp 43>,
+				    <&gp 44>;
+			qcom,num-grp-pins = <5>;
+			qcom,pin-func = <0>;
+			label = "wcnss_5gpio_pins";
+			/* Active configuration of bus pins */
+			wcnss_gpio_default: wcnss_gpio_default {
+			        drive-strength = <6>; /* 6 MA */
+			        bias-pull-up; /* PULL UP */
+			};
+		};
+
 		mpu6050_int_pin {
 			qcom,pins = <&gp 115>;
 			qcom,pin-func = <0>;
