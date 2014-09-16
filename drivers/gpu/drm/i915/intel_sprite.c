@@ -319,6 +319,7 @@ int i915_set_plane_zorder(struct drm_device *dev, void *data,
 
 	struct intel_crtc *intel_crtc =
 			to_intel_crtc(dev_priv->plane_to_crtc_mapping[pipe]);
+	struct drm_crtc *crtc = &intel_crtc->base;
 
 	s1_zorder = (order >> 3) & 0x1;
 	s1_bottom = (order >> 2) & 0x1;
@@ -373,6 +374,10 @@ int i915_set_plane_zorder(struct drm_device *dev, void *data,
 		intel_crtc->sprite1_alpha = true;
 	else
 		intel_crtc->sprite1_alpha = false;
+
+	dev_priv->display.update_primary_plane(crtc, crtc->primary->fb, crtc->x,
+		crtc->y);
+
 	return 0;
 }
 
