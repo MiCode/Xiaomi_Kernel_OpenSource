@@ -492,6 +492,11 @@ struct hfi_intra_refresh {
 	u32 cir_mbs;
 };
 
+struct hfi_3x_intra_refresh {
+	u32 mode;
+	u32 mbs;
+};
+
 struct hfi_idr_period {
 	u32 idr_period;
 };
@@ -532,6 +537,11 @@ struct hfi_multi_stream {
 	u32 enable;
 	u32 width;
 	u32 height;
+};
+
+struct hfi_3x_multi_stream {
+	u32 buffer_type;
+	u32 enable;
 };
 
 struct hfi_multi_view_format {
