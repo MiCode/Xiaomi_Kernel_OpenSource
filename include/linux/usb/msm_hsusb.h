@@ -92,14 +92,16 @@ enum otg_control_type {
  * PHY used in
  *
  * INVALID_PHY			Unsupported PHY
- * CI_45NM_INTEGRATED_PHY	Chipidea 45nm integrated PHY
- * SNPS_28NM_INTEGRATED_PHY	Synopsis 28nm integrated PHY
+ * CI_PHY			Chipidea PHY
+ * SNPS_PICO_PHY		Synopsis Pico PHY
+ * SNPS_FEMTO_PHY		Synopsis Femto PHY
  *
  */
 enum msm_usb_phy_type {
 	INVALID_PHY = 0,
-	CI_45NM_INTEGRATED_PHY, /* not supported */
-	SNPS_28NM_INTEGRATED_PHY,
+	CI_PHY,			/* not supported */
+	SNPS_PICO_PHY,
+	SNPS_FEMTO_PHY,
 };
 
 #define IDEV_CHG_MAX	1500
@@ -264,6 +266,7 @@ enum usb_ctrl {
  * @bool disable_retention_with_vdd_min: Indicates whether to enable
 		allowing VDDmin without putting PHY into retention.
  * @usb_id_gpio: Gpio used for USB ID detection.
+ * @bool phy_dvdd_always_on: PHY DVDD is supplied by always on PMIC LDO.
  */
 struct msm_otg_platform_data {
 	int *phy_init_seq;
@@ -295,6 +298,7 @@ struct msm_otg_platform_data {
 	bool enable_ahb2ahb_bypass;
 	bool disable_retention_with_vdd_min;
 	int usb_id_gpio;
+	bool phy_dvdd_always_on;
 };
 
 /* phy related flags */
@@ -355,6 +359,13 @@ struct msm_otg_platform_data {
  * @pclk: clock struct of iface_clk.
  * @core_clk: clock struct of core_bus_clk.
  * @sleep_clk: clock struct of sleep_clk for USB PHY.
+ * @phy_reset_clk: clock struct of phy_reset_clk for USB PHY. This clock is
+		a reset only clock and resets the PHY, ULPI bridge and
+		CSR wrapper.
+ * @phy_por_clk: clock struct of phy_por_clk for USB PHY. This clock is
+		a reset only clock and resets only the PHY (POR).
+ * @phy_csr_clk: clock struct of phy_csr_clk for USB PHY. This clock is
+		required to acess PHY CSR registers via AHB2PHY interface.
  * @bus_clks: bimc/snoc/pcnoc clock struct.
  * @core_clk_rate: core clk max frequency
  * @regs: ioremapped register base address.
@@ -404,10 +415,14 @@ struct msm_otg {
 	struct clk *pclk;
 	struct clk *core_clk;
 	struct clk *sleep_clk;
+	struct clk *phy_reset_clk;
+	struct clk *phy_por_clk;
+	struct clk *phy_csr_clk;
 	struct clk *bus_clks[USB_NUM_BUS_CLOCKS];
 	long core_clk_rate;
 	struct resource *io_res;
 	void __iomem *regs;
+	void __iomem *phy_csr_regs;
 	void __iomem *usb_phy_ctrl_reg;
 #define ID		0
 #define B_SESS_VLD	1
@@ -488,6 +503,14 @@ struct msm_otg {
 	* for fixing PHY current leakage issue when LDOs ar turned off.
 	*/
 #define ALLOW_VDD_MIN_WITH_RETENTION_DISABLED BIT(5)
+
+	/*
+	 * PHY can keep D+ pull-up during peripheral bus suspend and
+	 * D+/D- pull-down during host bus suspend without any
+	 * re-work. This is possible only when PHY DVDD is supplied
+	 * by a PMIC LDO (unlike VDDCX/VDDMX).
+	 */
+#define ALLOW_BUS_SUSPEND_WITHOUT_REWORK BIT(6)
 	unsigned long lpm_flags;
 #define PHY_PWR_COLLAPSED		BIT(0)
 #define PHY_RETENTIONED			BIT(1)
