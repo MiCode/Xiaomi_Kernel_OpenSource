@@ -21,6 +21,7 @@
 
 		qcom,memory-size = <0x2000000>;
 		qcom,tmc-flush-powerdown;
+		qcom,sg-enable;
 
 		coresight-id = <0>;
 		coresight-name = "coresight-tmc-etr";
