@@ -30,6 +30,8 @@
 #define STOP_TIMEOUT(hz) msecs_to_jiffies((1000 / hz) * (VSYNC_EXPIRE_TICK + 2))
 #define POWER_COLLAPSE_TIME msecs_to_jiffies(100)
 
+static DEFINE_MUTEX(cmd_clk_mtx);
+
 struct mdss_mdp_cmd_ctx {
 	struct mdss_mdp_ctl *ctl;
 	u32 pp_num;
@@ -416,13 +418,36 @@ static void clk_ctrl_work(struct work_struct *work)
 {
 	struct mdss_mdp_cmd_ctx *ctx =
 		container_of(work, typeof(*ctx), clk_work);
+	struct mdss_mdp_ctl *ctl, *sctl;
+	struct mdss_mdp_cmd_ctx *sctx = NULL;
 
 	if (!ctx) {
 		pr_err("%s: invalid ctx\n", __func__);
 		return;
 	}
 
+	ctl = ctx->ctl;
+
+	if (ctl->panel_data->panel_info.is_split_display) {
+		mutex_lock(&cmd_clk_mtx);
+
+		sctl = mdss_mdp_get_split_ctl(ctl);
+		if (sctl) {
+			sctx = (struct mdss_mdp_cmd_ctx *) sctl->priv_data;
+		} else {
+			/* slave ctl, let master ctl do clk control */
+			mutex_unlock(&cmd_clk_mtx);
+			return;
+		}
+	}
+
 	mdss_mdp_cmd_clk_off(ctx);
+
+	if (ctl->panel_data->panel_info.is_split_display) {
+		if (sctx)
+			mdss_mdp_cmd_clk_off(sctx);
+		mutex_unlock(&cmd_clk_mtx);
+	}
 }
 
 static int mdss_mdp_cmd_add_vsync_handler(struct mdss_mdp_ctl *ctl,
@@ -460,9 +485,15 @@ static int mdss_mdp_cmd_add_vsync_handler(struct mdss_mdp_ctl *ctl,
 	spin_unlock_irqrestore(&ctx->clk_lock, flags);
 
 	if (enable_rdptr) {
+		if (ctl->panel_data->panel_info.is_split_display)
+			mutex_lock(&cmd_clk_mtx);
+
 		mdss_mdp_cmd_clk_on(ctx);
 		if (sctx)
 			mdss_mdp_cmd_clk_on(sctx);
+
+		if (ctl->panel_data->panel_info.is_split_display)
+			mutex_unlock(&cmd_clk_mtx);
 	}
 
 	return 0;
