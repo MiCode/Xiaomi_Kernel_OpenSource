@@ -22,7 +22,6 @@
 #include "smp2p_private.h"
 #include "smp2p_test_common.h"
 
-#define REMOTE_SPIN_PID 1
 #define RS_END_THIEF_PID_BIT 20
 #define RS_END_THIEF_MASK 0x00f00000
 
@@ -191,7 +190,7 @@ static void smp2p_ut_remote_spinlock_core(struct seq_file *s, int remote_pid,
 			for (n = 0; n < 1000; ++n) {
 				spinlock_owner =
 					remote_spin_owner(smem_spinlock);
-				if (spinlock_owner != REMOTE_SPIN_PID) {
+				if (spinlock_owner != SMEM_APPS) {
 					/* lock stolen by remote side */
 					seq_puts(s, "\tFail: Remote side: ");
 					seq_printf(s, "%d stole lock pid: %d\n",
@@ -466,6 +465,88 @@ static void smp2p_ut_remote_spinlock_rpm(struct seq_file *s)
 	}
 }
 
+struct rmt_spinlock_work_item {
+	struct work_struct work;
+	struct completion try_lock;
+	struct completion locked;
+	bool has_locked;
+};
+
+static void ut_remote_spinlock_ssr_worker(struct work_struct *work)
+{
+	remote_spinlock_t *smem_spinlock;
+	unsigned long flags;
+	struct rmt_spinlock_work_item *work_item =
+		container_of(work, struct rmt_spinlock_work_item, work);
+
+	work_item->has_locked = false;
+	complete(&work_item->try_lock);
+	smem_spinlock = smem_get_remote_spinlock();
+	if (!smem_spinlock) {
+		pr_err("%s Failed\n", __func__);
+		return;
+	}
+
+	remote_spin_lock_irqsave(smem_spinlock, flags);
+	remote_spin_unlock_irqrestore(smem_spinlock, flags);
+	work_item->has_locked = true;
+	complete(&work_item->locked);
+}
+
+/**
+ * smp2p_ut_remote_spinlock_ssr - Verify remote spinlock.
+ *
+ * @s:   pointer to output file
+ */
+static void smp2p_ut_remote_spinlock_ssr(struct seq_file *s)
+{
+	int failed = 0;
+	unsigned long flags;
+	remote_spinlock_t *smem_spinlock;
+	int spinlock_owner = 0;
+
+	struct workqueue_struct *ws = NULL;
+	struct rmt_spinlock_work_item work_item;
+
+	seq_printf(s, " Running %s Test\n",
+		   __func__);
+	do {
+		smem_spinlock = smem_get_remote_spinlock();
+		UT_ASSERT_PTR(smem_spinlock, !=, NULL);
+
+		ws = create_singlethread_workqueue("ut_remote_spinlock_ssr");
+		UT_ASSERT_PTR(ws, !=, NULL);
+		INIT_WORK(&work_item.work, ut_remote_spinlock_ssr_worker);
+		init_completion(&work_item.try_lock);
+		init_completion(&work_item.locked);
+
+		remote_spin_lock_irqsave(smem_spinlock, flags);
+		/* Unlock local spin lock and hold HW spinlock */
+		spin_unlock_irqrestore(&((smem_spinlock)->local), flags);
+
+		queue_work(ws, &work_item.work);
+		UT_ASSERT_INT(
+			(int)wait_for_completion_timeout(
+					&work_item.try_lock, HZ * 2), >, 0);
+		UT_ASSERT_INT((int)work_item.has_locked, ==, 0);
+		spinlock_owner = remote_spin_owner(smem_spinlock);
+		UT_ASSERT_INT(spinlock_owner, ==, SMEM_APPS);
+		remote_spin_release_all(SMEM_APPS);
+
+		UT_ASSERT_INT(
+			(int)wait_for_completion_timeout(
+					&work_item.locked, HZ * 2), >, 0);
+
+		if (!failed)
+			seq_puts(s, "\tOK\n");
+	} while (0);
+
+	if (failed) {
+		pr_err("%s: Failed\n", __func__);
+		seq_puts(s, "\tFailed\n");
+	}
+}
+
 static int __init smp2p_debugfs_init(void)
 {
 	/*
@@ -493,6 +574,8 @@ static int __init smp2p_debugfs_init(void)
 		smp2p_ut_remote_spinlock_rpm);
 	smp2p_debug_create_u32("ut_remote_spinlock_time",
 		&ut_remote_spinlock_run_time);
+	smp2p_debug_create("ut_remote_spinlock_ssr",
+		&smp2p_ut_remote_spinlock_ssr);
 
 	return 0;
 }

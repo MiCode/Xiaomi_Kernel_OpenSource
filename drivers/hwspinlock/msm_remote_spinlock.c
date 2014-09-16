@@ -21,8 +21,11 @@
 
 #include <soc/qcom/smem.h>
 
-
-#define SPINLOCK_PID_APPS 1
+/**
+ * The local processor (APPS) is PID 0, but because 0 is reserved for an empty
+ * lock, the value PID + 1 is used as the APSS token when writing to the lock.
+ */
+#define SPINLOCK_TOKEN_APPS 1
 
 static int is_hw_lock_type;
 static DEFINE_MUTEX(ops_init_lock);
@@ -56,7 +59,7 @@ static void __raw_remote_ex_spin_lock(raw_remote_spinlock_t *lock)
 "       teqeq   %0, #0\n"
 "       bne     1b"
 	: "=&r" (tmp)
-	: "r" (&lock->lock), "r" (SPINLOCK_PID_APPS)
+	: "r" (&lock->lock), "r" (SPINLOCK_TOKEN_APPS)
 	: "cc");
 
 	smp_mb();
@@ -71,7 +74,7 @@ static int __raw_remote_ex_spin_trylock(raw_remote_spinlock_t *lock)
 "       teq     %0, #0\n"
 "       strexeq %0, %2, [%1]\n"
 	: "=&r" (tmp)
-	: "r" (&lock->lock), "r" (SPINLOCK_PID_APPS)
+	: "r" (&lock->lock), "r" (SPINLOCK_TOKEN_APPS)
 	: "cc");
 
 	if (tmp == 0) {
@@ -87,7 +90,7 @@ static void __raw_remote_ex_spin_unlock(raw_remote_spinlock_t *lock)
 
 	smp_mb();
 	lock_owner = readl_relaxed(&lock->lock);
-	if (lock_owner != SPINLOCK_PID_APPS) {
+	if (lock_owner != SPINLOCK_TOKEN_APPS) {
 		pr_err("%s: spinlock not owned by Apps (actual owner is %d)\n",
 				__func__, lock_owner);
 	}
@@ -183,17 +186,35 @@ static int remote_spinlock_init_address_hw(int id, _remote_spinlock_t *lock)
 
 static void __raw_remote_sfpb_spin_lock(raw_remote_spinlock_t *lock)
 {
+	/*
+	 * Wait for other local processor task to release spinlock if it
+	 * already has the remote spinlock locked.  This can only happen in
+	 * test cases since the local spinlock will prevent this when using the
+	 * public APIs.
+	 */
+	while (readl_relaxed(lock) == SPINLOCK_TOKEN_APPS)
+		;
+
+	/* acquire remote spinlock */
 	do {
-		writel_relaxed(SPINLOCK_PID_APPS, lock);
+		writel_relaxed(SPINLOCK_TOKEN_APPS, lock);
 		smp_mb();
-	} while (readl_relaxed(lock) != SPINLOCK_PID_APPS);
+	} while (readl_relaxed(lock) != SPINLOCK_TOKEN_APPS);
 }
 
 static int __raw_remote_sfpb_spin_trylock(raw_remote_spinlock_t *lock)
 {
-	writel_relaxed(SPINLOCK_PID_APPS, lock);
+	/*
+	 * If the local processor owns the spinlock, return failure.  This can
+	 * only happen in test cases since the local spinlock will prevent this
+	 * when using the public APIs.
+	 */
+	if (readl_relaxed(lock) == SPINLOCK_TOKEN_APPS)
+		return 0;
+
+	writel_relaxed(SPINLOCK_TOKEN_APPS, lock);
 	smp_mb();
-	return readl_relaxed(lock) == SPINLOCK_PID_APPS;
+	return readl_relaxed(lock) == SPINLOCK_TOKEN_APPS;
 }
 
 static void __raw_remote_sfpb_spin_unlock(raw_remote_spinlock_t *lock)
@@ -201,7 +222,7 @@ static void __raw_remote_sfpb_spin_unlock(raw_remote_spinlock_t *lock)
 	int lock_owner;
 
 	lock_owner = readl_relaxed(lock);
-	if (lock_owner != SPINLOCK_PID_APPS) {
+	if (lock_owner != SPINLOCK_TOKEN_APPS) {
 		pr_err("%s: spinlock not owned by Apps (actual owner is %d)\n",
 				__func__, lock_owner);
 	}
@@ -247,7 +268,11 @@ static int __raw_remote_gen_spin_release(raw_remote_spinlock_t *lock,
 {
 	int ret = 1;
 
-	if (readl_relaxed(&lock->lock) == pid) {
+	/*
+	 * Since 0 is reserved for an empty lock and the PIDs start at 0, the
+	 * value PID + 1 is written to the lock.
+	 */
+	if (readl_relaxed(&lock->lock) == (pid + 1)) {
 		writel_relaxed(0, &lock->lock);
 		wmb();
 		ret = 0;
@@ -265,8 +290,14 @@ static int __raw_remote_gen_spin_release(raw_remote_spinlock_t *lock,
  */
 static int __raw_remote_gen_spin_owner(raw_remote_spinlock_t *lock)
 {
+	int owner;
 	rmb();
-	return readl_relaxed(&lock->lock);
+
+	owner = readl_relaxed(&lock->lock);
+	if (owner)
+		return owner - 1;
+	else
+		return -ENODEV;
 }
 
 
