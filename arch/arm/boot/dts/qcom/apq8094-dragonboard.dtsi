@@ -103,7 +103,38 @@
 };
 
 &mdss_mdp {
-	qcom,mdss-pref-prim-intf = "hdmi";
+	qcom,mdss-pref-prim-intf = "dsi";
+};
+
+#include "dsi-panel-hx8379a-truly-fwvga-video.dtsi"
+
+&dsi_hx8379a_fwvga_truly_vid {
+	qcom,mdss-dsi-bl-pmic-control-type = "bl_ctrl_pwm";
+	qcom,mdss-dsi-bl-min-level = <1>;
+	qcom,mdss-dsi-bl-max-level = <255>;
+	qcom,mdss-dsi-bl-pmic-pwm-frequency = <50>;
+	qcom,mdss-dsi-bl-pmic-bank-select = <3>;
+	qcom,mdss-dsi-pwm-gpio = <&pmi8994_mpps 1 0>;
+};
+
+&mdss_dsi0 {
+	qcom,dsi-pref-prim-pan = <&dsi_hx8379a_fwvga_truly_vid>;
+	pinctrl-names = "mdss_default", "mdss_sleep";
+	pinctrl-0 = <&mdss_dsi_active>;
+	pinctrl-1 = <&mdss_dsi_suspend>;
+
+	vddio-supply = <&pm8994_s4>;
+
+	qcom,platform-reset-gpio = <&msm_gpio 78 0>;
+	qcom,platform-te-gpio = <&msm_gpio 10 0>;
+	qcom,platform-bklight-en-gpio = <&pmi8994_gpios 2 0>;
+
+	qcom,dsi-panel-bias-vreg;
+	qcom,regulator-ldo-mode;
+};
+
+&mdss_dsi1 {
+	status = "disabled";
 };
 
 &pmx_hdmi_cec {
@@ -122,8 +153,6 @@
 };
 
 &mdss_hdmi_tx {
-	qcom,primary_panel = <1>;
-	qcom,mdss-fb-map = <&mdss_fb0>;
 	hpd-5v-en-supply = <&vph_pwr_vreg>;
 	pinctrl-names = "hdmi_hpd_active", "hdmi_ddc_active",
 				"hdmi_cec_active", "hdmi_active",
