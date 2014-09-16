@@ -1871,6 +1871,7 @@ static int fg_probe(struct spmi_device *spmi)
 	INIT_WORK(&chip->dump_sram, dump_sram);
 	init_completion(&chip->sram_access);
 	init_completion(&chip->batt_id_avail);
+	dev_set_drvdata(&spmi->dev, chip);
 
 	spmi_for_each_container_dev(spmi_resource, spmi) {
 		if (!spmi_resource) {
