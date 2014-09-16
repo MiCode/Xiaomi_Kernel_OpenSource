@@ -324,6 +324,8 @@ void *dma_common_contiguous_remap(struct page *page, size_t size,
 }
 
 /*
+	area->pages = pages;
+
  * unmaps a range previously mapped by dma_common_*_remap
  */
 void dma_common_free_remap(void *cpu_addr, size_t size, unsigned long vm_flags,
