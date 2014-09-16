@@ -864,9 +864,7 @@ static int msm_actuator_close(struct v4l2_subdev *sd,
 	return rc;
 }
 
-static const struct v4l2_subdev_internal_ops msm_actuator_internal_ops = {
-	.close = msm_actuator_close,
-};
+static const struct v4l2_subdev_internal_ops msm_actuator_internal_ops;
 
 static long msm_actuator_subdev_ioctl(struct v4l2_subdev *sd,
 			unsigned int cmd, void *arg)
