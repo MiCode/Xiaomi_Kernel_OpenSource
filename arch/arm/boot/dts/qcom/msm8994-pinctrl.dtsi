@@ -152,6 +152,36 @@
 		        };
 		};
 
+		pmx_i2c_1 {
+			qcom,pins = <&gp 2>, <&gp 3>; /* SDA, SCL */
+			qcom,num-grp-pins = <2>;
+			qcom,pin-func = <3>;
+			label = "pmx_i2c_1";
+
+			status = "disabled";
+
+			i2c_1_active: i2c_1_active {
+				drive-strength = <2>;
+				bias-disable;
+			};
+
+			i2c_1_sleep: i2c_1_sleep {
+				drive-strength = <2>;
+				bias-disable;
+			};
+		};
+
+		audio_ext_devices {
+			qcom,pins = <&gp 96>;
+			qcom,num-grp-pins = <1>;
+			label = "audio-ext-mic";
+			/* default state */
+			audio_ext_mic: audio_ext_mic {
+				drive-strength = <2>;
+				bias-pull-up;
+			};
+		};
+
 		/* SDC pin type */
 		sdc: sdc {
 			/*
