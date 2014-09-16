@@ -3338,10 +3338,11 @@ int atomisp_set_parameters(struct video_device *vdev,
 		return -EINVAL;
 	}
 
-	dev_dbg(asd->isp->dev, "%s: set parameter with isp_config_id %d of %s\n",
-		__func__, arg->isp_config_id, vdev->name);
+	dev_dbg(asd->isp->dev, "%s: set parameter(per_frame_setting %d) with isp_config_id %d of %s\n",
+		__func__, arg->per_frame_setting, arg->isp_config_id,
+	        vdev->name);
 
-	if (arg->isp_config_id && !atomisp_is_vf_pipe(pipe)) {
+	if (arg->per_frame_setting && !atomisp_is_vf_pipe(pipe)) {
 		/*
 		 * Per-frame setting enabled, we allocate a new paramter
 		 * buffer to cache the parameters and only when frame buffers
@@ -3381,7 +3382,7 @@ int atomisp_set_parameters(struct video_device *vdev,
 	if (ret)
 		goto apply_parameter_failed;
 
-	if (!(arg->isp_config_id && !atomisp_is_vf_pipe(pipe))) {
+	if (!(arg->per_frame_setting && !atomisp_is_vf_pipe(pipe))) {
 		atomisp_apply_css_parameters(asd, arg, css_param);
 		/* indicate to CSS that we have parameters to be updated */
 		asd->params.css_update_params_needed = true;

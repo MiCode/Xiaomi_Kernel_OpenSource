@@ -263,6 +263,7 @@ struct atomisp_parameters32 {
 	 * frame, driver will send this id back with output frame together.
 	 */
 	uint32_t	isp_config_id;
+	uint32_t	per_frame_setting;
 };
 
 struct atomisp_acc_fw_load_to_pipe32 {

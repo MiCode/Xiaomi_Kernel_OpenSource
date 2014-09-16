@@ -1304,12 +1304,15 @@ done:
 		wbinvd();
 
 	if (!atomisp_is_vf_pipe(pipe) &&
-	    (buf->reserved2 & ATOMISP_BUFFER_HAS_PER_FRAME_SETTING))
+	    (buf->reserved2 & ATOMISP_BUFFER_HAS_PER_FRAME_SETTING)) {
 		/* this buffer will have a per-frame parameter */
 		pipe->frame_request_config_id[buf->index] = buf->reserved2 &
 					~ATOMISP_BUFFER_HAS_PER_FRAME_SETTING;
-	else
+		dev_dbg(isp->dev, "This buffer requires per_frame setting which has isp_config_id %d\n",
+		        pipe->frame_request_config_id[buf->index]);
+	} else {
 		pipe->frame_request_config_id[buf->index] = 0;
+	}
 
 	pipe->frame_params[buf->index] = NULL;
 
