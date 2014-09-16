@@ -7040,14 +7040,15 @@ mismatch:
 		  power_well->count, i915.disable_power_well);
 }
 
-void intel_display_power_get(struct drm_i915_private *dev_priv,
-			     enum intel_display_power_domain domain)
+void intel_display_power_rpm_get(struct drm_i915_private *dev_priv,
+			     enum intel_display_power_domain domain, bool rpm)
 {
 	struct i915_power_domains *power_domains;
 	struct i915_power_well *power_well;
 	int i;
 
-	intel_runtime_pm_get(dev_priv);
+	if (rpm)
+		intel_runtime_pm_get(dev_priv);
 
 	power_domains = &dev_priv->power_domains;
 
@@ -7068,8 +7069,8 @@ void intel_display_power_get(struct drm_i915_private *dev_priv,
 	mutex_unlock(&power_domains->lock);
 }
 
-void intel_display_power_put(struct drm_i915_private *dev_priv,
-			     enum intel_display_power_domain domain)
+void intel_display_power_rpm_put(struct drm_i915_private *dev_priv,
+			     enum intel_display_power_domain domain, bool rpm)
 {
 	struct i915_power_domains *power_domains;
 	struct i915_power_well *power_well;
@@ -7096,7 +7097,20 @@ void intel_display_power_put(struct drm_i915_private *dev_priv,
 
 	mutex_unlock(&power_domains->lock);
 
-	intel_runtime_pm_put(dev_priv);
+	if (rpm)
+		intel_runtime_pm_put(dev_priv);
+}
+
+void intel_display_power_get(struct drm_i915_private *dev_priv,
+				enum intel_display_power_domain domain)
+{
+	intel_display_power_rpm_get(dev_priv, domain, true);
+}
+
+void intel_display_power_put(struct drm_i915_private *dev_priv,
+				enum intel_display_power_domain domain)
+{
+	intel_display_power_rpm_put(dev_priv, domain, true);
 }
 
 static struct i915_power_domains *hsw_pwr;

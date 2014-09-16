@@ -511,7 +511,13 @@ static int i915_drm_freeze(struct drm_device *dev)
 
 	/* We do a lot of poking in a lot of registers, make sure they work
 	 * properly. */
-	intel_display_set_init_power(dev_priv, true);
+	if (IS_VALLEYVIEW(dev))
+		WARN_ON(!dev_priv->power_domains.init_power_on);
+	else {
+		/* We do a lot of poking in a lot of registers, make sure they
+		 * work properly. */
+		intel_display_set_init_power(dev_priv, true);
+	}
 
 	drm_kms_helper_poll_disable(dev);
 
@@ -526,6 +532,12 @@ static int i915_drm_freeze(struct drm_device *dev)
 			dev_err(&dev->pdev->dev,
 				"GEM idle failed, resume might fail\n");
 			return error;
+		}
+
+		if (IS_VALLEYVIEW(dev)) {
+			spin_lock_irq(&dev_priv->irq_lock);
+			valleyview_disable_display_irqs(dev_priv);
+			spin_unlock_irq(&dev_priv->irq_lock);
 		}
 
 		drm_irq_uninstall(dev);
@@ -563,7 +575,8 @@ static int i915_drm_freeze(struct drm_device *dev)
 	if (ret)
 		WARN(1, "Suspend complete failed: %d\n", ret);
 
-	intel_display_set_init_power(dev_priv, false);
+	if (!IS_VALLEYVIEW(dev))
+		intel_display_set_init_power(dev_priv, false);
 
 	return 0;
 }
@@ -1302,6 +1315,8 @@ static int vlv_suspend_complete(struct drm_i915_private *dev_priv)
 	u32 mask;
 	int err;
 
+	WARN_ON(!dev_priv->power_domains.init_power_on);
+
 	/*
 	 * Bspec defines the following GT well on flags as debug only, so
 	 * don't treat them as hard failures.
@@ -1325,6 +1340,8 @@ static int vlv_suspend_complete(struct drm_i915_private *dev_priv)
 	err = vlv_force_gfx_clock(dev_priv, false);
 	if (err)
 		goto err2;
+
+	intel_display_set_init_power(dev_priv, false);
 
 	return 0;
 
@@ -1374,6 +1391,8 @@ static int vlv_resume_prepare(struct drm_i915_private *dev_priv,
 		i915_gem_restore_fences(dev);
 	}
 
+	intel_display_set_init_power(dev_priv, true);
+
 	return ret;
 }
 
@@ -1418,6 +1437,11 @@ static int intel_runtime_suspend(struct device *device)
 	i915_gem_release_all_mmaps(dev_priv);
 	mutex_unlock(&dev->struct_mutex);
 
+	if (IS_VALLEYVIEW(dev)) {
+		spin_lock_irq(&dev_priv->irq_lock);
+		valleyview_disable_display_irqs(dev_priv);
+		spin_unlock_irq(&dev_priv->irq_lock);
+	}
 	/*
 	 * rps.work can't be rearmed here, since we get here only after making
 	 * sure the GPU is idle and the RPS freq is set to the minimum. See
@@ -1450,12 +1474,29 @@ static int intel_runtime_suspend(struct device *device)
 	return 0;
 }
 
+#define __raw_i915_read32(dev_priv__, reg__) \
+		readl((dev_priv__)->regs + (reg__))
+#define __raw_i915_write32(dev_priv__, reg__, val__) \
+		writel(val__, (dev_priv__)->regs + (reg__))
+
 static int intel_runtime_resume(struct device *device)
 {
 	struct pci_dev *pdev = to_pci_dev(device);
 	struct drm_device *dev = pci_get_drvdata(pdev);
 	struct drm_i915_private *dev_priv = dev->dev_private;
 	int ret;
+	u32 gtfifodbg;
+
+	/*
+	 * FIXME: GTFIFODBG registers gets set to 0x10 post resume from S0iX.
+	 * This leads to warning to be hit in gen6_gt_check_fifodbg from
+	 * __vlv_force_wake_put called from register read first time post
+	 * resume. Clearing it here.
+	*/
+	if (IS_VALLEYVIEW(dev)) {
+		gtfifodbg = __raw_i915_read32(dev_priv, GTFIFODBG);
+		__raw_i915_write32(dev_priv, GTFIFODBG, gtfifodbg);
+	}
 
 	if (WARN_ON_ONCE(!HAS_RUNTIME_PM(dev)))
 		return -ENODEV;

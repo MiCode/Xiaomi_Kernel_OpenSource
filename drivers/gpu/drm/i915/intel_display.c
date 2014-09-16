@@ -4939,13 +4939,23 @@ static unsigned long get_crtc_power_domains(struct drm_crtc *crtc)
 void intel_display_set_init_power(struct drm_i915_private *dev_priv,
 				  bool enable)
 {
+	struct drm_device *dev = dev_priv->dev;
+
 	if (dev_priv->power_domains.init_power_on == enable)
 		return;
 
 	if (enable)
-		intel_display_power_get(dev_priv, POWER_DOMAIN_INIT);
+		if (IS_VALLEYVIEW(dev))
+			intel_display_power_rpm_get(dev_priv,
+					POWER_DOMAIN_INIT, false);
+		else
+			intel_display_power_get(dev_priv, POWER_DOMAIN_INIT);
 	else
-		intel_display_power_put(dev_priv, POWER_DOMAIN_INIT);
+		if (IS_VALLEYVIEW(dev))
+			intel_display_power_rpm_put(dev_priv,
+					POWER_DOMAIN_INIT, false);
+		else
+			intel_display_power_put(dev_priv, POWER_DOMAIN_INIT);
 
 	dev_priv->power_domains.init_power_on = enable;
 }
@@ -4981,7 +4991,8 @@ static void modeset_update_crtc_power_domains(struct drm_device *dev)
 		crtc->enabled_power_domains = pipe_domains[crtc->pipe];
 	}
 
-	intel_display_set_init_power(dev_priv, false);
+	if (!IS_VALLEYVIEW(dev))
+		intel_display_set_init_power(dev_priv, false);
 }
 
 int valleyview_get_vco(struct drm_i915_private *dev_priv)
