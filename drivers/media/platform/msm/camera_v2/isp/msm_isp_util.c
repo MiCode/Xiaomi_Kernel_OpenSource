@@ -1429,6 +1429,15 @@ static void msm_isp_process_overflow_irq(
 
 	if (overflow_mask) {
 		struct msm_isp_event_data error_event;
+
+		if (vfe_dev->reset_pending == 1) {
+			pr_err("%s:%d failed: overflow %x during reset\n",
+				__func__, __LINE__, overflow_mask);
+			/* Clear overflow bits since reset is pending */
+			*irq_status1 &= ~overflow_mask;
+			return;
+		}
+
 		ISP_DBG("%s: Bus overflow detected: 0x%x, start recovery!\n",
 				__func__, overflow_mask);
 		atomic_set(&vfe_dev->error_info.overflow_state,
@@ -1641,6 +1650,8 @@ int msm_isp_open_node(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh)
 		vfe_dev->vfe_base = NULL;
 	}
 
+	vfe_dev->reset_pending = 0;
+
 	if (vfe_dev->hw_info->vfe_ops.core_ops.init_hw(vfe_dev) < 0) {
 		pr_err("%s: init hardware failed\n", __func__);
 		vfe_dev->vfe_open_cnt--;
@@ -1651,6 +1662,8 @@ int msm_isp_open_node(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh)
 
 	memset(&vfe_dev->error_info, 0, sizeof(vfe_dev->error_info));
 	atomic_set(&vfe_dev->error_info.overflow_state, NO_OVERFLOW);
+
+	vfe_dev->hw_info->vfe_ops.core_ops.clear_status_reg(vfe_dev);
 
 	rc = vfe_dev->hw_info->vfe_ops.core_ops.reset_hw(vfe_dev, 1, 1);
 	if (rc <= 0) {

@@ -162,6 +162,7 @@ struct msm_vfe_core_ops {
 		uint32_t blocking_call);
 	int (*init_hw) (struct vfe_device *vfe_dev);
 	void (*init_hw_reg) (struct vfe_device *vfe_dev);
+	void (*clear_status_reg) (struct vfe_device *vfe_dev);
 	void (*release_hw) (struct vfe_device *vfe_dev);
 	void (*cfg_input_mux) (struct vfe_device *vfe_dev,
 		struct msm_vfe_pix_cfg *pix_cfg);
@@ -578,6 +579,7 @@ struct vfe_device {
 	uint64_t msm_isp_vfe_clk_rate;
 	struct msm_isp_ub_info *ub_info;
 	uint32_t vfe_ub_policy;
+	uint8_t reset_pending;
 };
 
 #endif

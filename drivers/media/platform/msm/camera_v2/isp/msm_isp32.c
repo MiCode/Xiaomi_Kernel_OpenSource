@@ -174,6 +174,15 @@ static void msm_vfe32_init_hardware_reg(struct vfe_device *vfe_dev)
 
 }
 
+static void msm_vfe32_clear_status_reg(struct vfe_device *vfe_dev)
+{
+	msm_camera_io_w((1 << 23), vfe_dev->vfe_base + 0x1C);
+	msm_camera_io_w_mb(0x0, vfe_dev->vfe_base + 0x20);
+	msm_camera_io_w(0xFFFFFFFF, vfe_dev->vfe_base + 0x24);
+	msm_camera_io_w_mb(0xFFFFFFFF, vfe_dev->vfe_base + 0x28);
+	msm_camera_io_w_mb(0x1, vfe_dev->vfe_base + 0x18);
+}
+
 static void msm_vfe32_process_reset_irq(struct vfe_device *vfe_dev,
 	uint32_t irq_status0, uint32_t irq_status1)
 {
@@ -1270,6 +1279,7 @@ struct msm_vfe_hardware_info vfe32_hw_info = {
 			.reset_hw = msm_vfe32_reset_hardware,
 			.init_hw = msm_vfe32_init_hardware,
 			.init_hw_reg = msm_vfe32_init_hardware_reg,
+			.clear_status_reg = msm_vfe32_clear_status_reg,
 			.release_hw = msm_vfe32_release_hardware,
 			.get_platform_data = msm_vfe32_get_platform_data,
 			.get_error_mask = msm_vfe32_get_error_mask,
