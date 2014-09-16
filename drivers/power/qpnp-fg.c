@@ -220,6 +220,8 @@ struct fg_chip {
 	struct mutex		rw_lock;
 	struct work_struct	batt_profile_init;
 	struct work_struct	dump_sram;
+	struct power_supply	*batt_psy;
+	bool			wake_on_delta_soc;
 	bool			profile_loaded;
 	bool			use_otp_profile;
 	struct delayed_work	update_jeita_setting;
@@ -1977,10 +1979,45 @@ of_init_fail:
 	return rc;
 }
 
+static int fg_suspend(struct device *dev)
+{
+	struct fg_chip *chip = dev_get_drvdata(dev);
+	union power_supply_propval propval;
+	int rc;
+
+	if (chip->batt_psy == NULL)
+		chip->batt_psy = power_supply_get_by_name("battery");
+	if (chip->batt_psy) {
+		rc = chip->batt_psy->get_property(chip->batt_psy,
+				POWER_SUPPLY_PROP_STATUS, &propval);
+		if (rc) {
+			pr_err("Unable to read battery status: %d\n", rc);
+			goto done;
+		}
+		if (propval.intval == POWER_SUPPLY_STATUS_FULL
+				&& !chip->wake_on_delta_soc) {
+			enable_irq_wake(chip->soc_irq[DELTA_SOC].irq);
+			chip->wake_on_delta_soc = true;
+		}
+		if (propval.intval != POWER_SUPPLY_STATUS_FULL
+				&& chip->wake_on_delta_soc) {
+			disable_irq_wake(chip->soc_irq[DELTA_SOC].irq);
+			chip->wake_on_delta_soc = false;
+		}
+	}
+done:
+	return 0;
+}
+
+static const struct dev_pm_ops qpnp_fg_pm_ops = {
+	.suspend	= fg_suspend,
+};
+
 static struct spmi_driver fg_driver = {
 	.driver		= {
 		.name	= QPNP_FG_DEV_NAME,
 		.of_match_table	= fg_match_table,
+		.pm	= &qpnp_fg_pm_ops,
 	},
 	.probe		= fg_probe,
 	.remove		= fg_remove,
