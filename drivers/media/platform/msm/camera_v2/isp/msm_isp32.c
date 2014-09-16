@@ -122,6 +122,7 @@ static int msm_vfe32_init_hardware(struct vfe_device *vfe_dev)
 	return rc;
 irq_req_failed:
 	iounmap(vfe_dev->vfe_base);
+	vfe_dev->vfe_base = NULL;
 vfe_remap_failed:
 	if (vfe_dev->vfe_clk_idx == 1)
 		msm_cam_clk_enable(&vfe_dev->pdev->dev,
@@ -146,6 +147,7 @@ static void msm_vfe32_release_hardware(struct vfe_device *vfe_dev)
 	free_irq(vfe_dev->vfe_irq->start, vfe_dev);
 	tasklet_kill(&vfe_dev->vfe_tasklet);
 	iounmap(vfe_dev->vfe_base);
+	vfe_dev->vfe_base = NULL;
 	if (vfe_dev->vfe_clk_idx == 1)
 		msm_cam_clk_enable(&vfe_dev->pdev->dev,
 				msm_vfe32_1_clk_info, vfe_dev->vfe_clk,
