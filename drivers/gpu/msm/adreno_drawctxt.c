@@ -119,6 +119,42 @@ done:
 }
 
 /**
+ * adreno_drawctxt_wait_rb() - Wait for the last RB timestamp at which this
+ * context submitted a command to the corresponding RB
+ * @adreno_dev: The device on which the timestamp is active
+ * @context: The context which subbmitted command to RB
+ * @timestamp: The RB timestamp of last command submitted to RB by context
+ * @timeout: Timeout value for the wait
+ */
+static int adreno_drawctxt_wait_rb(struct adreno_device *adreno_dev,
+		struct kgsl_context *context,
+		uint32_t timestamp, unsigned int timeout)
+{
+	struct kgsl_device *device = &adreno_dev->dev;
+	struct adreno_context *drawctxt = ADRENO_CONTEXT(context);
+	int ret = 0;
+
+	/* Needs to hold the device mutex */
+	BUG_ON(!mutex_is_locked(&device->mutex));
+
+	/*
+	 * If the context is invalid then return immediately - we may end up
+	 * waiting for a timestamp that will never come
+	 */
+	if (kgsl_context_invalid(context))
+		goto done;
+
+	trace_adreno_drawctxt_wait_start(drawctxt->rb->id, context->id,
+					timestamp);
+
+	ret = adreno_ringbuffer_waittimestamp(drawctxt->rb, timestamp, timeout);
+done:
+	trace_adreno_drawctxt_wait_done(drawctxt->rb->id, context->id,
+					timestamp, ret);
+	return ret;
+}
+
+/**
  * adreno_drawctxt_invalidate() - Invalidate an adreno draw context
  * @device: Pointer to the KGSL device structure for the GPU
  * @context: Pointer to the KGSL context structure
@@ -287,8 +323,6 @@ adreno_drawctxt_create(struct kgsl_device_private *dev_priv,
 			KGSL_MEMSTORE_OFFSET(drawctxt->base.id, eoptimestamp),
 			0);
 
-	init_completion(&(drawctxt->base.detach_gate));
-
 	adreno_context_debugfs_init(ADRENO_DEVICE(device), drawctxt);
 
 	/* copy back whatever flags we dediced were valid */
@@ -309,47 +343,6 @@ void adreno_drawctxt_sched(struct kgsl_device *device,
 		struct kgsl_context *context)
 {
 	adreno_dispatcher_queue_context(device, ADRENO_CONTEXT(context));
-}
-
-/**
- * adreno_drawctxt_detach_callback() - Callback function called when
- * the last timestamp on which a context submitted command expires
- * @device: Device pointer
- * @ctx: The event groups context. should be NULL since the event group is RB
- * @priv: The context this callback was registered for
- * @result: Indicates the result of wait
- *
- * Signal waiters that were waiting on the last command of this context
- */
-static void adreno_drawctxt_detach_callback(struct kgsl_device *device,
-			struct kgsl_event_group *group,
-			void *priv, int result)
-{
-	struct adreno_context *drawctxt = priv;
-	struct kgsl_context *context = &drawctxt->base;
-	struct adreno_device *adreno_dev = ADRENO_DEVICE(drawctxt->rb->device);
-
-	kgsl_sharedmem_writel(device, &device->memstore,
-		KGSL_MEMSTORE_OFFSET(context->id, soptimestamp),
-		drawctxt->timestamp);
-
-	kgsl_sharedmem_writel(device, &device->memstore,
-		KGSL_MEMSTORE_OFFSET(context->id, eoptimestamp),
-		drawctxt->timestamp);
-
-	/*
-	 * Cancel all pending events after the device-specific context is
-	 * detached, to avoid possibly freeing memory while it is still
-	 * in use by the GPU.
-	 */
-	kgsl_cancel_events(device, &context->events);
-
-	/* wake threads waiting to submit commands from this context */
-	wake_up_all(&drawctxt->waiting);
-	wake_up_all(&drawctxt->wq);
-	complete_all(&drawctxt->base.detach_gate);
-	kgsl_context_put(context);
-	adreno_profile_process_results(adreno_dev);
 }
 
 /**
@@ -414,14 +407,35 @@ int adreno_drawctxt_detach(struct kgsl_context *context)
 	 */
 	BUG_ON(!mutex_is_locked(&device->mutex));
 
-	/* add event to complete context detachment */
-	_kgsl_context_get(context);
-	ret = kgsl_add_event(device, &drawctxt->rb->events,
-			drawctxt->internal_timestamp,
-			adreno_drawctxt_detach_callback,
-			(void *) drawctxt);
-	if (ret)
-		kgsl_context_put(context);
+	/* Wait for the last global timestamp to pass before continuing */
+	ret = adreno_drawctxt_wait_rb(adreno_dev, context,
+		drawctxt->internal_timestamp, 10 * 1000);
+
+	/*
+	 * If the wait for global fails due to timeout then nothing after this
+	 * point is likely to work very well - BUG_ON() so we can take advantage
+	 * of the debug tools to figure out what the h - e - double hockey
+	 * sticks happened. If EAGAIN error is returned then recovery will kick
+	 * in and there will be no more commands in the RB pipe from this
+	 * context which is waht we are waiting for, so ignore -EAGAIN error
+	 */
+	if (-EAGAIN == ret)
+		ret = 0;
+	BUG_ON(ret);
+
+	kgsl_sharedmem_writel(device, &device->memstore,
+			KGSL_MEMSTORE_OFFSET(context->id, soptimestamp),
+			drawctxt->timestamp);
+
+	kgsl_sharedmem_writel(device, &device->memstore,
+			KGSL_MEMSTORE_OFFSET(context->id, eoptimestamp),
+			drawctxt->timestamp);
+
+	adreno_profile_process_results(adreno_dev);
+
+	/* wake threads waiting to submit commands from this context */
+	wake_up_all(&drawctxt->waiting);
+	wake_up_all(&drawctxt->wq);
 
 	return ret;
 }

@@ -64,11 +64,6 @@
 #define KGSL_DMA_BIT_MASK	DMA_BIT_MASK(32)
 #endif
 
-/* 2s timeout wait for contexts to complete */
-#define CTXT_DETACH_TIMEOUT	10000
-
-static struct workqueue_struct *release_work_queue;
-
 /*
  * Define an kmem cache for the memobj structures since we allocate and free
  * them so frequently
@@ -591,9 +586,15 @@ int kgsl_context_detach(struct kgsl_context *context)
 	mutex_unlock(&device->mutex);
 
 	/*
-	 * This put corresponds to the get when user space
-	 * first created the context
+	 * Cancel all pending events after the device-specific context is
+	 * detached, to avoid possibly freeing memory while it is still
+	 * in use by the GPU.
 	 */
+	kgsl_cancel_events(device, &context->events);
+
+	/* Remove the event group from the list */
+	kgsl_del_event_group(&context->events);
+
 	kgsl_context_put(context);
 
 	return ret;
@@ -634,7 +635,6 @@ kgsl_context_destroy(struct kref *kref)
 	write_unlock(&device->context_lock);
 	kgsl_sync_timeline_destroy(context);
 	kgsl_process_private_put(context->proc_priv);
-	kgsl_del_event_group(&context->events);
 
 	device->ftbl->drawctxt_destroy(context);
 }
@@ -936,7 +936,6 @@ error:
 static int kgsl_close_device(struct kgsl_device *device)
 {
 	int result = 0;
-	int flush = 0;
 
 	mutex_lock(&device->mutex);
 	device->open_count--;
@@ -952,29 +951,34 @@ static int kgsl_close_device(struct kgsl_device *device)
 		kgsl_pwrctrl_enable(device);
 		result = device->ftbl->stop(device);
 		kgsl_pwrctrl_change_state(device, KGSL_STATE_INIT);
-		flush = 1;
 	}
 	mutex_unlock(&device->mutex);
-
-	if (flush)
-		flush_workqueue(release_work_queue);
 	return result;
 
 }
 
-/**
- * kgsl_release_deferred_proc_priv() - Free a process private structure
- * @work: The work structure used to schedule the release of the process private
- */
-static void kgsl_release_deferred_proc_priv(struct work_struct *work)
+static int kgsl_release(struct inode *inodep, struct file *filep)
 {
-	struct kgsl_device_private *dev_priv =
-		container_of(work, struct kgsl_device_private, release_work);
+	int result = 0;
+	struct kgsl_device_private *dev_priv = filep->private_data;
 	struct kgsl_process_private *private = dev_priv->process_priv;
 	struct kgsl_device *device = dev_priv->device;
 	struct kgsl_context *context;
+	struct kgsl_syncsource *syncsource;
 	struct kgsl_mem_entry *entry;
 	int next = 0;
+
+	filep->private_data = NULL;
+
+	next = 0;
+	while (1) {
+		syncsource = idr_get_next(&private->syncsource_idr, &next);
+
+		if (syncsource == NULL)
+			break;
+		kgsl_syncsource_put(syncsource);
+		next = next + 1;
+	}
 
 	next = 0;
 	while (1) {
@@ -992,22 +996,7 @@ static void kgsl_release_deferred_proc_priv(struct work_struct *work)
 			 */
 
 			if (_kgsl_context_get(context)) {
-				int ret;
 				kgsl_context_detach(context);
-				/* wait for the ctxt to complete detachment */
-				ret = wait_for_completion_timeout(
-					&context->detach_gate,
-					msecs_to_jiffies(CTXT_DETACH_TIMEOUT));
-				if (0 == ret) {
-					KGSL_DRV_ERR(device,
-					"Timed out while waiting for context %d to detach\n",
-					context->id);
-					wait_for_completion(
-						&context->detach_gate);
-					KGSL_DRV_ERR(device,
-					"Wait for context %d detach complete\n",
-					context->id);
-				}
 				kgsl_context_put(context);
 			}
 		}
@@ -1038,36 +1027,14 @@ static void kgsl_release_deferred_proc_priv(struct work_struct *work)
 		next = next + 1;
 	}
 
+	result = kgsl_close_device(device);
+
 	kfree(dev_priv);
 
 	kgsl_process_private_put(private);
-}
-
-static int kgsl_release(struct inode *inodep, struct file *filep)
-{
-	struct kgsl_device_private *dev_priv = filep->private_data;
-	struct kgsl_process_private *private = dev_priv->process_priv;
-	struct kgsl_device *device = dev_priv->device;
-	struct kgsl_syncsource *syncsource;
-	int next = 0;
-
-	filep->private_data = NULL;
-
-	next = 0;
-	while (1) {
-		syncsource = idr_get_next(&private->syncsource_idr, &next);
-
-		if (syncsource == NULL)
-			break;
-		kgsl_syncsource_put(syncsource);
-		next = next + 1;
-	}
-
-	INIT_WORK(&dev_priv->release_work, kgsl_release_deferred_proc_priv);
-	queue_work(release_work_queue, &dev_priv->release_work);
 
 	pm_runtime_put(&device->pdev->dev);
-	return kgsl_close_device(device);
+	return result;
 }
 
 static int kgsl_open_device(struct kgsl_device *device)
@@ -4578,7 +4545,6 @@ int kgsl_device_platform_probe(struct kgsl_device *device)
 
 
 	device->events_wq = create_workqueue("kgsl-events");
-	release_work_queue = create_workqueue("kgsl-release");
 
 	/* Initalize the snapshot engine */
 	kgsl_device_snapshot_init(device);
@@ -4607,7 +4573,6 @@ EXPORT_SYMBOL(kgsl_device_platform_probe);
 void kgsl_device_platform_remove(struct kgsl_device *device)
 {
 	destroy_workqueue(device->events_wq);
-	destroy_workqueue(release_work_queue);
 
 	kgsl_device_snapshot_close(device);
 

@@ -376,6 +376,7 @@ struct kgsl_device {
 	int reset_counter; /* Track how many GPU core resets have occured */
 	int cff_dump_enable;
 	struct workqueue_struct *events_wq;
+
 	struct device *busmondev; /* pseudo dev for GPU BW voting governor */
 };
 
@@ -440,8 +441,6 @@ struct kgsl_process_private;
  * @pwr_constraint: power constraint from userspace for this context
  * @fault_count: number of times gpu hanged in last _context_throttle_time ms
  * @fault_time: time of the first gpu hang in last _context_throttle_time ms
- * @detach_gate: Once signalled it means the context is completely detached and
- * there are no pending commands in the pipe from this context
  */
 struct kgsl_context {
 	struct kref refcount;
@@ -461,7 +460,6 @@ struct kgsl_context {
 	struct kgsl_pwr_constraint pwr_constraint;
 	unsigned int fault_count;
 	unsigned long fault_time;
-	struct completion detach_gate;
 };
 
 /**
@@ -518,7 +516,6 @@ enum kgsl_process_priv_flags {
 struct kgsl_device_private {
 	struct kgsl_device *device;
 	struct kgsl_process_private *process_priv;
-	struct work_struct release_work;
 };
 
 /**
