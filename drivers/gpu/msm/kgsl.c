@@ -634,6 +634,7 @@ kgsl_context_destroy(struct kref *kref)
 	write_unlock(&device->context_lock);
 	kgsl_sync_timeline_destroy(context);
 	kgsl_process_private_put(context->proc_priv);
+	kgsl_del_event_group(&context->events);
 
 	device->ftbl->drawctxt_destroy(context);
 }
