@@ -40,7 +40,7 @@ struct wcd_cpe_cdc_cb {
 	/* callback for FLL setup for codec */
 	int (*cpe_clk_en) (struct snd_soc_codec *, bool);
 	int (*cdc_ext_clk)(struct snd_soc_codec *codec, int enable, bool dapm);
-	int (*slimtx_lab_en)(struct snd_soc_codec *codec, int event);
+	int (*lab_cdc_ch_ctl)(struct snd_soc_codec *codec, u8 event);
 };
 
 enum wcd_cpe_ssr_state_event {
