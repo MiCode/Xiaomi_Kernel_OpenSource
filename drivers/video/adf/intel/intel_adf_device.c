@@ -39,6 +39,11 @@ void REG_WRITE(u32 reg, u32 val)
 	iowrite32(val, g_intel_adf_dev->mmio + reg);
 }
 
+u32 REG_POSTING_READ(u32 reg)
+{
+	return ioread32(g_intel_adf_dev->mmio + (reg));
+}
+
 struct post_obj {
 	void *obj;
 	struct list_head next;
