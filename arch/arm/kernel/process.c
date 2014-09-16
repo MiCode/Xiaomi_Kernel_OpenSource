@@ -354,11 +354,11 @@ static void show_data(unsigned long addr, int nbytes, const char *name)
 			    probe_kernel_address(p, data)) {
 				printk(" ********");
 			} else {
-				printk(" %08x", data);
+				printk(KERN_CONT " %08x", data);
 			}
 			++p;
 		}
-		printk("\n");
+		printk(KERN_CONT "\n");
 	}
 }
 
