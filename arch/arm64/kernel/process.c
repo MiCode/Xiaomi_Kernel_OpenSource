@@ -247,17 +247,9 @@ static void show_data(unsigned long addr, int nbytes, const char *name)
 
 static void show_extra_register_data(struct pt_regs *regs, int nbytes)
 {
-	int i, top_reg;
-	char reg_name[8];
-
 	show_data(regs->pc - nbytes, nbytes * 2, "PC");
 	show_data(regs->regs[30] - nbytes, nbytes * 2, "LR");
 	show_data(regs->sp - nbytes, nbytes * 2, "SP");
-	top_reg = 29;
-	for (i = top_reg; i >= 0; i--) {
-		snprintf(reg_name, 8, "X%d", i);
-		show_data(regs->regs[i] - nbytes, nbytes * 2, reg_name);
-	}
 }
 
 void __show_regs(struct pt_regs *regs)
@@ -288,7 +280,7 @@ void __show_regs(struct pt_regs *regs)
 	}
 	/* Dump only kernel mode */
 	if (get_fs() == get_ds())
-		show_extra_register_data(regs, 64);
+		show_extra_register_data(regs, 256);
 	printk("\n");
 }
 
