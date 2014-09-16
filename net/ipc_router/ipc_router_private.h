@@ -42,6 +42,7 @@
 
 #define IPC_ROUTER_INFINITY -1
 #define DEFAULT_RCV_TIMEO IPC_ROUTER_INFINITY
+#define DEFAULT_SND_TIMEO IPC_ROUTER_INFINITY
 
 #define ALIGN_SIZE(x) ((4 - ((x) & 3)) & 3)
 
@@ -97,7 +98,8 @@ struct msm_ipc_port *msm_ipc_router_create_raw_port(void *endpoint,
 	void *priv);
 int msm_ipc_router_send_to(struct msm_ipc_port *src,
 			   struct sk_buff_head *data,
-			   struct msm_ipc_addr *dest);
+			   struct msm_ipc_addr *dest,
+			   long timeout);
 int msm_ipc_router_read(struct msm_ipc_port *port_ptr,
 			struct rr_packet **pkt,
 			size_t buf_len);

@@ -291,6 +291,7 @@ static int msm_ipc_router_create(struct net *net,
 	sock->ops = &msm_ipc_proto_ops;
 	sock_init_data(sock, sk);
 	sk->sk_rcvtimeo = DEFAULT_RCV_TIMEO;
+	sk->sk_sndtimeo = DEFAULT_SND_TIMEO;
 
 	msm_ipc_sk(sk)->port = port_ptr;
 	msm_ipc_sk(sk)->default_node_vote_info = NULL;
@@ -391,6 +392,7 @@ static int msm_ipc_router_sendmsg(struct kiocb *iocb, struct socket *sock,
 	struct sk_buff *ipc_buf;
 	int ret;
 	struct msm_ipc_addr dest_addr = {0};
+	long timeout;
 
 	if (dest) {
 		if (m->msg_namelen < sizeof(*dest) ||
@@ -413,6 +415,7 @@ static int msm_ipc_router_sendmsg(struct kiocb *iocb, struct socket *sock,
 		return -EINVAL;
 
 	lock_sock(sk);
+	timeout = sock_sndtimeo(sk, m->msg_flags & MSG_DONTWAIT);
 	msg = msm_ipc_router_build_msg(m->msg_iovlen, m->msg_iov, total_len);
 	if (!msg) {
 		IPC_RTR_ERR("%s: Msg build failure\n", __func__);
@@ -426,7 +429,7 @@ static int msm_ipc_router_sendmsg(struct kiocb *iocb, struct socket *sock,
 	ipc_buf = skb_peek(msg);
 	if (ipc_buf)
 		msm_ipc_router_ipc_log(IPC_SEND, ipc_buf, port_ptr);
-	ret = msm_ipc_router_send_to(port_ptr, msg, &dest_addr);
+	ret = msm_ipc_router_send_to(port_ptr, msg, &dest_addr, timeout);
 	if (ret != total_len) {
 		if (ret < 0) {
 			if (ret != -EAGAIN)

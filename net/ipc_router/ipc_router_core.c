@@ -146,6 +146,11 @@ struct ipc_router_conn_info {
 	uint32_t port_id;
 };
 
+enum {
+	RESET = 0,
+	VALID = 1,
+};
+
 #define RP_HASH_SIZE 32
 struct msm_ipc_router_remote_port {
 	struct list_head list;
@@ -153,6 +158,7 @@ struct msm_ipc_router_remote_port {
 	struct mutex rport_lock_lhb2;
 	uint32_t node_id;
 	uint32_t port_id;
+	int status;
 	uint32_t tx_quota_cnt;
 	struct list_head resume_tx_port_list;
 	struct list_head conn_info_list;
@@ -1061,6 +1067,7 @@ struct msm_ipc_port *msm_ipc_router_create_raw_port(void *endpoint,
 		 port_ptr->this_port.port_id,
 		 current->comm);
 	wakeup_source_init(&port_ptr->port_rx_ws, port_ptr->rx_ws_name);
+	init_waitqueue_head(&port_ptr->port_tx_wait_q);
 	kref_init(&port_ptr->ref);
 
 	port_ptr->endpoint = endpoint;
@@ -1189,6 +1196,7 @@ static struct msm_ipc_router_remote_port *ipc_router_create_rport(
 	}
 	rport_ptr->port_id = port_id;
 	rport_ptr->node_id = node_id;
+	rport_ptr->status = VALID;
 	rport_ptr->sec_rule = NULL;
 	rport_ptr->server = NULL;
 	rport_ptr->tx_quota_cnt = 0;
@@ -1275,19 +1283,49 @@ static void post_resume_tx(struct msm_ipc_router_remote_port *rport_ptr,
 	list_for_each_entry_safe(rtx_port, tmp_rtx_port,
 				&rport_ptr->resume_tx_port_list, list) {
 		local_port = ipc_router_get_port_ref(rtx_port->port_id);
-		if (local_port && local_port->notify)
+		if (local_port && local_port->notify) {
+			wake_up(&local_port->port_tx_wait_q);
 			local_port->notify(IPC_ROUTER_CTRL_CMD_RESUME_TX, msg,
 					   sizeof(*msg), local_port->priv);
-		else if (local_port)
+		} else if (local_port) {
+			wake_up(&local_port->port_tx_wait_q);
 			post_pkt_to_port(local_port, pkt, 1);
-		else
+		} else {
 			IPC_RTR_ERR("%s: Local Port %d not Found",
 				__func__, rtx_port->port_id);
+		}
 		if (local_port)
 			kref_put(&local_port->ref, ipc_router_release_port);
 		list_del(&rtx_port->list);
 		kfree(rtx_port);
 	}
+}
+
+/**
+ * signal_rport_exit() - Signal the local ports of remote port exit
+ * @rport_ptr: Remote port that is exiting.
+ *
+ * This function is used to signal the local ports that are waiting
+ * to resume transmission to a remote port that is exiting.
+ */
+static void signal_rport_exit(struct msm_ipc_router_remote_port *rport_ptr)
+{
+	struct msm_ipc_resume_tx_port *rtx_port, *tmp_rtx_port;
+	struct msm_ipc_port *local_port;
+
+	mutex_lock(&rport_ptr->rport_lock_lhb2);
+	rport_ptr->status = RESET;
+	list_for_each_entry_safe(rtx_port, tmp_rtx_port,
+				 &rport_ptr->resume_tx_port_list, list) {
+		local_port = ipc_router_get_port_ref(rtx_port->port_id);
+		if (local_port) {
+			wake_up(&local_port->port_tx_wait_q);
+			kref_put(&local_port->ref, ipc_router_release_port);
+		}
+		list_del(&rtx_port->list);
+		kfree(rtx_port);
+	}
+	mutex_unlock(&rport_ptr->rport_lock_lhb2);
 }
 
 /**
@@ -1329,6 +1367,7 @@ static void ipc_router_destroy_rport(
 	down_write(&rt_entry->lock_lha4);
 	list_del(&rport_ptr->list);
 	up_write(&rt_entry->lock_lha4);
+	signal_rport_exit(rport_ptr);
 	kref_put(&rport_ptr->ref, ipc_router_release_rport);
 	kref_put(&rt_entry->ref, ipc_router_release_rtentry);
 	return;
@@ -2591,18 +2630,95 @@ static int loopback_data(struct msm_ipc_port *src,
 	return pkt->hdr.size;
 }
 
+static int ipc_router_tx_wait(struct msm_ipc_port *src,
+			      struct msm_ipc_router_remote_port *rport_ptr,
+			      uint32_t *set_confirm_rx,
+			      long timeout)
+{
+	struct msm_ipc_resume_tx_port *resume_tx_port;
+	int ret;
+
+	if (unlikely(!src || !rport_ptr))
+		return -EINVAL;
+
+	for (;;) {
+		mutex_lock(&rport_ptr->rport_lock_lhb2);
+		if (rport_ptr->status == RESET) {
+			mutex_unlock(&rport_ptr->rport_lock_lhb2);
+			IPC_RTR_ERR("%s: RPort %08x:%08x is in reset state\n",
+			    __func__, rport_ptr->node_id, rport_ptr->port_id);
+			return -ENETRESET;
+		}
+
+		if (rport_ptr->tx_quota_cnt < IPC_ROUTER_DEFAULT_RX_QUOTA)
+			break;
+
+		if (msm_ipc_router_lookup_resume_tx_port(
+			rport_ptr, src->this_port.port_id))
+			goto check_timeo;
+
+		resume_tx_port =
+			kzalloc(sizeof(struct msm_ipc_resume_tx_port),
+				GFP_KERNEL);
+		if (!resume_tx_port) {
+			IPC_RTR_ERR("%s: Resume_Tx port allocation failed\n",
+				    __func__);
+			mutex_unlock(&rport_ptr->rport_lock_lhb2);
+			return -ENOMEM;
+		}
+		INIT_LIST_HEAD(&resume_tx_port->list);
+		resume_tx_port->port_id = src->this_port.port_id;
+		resume_tx_port->node_id = src->this_port.node_id;
+		list_add_tail(&resume_tx_port->list,
+			      &rport_ptr->resume_tx_port_list);
+check_timeo:
+		mutex_unlock(&rport_ptr->rport_lock_lhb2);
+		if (!timeout) {
+			return -EAGAIN;
+		} else if (timeout < 0) {
+			ret = wait_event_interruptible(src->port_tx_wait_q,
+					(rport_ptr->tx_quota_cnt !=
+					 IPC_ROUTER_DEFAULT_RX_QUOTA ||
+					 rport_ptr->status == RESET));
+			if (ret)
+				return ret;
+		} else {
+			ret = wait_event_interruptible_timeout(
+					src->port_tx_wait_q,
+					(rport_ptr->tx_quota_cnt !=
+					 IPC_ROUTER_DEFAULT_RX_QUOTA ||
+					 rport_ptr->status == RESET),
+					msecs_to_jiffies(timeout));
+			if (ret < 0) {
+				return ret;
+			} else if (ret == 0) {
+				IPC_RTR_ERR("%s: Resume_tx Timeout %08x:%08x\n",
+					__func__, rport_ptr->node_id,
+					rport_ptr->port_id);
+				return -ETIMEDOUT;
+			}
+		}
+	}
+	rport_ptr->tx_quota_cnt++;
+	if (rport_ptr->tx_quota_cnt == IPC_ROUTER_DEFAULT_RX_QUOTA)
+		*set_confirm_rx = 1;
+	mutex_unlock(&rport_ptr->rport_lock_lhb2);
+	return 0;
+}
+
 static int msm_ipc_router_write_pkt(struct msm_ipc_port *src,
 				struct msm_ipc_router_remote_port *rport_ptr,
-				struct rr_packet *pkt)
+				struct rr_packet *pkt,
+				long timeout)
 {
 	struct rr_header_v1 *hdr;
 	struct msm_ipc_router_xprt_info *xprt_info;
 	struct msm_ipc_routing_table_entry *rt_entry;
-	struct msm_ipc_resume_tx_port  *resume_tx_port;
 	struct sk_buff *temp_skb;
 	int xprt_option;
 	int ret;
 	int align_size;
+	uint32_t set_confirm_rx = 0;
 
 	if (!rport_ptr || !src || !pkt)
 		return -EINVAL;
@@ -2617,34 +2733,11 @@ static int msm_ipc_router_write_pkt(struct msm_ipc_port *src,
 	hdr->dst_node_id = rport_ptr->node_id;
 	hdr->dst_port_id = rport_ptr->port_id;
 
-	mutex_lock(&rport_ptr->rport_lock_lhb2);
-	if (rport_ptr->tx_quota_cnt == IPC_ROUTER_DEFAULT_RX_QUOTA) {
-		if (msm_ipc_router_lookup_resume_tx_port(
-			rport_ptr, src->this_port.port_id)) {
-			mutex_unlock(&rport_ptr->rport_lock_lhb2);
-			return -EAGAIN;
-		}
-		resume_tx_port =
-			kzalloc(sizeof(struct msm_ipc_resume_tx_port),
-							GFP_KERNEL);
-		if (!resume_tx_port) {
-			IPC_RTR_ERR("%s: Resume_Tx port allocation failed\n",
-								__func__);
-			mutex_unlock(&rport_ptr->rport_lock_lhb2);
-			return -ENOMEM;
-		}
-		INIT_LIST_HEAD(&resume_tx_port->list);
-		resume_tx_port->port_id = src->this_port.port_id;
-		resume_tx_port->node_id = src->this_port.node_id;
-		list_add_tail(&resume_tx_port->list,
-				&rport_ptr->resume_tx_port_list);
-		mutex_unlock(&rport_ptr->rport_lock_lhb2);
-		return -EAGAIN;
-	}
-	rport_ptr->tx_quota_cnt++;
-	if (rport_ptr->tx_quota_cnt == IPC_ROUTER_DEFAULT_RX_QUOTA)
+	ret = ipc_router_tx_wait(src, rport_ptr, &set_confirm_rx, timeout);
+	if (ret < 0)
+		return ret;
+	if (set_confirm_rx)
 		hdr->control_flag |= CONTROL_FLAG_CONFIRM_RX;
-	mutex_unlock(&rport_ptr->rport_lock_lhb2);
 
 	if (hdr->dst_node_id == IPC_ROUTER_NID_LOCAL) {
 		ret = loopback_data(src, hdr->dst_port_id, pkt);
@@ -2712,7 +2805,8 @@ out_write_pkt:
 
 int msm_ipc_router_send_to(struct msm_ipc_port *src,
 			   struct sk_buff_head *data,
-			   struct msm_ipc_addr *dest)
+			   struct msm_ipc_addr *dest,
+			   long timeout)
 {
 	uint32_t dst_node_id = 0, dst_port_id = 0;
 	struct msm_ipc_server *server;
@@ -2786,7 +2880,7 @@ int msm_ipc_router_send_to(struct msm_ipc_port *src,
 		return -ENOMEM;
 	}
 
-	ret = msm_ipc_router_write_pkt(src, rport_ptr, pkt);
+	ret = msm_ipc_router_write_pkt(src, rport_ptr, pkt, timeout);
 	kref_put(&rport_ptr->ref, ipc_router_release_rport);
 	if (ret < 0)
 		pkt->pkt_fragment_q = NULL;
@@ -2808,7 +2902,7 @@ int msm_ipc_router_send_msg(struct msm_ipc_port *src,
 		return -EFAULT;
 	}
 
-	ret = msm_ipc_router_send_to(src, out_skb_head, dest);
+	ret = msm_ipc_router_send_to(src, out_skb_head, dest, 0);
 	if (ret < 0) {
 		if (ret != -EAGAIN)
 			IPC_RTR_ERR(
