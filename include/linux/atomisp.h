@@ -552,6 +552,14 @@ struct atomisp_parameters {
 	 * frame, driver will send this id back with output frame together.
 	 */
 	uint32_t	isp_config_id;
+
+	/*
+	 * Switch to control per_frame setting:
+	 * 0: this is a global setting
+	 * 1: this is a per_frame setting
+	 * PLEASE KEEP THIS AT THE END OF THE STRUCTURE!!
+	 */
+	uint32_t	per_frame_setting;
 };
 
 #define ATOMISP_GAMMA_TABLE_SIZE        1024
