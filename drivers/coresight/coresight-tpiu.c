@@ -314,6 +314,9 @@ static int __tpiu_enable_to_sdc_trace(struct tpiu_drvdata *drvdata)
 	__tpiu_enable(drvdata, 0x8, 0x103);
 
 	if (drvdata->nidnthw) {
+		ret = coresight_nidnt_config_qdsd_enable(true);
+		if (ret)
+			goto err;
 		ret = coresight_nidnt_config_swoverride(NIDNT_MODE_SDC_TRACE);
 		if (ret)
 			goto err;
@@ -352,6 +355,10 @@ static int __tpiu_enable_to_sdc_swduart(struct tpiu_drvdata *drvdata)
 	__tpiu_enable(drvdata, 0x8, 0x103);
 
 	if (drvdata->nidnthw) {
+		ret = coresight_nidnt_config_qdsd_enable(true);
+		if (ret)
+			goto err1;
+
 		ret = coresight_nidnt_config_swoverride(NIDNT_MODE_SDC_SWDUART);
 		if (ret)
 			goto err1;
@@ -394,6 +401,10 @@ static int __tpiu_enable_to_sdc_swdtrc(struct tpiu_drvdata *drvdata)
 	__tpiu_enable(drvdata, 0x2, 0x103);
 
 	if (drvdata->nidnthw) {
+		ret = coresight_nidnt_config_qdsd_enable(true);
+		if (ret)
+			goto err1;
+
 		ret = coresight_nidnt_config_swoverride(NIDNT_MODE_SDC_SWDTRC);
 		if (ret)
 			goto err1;
@@ -420,9 +431,17 @@ static int __tpiu_enable_to_sdc_jtag(struct tpiu_drvdata *drvdata)
 	if (ret)
 		return ret;
 
+	ret = coresight_nidnt_config_qdsd_enable(true);
+	if (ret)
+		goto err;
+
 	ret = coresight_nidnt_config_swoverride(NIDNT_MODE_SDC_JTAG);
 	if (ret)
-		__tpiu_disable_to_sdc(drvdata);
+		goto err;
+
+	return 0;
+err:
+	__tpiu_disable_to_sdc(drvdata);
 	return ret;
 }
 
@@ -434,9 +453,17 @@ static int __tpiu_enable_to_sdc_spmi(struct tpiu_drvdata *drvdata)
 	if (ret)
 		return ret;
 
+	ret = coresight_nidnt_config_qdsd_enable(true);
+	if (ret)
+		goto err;
+
 	ret = coresight_nidnt_config_swoverride(NIDNT_MODE_SDC_SPMI);
 	if (ret)
-		__tpiu_disable_to_sdc(drvdata);
+		goto err;
+
+	return 0;
+err:
+	__tpiu_disable_to_sdc(drvdata);
 	return ret;
 }
 
@@ -989,14 +1016,25 @@ static int tpiu_parse_of_data(struct platform_device *pdev,
 	if (ret)
 		return ret;
 
-	if (drvdata->nidnthw && nidnt_boot_hw_detect) {
-		ret = __tpiu_enable_to_sdc(drvdata);
-		if (ret)
-			return ret;
+	if (drvdata->nidnthw) {
+		if (nidnt_boot_hw_detect) {
+			ret = __tpiu_enable_to_sdc(drvdata);
+			if (ret)
+				return ret;
 
-		/* enable and configure nidnt hardware detect */
-		coresight_nidnt_set_hwdetect_param(true);
-		coresight_nidnt_enable_hwdetect();
+			/* enable and configure nidnt hardware detect */
+			coresight_nidnt_set_hwdetect_param(true);
+			coresight_nidnt_enable_hwdetect();
+			dev_info(dev, "NIDnT run-time PS enabled\n");
+		} else {
+			/* if hardware detect is disabled, disable QDSD */
+			ret = coresight_nidnt_config_qdsd_enable(false);
+			if (ret) {
+				dev_err(drvdata->dev, "failed to disable QDSD\n");
+				return ret;
+			}
+			dev_info(dev, "NIDnT on SDCARD only mode\n");
+		}
 	}
 	return 0;
 }
