@@ -166,6 +166,7 @@
 			qcom,dc-psy-type = "Mains";
 			qcom,dc-psy-ma = <1500>;
 			qcom,rparasitic-uohm = <100000>;
+			qcom,resume-soc = <95>;
 			qcom,bms-psy-name = "bms";
 			qcom,thermal-mitigation = <1500 700 600 0>;
 			regulator-name = "pmi8994_otg_vreg";
