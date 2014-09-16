@@ -460,7 +460,7 @@ static int msm_ipc_router_recvmsg(struct kiocb *iocb, struct socket *sock,
 		return -EINVAL;
 
 	lock_sock(sk);
-	timeout = sk->sk_rcvtimeo;
+	timeout = sock_rcvtimeo(sk, flags & MSG_DONTWAIT);
 
 	ret = msm_ipc_router_rx_data_wait(port_ptr, timeout);
 	if (ret) {
