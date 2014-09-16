@@ -447,6 +447,7 @@ struct sst_monitor_lpe {
  * struct intel_sst_drv - driver ops
  *
  * @sst_state : current sst device state
+ * @sst_suspend_state : current sst device (legacy,not runtime) suspend state
  * @pci_id : PCI device id loaded
  * @shim : SST shim pointer
  * @mailbox : SST mailbox pointer
@@ -570,6 +571,7 @@ struct intel_sst_drv {
 	 * different
 	 */
 	const char *hid;
+	bool sst_suspend_state;
 	/* Holder for firmware name. Due to async call it needs to be
 	 * persistent till worker thread gets called
 	 */
@@ -714,6 +716,7 @@ void sst_timer_cb(unsigned long data);
 void sst_dump_to_buffer(const void *from, size_t from_len, char *buf);
 
 extern int intel_scu_ipc_simple_command(int, int);
+void sst_stream_recovery(struct intel_sst_drv *sst);
 
 static inline int sst_pm_runtime_put(struct intel_sst_drv *sst_drv)
 {

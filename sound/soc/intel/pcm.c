@@ -1027,6 +1027,8 @@ static int sst_platform_async_cb(struct sst_platform_cb_params *params)
 		return -EINVAL;
 	}
 
+	pr_info("%s: event = %d\n", __func__, params->event);
+
 	switch (params->event) {
 	case SST_PLATFORM_VTSV_READ_EVENT: {
 		u8 *vtsv_result = params->params;
@@ -1045,7 +1047,8 @@ static int sst_platform_async_cb(struct sst_platform_cb_params *params)
 		break;
 	}
 
-	case SST_PLATFORM_TRIGGER_RECOVERY: {
+	case SST_PLATFORM_TRIGGER_RECOVERY:
+	case SST_PLATFORM_TRIGGER_DAPM_STATE_CHANGE: {
 		bool *dapm_param = params->params;
 
 		card = soc_platform->card;

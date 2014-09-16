@@ -375,6 +375,14 @@ int intel_sst_check_device(void)
 
 	pr_debug("In %s\n", __func__);
 
+	mutex_lock(&sst_drv_ctx->sst_lock);
+	if (sst_drv_ctx->sst_suspend_state) {
+		pr_err("%s:SST is in suspended state; Returning\n", __func__);
+		mutex_unlock(&sst_drv_ctx->sst_lock);
+		return -ENODEV;
+	}
+	mutex_unlock(&sst_drv_ctx->sst_lock);
+
 	pm_runtime_get_sync(sst_drv_ctx->dev);
 	atomic_inc(&sst_drv_ctx->pm_usage_count);
 

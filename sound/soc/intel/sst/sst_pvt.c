@@ -221,7 +221,7 @@ static void dump_ram_area(struct intel_sst_drv *sst,
 }
 
 /*FIXME Disabling IRAM/DRAM dump for timeout issues */
-static void sst_stream_recovery(struct intel_sst_drv *sst)
+void sst_stream_recovery(struct intel_sst_drv *sst)
 {
 	struct stream_info *str_info;
 	u8 i;

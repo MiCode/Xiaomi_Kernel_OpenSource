@@ -1222,17 +1222,62 @@ static int intel_sst_runtime_resume(struct device *dev)
 
 static int intel_sst_suspend(struct device *dev)
 {
-	int retval = 0, usage_count;
+	int usage_count;
 	struct intel_sst_drv *ctx = dev_get_drvdata(dev);
+	bool reset_dapm;
+	struct sst_platform_cb_params cb_params;
+
+	pr_info("Enter: %s\n", __func__);
+	mutex_lock(&ctx->sst_lock);
+	sst_drv_ctx->sst_suspend_state = true;
+	mutex_unlock(&ctx->sst_lock);
+
+	if (ctx->sst_state == SST_RESET) {
+		pr_debug("LPE is already in RESET state, No action");
+		return 0;
+	}
 
 	usage_count = atomic_read(&ctx->pm_usage_count);
 	if (usage_count) {
-		pr_err("Ret error for suspend:%d\n", usage_count);
-		return -EBUSY;
+		pr_warn("sst usage count is: %d; But go ahead suspending\n", usage_count);
 	}
-	retval = intel_sst_runtime_suspend(dev);
 
-	return retval;
+	if (ctx->pdata->start_recovery_timer)
+		sst_set_timer(&ctx->monitor_lpe, false);
+
+	intel_sst_runtime_suspend(dev);
+	cb_params.params = &reset_dapm;
+	cb_params.event = SST_PLATFORM_TRIGGER_DAPM_STATE_CHANGE;
+	reset_dapm = true;
+	sst_platform_cb(&cb_params);
+
+	pr_info("reset the pvt id from val %d\n", ctx->pvt_id);
+	spin_lock(&ctx->pvt_id_lock);
+	ctx->pvt_id = 0;
+	spin_unlock(&ctx->pvt_id_lock);
+
+	mutex_lock(&ctx->sst_lock);
+	sst_stream_recovery(ctx);
+	mutex_unlock(&ctx->sst_lock);
+
+	/* Delay is to ensure that the stream is closed before
+	 * powering on DAPM widget
+	 */
+	usleep_range(10000, 12000);
+	reset_dapm = false;
+	sst_platform_cb(&cb_params);
+
+	return 0;
+}
+static int intel_sst_resume(struct device *dev)
+{
+	struct intel_sst_drv *ctx = dev_get_drvdata(dev);
+
+	pr_info("Enter: %s\n", __func__);
+	mutex_lock(&ctx->sst_lock);
+	sst_drv_ctx->sst_suspend_state = false;
+	mutex_unlock(&ctx->sst_lock);
+	return 0;
 }
 
 static void sst_do_shutdown(struct intel_sst_drv *ctx)
@@ -1311,7 +1356,7 @@ static void sst_acpi_shutdown(struct platform_device *pdev)
 
 static const struct dev_pm_ops intel_sst_pm = {
 	.suspend = intel_sst_suspend,
-	.resume = intel_sst_runtime_resume,
+	.resume = intel_sst_resume,
 	.runtime_suspend = intel_sst_runtime_suspend,
 	.runtime_resume = intel_sst_runtime_resume,
 };
