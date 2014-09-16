@@ -431,29 +431,21 @@ static int msm_otg_link_clk_reset(struct msm_otg *motg, bool assert)
 	int ret;
 
 	if (assert) {
-		if (motg->clk) {
-			ret = clk_reset(motg->clk, CLK_RESET_ASSERT);
-		} else {
-			/* Using asynchronous block reset to the hardware */
-			dev_dbg(motg->phy.dev, "block_reset ASSERT\n");
-			clk_disable_unprepare(motg->pclk);
-			clk_disable_unprepare(motg->core_clk);
-			ret = clk_reset(motg->core_clk, CLK_RESET_ASSERT);
-		}
+		/* Using asynchronous block reset to the hardware */
+		dev_dbg(motg->phy.dev, "block_reset ASSERT\n");
+		clk_disable_unprepare(motg->pclk);
+		clk_disable_unprepare(motg->core_clk);
+		ret = clk_reset(motg->core_clk, CLK_RESET_ASSERT);
 		if (ret)
 			dev_err(motg->phy.dev, "usb hs_clk assert failed\n");
 	} else {
-		if (motg->clk) {
-			ret = clk_reset(motg->clk, CLK_RESET_DEASSERT);
-		} else {
-			dev_dbg(motg->phy.dev, "block_reset DEASSERT\n");
-			ret = clk_reset(motg->core_clk, CLK_RESET_DEASSERT);
-			ndelay(200);
-			ret = clk_prepare_enable(motg->core_clk);
-			WARN(ret, "USB core_clk enable failed\n");
-			ret = clk_prepare_enable(motg->pclk);
-			WARN(ret, "USB pclk enable failed\n");
-		}
+		dev_dbg(motg->phy.dev, "block_reset DEASSERT\n");
+		ret = clk_reset(motg->core_clk, CLK_RESET_DEASSERT);
+		ndelay(200);
+		ret = clk_prepare_enable(motg->core_clk);
+		WARN(ret, "USB core_clk enable failed\n");
+		ret = clk_prepare_enable(motg->pclk);
+		WARN(ret, "USB pclk enable failed\n");
 		if (ret)
 			dev_err(motg->phy.dev, "usb hs_clk deassert failed\n");
 	}
@@ -571,8 +563,6 @@ static int msm_otg_reset(struct usb_phy *phy)
 			motg->reset_counter++;
 	}
 
-	if (motg->clk)
-		clk_prepare_enable(motg->clk);
 	ret = msm_otg_phy_reset(motg);
 	if (ret) {
 		dev_err(phy->dev, "phy_reset failed\n");
@@ -599,9 +589,6 @@ static int msm_otg_reset(struct usb_phy *phy)
 	 * USB PHY Override registers.
 	 */
 	msm_usb_phy_reset(motg);
-
-	if (motg->clk)
-		clk_disable_unprepare(motg->clk);
 
 	if (pdata->otg_control == OTG_PHY_CONTROL) {
 		val = readl_relaxed(USB_OTGSC);
@@ -4633,18 +4620,6 @@ static int msm_otg_probe(struct platform_device *pdev)
 		}
 	}
 
-	/*
-	 * Targets on which link uses asynchronous reset methodology,
-	 * free running clock is not required during the reset.
-	 */
-	motg->clk = clk_get(&pdev->dev, "alt_core_clk");
-	if (IS_ERR(motg->clk)) {
-		motg->clk = NULL;
-		dev_dbg(&pdev->dev, "alt_core_clk is not present\n");
-	} else {
-		clk_set_rate(motg->clk, 60000000);
-	}
-
 	if (pdev->dev.of_node) {
 		dev_dbg(&pdev->dev, "device tree enabled\n");
 		pdata = msm_otg_dt_to_pdata(pdev);
@@ -5196,8 +5171,6 @@ static int msm_otg_remove(struct platform_device *pdev)
 	pm_runtime_set_suspended(&pdev->dev);
 
 	clk_put(motg->pclk);
-	if (motg->clk)
-		clk_put(motg->clk);
 	clk_put(motg->core_clk);
 
 	if (motg->bus_perf_client) {

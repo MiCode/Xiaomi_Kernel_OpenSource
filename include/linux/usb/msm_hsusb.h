@@ -352,7 +352,6 @@ struct msm_otg_platform_data {
  * @pdata: otg device platform data.
  * @irq: IRQ number assigned for HSUSB controller.
  * @async_irq: IRQ number used by some controllers during low power state
- * @clk: clock struct of alt_core_clk.
  * @pclk: clock struct of iface_clk.
  * @core_clk: clock struct of core_bus_clk.
  * @sleep_clk: clock struct of sleep_clk for USB PHY.
@@ -402,7 +401,6 @@ struct msm_otg {
 	int irq;
 	int async_irq;
 	struct clk *xo_clk;
-	struct clk *clk;
 	struct clk *pclk;
 	struct clk *core_clk;
 	struct clk *sleep_clk;
