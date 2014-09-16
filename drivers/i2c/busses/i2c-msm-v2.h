@@ -35,6 +35,8 @@ enum msm_i2_debug_level {
 #define MASK_IS_SET(val, mask)      ((val & mask) == mask)
 #define MASK_IS_SET_BOOL(val, mask) (MASK_IS_SET(val, mask) ? 1 : 0)
 #define KHz(freq) (1000 * freq)
+#define I2C_MSM_CLK_FAST_PLUS_FREQ  (1000000)
+#define I2C_MSM_TAG2_MAX_LEN (4)
 
 /* QUP Registers */
 enum {
@@ -144,11 +146,6 @@ enum {
 	QUP_EN_VERSION_TWO_TAG  = 1U,
 };
 
-enum {
-	I2C_MSM_CLK_FAST_MAX_FREQ    = 1000000,
-	I2C_MSM_CLK_HIGH_MAX_FREQ    = 3400000,
-};
-
 /* Register:QUP_I2C_MASTER_CLK_CTL field setters */
 #define I2C_MSM_SCL_NOISE_REJECTION(reg_val, noise_rej_val) \
 		(((reg_val) & ~(0x3 << 24)) | (((noise_rej_val) & 0x3) << 24))
@@ -202,11 +199,11 @@ enum msm_i2c_power_state {
 
 /*
  * The max buffer size required for tags is for holding the following sequence:
- * [start | hs-addr] + [start | slv-addr] + [ rd/wr | len]
+ * [start] + [start | slv-addr] + [ rd/wr | len]
  * which sum up to 6 bytes. However, we use u64 to hold the value, thus we say
  * that max length is 8 bytes.
  */
-#define I2C_MSM_TAG2_MAX_LEN            (8)
+#define I2C_MSM_TAG2_MAX_LEN            (4)
 #define I2C_MSM_BAM_CONS_SZ             (64) /* consumer pipe n entries */
 #define I2C_MSM_BAM_PROD_SZ             (32) /* producer pipe n entries */
 #define I2C_MSM_BAM_DESC_ARR_SIZ  (I2C_MSM_BAM_CONS_SZ + I2C_MSM_BAM_PROD_SZ)
@@ -217,7 +214,6 @@ enum msm_i2c_power_state {
 #define I2C_MSM_MAX_POLL_MSEC           (100)
 #define I2C_MSM_TIMEOUT_SAFTY_COEF      (10)
 #define I2C_MSM_TIMEOUT_MIN_USEC        (500000)
-#define I2C_MSM_HS_ADDR                 (0x0f)
 #define I2C_QUP_MAX_BUS_RECOVERY_RETRY  (10)
 
 /* QUP v2 tags */
@@ -230,9 +226,6 @@ enum msm_i2c_power_state {
 #define QUP_TAG2_START_STOP        (0x8AULL)
 #define QUP_TAG2_INPUT_EOT         (0x93ULL)
 #define QUP_TAG2_FLUSH_STOP        (0x96ULL)
-/* Aggregate the constatnt values of HS start sequence */
-#define QUP_TAG2_START_HS  (QUP_TAG2_START | (I2C_MSM_HS_ADDR << 8) | \
-			   (QUP_TAG2_START << 16))
 
 enum msm_spi_clk_path_vec_idx {
 	I2C_MSM_CLK_PATH_SUSPEND_VEC,
@@ -383,9 +376,13 @@ struct i2c_msm_xfer_mode_bam {
  * | input_tag | eot_... | tag_arr 0 | tag_arr 1 | .. | tag_arr n |
  * +-----------+---------+-----------+-----------+----+-----------+
  *
- * I2C_MSM_TAG2_MAX_LEN bytes for input_tag
- * I2C_MSM_TAG2_MAX_LEN bytes for eot_n_flush_stop_tags
- * I2C_MSM_BAM_DESC_ARR_SIZ * I2C_MSM_TAG2_MAX_LEN bytes for tag_arr
+ * Why +2?
+ * One tag buffer for the input tags. This is a write only buffer for BAM, it is
+ *    used to read the tags of the input fifo. We let them overwrite each other,
+ *    since it is a throw-away from the driver's perspective.
+ * Second tag buffer for the EOT and flush-stop tags. This is a read only
+ *    buffer (from BAM perspective). It is used to put EOT and flush-stop at the
+ *    end of every transaction.
  */
 #define I2C_MSM_BAM_TAG_MEM_SZ  \
 	((I2C_MSM_BAM_DESC_ARR_SIZ + 2) * I2C_MSM_TAG2_MAX_LEN)
