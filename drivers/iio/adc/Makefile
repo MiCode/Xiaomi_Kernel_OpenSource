@@ -24,3 +24,4 @@ obj-$(CONFIG_TWL6030_GPADC) += twl6030-gpadc.o
 obj-$(CONFIG_VIPERBOARD_ADC) += viperboard_adc.o
 obj-$(CONFIG_INTEL_SOC_PMIC) += dc_xpwr_gpadc.o
 obj-$(CONFIG_INTEL_SOC_PMIC) += dc_ti_gpadc.o
+obj-$(CONFIG_INTEL_SOC_PMIC) += intel_wcove_gpadc.o
