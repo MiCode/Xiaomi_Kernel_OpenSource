@@ -2074,6 +2074,7 @@ static int msm8x16_wcd_codec_enable_micbias(struct snd_soc_dapm_widget *w,
 	char *internal1_text = "Internal1";
 	char *internal2_text = "Internal2";
 	char *internal3_text = "Internal3";
+	char *external2_text = "External2";
 
 	dev_dbg(codec->dev, "%s %d\n", __func__, event);
 	switch (w->reg) {
@@ -2112,6 +2113,9 @@ static int msm8x16_wcd_codec_enable_micbias(struct snd_soc_dapm_widget *w,
 					WCD_EVENT_PRE_MICBIAS_2_ON);
 		} else if (strnstr(w->name, internal3_text, 30)) {
 			snd_soc_update_bits(codec, micb_int_reg, 0x01, 0x01);
+		} else if (strnstr(w->name, external2_text, 30)) {
+			msm8x16_notifier_call(codec,
+					WCD_EVENT_PRE_MICBIAS_2_ON);
 		}
 		break;
 	case SND_SOC_DAPM_POST_PMD:
@@ -2122,6 +2126,14 @@ static int msm8x16_wcd_codec_enable_micbias(struct snd_soc_dapm_widget *w,
 					WCD_EVENT_PRE_MICBIAS_2_OFF);
 		} else if (strnstr(w->name, internal3_text, 30)) {
 			snd_soc_update_bits(codec, micb_int_reg, 0x2, 0x0);
+		} else if (strnstr(w->name, external2_text, 30)) {
+			/*
+			 * send micbias turn off event to mbhc driver and then
+			 * break, as no need to set MICB_1_EN register.
+			 */
+			msm8x16_notifier_call(codec,
+					WCD_EVENT_PRE_MICBIAS_2_OFF);
+			break;
 		}
 		snd_soc_update_bits(codec, MSM8X16_WCD_A_ANALOG_MICB_1_EN,
 				0x44, 0x00);
@@ -3227,8 +3239,11 @@ static const struct snd_soc_dapm_widget msm8x16_wcd_dapm_widgets[] = {
 	SND_SOC_DAPM_MICBIAS("MIC BIAS External",
 		MSM8X16_WCD_A_ANALOG_MICB_1_EN, 7, 0),
 
-	SND_SOC_DAPM_MICBIAS("MIC BIAS External2",
-		MSM8X16_WCD_A_ANALOG_MICB_2_EN, 7, 0),
+	SND_SOC_DAPM_MICBIAS_E("MIC BIAS External2",
+		MSM8X16_WCD_A_ANALOG_MICB_2_EN, 7, 0,
+		msm8x16_wcd_codec_enable_micbias, SND_SOC_DAPM_POST_PMU |
+		SND_SOC_DAPM_POST_PMD),
+
 
 	SND_SOC_DAPM_INPUT("AMIC3"),
 

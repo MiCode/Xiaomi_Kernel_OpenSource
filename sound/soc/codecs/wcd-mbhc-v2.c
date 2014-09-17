@@ -265,6 +265,8 @@ static int wcd_event_notify(struct notifier_block *self, unsigned long val,
 		mbhc->is_hs_recording = true;
 		/* Program Button threshold registers */
 		wcd_program_btn_threshold(mbhc, true);
+		/* configure cap settings properly when micbias is enabled */
+		wcd_configure_cap(mbhc, true);
 		break;
 	/* MICBIAS usage change */
 	case WCD_EVENT_PRE_MICBIAS_2_OFF:
@@ -285,6 +287,8 @@ static int wcd_event_notify(struct notifier_block *self, unsigned long val,
 					MSM8X16_WCD_A_ANALOG_MICB_2_EN,
 					0x40, 0x40);
 		}
+		/* configure cap settings properly when micbias is disabled */
+		wcd_configure_cap(mbhc, false);
 		break;
 	case WCD_EVENT_POST_HPHL_PA_OFF:
 		if (mbhc->hph_status & SND_JACK_OC_HPHL)
