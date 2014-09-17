@@ -427,6 +427,10 @@ int intel_adf_interface_init(struct intel_adf_interface *intf,
 	if (err)
 		goto out_err3;
 
+	/* fill the interface modelist */
+	pipe->ops->get_modelist(pipe, &intf->base.modelist,
+				&intf->base.n_modes);
+
 	/*turn on this interface if screen was connected*/
 	if (pipe->ops->is_screen_connected(pipe)) {
 		err = set_preferred_mode(intf);
