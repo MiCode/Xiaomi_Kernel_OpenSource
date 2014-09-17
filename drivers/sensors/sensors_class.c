@@ -127,6 +127,20 @@ static ssize_t sensors_type_show(struct device *dev,
 	return snprintf(buf, PAGE_SIZE, "%d\n", sensors_cdev->type);
 }
 
+static ssize_t sensors_max_delay_show(struct device *dev,
+		struct device_attribute *attr, char *buf)
+{
+	struct sensors_classdev *sensors_cdev = dev_get_drvdata(dev);
+	return snprintf(buf, PAGE_SIZE, "%d\n", sensors_cdev->max_delay);
+}
+
+static ssize_t sensors_flags_show(struct device *dev,
+		struct device_attribute *attr, char *buf)
+{
+	struct sensors_classdev *sensors_cdev = dev_get_drvdata(dev);
+	return snprintf(buf, PAGE_SIZE, "%d\n", sensors_cdev->flags);
+}
+
 static ssize_t sensors_max_range_show(struct device *dev,
 		struct device_attribute *attr, char *buf)
 {
@@ -261,55 +275,49 @@ static ssize_t sensors_test_show(struct device *dev,
 			ret ? "fail" : "pass");
 }
 
-static ssize_t sensors_batch_store(struct device *dev,
+static ssize_t sensors_max_latency_store(struct device *dev,
 		struct device_attribute *attr, const char *buf, size_t size)
 {
 	struct sensors_classdev *sensors_cdev = dev_get_drvdata(dev);
-	unsigned int enable, mode, period_ms, timeout_ms;
+	unsigned long latency;
 	int ret = -EINVAL;
 
-	ret = sscanf(buf, "enable=%u, mode=%u, period_ms=%u, timeout_ms=%u",
-		&enable, &mode, &period_ms, &timeout_ms);
-
-	if (ret != 4)
-		return -EINVAL;
-	if (enable && (timeout_ms == 0)) {
-		dev_err(dev,
-			"Cannot set timeout to zero while enable batch mode\n");
-		return -EINVAL;
-	}
-	if (enable && ((period_ms * 1000) < sensors_cdev->min_delay)) {
-		dev_err(dev,
-			"batch: invalid value of delay, delay(ms)=%u\n",
-				period_ms);
-		return -EINVAL;
-	}
-	if (sensors_cdev->sensors_batch == NULL) {
-		dev_err(dev, "Invalid sensor class batch handle\n");
-		return -EINVAL;
-	}
-	ret = sensors_cdev->sensors_batch(sensors_cdev,
-			enable, mode, period_ms, timeout_ms);
+	ret = kstrtoul(buf, 10, &latency);
 	if (ret)
 		return ret;
 
-	sensors_cdev->batch_enable = enable;
-	sensors_cdev->batch_mode = mode;
-	sensors_cdev->delay_msec = period_ms;
-	sensors_cdev->batch_timeout_ms = timeout_ms;
+	if (latency > sensors_cdev->max_delay) {
+		dev_err(dev, "max_latency(%lu) is greater than max_delay(%u)\n",
+				latency, sensors_cdev->max_delay);
+		return -EINVAL;
+	}
+
+	if (sensors_cdev->sensors_set_latency == NULL) {
+		dev_err(dev, "Invalid sensor calss set latency handle\n");
+		return -EINVAL;
+	}
+
+	/* Disable batching for this sensor */
+	if (latency < sensors_cdev->delay_msec) {
+		dev_err(dev, "max_latency is less than delay_msec\n");
+		return -EINVAL;
+	}
+
+	ret = sensors_cdev->sensors_set_latency(sensors_cdev, latency);
+	if (ret)
+		return ret;
+
+	sensors_cdev->max_latency = latency;
+
 	return size;
 }
 
-static ssize_t sensors_batch_show(struct device *dev,
+static ssize_t sensors_max_latency_show(struct device *dev,
 		struct device_attribute *attr, char *buf)
 {
 	struct sensors_classdev *sensors_cdev = dev_get_drvdata(dev);
 	return snprintf(buf, PAGE_SIZE,
-		"enable=%u, mode=%u, period_ms=%u, timeout_ms=%u\n",
-			sensors_cdev->batch_enable,
-			sensors_cdev->batch_mode,
-			sensors_cdev->delay_msec,
-			sensors_cdev->batch_timeout_ms);
+		"%u\n", sensors_cdev->max_latency);
 }
 
 static ssize_t sensors_flush_store(struct device *dev,
@@ -455,13 +463,16 @@ static struct device_attribute sensors_class_attrs[] = {
 	__ATTR(min_delay, 0444, sensors_min_delay_show, NULL),
 	__ATTR(fifo_reserved_event_count, 0444, sensors_fifo_event_show, NULL),
 	__ATTR(fifo_max_event_count, 0444, sensors_fifo_max_show, NULL),
+	__ATTR(max_delay, 0444, sensors_max_delay_show, NULL),
+	__ATTR(flags, 0444, sensors_flags_show, NULL),
 	__ATTR(enable, 0664, sensors_enable_show, sensors_enable_store),
+	__ATTR(enable_wakeup, 0664, sensors_enable_wakeup_show,
+			sensors_enable_wakeup_store),
 	__ATTR(poll_delay, 0664, sensors_delay_show, sensors_delay_store),
 	__ATTR(self_test, 0440, sensors_test_show, NULL),
-	__ATTR(batch, 0660, sensors_batch_show, sensors_batch_store),
+	__ATTR(max_latency, 0660, sensors_max_latency_show,
+			sensors_max_latency_store),
 	__ATTR(flush, 0660, sensors_flush_show, sensors_flush_store),
-	__ATTR(enable_wakeup, 0660, sensors_enable_wakeup_show,
-			sensors_enable_wakeup_store),
 	__ATTR(calibrate, 0664, sensors_calibrate_show,
 			sensors_calibrate_store),
 	__ATTR_NULL,

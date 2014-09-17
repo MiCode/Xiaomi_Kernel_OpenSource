@@ -283,6 +283,7 @@ struct lis3dh_acc_data {
 	unsigned int delay_ms;
 	unsigned int batch_mode;
 	unsigned int fifo_timeout_ms;
+	unsigned int flush_count;
 	int irq1;
 	int irq2;
 
@@ -301,16 +302,17 @@ static struct sensors_classdev lis3dh_acc_cdev = {
 	.resolution = "0.01",
 	.sensor_power = "0.01",
 	.min_delay = 10000,
+	.max_delay = 6400,
 	.delay_msec = 200,
 	.fifo_reserved_event_count = 0,
 	.fifo_max_event_count = 0,
 	.enabled = 0,
-	.batch_enable = 0,
-	.batch_mode = BATCH_MODE_NORMAL,
-	.batch_timeout_ms = 0,
+	.max_latency = 0,
+	.flags = 0,
 	.sensors_enable = NULL,
-	.sensors_batch = NULL,
 	.sensors_poll_delay = NULL,
+	.sensors_set_latency = NULL,
+	.sensors_flush = NULL,
 };
 
 struct sensor_regulator {
@@ -1620,6 +1622,54 @@ static int remove_sysfs_interfaces(struct device *dev)
 	return 0;
 }
 
+static int lis3dh_acc_flush(struct sensors_classdev *sensors_cdev)
+{
+	struct lis3dh_acc_data *acc = container_of(sensors_cdev,
+			struct lis3dh_acc_data, cdev);
+	s64 timestamp;
+	int err;
+	int fifo_cnt;
+	int i;
+	u32 time_h, time_l, time_ms;
+	int xyz[3] = {0};
+
+	timestamp = lis3dh_acc_get_time_ns();
+	time_ms = lis3dh_acc_odr_to_interval(acc,
+			(acc->resume_state[RES_CTRL_REG1] >> 4));
+	fifo_cnt = lis3dh_acc_get_fifo_lvl(acc);
+	dev_dbg(&acc->client->dev, "TS: base=%lld, interval=%d fifo_cnt=%d\n",
+			timestamp, time_ms, fifo_cnt);
+	timestamp = timestamp -
+		((s64)time_ms * LIS3DH_TIME_MS_TO_NS * fifo_cnt);
+
+	for (i = 0; i < fifo_cnt; i++) {
+		err = lis3dh_acc_get_acceleration_data(acc, xyz);
+		if (err < 0) {
+			dev_err(&acc->client->dev,
+					"get_acceleration_data failed\n");
+			goto exit;
+		} else {
+			timestamp = timestamp +
+				(time_ms * LIS3DH_TIME_MS_TO_NS);
+			time_h = (u32)(((u64)timestamp >> 32) & 0xFFFFFFFF);
+			time_l = (u32)(timestamp & 0xFFFFFFFF);
+
+			input_report_abs(acc->input_dev, ABS_RX,
+					time_h);
+			input_report_abs(acc->input_dev, ABS_RY,
+					time_l);
+			lis3dh_acc_report_values(acc, xyz);
+		}
+	}
+
+	input_event(acc->input_dev, EV_SYN, SYN_CONFIG, acc->flush_count++);
+	input_sync(acc->input_dev);
+
+	return 0;
+exit:
+	return err;
+}
+
 static int lis3dh_acc_poll_delay_set(struct sensors_classdev *sensors_cdev,
 	unsigned int delay_msec)
 {
@@ -1683,12 +1733,8 @@ static int lis3dh_acc_enable_set(struct sensors_classdev *sensors_cdev,
 	}
 	return err;
 }
-
-static int lis3dh_batch_set(struct sensors_classdev *cdev,
-					unsigned int enable,
-					unsigned int mode,
-					unsigned int period_ms,
-					unsigned int timeout_ms)
+static int lis3dh_latency_set(struct sensors_classdev *cdev,
+					unsigned int max_latency)
 {
 	struct lis3dh_acc_data *acc = container_of(cdev,
 		struct lis3dh_acc_data, cdev);
@@ -1700,10 +1746,8 @@ static int lis3dh_batch_set(struct sensors_classdev *cdev,
 			"Cannot set batch mode, interrupt is not enabled!\n");
 		return -EPERM;
 	}
-	acc->use_batch = enable ? true : false;
-	acc->delay_ms = period_ms;
-	acc->batch_mode = mode;
-	acc->fifo_timeout_ms = timeout_ms;
+	acc->use_batch = max_latency ? true : false;
+	acc->fifo_timeout_ms = max_latency;
 	return 0;
 }
 
@@ -2128,7 +2172,8 @@ static int lis3dh_acc_probe(struct i2c_client *client,
 	acc->cdev.sensors_poll_delay = lis3dh_acc_poll_delay_set;
 	/* batch is possiable only when interrupt is enabled */
 	if (gpio_is_valid(acc->pdata->gpio_int1) && acc->pdata->enable_int) {
-		acc->cdev.sensors_batch = lis3dh_batch_set;
+		acc->cdev.sensors_set_latency = lis3dh_latency_set;
+		acc->cdev.sensors_flush = lis3dh_acc_flush;
 		acc->cdev.fifo_reserved_event_count = LIS3DH_FIFO_SIZE;
 		acc->cdev.fifo_max_event_count = LIS3DH_FIFO_SIZE;
 	}

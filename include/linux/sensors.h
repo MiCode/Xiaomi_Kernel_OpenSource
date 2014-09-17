@@ -106,12 +106,18 @@ struct cal_result_t {
  *				in the batch mode FIFO.
  * @fifo_max_event_count:	The maximum number of events of this sensor
  *				that could be batched.
+ * @max_delay:		The slowest rate the sensor supports in millisecond.
+ * @flags:		Should be '1' if the sensor is a wake up sensor.
+ *			set it to '0' otherwise.
  * @enabled:		Store the sensor driver enable status.
  * @delay_msec:		Store the sensor driver delay value. The data unit is
  *			millisecond.
- * @wakeup:		Indicate if the wake up interrupt has been enabled
+ * @wakeup:		Indicate if the wake up interrupt has been enabled.
+ * @max_latency:	Max report latency in millisecond
  * @sensors_enable:	The handle for enable and disable sensor.
  * @sensors_poll_delay:	The handle for set the sensor polling delay time.
+ * @sensors_set_latency:Set the max report latency of the sensor.
+ * @sensors_flush:	Flush sensor events in FIFO and report it to user space.
  * @params		The sensor calibrate string format params up to userspace.
  * @cal_result		The sensor calibrate parameters, cal_result is a struct for sensor.
  */
@@ -129,12 +135,13 @@ struct sensors_classdev {
 	int			min_delay;
 	int			fifo_reserved_event_count;
 	int			fifo_max_event_count;
+	int32_t			max_delay;
+	uint32_t		flags;
+
 	unsigned int		enabled;
-	unsigned int		batch_enable;
-	unsigned int		batch_mode;
 	unsigned int		delay_msec;
-	unsigned int		batch_timeout_ms;
 	unsigned int		wakeup;
+	unsigned int		max_latency;
 	char			*params;
 	struct cal_result_t	cal_result;
 	/* enable and disable the sensor handle*/
@@ -143,14 +150,11 @@ struct sensors_classdev {
 	int	(*sensors_poll_delay)(struct sensors_classdev *sensors_cdev,
 					unsigned int delay_msec);
 	int	(*sensors_self_test)(struct sensors_classdev *sensors_cdev);
-	int	(*sensors_batch)(struct sensors_classdev *sensor_cdev,
-					unsigned int enable,
-					unsigned int mode,
-					unsigned int period_ms,
-					unsigned int timeout_ms);
+	int	(*sensors_set_latency)(struct sensors_classdev *sensor_cdev,
+					unsigned int max_latency);
+	int	(*sensors_enable_wakeup)(struct sensors_classdev *sensor_cdev,
+					unsigned int enable);
 	int	(*sensors_flush)(struct sensors_classdev *sensors_cdev);
-	int	(*sensors_enable_wakeup)(struct sensors_classdev *sensors_cdev,
-			unsigned int enable);
 	int	(*sensors_calibrate)(struct sensors_classdev *sensor_cdev,
 					int axis, int apply_now);
 	int	(*sensors_write_cal_params)(struct sensors_classdev
