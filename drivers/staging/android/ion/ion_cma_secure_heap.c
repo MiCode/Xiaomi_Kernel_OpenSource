@@ -37,6 +37,7 @@ struct ion_secure_cma_buffer_info {
 	dma_addr_t phys;
 	struct sg_table *table;
 	bool is_cached;
+	int len;
 };
 
 struct ion_cma_alloc_chunk {
@@ -480,6 +481,7 @@ retry:
 		goto err;
 	}
 
+	info->len = len;
 	ion_secure_cma_get_sgtable(sheap->dev,
 			info->table, info->phys, len);
 
@@ -491,6 +493,17 @@ retry:
 err:
 	kfree(info);
 	return ION_CMA_ALLOCATE_FAILED;
+}
+
+static void __ion_secure_cma_free(struct ion_cma_secure_heap *sheap,
+				struct ion_secure_cma_buffer_info *info,
+				bool release_memory)
+{
+	if (release_memory)
+		ion_secure_cma_free_from_pool(sheap, info->phys, info->len);
+	sg_free_table(info->table);
+	kfree(info->table);
+	kfree(info);
 }
 
 static int ion_secure_cma_allocate(struct ion_heap *heap,
@@ -527,7 +540,7 @@ static int ion_secure_cma_allocate(struct ion_heap *heap,
 		int ret;
 
 		if (!msm_secure_v2_is_supported()) {
-			pr_debug("%s: securing buffers is not supported on this platform\n",
+			pr_err("%s: securing buffers from clients is not supported on this platform\n",
 				__func__);
 			ret = 1;
 		} else {
@@ -538,20 +551,18 @@ static int ion_secure_cma_allocate(struct ion_heap *heap,
 									flags);
 		}
 		if (ret) {
-			/*
-			 * Don't treat the secure buffer failing here as an
-			 * error for backwards compatibility reasons. If
-			 * the secure fails, the map will also fail so there
-			 * is no security risk.
-			 */
-			pr_debug("%s: failed to secure buffer\n", __func__);
+			struct ion_cma_secure_heap *sheap =
+				container_of(buffer->heap,
+					struct ion_cma_secure_heap, heap);
+
+			pr_err("%s: failed to secure buffer\n", __func__);
+			__ion_secure_cma_free(sheap, buf, true);
 		}
-		return 0;
+		return ret;
 	} else {
 		return -ENOMEM;
 	}
 }
-
 
 static void ion_secure_cma_free(struct ion_buffer *buffer)
 {
@@ -565,17 +576,14 @@ static void ion_secure_cma_free(struct ion_buffer *buffer)
 		ret = msm_ion_unsecure_table(info->table);
 	atomic_sub(buffer->size, &sheap->total_allocated);
 	BUG_ON(atomic_read(&sheap->total_allocated) < 0);
+
 	/* release memory */
-	if (!ret) {
-		ion_secure_cma_free_from_pool(sheap, info->phys, buffer->size);
-	} else {
+	if (ret) {
 		WARN(1, "Unsecure failed, can't free the memory. Leaking it!");
 		atomic_add(buffer->size, &sheap->total_leaked);
 	}
-	/* release sg table */
-	sg_free_table(info->table);
-	kfree(info->table);
-	kfree(info);
+
+	__ion_secure_cma_free(sheap, info, ret ? false : true);
 }
 
 static int ion_secure_cma_phys(struct ion_heap *heap, struct ion_buffer *buffer,
