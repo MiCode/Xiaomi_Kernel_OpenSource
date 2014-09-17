@@ -572,6 +572,7 @@ static int dwc3_probe(struct platform_device *pdev)
 	void __iomem		*regs;
 	void			*mem;
 
+	u32			hird_thresh;
 	u8			mode;
 	bool			host_only_mode;
 
@@ -636,8 +637,10 @@ static int dwc3_probe(struct platform_device *pdev)
 	dwc->usb3_u1u2_disable = of_property_read_bool(node,
 						"snps,usb3-u1u2-disable");
 	dwc->maximum_speed = of_usb_get_maximum_speed(node);
-	ret = of_property_read_u8(node, "snps,hird_thresh", &dwc->hird_thresh);
-	if (res)
+	ret = of_property_read_u32(node, "snps,hird_thresh", &hird_thresh);
+	if (!ret)
+		dwc->hird_thresh = (u8) hird_thresh;
+	else
 		dwc->hird_thresh = DWC3_DCTL_HIRD_THRES_DEFAULT;
 
 	dwc->enable_bus_suspend = of_property_read_bool(node,
