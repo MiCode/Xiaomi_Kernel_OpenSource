@@ -129,8 +129,10 @@ static int mdss_mdp_video_timegen_setup(struct mdss_mdp_ctl *ctl,
 	u32 den_polarity, hsync_polarity, vsync_polarity;
 	u32 display_hctl, active_hctl, hsync_ctl, polarity_ctl;
 	struct mdss_mdp_video_ctx *ctx;
+	struct mdss_data_type *mdata;
 
 	ctx = ctl->priv_data;
+	mdata = ctl->mdata;
 	hsync_period = p->hsync_pulse_width + p->h_back_porch +
 			p->width + p->h_front_porch;
 	vsync_period = p->vsync_pulse_width + p->v_back_porch +
@@ -146,8 +148,13 @@ static int mdss_mdp_video_timegen_setup(struct mdss_mdp_ctl *ctl,
 		display_v_end -= p->h_front_porch;
 	}
 
-	ctl->flush_bits |= BIT(31) >>
-		(ctl->intf_num - MDSS_MDP_INTF0);
+	/* TIMING_2 flush bit on 8939 is BIT 31 */
+	if (mdata->mdp_rev == MDSS_MDP_HW_REV_108 &&
+				ctx->intf_num == MDSS_MDP_INTF2)
+		ctl->flush_bits |= BIT(31);
+	else
+		ctl->flush_bits |= BIT(31) >>
+			(ctx->intf_num - MDSS_MDP_INTF0);
 
 	hsync_start_x = p->h_back_porch + p->hsync_pulse_width;
 	hsync_end_x = hsync_period - p->h_front_porch - 1;
