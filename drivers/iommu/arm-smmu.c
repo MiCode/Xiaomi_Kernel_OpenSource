@@ -1528,18 +1528,19 @@ static int arm_smmu_alloc_init_pte(struct arm_smmu_domain *smmu_domain,
 	}
 
 	if (stage == 1) {
-		pteval |= ARM_SMMU_PTE_AP_UNPRIV | ARM_SMMU_PTE_nG;
+		pteval |= ARM_SMMU_PTE_nG;
+		if (!(prot & IOMMU_PRIV))
+			pteval |= ARM_SMMU_PTE_AP_UNPRIV;
 		if (!(prot & IOMMU_WRITE) && (prot & IOMMU_READ))
 			pteval |= ARM_SMMU_PTE_AP_RDONLY;
-
 		if (prot & IOMMU_CACHE)
 			pteval |= (MAIR_ATTR_IDX_CACHE <<
 				   ARM_SMMU_PTE_ATTRINDX_SHIFT);
 	} else {
 		pteval |= ARM_SMMU_PTE_HAP_FAULT;
-		if (prot & IOMMU_READ)
+		if (prot & IOMMU_READ && !(prot & IOMMU_PRIV))
 			pteval |= ARM_SMMU_PTE_HAP_READ;
-		if (prot & IOMMU_WRITE)
+		if (prot & IOMMU_WRITE && !(prot & IOMMU_PRIV))
 			pteval |= ARM_SMMU_PTE_HAP_WRITE;
 		if (prot & IOMMU_CACHE)
 			pteval |= ARM_SMMU_PTE_MEMATTR_OIWB;
