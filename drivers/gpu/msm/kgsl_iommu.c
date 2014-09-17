@@ -1660,9 +1660,6 @@ kgsl_iommu_unmap(struct kgsl_pagetable *pt,
 	int ret = 0;
 	unsigned int range = memdesc->size;
 	struct kgsl_iommu_pt *iommu_pt = pt->priv;
-	struct kgsl_iommu *iommu = pt->mmu->priv;
-	struct kgsl_iommu_device *secure_dev =
-	&iommu->iommu_units[KGSL_IOMMU_UNIT_0].dev[KGSL_IOMMU_CONTEXT_SECURE];
 
 	/* All GPU addresses as assigned are page aligned, but some
 	   functions purturb the gpuaddr with an offset, so apply the
@@ -1676,8 +1673,7 @@ kgsl_iommu_unmap(struct kgsl_pagetable *pt,
 	if (kgsl_memdesc_has_guard_page(memdesc))
 		range += PAGE_SIZE;
 
-	if (kgsl_memdesc_is_secured(memdesc) && kgsl_mmu_is_secured(pt->mmu)
-					&& !secure_dev->attached)  {
+	if (kgsl_memdesc_is_secured(memdesc) && kgsl_mmu_is_secured(pt->mmu)) {
 		mutex_lock(&device->mutex);
 		ret = kgsl_active_count_get(device);
 		if (!ret) {
@@ -1717,9 +1713,6 @@ kgsl_iommu_map(struct kgsl_pagetable *pt,
 	unsigned int protflags;
 	struct kgsl_device *device = pt->mmu->device;
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
-	struct kgsl_iommu *iommu = pt->mmu->priv;
-	struct kgsl_iommu_device *secure_dev =
-	&iommu->iommu_units[KGSL_IOMMU_UNIT_0].dev[KGSL_IOMMU_CONTEXT_SECURE];
 
 	BUG_ON(NULL == iommu_pt);
 
@@ -1733,8 +1726,7 @@ kgsl_iommu_map(struct kgsl_pagetable *pt,
 	if (memdesc->priv & KGSL_MEMDESC_PRIVILEGED)
 		protflags |= IOMMU_PRIV;
 
-	if (kgsl_memdesc_is_secured(memdesc) && kgsl_mmu_is_secured(pt->mmu)
-						&& !secure_dev->attached) {
+	if (kgsl_memdesc_is_secured(memdesc) && kgsl_mmu_is_secured(pt->mmu)) {
 		mutex_lock(&device->mutex);
 		ret = kgsl_active_count_get(device);
 		if (!ret) {
