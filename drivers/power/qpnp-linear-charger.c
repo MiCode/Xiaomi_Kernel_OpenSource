@@ -37,8 +37,7 @@
 #define BATT_PRES_IRQ                           BIT(0)
 
 /* USB CHARGER PATH peripheral register offsets */
-#define USB_PTH_STS_REG				0x09
-#define USB_IN_VALID_MASK			LBC_MASK(7, 6)
+#define USB_IN_VALID_MASK			BIT(1)
 #define USB_SUSP_REG				0x47
 #define USB_SUSPEND_BIT				BIT(0)
 
@@ -604,15 +603,15 @@ static int qpnp_lbc_is_usb_chg_plugged_in(struct qpnp_lbc_chip *chip)
 	u8 usbin_valid_rt_sts;
 	int rc;
 
-	rc = qpnp_lbc_read(chip, chip->usb_chgpth_base + USB_PTH_STS_REG,
+	rc = qpnp_lbc_read(chip, chip->usb_chgpth_base + INT_RT_STS_REG,
 				&usbin_valid_rt_sts, 1);
 	if (rc) {
 		pr_err("spmi read failed: addr=%03X, rc=%d\n",
-				chip->usb_chgpth_base + USB_PTH_STS_REG, rc);
+				chip->usb_chgpth_base + INT_RT_STS_REG, rc);
 		return rc;
 	}
 
-	pr_debug("usb_path_sts 0x%x\n", usbin_valid_rt_sts);
+	pr_debug("rt_sts 0x%x\n", usbin_valid_rt_sts);
 
 	return (usbin_valid_rt_sts & USB_IN_VALID_MASK) ? 1 : 0;
 }
@@ -2671,49 +2670,6 @@ static int qpnp_lbc_remove(struct spmi_device *spmi)
 	return 0;
 }
 
-/*
- * S/W workaround to force VREF_BATT_THERM ON:
- * Switching between aVDD and LDO has h/w issues, forcing VREF_BATT_THM
- * alway ON to prevent switching to aVDD.
- */
-
-static int qpnp_lbc_resume(struct device *dev)
-{
-	struct qpnp_lbc_chip *chip = dev_get_drvdata(dev);
-	int rc = 0;
-
-	if (chip->bat_if_base) {
-		rc = qpnp_lbc_masked_write(chip,
-			chip->bat_if_base + BAT_IF_VREF_BAT_THM_CTRL_REG,
-			VREF_BATT_THERM_FORCE_ON, VREF_BATT_THERM_FORCE_ON);
-		if (rc)
-			pr_err("Failed to force on VREF_BAT_THM rc=%d\n", rc);
-	}
-
-	return rc;
-}
-
-static int qpnp_lbc_suspend(struct device *dev)
-{
-	struct qpnp_lbc_chip *chip = dev_get_drvdata(dev);
-	int rc = 0;
-
-	if (chip->bat_if_base) {
-		rc = qpnp_lbc_masked_write(chip,
-			chip->bat_if_base + BAT_IF_VREF_BAT_THM_CTRL_REG,
-			VREF_BATT_THERM_FORCE_ON, VREF_BAT_THM_ENABLED_FSM);
-		if (rc)
-			pr_err("Failed to set FSM VREF_BAT_THM rc=%d\n", rc);
-	}
-
-	return rc;
-}
-
-static const struct dev_pm_ops qpnp_lbc_pm_ops = {
-	.resume		= qpnp_lbc_resume,
-	.suspend	= qpnp_lbc_suspend,
-};
-
 static struct of_device_id qpnp_lbc_match_table[] = {
 	{ .compatible = QPNP_CHARGER_DEV_NAME, },
 	{}
@@ -2726,7 +2682,6 @@ static struct spmi_driver qpnp_lbc_driver = {
 		.name		= QPNP_CHARGER_DEV_NAME,
 		.owner		= THIS_MODULE,
 		.of_match_table	= qpnp_lbc_match_table,
-		.pm		= &qpnp_lbc_pm_ops,
 	},
 };
 

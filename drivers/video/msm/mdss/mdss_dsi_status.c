@@ -60,6 +60,12 @@ static void check_dsi_ctrl_status(struct work_struct *work)
 		return;
 	}
 
+	if (pdsi_status->mfd->shutdown_pending ||
+		!pdsi_status->mfd->panel_power_on) {
+		pr_err("%s: panel off\n", __func__);
+		return;
+	}
+
 	pdsi_status->mfd->mdp.check_dsi_status(work, interval);
 }
 
