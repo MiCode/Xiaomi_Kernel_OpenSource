@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -19,6 +19,8 @@
 #include <linux/io.h>
 #include <linux/err.h>
 #include <linux/export.h>
+#include <linux/printk.h>
+#include <linux/ratelimit.h>
 #include <linux/slab.h>
 #include <linux/semaphore.h>
 #include <linux/clk.h>
@@ -398,7 +400,7 @@ void coresight_abort(void)
 	struct coresight_device *cd;
 
 	if (down_trylock(&coresight_mutex)) {
-		pr_err("coresight: abort could not be processed\n");
+		pr_err_ratelimited("coresight: abort could not be processed\n");
 		return;
 	}
 	if (curr_sink == NO_SINK)
