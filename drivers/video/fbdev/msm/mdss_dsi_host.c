@@ -985,6 +985,7 @@ int mdss_dsi_cmds_rx(struct mdss_dsi_ctrl_pdata *ctrl,
 	int short_response, diff, pkt_size, ret = 0;
 	struct dsi_buf *tp, *rp;
 	char cmd;
+	u32 ctrl_rev;
 	struct mdss_dsi_ctrl_pdata *mctrl = NULL;
 
 
@@ -1022,6 +1023,7 @@ int mdss_dsi_cmds_rx(struct mdss_dsi_ctrl_pdata *ctrl,
 	}
 
 do_send:
+	ctrl_rev = MIPI_INP(ctrl->ctrl_base);
 	ctrl->cmd_cfg_restore = __mdss_dsi_cmd_mode_config(ctrl, 1);
 
 	if (rlen <= 2) {
@@ -1081,6 +1083,12 @@ do_send:
 			rp->len = 0;
 			rp->read_cnt = 0;
 			goto end;
+		}
+
+		if (ctrl_rev >= MDSS_DSI_HW_REV_101) {
+			/* clear the RDBK_DATA registers */
+			MIPI_OUTP(ctrl->ctrl_base + 0x01d4, 0x1);
+			MIPI_OUTP(ctrl->ctrl_base + 0x01d4, 0x0);
 		}
 
 		mdss_dsi_wait4video_eng_busy(ctrl);	/* video mode only */
@@ -1275,7 +1283,7 @@ static int mdss_dsi_cmd_dma_rx(struct mdss_dsi_ctrl_pdata *ctrl,
 
 {
 	u32 *lp, *temp, data, ctrl_rev;
-	int i, j = 0, off, cnt, ret = rx_byte;
+	int i, j = 0, off, cnt;
 	bool ack_error = false;
 	char reg[16];
 	int repeated_bytes = 0;
@@ -1302,8 +1310,7 @@ static int mdss_dsi_cmd_dma_rx(struct mdss_dsi_ctrl_pdata *ctrl,
 			rp->read_cnt -= 4; /* 4 byte read err report */
 		if (!rp->read_cnt) {
 			pr_err("%s: Errors detected, no data rxed\n", __func__);
-			ret = 0;
-			goto exit;
+			return 0;
 		}
 	} else if (rx_byte == 4) {
 		rp->read_cnt = 4;
@@ -1359,14 +1366,7 @@ static int mdss_dsi_cmd_dma_rx(struct mdss_dsi_ctrl_pdata *ctrl,
 			rp->data[j++] = reg[i];
 	}
 
-exit:
-	if (ctrl_rev >= MDSS_DSI_HW_REV_101) {
-		/* clear the RDBK_DATA registers */
-		MIPI_OUTP(ctrl->ctrl_base + 0x01d4, 0x1);
-		MIPI_OUTP(ctrl->ctrl_base + 0x01d4, 0x0);
-	}
-
-	return ret;
+	return rx_byte;
 }
 
 void mdss_dsi_en_wait4dynamic_done(struct mdss_dsi_ctrl_pdata *ctrl)
