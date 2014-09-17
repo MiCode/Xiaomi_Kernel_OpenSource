@@ -701,3 +701,8 @@
 &pmi8994_charger {
 	qcom,dc-psy-type = "Wireless";
 };
+
+&cnss {
+	pinctrl-names = "default";
+	pinctrl-0 = <&cnss_default &pcie0_clkreq_default>;
+};
