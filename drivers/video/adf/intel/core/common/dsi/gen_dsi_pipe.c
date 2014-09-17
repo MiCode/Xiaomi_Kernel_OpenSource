@@ -10,6 +10,7 @@
 
 #include <core/intel_dc_config.h>
 #include <core/vlv/vlv_dc_regs.h>
+#include <core/vlv/vlv_dc_hw.h>
 #include <core/common/dsi/dsi_pipe.h>
 #include <core/common/dsi/dsi_config.h>
 #include <intel_adf_device.h>
@@ -215,14 +216,53 @@ static u32 dsi_get_supported_events(struct intel_pipe *pipe)
 	return INTEL_PIPE_EVENT_VSYNC;
 }
 
-static int dsi_set_event(struct intel_pipe *pipe, u8 event, bool enabled)
+static int dsi_set_event(struct intel_pipe *pipe, u16 event, bool enabled)
 {
 	struct dsi_pipe *dsi_pipe = to_dsi_pipe(pipe);
 
+	u32 pipestat, value = 0;
+	u8 idx = pipe->base.idx;
+	value = REG_READ(PIPESTAT(idx));
+
+	if (enabled)
+		pipestat = 0;
+	else
+		pipestat = 0xFFFFFFFF;
+
+	switch (event) {
+	case INTEL_PIPE_EVENT_SPRITE2_FLIP:
+		enabled ? (pipestat |= SPRITE2_FLIP_DONE_EN) :
+			(pipestat &= ~SPRITE2_FLIP_DONE_EN);
+		break;
+	case INTEL_PIPE_EVENT_SPRITE1_FLIP:
+		enabled ? (pipestat |= SPRITE1_FLIP_DONE_EN) :
+			(pipestat &= ~SPRITE1_FLIP_DONE_EN);
+		break;
+	case INTEL_PIPE_EVENT_PRIMARY_FLIP:
+		enabled ? (pipestat |= PLANE_FLIP_DONE_EN) :
+			(pipestat &= ~PLANE_FLIP_DONE_EN);
+		break;
+	case INTEL_PIPE_EVENT_VSYNC:
+		enabled ? (pipestat |= VSYNC_EN) : (pipestat &= ~VSYNC_EN);
+		break;
+	case INTEL_PIPE_EVENT_DPST:
+		enabled ? (pipestat |= DPST_EVENT_EN) :
+			(pipestat &= ~DPST_EVENT_EN);
+		break;
+	}
+
+	if (enabled)
+		/* Enable interrupts */
+		REG_WRITE(PIPESTAT(idx), value | pipestat);
+	else
+		/* Disable interrupts */
+		REG_WRITE(PIPESTAT(idx), value & pipestat);
+
+	/* In case specififc interrupts for DSI like TE */
 	if (dsi_pipe->ops.set_event)
 		return dsi_pipe->ops.set_event(dsi_pipe, event, enabled);
-	else
-		return -EOPNOTSUPP;
+
+	return 0;
 }
 
 /**
@@ -237,30 +277,52 @@ static void dsi_get_events(struct intel_pipe *pipe, u32 *events)
 {
 	struct dsi_pipe *dsi_pipe = to_dsi_pipe(pipe);
 	u8 idx = pipe->base.idx;
-	u32 dc_events = REG_READ(VLV_IIR);
-	u32 event_bit;
+
+	u32 pipestat = 0, value = 0;
+	pipestat = REG_READ(PIPESTAT(idx));
 
 	*events = 0;
 
-	pr_debug("%s: IIR = %#x\n", __func__, dc_events);
+	pr_debug("%s: PIPESTAT = 0x%x\n", __func__, pipestat);
 
-	switch (idx) {
-	case 0:
-		event_bit = I915_DISPLAY_PIPE_A_VBLANK_INTERRUPT;
-		break;
-	case 2:
-		event_bit = I915_DISPLAY_PIPE_B_VBLANK_INTERRUPT;
-		break;
-	default:
-		pr_err("%s: invalid pipe index %d\n", __func__, idx);
-		return;
+	/* FIFO under run */
+	if (pipestat & FIFO_UNDERRUN_STAT) {
+		*events |= INTEL_PIPE_EVENT_UNDERRUN;
+		value |= FIFO_UNDERRUN_STAT;
 	}
 
-	if (!(dc_events & event_bit))
-		return;
+	/* Sprite B Flip done interrupt */
+	if (pipestat & SPRITE2_FLIP_DONE_STAT) {
+		*events |= INTEL_PIPE_EVENT_SPRITE2_FLIP;
+		value |= SPRITE2_FLIP_DONE_STAT;
+	}
+
+	/* Sprite A Flip done interrupt */
+	if (pipestat & SPRITE1_FLIP_DONE_STAT) {
+		*events |= INTEL_PIPE_EVENT_SPRITE1_FLIP;
+		value |= SPRITE2_FLIP_DONE_STAT;
+	}
+
+	/* Plane A Flip done interrupt */
+	if (pipestat & PLANE_FLIP_DONE_STAT) {
+		*events |= INTEL_PIPE_EVENT_PRIMARY_FLIP;
+		value |= PLANE_FLIP_DONE_STAT;
+	}
+
+	/* Vsync interrupt */
+	if (pipestat & VSYNC_STAT) {
+		*events |= INTEL_PIPE_EVENT_VSYNC;
+		value |= VSYNC_STAT;
+	}
+
+	/* DPST event */
+	if (pipestat & DPST_EVENT_STAT) {
+		*events |= INTEL_PIPE_EVENT_DPST;
+		value |= DPST_EVENT_STAT;
+	}
 
 	/* Clear the 1st level interrupt. */
-	REG_WRITE(VLV_IIR, dc_events);
+	REG_WRITE(PIPESTAT(idx), pipestat | value);
 
 	if (dsi_pipe->ops.get_events)
 		dsi_pipe->ops.get_events(dsi_pipe, events);

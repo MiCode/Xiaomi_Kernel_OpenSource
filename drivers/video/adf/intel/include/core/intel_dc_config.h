@@ -217,7 +217,11 @@ enum intel_pipe_event {
 	INTEL_PIPE_EVENT_AUDIO_BUFFERDONE = 0x8,
 	INTEL_PIPE_EVENT_AUDIO_UNDERRUN = 0x10,
 	INTEL_PIPE_EVENT_REPEATED_FRAME = 0x20,
-	/*TODO: add other known pipe events*/
+	INTEL_PIPE_EVENT_UNDERRUN = 0x40,
+	INTEL_PIPE_EVENT_SPRITE1_FLIP = 0x80,
+	INTEL_PIPE_EVENT_SPRITE2_FLIP = 0x100,
+	INTEL_PIPE_EVENT_PRIMARY_FLIP = 0x200,
+	INTEL_PIPE_EVENT_DPST = 0x400,
 };
 
 /**
@@ -254,7 +258,7 @@ struct intel_pipe_ops {
 	bool (*is_screen_connected)(struct intel_pipe *pipe);
 
 	u32 (*get_supported_events)(struct intel_pipe *pipe);
-	int (*set_event)(struct intel_pipe *pipe, u8 event, bool enabled);
+	int (*set_event)(struct intel_pipe *pipe, u16 event, bool enabled);
 	void (*get_events)(struct intel_pipe *pipe, u32 *active_events);
 	u32 (*get_vsync_counter)(struct intel_pipe *pipe, u32 interval);
 	void (*handle_events)(struct intel_pipe *pipe, u32 events);
