@@ -251,9 +251,10 @@
 			vdd-supply = <&vdd_vreg>;
 			vcc_i2c-supply = <&pm8916_l16>;
 			/* pins used by touchscreen */
-			pinctrl-names = "pmx_ts_active","pmx_ts_suspend";
+			pinctrl-names = "pmx_ts_active","pmx_ts_suspend","pmx_ts_suspend";
 			pinctrl-0 = <&ts_int_active &ts_reset_active>;
 			pinctrl-1 = <&ts_int_suspend &ts_reset_suspend>;
+			pinctrl-2 = <&ts_release>;
 			synaptics,display-coords = <0 0 1100 1756>;
 			synaptics,panel-coords = <0 0 1100 1899>;
 			synaptics,irq-gpio = <&msm_gpio 13 0x2008>;
