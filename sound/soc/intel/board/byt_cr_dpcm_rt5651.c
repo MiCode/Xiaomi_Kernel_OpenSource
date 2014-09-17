@@ -20,8 +20,6 @@
  * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
  */
 
-#define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
-
 #include <linux/init.h>
 #include <linux/module.h>
 #include <linux/platform_device.h>
@@ -44,21 +42,13 @@
 #define BYT_PLAT_CLK_3_HZ	25000000
 
 #define BYT_JD_INTR_DEBOUNCE            0
-#define BYT_CODEC_INTR_DEBOUNCE         0
-#define BYT_HS_INSERT_DET_DELAY         500
-#define BYT_HS_REMOVE_DET_DELAY         500
-#define BYT_BUTTON_DET_DELAY            100
-#define BYT_HS_DET_POLL_INTRVL          100
-#define BYT_BUTTON_EN_DELAY             1500
-
-#define BYT_HS_DET_RETRY_COUNT          6
-
-
-#define BYT_HS_DET_RETRY_COUNT          6
 
 #define VLV2_PLAT_CLK_AUDIO	3
 #define PLAT_CLK_FORCE_ON	1
 #define PLAT_CLK_FORCE_OFF	2
+
+#define BYT_T_JACK_RECHECK	1500 /* ms */
+#define BYT_T_BUTTONS_RECHECK	25 /* ms */
 
 /* 0 = 25MHz from crystal, 1 = 19.2MHz from PLL */
 #define PLAT_CLK_FREQ_XTAL	0
@@ -68,6 +58,7 @@ enum {
 	RT5651_GPIO_JD_INT2,
 	RT5651_GPIO_JACK_SWITCH,
 	RT5651_GPIO_ALC105_RESET,
+	RT5651_GPIO_JD_BUTTONS,
 };
 
 #define RT5651_GPIO_NA		-1
@@ -75,56 +66,41 @@ enum {
 struct rt5651_gpios {
 	int jd_int_gpio;
 	int jd_int2_gpio;
+	int jd_buttons_gpio;
 	int debug_mux_gpio;
 	int alc105_reset_gpio;
 };
 
-struct byt_mc_private {
+struct byt_drvdata {
 	struct snd_soc_jack jack;
-	struct delayed_work hs_insert_work;
-	struct delayed_work hs_remove_work;
-	struct delayed_work hs_button_work;
+	struct delayed_work hs_jack_recheck;
+	struct delayed_work hs_buttons_recheck;
+	int t_jack_recheck;
+	int t_buttons_recheck;
 	struct mutex jack_mlock;
-	/* To enable button press interrupts after a delay after
-	   HS detection. This is to avoid spurious button press
-	   events during slow HS insertion */
-	struct delayed_work hs_button_en_work;
-	int intr_debounce;
-	int hs_insert_det_delay;
-	int hs_remove_det_delay;
-	int button_det_delay;
-	int button_en_delay;
-	int hs_det_poll_intrvl;
-	int hs_det_retry;
-	bool process_button_events;
 	struct rt5651_gpios gpios;
-};
-
-static int byt_jack_soc_gpio_intr(void *data);
-static struct snd_soc_jack_gpio hs_gpio[] = {
-	{
-		.name                   = "byt-jd-int",
-		.report                 = SND_JACK_HEADSET |
-					  SND_JACK_HEADPHONE,
-		.debounce_time          = BYT_JD_INTR_DEBOUNCE,
-		.jack_status_check      = byt_jack_soc_gpio_intr,
-	},
-
 };
 
 static inline void byt_force_enable_pin(struct snd_soc_codec *codec,
 			 const char *bias_widget, bool enable)
 {
-	pr_debug("%s %s\n", enable ? "enable" : "disable", bias_widget);
 	if (enable)
 		snd_soc_dapm_force_enable_pin(&codec->dapm, bias_widget);
 	else
 		snd_soc_dapm_disable_pin(&codec->dapm, bias_widget);
+
+	pr_debug("%s: %s widget %s.\n", __func__,
+		enable ? "Enabled" : "Disabled", bias_widget);
 	snd_soc_dapm_sync(&codec->dapm);
 }
 static inline void byt_set_mic_bias_ldo(struct snd_soc_codec *codec,
-					bool enable)
+				bool enable, struct mutex *mlock)
 {
+	bool was_locked = (mlock->count.counter == 0);
+
+	if (was_locked)
+		mutex_unlock(mlock);
+
 	if (enable) {
 		byt_force_enable_pin(codec, "micbias1", true);
 		byt_force_enable_pin(codec, "LDO2", true);
@@ -132,266 +108,223 @@ static inline void byt_set_mic_bias_ldo(struct snd_soc_codec *codec,
 		byt_force_enable_pin(codec, "micbias1", false);
 		byt_force_enable_pin(codec, "LDO2", false);
 	}
+
+	if (was_locked)
+		mutex_lock(mlock);
+
 	snd_soc_dapm_sync(&codec->dapm);
+
 }
 
-/*if Soc Jack det is enabled, use it, otherwise use JD via codec */
-static inline bool byt_hs_inserted(struct byt_mc_private *ctx)
+/* HS-button handling */
+
+static int byt_hs_buttons_check(struct byt_drvdata *drvdata, bool is_recheck)
+{
+	struct snd_soc_jack *jack = &drvdata->jack;
+	struct gpio_desc *desc;
+	int val;
+
+	pr_debug("%s: Enter (jack->status = %d).\n", __func__, jack->status);
+
+	if (!(jack->status & SND_JACK_MICROPHONE)) {
+		pr_debug("%s: Button-interrupt in non-HS mode.\n", __func__);
+		return jack->status;
+	}
+
+	desc = gpio_to_desc(drvdata->gpios.jd_buttons_gpio);
+	val = gpiod_get_value(desc);
+	if ((val == 0) && (jack->status & SND_JACK_BTN_0)) {
+		if (!is_recheck) {
+			pr_debug("%s: Button release.\n", __func__);
+			jack->status &= ~SND_JACK_BTN_0;
+		} else
+			pr_warn("%s: Fishy interrupt detected.\n", __func__);
+	} else if ((val == 1) && !(jack->status & SND_JACK_BTN_0)) {
+		if (!is_recheck) {
+			pr_debug("%s: Button press (preliminary).\n", __func__);
+			schedule_delayed_work(&drvdata->hs_buttons_recheck,
+				drvdata->t_buttons_recheck);
+		} else {
+			jack->status |= SND_JACK_BTN_0;
+			pr_debug("%s: Button press.\n", __func__);
+		}
+	}
+
+	return jack->status;
+}
+
+static int byt_hs_buttons_interrupt(void *data)
+{
+	struct byt_drvdata *drvdata = (struct byt_drvdata *)data;
+	int status;
+
+	status = cancel_delayed_work_sync(&drvdata->hs_buttons_recheck);
+	if (status)
+		pr_debug("%s: Delayed work cancelled!\n", __func__);
+
+	mutex_lock(&drvdata->jack_mlock);
+	pr_debug("%s: Enter.\n", __func__);
+
+	status = byt_hs_buttons_check(drvdata, false);
+
+	mutex_unlock(&drvdata->jack_mlock);
+	return status;
+}
+
+static void byt_hs_buttons_recheck(struct work_struct *work)
+{
+	struct byt_drvdata *drvdata =
+		container_of(work, struct byt_drvdata, hs_buttons_recheck.work);
+	struct snd_soc_jack *jack = &drvdata->jack;
+	int status;
+
+	mutex_lock(&drvdata->jack_mlock);
+	pr_debug("%s: Enter.\n", __func__);
+
+	status = byt_hs_buttons_check(drvdata, true);
+	snd_soc_jack_report(jack, status, SND_JACK_BTN_0);
+
+	mutex_unlock(&drvdata->jack_mlock);
+}
+
+/* HS-jack handling */
+
+/* Returns true if headset/headphones is inserted */
+static inline bool byt_hs_inserted(struct byt_drvdata *drvdata)
 {
 	bool val;
-	int pin;
 	const struct gpio_desc *desc;
 
-	pin = ctx->gpios.jd_int2_gpio;
-	desc = gpio_to_desc(pin);
+	desc = gpio_to_desc(drvdata->gpios.jd_int2_gpio);
 	val = (bool)gpiod_get_value(desc);
 
-	pr_info("%s: val = %d (pin = %d, active_low = %d)\n", __func__, pin,
-		val, gpiod_is_active_low(desc));
+	/* TEMP for MRD7 until active_low is working properly with ACPI */
+	if (drvdata->gpios.jd_int2_gpio == RT5651_GPIO_NA)
+		val = !val;
+
+	pr_info("%s: val = %d (pin = %d, active_low = %d)\n", __func__, val,
+		drvdata->gpios.jd_int_gpio, gpiod_is_active_low(desc));
 
 	return val;
 }
 
-/* Identify the jack type as Headset/Headphone/None */
-static int byt_check_jack_type(void)
+static int byt_hs_jack_check(struct byt_drvdata *drvdata, bool is_recheck)
 {
-	struct snd_soc_jack_gpio *gpio = &hs_gpio[0];
-	struct snd_soc_jack *jack = gpio->jack;
+	struct snd_soc_jack *jack = &drvdata->jack;
 	struct snd_soc_codec *codec = jack->codec;
-	int status, jack_type = 0;
-	struct byt_mc_private *ctx = container_of(jack, struct byt_mc_private,
-						jack);
+	int inserted, status;
 
-	/* Accessory has been connected */
-	if (byt_hs_inserted(ctx)) {
-		pr_debug("Jack insert intr");
-		/* Do not process button events until accessory is detected
-		   as headset*/
-		ctx->process_button_events = false;
-		byt_set_mic_bias_ldo(codec, true);
-		status = rt5651_headset_detect(codec, true);
-		if (status == RT5651_HEADPHO_DET)
-			jack_type = SND_JACK_HEADPHONE;
-		else if (status == RT5651_HEADSET_DET) {
+	pr_debug("%s: Enter (jack->status = %d).\n", __func__, jack->status);
 
-			jack_type = SND_JACK_HEADSET;
-			ctx->process_button_events = true;
-			/* If headset is detected, enable button interrupts
-			   after a delay */
-			schedule_delayed_work(&ctx->hs_button_en_work,
-				msecs_to_jiffies(ctx->button_en_delay));
-		} else /* RT5651_NO_JACK */
-			jack_type = 0;
-		if (status != RT5651_HEADSET_DET)
-			byt_set_mic_bias_ldo(codec, false);
-	} else
-		jack_type = 0;
+	inserted = byt_hs_inserted(drvdata);
 
-	pr_debug("Jack-type detected: %d", jack_type);
-
-	return jack_type;
-}
-
-/*Checks jack insertion and identifies the jack type.
-  Retries the detection if necessary */
-static void byt_check_hs_insert_status(struct work_struct *work)
-{
-	struct snd_soc_jack_gpio *gpio = &hs_gpio[0];
-	struct snd_soc_jack *jack = gpio->jack;
-	struct byt_mc_private *ctx = container_of(work, struct byt_mc_private,
-						hs_insert_work.work);
-	int jack_type = 0;
-
-	mutex_lock(&ctx->jack_mlock);
-	pr_debug("%s: Enter.\n", __func__);
-
-	jack_type = byt_check_jack_type();
-
-	/* Report jack immediately only if jack is headset. If headphone or no
-	   jack was detected, dont report it until the last HS det try. */
-	if (ctx->hs_det_retry <= 0) /* End of retries. Report the status */
-		snd_soc_jack_report(jack, jack_type, gpio->report);
-	else {
-		/* Schedule another detection try if headphone or no jack is
-		   detected. During slow insertion of headset, first a
-		   headphone may be detected. Hence retry until headset is
-		   detected */
-		if ((jack_type == SND_JACK_HEADSET) ||
-			(jack_type == SND_JACK_HEADPHONE)) {
-			ctx->hs_det_retry = 0; /* HS detected */
-			snd_soc_jack_report(jack, jack_type, gpio->report);
-		} else {
-			ctx->hs_det_retry--;
-			schedule_delayed_work(&ctx->hs_insert_work,
-				msecs_to_jiffies(ctx->hs_det_poll_intrvl));
-			pr_debug("%s:re-try hs detection after %d msec",
-					__func__, ctx->hs_det_poll_intrvl);
-		}
-	}
-
-	pr_debug("Exit:%s\n", __func__);
-	mutex_unlock(&ctx->jack_mlock);
-}
-
-/* Checks jack removal. */
-static void byt_check_hs_remove_status(struct work_struct *work)
-{
-	struct snd_soc_jack_gpio *gpio = &hs_gpio[0];
-	struct snd_soc_jack *jack = gpio->jack;
-	struct snd_soc_codec *codec = jack->codec;
-	struct byt_mc_private *ctx = container_of(work, struct byt_mc_private,
-						hs_remove_work.work);
-	int status = 0, jack_type = 0;
-
-	/* Cancel any pending insertion detection. There
-	   could be pending insertion detection in the
-	   case of very slow insertion or insertion and
-	   immediate removal.*/
-	cancel_delayed_work_sync(&ctx->hs_insert_work);
-
-	mutex_lock(&ctx->jack_mlock);
-
-	pr_debug("%s: Enter\n", __func__);
-
-	/* Initialize jack_type with previous status.
-	   If the event was an invalid one, we return the preious state*/
-	jack_type = jack->status;
-
-	if (jack->status) { /* Jack in conn. state. Look for removal event */
-		if (!byt_hs_inserted(ctx)) { /* Accessory disconnected */
-			pr_debug("Jack remove event");
-			ctx->process_button_events = false;
-			cancel_delayed_work_sync(&ctx->hs_button_en_work);
-			status = rt5651_headset_detect(codec, false);
-			jack_type = 0;
-			byt_set_mic_bias_ldo(codec, false);
-
-		} else if (((jack->status & SND_JACK_HEADSET) ==
-				SND_JACK_HEADSET) &&
-				!ctx->process_button_events) {
-			/* Jack is still connected. We may come here if there
-			   was a spurious jack removal event. */
-			pr_debug("%s: Spurious Jack remove event for HS.",
-				__func__);
-			ctx->process_button_events = true;
-		}
-	}
-	snd_soc_jack_report(jack, jack_type, gpio->report);
-
-	pr_debug("%s: Exit\n", __func__);
-
-	mutex_unlock(&ctx->jack_mlock);
-}
-
-/* Check for button press/release */
-static void byt_check_hs_button_status(struct work_struct *work)
-{
-	struct snd_soc_jack_gpio *gpio = &hs_gpio[0];
-	struct snd_soc_jack *jack = gpio->jack;
-	struct byt_mc_private *ctx = container_of(work, struct byt_mc_private,
-						hs_button_work.work);
-	int status = 0, jack_type = 0;
-	int ret;
-
-	mutex_lock(&ctx->jack_mlock);
-
-	pr_debug("%s: Enter\n", __func__);
-
-	jack_type = jack->status;
-
-	if (((jack->status & SND_JACK_HEADSET) == SND_JACK_HEADSET)
-			&& ctx->process_button_events) {
-
-		if (byt_hs_inserted(ctx)) { /* confirm jack is connected */
-			status = gpio_get_value(gpio->gpio);
-			if (jack->status & SND_JACK_BTN_0) {
-				if (!status) {
-					pr_debug("BR event received.");
-					jack_type = SND_JACK_HEADSET;
-				}
-			} else { /* Button previously in released state */
-				if (status) {
-					pr_debug("BP event received.");
-					jack_type = SND_JACK_HEADSET |
-						SND_JACK_BTN_0;
-				}
-			}
-		}
-		ret = schedule_delayed_work(&ctx->hs_remove_work,
-				msecs_to_jiffies(ctx->hs_remove_det_delay));
-		if (!ret)
-			pr_debug("byt_check_hs_remove_status already queued");
-		else
-			pr_debug("%s:Check hs removal after %d msec",
-					__func__, ctx->hs_remove_det_delay);
-
-	}
-	snd_soc_jack_report(jack, jack_type, gpio->report);
-
-	pr_debug("%s: Exit.\n", __func__);
-
-	mutex_unlock(&ctx->jack_mlock);
-}
-
-static int byt_jack_soc_gpio_intr(void *data)
-{
-	struct snd_soc_jack_gpio *gpio = &hs_gpio[0];
-	struct snd_soc_jack *jack = gpio->jack;
-	struct byt_mc_private *ctx = container_of(jack, struct byt_mc_private,
-						jack);
-	int ret;
-
-	mutex_lock(&ctx->jack_mlock);
-
-	pr_debug("%s: Enter.\n", __func__);
-
-	if (!jack->status) {
-		ctx->hs_det_retry = BYT_HS_DET_RETRY_COUNT;
-		ret = schedule_delayed_work(&ctx->hs_insert_work,
-				msecs_to_jiffies(ctx->hs_insert_det_delay));
-		if (!ret)
-			pr_debug("byt_check_hs_insert_status already queued");
-		else
-			pr_debug("%s:Check hs insertion  after %d msec",
-					__func__, ctx->hs_insert_det_delay);
-
-	} else {
-
-		/* Accessory has been disconnected.
-		   However, confirm the removal in the delayed work */
-		if (!byt_hs_inserted(ctx)) {
-			/* Do not process button events while we make sure
-			   accessory is disconnected */
-			ctx->process_button_events = false;
-			ret = schedule_delayed_work(&ctx->hs_remove_work,
-				msecs_to_jiffies(ctx->hs_remove_det_delay));
-			if (!ret)
-				pr_debug("%s: byt_check_hs_remove_status already queued",
+	if (inserted) {
+		if (!(jack->status & SND_JACK_HEADPHONE)) {
+			status = rt5651_headset_detect(codec, true);
+			if (status == RT5651_HEADPHO_DET) {
+				if (!is_recheck) {
+					pr_debug("%s: Headphones detected (preliminary).\n",
+						__func__);
+					jack->status |= SND_JACK_HEADPHONE;
+					schedule_delayed_work(
+						&drvdata->hs_jack_recheck,
+						drvdata->t_jack_recheck);
+				} else
+					BUG_ON(true);
+			} else if (status == RT5651_HEADSET_DET) {
+				pr_info("%s: Headset present.\n", __func__);
+				byt_set_mic_bias_ldo(codec, true,
+					&drvdata->jack_mlock);
+				jack->status |= SND_JACK_HEADSET;
+			} else
+				pr_warn("%s: No valid accessory present!\n",
 					__func__);
-			else
-				pr_debug("%s: Check hs removal after %d msec",
-					__func__, ctx->hs_remove_det_delay);
-		}
+		} else if (!(jack->status & SND_JACK_MICROPHONE)) {
+			status = rt5651_headset_detect(codec, true);
+			if (status == RT5651_HEADPHO_DET) {
+				pr_info("%s: Headphones present.\n", __func__);
+			} else if (status == RT5651_HEADSET_DET) {
+				pr_info("%s: Headset present (changed from Headphone).\n",
+					__func__);
+				byt_set_mic_bias_ldo(codec, true,
+					&drvdata->jack_mlock);
+				jack->status |= SND_JACK_HEADSET;
+			} else
+				pr_warn("%s: No valid accessory present!\n",
+					__func__);
+		} else
+			pr_warn("%s: Insert-interrupt while Headset present!\n",
+					__func__);
+	} else {
+		if (jack->status & SND_JACK_HEADPHONE) {
+			if (jack->status & SND_JACK_MICROPHONE) {
+				jack->status &= ~SND_JACK_HEADSET;
+				byt_set_mic_bias_ldo(codec, false,
+					&drvdata->jack_mlock);
+				pr_info("%s: Headset removed.\n", __func__);
+			} else {
+				jack->status &= ~SND_JACK_HEADPHONE;
+				pr_info("%s: Headphone removed.\n", __func__);
+			}
+		} else
+			pr_warn("%s: Remove-interrupt while no accessory present!\n",
+					__func__);
 	}
 
-	pr_debug("%s: Exit\n", __func__);
-
-	mutex_unlock(&ctx->jack_mlock);
-	/* return previous status */
 	return jack->status;
-
 }
 
-/* Delayed work for enabling the overcurrent detection circuit and interrupt
-   for generating button events */
-static void byt_enable_hs_button_events(struct work_struct *work)
+static int byt_jack_interrupt(void *data)
 {
-	struct snd_soc_jack_gpio *gpio = &hs_gpio[0];
-	struct snd_soc_jack *jack = gpio->jack;
-	struct snd_soc_codec *codec = jack->codec;
+	struct byt_drvdata *drvdata = (struct byt_drvdata *)data;
+	int status;
 
-	rt5651_enable_ovcd_interrupt(codec, true);
+	status = cancel_delayed_work_sync(&drvdata->hs_jack_recheck);
+	if (status)
+		pr_debug("%s: Delayed work cancelled!\n", __func__);
+
+	mutex_lock(&drvdata->jack_mlock);
+	pr_debug("%s: Enter.\n", __func__);
+
+	status = byt_hs_jack_check(drvdata, false);
+
+	mutex_unlock(&drvdata->jack_mlock);
+	return status;
 }
+
+static void byt_hs_jack_recheck(struct work_struct *work)
+{
+	struct byt_drvdata *drvdata =
+		container_of(work, struct byt_drvdata, hs_jack_recheck.work);
+	struct snd_soc_jack *jack = &drvdata->jack;
+	int status;
+
+	mutex_lock(&drvdata->jack_mlock);
+	pr_debug("%s: Enter.\n", __func__);
+
+	status = byt_hs_jack_check(drvdata, true);
+	snd_soc_jack_report(jack, status, SND_JACK_HEADSET);
+
+	mutex_unlock(&drvdata->jack_mlock);
+}
+
+/* Jack GPIO definitions */
+
+static struct snd_soc_jack_gpio hs_gpio[] = {
+	{
+		.name                   = "byt-jd-int",
+		.report                 = SND_JACK_HEADSET,
+		.debounce_time          = BYT_JD_INTR_DEBOUNCE,
+		.jack_status_check      = byt_jack_interrupt,
+	},
+	{
+		.name                   = "byt-hs-but-int",
+		.report                 = SND_JACK_BTN_0,
+		.debounce_time          = BYT_JD_INTR_DEBOUNCE,
+		.jack_status_check      = byt_hs_buttons_interrupt,
+	},
+
+};
 
 static inline struct snd_soc_codec *byt_get_codec(struct snd_soc_card *card)
 {
@@ -399,16 +332,15 @@ static inline struct snd_soc_codec *byt_get_codec(struct snd_soc_card *card)
 	struct snd_soc_codec *codec;
 
 	list_for_each_entry(codec, &card->codec_dev_list, card_list) {
-		if (!strstr(codec->name, "i2c-10EC5651:00")) {
-			pr_debug("codec was %s", codec->name);
+		if (!strstr(codec->name, "i2c-10EC5651:00"))
 			continue;
-		} else {
+		else {
 			found = true;
 			break;
 		}
 	}
 	if (found == false) {
-		pr_err("%s: cant find codec", __func__);
+		pr_err("%s: Codec not found", __func__);
 		return NULL;
 	}
 	return codec;
@@ -421,16 +353,19 @@ static int platform_clock_control(struct snd_soc_dapm_widget *w,
 	struct snd_soc_card *card = dapm->card;
 	struct snd_soc_codec *codec;
 
+	pr_debug("%s: Enter.\n", __func__);
+
 	codec = byt_get_codec(card);
 	if (!codec) {
-		pr_err("Codec not found; Unable to set platform clock\n");
+		pr_err("%s: Codec not found; Unable to set platform clock\n",
+			__func__);
 		return -EIO;
 	}
 	if (SND_SOC_DAPM_EVENT_ON(event)) {
 		vlv2_plat_configure_clock(VLV2_PLAT_CLK_AUDIO,
 				PLAT_CLK_FORCE_ON);
 
-		pr_debug("Platform clk turned ON\n");
+		pr_debug("%s: Platform clk turned ON\n", __func__);
 	snd_soc_write(codec, RT5651_ADDA_CLK1, 0x0014);
 	} else {
 		/* Set codec clock source to internal clock before
@@ -442,7 +377,7 @@ static int platform_clock_control(struct snd_soc_dapm_widget *w,
 		vlv2_plat_configure_clock(VLV2_PLAT_CLK_AUDIO,
 				PLAT_CLK_FORCE_OFF);
 
-		pr_debug("Platform clk turned OFF\n");
+		pr_debug("%s: Platform clk turned OFF\n", __func__);
 	}
 
 	return 0;
@@ -520,14 +455,15 @@ static int byt_set_dai_fmt_pll(struct snd_soc_dai *codec_dai,
 
 	ret = snd_soc_dai_set_fmt(codec_dai, fmt);
 	if (ret < 0) {
-		pr_err("can't set codec DAI configuration %d\n", ret);
+		pr_err("%s: Failed to set codec-DAI cfg (%d)!\n", __func__,
+			ret);
 		return ret;
 	}
 
 	ret = snd_soc_dai_set_pll(codec_dai, 0, source,
 			BYT_PLAT_CLK_3_HZ, freq_out * 512);
 	if (ret < 0) {
-		pr_err("can't set codec pll: %d\n", ret);
+		pr_err("%s: Failed to set codec-PLL (%d)!\n", __func__, ret);
 		return ret;
 	}
 
@@ -543,7 +479,7 @@ static int byt_aif1_hw_params(struct snd_pcm_substream *substream,
 	struct snd_soc_pcm_runtime *rtd = substream->private_data;
 	struct snd_soc_dai *codec_dai = rtd->codec_dai;
 
-	pr_debug("%s: Enter.", __func__);
+	pr_debug("%s: Enter.\n", __func__);
 
 	if (strncmp(codec_dai->name, "rt5651-aif1", 11))
 		return 0;
@@ -561,6 +497,8 @@ static int byt_set_bias_level(struct snd_soc_card *card,
 				struct snd_soc_dapm_context *dapm,
 				enum snd_soc_bias_level level)
 {
+	pr_debug("%s: Enter.\n", __func__);
+
 	switch (level) {
 	case SND_SOC_BIAS_ON:
 	case SND_SOC_BIAS_PREPARE:
@@ -568,152 +506,182 @@ static int byt_set_bias_level(struct snd_soc_card *card,
 	case SND_SOC_BIAS_OFF:
 		break;
 	default:
-		pr_debug("%s: Invalid bias level=%d\n", __func__, level);
+		pr_err("%s: Invalid bias level=%d\n", __func__, level);
 		return -EINVAL;
 	}
 
 	if (&card->dapm == dapm)
 		card->dapm.bias_level = level;
-	pr_debug("card(%s)->bias_level %u\n", card->name,
+	pr_debug("%s: card: %s, bias_level: %u\n", __func__, card->name,
 			card->dapm.bias_level);
+
 	return 0;
+}
+
+static void byt_export_gpio(struct gpio_desc *desc, char *name)
+{
+	int ret = gpiod_export(desc, true);
+	if (ret)
+		pr_debug("%s: Unable to export GPIO%d (%s)! Returned %d.\n",
+			__func__, desc_to_gpio(desc), name, ret);
 }
 
 static int byt_init(struct snd_soc_pcm_runtime *runtime)
 {
-	int ret, dir, pol, val;
+	int ret, dir;
 	struct snd_soc_codec *codec;
 	struct snd_soc_card *card = runtime->card;
-	struct byt_mc_private *ctx = snd_soc_card_get_drvdata(runtime->card);
+	struct byt_drvdata *drvdata = snd_soc_card_get_drvdata(runtime->card);
 	struct gpio_desc *desc;
 
 	pr_debug("%s: Enter.\n", __func__);
 
 	codec = byt_get_codec(card);
 	if (!codec) {
-		pr_debug("byt_get_codec failed!\n");
+		pr_err("%s: Codec not found!\n", __func__);
 		return -EIO;
 	}
 
 	card->dapm.idle_bias_off = true;
 
+	/* Threshold base = 2000uA; scale factor = 0.5 =>
+	   effective threshold of 1000uA for micbias resistor for 2.2K */
+	rt5651_config_ovcd_thld(codec, RT5651_MIC1_OVTH_2000UA,
+			RT5651_MIC_OVCD_SF_0P5);
+
+	mutex_init(&drvdata->jack_mlock);
+
+
 	/* GPIOs */
 
 	desc = devm_gpiod_get_index(codec->dev, NULL, RT5651_GPIO_JD_INT);
 	if (!IS_ERR(desc)) {
-		ctx->gpios.jd_int_gpio = desc_to_gpio(desc);
+		drvdata->gpios.jd_int_gpio = desc_to_gpio(desc);
 		devm_gpiod_put(codec->dev, desc);
 
-		ret = gpiod_export(desc, true);
-		if (ret)
-			pr_debug("%s: Unable to export GPIO%d (JD)! Returned %d.\n",
-				__func__, ctx->gpios.jd_int_gpio, ret);
-		pol = gpiod_is_active_low(desc);
-		val = gpiod_get_value(desc);
-		pr_info("%s: GPIOs - JD-int: %d (pol = %d, val = %d)\n",
-			__func__, ctx->gpios.jd_int_gpio, pol, val);
+		byt_export_gpio(desc, "JD-int");
 
+		pr_info("%s: GPIOs - JD-int: %d (pol = %d, val = %d)\n",
+			__func__, drvdata->gpios.jd_int_gpio,
+			gpiod_is_active_low(desc), gpiod_get_value(desc));
 	} else {
-		ctx->gpios.jd_int_gpio = RT5651_GPIO_NA;
+		drvdata->gpios.jd_int_gpio = RT5651_GPIO_NA;
 		pr_err("%s: GPIOs - JD-int: Not present!\n", __func__);
 	}
 
 	desc = devm_gpiod_get_index(codec->dev, NULL, RT5651_GPIO_JD_INT2);
 	if (!IS_ERR(desc)) {
-		ctx->gpios.jd_int2_gpio = desc_to_gpio(desc);
+		drvdata->gpios.jd_int2_gpio = desc_to_gpio(desc);
 		devm_gpiod_put(codec->dev, desc);
 
-		ret = gpiod_export(desc, true);
-		if (ret)
-			pr_debug("%s: Unable to export GPIO%d (JD2)! Returned %d.\n",
-				__func__, ctx->gpios.jd_int2_gpio, ret);
-		pol = gpiod_is_active_low(desc);
-		val = gpiod_get_value(desc);
-		pr_info("%s: GPIOs - JD-int 2: %d (pol = %d, val = %d)\n",
-			__func__, ctx->gpios.jd_int2_gpio, pol, val);
+		byt_export_gpio(desc, "JD-int2");
 
+		pr_info("%s: GPIOs - JD-int2: %d (pol = %d, val = %d)\n",
+			__func__, drvdata->gpios.jd_int2_gpio,
+			gpiod_is_active_low(desc), gpiod_get_value(desc));
 	} else {
-		ctx->gpios.jd_int2_gpio = RT5651_GPIO_NA;
+		drvdata->gpios.jd_int2_gpio = RT5651_GPIO_NA;
 		pr_warn("%s: GPIOs - JD-int2: Not present!\n", __func__);
 	}
 
 	desc = devm_gpiod_get_index(codec->dev, NULL, RT5651_GPIO_JACK_SWITCH);
 	if (!IS_ERR(desc)) {
-		ctx->gpios.debug_mux_gpio = desc_to_gpio(desc);
+		drvdata->gpios.debug_mux_gpio = desc_to_gpio(desc);
 		devm_gpiod_put(codec->dev, desc);
-		pr_debug("%s: GPIOs - Debug-mux: %d\n", __func__,
-			ctx->gpios.debug_mux_gpio);
 
-		ret = gpiod_export(desc, true);
-		if (ret)
-			pr_debug("%s: Unable to export GPIO%d (debug-mux)! Returned %d.\n",
-				__func__, ctx->gpios.debug_mux_gpio, ret);
+		byt_export_gpio(desc, "debug-mux");
+
 		dir = gpiod_get_direction(desc);
 		if (dir < 0)
-			pr_debug("%s: Unable to get direction for GPIO%d from GPIO-driver (err = %d)!\n",
-				__func__, ctx->gpios.debug_mux_gpio, dir);
+			pr_warn("%s: Unable to get direction for GPIO%d from GPIO-driver (err = %d)!\n",
+				__func__, drvdata->gpios.debug_mux_gpio, dir);
 		else if (dir == GPIOF_DIR_IN)
 			pr_warn("%s: Direction for GPIO%d is set to input (dir = %d)! Headset-path will have no audio!\n",
-				__func__, ctx->gpios.debug_mux_gpio, dir);
+				__func__, drvdata->gpios.debug_mux_gpio, dir);
 		else
 			pr_debug("%s: Direction for GPIO%d is set to output (dir = %d)!\n",
-				__func__, ctx->gpios.debug_mux_gpio, dir);
+				__func__, drvdata->gpios.debug_mux_gpio, dir);
 
-		val = gpiod_get_value(desc);
 		pr_info("%s: GPIOs - Debug-mux: %d (dir = %d, val = %d)\n",
-			__func__, ctx->gpios.debug_mux_gpio, dir, val);
+			__func__, drvdata->gpios.debug_mux_gpio, dir,
+			gpiod_get_value(desc));
 	} else {
-		ctx->gpios.debug_mux_gpio = RT5651_GPIO_NA;
+		drvdata->gpios.debug_mux_gpio = RT5651_GPIO_NA;
 		pr_warn("%s: GPIOs - Debug-mux: Not present!\n", __func__);
 	}
 
 	desc = devm_gpiod_get_index(codec->dev, NULL, RT5651_GPIO_ALC105_RESET);
 	if (!IS_ERR(desc)) {
-		ret = gpiod_export(desc, true);
-		if (ret)
-			pr_warn("%s: Unable to export GPIO%d (ALC105 reset)! Returned %d.\n",
-				__func__, ctx->gpios.alc105_reset_gpio, ret);
-		pr_info("%s: GPIOs - ALC105 reset: %d (active_low = %d)\n",
-			__func__, ctx->gpios.alc105_reset_gpio, 0);
+		drvdata->gpios.alc105_reset_gpio = desc_to_gpio(desc);
+		devm_gpiod_put(codec->dev, desc);
+
+		byt_export_gpio(desc, "ALC105");
+
+		pr_info("%s: GPIOs - ALC105: %d (pol = %d, val = %d)\n",
+			__func__, drvdata->gpios.alc105_reset_gpio,
+			gpiod_is_active_low(desc), gpiod_get_value(desc));
+
 	} else {
-		ctx->gpios.jd_int2_gpio = RT5651_GPIO_NA;
+		drvdata->gpios.alc105_reset_gpio = RT5651_GPIO_NA;
 		pr_warn("%s: GPIOs - ALC105 reset: Not present!\n", __func__);
 	}
 
+	desc = devm_gpiod_get_index(codec->dev, NULL, RT5651_GPIO_JD_BUTTONS);
+	if (!IS_ERR(desc)) {
+		drvdata->gpios.jd_buttons_gpio = desc_to_gpio(desc);
+		devm_gpiod_put(codec->dev, desc);
+
+		byt_export_gpio(desc, "JD-buttons");
+
+		pr_info("%s: GPIOs - JD-buttons: %d (pol = %d, val = %d)\n",
+			__func__, drvdata->gpios.jd_buttons_gpio,
+			gpiod_is_active_low(desc), gpiod_get_value(desc));
+
+	} else {
+		drvdata->gpios.jd_buttons_gpio = RT5651_GPIO_NA;
+		pr_warn("%s: GPIOs - JD-buttons: Not present!\n", __func__);
+	}
+
+
 	/* BYT-CR Audio Jack */
 
+	drvdata->t_jack_recheck = msecs_to_jiffies(BYT_T_JACK_RECHECK);
+	INIT_DELAYED_WORK(&drvdata->hs_jack_recheck, byt_hs_jack_recheck);
+	drvdata->t_buttons_recheck = msecs_to_jiffies(BYT_T_BUTTONS_RECHECK);
+	INIT_DELAYED_WORK(&drvdata->hs_buttons_recheck, byt_hs_buttons_recheck);
+
 	ret = snd_soc_jack_new(codec, "BYT-CR Audio Jack",
-			SND_JACK_HEADSET | SND_JACK_HEADPHONE |
-			SND_JACK_BTN_0, &ctx->jack);
+			SND_JACK_HEADSET | SND_JACK_BTN_0,
+			 &drvdata->jack);
 	if (ret) {
-		pr_err("snd_soc_jack_new failed\n");
+		pr_err("%s: snd_soc_jack_new failed (ret = %d)!\n", __func__,
+			ret);
 		return ret;
 	}
 
-	hs_gpio[0].gpio = ctx->gpios.jd_int2_gpio;
-	ret = snd_soc_jack_add_gpios(&ctx->jack, 1, hs_gpio);
+	hs_gpio[0].gpio = drvdata->gpios.jd_int2_gpio;
+	hs_gpio[0].data = drvdata;
+	hs_gpio[1].gpio = drvdata->gpios.jd_buttons_gpio;
+	hs_gpio[1].data = drvdata;
+	ret = snd_soc_jack_add_gpios(&drvdata->jack, 2, &hs_gpio[0]);
 	if (ret) {
-		pr_err("snd_soc_jack_add_gpios failed!\n");
+		pr_err("%s: snd_soc_jack_add_gpios failed (ret = %d)!\n",
+			__func__, ret);
 		return ret;
 	}
 
-	/* Set overcurrent detection threshold base and scale factor
-	   for jack type identification and button events. */
-	snd_soc_update_bits(codec, RT5651_IRQ_CTRL1,
-			RT5651_IRQ_JD_MASK, RT5651_IRQ_JD_BP);
-	snd_soc_update_bits(codec, RT5651_JD_CTRL1,
-			RT5651_JD_MASK, RT5651_JD_DIS);
+	snd_jack_set_key(drvdata->jack.jack, SND_JACK_BTN_0, KEY_MEDIA);
 
 	ret = snd_soc_add_card_controls(card, byt_mc_controls,
 					ARRAY_SIZE(byt_mc_controls));
 	if (ret) {
-		pr_err("unable to add card controls\n");
+		pr_err("%s: Unable to add card controls!\n", __func__);
 		return ret;
 	}
 
 	ret = snd_soc_dapm_sync(&card->dapm);
 	if (ret) {
-		pr_err("unable to sync dapm\n");
+		pr_err("%s: snd_soc_dapm_sync failed!\n", __func__);
 		return ret;
 	}
 
@@ -872,34 +840,18 @@ static struct snd_soc_card snd_soc_card_byt_default = {
 static int snd_byt_mc_probe(struct platform_device *pdev)
 {
 	int ret_val = 0;
-	struct byt_mc_private *drv;
+	struct byt_drvdata *drvdata;
 	struct snd_soc_card *card;
 	const struct snd_soc_dapm_route *routes;
 	const struct board_config *conf;
 
 	pr_debug("%s: Enter.\n", __func__);
 
-	drv = devm_kzalloc(&pdev->dev, sizeof(*drv), GFP_ATOMIC);
-	if (!drv) {
-		pr_err("Allocation failed\n");
+	drvdata = devm_kzalloc(&pdev->dev, sizeof(*drvdata), GFP_ATOMIC);
+	if (!drvdata) {
+		pr_err("Allocation failed!\n");
 		return -ENOMEM;
 	}
-
-	drv->hs_insert_det_delay = BYT_HS_INSERT_DET_DELAY;
-	drv->hs_remove_det_delay = BYT_HS_REMOVE_DET_DELAY;
-	drv->button_det_delay = BYT_BUTTON_DET_DELAY;
-	drv->hs_det_poll_intrvl = BYT_HS_DET_POLL_INTRVL;
-	drv->hs_det_retry = BYT_HS_DET_RETRY_COUNT;
-	drv->button_en_delay = BYT_BUTTON_EN_DELAY;
-	drv->process_button_events = false;
-
-	INIT_DELAYED_WORK(&drv->hs_insert_work, byt_check_hs_insert_status);
-	INIT_DELAYED_WORK(&drv->hs_remove_work, byt_check_hs_remove_status);
-	INIT_DELAYED_WORK(&drv->hs_button_work, byt_check_hs_button_status);
-	INIT_DELAYED_WORK(&drv->hs_button_en_work,
-			byt_enable_hs_button_events);
-
-	mutex_init(&drv->jack_mlock);
 
 	/* Get board-specific HW-settings */
 	conf = get_board_config(get_mc_link());
@@ -915,7 +867,7 @@ static int snd_byt_mc_probe(struct platform_device *pdev)
 
 	/* Register the soc-card */
 	card->dev = &pdev->dev;
-	snd_soc_card_set_drvdata(card, drv);
+	snd_soc_card_set_drvdata(card, drvdata);
 	ret_val = snd_soc_register_card(card);
 	if (ret_val) {
 		pr_err("snd_soc_register_card failed %d\n", ret_val);
@@ -941,27 +893,20 @@ static int snd_byt_mc_probe(struct platform_device *pdev)
 	return ret_val;
 }
 
-static void snd_byt_unregister_jack(struct byt_mc_private *ctx)
+static void snd_byt_unregister_jack(struct byt_drvdata *drvdata)
 {
-       /* Set process button events to false so that the button
-	   delayed work will not be scheduled.*/
-	ctx->process_button_events = false;
-	cancel_delayed_work_sync(&ctx->hs_insert_work);
-	cancel_delayed_work_sync(&ctx->hs_button_en_work);
-	cancel_delayed_work_sync(&ctx->hs_button_work);
-	cancel_delayed_work_sync(&ctx->hs_remove_work);
-	snd_soc_jack_free_gpios(&ctx->jack, 1, hs_gpio);
+	cancel_delayed_work_sync(&drvdata->hs_jack_recheck);
+	snd_soc_jack_free_gpios(&drvdata->jack, 2, hs_gpio);
 }
 
 static int snd_byt_mc_remove(struct platform_device *pdev)
 {
 	struct snd_soc_card *soc_card = platform_get_drvdata(pdev);
-	struct byt_mc_private *drv = snd_soc_card_get_drvdata(soc_card);
+	struct byt_drvdata *drvdata = snd_soc_card_get_drvdata(soc_card);
 
 	pr_debug("%s: Enter.\n", __func__);
 
-	snd_byt_unregister_jack(drv);
-	snd_soc_jack_free_gpios(&drv->jack, 1, hs_gpio);
+	snd_byt_unregister_jack(drvdata);
 	snd_soc_card_set_drvdata(soc_card, NULL);
 	snd_soc_unregister_card(soc_card);
 	platform_set_drvdata(pdev, NULL);
@@ -972,12 +917,11 @@ static int snd_byt_mc_remove(struct platform_device *pdev)
 static void snd_byt_mc_shutdown(struct platform_device *pdev)
 {
 	struct snd_soc_card *soc_card = platform_get_drvdata(pdev);
-	struct byt_mc_private *drv = snd_soc_card_get_drvdata(soc_card);
+	struct byt_drvdata *drvdata = snd_soc_card_get_drvdata(soc_card);
 
 	pr_debug("%s: Enter.\n", __func__);
 
-	snd_byt_unregister_jack(drv);
-	snd_soc_jack_free_gpios(&drv->jack, 1, hs_gpio);
+	snd_byt_unregister_jack(drvdata);
 }
 
 static const struct dev_pm_ops snd_byt_mc_pm_ops = {
@@ -1003,10 +947,11 @@ static int __init snd_byt_driver_init(void)
 
 	ret = platform_driver_register(&snd_byt_mc_driver);
 	if (ret)
-		pr_err("Failed to register machine-driver byt_rt5651!\n");
+		pr_err("%s: Failed to register BYT-CR-RT5651 Machine driver!\n",
+			__func__);
 	else
-		pr_info("Machine-driver byt_rt5651 registerd!\n");
-
+		pr_info("%s: BYT-CR-RT5651 Machine driver registered.\n",
+			__func__);
 	return ret;
 }
 late_initcall(snd_byt_driver_init);
