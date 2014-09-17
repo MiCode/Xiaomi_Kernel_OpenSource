@@ -732,11 +732,16 @@ dhdpcie_enable_device(dhd_bus_t *bus)
 	if(pch == NULL)
 		return BCME_ERROR;
 
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(3, 0, 0))
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(3, 0, 0) && LINUX_VERSION_CODE < KERNEL_VERSION(3, 14, 0))
 	if (pci_load_saved_state(bus->dev, pch->state))
 		pci_disable_device(bus->dev);
 	else {
 #endif /* LINUX_VERSION_CODE >= KERNEL_VERSION(3, 0, 0) */
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(3, 14, 0))
+	if (pci_load_and_free_saved_state(bus->dev, &pch->state))
+		pci_disable_device(bus->dev);
+	else {
+#endif /* LINUX_VERSION_CODE >= KERNEL_VERSION(3, 14, 0) */
 		pci_restore_state(bus->dev);
 		ret = pci_enable_device(bus->dev);
 		if(!ret)
