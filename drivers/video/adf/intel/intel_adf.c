@@ -111,7 +111,7 @@ static int create_attachments(struct intel_adf_device *dev,
 	return 0;
 }
 
-#if defined(CONFIG_ADF_FBDEV)
+#if defined(CONFIG_ADF_FBDEV) && defined(CONFIG_ADF_INTEL_FBDEV)
 static struct adf_fbdev *create_fbdevs(struct intel_adf_context *ctx)
 {
 	struct intel_adf_device *dev = ctx->dev;
@@ -182,7 +182,7 @@ void intel_adf_context_destroy(struct intel_adf_context *ctx)
 
 	if (!ctx)
 		return;
-#if defined(CONFIG_ADF_FBDEV)
+#if defined(CONFIG_ADF_FBDEV) && defined(CONFIG_ADF_INTEL_FBDEV)
 	if (ctx->fbdevs)
 		destroy_fbdevs(ctx->fbdevs, ctx->n_fbdevs);
 #endif
@@ -212,7 +212,7 @@ struct intel_adf_context *intel_adf_context_create(struct pci_dev *pdev)
 	struct intel_adf_interface *intfs;
 	struct intel_adf_overlay_engine *engs;
 	int n_intfs, n_engs;
-#if defined(CONFIG_ADF_FBDEV)
+#if defined(CONFIG_ADF_FBDEV) && defined(CONFIG_ADF_INTEL_FBDEV)
 	struct adf_fbdev *fbdevs;
 #endif
 	/*TODO: use real platform ID*/
@@ -289,7 +289,7 @@ struct intel_adf_context *intel_adf_context_create(struct pci_dev *pdev)
 
 	g_adf_context = ctx;
 
-#if defined(CONFIG_ADF_FBDEV)
+#if defined(CONFIG_ADF_FBDEV) && defined(CONFIG_ADF_INTEL_FBDEV)
 	fbdevs = create_fbdevs(ctx);
 	if (IS_ERR(fbdevs)) {
 		dev_err(&pdev->dev, "%s: failed to create FB devices\n",
