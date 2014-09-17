@@ -44,6 +44,7 @@
 #define BYT_INT_STAT_REG	0x800
 
 /* BYT_CONF0_REG register bits */
+#define BYT_DIRECT_IRQ_EN	BIT(27)
 #define BYT_TRIG_NEG		BIT(26)
 #define BYT_TRIG_POS		BIT(25)
 #define BYT_TRIG_LVL		BIT(24)
@@ -183,10 +184,13 @@ static int byt_irq_type(struct irq_data *d, unsigned type)
 	spin_lock_irqsave(&vg->lock, flags);
 	value = readl(reg);
 
+	WARN(value & BYT_DIRECT_IRQ_EN, "Clearing direct_irq_en bit");
+
 	/* For level trigges the BYT_TRIG_POS and BYT_TRIG_NEG bits
 	 * are used to indicate high and low level triggering
 	 */
-	value &= ~(BYT_TRIG_POS | BYT_TRIG_NEG | BYT_TRIG_LVL);
+	value &= ~(BYT_DIRECT_IRQ_EN | BYT_TRIG_POS | BYT_TRIG_NEG |
+		   BYT_TRIG_LVL);
 
 	switch (type) {
 	case IRQ_TYPE_LEVEL_HIGH:
