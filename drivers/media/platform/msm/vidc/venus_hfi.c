@@ -1078,6 +1078,18 @@ static int __unset_free_ocmem(struct venus_hfi_device *device)
 	if (!device->res->ocmem_size)
 		return rc;
 
+	mutex_lock(&device->write_lock);
+	mutex_lock(&device->read_lock);
+	rc = IS_VENUS_IN_VALID_STATE(device);
+	mutex_unlock(&device->read_lock);
+	mutex_unlock(&device->write_lock);
+
+	if (!rc) {
+		dprintk(VIDC_WARN,
+			"Core is in bad state, Skipping unset OCMEM\n");
+		goto core_in_bad_state;
+	}
+
 	init_completion(&release_resources_done);
 	rc = __unset_ocmem(device);
 	if (rc) {
@@ -1094,6 +1106,7 @@ static int __unset_free_ocmem(struct venus_hfi_device *device)
 		goto release_resources_failed;
 	}
 
+core_in_bad_state:
 	rc = __free_ocmem(device);
 	if (rc) {
 		dprintk(VIDC_ERR, "Failed to free OCMEM during PC\n");
@@ -2899,6 +2912,18 @@ static void venus_hfi_pm_hndlr(struct work_struct *work)
 	device->pc_num_cmds = 0;
 	mutex_unlock(&device->clk_pwr_lock);
 
+	mutex_lock(&device->write_lock);
+	mutex_lock(&device->read_lock);
+	rc = IS_VENUS_IN_VALID_STATE(device);
+	mutex_unlock(&device->read_lock);
+	mutex_unlock(&device->write_lock);
+
+	if (!rc) {
+		dprintk(VIDC_WARN,
+			"Core is in bad state, Skipping power collapse\n");
+		return;
+	}
+
 	rc = __unset_free_ocmem(device);
 	if (rc) {
 		dprintk(VIDC_ERR,
@@ -3002,6 +3027,9 @@ static void venus_hfi_process_msg_event_notify(
 		(struct hfi_msg_event_notify_packet *)msg_hdr;
 	if (event_pkt && event_pkt->event_id ==
 		HFI_EVENT_SYS_ERROR) {
+
+		VENUS_SET_STATE(device, VENUS_STATE_DEINIT);
+
 		vsfr = (struct hfi_sfr_struct *)
 				device->sfr.align_virtual_addr;
 		if (vsfr)
