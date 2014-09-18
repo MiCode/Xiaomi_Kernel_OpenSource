@@ -53,6 +53,7 @@ struct q6v5_data {
 	bool non_elf_image;
 	bool restart_reg_sec;
 	bool override_acc;
+	bool ahb_clk_vote;
 };
 
 int pil_q6v5_make_proxy_votes(struct pil_desc *pil);

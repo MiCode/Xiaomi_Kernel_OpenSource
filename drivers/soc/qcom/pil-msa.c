@@ -161,7 +161,8 @@ static void pil_mss_disable_clks(struct q6v5_data *drv)
 	clk_disable_unprepare(drv->gpll0_mss_clk);
 	clk_disable_unprepare(drv->rom_clk);
 	clk_disable_unprepare(drv->axi_clk);
-	clk_disable_unprepare(drv->ahb_clk);
+	if (!drv->ahb_clk_vote)
+		clk_disable_unprepare(drv->ahb_clk);
 }
 
 static int pil_mss_restart_reg(struct q6v5_data *drv, u32 mss_restart)
@@ -252,9 +253,13 @@ int pil_mss_shutdown(struct pil_desc *pil)
 int pil_mss_deinit_image(struct pil_desc *pil)
 {
 	struct modem_data *drv = dev_get_drvdata(pil->dev);
+	struct q6v5_data *q6_drv = container_of(pil, struct q6v5_data, desc);
 	int ret = 0;
 
 	ret = pil_mss_shutdown(pil);
+
+	if (q6_drv->ahb_clk_vote)
+		clk_disable_unprepare(q6_drv->ahb_clk);
 
 	/* In case of any failure where reclaim MBA memory
 	 * could not happen, free the memory here */
@@ -365,6 +370,8 @@ static int pil_mss_reset(struct pil_desc *pil)
 err_q6v5_reset:
 	modem_log_rmb_regs(drv->rmb_base);
 	pil_mss_disable_clks(drv);
+	if (drv->ahb_clk_vote)
+		clk_disable_unprepare(drv->ahb_clk);
 err_clks:
 	pil_mss_restart_reg(drv, 1);
 err_restart:
@@ -535,6 +542,7 @@ static int pil_msa_mba_verify_blob(struct pil_desc *pil, phys_addr_t phy_addr,
 static int pil_msa_mba_auth(struct pil_desc *pil)
 {
 	struct modem_data *drv = dev_get_drvdata(pil->dev);
+	struct q6v5_data *q6_drv = container_of(pil, struct q6v5_data, desc);
 	int ret;
 	s32 status;
 
@@ -559,6 +567,9 @@ static int pil_msa_mba_auth(struct pil_desc *pil)
 
 	if (ret)
 		modem_log_rmb_regs(drv->rmb_base);
+	if (q6_drv->ahb_clk_vote)
+		clk_disable_unprepare(q6_drv->ahb_clk);
+
 	return ret;
 }
 

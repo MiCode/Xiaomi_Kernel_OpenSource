@@ -460,6 +460,9 @@ struct q6v5_data *pil_q6v5_init(struct platform_device *pdev)
 	drv->override_acc = of_property_read_bool(pdev->dev.of_node,
 						"qcom,override-acc");
 
+	drv->ahb_clk_vote = of_property_read_bool(pdev->dev.of_node,
+						"qcom,ahb-clk-vote");
+
 	drv->xo = devm_clk_get(&pdev->dev, "xo");
 	if (IS_ERR(drv->xo))
 		return ERR_CAST(drv->xo);
