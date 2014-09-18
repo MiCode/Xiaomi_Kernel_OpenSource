@@ -578,7 +578,11 @@ static const struct i2c_device_id pn544_id[] = {
 };
 
 static const struct acpi_device_id pn544_acpi_match[] = {
-	{ "PN544", 0 },
+	/* NFC NXP PN547 */
+	{ "NXP5472", 0 },
+
+	/* NFC NXP PN544 */
+	{ "NXP5442", 0 },
 	{ },
 };
 
