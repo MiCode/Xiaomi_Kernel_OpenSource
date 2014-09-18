@@ -1033,6 +1033,7 @@ static void mdss_mdp_pipe_free(struct kref *kref)
 	pipe->mfd = NULL;
 	pipe->mixer_left = pipe->mixer_right = NULL;
 	memset(&pipe->scale, 0, sizeof(struct mdp_scale_data));
+	memset(&pipe->req_data, 0, sizeof(pipe->req_data));
 }
 
 static bool mdss_mdp_check_pipe_in_use(struct mdss_mdp_pipe *pipe)
