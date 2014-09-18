@@ -616,7 +616,7 @@ static inline int mdss_mdp_panic_signal_support_mode(
 	uint32_t signal_mode = MDSS_MDP_PANIC_NONE;
 
 	if (pipe && pipe->mixer_left &&
-		pipe->mixer_left->type != MDSS_MDP_MIXER_TYPE_INTF) {
+		pipe->mixer_left->type == MDSS_MDP_MIXER_TYPE_INTF) {
 		if (IS_MDSS_MAJOR_MINOR_SAME(mdata->mdp_rev,
 					MDSS_MDP_HW_REV_105) ||
 		    IS_MDSS_MAJOR_MINOR_SAME(mdata->mdp_rev,
