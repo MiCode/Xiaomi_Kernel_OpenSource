@@ -1548,9 +1548,9 @@ static unsigned int atomisp_sensor_start_stream(struct atomisp_sub_device *asd)
 	else
 		return 1;
 }
-int atomisp_stream_on_master_slave_sensor(struct atomisp_device *isp)
+int atomisp_stream_on_master_slave_sensor(struct atomisp_device *isp, bool isp_timeout)
 {
-	unsigned int master = -1, slave = -1;
+	unsigned int master = -1, slave = -1, delay_slave = 0;
 	int i, ret;
 
 	/*
@@ -1571,14 +1571,29 @@ int atomisp_stream_on_master_slave_sensor(struct atomisp_device *isp)
 		return -EINVAL;
 	}
 
-	ret = v4l2_subdev_call(isp->inputs[master].camera, video, s_stream, 1);
+	if (isp_timeout) {
+		ret = v4l2_subdev_call(isp->inputs[master].camera, core,
+				       ioctl, ATOMISP_IOC_G_DEPTH_SYNC_COMP,
+				       &delay_slave);
+		if (ret)
+			dev_warn(isp->dev,
+				 "get depth sensor %s compensation delay failed.\n",
+				 isp->inputs[master].camera->name);
+	}
+
+	ret = v4l2_subdev_call(isp->inputs[master].camera,
+			       video, s_stream, 1);
 	if (ret) {
 		dev_err(isp->dev, "depth mode master sensor %s stream-on failed.\n",
 			isp->inputs[master].camera->name);
 		return -EINVAL;
 	}
 
-	ret = v4l2_subdev_call(isp->inputs[slave].camera, video, s_stream, 1);
+	if (isp_timeout && delay_slave != 0)
+		udelay(delay_slave);
+
+	ret = v4l2_subdev_call(isp->inputs[slave].camera,
+			       video, s_stream, 1);
 	if (ret) {
 		dev_err(isp->dev, "depth mode slave sensor %s stream-on failed.\n",
 			isp->inputs[slave].camera->name);
@@ -1788,7 +1803,7 @@ start_sensor:
 
 	if (asd->depth_mode->val && atomisp_streaming_count(isp) ==
 			ATOMISP_DEPTH_SENSOR_STREAMON_COUNT) {
-		ret = atomisp_stream_on_master_slave_sensor(isp);
+		ret = atomisp_stream_on_master_slave_sensor(isp, false);
 		if (ret) {
 			dev_err(isp->dev, "master slave sensor stream on failed!\n");
 			goto out;

@@ -1376,8 +1376,9 @@ static void __atomisp_css_recover(struct atomisp_device *isp, bool isp_timeout)
 	}
 
 	if (depth_mode) {
-		if (atomisp_stream_on_master_slave_sensor(isp))
-			dev_warn(isp->dev, "master slave sensor stream on failed!\n");
+		if (atomisp_stream_on_master_slave_sensor(isp, true))
+			dev_warn(isp->dev,
+				 "master slave sensor stream on failed!\n");
 	}
 }
 
