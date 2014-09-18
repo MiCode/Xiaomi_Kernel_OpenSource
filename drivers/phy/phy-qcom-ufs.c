@@ -92,7 +92,7 @@ struct phy *ufs_qcom_phy_generic_probe(struct platform_device *pdev,
 		goto out;
 	}
 
-	generic_phy = devm_phy_create(dev, ufs_qcom_phy_gen_ops, NULL);
+	generic_phy = devm_phy_create(dev, NULL, ufs_qcom_phy_gen_ops, NULL);
 	if (IS_ERR(generic_phy)) {
 		err =  PTR_ERR(generic_phy);
 		dev_err(dev, "%s: failed to create phy %d\n", __func__, err);
