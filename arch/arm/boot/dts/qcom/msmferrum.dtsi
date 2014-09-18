@@ -542,6 +542,7 @@
 		compatible = "qcom,hsusb-otg";
 
 		reg = <0x78d9000 0x400>;
+		reg-names = "core";
 		interrupts = <0 134 0>,<0 140 0>;
 		interrupt-names = "core_irq", "async_irq";
 

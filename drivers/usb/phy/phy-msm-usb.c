@@ -4685,9 +4685,9 @@ static int msm_otg_probe(struct platform_device *pdev)
 	/* initialize reset counter */
 	motg->reset_counter = 0;
 
-	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
+	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "core");
 	if (!res) {
-		dev_err(&pdev->dev, "failed to get platform resource mem\n");
+		dev_err(&pdev->dev, "failed to get core iomem resource\n");
 		ret = -ENODEV;
 		goto devote_bus_bw;
 	}
@@ -4695,14 +4695,15 @@ static int msm_otg_probe(struct platform_device *pdev)
 	motg->io_res = res;
 	motg->regs = ioremap(res->start, resource_size(res));
 	if (!motg->regs) {
-		dev_err(&pdev->dev, "ioremap failed\n");
+		dev_err(&pdev->dev, "core iomem ioremap failed\n");
 		ret = -ENOMEM;
 		goto devote_bus_bw;
 	}
 	dev_info(&pdev->dev, "OTG regs = %p\n", motg->regs);
 
 	if (pdata->enable_sec_phy) {
-		res = platform_get_resource(pdev, IORESOURCE_MEM, 1);
+		res = platform_get_resource_byname(pdev,
+				IORESOURCE_MEM, "tcsr");
 		if (!res) {
 			dev_dbg(&pdev->dev, "missing TCSR memory resource\n");
 		} else {

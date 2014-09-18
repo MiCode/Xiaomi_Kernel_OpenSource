@@ -336,6 +336,7 @@
 		status = "disabled";
 
 		reg = <0xf9a55000 0x400>;
+		reg-names = "core";
 		interrupts = <0 134 0 0 140 0>;
 		interrupt-names = "core_irq", "async_irq";
 		HSUSB_VDDCX-supply = <&pm8841_s2_corner>;
