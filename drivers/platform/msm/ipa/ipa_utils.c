@@ -548,7 +548,7 @@ void _ipa_sram_settings_read_v1_0(void)
 	ipa_ctx->smem_restricted_bytes = 0;
 	ipa_ctx->smem_sz = ipa_read_reg(ipa_ctx->mmio,
 			IPA_SHARED_MEM_SIZE_OFST_v1_0);
-	ipa_ctx->smem_reqd_sz = IPA_v1_RAM_END_OFST;
+	ipa_ctx->smem_reqd_sz = IPA_MEM_v1_RAM_END_OFST;
 	ipa_ctx->hdr_tbl_lcl = 1;
 	ipa_ctx->ip4_rt_tbl_lcl = 0;
 	ipa_ctx->ip6_rt_tbl_lcl = 0;
@@ -561,7 +561,7 @@ void _ipa_sram_settings_read_v1_1(void)
 	ipa_ctx->smem_restricted_bytes = 0;
 	ipa_ctx->smem_sz = ipa_read_reg(ipa_ctx->mmio,
 			IPA_SHARED_MEM_SIZE_OFST_v1_1);
-	ipa_ctx->smem_reqd_sz = IPA_v1_RAM_END_OFST;
+	ipa_ctx->smem_reqd_sz = IPA_MEM_v1_RAM_END_OFST;
 	ipa_ctx->hdr_tbl_lcl = 1;
 	ipa_ctx->ip4_rt_tbl_lcl = 0;
 	ipa_ctx->ip6_rt_tbl_lcl = 0;
@@ -579,7 +579,7 @@ void _ipa_sram_settings_read_v2_0(void)
 			IPA_SHARED_MEM_SIZE_OFST_v2_0,
 			IPA_SHARED_MEM_SIZE_SHARED_MEM_SIZE_BMSK_v2_0,
 			IPA_SHARED_MEM_SIZE_SHARED_MEM_SIZE_SHFT_v2_0);
-	ipa_ctx->smem_reqd_sz = IPA_v2_RAM_END_OFST;
+	ipa_ctx->smem_reqd_sz = IPA_MEM_PART(end_ofst);
 	ipa_ctx->hdr_tbl_lcl = 0;
 	ipa_ctx->ip4_rt_tbl_lcl = 0;
 	ipa_ctx->ip6_rt_tbl_lcl = 0;
@@ -2815,7 +2815,8 @@ int ipa_cfg_ep_route(u32 clnt_hdl, const struct ipa_ep_cfg_route *ep_route)
 	/* always use "default" routing table when programming EP ROUTE reg */
 	if (ipa_ctx->ipa_hw_type == IPA_HW_v2_0 ||
 		ipa_ctx->ipa_hw_type == IPA_HW_v2_5)
-		ipa_ctx->ep[clnt_hdl].rt_tbl_idx = IPA_v2_V4_APPS_RT_INDEX_LO;
+		ipa_ctx->ep[clnt_hdl].rt_tbl_idx =
+			IPA_MEM_PART(v4_apps_rt_index_lo);
 	else
 		ipa_ctx->ep[clnt_hdl].rt_tbl_idx = 0;
 
@@ -3402,6 +3403,117 @@ void ipa_bam_reg_dump(void)
 }
 EXPORT_SYMBOL(ipa_bam_reg_dump);
 
+static void ipa_init_mem_partition_v2(void)
+{
+	IPADBG("Memory partition IPA 2\n");
+	IPA_MEM_PART(nat_ofst) = IPA_RAM_NAT_OFST;
+	IPA_MEM_PART(nat_size) = IPA_RAM_NAT_SIZE;
+	IPADBG("NAT OFST 0x%x SIZE 0x%x\n", IPA_MEM_PART(nat_ofst),
+		IPA_MEM_PART(nat_size));
+
+	IPA_MEM_PART(ofst_start) = IPA_MEM_v2_RAM_OFST_START;
+	IPADBG("RAM OFST 0x%x\n", IPA_MEM_PART(ofst_start));
+
+	IPA_MEM_PART(v4_flt_ofst) = IPA_MEM_v2_RAM_V4_FLT_OFST;
+	IPA_MEM_PART(v4_flt_size) = IPA_MEM_v2_RAM_V4_FLT_SIZE;
+	IPA_MEM_PART(v4_flt_size_ddr) = IPA_MEM_RAM_V4_FLT_SIZE_DDR;
+	IPADBG("V4 FLT OFST 0x%x SIZE 0x%x DDR SIZE 0x%x\n",
+		IPA_MEM_PART(v4_flt_ofst), IPA_MEM_PART(v4_flt_size),
+		IPA_MEM_PART(v4_flt_size_ddr));
+
+	IPA_MEM_PART(v6_flt_ofst) = IPA_MEM_v2_RAM_V6_FLT_OFST;
+	IPA_MEM_PART(v6_flt_size) = IPA_MEM_v2_RAM_V6_FLT_SIZE;
+	IPA_MEM_PART(v6_flt_size_ddr) = IPA_MEM_RAM_V6_FLT_SIZE_DDR;
+	IPADBG("V6 FLT OFST 0x%x SIZE 0x%x DDR SIZE 0x%x\n",
+		IPA_MEM_PART(v6_flt_ofst), IPA_MEM_PART(v6_flt_size),
+		IPA_MEM_PART(v6_flt_size_ddr));
+
+	IPA_MEM_PART(v4_rt_ofst) = IPA_MEM_v2_RAM_V4_RT_OFST;
+	IPADBG("V4 RT OFST 0x%x\n", IPA_MEM_PART(v4_rt_ofst));
+
+	IPA_MEM_PART(v4_num_index) = IPA_MEM_v2_RAM_V4_NUM_INDEX;
+	IPADBG("V4 RT NUM INDEX 0x%x\n", IPA_MEM_PART(v4_num_index));
+
+	IPA_MEM_PART(v4_modem_rt_index_lo) = IPA_MEM_v2_V4_MODEM_RT_INDEX_LO;
+	IPA_MEM_PART(v4_modem_rt_index_hi) = IPA_MEM_v2_V4_MODEM_RT_INDEX_HI;
+	IPADBG("V4 RT MODEM INDEXES 0x%x - 0x%x\n",
+		IPA_MEM_PART(v4_modem_rt_index_lo),
+		IPA_MEM_PART(v4_modem_rt_index_hi));
+
+	IPA_MEM_PART(v4_apps_rt_index_lo) = IPA_MEM_v2_V4_APPS_RT_INDEX_LO;
+	IPA_MEM_PART(v4_apps_rt_index_hi) = IPA_MEM_v2_V4_APPS_RT_INDEX_HI;
+	IPADBG("V4 RT APPS INDEXES 0x%x - 0x%x\n",
+		IPA_MEM_PART(v4_apps_rt_index_lo),
+		IPA_MEM_PART(v4_apps_rt_index_hi));
+
+	IPA_MEM_PART(v4_rt_size) = IPA_MEM_v2_RAM_V4_RT_SIZE;
+	IPA_MEM_PART(v4_rt_size_ddr) = IPA_MEM_RAM_V4_RT_SIZE_DDR;
+	IPADBG("V4 RT SIZE 0x%x DDR SIZE 0x%x\n", IPA_MEM_PART(v4_rt_size),
+		IPA_MEM_PART(v4_rt_size_ddr));
+
+	IPA_MEM_PART(v6_rt_ofst) = IPA_MEM_v2_RAM_V6_RT_OFST;
+	IPADBG("V6 RT OFST 0x%x\n", IPA_MEM_PART(v6_rt_ofst));
+
+	IPA_MEM_PART(v6_num_index) = IPA_MEM_v2_RAM_V6_NUM_INDEX;
+	IPADBG("V6 RT NUM INDEX 0x%x\n", IPA_MEM_PART(v6_num_index));
+
+	IPA_MEM_PART(v6_modem_rt_index_lo) = IPA_MEM_v2_V6_MODEM_RT_INDEX_LO;
+	IPA_MEM_PART(v6_modem_rt_index_hi) = IPA_MEM_v2_V6_MODEM_RT_INDEX_HI;
+	IPADBG("V6 RT MODEM INDEXES 0x%x - 0x%x\n",
+		IPA_MEM_PART(v6_modem_rt_index_lo),
+		IPA_MEM_PART(v6_modem_rt_index_hi));
+
+	IPA_MEM_PART(v6_apps_rt_index_lo) = IPA_MEM_v2_V6_APPS_RT_INDEX_LO;
+	IPA_MEM_PART(v6_apps_rt_index_hi) = IPA_MEM_v2_V6_APPS_RT_INDEX_HI;
+	IPADBG("V6 RT APPS INDEXES 0x%x - 0x%x\n",
+		IPA_MEM_PART(v6_apps_rt_index_lo),
+		IPA_MEM_PART(v6_apps_rt_index_hi));
+
+	IPA_MEM_PART(v6_rt_size) = IPA_MEM_v2_RAM_V6_RT_SIZE;
+	IPA_MEM_PART(v6_rt_size_ddr) = IPA_MEM_RAM_V6_RT_SIZE_DDR;
+	IPADBG("V6 RT SIZE 0x%x DDR SIZE 0x%x\n", IPA_MEM_PART(v6_rt_size),
+		IPA_MEM_PART(v6_rt_size_ddr));
+
+	IPA_MEM_PART(modem_hdr_ofst) = IPA_MEM_v2_RAM_MODEM_HDR_OFST;
+	IPA_MEM_PART(modem_hdr_size) = IPA_MEM_v2_RAM_MODEM_HDR_SIZE;
+	IPADBG("MODEM HDR OFST 0x%x SIZE 0x%x\n",
+		IPA_MEM_PART(modem_hdr_ofst), IPA_MEM_PART(modem_hdr_size));
+
+	IPA_MEM_PART(apps_hdr_ofst) = IPA_MEM_v2_RAM_APPS_HDR_OFST;
+	IPA_MEM_PART(apps_hdr_size) = IPA_MEM_v2_RAM_APPS_HDR_SIZE;
+	IPA_MEM_PART(apps_hdr_size_ddr) = IPA_MEM_RAM_HDR_SIZE_DDR;
+	IPADBG("APPS HDR OFST 0x%x SIZE 0x%x DDR SIZE 0x%x\n",
+		IPA_MEM_PART(apps_hdr_ofst), IPA_MEM_PART(apps_hdr_size),
+		IPA_MEM_PART(apps_hdr_size_ddr));
+
+	IPA_MEM_PART(modem_ofst) = IPA_MEM_v2_RAM_MODEM_OFST;
+	IPA_MEM_PART(modem_size) = IPA_MEM_v2_RAM_MODEM_SIZE;
+	IPADBG("MODEM OFST 0x%x SIZE 0x%x\n", IPA_MEM_PART(modem_ofst),
+		IPA_MEM_PART(modem_size));
+
+	IPA_MEM_PART(apps_v4_flt_ofst) = IPA_MEM_v2_RAM_APPS_V4_FLT_OFST;
+	IPA_MEM_PART(apps_v4_flt_size) = IPA_MEM_v2_RAM_APPS_V4_FLT_SIZE;
+	IPADBG("V4 APPS FLT OFST 0x%x SIZE 0x%x\n",
+		IPA_MEM_PART(apps_v4_flt_ofst), IPA_MEM_PART(apps_v4_flt_size));
+
+	IPA_MEM_PART(apps_v6_flt_ofst) = IPA_MEM_v2_RAM_APPS_V6_FLT_OFST;
+	IPA_MEM_PART(apps_v6_flt_size) = IPA_MEM_v2_RAM_APPS_V6_FLT_SIZE;
+	IPADBG("V6 APPS FLT OFST 0x%x SIZE 0x%x\n",
+		IPA_MEM_PART(apps_v6_flt_ofst), IPA_MEM_PART(apps_v6_flt_size));
+
+	IPA_MEM_PART(uc_info_ofst) = IPA_MEM_v2_RAM_UC_INFO_OFST;
+	IPA_MEM_PART(uc_info_size) = IPA_MEM_v2_RAM_UC_INFO_SIZE;
+	IPADBG("V6 UC INFO OFST 0x%x SIZE 0x%x\n", IPA_MEM_PART(uc_info_ofst),
+		IPA_MEM_PART(uc_info_size));
+
+	IPA_MEM_PART(end_ofst) = IPA_MEM_v2_RAM_END_OFST;
+	IPA_MEM_PART(apps_v4_rt_ofst) = IPA_MEM_v2_RAM_APPS_V4_RT_OFST;
+	IPA_MEM_PART(apps_v4_rt_size) = IPA_MEM_v2_RAM_APPS_V4_RT_SIZE;
+	IPA_MEM_PART(apps_v6_rt_ofst) = IPA_MEM_v2_RAM_APPS_V6_RT_OFST;
+	IPA_MEM_PART(apps_v6_rt_size) = IPA_MEM_v2_RAM_APPS_V6_RT_SIZE;
+}
+
+
 /**
  * ipa_controller_shared_static_bind() - set the appropriate shared methods for
  * for IPA HW version 2.0 and 2.5
@@ -3482,6 +3594,7 @@ int ipa_controller_static_bind(struct ipa_controller *ctrl,
 		ctrl->max_holb_tmr_val = IPA_V1_MAX_HOLB_TMR_VAL;
 		break;
 	case (IPA_HW_v1_1):
+		ipa_init_mem_partition_v2();
 		ctrl->ipa_sram_read_settings = _ipa_sram_settings_read_v1_1;
 		ctrl->ipa_cfg_ep_hdr = _ipa_cfg_ep_hdr_v1_1;
 		ctrl->ipa_cfg_ep_hdr_ext = _ipa_cfg_ep_hdr_ext_v1_1;
@@ -3512,6 +3625,7 @@ int ipa_controller_static_bind(struct ipa_controller *ctrl,
 		ctrl->max_holb_tmr_val = IPA_V1_MAX_HOLB_TMR_VAL;
 		break;
 	case (IPA_HW_v2_0):
+		ipa_init_mem_partition_v2();
 		ipa_controller_shared_static_bind(ctrl);
 		ctrl->ipa_cfg_ep_holb = _ipa_cfg_ep_holb_v2_0;
 		ctrl->ipa_reg_base_ofst = IPA_REG_BASE_OFST_v2_0;
@@ -3519,6 +3633,7 @@ int ipa_controller_static_bind(struct ipa_controller *ctrl,
 		ctrl->ipa_cfg_ep_hdr_ext = _ipa_cfg_ep_hdr_ext_v2_0;
 		break;
 	case (IPA_HW_v2_5):
+		ipa_init_mem_partition_v2();
 		ipa_controller_shared_static_bind(ctrl);
 		ctrl->ipa_cfg_ep_holb = _ipa_cfg_ep_holb_v2_5;
 		ctrl->ipa_reg_base_ofst = IPA_REG_BASE_OFST_v2_5;

@@ -127,6 +127,8 @@
 #define IPA_RT_FLT_HW_RULE_BUF_SIZE	(128)
 
 #define MAX_RESOURCE_TO_CLIENTS (5)
+#define IPA_MEM_PART(x_) (ipa_ctx->ctrl->mem_partition.x_)
+
 struct ipa_client_names {
 	enum ipa_client_type names[MAX_RESOURCE_TO_CLIENTS];
 	int length;
@@ -862,7 +864,54 @@ struct ipa_plat_drv_res {
 	u32 ee;
 };
 
+struct ipa_mem_partition {
+	u16 ofst_start;
+	u16 nat_ofst;
+	u16 nat_size;
+	u16 v4_flt_ofst;
+	u16 v4_flt_size;
+	u16 v4_flt_size_ddr;
+	u16 v6_flt_ofst;
+	u16 v6_flt_size;
+	u16 v6_flt_size_ddr;
+	u16 v4_rt_ofst;
+	u16 v4_num_index;
+	u16 v4_modem_rt_index_lo;
+	u16 v4_modem_rt_index_hi;
+	u16 v4_apps_rt_index_lo;
+	u16 v4_apps_rt_index_hi;
+	u16 v4_rt_size;
+	u16 v4_rt_size_ddr;
+	u16 v6_rt_ofst;
+	u16 v6_num_index;
+	u16 v6_modem_rt_index_lo;
+	u16 v6_modem_rt_index_hi;
+	u16 v6_apps_rt_index_lo;
+	u16 v6_apps_rt_index_hi;
+	u16 v6_rt_size;
+	u16 v6_rt_size_ddr;
+	u16 modem_hdr_ofst;
+	u16 modem_hdr_size;
+	u16 apps_hdr_ofst;
+	u16 apps_hdr_size;
+	u16 apps_hdr_size_ddr;
+	u16 modem_ofst;
+	u16 modem_size;
+	u16 apps_v4_flt_ofst;
+	u16 apps_v4_flt_size;
+	u16 apps_v6_flt_ofst;
+	u16 apps_v6_flt_size;
+	u16 uc_info_ofst;
+	u16 uc_info_size;
+	u16 end_ofst;
+	u16 apps_v4_rt_ofst;
+	u16 apps_v4_rt_size;
+	u16 apps_v6_rt_ofst;
+	u16 apps_v6_rt_size;
+};
+
 struct ipa_controller {
+	struct ipa_mem_partition mem_partition;
 	u32 ipa_clk_rate_hi;
 	u32 ipa_clk_rate_lo;
 	u32 clock_scaling_bw_threshold;
