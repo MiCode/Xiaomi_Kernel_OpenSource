@@ -33,7 +33,6 @@
 		i2c6 = &i2c_6; /* I2C6 NFC qup6 device */
 		i2c2 = &i2c_2;
 		i2c5 = &i2c_5;
-		i2c11 = &i2c_11;
 		spi0 = &spi_0;
 	};
 
@@ -2216,31 +2215,6 @@
 		qcom,bam-pipe-idx-cons = <22>;
 		qcom,bam-pipe-idx-prod = <23>;
 		qcom,master-id = <86>;
-	};
-
-	i2c_11: i2c@f9967000 { /* BLSP2 QUP5 */
-		compatible = "qcom,i2c-msm-v2";
-		#address-cells = <1>;
-		#size-cells = <0>;
-		reg-names = "qup_phys_addr", "bam_phys_addr";
-		reg = <0xf9967000 0x1000>,
-		      <0xf9944000 0x19000>;
-		interrupt-names = "qup_irq", "bam_irq";
-		interrupts = <0 105 0>, <0 239 0>;
-		qcom,clk-freq-out = <100000>;
-		qcom,clk-freq-in  = <19200000>;
-		clock-names = "iface_clk", "core_clk";
-		clocks = <&clock_gcc clk_gcc_blsp2_ahb_clk>,
-			 <&clock_gcc clk_gcc_blsp2_qup5_i2c_apps_clk>;
-
-		pinctrl-names = "i2c_active", "i2c_sleep";
-		pinctrl-0 = <&i2c_11_active>;
-		pinctrl-1 = <&i2c_11_sleep>;
-		qcom,noise-rjct-scl = <0>;
-		qcom,noise-rjct-sda = <0>;
-		qcom,bam-pipe-idx-cons = <20>;
-		qcom,bam-pipe-idx-prod = <21>;
-		qcom,master-id = <84>;
 	};
 
 	sound {
