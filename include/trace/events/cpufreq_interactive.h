@@ -106,6 +106,18 @@ TRACE_EVENT(cpufreq_interactive_unboost,
 	    TP_printk("%s", __get_str(s))
 );
 
+TRACE_EVENT(cpufreq_interactive_load_change,
+	    TP_PROTO(unsigned long cpu_id),
+	    TP_ARGS(cpu_id),
+	    TP_STRUCT__entry(
+		__field(unsigned long, cpu_id)
+	    ),
+	    TP_fast_assign(
+		__entry->cpu_id = cpu_id;
+	    ),
+	    TP_printk("re-evaluate for cpu=%lu", __entry->cpu_id)
+);
+
 #endif /* _TRACE_CPUFREQ_INTERACTIVE_H */
 
 /* This part must be outside protection */
