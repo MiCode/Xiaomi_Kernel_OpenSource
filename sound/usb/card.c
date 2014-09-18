@@ -48,7 +48,6 @@
 #include <linux/usb/audio.h>
 #include <linux/usb/audio-v2.h>
 #include <linux/module.h>
-#include <linux/switch.h>
 
 #include <sound/control.h>
 #include <sound/core.h>
@@ -87,7 +86,6 @@ static int nrpacks = 8;		/* max. number of packets per urb */
 static bool async_unlink = 1;
 static int device_setup[SNDRV_CARDS]; /* device parameter for this card */
 static bool ignore_ctl_error;
-struct switch_dev *usbaudiosdev;
 
 module_param_array(index, int, NULL, 0444);
 MODULE_PARM_DESC(index, "Index value for the USB audio adapter.");
@@ -277,7 +275,6 @@ static int snd_usb_create_streams(struct snd_usb_audio *chip, int ctrlif)
 		break;
 	}
 	}
-	switch_set_state(usbaudiosdev, 1);
 	return 0;
 }
 
@@ -595,7 +592,6 @@ static void snd_usb_audio_disconnect(struct usb_device *dev,
 		mutex_unlock(&chip->shutdown_mutex);
 		mutex_unlock(&register_mutex);
 	}
-	switch_set_state(usbaudiosdev, 0);
 }
 
 /*
@@ -728,32 +724,17 @@ static struct usb_driver usb_audio_driver = {
 
 static int __init snd_usb_audio_init(void)
 {
-	int err;
 	if (nrpacks < 1 || nrpacks > MAX_PACKS) {
 		printk(KERN_WARNING "invalid nrpacks value.\n");
 		return -EINVAL;
 	}
 
-	usbaudiosdev = kzalloc(sizeof(*usbaudiosdev), GFP_KERNEL);
-	if (!usbaudiosdev) {
-		pr_err("Usb audio device memory allocation failed.\n");
-		return -ENOMEM;
-	}
-
-	usbaudiosdev->name = "usb_audio";
-
-	err = switch_dev_register(usbaudiosdev);
-	if (err)
-		pr_err("Usb-audio switch registration failed\n");
-	else
-		pr_debug("usb hs_detected\n");
 	return usb_register(&usb_audio_driver);
 }
 
 static void __exit snd_usb_audio_cleanup(void)
 {
 	usb_deregister(&usb_audio_driver);
-	kfree(usbaudiosdev);
 }
 
 module_init(snd_usb_audio_init);
