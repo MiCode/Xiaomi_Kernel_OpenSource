@@ -1115,7 +1115,6 @@ static void dwc3_msm_qscratch_reg_init(struct dwc3_msm *mdwc)
 static void dwc3_msm_notify_event(struct dwc3 *dwc, unsigned event)
 {
 	struct dwc3_msm *mdwc = dev_get_drvdata(dwc->dev->parent);
-	u32 mask;
 
 	if (dwc->revision < DWC3_REVISION_230A)
 		return;
@@ -1157,18 +1156,15 @@ static void dwc3_msm_notify_event(struct dwc3 *dwc, unsigned event)
 		break;
 	case DWC3_CONTROLLER_CONNDONE_EVENT:
 		dev_dbg(mdwc->dev, "DWC3_CONTROLLER_CONNDONE_EVENT received\n");
-		mask = PWR_EVNT_POWERDOWN_IN_P3_MASK;
 		/*
 		 * Add power event if the dbm indicates coming out of L1 by
 		 * interrupt
 		 */
 		if (mdwc->dbm && dbm_l1_lpm_interrupt(mdwc->dbm))
-			mask |= PWR_EVNT_LPM_OUT_L1_MASK;
+			dwc3_msm_write_reg_field(mdwc->base,
+					PWR_EVNT_IRQ_MASK_REG,
+					PWR_EVNT_LPM_OUT_L1_MASK, 1);
 
-		dwc3_msm_write_reg(mdwc->base, PWR_EVNT_IRQ_MASK_REG,
-			dwc3_msm_read_reg(mdwc->base, PWR_EVNT_IRQ_MASK_REG) |
-			mask);
-		atomic_set(&mdwc->in_p3, 0);
 		atomic_set(&dwc->in_lpm, 0);
 		break;
 	default:
@@ -1536,6 +1532,10 @@ static int dwc3_msm_prepare_suspend(struct dwc3_msm *mdwc)
 				"could not transition HS PHY to L2\n");
 			return -EBUSY;
 		}
+
+		/* Clear L2 event bit */
+		dwc3_msm_write_reg(mdwc->base, PWR_EVNT_IRQ_STAT_REG,
+			PWR_EVNT_LPM_IN_L2_MASK);
 	}
 
 	return 0;
@@ -1549,14 +1549,11 @@ static void dwc3_msm_wake_interrupt_enable(struct dwc3_msm *mdwc, bool on)
 		return;
 
 	if (on) {
-		if (dwc3_msm_is_superspeed(mdwc))
-			dwc3_msm_write_reg_field(mdwc->base,
-					PWR_EVNT_IRQ_MASK_REG,
-					PWR_EVNT_POWERDOWN_OUT_P3_MASK, 1);
-		else
-			dwc3_msm_write_reg_field(mdwc->base,
-					PWR_EVNT_IRQ_MASK_REG,
-					PWR_EVNT_LPM_OUT_L2_MASK, 1);
+		/* Enable P3 and L2 OUT events */
+		irq_mask = dwc3_msm_read_reg(mdwc->base, PWR_EVNT_IRQ_MASK_REG);
+		irq_mask |= PWR_EVNT_LPM_OUT_L2_MASK |
+				PWR_EVNT_POWERDOWN_OUT_P3_MASK;
+		dwc3_msm_write_reg(mdwc->base, PWR_EVNT_IRQ_MASK_REG, irq_mask);
 	} else {
 		static const u32 pwr_events = PWR_EVNT_POWERDOWN_OUT_P3_MASK |
 					      PWR_EVNT_LPM_OUT_L2_MASK;
@@ -1682,7 +1679,7 @@ static int dwc3_msm_suspend(struct dwc3_msm *mdwc)
 			return ret;
 	}
 
-	if (mdwc->hs_phy_irq)
+	if (mdwc->hs_phy_irq && !mdwc->pwr_event_irq)
 		disable_irq(mdwc->hs_phy_irq);
 
 	if (!dcp && !host_bus_suspend)
@@ -1761,7 +1758,13 @@ static int dwc3_msm_suspend(struct dwc3_msm *mdwc)
 			enable_irq_wake(mdwc->hs_phy_irq);
 			mdwc->lpm_flags |= MDWC3_ASYNC_IRQ_WAKE_CAPABILITY;
 		}
-		enable_irq(mdwc->hs_phy_irq);
+
+		/*
+		 * We don't need HS PHY IRQ (other than for wakeup) if PWR
+		 * EVENT IRQ is available
+		 */
+		if (!mdwc->pwr_event_irq)
+			enable_irq(mdwc->hs_phy_irq);
 	}
 
 	dev_info(mdwc->dev, "DWC3 in low power mode\n");
@@ -1865,6 +1868,11 @@ static int dwc3_msm_resume(struct dwc3_msm *mdwc)
 
 		if (mdwc->power_collapse_por)
 			dwc3_msm_power_collapse_por(mdwc);
+
+		/* Re-enable IN_P3 event */
+		dwc3_msm_write_reg_field(mdwc->base, PWR_EVNT_IRQ_MASK_REG,
+					PWR_EVNT_POWERDOWN_IN_P3_MASK, 1);
+
 		mdwc->lpm_flags &= ~MDWC3_POWER_COLLAPSE;
 	}
 
@@ -1874,8 +1882,7 @@ static int dwc3_msm_resume(struct dwc3_msm *mdwc)
 
 	msm_bam_notify_lpm_resume(DWC3_CTRL);
 	/* disable wakeup from LPM */
-	if (mdwc->pwr_event_irq)
-		dwc3_msm_wake_interrupt_enable(mdwc, false);
+	dwc3_msm_wake_interrupt_enable(mdwc, false);
 
 	/* Disable HSPHY auto suspend */
 	dwc3_msm_write_reg(mdwc->base, DWC3_GUSB2PHYCFG(0),
@@ -1974,6 +1981,36 @@ static void dwc3_pwr_event_handler(struct dwc3_msm *mdwc)
 	u32 irq_stat, irq_clear = 0;
 
 	irq_stat = dwc3_msm_read_reg(mdwc->base, PWR_EVNT_IRQ_STAT_REG);
+	dev_dbg(mdwc->dev, "%s irq_stat=%X\n", __func__, irq_stat);
+
+	/* Check for P3 events */
+	if ((irq_stat & PWR_EVNT_POWERDOWN_OUT_P3_MASK) &&
+			(irq_stat & PWR_EVNT_POWERDOWN_IN_P3_MASK)) {
+		/* Can't tell if entered or exit P3, so check LINKSTATE */
+		u32 ls = dwc3_msm_read_reg_field(mdwc->base,
+				DWC3_GDBGLTSSM, DWC3_GDBGLTSSM_LINKSTATE_MASK);
+		dev_dbg(mdwc->dev, "%s link state = 0x%04x\n", __func__, ls);
+		atomic_set(&mdwc->in_p3, ls == DWC3_LINK_STATE_U3);
+
+		irq_stat &= ~(PWR_EVNT_POWERDOWN_OUT_P3_MASK |
+				PWR_EVNT_POWERDOWN_IN_P3_MASK);
+		irq_clear |= (PWR_EVNT_POWERDOWN_OUT_P3_MASK |
+				PWR_EVNT_POWERDOWN_IN_P3_MASK);
+	} else if (irq_stat & PWR_EVNT_POWERDOWN_OUT_P3_MASK) {
+		atomic_set(&mdwc->in_p3, 0);
+		irq_stat &= ~PWR_EVNT_POWERDOWN_OUT_P3_MASK;
+		irq_clear |= PWR_EVNT_POWERDOWN_OUT_P3_MASK;
+	} else if (irq_stat & PWR_EVNT_POWERDOWN_IN_P3_MASK) {
+		atomic_set(&mdwc->in_p3, 1);
+		irq_stat &= ~PWR_EVNT_POWERDOWN_IN_P3_MASK;
+		irq_clear |= PWR_EVNT_POWERDOWN_IN_P3_MASK;
+	}
+
+	/* Clear L2 exit */
+	if (irq_stat & PWR_EVNT_LPM_OUT_L2_MASK) {
+		irq_stat &= ~PWR_EVNT_LPM_OUT_L2_MASK;
+		irq_stat |= PWR_EVNT_LPM_OUT_L2_MASK;
+	}
 
 	/* Handle exit from L1 events */
 	if (irq_stat & PWR_EVNT_LPM_OUT_L1_MASK) {
@@ -2001,7 +2038,7 @@ static irqreturn_t msm_dwc3_pwr_irq_thread(int irq, void *_mdwc)
 
 	dev_dbg(mdwc->dev, "%s\n", __func__);
 	if (atomic_read(&dwc->in_lpm))
-		pm_runtime_get_sync(&mdwc->dwc3->dev);
+		dwc3_resume_work(&mdwc->resume_work.work);
 	else
 		dwc3_pwr_event_handler(mdwc);
 	return IRQ_HANDLED;
@@ -2116,7 +2153,6 @@ static irqreturn_t msm_dwc3_pwr_irq(int irq, void *data)
 {
 	struct dwc3_msm *mdwc = data;
 	struct dwc3 *dwc = platform_get_drvdata(mdwc->dwc3);
-	u32 reg;
 
 	dev_dbg(mdwc->dev, "%s received\n", __func__);
 	/*
@@ -2126,13 +2162,6 @@ static irqreturn_t msm_dwc3_pwr_irq(int irq, void *data)
 	 * dwc3_pwr_event_handler to handle all other power events
 	 */
 	if (atomic_read(&dwc->in_lpm)) {
-		/*
-		 * If we get this interrupt while in LPM, we know the trigger
-		 * is OUT_P3 or OUT_L2. Clearing these bits happens in
-		 * msm_resume after the clocks are enabled.
-		 */
-		atomic_set(&mdwc->in_p3, 0);
-
 		/* Initate resume if system resume is not in process */
 		if (!atomic_read(&mdwc->pm_suspended))
 				return IRQ_WAKE_THREAD;
@@ -2142,18 +2171,8 @@ static irqreturn_t msm_dwc3_pwr_irq(int irq, void *data)
 		return IRQ_HANDLED;
 	}
 
-	reg = dwc3_msm_read_reg(mdwc->base, PWR_EVNT_IRQ_STAT_REG);
-	if (reg & PWR_EVNT_POWERDOWN_OUT_P3_MASK)
-		atomic_set(&mdwc->in_p3, 0);
-	if (reg & PWR_EVNT_POWERDOWN_IN_P3_MASK)
-		atomic_set(&mdwc->in_p3, 1);
-
-	dwc3_msm_write_reg(mdwc->base, PWR_EVNT_IRQ_STAT_REG,
-		PWR_EVNT_POWERDOWN_OUT_P3_MASK |
-		PWR_EVNT_POWERDOWN_IN_P3_MASK |
-		PWR_EVNT_LPM_OUT_L2_MASK);
-
-	return IRQ_WAKE_THREAD;
+	dwc3_pwr_event_handler(mdwc);
+	return IRQ_HANDLED;
 }
 
 static int
@@ -2750,6 +2769,7 @@ static int dwc3_msm_probe(struct platform_device *pdev)
 	struct resource *res;
 	void __iomem *tcsr;
 	unsigned long flags;
+	u32 tmp;
 	bool host_mode;
 	int ret = 0;
 
@@ -3216,7 +3236,17 @@ static int dwc3_msm_probe(struct platform_device *pdev)
 	pm_runtime_set_active(mdwc->dev);
 	pm_runtime_enable(mdwc->dev);
 
-	enable_irq(mdwc->hs_phy_irq);
+	/* Get initial P3 status and enable IN_P3 event */
+	tmp = dwc3_msm_read_reg_field(mdwc->base,
+			DWC3_GDBGLTSSM, DWC3_GDBGLTSSM_LINKSTATE_MASK);
+	atomic_set(&mdwc->in_p3, tmp == DWC3_LINK_STATE_U3);
+	dwc3_msm_write_reg_field(mdwc->base, PWR_EVNT_IRQ_MASK_REG,
+				PWR_EVNT_POWERDOWN_IN_P3_MASK, 1);
+
+	/* Don't enable HS PHY IRQ if PWR EVENT IRQ is available */
+	if (!mdwc->pwr_event_irq)
+		enable_irq(mdwc->hs_phy_irq);
+
 	/* Update initial ID state */
 	if (mdwc->pmic_id_irq) {
 		local_irq_save(flags);
