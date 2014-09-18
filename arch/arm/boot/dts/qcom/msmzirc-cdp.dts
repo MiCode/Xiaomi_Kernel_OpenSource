@@ -23,3 +23,7 @@
 &usb3 {
 	qcom,skip-charger-detection;
 };
+
+&qnand_1 {
+	status = "ok";
+};
