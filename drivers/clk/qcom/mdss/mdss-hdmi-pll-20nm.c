@@ -808,7 +808,7 @@ static inline struct hdmi_pll_vco_clk *to_hdmi_20nm_vco_clk(struct clk *clk)
 
 static u32 hdmi_20nm_phy_pll_set_clk_rate(struct clk *c, u32 tmds_clk)
 {
-	u32 clk_index, sleep;
+	u32 clk_index;
 
 	struct hdmi_pll_vco_clk *vco = to_hdmi_20nm_vco_clk(c);
 	struct mdss_pll_resources *io = vco->priv;
@@ -830,26 +830,22 @@ static u32 hdmi_20nm_phy_pll_set_clk_rate(struct clk *c, u32 tmds_clk)
 	/* Initially shut down PHY */
 	pr_debug("%s: Disabling PHY\n", __func__);
 	MDSS_PLL_REG_W(io->phy_base, HDMI_PHY_PD_CTL, 0x0);
-	/* Hardware recommended delay */
-	for (sleep = 0; sleep < 250; ++sleep)
-		udelay(1000);
+	udelay(1000);
+	mb();
 
 	/* power-up and recommended common block settings */
 	MDSS_PLL_REG_W(io->phy_base, HDMI_PHY_PD_CTL, 0x1F);
 	MDSS_PLL_REG_W(io->phy_base, HDMI_PHY_CFG, 0x01);
-	/* Hardware recommended delay */
-	for (sleep = 0; sleep < 20; ++sleep)
-		udelay(1000);
+	udelay(1000);
+	mb();
 
 	MDSS_PLL_REG_W(io->phy_base, HDMI_PHY_CFG, 0x07);
-	/* Hardware recommended delay */
-	for (sleep = 0; sleep < 20; ++sleep)
-		udelay(1000);
+	udelay(1000);
+	mb();
 
 	MDSS_PLL_REG_W(io->phy_base, HDMI_PHY_CFG, 0x05);
-	/* Hardware recommended delay */
-	for (sleep = 0; sleep < 20; ++sleep)
-		udelay(1000);
+	udelay(1000);
+	mb();
 
 	MDSS_PLL_REG_W(io->pll_base, QSERDES_COM_SYS_CLK_CTRL, 0x42);
 	MDSS_PLL_REG_W(io->pll_base, QSERDES_COM_PLL_VCOTAIL_EN, 0x03);
@@ -945,9 +941,8 @@ static u32 hdmi_20nm_phy_pll_set_clk_rate(struct clk *c, u32 tmds_clk)
 
 	MDSS_PLL_REG_W(io->pll_base, QSERDES_COM_RESETSM_CNTRL2, 0x07);
 
-	/* Hardware recommended delay */
-	for (sleep = 0; sleep < 100; ++sleep)
-		udelay(1000);
+	udelay(1000);
+	mb();
 
 	MDSS_PLL_REG_W(io->phy_base, HDMI_PHY_MODE,
 		clk_settings[CALC_HDMI_PHY_MODE][clk_index]);
@@ -1009,26 +1004,23 @@ static u32 hdmi_20nm_phy_pll_set_clk_rate(struct clk *c, u32 tmds_clk)
 
 static int hdmi_20nm_vco_enable(struct clk *c)
 {
-	u32 ready_poll, sleep;
+	u32 ready_poll;
 	u32 time_out_loop;
 	/* Hardware recommended timeout iterator */
-	u32 time_out_max = 2500;
+	u32 time_out_max = 50000;
 
 	struct hdmi_pll_vco_clk *vco = to_hdmi_20nm_vco_clk(c);
 	struct mdss_pll_resources *io = vco->priv;
 
 	MDSS_PLL_REG_W(io->phy_base, HDMI_PHY_CFG, 0x00000000);
-	/* Hardware recommended delay */
-	for (sleep = 0; sleep < 100; ++sleep)
-		udelay(1000);
+	udelay(1);
+	mb();
 	MDSS_PLL_REG_W(io->phy_base, HDMI_PHY_CFG, 0x00000003);
-	/* Hardware recommended delay */
-	for (sleep = 0; sleep < 100; ++sleep)
-		udelay(1000);
+	udelay(1);
+	mb();
 	MDSS_PLL_REG_W(io->phy_base, HDMI_PHY_CFG, 0x00000009);
-	/* Hardware recommended delay */
-	for (sleep = 0; sleep < 100; ++sleep)
-		udelay(1000);
+	udelay(1);
+	mb();
 
 	/* Poll for C_READY and PHY READY */
 	pr_debug("%s: Waiting for PHY Ready\n", __func__);
@@ -1036,9 +1028,9 @@ static int hdmi_20nm_vco_enable(struct clk *c)
 	do {
 		ready_poll = MDSS_PLL_REG_R(io->pll_base, QSERDES_COM_RESET_SM);
 		time_out_loop++;
+		udelay(1);
 	} while (((ready_poll  & (1 << 6)) == 0) &&
 		(time_out_loop < time_out_max));
-
 	if (time_out_loop >= time_out_max)
 		pr_err("%s: ERROR: TIMED OUT BEFORE C READY\n", __func__);
 	else
@@ -1050,16 +1042,13 @@ static int hdmi_20nm_vco_enable(struct clk *c)
 	do {
 		ready_poll = MDSS_PLL_REG_R(io->phy_base, HDMI_PHY_STATUS);
 		time_out_loop++;
+		udelay(1);
 	} while (((ready_poll & 0x1) == 0) && (time_out_loop < time_out_max));
 
-	if (time_out_loop >= time_out_max) {
+	if (time_out_loop >= time_out_max)
 		pr_err("%s: TIMED OUT BEFORE PHY READY\n", __func__);
-	} else {
-		/* Hardware recommended delay */
-		for (sleep = 0; sleep < 250; ++sleep)
-			udelay(1000);
+	else
 		pr_debug("%s: HDMI PHY READY\n", __func__);
-	}
 
 	io->pll_on = true;
 
