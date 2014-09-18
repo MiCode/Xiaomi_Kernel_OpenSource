@@ -16,6 +16,7 @@
 
 #include <linux/types.h>
 #include <linux/power_supply.h>
+#include <linux/power/battery_id.h>
 
 enum {
 	/* use the default compensation method */
@@ -38,6 +39,32 @@ enum smb347_chg_enable {
 	SMB347_CHG_ENABLE_PIN_ACTIVE_LOW,
 	SMB347_CHG_ENABLE_PIN_ACTIVE_HIGH,
 };
+
+/*
+ * Driving VBUS can be controlled by software (via i2c) by pin or by
+ * hardware ID pin autodetection. If set to %SMB347_OTG_CONTROL_DISABLED
+ * the functionality is disabled.
+ *
+ * %SMB347_OTG_CONTROL_DISABLED - don't use OTG at all
+ * %SMB347_OTG_CONTROL_PIN - use ID pin to detect when VBUS should be
+ *			     driven and raise VBUS automatically
+ * %SMB347_OTG_CONTROL_AUTO - Use auto-OTG and RID detection algorithm
+ * %SMB347_OTG_CONTROL_SW - enable OTG VBUS via register when we receive an
+ *			    OTG event from transceiver driver
+ * %SMB347_OTG_CONTROL_SW_PIN - enable OTG VBUS by switching to pin control
+ *				mode when OTG event is received
+ * %SMB347_OTG_CONTROL_SW_AUTO - enable OTG VBUS by switching to auto-OTG
+ *				 mode when OTG event is received
+ */
+enum smb347_otg_control {
+	SMB347_OTG_CONTROL_DISABLED,
+	SMB347_OTG_CONTROL_PIN,
+	SMB347_OTG_CONTROL_AUTO,
+	SMB347_OTG_CONTROL_SW,
+	SMB347_OTG_CONTROL_SW_PIN,
+	SMB347_OTG_CONTROL_SW_AUTO,
+};
+
 
 /**
  * struct smb347_charger_platform_data - platform data for SMB347 charger
@@ -73,6 +100,17 @@ enum smb347_chg_enable {
  * @irq_gpio: GPIO number used for interrupts (%-1 if not used)
  * @enable_control: how charging enable/disable is controlled
  *		    (driver/pin controls)
+ * @show_battery: show battery properties
+ * @otg_control: how otg to be enabled (AUTO/PIN/SW)
+ * @override_por: override NVM default settings
+ * @char_config_regs: override the default NVM
+ * @supplied_to: charger supplys support for fuel gauge list
+ * @num_supplicants: number of supported fuel gauge
+ * @num_throttle_states: number of charge current throttle states
+ * @supported_cables: supported charger cables
+ * @throttle_states: charge current throttle list
+ * @detect_chg: whether charger can detect charger cable (APSD enabled?)
+ * @reload_cfg: whether the NVM setting shall be reloaded on charger unplug?
  *
  * @use_main, @use_usb, and @use_usb_otg are means to enable/disable
  * hardware support for these. This is useful when we want to have for
@@ -90,28 +128,50 @@ enum smb347_chg_enable {
  * factory programmed default will be used. For soft/hard temperature
  * values, pass in %SMB347_TEMP_USE_DEFAULT instead.
  */
+
+#define  MAXSMB34x_CONFIG_REG		20
+#define  MAXSMB347_CONFIG_DATA_SIZE	(MAXSMB34x_CONFIG_REG*2)
+
 struct smb347_charger_platform_data {
 	struct power_supply_info battery_info;
-	unsigned int	max_charge_current;
-	unsigned int	max_charge_voltage;
-	unsigned int	pre_charge_current;
-	unsigned int	termination_current;
-	unsigned int	pre_to_fast_voltage;
-	unsigned int	mains_current_limit;
-	unsigned int	usb_hc_current_limit;
-	unsigned int	chip_temp_threshold;
-	int		soft_cold_temp_limit;
-	int		soft_hot_temp_limit;
-	int		hard_cold_temp_limit;
-	int		hard_hot_temp_limit;
-	bool		suspend_on_hard_temp_limit;
-	unsigned int	soft_temp_limit_compensation;
-	unsigned int	charge_current_compensation;
-	bool		use_mains;
-	bool		use_usb;
-	bool		use_usb_otg;
-	int		irq_gpio;
+	unsigned int    max_charge_current;
+	unsigned int    max_charge_voltage;
+	unsigned int    pre_charge_current;
+	unsigned int    termination_current;
+	unsigned int    pre_to_fast_voltage;
+	unsigned int    mains_current_limit;
+	unsigned int    usb_hc_current_limit;
+	unsigned int    chip_temp_threshold;
+	int             soft_cold_temp_limit;
+	int             soft_hot_temp_limit;
+	int             hard_cold_temp_limit;
+	int             hard_hot_temp_limit;
+	bool            suspend_on_hard_temp_limit;
+	unsigned int    soft_temp_limit_compensation;
+	unsigned int    charge_current_compensation;
+	bool            use_mains;
+	bool            use_usb;
+	bool            use_usb_otg;
+	int             irq_gpio;
 	enum smb347_chg_enable enable_control;
+	bool		show_battery;
+	enum smb347_otg_control otg_control;
+	bool		override_por;
+	/*
+	 * One time initialized configuration
+	 * register map[offset, value].
+	 */
+	u16	char_config_regs[MAXSMB347_CONFIG_DATA_SIZE];
+
+#ifdef CONFIG_POWER_SUPPLY_CHARGER
+	char **supplied_to;
+	size_t num_supplicants;
+	size_t num_throttle_states;
+	unsigned long supported_cables;
+	struct power_supply_throttle *throttle_states;
+#endif
+	bool	detect_chg;
+	bool	reload_cfg;
 };
 
-#endif /* SMB347_CHARGER_H */
+#endif
