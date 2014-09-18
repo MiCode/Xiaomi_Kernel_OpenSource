@@ -18,7 +18,12 @@
 
 #define INTEL_ADF_DEVICE_NAME		"intel-adf-dev"
 #define INTEL_DC_REG_OFFSET		0x0
-#define INTEL_DC_REG_SIZE		0x80000
+
+#ifdef CONFIG_ADF_INTEL_VLV
+	#define INTEL_DC_REG_SIZE	(2 * 1024 * 1024)
+#else
+	#define INTEL_DC_REG_SIZE	0x80000
+#endif
 #define INTEL_VSYNC_FENCE_TIMEOUT	(5 * MSEC_PER_SEC)
 
 
