@@ -23,3 +23,11 @@
 	compatible = "qcom,msm8994";
 	qcom,msm-id = <207 0x10000>;
 };
+
+&soc {
+	qcom,usbbam@f9304000 {
+		qcom,pipe0 {
+			qcom,pipe-connection-type = <1>; /* USB_BAM_PIPE_SYS2BAM */
+		};
+	};
+};

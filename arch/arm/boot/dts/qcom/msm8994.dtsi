@@ -1458,7 +1458,6 @@
 			qcom,data-fifo-size = <0x8000>;
 			qcom,descriptor-fifo-size = <0x2000>;
 			qcom,reset-bam-on-connect;
-			qcom,pipe-connection-type = <1>;
 		};
 		qcom,pipe1 {
 			label = "ssusb-ipa-in-0";
