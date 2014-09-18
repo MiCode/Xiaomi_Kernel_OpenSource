@@ -63,11 +63,20 @@ const char *ipa_event_name[] = {
 	__stringify(ECM_DISCONNECT),
 };
 
+const char *ipa_hdr_proc_type_name[] = {
+	__stringify(IPA_HDR_PROC_NONE),
+	__stringify(IPA_HDR_PROC_ETHII_TO_ETHII),
+	__stringify(IPA_HDR_PROC_ETHII_TO_802_3),
+	__stringify(IPA_HDR_PROC_802_3_TO_ETHII),
+	__stringify(IPA_HDR_PROC_802_3_TO_802_3),
+};
+
 static struct dentry *dent;
 static struct dentry *dfile_gen_reg;
 static struct dentry *dfile_ep_reg;
 static struct dentry *dfile_ep_holb;
 static struct dentry *dfile_hdr;
+static struct dentry *dfile_proc_ctx;
 static struct dentry *dfile_ip4_rt;
 static struct dentry *dfile_ip6_rt;
 static struct dentry *dfile_ip4_flt;
@@ -363,33 +372,53 @@ static ssize_t ipa_read_hdr(struct file *file, char __user *ubuf, size_t count,
 		loff_t *ppos)
 {
 	int nbytes = 0;
-	int cnt = 0;
 	int i = 0;
 	struct ipa_hdr_entry *entry;
 
 	mutex_lock(&ipa_ctx->lock);
+
+	if (ipa_ctx->hdr_tbl_lcl)
+		pr_err("Table resides on local memory\n");
+	else
+		pr_err("Table resides on system (ddr) memory\n");
+
 	list_for_each_entry(entry, &ipa_ctx->hdr_tbl.head_hdr_entry_list,
 			link) {
-		nbytes = scnprintf(dbg_buff + cnt, IPA_MAX_MSG_LEN - cnt,
-				   "name:%s len=%d ref=%d partial=%d lcl=%d ofst=%u ",
-				   entry->name,
-				   entry->hdr_len, entry->ref_cnt,
-				   entry->is_partial,
-				   ipa_ctx->hdr_tbl_lcl,
-				   entry->offset_entry->offset >> 2);
+		if (entry->is_hdr_proc_ctx) {
+			nbytes = scnprintf(
+				dbg_buff,
+				IPA_MAX_MSG_LEN,
+				"name:%s len=%d ref=%d partial=%d "
+				"phys_base=0x%pa ",
+				entry->name,
+				entry->hdr_len,
+				entry->ref_cnt,
+				entry->is_partial,
+				&entry->phys_base);
+		} else {
+			nbytes = scnprintf(
+				dbg_buff,
+				IPA_MAX_MSG_LEN,
+				"name:%s len=%d ref=%d partial=%d ofst=%u ",
+				entry->name,
+				entry->hdr_len,
+				entry->ref_cnt,
+				entry->is_partial,
+				entry->offset_entry->offset >> 2);
+		}
 		for (i = 0; i < entry->hdr_len; i++) {
-			scnprintf(dbg_buff + cnt + nbytes + i * 2,
-				  IPA_MAX_MSG_LEN - cnt - nbytes - i * 2,
+			scnprintf(dbg_buff + nbytes + i * 2,
+				  IPA_MAX_MSG_LEN - nbytes - i * 2,
 				  "%02x", entry->hdr[i]);
 		}
-		scnprintf(dbg_buff + cnt + nbytes + entry->hdr_len * 2,
-			  IPA_MAX_MSG_LEN - cnt - nbytes - entry->hdr_len * 2,
+		scnprintf(dbg_buff + nbytes + entry->hdr_len * 2,
+			  IPA_MAX_MSG_LEN - nbytes - entry->hdr_len * 2,
 			  "\n");
-		cnt += nbytes + entry->hdr_len * 2 + 1;
+		pr_err("%s", dbg_buff);
 	}
 	mutex_unlock(&ipa_ctx->lock);
 
-	return simple_read_from_buffer(ubuf, count, ppos, dbg_buff, cnt);
+	return 0;
 }
 
 static int ipa_attrib_dump(struct ipa_rule_attrib *attrib,
@@ -489,6 +518,19 @@ static int ipa_attrib_dump(struct ipa_rule_attrib *attrib,
 	if (attrib->attrib_mask & IPA_FLT_FRAGMENT)
 		pr_err("frg ");
 
+	if ((attrib->attrib_mask & IPA_FLT_MAC_SRC_ADDR_ETHER_II) ||
+		(attrib->attrib_mask & IPA_FLT_MAC_SRC_ADDR_802_3)) {
+		pr_err("src_mac_addr:%pM ", attrib->src_mac_addr);
+	}
+
+	if ((attrib->attrib_mask & IPA_FLT_MAC_DST_ADDR_ETHER_II) ||
+		(attrib->attrib_mask & IPA_FLT_MAC_DST_ADDR_802_3)) {
+		pr_err("dst_mac_addr:%pM ", attrib->dst_mac_addr);
+	}
+
+	if (attrib->attrib_mask & IPA_FLT_MAC_ETHER_TYPE)
+		pr_err("ether_type:%x ", attrib->ether_type);
+
 	pr_err("\n");
 	return 0;
 }
@@ -584,38 +626,62 @@ static ssize_t ipa_read_rt(struct file *file, char __user *ubuf, size_t count,
 	struct ipa_rt_entry *entry;
 	struct ipa_rt_tbl_set *set;
 	enum ipa_ip_type ip = (enum ipa_ip_type)file->private_data;
-	u32 hdr_ofst;
+	u32 ofst;
+	u32 ofst_words;
 
 	set = &ipa_ctx->rt_tbl_set[ip];
 
 	mutex_lock(&ipa_ctx->lock);
+
 	if (ip ==  IPA_IP_v6) {
 		if (ipa_ctx->ip6_rt_tbl_lcl)
-			pr_err("Table Resides on local memory\n");
+			pr_err("Table resides on local memory\n");
 		else
-			pr_err("Table Resides on system(ddr) memory\n");
+			pr_err("Table resides on system (ddr) memory\n");
 	} else if (ip == IPA_IP_v4) {
 		if (ipa_ctx->ip4_rt_tbl_lcl)
-			pr_err("Table Resides on local memory\n");
+			pr_err("Table resides on local memory\n");
 		else
-			pr_err("Table Resides on system(ddr) memory\n");
+			pr_err("Table resides on system (ddr) memory\n");
 	}
 
 	list_for_each_entry(tbl, &set->head_rt_tbl_list, link) {
 		i = 0;
 		list_for_each_entry(entry, &tbl->head_rt_rule_list, link) {
-			if (entry->hdr)
-				hdr_ofst = entry->hdr->offset_entry->offset;
-			else
-				hdr_ofst = 0;
-			pr_err(
-					"tbl_idx:%d tbl_name:%s tbl_ref:%u rule_idx:%d dst:%d ep:%d S:%u hdr_ofst[words]:%u attrib_mask:%08x ",
+			if (entry->proc_ctx) {
+				ofst = entry->proc_ctx->offset_entry->offset;
+				ofst_words =
+					(ofst +
+					ipa_ctx->hdr_proc_ctx_tbl.start_offset)
+					>> 5;
+
+				pr_err(
+					"tbl_idx:%d tbl_name:%s tbl_ref:%u "
+					"rule_idx:%d dst:%d ep:%d S:%u "
+					"proc_ctx[32B]:%u attrib_mask:%08x ",
 					entry->tbl->idx, entry->tbl->name,
 					entry->tbl->ref_cnt, i, entry->rule.dst,
 					ipa_get_ep_mapping(entry->rule.dst),
 					!ipa_ctx->hdr_tbl_lcl,
-					hdr_ofst >> 2,
+					ofst_words,
 					entry->rule.attrib.attrib_mask);
+			} else {
+				if (entry->hdr)
+					ofst = entry->hdr->offset_entry->offset;
+				else
+					ofst = 0;
+
+				pr_err(
+					"tbl_idx:%d tbl_name:%s tbl_ref:%u "
+					"rule_idx:%d dst:%d ep:%d S:%u "
+					"hdr_ofst[words]:%u attrib_mask:%08x ",
+					entry->tbl->idx, entry->tbl->name,
+					entry->tbl->ref_cnt, i, entry->rule.dst,
+					ipa_get_ep_mapping(entry->rule.dst),
+					!ipa_ctx->hdr_tbl_lcl,
+					ofst >> 2,
+					entry->rule.attrib.attrib_mask);
+			}
 
 			ipa_attrib_dump(&entry->rule.attrib, ip);
 			i++;
@@ -624,6 +690,52 @@ static ssize_t ipa_read_rt(struct file *file, char __user *ubuf, size_t count,
 	mutex_unlock(&ipa_ctx->lock);
 
 	return 0;
+}
+
+static ssize_t ipa_read_proc_ctx(struct file *file, char __user *ubuf,
+		size_t count, loff_t *ppos)
+{
+	int nbytes = 0;
+	struct ipa_hdr_proc_ctx_tbl *tbl;
+	struct ipa_hdr_proc_ctx_entry *entry;
+	u32 ofst_words;
+
+	tbl = &ipa_ctx->hdr_proc_ctx_tbl;
+
+	mutex_lock(&ipa_ctx->lock);
+
+	if (ipa_ctx->hdr_proc_ctx_tbl_lcl)
+		pr_info("Table resides on local memory\n");
+	else
+		pr_info("Table resides on system(ddr) memory\n");
+
+	list_for_each_entry(entry, &tbl->head_proc_ctx_entry_list, link) {
+		ofst_words = (entry->offset_entry->offset +
+			ipa_ctx->hdr_proc_ctx_tbl.start_offset)
+			>> 5;
+		if (entry->hdr->is_hdr_proc_ctx) {
+			nbytes += scnprintf(dbg_buff + nbytes,
+				IPA_MAX_MSG_LEN - nbytes,
+				"id:%u hdr_proc_type:%s proc_ctx[32B]:%u "
+				"hdr_phys_base:0x%pa\n",
+				entry->id,
+				ipa_hdr_proc_type_name[entry->type],
+				ofst_words,
+				&entry->hdr->phys_base);
+		} else {
+			nbytes += scnprintf(dbg_buff + nbytes,
+				IPA_MAX_MSG_LEN - nbytes,
+				"id:%u hdr_proc_type:%s proc_ctx[32B]:%u "
+				"hdr[words]:%u\n",
+				entry->id,
+				ipa_hdr_proc_type_name[entry->type],
+				ofst_words,
+				entry->hdr->offset_entry->offset >> 2);
+		}
+	}
+	mutex_unlock(&ipa_ctx->lock);
+
+	return simple_read_from_buffer(ubuf, count, ppos, dbg_buff, nbytes);
 }
 
 static ssize_t ipa_read_flt(struct file *file, char __user *ubuf, size_t count,
@@ -1323,6 +1435,10 @@ const struct file_operations ipa_rt_ops = {
 	.open = ipa_open_dbg,
 };
 
+const struct file_operations ipa_proc_ctx_ops = {
+	.read = ipa_read_proc_ctx,
+};
+
 const struct file_operations ipa_flt_ops = {
 	.read = ipa_read_flt,
 	.open = ipa_open_dbg,
@@ -1404,6 +1520,13 @@ void ipa_debugfs_init(void)
 			&ipa_hdr_ops);
 	if (!dfile_hdr || IS_ERR(dfile_hdr)) {
 		IPAERR("fail to create file for debug_fs hdr\n");
+		goto fail;
+	}
+
+	dfile_proc_ctx = debugfs_create_file("proc_ctx", read_only_mode, dent,
+		0, &ipa_proc_ctx_ops);
+	if (!dfile_hdr || IS_ERR(dfile_hdr)) {
+		IPAERR("fail to create file for debug_fs proc_ctx\n");
 		goto fail;
 	}
 

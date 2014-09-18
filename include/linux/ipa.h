@@ -987,6 +987,13 @@ int ipa_put_hdr(u32 hdr_hdl);
 int ipa_copy_hdr(struct ipa_ioc_copy_hdr *copy);
 
 /*
+ * Header Processing Context
+ */
+int ipa_add_hdr_proc_ctx(struct ipa_ioc_add_hdr_proc_ctx *proc_ctxs);
+
+int ipa_del_hdr_proc_ctx(struct ipa_ioc_del_hdr_proc_ctx *hdls);
+
+/*
  * Routing
  */
 int ipa_add_rt_rule(struct ipa_ioc_add_rt_rule *rules);
@@ -1323,6 +1330,19 @@ static inline int ipa_copy_hdr(struct ipa_ioc_copy_hdr *copy)
 	return -EPERM;
 }
 
+/*
+ * Header Processing Context
+ */
+static inline int ipa_add_hdr_proc_ctx(
+				struct ipa_ioc_add_hdr_proc_ctx *proc_ctxs)
+{
+	return -EPERM;
+}
+
+static inline int ipa_del_hdr_proc_ctx(struct ipa_ioc_del_hdr_proc_ctx *hdls)
+{
+	return -EPERM;
+}
 /*
  * Routing
  */
