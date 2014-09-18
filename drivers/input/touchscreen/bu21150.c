@@ -42,9 +42,10 @@
 #define GPIO_HIGH (1)
 #define WAITQ_WAIT   (0)
 #define WAITQ_WAKEUP (1)
-/* #define CHECK_SAME_FRAME */
-#define APQ8074_DRAGONBOARD (0x01)
-#define MSM8974_FLUID       (0x02)
+#define BU21150_MIN_VOLTAGE_UV	2700000
+#define BU21150_MAX_VOLTAGE_UV	3300000
+#define BU21150_VDD_DIG_VOLTAGE_UV	1800000
+#define BU21150_MAX_OPS_LOAD_UA	150000
 
 /* struct */
 struct bu21150_data {
@@ -52,6 +53,13 @@ struct bu21150_data {
 	struct spi_device *client;
 	struct workqueue_struct *workq;
 	struct work_struct work;
+	struct pinctrl *ts_pinctrl;
+	struct pinctrl_state *gpio_state_active;
+	struct pinctrl_state *gpio_state_suspend;
+	struct pinctrl_state *afe_pwr_state_active;
+	struct pinctrl_state *afe_pwr_state_suspend;
+	struct pinctrl_state *disp_vsn_state_active;
+	struct pinctrl_state *disp_vsn_state_suspend;
 	/* frame */
 	struct bu21150_ioctl_get_frame_data req_get;
 	u8 frame[MAX_FRAME_SIZE];
@@ -66,12 +74,14 @@ struct bu21150_data {
 	wait_queue_head_t frame_waitq;
 	/* spi */
 	u8 spi_buf[MAX_FRAME_SIZE];
-    /* power */
+	/* power */
 	struct regulator *vcc_ana;
+	struct regulator *vcc_dig;
 	/* dtsi */
 	int irq_gpio;
 	int rst_gpio;
-	int power_supply;
+	int afe_pwr_gpio;
+	int disp_vsn_gpio;
 };
 
 struct ser_req {
@@ -79,9 +89,6 @@ struct ser_req {
 	struct spi_transfer    xfer[2];
 	u16 sample ____cacheline_aligned;
 };
-
-int g_afe_display_state;  /* 0:off, 1:on */
-int g_afe_skip_frame_cnt;
 
 /* static function declaration */
 static int bu21150_probe(struct spi_device *client);
@@ -169,10 +176,337 @@ static int reg_set_optimum_mode_check(struct regulator *reg, int load_ua)
 		regulator_set_optimum_mode(reg, load_ua) : 0;
 }
 
+static int bu21150_pinctrl_init(struct bu21150_data *data)
+{
+	int rc;
+
+	data->ts_pinctrl = devm_pinctrl_get(&(data->client->dev));
+	if (IS_ERR_OR_NULL(data->ts_pinctrl)) {
+		dev_err(&data->client->dev,
+			"Target does not use pinctrl\n");
+		rc = PTR_ERR(data->ts_pinctrl);
+		goto error;
+	}
+
+	data->gpio_state_active
+		= pinctrl_lookup_state(data->ts_pinctrl, "pmx_ts_active");
+	if (IS_ERR_OR_NULL(data->gpio_state_active)) {
+		dev_dbg(&data->client->dev,
+			"Can not get ts default pinstate\n");
+		rc = PTR_ERR(data->gpio_state_active);
+		goto error;
+	}
+
+	data->gpio_state_suspend
+		= pinctrl_lookup_state(data->ts_pinctrl, "pmx_ts_suspend");
+	if (IS_ERR_OR_NULL(data->gpio_state_suspend)) {
+		dev_dbg(&data->client->dev,
+			"Can not get ts sleep pinstate\n");
+		rc = PTR_ERR(data->gpio_state_suspend);
+		goto error;
+	}
+
+	data->afe_pwr_state_active
+		= pinctrl_lookup_state(data->ts_pinctrl, "afe_pwr_active");
+	if (IS_ERR_OR_NULL(data->afe_pwr_state_active)) {
+		dev_err(&data->client->dev,
+			"Can not get pwr default pinstate\n");
+		rc = PTR_ERR(data->afe_pwr_state_active);
+		goto error;
+	}
+
+	data->afe_pwr_state_suspend
+		= pinctrl_lookup_state(data->ts_pinctrl, "afe_pwr_suspend");
+	if (IS_ERR_OR_NULL(data->afe_pwr_state_suspend)) {
+		dev_err(&data->client->dev,
+			"Can not get pwr sleep pinstate\n");
+		rc = PTR_ERR(data->afe_pwr_state_suspend);
+		goto error;
+	}
+
+	data->disp_vsn_state_active
+		= pinctrl_lookup_state(data->ts_pinctrl, "disp_vsn_active");
+	if (IS_ERR_OR_NULL(data->disp_vsn_state_active)) {
+		dev_err(&data->client->dev,
+			"Can not get disp_vsn default pinstate\n");
+		rc = PTR_ERR(data->disp_vsn_state_active);
+		goto error;
+	}
+
+	data->disp_vsn_state_suspend
+		= pinctrl_lookup_state(data->ts_pinctrl, "disp_vsn_suspend");
+	if (IS_ERR_OR_NULL(data->disp_vsn_state_suspend)) {
+		dev_err(&data->client->dev,
+			"Can not get disp_vsn sleep pinstate\n");
+		rc = PTR_ERR(data->disp_vsn_state_suspend);
+		goto error;
+	}
+
+	return 0;
+
+error:
+	data->ts_pinctrl = NULL;
+	return rc;
+}
+
+static int bu21150_pinctrl_select(struct bu21150_data *data, bool on)
+{
+	struct pinctrl_state *pins_state;
+	int ret = 0;
+
+	pins_state = on ? data->gpio_state_active : data->gpio_state_suspend;
+	if (!IS_ERR_OR_NULL(pins_state)) {
+		ret = pinctrl_select_state(data->ts_pinctrl, pins_state);
+		if (ret) {
+			dev_err(&data->client->dev,
+				"can not set %s pins\n",
+				on ? "pmx_ts_active" : "pmx_ts_suspend");
+			return ret;
+		}
+	} else {
+		dev_err(&data->client->dev,
+			"not a valid '%s' pinstate\n",
+				on ? "pmx_ts_active" : "pmx_ts_suspend");
+		return -EINVAL;
+	}
+
+	return ret;
+}
+
+static int bu21150_pinctrl_enable(struct bu21150_data *ts, bool on)
+{
+	int rc = 0;
+
+	if (!on)
+		goto pinctrl_suspend;
+
+	rc = pinctrl_select_state(ts->ts_pinctrl,
+					ts->afe_pwr_state_active);
+	if (rc) {
+		dev_err(&ts->client->dev, "can not set afe pwr pins\n");
+		return -EINVAL;
+	}
+	usleep(1000);
+
+	rc = pinctrl_select_state(ts->ts_pinctrl,
+				ts->disp_vsn_state_active);
+	if (rc) {
+		dev_err(&ts->client->dev,
+				"can not set disp vsn pins\n");
+		goto err_disp_vsn_pinctrl_enable;
+	}
+	usleep(1000);
+
+	rc = bu21150_pinctrl_select(ts, true);
+	if (rc < 0)
+		goto err_ts_pinctrl_enable;
+
+	return 0;
+
+pinctrl_suspend:
+	bu21150_pinctrl_select(ts, false);
+err_ts_pinctrl_enable:
+	pinctrl_select_state(ts->ts_pinctrl, ts->disp_vsn_state_suspend);
+err_disp_vsn_pinctrl_enable:
+	pinctrl_select_state(ts->ts_pinctrl, ts->afe_pwr_state_suspend);
+
+	return rc;
+}
+
+static int bu21150_gpio_enable(struct bu21150_data *ts, bool on)
+{
+	int rc = 0;
+
+	if (!on)
+		goto gpio_disable;
+
+	/* Panel and AFE Power on sequence */
+	rc = gpio_request(ts->afe_pwr_gpio, "afe_pwr");
+	if (rc) {
+		pr_err("%s: afe power gpio request failed\n", __func__);
+		return -EINVAL;
+	}
+	gpio_direction_output(ts->afe_pwr_gpio, 1);
+	gpio_set_value(ts->afe_pwr_gpio, 1);
+	usleep(1000);
+
+	rc = gpio_request(ts->disp_vsn_gpio, "disp_vsn");
+	if (rc) {
+		pr_err("%s: disp_vsn gpio request failed\n", __func__);
+		goto err_disp_vsn_gpio_enable;
+	}
+	gpio_direction_output(ts->disp_vsn_gpio, 1);
+	gpio_set_value(ts->disp_vsn_gpio, 1);
+	usleep(1000);
+
+	rc = gpio_request(ts->irq_gpio, "bu21150_ts_int");
+	if (rc) {
+		pr_err("%s: IRQ gpio_request failed\n", __func__);
+		goto err_irq_gpio_enable;
+	}
+	gpio_direction_input(ts->irq_gpio);
+
+	/* set reset */
+	rc = gpio_request(ts->rst_gpio, "bu21150_ts_reset");
+	if (rc) {
+		pr_err("%s: reset gpio_request failed\n", __func__);
+		goto err_rst_gpio_enable;
+	}
+
+	gpio_direction_output(ts->rst_gpio, GPIO_LOW);
+
+	return 0;
+
+gpio_disable:
+	gpio_free(ts->rst_gpio);
+err_rst_gpio_enable:
+	gpio_free(ts->irq_gpio);
+err_irq_gpio_enable:
+	gpio_free(ts->disp_vsn_gpio);
+err_disp_vsn_gpio_enable:
+	gpio_free(ts->afe_pwr_gpio);
+
+	return rc;
+}
+
+static int bu21150_pin_enable(struct bu21150_data *ts, bool on)
+{
+	int rc = 0;
+
+	if (!on)
+		goto pin_disable;
+
+	if (ts->ts_pinctrl)
+		rc = bu21150_pinctrl_enable(ts, true);
+	else
+		rc = bu21150_gpio_enable(ts, true);
+
+	return rc;
+
+pin_disable:
+	if (ts->ts_pinctrl)
+		bu21150_pinctrl_enable(ts, false);
+	else
+		bu21150_gpio_enable(ts, false);
+
+	return rc;
+}
+
+static int bu21150_power_enable(struct bu21150_data *ts, bool on)
+{
+	int rc = 0;
+
+	if (!on)
+		goto power_disable;
+
+	if (regulator_count_voltages(ts->vcc_ana) > 0) {
+		rc = regulator_set_voltage(ts->vcc_ana,
+			BU21150_MIN_VOLTAGE_UV, BU21150_MAX_VOLTAGE_UV);
+		if (rc) {
+			dev_err(&ts->client->dev,
+				"regulator vcc_ana set_vtg failed rc=%d\n", rc);
+			return rc;
+		}
+	}
+
+	rc = reg_set_optimum_mode_check(ts->vcc_ana,
+						BU21150_MAX_OPS_LOAD_UA);
+	if (rc < 0) {
+		dev_err(&ts->client->dev,
+			"Regulator vcc_ana set_opt failed rc=%d\n", rc);
+		goto err_set_vcc_ana_opt_mode;
+	}
+
+	rc = regulator_enable(ts->vcc_ana);
+	if (rc) {
+		dev_err(&ts->client->dev,
+			"Regulator vcc_ana enable failed rc=%d\n", rc);
+		goto err_enable_vcc_ana;
+	}
+
+	if (regulator_count_voltages(ts->vcc_dig) > 0) {
+		rc = regulator_set_voltage(ts->vcc_dig,
+						BU21150_VDD_DIG_VOLTAGE_UV,
+						BU21150_VDD_DIG_VOLTAGE_UV);
+		if (rc) {
+			dev_err(&ts->client->dev,
+				"regulator vcc_dig set_vtg failed rc=%d\n", rc);
+			goto err_set_vcc_dig_voltage;
+		}
+	}
+
+	rc = reg_set_optimum_mode_check(ts->vcc_dig,
+						BU21150_MAX_OPS_LOAD_UA);
+	if (rc < 0) {
+		dev_err(&ts->client->dev,
+			"Regulator vcc_dig set_opt failed rc=%d\n", rc);
+		goto err_set_vcc_dig_opt_mode;
+	}
+
+	rc = regulator_enable(ts->vcc_dig);
+	if (rc) {
+		dev_err(&ts->client->dev,
+			"Regulator vcc_dig enable failed rc=%d\n", rc);
+		goto err_enable_vcc_dig;
+	}
+
+	return 0;
+
+power_disable:
+	regulator_disable(ts->vcc_dig);
+err_enable_vcc_dig:
+	reg_set_optimum_mode_check(ts->vcc_dig, 0);
+err_set_vcc_dig_opt_mode:
+	if (regulator_count_voltages(ts->vcc_dig) > 0)
+		regulator_set_voltage(ts->vcc_dig, 0,
+					BU21150_VDD_DIG_VOLTAGE_UV);
+err_set_vcc_dig_voltage:
+	regulator_disable(ts->vcc_ana);
+err_enable_vcc_ana:
+	reg_set_optimum_mode_check(ts->vcc_ana, 0);
+err_set_vcc_ana_opt_mode:
+	if (regulator_count_voltages(ts->vcc_ana) > 0)
+		regulator_set_voltage(ts->vcc_ana, 0, BU21150_MAX_VOLTAGE_UV);
+
+	return rc;
+}
+
+static int bu21150_regulator_config(struct bu21150_data *ts, bool enable)
+{
+	int rc = 0;
+
+	if (!enable)
+		goto regulator_release;
+
+	ts->vcc_ana = regulator_get(&ts->client->dev, "vdd_ana");
+	if (IS_ERR_OR_NULL(ts->vcc_ana)) {
+		rc = PTR_ERR(ts->vcc_ana);
+		dev_err(&ts->client->dev,
+			"Regulator get failed vcc_ana rc=%d\n", rc);
+		return rc;
+	}
+
+	ts->vcc_dig = regulator_get(&ts->client->dev, "vdd_dig");
+	if (IS_ERR_OR_NULL(ts->vcc_dig)) {
+		rc = PTR_ERR(ts->vcc_dig);
+		dev_err(&ts->client->dev,
+			"Regulator get failed vcc_dig rc=%d\n", rc);
+		goto err_get_vdd_dig;
+	}
+
+	return 0;
+
+regulator_release:
+	regulator_put(ts->vcc_dig);
+err_get_vdd_dig:
+	regulator_put(ts->vcc_ana);
+
+	return rc;
+}
+
 static int bu21150_probe(struct spi_device *client)
 {
 	struct bu21150_data *ts;
-	int error;
 	int rc;
 
 	ts = kzalloc(sizeof(struct bu21150_data), GFP_KERNEL);
@@ -184,135 +518,78 @@ static int bu21150_probe(struct spi_device *client)
 	/* parse dtsi */
 	if (!parse_dtsi(&client->dev, ts)) {
 		dev_err(&client->dev, "Invalid dtsi\n");
-		error = -EINVAL;
-		goto err1;
+		rc = -EINVAL;
+		goto err_parse_dt;
 	}
-
-	/* Panel and AFE Power on sequence */
-	if (ts->power_supply == APQ8074_DRAGONBOARD) {
-		rc = gpio_request(1, "GPIO1");
-		if (rc)
-			pr_err("%s: gpio_request(%d) failed\n",
-				__func__, 1);
-		gpio_direction_output(1, 1);
-		gpio_set_value(1, 1);
-		usleep(1000);
-		rc = gpio_request(92, "GPIO2");
-		if (rc)
-			pr_err("%s: gpio_request(%d) failed\n",
-				__func__, 92);
-		gpio_direction_output(92, 1);
-		gpio_set_value(92, 1);
-		usleep(1000);
-		rc = gpio_request(0, "GPIO3");
-		if (rc)
-			pr_err("%s: gpio_request(%d) failed\n",
-				__func__, 0);
-		gpio_direction_output(0, 1);
-		gpio_set_value(0, 1);
-		usleep(1000);
-	} else if (ts->power_supply == MSM8974_FLUID) {
-		ts->vcc_ana = regulator_get(&client->dev, "vdd_ana");
-		if (IS_ERR(ts->vcc_ana)) {
-			rc = PTR_ERR(ts->vcc_ana);
-			dev_err(&client->dev,
-				"Regulator get failed vcc_ana rc=%d\n", rc);
-			error = -EINVAL;
-			goto err1;
-		}
-
-		if (regulator_count_voltages(ts->vcc_ana) > 0) {
-			rc = regulator_set_voltage(ts->vcc_ana, 2700000,
-								3300000);
-			if (rc) {
-				dev_err(&client->dev,
-					"regulator set_vtg failed rc=%d\n", rc);
-				error = -EINVAL;
-				goto error_set_vtg_vcc_ana;
-			}
-		}
-		rc = reg_set_optimum_mode_check(ts->vcc_ana, 150000);
-		if (rc < 0) {
-			dev_err(&client->dev,
-				"Regulator vcc_ana set_opt failed rc=%d\n", rc);
-			error = -EINVAL;
-			goto error_set_vtg_vcc_ana;
-		}
-
-		rc = regulator_enable(ts->vcc_ana);
-		if (rc) {
-			dev_err(&client->dev,
-				"Regulator vcc_ana enable failed rc=%d\n", rc);
-			error = -EINVAL;
-			goto error_reg_en_vcc_ana;
-		}
-	}
-
-	rc = gpio_request(ts->irq_gpio, "bu21150_ts_int");
-	if (rc)
-		pr_err("%s: gpio_request(%d) failed\n", __func__, ts->irq_gpio);
-	gpio_direction_input(ts->irq_gpio);
-
-	/* set reset */
-	rc = gpio_request(ts->rst_gpio, "bu21150_ts_reset");
-	if (rc)
-		pr_err("%s: gpio_request(%d) failed\n", __func__, ts->rst_gpio);
-	gpio_direction_output(ts->rst_gpio, GPIO_LOW);
-
-	mutex_init(&ts->mutex_frame);
-	init_waitqueue_head(&(ts->frame_waitq));
 
 	g_client_bu21150 = client;
 	ts->client = client;
 
+	rc = bu21150_pinctrl_init(ts);
+	if (rc) {
+		dev_err(&client->dev, "Pinctrl init failed\n");
+		goto err_parse_dt;
+	}
+
+	rc = bu21150_regulator_config(ts, true);
+	if (rc) {
+		dev_err(&client->dev, "Failed to get power rail\n");
+		goto err_regulator_config;
+	}
+
+	rc = bu21150_power_enable(ts, true);
+	if (rc) {
+		dev_err(&client->dev, "Power enablement failed\n");
+		goto err_power_enable;
+	}
+
+	rc = bu21150_pin_enable(ts, true);
+	if (rc) {
+		dev_err(&client->dev, "Pin enable failed\n");
+		goto err_pin_enable;
+	}
+
+	mutex_init(&ts->mutex_frame);
+	init_waitqueue_head(&(ts->frame_waitq));
+
 	ts->workq = create_singlethread_workqueue("bu21150_workq");
 	if (!ts->workq) {
 		dev_err(&client->dev, "Unable to create workq\n");
-		error =  -ENOMEM;
-		goto err2;
+		rc =  -ENOMEM;
+		goto err_create_wq;
 	}
 	INIT_WORK(&ts->work, bu21150_irq_work_func);
 
 	if (!client->irq) {
 		dev_err(&client->dev, "Bad irq\n");
-		error = -EINVAL;
-		goto err3;
+		rc = -EINVAL;
+		goto err_create_wq;
 	}
 
-	error = request_irq(client->irq, bu21150_irq_handler,
-				IRQF_TRIGGER_LOW | IRQF_ONESHOT,
-				client->dev.driver->name, ts);
-	if (error) {
-		dev_err(&client->dev, "Failed to register interrupt\n");
-		goto err3;
-	}
-	disable_irq(client->irq);
-
-	error = misc_register(&g_bu21150_misc_device);
-	if (error) {
+	rc = misc_register(&g_bu21150_misc_device);
+	if (rc) {
 		dev_err(&client->dev, "Failed to register misc device\n");
-		goto err4;
+		goto err_register_misc;
 	}
+
 	dev_set_drvdata(&client->dev, ts);
 
 	return 0;
 
-err4:
-	free_irq(client->irq, ts);
-err3:
+err_register_misc:
 	destroy_workqueue(ts->workq);
-err2:
-	if (ts->power_supply == MSM8974_FLUID)
-		regulator_disable(ts->vcc_ana);
-error_reg_en_vcc_ana:
-	if (ts->power_supply == MSM8974_FLUID)
-		reg_set_optimum_mode_check(ts->vcc_ana, 0);
-error_set_vtg_vcc_ana:
-	if (ts->power_supply == MSM8974_FLUID)
-		regulator_put(ts->vcc_ana);
-err1:
+err_create_wq:
+	bu21150_pin_enable(ts, false);
+err_pin_enable:
+	bu21150_power_enable(ts, false);
+err_power_enable:
+	bu21150_regulator_config(ts, false);
+err_regulator_config:
+	if (ts->ts_pinctrl)
+		devm_pinctrl_put(ts->ts_pinctrl);
+err_parse_dt:
 	kfree(ts);
-	return error;
+	return rc;
 }
 
 static int bu21150_remove(struct spi_device *client)
@@ -320,8 +597,11 @@ static int bu21150_remove(struct spi_device *client)
 	struct bu21150_data *ts = spi_get_drvdata(client);
 
 	misc_deregister(&g_bu21150_misc_device);
+	bu21150_power_enable(ts, false);
+	bu21150_regulator_config(ts, false);
 	destroy_workqueue(ts->workq);
 	free_irq(client->irq, ts);
+	bu21150_pin_enable(ts, false);
 	kfree(ts);
 
 	return 0;
@@ -331,6 +611,7 @@ static int bu21150_open(struct inode *inode, struct file *filp)
 {
 	struct bu21150_data *ts = spi_get_drvdata(g_client_bu21150);
 	struct spi_device *client = ts->client;
+	int error;
 
 	if (g_io_opened) {
 		pr_err("%s: g_io_opened not zero.\n", __func__);
@@ -346,7 +627,14 @@ static int bu21150_open(struct inode *inode, struct file *filp)
 		sizeof(struct bu21150_ioctl_get_frame_data));
 	memset(&(ts->frame_work_get), 0,
 		sizeof(struct bu21150_ioctl_get_frame_data));
-	enable_irq(client->irq);
+
+	error = request_irq(client->irq, bu21150_irq_handler,
+				IRQF_TRIGGER_LOW | IRQF_ONESHOT,
+				client->dev.driver->name, ts);
+	if (error) {
+		dev_err(&client->dev, "Failed to register interrupt\n");
+		return error;
+	}
 
 	return 0;
 }
@@ -401,7 +689,7 @@ static long bu21150_ioctl(struct file *filp, unsigned int cmd,
 		ret = bu21150_ioctl_resume();
 		return ret;
 	default:
-		pr_err("%s: cmd unkown.\n", __func__);
+		pr_err("%s: cmd unknown.\n", __func__);
 		return -EINVAL;
 	}
 
@@ -467,9 +755,7 @@ static long bu21150_ioctl_reset(unsigned long reset)
 	}
 
 	if (reset == BU21150_RESET_HIGH) {
-		/* wait display on */
-		while (g_afe_display_state == 0) /* 0:off */
-			usleep(1000);
+		usleep(1000);
 	}
 
 	gpio_set_value(ts->rst_gpio, reset);
@@ -562,6 +848,7 @@ static long bu21150_ioctl_suspend(void)
 
 	bu21150_ioctl_unblock();
 	disable_irq(client->irq);
+	bu21150_power_enable(ts, false);
 
 	return 0;
 }
@@ -572,6 +859,7 @@ static long bu21150_ioctl_resume(void)
 	struct spi_device *client = ts->client;
 
 	g_bu21150_ioctl_unblock = 0;
+	bu21150_power_enable(ts, true);
 	enable_irq(client->irq);
 
 	return 0;
@@ -599,17 +887,11 @@ static void bu21150_irq_work_func(struct work_struct *work)
 	ts->frame_work_get = ts->req_get;
 	bu21150_read_register(REG_READ_DATA, ts->frame_work_get.size, psbuf);
 
-	if (0 < g_afe_skip_frame_cnt) {
-		pr_err("%s: skip frame:cnt=[%d]\n",
-			__func__, g_afe_skip_frame_cnt);
-		g_afe_skip_frame_cnt--;
-	} else {
 #ifdef CHECK_SAME_FRAME
-		check_same_frame(ts);
+	check_same_frame(ts);
 #endif
-		copy_frame(ts);
-		wake_up_frame_waitq(ts);
-	}
+	copy_frame(ts);
+	wake_up_frame_waitq(ts);
 
 	enable_irq(client->irq);
 }
@@ -638,7 +920,7 @@ static int bu21150_read_register(u32 addr, u16 size, u8 *data)
 	req->xfer[0].rx_buf = output;
 	req->xfer[0].len = size+SPI_HEADER_SIZE;
 	req->xfer[0].cs_change = 0;
-	req->xfer[0].bits_per_word = 32;
+	req->xfer[0].bits_per_word = 8;
 	spi_message_add_tail(&req->xfer[0], &req->msg);
 	ret = spi_sync(client, &req->msg);
 	if (ret)
@@ -769,25 +1051,13 @@ static void check_same_frame(struct bu21150_data *ts)
 
 static bool parse_dtsi(struct device *dev, struct bu21150_data *ts)
 {
-	int rc;
 	enum of_gpio_flags dummy;
-	const char *str;
 	struct device_node *np = dev->of_node;
 
 	ts->irq_gpio = of_get_named_gpio_flags(np,
 		"irq-gpio", 0, &dummy);
 	ts->rst_gpio = of_get_named_gpio_flags(np,
 		"rst-gpio", 0, &dummy);
-	rc = of_property_read_string(np,
-		"power-supply", &str);
-	if (rc && (rc != -EINVAL))
-		dev_err(dev, "Unable to read power-supply\n");
-	if (!strcmp(str, "apq8074-dragonboard"))
-		ts->power_supply = APQ8074_DRAGONBOARD;
-	else if (!strcmp(str, "msm8974-fluid"))
-		ts->power_supply = MSM8974_FLUID;
-	else
-		return false;
 
 	return true;
 }

@@ -6,12 +6,29 @@ Required properties:
  - reg					: SPI address of the device
  - interrupt-parent		: parent of interrupt
  - interrupts			: interrupt of touch AFE
- - spi-max-frequency	: communication speed of the SPI
  - irq-gpio 			: irq gpio
  - rst-gpio				: reset gpio
- - power-supply			: type of power sequence
-							Please use when adjusting the power sequence
+ - vdd_ana-supply		: analog power supply for AFE panel
+ - vdd_dig-supply		: digital power supply for AFE panel
 
+Optional properties:
+- pinctrl-names		: This should be defined if a target uses pinctrl framework.
+			See "pinctrl" in Documentation/devicetree/bindings/pinctrl/msm-				       pinctrl.txt. It should specify the names of the configs that
+			pinctrl can install in driver. Following are the pinctrl
+			configs that can be installed:
+			"pmx_ts_active" : Active configuration of pins, this should specify
+					active config defined in pin groups of interrupt
+					and reset gpio.
+			"pmx_ts_suspend" : Disabled configuration of pins, this should
+					specify sleep config defined in pin groups of
+					interrupt and reset gpio.
+			"pmx_ts_release" : Release configuration of pins, this should specify
+					release config defined in pin groups of interrupt
+					and reset gpio.
+			"afe_pwr_active" : Active configuration of AFE power pin.
+			"afe_pwr_suspend" : Disabled configuration of AFE power pin.
+			"disp_vsn_active" : Active configuration of display VSN pin.
+			"disp_vsn_suspend" : Disable configuration of display VSN pin.
 
 Example:
 
@@ -21,10 +38,19 @@ Example:
 			reg = <0>;
 			interrupt-parent = <&msmgpio>;
 			interrupts = <61 0>;
-			spi-max-frequency = <9600000>;
 			irq-gpio = <&msmgpio 61 0>;
 			rst-gpio = <&msmgpio 60 0>;
-			power-supply = "apq8074-dragonboard";
+			vdd_ana-supply = <&pm8916_l17>;
+			vdd_dig-supply = <&pm8916_l6>;
+			pinctrl-names = "pmx_ts_active","pmx_ts_suspend",
+					"afe_pwr_active", "afe_pwr_suspend",
+					"disp_vsn_active", "disp_vsn_suspend";
+			pinctrl-0 = <&ts_int_active &ts_reset_active>;
+			pinctrl-1 = <&ts_int_suspend &ts_reset_suspend>;
+			pinctrl-2 = <&afe_pwr_active>;
+			pinctrl-3 = <&afe_pwr_suspend>;
+			pinctrl-4 = <&disp_vsn_active>;
+			pinctrl-5 = <&disp_vsn_suspend>;
 		};
 	};
 
