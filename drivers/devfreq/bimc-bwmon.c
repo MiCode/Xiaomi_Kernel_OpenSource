@@ -103,8 +103,10 @@ static int mon_irq_status(struct bwmon *m)
 
 static void mon_irq_clear(struct bwmon *m)
 {
-	writel_relaxed(1 << m->mport, GLB_INT_CLR(m));
 	writel_relaxed(0x1, MON_INT_CLR(m));
+	mb();
+	writel_relaxed(1 << m->mport, GLB_INT_CLR(m));
+	mb();
 }
 
 static void mon_set_limit(struct bwmon *m, u32 count)
@@ -225,8 +227,8 @@ static void stop_bw_hwmon(struct bw_hwmon *hw)
 	free_irq(m->irq, m);
 	mon_disable(m);
 	mon_irq_disable(m);
-	mon_irq_clear(m);
 	mon_clear(m);
+	mon_irq_clear(m);
 }
 
 static int suspend_bw_hwmon(struct bw_hwmon *hw)
