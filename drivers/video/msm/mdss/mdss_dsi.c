@@ -480,11 +480,13 @@ static int mdss_dsi_off(struct mdss_panel_data *pdata, int power_state)
 	if (pdata->panel_info.type == MIPI_CMD_PANEL)
 		mdss_dsi_clk_ctrl(ctrl_pdata, DSI_ALL_CLKS, 1);
 
-	/* disable DSI controller */
-	mdss_dsi_controller_cfg(0, pdata);
+	if (!pdata->panel_info.ulps_suspend_enabled) {
+		/* disable DSI controller */
+		mdss_dsi_controller_cfg(0, pdata);
 
-	/* disable DSI phy */
-	mdss_dsi_phy_disable(ctrl_pdata);
+		/* disable DSI phy */
+		mdss_dsi_phy_disable(ctrl_pdata);
+	}
 
 	mdss_dsi_clk_ctrl(ctrl_pdata, DSI_ALL_CLKS, 0);
 
@@ -1833,6 +1835,23 @@ int dsi_panel_device_register(struct device_node *pan_node,
 			ctrl_pdata->pclk_rate, ctrl_pdata->byte_clk_rate);
 
 	ctrl_pdata->ctrl_state = CTRL_STATE_UNKNOWN;
+
+	/*
+	 * If ULPS during suspend is enabled, add an extra vote for the
+	 * DSI CTRL power module. This keeps the regulator always enabled.
+	 * This is needed for the DSI PHY to maintain ULPS state during
+	 * suspend also.
+	 */
+	if (pinfo->ulps_suspend_enabled) {
+		rc = msm_dss_enable_vreg(
+			ctrl_pdata->power_data[DSI_CTRL_PM].vreg_config,
+			ctrl_pdata->power_data[DSI_CTRL_PM].num_vreg, 1);
+		if (rc) {
+			pr_err("%s: failed to enable vregs for DSI_CTRL_PM\n",
+				__func__);
+			return rc;
+		}
+	}
 
 	if (pinfo->cont_splash_enabled) {
 		rc = mdss_dsi_panel_power_ctrl(&(ctrl_pdata->panel_data),

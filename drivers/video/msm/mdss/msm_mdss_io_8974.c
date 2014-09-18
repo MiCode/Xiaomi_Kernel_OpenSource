@@ -394,7 +394,8 @@ int mdss_dsi_clk_init(struct platform_device *pdev,
 	}
 
 	if ((ctrl->panel_data.panel_info.type == MIPI_CMD_PANEL) ||
-		ctrl->panel_data.panel_info.mipi.dynamic_switch_enabled) {
+		ctrl->panel_data.panel_info.mipi.dynamic_switch_enabled ||
+		ctrl->panel_data.panel_info.ulps_suspend_enabled) {
 		ctrl->mmss_misc_ahb_clk = clk_get(dev, "core_mmss_clk");
 		if (IS_ERR(ctrl->mmss_misc_ahb_clk)) {
 			ctrl->mmss_misc_ahb_clk = NULL;
@@ -958,7 +959,8 @@ static int mdss_dsi_ulps_config(struct mdss_dsi_ctrl_pdata *ctrl,
 	pinfo = &pdata->panel_info;
 	mipi = &pinfo->mipi;
 
-	if (!mdss_dsi_ulps_feature_enabled(pdata)) {
+	if (!mdss_dsi_ulps_feature_enabled(pdata) &&
+		!pinfo->ulps_suspend_enabled) {
 		pr_debug("%s: ULPS feature not supported. enable=%d\n",
 			__func__, enable);
 		return -ENOTSUPP;
@@ -1219,11 +1221,13 @@ static int mdss_dsi_core_power_ctrl(struct mdss_dsi_ctrl_pdata *ctrl,
 		}
 
 		/*
-		 * Phy software reset should not be done for idle screen power
-		 * collapse use-case. Issue a phy software reset only when
-		 * unblanking the panel.
+		 * Phy software reset should not be done for:
+		 * 1.) Idle screen power collapse use-case. Issue a phy software
+		 *     reset only when unblanking the panel in this case.
+		 * 2.) When ULPS during suspend is enabled.
 		 */
-		if (pdata->panel_info.blank_state == MDSS_PANEL_BLANK_BLANK)
+		if (pdata->panel_info.blank_state == MDSS_PANEL_BLANK_BLANK &&
+			!pdata->panel_info.ulps_suspend_enabled)
 			mdss_dsi_phy_sw_reset(ctrl);
 
 		/*
@@ -1266,8 +1270,12 @@ static int mdss_dsi_core_power_ctrl(struct mdss_dsi_ctrl_pdata *ctrl,
 			goto error_ulps;
 		}
 	} else {
-		/* Enable DSI clamps only if entering idle power collapse */
-		if (pdata->panel_info.blank_state != MDSS_PANEL_BLANK_BLANK) {
+		/*
+		 * Enable DSI clamps only if entering idle power collapse or
+		 * when ULPS during suspend is enabled.
+		 */
+		if ((pdata->panel_info.blank_state != MDSS_PANEL_BLANK_BLANK) ||
+			pdata->panel_info.ulps_suspend_enabled) {
 			rc = mdss_dsi_clamp_ctrl(ctrl, 1);
 			if (rc)
 				pr_err("%s: Failed to enable dsi clamps. rc=%d\n",
@@ -1380,13 +1388,16 @@ static int mdss_dsi_clk_ctrl_sub(struct mdss_dsi_ctrl_pdata *ctrl,
 		if (clk_type & DSI_LINK_CLKS) {
 			/*
 			 * If ULPS feature is enabled, enter ULPS first.
-			 * No need to enable ULPS when turning off clocks
+			 * If ULPS during suspend is not enabled, no need
+			 * to enable ULPS when turning off the clocks
 			 * while blanking the panel.
 			 */
-			if ((mdss_dsi_ulps_feature_enabled(pdata)) &&
+			if (((mdss_dsi_ulps_feature_enabled(pdata)) &&
 				(pdata->panel_info.blank_state !=
-				 MDSS_PANEL_BLANK_BLANK))
+				 MDSS_PANEL_BLANK_BLANK)) ||
+				(pdata->panel_info.ulps_suspend_enabled))
 				mdss_dsi_ulps_config(ctrl, 1);
+
 			mdss_dsi_link_clk_stop(ctrl);
 		}
 		if (clk_type & DSI_BUS_CLKS) {
