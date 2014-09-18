@@ -1205,6 +1205,9 @@ struct atomisp_sensor_ae_bracketing_lut {
 #define ATOMISP_IOC_G_EFFECTIVE_RESOLUTION \
 	_IOR('v', BASE_VIDIOC_PRIVATE + 45, struct atomisp_resolution)
 
+/* for depth mode sensor frame sync compensation */
+#define ATOMISP_IOC_G_DEPTH_SYNC_COMP \
+	_IOR('v', BASE_VIDIOC_PRIVATE + 46, unsigned int)
 
 /*
  * Reserved ioctls. We have customer implementing it internally.
