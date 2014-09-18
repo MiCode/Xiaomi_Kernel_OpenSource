@@ -522,7 +522,8 @@ static inline void hdmi_tx_set_audio_switch_node(
 		return;
 	}
 
-	if (!hdmi_tx_is_dvi_mode(hdmi_ctrl)) {
+	if (!hdmi_tx_is_dvi_mode(hdmi_ctrl) &&
+	    hdmi_tx_is_cea_format(hdmi_ctrl->video_resolution)) {
 		switch_set_state(&hdmi_ctrl->audio_sdev, val);
 
 		DEV_INFO("%s: audio state %s %d\n", __func__,
