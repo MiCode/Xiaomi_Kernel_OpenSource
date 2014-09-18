@@ -815,6 +815,41 @@ static inline int mdss_mdp_irq_clk_register(struct mdss_data_type *mdata,
 	return 0;
 }
 
+#define SEC_DEVICE_MDSS		1
+
+static void __mdss_restore_sec_cfg(struct mdss_data_type *mdata)
+{
+	int ret, scm_ret = 0;
+
+	pr_debug("restoring mdss secure config\n");
+
+	mdss_mdp_clk_update(MDSS_CLK_AHB, 1);
+	mdss_mdp_clk_update(MDSS_CLK_AXI, 1);
+	mdss_mdp_clk_update(MDSS_CLK_MDP_CORE, 1);
+
+	ret = scm_restore_sec_cfg(SEC_DEVICE_MDSS, 0, &scm_ret);
+	if (ret || scm_ret)
+		pr_warn("scm_restore_sec_cfg failed %d %d\n",
+				ret, scm_ret);
+
+	mdss_mdp_clk_update(MDSS_CLK_AHB, 0);
+	mdss_mdp_clk_update(MDSS_CLK_AXI, 0);
+	mdss_mdp_clk_update(MDSS_CLK_MDP_CORE, 0);
+}
+
+static int mdss_mdp_gdsc_notifier_call(struct notifier_block *self,
+		unsigned long event, void *data)
+{
+	struct mdss_data_type *mdata;
+
+	mdata = container_of(self, struct mdss_data_type, gdsc_cb);
+
+	if (event & REGULATOR_EVENT_ENABLE)
+		__mdss_restore_sec_cfg(mdata);
+
+	return NOTIFY_OK;
+}
+
 static int mdss_mdp_irq_clk_setup(struct mdss_data_type *mdata)
 {
 	int ret;
@@ -843,6 +878,11 @@ static int mdss_mdp_irq_clk_setup(struct mdss_data_type *mdata)
 		return -EINVAL;
 	}
 	mdata->fs_ena = false;
+
+	mdata->gdsc_cb.notifier_call = mdss_mdp_gdsc_notifier_call;
+	mdata->gdsc_cb.priority = 5;
+	if (regulator_register_notifier(mdata->fs, &(mdata->gdsc_cb)))
+		pr_warn("GDSC notification registration failed!\n");
 
 	mdata->vdd_cx = devm_regulator_get(&mdata->pdev->dev,
 				"vdd-cx");
