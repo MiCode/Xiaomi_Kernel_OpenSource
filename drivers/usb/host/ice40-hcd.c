@@ -2369,6 +2369,7 @@ static int ice40_spi_probe(struct spi_device *spi)
 	}
 	*((struct ice40_hcd **) ihcd->hcd->hcd_priv) = ihcd;
 
+	hcd_to_bus(ihcd->hcd)->skip_resume = true;
 	ret = usb_add_hcd(ihcd->hcd, 0, 0);
 
 	if (ret < 0) {
