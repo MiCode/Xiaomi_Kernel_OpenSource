@@ -1144,6 +1144,11 @@ static int _adreno_start(struct adreno_device *adreno_dev)
 
 	adreno_perfcounter_start(adreno_dev);
 
+	status = adreno_ringbuffer_cold_start(adreno_dev);
+
+	if (status)
+		goto error_irq_off;
+
 	/* Enable h/w power collapse feature */
 	if (gpudev->enable_pc)
 		gpudev->enable_pc(adreno_dev);
@@ -1151,10 +1156,6 @@ static int _adreno_start(struct adreno_device *adreno_dev)
 	/* Enable peak power detect feature */
 	if (gpudev->enable_ppd)
 		gpudev->enable_ppd(adreno_dev);
-
-	status = adreno_ringbuffer_cold_start(adreno_dev);
-	if (status)
-		goto error_irq_off;
 
 	/* Start the dispatcher */
 	adreno_dispatcher_start(device);
