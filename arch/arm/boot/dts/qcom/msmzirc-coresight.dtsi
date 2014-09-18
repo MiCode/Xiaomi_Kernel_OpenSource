@@ -48,7 +48,7 @@
 		qcom,nidnt-jtag;
 		qcom,nidnt-spmi;
 
-		nidnt-gpio = <38>;
+		nidnt-gpio = <81>;
 		nidnt-gpio-polarity = <1>;
 
 		interrupts = <0 82 0>;
