@@ -24,6 +24,7 @@
 
 #define VFE32_BURST_LEN 2
 #define VFE32_UB_SIZE 1024
+#define VFE32_UB_SIZE_32KB 2048
 #define VFE32_EQUAL_SLICE_UB 194
 #define VFE32_AXI_SLICE_UB 792
 #define VFE32_WM_BASE(idx) (0x4C + 0x18 * idx)
@@ -61,6 +62,169 @@ static struct msm_cam_clk_info msm_vfe32_2_clk_info[] = {
 	{"vfe_pclk", -1},
 	{"csi_vfe_clk", -1},
 };
+
+static int32_t msm_vfe32_init_qos_parms(struct vfe_device *vfe_dev,
+				struct msm_vfe_hw_init_parms *qos_parms,
+				struct msm_vfe_hw_init_parms *ds_parms)
+{
+	void __iomem *vfebase = vfe_dev->vfe_base;
+	struct device_node *of_node;
+	uint32_t *ds_settings = NULL, *ds_regs = NULL, ds_entries = 0;
+	int32_t i = 0 , rc = 0;
+	uint32_t *qos_settings = NULL, *qos_regs = NULL, qos_entries = 0;
+	of_node = vfe_dev->pdev->dev.of_node;
+
+	rc = of_property_read_u32(of_node, qos_parms->entries,
+		&qos_entries);
+	if (rc < 0 || !qos_entries) {
+		pr_err("%s: NO QOS entries found\n", __func__);
+	} else {
+		qos_settings = kzalloc(sizeof(uint32_t) * qos_entries,
+			GFP_KERNEL);
+		if (!qos_settings) {
+			pr_err("%s:%d No memory\n", __func__, __LINE__);
+			return -ENOMEM;
+		}
+		qos_regs = kzalloc(sizeof(uint32_t) * qos_entries,
+			GFP_KERNEL);
+		if (!qos_regs) {
+			pr_err("%s:%d No memory\n", __func__, __LINE__);
+			kfree(qos_settings);
+			return -ENOMEM;
+		}
+		rc = of_property_read_u32_array(of_node, qos_parms->regs,
+			qos_regs, qos_entries);
+		if (rc < 0) {
+			pr_err("%s: NO QOS BUS BDG info\n", __func__);
+			kfree(qos_settings);
+			kfree(qos_regs);
+		} else {
+			if (qos_parms->settings) {
+				rc = of_property_read_u32_array(of_node,
+					qos_parms->settings,
+					qos_settings, qos_entries);
+				if (rc < 0) {
+					pr_err("%s: NO QOS settings\n",
+						__func__);
+					kfree(qos_settings);
+					kfree(qos_regs);
+				} else {
+					for (i = 0; i < qos_entries; i++)
+						msm_camera_io_w(qos_settings[i],
+							vfebase + qos_regs[i]);
+					kfree(qos_settings);
+					kfree(qos_regs);
+				}
+			} else {
+				kfree(qos_settings);
+				kfree(qos_regs);
+			}
+		}
+	}
+	rc = of_property_read_u32(of_node, ds_parms->entries,
+		&ds_entries);
+	if (rc < 0 || !ds_entries) {
+		pr_err("%s: NO D/S entries found\n", __func__);
+	} else {
+		ds_settings = kzalloc(sizeof(uint32_t) * ds_entries,
+				GFP_KERNEL);
+		if (!ds_settings) {
+			pr_err("%s:%d No memory\n", __func__, __LINE__);
+			return -ENOMEM;
+		}
+		ds_regs = kzalloc(sizeof(uint32_t) * ds_entries,
+				GFP_KERNEL);
+		if (!ds_regs) {
+			pr_err("%s:%d No memory\n", __func__, __LINE__);
+			kfree(ds_settings);
+			return -ENOMEM;
+		}
+		rc = of_property_read_u32_array(of_node, ds_parms->regs,
+			ds_regs, ds_entries);
+		if (rc < 0) {
+			pr_err("%s: NO D/S register info\n", __func__);
+			kfree(ds_settings);
+			kfree(ds_regs);
+		} else {
+			if (ds_parms->settings) {
+				rc = of_property_read_u32_array(of_node,
+					ds_parms->settings, ds_settings,
+					ds_entries);
+				if (rc < 0) {
+					pr_err("%s: NO D/S settings\n",
+						__func__);
+					kfree(ds_settings);
+					kfree(ds_regs);
+	} else {
+					for (i = 0; i < ds_entries; i++)
+						msm_camera_io_w(ds_settings[i],
+							vfebase + ds_regs[i]);
+						kfree(ds_regs);
+						kfree(ds_settings);
+				}
+			} else {
+				kfree(ds_regs);
+				kfree(ds_settings);
+			}
+		}
+	}
+	return 0;
+}
+
+static int32_t msm_vfe32_init_vbif_parms(struct vfe_device *vfe_dev,
+				struct msm_vfe_hw_init_parms *vbif_parms)
+{
+	void __iomem *vfe_vbif_base = vfe_dev->vfe_vbif_base;
+	struct device_node *of_node;
+	int32_t i = 0 , rc = 0;
+	uint32_t *vbif_settings = NULL, *vbif_regs = NULL, vbif_entries = 0;
+	of_node = vfe_dev->pdev->dev.of_node;
+
+	rc = of_property_read_u32(of_node, vbif_parms->entries,
+		&vbif_entries);
+	if (rc < 0 || !vbif_entries) {
+		pr_err("%s: NO VBIF entries found\n", __func__);
+	} else {
+		vbif_settings = kzalloc(sizeof(uint32_t) * vbif_entries,
+			GFP_KERNEL);
+		if (!vbif_settings) {
+			pr_err("%s:%d No memory\n", __func__, __LINE__);
+			return -ENOMEM;
+		}
+		vbif_regs = kzalloc(sizeof(uint32_t) * vbif_entries,
+			GFP_KERNEL);
+		if (!vbif_regs) {
+			pr_err("%s:%d No memory\n", __func__, __LINE__);
+			kfree(vbif_settings);
+			return -ENOMEM;
+		}
+		rc = of_property_read_u32_array(of_node, vbif_parms->regs,
+			vbif_regs, vbif_entries);
+		if (rc < 0) {
+			pr_err("%s: NO VBIF info\n", __func__);
+			kfree(vbif_settings);
+			kfree(vbif_regs);
+		} else {
+			rc = of_property_read_u32_array(of_node,
+				vbif_parms->settings,
+				vbif_settings, vbif_entries);
+			if (rc < 0) {
+				pr_err("%s: NO VBIF settings\n",
+					__func__);
+				kfree(vbif_settings);
+				kfree(vbif_regs);
+			} else {
+				for (i = 0; i < vbif_entries; i++)
+					msm_camera_io_w(
+						vbif_settings[i],
+						vfe_vbif_base + vbif_regs[i]);
+				kfree(vbif_settings);
+				kfree(vbif_regs);
+			}
+		}
+	}
+	return 0;
+}
 
 static int msm_vfe32_init_hardware(struct vfe_device *vfe_dev)
 {
@@ -161,6 +325,23 @@ static void msm_vfe32_release_hardware(struct vfe_device *vfe_dev)
 
 static void msm_vfe32_init_hardware_reg(struct vfe_device *vfe_dev)
 {
+	struct msm_vfe_hw_init_parms qos_parms;
+	struct msm_vfe_hw_init_parms vbif_parms;
+	struct msm_vfe_hw_init_parms ds_parms;
+
+	qos_parms.entries = "qos-entries";
+	qos_parms.regs = "qos-regs";
+	qos_parms.settings = "qos-settings";
+	vbif_parms.entries = "vbif-entries";
+	vbif_parms.regs = "vbif-regs";
+	vbif_parms.settings = "vbif-settings";
+	ds_parms.entries = "ds-entries";
+	ds_parms.regs = "ds-regs";
+	ds_parms.settings = "ds-settings";
+
+	msm_vfe32_init_qos_parms(vfe_dev, &qos_parms, &ds_parms);
+	msm_vfe32_init_vbif_parms(vfe_dev, &vbif_parms);
+
 	/* CGC_OVERRIDE */
 	msm_camera_io_w(0x07FFFFFF, vfe_dev->vfe_base + 0xC);
 	/* BUS_CFG */
@@ -1054,6 +1235,9 @@ static void msm_vfe32_stats_cfg_ub(struct vfe_device *vfe_dev)
 		2, /*MSM_ISP_STATS_IHIST*/
 		7, /*MSM_ISP_STATS_BHIST*/
 	};
+
+	if (vfe_dev->vfe_hw_version == VFE32_8909_VERSION)
+		ub_offset = VFE32_UB_SIZE_32KB;
 
 	for (i = 0; i < VFE32_NUM_STATS_TYPE; i++) {
 		ub_offset -= ub_size[i];
