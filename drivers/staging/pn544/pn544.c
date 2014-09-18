@@ -435,14 +435,10 @@ static int pn544_acpi_probe(struct i2c_client *client,
 		pn544_dev->firm_gpio = gpio;
 	}
 
-	status = acpi_evaluate_integer(ACPI_HANDLE(dev), "XFER",
+	status = acpi_evaluate_integer(ACPI_HANDLE(dev), "I2C_MTU",
 				NULL, &data);
-	if (ACPI_FAILURE(status)) {
-		pr_err("Error evaluating ACPI XFER object");
-		return -ENODEV;
-	}
-
-	pn544_dev->max_i2c_xfer_size = data;
+	if (ACPI_SUCCESS(status))
+		pn544_dev->max_i2c_xfer_size = data;
 
 	return 0;
 }
