@@ -59,6 +59,12 @@ struct mux_clk {
 	struct clk	*safe_parent;
 	int		safe_sel;
 	unsigned long	safe_freq;
+	/*
+	 * Before attempting a clk_round_rate on available sources, attempt a
+	 * clk_get_rate on all those sources. If one of them is already at the
+	 * necessary rate, that source will be used.
+	 */
+	bool		try_get_rate;
 	struct clk_mux_ops *ops;
 
 	/* Fields not used by helper function. */
