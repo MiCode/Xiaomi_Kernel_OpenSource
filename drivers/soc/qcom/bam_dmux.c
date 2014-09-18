@@ -632,6 +632,16 @@ static inline void handle_bam_mux_cmd_open(struct bam_mux_hdr *rx_hdr)
 		set_ul_mtu(0, false);
 	}
 	spin_lock_irqsave(&bam_ch[rx_hdr->ch_id].lock, flags);
+	if (bam_ch_is_remote_open(rx_hdr->ch_id)) {
+		/*
+		 * Receiving an open command for a channel that is already open
+		 * is an invalid operation and likely signifies a significant
+		 * issue within the A2 which should be caught immediately
+		 * before it snowballs and the root cause is lost.
+		 */
+		panic("A2 sent invalid duplicate open for channel %d\n",
+								rx_hdr->ch_id);
+	}
 	bam_ch[rx_hdr->ch_id].status |= BAM_CH_REMOTE_OPEN;
 	bam_ch[rx_hdr->ch_id].num_tx_pkts = 0;
 	spin_unlock_irqrestore(&bam_ch[rx_hdr->ch_id].lock, flags);
