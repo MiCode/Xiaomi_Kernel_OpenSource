@@ -236,7 +236,7 @@
 			linux,reserve-contiguous-region;
 			linux,reserve-region;
 			linux,remove-completely;
-			reg = <0 0x0c800000 0 0x1b00000>;
+			reg = <0 0x0c800000 0 0x1f00000>;
 			label = "peripheral_mem";
 		};
 
