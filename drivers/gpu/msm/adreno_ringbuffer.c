@@ -83,12 +83,26 @@ void adreno_ringbuffer_submit(struct adreno_ringbuffer *rb,
 	 */
 
 	if (time != NULL) {
+		/*
+		 * Here we are attempting to create a mapping between the
+		 * GPU time domain (alwayson counter) and the CPU time domain
+		 * (local_clock) by sampling both values as close together as
+		 * possible. This is useful for many types of debugging and
+		 * profiling. In order to make this mapping as accurate as
+		 * possible, we must turn off interrupts to avoid running
+		 * interrupt handlers between the two samples.
+		 */
+		unsigned long flags;
+		local_irq_save(flags);
+
 		if (gpudev->alwayson_counter_read != NULL)
 			time->ticks = gpudev->alwayson_counter_read(adreno_dev);
 		else
 			time->ticks = 0;
 
 		time->clock = local_clock();
+
+		local_irq_restore(flags);
 	}
 
 	/* Memory barrier before informing the hardware of new commands */
