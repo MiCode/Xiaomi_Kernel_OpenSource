@@ -502,6 +502,7 @@ static int i915_drm_freeze(struct drm_device *dev)
 {
 	struct drm_i915_private *dev_priv = dev->dev_private;
 	struct drm_crtc *crtc;
+	int ret;
 
 	/* ignore lid events during suspend */
 	mutex_lock(&dev_priv->modeset_restore_lock);
@@ -557,6 +558,11 @@ static int i915_drm_freeze(struct drm_device *dev)
 
 	dev_priv->suspend_count++;
 
+	ret = intel_suspend_complete(dev_priv);
+
+	if (ret)
+		WARN(1, "Suspend complete failed: %d\n", ret);
+
 	intel_display_set_init_power(dev_priv, false);
 
 	return 0;
@@ -607,22 +613,32 @@ void intel_console_resume(struct work_struct *work)
 static int i915_drm_thaw_early(struct drm_device *dev)
 {
 	struct drm_i915_private *dev_priv = dev->dev_private;
-	int ret = 0;
-
-	ret = intel_resume_prepare(dev_priv, false);
-	if (ret)
-		DRM_ERROR("Resume prep failed: %d, continuing resume\n", ret);
 
 	intel_uncore_early_sanitize(dev);
 	intel_uncore_sanitize(dev);
 	intel_power_domains_init_hw(dev_priv);
 
-	return ret;
+	dev_priv->thaw_early_done = true;
+
+	return 0;
 }
 
 static int __i915_drm_thaw(struct drm_device *dev, bool restore_gtt_mappings)
 {
 	struct drm_i915_private *dev_priv = dev->dev_private;
+	int ret;
+
+	if (!dev_priv->thaw_early_done) {
+		intel_uncore_early_sanitize(dev);
+		intel_uncore_sanitize(dev);
+		intel_power_domains_init_hw(dev_priv);
+	}
+
+	dev_priv->thaw_early_done = false;
+
+	ret = intel_resume_prepare(dev_priv, false);
+	if (ret)
+		WARN(1, "Resume prepare failed: %d,Continuing resume\n", ret);
 
 	if (drm_core_check_feature(dev, DRIVER_MODESET) &&
 	    restore_gtt_mappings) {
@@ -894,8 +910,6 @@ static int i915_pm_suspend_late(struct device *dev)
 {
 	struct pci_dev *pdev = to_pci_dev(dev);
 	struct drm_device *drm_dev = pci_get_drvdata(pdev);
-	struct drm_i915_private *dev_priv = drm_dev->dev_private;
-	int ret;
 
 	/*
 	 * We have a suspedn ordering issue with the snd-hda driver also
@@ -909,16 +923,10 @@ static int i915_pm_suspend_late(struct device *dev)
 	if (drm_dev->switch_power_state == DRM_SWITCH_POWER_OFF)
 		return 0;
 
-	ret = intel_suspend_complete(dev_priv);
+	pci_disable_device(pdev);
+	pci_set_power_state(pdev, PCI_D3hot);
 
-	if (ret)
-		DRM_ERROR("Suspend complete failed: %d\n", ret);
-	else {
-		pci_disable_device(pdev);
-		pci_set_power_state(pdev, PCI_D3hot);
-	}
-
-	return ret;
+	return 0;
 }
 
 static int i915_pm_resume_early(struct device *dev)
@@ -1334,14 +1342,18 @@ static int vlv_resume_prepare(struct drm_i915_private *dev_priv,
 {
 	struct drm_device *dev = dev_priv->dev;
 	int err;
-	int ret;
+	int ret = 0;
 
 	/*
 	 * If any of the steps fail just try to continue, that's the best we
 	 * can do at this point. Return the first error code (which will also
 	 * leave RPM permanently disabled).
 	 */
-	ret = vlv_force_gfx_clock(dev_priv, true);
+	if (!rpm_resume)
+		WARN_ON(I915_READ(GEN6_RC_CONTROL));
+
+	if (rpm_resume)
+		ret = vlv_force_gfx_clock(dev_priv, true);
 
 	vlv_restore_gunit_s0ix_state(dev_priv);
 
@@ -1349,9 +1361,11 @@ static int vlv_resume_prepare(struct drm_i915_private *dev_priv,
 	if (!ret)
 		ret = err;
 
-	err = vlv_force_gfx_clock(dev_priv, false);
-	if (!ret)
-		ret = err;
+	if (rpm_resume) {
+		err = vlv_force_gfx_clock(dev_priv, false);
+		if (!ret)
+			ret = err;
+	}
 
 	vlv_check_no_gt_access(dev_priv);
 

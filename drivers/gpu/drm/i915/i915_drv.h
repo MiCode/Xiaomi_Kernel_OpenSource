@@ -1725,6 +1725,7 @@ struct drm_i915_private {
 	} wm;
 
 	struct i915_runtime_pm pm;
+	bool thaw_early_done;
 
 	/* Old dri1 support infrastructure, beware the dragons ya fools entering
 	 * here! */
