@@ -186,6 +186,7 @@ struct mdss_data_type {
 	struct mdss_fudge_factor ab_factor;
 	struct mdss_fudge_factor ib_factor;
 	struct mdss_fudge_factor ib_factor_overlap;
+	struct mdss_fudge_factor ib_factor_cmd;
 	struct mdss_fudge_factor clk_factor;
 
 	u32 disable_prefill;
