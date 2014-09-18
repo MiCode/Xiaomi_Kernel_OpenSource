@@ -744,6 +744,10 @@ static void ecm_qc_disable(struct usb_function *f)
 		ecm_qc_bam_disconnect(ecm);
 		if (ecm->xport != USB_GADGET_XPORT_BAM2BAM_IPA)
 			gether_qc_disconnect_name(&ecm->port, "ecm0");
+	} else {
+		/* release EPs incase no set_alt(1) yet */
+		ecm->port.in_ep->desc = NULL;
+		ecm->port.out_ep->desc = NULL;
 	}
 
 	if (ecm->xport == USB_GADGET_XPORT_BAM2BAM_IPA &&
