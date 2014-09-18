@@ -107,13 +107,15 @@ DHDCFLAGS += -DCUSTOM_SET_SHORT_DWELL_TIME
 # m: module type driver
 # y: built-in type driver
 ##########################
-DRIVER_TYPE ?= y
+# Using defconfig CONFIG_BCMDHD to determine
+# if building a module or built-in, not local Makefile config
+#DRIVER_TYPE ?= y
 
 #########################
 # Chip dependent feature
 #########################
 
-ifneq ($(filter y, $(CONFIG_BCM4354) $(CONFIG_BCM4356)),)
+ifneq ($(filter y m, $(CONFIG_BCM4354) $(CONFIG_BCM4356)),)
   DHDCFLAGS += -DUSE_WL_TXBF
   DHDCFLAGS += -DUSE_WL_FRAMEBURST
   DHDCFLAGS += -DCUSTOM_DPC_CPUCORE=0
@@ -142,7 +144,10 @@ ifneq ($(CONFIG_BCMDHD_SDIO),)
   DHDCFLAGS += -DMAX_HDR_READ=128
   DHDCFLAGS += -DDHD_FIRSTREAD=128
 
-  DHDCFLAGS += -DSAR_SUPPORT
+# Disabling SAR (Specific Absorption Rate) testing API since Broadcom
+# doesn't provide necessary extern function defines with upstream
+# opensource driver
+#  DHDCFLAGS += -DSAR_SUPPORT
 endif
 
 ifneq ($(CONFIG_BCMDHD_PCIE),)
@@ -155,7 +160,10 @@ ifneq ($(CONFIG_BCMDHD_PCIE),)
 # Disable watchdog thread
   DHDCFLAGS += -DCUSTOM_DHD_WATCHDOG_MS=0
 
-  DHDCFLAGS += -DSAR_SUPPORT
+# Disabling SAR (Specific Absorption Rate) testing API since Broadcom
+# doesn't provide necessary extern function defines with upstream
+# opensource driver
+#  DHDCFLAGS += -DSAR_SUPPORT
 endif
 endif
 
@@ -185,7 +193,7 @@ endif
 
 #EXTRA_LDFLAGS += --strip-debug
 
-ifeq ($(DRIVER_TYPE),y)
+ifeq ($(CONFIG_BCMDHD),y)
   DHDCFLAGS += -DENABLE_INSMOD_NO_FW_LOAD
   DHDCFLAGS += -DUSE_LATE_INITCALL_SYNC
 endif
@@ -213,7 +221,7 @@ ifneq ($(CONFIG_BCMDHD_PCIE),)
 endif
 
 bcmdhd-objs := $(DHDOFILES)
-obj-$(DRIVER_TYPE)   += bcmdhd.o
+obj-$(CONFIG_BCMDHD)   += bcmdhd.o
 
 all:
 	@echo "$(MAKE) --no-print-directory -C $(KDIR) SUBDIRS=$(CURDIR) modules"
