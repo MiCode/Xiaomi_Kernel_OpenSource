@@ -632,15 +632,6 @@ int mdss_mdp_overlay_pipe_setup(struct msm_fb_data_type *mfd,
 	if (ret)
 		return ret;
 
-	pipe = mdss_mdp_get_staged_pipe(mdp5_data->ctl, mixer_mux,
-		req->z_order, left_blend_pipe != NULL);
-	if (pipe && pipe->ndx != req->id) {
-		pr_debug("replacing pnum=%d at stage=%d mux=%d id:0x%x %s\n",
-			pipe->num, req->z_order, mixer_mux, req->id,
-			left_blend_pipe ? "right blend" : "left blend");
-		mdss_mdp_mixer_pipe_unstage(pipe, pipe->mixer_left);
-	}
-
 	mixer = mdss_mdp_mixer_get(mdp5_data->ctl, mixer_mux);
 	if (!mixer) {
 		pr_err("unable to get mixer\n");
@@ -780,6 +771,12 @@ int mdss_mdp_overlay_pipe_setup(struct msm_fb_data_type *mfd,
 	if (mfd->panel_orientation)
 		req->flags ^= mfd->panel_orientation;
 
+	req->priority = pipe->priority;
+	if (!memcmp(req, &pipe->req_data, sizeof(*req))) {
+		pr_debug("skipping pipe_reconfiguration\n");
+		goto skip_reconfigure;
+	}
+
 	pipe->flags = req->flags;
 	if (bwc_enabled  &&  !mdp5_data->mdata->has_bwc) {
 		pr_err("BWC is not supported in MDP version %x\n",
@@ -869,10 +866,6 @@ int mdss_mdp_overlay_pipe_setup(struct msm_fb_data_type *mfd,
 		pipe->overfetch_disable = 0;
 	}
 	pipe->bg_color = req->bg_color;
-
-	req->id = pipe->ndx;
-	req->priority = pipe->priority;
-	pipe->req_data = *req;
 
 	if (pipe->type == MDSS_MDP_PIPE_TYPE_CURSOR)
 		goto cursor_done;
@@ -969,17 +962,21 @@ int mdss_mdp_overlay_pipe_setup(struct msm_fb_data_type *mfd,
 		goto exit_fail;
 	}
 
-cursor_done:
-	pipe->params_changed++;
 
+	req->id = pipe->ndx;
+
+cursor_done:
 	req->vert_deci = pipe->vert_deci;
 
+	pipe->req_data = *req;
+
+	pipe->params_changed++;
+skip_reconfigure:
 	*ppipe = pipe;
 
 	mdss_mdp_pipe_unmap(pipe);
 
 	return ret;
-
 exit_fail:
 	mdss_mdp_pipe_unmap(pipe);
 
