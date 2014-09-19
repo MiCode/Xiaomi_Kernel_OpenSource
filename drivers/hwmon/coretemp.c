@@ -141,7 +141,9 @@ static ssize_t show_crit_alarm(struct device *dev,
 	struct platform_data *pdata = dev_get_drvdata(dev);
 	struct temp_data *tdata = pdata->core_data[attr->index];
 
+	get_online_cpus();
 	rdmsr_on_cpu(tdata->cpu, tdata->status_reg, &eax, &edx);
+	put_online_cpus();
 
 	return sprintf(buf, "%d\n", (eax >> 5) & 1);
 }
@@ -176,7 +178,9 @@ static ssize_t show_temp(struct device *dev,
 
 	/* Check whether the time interval has elapsed */
 	if (!tdata->valid || time_after(jiffies, tdata->last_updated + HZ)) {
+		get_online_cpus();
 		rdmsr_on_cpu(tdata->cpu, tdata->status_reg, &eax, &edx);
+		put_online_cpus();
 		/*
 		 * Ignore the valid bit. In all observed cases the register
 		 * value is either low or zero if the valid bit is 0.
