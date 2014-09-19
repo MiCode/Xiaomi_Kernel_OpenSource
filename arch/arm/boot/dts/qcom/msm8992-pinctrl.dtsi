@@ -43,6 +43,29 @@
 				bias-pull-down;
 			};
 		};
+
+		blsp2_uart2_active {
+			qcom,pins = <&gp 45>, <&gp 46>, <&gp 47>, <&gp 48>;
+			qcom,num-grp-pins = <4>;
+			qcom,pin-func = <2>;
+		        label = "blsp2_uart2_active";
+			hsuart_active: default {
+				drive-strength = <16>;
+				bias-disable;
+			};
+		};
+
+		blsp2_uart2_sleep {
+			qcom,pins = <&gp 45>, <&gp 46>, <&gp 47>, <&gp 48>;
+			qcom,num-grp-pins = <4>;
+			qcom,pin-func = <0>;
+		        label = "blsp2_uart2_sleep";
+			hsuart_sleep: sleep {
+				drive-strength = <2>;
+				bias-disable;
+			};
+		};
+
 		/* SDC pin type */
 		sdc: sdc {
 			/* 0-3 for sdc1 4-6 for sdc2 */
