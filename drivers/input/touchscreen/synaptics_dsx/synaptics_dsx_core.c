@@ -2597,24 +2597,48 @@ static int synaptics_rmi4_parse_dt_children(struct device *dev,
 			rmi4_pdata->package_id = 0x00;
 		}
 
-		if (rmi4_pdata->package_id && (rmi4_pdata->package_id !=
-					rmi->package_id)) {
-			dev_err(dev,
+		if (rmi4_pdata->package_id) {
+			if (rmi4_pdata->package_id != rmi->package_id) {
+				dev_err(dev,
 				"%s: Synaptics package id don't match %d %d\n",
 				__func__,
 				rmi4_pdata->package_id, rmi->package_id);
-
-			/* Iterate over next child if package does not match */
-			continue;
+				/*
+				 * Iterate over next child if package
+				 * does not match
+				 */
+				continue;
+			} else {
+				/*
+				 * If package id read from DT matches the
+				 * package id value read from touch controller,
+				 * also check if sensor dimensions read from DT
+				 * match those read from controller, before
+				 * moving further. For this first check if touch
+				 * panel coordinates are defined in DT or not.
+				 */
+				if (of_find_property(child,
+					"synaptics,panel-coords", NULL)) {
+					synaptics_dsx_get_dt_coords(dev,
+						"synaptics,panel-coords",
+						rmi4_pdata, child);
+					dev_info(dev, "Pmax_x Pmax_y = %d:%d\n",
+						rmi4_pdata->panel_maxx,
+						rmi4_pdata->panel_maxy);
+					dev_info(dev, "Smax_x Smax_y = %d:%d\n",
+						rmi4_data->sensor_max_x,
+						rmi4_data->sensor_max_y);
+					if ((rmi4_pdata->panel_maxx !=
+						rmi4_data->sensor_max_x) ||
+						(rmi4_pdata->panel_maxy !=
+						rmi4_data->sensor_max_y))
+						continue;
+				}
+			}
 		}
 
 		rc = synaptics_dsx_get_dt_coords(dev,
 				"synaptics,display-coords", rmi4_pdata, child);
-		if (rc && (rc != -EINVAL))
-			return rc;
-
-		rc = synaptics_dsx_get_dt_coords(dev,
-				 "synaptics,panel-coords", rmi4_pdata, child);
 		if (rc && (rc != -EINVAL))
 			return rc;
 
