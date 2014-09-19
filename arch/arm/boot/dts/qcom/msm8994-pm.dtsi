@@ -259,7 +259,7 @@
 				reg = <0>;
 				label = "system-cci-retention";
 				qcom,spm-cci-mode = "retention";
-				qcom,latency-us = <100>;
+				qcom,latency-us = <45>;
 				qcom,ss-power = <1000>;
 				qcom,energy-overhead = <300000>;
 				qcom,time-overhead = <100>;
@@ -269,7 +269,7 @@
 				reg = <1>;
 				label = "system-cci-pc";
 				qcom,spm-cci-mode = "pc";
-				qcom,latency-us = <30000>;
+				qcom,latency-us = <11609>;
 				qcom,ss-power = <83>;
 				qcom,energy-overhead = <2274420>;
 				qcom,time-overhead = <6605>;
@@ -290,7 +290,7 @@
 					reg = <0>;
 					label = "a53-l2-retention";
 					qcom,spm-l2-mode = "retention";
-					qcom,latency-us = <100>;
+					qcom,latency-us = <30>;
 					qcom,ss-power = <1000>;
 					qcom,energy-overhead = <300000>;
 					qcom,time-overhead = <100>;
@@ -300,7 +300,7 @@
 					reg = <1>;
 					label = "a53-l2-pc";
 					qcom,spm-l2-mode = "pc";
-					qcom,latency-us = <30000>;
+					qcom,latency-us = <1375>;
 					qcom,ss-power = <83>;
 					qcom,energy-overhead = <2274420>;
 					qcom,time-overhead = <6605>;
@@ -314,7 +314,7 @@
 					qcom,pm-cpu-level@0 {
 						reg = <0>;
 						qcom,spm-cpu-mode = "wfi";
-						qcom,latency-us = <1>;
+						qcom,latency-us = <30>;
 						qcom,ss-power = <715>;
 						qcom,energy-overhead = <17700>;
 						qcom,time-overhead = <2>;
@@ -323,7 +323,7 @@
 					qcom,pm-cpu-level@1 {
 						reg = <1>;
 						qcom,spm-cpu-mode = "standalone_pc";
-						qcom,latency-us = <300>;
+						qcom,latency-us = <760>;
 						qcom,ss-power = <476>;
 						qcom,energy-overhead = <225300>;
 						qcom,time-overhead = <350>;
@@ -333,7 +333,7 @@
 					qcom,pm-cpu-level@2 {
 						reg = <2>;
 						qcom,spm-cpu-mode = "pc";
-						qcom,latency-us = <500>;
+						qcom,latency-us = <775>;
 						qcom,ss-power = <163>;
 						qcom,energy-overhead = <577736>;
 						qcom,time-overhead = <1000>;
@@ -355,7 +355,7 @@
 					reg = <0>;
 					label = "a57-l2-retention";
 					qcom,spm-l2-mode = "retention";
-					qcom,latency-us = <100>;
+					qcom,latency-us = <40>;
 					qcom,ss-power = <1000>;
 					qcom,energy-overhead = <300000>;
 					qcom,time-overhead = <100>;
@@ -365,7 +365,7 @@
 					reg = <1>;
 					label = "a57-l2-pc";
 					qcom,spm-l2-mode = "pc";
-					qcom,latency-us = <30000>;
+					qcom,latency-us = <1505>;
 					qcom,ss-power = <83>;
 					qcom,energy-overhead = <2274420>;
 					qcom,time-overhead = <6605>;
@@ -379,7 +379,7 @@
 					qcom,pm-cpu-level@0 {
 						reg = <0>;
 						qcom,spm-cpu-mode = "wfi";
-						qcom,latency-us = <1>;
+						qcom,latency-us = <30>;
 						qcom,ss-power = <715>;
 						qcom,energy-overhead = <17700>;
 						qcom,time-overhead = <2>;
@@ -388,7 +388,7 @@
 					qcom,pm-cpu-level@1 {
 						reg = <1>;
 						qcom,spm-cpu-mode = "standalone_pc";
-						qcom,latency-us = <300>;
+						qcom,latency-us = <647>;
 						qcom,ss-power = <476>;
 						qcom,energy-overhead = <225300>;
 						qcom,time-overhead = <350>;
@@ -398,7 +398,7 @@
 					qcom,pm-cpu-level@2 {
 						reg = <2>;
 						qcom,spm-cpu-mode = "pc";
-						qcom,latency-us = <500>;
+						qcom,latency-us = <653>;
 						qcom,ss-power = <163>;
 						qcom,energy-overhead = <577736>;
 						qcom,time-overhead = <1000>;
