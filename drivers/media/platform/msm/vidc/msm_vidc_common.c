@@ -85,9 +85,8 @@ enum multi_stream msm_comm_get_stream_output_mode(struct msm_vidc_inst *inst)
 			return HAL_VIDEO_DECODER_SECONDARY;
 	}
 	return HAL_VIDEO_DECODER_PRIMARY;
-
-
 }
+
 static int msm_comm_get_mbs_per_sec(struct msm_vidc_inst *inst)
 {
 	int output_port_mbs, capture_port_mbs;
@@ -643,6 +642,8 @@ static void handle_session_init_done(enum command_response cmd, void *data)
 			inst->capability.capability_set = true;
 			inst->capability.buffer_mode[CAPTURE_PORT] =
 				session_init_done->alloc_mode_out;
+			inst->capability.secure_output2_threshold =
+				session_init_done->secure_output2_threshold;
 		} else {
 			dprintk(VIDC_ERR,
 				"Session init response from FW : 0x%x\n",

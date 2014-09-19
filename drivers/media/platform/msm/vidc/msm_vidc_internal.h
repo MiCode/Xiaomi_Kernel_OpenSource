@@ -254,6 +254,7 @@ struct msm_vidc_core_capability {
 	struct hal_capability_supported hier_p;
 	struct hal_capability_supported ltr_count;
 	struct hal_capability_supported mbs_per_frame;
+	struct hal_capability_supported secure_output2_threshold;
 	u32 capability_set;
 	enum buffer_mode_type buffer_mode[MAX_PORT_NUM];
 	u32 buffer_size_limit;

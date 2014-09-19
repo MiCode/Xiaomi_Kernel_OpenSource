@@ -450,11 +450,13 @@ static inline void copy_cap_prop(
 	case HFI_CAPABILITY_ENC_LTR_COUNT:
 		out = &sess_init_done->ltr_count;
 		break;
+
+	case HFI_CAPABILITY_CP_OUTPUT2_THRESH:
+		out = &sess_init_done->secure_output2_threshold;
+		break;
 	}
 
 	if (out) {
-		out->capability_type =
-			(enum hal_capability)in->capability_type;
 		out->min = in->min;
 		out->max = in->max;
 		out->step_size = in->step_size;
