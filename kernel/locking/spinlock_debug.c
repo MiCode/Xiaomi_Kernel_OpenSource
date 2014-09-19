@@ -116,7 +116,7 @@ static void __spin_lock_debug(raw_spinlock_t *lock)
 		__delay(1);
 	}
 	/* lockup suspected: */
-	spin_dump(lock, "lockup suspected");
+	spin_bug(lock, "lockup suspected");
 #ifdef CONFIG_SMP
 	trigger_all_cpu_backtrace();
 #endif
