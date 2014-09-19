@@ -162,6 +162,8 @@ static void intel_dsi_enable(struct intel_encoder *encoder)
 	if (dev_priv->display.enable_backlight)
 		dev_priv->display.enable_backlight(intel_connector);
 
+	if (intel_dsi->dev.dev_ops->enable_backlight)
+		intel_dsi->dev.dev_ops->enable_backlight(&intel_dsi->dev);
 }
 
 static void intel_dsi_pre_enable(struct intel_encoder *encoder)

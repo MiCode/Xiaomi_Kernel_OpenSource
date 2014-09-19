@@ -85,6 +85,8 @@ struct intel_dsi_dev_ops {
 	/* This callback must be able to assume DSI commands can be sent */
 	void (*disable)(struct intel_dsi_device *dsi);
 
+	void (*enable_backlight)(struct intel_dsi_device *dsi);
+
 	int (*mode_valid)(struct intel_dsi_device *dsi,
 			  struct drm_display_mode *mode);
 
