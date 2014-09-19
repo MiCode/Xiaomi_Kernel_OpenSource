@@ -716,7 +716,7 @@
 		};
 	};
 
-	hsic_host: hsic@f9a15000 {
+	hsic_host: hsic_host@f9a15000 {
 		compatible = "qcom,hsic-host";
 		reg = <0xf9a15000 0x400>;
 
