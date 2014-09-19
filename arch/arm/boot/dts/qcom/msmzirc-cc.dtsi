@@ -21,14 +21,38 @@
 		#clock-cells = <1>;
 	};
 
+	clock_a7pll: qcom,a7pll@0xB008018 {
+		compatible = "qcom,msm-clock-controller";
+		reg = <0xB008018 0x9020>;
+		reg-names = "cc-base";
+		#clock-cells = <1>;
+
+		clock-names = "a7_xo_a";
+		clocks = <&clock_rpm clk_xo_a_clk_src>;
+
+		qcom,regulator-names = "a7pll_vdd_dig";
+		a7pll_vdd_dig-supply = <&pmd9635_s5_corner_ao>;
+
+		a7pll_vdd_dig: a7pll_vdd_dig {
+			compatible = "qcom,simple-vdd-class";
+			qcom,regulators = <&pmd9635_s5_corner_ao>;
+			qcom,uV-levels =
+					<RPM_REGULATOR_CORNER_NONE>,
+					<RPM_REGULATOR_CORNER_SVS_SOC>,
+					<RPM_REGULATOR_CORNER_NOMINAL>,
+					<RPM_REGULATOR_CORNER_SUPER_TURBO>;
+		};
+	};
+
 	clock_gcc: qcom,gcc@1800000 {
 		compatible = "qcom,msm-clock-controller";
 		reg = <0x1800000 0x80000>;
 		reg-names = "cc-base";
 		#clock-cells = <1>;
-		clock-names = "xo", "xo_a";
+		clock-names = "xo", "xo_a", "a7_debug_clk";
 		clocks = <&clock_rpm clk_xo_clk_src>,
-		         <&clock_rpm clk_xo_a_clk_src>;
+		         <&clock_rpm clk_xo_a_clk_src>,
+		         <&clock_a7pll clk_a7_debug_mux>;
 
 		qcom,regulator-names = "gcc_vdd_dig";
 		gcc_vdd_dig-supply = <&pmd9635_s5_corner>;
@@ -266,6 +290,11 @@
 	xo_a: xo_a {
 		compatible = "qcom,ext-clk";
 		qcom,clock-names = "xo_a";
+	};
+
+	gcc_a7_debug_clk: gcc_a7_debug_clk {
+		compatible = "qcom,ext-clk";
+		qcom,clock-names = "a7_debug_clk";
 	};
 
 	gpll0: gpll0 {
@@ -1174,6 +1203,7 @@
 			<0x00d0 &gcc_pdm_ahb_clk>,
 			<0x00d2 &gcc_pdm2_clk>,
 			<0x00f8 &gcc_boot_rom_ahb_clk>,
+			<0x016A &gcc_a7_debug_clk>,
 			<0x0203 &gcc_usb3_axi_tbu_clk>,
 			<0x0204 &gcc_pcie_axi_tbu_clk>,
 			<0x0208 &pcie_pipe_clk>,
@@ -1190,9 +1220,40 @@
 			<0x023b &gcc_pcie_sleep_clk>,
 			<0x023c &gcc_pcie_axi_mstr_clk>,
 			<>;
+		qcom,recursive-parents = <&gcc_a7_debug_clk>;
 		qcom,cxo = <&xo>;
 		qcom,xo-div4-cbcr = <GCC_GCC_XO_DIV4_CBCR>;
 		qcom,test-pad-config = <0x51A00>;
 		qcom,clk-flags = <0xC000>;
+	};
+};
+
+&clock_a7pll {
+	a7_xo_a: a7_xo_a {
+		compatible = "qcom,ext-clk";
+		qcom,clock-names = "a7_xo_a";
+	};
+
+	a7_m_clk: a7_m_clk {
+		compatible = "qcom,dummy-clk";
+	};
+
+	a7pll_clk: a7pll_clk {
+		compatible = "qcom,alpha-pll-20p";
+		qcom,parent = <&a7_xo_a>;
+		qcom,base-offset = <0x0>;
+		qcom,supply-group = <&a7pll_vdd_dig>;
+		qcom,clk-fmax =
+                        <FMAX_LOW 400000000>,
+                        <FMAX_NOM 800000000>,
+                        <FMAX_TURBO 1200000000>;
+	};
+
+	a7_debug_mux: a7_debug_mux {
+		compatible = "qcom,mux-reg";
+		qcom,offset = <0x9004>;
+		qcom,mask = <0x7>;
+		qcom,shift = <3>;
+		qcom,parents =<0x3 &a7_m_clk>;
 	};
 };
