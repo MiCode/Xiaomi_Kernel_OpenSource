@@ -1562,6 +1562,8 @@ static void switched_from_dl(struct rq *rq, struct task_struct *p)
 	if (hrtimer_active(&p->dl.dl_timer) && !dl_policy(p->policy))
 		hrtimer_try_to_cancel(&p->dl.dl_timer);
 
+	__dl_clear_params(p);
+
 #ifdef CONFIG_SMP
 	/*
 	 * Since this might be the only -deadline task on the rq,
