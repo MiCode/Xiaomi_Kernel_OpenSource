@@ -194,7 +194,7 @@
 
 		secure_mem: secure_region@0 {
 			linux,reserve-contiguous-region;
-			reg = <0 0 0 0xfc00000>;
+			reg = <0 0 0 0x12c00000>;
 			label = "secure_mem";
 		};
 
