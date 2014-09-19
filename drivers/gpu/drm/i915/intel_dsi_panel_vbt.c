@@ -194,6 +194,8 @@ static const char * const seq_name[] = {
 
 static void generic_exec_sequence(struct intel_dsi *intel_dsi, char *sequence)
 {
+	struct drm_device *dev = intel_dsi->base.base.dev;
+	struct drm_i915_private *dev_priv = dev->dev_private;
 	u8 *data = sequence;
 	fn_mipi_elem_exec mipi_elem_exec;
 	int index;
@@ -205,6 +207,8 @@ static void generic_exec_sequence(struct intel_dsi *intel_dsi, char *sequence)
 
 	/* go to the first element of the sequence */
 	data++;
+	if (dev_priv->vbt.dsi.seq_version >= 3)
+		data = data + 4;
 
 	/* parse each byte till we reach end of sequence byte - 0x00 */
 	while (1) {
@@ -217,6 +221,9 @@ static void generic_exec_sequence(struct intel_dsi *intel_dsi, char *sequence)
 
 		/* goto element payload */
 		data++;
+
+		if (dev_priv->vbt.dsi.seq_version >= 3)
+			data++;
 
 		/* execute the element specific rotines */
 		data = mipi_elem_exec(intel_dsi, data);

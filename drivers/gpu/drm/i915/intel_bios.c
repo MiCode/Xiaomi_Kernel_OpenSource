@@ -41,9 +41,10 @@ find_section(struct bdb_header *bdb, int section_id)
 {
 	u8 *base = (u8 *)bdb;
 	int index = 0;
-	u16 total, current_size;
+	u16 total;
+	u32 current_size;
 	u8 current_id;
-
+	 u8 version;
 	/* skip to first section */
 	index += bdb->header_size;
 	total = bdb->bdb_size;
@@ -53,7 +54,16 @@ find_section(struct bdb_header *bdb, int section_id)
 		current_id = *(base + index);
 		index++;
 
-		current_size = *((u16 *)(base + index));
+		if (current_id == BDB_MIPI_SEQUENCE) {
+			version = *(base + index + 2);
+			if (version >= 3)
+				current_size = *((u32 *)(base + index + 3));
+			else
+				current_size = *((u16 *)(base + index));
+		} else {
+			current_size = *((u16 *)(base + index));
+		}
+
 		index += 2;
 
 		if (index + current_size > total)
@@ -750,6 +760,54 @@ static u8 *goto_next_sequence(u8 *data, int *size)
 	return data;
 }
 
+static u8 *goto_next_sequence_v3(u8 *data, int *size)
+{
+	int tmp = *size;
+	int op_size;
+
+	if (--tmp < 0)
+		return NULL;
+
+	/* Skip the panel id and the sequence size */
+	data = data + 5;
+	while (*data != 0) {
+		u8 element_type = *data++;
+		switch (element_type) {
+		default:
+			DRM_ERROR("Unknown element type %d\n", element_type);
+		case MIPI_SEQ_ELEM_SEND_PKT:
+		case MIPI_SEQ_ELEM_DELAY:
+		case MIPI_SEQ_ELEM_GPIO:
+		case MIPI_SEQ_ELEM_I2C:
+		case MIPI_SEQ_ELEM_SPI:
+		case MIPI_SEQ_ELEM_PMIC:
+			/*
+			 * skip by this element payload size
+			 * skip elem id, command flag and data type
+			 */
+			op_size = *data++;
+			tmp = tmp - (op_size + 1);
+			if (tmp < 0)
+				return NULL;
+
+			/* skip by len */
+			data += op_size;
+			break;
+		}
+	}
+
+	/* goto next sequence or end of block byte */
+	if (--tmp < 0)
+		return NULL;
+
+	/* Skip the end element marker */
+	data++;
+
+	/* update amount of data left for the sequence block to be parsed */
+	*size = tmp;
+	return data;
+}
+
 static void
 parse_mipi(struct drm_i915_private *dev_priv, struct bdb_header *bdb)
 {
@@ -758,7 +816,7 @@ parse_mipi(struct drm_i915_private *dev_priv, struct bdb_header *bdb)
 	struct mipi_config *config;
 	struct mipi_pps_data *pps;
 	u8 *data, *seq_data;
-	int i, panel_id, seq_size;
+	int i, panel_id, panel_seq_size;
 	u16 block_size;
 
 	/* parse MIPI blocks only if LFP type is MIPI */
@@ -815,29 +873,40 @@ parse_mipi(struct drm_i915_private *dev_priv, struct bdb_header *bdb)
 
 	DRM_DEBUG_DRIVER("Found MIPI sequence block\n");
 
-	block_size = get_blocksize(sequence);
-
 	/*
 	 * parse the sequence block for individual sequences
 	 */
 	dev_priv->vbt.dsi.seq_version = sequence->version;
 
 	seq_data = &sequence->data[0];
+	if (dev_priv->vbt.dsi.seq_version >= 3) {
+		block_size = *((unsigned int *)seq_data);
+		seq_data = seq_data + 4;
+	} else
+		block_size = get_blocksize(sequence);
 
 	/*
 	 * sequence block is variable length and hence we need to parse and
 	 * get the sequence data for specific panel id
 	 */
 	for (i = 0; i < MAX_MIPI_CONFIGURATIONS; i++) {
-		panel_id = *seq_data;
-		seq_size = *((u16 *) (seq_data + 1));
+		panel_id = *seq_data++;
+		if (dev_priv->vbt.dsi.seq_version >= 3) {
+			panel_seq_size = *((u32 *)seq_data);
+			seq_data += sizeof(u32);
+		} else {
+			panel_seq_size = *((u16 *)seq_data);
+			seq_data += sizeof(u16);
+		}
+
 		if (panel_id == panel_type)
 			break;
 
-		/* skip the sequence including seq header of 3 bytes */
-		seq_data = seq_data + 3 + seq_size;
+		seq_data += panel_seq_size;
+
 		if ((seq_data - &sequence->data[0]) > block_size) {
-			DRM_ERROR("Sequence start is beyond sequence block size, corrupted sequence block\n");
+			DRM_ERROR("Sequence start is beyond seq block size\n");
+			DRM_ERROR("Corrupted sequence block\n");
 			return;
 		}
 	}
@@ -849,13 +918,14 @@ parse_mipi(struct drm_i915_private *dev_priv, struct bdb_header *bdb)
 
 	/* check if found sequence is completely within the sequence block
 	 * just being paranoid */
-	if (seq_size > block_size) {
+	if (panel_seq_size > block_size) {
 		DRM_ERROR("Corrupted sequence/size, bailing out\n");
 		return;
 	}
 
-	/* skip the panel id(1 byte) and seq size(2 bytes) */
-	dev_priv->vbt.dsi.data = kmemdup(seq_data + 3, seq_size, GFP_KERNEL);
+
+	dev_priv->vbt.dsi.data = kmemdup(seq_data, panel_seq_size, GFP_KERNEL);
+
 	if (!dev_priv->vbt.dsi.data)
 		return;
 
@@ -864,29 +934,36 @@ parse_mipi(struct drm_i915_private *dev_priv, struct bdb_header *bdb)
 	 * There are only 5 types of sequences as of now
 	 */
 	data = dev_priv->vbt.dsi.data;
-	dev_priv->vbt.dsi.size = seq_size;
+	dev_priv->vbt.dsi.size = panel_seq_size;
 
 	/* two consecutive 0x00 indicate end of all sequences */
-	while (1) {
+	while (*data != 0) {
 		int seq_id = *data;
+		int seq_size;
+
 		if (MIPI_SEQ_MAX > seq_id && seq_id > MIPI_SEQ_UNDEFINED) {
 			dev_priv->vbt.dsi.sequence[seq_id] = data;
 			DRM_DEBUG_DRIVER("Found mipi sequence - %d\n", seq_id);
 		} else {
 			DRM_ERROR("undefined sequence - %d\n", seq_id);
-			goto err;
+			seq_size = *(data + 1);
+			if (dev_priv->vbt.dsi.seq_version >= 3) {
+				data = data + seq_size + 1;
+				continue;
+			} else
+				goto err;
 		}
 
 		/* partial parsing to skip elements */
-		data = goto_next_sequence(data, &seq_size);
+		if (dev_priv->vbt.dsi.seq_version >= 3)
+			data = goto_next_sequence_v3(data, &panel_seq_size);
+		else
+			data = goto_next_sequence(data, &panel_seq_size);
 
 		if (data == NULL) {
 			DRM_ERROR("Sequence elements going beyond block itself. Sequence block parsing failed\n");
 			goto err;
 		}
-
-		if (*data == 0)
-			break; /* end of sequence reached */
 	}
 
 	DRM_DEBUG_DRIVER("MIPI related vbt parsing complete\n");
