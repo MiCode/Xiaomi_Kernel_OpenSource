@@ -1435,9 +1435,6 @@ wdt_work_queue_fail:
 fw_validation_fail:
 	release_firmware(isp->firmware);
 load_fw_fail:
-#ifdef CONFIG_GMIN_INTEL_MID
-	pm_qos_remove_request(&isp->pm_qos);
-#endif
 	pci_dev_put(isp->pci_root);
 	return err;
 }
