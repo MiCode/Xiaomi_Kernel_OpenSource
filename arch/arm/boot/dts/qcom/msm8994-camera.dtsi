@@ -403,7 +403,9 @@
 			<&clock_mmss clk_fd_ahb_clk>;
 		clock-names = "fd_core_clk", "fd_core_uar_clk",
 			"fd_axi_clk", "fd_ahb_clk";
-		clock-rates = <400000000 400000000 333000000 800000000>;
+		clock-rates = <60000000 60000000 75000000 40000000>,
+				<200000000 200000000 150000000 40000000>,
+				<400000000 400000000 333000000 80000000>;
 	};
 
 	cci: qcom,cci@fda0c000 {
