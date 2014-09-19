@@ -527,7 +527,24 @@ int dhdpcie_scan_resource(dhdpcie_info_t *dhdpcie_info)
 	return -1; /* FAILURE */
 
 }
-
+#ifdef MSM_PCIE_LINKDOWN_RECOVERY
+void dhdpcie_linkdown_cb(struct msm_pcie_notify *noti)
+{
+	struct pci_dev *pdev = (struct pci_dev *)noti->user;
+	dhdpcie_info_t *pch;
+	dhd_bus_t *bus;
+	dhd_pub_t *dhd;
+	if (pdev && (pch = pci_get_drvdata(pdev))) {
+		if ((bus = pch->bus) && (dhd = bus->dhd)) {
+			DHD_ERROR(("%s: Event HANG send up "
+				"due to PCIe linkdown\n", __FUNCTION__));
+			bus->islinkdown = TRUE;
+			DHD_OS_WAKE_LOCK_CTRL_TIMEOUT_ENABLE(dhd, DHD_EVENT_TIMEOUT_MS);
+			dhd_os_check_hang(dhd, 0, -ETIMEDOUT);
+		}
+	}
+}
+#endif /* MSM_PCIE_LINKDOWN_RECOVERY */
 int dhdpcie_init(struct pci_dev *pdev)
 {
 
@@ -568,6 +585,15 @@ int dhdpcie_init(struct pci_dev *pdev)
 
 		dhdpcie_info->bus = bus;
 		dhdpcie_info->bus->dev = pdev;
+#ifdef MSM_PCIE_LINKDOWN_RECOVERY
+		bus->islinkdown = FALSE;
+		bus->pcie_event.events = MSM_PCIE_EVENT_LINKDOWN;
+		bus->pcie_event.user = pdev;
+		bus->pcie_event.mode = MSM_PCIE_TRIGGER_CALLBACK;
+		bus->pcie_event.callback = dhdpcie_linkdown_cb;
+		bus->pcie_event.options = MSM_PCIE_CONFIG_NO_RECOVERY;
+		msm_pcie_register_event(&bus->pcie_event);
+#endif /* MSM_PCIE_LINKDOWN_RECOVERY */
 
 		if (bus->intr) {
 			/* Register interrupt callback, but mask it (not operational yet). */
@@ -672,7 +698,7 @@ int
 dhdpcie_start_host_pcieclock(dhd_bus_t *bus)
 {
 	int ret=0;
-
+	int options = 0;
 	DHD_TRACE(("%s Enter:\n", __FUNCTION__));
 
 	if(bus == NULL)
@@ -681,46 +707,57 @@ dhdpcie_start_host_pcieclock(dhd_bus_t *bus)
 	if(bus->dev == NULL)
 		return BCME_ERROR;
 
-#if defined (CONFIG_ARCH_MSM)
-	ret = msm_pcie_pm_control(MSM_PCIE_RESUME,
-				  bus->dev->bus->number,
-				  NULL, NULL, 0);
+#ifdef CONFIG_ARCH_MSM
+#ifdef MSM_PCIE_LINKDOWN_RECOVERY
+	if (bus->islinkdown)
+		options = MSM_PCIE_CONFIG_NO_CFG_RESTORE;
+#endif /* MSM_PCIE_LINKDOWN_RECOVERY */
+
+	ret = msm_pcie_pm_control(MSM_PCIE_RESUME, bus->dev->bus->number,
+		bus->dev, NULL, options);
+#ifdef MSM_PCIE_LINKDOWN_RECOVERY
+	if (bus->islinkdown && !ret) {
+		msm_pcie_recover_config(bus->dev);
+		if (bus->dhd)
+			DHD_OS_WAKE_UNLOCK(bus->dhd);
+		bus->islinkdown = FALSE;
+	}
+#endif /* MSM_PCIE_LINKDOWN_RECOVERY */
+
 	if (ret) {
 		DHD_ERROR(("%s Failed to bring up PCIe link\n", __FUNCTION__));
-		goto done;
 	}
-#endif
-
-done:
+#endif /* CONFIG_ARCH_MSM */
 	DHD_TRACE(("%s Exit:\n", __FUNCTION__));
-
 	return ret;
 }
 
 int
 dhdpcie_stop_host_pcieclock(dhd_bus_t *bus)
 {
-	int ret=0;
-
+	int ret = 0;
+	int options = 0;
 	DHD_TRACE(("%s Enter:\n", __FUNCTION__));
 
-	if(bus == NULL)
+	if (bus == NULL)
 		return BCME_ERROR;
 
-	if(bus->dev == NULL)
+	if (bus->dev == NULL)
 		return BCME_ERROR;
 
-#if defined (CONFIG_ARCH_MSM)
-	ret = msm_pcie_pm_control(MSM_PCIE_SUSPEND,
-			bus->dev->bus->number,
-			NULL, NULL, 0);
+#ifdef CONFIG_ARCH_MSM
+#ifdef MSM_PCIE_LINKDOWN_RECOVERY
+	if (bus->islinkdown)
+		options = MSM_PCIE_CONFIG_NO_CFG_RESTORE | MSM_PCIE_CONFIG_LINKDOWN;
+#endif /* MSM_PCIE_LINKDOWN_RECOVERY */
+
+	ret = msm_pcie_pm_control(MSM_PCIE_SUSPEND, bus->dev->bus->number,
+		bus->dev, NULL, options);
+
 	if (ret) {
 		DHD_ERROR(("Failed to stop PCIe link\n"));
-		goto done;
 	}
-#endif
-
-done:
+#endif /* CONFIG_ARCH_MSM */
 	DHD_TRACE(("%s Exit:\n", __FUNCTION__));
 	return ret;
 }
