@@ -171,6 +171,16 @@
 	};
 };
 
+&sdc2_cd_on {
+	/delete-property/ bias-pull-up;
+	bias-pull-down;
+};
+
+&sdc2_cd_off {
+	/delete-property/ bias-disable;
+	bias-pull-down;
+};
+
 &sdhc_2 {
 	interrupts = <0 1>;
 	interrupt-map = <0 &intc 0 125 0
