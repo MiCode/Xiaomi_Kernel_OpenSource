@@ -80,6 +80,11 @@
 #define MICBIAS_MIN_VAL 1600000
 #define MICBIAS_STEP_SIZE 50000
 
+#define DEFAULT_BOOST_VOLTAGE 5000
+#define MIN_BOOST_VOLTAGE 4000
+#define MAX_BOOST_VOLTAGE 5550
+#define BOOST_VOLTAGE_STEP 50
+
 #define VOLTAGE_CONVERTER(value, min_value, step_size)\
 	((value - min_value)/step_size);
 
@@ -179,6 +184,7 @@ static int msm8x16_wcd_enable_ext_mb_source(struct snd_soc_codec *codec,
 					    bool turn_on);
 static void msm8x16_trim_btn_reg(struct snd_soc_codec *codec);
 static void msm8x16_wcd_set_micb_v(struct snd_soc_codec *codec);
+static void msm8x16_wcd_set_boost_v(struct snd_soc_codec *codec);
 
 struct msm8x16_wcd_spmi msm8x16_wcd_modules[MAX_MSM8X16_WCD_DEVICE];
 
@@ -586,6 +592,34 @@ static int msm8x16_wcd_dt_parse_vreg_info(struct device *dev,
 	dev_dbg(dev, "%s: vol=[%d %d]uV, curr=[%d]uA, ond %d\n\n", vreg->name,
 		 vreg->min_uv, vreg->max_uv, vreg->optimum_ua, vreg->ondemand);
 	return 0;
+}
+
+static void msm8x16_wcd_dt_parse_boost_info(struct snd_soc_codec *codec)
+{
+	struct msm8x16_wcd_priv *msm8x16_wcd_priv =
+		snd_soc_codec_get_drvdata(codec);
+	const char *prop_name = "qcom,cdc-boost-voltage";
+	int boost_voltage, ret;
+
+	ret = of_property_read_u32(codec->dev->of_node, prop_name,
+			&boost_voltage);
+	if (ret) {
+		dev_dbg(codec->dev, "Looking up %s property in node %s failed\n",
+			prop_name, codec->dev->of_node->full_name);
+		boost_voltage = DEFAULT_BOOST_VOLTAGE;
+	}
+	if (boost_voltage < MIN_BOOST_VOLTAGE ||
+			boost_voltage > MAX_BOOST_VOLTAGE) {
+		dev_err(codec->dev,
+				"Incorrect boost voltage. Reverting to default\n");
+		boost_voltage = DEFAULT_BOOST_VOLTAGE;
+	}
+
+	msm8x16_wcd_priv->boost_voltage =
+		VOLTAGE_CONVERTER(boost_voltage, MIN_BOOST_VOLTAGE,
+				BOOST_VOLTAGE_STEP);
+	dev_dbg(codec->dev, "Boost voltage value is: %d\n",
+			boost_voltage);
 }
 
 static void msm8x16_wcd_dt_parse_micbias_info(struct device *dev,
@@ -3408,6 +3442,8 @@ static int msm8x16_wcd_device_up(struct snd_soc_codec *codec)
 	msm8x16_wcd_codec_init_reg(codec);
 	msm8x16_wcd_update_reg_defaults(codec);
 
+	msm8x16_wcd_set_boost_v(codec);
+
 	msm8x16_wcd_set_micb_v(codec);
 	wcd_mbhc_stop(&msm8x16_wcd_priv->mbhc);
 	wcd_mbhc_start(&msm8x16_wcd_priv->mbhc,
@@ -3495,6 +3531,15 @@ static void msm8x16_wcd_set_micb_v(struct snd_soc_codec *codec)
 			0xF8, (reg_val << 3));
 }
 
+static void msm8x16_wcd_set_boost_v(struct snd_soc_codec *codec)
+{
+	struct msm8x16_wcd_priv *msm8x16_wcd_priv =
+				snd_soc_codec_get_drvdata(codec);
+
+	snd_soc_update_bits(codec, MSM8X16_WCD_A_ANALOG_OUTPUT_VOLTAGE,
+			0x1F, msm8x16_wcd_priv->boost_voltage);
+}
+
 static int msm8x16_wcd_codec_probe(struct snd_soc_codec *codec)
 {
 	struct msm8x16_wcd_priv *msm8x16_wcd_priv;
@@ -3539,6 +3584,9 @@ static int msm8x16_wcd_codec_probe(struct snd_soc_codec *codec)
 	else
 		dev_dbg(codec->dev, "%s :PMIC REV: %d", __func__,
 					msm8x16_wcd_priv->pmic_rev);
+	msm8x16_wcd_dt_parse_boost_info(codec);
+	msm8x16_wcd_set_boost_v(codec);
+
 	msm8x16_wcd_bringup(codec);
 	msm8x16_wcd_codec_init_reg(codec);
 	msm8x16_wcd_update_reg_defaults(codec);
