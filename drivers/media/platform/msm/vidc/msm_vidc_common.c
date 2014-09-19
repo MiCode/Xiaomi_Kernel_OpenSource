@@ -90,12 +90,12 @@ enum multi_stream msm_comm_get_stream_output_mode(struct msm_vidc_inst *inst)
 }
 static int msm_comm_get_mbs_per_sec(struct msm_vidc_inst *inst)
 {
-	int height, width;
-	height = max(inst->prop.height[CAPTURE_PORT],
+	int output_port_mbs, capture_port_mbs;
+	output_port_mbs = NUM_MBS_PER_FRAME(inst->prop.width[OUTPUT_PORT],
 		inst->prop.height[OUTPUT_PORT]);
-	width = max(inst->prop.width[CAPTURE_PORT],
-		inst->prop.width[OUTPUT_PORT]);
-	return NUM_MBS_PER_SEC(height, width, inst->prop.fps);
+	capture_port_mbs = NUM_MBS_PER_FRAME(inst->prop.width[CAPTURE_PORT],
+		inst->prop.height[CAPTURE_PORT]);
+	return max(output_port_mbs, capture_port_mbs) * inst->prop.fps;
 }
 
 static inline int msm_comm_get_mbs_per_frame(struct msm_vidc_inst *inst)
