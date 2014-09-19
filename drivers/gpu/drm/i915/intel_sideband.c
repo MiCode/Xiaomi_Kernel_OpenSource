@@ -160,17 +160,18 @@ u32 vlv_nc_read(struct drm_i915_private *dev_priv, u8 addr)
 	return val;
 }
 
-u32 vlv_gpio_nc_read(struct drm_i915_private *dev_priv, u32 reg)
+u32 vlv_gpio_read(struct drm_i915_private *dev_priv, u8 core_offset, u32 reg)
 {
 	u32 val = 0;
-	vlv_sideband_rw(dev_priv, PCI_DEVFN(2, 0), IOSF_PORT_GPIO_NC,
+	vlv_sideband_rw(dev_priv, PCI_DEVFN(2, 0), core_offset,
 			SB_CRRDDA_NP, reg, &val);
 	return val;
 }
 
-void vlv_gpio_nc_write(struct drm_i915_private *dev_priv, u32 reg, u32 val)
+void vlv_gpio_write(struct drm_i915_private *dev_priv, u8 core_offset,
+				u32 reg, u32 val)
 {
-	vlv_sideband_rw(dev_priv, PCI_DEVFN(2, 0), IOSF_PORT_GPIO_NC,
+	vlv_sideband_rw(dev_priv, PCI_DEVFN(2, 0), core_offset,
 			SB_CRWRDA_NP, reg, &val);
 }
 

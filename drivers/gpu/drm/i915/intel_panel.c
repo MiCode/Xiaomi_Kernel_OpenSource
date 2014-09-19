@@ -696,8 +696,10 @@ static void vlv_disable_mipi_backlight(struct intel_connector *connector)
 
 	if (dev_priv->vbt.dsi.config->pmic_soc_blc) {
 		/* disable the backlight enable signal */
-		vlv_gpio_nc_write(dev_priv, GPIO_NC_10_PCONF0, 0x2000CC00);
-		vlv_gpio_nc_write(dev_priv, GPIO_NC_10_PAD, 0x00000004);
+		vlv_gpio_write(dev_priv, IOSF_PORT_GPIO_NC,
+				PANEL1_BKLTEN_GPIONC_10_PCONF0, 0x2000CC00);
+		vlv_gpio_write(dev_priv, IOSF_PORT_GPIO_NC,
+				PANEL1_BKLTEN_GPIONC_10_PAD, 0x00000004);
 		udelay(500);
 		lpio_bl_write_bits(0, LPIO_PWM_CTRL, 0x00, 0x80000000);
 	} else {
@@ -815,9 +817,10 @@ static void lpio_enable_backlight(struct drm_i915_private *dev_priv)
 	uint32_t pwm_base;
 
 	/* GPIOC_94 config to PWM0 function */
-	val = vlv_gps_core_read(dev_priv, GPIO_NC_22_PCONF0);
-	vlv_gps_core_write(dev_priv, GPIO_NC_22_PCONF0, 0x2000CC01);
-	vlv_gps_core_write(dev_priv, GPIO_NC_22_PAD, 0x5);
+	val = vlv_gps_core_read(dev_priv, GP_CAMERASB07_GPIONC_22_PCONF0);
+	vlv_gps_core_write(dev_priv, GP_CAMERASB07_GPIONC_22_PCONF0,
+				0x2000CC01);
+	vlv_gps_core_write(dev_priv, GP_CAMERASB07_GPIONC_22_PAD, 0x5);
 
 	/* PWM enable
 	 * Assuming only 1 LFP
@@ -831,8 +834,10 @@ static void lpio_enable_backlight(struct drm_i915_private *dev_priv)
 	lpio_bl_update(0, LPIO_PWM_CTRL);
 
 	/* Backlight enable */
-	vlv_gpio_nc_write(dev_priv, GPIO_NC_10_PCONF0, 0x2000CC00);
-	vlv_gpio_nc_write(dev_priv, GPIO_NC_10_PAD, 0x00000005);
+	vlv_gpio_write(dev_priv, IOSF_PORT_GPIO_NC,
+				PANEL1_BKLTEN_GPIONC_10_PCONF0, 0x2000CC00);
+	vlv_gpio_write(dev_priv, IOSF_PORT_GPIO_NC,
+				PANEL1_BKLTEN_GPIONC_10_PAD, 0x00000005);
 	udelay(500);
 }
 

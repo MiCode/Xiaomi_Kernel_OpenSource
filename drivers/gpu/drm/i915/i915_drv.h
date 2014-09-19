@@ -2862,8 +2862,9 @@ int sandybridge_pcode_write(struct drm_i915_private *dev_priv, u8 mbox, u32 val)
 u32 vlv_punit_read(struct drm_i915_private *dev_priv, u8 addr);
 void vlv_punit_write(struct drm_i915_private *dev_priv, u8 addr, u32 val);
 u32 vlv_nc_read(struct drm_i915_private *dev_priv, u8 addr);
-u32 vlv_gpio_nc_read(struct drm_i915_private *dev_priv, u32 reg);
-void vlv_gpio_nc_write(struct drm_i915_private *dev_priv, u32 reg, u32 val);
+u32 vlv_gpio_read(struct drm_i915_private *dev_priv, u8 core_offset, u32 reg);
+void vlv_gpio_write(struct drm_i915_private *dev_priv, u8 core_offset,
+			u32 reg, u32 val);
 u32 vlv_cck_read(struct drm_i915_private *dev_priv, u32 reg);
 void vlv_cck_write(struct drm_i915_private *dev_priv, u32 reg, u32 val);
 u32 vlv_ccu_read(struct drm_i915_private *dev_priv, u32 reg);
