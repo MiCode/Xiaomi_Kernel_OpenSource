@@ -70,7 +70,7 @@ static int32_t msm_led_trigger_config(struct msm_led_flash_ctrl_t *fctrl,
 		for (i = 0; i < fctrl->torch_num_sources; i++)
 			if (fctrl->torch_trigger[i]) {
 				max_curr_l = fctrl->torch_max_current[i];
-				if (cfg->torch_current[i] > 0 &&
+				if (cfg->torch_current[i] >= 0 &&
 					cfg->torch_current[i] < max_curr_l) {
 					curr_l = cfg->torch_current[i];
 				} else {
@@ -92,7 +92,7 @@ static int32_t msm_led_trigger_config(struct msm_led_flash_ctrl_t *fctrl,
 		for (i = 0; i < fctrl->flash_num_sources; i++)
 			if (fctrl->flash_trigger[i]) {
 				max_curr_l = fctrl->flash_max_current[i];
-				if (cfg->flash_current[i] > 0 &&
+				if (cfg->flash_current[i] >= 0 &&
 					cfg->flash_current[i] < max_curr_l) {
 					curr_l = cfg->flash_current[i];
 				} else {
