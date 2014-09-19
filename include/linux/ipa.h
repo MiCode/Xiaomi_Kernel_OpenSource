@@ -1094,6 +1094,7 @@ int ipa_disable_wdi_pipe(u32 clnt_hdl);
 int ipa_resume_wdi_pipe(u32 clnt_hdl);
 int ipa_suspend_wdi_pipe(u32 clnt_hdl);
 int ipa_get_wdi_stats(struct IpaHwStatsWDIInfoData_t *stats);
+u16 ipa_get_smem_restr_bytes(void);
 
 /*
  * Resource manager
@@ -1530,6 +1531,11 @@ static inline void ipa_free_skb(struct ipa_rx_data *rx_in)
 /*
  * System pipes
  */
+static inline u16 ipa_get_smem_restr_bytes(void)
+{
+	return -EPERM;
+}
+
 static inline int ipa_setup_sys_pipe(struct ipa_sys_connect_params *sys_in,
 		u32 *clnt_hdl)
 {
