@@ -447,8 +447,8 @@ static int cluster_configure(struct lpm_cluster *cluster, int idx,
 
 	spin_lock(&cluster->sync_lock);
 
-	if (!cpumask_equal(&cluster->num_childs_in_sync,
-					&cluster->child_cpus)) {
+	if (!cpumask_equal(&cluster->num_childs_in_sync, &cluster->child_cpus)
+			|| is_IPI_pending(&cluster->num_childs_in_sync)) {
 		spin_unlock(&cluster->sync_lock);
 		return -EPERM;
 	}
