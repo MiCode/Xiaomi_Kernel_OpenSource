@@ -17,3 +17,27 @@
        compatible = "qcom,msm8916-qrd-skuid", "qcom,msm8916-qrd", "qcom,msm8916", "qcom,qrd";
 };
 
+&pm8916_chg {
+	qcom,vddmax-mv = <4350>;
+	qcom,vddsafe-mv = <4380>;
+	qcom,vinmin-mv = <4470>;
+	qcom,batt-hot-percentage = <35>;
+	qcom,batt-cold-percentage = <70>;
+	qcom,tchg-mins = <360>;
+	status = "okay";
+};
+
+/ {
+	qrd_batterydata: qcom,battery-data {
+	qcom,rpull-up-kohm = <100>;
+	qcom,vref-batt-therm = <1800000>;
+
+	#include "batterydata-qrd-skuic-4v35-1850mah.dtsi"
+	};
+};
+
+&pm8916_bms {
+	status = "okay";
+	qcom,battery-data = <&qrd_batterydata>;
+};
+
