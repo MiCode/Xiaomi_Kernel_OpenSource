@@ -88,7 +88,8 @@ config ARCH_MSMFERRUM
 	select SPARSE_IRQ
 	select PINCTRL
 	select PINCTRL_MSM_TLMM
-	select MSM_NOPM
+	select MSM_PM if PM
+	select MSM_RPM_SMD
 	select CPU_FREQ
 	select MSM_CORTEX_A7
 	select MSM_IRQ
