@@ -12,7 +12,7 @@
 
 #include "msm8939-qrd.dtsi"
 #include "dsi-panel-nt35596-1080p-skuk-video.dtsi"
-
+#include "msm8939-camera-sensor-qrd.dtsi"
 / {
 	model = "Qualcomm Technologies, Inc. MSM8939 QRD SKUK";
 	compatible = "qcom,msm8939-qrd-skuk", "qcom,msm8939-qrd", "qcom,msm8939", "qcom,qrd";
