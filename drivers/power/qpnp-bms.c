@@ -2208,7 +2208,6 @@ skip_limits:
 	rc_new_uah = (params->fcc_uah * pc_new) / 100;
 	soc_new = (rc_new_uah - params->cc_uah - params->uuc_uah)*100
 					/ (params->fcc_uah - params->uuc_uah);
-	soc_new = bound_soc(soc_new);
 
 	/*
 	 * if soc_new is ZERO force it higher so that phone doesnt report soc=0
@@ -2466,6 +2465,8 @@ static int calculate_state_of_charge(struct qpnp_bms_chip *chip,
 	/* always clamp soc due to BMS hw/sw immaturities */
 	new_calculated_soc = clamp_soc_based_on_voltage(chip,
 					new_calculated_soc);
+
+	new_calculated_soc = bound_soc(new_calculated_soc);
 	/*
 	 * If the battery is full, configure the cc threshold so the system
 	 * wakes up after SoC changes
