@@ -208,7 +208,7 @@ static int get_order_irq(int  i)
 static irqreturn_t wcd9xxx_spmi_irq_handler(int linux_irq, void *data)
 {
 	int irq, i, j;
-	u8 status[NUM_IRQ_REGS] = {0};
+	unsigned long status[NUM_IRQ_REGS] = {0};
 
 	if (unlikely(wcd9xxx_spmi_lock_sleep() == false)) {
 		pr_err("Failed to hold suspend\n");
