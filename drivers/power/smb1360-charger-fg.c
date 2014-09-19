@@ -82,6 +82,7 @@
 #define BATT_MISSING_SRC_THERM_BIT	BIT(1)
 
 #define CFG_FG_BATT_CTRL_REG		0x0E
+#define CFG_FG_OTP_BACK_UP_ENABLE	BIT(7)
 #define BATT_ID_ENABLED_BIT		BIT(5)
 #define CHG_BATT_ID_FAIL		BIT(4)
 #define BATT_ID_FAIL_SELECT_PROFILE	BIT(3)
@@ -127,6 +128,9 @@
 #define SHDN_CTRL_REG			0x1A
 #define SHDN_CMD_USE_BIT		BIT(1)
 #define SHDN_CMD_POLARITY_BIT		BIT(2)
+
+#define CURRENT_GAIN_LSB_REG		0x1D
+#define CURRENT_GAIN_MSB_REG		0x1E
 
 /* Command Registers */
 #define CMD_I2C_REG			0x40
@@ -325,6 +329,7 @@ struct smb1360_chip {
 	bool				empty_soc_disabled;
 	int				fg_reset_threshold_mv;
 	bool				fg_reset_at_pon;
+	bool				rsense_10mohm;
 
 	/* status tracking */
 	bool				usb_present;
@@ -572,6 +577,7 @@ out:
 #define MANTISSA_MASK		0x3FF
 #define SIGN_MASK		0x400
 #define EXPONENT_SHIFT		11
+#define SIGN_SHIFT		10
 #define MICRO_UNIT		1000000ULL
 static int64_t float_decode(u16 reg)
 {
@@ -603,6 +609,55 @@ static int64_t float_decode(u16 reg)
 
 	if (sign)
 		final_val *= -1;
+
+	return final_val;
+}
+
+#define MAX_MANTISSA    (1023 * 1000000ULL)
+unsigned int float_encode(int64_t float_val)
+{
+	int exponent = 0, sign = 0;
+	unsigned int final_val = 0;
+
+	if (float_val == 0)
+		return 0;
+
+	if (float_val < 0) {
+		sign = 1;
+		float_val = -float_val;
+	}
+
+	/* Reduce large mantissa until it fits into 10 bit */
+	while (float_val >= MAX_MANTISSA) {
+		exponent++;
+		float_val >>= 1;
+	}
+
+	/* Increase small mantissa to improve precision */
+	while (float_val < MAX_MANTISSA && exponent > -25) {
+		exponent--;
+		float_val <<= 1;
+	}
+
+	exponent = exponent + 25;
+
+	/* Convert mantissa from micro-units to units */
+	float_val = div_s64((float_val + MICRO_UNIT), (int)MICRO_UNIT);
+
+	if (float_val == 1024) {
+		exponent--;
+		float_val <<= 1;
+	}
+
+	float_val -= 1024;
+
+	/* Ensure that resulting number is within range */
+	if (float_val > MANTISSA_MASK)
+		float_val = MANTISSA_MASK;
+
+	/* Convert to 5 bit exponent, 11 bit mantissa */
+	final_val = (float_val & MANTISSA_MASK) | (sign << SIGN_SHIFT) |
+		((exponent << EXPONENT_SHIFT) & EXPONENT_MASK);
 
 	return final_val;
 }
@@ -1149,6 +1204,9 @@ static int smb1360_set_appropriate_usb_current(struct smb1360_chip *chip)
 		pr_debug("Setting USB 500\n");
 	} else {
 		/* USB AC */
+		if (chip->rsense_10mohm)
+			current_ma /= 2;
+
 		for (i = ARRAY_SIZE(fastchg_current) - 1; i >= 0; i--) {
 			if (fastchg_current[i] <= current_ma)
 				break;
@@ -1685,6 +1743,141 @@ static int batt_id_complete_handler(struct smb1360_chip *chip, u8 rt_stat)
 	return 0;
 }
 
+static int smb1360_select_fg_i2c_address(struct smb1360_chip *chip)
+{
+	unsigned short addr = chip->default_i2c_addr << 0x1;
+
+	switch (chip->fg_access_type) {
+	case FG_ACCESS_CFG:
+		addr = (addr & ~FG_I2C_CFG_MASK) | FG_CFG_I2C_ADDR;
+		break;
+	case FG_ACCESS_PROFILE_A:
+		addr = (addr & ~FG_I2C_CFG_MASK) | FG_PROFILE_A_ADDR;
+		break;
+	case FG_ACCESS_PROFILE_B:
+		addr = (addr & ~FG_I2C_CFG_MASK) | FG_PROFILE_B_ADDR;
+		break;
+	default:
+		pr_err("Invalid FG access type=%d\n", chip->fg_access_type);
+		return -EINVAL;
+	}
+
+	chip->fg_i2c_addr = addr >> 0x1;
+	pr_debug("FG_access_type=%d fg_i2c_addr=%x\n", chip->fg_access_type,
+							chip->fg_i2c_addr);
+
+	return 0;
+}
+
+static int smb1360_adjust_current_gain(struct smb1360_chip *chip,
+							int gain_factor)
+{
+	int i, rc;
+	int64_t current_gain, new_current_gain;
+	u8 reg[2];
+	u16 reg_value1 = 0, reg_value2 = 0;
+	u8 reg_val_mapping[][2] = {
+			{0xE0, 0x1D},
+			{0xE1, 0x00},
+			{0xE2, 0x1E},
+			{0xE3, 0x00},
+			{0xE4, 0x00},
+			{0xE5, 0x00},
+			{0xE6, 0x00},
+			{0xE7, 0x00},
+			{0xE8, 0x00},
+			{0xE9, 0x00},
+			{0xEA, 0x00},
+			{0xEB, 0x00},
+			{0xEC, 0x00},
+			{0xED, 0x00},
+			{0xEF, 0x00},
+			{0xF0, 0x50},
+			{0xF1, 0x00},
+	};
+
+	rc = smb1360_fg_read(chip, CURRENT_GAIN_LSB_REG, &reg[0]);
+	if (rc) {
+		pr_err("Unable to set FG access I2C address rc=%d\n", rc);
+		return rc;
+	}
+
+	rc = smb1360_fg_read(chip, CURRENT_GAIN_MSB_REG, &reg[1]);
+	if (rc) {
+		pr_err("Unable to set FG access I2C address rc=%d\n", rc);
+		return rc;
+	}
+
+	reg_value1 = (reg[1] << 8) | reg[0];
+	current_gain = float_decode(reg_value1);
+	new_current_gain = MICRO_UNIT  + (gain_factor * current_gain);
+	reg_value2 = float_encode(new_current_gain);
+	reg[0] = reg_value2 & 0xFF;
+	reg[1] = (reg_value2 & 0xFF00) >> 8;
+	pr_debug("current_gain_reg=0x%x current_gain_decoded=%lld new_current_gain_decoded=%lld new_current_gain_reg=0x%x\n",
+		reg_value1, current_gain, new_current_gain, reg_value2);
+
+	for (i = 0; i < ARRAY_SIZE(reg_val_mapping); i++) {
+		if (reg_val_mapping[i][0] == 0xE1)
+			reg_val_mapping[i][1] = reg[0];
+		if (reg_val_mapping[i][0] == 0xE3)
+			reg_val_mapping[i][1] = reg[1];
+
+		pr_debug("Writing reg_add=%x value=%x\n", reg_val_mapping[i][0],
+						reg_val_mapping[i][1]);
+
+		rc = smb1360_fg_write(chip, reg_val_mapping[i][0],
+					reg_val_mapping[i][1]);
+		if (rc) {
+			pr_err("Write fg address 0x%x failed, rc = %d\n",
+						reg_val_mapping[i][0], rc);
+			return rc;
+		}
+	}
+
+	return 0;
+}
+
+static int smb1360_otp_gain_config(struct smb1360_chip *chip, int gain_factor)
+{
+	int rc = 0;
+
+	rc = smb1360_enable_fg_access(chip);
+	if (rc) {
+		pr_err("Couldn't request FG access rc = %d\n", rc);
+		return rc;
+	}
+	chip->fg_access_type = FG_ACCESS_CFG;
+
+	rc = smb1360_select_fg_i2c_address(chip);
+	if (rc) {
+		pr_err("Unable to set FG access I2C address\n");
+		goto restore_fg;
+	}
+
+	rc = smb1360_adjust_current_gain(chip, gain_factor);
+	if (rc) {
+		pr_err("Unable to modify current gain rc=%d\n", rc);
+		goto restore_fg;
+	}
+
+	rc = smb1360_masked_write(chip, CFG_FG_BATT_CTRL_REG,
+			CFG_FG_OTP_BACK_UP_ENABLE, CFG_FG_OTP_BACK_UP_ENABLE);
+	if (rc) {
+		pr_err("Write reg 0x0E failed, rc = %d\n", rc);
+		goto restore_fg;
+	}
+
+restore_fg:
+	rc = smb1360_disable_fg_access(chip);
+	if (rc) {
+		pr_err("Couldn't disable FG access rc = %d\n", rc);
+		return rc;
+	}
+
+	return rc;
+}
+
 struct smb_irq_info {
 	const char		*name;
 	int			(*smb_irq)(struct smb1360_chip *chip,
@@ -2011,32 +2204,6 @@ static int set_reg(void *data, u64 val)
 	return 0;
 }
 DEFINE_SIMPLE_ATTRIBUTE(poke_poke_debug_ops, get_reg, set_reg, "0x%02llx\n");
-
-static int smb1360_select_fg_i2c_address(struct smb1360_chip *chip)
-{
-	unsigned short addr = chip->default_i2c_addr << 0x1;
-
-	switch (chip->fg_access_type) {
-	case FG_ACCESS_CFG:
-		addr = (addr & ~FG_I2C_CFG_MASK) | FG_CFG_I2C_ADDR;
-		break;
-	case FG_ACCESS_PROFILE_A:
-		addr = (addr & ~FG_I2C_CFG_MASK) | FG_PROFILE_A_ADDR;
-		break;
-	case FG_ACCESS_PROFILE_B:
-		addr = (addr & ~FG_I2C_CFG_MASK) | FG_PROFILE_B_ADDR;
-		break;
-	default:
-		pr_err("Invalid FG access type=%d\n", chip->fg_access_type);
-		return -EINVAL;
-	}
-
-	chip->fg_i2c_addr = addr >> 0x1;
-	pr_debug("FG_access_type=%d fg_i2c_addr=%x\n", chip->fg_access_type,
-							chip->fg_i2c_addr);
-
-	return 0;
-}
 
 static int fg_get_reg(void *data, u64 *val)
 {
@@ -3169,6 +3336,14 @@ static int smb1360_hw_init(struct smb1360_chip *chip)
 		return rc;
 	}
 
+	if (chip->rsense_10mohm) {
+		rc = smb1360_otp_gain_config(chip, 2);
+		if (rc < 0) {
+			pr_err("Couldn't config OTP rc=%d\n", rc);
+			return rc;
+		}
+	}
+
 	rc = smb1360_check_batt_profile(chip);
 	if (rc)
 		pr_err("Unable to modify battery profile\n");
@@ -3225,6 +3400,9 @@ static int smb1360_hw_init(struct smb1360_chip *chip)
 			dev_err(chip->dev, "Error: Both iterm_disabled and iterm_ma set\n");
 			return -EINVAL;
 		} else {
+			if (chip->rsense_10mohm)
+				chip->iterm_ma /= 2;
+
 			if (chip->iterm_ma < 25)
 				reg = CHG_ITERM_25MA;
 			else if (chip->iterm_ma > 200)
@@ -3615,6 +3793,8 @@ static int smb_parse_dt(struct smb1360_chip *chip)
 		dev_err(chip->dev, "device tree info. missing\n");
 		return -EINVAL;
 	}
+
+	chip->rsense_10mohm = of_property_read_bool(node, "qcom,rsense-10mhom");
 
 	if (of_property_read_bool(node, "qcom,batt-profile-select")) {
 		rc = smb_parse_batt_id(chip);
