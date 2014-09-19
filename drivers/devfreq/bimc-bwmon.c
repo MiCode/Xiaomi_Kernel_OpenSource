@@ -98,7 +98,14 @@ static void mon_irq_disable(struct bwmon *m)
 
 static int mon_irq_status(struct bwmon *m)
 {
-	return readl_relaxed(MON_INT_STATUS(m)) & 0x1;
+	u32 mval, gval;
+
+	mval = readl_relaxed(MON_INT_STATUS(m)),
+	gval = readl_relaxed(GLB_INT_STATUS(m));
+
+	dev_dbg(m->dev, "IRQ status p:%x, g:%x\n", mval, gval);
+
+	return mval & 0x1;
 }
 
 static void mon_irq_clear(struct bwmon *m)
@@ -120,14 +127,15 @@ static u32 mon_get_limit(struct bwmon *m)
 	return readl_relaxed(MON_THRES(m));
 }
 
-static long mon_get_count(struct bwmon *m)
+static unsigned long mon_get_count(struct bwmon *m)
 {
-	long count;
+	unsigned long count;
 
 	count = readl_relaxed(MON_CNT(m));
+	dev_dbg(m->dev, "Counter: %08lx\n", count);
 	if (mon_irq_status(m))
 		count += mon_get_limit(m);
-	dev_dbg(m->dev, "Count: %ld\n", count);
+	dev_dbg(m->dev, "Actual Count: %08lx\n", count);
 
 	return count;
 }
