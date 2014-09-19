@@ -313,6 +313,7 @@
 	pinctrl-1 = <&mdss_dsi_suspend &mdss_te_suspend>;
 	qcom,dsi-panel-bias-vreg;
 	qcom,platform-reset-gpio = <&msm_gpio 78 0>;
+	qcom,platform-bklight-en-gpio = <&pmi8994_gpios 2 0>;
 
 	qcom,platform-enable-gpio = <&pm8994_gpios 14 0>;
 };
@@ -333,7 +334,11 @@
 };
 
 &dsi_dual_jdi_video_0 {
-	qcom,mdss-dsi-bl-pmic-control-type = "bl_ctrl_wled";
+	pwms = <&pmi8994_pwm_4 0 0>;
+	pwm-names = "backlight";
+	qcom,mdss-dsi-bl-pmic-control-type = "bl_ctrl_pwm";
+	qcom,mdss-dsi-bl-pwm-pmi;
+	qcom,mdss-dsi-bl-pmic-pwm-frequency = <100>;
 	qcom,mdss-dsi-bl-min-level = <1>;
 	qcom,mdss-dsi-bl-max-level = <4095>;
 	qcom,cont-splash-enabled;
@@ -344,7 +349,11 @@
 };
 
 &dsi_dual_jdi_cmd_0 {
-	qcom,mdss-dsi-bl-pmic-control-type = "bl_ctrl_wled";
+	pwms = <&pmi8994_pwm_4 0 0>;
+	pwm-names = "backlight";
+	qcom,mdss-dsi-bl-pmic-control-type = "bl_ctrl_pwm";
+	qcom,mdss-dsi-bl-pwm-pmi;
+	qcom,mdss-dsi-bl-pmic-pwm-frequency = <100>;
 	qcom,mdss-dsi-bl-min-level = <1>;
 	qcom,mdss-dsi-bl-max-level = <4095>;
 	qcom,cont-splash-enabled;
@@ -636,6 +645,18 @@
 	qcom,lpg-dtest-line = <4>;
 	qcom,dtest-output = <1>;
 	status = "okay";
+};
+
+&pmi8994_gpios {
+	gpio@c100 {	/* GPIO 2, lcd_bklt_reg_en  */
+		qcom,mode = <1>;	/* DIGITAL OUT */
+		qcom,output-type = <0>;		/* CMOS logic */
+		qcom,invert = <1>; 	/* output hight initially */
+		qcom,vin-sel = <2>;	/* 1.8 */
+		qcom,src-sel = <0>;	/* CONSTANT */
+		qcom,out-strength = <1>;	/* Low drive strength */
+		qcom,master-en = <1>;	/* ENABLE GPIO */
+	};
 };
 
 &slim_msm {
