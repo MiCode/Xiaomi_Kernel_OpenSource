@@ -276,6 +276,20 @@ config CPU_BIG_ENDIAN
        help
          Say Y if you plan on running a kernel in big-endian mode.
 
+config ARM64_A57_ERRATA_832075
+	bool "ARMv8 A57 Errata 832075"
+	help
+	  This Erratum explains the problem that a Cortex-A57 might deadlock
+	  when WB exclusive load/store instructions are mixed with device loads.
+	  An interrupt will break the deadlock.
+	  This erratum requires a particular sequence of the code:
+	  a) A pair of exclusive load and exclusive store instructions.
+	  The exclusive store is to write-back memory location.
+	  b) A branch instruction has a source register which is the same as
+	  the destination register of the older exclusive store.
+	  c) Following the branch instruction, there are six or more loads
+	  to device memory locations
+
 config SMP
 	bool "Symmetric Multi-Processing"
 	help
