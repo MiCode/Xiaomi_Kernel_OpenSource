@@ -35,7 +35,7 @@
 #include <linux/mfd/intel_soc_pmic.h>
 
 /* the sub-encoders aka panel drivers */
-static const struct intel_dsi_device intel_dsi_devices[] = {
+static struct intel_dsi_device intel_dsi_devices[] = {
 	{
 		.panel_id = MIPI_DSI_GENERIC_PANEL_ID,
 		.name = "vbt-generic-dsi-vid-mode-display",
@@ -57,7 +57,7 @@ static void band_gap_reset(struct drm_i915_private *dev_priv)
 	mutex_unlock(&dev_priv->dpio_lock);
 }
 
-static struct intel_dsi *intel_attached_dsi(struct drm_connector *connector)
+struct intel_dsi *intel_attached_dsi(struct drm_connector *connector)
 {
 	return container_of(intel_attached_encoder(connector),
 			    struct intel_dsi, base);
@@ -162,8 +162,32 @@ static void intel_dsi_enable(struct intel_encoder *encoder)
 	if (dev_priv->display.enable_backlight)
 		dev_priv->display.enable_backlight(intel_connector);
 
-	if (intel_dsi->dev.dev_ops->enable_backlight)
-		intel_dsi->dev.dev_ops->enable_backlight(&intel_dsi->dev);
+}
+
+static void intel_dsi_soc_power_on(struct intel_dsi_device *dsi)
+{
+	struct intel_dsi *intel_dsi = container_of(dsi, struct intel_dsi, dev);
+	struct drm_device *dev = intel_dsi->base.base.dev;
+	struct drm_i915_private *dev_priv = dev->dev_private;
+
+	/*  cabc disable */
+	vlv_gpio_write(dev_priv, IOSF_PORT_GPIO_NC,
+			PANEL1_VDDEN_GPIONC_9_PCONF0, 0x2000CC00);
+	vlv_gpio_write(dev_priv, IOSF_PORT_GPIO_NC,
+			PANEL1_VDDEN_GPIONC_9_PAD, 0x00000004);
+
+	/* panel enable */
+	vlv_gpio_write(dev_priv, IOSF_PORT_GPIO_NC,
+			PANEL1_BKLTCTL_GPIONC_11_PCONF0, 0x2000CC00);
+	vlv_gpio_write(dev_priv, IOSF_PORT_GPIO_NC,
+			PANEL1_BKLTCTL_GPIONC_11_PAD, 0x00000005);
+	udelay(500);
+
+}
+
+static void intel_dsi_pmic_power_on(struct intel_dsi_device *dsi)
+{
+	intel_soc_pmic_writeb(PMIC_PANEL_EN, 0x01);
 }
 
 static void intel_dsi_pre_enable(struct intel_encoder *encoder)
@@ -176,7 +200,9 @@ static void intel_dsi_pre_enable(struct intel_encoder *encoder)
 	DRM_DEBUG_KMS("\n");
 
 	/* Panel Enable */
-	intel_soc_pmic_writeb(PMIC_PANEL_EN, 0x01);
+	if (intel_dsi->dev.dev_ops->power_on)
+		intel_dsi->dev.dev_ops->power_on(&intel_dsi->dev);
+
 	msleep(intel_dsi->panel_on_delay);
 
 	tmp = I915_READ(DSPCLK_GATE_D);
@@ -308,6 +334,24 @@ static void intel_dsi_clear_device_ready(struct intel_encoder *encoder)
 	vlv_disable_dsi_pll(encoder);
 }
 
+static void intel_dsi_soc_power_off(struct intel_dsi_device *dsi)
+{
+	struct intel_dsi *intel_dsi = container_of(dsi, struct intel_dsi, dev);
+	struct drm_device *dev = intel_dsi->base.base.dev;
+	struct drm_i915_private *dev_priv = dev->dev_private;
+
+	vlv_gpio_write(dev_priv, IOSF_PORT_GPIO_NC,
+			PANEL1_BKLTCTL_GPIONC_11_PCONF0, 0x2000CC00);
+	vlv_gpio_write(dev_priv, IOSF_PORT_GPIO_NC,
+			PANEL1_BKLTCTL_GPIONC_11_PAD, 0x00000004);
+	udelay(500);
+}
+
+static void intel_dsi_pmic_power_off(struct intel_dsi_device *dsi)
+{
+	intel_soc_pmic_writeb(PMIC_PANEL_EN, 0x00);
+}
+
 static void intel_dsi_post_disable(struct intel_encoder *encoder)
 {
 	struct drm_i915_private *dev_priv = encoder->base.dev->dev_private;
@@ -328,7 +372,8 @@ static void intel_dsi_post_disable(struct intel_encoder *encoder)
 		intel_dsi->dev.dev_ops->disable_panel_power(&intel_dsi->dev);
 
 	/* Disable Panel */
-	intel_soc_pmic_writeb(PMIC_PANEL_EN, 0x00);
+	if (intel_dsi->dev.dev_ops->power_off)
+		intel_dsi->dev.dev_ops->power_off(&intel_dsi->dev);
 
 	msleep(intel_dsi->panel_off_delay);
 	msleep(intel_dsi->panel_pwr_cycle_delay);
@@ -714,6 +759,48 @@ static const struct drm_connector_funcs intel_dsi_connector_funcs = {
 	.fill_modes = drm_helper_probe_single_connector_modes,
 };
 
+void intel_dsi_pmic_backlight_on(struct intel_dsi_device *dsi)
+{
+	intel_soc_pmic_writeb(PMIC_BKL_EN, 0xFF);
+	intel_soc_pmic_writeb(PMIC_PWM_EN, 0x01);
+
+	generic_enable_bklt(dsi);
+}
+
+void intel_dsi_soc_backlight_on(struct intel_dsi_device *dsi)
+{
+	struct intel_dsi *intel_dsi = container_of(dsi, struct intel_dsi, dev);
+	struct drm_device *dev = intel_dsi->base.base.dev;
+	struct drm_i915_private *dev_priv = dev->dev_private;
+
+	vlv_gpio_write(dev_priv, IOSF_PORT_GPIO_NC,
+			PANEL1_BKLTEN_GPIONC_10_PCONF0, 0x2000CC00);
+	vlv_gpio_write(dev_priv, IOSF_PORT_GPIO_NC,
+			PANEL1_BKLTEN_GPIONC_10_PAD, 0x00000005);
+	udelay(500);
+}
+
+void intel_dsi_pmic_backlight_off(struct intel_dsi_device *dsi)
+{
+	generic_disable_bklt(dsi);
+
+	intel_soc_pmic_writeb(PMIC_PWM_EN, 0x00);
+	intel_soc_pmic_writeb(PMIC_BKL_EN, 0x7F);
+}
+
+void intel_dsi_soc_backlight_off(struct intel_dsi_device *dsi)
+{
+	struct intel_dsi *intel_dsi = container_of(dsi, struct intel_dsi, dev);
+	struct drm_device *dev = intel_dsi->base.base.dev;
+	struct drm_i915_private *dev_priv = dev->dev_private;
+
+	vlv_gpio_write(dev_priv, IOSF_PORT_GPIO_NC,
+			PANEL1_BKLTEN_GPIONC_10_PCONF0, 0x2000CC00);
+	vlv_gpio_write(dev_priv, IOSF_PORT_GPIO_NC,
+			PANEL1_BKLTEN_GPIONC_10_PAD, 0x00000004);
+	udelay(500);
+}
+
 bool intel_dsi_init(struct drm_device *dev)
 {
 	struct intel_dsi *intel_dsi;
@@ -805,6 +892,29 @@ bool intel_dsi_init(struct drm_device *dev)
 	if (!fixed_mode) {
 		DRM_DEBUG_KMS("no fixed mode\n");
 		goto err;
+	}
+
+	if (dev_priv->vbt.dsi.seq_version < 3) {
+		if (dev_priv->vbt.dsi.config->pmic_soc_blc) {
+			intel_dsi->dev.dev_ops->power_on =
+						intel_dsi_soc_power_on;
+			intel_dsi->dev.dev_ops->power_off =
+						intel_dsi_soc_power_off;
+			intel_dsi->dev.dev_ops->enable_backlight =
+						intel_dsi_soc_backlight_on;
+			intel_dsi->dev.dev_ops->disable_backlight =
+						intel_dsi_soc_backlight_off;
+
+		} else {
+			intel_dsi->dev.dev_ops->power_on =
+						intel_dsi_pmic_power_on;
+			intel_dsi->dev.dev_ops->power_off =
+						intel_dsi_pmic_power_off;
+			intel_dsi->dev.dev_ops->enable_backlight =
+						intel_dsi_pmic_backlight_on;
+			intel_dsi->dev.dev_ops->disable_backlight =
+						intel_dsi_pmic_backlight_off;
+		}
 	}
 
 	fixed_mode->type |= DRM_MODE_TYPE_PREFERRED;

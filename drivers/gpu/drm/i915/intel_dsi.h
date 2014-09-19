@@ -388,7 +388,7 @@
 struct intel_dsi_device {
 	unsigned int panel_id;
 	const char *name;
-	const struct intel_dsi_dev_ops *dev_ops;
+	struct intel_dsi_dev_ops *dev_ops;
 	void *dev_priv;
 };
 
@@ -411,6 +411,8 @@ struct intel_dsi_dev_ops {
 	void (*disable)(struct intel_dsi_device *dsi);
 
 	void (*enable_backlight)(struct intel_dsi_device *dsi);
+
+	void (*disable_backlight)(struct intel_dsi_device *dsi);
 
 	int (*mode_valid)(struct intel_dsi_device *dsi,
 			  struct drm_display_mode *mode);
@@ -497,5 +499,9 @@ extern void vlv_enable_dsi_pll(struct intel_encoder *encoder);
 extern void vlv_disable_dsi_pll(struct intel_encoder *encoder);
 
 extern struct intel_dsi_dev_ops vbt_generic_dsi_display_ops;
+extern struct intel_dsi *intel_attached_dsi(struct drm_connector *connector);
 
+
+void generic_enable_bklt(struct intel_dsi_device *dsi);
+void generic_disable_bklt(struct intel_dsi_device *dsi);
 #endif /* _INTEL_DSI_H */
