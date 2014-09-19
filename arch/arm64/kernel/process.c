@@ -237,11 +237,11 @@ static void show_data(unsigned long addr, int nbytes, const char *name)
 				 probe_kernel_address(p, data)) {
 				printk(" ********");
 			} else {
-				printk(" %016llx", data);
+				printk(KERN_CONT " %016llx", data);
 			}
 			++p;
 		}
-		printk("\n");
+		printk(KERN_CONT "\n");
 	}
 }
 
