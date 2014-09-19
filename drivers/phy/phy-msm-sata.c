@@ -644,7 +644,7 @@ static int msm_sata_phy_probe(struct platform_device *pdev)
 		goto out;
 	}
 
-	generic_phy = devm_phy_create(dev, &msm_sata_phy_ops, NULL);
+	generic_phy = devm_phy_create(dev, NULL, &msm_sata_phy_ops, NULL);
 	if (IS_ERR(generic_phy)) {
 		err =  PTR_ERR(generic_phy);
 		dev_err(dev, "%s: failed to create phy %d\n", __func__, err);
