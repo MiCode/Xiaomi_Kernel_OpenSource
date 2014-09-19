@@ -12,6 +12,7 @@
  * GNU General Public License for more details.
  *
  */
+
 #include <linux/kernel.h>
 #include <linux/module.h>
 #include <linux/fs.h>
@@ -504,6 +505,10 @@ static int pn544_probe(struct i2c_client *client,
 		dev_err(&client->dev, "%s : misc_register failed\n", __FILE__);
 		goto err_misc_register;
 	}
+
+	/* map irq gpio id to irq line */
+	if (client->irq < 0)
+		client->irq = gpiod_to_irq(pn544_dev->irq_gpio);
 
 	/* request irq.  the irq is set whenever the chip has data available
 	 * for reading.  it is cleared when all data has been read.
