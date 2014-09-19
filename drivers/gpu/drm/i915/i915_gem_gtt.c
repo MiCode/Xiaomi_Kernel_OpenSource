@@ -35,13 +35,21 @@ static void chv_setup_private_ppat(struct drm_i915_private *dev_priv);
 
 static int sanitize_enable_ppgtt(struct drm_device *dev, int enable_ppgtt)
 {
-	if (enable_ppgtt == 0 || !HAS_ALIASING_PPGTT(dev))
+	bool has_aliasing_ppgtt;
+	bool has_full_ppgtt;
+
+	has_aliasing_ppgtt = INTEL_INFO(dev)->gen >= 6;
+	has_full_ppgtt = INTEL_INFO(dev)->gen >= 7;
+	if (IS_GEN8(dev))
+		has_full_ppgtt = false; /* XXX why? */
+
+	if (enable_ppgtt == 0 || !has_aliasing_ppgtt)
 		return 0;
 
 	if (enable_ppgtt == 1)
 		return 1;
 
-	if (enable_ppgtt == 2 && HAS_PPGTT(dev))
+	if (enable_ppgtt == 2 && has_full_ppgtt)
 		return 2;
 
 #ifdef CONFIG_INTEL_IOMMU
@@ -52,7 +60,14 @@ static int sanitize_enable_ppgtt(struct drm_device *dev, int enable_ppgtt)
 	}
 #endif
 
-	return HAS_ALIASING_PPGTT(dev) ? 1 : 0;
+	/* Early VLV doesn't have this */
+	if (IS_VALLEYVIEW(dev) && !IS_CHERRYVIEW(dev) &&
+	    dev->pdev->revision < 0xb) {
+		DRM_DEBUG_DRIVER("disabling PPGTT on pre-B3 step VLV\n");
+		return 0;
+	}
+
+	return has_full_ppgtt ? 2 : has_aliasing_ppgtt ? 1 : 0;
 }
 
 
