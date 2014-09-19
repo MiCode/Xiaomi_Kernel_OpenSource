@@ -206,7 +206,7 @@
 
 		qsecom_mem: qsecom_region@0 {
                         linux,reserve-contiguous-region;
-			reg = <0 0 0 0x1100000>;
+			reg = <0 0 0 0x1800000>;
 			label = "qseecom_mem";
 		};
 
