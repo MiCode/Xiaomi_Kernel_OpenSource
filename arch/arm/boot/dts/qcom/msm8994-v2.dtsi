@@ -198,3 +198,8 @@
 		<244800 150000000 0x030fcfff>,
 		<244800 150000000 0x04000000>;
 };
+
+&cnss {
+	pinctrl-names = "default";
+	pinctrl-0 = <&cnss_default &cnss_lpass_default>;
+};
