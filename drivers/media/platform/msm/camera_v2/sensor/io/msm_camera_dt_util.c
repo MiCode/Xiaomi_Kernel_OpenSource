@@ -91,6 +91,30 @@ int msm_camera_fill_vreg_params(struct camera_vreg_t *cam_vreg,
 			}
 			break;
 
+		case CAM_V_CUSTOM1:
+			for (j = 0; j < num_vreg; j++) {
+				if (!strcmp(cam_vreg[j].reg_name,
+					"cam_v_custom1")) {
+					pr_err("%s:%d i %d j %d cam_vcustom1\n",
+						__func__, __LINE__, i, j);
+					power_setting[i].seq_val = j;
+					break;
+				}
+			}
+			break;
+
+		case CAM_V_CUSTOM2:
+			for (j = 0; j < num_vreg; j++) {
+				if (!strcmp(cam_vreg[j].reg_name,
+					"cam_v_custom2")) {
+					pr_err("%s:%d i %d j %d cam_vcustom2\n",
+						__func__, __LINE__, i, j);
+					power_setting[i].seq_val = j;
+					break;
+				}
+			}
+			break;
+
 		default:
 			pr_err("%s:%d invalid seq_val %d\n", __func__,
 				__LINE__, power_setting[i].seq_val);
@@ -1025,6 +1049,7 @@ int msm_camera_get_dt_vreg_data(struct device_node *of_node,
 	uint32_t count = 0;
 	uint32_t *vreg_array = NULL;
 	struct camera_vreg_t *vreg = NULL;
+	bool custom_vreg_name =  false;
 
 	count = of_property_count_strings(of_node, "qcom,cam-vreg-name");
 	CDBG("%s qcom,cam-vreg-name count %d\n", __func__, count);
@@ -1051,11 +1076,47 @@ int msm_camera_get_dt_vreg_data(struct device_node *of_node,
 		}
 	}
 
+	custom_vreg_name = of_property_read_bool(of_node,
+		"qcom,cam-custom-vreg-name");
+	if (custom_vreg_name) {
+		for (i = 0; i < count; i++) {
+			rc = of_property_read_string_index(of_node,
+				"qcom,cam-custom-vreg-name", i,
+				&vreg[i].custom_vreg_name);
+			CDBG("%s sub reg_name[%d] = %s\n", __func__, i,
+				vreg[i].custom_vreg_name);
+			if (rc < 0) {
+				pr_err("%s failed %d\n", __func__, __LINE__);
+				goto ERROR1;
+			}
+		}
+	}
+
 	vreg_array = kzalloc(sizeof(uint32_t) * count, GFP_KERNEL);
 	if (!vreg_array) {
 		pr_err("%s failed %d\n", __func__, __LINE__);
 		rc = -ENOMEM;
 		goto ERROR1;
+	}
+
+	for (i = 0; i < count; i++)
+		vreg[i].type = VREG_TYPE_DEFAULT;
+
+	rc = of_property_read_u32_array(of_node, "qcom,cam-vreg-type",
+		vreg_array, count);
+	if (rc != -EINVAL) {
+		if (rc < 0) {
+			pr_err("%s failed %d\n", __func__, __LINE__);
+			goto ERROR2;
+		} else {
+			for (i = 0; i < count; i++) {
+				vreg[i].type = vreg_array[i];
+				CDBG("%s cam_vreg[%d].type = %d\n", __func__, i,
+					vreg[i].type);
+			}
+		}
+	} else {
+		rc = 0;
 	}
 
 	rc = of_property_read_u32_array(of_node, "qcom,cam-vreg-min-voltage",
