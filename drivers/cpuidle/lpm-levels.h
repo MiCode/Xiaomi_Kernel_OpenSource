@@ -103,3 +103,22 @@ bool lpm_cluster_mode_allow(struct lpm_cluster *cluster,
 		unsigned int mode, bool from_idle);
 
 extern struct lpm_cluster *lpm_root_node;
+
+#ifdef CONFIG_SMP
+extern DEFINE_PER_CPU(bool, pending_ipi);
+static inline bool is_IPI_pending(const struct cpumask *mask)
+{
+	unsigned int cpu;
+
+	for_each_cpu(cpu, mask) {
+		if per_cpu(pending_ipi, cpu)
+			return true;
+	}
+	return false;
+}
+#else
+static inline bool is_IPI_pending(const struct cpumask *mask)
+{
+	return false;
+}
+#endif
