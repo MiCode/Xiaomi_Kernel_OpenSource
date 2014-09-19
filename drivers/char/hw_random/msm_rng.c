@@ -516,8 +516,6 @@ static int __devexit msm_rng_remove(struct platform_device *pdev)
 {
 	struct msm_rng_device *msm_rng_dev = platform_get_drvdata(pdev);
 
-	fips_drbg_final(msm_rng_dev->drbg_ctx);
-
 	unregister_chrdev(QRNG_IOC_MAGIC, DRIVER_NAME);
 	hwrng_unregister(&msm_rng);
 	clk_put(msm_rng_dev->prng_clk);
@@ -525,7 +523,9 @@ static int __devexit msm_rng_remove(struct platform_device *pdev)
 	platform_set_drvdata(pdev, NULL);
 	if (msm_rng_dev->qrng_perf_client)
 		msm_bus_scale_unregister_client(msm_rng_dev->qrng_perf_client);
+
 	if (msm_rng_dev->drbg_ctx) {
+		fips_drbg_final(msm_rng_dev->drbg_ctx);
 		kzfree(msm_rng_dev->drbg_ctx);
 		msm_rng_dev->drbg_ctx = NULL;
 	}
