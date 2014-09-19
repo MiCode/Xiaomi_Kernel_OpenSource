@@ -335,6 +335,7 @@ static struct of_device_id clock_a7_match_table[] = {
 	{.compatible = "qcom,clock-a7-8226"},
 	{.compatible = "qcom,clock-a7-krypton"},
 	{.compatible = "qcom,clock-a7-9630"},
+	{.compatible = "qcom,clock-a7-zirc"},
 	{.compatible = "qcom,clock-a53-8916"},
 	{}
 };
