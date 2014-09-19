@@ -36,46 +36,6 @@ static void dwc3_otg_notify_host_mode(struct usb_otg *otg, int host_mode);
 static void dwc3_otg_reset(struct dwc3_otg *dotg);
 
 /**
- * dwc3_otg_set_host_regs - reset dwc3 otg registers to host operation.
- *
- * This function sets the OTG registers to work in A-Device host mode.
- * This function should be called just before entering to A-Device mode.
- *
- * @w: Pointer to the dwc3 otg struct
- */
-static void dwc3_otg_set_host_regs(struct dwc3_otg *dotg)
-{
-	u32 reg;
-	struct dwc3 *dwc = dotg->dwc;
-	struct dwc3_ext_xceiv *ext_xceiv = dotg->ext_xceiv;
-
-	if (ext_xceiv && !ext_xceiv->otg_capability) {
-		/* Set OCTL[6](PeriMode) to 0 (host) */
-		reg = dwc3_readl(dotg->regs, DWC3_OCTL);
-		reg &= ~DWC3_OTG_OCTL_PERIMODE;
-		dwc3_writel(dotg->regs, DWC3_OCTL, reg);
-	} else {
-		reg = dwc3_readl(dwc->regs, DWC3_GCTL);
-		reg &= ~(DWC3_GCTL_PRTCAPDIR(DWC3_GCTL_PRTCAP_OTG));
-		reg |= DWC3_GCTL_PRTCAPDIR(DWC3_GCTL_PRTCAP_HOST);
-		/*
-		 * Allow ITP generated off of ref clk based counter instead
-		 * of UTMI/ULPI clk based counter, when superspeed only is
-		 * active so that UTMI/ULPI can be suspened.
-		 */
-		reg |= DWC3_GCTL_SOFITPSYNC;
-		/*
-		 * Set this bit so that device attempts three more times at SS,
-		 * even if it failed previously to operate in SS mode.
-		 */
-		reg |= DWC3_GCTL_U2RSTECN;
-		reg &= ~(DWC3_GCTL_PWRDNSCALEMASK);
-		reg |= DWC3_GCTL_PWRDNSCALE(2);
-		dwc3_writel(dwc->regs, DWC3_GCTL, reg);
-	}
-}
-
-/**
  * dwc3_otg_set_host_power - Enable port power control for host operation
  *
  * This function enables the OTG Port Power required to operate in Host mode
@@ -93,45 +53,6 @@ void dwc3_otg_set_host_power(struct dwc3_otg *dotg)
 		dev_err(dotg->dwc->dev, "%s: xHCIPrtPower not set\n", __func__);
 
 	dwc3_writel(dotg->regs, DWC3_OCTL, DWC3_OTG_OCTL_PRTPWRCTL);
-}
-
-/**
- * dwc3_otg_set_peripheral_regs - reset dwc3 otg registers to peripheral operation.
- *
- * This function sets the OTG registers to work in B-Device peripheral mode.
- * This function should be called just before entering to B-Device mode.
- *
- * @w: Pointer to the dwc3 otg workqueue.
- */
-static void dwc3_otg_set_peripheral_regs(struct dwc3_otg *dotg)
-{
-	u32 reg;
-	struct dwc3 *dwc = dotg->dwc;
-	struct dwc3_ext_xceiv *ext_xceiv = dotg->ext_xceiv;
-
-	if (ext_xceiv && !ext_xceiv->otg_capability) {
-		/* Set OCTL[6](PeriMode) to 1 (peripheral) */
-		reg = dwc3_readl(dotg->regs, DWC3_OCTL);
-		reg |= DWC3_OTG_OCTL_PERIMODE;
-		dwc3_writel(dotg->regs, DWC3_OCTL, reg);
-		/*
-		 * TODO: add more OTG registers writes for PERIPHERAL mode here,
-		 * see figure 12-19 B-device flow in dwc3 Synopsis spec
-		 */
-	} else {
-		reg = dwc3_readl(dwc->regs, DWC3_GCTL);
-		reg &= ~(DWC3_GCTL_PRTCAPDIR(DWC3_GCTL_PRTCAP_OTG));
-		reg |= DWC3_GCTL_PRTCAPDIR(DWC3_GCTL_PRTCAP_DEVICE);
-		/*
-		 * Set this bit so that device attempts three more times at SS,
-		 * even if it failed previously to operate in SS mode.
-	 */
-		reg |= DWC3_GCTL_U2RSTECN;
-		reg &= ~(DWC3_GCTL_PWRDNSCALEMASK);
-		reg |= DWC3_GCTL_PWRDNSCALE(2);
-		reg &= ~(DWC3_GCTL_SOFITPSYNC);
-		dwc3_writel(dwc->regs, DWC3_GCTL, reg);
-	}
 }
 
 /**
@@ -177,18 +98,8 @@ static int dwc3_otg_start_host(struct usb_otg *otg, int on)
 
 		if (dwc->ssphy_clear_auto_suspend_on_disconnect)
 			dwc3_gadget_usb3_phy_suspend(dwc, true);
+		dwc3_set_mode(dwc, DWC3_GCTL_PRTCAP_HOST);
 
-		/*
-		 * This should be revisited for more testing post-silicon.
-		 * In worst case we may need to disconnect the root hub
-		 * before stopping the controller so that it does not
-		 * interfere with runtime pm/system pm.
-		 * We can also consider registering and unregistering xhci
-		 * platform device. It is almost similar to add_hcd and
-		 * remove_hcd, But we may not use standard set_host method
-		 * anymore.
-		 */
-		dwc3_otg_set_host_regs(dotg);
 		/*
 		 * FIXME If micro A cable is disconnected during system suspend,
 		 * xhci platform device will be removed before runtime pm is
@@ -238,7 +149,7 @@ static int dwc3_otg_start_host(struct usb_otg *otg, int on)
 
 		if (dwc->ssphy_clear_auto_suspend_on_disconnect)
 			dwc3_gadget_usb3_phy_suspend(dwc, false);
-		dwc3_otg_set_peripheral_regs(dotg);
+		dwc3_set_mode(dwc, DWC3_GCTL_PRTCAP_DEVICE);
 
 		/* re-init core and OTG registers as block reset clears these */
 		dwc3_post_host_reset_core_init(dwc);
@@ -309,7 +220,7 @@ static int dwc3_otg_start_peripheral(struct usb_otg *otg, int on)
 						ext_xceiv->ext_block_reset)
 			ext_xceiv->ext_block_reset(ext_xceiv, false);
 
-		dwc3_otg_set_peripheral_regs(dotg);
+		dwc3_set_mode(dotg->dwc, DWC3_GCTL_PRTCAP_DEVICE);
 		usb_gadget_vbus_connect(otg->gadget);
 	} else {
 		dev_dbg(otg->phy->dev, "%s: turn off gadget %s\n",
