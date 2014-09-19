@@ -64,7 +64,8 @@
 #define IPA_IOCTL_NOTIFY_WAN_EMBMS_CONNECTED	39
 #define IPA_IOCTL_ADD_HDR_PROC_CTX 40
 #define IPA_IOCTL_DEL_HDR_PROC_CTX 41
-#define IPA_IOCTL_MAX 42
+#define IPA_IOCTL_MDFY_RT_RULE 42
+#define IPA_IOCTL_MAX 43
 
 /**
  * max size of the header to be inserted
@@ -250,6 +251,9 @@ enum ipa_flt_action {
  * wlan ap disconnect: wlan AP(access point) is down
  * wlan sta connect: wlan STA(station) is up
  * wlan sta disconnect: wlan STA(station) is down
+ * wlan client connect ex: new wlan client connected
+ * wlan scc switch: wlan interfaces in scc mode
+ * wlan mcc switch: wlan interfaces in mcc mode
  */
 enum ipa_wlan_event {
 	WLAN_CLIENT_CONNECT,
@@ -263,6 +267,8 @@ enum ipa_wlan_event {
 	WLAN_STA_CONNECT,
 	WLAN_STA_DISCONNECT,
 	WLAN_CLIENT_CONNECT_EX,
+	WLAN_SWITCH_TO_SCC,
+	WLAN_SWITCH_TO_MCC,
 	IPA_WLAN_EVENT_MAX
 };
 
@@ -783,6 +789,37 @@ struct ipa_ioc_add_rt_rule {
 };
 
 /**
+ * struct ipa_rt_rule_mdfy - routing rule descriptor includes
+ * in and out parameters
+ * @rule: actual rule to be added
+ * @rt_rule_hdl: handle to rule which supposed to modify
+ * @status:	output parameter, status of routing rule modify  operation,
+ *		0 for success,
+ *		-1 for failure
+ *
+ */
+struct ipa_rt_rule_mdfy {
+	struct ipa_rt_rule rule;
+	uint32_t rt_rule_hdl;
+	int status;
+};
+
+/**
+ * struct ipa_ioc_mdfy_rt_rule - routing rule modify parameters (supports
+ * multiple rules and commit)
+ * @commit: should rules be written to IPA HW also?
+ * @ip: IP family of rule
+ * @num_rules: number of routing rules that follow
+ * @rules: all rules need to go back to back here, no pointers
+ */
+struct ipa_ioc_mdfy_rt_rule {
+	uint8_t commit;
+	enum ipa_ip_type ip;
+	uint8_t num_rules;
+	struct ipa_rt_rule_mdfy rules[0];
+};
+
+/**
  * struct ipa_rt_rule_del - routing rule descriptor includes in
  * and out parameters
  * @hdl: handle returned from route rule add operation
@@ -963,6 +1000,7 @@ struct ipa_ioc_query_intf {
  * @ip: IP family of routing rule
  * @attrib: routing rule
  * @dst_pipe: routing output pipe
+ * @alt_dst_pipe: alternate routing output pipe
  * @hdr_name: name of associated header if any, empty string when no header
  * @hdr_l2_type: type of associated header if any, use NONE when no header
  */
@@ -970,6 +1008,7 @@ struct ipa_ioc_tx_intf_prop {
 	enum ipa_ip_type ip;
 	struct ipa_rule_attrib attrib;
 	enum ipa_client_type dst_pipe;
+	enum ipa_client_type alt_dst_pipe;
 	char hdr_name[IPA_RESOURCE_NAME_MAX];
 	enum ipa_hdr_l2_type hdr_l2_type;
 };
@@ -1354,6 +1393,9 @@ struct ipa_ioc_write_qmapid {
 #define IPA_IOC_MDFY_FLT_RULE _IOWR(IPA_IOC_MAGIC, \
 					IPA_IOCTL_MDFY_FLT_RULE, \
 					struct ipa_ioc_mdfy_flt_rule *)
+#define IPA_IOC_MDFY_RT_RULE _IOWR(IPA_IOC_MAGIC, \
+					IPA_IOCTL_MDFY_RT_RULE, \
+					struct ipa_ioc_mdfy_rt_rule *)
 
 #define IPA_IOC_NOTIFY_WAN_UPSTREAM_ROUTE_ADD _IOWR(IPA_IOC_MAGIC, \
 				IPA_IOCTL_NOTIFY_WAN_UPSTREAM_ROUTE_ADD, \

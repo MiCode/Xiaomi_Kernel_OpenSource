@@ -21,6 +21,7 @@
 #define IPA_RT_BIT_MASK			(0x1)
 #define IPA_RT_STATUS_OF_ADD_FAILED	(-1)
 #define IPA_RT_STATUS_OF_DEL_FAILED	(-1)
+#define IPA_RT_STATUS_OF_MDFY_FAILED (-1)
 
 /**
  * __ipa_generate_rt_hw_rule_v2() - generates the routing hardware rule
@@ -1337,3 +1338,84 @@ ret:
 	return result;
 }
 EXPORT_SYMBOL(ipa_put_rt_tbl);
+
+
+static int __ipa_mdfy_rt_rule(struct ipa_rt_rule_mdfy *rtrule)
+{
+	struct ipa_rt_entry *entry;
+	struct ipa_hdr_entry *hdr = NULL;
+
+	if (rtrule->rule.hdr_hdl) {
+		hdr = ipa_id_find(rtrule->rule.hdr_hdl);
+		if ((hdr == NULL) || (hdr->cookie != IPA_COOKIE)) {
+			IPAERR("rt rule does not point to valid hdr\n");
+			goto error;
+		}
+	}
+
+	entry = ipa_id_find(rtrule->rt_rule_hdl);
+	if (entry == NULL) {
+		IPAERR("lookup failed\n");
+		goto error;
+	}
+
+	if (entry->cookie != IPA_COOKIE) {
+		IPAERR("bad params\n");
+		goto error;
+	}
+
+	if (entry->hdr)
+		entry->hdr->ref_cnt--;
+
+	entry->rule = rtrule->rule;
+	entry->hdr = hdr;
+
+	if (entry->hdr)
+		entry->hdr->ref_cnt++;
+
+	return 0;
+
+error:
+	return -EPERM;
+}
+
+/**
+ * ipa_mdfy_rt_rule() - Modify the specified routing rules in SW and optionally
+ * commit to IPA HW
+ *
+ * Returns:	0 on success, negative on failure
+ *
+ * Note:	Should not be called from atomic context
+ */
+int ipa_mdfy_rt_rule(struct ipa_ioc_mdfy_rt_rule *hdls)
+{
+	int i;
+	int result;
+
+	if (hdls == NULL || hdls->num_rules == 0 || hdls->ip >= IPA_IP_MAX) {
+		IPAERR("bad parm\n");
+		return -EINVAL;
+	}
+
+	mutex_lock(&ipa_ctx->lock);
+	for (i = 0; i < hdls->num_rules; i++) {
+		if (__ipa_mdfy_rt_rule(&hdls->rules[i])) {
+			IPAERR("failed to mdfy rt rule %i\n", i);
+			hdls->rules[i].status = IPA_RT_STATUS_OF_MDFY_FAILED;
+		} else {
+			hdls->rules[i].status = 0;
+		}
+	}
+
+	if (hdls->commit)
+		if (ipa_ctx->ctrl->ipa_commit_rt(hdls->ip)) {
+			result = -EPERM;
+			goto bail;
+		}
+	result = 0;
+bail:
+	mutex_unlock(&ipa_ctx->lock);
+
+	return result;
+}
+EXPORT_SYMBOL(ipa_mdfy_rt_rule);

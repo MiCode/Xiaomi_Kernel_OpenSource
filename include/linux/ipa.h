@@ -1010,6 +1010,8 @@ int ipa_put_rt_tbl(u32 rt_tbl_hdl);
 
 int ipa_query_rt_index(struct ipa_ioc_get_rt_tbl_indx *in);
 
+int ipa_mdfy_rt_rule(struct ipa_ioc_mdfy_rt_rule *rules);
+
 /*
  * Filtering
  */
@@ -1377,6 +1379,11 @@ static inline int ipa_put_rt_tbl(u32 rt_tbl_hdl)
 }
 
 static inline int ipa_query_rt_index(struct ipa_ioc_get_rt_tbl_indx *in)
+{
+	return -EPERM;
+}
+
+static inline int ipa_mdfy_rt_rule(struct ipa_ioc_mdfy_rt_rule *rules)
 {
 	return -EPERM;
 }
