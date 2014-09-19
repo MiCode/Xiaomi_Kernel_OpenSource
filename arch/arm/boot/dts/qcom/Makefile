@@ -28,14 +28,14 @@ dtb-$(CONFIG_ARCH_MSM8974) += msm8974-v1-cdp.dtb \
 	msm8974pro-ac-pm8941-liquid.dtb \
 	msm8974pro-ac-pm8941-mtp.dtb \
 	msm8974pro-ac-pma8084-pm8941-mtp.dtb
-dtb-$(CONFIG_ARCH_MSMFERRUM) += msmferrum-sim.dtb \
-	msmferrum-rumi.dtb \
-	msmferrum-qrd-skua.dtb \
-	msmferrum-cdp.dtb \
-	msmferrum-mtp.dtb \
-	msmferrum-1gb-qrd-skua.dtb \
-	msmferrum-1gb-cdp.dtb \
-	msmferrum-1gb-mtp.dtb
+dtb-$(CONFIG_ARCH_MSM8909) += msm8909-sim.dtb \
+	msm8909-rumi.dtb \
+	msm8909-qrd-skua.dtb \
+	msm8909-cdp.dtb \
+	msm8909-mtp.dtb \
+	msm8909-1gb-qrd-skua.dtb \
+	msm8909-1gb-cdp.dtb \
+	msm8909-1gb-mtp.dtb
 dtb-$(CONFIG_ARCH_MSM8916) += msm8916-sim.dtb \
 	msm8916-rumi.dtb \
 	msm8916-cdp.dtb \

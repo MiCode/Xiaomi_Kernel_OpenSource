@@ -10,13 +10,36 @@
  * GNU General Public License for more details.
  */
 
-/dts-v1/;
-
-#include "msmferrum-cdp.dtsi"
+#include "msm8909.dtsi"
+#include "msm8909-pinctrl.dtsi"
 
 / {
-	model = "Qualcomm Technologies, Inc. MSMFERRUM 1GB CDP";
-	compatible = "qcom,msmferrum-cdp", "qcom,msmferrum", "qcom,cdp";
-	qcom,board-id= <1 0>;
+	model = "Qualcomm Technologies, Inc. MSM8909 QRD";
+	compatible = "qcom,msm8909-qrd", "qcom,msm8909", "qcom,qrd";
 };
 
+&blsp1_uart2 {
+	status = "ok";
+	pinctrl-names = "default";
+	pinctrl-0 = <&uart_console_sleep>;
+};
+
+&qcom_rng {
+	status = "okay";
+};
+
+&qcom_crypto {
+	status = "okay";
+};
+
+&qcom_cedev {
+	status = "okay";
+};
+
+&qcom_seecom {
+	status = "okay";
+};
+
+&qcom_tzlog {
+	status = "okay";
+};

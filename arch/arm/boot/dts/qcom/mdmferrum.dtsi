@@ -10,18 +10,18 @@
  * GNU General Public License for more details.
  */
 
-#include "msmferrum.dtsi"
+#include "msm8909.dtsi"
 
 / {
 	model = "Qualcomm Technologies, Inc. MDMFERRUM";
-	compatible = "qcom,msmferrum";
+	compatible = "qcom,msm8909";
 	qcom,msm-id = <260 0>, <261 0>, <262 0>;
 };
 
-&pmferrum_vadc {
+&pm8909_vadc {
 	/delete-node/ chan@30;
 };
 
-&pmferrum_adc_tm {
+&pm8909_adc_tm {
 	/delete-node/ chan@30;
 };

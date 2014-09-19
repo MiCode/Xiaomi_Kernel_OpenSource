@@ -11,11 +11,11 @@
  */
 
 #include "skeleton64.dtsi"
-#include <dt-bindings/clock/msm-clocks-ferrum.h>
+#include <dt-bindings/clock/msm-clocks-8909.h>
 
 / {
-	model = "Qualcomm Technologies, Inc. MSMFERRUM";
-	compatible = "qcom,msmferrum";
+	model = "Qualcomm Technologies, Inc. MSM8909";
+	compatible = "qcom,msm8909";
 	qcom,msm-id = <245 0>;
 	interrupt-parent = <&intc>;
 
@@ -113,14 +113,14 @@
 	soc: soc { };
 };
 
-#include "msmferrum-ion.dtsi"
-#include "msmferrum-smp2p.dtsi"
-#include "msmferrum-ipcrouter.dtsi"
+#include "msm8909-ion.dtsi"
+#include "msm8909-smp2p.dtsi"
+#include "msm8909-ipcrouter.dtsi"
 #include "msm-gdsc-8916.dtsi"
-#include "msmferrum-iommu.dtsi"
-#include "msmferrum-gpu.dtsi"
-#include "msmferrum-coresight.dtsi"
-#include "msmferrum-bus.dtsi"
+#include "msm8909-iommu.dtsi"
+#include "msm8909-gpu.dtsi"
+#include "msm8909-coresight.dtsi"
+#include "msm8909-bus.dtsi"
 
 &soc {
 	#address-cells = <1>;
@@ -199,20 +199,20 @@
 	};
 
 	clock_rpm: qcom,rpmcc@1800000 {
-		compatible = "qcom,rpmcc-ferrum";
+		compatible = "qcom,rpmcc-8909";
 		reg = <0x1800000 0x80000>;
 		reg-names = "cc_base";
 		#clock-cells = <1>;
 	};
 
 	clock_gcc: qcom,gcc@1800000 {
-		compatible = "qcom,gcc-ferrum";
+		compatible = "qcom,gcc-8909";
 		reg = <0x1800000 0x80000>,
 		      <0xb016000 0x00040>;
 		reg-names = "cc_base", "apcs_base";
-		vdd_dig-supply = <&pmferrum_s1_corner>;
-		vdd_sr2_dig-supply = <&pmferrum_s1_corner_ao>;
-		vdd_sr2_pll-supply = <&pmferrum_l7_ao>;
+		vdd_dig-supply = <&pm8909_s1_corner>;
+		vdd_sr2_dig-supply = <&pm8909_s1_corner_ao>;
+		vdd_sr2_pll-supply = <&pm8909_l7_ao>;
 		clocks = <&clock_rpm clk_xo_clk_src>,
 			<&clock_rpm clk_xo_a_clk_src>;
 		clock-names = "xo", "xo_a";
@@ -220,7 +220,7 @@
 	};
 
 	clock_debug: qcom,cc-debug@1874000 {
-		compatible = "qcom,cc-debug-ferrum";
+		compatible = "qcom,cc-debug-8909";
 		reg = <0x1874000 0x4>,
 			<0xb01101c 0x8>;
 		reg-names = "cc_base", "meas";
@@ -234,7 +234,7 @@
 		reg = <0x0b011050 0x8>;
 		reg-names = "rcg-base";
 		qcom,safe-freq = < 400000000 >;
-		cpu-vdd-supply = <&pmferrum_s1_corner>;
+		cpu-vdd-supply = <&pm8909_s1_corner>;
 		clocks = <&clock_gcc clk_gpll0_ao_clk_src>,
 			 <&clock_gcc clk_a7sspll>;
 		clock-names = "clk-4", "clk-5";
@@ -313,7 +313,7 @@
 	};
 
 	tsens: tsens@4a8000 {
-		compatible = "qcom,msmferrum-tsens";
+		compatible = "qcom,msm8909-tsens";
 		reg = <0x4a8000 0x2000>,
 		      <0x5c000  0x1000>;
 		reg-names = "tsens_physical", "tsens_eeprom_physical";
@@ -569,13 +569,13 @@
 		interrupts = <0 145 0 0 146 0>;
 		interrupt-names = "wcnss_wlantx_irq", "wcnss_wlanrx_irq";
 
-		qcom,pronto-vddmx-supply = <&pmferrum_l3>;
-		qcom,pronto-vddcx-supply = <&pmferrum_s1_corner>;
-		qcom,pronto-vddpx-supply = <&pmferrum_l7>;
-		qcom,iris-vddxo-supply   = <&pmferrum_l7>;
-		qcom,iris-vddrfa-supply  = <&pmferrum_l10>;
-		qcom,iris-vddpa-supply   = <&pmferrum_l9>;
-		qcom,iris-vdddig-supply  = <&pmferrum_l5>;
+		qcom,pronto-vddmx-supply = <&pm8909_l3>;
+		qcom,pronto-vddcx-supply = <&pm8909_s1_corner>;
+		qcom,pronto-vddpx-supply = <&pm8909_l7>;
+		qcom,iris-vddxo-supply   = <&pm8909_l7>;
+		qcom,iris-vddrfa-supply  = <&pm8909_l10>;
+		qcom,iris-vddpa-supply   = <&pm8909_l9>;
+		qcom,iris-vdddig-supply  = <&pm8909_l5>;
 
 		pinctrl-names = "wcnss_default", "wcnss_sleep",
 						"wcnss_gpio_default";
@@ -595,7 +595,7 @@
 		qcom,wlan-rx-buff-count = <512>;
 		qcom,is-pronto-vt;
 		qcom,has-pronto-hw;
-		qcom,wcnss-adc_tm = <&pmferrum_adc_tm>;
+		qcom,wcnss-adc_tm = <&pm8909_adc_tm>;
 	};
 
 	usb_otg: usb@78d9000 {
@@ -606,9 +606,9 @@
 		interrupts = <0 134 0>,<0 140 0>;
 		interrupt-names = "core_irq", "async_irq";
 
-		hsusb_vdd_dig-supply = <&pmferrum_s1_corner>;
-		HSUSB_1p8-supply = <&pmferrum_l7>;
-		HSUSB_3p3-supply = <&pmferrum_l13>;
+		hsusb_vdd_dig-supply = <&pm8909_s1_corner>;
+		HSUSB_1p8-supply = <&pm8909_l7>;
+		HSUSB_3p3-supply = <&pm8909_l13>;
 		qcom,vdd-voltage-level = <1 5 7>;
 
 		qcom,hsusb-otg-phy-init-seq =
@@ -1206,7 +1206,7 @@
 
 	sound {
 		compatible = "qcom,msm8x16-audio-codec";
-		qcom,model = "msmferrum-snd-card";
+		qcom,model = "msm8909-snd-card";
 		qcom,msm-snd-card-id = <0>;
 		qcom,msm-codec-type = "internal";
 		qcom,msm-ext-pa = "primary";
@@ -1336,8 +1336,8 @@
 	};
 };
 
-#include "msm-pmferrum.dtsi"
-#include "msmferrum-regulator.dtsi"
+#include "msm-pm8909.dtsi"
+#include "msm8909-regulator.dtsi"
 
 &i2c_1 { /* BLSP1 QUP1 */
 	mpu6050@68 { /* Gyroscope and accelerometer sensor combo */
@@ -1348,9 +1348,9 @@
 		pinctrl-1 = <&mpu6050_sleep>;
 		interrupt-parent = <&msm_gpio>;
 		interrupts = <115 0x2>;
-		vdd-supply = <&pmferrum_l17>;
-		vlogic-supply = <&pmferrum_l6>;
-		vi2c-supply = <&pmferrum_l6>;
+		vdd-supply = <&pm8909_l17>;
+		vlogic-supply = <&pm8909_l6>;
+		vi2c-supply = <&pm8909_l6>;
 		invn,gpio-int = <&msm_gpio 115 0x2>;
 		invn,place = "Portrait Down Back Side";
 	};
@@ -1363,8 +1363,8 @@
 		pinctrl-1 = <&apds99xx_sleep>;
 		interrupt-parent = <&msm_gpio>;
 		interrupts = <113 0x2002>;
-		vdd-supply = <&pmferrum_l17>;
-		vio-supply = <&pmferrum_l6>;
+		vdd-supply = <&pm8909_l17>;
+		vio-supply = <&pm8909_l6>;
 		avago,irq-gpio = <&msm_gpio 113 0x2002>;
 		avago,ps-threshold = <600>;
 		avago,ps-hysteresis-threshold = <500>;
@@ -1379,8 +1379,8 @@
 	memsic@30 { /* Magnetic field sensor */
 		compatible = "memsic,mmc3416x";
 		reg = <0x30>;
-		vdd-supply = <&pmferrum_l17>;
-		vio-supply = <&pmferrum_l6>;
+		vdd-supply = <&pm8909_l17>;
+		vio-supply = <&pm8909_l6>;
 		memsic,dir = "obverse-x-axis-forward";
 		memsic,auto-report;
 	};
@@ -1393,8 +1393,8 @@
 		pinctrl-1 = <&ak8963_sleep>;
 		interrupt-parent = <&msm_gpio>;
 		interrupts = <69 0x2>;
-		vdd-supply = <&pmferrum_l17>;
-		vio-supply = <&pmferrum_l6>;
+		vdd-supply = <&pm8909_l17>;
+		vio-supply = <&pm8909_l6>;
 		ak,layout = <0x6>;
 		ak,auto-report;
 	};
@@ -1406,8 +1406,8 @@
 		pinctrl-0 = <&bma2x2_int1_default &bma2x2_int2_default>;
 		interrupt-parent = <&msm_gpio>;
 		interrupts = <112 0x2002>;
-		vdd-supply = <&pmferrum_l17>;
-		vio-supply = <&pmferrum_l6>;
+		vdd-supply = <&pm8909_l17>;
+		vio-supply = <&pm8909_l6>;
 		bosch,init-interval = <200>;
 		bosch,place = <2>;
 		bosch,gpio-int1 = <&msm_gpio 112 0x2002>;
@@ -1436,7 +1436,7 @@
 	status = "okay";
 };
 
-&pmferrum_vadc {
+&pm8909_vadc {
 	chan@0 {
 		label = "usb_in";
 		reg = <0>;
@@ -1559,7 +1559,7 @@
 	};
 };
 
-&pmferrum_adc_tm {
+&pm8909_adc_tm {
 	/* Channel Node */
 	chan@30 {
 		label = "batt_therm";

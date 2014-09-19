@@ -12,9 +12,11 @@
 
 /dts-v1/;
 
-#include "msmferrum-qrd-skua.dtsi"
+#include "msm8909-qrd-skua.dtsi"
 
 / {
-	qcom,board-id= <0x1000b 0x100>;
+	model = "Qualcomm Technologies, Inc. MSM8909 1GB QRD SKUA";
+	compatible = "qcom,msm8909-qrd", "qcom,msm8909", "qcom,qrd";
+	qcom,board-id= <0x1000b 0>;
 };
 

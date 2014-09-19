@@ -10,8 +10,8 @@
  * GNU General Public License for more details.
  */
 
-#include "msmferrum.dtsi"
-#include "msmferrum-pinctrl.dtsi"
+#include "msm8909.dtsi"
+#include "msm8909-pinctrl.dtsi"
 
 &soc {
 	gpio_keys {
@@ -57,7 +57,7 @@
 };
 
 &spmi_bus {
-	qcom,pmferrum@0 {
+	qcom,pm8909@0 {
 		qcom,leds@a300 {
 			status = "okay";
 			qcom,led_mpp_4 {
@@ -75,7 +75,7 @@
 		};
 	};
 
-	qcom,pmferrum@1 {
+	qcom,pm8909@1 {
 		qcom,vibrator@c000 {
 			status = "okay";
 			qcom,vib-timeout-ms = <15000>;

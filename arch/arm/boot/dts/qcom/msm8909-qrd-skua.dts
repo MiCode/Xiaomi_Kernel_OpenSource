@@ -12,10 +12,9 @@
 
 /dts-v1/;
 
-#include "msmferrum-mtp.dtsi"
+#include "msm8909-qrd-skua.dtsi"
 
 / {
-	model = "Qualcomm Technologies, Inc. MSMFERRUM 1GB MTP";
-	compatible = "qcom,msmferrum-mtp", "qcom,msmferrum", "qcom,mtp";
-	qcom,board-id= <8 0>;
+	qcom,board-id= <0x1000b 0x100>;
 };
+

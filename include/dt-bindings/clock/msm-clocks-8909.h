@@ -10,8 +10,8 @@
  * GNU General Public License for more details.
  */
 
-#ifndef __MSM_CLOCKS_FERRUM_H
-#define __MSM_CLOCKS_FERRUM_H
+#ifndef __MSM_CLOCKS_8909_H
+#define __MSM_CLOCKS_8909_H
 
 /* GPLLs */
 #define clk_gpll0_clk_src			0x5933b69f

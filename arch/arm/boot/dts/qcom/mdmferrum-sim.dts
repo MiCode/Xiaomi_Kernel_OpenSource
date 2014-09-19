@@ -13,11 +13,11 @@
 /dts-v1/;
 
 #include "mdmferrum.dtsi"
-#include "msmferrum-pinctrl.dtsi"
+#include "msm8909-pinctrl.dtsi"
 
 / {
 	model = "Qualcomm Technologies, Inc. MDMFERRUM Simulator";
-	compatible = "qcom,msmferrum-sim", "qcom,msmferrum", "qcom,sim";
+	compatible = "qcom,msm8909-sim", "qcom,msm8909", "qcom,sim";
 	qcom,board-id = <16 0>;
 };
 

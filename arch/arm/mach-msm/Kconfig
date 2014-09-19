@@ -77,8 +77,8 @@ config ARCH_APQ8084
 	select PINCTRL
 	select PINCTRL_MSM_TLMM
 
-config ARCH_MSMFERRUM
-	bool "MSMFERRUM"
+config ARCH_MSM8909
+	bool "MSM8909"
 	select ARCH_MSM_CORTEXMP
 	select ARM_GIC
 	select MULTI_IRQ_HANDLER
@@ -470,13 +470,13 @@ choice
 		  Say Y here if you want the debug print routines to direct
 		  their output to the serial port on MSM 8974 devices.
 
-	config DEBUG_MSMFERRUM_UART
-		bool "Kernel low-level debugging messages via MSM FERRUM UART"
-		depends on ARCH_MSMFERRUM
+	config DEBUG_MSM8909_UART
+		bool "Kernel low-level debugging messages via MSM8909 UART"
+		depends on ARCH_MSM8909
 		select MSM_HAS_DEBUG_UART_HS_V14
 		help
 		  Say Y here if you want the debug print routines to direct
-		  their output to the serial port on MSM FERRUM devices.
+		  their output to the serial port on MSM8909 devices.
 
 	config DEBUG_MSM8916_UART
                 bool "Kernel low-level debugging messages via MSM8916 UART"

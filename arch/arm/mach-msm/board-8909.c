@@ -28,17 +28,17 @@
 #include "board-dt.h"
 #include "platsmp.h"
 
-static void __init msmferrum_dt_reserve(void)
+static void __init msm8909_dt_reserve(void)
 {
 	of_scan_flat_dt(dt_scan_for_memory_reserve, NULL);
 }
 
-static void __init msmferrum_map_io(void)
+static void __init msm8909_map_io(void)
 {
-	msm_map_msmferrum_io();
+	msm_map_msm8909_io();
 }
 
-static struct of_dev_auxdata msmferrum_auxdata_lookup[] __initdata = {
+static struct of_dev_auxdata msm8909_auxdata_lookup[] __initdata = {
 	{}
 };
 
@@ -48,7 +48,7 @@ static struct of_dev_auxdata msmferrum_auxdata_lookup[] __initdata = {
  * into this category, and thus the driver should not be added here. The
  * EPROBE_DEFER can satisfy most dependency problems.
  */
-void __init msmferrum_add_drivers(void)
+void __init msm8909_add_drivers(void)
 {
 	msm_smd_init();
 	msm_rpm_driver_init();
@@ -56,9 +56,9 @@ void __init msmferrum_add_drivers(void)
 	msm_pm_sleep_status_init();
 }
 
-static void __init msmferrum_init(void)
+static void __init msm8909_init(void)
 {
-	struct of_dev_auxdata *adata = msmferrum_auxdata_lookup;
+	struct of_dev_auxdata *adata = msm8909_auxdata_lookup;
 
 	/*
 	 * populate devices from DT first so smem probe will get called as part
@@ -71,19 +71,19 @@ static void __init msmferrum_init(void)
 	if (socinfo_init() < 0)
 		pr_err("%s: socinfo_init() failed\n", __func__);
 
-	msmferrum_add_drivers();
+	msm8909_add_drivers();
 }
 
-static const char *msmferrum_dt_match[] __initconst = {
-	"qcom,msmferrum",
+static const char *msm8909_dt_match[] __initconst = {
+	"qcom,msm8909",
 	NULL
 };
 
-DT_MACHINE_START(MSMFERRUM_DT,
-	"Qualcomm Technologies, Inc. MSM FERRUM (Flattened Device Tree)")
-	.map_io = msmferrum_map_io,
-	.init_machine = msmferrum_init,
-	.dt_compat = msmferrum_dt_match,
-	.reserve = msmferrum_dt_reserve,
+DT_MACHINE_START(MSM8909_DT,
+	"Qualcomm Technologies, Inc. MSM 8909 (Flattened Device Tree)")
+	.map_io = msm8909_map_io,
+	.init_machine = msm8909_init,
+	.dt_compat = msm8909_dt_match,
+	.reserve = msm8909_dt_reserve,
 	.smp = &msm8916_smp_ops,
 MACHINE_END
