@@ -1362,6 +1362,7 @@
 			spi-cpha = <1>;
 			core-vcc-supply = <&pm8916_l2>;
 			spi-vcc-supply = <&pm8916_l5>;
+			qcom,pm-qos-latency = <2>;
 			lattice,reset-gpio = <&msm_gpio 3 0>;
 			lattice,config-done-gpio = <&msm_gpio 1 0>;
 			lattice,vcc-en-gpio = <&msm_gpio 114 0>;
