@@ -111,6 +111,13 @@
 		regulator-max-microvolt = <1800000>;
 	};
 
+	pmferrum_l7_ao: regulator-l7-ao {
+		compatible = "qcom,stub-regulator";
+		regulator-name = "pmferrum_l7_ao";
+		regulator-min-microvolt = <1800000>;
+		regulator-max-microvolt = <1800000>;
+	};
+
 	pmferrum_l8: regulator-l8 {
 		compatible = "qcom,stub-regulator";
 		regulator-name = "pmferrum_l8";
