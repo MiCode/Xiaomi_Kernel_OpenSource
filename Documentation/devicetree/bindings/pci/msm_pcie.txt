@@ -10,6 +10,8 @@ Required properties:
   - reg-names: indicates various resources passed to driver by name.
 		Should be "parf", "phy", "dm_core", "elbi", "conf", "io", "bars".
 		These correspond to different modules within the PCIe core.
+  - ranges: For details of ranges properties, please refer to:
+    "Documentation\devicetree\bindings\pci\pci.txt"
   - interrupts: Should be in the format <0 1 2> and it is an index to the
 		interrupt-map that contains PCIe related interrupts.
   - #interrupt-cells: Should provide a value of 1.
@@ -66,6 +68,7 @@ Optional Properties:
   - qcom,msi-gicm-addr: MSI address for GICv2m.
   - qcom,msi-gicm-base: MSI IRQ base for GICv2m.
   - qcom,ext-ref-clk: The reference clock is external.
+  - qcom,common-phy: There is a common phy for all the Root Complexes.
   - qcom,ep-latency: The time (unit: ms) to wait for the PCIe endpoint to become
     stable after power on, before de-assert the PERST to the endpoint.
   - qcom,tlp-rd-size: The max TLP read size (Calculation: 128 times 2 to the
@@ -96,6 +99,8 @@ Example:
 		      <0xff300000 0xd00000>;
 		reg-names = "parf", "dm_core", "elbi",
 				"conf", "io", "bars";
+		ranges = <0x01000000 0x0 0x0c200000 0x0c200000 0x0 0x100000>,
+			<0x02000000 0x0 0x0c300000 0x0c300000 0x0 0xd00000>;
 		interrupt-parent = <&pcie0>;
 		interrupts = <0 1 2 3 4 5 6 7 8 9 10 11 12>;
 		#interrupt-cells = <1>;
@@ -157,6 +162,7 @@ Example:
 		qcom,msi-gicm-base = <0x160>;
 		qcom,ext-ref-clk;
 		qcom,tlp-rd-size = <0x5>;
+		qcom,common-phy;
 		qcom,ep-latency = <100>;
 
 		qcom,msm-bus,name = "pcie0";
