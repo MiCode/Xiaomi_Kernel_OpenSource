@@ -65,6 +65,7 @@ struct smbchg_chip {
 	u16				misc_base;
 
 	int				fake_battery_soc;
+	u8				revision[4];
 
 	/* configuration parameters */
 	int				iterm_ma;
@@ -1964,11 +1965,20 @@ static void smbchg_regulator_deinit(struct smbchg_chip *chip)
 		regulator_unregister(chip->otg_vreg.rdev);
 }
 
+#define REVISION1_REG			0x0
+#define DIG_MINOR			0
+#define DIG_MAJOR			1
+#define ANA_MINOR			2
+#define ANA_MAJOR			3
 static int smbchg_low_icl_wa_check(struct smbchg_chip *chip)
 {
 	int rc = 0;
 	bool enable = (get_prop_batt_status(chip)
 		!= POWER_SUPPLY_STATUS_CHARGING);
+
+	/* only execute workaround if the charger is version 1.x */
+	if (chip->revision[DIG_MAJOR] > 1)
+		return 0;
 
 	mutex_lock(&chip->current_change_lock);
 	pr_smb(PR_STATUS, "low icl %s -> %s\n",
@@ -2523,6 +2533,17 @@ static int smbchg_hw_init(struct smbchg_chip *chip)
 {
 	int rc, i;
 	u8 reg, mask;
+
+	rc = smbchg_read(chip, chip->revision,
+			chip->misc_base + REVISION1_REG, 4);
+	if (rc < 0) {
+		dev_err(chip->dev, "Couldn't read revision rc=%d\n",
+				rc);
+		return rc;
+	}
+	pr_smb(PR_STATUS, "Charger Revision DIG: %d.%d; ANA: %d.%d\n",
+			chip->revision[DIG_MAJOR], chip->revision[DIG_MINOR],
+			chip->revision[ANA_MAJOR], chip->revision[ANA_MINOR]);
 
 	rc = smbchg_sec_masked_write(chip, chip->usb_chgpth_base + TR_RID_REG,
 			FG_INPUT_FET_DELAY_BIT, FG_INPUT_FET_DELAY_BIT);
