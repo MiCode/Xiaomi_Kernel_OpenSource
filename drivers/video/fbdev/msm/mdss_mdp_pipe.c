@@ -1360,6 +1360,17 @@ static int mdss_mdp_image_setup(struct mdss_mdp_pipe *pipe,
 	src_size = (src.h << 16) | src.w;
 	src_xy = (src.y << 16) | src.x;
 	dst_size = (dst.h << 16) | dst.w;
+
+	/*
+	 * Bbase layer requirements are different compared to other layers
+	 * located at different stages. If source split is enabled and base
+	 * layer is used, base layer on the right LM's x offset is relative
+	 * to right LM's co-ordinate system unlike other layers which are
+	 * relative to left LM's top-left.
+	 */
+	if (pipe->mixer_stage == MDSS_MDP_STAGE_BASE && mdata->has_src_split &&
+	    dst.x >= left_lm_w_from_mfd(pipe->mfd))
+		dst.x -= left_lm_w_from_mfd(pipe->mfd);
 	dst_xy = (dst.y << 16) | dst.x;
 
 	ystride0 =  (pipe->src_planes.ystride[0]) |
