@@ -484,9 +484,12 @@ static const char * const seq_name[] = {
 	"MIPI_SEQ_DISPLAY_ON",
 	"MIPI_SEQ_DISPLAY_OFF",
 	"MIPI_SEQ_DEASSERT_RESET",
-	"MIPI_BACKLIGHT_ON",
-	"MIPI_BACKLIGHT_OFF",
-	"MIPI_TEAR_ON",
+	"MIPI_SEQ_BACKLIGHT_ON",
+	"MIPI_SEQ_BACKLIGHT_OFF",
+	"MIPI_SEQ_TEAR_ON",
+	"MIPI_SEQ_TEAR_OFF",
+	"MIPI_SEQ_PANEL_ON",
+	"MIPI_SEQ_PANEL_OFF"
 };
 
 static void generic_exec_sequence(struct intel_dsi *intel_dsi, char *sequence)
@@ -876,6 +879,26 @@ static struct drm_display_mode *generic_get_modes(struct intel_dsi_device *dsi)
 	return dev_priv->vbt.lfp_lvds_vbt_mode;
 }
 
+void generic_power_on(struct intel_dsi_device *dsi)
+{
+	struct intel_dsi *intel_dsi = container_of(dsi, struct intel_dsi, dev);
+	struct drm_device *dev = intel_dsi->base.base.dev;
+	struct drm_i915_private *dev_priv = dev->dev_private;
+
+	char *sequence = dev_priv->vbt.dsi.sequence[MIPI_POWER_ON];
+	generic_exec_sequence(intel_dsi, sequence);
+}
+
+void generic_power_off(struct intel_dsi_device *dsi)
+{
+	struct intel_dsi *intel_dsi = container_of(dsi, struct intel_dsi, dev);
+	struct drm_device *dev = intel_dsi->base.base.dev;
+	struct drm_i915_private *dev_priv = dev->dev_private;
+
+	char *sequence = dev_priv->vbt.dsi.sequence[MIPI_POWER_OFF];
+	generic_exec_sequence(intel_dsi, sequence);
+}
+
 static void generic_destroy(struct intel_dsi_device *dsi) { }
 
 /* Callbacks. We might not need them all. */
@@ -894,4 +917,7 @@ struct intel_dsi_dev_ops vbt_generic_dsi_display_ops = {
 	.get_hw_state = generic_get_hw_state,
 	.get_modes = generic_get_modes,
 	.destroy = generic_destroy,
+	.power_on = generic_power_on,
+	.power_off = generic_power_off,
+
 };

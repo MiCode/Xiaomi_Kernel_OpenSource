@@ -430,6 +430,8 @@ struct intel_dsi_dev_ops {
 	struct drm_display_mode *(*get_modes)(struct intel_dsi_device *dsi);
 
 	void (*destroy) (struct intel_dsi_device *dsi);
+	void (*power_on)(struct intel_dsi_device *dsi);
+	void (*power_off)(struct intel_dsi_device *dsi);
 };
 
 struct intel_dsi {
