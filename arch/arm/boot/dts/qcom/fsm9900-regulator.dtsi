@@ -64,35 +64,35 @@
 
 	/* VDDPX_5 (UIM) */
 	pma8084_l9: regulator@4800 {
+		compatible = "qcom,stub-regulator";
+		regulator-name = "8084_l9";
 		regulator-min-microvolt = <1800000>;
 		regulator-max-microvolt = <1800000>;
-		qcom,enable-time = <500>;
-		qcom,pull-down-enable = <1>;
 		regulator-always-on;
 		status = "okay";
 	};
 	/* eMMC LDO20 */
 	pma8084_l20: regulator@5300 {
+		compatible = "qcom,stub-regulator";
+		regulator-name = "8084_l20";
 		regulator-min-microvolt = <2950000>;
 		regulator-max-microvolt = <2950000>;
-		qcom,enable-time = <200>;
-		qcom,pull-down-enable = <1>;
 		regulator-always-on;
 		status = "okay";
 	};
 	/* SDC2 VDD LDO21 */
 	pma8084_l21: regulator@5400 {
+		compatible = "qcom,stub-regulator";
+		regulator-name = "8084_l21";
 		regulator-min-microvolt = <2950000>;
 		regulator-max-microvolt = <2950000>;
-		qcom,enable-time = <200>;
-		qcom,pull-down-enable = <1>;
 		regulator-always-on;
 		status = "okay";
 	};
 	/* QFPROM_BLOW_VDD */
 	pma8084_lvs1: regulator@8000 {
-		qcom,enable-time = <200>;
-		qcom,pull-down-enable = <1>;
+		compatible = "qcom,stub-regulator";
+		regulator-name = "8084_lvs1";
 		status = "okay";
 	};
 };
