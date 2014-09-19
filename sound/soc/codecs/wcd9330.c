@@ -40,6 +40,12 @@
 #include "wcd9xxx-common.h"
 #include "wcd_cpe_core.h"
 
+enum {
+	VI_SENSE_1,
+	VI_SENSE_2,
+	VI_SENSE_MAX,
+};
+
 #define TOMTOM_MAD_SLIMBUS_TX_PORT 12
 #define TOMTOM_MAD_AUDIO_FIRMWARE_PATH "wcd9320/wcd9320_mad_audio.bin"
 #define TOMTOM_VALIDATE_RX_SBPORT_RANGE(port) ((port >= 16) && (port <= 23))
@@ -485,6 +491,9 @@ struct tomtom_priv {
 
 	/* Multiplication factor used for impedance detection */
 	int zdet_gain_mul_fact;
+
+	/* to track the status */
+	unsigned long status_mask;
 };
 
 static const u32 comp_shift[] = {
@@ -2340,8 +2349,71 @@ static const struct snd_kcontrol_new lineout4_ground_switch =
 static const struct snd_kcontrol_new aif4_mad_switch =
 	SOC_DAPM_SINGLE("Switch", TOMTOM_A_SVASS_CLKRST_CTL, 0, 1, 0);
 
-static const struct snd_kcontrol_new aif4_vi_switch =
-	SOC_DAPM_SINGLE("Switch", TOMTOM_A_SPKR1_PROT_EN, 3, 1, 0);
+static int tomtom_vi_feed_mixer_get(struct snd_kcontrol *kcontrol,
+			    struct snd_ctl_elem_value *ucontrol)
+{
+
+	struct snd_soc_dapm_widget_list *wlist = snd_kcontrol_chip(kcontrol);
+	struct snd_soc_dapm_widget *widget = wlist->widgets[0];
+
+	ucontrol->value.integer.value[0] = widget->value;
+	return 0;
+
+}
+
+static int tomtom_vi_feed_mixer_put(struct snd_kcontrol *kcontrol,
+			    struct snd_ctl_elem_value *ucontrol)
+{
+	struct snd_soc_dapm_widget_list *wlist = snd_kcontrol_chip(kcontrol);
+	struct snd_soc_dapm_widget *widget = wlist->widgets[0];
+	struct snd_soc_codec *codec = widget->codec;
+	struct tomtom_priv *tomtom_p = snd_soc_codec_get_drvdata(codec);
+	struct wcd9xxx *core = dev_get_drvdata(codec->dev->parent);
+	struct soc_multi_mixer_control *mixer =
+		((struct soc_multi_mixer_control *)kcontrol->private_value);
+	u32 dai_id = widget->shift;
+	u32 port_id = mixer->shift;
+	u32 enable = ucontrol->value.integer.value[0];
+
+	pr_debug("%s: enable: %d, port_id:%d, dai_id: %d\n",
+				__func__, enable, port_id, dai_id);
+	mutex_lock(&codec->mutex);
+
+	if (enable) {
+		if (port_id == TOMTOM_TX11 && !test_bit(VI_SENSE_1,
+						&tomtom_p->status_mask)) {
+			list_add_tail(&core->tx_chs[TOMTOM_TX11].list,
+					&tomtom_p->dai[dai_id].wcd9xxx_ch_list);
+			list_add_tail(&core->tx_chs[TOMTOM_TX12].list,
+					&tomtom_p->dai[dai_id].wcd9xxx_ch_list);
+			set_bit(VI_SENSE_1, &tomtom_p->status_mask);
+		}
+		if (port_id == TOMTOM_TX14 && !test_bit(VI_SENSE_2,
+						&tomtom_p->status_mask)) {
+			list_add_tail(&core->tx_chs[TOMTOM_TX14].list,
+					&tomtom_p->dai[dai_id].wcd9xxx_ch_list);
+			list_add_tail(&core->tx_chs[TOMTOM_TX15].list,
+					&tomtom_p->dai[dai_id].wcd9xxx_ch_list);
+			set_bit(VI_SENSE_2, &tomtom_p->status_mask);
+		}
+	} else {
+		if (port_id == TOMTOM_TX11 && test_bit(VI_SENSE_1,
+					&tomtom_p->status_mask)) {
+			list_del_init(&core->tx_chs[TOMTOM_TX11].list);
+			list_del_init(&core->tx_chs[TOMTOM_TX12].list);
+			clear_bit(VI_SENSE_1, &tomtom_p->status_mask);
+		}
+		if (port_id == TOMTOM_TX14 && test_bit(VI_SENSE_2,
+					&tomtom_p->status_mask)) {
+			list_del_init(&core->tx_chs[TOMTOM_TX14].list);
+			list_del_init(&core->tx_chs[TOMTOM_TX15].list);
+			clear_bit(VI_SENSE_2, &tomtom_p->status_mask);
+		}
+	}
+	mutex_unlock(&codec->mutex);
+	snd_soc_dapm_mixer_update_power(widget, kcontrol, enable);
+	return 0;
+}
 
 /* virtual port entries */
 static int slim_tx_mixer_get(struct snd_kcontrol *kcontrol,
@@ -2556,6 +2628,13 @@ static const struct snd_kcontrol_new slim_rx_mux[TOMTOM_RX_MAX] = {
 			  slim_rx_mux_get, slim_rx_mux_put),
 	SOC_DAPM_ENUM_EXT("SLIM RX8 Mux", slim_rx_mux_enum,
 			  slim_rx_mux_get, slim_rx_mux_put),
+};
+
+static const struct snd_kcontrol_new aif4_vi_mixer[] = {
+	SOC_SINGLE_EXT("SPKR_VI_1", SND_SOC_NOPM, TOMTOM_TX11, 1, 0,
+			tomtom_vi_feed_mixer_get, tomtom_vi_feed_mixer_put),
+	SOC_SINGLE_EXT("SPKR_VI_2", SND_SOC_NOPM, TOMTOM_TX14, 1, 0,
+			tomtom_vi_feed_mixer_get, tomtom_vi_feed_mixer_put),
 };
 
 static const struct snd_kcontrol_new aif1_cap_mixer[] = {
@@ -4111,8 +4190,9 @@ static const struct snd_soc_dapm_route audio_map[] = {
 	{"AIF3 CAP", NULL, "AIF3_CAP Mixer"},
 
 	/* VI Feedback */
-	{"AIF4 VI", NULL, "VIONOFF"},
-	{"VIONOFF", "Switch", "VIINPUT"},
+	{"AIF4_VI Mixer", "SPKR_VI_1", "VIINPUT"},
+	{"AIF4_VI Mixer", "SPKR_VI_2", "VIINPUT"},
+	{"AIF4 VI", NULL, "AIF4_VI Mixer"},
 
 	/* MAD */
 	{"MAD_SEL MUX", "SPE", "MAD_CPE_INPUT"},
@@ -5073,7 +5153,6 @@ static int tomtom_set_channel_map(struct snd_soc_dai *dai,
 				unsigned int rx_num, unsigned int *rx_slot)
 
 {
-	struct wcd9xxx_codec_dai_data *dai_data = NULL;
 	struct tomtom_priv *tomtom = snd_soc_codec_get_drvdata(dai->codec);
 	struct wcd9xxx *core = dev_get_drvdata(dai->codec->dev->parent);
 	if (!tx_slot || !rx_slot) {
@@ -5089,14 +5168,6 @@ static int tomtom_set_channel_map(struct snd_soc_dai *dai,
 	if (tomtom->intf_type == WCD9XXX_INTERFACE_TYPE_SLIMBUS) {
 		wcd9xxx_init_slimslave(core, core->slim->laddr,
 					   tx_num, tx_slot, rx_num, rx_slot);
-		/*Reserve tx11 and tx12 for VI feedback path*/
-		dai_data = &tomtom->dai[AIF4_VIFEED];
-		if (dai_data) {
-			list_add_tail(&core->tx_chs[TOMTOM_TX11].list,
-			&dai_data->wcd9xxx_ch_list);
-			list_add_tail(&core->tx_chs[TOMTOM_TX12].list,
-			&dai_data->wcd9xxx_ch_list);
-		}
 	}
 	return 0;
 }
@@ -5621,7 +5692,7 @@ static struct snd_soc_dai_driver tomtom_dai[] = {
 			.rate_max = 48000,
 			.rate_min = 48000,
 			.channels_min = 2,
-			.channels_max = 2,
+			.channels_max = 4,
 	 },
 		.ops = &tomtom_dai_ops,
 	},
@@ -5830,7 +5901,7 @@ static int tomtom_codec_enable_slimvi_feedback(struct snd_soc_dapm_widget *w,
 	struct wcd9xxx *core = NULL;
 	struct snd_soc_codec *codec = NULL;
 	struct tomtom_priv *tomtom_p = NULL;
-	u32 ret = 0;
+	int ret = 0;
 	struct wcd9xxx_codec_dai_data *dai = NULL;
 
 	if (!w || !w->codec) {
@@ -5860,12 +5931,24 @@ static int tomtom_codec_enable_slimvi_feedback(struct snd_soc_dapm_widget *w,
 	dai = &tomtom_p->dai[w->shift];
 	switch (event) {
 	case SND_SOC_DAPM_POST_PMU:
-		/*Enable V&I sensing*/
-		snd_soc_update_bits(codec, TOMTOM_A_SPKR1_PROT_EN,
-				0x88, 0x88);
-		/*Enable spkr VI clocks*/
-		snd_soc_update_bits(codec,
-		TOMTOM_A_CDC_CLK_TX_CLK_EN_B2_CTL, 0xC, 0xC);
+		if (test_bit(VI_SENSE_1, &tomtom_p->status_mask)) {
+			pr_debug("%s: spkr1 enabled\n", __func__);
+			/* Enable V&I sensing */
+			snd_soc_update_bits(codec,
+				TOMTOM_A_SPKR1_PROT_EN, 0x88, 0x88);
+			/* Enable spkr VI clocks */
+			snd_soc_update_bits(codec,
+				TOMTOM_A_CDC_CLK_TX_CLK_EN_B2_CTL, 0xC, 0xC);
+		}
+		if (test_bit(VI_SENSE_2, &tomtom_p->status_mask)) {
+			pr_debug("%s: spkr2 enabled\n", __func__);
+			/* Enable V&I sensing */
+			snd_soc_update_bits(codec,
+				TOMTOM_A_SPKR2_PROT_EN, 0x88, 0x88);
+			/* Enable spkr VI clocks */
+			snd_soc_update_bits(codec,
+				TOMTOM_A_CDC_CLK_TX_CLK_EN_B2_CTL, 0x30, 0x30);
+		}
 		dai->bus_down_in_recovery = false;
 		tomtom_codec_enable_int_port(dai, codec);
 		(void) tomtom_codec_enable_slim_chmask(dai, true);
@@ -5888,13 +5971,22 @@ static int tomtom_codec_enable_slimvi_feedback(struct snd_soc_dapm_widget *w,
 			pr_debug("%s: Disconnect TX port, ret = %d\n",
 				__func__, ret);
 		}
-
-		snd_soc_update_bits(codec, TOMTOM_A_CDC_CLK_TX_CLK_EN_B2_CTL,
-				0xC, 0x0);
-		/*Disable V&I sensing*/
-		snd_soc_update_bits(codec, TOMTOM_A_SPKR1_PROT_EN,
-				0x88, 0x00);
-
+		if (test_bit(VI_SENSE_1, &tomtom_p->status_mask)) {
+			/* Disable V&I sensing */
+			pr_debug("%s: spkr1 disabled\n", __func__);
+			snd_soc_update_bits(codec,
+				TOMTOM_A_CDC_CLK_TX_CLK_EN_B2_CTL, 0xC, 0x0);
+			snd_soc_update_bits(codec,
+				TOMTOM_A_SPKR1_PROT_EN, 0x88, 0x00);
+		}
+		if (test_bit(VI_SENSE_2, &tomtom_p->status_mask)) {
+			/* Disable V&I sensing */
+			pr_debug("%s: spkr2 disabled\n", __func__);
+			snd_soc_update_bits(codec,
+				TOMTOM_A_CDC_CLK_TX_CLK_EN_B2_CTL, 0x30, 0x0);
+			snd_soc_update_bits(codec,
+				TOMTOM_A_SPKR2_PROT_EN, 0x88, 0x00);
+		}
 		dai->bus_down_in_recovery = false;
 		break;
 	}
@@ -6539,6 +6631,9 @@ static const struct snd_soc_dapm_widget tomtom_dapm_widgets[] = {
 	SND_SOC_DAPM_MIXER("AIF1_CAP Mixer", SND_SOC_NOPM, AIF1_CAP, 0,
 		aif1_cap_mixer, ARRAY_SIZE(aif1_cap_mixer)),
 
+	SND_SOC_DAPM_MIXER("AIF4_VI Mixer", SND_SOC_NOPM, AIF4_VIFEED, 0,
+		aif4_vi_mixer, ARRAY_SIZE(aif4_vi_mixer)),
+
 	SND_SOC_DAPM_MIXER("AIF2_CAP Mixer", SND_SOC_NOPM, AIF2_CAP, 0,
 		aif2_cap_mixer, ARRAY_SIZE(aif2_cap_mixer)),
 
@@ -6658,9 +6753,6 @@ static const struct snd_soc_dapm_widget tomtom_dapm_widgets[] = {
 
 	SND_SOC_DAPM_MIXER("LINEOUT4_PA_MIXER", SND_SOC_NOPM, 0, 0,
 		lineout4_pa_mix, ARRAY_SIZE(lineout4_pa_mix)),
-
-	SND_SOC_DAPM_SWITCH("VIONOFF", SND_SOC_NOPM, 0, 0,
-			    &aif4_vi_switch),
 
 	SND_SOC_DAPM_INPUT("VIINPUT"),
 };
