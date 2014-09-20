@@ -212,8 +212,7 @@ static void emac_get_pauseparam(struct net_device *netdev,
 	struct emac_adapter *adpt = netdev_priv(netdev);
 	struct emac_hw *hw = &adpt->hw;
 
-	if (hw->disable_fc_autoneg ||
-	    hw->cur_fc_mode == emac_fc_none)
+	if (hw->disable_fc_autoneg)
 		pause->autoneg = 0;
 	else
 		pause->autoneg = 1;
@@ -248,7 +247,7 @@ static int emac_set_pauseparam(struct net_device *netdev,
 	else
 		disable_fc_autoneg = false;
 
-	if ((pause->rx_pause && pause->tx_pause) || pause->autoneg)
+	if (pause->rx_pause && pause->tx_pause)
 		req_fc_mode = emac_fc_full;
 	else if (pause->rx_pause && !pause->tx_pause)
 		req_fc_mode = emac_fc_rx_pause;
@@ -265,9 +264,11 @@ static int emac_set_pauseparam(struct net_device *netdev,
 	    (hw->disable_fc_autoneg != disable_fc_autoneg)) {
 		hw->req_fc_mode = req_fc_mode;
 		hw->disable_fc_autoneg = disable_fc_autoneg;
-		if (!hw->disable_fc_autoneg)
-			retval = emac_setup_phy_link(hw, hw->autoneg_advertised,
-						     true, true);
+		if (!adpt->no_ephy)
+			retval = emac_setup_phy_link(hw,
+						     hw->autoneg_advertised,
+						     hw->autoneg,
+						     !disable_fc_autoneg);
 		if (!retval)
 			emac_hw_config_fc(hw);
 	}

@@ -572,7 +572,18 @@ static int emac_hw_setup_phy_link(struct emac_hw *hw, u32 speed, bool autoneg,
 	int retval = 0;
 
 	if (autoneg) {
-		adv = ADVERTISE_PAUSE_CAP | ADVERTISE_PAUSE_ASYM;
+		switch (hw->req_fc_mode) {
+		case emac_fc_full:
+		case emac_fc_rx_pause:
+			adv = ADVERTISE_PAUSE_CAP | ADVERTISE_PAUSE_ASYM;
+			break;
+		case emac_fc_tx_pause:
+			adv = ADVERTISE_PAUSE_ASYM;
+			break;
+		default:
+			adv = 0;
+			break;
+		}
 		if (!fc)
 			adv &= ~(ADVERTISE_PAUSE_CAP | ADVERTISE_PAUSE_ASYM);
 
@@ -1286,7 +1297,8 @@ static int emac_get_fc_mode(struct emac_hw *hw, enum emac_fc_mode *mode)
 
 			if ((pssr & PSSR_FC_TXEN) &&
 			    (pssr & PSSR_FC_RXEN)) {
-				*mode = emac_fc_full;
+				*mode = (hw->req_fc_mode == emac_fc_full) ?
+					emac_fc_full : emac_fc_rx_pause;
 			} else if (pssr & PSSR_FC_TXEN) {
 				*mode = emac_fc_tx_pause;
 			} else if (pssr & PSSR_FC_RXEN) {
@@ -1312,7 +1324,7 @@ int emac_hw_config_fc(struct emac_hw *hw)
 	u32 mac;
 	int retval;
 
-	if (hw->disable_fc_autoneg) {
+	if (hw->disable_fc_autoneg || hw->adpt->no_ephy) {
 		hw->cur_fc_mode = hw->req_fc_mode;
 	} else {
 		retval = emac_get_fc_mode(hw, &hw->cur_fc_mode);
@@ -1415,7 +1427,21 @@ void emac_hw_start_mac(struct emac_hw *hw)
 	csr1 = emac_reg_r32(hw, EMAC_CSR, EMAC_EMAC_WRAPPER_CSR1);
 
 	mac |= TXEN | RXEN;     /* enable RX/TX */
-	mac |= (TXFC | RXFC);   /* enable RX/TX Flow Control */
+
+	/* enable RX/TX Flow Control */
+	switch (hw->cur_fc_mode) {
+	case emac_fc_full:
+		mac |= (TXFC | RXFC);
+		break;
+	case emac_fc_rx_pause:
+		mac |= RXFC;
+		break;
+	case emac_fc_tx_pause:
+		mac |= TXFC;
+		break;
+	default:
+		break;
+	}
 
 	/* setup link speed */
 	mac &= ~SPEED_BMSK;
