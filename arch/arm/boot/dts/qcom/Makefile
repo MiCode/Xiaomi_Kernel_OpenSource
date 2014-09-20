@@ -183,6 +183,7 @@ dtb-$(CONFIG_ARCH_MSM8994) += msm8994-v1-sim.dtb \
 	apq8094-v1-mtp.dtb \
 	apq8094-v1-liquid.dtb \
 	apq8094-v1-fluid.dtb \
+	apq8094-v1-dragonboard.dtb \
 	msm8994-v2-sim.dtb \
 	msm8994-v2-cdp.dtb \
 	msm8994-pmi8994-pm8004-v2-cdp.dtb \
