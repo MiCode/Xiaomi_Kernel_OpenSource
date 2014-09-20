@@ -232,6 +232,12 @@ struct msm_pproc_queue_buf_info {
 	uint8_t is_buf_dirty;
 };
 
+struct msm_cpp_clock_settings_t {
+	unsigned long clock_rate;
+	uint64_t avg;
+	uint64_t inst;
+};
+
 #define VIDIOC_MSM_CPP_CFG \
 	_IOWR('V', BASE_VIDIOC_PRIVATE, struct msm_camera_v4l2_ioctl_t)
 
