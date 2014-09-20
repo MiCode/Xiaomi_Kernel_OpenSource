@@ -2271,6 +2271,7 @@ static int cpr_init_cpr_parameters(struct platform_device *pdev,
 			  &cpr_vreg->step_quotient, rc);
 	if (rc)
 		return rc;
+
 	CPR_PROP_READ_U32(cpr_vreg, of_node, "cpr-up-threshold",
 			  &cpr_vreg->up_threshold, rc);
 	if (rc)
@@ -2279,6 +2280,9 @@ static int cpr_init_cpr_parameters(struct platform_device *pdev,
 			  &cpr_vreg->down_threshold, rc);
 	if (rc)
 		return rc;
+	cpr_info(cpr_vreg, "up threshold = %u, down threshold = %u\n",
+		cpr_vreg->up_threshold, cpr_vreg->down_threshold);
+
 	CPR_PROP_READ_U32(cpr_vreg, of_node, "cpr-idle-clocks",
 			  &cpr_vreg->idle_clocks, rc);
 	if (rc)
