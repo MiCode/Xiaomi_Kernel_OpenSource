@@ -184,9 +184,9 @@ static inline struct measure_clk *to_measure_clk(struct clk *clk)
  */
 struct gate_clk {
 	struct clk c;
-	const u32 en_mask;
-	const u32 en_reg;
-	const unsigned int delay_us;
+	u32 en_mask;
+	u32 en_reg;
+	unsigned int delay_us;
 	void *const __iomem *base;
 };
 
