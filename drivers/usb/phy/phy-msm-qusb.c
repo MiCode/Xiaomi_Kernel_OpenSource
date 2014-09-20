@@ -29,6 +29,10 @@
 #define FREEZIO_N			BIT(1)
 #define POWER_DOWN			BIT(0)
 #define QUSB2PHY_PORT_UTMI_CTRL2	0xC4
+#define QUSB2PHY_PORT_TUNE1             0x80
+#define QUSB2PHY_PORT_TUNE2             0x84
+#define QUSB2PHY_PORT_TUNE3             0x88
+#define QUSB2PHY_PORT_TUNE4             0x8C
 
 #define UTMI_OTG_VBUS_VALID             BIT(20)
 #define SW_SESSVLD_SEL                  BIT(28)
@@ -173,6 +177,12 @@ static int qusb_phy_init(struct usb_phy *phy)
 		if (qphy->ulpi_mode)
 			writel_relaxed(0x0,
 					qphy->base + QUSB2PHY_PORT_UTMI_CTRL2);
+
+		/* Program tuning parameters for PHY */
+		writel_relaxed(0xA0, qphy->base + QUSB2PHY_PORT_TUNE1);
+		writel_relaxed(0xA5, qphy->base + QUSB2PHY_PORT_TUNE2);
+		writel_relaxed(0x81, qphy->base + QUSB2PHY_PORT_TUNE3);
+		writel_relaxed(0x85, qphy->base + QUSB2PHY_PORT_TUNE4);
 
 		/* ensure above writes are completed before re-enabling PHY */
 		wmb();
