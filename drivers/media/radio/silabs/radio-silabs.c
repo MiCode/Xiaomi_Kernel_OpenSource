@@ -2612,6 +2612,28 @@ static int silabs_fm_vidioc_g_ctrl(struct file *file, void *priv,
 		ctrl->value = 0;
 		retval = 0;
 		break;
+	case V4L2_CID_PRIVATE_SILABS_GET_SINR:
+
+		mutex_lock(&radio->lock);
+		radio->cmd = FM_TUNE_STATUS_CMD;
+
+		radio->write_buf[0] = FM_TUNE_STATUS_CMD;
+		radio->write_buf[1] = 0;
+
+		retval = send_cmd(radio, TUNE_STATUS_CMD_LEN);
+		if (retval < 0) {
+			FMDERR("%s: FM_TUNE_STATUS_CMD failed with error %d\n",
+					__func__, retval);
+			mutex_unlock(&radio->lock);
+			break;
+		}
+
+		/* sinr */
+		ctrl->value = radio->read_buf[5];
+		mutex_unlock(&radio->lock);
+		FMDBG("%s: V4L2_CID_PRIVATE_SILABS_GET_SINR, val %d\n",
+			__func__, ctrl->value);
+		break;
 	case V4L2_CID_PRIVATE_SILABS_SINR_THRESHOLD:
 		FMDBG("%s: V4L2_CID_PRIVATE_SILABS_SINR_THRESHOLD, val %d\n",
 			__func__, radio->sinr_th);
