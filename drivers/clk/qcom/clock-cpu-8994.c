@@ -1176,6 +1176,7 @@ static int cpu_clock_8994_driver_probe(struct platform_device *pdev)
 
 static struct of_device_id match_table[] = {
 	{ .compatible = "qcom,cpu-clock-8994" },
+	{ .compatible = "qcom,cpu-clock-8994-v2" },
 	{}
 };
 
@@ -1203,13 +1204,42 @@ module_exit(cpu_clock_8994_exit);
 #define ALIAS1_GLB_BASE_PHY 0xF900F000
 #define C1_PLL_BASE_PHY 0xF9016000
 
+int __init cpu_clock_8994_init_a57_v2(void)
+{
+	pr_info("clock-cpu-8994-v2: configuring clocks for the A57 cluster\n");
+
+	vbases[ALIAS1_GLB_BASE] = ioremap(ALIAS1_GLB_BASE_PHY, SZ_4K);
+	if (!vbases[ALIAS1_GLB_BASE]) {
+		WARN(1, "Unable to ioremap A57 mux base. Can't configure A57 clocks.\n");
+		return -ENOMEM;
+	}
+
+	/* Select GPLL0 and use the div-2 divider for 300MHz */
+	writel_relaxed(0x26, vbases[ALIAS1_GLB_BASE] + MUX_OFFSET);
+	/* Ensure write goes through before A57s are brought up. */
+	mb();
+	udelay(5);
+
+	pr_cont("clock-cpu-8994-v2: finished configuring A57 cluster clocks.\n");
+	iounmap(vbases[ALIAS1_GLB_BASE]);
+
+	return 0;
+}
+
 /* Setup the A57 clocks before _this_ driver probes, before smp_init */
 int __init cpu_clock_8994_init_a57(void)
 {
 	u32 regval;
 	int xo_sel, lfmux_sel, safe_sel;
-	struct device_node *ofnode = of_find_compatible_node(NULL, NULL,
-							"qcom,cpu-clock-8994");
+	struct device_node *ofnode;
+
+	ofnode = of_find_compatible_node(NULL, NULL,
+					 "qcom,cpu-clock-8994-v2");
+	if (ofnode)
+		return cpu_clock_8994_init_a57_v2();
+
+	ofnode = of_find_compatible_node(NULL, NULL,
+					 "qcom,cpu-clock-8994");
 	if (!ofnode)
 		return 0;
 
