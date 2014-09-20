@@ -2130,6 +2130,8 @@ struct drm_i915_cmd_table {
 				 (((dev)->pdev->device & 0xf) == 0x2  || \
 				 ((dev)->pdev->device & 0xf) == 0x6 || \
 				 ((dev)->pdev->device & 0xf) == 0xe))
+#define IS_BDW_GT3(dev)		(IS_BROADWELL(dev) && \
+				 ((dev)->pdev->device & 0x00F0) == 0x0020)
 #define IS_HSW_ULT(dev)		(IS_HASWELL(dev) && \
 				 ((dev)->pdev->device & 0xFF00) == 0x0A00)
 #define IS_ULT(dev)		(IS_HSW_ULT(dev) || IS_BDW_ULT(dev))
