@@ -240,7 +240,9 @@ struct debugfs_files {
 	struct dentry *dump_dev_desc;
 	struct dentry *power_mode;
 	struct dentry *dme_local_read;
+	struct dentry *dme_peer_read;
 	u32 dme_local_attr_id;
+	u32 dme_peer_attr_id;
 #ifdef CONFIG_UFS_FAULT_INJECTION
 	struct fault_attr fail_attr;
 #endif
@@ -506,6 +508,12 @@ struct ufs_hba {
 	 * attribute to 1 fixes moving to HS gear.
 	 */
 	#define UFSHCD_QUIRK_BROKEN_PA_RXHSUNTERMCAP		UFS_BIT(3)
+
+	/*
+	 * This quirk needs to be enabled if the host contoller doesn't
+	 * allow reading the dme attributes of peer UniPro in FAST_MODE.
+	 */
+	#define UFSHCD_QUIRK_DME_PEER_GET_FAST_MODE		UFS_BIT(4)
 
 	unsigned int quirks;	/* Deviations from standard UFSHCI spec. */
 
