@@ -4916,6 +4916,7 @@ enum punit_power_well {
 #define  HDC_FENCE_DESTINATION_TO_SLM_DISABLE	(1<<14)
 #define  HDC_DONOT_FETCH_MEM_WHEN_MASKED		(1<<11)
 #define  HDC_FORCE_NON_COHERENT			(1<<4)
+#define  HDC_FENCE_DEST_SLM_DISABLE		(1<<14)
 
 /* WaProgramL3SqcReg1Default */
 #define GEN8_L3SQCREG1				0xb100
