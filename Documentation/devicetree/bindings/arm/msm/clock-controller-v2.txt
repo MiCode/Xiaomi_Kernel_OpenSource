@@ -218,3 +218,37 @@ bb_clk2_a: bb_clk2_a {
 	qcom,rpm-peer = <&bb_clk2>;
 	qcom,rcg-init-rate = <1000>;
 };
+
+*****************************************************************************
+"qcom,cbc"
+
+CBC clocks are a set of hw registers which can gate a clock signal. Additionally,
+a feedback signal is available which indicates whether the clock is actually on or
+off. This signal can be used by software to determine how much time to delay after
+requesting that the clock be turned on/off.
+
+Required Properties:
+- compatible		Must be "qcom,cbc".
+
+- qcom,base-offset:	Offset from the register region described in the parent
+			clock controller.
+
+Recommended Properties:
+- qcom,parent:		See "General Optional Properties"
+
+Optional Properties:
+- qcom,bcr-offset:	Offset from the register region described in the parent
+			clock controller for the reset.
+
+- qcom,has-sibling:	Boolean.
+			This clock does not have permission to change its parent's rate.
+			For example, there may be several cbc clocks which share the
+			same parent. Thus changing the rate of one of the cbcs would
+			affect all.
+
+ocmemcx_ahb_clk: ocmemcx_ahb_clk {
+	compatible = "qcom,cbc";
+	qcom,base-offset = <MMSS_OCMEMCX_AHB_CBCR>;
+	qcom,has-sibling;
+	qcom,parent = <&mmssnoc_ahb_clk>;
+};

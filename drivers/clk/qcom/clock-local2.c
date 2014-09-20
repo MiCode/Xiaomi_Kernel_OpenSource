@@ -26,6 +26,7 @@
 #include <linux/clk/msm-clk.h>
 #include <linux/clk/msm-clock-generic.h>
 #include <soc/qcom/clock-local2.h>
+#include <soc/qcom/msm-clock-controller.h>
 
 /*
  * When enabling/disabling a clock, check the halt bit up to this number
@@ -1507,3 +1508,39 @@ struct mux_div_ops rcg_mux_div_ops = {
 	.is_enabled = rcg_is_enabled,
 	.list_registers = rcg_list_registers,
 };
+
+static void *cbc_dt_parser(struct device *dev, struct device_node *np)
+{
+	struct msmclk_data *drv;
+	struct branch_clk *branch_clk;
+	u32 rc;
+
+	branch_clk = devm_kzalloc(dev, sizeof(*branch_clk), GFP_KERNEL);
+	if (!branch_clk) {
+		dt_err(np, "memory alloc failure\n");
+		return ERR_PTR(-ENOMEM);
+	}
+
+	drv = msmclk_parse_phandle(dev, np->parent->phandle);
+	if (IS_ERR_OR_NULL(drv))
+		return ERR_CAST(drv);
+	branch_clk->base = &drv->base;
+
+	rc = of_property_read_u32(np, "qcom,base-offset",
+						&branch_clk->cbcr_reg);
+	if (rc) {
+		dt_err(np, "missing/incorrect qcom,base-offset dt property\n");
+		return ERR_PTR(rc);
+	}
+
+	/* Optional property */
+	of_property_read_u32(np, "qcom,bcr-offset", &branch_clk->bcr_reg);
+
+	branch_clk->has_sibling = of_property_read_bool(np,
+							"qcom,has-sibling");
+
+	branch_clk->c.ops = &clk_ops_branch;
+
+	return msmclk_generic_clk_init(dev, np, &branch_clk->c);
+}
+MSMCLK_PARSER(cbc_dt_parser, "qcom,cbc", 0);
