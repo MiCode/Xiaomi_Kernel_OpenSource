@@ -12,12 +12,15 @@
  *
  */
 
+#define pr_fmt(fmt) "%s: " fmt, __func__
+
 #include <linux/kernel.h>
 #include <linux/delay.h>
 #include <linux/err.h>
 #include <linux/clk.h>
 #include <linux/io.h>
 #include <soc/qcom/clock-pll.h>
+#include <soc/qcom/msm-clock-controller.h>
 
 #include "clock.h"
 
@@ -829,3 +832,92 @@ void configure_sr_hpm_lp_pll(struct pll_config *config,
 		__set_fsm_mode(PLL_MODE_REG(regs), 0x1, 0x0);
 }
 
+static void *votable_pll_clk_dt_parser(struct device *dev,
+						struct device_node *np)
+{
+	struct pll_vote_clk *v, *peer;
+	struct clk *c;
+	u32 val, rc;
+	phandle p;
+	struct msmclk_data *drv;
+
+	v = devm_kzalloc(dev, sizeof(*v), GFP_KERNEL);
+	if (!v) {
+		dt_err(np, "memory alloc failure\n");
+		return ERR_PTR(-ENOMEM);
+	}
+
+	drv = msmclk_parse_phandle(dev, np->parent->phandle);
+	if (IS_ERR_OR_NULL(drv))
+		return ERR_CAST(drv);
+	v->base = &drv->base;
+
+	rc = of_property_read_u32(np, "qcom,en-offset", (u32 *)&v->en_reg);
+	if (rc) {
+		dt_err(np, "missing qcom,en-offset dt property\n");
+		return ERR_PTR(-EINVAL);
+	}
+
+	rc = of_property_read_u32(np, "qcom,en-bit", &val);
+	if (rc) {
+		dt_err(np, "missing qcom,en-bit dt property\n");
+		return ERR_PTR(-EINVAL);
+	}
+	v->en_mask = BIT(val);
+
+	rc = of_property_read_u32(np, "qcom,status-offset",
+						(u32 *)&v->status_reg);
+	if (rc) {
+		dt_err(np, "missing qcom,status-offset dt property\n");
+		return ERR_PTR(-EINVAL);
+	}
+
+	rc = of_property_read_u32(np, "qcom,status-bit", &val);
+	if (rc) {
+		dt_err(np, "missing qcom,status-bit dt property\n");
+		return ERR_PTR(-EINVAL);
+	}
+	v->status_mask = BIT(val);
+
+	rc = of_property_read_u32(np, "qcom,pll-config-rate", &val);
+	if (rc) {
+		dt_err(np, "missing qcom,pll-config-rate dt property\n");
+		return ERR_PTR(-EINVAL);
+	}
+	v->c.rate = val;
+
+	if (of_device_is_compatible(np, "qcom,active-only-pll"))
+		v->soft_vote_mask = PLL_SOFT_VOTE_ACPU;
+	else if (of_device_is_compatible(np, "qcom,sleep-active-pll"))
+		v->soft_vote_mask = PLL_SOFT_VOTE_PRIMARY;
+
+	if (of_device_is_compatible(np, "qcom,votable-pll")) {
+		v->c.ops = &clk_ops_pll_vote;
+		return msmclk_generic_clk_init(dev, np, &v->c);
+	}
+
+	rc = of_property_read_phandle_index(np, "qcom,peer", 0, &p);
+	if (rc) {
+		dt_err(np, "missing qcom,peer dt property\n");
+		return ERR_PTR(-EINVAL);
+	}
+
+	c = msmclk_lookup_phandle(dev, p);
+	if (!IS_ERR_OR_NULL(c)) {
+		v->soft_vote = devm_kzalloc(dev, sizeof(*v->soft_vote),
+						GFP_KERNEL);
+		if (!v->soft_vote) {
+			dt_err(np, "memory alloc failure\n");
+			return ERR_PTR(-ENOMEM);
+		}
+
+		peer = to_pll_vote_clk(c);
+		peer->soft_vote = v->soft_vote;
+	}
+
+	v->c.ops = &clk_ops_pll_acpu_vote;
+	return msmclk_generic_clk_init(dev, np, &v->c);
+}
+MSMCLK_PARSER(votable_pll_clk_dt_parser, "qcom,active-only-pll", 0);
+MSMCLK_PARSER(votable_pll_clk_dt_parser, "qcom,sleep-active-pll", 1);
+MSMCLK_PARSER(votable_pll_clk_dt_parser, "qcom,votable-pll", 2);

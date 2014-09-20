@@ -310,3 +310,84 @@ mmss_gpll0_clk_src: mmss_gpll0_clk_src {
 	qcom,parent = <&gpll0>;
 	qcom,delay = <1>;
 };
+
+*****************************************************************************
+
+"qcom,votable-pll"
+
+A software construct defining a PLL (Phase-locked Loop) which can be voted for.
+
+Required Properties:
+- compatible:		Must be "qcom,votable-pll"
+- qcom,en-offset:	Register offset from the region described in parent
+			clock controller.
+- qcom,en-bit:		Bit used to enable the clock
+- qcom,status-offset:	Register offset from the region described in parent
+			clock controller.
+- qcom,status-bit:	Status bit indicating the clock is on
+- qcom,pll-config-rate:	The rate this clock runs at. This rate is not changeable.
+
+Recommended Properties:
+- qcom,parent:		See "General Optional Properties"
+- qcom,supply-group:	See "General Optional Properties"
+- qcom,clk-fmax:	See "General Optional Properties"
+
+gpll4: gpll4 {
+	compatible = "qcom,votable-pll";
+	qcom,en-offset = <GCC_APCS_GPLL_ENA_VOTE>;
+	qcom,en-bit = <4>;
+	qcom,status-offset = <GCC_GPLL4_MODE>;
+	qcom,status-bit = <30>;
+	qcom,pll-config-rate = <1536000000>;
+	qcom,parent = <&gcc_xo>;
+	qcom,supply-group = <&gcc_vdd_dig>;
+	qcom,clk-fmax =
+			<FMAX_LOWER 400000000>,
+			<FMAX_LOW 800000000>,
+			<FMAX_NOM 1600000000>,
+			<FMAX_TURBO 1600000000>;
+};
+
+*****************************************************************************
+
+"qcom,sleep-active-pll"
+
+A software construct wrapping the normal votable pll hw. Like rpm_clocks,
+these clocks also support "active" and "sleep" modes of operation.
+
+Required Properties:
+- compatible:		"qcom,active-only-pll", "qcom,sleep-active-pll"
+- qcom,en-offset:	Register offset from the region described in parent
+			clock controller.
+- qcom,en-bit:		Bit used to enable the clock
+- qcom,status-offset:	Register offset from the region described in parent
+			clock controller.
+- qcom,status-bit:	Status bit indicating the clock is on
+- qcom,peer:		Phandle to the other clock in the pair
+- qcom,pll-config-rate:	The rate this clock runs at. This rate is not changeable.
+
+Recommended Properties:
+- qcom,parent:		See "General Optional Properties"
+- qcom,clk-fmax:	See "General Optional Properties"
+
+gpll0: gpll0 {
+	compatible = "qcom,sleep-active-pll";
+	qcom,en-offset = <GCC_APCS_GPLL_ENA_VOTE>;
+	qcom,en-bit = <0>;
+	qcom,status-offset = <GCC_GPLL0_MODE>;
+	qcom,status-bit = <30>;
+	qcom,pll-config-rate = <600000000>;
+	qcom,parent = <&gcc_xo>;
+	qcom,peer = <&gpll0_ao>;
+};
+
+gpll0_ao: gpll0_ao {
+	compatible = "qcom,active-only-pll";
+	qcom,en-offset = <GCC_APCS_GPLL_ENA_VOTE>;
+	qcom,en-bit = <0>;
+	qcom,status-offset = <GCC_GPLL0_MODE>;
+	qcom,status-bit = <30>;
+	qcom,pll-config-rate = <600000000>;
+	qcom,parent = <&gcc_xo_ao>;
+	qcom,peer = <&gpll0>;
+};
