@@ -1597,13 +1597,10 @@ int adreno_ringbuffer_waittimestamp(struct adreno_ringbuffer *rb,
 	mutex_unlock(&device->mutex);
 
 	wait_time = msecs_to_jiffies(msecs);
-	ret = wait_event_interruptible_timeout(rb->ts_expire_waitq,
+	if (0 == wait_event_timeout(rb->ts_expire_waitq,
 		!kgsl_event_pending(device, &rb->events, timestamp,
 				adreno_ringbuffer_wait_callback, NULL),
-		wait_time);
-	if (ret > 0)
-		ret = 0;
-	else if (0 == ret)
+		wait_time))
 		ret  = -ETIMEDOUT;
 
 	mutex_lock(&device->mutex);
