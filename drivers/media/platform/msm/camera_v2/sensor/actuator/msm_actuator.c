@@ -1064,12 +1064,12 @@ static int32_t msm_actuator_i2c_probe(struct i2c_client *client,
 {
 	int rc = 0;
 	struct msm_actuator_ctrl_t *act_ctrl_t = NULL;
+	struct msm_actuator_vreg *vreg_cfg = NULL;
 	CDBG("Enter\n");
 
 	if (client == NULL) {
 		pr_err("msm_actuator_i2c_probe: client is null\n");
-		rc = -EINVAL;
-		goto probe_failure;
+		return -EINVAL;
 	}
 
 	act_ctrl_t = kzalloc(sizeof(struct msm_actuator_ctrl_t),
@@ -1091,7 +1091,18 @@ static int32_t msm_actuator_i2c_probe(struct i2c_client *client,
 	CDBG("cell-index %d, rc %d\n", act_ctrl_t->subdev_id, rc);
 	if (rc < 0) {
 		pr_err("failed rc %d\n", rc);
-		return rc;
+		goto probe_failure;
+	}
+
+	if (of_find_property(client->dev.of_node,
+		"qcom,cam-vreg-name", NULL)) {
+		vreg_cfg = &act_ctrl_t->vreg_cfg;
+		rc = msm_camera_get_dt_vreg_data(client->dev.of_node,
+			&vreg_cfg->cam_vreg, &vreg_cfg->num_vreg);
+		if (rc < 0) {
+			pr_err("failed rc %d\n", rc);
+			goto probe_failure;
+		}
 	}
 
 	act_ctrl_t->i2c_driver = &msm_actuator_i2c_driver;
@@ -1122,10 +1133,21 @@ static int32_t msm_actuator_i2c_probe(struct i2c_client *client,
 	act_ctrl_t->msm_sd.sd.entity.group_id = MSM_CAMERA_SUBDEV_ACTUATOR;
 	act_ctrl_t->msm_sd.close_seq = MSM_SD_CLOSE_2ND_CATEGORY | 0x2;
 	msm_sd_register(&act_ctrl_t->msm_sd);
+
+#ifdef CONFIG_COMPAT
+	msm_actuator_v4l2_subdev_fops.compat_ioctl32 =
+		msm_actuator_subdev_fops_ioctl;
+#endif
+	act_ctrl_t->msm_sd.sd.devnode->fops =
+		&msm_actuator_v4l2_subdev_fops;
+
 	pr_info("msm_actuator_i2c_probe: succeeded\n");
 	CDBG("Exit\n");
 
+	return 0;
+
 probe_failure:
+	kfree(act_ctrl_t);
 	return rc;
 }
 
