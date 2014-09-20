@@ -1837,3 +1837,99 @@ static void *rcg_clk_dt_parser(struct device *dev, struct device_node *np)
 }
 MSMCLK_PARSER(rcg_clk_dt_parser, "qcom,rcg-hid", 0);
 MSMCLK_PARSER(rcg_clk_dt_parser, "qcom,rcg-mn", 1);
+
+static int parse_rec_parents(struct device *dev,
+			struct device_node *np, struct mux_clk *mux)
+{
+	int i, rc;
+	char *name = "qcom,recursive-parents";
+	phandle p;
+
+	mux->num_rec_parents = of_property_count_phandles(np, name);
+	if (mux->num_rec_parents <= 0)
+		return 0;
+
+	mux->rec_parents = devm_kzalloc(dev,
+			sizeof(*mux->rec_parents) * mux->num_rec_parents,
+			GFP_KERNEL);
+
+	if (!mux->rec_parents) {
+		dt_err(np, "memory alloc failure\n");
+		return -ENOMEM;
+	}
+
+	for (i = 0; i < mux->num_rec_parents; i++) {
+		rc = of_property_read_phandle_index(np, name, i, &p);
+		if (rc) {
+			dt_prop_err(np, name, "unable to read u32\n");
+			return rc;
+		}
+
+		mux->rec_parents[i] = msmclk_parse_phandle(dev, p);
+		if (IS_ERR(mux->rec_parents[i])) {
+			dt_prop_err(np, name, "hashtable lookup failure\n");
+			return PTR_ERR(mux->rec_parents[i]);
+		}
+	}
+
+	return 0;
+}
+
+static void *mux_reg_clk_dt_parser(struct device *dev, struct device_node *np)
+{
+	struct mux_clk *mux;
+	struct msmclk_data *drv;
+	int rc;
+
+	mux = devm_kzalloc(dev, sizeof(*mux), GFP_KERNEL);
+	if (!mux) {
+		dt_err(np, "memory alloc failure\n");
+		return ERR_PTR(-ENOMEM);
+	}
+
+	mux->parents = msmclk_parse_clk_src(dev, np, &mux->num_parents);
+	if (IS_ERR(mux->parents))
+		return mux->parents;
+
+	mux->c.parents = mux->parents;
+	mux->c.num_parents = mux->num_parents;
+
+	drv = msmclk_parse_phandle(dev, np->parent->phandle);
+	if (IS_ERR_OR_NULL(drv))
+		return drv;
+	mux->base = &drv->base;
+
+	rc = parse_rec_parents(dev, np, mux);
+	if (rc) {
+		dt_err(np, "Incorrect qcom,recursive-parents dt property\n");
+		return ERR_PTR(rc);
+	}
+
+	rc = of_property_read_u32(np, "qcom,offset", &mux->offset);
+	if (rc) {
+		dt_err(np, "missing qcom,offset dt property\n");
+		return ERR_PTR(-EINVAL);
+	}
+
+	rc = of_property_read_u32(np, "qcom,mask", &mux->mask);
+	if (rc) {
+		dt_err(np, "missing qcom,mask dt property\n");
+		return ERR_PTR(-EINVAL);
+	}
+
+	rc = of_property_read_u32(np, "qcom,shift", &mux->shift);
+	if (rc) {
+		dt_err(np, "missing qcom,shift dt property\n");
+		return ERR_PTR(-EINVAL);
+	}
+
+	mux->c.ops = &clk_ops_gen_mux;
+	mux->ops = &mux_reg_ops;
+
+	/* Optional Properties */
+	of_property_read_u32(np, "qcom,en-offset", &mux->en_offset);
+	of_property_read_u32(np, "qcom,en-mask", &mux->en_mask);
+
+	return msmclk_generic_clk_init(dev, np, &mux->c);
+};
+MSMCLK_PARSER(mux_reg_clk_dt_parser, "qcom,mux-reg", 0);
