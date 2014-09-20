@@ -348,7 +348,6 @@ static void adreno_drawctxt_detach_callback(struct kgsl_device *device,
 	wake_up_all(&drawctxt->waiting);
 	wake_up_all(&drawctxt->wq);
 	complete_all(&drawctxt->base.detach_gate);
-	kgsl_del_event_group(&context->events);
 	kgsl_context_put(context);
 	adreno_profile_process_results(adreno_dev);
 }
