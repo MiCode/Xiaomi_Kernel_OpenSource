@@ -1,7 +1,6 @@
 config ARM64
 	def_bool y
 	select ARCH_HAS_ATOMIC64_DEC_IF_POSITIVE
-	select ARCH_HAS_OPP
 	select ARCH_HAS_TICK_BROADCAST if GENERIC_CLOCKEVENTS_BROADCAST
 	select ARCH_USE_CMPXCHG_LOCKREF
 	select ARCH_SUPPORTS_ATOMIC_RMW
@@ -168,7 +167,6 @@ config ARCH_MSM
 	select MSM_BIMC_BWMON
 	select DEVFREQ_GOV_MSM_BW_HWMON
 	select DEVFREQ_SIMPLE_DEV
-	select ARCH_HAS_OPP
 	help
 	  This enables support for the ARMv8 based Qualcomm chipsets.
 
