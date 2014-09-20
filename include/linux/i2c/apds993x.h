@@ -117,6 +117,7 @@ struct apds993x_platform_data {
 
 	bool i2c_pull_up;
 	bool digital_pwr_regulator;
+	bool default_cal;
 
 	unsigned int irq_gpio;
 	u32 irq_gpio_flags;
