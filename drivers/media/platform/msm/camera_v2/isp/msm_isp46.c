@@ -279,15 +279,9 @@ static void msm_vfe46_init_hardware_reg(struct vfe_device *vfe_dev)
 	msm_vfe46_init_danger_safe_parms(vfe_dev);
 	/* CGC_OVERRIDE */
 	/* MODULE_LENS_CGC_OVERRIDE */
-	msm_camera_io_w(0x000007FF, vfe_dev->vfe_base + 0x2C);
-	/* MODULE_STATS_CGC_OVERRIDE */
-	msm_camera_io_w(0x000000FF, vfe_dev->vfe_base + 0x30);
+	msm_camera_io_w(0x00000383, vfe_dev->vfe_base + 0x2C);
 	/* MODULE_COLOR_CGC_OVERRIDE */
-	msm_camera_io_w(0x000000FF, vfe_dev->vfe_base + 0x34);
-	/* MODULE_ZOOM_CGC_OVERRIDE */
-	msm_camera_io_w(0x000007FF, vfe_dev->vfe_base + 0x38);
-	/* MODULE_BUS_CGC_OVERRIDE */
-	msm_camera_io_w(0x8001007F, vfe_dev->vfe_base + 0x3C);
+	msm_camera_io_w(0x0000001C, vfe_dev->vfe_base + 0x34);
 	/* BUS_CFG */
 	msm_camera_io_w(0x00000001, vfe_dev->vfe_base + 0x84);
 	/* IRQ_MASK/CLEAR */
@@ -498,6 +492,20 @@ static void msm_vfe46_axi_reload_wm(
 	struct vfe_device *vfe_dev, uint32_t reload_mask)
 {
 	msm_camera_io_w_mb(reload_mask, vfe_dev->vfe_base + 0x80);
+}
+
+static void msm_vfe46_axi_update_cgc_override(struct vfe_device *vfe_dev,
+	uint8_t wm_idx, uint8_t enable)
+{
+	uint32_t val;
+
+	/* Change CGC override */
+	val = msm_camera_io_r(vfe_dev->vfe_base + 0x3C);
+	if (enable)
+		val |= (1 << wm_idx);
+	else
+		val &= ~(1 << wm_idx);
+	msm_camera_io_w_mb(val, vfe_dev->vfe_base + 0x3C);
 }
 
 static void msm_vfe46_axi_enable_wm(struct vfe_device *vfe_dev,
@@ -1484,6 +1492,58 @@ static void msm_vfe46_stats_cfg_ub(struct vfe_device *vfe_dev)
 	}
 }
 
+static void msm_vfe46_stats_update_cgc_override(struct vfe_device *vfe_dev,
+	uint32_t stats_mask, uint8_t enable)
+{
+	int i;
+	uint32_t module_cfg, cgc_mask = 0;
+
+	for (i = 0; i < VFE46_NUM_STATS_TYPE; i++) {
+		if ((stats_mask >> i) & 0x1) {
+			switch (i) {
+			case STATS_IDX_HDR_BE:
+				cgc_mask |= 1;
+				break;
+			case STATS_IDX_HDR_BHIST:
+				cgc_mask |= (1 << 1);
+				break;
+			case STATS_IDX_BF:
+				cgc_mask |= (1 << 2);
+				break;
+			case STATS_IDX_BG:
+				cgc_mask |= (1 << 3);
+				break;
+			case STATS_IDX_BHIST:
+				cgc_mask |= (1 << 4);
+				break;
+			case STATS_IDX_RS:
+				cgc_mask |= (1 << 5);
+				break;
+			case STATS_IDX_CS:
+				cgc_mask |= (1 << 6);
+				break;
+			case STATS_IDX_IHIST:
+				cgc_mask |= (1 << 7);
+				break;
+			case STATS_IDX_BF_SCALE:
+				cgc_mask |= (1 << 2);
+				break;
+			default:
+				pr_err("%s: Invalid stats mask\n", __func__);
+				return;
+			}
+		}
+	}
+
+	/* CGC override */
+	module_cfg = msm_camera_io_r(vfe_dev->vfe_base + 0x30);
+	if (enable)
+		module_cfg |= cgc_mask;
+	else
+		module_cfg &= ~cgc_mask;
+	msm_camera_io_w(module_cfg, vfe_dev->vfe_base + 0x30);
+}
+
 static void msm_vfe46_stats_enable_module(struct vfe_device *vfe_dev,
 	uint32_t stats_mask, uint8_t enable)
 {
@@ -1732,6 +1792,8 @@ struct msm_vfe_hardware_info vfe46_hw_info = {
 			.get_pingpong_status = msm_vfe46_get_pingpong_status,
 			.halt = msm_vfe46_axi_halt,
 			.restart = msm_vfe46_axi_restart,
+			.update_cgc_override =
+				msm_vfe46_axi_update_cgc_override,
 		},
 		.core_ops = {
 			.reg_update = msm_vfe46_reg_update,
@@ -1769,6 +1831,8 @@ struct msm_vfe_hardware_info vfe46_hw_info = {
 			.get_wm_mask = msm_vfe46_stats_get_wm_mask,
 			.get_frame_id = msm_vfe46_stats_get_frame_id,
 			.get_pingpong_status = msm_vfe46_get_pingpong_status,
+			.update_cgc_override =
+				msm_vfe46_stats_update_cgc_override,
 		},
 	},
 	.dmi_reg_offset = 0xACC,

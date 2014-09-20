@@ -243,9 +243,6 @@ static void msm_vfe44_init_hardware_reg(struct vfe_device *vfe_dev)
 {
 	msm_vfe44_init_qos_parms(vfe_dev);
 	msm_vfe44_init_vbif_parms(vfe_dev);
-	/* CGC_OVERRIDE */
-	msm_camera_io_w(0xFBFFFFFF, vfe_dev->vfe_base + 0x14);
-	msm_camera_io_w(0xC001FF7F, vfe_dev->vfe_base + 0x974);
 	/* BUS_CFG */
 	msm_camera_io_w(0x10000001, vfe_dev->vfe_base + 0x50);
 	msm_camera_io_w(0xE00000F3, vfe_dev->vfe_base + 0x28);
@@ -559,6 +556,20 @@ static void msm_vfe44_axi_enable_wm(struct vfe_device *vfe_dev,
 		val &= ~0x1;
 	msm_camera_io_w_mb(val,
 		vfe_dev->vfe_base + VFE44_WM_BASE(wm_idx));
+}
+
+static void msm_vfe44_axi_update_cgc_override(struct vfe_device *vfe_dev,
+	uint8_t wm_idx, uint8_t cgc_override)
+{
+	uint32_t val = 0;
+
+	/* Change CGC override */
+	val = msm_camera_io_r(vfe_dev->vfe_base + 0x974);
+	if (cgc_override)
+		val |= (1 << wm_idx);
+	else
+		val &= ~(1 << wm_idx);
+	msm_camera_io_w_mb(val, vfe_dev->vfe_base + 0x974);
 }
 
 static void msm_vfe44_axi_cfg_comp_mask(struct vfe_device *vfe_dev,
@@ -1558,6 +1569,58 @@ static void msm_vfe44_stats_enable_module(struct vfe_device *vfe_dev,
 	msm_camera_io_w(stats_cfg, vfe_dev->vfe_base + 0x888);
 }
 
+static void msm_vfe44_stats_update_cgc_override(struct vfe_device *vfe_dev,
+	uint32_t stats_mask, uint8_t cgc_override)
+{
+	int i;
+	uint32_t val = 0, cgc_mask = 0;
+
+	for (i = 0; i < VFE44_NUM_STATS_TYPE; i++) {
+		if ((stats_mask >> i) & 0x1) {
+			switch (i) {
+			case STATS_IDX_BE:
+				cgc_mask |= (1 << 8);
+				break;
+			case STATS_IDX_BG:
+				cgc_mask |= (1 << 9);
+				break;
+			case STATS_IDX_BF:
+				cgc_mask |= (1 << 10);
+				break;
+			case STATS_IDX_AWB:
+				cgc_mask |= (1 << 11);
+				break;
+			case STATS_IDX_RS:
+				cgc_mask |= (1 << 12);
+				break;
+			case STATS_IDX_CS:
+				cgc_mask |= (1 << 13);
+				break;
+			case STATS_IDX_IHIST:
+				cgc_mask |= (1 << 14);
+				break;
+			case STATS_IDX_BHIST:
+				cgc_mask |= (1 << 15);
+				break;
+			case STATS_IDX_BF_SCALE:
+				cgc_mask |= (1 << 10);
+				break;
+			default:
+				pr_err("%s: Invalid stats mask\n", __func__);
+				return;
+			}
+		}
+	}
+
+	/* CGC override */
+	val = msm_camera_io_r(vfe_dev->vfe_base + 0x974);
+	if (cgc_override)
+		val |= cgc_mask;
+	else
+		val &= ~cgc_mask;
+	msm_camera_io_w(val, vfe_dev->vfe_base + 0x974);
+}
+
 static void msm_vfe44_stats_update_ping_pong_addr(
 	struct vfe_device *vfe_dev, struct msm_vfe_stats_stream *stream_info,
 	uint32_t pingpong_status, dma_addr_t paddr)
@@ -1757,6 +1820,8 @@ struct msm_vfe_hardware_info vfe44_hw_info = {
 			.get_pingpong_status = msm_vfe44_get_pingpong_status,
 			.halt = msm_vfe44_axi_halt,
 			.restart = msm_vfe44_axi_restart,
+			.update_cgc_override =
+				msm_vfe44_axi_update_cgc_override,
 		},
 		.core_ops = {
 			.reg_update = msm_vfe44_reg_update,
@@ -1794,6 +1859,8 @@ struct msm_vfe_hardware_info vfe44_hw_info = {
 			.get_wm_mask = msm_vfe44_stats_get_wm_mask,
 			.get_frame_id = msm_vfe44_stats_get_frame_id,
 			.get_pingpong_status = msm_vfe44_get_pingpong_status,
+			.update_cgc_override =
+				msm_vfe44_stats_update_cgc_override,
 		},
 	},
 	.dmi_reg_offset = 0x918,

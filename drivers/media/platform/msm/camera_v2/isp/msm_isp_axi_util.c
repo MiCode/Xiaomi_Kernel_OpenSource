@@ -1329,6 +1329,35 @@ int msm_isp_axi_restart(struct vfe_device *vfe_dev,
 	return rc;
 }
 
+static int msm_isp_axi_update_cgc_override(struct vfe_device *vfe_dev,
+	struct msm_vfe_axi_stream_cfg_cmd *stream_cfg_cmd,
+	uint8_t cgc_override)
+{
+	int i = 0, j = 0;
+	struct msm_vfe_axi_stream *stream_info;
+	struct msm_vfe_axi_shared_data *axi_data = &vfe_dev->axi_data;
+
+	if (stream_cfg_cmd->num_streams > MAX_NUM_STREAM)
+		return -EINVAL;
+
+	for (i = 0; i < stream_cfg_cmd->num_streams; i++) {
+		if (HANDLE_TO_IDX(stream_cfg_cmd->stream_handle[i])
+		> MAX_NUM_STREAM) {
+			return -EINVAL;
+		}
+		stream_info = &axi_data->stream_info[
+			HANDLE_TO_IDX(stream_cfg_cmd->stream_handle[i])];
+		for (j = 0; j < stream_info->num_planes; j++) {
+			if (vfe_dev->hw_info->vfe_ops.axi_ops.
+				update_cgc_override)
+				vfe_dev->hw_info->vfe_ops.axi_ops.
+					update_cgc_override(vfe_dev,
+					stream_info->wm[j], cgc_override);
+		}
+	}
+	return 0;
+}
+
 static int msm_isp_start_axi_stream(struct vfe_device *vfe_dev,
 			struct msm_vfe_axi_stream_cfg_cmd *stream_cfg_cmd,
 			enum msm_isp_camif_update_state camif_update)
@@ -1522,12 +1551,17 @@ int msm_isp_cfg_axi_stream(struct vfe_device *vfe_dev, void *arg)
 	}
 	camif_update = msm_isp_get_camif_update_state(vfe_dev, stream_cfg_cmd);
 
-	if (stream_cfg_cmd->cmd == START_STREAM)
+	if (stream_cfg_cmd->cmd == START_STREAM) {
+		msm_isp_axi_update_cgc_override(vfe_dev, stream_cfg_cmd, 1);
+
 		rc = msm_isp_start_axi_stream(
 		   vfe_dev, stream_cfg_cmd, camif_update);
-	else
+	} else {
 		rc = msm_isp_stop_axi_stream(
 		   vfe_dev, stream_cfg_cmd, camif_update);
+
+		msm_isp_axi_update_cgc_override(vfe_dev, stream_cfg_cmd, 0);
+	}
 
 	if (rc < 0)
 		pr_err("%s: start/stop stream failed\n", __func__);

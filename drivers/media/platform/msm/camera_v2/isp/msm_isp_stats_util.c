@@ -427,6 +427,29 @@ static int msm_isp_stats_wait_for_cfg_done(struct vfe_device *vfe_dev)
 	return rc;
 }
 
+static int msm_isp_stats_update_cgc_override(struct vfe_device *vfe_dev,
+	struct msm_vfe_stats_stream_cfg_cmd *stream_cfg_cmd)
+{
+	int i;
+	uint32_t stats_mask = 0, idx;
+
+	for (i = 0; i < stream_cfg_cmd->num_streams; i++) {
+		idx = STATS_IDX(stream_cfg_cmd->stream_handle[i]);
+
+		if (idx >= vfe_dev->hw_info->stats_hw_info->num_stats_type) {
+			pr_err("%s Invalid stats index %d", __func__, idx);
+			return -EINVAL;
+		}
+		stats_mask |= 1 << idx;
+	}
+
+	if (vfe_dev->hw_info->vfe_ops.stats_ops.update_cgc_override) {
+		vfe_dev->hw_info->vfe_ops.stats_ops.update_cgc_override(
+			vfe_dev, stats_mask, stream_cfg_cmd->enable);
+	}
+	return 0;
+}
+
 static int msm_isp_start_stats_stream(struct vfe_device *vfe_dev,
 	struct msm_vfe_stats_stream_cfg_cmd *stream_cfg_cmd)
 {
@@ -589,10 +612,15 @@ int msm_isp_cfg_stats_stream(struct vfe_device *vfe_dev, void *arg)
 	if (vfe_dev->stats_data.num_active_stream == 0)
 		vfe_dev->hw_info->vfe_ops.stats_ops.cfg_ub(vfe_dev);
 
-	if (stream_cfg_cmd->enable)
+	if (stream_cfg_cmd->enable) {
+		msm_isp_stats_update_cgc_override(vfe_dev, stream_cfg_cmd);
+
 		rc = msm_isp_start_stats_stream(vfe_dev, stream_cfg_cmd);
-	else
+	} else {
 		rc = msm_isp_stop_stats_stream(vfe_dev, stream_cfg_cmd);
+
+		msm_isp_stats_update_cgc_override(vfe_dev, stream_cfg_cmd);
+	}
 
 	return rc;
 }
