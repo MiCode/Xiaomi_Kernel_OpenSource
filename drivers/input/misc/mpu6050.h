@@ -28,6 +28,10 @@
 #define REG_ACCEL_MOT_DUR	0x20
 #define ACCL_CONFIG_FSR_SHIFT	3
 
+#define REG_ACCELMOT_THR	0x1F
+
+#define REG_ACCEL_MOT_DUR	0x20
+
 #define REG_FIFO_EN		0x23
 #define BIT_ACCEL_OUT		0x08
 #define BITS_GYRO_OUT		0x70
@@ -67,6 +71,9 @@
 #define BIT_DMP_EN		0x80
 #define BIT_ACCEL_FIFO		0x08
 #define BIT_GYRO_FIFO		0x70
+
+#define REG_DETECT_CTRL		0x69
+#define MOT_DET_DELAY_SHIFT	4
 
 #define REG_PWR_MGMT_1		0x6B
 #define BIT_H_RESET		0x80
@@ -110,6 +117,9 @@
 
 /* initial configure */
 #define INIT_FIFO_RATE		50
+#define DEFAULT_MOT_THR		1
+#define DEFAULT_MOT_DET_DUR	1
+#define DEFAULT_MOT_DET_DELAY	0
 
 /* chip reset wait */
 #define MPU6050_RESET_RETRY_CNT	10
@@ -185,6 +195,7 @@ enum inv_devices {
  *  @fifo_en:	Determines which data will appear in FIFO.
  *  @gyro_config:	gyro config register.
  *  @accel_config:	accel config register
+ *  @mot_thr:	Motion detection threshold.
  *  @fifo_count_h:	Upper byte of FIFO count.
  *  @fifo_r_w:	FIFO register.
  *  @raw_gyro:	Address of first gyro register.
@@ -204,6 +215,8 @@ struct mpu_reg_map {
 	u8 gyro_config;
 	u8 accel_config;
 	u8 fifo_count_h;
+	u8 mot_thr;
+	u8 mot_dur;
 	u8 fifo_r_w;
 	u8 raw_gyro;
 	u8 raw_accel;
@@ -247,6 +260,7 @@ struct mpu_chip_config {
 	u32 tap_on:1;
 	u32 flick_int_on:1;
 	u32 int_enabled:1;
+	u32 mot_det_on:1;
 	u8 int_pin_cfg;
 	u16 lpa_freq;
 	u16 rate_div;

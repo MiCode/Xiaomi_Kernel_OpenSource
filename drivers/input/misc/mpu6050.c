@@ -261,7 +261,8 @@ static const u8 mpu_accel_fs_shift[NUM_ACCL_FSR] = {
 /* Function declarations */
 static void mpu6050_pinctrl_state(struct mpu6050_sensor *sensor,
 			bool active);
-static int mpu6050_set_drdy_int(struct mpu6050_sensor *sensor, bool on);
+static int mpu6050_set_interrupt(struct mpu6050_sensor *sensor,
+		const u8 mask, bool on);
 
 
 static int mpu6050_power_ctl(struct mpu6050_sensor *sensor, bool on)
@@ -847,7 +848,8 @@ static int mpu6050_gyro_enable(struct mpu6050_sensor *sensor, bool on)
 		}
 
 		if (!sensor->cfg.int_enabled) {
-			ret = mpu6050_set_drdy_int(sensor, true);
+			ret = mpu6050_set_interrupt(sensor,
+				BIT_DATA_RDY_EN, true);
 			if (ret < 0) {
 				dev_err(&sensor->client->dev,
 					"Fail to enable interrupt mode for gyro, ret=%d\n",
@@ -861,7 +863,8 @@ static int mpu6050_gyro_enable(struct mpu6050_sensor *sensor, bool on)
 		sensor->cfg.enable = 1;
 	} else {
 		if (sensor->cfg.int_enabled && !sensor->cfg.accel_enable) {
-			ret = mpu6050_set_drdy_int(sensor, false);
+			ret = mpu6050_set_interrupt(sensor,
+				BIT_DATA_RDY_EN, false);
 			if (ret < 0) {
 				dev_err(&sensor->client->dev,
 					"Fail to disable interrupt mode for gyro, ret=%d\n",
@@ -1089,10 +1092,10 @@ exit:
 }
 
 /*
-  * Configure the sensor interrupt register that allow sensor to
-  * issue interrupt for each new sensor event.
+  * Set interrupt enabling bits to enable/disable specific type of interrupt.
   */
-static int mpu6050_set_drdy_int(struct mpu6050_sensor *sensor, bool on)
+static int mpu6050_set_interrupt(struct mpu6050_sensor *sensor,
+		const u8 mask, bool on)
 {
 	int ret;
 	u8 data;
@@ -1100,44 +1103,65 @@ static int mpu6050_set_drdy_int(struct mpu6050_sensor *sensor, bool on)
 	if (sensor->cfg.is_asleep)
 		return -EINVAL;
 
+	ret = i2c_smbus_read_byte_data(sensor->client,
+				sensor->reg.int_enable);
+	if (ret < 0) {
+		dev_err(&sensor->client->dev,
+			"Fail read interrupt mode. ret=%d\n", ret);
+		return ret;
+	}
+
 	if (on) {
-		ret = i2c_smbus_read_byte_data(sensor->client,
-					sensor->reg.int_enable);
-		if (ret < 0) {
-			dev_err(&sensor->client->dev,
-				"Fail read interrupt mode. ret=%d\n", ret);
-			return ret;
-		}
-
 		data = (u8)ret;
-		data |= BIT_DATA_RDY_EN;
-		ret = i2c_smbus_write_byte_data(sensor->client,
-				sensor->reg.int_enable, data);
-		if (ret < 0) {
-			dev_err(&sensor->client->dev,
-				"Fail to set interrupt. ret=%d\n", ret);
-			return ret;
-		}
+		data |= mask;
 	} else {
-		ret = i2c_smbus_read_byte_data(sensor->client,
-					sensor->reg.int_enable);
-		if (ret < 0) {
-			dev_err(&sensor->client->dev,
-				"Fail read interrupt mode. ret=%d\n", ret);
-			return ret;
-		}
-
 		data = (u8)ret;
-		data &= ~BIT_DATA_RDY_EN;
-		ret = i2c_smbus_write_byte_data(sensor->client,
-				sensor->reg.int_enable, data);
-		if (ret < 0) {
-			dev_err(&sensor->client->dev,
-				"Fail to set interrupt. ret=%d\n", ret);
-			return ret;
-		}
+		data &= ~mask;
+	}
+
+	ret = i2c_smbus_write_byte_data(sensor->client,
+			sensor->reg.int_enable, data);
+	if (ret < 0) {
+		dev_err(&sensor->client->dev,
+			"Fail to set interrupt. ret=%d\n", ret);
+		return ret;
 	}
 	return 0;
+}
+
+/*
+  * Enable/disable motion detection interrupt.
+  */
+static int mpu6050_set_motion_det(struct mpu6050_sensor *sensor, bool on)
+{
+	int ret;
+
+	if (on) {
+		ret = i2c_smbus_write_byte_data(sensor->client,
+				sensor->reg.mot_thr, DEFAULT_MOT_THR);
+		if (ret < 0)
+			goto err_exit;
+
+		ret = i2c_smbus_write_byte_data(sensor->client,
+				sensor->reg.mot_dur, DEFAULT_MOT_DET_DUR);
+		if (ret < 0)
+			goto err_exit;
+
+	}
+
+	ret = mpu6050_set_interrupt(sensor, BIT_MOT_EN, on);
+	if (ret < 0)
+		goto err_exit;
+
+	sensor->cfg.mot_det_on = on;
+	/* Use default motion detection delay 4ms */
+
+	return 0;
+
+err_exit:
+	dev_err(&sensor->client->dev,
+			"Fail to set motion detection. ret=%d\n", ret);
+	return ret;
 }
 
 /* Update sensor sample rate divider upon accel and gyro polling rate. */
@@ -1364,7 +1388,8 @@ static int mpu6050_accel_enable(struct mpu6050_sensor *sensor, bool on)
 		}
 
 		if (!sensor->cfg.int_enabled) {
-			ret = mpu6050_set_drdy_int(sensor, true);
+			ret = mpu6050_set_interrupt(sensor,
+				BIT_DATA_RDY_EN, true);
 			if (ret < 0) {
 				dev_err(&sensor->client->dev,
 					"Fail to enable interrupt mode for accel, ret=%d\n",
@@ -1378,7 +1403,8 @@ static int mpu6050_accel_enable(struct mpu6050_sensor *sensor, bool on)
 		sensor->cfg.enable = 1;
 	} else {
 		if (sensor->cfg.int_enabled && !sensor->cfg.gyro_enable) {
-			ret = mpu6050_set_drdy_int(sensor, false);
+			ret = mpu6050_set_interrupt(sensor,
+				BIT_DATA_RDY_EN, false);
 			if (ret < 0) {
 				dev_err(&sensor->client->dev,
 					"Fail to disable interrupt mode for accel, ret=%d\n",
@@ -1701,6 +1727,8 @@ static void setup_mpu6050_reg(struct mpu_reg_map *reg)
 	reg->fifo_en		= REG_FIFO_EN;
 	reg->gyro_config	= REG_GYRO_CONFIG;
 	reg->accel_config	= REG_ACCEL_CONFIG;
+	reg->mot_thr		= REG_ACCEL_MOT_THR;
+	reg->mot_dur		= REG_ACCEL_MOT_DUR;
 	reg->fifo_count_h	= REG_FIFO_COUNT_H;
 	reg->fifo_r_w		= REG_FIFO_R_W;
 	reg->raw_gyro		= REG_RAW_GYRO;
@@ -2302,9 +2330,27 @@ static int mpu6050_suspend(struct device *dev)
 	int ret = 0;
 
 	mutex_lock(&sensor->op_lock);
-	if (!sensor->use_poll)
+	if (sensor->cfg.accel_enable && !sensor->use_poll) {
+		/* keep accel on and config motion detection wakeup */
+		ret = mpu6050_set_interrupt(sensor,
+				BIT_DATA_RDY_EN, false);
+		if (ret == 0)
+			ret = mpu6050_set_motion_det(sensor, true);
+		if (ret == 0) {
+			irq_set_irq_wake(client->irq, 1);
+
+			dev_dbg(&client->dev,
+				"Enable motion detection success\n");
+			goto exit;
+		}
+		/*  if motion detection config does not success,
+		  *  not exit suspend and sensor will be power off.
+		  */
+	}
+
+	if (!sensor->use_poll) {
 		disable_irq(client->irq);
-	else {
+	} else {
 		if (sensor->cfg.gyro_enable)
 			cancel_delayed_work_sync(&sensor->gyro_poll_work);
 
@@ -2338,6 +2384,16 @@ static int mpu6050_resume(struct device *dev)
 	struct i2c_client *client = to_i2c_client(dev);
 	struct mpu6050_sensor *sensor = i2c_get_clientdata(client);
 	int ret = 0;
+
+	if (sensor->cfg.mot_det_on) {
+		/* keep accel on and config motion detection wakeup */
+		irq_set_irq_wake(client->irq, 0);
+		mpu6050_set_motion_det(sensor, false);
+		mpu6050_set_interrupt(sensor,
+				BIT_DATA_RDY_EN, true);
+		dev_dbg(&client->dev, "Disable motion detection success\n");
+		goto exit;
+	}
 
 	/* Keep sensor power on to prevent bad power state */
 	ret = mpu6050_power_ctl(sensor, true);
