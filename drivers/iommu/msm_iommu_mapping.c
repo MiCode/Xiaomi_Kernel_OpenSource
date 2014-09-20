@@ -259,6 +259,7 @@ static void msm_iommu_heap_unmap_iommu(struct msm_iommu_map *data)
 	unsigned int domain_num;
 	unsigned int partition_num;
 	struct iommu_domain *domain;
+	int ret;
 
 	BUG_ON(!msm_use_iommu());
 
@@ -272,7 +273,8 @@ static void msm_iommu_heap_unmap_iommu(struct msm_iommu_map *data)
 		return;
 	}
 
-	iommu_unmap_range(domain, data->iova_addr, data->mapped_size);
+	ret = iommu_unmap_range(domain, data->iova_addr, data->mapped_size);
+	WARN_ON(ret < 0);
 	msm_free_iova_address(data->iova_addr, domain_num, partition_num,
 				data->mapped_size);
 
