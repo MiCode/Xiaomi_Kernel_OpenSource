@@ -25,7 +25,8 @@ enum msm_pcie_config {
 
 enum msm_pcie_pm_opt {
 	MSM_PCIE_SUSPEND,
-	MSM_PCIE_RESUME
+	MSM_PCIE_RESUME,
+	MSM_PCIE_REQ_EXIT_L1,
 };
 
 enum msm_pcie_event {
