@@ -1402,7 +1402,6 @@ static int diagfwd_mux_open(int id, int mode)
 	int i;
 	unsigned long flags;
 
-	driver->usb_connected = 1;
 	if (driver->rsp_buf_busy) {
 		/*
 		 * When a client switches from callback mode to USB mode
