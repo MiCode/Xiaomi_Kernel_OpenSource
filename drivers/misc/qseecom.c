@@ -1776,6 +1776,11 @@ static int __qseecom_send_cmd(struct qseecom_dev_handle *data,
 	bool found_app = false;
 	int name_len = 0;
 
+	if (!data || !data->client.ihandle) {
+		pr_err("Client or client handle is not initialized\n");
+		return -EINVAL;
+	}
+
 	if (req->cmd_req_buf == NULL || req->resp_buf == NULL) {
 		pr_err("cmd buffer or response buffer is null\n");
 		return -EINVAL;
@@ -1815,11 +1820,6 @@ static int __qseecom_send_cmd(struct qseecom_dev_handle *data,
 		pr_debug("resp_buf. Required: %u, Available: %zu\n",
 				reqd_len_sb_in, data->client.sb_length);
 		return -ENOMEM;
-	}
-
-	if (!data || !data->client.ihandle) {
-		pr_err("Client or client handle is not initialized\n");
-		return -EINVAL;
 	}
 
 	/* find app_id & img_name from list */
