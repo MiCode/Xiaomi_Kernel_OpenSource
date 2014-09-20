@@ -311,6 +311,15 @@ config CNSS
 	  This driver also adds support to integrate PCIe WLAN module to subsystem
 	  restart framework.
 
+config CNSS_SECURE_FW
+	bool "Enable/Disable Memory Allocation for Secure Firmware Feature"
+	depends on CNSS
+	---help---
+	  CLD Driver can use this for holding local copy of firmware
+	  binaries which is used for sha crypto computation.
+	  The Memory Allocation is done only if this Config Parameter is
+	  enabled
+
 config WCNSS_CORE_PRONTO
 	tristate "Qualcomm WCNSS Pronto Support"
 	depends on WCNSS_CORE
