@@ -2598,8 +2598,8 @@ static void dwc3_endpoint_transfer_complete(struct dwc3 *dwc,
 	if (clean_busy)
 		dep->flags &= ~DWC3_EP_BUSY;
 
-	if (usb_endpoint_xfer_bulk(dep->endpoint.desc) &&
-				bulk_ep_xfer_timeout_ms) {
+	if (bulk_ep_xfer_timeout_ms && dep->endpoint.desc &&
+		usb_endpoint_xfer_bulk(dep->endpoint.desc)) {
 		/*
 		 * Cancel transfer complete timer when hitting the last TRB.
 		 * If this is ISR (LST) racing with hr_timer then timer_cancel
