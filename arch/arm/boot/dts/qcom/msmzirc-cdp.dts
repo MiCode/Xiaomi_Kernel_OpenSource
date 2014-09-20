@@ -19,3 +19,7 @@
 	compatible = "qcom,msmzirc-cdp", "qcom,msmzirc", "qcom,cdp";
 	qcom,board-id = <1 0>;
 };
+
+&usb3 {
+	qcom,skip-charger-detection;
+};

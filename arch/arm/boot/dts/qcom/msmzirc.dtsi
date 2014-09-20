@@ -651,7 +651,6 @@
 
 	usb3: ssusb@8a00000{
 		compatible = "qcom,dwc-usb3-msm";
-		status = "disabled";
 		reg = <0x08a00000 0xfc000>;
 		#address-cells = <1>;
 		#size-cells = <1>;
@@ -659,6 +658,7 @@
 
 		interrupts = <0 133 0>, <0 180 0>;
 		interrupt-names = "hs_phy_irq", "pwr_event_irq";
+		qcom,otg-capability;
 		USB3_GDSC-supply = <&gdsc_usb30>;
 		qcom,usb-dbm = <&dbm_1p5>;
 
@@ -687,6 +687,7 @@
 			interrupt-names = "irq", "otg_irq";
 			usb-phy = <&qusb_phy>, <&ssphy>;
 			snps,nominal-elastic-buffer;
+			snps,core-reset-after-phy-init;
 			snps,hsphy-auto-suspend-disable;
 			snps,ssphy-auto-suspend-disable;
 			snps,hird_thresh = <0x10>;
@@ -695,14 +696,12 @@
 
 	android_usb {
 		compatible = "qcom,android-usb";
-                status = "disabled";
 		qcom,pm_qos_latency = <101 2001 30001>;
 	};
 
 	qusb_phy: qusb@79000 {
 		compatible = "qcom,qusb2phy";
-		status = "disabled";
-		reg = <0x00079000 0x7000>,
+		reg = <0x00079000 0x180>,
 		      <0x08af8800 0x400>;
 		reg-names = "qusb_phy_base",
 			    "qscratch_base";
@@ -721,14 +720,16 @@
 
 	ssphy: ssphy@78000 {
 		compatible = "qcom,usb-ssphy-qmp";
-		status = "disabled";
-		reg = <0x00078000 0x45c>;
-		reg-names = "qmp_phy_base";
+		reg = <0x00078000 0x45c>,
+		      <0x0007e000 0x400>;
+		reg-names = "qmp_phy_base",
+			    "qmp_ahb2phy_base";
 		vdd-supply = <&pmd9635_l4>;
 		vdda18-supply = <&pmd9635_l8>;
 		qcom,vdd-voltage-level = <0 1000000 1000000>;
 		qcom,vbus-valid-override;
 		qcom,ext-vbus-id;
+		qcom,override-pll-calibration;
 
 		clocks = <&clock_gcc clk_gcc_usb3_aux_clk>,
 			 <&clock_gcc clk_gcc_usb3_pipe_clk>,
