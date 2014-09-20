@@ -421,6 +421,63 @@
 		};
 	};
 
+	qcom,wcnss-wlan@a000000 {
+		compatible = "qcom,wcnss_wlan";
+		reg = <0x0a000000 0x280000>,
+			<0xb011008 0x04>,
+			<0x0a21b000 0x3000>,
+			<0x03204000 0x00000100>,
+			<0x03200800 0x00000200>,
+			<0x0A100400 0x00000200>,
+			<0x0A205050 0x00000200>,
+			<0x0A219000 0x00000020>,
+			<0x0A080488 0x00000008>,
+			<0x0A080fb0 0x00000008>,
+			<0x0A08040c 0x00000008>,
+			<0x0A0120a8 0x00000008>,
+			<0x0A012448 0x00000008>,
+			<0x0A080c00 0x00000001>;
+
+		reg-names = "wcnss_mmio", "wcnss_fiq",
+			    "pronto_phy_base", "riva_phy_base",
+			    "riva_ccu_base", "pronto_a2xb_base",
+			    "pronto_ccpu_base", "pronto_saw2_base",
+			    "wlan_tx_phy_aborts","wlan_brdg_err_source",
+			    "wlan_tx_status", "alarms_txctl",
+			    "alarms_tactl", "pronto_mcu_base";
+
+		interrupts = <0 145 0 0 146 0>;
+		interrupt-names = "wcnss_wlantx_irq", "wcnss_wlanrx_irq";
+
+		qcom,pronto-vddmx-supply = <&pmferrum_l3>;
+		qcom,pronto-vddcx-supply = <&pmferrum_s1_corner>;
+		qcom,pronto-vddpx-supply = <&pmferrum_l7>;
+		qcom,iris-vddxo-supply   = <&pmferrum_l7>;
+		qcom,iris-vddrfa-supply  = <&pmferrum_l10>;
+		qcom,iris-vddpa-supply   = <&pmferrum_l9>;
+		qcom,iris-vdddig-supply  = <&pmferrum_l5>;
+
+		pinctrl-names = "wcnss_default", "wcnss_sleep",
+						"wcnss_gpio_default";
+		pinctrl-0 = <&wcnss_default>;
+		pinctrl-1 = <&wcnss_sleep>;
+		pinctrl-2 = <&wcnss_gpio_default>;
+
+		gpios = <&msm_gpio 40 0>, <&msm_gpio 41 0>, <&msm_gpio 42 0>,
+					<&msm_gpio 43 0>, <&msm_gpio 44 0>;
+
+		clocks = <&clock_rpm clk_xo_wlan_clk>,
+			 <&clock_rpm clk_rf_clk2>,
+			 <&clock_debug clk_gcc_debug_mux>,
+			 <&clock_gcc clk_wcnss_m_clk>;
+		clock-names = "xo", "rf_clk", "measure", "wcnss_debug";
+
+		qcom,wlan-rx-buff-count = <512>;
+		qcom,is-pronto-vt;
+		qcom,has-pronto-hw;
+		qcom,wcnss-adc_tm = <&pmferrum_adc_tm>;
+	};
+
 	usb_otg: usb@78d9000 {
 		compatible = "qcom,hsusb-otg";
 
