@@ -34,6 +34,7 @@
  * @bam_tx_ep_pipe_index : BAM RX Endpoint Pipe Index for HSUART
  * @no_suspend_delay : Flag used to make system go to suspend
  * immediately or not
+ * @obs: Flag to enable out of band sleep feature support
  */
 struct msm_serial_hs_platform_data {
 	int wakeup_irq;  /* wakeup irq */
@@ -49,6 +50,7 @@ struct msm_serial_hs_platform_data {
 	unsigned bam_tx_ep_pipe_index;
 	unsigned bam_rx_ep_pipe_index;
 	bool no_suspend_delay;
+	bool obs;
 };
 
 /* return true when tx is empty */
