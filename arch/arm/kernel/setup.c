@@ -841,6 +841,8 @@ void __init hyp_mode_check(void)
 #endif
 }
 
+void __init __weak init_random_pool(void) { }
+
 void __init setup_arch(char **cmdline_p)
 {
 	const struct machine_desc *mdesc;
@@ -912,6 +914,8 @@ void __init setup_arch(char **cmdline_p)
 
 	if (mdesc->init_early)
 		mdesc->init_early();
+
+	init_random_pool();
 }
 
 
