@@ -72,7 +72,7 @@
 	qcom,msm-bus,num-paths = <1>;
 	qcom,msm-bus,vectors-KBps =
 			<100 512 0 0>,
-			<100 512 625000000 625000000>;
+			<100 512 1200000000 1200000000>;
 };
 &usb3 {
 	vbus_dwc3-supply = <&smb1357_otg_vreg>;
