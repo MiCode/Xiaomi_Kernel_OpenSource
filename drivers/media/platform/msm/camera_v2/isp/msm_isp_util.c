@@ -665,6 +665,15 @@ static long msm_isp_ioctl_unlocked(struct v4l2_subdev *sd,
 	long rc = 0;
 	struct vfe_device *vfe_dev = v4l2_get_subdevdata(sd);
 
+	if (!vfe_dev || !vfe_dev->vfe_base) {
+		pr_err("%s:%d failed: invalid params %p\n",
+			__func__, __LINE__, vfe_dev);
+		if (vfe_dev)
+			pr_err("%s:%d failed %p\n", __func__,
+				__LINE__, vfe_dev->vfe_base);
+		return -EINVAL;
+	}
+
 	/* use real time mutex for hard real-time ioctls such as
 	 * buffer operations and register updates.
 	 * Use core mutex for other ioctls that could take
@@ -788,6 +797,15 @@ static long msm_isp_ioctl_compat(struct v4l2_subdev *sd,
 {
 	struct vfe_device *vfe_dev = v4l2_get_subdevdata(sd);
 	long rc = 0;
+
+	if (!vfe_dev || !vfe_dev->vfe_base) {
+		pr_err("%s:%d failed: invalid params %p\n",
+			__func__, __LINE__, vfe_dev);
+		if (vfe_dev)
+			pr_err("%s:%d failed %p\n", __func__,
+				__LINE__, vfe_dev->vfe_base);
+		return -EINVAL;
+	}
 
 	switch (cmd) {
 	case VIDIOC_MSM_VFE_REG_CFG_COMPAT: {
@@ -1611,10 +1629,16 @@ int msm_isp_open_node(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh)
 	mutex_lock(&vfe_dev->realtime_mutex);
 	mutex_lock(&vfe_dev->core_mutex);
 
-	if (vfe_dev->vfe_open_cnt++) {
+	if (vfe_dev->vfe_open_cnt++ && vfe_dev->vfe_base) {
 		mutex_unlock(&vfe_dev->core_mutex);
 		mutex_unlock(&vfe_dev->realtime_mutex);
 		return 0;
+	}
+
+	if (vfe_dev->vfe_base) {
+		pr_err("%s:%d invalid params cnt %d base %p\n", __func__,
+			__LINE__, vfe_dev->vfe_open_cnt, vfe_dev->vfe_base);
+		vfe_dev->vfe_base = NULL;
 	}
 
 	if (vfe_dev->hw_info->vfe_ops.core_ops.init_hw(vfe_dev) < 0) {
