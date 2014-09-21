@@ -372,6 +372,8 @@ static int ehci_msm_uicc_probe(struct platform_device *pdev)
 		goto disable_clk_bus;
 	}
 
+	hcd_to_bus(hcd)->skip_resume = true;
+
 	/*
 	 * We manage the clocks and gpio as part of
 	 * the root hub PM. The platform driver runtime
