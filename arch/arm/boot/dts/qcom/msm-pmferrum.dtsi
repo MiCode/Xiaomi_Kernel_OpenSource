@@ -354,6 +354,13 @@
 			status = "disabled";
 		};
 
+		pmferrum_vib: qcom,vibrator@c000 {
+			compatible = "qcom,qpnp-vibrator";
+			reg = <0xc000 0x100>;
+			label = "vibrator";
+			status = "disabled";
+		};
+
 		pmferrum_conga_dig: ferrum_wcd_codec@f000 {
 			compatible = "qcom,wcd-spmi";
 			reg = <0xf000 0x100>;
