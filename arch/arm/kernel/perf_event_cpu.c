@@ -211,6 +211,46 @@ static void armpmu_update_counters(void)
 	}
 }
 
+static void armpmu_hotplug_enable(void *parm_pmu)
+{
+	struct arm_pmu *armpmu = parm_pmu;
+	struct pmu *pmu = &(armpmu->pmu);
+	struct pmu_hw_events *hw_events = armpmu->get_hw_events();
+	int idx;
+
+	for (idx = 0; idx <= armpmu->num_events; ++idx) {
+		struct perf_event *event = hw_events->events[idx];
+		if (!event)
+			continue;
+
+		event->state = event->hotplug_save_state;
+		pmu->start(event, 0);
+	}
+}
+
+static void armpmu_hotplug_disable(void *parm_pmu)
+{
+	struct arm_pmu *armpmu = parm_pmu;
+	struct pmu *pmu = &(armpmu->pmu);
+	struct pmu_hw_events *hw_events = armpmu->get_hw_events();
+	int idx;
+
+	for (idx = 0; idx <= armpmu->num_events; ++idx) {
+		struct perf_event *event = hw_events->events[idx];
+		if (!event)
+			continue;
+
+		event->hotplug_save_state = event->state;
+		/*
+		 * Prevent timer tick handler perf callback from enabling
+		 * this event and potentially generating an interrupt
+		 * before the CPU goes down.
+		 */
+		event->state = PERF_EVENT_STATE_OFF;
+		pmu->stop(event, 0);
+	}
+}
+
 /*
  * PMU hardware loses all context when a CPU goes offline.
  * When a CPU is hotplugged back in, since some hardware registers are
@@ -243,7 +283,8 @@ static int __cpuinit cpu_pmu_notify(struct notifier_block *b,
 				cpu_pmu->save_pm_registers, hcpu, 1);
 		if (cpu_pmu->pmu_state != ARM_PMU_STATE_OFF) {
 			if (cpu_has_active_perf(cpu))
-				armpmu_update_counters();
+				smp_call_function_single(cpu,
+					 armpmu_hotplug_disable, cpu_pmu, 1);
 			/* Disarm the PMU IRQ before disappearing. */
 			if (cpu_pmu->plat_device) {
 				irq = platform_get_irq(cpu_pmu->plat_device, 0);
@@ -266,7 +307,7 @@ static int __cpuinit cpu_pmu_notify(struct notifier_block *b,
 				enable_irq_callback(&irq);
 			}
 			if (cpu_has_active_perf(cpu)) {
-				__get_cpu_var(from_idle) = 1;
+				armpmu_hotplug_enable(cpu_pmu);
 				pmu = &cpu_pmu->pmu;
 				pmu->pmu_enable(pmu);
 			}
