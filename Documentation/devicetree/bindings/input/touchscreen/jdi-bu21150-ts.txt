@@ -1,0 +1,30 @@
+JDI bu21150 touch AFE controller
+
+Required properties:
+
+ - compatible			: should be "jdi,bu21150"
+ - reg					: SPI address of the device
+ - interrupt-parent		: parent of interrupt
+ - interrupts			: interrupt of touch AFE
+ - spi-max-frequency	: communication speed of the SPI
+ - irq-gpio 			: irq gpio
+ - rst-gpio				: reset gpio
+ - power-supply			: type of power sequence
+							Please use when adjusting the power sequence
+
+
+Example:
+
+	spi@f9966000 {
+		jdi-bu21150@0 {
+			compatible = "jdi,bu21150";
+			reg = <0>;
+			interrupt-parent = <&msmgpio>;
+			interrupts = <61 0>;
+			spi-max-frequency = <9600000>;
+			irq-gpio = <&msmgpio 61 0>;
+			rst-gpio = <&msmgpio 60 0>;
+			power-supply = "apq8074-dragonboard";
+		};
+	};
+
