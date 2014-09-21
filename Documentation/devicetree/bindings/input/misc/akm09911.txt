@@ -25,6 +25,8 @@ Required properties:
 Optional properites:
 
  - akm,auto-report	: Enable auto-report mode.
+ - akm,use-hrtimer	: Enable the hrtimer mode. The hrtimer will be used as the poling
+	 delay timer, and high priority workqueue will be used in order to get a more stable polling interval.
 
  Example:
 	akm@c {
