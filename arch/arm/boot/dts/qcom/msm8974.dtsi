@@ -2175,6 +2175,7 @@
 		      <0xfc4bc000 0x1000>;
 		reg-names = "tsens_physical", "tsens_eeprom_physical";
 		interrupts = <0 184 0>;
+		interrupt-names = "tsens-upper-lower";
 		qcom,sensors = <11>;
 		qcom,slope = <3200 3200 3200 3200 3200 3200 3200 3200 3200
 				3200 3200>;
