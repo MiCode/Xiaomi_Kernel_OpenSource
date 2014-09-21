@@ -264,6 +264,29 @@
 		qcom,sensor-id = <0 1 2 3 4>;
 	};
 
+	qcom,msm-thermal {
+		compatible = "qcom,msm-thermal";
+		qcom,sensor-id = <1>;
+		qcom,poll-ms = <250>;
+		qcom,limit-temp = <60>;
+		qcom,temp-hysteresis = <10>;
+		qcom,freq-step = <2>;
+		qcom,freq-control-mask = <0xf>;
+		qcom,core-limit-temp = <80>;
+		qcom,core-temp-hysteresis = <10>;
+		qcom,core-control-mask = <0xe>;
+		qcom,hotplug-temp = <110>;
+		qcom,hotplug-temp-hysteresis = <20>;
+		qcom,cpu-sensors = "tsens_tz_sensor1", "tsens_tz_sensor2",
+				"tsens_tz_sensor1", "tsens_tz_sensor2";
+		qcom,freq-mitigation-temp = <110>;
+		qcom,freq-mitigation-temp-hysteresis = <20>;
+		qcom,freq-mitigation-value = <400000>;
+		qcom,freq-mitigation-control-mask = <0x01>;
+		qcom,online-hotplug-core;
+		qcom,therm-reset-temp = <115>;
+	};
+
 	qcom,ipc-spinlock@1905000 {
 		compatible = "qcom,ipc-spinlock-sfpb";
 		reg = <0x1905000 0x8000>;
