@@ -49,6 +49,13 @@
 			reg = <0x87d00000 0x300000>;
 			label = "peripheral2_mem";
 		};
+
+		audio_mem: audio_region@0 {
+			linux,reserve-contiguous-region;
+			linux,reserve-region;
+			reg = <0 0xAF000>;
+			label = "audio_mem";
+		};
 	};
 
 	cpus {
@@ -71,6 +78,7 @@
 #include "msmzirc-coresight.dtsi"
 #include "msm-gdsc.dtsi"
 #include "msmzirc-bus.dtsi"
+#include "msmzirc-ion.dtsi"
 
 &soc {
 	#address-cells = <1>;
