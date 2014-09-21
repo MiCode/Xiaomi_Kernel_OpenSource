@@ -264,6 +264,42 @@
 		qcom,sensor-id = <0 1 2 3 4>;
 	};
 
+	qcom,sensor-information {
+		compatible = "qcom,sensor-information";
+		sensor_information0: qcom,sensor-information@0 {
+			qcom,sensor-type = "tsens";
+			qcom,sensor-name = "tsens_tz_sensor0";
+		};
+
+		sensor_information1: qcom,sensor-information@1 {
+			qcom,sensor-type =  "tsens";
+			qcom,sensor-name = "tsens_tz_sensor1";
+			qcom,alias-name = "cpu0-2";
+		};
+
+		sensor_information2: qcom,sensor-information@2 {
+			qcom,sensor-type =  "tsens";
+			qcom,sensor-name = "tsens_tz_sensor2";
+			qcom,alias-name = "cpu1-3";
+		};
+
+		sensor_information3: qcom,sensor-information@3 {
+			qcom,sensor-type =  "tsens";
+			qcom,sensor-name = "tsens_tz_sensor3";
+			qcom,alias-name = "pop_mem";
+		};
+
+		sensor_information4: qcom,sensor-information@4 {
+			qcom,sensor-type = "tsens";
+			qcom,sensor-name = "tsens_tz_sensor4";
+		};
+
+		sensor_information5: qcom,sensor-information@5 {
+			qcom,sensor-type = "adc";
+			qcom,sensor-name = "pa_therm0";
+		};
+	};
+
 	qcom,msm-thermal {
 		compatible = "qcom,msm-thermal";
 		qcom,sensor-id = <1>;
