@@ -60,6 +60,21 @@ enum {
 	REG_UFS_HW_VERSION                  = 0xE4,
 };
 
+/* bit definitions for REG_UFS_CFG2 register */
+#define UAWM_HW_CGC_EN		(1 << 0)
+#define UARM_HW_CGC_EN		(1 << 1)
+#define TXUC_HW_CGC_EN		(1 << 2)
+#define RXUC_HW_CGC_EN		(1 << 3)
+#define DFC_HW_CGC_EN		(1 << 4)
+#define TRLUT_HW_CGC_EN		(1 << 5)
+#define TMRLUT_HW_CGC_EN	(1 << 6)
+#define OCSC_HW_CGC_EN		(1 << 7)
+
+#define REG_UFS_CFG2_CGC_EN_ALL (UAWM_HW_CGC_EN | UARM_HW_CGC_EN |\
+				 TXUC_HW_CGC_EN | RXUC_HW_CGC_EN |\
+				 DFC_HW_CGC_EN | TRLUT_HW_CGC_EN |\
+				 TMRLUT_HW_CGC_EN | OCSC_HW_CGC_EN)
+
 /* bit offset */
 enum {
 	OFFSET_UFS_PHY_SOFT_RESET           = 1,
