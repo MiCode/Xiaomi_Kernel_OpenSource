@@ -215,7 +215,7 @@ static int power_on_l2_msm8994(struct device_node *l2ccc_node, u32 pon_mask,
 	/* Close L2/SCU Logic GDHS and power up the cache */
 	writel_relaxed(0x00029716 , l2_base + L2_PWR_CTL);
 	mb();
-	udelay(2);
+	udelay(8);
 
 	/* De-assert L2/SCU memory Clamp */
 	writel_relaxed(0x00023716 , l2_base + L2_PWR_CTL);
@@ -224,6 +224,7 @@ static int power_on_l2_msm8994(struct device_node *l2ccc_node, u32 pon_mask,
 	/* Wakeup L2/SCU RAMs by deasserting sleep signals */
 	writel_relaxed(0x0002371E , l2_base + L2_PWR_CTL);
 	mb();
+	udelay(8);
 
 	/* Un-gate clock and wait for sequential waking up
 	 * of L2 rams with a delay of 2*X0 cycles
@@ -352,11 +353,12 @@ int msm8994_unclamp_secondary_arm_cpu(unsigned int cpu)
 	/* De-assert coremem clamp. This is asserted by default */
 	writel_relaxed(0x00000079, acc_reg + CPU_PWR_CTL);
 	mb();
+	udelay(2);
 
 	/* Close coremem array gdhs */
 	writel_relaxed(0x0000007D, acc_reg + CPU_PWR_CTL);
 	mb();
-	udelay(1);
+	udelay(2);
 
 	/* De-assert clamp */
 	writel_relaxed(0x0000003D, acc_reg + CPU_PWR_CTL);
