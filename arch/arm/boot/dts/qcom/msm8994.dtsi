@@ -264,24 +264,6 @@
 	ranges = <0 0 0 0xffffffff>;
 	compatible = "simple-bus";
 
-	arm64-cpu-erp@f9100000 {
-		compatible = "arm,arm64-cpu-erp";
-		reg = <0xf9100000 0x1000>;
-		reg-names = "cci";
-		interrupts = <0 328 0>,
-			     <0 329 0>,
-			     <0 330 0>,
-			     <0 331 0>,
-			     <0 22 0>,
-			     <1 14 0>;
-		interrupt-names = "pri-dbe-irq",
-				  "sec-dbe-irq",
-				  "pri-ext-irq",
-				  "sec-ext-irq",
-				  "cci-irq",
-				  "sbe-irq";
-	};
-
 	acc0:clock-controller@f908b004 {
 		compatible = "qcom,arm-cortex-acc";
 		reg = <0xf9070000 0x1000>,
