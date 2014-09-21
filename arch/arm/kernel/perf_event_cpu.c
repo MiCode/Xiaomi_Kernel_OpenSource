@@ -223,68 +223,57 @@ static int __cpuinit cpu_pmu_notify(struct notifier_block *b,
 	int irq;
 	struct pmu *pmu;
 	int cpu = (int)hcpu;
+	unsigned long masked_action = action & ~CPU_TASKS_FROZEN;
+	int ret = NOTIFY_DONE;
 
-	switch ((action & ~CPU_TASKS_FROZEN)) {
+	if ((masked_action != CPU_DOWN_PREPARE) &&
+	    (masked_action != CPU_STARTING))
+		return NOTIFY_DONE;
+
+	if (masked_action == CPU_STARTING)
+		ret = NOTIFY_OK;
+
+	if (!cpu_pmu)
+		return ret;
+
+	switch (masked_action) {
 	case CPU_DOWN_PREPARE:
-		if (cpu_pmu && cpu_pmu->save_pm_registers)
+		if (cpu_pmu->save_pm_registers)
 			smp_call_function_single(cpu,
-						 cpu_pmu->save_pm_registers,
-						 hcpu, 1);
-		break;
-	case CPU_STARTING:
-		if (cpu_pmu && cpu_pmu->reset)
-			cpu_pmu->reset(cpu_pmu);
-		if (cpu_pmu && cpu_pmu->restore_pm_registers)
-			smp_call_function_single(cpu,
-						 cpu_pmu->restore_pm_registers,
-						 hcpu, 1);
-	}
-
-	if (cpu_has_active_perf((int)hcpu)) {
-		switch ((action & ~CPU_TASKS_FROZEN)) {
-
-		case CPU_DOWN_PREPARE:
-			armpmu_update_counters();
-			/*
-			 * If this is on a multicore CPU, we need
-			 * to disarm the PMU IRQ before disappearing.
-			 */
-			if (cpu_pmu &&
-				cpu_pmu->plat_device->dev.platform_data) {
+				cpu_pmu->save_pm_registers, hcpu, 1);
+		if (cpu_pmu->pmu_state != ARM_PMU_STATE_OFF) {
+			if (cpu_has_active_perf(cpu))
+				armpmu_update_counters();
+			/* Disarm the PMU IRQ before disappearing. */
+			if (cpu_pmu->plat_device) {
 				irq = platform_get_irq(cpu_pmu->plat_device, 0);
-				smp_call_function_single((int)hcpu,
-						disable_irq_callback, &irq, 1);
+				smp_call_function_single(cpu,
+					 disable_irq_callback, &irq, 1);
 			}
-			return NOTIFY_DONE;
+		}
+		break;
 
-		case CPU_STARTING:
-			/*
-			 * If this is on a multicore CPU, we need
-			 * to arm the PMU IRQ before appearing.
-			 */
-			if (cpu_pmu &&
-				cpu_pmu->plat_device->dev.platform_data) {
+	case CPU_STARTING:
+		/* Reset PMU to clear counters for ftrace buffer */
+		if (cpu_pmu->reset)
+			cpu_pmu->reset(cpu_pmu);
+		if (cpu_pmu->restore_pm_registers)
+			cpu_pmu->restore_pm_registers(hcpu);
+		if (cpu_pmu->pmu_state == ARM_PMU_STATE_RUNNING) {
+			/* Arm the PMU IRQ before appearing. */
+			if (cpu_pmu->plat_device) {
 				irq = platform_get_irq(cpu_pmu->plat_device, 0);
 				enable_irq_callback(&irq);
 			}
-
-			if (cpu_pmu) {
+			if (cpu_has_active_perf(cpu)) {
 				__get_cpu_var(from_idle) = 1;
 				pmu = &cpu_pmu->pmu;
 				pmu->pmu_enable(pmu);
-				return NOTIFY_OK;
 			}
-		default:
-			return NOTIFY_DONE;
 		}
+		break;
 	}
-
-
-
-	if ((action & ~CPU_TASKS_FROZEN) != CPU_STARTING)
-		return NOTIFY_DONE;
-
-	return NOTIFY_OK;
+	return ret;
 }
 
 static struct notifier_block __cpuinitdata cpu_pmu_hotplug_notifier = {
@@ -309,16 +298,17 @@ static int perf_cpu_pm_notifier(struct notifier_block *self, unsigned long cmd,
 
 	case CPU_PM_ENTER_FAILED:
 	case CPU_PM_EXIT:
+		if (cpu_has_active_perf((int)v) && cpu_pmu->reset)
+			cpu_pmu->reset(NULL);
 		if (cpu_pmu && cpu_pmu->restore_pm_registers)
 			cpu_pmu->restore_pm_registers(
 				(void *)smp_processor_id());
-		if (cpu_has_active_perf((int)v) && cpu_pmu->reset) {
+		if (cpu_pmu && cpu_has_active_perf((int)v)) {
 			/*
 			 * Flip this bit so armpmu_enable knows it needs
 			 * to re-enable active counters.
 			 */
 			__get_cpu_var(from_idle) = 1;
-			cpu_pmu->reset(NULL);
 			pmu = &cpu_pmu->pmu;
 			pmu->pmu_enable(pmu);
 		}
@@ -435,37 +425,15 @@ static int multicore_request_irq(int irq, irq_handler_t *handle_irq, void *dev_i
 	return err;
 }
 
-#ifdef CONFIG_SMP
-static __ref int armpmu_cpu_up(int cpu)
-{
-	int ret = 0;
-
-	if (!cpumask_test_cpu(cpu, cpu_online_mask)) {
-		ret = cpu_up(cpu);
-		if (ret)
-			pr_err("Failed to bring up CPU: %d, ret: %d\n",
-			       cpu, ret);
-	}
-	return ret;
-}
-#else
-static inline int armpmu_cpu_up(int cpu)
-{
-	return 0;
-}
-#endif
-
 static void __ref multicore_free_irq(int irq, void *dev_id)
 {
 	int cpu;
 	struct irq_desc *desc = irq_to_desc(irq);
 
 	if ((irq >= 0) && desc) {
-		for_each_cpu(cpu, desc->percpu_enabled) {
-			if (!armpmu_cpu_up(cpu))
-				smp_call_function_single(cpu,
+		for_each_cpu(cpu, desc->percpu_enabled)
+			smp_call_function_single(cpu,
 						disable_irq_callback, &irq, 1);
-		}
 		free_percpu_irq(irq, &pmu_irq_cookie);
 	}
 }
