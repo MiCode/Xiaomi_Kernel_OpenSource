@@ -2730,6 +2730,7 @@
 		sensor_information2: qcom,sensor-information@2 {
 			qcom,sensor-type =  "tsens";
 			qcom,sensor-name = "tsens_tz_sensor2";
+			qcom,alias-name = "pop_mem";
 		};
 
 		sensor_information3: qcom,sensor-information@3 {
@@ -2785,6 +2786,7 @@
 		sensor_information12: qcom,sensor-information@12 {
 			qcom,sensor-type = "tsens";
 			qcom,sensor-name = "tsens_tz_sensor12";
+			qcom,alias-name = "gpu";
 		};
 
 		sensor_information13: qcom,sensor-information@13 {
