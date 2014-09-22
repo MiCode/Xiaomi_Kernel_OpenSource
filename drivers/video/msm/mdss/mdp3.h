@@ -23,6 +23,7 @@
 
 #include "mdp3_dma.h"
 #include "mdss_fb.h"
+#include "mdss.h"
 
 #define MDP_VSYNC_CLK_RATE	19200000
 #define MDP_CORE_CLK_RATE	100000000
@@ -110,11 +111,12 @@ struct mdp3_hw_resource {
 	int clock_ref_count[MDP3_MAX_CLK];
 	unsigned long dma_core_clk_request;
 	unsigned long ppp_core_clk_request;
+	struct mdss_hw mdp3_hw;
+	struct mdss_util_intf *mdss_util;
 
 	char __iomem *mdp_base;
 	size_t mdp_reg_size;
 
-	u32 irq;
 	struct mdp3_bus_handle_map *bus_handle;
 
 	struct ion_client *ion_client;
