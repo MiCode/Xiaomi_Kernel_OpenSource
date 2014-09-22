@@ -33,6 +33,7 @@
 #define CSID_VERSION_V32                      0x30020000
 #define CSID_VERSION_V33                      0x30030000
 #define CSID_VERSION_V34                      0x30040000
+#define CSID_VERSION_V37                      0x30070000
 #define CSID_VERSION_V40                      0x40000000
 #define MSM_CSID_DRV_NAME                    "msm_csid"
 
@@ -433,6 +434,7 @@ static int msm_csid_release(struct csid_device *csid_dev)
 	} else if ((csid_dev->hw_version == CSID_VERSION_V31) ||
 		(csid_dev->hw_version == CSID_VERSION_V32) ||
 		(csid_dev->hw_version == CSID_VERSION_V33) ||
+		(csid_dev->hw_version == CSID_VERSION_V37) ||
 		(csid_dev->hw_version == CSID_VERSION_V34)) {
 		msm_cam_clk_enable(&csid_dev->pdev->dev, csid_clk_info,
 			csid_dev->csid_clk, csid_dev->num_clk, 0);
