@@ -911,6 +911,14 @@ static int test_debugfs_init(struct test_iosched *tios)
 	if (!tios->debug.start_sector)
 		goto err;
 
+	tios->debug.sector_range = debugfs_create_u32(
+						"sector_range",
+						S_IRUGO | S_IWUGO,
+						tios->debug.debug_utils_root,
+						&tios->sector_range);
+	if (!tios->debug.sector_range)
+		goto err;
+
 	return 0;
 
 err:
