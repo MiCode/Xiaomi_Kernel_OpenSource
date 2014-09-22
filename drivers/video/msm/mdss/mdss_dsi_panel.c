@@ -1110,6 +1110,16 @@ static int mdss_dsi_parse_panel_features(struct device_node *np,
 		pinfo->esd_check_enabled = false;
 	}
 
+	if (ctrl->disp_en_gpio <= 0) {
+		ctrl->disp_en_gpio = of_get_named_gpio(
+			np,
+			"qcom,5v-boost-gpio", 0);
+
+		if (!gpio_is_valid(ctrl->disp_en_gpio))
+			pr_err("%s:%d, Disp_en gpio not specified\n",
+					__func__, __LINE__);
+	}
+
 	return 0;
 }
 

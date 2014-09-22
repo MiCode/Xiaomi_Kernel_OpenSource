@@ -173,6 +173,7 @@ Optional properties:
 - qcom,mdss-dsi-panel-type:		Specifies the panel operating mode.
 					"dsi_video_mode" = enable video mode (default).
 					"dsi_cmd_mode" = enable command mode.
+- qcom,5v-boost-gpio:			Specifies the panel gpio for display 5v boost.
 - qcom,mdss-dsi-te-check-enable:	Boolean to enable Tear Check configuration.
 - qcom,mdss-dsi-te-using-te-pin:	Boolean to specify whether using hardware vsync.
 - qcom,mdss-dsi-te-pin-select:		Specifies TE operating mode.
@@ -450,6 +451,7 @@ Example:
 		qcom,mdss-dsi-bl-pmic-bank-select = <0>;
 		qcom,mdss-dsi-bl-pmic-pwm-frequency = <0>;
 		qcom,mdss-dsi-pwm-gpio = <&pm8941_mpps 5 0>;
+		qcom,5v-boost-gpio = <&pm8994_gpios 14 0>;
 		qcom,mdss-pan-physical-width-dimension = <60>;
 		qcom,mdss-pan-physical-height-dimension = <140>;
 		qcom,mdss-dsi-panel-mode-gpio-state = "low";
