@@ -576,7 +576,7 @@ const struct soc_enum arizona_output_rate =
 			      0x0f,
 			      ARIZONA_OUT_RATE_ENUM_SIZE,
 			      arizona_rate_text,
-			      arizona_sample_rate_val);
+			      arizona_rate_val);
 EXPORT_SYMBOL_GPL(arizona_output_rate);
 
 const SOC_ENUM_SINGLE_DECL(arizona_spdif_rate,
