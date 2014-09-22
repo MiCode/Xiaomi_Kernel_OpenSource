@@ -846,21 +846,23 @@ static void msm_vfe47_axi_cfg_wm_reg(
 	if (stream_info->frame_based)
 		val |= 0x2;
 	msm_camera_io_w(val, vfe_dev->vfe_base + wm_base + 0xC);
-	/* WR_IMAGE_SIZE */
-	val =
-		((msm_isp_cal_word_per_line(
+	if (!stream_info->frame_based) {
+		/* WR_IMAGE_SIZE */
+		val = ((msm_isp_cal_word_per_line(
 			stream_info->output_format,
 			stream_info->plane_cfg[plane_idx].
 			output_width)+3)/4 - 1) << 16 |
 			(stream_info->plane_cfg[plane_idx].
 			output_height - 1);
-	msm_camera_io_w(val, vfe_dev->vfe_base + wm_base + 0x14);
-	/* WR_BUFFER_CFG */
-	val = VFE47_BURST_LEN |
-		(stream_info->plane_cfg[plane_idx].output_height - 1) << 2 |
-		((msm_isp_cal_word_per_line(stream_info->output_format,
-		stream_info->plane_cfg[plane_idx].
-		output_stride)+1)/2) << 16;
+		msm_camera_io_w(val, vfe_dev->vfe_base + wm_base + 0x14);
+		/* WR_BUFFER_CFG */
+		val = VFE47_BURST_LEN |
+			(stream_info->plane_cfg[plane_idx].output_height - 1) <<
+			2 |
+			((msm_isp_cal_word_per_line(stream_info->output_format,
+			stream_info->plane_cfg[plane_idx].
+			output_stride)+1)/2) << 16;
+	}
 	msm_camera_io_w(val, vfe_dev->vfe_base + wm_base + 0x18);
 	/* WR_IRQ_SUBSAMPLE_PATTERN */
 	msm_camera_io_w(0xFFFFFFFF,

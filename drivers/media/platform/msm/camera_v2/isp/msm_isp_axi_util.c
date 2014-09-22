@@ -104,6 +104,10 @@ int msm_isp_validate_axi_request(struct msm_vfe_axi_shared_data *axi_data,
 	case V4L2_PIX_FMT_SGBRG12:
 	case V4L2_PIX_FMT_SGRBG12:
 	case V4L2_PIX_FMT_SRGGB12:
+	case V4L2_PIX_FMT_SBGGR14:
+	case V4L2_PIX_FMT_SGBRG14:
+	case V4L2_PIX_FMT_SGRBG14:
+	case V4L2_PIX_FMT_SRGGB14:
 	case V4L2_PIX_FMT_QBGGR8:
 	case V4L2_PIX_FMT_QGBRG8:
 	case V4L2_PIX_FMT_QGRBG8:
@@ -116,6 +120,10 @@ int msm_isp_validate_axi_request(struct msm_vfe_axi_shared_data *axi_data,
 	case V4L2_PIX_FMT_QGBRG12:
 	case V4L2_PIX_FMT_QGRBG12:
 	case V4L2_PIX_FMT_QRGGB12:
+	case V4L2_PIX_FMT_QBGGR14:
+	case V4L2_PIX_FMT_QGBRG14:
+	case V4L2_PIX_FMT_QGRBG14:
+	case V4L2_PIX_FMT_QRGGB14:
 	case V4L2_PIX_FMT_JPEG:
 	case V4L2_PIX_FMT_META:
 		stream_info->num_planes = 1;
@@ -216,6 +224,14 @@ static uint32_t msm_isp_axi_get_plane_size(
 	case V4L2_PIX_FMT_QGBRG12:
 	case V4L2_PIX_FMT_QGRBG12:
 	case V4L2_PIX_FMT_QRGGB12:
+	case V4L2_PIX_FMT_SBGGR14:
+	case V4L2_PIX_FMT_SGBRG14:
+	case V4L2_PIX_FMT_SGRBG14:
+	case V4L2_PIX_FMT_SRGGB14:
+	case V4L2_PIX_FMT_QBGGR14:
+	case V4L2_PIX_FMT_QGBRG14:
+	case V4L2_PIX_FMT_QGRBG14:
+	case V4L2_PIX_FMT_QRGGB14:
 		/* TODO: fix me */
 		size = plane_cfg[plane_idx].output_height *
 		plane_cfg[plane_idx].output_width;
