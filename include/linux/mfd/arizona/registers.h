@@ -51,6 +51,8 @@
 #define ARIZONA_ALWAYS_ON_TRIGGERS_SEQUENCE_SELECT_7 0x6C
 #define ARIZONA_ALWAYS_ON_TRIGGERS_SEQUENCE_SELECT_8 0x6D
 #define ARIZONA_COMFORT_NOISE_GENERATOR          0x70
+#define ARIZONA_HP_DETECT_CALIBRATION_1          0x87
+#define ARIZONA_HP_DETECT_CALIBRATION_2          0x88
 #define ARIZONA_HAPTICS_CONTROL_1                0x90
 #define ARIZONA_HAPTICS_CONTROL_2                0x91
 #define ARIZONA_HAPTICS_PHASE_1_INTENSITY        0x92
@@ -133,6 +135,7 @@
 #define ARIZONA_ACCESSORY_DETECT_MODE_1          0x293
 #define ARIZONA_HEADPHONE_DETECT_1               0x29B
 #define ARIZONA_HEADPHONE_DETECT_2               0x29C
+#define ARIZONA_HEADPHONE_DETECT_3               0x29D
 #define ARIZONA_HP_DACVAL			 0x29F
 #define ARIZONA_MICD_CLAMP_CONTROL               0x2A2
 #define ARIZONA_MIC_DETECT_1                     0x2A3
@@ -250,6 +253,7 @@
 #define ARIZONA_HP1_SHORT_CIRCUIT_CTRL           0x4A0
 #define ARIZONA_HP2_SHORT_CIRCUIT_CTRL           0x4A1
 #define ARIZONA_HP3_SHORT_CIRCUIT_CTRL           0x4A2
+#define ARIZONA_HP_TEST_CTRL_1                   0x4A4
 #define ARIZONA_SPK_CTRL_2                       0x4B5
 #define ARIZONA_SPK_CTRL_3                       0x4B6
 #define ARIZONA_DAC_COMP_1                       0x4DC
@@ -2394,6 +2398,13 @@
 #define ARIZONA_HP_LVL_B_WIDTH                       15  /* HP_LVL - [14:0] */
 
 /*
+ * R669 (0x29D) - Headphone Detect 3
+ */
+#define ARIZONA_HP_DACVAL_MASK                   0x03FF  /* HP_DACVAL [9:0] */
+#define ARIZONA_HP_DACVAL_SHIFT                       0  /* HP_DACVAL [9:0] */
+#define ARIZONA_HP_DACVAL_WIDTH                      10  /* HP_DACVAL [9:0] */
+
+/*
  * R674 (0x2A2) - MICD clamp control
  */
 #define ARIZONA_MICD_CLAMP_MODE_MASK             0x000F  /* MICD_CLAMP_MODE - [3:0] */
@@ -3654,6 +3665,13 @@
 #define ARIZONA_HP3_SC_ENA_MASK                  0x1000  /* HP3_SC_ENA */
 #define ARIZONA_HP3_SC_ENA_SHIFT                     12  /* HP3_SC_ENA */
 #define ARIZONA_HP3_SC_ENA_WIDTH                      1  /* HP3_SC_ENA */
+
+/*
+ * R1188 (0x4A4) HP Test Ctrl 1
+ */
+#define ARIZONA_HP1_TST_CAP_SEL_MASK             0x0003  /* HP1_TST_CAP_SEL - [1:0] */
+#define ARIZONA_HP1_TST_CAP_SEL_SHIFT                 0  /* HP1_TST_CAP_SEL - [1:0] */
+#define ARIZONA_HP1_TST_CAP_SEL_WIDTH                 2  /* HP1_TST_CAP_SEL - [1:0] */
 
 /*
  * R1244 (0x4DC) - DAC comp 1
