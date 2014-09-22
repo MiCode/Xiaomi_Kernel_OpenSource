@@ -92,7 +92,7 @@ static ssize_t bhi_write(struct file *file,
 
 	/* Write the image size */
 	pcie_word_val = HIGH_WORD(bhi_ctxt->phy_image_loc);
-	MHI_REG_WRITE_FIELD(bhi_ctxt->bhi_base,
+	mhi_reg_write_field(mhi_dev_ctxt, bhi_ctxt->bhi_base,
 				BHI_IMGADDR_HIGH,
 				0xFFFFFFFF,
 				0,
@@ -100,22 +100,22 @@ static ssize_t bhi_write(struct file *file,
 
 	pcie_word_val = LOW_WORD(bhi_ctxt->phy_image_loc);
 
-	MHI_REG_WRITE_FIELD(bhi_ctxt->bhi_base,
+	mhi_reg_write_field(mhi_dev_ctxt, bhi_ctxt->bhi_base,
 				BHI_IMGADDR_LOW,
 				0xFFFFFFFF,
 				0,
 				pcie_word_val);
 
 	pcie_word_val = bhi_ctxt->image_size;
-	MHI_REG_WRITE_FIELD(bhi_ctxt->bhi_base, BHI_IMGSIZE,
+	mhi_reg_write_field(mhi_dev_ctxt, bhi_ctxt->bhi_base, BHI_IMGSIZE,
 			0xFFFFFFFF, 0, pcie_word_val);
 
-	MHI_REG_READ(bhi_ctxt->bhi_base, BHI_IMGTXDB, pcie_word_val);
-	MHI_REG_WRITE_FIELD(bhi_ctxt->bhi_base,
+	pcie_word_val = mhi_reg_read(bhi_ctxt->bhi_base, BHI_IMGTXDB);
+	mhi_reg_write_field(mhi_dev_ctxt, bhi_ctxt->bhi_base,
 			BHI_IMGTXDB, 0xFFFFFFFF, 0, ++pcie_word_val);
 
 	for (i = 0; i < BHI_POLL_NR_RETRIES; ++i) {
-		MHI_REG_READ(bhi_ctxt->bhi_base, BHI_STATUS, tx_db_val);
+		tx_db_val = mhi_reg_read(bhi_ctxt->bhi_base, BHI_STATUS);
 		if ((0x80000000 | tx_db_val) == pcie_word_val)
 			break;
 		else
@@ -186,7 +186,7 @@ int bhi_probe(struct mhi_pcie_dev_info *mhi_pcie_device)
 	}
 
 	bhi_ctxt->bhi_base = mhi_pcie_device->core.bar0_base;
-	MHI_REG_READ(bhi_ctxt->bhi_base, BHIOFF, pcie_word_val);
+	pcie_word_val = mhi_reg_read(bhi_ctxt->bhi_base, BHIOFF);
 	bhi_ctxt->bhi_base += pcie_word_val;
 
 	mhi_log(MHI_MSG_INFO,

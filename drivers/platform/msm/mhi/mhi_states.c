@@ -24,7 +24,7 @@ static void conditional_chan_db_write(
 	if (0 == mhi_dev_ctxt->mhi_chan_db_order[chan]) {
 		db_value = mhi_v2p_addr(mhi_dev_ctxt->mhi_ctrl_seg_info,
 			(uintptr_t)mhi_dev_ctxt->mhi_local_chan_ctxt[chan].wp);
-		MHI_WRITE_DB(mhi_dev_ctxt, mhi_dev_ctxt->channel_db_addr,
+		mhi_process_db(mhi_dev_ctxt, mhi_dev_ctxt->channel_db_addr,
 				chan, db_value);
 	}
 	mhi_dev_ctxt->mhi_chan_db_order[chan] = 0;
@@ -65,7 +65,7 @@ static void ring_all_cmd_dbs(struct mhi_device_ctxt *mhi_dev_ctxt)
 	db_value = mhi_v2p_addr(mhi_dev_ctxt->mhi_ctrl_seg_info,
 			(uintptr_t)mhi_dev_ctxt->mhi_local_cmd_ctxt[0].wp);
 	if (0 == mhi_dev_ctxt->cmd_ring_order && rp != db_value)
-		MHI_WRITE_DB(mhi_dev_ctxt, mhi_dev_ctxt->cmd_db_addr,
+		mhi_process_db(mhi_dev_ctxt, mhi_dev_ctxt->cmd_db_addr,
 							0, db_value);
 	mhi_dev_ctxt->cmd_ring_order = 0;
 	mutex_unlock(cmd_mutex);
@@ -94,8 +94,9 @@ static void ring_all_ev_dbs(struct mhi_device_ctxt *mhi_dev_ctxt)
 			mhi_local_event_ctxt[event_ring_index].wp);
 
 		if (0 == mhi_dev_ctxt->mhi_ev_db_order[event_ring_index]) {
-			MHI_WRITE_DB(mhi_dev_ctxt, mhi_dev_ctxt->event_db_addr,
-				event_ring_index, db_value);
+			mhi_process_db(mhi_dev_ctxt,
+				       mhi_dev_ctxt->event_db_addr,
+				       event_ring_index, db_value);
 		}
 		mhi_dev_ctxt->mhi_ev_db_order[event_ring_index] = 0;
 		spin_unlock_irqrestore(lock, flags);
@@ -198,7 +199,8 @@ static enum MHI_STATUS process_m1_transition(
 	if (!mhi_dev_ctxt->flags.pending_M3) {
 		mhi_dev_ctxt->mhi_state = MHI_STATE_M2;
 		mhi_log(MHI_MSG_INFO, "Allowing transition to M2\n");
-		MHI_REG_WRITE_FIELD(mhi_dev_ctxt->mmio_addr, MHICTRL,
+		mhi_reg_write_field(mhi_dev_ctxt,
+			mhi_dev_ctxt->mmio_addr, MHICTRL,
 			MHICTRL_MHISTATE_MASK,
 			MHICTRL_MHISTATE_SHIFT,
 			MHI_STATE_M2);
@@ -412,7 +414,8 @@ static enum MHI_STATUS process_ready_transition(
 	}
 
 	mhi_dev_ctxt->flags.stop_threads = 0;
-	MHI_REG_WRITE_FIELD(mhi_dev_ctxt->mmio_addr, MHICTRL,
+	mhi_reg_write_field(mhi_dev_ctxt,
+			mhi_dev_ctxt->mmio_addr, MHICTRL,
 			MHICTRL_MHISTATE_MASK,
 			MHICTRL_MHISTATE_SHIFT,
 			MHI_STATE_M0);
@@ -638,7 +641,8 @@ static enum MHI_STATUS process_amss_transition(
 static void mhi_set_m_state(struct mhi_device_ctxt *mhi_dev_ctxt,
 					enum MHI_STATE new_state)
 {
-	MHI_REG_WRITE_FIELD(mhi_dev_ctxt->mmio_addr, MHICTRL,
+	mhi_reg_write_field(mhi_dev_ctxt,
+			mhi_dev_ctxt->mmio_addr, MHICTRL,
 			MHICTRL_MHISTATE_MASK,
 			MHICTRL_MHISTATE_SHIFT,
 			new_state);
