@@ -57,6 +57,8 @@ Optional properties:
 			  service.
 - qcom,sysmon-id:	platform device id that sysmon is probed with for the subsystem.
 - qcom,override-acc: Boolean- Present if we need to override the default ACC settings
+- qcom,ahb-clk-vote: Boolean- Present if we need to remove the vote for the mss_cfg_ahb
+		     clock after the modem boots up
 
 Example:
 	qcom,mss@fc880000 {
