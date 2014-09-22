@@ -1,0 +1,84 @@
+MSM SPDM bandwidth monitor device
+
+devfreq-spdm is a device that represents a device that is monitored by the SPDM
+hardware to measure the traffic status of configured master ports on the bus.
+
+
+Required properties:
+-compatible:			Must be "qcom,devfreq_spdm"
+-clock-names:			Clocks used to measure current bus frequency.
+				Expected names are "cci_clk"
+-clocks:			References to named clocks
+-qcom,spdm-client:		Client id of the port being monitored
+-qcom,bw-upstep:		Initial up vote size in MB/s
+-qcom,bw-dwnstep:		Initial down vote size in MB/s
+-qcom,max-vote:			Vote ceiling in MB/s
+-qcom,ports:			SPDM ports used by this device
+-qcom,alpha-up:			SPDM filter up alpha value
+-qcom,alpha-down:		SPDM filter down alpha value
+-qcom,bucket-size:		SPDM filter bucket size
+-qcom,pl-freqs:			The driver supports different filter values at
+				three different performance levels.  This value
+				defines the cut-over frequenices
+-qcom,reject-rate:		Desired rejection rate used to calculate
+				SPDM threshold
+-qcom,response-time-us:	Desired response time used to calculate
+				SPDM threshold
+-qcom,cci-response-time-us:	Desired response time used to calculate
+				SPDM threshold when CCI is under heavy load
+-qcom,max-cci-freq:		CCI frequency at which cci_response_time_us
+				is used
+-qcom,up-step-multp:		used to increase rate of growth on up votes
+-qcom,spdm-interval:		down-vote polling interval
+
+Example:
+devfreq_spdm_cpu {
+	compatible = "qcom,devfreq_spdm";
+	qcom,msm-bus,name = "devfreq_spdm";
+	qcom,msm-bus,num-cases = <2>;
+	qcom,msm-bus,num-paths = <1>;
+	qcom,msm-bus,vectors-KBps =
+			<1 512 0 0>,
+			<1 512 0 0>;
+	qcom,spdm-client = <0>;
+
+	clock-names = "cci_clk";
+	clocks = <&clock_cpu clk_cci_clk>;
+
+	qcom,bw-upstep = <100>;
+	qcom,bw-dwnstep = <100>;
+	qcom,max-vote = <10000>;
+	qcom,up-step-multp = <2>;
+	qcom,spdm-interval = <100>;
+
+	qcom,ports = <16>;
+	qcom,alpha-up = <7>;
+	qcom,alpha-down = <15>;
+	qcom,bucket-size = <8>;
+
+	/*max pl1 freq, max pl2 freq*/
+	qcom,pl-freqs = <149999999 150000000>;
+
+	/* pl1 low, pl1 high, pl2 low, pl2 high, pl3 low, pl3 high */
+	qcom,reject-rate = <5000 5000 5000 5000 5000 5000>;
+	/* pl1 low, pl1 high, pl2 low, pl2 high, pl3 low, pl3 high */
+	qcom,response-time-us = <220 220 2000 2000 900 900>;
+	/* pl1 low, pl1 high, pl2 low, pl2 high, pl3 low, pl3 high */
+	qcom,cci-response-time-us = <50 50 30 30 20 20>;
+	qcom,max-cci-freq = <600000000>;
+};
+
+This device is always used with the SPDM governor which requires a device tree
+entry to know what IRQ to respond to.
+
+Required properties:
+-compatible			Must be "qcom,gov_spdm_hyp"
+-interrupt-names		SPDM irq to handle.  Name should be "spdm-irq"
+-interrupts			The interrupt number the SPDM hw is assigned
+
+Example:
+devfreq_spdm_gov {
+	compatible = "qcom,gov_spdm_hyp";
+	interrupt-names = "spdm-irq";
+	interrupts = <0 192 0>;
+};
