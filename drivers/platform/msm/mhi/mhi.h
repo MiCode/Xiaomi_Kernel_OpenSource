@@ -405,9 +405,10 @@ struct mhi_flags {
 struct mhi_device_ctxt {
 	struct mhi_pcie_dev_info *dev_info;
 	struct pcie_core_info *dev_props;
-	u64 channel_db_addr;
-	u64 event_db_addr;
-	u64 cmd_db_addr;
+	void __iomem *mmio_addr;
+	void __iomem *channel_db_addr;
+	void __iomem *event_db_addr;
+	void __iomem *cmd_db_addr;
 	struct mhi_control_seg *mhi_ctrl_seg;
 	struct mhi_meminfo *mhi_ctrl_seg_info;
 	u64 nr_of_cc;
@@ -415,7 +416,6 @@ struct mhi_device_ctxt {
 	u64 nr_of_cmdc;
 	enum MHI_STATE mhi_state;
 	enum MHI_EXEC_ENV dev_exec_env;
-	void __iomem *mmio_addr;
 	u64 mmio_len;
 	struct mhi_ring mhi_local_chan_ctxt[MHI_MAX_CHANNELS];
 	struct mhi_ring mhi_local_event_ctxt[MHI_MAX_CHANNELS];
@@ -583,5 +583,16 @@ int mhi_initiate_m3(struct mhi_device_ctxt *mhi_dev_ctxt);
 int mhi_set_bus_request(struct mhi_device_ctxt *mhi_dev_ctxt,
 					int index);
 enum MHI_STATUS start_chan_sync(struct mhi_client_handle *client_handle);
+void mhi_process_db(struct mhi_device_ctxt *mhi_dev_ctxt, void __iomem *io_addr,
+		  uintptr_t io_offset, u32 val);
+void mhi_reg_write_field(struct mhi_device_ctxt *mhi_dev_ctxt,
+			 void __iomem *io_addr,
+			 uintptr_t io_offset,
+			 u32 mask, u32 shift, u32 val);
+void mhi_reg_write(struct mhi_device_ctxt *mhi_dev_ctxt,
+		   void __iomem *io_addr, uintptr_t io_offset, u32 val);
+u32 mhi_reg_read(void __iomem *io_addr, uintptr_t io_offset);
+u32 mhi_reg_read_field(void __iomem *io_addr, uintptr_t io_offset,
+			 u32 mask, u32 shift);
 
 #endif

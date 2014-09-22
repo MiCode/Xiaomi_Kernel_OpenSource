@@ -208,96 +208,6 @@
 #define HIGH_WORD(_x) ((u32)((((u64)(_x)) >> 32) & 0xFFFFFFFF))
 #define LOW_WORD(_x) ((u32)(((u64)(_x)) & 0xFFFFFFFF))
 
-#define MHI_REG_WRITE(_base, _offset, _val) \
-	do { \
-		u32 addr; \
-		(addr) = (u32)(_base) + (u32)(_offset); \
-		*(u32 *)(addr) = (_val); \
-		wmb(); \
-		mhi_log(MHI_MSG_INFO, "d.s 0x%x %%LONG 0x%x\n", \
-				(u32)(_offset),\
-				(u32)(_val)); \
-	} while (0)
-
-#define MHI_REG_WRITE_FIELD(_base, _offset, _mask, _shift, _val) \
-	do { \
-		u32 reg_val; \
-		MHI_REG_READ(_base, _offset, reg_val); \
-		reg_val &= ~(_mask); \
-		reg_val = reg_val | ((u32)(_val) << ((u32)(_shift))); \
-		MHI_REG_WRITE(_base, _offset, reg_val); \
-	} while (0)
-
-#define MHI_REG_READ(_base, _offset, _dest) \
-	do { \
-		u32 addr; \
-		(addr) = (u32)(_base) + (u32)(_offset); \
-		(_dest) = *(u32 *)(addr); \
-	} while (0)
-
-#define MHI_REG_READ_FIELD(_base, _offset, _mask, _shift, _dest) \
-	do { \
-		MHI_REG_READ(_base, _offset, (_dest)); \
-		(_dest) &= (u32)(_mask); \
-		(_dest) >>= (u32)(_shift); \
-	} while (0)
-
-#define MHI_READ_FIELD(_val, _mask, _shift) \
-	do { \
-		_val &= (u32)(_mask); \
-		_val >>= (u32)(_shift); \
-	} while (0)
-
-#define MHI_WRITE_DB(_mhi_dev_ctxt, _addr, _index, _val)		\
-{									\
-	u32 word;							\
-	void *offset = (void *)(_index * sizeof(u64));			\
-	mhi_log(MHI_MSG_VERBOSE,					\
-			"db.set addr: 0x%llX offset 0x%x val:0x%llX\n",	\
-			(u64)_addr, (unsigned int)_index, (u64)_val);	\
-	if (mhi_dev_ctxt->channel_db_addr == (_addr)) {			\
-		(_mhi_dev_ctxt)->mhi_ctrl_seg->mhi_cc_list[_index].	\
-		mhi_trb_write_ptr = (_val);				\
-	} else if (mhi_dev_ctxt->event_db_addr == (_addr)) {		\
-		(_mhi_dev_ctxt)->mhi_ctrl_seg->mhi_ec_list[_index].	\
-		mhi_event_write_ptr = (_val);				\
-	}								\
-	if (_addr == mhi_dev_ctxt->channel_db_addr) {			\
-		if (!(IS_HARDWARE_CHANNEL(_index) &&			\
-		    mhi_dev_ctxt->uldl_enabled &&			\
-		    !mhi_dev_ctxt->db_mode[_index])) {			\
-			wmb();						\
-			word = HIGH_WORD((u64)(_val));			\
-			writel_relaxed(word, _addr + offset + 4);	\
-			word = LOW_WORD((u64)(_val));			\
-			writel_relaxed(word, _addr + offset);		\
-			wmb();						\
-			mhi_dev_ctxt->db_mode[_index] = 0;		\
-		}							\
-	} else if (_addr == mhi_dev_ctxt->event_db_addr) {		\
-		if (IS_SOFTWARE_CHANNEL(_index) ||			\
-		    !mhi_dev_ctxt->uldl_enabled) {			\
-			wmb();						\
-			word = HIGH_WORD((u64)(_val));			\
-			writel_relaxed(word, _addr + offset + 4);	\
-			wmb();						\
-			word = LOW_WORD((u64)(_val));			\
-			writel_relaxed(word, _addr + offset);		\
-			wmb();						\
-			mhi_dev_ctxt->db_mode[_index] = 0;		\
-		}							\
-	} else {							\
-		wmb();							\
-		word = HIGH_WORD((u64)(_val));				\
-		writel_relaxed(word, _addr + offset + 4);		\
-		wmb();							\
-		word = LOW_WORD((u64)(_val));				\
-		writel_relaxed(word, _addr + offset);			\
-		wmb();							\
-		mhi_dev_ctxt->db_mode[_index] = 0;			\
-	}								\
-}
-
 #define EVENT_RING_MSI_VEC
 #define MHI_EVENT_RING_MSI_VEC__MASK (0xf)
 #define MHI_EVENT_RING_MSI_VEC__SHIFT (2)
@@ -338,4 +248,10 @@
 #define MHI_GET_EV_CTXT(_FIELD, _CTXT) \
 	(((_CTXT)->mhi_intmodt >> MHI_##_FIELD ## __SHIFT) & \
 				 MHI_##_FIELD ## __MASK)
+
+#define MHI_READ_FIELD(_val, _mask, _shift) \
+	do { \
+		_val &= (u32)(_mask); \
+		_val >>= (u32)(_shift); \
+	} while (0)
 #endif

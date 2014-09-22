@@ -27,6 +27,32 @@
 #include "mhi_hwio.h"
 #include "mhi_macros.h"
 
+static void mhi_write_db(struct mhi_device_ctxt *mhi_dev_ctxt,
+		  void __iomem *io_addr_lower,
+		  uintptr_t chan, u64 val)
+{
+	uintptr_t io_offset = chan * sizeof(u64);
+	void __iomem *io_addr_upper =
+		(void __iomem *)((uintptr_t)io_addr_lower + 4);
+	mhi_reg_write(mhi_dev_ctxt, io_addr_upper, io_offset, val >> 32);
+	mhi_reg_write(mhi_dev_ctxt, io_addr_lower, io_offset, (u32)val);
+}
+
+static void mhi_update_ctxt(struct mhi_device_ctxt *mhi_dev_ctxt,
+			    void *__iomem *io_addr,
+			    uintptr_t chan,
+			    u64 val)
+{
+	wmb();
+	if (mhi_dev_ctxt->channel_db_addr == io_addr) {
+		mhi_dev_ctxt->mhi_ctrl_seg->mhi_cc_list[chan].
+				mhi_trb_write_ptr = val;
+	} else if (mhi_dev_ctxt->event_db_addr == io_addr) {
+		mhi_dev_ctxt->mhi_ctrl_seg->mhi_ec_list[chan].
+				mhi_event_write_ptr = val;
+	}
+}
+
 int mhi_init_pcie_device(struct mhi_pcie_dev_info *mhi_pcie_dev)
 {
 	int ret_val = 0;
@@ -374,7 +400,7 @@ void ring_ev_db(struct mhi_device_ctxt *mhi_dev_ctxt, u32 event_ring_index)
 		&mhi_dev_ctxt->mhi_local_event_ctxt[event_ring_index];
 	db_value = mhi_v2p_addr(mhi_dev_ctxt->mhi_ctrl_seg_info,
 			(uintptr_t)event_ctxt->wp);
-	MHI_WRITE_DB(mhi_dev_ctxt, mhi_dev_ctxt->event_db_addr,
+	mhi_process_db(mhi_dev_ctxt, mhi_dev_ctxt->event_db_addr,
 					event_ring_index, db_value);
 }
 
@@ -501,7 +527,7 @@ static enum MHI_STATUS mhi_notify_device(
 				if ((mhi_dev_ctxt->
 					mhi_chan_cntr[chan].pkts_xferd %
 						mhi_xfer_db_interval) == 0) {
-					MHI_WRITE_DB(mhi_dev_ctxt,
+					mhi_process_db(mhi_dev_ctxt,
 						mhi_dev_ctxt->channel_db_addr,
 							chan, db_value);
 				}
@@ -509,13 +535,13 @@ static enum MHI_STATUS mhi_notify_device(
 				if ((mhi_dev_ctxt->
 					mhi_chan_cntr[chan].pkts_xferd %
 						MHI_XFER_DB_INTERVAL) == 0) {
-					MHI_WRITE_DB(mhi_dev_ctxt,
+					mhi_process_db(mhi_dev_ctxt,
 						mhi_dev_ctxt->channel_db_addr,
 							chan, db_value);
 				}
 			}
 		} else {
-			MHI_WRITE_DB(mhi_dev_ctxt,
+			mhi_process_db(mhi_dev_ctxt,
 			     mhi_dev_ctxt->channel_db_addr,
 			     chan, db_value);
 		}
@@ -702,7 +728,7 @@ enum MHI_STATUS mhi_send_cmd(struct mhi_device_ctxt *mhi_dev_ctxt,
 	if (MHI_STATE_M0 == mhi_dev_ctxt->mhi_state ||
 		MHI_STATE_M1 == mhi_dev_ctxt->mhi_state) {
 		mhi_dev_ctxt->cmd_ring_order++;
-		MHI_WRITE_DB(mhi_dev_ctxt, mhi_dev_ctxt->cmd_db_addr, 0,
+		mhi_process_db(mhi_dev_ctxt, mhi_dev_ctxt->cmd_db_addr, 0,
 								db_value);
 	} else {
 		mhi_log(MHI_MSG_INFO,
@@ -963,7 +989,7 @@ enum MHI_STATUS parse_xfer_event(struct mhi_device_ctxt *ctxt,
 		if (chan_ctxt->wp != chan_ctxt->rp) {
 			db_value = mhi_v2p_addr(mhi_dev_ctxt->mhi_ctrl_seg_info,
 						(uintptr_t)chan_ctxt->wp);
-			MHI_WRITE_DB(mhi_dev_ctxt,
+			mhi_process_db(mhi_dev_ctxt,
 				     mhi_dev_ctxt->channel_db_addr, chan,
 				     db_value);
 		}
@@ -1032,7 +1058,7 @@ enum MHI_STATUS recycle_trb_and_ring(struct mhi_device_ctxt *mhi_dev_ctxt,
 				mhi_cmd_mutex_list[PRIMARY_CMD_RING];
 			mutex_lock(cmd_mutex);
 			mhi_dev_ctxt->cmd_ring_order = 1;
-			MHI_WRITE_DB(mhi_dev_ctxt, mhi_dev_ctxt->cmd_db_addr,
+			mhi_process_db(mhi_dev_ctxt, mhi_dev_ctxt->cmd_db_addr,
 					ring_index, db_value);
 			mutex_unlock(cmd_mutex);
 			break;
@@ -1046,7 +1072,7 @@ enum MHI_STATUS recycle_trb_and_ring(struct mhi_device_ctxt *mhi_dev_ctxt,
 			mhi_dev_ctxt->mhi_ev_db_order[ring_index] = 1;
 			if ((mhi_dev_ctxt->ev_counter[ring_index] %
 						MHI_EV_DB_INTERVAL) == 0) {
-				MHI_WRITE_DB(mhi_dev_ctxt,
+				mhi_process_db(mhi_dev_ctxt,
 						mhi_dev_ctxt->event_db_addr,
 						ring_index, db_value);
 			}
@@ -1061,7 +1087,7 @@ enum MHI_STATUS recycle_trb_and_ring(struct mhi_device_ctxt *mhi_dev_ctxt,
 				&mhi_dev_ctxt->db_write_lock[ring_index],
 				flags);
 			mhi_dev_ctxt->mhi_chan_db_order[ring_index] = 1;
-			MHI_WRITE_DB(mhi_dev_ctxt,
+			mhi_process_db(mhi_dev_ctxt,
 					mhi_dev_ctxt->channel_db_addr,
 					ring_index, db_value);
 			spin_unlock_irqrestore(
@@ -1366,3 +1392,72 @@ enum MHI_STATUS mhi_deregister_channel(struct mhi_client_handle
 	return MHI_STATUS_SUCCESS;
 }
 EXPORT_SYMBOL(mhi_deregister_channel);
+
+void mhi_process_db(struct mhi_device_ctxt *mhi_dev_ctxt,
+		  void __iomem *io_addr,
+		  uintptr_t chan, u32 val)
+{
+	mhi_log(MHI_MSG_VERBOSE,
+			"db.set addr: %p io_offset 0x%lx val:0x%x\n",
+			io_addr, chan, val);
+
+	mhi_update_ctxt(mhi_dev_ctxt, io_addr, chan, val);
+
+	/* Channel Doorbell and Polling Mode Disabled or Software Channel*/
+	if (io_addr == mhi_dev_ctxt->channel_db_addr) {
+		if (!(IS_HARDWARE_CHANNEL(chan) &&
+		    mhi_dev_ctxt->uldl_enabled &&
+		    !mhi_dev_ctxt->db_mode[chan])) {
+			mhi_write_db(mhi_dev_ctxt, io_addr, chan, val);
+			mhi_dev_ctxt->db_mode[chan] = 0;
+		}
+	/* Event Doorbell and Polling mode Disabled */
+	} else if (io_addr == mhi_dev_ctxt->event_db_addr) {
+		/* Only ring for software channel */
+		if (IS_SOFTWARE_CHANNEL(chan) ||
+		    !mhi_dev_ctxt->uldl_enabled) {
+			mhi_write_db(mhi_dev_ctxt, io_addr, chan, val);
+			mhi_dev_ctxt->db_mode[chan] = 0;
+		}
+	} else {
+		mhi_write_db(mhi_dev_ctxt, io_addr, chan, val);
+		mhi_dev_ctxt->db_mode[chan] = 0;
+	}
+}
+
+void mhi_reg_write_field(struct mhi_device_ctxt *mhi_dev_ctxt,
+			 void __iomem *io_addr,
+			 uintptr_t io_offset,
+			 u32 mask, u32 shift, u32 val)
+{
+	u32 reg_val;
+	reg_val = mhi_reg_read(io_addr, io_offset);
+	reg_val &= ~mask;
+	reg_val = reg_val | (val << shift);
+	mhi_reg_write(mhi_dev_ctxt, io_addr, io_offset, reg_val);
+}
+
+void mhi_reg_write(struct mhi_device_ctxt *mhi_dev_ctxt,
+		   void __iomem *io_addr,
+		   uintptr_t io_offset, u32 val)
+{
+	mhi_log(MHI_MSG_VERBOSE, "d.s 0x%p off: 0x%lx 0x%x\n",
+					io_addr, io_offset, val);
+	iowrite32(val, io_addr + io_offset);
+	wmb();
+	msm_pcie_pm_control(MSM_PCIE_REQ_EXIT_L1,
+			mhi_dev_ctxt->dev_info->pcie_device->bus->number,
+			mhi_dev_ctxt->dev_info->pcie_device,
+			NULL, 0);
+}
+
+u32 mhi_reg_read_field(void __iomem *io_addr, uintptr_t io_offset,
+			 u32 mask, u32 shift)
+{
+	return (mhi_reg_read(io_addr, io_offset) & mask) >> shift;
+}
+
+u32 mhi_reg_read(void __iomem *io_addr, uintptr_t io_offset)
+{
+	return ioread32(io_addr + io_offset);
+}
