@@ -559,35 +559,9 @@ static void msm_iommu_assign_ASID(const struct msm_iommu_drvdata *iommu_drvdata,
 				  struct msm_iommu_ctx_drvdata *curr_ctx,
 				  struct msm_iommu_priv *priv)
 {
-	unsigned int found = 0;
 	void __iomem *cb_base = iommu_drvdata->cb_base;
-	unsigned int i;
-	unsigned int ncb = iommu_drvdata->ncb;
-	struct msm_iommu_ctx_drvdata *tmp_drvdata;
 
-	/* Find if this page table is used elsewhere, and re-use ASID */
-	if (!list_empty(&priv->list_attached)) {
-		tmp_drvdata = list_first_entry(&priv->list_attached,
-				struct msm_iommu_ctx_drvdata, attached_elm);
-
-		++iommu_drvdata->asid[tmp_drvdata->asid - 1];
-		curr_ctx->asid = tmp_drvdata->asid;
-		found = 1;
-	}
-
-	/* If page table is new, find an unused ASID */
-	if (!found) {
-		for (i = 0; i < ncb; ++i) {
-			if (iommu_drvdata->asid[i] == 0) {
-				++iommu_drvdata->asid[i];
-				curr_ctx->asid = i + 1;
-				found = 1;
-				break;
-			}
-		}
-		BUG_ON(!found);
-	}
-
+	curr_ctx->asid = curr_ctx->num;
 	msm_iommu_set_ASID(cb_base, curr_ctx->num, curr_ctx->asid);
 }
 
@@ -928,8 +902,6 @@ static void msm_iommu_detach_dev(struct iommu_domain *domain,
 	SET_TLBIASID(iommu_drvdata->cb_base, ctx_drvdata->num,
 					ctx_drvdata->asid);
 
-	BUG_ON(iommu_drvdata->asid[ctx_drvdata->asid - 1] == 0);
-	iommu_drvdata->asid[ctx_drvdata->asid - 1]--;
 	ctx_drvdata->asid = -1;
 
 	__reset_context(iommu_drvdata, ctx_drvdata->num);
