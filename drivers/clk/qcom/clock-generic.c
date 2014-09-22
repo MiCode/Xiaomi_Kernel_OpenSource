@@ -98,12 +98,27 @@ static int mux_set_rate(struct clk *c, unsigned long rate)
 	unsigned long new_par_curr_rate;
 	unsigned long flags;
 
-	for (i = 0; i < mux->num_parents; i++) {
+	/*
+	 * Check if one of the possible parents is already at the requested
+	 * rate.
+	 */
+	for (i = 0; i < mux->num_parents && mux->try_get_rate; i++) {
+		if (mux->parents[i].src->rate == rate) {
+			new_parent = mux->parents[i].src;
+			break;
+		}
+	}
+
+	if (new_parent == c->parent && rate == c->rate)
+		return 0;
+
+	for (i = 0; i < mux->num_parents && !new_parent; i++) {
 		if (clk_round_rate(mux->parents[i].src, rate) == rate) {
 			new_parent = mux->parents[i].src;
 			break;
 		}
 	}
+
 	if (new_parent == NULL)
 		return -EINVAL;
 
