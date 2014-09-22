@@ -1254,6 +1254,11 @@ static int adreno_stop(struct kgsl_device *device)
 {
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
 
+	if (!test_bit(ADRENO_DEVICE_STARTED, &adreno_dev->priv))
+		return 0;
+
+	kgsl_pwrctrl_enable(device);
+
 	adreno_set_active_ctx_null(adreno_dev);
 
 	adreno_dispatcher_stop(adreno_dev);
