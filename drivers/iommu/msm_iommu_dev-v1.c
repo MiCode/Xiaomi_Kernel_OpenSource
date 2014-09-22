@@ -200,15 +200,6 @@ static int msm_iommu_parse_dt(struct platform_device *pdev,
 	for_each_available_child_of_node(pdev->dev.of_node, child)
 		drvdata->ncb++;
 
-	drvdata->asid = devm_kzalloc(&pdev->dev, drvdata->ncb * sizeof(int),
-				     GFP_KERNEL);
-
-	if (!drvdata->asid) {
-		pr_err("Unable to get memory for asid array\n");
-		ret = -ENOMEM;
-		goto fail;
-	}
-
 	ret = of_property_read_string(pdev->dev.of_node, "label",
 				      &drvdata->name);
 	if (ret)
