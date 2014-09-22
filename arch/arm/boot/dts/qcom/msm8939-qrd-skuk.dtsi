@@ -231,6 +231,16 @@
 	};
 };
 
+&sdc2_cd_on {
+	/delete-property/ bias-pull-up;
+	bias-pull-down;
+};
+
+&sdc2_cd_off {
+	/delete-property/ bias-disable;
+	bias-pull-down;
+};
+
 &sdhc_2 {
 	qcom,nonhotplug;
 	interrupts = <0 1>;
