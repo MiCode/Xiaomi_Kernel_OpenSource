@@ -178,6 +178,22 @@
 	};
 };
 
+/* MDSS driver overrides */
+&mdss_mdp {
+	qcom,mdp-settings = <0x0117c 0x0000ffff>,
+			    <0x01184 0xC000ff00>,
+			    <0x011e0 0x000000a4>,
+			    <0x011e4 0x00000000>,
+			    <0x012ac 0xc0000ccc>,
+			    <0x012b4 0xc0000ccc>,
+			    <0x012bc 0x00cccccc>,
+			    <0x012c4 0x000000cc>,
+			    <0x013a8 0x0cccc0c0>,
+			    <0x013b0 0xccccc0c0>,
+			    <0x013b8 0xccccc0c0>,
+			    <0x013d0 0x00ccc000>;
+};
+
 /* Video driver overrides */
 &msm_vidc {
 	qcom,load-freq-tbl =
