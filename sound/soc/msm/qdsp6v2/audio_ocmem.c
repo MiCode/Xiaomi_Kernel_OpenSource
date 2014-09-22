@@ -31,7 +31,7 @@
 #include <mach/subsystem_restart.h>
 #include <mach/msm_memtypes.h>
 #include <mach/ramdump.h>
-#include "q6core.h"
+#include <sound/q6core.h>
 #include "audio_ocmem.h"
 
 

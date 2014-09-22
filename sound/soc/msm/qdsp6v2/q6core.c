@@ -20,8 +20,8 @@
 #include <linux/slab.h>
 #include <mach/msm_smd.h>
 #include <mach/qdsp6v2/apr.h>
-#include "q6core.h"
 #include <mach/ocmem.h>
+#include <sound/q6core.h>
 
 #define TIMEOUT_MS 1000
 
