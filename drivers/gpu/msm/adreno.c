@@ -1266,8 +1266,6 @@ static int adreno_stop(struct kgsl_device *device)
 
 	adreno_ringbuffer_stop(adreno_dev);
 
-	kgsl_mmu_stop(&device->mmu);
-
 	adreno_irqctrl(adreno_dev, 0);
 	kgsl_pwrctrl_irq(device, KGSL_PWRFLAGS_OFF);
 	del_timer_sync(&device->idle_timer);
@@ -1280,6 +1278,7 @@ static int adreno_stop(struct kgsl_device *device)
 	/* Save physical performance counter values before GPU power down*/
 	adreno_perfcounter_save(adreno_dev);
 
+	kgsl_mmu_stop(&device->mmu);
 	/* Power down the device */
 	kgsl_pwrctrl_disable(device);
 
