@@ -1,0 +1,24 @@
+menuconfig EXTERNAL_DRIVERS
+	bool "Enable support to external drivers"
+	depends on X86
+	default y
+	help
+	  External drivers are drivers located outside this kernel tree
+	  but allowed to be configured as builtin.
+	  External drivers directories will behave as a regular directory
+	  inside kernel tree.
+
+if EXTERNAL_DRIVERS
+
+menuconfig EXTERNAL_CAMERA
+        bool "Enable support to Intel camera drivers"
+        depends on EXTERNAL_DRIVERS
+        default y
+        help
+          Enable support to external Intel camera drivers.
+
+if EXTERNAL_CAMERA
+source "drivers/external_drivers/camera/Kconfig"
+endif
+
+endif
