@@ -382,12 +382,12 @@ int __ipa_commit_rt_v1(enum ipa_ip_type ip)
 	}
 
 	if (ip == IPA_IP_v4) {
-		avail = ipa_ctx->ip4_rt_tbl_lcl ? IPA_v1_RAM_V4_RT_SIZE :
-			IPA_RAM_V4_RT_SIZE_DDR;
+		avail = ipa_ctx->ip4_rt_tbl_lcl ? IPA_MEM_v1_RAM_V4_RT_SIZE :
+			IPA_MEM_PART(v4_rt_size_ddr);
 		size = sizeof(struct ipa_ip_v4_routing_init);
 	} else {
-		avail = ipa_ctx->ip6_rt_tbl_lcl ? IPA_v1_RAM_V6_RT_SIZE :
-			IPA_RAM_V6_RT_SIZE_DDR;
+		avail = ipa_ctx->ip6_rt_tbl_lcl ? IPA_MEM_v1_RAM_V6_RT_SIZE :
+			IPA_MEM_PART(v6_rt_size_ddr);
 		size = sizeof(struct ipa_ip_v6_routing_init);
 	}
 	cmd = kmalloc(size, GFP_KERNEL);
@@ -411,7 +411,7 @@ int __ipa_commit_rt_v1(enum ipa_ip_type ip)
 		desc.opcode = IPA_IP_V4_ROUTING_INIT;
 		v4->ipv4_rules_addr = mem->phys_base;
 		v4->size_ipv4_rules = mem->size;
-		v4->ipv4_addr = IPA_v1_RAM_V4_RT_OFST;
+		v4->ipv4_addr = IPA_MEM_v1_RAM_V4_RT_OFST;
 		IPADBG("putting Routing IPv4 rules to phys 0x%x",
 				v4->ipv4_addr);
 	} else {
@@ -419,7 +419,7 @@ int __ipa_commit_rt_v1(enum ipa_ip_type ip)
 		desc.opcode = IPA_IP_V6_ROUTING_INIT;
 		v6->ipv6_rules_addr = mem->phys_base;
 		v6->size_ipv6_rules = mem->size;
-		v6->ipv6_addr = IPA_v1_RAM_V6_RT_OFST;
+		v6->ipv6_addr = IPA_MEM_v1_RAM_V6_RT_OFST;
 		IPADBG("putting Routing IPv6 rules to phys 0x%x",
 				v6->ipv6_addr);
 	}
@@ -468,17 +468,17 @@ static int ipa_generate_rt_hw_tbl_v2(enum ipa_ip_type ip,
 	u32 apps_start_idx;
 
 	if (ip == IPA_IP_v4) {
-		num_index = IPA_v2_V4_APPS_RT_INDEX_HI -
-			IPA_v2_V4_APPS_RT_INDEX_LO + 1;
-		body_start_offset = IPA_v2_RAM_APPS_V4_RT_OFST -
-			IPA_v2_RAM_V4_RT_OFST;
-		apps_start_idx = IPA_v2_V4_APPS_RT_INDEX_LO;
+		num_index = IPA_MEM_PART(v4_apps_rt_index_hi) -
+			IPA_MEM_PART(v4_apps_rt_index_lo) + 1;
+		body_start_offset = IPA_MEM_PART(apps_v4_rt_ofst) -
+			IPA_MEM_PART(v4_rt_ofst);
+		apps_start_idx = IPA_MEM_PART(v4_apps_rt_index_lo);
 	} else {
-		num_index = IPA_v2_V6_APPS_RT_INDEX_HI -
-			IPA_v2_V6_APPS_RT_INDEX_LO + 1;
-		body_start_offset = IPA_v2_RAM_APPS_V6_RT_OFST -
-			IPA_v2_RAM_V6_RT_OFST;
-		apps_start_idx = IPA_v2_V6_APPS_RT_INDEX_LO;
+		num_index = IPA_MEM_PART(v6_apps_rt_index_hi) -
+			IPA_MEM_PART(v6_apps_rt_index_lo) + 1;
+		body_start_offset = IPA_MEM_PART(apps_v6_rt_ofst) -
+			IPA_MEM_PART(v6_rt_ofst);
+		apps_start_idx = IPA_MEM_PART(v6_apps_rt_index_lo);
 	}
 
 	head->size = num_index * 4;
@@ -548,24 +548,30 @@ int __ipa_commit_rt_v2(enum ipa_ip_type ip)
 	memset(desc, 0, 2 * sizeof(struct ipa_desc));
 
 	if (ip == IPA_IP_v4) {
-		avail = ipa_ctx->ip4_rt_tbl_lcl ? IPA_v2_RAM_APPS_V4_RT_SIZE :
-			IPA_RAM_V4_RT_SIZE_DDR;
-		num_modem_rt_index = IPA_v2_V4_MODEM_RT_INDEX_HI -
-			IPA_v2_V4_MODEM_RT_INDEX_LO + 1;
+		avail = ipa_ctx->ip4_rt_tbl_lcl ?
+			IPA_MEM_PART(apps_v4_rt_size) :
+			IPA_MEM_PART(v4_rt_size_ddr);
+		num_modem_rt_index =
+			IPA_MEM_PART(v4_modem_rt_index_hi) -
+			IPA_MEM_PART(v4_modem_rt_index_lo) + 1;
 		local_addr1 = ipa_ctx->smem_restricted_bytes +
-			IPA_v2_RAM_V4_RT_OFST + num_modem_rt_index * 4;
+			IPA_MEM_PART(v4_rt_ofst) +
+			num_modem_rt_index * 4;
 		local_addr2 = ipa_ctx->smem_restricted_bytes +
-			IPA_v2_RAM_APPS_V4_RT_OFST;
+			IPA_MEM_PART(apps_v4_rt_ofst);
 		lcl = ipa_ctx->ip4_rt_tbl_lcl;
 	} else {
-		avail = ipa_ctx->ip6_rt_tbl_lcl ? IPA_v2_RAM_APPS_V6_RT_SIZE :
-			IPA_RAM_V6_RT_SIZE_DDR;
-		num_modem_rt_index = IPA_v2_V6_MODEM_RT_INDEX_HI -
-			IPA_v2_V6_MODEM_RT_INDEX_LO + 1;
+		avail = ipa_ctx->ip6_rt_tbl_lcl ?
+			IPA_MEM_PART(apps_v6_rt_size) :
+			IPA_MEM_PART(v6_rt_size_ddr);
+		num_modem_rt_index =
+			IPA_MEM_PART(v6_modem_rt_index_hi) -
+			IPA_MEM_PART(v6_modem_rt_index_lo) + 1;
 		local_addr1 = ipa_ctx->smem_restricted_bytes +
-			IPA_v2_RAM_V6_RT_OFST + num_modem_rt_index * 4;
+			IPA_MEM_PART(v6_rt_ofst) +
+			num_modem_rt_index * 4;
 		local_addr2 = ipa_ctx->smem_restricted_bytes +
-			IPA_v2_RAM_APPS_V6_RT_OFST;
+			IPA_MEM_PART(apps_v6_rt_ofst);
 		lcl = ipa_ctx->ip6_rt_tbl_lcl;
 	}
 
@@ -1043,9 +1049,9 @@ int ipa_reset_rt(enum ipa_ip_type ip)
 	if (ipa_ctx->ipa_hw_type == IPA_HW_v2_0 ||
 			ipa_ctx->ipa_hw_type == IPA_HW_v2_5) {
 		if (ip == IPA_IP_v4)
-			apps_start_idx = IPA_v2_V4_APPS_RT_INDEX_LO;
+			apps_start_idx = IPA_MEM_PART(v4_apps_rt_index_lo);
 		else
-			apps_start_idx = IPA_v2_V6_APPS_RT_INDEX_LO;
+			apps_start_idx = IPA_MEM_PART(v6_apps_rt_index_lo);
 	} else {
 		apps_start_idx = 0;
 	}

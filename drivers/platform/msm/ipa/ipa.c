@@ -58,8 +58,10 @@
 
 #define IPA_Q6_CLEANUP_FLT_RT_MAX_CMDS \
 	(IPA_NUM_PIPES*2 + \
-	(IPA_v2_V4_MODEM_RT_INDEX_HI - IPA_v2_V4_MODEM_RT_INDEX_LO + 1) + \
-	(IPA_v2_V6_MODEM_RT_INDEX_HI - IPA_v2_V6_MODEM_RT_INDEX_LO + 1)) \
+	(IPA_MEM_PART(v4_modem_rt_index_hi) - \
+		IPA_MEM_PART(v4_modem_rt_index_lo) + 1) + \
+	(IPA_MEM_PART(v6_modem_rt_index_hi) - \
+		IPA_MEM_PART(v6_modem_rt_index_lo) + 1))
 
 /* To be on the safe side */
 #define IPA_Q6_CLEANUP_EXP_AGGR_MAX_CMDS \
@@ -1066,18 +1068,16 @@ int ipa_init_q6_smem(void)
 
 	ipa_inc_client_enable_clks();
 
-	rc = ipa_init_smem_region(IPA_v2_RAM_MODEM_SIZE,
-				  IPA_v2_RAM_MODEM_OFST);
-
+	rc = ipa_init_smem_region(IPA_MEM_PART(modem_size),
+		IPA_MEM_PART(modem_ofst));
 	if (rc) {
 		IPAERR("failed to initialize Modem RAM memory\n");
 		ipa_dec_client_disable_clks();
 		return rc;
 	}
 
-	rc = ipa_init_smem_region(IPA_v2_RAM_MODEM_HDR_SIZE,
-				  IPA_v2_RAM_MODEM_HDR_OFST);
-
+	rc = ipa_init_smem_region(IPA_MEM_PART(modem_hdr_size),
+		IPA_MEM_PART(modem_hdr_ofst));
 	if (rc) {
 		IPAERR("failed to initialize Modem HDRs RAM memory\n");
 		ipa_dec_client_disable_clks();
@@ -1218,7 +1218,7 @@ static int ipa_q6_clean_q6_tables(void)
 			cmd[num_cmds].system_addr = mem.phys_base;
 			cmd[num_cmds].local_addr =
 				ipa_ctx->smem_restricted_bytes +
-				IPA_v2_RAM_V4_FLT_OFST + 8 + pipe_idx*4;
+				IPA_MEM_PART(v4_flt_ofst) + 8 + pipe_idx * 4;
 
 			desc[num_cmds].opcode = IPA_DMA_SHARED_MEM;
 			desc[num_cmds].pyld = &cmd[num_cmds];
@@ -1230,7 +1230,7 @@ static int ipa_q6_clean_q6_tables(void)
 			cmd[num_cmds].system_addr =  mem.phys_base;
 			cmd[num_cmds].local_addr =
 				ipa_ctx->smem_restricted_bytes +
-				IPA_v2_RAM_V6_FLT_OFST + 8 + pipe_idx*4;
+				IPA_MEM_PART(v6_flt_ofst) + 8 + pipe_idx * 4;
 
 			desc[num_cmds].opcode = IPA_DMA_SHARED_MEM;
 			desc[num_cmds].pyld = &cmd[num_cmds];
@@ -1241,12 +1241,13 @@ static int ipa_q6_clean_q6_tables(void)
 	}
 
 	/* Need to point v4/v6 modem routing tables to an empty table */
-	for (index = IPA_v2_V4_MODEM_RT_INDEX_LO; index <=
-		IPA_v2_V4_MODEM_RT_INDEX_HI; index++) {
+	for (index = IPA_MEM_PART(v4_modem_rt_index_lo);
+		 index <= IPA_MEM_PART(v4_modem_rt_index_hi);
+		 index++) {
 		cmd[num_cmds].size = mem.size;
 		cmd[num_cmds].system_addr =  mem.phys_base;
 		cmd[num_cmds].local_addr = ipa_ctx->smem_restricted_bytes +
-			IPA_v2_RAM_V4_RT_OFST + index*4;
+			IPA_MEM_PART(v4_rt_ofst) + index * 4;
 
 		desc[num_cmds].opcode = IPA_DMA_SHARED_MEM;
 		desc[num_cmds].pyld = &cmd[num_cmds];
@@ -1255,12 +1256,13 @@ static int ipa_q6_clean_q6_tables(void)
 		num_cmds++;
 	}
 
-	for (index = IPA_v2_V6_MODEM_RT_INDEX_LO; index <=
-		IPA_v2_V6_MODEM_RT_INDEX_HI; index++) {
+	for (index = IPA_MEM_PART(v6_modem_rt_index_lo);
+		 index <= IPA_MEM_PART(v6_modem_rt_index_hi);
+		 index++) {
 		cmd[num_cmds].size = mem.size;
 		cmd[num_cmds].system_addr =  mem.phys_base;
 		cmd[num_cmds].local_addr = ipa_ctx->smem_restricted_bytes +
-			IPA_v2_RAM_V6_RT_OFST + index*4;
+			IPA_MEM_PART(v6_rt_ofst) + index * 4;
 
 		desc[num_cmds].opcode = IPA_DMA_SHARED_MEM;
 		desc[num_cmds].pyld = &cmd[num_cmds];
@@ -1476,15 +1478,15 @@ static int ipa_init_sram(void)
 
 #define IPA_SRAM_SET(ofst, val) (ipa_sram_mmio[(ofst - 4) / 4] = val)
 
-	IPA_SRAM_SET(IPA_v2_RAM_V6_FLT_OFST - 4, IPA_CANARY_VAL);
-	IPA_SRAM_SET(IPA_v2_RAM_V6_FLT_OFST, IPA_CANARY_VAL);
-	IPA_SRAM_SET(IPA_v2_RAM_V4_RT_OFST - 4, IPA_CANARY_VAL);
-	IPA_SRAM_SET(IPA_v2_RAM_V4_RT_OFST, IPA_CANARY_VAL);
-	IPA_SRAM_SET(IPA_v2_RAM_V6_RT_OFST, IPA_CANARY_VAL);
-	IPA_SRAM_SET(IPA_v2_RAM_MODEM_HDR_OFST, IPA_CANARY_VAL);
-	IPA_SRAM_SET(IPA_v2_RAM_MODEM_OFST, IPA_CANARY_VAL);
-	IPA_SRAM_SET(IPA_v2_RAM_APPS_V4_FLT_OFST, IPA_CANARY_VAL);
-	IPA_SRAM_SET(IPA_v2_RAM_UC_INFO_OFST, IPA_CANARY_VAL);
+	IPA_SRAM_SET(IPA_MEM_PART(v6_flt_ofst) - 4, IPA_MEM_CANARY_VAL);
+	IPA_SRAM_SET(IPA_MEM_PART(v6_flt_ofst), IPA_MEM_CANARY_VAL);
+	IPA_SRAM_SET(IPA_MEM_PART(v4_rt_ofst) - 4, IPA_MEM_CANARY_VAL);
+	IPA_SRAM_SET(IPA_MEM_PART(v4_rt_ofst), IPA_MEM_CANARY_VAL);
+	IPA_SRAM_SET(IPA_MEM_PART(v6_rt_ofst), IPA_MEM_CANARY_VAL);
+	IPA_SRAM_SET(IPA_MEM_PART(modem_hdr_ofst), IPA_MEM_CANARY_VAL);
+	IPA_SRAM_SET(IPA_MEM_PART(modem_ofst), IPA_MEM_CANARY_VAL);
+	IPA_SRAM_SET(IPA_MEM_PART(apps_v4_flt_ofst), IPA_MEM_CANARY_VAL);
+	IPA_SRAM_SET(IPA_MEM_PART(uc_info_ofst), IPA_MEM_CANARY_VAL);
 
 	iounmap(ipa_sram_mmio);
 
@@ -1521,7 +1523,7 @@ static int ipa_init_hdr(void)
 	struct ipa_hdr_init_local cmd;
 	int rc = 0;
 
-	mem.size = IPA_v2_RAM_MODEM_HDR_SIZE + IPA_v2_RAM_APPS_HDR_SIZE;
+	mem.size = IPA_MEM_PART(modem_hdr_size) + IPA_MEM_PART(apps_hdr_size);
 	mem.base = dma_alloc_coherent(ipa_ctx->pdev, mem.size, &mem.phys_base,
 			GFP_KERNEL);
 	if (!mem.base) {
@@ -1533,7 +1535,7 @@ static int ipa_init_hdr(void)
 	cmd.hdr_table_src_addr = mem.phys_base;
 	cmd.size_hdr_table = mem.size;
 	cmd.hdr_table_dst_addr = ipa_ctx->smem_restricted_bytes +
-		IPA_v2_RAM_MODEM_HDR_OFST;
+		IPA_MEM_PART(modem_hdr_ofst);
 
 	desc.opcode = IPA_HDR_INIT_LOCAL;
 	desc.pyld = &cmd;
@@ -1559,12 +1561,13 @@ static int ipa_init_rt4(void)
 	int i;
 	int rc = 0;
 
-	for (i = IPA_v2_V4_MODEM_RT_INDEX_LO;
-			i <= IPA_v2_V4_MODEM_RT_INDEX_HI; i++)
+	for (i = IPA_MEM_PART(v4_modem_rt_index_lo);
+		i <= IPA_MEM_PART(v4_modem_rt_index_hi);
+		i++)
 		ipa_ctx->rt_idx_bitmap[IPA_IP_v4] |= (1 << i);
 	IPADBG("v4 rt bitmap 0x%lx\n", ipa_ctx->rt_idx_bitmap[IPA_IP_v4]);
 
-	mem.size = IPA_v2_RAM_V4_RT_SIZE;
+	mem.size = IPA_MEM_PART(v4_rt_size);
 	mem.base = dma_alloc_coherent(ipa_ctx->pdev, mem.size, &mem.phys_base,
 			GFP_KERNEL);
 	if (!mem.base) {
@@ -1573,7 +1576,7 @@ static int ipa_init_rt4(void)
 	}
 
 	entry = mem.base;
-	for (i = 0; i < IPA_v2_RAM_V4_NUM_INDEX; i++) {
+	for (i = 0; i < IPA_MEM_PART(v4_num_index); i++) {
 		*entry = ipa_ctx->empty_rt_tbl_mem.phys_base;
 		entry++;
 	}
@@ -1582,7 +1585,7 @@ static int ipa_init_rt4(void)
 	v4_cmd.ipv4_rules_addr = mem.phys_base;
 	v4_cmd.size_ipv4_rules = mem.size;
 	v4_cmd.ipv4_addr = ipa_ctx->smem_restricted_bytes +
-		IPA_v2_RAM_V4_RT_OFST;
+		IPA_MEM_PART(v4_rt_ofst);
 	IPADBG("putting Routing IPv4 rules to phys 0x%x",
 				v4_cmd.ipv4_addr);
 
@@ -1609,12 +1612,13 @@ static int ipa_init_rt6(void)
 	int i;
 	int rc = 0;
 
-	for (i = IPA_v2_V6_MODEM_RT_INDEX_LO;
-			i <= IPA_v2_V6_MODEM_RT_INDEX_HI; i++)
+	for (i = IPA_MEM_PART(v6_modem_rt_index_lo);
+		i <= IPA_MEM_PART(v6_modem_rt_index_hi);
+		i++)
 		ipa_ctx->rt_idx_bitmap[IPA_IP_v6] |= (1 << i);
 	IPADBG("v6 rt bitmap 0x%lx\n", ipa_ctx->rt_idx_bitmap[IPA_IP_v6]);
 
-	mem.size = IPA_v2_RAM_V6_RT_SIZE;
+	mem.size = IPA_MEM_PART(v6_rt_size);
 	mem.base = dma_alloc_coherent(ipa_ctx->pdev, mem.size, &mem.phys_base,
 			GFP_KERNEL);
 	if (!mem.base) {
@@ -1623,7 +1627,7 @@ static int ipa_init_rt6(void)
 	}
 
 	entry = mem.base;
-	for (i = 0; i < IPA_v2_RAM_V6_NUM_INDEX; i++) {
+	for (i = 0; i < IPA_MEM_PART(v6_num_index); i++) {
 		*entry = ipa_ctx->empty_rt_tbl_mem.phys_base;
 		entry++;
 	}
@@ -1632,7 +1636,7 @@ static int ipa_init_rt6(void)
 	v6_cmd.ipv6_rules_addr = mem.phys_base;
 	v6_cmd.size_ipv6_rules = mem.size;
 	v6_cmd.ipv6_addr = ipa_ctx->smem_restricted_bytes +
-		IPA_v2_RAM_V6_RT_OFST;
+		IPA_MEM_PART(v6_rt_ofst);
 	IPADBG("putting Routing IPv6 rules to phys 0x%x",
 				v6_cmd.ipv6_addr);
 
@@ -1659,7 +1663,7 @@ static int ipa_init_flt4(void)
 	int i;
 	int rc = 0;
 
-	mem.size = IPA_v2_RAM_V4_FLT_SIZE;
+	mem.size = IPA_MEM_PART(v4_flt_size);
 	mem.base = dma_alloc_coherent(ipa_ctx->pdev, mem.size, &mem.phys_base,
 			GFP_KERNEL);
 	if (!mem.base) {
@@ -1681,7 +1685,7 @@ static int ipa_init_flt4(void)
 	v4_cmd.ipv4_rules_addr = mem.phys_base;
 	v4_cmd.size_ipv4_rules = mem.size;
 	v4_cmd.ipv4_addr = ipa_ctx->smem_restricted_bytes +
-		IPA_v2_RAM_V4_FLT_OFST;
+		IPA_MEM_PART(v4_flt_ofst);
 	IPADBG("putting Filtering IPv4 rules to phys 0x%x",
 				v4_cmd.ipv4_addr);
 
@@ -1708,7 +1712,7 @@ static int ipa_init_flt6(void)
 	int i;
 	int rc = 0;
 
-	mem.size = IPA_v2_RAM_V6_FLT_SIZE;
+	mem.size = IPA_MEM_PART(v6_flt_size);
 	mem.base = dma_alloc_coherent(ipa_ctx->pdev, mem.size, &mem.phys_base,
 			GFP_KERNEL);
 	if (!mem.base) {
@@ -1730,7 +1734,7 @@ static int ipa_init_flt6(void)
 	v6_cmd.ipv6_rules_addr = mem.phys_base;
 	v6_cmd.size_ipv6_rules = mem.size;
 	v6_cmd.ipv6_addr = ipa_ctx->smem_restricted_bytes +
-		IPA_v2_RAM_V6_FLT_OFST;
+		IPA_MEM_PART(v6_flt_ofst);
 	IPADBG("putting Filtering IPv6 rules to phys 0x%x",
 				v6_cmd.ipv6_addr);
 

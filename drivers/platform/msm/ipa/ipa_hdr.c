@@ -87,15 +87,15 @@ int __ipa_commit_hdr_v1(void)
 	}
 
 	if (ipa_ctx->hdr_tbl_lcl) {
-		if (mem->size > IPA_v1_RAM_HDR_SIZE) {
+		if (mem->size > IPA_MEM_v1_RAM_HDR_SIZE) {
 			IPAERR("tbl too big, needed %d avail %d\n", mem->size,
-				IPA_v1_RAM_HDR_SIZE);
+				IPA_MEM_v1_RAM_HDR_SIZE);
 			goto fail_send_cmd;
 		}
 	} else {
-		if (mem->size > IPA_RAM_HDR_SIZE_DDR) {
+		if (mem->size > IPA_MEM_PART(apps_hdr_size_ddr)) {
 			IPAERR("tbl too big, needed %d avail %d\n", mem->size,
-				IPA_RAM_HDR_SIZE_DDR);
+				IPA_MEM_PART(apps_hdr_size_ddr));
 			goto fail_send_cmd;
 		}
 	}
@@ -103,7 +103,7 @@ int __ipa_commit_hdr_v1(void)
 	cmd->hdr_table_src_addr = mem->phys_base;
 	if (ipa_ctx->hdr_tbl_lcl) {
 		cmd->size_hdr_table = mem->size;
-		cmd->hdr_table_dst_addr = IPA_v1_RAM_HDR_OFST;
+		cmd->hdr_table_dst_addr = IPA_MEM_v1_RAM_HDR_OFST;
 		desc.opcode = IPA_HDR_INIT_LOCAL;
 	} else {
 		desc.opcode = IPA_HDR_INIT_SYSTEM;
@@ -161,24 +161,24 @@ int __ipa_commit_hdr_v2(void)
 	}
 
 	if (ipa_ctx->hdr_tbl_lcl) {
-		if (mem.size > IPA_v2_RAM_APPS_HDR_SIZE) {
+		if (mem.size > IPA_MEM_PART(apps_hdr_size)) {
 			IPAERR("tbl too big, needed %d avail %d\n", mem.size,
-				IPA_v2_RAM_APPS_HDR_SIZE);
+				IPA_MEM_PART(apps_hdr_size));
 			goto end;
 		} else {
 			dma_cmd.system_addr = mem.phys_base;
 			dma_cmd.size = mem.size;
 			dma_cmd.local_addr = ipa_ctx->smem_restricted_bytes +
-				IPA_v2_RAM_APPS_HDR_OFST;
+				IPA_MEM_PART(apps_hdr_ofst);
 			desc.opcode = IPA_DMA_SHARED_MEM;
 			desc.pyld = &dma_cmd;
 			desc.len =
 				sizeof(struct ipa_hw_imm_cmd_dma_shared_mem);
 		}
 	} else {
-		if (mem.size > IPA_RAM_HDR_SIZE_DDR) {
+		if (mem.size > IPA_MEM_PART(apps_hdr_size_ddr)) {
 			IPAERR("tbl too big, needed %d avail %d\n", mem.size,
-				IPA_RAM_HDR_SIZE_DDR);
+				IPA_MEM_PART(apps_hdr_size_ddr));
 			goto end;
 		} else {
 			cmd.hdr_table_addr = mem.phys_base;

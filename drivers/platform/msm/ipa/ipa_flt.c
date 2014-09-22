@@ -642,12 +642,12 @@ int __ipa_commit_flt_v1(enum ipa_ip_type ip)
 	}
 
 	if (ip == IPA_IP_v4) {
-		avail = ipa_ctx->ip4_flt_tbl_lcl ? IPA_v1_RAM_V4_FLT_SIZE :
-			IPA_RAM_V4_FLT_SIZE_DDR;
+		avail = ipa_ctx->ip4_flt_tbl_lcl ? IPA_MEM_v1_RAM_V4_FLT_SIZE :
+			IPA_MEM_PART(v4_flt_size_ddr);
 		size = sizeof(struct ipa_ip_v4_filter_init);
 	} else {
-		avail = ipa_ctx->ip6_flt_tbl_lcl ? IPA_v1_RAM_V6_FLT_SIZE :
-			IPA_RAM_V6_FLT_SIZE_DDR;
+		avail = ipa_ctx->ip6_flt_tbl_lcl ? IPA_MEM_v1_RAM_V6_FLT_SIZE :
+			IPA_MEM_PART(v6_flt_size_ddr);
 		size = sizeof(struct ipa_ip_v6_filter_init);
 	}
 	cmd = kmalloc(size, GFP_KERNEL);
@@ -671,13 +671,13 @@ int __ipa_commit_flt_v1(enum ipa_ip_type ip)
 		desc.opcode = IPA_IP_V4_FILTER_INIT;
 		v4->ipv4_rules_addr = mem->phys_base;
 		v4->size_ipv4_rules = mem->size;
-		v4->ipv4_addr = IPA_v1_RAM_V4_FLT_OFST;
+		v4->ipv4_addr = IPA_MEM_v1_RAM_V4_FLT_OFST;
 	} else {
 		v6 = (struct ipa_ip_v6_filter_init *)cmd;
 		desc.opcode = IPA_IP_V6_FILTER_INIT;
 		v6->ipv6_rules_addr = mem->phys_base;
 		v6->size_ipv6_rules = mem->size;
-		v6->ipv6_addr = IPA_v1_RAM_V6_FLT_OFST;
+		v6->ipv6_addr = IPA_MEM_v1_RAM_V6_FLT_OFST;
 	}
 
 	desc.pyld = cmd;
@@ -722,11 +722,11 @@ static int ipa_generate_flt_hw_tbl_v2(enum ipa_ip_type ip,
 	u32 hdr_top;
 
 	if (ip == IPA_IP_v4)
-		body_start_offset = IPA_v2_RAM_APPS_V4_FLT_OFST -
-			IPA_v2_RAM_V4_FLT_OFST;
+		body_start_offset = IPA_MEM_PART(apps_v4_flt_ofst) -
+			IPA_MEM_PART(v4_flt_ofst);
 	else
-		body_start_offset = IPA_v2_RAM_APPS_V6_FLT_OFST -
-			IPA_v2_RAM_V6_FLT_OFST;
+		body_start_offset = IPA_MEM_PART(apps_v6_flt_ofst) -
+			IPA_MEM_PART(v6_flt_ofst);
 
 	num_words = 7;
 	head1->size = num_words * 4;
@@ -832,20 +832,22 @@ int __ipa_commit_flt_v2(enum ipa_ip_type ip)
 	}
 
 	if (ip == IPA_IP_v4) {
-		avail = ipa_ctx->ip4_flt_tbl_lcl ? IPA_v2_RAM_APPS_V4_FLT_SIZE :
-			IPA_RAM_V4_FLT_SIZE_DDR;
+		avail = ipa_ctx->ip4_flt_tbl_lcl ?
+			IPA_MEM_PART(apps_v4_flt_size) :
+			IPA_MEM_PART(v4_flt_size_ddr);
 		local_addrh = ipa_ctx->smem_restricted_bytes +
-			IPA_v2_RAM_V4_FLT_OFST + 4;
+			IPA_MEM_PART(v4_flt_ofst) + 4;
 		local_addrb = ipa_ctx->smem_restricted_bytes +
-			IPA_v2_RAM_APPS_V4_FLT_OFST;
+			IPA_MEM_PART(apps_v4_flt_ofst);
 		lcl = ipa_ctx->ip4_flt_tbl_lcl;
 	} else {
-		avail = ipa_ctx->ip6_flt_tbl_lcl ? IPA_v2_RAM_APPS_V6_FLT_SIZE :
-			IPA_RAM_V6_FLT_SIZE_DDR;
+		avail = ipa_ctx->ip6_flt_tbl_lcl ?
+			IPA_MEM_PART(apps_v6_flt_size) :
+			IPA_MEM_PART(v6_flt_size_ddr);
 		local_addrh = ipa_ctx->smem_restricted_bytes +
-			IPA_v2_RAM_V6_FLT_OFST + 4;
+			IPA_MEM_PART(v6_flt_ofst) + 4;
 		local_addrb = ipa_ctx->smem_restricted_bytes +
-			IPA_v2_RAM_APPS_V6_FLT_OFST;
+			IPA_MEM_PART(apps_v6_flt_ofst);
 		lcl = ipa_ctx->ip6_flt_tbl_lcl;
 	}
 
@@ -884,10 +886,12 @@ int __ipa_commit_flt_v2(enum ipa_ip_type ip)
 
 		if (ip == IPA_IP_v4) {
 			local_addrh = ipa_ctx->smem_restricted_bytes +
-				IPA_v2_RAM_V4_FLT_OFST + 8 + i * 4;
+				IPA_MEM_PART(v4_flt_ofst) +
+				8 + i * 4;
 		} else {
 			local_addrh = ipa_ctx->smem_restricted_bytes +
-				IPA_v2_RAM_V6_FLT_OFST + 8 + i * 4;
+				IPA_MEM_PART(v6_flt_ofst) +
+				8 + i * 4;
 		}
 		cmd[num_desc].size = 4;
 		cmd[num_desc].system_addr = head1.phys_base + 4 + i * 4;
@@ -908,10 +912,12 @@ int __ipa_commit_flt_v2(enum ipa_ip_type ip)
 
 		if (ip == IPA_IP_v4) {
 			local_addrh = ipa_ctx->smem_restricted_bytes +
-				IPA_v2_RAM_V4_FLT_OFST + 13 * 4 + (i - 11) * 4;
+				IPA_MEM_PART(v4_flt_ofst) +
+				13 * 4 + (i - 11) * 4;
 		} else {
 			local_addrh = ipa_ctx->smem_restricted_bytes +
-				IPA_v2_RAM_V6_FLT_OFST + 13 * 4 + (i - 11) * 4;
+				IPA_MEM_PART(v6_flt_ofst) +
+				13 * 4 + (i - 11) * 4;
 		}
 		cmd[num_desc].size = 4;
 		cmd[num_desc].system_addr = head2.phys_base + (i - 11) * 4;
@@ -993,8 +999,8 @@ static int __ipa_add_flt_rule(struct ipa_flt_tbl *tbl, enum ipa_ip_type ip,
 			}
 		} else {
 			if (rule->rt_tbl_idx > ((ip == IPA_IP_v4) ?
-					IPA_v2_V4_MODEM_RT_INDEX_HI :
-					IPA_v2_V6_MODEM_RT_INDEX_HI)) {
+				IPA_MEM_PART(v4_modem_rt_index_hi) :
+				IPA_MEM_PART(v6_modem_rt_index_hi))) {
 				IPAERR("invalid RT tbl\n");
 				goto error;
 			}
@@ -1108,8 +1114,8 @@ static int __ipa_mdfy_flt_rule(struct ipa_flt_rule_mdfy *frule,
 			}
 		} else {
 			if (frule->rule.rt_tbl_idx > ((ip == IPA_IP_v4) ?
-					IPA_v2_V4_MODEM_RT_INDEX_HI :
-					IPA_v2_V6_MODEM_RT_INDEX_HI)) {
+				IPA_MEM_PART(v4_modem_rt_index_hi) :
+				IPA_MEM_PART(v6_modem_rt_index_hi))) {
 				IPAERR("invalid RT tbl\n");
 				goto error;
 			}
