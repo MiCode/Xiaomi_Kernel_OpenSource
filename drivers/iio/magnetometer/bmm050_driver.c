@@ -1549,6 +1549,13 @@ static int bmm_resume(struct device *dev)
 	/* And then restore the HW configuration */
 	mutex_lock(&client_data->mutex_power_mode);
 	err = bmm_restore_hw_cfg(client);
+	err = bmm_set_op_mode(client_data, client_data->op_mode);
+	if (err) {
+		dev_err(&client->dev, "fail to set opmode %d",
+						client_data->op_mode);
+		mutex_unlock(&client_data->mutex_power_mode);
+		return err;
+	}
 	/* post resume operation */
 	bmm_post_resume(client);
 
