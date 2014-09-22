@@ -50,8 +50,8 @@ extern unsigned int sysctl_sched_init_task_load_pct;
 #endif
 
 #ifdef CONFIG_SCHED_FREQ_INPUT
-extern int sysctl_sched_freq_inc_notify_slack_pct;
-extern int sysctl_sched_freq_dec_notify_slack_pct;
+extern int sysctl_sched_freq_inc_notify;
+extern int sysctl_sched_freq_dec_notify;
 #endif
 
 #ifdef CONFIG_SCHED_HMP
