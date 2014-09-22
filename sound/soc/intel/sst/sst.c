@@ -620,6 +620,12 @@ int sst_request_firmware_async(struct intel_sst_drv *ctx)
 	struct mach_codec_link const *mc_link;
 	struct board_config const *conf;
 
+	ret = sst_audio_platform_init(ctx->pci_id);
+	if (ret) {
+		pr_err("failed to register platform device; Exiting\n");
+		return -ENOENT;
+	}
+
 	if (ctx->pci_id == SST_BYT_PCI_ID) {
 		mc_link = get_mc_link();
 		if (mc_link == NULL) {

@@ -12,22 +12,14 @@
 
 #include <linux/kernel.h>
 #include <linux/init.h>
-#include <asm/platform_sst_audio.h>
 #include <linux/platform_device.h>
 
 
 static int __init byt_audio_platform_init(void)
 {
 	struct platform_device *pdev;
-	int ret;
 
 	pr_debug("%s: Enter.\n", __func__);
-
-	ret = add_sst_platform_device();
-	if (ret < 0) {
-		pr_err("%s failed to sst_platform device\n", __func__);
-		return 0;
-	}
 
 	pdev = platform_device_register_simple("hdmi-audio", -1, NULL, 0);
 

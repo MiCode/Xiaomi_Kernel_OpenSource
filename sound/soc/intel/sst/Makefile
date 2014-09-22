@@ -1,5 +1,5 @@
 # Makefile for SST Audio driver
-snd-intel-sst-objs := sst.o sst_ipc.o sst_stream.o sst_drv_interface.o sst_dsp.o sst_pvt.o sst_app_interface.o sst_acpi.o
+snd-intel-sst-objs := sst.o sst_ipc.o sst_stream.o sst_drv_interface.o sst_dsp.o sst_pvt.o sst_app_interface.o sst_acpi.o sst_platform.o
 
 ifdef CONFIG_DEBUG_FS
 	snd-intel-sst-objs += sst_debug.o

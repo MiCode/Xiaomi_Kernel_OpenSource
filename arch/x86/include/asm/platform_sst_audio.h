@@ -232,6 +232,7 @@ struct sst_platform_data {
 	const struct sst_ssp_config ssp_config[SST_NUM_SSPS][SST_MAX_SSP_MUX][SST_MAX_SSP_DOMAINS];
 };
 
-int add_sst_platform_device(void);
+int sst_audio_platform_init(int dev_id);
+
 #endif
 

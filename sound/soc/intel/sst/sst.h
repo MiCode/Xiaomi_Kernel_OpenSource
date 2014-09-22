@@ -32,6 +32,8 @@
 #include <linux/lnw_gpio.h>
 #include <asm/platform_sst.h>
 #include <sound/intel_sst_ioctl.h>
+#include "../sst_platform.h"
+#include "../platform_ipc_v2.h"
 
 #define SST_DRIVER_VERSION "3.0.8"
 
