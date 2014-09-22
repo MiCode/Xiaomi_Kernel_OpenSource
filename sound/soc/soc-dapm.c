@@ -3748,8 +3748,8 @@ void snd_soc_dapm_connect_dai_link_widgets(struct snd_soc_card *card)
 			r.source = cpu_dai->playback_widget->name;
 			r.sink = codec_dai->playback_widget->name;
 			dev_dbg(rtd->dev, "connected DAI link %s:%s -> %s:%s\n",
-				cpu_dai->codec->name, r.source,
-				codec_dai->platform->name, r.sink);
+				cpu_dai->platform->name, r.source,
+				codec_dai->codec->name, r.sink);
 
 			snd_soc_dapm_add_route(&card->dapm, &r, true);
 		}
