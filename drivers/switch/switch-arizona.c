@@ -930,8 +930,6 @@ static int arizona_hpdet_moisture_reading(struct arizona_extcon_info *info,
 
 int arizona_hpdet_reading(struct arizona_extcon_info *info, int val)
 {
-	struct arizona *arizona = info->arizona;
-
 	if (val < 0)
 		return val;
 
