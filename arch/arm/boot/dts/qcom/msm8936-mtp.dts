@@ -21,3 +21,9 @@
 	compatible = "qcom,msm8936-mtp", "qcom,msm8936", "qcom,mtp";
 	qcom,board-id = <8 1>;
 };
+
+&cci {
+	qcom,camera@0 {
+		qcom,led-flash-src = <&led_flash0>;
+	};
+};

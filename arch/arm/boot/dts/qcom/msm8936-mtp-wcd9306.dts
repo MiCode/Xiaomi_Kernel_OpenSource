@@ -49,3 +49,9 @@
 	status = "ok";
 	qcom,disable-bms;
 };
+
+&cci {
+	qcom,camera@0 {
+		qcom,led-flash-src = <&led_flash1>;
+	};
+};
