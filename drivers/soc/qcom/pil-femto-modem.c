@@ -25,6 +25,7 @@
 #include <linux/sysfs.h>
 
 #include <asm/page.h>
+#include <asm/cacheflush.h>
 
 #include "peripheral-loader.h"
 #include "pil-q6v5.h"
@@ -132,7 +133,9 @@ static void *pil_femto_modem_map_fw_mem(phys_addr_t paddr, size_t size, void *d)
 
 static void pil_femto_modem_unmap_fw_mem(void *vaddr, size_t size, void *data)
 {
+	flush_cache_vmap((unsigned long) vaddr, (unsigned long) vaddr + size);
 	iounmap(vaddr);
+	isb();
 }
 
 static int pil_femto_modem_send_rmb_advance(void __iomem *rmb_base, u32 id)
