@@ -544,7 +544,22 @@ static void a4xx_enable_hwcg(struct kgsl_device *device)
 	kgsl_regwrite(device, A4XX_RBBM_CLOCK_CTL_HLSQ , 0x00000000);
 	kgsl_regwrite(device, A4XX_RBBM_CLOCK_HYST_HLSQ, 0x00000000);
 	kgsl_regwrite(device, A4XX_RBBM_CLOCK_DELAY_HLSQ, 0x00220000);
-	kgsl_regwrite(device, A4XX_RBBM_CLOCK_CTL, 0xAAAAAAAA);
+	/*
+	 * Due to a HW timing issue, top level HW clock gating is causing
+	 * register read/writes to be dropped in adreno a430.
+	 * This timing issue started happening because of SP/TP power collapse.
+	 * On targets that do not have SP/TP PC there is no timing issue.
+	 * The HW timing issue could be fixed by
+	 * a) disabling SP/TP power collapse
+	 * b) or disabling HW clock gating.
+	 * Disabling HW clock gating + NAP enabled combination has
+	 * minimal power impact. So this option is chosen over disabling
+	 * SP/TP power collapse.
+	 */
+	if (adreno_is_a430(adreno_dev))
+		kgsl_regwrite(device, A4XX_RBBM_CLOCK_CTL, 0);
+	else
+		kgsl_regwrite(device, A4XX_RBBM_CLOCK_CTL, 0xAAAAAAAA);
 	kgsl_regwrite(device, A4XX_RBBM_CLOCK_CTL2, 0);
 }
 
