@@ -169,6 +169,13 @@
 		status = "disabled";
 	};
 
+	serial@f9921000 {
+		compatible = "qcom,msm-lsuart-v14";
+		reg = <0xf9921000 0x1000>;
+		interrupts = <0 102 0>;
+		status = "disabled";
+	};
+
 	qcom,uim@f995d000 { /* BLSP2_UART1 */
 		compatible = "qcom,uim";
 		reg = <0xf995d000 0x1000>;
