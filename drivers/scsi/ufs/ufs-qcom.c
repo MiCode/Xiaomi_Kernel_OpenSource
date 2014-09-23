@@ -260,6 +260,24 @@ out:
 	return ret;
 }
 
+/*
+ * The UTP controller has a number of internal clock gating cells (CGCs).
+ * Internal hardware sub-modules within the UTP controller control the CGCs.
+ * Hardware CGCs disable the clock to inactivate UTP sub-modules not involved
+ * in a specific operation, UTP controller CGCs are by default disabled and
+ * this function enables them (after every UFS link startup) to save some power
+ * leakage.
+ */
+static void ufs_qcom_enable_hw_clk_gating(struct ufs_hba *hba)
+{
+	ufshcd_writel(hba,
+		ufshcd_readl(hba, REG_UFS_CFG2) | REG_UFS_CFG2_CGC_EN_ALL,
+		REG_UFS_CFG2);
+
+	/* Ensure that HW clock gating is enabled before next operations */
+	mb();
+}
+
 static int ufs_qcom_hce_enable_notify(struct ufs_hba *hba, bool status)
 {
 	struct ufs_qcom_host *host = hba->priv;
@@ -278,6 +296,7 @@ static int ufs_qcom_hce_enable_notify(struct ufs_hba *hba, bool status)
 	case POST_CHANGE:
 		/* check if UFS PHY moved from DISABLED to HIBERN8 */
 		err = ufs_qcom_check_hibern8(hba);
+		ufs_qcom_enable_hw_clk_gating(hba);
 		break;
 	default:
 		dev_err(hba->dev, "%s: invalid status %d\n", __func__, status);
