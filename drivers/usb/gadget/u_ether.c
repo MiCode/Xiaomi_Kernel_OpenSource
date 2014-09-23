@@ -137,6 +137,8 @@ struct eth_dev {
 	enum ifc_state		state;
 	struct notifier_block	cpufreq_notifier;
 	struct work_struct	cpu_policy_w;
+
+	bool			sg_enabled;
 };
 
 /* when sg is enabled, sg_ctx is used to track skb each usb request will
@@ -1050,7 +1052,7 @@ static netdev_tx_t eth_start_xmit(struct sk_buff *skb,
 	}
 
 	dev->tx_pkts_rcvd++;
-	if (dev->gadget->sg_supported) {
+	if (dev->gadget->sg_supported && dev->sg_enabled) {
 		skb_queue_tail(&dev->tx_skb_q, skb);
 		if (dev->tx_skb_q.qlen > tx_stop_threshold) {
 			dev->tx_throttle++;
@@ -1689,6 +1691,13 @@ void gether_update_dl_max_xfer_size(struct gether *link, uint32_t s)
 	spin_unlock_irqrestore(&dev->lock, flags);
 }
 
+void gether_enable_sg(struct gether *link, bool enable)
+{
+	struct eth_dev		*dev = link->ioport;
+
+	dev->sg_enabled = enable;
+}
+
 void gether_update_dl_max_pkts_per_xfer(struct gether *link, uint32_t n)
 {
 	struct eth_dev		*dev = link->ioport;
@@ -1739,6 +1748,9 @@ struct net_device *gether_connect(struct gether *link)
 			goto fail;
 		}
 	}
+
+	/* function driver may later disable sg support */
+	dev->sg_enabled = dev->gadget->sg_supported;
 
 	link->in_ep->driver_data = dev;
 	result = usb_ep_enable(link->in_ep);
