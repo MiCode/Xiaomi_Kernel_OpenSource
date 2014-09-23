@@ -21,6 +21,7 @@
 #include <linux/platform_device.h>
 
 #define MSM_PINTYPE_SDC_REGS_MAX 10
+#define MSM_PINTYPE_EBI_REGS_MAX 10
 
 /**
  * struct msm_pin_group: group of pins having the same pinmux function.
@@ -88,6 +89,7 @@ enum msm_pintype {
 	MSM_PINTYPE_GP,
 	MSM_PINTYPE_SDC,
 	MSM_PINTYPE_QDSD,
+	MSM_PINTYPE_EBI,
 	MSM_PINTYPE_MAX,
 };
 
@@ -100,12 +102,17 @@ enum msm_pintype {
  *		      [SDC1 CLK, SDC1 CMD, SDC1 DATA, SDC1 RCLK,
  *		       SDC2 CLK, SDC2 CMD, SDC2 DATA,
  *		       SDC3 CLK, SDC3 CMD, SDC3 DATA]
+ * @ebi_reg_offsets : ebi pins' register offset from the base address in array.
+ *		      offset array consists of
+ *			[EBI2 CS, EBI2 OE, EBI2 ALE,
+ *			EBI2 CLE, EBI2 WE, EBI2 BUSY, EBI2 DATA]
  */
 struct msm_pintype_data {
 	unsigned long reg_base_offset;
 	union {
 		u32 gp_reg_size;
 		s32 sdc_reg_offsets[MSM_PINTYPE_SDC_REGS_MAX];
+		s32 ebi_reg_offsets[MSM_PINTYPE_EBI_REGS_MAX];
 	};
 };
 
