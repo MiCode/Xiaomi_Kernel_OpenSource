@@ -553,5 +553,20 @@
 				  bias-pull-up;
 			};
 		};
+
+		tlmm_gpio_key {
+			qcom,pins = <&gp 90>, <&gp 91>, <&gp 92>;
+			qcom,pin-func = <0>;
+			qcom,num-grp-pins = <3>;
+			label = "tlmm_gpio_key";
+			gpio_key_active: gpio_key_active {
+				drive-strength = <2>;
+				bias-pull-up;
+			};
+			gpio_key_suspend: gpio_key_suspend {
+				drive-strength = <2>;
+				bias-pull-up;
+			};
+		};
 	};
 };
