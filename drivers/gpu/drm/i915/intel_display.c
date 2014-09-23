@@ -10772,6 +10772,48 @@ int intel_set_disp_commit_regs(struct drm_mode_set_display *disp,
 	return ret;
 }
 
+static unsigned int usecs_to_scanlines(struct drm_crtc *crtc,
+				       unsigned int usecs)
+{
+	/* paranoia */
+	if (!crtc->hwmode.crtc_htotal)
+		return 1;
+
+	return DIV_ROUND_UP(usecs * crtc->hwmode.clock,
+			    1000 * crtc->hwmode.crtc_htotal);
+}
+
+static void intel_pipe_vblank_evade(struct drm_crtc *crtc)
+{
+	struct drm_device *dev = crtc->dev;
+	struct drm_i915_private *dev_priv = dev->dev_private;
+	struct intel_crtc *intel_crtc = to_intel_crtc(crtc);
+	int pipe = intel_crtc->pipe;
+	/* FIXME needs to be calibrated sensibly */
+	u32 min = crtc->hwmode.crtc_vdisplay - usecs_to_scanlines(crtc, 50);
+	u32 max = crtc->hwmode.crtc_vdisplay - 1;
+	long timeout = msecs_to_jiffies(3);
+	u32 val;
+
+	local_irq_disable();
+	val = I915_READ(PIPEDSL(pipe));
+	local_irq_enable();
+
+	while (val >= min && val <= max && timeout > 0) {
+
+		intel_wait_for_vblank(dev_priv->dev, intel_crtc->pipe);
+		local_irq_disable();
+		val = I915_READ(PIPEDSL(pipe));
+		local_irq_enable();
+		dev_priv->wait_vbl = false;
+	}
+
+	if (val >= min && val <= max)
+		dev_warn(dev->dev,
+			 "Page flipping close to vblank start (DSL=%u, VBL=%u)\n",
+			 val, crtc->hwmode.crtc_vdisplay);
+}
+
 static int intel_crtc_set_display(struct drm_crtc *crtc,
 				struct drm_mode_set_display *disp,
 				struct drm_file *file_priv)
@@ -10829,6 +10871,8 @@ static int intel_crtc_set_display(struct drm_crtc *crtc,
 		}
 		dev_priv->wait_vbl = false;
 	}
+
+	intel_pipe_vblank_evade(crtc);
 
 	/* Commit to registers */
 	ret = intel_set_disp_commit_regs(disp, dev, intel_crtc);
