@@ -1344,17 +1344,52 @@ int mdss_mdp_pipe_sspp_setup(struct mdss_mdp_pipe *pipe, u32 *op)
 	switch (pipe->type) {
 	case MDSS_MDP_PIPE_TYPE_VIG:
 		pipe_base = mdata->mdp_base + MDSS_MDP_REG_IGC_VIG_BASE;
-		pipe_num = pipe->num - MDSS_MDP_SSPP_VIG0;
+		switch (pipe->num) {
+		case MDSS_MDP_SSPP_VIG0:
+			pipe_num = 0;
+		break;
+		case MDSS_MDP_SSPP_VIG1:
+			pipe_num = 1;
+		break;
+		case MDSS_MDP_SSPP_VIG2:
+			pipe_num = 2;
+		break;
+		case MDSS_MDP_SSPP_VIG3:
+			pipe_num = 3;
+		break;
+		default:
+			pr_err("Invalid pipe num %d pipe type %d\n",
+			       pipe->num, pipe->type);
+			return -EINVAL;
+		}
 		break;
 	case MDSS_MDP_PIPE_TYPE_RGB:
 		pipe_base = mdata->mdp_base + MDSS_MDP_REG_IGC_RGB_BASE;
-		pipe_num = pipe->num - MDSS_MDP_SSPP_RGB0;
+		switch (pipe->num) {
+		case MDSS_MDP_SSPP_RGB0:
+			pipe_num = 0;
+		break;
+		case MDSS_MDP_SSPP_RGB1:
+			pipe_num = 1;
+		break;
+		case MDSS_MDP_SSPP_RGB2:
+			pipe_num = 2;
+		break;
+		case MDSS_MDP_SSPP_RGB3:
+			pipe_num = 3;
+		break;
+		default:
+			pr_err("Invalid pipe num %d pipe type %d\n",
+			       pipe->num, pipe->type);
+			return -EINVAL;
+		}
 		break;
 	case MDSS_MDP_PIPE_TYPE_DMA:
 		pipe_base = mdata->mdp_base + MDSS_MDP_REG_IGC_DMA_BASE;
 		pipe_num = pipe->num - MDSS_MDP_SSPP_DMA0;
 		break;
 	default:
+		pr_err("Invalid pipe type %d\n", pipe->type);
 		return -EINVAL;
 	}
 
