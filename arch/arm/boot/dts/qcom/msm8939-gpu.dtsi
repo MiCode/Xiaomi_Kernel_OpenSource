@@ -26,7 +26,7 @@
 		        < 6103 >;	/* 400.0 MHz */
 	};
 
-	qcom,gpu-bwmon {
+	qcom,gpu-bwmon@410000 {
 		compatible = "qcom,bimc-bwmon";
 		reg = <0x00410000 0x300>, <0x00401000 0x200>;
 		reg-names = "base", "global_base";
@@ -70,6 +70,7 @@
 		              "gtcu_iface_clk", "gtcu_clk", "gtbu_clk";
 
 		/* Bus Scale Settings */
+		qcom,gpubw-dev = <&gpubw>;
 		qcom,msm-bus,name = "grp3d";
 		qcom,msm-bus,num-cases = <4>;
 		qcom,msm-bus,num-paths = <1>;
