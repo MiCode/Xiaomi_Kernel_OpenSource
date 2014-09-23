@@ -29,6 +29,7 @@
 			qcom,fab-dev;
 			qcom,base-name = "bimc-base";
 			qcom,bus-type = <2>;
+			qcom,util-fact = <153>;
 			qcom,bypass-qos-prg;
 			clock-names = "bus_clk", "bus_a_clk";
 			clocks = <&clock_rpm  clk_bimc_msmbus_clk>,
