@@ -28,6 +28,10 @@ Optional property:
 	When missing default to 0.
  - qcom,bam-disable : disables BAM transfer mode.
  - qcom,master-id : Master-port value used on voting for the clock path.
+ - qcom,high-time-clk-div : high time divider value to configure clk-ctl
+	register. When missing, default to the value given in driver.
+ - qcom,fs-clk-div: fs divider value to configure clk-ctl register. When
+	missing, default to the value given in driver.
 
 Example:
 	aliases {
