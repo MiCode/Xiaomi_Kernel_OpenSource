@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -658,10 +658,6 @@ struct i2c_msm_xfer {
  * @dbgfs    debug-fs root and values that may be set via debug-fs.
  * @rsrcs    resources from platform data including clocks, gpios, irqs, and
  *           memory regions.
- * @noise_rjct_scl noise rejection value for the scl line (a field of
- *           I2C_MASTER_CLK_CTL).
- * @noise_rjct_sda noise rejection value for the sda line (a field of
- *           I2C_MASTER_CLK_CTL).
  * @pdata    the platform data (values from board-file or from device-tree)
  * @mstr_clk_ctl cached value for programming to mstr_clk_ctl register
  */
@@ -672,8 +668,6 @@ struct i2c_msm_ctrl {
 	struct i2c_msm_xfer        xfer;
 	struct i2c_msm_dbgfs       dbgfs;
 	struct i2c_msm_resources   rsrcs;
-	int                        noise_rjct_scl;
-	int                        noise_rjct_sda;
 	u32                        mstr_clk_ctl;
 	struct i2c_msm_v2_platform_data *pdata;
 	enum msm_i2c_power_state   pwr_state;
