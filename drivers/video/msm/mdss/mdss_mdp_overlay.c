@@ -61,12 +61,6 @@ static inline bool is_ov_right_blend(struct mdp_rect *left_blend,
 		(left_blend->h == right_blend->h));
 }
 
-static inline u32 left_lm_w_from_mfd(struct msm_fb_data_type *mfd)
-{
-	struct mdss_mdp_ctl *ctl = mfd_to_ctl(mfd);
-	return (ctl && ctl->mixer_left) ? ctl->mixer_left->width : 0;
-}
-
 /**
  * __is_more_decimation_doable() -
  * @pipe: pointer to pipe data structure
