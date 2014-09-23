@@ -587,6 +587,34 @@ void _ipa_sram_settings_read_v2_0(void)
 	ipa_ctx->ip6_flt_tbl_lcl = 0;
 }
 
+void _ipa_sram_settings_read_v2_5(void)
+{
+	ipa_ctx->smem_restricted_bytes = ipa_read_reg_field(ipa_ctx->mmio,
+		IPA_SHARED_MEM_SIZE_OFST_v2_0,
+		IPA_SHARED_MEM_SIZE_SHARED_MEM_BADDR_BMSK_v2_0,
+		IPA_SHARED_MEM_SIZE_SHARED_MEM_BADDR_SHFT_v2_0);
+	ipa_ctx->smem_sz = ipa_read_reg_field(ipa_ctx->mmio,
+		IPA_SHARED_MEM_SIZE_OFST_v2_0,
+		IPA_SHARED_MEM_SIZE_SHARED_MEM_SIZE_BMSK_v2_0,
+		IPA_SHARED_MEM_SIZE_SHARED_MEM_SIZE_SHFT_v2_0);
+	ipa_ctx->smem_reqd_sz = IPA_MEM_PART(end_ofst);
+	ipa_ctx->hdr_tbl_lcl = 0;
+	ipa_ctx->hdr_proc_ctx_tbl_lcl = 1;
+
+	/*
+	 * when proc ctx table is located in internal memory,
+	 * modem entries resides first.
+	 */
+	if (ipa_ctx->hdr_proc_ctx_tbl_lcl) {
+		ipa_ctx->hdr_proc_ctx_tbl.start_offset =
+			IPA_MEM_PART(modem_hdr_proc_ctx_size);
+	}
+	ipa_ctx->ip4_rt_tbl_lcl = 0;
+	ipa_ctx->ip6_rt_tbl_lcl = 0;
+	ipa_ctx->ip4_flt_tbl_lcl = 1;
+	ipa_ctx->ip6_flt_tbl_lcl = 0;
+}
+
 void _ipa_cfg_route_v1_0(struct ipa_route *route)
 {
 	u32 reg_val = 0;
@@ -885,6 +913,36 @@ u8 *ipa_pad_to_32(u8 *dest)
 	return dest;
 }
 
+void ipa_generate_mac_addr_hw_rule(u8 **buf, u8 hdr_mac_addr_offset,
+	const uint8_t mac_addr_mask[ETH_ALEN],
+	const uint8_t mac_addr[ETH_ALEN])
+{
+	*buf = ipa_write_8(hdr_mac_addr_offset, *buf);
+
+	/* MAC addr mask copied as little endian each 4 bytes */
+	*buf = ipa_write_8(mac_addr_mask[3], *buf);
+	*buf = ipa_write_8(mac_addr_mask[2], *buf);
+	*buf = ipa_write_8(mac_addr_mask[1], *buf);
+	*buf = ipa_write_8(mac_addr_mask[0], *buf);
+	*buf = ipa_write_16(0, *buf);
+	*buf = ipa_write_8(mac_addr_mask[5], *buf);
+	*buf = ipa_write_8(mac_addr_mask[4], *buf);
+	*buf = ipa_write_32(0, *buf);
+	*buf = ipa_write_32(0, *buf);
+
+	/* MAC addr copied as little endian each 4 bytes */
+	*buf = ipa_write_8(mac_addr[3], *buf);
+	*buf = ipa_write_8(mac_addr[2], *buf);
+	*buf = ipa_write_8(mac_addr[1], *buf);
+	*buf = ipa_write_8(mac_addr[0], *buf);
+	*buf = ipa_write_16(0, *buf);
+	*buf = ipa_write_8(mac_addr[5], *buf);
+	*buf = ipa_write_8(mac_addr[4], *buf);
+	*buf = ipa_write_32(0, *buf);
+	*buf = ipa_write_32(0, *buf);
+	*buf = ipa_pad_to_32(*buf);
+}
+
 /**
  * ipa_generate_hw_rule() - generate HW rule
  * @ip: IP address type
@@ -897,7 +955,7 @@ u8 *ipa_pad_to_32(u8 *dest)
  * -EPERM: wrong input
  */
 int ipa_generate_hw_rule(enum ipa_ip_type ip,
-		const struct ipa_rule_attrib *attrib, u8 **buf, u16 *en_rule)
+	const struct ipa_rule_attrib *attrib, u8 **buf, u16 *en_rule)
 {
 	u8 ofst_meq32 = 0;
 	u8 ihl_ofst_rng16 = 0;
@@ -964,6 +1022,22 @@ int ipa_generate_hw_rule(enum ipa_ip_type ip,
 			*buf = ipa_write_8(16, *buf);
 			*buf = ipa_write_32(attrib->u.v4.dst_addr_mask, *buf);
 			*buf = ipa_write_32(attrib->u.v4.dst_addr, *buf);
+			*buf = ipa_pad_to_32(*buf);
+			ofst_meq32++;
+		}
+
+		if (attrib->attrib_mask & IPA_FLT_MAC_ETHER_TYPE) {
+			if (ipa_ofst_meq32[ofst_meq32] == -1) {
+				IPAERR("ran out of meq32 eq\n");
+				return -EPERM;
+			}
+			*en_rule |= ipa_ofst_meq32[ofst_meq32];
+			/* -2 => offset of ether type in L2 hdr */
+			*buf = ipa_write_8((u8)-2, *buf);
+			*buf = ipa_write_16(0, *buf);
+			*buf = ipa_write_16(htons(attrib->ether_type), *buf);
+			*buf = ipa_write_16(0, *buf);
+			*buf = ipa_write_16(htons(attrib->ether_type), *buf);
 			*buf = ipa_pad_to_32(*buf);
 			ofst_meq32++;
 		}
@@ -1074,6 +1148,74 @@ int ipa_generate_hw_rule(enum ipa_ip_type ip,
 			ihl_ofst_rng16++;
 		}
 
+		if (attrib->attrib_mask & IPA_FLT_MAC_DST_ADDR_ETHER_II) {
+			if (ipa_ofst_meq128[ofst_meq128] == -1) {
+				IPAERR("ran out of meq128 eq\n");
+				return -EPERM;
+			}
+			*en_rule |= ipa_ofst_meq128[ofst_meq128];
+
+			/* -14 => offset of dst mac addr in Ethernet II hdr */
+			ipa_generate_mac_addr_hw_rule(
+				buf,
+				-14,
+				attrib->dst_mac_addr_mask,
+				attrib->dst_mac_addr);
+
+			ofst_meq128++;
+		}
+
+		if (attrib->attrib_mask & IPA_FLT_MAC_SRC_ADDR_ETHER_II) {
+			if (ipa_ofst_meq128[ofst_meq128] == -1) {
+				IPAERR("ran out of meq128 eq\n");
+				return -EPERM;
+			}
+			*en_rule |= ipa_ofst_meq128[ofst_meq128];
+
+			/* -8 => offset of src mac addr in Ethernet II hdr */
+			ipa_generate_mac_addr_hw_rule(
+				buf,
+				-8,
+				attrib->src_mac_addr_mask,
+				attrib->src_mac_addr);
+
+			ofst_meq128++;
+		}
+
+		if (attrib->attrib_mask & IPA_FLT_MAC_DST_ADDR_802_3) {
+			if (ipa_ofst_meq128[ofst_meq128] == -1) {
+				IPAERR("ran out of meq128 eq\n");
+				return -EPERM;
+			}
+			*en_rule |= ipa_ofst_meq128[ofst_meq128];
+
+			/* -22 => offset of dst mac addr in 802.3 hdr */
+			ipa_generate_mac_addr_hw_rule(
+				buf,
+				-22,
+				attrib->dst_mac_addr_mask,
+				attrib->dst_mac_addr);
+
+			ofst_meq128++;
+		}
+
+		if (attrib->attrib_mask & IPA_FLT_MAC_SRC_ADDR_802_3) {
+			if (ipa_ofst_meq128[ofst_meq128] == -1) {
+				IPAERR("ran out of meq128 eq\n");
+				return -EPERM;
+			}
+			*en_rule |= ipa_ofst_meq128[ofst_meq128];
+
+			/* -16 => offset of src mac addr in 802.3 hdr */
+			ipa_generate_mac_addr_hw_rule(
+				buf,
+				-16,
+				attrib->src_mac_addr_mask,
+				attrib->src_mac_addr);
+
+			ofst_meq128++;
+		}
+
 		if (attrib->attrib_mask & IPA_FLT_META_DATA) {
 			*en_rule |= IPA_METADATA_COMPARE;
 			*buf = ipa_write_8(0, *buf);    /* offset, reserved */
@@ -1086,7 +1228,6 @@ int ipa_generate_hw_rule(enum ipa_ip_type ip,
 			*en_rule |= IPA_IS_FRAG;
 			*buf = ipa_pad_to_32(*buf);
 		}
-
 	} else if (ip == IPA_IP_v6) {
 
 		/* v6 code below assumes no extension headers TODO: fix this */
@@ -1102,6 +1243,22 @@ int ipa_generate_hw_rule(enum ipa_ip_type ip,
 			*en_rule |= IPA_PROTOCOL_EQ;
 			*buf = ipa_write_8(attrib->u.v6.next_hdr, *buf);
 			*buf = ipa_pad_to_32(*buf);
+		}
+
+		if (attrib->attrib_mask & IPA_FLT_MAC_ETHER_TYPE) {
+			if (ipa_ofst_meq32[ofst_meq32] == -1) {
+				IPAERR("ran out of meq32 eq\n");
+				return -EPERM;
+			}
+			*en_rule |= ipa_ofst_meq32[ofst_meq32];
+			/* -2 => offset of ether type in L2 hdr */
+			*buf = ipa_write_8((u8)-2, *buf);
+			*buf = ipa_write_16(0, *buf);
+			*buf = ipa_write_16(htons(attrib->ether_type), *buf);
+			*buf = ipa_write_16(0, *buf);
+			*buf = ipa_write_16(htons(attrib->ether_type), *buf);
+			*buf = ipa_pad_to_32(*buf);
+			ofst_meq32++;
 		}
 
 		if (attrib->attrib_mask & IPA_FLT_TYPE) {
@@ -1285,6 +1442,74 @@ int ipa_generate_hw_rule(enum ipa_ip_type ip,
 			ofst_meq128++;
 		}
 
+		if (attrib->attrib_mask & IPA_FLT_MAC_DST_ADDR_ETHER_II) {
+			if (ipa_ofst_meq128[ofst_meq128] == -1) {
+				IPAERR("ran out of meq128 eq\n");
+				return -EPERM;
+			}
+			*en_rule |= ipa_ofst_meq128[ofst_meq128];
+
+			/* -14 => offset of dst mac addr in Ethernet II hdr */
+			ipa_generate_mac_addr_hw_rule(
+				buf,
+				-14,
+				attrib->dst_mac_addr_mask,
+				attrib->dst_mac_addr);
+
+			ofst_meq128++;
+		}
+
+		if (attrib->attrib_mask & IPA_FLT_MAC_SRC_ADDR_ETHER_II) {
+			if (ipa_ofst_meq128[ofst_meq128] == -1) {
+				IPAERR("ran out of meq128 eq\n");
+				return -EPERM;
+			}
+			*en_rule |= ipa_ofst_meq128[ofst_meq128];
+
+			/* -8 => offset of src mac addr in Ethernet II hdr */
+			ipa_generate_mac_addr_hw_rule(
+				buf,
+				-8,
+				attrib->src_mac_addr_mask,
+				attrib->src_mac_addr);
+
+			ofst_meq128++;
+		}
+
+		if (attrib->attrib_mask & IPA_FLT_MAC_DST_ADDR_802_3) {
+			if (ipa_ofst_meq128[ofst_meq128] == -1) {
+				IPAERR("ran out of meq128 eq\n");
+				return -EPERM;
+			}
+			*en_rule |= ipa_ofst_meq128[ofst_meq128];
+
+			/* -22 => offset of dst mac addr in 802.3 hdr */
+			ipa_generate_mac_addr_hw_rule(
+				buf,
+				-22,
+				attrib->dst_mac_addr_mask,
+				attrib->dst_mac_addr);
+
+			ofst_meq128++;
+		}
+
+		if (attrib->attrib_mask & IPA_FLT_MAC_SRC_ADDR_802_3) {
+			if (ipa_ofst_meq128[ofst_meq128] == -1) {
+				IPAERR("ran out of meq128 eq\n");
+				return -EPERM;
+			}
+			*en_rule |= ipa_ofst_meq128[ofst_meq128];
+
+			/* -16 => offset of src mac addr in 802.3 hdr */
+			ipa_generate_mac_addr_hw_rule(
+				buf,
+				-16,
+				attrib->src_mac_addr_mask,
+				attrib->src_mac_addr);
+
+			ofst_meq128++;
+		}
+
 		if (attrib->attrib_mask & IPA_FLT_FLOW_LABEL) {
 			*en_rule |= IPA_FLT_FLOW_LABEL;
 			 /* FIXME FL is only 20 bits */
@@ -1327,6 +1552,31 @@ int ipa_generate_hw_rule(enum ipa_ip_type ip,
 	}
 
 	return 0;
+}
+
+void ipa_generate_flt_mac_addr_eq(struct ipa_ipfltri_rule_eq *eq_atrb,
+	u8 hdr_mac_addr_offset,	const uint8_t mac_addr_mask[ETH_ALEN],
+	const uint8_t mac_addr[ETH_ALEN], u8 ofst_meq128)
+{
+	eq_atrb->offset_meq_128[ofst_meq128].offset = hdr_mac_addr_offset;
+	eq_atrb->offset_meq_128[ofst_meq128].mask[0] = mac_addr_mask[3];
+	eq_atrb->offset_meq_128[ofst_meq128].mask[1] = mac_addr_mask[2];
+	eq_atrb->offset_meq_128[ofst_meq128].mask[2] = mac_addr_mask[1];
+	eq_atrb->offset_meq_128[ofst_meq128].mask[3] = mac_addr_mask[0];
+	eq_atrb->offset_meq_128[ofst_meq128].mask[4] = 0;
+	eq_atrb->offset_meq_128[ofst_meq128].mask[5] = 0;
+	eq_atrb->offset_meq_128[ofst_meq128].mask[6] = mac_addr_mask[5];
+	eq_atrb->offset_meq_128[ofst_meq128].mask[7] = mac_addr_mask[4];
+	memset(eq_atrb->offset_meq_128[ofst_meq128].mask + 8, 0, 8);
+	eq_atrb->offset_meq_128[ofst_meq128].value[0] =	mac_addr[3];
+	eq_atrb->offset_meq_128[ofst_meq128].value[1] =	mac_addr[2];
+	eq_atrb->offset_meq_128[ofst_meq128].value[2] =	mac_addr[1];
+	eq_atrb->offset_meq_128[ofst_meq128].value[3] =	mac_addr[0];
+	eq_atrb->offset_meq_128[ofst_meq128].value[4] = 0;
+	eq_atrb->offset_meq_128[ofst_meq128].value[5] = 0;
+	eq_atrb->offset_meq_128[ofst_meq128].value[6] =	mac_addr[5];
+	eq_atrb->offset_meq_128[ofst_meq128].value[7] =	mac_addr[4];
+	memset(eq_atrb->offset_meq_128[ofst_meq128].value + 8, 0, 8);
 }
 
 int ipa_generate_flt_eq(enum ipa_ip_type ip,
@@ -1519,6 +1769,80 @@ int ipa_generate_flt_eq(enum ipa_ip_type ip,
 		if (attrib->attrib_mask & IPA_FLT_FRAGMENT) {
 			*en_rule |= IPA_IS_FRAG;
 			eq_atrb->ipv4_frag_eq_present = 1;
+		}
+
+		if (attrib->attrib_mask & IPA_FLT_MAC_DST_ADDR_ETHER_II) {
+			if (ipa_ofst_meq128[ofst_meq128] == -1) {
+				IPAERR("ran out of meq128 eq\n");
+				return -EPERM;
+			}
+			*en_rule |= ipa_ofst_meq128[ofst_meq128];
+
+			/* -14 => offset of dst mac addr in Ethernet II hdr */
+			ipa_generate_flt_mac_addr_eq(eq_atrb, -14,
+				attrib->dst_mac_addr_mask, attrib->dst_mac_addr,
+				ofst_meq128);
+
+			ofst_meq128++;
+		}
+
+		if (attrib->attrib_mask & IPA_FLT_MAC_SRC_ADDR_ETHER_II) {
+			if (ipa_ofst_meq128[ofst_meq128] == -1) {
+				IPAERR("ran out of meq128 eq\n");
+				return -EPERM;
+			}
+			*en_rule |= ipa_ofst_meq128[ofst_meq128];
+
+			/* -8 => offset of src mac addr in Ethernet II hdr */
+			ipa_generate_flt_mac_addr_eq(eq_atrb, -8,
+				attrib->src_mac_addr_mask, attrib->src_mac_addr,
+				ofst_meq128);
+
+			ofst_meq128++;
+		}
+
+		if (attrib->attrib_mask & IPA_FLT_MAC_DST_ADDR_802_3) {
+			if (ipa_ofst_meq128[ofst_meq128] == -1) {
+				IPAERR("ran out of meq128 eq\n");
+				return -EPERM;
+			}
+			*en_rule |= ipa_ofst_meq128[ofst_meq128];
+
+			/* -22 => offset of dst mac addr in 802.3 hdr */
+			ipa_generate_flt_mac_addr_eq(eq_atrb, -22,
+				attrib->dst_mac_addr_mask, attrib->dst_mac_addr,
+				ofst_meq128);
+
+			ofst_meq128++;
+		}
+
+		if (attrib->attrib_mask & IPA_FLT_MAC_SRC_ADDR_802_3) {
+			if (ipa_ofst_meq128[ofst_meq128] == -1) {
+				IPAERR("ran out of meq128 eq\n");
+				return -EPERM;
+			}
+			*en_rule |= ipa_ofst_meq128[ofst_meq128];
+
+			/* -16 => offset of src mac addr in 802.3 hdr */
+			ipa_generate_flt_mac_addr_eq(eq_atrb, -16,
+				attrib->src_mac_addr_mask, attrib->src_mac_addr,
+				ofst_meq128);
+
+			ofst_meq128++;
+		}
+
+		if (attrib->attrib_mask & IPA_FLT_MAC_ETHER_TYPE) {
+			if (ipa_ofst_meq32[ofst_meq32] == -1) {
+				IPAERR("ran out of meq128 eq\n");
+				return -EPERM;
+			}
+			*en_rule |= ipa_ofst_meq32[ofst_meq32];
+			eq_atrb->offset_meq_32[ofst_meq32].offset = -2;
+			eq_atrb->offset_meq_32[ofst_meq32].mask =
+				htons(attrib->ether_type);
+			eq_atrb->offset_meq_32[ofst_meq32].value =
+				htons(attrib->ether_type);
+			ofst_meq32++;
 		}
 	} else if (ip == IPA_IP_v6) {
 
@@ -1742,6 +2066,80 @@ int ipa_generate_flt_eq(enum ipa_ip_type ip,
 		if (attrib->attrib_mask & IPA_FLT_FRAGMENT) {
 			*en_rule |= IPA_IS_FRAG;
 			eq_atrb->ipv4_frag_eq_present = 1;
+		}
+
+		if (attrib->attrib_mask & IPA_FLT_MAC_DST_ADDR_ETHER_II) {
+			if (ipa_ofst_meq128[ofst_meq128] == -1) {
+				IPAERR("ran out of meq128 eq\n");
+				return -EPERM;
+			}
+			*en_rule |= ipa_ofst_meq128[ofst_meq128];
+
+			/* -14 => offset of dst mac addr in Ethernet II hdr */
+			ipa_generate_flt_mac_addr_eq(eq_atrb, -14,
+				attrib->dst_mac_addr_mask, attrib->dst_mac_addr,
+				ofst_meq128);
+
+			ofst_meq128++;
+		}
+
+		if (attrib->attrib_mask & IPA_FLT_MAC_SRC_ADDR_ETHER_II) {
+			if (ipa_ofst_meq128[ofst_meq128] == -1) {
+				IPAERR("ran out of meq128 eq\n");
+				return -EPERM;
+			}
+			*en_rule |= ipa_ofst_meq128[ofst_meq128];
+
+			/* -8 => offset of src mac addr in Ethernet II hdr */
+			ipa_generate_flt_mac_addr_eq(eq_atrb, -8,
+				attrib->src_mac_addr_mask, attrib->src_mac_addr,
+				ofst_meq128);
+
+			ofst_meq128++;
+		}
+
+		if (attrib->attrib_mask & IPA_FLT_MAC_DST_ADDR_802_3) {
+			if (ipa_ofst_meq128[ofst_meq128] == -1) {
+				IPAERR("ran out of meq128 eq\n");
+				return -EPERM;
+			}
+			*en_rule |= ipa_ofst_meq128[ofst_meq128];
+
+			/* -22 => offset of dst mac addr in 802.3 hdr */
+			ipa_generate_flt_mac_addr_eq(eq_atrb, -22,
+				attrib->dst_mac_addr_mask, attrib->dst_mac_addr,
+				ofst_meq128);
+
+			ofst_meq128++;
+		}
+
+		if (attrib->attrib_mask & IPA_FLT_MAC_SRC_ADDR_802_3) {
+			if (ipa_ofst_meq128[ofst_meq128] == -1) {
+				IPAERR("ran out of meq128 eq\n");
+				return -EPERM;
+			}
+			*en_rule |= ipa_ofst_meq128[ofst_meq128];
+
+			/* -16 => offset of src mac addr in 802.3 hdr */
+			ipa_generate_flt_mac_addr_eq(eq_atrb, -16,
+				attrib->src_mac_addr_mask, attrib->src_mac_addr,
+				ofst_meq128);
+
+			ofst_meq128++;
+		}
+
+		if (attrib->attrib_mask & IPA_FLT_MAC_ETHER_TYPE) {
+			if (ipa_ofst_meq32[ofst_meq32] == -1) {
+				IPAERR("ran out of meq128 eq\n");
+				return -EPERM;
+			}
+			*en_rule |= ipa_ofst_meq32[ofst_meq32];
+			eq_atrb->offset_meq_32[ofst_meq32].offset = -2;
+			eq_atrb->offset_meq_32[ofst_meq32].mask =
+				htons(attrib->ether_type);
+			eq_atrb->offset_meq_32[ofst_meq32].value =
+				htons(attrib->ether_type);
+			ofst_meq32++;
 		}
 
 	} else {
@@ -3481,7 +3879,7 @@ static void ipa_init_mem_partition_v2(void)
 
 	IPA_MEM_PART(apps_hdr_ofst) = IPA_MEM_v2_RAM_APPS_HDR_OFST;
 	IPA_MEM_PART(apps_hdr_size) = IPA_MEM_v2_RAM_APPS_HDR_SIZE;
-	IPA_MEM_PART(apps_hdr_size_ddr) = IPA_MEM_RAM_HDR_SIZE_DDR;
+	IPA_MEM_PART(apps_hdr_size_ddr) = IPA_MEM_v2_RAM_HDR_SIZE_DDR;
 	IPADBG("APPS HDR OFST 0x%x SIZE 0x%x DDR SIZE 0x%x\n",
 		IPA_MEM_PART(apps_hdr_ofst), IPA_MEM_PART(apps_hdr_size),
 		IPA_MEM_PART(apps_hdr_size_ddr));
@@ -3513,6 +3911,134 @@ static void ipa_init_mem_partition_v2(void)
 	IPA_MEM_PART(apps_v6_rt_size) = IPA_MEM_v2_RAM_APPS_V6_RT_SIZE;
 }
 
+static void ipa_init_mem_partition_v2_5(void)
+{
+	IPADBG("Memory partition IPA 2.5\n");
+	IPA_MEM_PART(nat_ofst) = IPA_RAM_NAT_OFST;
+	IPA_MEM_PART(nat_size) = IPA_RAM_NAT_SIZE;
+	IPADBG("NAT OFST 0x%x SIZE 0x%x\n", IPA_MEM_PART(nat_ofst),
+		IPA_MEM_PART(nat_size));
+
+	IPA_MEM_PART(ofst_start) = IPA_MEM_v2_5_RAM_OFST_START;
+	IPADBG("RAM OFST 0x%x\n", IPA_MEM_PART(ofst_start));
+
+	IPA_MEM_PART(v4_flt_ofst) = IPA_MEM_v2_5_RAM_V4_FLT_OFST;
+	IPA_MEM_PART(v4_flt_size) = IPA_MEM_v2_5_RAM_V4_FLT_SIZE;
+	IPA_MEM_PART(v4_flt_size_ddr) = IPA_MEM_RAM_V4_FLT_SIZE_DDR;
+	IPADBG("V4 FLT OFST 0x%x SIZE 0x%x DDR SIZE 0x%x\n",
+		IPA_MEM_PART(v4_flt_ofst), IPA_MEM_PART(v4_flt_size),
+		IPA_MEM_PART(v4_flt_size_ddr));
+
+	IPA_MEM_PART(v6_flt_ofst) = IPA_MEM_v2_5_RAM_V6_FLT_OFST;
+	IPA_MEM_PART(v6_flt_size) = IPA_MEM_v2_5_RAM_V6_FLT_SIZE;
+	IPA_MEM_PART(v6_flt_size_ddr) = IPA_MEM_RAM_V6_FLT_SIZE_DDR;
+	IPADBG("V6 FLT OFST 0x%x SIZE 0x%x DDR SIZE 0x%x\n",
+		IPA_MEM_PART(v6_flt_ofst), IPA_MEM_PART(v6_flt_size),
+		IPA_MEM_PART(v6_flt_size_ddr));
+
+	IPA_MEM_PART(v4_rt_ofst) = IPA_MEM_v2_5_RAM_V4_RT_OFST;
+	IPADBG("V4 RT OFST 0x%x\n", IPA_MEM_PART(v4_rt_ofst));
+
+	IPA_MEM_PART(v4_num_index) = IPA_MEM_v2_5_RAM_V4_NUM_INDEX;
+	IPADBG("V4 RT NUM INDEX 0x%x\n", IPA_MEM_PART(v4_num_index));
+
+	IPA_MEM_PART(v4_modem_rt_index_lo) = IPA_MEM_v2_5_V4_MODEM_RT_INDEX_LO;
+	IPA_MEM_PART(v4_modem_rt_index_hi) = IPA_MEM_v2_5_V4_MODEM_RT_INDEX_HI;
+	IPADBG("V4 RT MODEM INDEXES 0x%x - 0x%x\n",
+		IPA_MEM_PART(v4_modem_rt_index_lo),
+		IPA_MEM_PART(v4_modem_rt_index_hi));
+
+	IPA_MEM_PART(v4_apps_rt_index_lo) = IPA_MEM_v2_5_V4_APPS_RT_INDEX_LO;
+	IPA_MEM_PART(v4_apps_rt_index_hi) = IPA_MEM_v2_5_V4_APPS_RT_INDEX_HI;
+	IPADBG("V4 RT APPS INDEXES 0x%x - 0x%x\n",
+		IPA_MEM_PART(v4_apps_rt_index_lo),
+		IPA_MEM_PART(v4_apps_rt_index_hi));
+
+	IPA_MEM_PART(v4_rt_size) = IPA_MEM_v2_5_RAM_V4_RT_SIZE;
+	IPA_MEM_PART(v4_rt_size_ddr) = IPA_MEM_RAM_V4_RT_SIZE_DDR;
+	IPADBG("V4 RT SIZE 0x%x DDR SIZE 0x%x\n", IPA_MEM_PART(v4_rt_size),
+		IPA_MEM_PART(v4_rt_size_ddr));
+
+	IPA_MEM_PART(v6_rt_ofst) = IPA_MEM_v2_5_RAM_V6_RT_OFST;
+	IPADBG("V6 RT OFST 0x%x\n", IPA_MEM_PART(v6_rt_ofst));
+
+	IPA_MEM_PART(v6_num_index) = IPA_MEM_v2_5_RAM_V6_NUM_INDEX;
+	IPADBG("V6 RT NUM INDEX 0x%x\n", IPA_MEM_PART(v6_num_index));
+
+	IPA_MEM_PART(v6_modem_rt_index_lo) = IPA_MEM_v2_5_V6_MODEM_RT_INDEX_LO;
+	IPA_MEM_PART(v6_modem_rt_index_hi) = IPA_MEM_v2_5_V6_MODEM_RT_INDEX_HI;
+	IPADBG("V6 RT MODEM INDEXES 0x%x - 0x%x\n",
+		IPA_MEM_PART(v6_modem_rt_index_lo),
+		IPA_MEM_PART(v6_modem_rt_index_hi));
+
+	IPA_MEM_PART(v6_apps_rt_index_lo) = IPA_MEM_v2_5_V6_APPS_RT_INDEX_LO;
+	IPA_MEM_PART(v6_apps_rt_index_hi) = IPA_MEM_v2_5_V6_APPS_RT_INDEX_HI;
+	IPADBG("V6 RT APPS INDEXES 0x%x - 0x%x\n",
+		IPA_MEM_PART(v6_apps_rt_index_lo),
+		IPA_MEM_PART(v6_apps_rt_index_hi));
+
+	IPA_MEM_PART(v6_rt_size) = IPA_MEM_v2_5_RAM_V6_RT_SIZE;
+	IPA_MEM_PART(v6_rt_size_ddr) = IPA_MEM_RAM_V6_RT_SIZE_DDR;
+	IPADBG("V6 RT SIZE 0x%x DDR SIZE 0x%x\n", IPA_MEM_PART(v6_rt_size),
+		IPA_MEM_PART(v6_rt_size_ddr));
+
+	IPA_MEM_PART(modem_hdr_ofst) = IPA_MEM_v2_5_RAM_MODEM_HDR_OFST;
+	IPA_MEM_PART(modem_hdr_size) = IPA_MEM_v2_5_RAM_MODEM_HDR_SIZE;
+	IPADBG("MODEM HDR OFST 0x%x SIZE 0x%x\n",
+		IPA_MEM_PART(modem_hdr_ofst), IPA_MEM_PART(modem_hdr_size));
+
+	IPA_MEM_PART(apps_hdr_ofst) = IPA_MEM_v2_5_RAM_APPS_HDR_OFST;
+	IPA_MEM_PART(apps_hdr_size) = IPA_MEM_v2_5_RAM_APPS_HDR_SIZE;
+	IPA_MEM_PART(apps_hdr_size_ddr) = IPA_MEM_v2_5_RAM_HDR_SIZE_DDR;
+	IPADBG("APPS HDR OFST 0x%x SIZE 0x%x DDR SIZE 0x%x\n",
+		IPA_MEM_PART(apps_hdr_ofst), IPA_MEM_PART(apps_hdr_size),
+		IPA_MEM_PART(apps_hdr_size_ddr));
+
+	IPA_MEM_PART(modem_hdr_proc_ctx_ofst) =
+		IPA_MEM_v2_5_RAM_MODEM_HDR_PROC_CTX_OFST;
+	IPA_MEM_PART(modem_hdr_proc_ctx_size) =
+		IPA_MEM_v2_5_RAM_MODEM_HDR_PROC_CTX_SIZE;
+	IPADBG("MODEM HDR PROC CTX OFST 0x%x SIZE 0x%x\n",
+		IPA_MEM_PART(modem_hdr_proc_ctx_ofst),
+		IPA_MEM_PART(modem_hdr_proc_ctx_size));
+
+	IPA_MEM_PART(apps_hdr_proc_ctx_ofst) =
+		IPA_MEM_v2_5_RAM_APPS_HDR_PROC_CTX_OFST;
+	IPA_MEM_PART(apps_hdr_proc_ctx_size) =
+		IPA_MEM_v2_5_RAM_APPS_HDR_PROC_CTX_SIZE;
+	IPA_MEM_PART(apps_hdr_proc_ctx_size_ddr) =
+		IPA_MEM_RAM_HDR_PROC_CTX_SIZE_DDR;
+	IPADBG("APPS HDR PROC CTX OFST 0x%x SIZE 0x%x DDR SIZE 0x%x\n",
+		IPA_MEM_PART(apps_hdr_proc_ctx_ofst),
+		IPA_MEM_PART(apps_hdr_proc_ctx_size),
+		IPA_MEM_PART(apps_hdr_proc_ctx_size_ddr));
+
+	IPA_MEM_PART(modem_ofst) = IPA_MEM_v2_5_RAM_MODEM_OFST;
+	IPA_MEM_PART(modem_size) = IPA_MEM_v2_5_RAM_MODEM_SIZE;
+	IPADBG("MODEM OFST 0x%x SIZE 0x%x\n", IPA_MEM_PART(modem_ofst),
+		IPA_MEM_PART(modem_size));
+
+	IPA_MEM_PART(apps_v4_flt_ofst) = IPA_MEM_v2_5_RAM_APPS_V4_FLT_OFST;
+	IPA_MEM_PART(apps_v4_flt_size) = IPA_MEM_v2_5_RAM_APPS_V4_FLT_SIZE;
+	IPADBG("V4 APPS FLT OFST 0x%x SIZE 0x%x\n",
+		IPA_MEM_PART(apps_v4_flt_ofst), IPA_MEM_PART(apps_v4_flt_size));
+
+	IPA_MEM_PART(apps_v6_flt_ofst) = IPA_MEM_v2_5_RAM_APPS_V6_FLT_OFST;
+	IPA_MEM_PART(apps_v6_flt_size) = IPA_MEM_v2_5_RAM_APPS_V6_FLT_SIZE;
+	IPADBG("V6 APPS FLT OFST 0x%x SIZE 0x%x\n",
+		IPA_MEM_PART(apps_v6_flt_ofst), IPA_MEM_PART(apps_v6_flt_size));
+
+	IPA_MEM_PART(uc_info_ofst) = IPA_MEM_v2_5_RAM_UC_INFO_OFST;
+	IPA_MEM_PART(uc_info_size) = IPA_MEM_v2_5_RAM_UC_INFO_SIZE;
+	IPADBG("V6 UC INFO OFST 0x%x SIZE 0x%x\n", IPA_MEM_PART(uc_info_ofst),
+		IPA_MEM_PART(uc_info_size));
+
+	IPA_MEM_PART(end_ofst) = IPA_MEM_v2_5_RAM_END_OFST;
+	IPA_MEM_PART(apps_v4_rt_ofst) = IPA_MEM_v2_5_RAM_APPS_V4_RT_OFST;
+	IPA_MEM_PART(apps_v4_rt_size) = IPA_MEM_v2_5_RAM_APPS_V4_RT_SIZE;
+	IPA_MEM_PART(apps_v6_rt_ofst) = IPA_MEM_v2_5_RAM_APPS_V6_RT_OFST;
+	IPA_MEM_PART(apps_v6_rt_size) = IPA_MEM_v2_5_RAM_APPS_V6_RT_SIZE;
+}
 
 /**
  * ipa_controller_shared_static_bind() - set the appropriate shared methods for
@@ -3522,7 +4048,10 @@ static void ipa_init_mem_partition_v2(void)
  */
 void ipa_controller_shared_static_bind(struct ipa_controller *ctrl)
 {
-	ctrl->ipa_sram_read_settings = _ipa_sram_settings_read_v2_0;
+	ctrl->ipa_init_rt4 = _ipa_init_rt4_v2;
+	ctrl->ipa_init_rt6 = _ipa_init_rt6_v2;
+	ctrl->ipa_init_flt4 = _ipa_init_flt4_v2;
+	ctrl->ipa_init_flt6 = _ipa_init_flt6_v2;
 	ctrl->ipa_cfg_ep_hdr = _ipa_cfg_ep_hdr_v2_0;
 	ctrl->ipa_cfg_ep_nat = _ipa_cfg_ep_nat_v2_0;
 	ctrl->ipa_cfg_ep_aggr = _ipa_cfg_ep_aggr_v2_0;
@@ -3631,14 +4160,24 @@ int ipa_controller_static_bind(struct ipa_controller *ctrl,
 		ctrl->ipa_reg_base_ofst = IPA_REG_BASE_OFST_v2_0;
 		ctrl->max_holb_tmr_val = IPA_V2_0_MAX_HOLB_TMR_VAL;
 		ctrl->ipa_cfg_ep_hdr_ext = _ipa_cfg_ep_hdr_ext_v2_0;
+		ctrl->ipa_sram_read_settings = _ipa_sram_settings_read_v2_0;
+		ctrl->ipa_init_sram = _ipa_init_sram_v2;
+		ctrl->ipa_init_hdr = _ipa_init_hdr_v2;
+		ctrl->ipa_commit_hdr = __ipa_commit_hdr_v2;
+		ctrl->ipa_generate_rt_hw_rule = __ipa_generate_rt_hw_rule_v2;
 		break;
 	case (IPA_HW_v2_5):
-		ipa_init_mem_partition_v2();
+		ipa_init_mem_partition_v2_5();
 		ipa_controller_shared_static_bind(ctrl);
 		ctrl->ipa_cfg_ep_holb = _ipa_cfg_ep_holb_v2_5;
 		ctrl->ipa_reg_base_ofst = IPA_REG_BASE_OFST_v2_5;
 		ctrl->max_holb_tmr_val = IPA_V2_5_MAX_HOLB_TMR_VAL;
 		ctrl->ipa_cfg_ep_hdr_ext = _ipa_cfg_ep_hdr_ext_v2_5;
+		ctrl->ipa_sram_read_settings = _ipa_sram_settings_read_v2_5;
+		ctrl->ipa_init_sram = _ipa_init_sram_v2_5;
+		ctrl->ipa_init_hdr = _ipa_init_hdr_v2_5;
+		ctrl->ipa_commit_hdr = __ipa_commit_hdr_v2_5;
+		ctrl->ipa_generate_rt_hw_rule = __ipa_generate_rt_hw_rule_v2_5;
 		break;
 	default:
 		return -EPERM;

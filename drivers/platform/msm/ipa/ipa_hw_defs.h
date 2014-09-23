@@ -35,6 +35,12 @@
 #define IPA_DMA_SHARED_MEM       (19)
 #define IPA_IP_PACKET_TAG_STATUS (20)
 
+/* Processing context TLV type */
+#define IPA_PROC_CTX_TLV_TYPE_END 0
+#define IPA_PROC_CTX_TLV_TYPE_HDR_ADD 1
+#define IPA_PROC_CTX_TLV_TYPE_PROC_CMD 3
+
+
 /**
  * struct ipa_flt_rule_hw_hdr - HW header of IPA filter rule
  * @word: filtering rule properties
@@ -72,6 +78,8 @@ struct ipa_flt_rule_hw_hdr {
  * @pipe_dest_idx: destination pipe index
  * @system: changed from local to system due to HW change
  * @hdr_offset: header offset
+ * @proc_ctx: whether hdr_offset points to header table or to
+ *	header processing context table
  */
 struct ipa_rt_rule_hw_hdr {
 	union {
@@ -82,6 +90,13 @@ struct ipa_rt_rule_hw_hdr {
 			u32 system:1;
 			u32 hdr_offset:10;
 		} hdr;
+		struct {
+			u32 en_rule:16;
+			u32 pipe_dest_idx:5;
+			u32 system:1;
+			u32 hdr_offset:9;
+			u32 proc_ctx:1;
+		} hdr_v2_5;
 	} u;
 };
 
@@ -161,6 +176,40 @@ struct ipa_hdr_init_local {
 struct ipa_hdr_init_system {
 	u64 hdr_table_addr:32;
 	u64 rsvd:32;
+};
+
+/**
+ * struct ipa_hdr_proc_ctx_tlv -
+ * HW structure of IPA processing context header - TLV part
+ * @type: 0 - end type
+ *        1 - header addition type
+ *        3 - processing command type
+ * @length: number of bytes after tlv
+ *        for type:
+ *        0 - needs to be 0
+ *        1 - header addition length
+ *        3 - number of 32B including type and length.
+ * @value: specific value for type
+ *        for type:
+ *        0 - needs to be 0
+ *        1 - header length
+ *        3 - command ID (see IPA_HDR_UCP_* definitions)
+ */
+struct ipa_hdr_proc_ctx_tlv {
+	u32 type:8;
+	u32 length:8;
+	u32 value:16;
+};
+
+/**
+ * struct ipa_hdr_proc_ctx_hdr_add -
+ * HW structure of IPA processing context - add header tlv
+ * @tlv: IPA processing context TLV
+ * @hdr_addr: processing context header address
+ */
+struct ipa_hdr_proc_ctx_hdr_add {
+	struct ipa_hdr_proc_ctx_tlv tlv;
+	u32 hdr_addr;
 };
 
 #define IPA_A5_MUX_HDR_EXCP_FLAG_IP		BIT(7)

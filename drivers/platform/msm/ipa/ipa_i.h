@@ -75,7 +75,6 @@
 #define IPA_STATS_EXCP_CNT(flags, base) do { } while (0)
 #endif
 
-
 #define IPA_TOS_EQ			BIT(0)
 #define IPA_PROTOCOL_EQ			BIT(1)
 #define IPA_OFFSET_MEQ32_0		BIT(2)
@@ -99,6 +98,10 @@
 #define IPA_HDR_BIN3 3
 #define IPA_HDR_BIN4 4
 #define IPA_HDR_BIN_MAX 5
+
+#define IPA_HDR_PROC_CTX_BIN0 0
+#define IPA_HDR_PROC_CTX_BIN1 1
+#define IPA_HDR_PROC_CTX_BIN_MAX 2
 
 #define IPA_EVENT_THRESHOLD 0x10
 
@@ -125,6 +128,11 @@
 #define IPA_HW_TABLE_ALIGNMENT(start_ofst) \
 	(((start_ofst) + 127) & ~127)
 #define IPA_RT_FLT_HW_RULE_BUF_SIZE	(128)
+
+#define IPA_HDR_PROC_CTX_TABLE_ALIGNMENT_BYTE 8
+#define IPA_HDR_PROC_CTX_TABLE_ALIGNMENT(start_ofst) \
+	(((start_ofst) + IPA_HDR_PROC_CTX_TABLE_ALIGNMENT_BYTE - 1) & \
+	~(IPA_HDR_PROC_CTX_TABLE_ALIGNMENT_BYTE - 1))
 
 #define MAX_RESOURCE_TO_CLIENTS (5)
 #define IPA_MEM_PART(x_) (ipa_ctx->ctrl->mem_partition.x_)
@@ -172,13 +180,14 @@ struct ipa_flt_entry {
  * @name: routing table name
  * @idx: routing table index
  * @rule_cnt: number of rules in routing table
- * @ref_cnt: reference counter of raouting table
+ * @ref_cnt: reference counter of routing table
  * @set: collection of routing tables
  * @cookie: cookie used for validity check
  * @in_sys: flag indicating if the table is located in system memory
  * @sz: the size of the routing table
  * @curr_mem: current routing tables block in sys memory
  * @prev_mem: previous routing table block in sys memory
+ * @id: routing table id
  */
 struct ipa_rt_tbl {
 	struct list_head link;
@@ -202,10 +211,17 @@ struct ipa_rt_tbl {
  * @hdr: the header
  * @hdr_len: header length
  * @name: name of header table entry
+ * @type: l2 header type
  * @is_partial: flag indicating if header table entry is partial
+ * @is_hdr_proc_ctx: false - hdr entry resides in hdr table,
+ * true - hdr entry resides in DDR and pointed to by proc ctx
+ * @phys_base: physical address of entry in SRAM when is_hdr_proc_ctx is true,
+ * else 0
+ * @proc_ctx: processing context header
  * @offset_entry: entry's offset
  * @cookie: cookie used for validity check
- * @ref_cnt: reference counter of raouting table
+ * @ref_cnt: reference counter of routing table
+ * @id: header entry id
  * @is_eth2_ofst_valid: is eth2_ofst field valid?
  * @eth2_ofst: offset to start of Ethernet-II/802.3 header
  */
@@ -214,7 +230,11 @@ struct ipa_hdr_entry {
 	u8 hdr[IPA_HDR_MAX_SIZE];
 	u32 hdr_len;
 	char name[IPA_RESOURCE_NAME_MAX];
+	enum ipa_hdr_l2_type type;
 	u8 is_partial;
+	bool is_hdr_proc_ctx;
+	dma_addr_t phys_base;
+	struct ipa_hdr_proc_ctx_entry *proc_ctx;
 	struct ipa_hdr_offset_entry *offset_entry;
 	u32 cookie;
 	u32 ref_cnt;
@@ -252,6 +272,80 @@ struct ipa_hdr_tbl {
 };
 
 /**
+ * struct ipa_hdr_offset_entry - IPA header offset entry
+ * @link: entry's link in global processing context header offset entries list
+ * @offset: the offset
+ * @bin: bin
+ */
+struct ipa_hdr_proc_ctx_offset_entry {
+	struct list_head link;
+	u32 offset;
+	u32 bin;
+};
+
+/**
+ * struct ipa_hdr_proc_ctx_add_hdr_seq -
+ * IPA processing context header - add header sequence
+ * @hdr_add: add header command
+ * @end: tlv end command (cmd.type must be 0)
+ */
+struct ipa_hdr_proc_ctx_add_hdr_seq {
+	struct ipa_hdr_proc_ctx_hdr_add hdr_add;
+	struct ipa_hdr_proc_ctx_tlv end;
+};
+
+/**
+ * struct ipa_hdr_proc_ctx_add_hdr_cmd_seq -
+ * IPA processing context header - process command sequence
+ * @hdr_add: add header command
+ * @cmd: tlv processing command (cmd.type must be 3)
+ * @end: tlv end command (cmd.type must be 0)
+ */
+struct ipa_hdr_proc_ctx_add_hdr_cmd_seq {
+	struct ipa_hdr_proc_ctx_hdr_add hdr_add;
+	struct ipa_hdr_proc_ctx_tlv cmd;
+	struct ipa_hdr_proc_ctx_tlv end;
+};
+
+/**
+ struct ipa_hdr_proc_ctx_entry - IPA processing context header table entry
+ * @link: entry's link in global header table entries list
+ * @type:
+ * @offset_entry: entry's offset
+ * @hdr: the header
+ * @cookie: cookie used for validity check
+ * @ref_cnt: reference counter of routing table
+ * @id: processing context header entry id
+ */
+struct ipa_hdr_proc_ctx_entry {
+	struct list_head link;
+	enum ipa_hdr_proc_type type;
+	struct ipa_hdr_proc_ctx_offset_entry *offset_entry;
+	struct ipa_hdr_entry *hdr;
+	u32 cookie;
+	u32 ref_cnt;
+	int id;
+};
+
+/**
+ * struct ipa_hdr_proc_ctx_tbl - IPA processing context header table
+ * @head_proc_ctx_entry_list: header entries list
+ * @head_offset_list: header offset list
+ * @head_free_offset_list: header free offset list
+ * @proc_ctx_cnt: number of processing context headers
+ * @end: the last processing context header index
+ * @start_offset: offset in words of processing context header table
+ */
+struct ipa_hdr_proc_ctx_tbl {
+	struct list_head head_proc_ctx_entry_list;
+	struct list_head head_offset_list[IPA_HDR_PROC_CTX_BIN_MAX];
+	struct list_head head_free_offset_list[IPA_HDR_PROC_CTX_BIN_MAX];
+	u32 proc_ctx_cnt;
+	u32 end;
+	u32 start_offset;
+};
+
+/**
  * struct ipa_flt_tbl - IPA filter table
  * @head_flt_rule_list: filter rules list
  * @rule_cnt: number of filter rules
@@ -278,6 +372,7 @@ struct ipa_flt_tbl {
  * @cookie: cookie used for validity check
  * @tbl: routing table
  * @hdr: header table
+ * @proc_ctx: processing context table
  * @hw_len: the length of the table
  */
 struct ipa_rt_entry {
@@ -286,6 +381,7 @@ struct ipa_rt_entry {
 	u32 cookie;
 	struct ipa_rt_tbl *tbl;
 	struct ipa_hdr_entry *hdr;
+	struct ipa_hdr_proc_ctx_entry *proc_ctx;
 	u32 hw_len;
 	int id;
 };
@@ -696,12 +792,15 @@ struct ipa_sps_pm {
  * @ipa_wrapper_base: IPA wrapper base address
  * @glob_flt_tbl: global filter table
  * @hdr_tbl: IPA header table
+ * @hdr_proc_ctx_tbl: IPA processing context table
  * @rt_tbl_set: list of routing tables each of which is a list of rules
  * @reap_rt_tbl_set: list of sys mem routing tables waiting to be reaped
  * @flt_rule_cache: filter rule cache
  * @rt_rule_cache: routing rule cache
  * @hdr_cache: header cache
  * @hdr_offset_cache: header offset cache
+ * @hdr_proc_ctx_cache: processing context cache
+ * @hdr_proc_ctx_offset_cache: processing context offset cache
  * @rt_tbl_cache: routing table cache
  * @tx_pkt_wrapper_cache: Tx packets cache
  * @rx_pkt_wrapper_cache: Rx packets cache
@@ -718,7 +817,9 @@ struct ipa_sps_pm {
  * @aggregation_byte_limit: aggregation byte limit used on USB client endpoint
  * @aggregation_time_limit: aggregation time limit used on USB client endpoint
  * @hdr_tbl_lcl: where hdr tbl resides 1-local, 0-system
+ * @hdr_proc_ctx_tbl_lcl: where proc_ctx tbl resides true-local, false-system
  * @hdr_mem: header memory
+ * @hdr_proc_ctx_mem: processing context memory
  * @ip4_rt_tbl_lcl: where ip4 rt tables reside 1-local; 0-system
  * @ip6_rt_tbl_lcl: where ip6 rt tables reside 1-local; 0-system
  * @ip4_flt_tbl_lcl: where ip4 flt tables reside 1-local; 0-system
@@ -756,12 +857,15 @@ struct ipa_context {
 	u32 ipa_wrapper_base;
 	struct ipa_flt_tbl glob_flt_tbl[IPA_IP_MAX];
 	struct ipa_hdr_tbl hdr_tbl;
+	struct ipa_hdr_proc_ctx_tbl hdr_proc_ctx_tbl;
 	struct ipa_rt_tbl_set rt_tbl_set[IPA_IP_MAX];
 	struct ipa_rt_tbl_set reap_rt_tbl_set[IPA_IP_MAX];
 	struct kmem_cache *flt_rule_cache;
 	struct kmem_cache *rt_rule_cache;
 	struct kmem_cache *hdr_cache;
 	struct kmem_cache *hdr_offset_cache;
+	struct kmem_cache *hdr_proc_ctx_cache;
+	struct kmem_cache *hdr_proc_ctx_offset_cache;
 	struct kmem_cache *rt_tbl_cache;
 	struct kmem_cache *tx_pkt_wrapper_cache;
 	struct kmem_cache *rx_pkt_wrapper_cache;
@@ -778,7 +882,9 @@ struct ipa_context {
 	uint aggregation_byte_limit;
 	uint aggregation_time_limit;
 	bool hdr_tbl_lcl;
+	bool hdr_proc_ctx_tbl_lcl;
 	struct ipa_mem_buffer hdr_mem;
+	struct ipa_mem_buffer hdr_proc_ctx_mem;
 	bool ip4_rt_tbl_lcl;
 	bool ip6_rt_tbl_lcl;
 	bool ip4_flt_tbl_lcl;
@@ -895,6 +1001,11 @@ struct ipa_mem_partition {
 	u16 apps_hdr_ofst;
 	u16 apps_hdr_size;
 	u16 apps_hdr_size_ddr;
+	u16 modem_hdr_proc_ctx_ofst;
+	u16 modem_hdr_proc_ctx_size;
+	u16 apps_hdr_proc_ctx_ofst;
+	u16 apps_hdr_proc_ctx_size;
+	u16 apps_hdr_proc_ctx_size_ddr;
 	u16 modem_ofst;
 	u16 modem_size;
 	u16 apps_v4_flt_ofst;
@@ -918,6 +1029,12 @@ struct ipa_controller {
 	u32 ipa_reg_base_ofst;
 	u32 max_holb_tmr_val;
 	void (*ipa_sram_read_settings)(void);
+	int (*ipa_init_sram)(void);
+	int (*ipa_init_hdr)(void);
+	int (*ipa_init_rt4)(void);
+	int (*ipa_init_rt6)(void);
+	int (*ipa_init_flt4)(void);
+	int (*ipa_init_flt6)(void);
 	void (*ipa_cfg_ep_hdr)(u32 pipe_number,
 			const struct ipa_ep_cfg_hdr *ipa_ep_hdr_cfg);
 	int (*ipa_cfg_ep_hdr_ext)(u32 pipe_number,
@@ -942,6 +1059,8 @@ struct ipa_controller {
 			const struct ipa_ep_cfg_status *ep_status);
 	int (*ipa_commit_flt)(enum ipa_ip_type ip);
 	int (*ipa_commit_rt)(enum ipa_ip_type ip);
+	int (*ipa_generate_rt_hw_rule)(enum ipa_ip_type ip,
+		struct ipa_rt_entry *entry, u8 *buf);
 	int (*ipa_commit_hdr)(void);
 	void (*ipa_cfg_ep_cfg)(u32 clnt_hdl,
 			const struct ipa_ep_cfg_cfg *cfg);
@@ -1004,6 +1123,7 @@ int ipa_interrupts_init(u32 ipa_irq, u32 ee, struct device *ipa_dev);
 int __ipa_del_rt_rule(u32 rule_hdl);
 int __ipa_del_hdr(u32 hdr_hdl);
 int __ipa_release_hdr(u32 hdr_hdl);
+int __ipa_release_hdr_proc_ctx(u32 proc_ctx_hdl);
 int _ipa_read_gen_reg_v1_0(char *buff, int max_len);
 int _ipa_read_gen_reg_v1_1(char *buff, int max_len);
 int _ipa_read_gen_reg_v2_0(char *buff, int max_len);
@@ -1051,12 +1171,27 @@ void wwan_cleanup(void);
 int teth_bridge_driver_init(void);
 void ipa_lan_rx_cb(void *priv, enum ipa_dp_evt_type evt, unsigned long data);
 
+int _ipa_init_sram_v2(void);
+int _ipa_init_sram_v2_5(void);
+int _ipa_init_hdr_v2(void);
+int _ipa_init_hdr_v2_5(void);
+int _ipa_init_rt4_v2(void);
+int _ipa_init_rt6_v2(void);
+int _ipa_init_flt4_v2(void);
+int _ipa_init_flt6_v2(void);
+
 int __ipa_commit_flt_v1(enum ipa_ip_type ip);
 int __ipa_commit_flt_v2(enum ipa_ip_type ip);
 int __ipa_commit_rt_v1(enum ipa_ip_type ip);
 int __ipa_commit_rt_v2(enum ipa_ip_type ip);
+int __ipa_generate_rt_hw_rule_v2(enum ipa_ip_type ip,
+	struct ipa_rt_entry *entry, u8 *buf);
+int __ipa_generate_rt_hw_rule_v2_5(enum ipa_ip_type ip,
+	struct ipa_rt_entry *entry, u8 *buf);
+
 int __ipa_commit_hdr_v1(void);
 int __ipa_commit_hdr_v2(void);
+int __ipa_commit_hdr_v2_5(void);
 int ipa_generate_flt_eq(enum ipa_ip_type ip,
 		const struct ipa_rule_attrib *attrib,
 		struct ipa_ipfltri_rule_eq *eq_attrib);

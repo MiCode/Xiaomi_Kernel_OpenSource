@@ -8,6 +8,7 @@
 #endif
 #include <linux/ioctl.h>
 #include <linux/types.h>
+#include <linux/if_ether.h>
 
 /**
  * unique magic number of the IPA device
@@ -61,7 +62,9 @@
 #define IPA_IOCTL_NOTIFY_WAN_UPSTREAM_ROUTE_ADD	37
 #define IPA_IOCTL_NOTIFY_WAN_UPSTREAM_ROUTE_DEL	38
 #define IPA_IOCTL_NOTIFY_WAN_EMBMS_CONNECTED	39
-#define IPA_IOCTL_MAX            40
+#define IPA_IOCTL_ADD_HDR_PROC_CTX 40
+#define IPA_IOCTL_DEL_HDR_PROC_CTX 41
+#define IPA_IOCTL_MAX 42
 
 /**
  * max size of the header to be inserted
@@ -91,23 +94,28 @@
 /**
  * the attributes of the rule (routing or filtering)
  */
-#define IPA_FLT_TOS            (1ul << 0)
-#define IPA_FLT_PROTOCOL       (1ul << 1)
-#define IPA_FLT_SRC_ADDR       (1ul << 2)
-#define IPA_FLT_DST_ADDR       (1ul << 3)
-#define IPA_FLT_SRC_PORT_RANGE (1ul << 4)
-#define IPA_FLT_DST_PORT_RANGE (1ul << 5)
-#define IPA_FLT_TYPE           (1ul << 6)
-#define IPA_FLT_CODE           (1ul << 7)
-#define IPA_FLT_SPI            (1ul << 8)
-#define IPA_FLT_SRC_PORT       (1ul << 9)
-#define IPA_FLT_DST_PORT       (1ul << 10)
-#define IPA_FLT_TC             (1ul << 11)
-#define IPA_FLT_FLOW_LABEL     (1ul << 12)
-#define IPA_FLT_NEXT_HDR       (1ul << 13)
-#define IPA_FLT_META_DATA      (1ul << 14)
-#define IPA_FLT_FRAGMENT       (1ul << 15)
-#define IPA_FLT_TOS_MASKED     (1ul << 16)
+#define IPA_FLT_TOS			(1ul << 0)
+#define IPA_FLT_PROTOCOL		(1ul << 1)
+#define IPA_FLT_SRC_ADDR		(1ul << 2)
+#define IPA_FLT_DST_ADDR		(1ul << 3)
+#define IPA_FLT_SRC_PORT_RANGE		(1ul << 4)
+#define IPA_FLT_DST_PORT_RANGE		(1ul << 5)
+#define IPA_FLT_TYPE			(1ul << 6)
+#define IPA_FLT_CODE			(1ul << 7)
+#define IPA_FLT_SPI			(1ul << 8)
+#define IPA_FLT_SRC_PORT		(1ul << 9)
+#define IPA_FLT_DST_PORT		(1ul << 10)
+#define IPA_FLT_TC			(1ul << 11)
+#define IPA_FLT_FLOW_LABEL		(1ul << 12)
+#define IPA_FLT_NEXT_HDR		(1ul << 13)
+#define IPA_FLT_META_DATA		(1ul << 14)
+#define IPA_FLT_FRAGMENT		(1ul << 15)
+#define IPA_FLT_TOS_MASKED		(1ul << 16)
+#define IPA_FLT_MAC_SRC_ADDR_ETHER_II	(1ul << 17)
+#define IPA_FLT_MAC_DST_ADDR_ETHER_II	(1ul << 18)
+#define IPA_FLT_MAC_SRC_ADDR_802_3	(1ul << 19)
+#define IPA_FLT_MAC_DST_ADDR_802_3	(1ul << 20)
+#define IPA_FLT_MAC_ETHER_TYPE		(1ul << 21)
 
 /**
  * enum ipa_client_type - names for the various IPA "clients"
@@ -369,6 +377,11 @@ struct ipa_rule_attrib {
 	uint16_t dst_port;
 	uint32_t meta_data;
 	uint32_t meta_data_mask;
+	uint8_t src_mac_addr[ETH_ALEN];
+	uint8_t src_mac_addr_mask[ETH_ALEN];
+	uint8_t dst_mac_addr[ETH_ALEN];
+	uint8_t dst_mac_addr_mask[ETH_ALEN];
+	uint16_t ether_type;
 	union {
 		struct {
 			uint8_t tos;
@@ -404,33 +417,33 @@ struct ipa_rule_attrib {
 
 /*! @brief Offset and 16 bit comparison equation */
 struct ipa_ipfltr_eq_16 {
-	uint8_t offset;
+	int8_t offset;
 	uint16_t value;
 };
 
 /*! @brief Offset and 32 bit comparison equation */
 struct ipa_ipfltr_eq_32 {
-	uint8_t offset;
+	int8_t offset;
 	uint32_t value;
 };
 
 /*! @brief Offset and 128 bit masked comparison equation */
 struct ipa_ipfltr_mask_eq_128 {
-	uint8_t offset;
+	int8_t offset;
 	uint8_t mask[16];
 	uint8_t value[16];
 };
 
 /*! @brief Offset and 32 bit masked comparison equation */
 struct ipa_ipfltr_mask_eq_32 {
-	uint8_t offset;
+	int8_t offset;
 	uint32_t mask;
 	uint32_t value;
 };
 
 /*! @brief Equation for identifying a range. Ranges are inclusive */
 struct ipa_ipfltr_range_eq_16 {
-	uint8_t offset;
+	int8_t offset;
 	uint16_t range_low;
 	uint16_t range_high;
 };
@@ -524,15 +537,48 @@ struct ipa_flt_rule {
 };
 
 /**
+ * enum ipa_hdr_l2_type - L2 header type
+ * IPA_HDR_L2_NONE: L2 header which isn't Ethernet II and isn't 802_3
+ * IPA_HDR_L2_ETHERNET_II: L2 header of type Ethernet II
+ * IPA_HDR_L2_802_3: L2 header of type 802_3
+ */
+enum ipa_hdr_l2_type {
+	IPA_HDR_L2_NONE,
+	IPA_HDR_L2_ETHERNET_II,
+	IPA_HDR_L2_802_3,
+	IPA_HDR_L2_MAX,
+};
+
+/**
+ * enum ipa_hdr_l2_type - Processing context type
+ * IPA_HDR_PROC_NONE: No processing context
+ * IPA_HDR_PROC_ETHII_TO_ETHII: Process Ethernet II to Ethernet II
+ * IPA_HDR_PROC_ETHII_TO_802_3: Process Ethernet II to 802_3
+ * IPA_HDR_PROC_802_3_TO_ETHII: Process 802_3 to Ethernet II
+ * IPA_HDR_PROC_802_3_TO_802_3: Process 802_3 to 802_3
+ */
+enum ipa_hdr_proc_type {
+	IPA_HDR_PROC_NONE,
+	IPA_HDR_PROC_ETHII_TO_ETHII,
+	IPA_HDR_PROC_ETHII_TO_802_3,
+	IPA_HDR_PROC_802_3_TO_ETHII,
+	IPA_HDR_PROC_802_3_TO_802_3,
+	IPA_HDR_PROC_MAX,
+};
+
+/**
  * struct ipa_rt_rule - attributes of a routing rule
  * @dst: dst "client"
  * @hdr_hdl: handle to the dynamic header
 	it is not an index or an offset
+ * @hdr_proc_ctx_hdl: handle to header processing context. if it is provided
+	hdr_hdl shall be 0
  * @attrib: attributes of the rule
  */
 struct ipa_rt_rule {
 	enum ipa_client_type dst;
 	uint32_t hdr_hdl;
+	uint32_t hdr_proc_ctx_hdl;
 	struct ipa_rule_attrib attrib;
 };
 
@@ -542,9 +588,10 @@ struct ipa_rt_rule {
  * @name: name of the header
  * @hdr: actual header to be inserted
  * @hdr_len: size of above header
+ * @type: l2 header type
  * @is_partial: header not fully specified
- * @hdr_hdl: out paramerer, handle to header, valid when status is 0
- * @status:	out paramerer, status of header add operation,
+ * @hdr_hdl: out parameter, handle to header, valid when status is 0
+ * @status:	out parameter, status of header add operation,
  *		0 for success,
  *		-1 for failure
  * @is_eth2_ofst_valid: is eth2_ofst field valid?
@@ -554,6 +601,7 @@ struct ipa_hdr_add {
 	char name[IPA_RESOURCE_NAME_MAX];
 	uint8_t hdr[IPA_HDR_MAX_SIZE];
 	uint8_t hdr_len;
+	enum ipa_hdr_l2_type type;
 	uint8_t is_partial;
 	uint32_t hdr_hdl;
 	int status;
@@ -576,12 +624,45 @@ struct ipa_ioc_add_hdr {
 };
 
 /**
+ * struct ipa_hdr_proc_ctx_add - processing context descriptor includes
+ * in and out parameters
+ * @type: processing context type
+ * @hdr_hdl: in parameter, handle to header
+ * @proc_ctx_hdl: out parameter, handle to proc_ctx, valid when status is 0
+ * @status:	out parameter, status of header add operation,
+ *		0 for success,
+ *		-1 for failure
+ */
+struct ipa_hdr_proc_ctx_add {
+	enum ipa_hdr_proc_type type;
+	uint32_t hdr_hdl;
+	uint32_t proc_ctx_hdl;
+	int status;
+};
+
+/**
+ * struct ipa_ioc_add_hdr - processing context addition parameters (support
+ * multiple processing context and commit)
+ * @commit: should processing context be written to IPA HW also?
+ * @num_proc_ctxs: num of processing context that follow
+ * @proc_ctx:	all processing context need to go here back to
+ *			back, no pointers
+ */
+struct ipa_ioc_add_hdr_proc_ctx {
+	uint8_t commit;
+	uint8_t num_proc_ctxs;
+	struct ipa_hdr_proc_ctx_add proc_ctx[0];
+};
+
+/**
  * struct ipa_ioc_copy_hdr - retrieve a copy of the specified
  * header - caller can then derive the complete header
  * @name: name of the header resource
  * @hdr:	out parameter, contents of specified header,
  *	valid only when ioctl return val is non-negative
  * @hdr_len: out parameter, size of above header
+ *	valid only when ioctl return val is non-negative
+ * @type: l2 header type
  *	valid only when ioctl return val is non-negative
  * @is_partial:	out parameter, indicates whether specified header is partial
  *		valid only when ioctl return val is non-negative
@@ -592,6 +673,7 @@ struct ipa_ioc_copy_hdr {
 	char name[IPA_RESOURCE_NAME_MAX];
 	uint8_t hdr[IPA_HDR_MAX_SIZE];
 	uint8_t hdr_len;
+	enum ipa_hdr_l2_type type;
 	uint8_t is_partial;
 	uint8_t is_eth2_ofst_valid;
 	uint16_t eth2_ofst;
@@ -634,6 +716,33 @@ struct ipa_ioc_del_hdr {
 	uint8_t commit;
 	uint8_t num_hdls;
 	struct ipa_hdr_del hdl[0];
+};
+
+/**
+ * struct ipa_hdr_proc_ctx_del - processing context descriptor includes
+ * in and out parameters
+ * @hdl: handle returned from processing context add operation
+ * @status:	out parameter, status of header remove operation,
+ *		0 for success,
+ *		-1 for failure
+ */
+struct ipa_hdr_proc_ctx_del {
+	uint32_t hdl;
+	int status;
+};
+
+/**
+ * ipa_ioc_del_hdr_proc_ctx - processing context deletion parameters (support
+ * multiple headers and commit)
+ * @commit: should processing contexts be removed from IPA HW also?
+ * @num_hdls: num of processing contexts being removed
+ * @ipa_hdr_proc_ctx_del hdl:	all handles need to go here back to back,
+  *				no pointers
+ */
+struct ipa_ioc_del_hdr_proc_ctx {
+	uint8_t commit;
+	uint8_t num_hdls;
+	struct ipa_hdr_proc_ctx_del hdl[0];
 };
 
 /**
@@ -855,12 +964,14 @@ struct ipa_ioc_query_intf {
  * @attrib: routing rule
  * @dst_pipe: routing output pipe
  * @hdr_name: name of associated header if any, empty string when no header
+ * @hdr_l2_type: type of associated header if any, use NONE when no header
  */
 struct ipa_ioc_tx_intf_prop {
 	enum ipa_ip_type ip;
 	struct ipa_rule_attrib attrib;
 	enum ipa_client_type dst_pipe;
 	char hdr_name[IPA_RESOURCE_NAME_MAX];
+	enum ipa_hdr_l2_type hdr_l2_type;
 };
 
 /**
@@ -910,11 +1021,13 @@ struct ipa_ioc_query_intf_ext_props {
  * @ip: IP family of filtering rule
  * @attrib: filtering rule
  * @src_pipe: input pipe
+ * @hdr_l2_type: type of associated header if any, use NONE when no header
  */
 struct ipa_ioc_rx_intf_prop {
 	enum ipa_ip_type ip;
 	struct ipa_rule_attrib attrib;
 	enum ipa_client_type src_pipe;
+	enum ipa_hdr_l2_type hdr_l2_type;
 };
 
 /**
@@ -1252,6 +1365,12 @@ struct ipa_ioc_write_qmapid {
 #define IPA_IOC_NOTIFY_WAN_EMBMS_CONNECTED _IOWR(IPA_IOC_MAGIC, \
 				IPA_IOCTL_NOTIFY_WAN_EMBMS_CONNECTED, \
 				struct ipa_wan_msg *)
+#define IPA_IOC_ADD_HDR_PROC_CTX _IOWR(IPA_IOC_MAGIC, \
+				IPA_IOCTL_ADD_HDR_PROC_CTX, \
+				struct ipa_ioc_add_hdr_proc_ctx *)
+#define IPA_IOC_DEL_HDR_PROC_CTX _IOWR(IPA_IOC_MAGIC, \
+				IPA_IOCTL_DEL_HDR_PROC_CTX, \
+				struct ipa_ioc_del_hdr_proc_ctx *)
 
 /*
  * unique magic number of the Tethering bridge ioctls
