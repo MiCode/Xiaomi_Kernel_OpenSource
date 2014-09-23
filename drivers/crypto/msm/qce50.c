@@ -72,6 +72,7 @@ struct qce_device {
 	bool support_cmd_dscr;
 	bool support_hw_key;
 	bool support_clk_mgmt_sus_res;
+	bool support_only_core_src_clk;
 
 	void __iomem *iobase;	    /* Virtual io base of CE HW  */
 	unsigned int phy_iobase;    /* Physical io base of CE HW    */
@@ -5165,6 +5166,8 @@ static int __qce_get_device_tree_data(struct platform_device *pdev,
 				"qcom,use-sw-aes-ccm-algo");
 	pce_dev->support_clk_mgmt_sus_res = of_property_read_bool(
 		(&pdev->dev)->of_node, "qcom,clk-mgmt-sus-res");
+	pce_dev->support_only_core_src_clk = of_property_read_bool(
+		(&pdev->dev)->of_node, "qcom,support-core-clk-only");
 
 	if (of_property_read_u32((&pdev->dev)->of_node,
 				"qcom,bam-pipe-pair",
@@ -5235,112 +5238,109 @@ err_getting_bam_info:
 static int __qce_init_clk(struct qce_device *pce_dev)
 {
 	int rc = 0;
-	struct clk *ce_clk;
-	struct clk *ce_core_src_clk;
-	struct clk *ce_bus_clk;
 
-	/* Get CE3 src core clk. */
-	ce_core_src_clk = clk_get(pce_dev->pdev, "core_clk_src");
-	if (!IS_ERR(ce_core_src_clk)) {
-		pce_dev->ce_core_src_clk = ce_core_src_clk;
-
-		/* Set the core src clk @171.43Mhz */
+	pce_dev->ce_core_src_clk = clk_get(pce_dev->pdev, "core_clk_src");
+	if (!IS_ERR(pce_dev->ce_core_src_clk)) {
 		rc = clk_set_rate(pce_dev->ce_core_src_clk, 171430000);
 		if (rc) {
-			clk_put(pce_dev->ce_core_src_clk);
-			pce_dev->ce_core_src_clk = NULL;
 			pr_err("Unable to set the core src clk @100Mhz.\n");
-			goto err_clk;
+			goto exit_put_core_src_clk;
 		}
 	} else {
 		pr_warn("Unable to get CE core src clk, set to NULL\n");
 		pce_dev->ce_core_src_clk = NULL;
 	}
 
-	/* Get CE Interface clk */
-	ce_clk = clk_get(pce_dev->pdev, "iface_clk");
-	if (IS_ERR(ce_clk)) {
-		rc = PTR_ERR(ce_clk);
+	if (pce_dev->support_only_core_src_clk) {
+		pce_dev->ce_core_clk = NULL;
+	} else {
+		pce_dev->ce_core_clk = clk_get(pce_dev->pdev, "core_clk");
+		if (IS_ERR(pce_dev->ce_core_clk)) {
+			rc = PTR_ERR(pce_dev->ce_core_clk);
+			pr_err("Unable to get CE core clk\n");
+			goto exit_put_core_src_clk;
+		}
+	}
+
+	pce_dev->ce_clk = clk_get(pce_dev->pdev, "iface_clk");
+	if (IS_ERR(pce_dev->ce_clk)) {
+		rc = PTR_ERR(pce_dev->ce_clk);
 		pr_err("Unable to get CE interface clk\n");
-		if (pce_dev->ce_core_src_clk != NULL)
-			clk_put(pce_dev->ce_core_src_clk);
-		clk_put(pce_dev->ce_core_clk);
-		goto err_clk;
+		goto exit_put_core_clk;
 	}
-	pce_dev->ce_clk = ce_clk;
 
-	/* Get CE AXI clk */
-	ce_bus_clk = clk_get(pce_dev->pdev, "bus_clk");
-	if (IS_ERR(ce_bus_clk)) {
-		rc = PTR_ERR(ce_bus_clk);
+	pce_dev->ce_bus_clk = clk_get(pce_dev->pdev, "bus_clk");
+	if (IS_ERR(pce_dev->ce_bus_clk)) {
+		rc = PTR_ERR(pce_dev->ce_bus_clk);
 		pr_err("Unable to get CE BUS interface clk\n");
-		if (pce_dev->ce_core_src_clk != NULL)
-			clk_put(pce_dev->ce_core_src_clk);
-		clk_put(pce_dev->ce_core_clk);
-		clk_put(pce_dev->ce_clk);
-		goto err_clk;
+		goto exit_put_iface_clk;
 	}
-	pce_dev->ce_bus_clk = ce_bus_clk;
+	return rc;
 
-err_clk:
-	if (rc)
-		pr_err("Unable to init CE clks, rc = %d\n", rc);
+exit_put_iface_clk:
+	clk_put(pce_dev->ce_clk);
+exit_put_core_clk:
+	if (pce_dev->ce_core_clk)
+		clk_put(pce_dev->ce_core_clk);
+exit_put_core_src_clk:
+	clk_put(pce_dev->ce_core_src_clk);
+	pr_err("Unable to init CE clks, rc = %d\n", rc);
 	return rc;
 }
 
 static void __qce_deinit_clk(struct qce_device *pce_dev)
 {
-	if (pce_dev->ce_clk  != NULL) {
-		clk_put(pce_dev->ce_clk);
-		pce_dev->ce_clk  = NULL;
-	}
-	if (pce_dev->ce_core_clk != NULL) {
-		clk_put(pce_dev->ce_core_clk);
-		pce_dev->ce_core_clk = NULL;
-	}
-	if (pce_dev->ce_bus_clk != NULL) {
+	if (pce_dev->ce_bus_clk)
 		clk_put(pce_dev->ce_bus_clk);
-		pce_dev->ce_bus_clk = NULL;
-	}
-	if (pce_dev->ce_core_src_clk != NULL) {
+	if (pce_dev->ce_clk)
+		clk_put(pce_dev->ce_clk);
+	if (pce_dev->ce_core_clk)
+		clk_put(pce_dev->ce_core_clk);
+	if (pce_dev->ce_core_src_clk)
 		clk_put(pce_dev->ce_core_src_clk);
-		pce_dev->ce_core_src_clk = NULL;
-	}
 }
 
 int qce_enable_clk(void *handle)
 {
-	struct qce_device *pce_dev = (struct qce_device *) handle;
+	struct qce_device *pce_dev = (struct qce_device *)handle;
 	int rc = 0;
 
-	/* Enable CE core clk */
-	if (pce_dev->ce_core_src_clk != NULL) {
-		rc = clk_prepare_enable(pce_dev->ce_core_src_clk);
-		if (rc) {
-			pr_err("Unable to enable/prepare CE core clk\n");
-			return rc;
-		}
+	if (pce_dev->support_only_core_src_clk) {
+		if (pce_dev->ce_core_src_clk)
+			rc = clk_prepare_enable(pce_dev->ce_core_src_clk);
+	} else {
+		if (pce_dev->ce_core_clk)
+			rc = clk_prepare_enable(pce_dev->ce_core_clk);
+	}
+	if (rc) {
+		pr_err("Unable to enable/prepare CE core clk\n");
+		return rc;
 	}
 
-	/* Enable CE clk */
-	if (pce_dev->ce_clk != NULL) {
+	if (pce_dev->ce_clk) {
 		rc = clk_prepare_enable(pce_dev->ce_clk);
 		if (rc) {
 			pr_err("Unable to enable/prepare CE iface clk\n");
-			clk_disable_unprepare(pce_dev->ce_core_clk);
-			return rc;
+			goto exit_disable_core_clk;
 		}
 	}
-	/* Enable AXI clk */
-	if (pce_dev->ce_bus_clk != NULL) {
+
+	if (pce_dev->ce_bus_clk) {
 		rc = clk_prepare_enable(pce_dev->ce_bus_clk);
 		if (rc) {
 			pr_err("Unable to enable/prepare CE BUS clk\n");
-			clk_disable_unprepare(pce_dev->ce_clk);
-			clk_disable_unprepare(pce_dev->ce_core_clk);
-			return rc;
+			goto exit_disable_ce_clk;
 		}
 	}
+	return rc;
+
+exit_disable_ce_clk:
+	clk_disable_unprepare(pce_dev->ce_clk);
+exit_disable_core_clk:
+	if (pce_dev->support_only_core_src_clk)
+		clk_disable_unprepare(pce_dev->ce_core_src_clk);
+	else
+		clk_disable_unprepare(pce_dev->ce_core_clk);
 	return rc;
 }
 EXPORT_SYMBOL(qce_enable_clk);
@@ -5350,12 +5350,14 @@ int qce_disable_clk(void *handle)
 	struct qce_device *pce_dev = (struct qce_device *) handle;
 	int rc = 0;
 
-	if (pce_dev->ce_clk != NULL)
-		clk_disable_unprepare(pce_dev->ce_clk);
-	if (pce_dev->ce_core_src_clk != NULL)
-		clk_disable_unprepare(pce_dev->ce_core_src_clk);
-	if (pce_dev->ce_bus_clk != NULL)
+	if (pce_dev->ce_bus_clk)
 		clk_disable_unprepare(pce_dev->ce_bus_clk);
+	if (pce_dev->ce_clk)
+		clk_disable_unprepare(pce_dev->ce_clk);
+	if (pce_dev->ce_core_clk)
+		clk_disable_unprepare(pce_dev->ce_core_clk);
+	if (pce_dev->ce_core_src_clk)
+		clk_disable_unprepare(pce_dev->ce_core_src_clk);
 
 	return rc;
 }
