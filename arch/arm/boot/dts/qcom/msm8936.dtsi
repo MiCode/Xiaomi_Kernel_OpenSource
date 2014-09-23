@@ -26,7 +26,7 @@
 	qcom,msm-id = <233 0>, <240 0>, <242 0>;
 
 	chosen {
-		bootargs = "sched_enable_hmp=1";
+		bootargs = "boot_cpus=0,1 sched_enable_hmp=1";
 	};
 };
 
