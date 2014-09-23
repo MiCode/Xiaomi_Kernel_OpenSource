@@ -2786,6 +2786,14 @@ static int gsmld_ioctl(struct tty_struct *tty, struct file *file,
 	}
 }
 
+#ifdef CONFIG_COMPAT
+static long gsmld_compat_ioctl(struct tty_struct *tty, struct file *file,
+			unsigned int cmd, unsigned long arg)
+{
+	return (long) gsmld_ioctl(tty, file, cmd, arg);
+}
+#endif
+
 /*
  *	Network interface
  *
@@ -3035,6 +3043,9 @@ struct tty_ldisc_ops tty_ldisc_packet = {
 	.read            = gsmld_read,
 	.write           = gsmld_write,
 	.ioctl           = gsmld_ioctl,
+#ifdef CONFIG_COMPAT
+	.compat_ioctl    = gsmld_compat_ioctl, /* No translation needed */
+#endif
 	.poll            = gsmld_poll,
 	.receive_buf     = gsmld_receive_buf,
 	.write_wakeup    = gsmld_write_wakeup
@@ -3399,6 +3410,14 @@ static int gsmtty_ioctl(struct tty_struct *tty,
 	}
 }
 
+#ifdef CONFIG_COMPAT
+static long gsmtty_compat_ioctl(struct tty_struct *tty,
+			unsigned int cmd, unsigned long arg)
+{
+	return (long) gsmtty_ioctl(tty, cmd, arg);
+}
+#endif
+
 static void gsmtty_set_termios(struct tty_struct *tty, struct ktermios *old)
 {
 	struct gsm_dlci *dlci = tty->driver_data;
@@ -3477,6 +3496,10 @@ static const struct tty_operations gsmtty_ops = {
 	.chars_in_buffer	= gsmtty_chars_in_buffer,
 	.flush_buffer		= gsmtty_flush_buffer,
 	.ioctl			= gsmtty_ioctl,
+#ifdef CONFIG_COMPAT
+	/* No translation needed */
+	.compat_ioctl		= gsmtty_compat_ioctl,
+#endif
 	.throttle		= gsmtty_throttle,
 	.unthrottle		= gsmtty_unthrottle,
 	.set_termios		= gsmtty_set_termios,
