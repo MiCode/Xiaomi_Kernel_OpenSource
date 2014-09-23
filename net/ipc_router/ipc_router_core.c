@@ -3291,8 +3291,6 @@ int msm_ipc_router_lookup_server_name(struct msm_ipc_port_name *srv_name,
 	}
 
 	down_read(&server_list_lock_lha2);
-	if (!lookup_mask)
-		lookup_mask = 0xFFFFFFFF;
 	key = (srv_name->service & (SRV_HASH_SIZE - 1));
 	list_for_each_entry(server, &server_list[key], list) {
 		if ((server->name.service != srv_name->service) ||
